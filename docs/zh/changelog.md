@@ -29,12 +29,15 @@
 ### 🚀 新增特性 (Added)
 
 - 新增 `GFAudioBeatClock`，支持 BPM、每小节 beat 数、时间 offset、手动 `update()`、可选位置来源、beat / measure 边界信号、时间量化和快照查询。
+- 新增 `GFAction.race()`，为 Action Queue 的 `FIRST_COMPLETED` 并行动作组提供便捷工厂，可在首个分支完成后取消剩余等待动作。
 - 新增 `GFShaderParameterAction` 与 `GFAction.shader_parameter()`，用于在 Action Queue 中写入或缓动 `ShaderMaterial` uniform 参数，支持外部 Tween 宿主、共享材质执行前复制，以及取消或结束时恢复初始参数值。
 - `GFGridGenerationPipeline2D` 新增 `generate_with_report()` 与 `apply_to_grid_with_report()`，返回候选数量、默认填充、步骤修改数量、跳过原因、步骤前后网格大小、耗时和结果网格，便于编辑器工具链或自动化流程审计生成过程。
 
 ### 🐛 Bug 修复 (Fixed)
 
 - 修复 `GFSignalConnection.delay()` 与 `debounce()` 共用触发序列导致连续延迟信号可能被后续触发误取消的问题，并加固防抖测试避免毫秒级计时漂移。
+- 加固 `GFArchitecture` 与项目 Installer 的异步超时保护，避免超时后的旧协程在重试窗口迟到写入当前生命周期。
+- 加固 `GFBackgroundWorkUtility.clear_all()`，清理 active thread 前会先取消并等待线程结束，避免丢失 `Thread` 句柄。
 - 清理多处 Godot 4.6 编辑器静态类型警告，包括 `process_mode`、`mouse_filter`、`autowrap_mode`、`Signal.connect()` flags 以及 `floor` / `round` 整数转换的显式类型收窄。
 
 ### 📁 核心受影响文件 (Affected Files)
@@ -42,11 +45,16 @@
 - `addons/gf/standard/utilities/audio/gf_audio_beat_clock.gd`
 - `addons/gf/standard/foundation/math/gf_grid_generation_pipeline_2d.gd`
 - `addons/gf/standard/utilities/signals/gf_signal_connection.gd`
+- `addons/gf/standard/utilities/jobs/gf_background_work_utility.gd`
+- `addons/gf/kernel/core/gf_architecture.gd`
+- `addons/gf/kernel/core/gf.gd`
 - `addons/gf/extensions/action_queue/actions/gf_shader_parameter_action.gd`
 - `addons/gf/extensions/action_queue/core/gf_action.gd`
 - `tests/gf_core/standard/utilities/audio/test_gf_audio_beat_clock.gd`
 - `tests/gf_core/standard/foundation/math/test_gf_grid_generation_pipeline_2d.gd`
 - `tests/gf_core/standard/utilities/signals/test_gf_signal_utility.gd`
+- `tests/gf_core/standard/utilities/jobs/test_gf_background_work_utility.gd`
+- `tests/gf_core/kernel/core/test_gf_singleton.gd`
 - `tests/gf_core/extensions/action_queue/test_gf_visual_actions.gd`
 - `docs/zh/standard/utilities/runtime/audio/playback/beat-clock.md`
 - `docs/zh/standard/foundation/grid-spatial/grid-2d-hex/generation-pipeline.md`

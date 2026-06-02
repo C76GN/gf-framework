@@ -833,7 +833,10 @@ func _await_project_installer_install(
 		await installer.call(&"install", architecture_instance)
 		return not architecture_instance.has_initialization_failed()
 
-	var completion_state: Dictionary = { "done": false }
+	var completion_state: Dictionary = {
+		"done": false,
+		"write_blocked": false,
+	}
 	_GF_ASYNC_CALL_SCRIPT.run_detached(
 		Callable(self, &"_complete_project_installer_install"),
 		[installer, architecture_instance, completion_state]
@@ -859,7 +862,10 @@ func _await_project_installer_bindings(
 		await installer.call(&"install_bindings", architecture_instance.create_binder())
 		return not architecture_instance.has_initialization_failed()
 
-	var completion_state: Dictionary = { "done": false }
+	var completion_state: Dictionary = {
+		"done": false,
+		"write_blocked": false,
+	}
 	_GF_ASYNC_CALL_SCRIPT.run_detached(
 		Callable(self, &"_complete_project_installer_bindings"),
 		[installer, architecture_instance, completion_state]
@@ -880,6 +886,8 @@ func _complete_project_installer_install(
 	completion_state: Dictionary
 ) -> void:
 	await installer.call(&"install", architecture_instance)
+	if _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(completion_state, "write_blocked", false):
+		architecture_instance._end_stale_async_write_block()
 	completion_state["done"] = true
 
 
@@ -889,6 +897,8 @@ func _complete_project_installer_bindings(
 	completion_state: Dictionary
 ) -> void:
 	await installer.call(&"install_bindings", architecture_instance.create_binder())
+	if _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(completion_state, "write_blocked", false):
+		architecture_instance._end_stale_async_write_block()
 	completion_state["done"] = true
 
 
@@ -907,6 +917,8 @@ func _wait_for_project_installer_step(
 			return false
 		var elapsed_msec: int = Time.get_ticks_msec() - start_msec
 		if elapsed_msec >= timeout_msec:
+			completion_state["write_blocked"] = true
+			architecture_instance._begin_stale_async_write_block()
 			architecture_instance.fail_initialization(
 				"[GF] 项目 Installer 超时：%s 的 %s() 超过 %.2f 秒。" % [
 					path,

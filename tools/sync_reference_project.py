@@ -68,6 +68,21 @@ class SyncStats:
 		}
 
 
+@dataclass
+class CheckStats:
+	source: Path
+	target: Path
+	mismatches: list[str]
+
+	def to_dict(self) -> dict[str, Any]:
+		return {
+			"source": relative_to_root(self.source),
+			"target": relative_to_root(self.target),
+			"ok": not self.mismatches,
+			"mismatches": self.mismatches,
+		}
+
+
 def main() -> int:
 	configure_stdio()
 	parser = argparse.ArgumentParser(description="Sync root addons/gf into the reference project addons/gf.")
@@ -89,6 +104,7 @@ def main() -> int:
 	parser.add_argument("--mode", choices=["copy", "link"], default="copy", help="Sync mode. Copy is portable.")
 	parser.add_argument("--no-clean", action="store_true", help="Keep the existing target before syncing.")
 	parser.add_argument("--dry-run", action="store_true", help="Report planned work without writing files.")
+	parser.add_argument("--check", action="store_true", help="Verify the target addon is current without writing files.")
 	parser.add_argument("--json", action="store_true", help="Print JSON instead of text.")
 	args = parser.parse_args()
 
@@ -109,7 +125,15 @@ def main() -> int:
 		return 2
 
 	try:
+		assert_reference_project(project)
 		assert_generated_target(project, target)
+		if args.check:
+			check_stats = check_addon(source, target)
+			if args.json:
+				print(json.dumps(check_stats.to_dict(), ensure_ascii=False, indent=2))
+			else:
+				print(render_check_stats(check_stats))
+			return 0 if not check_stats.mismatches else 1
 		stats = sync_addon(
 			source=source,
 			target=target,
@@ -149,6 +173,56 @@ def assert_generated_target(project: Path, target: Path) -> None:
 	target_parent = target.parent.resolve()
 	if target_parent != expected_parent or target.name != "gf":
 		raise ValueError(f"target must be {expected_parent / 'gf'}")
+
+
+def assert_reference_project(project: Path) -> None:
+	project_file = project / "project.godot"
+	if not project_file.is_file():
+		raise ValueError(f"reference project must contain project.godot: {project_file}")
+
+
+def check_addon(source: Path, target: Path) -> CheckStats:
+	mismatches: list[str] = []
+	if not path_exists(target):
+		return CheckStats(source=source, target=target, mismatches=[f"missing target: {target}"])
+	if target.is_symlink():
+		if target.resolve() != source.resolve():
+			mismatches.append(f"stale symlink: {target} -> {target.resolve()}")
+		return CheckStats(source=source, target=target, mismatches=mismatches)
+	if not target.is_dir():
+		return CheckStats(source=source, target=target, mismatches=[f"target is not a directory: {target}"])
+
+	expected_files: set[str] = set()
+	for source_path in sorted(source.rglob("*")):
+		if should_skip(source_path):
+			continue
+		relative_path = source_path.relative_to(source)
+		relative_key = relative_path.as_posix()
+		target_path = target / relative_path
+		if source_path.is_symlink():
+			continue
+		if source_path.is_dir():
+			if not target_path.is_dir():
+				mismatches.append(f"missing directory: {relative_key}")
+			continue
+		if source_path.is_file():
+			expected_files.add(relative_key)
+			if not target_path.is_file():
+				mismatches.append(f"missing file: {relative_key}")
+				continue
+			if source_path.read_bytes() != target_path.read_bytes():
+				mismatches.append(f"stale file: {relative_key}")
+
+	for target_path in sorted(target.rglob("*")):
+		if should_skip(target_path):
+			continue
+		if not target_path.is_file():
+			continue
+		relative_key = target_path.relative_to(target).as_posix()
+		if relative_key not in expected_files:
+			mismatches.append(f"extra file: {relative_key}")
+
+	return CheckStats(source=source, target=target, mismatches=mismatches)
 
 
 def sync_addon(source: Path, target: Path, mode: str, clean: bool, dry_run: bool) -> SyncStats:
@@ -238,6 +312,21 @@ def render_stats(stats: SyncStats) -> str:
 		f"bytes: {stats.bytes}",
 		f"skipped: {stats.skipped}",
 	])
+
+
+def render_check_stats(stats: CheckStats) -> str:
+	lines = [
+		f"source: {relative_to_root(stats.source)}",
+		f"target: {relative_to_root(stats.target)}",
+		f"ok: {not stats.mismatches}",
+	]
+	if stats.mismatches:
+		lines.append("mismatches:")
+		for mismatch in stats.mismatches[:80]:
+			lines.append(f"- {mismatch}")
+		if len(stats.mismatches) > 80:
+			lines.append(f"- ... {len(stats.mismatches) - 80} more")
+	return "\n".join(lines)
 
 
 def relative_to_root(path: Path) -> str:

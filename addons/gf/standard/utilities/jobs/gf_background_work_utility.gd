@@ -350,10 +350,13 @@ func clear_finished_tasks() -> void:
 	_finished_tasks.clear()
 
 
-## 清空全部工作。调用前应确保不再需要正在执行的线程结果。
+## 清空全部工作。若仍有线程任务运行，会先请求取消并等待线程结束。
 ## [br]
 ## @api public
 func clear_all() -> void:
+	if not _active_thread_tasks.is_empty():
+		cancel_all()
+		_wait_for_active_thread_tasks()
 	_work_serial = 0
 	_tasks.clear()
 	_queued_thread_tasks.clear()

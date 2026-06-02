@@ -146,6 +146,7 @@ var _parent_architecture: GFArchitecture = null
 var _project_installers_applied: bool = false
 var _project_installers_running: bool = false
 var _initialization_failed: bool = false
+var _stale_async_write_block_count: int = 0
 
 
 # --- Godot 生命周期方法 ---
@@ -257,6 +258,9 @@ func begin_project_installers() -> bool:
 	if _project_installers_applied or _project_installers_running:
 		return false
 
+	if _initialization_failed and _stale_async_write_block_count > 0:
+		return false
+
 	if _initialization_failed and not _inited and not _is_initializing:
 		_initialization_failed = false
 		last_initialization_error = ""
@@ -308,6 +312,9 @@ func init() -> void:
 		var waiting_serial: int = _lifecycle_serial
 		while _is_initializing and waiting_serial == _lifecycle_serial:
 			await initialization_finished
+		return
+
+	if _initialization_failed and _stale_async_write_block_count > 0:
 		return
 
 	_lifecycle_serial += 1
@@ -2279,7 +2286,10 @@ func _await_module_async_init(instance: Object, lifecycle_serial: int) -> bool:
 		await instance.call("async_init")
 		return _is_lifecycle_current(lifecycle_serial) and not _initialization_failed
 
-	var completion_state: Dictionary = { "done": false }
+	var completion_state: Dictionary = {
+		"done": false,
+		"write_blocked": false,
+	}
 	_GF_ASYNC_CALL_SCRIPT.run_detached(Callable(self, &"_complete_module_async_init"), [instance, completion_state])
 	var start_msec: int = Time.get_ticks_msec()
 	var timeout_msec: int = int(module_async_init_timeout_seconds * 1000.0)
@@ -2288,6 +2298,8 @@ func _await_module_async_init(instance: Object, lifecycle_serial: int) -> bool:
 			return false
 		var elapsed_msec: int = Time.get_ticks_msec() - start_msec
 		if elapsed_msec >= timeout_msec:
+			completion_state["write_blocked"] = true
+			_begin_stale_async_write_block()
 			_fail_initialization(
 				"[GFArchitecture] async_init 超时：%s 超过 %.2f 秒。" % [
 					_get_instance_debug_key(instance),
@@ -2302,6 +2314,8 @@ func _await_module_async_init(instance: Object, lifecycle_serial: int) -> bool:
 
 func _complete_module_async_init(instance: Object, completion_state: Dictionary) -> void:
 	await instance.call("async_init")
+	if _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(completion_state, "write_blocked", false):
+		_end_stale_async_write_block()
 	completion_state["done"] = true
 
 
@@ -2369,7 +2383,18 @@ func _can_mutate_registration_state(context: String) -> bool:
 	if _initialization_failed:
 		push_error("[GFArchitecture] %s 失败：架构初始化已失败，已拒绝迟到写入。" % context)
 		return false
+	if _stale_async_write_block_count > 0:
+		push_error("[GFArchitecture] %s 失败：架构存在已超时的异步流程尚未结束，已拒绝迟到写入。" % context)
+		return false
 	return true
+
+
+func _begin_stale_async_write_block() -> void:
+	_stale_async_write_block_count += 1
+
+
+func _end_stale_async_write_block() -> void:
+	_stale_async_write_block_count = maxi(_stale_async_write_block_count - 1, 0)
 
 
 func _unregister_module(module_registry: ModuleRegistry, script_cls: Script) -> bool:

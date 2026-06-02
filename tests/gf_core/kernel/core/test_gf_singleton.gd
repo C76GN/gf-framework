@@ -1173,6 +1173,51 @@ func test_project_installer_timeout_fails_initialization() -> void:
 	assert_push_error("[GFArchitecture] register_utility 失败：架构初始化已失败，已拒绝迟到写入。")
 
 
+## 验证项目 Installer 超时后重试时，旧 Installer 迟到恢复也不能写入新生命周期。
+func test_project_installer_timeout_retry_blocks_stale_late_binding() -> void:
+	var previous_installers: Variant = ProjectSettings.get_setting(INSTALLERS_SETTING, [])
+	var previous_timeout: Variant = ProjectSettings.get_setting(INSTALLER_TIMEOUT_SETTING, 0.0)
+	var previous_started: Variant = ProjectSettings.get_setting(BLOCKING_INSTALLER_STARTED_SETTING, false)
+	var previous_release: Variant = ProjectSettings.get_setting(BLOCKING_INSTALLER_RELEASE_SETTING, false)
+	ProjectSettings.set_setting(INSTALLERS_SETTING, [BLOCKING_BINDING_INSTALLER_PATH])
+	ProjectSettings.set_setting(INSTALLER_TIMEOUT_SETTING, 0.01)
+	ProjectSettings.set_setting(BLOCKING_INSTALLER_STARTED_SETTING, false)
+	ProjectSettings.set_setting(BLOCKING_INSTALLER_RELEASE_SETTING, false)
+
+	if Gf.has_architecture():
+		Gf.get_architecture().dispose()
+	Gf._architecture = null
+
+	await Gf.init()
+	var architecture: GFArchitecture = Gf.get_architecture()
+	var expected_error: String = "[GF] 项目 Installer 超时：%s 的 install_bindings() 超过 0.01 秒。" % BLOCKING_BINDING_INSTALLER_PATH
+	assert_true(architecture.has_initialization_failed(), "Installer 超时后架构应处于失败状态。")
+	assert_push_error(expected_error)
+
+	ProjectSettings.set_setting(INSTALLERS_SETTING, [])
+	await Gf.init()
+	assert_false(architecture.is_inited(), "旧 Installer 未收尾前，重试不应提前清除失败状态。")
+	assert_true(architecture.has_initialization_failed(), "旧 Installer 未收尾前，架构应继续保持失败状态。")
+
+	ProjectSettings.set_setting(BLOCKING_INSTALLER_RELEASE_SETTING, true)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	await get_tree().process_frame
+
+	var late_lookup: Variant = architecture.get_local_utility(AsyncInstallerUtilityFixture)
+	assert_true(late_lookup == null, "旧 Installer 迟到恢复不应把 Utility 写入重试后的架构。")
+	assert_push_error("[GFArchitecture] register_utility 失败：架构初始化已失败，已拒绝迟到写入。")
+
+	await Gf.init()
+	assert_true(architecture.is_inited(), "旧 Installer 收尾后，重试时没有 Installer 应完成初始化。")
+	assert_false(architecture.has_initialization_failed(), "旧 Installer 收尾后，重试应清除旧失败状态。")
+
+	ProjectSettings.set_setting(INSTALLERS_SETTING, previous_installers)
+	ProjectSettings.set_setting(INSTALLER_TIMEOUT_SETTING, previous_timeout)
+	ProjectSettings.set_setting(BLOCKING_INSTALLER_STARTED_SETTING, previous_started)
+	ProjectSettings.set_setting(BLOCKING_INSTALLER_RELEASE_SETTING, previous_release)
+
+
 ## 验证 Scoped NodeContext 会创建局部架构、回退父架构并在退出树时释放局部模块。
 func test_scoped_node_context_owns_local_architecture() -> void:
 	if Gf.has_architecture():
@@ -2154,6 +2199,43 @@ func test_late_async_init_resume_cannot_register_after_timeout() -> void:
 	var late_lookup: Variant = arch.get_local_utility(late_target_script)
 	assert_true(late_lookup == null, "迟到恢复的 async_init 不应再注册新 Utility。")
 	assert_push_error("[GFArchitecture] register_utility 失败：架构初始化已失败，已拒绝迟到写入。")
+
+	arch.dispose()
+
+
+## 验证 async_init 超时后重试时，旧 async_init 迟到恢复也不能写入新生命周期。
+func test_late_async_init_resume_cannot_register_after_timeout_retry() -> void:
+	if Gf.has_architecture():
+		Gf.get_architecture().dispose()
+	Gf._architecture = null
+
+	var arch: GFArchitecture = GFArchitecture.new()
+	arch.module_async_init_timeout_seconds = 0.001
+	var late_target: TickUtility = TickUtility.new()
+	var slow_utility: LateRegisteringSlowUtility = LateRegisteringSlowUtility.new(late_target)
+	await arch.register_utility_instance(slow_utility)
+
+	await arch.init()
+	assert_true(slow_utility.async_started, "测试模块应已进入 async_init。")
+	assert_true(arch.has_initialization_failed(), "超时后架构应处于失败状态。")
+	assert_push_error_count(1, "async_init 超时时应先输出一条错误。")
+
+	await arch.init()
+	assert_false(arch.is_inited(), "旧 async_init 未收尾前，重试不应提前清除失败状态。")
+	assert_true(arch.has_initialization_failed(), "旧 async_init 未收尾前，架构应继续保持失败状态。")
+
+	slow_utility.async_continue.emit()
+	await get_tree().process_frame
+	await get_tree().process_frame
+
+	var late_target_script: Script = _object_script(late_target)
+	var late_lookup: Variant = arch.get_local_utility(late_target_script)
+	assert_true(late_lookup == null, "旧 async_init 迟到恢复不应把 Utility 写入重试后的架构。")
+	assert_push_error("[GFArchitecture] register_utility 失败：架构初始化已失败，已拒绝迟到写入。")
+
+	await arch.init()
+	assert_true(arch.is_inited(), "旧 async_init 收尾后，重试应在清空失败模块后完成初始化。")
+	assert_false(arch.has_initialization_failed(), "旧 async_init 收尾后，重试应清除旧失败状态。")
 
 	arch.dispose()
 

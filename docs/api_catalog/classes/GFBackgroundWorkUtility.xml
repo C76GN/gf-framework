@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFBackgroundWorkUtility" path="addons/gf/standard/utilities/jobs/gf_background_work_utility.gd" module="standard" extends="GFUtility" classDigest="4c18fbbb033c942ca96b8da055ce5773b960d419ac9ddf0eff8e0af6d909558c">
+<class name="GFBackgroundWorkUtility" path="addons/gf/standard/utilities/jobs/gf_background_work_utility.gd" module="standard" extends="GFUtility" classDigest="fbe4a09bdc985e897d12441ecd8676118203c6fb5612cd7ff7ba961798a6a523">
 	<description>GFBackgroundWorkUtility: 纯数据后台工作协调器。
 统一协调 CPU/IO 线程工作、ResourceLoader 线程加载和主线程应用回调。
 默认只允许纯 Variant 输入数据，避免后台线程直接触碰 Node、Resource 或 Callable。</description>
@@ -239,7 +239,7 @@
 		</member>
 		<member kind="method" name="clear_all">
 			<signature>func clear_all() -&gt; void:</signature>
-			<description>清空全部工作。调用前应确保不再需要正在执行的线程结果。</description>
+			<description>清空全部工作。若仍有线程任务运行，会先请求取消并等待线程结束。</description>
 			<tags>
 				<tag name="api">public</tag>
 			</tags>

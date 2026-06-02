@@ -228,7 +228,7 @@ def check_wiki_coverage(api_files: list[ApiScript], wiki_root: Path) -> int:
 
 	doc_text_parts: list[str] = []
 	for path in sorted(wiki_root.rglob("*.md")):
-		if is_changelog_page(path):
+		if is_changelog_page(path) or is_reference_api_page(wiki_root, path):
 			continue
 		doc_text_parts.append(path.read_text(encoding="utf-8"))
 	doc_text = "\n".join(doc_text_parts)
@@ -255,6 +255,14 @@ def check_wiki_coverage(api_files: list[ApiScript], wiki_root: Path) -> int:
 def is_changelog_page(path: Path) -> bool:
 	name = path.name.lower()
 	return "changelog" in name or "更新日志" in name
+
+
+def is_reference_api_page(wiki_root: Path, path: Path) -> bool:
+	try:
+		relative = path.relative_to(wiki_root).as_posix()
+	except ValueError:
+		return False
+	return relative.startswith("reference/api/")
 
 
 if __name__ == "__main__":

@@ -425,7 +425,7 @@ static func colorize(
 ## [br]
 ## @api public
 ## [br]
-## @since 3.24.0
+## @since 4.2.0
 ## [br]
 ## @param target: 目标对象。可以是 ShaderMaterial，也可以是持有材质属性的对象。
 ## [br]

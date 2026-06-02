@@ -497,7 +497,7 @@ func clear_finished_tasks() -> void:
 func clear_all() -> void:
 ```
 
-清空全部工作。调用前应确保不再需要正在执行的线程结果。
+清空全部工作。若仍有线程任务运行，会先请求取消并等待线程结束。
 
 <a id="member-gfbackgroundworkutility-methods-get_debug_snapshot"></a>
 

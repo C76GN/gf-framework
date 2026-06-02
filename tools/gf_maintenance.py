@@ -41,6 +41,55 @@ GODOT_SCRIPT_ERROR_PATTERNS = (
 )
 REFERENCE_PROJECT_ENV_VAR = "GF_REFERENCE_PROJECT_PATH"
 DEFAULT_REFERENCE_PROJECT = os.environ.get(REFERENCE_PROJECT_ENV_VAR, "../gf-reference-project")
+REFERENCE_BOOT_SCENE_ENV_VAR = "GF_REFERENCE_BOOT_SCENE"
+REFERENCE_SMOKE_SCENE_ENV_VAR = "GF_REFERENCE_SMOKE_SCENE"
+REFERENCE_MANIFEST_NAME = ".gf_reference_project.json"
+DEFAULT_REFERENCE_BOOT_SCENE = "res://scenes/app/driftbound_boot.tscn"
+DEFAULT_REFERENCE_SMOKE_SCENE = "res://tests/smoke/driftbound_smoke.tscn"
+
+
+def resolve_path_from_root(value: str) -> Path:
+	path = Path(value)
+	if not path.is_absolute():
+		path = ROOT / path
+	return path.resolve()
+
+
+def read_reference_manifest(project_root: str) -> dict[str, Any]:
+	manifest_path = resolve_path_from_root(project_root) / REFERENCE_MANIFEST_NAME
+	if not manifest_path.is_file():
+		return {}
+	try:
+		payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+	except (OSError, json.JSONDecodeError):
+		return {}
+	if not isinstance(payload, dict):
+		return {}
+	return payload
+
+
+def get_reference_scene(project_root: str, env_var: str, manifest_key: str, fallback: str) -> str:
+	env_value = os.environ.get(env_var, "").strip()
+	if env_value:
+		return env_value
+	manifest_value = read_reference_manifest(project_root).get(manifest_key, "")
+	if isinstance(manifest_value, str) and manifest_value.strip():
+		return manifest_value.strip()
+	return fallback
+
+
+REFERENCE_BOOT_SCENE = get_reference_scene(
+	DEFAULT_REFERENCE_PROJECT,
+	REFERENCE_BOOT_SCENE_ENV_VAR,
+	"boot_scene",
+	DEFAULT_REFERENCE_BOOT_SCENE,
+)
+REFERENCE_SMOKE_SCENE = get_reference_scene(
+	DEFAULT_REFERENCE_PROJECT,
+	REFERENCE_SMOKE_SCENE_ENV_VAR,
+	"smoke_scene",
+	DEFAULT_REFERENCE_SMOKE_SCENE,
+)
 
 CHECK_DEFINITIONS: dict[str, list[str]] = {
 	"gut": [
@@ -73,6 +122,13 @@ CHECK_DEFINITIONS: dict[str, list[str]] = {
 		"tools/sync_reference_project.py",
 		"--project-root",
 		DEFAULT_REFERENCE_PROJECT,
+		"--check",
+	],
+	"examples_sync_write": [
+		sys.executable,
+		"tools/sync_reference_project.py",
+		"--project-root",
+		DEFAULT_REFERENCE_PROJECT,
 	],
 	"examples_scan": [
 		"godot",
@@ -91,7 +147,7 @@ CHECK_DEFINITIONS: dict[str, list[str]] = {
 		"--path",
 		DEFAULT_REFERENCE_PROJECT,
 		"--scene",
-		"res://scenes/app/driftbound_boot.tscn",
+		REFERENCE_BOOT_SCENE,
 	],
 	"examples_smoke": [
 		"godot",
@@ -101,7 +157,7 @@ CHECK_DEFINITIONS: dict[str, list[str]] = {
 		"--path",
 		DEFAULT_REFERENCE_PROJECT,
 		"--scene",
-		"res://tests/smoke/driftbound_smoke.tscn",
+		REFERENCE_SMOKE_SCENE,
 	],
 	"examples_coverage": [
 		sys.executable,
@@ -135,11 +191,13 @@ class CommandResult:
 	timed_out: bool = False
 	process_exit_code: int | None = None
 	notes: list[str] | None = None
+	cwd: str = str(ROOT)
 
 	def to_dict(self, max_output_chars: int = 12000) -> dict[str, Any]:
 		payload = {
 			"name": self.name,
 			"command": self.command,
+			"cwd": self.cwd,
 			"exit_code": self.exit_code,
 			"timed_out": self.timed_out,
 			"stdout": trim_text(self.stdout, max_output_chars),
@@ -190,6 +248,11 @@ def main() -> int:
 	)
 	check_parser.add_argument("--timeout", type=int, default=600, help="Timeout per subprocess check in seconds.")
 	check_parser.add_argument("--fail-fast", action="store_true")
+	check_parser.add_argument(
+		"--sync-examples",
+		action="store_true",
+		help="Write-sync addons/gf before examples checks. Default examples checks are read-only.",
+	)
 	check_parser.add_argument("--json", action="store_true", help="Print JSON instead of text.")
 
 	release_parser = subparsers.add_parser("release-status", help="Check release metadata consistency.")
@@ -226,6 +289,7 @@ def main() -> int:
 			checks=args.check,
 			timeout_seconds=args.timeout,
 			fail_fast=args.fail_fast,
+			sync_examples=args.sync_examples,
 		)
 		print_output(data, args.json, render_checks_text)
 		return 0 if data["ok"] else 1
@@ -642,8 +706,14 @@ def run_checks(
 	checks: list[str] | None = None,
 	timeout_seconds: int = 600,
 	fail_fast: bool = False,
+	sync_examples: bool = False,
 ) -> dict[str, Any]:
-	check_names = checks if checks else CHECK_SUITES[suite]
+	check_names = list(checks if checks else CHECK_SUITES[suite])
+	if sync_examples:
+		check_names = [
+			"examples_sync_write" if name == "examples_sync" else name
+			for name in check_names
+		]
 	results: list[dict[str, Any]] = []
 	for name in check_names:
 		if name == "release_metadata":
@@ -707,6 +777,28 @@ def run_command(name: str, command: list[str], timeout_seconds: int) -> CommandR
 			exc.stdout or "",
 			exc.stderr or f"timed out after {timeout_seconds}s",
 			timed_out=True,
+			notes=["Command timed out."],
+		)
+	except FileNotFoundError as exc:
+		return CommandResult(
+			name,
+			command,
+			127,
+			"",
+			f"command not found: {command[0]}\n{exc}",
+			notes=[
+				"Check that the executable is installed and available on PATH.",
+				f"cwd: {ROOT}",
+			],
+		)
+	except OSError as exc:
+		return CommandResult(
+			name,
+			command,
+			126,
+			"",
+			f"failed to run command: {exc}",
+			notes=[f"cwd: {ROOT}"],
 		)
 
 

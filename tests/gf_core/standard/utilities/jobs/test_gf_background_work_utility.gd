@@ -118,6 +118,25 @@ func test_pause_and_cancel_waiting_thread_task() -> void:
 	utility.dispose()
 
 
+func test_clear_all_waits_for_active_thread_task() -> void:
+	var utility: GFBackgroundWorkUtility = GFBackgroundWorkUtility.new()
+	utility.init()
+	var worker: PureWorker = PureWorker.new()
+
+	var task: GFBackgroundWorkTask = utility.submit_cpu_work(
+		Callable(worker, "slow_value"),
+		{"value": 7}
+	)
+	assert_eq(task.status, GFBackgroundWorkTask.Status.RUNNING, "提交后线程工作应立即进入运行状态。")
+	assert_eq(GFVariantData.get_option_int(utility.get_debug_snapshot(), "running_thread_count"), 1, "清理前应保留 active thread 句柄。")
+
+	utility.clear_all()
+
+	assert_eq(task.status, GFBackgroundWorkTask.Status.CANCELLED, "clear_all 应先取消并等待 active thread 完成。")
+	assert_eq(GFVariantData.get_option_int(utility.get_debug_snapshot(), "running_thread_count"), 0, "clear_all 后不应残留 active thread。")
+	utility.dispose()
+
+
 func test_resource_load_uses_threaded_resource_loader_and_applies_on_tick() -> void:
 	var utility: GFBackgroundWorkUtility = GFBackgroundWorkUtility.new()
 	utility.init()
@@ -243,4 +262,11 @@ class PureWorker:
 		return {
 			"ok": false,
 			"message": "message_failed",
+		}
+
+	func slow_value(data: Variant) -> Dictionary:
+		OS.delay_msec(20)
+		var input: Dictionary = GFVariantData.as_dictionary(data)
+		return {
+			"value": GFVariantData.get_option_int(input, "value"),
 		}

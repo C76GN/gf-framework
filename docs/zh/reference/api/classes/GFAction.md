@@ -519,7 +519,7 @@ static func colorize( target: Object, color: Color, duration: float = 0.2, optio
 ### `shader_parameter`
 
 - API：`public`
-- 首次版本：`3.24.0`
+- 首次版本：`4.2.0`
 
 ```gdscript
 static func shader_parameter( target: Object, parameter_name: StringName, target_value: Variant, duration: float = 0.2, options: Dictionary = {} ) -> GFShaderParameterAction:

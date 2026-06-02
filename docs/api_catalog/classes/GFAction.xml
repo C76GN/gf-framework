@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFAction" path="addons/gf/extensions/action_queue/core/gf_action.gd" module="extensions/action_queue" extends="RefCounted" classDigest="b60c027cf779f507d868356aaaff82c55e7d4c3f964d7ea65625520ee0e2726f">
+<class name="GFAction" path="addons/gf/extensions/action_queue/core/gf_action.gd" module="extensions/action_queue" extends="RefCounted" classDigest="198cf68262abd32b912d563978af9e8fbf72add438f45699cba774c3db8ed075">
 	<description>GFAction: 动作队列常用工厂。
 提供轻量、静态的动作创建入口，让项目用更少样板组合 ActionQueue。
 它只创建通用动作，不隐含任何项目业务流程。</description>
@@ -255,7 +255,7 @@
 				<tag name="return">Shader 参数动作。</tag>
 				<tag name="schema">target_value: Variant，可被 Tween 插值并写入 parameter_name 的目标值。</tag>
 				<tag name="schema">options: Dictionary，支持 host_node、material_property、transition_type、ease_type、duplicate_material_on_execute、restore_initial_value_on_cancel 和 restore_initial_value_on_finish。</tag>
-				<tag name="since">3.24.0</tag>
+				<tag name="since">4.2.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="set_property">
