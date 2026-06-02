@@ -392,7 +392,10 @@ func bind_to(node: Node, callable: Callable) -> void:
 
 	var exit_callable: Callable = _on_node_exited.bind(node, callable)
 	if not node.tree_exited.is_connected(exit_callable):
-		var _connect_result_395: Variant = node.tree_exited.connect(exit_callable, CONNECT_ONE_SHOT)
+		var _connect_result_395: Variant = node.tree_exited.connect(
+			exit_callable,
+			CONNECT_ONE_SHOT as Object.ConnectFlags
+		)
 
 	_node_bindings.append({
 		"node_ref": weakref(node),

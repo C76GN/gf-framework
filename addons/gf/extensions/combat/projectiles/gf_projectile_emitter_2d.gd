@@ -282,7 +282,7 @@ func _prepare_projectile_runtime(projectile: Node, scene: PackedScene) -> void:
 		var _connected: int = projectile.connect(
 			"projectile_finished",
 			_on_pooled_projectile_finished.bind(projectile, scene, emission_token),
-			CONNECT_ONE_SHOT
+			CONNECT_ONE_SHOT as Object.ConnectFlags
 		)
 
 

@@ -34,6 +34,13 @@ ARCHIVE_EXPORT_IGNORE_RULES = (
 	"/addons/gf/** !export-ignore",
 )
 BLOCKED_PACKAGE_DIR_NAMES = (".git", ".godot", ".import", ".vs", "node_modules")
+GODOT_SCRIPT_ERROR_PATTERNS = (
+	"SCRIPT ERROR",
+	"Parse Error:",
+	"ERROR: Failed to load script",
+)
+REFERENCE_PROJECT_ENV_VAR = "GF_REFERENCE_PROJECT_PATH"
+DEFAULT_REFERENCE_PROJECT = os.environ.get(REFERENCE_PROJECT_ENV_VAR, "../gf-reference-project")
 
 CHECK_DEFINITIONS: dict[str, list[str]] = {
 	"gut": [
@@ -61,11 +68,55 @@ CHECK_DEFINITIONS: dict[str, list[str]] = {
 	"docs": [sys.executable, "tools/check_docs_quality.py", "--strict"],
 	"mkdocs": [sys.executable, "-m", "mkdocs", "build", "--strict"],
 	"diff": ["git", "diff", "--check"],
+	"examples_sync": [
+		sys.executable,
+		"tools/sync_reference_project.py",
+		"--project-root",
+		DEFAULT_REFERENCE_PROJECT,
+	],
+	"examples_scan": [
+		"godot",
+		"--headless",
+		"--path",
+		DEFAULT_REFERENCE_PROJECT,
+		"--editor",
+		"--quit-after",
+		"2",
+	],
+	"examples_boot": [
+		"godot",
+		"--headless",
+		"--quit-after",
+		"10",
+		"--path",
+		DEFAULT_REFERENCE_PROJECT,
+		"--scene",
+		"res://scenes/app/driftbound_boot.tscn",
+	],
+	"examples_smoke": [
+		"godot",
+		"--headless",
+		"--quit-after",
+		"10",
+		"--path",
+		DEFAULT_REFERENCE_PROJECT,
+		"--scene",
+		"res://tests/smoke/driftbound_smoke.tscn",
+	],
+	"examples_coverage": [
+		sys.executable,
+		"tools/generate_api_coverage_matrix.py",
+		"--examples",
+		DEFAULT_REFERENCE_PROJECT,
+		"--output",
+		"ai_analysis/api_coverage_reference_project",
+	],
 }
 
 CHECK_SUITES: dict[str, list[str]] = {
 	"api": ["api", "ai_api"],
 	"docs": ["docs", "mkdocs"],
+	"examples": ["examples_sync", "examples_scan", "examples_boot", "examples_smoke", "examples_coverage"],
 	"quick": ["api", "ai_api", "docs", "diff"],
 	"full": ["gut", "api", "ai_api", "docs", "mkdocs", "diff"],
 	"release": ["gut", "api", "ai_api", "docs", "mkdocs", "diff", "release_metadata"],
@@ -223,6 +274,7 @@ def project_summary() -> dict[str, Any]:
 		"maintenance": {
 			"rules": "AI_MAINTENANCE.md",
 			"ai_api_command": "python tools/generate_ai_api.py --source addons/gf --output ai_analysis/generated_api",
+			"api_coverage_command": "python tools/generate_api_coverage_matrix.py --output ai_analysis/api_coverage",
 			"full_check_suite": "python tools/gf_maintenance.py check --suite full",
 			"mcp_server": "python tools/gf_mcp_server.py",
 		},
@@ -331,7 +383,7 @@ def api_class(class_name: str, include_members: bool = True) -> dict[str, Any]:
 			"module": script.module,
 			"path": script.path,
 			"summary": docs_to_lines(script.docs),
-			"reference_page": f"docs/zh/reference/api/{script.module.replace('/', '-').replace('_', '-')}.md",
+			"reference_page": f"docs/zh/reference/api/classes/{script.class_name}.md",
 		}
 		if include_members:
 			data["signals"] = [member_to_dict(item) for item in script.signals]
@@ -411,6 +463,7 @@ def workspace_status() -> dict[str, Any]:
 	entries = parse_git_status(git_lines(["status", "--short"]))
 	categories: dict[str, list[dict[str, str]]] = {
 		"runtime_source": [],
+		"examples": [],
 		"tests": [],
 		"manual_docs": [],
 		"generated_docs": [],
@@ -453,6 +506,8 @@ def classify_status_path(path: str) -> str:
 	normalized = path.replace("\\", "/")
 	if normalized.startswith("docs/api_catalog/") or normalized.startswith("docs/zh/reference/api/"):
 		return "generated_docs"
+	if normalized.startswith("examples/"):
+		return "examples"
 	if normalized.startswith("tests/"):
 		return "tests"
 	if normalized.startswith("docs/") or normalized in {"README.md", "README.zh.md", "addons/gf/README.md"}:
@@ -478,6 +533,8 @@ def recommend_checks(categories: dict[str, list[dict[str, str]]]) -> list[str]:
 			"python tools/generate_ai_api.py --source addons/gf --output ai_analysis/generated_api --check --check-wiki-coverage",
 			"godot --headless --path . -s res://addons/gut/gut_cmdln.gd -gdir=res://tests/gf_core -ginclude_subdirs -gexit",
 		])
+	if categories["examples"]:
+		recommendations.append("python tools/gf_maintenance.py check --suite examples --json")
 	if categories["tests"]:
 		recommendations.append("godot --headless --path . -s res://addons/gut/gut_cmdln.gd -gdir=res://tests/gf_core -ginclude_subdirs -gexit")
 	if categories["manual_docs"]:
@@ -627,6 +684,12 @@ def run_command(name: str, command: list[str], timeout_seconds: int) -> CommandR
 				"Godot returned a non-zero process code after GUT reported all tests passed; "
 				"the original code is preserved as process_exit_code.",
 			]
+		if name in {"examples_scan", "examples_boot", "examples_smoke"} and has_godot_script_error(completed.stdout, completed.stderr):
+			exit_code = 1
+			notes = append_note(
+				notes,
+				"Godot returned zero but reported script loading or parse errors in output.",
+			)
 		return CommandResult(
 			name,
 			command,
@@ -645,6 +708,18 @@ def run_command(name: str, command: list[str], timeout_seconds: int) -> CommandR
 			exc.stderr or f"timed out after {timeout_seconds}s",
 			timed_out=True,
 		)
+
+
+def has_godot_script_error(stdout: str, stderr: str) -> bool:
+	output = f"{stdout}\n{stderr}"
+	return any(pattern in output for pattern in GODOT_SCRIPT_ERROR_PATTERNS)
+
+
+def append_note(notes: list[str] | None, note: str) -> list[str]:
+	if notes == None:
+		return [note]
+	notes.append(note)
+	return notes
 
 
 def gut_report_all_tests_passed(stdout: str) -> bool:

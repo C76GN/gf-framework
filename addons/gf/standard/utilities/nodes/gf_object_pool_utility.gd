@@ -547,14 +547,14 @@ func _set_node_active_state(node: Node, active: bool) -> void:
 			node.get_meta(_META_ORIGINAL_PROCESS_MODE, Node.PROCESS_MODE_INHERIT),
 			Node.PROCESS_MODE_INHERIT
 		)
-		node.process_mode = original_process_mode as Node.ProcessMode
+		node.process_mode = _to_process_mode(original_process_mode)
 		var canvas_item: CanvasItem = _variant_to_canvas_item(node)
 		if canvas_item != null:
 			canvas_item.visible = GFVariantData.to_bool(node.get_meta(_META_ORIGINAL_VISIBLE, true), true)
 		if "disabled" in node:
 			node.set("disabled", node.get_meta(_META_ORIGINAL_DISABLED))
 	else:
-		node.process_mode = Node.PROCESS_MODE_DISABLED
+		node.process_mode = Node.PROCESS_MODE_DISABLED as Node.ProcessMode
 		var canvas_item: CanvasItem = _variant_to_canvas_item(node)
 		if canvas_item != null:
 			canvas_item.visible = false
@@ -662,6 +662,20 @@ static func _variant_to_node(value: Variant) -> Node:
 		var node: Node = value
 		return node
 	return null
+
+
+static func _to_process_mode(value: int) -> Node.ProcessMode:
+	match value:
+		Node.PROCESS_MODE_PAUSABLE:
+			return Node.PROCESS_MODE_PAUSABLE
+		Node.PROCESS_MODE_WHEN_PAUSED:
+			return Node.PROCESS_MODE_WHEN_PAUSED
+		Node.PROCESS_MODE_ALWAYS:
+			return Node.PROCESS_MODE_ALWAYS
+		Node.PROCESS_MODE_DISABLED:
+			return Node.PROCESS_MODE_DISABLED
+		_:
+			return Node.PROCESS_MODE_INHERIT
 
 
 static func _variant_to_canvas_item(value: Variant) -> CanvasItem:

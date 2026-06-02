@@ -1,0 +1,963 @@
+# GFStorageUtility
+
+[API Reference](../index.md) / [Standard](../standard.md) / [类索引](index.md)
+
+- 路径：`addons/gf/standard/utilities/storage/gf_storage_utility.gd`
+- 模块：`Standard`
+- 继承：`GFUtility`
+- API：`public`
+- 类别：运行时服务 (`runtime_service`)
+- 首次版本：`3.17.0`
+
+基于 `user://` 的轻量存档系统。 支持槽位存档、元数据分离读取、`Resource` 存取， 以及可配置 codec、完整性校验、版本迁移和简单混淆，适合通用本地持久化场景。 该混淆不提供安全加密能力，请勿用于保护敏感数据。
+
+## 成员概览
+
+| 类型 | 名称 | 签名 |
+|---|---|---|
+| 信号 | [`data_integrity_failed`](#member-gfstorageutility-signals-data_integrity_failed) | `signal data_integrity_failed(file_name: String, error: String)` |
+| 信号 | [`data_migrated`](#member-gfstorageutility-signals-data_migrated) | `signal data_migrated(file_name: String, from_version: int, to_version: int)` |
+| 信号 | [`save_completed`](#member-gfstorageutility-signals-save_completed) | `signal save_completed(file_name: String, error: Error)` |
+| 信号 | [`load_completed`](#member-gfstorageutility-signals-load_completed) | `signal load_completed(file_name: String, result: Dictionary)` |
+| 常量 | [`DEFAULT_MAX_LIST_DEPTH`](#member-gfstorageutility-constants-default_max_list_depth) | `const DEFAULT_MAX_LIST_DEPTH: int = 32` |
+| 常量 | [`DEFAULT_MAX_LISTED_FILES`](#member-gfstorageutility-constants-default_max_listed_files) | `const DEFAULT_MAX_LISTED_FILES: int = 10000` |
+| 属性 | [`encrypt_key`](#member-gfstorageutility-properties-encrypt_key) | `var encrypt_key: int = 42` |
+| 属性 | [`save_dir_name`](#member-gfstorageutility-properties-save_dir_name) | `var save_dir_name: String = "saves"` |
+| 属性 | [`codec`](#member-gfstorageutility-properties-codec) | `var codec: GFStorageCodec = GFStorageCodec.new()` |
+| 属性 | [`file_format`](#member-gfstorageutility-properties-file_format) | `var file_format: GFStorageCodec.Format = GFStorageCodec.Format.JSON` |
+| 属性 | [`use_compression`](#member-gfstorageutility-properties-use_compression) | `var use_compression: bool = false` |
+| 属性 | [`allow_legacy_plain_json_fallback`](#member-gfstorageutility-properties-allow_legacy_plain_json_fallback) | `var allow_legacy_plain_json_fallback: bool = false` |
+| 属性 | [`normalize_json_numbers`](#member-gfstorageutility-properties-normalize_json_numbers) | `var normalize_json_numbers: bool = false` |
+| 属性 | [`use_integrity_checksum`](#member-gfstorageutility-properties-use_integrity_checksum) | `var use_integrity_checksum: bool = false` |
+| 属性 | [`strict_integrity`](#member-gfstorageutility-properties-strict_integrity) | `var strict_integrity: bool = true` |
+| 属性 | [`require_integrity_checksum`](#member-gfstorageutility-properties-require_integrity_checksum) | `var require_integrity_checksum: bool = true` |
+| 属性 | [`include_storage_metadata`](#member-gfstorageutility-properties-include_storage_metadata) | `var include_storage_metadata: bool = false` |
+| 属性 | [`allow_absolute_paths`](#member-gfstorageutility-properties-allow_absolute_paths) | `var allow_absolute_paths: bool = false` |
+| 属性 | [`create_directories_for_nested_paths`](#member-gfstorageutility-properties-create_directories_for_nested_paths) | `var create_directories_for_nested_paths: bool = true` |
+| 属性 | [`max_async_thread_count`](#member-gfstorageutility-properties-max_async_thread_count) | `var max_async_thread_count: int = 4:` |
+| 属性 | [`save_version`](#member-gfstorageutility-properties-save_version) | `var save_version: int = 1:` |
+| 属性 | [`strict_schema_migrations`](#member-gfstorageutility-properties-strict_schema_migrations) | `var strict_schema_migrations: bool = false` |
+| 属性 | [`default_values_for_new_keys`](#member-gfstorageutility-properties-default_values_for_new_keys) | `var default_values_for_new_keys: Dictionary = {}` |
+| 属性 | [`last_load_result`](#member-gfstorageutility-properties-last_load_result) | `var last_load_result: Dictionary = {}` |
+| 方法 | [`init`](#member-gfstorageutility-methods-init) | `func init() -> void:` |
+| 方法 | [`dispose`](#member-gfstorageutility-methods-dispose) | `func dispose() -> void:` |
+| 方法 | [`tick`](#member-gfstorageutility-methods-tick) | `func tick(_delta: float = 0.0) -> void:` |
+| 方法 | [`save_resource`](#member-gfstorageutility-methods-save_resource) | `func save_resource(file_name: String, resource: Resource) -> Error:` |
+| 方法 | [`load_resource`](#member-gfstorageutility-methods-load_resource) | `func load_resource(file_name: String, type_hint: String = "") -> Resource:` |
+| 方法 | [`ensure_directory`](#member-gfstorageutility-methods-ensure_directory) | `func ensure_directory(directory_name: String = "") -> Error:` |
+| 方法 | [`list_files`](#member-gfstorageutility-methods-list_files) | `func list_files( directory_name: String = "", extension_filter: String = "", recursive: bool = false, options: Dictionary = {} ) -> PackedStringArray:` |
+| 方法 | [`delete_file`](#member-gfstorageutility-methods-delete_file) | `func delete_file(file_name: String) -> Error:` |
+| 方法 | [`save_slot`](#member-gfstorageutility-methods-save_slot) | `func save_slot(slot_id: int, data: Dictionary, metadata: Dictionary = {}) -> Error:` |
+| 方法 | [`load_slot`](#member-gfstorageutility-methods-load_slot) | `func load_slot(slot_id: int) -> Dictionary:` |
+| 方法 | [`load_slot_result`](#member-gfstorageutility-methods-load_slot_result) | `func load_slot_result(slot_id: int) -> Dictionary:` |
+| 方法 | [`load_slot_meta`](#member-gfstorageutility-methods-load_slot_meta) | `func load_slot_meta(slot_id: int) -> Dictionary:` |
+| 方法 | [`load_slot_meta_result`](#member-gfstorageutility-methods-load_slot_meta_result) | `func load_slot_meta_result(slot_id: int) -> Dictionary:` |
+| 方法 | [`has_slot`](#member-gfstorageutility-methods-has_slot) | `func has_slot(slot_id: int) -> bool:` |
+| 方法 | [`list_slots`](#member-gfstorageutility-methods-list_slots) | `func list_slots() -> Array[Dictionary]:` |
+| 方法 | [`delete_slot`](#member-gfstorageutility-methods-delete_slot) | `func delete_slot(slot_id: int) -> void:` |
+| 方法 | [`save_data`](#member-gfstorageutility-methods-save_data) | `func save_data(file_name: String, data: Dictionary) -> Error:` |
+| 方法 | [`load_data`](#member-gfstorageutility-methods-load_data) | `func load_data(file_name: String) -> Dictionary:` |
+| 方法 | [`load_data_result`](#member-gfstorageutility-methods-load_data_result) | `func load_data_result(file_name: String) -> Dictionary:` |
+| 方法 | [`save_data_async`](#member-gfstorageutility-methods-save_data_async) | `func save_data_async(file_name: String, data: Dictionary) -> Error:` |
+| 方法 | [`load_data_async`](#member-gfstorageutility-methods-load_data_async) | `func load_data_async(file_name: String) -> Error:` |
+| 方法 | [`wait_for_async_tasks`](#member-gfstorageutility-methods-wait_for_async_tasks) | `func wait_for_async_tasks() -> void:` |
+| 方法 | [`migrate_data`](#member-gfstorageutility-methods-migrate_data) | `func migrate_data(data: Dictionary, _from_version: int, _to_version: int) -> Dictionary:` |
+| 方法 | [`register_migration`](#member-gfstorageutility-methods-register_migration) | `func register_migration(from_version: int, to_version: int, callback: Callable) -> bool:` |
+| 方法 | [`unregister_migration`](#member-gfstorageutility-methods-unregister_migration) | `func unregister_migration(from_version: int, to_version: int) -> void:` |
+| 方法 | [`clear_migrations`](#member-gfstorageutility-methods-clear_migrations) | `func clear_migrations() -> void:` |
+| 方法 | [`get_registered_migrations`](#member-gfstorageutility-methods-get_registered_migrations) | `func get_registered_migrations() -> Array[Dictionary]:` |
+
+## 信号
+
+<a id="member-gfstorageutility-signals-data_integrity_failed"></a>
+
+### `data_integrity_failed`
+
+- API：`public`
+
+```gdscript
+signal data_integrity_failed(file_name: String, error: String)
+```
+
+解码数据失败或发现完整性校验失败后发出。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `file_name` | 文件名。 |
+| `error` | 错误描述。 |
+
+<a id="member-gfstorageutility-signals-data_migrated"></a>
+
+### `data_migrated`
+
+- API：`public`
+
+```gdscript
+signal data_migrated(file_name: String, from_version: int, to_version: int)
+```
+
+数据版本迁移后发出。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `file_name` | 文件名。 |
+| `from_version` | 原版本。 |
+| `to_version` | 目标版本。 |
+
+<a id="member-gfstorageutility-signals-save_completed"></a>
+
+### `save_completed`
+
+- API：`public`
+
+```gdscript
+signal save_completed(file_name: String, error: Error)
+```
+
+异步保存完成后发出。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `file_name` | 文件名。 |
+| `error` | Godot 的 Error 结果码。 |
+
+<a id="member-gfstorageutility-signals-load_completed"></a>
+
+### `load_completed`
+
+- API：`public`
+
+```gdscript
+signal load_completed(file_name: String, result: Dictionary)
+```
+
+异步读取完成后发出。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `file_name` | 文件名。 |
+| `result` | 读取结果，包含 ok、data、metadata、integrity_valid、error。 |
+
+结构：
+
+- `result`: Dictionary，包含 ok: bool、data: Dictionary、metadata: Dictionary、integrity_valid: bool 和 error: String。
+
+## 常量
+
+<a id="member-gfstorageutility-constants-default_max_list_depth"></a>
+
+### `DEFAULT_MAX_LIST_DEPTH`
+
+- API：`public`
+
+```gdscript
+const DEFAULT_MAX_LIST_DEPTH: int = 32
+```
+
+递归枚举文件时默认允许进入的最大目录深度。
+
+<a id="member-gfstorageutility-constants-default_max_listed_files"></a>
+
+### `DEFAULT_MAX_LISTED_FILES`
+
+- API：`public`
+
+```gdscript
+const DEFAULT_MAX_LISTED_FILES: int = 10000
+```
+
+单次文件枚举默认最多返回的文件数量。
+
+## 属性
+
+<a id="member-gfstorageutility-properties-encrypt_key"></a>
+
+### `encrypt_key`
+
+- API：`public`
+
+```gdscript
+var encrypt_key: int = 42
+```
+
+用于简单 XOR + Base64 混淆的密钥；为 `0` 时直接保存明文 JSON。该字段不是安全加密密钥。
+
+<a id="member-gfstorageutility-properties-save_dir_name"></a>
+
+### `save_dir_name`
+
+- API：`public`
+
+```gdscript
+var save_dir_name: String = "saves"
+```
+
+保存子目录名；为空时直接写入 `user://`。
+
+<a id="member-gfstorageutility-properties-codec"></a>
+
+### `codec`
+
+- API：`public`
+
+```gdscript
+var codec: GFStorageCodec = GFStorageCodec.new()
+```
+
+存档 codec。为 null 时会自动创建默认 GFStorageCodec。
+
+<a id="member-gfstorageutility-properties-file_format"></a>
+
+### `file_format`
+
+- API：`public`
+
+```gdscript
+var file_format: GFStorageCodec.Format = GFStorageCodec.Format.JSON
+```
+
+数据序列化格式。
+
+<a id="member-gfstorageutility-properties-use_compression"></a>
+
+### `use_compression`
+
+- API：`public`
+
+```gdscript
+var use_compression: bool = false
+```
+
+是否压缩存档载荷。
+
+<a id="member-gfstorageutility-properties-allow_legacy_plain_json_fallback"></a>
+
+### `allow_legacy_plain_json_fallback`
+
+- API：`public`
+
+```gdscript
+var allow_legacy_plain_json_fallback: bool = false
+```
+
+解码失败时是否尝试按旧版未压缩、未混淆 JSON 读取原始 bytes。
+
+<a id="member-gfstorageutility-properties-normalize_json_numbers"></a>
+
+### `normalize_json_numbers`
+
+- API：`public`
+
+```gdscript
+var normalize_json_numbers: bool = false
+```
+
+JSON 读取时是否把接近整数的 float 归一为 int。Binary 格式不受影响。
+
+<a id="member-gfstorageutility-properties-use_integrity_checksum"></a>
+
+### `use_integrity_checksum`
+
+- API：`public`
+
+```gdscript
+var use_integrity_checksum: bool = false
+```
+
+是否写入并校验 SHA-256 完整性校验。
+
+<a id="member-gfstorageutility-properties-strict_integrity"></a>
+
+### `strict_integrity`
+
+- API：`public`
+
+```gdscript
+var strict_integrity: bool = true
+```
+
+完整性校验失败时是否拒绝读取。
+
+<a id="member-gfstorageutility-properties-require_integrity_checksum"></a>
+
+### `require_integrity_checksum`
+
+- API：`public`
+
+```gdscript
+var require_integrity_checksum: bool = true
+```
+
+启用完整性校验时，是否要求载荷必须包含 `_meta.checksum`。
+
+<a id="member-gfstorageutility-properties-include_storage_metadata"></a>
+
+### `include_storage_metadata`
+
+- API：`public`
+
+```gdscript
+var include_storage_metadata: bool = false
+```
+
+是否写入 `_meta.version`、`_meta.timestamp` 等通用元信息。
+
+<a id="member-gfstorageutility-properties-allow_absolute_paths"></a>
+
+### `allow_absolute_paths`
+
+- API：`public`
+
+```gdscript
+var allow_absolute_paths: bool = false
+```
+
+是否允许传入绝对路径。关闭后绝对路径会被收敛到存档目录下的同名文件。
+
+<a id="member-gfstorageutility-properties-create_directories_for_nested_paths"></a>
+
+### `create_directories_for_nested_paths`
+
+- API：`public`
+
+```gdscript
+var create_directories_for_nested_paths: bool = true
+```
+
+写入嵌套相对路径时是否自动创建目录。
+
+<a id="member-gfstorageutility-properties-max_async_thread_count"></a>
+
+### `max_async_thread_count`
+
+- API：`public`
+
+```gdscript
+var max_async_thread_count: int = 4:
+```
+
+同时运行的异步存取线程数量。小于 1 时会被钳制为 1。
+
+<a id="member-gfstorageutility-properties-save_version"></a>
+
+### `save_version`
+
+- API：`public`
+
+```gdscript
+var save_version: int = 1:
+```
+
+当前存档数据版本。小于 1 会被钳制为 1。
+
+<a id="member-gfstorageutility-properties-strict_schema_migrations"></a>
+
+### `strict_schema_migrations`
+
+- API：`public`
+
+```gdscript
+var strict_schema_migrations: bool = false
+```
+
+为 true 时，读取旧版本存档必须存在完整迁移链，不能仅更新 `_meta.version`。
+
+<a id="member-gfstorageutility-properties-default_values_for_new_keys"></a>
+
+### `default_values_for_new_keys`
+
+- API：`public`
+
+```gdscript
+var default_values_for_new_keys: Dictionary = {}
+```
+
+读取旧版本数据时需要补齐的新字段默认值。
+
+结构：
+
+- `default_values_for_new_keys`: Dictionary，包含迁移旧存档时合并进去的新字段默认值。
+
+<a id="member-gfstorageutility-properties-last_load_result"></a>
+
+### `last_load_result`
+
+- API：`public`
+
+```gdscript
+var last_load_result: Dictionary = {}
+```
+
+迁移后的最近一次读取结果，包含 ok、data、metadata、integrity_valid、error。
+
+结构：
+
+- `last_load_result`: Dictionary，包含 ok: bool、data: Dictionary、metadata: Dictionary、integrity_valid: bool 和 error: String。
+
+## 方法
+
+<a id="member-gfstorageutility-methods-init"></a>
+
+### `init`
+
+- API：`public`
+
+```gdscript
+func init() -> void:
+```
+
+初始化存储目录和内部帮助器。
+
+<a id="member-gfstorageutility-methods-dispose"></a>
+
+### `dispose`
+
+- API：`public`
+
+```gdscript
+func dispose() -> void:
+```
+
+等待并清理异步存取任务。
+
+<a id="member-gfstorageutility-methods-tick"></a>
+
+### `tick`
+
+- API：`public`
+
+```gdscript
+func tick(_delta: float = 0.0) -> void:
+```
+
+驱动异步存档任务完成检查。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `_delta` | 本帧时间增量（秒），默认实现不直接使用。 |
+
+<a id="member-gfstorageutility-methods-save_resource"></a>
+
+### `save_resource`
+
+- API：`public`
+
+```gdscript
+func save_resource(file_name: String, resource: Resource) -> Error:
+```
+
+保存一个 `Resource` 文件。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `file_name` | 目标文件名。 |
+| `resource` | 要保存的资源实例。 |
+
+返回：Godot 的 `Error` 结果码。
+
+<a id="member-gfstorageutility-methods-load_resource"></a>
+
+### `load_resource`
+
+- API：`public`
+
+```gdscript
+func load_resource(file_name: String, type_hint: String = "") -> Resource:
+```
+
+读取一个 `Resource` 文件。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `file_name` | 目标文件名。 |
+| `type_hint` | 可选类型提示。 |
+
+返回：读取到的资源实例；不存在时返回 `null`。
+
+<a id="member-gfstorageutility-methods-ensure_directory"></a>
+
+### `ensure_directory`
+
+- API：`public`
+
+```gdscript
+func ensure_directory(directory_name: String = "") -> Error:
+```
+
+确保存储相对目录存在。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `directory_name` | 相对存储目录；为空时只确保根存储目录存在。 |
+
+返回：Godot 的 `Error` 结果码。
+
+<a id="member-gfstorageutility-methods-list_files"></a>
+
+### `list_files`
+
+- API：`public`
+
+```gdscript
+func list_files( directory_name: String = "", extension_filter: String = "", recursive: bool = false, options: Dictionary = {} ) -> PackedStringArray:
+```
+
+枚举指定存储目录下的文件。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `directory_name` | 相对存储目录；为空时枚举根存储目录。 |
+| `extension_filter` | 可选扩展名过滤，允许传入 `"json"` 或 `".json"`。 |
+| `recursive` | 是否递归枚举子目录。 |
+| `options` | 可选参数，支持 `max_scan_depth` 与 `max_file_count`。 |
+
+返回：存储相对文件路径数组；若传入允许的绝对目录，则返回绝对文件路径。
+
+结构：
+
+- `options`: Dictionary，包含 max_scan_depth: int 和 max_file_count: int。
+
+<a id="member-gfstorageutility-methods-delete_file"></a>
+
+### `delete_file`
+
+- API：`public`
+
+```gdscript
+func delete_file(file_name: String) -> Error:
+```
+
+删除一个存储文件。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `file_name` | 存储相对文件路径。 |
+
+返回：Godot 的 `Error` 结果码；文件不存在时返回 `ERR_FILE_NOT_FOUND`。
+
+<a id="member-gfstorageutility-methods-save_slot"></a>
+
+### `save_slot`
+
+- API：`public`
+
+```gdscript
+func save_slot(slot_id: int, data: Dictionary, metadata: Dictionary = {}) -> Error:
+```
+
+保存一个槽位存档。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `slot_id` | 槽位 ID。 |
+| `data` | 核心存档数据。 |
+| `metadata` | 展示用元数据。 |
+
+返回：Godot 的 `Error` 结果码。
+
+结构：
+
+- `data`: Dictionary，作为存档槽主要数据保存的载荷。
+- `metadata`: Dictionary，作为存档槽展示元数据保存。
+
+<a id="member-gfstorageutility-methods-load_slot"></a>
+
+### `load_slot`
+
+- API：`public`
+
+```gdscript
+func load_slot(slot_id: int) -> Dictionary:
+```
+
+读取槽位核心数据。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `slot_id` | 槽位 ID。 |
+
+返回：反序列化后的核心数据字典。
+
+结构：
+
+- `return`: Dictionary，作为存档槽主要数据保存的载荷。
+
+<a id="member-gfstorageutility-methods-load_slot_result"></a>
+
+### `load_slot_result`
+
+- API：`public`
+
+```gdscript
+func load_slot_result(slot_id: int) -> Dictionary:
+```
+
+读取槽位核心数据并返回 codec 结果。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `slot_id` | 槽位 ID。 |
+
+返回：结果字典，包含 ok、data、metadata、integrity_valid、error。
+
+结构：
+
+- `return`: Dictionary，包含 ok: bool、data: Dictionary、metadata: Dictionary、integrity_valid: bool 和 error: String。
+
+<a id="member-gfstorageutility-methods-load_slot_meta"></a>
+
+### `load_slot_meta`
+
+- API：`public`
+
+```gdscript
+func load_slot_meta(slot_id: int) -> Dictionary:
+```
+
+读取槽位元数据。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `slot_id` | 槽位 ID。 |
+
+返回：反序列化后的元数据字典。
+
+结构：
+
+- `return`: Dictionary，作为存档槽展示元数据保存。
+
+<a id="member-gfstorageutility-methods-load_slot_meta_result"></a>
+
+### `load_slot_meta_result`
+
+- API：`public`
+
+```gdscript
+func load_slot_meta_result(slot_id: int) -> Dictionary:
+```
+
+读取槽位元数据并返回 codec 结果。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `slot_id` | 槽位 ID。 |
+
+返回：结果字典，包含 ok、data、metadata、integrity_valid、error。
+
+结构：
+
+- `return`: Dictionary，包含 ok: bool、data: Dictionary、metadata: Dictionary、integrity_valid: bool 和 error: String。
+
+<a id="member-gfstorageutility-methods-has_slot"></a>
+
+### `has_slot`
+
+- API：`public`
+
+```gdscript
+func has_slot(slot_id: int) -> bool:
+```
+
+检查槽位是否存在有效存档。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `slot_id` | 槽位 ID。 |
+
+返回：核心数据与元数据文件都存在时返回 `true`。
+
+<a id="member-gfstorageutility-methods-list_slots"></a>
+
+### `list_slots`
+
+- API：`public`
+
+```gdscript
+func list_slots() -> Array[Dictionary]:
+```
+
+枚举所有有效槽位。
+
+返回：槽位信息数组，元素包含 `slot_id`、`metadata` 与 `modified_time`。
+
+结构：
+
+- `return`: Array，包含 slot_id: int、metadata: Dictionary 和 modified_time: int 的 Dictionary 条目。
+
+<a id="member-gfstorageutility-methods-delete_slot"></a>
+
+### `delete_slot`
+
+- API：`public`
+
+```gdscript
+func delete_slot(slot_id: int) -> void:
+```
+
+删除指定槽位的数据与元数据。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `slot_id` | 槽位 ID。 |
+
+<a id="member-gfstorageutility-methods-save_data"></a>
+
+### `save_data`
+
+- API：`public`
+
+```gdscript
+func save_data(file_name: String, data: Dictionary) -> Error:
+```
+
+保存纯字典数据。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `file_name` | 目标文件名。 |
+| `data` | 要保存的字典。 |
+
+返回：Godot 的 `Error` 结果码。
+
+结构：
+
+- `data`: Dictionary，要序列化并保存的数据载荷。
+
+<a id="member-gfstorageutility-methods-load_data"></a>
+
+### `load_data`
+
+- API：`public`
+
+```gdscript
+func load_data(file_name: String) -> Dictionary:
+```
+
+读取纯字典数据。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `file_name` | 目标文件名。 |
+
+返回：反序列化后的字典数据。
+
+结构：
+
+- `return`: Dictionary，从存储读取的数据载荷；读取失败时为空字典。
+
+<a id="member-gfstorageutility-methods-load_data_result"></a>
+
+### `load_data_result`
+
+- API：`public`
+
+```gdscript
+func load_data_result(file_name: String) -> Dictionary:
+```
+
+读取纯字典数据并返回 codec 结果。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `file_name` | 目标文件名。 |
+
+返回：结果字典，包含 ok、data、metadata、integrity_valid、error。
+
+结构：
+
+- `return`: Dictionary，包含 ok: bool、data: Dictionary、metadata: Dictionary、integrity_valid: bool 和 error: String。
+
+<a id="member-gfstorageutility-methods-save_data_async"></a>
+
+### `save_data_async`
+
+- API：`public`
+
+```gdscript
+func save_data_async(file_name: String, data: Dictionary) -> Error:
+```
+
+在线程中异步保存纯字典数据。完成后从主线程发出 save_completed。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `file_name` | 目标文件名。 |
+| `data` | 要保存的字典。 |
+
+返回：启动线程的 Error 结果码。
+
+结构：
+
+- `data`: Dictionary，要序列化并保存的数据载荷。
+
+<a id="member-gfstorageutility-methods-load_data_async"></a>
+
+### `load_data_async`
+
+- API：`public`
+
+```gdscript
+func load_data_async(file_name: String) -> Error:
+```
+
+在线程中异步读取纯字典数据。完成后从主线程发出 load_completed。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `file_name` | 目标文件名。 |
+
+返回：启动线程的 Error 结果码。
+
+<a id="member-gfstorageutility-methods-wait_for_async_tasks"></a>
+
+### `wait_for_async_tasks`
+
+- API：`public`
+
+```gdscript
+func wait_for_async_tasks() -> void:
+```
+
+等待已经入队和正在执行的异步纯数据任务全部完成。 需要在同一路径上混合同步与异步读写时，可先调用该方法收敛顺序。
+
+<a id="member-gfstorageutility-methods-migrate_data"></a>
+
+### `migrate_data`
+
+- API：`public`
+
+```gdscript
+func migrate_data(data: Dictionary, _from_version: int, _to_version: int) -> Dictionary:
+```
+
+迁移存档数据。项目可继承 GFStorageUtility 并重写该方法。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `data` | 已读取的数据副本。 |
+| `_from_version` | 原版本。 |
+| `_to_version` | 目标版本。 |
+
+返回：迁移后的数据。
+
+结构：
+
+- `data`: Dictionary，在存档 schema 版本之间迁移的数据载荷。
+- `return`: Dictionary，应用已注册迁移和默认值后的数据载荷。
+
+<a id="member-gfstorageutility-methods-register_migration"></a>
+
+### `register_migration`
+
+- API：`public`
+
+```gdscript
+func register_migration(from_version: int, to_version: int, callback: Callable) -> bool:
+```
+
+注册一个版本迁移步骤。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `from_version` | 来源版本。 |
+| `to_version` | 目标版本，必须大于来源版本。 |
+| `callback` | 迁移回调，签名为 `func(data: Dictionary, from_version: int, to_version: int) -> Dictionary`。 |
+
+返回：注册成功时返回 true。
+
+<a id="member-gfstorageutility-methods-unregister_migration"></a>
+
+### `unregister_migration`
+
+- API：`public`
+
+```gdscript
+func unregister_migration(from_version: int, to_version: int) -> void:
+```
+
+注销一个版本迁移步骤。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `from_version` | 来源版本。 |
+| `to_version` | 目标版本。 |
+
+<a id="member-gfstorageutility-methods-clear_migrations"></a>
+
+### `clear_migrations`
+
+- API：`public`
+
+```gdscript
+func clear_migrations() -> void:
+```
+
+清空所有注册的版本迁移步骤。
+
+<a id="member-gfstorageutility-methods-get_registered_migrations"></a>
+
+### `get_registered_migrations`
+
+- API：`public`
+
+```gdscript
+func get_registered_migrations() -> Array[Dictionary]:
+```
+
+获取已注册迁移步骤。
+
+返回：迁移步骤摘要数组。
+
+结构：
+
+- `return`: Array，包含 from_version: int 和 to_version: int 的 Dictionary 条目。

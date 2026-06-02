@@ -1,4 +1,4 @@
-## 测试 GFMoveTweenAction、GFFlashAction、GFAudioAction 与 GFTweenActionStep 的基础行为。
+## 测试 GFMoveTweenAction、GFFlashAction、GFShaderParameterAction、GFAudioAction 与 GFTweenActionStep 的基础行为。
 extends GutTest
 
 
@@ -60,6 +60,29 @@ func _configured_tween_action(action: GFVisualAction) -> GFConfiguredTweenAction
 	if action is GFConfiguredTweenAction:
 		return action
 	return null
+
+
+func _make_shader_material(initial_strength: float = 0.0) -> ShaderMaterial:
+	var shader: Shader = Shader.new()
+	shader.code = (
+		"shader_type canvas_item;\n"
+		+ "uniform float strength = 0.0;\n"
+		+ "uniform vec4 tint : source_color = vec4(1.0, 1.0, 1.0, 1.0);\n"
+		+ "void fragment() {\n"
+		+ "\tCOLOR = tint;\n"
+		+ "}\n"
+	)
+	var material: ShaderMaterial = ShaderMaterial.new()
+	material.shader = shader
+	material.set_shader_parameter(&"strength", initial_strength)
+	return material
+
+
+func _get_shader_strength(material: Material) -> float:
+	if material is ShaderMaterial:
+		var shader_material: ShaderMaterial = material
+		return GFVariantData.to_float(shader_material.get_shader_parameter(&"strength"))
+	return 0.0
 
 
 func test_move_tween_action_sets_position_immediately_when_duration_zero() -> void:
@@ -256,6 +279,7 @@ func test_gf_action_factories_create_common_actions() -> void:
 	add_child_autofree(node)
 	node.position = Vector2(3.0, 4.0)
 	node.modulate = Color(1.0, 1.0, 1.0, 0.5)
+	node.material = _make_shader_material()
 
 	var move_action: GFVisualAction = GFAction.move_by(node, Vector2(2.0, 5.0), 0.0)
 	assert_true(move_action is GFConfiguredTweenAction, "move_by 应创建配置化相对 Tween。")
@@ -273,6 +297,10 @@ func test_gf_action_factories_create_common_actions() -> void:
 	var show_action: GFVisualAction = GFAction.show(node)
 	show_action.execute()
 	assert_true(node.visible, "show 工厂应创建可见性动作。")
+
+	var shader_action: GFVisualAction = GFAction.shader_parameter(node, &"strength", 0.6, 0.0)
+	shader_action.execute()
+	assert_almost_eq(_get_shader_strength(node.material), 0.6, 0.001, "shader_parameter 工厂应创建 Shader 参数动作。")
 
 	var call_state: Dictionary = { "count": 0 }
 	var call_action: GFVisualAction = GFAction.callback(func(amount: int) -> void:
@@ -572,6 +600,85 @@ func test_flash_action_cancel_releases_waiters() -> void:
 	await get_tree().process_frame
 
 	assert_true(completed[0], "取消闪色动作时等待者应被释放。")
+
+
+func test_shader_parameter_action_sets_value_immediately() -> void:
+	var item: ColorRect = ColorRect.new()
+	item.material = _make_shader_material()
+	add_child_autofree(item)
+
+	var action: GFVisualAction = GFShaderParameterAction.new(item, &"strength", 0.75, 0.0)
+	var result: Variant = action.execute()
+
+	assert_true(result == null, "零时长 Shader 参数动作应立即完成。")
+	assert_almost_eq(_get_shader_strength(item.material), 0.75, 0.001, "零时长 Shader 参数动作应写入参数。")
+
+
+func test_shader_parameter_action_waits_for_tween() -> void:
+	var item: ColorRect = ColorRect.new()
+	item.material = _make_shader_material()
+	add_child_autofree(item)
+
+	var action: GFVisualAction = GFShaderParameterAction.new(item, &"strength", 1.0, 0.01)
+	var result: Variant = action.execute()
+
+	assert_true(result is Signal, "带时长 Shader 参数动作应返回完成 Signal。")
+	await action.await_result_safely(result)
+
+	assert_almost_eq(_get_shader_strength(item.material), 1.0, 0.01, "Shader 参数 Tween 完成后应到达目标值。")
+
+
+func test_shader_parameter_action_can_tween_direct_material_with_host() -> void:
+	var material: ShaderMaterial = _make_shader_material()
+	var action: GFVisualAction = GFShaderParameterAction.new(material, &"strength", 0.5, 0.01, self)
+	var result: Variant = action.execute()
+
+	assert_true(result is Signal, "直接操作 ShaderMaterial 时可通过 host_node 创建 Tween。")
+	await action.await_result_safely(result)
+
+	assert_almost_eq(_get_shader_strength(material), 0.5, 0.01, "直接材质 Tween 应写入目标参数。")
+
+
+func test_shader_parameter_action_duplicates_owner_material_when_requested() -> void:
+	var shared_material: ShaderMaterial = _make_shader_material()
+	var item_a: ColorRect = ColorRect.new()
+	var item_b: ColorRect = ColorRect.new()
+	item_a.material = shared_material
+	item_b.material = shared_material
+	add_child_autofree(item_a)
+	add_child_autofree(item_b)
+
+	var action: GFVisualAction = GFAction.shader_parameter(item_a, &"strength", 0.9, 0.0, {
+		"duplicate_material_on_execute": true,
+	})
+	var result: Variant = action.execute()
+
+	assert_true(result == null, "零时长 Shader 参数动作应立即完成。")
+	assert_ne(item_a.material, item_b.material, "复制材质后不应继续修改共享材质资源。")
+	assert_almost_eq(_get_shader_strength(item_a.material), 0.9, 0.001, "目标节点应使用复制后的材质参数。")
+	assert_almost_eq(_get_shader_strength(item_b.material), 0.0, 0.001, "共享材质的其他使用者不应被改写。")
+
+
+func test_shader_parameter_action_cancel_releases_waiters_and_restores() -> void:
+	var item: ColorRect = ColorRect.new()
+	item.material = _make_shader_material(0.25)
+	add_child_autofree(item)
+
+	var action: GFShaderParameterAction = GFShaderParameterAction.new(item, &"strength", 1.0, 1.0)
+	action.restore_initial_value_on_cancel = true
+	var result: Variant = action.execute()
+	var completed: Array[bool] = [false]
+	var wait_for_action: Callable = func() -> void:
+		await action.await_result_safely(result)
+		completed[0] = true
+
+	wait_for_action.call()
+	await get_tree().process_frame
+	action.cancel()
+	await get_tree().process_frame
+
+	assert_true(completed[0], "取消 Shader 参数动作时等待者应被释放。")
+	assert_almost_eq(_get_shader_strength(item.material), 0.25, 0.001, "取消时应按配置恢复初始参数值。")
 
 
 func test_audio_action_is_fire_and_forget() -> void:

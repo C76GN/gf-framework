@@ -103,7 +103,11 @@ var _processing: bool = false
 # --- Godot 生命周期方法 ---
 
 func _ready() -> void:
-	process_mode = Node.PROCESS_MODE_ALWAYS if process_while_paused else Node.PROCESS_MODE_INHERIT
+	process_mode = (
+		Node.PROCESS_MODE_ALWAYS as Node.ProcessMode
+		if process_while_paused
+		else Node.PROCESS_MODE_INHERIT as Node.ProcessMode
+	)
 	if auto_start:
 		start()
 

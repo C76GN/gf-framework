@@ -238,7 +238,7 @@ func test_reconnect_policy_jitter_respects_seeded_rng_state() -> void:
 	policy._rng.seed = 12345
 	expected_rng.seed = 12345
 
-	var expected: int = maxi(int(roundf(100.0 + expected_rng.randf_range(-50.0, 50.0))), 0)
+	var expected: int = maxi(roundi(100.0 + expected_rng.randf_range(-50.0, 50.0)), 0)
 
 	assert_eq(policy.get_next_delay_msec(), expected, "jitter 不应在每次计算时重新 randomize 覆盖已设定 RNG 状态。")
 

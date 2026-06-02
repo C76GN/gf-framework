@@ -606,7 +606,7 @@ func _make_about_content() -> Control:
 	_version_status_label = Label.new()
 	_version_status_label.name = "AboutVersionStatus"
 	_version_status_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_version_status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_version_status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART as TextServer.AutowrapMode
 	_version_status_label.custom_minimum_size = Vector2(0.0, VERSION_STATUS_MIN_HEIGHT)
 	_version_status_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_version_status_label.modulate = Color(0.72, 0.72, 0.72)

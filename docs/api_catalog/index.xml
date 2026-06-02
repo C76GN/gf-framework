@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<apiCatalog schemaVersion="2" name="GF Framework" sourceRoot="addons/gf" sourceDigest="a0a8f059414d8cb445e38e29202ba88ade76ffab4401ced938d8dff89abc88c4" classCount="480" methodCount="3753">
+<apiCatalog schemaVersion="2" name="GF Framework" sourceRoot="addons/gf" sourceDigest="2fc4258fe87a05d467a9e2ce9aec6a001431838ad934aac12ac00522c8e949b7" classCount="482" methodCount="3781">
 	<module id="kernel" label="Kernel" classCount="41" methodCount="418">
 		<class name="GFAccessGenerator" path="classes/GFAccessGenerator.xml" sourcePath="addons/gf/kernel/editor/gf_access_generator.gd" extends="RefCounted" />
 		<class name="GFArchitecture" path="classes/GFArchitecture.xml" sourcePath="addons/gf/kernel/core/gf_architecture.gd" extends="Object" />
@@ -43,7 +43,7 @@
 		<class name="GFTypeEventSystem" path="classes/GFTypeEventSystem.xml" sourcePath="addons/gf/kernel/core/gf_type_event_system.gd" extends="Object" />
 		<class name="GFUtility" path="classes/GFUtility.xml" sourcePath="addons/gf/kernel/base/gf_utility.gd" extends="Object" />
 	</module>
-	<module id="standard" label="Standard" classCount="246" methodCount="2200">
+	<module id="standard" label="Standard" classCount="247" methodCount="2221">
 		<class name="GFAnalyticsConfig" path="classes/GFAnalyticsConfig.xml" sourcePath="addons/gf/standard/utilities/analytics/gf_analytics_config.gd" extends="Resource" />
 		<class name="GFAnalyticsUtility" path="classes/GFAnalyticsUtility.xml" sourcePath="addons/gf/standard/utilities/analytics/gf_analytics_utility.gd" extends="GFUtility" />
 		<class name="GFAssetHandle" path="classes/GFAssetHandle.xml" sourcePath="addons/gf/standard/utilities/assets/gf_asset_handle.gd" extends="RefCounted" />
@@ -54,6 +54,7 @@
 		<class name="GFAudioBank" path="classes/GFAudioBank.xml" sourcePath="addons/gf/standard/utilities/audio/gf_audio_bank.gd" extends="Resource" />
 		<class name="GFAudioBankMounter" path="classes/GFAudioBankMounter.xml" sourcePath="addons/gf/standard/utilities/audio/gf_audio_bank_mounter.gd" extends="Node" />
 		<class name="GFAudioBankTools" path="classes/GFAudioBankTools.xml" sourcePath="addons/gf/standard/utilities/audio/gf_audio_bank_tools.gd" extends="RefCounted" />
+		<class name="GFAudioBeatClock" path="classes/GFAudioBeatClock.xml" sourcePath="addons/gf/standard/utilities/audio/gf_audio_beat_clock.gd" extends="RefCounted" />
 		<class name="GFAudioCatalogProvider" path="classes/GFAudioCatalogProvider.xml" sourcePath="addons/gf/standard/utilities/audio/gf_audio_catalog_provider.gd" extends="RefCounted" />
 		<class name="GFAudioClip" path="classes/GFAudioClip.xml" sourcePath="addons/gf/standard/utilities/audio/gf_audio_clip.gd" extends="Resource" />
 		<class name="GFAudioEmitterHandle" path="classes/GFAudioEmitterHandle.xml" sourcePath="addons/gf/standard/utilities/audio/gf_audio_emitter_handle.gd" extends="RefCounted" />
@@ -291,7 +292,7 @@
 		<class name="GFWeightedEntry" path="classes/GFWeightedEntry.xml" sourcePath="addons/gf/standard/foundation/math/gf_weighted_entry.gd" extends="Resource" />
 		<class name="GFWeightedTable" path="classes/GFWeightedTable.xml" sourcePath="addons/gf/standard/foundation/math/gf_weighted_table.gd" extends="Resource" />
 	</module>
-	<module id="extensions/action_queue" label="Action Queue" classCount="15" methodCount="121">
+	<module id="extensions/action_queue" label="Action Queue" classCount="16" methodCount="128">
 		<class name="GFAction" path="classes/GFAction.xml" sourcePath="addons/gf/extensions/action_queue/core/gf_action.gd" extends="RefCounted" />
 		<class name="GFActionInterceptionResult" path="classes/GFActionInterceptionResult.xml" sourcePath="addons/gf/extensions/action_queue/core/gf_action_interception_result.gd" extends="RefCounted" />
 		<class name="GFActionInterceptor" path="classes/GFActionInterceptor.xml" sourcePath="addons/gf/extensions/action_queue/core/gf_action_interceptor.gd" extends="RefCounted" />
@@ -302,6 +303,7 @@
 		<class name="GFFlashAction" path="classes/GFFlashAction.xml" sourcePath="addons/gf/extensions/action_queue/actions/gf_flash_action.gd" extends="GFVisualAction" />
 		<class name="GFMoveTweenAction" path="classes/GFMoveTweenAction.xml" sourcePath="addons/gf/extensions/action_queue/actions/gf_move_tween_action.gd" extends="GFVisualAction" />
 		<class name="GFRepeatAction" path="classes/GFRepeatAction.xml" sourcePath="addons/gf/extensions/action_queue/actions/gf_repeat_action.gd" extends="GFVisualAction" />
+		<class name="GFShaderParameterAction" path="classes/GFShaderParameterAction.xml" sourcePath="addons/gf/extensions/action_queue/actions/gf_shader_parameter_action.gd" extends="GFVisualAction" />
 		<class name="GFTweenActionConfig" path="classes/GFTweenActionConfig.xml" sourcePath="addons/gf/extensions/action_queue/tween/gf_tween_action_config.gd" extends="Resource" />
 		<class name="GFTweenActionStep" path="classes/GFTweenActionStep.xml" sourcePath="addons/gf/extensions/action_queue/tween/gf_tween_action_step.gd" extends="Resource" />
 		<class name="GFVisualAction" path="classes/GFVisualAction.xml" sourcePath="addons/gf/extensions/action_queue/actions/gf_visual_action.gd" extends="RefCounted" />

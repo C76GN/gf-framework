@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSignalConnection" path="addons/gf/standard/utilities/signals/gf_signal_connection.gd" module="standard" extends="RefCounted" classDigest="f234e071767a6e7f6f8445404343d81235062995b2c71aaa15fc1a87caa0fe93">
+<class name="GFSignalConnection" path="addons/gf/standard/utilities/signals/gf_signal_connection.gd" module="standard" extends="RefCounted" classDigest="40d499e08eef8d97c14c342fb2c2c9644e24b3e1da3a2abad334230dbeb33f38">
 	<description>GFSignalConnection: 可管理的 Godot Signal 链式连接。
 连接支持默认参数、过滤、映射、延迟、防抖、节流、次数限制、
 累积转换、一次性触发和 owner 归属清理。</description>
@@ -41,10 +41,10 @@
 		</member>
 		<member kind="method" name="delay">
 			<signature>func delay(seconds: float) -&gt; GFSignalConnection:</signature>
-			<description>延迟指定秒数后再继续处理。</description>
+			<description>每次触发都延迟指定秒数后再继续处理。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="param">seconds: 延迟或防抖时间（秒）。</tag>
+				<tag name="param">seconds: 延迟时间（秒）。</tag>
 				<tag name="return">当前连接对象，便于继续链式配置。</tag>
 			</tags>
 		</member>
@@ -53,7 +53,7 @@
 			<description>防抖处理。连续触发时只保留静默期后的最后一次。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="param">seconds: 延迟或防抖时间（秒）。</tag>
+				<tag name="param">seconds: 防抖静默期（秒）。</tag>
 				<tag name="return">当前连接对象，便于继续链式配置。</tag>
 			</tags>
 		</member>

@@ -1,0 +1,158 @@
+# GFConfigTableImporter
+
+[API Reference](../index.md) / [Standard](../standard.md) / [类索引](index.md)
+
+- 路径：`addons/gf/standard/utilities/config/gf_config_table_importer.gd`
+- 模块：`Standard`
+- 继承：`RefCounted`
+- API：`public`
+- 类别：运行时服务 (`runtime_service`)
+- 首次版本：`3.17.0`
+
+通用导表文本解析与 schema 校验入口。 提供 JSON 与 CSV 的轻量解析，适合编辑器工具或 CI 在进入项目 Provider 前做结构检查。
+
+## 成员概览
+
+| 类型 | 名称 | 签名 |
+|---|---|---|
+| 方法 | [`parse_json_table`](#member-gfconfigtableimporter-methods-parse_json_table) | `static func parse_json_table(text: String, options: Dictionary = {}) -> Dictionary:` |
+| 方法 | [`parse_csv_table`](#member-gfconfigtableimporter-methods-parse_csv_table) | `static func parse_csv_table(text: String, options: Dictionary = {}) -> Dictionary:` |
+| 方法 | [`validate_json_table`](#member-gfconfigtableimporter-methods-validate_json_table) | `static func validate_json_table(text: String, schema: GFConfigTableSchema, options: Dictionary = {}) -> Dictionary:` |
+| 方法 | [`validate_csv_table`](#member-gfconfigtableimporter-methods-validate_csv_table) | `static func validate_csv_table(text: String, schema: GFConfigTableSchema, options: Dictionary = {}) -> Dictionary:` |
+| 方法 | [`export_csv_table`](#member-gfconfigtableimporter-methods-export_csv_table) | `static func export_csv_table( table_data: Variant, schema: GFConfigTableSchema = null, options: Dictionary = {} ) -> Dictionary:` |
+
+## 方法
+
+<a id="member-gfconfigtableimporter-methods-parse_json_table"></a>
+
+### `parse_json_table`
+
+- API：`public`
+
+```gdscript
+static func parse_json_table(text: String, options: Dictionary = {}) -> Dictionary:
+```
+
+解析 JSON 表文本。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `text` | JSON 文本。 |
+| `options` | 可选参数，支持 source。 |
+
+返回：结果字典，包含 success、data、error、error_line 与 source。
+
+结构：
+
+- `options`: Dictionary，可包含 source。
+- `return`: Dictionary，包含 success、data、error、error_line 和 source。
+
+<a id="member-gfconfigtableimporter-methods-parse_csv_table"></a>
+
+### `parse_csv_table`
+
+- API：`public`
+
+```gdscript
+static func parse_csv_table(text: String, options: Dictionary = {}) -> Dictionary:
+```
+
+解析 CSV 表文本。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `text` | CSV 文本。 |
+| `options` | 可选参数，支持 delimiter、trim_cells、skip_empty_lines、reject_duplicate_headers、source。 |
+
+返回：结果字典，包含 success、data、row_locations 与 error。
+
+结构：
+
+- `options`: Dictionary，可包含 delimiter、trim_cells、skip_empty_lines、reject_duplicate_headers 和 source。
+- `return`: Dictionary，包含 success、data、row_locations、error、error_line、error_column 和 source。
+
+<a id="member-gfconfigtableimporter-methods-validate_json_table"></a>
+
+### `validate_json_table`
+
+- API：`public`
+
+```gdscript
+static func validate_json_table(text: String, schema: GFConfigTableSchema, options: Dictionary = {}) -> Dictionary:
+```
+
+解析并校验 JSON 表文本。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `text` | JSON 文本。 |
+| `schema` | 表结构声明。 |
+| `options` | 可选参数，支持 source。 |
+
+返回：校验报告；解析失败时返回失败报告。
+
+结构：
+
+- `options`: Dictionary，可包含 source。
+- `return`: GFConfigValidationReport 兼容 Dictionary。
+
+<a id="member-gfconfigtableimporter-methods-validate_csv_table"></a>
+
+### `validate_csv_table`
+
+- API：`public`
+
+```gdscript
+static func validate_csv_table(text: String, schema: GFConfigTableSchema, options: Dictionary = {}) -> Dictionary:
+```
+
+解析并校验 CSV 表文本。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `text` | CSV 文本。 |
+| `schema` | 表结构声明。 |
+| `options` | 可选参数，支持 delimiter、trim_cells、skip_empty_lines、reject_duplicate_headers、source。 |
+
+返回：校验报告；解析失败时返回失败报告。
+
+结构：
+
+- `options`: Dictionary，可包含 delimiter、trim_cells、skip_empty_lines、reject_duplicate_headers 和 source。
+- `return`: GFConfigValidationReport 兼容 Dictionary。
+
+<a id="member-gfconfigtableimporter-methods-export_csv_table"></a>
+
+### `export_csv_table`
+
+- API：`public`
+
+```gdscript
+static func export_csv_table( table_data: Variant, schema: GFConfigTableSchema = null, options: Dictionary = {} ) -> Dictionary:
+```
+
+导出 CSV 表文本。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `table_data` | Array[Dictionary] 或 Dictionary 形式的表数据。 |
+| `schema` | 可选 schema；提供时默认按 schema.columns 排列列。 |
+| `options` | 可选参数，支持 delimiter、columns、include_header、coerce_values。 |
+
+返回：结果字典，包含 success、text 与 error。
+
+结构：
+
+- `table_data`: Variant，支持 Array[Dictionary] 或 Dictionary，记录值必须为 Dictionary。
+- `options`: Dictionary，可包含 delimiter、columns、include_header 和 coerce_values。
+- `return`: Dictionary，包含 success、text 和 error。

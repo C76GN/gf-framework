@@ -21,7 +21,10 @@ GF Framework 用一套清晰的运行时架构，把游戏项目中的数据、�
 - [GF 内置扩展总览与扩展规范](extensions/index.md)：manifest、启用状态、扩展 Installer、导出排除和内置扩展清单。
 - [编辑器工具、访问器与项目常量](editor/index.md)：GF 插件、扩展管理器、Inspector、工作区页面、导出插件和代码生成。
 - [项目实践建议](overview/best-practices/index.md)：项目落地时的分层、依赖、生命周期和测试建议。
+- [FAQ](faq.md)：安装、使用边界、文档生成和扩展协作的常见问题。
+- [参考资料](reference/index.md)：API Reference、版本变更和查阅型资料入口。
 - [API Reference](reference/api/index.md)：从源码 API 注释生成的类、属性、信号和方法签名。
+- [更新日志](changelog.md)：当前发布版本的变更摘要、API 变化和迁移提示。
 
 ## 源码结构
 

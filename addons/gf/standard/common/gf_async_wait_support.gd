@@ -230,7 +230,10 @@ static func _await_signal_state_safely(
 	var tree_exit_callback: Callable = on_resume
 	var guard_exit_callback: Callable = on_resume
 
-	var _result_connect_result: int = result_signal.connect(result_callback, CONNECT_ONE_SHOT)
+	var _result_connect_result: int = result_signal.connect(
+		result_callback,
+		CONNECT_ONE_SHOT as Object.ConnectFlags
+	)
 
 	var tree_exit_signal: Signal = Signal()
 	var guard_exit_signal: Signal = Signal()
@@ -241,7 +244,10 @@ static func _await_signal_state_safely(
 			return completion_state
 		if result_signal != node.tree_exited:
 			tree_exit_callback = make_signal_resume_callable(node.tree_exited, on_resume)
-			var _tree_exit_connect_result: int = node.tree_exited.connect(tree_exit_callback, CONNECT_ONE_SHOT)
+			var _tree_exit_connect_result: int = node.tree_exited.connect(
+				tree_exit_callback,
+				CONNECT_ONE_SHOT as Object.ConnectFlags
+			)
 			tree_exit_signal = node.tree_exited
 
 	if is_instance_valid(guard_node) and result_signal != guard_node.tree_exited and tree_exit_signal != guard_node.tree_exited:
@@ -250,7 +256,10 @@ static func _await_signal_state_safely(
 			disconnect_signal_if_connected(tree_exit_signal, tree_exit_callback)
 			return completion_state
 		guard_exit_callback = make_signal_resume_callable(guard_node.tree_exited, on_resume)
-		var _guard_exit_connect_result: int = guard_node.tree_exited.connect(guard_exit_callback, CONNECT_ONE_SHOT)
+		var _guard_exit_connect_result: int = guard_node.tree_exited.connect(
+			guard_exit_callback,
+			CONNECT_ONE_SHOT as Object.ConnectFlags
+		)
 		guard_exit_signal = guard_node.tree_exited
 
 	var timeout_msec: float = maxf(timeout_seconds, 0.0) * 1000.0

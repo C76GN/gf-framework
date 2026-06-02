@@ -189,6 +189,7 @@ python tools\gf_maintenance.py workspace-status
 python tools\gf_maintenance.py api-search GFAudioClip
 python tools\gf_maintenance.py api-class GFValidationReportDictionary
 python tools\gf_maintenance.py api-module extensions/domain
+python tools\generate_api_coverage_matrix.py
 python tools\gf_maintenance.py check --suite quick
 python tools\gf_maintenance.py check --suite full
 python tools\gf_maintenance.py release-status --version 3.19.0
@@ -205,6 +206,8 @@ MCP 暴露的主要工具：
 - `gf_release_status`：校验 `plugin.cfg`、扩展 manifest、`ASSET_LIBRARY.md`、`ASSET_STORE.md`、changelog、发布包归档规则和本地 tag 状态。
 
 接入 MCP 客户端时，将 server 命令指向仓库根目录下的 `python tools/gf_mcp_server.py` 即可。不要把个人客户端配置、会话记录或 MCP 运行日志提交到仓库；需要新增维护能力时，优先扩展 `tools/gf_maintenance.py`，再让 MCP server 调用同一套函数。
+
+准备补指南、测试或示例项目覆盖时，先运行 `python tools\generate_api_coverage_matrix.py`。生成结果位于 `ai_analysis/api_coverage/`，用于查看公开类和成员在非 Reference 正文、`tests/gf_core` 和未来 example 根目录中的命中情况；它是维护排查清单，不作为正式用户文档提交。
 
 ## 发布流程
 
@@ -317,7 +320,7 @@ python tools\check_docs_quality.py --report-fragments
 python tools\check_docs_quality.py --fail-fragments
 ```
 
-`tests/gf_core/maintenance/test_docs_structure_validation.gd` 会检查 `docs/zh` 页面是否进入 `mkdocs.yml` 导航、导航路径是否真实存在、顶层目录是否为允许的语义目录、旧编号目录是否没有回流，并确认旧 GitHub Wiki 目录只保留入口文件。这类结构问题应先修测试失败，再补正文内容。
+`tests/gf_core/maintenance/test_docs_structure_validation.gd` 会检查 `docs/zh` 页面是否能从 `mkdocs.yml` 导航入口通过文档链接访问、导航路径是否真实存在、顶层目录是否为允许的语义目录、旧编号目录是否没有回流，并确认旧 GitHub Wiki 目录只保留入口文件。该测试还会限制左侧导航规模和深度，防止细节页重新塞回导航。`reference/api/classes/*.md` 是生成的 API 详情页，可通过 `not_in_nav` 保持可链接但不进入左侧导航；API 模块页必须保持索引形态，成员详情只放在单类页。这类结构问题应先修测试失败，再补正文内容。
 
 旧 Wiki 不再维护正文副本、章节页或迁移页。`docs/wiki/Home.md`、`_Sidebar.md` 和 `_Footer.md` 只提供 Read the Docs 入口。需要修改正式内容时，应修改 `docs/zh/**`，再由 MkDocs / Read the Docs 发布。
 

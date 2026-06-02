@@ -89,7 +89,7 @@ func serialize_value(value: Variant) -> Variant:
 		ValueType.BOOL:
 			return _coerce_bool(value)
 		ValueType.INT:
-			return int(roundf(_apply_number_policy(_coerce_float(value))))
+			return roundi(_apply_number_policy(_coerce_float(value)))
 		ValueType.FLOAT:
 			return _apply_number_policy(_coerce_float(value))
 		ValueType.STRING:

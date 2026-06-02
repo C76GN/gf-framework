@@ -443,7 +443,10 @@ func _await_command_signal(result_signal: Signal, lifecycle_serial: int) -> bool
 	) -> void:
 		completed[0] = true
 
-	var _connect_result_446: Variant = result_signal.connect(on_resume, CONNECT_ONE_SHOT)
+	var _connect_result_446: Variant = result_signal.connect(
+		on_resume,
+		CONNECT_ONE_SHOT as Object.ConnectFlags
+	)
 
 	var timeout_msec: int = int(async_timeout_seconds * 1000.0)
 	var start_msec: int = Time.get_ticks_msec()

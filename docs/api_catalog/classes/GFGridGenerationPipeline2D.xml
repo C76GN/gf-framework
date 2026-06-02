@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFGridGenerationPipeline2D" path="addons/gf/standard/foundation/math/gf_grid_generation_pipeline_2d.gd" module="standard" extends="Resource" classDigest="b900a49f57a2168d6d711b9cb84ab0e9fe07beb4cc1f6b751abdd121b4590365">
+<class name="GFGridGenerationPipeline2D" path="addons/gf/standard/foundation/math/gf_grid_generation_pipeline_2d.gd" module="standard" extends="Resource" classDigest="89a89e8acac2758a90702abe5df5d33a702cf89d1db4aefe4dd3644b7b47a485">
 	<description>GFGridGenerationPipeline2D: 通用 2D 网格生成管线。
 以候选格子为输入，按步骤输出 `Dictionary[Vector2i, Variant]`。
 适合程序化生成的中间数据层，不绑定任何具体节点、资源或玩法类型。</description>
@@ -66,6 +66,19 @@
 				<tag name="schema">return: Dictionary mapping Vector2i cells to generated values.</tag>
 			</tags>
 		</member>
+		<member kind="method" name="generate_with_report">
+			<signature>func generate_with_report(candidates: Array[Vector2i], context: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>执行生成管线，并返回执行报告。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">candidates: 候选格子。</tag>
+				<tag name="param">context: 项目自定义上下文。</tag>
+				<tag name="return">执行报告，包含生成结果和步骤统计。</tag>
+				<tag name="schema">context: Dictionary project-defined generation context.</tag>
+				<tag name="schema">return: Dictionary with ok, grid, candidate_count, initial_grid_count, default_filled_count, final_grid_count, configured_step_count, applied_step_count, skipped_step_count, changed_count, elapsed_usec, metadata, and steps.</tag>
+				<tag name="since">4.2.0</tag>
+			</tags>
+		</member>
 		<member kind="method" name="apply_to_grid">
 			<signature>func apply_to_grid( grid: Dictionary, candidates: Array[Vector2i], context: Dictionary = {} ) -&gt; Dictionary:</signature>
 			<description>在已有网格上执行生成管线。</description>
@@ -78,6 +91,21 @@
 				<tag name="schema">grid: Dictionary mapping Vector2i cells to generated values; mutated in place.</tag>
 				<tag name="schema">context: Dictionary project-defined generation context.</tag>
 				<tag name="schema">return: Dictionary same grid instance passed to the method.</tag>
+			</tags>
+		</member>
+		<member kind="method" name="apply_to_grid_with_report">
+			<signature>func apply_to_grid_with_report( grid: Dictionary, candidates: Array[Vector2i], context: Dictionary = {} ) -&gt; Dictionary:</signature>
+			<description>在已有网格上执行生成管线，并返回执行报告。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">grid: 目标网格字典，key 为 Vector2i。</tag>
+				<tag name="param">candidates: 候选格子。</tag>
+				<tag name="param">context: 项目自定义上下文。</tag>
+				<tag name="return">执行报告，grid 字段为传入的目标网格。</tag>
+				<tag name="schema">grid: Dictionary mapping Vector2i cells to generated values; mutated in place.</tag>
+				<tag name="schema">context: Dictionary project-defined generation context.</tag>
+				<tag name="schema">return: Dictionary with ok, grid, candidate_count, initial_grid_count, default_filled_count, final_grid_count, configured_step_count, applied_step_count, skipped_step_count, changed_count, elapsed_usec, metadata, and steps.</tag>
+				<tag name="since">4.2.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="add_step">

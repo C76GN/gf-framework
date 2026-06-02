@@ -554,7 +554,7 @@ class _GFAnalyticsShutdownWatcher extends Node:
 	var _shutdown_callback: Callable = Callable()
 
 	func _init() -> void:
-		process_mode = Node.PROCESS_MODE_ALWAYS
+		process_mode = Node.PROCESS_MODE_ALWAYS as Node.ProcessMode
 
 
 	func _notification(what: int) -> void:

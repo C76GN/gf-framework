@@ -1,0 +1,142 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFShaderParameterAction" path="addons/gf/extensions/action_queue/actions/gf_shader_parameter_action.gd" module="extensions/action_queue" extends="GFVisualAction" classDigest="27ed11af1002707a8608be8b5df1fa6d6165dac4815b1c714b182fc2a6aa998d">
+	<description>GFShaderParameterAction: 通用 ShaderMaterial 参数动作。
+将 ShaderMaterial 的某个 uniform 参数写入或缓动到目标值。
+它只处理参数写入、Tween 宿主和可选材质实例化，不绑定具体 shader、特效或业务语义。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_handle</tag>
+		<tag name="since">4.2.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties>
+		<member kind="property" name="target">
+			<signature>var target: Object</signature>
+			<description>目标对象。可以直接是 ShaderMaterial，也可以是持有材质属性的对象。</description>
+			<tags>
+				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="property" name="parameter_name">
+			<signature>var parameter_name: StringName = &amp;""</signature>
+			<description>Shader uniform 参数名。</description>
+			<tags>
+				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="property" name="target_value">
+			<signature>var target_value: Variant = null</signature>
+			<description>要写入的目标参数值。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">target_value: Variant，可被 Tween 插值并写入 parameter_name 的目标值。</tag>
+			</tags>
+		</member>
+		<member kind="property" name="duration">
+			<signature>var duration: float = 0.2</signature>
+			<description>Tween 持续时间。小于等于 0 时立即写入。</description>
+			<tags>
+				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="property" name="material_property">
+			<signature>var material_property: NodePath = ^"material"</signature>
+			<description>当 target 不是 ShaderMaterial 时，用于读取材质的属性路径。</description>
+			<tags>
+				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="property" name="host_node">
+			<signature>var host_node: Node</signature>
+			<description>可选 Tween 宿主节点。target 不是 Node 时，带时长动作必须提供。</description>
+			<tags>
+				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="property" name="transition_type">
+			<signature>var transition_type: Tween.TransitionType = Tween.TRANS_CUBIC</signature>
+			<description>Tween 过渡类型。</description>
+			<tags>
+				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="property" name="ease_type">
+			<signature>var ease_type: Tween.EaseType = Tween.EASE_OUT</signature>
+			<description>Tween 缓动类型。</description>
+			<tags>
+				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="property" name="duplicate_material_on_execute">
+			<signature>var duplicate_material_on_execute: bool = false</signature>
+			<description>执行前是否复制材质并写回 material_property，避免修改共享材质资源。</description>
+			<tags>
+				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="property" name="restore_initial_value_on_cancel">
+			<signature>var restore_initial_value_on_cancel: bool = false</signature>
+			<description>取消动作时是否恢复执行前捕获的参数值。</description>
+			<tags>
+				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="property" name="restore_initial_value_on_finish">
+			<signature>var restore_initial_value_on_finish: bool = false</signature>
+			<description>动作自然结束或 finish() 时是否恢复执行前捕获的参数值。</description>
+			<tags>
+				<tag name="api">public</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="execute">
+			<signature>func execute() -&gt; Variant:</signature>
+			<description>执行 Shader 参数写入或 Tween。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">需要等待时返回内部完成 Signal；目标、材质或参数无效时返回 null。</tag>
+				<tag name="schema">return: Variant，返回内部完成 Signal 或 null。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="cancel">
+			<signature>func cancel() -&gt; void:</signature>
+			<description>取消当前 Tween，并按配置恢复参数值。</description>
+			<tags>
+				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="method" name="pause">
+			<signature>func pause() -&gt; void:</signature>
+			<description>暂停当前 Tween。</description>
+			<tags>
+				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="method" name="resume">
+			<signature>func resume() -&gt; void:</signature>
+			<description>恢复当前 Tween。</description>
+			<tags>
+				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="method" name="finish">
+			<signature>func finish() -&gt; void:</signature>
+			<description>立即完成当前 Tween，并按配置恢复参数值。</description>
+			<tags>
+				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_wait_guard_node">
+			<signature>func get_wait_guard_node() -&gt; Node:</signature>
+			<description>获取用于保护等待生命周期的 Tween 宿主节点。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">有效宿主节点；无效时返回 null。</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

@@ -62,7 +62,10 @@ func bind_field(key: StringName, control: Control, default_value: Variant = null
 	)
 	var tree_exited_callback: Callable = func() -> void:
 		unbind_field(key)
-	var _tree_exited_connection_result: int = control.tree_exited.connect(tree_exited_callback, CONNECT_ONE_SHOT)
+	var _tree_exited_connection_result: int = control.tree_exited.connect(
+		tree_exited_callback,
+		CONNECT_ONE_SHOT as Object.ConnectFlags
+	)
 	_fields[key] = {
 		"control_ref": weakref(control),
 		"default_value": default_value,

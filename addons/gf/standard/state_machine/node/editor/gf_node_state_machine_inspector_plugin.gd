@@ -47,7 +47,10 @@ func _parse_begin(object: Object) -> void:
 	option.tooltip_text = "从直接子 GFNodeState 中选择内部状态组初始状态"
 	row.add_child(option)
 	_populate_initial_state_options(option, target)
-	var _option_connected: int = option.item_selected.connect(_on_initial_state_selected.bind(option, target), CONNECT_DEFERRED)
+	var _option_connected: int = option.item_selected.connect(
+		_on_initial_state_selected.bind(option, target),
+		CONNECT_DEFERRED as Object.ConnectFlags
+	)
 
 	var separator: HSeparator = HSeparator.new()
 	root.add_child(separator)
@@ -58,10 +61,13 @@ func _parse_begin(object: Object) -> void:
 	root.add_child(validate_button)
 
 	var report_label: Label = Label.new()
-	report_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	report_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART as TextServer.AutowrapMode
 	report_label.modulate = Color(0.8, 0.8, 0.8)
 	root.add_child(report_label)
-	var _validate_connected: int = validate_button.pressed.connect(_on_validate_pressed.bind(report_label, target), CONNECT_DEFERRED)
+	var _validate_connected: int = validate_button.pressed.connect(
+		_on_validate_pressed.bind(report_label, target),
+		CONNECT_DEFERRED as Object.ConnectFlags
+	)
 
 
 # --- 框架内部方法 ---

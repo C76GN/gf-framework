@@ -46,7 +46,7 @@ func test_measure_control_text_uses_label_autowrap() -> void:
 	var label: Label = Label.new()
 	label.text = "Alpha Beta Gamma Delta"
 	label.size = Vector2(72.0, 160.0)
-	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART as TextServer.AutowrapMode
 	add_child_autofree(label)
 
 	var wrapped_size: Vector2 = GFTextFitter.measure_control_text(label, 20, {
@@ -67,7 +67,7 @@ func test_fit_label_uses_label_autowrap_for_height() -> void:
 	var label: Label = Label.new()
 	label.text = "Alpha Beta Gamma Delta"
 	label.size = Vector2(72.0, 120.0)
-	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART as TextServer.AutowrapMode
 	add_child_autofree(label)
 
 	var font_size: int = GFTextFitter.fit_label(label, {

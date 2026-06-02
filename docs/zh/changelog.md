@@ -22,33 +22,33 @@
 
 ---
 
-## [4.1.0] - 2026-06-01
+## [4.2.0] - 2026-06-02
 
-**版本概述**：补强通用 HTTP 响应对象的 header 读取语义，扩展 2D 曲线/折线基础算法的虚线切分与闭合多边形圆角化能力，并增加通用资源依赖收集、弹簧平滑数学与 3D 物理多命中射线查询。
+**版本概述**：补充通用音频节拍时钟、Shader 参数动作，并为 2D 网格生成管线增加报告式执行入口，便于项目把播放时间、表现参数和数据生成流程纳入可诊断、可组合的框架能力，同时保持表现、工具链和业务语义解耦。
 
 ### 🚀 新增特性 (Added)
 
-- `GFHttpResponse` 新增 `get_header()`、`get_header_values()` 与 `get_headers_dictionary()`，用于稳定读取响应头并保留重复 header 值。
-- `GFCurve2DMath` 新增 `make_dashed_polyline_segments()` 与 `round_polygon_points()`，用于在不创建节点、不绑定绘制语义的前提下切分虚线折线并生成闭合多边形圆角点序列。
-- 新增 `GFSpringMath`，用于对 float、角度、Vector2 与 Vector3 执行无状态二阶弹簧步进，不绑定节点、Tween 或具体表现语义。
-- `GFResourceRegistryTools` 新增 `collect_dependency_paths()`，用于基于 Godot 资源依赖关系收集路径闭包，便于构建资源注册表、预加载分组或预热清单。
-- 新增 `GFPhysicsQueryUtility.raycast_all_3d()`，用于沿同一条 3D 射线收集多个物理命中结果，不绑定视觉、Combat 或 Interaction 语义。
+- 新增 `GFAudioBeatClock`，支持 BPM、每小节 beat 数、时间 offset、手动 `update()`、可选位置来源、beat / measure 边界信号、时间量化和快照查询。
+- 新增 `GFShaderParameterAction` 与 `GFAction.shader_parameter()`，用于在 Action Queue 中写入或缓动 `ShaderMaterial` uniform 参数，支持外部 Tween 宿主、共享材质执行前复制，以及取消或结束时恢复初始参数值。
+- `GFGridGenerationPipeline2D` 新增 `generate_with_report()` 与 `apply_to_grid_with_report()`，返回候选数量、默认填充、步骤修改数量、跳过原因、步骤前后网格大小、耗时和结果网格，便于编辑器工具链或自动化流程审计生成过程。
+
+### 🐛 Bug 修复 (Fixed)
+
+- 修复 `GFSignalConnection.delay()` 与 `debounce()` 共用触发序列导致连续延迟信号可能被后续触发误取消的问题，并加固防抖测试避免毫秒级计时漂移。
+- 清理多处 Godot 4.6 编辑器静态类型警告，包括 `process_mode`、`mouse_filter`、`autowrap_mode`、`Signal.connect()` flags 以及 `floor` / `round` 整数转换的显式类型收窄。
 
 ### 📁 核心受影响文件 (Affected Files)
 
-- `addons/gf/standard/foundation/math/gf_curve_2d_math.gd`
-- `addons/gf/standard/foundation/math/gf_spring_math.gd`
-- `addons/gf/standard/utilities/assets/gf_resource_registry_tools.gd`
-- `addons/gf/standard/utilities/spatial/gf_physics_query_utility.gd`
-- `addons/gf/standard/utilities/io/gf_http_response.gd`
-- `tests/gf_core/extensions/action_queue/test_gf_action_queue.gd`
-- `tests/gf_core/standard/utilities/assets/test_gf_resource_registry_tools.gd`
-- `tests/gf_core/standard/foundation/math/test_gf_curve_2d_math.gd`
-- `tests/gf_core/standard/foundation/math/test_gf_spring_math.gd`
-- `tests/gf_core/standard/utilities/spatial/test_gf_physics_query_utility.gd`
-- `tests/gf_core/standard/utilities/io/test_gf_http_request_builder.gd`
-- `docs/zh/standard/foundation/grid-spatial/curve-2d.md`
-- `docs/zh/standard/foundation/grid-spatial/spring-math.md`
-- `docs/zh/standard/utilities/io/assets-jobs-warmup/asset-utility/resource-registry.md`
-- `docs/zh/standard/input-flow/spatial-query.md`
-- `docs/zh/standard/utilities/io/config-remote-outbox/http-async-batch.md`
+- `addons/gf/standard/utilities/audio/gf_audio_beat_clock.gd`
+- `addons/gf/standard/foundation/math/gf_grid_generation_pipeline_2d.gd`
+- `addons/gf/standard/utilities/signals/gf_signal_connection.gd`
+- `addons/gf/extensions/action_queue/actions/gf_shader_parameter_action.gd`
+- `addons/gf/extensions/action_queue/core/gf_action.gd`
+- `tests/gf_core/standard/utilities/audio/test_gf_audio_beat_clock.gd`
+- `tests/gf_core/standard/foundation/math/test_gf_grid_generation_pipeline_2d.gd`
+- `tests/gf_core/standard/utilities/signals/test_gf_signal_utility.gd`
+- `tests/gf_core/extensions/action_queue/test_gf_visual_actions.gd`
+- `docs/zh/standard/utilities/runtime/audio/playback/beat-clock.md`
+- `docs/zh/standard/foundation/grid-spatial/grid-2d-hex/generation-pipeline.md`
+- `docs/zh/standard/utilities/runtime/time-signal-pool/signal-utility/chain-connections.md`
+- `docs/zh/extensions/action-queue/interceptors-actions/action-factory.md`

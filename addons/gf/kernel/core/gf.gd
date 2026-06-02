@@ -66,7 +66,7 @@ var _last_project_installer_error: String = ""
 # --- Godot 生命周期方法 ---
 
 func _ready() -> void:
-	process_mode = Node.PROCESS_MODE_ALWAYS
+	process_mode = Node.PROCESS_MODE_ALWAYS as Node.ProcessMode
 
 
 # 每帧驱动架构的 tick 循环，由架构分发给 System 与实现 tick() 的 Utility。

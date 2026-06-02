@@ -126,7 +126,7 @@ static func make_button(text: String, tooltip: String = "", pressed: Callable = 
 static func make_summary_label(text: String = "") -> Label:
 	var label: Label = Label.new()
 	label.text = text
-	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART as TextServer.AutowrapMode
 	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	label.modulate = INFO_TEXT_COLOR
 	return label

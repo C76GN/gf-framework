@@ -63,7 +63,7 @@ func _create_cell_button(cell: Vector2i, cells: Array) -> CheckBox:
 	checkbox.tooltip_text = "%d,%d" % [cell.x, cell.y]
 	checkbox.button_pressed = cells.has(cell)
 	checkbox.custom_minimum_size = Vector2(22.0, 22.0)
-	checkbox.mouse_filter = Control.MOUSE_FILTER_STOP
+	checkbox.mouse_filter = Control.MOUSE_FILTER_STOP as Control.MouseFilter
 	var _connect_result_67: Variant = checkbox.gui_input.connect(_on_cell_gui_input.bind(checkbox, cell))
 	var _connect_result_68: Variant = checkbox.mouse_entered.connect(_on_cell_mouse_entered.bind(checkbox, cell))
 	var _connect_result_69: Variant = checkbox.toggled.connect(_on_cell_toggled.bind(cell))

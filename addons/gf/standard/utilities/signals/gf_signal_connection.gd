@@ -54,7 +54,7 @@ var _connect_flags: int = 0
 var _operations: Array[Dictionary] = []
 var _is_once: bool = false
 var _is_connected: bool = false
-var _serial: int = 0
+var _lifecycle_serial: int = 0
 
 
 # --- Godot 生命周期方法 ---
@@ -109,11 +109,11 @@ func map(mapper: Callable) -> GFSignalConnection:
 	return self
 
 
-## 延迟指定秒数后再继续处理。
+## 每次触发都延迟指定秒数后再继续处理。
 ## [br]
 ## @api public
 ## [br]
-## @param seconds: 延迟或防抖时间（秒）。
+## @param seconds: 延迟时间（秒）。
 ## [br]
 ## @return 当前连接对象，便于继续链式配置。
 func delay(seconds: float) -> GFSignalConnection:
@@ -128,13 +128,14 @@ func delay(seconds: float) -> GFSignalConnection:
 ## [br]
 ## @api public
 ## [br]
-## @param seconds: 延迟或防抖时间（秒）。
+## @param seconds: 防抖静默期（秒）。
 ## [br]
 ## @return 当前连接对象，便于继续链式配置。
 func debounce(seconds: float) -> GFSignalConnection:
 	_operations.append({
 		"type": OperationType.DEBOUNCE,
 		"seconds": maxf(seconds, 0.0),
+		"debounce_serial": 0,
 	})
 	return self
 
@@ -225,8 +226,7 @@ func scan(accumulator: Variant, reducer: Callable) -> GFSignalConnection:
 ## [br]
 ## @return 当前连接对象，便于继续链式配置。
 func start_with(value: Variant) -> GFSignalConnection:
-	_serial += 1
-	_start_process_async(_normalize_start_args(value), _serial)
+	_start_process_async(_normalize_start_args(value), _lifecycle_serial)
 	return self
 
 
@@ -267,7 +267,7 @@ func start() -> GFSignalConnection:
 ## [br]
 ## @api public
 func disconnect_signal() -> void:
-	_serial += 1
+	_lifecycle_serial += 1
 	if not _is_connected:
 		return
 	if not _source_signal.is_null() and is_instance_valid(_source_signal.get_object()):
@@ -400,12 +400,11 @@ func _on_signal_emitted(
 		arg15,
 		arg16,
 	])
-	_serial += 1
-	_start_process_async(args, _serial)
+	_start_process_async(args, _lifecycle_serial)
 
 
-func _start_process_async(args: Array, serial: int) -> void:
-	_GF_ASYNC_CALL_SCRIPT.run_detached(Callable(self, &"_process_async"), [args, serial])
+func _start_process_async(args: Array, lifecycle_serial: int) -> void:
+	_GF_ASYNC_CALL_SCRIPT.run_detached(Callable(self, &"_process_async"), [args, lifecycle_serial])
 
 
 func _owner_matches_exact(owner: Object) -> bool:
@@ -414,11 +413,11 @@ func _owner_matches_exact(owner: Object) -> bool:
 	return is_owned_by(owner)
 
 
-func _process_async(args: Array, serial: int) -> void:
+func _process_async(args: Array, lifecycle_serial: int) -> void:
 	var current_args: Array = args.duplicate()
 	var should_disconnect_after_callback: bool = false
 	for operation: Dictionary in _operations:
-		if serial != _serial or prune_if_invalid():
+		if lifecycle_serial != _lifecycle_serial or prune_if_invalid():
 			return
 
 		match _get_operation_type(operation):
@@ -436,11 +435,14 @@ func _process_async(args: Array, serial: int) -> void:
 					current_args = [mapped]
 
 			OperationType.DELAY:
-				await _wait_seconds(_get_operation_seconds(operation), serial)
+				await _wait_seconds(_get_operation_seconds(operation), lifecycle_serial)
 
 			OperationType.DEBOUNCE:
-				await _wait_seconds(_get_operation_seconds(operation), serial)
-				if serial != _serial:
+				var debounce_serial: int = _next_operation_debounce_serial(operation)
+				await _wait_seconds(_get_operation_seconds(operation), lifecycle_serial)
+				if lifecycle_serial != _lifecycle_serial:
+					return
+				if debounce_serial != _get_operation_debounce_serial(operation):
 					return
 
 			OperationType.THROTTLE:
@@ -474,7 +476,7 @@ func _process_async(args: Array, serial: int) -> void:
 				operation["accumulator"] = accumulator
 				current_args = [accumulator]
 
-	if serial != _serial or prune_if_invalid():
+	if lifecycle_serial != _lifecycle_serial or prune_if_invalid():
 		return
 
 	var final_args: Array = _default_args.duplicate()
@@ -486,7 +488,7 @@ func _process_async(args: Array, serial: int) -> void:
 		_unregister_from_utility()
 
 
-func _wait_seconds(seconds: float, serial: int) -> void:
+func _wait_seconds(seconds: float, lifecycle_serial: int) -> void:
 	if seconds <= 0.0:
 		return
 
@@ -498,7 +500,7 @@ func _wait_seconds(seconds: float, serial: int) -> void:
 
 	var start_msec: int = Time.get_ticks_msec()
 	var wait_msec: int = int(seconds * 1000.0)
-	while serial == _serial and Time.get_ticks_msec() - start_msec < wait_msec:
+	while lifecycle_serial == _lifecycle_serial and Time.get_ticks_msec() - start_msec < wait_msec:
 		var fallback_loop: MainLoop = Engine.get_main_loop()
 		var scene_tree: SceneTree = fallback_loop if fallback_loop is SceneTree else null
 		if scene_tree == null:
@@ -555,6 +557,16 @@ func _get_operation_seconds(operation: Dictionary) -> float:
 
 func _get_operation_last_msec(operation: Dictionary) -> int:
 	return GFVariantData.get_option_int(operation, "last_msec", -1)
+
+
+func _next_operation_debounce_serial(operation: Dictionary) -> int:
+	var debounce_serial: int = _get_operation_debounce_serial(operation) + 1
+	operation["debounce_serial"] = debounce_serial
+	return debounce_serial
+
+
+func _get_operation_debounce_serial(operation: Dictionary) -> int:
+	return GFVariantData.get_option_int(operation, "debounce_serial")
 
 
 func _get_operation_remaining(operation: Dictionary) -> int:

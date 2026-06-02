@@ -194,7 +194,7 @@ func _build_ui() -> void:
 	_details_output.custom_minimum_size = Vector2(0.0, DETAILS_MIN_HEIGHT)
 	_details_output.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_details_output.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_details_output.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_details_output.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART as TextServer.AutowrapMode
 	_details_output.selection_enabled = true
 	_details_output.scroll_active = true
 	split.add_child(_details_output)

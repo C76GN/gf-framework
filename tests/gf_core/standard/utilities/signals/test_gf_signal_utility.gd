@@ -98,16 +98,31 @@ func test_filter_map_delay_chain() -> void:
 	assert_eq(received, [30], "链式 filter/map/delay 应按顺序处理参数。")
 
 
+func test_delay_keeps_each_emit() -> void:
+	var emitter: SampleEmitter = SampleEmitter.new()
+	var received: Array[Variant] = []
+
+	var _delay_result_101: Variant = _utility.connect_signal(emitter.changed, func(value: int) -> void:
+		received.append(value)
+	).delay(0.01)
+
+	emitter.emit_changed(1)
+	emitter.emit_changed(2)
+	await get_tree().create_timer(0.05).timeout
+	await get_tree().process_frame
+
+	assert_eq(received, [1, 2], "延迟应保留每一次触发，而不是被后续触发取消。")
+
+
 func test_debounce_keeps_last_emit() -> void:
 	var emitter: SampleEmitter = SampleEmitter.new()
 	var received: Array[Variant] = []
 
-	var _debounce_result_105: Variant = _utility.connect_signal(emitter.changed, func(value: int) -> void:
+	var _debounce_result_119: Variant = _utility.connect_signal(emitter.changed, func(value: int) -> void:
 		received.append(value)
 	).debounce(0.02)
 
 	emitter.emit_changed(1)
-	await get_tree().create_timer(0.005).timeout
 	emitter.emit_changed(2)
 	await get_tree().create_timer(0.05).timeout
 	await get_tree().process_frame

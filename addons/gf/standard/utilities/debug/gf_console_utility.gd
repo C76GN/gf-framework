@@ -898,11 +898,11 @@ class _GFConsoleGUI extends CanvasLayer:
 	func _init() -> void:
 		_apply_layer()
 		visible = false
-		process_mode = Node.PROCESS_MODE_ALWAYS
+		process_mode = Node.PROCESS_MODE_ALWAYS as Node.ProcessMode
 
 		_panel = PanelContainer.new()
 		_panel.name = "Panel"
-		_panel.mouse_filter = Control.MOUSE_FILTER_STOP
+		_panel.mouse_filter = Control.MOUSE_FILTER_STOP as Control.MouseFilter
 		add_child(_panel)
 
 		_panel_style = StyleBoxFlat.new()
@@ -926,7 +926,7 @@ class _GFConsoleGUI extends CanvasLayer:
 		header.text = "[ GF Developer Console ]"
 		header.modulate = Color(0.4, 0.8, 1.0)
 		header.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		header.mouse_filter = Control.MOUSE_FILTER_STOP
+		header.mouse_filter = Control.MOUSE_FILTER_STOP as Control.MouseFilter
 		_connect_signal(header.gui_input, _on_header_gui_input)
 		header_hbox.add_child(header)
 
@@ -955,7 +955,7 @@ class _GFConsoleGUI extends CanvasLayer:
 		vbox.add_child(_input_field)
 
 		_resize_handle = Panel.new()
-		_resize_handle.mouse_filter = Control.MOUSE_FILTER_STOP
+		_resize_handle.mouse_filter = Control.MOUSE_FILTER_STOP as Control.MouseFilter
 		_resize_handle.mouse_default_cursor_shape = Control.CURSOR_FDIAGSIZE
 		_resize_handle.visible = false
 		_connect_signal(_resize_handle.gui_input, _on_resize_handle_gui_input)

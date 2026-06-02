@@ -1,0 +1,248 @@
+# GFSceneSignalAudit
+
+[API Reference](../index.md) / [Kernel](../kernel.md) / [类索引](index.md)
+
+- 路径：`addons/gf/kernel/editor/gf_scene_signal_audit.gd`
+- 模块：`Kernel`
+- 继承：`RefCounted`
+- API：`public`
+- 类别：编辑器 API (`editor_api`)
+- 首次版本：`3.17.0`
+
+开发期场景信号连接审计工具。 扫描 PackedScene 中由编辑器保存的信号连接，报告缺失节点、缺失信号、 缺失方法和可选的参数数量不匹配。该工具只返回结构化报告，不修改场景， 也不参与运行时 GFArchitecture 生命周期。
+
+## 成员概览
+
+| 类型 | 名称 | 签名 |
+|---|---|---|
+| 枚举 | [`IssueType`](#member-gfscenesignalaudit-enums-issuetype) | `enum IssueType` |
+| 常量 | [`DEFAULT_MAX_SCAN_DEPTH`](#member-gfscenesignalaudit-constants-default_max_scan_depth) | `const DEFAULT_MAX_SCAN_DEPTH: int = 32` |
+| 常量 | [`DEFAULT_MAX_SCENE_PATHS`](#member-gfscenesignalaudit-constants-default_max_scene_paths) | `const DEFAULT_MAX_SCENE_PATHS: int = 10000` |
+| 常量 | [`DEFAULT_MAX_SIGNAL_GRAPH_DEPTH`](#member-gfscenesignalaudit-constants-default_max_signal_graph_depth) | `const DEFAULT_MAX_SIGNAL_GRAPH_DEPTH: int = 64` |
+| 常量 | [`DEFAULT_MAX_SIGNAL_GRAPH_NODES`](#member-gfscenesignalaudit-constants-default_max_signal_graph_nodes) | `const DEFAULT_MAX_SIGNAL_GRAPH_NODES: int = 10000` |
+| 方法 | [`audit_directory`](#member-gfscenesignalaudit-methods-audit_directory) | `static func audit_directory(root_path: String = "res://", options: Dictionary = {}) -> Dictionary:` |
+| 方法 | [`audit_scene_paths`](#member-gfscenesignalaudit-methods-audit_scene_paths) | `static func audit_scene_paths(scene_paths: PackedStringArray, options: Dictionary = {}) -> Dictionary:` |
+| 方法 | [`audit_scene`](#member-gfscenesignalaudit-methods-audit_scene) | `static func audit_scene(scene_path: String, options: Dictionary = {}) -> Array[Dictionary]:` |
+| 方法 | [`collect_scene_paths`](#member-gfscenesignalaudit-methods-collect_scene_paths) | `static func collect_scene_paths(root_path: String = "res://", options: Dictionary = {}) -> PackedStringArray:` |
+| 方法 | [`build_signal_graph`](#member-gfscenesignalaudit-methods-build_signal_graph) | `static func build_signal_graph(root: Node, options: Dictionary = {}) -> Dictionary:` |
+| 方法 | [`index_signal_graph`](#member-gfscenesignalaudit-methods-index_signal_graph) | `static func index_signal_graph(graph: Dictionary) -> Dictionary:` |
+
+## 枚举
+
+<a id="member-gfscenesignalaudit-enums-issuetype"></a>
+
+### `IssueType`
+
+- API：`public`
+
+```gdscript
+enum IssueType { ## 场景资源加载失败。 SCENE_LOAD_FAILED, ## 无法读取场景保存的连接状态。 SCENE_STATE_UNAVAILABLE, ## 场景实例化失败。 SCENE_INSTANTIATION_FAILED, ## 连接源节点缺失。 MISSING_SOURCE, ## 连接目标节点缺失。 MISSING_TARGET, ## 连接源信号缺失。 MISSING_SIGNAL, ## 连接目标方法缺失。 MISSING_METHOD, ## 信号参数数量与目标方法不匹配。 PARAMETER_COUNT_MISMATCH, }
+```
+
+场景信号连接审计问题类型。
+
+## 常量
+
+<a id="member-gfscenesignalaudit-constants-default_max_scan_depth"></a>
+
+### `DEFAULT_MAX_SCAN_DEPTH`
+
+- API：`public`
+
+```gdscript
+const DEFAULT_MAX_SCAN_DEPTH: int = 32
+```
+
+默认最大目录扫描深度。
+
+<a id="member-gfscenesignalaudit-constants-default_max_scene_paths"></a>
+
+### `DEFAULT_MAX_SCENE_PATHS`
+
+- API：`public`
+
+```gdscript
+const DEFAULT_MAX_SCENE_PATHS: int = 10000
+```
+
+默认最大扫描场景路径数量。
+
+<a id="member-gfscenesignalaudit-constants-default_max_signal_graph_depth"></a>
+
+### `DEFAULT_MAX_SIGNAL_GRAPH_DEPTH`
+
+- API：`public`
+
+```gdscript
+const DEFAULT_MAX_SIGNAL_GRAPH_DEPTH: int = 64
+```
+
+默认最大运行时信号图节点深度。
+
+<a id="member-gfscenesignalaudit-constants-default_max_signal_graph_nodes"></a>
+
+### `DEFAULT_MAX_SIGNAL_GRAPH_NODES`
+
+- API：`public`
+
+```gdscript
+const DEFAULT_MAX_SIGNAL_GRAPH_NODES: int = 10000
+```
+
+默认最大运行时信号图节点数量。
+
+## 方法
+
+<a id="member-gfscenesignalaudit-methods-audit_directory"></a>
+
+### `audit_directory`
+
+- API：`public`
+
+```gdscript
+static func audit_directory(root_path: String = "res://", options: Dictionary = {}) -> Dictionary:
+```
+
+审计指定目录下的场景文件。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `root_path` | 需要扫描的目录，通常为 `res://`。 |
+| `options` | 审计选项，支持 `include_hidden`、`respect_gdignore`、`check_parameter_count`、`max_scan_depth` 与 `max_scene_paths`。 |
+
+返回：审计汇总报告。
+
+结构：
+
+- `options`: Dictionary with include_hidden, respect_gdignore, check_parameter_count, max_scan_depth, and max_scene_paths.
+- `return`: Dictionary containing ok, root_path, scene_count, issue_count, scanned_paths, and issues.
+
+<a id="member-gfscenesignalaudit-methods-audit_scene_paths"></a>
+
+### `audit_scene_paths`
+
+- API：`public`
+
+```gdscript
+static func audit_scene_paths(scene_paths: PackedStringArray, options: Dictionary = {}) -> Dictionary:
+```
+
+审计一组场景路径并返回汇总报告。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `scene_paths` | 需要审计的 PackedScene 路径列表。 |
+| `options` | 审计选项，支持 `check_parameter_count`。 |
+
+返回：审计汇总报告。
+
+结构：
+
+- `options`: Dictionary with optional check_parameter_count.
+- `return`: Dictionary containing ok, scene_count, issue_count, scanned_paths, and issues.
+
+<a id="member-gfscenesignalaudit-methods-audit_scene"></a>
+
+### `audit_scene`
+
+- API：`public`
+
+```gdscript
+static func audit_scene(scene_path: String, options: Dictionary = {}) -> Array[Dictionary]:
+```
+
+审计单个 PackedScene 的编辑器信号连接。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `scene_path` | 需要审计的 PackedScene 路径。 |
+| `options` | 审计选项，支持 `check_parameter_count`。 |
+
+返回：场景连接问题列表。
+
+结构：
+
+- `options`: Dictionary with optional check_parameter_count.
+- `return`: Array of Dictionary scene signal audit issues.
+
+<a id="member-gfscenesignalaudit-methods-collect_scene_paths"></a>
+
+### `collect_scene_paths`
+
+- API：`public`
+
+```gdscript
+static func collect_scene_paths(root_path: String = "res://", options: Dictionary = {}) -> PackedStringArray:
+```
+
+收集目录下可审计的 `.tscn` 场景路径。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `root_path` | 需要扫描的目录。 |
+| `options` | 收集选项，支持 `include_hidden`、`respect_gdignore`、`max_scan_depth` 与 `max_scene_paths`。 |
+
+返回：场景路径列表。
+
+结构：
+
+- `options`: Dictionary with include_hidden, respect_gdignore, max_scan_depth, and max_scene_paths.
+
+<a id="member-gfscenesignalaudit-methods-build_signal_graph"></a>
+
+### `build_signal_graph`
+
+- API：`public`
+
+```gdscript
+static func build_signal_graph(root: Node, options: Dictionary = {}) -> Dictionary:
+```
+
+构建运行中节点树的信号连接图快照。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `root` | 需要扫描的根节点。 |
+| `options` | 选项，支持 `include_internal`、`persistent_only`、`include_empty_signals`、`include_external_targets`、`max_node_depth` 与 `max_nodes`。 |
+
+返回：信号连接图报告。
+
+结构：
+
+- `options`: Dictionary with include_internal, persistent_only, include_empty_signals, include_external_targets, max_node_depth, and max_nodes.
+- `return`: Dictionary containing ok, root_path, node_count, signal_count, connection_count, nodes, signals, connections, and truncated.
+
+<a id="member-gfscenesignalaudit-methods-index_signal_graph"></a>
+
+### `index_signal_graph`
+
+- API：`public`
+
+```gdscript
+static func index_signal_graph(graph: Dictionary) -> Dictionary:
+```
+
+为信号图报告构建按节点分组的索引。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `graph` | build_signal_graph() 返回的报告。 |
+
+返回：节点索引，包含 incoming/outgoing/signals。
+
+结构：
+
+- `graph`: Dictionary returned by build_signal_graph().
+- `return`: Dictionary containing node_count, connection_count, nodes, outgoing, incoming, and signals.

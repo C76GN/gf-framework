@@ -1682,7 +1682,7 @@ func _try_attach_capability_container_script(container: Node) -> void:
 
 
 func _configure_control_container(container: Control) -> void:
-	container.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	container.mouse_filter = Control.MOUSE_FILTER_IGNORE as Control.MouseFilter
 	container.set_anchors_preset(Control.PRESET_FULL_RECT)
 	container.offset_left = 0.0
 	container.offset_top = 0.0
@@ -1782,7 +1782,7 @@ func _set_node_active_state(node: Node, active: bool) -> void:
 
 	if not node.has_meta(_META_ORIGINAL_PROCESS_MODE):
 		node.set_meta(_META_ORIGINAL_PROCESS_MODE, node.process_mode)
-	node.process_mode = Node.PROCESS_MODE_DISABLED
+	node.process_mode = Node.PROCESS_MODE_DISABLED as Node.ProcessMode
 
 
 func _track_capability_index(receiver: Object, capability_type: Script) -> void:

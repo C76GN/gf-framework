@@ -787,7 +787,7 @@ func test_node_capability_active_restore_preserves_runtime_process_mode_change()
 	await get_tree().process_frame
 
 	_utility.set_capability_active(receiver, ActiveNodeCapability, false)
-	capability.process_mode = Node.PROCESS_MODE_ALWAYS
+	capability.process_mode = Node.PROCESS_MODE_ALWAYS as Node.ProcessMode
 	_utility.set_capability_active(receiver, ActiveNodeCapability, true)
 
 	assert_eq(capability.process_mode, Node.PROCESS_MODE_ALWAYS, "停用期间项目层修改 process_mode 时，重新启用不应覆盖该修改。")

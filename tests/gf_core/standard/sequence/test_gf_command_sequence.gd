@@ -169,7 +169,10 @@ func test_sequence_waits_for_signal_step() -> void:
 	var completed: Array[bool] = [false]
 	var on_completed: Callable = func() -> void:
 		completed[0] = true
-	var _connect_result_172: Variant = sequence.sequence_completed.connect(on_completed, CONNECT_ONE_SHOT)
+	var _connect_result_172: Variant = sequence.sequence_completed.connect(
+		on_completed,
+		CONNECT_ONE_SHOT as Object.ConnectFlags
+	)
 	wait_step.completed.emit()
 	await get_tree().process_frame
 
@@ -228,7 +231,10 @@ func test_sequence_cancel_stops_following_steps_after_wait() -> void:
 	var cancelled: Array[bool] = [false]
 	var on_cancelled: Callable = func() -> void:
 		cancelled[0] = true
-	var _connect_result_231: Variant = sequence.sequence_cancelled.connect(on_cancelled, CONNECT_ONE_SHOT)
+	var _connect_result_231: Variant = sequence.sequence_cancelled.connect(
+		on_cancelled,
+		CONNECT_ONE_SHOT as Object.ConnectFlags
+	)
 	wait_step.completed.emit()
 	await get_tree().process_frame
 

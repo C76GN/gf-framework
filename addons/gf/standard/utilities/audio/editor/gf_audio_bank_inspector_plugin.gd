@@ -73,10 +73,13 @@ func _parse_begin(object: Object) -> void:
 	root.add_child(import_button)
 
 	var report_label: Label = Label.new()
-	report_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	report_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART as TextServer.AutowrapMode
 	report_label.modulate = Color(0.8, 0.8, 0.8)
 	root.add_child(report_label)
-	var _validate_connected: int = validate_button.pressed.connect(_on_validate_pressed.bind(report_label, bank), CONNECT_DEFERRED)
+	var _validate_connected: int = validate_button.pressed.connect(
+		_on_validate_pressed.bind(report_label, bank),
+		CONNECT_DEFERRED as Object.ConnectFlags
+	)
 	var _import_connected: int = import_button.pressed.connect(
 		_on_import_pressed.bind(
 			report_label,
@@ -87,7 +90,7 @@ func _parse_begin(object: Object) -> void:
 			include_addons_check,
 			bus_input
 		),
-		CONNECT_DEFERRED
+		CONNECT_DEFERRED as Object.ConnectFlags
 	)
 
 

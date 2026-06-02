@@ -44,7 +44,7 @@ static func parallel(actions: Array) -> GFVisualActionGroup:
 ## [br]
 ## @api public
 ## [br]
-## @since 3.24.0
+## @since 4.2.0
 ## [br]
 ## @param actions: 子动作列表。
 ## [br]
@@ -421,6 +421,74 @@ static func colorize(
 	return tween(target, ^"modulate", color, duration, options)
 
 
+## 创建 ShaderMaterial 参数 Tween 动作。
+## [br]
+## @api public
+## [br]
+## @since 3.24.0
+## [br]
+## @param target: 目标对象。可以是 ShaderMaterial，也可以是持有材质属性的对象。
+## [br]
+## @param parameter_name: Shader uniform 参数名。
+## [br]
+## @param target_value: 目标参数值。
+## [br]
+## @param duration: 持续时间。
+## [br]
+## @param options: 可选动作配置。
+## [br]
+## @return Shader 参数动作。
+## [br]
+## @schema target_value: Variant，可被 Tween 插值并写入 parameter_name 的目标值。
+## [br]
+## @schema options: Dictionary，支持 host_node、material_property、transition_type、ease_type、duplicate_material_on_execute、restore_initial_value_on_cancel 和 restore_initial_value_on_finish。
+static func shader_parameter(
+	target: Object,
+	parameter_name: StringName,
+	target_value: Variant,
+	duration: float = 0.2,
+	options: Dictionary = {}
+) -> GFShaderParameterAction:
+	var action: GFShaderParameterAction = GFShaderParameterAction.new(
+		target,
+		parameter_name,
+		target_value,
+		duration,
+		_get_node_value(GFVariantData.get_option_value(options, "host_node"))
+	)
+	if options.has("material_property"):
+		action.material_property = _to_node_path(
+			GFVariantData.get_option_value(options, "material_property"),
+			action.material_property
+		)
+	if options.has("transition_type"):
+		action.transition_type = _to_tween_transition_type(
+			GFVariantData.get_option_value(options, "transition_type"),
+			action.transition_type
+		)
+	if options.has("ease_type"):
+		action.ease_type = _to_tween_ease_type(
+			GFVariantData.get_option_value(options, "ease_type"),
+			action.ease_type
+		)
+	if options.has("duplicate_material_on_execute"):
+		action.duplicate_material_on_execute = GFVariantData.get_option_bool(
+			options,
+			"duplicate_material_on_execute"
+		)
+	if options.has("restore_initial_value_on_cancel"):
+		action.restore_initial_value_on_cancel = GFVariantData.get_option_bool(
+			options,
+			"restore_initial_value_on_cancel"
+		)
+	if options.has("restore_initial_value_on_finish"):
+		action.restore_initial_value_on_finish = GFVariantData.get_option_bool(
+			options,
+			"restore_initial_value_on_finish"
+		)
+	return action
+
+
 ## 创建设置任意属性的瞬时动作。
 ## [br]
 ## @api public
@@ -543,6 +611,16 @@ static func _get_node_value(value: Variant) -> Node:
 		var node: Node = value
 		return node
 	return null
+
+
+static func _to_node_path(value: Variant, default_value: NodePath) -> NodePath:
+	if value is NodePath:
+		var path: NodePath = value
+		return path
+	var text: String = GFVariantData.to_text(value, "")
+	if text.is_empty():
+		return default_value
+	return NodePath(text)
 
 
 static func _get_configured_tween_action_value(value: Variant) -> GFConfiguredTweenAction:

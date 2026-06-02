@@ -1,0 +1,298 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFAudioBeatClock" path="addons/gf/standard/utilities/audio/gf_audio_beat_clock.gd" module="standard" extends="RefCounted" classDigest="dff71e108507e2ce546db2368a95fbe7f35b2e285bfff64c50d5474e09b51244">
+	<description>GFAudioBeatClock: 通用音频节拍时钟。
+将任意播放时间映射为 beat、measure 和进度快照，并在手动 update() 时发出越过的节拍边界。
+它不持有播放器、不创建节点，也不规定节奏玩法、字幕或演出语义。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_handle</tag>
+		<tag name="since">4.2.0</tag>
+	</tags>
+	<signals>
+		<member kind="signal" name="position_updated">
+			<signature>signal position_updated(snapshot: Dictionary)</signature>
+			<description>update() 采样时间并刷新快照后发出。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">snapshot: 当前节拍快照。</tag>
+				<tag name="schema">snapshot: Dictionary，包含 position_seconds、adjusted_seconds、beat_index、measure_index、beat_progress 和 measure_progress 等字段。</tag>
+			</tags>
+		</member>
+		<member kind="signal" name="beat_reached">
+			<signature>signal beat_reached(beat_index: int, beat_in_measure: int, position_seconds: float)</signature>
+			<description>update() 检测到新的 beat 边界后发出。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">beat_index: 从 0 开始的全局 beat 索引。</tag>
+				<tag name="param">beat_in_measure: 当前小节内的 beat 索引。</tag>
+				<tag name="param">position_seconds: 该 beat 边界对应的播放时间。</tag>
+			</tags>
+		</member>
+		<member kind="signal" name="measure_reached">
+			<signature>signal measure_reached(measure_index: int, beat_index: int, position_seconds: float)</signature>
+			<description>update() 检测到新的 measure 边界后发出。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">measure_index: 从 0 开始的小节索引。</tag>
+				<tag name="param">beat_index: 该小节起点对应的全局 beat 索引。</tag>
+				<tag name="param">position_seconds: 该小节边界对应的播放时间。</tag>
+			</tags>
+		</member>
+	</signals>
+	<enums>
+		<member kind="enum" name="QuantizeMode">
+			<signature>enum QuantizeMode { ## 量化到最近的网格点。 NEAREST, ## 量化到不大于当前时间的网格点。 FLOOR, ## 量化到不小于当前时间的网格点。 CEIL, }</signature>
+			<description>量化时间时使用的舍入方式。</description>
+			<tags>
+				<tag name="api">public</tag>
+			</tags>
+		</member>
+	</enums>
+	<constants>
+		<member kind="const" name="DEFAULT_BPM">
+			<signature>const DEFAULT_BPM: float = 120.0</signature>
+			<description>默认 BPM。</description>
+			<tags>
+				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="const" name="DEFAULT_BEATS_PER_MEASURE">
+			<signature>const DEFAULT_BEATS_PER_MEASURE: int = 4</signature>
+			<description>默认每小节 beat 数。</description>
+			<tags>
+				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="const" name="DEFAULT_MAX_EMITTED_STEPS_PER_UPDATE">
+			<signature>const DEFAULT_MAX_EMITTED_STEPS_PER_UPDATE: int = 64</signature>
+			<description>每次 update() 默认最多补发的 beat 边界数量。</description>
+			<tags>
+				<tag name="api">public</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties>
+		<member kind="property" name="bpm">
+			<signature>var bpm: float = DEFAULT_BPM</signature>
+			<description>当前 BPM。小于等于 0 时会按极小正数处理，避免除零。</description>
+			<tags>
+				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="property" name="beats_per_measure">
+			<signature>var beats_per_measure: int = DEFAULT_BEATS_PER_MEASURE</signature>
+			<description>每小节 beat 数。小于 1 时按 1 处理。</description>
+			<tags>
+				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="property" name="offset_seconds">
+			<signature>var offset_seconds: float = 0.0</signature>
+			<description>时间偏移，单位秒。采样时使用 position_seconds + offset_seconds 计算节拍。</description>
+			<tags>
+				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="property" name="emit_initial_events">
+			<signature>var emit_initial_events: bool = false</signature>
+			<description>首次 update() 是否立刻发出当前 beat 和 measure 边界事件。</description>
+			<tags>
+				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="property" name="max_emitted_steps_per_update">
+			<signature>var max_emitted_steps_per_update: int = DEFAULT_MAX_EMITTED_STEPS_PER_UPDATE</signature>
+			<description>每次 update() 最多补发的 beat 边界数量。小于等于 0 时不补发边界事件。</description>
+			<tags>
+				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="property" name="position_source">
+			<signature>var position_source: Callable = Callable()</signature>
+			<description>可选播放位置来源。update_from_source() 会调用它并期望得到秒数。</description>
+			<tags>
+				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="property" name="metadata">
+			<signature>var metadata: Dictionary = {}</signature>
+			<description>项目自定义元数据。框架不解释该字段。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">metadata: Dictionary metadata for tooling or project-specific routing.</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="configure">
+			<signature>func configure( next_bpm: float, next_beats_per_measure: int = DEFAULT_BEATS_PER_MEASURE, next_offset_seconds: float = 0.0, should_reset: bool = true ) -&gt; void:</signature>
+			<description>配置节拍参数。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">next_bpm: BPM。</tag>
+				<tag name="param">next_beats_per_measure: 每小节 beat 数。</tag>
+				<tag name="param">next_offset_seconds: 时间偏移，单位秒。</tag>
+				<tag name="param">should_reset: 为 true 时清除上一帧边界状态。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="set_position_source">
+			<signature>func set_position_source(source: Callable) -&gt; void:</signature>
+			<description>设置播放位置来源。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">source: 返回播放秒数的回调。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="clear">
+			<signature>func clear() -&gt; void:</signature>
+			<description>清除上一帧状态。</description>
+			<tags>
+				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="method" name="reset">
+			<signature>func reset(position_seconds: float = 0.0) -&gt; Dictionary:</signature>
+			<description>将时钟状态重置到指定播放时间，不发出边界事件。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">position_seconds: 播放时间，单位秒。</tag>
+				<tag name="return">重置后的快照。</tag>
+				<tag name="schema">return: Dictionary，结构同 sample()。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="update_from_source">
+			<signature>func update_from_source() -&gt; Dictionary:</signature>
+			<description>从 position_source 采样并更新时钟。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">当前节拍快照；来源无效或返回非数字时返回空字典。</tag>
+				<tag name="schema">return: Dictionary，结构同 sample()。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="update">
+			<signature>func update(position_seconds: float) -&gt; Dictionary:</signature>
+			<description>采样指定播放时间、刷新状态并发出越过的边界事件。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">position_seconds: 播放时间，单位秒。</tag>
+				<tag name="return">当前节拍快照。</tag>
+				<tag name="schema">return: Dictionary，包含 position_seconds、adjusted_seconds、bpm、seconds_per_beat、beats_per_measure、beat_float、beat_index、beat_in_measure、beat_progress、measure_index、measure_progress 和 measure_start_beat。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="sample">
+			<signature>func sample(position_seconds: float) -&gt; Dictionary:</signature>
+			<description>采样指定播放时间但不修改时钟状态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">position_seconds: 播放时间，单位秒。</tag>
+				<tag name="return">节拍快照。</tag>
+				<tag name="schema">return: Dictionary，包含 position_seconds、adjusted_seconds、bpm、seconds_per_beat、beats_per_measure、beat_float、beat_index、beat_in_measure、beat_progress、measure_index、measure_progress 和 measure_start_beat。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_bpm">
+			<signature>func get_bpm() -&gt; float:</signature>
+			<description>获取经过安全收窄的 BPM。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">BPM。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_beats_per_measure">
+			<signature>func get_beats_per_measure() -&gt; int:</signature>
+			<description>获取经过安全收窄的每小节 beat 数。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">每小节 beat 数。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_seconds_per_beat">
+			<signature>func get_seconds_per_beat() -&gt; float:</signature>
+			<description>获取每个 beat 的秒数。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">秒数。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_seconds_per_measure">
+			<signature>func get_seconds_per_measure() -&gt; float:</signature>
+			<description>获取每小节的秒数。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">秒数。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="seconds_to_beats">
+			<signature>func seconds_to_beats(duration_seconds: float) -&gt; float:</signature>
+			<description>将持续时间秒数转换为 beat 数，不应用 offset_seconds。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">duration_seconds: 持续时间，单位秒。</tag>
+				<tag name="return">beat 数。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="beats_to_seconds">
+			<signature>func beats_to_seconds(beat_count: float) -&gt; float:</signature>
+			<description>将 beat 数转换为持续时间秒数，不应用 offset_seconds。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">beat_count: beat 数。</tag>
+				<tag name="return">持续时间秒数。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="position_to_beats">
+			<signature>func position_to_beats(position_seconds: float) -&gt; float:</signature>
+			<description>将播放时间转换为 beat 数，会应用 offset_seconds。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">position_seconds: 播放时间，单位秒。</tag>
+				<tag name="return">beat 数。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="beat_to_position_seconds">
+			<signature>func beat_to_position_seconds(beat_index: int) -&gt; float:</signature>
+			<description>获取指定 beat 边界对应的播放时间，会反向应用 offset_seconds。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">beat_index: beat 索引。</tag>
+				<tag name="return">播放时间，单位秒。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="quantize_position">
+			<signature>func quantize_position( position_seconds: float, subdivisions_per_beat: int = 1, mode: QuantizeMode = QuantizeMode.NEAREST ) -&gt; float:</signature>
+			<description>量化播放时间到 beat 网格。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">position_seconds: 播放时间，单位秒。</tag>
+				<tag name="param">subdivisions_per_beat: 每个 beat 的细分数量。</tag>
+				<tag name="param">mode: 量化方式。</tag>
+				<tag name="return">量化后的播放时间，单位秒。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_last_snapshot">
+			<signature>func get_last_snapshot() -&gt; Dictionary:</signature>
+			<description>获取上一帧快照副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">快照副本。</tag>
+				<tag name="schema">return: Dictionary，结构同 sample()；尚未 update/reset 时为空。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_last_position_seconds">
+			<signature>func get_last_position_seconds() -&gt; float:</signature>
+			<description>获取上一帧播放位置。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">播放时间，单位秒。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="has_last_position">
+			<signature>func has_last_position() -&gt; bool:</signature>
+			<description>检查时钟是否已经有上一帧状态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">已有状态时返回 true。</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

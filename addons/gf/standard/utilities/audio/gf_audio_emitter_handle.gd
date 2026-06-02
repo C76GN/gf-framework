@@ -183,7 +183,10 @@ func stop(fade_seconds: float = 0.0) -> void:
 		fade_to(-80.0, _pending_stop_fade_seconds)
 		var tween: Tween = _get_fade_tween()
 		if tween != null:
-			var _connect_result_186: Variant = tween.finished.connect(_finish_stop.bind(player), CONNECT_ONE_SHOT)
+			var _connect_result_186: Variant = tween.finished.connect(
+				_finish_stop.bind(player),
+				CONNECT_ONE_SHOT as Object.ConnectFlags
+			)
 			return
 
 	_finish_stop(player)

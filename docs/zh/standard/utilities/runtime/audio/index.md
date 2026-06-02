@@ -4,7 +4,7 @@
 
 ## 阅读入口
 
-- [播放基础](playback/index.md)：BGM、SFX、环境音、音频片段、播放历史、总线音量和并发限制。
+- [播放基础](playback/index.md)：BGM、SFX、环境音、音频片段、播放历史、总线音量、节拍时钟和并发限制。
 - [音频后端与事件资源](backend-events.md)：`GFAudioBackend`、后端能力、事件、参数、状态和开关。
 - [Audio Bank 与配置工具](banks-tools/index.md)：`GFAudioBank`、分层事件 ID、扫描导入、校验和 Inspector 入口。
 - [Bank 挂载、空间音效与句柄](mounting-spatial-handles.md)：`GFAudioBankMounter`、bank 栈、2D/3D 音效和 `GFAudioEmitterHandle`。

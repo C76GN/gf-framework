@@ -739,7 +739,7 @@ func _set_state_enabled(enabled: bool) -> void:
 	if enabled:
 		process_mode = _to_process_mode(_original_process_mode)
 	else:
-		process_mode = Node.PROCESS_MODE_DISABLED
+		process_mode = Node.PROCESS_MODE_DISABLED as Node.ProcessMode
 
 
 func _get_architecture_or_null() -> GFArchitecture:

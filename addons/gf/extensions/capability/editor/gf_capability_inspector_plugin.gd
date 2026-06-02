@@ -235,7 +235,7 @@ static func _connect_signal_checked(source_signal: Signal, callback: Callable, f
 	if source_signal.is_connected(callback):
 		return
 
-	var error: int = source_signal.connect(callback, flags)
+	var error: int = source_signal.connect(callback, flags as Object.ConnectFlags)
 	if error != OK:
 		push_warning("[GFCapabilityInspector] Signal 连接失败：%s" % error_string(error))
 
@@ -898,7 +898,7 @@ func _try_attach_capability_container_script(container: Node) -> void:
 
 
 func _configure_control_container(container: Control) -> void:
-	container.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	container.mouse_filter = Control.MOUSE_FILTER_IGNORE as Control.MouseFilter
 	container.set_anchors_preset(Control.PRESET_FULL_RECT)
 	container.offset_left = 0.0
 	container.offset_top = 0.0
@@ -1369,7 +1369,7 @@ func _set_node_active_state(node: Node, active: bool) -> void:
 			Node.PROCESS_MODE_INHERIT
 		)
 	else:
-		node.process_mode = Node.PROCESS_MODE_DISABLED
+		node.process_mode = Node.PROCESS_MODE_DISABLED as Node.ProcessMode
 
 
 # --- 信号处理函数 ---

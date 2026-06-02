@@ -326,7 +326,7 @@ func _sample_wave_vector(elapsed_seconds: float, progress: float, phase_offset: 
 				sin(phase + TAU * 2.0 / 3.0)
 			)
 		Waveform.RANDOM:
-			var step: int = int(floorf(elapsed_seconds * maxf(frequency, 1.0)))
+			var step: int = floori(elapsed_seconds * maxf(frequency, 1.0))
 			return Vector3(
 				_hash_noise(step, sample_seed + 11),
 				_hash_noise(step, sample_seed + 37),
@@ -345,7 +345,7 @@ func _sample_wave_vector(elapsed_seconds: float, progress: float, phase_offset: 
 func _sample_noise_vector(elapsed_seconds: float) -> Vector3:
 	var sample_frequency: float = maxf(frequency, 1.0)
 	var cursor: float = elapsed_seconds * sample_frequency
-	var step: int = int(floorf(cursor))
+	var step: int = floori(cursor)
 	var blend: float = smoothstep(0.0, 1.0, cursor - float(step))
 	return Vector3(
 		lerpf(_hash_noise(step, sample_seed + 11), _hash_noise(step + 1, sample_seed + 11), blend),

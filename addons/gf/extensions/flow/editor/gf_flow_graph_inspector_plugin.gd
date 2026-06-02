@@ -72,7 +72,7 @@ func _parse_begin(object: Object) -> void:
 	_connect_signal(start_option.item_selected, _on_start_node_selected.bind(start_option, graph), CONNECT_DEFERRED)
 
 	var summary_label: Label = Label.new()
-	summary_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	summary_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART as TextServer.AutowrapMode
 	root.add_child(summary_label)
 	_update_summary(summary_label, graph)
 	_connect_signal(validate_button.pressed, _on_validate_pressed.bind(summary_label, graph), CONNECT_DEFERRED)
@@ -171,7 +171,7 @@ func _get_resource_value(value: Variant) -> Resource:
 
 
 func _connect_signal(source_signal: Signal, callback: Callable, flags: int = 0) -> void:
-	var connected: int = source_signal.connect(callback, flags)
+	var connected: int = source_signal.connect(callback, flags as Object.ConnectFlags)
 	if connected == OK:
 		return
 

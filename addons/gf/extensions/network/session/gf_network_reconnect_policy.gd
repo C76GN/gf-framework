@@ -108,4 +108,4 @@ func _apply_jitter(delay_msec: int) -> int:
 
 	var jitter_amount: float = delay_msec * jitter_ratio
 	var offset: float = _rng.randf_range(-jitter_amount, jitter_amount)
-	return maxi(int(roundf(float(delay_msec) + offset)), 0)
+	return maxi(roundi(float(delay_msec) + offset), 0)

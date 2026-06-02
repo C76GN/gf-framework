@@ -874,7 +874,7 @@ class _GFDebugGUI extends CanvasLayer:
 	func _init() -> void:
 		layer = 120 # 确保在所有 UI 之上
 		visible = false
-		process_mode = Node.PROCESS_MODE_ALWAYS # 即使主游戏暂停也能工作
+		process_mode = Node.PROCESS_MODE_ALWAYS as Node.ProcessMode # 即使主游戏暂停也能工作
 		
 		var margin: MarginContainer = MarginContainer.new()
 		margin.add_theme_constant_override("margin_left", 10)
@@ -882,14 +882,14 @@ class _GFDebugGUI extends CanvasLayer:
 		margin.add_theme_constant_override("margin_right", 10)
 		margin.add_theme_constant_override("margin_bottom", 10)
 		margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-		margin.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		margin.mouse_filter = Control.MOUSE_FILTER_IGNORE as Control.MouseFilter
 		add_child(margin)
 		
 		var panel: PanelContainer = PanelContainer.new()
 		panel.self_modulate = Color(0, 0, 0, 0.6)
 		panel.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 		panel.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
-		panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		panel.mouse_filter = Control.MOUSE_FILTER_IGNORE as Control.MouseFilter
 		margin.add_child(panel)
 		
 		_container = VBoxContainer.new()
@@ -902,8 +902,8 @@ class _GFDebugGUI extends CanvasLayer:
 		
 		_label = RichTextLabel.new()
 		_label.fit_content = true
-		_label.autowrap_mode = TextServer.AUTOWRAP_OFF
-		_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_label.autowrap_mode = TextServer.AUTOWRAP_OFF as TextServer.AutowrapMode
+		_label.mouse_filter = Control.MOUSE_FILTER_IGNORE as Control.MouseFilter
 		_label.custom_minimum_size = Vector2(300, 0)
 		_label.bbcode_enabled = true
 		_container.add_child(_label)

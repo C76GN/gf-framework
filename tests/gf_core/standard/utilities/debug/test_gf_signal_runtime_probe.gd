@@ -118,7 +118,7 @@ func test_signal_graph_dock_tracks_saved_connection_signals_without_unconnected_
 	var source: SignalSource = SignalSource.new()
 	source.name = "Source"
 	add_child(source)
-	var connect_error: int = source.no_args.connect(source._on_no_args, CONNECT_PERSIST)
+	var connect_error: int = source.no_args.connect(source._on_no_args, CONNECT_PERSIST as Object.ConnectFlags)
 	assert_eq(connect_error, OK, "测试应能创建保存连接。")
 	var dock: GFSignalGraphDock = GFSignalGraphDock.new()
 	add_child(dock)

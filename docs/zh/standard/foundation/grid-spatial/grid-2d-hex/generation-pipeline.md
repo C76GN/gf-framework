@@ -4,6 +4,8 @@
 
 它们只处理 `Vector2i` 候选格子和 `Dictionary[Vector2i, Variant]` 输出，不绑定房间、地牢、TileMap、GridMap、Mesh、碰撞或具体玩法。
 
+## 核心模型
+
 - `GFGridSelection2D` 负责从候选格子中筛选坐标，支持显式包含/排除、矩形边界、反选、自定义回调和子类重写。
 - `GFGridGenerationStep2D` 负责把选择器命中的格子写入一个通用值，或从结果字典中移除。
 - `GFGridGenerationPipeline2D` 负责按步骤生成或修改网格字典，并提供矩形候选格子构造辅助。
@@ -27,6 +29,14 @@ pipeline.add_step(step)
 
 var grid := pipeline.generate(candidates)
 ```
+
+## 执行报告
+
+需要审计一次生成过程时，使用 `generate_with_report()` 或 `apply_to_grid_with_report()`。报告会返回结果网格、候选数量、默认填充数量、每个步骤的修改数量、跳过原因、步骤前后网格大小和耗时。报告字段只描述数据管线执行情况，不解释输出值应该如何渲染或进入项目业务。
+
+报告式入口不会替代轻量入口。只需要结果字典时继续使用 `generate()` 或 `apply_to_grid()`；需要记录工具链、编辑器生成或自动化检查的执行摘要时，再使用报告式入口。
+
+## 使用边界
 
 输出值是什么、如何转换成瓦片、场景节点、导航、碰撞或存档，仍由项目层决定。
 

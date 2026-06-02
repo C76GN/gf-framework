@@ -1782,7 +1782,7 @@ class _GFInputRouter extends Node:
 	var _focus_lost_callback: Callable
 
 	func _init() -> void:
-		process_mode = Node.PROCESS_MODE_ALWAYS
+		process_mode = Node.PROCESS_MODE_ALWAYS as Node.ProcessMode
 
 
 	func _input(event: InputEvent) -> void:

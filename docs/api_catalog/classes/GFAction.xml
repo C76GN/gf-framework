@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFAction" path="addons/gf/extensions/action_queue/core/gf_action.gd" module="extensions/action_queue" extends="RefCounted" classDigest="8661b8edbe1c71fe9c334d72a48c81a6da86e4fd357303fd4643eac6966a383d">
+<class name="GFAction" path="addons/gf/extensions/action_queue/core/gf_action.gd" module="extensions/action_queue" extends="RefCounted" classDigest="b60c027cf779f507d868356aaaff82c55e7d4c3f964d7ea65625520ee0e2726f">
 	<description>GFAction: 动作队列常用工厂。
 提供轻量、静态的动作创建入口，让项目用更少样板组合 ActionQueue。
 它只创建通用动作，不隐含任何项目业务流程。</description>
@@ -42,7 +42,7 @@
 				<tag name="param">cancel_remaining: 完成后是否取消仍在等待的子动作。</tag>
 				<tag name="return">并行动作组。</tag>
 				<tag name="schema">actions: Array，元素为 GFVisualAction 或实现 execute() 协议的动作对象。</tag>
-				<tag name="since">3.24.0</tag>
+				<tag name="since">4.2.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="wait">
@@ -240,6 +240,22 @@
 				<tag name="param">options: 可选 Tween 配置。</tag>
 				<tag name="return">配置化 Tween 动作。</tag>
 				<tag name="schema">options: Dictionary，字段同 tween() 的 options。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="shader_parameter">
+			<signature>static func shader_parameter( target: Object, parameter_name: StringName, target_value: Variant, duration: float = 0.2, options: Dictionary = {} ) -&gt; GFShaderParameterAction:</signature>
+			<description>创建 ShaderMaterial 参数 Tween 动作。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">target: 目标对象。可以是 ShaderMaterial，也可以是持有材质属性的对象。</tag>
+				<tag name="param">parameter_name: Shader uniform 参数名。</tag>
+				<tag name="param">target_value: 目标参数值。</tag>
+				<tag name="param">duration: 持续时间。</tag>
+				<tag name="param">options: 可选动作配置。</tag>
+				<tag name="return">Shader 参数动作。</tag>
+				<tag name="schema">target_value: Variant，可被 Tween 插值并写入 parameter_name 的目标值。</tag>
+				<tag name="schema">options: Dictionary，支持 host_node、material_property、transition_type、ease_type、duplicate_material_on_execute、restore_initial_value_on_cancel 和 restore_initial_value_on_finish。</tag>
+				<tag name="since">3.24.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="set_property">

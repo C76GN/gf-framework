@@ -192,7 +192,7 @@ func set_overlay_alpha(alpha: float, color: Color = Color.BLACK) -> void:
 	next_color.a = clampf(alpha, 0.0, 1.0)
 	_overlay_rect.material = null
 	_overlay_rect.color = next_color
-	_overlay_rect.mouse_filter = Control.MOUSE_FILTER_STOP
+	_overlay_rect.mouse_filter = Control.MOUSE_FILTER_STOP as Control.MouseFilter
 	_overlay_layer.visible = next_color.a > 0.0
 
 
@@ -288,12 +288,12 @@ func _ensure_overlay() -> void:
 	_overlay_layer.name = "GFScreenTransition"
 	_overlay_layer.layer = 120
 	_overlay_layer.visible = false
-	_overlay_layer.process_mode = Node.PROCESS_MODE_ALWAYS
+	_overlay_layer.process_mode = Node.PROCESS_MODE_ALWAYS as Node.ProcessMode
 
 	_overlay_rect = ColorRect.new()
 	_overlay_rect.name = "Overlay"
 	_overlay_rect.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	_overlay_rect.mouse_filter = Control.MOUSE_FILTER_STOP
+	_overlay_rect.mouse_filter = Control.MOUSE_FILTER_STOP as Control.MouseFilter
 	_overlay_rect.color = Color(0.0, 0.0, 0.0, 0.0)
 	_overlay_layer.add_child(_overlay_rect)
 
@@ -310,7 +310,11 @@ func _apply_effect_visuals(progress: float) -> void:
 	var next_color: Color = _active_effect.color
 	next_color.a = alpha
 	_overlay_layer.layer = _active_effect.layer
-	_overlay_rect.mouse_filter = Control.MOUSE_FILTER_STOP if _active_effect.block_input else Control.MOUSE_FILTER_IGNORE
+	_overlay_rect.mouse_filter = (
+		Control.MOUSE_FILTER_STOP as Control.MouseFilter
+		if _active_effect.block_input
+		else Control.MOUSE_FILTER_IGNORE as Control.MouseFilter
+	)
 	_overlay_rect.color = next_color
 
 	if _active_effect.shader_material != null:

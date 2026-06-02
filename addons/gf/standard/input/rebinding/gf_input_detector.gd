@@ -118,7 +118,7 @@ var _pending_detected_event: InputEvent = null
 # --- Godot 生命周期方法 ---
 
 func _ready() -> void:
-	process_mode = Node.PROCESS_MODE_ALWAYS
+	process_mode = Node.PROCESS_MODE_ALWAYS as Node.ProcessMode
 	set_process(false)
 
 

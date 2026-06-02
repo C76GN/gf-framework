@@ -1,0 +1,46 @@
+# GFProjectileSpawnPattern2D
+
+[API Reference](../index.md) / [Combat](../extensions-combat.md) / [类索引](index.md)
+
+- 路径：`addons/gf/extensions/combat/projectiles/gf_projectile_spawn_pattern_2d.gd`
+- 模块：`Combat`
+- 继承：`Resource`
+- API：`public`
+- 类别：协议与扩展点 (`protocol`)
+- 首次版本：`3.17.0`
+
+2D 发射体生成点模式基类。 模式只返回全局 Transform2D 列表，不实例化节点，也不解释伤害、弹药或阵营。
+
+## 成员概览
+
+| 类型 | 名称 | 签名 |
+|---|---|---|
+| 方法 | [`get_spawn_transforms`](#member-gfprojectilespawnpattern2d-methods-get_spawn_transforms) | `func get_spawn_transforms( emitter: Node2D, projectile_context: Dictionary = {}, emit_count: int = -1 ) -> Array[Transform2D]:` |
+
+## 方法
+
+<a id="member-gfprojectilespawnpattern2d-methods-get_spawn_transforms"></a>
+
+### `get_spawn_transforms`
+
+- API：`public`
+
+```gdscript
+func get_spawn_transforms( emitter: Node2D, projectile_context: Dictionary = {}, emit_count: int = -1 ) -> Array[Transform2D]:
+```
+
+计算本次发射的全局生成变换。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `emitter` | 发射器节点。 |
+| `projectile_context` | 本次发射上下文。 |
+| `emit_count` | 调用方请求的数量；小于等于 0 时由模式自行决定。 |
+
+返回：全局 Transform2D 列表。
+
+结构：
+
+- `projectile_context`: Dictionary，本次发射上下文；模式只读取调用方约定的数据。

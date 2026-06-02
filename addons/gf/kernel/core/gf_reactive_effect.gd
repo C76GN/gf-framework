@@ -107,7 +107,10 @@ func configure(
 
 	var stop_callback: Callable = Callable(self, "stop")
 	if owner != null and not owner.tree_exited.is_connected(stop_callback):
-		var _connect_result_110: Variant = owner.tree_exited.connect(stop_callback, CONNECT_ONE_SHOT)
+		var _connect_result_110: Variant = owner.tree_exited.connect(
+			stop_callback,
+			CONNECT_ONE_SHOT as Object.ConnectFlags
+		)
 
 	if run_immediately:
 		run()
