@@ -11,18 +11,6 @@ class_name GFNodePropertySerializer
 extends GFNodeSerializer
 
 
-# --- 常量 ---
-
-const _PROPERTY_MARKER_KEY: String = "__gf_save_property__"
-const _PROPERTY_MARKER_VERSION: int = 1
-const _PROPERTY_TYPE_KEY: String = "type"
-const _PROPERTY_VERSION_KEY: String = "version"
-const _PROPERTY_RESOURCE_PATH_KEY: String = "path"
-const _PROPERTY_UNSUPPORTED_CLASS_KEY: String = "class"
-const _PROPERTY_TYPE_RESOURCE_PATH: String = "ResourcePath"
-const _PROPERTY_TYPE_UNSUPPORTED_OBJECT: String = "UnsupportedObject"
-
-
 # --- 导出变量 ---
 
 ## 需要保存的属性名。
@@ -50,14 +38,14 @@ func _init() -> void:
 ## [br]
 ## @param node: 目标节点。
 ## [br]
-## @param _context: 操作上下文字典，默认实现不直接使用。
+## @param context: 操作上下文字典。
 ## [br]
 ## @return 属性载荷字典。
 ## [br]
-## @schema _context: Dictionary，调用方附加上下文；当前实现不读取。
+## @schema context: Dictionary，可包含 reference_root_node: Node，用于保存 Node 引用属性。
 ## [br]
-## @schema return: Dictionary，键为 properties 中声明的属性名，值为 JSON 兼容值；Resource 引用使用 __gf_save_property__ 标记。
-func gather(node: Node, _context: Dictionary = {}) -> Dictionary:
+## @schema return: Dictionary，键为 properties 中声明的属性名，值为 JSON 兼容值；Resource / Node 引用使用 __gf_reference__ 标记。
+func gather(node: Node, context: Dictionary = {}) -> Dictionary:
 	if node == null:
 		return {}
 
@@ -67,7 +55,7 @@ func gather(node: Node, _context: Dictionary = {}) -> Dictionary:
 		if not available.has(StringName(property_name)):
 			continue
 		var property_value: Variant = GFObjectPropertyTools.read_property(node, NodePath(property_name))
-		var encoded_value: Variant = _encode_payload_property_value(property_value)
+		var encoded_value: Variant = _encode_payload_property_value(property_value, context)
 		if _is_unsupported_property_marker(encoded_value):
 			push_warning("[GFNodePropertySerializer] Unsupported property value skipped: %s" % property_name)
 			continue
@@ -83,16 +71,16 @@ func gather(node: Node, _context: Dictionary = {}) -> Dictionary:
 ## [br]
 ## @param payload: 属性载荷字典。
 ## [br]
-## @param _context: 操作上下文字典，默认实现不直接使用。
+## @param context: 操作上下文字典。
 ## [br]
 ## @return 应用结果字典。
 ## [br]
-## @schema payload: Dictionary，键为属性名，值为 JSON 兼容值或 __gf_save_property__ 标记。
+## @schema payload: Dictionary，键为属性名，值为 JSON 兼容值或 __gf_reference__ 标记。
 ## [br]
-## @schema _context: Dictionary，调用方附加上下文；当前实现不读取。
+## @schema context: Dictionary，可包含 reference_root_node: Node，用于恢复 Node 引用属性。
 ## [br]
 ## @schema return: Dictionary，包含 ok: bool 与 error: String。
-func apply(node: Node, payload: Dictionary, _context: Dictionary = {}) -> Dictionary:
+func apply(node: Node, payload: Dictionary, context: Dictionary = {}) -> Dictionary:
 	if node == null:
 		return make_result(false, "Node is null.")
 
@@ -102,7 +90,7 @@ func apply(node: Node, payload: Dictionary, _context: Dictionary = {}) -> Dictio
 			if skip_missing_properties:
 				continue
 			return make_result(false, "Missing property: %s" % property_name)
-		var decode_result: Dictionary = _decode_payload_property_value(payload[property_variant])
+		var decode_result: Dictionary = _decode_payload_property_value(payload[property_variant], context)
 		if not GFVariantData.get_option_bool(decode_result, "ok", false):
 			return make_result(false, GFVariantData.get_option_string(decode_result, "error"))
 		var result: Dictionary = GFObjectPropertyTools.write_property(
@@ -118,66 +106,20 @@ func apply(node: Node, payload: Dictionary, _context: Dictionary = {}) -> Dictio
 
 # --- 私有/辅助方法 ---
 
-func _encode_payload_property_value(value: Variant) -> Variant:
-	if value is Resource:
-		var resource: Resource = value
-		if resource.resource_path.is_empty():
-			return _make_property_marker(_PROPERTY_TYPE_UNSUPPORTED_OBJECT, {
-				_PROPERTY_UNSUPPORTED_CLASS_KEY: resource.get_class(),
-			})
-		return _make_property_marker(_PROPERTY_TYPE_RESOURCE_PATH, {
-			_PROPERTY_RESOURCE_PATH_KEY: resource.resource_path,
-		})
+func _encode_payload_property_value(value: Variant, context: Dictionary) -> Variant:
 	if value is Object:
-		var object: Object = value
-		return _make_property_marker(_PROPERTY_TYPE_UNSUPPORTED_OBJECT, {
-			_PROPERTY_UNSUPPORTED_CLASS_KEY: object.get_class(),
-		})
+		return GFVariantReferenceCodec.encode_reference(value, context)
 	return GFVariantJsonCodec.variant_to_json_compatible(value, { "encode_dictionary_keys": true })
 
 
-func _decode_payload_property_value(value: Variant) -> Dictionary:
-	if _is_property_marker(value):
-		var marker: Dictionary = _get_property_marker(value)
-		var marker_type: String = GFVariantData.get_option_string(marker, _PROPERTY_TYPE_KEY)
-		match marker_type:
-			_PROPERTY_TYPE_RESOURCE_PATH:
-				var encoded_resource_path: String = GFVariantData.get_option_string(marker, _PROPERTY_RESOURCE_PATH_KEY)
-				if encoded_resource_path.is_empty():
-					return _make_decode_result(false, null, "Resource path is empty.")
-				var resource: Resource = ResourceLoader.load(encoded_resource_path)
-				if resource == null:
-					return _make_decode_result(false, null, "Resource could not be loaded: %s" % encoded_resource_path)
-				return _make_decode_result(true, resource)
-			_PROPERTY_TYPE_UNSUPPORTED_OBJECT:
-				return _make_decode_result(false, null, "Unsupported object property value.")
+func _decode_payload_property_value(value: Variant, context: Dictionary) -> Dictionary:
+	if GFVariantReferenceCodec.is_reference_marker(value):
+		return GFVariantReferenceCodec.decode_reference(value, context)
 	return _make_decode_result(true, GFVariantJsonCodec.json_compatible_to_variant(value))
 
 
-func _make_property_marker(marker_type: String, data: Dictionary = {}) -> Dictionary:
-	var marker: Dictionary = data.duplicate(true)
-	marker[_PROPERTY_VERSION_KEY] = _PROPERTY_MARKER_VERSION
-	marker[_PROPERTY_TYPE_KEY] = marker_type
-	return {
-		_PROPERTY_MARKER_KEY: marker,
-	}
-
-
-func _is_property_marker(value: Variant) -> bool:
-	if not (value is Dictionary):
-		return false
-	var dictionary: Dictionary = GFVariantData.as_dictionary(value)
-	if dictionary.size() != 1 or not dictionary.has(_PROPERTY_MARKER_KEY):
-		return false
-	var marker: Dictionary = GFVariantData.as_dictionary(GFVariantData.get_option_value(dictionary, _PROPERTY_MARKER_KEY))
-	return marker.has(_PROPERTY_TYPE_KEY)
-
-
 func _is_unsupported_property_marker(value: Variant) -> bool:
-	if not _is_property_marker(value):
-		return false
-	var marker: Dictionary = _get_property_marker(value)
-	return GFVariantData.get_option_string(marker, _PROPERTY_TYPE_KEY) == _PROPERTY_TYPE_UNSUPPORTED_OBJECT
+	return GFVariantReferenceCodec.is_unsupported_reference_marker(value)
 
 
 func _make_decode_result(ok: bool, value: Variant = null, error: String = "") -> Dictionary:
@@ -186,8 +128,3 @@ func _make_decode_result(ok: bool, value: Variant = null, error: String = "") ->
 		"value": value,
 		"error": error,
 	}
-
-
-func _get_property_marker(value: Variant) -> Dictionary:
-	var dictionary: Dictionary = GFVariantData.as_dictionary(value)
-	return GFVariantData.as_dictionary(GFVariantData.get_option_value(dictionary, _PROPERTY_MARKER_KEY))

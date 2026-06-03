@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSettingsUtility" path="addons/gf/standard/utilities/settings/gf_settings_utility.gd" module="standard" extends="GFUtility" classDigest="95d5c4f7d4cafee8858ff65de5590c399cda3ad8b3aa0ca1df674f4d280ff7fa">
+<class name="GFSettingsUtility" path="addons/gf/standard/utilities/settings/gf_settings_utility.gd" module="standard" extends="GFUtility" classDigest="aa2482191465fcf98b6c74b056406526f3b61dfaf651de20a046293345aa75d6">
 	<description>GFSettingsUtility: 通用设置注册、读写与持久化工具。
 设置项以 StringName 键访问，可选使用 GFSettingDefinition 声明默认值和类型。
 该工具只管理抽象设置值，不直接绑定窗口、音频、输入或任何项目业务。</description>
@@ -273,6 +273,27 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">delta: 距离上一帧的秒数。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_read_persisted_data">
+			<signature>func _read_persisted_data(file_name: String) -&gt; Dictionary:</signature>
+			<description>读取持久化设置数据。子类可覆盖该钩子以接入自定义存储后端。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">file_name: 要读取的设置文件名。</tag>
+				<tag name="return">已读取的数据；不存在或无法解析时返回空字典。</tag>
+				<tag name="schema">return: Dictionary[String, Variant] persisted settings data.</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_write_persisted_data">
+			<signature>func _write_persisted_data(file_name: String, data: Dictionary) -&gt; Error:</signature>
+			<description>写入持久化设置数据。子类可覆盖该钩子以接入自定义存储后端。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">file_name: 要写入的设置文件名。</tag>
+				<tag name="param">data: 要写入的设置数据。</tag>
+				<tag name="return">Godot 错误码。</tag>
+				<tag name="schema">data: Dictionary[String, Variant] persisted settings data produced by to_dict(true).</tag>
 			</tags>
 		</member>
 	</methods>

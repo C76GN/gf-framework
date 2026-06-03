@@ -23,6 +23,8 @@
 | 方法 | [`get_data_provider`](#member-gfsavedatasource-methods-get_data_provider) | `func get_data_provider() -> Object:` |
 | 方法 | [`describe_data_provider`](#member-gfsavedatasource-methods-describe_data_provider) | `func describe_data_provider() -> Dictionary:` |
 | 方法 | [`describe_source`](#member-gfsavedatasource-methods-describe_source) | `func describe_source(scope: Node = null) -> Dictionary:` |
+| 方法 | [`_gather_save_data`](#member-gfsavedatasource-methods-_gather_save_data) | `func _gather_save_data( context: Dictionary = {}, _serializer_registry: GFNodeSerializerRegistry = null ) -> Variant:` |
+| 方法 | [`_apply_save_data`](#member-gfsavedatasource-methods-_apply_save_data) | `func _apply_save_data( payload: Variant, _context: Dictionary = {}, _serializer_registry: GFNodeSerializerRegistry = null ) -> Dictionary:` |
 
 ## 属性
 
@@ -143,3 +145,57 @@ func describe_source(scope: Node = null) -> Dictionary:
 结构：
 
 - `return`: Dictionary，包含父类描述字段，并追加 kind 与 data_provider 诊断字段。
+
+<a id="member-gfsavedatasource-methods-_gather_save_data"></a>
+
+### `_gather_save_data`
+
+- API：`protected`
+
+```gdscript
+func _gather_save_data( context: Dictionary = {}, _serializer_registry: GFNodeSerializerRegistry = null ) -> Variant:
+```
+
+采集数据对象载荷。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `context` | 调用上下文字典。 |
+| `_serializer_registry` | 未使用；保留以匹配 GFSaveSource 协议。 |
+
+返回：数据对象返回的 Dictionary 载荷；失败时返回空 Dictionary 并写入流程错误。
+
+结构：
+
+- `context`: Dictionary，可包含 pipeline_context、pipeline_shared、include_pipeline_trace 等流程字段。
+- `return`: Variant，成功时为 Dictionary。
+
+<a id="member-gfsavedatasource-methods-_apply_save_data"></a>
+
+### `_apply_save_data`
+
+- API：`protected`
+
+```gdscript
+func _apply_save_data( payload: Variant, _context: Dictionary = {}, _serializer_registry: GFNodeSerializerRegistry = null ) -> Dictionary:
+```
+
+应用数据对象载荷。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `payload` | 保存载荷。 |
+| `_context` | 调用上下文字典。 |
+| `_serializer_registry` | 未使用；保留以匹配 GFSaveSource 协议。 |
+
+返回：结果字典。
+
+结构：
+
+- `payload`: Variant，要求为 Dictionary。
+- `_context`: Dictionary，可包含 pipeline_context、pipeline_shared、include_pipeline_trace 等流程字段。
+- `return`: Dictionary，包含 ok: bool 与 error: String。

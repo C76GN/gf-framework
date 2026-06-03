@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFShaderParameterBinder" path="addons/gf/standard/utilities/display/gf_shader_parameter_binder.gd" module="standard" extends="Node" classDigest="add4771ab4fe9159a6ba39525c3d67db548246bba2c916b520353d8dff9913b5">
+	<description>GFShaderParameterBinder: 场景中的 Shader 参数 Profile 绑定节点。
+将 `GFShaderParameterProfile` 应用到目标节点或材质，便于项目用可复用
+Resource 管理 ShaderMaterial uniform 参数。它只负责目标解析、材质复制选项、
+profile 变化监听和批量写入，不规定 shader、uniform 命名或视觉语义。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_handle</tag>
+		<tag name="since">4.3.0</tag>
+	</tags>
+	<signals>
+		<member kind="signal" name="profile_applied">
+			<signature>signal profile_applied(applied_count: int)</signature>
+			<description>Profile 应用完成时发出。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">applied_count: 实际写入的参数数量。</tag>
+			</tags>
+		</member>
+	</signals>
+	<enums />
+	<constants />
+	<properties>
+		<member kind="property" name="profile" decorators="@export">
+			<signature>var profile: GFShaderParameterProfile = null:</signature>
+			<description>要应用的 Shader 参数 Profile。</description>
+			<tags>
+				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="property" name="target_path" decorators="@export">
+			<signature>var target_path: NodePath = ^".."</signature>
+			<description>目标节点路径。默认指向父节点，适合把 Binder 作为材质节点的子节点使用。</description>
+			<tags>
+				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="property" name="material_property" decorators="@export">
+			<signature>var material_property: NodePath = ^"material"</signature>
+			<description>当目标不是 ShaderMaterial 时，用于读取材质的属性路径。</description>
+			<tags>
+				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="property" name="apply_on_ready" decorators="@export">
+			<signature>var apply_on_ready: bool = true</signature>
+			<description>进入场景树 ready 阶段时是否自动应用 profile。</description>
+			<tags>
+				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="property" name="apply_each_process" decorators="@export">
+			<signature>var apply_each_process: bool = false:</signature>
+			<description>是否在每帧 `_process()` 中重新应用 profile。</description>
+			<tags>
+				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="property" name="auto_apply_on_profile_changed" decorators="@export">
+			<signature>var auto_apply_on_profile_changed: bool = true</signature>
+			<description>Profile 通过公开方法发出 changed 信号时是否自动应用。</description>
+			<tags>
+				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="property" name="duplicate_material_on_apply" decorators="@export">
+			<signature>var duplicate_material_on_apply: bool = false</signature>
+			<description>应用前是否复制目标材质并写回 material_property，避免修改共享材质资源。</description>
+			<tags>
+				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="property" name="require_declared_parameters" decorators="@export">
+			<signature>var require_declared_parameters: bool = true</signature>
+			<description>是否要求 shader 已声明 profile 中的 uniform 参数。</description>
+			<tags>
+				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="property" name="warn_on_invalid_target" decorators="@export">
+			<signature>var warn_on_invalid_target: bool = true</signature>
+			<description>目标或材质无效时是否输出 warning。</description>
+			<tags>
+				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="property" name="warn_on_missing_parameters" decorators="@export">
+			<signature>var warn_on_missing_parameters: bool = true</signature>
+			<description>profile 中存在 shader 未声明参数时是否输出 warning。</description>
+			<tags>
+				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="property" name="copy_values" decorators="@export">
+			<signature>var copy_values: bool = true</signature>
+			<description>写入参数前是否复制集合值，避免外部可变集合污染材质参数。</description>
+			<tags>
+				<tag name="api">public</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="apply">
+			<signature>func apply() -&gt; int:</signature>
+			<description>将当前 profile 应用到目标材质。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">实际写入的参数数量。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="resolve_target">
+			<signature>func resolve_target() -&gt; Object:</signature>
+			<description>解析当前目标对象。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">目标节点；解析失败时返回 null。</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

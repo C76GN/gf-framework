@@ -22,6 +22,8 @@
 | 属性 | [`arrival_distance`](#member-gfhomingprojectilemotion-properties-arrival_distance) | `var arrival_distance: float = 0.0` |
 | 属性 | [`track_target`](#member-gfhomingprojectilemotion-properties-track_target) | `var track_target: bool = true` |
 | 属性 | [`stop_when_reached`](#member-gfhomingprojectilemotion-properties-stop_when_reached) | `var stop_when_reached: bool = true` |
+| 方法 | [`_setup`](#member-gfhomingprojectilemotion-methods-_setup) | `func _setup(projectile: Node, projectile_context: Dictionary = {}) -> void:` |
+| 方法 | [`_step`](#member-gfhomingprojectilemotion-methods-_step) | `func _step(projectile: Node, delta: float, projectile_context: Dictionary = {}) -> void:` |
 
 ## 属性
 
@@ -108,3 +110,52 @@ var stop_when_reached: bool = true
 ```
 
 到达目标范围时是否停止并夹住位移，避免越过目标。
+
+## 方法
+
+<a id="member-gfhomingprojectilemotion-methods-_setup"></a>
+
+### `_setup`
+
+- API：`protected`
+
+```gdscript
+func _setup(projectile: Node, projectile_context: Dictionary = {}) -> void:
+```
+
+缓存初始追踪方向。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `projectile` | 发射体节点。 |
+| `projectile_context` | 本次发射上下文字典。 |
+
+结构：
+
+- `projectile_context`: Dictionary，本次发射上下文；可包含 target、target_position、target_position_2d 或 target_position_3d。
+
+<a id="member-gfhomingprojectilemotion-methods-_step"></a>
+
+### `_step`
+
+- API：`protected`
+
+```gdscript
+func _step(projectile: Node, delta: float, projectile_context: Dictionary = {}) -> void:
+```
+
+推进追踪移动。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `projectile` | 发射体节点。 |
+| `delta` | 物理帧间隔。 |
+| `projectile_context` | 本次发射上下文字典。 |
+
+结构：
+
+- `projectile_context`: Dictionary，本次发射上下文；会写入目标距离、速度和到达状态。

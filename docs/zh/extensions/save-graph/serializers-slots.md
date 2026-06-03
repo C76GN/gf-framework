@@ -13,7 +13,7 @@ SaveGraph 的默认节点序列化器按节点类型拆分，覆盖常见场景�
 - `GFNodeAudioStreamPlayerSerializer`：保存音频播放器状态。
 - `GFNodePropertySerializer`：保存项目显式声明的属性列表。
 
-属性序列化器采集时会把常见 Godot 值类型转成可 JSON 落盘的类型化值，并可按 `resource_path` 保存外部 `Resource` 引用。没有路径的内嵌资源、节点对象引用或其他裸 `Object` 会被跳过并输出 warning。应用数据时会先恢复类型化值，再检查属性存在、可写性和基础 Variant 类型兼容性。
+属性序列化器采集时会把常见 Godot 值类型转成可 JSON 落盘的类型化值，并用 `GFVariantReferenceCodec` 保存显式引用。Resource 引用会记录路径、可用时的 `ResourceUID` 和类型提示；同一 SaveGraph Scope 内的 Node 引用会记录相对 Scope 的 `NodePath`。没有路径的内嵌资源、Scope 外节点引用或其他裸 `Object` 会被跳过并输出 warning。应用数据时会先恢复类型化值或引用，再检查属性存在、可写性和基础 Variant 类型兼容性。
 
 如果只需要在场景树里声明属性白名单，可以直接使用 `GFPersistPropertiesSource`。它是 `GFSaveSource` 的薄封装，内部仍使用 `GFNodePropertySerializer`，默认目标是父节点，也可以通过继承的 `target_node_path` 指向其他节点。
 
@@ -31,6 +31,8 @@ source.properties = PackedStringArray(["position", "rotation"])
 ## 槽位工作流
 
 项目可使用 `GFSaveSlotWorkflow` 构建通用槽位元数据和槽位摘要 DTO；它只处理槽位索引、逻辑标识、可选显示名、标签和自定义字典，不规定 UI 布局、默认文案或存档内容。
+
+SaveGraph 负责场景树范围内的 Source、Serializer、Pipeline Step 和实体身份恢复，不是项目全局存档模块注册表。项目需要把背包、任务、关卡、设置、统计或远端资料与场景快照合并时，应在项目层定义聚合载荷，然后交给 `GFStorageUtility` 的槽位或文件 API 落盘。
 
 ```gdscript
 var storage := Gf.get_utility(GFStorageUtility) as GFStorageUtility

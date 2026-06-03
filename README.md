@@ -83,7 +83,7 @@ GF source is organized around stable ownership boundaries:
 
 - `addons/gf/kernel`: runtime kernel, base contracts, architecture container, binding, events, commands, queries, factories, AutoLoad entry, extension infrastructure, and core editor integration.
 - `addons/gf/standard`: stable standard library, including foundation, input, utilities, state machines, command history, sequence helpers, and common support primitives.
-- `addons/gf/extensions`: optional atomic GF extensions shipped with the framework, such as capability, interaction, feedback, camera, dialogue, action queue, combat, asset metadata, save, flow, network, turn-based flow, behavior tree, physics helpers, and domain models.
+- `addons/gf/extensions`: optional atomic GF extensions shipped with the framework, such as capability, interaction, feedback, camera, dialogue, action queue, combat, asset metadata, save, flow, network, turn-based flow, behavior tree, decision scoring, physics helpers, and domain models.
 
 The kernel does not hard reference the standard library or optional extensions. The standard library depends only on the kernel and must not probe optional extensions through extension IDs, paths, dynamic loading, or extension class names. Bundled GF extensions are kept independent of each other; extensions that need to appear in standard diagnostics or tools contribute through generic registration APIs, and cross-extension orchestration stays in project code or standalone plugins.
 

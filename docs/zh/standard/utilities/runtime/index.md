@@ -5,7 +5,7 @@
 ## 阅读入口
 
 - [时间、信号与对象池](time-signal-pool/index.md)：逻辑计时、时间缩放、信号连接、节点对象池。
-- [设置、UI、场景与表面查询](settings-ui-scene/index.md)：设置应用、UI 栈、场景切换、节点树操作、表面查询总览。
+- [设置、UI、场景与表面查询](settings-ui-scene/index.md)：设置应用、UI 栈、场景切换、节点树操作、表面查询和 Shader 参数 profile 总览。
 - [设置与显示应用](settings-ui-scene/settings-display/index.md)：设置定义、持久化、显示应用和表单控件绑定。
 - [UI 栈、路由、视口与文本辅助总览](settings-ui-scene/ui-stack-routing/index.md)：UI 栈、路由、分屏视口、文本适配、富文本和节点树操作的分层边界。
 - [UI 面板栈与 Modal 协议](settings-ui-scene/ui-stack-routing/ui-stack-modal/index.md)：面板层级、异步加载、dismiss、焦点辅助和 Modal 结果协议。
@@ -13,6 +13,7 @@
 - [视口、文本与节点树工具](settings-ui-scene/ui-stack-routing/viewport-text-node-tools/index.md)：分屏视口、文本适配、富文本格式化和节点树操作。
 - [场景与流程切换](settings-ui-scene/scene-flow/index.md)：场景切换、Loading 过渡、预加载缓存、场景参数和瞬态模块清理。
 - [3D 表面材质查询](settings-ui-scene/surface-query.md)：碰撞 face 到 Mesh surface 或材质的查询。
+- [Shader 参数 Profile](settings-ui-scene/shader-parameter-profile.md)：ShaderMaterial uniform 参数集合、合并、插值、批量写入和场景绑定。
 - [音频管理](audio/index.md)：背景音乐、音效、环境音、音频片段、音频 Bank 和可插拔后端。
 - [调试、日志、诊断与控制台](debug-observability/index.md)：开发期观测、运行时日志、诊断、支持报告、通知和控制台总览。
 - [调试可视化、运行时检查与信号诊断](debug-observability/debug-visual-inspection/index.md)：DebugDraw、Overlay、运行时调参和信号探针。

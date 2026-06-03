@@ -17,6 +17,8 @@
 |---|---|---|
 | 方法 | [`setup`](#member-gfprojectilemotion-methods-setup) | `func setup(projectile: Node, projectile_context: Dictionary = {}) -> void:` |
 | 方法 | [`step`](#member-gfprojectilemotion-methods-step) | `func step(projectile: Node, delta: float, projectile_context: Dictionary = {}) -> void:` |
+| 方法 | [`_setup`](#member-gfprojectilemotion-methods-_setup) | `func _setup(_projectile: Node, _projectile_context: Dictionary = {}) -> void:` |
+| 方法 | [`_step`](#member-gfprojectilemotion-methods-_step) | `func _step(_projectile: Node, _delta: float, _projectile_context: Dictionary = {}) -> void:` |
 
 ## 方法
 
@@ -66,3 +68,50 @@ func step(projectile: Node, delta: float, projectile_context: Dictionary = {}) -
 结构：
 
 - `projectile_context`: Dictionary，本次发射上下文；移动策略可读取或写入跨帧状态。
+
+<a id="member-gfprojectilemotion-methods-_setup"></a>
+
+### `_setup`
+
+- API：`protected`
+
+```gdscript
+func _setup(_projectile: Node, _projectile_context: Dictionary = {}) -> void:
+```
+
+发射体启动扩展点。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `_projectile` | 发射体节点。 |
+| `_projectile_context` | 本次发射上下文字典。 |
+
+结构：
+
+- `_projectile_context`: Dictionary，本次发射上下文；移动策略可写入跨帧状态。
+
+<a id="member-gfprojectilemotion-methods-_step"></a>
+
+### `_step`
+
+- API：`protected`
+
+```gdscript
+func _step(_projectile: Node, _delta: float, _projectile_context: Dictionary = {}) -> void:
+```
+
+发射体移动扩展点。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `_projectile` | 发射体节点。 |
+| `_delta` | 物理帧间隔。 |
+| `_projectile_context` | 本次发射上下文字典。 |
+
+结构：
+
+- `_projectile_context`: Dictionary，本次发射上下文；移动策略可读取或写入跨帧状态。

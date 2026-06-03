@@ -34,6 +34,8 @@
 | 方法 | [`cancel_all`](#member-gfremotecacheutility-methods-cancel_all) | `func cancel_all() -> int:` |
 | 方法 | [`clear_cache`](#member-gfremotecacheutility-methods-clear_cache) | `func clear_cache() -> void:` |
 | 方法 | [`get_debug_snapshot`](#member-gfremotecacheutility-methods-get_debug_snapshot) | `func get_debug_snapshot() -> Dictionary:` |
+| 方法 | [`_start_http_request`](#member-gfremotecacheutility-methods-_start_http_request) | `func _start_http_request(request_data: Dictionary) -> Error:` |
+| 方法 | [`_complete_active_request`](#member-gfremotecacheutility-methods-_complete_active_request) | `func _complete_active_request( success: bool, response_code: int, content: String, error: String ) -> void:` |
 
 ## 信号
 
@@ -359,3 +361,48 @@ func get_debug_snapshot() -> Dictionary:
 结构：
 
 - `return`: Dictionary，包含缓存设置、pending_count、active_url、active_cache_key 和 has_active_request。
+
+<a id="member-gfremotecacheutility-methods-_start_http_request"></a>
+
+### `_start_http_request`
+
+- API：`protected`
+
+```gdscript
+func _start_http_request(request_data: Dictionary) -> Error:
+```
+
+启动底层 HTTP 请求。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `request_data` | 请求数据。 |
+
+返回：Godot 错误码。
+
+结构：
+
+- `request_data`: Dictionary，包含 url、headers、ttl_seconds、format、cache_key 和 callbacks。
+
+<a id="member-gfremotecacheutility-methods-_complete_active_request"></a>
+
+### `_complete_active_request`
+
+- API：`protected`
+
+```gdscript
+func _complete_active_request( success: bool, response_code: int, content: String, error: String ) -> void:
+```
+
+完成当前活动请求，并写入缓存、回退陈旧缓存或分发失败结果。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `success` | 底层请求是否成功。 |
+| `response_code` | HTTP 响应码。 |
+| `content` | 响应文本内容。 |
+| `error` | 失败原因。 |

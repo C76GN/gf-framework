@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSaveScope" path="addons/gf/extensions/save/core/gf_save_scope.gd" module="extensions/save" extends="Node" classDigest="95e1a3f787b5cc51862e40ebe28482d1e3df9d89b0a28fd0d5ad13c4d48cc72e">
+<class name="GFSaveScope" path="addons/gf/extensions/save/core/gf_save_scope.gd" module="extensions/save" extends="Node" classDigest="a323551944d5f5ca247590d26802c2499e2b88cd7e926d73938f4d5154fa88d6">
 	<description>GFSaveScope: 存档图作用域节点。
 Scope 定义一次保存/加载的边界。它可嵌套组织子 Scope，但不假设具体业务结构。</description>
 	<tags>
@@ -100,6 +100,68 @@ Scope 定义一次保存/加载的边界。它可嵌套组织子 Scope，但不�
 				<tag name="api">public</tag>
 				<tag name="return">描述字典。</tag>
 				<tag name="schema">return: Dictionary，包含 scope_key、key_namespace、phase 与 restore_policy。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_can_save_scope">
+			<signature>func _can_save_scope(_context: Dictionary = {}) -&gt; bool:</signature>
+			<description>判断是否可保存。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">_context: 调用上下文字典。</tag>
+				<tag name="return">可保存时返回 true。</tag>
+				<tag name="schema">_context: Dictionary，可包含 pipeline_context、pipeline_shared、include_pipeline_trace 等流程字段。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_can_load_scope">
+			<signature>func _can_load_scope(_context: Dictionary = {}) -&gt; bool:</signature>
+			<description>判断是否可加载。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">_context: 调用上下文字典。</tag>
+				<tag name="return">可加载时返回 true。</tag>
+				<tag name="schema">_context: Dictionary，可包含 pipeline_context、pipeline_shared、include_pipeline_trace 等流程字段。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_before_save">
+			<signature>func _before_save(_context: Dictionary = {}) -&gt; void:</signature>
+			<description>保存前 Hook。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">_context: 调用上下文字典。</tag>
+				<tag name="schema">_context: Dictionary，可包含 pipeline_context、pipeline_shared、include_pipeline_trace 等流程字段。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_after_save">
+			<signature>func _after_save(_payload: Dictionary, _context: Dictionary = {}) -&gt; void:</signature>
+			<description>保存后 Hook。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">_payload: 当前 Scope 载荷。</tag>
+				<tag name="param">_context: 调用上下文字典。</tag>
+				<tag name="schema">_payload: Dictionary，当前 Scope 采集完成后的载荷。</tag>
+				<tag name="schema">_context: Dictionary，可包含 pipeline_context、pipeline_shared、include_pipeline_trace 等流程字段。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_before_load">
+			<signature>func _before_load(_payload: Dictionary, _context: Dictionary = {}) -&gt; void:</signature>
+			<description>加载前 Hook。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">_payload: 当前 Scope 载荷。</tag>
+				<tag name="param">_context: 调用上下文字典。</tag>
+				<tag name="schema">_payload: Dictionary，当前 Scope 待应用的载荷。</tag>
+				<tag name="schema">_context: Dictionary，可包含 pipeline_context、pipeline_shared、include_pipeline_trace 等流程字段。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_after_load">
+			<signature>func _after_load(_payload: Dictionary, _context: Dictionary = {}) -&gt; void:</signature>
+			<description>加载后 Hook。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">_payload: 当前 Scope 载荷。</tag>
+				<tag name="param">_context: 调用上下文字典。</tag>
+				<tag name="schema">_payload: Dictionary，当前 Scope 已应用的载荷。</tag>
+				<tag name="schema">_context: Dictionary，可包含 pipeline_context、pipeline_shared、include_pipeline_trace 等流程字段。</tag>
 			</tags>
 		</member>
 	</methods>

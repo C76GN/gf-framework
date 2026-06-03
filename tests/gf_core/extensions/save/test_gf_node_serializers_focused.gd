@@ -103,6 +103,55 @@ func test_property_serializer_restores_external_resource_reference() -> void:
 		var _remove_absolute_result_103: Variant = DirAccess.remove_absolute(absolute_path)
 
 
+func test_property_serializer_rejects_legacy_resource_path_marker() -> void:
+	var holder: ResourcePropertyNode = ResourcePropertyNode.new()
+	add_child_autofree(holder)
+	var serializer: GFNodePropertySerializer = GFNodePropertySerializer.new()
+	serializer.properties = PackedStringArray(["resource_value"])
+
+	var result: Dictionary = serializer.apply(holder, {
+		"resource_value": {
+			"__gf_save_property__": {
+				"type": "ResourcePath",
+				"path": "res://missing_legacy_resource.tres",
+			},
+		},
+	})
+
+	assert_false(GFVariantData.get_option_bool(result, "ok", true), "旧属性 marker 不应再作为 Resource 引用恢复。")
+	assert_null(holder.resource_value, "旧属性 marker 失败时不应写入 Resource 属性。")
+
+
+func test_property_serializer_restores_node_reference_with_context_root() -> void:
+	var root: Node = Node.new()
+	root.name = "ReferenceRoot"
+	add_child_autofree(root)
+	var target: Node = Node.new()
+	target.name = "Target"
+	root.add_child(target)
+	var holder: NodeReferencePropertyNode = NodeReferencePropertyNode.new()
+	holder.name = "Holder"
+	holder.node_value = target
+	root.add_child(holder)
+	var serializer: GFNodePropertySerializer = GFNodePropertySerializer.new()
+	serializer.properties = PackedStringArray(["node_value"])
+
+	var payload: Dictionary = serializer.gather(holder, {
+		GFVariantReferenceCodec.OPTION_ROOT_NODE: root,
+	})
+	var json_payload: Dictionary = GFVariantData.as_dictionary(JSON.parse_string(JSON.stringify(payload)))
+	holder.node_value = null
+	var result: Dictionary = serializer.apply(holder, json_payload, {
+		GFVariantReferenceCodec.OPTION_ROOT_NODE: root,
+	})
+
+	assert_true(GFVariantData.get_option_bool(result, "ok"), "Node 引用 payload 应能在显式 root 下应用。")
+	assert_same(holder.node_value, target, "Node 属性应按相对 root 的 NodePath 恢复。")
+	holder.node_value = null
+	var missing_root_result: Dictionary = serializer.apply(holder, json_payload)
+	assert_false(GFVariantData.get_option_bool(missing_root_result, "ok"), "没有 root 时不应恢复 Node 引用。")
+
+
 # --- 内部类 ---
 
 class ResourcePropertyNode extends Node:
@@ -131,5 +180,35 @@ class ResourcePropertyNode extends Node:
 			resource_value = null
 			if value is Resource:
 				resource_value = value
+			return true
+		return false
+
+
+class NodeReferencePropertyNode extends Node:
+	var node_value: Node = null
+
+
+	func _get_property_list() -> Array[Dictionary]:
+		return [{
+			"name": "node_value",
+			"type": TYPE_OBJECT,
+			"class_name": "Node",
+			"usage": PROPERTY_USAGE_DEFAULT | PROPERTY_USAGE_STORAGE,
+		}]
+
+
+	func _get(property: StringName) -> Variant:
+		if property == &"node_value":
+			return node_value
+		return null
+
+
+	func _set(property: StringName, value: Variant) -> bool:
+		if property == &"node_value":
+			if value != null and not value is Node:
+				return false
+			node_value = null
+			if value is Node:
+				node_value = value
 			return true
 		return false

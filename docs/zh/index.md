@@ -40,6 +40,7 @@ addons/gf/
 - 支撑 GF 启动与基础契约的内容进入 `kernel`。
 - 足够稳定、通用、默认随框架理解的能力进入 `standard`。
 - 通用但不是所有项目都需要的能力进入 `extensions`；项目组合和第三方扩展放在项目代码或 `addons/gf` 外的独立插件中。
+- 如果多个扩展需要同一份稳定机制，优先抽到 `standard`；如果只是具体玩法、内容、流程或跨扩展编排，应留在项目层或独立插件中。
 
 ## 能力地图
 
@@ -65,6 +66,7 @@ Extensions：
 - [ActionQueue](extensions/action-queue/index.md)
 - [Network 与 TurnBased](extensions/network-turnbased/index.md)
 - [Flow](extensions/flow/index.md)
+- [Decision](extensions/decision/index.md)
 - [Domain](extensions/domain/index.md)
 - [Physics](extensions/physics/index.md)
 - [Save 场景存档图](extensions/save-graph/index.md)

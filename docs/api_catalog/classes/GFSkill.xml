@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSkill" path="addons/gf/extensions/combat/skills/gf_skill.gd" module="extensions/combat" extends="RefCounted" classDigest="6f3b0751294e8d75ce484392a1381a0670804707f14f0a673e988e3fbf0db95c">
+<class name="GFSkill" path="addons/gf/extensions/combat/skills/gf_skill.gd" module="extensions/combat" extends="RefCounted" classDigest="90ec0e247e435fd1e5f28bb104d1c35fc4387ecb8a8621897e8b2bee1a7181a4">
 	<description>GFSkill: 技能基类。
 负责冷却、施放校验与目标解析入口，
 具体技能逻辑通过子类重写 `_on_execute()` 实现。</description>
@@ -163,6 +163,42 @@
 				<tag name="return">技能实际执行并进入冷却时返回 `true`。</tag>
 				<tag name="schema">cast_center: Variant，可为 null 或 Vector2；为 null 时从 owner.global_position 推导。</tag>
 				<tag name="schema">activation_metadata: Dictionary，复制到上下文中供项目检查、提交或诊断使用。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_custom_can_execute">
+			<signature>func _custom_can_execute() -&gt; bool:</signature>
+			<description>自定义施放检查。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="return">允许施放时返回 `true`。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_on_execute">
+			<signature>func _on_execute(_targets: Array[Object]) -&gt; void:</signature>
+			<description>具体技能逻辑入口。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">_targets: 经过筛选后的最终目标数组。</tag>
+				<tag name="schema">_targets: Array[Object]，经过 targeting_rule 或手动目标校验后的最终目标列表。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_try_execute">
+			<signature>func _try_execute(targets: Array[Object]) -&gt; bool:</signature>
+			<description>可报告成功/失败的技能执行入口。默认调用旧的 `_on_execute()` 钩子并视为成功。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">targets: 经过筛选后的最终目标数组。</tag>
+				<tag name="return">技能真正生效时返回 `true`。</tag>
+				<tag name="schema">targets: Array[Object]，经过 targeting_rule 或手动目标校验后的最终目标列表。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_try_activate">
+			<signature>func _try_activate(context: RefCounted) -&gt; bool:</signature>
+			<description>基于激活上下文执行技能。默认桥接到旧的 `_try_execute()`。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">context: 技能激活上下文。</tag>
+				<tag name="return">技能真正生效时返回 `true`。</tag>
 			</tags>
 		</member>
 	</methods>

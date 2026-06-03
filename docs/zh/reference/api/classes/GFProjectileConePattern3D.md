@@ -19,6 +19,7 @@
 | 属性 | [`yaw_spread_degrees`](#member-gfprojectileconepattern3d-properties-yaw_spread_degrees) | `var yaw_spread_degrees: float = 0.0` |
 | 属性 | [`pitch_degrees`](#member-gfprojectileconepattern3d-properties-pitch_degrees) | `var pitch_degrees: float = 0.0` |
 | 属性 | [`radius`](#member-gfprojectileconepattern3d-properties-radius) | `var radius: float = 0.0` |
+| 方法 | [`_get_spawn_transforms`](#member-gfprojectileconepattern3d-methods-_get_spawn_transforms) | `func _get_spawn_transforms( emitter: Node3D, _projectile_context: Dictionary = {}, emit_count: int = -1 ) -> Array[Transform3D]:` |
 
 ## 属性
 
@@ -69,3 +70,31 @@ var radius: float = 0.0
 ```
 
 生成点距离发射器的半径。
+
+## 方法
+
+<a id="member-gfprojectileconepattern3d-methods-_get_spawn_transforms"></a>
+
+### `_get_spawn_transforms`
+
+- API：`protected`
+
+```gdscript
+func _get_spawn_transforms( emitter: Node3D, _projectile_context: Dictionary = {}, emit_count: int = -1 ) -> Array[Transform3D]:
+```
+
+生成 3D 扇形发射变换。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `emitter` | 发射器节点。 |
+| `_projectile_context` | 本次发射上下文。 |
+| `emit_count` | 调用方请求的数量；小于等于 0 时使用 projectile_count。 |
+
+返回：全局 Transform3D 列表。
+
+结构：
+
+- `_projectile_context`: Dictionary，本次发射上下文；当前实现不读取该字典。

@@ -23,6 +23,7 @@
 | 属性 | [`end_column`](#member-gfsourcespan-properties-end_column) | `var end_column: int = 0` |
 | 属性 | [`preview`](#member-gfsourcespan-properties-preview) | `var preview: String = ""` |
 | 属性 | [`metadata`](#member-gfsourcespan-properties-metadata) | `var metadata: Dictionary = {}` |
+| 方法 | [`_init`](#member-gfsourcespan-methods-_init) | `func _init( p_source_path: String = "", p_line: int = 0, p_column: int = 0, p_length: int = 0 ) -> void:` |
 | 方法 | [`configure`](#member-gfsourcespan-methods-configure) | `func configure( p_source_path: String = "", p_line: int = 0, p_column: int = 0, p_length: int = 0, p_end_line: int = 0, p_end_column: int = 0, p_preview: String = "", p_metadata: Dictionary = {} ) -> RefCounted:` |
 | 方法 | [`apply_dict`](#member-gfsourcespan-methods-apply_dict) | `func apply_dict(data: Dictionary) -> void:` |
 | 方法 | [`to_dict`](#member-gfsourcespan-methods-to_dict) | `func to_dict(include_empty_fields: bool = false, include_legacy_source_alias: bool = false) -> Dictionary:` |
@@ -141,6 +142,27 @@ var metadata: Dictionary = {}
 - `metadata`: Dictionary caller metadata.
 
 ## 方法
+
+<a id="member-gfsourcespan-methods-_init"></a>
+
+### `_init`
+
+- API：`public`
+
+```gdscript
+func _init( p_source_path: String = "", p_line: int = 0, p_column: int = 0, p_length: int = 0 ) -> void:
+```
+
+创建源码定位范围。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `p_source_path` | 源文件或资源路径。 |
+| `p_line` | 起始行号，1-based；0 表示未知。 |
+| `p_column` | 起始列号，1-based；0 表示未知。 |
+| `p_length` | 同一行内的跨度长度；0 表示未知。 |
 
 <a id="member-gfsourcespan-methods-configure"></a>
 

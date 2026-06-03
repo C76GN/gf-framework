@@ -82,6 +82,12 @@
 | 方法 | [`mark_transient`](#member-gfsceneutility-methods-mark_transient) | `func mark_transient(script_cls: Script) -> void:` |
 | 方法 | [`unmark_transient`](#member-gfsceneutility-methods-unmark_transient) | `func unmark_transient(script_cls: Script) -> void:` |
 | 方法 | [`cleanup_transients`](#member-gfsceneutility-methods-cleanup_transients) | `func cleanup_transients() -> void:` |
+| 方法 | [`_should_load_active_scene_synchronously`](#member-gfsceneutility-methods-_should_load_active_scene_synchronously) | `func _should_load_active_scene_synchronously() -> bool:` |
+| 方法 | [`_load_packed_scene_synchronously`](#member-gfsceneutility-methods-_load_packed_scene_synchronously) | `func _load_packed_scene_synchronously(path: String) -> PackedScene:` |
+| 方法 | [`_get_loading_scene_node`](#member-gfsceneutility-methods-_get_loading_scene_node) | `func _get_loading_scene_node() -> Node:` |
+| 方法 | [`_do_change_scene`](#member-gfsceneutility-methods-_do_change_scene) | `func _do_change_scene(scene: PackedScene) -> bool:` |
+| 方法 | [`_do_change_scene_sync`](#member-gfsceneutility-methods-_do_change_scene_sync) | `func _do_change_scene_sync(path: String) -> Error:` |
+| 方法 | [`_get_current_scene_path`](#member-gfsceneutility-methods-_get_current_scene_path) | `func _get_current_scene_path() -> String:` |
 
 ## 信号
 
@@ -1277,3 +1283,105 @@ func cleanup_transients() -> void:
 ```
 
 立即清理所有瞬态实例。
+
+<a id="member-gfsceneutility-methods-_should_load_active_scene_synchronously"></a>
+
+### `_should_load_active_scene_synchronously`
+
+- API：`protected`
+
+```gdscript
+func _should_load_active_scene_synchronously() -> bool:
+```
+
+判断当前环境是否应使用同步加载作为活动场景加载降级。
+
+返回：需要同步降级时返回 true。
+
+<a id="member-gfsceneutility-methods-_load_packed_scene_synchronously"></a>
+
+### `_load_packed_scene_synchronously`
+
+- API：`protected`
+
+```gdscript
+func _load_packed_scene_synchronously(path: String) -> PackedScene:
+```
+
+同步加载 PackedScene 资源。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `path` | 场景资源路径。 |
+
+返回：加载到的 PackedScene；失败时返回 null。
+
+<a id="member-gfsceneutility-methods-_get_loading_scene_node"></a>
+
+### `_get_loading_scene_node`
+
+- API：`protected`
+
+```gdscript
+func _get_loading_scene_node() -> Node:
+```
+
+获取当前 loading scene 节点。
+
+返回：当前 loading scene 节点；不存在时返回 null。
+
+<a id="member-gfsceneutility-methods-_do_change_scene"></a>
+
+### `_do_change_scene`
+
+- API：`protected`
+
+```gdscript
+func _do_change_scene(scene: PackedScene) -> bool:
+```
+
+切换到已加载的 PackedScene。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `scene` | 目标 PackedScene。 |
+
+返回：切换成功返回 true。
+
+<a id="member-gfsceneutility-methods-_do_change_scene_sync"></a>
+
+### `_do_change_scene_sync`
+
+- API：`protected`
+
+```gdscript
+func _do_change_scene_sync(path: String) -> Error:
+```
+
+同步切换到场景文件路径。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `path` | 场景资源路径。 |
+
+返回：Godot 场景切换结果。
+
+<a id="member-gfsceneutility-methods-_get_current_scene_path"></a>
+
+### `_get_current_scene_path`
+
+- API：`protected`
+
+```gdscript
+func _get_current_scene_path() -> String:
+```
+
+获取当前场景资源路径。
+
+返回：当前场景资源路径；不可用时返回空字符串。

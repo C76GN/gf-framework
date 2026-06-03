@@ -59,6 +59,7 @@
 | 方法 | [`get_debug_snapshot`](#member-gfslotinventorymodel-methods-get_debug_snapshot) | `func get_debug_snapshot() -> Dictionary:` |
 | 方法 | [`to_dict`](#member-gfslotinventorymodel-methods-to_dict) | `func to_dict() -> Dictionary:` |
 | 方法 | [`from_dict`](#member-gfslotinventorymodel-methods-from_dict) | `func from_dict(data: Dictionary) -> void:` |
+| 方法 | [`_should_sort_slot_before`](#member-gfslotinventorymodel-methods-_should_sort_slot_before) | `func _should_sort_slot_before( left_slot_index: int, left_stack_data: Dictionary, right_slot_index: int, right_stack_data: Dictionary ) -> bool:` |
 
 ## 信号
 
@@ -939,3 +940,31 @@ func from_dict(data: Dictionary) -> void:
 结构：
 
 - `data`: Dictionary，包含 slot_count、allow_growth 与 slots；slots 每项为 GFInventoryStack.to_dict() 形状或空字典。
+
+<a id="member-gfslotinventorymodel-methods-_should_sort_slot_before"></a>
+
+### `_should_sort_slot_before`
+
+- API：`protected`
+
+```gdscript
+func _should_sort_slot_before( left_slot_index: int, left_stack_data: Dictionary, right_slot_index: int, right_stack_data: Dictionary ) -> bool:
+```
+
+判断左侧槽位是否应排在右侧槽位之前。 `sort_slots()` 会传入排序前的槽位索引和堆叠快照。空槽位快照为 `{}`。 子类可重写该方法实现项目自己的格子排序规则。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `left_slot_index` | 左侧槽位原索引。 |
+| `left_stack_data` | 左侧槽位堆叠快照。 |
+| `right_slot_index` | 右侧槽位原索引。 |
+| `right_stack_data` | 右侧槽位堆叠快照。 |
+
+返回：左侧是否应排在右侧之前。
+
+结构：
+
+- `left_stack_data`: Dictionary，GFInventoryStack.to_dict() 形状的左侧槽位快照；空槽为空字典。
+- `right_stack_data`: Dictionary，GFInventoryStack.to_dict() 形状的右侧槽位快照；空槽为空字典。

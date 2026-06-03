@@ -21,6 +21,8 @@ Godot 资源路径校验规则。 用于检查配置字段中的 `res://` 路径
 | 属性 | [`use_resource_loader`](#member-gfconfigresourcepathvalidationrule-properties-use_resource_loader) | `var use_resource_loader: bool = true` |
 | 属性 | [`use_file_access_fallback`](#member-gfconfigresourcepathvalidationrule-properties-use_file_access_fallback) | `var use_file_access_fallback: bool = true` |
 | 方法 | [`describe`](#member-gfconfigresourcepathvalidationrule-methods-describe) | `func describe() -> Dictionary:` |
+| 方法 | [`_get_default_rule_id`](#member-gfconfigresourcepathvalidationrule-methods-_get_default_rule_id) | `func _get_default_rule_id() -> StringName:` |
+| 方法 | [`_validate_value`](#member-gfconfigresourcepathvalidationrule-methods-_validate_value) | `func _validate_value(value: Variant, context: Dictionary, report: Dictionary) -> void:` |
 
 ## 属性
 
@@ -103,3 +105,43 @@ func describe() -> Dictionary:
 结构：
 
 - `return`: Dictionary，包含基础规则字段和资源路径校验设置。
+
+<a id="member-gfconfigresourcepathvalidationrule-methods-_get_default_rule_id"></a>
+
+### `_get_default_rule_id`
+
+- API：`protected`
+
+```gdscript
+func _get_default_rule_id() -> StringName:
+```
+
+返回资源路径规则的默认稳定标识。
+
+返回：默认规则标识。
+
+<a id="member-gfconfigresourcepathvalidationrule-methods-_validate_value"></a>
+
+### `_validate_value`
+
+- API：`protected`
+
+```gdscript
+func _validate_value(value: Variant, context: Dictionary, report: Dictionary) -> void:
+```
+
+校验单个字段值是否是存在且扩展名允许的资源路径。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `value` | 待校验值。 |
+| `context` | 校验上下文。 |
+| `report` | 当前校验报告。 |
+
+结构：
+
+- `value`: Variant，期望为 String 或 StringName 资源路径。
+- `context`: Dictionary，可包含 table_name、row_key、field、source、line 和 column 字段。
+- `report`: GFConfigValidationReport 兼容 Dictionary，会被当前规则修改。

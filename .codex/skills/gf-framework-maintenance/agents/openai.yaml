@@ -1,0 +1,4 @@
+interface:
+  display_name: "GF Maintenance"
+  short_description: "Maintain GF source, docs, and tests"
+  default_prompt: "Use $gf-framework-maintenance to maintain this GF Framework change with the correct project checks."

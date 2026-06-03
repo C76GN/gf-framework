@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFHomingProjectileMotion" path="addons/gf/extensions/combat/projectiles/gf_homing_projectile_motion.gd" module="extensions/combat" extends="GFProjectileMotion" classDigest="1db021519fa264cd107113954174f75d923cd7b3c1b21ab50dea0f57284ac8a6">
+<class name="GFHomingProjectileMotion" path="addons/gf/extensions/combat/projectiles/gf_homing_projectile_motion.gd" module="extensions/combat" extends="GFProjectileMotion" classDigest="4ca99cfb7301f402c0e55c3f49ab0719365fe8dec9ed432e1dbfb4b904e72616">
 	<description>GFHomingProjectileMotion: 2D/3D 通用追踪发射体移动策略。
 目标可通过 launch() 上下文中的 target、target_position、target_position_2d
 或 target_position_3d 传入，也可以用 target_path 从发射体节点相对查找。</description>
@@ -62,6 +62,28 @@
 			</tags>
 		</member>
 	</properties>
-	<methods />
+	<methods>
+		<member kind="method" name="_setup">
+			<signature>func _setup(projectile: Node, projectile_context: Dictionary = {}) -&gt; void:</signature>
+			<description>缓存初始追踪方向。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">projectile: 发射体节点。</tag>
+				<tag name="param">projectile_context: 本次发射上下文字典。</tag>
+				<tag name="schema">projectile_context: Dictionary，本次发射上下文；可包含 target、target_position、target_position_2d 或 target_position_3d。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_step">
+			<signature>func _step(projectile: Node, delta: float, projectile_context: Dictionary = {}) -&gt; void:</signature>
+			<description>推进追踪移动。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">projectile: 发射体节点。</tag>
+				<tag name="param">delta: 物理帧间隔。</tag>
+				<tag name="param">projectile_context: 本次发射上下文字典。</tag>
+				<tag name="schema">projectile_context: Dictionary，本次发射上下文；会写入目标距离、速度和到达状态。</tag>
+			</tags>
+		</member>
+	</methods>
 	<innerClasses />
 </class>

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFNodePropertySerializer" path="addons/gf/extensions/save/serializers/gf_node_property_serializer.gd" module="extensions/save" extends="GFNodeSerializer" classDigest="6bfff7fe6c0371ef14346dda738988ef1dc867bed8dd67a0968d3d7f87c4a789">
+<class name="GFNodePropertySerializer" path="addons/gf/extensions/save/serializers/gf_node_property_serializer.gd" module="extensions/save" extends="GFNodeSerializer" classDigest="beea68dac3aea8895b4670b257200551afc6845f33583a579c23958c941ee1d7">
 	<description>GFNodePropertySerializer: 通用节点属性序列化器。
 通过显式属性白名单保存和恢复节点属性，适合项目层快速接入简单状态。</description>
 	<tags>
@@ -28,28 +28,28 @@
 	</properties>
 	<methods>
 		<member kind="method" name="gather">
-			<signature>func gather(node: Node, _context: Dictionary = {}) -&gt; Dictionary:</signature>
+			<signature>func gather(node: Node, context: Dictionary = {}) -&gt; Dictionary:</signature>
 			<description>采集节点的可保存状态。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">node: 目标节点。</tag>
-				<tag name="param">_context: 操作上下文字典，默认实现不直接使用。</tag>
+				<tag name="param">context: 操作上下文字典。</tag>
 				<tag name="return">属性载荷字典。</tag>
-				<tag name="schema">_context: Dictionary，调用方附加上下文；当前实现不读取。</tag>
-				<tag name="schema">return: Dictionary，键为 properties 中声明的属性名，值为 JSON 兼容值；Resource 引用使用 __gf_save_property__ 标记。</tag>
+				<tag name="schema">context: Dictionary，可包含 reference_root_node: Node，用于保存 Node 引用属性。</tag>
+				<tag name="schema">return: Dictionary，键为 properties 中声明的属性名，值为 JSON 兼容值；Resource / Node 引用使用 __gf_reference__ 标记。</tag>
 			</tags>
 		</member>
 		<member kind="method" name="apply">
-			<signature>func apply(node: Node, payload: Dictionary, _context: Dictionary = {}) -&gt; Dictionary:</signature>
+			<signature>func apply(node: Node, payload: Dictionary, context: Dictionary = {}) -&gt; Dictionary:</signature>
 			<description>将序列化数据应用到节点。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">node: 目标节点。</tag>
 				<tag name="param">payload: 属性载荷字典。</tag>
-				<tag name="param">_context: 操作上下文字典，默认实现不直接使用。</tag>
+				<tag name="param">context: 操作上下文字典。</tag>
 				<tag name="return">应用结果字典。</tag>
-				<tag name="schema">payload: Dictionary，键为属性名，值为 JSON 兼容值或 __gf_save_property__ 标记。</tag>
-				<tag name="schema">_context: Dictionary，调用方附加上下文；当前实现不读取。</tag>
+				<tag name="schema">payload: Dictionary，键为属性名，值为 JSON 兼容值或 __gf_reference__ 标记。</tag>
+				<tag name="schema">context: Dictionary，可包含 reference_root_node: Node，用于恢复 Node 引用属性。</tag>
 				<tag name="schema">return: Dictionary，包含 ok: bool 与 error: String。</tag>
 			</tags>
 		</member>

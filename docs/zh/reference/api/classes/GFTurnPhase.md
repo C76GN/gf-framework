@@ -21,6 +21,9 @@
 | 属性 | [`is_finished`](#member-gfturnphase-properties-is_finished) | `var is_finished: bool = false` |
 | 方法 | [`finish`](#member-gfturnphase-methods-finish) | `func finish() -> void:` |
 | 方法 | [`reset`](#member-gfturnphase-methods-reset) | `func reset() -> void:` |
+| 方法 | [`_enter`](#member-gfturnphase-methods-_enter) | `func _enter(_context: GFTurnContext) -> void:` |
+| 方法 | [`_execute`](#member-gfturnphase-methods-_execute) | `func _execute(_context: GFTurnContext) -> Variant:` |
+| 方法 | [`_exit`](#member-gfturnphase-methods-_exit) | `func _exit(_context: GFTurnContext) -> void:` |
 
 ## 信号
 
@@ -99,3 +102,63 @@ func reset() -> void:
 ```
 
 重置阶段运行状态。
+
+<a id="member-gfturnphase-methods-_enter"></a>
+
+### `_enter`
+
+- API：`protected`
+
+```gdscript
+func _enter(_context: GFTurnContext) -> void:
+```
+
+进入阶段时由 GFTurnFlowSystem 调用。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `_context` | 回合上下文。 |
+
+<a id="member-gfturnphase-methods-_execute"></a>
+
+### `_execute`
+
+- API：`protected`
+
+```gdscript
+func _execute(_context: GFTurnContext) -> Variant:
+```
+
+执行阶段逻辑时由 GFTurnFlowSystem 调用。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `_context` | 回合上下文。 |
+
+返回：可等待结果。
+
+结构：
+
+- `return`: Variant that is null or a Signal awaited before phase completion.
+
+<a id="member-gfturnphase-methods-_exit"></a>
+
+### `_exit`
+
+- API：`protected`
+
+```gdscript
+func _exit(_context: GFTurnContext) -> void:
+```
+
+退出阶段时由 GFTurnFlowSystem 调用。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `_context` | 回合上下文。 |

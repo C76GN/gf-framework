@@ -6,11 +6,11 @@
 
 | 类别 | 类 | 成员 | 方法 |
 |---|---:|---:|---:|
-| [运行时服务](#category-runtime_service) | 6 | 184 | 149 |
-| [协议与扩展点](#category-protocol) | 17 | 169 | 147 |
+| [运行时服务](#category-runtime_service) | 6 | 187 | 152 |
+| [协议与扩展点](#category-protocol) | 17 | 173 | 151 |
 | [资源定义](#category-resource_definition) | 1 | 29 | 5 |
 | [值对象](#category-value_object) | 1 | 1 | 0 |
-| [编辑器 API](#category-editor_api) | 16 | 187 | 117 |
+| [编辑器 API](#category-editor_api) | 16 | 198 | 128 |
 
 ## 类
 

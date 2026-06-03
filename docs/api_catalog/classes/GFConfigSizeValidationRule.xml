@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFConfigSizeValidationRule" path="addons/gf/standard/utilities/config/validation/gf_config_size_validation_rule.gd" module="standard" extends="GFConfigValidationRule" classDigest="188bf1ac1122f2d2b11692d2d8b6c0f6276c3f78c76ed2d3e6341f0cd37b3f91">
+<class name="GFConfigSizeValidationRule" path="addons/gf/standard/utilities/config/validation/gf_config_size_validation_rule.gd" module="standard" extends="GFConfigValidationRule" classDigest="6f754e248d3078b71910cc16242d74abd7255dcb60a7fbbf7d52fe3f0ea5c9c4">
 	<description>GFConfigSizeValidationRule: 长度或数量校验规则。
 用于校验 String、Array、Dictionary、PackedArray 字段，或整表记录数量。</description>
 	<tags>
@@ -48,6 +48,40 @@
 				<tag name="api">public</tag>
 				<tag name="return">规则摘要字典。</tag>
 				<tag name="schema">return: Dictionary，包含基础规则字段和数量边界设置。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_get_default_rule_id">
+			<signature>func _get_default_rule_id() -&gt; StringName:</signature>
+			<description>返回数量规则的默认稳定标识。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="return">默认规则标识。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_validate_value">
+			<signature>func _validate_value(value: Variant, context: Dictionary, report: Dictionary) -&gt; void:</signature>
+			<description>校验单个字段值长度或数量。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">value: 待校验值。</tag>
+				<tag name="param">context: 校验上下文。</tag>
+				<tag name="param">report: 当前校验报告。</tag>
+				<tag name="schema">value: Variant，期望为 String、StringName、Array、Dictionary 或 PackedArray。</tag>
+				<tag name="schema">context: Dictionary，可包含 table_name、row_key、field、source、line 和 column 字段。</tag>
+				<tag name="schema">report: GFConfigValidationReport 兼容 Dictionary，会被当前规则修改。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_validate_table">
+			<signature>func _validate_table(rows: Array[Dictionary], context: Dictionary, report: Dictionary) -&gt; void:</signature>
+			<description>校验整张表的行数。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">rows: 规范化行列表。</tag>
+				<tag name="param">context: 校验上下文。</tag>
+				<tag name="param">report: 当前校验报告。</tag>
+				<tag name="schema">rows: Array[Dictionary]，元素通常包含 row_key、record 和 row_index。</tag>
+				<tag name="schema">context: Dictionary，可包含 table_name 和 source 字段。</tag>
+				<tag name="schema">report: GFConfigValidationReport 兼容 Dictionary，会被当前规则修改。</tag>
 			</tags>
 		</member>
 	</methods>

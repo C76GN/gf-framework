@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFDecisionScore" path="addons/gf/extensions/decision/runtime/gf_decision_score.gd" module="extensions/decision" extends="RefCounted" classDigest="7e34341844ac3af23494c1a9fb9a96aabeb63ac69725d8efefa5570d479e91d1">
+	<description>GFDecisionScore: 单个候选决策的评分结果。
+保存候选 ID、最终分数、考虑项明细和元数据，便于测试、调试面板或导演系统审计。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">value_object</tag>
+		<tag name="since">4.3.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties>
+		<member kind="property" name="decision">
+			<signature>var decision: GFDecisionOption = null</signature>
+			<description>被评分的候选决策。</description>
+			<tags>
+				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="property" name="decision_id">
+			<signature>var decision_id: StringName = &amp;""</signature>
+			<description>候选决策标识。</description>
+			<tags>
+				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="property" name="score">
+			<signature>var score: float = 0.0</signature>
+			<description>最终分数。</description>
+			<tags>
+				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="property" name="accepted">
+			<signature>var accepted: bool = false</signature>
+			<description>该候选是否可被选择。</description>
+			<tags>
+				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="property" name="consideration_scores">
+			<signature>var consideration_scores: Array[Dictionary] = []</signature>
+			<description>考虑项评分明细。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">consideration_scores: Array[Dictionary]，每项包含 consideration_id、score、weight 和 weighted_score 字段。</tag>
+			</tags>
+		</member>
+		<member kind="property" name="metadata">
+			<signature>var metadata: Dictionary = {}</signature>
+			<description>候选决策元数据副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">metadata: Dictionary[StringName, Variant] copied from the scored decision option.</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="to_dictionary">
+			<signature>func to_dictionary() -&gt; Dictionary:</signature>
+			<description>转换为字典。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">评分结果字典。</tag>
+				<tag name="schema">return: 包含 decision_id、score、accepted、consideration_scores 和 metadata 字段的 Dictionary。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_debug_snapshot">
+			<signature>func get_debug_snapshot() -&gt; Dictionary:</signature>
+			<description>获取调试快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">调试快照字典。</tag>
+				<tag name="schema">return: 与 to_dictionary() 相同的评分结果 Dictionary。</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

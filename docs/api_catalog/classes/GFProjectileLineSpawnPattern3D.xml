@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFProjectileLineSpawnPattern3D" path="addons/gf/extensions/combat/projectiles/gf_projectile_line_spawn_pattern_3d.gd" module="extensions/combat" extends="GFProjectileSpawnPattern3D" classDigest="f5e1baf8f589b2939009441c2ea03c9ad3f6e842b18a809e337469f1542b28be">
+<class name="GFProjectileLineSpawnPattern3D" path="addons/gf/extensions/combat/projectiles/gf_projectile_line_spawn_pattern_3d.gd" module="extensions/combat" extends="GFProjectileSpawnPattern3D" classDigest="9b01b8ba884a8da2471bebcb8c0c7aff87e8e6e5f40d495a2cbca76d8338a89c">
 	<description>GFProjectileLineSpawnPattern3D: 沿 3D 局部线段生成发射点。
 只描述发射点分布，适合多炮口、轨道点或沿空间线段生成发射体。</description>
 	<tags>
@@ -40,6 +40,19 @@
 			</tags>
 		</member>
 	</properties>
-	<methods />
+	<methods>
+		<member kind="method" name="_get_spawn_transforms">
+			<signature>func _get_spawn_transforms( emitter: Node3D, _projectile_context: Dictionary = {}, emit_count: int = -1 ) -&gt; Array[Transform3D]:</signature>
+			<description>生成 3D 线段发射变换。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">emitter: 发射器节点。</tag>
+				<tag name="param">_projectile_context: 本次发射上下文。</tag>
+				<tag name="param">emit_count: 调用方请求的数量；小于等于 0 时使用 point_count。</tag>
+				<tag name="return">全局 Transform3D 列表。</tag>
+				<tag name="schema">_projectile_context: Dictionary，本次发射上下文；当前实现不读取该字典。</tag>
+			</tags>
+		</member>
+	</methods>
 	<innerClasses />
 </class>

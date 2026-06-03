@@ -18,6 +18,8 @@
 | 属性 | [`type_key`](#member-gfsaveentityfactory-properties-type_key) | `var type_key: StringName = &""` |
 | 属性 | [`packed_scene`](#member-gfsaveentityfactory-properties-packed_scene) | `var packed_scene: PackedScene` |
 | 方法 | [`get_type_key`](#member-gfsaveentityfactory-methods-get_type_key) | `func get_type_key() -> StringName:` |
+| 方法 | [`_create_entity`](#member-gfsaveentityfactory-methods-_create_entity) | `func _create_entity(_descriptor: Dictionary, _context: Dictionary = {}) -> Node:` |
+| 方法 | [`_after_entity_created`](#member-gfsaveentityfactory-methods-_after_entity_created) | `func _after_entity_created(_entity: Node, _descriptor: Dictionary, _context: Dictionary = {}) -> void:` |
 
 ## 属性
 
@@ -60,3 +62,54 @@ func get_type_key() -> StringName:
 获取实体类型键。
 
 返回：类型键。
+
+<a id="member-gfsaveentityfactory-methods-_create_entity"></a>
+
+### `_create_entity`
+
+- API：`protected`
+
+```gdscript
+func _create_entity(_descriptor: Dictionary, _context: Dictionary = {}) -> Node:
+```
+
+创建实体节点。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `_descriptor` | 存档中的实体描述。 |
+| `_context` | 调用上下文字典。 |
+
+返回：创建出的节点；失败时返回 null。
+
+结构：
+
+- `_descriptor`: Dictionary，通常包含 persistent_id、type_key、phase 与 Source 描述字段。
+- `_context`: Dictionary，可包含 pipeline_context、pipeline_shared、include_pipeline_trace 等流程字段。
+
+<a id="member-gfsaveentityfactory-methods-_after_entity_created"></a>
+
+### `_after_entity_created`
+
+- API：`protected`
+
+```gdscript
+func _after_entity_created(_entity: Node, _descriptor: Dictionary, _context: Dictionary = {}) -> void:
+```
+
+实体加入场景树后调用。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `_entity` | 创建出的实体。 |
+| `_descriptor` | 存档中的实体描述。 |
+| `_context` | 调用上下文字典。 |
+
+结构：
+
+- `_descriptor`: Dictionary，通常包含 persistent_id、type_key、phase 与 Source 描述字段。
+- `_context`: Dictionary，可包含 pipeline_context、pipeline_shared、include_pipeline_trace 等流程字段。

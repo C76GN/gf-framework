@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFProjectileSpawnPattern3D" path="addons/gf/extensions/combat/projectiles/gf_projectile_spawn_pattern_3d.gd" module="extensions/combat" extends="Resource" classDigest="e542d6e5d5f3d1e0a4df34b001d3f58cd44df3575ee65138d0cffb225f3f7d2d">
+<class name="GFProjectileSpawnPattern3D" path="addons/gf/extensions/combat/projectiles/gf_projectile_spawn_pattern_3d.gd" module="extensions/combat" extends="Resource" classDigest="feb147fcc63f4a1245d904c81b51938da12c77598c1557c1538068d3531a08f6">
 	<description>GFProjectileSpawnPattern3D: 3D 发射体生成点模式基类。
 模式只返回全局 Transform3D 列表，不实例化节点，也不解释伤害、弹药或阵营。</description>
 	<tags>
@@ -22,6 +22,18 @@
 				<tag name="param">emit_count: 调用方请求的数量；小于等于 0 时由模式自行决定。</tag>
 				<tag name="return">全局 Transform3D 列表。</tag>
 				<tag name="schema">projectile_context: Dictionary，本次发射上下文；模式只读取调用方约定的数据。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_get_spawn_transforms">
+			<signature>func _get_spawn_transforms( emitter: Node3D, _projectile_context: Dictionary = {}, _emit_count: int = -1 ) -&gt; Array[Transform3D]:</signature>
+			<description>生成点计算扩展点。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">emitter: 发射器节点。</tag>
+				<tag name="param">_projectile_context: 本次发射上下文。</tag>
+				<tag name="param">_emit_count: 调用方请求的数量；小于等于 0 时由模式自行决定。</tag>
+				<tag name="return">全局 Transform3D 列表。</tag>
+				<tag name="schema">_projectile_context: Dictionary，本次发射上下文；模式只读取调用方约定的数据。</tag>
 			</tags>
 		</member>
 	</methods>

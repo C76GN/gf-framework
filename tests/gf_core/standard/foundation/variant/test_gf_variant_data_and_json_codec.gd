@@ -418,6 +418,72 @@ func test_json_compatible_codec_only_decodes_dedicated_variant_marker() -> void:
 	assert_true(decoded_business_data.has("label"), "带有额外业务字段的字典不应被当作 typed marker。")
 
 
+func test_reference_codec_roundtrips_resource_reference() -> void:
+	var resource_path: String = "user://gf_variant_reference_codec_resource.tres"
+	var resource: Resource = Resource.new()
+	resource.resource_name = "ReferenceCodecResource"
+	assert_eq(ResourceSaver.save(resource, resource_path), OK, "测试 Resource 应能保存。")
+	var loaded_resource: Resource = ResourceLoader.load(resource_path, "", ResourceLoader.CACHE_MODE_IGNORE)
+
+	var encoded: Dictionary = GFVariantReferenceCodec.encode_reference(loaded_resource)
+	var marker: Dictionary = GFVariantReferenceCodec.get_reference_marker(encoded)
+	var json_encoded: Dictionary = _as_dictionary(JSON.parse_string(JSON.stringify(encoded)))
+	var result: Dictionary = GFVariantReferenceCodec.decode_reference(json_encoded)
+	var decoded_resource: Resource = _as_resource(GFVariantData.get_option_value(result, "value"))
+
+	assert_true(GFVariantData.get_option_bool(result, "ok"), "Resource 引用标记应能经 JSON 往返后恢复。")
+	assert_eq(GFVariantData.get_option_string(marker, GFVariantReferenceCodec.REFERENCE_KIND_KEY), GFVariantReferenceCodec.REFERENCE_KIND_RESOURCE, "Resource 引用应标记类型。")
+	assert_eq(GFVariantData.get_option_string(marker, GFVariantReferenceCodec.REFERENCE_PATH_KEY), resource_path, "Resource 引用应保留路径。")
+	assert_eq(decoded_resource.resource_path, resource_path, "Resource 应按路径或 UID 恢复。")
+
+	var absolute_path: String = ProjectSettings.globalize_path(resource_path)
+	if FileAccess.file_exists(resource_path):
+		var _remove_absolute_result: Variant = DirAccess.remove_absolute(absolute_path)
+
+
+func test_reference_codec_roundtrips_node_reference_with_explicit_root() -> void:
+	var root: Node = Node.new()
+	root.name = "ReferenceRoot"
+	add_child_autofree(root)
+	var child: Node = Node.new()
+	child.name = "Child"
+	root.add_child(child)
+
+	var encoded: Dictionary = GFVariantReferenceCodec.encode_reference(child, {
+		GFVariantReferenceCodec.OPTION_ROOT_NODE: root,
+	})
+	var marker: Dictionary = GFVariantReferenceCodec.get_reference_marker(encoded)
+	var json_encoded: Dictionary = _as_dictionary(JSON.parse_string(JSON.stringify(encoded)))
+	var result: Dictionary = GFVariantReferenceCodec.decode_reference(json_encoded, {
+		GFVariantReferenceCodec.OPTION_ROOT_NODE: root,
+	})
+	var missing_root_result: Dictionary = GFVariantReferenceCodec.decode_reference(json_encoded)
+
+	assert_eq(GFVariantData.get_option_string(marker, GFVariantReferenceCodec.REFERENCE_KIND_KEY), GFVariantReferenceCodec.REFERENCE_KIND_NODE, "Node 引用应标记类型。")
+	assert_eq(GFVariantData.get_option_string(marker, GFVariantReferenceCodec.REFERENCE_NODE_PATH_KEY), "Child", "Node 引用应保存相对 root 的 NodePath。")
+	assert_true(GFVariantData.get_option_bool(result, "ok"), "提供 root 时应能恢复 Node 引用。")
+	assert_same(_as_node(GFVariantData.get_option_value(result, "value")), child, "Node 引用恢复结果应为同一节点。")
+	assert_false(GFVariantData.get_option_bool(missing_root_result, "ok"), "没有 root 时不应从场景树全局解析 Node。")
+
+
+func test_reference_codec_marks_node_outside_root_as_unsupported() -> void:
+	var root: Node = Node.new()
+	root.name = "Root"
+	add_child_autofree(root)
+	var other_root: Node = Node.new()
+	other_root.name = "OtherRoot"
+	add_child_autofree(other_root)
+	var child: Node = Node.new()
+	child.name = "Outside"
+	other_root.add_child(child)
+
+	var encoded: Dictionary = GFVariantReferenceCodec.encode_reference(child, {
+		GFVariantReferenceCodec.OPTION_ROOT_NODE: root,
+	})
+
+	assert_true(GFVariantReferenceCodec.is_unsupported_reference_marker(encoded), "root 外的 Node 不应被编码成可恢复引用。")
+
+
 # --- 测试侧 Variant 观察辅助 ---
 
 func _as_dictionary(value: Variant) -> Dictionary:
@@ -557,4 +623,12 @@ func _as_resource(value: Variant) -> Resource:
 	if value is Resource:
 		var resource: Resource = value
 		return resource
+	return null
+
+
+func _as_node(value: Variant) -> Node:
+	assert_true(value is Node, "测试观察值应为 Node。")
+	if value is Node:
+		var node: Node = value
+		return node
 	return null

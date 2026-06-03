@@ -23,6 +23,7 @@
 | 属性 | [`sort_value`](#member-gfturnaction-properties-sort_value) | `var sort_value: float = 0.0` |
 | 属性 | [`is_cancelled`](#member-gfturnaction-properties-is_cancelled) | `var is_cancelled: bool = false` |
 | 方法 | [`cancel`](#member-gfturnaction-methods-cancel) | `func cancel() -> void:` |
+| 方法 | [`_resolve`](#member-gfturnaction-methods-_resolve) | `func _resolve(_context: GFTurnContext) -> Variant:` |
 
 ## 属性
 
@@ -127,3 +128,27 @@ func cancel() -> void:
 ```
 
 取消行动。
+
+<a id="member-gfturnaction-methods-_resolve"></a>
+
+### `_resolve`
+
+- API：`protected`
+
+```gdscript
+func _resolve(_context: GFTurnContext) -> Variant:
+```
+
+解析行动时由 GFTurnFlowSystem 调用。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `_context` | 回合上下文。 |
+
+返回：可等待结果。
+
+结构：
+
+- `return`: Variant that is null or a Signal awaited before action resolution completes.

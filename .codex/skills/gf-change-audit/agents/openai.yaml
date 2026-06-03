@@ -1,0 +1,4 @@
+interface:
+  display_name: "GF Change Audit"
+  short_description: "Parallel audit for broad GF changes"
+  default_prompt: "Use $gf-change-audit to audit this broad GF Framework change across focused review tracks."

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFAssetMetadataGltfDocumentExtension" path="addons/gf/extensions/asset_metadata/editor/gf_asset_metadata_gltf_document_extension.gd" module="extensions/asset_metadata" extends="GLTFDocumentExtension" classDigest="c7d6df3dc68e6f5b9c3e947494264e05745e5315e2847800d7e7144d2934ff80">
+<class name="GFAssetMetadataGltfDocumentExtension" path="addons/gf/extensions/asset_metadata/editor/gf_asset_metadata_gltf_document_extension.gd" module="extensions/asset_metadata" extends="GLTFDocumentExtension" classDigest="8643cfc8c26fa5956a48c9059e74a758217432fd701abee97ecef8a7889af863">
 	<description>GFAssetMetadataGltfDocumentExtension: 将 glTF extras 桥接为 GF 资产元数据。
 导入节点时只复制通用 extras 数据，不解释字段含义，也不创建业务对象。</description>
 	<tags>
@@ -11,6 +11,20 @@
 	<enums />
 	<constants />
 	<properties />
-	<methods />
+	<methods>
+		<member kind="method" name="_import_node">
+			<signature>func _import_node( _state: GLTFState, _gltf_node: GLTFNode, json: Dictionary, node: Node ) -&gt; Error:</signature>
+			<description>导入 glTF 节点时把 json.extras 写入节点元数据。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">_state: glTF 导入状态。</tag>
+				<tag name="param">_gltf_node: 正在导入的 glTF 节点描述。</tag>
+				<tag name="param">json: glTF 节点原始 JSON 字典。</tag>
+				<tag name="param">node: 导入生成的 Godot 节点。</tag>
+				<tag name="return">Godot 错误码。</tag>
+				<tag name="schema">json: Dictionary，可包含 extras 字段；extras 会归一化为资产元数据字典。</tag>
+			</tags>
+		</member>
+	</methods>
 	<innerClasses />
 </class>

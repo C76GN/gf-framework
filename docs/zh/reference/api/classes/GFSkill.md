@@ -33,6 +33,10 @@
 | 方法 | [`build_activation_context`](#member-gfskill-methods-build_activation_context) | `func build_activation_context( manual_target: Object = null, cast_center: Variant = null, activation_metadata: Dictionary = {} ) -> RefCounted:` |
 | 方法 | [`get_activation_report`](#member-gfskill-methods-get_activation_report) | `func get_activation_report(context: RefCounted = null) -> Dictionary:` |
 | 方法 | [`execute`](#member-gfskill-methods-execute) | `func execute( manual_target: Object = null, cast_center: Variant = null, activation_metadata: Dictionary = {} ) -> bool:` |
+| 方法 | [`_custom_can_execute`](#member-gfskill-methods-_custom_can_execute) | `func _custom_can_execute() -> bool:` |
+| 方法 | [`_on_execute`](#member-gfskill-methods-_on_execute) | `func _on_execute(_targets: Array[Object]) -> void:` |
+| 方法 | [`_try_execute`](#member-gfskill-methods-_try_execute) | `func _try_execute(targets: Array[Object]) -> bool:` |
+| 方法 | [`_try_activate`](#member-gfskill-methods-_try_activate) | `func _try_activate(context: RefCounted) -> bool:` |
 
 ## 信号
 
@@ -333,3 +337,83 @@ func execute( manual_target: Object = null, cast_center: Variant = null, activat
 
 - `cast_center`: Variant，可为 null 或 Vector2；为 null 时从 owner.global_position 推导。
 - `activation_metadata`: Dictionary，复制到上下文中供项目检查、提交或诊断使用。
+
+<a id="member-gfskill-methods-_custom_can_execute"></a>
+
+### `_custom_can_execute`
+
+- API：`protected`
+
+```gdscript
+func _custom_can_execute() -> bool:
+```
+
+自定义施放检查。
+
+返回：允许施放时返回 `true`。
+
+<a id="member-gfskill-methods-_on_execute"></a>
+
+### `_on_execute`
+
+- API：`protected`
+
+```gdscript
+func _on_execute(_targets: Array[Object]) -> void:
+```
+
+具体技能逻辑入口。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `_targets` | 经过筛选后的最终目标数组。 |
+
+结构：
+
+- `_targets`: Array[Object]，经过 targeting_rule 或手动目标校验后的最终目标列表。
+
+<a id="member-gfskill-methods-_try_execute"></a>
+
+### `_try_execute`
+
+- API：`protected`
+
+```gdscript
+func _try_execute(targets: Array[Object]) -> bool:
+```
+
+可报告成功/失败的技能执行入口。默认调用旧的 `_on_execute()` 钩子并视为成功。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `targets` | 经过筛选后的最终目标数组。 |
+
+返回：技能真正生效时返回 `true`。
+
+结构：
+
+- `targets`: Array[Object]，经过 targeting_rule 或手动目标校验后的最终目标列表。
+
+<a id="member-gfskill-methods-_try_activate"></a>
+
+### `_try_activate`
+
+- API：`protected`
+
+```gdscript
+func _try_activate(context: RefCounted) -> bool:
+```
+
+基于激活上下文执行技能。默认桥接到旧的 `_try_execute()`。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `context` | 技能激活上下文。 |
+
+返回：技能真正生效时返回 `true`。

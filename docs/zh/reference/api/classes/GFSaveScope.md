@@ -27,6 +27,12 @@
 | 方法 | [`get_scope_key`](#member-gfsavescope-methods-get_scope_key) | `func get_scope_key() -> StringName:` |
 | 方法 | [`get_key_prefix`](#member-gfsavescope-methods-get_key_prefix) | `func get_key_prefix() -> String:` |
 | 方法 | [`describe_scope`](#member-gfsavescope-methods-describe_scope) | `func describe_scope() -> Dictionary:` |
+| 方法 | [`_can_save_scope`](#member-gfsavescope-methods-_can_save_scope) | `func _can_save_scope(_context: Dictionary = {}) -> bool:` |
+| 方法 | [`_can_load_scope`](#member-gfsavescope-methods-_can_load_scope) | `func _can_load_scope(_context: Dictionary = {}) -> bool:` |
+| 方法 | [`_before_save`](#member-gfsavescope-methods-_before_save) | `func _before_save(_context: Dictionary = {}) -> void:` |
+| 方法 | [`_after_save`](#member-gfsavescope-methods-_after_save) | `func _after_save(_payload: Dictionary, _context: Dictionary = {}) -> void:` |
+| 方法 | [`_before_load`](#member-gfsavescope-methods-_before_load) | `func _before_load(_payload: Dictionary, _context: Dictionary = {}) -> void:` |
+| 方法 | [`_after_load`](#member-gfsavescope-methods-_after_load) | `func _after_load(_payload: Dictionary, _context: Dictionary = {}) -> void:` |
 
 ## 枚举
 
@@ -187,3 +193,145 @@ func describe_scope() -> Dictionary:
 结构：
 
 - `return`: Dictionary，包含 scope_key、key_namespace、phase 与 restore_policy。
+
+<a id="member-gfsavescope-methods-_can_save_scope"></a>
+
+### `_can_save_scope`
+
+- API：`protected`
+
+```gdscript
+func _can_save_scope(_context: Dictionary = {}) -> bool:
+```
+
+判断是否可保存。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `_context` | 调用上下文字典。 |
+
+返回：可保存时返回 true。
+
+结构：
+
+- `_context`: Dictionary，可包含 pipeline_context、pipeline_shared、include_pipeline_trace 等流程字段。
+
+<a id="member-gfsavescope-methods-_can_load_scope"></a>
+
+### `_can_load_scope`
+
+- API：`protected`
+
+```gdscript
+func _can_load_scope(_context: Dictionary = {}) -> bool:
+```
+
+判断是否可加载。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `_context` | 调用上下文字典。 |
+
+返回：可加载时返回 true。
+
+结构：
+
+- `_context`: Dictionary，可包含 pipeline_context、pipeline_shared、include_pipeline_trace 等流程字段。
+
+<a id="member-gfsavescope-methods-_before_save"></a>
+
+### `_before_save`
+
+- API：`protected`
+
+```gdscript
+func _before_save(_context: Dictionary = {}) -> void:
+```
+
+保存前 Hook。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `_context` | 调用上下文字典。 |
+
+结构：
+
+- `_context`: Dictionary，可包含 pipeline_context、pipeline_shared、include_pipeline_trace 等流程字段。
+
+<a id="member-gfsavescope-methods-_after_save"></a>
+
+### `_after_save`
+
+- API：`protected`
+
+```gdscript
+func _after_save(_payload: Dictionary, _context: Dictionary = {}) -> void:
+```
+
+保存后 Hook。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `_payload` | 当前 Scope 载荷。 |
+| `_context` | 调用上下文字典。 |
+
+结构：
+
+- `_payload`: Dictionary，当前 Scope 采集完成后的载荷。
+- `_context`: Dictionary，可包含 pipeline_context、pipeline_shared、include_pipeline_trace 等流程字段。
+
+<a id="member-gfsavescope-methods-_before_load"></a>
+
+### `_before_load`
+
+- API：`protected`
+
+```gdscript
+func _before_load(_payload: Dictionary, _context: Dictionary = {}) -> void:
+```
+
+加载前 Hook。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `_payload` | 当前 Scope 载荷。 |
+| `_context` | 调用上下文字典。 |
+
+结构：
+
+- `_payload`: Dictionary，当前 Scope 待应用的载荷。
+- `_context`: Dictionary，可包含 pipeline_context、pipeline_shared、include_pipeline_trace 等流程字段。
+
+<a id="member-gfsavescope-methods-_after_load"></a>
+
+### `_after_load`
+
+- API：`protected`
+
+```gdscript
+func _after_load(_payload: Dictionary, _context: Dictionary = {}) -> void:
+```
+
+加载后 Hook。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `_payload` | 当前 Scope 载荷。 |
+| `_context` | 调用上下文字典。 |
+
+结构：
+
+- `_payload`: Dictionary，当前 Scope 已应用的载荷。
+- `_context`: Dictionary，可包含 pipeline_context、pipeline_shared、include_pipeline_trace 等流程字段。

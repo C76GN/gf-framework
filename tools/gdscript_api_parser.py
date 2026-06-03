@@ -158,7 +158,7 @@ def parse_gdscript_file(path: Path, source_root: Path, root: Path = ROOT) -> Api
 			continue
 		if match := re.match(r"const\s+([A-Za-z_]\w*)", stripped):
 			name = match.group(1)
-			if not name.startswith("_"):
+			if should_collect_member(name, docs_buffer):
 				api_script.constants.append(make_member("const", name, stripped, i, docs_buffer, decorators))
 			clear_buffers(docs_buffer, decorators)
 			i += 1
@@ -169,7 +169,7 @@ def parse_gdscript_file(path: Path, source_root: Path, root: Path = ROOT) -> Api
 			var_line = decorated_var[1]
 		if match := re.match(r"var\s+([A-Za-z_]\w*)", var_line):
 			name = match.group(1)
-			if not name.startswith("_"):
+			if should_collect_member(name, docs_buffer):
 				api_script.properties.append(make_member("property", name, var_line, i, docs_buffer, decorators))
 			clear_buffers(docs_buffer, decorators)
 			i += 1
@@ -177,7 +177,7 @@ def parse_gdscript_file(path: Path, source_root: Path, root: Path = ROOT) -> Api
 		if stripped.startswith("func ") or stripped.startswith("static func "):
 			signature, next_index = collect_function_signature(lines, i)
 			name = parse_function_name(signature)
-			if name and not name.startswith("_"):
+			if name and should_collect_member(name, docs_buffer):
 				api_script.methods.append(make_member("method", name, signature, i, docs_buffer, decorators))
 			clear_buffers(docs_buffer, decorators)
 			i = next_index
@@ -283,7 +283,7 @@ def parse_inner_class_members(
 			continue
 		if match := re.match(r"const\s+([A-Za-z_]\w*)", stripped):
 			name = match.group(1)
-			if not name.startswith("_"):
+			if should_collect_member(name, docs_buffer):
 				inner_class.constants.append(make_member("const", name, stripped, i, docs_buffer, decorators))
 			clear_buffers(docs_buffer, decorators)
 			i += 1
@@ -294,7 +294,7 @@ def parse_inner_class_members(
 			var_line = decorated_var[1]
 		if match := re.match(r"var\s+([A-Za-z_]\w*)", var_line):
 			name = match.group(1)
-			if not name.startswith("_"):
+			if should_collect_member(name, docs_buffer):
 				inner_class.properties.append(make_member("property", name, var_line, i, docs_buffer, decorators))
 			clear_buffers(docs_buffer, decorators)
 			i += 1
@@ -302,7 +302,7 @@ def parse_inner_class_members(
 		if stripped.startswith("func ") or stripped.startswith("static func "):
 			signature, next_index = collect_function_signature(lines, i)
 			name = parse_function_name(signature)
-			if name and not name.startswith("_"):
+			if name and should_collect_member(name, docs_buffer):
 				inner_class.methods.append(make_member("method", name, signature, i, docs_buffer, decorators))
 			clear_buffers(docs_buffer, decorators)
 			i = min(next_index, end)
@@ -400,6 +400,12 @@ def parse_decorated_var_line(line: str) -> tuple[str, str] | None:
 def visibility_of(docs: ApiDocs) -> str:
 	value = first_tag(docs, "api")
 	return value.split()[0] if value else ""
+
+
+def should_collect_member(name: str, docs_buffer: list[str]) -> bool:
+	if not name.startswith("_"):
+		return True
+	return visibility_of(parse_docs(docs_buffer)) != ""
 
 
 def first_tag(docs: ApiDocs, name: str) -> str:

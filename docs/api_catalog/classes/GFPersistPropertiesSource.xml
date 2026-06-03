@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFPersistPropertiesSource" path="addons/gf/extensions/save/core/gf_persist_properties_source.gd" module="extensions/save" extends="GFSaveSource" classDigest="e242630d041b0b8692471c3787b94b3226fd06478e76d00775d59dff99fcf4d9">
+<class name="GFPersistPropertiesSource" path="addons/gf/extensions/save/core/gf_persist_properties_source.gd" module="extensions/save" extends="GFSaveSource" classDigest="b25d7b43bc63a4538ce07af95cbea01c25797ce84d31be36c076254ffb5d0fc5">
 	<description>GFPersistPropertiesSource: 属性白名单存档 Source。
 以节点形式包装 `GFNodePropertySerializer`，让项目可以直接在场景树中声明
 需要保存的目标属性。它仍然使用 SaveGraph 的 Source/Serializer 协议，
@@ -28,6 +28,33 @@
 			</tags>
 		</member>
 	</properties>
-	<methods />
+	<methods>
+		<member kind="method" name="_gather_save_data">
+			<signature>func _gather_save_data( context: Dictionary = {}, serializer_registry: GFNodeSerializerRegistry = null ) -&gt; Variant:</signature>
+			<description>采集属性白名单保存数据。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">context: 调用上下文字典。</tag>
+				<tag name="param">serializer_registry: 可选节点序列化器注册表。</tag>
+				<tag name="return">可写入存档的数据。</tag>
+				<tag name="schema">context: Dictionary，可包含 pipeline_context、pipeline_shared、include_pipeline_trace 等流程字段。</tag>
+				<tag name="schema">return: Variant，通常为 Dictionary；默认实现返回包含 serializers: Array[Dictionary] 的载荷，或空 Dictionary。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_apply_save_data">
+			<signature>func _apply_save_data( data: Variant, context: Dictionary = {}, serializer_registry: GFNodeSerializerRegistry = null ) -&gt; Dictionary:</signature>
+			<description>应用属性白名单保存数据。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">data: 保存数据。</tag>
+				<tag name="param">context: 调用上下文字典。</tag>
+				<tag name="param">serializer_registry: 可选节点序列化器注册表。</tag>
+				<tag name="return">结果字典。</tag>
+				<tag name="schema">data: Variant，默认实现要求为包含 serializers: Array[Dictionary] 的 Dictionary。</tag>
+				<tag name="schema">context: Dictionary，可包含 pipeline_context、pipeline_shared、include_pipeline_trace 等流程字段。</tag>
+				<tag name="schema">return: Dictionary，包含 ok、applied 与 errors。</tag>
+			</tags>
+		</member>
+	</methods>
 	<innerClasses />
 </class>

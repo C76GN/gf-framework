@@ -115,6 +115,36 @@ class MethodTrapSaveSource extends GFSaveSource:
 		return false
 
 
+class NodeReferencePropertyNode extends Node:
+	var node_value: Node = null
+
+
+	func _get_property_list() -> Array[Dictionary]:
+		return [{
+			"name": "node_value",
+			"type": TYPE_OBJECT,
+			"class_name": "Node",
+			"usage": PROPERTY_USAGE_DEFAULT | PROPERTY_USAGE_STORAGE,
+		}]
+
+
+	func _get(property: StringName) -> Variant:
+		if property == &"node_value":
+			return node_value
+		return null
+
+
+	func _set(property: StringName, value: Variant) -> bool:
+		if property == &"node_value":
+			if value != null and not value is Node:
+				return false
+			node_value = null
+			if value is Node:
+				node_value = value
+			return true
+		return false
+
+
 # --- 私有变量 ---
 
 var _utility: GFSaveGraphUtility
@@ -164,6 +194,29 @@ func test_gather_and_apply_transform_2d_source() -> void:
 	assert_eq(target.position, Vector2(12.0, -3.0), "Transform2D position 应被恢复。")
 	assert_almost_eq(target.rotation, 0.75, 0.001, "Transform2D rotation 应被恢复。")
 	assert_eq(target.scale, Vector2(2.0, 3.0), "Transform2D scale 应被恢复。")
+
+
+func test_persist_properties_source_restores_node_reference_with_scope_root() -> void:
+	var target: Node = Node.new()
+	target.name = "Target"
+	_scope.add_child(target)
+	var holder: NodeReferencePropertyNode = NodeReferencePropertyNode.new()
+	holder.name = "Holder"
+	holder.node_value = target
+	_scope.add_child(holder)
+	var source: GFPersistPropertiesSource = GFPersistPropertiesSource.new()
+	source.name = "HolderSource"
+	source.source_key = &"holder"
+	source.target_node_path = NodePath("../Holder")
+	source.properties = PackedStringArray(["node_value"])
+	_scope.add_child(source)
+
+	var payload: Dictionary = _utility.gather_scope(_scope)
+	holder.node_value = null
+	var result: Dictionary = _utility.apply_scope(_scope, payload)
+
+	assert_true(GFVariantData.get_option_bool(result, "ok"), "SaveGraph 应为属性序列化器提供当前 Scope 作为引用 root。")
+	assert_same(holder.node_value, target, "Node 属性应按当前 Scope 下的 NodePath 恢复。")
 
 
 ## 验证子 Scope 会独立写入嵌套载荷。

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFReactiveEffect" path="addons/gf/kernel/core/gf_reactive_effect.gd" module="kernel" extends="RefCounted" classDigest="d12e6c148788e01533d49babc71a7826ffdf4ac02bf9d41bb7a7fc098f28788e">
+<class name="GFReactiveEffect" path="addons/gf/kernel/core/gf_reactive_effect.gd" module="kernel" extends="RefCounted" classDigest="ffb9fb18b402d2d145094f679f35d508f52858e0a2d8d18893fe740238f6815d">
 	<description>GFReactiveEffect: GFBindableProperty 的轻量响应式副作用。
 监听一组 GFBindableProperty，在任意来源变化时执行回调。可绑定 Node 生命周期，
 适合 Controller 层组合多个 Model 属性，不要求项目引入新的状态模型。</description>
@@ -34,6 +34,17 @@
 		</member>
 	</properties>
 	<methods>
+		<member kind="method" name="_init">
+			<signature>func _init( sources: Array[GFBindableProperty] = [], callback: Callable = Callable(), owner: Node = null, run_immediately: bool = true ) -&gt; void:</signature>
+			<description>构造函数。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">sources: 要监听的 GFBindableProperty 列表。</tag>
+				<tag name="param">callback: 变化后执行的回调。</tag>
+				<tag name="param">owner: 可选 Node 生命周期宿主。</tag>
+				<tag name="param">run_immediately: 是否立即执行一次。</tag>
+			</tags>
+		</member>
 		<member kind="method" name="configure">
 			<signature>func configure( sources: Array[GFBindableProperty], callback: Callable, owner: Node = null, run_immediately: bool = true ) -&gt; void:</signature>
 			<description>配置并启动 effect。重复调用会先停止旧绑定。</description>

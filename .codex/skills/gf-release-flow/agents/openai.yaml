@@ -1,0 +1,4 @@
+interface:
+  display_name: "GF Release Flow"
+  short_description: "Verify GF releases, commits, and tags"
+  default_prompt: "Use $gf-release-flow to prepare and verify this GF Framework release."

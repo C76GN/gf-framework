@@ -1,0 +1,181 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFVariantReferenceCodec" path="addons/gf/standard/foundation/variant/gf_variant_reference_codec.gd" module="standard" extends="RefCounted" classDigest="067e58861e5e490bcd296f5d688391073776aaba7813327c760ac4564b7b309d">
+	<description>GFVariantReferenceCodec: Resource 与 Node 引用的显式编码器。
+只把 Resource 路径 / UID 或相对 root 的 NodePath 转成可持久化标记，
+不序列化对象图、不加载任意脚本，也不从场景树全局搜索节点。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_service</tag>
+		<tag name="since">4.3.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants>
+		<member kind="const" name="REFERENCE_MARKER_KEY">
+			<signature>const REFERENCE_MARKER_KEY: String = "__gf_reference__"</signature>
+			<description>引用标记根字段。</description>
+			<tags>
+				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="const" name="REFERENCE_VERSION_KEY">
+			<signature>const REFERENCE_VERSION_KEY: String = "version"</signature>
+			<description>引用标记格式版本字段。</description>
+			<tags>
+				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="const" name="REFERENCE_KIND_KEY">
+			<signature>const REFERENCE_KIND_KEY: String = "kind"</signature>
+			<description>引用类型字段。</description>
+			<tags>
+				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="const" name="REFERENCE_PATH_KEY">
+			<signature>const REFERENCE_PATH_KEY: String = "path"</signature>
+			<description>Resource 路径字段。</description>
+			<tags>
+				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="const" name="REFERENCE_UID_KEY">
+			<signature>const REFERENCE_UID_KEY: String = "uid"</signature>
+			<description>Resource UID 字段。</description>
+			<tags>
+				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="const" name="REFERENCE_TYPE_HINT_KEY">
+			<signature>const REFERENCE_TYPE_HINT_KEY: String = "type_hint"</signature>
+			<description>Resource 类型提示字段。</description>
+			<tags>
+				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="const" name="REFERENCE_NODE_PATH_KEY">
+			<signature>const REFERENCE_NODE_PATH_KEY: String = "node_path"</signature>
+			<description>NodePath 字段。</description>
+			<tags>
+				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="const" name="REFERENCE_UNSUPPORTED_CLASS_KEY">
+			<signature>const REFERENCE_UNSUPPORTED_CLASS_KEY: String = "class"</signature>
+			<description>不支持对象的 class 字段。</description>
+			<tags>
+				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="const" name="OPTION_ROOT_NODE">
+			<signature>const OPTION_ROOT_NODE: String = "reference_root_node"</signature>
+			<description>options 中传入引用 root Node 的字段。</description>
+			<tags>
+				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="const" name="REFERENCE_KIND_RESOURCE">
+			<signature>const REFERENCE_KIND_RESOURCE: String = "Resource"</signature>
+			<description>Resource 引用类型。</description>
+			<tags>
+				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="const" name="REFERENCE_KIND_NODE">
+			<signature>const REFERENCE_KIND_NODE: String = "Node"</signature>
+			<description>Node 引用类型。</description>
+			<tags>
+				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="const" name="REFERENCE_KIND_UNSUPPORTED_OBJECT">
+			<signature>const REFERENCE_KIND_UNSUPPORTED_OBJECT: String = "UnsupportedObject"</signature>
+			<description>不支持对象引用类型。</description>
+			<tags>
+				<tag name="api">public</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties />
+	<methods>
+		<member kind="method" name="is_reference_marker">
+			<signature>static func is_reference_marker(value: Variant) -&gt; bool:</signature>
+			<description>判断 value 是否为 GF 引用标记。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">value: 待检查的值。</tag>
+				<tag name="return">是引用标记时返回 true。</tag>
+				<tag name="schema">value: Variant value that may contain a reference marker.</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_unsupported_reference_marker">
+			<signature>static func is_unsupported_reference_marker(value: Variant) -&gt; bool:</signature>
+			<description>判断 value 是否为不支持对象标记。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">value: 待检查的值。</tag>
+				<tag name="return">是不支持对象标记时返回 true。</tag>
+				<tag name="schema">value: Variant value that may contain a reference marker.</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_reference_marker">
+			<signature>static func get_reference_marker(value: Variant) -&gt; Dictionary:</signature>
+			<description>提取引用标记内容。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">value: 引用标记字典。</tag>
+				<tag name="return">标记内容；不是引用标记时返回空字典。</tag>
+				<tag name="schema">value: Dictionary with a __gf_reference__ marker.</tag>
+				<tag name="schema">return: Dictionary containing kind, version, and reference-specific fields.</tag>
+			</tags>
+		</member>
+		<member kind="method" name="encode_resource">
+			<signature>static func encode_resource(resource: Resource) -&gt; Dictionary:</signature>
+			<description>编码 Resource 引用。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">resource: 要编码的资源。</tag>
+				<tag name="return">引用标记；资源为空或没有可保存路径时返回 UnsupportedObject 标记。</tag>
+				<tag name="schema">return: Dictionary reference marker with kind Resource or UnsupportedObject.</tag>
+			</tags>
+		</member>
+		<member kind="method" name="encode_node">
+			<signature>static func encode_node(node: Node, root_node: Node) -&gt; Dictionary:</signature>
+			<description>编码 Node 引用。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">node: 要编码的节点。</tag>
+				<tag name="param">root_node: NodePath 的解析 root；必须等于 node 或为 node 的祖先。</tag>
+				<tag name="return">引用标记；节点不在 root_node 下时返回 UnsupportedObject 标记。</tag>
+				<tag name="schema">return: Dictionary reference marker with kind Node or UnsupportedObject.</tag>
+			</tags>
+		</member>
+		<member kind="method" name="encode_reference">
+			<signature>static func encode_reference(value: Variant, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>编码 Object 引用。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">value: 要编码的值。</tag>
+				<tag name="param">options: 可选项；reference_root_node 用于编码 Node 的相对路径。</tag>
+				<tag name="return">引用标记；不支持的对象返回 UnsupportedObject 标记。</tag>
+				<tag name="schema">value: Variant Resource or Node reference.</tag>
+				<tag name="schema">options: Dictionary with optional reference_root_node: Node.</tag>
+				<tag name="schema">return: Dictionary reference marker.</tag>
+			</tags>
+		</member>
+		<member kind="method" name="decode_reference">
+			<signature>static func decode_reference(value: Variant, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>解码引用标记。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">value: 引用标记字典。</tag>
+				<tag name="param">options: 可选项；reference_root_node 用于解析 NodePath。</tag>
+				<tag name="return">解码结果。</tag>
+				<tag name="schema">value: Dictionary reference marker produced by encode_reference().</tag>
+				<tag name="schema">options: Dictionary with optional reference_root_node: Node.</tag>
+				<tag name="schema">return: Dictionary with ok: bool, value: Variant, error: String, and kind: String.</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

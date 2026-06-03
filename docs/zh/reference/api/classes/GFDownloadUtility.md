@@ -41,6 +41,8 @@
 | 方法 | [`get_queued_task_ids`](#member-gfdownloadutility-methods-get_queued_task_ids) | `func get_queued_task_ids() -> PackedInt32Array:` |
 | 方法 | [`get_result`](#member-gfdownloadutility-methods-get_result) | `func get_result(task_id: int) -> Dictionary:` |
 | 方法 | [`get_debug_snapshot`](#member-gfdownloadutility-methods-get_debug_snapshot) | `func get_debug_snapshot() -> Dictionary:` |
+| 方法 | [`_start_http_request`](#member-gfdownloadutility-methods-_start_http_request) | `func _start_http_request(request_data: Dictionary) -> Error:` |
+| 方法 | [`_complete_active_download`](#member-gfdownloadutility-methods-_complete_active_download) | `func _complete_active_download( success: bool, response_code: int, error: String = "", retryable: bool = false ) -> void:` |
 
 ## 信号
 
@@ -474,3 +476,48 @@ func get_debug_snapshot() -> Dictionary:
 结构：
 
 - `return`: Dictionary，包含 paused、queued_count、queued_task_ids、active_task 和 result_count。
+
+<a id="member-gfdownloadutility-methods-_start_http_request"></a>
+
+### `_start_http_request`
+
+- API：`protected`
+
+```gdscript
+func _start_http_request(request_data: Dictionary) -> Error:
+```
+
+启动底层 HTTP 下载请求。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `request_data` | 请求数据。 |
+
+返回：Godot 错误码。
+
+结构：
+
+- `request_data`: Dictionary，包含 task_id、url、headers、download_file 和 resume_offset。
+
+<a id="member-gfdownloadutility-methods-_complete_active_download"></a>
+
+### `_complete_active_download`
+
+- API：`protected`
+
+```gdscript
+func _complete_active_download( success: bool, response_code: int, error: String = "", retryable: bool = false ) -> void:
+```
+
+完成当前活动下载，并根据结果提交、重试或失败任务。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `success` | 底层请求是否成功取得响应体。 |
+| `response_code` | HTTP 响应码。 |
+| `error` | 失败原因。 |
+| `retryable` | 是否允许按任务重试策略重新入队。 |

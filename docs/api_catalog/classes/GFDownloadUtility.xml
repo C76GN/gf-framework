@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFDownloadUtility" path="addons/gf/standard/utilities/io/gf_download_utility.gd" module="standard" extends="GFUtility" classDigest="0172651e7657e63e045ecaa3a278e4c969a2fd69e50fd0af5785515239db482c">
+<class name="GFDownloadUtility" path="addons/gf/standard/utilities/io/gf_download_utility.gd" module="standard" extends="GFUtility" classDigest="c5a952fe4443485eca2117ea92478e232dff863ce351c0853f7a2d2e9ad2cc0c">
 	<description>GFDownloadUtility: 通用文件下载队列。
 提供顺序下载、临时文件提交、可选续传、SHA-256 校验、暂停、取消和诊断快照。</description>
 	<tags>
@@ -229,6 +229,27 @@
 				<tag name="api">public</tag>
 				<tag name="return">诊断快照字典。</tag>
 				<tag name="schema">return: Dictionary，包含 paused、queued_count、queued_task_ids、active_task 和 result_count。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_start_http_request">
+			<signature>func _start_http_request(request_data: Dictionary) -&gt; Error:</signature>
+			<description>启动底层 HTTP 下载请求。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">request_data: 请求数据。</tag>
+				<tag name="return">Godot 错误码。</tag>
+				<tag name="schema">request_data: Dictionary，包含 task_id、url、headers、download_file 和 resume_offset。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_complete_active_download">
+			<signature>func _complete_active_download( success: bool, response_code: int, error: String = "", retryable: bool = false ) -&gt; void:</signature>
+			<description>完成当前活动下载，并根据结果提交、重试或失败任务。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">success: 底层请求是否成功取得响应体。</tag>
+				<tag name="param">response_code: HTTP 响应码。</tag>
+				<tag name="param">error: 失败原因。</tag>
+				<tag name="param">retryable: 是否允许按任务重试策略重新入队。</tag>
 			</tags>
 		</member>
 	</methods>

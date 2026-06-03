@@ -18,6 +18,8 @@
 | 属性 | [`use_type_default`](#member-gfconfignotdefaultvalidationrule-properties-use_type_default) | `var use_type_default: bool = true` |
 | 属性 | [`default_value`](#member-gfconfignotdefaultvalidationrule-properties-default_value) | `var default_value: Variant = null` |
 | 方法 | [`describe`](#member-gfconfignotdefaultvalidationrule-methods-describe) | `func describe() -> Dictionary:` |
+| 方法 | [`_get_default_rule_id`](#member-gfconfignotdefaultvalidationrule-methods-_get_default_rule_id) | `func _get_default_rule_id() -> StringName:` |
+| 方法 | [`_validate_value`](#member-gfconfignotdefaultvalidationrule-methods-_validate_value) | `func _validate_value(value: Variant, context: Dictionary, report: Dictionary) -> void:` |
 
 ## 属性
 
@@ -68,3 +70,43 @@ func describe() -> Dictionary:
 结构：
 
 - `return`: Dictionary，包含基础规则字段、use_type_default 和 default_value。
+
+<a id="member-gfconfignotdefaultvalidationrule-methods-_get_default_rule_id"></a>
+
+### `_get_default_rule_id`
+
+- API：`protected`
+
+```gdscript
+func _get_default_rule_id() -> StringName:
+```
+
+返回非默认值规则的默认稳定标识。
+
+返回：默认规则标识。
+
+<a id="member-gfconfignotdefaultvalidationrule-methods-_validate_value"></a>
+
+### `_validate_value`
+
+- API：`protected`
+
+```gdscript
+func _validate_value(value: Variant, context: Dictionary, report: Dictionary) -> void:
+```
+
+校验单个字段值是否不同于推导或显式默认值。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `value` | 待校验值。 |
+| `context` | 校验上下文。 |
+| `report` | 当前校验报告。 |
+
+结构：
+
+- `value`: Variant，与推导默认值或显式默认值比较的字段值。
+- `context`: Dictionary，可包含 table_name、row_key、field、source、line 和 column 字段。
+- `report`: GFConfigValidationReport 兼容 Dictionary，会被当前规则修改。

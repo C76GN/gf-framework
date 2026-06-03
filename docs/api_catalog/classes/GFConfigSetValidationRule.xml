@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFConfigSetValidationRule" path="addons/gf/standard/utilities/config/validation/gf_config_set_validation_rule.gd" module="standard" extends="GFConfigValidationRule" classDigest="14f7aeb7c1b4f43562aae3a89ea88f5f31a0db4b0c54ac6c86b68fc5996df50c">
+<class name="GFConfigSetValidationRule" path="addons/gf/standard/utilities/config/validation/gf_config_set_validation_rule.gd" module="standard" extends="GFConfigValidationRule" classDigest="da87262f624df081aa340bf2d9b2e9ca60a5f2a9229a2fc4fd4e689dc908ee0b">
 	<description>GFConfigSetValidationRule: 值集合校验规则。
 用于限制字段值必须出现在一个显式白名单中，不解释白名单背后的业务含义。</description>
 	<tags>
@@ -35,6 +35,27 @@
 				<tag name="api">public</tag>
 				<tag name="return">规则摘要字典。</tag>
 				<tag name="schema">return: Dictionary，包含基础规则字段、allowed_values 和 case_sensitive。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_get_default_rule_id">
+			<signature>func _get_default_rule_id() -&gt; StringName:</signature>
+			<description>返回集合规则的默认稳定标识。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="return">默认规则标识。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_validate_value">
+			<signature>func _validate_value(value: Variant, context: Dictionary, report: Dictionary) -&gt; void:</signature>
+			<description>校验单个字段值是否属于允许集合。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">value: 待校验值。</tag>
+				<tag name="param">context: 校验上下文。</tag>
+				<tag name="param">report: 当前校验报告。</tag>
+				<tag name="schema">value: Variant，与 allowed_values 比较的字段值。</tag>
+				<tag name="schema">context: Dictionary，可包含 table_name、row_key、field、source、line 和 column 字段。</tag>
+				<tag name="schema">report: GFConfigValidationReport 兼容 Dictionary，会被当前规则修改。</tag>
 			</tags>
 		</member>
 	</methods>

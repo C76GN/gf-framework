@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFNodeStateBehavior" path="addons/gf/standard/state_machine/node/gf_node_state_behavior.gd" module="standard" extends="Resource" classDigest="fbef326b60c1ee01c7ea8f24698f5f6dd3000baac952f3e86135c4b647d5fbe0">
+<class name="GFNodeStateBehavior" path="addons/gf/standard/state_machine/node/gf_node_state_behavior.gd" module="standard" extends="Resource" classDigest="8035f9039fb6298e6118c7744c7b668d566eaea026a9ff26efaaf50afa125aa8">
 	<description>GFNodeStateBehavior: 节点状态的可复用生命周期行为资源。
 行为资源可挂到 GFNodeState 上复用进入、退出、暂停、恢复和事件处理逻辑。
 它不替代状态脚本；状态脚本仍负责业务状态的主要控制权。</description>
@@ -98,6 +98,70 @@
 				<tag name="param">payload: 状态事件载荷。</tag>
 				<tag name="return">已处理返回 true。</tag>
 				<tag name="schema">payload: 状态事件载荷；具体类型由 event_id 和项目约定决定。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_initialize">
+			<signature>func _initialize(_state: GFNodeState) -&gt; void:</signature>
+			<description>行为初始化扩展点。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">_state: 行为所属状态。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_enter">
+			<signature>func _enter(_state: GFNodeState, _previous_state: StringName = &amp;"", _args: Dictionary = {}) -&gt; void:</signature>
+			<description>状态进入行为扩展点。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">_state: 行为所属状态。</tag>
+				<tag name="param">_previous_state: 来源状态名。</tag>
+				<tag name="param">_args: 状态切换参数。</tag>
+				<tag name="schema">_args: 状态切换参数 Dictionary；键和值由调用方约定。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_exit">
+			<signature>func _exit(_state: GFNodeState, _next_state: StringName = &amp;"", _args: Dictionary = {}) -&gt; void:</signature>
+			<description>状态退出行为扩展点。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">_state: 行为所属状态。</tag>
+				<tag name="param">_next_state: 目标状态名。</tag>
+				<tag name="param">_args: 状态切换参数。</tag>
+				<tag name="schema">_args: 状态切换参数 Dictionary；键和值由调用方约定。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_pause">
+			<signature>func _pause(_state: GFNodeState, _next_state: StringName = &amp;"", _args: Dictionary = {}) -&gt; void:</signature>
+			<description>状态暂停行为扩展点。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">_state: 行为所属状态。</tag>
+				<tag name="param">_next_state: 目标状态名。</tag>
+				<tag name="param">_args: 状态切换参数。</tag>
+				<tag name="schema">_args: 状态切换参数 Dictionary；键和值由调用方约定。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_resume">
+			<signature>func _resume(_state: GFNodeState, _previous_state: StringName = &amp;"", _args: Dictionary = {}) -&gt; void:</signature>
+			<description>状态恢复行为扩展点。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">_state: 行为所属状态。</tag>
+				<tag name="param">_previous_state: 来源状态名。</tag>
+				<tag name="param">_args: 状态切换参数。</tag>
+				<tag name="schema">_args: 状态切换参数 Dictionary；键和值由调用方约定。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_handle_state_event">
+			<signature>func _handle_state_event(_state: GFNodeState, _event_id: StringName, _payload: Variant = null) -&gt; bool:</signature>
+			<description>状态事件行为扩展点。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">_state: 行为所属状态。</tag>
+				<tag name="param">_event_id: 状态事件标识。</tag>
+				<tag name="param">_payload: 状态事件载荷。</tag>
+				<tag name="return">已处理返回 true。</tag>
+				<tag name="schema">_payload: 状态事件载荷；具体类型由 _event_id 和项目约定决定。</tag>
 			</tags>
 		</member>
 	</methods>

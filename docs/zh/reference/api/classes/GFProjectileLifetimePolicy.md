@@ -20,6 +20,8 @@
 | 属性 | [`max_impacts`](#member-gfprojectilelifetimepolicy-properties-max_impacts) | `var max_impacts: int = 0` |
 | 方法 | [`setup`](#member-gfprojectilelifetimepolicy-methods-setup) | `func setup(projectile: Node, projectile_context: Dictionary = {}) -> void:` |
 | 方法 | [`should_finish`](#member-gfprojectilelifetimepolicy-methods-should_finish) | `func should_finish(projectile: Node, elapsed_seconds: float, projectile_context: Dictionary = {}) -> bool:` |
+| 方法 | [`_setup`](#member-gfprojectilelifetimepolicy-methods-_setup) | `func _setup(_projectile: Node, _projectile_context: Dictionary = {}) -> void:` |
+| 方法 | [`_should_finish`](#member-gfprojectilelifetimepolicy-methods-_should_finish) | `func _should_finish( _projectile: Node, _elapsed_seconds: float, _projectile_context: Dictionary = {} ) -> bool:` |
 
 ## 属性
 
@@ -109,3 +111,52 @@ func should_finish(projectile: Node, elapsed_seconds: float, projectile_context:
 结构：
 
 - `projectile_context`: Dictionary，本次发射上下文；用于读取初始位置和 impact_count。
+
+<a id="member-gfprojectilelifetimepolicy-methods-_setup"></a>
+
+### `_setup`
+
+- API：`protected`
+
+```gdscript
+func _setup(_projectile: Node, _projectile_context: Dictionary = {}) -> void:
+```
+
+发射体启动扩展点。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `_projectile` | 发射体节点。 |
+| `_projectile_context` | 本次发射上下文字典。 |
+
+结构：
+
+- `_projectile_context`: Dictionary，本次发射上下文；可写入生命周期策略状态。
+
+<a id="member-gfprojectilelifetimepolicy-methods-_should_finish"></a>
+
+### `_should_finish`
+
+- API：`protected`
+
+```gdscript
+func _should_finish( _projectile: Node, _elapsed_seconds: float, _projectile_context: Dictionary = {} ) -> bool:
+```
+
+自定义结束条件扩展点。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `_projectile` | 发射体节点。 |
+| `_elapsed_seconds` | 本次发射已经运行的秒数。 |
+| `_projectile_context` | 本次发射上下文字典。 |
+
+返回：应结束时返回 true。
+
+结构：
+
+- `_projectile_context`: Dictionary，本次发射上下文；可读取生命周期策略状态。

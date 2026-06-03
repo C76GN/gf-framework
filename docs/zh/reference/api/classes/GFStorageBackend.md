@@ -23,6 +23,14 @@
 | 方法 | [`has_data`](#member-gfstoragebackend-methods-has_data) | `func has_data(file_name: String) -> bool:` |
 | 方法 | [`list_data`](#member-gfstoragebackend-methods-list_data) | `func list_data() -> Array[Dictionary]:` |
 | 方法 | [`get_capabilities`](#member-gfstoragebackend-methods-get_capabilities) | `func get_capabilities() -> Dictionary:` |
+| 方法 | [`_initialize`](#member-gfstoragebackend-methods-_initialize) | `func _initialize(_config: Dictionary) -> Error:` |
+| 方法 | [`_shutdown`](#member-gfstoragebackend-methods-_shutdown) | `func _shutdown() -> void:` |
+| 方法 | [`_save_data`](#member-gfstoragebackend-methods-_save_data) | `func _save_data(_file_name: String, _data: Dictionary, _metadata: Dictionary) -> Error:` |
+| 方法 | [`_load_data`](#member-gfstoragebackend-methods-_load_data) | `func _load_data(_file_name: String) -> Dictionary:` |
+| 方法 | [`_delete_data`](#member-gfstoragebackend-methods-_delete_data) | `func _delete_data(_file_name: String) -> Error:` |
+| 方法 | [`_has_data`](#member-gfstoragebackend-methods-_has_data) | `func _has_data(_file_name: String) -> bool:` |
+| 方法 | [`_list_data`](#member-gfstoragebackend-methods-_list_data) | `func _list_data() -> Array[Dictionary]:` |
+| 方法 | [`_get_capabilities`](#member-gfstoragebackend-methods-_get_capabilities) | `func _get_capabilities() -> Dictionary:` |
 
 ## 方法
 
@@ -184,6 +192,169 @@ func get_capabilities() -> Dictionary:
 获取后端能力描述。
 
 返回：能力字典副本。
+
+结构：
+
+- `return`: Dictionary，包含 read、write、delete、list 和 sync 布尔能力标记。
+
+<a id="member-gfstoragebackend-methods-_initialize"></a>
+
+### `_initialize`
+
+- API：`protected`
+
+```gdscript
+func _initialize(_config: Dictionary) -> Error:
+```
+
+初始化具体后端。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `_config` | 后端配置字典。 |
+
+返回：Godot Error 结果码。
+
+结构：
+
+- `_config`: Dictionary，包含后端特定的初始化选项。
+
+<a id="member-gfstoragebackend-methods-_shutdown"></a>
+
+### `_shutdown`
+
+- API：`protected`
+
+```gdscript
+func _shutdown() -> void:
+```
+
+释放具体后端持有的资源。
+
+<a id="member-gfstoragebackend-methods-_save_data"></a>
+
+### `_save_data`
+
+- API：`protected`
+
+```gdscript
+func _save_data(_file_name: String, _data: Dictionary, _metadata: Dictionary) -> Error:
+```
+
+保存纯字典数据到具体后端。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `_file_name` | 逻辑文件名。 |
+| `_data` | 要保存的数据副本。 |
+| `_metadata` | 可选元数据副本。 |
+
+返回：Godot Error 结果码。
+
+结构：
+
+- `_data`: Dictionary，存储后端持有的数据载荷。
+- `_metadata`: Dictionary，包含时间戳或修订号等后端特定元数据。
+
+<a id="member-gfstoragebackend-methods-_load_data"></a>
+
+### `_load_data`
+
+- API：`protected`
+
+```gdscript
+func _load_data(_file_name: String) -> Dictionary:
+```
+
+从具体后端读取纯字典数据。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `_file_name` | 逻辑文件名。 |
+
+返回：结果字典，包含 ok、data、metadata、error。
+
+结构：
+
+- `return`: Dictionary，包含 ok: bool、data: Dictionary、metadata: Dictionary 和 error: String。
+
+<a id="member-gfstoragebackend-methods-_delete_data"></a>
+
+### `_delete_data`
+
+- API：`protected`
+
+```gdscript
+func _delete_data(_file_name: String) -> Error:
+```
+
+从具体后端删除纯字典数据。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `_file_name` | 逻辑文件名。 |
+
+返回：Godot Error 结果码。
+
+<a id="member-gfstoragebackend-methods-_has_data"></a>
+
+### `_has_data`
+
+- API：`protected`
+
+```gdscript
+func _has_data(_file_name: String) -> bool:
+```
+
+判断具体后端是否存在逻辑文件。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `_file_name` | 逻辑文件名。 |
+
+返回：存在时返回 true。
+
+<a id="member-gfstoragebackend-methods-_list_data"></a>
+
+### `_list_data`
+
+- API：`protected`
+
+```gdscript
+func _list_data() -> Array[Dictionary]:
+```
+
+枚举具体后端中的逻辑文件。
+
+返回：文件摘要数组。
+
+结构：
+
+- `return`: Array，包含 file_name: String 和可选 metadata: Dictionary 的 Dictionary 条目。
+
+<a id="member-gfstoragebackend-methods-_get_capabilities"></a>
+
+### `_get_capabilities`
+
+- API：`protected`
+
+```gdscript
+func _get_capabilities() -> Dictionary:
+```
+
+获取具体后端能力描述。
+
+返回：能力字典。
 
 结构：
 

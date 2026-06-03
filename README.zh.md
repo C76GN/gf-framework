@@ -83,7 +83,7 @@ GF 源码按稳定的所有权边界组织：
 
 - `addons/gf/kernel`：运行内核、基础契约、架构容器、绑定、事件、命令、查询、工厂、AutoLoad 入口、扩展基础设施和核心编辑器集成。
 - `addons/gf/standard`：稳定标准库，包括 foundation、input、utilities、状态机、命令历史、序列辅助和 common 支撑原语。
-- `addons/gf/extensions`：随 GF 发布的可选原子内置扩展，例如 capability、interaction、feedback、camera、dialogue、action queue、combat、asset metadata、save、flow、network、turn-based、behavior tree、physics 辅助和 domain model。
+- `addons/gf/extensions`：随 GF 发布的可选原子内置扩展，例如 capability、interaction、feedback、camera、dialogue、action queue、combat、asset metadata、save、flow、network、turn-based、behavior tree、decision 评分、physics 辅助和 domain model。
 
 `kernel` 不硬引用 `standard` 或可选扩展。`standard` 只依赖 `kernel`，不能通过扩展 ID、路径、动态加载或扩展内类名探测可选扩展。GF 内置扩展之间也保持互不认识；需要出现在标准库诊断或工具里的扩展能力，应由扩展侧通过通用注册 API 主动贡献，跨扩展编排留给项目代码或独立插件。
 

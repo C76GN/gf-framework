@@ -30,6 +30,7 @@
 | 属性 | [`stop_on_error`](#member-gfcommandsequence-properties-stop_on_error) | `var stop_on_error: bool = false` |
 | 属性 | [`rollback_on_failure`](#member-gfcommandsequence-properties-rollback_on_failure) | `var rollback_on_failure: bool = false` |
 | 属性 | [`last_run_report`](#member-gfcommandsequence-properties-last_run_report) | `var last_run_report: Dictionary = {}` |
+| 方法 | [`_init`](#member-gfcommandsequence-methods-_init) | `func _init(p_steps: Array = [], p_context: GFSequenceContext = null) -> void:` |
 | 方法 | [`run`](#member-gfcommandsequence-methods-run) | `func run(p_steps: Array = []) -> void:` |
 | 方法 | [`cancel`](#member-gfcommandsequence-methods-cancel) | `func cancel() -> void:` |
 | 方法 | [`with_signal_timeout`](#member-gfcommandsequence-methods-with_signal_timeout) | `func with_signal_timeout(seconds: float, respect_time_scale: bool = true) -> GFCommandSequence:` |
@@ -272,6 +273,29 @@ var last_run_report: Dictionary = {}
 - `last_run_report`: Dictionary run report from the most recent run().
 
 ## 方法
+
+<a id="member-gfcommandsequence-methods-_init"></a>
+
+### `_init`
+
+- API：`public`
+
+```gdscript
+func _init(p_steps: Array = [], p_context: GFSequenceContext = null) -> void:
+```
+
+创建指令序列。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `p_steps` | 初始步骤列表。 |
+| `p_context` | 初始序列上下文；为空时自动创建。 |
+
+结构：
+
+- `p_steps`: Array of GFSequenceStep, GFCommand, Callable, or objects with execute()/resolve().
 
 <a id="member-gfcommandsequence-methods-run"></a>
 

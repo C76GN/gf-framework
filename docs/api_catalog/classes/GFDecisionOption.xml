@@ -1,0 +1,140 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFDecisionOption" path="addons/gf/extensions/decision/resources/gf_decision_option.gd" module="extensions/decision" extends="Resource" classDigest="e246df0a74b6ae8d1fc35f6c01b547998d98bb4b0b3a9b03fd2eed9010962253">
+	<description>GFDecisionOption: 可评分的候选决策资源。
+候选决策由一组 GFDecisionConsideration 评分，并按聚合策略得到最终效用分数。
+它描述“如何比较候选”，不执行具体业务动作。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">resource_definition</tag>
+		<tag name="since">4.3.0</tag>
+	</tags>
+	<signals />
+	<enums>
+		<member kind="enum" name="Aggregation">
+			<signature>enum Aggregation { ## 将 base_score 与各考虑项分数相乘，权重作为指数影响。 MULTIPLY, ## 按考虑项权重计算平均值，再乘以 base_score。 WEIGHTED_AVERAGE, ## 将 base_score 与加权分数相加，并钳制到 0 到 1。 SUM, ## 使用所有考虑项中的最低分。 MIN, ## 使用所有考虑项中的最高分。 MAX, }</signature>
+			<description>候选分数聚合策略。</description>
+			<tags>
+				<tag name="api">public</tag>
+			</tags>
+		</member>
+	</enums>
+	<constants />
+	<properties>
+		<member kind="property" name="decision_id" decorators="@export">
+			<signature>var decision_id: StringName = &amp;""</signature>
+			<description>候选决策标识。</description>
+			<tags>
+				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="property" name="display_name" decorators="@export">
+			<signature>var display_name: String = ""</signature>
+			<description>编辑器或调试显示名。</description>
+			<tags>
+				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="property" name="enabled" decorators="@export">
+			<signature>var enabled: bool = true</signature>
+			<description>是否启用该候选。</description>
+			<tags>
+				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="property" name="base_score" decorators="@export_range(0.0, 1.0, 0.001)">
+			<signature>var base_score: float = 1.0</signature>
+			<description>基础分数，范围 0 到 1。</description>
+			<tags>
+				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="property" name="aggregation" decorators="@export">
+			<signature>var aggregation: Aggregation = Aggregation.MULTIPLY</signature>
+			<description>分数聚合策略。</description>
+			<tags>
+				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="property" name="considerations" decorators="@export">
+			<signature>var considerations: Array[GFDecisionConsideration] = []</signature>
+			<description>候选考虑项列表。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">considerations: Array[GFDecisionConsideration]，按顺序参与评分。</tag>
+			</tags>
+		</member>
+		<member kind="property" name="metadata" decorators="@export">
+			<signature>var metadata: Dictionary = {}</signature>
+			<description>项目自定义元数据，框架不解释其中内容。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">metadata: Dictionary[StringName, Variant] project-defined decision metadata.</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="add_consideration">
+			<signature>func add_consideration(consideration: GFDecisionConsideration) -&gt; bool:</signature>
+			<description>添加考虑项。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">consideration: 要添加的考虑项。</tag>
+				<tag name="return">添加成功返回 true。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_consideration">
+			<signature>func get_consideration(consideration_id: StringName) -&gt; GFDecisionConsideration:</signature>
+			<description>获取考虑项。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">consideration_id: 考虑项标识。</tag>
+				<tag name="return">找到的考虑项；不存在时返回 null。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="has_consideration">
+			<signature>func has_consideration(consideration_id: StringName) -&gt; bool:</signature>
+			<description>检查考虑项是否存在。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">consideration_id: 考虑项标识。</tag>
+				<tag name="return">存在返回 true。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="remove_consideration">
+			<signature>func remove_consideration(consideration_id: StringName) -&gt; bool:</signature>
+			<description>移除考虑项。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">consideration_id: 考虑项标识。</tag>
+				<tag name="return">移除成功返回 true。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="clear_considerations">
+			<signature>func clear_considerations() -&gt; void:</signature>
+			<description>清空考虑项。</description>
+			<tags>
+				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="method" name="score">
+			<signature>func score(context: GFDecisionContext) -&gt; GFDecisionScore:</signature>
+			<description>计算候选决策分数。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">context: 决策上下文。</tag>
+				<tag name="return">评分结果。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_debug_snapshot">
+			<signature>func get_debug_snapshot(context: GFDecisionContext) -&gt; Dictionary:</signature>
+			<description>获取候选决策调试快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">context: 决策上下文。</tag>
+				<tag name="return">调试快照字典。</tag>
+				<tag name="schema">return: 包含 decision_id、display_name、enabled、aggregation、base_score 和 score 字段的 Dictionary。</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

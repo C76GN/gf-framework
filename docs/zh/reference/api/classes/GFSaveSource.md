@@ -28,6 +28,12 @@
 | 方法 | [`get_target_node`](#member-gfsavesource-methods-get_target_node) | `func get_target_node() -> Node:` |
 | 方法 | [`describe_source`](#member-gfsavesource-methods-describe_source) | `func describe_source(scope: Node = null) -> Dictionary:` |
 | 方法 | [`make_result`](#member-gfsavesource-methods-make_result) | `func make_result(ok: bool, error: String = "") -> Dictionary:` |
+| 方法 | [`_can_save_source`](#member-gfsavesource-methods-_can_save_source) | `func _can_save_source(_context: Dictionary = {}) -> bool:` |
+| 方法 | [`_can_load_source`](#member-gfsavesource-methods-_can_load_source) | `func _can_load_source(_context: Dictionary = {}) -> bool:` |
+| 方法 | [`_before_save`](#member-gfsavesource-methods-_before_save) | `func _before_save(_context: Dictionary = {}) -> void:` |
+| 方法 | [`_gather_save_data`](#member-gfsavesource-methods-_gather_save_data) | `func _gather_save_data( context: Dictionary = {}, serializer_registry: GFNodeSerializerRegistry = null ) -> Variant:` |
+| 方法 | [`_apply_save_data`](#member-gfsavesource-methods-_apply_save_data) | `func _apply_save_data( data: Variant, context: Dictionary = {}, serializer_registry: GFNodeSerializerRegistry = null ) -> Dictionary:` |
+| 方法 | [`_after_load`](#member-gfsavesource-methods-_after_load) | `func _after_load(_data: Variant, _context: Dictionary = {}) -> void:` |
 
 ## 属性
 
@@ -221,3 +227,151 @@ func make_result(ok: bool, error: String = "") -> Dictionary:
 结构：
 
 - `return`: Dictionary，包含 ok: bool 与 error: String。
+
+<a id="member-gfsavesource-methods-_can_save_source"></a>
+
+### `_can_save_source`
+
+- API：`protected`
+
+```gdscript
+func _can_save_source(_context: Dictionary = {}) -> bool:
+```
+
+判断是否可保存。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `_context` | 调用上下文字典。 |
+
+返回：可保存时返回 true。
+
+结构：
+
+- `_context`: Dictionary，可包含 pipeline_context、pipeline_shared、include_pipeline_trace 等流程字段。
+
+<a id="member-gfsavesource-methods-_can_load_source"></a>
+
+### `_can_load_source`
+
+- API：`protected`
+
+```gdscript
+func _can_load_source(_context: Dictionary = {}) -> bool:
+```
+
+判断是否可加载。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `_context` | 调用上下文字典。 |
+
+返回：可加载时返回 true。
+
+结构：
+
+- `_context`: Dictionary，可包含 pipeline_context、pipeline_shared、include_pipeline_trace 等流程字段。
+
+<a id="member-gfsavesource-methods-_before_save"></a>
+
+### `_before_save`
+
+- API：`protected`
+
+```gdscript
+func _before_save(_context: Dictionary = {}) -> void:
+```
+
+保存前 Hook。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `_context` | 调用上下文字典。 |
+
+结构：
+
+- `_context`: Dictionary，可包含 pipeline_context、pipeline_shared、include_pipeline_trace 等流程字段。
+
+<a id="member-gfsavesource-methods-_gather_save_data"></a>
+
+### `_gather_save_data`
+
+- API：`protected`
+
+```gdscript
+func _gather_save_data( context: Dictionary = {}, serializer_registry: GFNodeSerializerRegistry = null ) -> Variant:
+```
+
+采集保存数据。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `context` | 调用上下文字典。 |
+| `serializer_registry` | 可选节点序列化器注册表。 |
+
+返回：可写入存档的数据。
+
+结构：
+
+- `context`: Dictionary，可包含 pipeline_context、pipeline_shared、include_pipeline_trace 等流程字段。
+- `return`: Variant，通常为 Dictionary；默认实现返回包含 serializers: Array[Dictionary] 的载荷，或空 Dictionary。
+
+<a id="member-gfsavesource-methods-_apply_save_data"></a>
+
+### `_apply_save_data`
+
+- API：`protected`
+
+```gdscript
+func _apply_save_data( data: Variant, context: Dictionary = {}, serializer_registry: GFNodeSerializerRegistry = null ) -> Dictionary:
+```
+
+应用保存数据。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `data` | 保存数据。 |
+| `context` | 调用上下文字典。 |
+| `serializer_registry` | 可选节点序列化器注册表。 |
+
+返回：结果字典。
+
+结构：
+
+- `data`: Variant，默认实现要求为包含 serializers: Array[Dictionary] 的 Dictionary。
+- `context`: Dictionary，可包含 pipeline_context、pipeline_shared、include_pipeline_trace 等流程字段。
+- `return`: Dictionary，包含 ok: bool、error: String，或序列化器应用结果字段。
+
+<a id="member-gfsavesource-methods-_after_load"></a>
+
+### `_after_load`
+
+- API：`protected`
+
+```gdscript
+func _after_load(_data: Variant, _context: Dictionary = {}) -> void:
+```
+
+加载后 Hook。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `_data` | 已应用的数据。 |
+| `_context` | 调用上下文字典。 |
+
+结构：
+
+- `_data`: Variant，当前 Source 已应用的保存数据。
+- `_context`: Dictionary，可包含 pipeline_context、pipeline_shared、include_pipeline_trace 等流程字段。

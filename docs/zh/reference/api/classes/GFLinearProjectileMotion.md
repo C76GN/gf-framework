@@ -20,6 +20,7 @@
 | 属性 | [`direction_3d`](#member-gflinearprojectilemotion-properties-direction_3d) | `var direction_3d: Vector3 = Vector3.FORWARD` |
 | 属性 | [`use_local_direction`](#member-gflinearprojectilemotion-properties-use_local_direction) | `var use_local_direction: bool = true` |
 | 属性 | [`normalize_direction`](#member-gflinearprojectilemotion-properties-normalize_direction) | `var normalize_direction: bool = true` |
+| 方法 | [`_step`](#member-gflinearprojectilemotion-methods-_step) | `func _step(projectile: Node, delta: float, projectile_context: Dictionary = {}) -> void:` |
 
 ## 属性
 
@@ -82,3 +83,29 @@ var normalize_direction: bool = true
 ```
 
 是否归一化方向。
+
+## 方法
+
+<a id="member-gflinearprojectilemotion-methods-_step"></a>
+
+### `_step`
+
+- API：`protected`
+
+```gdscript
+func _step(projectile: Node, delta: float, projectile_context: Dictionary = {}) -> void:
+```
+
+推进直线移动。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `projectile` | 发射体节点。 |
+| `delta` | 物理帧间隔。 |
+| `projectile_context` | 本次发射上下文字典。 |
+
+结构：
+
+- `projectile_context`: Dictionary，本次发射上下文；会写入 velocity_2d 或 velocity_3d。

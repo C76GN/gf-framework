@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFEditorPickOperation" path="addons/gf/kernel/editor/gf_editor_pick_operation.gd" module="kernel" extends="RefCounted" classDigest="fa73a743d89e744b384044734a667207c0807772c40da7fdb647aa3041824e26">
+<class name="GFEditorPickOperation" path="addons/gf/kernel/editor/gf_editor_pick_operation.gd" module="kernel" extends="RefCounted" classDigest="269e05a65a5fe771a9b5244a0468f35a8a040cffa1e681cb5ed7eac1192dca18">
 	<description>GFEditorPickOperation: 编辑器工具的分阶段拾取操作协议。
 用于描述 pick、preview、ready、apply 和 cancel 这类持续交互流程。</description>
 	<tags>
@@ -120,6 +120,53 @@
 				<tag name="api">public</tag>
 				<tag name="return">调试快照字典。</tag>
 				<tag name="schema">return: Dictionary containing operation_id, label, state, preview, result, and metadata.</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_on_begin">
+			<signature>func _on_begin(_tool_context: GFEditorToolContextBase) -&gt; void:</signature>
+			<description>拾取流程开始时调用，供子类重写。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">_tool_context: 编辑器工具上下文。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_on_pick">
+			<signature>func _on_pick(_input_data: Dictionary) -&gt; Dictionary:</signature>
+			<description>处理一次拾取输入，供子类重写。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">_input_data: 调用方传入的通用拾取数据。</tag>
+				<tag name="return">拾取响应字典，可包含 preview、result 和 ready。</tag>
+				<tag name="schema">_input_data: Dictionary containing tool-specific pick input.</tag>
+				<tag name="schema">return: Dictionary pick response.</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_on_can_apply">
+			<signature>func _on_can_apply() -&gt; bool:</signature>
+			<description>判断当前拾取结果是否可以应用，供子类重写。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="return">可应用返回 true。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_on_apply">
+			<signature>func _on_apply(_tool_context: GFEditorToolContextBase, result: Dictionary) -&gt; Dictionary:</signature>
+			<description>应用拾取结果，供子类重写。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">_tool_context: 编辑器工具上下文。</tag>
+				<tag name="param">result: 拾取结果副本。</tag>
+				<tag name="return">应用结果字典。</tag>
+				<tag name="schema">result: Dictionary pick result data.</tag>
+				<tag name="schema">return: Dictionary apply result.</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_on_cancel">
+			<signature>func _on_cancel(_tool_context: GFEditorToolContextBase) -&gt; void:</signature>
+			<description>取消拾取流程时调用，供子类重写。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">_tool_context: 编辑器工具上下文。</tag>
 			</tags>
 		</member>
 	</methods>

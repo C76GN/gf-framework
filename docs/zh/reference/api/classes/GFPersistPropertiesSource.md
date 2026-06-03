@@ -17,6 +17,8 @@
 |---|---|---|
 | 属性 | [`properties`](#member-gfpersistpropertiessource-properties-properties) | `var properties: PackedStringArray = PackedStringArray()` |
 | 属性 | [`skip_missing_properties`](#member-gfpersistpropertiessource-properties-skip_missing_properties) | `var skip_missing_properties: bool = true` |
+| 方法 | [`_gather_save_data`](#member-gfpersistpropertiessource-methods-_gather_save_data) | `func _gather_save_data( context: Dictionary = {}, serializer_registry: GFNodeSerializerRegistry = null ) -> Variant:` |
+| 方法 | [`_apply_save_data`](#member-gfpersistpropertiessource-methods-_apply_save_data) | `func _apply_save_data( data: Variant, context: Dictionary = {}, serializer_registry: GFNodeSerializerRegistry = null ) -> Dictionary:` |
 
 ## 属性
 
@@ -43,3 +45,59 @@ var skip_missing_properties: bool = true
 ```
 
 应用数据时遇到缺失属性是否跳过。
+
+## 方法
+
+<a id="member-gfpersistpropertiessource-methods-_gather_save_data"></a>
+
+### `_gather_save_data`
+
+- API：`protected`
+
+```gdscript
+func _gather_save_data( context: Dictionary = {}, serializer_registry: GFNodeSerializerRegistry = null ) -> Variant:
+```
+
+采集属性白名单保存数据。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `context` | 调用上下文字典。 |
+| `serializer_registry` | 可选节点序列化器注册表。 |
+
+返回：可写入存档的数据。
+
+结构：
+
+- `context`: Dictionary，可包含 pipeline_context、pipeline_shared、include_pipeline_trace 等流程字段。
+- `return`: Variant，通常为 Dictionary；默认实现返回包含 serializers: Array[Dictionary] 的载荷，或空 Dictionary。
+
+<a id="member-gfpersistpropertiessource-methods-_apply_save_data"></a>
+
+### `_apply_save_data`
+
+- API：`protected`
+
+```gdscript
+func _apply_save_data( data: Variant, context: Dictionary = {}, serializer_registry: GFNodeSerializerRegistry = null ) -> Dictionary:
+```
+
+应用属性白名单保存数据。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `data` | 保存数据。 |
+| `context` | 调用上下文字典。 |
+| `serializer_registry` | 可选节点序列化器注册表。 |
+
+返回：结果字典。
+
+结构：
+
+- `data`: Variant，默认实现要求为包含 serializers: Array[Dictionary] 的 Dictionary。
+- `context`: Dictionary，可包含 pipeline_context、pipeline_shared、include_pipeline_trace 等流程字段。
+- `return`: Dictionary，包含 ok、applied 与 errors。

@@ -21,6 +21,7 @@
 | 属性 | [`radius`](#member-gfprojectileburstpattern2d-properties-radius) | `var radius: float = 0.0` |
 | 属性 | [`rotate_to_direction`](#member-gfprojectileburstpattern2d-properties-rotate_to_direction) | `var rotate_to_direction: bool = true` |
 | 属性 | [`include_emitter_rotation`](#member-gfprojectileburstpattern2d-properties-include_emitter_rotation) | `var include_emitter_rotation: bool = true` |
+| 方法 | [`_get_spawn_transforms`](#member-gfprojectileburstpattern2d-methods-_get_spawn_transforms) | `func _get_spawn_transforms( emitter: Node2D, _projectile_context: Dictionary = {}, emit_count: int = -1 ) -> Array[Transform2D]:` |
 
 ## 属性
 
@@ -95,3 +96,31 @@ var include_emitter_rotation: bool = true
 ```
 
 是否把发射器自身旋转计入方向。
+
+## 方法
+
+<a id="member-gfprojectileburstpattern2d-methods-_get_spawn_transforms"></a>
+
+### `_get_spawn_transforms`
+
+- API：`protected`
+
+```gdscript
+func _get_spawn_transforms( emitter: Node2D, _projectile_context: Dictionary = {}, emit_count: int = -1 ) -> Array[Transform2D]:
+```
+
+生成 2D 扇形或环形发射变换。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `emitter` | 发射器节点。 |
+| `_projectile_context` | 本次发射上下文。 |
+| `emit_count` | 调用方请求的数量；小于等于 0 时使用 projectile_count。 |
+
+返回：全局 Transform2D 列表。
+
+结构：
+
+- `_projectile_context`: Dictionary，本次发射上下文；当前实现不读取该字典。

@@ -15,6 +15,7 @@
 
 | 类型 | 名称 | 签名 |
 |---|---|---|
+| 方法 | [`_init`](#member-gfreadonlybindableproperty-methods-_init) | `func _init(default_value: Variant = null) -> void:` |
 | 方法 | [`set_value`](#member-gfreadonlybindableproperty-methods-set_value) | `func set_value(_new_value: Variant) -> void:` |
 | 方法 | [`mutate`](#member-gfreadonlybindableproperty-methods-mutate) | `func mutate(_mutator: Callable) -> bool:` |
 | 方法 | [`append_to_array`](#member-gfreadonlybindableproperty-methods-append_to_array) | `func append_to_array(_item: Variant) -> bool:` |
@@ -25,6 +26,28 @@
 | 方法 | [`clear_collection`](#member-gfreadonlybindableproperty-methods-clear_collection) | `func clear_collection() -> bool:` |
 
 ## 方法
+
+<a id="member-gfreadonlybindableproperty-methods-_init"></a>
+
+### `_init`
+
+- API：`public`
+
+```gdscript
+func _init(default_value: Variant = null) -> void:
+```
+
+构造函数。 "type": "Variant", "description": "属性的初始值。" }
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `default_value` | 属性的初始值。 |
+
+结构：
+
+- `default_value {`:
 
 <a id="member-gfreadonlybindableproperty-methods-set_value"></a>
 

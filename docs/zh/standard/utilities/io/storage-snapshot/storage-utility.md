@@ -8,6 +8,14 @@
 
 同时原生支持 Godot 的 `Resource` 类型直接存取，例如 `.tres` 或 `.res`。
 
+`GFStorageCodec` 的 JSON 格式面向普通 JSON 数据。需要保留 Vector、Color、PackedArray 等 Godot 值类型时，先用 `GFVariantJsonCodec` 转换；需要保存 Resource 或 Node 引用时，使用 `GFVariantReferenceCodec` 的显式引用标记，或由 SaveGraph 属性序列化器代为处理。
+
+## 项目级存档聚合
+
+`GFStorageUtility` 只负责把项目给出的载荷可靠落盘，不提供全局 SaveSystem、业务模块注册表或固定存档目录规范。项目可以在自己的 System、Installer 或存档服务中收集多个 Model、Domain 容器、运行时快照和项目配置，再把聚合后的字典交给 `save_data()` 或 `save_slot()`。
+
+这种聚合结构应由项目定义，例如 schema 版本、玩家资料、世界状态、设置、统计和自定义预览字段。GF 侧只承诺通用机制：路径安全、事务恢复、codec、checksum、压缩、槽位 metadata、Resource 存取和 `register_migration()` 版本迁移。模块优先级、业务字段含义、奖励发放、云同步账号隔离、平台加密和冲突策略都应留在项目层或独立插件。
+
 ## 基础用法
 
 ```gdscript

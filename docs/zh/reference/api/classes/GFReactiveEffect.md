@@ -17,6 +17,7 @@ GFBindableProperty 的轻量响应式副作用。 监听一组 GFBindablePropert
 |---|---|---|
 | 信号 | [`effect_ran`](#member-gfreactiveeffect-signals-effect_ran) | `signal effect_ran(value: Variant)` |
 | 属性 | [`max_reruns_per_run`](#member-gfreactiveeffect-properties-max_reruns_per_run) | `var max_reruns_per_run: int = 8` |
+| 方法 | [`_init`](#member-gfreactiveeffect-methods-_init) | `func _init( sources: Array[GFBindableProperty] = [], callback: Callable = Callable(), owner: Node = null, run_immediately: bool = true ) -> void:` |
 | 方法 | [`configure`](#member-gfreactiveeffect-methods-configure) | `func configure( sources: Array[GFBindableProperty], callback: Callable, owner: Node = null, run_immediately: bool = true ) -> void:` |
 | 方法 | [`run`](#member-gfreactiveeffect-methods-run) | `func run() -> Variant:` |
 | 方法 | [`stop`](#member-gfreactiveeffect-methods-stop) | `func stop() -> void:` |
@@ -63,6 +64,27 @@ var max_reruns_per_run: int = 8
 单次 run 中最多补跑的次数，避免回调持续写入来源属性造成死循环。
 
 ## 方法
+
+<a id="member-gfreactiveeffect-methods-_init"></a>
+
+### `_init`
+
+- API：`public`
+
+```gdscript
+func _init( sources: Array[GFBindableProperty] = [], callback: Callable = Callable(), owner: Node = null, run_immediately: bool = true ) -> void:
+```
+
+构造函数。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `sources` | 要监听的 GFBindableProperty 列表。 |
+| `callback` | 变化后执行的回调。 |
+| `owner` | 可选 Node 生命周期宿主。 |
+| `run_immediately` | 是否立即执行一次。 |
 
 <a id="member-gfreactiveeffect-methods-configure"></a>
 

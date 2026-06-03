@@ -17,6 +17,7 @@
 |---|---|---|
 | 信号 | [`value_changed`](#member-gfbindableproperty-signals-value_changed) | `signal value_changed(old_value: Variant, new_value: Variant)` |
 | 属性 | [`value`](#member-gfbindableproperty-properties-value) | `var value: Variant:` |
+| 方法 | [`_init`](#member-gfbindableproperty-methods-_init) | `func _init(default_value: Variant = null) -> void:` |
 | 方法 | [`get_value`](#member-gfbindableproperty-methods-get_value) | `func get_value() -> Variant:` |
 | 方法 | [`set_value`](#member-gfbindableproperty-methods-set_value) | `func set_value(new_value: Variant) -> void:` |
 | 方法 | [`subscribe`](#member-gfbindableproperty-methods-subscribe) | `func subscribe(callback: Callable, emit_current: bool = false) -> Callable:` |
@@ -79,6 +80,28 @@ var value: Variant:
 - `value {`:
 
 ## 方法
+
+<a id="member-gfbindableproperty-methods-_init"></a>
+
+### `_init`
+
+- API：`public`
+
+```gdscript
+func _init(default_value: Variant = null) -> void:
+```
+
+构造函数。 "type": "Variant", "description": "属性的初始值。" }
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `default_value` | 属性的初始值，默认为 null。 |
+
+结构：
+
+- `default_value {`:
 
 <a id="member-gfbindableproperty-methods-get_value"></a>
 

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFProjectileLifetimePolicy" path="addons/gf/extensions/combat/projectiles/gf_projectile_lifetime_policy.gd" module="extensions/combat" extends="Resource" classDigest="895f2a29774bca2ae735c6248cc80d0ac11b7ddbe6c8664ea3d50c07b530ee13">
+<class name="GFProjectileLifetimePolicy" path="addons/gf/extensions/combat/projectiles/gf_projectile_lifetime_policy.gd" module="extensions/combat" extends="Resource" classDigest="04a1e360d51108b9ef18495f20978eb32fd2ce7aea7762de8259bb9f7ecd47f5">
 	<description>GFProjectileLifetimePolicy: 发射体生命周期策略。
 默认支持按时间和距离结束。项目可继承后叠加自定义结束条件。</description>
 	<tags>
@@ -54,6 +54,28 @@
 				<tag name="param">projectile_context: 本次发射的上下文字典。</tag>
 				<tag name="return">应结束时返回 true。</tag>
 				<tag name="schema">projectile_context: Dictionary，本次发射上下文；用于读取初始位置和 impact_count。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_setup">
+			<signature>func _setup(_projectile: Node, _projectile_context: Dictionary = {}) -&gt; void:</signature>
+			<description>发射体启动扩展点。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">_projectile: 发射体节点。</tag>
+				<tag name="param">_projectile_context: 本次发射上下文字典。</tag>
+				<tag name="schema">_projectile_context: Dictionary，本次发射上下文；可写入生命周期策略状态。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_should_finish">
+			<signature>func _should_finish( _projectile: Node, _elapsed_seconds: float, _projectile_context: Dictionary = {} ) -&gt; bool:</signature>
+			<description>自定义结束条件扩展点。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">_projectile: 发射体节点。</tag>
+				<tag name="param">_elapsed_seconds: 本次发射已经运行的秒数。</tag>
+				<tag name="param">_projectile_context: 本次发射上下文字典。</tag>
+				<tag name="return">应结束时返回 true。</tag>
+				<tag name="schema">_projectile_context: Dictionary，本次发射上下文；可读取生命周期策略状态。</tag>
 			</tags>
 		</member>
 	</methods>

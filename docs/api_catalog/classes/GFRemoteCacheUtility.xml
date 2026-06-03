@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFRemoteCacheUtility" path="addons/gf/standard/utilities/io/gf_remote_cache_utility.gd" module="standard" extends="GFUtility" classDigest="87dd17ea825f0f7803e6fcae7a33ced71bb0ed073b2d28e879175998a7a1e83d">
+<class name="GFRemoteCacheUtility" path="addons/gf/standard/utilities/io/gf_remote_cache_utility.gd" module="standard" extends="GFUtility" classDigest="d3076b091335c40d6b95cf547a1b5e7ba326dac34965d7476559e6dbaacd9b75">
 	<description>GFRemoteCacheUtility: 通用远程文本与 JSON 缓存工具。
 提供 URL 请求、本地 TTL 缓存、失败时陈旧缓存回退和队列化 HTTP 访问。
 具体内容类型、字段结构和业务策略由项目层自行决定。</description>
@@ -182,6 +182,27 @@
 				<tag name="api">public</tag>
 				<tag name="return">诊断快照字典。</tag>
 				<tag name="schema">return: Dictionary，包含缓存设置、pending_count、active_url、active_cache_key 和 has_active_request。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_start_http_request">
+			<signature>func _start_http_request(request_data: Dictionary) -&gt; Error:</signature>
+			<description>启动底层 HTTP 请求。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">request_data: 请求数据。</tag>
+				<tag name="return">Godot 错误码。</tag>
+				<tag name="schema">request_data: Dictionary，包含 url、headers、ttl_seconds、format、cache_key 和 callbacks。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_complete_active_request">
+			<signature>func _complete_active_request( success: bool, response_code: int, content: String, error: String ) -&gt; void:</signature>
+			<description>完成当前活动请求，并写入缓存、回退陈旧缓存或分发失败结果。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">success: 底层请求是否成功。</tag>
+				<tag name="param">response_code: HTTP 响应码。</tag>
+				<tag name="param">content: 响应文本内容。</tag>
+				<tag name="param">error: 失败原因。</tag>
 			</tags>
 		</member>
 	</methods>

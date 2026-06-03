@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFArchitecture" path="addons/gf/kernel/core/gf_architecture.gd" module="kernel" extends="Object" classDigest="6f497b60073c9cfb4c47329f8b8b54b1838a14552237f576bb67cb792cd9c39b">
+<class name="GFArchitecture" path="addons/gf/kernel/core/gf_architecture.gd" module="kernel" extends="Object" classDigest="d74e01969a9894321385133b0ef134f6f64dc4407f9d4edd507f17b01ba7d393">
 	<description>GFArchitecture: 管理 Model、System 和 Utility 的注册与生命周期的容器。
 生命周期遵循三阶段初始化协议：
 阶段一 (init)       ：所有模块执行自身内部变量初始化。
@@ -105,6 +105,14 @@
 		</member>
 	</properties>
 	<methods>
+		<member kind="method" name="_init">
+			<signature>func _init(parent_architecture: GFArchitecture = null) -&gt; void:</signature>
+			<description>创建架构容器，可选择指定父级架构作为依赖回退来源。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">parent_architecture: 父级架构；为空时不启用回退。</tag>
+			</tags>
+		</member>
 		<member kind="method" name="is_inited">
 			<signature>func is_inited() -&gt; bool:</signature>
 			<description>检查架构是否已初始化。</description>
@@ -778,6 +786,20 @@ query 缺少 execute() 方法时会输出 warning 并返回 null。</description
 				<tag name="return">统一诊断报告字典。</tag>
 				<tag name="schema">options: Dictionary with optional bool keys include_parent_lookup and include_factories.</tag>
 				<tag name="schema">return: Dictionary dependency diagnostics report with modules, resolved_dependencies, missing_dependencies, issue counts, and next_action.</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_on_init">
+			<signature>func _on_init() -&gt; void:</signature>
+			<description>内部初始化回调，子类可重写。</description>
+			<tags>
+				<tag name="api">protected</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_on_dispose">
+			<signature>func _on_dispose() -&gt; void:</signature>
+			<description>内部销毁回调，子类可重写。</description>
+			<tags>
+				<tag name="api">protected</tag>
 			</tags>
 		</member>
 	</methods>

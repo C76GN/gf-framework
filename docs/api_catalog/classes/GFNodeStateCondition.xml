@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFNodeStateCondition" path="addons/gf/standard/state_machine/node/gf_node_state_condition.gd" module="standard" extends="Resource" classDigest="a6da49931e94b6b4b7b3b40663dd8d0f006354f875800778ab0891968c357fc0">
+<class name="GFNodeStateCondition" path="addons/gf/standard/state_machine/node/gf_node_state_condition.gd" module="standard" extends="Resource" classDigest="60f50ad18a06135470d7673a08c0d144b78e68268be93a07a49098c45d1b2f10">
 	<description>GFNodeStateCondition: 节点状态的可复用进入/退出条件资源。
 条件只负责判断状态切换是否允许，不直接执行切换或修改状态机结构。</description>
 	<tags>
@@ -46,6 +46,19 @@
 				<tag name="param">args: 状态切换参数。</tag>
 				<tag name="return">条件通过时返回 true。</tag>
 				<tag name="schema">args: 状态切换参数 Dictionary；键和值由调用方约定。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_evaluate">
+			<signature>func _evaluate( _state: GFNodeState, _phase: StringName, _peer_state: StringName = &amp;"", _args: Dictionary = {} ) -&gt; bool:</signature>
+			<description>条件评估扩展点。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">_state: 当前条件所属状态。</tag>
+				<tag name="param">_phase: 条件阶段，通常为 enter 或 exit。</tag>
+				<tag name="param">_peer_state: 进入时为来源状态名，退出时为目标状态名。</tag>
+				<tag name="param">_args: 状态切换参数。</tag>
+				<tag name="return">条件通过时返回 true。</tag>
+				<tag name="schema">_args: 状态切换参数 Dictionary；键和值由调用方约定。</tag>
 			</tags>
 		</member>
 	</methods>

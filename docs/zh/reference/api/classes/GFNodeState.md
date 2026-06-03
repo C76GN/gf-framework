@@ -53,6 +53,14 @@
 | 方法 | [`register_simple_event`](#member-gfnodestate-methods-register_simple_event) | `func register_simple_event(event_id: StringName, callback: Callable) -> void:` |
 | 方法 | [`unregister_simple_event`](#member-gfnodestate-methods-unregister_simple_event) | `func unregister_simple_event(event_id: StringName, callback: Callable) -> void:` |
 | 方法 | [`unregister_owner_events`](#member-gfnodestate-methods-unregister_owner_events) | `func unregister_owner_events() -> void:` |
+| 方法 | [`_initialize`](#member-gfnodestate-methods-_initialize) | `func _initialize() -> void:` |
+| 方法 | [`_can_enter`](#member-gfnodestate-methods-_can_enter) | `func _can_enter(_previous_state: StringName = &"", _args: Dictionary = {}) -> bool:` |
+| 方法 | [`_can_exit`](#member-gfnodestate-methods-_can_exit) | `func _can_exit(_next_state: StringName = &"", _args: Dictionary = {}) -> bool:` |
+| 方法 | [`_enter`](#member-gfnodestate-methods-_enter) | `func _enter(_previous_state: StringName = &"", _args: Dictionary = {}) -> void:` |
+| 方法 | [`_exit`](#member-gfnodestate-methods-_exit) | `func _exit(_next_state: StringName = &"", _args: Dictionary = {}) -> void:` |
+| 方法 | [`_pause`](#member-gfnodestate-methods-_pause) | `func _pause(_next_state: StringName = &"", _args: Dictionary = {}) -> void:` |
+| 方法 | [`_resume`](#member-gfnodestate-methods-_resume) | `func _resume(_previous_state: StringName = &"", _args: Dictionary = {}) -> void:` |
+| 方法 | [`_handle_state_event`](#member-gfnodestate-methods-_handle_state_event) | `func _handle_state_event(_event_id: StringName, _payload: Variant = null) -> bool:` |
 
 ## 信号
 
@@ -788,3 +796,182 @@ func unregister_owner_events() -> void:
 ```
 
 注销当前状态通过事件代理注册过的全部监听器。
+
+<a id="member-gfnodestate-methods-_initialize"></a>
+
+### `_initialize`
+
+- API：`protected`
+
+```gdscript
+func _initialize() -> void:
+```
+
+状态初始化扩展点。
+
+<a id="member-gfnodestate-methods-_can_enter"></a>
+
+### `_can_enter`
+
+- API：`protected`
+
+```gdscript
+func _can_enter(_previous_state: StringName = &"", _args: Dictionary = {}) -> bool:
+```
+
+状态进入守卫扩展点。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `_previous_state` | 来源状态名。 |
+| `_args` | 状态切换参数。 |
+
+返回：允许进入返回 true。
+
+结构：
+
+- `_args`: 状态切换参数 Dictionary；键和值由调用方约定。
+
+<a id="member-gfnodestate-methods-_can_exit"></a>
+
+### `_can_exit`
+
+- API：`protected`
+
+```gdscript
+func _can_exit(_next_state: StringName = &"", _args: Dictionary = {}) -> bool:
+```
+
+状态退出守卫扩展点。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `_next_state` | 目标状态名。 |
+| `_args` | 状态切换参数。 |
+
+返回：允许退出返回 true。
+
+结构：
+
+- `_args`: 状态切换参数 Dictionary；键和值由调用方约定。
+
+<a id="member-gfnodestate-methods-_enter"></a>
+
+### `_enter`
+
+- API：`protected`
+
+```gdscript
+func _enter(_previous_state: StringName = &"", _args: Dictionary = {}) -> void:
+```
+
+状态进入扩展点。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `_previous_state` | 来源状态名。 |
+| `_args` | 状态切换参数。 |
+
+结构：
+
+- `_args`: 状态切换参数 Dictionary；键和值由调用方约定。
+
+<a id="member-gfnodestate-methods-_exit"></a>
+
+### `_exit`
+
+- API：`protected`
+
+```gdscript
+func _exit(_next_state: StringName = &"", _args: Dictionary = {}) -> void:
+```
+
+状态退出扩展点。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `_next_state` | 目标状态名。 |
+| `_args` | 状态切换参数。 |
+
+结构：
+
+- `_args`: 状态切换参数 Dictionary；键和值由调用方约定。
+
+<a id="member-gfnodestate-methods-_pause"></a>
+
+### `_pause`
+
+- API：`protected`
+
+```gdscript
+func _pause(_next_state: StringName = &"", _args: Dictionary = {}) -> void:
+```
+
+状态被栈式子状态覆盖时的扩展点。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `_next_state` | 目标状态名。 |
+| `_args` | 状态切换参数。 |
+
+结构：
+
+- `_args`: 状态切换参数 Dictionary；键和值由调用方约定。
+
+<a id="member-gfnodestate-methods-_resume"></a>
+
+### `_resume`
+
+- API：`protected`
+
+```gdscript
+func _resume(_previous_state: StringName = &"", _args: Dictionary = {}) -> void:
+```
+
+状态从栈式子状态恢复时的扩展点。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `_previous_state` | 来源状态名。 |
+| `_args` | 状态切换参数。 |
+
+结构：
+
+- `_args`: 状态切换参数 Dictionary；键和值由调用方约定。
+
+<a id="member-gfnodestate-methods-_handle_state_event"></a>
+
+### `_handle_state_event`
+
+- API：`protected`
+
+```gdscript
+func _handle_state_event(_event_id: StringName, _payload: Variant = null) -> bool:
+```
+
+状态事件处理扩展点。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `_event_id` | 状态事件标识。 |
+| `_payload` | 状态事件载荷。 |
+
+返回：已处理返回 true。
+
+结构：
+
+- `_payload`: 状态事件载荷；具体结构由 _event_id 和项目逻辑约定。

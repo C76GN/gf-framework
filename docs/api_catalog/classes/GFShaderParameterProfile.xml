@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFShaderParameterProfile" path="addons/gf/standard/utilities/display/gf_shader_parameter_profile.gd" module="standard" extends="Resource" classDigest="43f5a408d2a3c248b39bf89e2a12b4dc6e0546cf98a685f4ce81adda9f945669">
+	<description>GFShaderParameterProfile: 通用 ShaderMaterial 参数集合资源。
+用 Resource 保存一组 shader uniform 参数值，便于项目把视觉 profile、天气表现、
+选中态或后处理参数声明为可合并、可复制、可插值的数据。它不提供具体 shader、
+色彩风格或业务语义。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">resource_definition</tag>
+		<tag name="since">4.3.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties>
+		<member kind="property" name="parameters" decorators="@export">
+			<signature>var parameters: Dictionary = {}</signature>
+			<description>Shader 参数字典。键应为 StringName 或 String，值为项目 shader uniform 接受的 Variant。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">parameters: Dictionary[StringName, Variant]，保存 shader uniform 名到参数值的映射。</tag>
+			</tags>
+		</member>
+		<member kind="property" name="metadata" decorators="@export">
+			<signature>var metadata: Dictionary = {}</signature>
+			<description>项目自定义元数据。框架不解释该字段。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">metadata: Dictionary[String, Variant]，项目自定义元数据；框架不会读取或改写其中字段。</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="set_parameter">
+			<signature>func set_parameter(parameter_name: StringName, value: Variant) -&gt; GFShaderParameterProfile:</signature>
+			<description>设置一个 shader 参数值。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">parameter_name: Shader uniform 参数名。</tag>
+				<tag name="param">value: 要保存的参数值。</tag>
+				<tag name="return">当前 profile，便于链式配置。</tag>
+				<tag name="schema">value: Variant，可被 ShaderMaterial.set_shader_parameter() 接受的参数值。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_parameter">
+			<signature>func get_parameter(parameter_name: StringName, default_value: Variant = null) -&gt; Variant:</signature>
+			<description>获取一个 shader 参数值。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">parameter_name: Shader uniform 参数名。</tag>
+				<tag name="param">default_value: 参数不存在时返回的默认值。</tag>
+				<tag name="return">参数值副本或默认值。</tag>
+				<tag name="schema">default_value: Variant fallback value returned unchanged when the parameter is missing.</tag>
+				<tag name="schema">return: Variant shader parameter value or the supplied default value.</tag>
+			</tags>
+		</member>
+		<member kind="method" name="has_parameter">
+			<signature>func has_parameter(parameter_name: StringName) -&gt; bool:</signature>
+			<description>检查 profile 是否包含指定参数。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">parameter_name: Shader uniform 参数名。</tag>
+				<tag name="return">存在时返回 true。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="erase_parameter">
+			<signature>func erase_parameter(parameter_name: StringName) -&gt; bool:</signature>
+			<description>移除指定 shader 参数。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">parameter_name: Shader uniform 参数名。</tag>
+				<tag name="return">实际移除参数时返回 true。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="clear_parameters">
+			<signature>func clear_parameters() -&gt; void:</signature>
+			<description>清空所有 shader 参数。</description>
+			<tags>
+				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_parameter_names">
+			<signature>func get_parameter_names() -&gt; Array[StringName]:</signature>
+			<description>获取参数名列表。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">参数名数组。</tag>
+				<tag name="schema">return: Array[StringName]，当前 profile 中可识别的 shader 参数名。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="merge_from">
+			<signature>func merge_from(source: GFShaderParameterProfile, overwrite: bool = true) -&gt; GFShaderParameterProfile:</signature>
+			<description>合并另一个 profile。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">source: 来源 profile。</tag>
+				<tag name="param">overwrite: 为 true 时覆盖当前已有参数和 metadata 字段。</tag>
+				<tag name="return">当前 profile，便于链式配置。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="blend_with">
+			<signature>func blend_with( target_profile: GFShaderParameterProfile, weight: float, options: Dictionary = {} ) -&gt; GFShaderParameterProfile:</signature>
+			<description>构建当前 profile 到目标 profile 的插值副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">target_profile: 目标 profile。</tag>
+				<tag name="param">weight: 插值权重，0 返回当前值，1 返回目标值。</tag>
+				<tag name="param">options: 可选项，支持 include_unmatched。</tag>
+				<tag name="return">新的插值 profile。</tag>
+				<tag name="schema">options: Dictionary，include_unmatched 为 true 时会把只存在于目标 profile 的参数复制到结果中。未在两端同时提供默认值的参数无法平滑过渡。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="duplicate_profile">
+			<signature>func duplicate_profile() -&gt; GFShaderParameterProfile:</signature>
+			<description>复制 profile。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">深拷贝后的 profile。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="to_dict">
+			<signature>func to_dict() -&gt; Dictionary:</signature>
+			<description>转换为 Dictionary。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">profile 字典。</tag>
+				<tag name="schema">return: Dictionary，包含 parameters 和 metadata 字段。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="apply_dict">
+			<signature>func apply_dict(data: Dictionary) -&gt; void:</signature>
+			<description>应用 Dictionary 数据。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">data: profile 字典。</tag>
+				<tag name="schema">data: Dictionary，可包含 parameters 和 metadata 字段。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="from_dict">
+			<signature>static func from_dict(data: Dictionary) -&gt; GFShaderParameterProfile:</signature>
+			<description>从 Dictionary 创建 profile。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">data: profile 字典。</tag>
+				<tag name="return">新 profile。</tag>
+				<tag name="schema">data: Dictionary，可包含 parameters 和 metadata 字段。</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

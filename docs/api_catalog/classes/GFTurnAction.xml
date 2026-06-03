@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFTurnAction" path="addons/gf/extensions/turn_based/runtime/gf_turn_action.gd" module="extensions/turn_based" extends="RefCounted" classDigest="a288ca5f527ab3e5cb473fa25a53ec5eb5518cfac34f3a11691000b0de00c4ab">
+<class name="GFTurnAction" path="addons/gf/extensions/turn_based/runtime/gf_turn_action.gd" module="extensions/turn_based" extends="RefCounted" classDigest="21a63a7885b790acc411ef98599cee758252c773f9b30aa014b7f0143624747b">
 	<description>GFTurnAction: 通用回合行动基类。
 行动只描述“谁执行、对谁执行、排序值与载荷”，具体效果由子类重写 `_resolve()`。</description>
 	<tags>
@@ -68,6 +68,16 @@
 			<description>取消行动。</description>
 			<tags>
 				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_resolve">
+			<signature>func _resolve(_context: GFTurnContext) -&gt; Variant:</signature>
+			<description>解析行动时由 GFTurnFlowSystem 调用。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">_context: 回合上下文。</tag>
+				<tag name="return">可等待结果。</tag>
+				<tag name="schema">return: Variant that is null or a Signal awaited before action resolution completes.</tag>
 			</tags>
 		</member>
 	</methods>

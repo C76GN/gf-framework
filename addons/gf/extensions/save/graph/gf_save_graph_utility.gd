@@ -294,6 +294,7 @@ func gather_scope(scope: GFSaveScope, context: Dictionary = {}) -> Dictionary:
 		if not source._can_save_source(context):
 			continue
 
+		var reference_root_state: Dictionary = _push_reference_root_context(context, scope)
 		source._before_save(context)
 		var source_key: String = _make_scoped_source_key(scope, source)
 		if source_payloads.has(source_key):
@@ -303,6 +304,7 @@ func gather_scope(scope: GFSaveScope, context: Dictionary = {}) -> Dictionary:
 				"scope_key": String(scope.get_scope_key()),
 				"source_key": source_key,
 			})
+			_pop_reference_root_context(context, reference_root_state)
 			return {}
 		var descriptor: Dictionary = source.describe_source(scope)
 		_merge_identity_descriptor(source, descriptor)
@@ -313,6 +315,7 @@ func gather_scope(scope: GFSaveScope, context: Dictionary = {}) -> Dictionary:
 			"descriptor": descriptor,
 			"data": source._gather_save_data(context, serializer_registry),
 		}
+		_pop_reference_root_context(context, reference_root_state)
 		_record_pipeline_event(pipeline_context, &"gather_source_finished", scope, source, "", {
 			"source_key": source_key,
 		})
@@ -457,7 +460,9 @@ func apply_scope(
 					"source_key": source_key,
 				}, &"warning")
 			continue
+		var reference_root_state: Dictionary = _push_reference_root_context(context, scope)
 		if not source._can_load_source(context):
+			_pop_reference_root_context(context, reference_root_state)
 			continue
 
 		_record_pipeline_event(pipeline_context, &"apply_source_started", scope, source, "", {
@@ -479,6 +484,7 @@ func apply_scope(
 				var source_error: String = "%s: %s" % [source_key, str(source_error_variant)]
 				errors.append(source_error)
 				pipeline_context.add_error(source_error, { "source_key": source_key })
+		_pop_reference_root_context(context, reference_root_state)
 
 	var child_scope_index: Dictionary = _index_child_scopes_for_inspection(scope)
 	for child_key_variant: Variant in child_payloads.keys():
@@ -667,6 +673,23 @@ func _get_pipeline_context_value(value: Variant) -> GFSavePipelineContext:
 	if value is GFSavePipelineContext:
 		return value
 	return null
+
+
+func _push_reference_root_context(context: Dictionary, scope: GFSaveScope) -> Dictionary:
+	var had_key: bool = context.has(GFVariantReferenceCodec.OPTION_ROOT_NODE)
+	var previous_value: Variant = GFVariantData.get_option_value(context, GFVariantReferenceCodec.OPTION_ROOT_NODE)
+	context[GFVariantReferenceCodec.OPTION_ROOT_NODE] = scope
+	return {
+		"had_key": had_key,
+		"value": previous_value,
+	}
+
+
+func _pop_reference_root_context(context: Dictionary, state: Dictionary) -> void:
+	if GFVariantData.get_option_bool(state, "had_key", false):
+		context[GFVariantReferenceCodec.OPTION_ROOT_NODE] = GFVariantData.get_option_value(state, "value")
+	else:
+		var _erased_reference_root: bool = context.erase(GFVariantReferenceCodec.OPTION_ROOT_NODE)
 
 
 func _get_storage_utility_value(value: Variant) -> GFStorageUtility:

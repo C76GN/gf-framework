@@ -28,6 +28,7 @@
 | 属性 | [`falloff_curve`](#member-gfgravityfield3d-properties-falloff_curve) | `var falloff_curve: Curve = null:` |
 | 方法 | [`get_acceleration_at`](#member-gfgravityfield3d-methods-get_acceleration_at) | `func get_acceleration_at(world_position: Vector3) -> Vector3:` |
 | 方法 | [`get_strength_at_distance`](#member-gfgravityfield3d-methods-get_strength_at_distance) | `func get_strength_at_distance(distance: float) -> float:` |
+| 方法 | [`_get_direction_at`](#member-gfgravityfield3d-methods-_get_direction_at) | `func _get_direction_at(world_position: Vector3) -> Vector3:` |
 
 ## 信号
 
@@ -208,3 +209,23 @@ func get_strength_at_distance(distance: float) -> float:
 | `distance` | 距离。 |
 
 返回：加速度强度。
+
+<a id="member-gfgravityfield3d-methods-_get_direction_at"></a>
+
+### `_get_direction_at`
+
+- API：`protected`
+
+```gdscript
+func _get_direction_at(world_position: Vector3) -> Vector3:
+```
+
+获取指定世界坐标处的方向。子类可重写以实现自定义场。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `world_position` | 世界坐标。 |
+
+返回：方向向量。

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFNodeState" path="addons/gf/standard/state_machine/node/gf_node_state.gd" module="standard" extends="Node" classDigest="fce3f635bab7ec590fb381093ffec65c0f8b2084509f52c6b8f83f9648e5305c">
+<class name="GFNodeState" path="addons/gf/standard/state_machine/node/gf_node_state.gd" module="standard" extends="Node" classDigest="96279c2b5c27746fe2e6952702533711635daf3796fa8450f9ae58f4899849b6">
 	<description>GFNodeState: 基于场景树的状态节点。
 适合需要直接访问动画、碰撞、输入或子节点的状态逻辑。</description>
 	<tags>
@@ -361,6 +361,86 @@
 			<description>注销当前状态通过事件代理注册过的全部监听器。</description>
 			<tags>
 				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_initialize">
+			<signature>func _initialize() -&gt; void:</signature>
+			<description>状态初始化扩展点。</description>
+			<tags>
+				<tag name="api">protected</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_can_enter">
+			<signature>func _can_enter(_previous_state: StringName = &amp;"", _args: Dictionary = {}) -&gt; bool:</signature>
+			<description>状态进入守卫扩展点。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">_previous_state: 来源状态名。</tag>
+				<tag name="param">_args: 状态切换参数。</tag>
+				<tag name="return">允许进入返回 true。</tag>
+				<tag name="schema">_args: 状态切换参数 Dictionary；键和值由调用方约定。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_can_exit">
+			<signature>func _can_exit(_next_state: StringName = &amp;"", _args: Dictionary = {}) -&gt; bool:</signature>
+			<description>状态退出守卫扩展点。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">_next_state: 目标状态名。</tag>
+				<tag name="param">_args: 状态切换参数。</tag>
+				<tag name="return">允许退出返回 true。</tag>
+				<tag name="schema">_args: 状态切换参数 Dictionary；键和值由调用方约定。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_enter">
+			<signature>func _enter(_previous_state: StringName = &amp;"", _args: Dictionary = {}) -&gt; void:</signature>
+			<description>状态进入扩展点。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">_previous_state: 来源状态名。</tag>
+				<tag name="param">_args: 状态切换参数。</tag>
+				<tag name="schema">_args: 状态切换参数 Dictionary；键和值由调用方约定。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_exit">
+			<signature>func _exit(_next_state: StringName = &amp;"", _args: Dictionary = {}) -&gt; void:</signature>
+			<description>状态退出扩展点。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">_next_state: 目标状态名。</tag>
+				<tag name="param">_args: 状态切换参数。</tag>
+				<tag name="schema">_args: 状态切换参数 Dictionary；键和值由调用方约定。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_pause">
+			<signature>func _pause(_next_state: StringName = &amp;"", _args: Dictionary = {}) -&gt; void:</signature>
+			<description>状态被栈式子状态覆盖时的扩展点。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">_next_state: 目标状态名。</tag>
+				<tag name="param">_args: 状态切换参数。</tag>
+				<tag name="schema">_args: 状态切换参数 Dictionary；键和值由调用方约定。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_resume">
+			<signature>func _resume(_previous_state: StringName = &amp;"", _args: Dictionary = {}) -&gt; void:</signature>
+			<description>状态从栈式子状态恢复时的扩展点。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">_previous_state: 来源状态名。</tag>
+				<tag name="param">_args: 状态切换参数。</tag>
+				<tag name="schema">_args: 状态切换参数 Dictionary；键和值由调用方约定。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_handle_state_event">
+			<signature>func _handle_state_event(_event_id: StringName, _payload: Variant = null) -&gt; bool:</signature>
+			<description>状态事件处理扩展点。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">_event_id: 状态事件标识。</tag>
+				<tag name="param">_payload: 状态事件载荷。</tag>
+				<tag name="return">已处理返回 true。</tag>
+				<tag name="schema">_payload: 状态事件载荷；具体结构由 _event_id 和项目逻辑约定。</tag>
 			</tags>
 		</member>
 	</methods>

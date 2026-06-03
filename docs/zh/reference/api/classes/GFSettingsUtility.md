@@ -44,6 +44,8 @@
 | 方法 | [`load_settings`](#member-gfsettingsutility-methods-load_settings) | `func load_settings(file_name: String = "") -> Dictionary:` |
 | 方法 | [`save_settings`](#member-gfsettingsutility-methods-save_settings) | `func save_settings(file_name: String = "") -> Error:` |
 | 方法 | [`tick`](#member-gfsettingsutility-methods-tick) | `func tick(delta: float = 0.0) -> void:` |
+| 方法 | [`_read_persisted_data`](#member-gfsettingsutility-methods-_read_persisted_data) | `func _read_persisted_data(file_name: String) -> Dictionary:` |
+| 方法 | [`_write_persisted_data`](#member-gfsettingsutility-methods-_write_persisted_data) | `func _write_persisted_data(file_name: String, data: Dictionary) -> Error:` |
 
 ## 信号
 
@@ -590,3 +592,52 @@ func tick(delta: float = 0.0) -> void:
 | 名称 | 说明 |
 |---|---|
 | `delta` | 距离上一帧的秒数。 |
+
+<a id="member-gfsettingsutility-methods-_read_persisted_data"></a>
+
+### `_read_persisted_data`
+
+- API：`protected`
+
+```gdscript
+func _read_persisted_data(file_name: String) -> Dictionary:
+```
+
+读取持久化设置数据。子类可覆盖该钩子以接入自定义存储后端。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `file_name` | 要读取的设置文件名。 |
+
+返回：已读取的数据；不存在或无法解析时返回空字典。
+
+结构：
+
+- `return`: Dictionary[String, Variant] persisted settings data.
+
+<a id="member-gfsettingsutility-methods-_write_persisted_data"></a>
+
+### `_write_persisted_data`
+
+- API：`protected`
+
+```gdscript
+func _write_persisted_data(file_name: String, data: Dictionary) -> Error:
+```
+
+写入持久化设置数据。子类可覆盖该钩子以接入自定义存储后端。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `file_name` | 要写入的设置文件名。 |
+| `data` | 要写入的设置数据。 |
+
+返回：Godot 错误码。
+
+结构：
+
+- `data`: Dictionary[String, Variant] persisted settings data produced by to_dict(true).

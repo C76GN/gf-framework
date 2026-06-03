@@ -1,0 +1,134 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFDecisionConsideration" path="addons/gf/extensions/decision/resources/gf_decision_consideration.gd" module="extensions/decision" extends="Resource" classDigest="8eea4c32c6b563ee898bff60bb335d48b0f8c6d4dc79bc18c49834ef7c47ef6d">
+	<description>GFDecisionConsideration: 单个效用评分考虑项。
+从决策上下文读取一个输入值，将它映射为 0 到 1 的效用分数。
+子类可以重写 `_score()` 扩展项目自己的评分逻辑。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">protocol</tag>
+		<tag name="since">4.3.0</tag>
+	</tags>
+	<signals />
+	<enums>
+		<member kind="enum" name="InputSource">
+			<signature>enum InputSource { ## 从 GFDecisionContext 黑板读取。 BLACKBOARD, ## 从 GFDecisionContext metadata 读取。 METADATA, ## 从 GFDecisionContext subject 读取。 SUBJECT, ## 从 GFDecisionContext target 读取。 TARGET, }</signature>
+			<description>考虑项读取输入值的位置。</description>
+			<tags>
+				<tag name="api">public</tag>
+			</tags>
+		</member>
+	</enums>
+	<constants />
+	<properties>
+		<member kind="property" name="consideration_id" decorators="@export">
+			<signature>var consideration_id: StringName = &amp;""</signature>
+			<description>考虑项标识，用于调试报告。</description>
+			<tags>
+				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="property" name="enabled" decorators="@export">
+			<signature>var enabled: bool = true</signature>
+			<description>是否启用该考虑项。禁用时返回中性分数 1.0。</description>
+			<tags>
+				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="property" name="weight" decorators="@export_range(0.0, 100.0, 0.001, &quot;or_greater&quot;)">
+			<signature>var weight: float = 1.0</signature>
+			<description>考虑项权重。具体聚合方式由 GFDecisionOption 决定。</description>
+			<tags>
+				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="property" name="input_source" decorators="@export">
+			<signature>var input_source: InputSource = InputSource.BLACKBOARD</signature>
+			<description>输入来源。</description>
+			<tags>
+				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="property" name="input_key" decorators="@export">
+			<signature>var input_key: StringName = &amp;""</signature>
+			<description>输入键。为空时使用 default_input。</description>
+			<tags>
+				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="property" name="default_input" decorators="@export">
+			<signature>var default_input: float = 0.0</signature>
+			<description>缺失或没有输入键时使用的默认输入值。</description>
+			<tags>
+				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="property" name="input_min" decorators="@export">
+			<signature>var input_min: float = 0.0</signature>
+			<description>输入最小值，映射为 0。</description>
+			<tags>
+				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="property" name="input_max" decorators="@export">
+			<signature>var input_max: float = 1.0</signature>
+			<description>输入最大值，映射为 1。</description>
+			<tags>
+				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="property" name="missing_score" decorators="@export_range(0.0, 1.0, 0.001)">
+			<signature>var missing_score: float = 0.0</signature>
+			<description>输入存在但无法转换为数字时返回的分数。输入缺失时优先使用 default_input。</description>
+			<tags>
+				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="property" name="response_curve" decorators="@export">
+			<signature>var response_curve: Curve = null</signature>
+			<description>可选响应曲线。为空时使用线性归一化值。</description>
+			<tags>
+				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="property" name="invert" decorators="@export">
+			<signature>var invert: bool = false</signature>
+			<description>是否反转最终分数。</description>
+			<tags>
+				<tag name="api">public</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="score">
+			<signature>func score(context: GFDecisionContext) -&gt; float:</signature>
+			<description>计算考虑项分数。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">context: 决策上下文。</tag>
+				<tag name="return">0 到 1 之间的效用分数。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_debug_snapshot">
+			<signature>func get_debug_snapshot(context: GFDecisionContext) -&gt; Dictionary:</signature>
+			<description>获取考虑项调试快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">context: 决策上下文。</tag>
+				<tag name="return">调试快照字典。</tag>
+				<tag name="schema">return: 包含 consideration_id、enabled、score、weight、input_source 和 input_key 字段的 Dictionary。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_score">
+			<signature>func _score(context: GFDecisionContext) -&gt; float:</signature>
+			<description>自定义考虑项评分。
+默认实现从 context 读取 input_key，并按 input_min/input_max 归一化。
+子类重写时仍应返回 0 到 1 之间的值。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">context: 决策上下文。</tag>
+				<tag name="return">0 到 1 之间的原始效用分数。</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

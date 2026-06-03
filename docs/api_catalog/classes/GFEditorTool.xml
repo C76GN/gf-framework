@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFEditorTool" path="addons/gf/kernel/editor/gf_editor_tool.gd" module="kernel" extends="RefCounted" classDigest="5563d9679b2a89cab7c392d6f0758ebbca104033b1525147756387602f7c2d40">
+<class name="GFEditorTool" path="addons/gf/kernel/editor/gf_editor_tool.gd" module="kernel" extends="RefCounted" classDigest="72818f89df907ef22ce5ba4c88dc1bac1403110290f9e404418bc0a29d54a98e">
 	<description>GFEditorTool: 持续式编辑器交互工具基类。
 用于封装需要激活、停用、接收输入并最终产生命令的编辑器工具。
 基类只定义生命周期协议，具体绘制和资源修改由子类实现。</description>
@@ -213,6 +213,39 @@
 				<tag name="api">public</tag>
 				<tag name="return">调试信息字典。</tag>
 				<tag name="schema">return: Dictionary containing tool_id, label, tooltip, priority, active, options, pick_operation, and metadata.</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_on_activated">
+			<signature>func _on_activated(_tool_context: GFEditorToolContextBase) -&gt; void:</signature>
+			<description>工具激活时调用，供子类重写。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">_tool_context: 编辑器工具上下文。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_on_deactivated">
+			<signature>func _on_deactivated(_tool_context: GFEditorToolContextBase) -&gt; void:</signature>
+			<description>工具停用时调用，供子类重写。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">_tool_context: 编辑器工具上下文。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_handle_gui_input">
+			<signature>func _handle_gui_input(_event: InputEvent) -&gt; bool:</signature>
+			<description>处理 GUI 输入事件，供子类重写。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">_event: 输入事件。</tag>
+				<tag name="return">事件被消费时返回 true。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_draw_tool">
+			<signature>func _draw_tool(_viewport: Viewport) -&gt; void:</signature>
+			<description>绘制工具辅助内容，供子类重写。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">_viewport: 绘制目标视口。</tag>
 			</tags>
 		</member>
 	</methods>

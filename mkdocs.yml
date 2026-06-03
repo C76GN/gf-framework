@@ -87,6 +87,7 @@ nav:
       - Network 与 TurnBased: extensions/network-turnbased/index.md
       - Flow: extensions/flow/index.md
       - BehaviorTree: extensions/behavior-tree/index.md
+      - Decision: extensions/decision/index.md
       - Domain: extensions/domain/index.md
       - Physics: extensions/physics/index.md
       - Save 场景存档图: extensions/save-graph/index.md
@@ -112,6 +113,7 @@ nav:
               - Camera: reference/api/extensions-camera.md
               - Capability: reference/api/extensions-capability.md
               - Combat: reference/api/extensions-combat.md
+              - Decision: reference/api/extensions-decision.md
               - Dialogue: reference/api/extensions-dialogue.md
               - Domain: reference/api/extensions-domain.md
               - Feedback: reference/api/extensions-feedback.md

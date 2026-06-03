@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFNodeSerializer" path="addons/gf/extensions/save/serializers/gf_node_serializer.gd" module="extensions/save" extends="Resource" classDigest="f1ccde7d5552ebb2d82432258005638333d0be238427480bd955f6da2a1cc080">
+<class name="GFNodeSerializer" path="addons/gf/extensions/save/serializers/gf_node_serializer.gd" module="extensions/save" extends="Resource" classDigest="a7f4ee96a402d44b2dd556652ef54358161daeb7f9c7a889b679dfa7b5b10d6c">
 	<description>GFNodeSerializer: 节点序列化器基类。
 用于把通用节点状态拆成可组合的序列化片段。具体项目可以继承该类，
 在不修改存档图编排逻辑的前提下接入自己的节点状态。</description>
@@ -87,6 +87,84 @@
 				<tag name="param">error: 错误描述。</tag>
 				<tag name="return">结果字典。</tag>
 				<tag name="schema">return: Dictionary，包含 ok: bool 与 error: String。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_copy_property_to_payload">
+			<signature>func _copy_property_to_payload(node: Object, payload: Dictionary, property_name: String) -&gt; void:</signature>
+			<description>将节点属性复制到序列化载荷。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">node: 属性来源对象。</tag>
+				<tag name="param">payload: 要写入的载荷字典。</tag>
+				<tag name="param">property_name: 属性名。</tag>
+				<tag name="schema">payload: Dictionary，键为属性名，值为属性当前值。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_copy_properties_to_payload">
+			<signature>func _copy_properties_to_payload(node: Object, payload: Dictionary, property_names: PackedStringArray) -&gt; void:</signature>
+			<description>批量将节点属性复制到序列化载荷。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">node: 属性来源对象。</tag>
+				<tag name="param">payload: 要写入的载荷字典。</tag>
+				<tag name="param">property_names: 属性名列表。</tag>
+				<tag name="schema">payload: Dictionary，键为属性名，值为属性当前值。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_apply_property_from_payload">
+			<signature>func _apply_property_from_payload(node: Object, payload: Dictionary, property_name: String) -&gt; void:</signature>
+			<description>从载荷恢复一个节点属性。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">node: 目标对象。</tag>
+				<tag name="param">payload: 序列化载荷。</tag>
+				<tag name="param">property_name: 属性名。</tag>
+				<tag name="schema">payload: Dictionary，键为属性名，值为要写回的属性值。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_apply_properties_from_payload">
+			<signature>func _apply_properties_from_payload(node: Object, payload: Dictionary, property_names: PackedStringArray) -&gt; void:</signature>
+			<description>从载荷批量恢复节点属性。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">node: 目标对象。</tag>
+				<tag name="param">payload: 序列化载荷。</tag>
+				<tag name="param">property_names: 属性名列表。</tag>
+				<tag name="schema">payload: Dictionary，键为属性名，值为要写回的属性值。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_gather_property_specs">
+			<signature>func _gather_property_specs(node: Object, specs: Array[Dictionary]) -&gt; Dictionary:</signature>
+			<description>按属性规格采集节点状态。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">node: 属性来源对象。</tag>
+				<tag name="param">specs: 属性规格列表。</tag>
+				<tag name="return">采集后的载荷字典。</tag>
+				<tag name="schema">specs: Array[Dictionary]，每项可包含 key: String、property: String 与 kind: StringName。</tag>
+				<tag name="schema">return: Dictionary，键为规格 key，值为经过 kind 编码后的属性值。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_apply_property_specs">
+			<signature>func _apply_property_specs(node: Object, payload: Dictionary, specs: Array[Dictionary]) -&gt; void:</signature>
+			<description>按属性规格将载荷应用到节点。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">node: 目标对象。</tag>
+				<tag name="param">payload: 序列化载荷。</tag>
+				<tag name="param">specs: 属性规格列表。</tag>
+				<tag name="schema">payload: Dictionary，键为规格 key，值为要写回的属性值。</tag>
+				<tag name="schema">specs: Array[Dictionary]，每项可包含 key: String、property: String 与 kind: StringName。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_has_property">
+			<signature>func _has_property(object: Object, property_name: String) -&gt; bool:</signature>
+			<description>判断对象是否声明了指定属性。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">object: 要检查的对象。</tag>
+				<tag name="param">property_name: 属性名。</tag>
+				<tag name="return">对象属性列表中是否存在该属性。</tag>
 			</tags>
 		</member>
 	</methods>

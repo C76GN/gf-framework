@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFConfigValidationRule" path="addons/gf/standard/utilities/config/validation/gf_config_validation_rule.gd" module="standard" extends="Resource" classDigest="4095ecb5d61ebaf2fc44c2490ce93309978b6730327d777b4f1f40d4f63f57dd">
+<class name="GFConfigValidationRule" path="addons/gf/standard/utilities/config/validation/gf_config_validation_rule.gd" module="standard" extends="Resource" classDigest="749c518b13f6af0f519388d0272d59391e6677a1f4738f798edbdafaf5ab0087">
 	<description>GFConfigValidationRule: 导表校验规则基类。
 用于把字段、记录或整表校验拆成可组合 Resource，便于项目按需声明范围、
 正则、资源路径或本地化 key 等规则，而不把业务表结构写进框架。</description>
@@ -120,6 +120,76 @@
 				<tag name="api">public</tag>
 				<tag name="return">规则摘要字典。</tag>
 				<tag name="schema">return: Dictionary，包含 rule_id、enabled、severity、allow_null、metadata 和 script_path。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_get_default_rule_id">
+			<signature>func _get_default_rule_id() -&gt; StringName:</signature>
+			<description>返回当前规则的默认稳定标识。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="return">默认规则标识。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_validate_value">
+			<signature>func _validate_value(_value: Variant, _context: Dictionary, _report: Dictionary) -&gt; void:</signature>
+			<description>校验单个字段值。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">_value: 待校验值。</tag>
+				<tag name="param">_context: 校验上下文。</tag>
+				<tag name="param">_report: 当前校验报告。</tag>
+				<tag name="schema">_value: Variant，来自配置表或项目导入器的字段值。</tag>
+				<tag name="schema">_context: Dictionary，可包含 table_name、row_key、field、source、line 和 column 字段。</tag>
+				<tag name="schema">_report: GFConfigValidationReport 兼容 Dictionary，会被规则修改。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_validate_record">
+			<signature>func _validate_record(_record: Dictionary, _context: Dictionary, _report: Dictionary) -&gt; void:</signature>
+			<description>校验单条记录。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">_record: 待校验记录。</tag>
+				<tag name="param">_context: 校验上下文。</tag>
+				<tag name="param">_report: 当前校验报告。</tag>
+				<tag name="schema">_record: Dictionary，正在校验的配置记录。</tag>
+				<tag name="schema">_context: Dictionary，可包含 table_name、row_key、source 和 line 字段。</tag>
+				<tag name="schema">_report: GFConfigValidationReport 兼容 Dictionary，会被规则修改。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_validate_table">
+			<signature>func _validate_table(_rows: Array[Dictionary], _context: Dictionary, _report: Dictionary) -&gt; void:</signature>
+			<description>校验整张表。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">_rows: 规范化行列表。</tag>
+				<tag name="param">_context: 校验上下文。</tag>
+				<tag name="param">_report: 当前校验报告。</tag>
+				<tag name="schema">_rows: Array[Dictionary]，元素通常包含 row_key、record 和 row_index。</tag>
+				<tag name="schema">_context: Dictionary，可包含 table_name 和 source 字段。</tag>
+				<tag name="schema">_report: GFConfigValidationReport 兼容 Dictionary，会被规则修改。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_add_issue">
+			<signature>func _add_issue(report: Dictionary, context: Dictionary, kind: String, message: String) -&gt; void:</signature>
+			<description>向当前报告追加一个带规则上下文的问题。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">report: 当前校验报告。</tag>
+				<tag name="param">context: 校验上下文。</tag>
+				<tag name="param">kind: 稳定问题类型。</tag>
+				<tag name="param">message: 面向工具或开发者的说明文本。</tag>
+				<tag name="schema">report: GFConfigValidationReport 兼容 Dictionary，会被当前辅助方法修改。</tag>
+				<tag name="schema">context: Dictionary，可包含 table_name、row_key、field、source、line 和 column 字段。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_make_variant_key">
+			<signature>func _make_variant_key(value: Variant) -&gt; String:</signature>
+			<description>生成可比较的 Variant 稳定字符串键。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">value: 要转换为比较键的值。</tag>
+				<tag name="return">包含 Variant 类型和值文本的比较键。</tag>
+				<tag name="schema">value: Variant，用于集合或默认值校验规则比较的值。</tag>
 			</tags>
 		</member>
 	</methods>

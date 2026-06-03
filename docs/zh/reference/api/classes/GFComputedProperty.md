@@ -15,6 +15,7 @@
 
 | 类型 | 名称 | 签名 |
 |---|---|---|
+| 方法 | [`_init`](#member-gfcomputedproperty-methods-_init) | `func _init( sources: Array[GFBindableProperty] = [], compute: Callable = Callable(), default_value: Variant = null, owner: Node = null ) -> void:` |
 | 方法 | [`bind_sources`](#member-gfcomputedproperty-methods-bind_sources) | `func bind_sources( sources: Array[GFBindableProperty], compute: Callable, owner: Node = null, run_immediately: bool = true ) -> void:` |
 | 方法 | [`stop`](#member-gfcomputedproperty-methods-stop) | `func stop() -> void:` |
 | 方法 | [`dispose`](#member-gfcomputedproperty-methods-dispose) | `func dispose() -> void:` |
@@ -29,6 +30,31 @@
 | 方法 | [`is_computing`](#member-gfcomputedproperty-methods-is_computing) | `func is_computing() -> bool:` |
 
 ## 方法
+
+<a id="member-gfcomputedproperty-methods-_init"></a>
+
+### `_init`
+
+- API：`public`
+
+```gdscript
+func _init( sources: Array[GFBindableProperty] = [], compute: Callable = Callable(), default_value: Variant = null, owner: Node = null ) -> void:
+```
+
+构造函数。 "type": "Variant", "description": "初始默认值。" }
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `sources` | 要监听的 GFBindableProperty 列表。 |
+| `compute` | 用于计算当前值的回调。 |
+| `default_value` | 初始默认值。 |
+| `owner` | 可选 Node 生命周期宿主。 |
+
+结构：
+
+- `default_value {`:
 
 <a id="member-gfcomputedproperty-methods-bind_sources"></a>
 

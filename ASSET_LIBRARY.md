@@ -27,9 +27,9 @@ Enable the plugin to register the Gf AutoLoad and use the editor tools for exten
 - Repository URL: `https://github.com/C76GN/gf-framework`
 - Issues URL: `https://github.com/C76GN/gf-framework/issues`
 - Minimum Godot Version: `4.6`
-- Asset Version: `4.2.0`
-- Download Commit/URL: `4.2.0`
-- Icon URL: `https://raw.githubusercontent.com/C76GN/gf-framework/4.2.0/addons/gf/icon.png`
+- Asset Version: `4.3.0`
+- Download Commit/URL: `4.3.0`
+- Icon URL: `https://raw.githubusercontent.com/C76GN/gf-framework/4.3.0/addons/gf/icon.png`
 
 ## Short Description
 
@@ -54,10 +54,10 @@ No preview images are currently pinned. If previews are added, store their sourc
 1. Commit and push the Asset Library preparation changes.
 2. Use the new full commit hash in the submission form.
 3. Use the icon raw URL with that same commit hash.
-4. Build the Asset Store package with `python tools\build_asset_store_package.py --version 4.2.0` and verify the zip root is `addons/`.
+4. Build the Asset Store package with `python tools\build_asset_store_package.py --version 4.3.0` and verify the zip root is `addons/`.
 5. Run the GUT test suite on the target minimum Godot version.
-6. Run `python tools\gf_maintenance.py release-status --version 4.2.0`.
-7. Create the GitHub Release from a no-prefix SemVer tag such as `4.2.0`.
+6. Run `python tools\gf_maintenance.py release-status --version 4.3.0`.
+7. Create the GitHub Release from a no-prefix SemVer tag such as `4.3.0`.
 
 ## Version Bump Checklist
 

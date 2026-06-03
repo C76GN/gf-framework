@@ -9,7 +9,7 @@
 | [运行时服务](#category-runtime_service) | 2 | 64 | 41 |
 | [资源定义](#category-resource_definition) | 8 | 96 | 44 |
 | [值对象](#category-value_object) | 1 | 13 | 4 |
-| [领域模型](#category-domain_model) | 7 | 121 | 95 |
+| [领域模型](#category-domain_model) | 7 | 122 | 96 |
 
 ## 类
 

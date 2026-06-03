@@ -19,6 +19,7 @@
 | 属性 | [`invert`](#member-gfnodestatecondition-properties-invert) | `var invert: bool = false` |
 | 属性 | [`metadata`](#member-gfnodestatecondition-properties-metadata) | `var metadata: Dictionary = {}` |
 | 方法 | [`evaluate`](#member-gfnodestatecondition-methods-evaluate) | `func evaluate( state: GFNodeState, phase: StringName, peer_state: StringName = &"", args: Dictionary = {} ) -> bool:` |
+| 方法 | [`_evaluate`](#member-gfnodestatecondition-methods-_evaluate) | `func _evaluate( _state: GFNodeState, _phase: StringName, _peer_state: StringName = &"", _args: Dictionary = {} ) -> bool:` |
 
 ## 属性
 
@@ -90,3 +91,30 @@ func evaluate( state: GFNodeState, phase: StringName, peer_state: StringName = &
 结构：
 
 - `args`: 状态切换参数 Dictionary；键和值由调用方约定。
+
+<a id="member-gfnodestatecondition-methods-_evaluate"></a>
+
+### `_evaluate`
+
+- API：`protected`
+
+```gdscript
+func _evaluate( _state: GFNodeState, _phase: StringName, _peer_state: StringName = &"", _args: Dictionary = {} ) -> bool:
+```
+
+条件评估扩展点。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `_state` | 当前条件所属状态。 |
+| `_phase` | 条件阶段，通常为 enter 或 exit。 |
+| `_peer_state` | 进入时为来源状态名，退出时为目标状态名。 |
+| `_args` | 状态切换参数。 |
+
+返回：条件通过时返回 true。
+
+结构：
+
+- `_args`: 状态切换参数 Dictionary；键和值由调用方约定。

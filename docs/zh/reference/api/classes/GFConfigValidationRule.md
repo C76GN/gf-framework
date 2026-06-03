@@ -27,6 +27,12 @@
 | 方法 | [`validate_table`](#member-gfconfigvalidationrule-methods-validate_table) | `func validate_table(rows: Array[Dictionary], context: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`duplicate_rule`](#member-gfconfigvalidationrule-methods-duplicate_rule) | `func duplicate_rule() -> GFConfigValidationRule:` |
 | 方法 | [`describe`](#member-gfconfigvalidationrule-methods-describe) | `func describe() -> Dictionary:` |
+| 方法 | [`_get_default_rule_id`](#member-gfconfigvalidationrule-methods-_get_default_rule_id) | `func _get_default_rule_id() -> StringName:` |
+| 方法 | [`_validate_value`](#member-gfconfigvalidationrule-methods-_validate_value) | `func _validate_value(_value: Variant, _context: Dictionary, _report: Dictionary) -> void:` |
+| 方法 | [`_validate_record`](#member-gfconfigvalidationrule-methods-_validate_record) | `func _validate_record(_record: Dictionary, _context: Dictionary, _report: Dictionary) -> void:` |
+| 方法 | [`_validate_table`](#member-gfconfigvalidationrule-methods-_validate_table) | `func _validate_table(_rows: Array[Dictionary], _context: Dictionary, _report: Dictionary) -> void:` |
+| 方法 | [`_add_issue`](#member-gfconfigvalidationrule-methods-_add_issue) | `func _add_issue(report: Dictionary, context: Dictionary, kind: String, message: String) -> void:` |
+| 方法 | [`_make_variant_key`](#member-gfconfigvalidationrule-methods-_make_variant_key) | `func _make_variant_key(value: Variant) -> String:` |
 
 ## 枚举
 
@@ -236,3 +242,145 @@ func describe() -> Dictionary:
 结构：
 
 - `return`: Dictionary，包含 rule_id、enabled、severity、allow_null、metadata 和 script_path。
+
+<a id="member-gfconfigvalidationrule-methods-_get_default_rule_id"></a>
+
+### `_get_default_rule_id`
+
+- API：`protected`
+
+```gdscript
+func _get_default_rule_id() -> StringName:
+```
+
+返回当前规则的默认稳定标识。
+
+返回：默认规则标识。
+
+<a id="member-gfconfigvalidationrule-methods-_validate_value"></a>
+
+### `_validate_value`
+
+- API：`protected`
+
+```gdscript
+func _validate_value(_value: Variant, _context: Dictionary, _report: Dictionary) -> void:
+```
+
+校验单个字段值。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `_value` | 待校验值。 |
+| `_context` | 校验上下文。 |
+| `_report` | 当前校验报告。 |
+
+结构：
+
+- `_value`: Variant，来自配置表或项目导入器的字段值。
+- `_context`: Dictionary，可包含 table_name、row_key、field、source、line 和 column 字段。
+- `_report`: GFConfigValidationReport 兼容 Dictionary，会被规则修改。
+
+<a id="member-gfconfigvalidationrule-methods-_validate_record"></a>
+
+### `_validate_record`
+
+- API：`protected`
+
+```gdscript
+func _validate_record(_record: Dictionary, _context: Dictionary, _report: Dictionary) -> void:
+```
+
+校验单条记录。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `_record` | 待校验记录。 |
+| `_context` | 校验上下文。 |
+| `_report` | 当前校验报告。 |
+
+结构：
+
+- `_record`: Dictionary，正在校验的配置记录。
+- `_context`: Dictionary，可包含 table_name、row_key、source 和 line 字段。
+- `_report`: GFConfigValidationReport 兼容 Dictionary，会被规则修改。
+
+<a id="member-gfconfigvalidationrule-methods-_validate_table"></a>
+
+### `_validate_table`
+
+- API：`protected`
+
+```gdscript
+func _validate_table(_rows: Array[Dictionary], _context: Dictionary, _report: Dictionary) -> void:
+```
+
+校验整张表。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `_rows` | 规范化行列表。 |
+| `_context` | 校验上下文。 |
+| `_report` | 当前校验报告。 |
+
+结构：
+
+- `_rows`: Array[Dictionary]，元素通常包含 row_key、record 和 row_index。
+- `_context`: Dictionary，可包含 table_name 和 source 字段。
+- `_report`: GFConfigValidationReport 兼容 Dictionary，会被规则修改。
+
+<a id="member-gfconfigvalidationrule-methods-_add_issue"></a>
+
+### `_add_issue`
+
+- API：`protected`
+
+```gdscript
+func _add_issue(report: Dictionary, context: Dictionary, kind: String, message: String) -> void:
+```
+
+向当前报告追加一个带规则上下文的问题。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `report` | 当前校验报告。 |
+| `context` | 校验上下文。 |
+| `kind` | 稳定问题类型。 |
+| `message` | 面向工具或开发者的说明文本。 |
+
+结构：
+
+- `report`: GFConfigValidationReport 兼容 Dictionary，会被当前辅助方法修改。
+- `context`: Dictionary，可包含 table_name、row_key、field、source、line 和 column 字段。
+
+<a id="member-gfconfigvalidationrule-methods-_make_variant_key"></a>
+
+### `_make_variant_key`
+
+- API：`protected`
+
+```gdscript
+func _make_variant_key(value: Variant) -> String:
+```
+
+生成可比较的 Variant 稳定字符串键。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `value` | 要转换为比较键的值。 |
+
+返回：包含 Variant 类型和值文本的比较键。
+
+结构：
+
+- `value`: Variant，用于集合或默认值校验规则比较的值。

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFValidationRule" path="addons/gf/standard/foundation/validation/gf_validation_rule.gd" module="standard" extends="Resource" classDigest="f754fac65666be5d3077c86c977bcd2f0bab3b19c816d9bb58dfe88593edc8b8">
+<class name="GFValidationRule" path="addons/gf/standard/foundation/validation/gf_validation_rule.gd" module="standard" extends="Resource" classDigest="137be0f30c34c2caa8c6a489f62c850eca80ff7af48a40df96b07cf82d5a72c4">
 	<description>GFValidationRule: 通用校验规则资源。
 通过 Callable 或子类钩子校验任意对象、资源、节点或数据。规则只负责把问题写入
 GFValidationReport，不约定项目脚本方法名，也不内置业务字段语义。</description>
@@ -114,6 +114,20 @@ GFValidationReport，不约定项目脚本方法名，也不内置业务字段�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">新规则。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_validate">
+			<signature>func _validate(_target: Variant, _report: GFValidationReport, _context: Dictionary) -&gt; Variant:</signature>
+			<description>执行子类自定义校验逻辑。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">_target: 待校验目标。</tag>
+				<tag name="param">_report: 当前规则报告，可直接写入问题。</tag>
+				<tag name="param">_context: 调用方上下文。</tag>
+				<tag name="return">自定义校验结果；支持 null、GFValidationReport、Dictionary、Array、bool、String 或 StringName。</tag>
+				<tag name="schema">_target: Variant validation target.</tag>
+				<tag name="schema">_context: Dictionary validation context.</tag>
+				<tag name="schema">return: Variant validation hook result accepted by _apply_result.</tag>
 			</tags>
 		</member>
 	</methods>

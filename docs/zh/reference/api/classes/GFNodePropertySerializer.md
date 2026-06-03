@@ -17,8 +17,8 @@
 |---|---|---|
 | 属性 | [`properties`](#member-gfnodepropertyserializer-properties-properties) | `var properties: PackedStringArray = PackedStringArray()` |
 | 属性 | [`skip_missing_properties`](#member-gfnodepropertyserializer-properties-skip_missing_properties) | `var skip_missing_properties: bool = true` |
-| 方法 | [`gather`](#member-gfnodepropertyserializer-methods-gather) | `func gather(node: Node, _context: Dictionary = {}) -> Dictionary:` |
-| 方法 | [`apply`](#member-gfnodepropertyserializer-methods-apply) | `func apply(node: Node, payload: Dictionary, _context: Dictionary = {}) -> Dictionary:` |
+| 方法 | [`gather`](#member-gfnodepropertyserializer-methods-gather) | `func gather(node: Node, context: Dictionary = {}) -> Dictionary:` |
+| 方法 | [`apply`](#member-gfnodepropertyserializer-methods-apply) | `func apply(node: Node, payload: Dictionary, context: Dictionary = {}) -> Dictionary:` |
 
 ## 属性
 
@@ -55,7 +55,7 @@ var skip_missing_properties: bool = true
 - API：`public`
 
 ```gdscript
-func gather(node: Node, _context: Dictionary = {}) -> Dictionary:
+func gather(node: Node, context: Dictionary = {}) -> Dictionary:
 ```
 
 采集节点的可保存状态。
@@ -65,14 +65,14 @@ func gather(node: Node, _context: Dictionary = {}) -> Dictionary:
 | 名称 | 说明 |
 |---|---|
 | `node` | 目标节点。 |
-| `_context` | 操作上下文字典，默认实现不直接使用。 |
+| `context` | 操作上下文字典。 |
 
 返回：属性载荷字典。
 
 结构：
 
-- `_context`: Dictionary，调用方附加上下文；当前实现不读取。
-- `return`: Dictionary，键为 properties 中声明的属性名，值为 JSON 兼容值；Resource 引用使用 __gf_save_property__ 标记。
+- `context`: Dictionary，可包含 reference_root_node: Node，用于保存 Node 引用属性。
+- `return`: Dictionary，键为 properties 中声明的属性名，值为 JSON 兼容值；Resource / Node 引用使用 __gf_reference__ 标记。
 
 <a id="member-gfnodepropertyserializer-methods-apply"></a>
 
@@ -81,7 +81,7 @@ func gather(node: Node, _context: Dictionary = {}) -> Dictionary:
 - API：`public`
 
 ```gdscript
-func apply(node: Node, payload: Dictionary, _context: Dictionary = {}) -> Dictionary:
+func apply(node: Node, payload: Dictionary, context: Dictionary = {}) -> Dictionary:
 ```
 
 将序列化数据应用到节点。
@@ -92,12 +92,12 @@ func apply(node: Node, payload: Dictionary, _context: Dictionary = {}) -> Dictio
 |---|---|
 | `node` | 目标节点。 |
 | `payload` | 属性载荷字典。 |
-| `_context` | 操作上下文字典，默认实现不直接使用。 |
+| `context` | 操作上下文字典。 |
 
 返回：应用结果字典。
 
 结构：
 
-- `payload`: Dictionary，键为属性名，值为 JSON 兼容值或 __gf_save_property__ 标记。
-- `_context`: Dictionary，调用方附加上下文；当前实现不读取。
+- `payload`: Dictionary，键为属性名，值为 JSON 兼容值或 __gf_reference__ 标记。
+- `context`: Dictionary，可包含 reference_root_node: Node，用于恢复 Node 引用属性。
 - `return`: Dictionary，包含 ok: bool 与 error: String。

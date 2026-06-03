@@ -7,7 +7,7 @@
 | 类别 | 类 | 成员 | 方法 |
 |---|---:|---:|---:|
 | [运行时服务](#category-runtime_service) | 2 | 26 | 22 |
-| [协议与扩展点](#category-protocol) | 7 | 48 | 16 |
+| [协议与扩展点](#category-protocol) | 7 | 77 | 45 |
 | [资源定义](#category-resource_definition) | 10 | 47 | 39 |
 | [值对象](#category-value_object) | 3 | 49 | 20 |
 | [领域模型](#category-domain_model) | 1 | 6 | 3 |

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSaveDataSource" path="addons/gf/extensions/save/core/gf_save_data_source.gd" module="extensions/save" extends="GFSaveSource" classDigest="f3fa5070aaaf27b940fe9a641893521c17035e7be5e3f372ce482352b8b8c768">
+<class name="GFSaveDataSource" path="addons/gf/extensions/save/core/gf_save_data_source.gd" module="extensions/save" extends="GFSaveSource" classDigest="73e4abaaa5e88d3ee616d7ed58904be9f2fd91c78cdb7d136441e81be24df341">
 	<description>GFSaveDataSource: 通用对象数据源适配器。
 将 Resource、目标 Node 或目标属性上的对象按 Dictionary 载荷接入 SaveGraph。
 适合已有 Model、Resource 或数据持有对象复用 to_dict()/from_dict() 等通用协议，
@@ -75,6 +75,32 @@
 				<tag name="param">scope: 当前 Scope。</tag>
 				<tag name="return">描述字典。</tag>
 				<tag name="schema">return: Dictionary，包含父类描述字段，并追加 kind 与 data_provider 诊断字段。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_gather_save_data">
+			<signature>func _gather_save_data( context: Dictionary = {}, _serializer_registry: GFNodeSerializerRegistry = null ) -&gt; Variant:</signature>
+			<description>采集数据对象载荷。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">context: 调用上下文字典。</tag>
+				<tag name="param">_serializer_registry: 未使用；保留以匹配 GFSaveSource 协议。</tag>
+				<tag name="return">数据对象返回的 Dictionary 载荷；失败时返回空 Dictionary 并写入流程错误。</tag>
+				<tag name="schema">context: Dictionary，可包含 pipeline_context、pipeline_shared、include_pipeline_trace 等流程字段。</tag>
+				<tag name="schema">return: Variant，成功时为 Dictionary。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_apply_save_data">
+			<signature>func _apply_save_data( payload: Variant, _context: Dictionary = {}, _serializer_registry: GFNodeSerializerRegistry = null ) -&gt; Dictionary:</signature>
+			<description>应用数据对象载荷。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">payload: 保存载荷。</tag>
+				<tag name="param">_context: 调用上下文字典。</tag>
+				<tag name="param">_serializer_registry: 未使用；保留以匹配 GFSaveSource 协议。</tag>
+				<tag name="return">结果字典。</tag>
+				<tag name="schema">payload: Variant，要求为 Dictionary。</tag>
+				<tag name="schema">_context: Dictionary，可包含 pipeline_context、pipeline_shared、include_pipeline_trace 等流程字段。</tag>
+				<tag name="schema">return: Dictionary，包含 ok: bool 与 error: String。</tag>
 			</tags>
 		</member>
 	</methods>

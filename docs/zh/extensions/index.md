@@ -32,6 +32,7 @@ GF 内置扩展是随框架分发的可选原子能力。它们提供可以独�
 - [Network 与 TurnBased](network-turnbased/index.md)：网络消息、快照、后端协议、回合阶段和行动流。
 - [Flow](flow/index.md)：资源化流程图、节点、端口、运行器和编辑器模型。
 - [BehaviorTree](behavior-tree/index.md)：纯代码行为树节点、Runner、黑板和调试快照。
+- [Decision](decision/index.md)：黑板、上下文、效用评分、候选集合和非 LLM 决策服务。
 - [Domain](domain/index.md)：关卡、任务、背包、装备和通用领域模型。
 - [Physics](physics/index.md)：Projectile、重力场、表面查询和运动策略。
 - [Save 场景存档图](save-graph/index.md)：Scope、Source、Pipeline、Slot 和存档图应用流程。

@@ -24,6 +24,8 @@
 | 方法 | [`can_execute`](#member-gfeditorcommand-methods-can_execute) | `func can_execute() -> bool:` |
 | 方法 | [`can_revert_before_execute`](#member-gfeditorcommand-methods-can_revert_before_execute) | `func can_revert_before_execute() -> bool:` |
 | 方法 | [`get_debug_snapshot`](#member-gfeditorcommand-methods-get_debug_snapshot) | `func get_debug_snapshot() -> Dictionary:` |
+| 方法 | [`_do_it`](#member-gfeditorcommand-methods-_do_it) | `func _do_it() -> Error:` |
+| 方法 | [`_undo_it`](#member-gfeditorcommand-methods-_undo_it) | `func _undo_it() -> Error:` |
 
 ## 属性
 
@@ -165,3 +167,31 @@ func get_debug_snapshot() -> Dictionary:
 结构：
 
 - `return`: Dictionary containing command_name, executed, and metadata.
+
+<a id="member-gfeditorcommand-methods-_do_it"></a>
+
+### `_do_it`
+
+- API：`protected`
+
+```gdscript
+func _do_it() -> Error:
+```
+
+执行具体编辑器操作，供子类重写。
+
+返回：Godot 错误码。
+
+<a id="member-gfeditorcommand-methods-_undo_it"></a>
+
+### `_undo_it`
+
+- API：`protected`
+
+```gdscript
+func _undo_it() -> Error:
+```
+
+撤销具体编辑器操作，供子类重写。
+
+返回：Godot 错误码。

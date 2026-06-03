@@ -27,6 +27,7 @@
 | 方法 | [`applies_to`](#member-gfvalidationrule-methods-applies_to) | `func applies_to(target: Variant, context: Dictionary = {}) -> bool:` |
 | 方法 | [`validate`](#member-gfvalidationrule-methods-validate) | `func validate(target: Variant, context: Dictionary = {}) -> GFValidationReport:` |
 | 方法 | [`duplicate_rule`](#member-gfvalidationrule-methods-duplicate_rule) | `func duplicate_rule() -> GFValidationRule:` |
+| 方法 | [`_validate`](#member-gfvalidationrule-methods-_validate) | `func _validate(_target: Variant, _report: GFValidationReport, _context: Dictionary) -> Variant:` |
 
 ## 枚举
 
@@ -225,3 +226,31 @@ func duplicate_rule() -> GFValidationRule:
 创建当前规则的浅配置副本。
 
 返回：新规则。
+
+<a id="member-gfvalidationrule-methods-_validate"></a>
+
+### `_validate`
+
+- API：`protected`
+
+```gdscript
+func _validate(_target: Variant, _report: GFValidationReport, _context: Dictionary) -> Variant:
+```
+
+执行子类自定义校验逻辑。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `_target` | 待校验目标。 |
+| `_report` | 当前规则报告，可直接写入问题。 |
+| `_context` | 调用方上下文。 |
+
+返回：自定义校验结果；支持 null、GFValidationReport、Dictionary、Array、bool、String 或 StringName。
+
+结构：
+
+- `_target`: Variant validation target.
+- `_context`: Dictionary validation context.
+- `return`: Variant validation hook result accepted by _apply_result.

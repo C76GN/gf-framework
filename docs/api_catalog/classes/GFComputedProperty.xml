@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFComputedProperty" path="addons/gf/kernel/core/gf_computed_property.gd" module="kernel" extends="GFBindableProperty" classDigest="2f65559da6a3ddc2e80cbd3f65807d062141dd8e8664dbe68265d61a4d8cbb26">
+<class name="GFComputedProperty" path="addons/gf/kernel/core/gf_computed_property.gd" module="kernel" extends="GFBindableProperty" classDigest="5f6028124e3fd132ae0f0ee8ec9a4c531d78aa44ea161168198fa99f1e5667da">
 	<description>GFComputedProperty: 由多个 GFBindableProperty 派生的只读响应式属性。
 通过 compute 回调计算自身值，并在任一来源属性变化时自动刷新。</description>
 	<tags>
@@ -12,6 +12,21 @@
 	<constants />
 	<properties />
 	<methods>
+		<member kind="method" name="_init">
+			<signature>func _init( sources: Array[GFBindableProperty] = [], compute: Callable = Callable(), default_value: Variant = null, owner: Node = null ) -&gt; void:</signature>
+			<description>构造函数。
+"type": "Variant",
+"description": "初始默认值。"
+}</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">sources: 要监听的 GFBindableProperty 列表。</tag>
+				<tag name="param">compute: 用于计算当前值的回调。</tag>
+				<tag name="param">default_value: 初始默认值。</tag>
+				<tag name="param">owner: 可选 Node 生命周期宿主。</tag>
+				<tag name="schema">default_value {</tag>
+			</tags>
+		</member>
 		<member kind="method" name="bind_sources">
 			<signature>func bind_sources( sources: Array[GFBindableProperty], compute: Callable, owner: Node = null, run_immediately: bool = true ) -&gt; void:</signature>
 			<description>绑定来源属性与计算回调。重复调用会替换旧绑定。</description>

@@ -28,6 +28,11 @@
 | 方法 | [`get_preview`](#member-gfeditorpickoperation-methods-get_preview) | `func get_preview() -> Dictionary:` |
 | 方法 | [`get_result`](#member-gfeditorpickoperation-methods-get_result) | `func get_result() -> Dictionary:` |
 | 方法 | [`get_debug_snapshot`](#member-gfeditorpickoperation-methods-get_debug_snapshot) | `func get_debug_snapshot() -> Dictionary:` |
+| 方法 | [`_on_begin`](#member-gfeditorpickoperation-methods-_on_begin) | `func _on_begin(_tool_context: GFEditorToolContextBase) -> void:` |
+| 方法 | [`_on_pick`](#member-gfeditorpickoperation-methods-_on_pick) | `func _on_pick(_input_data: Dictionary) -> Dictionary:` |
+| 方法 | [`_on_can_apply`](#member-gfeditorpickoperation-methods-_on_can_apply) | `func _on_can_apply() -> bool:` |
+| 方法 | [`_on_apply`](#member-gfeditorpickoperation-methods-_on_apply) | `func _on_apply(_tool_context: GFEditorToolContextBase, result: Dictionary) -> Dictionary:` |
+| 方法 | [`_on_cancel`](#member-gfeditorpickoperation-methods-_on_cancel) | `func _on_cancel(_tool_context: GFEditorToolContextBase) -> void:` |
 
 ## 枚举
 
@@ -242,3 +247,104 @@ func get_debug_snapshot() -> Dictionary:
 结构：
 
 - `return`: Dictionary containing operation_id, label, state, preview, result, and metadata.
+
+<a id="member-gfeditorpickoperation-methods-_on_begin"></a>
+
+### `_on_begin`
+
+- API：`protected`
+
+```gdscript
+func _on_begin(_tool_context: GFEditorToolContextBase) -> void:
+```
+
+拾取流程开始时调用，供子类重写。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `_tool_context` | 编辑器工具上下文。 |
+
+<a id="member-gfeditorpickoperation-methods-_on_pick"></a>
+
+### `_on_pick`
+
+- API：`protected`
+
+```gdscript
+func _on_pick(_input_data: Dictionary) -> Dictionary:
+```
+
+处理一次拾取输入，供子类重写。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `_input_data` | 调用方传入的通用拾取数据。 |
+
+返回：拾取响应字典，可包含 preview、result 和 ready。
+
+结构：
+
+- `_input_data`: Dictionary containing tool-specific pick input.
+- `return`: Dictionary pick response.
+
+<a id="member-gfeditorpickoperation-methods-_on_can_apply"></a>
+
+### `_on_can_apply`
+
+- API：`protected`
+
+```gdscript
+func _on_can_apply() -> bool:
+```
+
+判断当前拾取结果是否可以应用，供子类重写。
+
+返回：可应用返回 true。
+
+<a id="member-gfeditorpickoperation-methods-_on_apply"></a>
+
+### `_on_apply`
+
+- API：`protected`
+
+```gdscript
+func _on_apply(_tool_context: GFEditorToolContextBase, result: Dictionary) -> Dictionary:
+```
+
+应用拾取结果，供子类重写。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `_tool_context` | 编辑器工具上下文。 |
+| `result` | 拾取结果副本。 |
+
+返回：应用结果字典。
+
+结构：
+
+- `result`: Dictionary pick result data.
+- `return`: Dictionary apply result.
+
+<a id="member-gfeditorpickoperation-methods-_on_cancel"></a>
+
+### `_on_cancel`
+
+- API：`protected`
+
+```gdscript
+func _on_cancel(_tool_context: GFEditorToolContextBase) -> void:
+```
+
+取消拾取流程时调用，供子类重写。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `_tool_context` | 编辑器工具上下文。 |

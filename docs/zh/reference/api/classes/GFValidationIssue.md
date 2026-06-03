@@ -31,6 +31,7 @@
 | 属性 | [`message`](#member-gfvalidationissue-properties-message) | `var message: String = ""` |
 | 属性 | [`metadata`](#member-gfvalidationissue-properties-metadata) | `var metadata: Dictionary = {}` |
 | 属性 | [`extra_fields`](#member-gfvalidationissue-properties-extra_fields) | `var extra_fields: Dictionary = {}` |
+| 方法 | [`_init`](#member-gfvalidationissue-methods-_init) | `func _init( p_severity: Variant = Severity.ERROR, p_kind: StringName = &"", p_message: String = "", p_key: Variant = null, p_path: String = "", p_metadata: Dictionary = {} ) -> void:` |
 | 方法 | [`configure`](#member-gfvalidationissue-methods-configure) | `func configure( p_severity: Variant, p_kind: StringName, p_message: String, p_key: Variant = null, p_path: String = "", p_metadata: Dictionary = {} ) -> RefCounted:` |
 | 方法 | [`apply_dict`](#member-gfvalidationissue-methods-apply_dict) | `func apply_dict(data: Dictionary) -> void:` |
 | 方法 | [`to_dict`](#member-gfvalidationissue-methods-to_dict) | `func to_dict(include_empty_fields: bool = false) -> Dictionary:` |
@@ -256,6 +257,35 @@ var extra_fields: Dictionary = {}
 - `extra_fields`: Dictionary caller-defined fields preserved during conversion.
 
 ## 方法
+
+<a id="member-gfvalidationissue-methods-_init"></a>
+
+### `_init`
+
+- API：`public`
+
+```gdscript
+func _init( p_severity: Variant = Severity.ERROR, p_kind: StringName = &"", p_message: String = "", p_key: Variant = null, p_path: String = "", p_metadata: Dictionary = {} ) -> void:
+```
+
+创建校验问题条目。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `p_severity` | 严重级别，可传入 Severity、int 或字符串。 |
+| `p_kind` | 问题类别。 |
+| `p_message` | 问题说明。 |
+| `p_key` | 可选定位键。 |
+| `p_path` | 可选路径。 |
+| `p_metadata` | 可选元数据。 |
+
+结构：
+
+- `p_severity`: Variant Severity, int, or string.
+- `p_key`: Variant caller-defined location key.
+- `p_metadata`: Dictionary caller metadata.
 
 <a id="member-gfvalidationissue-methods-configure"></a>
 

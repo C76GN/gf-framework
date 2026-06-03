@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFGridSelection2D" path="addons/gf/standard/foundation/math/gf_grid_selection_2d.gd" module="standard" extends="Resource" classDigest="555cabe2b74fc8b4d07530794b2cf64747194878df038096ad14491571683c66">
+<class name="GFGridSelection2D" path="addons/gf/standard/foundation/math/gf_grid_selection_2d.gd" module="standard" extends="Resource" classDigest="0462be4f25666be79581211f484563a1093313846a5a3493da32b781b4d6ded4">
 	<description>GFGridSelection2D: 通用 2D 网格格子选择器。
 从候选格子中筛选一批坐标。可通过显式包含/排除、矩形边界、
 自定义回调或子类重写组合出项目自己的生成规则。</description>
@@ -82,6 +82,17 @@
 				<tag name="param">cell: 格子坐标。</tag>
 				<tag name="param">context: 项目自定义上下文。</tag>
 				<tag name="return">会被选择时返回 true。</tag>
+				<tag name="schema">context: Dictionary project-defined selection context.</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_matches_cell">
+			<signature>func _matches_cell(cell: Vector2i, context: Dictionary) -&gt; bool:</signature>
+			<description>执行单个格子的选择判断。子类可重写该方法定义项目自己的选择规则。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">cell: 格子坐标。</tag>
+				<tag name="param">context: 项目自定义上下文。</tag>
+				<tag name="return">选中该格子时返回 true。</tag>
 				<tag name="schema">context: Dictionary project-defined selection context.</tag>
 			</tags>
 		</member>

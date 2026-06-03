@@ -13,4 +13,35 @@
 
 ## 成员概览
 
-此类不声明额外公开成员。
+| 类型 | 名称 | 签名 |
+|---|---|---|
+| 方法 | [`_import_node`](#member-gfassetmetadatagltfdocumentextension-methods-_import_node) | `func _import_node( _state: GLTFState, _gltf_node: GLTFNode, json: Dictionary, node: Node ) -> Error:` |
+
+## 方法
+
+<a id="member-gfassetmetadatagltfdocumentextension-methods-_import_node"></a>
+
+### `_import_node`
+
+- API：`protected`
+
+```gdscript
+func _import_node( _state: GLTFState, _gltf_node: GLTFNode, json: Dictionary, node: Node ) -> Error:
+```
+
+导入 glTF 节点时把 json.extras 写入节点元数据。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `_state` | glTF 导入状态。 |
+| `_gltf_node` | 正在导入的 glTF 节点描述。 |
+| `json` | glTF 节点原始 JSON 字典。 |
+| `node` | 导入生成的 Godot 节点。 |
+
+返回：Godot 错误码。
+
+结构：
+
+- `json`: Dictionary，可包含 extras 字段；extras 会归一化为资产元数据字典。

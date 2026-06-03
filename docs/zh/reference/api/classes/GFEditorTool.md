@@ -39,6 +39,10 @@
 | 方法 | [`gui_input`](#member-gfeditortool-methods-gui_input) | `func gui_input(event: InputEvent) -> bool:` |
 | 方法 | [`draw_tool`](#member-gfeditortool-methods-draw_tool) | `func draw_tool(viewport: Viewport) -> void:` |
 | 方法 | [`get_debug_snapshot`](#member-gfeditortool-methods-get_debug_snapshot) | `func get_debug_snapshot() -> Dictionary:` |
+| 方法 | [`_on_activated`](#member-gfeditortool-methods-_on_activated) | `func _on_activated(_tool_context: GFEditorToolContextBase) -> void:` |
+| 方法 | [`_on_deactivated`](#member-gfeditortool-methods-_on_deactivated) | `func _on_deactivated(_tool_context: GFEditorToolContextBase) -> void:` |
+| 方法 | [`_handle_gui_input`](#member-gfeditortool-methods-_handle_gui_input) | `func _handle_gui_input(_event: InputEvent) -> bool:` |
+| 方法 | [`_draw_tool`](#member-gfeditortool-methods-_draw_tool) | `func _draw_tool(_viewport: Viewport) -> void:` |
 
 ## 属性
 
@@ -441,3 +445,77 @@ func get_debug_snapshot() -> Dictionary:
 结构：
 
 - `return`: Dictionary containing tool_id, label, tooltip, priority, active, options, pick_operation, and metadata.
+
+<a id="member-gfeditortool-methods-_on_activated"></a>
+
+### `_on_activated`
+
+- API：`protected`
+
+```gdscript
+func _on_activated(_tool_context: GFEditorToolContextBase) -> void:
+```
+
+工具激活时调用，供子类重写。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `_tool_context` | 编辑器工具上下文。 |
+
+<a id="member-gfeditortool-methods-_on_deactivated"></a>
+
+### `_on_deactivated`
+
+- API：`protected`
+
+```gdscript
+func _on_deactivated(_tool_context: GFEditorToolContextBase) -> void:
+```
+
+工具停用时调用，供子类重写。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `_tool_context` | 编辑器工具上下文。 |
+
+<a id="member-gfeditortool-methods-_handle_gui_input"></a>
+
+### `_handle_gui_input`
+
+- API：`protected`
+
+```gdscript
+func _handle_gui_input(_event: InputEvent) -> bool:
+```
+
+处理 GUI 输入事件，供子类重写。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `_event` | 输入事件。 |
+
+返回：事件被消费时返回 true。
+
+<a id="member-gfeditortool-methods-_draw_tool"></a>
+
+### `_draw_tool`
+
+- API：`protected`
+
+```gdscript
+func _draw_tool(_viewport: Viewport) -> void:
+```
+
+绘制工具辅助内容，供子类重写。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `_viewport` | 绘制目标视口。 |

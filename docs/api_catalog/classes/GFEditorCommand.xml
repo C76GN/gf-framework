@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFEditorCommand" path="addons/gf/kernel/editor/gf_editor_command.gd" module="kernel" extends="RefCounted" classDigest="8f0ad92ba3dffd086c4c978c09e30d68c3d064f11253990bd465f444afed98bf">
+<class name="GFEditorCommand" path="addons/gf/kernel/editor/gf_editor_command.gd" module="kernel" extends="RefCounted" classDigest="5d8163087b7d85d89d9b9dbc3c37977972c3dfb52bce34dd1fe724cdc35978cf">
 	<description>GFEditorCommand: 可撤销编辑器操作的通用基类。
 用于把编辑器 UI、快捷键或交互工具产生的修改收敛成可执行、可撤销的命令。
 命令只描述操作协议，不绑定具体资源、节点类型或业务含义。</description>
@@ -87,6 +87,22 @@
 				<tag name="api">public</tag>
 				<tag name="return">调试信息字典。</tag>
 				<tag name="schema">return: Dictionary containing command_name, executed, and metadata.</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_do_it">
+			<signature>func _do_it() -&gt; Error:</signature>
+			<description>执行具体编辑器操作，供子类重写。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="return">Godot 错误码。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_undo_it">
+			<signature>func _undo_it() -&gt; Error:</signature>
+			<description>撤销具体编辑器操作，供子类重写。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="return">Godot 错误码。</tag>
 			</tags>
 		</member>
 	</methods>

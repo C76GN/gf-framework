@@ -17,6 +17,8 @@
 |---|---|---|
 | 属性 | [`priority`](#member-gfactioninterceptor-properties-priority) | `var priority: int = 0` |
 | 属性 | [`enabled`](#member-gfactioninterceptor-properties-enabled) | `var enabled: bool = true` |
+| 方法 | [`_before_execute`](#member-gfactioninterceptor-methods-_before_execute) | `func _before_execute( _action: Object, _queue: GFActionQueueSystem ) -> GFActionInterceptionResult:` |
+| 方法 | [`_after_execute`](#member-gfactioninterceptor-methods-_after_execute) | `func _after_execute( _action: Object, _queue: GFActionQueueSystem, _execute_result: Variant ) -> GFActionInterceptionResult:` |
 
 ## 属性
 
@@ -43,3 +45,52 @@ var enabled: bool = true
 ```
 
 是否启用当前拦截器。
+
+## 方法
+
+<a id="member-gfactioninterceptor-methods-_before_execute"></a>
+
+### `_before_execute`
+
+- API：`protected`
+
+```gdscript
+func _before_execute( _action: Object, _queue: GFActionQueueSystem ) -> GFActionInterceptionResult:
+```
+
+动作执行前调用。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `_action` | 即将执行的动作。 |
+| `_queue` | 当前动作队列。 |
+
+返回：拦截结果；返回 null 等价于继续。
+
+<a id="member-gfactioninterceptor-methods-_after_execute"></a>
+
+### `_after_execute`
+
+- API：`protected`
+
+```gdscript
+func _after_execute( _action: Object, _queue: GFActionQueueSystem, _execute_result: Variant ) -> GFActionInterceptionResult:
+```
+
+动作执行并完成等待后调用。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `_action` | 已执行的动作。 |
+| `_queue` | 当前动作队列。 |
+| `_execute_result` | 动作 execute() 的原始返回值。 |
+
+返回：拦截结果；当前仅 STOP_QUEUE 会影响后续队列。
+
+结构：
+
+- `_execute_result`: Variant，由动作 execute() 返回的原始结果，可能是 Signal 或项目自定义值。

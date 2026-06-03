@@ -27,6 +27,7 @@
 | 属性 | [`module_lifecycle_max_stage_passes`](#member-gfarchitecture-properties-module_lifecycle_max_stage_passes) | `var module_lifecycle_max_stage_passes: int = 256:` |
 | 属性 | [`strict_dependency_lookup`](#member-gfarchitecture-properties-strict_dependency_lookup) | `var strict_dependency_lookup: bool = false` |
 | 属性 | [`last_initialization_error`](#member-gfarchitecture-properties-last_initialization_error) | `var last_initialization_error: String = ""` |
+| 方法 | [`_init`](#member-gfarchitecture-methods-_init) | `func _init(parent_architecture: GFArchitecture = null) -> void:` |
 | 方法 | [`is_inited`](#member-gfarchitecture-methods-is_inited) | `func is_inited() -> bool:` |
 | 方法 | [`has_initialization_failed`](#member-gfarchitecture-methods-has_initialization_failed) | `func has_initialization_failed() -> bool:` |
 | 方法 | [`is_lifecycle_active`](#member-gfarchitecture-methods-is_lifecycle_active) | `func is_lifecycle_active() -> bool:` |
@@ -101,6 +102,8 @@
 | 方法 | [`restore_global_snapshot`](#member-gfarchitecture-methods-restore_global_snapshot) | `func restore_global_snapshot(data: Dictionary, command_builder: Callable = Callable()) -> void:` |
 | 方法 | [`get_debug_lifecycle_state`](#member-gfarchitecture-methods-get_debug_lifecycle_state) | `func get_debug_lifecycle_state() -> Dictionary:` |
 | 方法 | [`get_dependency_diagnostics`](#member-gfarchitecture-methods-get_dependency_diagnostics) | `func get_dependency_diagnostics(options: Dictionary = {}) -> Dictionary:` |
+| 方法 | [`_on_init`](#member-gfarchitecture-methods-_on_init) | `func _on_init() -> void:` |
+| 方法 | [`_on_dispose`](#member-gfarchitecture-methods-_on_dispose) | `func _on_dispose() -> void:` |
 
 ## 信号
 
@@ -259,6 +262,24 @@ var last_initialization_error: String = ""
 最近一次初始化失败原因；没有失败时为空字符串。
 
 ## 方法
+
+<a id="member-gfarchitecture-methods-_init"></a>
+
+### `_init`
+
+- API：`public`
+
+```gdscript
+func _init(parent_architecture: GFArchitecture = null) -> void:
+```
+
+创建架构容器，可选择指定父级架构作为依赖回退来源。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `parent_architecture` | 父级架构；为空时不启用回退。 |
 
 <a id="member-gfarchitecture-methods-is_inited"></a>
 
@@ -1626,3 +1647,27 @@ func get_dependency_diagnostics(options: Dictionary = {}) -> Dictionary:
 
 - `options`: Dictionary with optional bool keys include_parent_lookup and include_factories.
 - `return`: Dictionary dependency diagnostics report with modules, resolved_dependencies, missing_dependencies, issue counts, and next_action.
+
+<a id="member-gfarchitecture-methods-_on_init"></a>
+
+### `_on_init`
+
+- API：`protected`
+
+```gdscript
+func _on_init() -> void:
+```
+
+内部初始化回调，子类可重写。
+
+<a id="member-gfarchitecture-methods-_on_dispose"></a>
+
+### `_on_dispose`
+
+- API：`protected`
+
+```gdscript
+func _on_dispose() -> void:
+```
+
+内部销毁回调，子类可重写。

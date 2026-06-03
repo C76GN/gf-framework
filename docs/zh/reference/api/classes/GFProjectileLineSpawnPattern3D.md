@@ -19,6 +19,7 @@
 | 属性 | [`local_start`](#member-gfprojectilelinespawnpattern3d-properties-local_start) | `var local_start: Vector3 = Vector3.ZERO` |
 | 属性 | [`local_end`](#member-gfprojectilelinespawnpattern3d-properties-local_end) | `var local_end: Vector3 = Vector3.ZERO` |
 | 属性 | [`rotate_to_line`](#member-gfprojectilelinespawnpattern3d-properties-rotate_to_line) | `var rotate_to_line: bool = false` |
+| 方法 | [`_get_spawn_transforms`](#member-gfprojectilelinespawnpattern3d-methods-_get_spawn_transforms) | `func _get_spawn_transforms( emitter: Node3D, _projectile_context: Dictionary = {}, emit_count: int = -1 ) -> Array[Transform3D]:` |
 
 ## 属性
 
@@ -69,3 +70,31 @@ var rotate_to_line: bool = false
 ```
 
 生成变换是否朝向线段方向。
+
+## 方法
+
+<a id="member-gfprojectilelinespawnpattern3d-methods-_get_spawn_transforms"></a>
+
+### `_get_spawn_transforms`
+
+- API：`protected`
+
+```gdscript
+func _get_spawn_transforms( emitter: Node3D, _projectile_context: Dictionary = {}, emit_count: int = -1 ) -> Array[Transform3D]:
+```
+
+生成 3D 线段发射变换。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `emitter` | 发射器节点。 |
+| `_projectile_context` | 本次发射上下文。 |
+| `emit_count` | 调用方请求的数量；小于等于 0 时使用 point_count。 |
+
+返回：全局 Transform3D 列表。
+
+结构：
+
+- `_projectile_context`: Dictionary，本次发射上下文；当前实现不读取该字典。

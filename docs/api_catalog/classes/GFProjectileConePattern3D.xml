@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFProjectileConePattern3D" path="addons/gf/extensions/combat/projectiles/gf_projectile_cone_pattern_3d.gd" module="extensions/combat" extends="GFProjectileSpawnPattern3D" classDigest="074ee7851d4e029ac6d0590228b99a1a299b9f4b01f154ee83474e939fb742a5">
+<class name="GFProjectileConePattern3D" path="addons/gf/extensions/combat/projectiles/gf_projectile_cone_pattern_3d.gd" module="extensions/combat" extends="GFProjectileSpawnPattern3D" classDigest="0328dd2f286a41ceb0414e55516fea0aa044ca881008f163b03157c79ef5741e">
 	<description>GFProjectileConePattern3D: 3D 水平扇形发射点模式。
 围绕发射器局部 Y 轴分布 yaw，可叠加固定 pitch，并按变换前向生成点位。</description>
 	<tags>
@@ -40,6 +40,19 @@
 			</tags>
 		</member>
 	</properties>
-	<methods />
+	<methods>
+		<member kind="method" name="_get_spawn_transforms">
+			<signature>func _get_spawn_transforms( emitter: Node3D, _projectile_context: Dictionary = {}, emit_count: int = -1 ) -&gt; Array[Transform3D]:</signature>
+			<description>生成 3D 扇形发射变换。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">emitter: 发射器节点。</tag>
+				<tag name="param">_projectile_context: 本次发射上下文。</tag>
+				<tag name="param">emit_count: 调用方请求的数量；小于等于 0 时使用 projectile_count。</tag>
+				<tag name="return">全局 Transform3D 列表。</tag>
+				<tag name="schema">_projectile_context: Dictionary，本次发射上下文；当前实现不读取该字典。</tag>
+			</tags>
+		</member>
+	</methods>
 	<innerClasses />
 </class>

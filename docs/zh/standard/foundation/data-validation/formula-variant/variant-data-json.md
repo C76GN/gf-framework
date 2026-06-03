@@ -1,6 +1,6 @@
 # Variant 深拷贝与 JSON 转换
 
-通用 Variant 基础件分为两个明确职责：`GFVariantData` 负责深拷贝、字典 / metadata 合并、options 读取、基础类型收窄、默认值合并和 Resource 可选复制；`GFVariantJsonCodec` 负责 JSON 友好的 Godot 类型转换。
+通用 Variant 基础件分为三个明确职责：`GFVariantData` 负责深拷贝、字典 / metadata 合并、options 读取、基础类型收窄、默认值合并和 Resource 可选复制；`GFVariantJsonCodec` 负责 JSON 友好的 Godot 值类型转换；`GFVariantReferenceCodec` 负责显式 Resource / Node 引用标记。
 
 它们都不依赖 `GFArchitecture`，适合存档、配置、校验报告、网络消息、命中上下文等需要复制集合但保留标量语义，或把 Godot 值转成纯数据的地方。
 
@@ -78,6 +78,24 @@ var compact_json := GFVariantJsonCodec.compact_json_text(pretty_json)
 `GFVariantJsonCodec.variant_to_json_compatible()` 会为 `Vector2/3/4`、整数向量、`Color`、`Rect2`、`Transform2D/3D`、`Basis`、`Quaternion`、`AABB`、`Plane`、`NodePath`、`StringName` 和常见 PackedArray 写入专用 `__gf_variant__` 类型标记，再由 `json_compatible_to_variant()` 恢复。
 
 `parse_json_text()`、`format_json_text()` 和 `compact_json_text()` 面向已经是 JSON 文本的输入：它们先通过 Godot JSON 解析器确认文本有效，再返回解析值、格式化文本或去除非必要空白后的文本。解析失败时返回调用方提供的 fallback，不会把无效输入静默改写成空集合。
+
+## 显式引用标记
+
+`GFVariantReferenceCodec` 用于少数确实需要保存对象引用的位置。Resource 引用会保存 `resource_path`、可用时的 `ResourceUID` 文本和类型提示；恢复时先尝试 UID，再回退到路径。Node 引用只保存相对调用方提供 root 的 `NodePath`，解码时也必须传入同一个语义 root，不会从场景树全局搜索。
+
+```gdscript
+var encoded_resource := GFVariantReferenceCodec.encode_reference(texture)
+var decoded_resource := GFVariantReferenceCodec.decode_reference(encoded_resource)
+
+var encoded_node := GFVariantReferenceCodec.encode_reference(target_node, {
+	GFVariantReferenceCodec.OPTION_ROOT_NODE: scope_root,
+})
+var decoded_node := GFVariantReferenceCodec.decode_reference(encoded_node, {
+	GFVariantReferenceCodec.OPTION_ROOT_NODE: scope_root,
+})
+```
+
+引用 codec 不处理对象图、脚本自动实例化、无路径内嵌 Resource、跨 Scope 节点扫描或业务身份映射。需要保存复杂对象时，项目应先转换成稳定 ID、Resource 路径、显式 NodePath 或纯数据字典。
 
 ## 使用边界
 

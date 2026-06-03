@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFGravityField3D" path="addons/gf/extensions/physics/nodes/gf_gravity_field_3d.gd" module="extensions/physics" extends="Node3D" classDigest="054b97438dff4d706badc167593156285534d6c5a1323c9592931896168456af">
+<class name="GFGravityField3D" path="addons/gf/extensions/physics/nodes/gf_gravity_field_3d.gd" module="extensions/physics" extends="Node3D" classDigest="fcbff805a3d5fadbb53bd5b850902a4d9233ace135ccb2e4e1fd2cdfdf64b2a4">
 	<description>GFGravityField3D: 通用 3D 重力/加速度场。
 提供点重力、远离中心和固定方向三种方向模式，以及常量、线性、平方反比
 和曲线衰减。项目可继承并重写方向或强度计算以实现更复杂的场。</description>
@@ -109,6 +109,15 @@
 				<tag name="api">public</tag>
 				<tag name="param">distance: 距离。</tag>
 				<tag name="return">加速度强度。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_get_direction_at">
+			<signature>func _get_direction_at(world_position: Vector3) -&gt; Vector3:</signature>
+			<description>获取指定世界坐标处的方向。子类可重写以实现自定义场。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">world_position: 世界坐标。</tag>
+				<tag name="return">方向向量。</tag>
 			</tags>
 		</member>
 	</methods>

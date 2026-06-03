@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSavePipelineStep" path="addons/gf/extensions/save/pipeline/gf_save_pipeline_step.gd" module="extensions/save" extends="Resource" classDigest="20031a26cf616f44abfe96886fabc3a10483d40b2d022cacd83e87300aba3440">
+<class name="GFSavePipelineStep" path="addons/gf/extensions/save/pipeline/gf_save_pipeline_step.gd" module="extensions/save" extends="Resource" classDigest="e825d579e69c6c199f2ed03eefca92fd490a56d6ba007b52d7dcf3b11f2d9a6f">
 	<description>GFSavePipelineStep: 存档图流程步骤基类。
 用于在 GFSaveGraphUtility 的 Scope 采集/应用流程前后插入通用处理。
 步骤只接收 scope、payload、context 和 result，不绑定任何业务字段。</description>
@@ -27,6 +27,61 @@
 			</tags>
 		</member>
 	</properties>
-	<methods />
+	<methods>
+		<member kind="method" name="_before_gather_scope">
+			<signature>func _before_gather_scope(_scope: GFSaveScope, _context: Dictionary = {}) -&gt; void:</signature>
+			<description>采集 Scope 前调用。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">_scope: 当前 Scope。</tag>
+				<tag name="param">_context: 调用上下文字典。</tag>
+				<tag name="schema">_context: Dictionary，可包含 pipeline_context、pipeline_shared、include_pipeline_trace 等流程字段。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_after_gather_scope">
+			<signature>func _after_gather_scope(_scope: GFSaveScope, payload: Dictionary, _context: Dictionary = {}) -&gt; Variant:</signature>
+			<description>采集 Scope 后调用。返回 Dictionary 时会替换当前 payload。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">_scope: 当前 Scope。</tag>
+				<tag name="param">payload: 当前 Scope 载荷。</tag>
+				<tag name="param">_context: 调用上下文字典。</tag>
+				<tag name="return">可返回 null 或替换后的 Dictionary。</tag>
+				<tag name="schema">payload: Dictionary，当前 Scope 采集结果载荷。</tag>
+				<tag name="schema">_context: Dictionary，可包含 pipeline_context、pipeline_shared、include_pipeline_trace 等流程字段。</tag>
+				<tag name="schema">return: Variant，返回 Dictionary 会替换当前 payload；返回 null 或非 Dictionary 表示保持不变。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_before_apply_scope">
+			<signature>func _before_apply_scope(_scope: GFSaveScope, payload: Dictionary, _context: Dictionary = {}) -&gt; Variant:</signature>
+			<description>应用 Scope 前调用。返回 Dictionary 时会替换当前 payload。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">_scope: 当前 Scope。</tag>
+				<tag name="param">payload: 当前 Scope 载荷。</tag>
+				<tag name="param">_context: 调用上下文字典。</tag>
+				<tag name="return">可返回 null 或替换后的 Dictionary。</tag>
+				<tag name="schema">payload: Dictionary，当前 Scope 待应用载荷。</tag>
+				<tag name="schema">_context: Dictionary，可包含 pipeline_context、pipeline_shared、include_pipeline_trace 等流程字段。</tag>
+				<tag name="schema">return: Variant，返回 Dictionary 会替换当前 payload；返回 null 或非 Dictionary 表示保持不变。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_after_apply_scope">
+			<signature>func _after_apply_scope( _scope: GFSaveScope, _payload: Dictionary, result: Dictionary, _context: Dictionary = {} ) -&gt; Variant:</signature>
+			<description>应用 Scope 后调用。返回 Dictionary 时会替换当前 result。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">_scope: 当前 Scope。</tag>
+				<tag name="param">_payload: 当前 Scope 载荷。</tag>
+				<tag name="param">result: 当前应用结果。</tag>
+				<tag name="param">_context: 调用上下文字典。</tag>
+				<tag name="return">可返回 null 或替换后的 Dictionary。</tag>
+				<tag name="schema">_payload: Dictionary，当前 Scope 已应用载荷。</tag>
+				<tag name="schema">result: Dictionary，当前应用结果，通常包含 ok、errors 与 applied_sources 等字段。</tag>
+				<tag name="schema">_context: Dictionary，可包含 pipeline_context、pipeline_shared、include_pipeline_trace 等流程字段。</tag>
+				<tag name="schema">return: Variant，返回 Dictionary 会替换当前 result；返回 null 或非 Dictionary 表示保持不变。</tag>
+			</tags>
+		</member>
+	</methods>
 	<innerClasses />
 </class>

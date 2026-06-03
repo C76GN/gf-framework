@@ -22,6 +22,8 @@
 | 属性 | [`maximum`](#member-gfconfigrangevalidationrule-properties-maximum) | `var maximum: float = 0.0` |
 | 属性 | [`inclusive_maximum`](#member-gfconfigrangevalidationrule-properties-inclusive_maximum) | `var inclusive_maximum: bool = true` |
 | 方法 | [`describe`](#member-gfconfigrangevalidationrule-methods-describe) | `func describe() -> Dictionary:` |
+| 方法 | [`_get_default_rule_id`](#member-gfconfigrangevalidationrule-methods-_get_default_rule_id) | `func _get_default_rule_id() -> StringName:` |
+| 方法 | [`_validate_value`](#member-gfconfigrangevalidationrule-methods-_validate_value) | `func _validate_value(value: Variant, context: Dictionary, report: Dictionary) -> void:` |
 
 ## 属性
 
@@ -116,3 +118,43 @@ func describe() -> Dictionary:
 结构：
 
 - `return`: Dictionary，包含基础规则字段和数值范围设置。
+
+<a id="member-gfconfigrangevalidationrule-methods-_get_default_rule_id"></a>
+
+### `_get_default_rule_id`
+
+- API：`protected`
+
+```gdscript
+func _get_default_rule_id() -> StringName:
+```
+
+返回数值范围规则的默认稳定标识。
+
+返回：默认规则标识。
+
+<a id="member-gfconfigrangevalidationrule-methods-_validate_value"></a>
+
+### `_validate_value`
+
+- API：`protected`
+
+```gdscript
+func _validate_value(value: Variant, context: Dictionary, report: Dictionary) -> void:
+```
+
+校验单个数值是否落在允许范围内。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `value` | 待校验值。 |
+| `context` | 校验上下文。 |
+| `report` | 当前校验报告。 |
+
+结构：
+
+- `value`: Variant，期望为 int 或 float。
+- `context`: Dictionary，可包含 table_name、row_key、field、source、line 和 column 字段。
+- `report`: GFConfigValidationReport 兼容 Dictionary，会被当前规则修改。

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSlotInventoryModel" path="addons/gf/extensions/domain/inventory/gf_slot_inventory_model.gd" module="extensions/domain" extends="GFModel" classDigest="e938699616e545bd7e6cc0faf37a9e1f645f8c9ad6ccab913c3c2fe1d526a424">
+<class name="GFSlotInventoryModel" path="addons/gf/extensions/domain/inventory/gf_slot_inventory_model.gd" module="extensions/domain" extends="GFModel" classDigest="6a4e28ca714ddb004bf649cc91cf27c3cf81aa18740c45c832dd6fe14e7c27c4">
 	<description>GFSlotInventoryModel: 通用可序列化槽位库存模型。
 管理固定或可增长槽位中的 `GFInventoryStack`，支持槽位接收规则、
 堆叠容量、最大堆叠数量、实例数据兼容性、移动、交换和序列化。</description>
@@ -438,6 +438,22 @@
 				<tag name="api">public</tag>
 				<tag name="param">data: 序列化数据。</tag>
 				<tag name="schema">data: Dictionary，包含 slot_count、allow_growth 与 slots；slots 每项为 GFInventoryStack.to_dict() 形状或空字典。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_should_sort_slot_before">
+			<signature>func _should_sort_slot_before( left_slot_index: int, left_stack_data: Dictionary, right_slot_index: int, right_stack_data: Dictionary ) -&gt; bool:</signature>
+			<description>判断左侧槽位是否应排在右侧槽位之前。
+`sort_slots()` 会传入排序前的槽位索引和堆叠快照。空槽位快照为 `{}`。
+子类可重写该方法实现项目自己的格子排序规则。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">left_slot_index: 左侧槽位原索引。</tag>
+				<tag name="param">left_stack_data: 左侧槽位堆叠快照。</tag>
+				<tag name="param">right_slot_index: 右侧槽位原索引。</tag>
+				<tag name="param">right_stack_data: 右侧槽位堆叠快照。</tag>
+				<tag name="return">左侧是否应排在右侧之前。</tag>
+				<tag name="schema">left_stack_data: Dictionary，GFInventoryStack.to_dict() 形状的左侧槽位快照；空槽为空字典。</tag>
+				<tag name="schema">right_stack_data: Dictionary，GFInventoryStack.to_dict() 形状的右侧槽位快照；空槽为空字典。</tag>
 			</tags>
 		</member>
 	</methods>

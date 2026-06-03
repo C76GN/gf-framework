@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSourceSpan" path="addons/gf/standard/foundation/validation/gf_source_span.gd" module="standard" extends="RefCounted" classDigest="eb2453a0f281a68831d08abe2c87e680e51f5d5e3cf1f405044258a52e4b5ca0">
+<class name="GFSourceSpan" path="addons/gf/standard/foundation/validation/gf_source_span.gd" module="standard" extends="RefCounted" classDigest="c00abee1d64c9c9a1f1e452a1a482c5ee71de85d13309f4c06c5ddc5efa60983">
 	<description>GFSourceSpan: 通用源码或资源文本定位范围。
 用于把校验、导入、生成器或编辑器工具中的问题定位到一个稳定的
 source_path、line、column 范围。行列约定为 1-based，0 表示未知。</description>
@@ -71,6 +71,17 @@ source_path、line、column 范围。行列约定为 1-based，0 表示未知。
 		</member>
 	</properties>
 	<methods>
+		<member kind="method" name="_init">
+			<signature>func _init( p_source_path: String = "", p_line: int = 0, p_column: int = 0, p_length: int = 0 ) -&gt; void:</signature>
+			<description>创建源码定位范围。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">p_source_path: 源文件或资源路径。</tag>
+				<tag name="param">p_line: 起始行号，1-based；0 表示未知。</tag>
+				<tag name="param">p_column: 起始列号，1-based；0 表示未知。</tag>
+				<tag name="param">p_length: 同一行内的跨度长度；0 表示未知。</tag>
+			</tags>
+		</member>
 		<member kind="method" name="configure">
 			<signature>func configure( p_source_path: String = "", p_line: int = 0, p_column: int = 0, p_length: int = 0, p_end_line: int = 0, p_end_column: int = 0, p_preview: String = "", p_metadata: Dictionary = {} ) -&gt; RefCounted:</signature>
 			<description>配置定位范围。</description>

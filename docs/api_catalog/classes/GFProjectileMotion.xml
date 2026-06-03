@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFProjectileMotion" path="addons/gf/extensions/combat/projectiles/gf_projectile_motion.gd" module="extensions/combat" extends="Resource" classDigest="0d5e5f897c99b30aa2e56a99a951a11193ea7c6ac32dc8c267332cb3ca3b5ccc">
+<class name="GFProjectileMotion" path="addons/gf/extensions/combat/projectiles/gf_projectile_motion.gd" module="extensions/combat" extends="Resource" classDigest="a66faceee200ac0f3e790a21854382539e40ef03e722f6e9e852cecee8787d39">
 	<description>GFProjectileMotion: 发射体移动策略基类。
 移动策略只负责根据 delta 推进节点位置。需要跨帧保存的数据应写入
 projectile_context，避免共享 Resource 在多个发射体之间串状态。</description>
@@ -32,6 +32,27 @@ projectile_context，避免共享 Resource 在多个发射体之间串状态。<
 				<tag name="param">delta: 物理帧间隔。</tag>
 				<tag name="param">projectile_context: 本次发射的上下文字典。</tag>
 				<tag name="schema">projectile_context: Dictionary，本次发射上下文；移动策略可读取或写入跨帧状态。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_setup">
+			<signature>func _setup(_projectile: Node, _projectile_context: Dictionary = {}) -&gt; void:</signature>
+			<description>发射体启动扩展点。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">_projectile: 发射体节点。</tag>
+				<tag name="param">_projectile_context: 本次发射上下文字典。</tag>
+				<tag name="schema">_projectile_context: Dictionary，本次发射上下文；移动策略可写入跨帧状态。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_step">
+			<signature>func _step(_projectile: Node, _delta: float, _projectile_context: Dictionary = {}) -&gt; void:</signature>
+			<description>发射体移动扩展点。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">_projectile: 发射体节点。</tag>
+				<tag name="param">_delta: 物理帧间隔。</tag>
+				<tag name="param">_projectile_context: 本次发射上下文字典。</tag>
+				<tag name="schema">_projectile_context: Dictionary，本次发射上下文；移动策略可读取或写入跨帧状态。</tag>
 			</tags>
 		</member>
 	</methods>

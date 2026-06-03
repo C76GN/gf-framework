@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFDecisionUtility" path="addons/gf/extensions/decision/runtime/gf_decision_utility.gd" module="extensions/decision" extends="GFUtility" classDigest="512551a8958a6e3ef9adef798ce55f468a963a6989429c5c593d9cbbcb76ddb9">
+	<description>GFDecisionUtility: 通用决策集合注册与评分服务。
+在架构中集中管理 GFDecisionSet，并为项目系统提供创建上下文、评分候选和选择最佳候选的入口。
+它不执行候选动作，也不解释具体 AI 业务语义。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_service</tag>
+		<tag name="since">4.3.0</tag>
+	</tags>
+	<signals>
+		<member kind="signal" name="decision_set_registered">
+			<signature>signal decision_set_registered(decision_set_id: StringName, decision_set: GFDecisionSet)</signature>
+			<description>当决策集合注册后发出。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">decision_set_id: 决策集合标识。</tag>
+				<tag name="param">decision_set: 已注册的决策集合。</tag>
+			</tags>
+		</member>
+		<member kind="signal" name="decision_set_unregistered">
+			<signature>signal decision_set_unregistered(decision_set_id: StringName)</signature>
+			<description>当决策集合注销后发出。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">decision_set_id: 决策集合标识。</tag>
+			</tags>
+		</member>
+	</signals>
+	<enums />
+	<constants />
+	<properties />
+	<methods>
+		<member kind="method" name="make_context">
+			<signature>func make_context( values: Dictionary = {}, subject: Object = null, target: Object = null, metadata: Dictionary = {} ) -&gt; GFDecisionContext:</signature>
+			<description>创建决策上下文。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">values: 初始黑板值。</tag>
+				<tag name="param">subject: 决策主体。</tag>
+				<tag name="param">target: 可选决策目标。</tag>
+				<tag name="param">metadata: 上下文元数据。</tag>
+				<tag name="return">新决策上下文。</tag>
+				<tag name="schema">values: Dictionary[StringName, Variant] initial blackboard values.</tag>
+				<tag name="schema">metadata: Dictionary[StringName, Variant] project-defined decision metadata.</tag>
+			</tags>
+		</member>
+		<member kind="method" name="register_decision_set">
+			<signature>func register_decision_set(decision_set_id: StringName, decision_set: GFDecisionSet) -&gt; bool:</signature>
+			<description>注册决策集合。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">decision_set_id: 决策集合标识。</tag>
+				<tag name="param">decision_set: 决策集合资源。</tag>
+				<tag name="return">注册成功返回 true。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="unregister_decision_set">
+			<signature>func unregister_decision_set(decision_set_id: StringName) -&gt; bool:</signature>
+			<description>注销决策集合。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">decision_set_id: 决策集合标识。</tag>
+				<tag name="return">注销成功返回 true。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="has_decision_set">
+			<signature>func has_decision_set(decision_set_id: StringName) -&gt; bool:</signature>
+			<description>检查决策集合是否存在。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">decision_set_id: 决策集合标识。</tag>
+				<tag name="return">存在返回 true。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_decision_set">
+			<signature>func get_decision_set(decision_set_id: StringName) -&gt; GFDecisionSet:</signature>
+			<description>获取决策集合。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">decision_set_id: 决策集合标识。</tag>
+				<tag name="return">决策集合；不存在时返回 null。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_decision_set_ids">
+			<signature>func get_decision_set_ids() -&gt; PackedStringArray:</signature>
+			<description>获取已注册决策集合标识。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">排序后的决策集合标识。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="clear_decision_sets">
+			<signature>func clear_decision_sets() -&gt; void:</signature>
+			<description>清空全部决策集合。</description>
+			<tags>
+				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="method" name="score_all">
+			<signature>func score_all(decision_set_id: StringName, context: GFDecisionContext) -&gt; Array[GFDecisionScore]:</signature>
+			<description>计算指定决策集合中的所有候选分数。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">decision_set_id: 决策集合标识。</tag>
+				<tag name="param">context: 决策上下文。</tag>
+				<tag name="return">按分数降序排列的评分结果。</tag>
+				<tag name="schema">return: Array[GFDecisionScore]，每个候选的评分结果；集合不存在时为空数组。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="select_best">
+			<signature>func select_best(decision_set_id: StringName, context: GFDecisionContext) -&gt; GFDecisionScore:</signature>
+			<description>选择指定决策集合中的最佳候选。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">decision_set_id: 决策集合标识。</tag>
+				<tag name="param">context: 决策上下文。</tag>
+				<tag name="return">最佳评分结果；集合不存在时返回 rejected score。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_debug_snapshot">
+			<signature>func get_debug_snapshot() -&gt; Dictionary:</signature>
+			<description>获取决策服务调试快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">调试快照字典。</tag>
+				<tag name="schema">return: 包含 decision_set_count 和 decision_set_ids 字段的 Dictionary。</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

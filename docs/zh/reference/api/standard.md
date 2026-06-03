@@ -6,11 +6,11 @@
 
 | 类别 | 类 | 成员 | 方法 |
 |---|---:|---:|---:|
-| [运行时服务](#category-runtime_service) | 98 | 1853 | 1282 |
-| [协议与扩展点](#category-protocol) | 18 | 201 | 159 |
-| [资源定义](#category-resource_definition) | 82 | 843 | 395 |
-| [运行时句柄](#category-runtime_handle) | 16 | 281 | 152 |
-| [值对象](#category-value_object) | 18 | 290 | 158 |
+| [运行时服务](#category-runtime_service) | 100 | 1892 | 1308 |
+| [协议与扩展点](#category-protocol) | 18 | 232 | 190 |
+| [资源定义](#category-resource_definition) | 83 | 872 | 422 |
+| [运行时句柄](#category-runtime_handle) | 17 | 295 | 154 |
+| [值对象](#category-value_object) | 18 | 293 | 161 |
 | [领域模型](#category-domain_model) | 4 | 60 | 41 |
 | [事件契约](#category-event_contract) | 5 | 47 | 17 |
 | [编辑器 API](#category-editor_api) | 6 | 21 | 17 |
@@ -92,6 +92,7 @@
 | [`GFScreenTransitionUtility`](classes/GFScreenTransitionUtility.md#gfscreentransitionutility) | `GFUtility` | `addons/gf/standard/utilities/scene/gf_screen_transition_utility.gd` |
 | [`GFSeedUtility`](classes/GFSeedUtility.md#gfseedutility) | `GFUtility` | `addons/gf/standard/utilities/random/gf_seed_utility.gd` |
 | [`GFSettingsUtility`](classes/GFSettingsUtility.md#gfsettingsutility) | `GFUtility` | `addons/gf/standard/utilities/settings/gf_settings_utility.gd` |
+| [`GFShaderParameterUtility`](classes/GFShaderParameterUtility.md#gfshaderparameterutility) | `GFUtility` | `addons/gf/standard/utilities/display/gf_shader_parameter_utility.gd` |
 | [`GFSignalRuntimeProbe`](classes/GFSignalRuntimeProbe.md#gfsignalruntimeprobe) | `RefCounted` | `addons/gf/standard/utilities/debug/gf_signal_runtime_probe.gd` |
 | [`GFSignalUtility`](classes/GFSignalUtility.md#gfsignalutility) | `GFUtility` | `addons/gf/standard/utilities/signals/gf_signal_utility.gd` |
 | [`GFSnapshotHistoryUtility`](classes/GFSnapshotHistoryUtility.md#gfsnapshothistoryutility) | `GFUtility` | `addons/gf/standard/utilities/history/gf_snapshot_history_utility.gd` |
@@ -120,6 +121,7 @@
 | [`GFValueIndex`](classes/GFValueIndex.md#gfvalueindex) | `RefCounted` | `addons/gf/standard/foundation/collections/gf_value_index.gd` |
 | [`GFVariantData`](classes/GFVariantData.md#gfvariantdata) | `RefCounted` | `addons/gf/standard/foundation/variant/gf_variant_data.gd` |
 | [`GFVariantJsonCodec`](classes/GFVariantJsonCodec.md#gfvariantjsoncodec) | `RefCounted` | `addons/gf/standard/foundation/variant/gf_variant_json_codec.gd` |
+| [`GFVariantReferenceCodec`](classes/GFVariantReferenceCodec.md#gfvariantreferencecodec) | `RefCounted` | `addons/gf/standard/foundation/variant/gf_variant_reference_codec.gd` |
 | [`GFViewportUtility`](classes/GFViewportUtility.md#gfviewportutility) | `GFUtility` | `addons/gf/standard/utilities/display/gf_viewport_utility.gd` |
 
 <a id="category-protocol"></a>
@@ -217,6 +219,7 @@
 | [`GFSceneTransitionConfig`](classes/GFSceneTransitionConfig.md#gfscenetransitionconfig) | `Resource` | `addons/gf/standard/utilities/scene/gf_scene_transition_config.gd` |
 | [`GFScreenTransitionEffect`](classes/GFScreenTransitionEffect.md#gfscreentransitioneffect) | `Resource` | `addons/gf/standard/utilities/scene/gf_screen_transition_effect.gd` |
 | [`GFSettingDefinition`](classes/GFSettingDefinition.md#gfsettingdefinition) | `Resource` | `addons/gf/standard/utilities/settings/gf_setting_definition.gd` |
+| [`GFShaderParameterProfile`](classes/GFShaderParameterProfile.md#gfshaderparameterprofile) | `Resource` | `addons/gf/standard/utilities/display/gf_shader_parameter_profile.gd` |
 | [`GFSignalBridge`](classes/GFSignalBridge.md#gfsignalbridge) | `Resource` | `addons/gf/standard/utilities/signals/bridge/gf_signal_bridge.gd` |
 | [`GFSignalSourceRef`](classes/GFSignalSourceRef.md#gfsignalsourceref) | `Resource` | `addons/gf/standard/utilities/signals/bridge/gf_signal_source_ref.gd` |
 | [`GFSteeringBehaviorResource`](classes/GFSteeringBehaviorResource.md#gfsteeringbehaviorresource) | `Resource` | `addons/gf/standard/foundation/math/gf_steering_behavior_resource.gd` |
@@ -255,6 +258,7 @@
 | [`GFHttpResponse`](classes/GFHttpResponse.md#gfhttpresponse) | `RefCounted` | `addons/gf/standard/utilities/io/gf_http_response.gd` |
 | [`GFJob`](classes/GFJob.md#gfjob) | `RefCounted` | `addons/gf/standard/utilities/jobs/gf_job.gd` |
 | [`GFNodeStateGroup`](classes/GFNodeStateGroup.md#gfnodestategroup) | `Node` | `addons/gf/standard/state_machine/node/gf_node_state_group.gd` |
+| [`GFShaderParameterBinder`](classes/GFShaderParameterBinder.md#gfshaderparameterbinder) | `Node` | `addons/gf/standard/utilities/display/gf_shader_parameter_binder.gd` |
 | [`GFSignalBridgeBinding`](classes/GFSignalBridgeBinding.md#gfsignalbridgebinding) | `RefCounted` | `addons/gf/standard/utilities/signals/bridge/gf_signal_bridge_binding.gd` |
 | [`GFSignalConnection`](classes/GFSignalConnection.md#gfsignalconnection) | `RefCounted` | `addons/gf/standard/utilities/signals/gf_signal_connection.gd` |
 | [`GFVirtualInputSource`](classes/GFVirtualInputSource.md#gfvirtualinputsource) | `RefCounted` | `addons/gf/standard/input/sources/gf_virtual_input_source.gd` |

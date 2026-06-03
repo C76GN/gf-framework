@@ -24,6 +24,7 @@
 | 属性 | [`filter_callback`](#member-gfgridselection2d-properties-filter_callback) | `var filter_callback: Callable = Callable()` |
 | 方法 | [`select_cells`](#member-gfgridselection2d-methods-select_cells) | `func select_cells(candidates: Array[Vector2i], context: Dictionary = {}) -> Array[Vector2i]:` |
 | 方法 | [`matches_cell`](#member-gfgridselection2d-methods-matches_cell) | `func matches_cell(cell: Vector2i, context: Dictionary = {}) -> bool:` |
+| 方法 | [`_matches_cell`](#member-gfgridselection2d-methods-_matches_cell) | `func _matches_cell(cell: Vector2i, context: Dictionary) -> bool:` |
 
 ## 属性
 
@@ -158,6 +159,31 @@ func matches_cell(cell: Vector2i, context: Dictionary = {}) -> bool:
 | `context` | 项目自定义上下文。 |
 
 返回：会被选择时返回 true。
+
+结构：
+
+- `context`: Dictionary project-defined selection context.
+
+<a id="member-gfgridselection2d-methods-_matches_cell"></a>
+
+### `_matches_cell`
+
+- API：`protected`
+
+```gdscript
+func _matches_cell(cell: Vector2i, context: Dictionary) -> bool:
+```
+
+执行单个格子的选择判断。子类可重写该方法定义项目自己的选择规则。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `cell` | 格子坐标。 |
+| `context` | 项目自定义上下文。 |
+
+返回：选中该格子时返回 true。
 
 结构：
 

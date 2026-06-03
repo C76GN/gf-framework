@@ -20,6 +20,7 @@
 | 信号 | [`state_event_handled`](#member-gfstatemachine-signals-state_event_handled) | `signal state_event_handled(event_id: StringName, handler_state: StringName, payload: Variant)` |
 | 属性 | [`current_state_name`](#member-gfstatemachine-properties-current_state_name) | `var current_state_name: StringName = &""` |
 | 属性 | [`blackboard`](#member-gfstatemachine-properties-blackboard) | `var blackboard: Dictionary = {}` |
+| 方法 | [`_init`](#member-gfstatemachine-methods-_init) | `func _init(context: Object = null) -> void:` |
 | 方法 | [`add_state`](#member-gfstatemachine-methods-add_state) | `func add_state(state_name: StringName, state: GFState, parent_state_name: StringName = &"") -> void:` |
 | 方法 | [`set_state_parent`](#member-gfstatemachine-methods-set_state_parent) | `func set_state_parent(state_name: StringName, parent_state_name: StringName = &"") -> bool:` |
 | 方法 | [`start`](#member-gfstatemachine-methods-start) | `func start(initial_state_name: StringName, msg: Dictionary = {}, emit_changed: bool = true) -> void:` |
@@ -153,6 +154,24 @@ var blackboard: Dictionary = {}
 - `blackboard`: Dictionary shared state machine data.
 
 ## 方法
+
+<a id="member-gfstatemachine-methods-_init"></a>
+
+### `_init`
+
+- API：`public`
+
+```gdscript
+func _init(context: Object = null) -> void:
+```
+
+创建状态机并注入框架上下文。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `context` | 可选上下文对象，用于守卫 get_model/get_system/get_utility 调用。 |
 
 <a id="member-gfstatemachine-methods-add_state"></a>
 

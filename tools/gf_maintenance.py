@@ -166,6 +166,7 @@ CHECK_DEFINITIONS: dict[str, list[str]] = {
 		DEFAULT_REFERENCE_PROJECT,
 		"--output",
 		"ai_analysis/api_coverage_reference_project",
+		"--check",
 	],
 }
 
@@ -574,9 +575,9 @@ def classify_status_path(path: str) -> str:
 		return "examples"
 	if normalized.startswith("tests/"):
 		return "tests"
-	if normalized.startswith("docs/") or normalized in {"README.md", "README.zh.md", "addons/gf/README.md"}:
+	if normalized.startswith("docs/") or normalized in {"README.md", "README.zh.md", "addons/gf/README.md", "mkdocs.yml"}:
 		return "manual_docs"
-	if normalized.startswith("tools/") or normalized in {"AI_MAINTENANCE.md", "CODING_STYLE.md", "API_SURFACE.md"}:
+	if normalized.startswith(".codex/") or normalized.startswith("tools/") or normalized in {"AI_MAINTENANCE.md", "CODING_STYLE.md", "API_SURFACE.md"}:
 		return "maintenance_tools"
 	if (
 		normalized in {"ASSET_LIBRARY.md", "ASSET_STORE.md", ".gitattributes"}

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFStateMachine" path="addons/gf/standard/state_machine/pure/gf_state_machine.gd" module="standard" extends="RefCounted" classDigest="3f8457c1e9d9e5c6ccf4c56259fd1a722158bf403b58a56fc9d1adcb9405af27">
+<class name="GFStateMachine" path="addons/gf/standard/state_machine/pure/gf_state_machine.gd" module="standard" extends="RefCounted" classDigest="88614d01c7eb132423f39cd4ef0c2730c83c31ac8c8981b73a214f8974a2745f">
 	<description>GFStateMachine: 纯代码分层有限状态机。
 继承自 RefCounted，不依赖 Node 树，可在 GFSystem 或 GFUtility 中直接持有。
 支持平铺 FSM，也支持通过 parent_state_name 组成父子状态层级；切换时会
@@ -71,6 +71,14 @@ _fsm.start(&amp;"Idle")</description>
 		</member>
 	</properties>
 	<methods>
+		<member kind="method" name="_init">
+			<signature>func _init(context: Object = null) -&gt; void:</signature>
+			<description>创建状态机并注入框架上下文。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">context: 可选上下文对象，用于守卫 get_model/get_system/get_utility 调用。</tag>
+			</tags>
+		</member>
 		<member kind="method" name="add_state">
 			<signature>func add_state(state_name: StringName, state: GFState, parent_state_name: StringName = &amp;"") -&gt; void:</signature>
 			<description>注册一个状态。注册后，状态机会自动注入自身引用。</description>

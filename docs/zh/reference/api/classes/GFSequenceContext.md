@@ -16,6 +16,7 @@
 | 类型 | 名称 | 签名 |
 |---|---|---|
 | 属性 | [`values`](#member-gfsequencecontext-properties-values) | `var values: Dictionary = {}` |
+| 方法 | [`_init`](#member-gfsequencecontext-methods-_init) | `func _init(architecture: GFArchitecture = null, p_values: Dictionary = {}) -> void:` |
 | 方法 | [`set_architecture`](#member-gfsequencecontext-methods-set_architecture) | `func set_architecture(architecture: GFArchitecture) -> void:` |
 | 方法 | [`get_architecture`](#member-gfsequencecontext-methods-get_architecture) | `func get_architecture() -> GFArchitecture:` |
 | 方法 | [`set_value`](#member-gfsequencecontext-methods-set_value) | `func set_value(key: StringName, value: Variant) -> GFSequenceContext:` |
@@ -40,6 +41,29 @@ var values: Dictionary = {}
 - `values`: Dictionary shared by sequence steps.
 
 ## 方法
+
+<a id="member-gfsequencecontext-methods-_init"></a>
+
+### `_init`
+
+- API：`public`
+
+```gdscript
+func _init(architecture: GFArchitecture = null, p_values: Dictionary = {}) -> void:
+```
+
+创建序列上下文。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `architecture` | 可选架构实例。 |
+| `p_values` | 初始共享数据。 |
+
+结构：
+
+- `p_values`: Dictionary copied into values.
 
 <a id="member-gfsequencecontext-methods-set_architecture"></a>
 

@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFShaderParameterUtility" path="addons/gf/standard/utilities/display/gf_shader_parameter_utility.gd" module="standard" extends="GFUtility" classDigest="619739babc0012cd865f5bb81bdf7f0e7a6ec111897700b33515301cc65733f6">
+	<description>GFShaderParameterUtility: 通用 ShaderMaterial 参数应用工具。
+将 `GFShaderParameterProfile` 或参数字典写入 ShaderMaterial，也可以从持有
+`material` 属性的节点解析材质。它只处理参数存在性校验、共享材质复制和批量写入，
+不提供具体 shader、后处理算法或项目视觉规则。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_service</tag>
+		<tag name="since">4.3.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants>
+		<member kind="const" name="DEFAULT_MATERIAL_PROPERTY">
+			<signature>const DEFAULT_MATERIAL_PROPERTY: NodePath = ^"material"</signature>
+			<description>默认材质属性路径。</description>
+			<tags>
+				<tag name="api">public</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties />
+	<methods>
+		<member kind="method" name="apply_profile">
+			<signature>func apply_profile( target: Object, profile: GFShaderParameterProfile, options: Dictionary = {} ) -&gt; int:</signature>
+			<description>将 shader 参数 profile 应用到目标对象。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">target: ShaderMaterial，或持有材质属性的对象。</tag>
+				<tag name="param">profile: 要应用的 shader 参数 profile。</tag>
+				<tag name="param">options: 可选项，支持 material_property、duplicate_material、require_declared_parameters、warn_on_invalid_target、warn_on_missing_parameters 和 copy_values。</tag>
+				<tag name="return">实际写入的参数数量。</tag>
+				<tag name="schema">options: Dictionary，material_property 为 NodePath/String，默认 material；duplicate_material 为 true 时会复制目标材质并写回属性；require_declared_parameters 默认为 true，会跳过 shader 未声明的 uniform；warn_on_invalid_target 和 warn_on_missing_parameters 控制警告；copy_values 默认为 true，会复制集合参数值后再写入。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="apply_parameters">
+			<signature>func apply_parameters(target: Object, parameters: Dictionary, options: Dictionary = {}) -&gt; int:</signature>
+			<description>将 shader 参数字典应用到目标对象。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">target: ShaderMaterial，或持有材质属性的对象。</tag>
+				<tag name="param">parameters: 要应用的 shader 参数字典。</tag>
+				<tag name="param">options: 可选项，支持 material_property、duplicate_material、require_declared_parameters、warn_on_invalid_target、warn_on_missing_parameters 和 copy_values。</tag>
+				<tag name="return">实际写入的参数数量。</tag>
+				<tag name="schema">parameters: Dictionary[StringName, Variant]，shader uniform 名到参数值的映射。</tag>
+				<tag name="schema">options: Dictionary，material_property 为 NodePath/String，默认 material；duplicate_material 为 true 时会复制目标材质并写回属性；require_declared_parameters 默认为 true，会跳过 shader 未声明的 uniform；warn_on_invalid_target 和 warn_on_missing_parameters 控制警告；copy_values 默认为 true，会复制集合参数值后再写入。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="resolve_shader_material">
+			<signature>func resolve_shader_material( target: Object, material_property: NodePath = DEFAULT_MATERIAL_PROPERTY ) -&gt; ShaderMaterial:</signature>
+			<description>从目标对象解析 ShaderMaterial。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">target: ShaderMaterial，或持有材质属性的对象。</tag>
+				<tag name="param">material_property: 当 target 不是 ShaderMaterial 时读取的材质属性路径。</tag>
+				<tag name="return">解析出的 ShaderMaterial；失败时返回 null。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_shader_parameter_names">
+			<signature>func get_shader_parameter_names(material: ShaderMaterial) -&gt; Array[StringName]:</signature>
+			<description>获取 ShaderMaterial 当前 shader 声明的 uniform 参数名。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">material: 目标 ShaderMaterial。</tag>
+				<tag name="return">参数名数组。</tag>
+				<tag name="schema">return: Array[StringName]，material.shader 声明的 shader uniform 名称。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="has_shader_parameter">
+			<signature>func has_shader_parameter(material: ShaderMaterial, parameter_name: StringName) -&gt; bool:</signature>
+			<description>检查 ShaderMaterial 的 shader 是否声明了指定 uniform。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">material: 目标 ShaderMaterial。</tag>
+				<tag name="param">parameter_name: Shader uniform 参数名。</tag>
+				<tag name="return">参数存在时返回 true。</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

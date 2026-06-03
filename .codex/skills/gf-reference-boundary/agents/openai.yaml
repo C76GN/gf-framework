@@ -1,0 +1,4 @@
+interface:
+  display_name: "GF Reference Boundary"
+  short_description: "Guard GF reference project boundaries"
+  default_prompt: "Use $gf-reference-boundary to check reference project sync and boundary risks."
