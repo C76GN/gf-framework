@@ -1,0 +1,186 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFVirtualListModel" path="addons/gf/standard/utilities/ui/gf_virtual_list_model.gd" module="standard" extends="RefCounted" classDigest="7cc6d0a1e5e177b85f7de4e2e5a7227d65e078a21ae3c10f67b6cb0c11fa4419">
+	<description>GFVirtualListModel: 可变尺寸虚拟列表布局模型。
+维护条目数量、估算尺寸、实测尺寸、累计偏移和可见范围，供聊天流、
+日志面板、资源列表或编辑器 Dock 自行渲染可见 Control。它不创建 UI 节点，
+不保存条目数据，也不规定列表视觉或交互规则。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_service</tag>
+		<tag name="since">4.4.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants>
+		<member kind="const" name="DEFAULT_ESTIMATED_ITEM_EXTENT">
+			<signature>const DEFAULT_ESTIMATED_ITEM_EXTENT: float = 60.0</signature>
+			<description>默认条目估算尺寸。</description>
+			<tags>
+				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="const" name="DEFAULT_OVERSCAN_ITEMS">
+			<signature>const DEFAULT_OVERSCAN_ITEMS: int = 2</signature>
+			<description>默认可见范围两端额外保留的条目数。</description>
+			<tags>
+				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="const" name="MIN_ITEM_EXTENT">
+			<signature>const MIN_ITEM_EXTENT: float = 1.0</signature>
+			<description>条目尺寸下限，避免零尺寸条目破坏二分搜索和滚动范围。</description>
+			<tags>
+				<tag name="api">public</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties>
+		<member kind="property" name="estimated_item_extent">
+			<signature>var estimated_item_extent: float:</signature>
+			<description>未实测条目的估算尺寸。</description>
+			<tags>
+				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="property" name="overscan_items">
+			<signature>var overscan_items: int:</signature>
+			<description>可见范围前后额外保留的条目数量。</description>
+			<tags>
+				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="property" name="trailing_padding">
+			<signature>var trailing_padding: float:</signature>
+			<description>列表末尾额外报告的滚动尺寸。</description>
+			<tags>
+				<tag name="api">public</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="clear">
+			<signature>func clear() -&gt; void:</signature>
+			<description>清空所有条目尺寸和偏移缓存。</description>
+			<tags>
+				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="method" name="set_item_count">
+			<signature>func set_item_count(item_count: int) -&gt; void:</signature>
+			<description>设置条目数量，并为新增条目填入估算尺寸。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">item_count: 目标条目数量，小于 0 时按 0 处理。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="append_item">
+			<signature>func append_item(extent: float = -1.0, measured: bool = false) -&gt; int:</signature>
+			<description>追加一个条目。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">extent: 可选条目尺寸；小于等于 0 时使用 estimated_item_extent。</tag>
+				<tag name="param">measured: 是否把 extent 视为实测尺寸。</tag>
+				<tag name="return">新条目的索引。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="remove_item">
+			<signature>func remove_item(item_index: int) -&gt; bool:</signature>
+			<description>移除指定条目。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">item_index: 要移除的条目索引。</tag>
+				<tag name="return">移除成功返回 true。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="set_item_extent">
+			<signature>func set_item_extent( item_index: int, extent: float, measured: bool = true, scroll_offset: float = -1.0 ) -&gt; Dictionary:</signature>
+			<description>写入条目尺寸。
+返回报告中的 scroll_adjustment 可用于保持视口锚点：当被修改条目位于
+scroll_offset 之前时，调用方可把当前滚动偏移加上该值。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">item_index: 条目索引。</tag>
+				<tag name="param">extent: 条目尺寸，会被限制到 MIN_ITEM_EXTENT 以上。</tag>
+				<tag name="param">measured: 是否把该尺寸视为实测尺寸。</tag>
+				<tag name="param">scroll_offset: 可选当前滚动偏移；小于 0 时不计算锚点修正。</tag>
+				<tag name="return">尺寸更新报告。</tag>
+				<tag name="schema">return: Dictionary，包含 ok、changed、index、previous_extent、extent、delta 与 scroll_adjustment 字段。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="reset_item_extent">
+			<signature>func reset_item_extent(item_index: int) -&gt; bool:</signature>
+			<description>把指定条目重置为估算尺寸。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">item_index: 条目索引。</tag>
+				<tag name="return">重置成功返回 true。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_item_count">
+			<signature>func get_item_count() -&gt; int:</signature>
+			<description>获取条目数量。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">当前条目数量。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_item_extent">
+			<signature>func get_item_extent(item_index: int) -&gt; float:</signature>
+			<description>获取条目尺寸。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">item_index: 条目索引。</tag>
+				<tag name="return">条目尺寸；索引无效时返回 0。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_item_measured">
+			<signature>func is_item_measured(item_index: int) -&gt; bool:</signature>
+			<description>判断条目尺寸是否来自实测。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">item_index: 条目索引。</tag>
+				<tag name="return">已实测返回 true。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_item_offset">
+			<signature>func get_item_offset(item_index: int) -&gt; float:</signature>
+			<description>获取条目顶部偏移。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">item_index: 条目索引。</tag>
+				<tag name="return">条目顶部偏移；索引无效时返回 0。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_content_extent">
+			<signature>func get_content_extent(include_trailing_padding: bool = true) -&gt; float:</signature>
+			<description>获取内容总尺寸。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">include_trailing_padding: 是否包含 trailing_padding。</tag>
+				<tag name="return">内容总尺寸。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_visible_range">
+			<signature>func get_visible_range(scroll_offset: float, viewport_extent: float) -&gt; Vector2i:</signature>
+			<description>计算当前滚动窗口内应被物化的条目范围。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">scroll_offset: 当前滚动偏移。</tag>
+				<tag name="param">viewport_extent: 视口尺寸。</tag>
+				<tag name="return">Vector2i(start, end)，end 为不包含的结束索引。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_visible_items">
+			<signature>func get_visible_items(scroll_offset: float, viewport_extent: float) -&gt; Array[Dictionary]:</signature>
+			<description>获取当前滚动窗口内的条目布局记录。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">scroll_offset: 当前滚动偏移。</tag>
+				<tag name="param">viewport_extent: 视口尺寸。</tag>
+				<tag name="return">可见条目记录数组。</tag>
+				<tag name="schema">return: Array[Dictionary]，每项包含 index、offset、extent 与 measured 字段。</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

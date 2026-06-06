@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFResourceRegistryTools" path="addons/gf/standard/utilities/assets/gf_resource_registry_tools.gd" module="standard" extends="RefCounted" classDigest="d99ee3a21484e2e5808a6f916c1e1889fc6519ae9e620e3e77f4bbca7cc9380d">
+<class name="GFResourceRegistryTools" path="addons/gf/standard/utilities/assets/gf_resource_registry_tools.gd" module="standard" extends="RefCounted" classDigest="afb70bc77c33cb13a5daa9863bf41bc096b33d03c37b399c76cc1c3de328a1b9">
 	<description>GFResourceRegistryTools: 通用资源注册表扫描和生成工具。
 面向编辑器工具、构建脚本和项目安装器复用；它只从路径生成
 `GFResourceRegistry` / `GFResourceRegistryEntry`，不解释业务字段。</description>
@@ -147,6 +147,20 @@
 				<tag name="param">options: 可选项，支持 recursive、include_root、extensions、excluded_paths、max_scan_depth 与 max_dependency_paths。</tag>
 				<tag name="return">排序后的依赖路径。</tag>
 				<tag name="schema">options: Dictionary，可包含 recursive、include_root、extensions、excluded_paths、max_scan_depth 和 max_dependency_paths 字段。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="build_dependency_report">
+			<signature>static func build_dependency_report(resource_path: String, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>构建资源依赖诊断报告。
+报告保留路径闭包、直接依赖、缺失依赖、排除依赖、循环和上限命中信息，
+适合编辑器检查、构建预检、资源注册表生成前检查和预热清单诊断。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">resource_path: 入口资源路径。</tag>
+				<tag name="param">options: 可选项，支持 recursive、include_root、extensions、excluded_paths、max_scan_depth、max_dependency_paths 与 include_direct_dependencies。</tag>
+				<tag name="return">依赖诊断报告。</tag>
+				<tag name="schema">options: Dictionary，可包含 recursive、include_root、extensions、excluded_paths、max_scan_depth、max_dependency_paths 和 include_direct_dependencies 字段。</tag>
+				<tag name="schema">return: Dictionary，包含 ok、healthy、root_path、paths、resources、missing、excluded、cycles、issues、resource_count、missing_count、excluded_count、cycle_count、limit_reached、depth_limit_reached、error_count、warning_count、issue_count、summary 与 next_action 字段。</tag>
 			</tags>
 		</member>
 		<member kind="method" name="add_paths_to_registry">

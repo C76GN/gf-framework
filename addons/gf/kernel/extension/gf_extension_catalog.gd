@@ -1,7 +1,7 @@
 ## GFExtensionCatalog: GF 扩展 manifest 发现与读取辅助。
 ##
-## 扫描 `addons/gf/extensions` 下一层扩展目录中的 `gf_extension.json`，
-## 供编辑器工具或项目侧扩展管理界面使用。
+## 扫描 GF 内置扩展目录和项目声明的额外扩展集合根目录，
+## 读取下一层扩展目录中的 `gf_extension.json`，供编辑器工具或项目侧扩展管理界面使用。
 ## [br]
 ## @api public
 ## [br]
@@ -22,6 +22,7 @@ extends RefCounted
 ## [br]
 ## @layer kernel/extension
 const GFExtensionManifestBase = preload("res://addons/gf/kernel/extension/gf_extension_manifest.gd")
+const _GF_PATH_TOOLS = preload("res://addons/gf/kernel/core/gf_path_tools.gd")
 
 ## GF 内置可选扩展根目录。
 ## [br]
@@ -40,13 +41,18 @@ static func load_extension_manifests() -> Array[GFExtensionManifest]:
 	return load_manifests_in(EXTENSIONS_PATH)
 
 
-## 读取所有 GF 内置可选扩展 manifest。
+## 读取所有 GF 可选扩展 manifest。
 ## [br]
 ## @api public
 ## [br]
+## @param extra_root_paths: 额外扩展集合根目录列表，每个根目录下一层为独立扩展目录。
+## [br]
 ## @return 扩展 manifest 列表。
-static func load_all_manifests() -> Array[GFExtensionManifest]:
-	return load_extension_manifests()
+static func load_all_manifests(extra_root_paths: Array[String] = []) -> Array[GFExtensionManifest]:
+	var manifests: Array[GFExtensionManifest] = load_extension_manifests()
+	for root_path: String in _normalize_root_paths(extra_root_paths):
+		manifests.append_array(load_manifests_in(root_path))
+	return manifests
 
 
 ## 读取指定根目录下一层扩展目录中的 manifest。
@@ -92,3 +98,15 @@ static func get_manifest_paths(root_path: String) -> Array[String]:
 	dir.list_dir_end()
 	paths.sort()
 	return paths
+
+
+# --- 私有/辅助方法 ---
+
+static func _normalize_root_paths(root_paths: Array[String]) -> Array[String]:
+	var result: Array[String] = []
+	var normalized_paths: PackedStringArray = _GF_PATH_TOOLS.normalize_root_paths(PackedStringArray(root_paths))
+	for normalized_path: String in normalized_paths:
+		if normalized_path == EXTENSIONS_PATH:
+			continue
+		result.append(normalized_path)
+	return result

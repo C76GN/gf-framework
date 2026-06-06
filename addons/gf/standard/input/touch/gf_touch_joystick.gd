@@ -2,7 +2,7 @@
 
 ## GFTouchJoystick: 通用触屏虚拟摇杆节点。
 ##
-## 可直接发出方向信号，也可选择映射到 Godot InputMap 动作。
+## 可直接发出摇杆向量信号，也可选择映射到 Godot InputMap 动作。
 ## [br]
 ## @api public
 ## [br]
@@ -15,11 +15,11 @@ extends Node2D
 
 # --- 信号 ---
 
-## 摇杆方向变化时发出。方向已归一化并应用死区。
+## 摇杆向量变化时发出。向量已应用死区并保留模拟强度。
 ## [br]
 ## @api public
 ## [br]
-## @param direction: 已归一化并应用死区后的摇杆方向。
+## @param direction: 已应用死区并保留模拟强度的摇杆向量。
 signal direction_changed(direction: Vector2)
 
 ## 摇杆按下时发出。
@@ -43,6 +43,8 @@ enum PositionMode {
 	FIXED,
 	## 初次触摸时摇杆中心移动到触点，释放后回到原位置。
 	RELATIVE,
+	## 初次触摸时摇杆中心移动到触点，拖动超过半径时中心跟随触点。
+	FOLLOW,
 }
 
 
@@ -179,7 +181,7 @@ func _input(event: InputEvent) -> void:
 
 
 func _draw() -> void:
-	if draw_interaction_zone and position_mode == PositionMode.RELATIVE:
+	if draw_interaction_zone and _uses_touch_origin():
 		draw_circle(Vector2.ZERO, interaction_radius, Color(color, color.a * 0.35), false, 1.0, true)
 	draw_circle(Vector2.ZERO, radius, color, false, 2.0, true)
 	draw_circle(Vector2.ZERO, radius, Color(color, color.a * 0.35), true, -1.0, true)
@@ -188,11 +190,11 @@ func _draw() -> void:
 
 # --- 公共方法 ---
 
-## 获取当前方向。
+## 获取当前摇杆向量。
 ## [br]
 ## @api public
 ## [br]
-## @return 当前摇杆方向。
+## @return 已应用死区并保留模拟强度的摇杆向量。
 func get_direction() -> Vector2:
 	return _direction
 
@@ -203,7 +205,7 @@ func get_direction() -> Vector2:
 func release() -> void:
 	_active_touch_index = -1
 	_set_direction(Vector2.ZERO, Vector2.ZERO)
-	if position_mode == PositionMode.RELATIVE:
+	if _uses_touch_origin():
 		global_position = _rest_global_position
 	joystick_released.emit()
 
@@ -228,7 +230,7 @@ func _handle_drag(event: InputEventScreenDrag) -> void:
 
 func _begin_touch(touch_index: int, global_pos: Vector2, local_pos: Vector2) -> void:
 	_active_touch_index = touch_index
-	if position_mode == PositionMode.RELATIVE:
+	if _uses_touch_origin():
 		global_position = global_pos
 		local_pos = Vector2.ZERO
 	_knob_position = Vector2.ZERO
@@ -237,19 +239,16 @@ func _begin_touch(touch_index: int, global_pos: Vector2, local_pos: Vector2) -> 
 
 
 func _can_begin_at(local_pos: Vector2) -> bool:
-	if position_mode == PositionMode.RELATIVE:
+	if _uses_touch_origin():
 		return local_pos.length() <= interaction_radius
 	return local_pos.length() <= radius
 
 
 func _update_from_local_position(local_pos: Vector2) -> void:
+	local_pos = _apply_follow_origin(local_pos)
 	var knob_pos: Vector2 = local_pos.limit_length(radius)
 	var raw_direction: Vector2 = knob_pos / radius
-	var next_direction: Vector2 = raw_direction
-	if next_direction.length() < deadzone:
-		next_direction = Vector2.ZERO
-	else:
-		next_direction = next_direction.normalized()
+	var next_direction: Vector2 = _apply_deadzone(raw_direction)
 	_set_direction(next_direction, knob_pos)
 
 
@@ -307,6 +306,28 @@ func _emit_joypad_axis(axis: JoyAxis, value: float) -> void:
 	event.axis = axis
 	event.axis_value = clampf(value, -1.0, 1.0)
 	Input.parse_input_event(event)
+
+
+func _apply_deadzone(raw_direction: Vector2) -> Vector2:
+	var magnitude: float = raw_direction.length()
+	var threshold: float = clampf(deadzone, 0.0, 0.99)
+	if magnitude <= threshold:
+		return Vector2.ZERO
+	var remapped_magnitude: float = (magnitude - threshold) / (1.0 - threshold)
+	return raw_direction.normalized() * clampf(remapped_magnitude, 0.0, 1.0)
+
+
+func _apply_follow_origin(local_pos: Vector2) -> Vector2:
+	if position_mode != PositionMode.FOLLOW or local_pos.length() <= radius:
+		return local_pos
+	var knob_pos: Vector2 = local_pos.limit_length(radius)
+	var global_delta: Vector2 = to_global(local_pos) - to_global(knob_pos)
+	global_position += global_delta
+	return knob_pos
+
+
+func _uses_touch_origin() -> bool:
+	return position_mode == PositionMode.RELATIVE or position_mode == PositionMode.FOLLOW
 
 
 func _screen_to_global_position(screen_position: Vector2) -> Vector2:

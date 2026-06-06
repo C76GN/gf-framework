@@ -24,34 +24,37 @@ const KERNEL_STANDARD_EXTENSION_CLASS_REFERENCE_ALLOWED_FILES: Dictionary = {
 
 func test_manifest_from_dictionary_normalizes_fields() -> void:
 	var manifest: GFExtensionManifest = GFExtensionManifest.from_dictionary({
-		"id": "author.terrain",
-		"display_name": "Terrain Tools",
-		"version": "1.0.0",
-		"extension_version": "1.2.3",
-		"kind": "extension",
-		"description": "Example extension.",
-		"dependencies": ["gf.kernel", &"gf.standard"],
-		"installer_paths": PackedStringArray(["res://addons/terrain_tools/extension.gd"]),
+		"id": " author.terrain ",
+		"display_name": " Terrain Tools ",
+		"version": " 1.0.0 ",
+		"extension_version": " 1.2.3 ",
+		"kind": " extension ",
+		"description": " Example extension. ",
+		"dependencies": [" gf.kernel ", &"gf.standard", "gf.standard", ""],
+		"installer_paths": PackedStringArray([" res://addons\\terrain_tools/extension.gd "]),
 		"editor_action_paths": ["res://addons/terrain_tools/editor/terrain_actions.gd"],
 		"editor_dock_paths": ["res://addons/terrain_tools/editor/terrain_dock.gd"],
 		"editor_dock_order": 42,
-		"editor_dock_short_label": "Terrain",
+		"editor_dock_short_label": " Terrain ",
 		"editor_inspector_paths": ["res://addons/terrain_tools/editor/terrain_inspector.gd"],
 		"import_plugin_paths": ["res://addons/terrain_tools/editor/terrain_import_plugin.gd"],
 		"export_plugin_paths": ["res://addons/terrain_tools/editor/terrain_export_plugin.gd"],
 		"gltf_document_extension_paths": ["res://addons/terrain_tools/editor/terrain_gltf_extension.gd"],
 		"access_generator_extension_paths": ["res://addons/terrain_tools/editor/terrain_access_generator.gd"],
-		"tags": ["terrain", "editor"],
+		"tags": [" terrain ", "editor", "terrain", ""],
 		"enabled_by_default": false,
-	}, "res://addons/terrain_tools", "res://addons/terrain_tools/gf_extension.json")
+	}, " res://addons\\terrain_tools/ ", " res://addons\\terrain_tools/gf_extension.json ")
 
 	assert_true(manifest.is_valid(), "完整 manifest 应通过基础校验。")
 	assert_eq(manifest.id, "author.terrain", "应读取稳定扩展 ID。")
+	assert_eq(manifest.display_name, "Terrain Tools", "显示名应裁剪空白。")
 	assert_eq(manifest.version, "1.0.0", "应读取扩展发行版本。")
 	assert_eq(manifest.extension_version, "1.2.3", "应读取扩展自身版本。")
 	assert_eq(manifest.kind, GFExtensionManifest.KIND_EXTENSION, "扩展类型应读取为统一 extension。")
 	assert_eq(manifest.dependencies, ["gf.kernel", "gf.standard"], "依赖列表应归一化为字符串数组。")
-	assert_eq(manifest.installer_paths.size(), 1, "installer_paths 应支持 PackedStringArray。")
+	assert_eq(manifest.root_path, "res://addons/terrain_tools", "扩展根目录应规范化。")
+	assert_eq(manifest.description, "Example extension.", "说明文本应裁剪空白。")
+	assert_eq(manifest.installer_paths, ["res://addons/terrain_tools/extension.gd"], "installer_paths 应支持 PackedStringArray 并规范化路径。")
 	assert_eq(manifest.editor_action_paths.size(), 1, "editor_action_paths 应读取为字符串数组。")
 	assert_eq(manifest.editor_dock_paths.size(), 1, "editor_dock_paths 应读取为字符串数组。")
 	assert_eq(manifest.editor_dock_order, 42, "editor_dock_order 应读取为工作区排序值。")
@@ -61,7 +64,9 @@ func test_manifest_from_dictionary_normalizes_fields() -> void:
 	assert_eq(manifest.export_plugin_paths.size(), 1, "export_plugin_paths 应读取为字符串数组。")
 	assert_eq(manifest.gltf_document_extension_paths.size(), 1, "gltf_document_extension_paths 应读取为字符串数组。")
 	assert_eq(manifest.access_generator_extension_paths.size(), 1, "access_generator_extension_paths 应读取为字符串数组。")
+	assert_eq(manifest.tags, ["terrain", "editor"], "标签应裁剪、去空并按首次出现顺序去重。")
 	assert_false(manifest.enabled_by_default, "显式关闭默认启用时应保留配置。")
+	assert_eq(manifest.source_path, "res://addons/terrain_tools/gf_extension.json", "manifest 来源路径应规范化。")
 
 	var dictionary: Dictionary = manifest.to_dictionary()
 	assert_eq(GF_VARIANT_ACCESS.get_option_int(dictionary, "editor_dock_order"), 42, "manifest 字典应保留工作区排序。")
@@ -103,6 +108,20 @@ func test_manifest_validation_reports_required_fields() -> void:
 		invalid_kind_errors.has("kind must be standard or extension"),
 		"未知 kind 应报告错误。"
 	)
+
+
+func test_manifest_validation_keeps_empty_paths_after_path_normalization() -> void:
+	var manifest: GFExtensionManifest = GFExtensionManifest.from_dictionary({
+		"id": "author.terrain",
+		"display_name": "Terrain Tools",
+		"version": "1.0.0",
+		"kind": "extension",
+		"editor_action_paths": [" ", " res://addons\\terrain_tools/editor/actions.gd "],
+	}, "res://addons/terrain_tools", "")
+	var errors: Array[String] = manifest.get_validation_errors()
+
+	assert_eq(manifest.editor_action_paths[1], "res://addons/terrain_tools/editor/actions.gd", "路径列表应裁剪空白并统一斜杠。")
+	assert_true(errors.has("editor_action_paths contains empty path"), "读取阶段不应吞掉空路径校验错误。")
 
 
 func test_manifest_validation_keeps_extension_paths_inside_root() -> void:
@@ -165,6 +184,44 @@ func test_catalog_loads_extension_manifests() -> void:
 	assert_true(ids.has("gf.combat"), "扩展目录应能发现 combat manifest。")
 	assert_true(ids.has("gf.network"), "扩展目录应能发现 network manifest。")
 	assert_true(ids.has("gf.save"), "扩展目录应能发现 save manifest。")
+
+
+func test_extension_settings_loads_external_extension_roots_from_project_settings() -> void:
+	var root_path: String = "res://tests/gf_core/tmp_external_extensions"
+	var extension_dir: String = root_path.path_join("sample")
+	var manifest_path: String = extension_dir.path_join(GFExtensionManifest.FILE_NAME)
+	_remove_path_if_exists(manifest_path)
+	_remove_path_if_exists(extension_dir)
+	_remove_path_if_exists(root_path)
+	var _make_dir_result: Variant = DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(extension_dir))
+	_write_text_file(manifest_path, JSON.stringify({
+		"id": "author.external",
+		"display_name": "External",
+		"version": "1.0.0",
+		"kind": "extension",
+		"enabled_by_default": false,
+	}))
+	var restore: Dictionary = _set_project_setting(
+		GFExtensionSettings.EXTERNAL_EXTENSION_ROOTS_SETTING,
+		[root_path, root_path + "/", root_path.replace("/", "\\"), "user://ignored"]
+	)
+	GFExtensionSettings.clear_manifest_cache()
+
+	var roots: Array[String] = GFExtensionSettings.get_external_extension_roots()
+	var manifest: GFExtensionManifest = GFExtensionSettings.get_manifest_by_id("author.external")
+	var report: Dictionary = GFExtensionSettings.get_extension_selection_report()
+	var external_roots: Array = GF_VARIANT_ACCESS.get_option_array(report, "external_roots")
+
+	GFExtensionSettings.clear_manifest_cache()
+	_restore_project_setting(GFExtensionSettings.EXTERNAL_EXTENSION_ROOTS_SETTING, restore)
+	_remove_path_if_exists(manifest_path)
+	_remove_path_if_exists(extension_dir)
+	_remove_path_if_exists(root_path)
+
+	assert_eq(roots, [root_path], "额外扩展根目录应去重并过滤非 res:// 路径。")
+	assert_not_null(manifest, "ProjectSettings 声明的额外扩展根目录应参与 manifest 发现。")
+	assert_eq(manifest.root_path, extension_dir, "外部 manifest root_path 应指向扩展自身目录。")
+	assert_eq(external_roots, [root_path], "启用状态诊断应暴露当前额外扩展根目录。")
 
 
 func test_extension_manifest_versions_follow_release_policy() -> void:
@@ -294,6 +351,35 @@ func test_enabled_manifest_and_extension_paths_follow_dependency_order() -> void
 	)
 
 
+func test_enabled_manifest_paths_are_blocked_when_manifest_graph_is_invalid() -> void:
+	var feature_manifest: GFExtensionManifest = GFExtensionManifest.from_dictionary({
+		"id": "author.feature",
+		"display_name": "Feature",
+		"version": "1.0.0",
+		"kind": "extension",
+		"dependencies": ["author.missing"],
+		"installer_paths": ["res://addons/author_feature/feature_installer.gd"],
+	}, "res://addons/author_feature", "")
+	var enabled_restore: Dictionary = _set_project_setting(
+		GFExtensionSettings.ENABLED_EXTENSIONS_SETTING,
+		["author.feature"]
+	)
+	var auto_install_restore: Dictionary = _set_project_setting(
+		GFExtensionSettings.AUTO_INSTALL_ENABLED_INSTALLERS_SETTING,
+		true
+	)
+	GFExtensionSettings.set_cached_manifests([feature_manifest])
+
+	var installer_paths: Array[String] = GFExtensionSettings.get_enabled_installer_paths()
+
+	GFExtensionSettings.clear_manifest_cache()
+	_restore_project_setting(GFExtensionSettings.AUTO_INSTALL_ENABLED_INSTALLERS_SETTING, auto_install_restore)
+	_restore_project_setting(GFExtensionSettings.ENABLED_EXTENSIONS_SETTING, enabled_restore)
+
+	assert_eq(installer_paths, [], "扩展依赖图无效时不应继续收集 installer 路径。")
+	assert_push_warning("[GFExtensionSettings] get_enabled_manifests blocked: missing dependency author.feature -> author.missing")
+
+
 func test_extension_settings_resolves_only_known_manifest_ids() -> void:
 	var feature_manifest: GFExtensionManifest = GFExtensionManifest.from_dictionary({
 		"id": "author.feature",
@@ -409,6 +495,30 @@ func test_enabled_installer_paths_follow_extension_selection() -> void:
 	)
 
 
+func test_extension_resource_paths_must_stay_inside_extension_root() -> void:
+	var feature_manifest: GFExtensionManifest = GFExtensionManifest.from_dictionary({
+		"id": "author.feature",
+		"display_name": "Feature",
+		"version": "1.0.0",
+		"kind": "extension",
+	}, "res://addons/author_feature", "")
+	GFExtensionSettings.set_cached_manifests([feature_manifest])
+
+	var relative_path: String = GFExtensionSettings.get_extension_resource_path("author.feature", "scripts/tool.gd")
+	var absolute_under_root: String = GFExtensionSettings.get_extension_resource_path("author.feature", "res://addons/author_feature/scripts/tool.gd")
+	var user_path: String = GFExtensionSettings.get_extension_resource_path("author.feature", "user://tool.gd")
+	var escaped_path: String = GFExtensionSettings.get_extension_resource_path("author.feature", "../author_other/tool.gd")
+	var foreign_path: String = GFExtensionSettings.get_extension_resource_path("author.feature", "res://addons/gf/extensions/save/core/gf_save_scope.gd")
+
+	GFExtensionSettings.clear_manifest_cache()
+
+	assert_eq(relative_path, "res://addons/author_feature/scripts/tool.gd", "相对路径应解析到扩展 root 下。")
+	assert_eq(absolute_under_root, "res://addons/author_feature/scripts/tool.gd", "root 内绝对 res:// 路径应允许。")
+	assert_eq(user_path, "", "扩展资源路径不应接受 user://。")
+	assert_eq(escaped_path, "", "相对路径不应能通过 .. 越过扩展 root。")
+	assert_eq(foreign_path, "", "扩展资源路径不应指向其他扩展或项目目录。")
+
+
 func test_extension_settings_can_query_manifest_and_enabled_state() -> void:
 	var setting_name: String = GFExtensionSettings.ENABLED_EXTENSIONS_SETTING
 	var had_setting: bool = ProjectSettings.has_setting(setting_name)
@@ -469,6 +579,22 @@ func test_extension_settings_can_query_manifest_and_enabled_state() -> void:
 	assert_true(save_gltf_document_paths.is_empty(), "Save 扩展未声明 glTF 文档扩展时应返回空 glTF 文档扩展路径。")
 	assert_true(save_access_extension_paths.is_empty(), "Save 扩展未声明访问器扩展时应返回空访问器扩展路径。")
 	assert_null(combat_script, "未启用扩展内脚本不应被统一加载入口加载。")
+
+
+func test_load_enabled_extension_script_rejects_absolute_paths_outside_extension_root() -> void:
+	var restore: Dictionary = _set_project_setting(
+		GFExtensionSettings.ENABLED_EXTENSIONS_SETTING,
+		["gf.save"]
+	)
+
+	var script: Script = GFExtensionSettings.load_enabled_extension_script(
+		"gf.save",
+		"res://addons/gf/extensions/combat/actions/gf_combat_action.gd"
+	)
+
+	_restore_project_setting(GFExtensionSettings.ENABLED_EXTENSIONS_SETTING, restore)
+
+	assert_null(script, "启用扩展脚本加载入口不应加载扩展 root 外脚本。")
 
 
 func test_extension_selection_report_includes_unknown_enabled_ids() -> void:
@@ -677,6 +803,25 @@ func test_extension_export_plugin_matches_disabled_roots() -> void:
 	)
 
 
+func test_extension_export_plugin_blocks_invalid_manifest_graph() -> void:
+	var feature_manifest: GFExtensionManifest = GFExtensionManifest.from_dictionary({
+		"id": "author.feature",
+		"display_name": "Feature",
+		"version": "1.0.0",
+		"kind": "extension",
+		"dependencies": ["author.missing"],
+	}, "res://addons/author_feature", "")
+	var report: Dictionary = GFExtensionSettings.get_manifest_graph_report([feature_manifest])
+	var formatted_report: String = GF_EXTENSION_EXPORT_PLUGIN_BASE._format_manifest_graph_report(report)
+
+	assert_false(
+		GF_EXTENSION_EXPORT_PLUGIN_BASE._manifest_graph_allows_export(report),
+		"导出插件不应在 manifest 图无效时继续导出过滤。"
+	)
+	assert_true(formatted_report.contains("author.feature"), "导出错误信息应包含出问题的扩展 ID。")
+	assert_true(formatted_report.contains("author.missing"), "导出错误信息应包含缺失依赖 ID。")
+
+
 func test_extension_usage_audit_finds_project_reference() -> void:
 	var directory: String = "user://gf_extension_usage_audit"
 	var path: String = directory.path_join("uses_save.gd")
@@ -698,6 +843,40 @@ func test_extension_usage_audit_finds_project_reference() -> void:
 
 	assert_eq(references.size(), 1, "直接 preload 禁用扩展目录下的脚本应被审计发现。")
 	assert_eq(GF_VARIANT_ACCESS.get_option_string(GF_VARIANT_ACCESS.as_dictionary(references[0]), "path"), path, "审计结果应包含引用文件路径。")
+
+
+func test_extension_usage_audit_normalizes_scan_and_ignored_roots() -> void:
+	var directory: String = "user://gf_extension_usage_audit_ignored"
+	var keep_dir: String = directory.path_join("keep")
+	var skip_dir: String = directory.path_join("skip")
+	var keep_path: String = keep_dir.path_join("uses_save_keep.gd")
+	var skip_path: String = skip_dir.path_join("uses_save_skip.gd")
+	var _make_keep_dir_result: Variant = DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(keep_dir))
+	var _make_skip_dir_result: Variant = DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(skip_dir))
+	_write_text_file(keep_path, 'const SaveKeep = preload("res://addons/gf/extensions/save/graph/gf_save_graph_utility.gd")')
+	_write_text_file(skip_path, 'const SaveSkip = preload("res://addons/gf/extensions/save/graph/gf_save_graph_utility.gd")')
+
+	var references: Array = GFExtensionUsageAudit.find_references_to_root(
+		"res://addons/gf/extensions/save/",
+		{
+			"scan_roots": [directory + "\\"],
+			"ignored_roots": [skip_dir + "\\", skip_dir, ""],
+			"max_references_per_extension": 10,
+		}
+	)
+
+	var _remove_keep_file_result: Variant = DirAccess.remove_absolute(ProjectSettings.globalize_path(keep_path))
+	var _remove_skip_file_result: Variant = DirAccess.remove_absolute(ProjectSettings.globalize_path(skip_path))
+	var _remove_keep_dir_result: Variant = DirAccess.remove_absolute(ProjectSettings.globalize_path(keep_dir))
+	var _remove_skip_dir_result: Variant = DirAccess.remove_absolute(ProjectSettings.globalize_path(skip_dir))
+	var _remove_directory_result: Variant = DirAccess.remove_absolute(ProjectSettings.globalize_path(directory))
+
+	assert_eq(references.size(), 1, "审计扫描根和忽略根应统一斜杠、去重并跳过忽略目录。")
+	assert_eq(
+		GF_VARIANT_ACCESS.get_option_string(GF_VARIANT_ACCESS.as_dictionary(references[0]), "path"),
+		keep_path,
+		"未忽略目录中的引用应保留。"
+	)
 
 
 func test_extension_usage_audit_does_not_ignore_project_test_roots_by_default() -> void:
@@ -826,6 +1005,12 @@ func _write_text_file(path: String, text: String) -> void:
 		return
 	var _store_string_result_826: Variant = file.store_string(text)
 	file.close()
+
+
+func _remove_path_if_exists(path: String) -> void:
+	var absolute_path: String = ProjectSettings.globalize_path(path)
+	if FileAccess.file_exists(absolute_path) or DirAccess.dir_exists_absolute(absolute_path):
+		var _remove_absolute_result: Variant = DirAccess.remove_absolute(absolute_path)
 
 
 func _get_extension_root(path: String) -> String:

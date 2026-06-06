@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFPathTools" path="addons/gf/kernel/core/gf_path_tools.gd" module="kernel" extends="RefCounted" classDigest="738710ef4b56e21a3d5505ae02e8a86594b393dc1124721010f7a9a5b8b34e2b">
+	<description>GFPathTools: GF 内部和项目工具可复用的路径规范化辅助。
+只处理字符串层面的路径斜杠、简化、根目录裁剪、相对路径和排除匹配；
+不访问文件系统、不加载资源，也不解释资源业务语义。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_service</tag>
+		<tag name="since">4.4.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties />
+	<methods>
+		<member kind="method" name="normalize_path">
+			<signature>static func normalize_path(path: String, fallback: String = "", simplify: bool = true) -&gt; String:</signature>
+			<description>规范化普通路径文本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">path: 输入路径。</tag>
+				<tag name="param">fallback: 输入为空时返回的兜底路径。</tag>
+				<tag name="param">simplify: 是否调用 Godot simplify_path() 折叠 `.` 和 `..`。</tag>
+				<tag name="return">规范化后的路径。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="normalize_resource_path">
+			<signature>static func normalize_resource_path(path: String, fallback: String = "", simplify: bool = true) -&gt; String:</signature>
+			<description>规范化 Godot 资源路径文本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">path: 输入路径，通常是 `res://`、`user://`、`uid://` 或相对路径。</tag>
+				<tag name="param">fallback: 输入为空时返回的兜底路径。</tag>
+				<tag name="param">simplify: 是否调用 Godot simplify_path() 折叠 `.` 和 `..`。</tag>
+				<tag name="return">规范化后的资源路径文本。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="normalize_root_path">
+			<signature>static func normalize_root_path(path: String, fallback: String = "", simplify: bool = true) -&gt; String:</signature>
+			<description>规范化根目录路径，并移除多余尾随斜杠。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">path: 输入根目录。</tag>
+				<tag name="param">fallback: 输入为空时返回的兜底路径。</tag>
+				<tag name="param">simplify: 是否调用 Godot simplify_path() 折叠 `.` 和 `..`。</tag>
+				<tag name="return">规范化后的根目录路径。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="normalize_root_paths">
+			<signature>static func normalize_root_paths(paths: PackedStringArray, simplify: bool = true) -&gt; PackedStringArray:</signature>
+			<description>规范化根目录路径集合，并按首次出现顺序去除空路径和重复项。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">paths: 输入根目录路径集合。</tag>
+				<tag name="param">simplify: 是否调用 Godot simplify_path() 折叠 `.` 和 `..`。</tag>
+				<tag name="return">规范化并去重后的根目录路径集合。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="make_relative_path">
+			<signature>static func make_relative_path(path: String, base_path: String) -&gt; String:</signature>
+			<description>从 base_path 推导 path 的相对路径。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">path: 输入路径。</tag>
+				<tag name="param">base_path: 基准目录。</tag>
+				<tag name="return">path 位于 base_path 下时返回相对路径，否则返回规范化后的 path。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_path_under_root">
+			<signature>static func is_path_under_root( path: String, root_path: String, allow_equal: bool = true, empty_root_matches: bool = false ) -&gt; bool:</signature>
+			<description>判断 path 是否位于 root_path 内。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">path: 输入路径。</tag>
+				<tag name="param">root_path: 允许的根目录。</tag>
+				<tag name="param">allow_equal: 为 true 时 path 等于 root_path 也视为命中。</tag>
+				<tag name="param">empty_root_matches: 为 true 时空 root_path 视为允许所有路径。</tag>
+				<tag name="return">位于根目录内时返回 true。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_path_excluded">
+			<signature>static func is_path_excluded(path: String, excluded_paths: PackedStringArray) -&gt; bool:</signature>
+			<description>判断 path 是否被排除路径集合命中。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">path: 输入路径。</tag>
+				<tag name="param">excluded_paths: 排除路径集合；命中目录自身或其子路径都返回 true。</tag>
+				<tag name="return">被排除时返回 true。</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

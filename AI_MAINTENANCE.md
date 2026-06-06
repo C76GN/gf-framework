@@ -121,7 +121,7 @@ addons/gf/kernel <- addons/gf/standard <- addons/gf/extensions
 - GF 版本 tag 统一使用不带 `v` 的 SemVer 格式，例如 `3.5.0`。推送这类 tag 后，`.github/workflows/release.yml` 会校验 `plugin.cfg`、内置扩展 manifest、`ASSET_LIBRARY.md`、`ASSET_STORE.md` 与 changelog 版本一致，构建文档，并用对应 changelog 段落创建 GitHub Release。
 - Godot Asset Store 下载包必须使用 `tools/build_asset_store_package.py` 生成的专用 ZIP，不使用 GitHub 自动生成的 `Source code (zip)`。专用 ZIP 的根目录必须直接是 `addons/`，插件内容位于 `addons/gf/**`，不能多包一层仓库名或版本目录。
 - Asset Store 专用 ZIP 默认输出到被 Git 忽略的 `build/gf-framework-<version>.zip`。打包脚本只写入可安装插件载荷，排除 `.import`、`.godot`、`.import/`、临时日志和本地缓存文件；Godot 会在用户项目中从源资源重新生成导入缓存。
-- 发布前运行 `python tools\build_asset_store_package.py --version <version>` 并确认输出中 `top=['addons']`；再运行 `python tools\gf_maintenance.py release-status --version <version>`，该检查会临时生成并校验 Asset Store ZIP 结构。
+- 发布前运行 `python tools\build_asset_store_package.py --version <version>` 并确认输出中 `top=['addons']`；再运行 `python tools\gf_maintenance.py release-status --version <version>`，该检查会拒绝脏工作区、扫描是否存在高于发布版本的 `@since` 标注，并临时生成校验 Asset Store ZIP 结构。`--allow-dirty` 只能用于本地诊断，不能用于正式发布或 tag 前检查。
 - 除非用户明确要求 AI 直接提交，否则只准备 commit message 和待提交文件清单，让用户手动提交。若用户明确要求 AI 提交，提交前必须再次运行相关测试和文档/API 校验。
 - 提交后不要自动创建 Git tag；只有用户明确要求打 tag 时，才创建对应版本 tag。
 
@@ -309,6 +309,8 @@ python tools\gf_maintenance.py check --suite full
 python tools\build_asset_store_package.py --version 3.19.0
 python tools\gf_maintenance.py release-status --version 3.19.0
 ```
+
+`check --suite quick` 只适合快速检查 API 参考、AI API、文档质量、路径卫生和 diff，不运行 GUT，也不构建 MkDocs；源码行为、发布、扩展边界或性能相关变更不能把 quick 通过视为完整质量门槛，应至少补对应 GUT，最终用 `full` 或 `release` suite 收敛。
 
 维护规则：
 

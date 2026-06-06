@@ -9,7 +9,7 @@
 - 类别：运行时服务 (`runtime_service`)
 - 首次版本：`3.17.0`
 
-通用 Variant 数据复制与默认值合并。 提供不依赖 GFArchitecture 的集合复制、Resource 可选复制和默认值递归补齐。 JSON 兼容编码由 GFVariantJsonCodec 负责。
+通用 Variant 数据复制与默认值合并。 提供不依赖 GFArchitecture 的集合复制、Resource 可选复制、差异报告和默认值递归补齐。 JSON 兼容编码由 GFVariantJsonCodec 负责。
 
 ## 成员概览
 
@@ -35,6 +35,7 @@
 | 方法 | [`merge_dictionary`](#member-gfvariantdata-methods-merge_dictionary) | `static func merge_dictionary( target: Dictionary, source: Dictionary, overwrite: bool = true, recursive: bool = true ) -> Dictionary:` |
 | 方法 | [`merge_metadata`](#member-gfvariantdata-methods-merge_metadata) | `static func merge_metadata( target: Dictionary, source: Dictionary, overwrite: bool = true, recursive: bool = true ) -> Dictionary:` |
 | 方法 | [`deep_merge_defaults`](#member-gfvariantdata-methods-deep_merge_defaults) | `static func deep_merge_defaults(base: Dictionary, defaults: Dictionary) -> Dictionary:` |
+| 方法 | [`diff_variant`](#member-gfvariantdata-methods-diff_variant) | `static func diff_variant(before: Variant, after: Variant, options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`get_option_value`](#member-gfvariantdata-methods-get_option_value) | `static func get_option_value(options: Dictionary, key: Variant, default_value: Variant = null) -> Variant:` |
 | 方法 | [`get_option_bool`](#member-gfvariantdata-methods-get_option_bool) | `static func get_option_bool(options: Dictionary, key: Variant, default_value: bool = false) -> bool:` |
 | 方法 | [`get_option_int`](#member-gfvariantdata-methods-get_option_int) | `static func get_option_int(options: Dictionary, key: Variant, default_value: int = 0) -> int:` |
@@ -580,6 +581,35 @@ static func deep_merge_defaults(base: Dictionary, defaults: Dictionary) -> Dicti
 - `base`: 会被原地修改的目标 Dictionary。
 - `defaults`: 会合并到 base 中的默认 Dictionary 值。
 - `return`: 合并后的 base Dictionary。
+
+<a id="member-gfvariantdata-methods-diff_variant"></a>
+
+### `diff_variant`
+
+- API：`public`
+
+```gdscript
+static func diff_variant(before: Variant, after: Variant, options: Dictionary = {}) -> Dictionary:
+```
+
+对比两个 Variant 并返回结构化差异报告。 该方法只比较纯 Variant 数据形状，不读取文件、不实例化脚本，也不解释业务字段。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `before` | 变更前的 Variant 值。 |
+| `after` | 变更后的 Variant 值。 |
+| `options` | 可选项。支持 max_changes、copy_values。 |
+
+返回：差异报告。包含 changed、change_count、truncated、max_changes 与 changes。
+
+结构：
+
+- `before`: 待比较的 Variant 值。
+- `after`: 待比较的 Variant 值。
+- `options`: Dictionary，可选字段：max_changes 为最多记录差异数，默认 1024，<=0 表示不限；copy_values 默认为 true。
+- `return`: Dictionary；changes 每项包含 kind、path、path_segments、old_value、new_value、old_type、new_type。kind 为 added、removed、changed 或 type_changed。
 
 <a id="member-gfvariantdata-methods-get_option_value"></a>
 

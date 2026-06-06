@@ -31,6 +31,7 @@ const KIND_STANDARD: String = "standard"
 const KIND_EXTENSION: String = "extension"
 
 const _GF_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
+const _GF_PATH_TOOLS = preload("res://addons/gf/kernel/core/gf_path_tools.gd")
 
 
 # --- 公共变量 ---
@@ -161,41 +162,45 @@ static func from_dictionary(
 	manifest_source_path: String = ""
 ) -> GFExtensionManifest:
 	var manifest: GFExtensionManifest = GFExtensionManifest.new()
-	manifest.id = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(data, "id")
-	manifest.display_name = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
+	manifest.id = _normalize_manifest_text(_GF_VARIANT_ACCESS_SCRIPT.get_option_string(data, "id"))
+	manifest.display_name = _normalize_manifest_text(_GF_VARIANT_ACCESS_SCRIPT.get_option_string(
 		data,
 		"display_name",
 		_GF_VARIANT_ACCESS_SCRIPT.get_option_string(data, "name")
-	)
-	manifest.version = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(data, "version")
-	manifest.extension_version = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(data, "extension_version", manifest.version)
-	manifest.kind = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(data, "kind", KIND_EXTENSION).strip_edges()
+	))
+	manifest.version = _normalize_manifest_text(_GF_VARIANT_ACCESS_SCRIPT.get_option_string(data, "version"))
+	manifest.extension_version = _normalize_manifest_text(_GF_VARIANT_ACCESS_SCRIPT.get_option_string(
+		data,
+		"extension_version",
+		manifest.version
+	))
+	manifest.kind = _normalize_manifest_text(_GF_VARIANT_ACCESS_SCRIPT.get_option_string(data, "kind", KIND_EXTENSION))
 	if manifest.kind.is_empty():
 		manifest.kind = KIND_EXTENSION
-	manifest.root_path = extension_root_path
-	manifest.description = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
+	manifest.root_path = _GF_PATH_TOOLS.normalize_root_path(extension_root_path)
+	manifest.description = _normalize_manifest_text(_GF_VARIANT_ACCESS_SCRIPT.get_option_string(
 		data,
 		"description",
 		_GF_VARIANT_ACCESS_SCRIPT.get_option_string(data, "summary")
-	)
-	manifest.dependencies = _GF_VARIANT_ACCESS_SCRIPT.get_option_string_array(data, "dependencies")
-	manifest.installer_paths = _GF_VARIANT_ACCESS_SCRIPT.get_option_string_array(data, "installer_paths")
-	manifest.editor_action_paths = _GF_VARIANT_ACCESS_SCRIPT.get_option_string_array(data, "editor_action_paths")
-	manifest.editor_dock_paths = _GF_VARIANT_ACCESS_SCRIPT.get_option_string_array(data, "editor_dock_paths")
+	))
+	manifest.dependencies = _normalize_identifier_list(_GF_VARIANT_ACCESS_SCRIPT.get_option_string_array(data, "dependencies"))
+	manifest.installer_paths = _normalize_resource_path_list(_GF_VARIANT_ACCESS_SCRIPT.get_option_string_array(data, "installer_paths"))
+	manifest.editor_action_paths = _normalize_resource_path_list(_GF_VARIANT_ACCESS_SCRIPT.get_option_string_array(data, "editor_action_paths"))
+	manifest.editor_dock_paths = _normalize_resource_path_list(_GF_VARIANT_ACCESS_SCRIPT.get_option_string_array(data, "editor_dock_paths"))
 	manifest.editor_dock_order = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(data, "editor_dock_order", manifest.editor_dock_order)
-	manifest.editor_dock_short_label = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(data, "editor_dock_short_label").strip_edges()
-	manifest.editor_inspector_paths = _GF_VARIANT_ACCESS_SCRIPT.get_option_string_array(data, "editor_inspector_paths")
-	manifest.import_plugin_paths = _GF_VARIANT_ACCESS_SCRIPT.get_option_string_array(data, "import_plugin_paths")
-	manifest.export_plugin_paths = _GF_VARIANT_ACCESS_SCRIPT.get_option_string_array(data, "export_plugin_paths")
-	manifest.gltf_document_extension_paths = _GF_VARIANT_ACCESS_SCRIPT.get_option_string_array(data, "gltf_document_extension_paths")
-	manifest.access_generator_extension_paths = _GF_VARIANT_ACCESS_SCRIPT.get_option_string_array(data, "access_generator_extension_paths")
-	manifest.tags = _GF_VARIANT_ACCESS_SCRIPT.get_option_string_array(data, "tags")
+	manifest.editor_dock_short_label = _normalize_manifest_text(_GF_VARIANT_ACCESS_SCRIPT.get_option_string(data, "editor_dock_short_label"))
+	manifest.editor_inspector_paths = _normalize_resource_path_list(_GF_VARIANT_ACCESS_SCRIPT.get_option_string_array(data, "editor_inspector_paths"))
+	manifest.import_plugin_paths = _normalize_resource_path_list(_GF_VARIANT_ACCESS_SCRIPT.get_option_string_array(data, "import_plugin_paths"))
+	manifest.export_plugin_paths = _normalize_resource_path_list(_GF_VARIANT_ACCESS_SCRIPT.get_option_string_array(data, "export_plugin_paths"))
+	manifest.gltf_document_extension_paths = _normalize_resource_path_list(_GF_VARIANT_ACCESS_SCRIPT.get_option_string_array(data, "gltf_document_extension_paths"))
+	manifest.access_generator_extension_paths = _normalize_resource_path_list(_GF_VARIANT_ACCESS_SCRIPT.get_option_string_array(data, "access_generator_extension_paths"))
+	manifest.tags = _normalize_identifier_list(_GF_VARIANT_ACCESS_SCRIPT.get_option_string_array(data, "tags"))
 	manifest.enabled_by_default = _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
 		data,
 		"enabled_by_default",
 		manifest.kind == KIND_STANDARD or manifest.kind == KIND_EXTENSION
 	)
-	manifest.source_path = manifest_source_path
+	manifest.source_path = _GF_PATH_TOOLS.normalize_resource_path(manifest_source_path)
 	return manifest
 
 
@@ -296,13 +301,34 @@ func get_validation_errors() -> Array[String]:
 
 # --- 私有/辅助方法 ---
 
+static func _normalize_manifest_text(value: String) -> String:
+	return value.strip_edges()
+
+
+static func _normalize_identifier_list(values: Array[String]) -> Array[String]:
+	var result: Array[String] = []
+	for value: String in values:
+		var normalized_value: String = value.strip_edges()
+		if normalized_value.is_empty() or result.has(normalized_value):
+			continue
+		result.append(normalized_value)
+	return result
+
+
+static func _normalize_resource_path_list(values: Array[String]) -> Array[String]:
+	var result: Array[String] = []
+	for value: String in values:
+		result.append(_GF_PATH_TOOLS.normalize_resource_path(value))
+	return result
+
+
 func _append_resource_path_errors(
 	errors: Array[String],
 	property_name: String,
 	paths: Array[String]
 ) -> void:
 	for path: String in paths:
-		var normalized_path: String = path.strip_edges().simplify_path()
+		var normalized_path: String = _GF_PATH_TOOLS.normalize_resource_path(path)
 		if normalized_path.is_empty():
 			errors.append("%s contains empty path" % property_name)
 			continue
@@ -314,7 +340,4 @@ func _append_resource_path_errors(
 
 
 func _path_is_under_root(path: String) -> bool:
-	var normalized_root: String = root_path.strip_edges().simplify_path().trim_suffix("/")
-	if normalized_root.is_empty():
-		return true
-	return path == normalized_root or path.begins_with(normalized_root + "/")
+	return _GF_PATH_TOOLS.is_path_under_root(path, root_path, true, true)

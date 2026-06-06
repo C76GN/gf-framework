@@ -234,6 +234,32 @@ func test_same_capability_instance_cannot_attach_to_multiple_receivers() -> void
 	assert_push_error("[GFCapabilityUtility] 同一个能力实例不能挂载到多个 receiver。")
 
 
+func test_add_capability_instance_rejects_mismatched_declared_type() -> void:
+	var receiver: RefCounted = RefCounted.new()
+	var capability: HealthCapability = HealthCapability.new()
+
+	var result: Object = _utility.add_capability_instance(receiver, capability, DamageCapability)
+
+	assert_null(result, "能力实例脚本不继承声明类型时应拒绝注册。")
+	assert_false(_utility.has_capability(receiver, DamageCapability), "错误声明类型不应污染 receiver。")
+	assert_false(_utility.has_capability(receiver, HealthCapability), "失败后不应按实例原始类型注册。")
+	assert_null(capability.receiver, "失败注册不应写入 receiver。")
+	assert_push_error("[GFCapabilityUtility] add_capability_instance 失败：能力实例脚本")
+
+
+func test_add_capability_provider_rejects_mismatched_instance_type() -> void:
+	var receiver: RefCounted = RefCounted.new()
+	var capability: HealthCapability = HealthCapability.new()
+
+	var result: Object = _utility.add_capability(receiver, DamageCapability, capability)
+
+	assert_null(result, "provider 返回错误脚本类型时应拒绝注册。")
+	assert_false(_utility.has_capability(receiver, DamageCapability), "错误 provider 不应按声明类型注册。")
+	assert_false(_utility.has_capability(receiver, HealthCapability), "错误 provider 不应按实例类型回退注册。")
+	assert_null(capability.receiver, "失败 provider 不应写入 receiver。")
+	assert_push_error("[GFCapabilityUtility] add_capability 失败：能力实例脚本")
+
+
 func test_required_capabilities_are_created_first() -> void:
 	var receiver: RefCounted = RefCounted.new()
 
@@ -670,6 +696,23 @@ func test_add_scene_capability_frees_ignored_duplicate_instance() -> void:
 	await get_tree().process_frame
 
 
+func test_add_scene_capability_rejects_mismatched_declared_type_and_frees_instance() -> void:
+	var receiver: Node = Node.new()
+	add_child(receiver)
+	var scene: PackedScene = _make_counting_capability_scene()
+
+	var result: Object = _utility.add_scene_capability(receiver, scene, HealthCapability)
+	var created_node: CountingCapabilityNode = CountingCapabilityNode.created_nodes.back()
+
+	assert_null(result, "场景根节点脚本不继承声明类型时应拒绝注册。")
+	assert_false(_utility.has_capability(receiver, HealthCapability), "错误场景能力不应污染 receiver。")
+	assert_true(created_node.is_queued_for_deletion(), "被拒绝的场景能力实例应被释放。")
+	assert_push_error("[GFCapabilityUtility] add_capability_instance 失败：能力实例脚本")
+
+	receiver.queue_free()
+	await get_tree().process_frame
+
+
 func test_dispose_clears_ref_counted_capability_state() -> void:
 	var receiver: RefCounted = RefCounted.new()
 	var capability: HealthCapability = _utility.add_capability(receiver, HealthCapability)
@@ -950,7 +993,24 @@ func test_capability_recipe_validation_reports_invalid_entries() -> void:
 
 	assert_false(GFVariantData.get_option_bool(report, "ok"), "无效条目应使 Recipe 校验失败。")
 	assert_true(_has_issue(report, "invalid_entry"), "Recipe 校验应报告 invalid_entry。")
+	assert_eq(_find_issue_path(report, "invalid_entry"), "entries[0]", "Recipe 校验应保留条目路径。")
 	assert_false(GFVariantData.get_option_string(report, "next_action").is_empty(), "Recipe 校验应提供下一步建议。")
+
+
+func test_capability_recipe_validation_report_reports_group_issues() -> void:
+	var recipe: GFCapabilityRecipe = GFCapabilityRecipe.new()
+	recipe.recipe_id = &"group_recipe"
+	recipe.groups = [&"targets", &"", &"targets"]
+
+	var report: GFValidationReport = recipe.validate_recipe_report()
+	var serialized_report: Dictionary = recipe.validate_recipe()
+
+	assert_true(report.is_ok(), "空分组和重复分组只应作为 warning。")
+	assert_false(report.is_healthy(), "存在 warning 时报告不应视为完全健康。")
+	assert_eq(report.get_warning_count(), 2, "应报告空分组和重复分组两个 warning。")
+	assert_eq(GFVariantData.get_option_string(serialized_report, "recipe_id"), "group_recipe", "字典报告应保留 recipe_id。")
+	assert_eq(_find_issue_path(serialized_report, "empty_group"), "groups[1]", "空分组应保留路径。")
+	assert_eq(_find_issue_path(serialized_report, "duplicate_group"), "groups[2]", "重复分组应保留路径。")
 
 
 func test_capability_recipe_validation_reports_empty_recipe_as_healthy() -> void:
@@ -1006,6 +1066,16 @@ func _has_issue(report: Dictionary, kind: String) -> bool:
 		if GFVariantData.get_option_string(issue, "kind") == kind:
 			return true
 	return false
+
+
+func _find_issue_path(report: Dictionary, kind: String) -> String:
+	for issue_variant: Variant in GFVariantData.get_option_array(report, "issues"):
+		if not issue_variant is Dictionary:
+			continue
+		var issue: Dictionary = issue_variant
+		if GFVariantData.get_option_string(issue, "kind") == kind:
+			return GFVariantData.get_option_string(issue, "path")
+	return ""
 
 
 func _load_capability_inspector_plugin() -> Script:

@@ -307,22 +307,60 @@ func validate_record(record: Dictionary, row_key: Variant = null, options: Dicti
 		declared_fields[field_key] = true
 		if not working_record.has(field_key):
 			if column.required:
-				_add_issue(report, "error", "missing_required", row_key, field_key, "缺少必填字段：%s。" % str(field_key), field_context)
+				_add_issue(
+					report,
+					"error",
+					"missing_required",
+					row_key,
+					field_key,
+					"缺少必填字段：%s。" % str(field_key),
+					_make_value_context(row_key, field_key, options, null, "present", "missing")
+				)
 			continue
 
-		var value: Variant = working_record[field_key]
-		if value == null and not column.allow_null:
-			_add_issue(report, "error", "null_value", row_key, field_key, "字段不允许为空：%s。" % str(field_key), field_context)
-		elif not column.is_value_valid(value):
-			_add_issue(report, "error", "invalid_type", row_key, field_key, "字段类型不匹配：%s。" % str(field_key), field_context)
+		var field_value: Variant = working_record[field_key]
+		if field_value == null and not column.allow_null:
+			_add_issue(
+				report,
+				"error",
+				"null_value",
+				row_key,
+				field_key,
+				"字段不允许为空：%s。" % str(field_key),
+				_make_value_context(row_key, field_key, options, field_value, "non_null")
+			)
+		elif not column.is_value_valid(field_value):
+			_add_issue(
+				report,
+				"error",
+				"invalid_type",
+				row_key,
+				field_key,
+				"字段类型不匹配：%s。" % str(field_key),
+				_make_value_context(row_key, field_key, options, field_value, _value_type_to_name(column.value_type))
+			)
 		else:
-			_validate_column_rules(column, value, row_key, report, options)
+			_validate_column_rules(column, field_value, row_key, report, options)
 
 	if not allow_extra_fields:
 		for field_variant: Variant in working_record.keys():
 			var field_name: StringName = GFVariantData.to_string_name(field_variant)
 			if not declared_fields.has(field_name):
-				_add_issue(report, "error", "extra_field", row_key, field_name, "存在未声明字段：%s。" % str(field_name), _make_field_context(row_key, field_name, options))
+				_add_issue(
+					report,
+					"error",
+					"extra_field",
+					row_key,
+					field_name,
+					"存在未声明字段：%s。" % str(field_name),
+					_make_value_context(
+						row_key,
+						field_name,
+						options,
+						GFVariantData.get_option_value(working_record, field_name),
+						"declared_field"
+					)
+				)
 
 	_validate_record_rules(working_record, row_key, report, options)
 	_finalize_report(report)
@@ -679,7 +717,7 @@ func _coerce_record_for_validation(record: Dictionary, row_key: Variant, report:
 				row_key,
 				field_key,
 				GFVariantData.get_option_string(coerce_result, "message", "字段类型转换失败：%s。" % str(field_key)),
-				_make_field_context(row_key, field_key, options)
+				_make_value_context(row_key, field_key, options, source_value, _value_type_to_name(column.value_type))
 			)
 	return result
 
@@ -843,8 +881,36 @@ func _make_field_context(row_key: Variant, field_name: StringName, options: Dict
 	return context
 
 
+func _make_value_context(
+	row_key: Variant,
+	field_name: StringName,
+	options: Dictionary,
+	field_value: Variant,
+	expected_value: Variant,
+	actual_value: Variant = null
+) -> Dictionary:
+	var context: Dictionary = _make_field_context(row_key, field_name, options)
+	context["value"] = GFVariantData.duplicate_variant(field_value)
+	context["expected_value"] = GFVariantData.duplicate_variant(expected_value)
+	context["actual_value"] = GFVariantData.duplicate_variant(field_value if actual_value == null else actual_value)
+	return context
+
+
 func _copy_context_fields(target: Dictionary, source: Dictionary) -> void:
-	for field_name: String in ["source", "line", "column", "row_index", "column_index"]:
+	for field_name: String in [
+		"source",
+		"line",
+		"column",
+		"row_index",
+		"column_index",
+		"rule_id",
+		"value",
+		"expected_value",
+		"actual_value",
+		"supported_values",
+		"supported_formats",
+		"supported_content_types",
+	]:
 		if source.has(field_name):
 			target[field_name] = GFVariantData.duplicate_variant(source[field_name])
 
@@ -942,6 +1008,32 @@ static func _value_to_column_type(value: Variant) -> GFConfigTableColumn.ValueTy
 			if value is Color:
 				return GFConfigTableColumn.ValueType.COLOR
 	return GFConfigTableColumn.ValueType.ANY
+
+
+static func _value_type_to_name(value_type: GFConfigTableColumn.ValueType) -> String:
+	match value_type:
+		GFConfigTableColumn.ValueType.BOOL:
+			return "bool"
+		GFConfigTableColumn.ValueType.INT:
+			return "int"
+		GFConfigTableColumn.ValueType.FLOAT:
+			return "float"
+		GFConfigTableColumn.ValueType.STRING:
+			return "String"
+		GFConfigTableColumn.ValueType.STRING_NAME:
+			return "StringName"
+		GFConfigTableColumn.ValueType.VECTOR2:
+			return "Vector2"
+		GFConfigTableColumn.ValueType.VECTOR2I:
+			return "Vector2i"
+		GFConfigTableColumn.ValueType.COLOR:
+			return "Color"
+		GFConfigTableColumn.ValueType.DICTIONARY:
+			return "Dictionary"
+		GFConfigTableColumn.ValueType.ARRAY:
+			return "Array"
+		_:
+			return "any"
 
 
 static func _values_allow_null(values: Array) -> bool:

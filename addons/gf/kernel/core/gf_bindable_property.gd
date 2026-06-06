@@ -107,7 +107,7 @@ func get_value() -> Variant:
 ##   "description": "要设置的新值。"
 ## }
 func set_value(new_value: Variant) -> void:
-	if _value == new_value:
+	if _are_values_equal(_value, new_value):
 		return
 	var old_value: Variant = _value
 	_value = new_value
@@ -410,6 +410,30 @@ func bind_to(node: Node, callable: Callable) -> void:
 func _on_node_exited(node: Node, callable: Callable) -> void:
 	_disconnect_node_binding(node, callable)
 	_release_value_connection_if_unbound(callable)
+
+
+static func _are_values_equal(left: Variant, right: Variant) -> bool:
+	var left_type: int = typeof(left)
+	var right_type: int = typeof(right)
+	if left_type == right_type:
+		return left == right
+	if _is_numeric_variant_type(left_type) and _is_numeric_variant_type(right_type):
+		return _variant_to_float(left) == _variant_to_float(right)
+	return false
+
+
+static func _is_numeric_variant_type(variant_type: int) -> bool:
+	return variant_type == TYPE_INT or variant_type == TYPE_FLOAT
+
+
+static func _variant_to_float(raw_value: Variant) -> float:
+	if raw_value is int:
+		var int_value: int = raw_value
+		return float(int_value)
+	if raw_value is float:
+		var float_value: float = raw_value
+		return float_value
+	return 0.0
 
 
 func _make_unsubscribe_callable(callback: Callable) -> Callable:

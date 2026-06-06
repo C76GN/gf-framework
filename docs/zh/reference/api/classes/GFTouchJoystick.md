@@ -9,7 +9,7 @@
 - 类别：运行时服务 (`runtime_service`)
 - 首次版本：`3.17.0`
 
-通用触屏虚拟摇杆节点。 可直接发出方向信号，也可选择映射到 Godot InputMap 动作。
+通用触屏虚拟摇杆节点。 可直接发出摇杆向量信号，也可选择映射到 Godot InputMap 动作。
 
 ## 成员概览
 
@@ -49,13 +49,13 @@
 signal direction_changed(direction: Vector2)
 ```
 
-摇杆方向变化时发出。方向已归一化并应用死区。
+摇杆向量变化时发出。向量已应用死区并保留模拟强度。
 
 参数：
 
 | 名称 | 说明 |
 |---|---|
-| `direction` | 已归一化并应用死区后的摇杆方向。 |
+| `direction` | 已应用死区并保留模拟强度的摇杆向量。 |
 
 <a id="member-gftouchjoystick-signals-joystick_pressed"></a>
 
@@ -90,7 +90,7 @@ signal joystick_released
 - API：`public`
 
 ```gdscript
-enum PositionMode { ## 摇杆中心保持在场景中摆放的位置。 FIXED, ## 初次触摸时摇杆中心移动到触点，释放后回到原位置。 RELATIVE, }
+enum PositionMode { ## 摇杆中心保持在场景中摆放的位置。 FIXED, ## 初次触摸时摇杆中心移动到触点，释放后回到原位置。 RELATIVE, ## 初次触摸时摇杆中心移动到触点，拖动超过半径时中心跟随触点。 FOLLOW, }
 ```
 
 摇杆定位模式。
@@ -289,9 +289,9 @@ Y 轴对应的手柄轴。
 func get_direction() -> Vector2:
 ```
 
-获取当前方向。
+获取当前摇杆向量。
 
-返回：当前摇杆方向。
+返回：已应用死区并保留模拟强度的摇杆向量。
 
 <a id="member-gftouchjoystick-methods-release"></a>
 

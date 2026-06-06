@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFVariantData" path="addons/gf/standard/foundation/variant/gf_variant_data.gd" module="standard" extends="RefCounted" classDigest="1394a6b5663b292ce9f133f1efba9cb472c3b83e3054c26843e0b8fc4fc359e9">
+<class name="GFVariantData" path="addons/gf/standard/foundation/variant/gf_variant_data.gd" module="standard" extends="RefCounted" classDigest="0540fa6478376914f85dff2581a8386cbfc2dc64a29ee7726f4fc4174a3f686f">
 	<description>GFVariantData: 通用 Variant 数据复制与默认值合并。
-提供不依赖 GFArchitecture 的集合复制、Resource 可选复制和默认值递归补齐。
+提供不依赖 GFArchitecture 的集合复制、Resource 可选复制、差异报告和默认值递归补齐。
 JSON 兼容编码由 GFVariantJsonCodec 负责。</description>
 	<tags>
 		<tag name="api">public</tag>
@@ -261,6 +261,22 @@ JSON 兼容编码由 GFVariantJsonCodec 负责。</description>
 				<tag name="schema">base: 会被原地修改的目标 Dictionary。</tag>
 				<tag name="schema">defaults: 会合并到 base 中的默认 Dictionary 值。</tag>
 				<tag name="schema">return: 合并后的 base Dictionary。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="diff_variant">
+			<signature>static func diff_variant(before: Variant, after: Variant, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>对比两个 Variant 并返回结构化差异报告。
+该方法只比较纯 Variant 数据形状，不读取文件、不实例化脚本，也不解释业务字段。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">before: 变更前的 Variant 值。</tag>
+				<tag name="param">after: 变更后的 Variant 值。</tag>
+				<tag name="param">options: 可选项。支持 max_changes、copy_values。</tag>
+				<tag name="return">差异报告。包含 changed、change_count、truncated、max_changes 与 changes。</tag>
+				<tag name="schema">before: 待比较的 Variant 值。</tag>
+				<tag name="schema">after: 待比较的 Variant 值。</tag>
+				<tag name="schema">options: Dictionary，可选字段：max_changes 为最多记录差异数，默认 1024，&lt;=0 表示不限；copy_values 默认为 true。</tag>
+				<tag name="schema">return: Dictionary；changes 每项包含 kind、path、path_segments、old_value、new_value、old_type、new_type。kind 为 added、removed、changed 或 type_changed。</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_option_value">

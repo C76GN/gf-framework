@@ -147,14 +147,14 @@ func validate_value(value: Variant, context: Dictionary = {}) -> Dictionary:
 | 名称 | 说明 |
 |---|---|
 | `value` | 待校验值。 |
-| `context` | 可选上下文，支持 table_name、row_key、field、source、line、column。 |
+| `context` | 可选上下文，支持 table_name、row_key、field、source、line、column、value、expected_value、actual_value 和 supported_values 等字段。 |
 
 返回：校验报告字典。
 
 结构：
 
 - `value`: Variant，来自配置表或项目导入器的字段值。
-- `context`: Dictionary，可包含 table_name、row_key、field、source、line 和 column 字段。
+- `context`: Dictionary，可包含 table_name、row_key、field、source、line、column、value、expected_value、actual_value、supported_values、supported_formats 和 supported_content_types 字段。
 - `return`: GFConfigValidationReport 兼容 Dictionary。
 
 <a id="member-gfconfigvalidationrule-methods-validate_record"></a>
@@ -280,7 +280,7 @@ func _validate_value(_value: Variant, _context: Dictionary, _report: Dictionary)
 结构：
 
 - `_value`: Variant，来自配置表或项目导入器的字段值。
-- `_context`: Dictionary，可包含 table_name、row_key、field、source、line 和 column 字段。
+- `_context`: Dictionary，可包含 table_name、row_key、field、source、line、column、value、expected_value、actual_value、supported_values、supported_formats 和 supported_content_types 字段。
 - `_report`: GFConfigValidationReport 兼容 Dictionary，会被规则修改。
 
 <a id="member-gfconfigvalidationrule-methods-_validate_record"></a>

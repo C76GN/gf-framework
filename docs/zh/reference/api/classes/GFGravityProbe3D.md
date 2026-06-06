@@ -9,13 +9,15 @@
 - 类别：运行时句柄 (`runtime_handle`)
 - 首次版本：`3.17.0`
 
-通用 3D 重力采样器。 从场景树分组中采样 GFGravityField3D 或任何暴露 get_acceleration_at() 方法的对象，并汇总为当前节点位置处的加速度、上下方向。
+通用 3D 重力采样器。 从场景树分组中采样 GFGravityField3D 或任何暴露 get_acceleration_at() 方法的对象，并按组合策略计算当前位置处的加速度、上下方向。
 
 ## 成员概览
 
 | 类型 | 名称 | 签名 |
 |---|---|---|
+| 枚举 | [`CombinationMode`](#member-gfgravityprobe3d-enums-combinationmode) | `enum CombinationMode` |
 | 属性 | [`field_group`](#member-gfgravityprobe3d-properties-field_group) | `var field_group: StringName = &"gf_gravity_field_3d"` |
+| 属性 | [`combination_mode`](#member-gfgravityprobe3d-properties-combination_mode) | `var combination_mode: CombinationMode = CombinationMode.SUM` |
 | 属性 | [`use_fallback_when_empty`](#member-gfgravityprobe3d-properties-use_fallback_when_empty) | `var use_fallback_when_empty: bool = true` |
 | 属性 | [`fallback_acceleration`](#member-gfgravityprobe3d-properties-fallback_acceleration) | `var fallback_acceleration: Vector3 = Vector3.DOWN * 9.8` |
 | 属性 | [`cache_samples_per_frame`](#member-gfgravityprobe3d-properties-cache_samples_per_frame) | `var cache_samples_per_frame: bool = true` |
@@ -24,6 +26,20 @@
 | 方法 | [`sample_fields`](#member-gfgravityprobe3d-methods-sample_fields) | `func sample_fields(fields: Array) -> Vector3:` |
 | 方法 | [`get_down_direction`](#member-gfgravityprobe3d-methods-get_down_direction) | `func get_down_direction() -> Vector3:` |
 | 方法 | [`get_up_direction`](#member-gfgravityprobe3d-methods-get_up_direction) | `func get_up_direction() -> Vector3:` |
+
+## 枚举
+
+<a id="member-gfgravityprobe3d-enums-combinationmode"></a>
+
+### `CombinationMode`
+
+- API：`public`
+
+```gdscript
+enum CombinationMode { ## 汇总所有有效力场的加速度。 SUM, ## 只使用当前点加速度长度最大的力场。 STRONGEST, ## 只汇总当前点非零加速度中最高优先级的力场。 HIGHEST_PRIORITY, }
+```
+
+多个力场重叠时的采样组合策略。
 
 ## 属性
 
@@ -38,6 +54,18 @@ var field_group: StringName = &"gf_gravity_field_3d"
 ```
 
 要采样的力场分组。
+
+<a id="member-gfgravityprobe3d-properties-combination_mode"></a>
+
+### `combination_mode`
+
+- API：`public`
+
+```gdscript
+var combination_mode: CombinationMode = CombinationMode.SUM
+```
+
+多个力场重叠时的组合策略。
 
 <a id="member-gfgravityprobe3d-properties-use_fallback_when_empty"></a>
 
@@ -101,7 +129,7 @@ func sample() -> Vector3:
 
 采样场景树分组中的所有力场。
 
-返回：汇总后的加速度。
+返回：按 combination_mode 组合后的加速度。
 
 <a id="member-gfgravityprobe3d-methods-sample_fields"></a>
 
@@ -121,7 +149,7 @@ func sample_fields(fields: Array) -> Vector3:
 |---|---|
 | `fields` | 力场对象列表。 |
 
-返回：汇总后的加速度。
+返回：按 combination_mode 组合后的加速度。
 
 结构：
 

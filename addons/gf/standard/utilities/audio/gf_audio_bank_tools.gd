@@ -31,6 +31,8 @@ enum ClipIdMode {
 
 # --- 常量 ---
 
+const _GF_PATH_TOOLS = preload("res://addons/gf/kernel/core/gf_path_tools.gd")
+
 ## 默认音频扩展名白名单，不包含点号。
 ## [br]
 ## @api public
@@ -436,10 +438,7 @@ static func _get_excluded_paths(options: Dictionary) -> PackedStringArray:
 	if GFVariantData.get_option_bool(options, "include_addons", false):
 		return PackedStringArray()
 	var paths: PackedStringArray = GFVariantData.get_option_packed_string_array(options, "excluded_paths", DEFAULT_EXCLUDED_PATHS)
-	var result: PackedStringArray = PackedStringArray()
-	for path: String in paths:
-		_append_packed_string(result, _normalize_dir_path(path))
-	return result
+	return _GF_PATH_TOOLS.normalize_root_paths(paths, false)
 
 
 static func _normalize_extensions(extensions: PackedStringArray) -> PackedStringArray:
@@ -474,29 +473,18 @@ static func _resolve_id_mode(value: Variant) -> ClipIdMode:
 
 
 static func _make_relative_path(path: String, base_path: String) -> String:
-	var normalized_base: String = _normalize_dir_path(base_path)
-	if path.begins_with(normalized_base):
-		var relative_path: String = path.substr(normalized_base.length())
-		if relative_path.begins_with("/"):
-			relative_path = relative_path.substr(1)
-		return relative_path
-	return path
+	var relative_path: String = _GF_PATH_TOOLS.make_relative_path(path, base_path)
+	if relative_path.is_empty():
+		return _GF_PATH_TOOLS.normalize_resource_path(path, "", false)
+	return relative_path
 
 
 static func _normalize_dir_path(path: String) -> String:
-	var normalized: String = path.replace("\\", "/").strip_edges()
-	while normalized.ends_with("/") and normalized.length() > "res://".length():
-		normalized = normalized.substr(0, normalized.length() - 1)
-	return normalized
+	return _GF_PATH_TOOLS.normalize_root_path(path, "", false)
 
 
 static func _is_excluded_path(path: String, excluded_paths: PackedStringArray) -> bool:
-	var normalized_path: String = _normalize_dir_path(path)
-	for excluded_path: String in excluded_paths:
-		var normalized_excluded: String = _normalize_dir_path(excluded_path)
-		if normalized_path == normalized_excluded or normalized_path.begins_with(normalized_excluded + "/"):
-			return true
-	return false
+	return _GF_PATH_TOOLS.is_path_excluded(path, excluded_paths)
 
 
 static func _add_report_warning(

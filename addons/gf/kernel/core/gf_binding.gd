@@ -179,6 +179,8 @@ func _release_instance_scope(instance: Object) -> void:
 	if instance == null or not is_instance_valid(instance):
 		return
 
+	if instance.has_method("release_dependencies"):
+		var _release_dependencies_result: Variant = instance.call("release_dependencies")
 	if instance.has_method("_gf_set_dependency_scope"):
 		instance.call("_gf_set_dependency_scope", null)
 	elif instance.has_method("_release_dependency_scope"):

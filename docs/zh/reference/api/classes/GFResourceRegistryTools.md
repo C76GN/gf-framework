@@ -31,6 +31,7 @@
 | 方法 | [`create_registry_from_paths`](#member-gfresourceregistrytools-methods-create_registry_from_paths) | `static func create_registry_from_paths(paths: PackedStringArray, options: Dictionary = {}) -> GFResourceRegistry:` |
 | 方法 | [`create_registry_from_scan`](#member-gfresourceregistrytools-methods-create_registry_from_scan) | `static func create_registry_from_scan(root_path: String = "res://", options: Dictionary = {}) -> GFResourceRegistry:` |
 | 方法 | [`collect_dependency_paths`](#member-gfresourceregistrytools-methods-collect_dependency_paths) | `static func collect_dependency_paths(resource_path: String, options: Dictionary = {}) -> PackedStringArray:` |
+| 方法 | [`build_dependency_report`](#member-gfresourceregistrytools-methods-build_dependency_report) | `static func build_dependency_report(resource_path: String, options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`add_paths_to_registry`](#member-gfresourceregistrytools-methods-add_paths_to_registry) | `static func add_paths_to_registry( registry: GFResourceRegistry, paths: PackedStringArray, options: Dictionary = {} ) -> GFValidationReport:` |
 | 方法 | [`sync_registry_from_scan`](#member-gfresourceregistrytools-methods-sync_registry_from_scan) | `static func sync_registry_from_scan( registry: GFResourceRegistry, root_path: String = "res://", options: Dictionary = {} ) -> GFValidationReport:` |
 | 方法 | [`make_entry_id`](#member-gfresourceregistrytools-methods-make_entry_id) | `static func make_entry_id(path: String, options: Dictionary = {}) -> StringName:` |
@@ -295,6 +296,32 @@ static func collect_dependency_paths(resource_path: String, options: Dictionary 
 结构：
 
 - `options`: Dictionary，可包含 recursive、include_root、extensions、excluded_paths、max_scan_depth 和 max_dependency_paths 字段。
+
+<a id="member-gfresourceregistrytools-methods-build_dependency_report"></a>
+
+### `build_dependency_report`
+
+- API：`public`
+
+```gdscript
+static func build_dependency_report(resource_path: String, options: Dictionary = {}) -> Dictionary:
+```
+
+构建资源依赖诊断报告。 报告保留路径闭包、直接依赖、缺失依赖、排除依赖、循环和上限命中信息， 适合编辑器检查、构建预检、资源注册表生成前检查和预热清单诊断。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `resource_path` | 入口资源路径。 |
+| `options` | 可选项，支持 recursive、include_root、extensions、excluded_paths、max_scan_depth、max_dependency_paths 与 include_direct_dependencies。 |
+
+返回：依赖诊断报告。
+
+结构：
+
+- `options`: Dictionary，可包含 recursive、include_root、extensions、excluded_paths、max_scan_depth、max_dependency_paths 和 include_direct_dependencies 字段。
+- `return`: Dictionary，包含 ok、healthy、root_path、paths、resources、missing、excluded、cycles、issues、resource_count、missing_count、excluded_count、cycle_count、limit_reached、depth_limit_reached、error_count、warning_count、issue_count、summary 与 next_action 字段。
 
 <a id="member-gfresourceregistrytools-methods-add_paths_to_registry"></a>
 

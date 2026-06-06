@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFPolynomialMath" path="addons/gf/standard/foundation/math/gf_polynomial_math.gd" module="standard" extends="RefCounted" classDigest="e2089f2b6bbceb3baf1a23453f3e90fd453ea37454e68da69c84d152e55cf764">
+	<description>GFPolynomialMath: 通用实数多项式数学工具。
+使用高阶到低阶的系数顺序，例如 x^2 - 5x + 6 表示为 [1, -5, 6]。
+工具只提供纯计算能力，不解释项目公式、曲线配置或业务语义。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_service</tag>
+		<tag name="since">4.4.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants>
+		<member kind="const" name="DEFAULT_EPSILON">
+			<signature>const DEFAULT_EPSILON: float = 0.000001</signature>
+			<description>默认浮点容差。</description>
+			<tags>
+				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="const" name="DEFAULT_ROOT_MERGE_EPSILON">
+			<signature>const DEFAULT_ROOT_MERGE_EPSILON: float = 0.00001</signature>
+			<description>默认根合并距离。</description>
+			<tags>
+				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="const" name="DEFAULT_MAX_ITERATIONS">
+			<signature>const DEFAULT_MAX_ITERATIONS: int = 96</signature>
+			<description>默认二分迭代次数。</description>
+			<tags>
+				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="const" name="DEFAULT_MAX_DEGREE">
+			<signature>const DEFAULT_MAX_DEGREE: int = 12</signature>
+			<description>默认允许的最高次数。</description>
+			<tags>
+				<tag name="api">public</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties />
+	<methods>
+		<member kind="method" name="normalize_coefficients">
+			<signature>static func normalize_coefficients( coefficients: PackedFloat64Array, epsilon: float = DEFAULT_EPSILON ) -&gt; PackedFloat64Array:</signature>
+			<description>移除前导近零系数。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">coefficients: 高阶到低阶排列的多项式系数。</tag>
+				<tag name="param">epsilon: 小于等于该绝对值的前导项会被视为 0。</tag>
+				<tag name="return">规范化后的系数；零多项式返回空数组。</tag>
+				<tag name="schema">coefficients: PackedFloat64Array high-to-low polynomial coefficients.</tag>
+			</tags>
+		</member>
+		<member kind="method" name="evaluate">
+			<signature>static func evaluate(coefficients: PackedFloat64Array, x: float) -&gt; float:</signature>
+			<description>使用 Horner 法计算多项式在 x 处的值。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">coefficients: 高阶到低阶排列的多项式系数。</tag>
+				<tag name="param">x: 采样位置。</tag>
+				<tag name="return">多项式值；非法输入返回 NAN。</tag>
+				<tag name="schema">coefficients: PackedFloat64Array high-to-low polynomial coefficients.</tag>
+			</tags>
+		</member>
+		<member kind="method" name="derivative">
+			<signature>static func derivative( coefficients: PackedFloat64Array, epsilon: float = DEFAULT_EPSILON ) -&gt; PackedFloat64Array:</signature>
+			<description>计算导函数系数。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">coefficients: 高阶到低阶排列的多项式系数。</tag>
+				<tag name="param">epsilon: 前导项规范化容差。</tag>
+				<tag name="return">导函数系数；常量或零多项式返回空数组。</tag>
+				<tag name="schema">coefficients: PackedFloat64Array high-to-low polynomial coefficients.</tag>
+			</tags>
+		</member>
+		<member kind="method" name="from_roots">
+			<signature>static func from_roots( roots: PackedFloat64Array, leading_coefficient: float = 1.0 ) -&gt; PackedFloat64Array:</signature>
+			<description>根据实根生成多项式系数。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">roots: 多项式实根列表，每个根生成一个 (x - root) 因子。</tag>
+				<tag name="param">leading_coefficient: 最高阶系数。</tag>
+				<tag name="return">高阶到低阶排列的系数；leading_coefficient 为 0 时返回空数组。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="real_roots">
+			<signature>static func real_roots( coefficients: PackedFloat64Array, options: Dictionary = {} ) -&gt; PackedFloat64Array:</signature>
+			<description>求多项式的实根。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">coefficients: 高阶到低阶排列的多项式系数。</tag>
+				<tag name="param">options: 可选参数，支持 epsilon、root_merge_epsilon、max_iterations、max_degree、min_x 和 max_x。</tag>
+				<tag name="return">升序排列的实根列表，重复根会按 root_merge_epsilon 合并。</tag>
+				<tag name="schema">coefficients: PackedFloat64Array high-to-low polynomial coefficients.</tag>
+				<tag name="schema">options: Dictionary with optional epsilon: float, root_merge_epsilon: float, max_iterations: int, max_degree: int, min_x: float, and max_x: float.</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

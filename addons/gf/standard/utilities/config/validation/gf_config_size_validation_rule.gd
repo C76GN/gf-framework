@@ -81,9 +81,14 @@ func _get_default_rule_id() -> StringName:
 func _validate_value(value: Variant, context: Dictionary, report: Dictionary) -> void:
 	var size: int = _get_value_size(value)
 	if size < 0:
-		_add_issue(report, context, "size_invalid_type", "数量校验只支持 String、Array、Dictionary 或 PackedArray。")
+		_add_issue(
+			report,
+			_make_issue_context(context, value, "String, Array, Dictionary, or PackedArray", -1),
+			"size_invalid_type",
+			"数量校验只支持 String、Array、Dictionary 或 PackedArray。"
+		)
 		return
-	_validate_size(size, context, report, "size_out_of_range")
+	_validate_size(size, context, report, "size_out_of_range", value)
 
 
 ## 校验整张表的行数。
@@ -102,16 +107,22 @@ func _validate_value(value: Variant, context: Dictionary, report: Dictionary) ->
 ## [br]
 ## @schema report: GFConfigValidationReport 兼容 Dictionary，会被当前规则修改。
 func _validate_table(rows: Array[Dictionary], context: Dictionary, report: Dictionary) -> void:
-	_validate_size(rows.size(), context, report, "table_size_out_of_range")
+	_validate_size(rows.size(), context, report, "table_size_out_of_range", rows)
 
 
 # --- 私有/辅助方法 ---
 
-func _validate_size(size: int, context: Dictionary, report: Dictionary, kind: String) -> void:
+func _validate_size(
+	size: int,
+	context: Dictionary,
+	report: Dictionary,
+	kind: String,
+	value: Variant
+) -> void:
 	if has_minimum_size and size < minimum_size:
-		_add_issue(report, context, kind, "数量小于允许范围。")
+		_add_issue(report, _make_issue_context(context, value, _describe_size_range(), size), kind, "数量小于允许范围。")
 	if has_maximum_size and size > maximum_size:
-		_add_issue(report, context, kind, "数量大于允许范围。")
+		_add_issue(report, _make_issue_context(context, value, _describe_size_range(), size), kind, "数量大于允许范围。")
 
 
 func _get_value_size(value: Variant) -> int:
@@ -151,3 +162,25 @@ func _get_value_size(value: Variant) -> int:
 		var packed_colors: PackedColorArray = value
 		return packed_colors.size()
 	return -1
+
+
+func _make_issue_context(
+	context: Dictionary,
+	value: Variant,
+	expected_value: Variant,
+	actual_value: Variant
+) -> Dictionary:
+	var issue_context: Dictionary = context.duplicate(true)
+	issue_context["value"] = GFVariantData.duplicate_variant(value)
+	issue_context["expected_value"] = GFVariantData.duplicate_variant(expected_value)
+	issue_context["actual_value"] = GFVariantData.duplicate_variant(actual_value)
+	return issue_context
+
+
+func _describe_size_range() -> String:
+	var parts: PackedStringArray = PackedStringArray()
+	if has_minimum_size:
+		var _minimum_appended: bool = parts.append(">= %d" % minimum_size)
+	if has_maximum_size:
+		var _maximum_appended: bool = parts.append("<= %d" % maximum_size)
+	return " and ".join(parts) if not parts.is_empty() else "any_size"

@@ -14,6 +14,13 @@ func test_report_helper_adds_stable_issue_fields_and_context() -> void:
 		"column": 2,
 		"row_index": 1,
 		"rule_id": &"sample_rule",
+		"value": "axe",
+		"expected_value": "sword",
+		"actual_value": "axe",
+		"supported_values": ["sword", "shield"],
+		"supported_formats": ["csv", "json"],
+		"supported_content_types": ["item"],
+		"project_only_note": "filtered",
 	})
 	helper.finalize_report(report)
 	var issues: Array = GFVariantData.get_option_array(report, "issues")
@@ -26,6 +33,13 @@ func test_report_helper_adds_stable_issue_fields_and_context() -> void:
 	assert_eq(GFVariantData.get_option_string_name(issue, "field"), &"name", "问题应包含字段名。")
 	assert_eq(GFVariantData.get_option_string(issue, "source"), "res://configs/items.csv", "问题应保留来源。")
 	assert_eq(GFVariantData.get_option_string_name(issue, "rule_id"), &"sample_rule", "问题应保留规则标识。")
+	assert_eq(GFVariantData.get_option_string(issue, "value"), "axe", "问题应保留当前值。")
+	assert_eq(GFVariantData.get_option_string(issue, "expected_value"), "sword", "问题应保留期望值。")
+	assert_eq(GFVariantData.get_option_string(issue, "actual_value"), "axe", "问题应保留实际值。")
+	assert_eq(GFVariantData.get_option_array(issue, "supported_values"), ["sword", "shield"], "问题应保留支持值列表。")
+	assert_eq(GFVariantData.get_option_array(issue, "supported_formats"), ["csv", "json"], "问题应保留支持格式列表。")
+	assert_eq(GFVariantData.get_option_array(issue, "supported_content_types"), ["item"], "问题应保留支持内容类型列表。")
+	assert_false(issue.has("project_only_note"), "未知上下文字段不应进入稳定 issue。")
 
 
 func test_report_helper_merges_reports_with_optional_row_count() -> void:

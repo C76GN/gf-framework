@@ -20,6 +20,7 @@
 | 方法 | [`async_init`](#member-gfmodel-methods-async_init) | `func async_init() -> void:` |
 | 方法 | [`ready`](#member-gfmodel-methods-ready) | `func ready() -> void:` |
 | 方法 | [`dispose`](#member-gfmodel-methods-dispose) | `func dispose() -> void:` |
+| 方法 | [`release_dependencies`](#member-gfmodel-methods-release_dependencies) | `func release_dependencies() -> void:` |
 | 方法 | [`get_save_key`](#member-gfmodel-methods-get_save_key) | `func get_save_key() -> StringName:` |
 | 方法 | [`to_dict`](#member-gfmodel-methods-to_dict) | `func to_dict() -> Dictionary:` |
 | 方法 | [`from_dict`](#member-gfmodel-methods-from_dict) | `func from_dict(_data: Dictionary) -> void:` |
@@ -92,6 +93,19 @@ func dispose() -> void:
 ```
 
 销毁模型。子类可以重写此方法。
+
+<a id="member-gfmodel-methods-release_dependencies"></a>
+
+### `release_dependencies`
+
+- API：`public`
+- 首次版本：`4.4.0`
+
+```gdscript
+func release_dependencies() -> void:
+```
+
+释放架构注入作用域和模块缓存的外部依赖引用。 架构会在 dispose() 之后调用该方法；子类重写时应先释放自身缓存的 Model/System/Utility 引用，再调用 super.release_dependencies()。
 
 <a id="member-gfmodel-methods-get_save_key"></a>
 

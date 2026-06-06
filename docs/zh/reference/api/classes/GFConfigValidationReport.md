@@ -88,7 +88,7 @@ func make_error_report( table_name: StringName, kind: String, message: String, c
 
 结构：
 
-- `context`: Dictionary，可包含 row_key、field、source、line、column、row_index、column_index 和 rule_id 字段。
+- `context`: Dictionary，可包含 row_key、field、source、line、column、row_index、column_index、rule_id、value、expected_value、actual_value、supported_values、supported_formats 和 supported_content_types 字段。
 - `return`: GFConfigValidationReport 兼容 Dictionary，包含一条 error issue。
 
 <a id="member-gfconfigvalidationreport-methods-add_issue"></a>
@@ -120,7 +120,7 @@ func add_issue( report: Dictionary, severity: String, kind: String, table_name: 
 
 - `report`: GFConfigValidationReport 兼容 Dictionary，会被当前方法修改。
 - `row_key`: Variant，复制到 issue 中的行标识。
-- `context`: Dictionary，可包含 source、line、column、row_index、column_index 和 rule_id 字段。
+- `context`: Dictionary，可包含 row_key、field、source、line、column、row_index、column_index、rule_id、value、expected_value、actual_value、supported_values、supported_formats 和 supported_content_types 字段。
 
 <a id="member-gfconfigvalidationreport-methods-merge_report"></a>
 

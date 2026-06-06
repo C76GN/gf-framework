@@ -77,7 +77,7 @@ func _get_default_rule_id() -> StringName:
 func _validate_value(value: Variant, context: Dictionary, report: Dictionary) -> void:
 	var compared_default: Variant = _get_type_default(value) if use_type_default else default_value
 	if _make_variant_key(value) == _make_variant_key(compared_default):
-		_add_issue(report, context, "default_value_not_allowed", "值不能等于默认值。")
+		_add_issue(report, _make_issue_context(context, value, compared_default), "default_value_not_allowed", "值不能等于默认值。")
 
 
 # --- 私有/辅助方法 ---
@@ -110,3 +110,11 @@ func _get_type_default(value: Variant) -> Variant:
 			return Color()
 		_:
 			return null
+
+
+func _make_issue_context(context: Dictionary, value: Variant, compared_default: Variant) -> Dictionary:
+	var issue_context: Dictionary = context.duplicate(true)
+	issue_context["value"] = GFVariantData.duplicate_variant(value)
+	issue_context["actual_value"] = GFVariantData.duplicate_variant(value)
+	issue_context["expected_value"] = "not %s" % var_to_str(compared_default)
+	return issue_context

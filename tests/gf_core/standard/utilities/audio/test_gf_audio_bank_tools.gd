@@ -105,6 +105,33 @@ func test_sync_bank_from_scan_imports_audio_paths() -> void:
 	assert_eq(bank.get_clip(&"click").bus_name, "SFX", "扫描同步应传递导入选项。")
 
 
+func test_scan_audio_paths_normalizes_excluded_path_list() -> void:
+	var root_path: String = "user://gf_audio_bank_tools_excluded"
+	var keep_dir: String = root_path.path_join("keep")
+	var skip_dir: String = root_path.path_join("skip")
+	var keep_path: String = keep_dir.path_join("keep.ogg")
+	var skip_path: String = skip_dir.path_join("skip.ogg")
+	var make_keep_error: Error = DirAccess.make_dir_recursive_absolute(keep_dir)
+	var make_skip_error: Error = DirAccess.make_dir_recursive_absolute(skip_dir)
+	assert_true(make_keep_error == OK or make_keep_error == ERR_ALREADY_EXISTS, "测试应能创建保留目录。")
+	assert_true(make_skip_error == OK or make_skip_error == ERR_ALREADY_EXISTS, "测试应能创建排除目录。")
+	_write_empty_user_file(keep_path)
+	_write_empty_user_file(skip_path)
+
+	var paths: PackedStringArray = GFAudioBankTools.scan_audio_paths(root_path + "\\", {
+		"excluded_paths": PackedStringArray([skip_dir + "\\", skip_dir, ""]),
+	})
+
+	var _remove_keep_file_result: Variant = DirAccess.remove_absolute(ProjectSettings.globalize_path(keep_path))
+	var _remove_skip_file_result: Variant = DirAccess.remove_absolute(ProjectSettings.globalize_path(skip_path))
+	var _remove_keep_dir_result: Variant = DirAccess.remove_absolute(ProjectSettings.globalize_path(keep_dir))
+	var _remove_skip_dir_result: Variant = DirAccess.remove_absolute(ProjectSettings.globalize_path(skip_dir))
+	var _remove_root_dir_result: Variant = DirAccess.remove_absolute(ProjectSettings.globalize_path(root_path))
+
+	assert_true(paths.has(keep_path), "未排除目录中的音频应被扫描。")
+	assert_false(paths.has(skip_path), "排除目录中的音频不应被扫描。")
+
+
 func test_audio_clip_path_picker_accepts_default_tool_extensions() -> void:
 	var clip: GFAudioClip = GFAudioClip.new()
 	var path_property: Dictionary = _find_property_info(clip, "path")

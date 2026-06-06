@@ -903,10 +903,18 @@ func _get_log_entry_text(entry: Dictionary) -> String:
 	return _variant_to_log_string(entry["text"])
 
 
-static func _remove_absolute(path: String) -> void:
-	var remove_result: Error = DirAccess.remove_absolute(path)
-	if remove_result != OK:
-		push_warning("[GFLogUtility] 无法移除文件：%s，错误码：%s" % [path, remove_result])
+static func _remove_absolute(path: String, warn_on_failure: bool = false) -> void:
+	var remove_path: String = path.strip_edges()
+	if remove_path.is_empty():
+		return
+	if remove_path.begins_with("user://") or remove_path.begins_with("res://"):
+		remove_path = ProjectSettings.globalize_path(remove_path)
+	if not FileAccess.file_exists(remove_path) and not DirAccess.dir_exists_absolute(remove_path):
+		return
+
+	var remove_result: Error = DirAccess.remove_absolute(remove_path)
+	if remove_result != OK and warn_on_failure:
+		push_warning("[GFLogUtility] 无法移除文件：%s，错误码：%s" % [remove_path, remove_result])
 
 
 static func _sanitize_log_dictionary(source: Dictionary) -> Dictionary:

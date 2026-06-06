@@ -19,6 +19,7 @@
 | 方法 | [`report_from_dict`](#member-gfvalidationreportdictionary-methods-report_from_dict) | `static func report_from_dict(data: Dictionary) -> RefCounted:` |
 | 方法 | [`append_issue`](#member-gfvalidationreportdictionary-methods-append_issue) | `static func append_issue( report: Dictionary, severity: Variant, kind: StringName, message: String, fields: Dictionary = {} ) -> Dictionary:` |
 | 方法 | [`append_source_issue`](#member-gfvalidationreportdictionary-methods-append_source_issue) | `static func append_source_issue( report: Dictionary, severity: Variant, kind: StringName, message: String, source_span: Variant, fields: Dictionary = {} ) -> Dictionary:` |
+| 方法 | [`merge_report`](#member-gfvalidationreportdictionary-methods-merge_report) | `static func merge_report(target: Dictionary, source: Dictionary, options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`finalize_report`](#member-gfvalidationreportdictionary-methods-finalize_report) | `static func finalize_report( report: Dictionary, subject: String = "", options: Dictionary = {} ) -> Dictionary:` |
 | 方法 | [`make_summary`](#member-gfvalidationreportdictionary-methods-make_summary) | `static func make_summary(subject: String, error_count: int, warning_count: int) -> String:` |
 | 方法 | [`get_next_action`](#member-gfvalidationreportdictionary-methods-get_next_action) | `static func get_next_action( report: Dictionary, action_map: Dictionary = {}, fallback_action: String = "Review the first reported issue.", no_action: String = "No action required.", options: Dictionary = {} ) -> String:` |
@@ -142,6 +143,35 @@ static func append_source_issue( report: Dictionary, severity: Variant, kind: St
 - `source_span`: Variant accepting GFSourceSpan or Dictionary span payload.
 - `fields`: Dictionary additional issue fields.
 - `return`: Dictionary appended issue payload.
+
+<a id="member-gfvalidationreportdictionary-methods-merge_report"></a>
+
+### `merge_report`
+
+- API：`public`
+
+```gdscript
+static func merge_report(target: Dictionary, source: Dictionary, options: Dictionary = {}) -> Dictionary:
+```
+
+合并另一份字典报告的问题。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `target` | 目标报告字典，会被当前方法修改。 |
+| `source` | 来源报告字典，不会被当前方法修改。 |
+| `options` | 可选合并设置；copy_fields 指定需要从 source 复制到 target 的字段名。 |
+
+返回：同一个目标报告字典。
+
+结构：
+
+- `target`: Dictionary report payload mutated in place.
+- `source`: Dictionary report payload copied from.
+- `options`: Dictionary may contain copy_fields as PackedStringArray or Array[String].
+- `return`: Dictionary merged report payload.
 
 <a id="member-gfvalidationreportdictionary-methods-finalize_report"></a>
 

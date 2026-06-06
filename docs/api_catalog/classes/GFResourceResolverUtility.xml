@@ -1,0 +1,190 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFResourceResolverUtility" path="addons/gf/standard/utilities/assets/gf_resource_resolver_utility.gd" module="standard" extends="GFUtility" classDigest="32952e7f580e947f2074c419e2a6a838271e4368e73b18046c240555319ac0d1">
+	<description>GFResourceResolverUtility: 通用资源键解析工具。
+将项目稳定资源键解析为路径或已加载 Resource，并支持显式注册表、provider 覆盖链和显式直接路径回退。
+它不扫描目录、不下载资源、不解释业务内容类型，也不负责实例化节点。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_service</tag>
+		<tag name="since">4.4.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants>
+		<member kind="const" name="PROVIDER_METHOD">
+			<signature>const PROVIDER_METHOD: StringName = &amp;"resolve_resource"</signature>
+			<description>provider 协议方法名。</description>
+			<tags>
+				<tag name="api">public</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties />
+	<methods>
+		<member kind="method" name="init">
+			<signature>func init() -&gt; void:</signature>
+			<description>初始化解析器运行时状态。</description>
+			<tags>
+				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="method" name="dispose">
+			<signature>func dispose() -&gt; void:</signature>
+			<description>释放解析器运行时状态。</description>
+			<tags>
+				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="method" name="register_path">
+			<signature>func register_path( resource_key: StringName, path: String, type_hint: String = "", priority: int = 0, metadata: Dictionary = {} ) -&gt; bool:</signature>
+			<description>注册一个资源键到资源路径的显式映射。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">resource_key: 稳定资源键。</tag>
+				<tag name="param">path: Godot 资源路径，通常为 `res://` 或 `uid://`。</tag>
+				<tag name="param">type_hint: 可选 ResourceLoader 类型提示。</tag>
+				<tag name="param">priority: 覆盖优先级；数值越大越优先。</tag>
+				<tag name="param">metadata: 项目自定义元数据，会复制到解析报告。</tag>
+				<tag name="return">注册成功返回 true。</tag>
+				<tag name="schema">metadata: Dictionary project-defined metadata copied into resolution reports.</tag>
+			</tags>
+		</member>
+		<member kind="method" name="unregister_path">
+			<signature>func unregister_path(resource_key: StringName) -&gt; bool:</signature>
+			<description>注销显式路径映射。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">resource_key: 稳定资源键。</tag>
+				<tag name="return">成功移除返回 true。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="clear_paths">
+			<signature>func clear_paths() -&gt; void:</signature>
+			<description>清空所有显式路径映射。</description>
+			<tags>
+				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="method" name="register_provider">
+			<signature>func register_provider(provider: Object, provider_id: StringName = &amp;"", priority: int = 0) -&gt; bool:</signature>
+			<description>注册一个资源解析 provider。
+provider 应实现 `resolve_resource(request: Dictionary) -&gt; Variant`。返回值可为 Dictionary、String 路径或 Resource。
+Dictionary 可包含 `ok`、`path`、`resource`、`type_hint`、`reason`、`metadata` 和 `provider_id`。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">provider: provider 对象。</tag>
+				<tag name="param">provider_id: provider 标识；为空时使用对象类名或实例 ID。</tag>
+				<tag name="param">priority: 覆盖优先级；数值越大越优先。</tag>
+				<tag name="return">注册成功返回 true。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="unregister_provider">
+			<signature>func unregister_provider(provider: Object) -&gt; bool:</signature>
+			<description>注销资源解析 provider。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">provider: provider 对象。</tag>
+				<tag name="return">成功移除返回 true。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="clear_providers">
+			<signature>func clear_providers() -&gt; void:</signature>
+			<description>清空所有 provider。</description>
+			<tags>
+				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="method" name="has_registered_key">
+			<signature>func has_registered_key(resource_key: StringName) -&gt; bool:</signature>
+			<description>检查显式路径映射是否存在。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">resource_key: 稳定资源键。</tag>
+				<tag name="return">存在显式映射时返回 true。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_registered_keys">
+			<signature>func get_registered_keys() -&gt; PackedStringArray:</signature>
+			<description>获取已注册的显式资源键。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">排序后的资源键列表。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="resolve">
+			<signature>func resolve( resource_key: StringName, type_hint_override: String = "", options: Dictionary = {} ) -&gt; Dictionary:</signature>
+			<description>解析资源键。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">resource_key: 稳定资源键；启用直接路径回退时也可传 `res://`、`uid://` 或 `user://` 路径。</tag>
+				<tag name="param">type_hint_override: 可选 ResourceLoader 类型提示覆盖。</tag>
+				<tag name="param">options: 可选参数。`check_exists` 默认为 true；`allow_direct_path` 默认为 false。</tag>
+				<tag name="return">解析报告。</tag>
+				<tag name="schema">options: Dictionary with optional `check_exists: bool` and `allow_direct_path: bool`.</tag>
+				<tag name="schema">return: Dictionary with `ok`, `key`, `path`, `type_hint`, `provider_id`, `reason`, `metadata`, and optional `resource`.</tag>
+			</tags>
+		</member>
+		<member kind="method" name="resolve_path">
+			<signature>func resolve_path( resource_key: StringName, type_hint_override: String = "", options: Dictionary = {} ) -&gt; String:</signature>
+			<description>解析资源键并返回路径。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">resource_key: 稳定资源键。</tag>
+				<tag name="param">type_hint_override: 可选 ResourceLoader 类型提示覆盖。</tag>
+				<tag name="param">options: 可选参数，见 `resolve()`。</tag>
+				<tag name="return">解析成功且结果包含路径时返回路径，否则返回空字符串。</tag>
+				<tag name="schema">options: Dictionary with optional `check_exists: bool` and `allow_direct_path: bool`.</tag>
+			</tags>
+		</member>
+		<member kind="method" name="load">
+			<signature>func load( resource_key: StringName, type_hint_override: String = "", cache_mode: int = ResourceLoader.CACHE_MODE_REUSE, options: Dictionary = {} ) -&gt; Resource:</signature>
+			<description>同步加载解析结果。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">resource_key: 稳定资源键。</tag>
+				<tag name="param">type_hint_override: 可选 ResourceLoader 类型提示覆盖。</tag>
+				<tag name="param">cache_mode: ResourceLoader 缓存模式。</tag>
+				<tag name="param">options: 可选参数，见 `resolve()`。</tag>
+				<tag name="return">加载到的 Resource；解析或加载失败时返回 null。</tag>
+				<tag name="schema">options: Dictionary with optional `check_exists: bool` and `allow_direct_path: bool`.</tag>
+			</tags>
+		</member>
+		<member kind="method" name="load_async">
+			<signature>func load_async( asset_utility: GFAssetUtility, resource_key: StringName, on_loaded: Callable, type_hint_override: String = "", options: Dictionary = {} ) -&gt; void:</signature>
+			<description>通过 GFAssetUtility 异步加载解析结果。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">asset_utility: 资源加载工具。</tag>
+				<tag name="param">resource_key: 稳定资源键。</tag>
+				<tag name="param">on_loaded: 加载完成回调，签名为 func(resource: Resource)。</tag>
+				<tag name="param">type_hint_override: 可选 ResourceLoader 类型提示覆盖。</tag>
+				<tag name="param">options: 可选参数，见 `resolve()`。</tag>
+				<tag name="schema">options: Dictionary with optional `check_exists: bool` and `allow_direct_path: bool`.</tag>
+			</tags>
+		</member>
+		<member kind="method" name="make_asset_group_entries">
+			<signature>func make_asset_group_entries( resource_keys: PackedStringArray, type_hint_override: String = "", options: Dictionary = {} ) -&gt; Array[Dictionary]:</signature>
+			<description>构建可传给 GFAssetUtility.preload_group_async() 的资源请求列表。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">resource_keys: 资源键列表。</tag>
+				<tag name="param">type_hint_override: 可选 ResourceLoader 类型提示覆盖。</tag>
+				<tag name="param">options: 可选参数，见 `resolve()`。</tag>
+				<tag name="return">资源请求列表。</tag>
+				<tag name="schema">resource_keys: PackedStringArray selected resource keys.</tag>
+				<tag name="schema">options: Dictionary with optional `check_exists: bool` and `allow_direct_path: bool`.</tag>
+				<tag name="schema">return: Array[Dictionary] where each item contains `path` and `type_hint`.</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_debug_snapshot">
+			<signature>func get_debug_snapshot() -&gt; Dictionary:</signature>
+			<description>获取解析器诊断快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">诊断信息。</tag>
+				<tag name="schema">return: Dictionary with `registered_key_count`, `registered_keys`, `provider_count`, and `providers`.</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

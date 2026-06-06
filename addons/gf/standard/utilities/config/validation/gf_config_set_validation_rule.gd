@@ -71,7 +71,7 @@ func _get_default_rule_id() -> StringName:
 func _validate_value(value: Variant, context: Dictionary, report: Dictionary) -> void:
 	var lookup: Dictionary = _build_lookup()
 	if not lookup.has(_make_comparison_key(value)):
-		_add_issue(report, context, "set_value_not_allowed", "值不在允许集合中。")
+		_add_issue(report, _make_issue_context(context, value), "set_value_not_allowed", "值不在允许集合中。")
 
 
 # --- 私有/辅助方法 ---
@@ -87,3 +87,11 @@ func _make_comparison_key(value: Variant) -> String:
 	if not case_sensitive and (typeof(value) == TYPE_STRING or typeof(value) == TYPE_STRING_NAME):
 		return "string:%s" % GFVariantData.to_text(value).to_lower()
 	return _make_variant_key(value)
+
+
+func _make_issue_context(context: Dictionary, value: Variant) -> Dictionary:
+	var issue_context: Dictionary = context.duplicate(true)
+	issue_context["value"] = GFVariantData.duplicate_variant(value)
+	issue_context["actual_value"] = GFVariantData.duplicate_variant(value)
+	issue_context["supported_values"] = GFVariantData.duplicate_variant(allowed_values)
+	return issue_context

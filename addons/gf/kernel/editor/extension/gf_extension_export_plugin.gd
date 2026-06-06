@@ -59,6 +59,11 @@ func _refresh_disabled_extension_roots() -> void:
 	if not GFExtensionSettingsBase.should_export_exclude_disabled_extensions():
 		return
 
+	var graph_report: Dictionary = GFExtensionSettingsBase.get_manifest_graph_report()
+	if not _manifest_graph_allows_export(graph_report):
+		push_error("[GFExtensionExportPlugin] 扩展 manifest 图无效，已停止导出扩展过滤：\n%s" % _format_manifest_graph_report(graph_report))
+		return
+
 	for manifest: GFExtensionManifest in GFExtensionSettingsBase.get_disabled_manifests():
 		if manifest.root_path.is_empty():
 			continue
@@ -69,6 +74,49 @@ func _refresh_disabled_extension_roots() -> void:
 static func _path_is_under(path: String, root_path: String) -> bool:
 	var normalized_root: String = root_path.trim_suffix("/")
 	return path == normalized_root or path.begins_with(normalized_root + "/")
+
+
+static func _manifest_graph_allows_export(report: Dictionary) -> bool:
+	return _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(report, "ok", true)
+
+
+static func _format_manifest_graph_report(report: Dictionary) -> String:
+	var lines: PackedStringArray = PackedStringArray()
+	for invalid_manifest_variant: Variant in _GF_VARIANT_ACCESS_SCRIPT.get_option_array(report, "invalid_manifests"):
+		var invalid_manifest: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.as_dictionary(invalid_manifest_variant)
+		var _append_invalid_result: Variant = lines.append("- invalid manifest %s: %s" % [
+			_describe_manifest_issue(invalid_manifest),
+			", ".join(_GF_VARIANT_ACCESS_SCRIPT.to_string_array(_GF_VARIANT_ACCESS_SCRIPT.get_option_value(invalid_manifest, "errors", []))),
+		])
+
+	for missing_dependency_variant: Variant in _GF_VARIANT_ACCESS_SCRIPT.get_option_array(report, "missing_dependencies"):
+		var missing_dependency: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.as_dictionary(missing_dependency_variant)
+		var _append_missing_result: Variant = lines.append("- missing dependency %s -> %s" % [
+			_GF_VARIANT_ACCESS_SCRIPT.get_option_string(missing_dependency, "extension_id", "?"),
+			_GF_VARIANT_ACCESS_SCRIPT.get_option_string(missing_dependency, "dependency_id", "?"),
+		])
+
+	for duplicate_id: String in _GF_VARIANT_ACCESS_SCRIPT.get_option_packed_string_array(report, "duplicate_ids", PackedStringArray()):
+		var _append_duplicate_result: Variant = lines.append("- duplicate extension id %s" % duplicate_id)
+
+	for cycle_variant: Variant in _GF_VARIANT_ACCESS_SCRIPT.get_option_array(report, "dependency_cycles"):
+		var _append_cycle_result: Variant = lines.append("- dependency cycle %s" % _GF_VARIANT_ACCESS_SCRIPT.to_text(cycle_variant, "?"))
+
+	if lines.is_empty():
+		return "extension manifest graph is invalid"
+	return "\n".join(lines)
+
+
+static func _describe_manifest_issue(issue: Dictionary) -> String:
+	var extension_id: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(issue, "extension_id")
+	var source_path: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(issue, "source_path")
+	if not extension_id.is_empty() and not source_path.is_empty():
+		return "%s (%s)" % [extension_id, source_path]
+	if not extension_id.is_empty():
+		return extension_id
+	if not source_path.is_empty():
+		return source_path
+	return "?"
 
 
 func _warn_disabled_extension_references() -> void:

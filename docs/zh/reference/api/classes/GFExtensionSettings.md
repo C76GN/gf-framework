@@ -17,9 +17,11 @@ GF 扩展启用状态与 ProjectSettings 桥接。 负责读取启用扩展 ID�
 |---|---|---|
 | 常量 | [`ENABLED_EXTENSIONS_SETTING`](#member-gfextensionsettings-constants-enabled_extensions_setting) | `const ENABLED_EXTENSIONS_SETTING: String = "gf/extensions/enabled"` |
 | 常量 | [`AUTO_INSTALL_ENABLED_INSTALLERS_SETTING`](#member-gfextensionsettings-constants-auto_install_enabled_installers_setting) | `const AUTO_INSTALL_ENABLED_INSTALLERS_SETTING: String = "gf/extensions/auto_install_enabled_installers"` |
+| 常量 | [`EXTERNAL_EXTENSION_ROOTS_SETTING`](#member-gfextensionsettings-constants-external_extension_roots_setting) | `const EXTERNAL_EXTENSION_ROOTS_SETTING: String = "gf/extensions/external_roots"` |
 | 常量 | [`EXPORT_EXCLUDE_DISABLED_SETTING`](#member-gfextensionsettings-constants-export_exclude_disabled_setting) | `const EXPORT_EXCLUDE_DISABLED_SETTING: String = "gf/extensions/export_exclude_disabled"` |
 | 常量 | [`EXPORT_FAIL_ON_DISABLED_REFERENCES_SETTING`](#member-gfextensionsettings-constants-export_fail_on_disabled_references_setting) | `const EXPORT_FAIL_ON_DISABLED_REFERENCES_SETTING: String = "gf/extensions/export_fail_on_disabled_references"` |
 | 常量 | [`AUTO_INSTALL_ENABLED_INSTALLERS_DEFAULT`](#member-gfextensionsettings-constants-auto_install_enabled_installers_default) | `const AUTO_INSTALL_ENABLED_INSTALLERS_DEFAULT: bool = true` |
+| 常量 | [`EXTERNAL_EXTENSION_ROOTS_DEFAULT`](#member-gfextensionsettings-constants-external_extension_roots_default) | `const EXTERNAL_EXTENSION_ROOTS_DEFAULT: Array[String] = []` |
 | 常量 | [`EXPORT_EXCLUDE_DISABLED_DEFAULT`](#member-gfextensionsettings-constants-export_exclude_disabled_default) | `const EXPORT_EXCLUDE_DISABLED_DEFAULT: bool = true` |
 | 常量 | [`EXPORT_FAIL_ON_DISABLED_REFERENCES_DEFAULT`](#member-gfextensionsettings-constants-export_fail_on_disabled_references_default) | `const EXPORT_FAIL_ON_DISABLED_REFERENCES_DEFAULT: bool = true` |
 | 常量 | [`BUILT_IN_EXTENSION_IDS`](#member-gfextensionsettings-constants-built_in_extension_ids) | `const BUILT_IN_EXTENSION_IDS: Array[String] = [` |
@@ -30,6 +32,8 @@ GF 扩展启用状态与 ProjectSettings 桥接。 负责读取启用扩展 ID�
 | 方法 | [`set_enabled_extension_ids`](#member-gfextensionsettings-methods-set_enabled_extension_ids) | `static func set_enabled_extension_ids(extension_ids: Array[String], include_dependencies: bool = true) -> void:` |
 | 方法 | [`should_auto_install_enabled_installers`](#member-gfextensionsettings-methods-should_auto_install_enabled_installers) | `static func should_auto_install_enabled_installers() -> bool:` |
 | 方法 | [`set_auto_install_enabled_installers`](#member-gfextensionsettings-methods-set_auto_install_enabled_installers) | `static func set_auto_install_enabled_installers(enabled: bool) -> void:` |
+| 方法 | [`get_external_extension_roots`](#member-gfextensionsettings-methods-get_external_extension_roots) | `static func get_external_extension_roots() -> Array[String]:` |
+| 方法 | [`set_external_extension_roots`](#member-gfextensionsettings-methods-set_external_extension_roots) | `static func set_external_extension_roots(root_paths: Array[String]) -> void:` |
 | 方法 | [`should_export_exclude_disabled_extensions`](#member-gfextensionsettings-methods-should_export_exclude_disabled_extensions) | `static func should_export_exclude_disabled_extensions() -> bool:` |
 | 方法 | [`set_export_exclude_disabled_extensions`](#member-gfextensionsettings-methods-set_export_exclude_disabled_extensions) | `static func set_export_exclude_disabled_extensions(enabled: bool) -> void:` |
 | 方法 | [`should_fail_export_on_disabled_extension_references`](#member-gfextensionsettings-methods-should_fail_export_on_disabled_extension_references) | `static func should_fail_export_on_disabled_extension_references() -> bool:` |
@@ -81,6 +85,19 @@ const AUTO_INSTALL_ENABLED_INSTALLERS_SETTING: String = "gf/extensions/auto_inst
 
 项目设置：是否自动执行启用扩展 manifest 中声明的 installer_paths。
 
+<a id="member-gfextensionsettings-constants-external_extension_roots_setting"></a>
+
+### `EXTERNAL_EXTENSION_ROOTS_SETTING`
+
+- API：`public`
+- 首次版本：`4.4.0`
+
+```gdscript
+const EXTERNAL_EXTENSION_ROOTS_SETTING: String = "gf/extensions/external_roots"
+```
+
+项目设置：额外扩展集合根目录列表。每个根目录下一层为独立扩展目录。
+
 <a id="member-gfextensionsettings-constants-export_exclude_disabled_setting"></a>
 
 ### `EXPORT_EXCLUDE_DISABLED_SETTING`
@@ -116,6 +133,19 @@ const AUTO_INSTALL_ENABLED_INSTALLERS_DEFAULT: bool = true
 ```
 
 默认自动执行启用扩展 Installer。
+
+<a id="member-gfextensionsettings-constants-external_extension_roots_default"></a>
+
+### `EXTERNAL_EXTENSION_ROOTS_DEFAULT`
+
+- API：`public`
+- 首次版本：`4.4.0`
+
+```gdscript
+const EXTERNAL_EXTENSION_ROOTS_DEFAULT: Array[String] = []
+```
+
+默认不扫描额外扩展根目录。
 
 <a id="member-gfextensionsettings-constants-export_exclude_disabled_default"></a>
 
@@ -259,6 +289,40 @@ static func set_auto_install_enabled_installers(enabled: bool) -> void:
 | 名称 | 说明 |
 |---|---|
 | `enabled` | 是否自动运行。 |
+
+<a id="member-gfextensionsettings-methods-get_external_extension_roots"></a>
+
+### `get_external_extension_roots`
+
+- API：`public`
+- 首次版本：`4.4.0`
+
+```gdscript
+static func get_external_extension_roots() -> Array[String]:
+```
+
+获取项目配置的额外扩展集合根目录。 只返回 `res://` 根目录，保证 manifest 贡献路径仍可由 Godot 资源系统加载。
+
+返回：扩展集合根目录列表。
+
+<a id="member-gfextensionsettings-methods-set_external_extension_roots"></a>
+
+### `set_external_extension_roots`
+
+- API：`public`
+- 首次版本：`4.4.0`
+
+```gdscript
+static func set_external_extension_roots(root_paths: Array[String]) -> void:
+```
+
+保存项目配置的额外扩展集合根目录，并刷新 manifest 缓存。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `root_paths` | 扩展集合根目录列表。 |
 
 <a id="member-gfextensionsettings-methods-should_export_exclude_disabled_extensions"></a>
 
@@ -407,9 +471,9 @@ static func get_extension_resource_path( extension_id: String, relative_path: St
 | 名称 | 说明 |
 |---|---|
 | `extension_id` | 扩展 ID。 |
-| `relative_path` | 相对扩展根目录的资源路径；传入 `res://` 或 `user://` 时会原样返回。 |
+| `relative_path` | 相对扩展根目录的资源路径；传入 `res://` 时必须仍位于扩展根目录下。 |
 
-返回：扩展资源路径；扩展不存在时返回空字符串。
+返回：扩展根目录下的资源路径；扩展不存在或路径越界时返回空字符串。
 
 <a id="member-gfextensionsettings-methods-is_extension_enabled"></a>
 
@@ -449,10 +513,10 @@ static func load_enabled_extension_script( extension_id: String, relative_path: 
 | 名称 | 说明 |
 |---|---|
 | `extension_id` | 扩展 ID。 |
-| `relative_path` | 相对扩展根目录的脚本路径；传入 `res://` 或 `user://` 时会原样解析。 |
+| `relative_path` | 相对扩展根目录的脚本路径；传入 `res://` 时必须仍位于扩展根目录下。 |
 | `include_dependencies` | 是否把依赖补齐后的启用结果纳入判断。 |
 
-返回：扩展存在、已启用且脚本可加载时返回 Script，否则返回 null。
+返回：扩展存在、已启用、依赖图有效且脚本可加载时返回 Script，否则返回 null。
 
 <a id="member-gfextensionsettings-methods-get_enabled_manifests"></a>
 
@@ -655,4 +719,4 @@ static func get_extension_selection_report() -> Dictionary:
 
 结构：
 
-- `return`: Dictionary containing configured_ids, resolved_ids, unknown_enabled_ids, graph status, and extension counts.
+- `return`: Dictionary containing external_roots, configured_ids, resolved_ids, unknown_enabled_ids, graph status, and extension counts.

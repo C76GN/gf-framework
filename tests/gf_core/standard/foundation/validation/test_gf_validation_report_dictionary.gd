@@ -122,6 +122,54 @@ func test_dictionary_report_can_treat_warnings_as_errors() -> void:
 	assert_eq(GFVariantData.get_option_int(report, "warning_count"), 0, "提升后的警告不应再计入警告数量。")
 
 
+func test_dictionary_report_merge_report_copies_issues_and_selected_fields() -> void:
+	var target: Dictionary = {
+		"subject": "Combined scan",
+		"issues": [
+			{
+				"severity": "warning",
+				"kind": "slow_path",
+				"message": "Path is slow.",
+			},
+		],
+	}
+	var source: Dictionary = {
+		"package_count": 2,
+		"ignored_count": 5,
+		"ordered_package_ids": PackedStringArray(["base", "feature"]),
+		"issues": [
+			{
+				"severity": "error",
+				"kind": "missing_dependency",
+				"message": "Dependency is missing.",
+				"path": "packages.feature.dependencies",
+				"metadata": {
+					"source": "catalog",
+				},
+			},
+		],
+	}
+
+	var _merged_report: Dictionary = GFValidationReportDictionary.merge_report(target, source, {
+		"copy_fields": PackedStringArray(["package_count", "ordered_package_ids"]),
+	})
+	var _finalized_report: Dictionary = GFValidationReportDictionary.finalize_report(target, "Combined scan")
+	var target_issues: Array = GFVariantData.as_array(GFVariantData.get_option_value(target, "issues"))
+	var source_issues: Array = GFVariantData.as_array(GFVariantData.get_option_value(source, "issues"))
+	var copied_issue: Dictionary = GFVariantData.as_dictionary(target_issues[1])
+	var copied_metadata: Dictionary = GFVariantData.get_option_dictionary(copied_issue, "metadata")
+	var ordered_package_ids: PackedStringArray = GFVariantData.get_option_packed_string_array(target, "ordered_package_ids")
+
+	assert_eq(target_issues.size(), 2, "合并报告应追加来源问题。")
+	assert_eq(source_issues.size(), 1, "合并不应修改来源报告。")
+	assert_eq(GFVariantData.get_option_string(copied_issue, "kind"), "missing_dependency", "来源问题应保持稳定 kind。")
+	assert_eq(GFVariantData.get_option_string(copied_metadata, "source"), "catalog", "来源问题 metadata 应被深拷贝保留。")
+	assert_eq(GFVariantData.get_option_int(target, "package_count"), 2, "copy_fields 指定字段应复制到目标报告。")
+	assert_eq(Array(ordered_package_ids), ["base", "feature"], "PackedStringArray 字段应复制为副本。")
+	assert_false(target.has("ignored_count"), "未列入 copy_fields 的统计字段不应隐式复制。")
+	assert_false(GFVariantData.get_option_bool(target, "ok"), "合并后的错误问题应在 finalize 后让报告失败。")
+
+
 func test_dictionary_report_filter_issues_uses_ignores_and_preserves_source() -> void:
 	var report: Dictionary = {
 		"subject": "Project scan",

@@ -86,29 +86,33 @@ func describe_recipe() -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
+## @return: 校验报告对象。
+func validate_recipe_report() -> GFValidationReport:
+	var report: GFValidationReport = GFValidationReport.new("Capability recipe", {
+		"recipe_id": String(recipe_id),
+		"resource_path": resource_path,
+	})
+
+	_validate_groups(report)
+	_validate_entries(report)
+	return report
+
+
+## 校验 Recipe 结构并导出为 Dictionary。
+## [br]
+## @api public
+## [br]
 ## @return: 校验报告。
 ## [br]
 ## @schema return: GFValidationReport.to_dict() 生成的 Dictionary，包含 ok、healthy、summary、issues、next_action 和 entry_count 等字段。
 func validate_recipe() -> Dictionary:
-	var report: GFValidationReport = GFValidationReport.new("Capability recipe")
-
-	var seen_keys: Dictionary = {}
-	for index: int in range(entries.size()):
-		var entry: GFCapabilityRecipeEntry = entries[index]
-		if entry == null:
-			var _add_warning_result_99: Variant = report.add_warning(&"null_entry", "Recipe contains a null entry.", str(index))
-			continue
-		if not entry.is_valid_entry():
-			var _add_error_result_102: Variant = report.add_error(&"invalid_entry", "Recipe entry requires capability_type or scene.", str(index))
-			continue
-
-		var key: String = _get_entry_key(entry)
-		if not key.is_empty() and seen_keys.has(key):
-			var _add_warning_result_107: Variant = report.add_warning(&"duplicate_entry", "Recipe contains duplicate capability entries.", key)
-		seen_keys[key] = true
-
+	var report: GFValidationReport = validate_recipe_report()
 	return report.to_dict(
-		{ "entry_count": entries.size() },
+		{
+			"recipe_id": recipe_id,
+			"entry_count": entries.size(),
+			"group_count": groups.size(),
+		},
 		{
 			"include_subject": false,
 			"include_metadata": false,
@@ -121,6 +125,81 @@ func validate_recipe() -> Dictionary:
 
 
 # --- 私有/辅助方法 ---
+
+func _validate_groups(report: GFValidationReport) -> void:
+	var seen_groups: Dictionary = {}
+	for index: int in range(groups.size()):
+		var group_name: StringName = groups[index]
+		if group_name == &"":
+			_add_recipe_issue(
+				report,
+				GFValidationIssue.Severity.WARNING,
+				&"empty_group",
+				"Recipe contains an empty group name.",
+				index,
+				_make_group_path(index),
+				{ "group_index": index }
+			)
+			continue
+		if seen_groups.has(group_name):
+			_add_recipe_issue(
+				report,
+				GFValidationIssue.Severity.WARNING,
+				&"duplicate_group",
+				"Recipe contains duplicate group names.",
+				group_name,
+				_make_group_path(index),
+				{
+					"group_index": index,
+					"group_name": String(group_name),
+				}
+			)
+		seen_groups[group_name] = true
+
+
+func _validate_entries(report: GFValidationReport) -> void:
+	var seen_keys: Dictionary = {}
+	for index: int in range(entries.size()):
+		var entry: GFCapabilityRecipeEntry = entries[index]
+		if entry == null:
+			_add_recipe_issue(
+				report,
+				GFValidationIssue.Severity.WARNING,
+				&"null_entry",
+				"Recipe contains a null entry.",
+				index,
+				_make_entry_path(index),
+				{ "entry_index": index }
+			)
+			continue
+		if not entry.is_valid_entry():
+			_add_recipe_issue(
+				report,
+				GFValidationIssue.Severity.ERROR,
+				&"invalid_entry",
+				"Recipe entry requires capability_type or scene.",
+				index,
+				_make_entry_path(index),
+				{ "entry_index": index }
+			)
+			continue
+
+		var key: String = _get_entry_key(entry)
+		if not key.is_empty() and seen_keys.has(key):
+			_add_recipe_issue(
+				report,
+				GFValidationIssue.Severity.WARNING,
+				&"duplicate_entry",
+				"Recipe contains duplicate capability entries.",
+				key,
+				_make_entry_path(index),
+				{
+					"entry_index": index,
+					"entry_key": key,
+				}
+			)
+		seen_keys[key] = true
+
 
 func _get_entry_key(entry: GFCapabilityRecipeEntry) -> String:
 	if entry == null:
@@ -136,9 +215,43 @@ func _get_entry_key(entry: GFCapabilityRecipeEntry) -> String:
 	return ""
 
 
+func _make_entry_path(index: int) -> String:
+	return "entries[%d]" % index
+
+
+func _make_group_path(index: int) -> String:
+	return "groups[%d]" % index
+
+
+func _add_recipe_issue(
+	report: GFValidationReport,
+	severity: GFValidationIssue.Severity,
+	kind: StringName,
+	message: String,
+	key: Variant,
+	path: String,
+	issue_metadata: Dictionary = {}
+) -> void:
+	var metadata_copy: Dictionary = issue_metadata.duplicate(true)
+	metadata_copy["recipe_id"] = String(recipe_id)
+	var issue: RefCounted = report.add_issue(GFValidationIssue.new(
+		severity,
+		kind,
+		message,
+		key,
+		path,
+		metadata_copy
+	))
+	if issue is GFValidationIssue:
+		var validation_issue: GFValidationIssue = issue
+		validation_issue.source_path = resource_path
+
+
 func _get_next_actions() -> Dictionary:
 	return {
 		"null_entry": "Remove the null Recipe entry or replace it with a valid GFCapabilityRecipeEntry.",
 		"invalid_entry": "Set capability_type or scene on every Recipe entry.",
 		"duplicate_entry": "Remove duplicate entries unless the duplication is intentional metadata for project tools.",
+		"empty_group": "Remove empty Recipe group names.",
+		"duplicate_group": "Remove duplicate Recipe group names unless repeated metadata is intentional.",
 	}

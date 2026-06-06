@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFConfigTableImporter" path="addons/gf/standard/utilities/config/gf_config_table_importer.gd" module="standard" extends="RefCounted" classDigest="8433d0d8810a495bb3fc92b9bc619cb2a25f41cb3d1622bb792911d39c80b6d4">
+<class name="GFConfigTableImporter" path="addons/gf/standard/utilities/config/gf_config_table_importer.gd" module="standard" extends="RefCounted" classDigest="4eb24cb93780d0377ffb316191288fdc23f28d783b8e5705937b98e66e2d9eba">
 	<description>GFConfigTableImporter: 通用导表文本解析与 schema 校验入口。
 提供 JSON 与 CSV 的轻量解析，适合编辑器工具或 CI 在进入项目 Provider 前做结构检查。</description>
 	<tags>
@@ -47,6 +47,22 @@
 				<tag name="return">校验报告；解析失败时返回失败报告。</tag>
 				<tag name="schema">options: Dictionary，可包含 source。</tag>
 				<tag name="schema">return: GFConfigValidationReport 兼容 Dictionary。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="validate_json_record">
+			<signature>static func validate_json_record( text: String, schema: GFConfigTableSchema, row_key: Variant = null, options: Dictionary = {} ) -&gt; Dictionary:</signature>
+			<description>解析并校验 JSON 单记录文本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">text: JSON 文本，根节点必须是 Dictionary。</tag>
+				<tag name="param">schema: 表结构声明；当前方法复用其字段声明校验单条记录。</tag>
+				<tag name="param">row_key: 可选行标识；为空且 schema 声明了 id_field 时会尝试从记录字段读取。</tag>
+				<tag name="param">options: 可选参数，支持 source。</tag>
+				<tag name="return">校验报告；解析失败或根节点不是 Dictionary 时返回失败报告。</tag>
+				<tag name="schema">row_key: Variant，写入校验报告 issue 的行标识。</tag>
+				<tag name="schema">options: Dictionary，可包含 source。</tag>
+				<tag name="schema">return: GFConfigValidationReport 兼容 Dictionary。</tag>
+				<tag name="since">4.4.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="validate_csv_table">

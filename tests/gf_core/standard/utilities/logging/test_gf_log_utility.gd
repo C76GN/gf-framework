@@ -102,6 +102,20 @@ func test_max_log_files_rejects_negative_values() -> void:
 	assert_eq(_log_util.max_log_files, 1, "max_log_files 不应允许负数导致清理越界。")
 
 
+func test_remove_absolute_handles_user_paths_and_missing_files_silently() -> void:
+	var path: String = _LOG_DIR + "gf_log_remove_user_path.log"
+	var file: FileAccess = FileAccess.open(path, FileAccess.WRITE)
+	assert_not_null(file, "测试应能创建待删除日志文件。")
+	if file != null:
+		var _store_line_result: Variant = file.store_line("temporary")
+		file.close()
+
+	GFLogUtility._remove_absolute(path)
+	GFLogUtility._remove_absolute(path)
+
+	assert_false(FileAccess.file_exists(path), "日志删除应支持 user:// 路径并忽略已不存在的文件。")
+
+
 # --- 测试：信号触发 ---
 
 ## 验证调用 info() 后 log_emitted 信号正确触发。

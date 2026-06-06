@@ -414,7 +414,7 @@ func get_receivers_in_group_with(
 
 
 ## 给对象挂载指定能力类型。
-## provider 可为 Callable、PackedScene、Object；为空时使用 capability_type.new()。
+## provider 可为 Callable、PackedScene、Object；为空时使用 capability_type.new()。provider 返回的实例脚本必须继承或等于 capability_type。
 ## [br]
 ## @api public
 ## [br]
@@ -458,7 +458,7 @@ func add_required_capability(receiver: Object, capability_type: Script, provider
 ## [br]
 ## @param capability: 要挂载的能力实例。
 ## [br]
-## @param as_type: 能力实例注册时使用的类型；为 null 时使用实例脚本类型。
+## @param as_type: 能力实例注册时使用的类型；为 null 时使用实例脚本类型。非空时实例脚本必须继承或等于该类型。
 ## [br]
 ## @return: 已挂载或复用的能力实例；失败时返回 null。
 func add_capability_instance(receiver: Object, capability: Object, as_type: Script = null) -> Object:
@@ -473,7 +473,7 @@ func add_capability_instance(receiver: Object, capability: Object, as_type: Scri
 ## [br]
 ## @param scene: 要实例化的能力场景资源。
 ## [br]
-## @param as_type: 能力实例注册时使用的类型；为 null 时使用实例脚本类型。
+## @param as_type: 能力实例注册时使用的类型；为 null 时使用场景根节点脚本类型。非空时场景根节点脚本必须继承或等于该类型。
 ## [br]
 ## @return: 已挂载的能力节点；失败时返回 null。
 func add_scene_capability(receiver: Node, scene: PackedScene, as_type: Script = null) -> Object:
@@ -1115,6 +1115,11 @@ func _add_capability(receiver: Object, capability_type: Script, provider: Varian
 	if capability == null:
 		_creation_stack.pop_back()
 		return null
+	if not _validate_capability_instance_type(capability, capability_type, "add_capability"):
+		if owns_instance:
+			_free_unregistered_capability(capability)
+		_creation_stack.pop_back()
+		return null
 
 	var dependency_result: Dictionary = _ensure_required_capabilities(receiver, capability)
 	if not GFVariantData.get_option_bool(dependency_result, "ok", false):
@@ -1149,6 +1154,8 @@ func _add_capability_instance(
 		capability_type = _get_script_value(capability.get_script())
 	if capability_type == null:
 		push_error("[GFCapabilityUtility] add_capability_instance 失败：能力实例缺少脚本类型。")
+		return null
+	if not _validate_capability_instance_type(capability, capability_type, "add_capability_instance"):
 		return null
 
 	if not _can_attach_capability_instance(receiver, capability):
@@ -1269,6 +1276,20 @@ func _can_attach_capability_instance(receiver: Object, capability: Object) -> bo
 
 	push_error("[GFCapabilityUtility] 同一个能力实例不能挂载到多个 receiver。")
 	return false
+
+
+func _validate_capability_instance_type(capability: Object, capability_type: Script, context: String) -> bool:
+	var instance_script: Script = _get_script_value(capability.get_script())
+	if instance_script == null:
+		push_error("[GFCapabilityUtility] %s 失败：能力实例缺少脚本，不能注册为 %s。" % [context, _get_script_key(capability_type)])
+		return false
+	if not _script_extends_or_equals(instance_script, capability_type):
+		push_error(
+			"[GFCapabilityUtility] %s 失败：能力实例脚本 %s 不继承声明类型 %s。"
+			% [context, _get_script_key(instance_script), _get_script_key(capability_type)]
+		)
+		return false
+	return true
 
 
 func _register_capability(

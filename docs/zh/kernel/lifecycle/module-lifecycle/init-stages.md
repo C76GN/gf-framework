@@ -39,3 +39,18 @@ func ready() -> void:
 ```
 
 `ready()` 会在所有模块的 `async_init()` 结束后触发。此时整个架构已经完成挂载，模块可以安全获取其他 Model、System 或 Utility，并注册事件监听。
+
+## 释放引用
+
+```gdscript
+func dispose() -> void:
+	_stop_runtime_work()
+
+func release_dependencies() -> void:
+	_cached_utility = null
+	super.release_dependencies()
+```
+
+架构注销模块或整体 `dispose()` 时，会先调用模块的 `dispose()`，再调用 `release_dependencies()`。`dispose()` 负责停止模块自身工作、断开业务监听和释放本模块拥有的对象；`release_dependencies()` 只负责清空模块缓存的外部 Model/System/Utility 引用，并释放框架注入作用域。
+
+GF 不会自动扫描并清空模块的任意成员变量。需要释放哪些引用由模块自己声明，避免在错误生命周期点破坏模块自己的 dispose 逻辑。

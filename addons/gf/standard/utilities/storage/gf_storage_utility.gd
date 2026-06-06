@@ -210,6 +210,12 @@ func init() -> void:
 ## @api public
 func dispose() -> void:
 	_wait_for_async_tasks()
+	_async_tasks.clear()
+	_async_queue.clear()
+	_async_file_locks.clear()
+	_migration_steps.clear()
+	last_load_result.clear()
+	_release_storage_helpers()
 
 
 ## 驱动异步存档任务完成检查。
@@ -275,6 +281,20 @@ func ensure_directory(directory_name: String = "") -> Error:
 	if error != OK:
 		push_error("[GFStorageUtility] 无法创建目录：%s，错误码：%s" % [path, error])
 	return error
+
+
+## 获取存储目录路径，不创建目录。
+## [br]
+## @api public
+## [br]
+## @since 4.4.0
+## [br]
+## @param directory_name: 相对存储目录；为空时返回根存储目录。
+## [br]
+## @return 按当前路径策略解析后的目录路径。
+func get_storage_directory_path(directory_name: String = "") -> String:
+	var normalized_directory: String = _normalize_storage_directory_name(directory_name)
+	return _get_full_directory_path_from_normalized(normalized_directory)
 
 
 ## 枚举指定存储目录下的文件。
@@ -759,6 +779,18 @@ func _ensure_storage_helpers() -> void:
 		_file_ops = _StorageFileOps.new(self, _path_policy)
 	if _transaction_manager == null:
 		_transaction_manager = _StorageTransactionManager.new(self, _path_policy, _file_ops)
+
+
+func _release_storage_helpers() -> void:
+	if _transaction_manager != null:
+		_transaction_manager._dispose()
+	if _file_ops != null:
+		_file_ops._dispose()
+	if _path_policy != null:
+		_path_policy._dispose()
+	_transaction_manager = null
+	_file_ops = null
+	_path_policy = null
 
 
 func _ensure_directory_absolute(path: String) -> Error:
@@ -1568,6 +1600,9 @@ class _StoragePathPolicy:
 	func _init(p_owner: Object) -> void:
 		_owner = p_owner
 
+	func _dispose() -> void:
+		_owner = null
+
 	func _get_owner_property(property_name: String) -> Variant:
 		if _owner == null:
 			return null
@@ -1677,6 +1712,10 @@ class _StorageFileOps:
 	func _init(p_owner: Object, p_path_policy: _StoragePathPolicy) -> void:
 		_owner = p_owner
 		_path_policy = p_path_policy
+
+	func _dispose() -> void:
+		_owner = null
+		_path_policy = null
 
 	func _get_owner_property(property_name: String) -> Variant:
 		if _owner == null:
@@ -1827,6 +1866,11 @@ class _StorageTransactionManager:
 		_owner = p_owner
 		_path_policy = p_path_policy
 		_file_ops = p_file_ops
+
+	func _dispose() -> void:
+		_owner = null
+		_path_policy = null
+		_file_ops = null
 
 	func _get_temp_filename(file_name: String) -> String:
 		return file_name + _TEMP_SUFFIX

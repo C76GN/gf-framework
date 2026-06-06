@@ -69,6 +69,16 @@ func dispose() -> void:
 	pass
 
 
+## 释放架构注入作用域和模块缓存的外部依赖引用。
+## 架构会在 dispose() 之后调用该方法；子类重写时应先释放自身缓存的 Model/System/Utility 引用，再调用 super.release_dependencies()。
+## [br]
+## @api public
+## [br]
+## @since 4.4.0
+func release_dependencies() -> void:
+	_release_dependency_scope()
+
+
 ## 获取架构级存档使用的稳定键。
 ## 默认返回空字符串，表示由 GFArchitecture 使用 class_name 或资源路径。
 ## [br]

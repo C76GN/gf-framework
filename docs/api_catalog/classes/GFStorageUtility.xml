@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFStorageUtility" path="addons/gf/standard/utilities/storage/gf_storage_utility.gd" module="standard" extends="GFUtility" classDigest="77e8e8293825eb1329681b4c983cad25a68a923bc4251f1eba998bb1f334907d">
+<class name="GFStorageUtility" path="addons/gf/standard/utilities/storage/gf_storage_utility.gd" module="standard" extends="GFUtility" classDigest="22e8be8f5db7918294105b34ed92111ce208eda07577411b2b4ba31cf980ab7e">
 	<description>GFStorageUtility: 基于 `user://` 的轻量存档系统。
 支持槽位存档、元数据分离读取、`Resource` 存取，
 以及可配置 codec、完整性校验、版本迁移和简单混淆，适合通用本地持久化场景。
@@ -246,6 +246,16 @@
 				<tag name="api">public</tag>
 				<tag name="param">directory_name: 相对存储目录；为空时只确保根存储目录存在。</tag>
 				<tag name="return">Godot 的 `Error` 结果码。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_storage_directory_path">
+			<signature>func get_storage_directory_path(directory_name: String = "") -&gt; String:</signature>
+			<description>获取存储目录路径，不创建目录。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">directory_name: 相对存储目录；为空时返回根存储目录。</tag>
+				<tag name="return">按当前路径策略解析后的目录路径。</tag>
+				<tag name="since">4.4.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="list_files">

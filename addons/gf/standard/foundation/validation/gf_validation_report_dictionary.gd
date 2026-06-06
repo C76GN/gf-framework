@@ -157,6 +157,41 @@ static func append_source_issue(
 	return append_issue(report, severity, kind, message, merged_fields)
 
 
+## 合并另一份字典报告的问题。
+## [br]
+## @api public
+## [br]
+## @param target: 目标报告字典，会被当前方法修改。
+## [br]
+## @param source: 来源报告字典，不会被当前方法修改。
+## [br]
+## @param options: 可选合并设置；copy_fields 指定需要从 source 复制到 target 的字段名。
+## [br]
+## @schema target: Dictionary report payload mutated in place.
+## [br]
+## @schema source: Dictionary report payload copied from.
+## [br]
+## @schema options: Dictionary may contain copy_fields as PackedStringArray or Array[String].
+## [br]
+## @return 同一个目标报告字典。
+## [br]
+## @schema return: Dictionary merged report payload.
+static func merge_report(target: Dictionary, source: Dictionary, options: Dictionary = {}) -> Dictionary:
+	var target_issues: Array = _get_issue_array(target)
+	for issue_variant: Variant in GFVariantData.get_option_array(source, "issues"):
+		var issue: Dictionary = issue_to_dict(issue_variant)
+		if issue.is_empty():
+			continue
+		target_issues.append(issue)
+	target["issues"] = target_issues
+
+	for field_name: String in _to_packed_string_array(GFVariantData.get_option_value(options, "copy_fields", PackedStringArray())):
+		if not _has_text_key(source, field_name):
+			continue
+		target[field_name] = GFVariantData.duplicate_variant(GFVariantData.get_option_value(source, field_name))
+	return target
+
+
 ## 重新计算字典报告的统计字段。
 ## [br]
 ## @api public
@@ -525,6 +560,10 @@ static func _make_string_lookup(value: Variant) -> Dictionary:
 
 static func _lookup_has_value(lookup: Dictionary, value: String) -> bool:
 	return not value.is_empty() and lookup.has(value)
+
+
+static func _has_text_key(data: Dictionary, key: String) -> bool:
+	return data.has(key) or data.has(StringName(key))
 
 
 static func _to_packed_string_array(value: Variant) -> PackedStringArray:

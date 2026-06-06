@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFExtensionCatalog" path="addons/gf/kernel/extension/gf_extension_catalog.gd" module="kernel" extends="RefCounted" classDigest="4b8fd210039aabf4a78f13e2e74d7536d32ac35c16d533283b9647a9591da53e">
+<class name="GFExtensionCatalog" path="addons/gf/kernel/extension/gf_extension_catalog.gd" module="kernel" extends="RefCounted" classDigest="bc6812675c8b9772eca765ee6ae7be0166e1c9b2f8374f304f376b585d3975ac">
 	<description>GFExtensionCatalog: GF 扩展 manifest 发现与读取辅助。
-扫描 `addons/gf/extensions` 下一层扩展目录中的 `gf_extension.json`，
-供编辑器工具或项目侧扩展管理界面使用。</description>
+扫描 GF 内置扩展目录和项目声明的额外扩展集合根目录，
+读取下一层扩展目录中的 `gf_extension.json`，供编辑器工具或项目侧扩展管理界面使用。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">runtime_service</tag>
@@ -31,10 +31,11 @@
 			</tags>
 		</member>
 		<member kind="method" name="load_all_manifests">
-			<signature>static func load_all_manifests() -&gt; Array[GFExtensionManifest]:</signature>
-			<description>读取所有 GF 内置可选扩展 manifest。</description>
+			<signature>static func load_all_manifests(extra_root_paths: Array[String] = []) -&gt; Array[GFExtensionManifest]:</signature>
+			<description>读取所有 GF 可选扩展 manifest。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="param">extra_root_paths: 额外扩展集合根目录列表，每个根目录下一层为独立扩展目录。</tag>
 				<tag name="return">扩展 manifest 列表。</tag>
 			</tags>
 		</member>

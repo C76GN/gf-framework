@@ -1,0 +1,215 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFContentPackageManifest" path="addons/gf/extensions/content_package/resources/gf_content_package_manifest.gd" module="extensions/content_package" extends="Resource" classDigest="b6949c2d084b006b930aed8e3fca796ccbf9581b11f5dadb9cd85a07277d86a3">
+	<description>GFContentPackageManifest: 通用内容包 manifest。
+描述一个内容包的稳定包 ID、版本、依赖和资源键映射。GF 只校验结构、路径安全和依赖关系，
+不解释内容类型的业务语义，也不负责下载、启用策略或具体玩法规则。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">resource_definition</tag>
+		<tag name="since">4.4.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants>
+		<member kind="const" name="FILE_NAME">
+			<signature>const FILE_NAME: String = "gf_content_package.json"</signature>
+			<description>内容包 JSON manifest 默认文件名。</description>
+			<tags>
+				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="const" name="SCHEMA_VERSION">
+			<signature>const SCHEMA_VERSION: int = 1</signature>
+			<description>当前 manifest schema 版本。</description>
+			<tags>
+				<tag name="api">public</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties>
+		<member kind="property" name="package_id" decorators="@export">
+			<signature>var package_id: StringName = &amp;""</signature>
+			<description>稳定内容包 ID。</description>
+			<tags>
+				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="property" name="display_name" decorators="@export">
+			<signature>var display_name: String = ""</signature>
+			<description>编辑器或诊断显示名。</description>
+			<tags>
+				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="property" name="version" decorators="@export">
+			<signature>var version: String = ""</signature>
+			<description>内容包版本字符串。</description>
+			<tags>
+				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="property" name="content_types" decorators="@export">
+			<signature>var content_types: PackedStringArray = PackedStringArray()</signature>
+			<description>内容类型标签。GF 只做归一化和诊断，不解释业务语义。</description>
+			<tags>
+				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="property" name="dependencies" decorators="@export">
+			<signature>var dependencies: PackedStringArray = PackedStringArray()</signature>
+			<description>依赖内容包 ID 列表。</description>
+			<tags>
+				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="property" name="resources" decorators="@export">
+			<signature>var resources: Array[Dictionary] = []</signature>
+			<description>资源键映射列表。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">resources: Array[Dictionary]，每项包含 key、path、可选 type_hint、priority 和 metadata。</tag>
+			</tags>
+		</member>
+		<member kind="property" name="metadata" decorators="@export">
+			<signature>var metadata: Dictionary = {}</signature>
+			<description>项目自定义元数据。GF 不解释其中业务字段。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">metadata: Dictionary project-defined content package metadata.</tag>
+			</tags>
+		</member>
+		<member kind="property" name="root_path">
+			<signature>var root_path: String = ""</signature>
+			<description>manifest 所在内容包根目录。通常由加载路径推导。</description>
+			<tags>
+				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="property" name="source_path">
+			<signature>var source_path: String = ""</signature>
+			<description>manifest 文件路径。通常指向 `gf_content_package.json`。</description>
+			<tags>
+				<tag name="api">public</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="configure">
+			<signature>func configure( p_package_id: StringName, p_version: String, p_resources: Array[Dictionary] = [], p_display_name: String = "", p_content_types: PackedStringArray = PackedStringArray(), p_dependencies: PackedStringArray = PackedStringArray(), p_metadata: Dictionary = {}, p_root_path: String = "", p_source_path: String = "" ) -&gt; GFContentPackageManifest:</signature>
+			<description>配置 manifest。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">p_package_id: 稳定内容包 ID。</tag>
+				<tag name="param">p_version: 内容包版本。</tag>
+				<tag name="param">p_resources: 资源键映射列表。</tag>
+				<tag name="param">p_display_name: 可选显示名。</tag>
+				<tag name="param">p_content_types: 内容类型标签。</tag>
+				<tag name="param">p_dependencies: 依赖内容包 ID 列表。</tag>
+				<tag name="param">p_metadata: 项目自定义元数据。</tag>
+				<tag name="param">p_root_path: 内容包根目录。</tag>
+				<tag name="param">p_source_path: manifest 文件路径。</tag>
+				<tag name="return">当前 manifest。</tag>
+				<tag name="schema">p_resources: Array[Dictionary]，每项包含 key、path、可选 type_hint、priority 和 metadata。</tag>
+				<tag name="schema">p_metadata: Dictionary project-defined content package metadata.</tag>
+			</tags>
+		</member>
+		<member kind="method" name="apply_dictionary">
+			<signature>func apply_dictionary(data: Dictionary, p_root_path: String = "", p_source_path: String = "") -&gt; void:</signature>
+			<description>从字典应用 manifest 字段。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">data: manifest 字典。</tag>
+				<tag name="param">p_root_path: 内容包根目录。</tag>
+				<tag name="param">p_source_path: manifest 文件路径。</tag>
+				<tag name="schema">data: Dictionary，支持 package_id/id、display_name/name、version、content_types、dependencies、resources 和 metadata。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="to_dictionary">
+			<signature>func to_dictionary() -&gt; Dictionary:</signature>
+			<description>转换为内容包 manifest 字典。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">manifest 字典副本。</tag>
+				<tag name="schema">return: Dictionary，包含 schema_version、package_id、display_name、version、content_types、dependencies、resources 和 metadata。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="duplicate_manifest">
+			<signature>func duplicate_manifest() -&gt; GFContentPackageManifest:</signature>
+			<description>创建 manifest 深拷贝。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">新 manifest。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_valid">
+			<signature>func is_valid(options: Dictionary = {}) -&gt; bool:</signature>
+			<description>检查 manifest 是否有效。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">options: 校验选项。`check_resource_exists` 默认为 false。</tag>
+				<tag name="return">无 error issue 时返回 true。</tag>
+				<tag name="schema">options: Dictionary，可包含 check_resource_exists: bool。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_validation_report">
+			<signature>func get_validation_report(options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>获取 manifest 校验报告。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">options: 校验选项。`check_resource_exists` 默认为 false。</tag>
+				<tag name="return">GFValidationReportDictionary 兼容报告。</tag>
+				<tag name="schema">options: Dictionary，可包含 check_resource_exists: bool。</tag>
+				<tag name="schema">return: GFValidationReportDictionary.finalize_report() 生成的 Dictionary，包含 ok、healthy、summary、issues、next_action、error_count、warning_count、issue_count、package_id、source_path 和 resource_count。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_validation_errors">
+			<signature>func get_validation_errors(options: Dictionary = {}) -&gt; Array[String]:</signature>
+			<description>获取校验错误文本列表。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">options: 校验选项。`check_resource_exists` 默认为 false。</tag>
+				<tag name="return">错误文本列表。</tag>
+				<tag name="schema">options: Dictionary，可包含 check_resource_exists: bool。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_normalized_resources">
+			<signature>func get_normalized_resources() -&gt; Array[Dictionary]:</signature>
+			<description>获取归一化资源键映射。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">资源映射副本。</tag>
+				<tag name="schema">return: Array[Dictionary]，每项包含 key、path、type_hint、priority、metadata 和 package_id。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_resource_keys">
+			<signature>func get_resource_keys() -&gt; PackedStringArray:</signature>
+			<description>获取 manifest 中声明的资源键列表。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">排序后的资源键列表。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="from_dictionary">
+			<signature>static func from_dictionary( data: Dictionary, p_root_path: String = "", p_source_path: String = "" ) -&gt; GFContentPackageManifest:</signature>
+			<description>从字典创建 manifest。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">data: manifest 字典。</tag>
+				<tag name="param">p_root_path: 内容包根目录。</tag>
+				<tag name="param">p_source_path: manifest 文件路径。</tag>
+				<tag name="return">新 manifest。</tag>
+				<tag name="schema">data: Dictionary，支持 package_id/id、display_name/name、version、content_types、dependencies、resources 和 metadata。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="load_from_path">
+			<signature>static func load_from_path(path: String) -&gt; GFContentPackageManifest:</signature>
+			<description>从 JSON manifest 文件加载内容包。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">path: manifest 文件路径。</tag>
+				<tag name="return">加载成功返回 manifest；解析失败返回 null。</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

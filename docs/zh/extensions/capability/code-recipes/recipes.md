@@ -17,7 +17,9 @@ if not result["ok"]:
 	push_warning(result["failed"])
 ```
 
-`GFCapabilityRecipeEntry` 可以通过 `capability_type` 创建普通能力，也可以通过 `scene` 挂载节点能力场景；如果两者都提供，运行时会实例化场景并按 `capability_type` 注册。
+`GFCapabilityRecipeEntry` 可以通过 `capability_type` 创建普通能力，也可以通过 `scene` 挂载节点能力场景；如果两者都提供，运行时会实例化场景并按 `capability_type` 注册，但场景根节点脚本必须继承或等于该 `capability_type`。声明类型不匹配的场景能力会被拒绝，不会进入 receiver 的能力索引。
+
+应用前可先调用 `validate_recipe_report()` 获取 `GFValidationReport`，或调用 `validate_recipe()` 获取序列化后的 Dictionary。报告会用 `entries[0]`、`groups[1]` 这类稳定 path 定位空条目、无效条目、重复条目、空分组和重复分组。空分组和重复分组只作为 warning；无效条目会作为 error，避免运行时留下不完整组合。
 
 `apply_recipe()` 默认会在应用后调用依赖校验，并把新增、复用、失败条目和分组写入报告。默认 `transactional = true`，任一条目失败或依赖校验失败时，会移除本次新增能力、回滚本次新增分组，并恢复被复用能力的原 active 状态，避免留下半应用的实体预设。
 

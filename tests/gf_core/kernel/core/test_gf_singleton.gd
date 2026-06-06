@@ -95,6 +95,18 @@ class InjectedUtility extends GFUtility:
 	func inject_dependencies(architecture: GFArchitecture) -> void:
 		injected_architecture = architecture
 
+class ReleasingUtility extends GFUtility:
+	var release_order: Array[String] = []
+	var cached_dependency: Object = RefCounted.new()
+
+	func dispose() -> void:
+		release_order.append("dispose")
+
+	func release_dependencies() -> void:
+		release_order.append("release_dependencies")
+		cached_dependency = null
+		super.release_dependencies()
+
 class OverrideInjectedLookupUtility extends GFUtility:
 	var injected_architecture: GFArchitecture = null
 
@@ -791,6 +803,33 @@ func test_register_injects_architecture_when_hook_exists() -> void:
 	assert_null(utility.get_utility(InjectedUtility), "注销后即使自定义注入 Hook 未调用 super，也不应回退全局架构。")
 	assert_push_error("[GFUtility] 依赖作用域已释放，无法继续访问架构。")
 	arch.dispose()
+
+
+func test_unregister_utility_releases_cached_dependencies_after_dispose() -> void:
+	var arch: GFArchitecture = GFArchitecture.new()
+	var utility: ReleasingUtility = ReleasingUtility.new()
+
+	await arch.register_utility_instance(utility)
+	arch.unregister_utility(ReleasingUtility)
+
+	assert_eq(utility.release_order, ["dispose", "release_dependencies"], "注销模块时应先 dispose，再释放依赖引用。")
+	assert_null(utility.cached_dependency, "release_dependencies 应能释放模块缓存的依赖引用。")
+	assert_null(utility.get_utility(ReleasingUtility), "释放依赖后不应继续访问已注销架构。")
+	assert_push_error("[GFUtility] 依赖作用域已释放，无法继续访问架构。")
+	arch.dispose()
+
+
+func test_architecture_dispose_releases_module_dependencies_after_dispose() -> void:
+	var arch: GFArchitecture = GFArchitecture.new()
+	var utility: ReleasingUtility = ReleasingUtility.new()
+
+	await arch.register_utility_instance(utility)
+	arch.dispose()
+
+	assert_eq(utility.release_order, ["dispose", "release_dependencies"], "架构 dispose 应先释放模块自身，再释放依赖引用。")
+	assert_null(utility.cached_dependency, "架构 dispose 应调用模块依赖释放钩子。")
+	assert_null(utility.get_utility(ReleasingUtility), "架构 dispose 后模块不应回退全局架构。")
+	assert_push_error("[GFUtility] 依赖作用域已释放，无法继续访问架构。")
 
 
 ## 验证模块覆写 inject_dependencies 且不调用 super 时，基类依赖访问仍绑定当前架构。

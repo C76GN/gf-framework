@@ -76,6 +76,34 @@ func test_scan_resource_paths_respects_extension_and_count_limits() -> void:
 	assert_eq(paths.size(), 1, "资源扫描应遵守 max_resource_paths 上限。")
 
 
+func test_scan_resource_paths_normalizes_excluded_path_list() -> void:
+	var root_path: String = "user://gf_resource_registry_tools_excluded"
+	var keep_dir: String = root_path.path_join("keep")
+	var skip_dir: String = root_path.path_join("skip")
+	var keep_path: String = keep_dir.path_join("keep.tscn")
+	var skip_path: String = skip_dir.path_join("skip.tscn")
+	var make_keep_error: Error = DirAccess.make_dir_recursive_absolute(keep_dir)
+	var make_skip_error: Error = DirAccess.make_dir_recursive_absolute(skip_dir)
+	assert_true(make_keep_error == OK or make_keep_error == ERR_ALREADY_EXISTS, "测试应能创建保留目录。")
+	assert_true(make_skip_error == OK or make_skip_error == ERR_ALREADY_EXISTS, "测试应能创建排除目录。")
+	_write_empty_user_file(keep_path)
+	_write_empty_user_file(skip_path)
+
+	var paths: PackedStringArray = GFResourceRegistryTools.scan_resource_paths(root_path + "\\", {
+		"extensions": PackedStringArray(["tscn"]),
+		"excluded_paths": PackedStringArray([skip_dir + "\\", skip_dir, ""]),
+	})
+
+	_remove_user_file(keep_path)
+	_remove_user_file(skip_path)
+	_remove_user_dir(keep_dir)
+	_remove_user_dir(skip_dir)
+	_remove_user_dir(root_path)
+
+	assert_true(paths.has(keep_path), "未排除目录中的资源应被扫描。")
+	assert_false(paths.has(skip_path), "排除目录中的资源不应被扫描。")
+
+
 func test_collect_dependency_paths_reads_direct_external_resource_dependencies() -> void:
 	var dependency_path: String = "user://gf_resource_registry_tools_dependency_entry.tres"
 	var root_path: String = "user://gf_resource_registry_tools_dependency_registry.tres"
@@ -125,7 +153,98 @@ func test_collect_dependency_paths_respects_limit() -> void:
 	assert_eq(paths.size(), 1, "依赖收集应遵守 max_dependency_paths 上限。")
 
 
+func test_build_dependency_report_records_resources_and_direct_dependencies() -> void:
+	var dependency_path: String = "user://gf_resource_registry_tools_report_dependency.tres"
+	var root_path: String = "user://gf_resource_registry_tools_report_registry.tres"
+	var entry: GFResourceRegistryEntry = GFResourceRegistryEntry.new()
+	var _configured_entry: Resource = entry.configure(&"menu", "res://assets/ui/menu.tscn", "PackedScene")
+	assert_eq(ResourceSaver.save(entry, dependency_path), OK, "测试应能保存依赖资源。")
+	var registry: GFResourceRegistry = GFResourceRegistry.new()
+	registry.entries.append(ResourceLoader.load(dependency_path) as GFResourceRegistryEntry)
+	assert_eq(ResourceSaver.save(registry, root_path), OK, "测试应能保存引用依赖的根资源。")
+
+	var report: Dictionary = GFResourceRegistryTools.build_dependency_report(root_path, {
+		"recursive": false,
+		"include_root": true,
+		"extensions": PackedStringArray(["tres"]),
+	})
+
+	_remove_user_file(root_path)
+	_remove_user_file(dependency_path)
+
+	var paths: Array = GFVariantData.get_option_array(report, "paths")
+	var resources: Array = GFVariantData.get_option_array(report, "resources")
+	var root_record: Dictionary = _find_report_record(resources, root_path)
+	var direct_dependencies: Array = GFVariantData.get_option_array(root_record, "direct_dependencies")
+
+	assert_true(GFVariantData.get_option_bool(report, "ok"), "健康依赖图不应产生 error。")
+	assert_true(GFVariantData.get_option_bool(report, "healthy"), "仅被过滤的非目标扩展不应让报告不健康。")
+	assert_true(paths.has(root_path), "报告路径闭包应包含入口资源。")
+	assert_true(paths.has(dependency_path), "报告路径闭包应包含支持扩展的直接依赖。")
+	assert_true(direct_dependencies.has(dependency_path), "资源记录应保留 Godot 暴露的直接依赖。")
+	assert_true(GFVariantData.get_option_int(root_record, "direct_dependency_count") >= 1, "资源记录应记录直接依赖数量。")
+
+
+func test_build_dependency_report_reports_missing_root_as_error() -> void:
+	var report: Dictionary = GFResourceRegistryTools.build_dependency_report("user://gf_resource_registry_tools_missing_root.tres", {
+		"extensions": PackedStringArray(["tres"]),
+	})
+	var issues: Array = GFVariantData.get_option_array(report, "issues")
+
+	assert_false(GFVariantData.get_option_bool(report, "ok"), "缺失入口资源应让报告失败。")
+	assert_eq(GFVariantData.get_option_int(report, "missing_count"), 1, "报告应记录缺失资源数量。")
+	assert_eq(GFVariantData.get_option_int(report, "error_count"), 1, "缺失入口资源应计为 error。")
+	assert_true(_report_has_issue_kind(issues, "missing_resource"), "报告应包含稳定 issue kind。")
+
+
+func test_build_dependency_report_records_limit_without_push_warning() -> void:
+	var dependency_path: String = "user://gf_resource_registry_tools_report_limit_dependency.tres"
+	var root_path: String = "user://gf_resource_registry_tools_report_limit_registry.tres"
+	var entry: GFResourceRegistryEntry = GFResourceRegistryEntry.new()
+	var _configured_entry: Resource = entry.configure(&"menu", "res://assets/ui/menu.tscn", "PackedScene")
+	assert_eq(ResourceSaver.save(entry, dependency_path), OK, "测试应能保存依赖资源。")
+	var registry: GFResourceRegistry = GFResourceRegistry.new()
+	registry.entries.append(ResourceLoader.load(dependency_path) as GFResourceRegistryEntry)
+	assert_eq(ResourceSaver.save(registry, root_path), OK, "测试应能保存引用依赖的根资源。")
+
+	var report: Dictionary = GFResourceRegistryTools.build_dependency_report(root_path, {
+		"include_root": true,
+		"max_dependency_paths": 1,
+		"extensions": PackedStringArray(["tres"]),
+	})
+
+	_remove_user_file(root_path)
+	_remove_user_file(dependency_path)
+
+	var issues: Array = GFVariantData.get_option_array(report, "issues")
+
+	assert_true(GFVariantData.get_option_bool(report, "limit_reached"), "报告应记录依赖路径数量上限命中。")
+	assert_eq(GFVariantData.get_option_int(report, "resource_count"), 1, "路径上限应限制纳入的资源闭包。")
+	assert_eq(GFVariantData.get_option_int(report, "warning_count"), 1, "路径上限应通过报告 warning 暴露。")
+	assert_true(_report_has_issue_kind(issues, "dependency_count_limit"), "报告应包含稳定的上限 issue kind。")
+
+
 # --- 私有/辅助方法 ---
+
+func _find_report_record(records: Array, path: String) -> Dictionary:
+	for record_value: Variant in records:
+		if not record_value is Dictionary:
+			continue
+		var record: Dictionary = record_value
+		if GFVariantData.get_option_string(record, "path") == path:
+			return record
+	return {}
+
+
+func _report_has_issue_kind(issues: Array, kind: String) -> bool:
+	for issue_value: Variant in issues:
+		if not issue_value is Dictionary:
+			continue
+		var issue: Dictionary = issue_value
+		if GFVariantData.get_option_string(issue, "kind") == kind:
+			return true
+	return false
+
 
 func _write_empty_user_file(path: String) -> void:
 	var file: FileAccess = FileAccess.open(path, FileAccess.WRITE)

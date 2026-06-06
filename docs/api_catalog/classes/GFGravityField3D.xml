@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFGravityField3D" path="addons/gf/extensions/physics/nodes/gf_gravity_field_3d.gd" module="extensions/physics" extends="Node3D" classDigest="fcbff805a3d5fadbb53bd5b850902a4d9233ace135ccb2e4e1fd2cdfdf64b2a4">
+<class name="GFGravityField3D" path="addons/gf/extensions/physics/nodes/gf_gravity_field_3d.gd" module="extensions/physics" extends="Node3D" classDigest="935f87b2ddb197b5c481a6623d2ac1dfc9a02fbaa26bd2ace214eb4daec92927">
 	<description>GFGravityField3D: 通用 3D 重力/加速度场。
 提供点重力、远离中心和固定方向三种方向模式，以及常量、线性、平方反比
 和曲线衰减。项目可继承并重写方向或强度计算以实现更复杂的场。</description>
@@ -38,6 +38,13 @@
 		<member kind="property" name="enabled" decorators="@export">
 			<signature>var enabled: bool = true:</signature>
 			<description>是否启用力场。</description>
+			<tags>
+				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="property" name="priority" decorators="@export">
+			<signature>var priority: int = 0:</signature>
+			<description>采样器使用优先级组合模式时的力场优先级；数值越大优先级越高。</description>
 			<tags>
 				<tag name="api">public</tag>
 			</tags>
@@ -109,6 +116,14 @@
 				<tag name="api">public</tag>
 				<tag name="param">distance: 距离。</tag>
 				<tag name="return">加速度强度。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_gravity_priority">
+			<signature>func get_gravity_priority() -&gt; int:</signature>
+			<description>获取力场采样优先级。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">优先级数值，越大越优先。</tag>
 			</tags>
 		</member>
 		<member kind="method" name="_get_direction_at">

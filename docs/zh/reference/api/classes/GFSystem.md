@@ -26,6 +26,7 @@
 | 方法 | [`async_init`](#member-gfsystem-methods-async_init) | `func async_init() -> void:` |
 | 方法 | [`ready`](#member-gfsystem-methods-ready) | `func ready() -> void:` |
 | 方法 | [`dispose`](#member-gfsystem-methods-dispose) | `func dispose() -> void:` |
+| 方法 | [`release_dependencies`](#member-gfsystem-methods-release_dependencies) | `func release_dependencies() -> void:` |
 | 方法 | [`tick`](#member-gfsystem-methods-tick) | `func tick(_delta: float) -> void:` |
 | 方法 | [`physics_tick`](#member-gfsystem-methods-physics_tick) | `func physics_tick(_delta: float) -> void:` |
 | 方法 | [`is_lifecycle_active`](#member-gfsystem-methods-is_lifecycle_active) | `func is_lifecycle_active() -> bool:` |
@@ -177,6 +178,19 @@ func dispose() -> void:
 ```
 
 销毁系统。子类可以重写此方法。
+
+<a id="member-gfsystem-methods-release_dependencies"></a>
+
+### `release_dependencies`
+
+- API：`public`
+- 首次版本：`4.4.0`
+
+```gdscript
+func release_dependencies() -> void:
+```
+
+释放架构注入作用域和模块缓存的外部依赖引用。 架构会在 dispose() 之后调用该方法；子类重写时应先释放自身缓存的 Model/System/Utility 引用，再调用 super.release_dependencies()。
 
 <a id="member-gfsystem-methods-tick"></a>
 

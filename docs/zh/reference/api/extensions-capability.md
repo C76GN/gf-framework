@@ -8,7 +8,7 @@
 |---|---:|---:|---:|
 | [运行时服务](#category-runtime_service) | 1 | 38 | 28 |
 | [协议与扩展点](#category-protocol) | 5 | 60 | 45 |
-| [资源定义](#category-resource_definition) | 2 | 14 | 5 |
+| [资源定义](#category-resource_definition) | 2 | 15 | 6 |
 | [运行时句柄](#category-runtime_handle) | 2 | 18 | 13 |
 
 ## 类

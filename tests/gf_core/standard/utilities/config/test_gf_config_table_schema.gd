@@ -190,6 +190,36 @@ func test_json_importer_reports_parse_failure_as_validation_report() -> void:
 	assert_eq(GFVariantData.get_option_string(issue, "kind"), "parse_failed", "失败报告应标记解析错误。")
 
 
+func test_json_record_importer_validates_single_dictionary_record() -> void:
+	var schema: GFConfigTableSchema = _make_item_schema()
+	schema.coerce_values = true
+
+	var report: Dictionary = GFConfigTableImporter.validate_json_record(
+		"{\"id\":\"9\",\"name\":\"Potion\",\"power\":\"2.5\"}",
+		schema,
+		null,
+		{ "source": "res://configs/item.json" }
+	)
+
+	assert_true(GFVariantData.get_option_bool(report, "ok"), "JSON 单记录根节点为 Dictionary 时应按 schema 校验。")
+	assert_eq(GFVariantData.get_option_int(report, "row_count"), 1, "单记录校验报告应记录一行。")
+
+
+func test_json_record_importer_reports_non_dictionary_root_context() -> void:
+	var report: Dictionary = GFConfigTableImporter.validate_json_record(
+		"[1, 2]",
+		_make_item_schema(),
+		null,
+		{ "source": "res://configs/item.json" }
+	)
+	var issue: Dictionary = _find_issue_kind(GFVariantData.get_option_array(report, "issues"), "invalid_json_record")
+	var supported_formats: Array = GFVariantData.get_option_array(issue, "supported_formats")
+
+	assert_false(GFVariantData.get_option_bool(report, "ok"), "JSON 单记录不接受 Array 根节点。")
+	assert_eq(GFVariantData.get_option_string(issue, "expected_value"), "Dictionary", "错误应说明期望根节点类型。")
+	assert_true(supported_formats.has("JSON object"), "错误应说明支持的 JSON 形态。")
+
+
 func test_csv_exporter_uses_schema_column_order_and_quotes_cells() -> void:
 	var schema: GFConfigTableSchema = _make_item_schema()
 	var exported: Dictionary = GFConfigTableImporter.export_csv_table([
@@ -363,6 +393,22 @@ func test_column_validation_rules_report_common_data_errors() -> void:
 	assert_true(_has_issue_kind(issues, "range_above_maximum"), "应报告范围越界。")
 
 
+func test_regex_validation_rule_recompiles_when_pattern_changes() -> void:
+	var regex: GFConfigRegexValidationRule = GFConfigRegexValidationRule.new()
+	regex.require_full_match = true
+	regex.pattern = "^a+$"
+
+	var first_report: Dictionary = regex.validate_value("aaa")
+	regex.pattern = "^b+$"
+	var second_report: Dictionary = regex.validate_value("aaa")
+	regex.pattern = "^a+$"
+	var recovered_report: Dictionary = regex.validate_value("aaa")
+
+	assert_true(GFVariantData.get_option_bool(first_report, "ok"), "初始正则应匹配。")
+	assert_false(GFVariantData.get_option_bool(second_report, "ok"), "pattern 改变后应使用新正则。")
+	assert_true(GFVariantData.get_option_bool(recovered_report, "ok"), "pattern 改回后应重新编译并恢复通过。")
+
+
 func test_resource_and_localization_rules_accept_valid_values() -> void:
 	var schema: GFConfigTableSchema = GFConfigTableSchema.new()
 	schema.table_name = &"assets"
@@ -384,6 +430,36 @@ func test_resource_and_localization_rules_accept_valid_values() -> void:
 	})
 
 	assert_true(GFVariantData.get_option_bool(report, "ok"), "存在的 Godot 资源路径和显式文本 key 应通过校验。")
+
+
+func test_schema_and_rules_surface_actionable_issue_context() -> void:
+	var schema: GFConfigTableSchema = _make_item_schema()
+	var kind_column: GFConfigTableColumn = _make_column(&"kind", GFConfigTableColumn.ValueType.STRING)
+	var kind_set: GFConfigSetValidationRule = GFConfigSetValidationRule.new()
+	kind_set.allowed_values = ["weapon", "armor"]
+	kind_column.validation_rules.append(kind_set)
+	schema.columns.append(kind_column)
+	var range_rule: GFConfigRangeValidationRule = GFConfigRangeValidationRule.new()
+	range_rule.has_maximum = true
+	range_rule.maximum = 10.0
+	schema.get_column(&"power").validation_rules.append(range_rule)
+
+	var report: Dictionary = schema.validate_record({
+		"id": "bad",
+		"name": "Potion",
+		"power": 99.0,
+		"kind": "consumable",
+	}, "bad")
+	var invalid_type_issue: Dictionary = _find_issue_kind(GFVariantData.get_option_array(report, "issues"), "invalid_type")
+	var set_issue: Dictionary = _find_issue_kind(GFVariantData.get_option_array(report, "issues"), "set_value_not_allowed")
+	var range_issue: Dictionary = _find_issue_kind(GFVariantData.get_option_array(report, "issues"), "range_above_maximum")
+	var supported_values: Array = GFVariantData.get_option_array(set_issue, "supported_values")
+
+	assert_eq(GFVariantData.get_option_string(invalid_type_issue, "expected_value"), "int", "类型错误应说明期望类型。")
+	assert_eq(GFVariantData.get_option_string(invalid_type_issue, "value"), "bad", "类型错误应保留原始值。")
+	assert_true(supported_values.has("weapon"), "集合规则错误应带允许值。")
+	assert_eq(GFVariantData.get_option_float(range_issue, "actual_value"), 99.0, "范围规则错误应带实际数值。")
+	assert_true(GFVariantData.get_option_string(range_issue, "expected_value").contains("<= 10"), "范围规则错误应说明期望范围。")
 
 
 func test_record_and_table_validation_rules_can_be_customized() -> void:
@@ -463,6 +539,13 @@ func _has_issue_kind(issues: Array, kind: String) -> bool:
 		if GFVariantData.get_option_string(issue, "kind") == kind:
 			return true
 	return false
+
+
+func _find_issue_kind(issues: Array, kind: String) -> Dictionary:
+	for issue: Dictionary in issues:
+		if GFVariantData.get_option_string(issue, "kind") == kind:
+			return issue
+	return {}
 
 
 # --- 内部类 ---

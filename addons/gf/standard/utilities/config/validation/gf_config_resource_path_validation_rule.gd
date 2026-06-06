@@ -86,20 +86,20 @@ func _get_default_rule_id() -> StringName:
 ## @schema report: GFConfigValidationReport 兼容 Dictionary，会被当前规则修改。
 func _validate_value(value: Variant, context: Dictionary, report: Dictionary) -> void:
 	if typeof(value) != TYPE_STRING and typeof(value) != TYPE_STRING_NAME:
-		_add_issue(report, context, "resource_path_invalid_type", "资源路径校验只支持 String 或 StringName。")
+		_add_issue(report, _make_issue_context(context, value, "String or StringName"), "resource_path_invalid_type", "资源路径校验只支持 String 或 StringName。")
 		return
 
 	var path: String = GFVariantData.to_text(value).strip_edges()
 	if path.is_empty() and allow_empty:
 		return
 	if require_resource_prefix and not path.begins_with("res://"):
-		_add_issue(report, context, "resource_path_invalid_prefix", "资源路径必须以 res:// 开头。")
+		_add_issue(report, _make_issue_context(context, value, "res:// path"), "resource_path_invalid_prefix", "资源路径必须以 res:// 开头。")
 		return
 	if not _extension_allowed(path):
-		_add_issue(report, context, "resource_path_extension_not_allowed", "资源路径扩展名不在允许范围内。")
+		_add_issue(report, _make_issue_context(context, value, _describe_allowed_extensions()), "resource_path_extension_not_allowed", "资源路径扩展名不在允许范围内。")
 		return
 	if not _path_exists(path):
-		_add_issue(report, context, "resource_path_missing", "资源路径不存在：%s。" % path)
+		_add_issue(report, _make_issue_context(context, value, "existing resource path"), "resource_path_missing", "资源路径不存在：%s。" % path)
 
 
 # --- 私有/辅助方法 ---
@@ -122,3 +122,30 @@ func _path_exists(path: String) -> bool:
 	if use_file_access_fallback and FileAccess.file_exists(path):
 		return true
 	return false
+
+
+func _make_issue_context(context: Dictionary, value: Variant, expected_value: Variant) -> Dictionary:
+	var issue_context: Dictionary = context.duplicate(true)
+	issue_context["value"] = GFVariantData.duplicate_variant(value)
+	issue_context["actual_value"] = GFVariantData.duplicate_variant(value)
+	issue_context["expected_value"] = GFVariantData.duplicate_variant(expected_value)
+	issue_context["supported_formats"] = _describe_supported_formats()
+	return issue_context
+
+
+func _describe_allowed_extensions() -> PackedStringArray:
+	var result: PackedStringArray = PackedStringArray()
+	for allowed_extension: String in allowed_extensions:
+		var normalized: String = allowed_extension.strip_edges().trim_prefix(".").to_lower()
+		if not normalized.is_empty():
+			var _appended: bool = result.append(normalized)
+	return result
+
+
+func _describe_supported_formats() -> PackedStringArray:
+	var result: PackedStringArray = PackedStringArray()
+	if require_resource_prefix:
+		var _prefix_appended: bool = result.append("res://")
+	for allowed_extension: String in _describe_allowed_extensions():
+		var _extension_appended: bool = result.append(".%s" % allowed_extension)
+	return result

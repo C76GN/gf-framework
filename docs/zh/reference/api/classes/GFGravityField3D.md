@@ -19,6 +19,7 @@
 | 枚举 | [`DirectionMode`](#member-gfgravityfield3d-enums-directionmode) | `enum DirectionMode` |
 | 枚举 | [`FalloffMode`](#member-gfgravityfield3d-enums-falloffmode) | `enum FalloffMode` |
 | 属性 | [`enabled`](#member-gfgravityfield3d-properties-enabled) | `var enabled: bool = true:` |
+| 属性 | [`priority`](#member-gfgravityfield3d-properties-priority) | `var priority: int = 0:` |
 | 属性 | [`acceleration`](#member-gfgravityfield3d-properties-acceleration) | `var acceleration: float = 9.8:` |
 | 属性 | [`radius`](#member-gfgravityfield3d-properties-radius) | `var radius: float = 0.0:` |
 | 属性 | [`min_distance`](#member-gfgravityfield3d-properties-min_distance) | `var min_distance: float = 1.0:` |
@@ -28,6 +29,7 @@
 | 属性 | [`falloff_curve`](#member-gfgravityfield3d-properties-falloff_curve) | `var falloff_curve: Curve = null:` |
 | 方法 | [`get_acceleration_at`](#member-gfgravityfield3d-methods-get_acceleration_at) | `func get_acceleration_at(world_position: Vector3) -> Vector3:` |
 | 方法 | [`get_strength_at_distance`](#member-gfgravityfield3d-methods-get_strength_at_distance) | `func get_strength_at_distance(distance: float) -> float:` |
+| 方法 | [`get_gravity_priority`](#member-gfgravityfield3d-methods-get_gravity_priority) | `func get_gravity_priority() -> int:` |
 | 方法 | [`_get_direction_at`](#member-gfgravityfield3d-methods-_get_direction_at) | `func _get_direction_at(world_position: Vector3) -> Vector3:` |
 
 ## 信号
@@ -83,6 +85,18 @@ var enabled: bool = true:
 ```
 
 是否启用力场。
+
+<a id="member-gfgravityfield3d-properties-priority"></a>
+
+### `priority`
+
+- API：`public`
+
+```gdscript
+var priority: int = 0:
+```
+
+采样器使用优先级组合模式时的力场优先级；数值越大优先级越高。
 
 <a id="member-gfgravityfield3d-properties-acceleration"></a>
 
@@ -209,6 +223,20 @@ func get_strength_at_distance(distance: float) -> float:
 | `distance` | 距离。 |
 
 返回：加速度强度。
+
+<a id="member-gfgravityfield3d-methods-get_gravity_priority"></a>
+
+### `get_gravity_priority`
+
+- API：`public`
+
+```gdscript
+func get_gravity_priority() -> int:
+```
+
+获取力场采样优先级。
+
+返回：优先级数值，越大越优先。
 
 <a id="member-gfgravityfield3d-methods-_get_direction_at"></a>
 

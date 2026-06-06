@@ -79,13 +79,13 @@ func get_rule_id() -> StringName:
 ## [br]
 ## @param value: 待校验值。
 ## [br]
-## @param context: 可选上下文，支持 table_name、row_key、field、source、line、column。
+## @param context: 可选上下文，支持 table_name、row_key、field、source、line、column、value、expected_value、actual_value 和 supported_values 等字段。
 ## [br]
 ## @return 校验报告字典。
 ## [br]
 ## @schema value: Variant，来自配置表或项目导入器的字段值。
 ## [br]
-## @schema context: Dictionary，可包含 table_name、row_key、field、source、line 和 column 字段。
+## @schema context: Dictionary，可包含 table_name、row_key、field、source、line、column、value、expected_value、actual_value、supported_values、supported_formats 和 supported_content_types 字段。
 ## [br]
 ## @schema return: GFConfigValidationReport 兼容 Dictionary。
 func validate_value(value: Variant, context: Dictionary = {}) -> Dictionary:
@@ -95,7 +95,11 @@ func validate_value(value: Variant, context: Dictionary = {}) -> Dictionary:
 	if value == null and allow_null:
 		return report
 	if value == null:
-		_add_issue(report, context, "null_value", "值不允许为空。")
+		var issue_context: Dictionary = context.duplicate(true)
+		issue_context["value"] = null
+		issue_context["actual_value"] = null
+		issue_context["expected_value"] = "non_null"
+		_add_issue(report, issue_context, "null_value", "值不允许为空。")
 		_finalize_report(report)
 		return report
 
@@ -202,7 +206,7 @@ func _get_default_rule_id() -> StringName:
 ## [br]
 ## @schema _value: Variant，来自配置表或项目导入器的字段值。
 ## [br]
-## @schema _context: Dictionary，可包含 table_name、row_key、field、source、line 和 column 字段。
+## @schema _context: Dictionary，可包含 table_name、row_key、field、source、line、column、value、expected_value、actual_value、supported_values、supported_formats 和 supported_content_types 字段。
 ## [br]
 ## @schema _report: GFConfigValidationReport 兼容 Dictionary，会被规则修改。
 func _validate_value(_value: Variant, _context: Dictionary, _report: Dictionary) -> void:

@@ -163,6 +163,60 @@ static func validate_json_table(text: String, schema: GFConfigTableSchema, optio
 	return schema.validate_table(_get_parse_data(parsed), _make_validation_options(options, parsed))
 
 
+## 解析并校验 JSON 单记录文本。
+## [br]
+## @api public
+## [br]
+## @since 4.4.0
+## [br]
+## @param text: JSON 文本，根节点必须是 Dictionary。
+## [br]
+## @param schema: 表结构声明；当前方法复用其字段声明校验单条记录。
+## [br]
+## @param row_key: 可选行标识；为空且 schema 声明了 id_field 时会尝试从记录字段读取。
+## [br]
+## @schema row_key: Variant，写入校验报告 issue 的行标识。
+## [br]
+## @param options: 可选参数，支持 source。
+## [br]
+## @schema options: Dictionary，可包含 source。
+## [br]
+## @return 校验报告；解析失败或根节点不是 Dictionary 时返回失败报告。
+## [br]
+## @schema return: GFConfigValidationReport 兼容 Dictionary。
+static func validate_json_record(
+	text: String,
+	schema: GFConfigTableSchema,
+	row_key: Variant = null,
+	options: Dictionary = {}
+) -> Dictionary:
+	if schema == null:
+		return _make_error_report(&"", "missing_schema", "schema 为空。")
+
+	var parsed: Dictionary = parse_json_table(text, options)
+	if not GFVariantData.get_option_bool(parsed, "success"):
+		return _make_error_report(schema.get_table_key(), "parse_failed", _get_parse_error(parsed), {
+			"source": _get_parse_source(parsed),
+			"line": _get_parse_error_line(parsed),
+		})
+
+	var data: Variant = _get_parse_data(parsed)
+	if not (data is Dictionary):
+		return _make_error_report(schema.get_table_key(), "invalid_json_record", "JSON 记录根节点必须是 Dictionary。", {
+			"source": _get_parse_source(parsed),
+			"value": GFVariantData.duplicate_variant(data),
+			"actual_value": type_string(typeof(data)),
+			"expected_value": "Dictionary",
+			"supported_formats": ["JSON object"],
+		})
+
+	var record: Dictionary = GFVariantData.as_dictionary(data)
+	var resolved_row_key: Variant = row_key
+	if resolved_row_key == null and schema.id_field != &"":
+		resolved_row_key = GFVariantData.get_option_value(record, schema.id_field)
+	return schema.validate_record(record, resolved_row_key, _make_validation_options(options, parsed))
+
+
 ## 解析并校验 CSV 表文本。
 ## [br]
 ## @api public

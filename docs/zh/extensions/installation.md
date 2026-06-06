@@ -8,12 +8,15 @@
 
 - `gf/extensions/enabled`：启用的扩展 ID 列表。
 - `gf/extensions/auto_install_enabled_installers`：是否在 `Gf.init()` / `Gf.set_architecture()` 时自动执行启用扩展的 `installer_paths`。
+- `gf/extensions/external_roots`：额外扩展集合根目录列表。每个根目录下一层目录视为一个独立扩展，根目录必须是 `res://` 路径，例如 `res://addons/acme_extensions`。
 - `gf/extensions/export_exclude_disabled`：导出时是否跳过禁用扩展目录。
 - `gf/extensions/export_fail_on_disabled_references`：导出审计发现项目仍引用禁用扩展时，是否把结果报告为错误；默认开启，避免导出产物缺失仍被引用的扩展文件。
 
 新项目会把 GF 内置扩展的默认启用列表写入 `gf/extensions/enabled`。如果希望项目只启用其中一部分，可以通过 `GF Workspace` 的 `GF Extensions` 页面或 `GFExtensionSettings.set_enabled_extension_ids()` 保存显式选择。
 
 扩展 ID 统一使用 manifest 中声明的稳定 ID，GF 内置扩展使用 `gf.*` 命名空间。
+
+外部扩展根目录只是一种发现机制，不是项目目录规范。GF 不要求项目把玩法代码、资源或业务脚本放进这些目录；只有希望被 GF 扩展管理器发现、启用、导出过滤或贡献编辑器入口的独立扩展，才需要提供 manifest。
 
 ## 启用状态解析
 

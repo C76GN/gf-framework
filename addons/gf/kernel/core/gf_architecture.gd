@@ -2323,7 +2323,7 @@ func _dispose_module_registry(module_registry: ModuleRegistry) -> void:
 	for instance: Object in _get_modules_by_lifecycle_priority(module_registry.instances, true):
 		if instance.has_method("dispose"):
 			_call_module_void(instance, &"dispose")
-		_clear_injected_scope(instance)
+		_release_module_dependencies(instance)
 
 
 func _fail_initialization(reason: String, lifecycle_serial: int) -> void:
@@ -2405,7 +2405,7 @@ func _unregister_module(module_registry: ModuleRegistry, script_cls: Script) -> 
 			_call_module_void(instance, &"dispose")
 		if instance != null:
 			_event_system.unregister_owner(instance)
-			_clear_injected_scope(instance)
+			_release_module_dependencies(instance)
 		var _removed_stage: bool = _module_lifecycle_stages.erase(instance)
 		var _removed_instance: bool = module_registry.instances.erase(registered_key)
 		_remove_aliases_for(module_registry, registered_key)
@@ -2431,6 +2431,14 @@ func _clear_injected_scope(instance: Object) -> void:
 		instance.call("_gf_set_dependency_scope", null)
 	elif instance != null and instance.has_method("_release_dependency_scope"):
 		instance.call("_release_dependency_scope")
+
+
+func _release_module_dependencies(instance: Object) -> void:
+	if instance == null:
+		return
+	if instance.has_method("release_dependencies"):
+		_call_module_void(instance, &"release_dependencies")
+	_clear_injected_scope(instance)
 
 
 func _stop_project_installers_after_failure() -> void:

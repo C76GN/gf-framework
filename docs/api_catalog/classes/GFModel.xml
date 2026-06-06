@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFModel" path="addons/gf/kernel/base/gf_model.gd" module="kernel" extends="Object" classDigest="f00e078ad5cf0db648679866e8204b89bdc3f4a0cccdb587e7be3e92fecd0111">
+<class name="GFModel" path="addons/gf/kernel/base/gf_model.gd" module="kernel" extends="Object" classDigest="2d34eb24f573fc7e908ad5d75910623f4556551655c2142159d126806a8d05e5">
 	<description>GFModel: 数据层抽象基类。
 负责管理应用数据和业务状态。
 子类可以实现 'init'、'async_init'、'ready'、'dispose' 来管理其生命周期。
@@ -56,6 +56,15 @@ Godot 4 支持在 void 函数内部使用 await，框架的 Gf.init() 会串行�
 			<description>销毁模型。子类可以重写此方法。</description>
 			<tags>
 				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="method" name="release_dependencies">
+			<signature>func release_dependencies() -&gt; void:</signature>
+			<description>释放架构注入作用域和模块缓存的外部依赖引用。
+架构会在 dispose() 之后调用该方法；子类重写时应先释放自身缓存的 Model/System/Utility 引用，再调用 super.release_dependencies()。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">4.4.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_save_key">

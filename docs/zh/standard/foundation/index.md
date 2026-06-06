@@ -8,7 +8,7 @@ Foundation 适合被 `standard`、GF 内置扩展、外部扩展和项目代码�
 
 - [数值、成长与权重](scalars/index.md)：大数、定点数、数字格式化、成长曲线和权重表。
 - [网格、路径与空间索引](grid-spatial/index.md)：2D 曲线与折线、弹簧平滑、规则网格、Hex、图搜索、3D 整数格、Pattern2D、Steering、TileMap 缓存和空间哈希。
-- [数据流程与校验](data-validation/index.md)：标签、黑板、预算、集合、公式、Variant、通用标识、校验报告和轻量结果字典。
+- [数据流程与校验](data-validation/index.md)：标签、黑板、通用 Dictionary schema、预算、集合、公式、Variant、通用标识、校验报告和轻量结果字典。
 
 ## 使用边界
 

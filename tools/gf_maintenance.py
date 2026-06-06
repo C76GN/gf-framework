@@ -24,6 +24,7 @@ from gdscript_api_parser import collect_api_scripts
 
 ROOT = Path(__file__).resolve().parents[1]
 SEMVER_RE = re.compile(r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$")
+SINCE_VERSION_RE = re.compile(r"@since\s+(?P<version>(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*))")
 CHANGELOG_VERSION_RE = re.compile(r"^##\s+\[(?P<version>[^\]]+)\]")
 MARKDOWN_FIELD_RE = re.compile(r"^-\s+(?P<name>[^:]+):\s+`(?P<value>[^`]+)`\s*$")
 PLUGIN_REQUIRED_FIELDS = ("name", "description", "author", "version", "script")
@@ -116,6 +117,7 @@ CHECK_DEFINITIONS: dict[str, list[str]] = {
 	],
 	"docs": [sys.executable, "tools/check_docs_quality.py", "--strict"],
 	"mkdocs": [sys.executable, "-m", "mkdocs", "build", "--strict"],
+	"path_hygiene": [sys.executable, "tools/gf_maintenance.py", "path-hygiene"],
 	"diff": ["git", "diff", "--check"],
 	"examples_sync": [
 		sys.executable,
@@ -174,9 +176,9 @@ CHECK_SUITES: dict[str, list[str]] = {
 	"api": ["api", "ai_api"],
 	"docs": ["docs", "mkdocs"],
 	"examples": ["examples_sync", "examples_scan", "examples_boot", "examples_smoke", "examples_coverage"],
-	"quick": ["api", "ai_api", "docs", "diff"],
-	"full": ["gut", "api", "ai_api", "docs", "mkdocs", "diff"],
-	"release": ["gut", "api", "ai_api", "docs", "mkdocs", "diff", "release_metadata"],
+	"quick": ["api", "ai_api", "docs", "path_hygiene", "diff"],
+	"full": ["gut", "api", "ai_api", "docs", "mkdocs", "path_hygiene", "diff"],
+	"release": ["gut", "api", "ai_api", "docs", "mkdocs", "path_hygiene", "diff", "release_metadata"],
 }
 
 _API_CACHE: list[ApiScript] | None = None
@@ -239,6 +241,9 @@ def main() -> int:
 	workspace_parser = subparsers.add_parser("workspace-status", help="Print categorized git status and suggested maintenance checks.")
 	workspace_parser.add_argument("--json", action="store_true", help="Print JSON instead of text.")
 
+	path_hygiene_parser = subparsers.add_parser("path-hygiene", help="Check tracked repository paths for cross-platform hazards.")
+	path_hygiene_parser.add_argument("--json", action="store_true", help="Print JSON instead of text.")
+
 	check_parser = subparsers.add_parser("check", help="Run predefined maintenance checks.")
 	check_parser.add_argument("--suite", choices=sorted(CHECK_SUITES), default="quick")
 	check_parser.add_argument(
@@ -258,6 +263,11 @@ def main() -> int:
 
 	release_parser = subparsers.add_parser("release-status", help="Check release metadata consistency.")
 	release_parser.add_argument("--version", default="", help="Expected SemVer. Defaults to plugin.cfg version.")
+	release_parser.add_argument(
+		"--allow-dirty",
+		action="store_true",
+		help="Allow local diagnostics on a dirty worktree. Never use for release packaging.",
+	)
 	release_parser.add_argument("--json", action="store_true", help="Print JSON instead of text.")
 
 	api_index_parser = subparsers.add_parser("api-index", help="Print compact GF API index statistics.")
@@ -284,6 +294,10 @@ def main() -> int:
 		data = workspace_status()
 		print_output(data, args.json, render_workspace_status_text)
 		return 0
+	if args.command == "path-hygiene":
+		data = path_hygiene()
+		print_output(data, args.json, render_path_hygiene_text)
+		return 0 if data["ok"] else 1
 	if args.command == "check":
 		data = run_checks(
 			suite=args.suite,
@@ -295,7 +309,7 @@ def main() -> int:
 		print_output(data, args.json, render_checks_text)
 		return 0 if data["ok"] else 1
 	if args.command == "release-status":
-		data = release_status(args.version)
+		data = release_status(args.version, allow_dirty=args.allow_dirty)
 		print_output(data, args.json, render_release_status_text)
 		return 0 if data["ok"] else 1
 	if args.command == "api-index":
@@ -549,6 +563,82 @@ def workspace_status() -> dict[str, Any]:
 		"ai_analysis_ignored": git_exit_code(["check-ignore", "-q", "ai_analysis"]) == 0,
 		"recommended_checks": recommended_checks,
 	}
+
+
+def path_hygiene() -> dict[str, Any]:
+	result = subprocess.run(
+		["git", "ls-files", "-z"],
+		cwd=ROOT,
+		capture_output=True,
+	)
+	if result.returncode != 0:
+		message = (result.stderr or result.stdout).decode("utf-8", errors="replace").strip()
+		issues = [{
+			"kind": "tracked_path_scan_failed",
+			"message": trim_text(message or "git ls-files failed.", 1000),
+		}]
+		return {
+			"ok": False,
+			"root": str(ROOT),
+			"tracked_file_count": 0,
+			"issue_count": len(issues),
+			"issues": issues,
+		}
+
+	tracked_paths = sorted({
+		path.replace("\\", "/")
+		for path in result.stdout.decode("utf-8", errors="replace").split("\0")
+		if path
+	})
+	issues = [
+		*find_case_collision_issues(tracked_paths),
+		*find_blocked_tracked_dir_issues(tracked_paths),
+	]
+	return {
+		"ok": len(issues) == 0,
+		"root": str(ROOT),
+		"tracked_file_count": len(tracked_paths),
+		"issue_count": len(issues),
+		"issues": issues,
+	}
+
+
+def find_case_collision_issues(tracked_paths: list[str]) -> list[dict[str, Any]]:
+	paths_by_folded_name: dict[str, list[str]] = {}
+	for path in tracked_paths:
+		paths_by_folded_name.setdefault(path.casefold(), []).append(path)
+
+	issues: list[dict[str, Any]] = []
+	for folded_path, paths in sorted(paths_by_folded_name.items()):
+		unique_paths = sorted(set(paths))
+		if len(unique_paths) <= 1:
+			continue
+		issues.append({
+			"kind": "case_collision",
+			"path": folded_path,
+			"paths": unique_paths,
+			"message": "Tracked paths differ only by case and may overwrite each other on case-insensitive filesystems.",
+		})
+	return issues
+
+
+def find_blocked_tracked_dir_issues(tracked_paths: list[str]) -> list[dict[str, Any]]:
+	blocked_names = set(BLOCKED_PACKAGE_DIR_NAMES)
+	blocked_paths: set[str] = set()
+	for path in tracked_paths:
+		parts = path.split("/")
+		for index, part in enumerate(parts[:-1]):
+			if part in blocked_names:
+				blocked_paths.add("/".join(parts[:index + 1]))
+
+	return [
+		{
+			"kind": "blocked_tracked_directory",
+			"path": path,
+			"message": "Tracked files live inside a cache or dependency directory that should not ship with GF.",
+		}
+		for path in sorted(blocked_paths)
+	]
 
 
 def parse_git_status(lines: list[str]) -> list[dict[str, str]]:
@@ -819,15 +909,24 @@ def gut_report_all_tests_passed(stdout: str) -> bool:
 	return "---- All tests passed! ----" in stdout
 
 
-def release_status(expected_version: str = "") -> dict[str, Any]:
+def release_status(expected_version: str = "", allow_dirty: bool = False) -> dict[str, Any]:
 	plugin_audit = audit_plugin_cfg()
 	plugin_version = plugin_audit["version"]
 	version = expected_version.strip() or plugin_version
 	issues: list[str] = []
+	dirty_files = git_lines(["status", "--porcelain", "--untracked-files=all"])
+	if dirty_files and not allow_dirty:
+		issues.append(
+			f"Worktree is dirty ({len(dirty_files)} changed path(s)); commit or stash changes before release, "
+			"or pass --allow-dirty only for local diagnostics."
+		)
 	if SEMVER_RE.match(version) is None:
 		issues.append(f"Expected version {version!r} is not SemVer MAJOR.MINOR.PATCH.")
 	if plugin_version != version:
 		issues.append(f"addons/gf/plugin.cfg version is {plugin_version!r}, expected {version!r}.")
+	future_since_markers = read_future_since_markers(version)
+	if future_since_markers:
+		issues.append(format_future_since_issue(version, future_since_markers))
 	for field_name in plugin_audit["missing_required_fields"]:
 		issues.append(f"addons/gf/plugin.cfg is missing required [plugin] field {field_name!r}.")
 	if not plugin_audit["script_inside_addon"]:
@@ -883,22 +982,23 @@ def release_status(expected_version: str = "") -> dict[str, Any]:
 	if version not in changelog_versions:
 		issues.append(f"docs/zh/changelog.md does not contain section [{version}].")
 
-	package_archive = audit_package_archive(version)
-	if package_archive["missing_export_ignore_rules"]:
-		issues.append(
-			".gitattributes is missing GF release archive export-ignore rule(s): "
-			+ ", ".join(package_archive["missing_export_ignore_rules"])
-		)
-	if package_archive["blocked_package_dirs"]:
-		issues.append(
-			"addons/gf release payload contains blocked package dir(s): "
-			+ ", ".join(package_archive["blocked_package_dirs"])
-		)
-	if not package_archive["asset_store_package"].get("ok", False):
-		issues.extend(
-			"Asset Store package layout is invalid: " + issue
-			for issue in package_archive["asset_store_package"].get("issues", [])
-		)
+	package_archive = make_skipped_package_archive("dirty worktree") if dirty_files and not allow_dirty else audit_package_archive(version)
+	if not package_archive.get("skipped", False):
+		if package_archive["missing_export_ignore_rules"]:
+			issues.append(
+				".gitattributes is missing GF release archive export-ignore rule(s): "
+				+ ", ".join(package_archive["missing_export_ignore_rules"])
+			)
+		if package_archive["blocked_package_dirs"]:
+			issues.append(
+				"addons/gf release payload contains blocked package dir(s): "
+				+ ", ".join(package_archive["blocked_package_dirs"])
+			)
+		if not package_archive["asset_store_package"].get("ok", False):
+			issues.extend(
+				"Asset Store package layout is invalid: " + issue
+				for issue in package_archive["asset_store_package"].get("issues", [])
+			)
 
 	tag_exists = git_exit_code(["rev-parse", "-q", "--verify", f"refs/tags/{version}"]) == 0
 	tag_points_at_head = version in git_lines(["tag", "--points-at", "HEAD"])
@@ -906,6 +1006,12 @@ def release_status(expected_version: str = "") -> dict[str, Any]:
 		"ok": len(issues) == 0,
 		"version": version,
 		"issues": issues,
+		"allow_dirty": allow_dirty,
+		"worktree_dirty": len(dirty_files) > 0,
+		"dirty_file_count": len(dirty_files),
+		"dirty_files": dirty_files[:80],
+		"future_since_count": len(future_since_markers),
+		"future_since_markers": future_since_markers[:80],
 		"plugin_version": plugin_version,
 		"plugin": plugin_audit,
 		"asset_library": asset_fields,
@@ -916,6 +1022,72 @@ def release_status(expected_version: str = "") -> dict[str, Any]:
 		"package_archive": package_archive,
 		"tag_exists": tag_exists,
 		"tag_points_at_head": tag_points_at_head,
+	}
+
+
+def parse_semver(value: str) -> tuple[int, int, int] | None:
+	match = SEMVER_RE.match(value)
+	if match is None:
+		return None
+	return (int(match.group(1)), int(match.group(2)), int(match.group(3)))
+
+
+def read_future_since_markers(version: str) -> list[dict[str, Any]]:
+	release_version = parse_semver(version)
+	if release_version is None:
+		return []
+
+	entries: list[dict[str, Any]] = []
+	source_root = ROOT / "addons/gf"
+	for path in sorted(source_root.rglob("*.gd")):
+		if not path.is_file():
+			continue
+		try:
+			lines = path.read_text(encoding="utf-8").splitlines()
+		except OSError:
+			continue
+		for line_number, line in enumerate(lines, start=1):
+			for match in SINCE_VERSION_RE.finditer(line):
+				since_version = match.group("version")
+				since_parts = parse_semver(since_version)
+				if since_parts is not None and since_parts > release_version:
+					entries.append({
+						"path": path.relative_to(ROOT).as_posix(),
+						"line": line_number,
+						"since": since_version,
+						"text": trim_text(line.strip(), 180),
+					})
+	return entries
+
+
+def format_future_since_issue(version: str, entries: list[dict[str, Any]]) -> str:
+	examples = [
+		f"{entry['path']}:{entry['line']} @since {entry['since']}"
+		for entry in entries[:8]
+	]
+	remaining = len(entries) - len(examples)
+	suffix = f"; and {remaining} more" if remaining > 0 else ""
+	return (
+		f"{len(entries)} @since marker(s) are newer than release {version}: "
+		+ ", ".join(examples)
+		+ suffix
+	)
+
+
+def make_skipped_package_archive(reason: str) -> dict[str, Any]:
+	return {
+		"skipped": True,
+		"skip_reason": reason,
+		"gitattributes_exists": (ROOT / ".gitattributes").exists(),
+		"required_export_ignore_rules": list(ARCHIVE_EXPORT_IGNORE_RULES),
+		"missing_export_ignore_rules": [],
+		"blocked_package_dirs": [],
+		"asset_store_package": {
+			"ok": True,
+			"skipped": True,
+			"issues": [],
+			"reason": reason,
+		},
 	}
 
 
@@ -1032,6 +1204,7 @@ def audit_package_archive(version: str) -> dict[str, Any]:
 			if line.strip() and not line.strip().startswith("#")
 		]
 	return {
+		"skipped": False,
 		"gitattributes_exists": gitattributes_path.exists(),
 		"required_export_ignore_rules": list(ARCHIVE_EXPORT_IGNORE_RULES),
 		"missing_export_ignore_rules": [
@@ -1277,6 +1450,18 @@ def render_workspace_status_text(data: dict[str, Any]) -> str:
 	return "\n".join(lines)
 
 
+def render_path_hygiene_text(data: dict[str, Any]) -> str:
+	lines = [
+		f"path_hygiene: ok={data['ok']} tracked={data['tracked_file_count']} issues={data['issue_count']}",
+	]
+	for issue in data["issues"]:
+		lines.append(f"- {issue['kind']}: {issue.get('path', '')} {issue.get('message', '')}".rstrip())
+		if issue.get("paths"):
+			for path in issue["paths"]:
+				lines.append(f"  path: {path}")
+	return "\n".join(lines)
+
+
 def render_checks_text(data: dict[str, Any]) -> str:
 	lines = [f"suite: {data['suite']} ok={data['ok']}"]
 	for result in data["results"]:
@@ -1296,6 +1481,13 @@ def render_checks_text(data: dict[str, Any]) -> str:
 def render_release_status_text(data: dict[str, Any]) -> str:
 	lines = [f"version: {data['version']} ok={data['ok']}"]
 	lines.append(f"plugin: {data['plugin_version']}")
+	lines.append(
+		"worktree: "
+		f"dirty={data.get('worktree_dirty', False)} "
+		f"changed={data.get('dirty_file_count', 0)} "
+		f"allow_dirty={data.get('allow_dirty', False)}"
+	)
+	lines.append(f"future_since: {data.get('future_since_count', 0)}")
 	asset_library = data.get("asset_library", {})
 	lines.append(
 		"asset_library: "
@@ -1314,6 +1506,7 @@ def render_release_status_text(data: dict[str, Any]) -> str:
 	package_archive = data.get("package_archive", {})
 	lines.append(
 		"archive: "
+		f"skipped={package_archive.get('skipped', False)} "
 		f"missing_rules={len(package_archive.get('missing_export_ignore_rules', []))} "
 		f"blocked_dirs={len(package_archive.get('blocked_package_dirs', []))} "
 		f"asset_store_package_issues={len(package_archive.get('asset_store_package', {}).get('issues', []))}"

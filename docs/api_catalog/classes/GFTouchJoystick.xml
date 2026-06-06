@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFTouchJoystick" path="addons/gf/standard/input/touch/gf_touch_joystick.gd" module="standard" extends="Node2D" classDigest="a6fac0f47e07a501fdbe1802b2e1a20fc407b0f3dc9a83846aae1683d2545211">
+<class name="GFTouchJoystick" path="addons/gf/standard/input/touch/gf_touch_joystick.gd" module="standard" extends="Node2D" classDigest="2d38d29fd7cf0bd579728548e49a8abd3f1495b69a91294c3941bf3265b9c4b3">
 	<description>GFTouchJoystick: 通用触屏虚拟摇杆节点。
-可直接发出方向信号，也可选择映射到 Godot InputMap 动作。</description>
+可直接发出摇杆向量信号，也可选择映射到 Godot InputMap 动作。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">runtime_service</tag>
@@ -10,10 +10,10 @@
 	<signals>
 		<member kind="signal" name="direction_changed">
 			<signature>signal direction_changed(direction: Vector2)</signature>
-			<description>摇杆方向变化时发出。方向已归一化并应用死区。</description>
+			<description>摇杆向量变化时发出。向量已应用死区并保留模拟强度。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="param">direction: 已归一化并应用死区后的摇杆方向。</tag>
+				<tag name="param">direction: 已应用死区并保留模拟强度的摇杆向量。</tag>
 			</tags>
 		</member>
 		<member kind="signal" name="joystick_pressed">
@@ -33,7 +33,7 @@
 	</signals>
 	<enums>
 		<member kind="enum" name="PositionMode">
-			<signature>enum PositionMode { ## 摇杆中心保持在场景中摆放的位置。 FIXED, ## 初次触摸时摇杆中心移动到触点，释放后回到原位置。 RELATIVE, }</signature>
+			<signature>enum PositionMode { ## 摇杆中心保持在场景中摆放的位置。 FIXED, ## 初次触摸时摇杆中心移动到触点，释放后回到原位置。 RELATIVE, ## 初次触摸时摇杆中心移动到触点，拖动超过半径时中心跟随触点。 FOLLOW, }</signature>
 			<description>摇杆定位模式。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -151,10 +151,10 @@
 	<methods>
 		<member kind="method" name="get_direction">
 			<signature>func get_direction() -&gt; Vector2:</signature>
-			<description>获取当前方向。</description>
+			<description>获取当前摇杆向量。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="return">当前摇杆方向。</tag>
+				<tag name="return">已应用死区并保留模拟强度的摇杆向量。</tag>
 			</tags>
 		</member>
 		<member kind="method" name="release">

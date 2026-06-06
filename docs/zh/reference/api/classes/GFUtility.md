@@ -26,6 +26,7 @@
 | 方法 | [`async_init`](#member-gfutility-methods-async_init) | `func async_init() -> void:` |
 | 方法 | [`ready`](#member-gfutility-methods-ready) | `func ready() -> void:` |
 | 方法 | [`dispose`](#member-gfutility-methods-dispose) | `func dispose() -> void:` |
+| 方法 | [`release_dependencies`](#member-gfutility-methods-release_dependencies) | `func release_dependencies() -> void:` |
 | 方法 | [`is_lifecycle_active`](#member-gfutility-methods-is_lifecycle_active) | `func is_lifecycle_active() -> bool:` |
 | 方法 | [`is_ready_in_architecture`](#member-gfutility-methods-is_ready_in_architecture) | `func is_ready_in_architecture() -> bool:` |
 | 方法 | [`get_model`](#member-gfutility-methods-get_model) | `func get_model(model_type: Script, require_ready: bool = false) -> Object:` |
@@ -175,6 +176,19 @@ func dispose() -> void:
 ```
 
 销毁工具。子类可以重写此方法。
+
+<a id="member-gfutility-methods-release_dependencies"></a>
+
+### `release_dependencies`
+
+- API：`public`
+- 首次版本：`4.4.0`
+
+```gdscript
+func release_dependencies() -> void:
+```
+
+释放架构注入作用域和模块缓存的外部依赖引用。 架构会在 dispose() 之后调用该方法；子类重写时应先释放自身缓存的 Model/System/Utility 引用，再调用 super.release_dependencies()。
 
 <a id="member-gfutility-methods-is_lifecycle_active"></a>
 

@@ -16,6 +16,8 @@ extends RefCounted
 # --- 常量 ---
 
 const _GF_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
+const _GF_DEPENDENCY_GRAPH_TOOLS = preload("res://addons/gf/kernel/core/gf_dependency_graph_tools.gd")
+const _GF_PATH_TOOLS = preload("res://addons/gf/kernel/core/gf_path_tools.gd")
 
 ## 扩展 manifest 发现服务脚本。
 ## [br]
@@ -34,6 +36,13 @@ const ENABLED_EXTENSIONS_SETTING: String = "gf/extensions/enabled"
 ## @api public
 const AUTO_INSTALL_ENABLED_INSTALLERS_SETTING: String = "gf/extensions/auto_install_enabled_installers"
 
+## 项目设置：额外扩展集合根目录列表。每个根目录下一层为独立扩展目录。
+## [br]
+## @api public
+## [br]
+## @since 4.4.0
+const EXTERNAL_EXTENSION_ROOTS_SETTING: String = "gf/extensions/external_roots"
+
 ## 项目设置：导出时是否跳过禁用扩展目录。
 ## [br]
 ## @api public
@@ -48,6 +57,13 @@ const EXPORT_FAIL_ON_DISABLED_REFERENCES_SETTING: String = "gf/extensions/export
 ## [br]
 ## @api public
 const AUTO_INSTALL_ENABLED_INSTALLERS_DEFAULT: bool = true
+
+## 默认不扫描额外扩展根目录。
+## [br]
+## @api public
+## [br]
+## @since 4.4.0
+const EXTERNAL_EXTENSION_ROOTS_DEFAULT: Array[String] = []
 
 ## 默认导出时排除禁用扩展。
 ## [br]
@@ -87,6 +103,8 @@ static func ensure_defaults() -> bool:
 		should_save = true
 	if _ensure_default(AUTO_INSTALL_ENABLED_INSTALLERS_SETTING, AUTO_INSTALL_ENABLED_INSTALLERS_DEFAULT):
 		should_save = true
+	if _ensure_default(EXTERNAL_EXTENSION_ROOTS_SETTING, EXTERNAL_EXTENSION_ROOTS_DEFAULT):
+		should_save = true
 	if _ensure_default(EXPORT_EXCLUDE_DISABLED_SETTING, EXPORT_EXCLUDE_DISABLED_DEFAULT):
 		should_save = true
 	if _ensure_default(
@@ -113,6 +131,13 @@ static func register_property_info() -> void:
 		"type": TYPE_BOOL,
 	})
 	ProjectSettings.set_as_basic(AUTO_INSTALL_ENABLED_INSTALLERS_SETTING, true)
+	ProjectSettings.add_property_info({
+		"name": EXTERNAL_EXTENSION_ROOTS_SETTING,
+		"type": TYPE_ARRAY,
+		"hint": PROPERTY_HINT_TYPE_STRING,
+		"hint_string": "%d:" % TYPE_STRING,
+	})
+	ProjectSettings.set_as_basic(EXTERNAL_EXTENSION_ROOTS_SETTING, true)
 	ProjectSettings.add_property_info({
 		"name": EXPORT_EXCLUDE_DISABLED_SETTING,
 		"type": TYPE_BOOL,
@@ -186,6 +211,37 @@ static func set_auto_install_enabled_installers(enabled: bool) -> void:
 	ProjectSettings.set_setting(AUTO_INSTALL_ENABLED_INSTALLERS_SETTING, enabled)
 
 
+## 获取项目配置的额外扩展集合根目录。
+## 只返回 `res://` 根目录，保证 manifest 贡献路径仍可由 Godot 资源系统加载。
+## [br]
+## @api public
+## [br]
+## @since 4.4.0
+## [br]
+## @return 扩展集合根目录列表。
+static func get_external_extension_roots() -> Array[String]:
+	var raw_value: Variant = ProjectSettings.get_setting(
+		EXTERNAL_EXTENSION_ROOTS_SETTING,
+		EXTERNAL_EXTENSION_ROOTS_DEFAULT
+	)
+	return _normalize_external_extension_roots(_GF_VARIANT_ACCESS_SCRIPT.to_string_array(raw_value))
+
+
+## 保存项目配置的额外扩展集合根目录，并刷新 manifest 缓存。
+## [br]
+## @api public
+## [br]
+## @since 4.4.0
+## [br]
+## @param root_paths: 扩展集合根目录列表。
+static func set_external_extension_roots(root_paths: Array[String]) -> void:
+	ProjectSettings.set_setting(
+		EXTERNAL_EXTENSION_ROOTS_SETTING,
+		_normalize_external_extension_roots(root_paths)
+	)
+	clear_manifest_cache()
+
+
 ## 判断导出时是否排除禁用扩展目录。
 ## [br]
 ## @api public
@@ -235,7 +291,7 @@ static func set_fail_export_on_disabled_extension_references(enabled: bool) -> v
 ## @return manifest 列表。
 static func get_all_manifests() -> Array[GFExtensionManifest]:
 	if not _has_all_manifests_cache:
-		_all_manifests_cache = GFExtensionCatalogBase.load_all_manifests()
+		_all_manifests_cache = GFExtensionCatalogBase.load_all_manifests(get_external_extension_roots())
 		_has_all_manifests_cache = true
 	return _all_manifests_cache.duplicate()
 
@@ -283,9 +339,9 @@ static func has_extension(extension_id: String) -> bool:
 ## [br]
 ## @param extension_id: 扩展 ID。
 ## [br]
-## @param relative_path: 相对扩展根目录的资源路径；传入 `res://` 或 `user://` 时会原样返回。
+## @param relative_path: 相对扩展根目录的资源路径；传入 `res://` 时必须仍位于扩展根目录下。
 ## [br]
-## @return 扩展资源路径；扩展不存在时返回空字符串。
+## @return 扩展根目录下的资源路径；扩展不存在或路径越界时返回空字符串。
 static func get_extension_resource_path(
 	extension_id: String,
 	relative_path: String = ""
@@ -294,12 +350,19 @@ static func get_extension_resource_path(
 	if manifest == null or manifest.root_path.is_empty():
 		return ""
 
-	var normalized_path: String = relative_path.strip_edges()
+	var root_path: String = _GF_PATH_TOOLS.normalize_root_path(manifest.root_path)
+	var normalized_path: String = _GF_PATH_TOOLS.normalize_resource_path(relative_path)
 	if normalized_path.is_empty():
-		return manifest.root_path
-	if normalized_path.begins_with("res://") or normalized_path.begins_with("user://"):
-		return normalized_path
-	return manifest.root_path.path_join(normalized_path.trim_prefix("/"))
+		return root_path
+	if normalized_path.contains("://") and not normalized_path.begins_with("res://"):
+		return ""
+
+	var resource_path: String = normalized_path
+	if not normalized_path.begins_with("res://"):
+		resource_path = _GF_PATH_TOOLS.normalize_resource_path(root_path.path_join(normalized_path.trim_prefix("/")))
+	if not _GF_PATH_TOOLS.is_path_under_root(resource_path, root_path, true, false):
+		return ""
+	return resource_path
 
 
 ## 判断扩展当前是否启用。
@@ -335,16 +398,19 @@ static func is_extension_enabled(
 ## [br]
 ## @param extension_id: 扩展 ID。
 ## [br]
-## @param relative_path: 相对扩展根目录的脚本路径；传入 `res://` 或 `user://` 时会原样解析。
+## @param relative_path: 相对扩展根目录的脚本路径；传入 `res://` 时必须仍位于扩展根目录下。
 ## [br]
 ## @param include_dependencies: 是否把依赖补齐后的启用结果纳入判断。
 ## [br]
-## @return 扩展存在、已启用且脚本可加载时返回 Script，否则返回 null。
+## @return 扩展存在、已启用、依赖图有效且脚本可加载时返回 Script，否则返回 null。
 static func load_enabled_extension_script(
 	extension_id: String,
 	relative_path: String,
 	include_dependencies: bool = true
 ) -> Script:
+	var manifests: Array[GFExtensionManifest] = get_all_manifests()
+	if not _manifest_graph_allows_runtime_paths(manifests, "load_enabled_extension_script"):
+		return null
 	if not is_extension_enabled(extension_id, include_dependencies):
 		return null
 
@@ -364,6 +430,8 @@ static func load_enabled_extension_script(
 ## @return 启用 manifest 列表。
 static func get_enabled_manifests() -> Array[GFExtensionManifest]:
 	var manifests: Array[GFExtensionManifest] = get_all_manifests()
+	if not _manifest_graph_allows_runtime_paths(manifests, "get_enabled_manifests"):
+		return []
 	var enabled_ids: Array[String] = resolve_extension_dependencies(get_enabled_extension_ids(), manifests)
 	var manifest_by_id: Dictionary = _build_manifest_map(manifests)
 	var result: Array[GFExtensionManifest] = []
@@ -483,26 +551,22 @@ static func resolve_extension_dependencies(
 
 	var manifest_by_id: Dictionary = _build_manifest_map(source_manifests)
 	var requested_ids: Array[String] = _sorted_unique(extension_ids)
-	var resolved: Dictionary = {}
-	var resolved_order: Array[String] = []
-	var visiting: Dictionary = {}
-	var cycles: Array[PackedStringArray] = []
-	for extension_id: String in requested_ids:
-		_resolve_extension_dependency(
-			extension_id,
-			manifest_by_id,
-			resolved,
-			resolved_order,
-			visiting,
-			[],
-			cycles
-		)
+	var graph_report: Dictionary = _GF_DEPENDENCY_GRAPH_TOOLS.sort_dependency_first(
+		_array_to_packed_string_array(requested_ids),
+		_build_dependency_map(manifest_by_id)
+	)
+	var resolved_order: PackedStringArray = _get_graph_ordered_ids(graph_report)
+	var cycles: Array[PackedStringArray] = _get_graph_cycles(graph_report)
+	for cycle: PackedStringArray in cycles:
+		push_warning("[GFExtensionSettings] 检测到扩展依赖循环：%s" % " -> ".join(Array(cycle)))
 
 	var ordered: Array[String] = []
 	if cycles.is_empty():
-		ordered.append_array(resolved_order)
+		for resolved_id: String in resolved_order:
+			ordered.append(resolved_id)
 		return ordered
 
+	var resolved: Dictionary = _make_lookup_from_packed_string_array(resolved_order)
 	for manifest: GFExtensionManifest in source_manifests:
 		if resolved.has(manifest.id):
 			ordered.append(manifest.id)
@@ -564,20 +628,11 @@ static func get_manifest_graph_report(manifests: Array[GFExtensionManifest] = []
 					"dependency_id": dependency_id,
 				})
 
-	var resolved: Dictionary = {}
-	var resolved_order: Array[String] = []
-	var visiting: Dictionary = {}
-	for extension_id: String in manifest_by_id.keys():
-		_resolve_extension_dependency(
-			extension_id,
-			manifest_by_id,
-			resolved,
-			resolved_order,
-			visiting,
-			[],
-			dependency_cycles,
-			false
-		)
+	var graph_report: Dictionary = _GF_DEPENDENCY_GRAPH_TOOLS.sort_dependency_first(
+		_dictionary_keys_to_packed_string_array(manifest_by_id),
+		_build_dependency_map(manifest_by_id)
+	)
+	dependency_cycles = _get_graph_cycles(graph_report)
 
 	var issue_count: int = (
 		duplicate_ids.size()
@@ -602,7 +657,7 @@ static func get_manifest_graph_report(manifests: Array[GFExtensionManifest] = []
 ## [br]
 ## @return 诊断字典。
 ## [br]
-## @schema return: Dictionary containing configured_ids, resolved_ids, unknown_enabled_ids, graph status, and extension counts.
+## @schema return: Dictionary containing external_roots, configured_ids, resolved_ids, unknown_enabled_ids, graph status, and extension counts.
 static func get_extension_selection_report() -> Dictionary:
 	var manifests: Array[GFExtensionManifest] = get_all_manifests()
 	var configured_ids: Array[String] = get_enabled_extension_ids()
@@ -612,6 +667,7 @@ static func get_extension_selection_report() -> Dictionary:
 	var graph_ok: bool = _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(graph_report, "ok", true)
 
 	return {
+		"external_roots": get_external_extension_roots(),
 		"configured_ids": configured_ids,
 		"resolved_ids": resolved_ids,
 		"unknown_enabled_ids": unknown_enabled_ids,
@@ -662,6 +718,86 @@ static func _sorted_unique(values: Array[String]) -> Array[String]:
 	return result
 
 
+static func _normalize_external_extension_roots(root_paths: Array[String]) -> Array[String]:
+	var result: Array[String] = []
+	var normalized_paths: PackedStringArray = _GF_PATH_TOOLS.normalize_root_paths(PackedStringArray(root_paths))
+	for normalized_path: String in normalized_paths:
+		if (
+			not normalized_path.begins_with("res://")
+			or normalized_path == GFExtensionCatalogBase.EXTENSIONS_PATH
+		):
+			continue
+		result.append(normalized_path)
+	return result
+
+
+static func _build_dependency_map(manifest_by_id: Dictionary) -> Dictionary:
+	var result: Dictionary = {}
+	for extension_id_variant: Variant in manifest_by_id.keys():
+		var extension_id: String = _GF_VARIANT_ACCESS_SCRIPT.to_text(extension_id_variant).strip_edges()
+		if extension_id.is_empty():
+			continue
+		var manifest: GFExtensionManifest = _get_manifest_from_map_or_null(manifest_by_id, extension_id)
+		if manifest == null:
+			continue
+		var dependencies: PackedStringArray = PackedStringArray()
+		for dependency_id: String in manifest.dependencies:
+			var normalized_dependency_id: String = dependency_id.strip_edges()
+			if (
+				normalized_dependency_id.is_empty()
+				or _is_builtin_extension_id(normalized_dependency_id)
+				or not manifest_by_id.has(normalized_dependency_id)
+			):
+				continue
+			var _dependency_appended: bool = dependencies.append(normalized_dependency_id)
+		result[extension_id] = dependencies
+	return result
+
+
+static func _array_to_packed_string_array(values: Array[String]) -> PackedStringArray:
+	var result: PackedStringArray = PackedStringArray()
+	for value: String in values:
+		var normalized_value: String = value.strip_edges()
+		if normalized_value.is_empty() or result.has(normalized_value):
+			continue
+		var _appended: bool = result.append(normalized_value)
+	return result
+
+
+static func _dictionary_keys_to_packed_string_array(values: Dictionary) -> PackedStringArray:
+	var result: PackedStringArray = PackedStringArray()
+	for key: Variant in values.keys():
+		var normalized_key: String = _GF_VARIANT_ACCESS_SCRIPT.to_text(key).strip_edges()
+		if normalized_key.is_empty() or result.has(normalized_key):
+			continue
+		var _appended: bool = result.append(normalized_key)
+	return result
+
+
+static func _make_lookup_from_packed_string_array(values: PackedStringArray) -> Dictionary:
+	var result: Dictionary = {}
+	for value: String in values:
+		result[value] = true
+	return result
+
+
+static func _get_graph_ordered_ids(report: Dictionary) -> PackedStringArray:
+	return _GF_VARIANT_ACCESS_SCRIPT.get_option_packed_string_array(report, "ordered_ids", PackedStringArray())
+
+
+static func _get_graph_cycles(report: Dictionary) -> Array[PackedStringArray]:
+	var result: Array[PackedStringArray] = []
+	var cycles: Array = _GF_VARIANT_ACCESS_SCRIPT.get_option_array(report, "dependency_cycles", [])
+	for cycle_variant: Variant in cycles:
+		if cycle_variant is PackedStringArray:
+			var packed_cycle: PackedStringArray = cycle_variant
+			result.append(packed_cycle.duplicate())
+		elif cycle_variant is Array:
+			var cycle_items: Array = cycle_variant
+			result.append(_GF_VARIANT_ACCESS_SCRIPT.get_option_packed_string_array({ "cycle": cycle_items }, "cycle", PackedStringArray()))
+	return result
+
+
 static func _build_manifest_map(manifests: Array[GFExtensionManifest]) -> Dictionary:
 	var result: Dictionary = {}
 	for manifest: GFExtensionManifest in manifests:
@@ -693,6 +829,54 @@ static func _collect_enabled_manifest_paths(property_name: String) -> Array[Stri
 	return paths
 
 
+static func _manifest_graph_allows_runtime_paths(manifests: Array[GFExtensionManifest], context: String) -> bool:
+	var report: Dictionary = get_manifest_graph_report(manifests)
+	if _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(report, "ok", true):
+		return true
+	push_warning("[GFExtensionSettings] %s blocked: %s" % [context, _summarize_manifest_graph_report(report)])
+	return false
+
+
+static func _summarize_manifest_graph_report(report: Dictionary) -> String:
+	var parts: Array[String] = []
+	var invalid_manifests: Array = _GF_VARIANT_ACCESS_SCRIPT.get_option_array(report, "invalid_manifests")
+	if not invalid_manifests.is_empty():
+		var invalid_manifest: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.as_dictionary(invalid_manifests[0])
+		parts.append("invalid manifest %s" % _describe_manifest_issue(invalid_manifest))
+
+	var missing_dependencies: Array = _GF_VARIANT_ACCESS_SCRIPT.get_option_array(report, "missing_dependencies")
+	if not missing_dependencies.is_empty():
+		var missing_dependency: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.as_dictionary(missing_dependencies[0])
+		parts.append("missing dependency %s -> %s" % [
+			_GF_VARIANT_ACCESS_SCRIPT.get_option_string(missing_dependency, "extension_id", "?"),
+			_GF_VARIANT_ACCESS_SCRIPT.get_option_string(missing_dependency, "dependency_id", "?"),
+		])
+
+	var duplicate_ids: PackedStringArray = _GF_VARIANT_ACCESS_SCRIPT.get_option_packed_string_array(report, "duplicate_ids", PackedStringArray())
+	if not duplicate_ids.is_empty():
+		parts.append("duplicate id %s" % duplicate_ids[0])
+
+	var dependency_cycles: Array = _GF_VARIANT_ACCESS_SCRIPT.get_option_array(report, "dependency_cycles")
+	if not dependency_cycles.is_empty():
+		parts.append("dependency cycle %s" % _GF_VARIANT_ACCESS_SCRIPT.to_text(dependency_cycles[0], "?"))
+
+	if parts.is_empty():
+		return "extension manifest graph is invalid"
+	return "; ".join(parts)
+
+
+static func _describe_manifest_issue(issue: Dictionary) -> String:
+	var extension_id: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(issue, "extension_id")
+	var source_path: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(issue, "source_path")
+	if not extension_id.is_empty() and not source_path.is_empty():
+		return "%s (%s)" % [extension_id, source_path]
+	if not extension_id.is_empty():
+		return extension_id
+	if not source_path.is_empty():
+		return source_path
+	return "?"
+
+
 static func _get_manifest_property(manifest: GFExtensionManifest, property_name: String) -> Variant:
 	if manifest == null or not property_name in manifest:
 		return null
@@ -709,78 +893,6 @@ static func _get_unknown_enabled_ids(extension_ids: Array[String], manifest_by_i
 			result.append(normalized_id)
 	result.sort()
 	return result
-
-
-static func _resolve_extension_dependency(
-	extension_id: String,
-	manifest_by_id: Dictionary,
-	resolved: Dictionary,
-	resolved_order: Array[String],
-	visiting: Dictionary,
-	stack: Array[String],
-	cycles: Array[PackedStringArray],
-	emit_warning: bool = true
-) -> void:
-	var normalized_id: String = extension_id.strip_edges()
-	if normalized_id.is_empty() or resolved.has(normalized_id):
-		return
-	if visiting.has(normalized_id):
-		_append_dependency_cycle(cycles, stack, normalized_id)
-		if emit_warning:
-			push_warning("[GFExtensionSettings] 检测到扩展依赖循环：%s" % " -> ".join(cycles[cycles.size() - 1]))
-		return
-	if not manifest_by_id.has(normalized_id):
-		return
-
-	var manifest: GFExtensionManifest = _get_manifest_from_map_or_null(manifest_by_id, normalized_id)
-	if manifest == null:
-		return
-
-	visiting[normalized_id] = true
-	var next_stack: Array[String] = stack.duplicate()
-	next_stack.append(normalized_id)
-	for dependency_id: String in manifest.dependencies:
-		var normalized_dependency_id: String = dependency_id.strip_edges()
-		if manifest_by_id.has(normalized_dependency_id):
-			_resolve_extension_dependency(
-				normalized_dependency_id,
-				manifest_by_id,
-				resolved,
-				resolved_order,
-				visiting,
-				next_stack,
-				cycles,
-				emit_warning
-			)
-	var _erase_result_755: Variant = visiting.erase(normalized_id)
-	resolved[normalized_id] = true
-	if not resolved_order.has(normalized_id):
-		resolved_order.append(normalized_id)
-
-
-static func _append_dependency_cycle(
-	cycles: Array[PackedStringArray],
-	stack: Array[String],
-	extension_id: String
-) -> void:
-	var start_index: int = stack.find(extension_id)
-	var cycle: PackedStringArray = PackedStringArray()
-	if start_index == -1:
-		var _append_result_769: Variant = cycle.append(extension_id)
-	else:
-		for index: int in range(start_index, stack.size()):
-			var _append_result_772: Variant = cycle.append(stack[index])
-	var _append_result_773: Variant = cycle.append(extension_id)
-
-	var cycle_key: String = _make_cycle_key(cycle)
-	for existing_cycle: PackedStringArray in cycles:
-		if _make_cycle_key(existing_cycle) == cycle_key:
-			return
-	cycles.append(cycle)
-
-
-static func _make_cycle_key(cycle: PackedStringArray) -> String:
-	return " -> ".join(cycle)
 
 
 static func _is_builtin_extension_id(extension_id: String) -> bool:

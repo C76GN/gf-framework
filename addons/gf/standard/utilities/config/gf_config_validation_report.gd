@@ -17,12 +17,20 @@ extends RefCounted
 ## [br]
 ## @api public
 const CONTEXT_FIELDS: Array[String] = [
+	"row_key",
+	"field",
 	"source",
 	"line",
 	"column",
 	"row_index",
 	"column_index",
 	"rule_id",
+	"value",
+	"expected_value",
+	"actual_value",
+	"supported_values",
+	"supported_formats",
+	"supported_content_types",
 ]
 
 
@@ -64,7 +72,7 @@ func make_report(table_name: StringName = &"", row_count: int = 0) -> Dictionary
 ## [br]
 ## @return 校验报告字典。
 ## [br]
-## @schema context: Dictionary，可包含 row_key、field、source、line、column、row_index、column_index 和 rule_id 字段。
+## @schema context: Dictionary，可包含 row_key、field、source、line、column、row_index、column_index、rule_id、value、expected_value、actual_value、supported_values、supported_formats 和 supported_content_types 字段。
 ## [br]
 ## @schema return: GFConfigValidationReport 兼容 Dictionary，包含一条 error issue。
 func make_error_report(
@@ -112,7 +120,7 @@ func make_error_report(
 ## [br]
 ## @schema row_key: Variant，复制到 issue 中的行标识。
 ## [br]
-## @schema context: Dictionary，可包含 source、line、column、row_index、column_index 和 rule_id 字段。
+## @schema context: Dictionary，可包含 row_key、field、source、line、column、row_index、column_index、rule_id、value、expected_value、actual_value、supported_values、supported_formats 和 supported_content_types 字段。
 func add_issue(
 	report: Dictionary,
 	severity: String,

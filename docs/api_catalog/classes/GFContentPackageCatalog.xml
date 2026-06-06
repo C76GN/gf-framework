@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFContentPackageCatalog" path="addons/gf/extensions/content_package/runtime/gf_content_package_catalog.gd" module="extensions/content_package" extends="RefCounted" classDigest="0ff58cb64cfa08c155a597ffaec44ab25664a1b8deecb0947fd71c30681744aa">
+	<description>GFContentPackageCatalog: 内容包集合与依赖图诊断。
+管理一组 GFContentPackageManifest，提供包查询、依赖顺序、重复/缺失/循环依赖报告，
+并可把内容包资源键映射注册到 GFResourceResolverUtility。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_service</tag>
+		<tag name="since">4.4.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties />
+	<methods>
+		<member kind="method" name="clear">
+			<signature>func clear() -&gt; void:</signature>
+			<description>清空目录。</description>
+			<tags>
+				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="method" name="add_manifest">
+			<signature>func add_manifest(manifest: GFContentPackageManifest) -&gt; bool:</signature>
+			<description>注册内容包 manifest。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">manifest: 内容包 manifest。</tag>
+				<tag name="return">注册成功返回 true；重复或空 ID 返回 false。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="set_manifests">
+			<signature>func set_manifests(manifests: Array[GFContentPackageManifest]) -&gt; GFContentPackageCatalog:</signature>
+			<description>批量替换内容包 manifest。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">manifests: manifest 列表。</tag>
+				<tag name="return">当前目录。</tag>
+				<tag name="schema">manifests: Array[GFContentPackageManifest]，无效项会被忽略或进入诊断。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="remove_manifest">
+			<signature>func remove_manifest(package_id: StringName) -&gt; bool:</signature>
+			<description>移除内容包 manifest。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">package_id: 内容包 ID。</tag>
+				<tag name="return">移除成功返回 true。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="has_package">
+			<signature>func has_package(package_id: StringName) -&gt; bool:</signature>
+			<description>检查内容包是否存在。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">package_id: 内容包 ID。</tag>
+				<tag name="return">存在返回 true。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_manifest">
+			<signature>func get_manifest(package_id: StringName) -&gt; GFContentPackageManifest:</signature>
+			<description>获取内容包 manifest。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">package_id: 内容包 ID。</tag>
+				<tag name="return">manifest；不存在时返回 null。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_package_ids">
+			<signature>func get_package_ids() -&gt; PackedStringArray:</signature>
+			<description>获取内容包 ID 列表。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">按注册顺序排列的内容包 ID。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_ordered_package_ids">
+			<signature>func get_ordered_package_ids() -&gt; PackedStringArray:</signature>
+			<description>获取按依赖优先排序的内容包 ID。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">依赖包先于依赖方出现的内容包 ID 列表。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_graph_report">
+			<signature>func get_graph_report(options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>获取依赖图和 manifest 诊断报告。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">options: 校验选项，透传给 GFContentPackageManifest。</tag>
+				<tag name="return">GFValidationReportDictionary 兼容报告。</tag>
+				<tag name="schema">options: Dictionary，可包含 check_resource_exists: bool。</tag>
+				<tag name="schema">return: GFValidationReportDictionary.finalize_report() 生成的 Dictionary，并包含 package_count、package_ids、ordered_package_ids 和 duplicate_package_ids。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="register_resources">
+			<signature>func register_resources(resolver: GFResourceResolverUtility, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>把内容包资源键注册到资源解析器。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">resolver: 标准资源解析器。</tag>
+				<tag name="param">options: 注册选项。`base_priority` 默认为 0；`check_resource_exists` 默认为 false。</tag>
+				<tag name="return">GFValidationReportDictionary 兼容报告，并包含 registered_count。</tag>
+				<tag name="schema">options: Dictionary，可包含 base_priority: int 和 check_resource_exists: bool。</tag>
+				<tag name="schema">return: GFValidationReportDictionary.finalize_report() 生成的 Dictionary，并包含 registered_count。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_debug_snapshot">
+			<signature>func get_debug_snapshot() -&gt; Dictionary:</signature>
+			<description>获取调试快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">目录快照。</tag>
+				<tag name="schema">return: Dictionary，包含 package_count、package_ids、ordered_package_ids 和 duplicate_package_ids。</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

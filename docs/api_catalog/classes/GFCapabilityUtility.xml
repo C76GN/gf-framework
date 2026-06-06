@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFCapabilityUtility" path="addons/gf/extensions/capability/core/gf_capability_utility.gd" module="extensions/capability" extends="GFUtility" classDigest="680eae3770f9e18445d616135346e9d7605a66bba90ae887ceb9fa5cdc75152a">
+<class name="GFCapabilityUtility" path="addons/gf/extensions/capability/core/gf_capability_utility.gd" module="extensions/capability" extends="GFUtility" classDigest="c60b5471721df447efefabc991c57b09f825197578d5bad3bea6f5ecb59590ff">
 	<description>GFCapabilityUtility: 对象能力组件管理器。
 提供面向任意 Object / Node 的能力挂载、查询、移除、启停、索引查询与依赖补齐能力。
 能力组合是可选扩展，不改变核心分层容器。</description>
@@ -234,7 +234,7 @@
 		<member kind="method" name="add_capability">
 			<signature>func add_capability(receiver: Object, capability_type: Script, provider: Variant = null) -&gt; Object:</signature>
 			<description>给对象挂载指定能力类型。
-provider 可为 Callable、PackedScene、Object；为空时使用 capability_type.new()。</description>
+provider 可为 Callable、PackedScene、Object；为空时使用 capability_type.new()。provider 返回的实例脚本必须继承或等于 capability_type。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">receiver: 能力接收对象。</tag>
@@ -264,7 +264,7 @@ provider 可为 Callable、PackedScene、Object；为空时使用 capability_typ
 				<tag name="api">public</tag>
 				<tag name="param">receiver: 能力接收对象。</tag>
 				<tag name="param">capability: 要挂载的能力实例。</tag>
-				<tag name="param">as_type: 能力实例注册时使用的类型；为 null 时使用实例脚本类型。</tag>
+				<tag name="param">as_type: 能力实例注册时使用的类型；为 null 时使用实例脚本类型。非空时实例脚本必须继承或等于该类型。</tag>
 				<tag name="return">已挂载或复用的能力实例；失败时返回 null。</tag>
 			</tags>
 		</member>
@@ -275,7 +275,7 @@ provider 可为 Callable、PackedScene、Object；为空时使用 capability_typ
 				<tag name="api">public</tag>
 				<tag name="param">receiver: 能力接收对象。</tag>
 				<tag name="param">scene: 要实例化的能力场景资源。</tag>
-				<tag name="param">as_type: 能力实例注册时使用的类型；为 null 时使用实例脚本类型。</tag>
+				<tag name="param">as_type: 能力实例注册时使用的类型；为 null 时使用场景根节点脚本类型。非空时场景根节点脚本必须继承或等于该类型。</tag>
 				<tag name="return">已挂载的能力节点；失败时返回 null。</tag>
 			</tags>
 		</member>

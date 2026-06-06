@@ -167,6 +167,7 @@ def list_tools() -> list[dict[str, Any]]:
 				"type": "object",
 				"properties": {
 					"version": {"type": "string", "description": "Expected SemVer. Defaults to addons/gf/plugin.cfg version."},
+					"allow_dirty": {"type": "boolean", "default": False, "description": "Allow dirty-worktree diagnostics. Do not use for release packaging."},
 				},
 				"additionalProperties": False,
 			},
@@ -209,7 +210,10 @@ def call_tool(request_id: Any, params: dict[str, Any]) -> dict[str, Any]:
 				fail_fast=bool(arguments.get("fail_fast", False)),
 			)
 		elif name == "gf_release_status":
-			data = gf_maintenance.release_status(str(arguments.get("version", "")))
+			data = gf_maintenance.release_status(
+				str(arguments.get("version", "")),
+				allow_dirty=bool(arguments.get("allow_dirty", False)),
+			)
 		else:
 			return error_response(request_id, -32602, f"Unknown tool: {name}")
 		return result_response(request_id, tool_result(data, is_error=not data.get("ok", True) if isinstance(data, dict) else False))

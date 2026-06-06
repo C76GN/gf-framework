@@ -14,6 +14,7 @@ extends RefCounted
 # --- 常量 ---
 
 const _GF_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
+const _GF_PATH_TOOLS = preload("res://addons/gf/kernel/core/gf_path_tools.gd")
 
 ## 默认扫描根目录。
 ## [br]
@@ -116,13 +117,18 @@ static func audit_disabled_extensions(
 ## [br]
 ## @schema return: Array of Dictionary file reference records.
 static func find_references_to_root(root_path: String, options: Dictionary = {}) -> Array[Dictionary]:
-	var normalized_root: String = root_path.trim_suffix("/")
+	var normalized_root: String = _GF_PATH_TOOLS.normalize_root_path(root_path)
 	if normalized_root.is_empty():
 		return []
 
-	var scan_roots: Array[String] = _GF_VARIANT_ACCESS_SCRIPT.get_option_string_array(options, "scan_roots", DEFAULT_SCAN_ROOTS)
-	var ignored_roots: Array[String] = _GF_VARIANT_ACCESS_SCRIPT.get_option_string_array(options, "ignored_roots", DEFAULT_IGNORED_ROOTS)
-	ignored_roots.append(normalized_root)
+	var scan_roots: PackedStringArray = _GF_PATH_TOOLS.normalize_root_paths(PackedStringArray(
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_string_array(options, "scan_roots", DEFAULT_SCAN_ROOTS)
+	))
+	var ignored_roots: PackedStringArray = _GF_PATH_TOOLS.normalize_root_paths(PackedStringArray(
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_string_array(options, "ignored_roots", DEFAULT_IGNORED_ROOTS)
+	))
+	if not ignored_roots.has(normalized_root):
+		var _ignored_root_appended: bool = ignored_roots.append(normalized_root)
 	var max_scan_depth: int = maxi(_GF_VARIANT_ACCESS_SCRIPT.get_option_int(options, "max_scan_depth", DEFAULT_MAX_SCAN_DEPTH), 0)
 	var max_scanned_files: int = maxi(_GF_VARIANT_ACCESS_SCRIPT.get_option_int(options, "max_scanned_files", DEFAULT_MAX_SCANNED_FILES), 0)
 	var scan_state: Dictionary = _make_scan_state()
@@ -130,7 +136,7 @@ static func find_references_to_root(root_path: String, options: Dictionary = {})
 	var files: Array[String] = []
 	for scan_root: String in scan_roots:
 		_collect_text_files(
-			scan_root.trim_suffix("/"),
+			scan_root,
 			ignored_roots,
 			files,
 			0,
@@ -161,7 +167,7 @@ static func find_references_to_root(root_path: String, options: Dictionary = {})
 
 static func _collect_text_files(
 	root_path: String,
-	ignored_roots: Array[String],
+	ignored_roots: PackedStringArray,
 	result: Array[String],
 	depth: int,
 	max_scan_depth: int,
@@ -306,14 +312,8 @@ static func _is_text_resource_file(path: String) -> bool:
 	return TEXT_FILE_EXTENSIONS.has(extension)
 
 
-static func _is_path_ignored(path: String, ignored_roots: Array[String]) -> bool:
-	for ignored_root: String in ignored_roots:
-		var normalized_root: String = ignored_root.trim_suffix("/")
-		if normalized_root.is_empty():
-			continue
-		if path == normalized_root or path.begins_with(normalized_root + "/"):
-			return true
-	return false
+static func _is_path_ignored(path: String, ignored_roots: PackedStringArray) -> bool:
+	return _GF_PATH_TOOLS.is_path_excluded(path, ignored_roots)
 
 
 static func _can_scan_deeper(path: String, current_depth: int, max_scan_depth: int, scan_state: Dictionary) -> bool:

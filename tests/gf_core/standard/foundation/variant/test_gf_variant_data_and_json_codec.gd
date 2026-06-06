@@ -199,6 +199,94 @@ func test_merge_dictionary_reuses_equivalent_string_and_string_name_keys() -> vo
 	assert_false(GFVariantData.get_option_bool(base, &"enabled", true), "等价 key 命中时应覆盖原字段。")
 
 
+func test_diff_variant_reports_nested_dictionary_and_array_changes() -> void:
+	var before: Dictionary = {
+		"stats": {
+			"hp": 10,
+			"mp": 5,
+		},
+		"items": [
+			{ "id": "potion" },
+		],
+		"removed": true,
+	}
+	var after: Dictionary = {
+		"stats": {
+			"hp": 12,
+			"mp": 5,
+		},
+		"items": [
+			{ "id": "potion" },
+			{ "id": "key" },
+		],
+		"added": "new",
+	}
+
+	var report: Dictionary = GFVariantData.diff_variant(before, after)
+	var hp_change: Dictionary = _find_change(report, "stats.hp")
+	var added_item_change: Dictionary = _find_change(report, "items[1]")
+	var removed_change: Dictionary = _find_change(report, "removed")
+	var added_change: Dictionary = _find_change(report, "added")
+	var reported_added_item: Dictionary = _as_dictionary(added_item_change["new_value"])
+
+	assert_true(_as_bool(report["changed"]), "存在差异时报告应标记 changed。")
+	assert_eq(_as_int(report["change_count"]), 4, "应记录字段修改、数组新增、字段删除和字段新增。")
+	assert_false(_as_bool(report["truncated"]), "默认上限内不应截断。")
+	assert_eq(_as_string(hp_change["kind"]), "changed", "数值变化应报告为 changed。")
+	assert_eq(_as_int(hp_change["old_value"]), 10, "差异应包含旧值。")
+	assert_eq(_as_int(hp_change["new_value"]), 12, "差异应包含新值。")
+	assert_eq(_as_string(added_item_change["kind"]), "added", "数组尾部新增应报告为 added。")
+	assert_eq(_as_string(removed_change["kind"]), "removed", "缺失字段应报告为 removed。")
+	assert_eq(_as_string(added_change["kind"]), "added", "新增字段应报告为 added。")
+
+	reported_added_item["id"] = "mutated"
+	var after_items: Array = _as_array(after["items"])
+	var after_added_item: Dictionary = _as_dictionary(after_items[1])
+	assert_eq(_as_string(after_added_item["id"]), "key", "默认差异值应复制，避免报告修改污染源数据。")
+
+
+func test_diff_variant_reports_type_changes_and_respects_limits() -> void:
+	var limited_report: Dictionary = GFVariantData.diff_variant({
+		"a": 1,
+		"b": 2,
+	}, {
+		"a": 3,
+		"b": 4,
+	}, {
+		"max_changes": 1,
+	})
+	var root_report: Dictionary = GFVariantData.diff_variant(1, "1")
+	var root_changes: Array = _as_array(root_report["changes"])
+	var root_change: Dictionary = _as_dictionary(root_changes[0])
+
+	assert_true(_as_bool(limited_report["changed"]), "命中上限后仍应标记存在差异。")
+	assert_true(_as_bool(limited_report["truncated"]), "max_changes 应限制记录数量并标记截断。")
+	assert_eq(_as_int(limited_report["change_count"]), 1, "上限内只记录指定数量差异。")
+	assert_eq(_as_string(root_change["path"]), "", "根值差异应使用空路径。")
+	assert_eq(_as_string(root_change["kind"]), "type_changed", "类型不同应报告为 type_changed。")
+	assert_eq(_as_string(root_change["old_type"]), type_string(TYPE_INT), "类型报告应包含旧类型。")
+	assert_eq(_as_string(root_change["new_type"]), type_string(TYPE_STRING), "类型报告应包含新类型。")
+
+
+func test_diff_variant_matches_string_and_string_name_keys_by_default() -> void:
+	var before: Dictionary = {
+		&"enabled": true,
+		"profile": {
+			&"name": "A",
+		},
+	}
+	var after: Dictionary = {
+		"enabled": true,
+		&"profile": {
+			"name": "A",
+		},
+	}
+
+	var report: Dictionary = GFVariantData.diff_variant(before, after)
+
+	assert_false(_as_bool(report["changed"]), "默认应复用 GF 的 String/StringName 等价 key 语义。")
+
+
 func test_merge_metadata_is_recursive_and_copies_values() -> void:
 	var base: Dictionary = {
 		"tags": ["base"],
@@ -508,6 +596,16 @@ func _count_keys_by_text(data: Dictionary, key_text: String) -> int:
 		if GFVariantData.to_text(key) == key_text:
 			count += 1
 	return count
+
+
+func _find_change(report: Dictionary, path: String) -> Dictionary:
+	var changes: Array = _as_array(report["changes"])
+	for change_value: Variant in changes:
+		var change: Dictionary = _as_dictionary(change_value)
+		if _as_string(change["path"]) == path:
+			return change
+	assert_true(false, "应找到路径 %s 的差异。" % path)
+	return {}
 
 
 func _as_bool(value: Variant) -> bool:

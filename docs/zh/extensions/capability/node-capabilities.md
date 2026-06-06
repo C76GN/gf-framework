@@ -48,7 +48,7 @@ Enemy
 
 能力实例具有单一 owner 语义，同一个 `GFCapability` / `GFNodeCapability` 实例不能同时挂到多个 receiver；需要复用配置时应创建新实例或使用 `GFCapabilityRecipe`。场景中的 `GFCapabilityContainer` 会跟踪已注册子能力的弱引用和退出树回调；子能力被提前 `remove_child()`、reparent 或释放时，也会从原 receiver 上注销，避免容器退出时只遍历当前子节点而漏掉已经移走的能力记录。`remove_capability()` 表示移除并释放由能力系统管理的实例；场景容器离树时会使用 `unregister_capability()` 只解除登记，不释放本来由场景树拥有的子节点。框架自动创建的空能力容器会在最后一个 Node 能力被移除后释放，避免场景树残留空容器。
 
-`GFCapabilityUtility` 的销毁也遵循同一所有权边界：通过 `add_capability()` 创建的能力，以及通过 `add_scene_capability()` 实例化的能力场景，会在 Utility / 架构 `dispose()` 时先注销再释放；通过 `add_capability_instance()` 传入的外部实例、或原本就摆在场景容器中的节点能力，只会注销记录和 Hook，不会被 Utility 接管释放。如果项目希望节点生命周期由场景树或对象池控制，应使用外部实例入口；如果希望能力跟随架构销毁，应让 Utility 创建或实例化该能力。
+`GFCapabilityUtility` 的销毁也遵循同一所有权边界：通过 `add_capability()` 创建的能力，以及通过 `add_scene_capability()` 实例化的能力场景，会在 Utility / 架构 `dispose()` 时先注销再释放；通过 `add_capability_instance()` 传入的外部实例、或原本就摆在场景容器中的节点能力，只会注销记录和 Hook，不会被 Utility 接管释放。如果项目希望节点生命周期由场景树或对象池控制，应使用外部实例入口；如果希望能力跟随架构销毁，应让 Utility 创建或实例化该能力。外部实例、provider 返回实例和场景根节点都必须用自身脚本类型注册，或注册为其脚本继承链上的基类；声明类型不匹配时会被拒绝，避免能力索引被错误类型污染。
 
 启用 GF 插件后，选中普通 `Node` 时 Inspector 会显示 `GF Capabilities` 区域。这里可以添加、启停、编辑和移除继承 `GFNodeCapability`、`GFNode2DCapability`、`GFNode3DCapability` 或 `GFControlCapability` 的能力脚本或能力场景；也可以从 `Recipe` 菜单把 `GFCapabilityRecipe` 中的节点能力条目应用到当前节点。通过 Inspector 添加的容器和能力是可见场景节点，便于在场景树中检查与保存。Inspector 内联区域只展示能力脚本自己的导出属性；需要编辑完整 Node 属性时可点击“编辑”进入能力节点自身 Inspector。
 

@@ -82,7 +82,7 @@ func _get_default_rule_id() -> StringName:
 ## @schema report: GFConfigValidationReport 兼容 Dictionary，会被当前规则修改。
 func _validate_value(value: Variant, context: Dictionary, report: Dictionary) -> void:
 	if typeof(value) != TYPE_STRING and typeof(value) != TYPE_STRING_NAME:
-		_add_issue(report, context, "localization_key_invalid_type", "文本 key 校验只支持 String 或 StringName。")
+		_add_issue(report, _make_issue_context(context, value, "String or StringName"), "localization_key_invalid_type", "文本 key 校验只支持 String 或 StringName。")
 		return
 
 	var key: String = GFVariantData.to_text(value).strip_edges()
@@ -93,9 +93,9 @@ func _validate_value(value: Variant, context: Dictionary, report: Dictionary) ->
 	if use_translation_server and TranslationServer.translate(StringName(key)) != key:
 		return
 	if not _has_explicit_key_source() and not use_translation_server:
-		_add_issue(report, context, "localization_key_source_missing", "文本 key 校验缺少 key 来源。")
+		_add_issue(report, _make_issue_context(context, value, "known key source"), "localization_key_source_missing", "文本 key 校验缺少 key 来源。")
 		return
-	_add_issue(report, context, "localization_key_missing", "文本 key 不存在：%s。" % key)
+	_add_issue(report, _make_issue_context(context, value, "known localization key"), "localization_key_missing", "文本 key 不存在：%s。" % key)
 
 
 # --- 私有/辅助方法 ---
@@ -110,3 +110,23 @@ func _explicit_key_exists(key: String) -> bool:
 	if text_map.has(key):
 		return true
 	return text_map.has(StringName(key))
+
+
+func _make_issue_context(context: Dictionary, value: Variant, expected_value: Variant) -> Dictionary:
+	var issue_context: Dictionary = context.duplicate(true)
+	issue_context["value"] = GFVariantData.duplicate_variant(value)
+	issue_context["actual_value"] = GFVariantData.duplicate_variant(value)
+	issue_context["expected_value"] = GFVariantData.duplicate_variant(expected_value)
+	issue_context["supported_values"] = _get_supported_keys()
+	issue_context["supported_content_types"] = ["localization_key"]
+	return issue_context
+
+
+func _get_supported_keys() -> PackedStringArray:
+	var result: PackedStringArray = known_keys.duplicate()
+	for key: Variant in text_map.keys():
+		var key_text: String = GFVariantData.to_text(key)
+		if not key_text.is_empty() and not result.has(key_text):
+			var _appended: bool = result.append(key_text)
+	result.sort()
+	return result

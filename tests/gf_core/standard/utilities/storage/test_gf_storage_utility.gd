@@ -73,6 +73,8 @@ func after_each() -> void:
 		_remove_directory_if_exists("managed/nested")
 		_remove_directory_if_exists("managed")
 		_remove_directory_if_exists("escape_dir")
+		_remove_directory_if_exists("preview/nested")
+		_remove_directory_if_exists("preview")
 		_remove_directory_if_exists("_invalid_storage_directory")
 		_remove_directory_if_exists("nested")
 
@@ -267,6 +269,30 @@ func test_dispose_notifies_queued_async_tasks_as_failed() -> void:
 	assert_true(saw_cancelled_queue, "dispose 应对尚未开始的异步任务发出失败通知。")
 
 
+func test_dispose_clears_transient_state_and_releases_helpers() -> void:
+	_storage.encrypt_key = 0
+	_storage.last_load_result = { "ok": true }
+	assert_true(_storage.register_migration(1, 2, func(data: Dictionary, _from_version: int, _to_version: int) -> Dictionary:
+		return data
+	), "应能注册迁移用于验证 dispose 清理。")
+	var _save_async_result: Variant = _storage.save_data_async("queued_async.json", { "value": 1 })
+
+	_storage.dispose()
+
+	assert_true(_storage._async_tasks.is_empty(), "dispose 后不应残留运行中任务。")
+	assert_true(_storage._async_queue.is_empty(), "dispose 后不应残留排队任务。")
+	assert_true(_storage._async_file_locks.is_empty(), "dispose 后不应残留文件锁。")
+	assert_true(_storage._migration_steps.is_empty(), "dispose 后应清理迁移注册表。")
+	assert_true(_storage.last_load_result.is_empty(), "dispose 后应清理最近读取结果。")
+	assert_null(_storage._path_policy, "dispose 后应释放路径策略 helper。")
+	assert_null(_storage._file_ops, "dispose 后应释放文件操作 helper。")
+	assert_null(_storage._transaction_manager, "dispose 后应释放事务 helper。")
+
+	var root_path: String = _storage.get_storage_directory_path()
+	assert_eq(root_path, "user://test_saves", "dispose 后再次使用应按需重建 helper。")
+	assert_not_null(_storage._path_policy, "再次使用存储工具时应按需重建路径策略 helper。")
+
+
 func test_save_and_load_resource() -> void:
 	var res: NoiseTexture2D = NoiseTexture2D.new()
 	res.width = 128
@@ -319,6 +345,13 @@ func test_file_management_ensure_list_and_delete_files() -> void:
 	assert_eq(_storage.delete_file("managed/a.json"), OK, "应能删除存储相对文件。")
 	assert_false(FileAccess.file_exists(_storage._get_full_path("managed/a.json")), "删除后文件不应继续存在。")
 	assert_eq(_storage.delete_file("managed/a.json"), ERR_FILE_NOT_FOUND, "重复删除不存在文件应返回明确错误码。")
+
+
+func test_get_storage_directory_path_has_no_creation_side_effect() -> void:
+	var directory_path: String = _storage.get_storage_directory_path("preview/nested")
+
+	assert_eq(directory_path, "user://test_saves/preview/nested", "目录路径查询应复用存储路径策略。")
+	assert_false(DirAccess.dir_exists_absolute(directory_path), "只查询目录路径不应创建目录。")
 
 
 func test_file_management_rebases_unsafe_directory_paths() -> void:

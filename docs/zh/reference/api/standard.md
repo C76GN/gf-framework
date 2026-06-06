@@ -6,9 +6,9 @@
 
 | 类别 | 类 | 成员 | 方法 |
 |---|---:|---:|---:|
-| [运行时服务](#category-runtime_service) | 100 | 1892 | 1308 |
+| [运行时服务](#category-runtime_service) | 103 | 1942 | 1347 |
 | [协议与扩展点](#category-protocol) | 18 | 232 | 190 |
-| [资源定义](#category-resource_definition) | 83 | 872 | 422 |
+| [资源定义](#category-resource_definition) | 85 | 908 | 443 |
 | [运行时句柄](#category-runtime_handle) | 17 | 295 | 154 |
 | [值对象](#category-value_object) | 18 | 293 | 161 |
 | [领域模型](#category-domain_model) | 4 | 60 | 41 |
@@ -77,6 +77,7 @@
 | [`GFObjectPoolUtility`](classes/GFObjectPoolUtility.md#gfobjectpoolutility) | `GFUtility` | `addons/gf/standard/utilities/nodes/gf_object_pool_utility.gd` |
 | [`GFPhysicsQueryUtility`](classes/GFPhysicsQueryUtility.md#gfphysicsqueryutility) | `GFUtility` | `addons/gf/standard/utilities/spatial/gf_physics_query_utility.gd` |
 | [`GFPointerActivityUtility`](classes/GFPointerActivityUtility.md#gfpointeractivityutility) | `GFUtility` | `addons/gf/standard/input/runtime/gf_pointer_activity_utility.gd` |
+| [`GFPolynomialMath`](classes/GFPolynomialMath.md#gfpolynomialmath) | `RefCounted` | `addons/gf/standard/foundation/math/gf_polynomial_math.gd` |
 | [`GFProgressionMath`](classes/GFProgressionMath.md#gfprogressionmath) | `RefCounted` | `addons/gf/standard/foundation/math/gf_progression_math.gd` |
 | [`GFQuadTreeUtility`](classes/GFQuadTreeUtility.md#gfquadtreeutility) | `GFUtility` | `addons/gf/standard/utilities/spatial/gf_quad_tree_utility.gd` |
 | [`GFRefCountedPool`](classes/GFRefCountedPool.md#gfrefcountedpool) | `RefCounted` | `addons/gf/standard/utilities/pooling/gf_ref_counted_pool.gd` |
@@ -86,6 +87,7 @@
 | [`GFRenderWarmupUtility`](classes/GFRenderWarmupUtility.md#gfrenderwarmuputility) | `GFUtility` | `addons/gf/standard/utilities/display/gf_render_warmup_utility.gd` |
 | [`GFRequestOutboxUtility`](classes/GFRequestOutboxUtility.md#gfrequestoutboxutility) | `GFUtility` | `addons/gf/standard/utilities/io/gf_request_outbox_utility.gd` |
 | [`GFResourceRegistryTools`](classes/GFResourceRegistryTools.md#gfresourceregistrytools) | `RefCounted` | `addons/gf/standard/utilities/assets/gf_resource_registry_tools.gd` |
+| [`GFResourceResolverUtility`](classes/GFResourceResolverUtility.md#gfresourceresolverutility) | `GFUtility` | `addons/gf/standard/utilities/assets/gf_resource_resolver_utility.gd` |
 | [`GFRichTextFormatter`](classes/GFRichTextFormatter.md#gfrichtextformatter) | `RefCounted` | `addons/gf/standard/utilities/ui/gf_rich_text_formatter.gd` |
 | [`GFRuntimeInspectorUtility`](classes/GFRuntimeInspectorUtility.md#gfruntimeinspectorutility) | `GFUtility` | `addons/gf/standard/utilities/debug/gf_runtime_inspector_utility.gd` |
 | [`GFSceneUtility`](classes/GFSceneUtility.md#gfsceneutility) | `GFUtility` | `addons/gf/standard/utilities/scene/gf_scene_utility.gd` |
@@ -123,6 +125,7 @@
 | [`GFVariantJsonCodec`](classes/GFVariantJsonCodec.md#gfvariantjsoncodec) | `RefCounted` | `addons/gf/standard/foundation/variant/gf_variant_json_codec.gd` |
 | [`GFVariantReferenceCodec`](classes/GFVariantReferenceCodec.md#gfvariantreferencecodec) | `RefCounted` | `addons/gf/standard/foundation/variant/gf_variant_reference_codec.gd` |
 | [`GFViewportUtility`](classes/GFViewportUtility.md#gfviewportutility) | `GFUtility` | `addons/gf/standard/utilities/display/gf_viewport_utility.gd` |
+| [`GFVirtualListModel`](classes/GFVirtualListModel.md#gfvirtuallistmodel) | `RefCounted` | `addons/gf/standard/utilities/ui/gf_virtual_list_model.gd` |
 
 <a id="category-protocol"></a>
 
@@ -176,6 +179,7 @@
 | [`GFConfigTableReference`](classes/GFConfigTableReference.md#gfconfigtablereference) | `Resource` | `addons/gf/standard/utilities/config/gf_config_table_reference.gd` |
 | [`GFConfigTableSchema`](classes/GFConfigTableSchema.md#gfconfigtableschema) | `Resource` | `addons/gf/standard/utilities/config/gf_config_table_schema.gd` |
 | [`GFConsoleCommandDefinition`](classes/GFConsoleCommandDefinition.md#gfconsolecommanddefinition) | `Resource` | `addons/gf/standard/utilities/debug/gf_console_command_definition.gd` |
+| [`GFDictionarySchema`](classes/GFDictionarySchema.md#gfdictionaryschema) | `Resource` | `addons/gf/standard/foundation/schema/gf_dictionary_schema.gd` |
 | [`GFFormulaSet`](classes/GFFormulaSet.md#gfformulaset) | `Resource` | `addons/gf/standard/foundation/formula/gf_formula_set.gd` |
 | [`GFGridGenerationPipeline2D`](classes/GFGridGenerationPipeline2D.md#gfgridgenerationpipeline2d) | `Resource` | `addons/gf/standard/foundation/math/gf_grid_generation_pipeline_2d.gd` |
 | [`GFGridGenerationStep2D`](classes/GFGridGenerationStep2D.md#gfgridgenerationstep2d) | `Resource` | `addons/gf/standard/foundation/math/gf_grid_generation_step_2d.gd` |
@@ -217,6 +221,7 @@
 | [`GFScenePreloadEntry`](classes/GFScenePreloadEntry.md#gfscenepreloadentry) | `Resource` | `addons/gf/standard/utilities/scene/gf_scene_preload_entry.gd` |
 | [`GFScenePreloadMap`](classes/GFScenePreloadMap.md#gfscenepreloadmap) | `Resource` | `addons/gf/standard/utilities/scene/gf_scene_preload_map.gd` |
 | [`GFSceneTransitionConfig`](classes/GFSceneTransitionConfig.md#gfscenetransitionconfig) | `Resource` | `addons/gf/standard/utilities/scene/gf_scene_transition_config.gd` |
+| [`GFSchemaField`](classes/GFSchemaField.md#gfschemafield) | `Resource` | `addons/gf/standard/foundation/schema/gf_schema_field.gd` |
 | [`GFScreenTransitionEffect`](classes/GFScreenTransitionEffect.md#gfscreentransitioneffect) | `Resource` | `addons/gf/standard/utilities/scene/gf_screen_transition_effect.gd` |
 | [`GFSettingDefinition`](classes/GFSettingDefinition.md#gfsettingdefinition) | `Resource` | `addons/gf/standard/utilities/settings/gf_setting_definition.gd` |
 | [`GFShaderParameterProfile`](classes/GFShaderParameterProfile.md#gfshaderparameterprofile) | `Resource` | `addons/gf/standard/utilities/display/gf_shader_parameter_profile.gd` |

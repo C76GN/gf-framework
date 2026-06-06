@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFExtensionSettings" path="addons/gf/kernel/extension/gf_extension_settings.gd" module="kernel" extends="RefCounted" classDigest="11c1874029a1e6cd2114190613a8a38167817a86aa7b5d03336693226eefa602">
+<class name="GFExtensionSettings" path="addons/gf/kernel/extension/gf_extension_settings.gd" module="kernel" extends="RefCounted" classDigest="a98ba9fb3595d8f8fd2d15b78a07939800afbdfe4de6a1c6a5162ad7013c2b1c">
 	<description>GFExtensionSettings: GF 扩展启用状态与 ProjectSettings 桥接。
 负责读取启用扩展 ID、解析扩展依赖、收集启用扩展 Installer，以及提供导出排除开关。</description>
 	<tags>
@@ -25,6 +25,14 @@
 				<tag name="api">public</tag>
 			</tags>
 		</member>
+		<member kind="const" name="EXTERNAL_EXTENSION_ROOTS_SETTING">
+			<signature>const EXTERNAL_EXTENSION_ROOTS_SETTING: String = "gf/extensions/external_roots"</signature>
+			<description>项目设置：额外扩展集合根目录列表。每个根目录下一层为独立扩展目录。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">4.4.0</tag>
+			</tags>
+		</member>
 		<member kind="const" name="EXPORT_EXCLUDE_DISABLED_SETTING">
 			<signature>const EXPORT_EXCLUDE_DISABLED_SETTING: String = "gf/extensions/export_exclude_disabled"</signature>
 			<description>项目设置：导出时是否跳过禁用扩展目录。</description>
@@ -44,6 +52,14 @@
 			<description>默认自动执行启用扩展 Installer。</description>
 			<tags>
 				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="const" name="EXTERNAL_EXTENSION_ROOTS_DEFAULT">
+			<signature>const EXTERNAL_EXTENSION_ROOTS_DEFAULT: Array[String] = []</signature>
+			<description>默认不扫描额外扩展根目录。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">4.4.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="EXPORT_EXCLUDE_DISABLED_DEFAULT">
@@ -126,6 +142,25 @@
 				<tag name="param">enabled: 是否自动运行。</tag>
 			</tags>
 		</member>
+		<member kind="method" name="get_external_extension_roots">
+			<signature>static func get_external_extension_roots() -&gt; Array[String]:</signature>
+			<description>获取项目配置的额外扩展集合根目录。
+只返回 `res://` 根目录，保证 manifest 贡献路径仍可由 Godot 资源系统加载。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">扩展集合根目录列表。</tag>
+				<tag name="since">4.4.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="set_external_extension_roots">
+			<signature>static func set_external_extension_roots(root_paths: Array[String]) -&gt; void:</signature>
+			<description>保存项目配置的额外扩展集合根目录，并刷新 manifest 缓存。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">root_paths: 扩展集合根目录列表。</tag>
+				<tag name="since">4.4.0</tag>
+			</tags>
+		</member>
 		<member kind="method" name="should_export_exclude_disabled_extensions">
 			<signature>static func should_export_exclude_disabled_extensions() -&gt; bool:</signature>
 			<description>判断导出时是否排除禁用扩展目录。</description>
@@ -197,8 +232,8 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">extension_id: 扩展 ID。</tag>
-				<tag name="param">relative_path: 相对扩展根目录的资源路径；传入 `res://` 或 `user://` 时会原样返回。</tag>
-				<tag name="return">扩展资源路径；扩展不存在时返回空字符串。</tag>
+				<tag name="param">relative_path: 相对扩展根目录的资源路径；传入 `res://` 时必须仍位于扩展根目录下。</tag>
+				<tag name="return">扩展根目录下的资源路径；扩展不存在或路径越界时返回空字符串。</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_extension_enabled">
@@ -217,9 +252,9 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">extension_id: 扩展 ID。</tag>
-				<tag name="param">relative_path: 相对扩展根目录的脚本路径；传入 `res://` 或 `user://` 时会原样解析。</tag>
+				<tag name="param">relative_path: 相对扩展根目录的脚本路径；传入 `res://` 时必须仍位于扩展根目录下。</tag>
 				<tag name="param">include_dependencies: 是否把依赖补齐后的启用结果纳入判断。</tag>
-				<tag name="return">扩展存在、已启用且脚本可加载时返回 Script，否则返回 null。</tag>
+				<tag name="return">扩展存在、已启用、依赖图有效且脚本可加载时返回 Script，否则返回 null。</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_enabled_manifests">
@@ -328,7 +363,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">诊断字典。</tag>
-				<tag name="schema">return: Dictionary containing configured_ids, resolved_ids, unknown_enabled_ids, graph status, and extension counts.</tag>
+				<tag name="schema">return: Dictionary containing external_roots, configured_ids, resolved_ids, unknown_enabled_ids, graph status, and extension counts.</tag>
 			</tags>
 		</member>
 	</methods>

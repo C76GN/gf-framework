@@ -82,6 +82,25 @@ var registry := GFResourceRegistryTools.create_registry_from_paths(paths, {
 })
 ```
 
+当工具链需要判断依赖闭包是否可信时，使用 `build_dependency_report()` 获取结构化诊断。报告会保留已纳入路径、资源记录、缺失项、被过滤项、循环和上限命中状态；它不决定导出策略，也不会把依赖归类成项目业务概念。
+
+```gdscript
+var report := GFResourceRegistryTools.build_dependency_report("res://ui/inventory_panel.tscn", {
+	"include_root": true,
+	"recursive": true,
+	"max_dependency_paths": 256,
+})
+
+if report["ok"] and not report["limit_reached"]:
+	var paths := PackedStringArray(report["paths"])
+	var registry := GFResourceRegistryTools.create_registry_from_paths(paths, {
+		"id_mode": "relative_path",
+		"base_path": "res://",
+	})
+else:
+	push_warning(report["summary"])
+```
+
 ## 注意事项
 
 - 推荐把 `id` 当作项目稳定逻辑 ID，不要直接复用资源路径。
@@ -89,4 +108,6 @@ var registry := GFResourceRegistryTools.create_registry_from_paths(paths, {
 - 如果运行时直接修改 `entries` 数组或条目字段，调用 `mark_index_dirty()` 后再查询。
 - 字段索引只基于条目 `fields`，不会为了查询而加载实际资源。
 - 自动扫描应作为项目工具、编辑器按钮、构建步骤或 Installer 的一部分运行；运行时加载仍交给 `GFAssetUtility`。
+- `scan_resource_paths()`、`collect_dependency_paths()` 和 `build_dependency_report()` 的 `excluded_paths` 会按 `GFPathTools` 规范化并去重，命中排除目录自身或其子路径都会被跳过。
 - 依赖收集只返回路径闭包，不决定导出、热更新、DLC 或分包策略；这些策略应留在项目构建流程里。
+- 依赖报告中的 `excluded` 只表示被调用方过滤，不代表资源错误；`issues` 才是需要工具链显式处理的诊断入口。

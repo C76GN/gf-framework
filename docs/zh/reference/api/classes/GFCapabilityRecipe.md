@@ -22,6 +22,7 @@
 | 属性 | [`metadata`](#member-gfcapabilityrecipe-properties-metadata) | `var metadata: Dictionary = {}` |
 | 方法 | [`get_display_name`](#member-gfcapabilityrecipe-methods-get_display_name) | `func get_display_name() -> String:` |
 | 方法 | [`describe_recipe`](#member-gfcapabilityrecipe-methods-describe_recipe) | `func describe_recipe() -> Dictionary:` |
+| 方法 | [`validate_recipe_report`](#member-gfcapabilityrecipe-methods-validate_recipe_report) | `func validate_recipe_report() -> GFValidationReport:` |
 | 方法 | [`validate_recipe`](#member-gfcapabilityrecipe-methods-validate_recipe) | `func validate_recipe() -> Dictionary:` |
 
 ## 属性
@@ -124,6 +125,20 @@ func describe_recipe() -> Dictionary:
 
 - `return`: 包含 recipe_id、display_name、entry_count、entries、groups 和 metadata 字段的 Dictionary；entries 为各条目的 describe_entry() 快照数组。
 
+<a id="member-gfcapabilityrecipe-methods-validate_recipe_report"></a>
+
+### `validate_recipe_report`
+
+- API：`public`
+
+```gdscript
+func validate_recipe_report() -> GFValidationReport:
+```
+
+校验 Recipe 结构。
+
+返回：校验报告对象。
+
 <a id="member-gfcapabilityrecipe-methods-validate_recipe"></a>
 
 ### `validate_recipe`
@@ -134,7 +149,7 @@ func describe_recipe() -> Dictionary:
 func validate_recipe() -> Dictionary:
 ```
 
-校验 Recipe 结构。
+校验 Recipe 结构并导出为 Dictionary。
 
 返回：校验报告。
 

@@ -92,17 +92,17 @@ func _get_default_rule_id() -> StringName:
 ## @schema report: GFConfigValidationReport 兼容 Dictionary，会被当前规则修改。
 func _validate_value(value: Variant, context: Dictionary, report: Dictionary) -> void:
 	if typeof(value) != TYPE_INT and typeof(value) != TYPE_FLOAT:
-		_add_issue(report, context, "range_invalid_type", "范围校验只支持 int 或 float。")
+		_add_issue(report, _make_issue_context(context, value, "int or float"), "range_invalid_type", "范围校验只支持 int 或 float。")
 		return
 
 	var number: float = GFVariantData.to_float(value)
 	if is_nan(number) or is_inf(number):
-		_add_issue(report, context, "range_invalid_number", "数值必须是有限数字。")
+		_add_issue(report, _make_issue_context(context, value, "finite_number"), "range_invalid_number", "数值必须是有限数字。")
 		return
 	if has_minimum and not _passes_minimum(number):
-		_add_issue(report, context, "range_below_minimum", "数值小于允许范围。")
+		_add_issue(report, _make_issue_context(context, value, _describe_range()), "range_below_minimum", "数值小于允许范围。")
 	if has_maximum and not _passes_maximum(number):
-		_add_issue(report, context, "range_above_maximum", "数值大于允许范围。")
+		_add_issue(report, _make_issue_context(context, value, _describe_range()), "range_above_maximum", "数值大于允许范围。")
 
 
 # --- 私有/辅助方法 ---
@@ -113,3 +113,22 @@ func _passes_minimum(value: float) -> bool:
 
 func _passes_maximum(value: float) -> bool:
 	return value <= maximum if inclusive_maximum else value < maximum
+
+
+func _make_issue_context(context: Dictionary, value: Variant, expected_value: Variant) -> Dictionary:
+	var issue_context: Dictionary = context.duplicate(true)
+	issue_context["value"] = GFVariantData.duplicate_variant(value)
+	issue_context["actual_value"] = GFVariantData.duplicate_variant(value)
+	issue_context["expected_value"] = GFVariantData.duplicate_variant(expected_value)
+	return issue_context
+
+
+func _describe_range() -> String:
+	var parts: PackedStringArray = PackedStringArray()
+	if has_minimum:
+		var minimum_prefix: String = ">=" if inclusive_minimum else ">"
+		var _minimum_appended: bool = parts.append("%s %s" % [minimum_prefix, str(minimum)])
+	if has_maximum:
+		var maximum_prefix: String = "<=" if inclusive_maximum else "<"
+		var _maximum_appended: bool = parts.append("%s %s" % [maximum_prefix, str(maximum)])
+	return " and ".join(parts) if not parts.is_empty() else "number"

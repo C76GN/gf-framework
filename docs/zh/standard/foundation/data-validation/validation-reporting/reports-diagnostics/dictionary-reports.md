@@ -23,6 +23,19 @@ GFValidationReportDictionary.finalize_report(legacy_report, "Config table")
 
 `finalize_report()` 会把 `issues` 中的字典问题归一化为标准问题字典，并稳定回写 `ok`、`healthy`、`issue_count`、`error_count`、`warning_count`、`summary` 和 `next_action`。旧的 `code` / `type` 不再作为问题类别别名读取，也不会继续透出；需要稳定问题标识时请显式写入 `kind`。
 
+## 报告合并
+
+多个工具链步骤需要汇总诊断时，使用 `merge_report()` 复制来源报告的问题，再按需要通过 `copy_fields` 复制调用方明确声明的统计字段。合并本身不会自动 `finalize_report()`，因此调用方可以先继续追加问题，再统一计算最终统计。
+
+```gdscript
+GFValidationReportDictionary.merge_report(registration_report, graph_report, {
+	"copy_fields": PackedStringArray(["package_count", "ordered_package_ids"]),
+})
+GFValidationReportDictionary.finalize_report(registration_report, "Registration")
+```
+
+`merge_report()` 只处理通用问题结构和显式列出的字段，不解释配置表、内容包、资源扫描或项目业务含义。来源报告不会被修改，复制到目标报告的问题会按 `GFValidationIssue` 字典格式归一化。
+
 ## 过滤与基线
 
 项目工具或 CI 需要保留历史基线、忽略已接受问题或按目录排除生成物时，可以先生成问题指纹，再对报告副本做过滤：

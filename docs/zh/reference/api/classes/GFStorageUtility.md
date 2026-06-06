@@ -45,6 +45,7 @@
 | 方法 | [`save_resource`](#member-gfstorageutility-methods-save_resource) | `func save_resource(file_name: String, resource: Resource) -> Error:` |
 | 方法 | [`load_resource`](#member-gfstorageutility-methods-load_resource) | `func load_resource(file_name: String, type_hint: String = "") -> Resource:` |
 | 方法 | [`ensure_directory`](#member-gfstorageutility-methods-ensure_directory) | `func ensure_directory(directory_name: String = "") -> Error:` |
+| 方法 | [`get_storage_directory_path`](#member-gfstorageutility-methods-get_storage_directory_path) | `func get_storage_directory_path(directory_name: String = "") -> String:` |
 | 方法 | [`list_files`](#member-gfstorageutility-methods-list_files) | `func list_files( directory_name: String = "", extension_filter: String = "", recursive: bool = false, options: Dictionary = {} ) -> PackedStringArray:` |
 | 方法 | [`delete_file`](#member-gfstorageutility-methods-delete_file) | `func delete_file(file_name: String) -> Error:` |
 | 方法 | [`save_slot`](#member-gfstorageutility-methods-save_slot) | `func save_slot(slot_id: int, data: Dictionary, metadata: Dictionary = {}) -> Error:` |
@@ -507,6 +508,27 @@ func ensure_directory(directory_name: String = "") -> Error:
 | `directory_name` | 相对存储目录；为空时只确保根存储目录存在。 |
 
 返回：Godot 的 `Error` 结果码。
+
+<a id="member-gfstorageutility-methods-get_storage_directory_path"></a>
+
+### `get_storage_directory_path`
+
+- API：`public`
+- 首次版本：`4.4.0`
+
+```gdscript
+func get_storage_directory_path(directory_name: String = "") -> String:
+```
+
+获取存储目录路径，不创建目录。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `directory_name` | 相对存储目录；为空时返回根存储目录。 |
+
+返回：按当前路径策略解析后的目录路径。
 
 <a id="member-gfstorageutility-methods-list_files"></a>
 

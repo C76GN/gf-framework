@@ -501,7 +501,7 @@ func get_receivers_in_group_with( group_name: StringName, capability_type: Scrip
 func add_capability(receiver: Object, capability_type: Script, provider: Variant = null) -> Object:
 ```
 
-给对象挂载指定能力类型。 provider 可为 Callable、PackedScene、Object；为空时使用 capability_type.new()。
+给对象挂载指定能力类型。 provider 可为 Callable、PackedScene、Object；为空时使用 capability_type.new()。provider 返回的实例脚本必须继承或等于 capability_type。
 
 参数：
 
@@ -561,7 +561,7 @@ func add_capability_instance(receiver: Object, capability: Object, as_type: Scri
 |---|---|
 | `receiver` | 能力接收对象。 |
 | `capability` | 要挂载的能力实例。 |
-| `as_type` | 能力实例注册时使用的类型；为 null 时使用实例脚本类型。 |
+| `as_type` | 能力实例注册时使用的类型；为 null 时使用实例脚本类型。非空时实例脚本必须继承或等于该类型。 |
 
 返回：已挂载或复用的能力实例；失败时返回 null。
 
@@ -583,7 +583,7 @@ func add_scene_capability(receiver: Node, scene: PackedScene, as_type: Script = 
 |---|---|
 | `receiver` | 能力接收对象。 |
 | `scene` | 要实例化的能力场景资源。 |
-| `as_type` | 能力实例注册时使用的类型；为 null 时使用实例脚本类型。 |
+| `as_type` | 能力实例注册时使用的类型；为 null 时使用场景根节点脚本类型。非空时场景根节点脚本必须继承或等于该类型。 |
 
 返回：已挂载的能力节点；失败时返回 null。
 

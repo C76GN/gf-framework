@@ -25,6 +25,8 @@ signal changed(change_set: GFDirectoryChangeSet)
 
 # --- 常量 ---
 
+const _GF_PATH_TOOLS = preload("res://addons/gf/kernel/core/gf_path_tools.gd")
+
 ## 默认递归扫描深度上限。
 ## [br]
 ## @api public
@@ -333,25 +335,12 @@ func _normalize_extensions(values: PackedStringArray) -> PackedStringArray:
 
 
 func _normalize_paths(values: PackedStringArray) -> PackedStringArray:
-	var result: PackedStringArray = PackedStringArray()
-	for value: String in values:
-		var path: String = _normalize_dir_path(value)
-		if not path.is_empty() and not result.has(path):
-			var _appended: bool = result.append(path)
-	return result
+	return _GF_PATH_TOOLS.normalize_root_paths(values, false)
 
 
 func _normalize_dir_path(path: String) -> String:
-	var normalized: String = path.replace("\\", "/").strip_edges()
-	while normalized.ends_with("/") and not normalized.ends_with("://"):
-		normalized = normalized.substr(0, normalized.length() - 1)
-	return normalized
+	return _GF_PATH_TOOLS.normalize_root_path(path, "", false)
 
 
 func _is_excluded_path(path: String) -> bool:
-	var normalized_path: String = _normalize_dir_path(path)
-	for excluded_path: String in excluded_paths:
-		var normalized_excluded: String = _normalize_dir_path(excluded_path)
-		if normalized_path == normalized_excluded or normalized_path.begins_with(normalized_excluded + "/"):
-			return true
-	return false
+	return _GF_PATH_TOOLS.is_path_excluded(path, excluded_paths)

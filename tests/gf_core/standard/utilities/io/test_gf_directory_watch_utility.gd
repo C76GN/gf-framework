@@ -56,6 +56,42 @@ func test_poll_can_report_existing_files_on_first_scan() -> void:
 	assert_true(change_set.created.has(first_path), "开启 report_existing_on_first_scan 后首次扫描应报告已有文件。")
 
 
+func test_path_normalization_and_excluded_paths_match_child_directories() -> void:
+	var root_path: String = "user://gf_directory_watch_utility_excluded"
+	var keep_dir: String = root_path.path_join("keep")
+	var skip_dir: String = root_path.path_join("skip")
+	var keep_path: String = keep_dir.path_join("keep.txt")
+	var skip_path: String = skip_dir.path_join("skip.txt")
+	var make_keep_error: Error = DirAccess.make_dir_recursive_absolute(keep_dir)
+	var make_skip_error: Error = DirAccess.make_dir_recursive_absolute(skip_dir)
+	assert_true(make_keep_error == OK or make_keep_error == ERR_ALREADY_EXISTS, "测试应能创建保留目录。")
+	assert_true(make_skip_error == OK or make_skip_error == ERR_ALREADY_EXISTS, "测试应能创建排除目录。")
+	_write_text_file(keep_path, "keep")
+	_write_text_file(skip_path, "skip")
+
+	var watcher: GFDirectoryWatchUtility = GFDirectoryWatchUtility.new()
+	var _configure_result: GFDirectoryWatchUtility = watcher.configure({
+		"extensions": PackedStringArray(["txt"]),
+		"excluded_paths": PackedStringArray([root_path + "\\skip/", skip_dir, ""]),
+	})
+	watcher.report_existing_on_first_scan = true
+	watcher.watch_path(root_path + "\\")
+
+	var change_set: GFDirectoryChangeSet = watcher.poll()
+	var watch_paths: PackedStringArray = watcher.get_watch_paths()
+
+	_remove_user_file(keep_path)
+	_remove_user_file(skip_path)
+	_remove_user_dir(keep_dir)
+	_remove_user_dir(skip_dir)
+	_remove_user_dir(root_path)
+
+	assert_eq(Array(watch_paths), [root_path], "监听路径应统一反斜杠并去掉尾随斜杠。")
+	assert_eq(Array(watcher.excluded_paths), [skip_dir], "排除路径应统一反斜杠并去掉尾随斜杠。")
+	assert_true(change_set.created.has(keep_path), "未排除目录中的文件应被扫描。")
+	assert_false(change_set.created.has(skip_path), "排除目录中的子文件不应被扫描。")
+
+
 # --- 私有/辅助方法 ---
 
 func _write_text_file(path: String, content: String) -> void:

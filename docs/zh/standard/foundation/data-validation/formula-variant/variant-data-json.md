@@ -1,6 +1,6 @@
 # Variant 深拷贝与 JSON 转换
 
-通用 Variant 基础件分为三个明确职责：`GFVariantData` 负责深拷贝、字典 / metadata 合并、options 读取、基础类型收窄、默认值合并和 Resource 可选复制；`GFVariantJsonCodec` 负责 JSON 友好的 Godot 值类型转换；`GFVariantReferenceCodec` 负责显式 Resource / Node 引用标记。
+通用 Variant 基础件分为三个明确职责：`GFVariantData` 负责深拷贝、字典 / metadata 合并、options 读取、基础类型收窄、默认值合并、差异报告和 Resource 可选复制；`GFVariantJsonCodec` 负责 JSON 友好的 Godot 值类型转换；`GFVariantReferenceCodec` 负责显式 Resource / Node 引用标记。
 
 它们都不依赖 `GFArchitecture`，适合存档、配置、校验报告、网络消息、命中上下文等需要复制集合但保留标量语义，或把 Godot 值转成纯数据的地方。
 
@@ -28,6 +28,23 @@ GFVariantData.deep_merge_defaults(settings, {
 ```
 
 `GFVariantData.duplicate_variant()` 默认只深拷贝 `Dictionary` 和 `Array`，其他值保持原样返回；如果值中包含 `Object` 或 `Resource`，仍是引用语义。需要复制资源值时，可显式传入 `duplicate_variant(value, true, true)`。
+
+## Variant 差异报告
+
+当配置、存档、导入结果、校验上下文或网络载荷需要展示“变了什么”时，可使用 `GFVariantData.diff_variant()` 生成纯数据报告：
+
+```gdscript
+var report := GFVariantData.diff_variant(previous_payload, next_payload, {
+	"max_changes": 256,
+})
+
+for change in report["changes"]:
+	print(change["kind"], " ", change["path"])
+```
+
+报告包含 `changed`、`change_count`、`truncated`、`max_changes` 和 `changes`。每条差异包含 `kind`、`path`、`path_segments`、`old_value`、`new_value`、`old_type` 与 `new_type`；`kind` 可为 `added`、`removed`、`changed` 或 `type_changed`。默认会复制差异值，避免修改报告污染原始数据；如果只需要轻量观察，可传 `{ "copy_values": false }`。`String` 与 `StringName` 字典键按同名字段匹配，和 options / merge 工具保持一致。
+
+该方法只比较 Variant 数据形状，不读取文件、不实例化脚本、不扫描对象属性，也不理解业务身份。需要对象图序列化、资源导入或领域级变更解释时，应在具体模块先转换成稳定 ID、路径或纯数据字典，再交给 diff 工具处理。
 
 ## Metadata 与 Options
 

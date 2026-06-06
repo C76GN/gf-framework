@@ -61,6 +61,42 @@ func test_set_same_value_no_signal() -> void:
 	assert_signal_not_emitted(_prop, "value_changed", "设置相同值不应触发 value_changed 信号。")
 
 
+func test_set_value_compares_incompatible_variant_types_safely() -> void:
+	var prop: GFBindableProperty = GFBindableProperty.new(Resource.new())
+	watch_signals(prop)
+
+	prop.set_value("resource_id")
+
+	assert_signal_emitted(prop, "value_changed", "Object -> String 应视为变化且不触发 Variant 比较错误。")
+
+
+func test_set_value_compares_object_to_null_safely() -> void:
+	var prop: GFBindableProperty = GFBindableProperty.new(Resource.new())
+	watch_signals(prop)
+
+	prop.set_value(null)
+
+	assert_signal_emitted(prop, "value_changed", "Object -> null 应视为变化且不触发 Variant 比较错误。")
+
+
+func test_set_value_compares_dictionary_to_string_safely() -> void:
+	var prop: GFBindableProperty = GFBindableProperty.new({ "id": 1 })
+	watch_signals(prop)
+
+	prop.set_value("id:1")
+
+	assert_signal_emitted(prop, "value_changed", "Dictionary -> String 应视为变化且不触发 Variant 比较错误。")
+
+
+func test_set_value_treats_numeric_variants_as_equal() -> void:
+	var prop: GFBindableProperty = GFBindableProperty.new(1)
+	watch_signals(prop)
+
+	prop.set_value(1.0)
+
+	assert_signal_not_emitted(prop, "value_changed", "int 与等值 float 不应触发重复变化。")
+
+
 ## 验证信号的 old_value / new_value 参数准确。
 func test_signal_parameters_are_correct() -> void:
 	_prop.set_value(3)

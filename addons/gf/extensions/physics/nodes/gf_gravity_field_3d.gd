@@ -59,6 +59,14 @@ enum FalloffMode {
 		enabled = value
 		field_changed.emit()
 
+## 采样器使用优先级组合模式时的力场优先级；数值越大优先级越高。
+## [br]
+## @api public
+@export var priority: int = 0:
+	set(value):
+		priority = value
+		field_changed.emit()
+
 ## 基础加速度强度。
 ## [br]
 ## @api public
@@ -178,6 +186,15 @@ func get_strength_at_distance(distance: float) -> float:
 			return acceleration * maxf(falloff_curve.sample(sample_position), 0.0)
 		_:
 			return acceleration
+
+
+## 获取力场采样优先级。
+## [br]
+## @api public
+## [br]
+## @return 优先级数值，越大越优先。
+func get_gravity_priority() -> int:
+	return priority
 
 
 # --- 可重写钩子 / 虚方法 ---

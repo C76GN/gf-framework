@@ -1,0 +1,185 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFDictionarySchema" path="addons/gf/standard/foundation/schema/gf_dictionary_schema.gd" module="standard" extends="Resource" classDigest="0e3167e40ff7ccdb17569521a4a706b1b8694e39a99a25eefbf1ddc5115059aa">
+	<description>GFDictionarySchema: 通用 Dictionary 结构声明与校验器。
+为任意 Dictionary 提供字段声明、默认值补齐、类型转换、嵌套结构校验和定义自检。
+它只描述数据形态，不包含配置表索引、跨表引用、内容包启用策略或游戏业务规则。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">resource_definition</tag>
+		<tag name="since">4.4.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties>
+		<member kind="property" name="schema_id" decorators="@export">
+			<signature>var schema_id: StringName = &amp;""</signature>
+			<description>Schema 标识。为空时可由调用方自行决定报告主题。</description>
+			<tags>
+				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="property" name="fields" decorators="@export">
+			<signature>var fields: Array[GFSchemaField] = []</signature>
+			<description>字段声明列表。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">fields: Array[GFSchemaField] declared Dictionary fields.</tag>
+			</tags>
+		</member>
+		<member kind="property" name="allow_extra_fields" decorators="@export">
+			<signature>var allow_extra_fields: bool = true</signature>
+			<description>是否允许包含 schema 未声明的字段。</description>
+			<tags>
+				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="property" name="coerce_values" decorators="@export">
+			<signature>var coerce_values: bool = false</signature>
+			<description>是否在校验前按字段声明尝试类型转换。</description>
+			<tags>
+				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="property" name="fail_on_coerce_error" decorators="@export">
+			<signature>var fail_on_coerce_error: bool = true</signature>
+			<description>启用 coerce_values 时，转换失败是否作为校验错误。</description>
+			<tags>
+				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="property" name="metadata" decorators="@export">
+			<signature>var metadata: Dictionary = {}</signature>
+			<description>可选元数据。GF 不解释其中业务字段。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">metadata: Dictionary caller-defined schema metadata.</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="configure">
+			<signature>func configure( p_schema_id: StringName, p_fields: Array[GFSchemaField] = [], options: Dictionary = {} ) -&gt; GFDictionarySchema:</signature>
+			<description>配置 schema。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">p_schema_id: Schema 标识。</tag>
+				<tag name="param">p_fields: 字段声明列表。</tag>
+				<tag name="param">options: 可选配置，支持 allow_extra_fields、coerce_values、fail_on_coerce_error 和 metadata。</tag>
+				<tag name="return">当前 schema。</tag>
+				<tag name="schema">p_fields: Array[GFSchemaField] declared Dictionary fields.</tag>
+				<tag name="schema">options: Dictionary schema options.</tag>
+			</tags>
+		</member>
+		<member kind="method" name="add_field">
+			<signature>func add_field(field: GFSchemaField) -&gt; bool:</signature>
+			<description>添加字段声明。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">field: 字段声明。</tag>
+				<tag name="return">添加成功返回 true。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_field">
+			<signature>func get_field(field_name: StringName) -&gt; GFSchemaField:</signature>
+			<description>获取字段声明。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">field_name: 字段名。</tag>
+				<tag name="return">找到时返回字段声明，否则返回 null。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="has_field">
+			<signature>func has_field(field_name: StringName) -&gt; bool:</signature>
+			<description>检查字段声明是否存在。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">field_name: 字段名。</tag>
+				<tag name="return">存在返回 true。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_field_names">
+			<signature>func get_field_names() -&gt; PackedStringArray:</signature>
+			<description>获取当前 schema 的字段名列表。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">排序后的字段名。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="build_defaults">
+			<signature>func build_defaults(include_optional: bool = true) -&gt; Dictionary:</signature>
+			<description>创建默认 Dictionary。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">include_optional: 为 true 时包含非必填字段。</tag>
+				<tag name="return">默认数据字典。</tag>
+				<tag name="schema">return: Dictionary default values.</tag>
+			</tags>
+		</member>
+		<member kind="method" name="apply_defaults">
+			<signature>func apply_defaults(values: Dictionary, include_optional: bool = true, should_coerce: bool = true) -&gt; Dictionary:</signature>
+			<description>为输入 Dictionary 补齐默认值。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">values: 输入字典。</tag>
+				<tag name="param">include_optional: 为 true 时补齐非必填字段。</tag>
+				<tag name="param">should_coerce: 为 true 时按字段声明转换已有值和默认值。</tag>
+				<tag name="return">补齐后的新字典。</tag>
+				<tag name="schema">values: Dictionary source values.</tag>
+				<tag name="schema">return: Dictionary normalized values.</tag>
+			</tags>
+		</member>
+		<member kind="method" name="coerce_dictionary">
+			<signature>func coerce_dictionary(values: Dictionary, include_defaults: bool = true) -&gt; Dictionary:</signature>
+			<description>按字段声明转换 Dictionary。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">values: 输入字典。</tag>
+				<tag name="param">include_defaults: 为 true 时同时补默认值。</tag>
+				<tag name="return">转换后的新字典。</tag>
+				<tag name="schema">values: Dictionary source values.</tag>
+				<tag name="schema">return: Dictionary coerced values.</tag>
+			</tags>
+		</member>
+		<member kind="method" name="validate_definition">
+			<signature>func validate_definition(options: Dictionary = {}) -&gt; GFValidationReport:</signature>
+			<description>校验 schema 自身声明。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">options: 可选上下文，支持 subject、source_path 和 source。</tag>
+				<tag name="return">校验报告。</tag>
+				<tag name="schema">options: Dictionary validation context.</tag>
+			</tags>
+		</member>
+		<member kind="method" name="validate_dictionary">
+			<signature>func validate_dictionary(values: Dictionary, options: Dictionary = {}) -&gt; GFValidationReport:</signature>
+			<description>校验 Dictionary 数据。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">values: 输入字典。</tag>
+				<tag name="param">options: 可选上下文，支持 subject、path、source_path 和 source。</tag>
+				<tag name="return">校验报告。</tag>
+				<tag name="schema">values: Dictionary source values.</tag>
+				<tag name="schema">options: Dictionary validation context.</tag>
+			</tags>
+		</member>
+		<member kind="method" name="duplicate_schema">
+			<signature>func duplicate_schema() -&gt; GFDictionarySchema:</signature>
+			<description>创建同内容拷贝。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">新 schema。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="describe">
+			<signature>func describe() -&gt; Dictionary:</signature>
+			<description>导出 schema 摘要。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">schema 字典。</tag>
+				<tag name="schema">return: Dictionary schema description.</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

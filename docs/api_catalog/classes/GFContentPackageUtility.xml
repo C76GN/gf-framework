@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFContentPackageUtility" path="addons/gf/extensions/content_package/runtime/gf_content_package_utility.gd" module="extensions/content_package" extends="GFUtility" classDigest="84e5a5763408d43b918f846a6b429878bc5e529ed8918dd930ddfc99f0033059">
+	<description>GFContentPackageUtility: 内容包发现、目录构建和资源解析注册服务。
+维护显式 source root 列表，加载其中的 `gf_content_package.json`，构建 GFContentPackageCatalog，
+并把内容包资源键映射同步到 GFResourceResolverUtility。它不下载内容、不扫描全项目、不决定包启用策略。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_service</tag>
+		<tag name="since">4.4.0</tag>
+	</tags>
+	<signals>
+		<member kind="signal" name="catalog_rebuilt">
+			<signature>signal catalog_rebuilt(catalog: GFContentPackageCatalog)</signature>
+			<description>当内容包目录重建后发出。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">catalog: 当前内容包目录。</tag>
+			</tags>
+		</member>
+	</signals>
+	<enums />
+	<constants />
+	<properties />
+	<methods>
+		<member kind="method" name="register_source_root">
+			<signature>func register_source_root(root_path: String) -&gt; bool:</signature>
+			<description>注册内容包 source root。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">root_path: `res://` 下的内容包根目录。该目录自身或其直接子目录可包含 `gf_content_package.json`。</tag>
+				<tag name="return">注册成功返回 true。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="unregister_source_root">
+			<signature>func unregister_source_root(root_path: String) -&gt; bool:</signature>
+			<description>注销内容包 source root。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">root_path: 已注册的 source root。</tag>
+				<tag name="return">注销成功返回 true。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="clear_source_roots">
+			<signature>func clear_source_roots() -&gt; void:</signature>
+			<description>清空内容包 source root。</description>
+			<tags>
+				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_source_roots">
+			<signature>func get_source_roots() -&gt; PackedStringArray:</signature>
+			<description>获取内容包 source root 列表。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">source root 副本。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_catalog">
+			<signature>func get_catalog() -&gt; GFContentPackageCatalog:</signature>
+			<description>获取当前内容包目录。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">内容包目录。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="discover_manifest_paths">
+			<signature>func discover_manifest_paths(root_path: String = "") -&gt; PackedStringArray:</signature>
+			<description>发现 source root 中的内容包 manifest 路径。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">root_path: 可选 source root；为空时使用全部已注册 source root。</tag>
+				<tag name="return">manifest 路径列表。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="load_manifest">
+			<signature>func load_manifest(path: String) -&gt; GFContentPackageManifest:</signature>
+			<description>从 manifest 路径加载内容包。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">path: manifest 文件路径。</tag>
+				<tag name="return">内容包 manifest；加载失败返回 null。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="rebuild_catalog">
+			<signature>func rebuild_catalog(options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>从已注册 source root 重建内容包目录。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">options: 校验选项，透传给 GFContentPackageCatalog。</tag>
+				<tag name="return">GFValidationReportDictionary 兼容报告。</tag>
+				<tag name="schema">options: Dictionary，可包含 check_resource_exists: bool。</tag>
+				<tag name="schema">return: GFValidationReportDictionary.finalize_report() 生成的 Dictionary，并包含 package_count、package_ids、ordered_package_ids 和 duplicate_package_ids。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="set_manifests">
+			<signature>func set_manifests( manifests: Array[GFContentPackageManifest], options: Dictionary = {} ) -&gt; Dictionary:</signature>
+			<description>手动替换内容包目录。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">manifests: 内容包 manifest 列表。</tag>
+				<tag name="param">options: 校验选项，透传给 GFContentPackageCatalog。</tag>
+				<tag name="return">GFValidationReportDictionary 兼容报告。</tag>
+				<tag name="schema">manifests: Array[GFContentPackageManifest]，无效项会被忽略或进入诊断。</tag>
+				<tag name="schema">options: Dictionary，可包含 check_resource_exists: bool。</tag>
+				<tag name="schema">return: GFValidationReportDictionary.finalize_report() 生成的 Dictionary，并包含 package_count、package_ids、ordered_package_ids 和 duplicate_package_ids。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="register_resources">
+			<signature>func register_resources(resolver: GFResourceResolverUtility, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>把当前内容包目录同步到资源解析器。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">resolver: 标准资源解析器。</tag>
+				<tag name="param">options: 注册选项。`base_priority` 默认为 0；`check_resource_exists` 默认为 false。</tag>
+				<tag name="return">GFValidationReportDictionary 兼容报告，并包含 registered_count。</tag>
+				<tag name="schema">options: Dictionary，可包含 base_priority: int 和 check_resource_exists: bool。</tag>
+				<tag name="schema">return: GFValidationReportDictionary.finalize_report() 生成的 Dictionary，并包含 registered_count。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_debug_snapshot">
+			<signature>func get_debug_snapshot() -&gt; Dictionary:</signature>
+			<description>获取内容包服务调试快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">调试快照。</tag>
+				<tag name="schema">return: Dictionary，包含 source_roots 和 catalog。</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

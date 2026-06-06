@@ -1,20 +1,35 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFGravityProbe3D" path="addons/gf/extensions/physics/nodes/gf_gravity_probe_3d.gd" module="extensions/physics" extends="Node3D" classDigest="05db51b08522225f1e61bb89f700d5f299a46aa39a03a76390098e01fff34141">
+<class name="GFGravityProbe3D" path="addons/gf/extensions/physics/nodes/gf_gravity_probe_3d.gd" module="extensions/physics" extends="Node3D" classDigest="c27b3c00574ec56c05434fe720196e4655fcf06e4d47b9ea87079fed09060fc4">
 	<description>GFGravityProbe3D: 通用 3D 重力采样器。
 从场景树分组中采样 GFGravityField3D 或任何暴露 get_acceleration_at()
-方法的对象，并汇总为当前节点位置处的加速度、上下方向。</description>
+方法的对象，并按组合策略计算当前位置处的加速度、上下方向。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">runtime_handle</tag>
 		<tag name="since">3.17.0</tag>
 	</tags>
 	<signals />
-	<enums />
+	<enums>
+		<member kind="enum" name="CombinationMode">
+			<signature>enum CombinationMode { ## 汇总所有有效力场的加速度。 SUM, ## 只使用当前点加速度长度最大的力场。 STRONGEST, ## 只汇总当前点非零加速度中最高优先级的力场。 HIGHEST_PRIORITY, }</signature>
+			<description>多个力场重叠时的采样组合策略。</description>
+			<tags>
+				<tag name="api">public</tag>
+			</tags>
+		</member>
+	</enums>
 	<constants />
 	<properties>
 		<member kind="property" name="field_group" decorators="@export">
 			<signature>var field_group: StringName = &amp;"gf_gravity_field_3d"</signature>
 			<description>要采样的力场分组。</description>
+			<tags>
+				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="property" name="combination_mode" decorators="@export">
+			<signature>var combination_mode: CombinationMode = CombinationMode.SUM</signature>
+			<description>多个力场重叠时的组合策略。</description>
 			<tags>
 				<tag name="api">public</tag>
 			</tags>
@@ -54,7 +69,7 @@
 			<description>采样场景树分组中的所有力场。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="return">汇总后的加速度。</tag>
+				<tag name="return">按 combination_mode 组合后的加速度。</tag>
 			</tags>
 		</member>
 		<member kind="method" name="sample_fields">
@@ -63,7 +78,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">fields: 力场对象列表。</tag>
-				<tag name="return">汇总后的加速度。</tag>
+				<tag name="return">按 combination_mode 组合后的加速度。</tag>
 				<tag name="schema">fields: Array，包含 GFGravityField3D 或任何暴露 get_acceleration_at(Vector3) 的 Object。</tag>
 			</tags>
 		</member>
