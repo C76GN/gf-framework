@@ -30,7 +30,7 @@ jobs:
         run: >
           python tools/extract_release_notes.py
           --tag "${GITHUB_REF_NAME}"
-          --output release-notes.md
+          --output "${RUNNER_TEMP}/release-notes.md"
 
       - name: Validate release metadata
         run: >
@@ -59,4 +59,4 @@ jobs:
           "build/gf-framework-${GITHUB_REF_NAME}.zip"
           --verify-tag
           --title "${GITHUB_REF_NAME}"
-          --notes-file release-notes.md
+          --notes-file "${RUNNER_TEMP}/release-notes.md"
