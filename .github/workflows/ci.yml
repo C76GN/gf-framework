@@ -22,6 +22,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -41,4 +44,4 @@ jobs:
           python tools/gf_maintenance.py check
           --suite full
           --timeout 1200
-          --json
+          --failed-only
