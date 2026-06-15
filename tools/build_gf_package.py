@@ -417,6 +417,12 @@ def collect_package_files(record: dict[str, Any]) -> list[Path]:
 
 
 def expand_manifest_path(pattern: str) -> list[Path]:
+	if pattern.endswith("/**"):
+		directory_pattern = pattern[:-3].rstrip("/")
+		if not has_glob(directory_pattern):
+			directory = ROOT / directory_pattern
+			if directory.is_dir():
+				return [directory, *sorted(directory.rglob("*"))]
 	if has_glob(pattern):
 		return sorted(ROOT.glob(pattern))
 	path = ROOT / pattern
