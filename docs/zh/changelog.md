@@ -58,7 +58,7 @@
 - `GFPersistPropertiesSource` 的编辑器配置体验现在由 Save 扩展提供属性候选列表；运行时 SaveGraph 协议和载荷格式不变。
 - 维护工具与 GitHub workflow 现在把 PR / push CI 对齐到 `check --suite full`，tag release 对齐到 `release-status --version <tag>` 与 `check --suite release`；`path-hygiene` 同时扫描未跟踪文件，GUT 输出中的脚本错误或 GDScript reload warning 不再被通过摘要覆盖，Godot 退出期 ObjectDB/resource leak warning 会先记录为清理债务。
 - 维护工具中的 Godot 检查现在显式把 `--log-file` 写入被忽略的本地日志目录，避免受限环境中默认 `user://logs` 写入失败导致 headless GUT 或 editor warning 检查在进入测试前崩溃。
-- GitHub Actions 的 full/release 维护套件现在使用完整 tag checkout，并通过 `check --failed-only` 输出失败项摘要，避免 release tag 上的 API baseline、包注册表和 Godot smoke 诊断被大段 JSON 淹没。
+- GitHub Actions 的 full/release 维护套件现在使用完整 tag checkout，并通过 `check --failed-only --github-annotations` 输出失败项摘要和 Actions annotation，避免 release tag 上的 API baseline、包注册表和 Godot smoke 诊断被大段 JSON 淹没。
 - `maintenance-self-test` 现在会校验 `GFExtensionPreset` 的字段白名单、软关系禁止字段和下载包禁止字段，并确认 Python 维护规则与运行时常量保持一致。
 - `maintenance-self-test` 现在会校验 `GFExtensionManifest` 运行时字段白名单与 bundled manifest 严格白名单保持一致，不再为旧字段别名保留例外。
 - 维护工具新增 `dependency-boundary` 检查，并接入 quick/full/release suite，用于静态校验内置扩展 manifest 字段白名单、默认关闭策略、禁止软依赖字段，以及 `kernel`、`standard`、内置扩展之间的跨层路径、扩展 ID 和 `class_name` 引用。

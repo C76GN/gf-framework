@@ -45,3 +45,4 @@ jobs:
           --suite full
           --timeout 1200
           --failed-only
+          --github-annotations

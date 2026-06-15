@@ -41,7 +41,7 @@ jobs:
       - name: Run release maintenance suite
         run: |
           python tools/gf_maintenance.py release-status --version "${GITHUB_REF_NAME}"
-          python tools/gf_maintenance.py check --suite release --timeout 1200 --failed-only
+          python tools/gf_maintenance.py check --suite release --timeout 1200 --failed-only --github-annotations
 
       - name: Extract release notes
         run: >

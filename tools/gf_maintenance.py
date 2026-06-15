@@ -1076,6 +1076,11 @@ def main() -> int:
 		action="store_true",
 		help="When printing text, show only failed check details and a compact pass summary.",
 	)
+	check_parser.add_argument(
+		"--github-annotations",
+		action="store_true",
+		help="Emit GitHub Actions error annotations for failed checks.",
+	)
 	check_parser.add_argument("--json", action="store_true", help="Print JSON instead of text.")
 
 	release_parser = subparsers.add_parser("release-status", help="Check release metadata consistency.")
@@ -1257,6 +1262,8 @@ def main() -> int:
 		)
 		renderer = render_failed_checks_text if args.failed_only else render_checks_text
 		print_output(data, args.json, renderer)
+		if args.github_annotations:
+			print_github_check_annotations(data)
 		return 0 if data["ok"] else 1
 	if args.command == "release-status":
 		data = release_status(args.version, allow_dirty=args.allow_dirty)
@@ -20632,11 +20639,7 @@ def render_checks_text(data: dict[str, Any]) -> str:
 
 
 def render_failed_checks_text(data: dict[str, Any]) -> str:
-	failed_results = [
-		result
-		for result in data["results"]
-		if result.get("exit_code", 1) != 0 or result.get("timed_out", False)
-	]
+	failed_results = failed_check_results(data)
 	lines = [
 		(
 			f"suite: {data['suite']} ok={data['ok']} "
@@ -20667,6 +20670,56 @@ def render_failed_checks_text(data: dict[str, Any]) -> str:
 		if stderr:
 			lines.append(indent_text(trim_text(stderr, 4000), "  stderr_tail: "))
 	return "\n".join(lines)
+
+
+def failed_check_results(data: dict[str, Any]) -> list[dict[str, Any]]:
+	return [
+		result
+		for result in data["results"]
+		if result.get("exit_code", 1) != 0 or result.get("timed_out", False)
+	]
+
+
+def print_github_check_annotations(data: dict[str, Any]) -> None:
+	for result in failed_check_results(data):
+		name = str(result.get("name", "unknown"))
+		title = github_workflow_command_escape_property(f"GF check failed: {name}")
+		message = github_workflow_command_escape_data(render_failed_check_annotation(result))
+		print(f"::error title={title}::{message}")
+
+
+def render_failed_check_annotation(result: dict[str, Any]) -> str:
+	lines = [
+		(
+			f"{result.get('name', 'unknown')} failed "
+			f"exit={result.get('exit_code')} timeout={result.get('timed_out', False)}"
+		)
+	]
+	command = result.get("command")
+	if command:
+		lines.append(f"command: {' '.join(str(part) for part in command)}")
+	for note in result.get("notes", []) or []:
+		lines.append(f"note: {note}")
+	release = result.get("release_status")
+	if release and release.get("issues"):
+		lines.extend(f"issue: {issue}" for issue in release["issues"])
+	stdout = result.get("stdout", "").strip()
+	stderr = result.get("stderr", "").strip()
+	if stdout:
+		lines.append("stdout_tail:")
+		lines.append(trim_text(stdout, 3000))
+	if stderr:
+		lines.append("stderr_tail:")
+		lines.append(trim_text(stderr, 3000))
+	return "\n".join(lines)
+
+
+def github_workflow_command_escape_data(value: str) -> str:
+	return value.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+
+
+def github_workflow_command_escape_property(value: str) -> str:
+	return github_workflow_command_escape_data(value).replace(":", "%3A").replace(",", "%2C")
 
 
 def render_release_status_text(data: dict[str, Any]) -> str:
