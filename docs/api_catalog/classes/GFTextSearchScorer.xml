@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFTextSearchScorer" path="addons/gf/standard/foundation/collections/gf_text_search_scorer.gd" module="standard" extends="RefCounted" classDigest="7dffac7ede036c0bc495777e624f607648ea8cfd9e002b002e471255d9e8c5db">
+	<description>GFTextSearchScorer: 通用文本检索评分器。
+对标题、关键字、路径、说明等候选字段进行轻量 token 匹配、相似度评分和排序。
+它不读取文件系统、不创建 UI，也不规定候选数据来自资源、命令、设置还是项目内容。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_service</tag>
+		<tag name="since">5.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants>
+		<member kind="const" name="DEFAULT_FIELDS">
+			<signature>const DEFAULT_FIELDS: Array[Dictionary] = [</signature>
+			<description>默认候选字段权重。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">DEFAULT_FIELDS: Array[Dictionary]，每个条目包含 key 和 weight 字段。</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties />
+	<methods>
+		<member kind="method" name="tokenize">
+			<signature>static func tokenize(query: String, options: Dictionary = {}) -&gt; PackedStringArray:</signature>
+			<description>把查询文本规范化为去重 token 列表。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">query: 查询文本。</tag>
+				<tag name="param">options: 可选项；case_sensitive 默认为 false。</tag>
+				<tag name="return">去重后的 token 列表，保留首次出现顺序。</tag>
+				<tag name="schema">options: Dictionary，支持 case_sensitive。</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="score_text">
+			<signature>static func score_text(query: String, text: String, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>计算查询文本与单段候选文本的匹配报告。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">query: 查询文本。</tag>
+				<tag name="param">text: 候选文本。</tag>
+				<tag name="param">options: 可选项；require_all_tokens 默认为 true，case_sensitive 默认为 false。</tag>
+				<tag name="return">匹配报告。</tag>
+				<tag name="schema">options: Dictionary，支持 require_all_tokens、case_sensitive。</tag>
+				<tag name="schema">return: Dictionary，包含 matched、score 和 matched_tokens。</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="score_candidate">
+			<signature>static func score_candidate(query: String, candidate: Dictionary, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>计算查询文本与一个候选字典的匹配报告。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">query: 查询文本。</tag>
+				<tag name="param">candidate: 候选字典。</tag>
+				<tag name="param">options: 可选项；fields 为字段权重数组，require_all_tokens 默认为 true，case_sensitive 默认为 false，duplicate_candidate 默认为 true。</tag>
+				<tag name="return">匹配报告。</tag>
+				<tag name="schema">candidate: Dictionary，字段由 options.fields 指定，默认读取 title、name、keywords、detail 和 path。</tag>
+				<tag name="schema">options: Dictionary，支持 fields、require_all_tokens、case_sensitive、duplicate_candidate。</tag>
+				<tag name="schema">return: Dictionary，包含 matched、score、matched_tokens、field_scores 和 candidate。</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="rank_candidates">
+			<signature>static func rank_candidates(query: String, candidates: Array[Dictionary], options: Dictionary = {}) -&gt; Array[Dictionary]:</signature>
+			<description>按查询文本排序候选字典。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">query: 查询文本。</tag>
+				<tag name="param">candidates: 候选字典数组。</tag>
+				<tag name="param">options: 可选项；include_unmatched 默认为 false，limit 小于等于 0 表示不限制，case_sensitive 默认为 false。</tag>
+				<tag name="return">排序后的匹配报告数组。</tag>
+				<tag name="schema">candidates: Array[Dictionary]，每个候选字段由 options.fields 指定。</tag>
+				<tag name="schema">options: Dictionary，支持 fields、require_all_tokens、case_sensitive、duplicate_candidate、include_unmatched、limit。</tag>
+				<tag name="schema">return: Array[Dictionary]，每项包含 matched、score、matched_tokens、field_scores、candidate 和 index。</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

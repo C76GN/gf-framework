@@ -41,6 +41,41 @@ func test_fit_label_shrinks_to_available_width() -> void:
 	assert_lte(measured_size.x, 90.0, "计算后的文本宽度应落在可用范围内。")
 
 
+## 验证 Label 可限制在项目指定的候选字号内。
+func test_fit_label_uses_font_size_candidates() -> void:
+	var label: Label = Label.new()
+	label.text = "Fit"
+	label.size = Vector2(200.0, 60.0)
+	add_child_autofree(label)
+
+	var font_size: int = GFTextFitter.fit_label(label, {
+		"min_font_size": 8,
+		"max_font_size": 32,
+		"font_size_candidates": [12, 20],
+		"available_size": Vector2(200.0, 60.0),
+	})
+
+	assert_eq(font_size, 20, "候选字号非空时应返回最大适配候选。")
+	assert_eq(label.get_theme_font_size(&"font_size"), 20, "候选字号结果应写入主题覆盖。")
+
+
+## 验证候选字号会去重并过滤配置范围外的值。
+func test_fit_label_filters_font_size_candidates() -> void:
+	var label: Label = Label.new()
+	label.text = "Fit"
+	label.size = Vector2(200.0, 60.0)
+	add_child_autofree(label)
+
+	var font_size: int = GFTextFitter.fit_label(label, {
+		"min_font_size": 8,
+		"max_font_size": 30,
+		"font_size_candidates": PackedInt32Array([40, 16, 24, 16, 4]),
+		"available_size": Vector2(200.0, 60.0),
+	})
+
+	assert_eq(font_size, 24, "候选字号应忽略重复值和 min/max 范围外的值。")
+
+
 ## 验证 Label 测量会遵循控件自身换行规则。
 func test_measure_control_text_uses_label_autowrap() -> void:
 	var label: Label = Label.new()
@@ -136,6 +171,9 @@ func test_text_auto_fit_refreshes_parent_control() -> void:
 	var auto_fit: GFTextAutoFit = GFTextAutoFit.new()
 	auto_fit.min_font_size = 8
 	auto_fit.max_font_size = 22
+	auto_fit.options = {
+		"font_size_candidates": [12, 18],
+	}
 	auto_fit.deferred_refresh = false
 	button.add_child(auto_fit)
 	add_child_autofree(button)
@@ -143,5 +181,5 @@ func test_text_auto_fit_refreshes_parent_control() -> void:
 	var font_size: int = auto_fit.refresh()
 
 	assert_eq(auto_fit.get_target(), button, "target_path 为空时应绑定父 Control。")
-	assert_eq(font_size, 22, "自动适配应返回计算出的字体大小。")
-	assert_eq(button.get_theme_font_size(&"font_size"), 22, "自动适配应写入控件主题覆盖。")
+	assert_eq(font_size, 18, "自动适配应透传候选字号选项。")
+	assert_eq(button.get_theme_font_size(&"font_size"), 18, "自动适配应写入控件主题覆盖。")

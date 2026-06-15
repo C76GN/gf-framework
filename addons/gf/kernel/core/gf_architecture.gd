@@ -65,6 +65,8 @@ const GFBindingLifetimesBase = preload("res://addons/gf/kernel/core/gf_binding_l
 ## @layer kernel/core
 const GFTimeProviderBase = preload("res://addons/gf/kernel/base/gf_time_provider.gd")
 const _GF_ASYNC_CALL_SCRIPT = preload("res://addons/gf/kernel/core/gf_async_call.gd")
+const _GF_ARCHITECTURE_SNAPSHOT_COORDINATOR_SCRIPT = preload("res://addons/gf/kernel/core/gf_architecture_snapshot_coordinator.gd")
+const _GF_ARCHITECTURE_TICK_SCHEDULER_SCRIPT = preload("res://addons/gf/kernel/core/gf_architecture_tick_scheduler.gd")
 const _GF_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
 
 ## 声明式依赖聚合 Hook 名称。
@@ -91,6 +93,13 @@ const HOOK_GET_REQUIRED_UTILITIES: StringName = &"get_required_utilities"
 ## [br]
 ## @api public
 const HOOK_GET_REQUIRED_FACTORIES: StringName = &"get_required_factories"
+
+## 分帧快照 API 默认每帧处理的 Model 数量。
+## [br]
+## @api public
+## [br]
+## @since 5.0.0
+const DEFAULT_SNAPSHOT_MODELS_PER_FRAME: int = 8
 
 
 # --- 公共变量 ---
@@ -133,15 +142,11 @@ var _factories: Dictionary = {}
 var _module_lifecycle_stages: Dictionary = {}
 var _event_system: GFTypeEventSystem
 var _time_provider: Object
+var _tick_scheduler: GFArchitectureTickScheduler
+var _snapshot_coordinator: GFArchitectureSnapshotCoordinator
 var _inited: bool = false
 var _is_initializing: bool = false
 var _lifecycle_serial: int = 0
-var _tick_systems: Array[Object] = []
-var _physics_systems: Array[Object] = []
-var _tick_utilities: Array[Object] = []
-var _physics_utilities: Array[Object] = []
-var _is_iterating_tick_caches: bool = false
-var _tick_caches_dirty: bool = false
 var _parent_architecture: GFArchitecture = null
 var _project_installers_applied: bool = false
 var _project_installers_running: bool = false
@@ -158,6 +163,16 @@ var _stale_async_write_block_count: int = 0
 ## @param parent_architecture: 父级架构；为空时不启用回退。
 func _init(parent_architecture: GFArchitecture = null) -> void:
 	_event_system = GFTypeEventSystem.new()
+	_tick_scheduler = _GF_ARCHITECTURE_TICK_SCHEDULER_SCRIPT.new().configure(
+		_systems,
+		_utilities,
+		_module_lifecycle_stages
+	)
+	_snapshot_coordinator = _GF_ARCHITECTURE_SNAPSHOT_COORDINATOR_SCRIPT.new().configure(
+		_models,
+		Callable(self, &"_get_command_history_store"),
+		DEFAULT_SNAPSHOT_MODELS_PER_FRAME
+	)
 	_assign_parent_architecture(parent_architecture, "_init")
 
 
@@ -384,16 +399,7 @@ func tick(delta: float) -> void:
 	if not _inited:
 		return
 	var time_provider: Object = _get_time_provider()
-	var scaled_delta: float = _get_scaled_delta(delta, time_provider)
-	_is_iterating_tick_caches = true
-	for system: Object in _tick_systems:
-		if is_instance_valid(system) and _is_module_ready_for_tick(system):
-			_call_module_void(system, &"tick", [_get_module_delta(system, delta, scaled_delta, time_provider)])
-	for utility: Object in _tick_utilities:
-		if is_instance_valid(utility) and _is_module_ready_for_tick(utility):
-			_call_module_void(utility, &"tick", [_get_module_delta(utility, delta, scaled_delta, time_provider)])
-	_is_iterating_tick_caches = false
-	_flush_tick_cache_refresh()
+	_tick_scheduler.drive_tick(delta, time_provider)
 
 
 ## 驱动所有参与 physics_tick 的 System 与 Utility 的每物理帧更新。
@@ -409,20 +415,7 @@ func physics_tick(delta: float) -> void:
 	if not _inited:
 		return
 	var time_provider: Object = _get_time_provider()
-	if time_provider != null and _GF_VARIANT_ACCESS_SCRIPT.to_bool(time_provider.call("should_substep_physics", delta)):
-		var raw_scaled_steps: Variant = time_provider.call("get_physics_scaled_delta_steps", delta)
-		if not raw_scaled_steps is Array:
-			return
-		var scaled_steps: Array = raw_scaled_steps
-		if scaled_steps.is_empty():
-			return
-		var raw_step: float = delta / float(scaled_steps.size())
-		for scaled_step_variant: Variant in scaled_steps:
-			_drive_physics_tick_step(raw_step, _GF_VARIANT_ACCESS_SCRIPT.to_float(scaled_step_variant), time_provider)
-		return
-
-	var scaled_delta: float = _get_scaled_delta(delta, time_provider)
-	_drive_physics_tick_step(delta, scaled_delta, time_provider)
+	_tick_scheduler.drive_physics_tick(delta, time_provider)
 
 
 ## 执行命令实例。支持 await：'await send_command(MyCommand.new())'。
@@ -1206,15 +1199,25 @@ func inject_node_tree(node: Node) -> void:
 ## [br]
 ## @schema return: Dictionary keyed by stable model save key, storing each Model.to_dict() result.
 func get_all_models_state() -> Dictionary:
-	var state: Dictionary = {}
-	for script_cls: Script in _models:
-		var model: Object = _get_dictionary_object(_models, script_cls)
-		if model.has_method("to_dict"):
-			var class_name_key: String = _get_model_key(script_cls, model)
-			if class_name_key.is_empty():
-				continue
-			state[class_name_key] = model.call("to_dict")
-	return state
+	return _snapshot_coordinator.get_all_models_state()
+
+
+## 分帧收集所有已注册 Model 的状态快照。
+## 适合大型存档或移动端项目，避免单帧集中执行大量 to_dict()。
+## [br]
+## @api public
+## [br]
+## @since 5.0.0
+## [br]
+## @param options: 可选参数，支持 max_models_per_frame；小于等于 0 时不主动让出帧。
+## [br]
+## @schema options: Dictionary，可包含 max_models_per_frame: int。
+## [br]
+## @return 包含所有 Model 状态的字典，可直接交给项目存储层后台写入。
+## [br]
+## @schema return: Dictionary keyed by stable model save key, storing each Model.to_dict() result.
+func get_all_models_state_async(options: Dictionary = {}) -> Dictionary:
+	return await _snapshot_coordinator.get_all_models_state_async(options)
 
 
 ## 从状态字典恢复所有已注册 Model 的数据。
@@ -1225,14 +1228,24 @@ func get_all_models_state() -> Dictionary:
 ## [br]
 ## @schema data: Dictionary keyed by stable model save key, storing serialized model data.
 func restore_all_models_state(data: Dictionary) -> void:
-	for script_cls: Script in _models:
-		var model: Object = _get_dictionary_object(_models, script_cls)
-		var class_name_key: String = _get_model_key(script_cls, model)
-		if class_name_key.is_empty():
-			continue
-		if data.has(class_name_key):
-			if model.has_method("from_dict"):
-				var _restore_result: Variant = model.call("from_dict", data[class_name_key])
+	_snapshot_coordinator.restore_all_models_state(data)
+
+
+## 分帧恢复所有已注册 Model 的数据。
+## [br]
+## @api public
+## [br]
+## @since 5.0.0
+## [br]
+## @param data: 由 get_all_models_state() 或 get_all_models_state_async() 返回的状态字典。
+## [br]
+## @schema data: Dictionary keyed by stable model save key, storing serialized model data.
+## [br]
+## @param options: 可选参数，支持 max_models_per_frame；小于等于 0 时不主动让出帧。
+## [br]
+## @schema options: Dictionary，可包含 max_models_per_frame: int。
+func restore_all_models_state_async(data: Dictionary, options: Dictionary = {}) -> void:
+	await _snapshot_coordinator.restore_all_models_state_async(data, options)
 
 
 ## 获取整个框架的全局快照，包含所有 Model 状态以及可选命令历史记录。
@@ -1243,17 +1256,25 @@ func restore_all_models_state(data: Dictionary) -> void:
 ## [br]
 ## @schema return: Dictionary with models and optional command_history fields.
 func get_global_snapshot() -> Dictionary:
-	var snapshot: Dictionary = {}
-	
-	# 打包所有的 Model 状态
-	snapshot["models"] = get_all_models_state()
-	
-	# 打包命令操作历史（如果有）
-	var history_util: Object = _get_command_history_store()
-	if history_util != null:
-		snapshot["command_history"] = history_util.call("serialize_full_history")
-		
-	return snapshot
+	return _snapshot_coordinator.get_global_snapshot()
+
+
+## 分帧获取整个框架的全局快照。
+## Model 状态会按 options.max_models_per_frame 分帧收集；命令历史仍在 Model 快照完成后同步收集。
+## [br]
+## @api public
+## [br]
+## @since 5.0.0
+## [br]
+## @param options: 可选参数，支持 max_models_per_frame；小于等于 0 时不主动让出帧。
+## [br]
+## @schema options: Dictionary，可包含 max_models_per_frame: int。
+## [br]
+## @return 包含全局快照数据的字典。可直接用于 JSON 序列化或交给项目存储层后台写入。
+## [br]
+## @schema return: Dictionary with models and optional command_history fields.
+func get_global_snapshot_async(options: Dictionary = {}) -> Dictionary:
+	return await _snapshot_coordinator.get_global_snapshot_async(options)
 
 
 ## 从全局快照中恢复整个框架的状态，包含 Model 状态以及可选命令历史记录。
@@ -1267,24 +1288,31 @@ func get_global_snapshot() -> Dictionary:
 ## [br]
 ## @param command_builder: 【可选】如果需要恢复历史记录，必须传入用于反序列化具体 Command 实例的 Callable。
 func restore_global_snapshot(data: Dictionary, command_builder: Callable = Callable()) -> void:
-	if data.has("models"):
-		var models_data: Variant = data["models"]
-		if typeof(models_data) == TYPE_DICTIONARY:
-			restore_all_models_state(_GF_VARIANT_ACCESS_SCRIPT.as_dictionary(models_data))
-		else:
-			push_warning("[GFArchitecture] restore_global_snapshot：models 必须是 Dictionary，已跳过 Model 恢复。")
-		
-	if data.has("command_history"):
-		var history_util: Object = _get_command_history_store()
-		if history_util != null:
-			if command_builder.is_valid():
-				var history_data: Variant = data["command_history"]
-				if typeof(history_data) == TYPE_DICTIONARY and history_util.has_method("deserialize_full_history"):
-					history_util.call("deserialize_full_history", history_data, command_builder)
-				elif typeof(history_data) == TYPE_ARRAY and history_util.has_method("deserialize_history"):
-					history_util.call("deserialize_history", history_data, command_builder)
-			else:
-				push_warning("[GFArchitecture] restore_global_snapshot：快照包含命令历史数据，但未提供有效的 command_builder，跳过历史恢复。")
+	_snapshot_coordinator.restore_global_snapshot(data, command_builder)
+
+
+## 分帧恢复整个框架的全局快照。
+## Model 状态会按 options.max_models_per_frame 分帧恢复；命令历史仍在 Model 恢复完成后同步恢复。
+## [br]
+## @api public
+## [br]
+## @since 5.0.0
+## [br]
+## @param data: 由 get_global_snapshot() 或 get_global_snapshot_async() 导出的全局快照字典数据。
+## [br]
+## @schema data: Dictionary produced by get_global_snapshot() or get_global_snapshot_async().
+## [br]
+## @param command_builder: 【可选】如果需要恢复历史记录，必须传入用于反序列化具体 Command 实例的 Callable。
+## [br]
+## @param options: 可选参数，支持 max_models_per_frame；小于等于 0 时不主动让出帧。
+## [br]
+## @schema options: Dictionary，可包含 max_models_per_frame: int。
+func restore_global_snapshot_async(
+	data: Dictionary,
+	command_builder: Callable = Callable(),
+	options: Dictionary = {}
+) -> void:
+	await _snapshot_coordinator.restore_global_snapshot_async(data, command_builder, options)
 
 
 ## 获取架构模块生命周期诊断快照。
@@ -1307,12 +1335,7 @@ func get_debug_lifecycle_state() -> Dictionary:
 			"systems": _system_registry.aliases.size(),
 			"utilities": _utility_registry.aliases.size(),
 		},
-		"tick": {
-			"systems": _tick_systems.size(),
-			"physics_systems": _physics_systems.size(),
-			"utilities": _tick_utilities.size(),
-			"physics_utilities": _physics_utilities.size(),
-		},
+		"tick": _tick_scheduler.get_debug_state(),
 	}
 
 
@@ -1837,6 +1860,69 @@ func _call_module_void(instance: Object, method_name: StringName, arguments: Arr
 	var _result: Variant = instance.callv(method_name, arguments)
 
 
+func _call_module_init(instance: Object) -> void:
+	if instance is GFModel:
+		var model: GFModel = instance
+		model.init()
+	elif instance is GFSystem:
+		var system: GFSystem = instance
+		system.init()
+	elif instance is GFUtility:
+		var utility: GFUtility = instance
+		utility.init()
+
+
+func _call_module_async_init(instance: Object) -> void:
+	var async_init_callback: Callable = Callable()
+	if instance is GFModel:
+		var model: GFModel = instance
+		async_init_callback = Callable(model, &"async_init")
+	elif instance is GFSystem:
+		var system: GFSystem = instance
+		async_init_callback = Callable(system, &"async_init")
+	elif instance is GFUtility:
+		var utility: GFUtility = instance
+		async_init_callback = Callable(utility, &"async_init")
+	if async_init_callback.is_valid():
+		await async_init_callback.call()
+
+
+func _call_module_ready(instance: Object) -> void:
+	if instance is GFModel:
+		var model: GFModel = instance
+		model.ready()
+	elif instance is GFSystem:
+		var system: GFSystem = instance
+		system.ready()
+	elif instance is GFUtility:
+		var utility: GFUtility = instance
+		utility.ready()
+
+
+func _call_module_dispose(instance: Object) -> void:
+	if instance is GFModel:
+		var model: GFModel = instance
+		model.dispose()
+	elif instance is GFSystem:
+		var system: GFSystem = instance
+		system.dispose()
+	elif instance is GFUtility:
+		var utility: GFUtility = instance
+		utility.dispose()
+
+
+func _call_module_release_dependencies(instance: Object) -> void:
+	if instance is GFModel:
+		var model: GFModel = instance
+		model.release_dependencies()
+	elif instance is GFSystem:
+		var system: GFSystem = instance
+		system.release_dependencies()
+	elif instance is GFUtility:
+		var utility: GFUtility = instance
+		utility.release_dependencies()
+
+
 func _normalize_dependency_kind_key(key: String) -> String:
 	match key.to_lower():
 		"model", "models":
@@ -1920,40 +2006,6 @@ func _parent_chain_contains(parent_architecture: GFArchitecture, expected: GFArc
 	return false
 
 
-# 获取经过时间工具缩放后的 delta。若未注册 GFTimeProvider，则返回原始 delta。
-func _get_scaled_delta(delta: float, time_provider: Object) -> float:
-	if time_provider == null:
-		return delta
-	return _GF_VARIANT_ACCESS_SCRIPT.to_float(time_provider.call("get_scaled_delta", delta), delta)
-
-
-func _drive_physics_tick_step(raw_delta: float, scaled_delta: float, time_provider: Object) -> void:
-	_is_iterating_tick_caches = true
-	for system: Object in _physics_systems:
-		if is_instance_valid(system) and _is_module_ready_for_tick(system):
-			_call_module_void(system, &"physics_tick", [_get_module_delta(system, raw_delta, scaled_delta, time_provider)])
-	for utility: Object in _physics_utilities:
-		if is_instance_valid(utility) and _is_module_ready_for_tick(utility):
-			_call_module_void(utility, &"physics_tick", [_get_module_delta(utility, raw_delta, scaled_delta, time_provider)])
-	_is_iterating_tick_caches = false
-	_flush_tick_cache_refresh()
-
-
-# 根据模块的 ignore_pause 设置获取本次 tick 应使用的 delta。
-func _get_module_delta(instance: Object, raw_delta: float, scaled_delta: float, time_provider: Object) -> float:
-	if time_provider == null:
-		return raw_delta
-
-	var ignores_pause: bool = _get_object_bool_property(instance, &"ignore_pause")
-	var ignores_time_scale: bool = _get_object_bool_property(instance, &"ignore_time_scale")
-	if _GF_VARIANT_ACCESS_SCRIPT.to_bool(time_provider.call("is_time_paused")):
-		return raw_delta if ignores_pause else 0.0
-
-	if ignores_time_scale:
-		return raw_delta
-	return scaled_delta
-
-
 func _get_modules_by_lifecycle_priority(registry: Dictionary, reverse: bool = false) -> Array[Object]:
 	var entries: Array[Dictionary] = []
 	var order: int = 0
@@ -1983,36 +2035,26 @@ func _get_modules_by_lifecycle_priority(registry: Dictionary, reverse: bool = fa
 	return result
 
 
-func _sort_modules_for_tick(modules: Array[Object], priority_property: StringName) -> void:
-	var entries: Array[Dictionary] = []
-	for index: int in range(modules.size()):
-		var instance: Object = modules[index]
-		entries.append({
-			"instance": instance,
-			"priority": _get_module_priority(instance, priority_property),
-			"order": index,
-		})
-
-	entries.sort_custom(func(left: Dictionary, right: Dictionary) -> bool:
-		var left_priority: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(left, "priority", 0)
-		var right_priority: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(right, "priority", 0)
-		if left_priority == right_priority:
-			return _GF_VARIANT_ACCESS_SCRIPT.get_option_int(left, "order", 0) < _GF_VARIANT_ACCESS_SCRIPT.get_option_int(right, "order", 0)
-		return left_priority > right_priority
-	)
-
-	modules.clear()
-	for entry: Dictionary in entries:
-		var instance: Object = _get_dictionary_object(entry, "instance")
-		if instance != null:
-			modules.append(instance)
-
-
 func _get_module_priority(instance: Object, property_name: StringName) -> int:
 	if instance == null:
 		return 0
-	if String(property_name) in instance:
-		return _get_object_int_property(instance, property_name, 0)
+	match property_name:
+		&"lifecycle_priority":
+			return _get_lifecycle_priority(instance)
+		_:
+			return 0
+
+
+func _get_lifecycle_priority(instance: Object) -> int:
+	if instance is GFModel:
+		var model: GFModel = instance
+		return model.lifecycle_priority
+	if instance is GFSystem:
+		var system: GFSystem = instance
+		return system.lifecycle_priority
+	if instance is GFUtility:
+		var utility: GFUtility = instance
+		return utility.lifecycle_priority
 	return 0
 
 
@@ -2021,28 +2063,14 @@ func _collect_module_debug_state(registry: Dictionary) -> Dictionary:
 	for script_cls: Script in registry.keys():
 		var instance: Object = _get_dictionary_object(registry, script_cls)
 		var stage: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(_module_lifecycle_stages, instance, 0)
-		var ignores_pause: bool = (
-			instance != null
-			and _get_object_bool_property(instance, &"ignore_pause")
-		)
-		var ignores_time_scale: bool = (
-			instance != null
-			and _get_object_bool_property(instance, &"ignore_time_scale")
-		)
-		result[_get_script_debug_key(script_cls, instance)] = {
+		var module_state: Dictionary = {
 			"stage": stage,
 			"stage_name": _get_lifecycle_stage_name(stage),
 			"ready": stage >= 3,
-			"has_tick": _module_participates_in_tick(instance, &"tick", &"tick_enabled"),
-			"has_physics_tick": _module_participates_in_tick(instance, &"physics_tick", &"physics_tick_enabled"),
-			"ignore_pause": ignores_pause,
-			"ignore_time_scale": ignores_time_scale,
-			"tick_enabled": _get_module_bool(instance, &"tick_enabled"),
-			"physics_tick_enabled": _get_module_bool(instance, &"physics_tick_enabled"),
 			"lifecycle_priority": _get_module_priority(instance, &"lifecycle_priority"),
-			"tick_priority": _get_module_priority(instance, &"tick_priority"),
-			"physics_tick_priority": _get_module_priority(instance, &"physics_tick_priority"),
 		}
+		module_state.merge(_tick_scheduler.get_module_debug_fields(instance), true)
+		result[_get_script_debug_key(script_cls, instance)] = module_state
 	return result
 
 
@@ -2150,13 +2178,11 @@ func _get_instance_debug_key(instance: Object) -> String:
 
 # 从脚本类获取用于序列化的稳定字符串键。
 # 优先使用 Model.get_save_key()，其次使用 class_name（全局类名），最后回退到资源路径。
-func _get_model_key(script_cls: Script, model: Object = null) -> String:
-	if model != null and model.has_method("get_save_key"):
-		var raw_save_key: Variant = model.call("get_save_key")
-		if typeof(raw_save_key) == TYPE_STRING or typeof(raw_save_key) == TYPE_STRING_NAME:
-			var save_key: String = _GF_VARIANT_ACCESS_SCRIPT.to_text(raw_save_key)
-			if not save_key.is_empty():
-				return save_key
+func _get_model_key(script_cls: Script, model: GFModel = null) -> String:
+	if model != null:
+		var save_key: String = String(model.get_save_key())
+		if not save_key.is_empty():
+			return save_key
 
 	var global_name: StringName = script_cls.get_global_name()
 	if global_name != &"":
@@ -2255,16 +2281,13 @@ func _advance_module_to_stage(
 		current_stage += 1
 		match current_stage:
 			1:
-				if instance.has_method("init"):
-					_call_module_void(instance, &"init")
+				_call_module_init(instance)
 			2:
-				if instance.has_method("async_init"):
-					var async_completed: bool = await _await_module_async_init(instance, lifecycle_serial)
-					if not async_completed:
-						return advanced
+				var async_completed: bool = await _await_module_async_init(instance, lifecycle_serial)
+				if not async_completed:
+					return advanced
 			3:
-				if instance.has_method("ready"):
-					_call_module_void(instance, &"ready")
+				_call_module_ready(instance)
 
 		if not _is_lifecycle_current(lifecycle_serial) or _initialization_failed:
 			return advanced
@@ -2278,12 +2301,12 @@ func _advance_module_to_stage(
 
 func _await_module_async_init(instance: Object, lifecycle_serial: int) -> bool:
 	if module_async_init_timeout_seconds <= 0.0:
-		await instance.call("async_init")
+		await _call_module_async_init(instance)
 		return _is_lifecycle_current(lifecycle_serial) and not _initialization_failed
 
 	var scene_tree: SceneTree = _get_scene_tree_or_null()
 	if scene_tree == null:
-		await instance.call("async_init")
+		await _call_module_async_init(instance)
 		return _is_lifecycle_current(lifecycle_serial) and not _initialization_failed
 
 	var completion_state: Dictionary = {
@@ -2313,7 +2336,7 @@ func _await_module_async_init(instance: Object, lifecycle_serial: int) -> bool:
 
 
 func _complete_module_async_init(instance: Object, completion_state: Dictionary) -> void:
-	await instance.call("async_init")
+	await _call_module_async_init(instance)
 	if _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(completion_state, "write_blocked", false):
 		_end_stale_async_write_block()
 	completion_state["done"] = true
@@ -2321,8 +2344,7 @@ func _complete_module_async_init(instance: Object, completion_state: Dictionary)
 
 func _dispose_module_registry(module_registry: ModuleRegistry) -> void:
 	for instance: Object in _get_modules_by_lifecycle_priority(module_registry.instances, true):
-		if instance.has_method("dispose"):
-			_call_module_void(instance, &"dispose")
+		_call_module_dispose(instance)
 		_release_module_dependencies(instance)
 
 
@@ -2401,8 +2423,8 @@ func _unregister_module(module_registry: ModuleRegistry, script_cls: Script) -> 
 	var registered_key: Script = _resolve_registered_key(module_registry, script_cls)
 	if registered_key != null and module_registry._has_direct(registered_key):
 		var instance: Object = _get_dictionary_object(module_registry.instances, registered_key)
-		if instance != null and instance.has_method("dispose"):
-			_call_module_void(instance, &"dispose")
+		if instance != null:
+			_call_module_dispose(instance)
 		if instance != null:
 			_event_system.unregister_owner(instance)
 			_release_module_dependencies(instance)
@@ -2436,8 +2458,7 @@ func _clear_injected_scope(instance: Object) -> void:
 func _release_module_dependencies(instance: Object) -> void:
 	if instance == null:
 		return
-	if instance.has_method("release_dependencies"):
-		_call_module_void(instance, &"release_dependencies")
+	_call_module_release_dependencies(instance)
 	_clear_injected_scope(instance)
 
 
@@ -2546,49 +2567,11 @@ func _object_has_methods(instance: Object, method_names: PackedStringArray) -> b
 
 
 func _refresh_tick_caches() -> void:
-	if _is_iterating_tick_caches:
-		_tick_caches_dirty = true
-		return
-
-	_rebuild_tick_caches()
-
-
-func _rebuild_tick_caches() -> void:
-	_tick_systems.clear()
-	_physics_systems.clear()
-	_tick_utilities.clear()
-	_physics_utilities.clear()
-	_tick_caches_dirty = false
-
-	for system: Object in _systems.values():
-		if _module_participates_in_tick(system, &"tick", &"tick_enabled"):
-			_tick_systems.append(system)
-		if _module_participates_in_tick(system, &"physics_tick", &"physics_tick_enabled"):
-			_physics_systems.append(system)
-
-	for utility: Object in _utilities.values():
-		if _module_participates_in_tick(utility, &"tick", &"tick_enabled"):
-			_tick_utilities.append(utility)
-		if _module_participates_in_tick(utility, &"physics_tick", &"physics_tick_enabled"):
-			_physics_utilities.append(utility)
-
-	_sort_modules_for_tick(_tick_systems, &"tick_priority")
-	_sort_modules_for_tick(_physics_systems, &"physics_tick_priority")
-	_sort_modules_for_tick(_tick_utilities, &"tick_priority")
-	_sort_modules_for_tick(_physics_utilities, &"physics_tick_priority")
-
-
-func _flush_tick_cache_refresh() -> void:
-	if _tick_caches_dirty:
-		_rebuild_tick_caches()
+	_tick_scheduler.refresh()
 
 
 func _is_lifecycle_current(lifecycle_serial: int) -> bool:
 	return _lifecycle_serial == lifecycle_serial
-
-
-func _is_module_ready_for_tick(instance: Object) -> bool:
-	return _GF_VARIANT_ACCESS_SCRIPT.get_option_int(_module_lifecycle_stages, instance, 0) >= 3
 
 
 func _is_module_ready_for_lookup(instance: Object) -> bool:
@@ -2598,58 +2581,6 @@ func _is_module_ready_for_lookup(instance: Object) -> bool:
 		and not _initialization_failed
 		and _GF_VARIANT_ACCESS_SCRIPT.get_option_int(_module_lifecycle_stages, instance, 0) >= 3
 	)
-
-
-func _module_participates_in_tick(instance: Object, method_name: StringName, explicit_property: StringName) -> bool:
-	if instance == null:
-		return false
-	if not instance.has_method(method_name):
-		return false
-	if _get_module_bool(instance, explicit_property):
-		return true
-	if _script_chain_declares_method_before_framework_base(instance, method_name):
-		return true
-	return not (instance is GFSystem or instance is GFUtility)
-
-
-func _get_module_bool(instance: Object, property_name: StringName) -> bool:
-	if instance == null:
-		return false
-	if String(property_name) in instance:
-		return _get_object_bool_property(instance, property_name)
-	return false
-
-
-func _script_chain_declares_method_before_framework_base(instance: Object, method_name: StringName) -> bool:
-	var script: Script = _get_instance_script(instance)
-	var framework_method_count: int = _get_framework_module_method_count(instance, method_name)
-	while script != null:
-		if _is_framework_module_base_script(script):
-			return false
-		if _count_script_methods(script, method_name) > framework_method_count:
-			return true
-		script = script.get_base_script()
-	return false
-
-
-func _is_framework_module_base_script(script: Script) -> bool:
-	return script == GFSystem or script == GFUtility
-
-
-func _get_framework_module_method_count(instance: Object, method_name: StringName) -> int:
-	if instance is GFSystem:
-		return _count_script_methods(GFSystem, method_name)
-	if instance is GFUtility:
-		return _count_script_methods(GFUtility, method_name)
-	return 0
-
-
-func _count_script_methods(script: Script, method_name: StringName) -> int:
-	var count: int = 0
-	for method: Dictionary in script.get_script_method_list():
-		if _GF_VARIANT_ACCESS_SCRIPT.get_option_string(method, "name", "") == String(method_name):
-			count += 1
-	return count
 
 
 func _register_module_alias(module_registry: ModuleRegistry, alias_cls: Script, target_cls: Script) -> void:

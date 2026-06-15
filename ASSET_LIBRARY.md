@@ -16,7 +16,7 @@ The plugin folder contains its own `README.md` and `LICENSE.md`. Root-level docs
 - Description:
 
 ```text
-GF Framework is a lightweight architecture framework for Godot 4. It helps organize games into models, systems, controllers, utilities, foundation helpers, and optional extensions with managed lifecycles, typed events, bindable properties, commands and queries, installers, extension manifests, extension enablement/export filtering, capability components, action queues with resourceized tween configs, state machines with guards and blackboards, resourceized flow graphs with port metadata, connections, and validation, pluggable network backend foundations with optional ENet transport plus session/channel metadata, versioned storage/codecs with migration hooks and file management, snapshot history, save slot workflows, save graph composition with generic data sources, pipeline hooks, traces, and diagnostics, settings/audio/scene/remote-cache utilities, asset handles and groups, scene transition configs, player-scoped input mapping with modifiers, triggers, 3D values, formatter providers, rich text formatting, and conflict reports, debug draw command buffering, analytics transport hooks, governed runtime diagnostics, notification queues, grid/hex pathfinding helpers, stable 3D grid keys, 3D region maps, surface plane mapping helpers, tag expressions, generic domain data models, and lightweight combat helpers.
+GF Framework is a lightweight architecture framework for Godot 4. It helps organize games into models, systems, controllers, utilities, foundation helpers, and optional extensions with managed lifecycles, typed events, bindable properties, commands and queries, installers, extension manifests, extension enablement/export filtering, capability components, action queues with resourceized tween configs, state machines with guards and blackboards, resourceized flow graphs with port metadata, connections, and validation, pluggable network backend foundations with optional ENet transport plus session/channel metadata, versioned storage/codecs with migration hooks and file management, snapshot history, save slot workflows, save graph composition with generic data sources, pipeline hooks, traces, and diagnostics, settings/audio/scene/remote-cache utilities, asset handles and groups, scene transition configs, player-scoped input mapping with modifiers, triggers, 3D values, formatter providers, rich text formatting, and conflict reports, debug draw command buffering, analytics transport hooks, governed runtime diagnostics, notification queues, grid/hex pathfinding helpers, stable 3D grid keys, 3D region maps, surface plane mapping helpers, tag expressions, generic domain data models, and lightweight combat helpers. New projects start with only the kernel and standard library active; bundled optional extensions are disabled by default and must be explicitly enabled by the project.
 
 Enable the plugin to register the Gf AutoLoad and use the editor tools for extension management, GF module templates, typed accessors, and project constants.
 ```
@@ -27,9 +27,9 @@ Enable the plugin to register the Gf AutoLoad and use the editor tools for exten
 - Repository URL: `https://github.com/C76GN/gf-framework`
 - Issues URL: `https://github.com/C76GN/gf-framework/issues`
 - Minimum Godot Version: `4.6`
-- Asset Version: `4.4.0`
-- Download Commit/URL: `4.4.0`
-- Icon URL: `https://raw.githubusercontent.com/C76GN/gf-framework/4.4.0/addons/gf/icon.png`
+- Asset Version: `5.0.0`
+- Download Commit/URL: `5.0.0`
+- Icon URL: `https://raw.githubusercontent.com/C76GN/gf-framework/5.0.0/addons/gf/icon.png`
 
 ## Short Description
 
@@ -37,27 +37,17 @@ Lightweight Godot 4 game architecture framework for lifecycle management, events
 
 ## Preview Assets
 
-No preview images are currently pinned. If previews are added, store their source URLs here and keep the Asset Library form synchronized:
-
-- Preview 1 Type: `Image`
-- Preview 1 Image/YouTube Link: `TODO`
-- Preview 1 Thumbnail Link: `TODO`
-- Preview 2 Type: `Image`
-- Preview 2 Image/YouTube Link: `TODO`
-- Preview 2 Thumbnail Link: `TODO`
-- Preview 3 Type: `Image`
-- Preview 3 Image/YouTube Link: `TODO`
-- Preview 3 Thumbnail Link: `TODO`
+No preview images are currently pinned. If previews are added, store their source URLs here and keep the Asset Library form synchronized.
 
 ## Before Submitting
 
 1. Commit and push the Asset Library preparation changes.
 2. Use the new full commit hash in the submission form.
 3. Use the icon raw URL with that same commit hash.
-4. Build the Asset Store package with `python tools\build_asset_store_package.py --version 4.4.0` and verify the zip root is `addons/`.
+4. Build the Asset Store package with `python tools\build_asset_store_package.py --version 5.0.0` and verify the zip root is `addons/`.
 5. Run the GUT test suite on the target minimum Godot version.
-6. Run `python tools\gf_maintenance.py release-status --version 4.4.0`.
-7. Create the GitHub Release from a no-prefix SemVer tag such as `4.4.0`.
+6. Run `python tools\gf_maintenance.py release-status --version 5.0.0`.
+7. Create the GitHub Release from a no-prefix SemVer tag such as `5.0.0`.
 
 ## Version Bump Checklist
 

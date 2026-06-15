@@ -48,15 +48,17 @@ func test_raycast_all_3d_collects_multiple_bodies_in_order() -> void:
 			"margin": 0.05,
 		}
 	)
+	var first_result: Dictionary = results[0]
+	var second_result: Dictionary = results[1]
 
 	assert_eq(results.size(), 2, "穿透射线应按顺序收集两个碰撞体。")
-	assert_same(_object_option(results[0], "collider"), first)
-	assert_same(_object_option(results[1], "collider"), second)
-	assert_eq(GFVariantData.get_option_int(results[0], "index"), 0)
-	assert_eq(GFVariantData.get_option_int(results[1], "index"), 1)
+	assert_same(_object_option(first_result, "collider"), first)
+	assert_same(_object_option(second_result, "collider"), second)
+	assert_eq(GFVariantData.get_option_int(first_result, "index"), 0)
+	assert_eq(GFVariantData.get_option_int(second_result, "index"), 1)
 	assert_lt(
-		GFVariantData.get_option_float(results[0], "distance"),
-		GFVariantData.get_option_float(results[1], "distance"),
+		GFVariantData.get_option_float(first_result, "distance"),
+		GFVariantData.get_option_float(second_result, "distance"),
 		"distance 字段应沿射线方向递增。"
 	)
 

@@ -16,6 +16,7 @@ jobs:
   create-release:
     name: Create GitHub Release
     runs-on: ubuntu-latest
+    timeout-minutes: 45
 
     steps:
       - name: Checkout tag
@@ -26,24 +27,24 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Install documentation dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r docs/requirements.txt
+
+      - name: Set up Godot
+        uses: ./.github/actions/setup-godot
+
+      - name: Run release maintenance suite
+        run: |
+          python tools/gf_maintenance.py release-status --version "${GITHUB_REF_NAME}"
+          python tools/gf_maintenance.py check --suite release --timeout 1200 --json
+
       - name: Extract release notes
         run: >
           python tools/extract_release_notes.py
           --tag "${GITHUB_REF_NAME}"
           --output "${RUNNER_TEMP}/release-notes.md"
-
-      - name: Validate release metadata
-        run: >
-          python tools/gf_maintenance.py release-status
-          --version "${GITHUB_REF_NAME}"
-
-      - name: Build documentation
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install -r docs/requirements.txt
-          python tools/generate_api_reference.py --check
-          python tools/check_docs_quality.py --strict
-          python -m mkdocs build --strict
 
       - name: Build Asset Store package
         run: >
@@ -51,12 +52,36 @@ jobs:
           --version "${GITHUB_REF_NAME}"
           --output "build/gf-framework-${GITHUB_REF_NAME}.zip"
 
+      - name: Build modular package registry
+        run: |
+          python tools/build_gf_package.py \
+            --all \
+            --version "${GITHUB_REF_NAME}" \
+            --output-dir "build/packages" \
+            --registry "build/gf-registry-${GITHUB_REF_NAME}.json" \
+            --archive-base-url "https://github.com/C76GN/gf-framework/releases/download/${GITHUB_REF_NAME}" \
+            --registry-source "build/gf-registry-source.json" \
+            --registry-source-registry-url "https://github.com/C76GN/gf-framework/releases/download/${GITHUB_REF_NAME}/gf-registry-${GITHUB_REF_NAME}.json" \
+            --json
+          python tools/build_gf_package.py \
+            --all \
+            --version "${GITHUB_REF_NAME}" \
+            --output-dir "build/offline-bundle/packages" \
+            --registry "build/offline-bundle/registry/index.json" \
+            --registry-source "build/offline-bundle/registry/gf-registry-source.json" \
+            --offline-bundle "build/gf-package-offline-bundle-${GITHUB_REF_NAME}.zip" \
+            --json
+
       - name: Create release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: >
-          gh release create "${GITHUB_REF_NAME}"
-          "build/gf-framework-${GITHUB_REF_NAME}.zip"
-          --verify-tag
-          --title "${GITHUB_REF_NAME}"
-          --notes-file "${RUNNER_TEMP}/release-notes.md"
+        run: |
+          gh release create "${GITHUB_REF_NAME}" \
+            "build/gf-framework-${GITHUB_REF_NAME}.zip" \
+            "build/gf-registry-${GITHUB_REF_NAME}.json" \
+            "build/gf-registry-source.json" \
+            "build/gf-package-offline-bundle-${GITHUB_REF_NAME}.zip" \
+            build/packages/*.zip \
+            --verify-tag \
+            --title "${GITHUB_REF_NAME}" \
+            --notes-file "${RUNNER_TEMP}/release-notes.md"

@@ -55,15 +55,16 @@ API Surface Contract 用来明确 GF 源码中哪些符号属于公开承诺、�
 - `@api public|protected|framework_internal|layer_internal`：声明可见性。
 - `@category ...`：声明公开类型分类，主要用于类和公开内部类。
 - `@since x.y.z`：声明公开类型或公开入口首次出现的版本。
+- `@since unreleased`：仅用于当前 `[未发布]` 中已经进入源码但尚未确定发行版本的新增公开入口。发布前必须替换为最终 SemVer；release 检查会拒绝任何非 SemVer 的 `@since`。
 - `@deprecated x.y.z ...`：声明弃用版本和替代入口。
-- `@layer kernel/editor`：声明内部 API 的允许调用范围；兼容旧的点分形式，但新代码优先使用路径分隔形式。
+- `@layer kernel/editor`：声明内部 API 的允许调用范围，必须使用路径分隔形式。
 - `@param name: ...`：声明函数参数，顺序必须和签名一致。
 - `@return: ...`：声明非 `void` 返回值。
 - `@schema name: ...`：描述公开签名中的裸 `Dictionary`、裸 `Array` 或 `Variant` 结构。说明文字优先使用中文，字段名、API key、类型名和枚举值保持代码原文。
 
 为兼顾 Godot 编辑器悬停文档和机器可读标签，正文说明与机器标签之间、以及连续机器标签之间都应插入一行 `## [br]`。Godot 会把文档注释按 BBCode 渲染；没有显式分隔时，多行说明和 `@api` / `@param` / `@return` / `@schema` 等标签容易在悬停提示中合并为一段。`[br]` 只用于渲染换行，不改变标签语义。
 
-历史迁移期间补齐的 `@since` 不再使用占位版本 `1.0.0`。完成 API Surface 迁移后，既有公开 API 的起算版本统一使用当次 GF 发布版本；新增 API 使用它首次公开发布的 GF 版本。
+历史迁移期间补齐的 `@since` 不再使用占位版本 `1.0.0`。完成 API Surface 迁移后，既有公开 API 的起算版本统一使用当次 GF 发布版本；新增 API 在版本已确定时使用它首次公开发布的 GF 版本，在版本未确定时临时使用 `@since unreleased`。不要使用 `x.x.x`、`未发布`、空值或其他占位写法，因为这些写法难以被机器稳定识别和发布前替换。
 
 ## 文件结构与 section
 

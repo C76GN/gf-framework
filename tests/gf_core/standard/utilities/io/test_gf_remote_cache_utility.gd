@@ -44,9 +44,11 @@ func test_fetch_text_writes_and_reuses_cache() -> void:
 
 	assert_eq(results.size(), 2, "第二次请求应直接命中缓存。")
 	assert_eq(_cache.request_count, 1, "缓存命中不应再次启动 HTTP 请求。")
-	assert_false(GFVariantData.get_option_bool(results[0], "from_cache"), "首次请求不应来自缓存。")
-	assert_true(GFVariantData.get_option_bool(results[1], "from_cache"), "第二次请求应来自缓存。")
-	assert_eq(GFVariantData.get_option_string(results[1], "content"), "payload", "缓存内容应保持一致。")
+	var first_result: Dictionary = results[0]
+	var cached_result: Dictionary = results[1]
+	assert_false(GFVariantData.get_option_bool(first_result, "from_cache"), "首次请求不应来自缓存。")
+	assert_true(GFVariantData.get_option_bool(cached_result, "from_cache"), "第二次请求应来自缓存。")
+	assert_eq(GFVariantData.get_option_string(cached_result, "content"), "payload", "缓存内容应保持一致。")
 
 
 func test_fetch_text_overwrites_cache_without_sidecar_files() -> void:
@@ -95,8 +97,9 @@ func test_fetch_json_parses_data() -> void:
 	await get_tree().process_frame
 
 	assert_eq(results.size(), 1, "JSON 请求应返回一次结果。")
-	assert_true(GFVariantData.get_option_bool(results[0], "success"), "合法 JSON 应返回成功。")
-	var data: Dictionary = GFVariantData.get_option_dictionary(results[0], "data")
+	var json_result: Dictionary = results[0]
+	assert_true(GFVariantData.get_option_bool(json_result, "success"), "合法 JSON 应返回成功。")
+	var data: Dictionary = GFVariantData.get_option_dictionary(json_result, "data")
 	assert_eq(GFVariantData.get_option_int(data, "value"), 3, "JSON 内容应被解析到 data。")
 
 
@@ -124,9 +127,11 @@ func test_invalid_json_response_is_not_written_to_cache() -> void:
 	await get_tree().process_frame
 
 	assert_eq(_cache.request_count, 2, "无效 JSON 不应写入缓存并阻止后续刷新。")
-	assert_false(GFVariantData.get_option_bool(results[0], "success"), "无效 JSON 应返回失败。")
-	assert_true(GFVariantData.get_option_bool(results[1], "success"), "后续合法 JSON 应可成功返回。")
-	var data: Dictionary = GFVariantData.get_option_dictionary(results[1], "data")
+	var invalid_result: Dictionary = results[0]
+	var valid_result: Dictionary = results[1]
+	assert_false(GFVariantData.get_option_bool(invalid_result, "success"), "无效 JSON 应返回失败。")
+	assert_true(GFVariantData.get_option_bool(valid_result, "success"), "后续合法 JSON 应可成功返回。")
+	var data: Dictionary = GFVariantData.get_option_dictionary(valid_result, "data")
 	assert_eq(GFVariantData.get_option_int(data, "value"), 4, "合法 JSON 应被解析。")
 
 
@@ -153,8 +158,10 @@ func test_cache_key_separates_text_and_json_for_same_url() -> void:
 	await get_tree().process_frame
 
 	assert_eq(_cache.request_count, 2, "同 URL 的 text/json 缓存不应串用。")
-	assert_eq(GFVariantData.get_option_string(results[0], "content"), "plain", "文本缓存应保留原始文本。")
-	var data: Dictionary = GFVariantData.get_option_dictionary(results[1], "data")
+	var text_result: Dictionary = results[0]
+	var json_result: Dictionary = results[1]
+	assert_eq(GFVariantData.get_option_string(text_result, "content"), "plain", "文本缓存应保留原始文本。")
+	var data: Dictionary = GFVariantData.get_option_dictionary(json_result, "data")
 	assert_eq(GFVariantData.get_option_int(data, "value"), 5, "JSON 请求应读取独立响应。")
 
 
@@ -181,10 +188,11 @@ func test_failed_refresh_uses_stale_cache() -> void:
 	await get_tree().process_frame
 
 	assert_eq(results.size(), 2, "刷新失败也应返回回调结果。")
-	assert_true(GFVariantData.get_option_bool(results[1], "success"), "存在陈旧缓存时刷新失败应回退成功。")
-	assert_true(GFVariantData.get_option_bool(results[1], "from_cache"), "刷新失败回退结果应来自缓存。")
-	assert_true(GFVariantData.get_option_bool(results[1], "stale"), "刷新失败回退结果应标记为陈旧缓存。")
-	assert_eq(GFVariantData.get_option_string(results[1], "content"), "old", "刷新失败应返回此前缓存内容。")
+	var fallback_result: Dictionary = results[1]
+	assert_true(GFVariantData.get_option_bool(fallback_result, "success"), "存在陈旧缓存时刷新失败应回退成功。")
+	assert_true(GFVariantData.get_option_bool(fallback_result, "from_cache"), "刷新失败回退结果应来自缓存。")
+	assert_true(GFVariantData.get_option_bool(fallback_result, "stale"), "刷新失败回退结果应标记为陈旧缓存。")
+	assert_eq(GFVariantData.get_option_string(fallback_result, "content"), "old", "刷新失败应返回此前缓存内容。")
 
 
 func test_same_cache_key_requests_are_coalesced() -> void:
@@ -205,7 +213,8 @@ func test_same_cache_key_requests_are_coalesced() -> void:
 
 	assert_eq(_cache.request_count, 1, "相同缓存 key 的并发请求应合并为一次 HTTP。")
 	assert_eq(results.size(), 2, "合并请求仍应回调所有调用方。")
-	assert_eq(GFVariantData.get_option_string(results[0], "content"), "shared", "合并请求应共享同一结果。")
+	var shared_result: Dictionary = results[0]
+	assert_eq(GFVariantData.get_option_string(shared_result, "content"), "shared", "合并请求应共享同一结果。")
 
 
 func test_pending_request_limit_rejects_excess_requests() -> void:
@@ -225,8 +234,9 @@ func test_pending_request_limit_rejects_excess_requests() -> void:
 	)
 
 	assert_eq(results.size(), 1, "超过 pending 上限的请求应立即回调失败。")
-	assert_false(GFVariantData.get_option_bool(results[0], "success"), "超过 pending 上限的请求应失败。")
-	assert_eq(GFVariantData.get_option_string(results[0], "error"), "Pending request limit exceeded", "失败原因应明确。")
+	var rejected_result: Dictionary = results[0]
+	assert_false(GFVariantData.get_option_bool(rejected_result, "success"), "超过 pending 上限的请求应失败。")
+	assert_eq(GFVariantData.get_option_string(rejected_result, "error"), "Pending request limit exceeded", "失败原因应明确。")
 	await get_tree().process_frame
 	await get_tree().process_frame
 
@@ -248,7 +258,8 @@ func test_cancel_drops_pending_request_without_callback() -> void:
 
 	assert_eq(cancelled, 1, "取消 pending 请求应返回取消数量。")
 	assert_eq(results.size(), 1, "被取消的 pending 请求不应触发回调。")
-	assert_eq(GFVariantData.get_option_string(results[0], "content"), "a", "未取消的 active 请求应正常完成。")
+	var active_result: Dictionary = results[0]
+	assert_eq(GFVariantData.get_option_string(active_result, "content"), "a", "未取消的 active 请求应正常完成。")
 
 
 func _list_file_names(dir_path: String) -> PackedStringArray:

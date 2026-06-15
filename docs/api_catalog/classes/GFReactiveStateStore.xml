@@ -1,0 +1,284 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFReactiveStateStore" path="addons/gf/standard/utilities/state/gf_reactive_state_store.gd" module="standard" extends="RefCounted" classDigest="6d6f8443296cc33bb53b74e5ba4273cbfde3f62d6df9ce17ec7f755230dac2bf">
+	<description>GFReactiveStateStore: 运行时 Dictionary 状态树与路径订阅容器。
+管理一份纯 Variant Dictionary 状态，提供路径读写、批量 dirty 派发、
+路径订阅和 owner 生命周期清理。它不定义业务字段含义，也不替代
+`GFBindableProperty` 的单值响应式协议。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_handle</tag>
+		<tag name="since">5.0.0</tag>
+	</tags>
+	<signals>
+		<member kind="signal" name="state_changed">
+			<signature>signal state_changed(changes: Array[Dictionary], snapshot: Dictionary)</signature>
+			<description>状态变更 flush 后发出。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">changes: 本次派发的变更记录。</tag>
+				<tag name="param">snapshot: 当前状态快照。</tag>
+				<tag name="schema">changes: Array[Dictionary]，每项包含 kind、path、path_segments、old_value、new_value、old_exists、new_exists、old_type、new_type。</tag>
+				<tag name="schema">snapshot: Dictionary，当前状态深拷贝。</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="signal" name="path_changed">
+			<signature>signal path_changed(path: String, change: Dictionary)</signature>
+			<description>单条路径变更派发时发出。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">path: 变更路径。</tag>
+				<tag name="param">change: 变更记录。</tag>
+				<tag name="schema">change: Dictionary，包含 kind、path、path_segments、old_value、new_value、old_exists、new_exists、old_type、new_type。</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+	</signals>
+	<enums />
+	<constants>
+		<member kind="const" name="SUBSCRIBE_EXACT">
+			<signature>const SUBSCRIBE_EXACT: int = 0</signature>
+			<description>只接收完全相同路径的变更。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="SUBSCRIBE_PREFIX">
+			<signature>const SUBSCRIBE_PREFIX: int = 1</signature>
+			<description>接收指定路径及其子路径的变更。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="SUBSCRIBE_ANY">
+			<signature>const SUBSCRIBE_ANY: int = 2</signature>
+			<description>接收所有路径变更。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties />
+	<methods>
+		<member kind="method" name="_init">
+			<signature>func _init(initial_state: Dictionary = {}) -&gt; void:</signature>
+			<description>构造函数。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">initial_state: 初始状态字典。</tag>
+				<tag name="schema">initial_state: Dictionary，初始状态会被深拷贝保存。</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="normalize_path">
+			<signature>static func normalize_path(path: Variant) -&gt; Array:</signature>
+			<description>将路径归一为路径段数组。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">path: String、StringName、NodePath、PackedStringArray 或 Array 路径。</tag>
+				<tag name="return">路径段数组。String 路径使用点号分段，Array 路径允许 int 段表示数组索引。</tag>
+				<tag name="schema">path: Variant，路径表达。</tag>
+				<tag name="schema">return: Array，路径段数组。</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="format_path">
+			<signature>static func format_path(path: Variant) -&gt; String:</signature>
+			<description>将路径格式化为稳定文本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">path: 路径表达。</tag>
+				<tag name="return">路径文本。</tag>
+				<tag name="schema">path: Variant，路径表达。</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_state">
+			<signature>func get_state(copy_value: bool = true) -&gt; Dictionary:</signature>
+			<description>获取当前状态快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">copy_value: 为 true 时返回深拷贝。</tag>
+				<tag name="return">状态字典。</tag>
+				<tag name="schema">return: Dictionary，当前状态。</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="set_state">
+			<signature>func set_state(new_state: Dictionary, options: Dictionary = {}) -&gt; bool:</signature>
+			<description>替换整份状态，并按 GFVariantData.diff_variant() 生成路径级变更。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">new_state: 新状态字典。</tag>
+				<tag name="param">options: 可选项。支持 copy_values。</tag>
+				<tag name="return">状态发生变化时返回 true。</tag>
+				<tag name="schema">new_state: Dictionary，新状态会被深拷贝保存。</tag>
+				<tag name="schema">options: Dictionary，可选字段 copy_values 默认为 true。</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_value">
+			<signature>func get_value(path: Variant, fallback: Variant = null, copy_value: bool = true) -&gt; Variant:</signature>
+			<description>读取路径值。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">path: 路径表达。</tag>
+				<tag name="param">fallback: 路径不存在时返回的值。</tag>
+				<tag name="param">copy_value: 为 true 时深拷贝集合结果。</tag>
+				<tag name="return">路径值或 fallback。</tag>
+				<tag name="schema">path: Variant，路径表达。</tag>
+				<tag name="schema">fallback: Variant，路径不存在时的回退值。</tag>
+				<tag name="schema">return: Variant，路径值。</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="has_value">
+			<signature>func has_value(path: Variant) -&gt; bool:</signature>
+			<description>检查路径是否存在。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">path: 路径表达。</tag>
+				<tag name="return">路径存在时返回 true。</tag>
+				<tag name="schema">path: Variant，路径表达。</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="set_value">
+			<signature>func set_value(path: Variant, value: Variant) -&gt; bool:</signature>
+			<description>写入路径值。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">path: 路径表达。空路径要求 value 为 Dictionary，并替换整份状态。</tag>
+				<tag name="param">value: 新值。</tag>
+				<tag name="return">成功写入且发生变化时返回 true。</tag>
+				<tag name="schema">path: Variant，路径表达。</tag>
+				<tag name="schema">value: Variant，要写入的值。</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="set_values">
+			<signature>func set_values(values_by_path: Dictionary) -&gt; int:</signature>
+			<description>批量写入多个路径值。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">values_by_path: 路径到值的字典。</tag>
+				<tag name="return">实际发生变化的路径数量。</tag>
+				<tag name="schema">values_by_path: Dictionary，键为路径表达，值为要写入的 Variant。</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="erase_value">
+			<signature>func erase_value(path: Variant) -&gt; bool:</signature>
+			<description>删除路径值。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">path: 路径表达。</tag>
+				<tag name="return">成功删除时返回 true。</tag>
+				<tag name="schema">path: Variant，路径表达。</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="begin_batch">
+			<signature>func begin_batch() -&gt; void:</signature>
+			<description>进入批量写入模式。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="end_batch">
+			<signature>func end_batch() -&gt; Array[Dictionary]:</signature>
+			<description>结束一层批量写入模式。最外层结束时自动 flush。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">本次 flush 派发的变更。</tag>
+				<tag name="schema">return: Array[Dictionary]，派发的变更记录。</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_batching">
+			<signature>func is_batching() -&gt; bool:</signature>
+			<description>当前是否处于批量写入模式。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">正在批量写入时返回 true。</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="flush">
+			<signature>func flush() -&gt; Array[Dictionary]:</signature>
+			<description>立即派发 dirty queue。flush 期间产生的新 dirty change 会在当前订阅者批次结束后继续派发，
+不会重入当前订阅者列表。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">本次派发的变更。</tag>
+				<tag name="schema">return: Array[Dictionary]，派发的变更记录。</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_dirty_changes">
+			<signature>func get_dirty_changes() -&gt; Array[Dictionary]:</signature>
+			<description>获取尚未派发的 dirty changes。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">dirty changes 副本。</tag>
+				<tag name="schema">return: Array[Dictionary]，等待派发的变更记录。</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="subscribe">
+			<signature>func subscribe(path: Variant, callback: Callable, options: Dictionary = {}) -&gt; Callable:</signature>
+			<description>订阅指定路径变化。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">path: 路径表达。空路径配合 SUBSCRIBE_PREFIX 或 SUBSCRIBE_ANY 可观察整棵状态树。</tag>
+				<tag name="param">callback: 回调签名为 func(change: Dictionary, store: GFReactiveStateStore)。</tag>
+				<tag name="param">options: 可选项。支持 mode、owner、emit_current。</tag>
+				<tag name="return">取消订阅 Callable；callback 无效时返回空 Callable。</tag>
+				<tag name="schema">path: Variant，路径表达。</tag>
+				<tag name="schema">options: Dictionary，可选字段：mode 为 SUBSCRIBE_EXACT/SUBSCRIBE_PREFIX/SUBSCRIBE_ANY，owner 为 Object，emit_current 默认为 false。</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="unsubscribe">
+			<signature>func unsubscribe(subscription_id: int) -&gt; bool:</signature>
+			<description>按订阅 ID 取消订阅。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">subscription_id: 订阅 ID。</tag>
+				<tag name="return">找到并移除订阅时返回 true。</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="clear_subscriptions">
+			<signature>func clear_subscriptions(owner: Object = null) -&gt; void:</signature>
+			<description>清理订阅。owner 为空时清理全部订阅。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">owner: 可选订阅 owner。</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_subscription_count">
+			<signature>func get_subscription_count() -&gt; int:</signature>
+			<description>获取有效订阅数量。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">有效订阅数量。</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="dispose">
+			<signature>func dispose() -&gt; void:</signature>
+			<description>释放 store 持有的订阅和 dirty queue。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

@@ -1,0 +1,150 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFCollisionNarrowphase2D" path="addons/gf/standard/foundation/math/gf_collision_narrowphase_2d.gd" module="standard" extends="RefCounted" classDigest="a38f0b23f09dddea8753e560939f767326166d4119db1f2449129be23b0681fe">
+	<description>GFCollisionNarrowphase2D: 纯 2D 凸形状 SAT 精确重叠测试工具。
+使用 Separating Axis Theorem 检测凸多边形和旋转盒是否重叠，并返回相切、
+穿透深度、法线和最小平移向量。它只做 narrowphase 几何判定，不维护空间索引、
+不生成 broadphase 候选对，不执行物理响应、接触点求解、命中分发或玩法规则判断。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_service</tag>
+		<tag name="since">5.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants>
+		<member kind="const" name="SHAPE_POLYGON">
+			<signature>const SHAPE_POLYGON: StringName = &amp;"polygon"</signature>
+			<description>凸多边形 shape 类型。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="REASON_OVERLAP">
+			<signature>const REASON_OVERLAP: StringName = &amp;"overlap"</signature>
+			<description>几何重叠。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="REASON_SEPARATED">
+			<signature>const REASON_SEPARATED: StringName = &amp;"separated"</signature>
+			<description>几何分离。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="REASON_TOUCHING">
+			<signature>const REASON_TOUCHING: StringName = &amp;"touching"</signature>
+			<description>仅边界相切。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="REASON_INVALID_SHAPE">
+			<signature>const REASON_INVALID_SHAPE: StringName = &amp;"invalid_shape"</signature>
+			<description>shape 无效或不是凸多边形。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="DEFAULT_EPSILON">
+			<signature>const DEFAULT_EPSILON: float = 0.00001</signature>
+			<description>默认浮点容差。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties />
+	<methods>
+		<member kind="method" name="make_polygon">
+			<signature>static func make_polygon( points: PackedVector2Array, transform: Transform2D = Transform2D.IDENTITY, metadata: Dictionary = {} ) -&gt; Dictionary:</signature>
+			<description>创建凸多边形 shape 记录。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">points: 多边形顶点，按顺时针或逆时针顺序排列。</tag>
+				<tag name="param">transform: 写入 shape 前应用到每个顶点的变换。</tag>
+				<tag name="param">metadata: 调用方附加元数据；SAT 不解释这些字段。</tag>
+				<tag name="return">shape 字典。</tag>
+				<tag name="schema">return: Dictionary with `type: StringName`, `points: PackedVector2Array`, and `metadata: Dictionary`.</tag>
+				<tag name="schema">metadata: Dictionary caller metadata copied by value.</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="make_box">
+			<signature>static func make_box( center: Vector2, size: Vector2, rotation_radians: float = 0.0, metadata: Dictionary = {} ) -&gt; Dictionary:</signature>
+			<description>创建旋转盒 shape 记录。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">center: 盒中心点。</tag>
+				<tag name="param">size: 盒尺寸；负尺寸会按绝对值处理。</tag>
+				<tag name="param">rotation_radians: 盒的旋转角度，单位为弧度。</tag>
+				<tag name="param">metadata: 调用方附加元数据；SAT 不解释这些字段。</tag>
+				<tag name="return">shape 字典。</tag>
+				<tag name="schema">return: Dictionary with `type: StringName`, `points: PackedVector2Array`, and `metadata: Dictionary`.</tag>
+				<tag name="schema">metadata: Dictionary caller metadata copied by value.</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_convex_polygon">
+			<signature>static func is_convex_polygon(points: PackedVector2Array, epsilon: float = DEFAULT_EPSILON) -&gt; bool:</signature>
+			<description>检查点序列是否构成凸多边形。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">points: 多边形顶点，按顺时针或逆时针顺序排列。</tag>
+				<tag name="param">epsilon: 浮点容差。</tag>
+				<tag name="return">顶点数量充足、面积非零且没有凹角时返回 true。</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="project_polygon">
+			<signature>static func project_polygon(points: PackedVector2Array, axis: Vector2) -&gt; Dictionary:</signature>
+			<description>把凸多边形投影到轴上。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">points: 多边形顶点。</tag>
+				<tag name="param">axis: 投影轴；会先归一化。</tag>
+				<tag name="return">投影区间。</tag>
+				<tag name="schema">return: Dictionary with `valid: bool`, `min: float`, `max: float`, and `axis: Vector2`.</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="test_polygon_overlap">
+			<signature>static func test_polygon_overlap( a_points: PackedVector2Array, b_points: PackedVector2Array, options: Dictionary = {} ) -&gt; Dictionary:</signature>
+			<description>使用 SAT 检查两个凸多边形是否重叠。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">a_points: 第一个凸多边形顶点。</tag>
+				<tag name="param">b_points: 第二个凸多边形顶点。</tag>
+				<tag name="param">options: 可选控制，支持 `include_touching` 与 `epsilon`。</tag>
+				<tag name="return">SAT 重叠报告。</tag>
+				<tag name="schema">options: Dictionary with optional `include_touching: bool` and `epsilon: float`.</tag>
+				<tag name="schema">return: Dictionary with `overlap: bool`, `touching: bool`, `reason: StringName`, `penetration_depth: float`, `normal: Vector2`, `minimum_translation: Vector2`, and `axis_count: int`.</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="test_shapes_overlap">
+			<signature>static func test_shapes_overlap( a_shape: Dictionary, b_shape: Dictionary, options: Dictionary = {} ) -&gt; Dictionary:</signature>
+			<description>使用 SAT 检查两个 shape 是否重叠。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">a_shape: 第一个 shape，建议由 `make_polygon()` 或 `make_box()` 创建。</tag>
+				<tag name="param">b_shape: 第二个 shape，建议由 `make_polygon()` 或 `make_box()` 创建。</tag>
+				<tag name="param">options: 可选控制，支持 `include_touching` 与 `epsilon`。</tag>
+				<tag name="return">SAT 重叠报告。</tag>
+				<tag name="schema">a_shape: Dictionary with `type: StringName` and `points: PackedVector2Array`.</tag>
+				<tag name="schema">b_shape: Dictionary with `type: StringName` and `points: PackedVector2Array`.</tag>
+				<tag name="schema">options: Dictionary with optional `include_touching: bool` and `epsilon: float`.</tag>
+				<tag name="schema">return: Dictionary with `overlap: bool`, `touching: bool`, `reason: StringName`, `penetration_depth: float`, `normal: Vector2`, `minimum_translation: Vector2`, and `axis_count: int`.</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

@@ -1,7 +1,7 @@
 {
   "id": "gf.content_package",
   "display_name": "GF Content Package",
-  "version": "4.4.0",
+  "version": "5.0.0",
   "extension_version": "1.0.0",
   "kind": "extension",
   "description": "Generic content package manifests, dependency diagnostics, and resource resolver registration.",
@@ -9,6 +9,6 @@
   "installer_paths": [
     "res://addons/gf/extensions/content_package/extension.gd"
   ],
-  "enabled_by_default": true,
+  "enabled_by_default": false,
   "tags": ["content", "package", "resources"]
 }

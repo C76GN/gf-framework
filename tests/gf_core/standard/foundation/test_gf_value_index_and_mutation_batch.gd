@@ -65,6 +65,31 @@ func test_mutation_batch_commits_and_rolls_back() -> void:
 	assert_eq(values, ["one", "two", "undo_two", "undo_one"], "回滚应按提交反向顺序执行。")
 
 
+## 验证待处理队列在分批提交时保持 FIFO 顺序。
+func test_mutation_batch_keeps_fifo_order_across_partial_commits() -> void:
+	var batch: GFMutationBatchBase = GFMutationBatchBase.new()
+	var values: Array[String] = []
+
+	var _add_first_result: Variant = batch.add_operation(func() -> void:
+		values.append("first")
+	)
+	var _add_second_result: Variant = batch.add_operation(func() -> void:
+		values.append("second")
+	)
+	var _add_third_result: Variant = batch.add_operation(func() -> void:
+		values.append("third")
+	)
+
+	var first_report: Dictionary = batch.commit(1)
+	var remaining_report: Dictionary = batch.commit()
+
+	assert_true(GFVariantData.get_option_bool(first_report, "ok", false), "首批提交应成功。")
+	assert_eq(GFVariantData.get_option_int(first_report, "committed_count", 0), 1, "首批只应提交一个操作。")
+	assert_eq(GFVariantData.get_option_int(first_report, "pending_count", 0), 2, "首批提交后应保留两个待处理操作。")
+	assert_true(GFVariantData.get_option_bool(remaining_report, "ok", false), "剩余提交应成功。")
+	assert_eq(values, ["first", "second", "third"], "分批提交必须保持待处理队列 FIFO 顺序。")
+
+
 ## 验证变更批次默认在失败时保留待处理操作。
 func test_mutation_batch_stops_on_failure() -> void:
 	var batch: GFMutationBatchBase = GFMutationBatchBase.new()

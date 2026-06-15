@@ -112,6 +112,34 @@ func test_build_signal_graph_reports_runtime_connections() -> void:
 	assert_eq(GF_VARIANT_ACCESS.get_option_string(connection, "method_name"), "receive", "连接应记录目标方法名。")
 
 
+func test_build_signal_graph_can_focus_participating_nodes() -> void:
+	var root: Node = Node.new()
+	var emitter: GraphEmitter = GraphEmitter.new()
+	var receiver: GraphReceiver = GraphReceiver.new()
+	var idle: Node = Node.new()
+	root.name = "Root"
+	emitter.name = "Emitter"
+	receiver.name = "Receiver"
+	idle.name = "Idle"
+	add_child_autofree(root)
+	root.add_child(emitter)
+	root.add_child(receiver)
+	root.add_child(idle)
+	var connect_error: int = emitter.ping.connect(receiver.receive)
+	assert_eq(connect_error, OK, "测试应能连接运行时信号。")
+
+	var graph: Dictionary = GF_SCENE_SIGNAL_AUDIT.build_signal_graph(root, {
+		"participating_nodes_only": true,
+	})
+	var node_paths: PackedStringArray = _get_graph_node_paths(graph)
+
+	assert_eq(GF_VARIANT_ACCESS.get_option_int(graph, "node_count"), 2, "聚焦模式只应统计参与信号图的节点。")
+	assert_true(node_paths.has("Emitter"), "聚焦模式应包含信号来源节点。")
+	assert_true(node_paths.has("Receiver"), "聚焦模式应包含信号目标节点。")
+	assert_false(node_paths.has("."), "聚焦模式不应包含未参与信号连接的根节点。")
+	assert_false(node_paths.has("Idle"), "聚焦模式不应包含无信号参与的普通节点。")
+
+
 func test_build_signal_graph_reports_truncation_when_node_limit_is_reached() -> void:
 	var root: Node = Node.new()
 	root.name = "Root"
@@ -182,6 +210,15 @@ func _write_empty_user_file(path: String) -> void:
 		return
 	var _store_string_result_183: Variant = file.store_string("")
 	file.close()
+
+
+func _get_graph_node_paths(graph: Dictionary) -> PackedStringArray:
+	var result: PackedStringArray = PackedStringArray()
+	for node_variant: Variant in GF_VARIANT_ACCESS.get_option_array(graph, "nodes"):
+		var node_entry: Dictionary = GF_VARIANT_ACCESS.as_dictionary(node_variant)
+		var _path_appended: bool = result.append(GF_VARIANT_ACCESS.get_option_string(node_entry, "node_path"))
+	result.sort()
+	return result
 
 
 # --- 辅助子类 ---

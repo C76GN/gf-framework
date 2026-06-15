@@ -15,6 +15,7 @@ const GF_EDITOR_WORKSPACE_DOCK = preload("res://addons/gf/kernel/editor/gf_edito
 const GF_EDITOR_WORKSPACE_UI = preload("res://addons/gf/kernel/editor/gf_editor_workspace_ui.gd")
 const GF_EDITOR_WORKSPACE_WINDOW = preload("res://addons/gf/kernel/editor/gf_editor_workspace_window.gd")
 const GF_EXTENSION_MANAGER_DOCK = preload("res://addons/gf/kernel/editor/extension/gf_extension_manager_dock.gd")
+const GF_PACKAGE_MANAGER_DOCK = preload("res://addons/gf/kernel/editor/package/gf_package_manager_dock.gd")
 const GF_EXTENSION_SETTINGS_BASE = preload("res://addons/gf/kernel/extension/gf_extension_settings.gd")
 const GF_STANDARD_EDITOR_EXTENSIONS = preload("res://addons/gf/standard/editor/gf_standard_editor_extensions.gd")
 const GF_VARIANT_ACCESS = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
@@ -33,6 +34,7 @@ func test_plugin_split_helpers_load() -> void:
 	assert_not_null(GF_PLUGIN_PROJECT_SETTINGS, "ProjectSettings 辅助脚本应可加载。")
 	assert_not_null(GF_EDITOR_WORKSPACE_UI, "工作区页面 UI 辅助脚本应可加载。")
 	assert_not_null(GF_EDITOR_WORKSPACE_WINDOW, "独立工作区窗口脚本应可加载。")
+	assert_not_null(GF_PACKAGE_MANAGER_DOCK, "包管理工作区页面脚本应可加载。")
 
 
 func test_editor_workspace_ui_builds_common_page_chrome() -> void:
@@ -145,7 +147,7 @@ func test_standard_template_records_are_injected_without_kernel_hardcoding() -> 
 
 
 func test_plugin_inspector_tools_discovers_enabled_extension_inspectors() -> void:
-	var restore: Dictionary = _set_enabled_extensions(["gf.capability", "gf.flow"])
+	var restore: Dictionary = _set_enabled_extensions(["gf.capability", "gf.flow", "gf.save"])
 	var tools: Object = _new_object(GF_PLUGIN_INSPECTOR_TOOLS)
 	var records: Array = _call_array(tools, &"_collect_enabled_extension_inspector_records")
 	var paths: Array[String] = []
@@ -161,6 +163,10 @@ func test_plugin_inspector_tools_discovers_enabled_extension_inspectors() -> voi
 	assert_true(
 		paths.has("res://addons/gf/extensions/flow/editor/gf_flow_graph_inspector_plugin.gd"),
 		"Flow Graph Inspector 应由扩展 manifest 声明。"
+	)
+	assert_true(
+		paths.has("res://addons/gf/extensions/save/editor/gf_persist_properties_inspector_plugin.gd"),
+		"Save 属性白名单 Inspector 应由扩展 manifest 声明。"
 	)
 
 
@@ -239,6 +245,10 @@ func test_plugin_dock_tools_keeps_core_docks_available_without_extensions() -> v
 		core_paths.has("res://addons/gf/kernel/editor/extension/gf_extension_manager_dock.gd"),
 		"扩展管理器应作为 kernel Dock 保持可用。"
 	)
+	assert_true(
+		core_paths.has("res://addons/gf/kernel/editor/package/gf_package_manager_dock.gd"),
+		"包管理器应作为 kernel Dock 保持可用。"
+	)
 	assert_true(extension_records.is_empty(), "全禁用时不应注册任何扩展级 Dock。")
 
 
@@ -296,6 +306,37 @@ func test_plugin_dock_tools_sorts_workspace_records_by_order() -> void:
 	for record: Dictionary in records:
 		labels.append(GF_VARIANT_ACCESS.get_option_string(record, "label"))
 	assert_eq(labels, ["A", "B", "Z"], "工作区页面应先按 order，再按标题稳定排序。")
+
+
+func test_plugin_dock_tools_creates_workspace_lazily() -> void:
+	var tools: Object = _new_object(GF_PLUGIN_DOCK_TOOLS)
+	var base_control: Control = Control.new()
+	add_child(base_control)
+	var records: Array[Dictionary] = []
+	tools.set(&"_editor_base_control", base_control)
+	tools.set(&"_dock_records", records)
+
+	var initial_window_value: Variant = _call_value(tools, &"get_workspace_window")
+	assert_true(initial_window_value == null, "setup 不应立即实例化独立工作区窗口。")
+
+	_call_void(tools, &"show_workspace")
+
+	var window_value: Variant = _call_value(tools, &"get_workspace_window")
+	assert_true(window_value is Window, "首次打开工作区时才应创建独立窗口。")
+	var window_ref: WeakRef = null
+	if window_value is Window:
+		var window: Window = window_value
+		window_ref = weakref(window)
+		assert_eq(window.title, "GF Workspace", "懒加载窗口应保持统一标题。")
+		assert_eq(window.get_parent(), base_control, "懒加载窗口应挂到编辑器根控件。")
+
+	_call_void(tools, &"cleanup", [null])
+
+	await get_tree().process_frame
+	if window_ref != null:
+		var released_window_value: Variant = window_ref.get_ref()
+		assert_true(released_window_value == null, "cleanup 后懒加载窗口应在下一帧释放。")
+	base_control.free()
 
 
 func test_editor_workspace_dock_groups_gf_panels() -> void:
@@ -364,6 +405,7 @@ func test_editor_workspace_dock_groups_gf_panels() -> void:
 	var about_issues: Button = _as_button(about_dialog.get_node("AboutContent/AboutLayout/AboutActionRow/AboutIssuesButton"))
 	var about_releases: Button = _as_button(about_dialog.get_node("AboutContent/AboutLayout/AboutActionRow/AboutReleasesButton"))
 	var about_version_check: Button = _as_button(about_dialog.get_node("AboutContent/AboutLayout/AboutActionRow/AboutVersionCheckButton"))
+	var about_update_release: Button = _as_button(about_dialog.get_node("AboutContent/AboutLayout/AboutActionRow/AboutUpdateReleaseButton"))
 	var about_version_status: Label = _as_label(about_dialog.get_node("AboutContent/AboutLayout/AboutVersionStatus"))
 	var about_confirm: Button = _as_button(about_dialog.get_node("AboutContent/AboutLayout/AboutConfirmCenter/AboutConfirmButton"))
 	assert_eq(about_dialog.min_size, Vector2i(560, 320), "关于弹窗应保持固定可控尺寸。")
@@ -383,6 +425,8 @@ func test_editor_workspace_dock_groups_gf_panels() -> void:
 	assert_eq(about_issues.text, "Issues", "关于弹窗应提供 Issues 快捷按钮。")
 	assert_eq(about_releases.text, "Releases", "关于弹窗应提供 Releases 快捷按钮。")
 	assert_eq(about_version_check.text, "检测最新版本", "关于弹窗应提供手动版本检测按钮。")
+	assert_eq(about_update_release.text, "打开更新页面", "关于弹窗应提供检测后的更新入口。")
+	assert_false(about_update_release.visible, "更新入口应只在检测到新版本后显示。")
 	assert_true(about_version_status.text.contains("当前版本："), "版本检测状态应先展示当前版本。")
 	assert_true(about_version_status.text.contains("手动检测"), "版本检测状态应提示可手动检查最新发布版本。")
 	assert_eq(_call_text(dock, &"_normalize_version_tag", ["refs/tags/v3.5.0-beta+1"]), "3.5.0", "版本号归一化应忽略 tag 前缀、预发布和构建元数据。")
@@ -393,6 +437,14 @@ func test_editor_workspace_dock_groups_gf_panels() -> void:
 		GF_VARIANT_ACCESS.get_option_string(_call_dictionary(dock, &"_make_latest_version_status", ["v3.5.1", "3.5.0"]), "message").contains("发现新版本"),
 		"最新版本高于当前版本时应提示更新。"
 	)
+	var latest_release_url: String = "https://github.com/C76GN/gf-framework/releases/tag/3.5.1"
+	var latest_status: Dictionary = _call_dictionary(dock, &"_make_latest_version_status", ["v3.5.1", "3.5.0", latest_release_url])
+	assert_true(GF_VARIANT_ACCESS.get_option_bool(latest_status, "update_available"), "检测到新版本时应标记可更新。")
+	assert_eq(GF_VARIANT_ACCESS.get_option_string(latest_status, "release_url"), latest_release_url, "更新入口应保留具体 Release URL。")
+	_call_void(dock, &"_apply_latest_version_status", [latest_status])
+	assert_true(about_update_release.visible, "检测到新版本后应显示更新入口。")
+	assert_false(about_update_release.disabled, "检测到新版本后更新入口应可点击。")
+	assert_eq(GF_VARIANT_ACCESS.to_text(dock.get("_latest_release_url")), latest_release_url, "工作区应记录待打开的新版本 Release URL。")
 	assert_true(
 		GF_VARIANT_ACCESS.get_option_string(_call_dictionary(dock, &"_make_latest_version_status", ["v3.5.0", "3.5.0"]), "message").contains("当前已是最新版本"),
 		"最新版本等于当前版本时应提示已是最新。"
@@ -460,6 +512,135 @@ func test_editor_workspace_window_hosts_workspace_pages() -> void:
 	window.free()
 
 
+func test_package_manager_dock_uses_default_source_for_empty_registry() -> void:
+	var dock: VBoxContainer = _new_vbox_container(GF_PACKAGE_MANAGER_DOCK)
+	var registry_field: LineEdit = _as_line_edit(dock.get(&"_registry_field"))
+	registry_field.text = ""
+
+	var channel_field: LineEdit = _as_line_edit(dock.get(&"_channel_field"))
+	var install_button: Button = _get_button(dock, &"_install_button")
+	var uninstall_button: Button = _get_button(dock, &"_uninstall_button")
+	var uses_native_backend: bool = _call_bool(dock, &"_can_use_native_backend", [""])
+
+	assert_eq(dock.name, "GF Package Manager", "包管理工作区页面应使用稳定页面名称。")
+	assert_true(registry_field.placeholder_text.contains("默认在线源"), "空 registry 应走默认在线源而不是要求用户填写。")
+	assert_true(registry_field.tooltip_text.contains("registry source"), "Registry 输入应说明 source manifest 能力。")
+	assert_true(uses_native_backend, "空 registry 应继续使用 Godot 原生后端的默认 release source。")
+	assert_false(dock.has_method(&"_run_python_operation"), "编辑器包管理页不应保留 Python fallback 安装路径。")
+	assert_false(dock.has_method(&"_run_package_tool"), "编辑器包管理页不应直接执行外部 package tool。")
+	assert_true(channel_field.visible, "普通用户路径应能选择 registry source channel。")
+	assert_eq(channel_field.placeholder_text, "默认", "channel 留空时应使用 source manifest default_channel。")
+	assert_true(install_button.disabled, "没有选中包时安装按钮应禁用。")
+	assert_true(uninstall_button.disabled, "没有选中包时卸载按钮应禁用。")
+
+	dock.free()
+
+
+func test_package_manager_dock_builds_registry_source_channel_options() -> void:
+	var dock: VBoxContainer = _new_vbox_container(GF_PACKAGE_MANAGER_DOCK)
+	var channel_field: LineEdit = _as_line_edit(dock.get(&"_channel_field"))
+	channel_field.text = " stable "
+
+	var options: Dictionary = _call_dictionary(dock, &"_make_backend_options")
+
+	assert_eq(GF_VARIANT_ACCESS.get_option_string(options, "channel"), "stable", "包管理工作区应把 channel 传给 Godot 原生后端。")
+
+	dock.free()
+
+
+func test_package_manager_dock_formats_registry_source_diagnostics() -> void:
+	var dock: VBoxContainer = _new_vbox_container(GF_PACKAGE_MANAGER_DOCK)
+	var status_data: Dictionary = {
+		"registry": "C:/tmp/gf/package-cache/registries/index.json",
+		"registry_remote": true,
+		"registry_source": "http://127.0.0.1:9000/sources/gf-registry-source.json",
+		"registry_source_manifest": "http://127.0.0.1:9000/sources/gf-registry-source.json",
+		"registry_channel": "stable",
+		"registry_mirror_index": 0,
+		"registry_cache_dir": "C:/tmp/gf/package-cache",
+	}
+
+	var diagnostics: String = _call_text(dock, &"_format_registry_diagnostics", [status_data])
+	var tooltip: String = _call_text(dock, &"_format_registry_diagnostics_tooltip", [status_data])
+
+	assert_true(diagnostics.contains("source: http://127.0.0.1:9000/sources/gf-registry-source.json"), "包管理工作区应展示 registry source。")
+	assert_true(diagnostics.contains("channel: stable"), "包管理工作区应展示选中的 registry channel。")
+	assert_true(diagnostics.contains("mirror: #0"), "包管理工作区应展示命中的 mirror 索引。")
+	assert_true(diagnostics.contains("remote"), "包管理工作区应展示 remote registry 状态。")
+	assert_true(tooltip.contains("source_manifest: http://127.0.0.1:9000/sources/gf-registry-source.json"), "registry 诊断 tooltip 应保留 source manifest URL。")
+	assert_true(tooltip.contains("cache_dir: C:/tmp/gf/package-cache"), "registry 诊断 tooltip 应保留 cache 目录。")
+
+	dock.free()
+
+
+func test_package_manager_dock_updates_registry_diagnostics_label() -> void:
+	var dock: VBoxContainer = _new_vbox_container(GF_PACKAGE_MANAGER_DOCK)
+	var diagnostics_label: Label = _as_label(dock.get(&"_registry_diagnostics_label"))
+	var status_data: Dictionary = {
+		"registry": "res://build/registry/index.json",
+		"registry_channel": "preview",
+		"registry_mirror_index": -1,
+	}
+
+	_call_void(dock, &"_update_registry_diagnostics", [status_data])
+
+	assert_true(diagnostics_label.text.contains("res://build/registry/index.json"), "registry 诊断标签应展示当前 registry。")
+	assert_true(diagnostics_label.text.contains("channel: preview"), "registry 诊断标签应展示当前 channel。")
+	assert_true(diagnostics_label.text.contains("mirror: primary"), "registry 诊断标签应展示 primary registry 命中状态。")
+
+	dock.free()
+
+
+func test_package_manager_dock_defaults_to_preset_first_view() -> void:
+	var dock: VBoxContainer = _new_vbox_container(GF_PACKAGE_MANAGER_DOCK)
+	var packages: Array[Dictionary] = [
+		_make_package_manager_entry("gf.extension.save", "extension"),
+		_make_package_manager_entry("gf.standard.storage", "standard"),
+		_make_package_manager_entry("gf.preset.rpg_save_dialogue", "preset"),
+	]
+	dock.set(&"_packages", packages)
+	dock.set(&"_selected_package_id", "")
+
+	_call_void(dock, &"_render_package_rows")
+	_call_void(dock, &"_select_first_visible_package")
+
+	var view_filter_option: OptionButton = _get_option_button(dock, &"_view_filter_option")
+	var visible_packages: Array = _call_array(dock, &"_get_visible_packages")
+	var selected_package_id: String = GF_VARIANT_ACCESS.to_text(dock.get(&"_selected_package_id"))
+	var first_visible: Dictionary = _dictionary_at(visible_packages, 0)
+
+	assert_eq(view_filter_option.get_item_text(view_filter_option.selected), "推荐组合", "包管理工作区默认应先展示 preset 组合。")
+	assert_eq(visible_packages.size(), 1, "默认推荐组合视图应只展示 preset 包。")
+	assert_eq(GF_VARIANT_ACCESS.get_option_string(first_visible, "id"), "gf.preset.rpg_save_dialogue", "推荐组合视图应暴露 preset 包。")
+	assert_eq(selected_package_id, "gf.preset.rpg_save_dialogue", "默认选中项应是第一个可见 preset。")
+
+	dock.free()
+
+
+func test_package_manager_dock_switches_to_extension_view() -> void:
+	var dock: VBoxContainer = _new_vbox_container(GF_PACKAGE_MANAGER_DOCK)
+	var packages: Array[Dictionary] = [
+		_make_package_manager_entry("gf.preset.rpg_save_dialogue", "preset"),
+		_make_package_manager_entry("gf.extension.save", "extension"),
+		_make_package_manager_entry("gf.standard.storage", "standard"),
+	]
+	dock.set(&"_packages", packages)
+	var view_filter_option: OptionButton = _get_option_button(dock, &"_view_filter_option")
+	view_filter_option.select(1)
+
+	_call_void(dock, &"_on_view_filter_selected", [1])
+
+	var visible_packages: Array = _call_array(dock, &"_get_visible_packages")
+	var first_visible: Dictionary = _dictionary_at(visible_packages, 0)
+	var selected_package_id: String = GF_VARIANT_ACCESS.to_text(dock.get(&"_selected_package_id"))
+
+	assert_eq(visible_packages.size(), 1, "扩展包视图应只展示 extension 包。")
+	assert_eq(GF_VARIANT_ACCESS.get_option_string(first_visible, "id"), "gf.extension.save", "扩展包视图应暴露 raw extension 包。")
+	assert_eq(selected_package_id, "gf.extension.save", "切换视图后应选中当前视图中的第一个包。")
+
+	dock.free()
+
+
 func test_extension_manager_dock_exposes_strict_reference_export_policy() -> void:
 	var restore: Dictionary = _set_project_setting(
 		GF_EXTENSION_SETTINGS_BASE.EXPORT_FAIL_ON_DISABLED_REFERENCES_SETTING,
@@ -478,6 +659,134 @@ func test_extension_manager_dock_exposes_strict_reference_export_policy() -> voi
 		GF_EXTENSION_SETTINGS_BASE.EXPORT_FAIL_ON_DISABLED_REFERENCES_SETTING,
 		restore
 	)
+
+
+func test_extension_manager_dock_usage_audit_ignores_framework_outputs() -> void:
+	var dock: VBoxContainer = _new_vbox_container(GF_EXTENSION_MANAGER_DOCK)
+	var options: Dictionary = _call_dictionary(dock, &"_make_usage_audit_options")
+	var ignored_roots: Array[String] = GF_VARIANT_ACCESS.get_option_string_array(options, "ignored_roots")
+
+	assert_true(ignored_roots.has("res://ai_analysis"), "扩展管理面板不应把 AI 工作区算作项目引用风险。")
+	assert_true(ignored_roots.has("res://site"), "扩展管理面板不应把生成站点算作项目引用风险。")
+	assert_true(ignored_roots.has("res://tests/gf_core"), "扩展管理面板不应把 GF 框架测试算作用户项目引用风险。")
+	assert_false(ignored_roots.has("res://tests"), "扩展管理面板不应泛化屏蔽用户项目测试目录。")
+	assert_eq(GF_VARIANT_ACCESS.get_option_int(options, "max_references_per_extension"), 20, "面板引用风险预览应保持有限输出。")
+
+	dock.free()
+
+
+func test_extension_manager_dock_writes_setup_policy_to_project_settings() -> void:
+	var enabled_restore: Dictionary = _set_project_setting(
+		GF_EXTENSION_SETTINGS_BASE.ENABLED_EXTENSIONS_SETTING,
+		["gf.save"]
+	)
+	var auto_install_restore: Dictionary = _set_project_setting(
+		GF_EXTENSION_SETTINGS_BASE.AUTO_INSTALL_ENABLED_INSTALLERS_SETTING,
+		true
+	)
+	var export_exclude_restore: Dictionary = _set_project_setting(
+		GF_EXTENSION_SETTINGS_BASE.EXPORT_EXCLUDE_DISABLED_SETTING,
+		true
+	)
+	var export_fail_restore: Dictionary = _set_project_setting(
+		GF_EXTENSION_SETTINGS_BASE.EXPORT_FAIL_ON_DISABLED_REFERENCES_SETTING,
+		true
+	)
+	var dock: VBoxContainer = _new_vbox_container(GF_EXTENSION_MANAGER_DOCK)
+	_call_void(dock, &"_refresh_extensions")
+
+	var auto_install_check: CheckBox = _get_check_box(dock, &"_auto_install_check")
+	var export_exclude_check: CheckBox = _get_check_box(dock, &"_export_exclude_check")
+	var export_fail_check: CheckBox = _get_check_box(dock, &"_export_fail_check")
+	assert_true(auto_install_check.button_pressed, "扩展 setup 面板应读取 Installer 自动装配设置。")
+	assert_true(export_exclude_check.button_pressed, "扩展 setup 面板应读取导出排除设置。")
+	assert_true(export_fail_check.button_pressed, "扩展 setup 面板应读取禁用引用失败设置。")
+
+	_call_void(dock, &"_set_all_enabled", [false])
+	auto_install_check.button_pressed = false
+	export_exclude_check.button_pressed = false
+	export_fail_check.button_pressed = false
+	_call_void(dock, &"_write_selection_to_project_settings")
+
+	var stored_enabled_ids: Array[String] = GF_EXTENSION_SETTINGS_BASE.get_enabled_extension_ids()
+	var stored_auto_install: bool = GF_EXTENSION_SETTINGS_BASE.should_auto_install_enabled_installers()
+	var stored_export_exclude: bool = GF_EXTENSION_SETTINGS_BASE.should_export_exclude_disabled_extensions()
+	var stored_export_fail: bool = GF_EXTENSION_SETTINGS_BASE.should_fail_export_on_disabled_extension_references()
+
+	dock.free()
+	_restore_project_setting(GF_EXTENSION_SETTINGS_BASE.EXPORT_FAIL_ON_DISABLED_REFERENCES_SETTING, export_fail_restore)
+	_restore_project_setting(GF_EXTENSION_SETTINGS_BASE.EXPORT_EXCLUDE_DISABLED_SETTING, export_exclude_restore)
+	_restore_project_setting(GF_EXTENSION_SETTINGS_BASE.AUTO_INSTALL_ENABLED_INSTALLERS_SETTING, auto_install_restore)
+	_restore_project_setting(GF_EXTENSION_SETTINGS_BASE.ENABLED_EXTENSIONS_SETTING, enabled_restore)
+
+	assert_eq(stored_enabled_ids, [], "扩展 setup 面板应把当前勾选状态写入启用扩展设置。")
+	assert_false(stored_auto_install, "扩展 setup 面板应保存 Installer 自动装配策略。")
+	assert_false(stored_export_exclude, "扩展 setup 面板应保存导出排除策略。")
+	assert_false(stored_export_fail, "扩展 setup 面板应保存禁用引用失败策略。")
+
+
+func test_extension_manager_dock_exposes_extension_presets() -> void:
+	var dock: VBoxContainer = _new_vbox_container(GF_EXTENSION_MANAGER_DOCK)
+	_call_void(dock, &"_refresh_extensions")
+	var preset_option: OptionButton = _get_option_button(dock, &"_preset_option")
+	assert_not_null(preset_option, "扩展管理面板应暴露 preset 选择器。")
+
+	var preset_labels: PackedStringArray = PackedStringArray()
+	for index: int in range(preset_option.item_count):
+		var _append_result: bool = preset_labels.append(preset_option.get_item_text(index))
+
+	var applied: bool = _call_bool(dock, &"_apply_extension_preset_by_id", [&"gf.none"])
+	var selected_ids: Array = _call_array(dock, &"_get_selected_enabled_ids")
+
+	assert_true(preset_labels.has("默认选择"), "扩展管理面板应提供动态默认选择 preset。")
+	assert_true(preset_labels.has("全部关闭"), "扩展管理面板应提供全部关闭 preset。")
+	assert_true(preset_labels.has("全部扩展"), "扩展管理面板应提供全部扩展 preset。")
+	assert_true(applied, "扩展管理面板应能应用 preset 到当前勾选状态。")
+	assert_true(selected_ids.is_empty(), "全部关闭 preset 应清空当前扩展选择。")
+
+	dock.free()
+
+
+func test_extension_manager_dock_manages_project_preset_file_paths() -> void:
+	var preset_path: String = "res://tests/gf_core/kernel/editor/tmp_project_tools_preset.json"
+	_remove_path_if_exists(preset_path)
+	_write_text_file(preset_path, JSON.stringify({
+		"id": "project.tools",
+		"display_name": "Project Tools",
+		"description": "Project preset from editor dock.",
+		"extension_ids": ["gf.save"],
+	}))
+	var restore: Dictionary = _set_project_setting(
+		GF_EXTENSION_SETTINGS_BASE.EXTENSION_PRESET_PATHS_SETTING,
+		[]
+	)
+	var dock: VBoxContainer = _new_vbox_container(GF_EXTENSION_MANAGER_DOCK)
+	_call_void(dock, &"_refresh_extensions")
+	_call_void(dock, &"_ensure_preset_file_dialog")
+
+	var added: bool = _call_bool(dock, &"_add_extension_preset_path", [preset_path.replace("/", "\\")])
+	var paths_after_add: Array[String] = GF_EXTENSION_SETTINGS_BASE.get_extension_preset_paths()
+	var preset_option: OptionButton = _get_option_button(dock, &"_preset_option")
+	var selected: bool = _select_option_by_text(preset_option, "Project Tools")
+	var removed: bool = _call_bool(dock, &"_remove_selected_preset_path")
+	var paths_after_remove: Array[String] = GF_EXTENSION_SETTINGS_BASE.get_extension_preset_paths()
+	var preset_file_dialog: FileDialog = _get_file_dialog(dock, &"_preset_file_dialog")
+	var preset_file_dialog_mode: int = preset_file_dialog.file_mode
+	var preset_file_dialog_access: int = preset_file_dialog.access
+	var has_json_filter: bool = preset_file_dialog.filters.has("*.json ; JSON 文件")
+
+	dock.free()
+	_restore_project_setting(GF_EXTENSION_SETTINGS_BASE.EXTENSION_PRESET_PATHS_SETTING, restore)
+	_remove_path_if_exists(preset_path)
+
+	assert_true(added, "扩展管理面板应能把项目 preset JSON 路径加入 ProjectSettings。")
+	assert_eq(paths_after_add, [preset_path], "扩展管理面板应按规范化 res:// 路径保存 preset JSON。")
+	assert_true(selected, "新增项目 preset 应出现在扩展组合下拉框中。")
+	assert_true(removed, "扩展管理面板应能移除当前项目 preset JSON 路径。")
+	assert_eq(paths_after_remove, [], "移除项目 preset 后 ProjectSettings 路径列表应为空。")
+	assert_eq(preset_file_dialog_mode, FileDialog.FILE_MODE_OPEN_FILE, "preset 文件选择器应只打开已有 JSON。")
+	assert_eq(preset_file_dialog_access, FileDialog.ACCESS_RESOURCES, "preset 文件选择器应限制在 res:// 资源路径。")
+	assert_true(has_json_filter, "preset 文件选择器应只提示 JSON 文件。")
 
 
 func test_extension_manager_dock_clears_rows_immediately() -> void:
@@ -538,6 +847,22 @@ func _restore_project_setting(setting_name: String, restore: Dictionary) -> void
 		ProjectSettings.set_setting(setting_name, GF_VARIANT_ACCESS.get_option_value(restore, "value", null))
 	else:
 		ProjectSettings.clear(setting_name)
+
+
+func _write_text_file(path: String, text: String) -> void:
+	var write_path: String = ProjectSettings.globalize_path(path) if path.begins_with("res://") else path
+	var file: FileAccess = FileAccess.open(write_path, FileAccess.WRITE)
+	assert_not_null(file, "测试应能创建临时文本文件。")
+	if file == null:
+		return
+	var _store_string_result: Variant = file.store_string(text)
+	file.close()
+
+
+func _remove_path_if_exists(path: String) -> void:
+	var absolute_path: String = ProjectSettings.globalize_path(path)
+	if FileAccess.file_exists(absolute_path) or DirAccess.dir_exists_absolute(absolute_path):
+		var _remove_absolute_result: Variant = DirAccess.remove_absolute(absolute_path)
 
 
 func _new_object(script: Variant) -> Object:
@@ -637,6 +962,40 @@ func _dictionary_at(values: Array, index: int) -> Dictionary:
 	return GF_VARIANT_ACCESS.as_dictionary(value)
 
 
+func _make_package_manager_entry(package_id: String, kind: String) -> Dictionary:
+	return {
+		"id": package_id,
+		"kind": kind,
+		"version": "unreleased",
+		"display_name": package_id,
+		"description": "Package manager test fixture.",
+		"dependencies": [],
+		"packages": [],
+		"paths": [],
+		"installed": false,
+		"reason": [],
+		"required_by": [],
+		"install_preview": {
+			"ok": true,
+			"install_order": [package_id],
+			"to_install": [package_id],
+			"to_update": [],
+		},
+		"uninstall_preview": {},
+	}
+
+
+func _select_option_by_text(option_button: OptionButton, text: String) -> bool:
+	if option_button == null:
+		return false
+
+	for index: int in range(option_button.item_count):
+		if option_button.get_item_text(index) == text:
+			option_button.select(index)
+			return true
+	return false
+
+
 func _get_tab_container(target: Object, property_name: StringName) -> TabContainer:
 	return _as_tab_container(target.get(property_name))
 
@@ -653,8 +1012,16 @@ func _get_check_box(target: Object, property_name: StringName) -> CheckBox:
 	return _as_check_box(target.get(property_name))
 
 
+func _get_option_button(target: Object, property_name: StringName) -> OptionButton:
+	return _as_option_button(target.get(property_name))
+
+
 func _get_vbox_container(target: Object, property_name: StringName) -> VBoxContainer:
 	return _as_vbox_container(target.get(property_name))
+
+
+func _get_file_dialog(target: Object, property_name: StringName) -> FileDialog:
+	return _as_file_dialog(target.get(property_name))
 
 
 func _as_file_dialog(value: Variant) -> FileDialog:
@@ -729,11 +1096,27 @@ func _as_button(value: Variant) -> Button:
 	return null
 
 
+func _as_line_edit(value: Variant) -> LineEdit:
+	assert_true(value is LineEdit, "测试观察值应为 LineEdit。")
+	if value is LineEdit:
+		var line_edit: LineEdit = value
+		return line_edit
+	return null
+
+
 func _as_check_box(value: Variant) -> CheckBox:
 	assert_true(value is CheckBox, "测试观察值应为 CheckBox。")
 	if value is CheckBox:
 		var check_box: CheckBox = value
 		return check_box
+	return null
+
+
+func _as_option_button(value: Variant) -> OptionButton:
+	assert_true(value is OptionButton, "测试观察值应为 OptionButton。")
+	if value is OptionButton:
+		var option_button: OptionButton = value
+		return option_button
 	return null
 
 

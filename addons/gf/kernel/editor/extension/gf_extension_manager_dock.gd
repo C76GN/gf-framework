@@ -80,6 +80,23 @@ const EXTENSION_VERSION_COLUMN_WIDTH: float = 72.0
 ## @layer kernel/editor
 const STATUS_COLUMN_WIDTH: float = 72.0
 
+## 扩展面板导出风险扫描忽略根目录。
+## [br]
+## @api framework_internal
+## [br]
+## @layer kernel/editor
+const USAGE_AUDIT_IGNORED_ROOTS: Array[String] = [
+	"res://.godot",
+	"res://.git",
+	"res://.gf",
+	"res://addons/gf",
+	"res://ai_analysis",
+	"res://build",
+	"res://packages",
+	"res://site",
+	"res://tests/gf_core",
+]
+
 
 # --- 私有变量 ---
 
@@ -89,6 +106,8 @@ var _status_label: Label
 var _auto_install_check: CheckBox
 var _export_exclude_check: CheckBox
 var _export_fail_check: CheckBox
+var _preset_option: OptionButton
+var _preset_file_dialog: FileDialog
 var _search_field: LineEdit
 var _extension_checks: Dictionary = {}
 var _selection_by_id: Dictionary = {}
@@ -137,10 +156,27 @@ func _build_ui() -> void:
 
 	toolbar.add_child(GFEditorWorkspaceUI.make_button("重新加载", "重新读取所有 gf_extension.json。", _refresh_extensions))
 	toolbar.add_child(GFEditorWorkspaceUI.make_button("扫描引用", "检查当前禁用扩展是否仍被项目文件直接引用。", _scan_disabled_extension_references))
-	toolbar.add_child(GFEditorWorkspaceUI.make_button("恢复默认", "恢复 GF 默认启用扩展。", _restore_default_selection))
+	toolbar.add_child(GFEditorWorkspaceUI.make_button("恢复默认", "恢复 GF 默认扩展选择。", _restore_default_selection))
 	toolbar.add_child(GFEditorWorkspaceUI.make_button("启用全部", "勾选当前发现的所有扩展。", _set_all_enabled.bind(true)))
 	toolbar.add_child(GFEditorWorkspaceUI.make_button("禁用全部", "取消勾选当前发现的所有扩展。", _set_all_enabled.bind(false)))
 	toolbar.add_child(GFEditorWorkspaceUI.make_button("保存设置", "写入 ProjectSettings 并保存 project.godot。", _apply_selection))
+
+	var preset_row: HBoxContainer = GFEditorWorkspaceUI.make_toolbar()
+	add_child(preset_row)
+
+	var preset_label: Label = Label.new()
+	preset_label.text = "扩展组合"
+	preset_label.custom_minimum_size = Vector2(72.0, 0.0)
+	preset_row.add_child(preset_label)
+
+	_preset_option = OptionButton.new()
+	_preset_option.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_preset_option.tooltip_text = "从 GF 内置动态组合或项目 preset JSON 中选择扩展启用组合。"
+	preset_row.add_child(_preset_option)
+
+	preset_row.add_child(GFEditorWorkspaceUI.make_button("应用组合", "把所选组合写入当前勾选状态。", _apply_selected_preset))
+	preset_row.add_child(GFEditorWorkspaceUI.make_button("添加组合文件", "把项目中的 preset JSON 文件加入扩展组合列表。", _open_preset_file_dialog))
+	preset_row.add_child(GFEditorWorkspaceUI.make_button("移除组合文件", "移除当前项目 preset JSON 路径；内置动态组合不会被移除。", _remove_selected_preset_path))
 
 	var option_row: HBoxContainer = GFEditorWorkspaceUI.make_toolbar()
 	add_child(option_row)
@@ -233,6 +269,7 @@ func _refresh_extensions() -> void:
 	_clear_extension_rows()
 
 	_manifests = GFExtensionSettingsBase.get_all_manifests()
+	_refresh_preset_options()
 	var enabled_ids: Array[String] = GFExtensionSettingsBase.resolve_extension_dependencies(
 		GFExtensionSettingsBase.get_enabled_extension_ids(),
 		_manifests
@@ -332,10 +369,7 @@ func _add_extension_row(manifest: GFExtensionManifest, enabled: bool) -> void:
 
 
 func _apply_selection() -> void:
-	GFExtensionSettingsBase.set_enabled_extension_ids(_get_selected_enabled_ids(), true)
-	GFExtensionSettingsBase.set_auto_install_enabled_installers(_auto_install_check.button_pressed)
-	GFExtensionSettingsBase.set_export_exclude_disabled_extensions(_export_exclude_check.button_pressed)
-	GFExtensionSettingsBase.set_fail_export_on_disabled_extension_references(_export_fail_check.button_pressed)
+	_write_selection_to_project_settings()
 	_save_project_settings()
 	_refresh_usage_report()
 	_refresh_extensions()
@@ -343,6 +377,13 @@ func _apply_selection() -> void:
 		_set_status("扩展设置已保存，但发现禁用扩展仍被引用，请检查详情。")
 	else:
 		_set_status("扩展设置已保存。")
+
+
+func _write_selection_to_project_settings() -> void:
+	GFExtensionSettingsBase.set_enabled_extension_ids(_get_selected_enabled_ids(), true)
+	GFExtensionSettingsBase.set_auto_install_enabled_installers(_auto_install_check.button_pressed)
+	GFExtensionSettingsBase.set_export_exclude_disabled_extensions(_export_exclude_check.button_pressed)
+	GFExtensionSettingsBase.set_fail_export_on_disabled_extension_references(_export_fail_check.button_pressed)
 
 
 func _set_all_enabled(enabled: bool) -> void:
@@ -360,6 +401,103 @@ func _restore_default_selection() -> void:
 	_refresh_usage_report()
 	_refresh_visible_extension_rows()
 	_set_status("已恢复默认选择，点击“保存设置”后生效。")
+
+
+func _refresh_preset_options() -> void:
+	if _preset_option == null:
+		return
+
+	_preset_option.clear()
+	for preset: GFExtensionPreset in GFExtensionSettingsBase.get_extension_presets():
+		var item_index: int = _preset_option.item_count
+		_preset_option.add_item(preset.display_name)
+		_preset_option.set_item_metadata(item_index, String(preset.id))
+		_preset_option.set_item_tooltip(item_index, preset.description)
+	_preset_option.disabled = _preset_option.item_count == 0
+
+
+func _apply_selected_preset() -> void:
+	var preset_id: StringName = _get_selected_preset_id()
+	if preset_id == &"":
+		_set_status("没有可应用的扩展组合。")
+		return
+
+	var _applied: bool = _apply_extension_preset_by_id(preset_id)
+
+
+func _open_preset_file_dialog() -> void:
+	_ensure_preset_file_dialog()
+	if _preset_file_dialog == null:
+		_set_status("无法打开扩展组合文件选择器。")
+		return
+
+	_preset_file_dialog.popup_centered_ratio(0.5)
+
+
+func _ensure_preset_file_dialog() -> void:
+	if _preset_file_dialog != null and is_instance_valid(_preset_file_dialog):
+		return
+
+	_preset_file_dialog = FileDialog.new()
+	_preset_file_dialog.title = "选择 GF 扩展组合 JSON"
+	_preset_file_dialog.file_mode = FileDialog.FILE_MODE_OPEN_FILE
+	_preset_file_dialog.access = FileDialog.ACCESS_RESOURCES
+	_preset_file_dialog.filters = PackedStringArray(["*.json ; JSON 文件"])
+	add_child(_preset_file_dialog)
+	_connect_signal_checked(_preset_file_dialog.file_selected, _on_preset_file_selected)
+
+
+func _on_preset_file_selected(path: String) -> void:
+	var _added: bool = _add_extension_preset_path(path)
+
+
+func _add_extension_preset_path(path: String) -> bool:
+	if not GFExtensionSettingsBase.add_extension_preset_path(path):
+		_set_status("扩展组合文件无效或已存在。")
+		return false
+
+	_refresh_preset_options()
+	_set_status("已添加扩展组合文件，点击“保存设置”后生效。")
+	return true
+
+
+func _remove_selected_preset_path() -> bool:
+	var preset_id: StringName = _get_selected_preset_id()
+	if preset_id == &"":
+		_set_status("没有可移除的扩展组合。")
+		return false
+
+	var preset: GFExtensionPreset = GFExtensionSettingsBase.get_extension_preset_by_id(preset_id)
+	if preset == null or preset.source_path.is_empty():
+		_set_status("内置动态扩展组合不能移除。")
+		return false
+
+	if not GFExtensionSettingsBase.remove_extension_preset_path(preset.source_path):
+		_set_status("扩展组合文件路径不存在。")
+		return false
+
+	_refresh_preset_options()
+	_set_status("已移除扩展组合文件，点击“保存设置”后生效。")
+	return true
+
+
+func _apply_extension_preset_by_id(preset_id: StringName) -> bool:
+	var preset: GFExtensionPreset = GFExtensionSettingsBase.get_extension_preset_by_id(preset_id)
+	if preset == null:
+		_set_status("扩展组合不存在或未通过校验。")
+		return false
+
+	var enabled_ids: Array[String] = GFExtensionSettingsBase.resolve_extension_dependencies(
+		preset.extension_ids,
+		_manifests
+	)
+	for manifest: GFExtensionManifest in _manifests:
+		_selection_by_id[manifest.id] = enabled_ids.has(manifest.id)
+	_refresh_usage_report()
+	_refresh_visible_extension_rows()
+	_refresh_selected_manifest_details()
+	_set_status("已应用扩展组合“%s”，点击“保存设置”后生效。" % preset.display_name)
+	return true
 
 
 func _show_manifest_details(manifest: GFExtensionManifest) -> void:
@@ -438,6 +576,14 @@ func _get_selected_enabled_ids() -> Array[String]:
 	return ids
 
 
+func _get_selected_preset_id() -> StringName:
+	if _preset_option == null or _preset_option.item_count == 0 or _preset_option.selected < 0:
+		return &""
+
+	var raw_id: Variant = _preset_option.get_item_metadata(_preset_option.selected)
+	return StringName(_GF_VARIANT_ACCESS_SCRIPT.to_text(raw_id))
+
+
 func _get_disabled_manifests_from_selection() -> Array[GFExtensionManifest]:
 	var manifests: Array[GFExtensionManifest] = []
 	for manifest: GFExtensionManifest in _manifests:
@@ -446,12 +592,17 @@ func _get_disabled_manifests_from_selection() -> Array[GFExtensionManifest]:
 	return manifests
 
 
+func _make_usage_audit_options() -> Dictionary:
+	return {
+		"ignored_roots": USAGE_AUDIT_IGNORED_ROOTS,
+		"max_references_per_extension": 20,
+	}
+
+
 func _refresh_usage_report() -> void:
 	_usage_report = GFExtensionUsageAuditBase.audit_disabled_extensions(
 		_get_disabled_manifests_from_selection(),
-		{
-			"max_references_per_extension": 20,
-		}
+		_make_usage_audit_options()
 	)
 
 
@@ -544,12 +695,18 @@ func _set_status(message: String) -> void:
 
 func _scan_disabled_extension_references() -> void:
 	_refresh_usage_report()
-	if not _selected_manifest_id.is_empty():
-		for manifest: GFExtensionManifest in _manifests:
-			if manifest.id == _selected_manifest_id:
-				_show_manifest_details(manifest)
-				break
+	_refresh_selected_manifest_details()
 	_set_selection_status()
+
+
+func _refresh_selected_manifest_details() -> void:
+	if _selected_manifest_id.is_empty():
+		return
+
+	for manifest: GFExtensionManifest in _manifests:
+		if manifest.id == _selected_manifest_id:
+			_show_manifest_details(manifest)
+			return
 
 
 func _on_search_changed(_new_text: String) -> void:

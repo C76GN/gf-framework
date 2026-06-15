@@ -132,13 +132,15 @@ func test_list_slots_returns_valid_slots_sorted_with_metadata() -> void:
 	assert_eq(_storage._write_json(_storage._get_meta_filename(8), {"name": "orphan"}), OK, "应能构造孤立 metadata。")
 
 	var slots: Array[Dictionary] = _storage.list_slots()
-	var first_metadata: Dictionary = GFVariantData.get_option_dictionary(slots[0], "metadata")
+	var first_slot: Dictionary = slots[0]
+	var second_slot: Dictionary = slots[1]
+	var first_metadata: Dictionary = GFVariantData.get_option_dictionary(first_slot, "metadata")
 
 	assert_eq(slots.size(), 2, "只应枚举同时存在数据与元数据的有效槽位。")
-	assert_eq(GFVariantData.get_option_int(slots[0], "slot_id"), 2, "槽位应按 ID 升序。")
-	assert_eq(GFVariantData.get_option_int(slots[1], "slot_id"), 7, "槽位应按 ID 升序。")
+	assert_eq(GFVariantData.get_option_int(first_slot, "slot_id"), 2, "槽位应按 ID 升序。")
+	assert_eq(GFVariantData.get_option_int(second_slot, "slot_id"), 7, "槽位应按 ID 升序。")
 	assert_eq(GFVariantData.get_option_string(first_metadata, "name"), "two", "应包含槽位元数据。")
-	assert_true(GFVariantData.get_option_int(slots[0], "modified_time") > 0, "应包含 metadata 修改时间。")
+	assert_true(GFVariantData.get_option_int(first_slot, "modified_time") > 0, "应包含 metadata 修改时间。")
 
 
 func test_has_slot_requires_data_and_metadata_files() -> void:

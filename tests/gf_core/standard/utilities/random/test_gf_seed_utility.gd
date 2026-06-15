@@ -1,6 +1,9 @@
 extends GutTest
 
 
+const GF_DETERMINISTIC_RANDOM = preload("res://addons/gf/standard/foundation/deterministic/gf_deterministic_random.gd")
+
+
 var _seed_util: GFSeedUtility
 
 
@@ -79,6 +82,40 @@ func test_get_branched_rng_does_not_advance_main_rng() -> void:
 	assert_eq(_seed_util.get_state(), state_before, "派生子 RNG 不应推进主随机序列状态。")
 
 
+func test_get_branched_deterministic_random_determinism() -> void:
+	_seed_util.set_global_seed(12345)
+	var rng1: GF_DETERMINISTIC_RANDOM = _seed_util.get_branched_deterministic_random("module_a")
+	var val1: int = rng1.next_u32()
+
+	_seed_util.set_global_seed(12345)
+	var rng2: GF_DETERMINISTIC_RANDOM = _seed_util.get_branched_deterministic_random("module_a")
+	var val2: int = rng2.next_u32()
+
+	assert_eq(rng1.get_initial_seed(), rng2.get_initial_seed(), "相同主状态和标签应派生相同 deterministic 种子。")
+	assert_eq(val1, val2, "相同主状态和标签应派生相同 deterministic 序列。")
+
+
+func test_deterministic_branch_counter_is_separate_from_godot_branch_counter() -> void:
+	_seed_util.set_global_seed(24680)
+	var first_godot_rng: RandomNumberGenerator = _seed_util.get_branched_rng("loot")
+	var deterministic_rng: GF_DETERMINISTIC_RANDOM = _seed_util.get_branched_deterministic_random("loot")
+	var second_godot_rng: RandomNumberGenerator = _seed_util.get_branched_rng("loot")
+	var deterministic_value: int = deterministic_rng.next_u32()
+
+	_seed_util.set_global_seed(24680)
+	var expected_first_godot_rng: RandomNumberGenerator = _seed_util.get_branched_rng("loot")
+	var expected_second_godot_rng: RandomNumberGenerator = _seed_util.get_branched_rng("loot")
+
+	_seed_util.set_global_seed(24680)
+	var _godot_rng_result: Variant = _seed_util.get_branched_rng("loot")
+	var expected_deterministic_rng: GF_DETERMINISTIC_RANDOM = _seed_util.get_branched_deterministic_random("loot")
+
+	assert_eq(first_godot_rng.seed, expected_first_godot_rng.seed, "deterministic 分支不应影响第一个 Godot 分支。")
+	assert_eq(second_godot_rng.seed, expected_second_godot_rng.seed, "deterministic 分支不应消耗 Godot 分支计数。")
+	assert_eq(deterministic_rng.get_initial_seed(), expected_deterministic_rng.get_initial_seed(), "Godot 分支不应消耗 deterministic 分支计数。")
+	assert_eq(deterministic_value, expected_deterministic_rng.next_u32(), "分支计数隔离后 deterministic 序列应保持可复现。")
+
+
 func test_full_state_restores_branch_counters() -> void:
 	_seed_util.set_global_seed(13579)
 	var _get_branched_rng_result_84: Variant = _seed_util.get_branched_rng("loot")
@@ -94,18 +131,53 @@ func test_full_state_restores_branch_counters() -> void:
 	assert_eq(restored_rng.randi(), expected_value, "恢复完整状态后，后续子 RNG 序列应保持一致。")
 
 
+func test_full_state_restores_deterministic_branch_counters() -> void:
+	_seed_util.set_global_seed(13579)
+	var _first_deterministic_rng: Variant = _seed_util.get_branched_deterministic_random("loot")
+	var snapshot: Dictionary = _seed_util.get_full_state()
+	var expected_rng: GF_DETERMINISTIC_RANDOM = _seed_util.get_branched_deterministic_random("loot")
+	var expected_seed: int = expected_rng.get_initial_seed()
+	var expected_value: int = expected_rng.next_u32()
+
+	var _extra_deterministic_rng: Variant = _seed_util.get_branched_deterministic_random("loot")
+	_seed_util.set_full_state(snapshot)
+	var restored_rng: GF_DETERMINISTIC_RANDOM = _seed_util.get_branched_deterministic_random("loot")
+
+	assert_eq(restored_rng.get_initial_seed(), expected_seed, "完整状态应恢复 deterministic 分支计数。")
+	assert_eq(restored_rng.next_u32(), expected_value, "恢复完整状态后，deterministic 分支序列应保持一致。")
+
+
+func test_full_state_rejects_future_schema_version_without_mutating_state() -> void:
+	_seed_util.set_global_seed(13579)
+	var snapshot: Dictionary = _seed_util.get_full_state()
+	var original_seed: int = _seed_util.get_global_seed()
+	var original_state: int = _seed_util.get_state()
+	snapshot[&"state_schema_version"] = 99
+	snapshot[&"global_seed"] = "24680"
+	snapshot[&"rng_state"] = "123"
+
+	_seed_util.set_full_state(snapshot)
+
+	assert_push_error("[GFSeedUtility] 不支持的完整随机状态 schema 版本：99。")
+	assert_eq(_seed_util.get_global_seed(), original_seed, "未来 schema 不应覆盖当前主种子。")
+	assert_eq(_seed_util.get_state(), original_state, "未来 schema 不应覆盖当前 RNG 状态。")
+
+
 func test_full_state_uses_json_safe_text_numbers() -> void:
 	_seed_util.set_global_seed(9_223_372_036_854_775_000)
 	var _get_branched_rng_result_99: Variant = _seed_util.get_branched_rng("loot")
+	var _deterministic_rng_result: Variant = _seed_util.get_branched_deterministic_random("loot")
 
 	var snapshot: Dictionary = _seed_util.get_full_state()
 	var branch_counters: Dictionary = GFVariantData.get_option_dictionary(snapshot, &"branch_counters")
+	var deterministic_branch_counters: Dictionary = GFVariantData.get_option_dictionary(snapshot, &"deterministic_branch_counters")
 
-	assert_eq(GFVariantData.get_option_int(snapshot, &"state_schema_version"), 2, "完整状态 schema 应标记当前版本。")
+	assert_eq(GFVariantData.get_option_int(snapshot, &"state_schema_version"), 3, "完整状态 schema 应标记当前版本。")
 	assert_false(snapshot.has(&"version"), "完整状态不应使用含义模糊的 version 字段。")
 	assert_eq(typeof(GFVariantData.get_option_value(snapshot, &"global_seed")), TYPE_STRING, "主种子应以文本保存，避免 JSON 精度丢失。")
 	assert_eq(typeof(GFVariantData.get_option_value(snapshot, &"rng_state")), TYPE_STRING, "RNG 状态应以文本保存，避免 JSON 精度丢失。")
 	assert_eq(typeof(GFVariantData.get_option_value(branch_counters, "loot")), TYPE_STRING, "分支计数应以文本保存，保证完整状态全量 JSON 安全。")
+	assert_eq(typeof(GFVariantData.get_option_value(deterministic_branch_counters, "loot")), TYPE_STRING, "deterministic 分支计数应以文本保存，保证完整状态全量 JSON 安全。")
 	assert_false(snapshot.has(&"rng_state_text"), "完整状态不应输出重复的兼容字段。")
 
 

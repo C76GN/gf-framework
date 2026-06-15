@@ -5,6 +5,7 @@ extends GutTest
 # --- 常量 ---
 
 const GF_EXTENSION_EXPORT_PLUGIN_BASE = preload("res://addons/gf/kernel/editor/extension/gf_extension_export_plugin.gd")
+const GF_EXTENSION_PRESET_BASE = preload("res://addons/gf/kernel/extension/gf_extension_preset.gd")
 const GF_VARIANT_ACCESS = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
 const EXTENSION_ROOT: String = "res://addons/gf/extensions"
 const EXTENSION_ALLOWED_DEPENDENCIES: Array[String] = [
@@ -75,7 +76,7 @@ func test_manifest_from_dictionary_normalizes_fields() -> void:
 	assert_eq(GF_VARIANT_ACCESS.get_option_array(dictionary, "gltf_document_extension_paths").size(), 1, "manifest 字典应保留 glTF 文档扩展路径。")
 
 
-func test_extension_manifest_defaults_to_enabled() -> void:
+func test_extension_manifest_defaults_to_disabled_for_optional_extensions() -> void:
 	var manifest: GFExtensionManifest = GFExtensionManifest.from_dictionary({
 		"id": "gf.example",
 		"display_name": "GF Example",
@@ -84,7 +85,19 @@ func test_extension_manifest_defaults_to_enabled() -> void:
 		"kind": "extension",
 	}, "res://addons/gf/extensions/example", "res://addons/gf/extensions/example/gf_extension.json")
 
-	assert_true(manifest.enabled_by_default, "GF 扩展默认应随 GF 启用。")
+	assert_false(manifest.enabled_by_default, "可选扩展未显式声明时不应默认启用。")
+
+
+func test_standard_manifest_defaults_to_enabled() -> void:
+	var manifest: GFExtensionManifest = GFExtensionManifest.from_dictionary({
+		"id": "gf.standard",
+		"display_name": "GF Standard",
+		"version": "3.0.0",
+		"extension_version": "1.0.0",
+		"kind": "standard",
+	}, "res://addons/gf/standard", "res://addons/gf/standard/gf_extension.json")
+
+	assert_true(manifest.enabled_by_default, "standard 能力未显式声明时可作为基础能力默认启用。")
 
 
 func test_manifest_validation_reports_required_fields() -> void:
@@ -108,6 +121,53 @@ func test_manifest_validation_reports_required_fields() -> void:
 		invalid_kind_errors.has("kind must be standard or extension"),
 		"未知 kind 应报告错误。"
 	)
+
+
+func test_manifest_validation_rejects_unsupported_relation_fields() -> void:
+	var manifest: GFExtensionManifest = GFExtensionManifest.from_dictionary({
+		"id": "author.feature",
+		"display_name": "Feature",
+		"version": "1.0.0",
+		"kind": "extension",
+		"optional_dependencies": ["author.other"],
+		"preset": "project.rpg",
+		"load_after": ["author.base"],
+		"custom_field": true,
+	}, "res://addons/author_feature", "")
+	var errors: Array[String] = manifest.get_validation_errors()
+
+	assert_false(manifest.is_valid(), "manifest 不能静默吞掉软依赖、组合或未知字段。")
+	assert_true(
+		errors.has("unsupported manifest relation field: optional_dependencies"),
+		"optional_dependencies 会制造软依赖，应在 runtime 校验中被拒绝。"
+	)
+	assert_true(
+		errors.has("unsupported manifest relation field: preset"),
+		"preset 组合属于项目 preset/安装向导，不属于单个 manifest。"
+	)
+	assert_true(
+		errors.has("unsupported manifest relation field: load_after"),
+		"load_after 会制造隐式顺序关系，应被拒绝。"
+	)
+	assert_true(
+		errors.has("unsupported manifest field: custom_field"),
+		"未知字段不应被基础 manifest 校验静默忽略。"
+	)
+
+
+func test_manifest_rejects_legacy_name_and_summary_aliases() -> void:
+	var manifest: GFExtensionManifest = GFExtensionManifest.from_dictionary({
+		"id": "author.legacy",
+		"name": "Legacy Name",
+		"version": "1.0.0",
+		"kind": "extension",
+		"summary": "Legacy summary.",
+	}, "res://addons/author_legacy", "")
+	var errors: Array[String] = manifest.get_validation_errors()
+
+	assert_false(manifest.is_valid(), "manifest 应只接受 display_name / description 规范字段。")
+	assert_true(errors.has("unsupported manifest field: name"), "name 旧字段应被拒绝。")
+	assert_true(errors.has("unsupported manifest field: summary"), "summary 旧字段应被拒绝。")
 
 
 func test_manifest_validation_keeps_empty_paths_after_path_normalization() -> void:
@@ -171,6 +231,85 @@ func test_manifest_validation_rejects_parent_directory_escape_paths() -> void:
 	)
 
 
+func test_extension_preset_from_dictionary_normalizes_fields() -> void:
+	var preset: Object = GF_EXTENSION_PRESET_BASE.from_dictionary({
+		"id": " project.rpg ",
+		"display_name": " RPG Tools ",
+		"description": " Save and dialogue setup. ",
+		"extension_ids": [" gf.save ", &"gf.dialogue", "gf.save", ""],
+		"tags": [" rpg ", "tools", "rpg", ""],
+	}, " res://config\\gf_rpg_preset.json ")
+	var dictionary: Dictionary = GF_VARIANT_ACCESS.as_dictionary(preset.call("to_dictionary"))
+
+	assert_true(GF_VARIANT_ACCESS.to_bool(preset.call("is_valid")), "完整 preset 应通过基础校验。")
+	assert_eq(GF_VARIANT_ACCESS.to_string_name(preset.get("id")), &"project.rpg", "preset ID 应裁剪空白并转换为 StringName。")
+	assert_eq(GF_VARIANT_ACCESS.to_text(preset.get("display_name")), "RPG Tools", "preset 显示名应裁剪空白。")
+	assert_eq(GF_VARIANT_ACCESS.to_text(preset.get("description")), "Save and dialogue setup.", "preset 说明应裁剪空白。")
+	assert_eq(GF_VARIANT_ACCESS.to_string_array(preset.get("extension_ids")), ["gf.save", "gf.dialogue"], "preset 扩展 ID 应去空去重并保持首次出现顺序。")
+	assert_eq(GF_VARIANT_ACCESS.to_string_array(preset.get("tags")), ["rpg", "tools"], "preset 标签应去空去重。")
+	assert_eq(GF_VARIANT_ACCESS.to_text(preset.get("source_path")), "res://config/gf_rpg_preset.json", "preset 来源路径应规范化。")
+	assert_eq(GF_VARIANT_ACCESS.get_option_string(dictionary, "id"), "project.rpg", "preset 字典应保留 ID。")
+	assert_eq(GF_VARIANT_ACCESS.get_option_array(dictionary, "extension_ids").size(), 2, "preset 字典应保留扩展 ID。")
+	assert_false(dictionary.has("source_path"), "preset 输出字典应保持项目 preset JSON 白名单形状。")
+
+
+func test_extension_preset_validation_reports_required_fields() -> void:
+	var preset: Object = GF_EXTENSION_PRESET_BASE.from_dictionary({})
+	var errors: Array[String] = GF_VARIANT_ACCESS.to_string_array(preset.call("get_validation_errors"))
+
+	assert_true(errors.has("id is required"), "缺少 id 应报告错误。")
+	assert_true(errors.has("display_name is required"), "缺少 display_name 应报告错误。")
+
+
+func test_extension_preset_validation_rejects_unsupported_boundary_fields() -> void:
+	var preset: Object = GF_EXTENSION_PRESET_BASE.from_dictionary({
+		"id": "project.rpg",
+		"display_name": "RPG Tools",
+		"extension_ids": ["gf.save"],
+		"optional_dependencies": ["gf.dialogue"],
+		"download_url": "https://example.invalid/package.zip",
+		"installer_paths": ["res://addons/project_rpg/install.gd"],
+		"custom_field": true,
+	})
+	var errors: Array[String] = GF_VARIANT_ACCESS.to_string_array(preset.call("get_validation_errors"))
+
+	assert_false(
+		GF_VARIANT_ACCESS.to_bool(preset.call("is_valid")),
+		"preset 不能静默吞掉软依赖、下载包或未知字段。"
+	)
+	assert_true(
+		errors.has("unsupported preset relation field: optional_dependencies"),
+		"optional_dependencies 会让 preset 变成软依赖图，应在 runtime 校验中被拒绝。"
+	)
+	assert_true(
+		errors.has("unsupported preset package field: download_url"),
+		"download_url 属于外部下载器或包插件，不属于 GFExtensionPreset。"
+	)
+	assert_true(
+		errors.has("unsupported preset package field: installer_paths"),
+		"installer_paths 属于 manifest 装配入口，不应由启用组合覆盖。"
+	)
+	assert_true(
+		errors.has("unsupported preset field: custom_field"),
+		"未知字段不应被基础 preset 校验静默忽略。"
+	)
+
+
+func test_extension_preset_rejects_legacy_aliases() -> void:
+	var preset: Object = GF_EXTENSION_PRESET_BASE.from_dictionary({
+		"id": "project.legacy",
+		"name": "Legacy Preset",
+		"summary": "Legacy summary.",
+		"extensions": ["gf.save", "gf.dialogue"],
+	})
+	var errors: Array[String] = GF_VARIANT_ACCESS.to_string_array(preset.call("get_validation_errors"))
+
+	assert_false(GF_VARIANT_ACCESS.to_bool(preset.call("is_valid")), "preset 应只接受 display_name / description / extension_ids 规范字段。")
+	assert_true(errors.has("unsupported preset field: name"), "name 旧字段应被拒绝。")
+	assert_true(errors.has("unsupported preset field: summary"), "summary 旧字段应被拒绝。")
+	assert_true(errors.has("unsupported preset field: extensions"), "extensions 旧字段应被拒绝。")
+
+
 func test_catalog_loads_extension_manifests() -> void:
 	var manifests: Array[GFExtensionManifest] = GFExtensionCatalog.load_extension_manifests()
 	var ids: Array[String] = []
@@ -222,6 +361,157 @@ func test_extension_settings_loads_external_extension_roots_from_project_setting
 	assert_not_null(manifest, "ProjectSettings 声明的额外扩展根目录应参与 manifest 发现。")
 	assert_eq(manifest.root_path, extension_dir, "外部 manifest root_path 应指向扩展自身目录。")
 	assert_eq(external_roots, [root_path], "启用状态诊断应暴露当前额外扩展根目录。")
+
+
+func test_extension_settings_loads_project_extension_presets_from_project_settings() -> void:
+	var directory: String = "res://tests/gf_core/tmp_extension_presets"
+	var preset_path: String = directory.path_join("rpg.json")
+	var invalid_preset_path: String = directory.path_join("download.json")
+	_remove_path_if_exists(preset_path)
+	_remove_path_if_exists(invalid_preset_path)
+	_remove_path_if_exists(directory)
+	var _make_dir_result: Variant = DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(directory))
+	_write_text_file(preset_path, JSON.stringify({
+		"id": "project.rpg",
+		"display_name": "RPG Tools",
+		"description": "Project preset.",
+		"extension_ids": ["gf.save", "gf.dialogue"],
+	}))
+	_write_text_file(invalid_preset_path, JSON.stringify({
+		"id": "project.download",
+		"display_name": "Download Preset",
+		"extension_ids": ["gf.save"],
+		"download_url": "https://example.invalid/package.zip",
+	}))
+	var restore: Dictionary = _set_project_setting(
+		GFExtensionSettings.EXTENSION_PRESET_PATHS_SETTING,
+		[preset_path, invalid_preset_path, preset_path.replace("/", "\\"), "user://ignored.json", "res://ignored.txt"]
+	)
+
+	var paths: Array[String] = GFExtensionSettings.get_extension_preset_paths()
+	var presets: Array = GFExtensionSettings.get_extension_presets()
+	var preset_ids: Array[StringName] = []
+	for preset_value: Variant in presets:
+		if not (preset_value is Object):
+			continue
+		var preset: Object = preset_value
+		preset_ids.append(GF_VARIANT_ACCESS.to_string_name(preset.get("id")))
+
+	_restore_project_setting(GFExtensionSettings.EXTENSION_PRESET_PATHS_SETTING, restore)
+	_remove_path_if_exists(preset_path)
+	_remove_path_if_exists(invalid_preset_path)
+	_remove_path_if_exists(directory)
+
+	assert_eq(paths, [preset_path, invalid_preset_path], "preset 路径应去重并只保留 res:// JSON 文件。")
+	assert_true(preset_ids.has(&"gf.default"), "GF 应提供动态默认选择 preset。")
+	assert_true(preset_ids.has(&"gf.none"), "GF 应提供全部关闭 preset。")
+	assert_true(preset_ids.has(&"gf.all"), "GF 应提供全部扩展 preset。")
+	assert_true(preset_ids.has(&"project.rpg"), "ProjectSettings 声明的 preset JSON 应被加载。")
+	assert_false(
+		preset_ids.has(&"project.download"),
+		"包含下载包字段的 preset JSON 应被视为无效并跳过。"
+	)
+
+
+func test_extension_settings_apply_extension_preset_resolves_dependencies() -> void:
+	var directory: String = "res://tests/gf_core/tmp_extension_presets"
+	var preset_path: String = directory.path_join("feature.json")
+	_remove_path_if_exists(preset_path)
+	_remove_path_if_exists(directory)
+	var _make_dir_result: Variant = DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(directory))
+	_write_text_file(preset_path, JSON.stringify({
+		"id": "project.feature",
+		"display_name": "Feature",
+		"extension_ids": ["author.feature"],
+	}))
+	var base_manifest: GFExtensionManifest = GFExtensionManifest.from_dictionary({
+		"id": "author.base",
+		"display_name": "Base",
+		"version": "1.0.0",
+		"kind": "extension",
+	}, "res://addons/author_base", "")
+	var feature_manifest: GFExtensionManifest = GFExtensionManifest.from_dictionary({
+		"id": "author.feature",
+		"display_name": "Feature",
+		"version": "1.0.0",
+		"kind": "extension",
+		"dependencies": ["author.base"],
+	}, "res://addons/author_feature", "")
+	var enabled_restore: Dictionary = _set_project_setting(
+		GFExtensionSettings.ENABLED_EXTENSIONS_SETTING,
+		[]
+	)
+	var preset_restore: Dictionary = _set_project_setting(
+		GFExtensionSettings.EXTENSION_PRESET_PATHS_SETTING,
+		[preset_path]
+	)
+	GFExtensionSettings.set_cached_manifests([feature_manifest, base_manifest])
+
+	var applied: bool = GFExtensionSettings.apply_extension_preset(&"project.feature", true)
+	var stored_ids: Array[String] = GFExtensionSettings.get_enabled_extension_ids()
+
+	GFExtensionSettings.clear_manifest_cache()
+	_restore_project_setting(GFExtensionSettings.EXTENSION_PRESET_PATHS_SETTING, preset_restore)
+	_restore_project_setting(GFExtensionSettings.ENABLED_EXTENSIONS_SETTING, enabled_restore)
+	_remove_path_if_exists(preset_path)
+	_remove_path_if_exists(directory)
+
+	assert_true(applied, "存在的 preset 应能写入启用设置。")
+	assert_eq(stored_ids, ["author.base", "author.feature"], "应用 preset 时应按 manifest 硬依赖补齐启用 ID。")
+
+
+func test_extension_settings_adds_and_removes_project_preset_paths() -> void:
+	var directory: String = "res://tests/gf_core/tmp_extension_presets_path_api"
+	var first_path: String = directory.path_join("first.json")
+	var second_path: String = directory.path_join("second.json")
+	var invalid_preset_path: String = directory.path_join("invalid.json")
+	_remove_path_if_exists(first_path)
+	_remove_path_if_exists(second_path)
+	_remove_path_if_exists(invalid_preset_path)
+	_remove_path_if_exists(directory)
+	var _make_dir_result: Variant = DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(directory))
+	_write_text_file(first_path, JSON.stringify({
+		"id": "project.first",
+		"display_name": "First",
+		"extension_ids": [],
+	}))
+	_write_text_file(second_path, JSON.stringify({
+		"id": "project.second",
+		"display_name": "Second",
+		"extension_ids": [],
+	}))
+	_write_text_file(invalid_preset_path, JSON.stringify({
+		"display_name": "Invalid",
+		"extension_ids": [],
+	}))
+	var restore: Dictionary = _set_project_setting(
+		GFExtensionSettings.EXTENSION_PRESET_PATHS_SETTING,
+		[first_path.replace("/", "\\")]
+	)
+
+	var duplicate_added: bool = GFExtensionSettings.add_extension_preset_path(first_path)
+	var invalid_added: bool = GFExtensionSettings.add_extension_preset_path("user://ignored.json")
+	var invalid_preset_added: bool = GFExtensionSettings.add_extension_preset_path(invalid_preset_path)
+	var second_added: bool = GFExtensionSettings.add_extension_preset_path(second_path)
+	var paths_after_add: Array[String] = GFExtensionSettings.get_extension_preset_paths()
+	var removed: bool = GFExtensionSettings.remove_extension_preset_path(second_path.replace("/", "\\"))
+	var missing_removed: bool = GFExtensionSettings.remove_extension_preset_path(directory.path_join("missing.txt"))
+	var paths_after_remove: Array[String] = GFExtensionSettings.get_extension_preset_paths()
+
+	_restore_project_setting(GFExtensionSettings.EXTENSION_PRESET_PATHS_SETTING, restore)
+	_remove_path_if_exists(first_path)
+	_remove_path_if_exists(second_path)
+	_remove_path_if_exists(invalid_preset_path)
+	_remove_path_if_exists(directory)
+
+	assert_false(duplicate_added, "重复 preset 路径不应再次写入 ProjectSettings。")
+	assert_false(invalid_added, "非 res:// JSON 路径不应进入 preset 路径列表。")
+	assert_false(invalid_preset_added, "无法解析为有效 GFExtensionPreset 的 JSON 不应通过 add API 写入。")
+	assert_true(second_added, "新的 res:// JSON preset 路径应能写入 ProjectSettings。")
+	assert_eq(paths_after_add, [first_path, second_path], "新增 preset 路径应保留既有顺序并追加到末尾。")
+	assert_true(removed, "存在的 preset 路径应能移除。")
+	assert_false(missing_removed, "无效或不存在的 preset 路径移除应返回 false。")
+	assert_eq(paths_after_remove, [first_path], "移除后应只保留未移除的 preset 路径。")
 
 
 func test_extension_manifest_versions_follow_release_policy() -> void:
@@ -451,7 +741,7 @@ func test_manifest_graph_report_includes_missing_dependencies_and_duplicates() -
 	assert_eq(GF_VARIANT_ACCESS.get_option_string(missing_dependency, "dependency_id"), "author.missing", "缺失依赖 ID 应可用于编辑器提示。")
 
 
-func test_default_enabled_extension_ids_include_bundled_extensions() -> void:
+func test_default_enabled_extension_ids_match_manifest_defaults() -> void:
 	var ids: Array[String] = GFExtensionSettings.get_default_enabled_extension_ids()
 	var expected_ids: Array[String] = []
 	for manifest: GFExtensionManifest in GFExtensionCatalog.load_extension_manifests():
@@ -460,8 +750,7 @@ func test_default_enabled_extension_ids_include_bundled_extensions() -> void:
 	expected_ids.sort()
 
 	assert_eq(ids, expected_ids, "默认启用扩展应与 GF manifest 的 enabled_by_default 保持一致。")
-	assert_true(ids.has("gf.combat"), "combat 扩展应默认启用。")
-	assert_true(ids.has("gf.save"), "save 扩展应默认启用。")
+	assert_true(ids.is_empty(), "GF 内置可选扩展默认应保持关闭，由项目显式选择。")
 
 
 func test_extension_installer_paths_exist_when_declared() -> void:
@@ -573,7 +862,10 @@ func test_extension_settings_can_query_manifest_and_enabled_state() -> void:
 		save_dock_paths.has("res://addons/gf/extensions/save/editor/gf_save_graph_dock.gd"),
 		"Save 扩展的工作区页面路径应由统一查询入口返回。"
 	)
-	assert_true(save_inspector_paths.is_empty(), "Save 扩展未声明 Inspector 时应返回空 Inspector 路径。")
+	assert_true(
+		save_inspector_paths.has("res://addons/gf/extensions/save/editor/gf_persist_properties_inspector_plugin.gd"),
+		"Save 扩展的属性白名单 Inspector 路径应由统一查询入口返回。"
+	)
 	assert_true(save_import_paths.is_empty(), "Save 扩展未声明导入插件时应返回空导入插件路径。")
 	assert_true(save_export_paths.is_empty(), "Save 扩展未声明导出插件时应返回空导出插件路径。")
 	assert_true(save_gltf_document_paths.is_empty(), "Save 扩展未声明 glTF 文档扩展时应返回空 glTF 文档扩展路径。")
@@ -781,26 +1073,78 @@ func test_extensions_do_not_hard_reference_other_extensions() -> void:
 
 func test_extension_export_plugin_matches_disabled_roots() -> void:
 	assert_true(
-		GF_EXTENSION_EXPORT_PLUGIN_BASE._path_is_under(
+		GF_EXTENSION_EXPORT_PLUGIN_BASE._should_skip_export_path(
 			"res://addons/gf/extensions/save/graph/gf_save_graph_utility.gd",
-			"res://addons/gf/extensions/save"
+			["res://addons/gf/extensions/save"]
 		),
 		"禁用扩展根目录下的文件应被导出过滤命中。"
 	)
 	assert_true(
-		GF_EXTENSION_EXPORT_PLUGIN_BASE._path_is_under(
+		GF_EXTENSION_EXPORT_PLUGIN_BASE._should_skip_export_path(
 			"res://addons/gf/extensions/save",
-			"res://addons/gf/extensions/save"
+			["res://addons/gf/extensions/save"]
 		),
 		"禁用扩展根目录本身也应被导出过滤命中。"
 	)
 	assert_false(
-		GF_EXTENSION_EXPORT_PLUGIN_BASE._path_is_under(
+		GF_EXTENSION_EXPORT_PLUGIN_BASE._should_skip_export_path(
 			"res://addons/gf/extensions/save_extra/gf_extension.json",
-			"res://addons/gf/extensions/save"
+			["res://addons/gf/extensions/save"]
 		),
 		"前缀相似但不在根目录内的路径不应被误过滤。"
 	)
+
+
+func test_extension_export_plugin_collects_disabled_roots_without_editor_instance() -> void:
+	var enabled_manifest: GFExtensionManifest = GFExtensionManifest.from_dictionary({
+		"id": "author.enabled",
+		"display_name": "Enabled",
+		"version": "1.0.0",
+		"kind": "extension",
+	}, "res://addons/author_enabled", "")
+	var disabled_manifest: GFExtensionManifest = GFExtensionManifest.from_dictionary({
+		"id": "author.disabled",
+		"display_name": "Disabled",
+		"version": "1.0.0",
+		"kind": "extension",
+	}, "res://addons/author_disabled", "")
+	var enabled_restore: Dictionary = _set_project_setting(
+		GFExtensionSettings.ENABLED_EXTENSIONS_SETTING,
+		["author.enabled"]
+	)
+	var export_restore: Dictionary = _set_project_setting(
+		GFExtensionSettings.EXPORT_EXCLUDE_DISABLED_SETTING,
+		true
+	)
+	GFExtensionSettings.set_cached_manifests([enabled_manifest, disabled_manifest])
+
+	var disabled_roots: Array[String] = []
+	var disabled_manifests: Array[GFExtensionManifest] = []
+	var graph_report: Dictionary = GF_EXTENSION_EXPORT_PLUGIN_BASE._collect_disabled_export_state(
+		disabled_roots,
+		disabled_manifests
+	)
+	var skips_disabled_path: bool = GF_EXTENSION_EXPORT_PLUGIN_BASE._should_skip_export_path(
+		"res://addons/author_disabled/runtime/tool.gd",
+		disabled_roots
+	)
+	var skips_similar_prefix: bool = GF_EXTENSION_EXPORT_PLUGIN_BASE._should_skip_export_path(
+		"res://addons/author_disabled_extra/runtime/tool.gd",
+		disabled_roots
+	)
+
+	GFExtensionSettings.clear_manifest_cache()
+	_restore_project_setting(GFExtensionSettings.EXPORT_EXCLUDE_DISABLED_SETTING, export_restore)
+	_restore_project_setting(GFExtensionSettings.ENABLED_EXTENSIONS_SETTING, enabled_restore)
+
+	assert_true(
+		GF_VARIANT_ACCESS.get_option_bool(graph_report, "ok", false),
+		"禁用根目录收集前应确认 manifest 图有效。"
+	)
+	assert_eq(disabled_roots, ["res://addons/author_disabled"], "导出插件应只收集当前禁用扩展根目录。")
+	assert_eq(disabled_manifests.size(), 1, "导出插件应保留禁用 manifest 供引用审计使用。")
+	assert_true(skips_disabled_path, "导出插件应跳过禁用扩展根目录下的文件。")
+	assert_false(skips_similar_prefix, "导出插件不应跳过前缀相似的其他目录。")
 
 
 func test_extension_export_plugin_blocks_invalid_manifest_graph() -> void:
@@ -896,6 +1240,26 @@ func test_extension_usage_audit_does_not_ignore_project_test_roots_by_default() 
 	)
 
 
+func test_extension_usage_audit_ignores_ai_analysis_by_default() -> void:
+	var directory: String = "res://ai_analysis/tmp_extension_usage_audit"
+	var path: String = directory.path_join("uses_save_in_ai_analysis.gd")
+	var _make_dir_recursive_absolute_result: Variant = DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(directory))
+	_write_text_file(path, 'const SaveAI = preload("res://addons/gf/extensions/save/graph/gf_save_graph_utility.gd")')
+
+	var references: Array = GFExtensionUsageAudit.find_references_to_root(
+		"res://addons/gf/extensions/save",
+		{
+			"scan_roots": [directory],
+			"max_references_per_extension": 10,
+		}
+	)
+
+	_remove_path_if_exists(path)
+	_remove_path_if_exists(directory)
+
+	assert_eq(references.size(), 0, "AI 临时工作区不应被报告为用户项目对禁用扩展的直接引用。")
+
+
 func test_extension_usage_audit_respects_scanned_file_limit() -> void:
 	var directory: String = "user://gf_extension_usage_audit_limit"
 	var first_path: String = directory.path_join("uses_save_a.gd")
@@ -920,6 +1284,36 @@ func test_extension_usage_audit_respects_scanned_file_limit() -> void:
 
 	assert_eq(references.size(), 1, "禁用扩展引用审计应遵守 max_scanned_files 上限。")
 	assert_push_warning("[GFExtensionUsageAudit] 已达到 max_scanned_files=1，后续文件已跳过。")
+
+
+func test_extension_usage_audit_warns_when_scan_depth_limit_skips_directory() -> void:
+	var directory: String = "user://gf_extension_usage_audit_depth"
+	var shallow_directory: String = directory.path_join("a")
+	var deep_directory: String = shallow_directory.path_join("b")
+	var shallow_path: String = shallow_directory.path_join("shallow.gd")
+	var deep_path: String = deep_directory.path_join("deep.gd")
+	var _make_dir_recursive_absolute_result_746: Variant = DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(deep_directory))
+	_write_text_file(shallow_path, "# shallow")
+	_write_text_file(deep_path, 'const SaveB = preload("res://addons/gf/extensions/save/slots/gf_save_slot_metadata.gd")')
+
+	var references: Array = GFExtensionUsageAudit.find_references_to_root(
+		"res://addons/gf/extensions/save",
+		{
+			"scan_roots": [directory],
+			"ignored_roots": [],
+			"max_scan_depth": 1,
+			"max_references_per_extension": 10,
+		}
+	)
+
+	_remove_path_if_exists(deep_path)
+	_remove_path_if_exists(shallow_path)
+	_remove_path_if_exists(deep_directory)
+	_remove_path_if_exists(shallow_directory)
+	_remove_path_if_exists(directory)
+
+	assert_true(references.is_empty(), "超过 max_scan_depth 的深层引用不应被扫描。")
+	assert_push_warning("[GFExtensionUsageAudit] 已达到 max_scan_depth=1，已跳过更深目录：%s。" % deep_directory)
 
 
 func test_extension_usage_audit_does_not_match_similar_prefix() -> void:

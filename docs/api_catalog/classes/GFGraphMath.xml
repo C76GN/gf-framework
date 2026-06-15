@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFGraphMath" path="addons/gf/standard/foundation/math/gf_graph_math.gd" module="standard" extends="RefCounted" classDigest="58929e64a94f85df33fe33aeec7b522524b564765101736e4328aec8fbfeabd4">
+<class name="GFGraphMath" path="addons/gf/standard/foundation/math/gf_graph_math.gd" module="standard" extends="RefCounted" classDigest="a772d3ec101664bd4a86450da7c110b0e0146b658a5afd1726b3f5b8295acd62">
 	<description>GFGraphMath: 面向任意节点类型的纯图搜索算法。
 节点可以是 Vector、StringName、Resource、对象引用或项目自定义值。
 图结构由回调提供，框架只负责遍历、代价累计和路径重建。</description>
@@ -10,7 +10,40 @@
 	</tags>
 	<signals />
 	<enums />
-	<constants />
+	<constants>
+		<member kind="const" name="PATH_SEARCH_STATUS_SEARCHING">
+			<signature>const PATH_SEARCH_STATUS_SEARCHING: StringName = GFGraphPathSearchState.STATUS_SEARCHING</signature>
+			<description>分步路径搜索仍可继续推进。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="PATH_SEARCH_STATUS_FOUND">
+			<signature>const PATH_SEARCH_STATUS_FOUND: StringName = GFGraphPathSearchState.STATUS_FOUND</signature>
+			<description>分步路径搜索已找到路径。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="PATH_SEARCH_STATUS_UNREACHABLE">
+			<signature>const PATH_SEARCH_STATUS_UNREACHABLE: StringName = GFGraphPathSearchState.STATUS_UNREACHABLE</signature>
+			<description>分步路径搜索已耗尽可达节点且不可达。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="PATH_SEARCH_STATUS_INVALID">
+			<signature>const PATH_SEARCH_STATUS_INVALID: StringName = GFGraphPathSearchState.STATUS_INVALID</signature>
+			<description>分步路径搜索状态或回调无效。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+	</constants>
 	<properties />
 	<methods>
 		<member kind="method" name="find_path_dijkstra">
@@ -42,6 +75,38 @@
 				<tag name="schema">start: Variant graph node identity.</tag>
 				<tag name="schema">goal: Variant graph node identity.</tag>
 				<tag name="schema">return: Array graph node path from start to goal.</tag>
+			</tags>
+		</member>
+		<member kind="method" name="begin_path_search">
+			<signature>static func begin_path_search( start: Variant, goal: Variant, get_neighbors: Callable, get_step_cost: Callable = Callable(), heuristic: Callable = Callable() ) -&gt; GFGraphPathSearchState:</signature>
+			<description>创建可分步推进的 A* / Dijkstra 搜索状态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">start: 起点节点。</tag>
+				<tag name="param">goal: 终点节点。</tag>
+				<tag name="param">get_neighbors: 邻居回调，签名为 `func(node: Variant) -&gt; Array`。</tag>
+				<tag name="param">get_step_cost: 可选代价回调，签名为 `func(from: Variant, to: Variant) -&gt; float`；返回负数表示不可通行。</tag>
+				<tag name="param">heuristic: 可选启发回调，签名为 `func(node: Variant, goal: Variant) -&gt; float`；为空时退化为 Dijkstra。</tag>
+				<tag name="return">运行期搜索状态句柄；传给 `advance_path_search()` 后会推进同一个句柄。</tag>
+				<tag name="schema">start: Variant graph node identity.</tag>
+				<tag name="schema">goal: Variant graph node identity.</tag>
+				<tag name="schema">return: GFGraphPathSearchState runtime handle. It contains Callable values and mutable search state, so it is not a save format.</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="advance_path_search">
+			<signature>static func advance_path_search(search_state: GFGraphPathSearchState, max_iterations: int = 64) -&gt; Dictionary:</signature>
+			<description>按最大迭代次数推进分步路径搜索状态。
+每次迭代最多弹出并扩展一个节点；`max_iterations &lt;= 0` 时只返回当前报告。
+`search_state` 是运行期句柄，因此可以跨帧保存同一个引用继续推进。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">search_state: `begin_path_search()` 返回的状态句柄。</tag>
+				<tag name="param">max_iterations: 本次最多扩展多少个节点。</tag>
+				<tag name="return">搜索报告，包含 status、finished、found、iterations、frontier_count、expanded_count、path 和 cost。</tag>
+				<tag name="schema">search_state: GFGraphPathSearchState runtime handle returned by `begin_path_search()`. It contains Callable values and must not be serialized as save data.</tag>
+				<tag name="schema">return: Dictionary with ok, status, finished, found, reason, iterations, frontier_count, expanded_count, path, and cost.</tag>
+				<tag name="since">5.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="build_distance_map">

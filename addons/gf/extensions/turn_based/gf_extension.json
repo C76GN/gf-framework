@@ -1,7 +1,7 @@
 {
   "id": "gf.turn_based",
   "display_name": "GF Turn Based",
-  "version": "4.4.0",
+  "version": "5.0.0",
   "extension_version": "1.0.1",
   "kind": "extension",
   "description": "Turn phases, turn actions, contexts, and turn flow system primitives.",
@@ -9,6 +9,6 @@
   "installer_paths": [
     "res://addons/gf/extensions/turn_based/extension.gd"
   ],
-  "enabled_by_default": true,
+  "enabled_by_default": false,
   "tags": ["turn-based", "flow"]
 }

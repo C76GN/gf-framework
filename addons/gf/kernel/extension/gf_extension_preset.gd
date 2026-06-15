@@ -1,0 +1,274 @@
+## GFExtensionPreset: GF 扩展启用组合描述。
+##
+## Preset 只描述一组要写入 `gf/extensions/enabled` 的扩展 ID，不改变 manifest 依赖、
+## 不表示扩展之间存在硬依赖，也不承载下载、安装包或跨扩展编排逻辑。
+## [br]
+## @api public
+## [br]
+## @category resource_definition
+## [br]
+## @since 5.0.0
+## [br]
+## @layer kernel/extension
+class_name GFExtensionPreset
+extends RefCounted
+
+
+# --- 常量 ---
+
+const _GF_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
+const _GF_PATH_TOOLS = preload("res://addons/gf/kernel/core/gf_path_tools.gd")
+const _SUPPORTED_FIELDS: Array[String] = [
+	"description",
+	"display_name",
+	"extension_ids",
+	"id",
+	"tags",
+]
+const _FORBIDDEN_RELATION_FIELDS: Array[String] = [
+	"after",
+	"before",
+	"conflicts",
+	"dependencies",
+	"depends_on",
+	"extension_dependencies",
+	"extension_pack",
+	"integrates_with",
+	"load_after",
+	"load_before",
+	"optional_dependencies",
+	"peer_dependencies",
+	"preset",
+	"presets",
+	"recommends",
+	"requires",
+	"soft_dependencies",
+	"suggests",
+]
+const _FORBIDDEN_PACKAGE_FIELDS: Array[String] = [
+	"archive",
+	"checksum",
+	"download",
+	"download_url",
+	"download_urls",
+	"downloads",
+	"editor_action_paths",
+	"external_roots",
+	"files",
+	"install_script",
+	"install_url",
+	"installer_paths",
+	"installers",
+	"manifest_overrides",
+	"npm",
+	"package",
+	"package_id",
+	"package_name",
+	"packages",
+	"registry",
+	"repository",
+	"sha256",
+]
+
+
+# --- 公共变量 ---
+
+## Preset 稳定 ID。
+## [br]
+## @api public
+## [br]
+## @since 5.0.0
+var id: StringName = &""
+
+## 面向用户显示的 preset 名称。
+## [br]
+## @api public
+## [br]
+## @since 5.0.0
+var display_name: String = ""
+
+## Preset 说明。
+## [br]
+## @api public
+## [br]
+## @since 5.0.0
+var description: String = ""
+
+## 要启用的扩展 ID 列表。
+## [br]
+## @api public
+## [br]
+## @since 5.0.0
+var extension_ids: Array[String] = []
+
+## 便于编辑器工具筛选的标签。
+## [br]
+## @api public
+## [br]
+## @since 5.0.0
+var tags: Array[String] = []
+
+## Preset 来源文件路径。内置或代码注册的 preset 可为空。
+## [br]
+## @api public
+## [br]
+## @since 5.0.0
+var source_path: String = ""
+
+
+# --- 私有变量 ---
+
+var _source_field_names: Array[String] = []
+
+
+# --- 公共方法 ---
+
+## 从字典创建扩展 preset。
+## [br]
+## @api public
+## [br]
+## @since 5.0.0
+## [br]
+## @param data: preset 字典。
+## [br]
+## @schema data: Dictionary containing id, display_name, description, extension_ids, and tags.
+## [br]
+## @param preset_source_path: preset 来源文件路径。
+## [br]
+## @return 扩展 preset 实例。
+static func from_dictionary(data: Dictionary, preset_source_path: String = "") -> GFExtensionPreset:
+	var preset: GFExtensionPreset = GFExtensionPreset.new()
+	preset._source_field_names = _normalize_field_name_list(data.keys())
+	preset.id = StringName(_normalize_text(_GF_VARIANT_ACCESS_SCRIPT.get_option_string(data, "id")))
+	preset.display_name = _normalize_text(_GF_VARIANT_ACCESS_SCRIPT.get_option_string(
+		data,
+		"display_name"
+	))
+	if preset.display_name.is_empty() and preset.id != &"":
+		preset.display_name = String(preset.id)
+	preset.description = _normalize_text(_GF_VARIANT_ACCESS_SCRIPT.get_option_string(
+		data,
+		"description"
+	))
+	preset.extension_ids = _normalize_identifier_list(_GF_VARIANT_ACCESS_SCRIPT.get_option_string_array(
+		data,
+		"extension_ids"
+	))
+	preset.tags = _normalize_identifier_list(_GF_VARIANT_ACCESS_SCRIPT.get_option_string_array(data, "tags"))
+	preset.source_path = _GF_PATH_TOOLS.normalize_resource_path(preset_source_path)
+	return preset
+
+
+## 从 JSON 文件读取扩展 preset。
+## [br]
+## @api public
+## [br]
+## @since 5.0.0
+## [br]
+## @param path: preset JSON 文件路径。
+## [br]
+## @return 读取成功时返回 preset；失败时返回 null。
+static func from_json_file(path: String) -> GFExtensionPreset:
+	var normalized_path: String = _GF_PATH_TOOLS.normalize_resource_path(path)
+	if normalized_path.is_empty():
+		return null
+
+	var file: FileAccess = FileAccess.open(normalized_path, FileAccess.READ)
+	if file == null:
+		return null
+
+	var text: String = file.get_as_text()
+	file.close()
+	var parsed: Variant = JSON.parse_string(text)
+	if not (parsed is Dictionary):
+		return null
+
+	var parsed_dictionary: Dictionary = parsed
+	return from_dictionary(parsed_dictionary, normalized_path)
+
+
+## 转换为字典。
+## [br]
+## @api public
+## [br]
+## @since 5.0.0
+## [br]
+## @return preset 字典副本。
+## [br]
+## @schema return: Dictionary matching the extension preset JSON shape.
+func to_dictionary() -> Dictionary:
+	return {
+		"id": String(id),
+		"display_name": display_name,
+		"description": description,
+		"extension_ids": extension_ids.duplicate(),
+		"tags": tags.duplicate(),
+	}
+
+
+## 检查 preset 是否满足基本规范。
+## [br]
+## @api public
+## [br]
+## @since 5.0.0
+## [br]
+## @return 满足规范时返回 true。
+func is_valid() -> bool:
+	return get_validation_errors().is_empty()
+
+
+## 获取 preset 规范错误。
+## [br]
+## @api public
+## [br]
+## @since 5.0.0
+## [br]
+## @return 错误消息列表。
+func get_validation_errors() -> Array[String]:
+	var errors: Array[String] = []
+	_append_unsupported_field_errors(errors)
+	if id == &"":
+		errors.append("id is required")
+	if display_name.strip_edges().is_empty():
+		errors.append("display_name is required")
+	for extension_id: String in extension_ids:
+		if extension_id.strip_edges().is_empty():
+			errors.append("extension_ids contains empty id")
+			break
+	return errors
+
+
+# --- 私有/辅助方法 ---
+
+static func _normalize_text(value: String) -> String:
+	return value.strip_edges()
+
+
+static func _normalize_field_name_list(values: Array) -> Array[String]:
+	var result: Array[String] = []
+	for value: Variant in values:
+		var field_name: String = _GF_VARIANT_ACCESS_SCRIPT.to_text(value).strip_edges()
+		if field_name.is_empty() or result.has(field_name):
+			continue
+		result.append(field_name)
+	return result
+
+
+static func _normalize_identifier_list(values: Array[String]) -> Array[String]:
+	var result: Array[String] = []
+	for value: String in values:
+		var normalized_value: String = value.strip_edges()
+		if normalized_value.is_empty() or result.has(normalized_value):
+			continue
+		result.append(normalized_value)
+	return result
+
+
+func _append_unsupported_field_errors(errors: Array[String]) -> void:
+	for field_name: String in _source_field_names:
+		if _FORBIDDEN_RELATION_FIELDS.has(field_name):
+			errors.append("unsupported preset relation field: %s" % field_name)
+		elif _FORBIDDEN_PACKAGE_FIELDS.has(field_name):
+			errors.append("unsupported preset package field: %s" % field_name)
+		elif not _SUPPORTED_FIELDS.has(field_name):
+			errors.append("unsupported preset field: %s" % field_name)

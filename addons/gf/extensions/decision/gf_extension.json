@@ -1,7 +1,7 @@
 {
   "id": "gf.decision",
   "display_name": "GF Decision",
-  "version": "4.4.0",
+  "version": "5.0.0",
   "extension_version": "1.0.0",
   "kind": "extension",
   "description": "Blackboard, context, and utility-scored decision primitives for non-LLM game AI and runtime orchestration.",
@@ -9,6 +9,6 @@
   "installer_paths": [
     "res://addons/gf/extensions/decision/extension.gd"
   ],
-  "enabled_by_default": true,
+  "enabled_by_default": false,
   "tags": ["ai", "decision", "utility-ai"]
 }

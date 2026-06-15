@@ -5,16 +5,49 @@ extends GutTest
 # --- 常量 ---
 
 const GFAudioBankInspectorPluginScript = preload("res://addons/gf/standard/utilities/audio/editor/gf_audio_bank_inspector_plugin.gd")
+const GFAudioLibraryToolsScript = preload("res://addons/gf/standard/utilities/audio/gf_audio_library_tools.gd")
 
 
 # --- 私有/辅助方法 ---
 
-func _write_empty_user_file(path: String) -> void:
+func _write_user_file(path: String, content: String) -> void:
 	var file: FileAccess = FileAccess.open(path, FileAccess.WRITE)
 	assert_not_null(file, "测试应能创建 user:// 临时文件。")
 	if file != null:
-		var _store_string_result_16: Variant = file.store_string("")
+		var _store_string_result: Variant = file.store_string(content)
 		file.close()
+
+
+func _write_user_buffer(path: String, content: PackedByteArray) -> void:
+	var file: FileAccess = FileAccess.open(path, FileAccess.WRITE)
+	assert_not_null(file, "测试应能创建 user:// 临时二进制文件。")
+	if file != null:
+		var _store_buffer_result: Variant = file.store_buffer(content)
+		file.close()
+
+
+func _read_user_buffer(path: String) -> PackedByteArray:
+	var file: FileAccess = FileAccess.open(path, FileAccess.READ)
+	assert_not_null(file, "测试应能读取 user:// 临时二进制文件。")
+	if file == null:
+		return PackedByteArray()
+	var content: PackedByteArray = file.get_buffer(file.get_length())
+	file.close()
+	return content
+
+
+func _write_empty_user_file(path: String) -> void:
+	_write_user_file(path, "")
+
+
+func _remove_user_file(path: String) -> void:
+	if FileAccess.file_exists(path):
+		var _remove_file_result: Variant = DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
+
+
+func _remove_user_dir(path: String) -> void:
+	if DirAccess.dir_exists_absolute(ProjectSettings.globalize_path(path)):
+		var _remove_dir_result: Variant = DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
 
 
 func _find_property_info(object: Object, property_name: String) -> Dictionary:
@@ -162,6 +195,263 @@ func test_scan_audio_paths_respects_audio_path_limit() -> void:
 	var _remove_absolute_result_135: Variant = DirAccess.remove_absolute(ProjectSettings.globalize_path(root_path))
 
 	assert_eq(paths.size(), 1, "音频扫描应遵守 max_audio_paths 上限。")
+
+
+func test_audio_library_scan_builds_searchable_entries() -> void:
+	var root_path: String = "user://gf_audio_library_scan"
+	var ui_dir: String = root_path.path_join("ui")
+	var voice_dir: String = root_path.path_join("voice")
+	var click_path: String = ui_dir.path_join("click.ogg")
+	var confirm_path: String = voice_dir.path_join("confirm.wav")
+	var ignored_path: String = root_path.path_join("ignore.txt")
+	var make_ui_error: Error = DirAccess.make_dir_recursive_absolute(ui_dir)
+	var make_voice_error: Error = DirAccess.make_dir_recursive_absolute(voice_dir)
+	assert_true(make_ui_error == OK or make_ui_error == ERR_ALREADY_EXISTS, "测试应能创建 UI 音频目录。")
+	assert_true(make_voice_error == OK or make_voice_error == ERR_ALREADY_EXISTS, "测试应能创建 voice 音频目录。")
+	_write_user_file(click_path, "click")
+	_write_user_file(confirm_path, "confirm")
+	_write_user_file(ignored_path, "ignore")
+
+	var entries: Array[Dictionary] = GFAudioLibraryToolsScript.scan_library(root_path, {
+		"extensions": PackedStringArray([".ogg", ".wav"]),
+		"path_separator": "+",
+	})
+	var filtered: Array[Dictionary] = GFAudioLibraryToolsScript.filter_entries(entries, "ui click")
+	var entry: Dictionary = filtered[0] if not filtered.is_empty() else {}
+
+	_remove_user_file(click_path)
+	_remove_user_file(confirm_path)
+	_remove_user_file(ignored_path)
+	_remove_user_dir(ui_dir)
+	_remove_user_dir(voice_dir)
+	_remove_user_dir(root_path)
+
+	assert_eq(entries.size(), 2, "素材库扫描只应收集支持的音频文件。")
+	assert_eq(filtered.size(), 1, "搜索应按多个关键字过滤候选条目。")
+	assert_eq(GFVariantData.get_option_string(entry, "relative_path"), "ui/click.ogg", "候选条目应保留相对路径。")
+	assert_eq(String(GFVariantData.get_option_string_name(entry, "clip_id")), "ui+click", "候选条目应生成可直接用于 Bank 的片段 ID。")
+
+
+func test_audio_library_filter_entries_reuses_text_search_options() -> void:
+	var entries: Array[Dictionary] = [
+		{
+			"clip_id": &"UI_Click",
+			"relative_path": "UI/Click.ogg",
+			"file_name": "Click.ogg",
+			"source_path": "res://Audio/UI/Click.ogg",
+		},
+		{
+			"clip_id": &"voice_confirm",
+			"relative_path": "voice/confirm.wav",
+			"file_name": "confirm.wav",
+			"source_path": "res://Audio/voice/confirm.wav",
+		},
+	]
+
+	var insensitive: Array[Dictionary] = GFAudioLibraryToolsScript.filter_entries(entries, "ui click")
+	var sensitive: Array[Dictionary] = GFAudioLibraryToolsScript.filter_entries(entries, "ui click", {
+		"case_sensitive": true,
+	})
+	var partial: Array[Dictionary] = GFAudioLibraryToolsScript.filter_entries(entries, "click missing", {
+		"match_all": false,
+	})
+
+	assert_eq(insensitive.size(), 1, "默认过滤应使用大小写不敏感的通用文本评分。")
+	assert_eq(sensitive.size(), 0, "case_sensitive 应传递给通用文本评分器。")
+	assert_eq(partial.size(), 1, "match_all=false 应允许部分 token 命中。")
+
+
+func test_audio_library_import_plan_skips_existing_and_duplicate_targets() -> void:
+	var root_path: String = "user://gf_audio_library_plan_source"
+	var target_root: String = "user://gf_audio_library_plan_target"
+	var first_dir: String = root_path.path_join("a")
+	var second_dir: String = root_path.path_join("b")
+	var target_dir: String = target_root.path_join("a")
+	var first_path: String = first_dir.path_join("click.ogg")
+	var second_path: String = second_dir.path_join("click.ogg")
+	var existing_target_path: String = target_dir.path_join("click.ogg")
+	var _make_first_dir_result: Variant = DirAccess.make_dir_recursive_absolute(first_dir)
+	var _make_second_dir_result: Variant = DirAccess.make_dir_recursive_absolute(second_dir)
+	var _make_target_dir_result: Variant = DirAccess.make_dir_recursive_absolute(target_dir)
+	_write_user_file(first_path, "first")
+	_write_user_file(second_path, "second")
+	_write_user_file(existing_target_path, "existing")
+
+	var entries: Array[Dictionary] = GFAudioLibraryToolsScript.scan_library(root_path)
+	var preserve_plan: Array[Dictionary] = GFAudioLibraryToolsScript.make_import_plan(entries, target_root)
+	var flat_plan: Array[Dictionary] = GFAudioLibraryToolsScript.make_import_plan(entries, target_root, {
+		"preserve_structure": false,
+	})
+
+	_remove_user_file(first_path)
+	_remove_user_file(second_path)
+	_remove_user_file(existing_target_path)
+	_remove_user_dir(first_dir)
+	_remove_user_dir(second_dir)
+	_remove_user_dir(target_dir)
+	_remove_user_dir(root_path)
+	_remove_user_dir(target_root)
+
+	assert_eq(GFVariantData.get_option_string(preserve_plan[0], "reason"), "target_exists", "导入计划应标记已存在目标。")
+	assert_eq(GFVariantData.get_option_string(flat_plan[1], "reason"), "duplicate_target", "扁平导入时重复目标应被跳过。")
+
+
+func test_audio_library_copy_import_plan_feeds_audio_bank_tools() -> void:
+	var root_path: String = "user://gf_audio_library_copy_source"
+	var target_root: String = "user://gf_audio_library_copy_target"
+	var source_dir: String = root_path.path_join("ui")
+	var target_dir: String = target_root.path_join("ui")
+	var source_path: String = source_dir.path_join("click.ogg")
+	var target_path: String = target_dir.path_join("click.ogg")
+	var _make_source_dir_result: Variant = DirAccess.make_dir_recursive_absolute(source_dir)
+	_write_user_file(source_path, "audio")
+
+	var entries: Array[Dictionary] = GFAudioLibraryToolsScript.scan_library(root_path)
+	var plan: Array[Dictionary] = GFAudioLibraryToolsScript.make_import_plan(entries, target_root)
+	var report: GFValidationReport = GFAudioLibraryToolsScript.copy_import_plan(plan)
+	var copied_paths: PackedStringArray = GFVariantData.get_option_packed_string_array(report.metadata, "copied_paths")
+	var bank: GFAudioBank = GFAudioBankTools.create_bank_from_paths(copied_paths, {
+		"id_mode": "relative_path",
+		"base_path": target_root,
+	})
+
+	_remove_user_file(source_path)
+	_remove_user_file(target_path)
+	_remove_user_dir(source_dir)
+	_remove_user_dir(target_dir)
+	_remove_user_dir(root_path)
+	_remove_user_dir(target_root)
+
+	assert_eq(GFVariantData.get_option_int(report.metadata, "copied_count"), 1, "导入计划复制应报告复制数量。")
+	assert_true(copied_paths.has(target_path), "复制报告应返回可继续导入 Bank 的目标路径。")
+	assert_true(bank.has_clip(&"ui/click"), "复制后的路径应能复用现有 GFAudioBankTools 生成 Bank。")
+
+
+func test_audio_library_copy_import_plan_handles_large_binary_files() -> void:
+	var root_path: String = "user://gf_audio_library_copy_large_source"
+	var target_root: String = "user://gf_audio_library_copy_large_target"
+	var source_dir: String = root_path.path_join("ui")
+	var target_dir: String = target_root.path_join("ui")
+	var source_path: String = source_dir.path_join("large.ogg")
+	var target_path: String = target_dir.path_join("large.ogg")
+	var _make_source_dir_result: Variant = DirAccess.make_dir_recursive_absolute(source_dir)
+	var source_bytes: PackedByteArray = PackedByteArray()
+	var _resize_result: Variant = source_bytes.resize(1_048_576 + 257)
+	for index: int in range(source_bytes.size()):
+		source_bytes[index] = index % 251
+	_write_user_buffer(source_path, source_bytes)
+
+	var plan: Array[Dictionary] = [
+		{
+			"source_path": source_path,
+			"target_path": target_path,
+			"will_copy": true,
+			"reason": "",
+		},
+	]
+	var report: GFValidationReport = GFAudioLibraryToolsScript.copy_import_plan(plan)
+	var copied_bytes: PackedByteArray = _read_user_buffer(target_path)
+
+	_remove_user_file(source_path)
+	_remove_user_file(target_path)
+	_remove_user_dir(source_dir)
+	_remove_user_dir(target_dir)
+	_remove_user_dir(root_path)
+	_remove_user_dir(target_root)
+
+	assert_eq(GFVariantData.get_option_int(report.metadata, "copied_count"), 1, "大文件复制应仍报告成功。")
+	assert_eq(copied_bytes.size(), source_bytes.size(), "分块复制不应截断音频文件。")
+	assert_eq(copied_bytes[0], source_bytes[0], "复制结果应保留文件开头字节。")
+	assert_eq(copied_bytes[copied_bytes.size() - 1], source_bytes[source_bytes.size() - 1], "复制结果应保留文件末尾字节。")
+
+
+func test_audio_library_copy_import_plan_rejects_file_count_above_limit() -> void:
+	var root_path: String = "user://gf_audio_library_copy_count_source"
+	var target_root: String = "user://gf_audio_library_copy_count_target"
+	var source_dir: String = root_path.path_join("ui")
+	var target_dir: String = target_root.path_join("ui")
+	var first_source_path: String = source_dir.path_join("first.ogg")
+	var second_source_path: String = source_dir.path_join("second.ogg")
+	var first_target_path: String = target_dir.path_join("first.ogg")
+	var second_target_path: String = target_dir.path_join("second.ogg")
+	var _make_source_dir_result: Variant = DirAccess.make_dir_recursive_absolute(source_dir)
+	_write_user_file(first_source_path, "one")
+	_write_user_file(second_source_path, "two")
+	var plan: Array[Dictionary] = [
+		{
+			"source_path": first_source_path,
+			"target_path": first_target_path,
+			"will_copy": true,
+			"reason": "",
+		},
+		{
+			"source_path": second_source_path,
+			"target_path": second_target_path,
+			"will_copy": true,
+			"reason": "",
+		},
+	]
+
+	var report: GFValidationReport = GFAudioLibraryToolsScript.copy_import_plan(plan, {
+		"max_copy_files": 1,
+	})
+	var counts: Dictionary = report.get_issue_counts_by_kind()
+	var first_target_exists: bool = FileAccess.file_exists(first_target_path)
+	var second_target_exists: bool = FileAccess.file_exists(second_target_path)
+
+	_remove_user_file(first_source_path)
+	_remove_user_file(second_source_path)
+	_remove_user_file(first_target_path)
+	_remove_user_file(second_target_path)
+	_remove_user_dir(source_dir)
+	_remove_user_dir(target_dir)
+	_remove_user_dir(root_path)
+	_remove_user_dir(target_root)
+
+	assert_false(report.is_ok(), "超过复制文件数量上限时报告应失败。")
+	assert_eq(GFVariantData.get_option_int(counts, "copy_file_count_limit_exceeded"), 1, "报告应记录文件数超限。")
+	assert_eq(GFVariantData.get_option_int(report.metadata, "planned_copy_count"), 2, "预算元数据应记录计划复制文件数。")
+	assert_eq(GFVariantData.get_option_int(report.metadata, "copied_count"), 0, "超限时不应执行部分复制。")
+	assert_false(first_target_exists, "超限时不应写入第一个目标文件。")
+	assert_false(second_target_exists, "超限时不应写入第二个目标文件。")
+
+
+func test_audio_library_copy_import_plan_rejects_total_bytes_above_limit() -> void:
+	var root_path: String = "user://gf_audio_library_copy_bytes_source"
+	var target_root: String = "user://gf_audio_library_copy_bytes_target"
+	var source_dir: String = root_path.path_join("ui")
+	var target_dir: String = target_root.path_join("ui")
+	var source_path: String = source_dir.path_join("large.ogg")
+	var target_path: String = target_dir.path_join("large.ogg")
+	var _make_source_dir_result: Variant = DirAccess.make_dir_recursive_absolute(source_dir)
+	_write_user_file(source_path, "abcdef")
+	var plan: Array[Dictionary] = [
+		{
+			"source_path": source_path,
+			"target_path": target_path,
+			"will_copy": true,
+			"reason": "",
+		},
+	]
+
+	var report: GFValidationReport = GFAudioLibraryToolsScript.copy_import_plan(plan, {
+		"max_copy_bytes": 5,
+	})
+	var counts: Dictionary = report.get_issue_counts_by_kind()
+	var target_exists: bool = FileAccess.file_exists(target_path)
+
+	_remove_user_file(source_path)
+	_remove_user_file(target_path)
+	_remove_user_dir(source_dir)
+	_remove_user_dir(target_dir)
+	_remove_user_dir(root_path)
+	_remove_user_dir(target_root)
+
+	assert_false(report.is_ok(), "超过复制总字节上限时报告应失败。")
+	assert_eq(GFVariantData.get_option_int(counts, "copy_byte_limit_exceeded"), 1, "报告应记录总字节超限。")
+	assert_eq(GFVariantData.get_option_int(report.metadata, "planned_copy_bytes"), 6, "预算元数据应记录计划复制字节数。")
+	assert_eq(GFVariantData.get_option_int(report.metadata, "copied_count"), 0, "超限时不应执行部分复制。")
+	assert_false(target_exists, "超限时不应写入目标文件。")
 
 
 func test_validate_bank_playback_reports_bus_and_extension_issues() -> void:

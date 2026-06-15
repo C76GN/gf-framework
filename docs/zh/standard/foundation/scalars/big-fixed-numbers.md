@@ -1,6 +1,6 @@
-# 大数与定点数
+# 大数、定点数与定点向量
 
-`GFBigNumber` 和 `GFFixedDecimal` 解决两类不同数值问题：前者用于超大量级展示和近似计算，后者用于固定小数位的精确累计。
+`GFBigNumber`、`GFFixedDecimal`、`GFFixedVector2` 和 `GFFixedVector3` 解决不同数值问题：大数用于超大量级展示和近似计算，定点数用于固定小数位的精确累计，定点向量用于 deterministic 坐标、方向和稳定序列化。
 
 ## `GFBigNumber`
 
@@ -31,3 +31,22 @@ print(total.to_decimal_string()) # 13.33
 ```
 
 普通十进制字符串会走整数缩放解析；科学计数法字符串会先退回 float 路径再构建定点数，可能存在浮点舍入。需要严格十进制导入时，建议用普通十进制字符串，或在项目导表阶段把科学计数法预处理成固定小数文本。
+
+`GFFixedDecimal` 也是 GF deterministic math 的定点数底座。需要保存到 JSON、存档或配置时，优先使用 `to_dict()` / `from_dict()`：状态字典包含 `type`、`version`、`raw_value` 和 `decimal_places`，其中 `raw_value` 固定为十进制字符串，避免 JSON 64 位整数精度丢失。需要不依赖 Godot `Variant` 编码的二进制 golden 输出时，使用 `to_bytes()` / `from_bytes()`；该格式固定为 `GFFD` magic、版本、小数位、符号位和 8 字节大端绝对 raw 值。
+
+定点数 raw 值使用对称安全范围 `[-9223372036854775807, 9223372036854775807]`，而不是完整 int64 最小值。这可以保证绝对值、符号 magnitude 字节格式和溢出钳制规则在所有定点类型之间一致。
+
+## `GFFixedVector2` / `GFFixedVector3`
+
+`GFFixedVector2` 和 `GFFixedVector3` 用统一 `decimal_places` 管理多个 raw 分量，适合锁步、回放、路径 tie-break、稳定排序和 golden 测试中需要表达连续坐标的场景。它们不替代 `Vector2i` / `Vector3i` 格子坐标，也不替代 Godot `Vector2` / `Vector3` 在渲染、物理和编辑器里的浮点向量。
+
+```gdscript
+var a := GFFixedVector2.from_decimal_strings("1.20", "0.50", 2)
+var b := GFFixedVector2.from_decimal_strings("0.35", "2.00", 2)
+var dot := a.dot(b, 3)
+print(dot.to_decimal_string()) # 1.420
+```
+
+定点向量的加减、标量乘、点积和长度平方都通过 `GFFixedDecimal` 执行缩放、舍入和溢出处理。需要与 Godot API 交互时可以显式调用 `from_vector2()`、`from_vector3()`、`to_vector2()` 或 `to_vector3()`，但这些入口会经过 `float`，不应作为 deterministic 真值来源。
+
+`to_dict()` / `from_dict()` 使用 JSON 安全状态字典，raw 分量固定为字符串。`to_bytes()` / `from_bytes()` 使用固定二进制格式：`GFF2` 或 `GFF3` magic、版本、小数位，以及每个分量的符号位和 8 字节大端绝对 raw 值。定点向量分量和 `GFFixedDecimal.raw_value` 使用同一套 raw 范围、文本校验和 signed magnitude 编码规则。

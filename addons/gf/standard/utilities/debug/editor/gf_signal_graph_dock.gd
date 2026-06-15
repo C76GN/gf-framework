@@ -95,6 +95,7 @@ func refresh(root: Node = null) -> void:
 		"persistent_only": _persistent_only_check.button_pressed,
 		"include_empty_signals": _include_empty_check.button_pressed,
 		"include_external_targets": false,
+		"participating_nodes_only": true,
 	})
 	_render_graph()
 	_restart_live_probe_if_enabled()
@@ -675,5 +676,5 @@ func _on_event_tree_item_selected() -> void:
 func _on_probe_signal_emitted(event: Dictionary) -> void:
 	_last_events.append(event.duplicate(true))
 	while _last_events.size() > _MAX_EVENT_COUNT:
-		_last_events.pop_front()
+		var _removed_event: Variant = _last_events.pop_front()
 	_render_graph()

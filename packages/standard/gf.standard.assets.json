@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "gf.standard.assets",
+  "kind": "standard",
+  "version": "unreleased",
+  "display_name": "GF Standard Assets",
+  "description": "Resource registry, asset handles, I/O, background jobs, remote cache, and scene loading helpers.",
+  "dependencies": [
+    "gf.kernel",
+    "gf.standard.base"
+  ],
+  "paths": [
+    "addons/gf/standard/utilities/assets/**",
+    "addons/gf/standard/utilities/io/**",
+    "addons/gf/standard/utilities/jobs/**",
+    "addons/gf/standard/utilities/scene/**"
+  ],
+  "metadata": {
+    "stage": "standard-split-v1"
+  }
+}

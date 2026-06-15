@@ -63,12 +63,12 @@ const GFPluginImportTools = preload("res://addons/gf/kernel/editor/gf_plugin_imp
 ## @layer plugin
 const GFPluginGltfDocumentTools = preload("res://addons/gf/kernel/editor/gf_plugin_gltf_document_tools.gd")
 
-## 标准库编辑器扩展记录脚本。
+## 标准库编辑器扩展记录脚本路径。
 ## [br]
 ## @api framework_internal
 ## [br]
 ## @layer plugin
-const GFStandardEditorExtensions = preload("res://addons/gf/standard/editor/gf_standard_editor_extensions.gd")
+const STANDARD_EDITOR_EXTENSIONS_SCRIPT_PATH: String = "res://addons/gf/standard/editor/gf_standard_editor_extensions.gd"
 
 
 # --- 私有变量 ---
@@ -95,7 +95,7 @@ func _enter_tree() -> void:
 	_inspector_tools.setup(self, _standard_editor_extension_records)
 
 	_actions = GFPluginActions.new()
-	_actions.setup(GFVariantData.get_option_array(_standard_editor_extension_records, "template_records"))
+	_actions.setup(_get_record_array(_standard_editor_extension_records, "template_records"))
 	var _workspace_requested_connected: int = Signal(_actions, &"workspace_requested").connect(_on_workspace_requested)
 
 	_menu = GFPluginMenu.new()
@@ -141,23 +141,63 @@ func _setup_dock_tools() -> void:
 		return
 
 	var dock_records: Array[Dictionary] = []
-	dock_records.assign(GFVariantData.get_option_array(_standard_editor_extension_records, "dock_records"))
+	dock_records.assign(_get_record_array(_standard_editor_extension_records, "dock_records"))
 	_dock_tools.setup(self, dock_records)
-	call_deferred("_open_workspace_on_startup")
 
 
 func _collect_standard_editor_extension_records() -> Dictionary:
+	var standard_editor_script: Script = _load_optional_script(STANDARD_EDITOR_EXTENSIONS_SCRIPT_PATH)
+	if standard_editor_script == null:
+		return {
+			"inspector_plugin_records": [],
+			"export_plugin_records": [],
+			"dock_records": [],
+			"template_records": [],
+		}
 	return {
-		"inspector_plugin_records": GFStandardEditorExtensions.get_inspector_plugin_records(),
-		"export_plugin_records": GFStandardEditorExtensions.get_export_plugin_records(),
-		"dock_records": GFStandardEditorExtensions.get_dock_records(),
-		"template_records": GFStandardEditorExtensions.get_template_records(),
+		"inspector_plugin_records": _call_record_array(standard_editor_script, &"get_inspector_plugin_records"),
+		"export_plugin_records": _call_record_array(standard_editor_script, &"get_export_plugin_records"),
+		"dock_records": _call_record_array(standard_editor_script, &"get_dock_records"),
+		"template_records": _call_record_array(standard_editor_script, &"get_template_records"),
 	}
 
 
-func _open_workspace_on_startup() -> void:
-	if _plugin_active and _dock_tools != null:
-		_dock_tools.show_workspace()
+func _load_optional_script(script_path: String) -> Script:
+	if not ResourceLoader.exists(script_path, "Script"):
+		return null
+
+	var resource: Resource = ResourceLoader.load(script_path, "Script")
+	if resource is Script:
+		var script: Script = resource
+		return script
+	return null
+
+
+func _call_record_array(script: Script, method_name: StringName) -> Array[Dictionary]:
+	var records: Array[Dictionary] = []
+	if script == null or not script.has_method(method_name):
+		return records
+
+	var value: Variant = script.call(method_name)
+	if not value is Array:
+		return records
+	for record_variant: Variant in value:
+		if record_variant is Dictionary:
+			var record: Dictionary = record_variant
+			records.append(record.duplicate(true))
+	return records
+
+
+func _get_record_array(records: Dictionary, key: String) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	var value: Variant = records.get(key, [])
+	if not value is Array:
+		return result
+	for record_variant: Variant in value:
+		if record_variant is Dictionary:
+			var record: Dictionary = record_variant
+			result.append(record.duplicate(true))
+	return result
 
 
 # --- 信号处理函数 ---

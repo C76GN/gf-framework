@@ -64,6 +64,10 @@ static func get_architecture_or_null() -> GFArchitecture:
 	var singleton: Node = get_singleton_or_null()
 	if singleton == null:
 		return null
+	var silent_architecture: Variant = singleton.get("_architecture")
+	if silent_architecture is GFArchitecture:
+		var typed_silent_architecture: GFArchitecture = silent_architecture
+		return typed_silent_architecture
 	if not singleton.has_method("has_architecture") or not singleton.has_method("get_architecture"):
 		return null
 	if not _GF_VARIANT_ACCESS_SCRIPT.to_bool(singleton.call("has_architecture")):

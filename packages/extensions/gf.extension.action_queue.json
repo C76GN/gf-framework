@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "id": "gf.extension.action_queue",
+  "kind": "extension",
+  "version": "unreleased",
+  "display_name": "GF Action Queue",
+  "description": "Package manifest for the bundled Action Queue extension.",
+  "dependencies": [
+    "gf.kernel",
+    "gf.standard.base",
+    "gf.standard.audio",
+    "gf.standard.diagnostics"
+  ],
+  "paths": [
+    "addons/gf/extensions/action_queue/**"
+  ],
+  "enable_extension": "gf.action_queue",
+  "metadata": {}
+}

@@ -8,9 +8,9 @@ GF 内置扩展或项目模块如果也想进入诊断快照，应主动调用 `
 
 ## 信号图
 
-编辑器侧的 `GFSceneSignalAudit.build_signal_graph()` / `index_signal_graph()` 可把运行中节点树的信号、连接、节点索引整理为结构化数据；需要隐藏根节点外的目标时可传入 `include_external_targets = false`。
+编辑器侧的 `GFSceneSignalAudit.build_signal_graph()` / `index_signal_graph()` 可把运行中节点树的信号、连接、节点索引整理为结构化数据；需要隐藏根节点外的目标时可传入 `include_external_targets = false`，需要只返回参与当前信号图的节点时可传入 `participating_nodes_only = true`。
 
-`GFSignalGraphDock` 则把当前编辑场景渲染为 `GF Workspace > 信号诊断` 页面，默认查看保存连接并过滤编辑器外部目标，方便查看 source、signal、target 和 method。
+`GFSignalGraphDock` 则把当前编辑场景渲染为 `GF Workspace > 信号诊断` 页面，默认查看保存连接、过滤编辑器外部目标，并让节点统计聚焦实际参与连接的节点，方便查看 source、signal、target 和 method。
 
 `collect_signal_graph_snapshot()` 与内置命令 `diagnostics.signals` 会对当前场景根或传入根节点生成只读信号图；`collect_snapshot({ "include_signal_graph": true })` 可把它合并进完整诊断快照。它不会连接、断开或触发信号，只读取节点、信号和连接摘要。
 

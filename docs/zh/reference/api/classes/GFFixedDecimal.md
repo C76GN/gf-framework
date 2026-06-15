@@ -22,6 +22,8 @@
 | 方法 | [`from_int`](#member-gffixeddecimal-methods-from_int) | `static func from_int(value: int, p_decimal_places: int = 2) -> GFFixedDecimal:` |
 | 方法 | [`from_float`](#member-gffixeddecimal-methods-from_float) | `static func from_float( value: float, p_decimal_places: int = 2, rounding_mode: RoundingMode = RoundingMode.HALF_UP ) -> GFFixedDecimal:` |
 | 方法 | [`from_string`](#member-gffixeddecimal-methods-from_string) | `static func from_string( value: String, p_decimal_places: int = 2, rounding_mode: RoundingMode = RoundingMode.HALF_UP ) -> GFFixedDecimal:` |
+| 方法 | [`from_dict`](#member-gffixeddecimal-methods-from_dict) | `static func from_dict(data: Dictionary) -> GFFixedDecimal:` |
+| 方法 | [`from_bytes`](#member-gffixeddecimal-methods-from_bytes) | `static func from_bytes(data: PackedByteArray) -> GFFixedDecimal:` |
 | 方法 | [`clone`](#member-gffixeddecimal-methods-clone) | `func clone() -> GFFixedDecimal:` |
 | 方法 | [`is_zero`](#member-gffixeddecimal-methods-is_zero) | `func is_zero() -> bool:` |
 | 方法 | [`abs_value`](#member-gffixeddecimal-methods-abs_value) | `func abs_value() -> GFFixedDecimal:` |
@@ -35,6 +37,10 @@
 | 方法 | [`to_float`](#member-gffixeddecimal-methods-to_float) | `func to_float() -> float:` |
 | 方法 | [`to_big_number`](#member-gffixeddecimal-methods-to_big_number) | `func to_big_number() -> GFBigNumber:` |
 | 方法 | [`to_decimal_string`](#member-gffixeddecimal-methods-to_decimal_string) | `func to_decimal_string(trim_zeroes: bool = false) -> String:` |
+| 方法 | [`to_dict`](#member-gffixeddecimal-methods-to_dict) | `func to_dict() -> Dictionary:` |
+| 方法 | [`apply_dict`](#member-gffixeddecimal-methods-apply_dict) | `func apply_dict(data: Dictionary) -> bool:` |
+| 方法 | [`to_bytes`](#member-gffixeddecimal-methods-to_bytes) | `func to_bytes() -> PackedByteArray:` |
+| 方法 | [`apply_bytes`](#member-gffixeddecimal-methods-apply_bytes) | `func apply_bytes(data: PackedByteArray) -> bool:` |
 
 ## 枚举
 
@@ -140,6 +146,7 @@ static func from_float( value: float, p_decimal_places: int = 2, rounding_mode: 
 ### `from_string`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 static func from_string( value: String, p_decimal_places: int = 2, rounding_mode: RoundingMode = RoundingMode.HALF_UP ) -> GFFixedDecimal:
@@ -151,9 +158,55 @@ static func from_string( value: String, p_decimal_places: int = 2, rounding_mode
 
 | 名称 | 说明 |
 |---|---|
-| `value` | 普通十进制字符串。 |
+| `value` | 普通十进制字符串；科学计数法会作为 float 兼容路径解析，不适合作为严格十进制导入源。 |
 | `p_decimal_places` | 目标小数位。 |
 | `rounding_mode` | 舍入策略。 |
+
+返回：定点数实例。
+
+<a id="member-gffixeddecimal-methods-from_dict"></a>
+
+### `from_dict`
+
+- API：`public`
+- 首次版本：`5.0.0`
+
+```gdscript
+static func from_dict(data: Dictionary) -> GFFixedDecimal:
+```
+
+从状态字典恢复定点数。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `data` | `to_dict()` 输出的状态字典。 |
+
+返回：定点数实例。
+
+结构：
+
+- `data`: Dictionary with `type`, `version`, `raw_value`, and `decimal_places` fields.
+
+<a id="member-gffixeddecimal-methods-from_bytes"></a>
+
+### `from_bytes`
+
+- API：`public`
+- 首次版本：`5.0.0`
+
+```gdscript
+static func from_bytes(data: PackedByteArray) -> GFFixedDecimal:
+```
+
+从固定字节序列恢复定点数。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `data` | `to_bytes()` 输出的字节序列。 |
 
 返回：定点数实例。
 
@@ -385,3 +438,83 @@ func to_decimal_string(trim_zeroes: bool = false) -> String:
 | `trim_zeroes` | 是否裁掉尾部 0。 |
 
 返回：十进制字符串。
+
+<a id="member-gffixeddecimal-methods-to_dict"></a>
+
+### `to_dict`
+
+- API：`public`
+- 首次版本：`5.0.0`
+
+```gdscript
+func to_dict() -> Dictionary:
+```
+
+导出 JSON 安全的状态字典。 `raw_value` 固定写为十进制字符串，避免 JSON 64 位整数精度丢失。
+
+返回：可稳定恢复定点数的状态字典。
+
+结构：
+
+- `return`: Dictionary with `type: String`, `version: int`, `raw_value: String`, and `decimal_places: int`.
+
+<a id="member-gffixeddecimal-methods-apply_dict"></a>
+
+### `apply_dict`
+
+- API：`public`
+- 首次版本：`5.0.0`
+
+```gdscript
+func apply_dict(data: Dictionary) -> bool:
+```
+
+应用 JSON 安全状态字典。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `data` | `to_dict()` 输出的状态字典。 |
+
+返回：状态有效并已应用时返回 true。
+
+结构：
+
+- `data`: Dictionary with `type`, `version`, `raw_value`, and `decimal_places` fields.
+
+<a id="member-gffixeddecimal-methods-to_bytes"></a>
+
+### `to_bytes`
+
+- API：`public`
+- 首次版本：`5.0.0`
+
+```gdscript
+func to_bytes() -> PackedByteArray:
+```
+
+导出固定二进制序列。 格式为 `GFFD` magic、版本、小数位、符号位和 8 字节大端绝对 raw 值。
+
+返回：可稳定恢复定点数的字节序列。
+
+<a id="member-gffixeddecimal-methods-apply_bytes"></a>
+
+### `apply_bytes`
+
+- API：`public`
+- 首次版本：`5.0.0`
+
+```gdscript
+func apply_bytes(data: PackedByteArray) -> bool:
+```
+
+应用固定二进制序列。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `data` | `to_bytes()` 输出的字节序列。 |
+
+返回：字节序列有效并已应用时返回 true。

@@ -4,7 +4,7 @@
 
 ## 阅读入口
 
-- [调试可视化、运行时检查与信号诊断](debug-visual-inspection/index.md)：`GFDebugDrawUtility`、`GFDebugOverlayUtility`、`GFRuntimeInspectorUtility`、`GFSceneSignalAudit` 与 `GFSignalRuntimeProbe`。
+- [调试可视化、运行时检查与信号诊断](debug-visual-inspection/index.md)：`GFDebugDrawUtility`、`GFDebugOverlayUtility`、`GFScreenshotUtility`、`GFRuntimeInspectorUtility`、`GFSceneSignalAudit` 与 `GFSignalRuntimeProbe`。
 - [随机种子、日志、构建信息与诊断](runtime-telemetry/index.md)：`GFSeedUtility`、`GFLogUtility`、`GFBuildInfoUtility` 与 `GFDiagnosticsUtility`。
 - [支持报告与通知队列](support-notifications/index.md)：`GFSupportReportUtility` 与 `GFNotificationUtility`。
 - [运行时开发者控制台](developer-console/index.md)：`GFConsoleUtility` 与资源化控制台命令。

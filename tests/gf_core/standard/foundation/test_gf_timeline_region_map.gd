@@ -56,11 +56,12 @@ func test_replay_timeline_appends_filtered_timeline_with_offset() -> void:
 
 	var appended: int = target.append_timeline(source, 1.0, PackedStringArray(["snapshot"]))
 	var events: Array[Dictionary] = target.get_events()
+	var event: Dictionary = events[0]
 
 	assert_eq(appended, 1, "过滤合并时应只追加匹配类型事件。")
 	assert_eq(events.size(), 1, "目标时间线应只包含追加事件。")
-	assert_eq(GFVariantData.get_option_string_name(events[0], "event_kind"), GFReplayTimeline.EVENT_SNAPSHOT, "追加事件类型应保留。")
-	assert_almost_eq(GFVariantData.get_option_float(events[0], "time_seconds", 0.0), 1.2, 0.001, "追加事件应应用时间偏移。")
+	assert_eq(GFVariantData.get_option_string_name(event, "event_kind"), GFReplayTimeline.EVENT_SNAPSHOT, "追加事件类型应保留。")
+	assert_almost_eq(GFVariantData.get_option_float(event, "time_seconds", 0.0), 1.2, 0.001, "追加事件应应用时间偏移。")
 
 
 func test_region_map_tracks_dirty_regions() -> void:

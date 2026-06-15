@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFExtensionPreset" path="addons/gf/kernel/extension/gf_extension_preset.gd" module="kernel" extends="RefCounted" classDigest="ddd6fcbff9d1acd4f2f2dbd11c76ded198be7c3c4c93bd2a8fd0e896535849ec">
+	<description>GFExtensionPreset: GF 扩展启用组合描述。
+Preset 只描述一组要写入 `gf/extensions/enabled` 的扩展 ID，不改变 manifest 依赖、
+不表示扩展之间存在硬依赖，也不承载下载、安装包或跨扩展编排逻辑。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">resource_definition</tag>
+		<tag name="layer">kernel/extension</tag>
+		<tag name="since">5.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties>
+		<member kind="property" name="id">
+			<signature>var id: StringName = &amp;""</signature>
+			<description>Preset 稳定 ID。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="display_name">
+			<signature>var display_name: String = ""</signature>
+			<description>面向用户显示的 preset 名称。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="description">
+			<signature>var description: String = ""</signature>
+			<description>Preset 说明。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="extension_ids">
+			<signature>var extension_ids: Array[String] = []</signature>
+			<description>要启用的扩展 ID 列表。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="tags">
+			<signature>var tags: Array[String] = []</signature>
+			<description>便于编辑器工具筛选的标签。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="source_path">
+			<signature>var source_path: String = ""</signature>
+			<description>Preset 来源文件路径。内置或代码注册的 preset 可为空。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="from_dictionary">
+			<signature>static func from_dictionary(data: Dictionary, preset_source_path: String = "") -&gt; GFExtensionPreset:</signature>
+			<description>从字典创建扩展 preset。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">data: preset 字典。</tag>
+				<tag name="param">preset_source_path: preset 来源文件路径。</tag>
+				<tag name="return">扩展 preset 实例。</tag>
+				<tag name="schema">data: Dictionary containing id, display_name, description, extension_ids, and tags.</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="from_json_file">
+			<signature>static func from_json_file(path: String) -&gt; GFExtensionPreset:</signature>
+			<description>从 JSON 文件读取扩展 preset。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">path: preset JSON 文件路径。</tag>
+				<tag name="return">读取成功时返回 preset；失败时返回 null。</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="to_dictionary">
+			<signature>func to_dictionary() -&gt; Dictionary:</signature>
+			<description>转换为字典。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">preset 字典副本。</tag>
+				<tag name="schema">return: Dictionary matching the extension preset JSON shape.</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_valid">
+			<signature>func is_valid() -&gt; bool:</signature>
+			<description>检查 preset 是否满足基本规范。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">满足规范时返回 true。</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_validation_errors">
+			<signature>func get_validation_errors() -&gt; Array[String]:</signature>
+			<description>获取 preset 规范错误。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">错误消息列表。</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

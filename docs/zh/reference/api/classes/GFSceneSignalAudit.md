@@ -201,6 +201,7 @@ static func collect_scene_paths(root_path: String = "res://", options: Dictionar
 ### `build_signal_graph`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 static func build_signal_graph(root: Node, options: Dictionary = {}) -> Dictionary:
@@ -213,13 +214,13 @@ static func build_signal_graph(root: Node, options: Dictionary = {}) -> Dictiona
 | 名称 | 说明 |
 |---|---|
 | `root` | 需要扫描的根节点。 |
-| `options` | 选项，支持 `include_internal`、`persistent_only`、`include_empty_signals`、`include_external_targets`、`max_node_depth` 与 `max_nodes`。 |
+| `options` | 选项，支持 `include_internal`、`persistent_only`、`include_empty_signals`、`include_external_targets`、`participating_nodes_only`、`max_node_depth` 与 `max_nodes`。 |
 
 返回：信号连接图报告。
 
 结构：
 
-- `options`: Dictionary with include_internal, persistent_only, include_empty_signals, include_external_targets, max_node_depth, and max_nodes.
+- `options`: Dictionary with include_internal, persistent_only, include_empty_signals, include_external_targets, participating_nodes_only, max_node_depth, and max_nodes.
 - `return`: Dictionary containing ok, root_path, node_count, signal_count, connection_count, nodes, signals, connections, and truncated.
 
 <a id="member-gfscenesignalaudit-methods-index_signal_graph"></a>

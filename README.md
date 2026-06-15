@@ -10,13 +10,12 @@ GF Framework is a lightweight game architecture framework for Godot 4. It separa
 - Chinese docs source: [`docs/zh`](docs/zh)
 - Generated API Reference source: [`docs/api_catalog`](docs/api_catalog)
 - Changelog: [`docs/zh/changelog.md`](docs/zh/changelog.md)
-- Maintenance rules: [`AI_MAINTENANCE.md`](AI_MAINTENANCE.md)
 
 The legacy GitHub Wiki keeps only entry links. Read the Docs is the single official documentation source.
 
 ## Requirements
 
-- Godot 4.x.
+- Godot 4.6 or newer.
 - GUT, only when running the repository test suite.
 - Python dependencies from [`docs/requirements.txt`](docs/requirements.txt), only when building the documentation locally.
 
@@ -32,7 +31,7 @@ When enabled, the plugin registers the `Gf` AutoLoad automatically:
 Gf -> res://addons/gf/kernel/core/gf.gd
 ```
 
-The plugin also opens the standalone `GF Workspace`. Use its `GF Extensions` page to inspect extension manifests, enable or disable GF extensions, auto-run enabled extension installers, exclude disabled extension folders from exported builds, and make disabled-extension references fail export checks when needed.
+The plugin also opens the standalone `GF Workspace`. A new project starts with only the GF kernel and standard library active; bundled optional extensions remain disabled until the project explicitly enables them. Use the `GF Extensions` page to inspect extension manifests, enable or disable GF extensions, auto-run enabled extension installers, exclude disabled extension folders from exported builds, and make disabled-extension references fail export checks when needed.
 
 Bundled GF extensions are atomic: they depend only on the GF kernel/standard surface and do not declare, probe, or load other bundled extensions. Project code or standalone Godot plugins outside `addons/gf` own cross-extension composition. Unused extensions can be disabled, excluded from export, or removed after project scripts, scenes, resources, and preloads no longer reference them.
 
@@ -89,7 +88,7 @@ The kernel does not hard reference the standard library or optional extensions. 
 
 ## Editor Tools
 
-GF includes editor support for extension management, typed GF/config accessor generation, project constants, script templates, inspectors, docks, export helpers, SaveGraph diagnostics, Pattern2D editing, and Node3D/Mesh/MeshLibrary thumbnail rendering.
+GF includes core editor support for extension management, typed GF/config accessor generation, project constants, script templates, inspectors, docks, export helpers, and Node3D/Mesh/MeshLibrary thumbnail rendering. Optional extensions contribute their own editor tools, such as SaveGraph diagnostics and Pattern2D editing, only when enabled.
 
 Extension-specific editor tools are declared by `gf_extension.json` manifests and loaded only when the extension is enabled.
 

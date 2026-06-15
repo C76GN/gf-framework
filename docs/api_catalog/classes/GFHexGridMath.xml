@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFHexGridMath" path="addons/gf/standard/foundation/math/gf_hex_grid_math.gd" module="standard" extends="RefCounted" classDigest="64545cd0db13196d555ef2b973e32ab7d8bd2ac6404f89816bf6a9b47ed01785">
+<class name="GFHexGridMath" path="addons/gf/standard/foundation/math/gf_hex_grid_math.gd" module="standard" extends="RefCounted" classDigest="ed09fed45efdb91de8f28d05c2ba999298dbbe04072d65e3e4f1ee8ed0c55f6e">
 	<description>GFHexGridMath: 六边形网格的纯算法工具。
 提供 offset / cube 坐标转换、邻居枚举、距离、范围、环、直线、视线、
 A* 路径查找和 Flow Field 生成。它不依赖 GFArchitecture，可直接在
@@ -231,6 +231,40 @@ Model、System、Controller 或测试中静态调用。</description>
 				<tag name="param">layout: offset 坐标布局。</tag>
 				<tag name="param">step_cost: 可选代价回调，签名为 `func(from: Vector2i, to: Vector2i) -&gt; float`；返回负数表示不可通行。</tag>
 				<tag name="return">包含起点与终点的路径；无法到达时返回空数组。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="begin_path_a_star_search">
+			<signature>static func begin_path_a_star_search( grid_size: Vector2i, start: Vector2i, goal: Vector2i, is_walkable: Callable, layout: OffsetLayout = OffsetLayout.ODD_R, step_cost: Callable = Callable() ) -&gt; GFGraphPathSearchState:</signature>
+			<description>创建可分步推进的六边形网格 A* 搜索状态。
+状态由 `GFGraphMath.advance_path_search()` 推进；本方法只负责把 Hex 布局、
+邻居、通行、代价和距离启发函数适配成通用图搜索回调。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">grid_size: 网格尺寸；任一轴小于 0 时视为无限网格。</tag>
+				<tag name="param">start: 起点 offset 坐标。</tag>
+				<tag name="param">goal: 终点 offset 坐标。</tag>
+				<tag name="param">is_walkable: 可通行回调，签名为 `func(cell: Vector2i) -&gt; bool`。</tag>
+				<tag name="param">layout: offset 坐标布局。</tag>
+				<tag name="param">step_cost: 可选代价回调，签名为 `func(from: Vector2i, to: Vector2i) -&gt; float`；返回负数表示不可通行。</tag>
+				<tag name="return">`GFGraphMath` 分步路径搜索状态句柄。</tag>
+				<tag name="schema">return: GFGraphPathSearchState returned by `GFGraphMath.begin_path_search()`.</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="simplify_path_line_of_sight">
+			<signature>static func simplify_path_line_of_sight( path: Array[Vector2i], is_blocking: Callable, layout: OffsetLayout = OffsetLayout.ODD_R, include_endpoints: bool = false ) -&gt; Array[Vector2i]:</signature>
+			<description>使用 Hex 视线检测抽稀六边形网格路径。
+该方法只移除可由 Hex 直线视线覆盖的中间格子，保留起点与终点；它不执行单位移动、
+转向动画或碰撞响应。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">path: 包含起点与终点的 offset 路径。</tag>
+				<tag name="param">is_blocking: 阻挡回调，签名为 `func(cell: Vector2i) -&gt; bool`。</tag>
+				<tag name="param">layout: offset 坐标布局。</tag>
+				<tag name="param">include_endpoints: 是否检查每段抽稀直线的端点是否阻挡。</tag>
+				<tag name="return">抽稀后的路径；空路径仍返回空数组。</tag>
+				<tag name="schema">path: Array[Vector2i] path cells.</tag>
+				<tag name="since">5.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="build_flow_field">

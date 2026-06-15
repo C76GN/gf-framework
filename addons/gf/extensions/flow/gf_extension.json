@@ -1,7 +1,7 @@
 {
   "id": "gf.flow",
   "display_name": "GF Flow",
-  "version": "4.4.0",
+  "version": "5.0.0",
   "extension_version": "1.4.0",
   "kind": "extension",
   "description": "Resourceized flow graph primitives with ports, runners, diagnostics, and editor view models.",
@@ -15,6 +15,6 @@
   ],
   "editor_dock_order": 40,
   "editor_dock_short_label": "流程",
-  "enabled_by_default": true,
+  "enabled_by_default": false,
   "tags": ["flow", "graph", "editor"]
 }

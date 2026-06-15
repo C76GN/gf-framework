@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<apiCatalog schemaVersion="2" name="GF Framework" sourceRoot="addons/gf" sourceDigest="e86c5e0cc7c8c681ab55dc8c1c9c09e1daeedfb8ad5dee9abdfb55ddec8fb9a4" classCount="503" methodCount="4099">
-	<module id="kernel" label="Kernel" classCount="43" methodCount="449">
+<apiCatalog schemaVersion="2" name="GF Framework" sourceRoot="addons/gf" sourceDigest="00b76709a91b5bc47fb6f62dfb98a6a312ce608d970014db200ee580feda8040" classCount="522" methodCount="4290">
+	<module id="kernel" label="Kernel" classCount="45" methodCount="467">
 		<class name="GFAccessGenerator" path="classes/GFAccessGenerator.xml" sourcePath="addons/gf/kernel/editor/gf_access_generator.gd" extends="RefCounted" />
 		<class name="GFArchitecture" path="classes/GFArchitecture.xml" sourcePath="addons/gf/kernel/core/gf_architecture.gd" extends="Object" />
 		<class name="GFBindBuilder" path="classes/GFBindBuilder.xml" sourcePath="addons/gf/kernel/core/gf_bind_builder.gd" extends="RefCounted" />
@@ -24,6 +24,7 @@
 		<class name="GFEditorValueField" path="classes/GFEditorValueField.xml" sourcePath="addons/gf/kernel/editor/gf_editor_value_field.gd" extends="HBoxContainer" />
 		<class name="GFExtensionCatalog" path="classes/GFExtensionCatalog.xml" sourcePath="addons/gf/kernel/extension/gf_extension_catalog.gd" extends="RefCounted" />
 		<class name="GFExtensionManifest" path="classes/GFExtensionManifest.xml" sourcePath="addons/gf/kernel/extension/gf_extension_manifest.gd" extends="RefCounted" />
+		<class name="GFExtensionPreset" path="classes/GFExtensionPreset.xml" sourcePath="addons/gf/kernel/extension/gf_extension_preset.gd" extends="RefCounted" />
 		<class name="GFExtensionSettings" path="classes/GFExtensionSettings.xml" sourcePath="addons/gf/kernel/extension/gf_extension_settings.gd" extends="RefCounted" />
 		<class name="GFExtensionUsageAudit" path="classes/GFExtensionUsageAudit.xml" sourcePath="addons/gf/kernel/extension/gf_extension_usage_audit.gd" extends="RefCounted" />
 		<class name="GFInstaller" path="classes/GFInstaller.xml" sourcePath="addons/gf/kernel/core/gf_installer.gd" extends="RefCounted" />
@@ -32,6 +33,7 @@
 		<class name="GFObjectPropertyTools" path="classes/GFObjectPropertyTools.xml" sourcePath="addons/gf/kernel/core/gf_object_property_tools.gd" extends="RefCounted" />
 		<class name="GFPathTools" path="classes/GFPathTools.xml" sourcePath="addons/gf/kernel/core/gf_path_tools.gd" extends="RefCounted" />
 		<class name="GFPayload" path="classes/GFPayload.xml" sourcePath="addons/gf/kernel/base/gf_payload.gd" extends="RefCounted" />
+		<class name="GFProjectSettingsTools" path="classes/GFProjectSettingsTools.xml" sourcePath="addons/gf/kernel/core/gf_project_settings_tools.gd" extends="RefCounted" />
 		<class name="GFQuery" path="classes/GFQuery.xml" sourcePath="addons/gf/kernel/base/gf_query.gd" extends="Object" />
 		<class name="GFReactiveEffect" path="classes/GFReactiveEffect.xml" sourcePath="addons/gf/kernel/core/gf_reactive_effect.gd" extends="RefCounted" />
 		<class name="GFReadOnlyBindableProperty" path="classes/GFReadOnlyBindableProperty.xml" sourcePath="addons/gf/kernel/core/gf_read_only_bindable_property.gd" extends="GFBindableProperty" />
@@ -45,7 +47,7 @@
 		<class name="GFTypeEventSystem" path="classes/GFTypeEventSystem.xml" sourcePath="addons/gf/kernel/core/gf_type_event_system.gd" extends="Object" />
 		<class name="GFUtility" path="classes/GFUtility.xml" sourcePath="addons/gf/kernel/base/gf_utility.gd" extends="Object" />
 	</module>
-	<module id="standard" label="Standard" classCount="256" methodCount="2370">
+	<module id="standard" label="Standard" classCount="273" methodCount="2541">
 		<class name="GFAnalyticsConfig" path="classes/GFAnalyticsConfig.xml" sourcePath="addons/gf/standard/utilities/analytics/gf_analytics_config.gd" extends="Resource" />
 		<class name="GFAnalyticsUtility" path="classes/GFAnalyticsUtility.xml" sourcePath="addons/gf/standard/utilities/analytics/gf_analytics_utility.gd" extends="GFUtility" />
 		<class name="GFAssetHandle" path="classes/GFAssetHandle.xml" sourcePath="addons/gf/standard/utilities/assets/gf_asset_handle.gd" extends="RefCounted" />
@@ -61,6 +63,7 @@
 		<class name="GFAudioClip" path="classes/GFAudioClip.xml" sourcePath="addons/gf/standard/utilities/audio/gf_audio_clip.gd" extends="Resource" />
 		<class name="GFAudioEmitterHandle" path="classes/GFAudioEmitterHandle.xml" sourcePath="addons/gf/standard/utilities/audio/gf_audio_emitter_handle.gd" extends="RefCounted" />
 		<class name="GFAudioEvent" path="classes/GFAudioEvent.xml" sourcePath="addons/gf/standard/utilities/audio/gf_audio_event.gd" extends="Resource" />
+		<class name="GFAudioLibraryTools" path="classes/GFAudioLibraryTools.xml" sourcePath="addons/gf/standard/utilities/audio/gf_audio_library_tools.gd" extends="RefCounted" />
 		<class name="GFAudioParameter" path="classes/GFAudioParameter.xml" sourcePath="addons/gf/standard/utilities/audio/gf_audio_parameter.gd" extends="Resource" />
 		<class name="GFAudioSpatialSettings" path="classes/GFAudioSpatialSettings.xml" sourcePath="addons/gf/standard/utilities/audio/gf_audio_spatial_settings.gd" extends="Resource" />
 		<class name="GFAudioState" path="classes/GFAudioState.xml" sourcePath="addons/gf/standard/utilities/audio/gf_audio_state.gd" extends="Resource" />
@@ -77,6 +80,9 @@
 		<class name="GFBuildInfoExportPlugin" path="classes/GFBuildInfoExportPlugin.xml" sourcePath="addons/gf/standard/utilities/debug/editor/gf_build_info_export_plugin.gd" extends="EditorExportPlugin" />
 		<class name="GFBuildInfoUtility" path="classes/GFBuildInfoUtility.xml" sourcePath="addons/gf/standard/utilities/debug/gf_build_info_utility.gd" extends="GFUtility" />
 		<class name="GFCallableTargetRef" path="classes/GFCallableTargetRef.xml" sourcePath="addons/gf/standard/utilities/signals/bridge/gf_callable_target_ref.gd" extends="Resource" />
+		<class name="GFCollisionBroadphase2D" path="classes/GFCollisionBroadphase2D.xml" sourcePath="addons/gf/standard/foundation/math/gf_collision_broadphase_2d.gd" extends="RefCounted" />
+		<class name="GFCollisionBroadphase3D" path="classes/GFCollisionBroadphase3D.xml" sourcePath="addons/gf/standard/foundation/math/gf_collision_broadphase_3d.gd" extends="RefCounted" />
+		<class name="GFCollisionNarrowphase2D" path="classes/GFCollisionNarrowphase2D.xml" sourcePath="addons/gf/standard/foundation/math/gf_collision_narrowphase_2d.gd" extends="RefCounted" />
 		<class name="GFCommandHistoryUtility" path="classes/GFCommandHistoryUtility.xml" sourcePath="addons/gf/standard/utilities/history/gf_command_history_utility.gd" extends="GFUtility" />
 		<class name="GFCommandSequence" path="classes/GFCommandSequence.xml" sourcePath="addons/gf/standard/sequence/gf_command_sequence.gd" extends="RefCounted" />
 		<class name="GFConfigBuildProfile" path="classes/GFConfigBuildProfile.xml" sourcePath="addons/gf/standard/utilities/config/gf_config_build_profile.gd" extends="Resource" />
@@ -104,6 +110,9 @@
 		<class name="GFCurve2DMath" path="classes/GFCurve2DMath.xml" sourcePath="addons/gf/standard/foundation/math/gf_curve_2d_math.gd" extends="RefCounted" />
 		<class name="GFDebugDrawUtility" path="classes/GFDebugDrawUtility.xml" sourcePath="addons/gf/standard/utilities/debug/gf_debug_draw_utility.gd" extends="GFUtility" />
 		<class name="GFDebugOverlayUtility" path="classes/GFDebugOverlayUtility.xml" sourcePath="addons/gf/standard/utilities/debug/gf_debug_overlay_utility.gd" extends="GFUtility" />
+		<class name="GFDeque" path="classes/GFDeque.xml" sourcePath="addons/gf/standard/foundation/collections/gf_deque.gd" extends="RefCounted" />
+		<class name="GFDeterministicRandom" path="classes/GFDeterministicRandom.xml" sourcePath="addons/gf/standard/foundation/deterministic/gf_deterministic_random.gd" extends="RefCounted" />
+		<class name="GFDeterministicVariantSerializer" path="classes/GFDeterministicVariantSerializer.xml" sourcePath="addons/gf/standard/foundation/deterministic/gf_deterministic_variant_serializer.gd" extends="RefCounted" />
 		<class name="GFDiagnosticsDock" path="classes/GFDiagnosticsDock.xml" sourcePath="addons/gf/standard/utilities/debug/editor/gf_diagnostics_dock.gd" extends="Control" />
 		<class name="GFDiagnosticsUtility" path="classes/GFDiagnosticsUtility.xml" sourcePath="addons/gf/standard/utilities/debug/gf_diagnostics_utility.gd" extends="GFUtility" />
 		<class name="GFDictionarySchema" path="classes/GFDictionarySchema.xml" sourcePath="addons/gf/standard/foundation/schema/gf_dictionary_schema.gd" extends="Resource" />
@@ -116,12 +125,15 @@
 		<class name="GFDragSession" path="classes/GFDragSession.xml" sourcePath="addons/gf/standard/input/drag_drop/gf_drag_session.gd" extends="RefCounted" />
 		<class name="GFDropZone" path="classes/GFDropZone.xml" sourcePath="addons/gf/standard/input/drag_drop/gf_drop_zone.gd" extends="RefCounted" />
 		<class name="GFFixedDecimal" path="classes/GFFixedDecimal.xml" sourcePath="addons/gf/standard/foundation/numeric/gf_fixed_decimal.gd" extends="RefCounted" />
+		<class name="GFFixedVector2" path="classes/GFFixedVector2.xml" sourcePath="addons/gf/standard/foundation/numeric/gf_fixed_vector2.gd" extends="RefCounted" />
+		<class name="GFFixedVector3" path="classes/GFFixedVector3.xml" sourcePath="addons/gf/standard/foundation/numeric/gf_fixed_vector3.gd" extends="RefCounted" />
 		<class name="GFFormBinder" path="classes/GFFormBinder.xml" sourcePath="addons/gf/standard/utilities/ui/gf_form_binder.gd" extends="RefCounted" />
 		<class name="GFFormula" path="classes/GFFormula.xml" sourcePath="addons/gf/standard/foundation/formula/gf_formula.gd" extends="Resource" />
 		<class name="GFFormulaParameter" path="classes/GFFormulaParameter.xml" sourcePath="addons/gf/standard/foundation/formula/gf_formula_parameter.gd" extends="RefCounted" />
 		<class name="GFFormulaSet" path="classes/GFFormulaSet.xml" sourcePath="addons/gf/standard/foundation/formula/gf_formula_set.gd" extends="Resource" />
 		<class name="GFGraphLayoutUtility" path="classes/GFGraphLayoutUtility.xml" sourcePath="addons/gf/standard/foundation/math/gf_graph_layout_utility.gd" extends="RefCounted" />
 		<class name="GFGraphMath" path="classes/GFGraphMath.xml" sourcePath="addons/gf/standard/foundation/math/gf_graph_math.gd" extends="RefCounted" />
+		<class name="GFGraphPathSearchState" path="classes/GFGraphPathSearchState.xml" sourcePath="addons/gf/standard/foundation/math/gf_graph_path_search_state.gd" extends="RefCounted" />
 		<class name="GFGrid3DMath" path="classes/GFGrid3DMath.xml" sourcePath="addons/gf/standard/foundation/math/gf_grid_3d_math.gd" extends="RefCounted" />
 		<class name="GFGridGenerationPipeline2D" path="classes/GFGridGenerationPipeline2D.xml" sourcePath="addons/gf/standard/foundation/math/gf_grid_generation_pipeline_2d.gd" extends="Resource" />
 		<class name="GFGridGenerationStep2D" path="classes/GFGridGenerationStep2D.xml" sourcePath="addons/gf/standard/foundation/math/gf_grid_generation_step_2d.gd" extends="Resource" />
@@ -202,9 +214,13 @@
 		<class name="GFPattern2D" path="classes/GFPattern2D.xml" sourcePath="addons/gf/standard/foundation/math/gf_pattern_2d.gd" extends="Resource" />
 		<class name="GFPhysicsQueryUtility" path="classes/GFPhysicsQueryUtility.xml" sourcePath="addons/gf/standard/utilities/spatial/gf_physics_query_utility.gd" extends="GFUtility" />
 		<class name="GFPointerActivityUtility" path="classes/GFPointerActivityUtility.xml" sourcePath="addons/gf/standard/input/runtime/gf_pointer_activity_utility.gd" extends="GFUtility" />
+		<class name="GFPoissonDisc2D" path="classes/GFPoissonDisc2D.xml" sourcePath="addons/gf/standard/foundation/math/gf_poisson_disc_2d.gd" extends="RefCounted" />
 		<class name="GFPolynomialMath" path="classes/GFPolynomialMath.xml" sourcePath="addons/gf/standard/foundation/math/gf_polynomial_math.gd" extends="RefCounted" />
 		<class name="GFProgressionMath" path="classes/GFProgressionMath.xml" sourcePath="addons/gf/standard/foundation/math/gf_progression_math.gd" extends="RefCounted" />
 		<class name="GFQuadTreeUtility" path="classes/GFQuadTreeUtility.xml" sourcePath="addons/gf/standard/utilities/spatial/gf_quad_tree_utility.gd" extends="GFUtility" />
+		<class name="GFReactiveStateControlBinder" path="classes/GFReactiveStateControlBinder.xml" sourcePath="addons/gf/standard/utilities/ui/gf_reactive_state_control_binder.gd" extends="RefCounted" />
+		<class name="GFReactiveStateStore" path="classes/GFReactiveStateStore.xml" sourcePath="addons/gf/standard/utilities/state/gf_reactive_state_store.gd" extends="RefCounted" />
+		<class name="GFRectPacking2D" path="classes/GFRectPacking2D.xml" sourcePath="addons/gf/standard/foundation/math/gf_rect_packing_2d.gd" extends="RefCounted" />
 		<class name="GFRefCountedPool" path="classes/GFRefCountedPool.xml" sourcePath="addons/gf/standard/utilities/pooling/gf_ref_counted_pool.gd" extends="RefCounted" />
 		<class name="GFRegionMap2D" path="classes/GFRegionMap2D.xml" sourcePath="addons/gf/standard/foundation/math/gf_region_map_2d.gd" extends="RefCounted" />
 		<class name="GFRegionMap3D" path="classes/GFRegionMap3D.xml" sourcePath="addons/gf/standard/foundation/math/gf_region_map_3d.gd" extends="RefCounted" />
@@ -229,6 +245,7 @@
 		<class name="GFSchemaField" path="classes/GFSchemaField.xml" sourcePath="addons/gf/standard/foundation/schema/gf_schema_field.gd" extends="Resource" />
 		<class name="GFScreenTransitionEffect" path="classes/GFScreenTransitionEffect.xml" sourcePath="addons/gf/standard/utilities/scene/gf_screen_transition_effect.gd" extends="Resource" />
 		<class name="GFScreenTransitionUtility" path="classes/GFScreenTransitionUtility.xml" sourcePath="addons/gf/standard/utilities/scene/gf_screen_transition_utility.gd" extends="GFUtility" />
+		<class name="GFScreenshotUtility" path="classes/GFScreenshotUtility.xml" sourcePath="addons/gf/standard/utilities/debug/gf_screenshot_utility.gd" extends="GFUtility" />
 		<class name="GFSeedUtility" path="classes/GFSeedUtility.xml" sourcePath="addons/gf/standard/utilities/random/gf_seed_utility.gd" extends="GFUtility" />
 		<class name="GFSequenceContext" path="classes/GFSequenceContext.xml" sourcePath="addons/gf/standard/sequence/gf_sequence_context.gd" extends="RefCounted" />
 		<class name="GFSequenceStep" path="classes/GFSequenceStep.xml" sourcePath="addons/gf/standard/sequence/gf_sequence_step.gd" extends="Resource" />
@@ -269,6 +286,7 @@
 		<class name="GFTagSourceAdapter" path="classes/GFTagSourceAdapter.xml" sourcePath="addons/gf/standard/foundation/tags/gf_tag_source_adapter.gd" extends="RefCounted" />
 		<class name="GFTextAutoFit" path="classes/GFTextAutoFit.xml" sourcePath="addons/gf/standard/utilities/ui/gf_text_auto_fit.gd" extends="Node" />
 		<class name="GFTextFitter" path="classes/GFTextFitter.xml" sourcePath="addons/gf/standard/utilities/ui/gf_text_fitter.gd" extends="RefCounted" />
+		<class name="GFTextSearchScorer" path="classes/GFTextSearchScorer.xml" sourcePath="addons/gf/standard/foundation/collections/gf_text_search_scorer.gd" extends="RefCounted" />
 		<class name="GFTileMapCache" path="classes/GFTileMapCache.xml" sourcePath="addons/gf/standard/foundation/math/gf_tile_map_cache.gd" extends="Resource" />
 		<class name="GFTileMetadataLayer" path="classes/GFTileMetadataLayer.xml" sourcePath="addons/gf/standard/foundation/math/gf_tile_metadata_layer.gd" extends="GFTileMapCache" />
 		<class name="GFTileRuleSet" path="classes/GFTileRuleSet.xml" sourcePath="addons/gf/standard/foundation/math/gf_tile_rule_set.gd" extends="Resource" />
@@ -299,6 +317,7 @@
 		<class name="GFViewportUtility" path="classes/GFViewportUtility.xml" sourcePath="addons/gf/standard/utilities/display/gf_viewport_utility.gd" extends="GFUtility" />
 		<class name="GFVirtualInputSource" path="classes/GFVirtualInputSource.xml" sourcePath="addons/gf/standard/input/sources/gf_virtual_input_source.gd" extends="RefCounted" />
 		<class name="GFVirtualListModel" path="classes/GFVirtualListModel.xml" sourcePath="addons/gf/standard/utilities/ui/gf_virtual_list_model.gd" extends="RefCounted" />
+		<class name="GFVoronoi2D" path="classes/GFVoronoi2D.xml" sourcePath="addons/gf/standard/foundation/math/gf_voronoi_2d.gd" extends="RefCounted" />
 		<class name="GFWaitSequenceStep" path="classes/GFWaitSequenceStep.xml" sourcePath="addons/gf/standard/sequence/gf_wait_sequence_step.gd" extends="GFSequenceStep" />
 		<class name="GFWeightedEntry" path="classes/GFWeightedEntry.xml" sourcePath="addons/gf/standard/foundation/math/gf_weighted_entry.gd" extends="Resource" />
 		<class name="GFWeightedTable" path="classes/GFWeightedTable.xml" sourcePath="addons/gf/standard/foundation/math/gf_weighted_table.gd" extends="Resource" />
@@ -432,7 +451,7 @@
 		<class name="GFDecisionSet" path="classes/GFDecisionSet.xml" sourcePath="addons/gf/extensions/decision/resources/gf_decision_set.gd" extends="Resource" />
 		<class name="GFDecisionUtility" path="classes/GFDecisionUtility.xml" sourcePath="addons/gf/extensions/decision/runtime/gf_decision_utility.gd" extends="GFUtility" />
 	</module>
-	<module id="extensions/dialogue" label="Dialogue" classCount="5" methodCount="34">
+	<module id="extensions/dialogue" label="Dialogue" classCount="5" methodCount="36">
 		<class name="GFDialogueContext" path="classes/GFDialogueContext.xml" sourcePath="addons/gf/extensions/dialogue/runtime/gf_dialogue_context.gd" extends="RefCounted" />
 		<class name="GFDialogueLine" path="classes/GFDialogueLine.xml" sourcePath="addons/gf/extensions/dialogue/resources/gf_dialogue_line.gd" extends="Resource" />
 		<class name="GFDialogueResource" path="classes/GFDialogueResource.xml" sourcePath="addons/gf/extensions/dialogue/resources/gf_dialogue_resource.gd" extends="Resource" />

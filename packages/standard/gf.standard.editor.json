@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "id": "gf.standard.editor",
+  "kind": "standard",
+  "version": "unreleased",
+  "display_name": "GF Standard Editor Contributions",
+  "description": "Optional standard editor contribution aggregator loaded by the root plugin when installed.",
+  "dependencies": [
+    "gf.kernel",
+    "gf.standard.base",
+    "gf.standard.input",
+    "gf.standard.storage",
+    "gf.standard.state_machine",
+    "gf.standard.audio",
+    "gf.standard.debug",
+    "gf.standard.spatial"
+  ],
+  "paths": [
+    "addons/gf/standard/editor/**"
+  ],
+  "metadata": {
+    "stage": "standard-split-v1"
+  }
+}

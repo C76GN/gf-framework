@@ -23,6 +23,7 @@
 | 常量 | [`HOOK_GET_REQUIRED_SYSTEMS`](#member-gfarchitecture-constants-hook_get_required_systems) | `const HOOK_GET_REQUIRED_SYSTEMS: StringName = &"get_required_systems"` |
 | 常量 | [`HOOK_GET_REQUIRED_UTILITIES`](#member-gfarchitecture-constants-hook_get_required_utilities) | `const HOOK_GET_REQUIRED_UTILITIES: StringName = &"get_required_utilities"` |
 | 常量 | [`HOOK_GET_REQUIRED_FACTORIES`](#member-gfarchitecture-constants-hook_get_required_factories) | `const HOOK_GET_REQUIRED_FACTORIES: StringName = &"get_required_factories"` |
+| 常量 | [`DEFAULT_SNAPSHOT_MODELS_PER_FRAME`](#member-gfarchitecture-constants-default_snapshot_models_per_frame) | `const DEFAULT_SNAPSHOT_MODELS_PER_FRAME: int = 8` |
 | 属性 | [`module_async_init_timeout_seconds`](#member-gfarchitecture-properties-module_async_init_timeout_seconds) | `var module_async_init_timeout_seconds: float = 0.0:` |
 | 属性 | [`module_lifecycle_max_stage_passes`](#member-gfarchitecture-properties-module_lifecycle_max_stage_passes) | `var module_lifecycle_max_stage_passes: int = 256:` |
 | 属性 | [`strict_dependency_lookup`](#member-gfarchitecture-properties-strict_dependency_lookup) | `var strict_dependency_lookup: bool = false` |
@@ -97,9 +98,13 @@
 | 方法 | [`inject_object`](#member-gfarchitecture-methods-inject_object) | `func inject_object(instance: Object) -> void:` |
 | 方法 | [`inject_node_tree`](#member-gfarchitecture-methods-inject_node_tree) | `func inject_node_tree(node: Node) -> void:` |
 | 方法 | [`get_all_models_state`](#member-gfarchitecture-methods-get_all_models_state) | `func get_all_models_state() -> Dictionary:` |
+| 方法 | [`get_all_models_state_async`](#member-gfarchitecture-methods-get_all_models_state_async) | `func get_all_models_state_async(options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`restore_all_models_state`](#member-gfarchitecture-methods-restore_all_models_state) | `func restore_all_models_state(data: Dictionary) -> void:` |
+| 方法 | [`restore_all_models_state_async`](#member-gfarchitecture-methods-restore_all_models_state_async) | `func restore_all_models_state_async(data: Dictionary, options: Dictionary = {}) -> void:` |
 | 方法 | [`get_global_snapshot`](#member-gfarchitecture-methods-get_global_snapshot) | `func get_global_snapshot() -> Dictionary:` |
+| 方法 | [`get_global_snapshot_async`](#member-gfarchitecture-methods-get_global_snapshot_async) | `func get_global_snapshot_async(options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`restore_global_snapshot`](#member-gfarchitecture-methods-restore_global_snapshot) | `func restore_global_snapshot(data: Dictionary, command_builder: Callable = Callable()) -> void:` |
+| 方法 | [`restore_global_snapshot_async`](#member-gfarchitecture-methods-restore_global_snapshot_async) | `func restore_global_snapshot_async( data: Dictionary, command_builder: Callable = Callable(), options: Dictionary = {} ) -> void:` |
 | 方法 | [`get_debug_lifecycle_state`](#member-gfarchitecture-methods-get_debug_lifecycle_state) | `func get_debug_lifecycle_state() -> Dictionary:` |
 | 方法 | [`get_dependency_diagnostics`](#member-gfarchitecture-methods-get_dependency_diagnostics) | `func get_dependency_diagnostics(options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`_on_init`](#member-gfarchitecture-methods-_on_init) | `func _on_init() -> void:` |
@@ -210,6 +215,19 @@ const HOOK_GET_REQUIRED_FACTORIES: StringName = &"get_required_factories"
 ```
 
 声明式工厂依赖 Hook 名称。
+
+<a id="member-gfarchitecture-constants-default_snapshot_models_per_frame"></a>
+
+### `DEFAULT_SNAPSHOT_MODELS_PER_FRAME`
+
+- API：`public`
+- 首次版本：`5.0.0`
+
+```gdscript
+const DEFAULT_SNAPSHOT_MODELS_PER_FRAME: int = 8
+```
+
+分帧快照 API 默认每帧处理的 Model 数量。
 
 ## 属性
 
@@ -1542,6 +1560,32 @@ func get_all_models_state() -> Dictionary:
 
 - `return`: Dictionary keyed by stable model save key, storing each Model.to_dict() result.
 
+<a id="member-gfarchitecture-methods-get_all_models_state_async"></a>
+
+### `get_all_models_state_async`
+
+- API：`public`
+- 首次版本：`5.0.0`
+
+```gdscript
+func get_all_models_state_async(options: Dictionary = {}) -> Dictionary:
+```
+
+分帧收集所有已注册 Model 的状态快照。 适合大型存档或移动端项目，避免单帧集中执行大量 to_dict()。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `options` | 可选参数，支持 max_models_per_frame；小于等于 0 时不主动让出帧。 |
+
+返回：包含所有 Model 状态的字典，可直接交给项目存储层后台写入。
+
+结构：
+
+- `options`: Dictionary，可包含 max_models_per_frame: int。
+- `return`: Dictionary keyed by stable model save key, storing each Model.to_dict() result.
+
 <a id="member-gfarchitecture-methods-restore_all_models_state"></a>
 
 ### `restore_all_models_state`
@@ -1564,6 +1608,31 @@ func restore_all_models_state(data: Dictionary) -> void:
 
 - `data`: Dictionary keyed by stable model save key, storing serialized model data.
 
+<a id="member-gfarchitecture-methods-restore_all_models_state_async"></a>
+
+### `restore_all_models_state_async`
+
+- API：`public`
+- 首次版本：`5.0.0`
+
+```gdscript
+func restore_all_models_state_async(data: Dictionary, options: Dictionary = {}) -> void:
+```
+
+分帧恢复所有已注册 Model 的数据。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `data` | 由 get_all_models_state() 或 get_all_models_state_async() 返回的状态字典。 |
+| `options` | 可选参数，支持 max_models_per_frame；小于等于 0 时不主动让出帧。 |
+
+结构：
+
+- `data`: Dictionary keyed by stable model save key, storing serialized model data.
+- `options`: Dictionary，可包含 max_models_per_frame: int。
+
 <a id="member-gfarchitecture-methods-get_global_snapshot"></a>
 
 ### `get_global_snapshot`
@@ -1580,6 +1649,32 @@ func get_global_snapshot() -> Dictionary:
 
 结构：
 
+- `return`: Dictionary with models and optional command_history fields.
+
+<a id="member-gfarchitecture-methods-get_global_snapshot_async"></a>
+
+### `get_global_snapshot_async`
+
+- API：`public`
+- 首次版本：`5.0.0`
+
+```gdscript
+func get_global_snapshot_async(options: Dictionary = {}) -> Dictionary:
+```
+
+分帧获取整个框架的全局快照。 Model 状态会按 options.max_models_per_frame 分帧收集；命令历史仍在 Model 快照完成后同步收集。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `options` | 可选参数，支持 max_models_per_frame；小于等于 0 时不主动让出帧。 |
+
+返回：包含全局快照数据的字典。可直接用于 JSON 序列化或交给项目存储层后台写入。
+
+结构：
+
+- `options`: Dictionary，可包含 max_models_per_frame: int。
 - `return`: Dictionary with models and optional command_history fields.
 
 <a id="member-gfarchitecture-methods-restore_global_snapshot"></a>
@@ -1604,6 +1699,32 @@ func restore_global_snapshot(data: Dictionary, command_builder: Callable = Calla
 结构：
 
 - `data`: Dictionary produced by get_global_snapshot().
+
+<a id="member-gfarchitecture-methods-restore_global_snapshot_async"></a>
+
+### `restore_global_snapshot_async`
+
+- API：`public`
+- 首次版本：`5.0.0`
+
+```gdscript
+func restore_global_snapshot_async( data: Dictionary, command_builder: Callable = Callable(), options: Dictionary = {} ) -> void:
+```
+
+分帧恢复整个框架的全局快照。 Model 状态会按 options.max_models_per_frame 分帧恢复；命令历史仍在 Model 恢复完成后同步恢复。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `data` | 由 get_global_snapshot() 或 get_global_snapshot_async() 导出的全局快照字典数据。 |
+| `command_builder` | 【可选】如果需要恢复历史记录，必须传入用于反序列化具体 Command 实例的 Callable。 |
+| `options` | 可选参数，支持 max_models_per_frame；小于等于 0 时不主动让出帧。 |
+
+结构：
+
+- `data`: Dictionary produced by get_global_snapshot() or get_global_snapshot_async().
+- `options`: Dictionary，可包含 max_models_per_frame: int。
 
 <a id="member-gfarchitecture-methods-get_debug_lifecycle_state"></a>
 

@@ -1,10 +1,10 @@
 # 信号诊断与运行时信号探针
 
-编辑器侧的 `GFSceneSignalAudit.build_signal_graph()` / `index_signal_graph()` 可把当前节点树的信号、连接和节点索引整理为结构化数据；需要隐藏根节点外的目标时可传入 `include_external_targets = false`。
+编辑器侧的 `GFSceneSignalAudit.build_signal_graph()` / `index_signal_graph()` 可把当前节点树的信号、连接和节点索引整理为结构化数据；需要隐藏根节点外的目标时可传入 `include_external_targets = false`，需要让 `nodes` 只保留参与当前信号图的来源和目标节点时可传入 `participating_nodes_only = true`。
 
 信号图默认限制节点深度和节点数量，可通过 `max_node_depth` / `max_nodes` 调整，截断时报告会标记 `truncated`。
 
-`GFSignalGraphDock` 会把当前编辑场景渲染为 `GF Workspace > 信号诊断` 页面，默认查看场景文件中保存的信号连接并过滤编辑器外部目标，方便查看 source、signal、target 和 method。
+`GFSignalGraphDock` 会把当前编辑场景渲染为 `GF Workspace > 信号诊断` 页面，默认查看场景文件中保存的信号连接、过滤编辑器外部目标，并让节点统计聚焦在实际参与连接的节点上，方便查看 source、signal、target 和 method。
 
 勾选“未连接信号”可以列出节点声明过但还没有连接目标的信号；勾选“追踪发射”后，面板会按连接页当前可见信号建立监听，优先追踪保存连接里的信号，避免 `draw` 这类高频内建信号刷屏。
 

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFFixedDecimal" path="addons/gf/standard/foundation/numeric/gf_fixed_decimal.gd" module="standard" extends="RefCounted" classDigest="8bc068d17a0d877d6ee1135dbffd43bde7e7ae31a1e360b06ebb8a5d710a2dbb">
+<class name="GFFixedDecimal" path="addons/gf/standard/foundation/numeric/gf_fixed_decimal.gd" module="standard" extends="RefCounted" classDigest="e58c82beafd3586b54bb814814a799f87615b7d682cb8ebd9bc9655480032899">
 	<description>GFFixedDecimal: 基于整数缩放的定点小数值对象。
 适合处理货币、税率、经营数值等对“累计误差”敏感、
 但又不需要无限精度十进制库的场景。</description>
@@ -70,10 +70,32 @@
 			<description>从字符串构建定点数。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="param">value: 普通十进制字符串。</tag>
+				<tag name="param">value: 普通十进制字符串；科学计数法会作为 float 兼容路径解析，不适合作为严格十进制导入源。</tag>
 				<tag name="param">p_decimal_places: 目标小数位。</tag>
 				<tag name="param">rounding_mode: 舍入策略。</tag>
 				<tag name="return">定点数实例。</tag>
+				<tag name="since">3.17.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="from_dict">
+			<signature>static func from_dict(data: Dictionary) -&gt; GFFixedDecimal:</signature>
+			<description>从状态字典恢复定点数。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">data: `to_dict()` 输出的状态字典。</tag>
+				<tag name="return">定点数实例。</tag>
+				<tag name="schema">data: Dictionary with `type`, `version`, `raw_value`, and `decimal_places` fields.</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="from_bytes">
+			<signature>static func from_bytes(data: PackedByteArray) -&gt; GFFixedDecimal:</signature>
+			<description>从固定字节序列恢复定点数。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">data: `to_bytes()` 输出的字节序列。</tag>
+				<tag name="return">定点数实例。</tag>
+				<tag name="since">5.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="clone">
@@ -190,6 +212,48 @@
 				<tag name="api">public</tag>
 				<tag name="param">trim_zeroes: 是否裁掉尾部 0。</tag>
 				<tag name="return">十进制字符串。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="to_dict">
+			<signature>func to_dict() -&gt; Dictionary:</signature>
+			<description>导出 JSON 安全的状态字典。
+`raw_value` 固定写为十进制字符串，避免 JSON 64 位整数精度丢失。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">可稳定恢复定点数的状态字典。</tag>
+				<tag name="schema">return: Dictionary with `type: String`, `version: int`, `raw_value: String`, and `decimal_places: int`.</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="apply_dict">
+			<signature>func apply_dict(data: Dictionary) -&gt; bool:</signature>
+			<description>应用 JSON 安全状态字典。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">data: `to_dict()` 输出的状态字典。</tag>
+				<tag name="return">状态有效并已应用时返回 true。</tag>
+				<tag name="schema">data: Dictionary with `type`, `version`, `raw_value`, and `decimal_places` fields.</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="to_bytes">
+			<signature>func to_bytes() -&gt; PackedByteArray:</signature>
+			<description>导出固定二进制序列。
+格式为 `GFFD` magic、版本、小数位、符号位和 8 字节大端绝对 raw 值。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">可稳定恢复定点数的字节序列。</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="apply_bytes">
+			<signature>func apply_bytes(data: PackedByteArray) -&gt; bool:</signature>
+			<description>应用固定二进制序列。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">data: `to_bytes()` 输出的字节序列。</tag>
+				<tag name="return">字节序列有效并已应用时返回 true。</tag>
+				<tag name="since">5.0.0</tag>
 			</tags>
 		</member>
 	</methods>

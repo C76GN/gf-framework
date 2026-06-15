@@ -8,7 +8,7 @@ This directory is the distributable Godot addon for GF Framework. Copy `addons/g
 Gf -> res://addons/gf/kernel/core/gf.gd
 ```
 
-The plugin also opens the standalone `GF Workspace`. Its `GF Extensions` page is used for inspecting extension manifests, enabling or disabling extensions, auto-running enabled extension installers, excluding disabled extensions during export, and reporting disabled-extension references when strict export checks are enabled.
+The plugin also opens the standalone `GF Workspace`. New projects start with only the GF kernel and standard library active; bundled optional extensions are disabled until explicitly enabled. The `GF Extensions` page is used for inspecting extension manifests, enabling or disabling extensions, auto-running enabled extension installers, excluding disabled extensions during export, and reporting disabled-extension references when strict export checks are enabled.
 
 ## Layout
 
@@ -16,7 +16,7 @@ The plugin also opens the standalone `GF Workspace`. Its `GF Extensions` page is
 - `standard`: stable standard library, including foundation, input, utilities, state machines, command history, sequence helpers, and common support primitives.
 - `extensions`: optional atomic GF extensions shipped with the framework.
 
-Bundled GF extensions are atomic: they depend only on the GF kernel/standard surface and do not declare, probe, or load other bundled extensions. Project code or standalone Godot plugins outside `addons/gf` own cross-extension composition. Unused extensions may be disabled, excluded from export, or removed after project references are gone.
+Bundled GF extensions are atomic and disabled by default: they depend only on the GF kernel/standard surface and do not declare, probe, or load other bundled extensions. Project code or standalone Godot plugins outside `addons/gf` own cross-extension composition. Unused extensions may be excluded from export or removed after project references are gone.
 
 ## 中文说明
 

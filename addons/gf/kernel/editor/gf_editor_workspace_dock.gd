@@ -128,6 +128,8 @@ var _tabs: TabContainer = null
 var _status_label: Label = null
 var _version_check_button: Button = null
 var _version_status_label: Label = null
+var _update_release_button: Button = null
+var _latest_release_url: String = RELEASES_URL
 var _dock_records: Array[Dictionary] = []
 
 
@@ -603,6 +605,14 @@ func _make_about_content() -> Control:
 	var _version_check_connected: Error = _version_check_button.pressed.connect(_on_version_check_pressed) as Error
 	action_row.add_child(_version_check_button)
 
+	_update_release_button = Button.new()
+	_update_release_button.name = "AboutUpdateReleaseButton"
+	_update_release_button.text = "打开更新页面"
+	_update_release_button.tooltip_text = "打开检测到的新版本 Release 页面，由维护者按项目状态手动更新。"
+	_update_release_button.visible = false
+	var _update_release_connected: Error = _update_release_button.pressed.connect(_on_update_release_pressed) as Error
+	action_row.add_child(_update_release_button)
+
 	_version_status_label = Label.new()
 	_version_status_label.name = "AboutVersionStatus"
 	_version_status_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -661,6 +671,7 @@ func _request_latest_version() -> void:
 	_ensure_latest_version_request()
 	if not is_instance_valid(_latest_version_request):
 		_set_version_status("无法创建版本检测请求。", Color(0.9, 0.56, 0.56))
+		_set_update_release_button(false)
 		return
 
 	var status: HTTPClient.Status = _latest_version_request.get_http_client_status()
@@ -669,6 +680,7 @@ func _request_latest_version() -> void:
 		return
 
 	_set_version_status("正在检测最新版本...")
+	_set_update_release_button(false)
 	if is_instance_valid(_version_check_button):
 		_version_check_button.disabled = true
 
@@ -685,6 +697,7 @@ func _request_latest_version() -> void:
 		if is_instance_valid(_version_check_button):
 			_version_check_button.disabled = false
 		_set_version_status("无法发起版本检测：%s。" % error_string(error), Color(0.9, 0.56, 0.56))
+		_set_update_release_button(false)
 
 
 func _ensure_latest_version_request() -> void:
@@ -699,18 +712,22 @@ func _ensure_latest_version_request() -> void:
 	add_child(_latest_version_request)
 
 
-func _make_latest_version_status(latest_version: String, current_version: String) -> Dictionary:
+func _make_latest_version_status(latest_version: String, current_version: String, release_url: String = RELEASES_URL) -> Dictionary:
 	var latest: String = _normalize_version_tag(latest_version)
 	var current: String = _normalize_version_tag(current_version)
 	if latest.is_empty():
 		return {
 			"message": "未能读取最新发布版本。",
 			"color": Color(0.9, 0.56, 0.56),
+			"update_available": false,
+			"release_url": "",
 		}
 	if current.is_empty() or current == "unknown":
 		return {
 			"message": "最新发布版本：%s。当前版本未知。" % latest,
 			"color": Color(0.86, 0.74, 0.45),
+			"update_available": false,
+			"release_url": _normalize_release_url(release_url),
 		}
 
 	var compare: int = _compare_version_strings(latest, current)
@@ -718,15 +735,21 @@ func _make_latest_version_status(latest_version: String, current_version: String
 		return {
 			"message": "发现新版本：%s。当前版本：%s。" % [latest, current],
 			"color": Color(0.86, 0.74, 0.45),
+			"update_available": true,
+			"release_url": _normalize_release_url(release_url),
 		}
 	if compare < 0:
 		return {
 			"message": "当前版本 %s 高于最新发布 %s。" % [current, latest],
 			"color": Color(0.86, 0.74, 0.45),
+			"update_available": false,
+			"release_url": _normalize_release_url(release_url),
 		}
 	return {
 		"message": "当前已是最新版本：%s。" % current,
 		"color": Color(0.56, 0.82, 0.56),
+		"update_available": false,
+		"release_url": _normalize_release_url(release_url),
 	}
 
 
@@ -752,6 +775,13 @@ func _normalize_version_tag(value: String) -> String:
 	if text.find("-") >= 0:
 		text = text.split("-", false, 1)[0]
 	return text.strip_edges()
+
+
+func _normalize_release_url(value: String) -> String:
+	var text: String = value.strip_edges()
+	if text.is_empty():
+		return RELEASES_URL
+	return text
 
 
 func _parse_version_numbers(value: String) -> PackedInt32Array:
@@ -785,6 +815,23 @@ func _get_dictionary_color(dictionary: Dictionary, key: Variant, fallback: Color
 		var color: Color = value
 		return color
 	return fallback
+
+
+func _apply_latest_version_status(status: Dictionary) -> void:
+	var status_color: Color = _get_dictionary_color(status, "color", Color(0.72, 0.72, 0.72))
+	_set_version_status(_GF_VARIANT_ACCESS_SCRIPT.get_option_string(status, "message", ""), status_color)
+	_set_update_release_button(
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(status, "update_available"),
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_string(status, "release_url", RELEASES_URL)
+	)
+
+
+func _set_update_release_button(should_show: bool, release_url: String = "") -> void:
+	_latest_release_url = _normalize_release_url(release_url)
+	if not is_instance_valid(_update_release_button):
+		return
+	_update_release_button.visible = should_show
+	_update_release_button.disabled = not should_show
 
 
 # --- 信号处理函数 ---
@@ -834,6 +881,11 @@ func _on_about_link_button_pressed(url: String) -> void:
 		var _open_error: Error = OS.shell_open(url)
 
 
+func _on_update_release_pressed() -> void:
+	var release_url: String = _normalize_release_url(_latest_release_url)
+	var _open_error: Error = OS.shell_open(release_url)
+
+
 func _on_version_check_pressed() -> void:
 	_request_latest_version()
 
@@ -849,21 +901,24 @@ func _on_latest_version_request_completed(
 
 	if result != HTTPRequest.RESULT_SUCCESS:
 		_set_version_status("无法检测最新版本：网络请求失败。", Color(0.9, 0.56, 0.56))
+		_set_update_release_button(false)
 		return
 	if response_code < 200 or response_code >= 300:
 		_set_version_status("无法检测最新版本：HTTP %d。" % response_code, Color(0.9, 0.56, 0.56))
+		_set_update_release_button(false)
 		return
 
 	var parsed: Variant = JSON.parse_string(body.get_string_from_utf8())
 	if not (parsed is Dictionary):
 		_set_version_status("无法检测最新版本：返回内容不是 JSON 对象。", Color(0.9, 0.56, 0.56))
+		_set_update_release_button(false)
 		return
 
 	var data: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.as_dictionary(parsed)
 	var latest_version: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(data, "tag_name", _GF_VARIANT_ACCESS_SCRIPT.get_option_string(data, "name", ""))
-	var status: Dictionary = _make_latest_version_status(latest_version, _get_framework_version())
-	var status_color: Color = _get_dictionary_color(status, "color", Color(0.72, 0.72, 0.72))
-	_set_version_status(_GF_VARIANT_ACCESS_SCRIPT.get_option_string(status, "message", ""), status_color)
+	var release_url: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(data, "html_url", RELEASES_URL)
+	var status: Dictionary = _make_latest_version_status(latest_version, _get_framework_version(), release_url)
+	_apply_latest_version_status(status)
 
 
 func _on_about_confirm_pressed() -> void:

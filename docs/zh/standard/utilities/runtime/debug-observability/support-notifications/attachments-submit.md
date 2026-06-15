@@ -15,7 +15,7 @@ var report := reports.build_report("设置界面打开后无法返回", {
 })
 ```
 
-`include_screenshot` 可把当前 Viewport 截图作为普通附件加入报告，`screenshot_path` 可额外把截图写到本地路径。默认 `default_max_attachment_bytes` 会限制单个附件大小，避免支持报告在玩家入口无限膨胀。Markdown 导出只输出附件摘要，不内联附件正文或二进制内容。
+`include_screenshot` 可把当前 Viewport 截图作为普通附件加入报告，`screenshot_path` 可额外把截图写到本地路径。截图捕获复用 [GFScreenshotUtility](../debug-visual-inspection/screenshots.md)，需要批量尺寸、语言或项目自定义路径策略时可以直接使用该工具。默认 `default_max_attachment_bytes` 会限制单个附件大小，避免支持报告在玩家入口无限膨胀。Markdown 导出只输出附件摘要，不内联附件正文或二进制内容。
 
 ## 提交流程
 

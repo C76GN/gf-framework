@@ -14,6 +14,8 @@
 - `gltf_document_extension_paths`
 - `access_generator_extension_paths`
 
+`enabled_by_default` 省略时，可选扩展默认不进入 GF 的默认扩展选择。GF 内置可选扩展应显式写为 `false`，由项目按需启用。
+
 没有安装器或编辑器扩展的扩展可以把对应数组留空。
 
 manifest 声明的扩展脚本路径必须位于扩展根目录内，避免扩展通过 manifest 越界绑定其他扩展或项目脚本。

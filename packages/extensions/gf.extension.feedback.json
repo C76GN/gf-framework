@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "id": "gf.extension.feedback",
+  "kind": "extension",
+  "version": "unreleased",
+  "display_name": "GF Feedback",
+  "description": "Package manifest for the bundled Feedback extension.",
+  "dependencies": [
+    "gf.kernel",
+    "gf.standard.base"
+  ],
+  "paths": [
+    "addons/gf/extensions/feedback/**"
+  ],
+  "enable_extension": "gf.feedback",
+  "metadata": {}
+}

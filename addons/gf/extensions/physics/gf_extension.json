@@ -1,12 +1,12 @@
 {
   "id": "gf.physics",
   "display_name": "GF Physics",
-  "version": "4.4.0",
+  "version": "5.0.0",
   "extension_version": "1.2.0",
   "kind": "extension",
   "description": "Optional physics helpers such as 3D gravity fields and probes.",
   "dependencies": ["gf.kernel", "gf.standard"],
   "installer_paths": [],
-  "enabled_by_default": true,
+  "enabled_by_default": false,
   "tags": ["physics", "3d"]
 }

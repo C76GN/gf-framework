@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFWeightedTable" path="addons/gf/standard/foundation/math/gf_weighted_table.gd" module="standard" extends="Resource" classDigest="5a2c5983a4e1b7430c080e3274bedb8ad9d73adc97104d763d7446594687633e">
+<class name="GFWeightedTable" path="addons/gf/standard/foundation/math/gf_weighted_table.gd" module="standard" extends="Resource" classDigest="3feccadccca27f02ed7d6b4db00c8cffd9bd2f1c59a1b669056513595c63fcee">
 	<description>GFWeightedTable: 通用权重选择表。
 适合需要“按权重从候选集合中选择值”的纯算法场景。
 该类只处理权重和随机源，不绑定掉落、奖励、AI 等业务语义。</description>
@@ -29,9 +29,10 @@
 		</member>
 		<member kind="property" name="deterministic_seed" decorators="@export">
 			<signature>var deterministic_seed: int = 0</signature>
-			<description>可选确定性种子；为 0 时使用随机化种子。</description>
+			<description>可选 GF 固定随机源后备种子；为 0 时使用随机化 Godot RNG。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</properties>
@@ -99,34 +100,40 @@
 			</tags>
 		</member>
 		<member kind="method" name="pick_entry">
-			<signature>func pick_entry(rng: RandomNumberGenerator = null) -&gt; GFWeightedEntry:</signature>
+			<signature>func pick_entry(rng: Variant = null) -&gt; GFWeightedEntry:</signature>
 			<description>按权重选择一个条目。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="param">rng: 可选随机源；传入同一种子可获得可复现结果。</tag>
+				<tag name="param">rng: 可选随机源；支持 `RandomNumberGenerator` 或 `GFDeterministicRandom`。</tag>
 				<tag name="return">选中的条目；没有可选条目时返回 null。</tag>
+				<tag name="schema">rng: RandomNumberGenerator or GFDeterministicRandom. Null uses deterministic_seed fallback or a randomized Godot RNG.</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="pick_value">
-			<signature>func pick_value(rng: RandomNumberGenerator = null) -&gt; Variant:</signature>
+			<signature>func pick_value(rng: Variant = null) -&gt; Variant:</signature>
 			<description>按权重选择一个值。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="param">rng: 可选随机源；传入同一种子可获得可复现结果。</tag>
+				<tag name="param">rng: 可选随机源；支持 `RandomNumberGenerator` 或 `GFDeterministicRandom`。</tag>
 				<tag name="return">选中条目的 value；没有可选条目时返回 default_value。</tag>
+				<tag name="schema">rng: RandomNumberGenerator or GFDeterministicRandom. Null uses deterministic_seed fallback or a randomized Godot RNG.</tag>
 				<tag name="schema">return: Variant selected value or default_value.</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="pick_many">
-			<signature>func pick_many( count: int, rng: RandomNumberGenerator = null, allow_repeats: bool = true ) -&gt; Array[Variant]:</signature>
+			<signature>func pick_many( count: int, rng: Variant = null, allow_repeats: bool = true ) -&gt; Array[Variant]:</signature>
 			<description>按权重选择多个值。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">count: 选择次数。</tag>
-				<tag name="param">rng: 可选随机源；传入同一种子可获得可复现结果。</tag>
+				<tag name="param">rng: 可选随机源；支持 `RandomNumberGenerator` 或 `GFDeterministicRandom`。</tag>
 				<tag name="param">allow_repeats: 是否允许同一条目被重复选择。</tag>
 				<tag name="return">选中的 value 数组。</tag>
+				<tag name="schema">rng: RandomNumberGenerator or GFDeterministicRandom. Null uses deterministic_seed fallback or a randomized Godot RNG.</tag>
 				<tag name="schema">return: Array selected values.</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="duplicate_table">

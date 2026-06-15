@@ -38,12 +38,9 @@ func _export_begin(_features: PackedStringArray, _is_debug: bool, _path: String,
 
 
 func _export_file(path: String, _type: String, _features: PackedStringArray) -> void:
-	if _disabled_extension_roots.is_empty():
+	if _should_skip_export_path(path, _disabled_extension_roots):
+		skip()
 		return
-	for root_path: String in _disabled_extension_roots:
-		if _path_is_under(path, root_path):
-			skip()
-			return
 
 
 func _export_end() -> void:
@@ -54,21 +51,12 @@ func _export_end() -> void:
 # --- 私有/辅助方法 ---
 
 func _refresh_disabled_extension_roots() -> void:
-	_disabled_extension_roots.clear()
-	_disabled_manifests.clear()
-	if not GFExtensionSettingsBase.should_export_exclude_disabled_extensions():
-		return
-
-	var graph_report: Dictionary = GFExtensionSettingsBase.get_manifest_graph_report()
+	var graph_report: Dictionary = _collect_disabled_export_state(
+		_disabled_extension_roots,
+		_disabled_manifests
+	)
 	if not _manifest_graph_allows_export(graph_report):
 		push_error("[GFExtensionExportPlugin] 扩展 manifest 图无效，已停止导出扩展过滤：\n%s" % _format_manifest_graph_report(graph_report))
-		return
-
-	for manifest: GFExtensionManifest in GFExtensionSettingsBase.get_disabled_manifests():
-		if manifest.root_path.is_empty():
-			continue
-		_disabled_manifests.append(manifest)
-		_disabled_extension_roots.append(manifest.root_path.trim_suffix("/"))
 
 
 static func _path_is_under(path: String, root_path: String) -> bool:
@@ -76,8 +64,36 @@ static func _path_is_under(path: String, root_path: String) -> bool:
 	return path == normalized_root or path.begins_with(normalized_root + "/")
 
 
+static func _should_skip_export_path(path: String, disabled_roots: Array[String]) -> bool:
+	for root_path: String in disabled_roots:
+		if _path_is_under(path, root_path):
+			return true
+	return false
+
+
 static func _manifest_graph_allows_export(report: Dictionary) -> bool:
 	return _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(report, "ok", true)
+
+
+static func _collect_disabled_export_state(
+	disabled_roots: Array[String],
+	disabled_manifests: Array[GFExtensionManifest]
+) -> Dictionary:
+	disabled_roots.clear()
+	disabled_manifests.clear()
+	if not GFExtensionSettingsBase.should_export_exclude_disabled_extensions():
+		return { "ok": true }
+
+	var graph_report: Dictionary = GFExtensionSettingsBase.get_manifest_graph_report()
+	if not _manifest_graph_allows_export(graph_report):
+		return graph_report
+
+	for manifest: GFExtensionManifest in GFExtensionSettingsBase.get_disabled_manifests():
+		if manifest.root_path.is_empty():
+			continue
+		disabled_manifests.append(manifest)
+		disabled_roots.append(manifest.root_path.trim_suffix("/"))
+	return graph_report
 
 
 static func _format_manifest_graph_report(report: Dictionary) -> String:

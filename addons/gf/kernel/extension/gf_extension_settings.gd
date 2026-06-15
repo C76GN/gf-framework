@@ -18,6 +18,8 @@ extends RefCounted
 const _GF_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
 const _GF_DEPENDENCY_GRAPH_TOOLS = preload("res://addons/gf/kernel/core/gf_dependency_graph_tools.gd")
 const _GF_PATH_TOOLS = preload("res://addons/gf/kernel/core/gf_path_tools.gd")
+const _GF_PROJECT_SETTINGS_TOOLS = preload("res://addons/gf/kernel/core/gf_project_settings_tools.gd")
+const _GF_EXTENSION_PRESET_SCRIPT = preload("res://addons/gf/kernel/extension/gf_extension_preset.gd")
 
 ## 扩展 manifest 发现服务脚本。
 ## [br]
@@ -43,6 +45,13 @@ const AUTO_INSTALL_ENABLED_INSTALLERS_SETTING: String = "gf/extensions/auto_inst
 ## @since 4.4.0
 const EXTERNAL_EXTENSION_ROOTS_SETTING: String = "gf/extensions/external_roots"
 
+## 项目设置：扩展 preset JSON 文件路径列表。
+## [br]
+## @api public
+## [br]
+## @since 5.0.0
+const EXTENSION_PRESET_PATHS_SETTING: String = "gf/extensions/preset_paths"
+
 ## 项目设置：导出时是否跳过禁用扩展目录。
 ## [br]
 ## @api public
@@ -64,6 +73,13 @@ const AUTO_INSTALL_ENABLED_INSTALLERS_DEFAULT: bool = true
 ## [br]
 ## @since 4.4.0
 const EXTERNAL_EXTENSION_ROOTS_DEFAULT: Array[String] = []
+
+## 默认不加载项目侧扩展 preset。
+## [br]
+## @api public
+## [br]
+## @since 5.0.0
+const EXTENSION_PRESET_PATHS_DEFAULT: Array[String] = []
 
 ## 默认导出时排除禁用扩展。
 ## [br]
@@ -105,6 +121,8 @@ static func ensure_defaults() -> bool:
 		should_save = true
 	if _ensure_default(EXTERNAL_EXTENSION_ROOTS_SETTING, EXTERNAL_EXTENSION_ROOTS_DEFAULT):
 		should_save = true
+	if _ensure_default(EXTENSION_PRESET_PATHS_SETTING, EXTENSION_PRESET_PATHS_DEFAULT):
+		should_save = true
 	if _ensure_default(EXPORT_EXCLUDE_DISABLED_SETTING, EXPORT_EXCLUDE_DISABLED_DEFAULT):
 		should_save = true
 	if _ensure_default(
@@ -119,35 +137,30 @@ static func ensure_defaults() -> bool:
 ## [br]
 ## @api public
 static func register_property_info() -> void:
-	ProjectSettings.add_property_info({
-		"name": ENABLED_EXTENSIONS_SETTING,
-		"type": TYPE_ARRAY,
+	_GF_PROJECT_SETTINGS_TOOLS.register_property_info(ENABLED_EXTENSIONS_SETTING, TYPE_ARRAY, {
 		"hint": PROPERTY_HINT_TYPE_STRING,
 		"hint_string": "%d:" % TYPE_STRING,
+		"basic": true,
 	})
-	ProjectSettings.set_as_basic(ENABLED_EXTENSIONS_SETTING, true)
-	ProjectSettings.add_property_info({
-		"name": AUTO_INSTALL_ENABLED_INSTALLERS_SETTING,
-		"type": TYPE_BOOL,
+	_GF_PROJECT_SETTINGS_TOOLS.register_property_info(AUTO_INSTALL_ENABLED_INSTALLERS_SETTING, TYPE_BOOL, {
+		"basic": true,
 	})
-	ProjectSettings.set_as_basic(AUTO_INSTALL_ENABLED_INSTALLERS_SETTING, true)
-	ProjectSettings.add_property_info({
-		"name": EXTERNAL_EXTENSION_ROOTS_SETTING,
-		"type": TYPE_ARRAY,
+	_GF_PROJECT_SETTINGS_TOOLS.register_property_info(EXTERNAL_EXTENSION_ROOTS_SETTING, TYPE_ARRAY, {
 		"hint": PROPERTY_HINT_TYPE_STRING,
 		"hint_string": "%d:" % TYPE_STRING,
+		"basic": true,
 	})
-	ProjectSettings.set_as_basic(EXTERNAL_EXTENSION_ROOTS_SETTING, true)
-	ProjectSettings.add_property_info({
-		"name": EXPORT_EXCLUDE_DISABLED_SETTING,
-		"type": TYPE_BOOL,
+	_GF_PROJECT_SETTINGS_TOOLS.register_property_info(EXTENSION_PRESET_PATHS_SETTING, TYPE_ARRAY, {
+		"hint": PROPERTY_HINT_TYPE_STRING,
+		"hint_string": "%d:" % TYPE_STRING,
+		"basic": true,
 	})
-	ProjectSettings.set_as_basic(EXPORT_EXCLUDE_DISABLED_SETTING, true)
-	ProjectSettings.add_property_info({
-		"name": EXPORT_FAIL_ON_DISABLED_REFERENCES_SETTING,
-		"type": TYPE_BOOL,
+	_GF_PROJECT_SETTINGS_TOOLS.register_property_info(EXPORT_EXCLUDE_DISABLED_SETTING, TYPE_BOOL, {
+		"basic": true,
 	})
-	ProjectSettings.set_as_basic(EXPORT_FAIL_ON_DISABLED_REFERENCES_SETTING, true)
+	_GF_PROJECT_SETTINGS_TOOLS.register_property_info(EXPORT_FAIL_ON_DISABLED_REFERENCES_SETTING, TYPE_BOOL, {
+		"basic": true,
+	})
 
 
 ## 获取默认启用的扩展 ID。
@@ -156,11 +169,7 @@ static func register_property_info() -> void:
 ## [br]
 ## @return 默认启用扩展 ID 列表。
 static func get_default_enabled_extension_ids() -> Array[String]:
-	var ids: Array[String] = []
-	for manifest: GFExtensionManifest in get_all_manifests():
-		if manifest.enabled_by_default:
-			ids.append(manifest.id)
-	return _sorted_unique(ids)
+	return _get_default_enabled_extension_ids_from_manifests(get_all_manifests())
 
 
 ## 获取用户配置的启用扩展 ID。
@@ -242,6 +251,87 @@ static func set_external_extension_roots(root_paths: Array[String]) -> void:
 	clear_manifest_cache()
 
 
+## 获取项目配置的扩展 preset JSON 文件路径。
+## 只返回 `res://` 下的 `.json` 文件路径，避免 preset 发现越过项目资源边界。
+## [br]
+## @api public
+## [br]
+## @since 5.0.0
+## [br]
+## @return 扩展 preset JSON 文件路径列表。
+static func get_extension_preset_paths() -> Array[String]:
+	var raw_value: Variant = ProjectSettings.get_setting(
+		EXTENSION_PRESET_PATHS_SETTING,
+		EXTENSION_PRESET_PATHS_DEFAULT
+	)
+	return _normalize_extension_preset_paths(_GF_VARIANT_ACCESS_SCRIPT.to_string_array(raw_value))
+
+
+## 保存项目配置的扩展 preset JSON 文件路径。
+## [br]
+## @api public
+## [br]
+## @since 5.0.0
+## [br]
+## @param preset_paths: 扩展 preset JSON 文件路径列表。
+static func set_extension_preset_paths(preset_paths: Array[String]) -> void:
+	ProjectSettings.set_setting(
+		EXTENSION_PRESET_PATHS_SETTING,
+		_normalize_extension_preset_paths(preset_paths)
+	)
+
+
+## 添加一个项目扩展 preset JSON 文件路径。
+## 路径必须指向能解析为有效 `GFExtensionPreset` 的 `res://` JSON 文件。
+## [br]
+## @api public
+## [br]
+## @since 5.0.0
+## [br]
+## @param preset_path: 扩展 preset JSON 文件路径。
+## [br]
+## @return 路径指向有效 preset 且被新增时返回 true；无效或已存在时返回 false。
+static func add_extension_preset_path(preset_path: String) -> bool:
+	var normalized_paths: Array[String] = _normalize_extension_preset_paths([preset_path])
+	if normalized_paths.is_empty():
+		return false
+
+	var normalized_path: String = normalized_paths[0]
+	var paths: Array[String] = get_extension_preset_paths()
+	if paths.has(normalized_path):
+		return false
+	if not _is_valid_extension_preset_file(normalized_path):
+		return false
+
+	paths.append(normalized_path)
+	set_extension_preset_paths(paths)
+	return true
+
+
+## 移除一个项目扩展 preset JSON 文件路径。
+## [br]
+## @api public
+## [br]
+## @since 5.0.0
+## [br]
+## @param preset_path: 扩展 preset JSON 文件路径。
+## [br]
+## @return 路径存在且已移除时返回 true；无效或不存在时返回 false。
+static func remove_extension_preset_path(preset_path: String) -> bool:
+	var normalized_paths: Array[String] = _normalize_extension_preset_paths([preset_path])
+	if normalized_paths.is_empty():
+		return false
+
+	var normalized_path: String = normalized_paths[0]
+	var paths: Array[String] = get_extension_preset_paths()
+	if not paths.has(normalized_path):
+		return false
+
+	paths.erase(normalized_path)
+	set_extension_preset_paths(paths)
+	return true
+
+
 ## 判断导出时是否排除禁用扩展目录。
 ## [br]
 ## @api public
@@ -294,6 +384,69 @@ static func get_all_manifests() -> Array[GFExtensionManifest]:
 		_all_manifests_cache = GFExtensionCatalogBase.load_all_manifests(get_external_extension_roots())
 		_has_all_manifests_cache = true
 	return _all_manifests_cache.duplicate()
+
+
+## 获取可用的扩展 preset。
+## 返回 GF 内置的动态基础组合，以及项目在 `gf/extensions/preset_paths` 中声明的 preset。
+## [br]
+## @api public
+## [br]
+## @since 5.0.0
+## [br]
+## @return 扩展 preset 列表。
+static func get_extension_presets() -> Array[GFExtensionPreset]:
+	var manifests: Array[GFExtensionManifest] = get_all_manifests()
+	var presets: Array[GFExtensionPreset] = _get_builtin_extension_presets(manifests)
+	var seen_ids: Dictionary = _build_preset_id_lookup(presets)
+	for preset_path: String in get_extension_preset_paths():
+		var preset: GFExtensionPreset = _GF_EXTENSION_PRESET_SCRIPT.from_json_file(preset_path)
+		if preset == null or not preset.is_valid() or seen_ids.has(preset.id):
+			continue
+		presets.append(preset)
+		seen_ids[preset.id] = true
+	return presets
+
+
+## 按 ID 获取扩展 preset。
+## [br]
+## @api public
+## [br]
+## @since 5.0.0
+## [br]
+## @param preset_id: 扩展 preset ID。
+## [br]
+## @return 找到时返回 preset，否则返回 null。
+static func get_extension_preset_by_id(preset_id: StringName) -> GFExtensionPreset:
+	if preset_id == &"":
+		return null
+	for preset: GFExtensionPreset in get_extension_presets():
+		if preset.id == preset_id:
+			return preset
+	return null
+
+
+## 应用扩展 preset 到 `gf/extensions/enabled`。
+## 该方法只写入启用扩展 ID；保存 project.godot 由调用方决定。
+## [br]
+## @api public
+## [br]
+## @since 5.0.0
+## [br]
+## @param preset_id: 扩展 preset ID。
+## [br]
+## @param include_dependencies: 是否自动包含 manifest 硬依赖。
+## [br]
+## @return 找到并写入 preset 时返回 true。
+static func apply_extension_preset(
+	preset_id: StringName,
+	include_dependencies: bool = true
+) -> bool:
+	var preset: GFExtensionPreset = get_extension_preset_by_id(preset_id)
+	if preset == null:
+		return false
+
+	set_enabled_extension_ids(preset.extension_ids, include_dependencies)
+	return true
 
 
 ## 清空 manifest 发现缓存。编辑器或工具在扩展目录发生变化后可主动调用。
@@ -700,11 +853,9 @@ static func set_cached_manifests(manifests: Array[GFExtensionManifest]) -> void:
 # --- 私有/辅助方法 ---
 
 static func _ensure_default(setting_name: String, default_value: Variant) -> bool:
-	if ProjectSettings.has_setting(setting_name):
-		return false
-	ProjectSettings.set_setting(setting_name, default_value)
-	ProjectSettings.set_initial_value(setting_name, default_value)
-	return true
+	return _GF_PROJECT_SETTINGS_TOOLS.ensure_setting(setting_name, default_value, {
+		"register_property_info": false,
+	})
 
 
 static func _sorted_unique(values: Array[String]) -> Array[String]:
@@ -728,6 +879,85 @@ static func _normalize_external_extension_roots(root_paths: Array[String]) -> Ar
 		):
 			continue
 		result.append(normalized_path)
+	return result
+
+
+static func _normalize_extension_preset_paths(preset_paths: Array[String]) -> Array[String]:
+	var result: Array[String] = []
+	for preset_path: String in preset_paths:
+		var normalized_path: String = _GF_PATH_TOOLS.normalize_resource_path(preset_path)
+		if (
+			normalized_path.is_empty()
+			or not normalized_path.begins_with("res://")
+			or normalized_path.get_extension().to_lower() != "json"
+			or result.has(normalized_path)
+		):
+			continue
+		result.append(normalized_path)
+	return result
+
+
+static func _is_valid_extension_preset_file(preset_path: String) -> bool:
+	var preset: GFExtensionPreset = _GF_EXTENSION_PRESET_SCRIPT.from_json_file(preset_path)
+	return preset != null and preset.is_valid()
+
+
+static func _get_default_enabled_extension_ids_from_manifests(
+	manifests: Array[GFExtensionManifest]
+) -> Array[String]:
+	var ids: Array[String] = []
+	for manifest: GFExtensionManifest in manifests:
+		if manifest.enabled_by_default:
+			ids.append(manifest.id)
+	return _sorted_unique(ids)
+
+
+static func _get_all_extension_ids_from_manifests(manifests: Array[GFExtensionManifest]) -> Array[String]:
+	var ids: Array[String] = []
+	for manifest: GFExtensionManifest in manifests:
+		if manifest == null or manifest.id.strip_edges().is_empty():
+			continue
+		ids.append(manifest.id)
+	return _sorted_unique(ids)
+
+
+static func _get_builtin_extension_presets(
+	manifests: Array[GFExtensionManifest]
+) -> Array[GFExtensionPreset]:
+	var presets: Array[GFExtensionPreset] = []
+	presets.append(_make_extension_preset({
+		"id": "gf.default",
+		"display_name": "默认选择",
+		"description": "恢复 GF 当前默认扩展选择。",
+		"extension_ids": _get_default_enabled_extension_ids_from_manifests(manifests),
+		"tags": ["builtin"],
+	}))
+	presets.append(_make_extension_preset({
+		"id": "gf.none",
+		"display_name": "全部关闭",
+		"description": "关闭所有可选 GF 扩展，只保留 kernel 与 standard 基础能力。",
+		"extension_ids": [],
+		"tags": ["builtin"],
+	}))
+	presets.append(_make_extension_preset({
+		"id": "gf.all",
+		"display_name": "全部扩展",
+		"description": "启用当前可发现的全部 GF 扩展，适合本地评估而非默认发行策略。",
+		"extension_ids": _get_all_extension_ids_from_manifests(manifests),
+		"tags": ["builtin"],
+	}))
+	return presets
+
+
+static func _make_extension_preset(data: Dictionary) -> GFExtensionPreset:
+	return _GF_EXTENSION_PRESET_SCRIPT.from_dictionary(data)
+
+
+static func _build_preset_id_lookup(presets: Array[GFExtensionPreset]) -> Dictionary:
+	var result: Dictionary = {}
+	for preset: GFExtensionPreset in presets:
+		if preset != null and preset.id != &"":
+			result[preset.id] = true
 	return result
 
 

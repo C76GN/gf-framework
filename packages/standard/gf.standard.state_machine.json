@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "id": "gf.standard.state_machine",
+  "kind": "standard",
+  "version": "unreleased",
+  "display_name": "GF Standard State Machine",
+  "description": "Pure and node state machine runtime, validators, and editor helpers.",
+  "dependencies": [
+    "gf.kernel",
+    "gf.standard.base"
+  ],
+  "paths": [
+    "addons/gf/standard/state_machine/**"
+  ],
+  "metadata": {
+    "stage": "standard-split-v1"
+  }
+}

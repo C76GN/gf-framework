@@ -56,6 +56,7 @@ const DEFAULT_MAX_FONT_SIZE: int = 64
 ### `fit_control`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 static func fit_control(control: Control, options: Dictionary = {}) -> int:
@@ -68,19 +69,20 @@ static func fit_control(control: Control, options: Dictionary = {}) -> int:
 | 名称 | 说明 |
 |---|---|
 | `control` | 目标文本控件，支持 Label、RichTextLabel、Button、LineEdit 与 TextEdit，也可通过 options.text 适配自定义控件。 |
-| `options` | 可选设置，支持 min_font_size、max_font_size、available_size、fit_width、fit_height、apply、font_name、font_size_name、text、content_insets、use_placeholder、horizontal_alignment、autowrap_mode、line_break_flags、justification_flags、text_direction。 |
+| `options` | 可选设置，支持 min_font_size、max_font_size、font_size_candidates、available_size、fit_width、fit_height、apply、font_name、font_size_name、text、content_insets、use_placeholder、horizontal_alignment、autowrap_mode、line_break_flags、justification_flags、text_direction。 |
 
 返回：计算出的字体尺寸；目标无效或无法读取文本时返回 0。
 
 结构：
 
-- `options`: Dictionary，支持 min_font_size、max_font_size、available_size、fit_width、fit_height、apply、font_name、font_size_name、font、text、content_insets、use_placeholder、horizontal_alignment、autowrap_mode、line_break_flags、justification_flags、text_direction。
+- `options`: Dictionary，支持 min_font_size、max_font_size、font_size_candidates、available_size、fit_width、fit_height、apply、font_name、font_size_name、font、text、content_insets、use_placeholder、horizontal_alignment、autowrap_mode、line_break_flags、justification_flags、text_direction；font_size_candidates 为整数候选字号数组，非空时只从合法候选字号中挑选最大适配值。
 
 <a id="member-gftextfitter-methods-fit_label"></a>
 
 ### `fit_label`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 static func fit_label(label: Label, options: Dictionary = {}) -> int:
@@ -93,19 +95,20 @@ static func fit_label(label: Label, options: Dictionary = {}) -> int:
 | 名称 | 说明 |
 |---|---|
 | `label` | 目标 Label。 |
-| `options` | 可选设置，支持 min_font_size、max_font_size、available_size、fit_width、fit_height、apply、font_name、font_size_name、horizontal_alignment、autowrap_mode、line_break_flags、justification_flags、text_direction。 |
+| `options` | 可选设置，支持 min_font_size、max_font_size、font_size_candidates、available_size、fit_width、fit_height、apply、font_name、font_size_name、horizontal_alignment、autowrap_mode、line_break_flags、justification_flags、text_direction。 |
 
 返回：计算出的字体尺寸；目标无效时返回 0。
 
 结构：
 
-- `options`: Dictionary，支持 min_font_size、max_font_size、available_size、fit_width、fit_height、apply、font_name、font_size_name、font、horizontal_alignment、autowrap_mode、line_break_flags、justification_flags、text_direction。
+- `options`: Dictionary，支持 min_font_size、max_font_size、font_size_candidates、available_size、fit_width、fit_height、apply、font_name、font_size_name、font、horizontal_alignment、autowrap_mode、line_break_flags、justification_flags、text_direction；font_size_candidates 为整数候选字号数组，非空时只从合法候选字号中挑选最大适配值。
 
 <a id="member-gftextfitter-methods-fit_rich_text_label"></a>
 
 ### `fit_rich_text_label`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 static func fit_rich_text_label(label: RichTextLabel, options: Dictionary = {}) -> int:
@@ -118,13 +121,13 @@ static func fit_rich_text_label(label: RichTextLabel, options: Dictionary = {}) 
 | 名称 | 说明 |
 |---|---|
 | `label` | 目标 RichTextLabel。 |
-| `options` | 可选设置，支持 min_font_size、max_font_size、available_size、fit_width、fit_height、apply、font_name、font_size_name、horizontal_alignment、autowrap_mode、line_break_flags、justification_flags、text_direction。 |
+| `options` | 可选设置，支持 min_font_size、max_font_size、font_size_candidates、available_size、fit_width、fit_height、apply、font_name、font_size_name、horizontal_alignment、autowrap_mode、line_break_flags、justification_flags、text_direction。 |
 
 返回：计算出的字体尺寸；目标无效时返回 0。
 
 结构：
 
-- `options`: Dictionary，支持 min_font_size、max_font_size、available_size、fit_width、fit_height、apply、font_name、font_size_name、font、horizontal_alignment、autowrap_mode、line_break_flags、justification_flags、text_direction。
+- `options`: Dictionary，支持 min_font_size、max_font_size、font_size_candidates、available_size、fit_width、fit_height、apply、font_name、font_size_name、font、horizontal_alignment、autowrap_mode、line_break_flags、justification_flags、text_direction；font_size_candidates 为整数候选字号数组，非空时只从合法候选字号中挑选最大适配值。
 
 <a id="member-gftextfitter-methods-measure_control_text"></a>
 

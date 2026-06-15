@@ -127,6 +127,47 @@ func test_architecture_restore_all_models_state() -> void:
 	assert_almost_eq(_object_float(settings_model, "volume"), 0.3, 0.001, "volume 应恢复为 0.3。")
 
 
+## 验证分帧 Model 快照收集与同步快照使用相同键和值。
+func test_architecture_get_all_models_state_async() -> void:
+	var arch: GFArchitecture = GFArchitecture.new()
+	var score_model: Object = _create_score_model_fixture()
+	score_model.set("score", 77)
+	score_model.set("level", 6)
+	var settings_model: Object = _create_settings_model_fixture()
+	settings_model.set("volume", 0.25)
+
+	await arch.register_model_instance(score_model)
+	await arch.register_model_instance(settings_model)
+
+	var state: Dictionary = await arch.get_all_models_state_async({ "max_models_per_frame": 1 })
+
+	assert_eq(state, arch.get_all_models_state(), "分帧快照应与同步快照一致。")
+
+
+## 验证分帧 Model 快照恢复。
+func test_architecture_restore_all_models_state_async() -> void:
+	var arch: GFArchitecture = GFArchitecture.new()
+	var score_model: Object = _create_score_model_fixture()
+	var settings_model: Object = _create_settings_model_fixture()
+
+	await arch.register_model_instance(score_model)
+	await arch.register_model_instance(settings_model)
+
+	score_model.set("score", 33)
+	score_model.set("level", 4)
+	settings_model.set("volume", 0.6)
+	var state: Dictionary = await arch.get_all_models_state_async({ "max_models_per_frame": 1 })
+
+	score_model.set("score", 0)
+	score_model.set("level", 0)
+	settings_model.set("volume", 1.0)
+	await arch.restore_all_models_state_async(state, { "max_models_per_frame": 1 })
+
+	assert_eq(_object_int(score_model, "score"), 33, "score 应通过分帧恢复。")
+	assert_eq(_object_int(score_model, "level"), 4, "level 应通过分帧恢复。")
+	assert_almost_eq(_object_float(settings_model, "volume"), 0.6, 0.001, "volume 应通过分帧恢复。")
+
+
 ## 验证全局快照中的 models 字段类型错误时安全跳过。
 func test_restore_global_snapshot_skips_non_dictionary_models_data() -> void:
 	var arch: GFArchitecture = GFArchitecture.new()
@@ -203,6 +244,19 @@ func test_architecture_global_snapshot() -> void:
 	
 	assert_eq(_object_int(score_model, "score"), 99, "模型状态应通过全局快照恢复。")
 	assert_eq(history_util.undo_count, 1, "历史栈记录数量应通过全局快照及 builder 恢复。")
+
+
+func test_architecture_global_snapshot_async() -> void:
+	var arch: GFArchitecture = GFArchitecture.new()
+	var score_model: Object = _create_score_model_fixture()
+	score_model.set("score", 88)
+	await arch.register_model_instance(score_model)
+
+	var snapshot: Dictionary = await arch.get_global_snapshot_async({ "max_models_per_frame": 1 })
+	score_model.set("score", 0)
+	await arch.restore_global_snapshot_async(snapshot, Callable(), { "max_models_per_frame": 1 })
+
+	assert_eq(_object_int(score_model, "score"), 88, "分帧全局快照应恢复 Model 数据。")
 
 
 # --- 私有/辅助方法 ---

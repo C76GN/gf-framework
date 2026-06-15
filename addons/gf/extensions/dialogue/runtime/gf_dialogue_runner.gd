@@ -58,6 +58,16 @@ signal dialogue_ended(resource: GFDialogueResource)
 signal line_blocked(line_id: StringName, reason: StringName)
 
 
+# --- 常量 ---
+
+## 对话运行快照结构版本。
+## [br]
+## @api public
+## [br]
+## @since 5.0.0
+const SNAPSHOT_SCHEMA_VERSION: int = 1
+
+
 # --- 公共变量 ---
 
 ## 最多连续推进的非展示行数量，避免错误资源无限循环。
@@ -111,9 +121,7 @@ func start(
 	if resource == null:
 		return null
 	_resource = resource
-	_context = context if context != null else GFDialogueContext.new(_get_architecture_or_null())
-	if _context.get_architecture() == null:
-		var _set_architecture_result_116: Variant = _context.set_architecture(_get_architecture_or_null())
+	_context = _prepare_context(context)
 
 	var start_line: GFDialogueLine = resource.get_start_line(start_line_id)
 	_current_line_id = start_line.line_id if start_line != null else &""
@@ -194,6 +202,76 @@ func is_running() -> bool:
 	return _is_running
 
 
+## 创建可存档的运行快照。
+##
+## 快照只保存 Runner 的当前位置和上下文值，不保存对话资源本体。
+## 恢复时由调用方重新提供 GFDialogueResource，避免框架绑定项目存档结构。
+## [br]
+## @api public
+## [br]
+## @since 5.0.0
+## [br]
+## @return: 运行快照。
+## [br]
+## @schema return: 包含 schema_version、is_running、current_line_id 和 context_values 字段的 Dictionary。
+func create_runtime_snapshot() -> Dictionary:
+	return {
+		"schema_version": SNAPSHOT_SCHEMA_VERSION,
+		"is_running": _is_running,
+		"current_line_id": _current_line_id,
+		"context_values": _context.serialize_values() if _context != null else {},
+	}
+
+
+## 从运行快照恢复到当前可展示行。
+##
+## 恢复不会重新触发 dialogue_started、line_reached 或 mutation_requested，
+## 也不会重新执行 mutation。调用方可使用返回行刷新自己的 UI。
+## [br]
+## @api public
+## [br]
+## @since 5.0.0
+## [br]
+## @param resource: 快照对应的对话资源。
+## [br]
+## @param snapshot: create_runtime_snapshot() 生成的快照。
+## [br]
+## @param context: 可选上下文；为空时创建新上下文并恢复快照中的 context_values。
+## [br]
+## @return: 恢复后的当前可展示行；快照无效、已结束或资源不匹配时返回 null。
+## [br]
+## @schema snapshot: 包含 schema_version、is_running、current_line_id 和 context_values 字段的 Dictionary。
+func restore_runtime_snapshot(
+	resource: GFDialogueResource,
+	snapshot: Dictionary,
+	context: GFDialogueContext = null
+) -> GFDialogueLine:
+	_reset_runtime_state()
+
+	var restored_context: GFDialogueContext = _prepare_context(context)
+	restored_context.deserialize_values(GFVariantData.get_option_dictionary(snapshot, "context_values", {}))
+	_context = restored_context
+
+	if not GFVariantData.get_option_bool(snapshot, "is_running", false):
+		return null
+	if resource == null:
+		return null
+
+	var line_id: StringName = GFVariantData.get_option_string_name(snapshot, "current_line_id", &"")
+	if line_id == &"":
+		return null
+
+	var line: GFDialogueLine = resource.get_line(line_id)
+	if line == null or line.kind != GFDialogueLine.LineKind.TEXT:
+		return null
+
+	_resource = resource
+	_current_line_id = line_id
+	_current_line = line
+	_is_running = true
+	return line
+
+
 ## 获取运行快照。
 ## [br]
 ## @api public
@@ -211,6 +289,20 @@ func get_debug_snapshot() -> Dictionary:
 
 
 # --- 私有/辅助方法 ---
+
+func _prepare_context(context: GFDialogueContext = null) -> GFDialogueContext:
+	var resolved_context: GFDialogueContext = context if context != null else GFDialogueContext.new(_get_architecture_or_null())
+	if resolved_context.get_architecture() == null:
+		var _set_architecture_result_258: Variant = resolved_context.set_architecture(_get_architecture_or_null())
+	return resolved_context
+
+
+func _reset_runtime_state() -> void:
+	_resource = null
+	_current_line = null
+	_current_line_id = &""
+	_is_running = false
+
 
 func _advance_to_next_text() -> GFDialogueLine:
 	var steps: int = 0

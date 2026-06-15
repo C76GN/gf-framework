@@ -16,6 +16,8 @@
 
 这种聚合结构应由项目定义，例如 schema 版本、玩家资料、世界状态、设置、统计和自定义预览字段。GF 侧只承诺通用机制：路径安全、事务恢复、codec、checksum、压缩、槽位 metadata、Resource 存取和 `register_migration()` 版本迁移。模块优先级、业务字段含义、奖励发放、云同步账号隔离、平台加密和冲突策略都应留在项目层或独立插件。
 
+大型载荷推荐拆成两段：先用项目自己的分帧流程或 `GFArchitecture.get_global_snapshot_async()` 生成纯 Dictionary，再调用 `save_data_async()` 后台编码和落盘。`GFStorageUtility` 的异步写入线程只处理已经生成的纯数据，不会在线程中遍历场景树、读取 Resource 或调用业务对象。
+
 ## 基础用法
 
 ```gdscript

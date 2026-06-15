@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFRectPacking2D" path="addons/gf/standard/foundation/math/gf_rect_packing_2d.gd" module="standard" extends="RefCounted" classDigest="27f6e80d3d523496b65b576b961161a5d6e1d55373eefb26e95f4ec1856fc987">
+	<description>GFRectPacking2D: 通用 2D 矩形打包算法。
+使用 MaxRects 风格的空闲矩形拆分，将一组矩形尺寸放入固定容器或自动求解正方形容器。
+它只计算 Rect2i 放置结果，不创建 Texture、Material、Node 或图集资源。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_service</tag>
+		<tag name="since">5.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants>
+		<member kind="const" name="DEFAULT_MAX_RECTS">
+			<signature>const DEFAULT_MAX_RECTS: int = 4096</signature>
+			<description>默认最大输入矩形数量，用于避免误把实时大批量数据交给纯 GDScript 打包算法。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties />
+	<methods>
+		<member kind="method" name="pack_fixed">
+			<signature>static func pack_fixed( rect_sizes: Array[Vector2i], container_size: Vector2i, options: Dictionary = {} ) -&gt; Dictionary:</signature>
+			<description>将矩形打包进固定容器。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">rect_sizes: 每个矩形的原始尺寸。</tag>
+				<tag name="param">container_size: 容器尺寸。</tag>
+				<tag name="param">options: 可选参数，支持 padding、allow_rotate、sort 和 max_rects。</tag>
+				<tag name="return">打包结果字典。</tag>
+				<tag name="schema">rect_sizes: Array[Vector2i]，每项是矩形尺寸；非正尺寸会标记为未放置。</tag>
+				<tag name="schema">options: Dictionary，padding 为每个矩形四周保留的像素边距，allow_rotate 允许交换宽高，sort 控制是否按尺寸降序优化打包顺序，max_rects 控制最大输入矩形数量。</tag>
+				<tag name="schema">return: Dictionary，包含 ok、error、container_size、placements、rotated、unplaced_indices、placed_count、used_area 和 occupancy。</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="pack_square">
+			<signature>static func pack_square(rect_sizes: Array[Vector2i], options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>将矩形打包进自动求解的正方形容器。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">rect_sizes: 每个矩形的原始尺寸。</tag>
+				<tag name="param">options: 可选参数，支持 padding、allow_rotate、sort、power_of_two、max_size 和 max_rects。</tag>
+				<tag name="return">打包结果字典。</tag>
+				<tag name="schema">rect_sizes: Array[Vector2i]，每项是矩形尺寸；非正尺寸会标记为未放置。</tag>
+				<tag name="schema">options: Dictionary，power_of_two 为 true 时只返回 2 的幂边长，max_size 大于 0 时限制最大边长，max_rects 控制最大输入矩形数量，其余字段同 pack_fixed()。</tag>
+				<tag name="schema">return: Dictionary，包含 ok、error、container_size、placements、rotated、unplaced_indices、placed_count、used_area 和 occupancy。</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="normalize_placements">
+			<signature>static func normalize_placements( placements: Array[Rect2i], container_size: Vector2i ) -&gt; Array[Rect2]:</signature>
+			<description>将像素 Rect2i 放置结果归一化为 0 到 1 的 Rect2。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">placements: 像素矩形列表。</tag>
+				<tag name="param">container_size: 容器尺寸。</tag>
+				<tag name="return">归一化矩形列表。</tag>
+				<tag name="schema">placements: Array[Rect2i]，通常来自 pack_fixed() 或 pack_square() 的 placements 字段。</tag>
+				<tag name="schema">return: Array[Rect2]，与输入顺序一致；无效容器或空矩形会返回空 Rect2。</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

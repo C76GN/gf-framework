@@ -7,6 +7,8 @@
 - 范围、外环、矩形和直线格子：适合 AOE、候选选区、格子画刷和视线检测。
 - BFS 路径查找：适合无权重网格。
 - A* 路径查找：适合带通行代价的网格。
+- 分步 A*：适合大网格或编辑器工具按帧预算推进。
+- 视线抽稀：适合把格子路径压缩为更少转角。
 - Flow Field：适合大量单位朝一个或多个目标移动。
 - 最大转弯连接：适合连连看、管线连接和棋盘路径判定。
 
@@ -49,6 +51,27 @@ var can_link := GFGridMath.can_connect_with_max_turns(
 )
 ```
 
+同步 `find_path_bfs()` / `find_path_a_star()` 适合小图或一次性查询。需要跨帧预算时，使用 `GFGraphPathSearchState` 分步搜索句柄：
+
+```gdscript
+var search := GFGridMath.begin_path_a_star_search(
+	Vector2i(64, 64),
+	unit_cell,
+	target_cell,
+	func(cell: Vector2i) -> bool:
+		return not blocked_cells.has(cell),
+	false,
+	func(_from_cell: Vector2i, to_cell: Vector2i) -> float:
+		return terrain_costs.get(to_cell, 1.0)
+)
+
+var report := {}
+while not report.get("finished", false):
+	report = GFGraphMath.advance_path_search(search, 48)
+```
+
+分步句柄复用 `GFGraphMath` 推进，`GFGridMath` 只负责网格边界、邻居、通行、代价和启发函数适配。
+
 ## 代价与流场
 
 ```gdscript
@@ -72,6 +95,20 @@ var field := GFGridMath.build_flow_field(
 
 var direction := (field["directions"] as Dictionary).get(unit_cell, Vector2i.ZERO)
 ```
+
+## 路径抽稀
+
+路径已经找到后，可以用现有视线规则移除多余中间格：
+
+```gdscript
+var simplified := GFGridMath.simplify_path_line_of_sight(
+	path,
+	func(cell: Vector2i) -> bool:
+		return wall_cells.has(cell)
+)
+```
+
+抽稀只判断格子直线是否被阻挡，不执行单位移动、不避让动态碰撞，也不替项目解释转向动画。
 
 ## 使用边界
 

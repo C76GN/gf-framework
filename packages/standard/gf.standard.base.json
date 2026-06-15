@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "id": "gf.standard.base",
+  "kind": "standard",
+  "version": "unreleased",
+  "display_name": "GF Standard Base",
+  "description": "Shared standard foundations: async/message support, command and sequence helpers, validation, variant, identity, collections, tags, logging, time, signals, pooling, analytics, and node utilities.",
+  "dependencies": [
+    "gf.kernel"
+  ],
+  "paths": [
+    "addons/gf/standard/common/**",
+    "addons/gf/standard/command/**",
+    "addons/gf/standard/sequence/**",
+    "addons/gf/standard/foundation/blackboard/**",
+    "addons/gf/standard/foundation/budget/**",
+    "addons/gf/standard/foundation/collections/**",
+    "addons/gf/standard/foundation/formula/**",
+    "addons/gf/standard/foundation/identity/**",
+    "addons/gf/standard/foundation/schema/**",
+    "addons/gf/standard/foundation/tags/**",
+    "addons/gf/standard/foundation/timeline/**",
+    "addons/gf/standard/foundation/validation/**",
+    "addons/gf/standard/foundation/variant/**",
+    "addons/gf/standard/utilities/analytics/**",
+    "addons/gf/standard/utilities/logging/**",
+    "addons/gf/standard/utilities/nodes/**",
+    "addons/gf/standard/utilities/pooling/**",
+    "addons/gf/standard/utilities/signals/**",
+    "addons/gf/standard/utilities/time/**"
+  ],
+  "metadata": {
+    "stage": "standard-split-v1"
+  }
+}

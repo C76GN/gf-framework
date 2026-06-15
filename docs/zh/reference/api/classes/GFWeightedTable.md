@@ -25,9 +25,9 @@
 | 方法 | [`get_selectable_entries`](#member-gfweightedtable-methods-get_selectable_entries) | `func get_selectable_entries() -> Array[GFWeightedEntry]:` |
 | 方法 | [`get_total_weight`](#member-gfweightedtable-methods-get_total_weight) | `func get_total_weight() -> float:` |
 | 方法 | [`is_empty`](#member-gfweightedtable-methods-is_empty) | `func is_empty() -> bool:` |
-| 方法 | [`pick_entry`](#member-gfweightedtable-methods-pick_entry) | `func pick_entry(rng: RandomNumberGenerator = null) -> GFWeightedEntry:` |
-| 方法 | [`pick_value`](#member-gfweightedtable-methods-pick_value) | `func pick_value(rng: RandomNumberGenerator = null) -> Variant:` |
-| 方法 | [`pick_many`](#member-gfweightedtable-methods-pick_many) | `func pick_many( count: int, rng: RandomNumberGenerator = null, allow_repeats: bool = true ) -> Array[Variant]:` |
+| 方法 | [`pick_entry`](#member-gfweightedtable-methods-pick_entry) | `func pick_entry(rng: Variant = null) -> GFWeightedEntry:` |
+| 方法 | [`pick_value`](#member-gfweightedtable-methods-pick_value) | `func pick_value(rng: Variant = null) -> Variant:` |
+| 方法 | [`pick_many`](#member-gfweightedtable-methods-pick_many) | `func pick_many( count: int, rng: Variant = null, allow_repeats: bool = true ) -> Array[Variant]:` |
 | 方法 | [`duplicate_table`](#member-gfweightedtable-methods-duplicate_table) | `func duplicate_table(deep: bool = true) -> GFWeightedTable:` |
 | 方法 | [`to_dict`](#member-gfweightedtable-methods-to_dict) | `func to_dict() -> Dictionary:` |
 | 方法 | [`apply_dict`](#member-gfweightedtable-methods-apply_dict) | `func apply_dict(data: Dictionary) -> void:` |
@@ -68,12 +68,13 @@ var default_value: Variant = null
 ### `deterministic_seed`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var deterministic_seed: int = 0
 ```
 
-可选确定性种子；为 0 时使用随机化种子。
+可选 GF 固定随机源后备种子；为 0 时使用随机化 Godot RNG。
 
 ## 方法
 
@@ -203,9 +204,10 @@ func is_empty() -> bool:
 ### `pick_entry`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func pick_entry(rng: RandomNumberGenerator = null) -> GFWeightedEntry:
+func pick_entry(rng: Variant = null) -> GFWeightedEntry:
 ```
 
 按权重选择一个条目。
@@ -214,18 +216,23 @@ func pick_entry(rng: RandomNumberGenerator = null) -> GFWeightedEntry:
 
 | 名称 | 说明 |
 |---|---|
-| `rng` | 可选随机源；传入同一种子可获得可复现结果。 |
+| `rng` | 可选随机源；支持 `RandomNumberGenerator` 或 `GFDeterministicRandom`。 |
 
 返回：选中的条目；没有可选条目时返回 null。
+
+结构：
+
+- `rng`: RandomNumberGenerator or GFDeterministicRandom. Null uses deterministic_seed fallback or a randomized Godot RNG.
 
 <a id="member-gfweightedtable-methods-pick_value"></a>
 
 ### `pick_value`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func pick_value(rng: RandomNumberGenerator = null) -> Variant:
+func pick_value(rng: Variant = null) -> Variant:
 ```
 
 按权重选择一个值。
@@ -234,12 +241,13 @@ func pick_value(rng: RandomNumberGenerator = null) -> Variant:
 
 | 名称 | 说明 |
 |---|---|
-| `rng` | 可选随机源；传入同一种子可获得可复现结果。 |
+| `rng` | 可选随机源；支持 `RandomNumberGenerator` 或 `GFDeterministicRandom`。 |
 
 返回：选中条目的 value；没有可选条目时返回 default_value。
 
 结构：
 
+- `rng`: RandomNumberGenerator or GFDeterministicRandom. Null uses deterministic_seed fallback or a randomized Godot RNG.
 - `return`: Variant selected value or default_value.
 
 <a id="member-gfweightedtable-methods-pick_many"></a>
@@ -247,9 +255,10 @@ func pick_value(rng: RandomNumberGenerator = null) -> Variant:
 ### `pick_many`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func pick_many( count: int, rng: RandomNumberGenerator = null, allow_repeats: bool = true ) -> Array[Variant]:
+func pick_many( count: int, rng: Variant = null, allow_repeats: bool = true ) -> Array[Variant]:
 ```
 
 按权重选择多个值。
@@ -259,13 +268,14 @@ func pick_many( count: int, rng: RandomNumberGenerator = null, allow_repeats: bo
 | 名称 | 说明 |
 |---|---|
 | `count` | 选择次数。 |
-| `rng` | 可选随机源；传入同一种子可获得可复现结果。 |
+| `rng` | 可选随机源；支持 `RandomNumberGenerator` 或 `GFDeterministicRandom`。 |
 | `allow_repeats` | 是否允许同一条目被重复选择。 |
 
 返回：选中的 value 数组。
 
 结构：
 
+- `rng`: RandomNumberGenerator or GFDeterministicRandom. Null uses deterministic_seed fallback or a randomized Godot RNG.
 - `return`: Array selected values.
 
 <a id="member-gfweightedtable-methods-duplicate_table"></a>

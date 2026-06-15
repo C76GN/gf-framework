@@ -4,7 +4,7 @@
 
 ## 阅读入口
 
-- [随机种子与可复现随机流](seed-utility.md)：`GFSeedUtility`、全局种子、主 RNG 状态和分支 RNG。
+- [随机种子与可复现随机流](seed-utility.md)：`GFSeedUtility`、全局种子、主 RNG 状态、Godot 分支 RNG 和 deterministic 分支随机源。
 - [结构化日志与日志 Sink](log-utility/index.md)：`GFLogUtility`、本地日志、内存缓存、JSONL sink 和批量 sink。
 - [构建信息与诊断快照](build-diagnostics/index.md)：`GFBuildInfoUtility`、`GFDiagnosticsUtility`、诊断命令、信号图和监控预设。
 

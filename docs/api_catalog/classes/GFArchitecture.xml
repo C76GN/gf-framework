@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFArchitecture" path="addons/gf/kernel/core/gf_architecture.gd" module="kernel" extends="Object" classDigest="d74e01969a9894321385133b0ef134f6f64dc4407f9d4edd507f17b01ba7d393">
+<class name="GFArchitecture" path="addons/gf/kernel/core/gf_architecture.gd" module="kernel" extends="Object" classDigest="f0191a193a7765df2a62a0192306ed3f37a378f7a4a2ca225c4e9c1472e7828a">
 	<description>GFArchitecture: 管理 Model、System 和 Utility 的注册与生命周期的容器。
 生命周期遵循三阶段初始化协议：
 阶段一 (init)       ：所有模块执行自身内部变量初始化。
@@ -70,6 +70,14 @@
 			<description>声明式工厂依赖 Hook 名称。</description>
 			<tags>
 				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="const" name="DEFAULT_SNAPSHOT_MODELS_PER_FRAME">
+			<signature>const DEFAULT_SNAPSHOT_MODELS_PER_FRAME: int = 8</signature>
+			<description>分帧快照 API 默认每帧处理的 Model 数量。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">5.0.0</tag>
 			</tags>
 		</member>
 	</constants>
@@ -738,6 +746,19 @@ query 缺少 execute() 方法时会输出 warning 并返回 null。</description
 				<tag name="schema">return: Dictionary keyed by stable model save key, storing each Model.to_dict() result.</tag>
 			</tags>
 		</member>
+		<member kind="method" name="get_all_models_state_async">
+			<signature>func get_all_models_state_async(options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>分帧收集所有已注册 Model 的状态快照。
+适合大型存档或移动端项目，避免单帧集中执行大量 to_dict()。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">options: 可选参数，支持 max_models_per_frame；小于等于 0 时不主动让出帧。</tag>
+				<tag name="return">包含所有 Model 状态的字典，可直接交给项目存储层后台写入。</tag>
+				<tag name="schema">options: Dictionary，可包含 max_models_per_frame: int。</tag>
+				<tag name="schema">return: Dictionary keyed by stable model save key, storing each Model.to_dict() result.</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
 		<member kind="method" name="restore_all_models_state">
 			<signature>func restore_all_models_state(data: Dictionary) -&gt; void:</signature>
 			<description>从状态字典恢复所有已注册 Model 的数据。</description>
@@ -745,6 +766,18 @@ query 缺少 execute() 方法时会输出 warning 并返回 null。</description
 				<tag name="api">public</tag>
 				<tag name="param">data: 由 get_all_models_state() 返回的状态字典。</tag>
 				<tag name="schema">data: Dictionary keyed by stable model save key, storing serialized model data.</tag>
+			</tags>
+		</member>
+		<member kind="method" name="restore_all_models_state_async">
+			<signature>func restore_all_models_state_async(data: Dictionary, options: Dictionary = {}) -&gt; void:</signature>
+			<description>分帧恢复所有已注册 Model 的数据。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">data: 由 get_all_models_state() 或 get_all_models_state_async() 返回的状态字典。</tag>
+				<tag name="param">options: 可选参数，支持 max_models_per_frame；小于等于 0 时不主动让出帧。</tag>
+				<tag name="schema">data: Dictionary keyed by stable model save key, storing serialized model data.</tag>
+				<tag name="schema">options: Dictionary，可包含 max_models_per_frame: int。</tag>
+				<tag name="since">5.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_global_snapshot">
@@ -756,6 +789,19 @@ query 缺少 execute() 方法时会输出 warning 并返回 null。</description
 				<tag name="schema">return: Dictionary with models and optional command_history fields.</tag>
 			</tags>
 		</member>
+		<member kind="method" name="get_global_snapshot_async">
+			<signature>func get_global_snapshot_async(options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>分帧获取整个框架的全局快照。
+Model 状态会按 options.max_models_per_frame 分帧收集；命令历史仍在 Model 快照完成后同步收集。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">options: 可选参数，支持 max_models_per_frame；小于等于 0 时不主动让出帧。</tag>
+				<tag name="return">包含全局快照数据的字典。可直接用于 JSON 序列化或交给项目存储层后台写入。</tag>
+				<tag name="schema">options: Dictionary，可包含 max_models_per_frame: int。</tag>
+				<tag name="schema">return: Dictionary with models and optional command_history fields.</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
 		<member kind="method" name="restore_global_snapshot">
 			<signature>func restore_global_snapshot(data: Dictionary, command_builder: Callable = Callable()) -&gt; void:</signature>
 			<description>从全局快照中恢复整个框架的状态，包含 Model 状态以及可选命令历史记录。
@@ -765,6 +811,20 @@ query 缺少 execute() 方法时会输出 warning 并返回 null。</description
 				<tag name="param">data: 由 get_global_snapshot() 导出的全局快照字典数据。</tag>
 				<tag name="param">command_builder: 【可选】如果需要恢复历史记录，必须传入用于反序列化具体 Command 实例的 Callable。</tag>
 				<tag name="schema">data: Dictionary produced by get_global_snapshot().</tag>
+			</tags>
+		</member>
+		<member kind="method" name="restore_global_snapshot_async">
+			<signature>func restore_global_snapshot_async( data: Dictionary, command_builder: Callable = Callable(), options: Dictionary = {} ) -&gt; void:</signature>
+			<description>分帧恢复整个框架的全局快照。
+Model 状态会按 options.max_models_per_frame 分帧恢复；命令历史仍在 Model 恢复完成后同步恢复。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">data: 由 get_global_snapshot() 或 get_global_snapshot_async() 导出的全局快照字典数据。</tag>
+				<tag name="param">command_builder: 【可选】如果需要恢复历史记录，必须传入用于反序列化具体 Command 实例的 Callable。</tag>
+				<tag name="param">options: 可选参数，支持 max_models_per_frame；小于等于 0 时不主动让出帧。</tag>
+				<tag name="schema">data: Dictionary produced by get_global_snapshot() or get_global_snapshot_async().</tag>
+				<tag name="schema">options: Dictionary，可包含 max_models_per_frame: int。</tag>
+				<tag name="since">5.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_debug_lifecycle_state">

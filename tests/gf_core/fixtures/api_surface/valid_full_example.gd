@@ -381,7 +381,7 @@ func dump_diagnostics() -> Dictionary:
 ## 只允许 `addons/gf/extensions/example/**` 调用。
 ##
 ## @api layer_internal
-## @layer gf.extensions.example
+## @layer extensions/example
 ## @param state: 层内保存的状态字典。
 ## @schema state {
 ##   "type": "Dictionary",

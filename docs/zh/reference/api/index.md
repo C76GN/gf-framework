@@ -5,16 +5,16 @@
 ## 范围
 
 - 源码根目录：`addons/gf`
-- 公开类：`503`
-- 公开成员：`6781`
-- 公开方法：`4099`
+- 公开类：`522`
+- 公开成员：`7044`
+- 公开方法：`4290`
 
 ## 模块
 
 | 模块 | 类 | 成员 | 方法 | 页面 |
 |---|---:|---:|---:|---|
-| Kernel | 43 | 603 | 449 | [kernel.md](kernel.md) |
-| Standard | 256 | 3798 | 2370 | [standard.md](standard.md) |
+| Kernel | 45 | 630 | 467 | [kernel.md](kernel.md) |
+| Standard | 273 | 4031 | 2541 | [standard.md](standard.md) |
 | Action Queue | 16 | 206 | 130 | [extensions-action-queue.md](extensions-action-queue.md) |
 | Asset Metadata | 3 | 23 | 17 | [extensions-asset-metadata.md](extensions-asset-metadata.md) |
 | Behavior Tree | 22 | 86 | 64 | [extensions-behavior-tree.md](extensions-behavior-tree.md) |
@@ -23,7 +23,7 @@
 | Combat | 45 | 498 | 203 | [extensions-combat.md](extensions-combat.md) |
 | Extensions / Content Package | 3 | 45 | 33 | [extensions-content-package.md](extensions-content-package.md) |
 | Decision | 7 | 88 | 48 | [extensions-decision.md](extensions-decision.md) |
-| Dialogue | 5 | 72 | 34 | [extensions-dialogue.md](extensions-dialogue.md) |
+| Dialogue | 5 | 75 | 36 | [extensions-dialogue.md](extensions-dialogue.md) |
 | Domain | 18 | 295 | 185 | [extensions-domain.md](extensions-domain.md) |
 | Feedback | 5 | 86 | 34 | [extensions-feedback.md](extensions-feedback.md) |
 | Flow | 7 | 130 | 81 | [extensions-flow.md](extensions-flow.md) |

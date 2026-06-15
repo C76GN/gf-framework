@@ -143,6 +143,117 @@ func test_find_path_a_star_avoids_blocked_hex() -> void:
 	assert_false(path.has(Vector2i(1, 0)), "路径不应穿过阻挡格。")
 
 
+func test_begin_path_a_star_search_reaches_goal_with_budget() -> void:
+	var blocked: Dictionary = {
+		Vector2i(1, 0): true,
+	}
+	var sync_path: Array[Vector2i] = GF_HEX_GRID_MATH.find_path_a_star(
+		Vector2i(4, 4),
+		Vector2i.ZERO,
+		Vector2i(2, 0),
+		func(cell: Vector2i) -> bool:
+			return not blocked.has(cell),
+		GF_HEX_GRID_MATH.OffsetLayout.ODD_R
+	)
+	var search_state: GFGraphPathSearchState = GF_HEX_GRID_MATH.begin_path_a_star_search(
+		Vector2i(4, 4),
+		Vector2i.ZERO,
+		Vector2i(2, 0),
+		func(cell: Vector2i) -> bool:
+			return not blocked.has(cell),
+		GF_HEX_GRID_MATH.OffsetLayout.ODD_R
+	)
+	var report: Dictionary = GFGraphMath.advance_path_search(search_state, 1)
+	var guard: int = 0
+	while not GFVariantData.get_option_bool(report, "finished") and guard < 32:
+		report = GFGraphMath.advance_path_search(search_state, 1)
+		guard += 1
+
+	var path: Array = GFVariantData.get_option_array(report, "path")
+	assert_true(GFVariantData.get_option_bool(report, "found"), "分步 Hex A* 应能找到路径。")
+	assert_eq(path, sync_path, "分步 Hex A* 路径应与同步 A* 对齐。")
+	assert_eq(GFVariantData.get_option_float(report, "cost", -1.0), _path_step_cost(path), "分步 Hex A* 成本应与路径步数对齐。")
+	assert_eq(_array_vector2i(path, 0), Vector2i.ZERO, "路径应从起点开始。")
+	assert_eq(_array_vector2i(path, path.size() - 1), Vector2i(2, 0), "路径应抵达终点。")
+	assert_false(path.has(Vector2i(1, 0)), "分步路径不应穿过阻挡格。")
+
+
+func test_begin_path_a_star_search_matches_sync_custom_cost_path() -> void:
+	var expensive: Dictionary = {
+		Vector2i(1, 0): true,
+	}
+	var sync_path: Array[Vector2i] = GF_HEX_GRID_MATH.find_path_a_star(
+		Vector2i(4, 4),
+		Vector2i.ZERO,
+		Vector2i(2, 0),
+		func(_cell: Vector2i) -> bool:
+			return true,
+		GF_HEX_GRID_MATH.OffsetLayout.ODD_R,
+		func(_from_cell: Vector2i, to_cell: Vector2i) -> float:
+			return 8.0 if expensive.has(to_cell) else 1.0
+	)
+	var search_state: GFGraphPathSearchState = GF_HEX_GRID_MATH.begin_path_a_star_search(
+		Vector2i(4, 4),
+		Vector2i.ZERO,
+		Vector2i(2, 0),
+		func(_cell: Vector2i) -> bool:
+			return true,
+		GF_HEX_GRID_MATH.OffsetLayout.ODD_R,
+		func(_from_cell: Vector2i, to_cell: Vector2i) -> float:
+			return 8.0 if expensive.has(to_cell) else 1.0
+	)
+	var report: Dictionary = GFGraphMath.advance_path_search(search_state, 1)
+	var guard: int = 0
+	while not GFVariantData.get_option_bool(report, "finished") and guard < 32:
+		report = GFGraphMath.advance_path_search(search_state, 1)
+		guard += 1
+
+	var step_path: Array = GFVariantData.get_option_array(report, "path")
+	assert_true(GFVariantData.get_option_bool(report, "found"), "自定义代价下分步 Hex A* 应找到路径。")
+	assert_eq(step_path, sync_path, "自定义代价下分步 Hex A* 路径应与同步 A* 对齐。")
+	assert_false(step_path.has(Vector2i(1, 0)), "自定义代价下 Hex A* 应避开高代价格子。")
+
+
+func test_simplify_path_line_of_sight_respects_hex_blocking() -> void:
+	var start: Vector2i = Vector2i.ZERO
+	var goal: Vector2i = Vector2i(3, 0)
+	var direct_line: Array[Vector2i] = GF_HEX_GRID_MATH.get_line(
+		start,
+		goal,
+		GF_HEX_GRID_MATH.OffsetLayout.ODD_R
+	)
+	var blocked_cell: Vector2i = _vector2i_at(direct_line, 1)
+	var blocked: Dictionary = {
+		blocked_cell: true,
+	}
+	var path: Array[Vector2i] = GF_HEX_GRID_MATH.find_path_a_star(
+		Vector2i(5, 5),
+		start,
+		goal,
+		func(cell: Vector2i) -> bool:
+			return not blocked.has(cell),
+		GF_HEX_GRID_MATH.OffsetLayout.ODD_R
+	)
+	var simplified: Array[Vector2i] = GF_HEX_GRID_MATH.simplify_path_line_of_sight(
+		path,
+		func(cell: Vector2i) -> bool:
+			return blocked.has(cell),
+		GF_HEX_GRID_MATH.OffsetLayout.ODD_R
+	)
+	var open_simplified: Array[Vector2i] = GF_HEX_GRID_MATH.simplify_path_line_of_sight(
+		path,
+		Callable(),
+		GF_HEX_GRID_MATH.OffsetLayout.ODD_R
+	)
+
+	assert_false(path.is_empty(), "测试路径应能绕过阻挡格。")
+	assert_eq(_vector2i_at(simplified, 0), start, "抽稀后仍应保留起点。")
+	assert_eq(_vector2i_at(simplified, simplified.size() - 1), goal, "抽稀后仍应保留终点。")
+	assert_false(simplified.has(blocked_cell), "抽稀后路径不应包含阻挡格。")
+	assert_true(simplified.size() > 2, "阻挡直线时不能直接抽稀为起终点。")
+	assert_eq(open_simplified, [start, goal], "无阻挡时可直接抽稀为起终点。")
+
+
 func test_flow_field_and_reachable_report_costs() -> void:
 	var field: Dictionary = GF_HEX_GRID_MATH.build_flow_field(
 		Vector2i(4, 4),
@@ -172,3 +283,17 @@ func _vector2i_at(cells: Array[Vector2i], index: int) -> Vector2i:
 	if index < 0 or index >= cells.size():
 		return Vector2i.ZERO
 	return cells[index]
+
+
+func _array_vector2i(cells: Array, index: int) -> Vector2i:
+	if index < 0 or index >= cells.size():
+		return Vector2i.ZERO
+	var value: Variant = cells[index]
+	if value is Vector2i:
+		var cell: Vector2i = value
+		return cell
+	return Vector2i.ZERO
+
+
+func _path_step_cost(cells: Array) -> float:
+	return maxf(0.0, float(cells.size() - 1))

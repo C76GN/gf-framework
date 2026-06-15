@@ -114,12 +114,14 @@ func test_watch_value_provider_updates_snapshot() -> void:
 	), "有效 provider 应该能注册。")
 
 	var snapshot: Array[Dictionary] = _debug.get_watch_snapshot()
+	var watch_snapshot: Dictionary = snapshot[0]
 	assert_eq(snapshot.size(), 1, "应该返回一个 watch 快照。")
-	assert_eq(GFVariantData.get_option_int(snapshot[0], "value"), 1, "快照应读取 provider 的当前值。")
+	assert_eq(GFVariantData.get_option_int(watch_snapshot, "value"), 1, "快照应读取 provider 的当前值。")
 
 	state.value = 2
 	snapshot = _debug.get_watch_snapshot()
-	assert_eq(GFVariantData.get_option_int(snapshot[0], "value"), 2, "provider watch 应在读取快照时更新。")
+	watch_snapshot = snapshot[0]
+	assert_eq(GFVariantData.get_option_int(watch_snapshot, "value"), 2, "provider watch 应在读取快照时更新。")
 
 
 func test_watch_visibility_and_removal() -> void:
@@ -153,8 +155,9 @@ func test_panel_provider_is_rendered() -> void:
 	}), "有效 panel provider 应可注册。")
 
 	var snapshot: Array[Dictionary] = _debug.get_panel_snapshot()
+	var panel_snapshot: Dictionary = snapshot[0]
 	assert_eq(snapshot.size(), 1, "应返回一个 panel 快照。")
-	assert_true(GFVariantData.get_option_string(snapshot[0], "content").contains("ready"), "Dictionary panel 内容应格式化为文本。")
+	assert_true(GFVariantData.get_option_string(panel_snapshot, "content").contains("ready"), "Dictionary panel 内容应格式化为文本。")
 
 	_debug.set_overlay_visible(true)
 	_debug.refresh_overlay()

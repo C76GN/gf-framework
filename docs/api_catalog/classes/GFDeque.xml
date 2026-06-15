@@ -1,0 +1,229 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFDeque" path="addons/gf/standard/foundation/collections/gf_deque.gd" module="standard" extends="RefCounted" classDigest="6ab64077c441972f074eb47afe158c02c8d9190107f28ddff81f9fb8745f4755">
+	<description>GFDeque: 通用双端队列。
+使用环形数组保存队列内容，支持从头尾 O(1) 追加、读取和移除。
+它只维护元素顺序和容量，不解释任务、历史、动画或业务载荷语义。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">value_object</tag>
+		<tag name="since">5.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants>
+		<member kind="const" name="DEFAULT_CAPACITY">
+			<signature>const DEFAULT_CAPACITY: int = 8</signature>
+			<description>默认底层容量。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties />
+	<methods>
+		<member kind="method" name="from_array">
+			<signature>static func from_array(values: Array, initial_capacity: int = 0) -&gt; RefCounted:</signature>
+			<description>从数组创建双端队列。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">values: 按队列顺序写入的初始元素。</tag>
+				<tag name="param">initial_capacity: 初始容量；小于元素数量时会自动扩容。</tag>
+				<tag name="return">新双端队列；实际对象类型为 GFDeque。</tag>
+				<tag name="schema">values: Array of queue values copied by reference.</tag>
+				<tag name="schema">return: RefCounted GFDeque instance.</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="push_front">
+			<signature>func push_front(value: Variant) -&gt; void:</signature>
+			<description>在队头追加元素。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">value: 要追加的元素。</tag>
+				<tag name="schema">value: Variant queue value.</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="push_back">
+			<signature>func push_back(value: Variant) -&gt; void:</signature>
+			<description>在队尾追加元素。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">value: 要追加的元素。</tag>
+				<tag name="schema">value: Variant queue value.</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="pop_front">
+			<signature>func pop_front(default_value: Variant = null) -&gt; Variant:</signature>
+			<description>移除并返回队头元素。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">default_value: 队列为空时返回的默认值。</tag>
+				<tag name="return">队头元素或默认值。</tag>
+				<tag name="schema">default_value: Variant fallback value.</tag>
+				<tag name="schema">return: Variant queue value or fallback value.</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="pop_back">
+			<signature>func pop_back(default_value: Variant = null) -&gt; Variant:</signature>
+			<description>移除并返回队尾元素。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">default_value: 队列为空时返回的默认值。</tag>
+				<tag name="return">队尾元素或默认值。</tag>
+				<tag name="schema">default_value: Variant fallback value.</tag>
+				<tag name="schema">return: Variant queue value or fallback value.</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="peek_front">
+			<signature>func peek_front(default_value: Variant = null) -&gt; Variant:</signature>
+			<description>读取队头元素但不移除。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">default_value: 队列为空时返回的默认值。</tag>
+				<tag name="return">队头元素或默认值。</tag>
+				<tag name="schema">default_value: Variant fallback value.</tag>
+				<tag name="schema">return: Variant queue value or fallback value.</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="peek_back">
+			<signature>func peek_back(default_value: Variant = null) -&gt; Variant:</signature>
+			<description>读取队尾元素但不移除。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">default_value: 队列为空时返回的默认值。</tag>
+				<tag name="return">队尾元素或默认值。</tag>
+				<tag name="schema">default_value: Variant fallback value.</tag>
+				<tag name="schema">return: Variant queue value or fallback value.</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="at">
+			<signature>func at(index: int, default_value: Variant = null) -&gt; Variant:</signature>
+			<description>按队列顺序读取元素。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">index: 队列顺序索引；负数从队尾倒数。</tag>
+				<tag name="param">default_value: 索引越界时返回的默认值。</tag>
+				<tag name="return">对应元素或默认值。</tag>
+				<tag name="schema">default_value: Variant fallback value.</tag>
+				<tag name="schema">return: Variant queue value or fallback value.</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="set_at">
+			<signature>func set_at(index: int, value: Variant) -&gt; bool:</signature>
+			<description>按队列顺序替换元素。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">index: 队列顺序索引；负数从队尾倒数。</tag>
+				<tag name="param">value: 新元素。</tag>
+				<tag name="return">替换成功返回 true。</tag>
+				<tag name="schema">value: Variant queue value.</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="reserve">
+			<signature>func reserve(min_capacity: int) -&gt; void:</signature>
+			<description>至少保留指定底层容量。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">min_capacity: 最小底层容量。</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="trim_front">
+			<signature>func trim_front(max_size: int) -&gt; int:</signature>
+			<description>从队头裁剪多余元素，使队列最多保留 max_size 个元素。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">max_size: 保留数量；小于 0 时不裁剪。</tag>
+				<tag name="return">实际移除数量。</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="trim_back">
+			<signature>func trim_back(max_size: int) -&gt; int:</signature>
+			<description>从队尾裁剪多余元素，使队列最多保留 max_size 个元素。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">max_size: 保留数量；小于 0 时不裁剪。</tag>
+				<tag name="return">实际移除数量。</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="clear">
+			<signature>func clear() -&gt; void:</signature>
+			<description>清空队列。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_empty">
+			<signature>func is_empty() -&gt; bool:</signature>
+			<description>队列是否为空。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">为空返回 true。</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="size">
+			<signature>func size() -&gt; int:</signature>
+			<description>获取元素数量。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">元素数量。</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="capacity">
+			<signature>func capacity() -&gt; int:</signature>
+			<description>获取底层容量。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">底层容量。</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="to_array">
+			<signature>func to_array(deep: bool = false) -&gt; Array:</signature>
+			<description>按队列顺序导出数组。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">deep: 为 true 时深拷贝元素中的 Array、Dictionary、Object Resource 等可复制值。</tag>
+				<tag name="return">队列元素数组。</tag>
+				<tag name="schema">return: Array of queue values in front-to-back order.</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="duplicate_deque">
+			<signature>func duplicate_deque(deep: bool = false) -&gt; RefCounted:</signature>
+			<description>复制双端队列。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">deep: 为 true 时深拷贝元素中的 Array、Dictionary、Object Resource 等可复制值。</tag>
+				<tag name="return">新双端队列；实际对象类型为 GFDeque。</tag>
+				<tag name="schema">return: RefCounted GFDeque instance.</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_debug_snapshot">
+			<signature>func get_debug_snapshot() -&gt; Dictionary:</signature>
+			<description>获取调试快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">调试信息字典。</tag>
+				<tag name="schema">return: Dictionary with size, capacity, and front_index.</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

@@ -119,3 +119,9 @@ var decoded_node := GFVariantReferenceCodec.decode_reference(encoded_node, {
 普通整数在 JSON 安全范围内仍保持数字；超出 JSON 安全范围的 64 位整数会自动写成 `Int64` 类型标记，避免 Godot JSON 往返后丢失精度。只有 `__gf_variant__` 标记是字典唯一字段时才会被解码为 Godot 类型，因此普通业务字典里的 `type`、`value`、`_gf_type` 等字段会按普通数据保留。
 
 默认普通 Dictionary 仍使用字符串键；如果确实需要保留非字符串键，可传 `{ "encode_dictionary_keys": true }`。JSON codec 遇到不支持的对象默认写成 `null`；需要持久化对象时，应在项目层先转换成资源路径、ID 或纯数据字典。
+
+## 与确定性序列化的关系
+
+`GFVariantJsonCodec` 的目标是 JSON 友好往返，不承诺同一数据在任意 Dictionary 插入顺序下得到同一段文本。需要 canonical JSON、canonical bytes 或内容 hash 时，使用 [确定性序列化](../../scalars/deterministic-serialization.md) 中的 `GFDeterministicVariantSerializer`。
+
+确定性序列化默认拒绝浮点值、对象和循环引用，并按 key 的 canonical 表达排序 Dictionary。它适合锁步、回放、黄金测试和内容 hash；存档压缩、metadata、checksum 与兼容读取仍由 `GFStorageCodec` 负责。

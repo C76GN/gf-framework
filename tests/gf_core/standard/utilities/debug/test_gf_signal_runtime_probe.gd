@@ -17,13 +17,16 @@ func test_probe_records_watched_signal_emissions() -> void:
 	source.pair_changed.emit("left", true)
 
 	var events: Array[Dictionary] = probe.get_events()
-	var first_arguments: Array = GFVariantData.as_array(GFVariantData.get_option_value(events[1], "arguments"))
-	var second_arguments: Array = GFVariantData.as_array(GFVariantData.get_option_value(events[2], "arguments"))
+	var no_args_event: Dictionary = events[0]
+	var first_value_event: Dictionary = events[1]
+	var pair_event: Dictionary = events[2]
+	var first_arguments: Array = GFVariantData.as_array(GFVariantData.get_option_value(first_value_event, "arguments"))
+	var second_arguments: Array = GFVariantData.as_array(GFVariantData.get_option_value(pair_event, "arguments"))
 
 	assert_true(GFVariantData.get_option_bool(report, "ok"), "监听指定信号应成功。")
 	assert_eq(GFVariantData.get_option_int(report, "watched_count"), 3, "应监听三个指定信号。")
 	assert_eq(events.size(), 3, "三次发射都应被记录。")
-	assert_eq(GFVariantData.get_option_string(events[0], "signal_name"), "no_args", "零参数信号应被记录。")
+	assert_eq(GFVariantData.get_option_string(no_args_event, "signal_name"), "no_args", "零参数信号应被记录。")
 	assert_eq(GFVariantData.to_int(first_arguments[0]), 42, "单参数信号应记录参数。")
 	assert_true(GFVariantData.to_bool(second_arguments[1]), "多参数信号应记录全部参数。")
 
@@ -41,7 +44,8 @@ func test_probe_records_wide_signal_payload() -> void:
 	source.wide_payload.emit(0, 1, 2, 3, 4, 5, 6, 7, 8)
 
 	var events: Array[Dictionary] = probe.get_events()
-	var arguments: Array = GFVariantData.as_array(GFVariantData.get_option_value(events[0], "arguments"))
+	var wide_event: Dictionary = events[0]
+	var arguments: Array = GFVariantData.as_array(GFVariantData.get_option_value(wide_event, "arguments"))
 
 	assert_true(GFVariantData.get_option_bool(report, "ok"), "9 参数信号应能被运行时探针监听。")
 	assert_eq(events.size(), 1, "9 参数信号发射应被记录。")
@@ -131,7 +135,8 @@ func test_signal_graph_dock_tracks_saved_connection_signals_without_unconnected_
 	var events: Array[Dictionary] = dock.get_recent_events()
 
 	assert_eq(events.size(), 1, "追踪发射默认应只记录保存连接中的信号，避免 draw 等未连接噪音。")
-	assert_eq(GFVariantData.get_option_string(events[0], "signal_name"), "no_args", "保存连接里的信号应被记录。")
+	var saved_event: Dictionary = events[0]
+	assert_eq(GFVariantData.get_option_string(saved_event, "signal_name"), "no_args", "保存连接里的信号应被记录。")
 
 	dock.queue_free()
 	source.queue_free()

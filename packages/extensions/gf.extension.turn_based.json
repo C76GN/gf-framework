@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "id": "gf.extension.turn_based",
+  "kind": "extension",
+  "version": "unreleased",
+  "display_name": "GF Turn Based",
+  "description": "Package manifest for the bundled Turn Based extension.",
+  "dependencies": [
+    "gf.kernel",
+    "gf.standard.base"
+  ],
+  "paths": [
+    "addons/gf/extensions/turn_based/**"
+  ],
+  "enable_extension": "gf.turn_based",
+  "metadata": {}
+}

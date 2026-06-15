@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "id": "gf.extension.save",
+  "kind": "extension",
+  "version": "unreleased",
+  "display_name": "GF Save",
+  "description": "Package manifest for the bundled Save extension.",
+  "dependencies": [
+    "gf.kernel",
+    "gf.standard.base",
+    "gf.standard.storage",
+    "gf.standard.deterministic"
+  ],
+  "paths": [
+    "addons/gf/extensions/save/**"
+  ],
+  "enable_extension": "gf.save",
+  "metadata": {}
+}

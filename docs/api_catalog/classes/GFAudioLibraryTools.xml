@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFAudioLibraryTools" path="addons/gf/standard/utilities/audio/gf_audio_library_tools.gd" module="standard" extends="RefCounted" classDigest="aeeddda24643c59262bc06476a890464e5d99c254fe0d683c95bd5a1cf3cd8d7">
+	<description>GFAudioLibraryTools: 音频素材库扫描、搜索和导入计划工具。
+面向编辑器 Workspace、Inspector 和构建脚本复用；它只处理音频候选
+文件、目标路径规划和文件复制，不接管运行时播放、事件命名或混音策略。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_service</tag>
+		<tag name="since">5.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants>
+		<member kind="const" name="DEFAULT_SEARCH_FIELDS">
+			<signature>const DEFAULT_SEARCH_FIELDS: PackedStringArray = ["clip_id", "relative_path", "file_name", "source_path"]</signature>
+			<description>默认搜索字段。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="DEFAULT_MAX_COPY_FILES">
+			<signature>const DEFAULT_MAX_COPY_FILES: int = 10000</signature>
+			<description>默认单次复制计划可执行的文件数量上限。传入 0 表示不限制。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="DEFAULT_MAX_COPY_BYTES">
+			<signature>const DEFAULT_MAX_COPY_BYTES: int = 512 * 1024 * 1024</signature>
+			<description>默认单次复制计划可执行的总字节上限。传入 0 表示不限制。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties />
+	<methods>
+		<member kind="method" name="scan_library">
+			<signature>static func scan_library(root_path: String, options: Dictionary = {}) -&gt; Array[Dictionary]:</signature>
+			<description>扫描音频素材库并返回结构化候选条目。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">root_path: 扫描起点，可为 res://、user:// 或本地绝对目录。</tag>
+				<tag name="param">options: 可选项，支持 GFAudioBankTools.scan_audio_paths() 的扫描选项，以及 id_mode、base_path、path_separator、strip_extension。</tag>
+				<tag name="return">音频候选条目数组。</tag>
+				<tag name="schema">options: Dictionary，可包含扫描选项和片段 ID 生成选项。</tag>
+				<tag name="schema">return: Array[Dictionary]，元素包含 source_path、library_root、relative_path、directory、file_name、basename、extension 和 clip_id 字段。</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="build_entries">
+			<signature>static func build_entries( paths: PackedStringArray, library_root: String, options: Dictionary = {} ) -&gt; Array[Dictionary]:</signature>
+			<description>从已有路径列表构建音频素材库候选条目。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">paths: 音频文件路径列表。</tag>
+				<tag name="param">library_root: 候选条目的素材库根目录。</tag>
+				<tag name="param">options: 可选项，支持 id_mode、base_path、path_separator、strip_extension。</tag>
+				<tag name="return">音频候选条目数组。</tag>
+				<tag name="schema">options: Dictionary，可包含片段 ID 生成选项。</tag>
+				<tag name="schema">return: Array[Dictionary]，元素包含 source_path、library_root、relative_path、directory、file_name、basename、extension 和 clip_id 字段。</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="filter_entries">
+			<signature>static func filter_entries( entries: Array[Dictionary], query: String, options: Dictionary = {} ) -&gt; Array[Dictionary]:</signature>
+			<description>按关键字过滤音频素材库候选条目。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">entries: scan_library() 或 build_entries() 返回的候选条目。</tag>
+				<tag name="param">query: 空格分隔的搜索词。</tag>
+				<tag name="param">options: 可选项，支持 fields、match_all 和 case_sensitive。</tag>
+				<tag name="return">过滤后的候选条目副本。</tag>
+				<tag name="schema">entries: Array[Dictionary]，元素包含可搜索字段。</tag>
+				<tag name="schema">options: Dictionary，可包含 fields: PackedStringArray、match_all: bool 和 case_sensitive: bool。</tag>
+				<tag name="schema">return: Array[Dictionary]，元素为匹配的候选条目副本。</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="make_import_plan">
+			<signature>static func make_import_plan( entries: Array[Dictionary], target_root: String, options: Dictionary = {} ) -&gt; Array[Dictionary]:</signature>
+			<description>为素材库候选生成导入计划。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">entries: scan_library() 或 build_entries() 返回的候选条目。</tag>
+				<tag name="param">target_root: 目标根目录，通常为 res://audio 下的目录。</tag>
+				<tag name="param">options: 可选项，支持 preserve_structure、overwrite 和 check_source_exists。</tag>
+				<tag name="return">导入计划条目数组。</tag>
+				<tag name="schema">entries: Array[Dictionary]，元素包含 source_path、relative_path 和 clip_id 字段。</tag>
+				<tag name="schema">options: Dictionary，可包含 preserve_structure: bool、overwrite: bool 和 check_source_exists: bool。</tag>
+				<tag name="schema">return: Array[Dictionary]，元素包含 source_path、target_path、relative_path、clip_id、extension、source_exists、target_exists、will_copy 和 reason 字段。</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="copy_import_plan">
+			<signature>static func copy_import_plan(plan: Array[Dictionary], options: Dictionary = {}) -&gt; GFValidationReport:</signature>
+			<description>按导入计划复制音频文件。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">plan: make_import_plan() 返回的导入计划。</tag>
+				<tag name="param">options: 可选项，支持 overwrite、max_copy_files 与 max_copy_bytes。</tag>
+				<tag name="return">复制报告。</tag>
+				<tag name="schema">plan: Array[Dictionary]，元素包含 source_path、target_path、will_copy 和 reason 字段。</tag>
+				<tag name="schema">options: Dictionary，可包含 overwrite: bool、max_copy_files: int 与 max_copy_bytes: int；上限为 0 时表示不限制。</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_plan_target_paths">
+			<signature>static func get_plan_target_paths(plan: Array[Dictionary], only_copyable: bool = false) -&gt; PackedStringArray:</signature>
+			<description>从导入计划收集目标路径。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">plan: make_import_plan() 返回的导入计划。</tag>
+				<tag name="param">only_copyable: 为 true 时只返回 will_copy 为 true 的条目。</tag>
+				<tag name="return">去重后的目标路径列表。</tag>
+				<tag name="schema">plan: Array[Dictionary]，元素包含 target_path 和 will_copy 字段。</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

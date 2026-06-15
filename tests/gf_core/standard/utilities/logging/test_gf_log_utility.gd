@@ -320,7 +320,8 @@ func test_batched_log_sink_flushes_to_callback_and_signal() -> void:
 	_log_util.info("Batch", "two")
 
 	assert_eq(payloads.size(), 1, "达到 batch_size 时应调用发送回调。")
-	assert_eq(GFVariantData.get_option_array(payloads[0], "logs").size(), 2, "发送载荷应包含一个完整批次。")
+	var batch_payload: Dictionary = payloads[0]
+	assert_eq(GFVariantData.get_option_array(batch_payload, "logs").size(), 2, "发送载荷应包含一个完整批次。")
 	assert_eq(emitted_batches.size(), 1, "flush 时应发出 batch_ready 信号。")
 	assert_eq(sink.get_pending_count(), 0, "完整批次发送后队列应清空。")
 
@@ -410,8 +411,10 @@ func test_memory_entries_are_capped_and_ordered() -> void:
 
 	var entries: Array[Dictionary] = _log_util.get_recent_entries()
 	assert_eq(entries.size(), 2, "内存日志应遵守容量上限。")
-	assert_eq(GFVariantData.get_option_string(entries[0], "message"), "two", "内存日志应保留较新的条目并保持从旧到新排序。")
-	assert_eq(GFVariantData.get_option_string(entries[1], "message"), "three", "最新条目应位于末尾。")
+	var older_entry: Dictionary = entries[0]
+	var newer_entry: Dictionary = entries[1]
+	assert_eq(GFVariantData.get_option_string(older_entry, "message"), "two", "内存日志应保留较新的条目并保持从旧到新排序。")
+	assert_eq(GFVariantData.get_option_string(newer_entry, "message"), "three", "最新条目应位于末尾。")
 	assert_eq(_log_util.get_dropped_memory_entry_count(), 1, "超出容量的条目应计入丢弃数量。")
 
 
@@ -426,8 +429,10 @@ func test_memory_entries_support_offset_reads_after_wrap() -> void:
 
 	var entries: Array[Dictionary] = _log_util.get_entries(1, 2)
 	assert_eq(entries.size(), 2, "按偏移读取应返回请求数量。")
-	assert_eq(GFVariantData.get_option_string(entries[0], "message"), "three", "环形缓冲按偏移读取应保持逻辑顺序。")
-	assert_eq(GFVariantData.get_option_string(entries[1], "message"), "four", "环形缓冲最新条目应位于读取结果末尾。")
+	var first_entry: Dictionary = entries[0]
+	var second_entry: Dictionary = entries[1]
+	assert_eq(GFVariantData.get_option_string(first_entry, "message"), "three", "环形缓冲按偏移读取应保持逻辑顺序。")
+	assert_eq(GFVariantData.get_option_string(second_entry, "message"), "four", "环形缓冲最新条目应位于读取结果末尾。")
 
 
 func test_lowering_memory_limit_keeps_newest_entries() -> void:
@@ -443,8 +448,10 @@ func test_lowering_memory_limit_keeps_newest_entries() -> void:
 
 	var entries: Array[Dictionary] = _log_util.get_recent_entries()
 	assert_eq(entries.size(), 2, "降低容量后内存日志应立即裁剪。")
-	assert_eq(GFVariantData.get_option_string(entries[0], "message"), "three", "降低容量后应保留较新的条目。")
-	assert_eq(GFVariantData.get_option_string(entries[1], "message"), "four", "降低容量后最新条目应位于末尾。")
+	var first_entry: Dictionary = entries[0]
+	var second_entry: Dictionary = entries[1]
+	assert_eq(GFVariantData.get_option_string(first_entry, "message"), "three", "降低容量后应保留较新的条目。")
+	assert_eq(GFVariantData.get_option_string(second_entry, "message"), "four", "降低容量后最新条目应位于末尾。")
 	assert_eq(_log_util.get_dropped_memory_entry_count(), 2, "降低容量裁剪的条目应计入丢弃数量。")
 
 

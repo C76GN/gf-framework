@@ -1,6 +1,6 @@
 # GF Extensions
 
-GF extensions are optional capability bundles built on the GF kernel and standard library.
+GF extensions are optional capability bundles built on the GF kernel and standard library. Bundled GF extensions are disabled by default; projects enable only the extensions they need through `gf/extensions/enabled`, `GF Workspace`, a preset, or project code.
 
 Each bundled extension lives directly under this directory:
 

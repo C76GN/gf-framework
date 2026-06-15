@@ -318,12 +318,13 @@ var tags: Array[String] = []
 ### `enabled_by_default`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var enabled_by_default: bool = false
 ```
 
-是否在项目首次启用 GF 时默认启用该扩展。
+是否在项目首次启用 GF 时进入默认扩展选择。
 
 <a id="member-gfextensionmanifest-properties-source_path"></a>
 

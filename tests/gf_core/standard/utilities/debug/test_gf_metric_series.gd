@@ -37,14 +37,16 @@ func test_debug_overlay_records_metric_series_panel() -> void:
 	}), "同一指标应追加采样。")
 
 	var metrics: Array[Dictionary] = overlay.get_metric_series_snapshot()
+	var metric_snapshot: Dictionary = metrics[0]
 	assert_eq(metrics.size(), 1, "应返回一个指标序列快照。")
-	assert_eq(GFVariantData.get_option_string(metrics[0], "label"), "FPS", "快照应保留指标标签。")
-	assert_eq(GFVariantData.get_option_int(metrics[0], "sample_count"), 2, "快照应包含采样数量。")
+	assert_eq(GFVariantData.get_option_string(metric_snapshot, "label"), "FPS", "快照应保留指标标签。")
+	assert_eq(GFVariantData.get_option_int(metric_snapshot, "sample_count"), 2, "快照应包含采样数量。")
 
 	var panels: Array[Dictionary] = overlay.get_panel_snapshot()
+	var metric_panel: Dictionary = panels[0]
 	assert_eq(panels.size(), 1, "Overlay 应生成指标面板。")
-	assert_true(GFVariantData.get_option_string(panels[0], "content").contains("FPS"), "指标面板应包含指标标签。")
-	assert_true(GFVariantData.get_option_string(panels[0], "content").contains("latest=60.000"), "指标面板应包含最新值。")
+	assert_true(GFVariantData.get_option_string(metric_panel, "content").contains("FPS"), "指标面板应包含指标标签。")
+	assert_true(GFVariantData.get_option_string(metric_panel, "content").contains("latest=60.000"), "指标面板应包含最新值。")
 
 
 func test_hidden_metric_series_is_filtered_by_default() -> void:

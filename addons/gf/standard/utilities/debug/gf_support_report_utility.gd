@@ -645,18 +645,8 @@ func _collect_diagnostics_snapshot(options: Dictionary) -> Dictionary:
 
 
 func _capture_viewport_png_buffer(viewport: Viewport) -> PackedByteArray:
-	var target_viewport: Viewport = viewport
-	if target_viewport == null:
-		var tree: SceneTree = _get_scene_tree()
-		if tree != null:
-			target_viewport = tree.root
-	if target_viewport == null:
-		return PackedByteArray()
-
-	var image: Image = target_viewport.get_texture().get_image()
-	if image == null:
-		return PackedByteArray()
-	return image.save_png_to_buffer()
+	var screenshot_utility: GFScreenshotUtility = GFScreenshotUtility.new()
+	return screenshot_utility.capture_viewport_png_buffer(viewport)
 
 
 func _append_attachment(

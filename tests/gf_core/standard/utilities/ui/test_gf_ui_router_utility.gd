@@ -156,9 +156,10 @@ func test_replace_route_clears_same_layer_history() -> void:
 	var _replace_route_result_156: Variant = _router.replace_route(&"second")
 
 	var history: Array[Dictionary] = _router.get_route_history()
+	var history_entry: Dictionary = history[0]
 
 	assert_eq(history.size(), 1, "替换层级后同层历史应只保留新路由。")
-	assert_eq(GFVariantData.get_option_string_name(history[0], "route_id"), &"second", "替换后历史应指向新路由。")
+	assert_eq(GFVariantData.get_option_string_name(history_entry, "route_id"), &"second", "替换后历史应指向新路由。")
 	assert_eq(_ui_utility.get_stack_count(GFUIUtility.Layer.POPUP), 1, "替换层级后 UI 栈应只保留一个面板。")
 
 

@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "id": "gf.standard.storage",
+  "kind": "standard",
+  "version": "unreleased",
+  "display_name": "GF Standard Storage",
+  "description": "Storage backends, snapshot utilities, history helpers, and storage editor tooling.",
+  "dependencies": [
+    "gf.kernel",
+    "gf.standard.base"
+  ],
+  "paths": [
+    "addons/gf/standard/utilities/history/**",
+    "addons/gf/standard/utilities/storage/**"
+  ],
+  "metadata": {
+    "stage": "standard-split-v1"
+  }
+}

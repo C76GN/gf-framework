@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "id": "gf.standard.debug",
+  "kind": "standard",
+  "version": "unreleased",
+  "display_name": "GF Standard Debug",
+  "description": "Debug draw and overlay, metrics, screenshots, support reports, and debug editor docks.",
+  "dependencies": [
+    "gf.kernel",
+    "gf.standard.base",
+    "gf.standard.assets",
+    "gf.standard.diagnostics"
+  ],
+  "paths": [
+    "addons/gf/standard/utilities/debug/editor/**",
+    "addons/gf/standard/utilities/debug/gf_debug_draw_utility.gd",
+    "addons/gf/standard/utilities/debug/gf_debug_draw_utility.gd.uid",
+    "addons/gf/standard/utilities/debug/gf_debug_overlay_utility.gd",
+    "addons/gf/standard/utilities/debug/gf_debug_overlay_utility.gd.uid",
+    "addons/gf/standard/utilities/debug/gf_metric_series.gd",
+    "addons/gf/standard/utilities/debug/gf_metric_series.gd.uid",
+    "addons/gf/standard/utilities/debug/gf_runtime_inspector_utility.gd",
+    "addons/gf/standard/utilities/debug/gf_runtime_inspector_utility.gd.uid",
+    "addons/gf/standard/utilities/debug/gf_runtime_tunable_property.gd",
+    "addons/gf/standard/utilities/debug/gf_runtime_tunable_property.gd.uid",
+    "addons/gf/standard/utilities/debug/gf_screenshot_utility.gd",
+    "addons/gf/standard/utilities/debug/gf_screenshot_utility.gd.uid",
+    "addons/gf/standard/utilities/debug/gf_signal_runtime_probe.gd",
+    "addons/gf/standard/utilities/debug/gf_signal_runtime_probe.gd.uid",
+    "addons/gf/standard/utilities/debug/gf_support_report_utility.gd",
+    "addons/gf/standard/utilities/debug/gf_support_report_utility.gd.uid"
+  ],
+  "metadata": {
+    "stage": "standard-split-v1"
+  }
+}

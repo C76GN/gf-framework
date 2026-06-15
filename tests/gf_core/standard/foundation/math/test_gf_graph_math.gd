@@ -5,6 +5,7 @@ extends GutTest
 # --- 常量 ---
 
 const GF_GRAPH_MATH = preload("res://addons/gf/standard/foundation/math/gf_graph_math.gd")
+const GF_GRAPH_PATH_SEARCH_STATE = preload("res://addons/gf/standard/foundation/math/gf_graph_path_search_state.gd")
 
 
 # --- 测试 ---
@@ -61,6 +62,170 @@ func test_astar_uses_custom_variant_nodes_and_heuristic() -> void:
 	assert_true(path.size() <= 3, "A* 应优先选择启发函数指向的短路径。")
 
 
+func test_path_search_advances_with_fixed_budget() -> void:
+	var graph: Dictionary = {
+		"A": ["B", "C"],
+		"B": ["D"],
+		"C": ["D"],
+		"D": [],
+	}
+	var costs: Dictionary = {
+		"A:B": 1.0,
+		"B:D": 1.0,
+		"A:C": 1.0,
+		"C:D": 10.0,
+	}
+	var search_state: GFGraphPathSearchState = GF_GRAPH_MATH.begin_path_search(
+		"A",
+		"D",
+		func(node: Variant) -> Array:
+			return GFVariantData.get_option_array(graph, node, []),
+		func(from_node: Variant, to_node: Variant) -> float:
+			return GFVariantData.get_option_float(costs, "%s:%s" % [from_node, to_node], 1.0)
+	)
+	var report: Dictionary = GF_GRAPH_MATH.advance_path_search(search_state, 1)
+
+	assert_eq(
+		GFVariantData.get_option_string_name(report, "status"),
+		GF_GRAPH_MATH.PATH_SEARCH_STATUS_SEARCHING,
+		"首个预算片段不应一次性完成整条路径。"
+	)
+	assert_false(GFVariantData.get_option_bool(report, "finished"), "搜索状态应可跨帧继续推进。")
+
+	var guard: int = 0
+	while not GFVariantData.get_option_bool(report, "finished") and guard < 16:
+		report = GF_GRAPH_MATH.advance_path_search(search_state, 1)
+		guard += 1
+
+	assert_true(GFVariantData.get_option_bool(report, "found"), "分步搜索应最终找到路径。")
+	assert_eq(GFVariantData.get_option_array(report, "path"), ["A", "B", "D"])
+	assert_eq(GFVariantData.get_option_float(report, "cost", -1.0), 2.0)
+	assert_eq(GF_GRAPH_MATH.find_path_dijkstra(
+		"A",
+		"D",
+		func(node: Variant) -> Array:
+			return GFVariantData.get_option_array(graph, node, []),
+		func(from_node: Variant, to_node: Variant) -> float:
+			return GFVariantData.get_option_float(costs, "%s:%s" % [from_node, to_node], 1.0)
+	), GFVariantData.get_option_array(report, "path"))
+
+
+func test_path_search_state_is_runtime_handle_not_dictionary() -> void:
+	var raw_state: Variant = GF_GRAPH_MATH.begin_path_search(
+		"A",
+		"B",
+		func(node: Variant) -> Array:
+			return ["B"] if node == "A" else []
+	)
+
+	assert_true(raw_state is GF_GRAPH_PATH_SEARCH_STATE, "分步搜索状态应是显式运行期句柄。")
+	assert_false(raw_state is Dictionary, "分步搜索不应把内部堆和 Callable 公开成 Dictionary ABI。")
+
+	var search_state: GFGraphPathSearchState = _as_path_search_state(raw_state)
+	assert_not_null(search_state, "分步搜索状态应可安全收窄为 GFGraphPathSearchState。")
+	assert_eq(
+		GFVariantData.get_option_string_name(search_state.make_report(), "status"),
+		GF_GRAPH_MATH.PATH_SEARCH_STATUS_SEARCHING
+	)
+
+
+func test_path_search_zero_budget_does_not_expand_frontier() -> void:
+	var counters: Dictionary = { "neighbor_call_count": 0 }
+	var search_state: GFGraphPathSearchState = GF_GRAPH_MATH.begin_path_search(
+		"A",
+		"B",
+		func(node: Variant) -> Array:
+			counters["neighbor_call_count"] = GFVariantData.get_option_int(counters, "neighbor_call_count") + 1
+			return ["B"] if node == "A" else []
+	)
+	var report: Dictionary = GF_GRAPH_MATH.advance_path_search(search_state, 0)
+
+	assert_eq(
+		GFVariantData.get_option_string_name(report, "status"),
+		GF_GRAPH_MATH.PATH_SEARCH_STATUS_SEARCHING,
+		"零预算只应返回当前状态，不应完成搜索。"
+	)
+	assert_eq(GFVariantData.get_option_int(report, "iterations"), 0, "零预算不应扩展节点。")
+	assert_eq(GFVariantData.get_option_int(report, "expanded_count"), 0, "零预算不应改变累计扩展数量。")
+	assert_eq(GFVariantData.get_option_int(report, "frontier_count"), 1, "起点仍应留在 frontier 中。")
+	assert_eq(GFVariantData.get_option_int(counters, "neighbor_call_count"), 0, "零预算不应调用邻居回调。")
+
+
+func test_path_search_equal_priority_uses_neighbor_order_as_tie_breaker() -> void:
+	var graph: Dictionary = {
+		"A": ["B", "C"],
+		"B": ["D"],
+		"C": ["D"],
+		"D": [],
+	}
+	var sync_dijkstra_path: Array = GF_GRAPH_MATH.find_path_dijkstra(
+		"A",
+		"D",
+		func(node: Variant) -> Array:
+			return GFVariantData.get_option_array(graph, node, [])
+	)
+	var sync_astar_path: Array = GF_GRAPH_MATH.find_path_a_star(
+		"A",
+		"D",
+		func(node: Variant) -> Array:
+			return GFVariantData.get_option_array(graph, node, [])
+	)
+	var search_state: GFGraphPathSearchState = GF_GRAPH_MATH.begin_path_search(
+		"A",
+		"D",
+		func(node: Variant) -> Array:
+			return GFVariantData.get_option_array(graph, node, [])
+	)
+	var report: Dictionary = GF_GRAPH_MATH.advance_path_search(search_state, 1)
+	var guard: int = 0
+	while not GFVariantData.get_option_bool(report, "finished") and guard < 16:
+		report = GF_GRAPH_MATH.advance_path_search(search_state, 1)
+		guard += 1
+
+	assert_true(GFVariantData.get_option_bool(report, "found"), "等价路径图中应找到路径。")
+	assert_eq(sync_dijkstra_path, ["A", "B", "D"], "同步 Dijkstra 等价路径应按邻居返回顺序稳定选择。")
+	assert_eq(sync_astar_path, ["A", "B", "D"], "同步 A* 等价路径应按邻居返回顺序稳定选择。")
+	assert_eq(
+		GFVariantData.get_option_array(report, "path"),
+		["A", "B", "D"],
+		"等价优先级应按邻居返回顺序稳定选择路径。"
+	)
+
+
+func test_path_search_reports_unreachable_goal() -> void:
+	var graph: Dictionary = {
+		"A": ["B"],
+		"B": [],
+		"C": [],
+	}
+	var search_state: GFGraphPathSearchState = GF_GRAPH_MATH.begin_path_search(
+		"A",
+		"C",
+		func(node: Variant) -> Array:
+			return GFVariantData.get_option_array(graph, node, [])
+	)
+	var report: Dictionary = GF_GRAPH_MATH.advance_path_search(search_state, 16)
+
+	assert_eq(
+		GFVariantData.get_option_string_name(report, "status"),
+		GF_GRAPH_MATH.PATH_SEARCH_STATUS_UNREACHABLE
+	)
+	assert_true(GFVariantData.get_option_bool(report, "finished"))
+	assert_false(GFVariantData.get_option_bool(report, "found"))
+	assert_true(GFVariantData.get_option_array(report, "path").is_empty())
+
+
+func test_path_search_rejects_invalid_neighbor_callback() -> void:
+	var search_state: GFGraphPathSearchState = GF_GRAPH_MATH.begin_path_search("A", "B", Callable())
+	var report: Dictionary = GF_GRAPH_MATH.advance_path_search(search_state, 1)
+
+	assert_eq(
+		GFVariantData.get_option_string_name(report, "status"),
+		GF_GRAPH_MATH.PATH_SEARCH_STATUS_INVALID
+	)
+	assert_false(GFVariantData.get_option_bool(report, "ok"))
+
+
 func test_negative_step_cost_blocks_edges() -> void:
 	var graph: Dictionary = {
 		"A": ["B"],
@@ -112,3 +277,10 @@ func _array_vector2i(values: Array, index: int) -> Vector2i:
 	if index < 0 or index >= values.size():
 		return Vector2i.ZERO
 	return _as_vector2i(values[index])
+
+
+func _as_path_search_state(value: Variant) -> GFGraphPathSearchState:
+	if value is GFGraphPathSearchState:
+		var search_state: GFGraphPathSearchState = value
+		return search_state
+	return null

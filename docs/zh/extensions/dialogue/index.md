@@ -38,6 +38,13 @@ runner.start(resource, &"", context)
 runner.advance()
 ```
 
+## 运行快照
+
+`GFDialogueRunner.create_runtime_snapshot()` 会产出只包含运行状态的字典：结构版本、是否运行中、当前行 ID 和 `GFDialogueContext` 的值表。
+项目存档仍负责保存资源键、章节 ID 或文件路径；恢复时把对应 `GFDialogueResource` 重新传给 `restore_runtime_snapshot()`。
+
+恢复快照只重建当前位置和上下文值，不会重新发出开始、到达行或 mutation 信号，也不会再次执行已经经过的 mutation。调用方可使用 `restore_runtime_snapshot()` 返回的当前行刷新 UI。
+
 ## 使用边界
 
 - 条件和 mutation 只保存 ID 与载荷，实际含义由项目通过 `GFDialogueContext` 的回调处理。

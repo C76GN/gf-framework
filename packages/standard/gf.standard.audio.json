@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "id": "gf.standard.audio",
+  "kind": "standard",
+  "version": "unreleased",
+  "display_name": "GF Standard Audio",
+  "description": "Audio banks, clips, events, emitters, libraries, settings, utility APIs, and editor inspectors.",
+  "dependencies": [
+    "gf.kernel",
+    "gf.standard.base",
+    "gf.standard.assets"
+  ],
+  "paths": [
+    "addons/gf/standard/utilities/audio/**"
+  ],
+  "metadata": {
+    "stage": "standard-split-v1"
+  }
+}

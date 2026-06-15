@@ -13,6 +13,13 @@ extends RefCounted
 ## @layer kernel/editor
 const EXTENSION_MANAGER_DOCK_SCRIPT_PATH: String = "res://addons/gf/kernel/editor/extension/gf_extension_manager_dock.gd"
 
+## 包管理页面脚本路径。
+## [br]
+## @api framework_internal
+## [br]
+## @layer kernel/editor
+const PACKAGE_MANAGER_DOCK_SCRIPT_PATH: String = "res://addons/gf/kernel/editor/package/gf_package_manager_dock.gd"
+
 ## 工作区窗口脚本。
 ## [br]
 ## @api framework_internal
@@ -32,6 +39,8 @@ const _GF_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_varian
 # --- 私有变量 ---
 
 var _standard_dock_records: Array[Dictionary] = []
+var _dock_records: Array[Dictionary] = []
+var _editor_base_control: Control = null
 var _workspace_window: GFEditorWorkspaceWindowBase = null
 
 
@@ -52,11 +61,11 @@ func setup(plugin: EditorPlugin, standard_dock_records: Array[Dictionary] = []) 
 	if plugin == null:
 		return
 
+	_editor_base_control = EditorInterface.get_base_control()
 	set_standard_dock_records(standard_dock_records)
-	var records: Array[Dictionary] = _collect_core_dock_records()
-	records.append_array(_collect_enabled_extension_dock_records())
-	records.sort_custom(_sort_dock_records)
-	_add_workspace_window(records)
+	_dock_records = _collect_dock_records()
+	if is_instance_valid(_workspace_window):
+		_workspace_window.setup(_dock_records)
 
 
 ## 移除 GF 编辑器工作区窗口入口。
@@ -70,6 +79,8 @@ func cleanup(_plugin: EditorPlugin) -> void:
 	if is_instance_valid(_workspace_window):
 		_workspace_window.queue_free()
 	_workspace_window = null
+	_editor_base_control = null
+	_dock_records.clear()
 
 
 ## 设置由组合入口收集到的标准库页面记录。
@@ -91,7 +102,7 @@ func set_standard_dock_records(standard_dock_records: Array[Dictionary]) -> void
 ## [br]
 ## @layer kernel/editor
 func show_workspace() -> void:
-	if is_instance_valid(_workspace_window) and _workspace_window.has_method("popup_workspace"):
+	if _ensure_workspace_window() and _workspace_window.has_method("popup_workspace"):
 		_workspace_window.call("popup_workspace")
 
 
@@ -112,12 +123,27 @@ func _collect_core_dock_records() -> Array[Dictionary]:
 	var records: Array[Dictionary] = _copy_records(_standard_dock_records)
 	records.append(
 		{
+			"path": PACKAGE_MANAGER_DOCK_SCRIPT_PATH,
+			"label": "GF Package Manager",
+			"short_label": "包",
+			"order": 70,
+		}
+	)
+	records.append(
+		{
 			"path": EXTENSION_MANAGER_DOCK_SCRIPT_PATH,
 			"label": "GF Extensions",
 			"short_label": "扩展",
 			"order": 80,
 		}
 	)
+	return records
+
+
+func _collect_dock_records() -> Array[Dictionary]:
+	var records: Array[Dictionary] = _collect_core_dock_records()
+	records.append_array(_collect_enabled_extension_dock_records())
+	records.sort_custom(_sort_dock_records)
 	return records
 
 
@@ -147,10 +173,22 @@ func _collect_enabled_extension_dock_records() -> Array[Dictionary]:
 	return records
 
 
-func _add_workspace_window(records: Array[Dictionary]) -> void:
+func _ensure_workspace_window() -> bool:
+	if is_instance_valid(_workspace_window):
+		return true
+	if _dock_records.is_empty():
+		_dock_records = _collect_dock_records()
+	return _add_workspace_window(_dock_records)
+
+
+func _add_workspace_window(records: Array[Dictionary]) -> bool:
+	if not is_instance_valid(_editor_base_control):
+		return false
+
 	_workspace_window = GFEditorWorkspaceWindowBase.new()
 	_workspace_window.setup(records)
-	EditorInterface.get_base_control().add_child(_workspace_window)
+	_editor_base_control.add_child(_workspace_window)
+	return true
 
 
 func _get_extension_dock_label(manifest: GFExtensionManifest, dock_path: String) -> String:

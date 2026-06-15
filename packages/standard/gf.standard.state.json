@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "id": "gf.standard.state",
+  "kind": "standard",
+  "version": "unreleased",
+  "display_name": "GF Standard State",
+  "description": "Reactive state store and state update helpers shared by UI and runtime code.",
+  "dependencies": [
+    "gf.kernel",
+    "gf.standard.base"
+  ],
+  "paths": [
+    "addons/gf/standard/utilities/state/**"
+  ],
+  "metadata": {
+    "stage": "standard-split-v1"
+  }
+}

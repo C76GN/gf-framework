@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFPoissonDisc2D" path="addons/gf/standard/foundation/math/gf_poisson_disc_2d.gd" module="standard" extends="RefCounted" classDigest="16a50cdeb034bc3911061a09cb5a758f43666481e212050865cc3b6790012f6f">
+	<description>GFPoissonDisc2D: 通用二维 Poisson-disc 采样工具。
+在矩形区域中生成最小间距受限的点集，适合程序化摆放、刷点候选、
+空间采样和编辑器工具。它只返回纯数据，不创建 Node、地形、碰撞或渲染资源。
+随机序列来自 GF 固定算法随机源；输出点仍是浮点几何数据，不作为定点锁步真值。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_service</tag>
+		<tag name="since">5.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants>
+		<member kind="const" name="DEFAULT_CANDIDATE_ATTEMPTS">
+			<signature>const DEFAULT_CANDIDATE_ATTEMPTS: int = 30</signature>
+			<description>默认每个活动点尝试生成候选点的次数。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="DEFAULT_MAX_POINTS">
+			<signature>const DEFAULT_MAX_POINTS: int = 4096</signature>
+			<description>默认最大输出点数，避免误把超大实时采样交给纯 GDScript。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="DEFAULT_MAX_GRID_CELLS">
+			<signature>const DEFAULT_MAX_GRID_CELLS: int = 262144</signature>
+			<description>默认最大空间网格单元数量，避免极小半径导致大内存分配。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties />
+	<methods>
+		<member kind="method" name="generate_points">
+			<signature>static func generate_points(area: Rect2, minimum_distance: float, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>在矩形区域中生成 Poisson-disc 采样点。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">area: 采样区域。</tag>
+				<tag name="param">minimum_distance: 任意两点之间的最小距离。</tag>
+				<tag name="param">options: 可选参数，支持 seed、candidate_attempts、max_points、max_grid_cells 和 start_point。</tag>
+				<tag name="return">采样结果字典。</tag>
+				<tag name="schema">options: Dictionary，seed 为确定性随机种子，candidate_attempts 为每个活动点的候选尝试次数，max_points 为最大输出点数，max_grid_cells 为内部空间网格单元上限，start_point 为可选起始 Vector2。</tag>
+				<tag name="schema">return: Dictionary，包含 ok、error、area、minimum_distance、seed、candidate_attempts、max_points、max_grid_cells、points、point_count 与 truncated 字段。</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

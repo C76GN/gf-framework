@@ -37,6 +37,11 @@ const DEFAULT_MAX_SCANNED_FILES: int = 10000
 const DEFAULT_IGNORED_ROOTS: Array[String] = [
 	"res://.godot",
 	"res://.git",
+	"res://.gf",
+	"res://addons/gf",
+	"res://ai_analysis",
+	"res://build",
+	"res://packages",
 ]
 
 ## 作为文本扫描的资源扩展名。

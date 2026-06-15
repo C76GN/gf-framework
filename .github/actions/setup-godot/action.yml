@@ -1,0 +1,29 @@
+name: Setup Godot
+description: Install the pinned Godot binary used by GF maintenance checks.
+
+inputs:
+  version:
+    description: Godot version suffix, for example 4.6.3-stable.
+    required: false
+    default: 4.6.3-stable
+
+runs:
+  using: composite
+  steps:
+    - name: Download Godot
+      shell: bash
+      run: |
+        set -euo pipefail
+        version="${{ inputs.version }}"
+        archive="Godot_v${version}_linux.x86_64.zip"
+        binary="Godot_v${version}_linux.x86_64"
+        install_dir="${RUNNER_TEMP}/godot-${version}"
+        mkdir -p "${install_dir}" "${HOME}/.local/bin"
+        curl --fail --location --retry 3 \
+          "https://github.com/godotengine/godot/releases/download/${version}/${archive}" \
+          --output "${install_dir}/${archive}"
+        unzip -q "${install_dir}/${archive}" -d "${install_dir}"
+        chmod +x "${install_dir}/${binary}"
+        ln -sf "${install_dir}/${binary}" "${HOME}/.local/bin/godot"
+        echo "${HOME}/.local/bin" >> "${GITHUB_PATH}"
+        "${HOME}/.local/bin/godot" --version

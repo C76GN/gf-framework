@@ -122,10 +122,12 @@ func test_notification_priority_orders_waiting_queue() -> void:
 	})
 
 	var queue: Array[Dictionary] = notifications.get_queue()
+	var critical_notification: Dictionary = queue[0]
+	var normal_notification: Dictionary = queue[1]
 
 	assert_eq(queue.size(), 2, "当前通知之外的通知应留在等待队列。")
-	assert_eq(GFVariantData.get_option_string(queue[0], "message"), "Critical", "高优先级等待通知应排在队首。")
-	assert_eq(GFVariantData.get_option_string(queue[1], "message"), "Normal", "低优先级等待通知应排在后面。")
+	assert_eq(GFVariantData.get_option_string(critical_notification, "message"), "Critical", "高优先级等待通知应排在队首。")
+	assert_eq(GFVariantData.get_option_string(normal_notification, "message"), "Normal", "低优先级等待通知应排在后面。")
 
 
 func test_sticky_and_paused_notifications_do_not_timeout() -> void:

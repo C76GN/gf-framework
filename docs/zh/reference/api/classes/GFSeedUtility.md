@@ -9,7 +9,7 @@
 - 类别：运行时服务 (`runtime_service`)
 - 首次版本：`3.17.0`
 
-全局随机数种子管理器。 内部维护一个主 RandomNumberGenerator，并支持基于字符串标签派生 出独立的子 RNG。子 RNG 的生成不推进主随机序列，可用于保证 回放系统的确定性。
+全局随机数种子管理器。 内部维护一个主 RandomNumberGenerator，并支持基于字符串标签派生 出独立的 Godot RNG 或 GF 固定算法随机源。Godot RNG 分支适合 同一 Godot 环境内的运行时复现；需要跨 GF 版本固定序列时使用 deterministic 分支。
 
 ## 成员概览
 
@@ -24,6 +24,7 @@
 | 方法 | [`get_full_state`](#member-gfseedutility-methods-get_full_state) | `func get_full_state() -> Dictionary:` |
 | 方法 | [`set_full_state`](#member-gfseedutility-methods-set_full_state) | `func set_full_state(state: Dictionary) -> void:` |
 | 方法 | [`get_branched_rng`](#member-gfseedutility-methods-get_branched_rng) | `func get_branched_rng(string_seed: String) -> RandomNumberGenerator:` |
+| 方法 | [`get_branched_deterministic_random`](#member-gfseedutility-methods-get_branched_deterministic_random) | `func get_branched_deterministic_random(string_seed: String) -> GFDeterministicRandom:` |
 
 ## 方法
 
@@ -122,6 +123,7 @@ func set_state(state: int) -> void:
 ### `get_full_state`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func get_full_state() -> Dictionary:
@@ -133,7 +135,7 @@ func get_full_state() -> Dictionary:
 
 结构：
 
-- `return`: Dictionary with `state_schema_version: int`, `global_seed: String`, `rng_state: String`, and `branch_counters: Dictionary[String, String]`.
+- `return`: Dictionary with `state_schema_version: int`, `global_seed: String`, `rng_state: String`, `branch_counters: Dictionary[String, String]`, and `deterministic_branch_counters: Dictionary[String, String]`.
 
 <a id="member-gfseedutility-methods-set_full_state"></a>
 
@@ -176,3 +178,24 @@ func get_branched_rng(string_seed: String) -> RandomNumberGenerator:
 | `string_seed` | 用于标识子随机流用途的字符串（如 "loot_table"、"enemy_ai"）。 |
 
 返回：一个已完成种子初始化的独立 RandomNumberGenerator 实例。
+
+<a id="member-gfseedutility-methods-get_branched_deterministic_random"></a>
+
+### `get_branched_deterministic_random`
+
+- API：`public`
+- 首次版本：`5.0.0`
+
+```gdscript
+func get_branched_deterministic_random(string_seed: String) -> GFDeterministicRandom:
+```
+
+基于主 RNG 当前状态与字符串标签，派生 GF 固定算法随机源。 每次调用只推进 deterministic 分支计数，不推进主 RNG 的随机序列， 也不影响 `get_branched_rng()` 的 Godot RNG 分支计数。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `string_seed` | 用于标识确定性子随机流用途的字符串。 |
+
+返回：一个已完成种子初始化的独立 GFDeterministicRandom 实例。

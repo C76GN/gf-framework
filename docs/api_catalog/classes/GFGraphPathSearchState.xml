@@ -1,0 +1,159 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFGraphPathSearchState" path="addons/gf/standard/foundation/math/gf_graph_path_search_state.gd" module="standard" extends="RefCounted" classDigest="a90b93fb1e60211c07541bcce8898b02501d3407535abd8a23ab8babbc23a5bd">
+	<description>GFGraphPathSearchState: 可预算推进的图路径搜索运行期句柄。
+该对象保存 A* / Dijkstra 分步搜索所需的回调、frontier、分数和路径重建状态。
+它只适合运行期跨帧推进，不是存档格式，也不应写入网络同步 payload。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_handle</tag>
+		<tag name="since">5.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants>
+		<member kind="const" name="STATUS_SEARCHING">
+			<signature>const STATUS_SEARCHING: StringName = &amp;"searching"</signature>
+			<description>分步路径搜索仍可继续推进。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_FOUND">
+			<signature>const STATUS_FOUND: StringName = &amp;"found"</signature>
+			<description>分步路径搜索已找到路径。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_UNREACHABLE">
+			<signature>const STATUS_UNREACHABLE: StringName = &amp;"unreachable"</signature>
+			<description>分步路径搜索已耗尽可达节点且不可达。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_INVALID">
+			<signature>const STATUS_INVALID: StringName = &amp;"invalid"</signature>
+			<description>分步路径搜索状态或回调无效。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties />
+	<methods>
+		<member kind="method" name="create">
+			<signature>static func create( start: Variant, goal: Variant, get_neighbors: Callable, get_step_cost: Callable = Callable(), heuristic: Callable = Callable() ) -&gt; GFGraphPathSearchState:</signature>
+			<description>创建可分步推进的 A* / Dijkstra 搜索状态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">start: 起点节点。</tag>
+				<tag name="param">goal: 终点节点。</tag>
+				<tag name="param">get_neighbors: 邻居回调，签名为 `func(node: Variant) -&gt; Array`。</tag>
+				<tag name="param">get_step_cost: 可选代价回调，签名为 `func(from: Variant, to: Variant) -&gt; float`；返回负数表示不可通行。</tag>
+				<tag name="param">heuristic: 可选启发回调，签名为 `func(node: Variant, goal: Variant) -&gt; float`；为空时退化为 Dijkstra。</tag>
+				<tag name="return">搜索状态句柄。</tag>
+				<tag name="schema">start: Variant graph node identity.</tag>
+				<tag name="schema">goal: Variant graph node identity.</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="make_invalid">
+			<signature>static func make_invalid(start: Variant, goal: Variant, reason: StringName) -&gt; GFGraphPathSearchState:</signature>
+			<description>创建已结束的无效搜索状态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">start: 起点节点。</tag>
+				<tag name="param">goal: 终点节点。</tag>
+				<tag name="param">reason: 无效原因。</tag>
+				<tag name="return">已标记为 invalid 的搜索状态句柄。</tag>
+				<tag name="schema">start: Variant graph node identity.</tag>
+				<tag name="schema">goal: Variant graph node identity.</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="advance">
+			<signature>func advance(max_iterations: int = 64) -&gt; Dictionary:</signature>
+			<description>按最大迭代次数推进分步路径搜索状态。
+每次迭代最多弹出并扩展一个节点；`max_iterations &lt;= 0` 时只返回当前报告。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">max_iterations: 本次最多扩展多少个节点。</tag>
+				<tag name="return">搜索报告，包含 status、finished、found、iterations、frontier_count、expanded_count、path 和 cost。</tag>
+				<tag name="schema">return: Dictionary with ok, status, finished, found, reason, iterations, frontier_count, expanded_count, path, and cost.</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="make_report">
+			<signature>func make_report(iterations: int = 0) -&gt; Dictionary:</signature>
+			<description>生成当前搜索报告，不推进搜索。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">iterations: 本次调用实际扩展的节点数。</tag>
+				<tag name="return">当前搜索报告。</tag>
+				<tag name="schema">return: Dictionary with ok, status, finished, found, reason, iterations, frontier_count, expanded_count, path, and cost.</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_valid">
+			<signature>func is_valid() -&gt; bool:</signature>
+			<description>判断该状态是否满足搜索句柄基本格式。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">状态格式有效时返回 true。</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_finished">
+			<signature>func is_finished() -&gt; bool:</signature>
+			<description>判断搜索是否已经结束。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">搜索已结束时返回 true。</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_status">
+			<signature>func get_status() -&gt; StringName:</signature>
+			<description>获取当前搜索状态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">当前状态枚举值。</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_reason">
+			<signature>func get_reason() -&gt; StringName:</signature>
+			<description>获取当前结束或失败原因。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">reason 字段。</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_path">
+			<signature>func get_path() -&gt; Array:</signature>
+			<description>获取当前找到的路径副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">路径节点数组副本。</tag>
+				<tag name="schema">return: Array graph node path from start to goal.</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_cost">
+			<signature>func get_cost() -&gt; float:</signature>
+			<description>获取当前路径成本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">已找到路径的累计成本；未找到时为 INF。</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

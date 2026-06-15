@@ -15,9 +15,16 @@ GF 内置扩展是随框架分发的可选原子能力。它们提供可以独�
 ## 使用边界
 
 - GF 内置扩展彼此不互相依赖，不声明隐式协作关系，也不通过路径、扩展 ID、`class_name` 或动态加载探测其他内置扩展。
-- 内置扩展 manifest 的 `dependencies` 只允许声明 `gf.kernel` 与 `gf.standard`。
+- 内置扩展 manifest 的 `dependencies` 只表示硬依赖，只允许声明 `gf.kernel` 与 `gf.standard`。不要把推荐、可选协作、加载顺序或 preset 组合写进 manifest。
 - 需要多个扩展协作时，在项目 Installer、项目 System 或独立插件中组合，不把组合逻辑写回任一内置扩展。
 - 标准库工具需要扩展数据时，由扩展侧通过标准库提供的通用注册入口主动贡献；标准库不写扩展路径、扩展 ID 或扩展内类型名。
+- Preset 只是项目初始化时的一组启用 ID，属于项目 JSON、安装向导或外部插件配置，不改变扩展之间的依赖边界，也不写回 manifest。
+
+## 默认启用策略
+
+GF 内置扩展默认关闭。新项目启用 GF 后会获得 kernel 与 standard 基础能力；Save、Combat、Network、Flow、Domain 等可选扩展需要在 `GF Workspace` 的 `GF Extensions` 页面、项目 preset 或 `GFExtensionSettings.set_enabled_extension_ids()` 中显式选择。
+
+扩展启用状态影响运行时 Installer 自动装配、编辑器扩展贡献和导出过滤，不代表扩展脚本从编辑器中消失。项目如果直接引用了某个扩展的 `class_name`、脚本路径、场景或资源，应保持该扩展启用，或在导出前移除对应引用。
 
 ## 扩展清单
 

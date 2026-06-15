@@ -26,6 +26,8 @@ source.properties = PackedStringArray(["position", "rotation"])
 
 这个 Source 不引入独立存储格式；它生成的载荷仍然是 SaveGraph 的 `serializers` 片段，因此可以继续和注册表默认序列化器、自定义 Serializer、Pipeline Step 组合。
 
+启用 Save 扩展后，Inspector 会在 `GFPersistPropertiesSource.properties` 上显示目标节点属性选择器。选择器只辅助填写白名单，不改变运行时保存协议；需要保存计算属性、跨节点聚合状态或业务校验时，仍应编写自定义 Serializer、`GFSaveDataSource` 或 `GFSaveSource`。
+
 需要给动态实体稳定身份时，可在节点上挂 `GFSaveIdentity`。它只描述 `persistent_id`、`type_key` 和扩展描述，不负责实例化。
 
 ## 槽位工作流

@@ -32,6 +32,47 @@ const KIND_EXTENSION: String = "extension"
 
 const _GF_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
 const _GF_PATH_TOOLS = preload("res://addons/gf/kernel/core/gf_path_tools.gd")
+const _SUPPORTED_FIELDS: Array[String] = [
+	"access_generator_extension_paths",
+	"dependencies",
+	"description",
+	"display_name",
+	"editor_action_paths",
+	"editor_dock_order",
+	"editor_dock_paths",
+	"editor_dock_short_label",
+	"editor_inspector_paths",
+	"enabled_by_default",
+	"export_plugin_paths",
+	"extension_version",
+	"gltf_document_extension_paths",
+	"id",
+	"import_plugin_paths",
+	"installer_paths",
+	"kind",
+	"tags",
+	"version",
+]
+const _FORBIDDEN_RELATION_FIELDS: Array[String] = [
+	"after",
+	"before",
+	"bundle",
+	"bundles",
+	"conflicts",
+	"extension_dependencies",
+	"extension_pack",
+	"extension_preset",
+	"integrates_with",
+	"load_after",
+	"load_before",
+	"optional_dependencies",
+	"peer_dependencies",
+	"preset",
+	"presets",
+	"recommends",
+	"soft_dependencies",
+	"suggests",
+]
 
 
 # --- 公共变量 ---
@@ -131,15 +172,23 @@ var access_generator_extension_paths: Array[String] = []
 ## @api public
 var tags: Array[String] = []
 
-## 是否在项目首次启用 GF 时默认启用该扩展。
+## 是否在项目首次启用 GF 时进入默认扩展选择。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 var enabled_by_default: bool = false
 
 ## manifest 文件路径。
 ## [br]
 ## @api public
 var source_path: String = ""
+
+
+# --- 私有变量 ---
+
+var _source_field_names: Array[String] = []
+
 
 # --- 公共方法 ---
 
@@ -162,11 +211,11 @@ static func from_dictionary(
 	manifest_source_path: String = ""
 ) -> GFExtensionManifest:
 	var manifest: GFExtensionManifest = GFExtensionManifest.new()
+	manifest._source_field_names = _normalize_field_name_list(data.keys())
 	manifest.id = _normalize_manifest_text(_GF_VARIANT_ACCESS_SCRIPT.get_option_string(data, "id"))
 	manifest.display_name = _normalize_manifest_text(_GF_VARIANT_ACCESS_SCRIPT.get_option_string(
 		data,
-		"display_name",
-		_GF_VARIANT_ACCESS_SCRIPT.get_option_string(data, "name")
+		"display_name"
 	))
 	manifest.version = _normalize_manifest_text(_GF_VARIANT_ACCESS_SCRIPT.get_option_string(data, "version"))
 	manifest.extension_version = _normalize_manifest_text(_GF_VARIANT_ACCESS_SCRIPT.get_option_string(
@@ -180,8 +229,7 @@ static func from_dictionary(
 	manifest.root_path = _GF_PATH_TOOLS.normalize_root_path(extension_root_path)
 	manifest.description = _normalize_manifest_text(_GF_VARIANT_ACCESS_SCRIPT.get_option_string(
 		data,
-		"description",
-		_GF_VARIANT_ACCESS_SCRIPT.get_option_string(data, "summary")
+		"description"
 	))
 	manifest.dependencies = _normalize_identifier_list(_GF_VARIANT_ACCESS_SCRIPT.get_option_string_array(data, "dependencies"))
 	manifest.installer_paths = _normalize_resource_path_list(_GF_VARIANT_ACCESS_SCRIPT.get_option_string_array(data, "installer_paths"))
@@ -198,7 +246,7 @@ static func from_dictionary(
 	manifest.enabled_by_default = _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
 		data,
 		"enabled_by_default",
-		manifest.kind == KIND_STANDARD or manifest.kind == KIND_EXTENSION
+		manifest.kind == KIND_STANDARD
 	)
 	manifest.source_path = _GF_PATH_TOOLS.normalize_resource_path(manifest_source_path)
 	return manifest
@@ -278,6 +326,7 @@ func is_valid() -> bool:
 ## @return 错误消息列表。
 func get_validation_errors() -> Array[String]:
 	var errors: Array[String] = []
+	_append_unsupported_field_errors(errors)
 	if id.strip_edges().is_empty():
 		errors.append("id is required")
 	if display_name.strip_edges().is_empty():
@@ -305,6 +354,16 @@ static func _normalize_manifest_text(value: String) -> String:
 	return value.strip_edges()
 
 
+static func _normalize_field_name_list(values: Array) -> Array[String]:
+	var result: Array[String] = []
+	for value: Variant in values:
+		var field_name: String = _GF_VARIANT_ACCESS_SCRIPT.to_text(value).strip_edges()
+		if field_name.is_empty() or result.has(field_name):
+			continue
+		result.append(field_name)
+	return result
+
+
 static func _normalize_identifier_list(values: Array[String]) -> Array[String]:
 	var result: Array[String] = []
 	for value: String in values:
@@ -320,6 +379,14 @@ static func _normalize_resource_path_list(values: Array[String]) -> Array[String
 	for value: String in values:
 		result.append(_GF_PATH_TOOLS.normalize_resource_path(value))
 	return result
+
+
+func _append_unsupported_field_errors(errors: Array[String]) -> void:
+	for field_name: String in _source_field_names:
+		if _FORBIDDEN_RELATION_FIELDS.has(field_name):
+			errors.append("unsupported manifest relation field: %s" % field_name)
+		elif not _SUPPORTED_FIELDS.has(field_name):
+			errors.append("unsupported manifest field: %s" % field_name)
 
 
 func _append_resource_path_errors(

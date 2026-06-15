@@ -549,6 +549,125 @@ static func find_path_a_star(
 	return []
 
 
+## 创建可分步推进的六边形网格 A* 搜索状态。
+## [br]
+## 状态由 `GFGraphMath.advance_path_search()` 推进；本方法只负责把 Hex 布局、
+## 邻居、通行、代价和距离启发函数适配成通用图搜索回调。
+## [br]
+## @api public
+## [br]
+## @since 5.0.0
+## [br]
+## @param grid_size: 网格尺寸；任一轴小于 0 时视为无限网格。
+## [br]
+## @param start: 起点 offset 坐标。
+## [br]
+## @param goal: 终点 offset 坐标。
+## [br]
+## @param is_walkable: 可通行回调，签名为 `func(cell: Vector2i) -> bool`。
+## [br]
+## @param layout: offset 坐标布局。
+## [br]
+## @param step_cost: 可选代价回调，签名为 `func(from: Vector2i, to: Vector2i) -> float`；返回负数表示不可通行。
+## [br]
+## @return `GFGraphMath` 分步路径搜索状态句柄。
+## [br]
+## @schema return: GFGraphPathSearchState returned by `GFGraphMath.begin_path_search()`.
+static func begin_path_a_star_search(
+	grid_size: Vector2i,
+	start: Vector2i,
+	goal: Vector2i,
+	is_walkable: Callable,
+	layout: OffsetLayout = OffsetLayout.ODD_R,
+	step_cost: Callable = Callable()
+) -> GFGraphPathSearchState:
+	if not is_walkable.is_valid():
+		return _make_invalid_path_search(start, goal, &"invalid_walkable")
+	if not is_in_bounds(start, grid_size) or not is_in_bounds(goal, grid_size):
+		return _make_invalid_path_search(start, goal, &"invalid_bounds")
+	if start == goal:
+		return GFGraphMath.begin_path_search(
+			start,
+			goal,
+			func(_node: Variant) -> Array:
+				return []
+		)
+	if not _call_cell_bool(is_walkable, goal):
+		return _make_invalid_path_search(start, goal, &"blocked_goal")
+
+	return GFGraphMath.begin_path_search(
+		start,
+		goal,
+		func(node: Variant) -> Array:
+			var cell: Vector2i = _variant_to_vector2i(node)
+			var result: Array = []
+			for next_cell: Vector2i in get_neighbors(cell, grid_size, layout):
+				if _call_cell_bool(is_walkable, next_cell):
+					result.append(next_cell)
+			return result,
+		func(from_node: Variant, to_node: Variant) -> float:
+			return _get_step_cost(
+				_variant_to_vector2i(from_node),
+				_variant_to_vector2i(to_node),
+				step_cost
+			),
+		func(node: Variant, goal_node: Variant) -> float:
+			return float(distance(
+				_variant_to_vector2i(node),
+				_variant_to_vector2i(goal_node),
+				layout
+			))
+	)
+
+
+## 使用 Hex 视线检测抽稀六边形网格路径。
+## [br]
+## 该方法只移除可由 Hex 直线视线覆盖的中间格子，保留起点与终点；它不执行单位移动、
+## 转向动画或碰撞响应。
+## [br]
+## @api public
+## [br]
+## @since 5.0.0
+## [br]
+## @param path: 包含起点与终点的 offset 路径。
+## [br]
+## @param is_blocking: 阻挡回调，签名为 `func(cell: Vector2i) -> bool`。
+## [br]
+## @param layout: offset 坐标布局。
+## [br]
+## @param include_endpoints: 是否检查每段抽稀直线的端点是否阻挡。
+## [br]
+## @return 抽稀后的路径；空路径仍返回空数组。
+## [br]
+## @schema path: Array[Vector2i] path cells.
+static func simplify_path_line_of_sight(
+	path: Array[Vector2i],
+	is_blocking: Callable,
+	layout: OffsetLayout = OffsetLayout.ODD_R,
+	include_endpoints: bool = false
+) -> Array[Vector2i]:
+	var result: Array[Vector2i] = []
+	if path.is_empty():
+		return result
+	if path.size() <= 2:
+		result.append_array(path)
+		return result
+
+	var anchor_index: int = 0
+	result.append(path[anchor_index])
+	while anchor_index < path.size() - 1:
+		var next_index: int = path.size() - 1
+		while next_index > anchor_index + 1:
+			if has_line_of_sight(path[anchor_index], path[next_index], is_blocking, layout, include_endpoints):
+				break
+			next_index -= 1
+
+		result.append(path[next_index])
+		anchor_index = next_index
+
+	return result
+
+
 ## 从一个或多个目标格生成六边形 Flow Field。
 ## [br]
 ## @api public
@@ -714,6 +833,21 @@ static func _get_step_cost(from_cell: Vector2i, to_cell: Vector2i, step_cost: Ca
 	if step_cost.is_valid():
 		return GFVariantData.to_float(step_cost.call(from_cell, to_cell), 1.0)
 	return 1.0
+
+
+static func _variant_to_vector2i(value: Variant) -> Vector2i:
+	if value is Vector2i:
+		var cell: Vector2i = value
+		return cell
+	return Vector2i(-1, -1)
+
+
+static func _make_invalid_path_search(
+	start: Variant,
+	goal: Variant,
+	reason: StringName
+) -> GFGraphPathSearchState:
+	return GFGraphPathSearchState.make_invalid(start, goal, reason)
 
 
 static func _take_lowest_score_cell(cells: Array[Vector2i], scores: Dictionary) -> Vector2i:

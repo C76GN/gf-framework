@@ -6,6 +6,7 @@
 
 - [调试绘制命令缓冲](debug-draw.md)：`GFDebugDrawUtility` 的 2D/3D 绘制命令、频道和生命周期。
 - [调试覆盖层](debug-overlay.md)：`GFDebugOverlayUtility` 的 watch、面板和诊断监控预设接入。
+- [截图捕获与批量保存](screenshots.md)：`GFScreenshotUtility` 的 Viewport 捕获、Image 保存和尺寸/语言批量截图流程。
 - [运行时调参注册表](runtime-inspector.md)：`GFRuntimeInspectorUtility` 和 `GFRuntimeTunableProperty`。
 - [信号诊断与运行时信号探针](signal-diagnostics.md)：`GFSceneSignalAudit`、`GFSignalGraphDock` 和 `GFSignalRuntimeProbe`。
 

@@ -233,6 +233,67 @@ func test_find_path_a_star_allows_diagonal_path() -> void:
 	assert_eq(path, [Vector2i.ZERO, Vector2i(1, 1)], "允许斜向移动时 A* 应能直接走对角。")
 
 
+func test_begin_path_a_star_search_matches_sync_path_with_budget() -> void:
+	var expensive: Dictionary = {
+		Vector2i(1, 0): true,
+	}
+	var search_state: GFGraphPathSearchState = GF_GRID_MATH.begin_path_a_star_search(
+		Vector2i(3, 3),
+		Vector2i.ZERO,
+		Vector2i(2, 0),
+		func(_cell: Vector2i) -> bool:
+			return true,
+		false,
+		func(_from_cell: Vector2i, to_cell: Vector2i) -> float:
+			return 10.0 if expensive.has(to_cell) else 1.0
+	)
+	var report: Dictionary = GFGraphMath.advance_path_search(search_state, 1)
+	var guard: int = 0
+	while not GFVariantData.get_option_bool(report, "finished") and guard < 16:
+		report = GFGraphMath.advance_path_search(search_state, 1)
+		guard += 1
+
+	var sync_path: Array[Vector2i] = GF_GRID_MATH.find_path_a_star(
+		Vector2i(3, 3),
+		Vector2i.ZERO,
+		Vector2i(2, 0),
+		func(_cell: Vector2i) -> bool:
+			return true,
+		false,
+		func(_from_cell: Vector2i, to_cell: Vector2i) -> float:
+			return 10.0 if expensive.has(to_cell) else 1.0
+	)
+
+	assert_true(GFVariantData.get_option_bool(report, "found"), "分步网格 A* 应能找到路径。")
+	assert_eq(GFVariantData.get_option_array(report, "path"), sync_path)
+
+
+func test_simplify_path_line_of_sight_keeps_blocked_corner() -> void:
+	var path: Array[Vector2i] = [
+		Vector2i(0, 0),
+		Vector2i(1, 0),
+		Vector2i(2, 0),
+		Vector2i(2, 1),
+		Vector2i(2, 2),
+	]
+	var blocked: Dictionary = {
+		Vector2i(1, 1): true,
+	}
+	var simplified: Array[Vector2i] = GF_GRID_MATH.simplify_path_line_of_sight(
+		path,
+		func(cell: Vector2i) -> bool:
+			return blocked.has(cell)
+	)
+	var open_simplified: Array[Vector2i] = GF_GRID_MATH.simplify_path_line_of_sight(path, Callable())
+
+	assert_eq(
+		simplified,
+		[Vector2i(0, 0), Vector2i(2, 0), Vector2i(2, 2)],
+		"抽稀不能穿过阻挡格，必须保留必要转角。"
+	)
+	assert_eq(open_simplified, [Vector2i(0, 0), Vector2i(2, 2)], "无阻挡时可直接抽稀到终点。")
+
+
 func test_build_flow_field_points_toward_nearest_goal() -> void:
 	var field: Dictionary = GF_GRID_MATH.build_flow_field(
 		Vector2i(3, 1),

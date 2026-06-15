@@ -21,14 +21,15 @@ func test_measured_extent_updates_offsets_and_visible_items() -> void:
 
 	var report: Dictionary = model.set_item_extent(1, 80.0)
 	var visible_items: Array[Dictionary] = model.get_visible_items(0.0, 200.0)
+	var measured_item: Dictionary = visible_items[1]
 
 	assert_true(GFVariantData.get_option_bool(report, "ok"), "合法索引应返回成功报告。")
 	assert_true(GFVariantData.get_option_bool(report, "changed"), "实测尺寸变化应报告 changed。")
 	assert_eq(model.get_content_extent(false), 180.0, "实测尺寸应更新内容总高度。")
 	assert_eq(model.get_item_offset(2), 130.0, "后续条目偏移应基于实测尺寸。")
-	assert_eq(GFVariantData.get_option_int(visible_items[1], "index"), 1, "可见条目记录应包含索引。")
-	assert_eq(GFVariantData.get_option_float(visible_items[1], "offset"), 50.0, "可见条目记录应包含偏移。")
-	assert_true(GFVariantData.get_option_bool(visible_items[1], "measured"), "实测条目记录应标记 measured。")
+	assert_eq(GFVariantData.get_option_int(measured_item, "index"), 1, "可见条目记录应包含索引。")
+	assert_eq(GFVariantData.get_option_float(measured_item, "offset"), 50.0, "可见条目记录应包含偏移。")
+	assert_true(GFVariantData.get_option_bool(measured_item, "measured"), "实测条目记录应标记 measured。")
 
 
 func test_extent_change_reports_scroll_adjustment_for_items_above_viewport() -> void:

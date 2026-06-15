@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFReactiveStateControlBinder" path="addons/gf/standard/utilities/ui/gf_reactive_state_control_binder.gd" module="standard" extends="RefCounted" classDigest="53795a9a62bb1a4814c52548f41722c4cefae343d7d7780fcf00bfdc386f115b">
+	<description>GFReactiveStateControlBinder: GFReactiveStateStore 与 Control 值的双向绑定器。
+只负责把 store path 映射到 Godot Control 值，复用 `GFControlValueAdapter`
+的控件读写和信号连接能力。状态归属仍由 `GFReactiveStateStore` 负责。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_handle</tag>
+		<tag name="since">5.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties />
+	<methods>
+		<member kind="method" name="bind_control">
+			<signature>func bind_control( store: RefCounted, path: Variant, control: Control, options: Dictionary = {} ) -&gt; bool:</signature>
+			<description>绑定一个 Control 到 store 路径。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">store: `GFReactiveStateStore` 实例。</tag>
+				<tag name="param">path: 状态路径。</tag>
+				<tag name="param">control: 控件节点。</tag>
+				<tag name="param">options: 可选项。支持 default_value、sync_initial、write_initial_to_store。</tag>
+				<tag name="return">成功绑定时返回 true。</tag>
+				<tag name="schema">store: GFReactiveStateStore 实例；签名使用 RefCounted 以避免新全局类注册顺序影响脚本解析。</tag>
+				<tag name="schema">path: Variant，路径表达。</tag>
+				<tag name="schema">options: Dictionary，default_value 为控件或状态缺省值；sync_initial 默认为 true；write_initial_to_store 为 true 时用控件当前值初始化 store。</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="unbind_control">
+			<signature>func unbind_control(control: Control) -&gt; bool:</signature>
+			<description>解绑指定 Control。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">control: 控件节点。</tag>
+				<tag name="return">找到并解绑时返回 true。</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="unbind_path">
+			<signature>func unbind_path(store: RefCounted, path: Variant) -&gt; int:</signature>
+			<description>解绑指定 store 路径上的所有 Control。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">store: `GFReactiveStateStore` 实例。</tag>
+				<tag name="param">path: 状态路径。</tag>
+				<tag name="return">解绑数量。</tag>
+				<tag name="schema">store: GFReactiveStateStore 实例；签名使用 RefCounted 以避免新全局类注册顺序影响脚本解析。</tag>
+				<tag name="schema">path: Variant，路径表达。</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="clear">
+			<signature>func clear() -&gt; void:</signature>
+			<description>清理所有绑定。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_binding_count">
+			<signature>func get_binding_count() -&gt; int:</signature>
+			<description>获取当前有效绑定数量。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">有效绑定数量。</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="dispose">
+			<signature>func dispose() -&gt; void:</signature>
+			<description>释放所有绑定。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

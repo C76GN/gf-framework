@@ -19,9 +19,11 @@ func tick(delta: float) -> void:
 		_combat_model.decrease_cooldown_timers(delta)
 ```
 
-`GFSystem` 基类保留空模板方法用于兼容，但架构只会把真实声明了对应方法的子类加入 tick 缓存，不会因为基类空模板让所有 System 每帧空转。旧项目中已经重写 `tick()` / `physics_tick()` 的模块无需改动；如果确实需要让未重写模板方法的 System 显式进入缓存，可以设置 `tick_enabled = true` 或 `physics_tick_enabled = true`。
+架构只调度已注册的 `GFSystem` 与 `GFUtility`，不支持普通 `Object` 依靠同名方法参与框架 tick。刷新 tick 缓存时，架构会一次性验证 `tick()` / `physics_tick()` 能力并缓存 `Callable`、优先级和时间策略；每帧只遍历这些记录，不再通过字符串方法名反射调用模块。
 
-`GFUtility` 需要实现对应方法才会被驱动，显式标记只负责让能力声明和缓存刷新更直接。这些标记在注册前或注册后设置都可以，已注入架构的模块会自动刷新 tick 缓存。
+`GFSystem` 基类提供空的 `tick()` / `physics_tick()` 模板，但架构不会把未重写模板的 System 自动加入热路径。需要使用基类模板入口时，应显式设置 `tick_enabled = true` 或 `physics_tick_enabled = true`。`GFUtility` 没有基类 tick 模板，需要声明对应方法才会被驱动；显式标记只负责让能力声明和缓存刷新更直接。这些标记在注册前或注册后设置都可以，已注入架构的模块会自动刷新 tick 缓存。
+
+内部调度由 `GFArchitectureTickScheduler` 维护，单条缓存记录由 `GFArchitectureTickRecord` 表示。它们都是框架内部类型，项目通常不需要直接创建；项目只需要继承 `GFSystem` / `GFUtility` 并声明 tick 能力。
 
 在 `tick()` / `physics_tick()` 这类热路径里，推荐在 `ready()` 或初始化阶段缓存长期依赖的 Model、System、Utility 引用。`get_model()` / `get_system()` / `get_utility()` 适合表达依赖入口，但每帧重复查找没有必要；只有当项目会动态替换某个模块实例时，才需要在替换完成后刷新缓存。
 

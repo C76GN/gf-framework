@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "id": "gf.extension.interaction",
+  "kind": "extension",
+  "version": "unreleased",
+  "display_name": "GF Interaction",
+  "description": "Package manifest for the bundled Interaction extension.",
+  "dependencies": [
+    "gf.kernel",
+    "gf.standard.base"
+  ],
+  "paths": [
+    "addons/gf/extensions/interaction/**"
+  ],
+  "enable_extension": "gf.interaction",
+  "metadata": {}
+}

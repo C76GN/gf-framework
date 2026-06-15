@@ -19,6 +19,8 @@ Kernel 是 GF 的运行内核，负责全局入口、架构容器、生命周期
 
 `GFDependencyGraphTools` 提供字符串 ID 依赖图的依赖优先排序、缺失依赖记录和循环路径诊断。依赖 ID 输入会过滤空值、裁剪空白并去重。扩展 manifest、内容包和项目工具可以复用同一套轻量机制，但具体节点类型、启用策略和版本约束仍留在调用方。
 
+`GFProjectSettingsTools` 提供 ProjectSettings 默认值、缺失键初始值和 Inspector 属性信息注册辅助。它只负责稳定声明设置键，不读取业务含义，也不自动保存 `project.godot`；插件、扩展或项目工具仍应自行决定何时保存设置。
+
 ## API Reference
 
 完整类、方法和信号列表见 [Kernel API Reference](../reference/api/kernel.md)。

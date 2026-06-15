@@ -20,6 +20,7 @@
 | 信号 | [`mutation_requested`](#member-gfdialoguerunner-signals-mutation_requested) | `signal mutation_requested(mutation_id: StringName, payload: Variant, line: GFDialogueLine)` |
 | 信号 | [`dialogue_ended`](#member-gfdialoguerunner-signals-dialogue_ended) | `signal dialogue_ended(resource: GFDialogueResource)` |
 | 信号 | [`line_blocked`](#member-gfdialoguerunner-signals-line_blocked) | `signal line_blocked(line_id: StringName, reason: StringName)` |
+| 常量 | [`SNAPSHOT_SCHEMA_VERSION`](#member-gfdialoguerunner-constants-snapshot_schema_version) | `const SNAPSHOT_SCHEMA_VERSION: int = 1` |
 | 属性 | [`max_steps_per_advance`](#member-gfdialoguerunner-properties-max_steps_per_advance) | `var max_steps_per_advance: int = 1024` |
 | 属性 | [`skip_blocked_lines`](#member-gfdialoguerunner-properties-skip_blocked_lines) | `var skip_blocked_lines: bool = true` |
 | 方法 | [`start`](#member-gfdialoguerunner-methods-start) | `func start( resource: GFDialogueResource, start_line_id: StringName = &"", context: GFDialogueContext = null ) -> GFDialogueLine:` |
@@ -29,6 +30,8 @@
 | 方法 | [`get_current_line`](#member-gfdialoguerunner-methods-get_current_line) | `func get_current_line() -> GFDialogueLine:` |
 | 方法 | [`get_available_responses`](#member-gfdialoguerunner-methods-get_available_responses) | `func get_available_responses() -> Array[GFDialogueResponse]:` |
 | 方法 | [`is_running`](#member-gfdialoguerunner-methods-is_running) | `func is_running() -> bool:` |
+| 方法 | [`create_runtime_snapshot`](#member-gfdialoguerunner-methods-create_runtime_snapshot) | `func create_runtime_snapshot() -> Dictionary:` |
+| 方法 | [`restore_runtime_snapshot`](#member-gfdialoguerunner-methods-restore_runtime_snapshot) | `func restore_runtime_snapshot( resource: GFDialogueResource, snapshot: Dictionary, context: GFDialogueContext = null ) -> GFDialogueLine:` |
 | 方法 | [`get_debug_snapshot`](#member-gfdialoguerunner-methods-get_debug_snapshot) | `func get_debug_snapshot() -> Dictionary:` |
 
 ## 信号
@@ -129,6 +132,21 @@ signal line_blocked(line_id: StringName, reason: StringName)
 |---|---|
 | `line_id` | 被阻止的行 ID。 |
 | `reason` | 原因。 |
+
+## 常量
+
+<a id="member-gfdialoguerunner-constants-snapshot_schema_version"></a>
+
+### `SNAPSHOT_SCHEMA_VERSION`
+
+- API：`public`
+- 首次版本：`5.0.0`
+
+```gdscript
+const SNAPSHOT_SCHEMA_VERSION: int = 1
+```
+
+对话运行快照结构版本。
 
 ## 属性
 
@@ -273,6 +291,52 @@ func is_running() -> bool:
 检查是否正在运行。
 
 返回：运行中返回 true。
+
+<a id="member-gfdialoguerunner-methods-create_runtime_snapshot"></a>
+
+### `create_runtime_snapshot`
+
+- API：`public`
+- 首次版本：`5.0.0`
+
+```gdscript
+func create_runtime_snapshot() -> Dictionary:
+```
+
+创建可存档的运行快照。 快照只保存 Runner 的当前位置和上下文值，不保存对话资源本体。 恢复时由调用方重新提供 GFDialogueResource，避免框架绑定项目存档结构。
+
+返回：运行快照。
+
+结构：
+
+- `return`: 包含 schema_version、is_running、current_line_id 和 context_values 字段的 Dictionary。
+
+<a id="member-gfdialoguerunner-methods-restore_runtime_snapshot"></a>
+
+### `restore_runtime_snapshot`
+
+- API：`public`
+- 首次版本：`5.0.0`
+
+```gdscript
+func restore_runtime_snapshot( resource: GFDialogueResource, snapshot: Dictionary, context: GFDialogueContext = null ) -> GFDialogueLine:
+```
+
+从运行快照恢复到当前可展示行。 恢复不会重新触发 dialogue_started、line_reached 或 mutation_requested， 也不会重新执行 mutation。调用方可使用返回行刷新自己的 UI。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `resource` | 快照对应的对话资源。 |
+| `snapshot` | create_runtime_snapshot() 生成的快照。 |
+| `context` | 可选上下文；为空时创建新上下文并恢复快照中的 context_values。 |
+
+返回：恢复后的当前可展示行；快照无效、已结束或资源不匹配时返回 null。
+
+结构：
+
+- `snapshot`: 包含 schema_version、is_running、current_line_id 和 context_values 字段的 Dictionary。
 
 <a id="member-gfdialoguerunner-methods-get_debug_snapshot"></a>
 

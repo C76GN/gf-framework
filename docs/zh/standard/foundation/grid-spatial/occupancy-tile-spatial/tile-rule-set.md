@@ -14,6 +14,6 @@ rules.register_rule([1, 0, 1, 0], &"vertical")
 var variant_id := rules.resolve([1, 0, 1, 0], Vector2i(4, 8))
 ```
 
-同一规则可以注册多个带权重结果，并通过格坐标和 selection_seed 做确定性选择。
+同一规则可以注册多个带权重结果，并通过格坐标和 `selection_seed` 做 GF 固定算法选择。规则表内部使用 `GFDeterministicRandom` 派生单次选择，不依赖 Godot `hash()` 或 `RandomNumberGenerator` 的内部序列。
 
 项目层仍负责定义邻域采样顺序、值含义和最终如何应用到 TileMap。

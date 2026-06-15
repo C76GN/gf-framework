@@ -10,13 +10,12 @@ GF Framework 是一个面向 Godot 4 的轻量级游戏架构框架。它把数�
 - 中文文档源码：[`docs/zh`](docs/zh)
 - 生成式 API Reference 中间源：[`docs/api_catalog`](docs/api_catalog)
 - 更新日志：[`docs/zh/changelog.md`](docs/zh/changelog.md)
-- 维护规则：[`AI_MAINTENANCE.md`](AI_MAINTENANCE.md)
 
 旧 GitHub Wiki 只保留入口链接。Read the Docs 是唯一正式文档来源。
 
 ## 环境要求
 
-- Godot 4.x。
+- Godot 4.6 或更新版本。
 - 只有运行仓库测试时需要 GUT。
 - 只有本地构建文档时需要安装 [`docs/requirements.txt`](docs/requirements.txt) 中的 Python 依赖。
 
@@ -32,7 +31,7 @@ Godot 不会在文件复制到 `addons` 后自动启用编辑器插件，这是�
 Gf -> res://addons/gf/kernel/core/gf.gd
 ```
 
-插件还会默认打开独立的 `GF Workspace`。你可以在其中的 `GF Extensions` 页面查看扩展 manifest、启用或禁用 GF 扩展、自动运行启用扩展的安装器、在导出时排除禁用扩展目录，并在需要时让禁用扩展引用导致导出检查失败。
+插件还会默认打开独立的 `GF Workspace`。新项目只默认启用 GF kernel 与 standard 基础能力；随包发布的可选内置扩展保持关闭，直到项目显式启用。你可以在 `GF Extensions` 页面查看扩展 manifest、启用或禁用 GF 扩展、自动运行启用扩展的安装器、在导出时排除禁用扩展目录，并在需要时让禁用扩展引用导致导出检查失败。
 
 GF 内置扩展保持原子化：只依赖 GF 的 kernel/standard 表面，不声明、不探测、不加载其他内置扩展。跨扩展组合由项目代码或 `addons/gf` 外的独立 Godot 插件负责。未使用的扩展可以禁用、从导出中排除，或在项目脚本、场景、资源和 preload 都不再引用后直接移除。
 
@@ -89,7 +88,7 @@ GF 源码按稳定的所有权边界组织：
 
 ## 编辑器工具
 
-GF 提供扩展管理、强类型 GF/config 访问器生成、项目常量、脚本模板、Inspector、Dock、导出辅助、SaveGraph 诊断、Pattern2D 编辑和 Node3D/Mesh/MeshLibrary 缩略图渲染等编辑器能力。
+GF 核心编辑器能力包括扩展管理、强类型 GF/config 访问器生成、项目常量、脚本模板、Inspector、Dock、导出辅助和 Node3D/Mesh/MeshLibrary 缩略图渲染。SaveGraph 诊断、Pattern2D 编辑等扩展工具只在对应可选扩展启用后贡献。
 
 扩展专属编辑器工具由 `gf_extension.json` manifest 声明，并且只会在扩展启用时加载。
 

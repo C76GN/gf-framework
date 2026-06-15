@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFExtensionSettings" path="addons/gf/kernel/extension/gf_extension_settings.gd" module="kernel" extends="RefCounted" classDigest="a98ba9fb3595d8f8fd2d15b78a07939800afbdfe4de6a1c6a5162ad7013c2b1c">
+<class name="GFExtensionSettings" path="addons/gf/kernel/extension/gf_extension_settings.gd" module="kernel" extends="RefCounted" classDigest="3e0eb9d9ba493a468592e6ec764a511a1b7dd98cd4dbadd82fe72da49b566cd1">
 	<description>GFExtensionSettings: GF 扩展启用状态与 ProjectSettings 桥接。
 负责读取启用扩展 ID、解析扩展依赖、收集启用扩展 Installer，以及提供导出排除开关。</description>
 	<tags>
@@ -33,6 +33,14 @@
 				<tag name="since">4.4.0</tag>
 			</tags>
 		</member>
+		<member kind="const" name="EXTENSION_PRESET_PATHS_SETTING">
+			<signature>const EXTENSION_PRESET_PATHS_SETTING: String = "gf/extensions/preset_paths"</signature>
+			<description>项目设置：扩展 preset JSON 文件路径列表。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
 		<member kind="const" name="EXPORT_EXCLUDE_DISABLED_SETTING">
 			<signature>const EXPORT_EXCLUDE_DISABLED_SETTING: String = "gf/extensions/export_exclude_disabled"</signature>
 			<description>项目设置：导出时是否跳过禁用扩展目录。</description>
@@ -60,6 +68,14 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="since">4.4.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="EXTENSION_PRESET_PATHS_DEFAULT">
+			<signature>const EXTENSION_PRESET_PATHS_DEFAULT: Array[String] = []</signature>
+			<description>默认不加载项目侧扩展 preset。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">5.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="EXPORT_EXCLUDE_DISABLED_DEFAULT">
@@ -161,6 +177,46 @@
 				<tag name="since">4.4.0</tag>
 			</tags>
 		</member>
+		<member kind="method" name="get_extension_preset_paths">
+			<signature>static func get_extension_preset_paths() -&gt; Array[String]:</signature>
+			<description>获取项目配置的扩展 preset JSON 文件路径。
+只返回 `res://` 下的 `.json` 文件路径，避免 preset 发现越过项目资源边界。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">扩展 preset JSON 文件路径列表。</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="set_extension_preset_paths">
+			<signature>static func set_extension_preset_paths(preset_paths: Array[String]) -&gt; void:</signature>
+			<description>保存项目配置的扩展 preset JSON 文件路径。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">preset_paths: 扩展 preset JSON 文件路径列表。</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="add_extension_preset_path">
+			<signature>static func add_extension_preset_path(preset_path: String) -&gt; bool:</signature>
+			<description>添加一个项目扩展 preset JSON 文件路径。
+路径必须指向能解析为有效 `GFExtensionPreset` 的 `res://` JSON 文件。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">preset_path: 扩展 preset JSON 文件路径。</tag>
+				<tag name="return">路径指向有效 preset 且被新增时返回 true；无效或已存在时返回 false。</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="remove_extension_preset_path">
+			<signature>static func remove_extension_preset_path(preset_path: String) -&gt; bool:</signature>
+			<description>移除一个项目扩展 preset JSON 文件路径。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">preset_path: 扩展 preset JSON 文件路径。</tag>
+				<tag name="return">路径存在且已移除时返回 true；无效或不存在时返回 false。</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
 		<member kind="method" name="should_export_exclude_disabled_extensions">
 			<signature>static func should_export_exclude_disabled_extensions() -&gt; bool:</signature>
 			<description>判断导出时是否排除禁用扩展目录。</description>
@@ -199,6 +255,38 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">manifest 列表。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_extension_presets">
+			<signature>static func get_extension_presets() -&gt; Array[GFExtensionPreset]:</signature>
+			<description>获取可用的扩展 preset。
+返回 GF 内置的动态基础组合，以及项目在 `gf/extensions/preset_paths` 中声明的 preset。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">扩展 preset 列表。</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_extension_preset_by_id">
+			<signature>static func get_extension_preset_by_id(preset_id: StringName) -&gt; GFExtensionPreset:</signature>
+			<description>按 ID 获取扩展 preset。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">preset_id: 扩展 preset ID。</tag>
+				<tag name="return">找到时返回 preset，否则返回 null。</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="apply_extension_preset">
+			<signature>static func apply_extension_preset( preset_id: StringName, include_dependencies: bool = true ) -&gt; bool:</signature>
+			<description>应用扩展 preset 到 `gf/extensions/enabled`。
+该方法只写入启用扩展 ID；保存 project.godot 由调用方决定。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">preset_id: 扩展 preset ID。</tag>
+				<tag name="param">include_dependencies: 是否自动包含 manifest 硬依赖。</tag>
+				<tag name="return">找到并写入 preset 时返回 true。</tag>
+				<tag name="since">5.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="clear_manifest_cache">

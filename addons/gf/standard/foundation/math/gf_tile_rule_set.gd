@@ -12,6 +12,13 @@ class_name GFTileRuleSet
 extends Resource
 
 
+# --- 常量 ---
+
+const _FNV_32_OFFSET: int = 2_166_136_261
+const _FNV_32_PRIME: int = 16_777_619
+const _UINT_32_MASK: int = 0xffffffff
+
+
 # --- 导出变量 ---
 
 ## 规则匹配失败时尝试使用的邻域回退值。
@@ -184,10 +191,11 @@ func _pick_result(results: Array, cell: Vector2i, selection_seed: int) -> Varian
 	if total_weight <= 0.0:
 		return _read_result_value(results, 0)
 
-	var rng: RandomNumberGenerator = RandomNumberGenerator.new()
 	var effective_seed: int = deterministic_seed if selection_seed == 0 else selection_seed
-	rng.seed = hash("%s:%s:%s" % [cell, effective_seed, results.size()])
-	var target: float = rng.randf_range(0.0, total_weight)
+	var rng: GFDeterministicRandom = GFDeterministicRandom.from_seed(
+		_stable_seed_for_choice(cell, effective_seed, results.size())
+	)
+	var target: float = rng.next_float_range(0.0, total_weight)
 	var cursor: float = 0.0
 	for result_variant: Variant in results:
 		cursor += _get_result_weight(result_variant)
@@ -210,3 +218,16 @@ func _read_result_entry_value(result_entry: Variant) -> Variant:
 func _get_result_weight(result_entry: Variant) -> float:
 	var data: Dictionary = GFVariantData.as_dictionary(result_entry)
 	return GFVariantData.get_option_float(data, "weight", 0.0)
+
+
+func _stable_seed_for_choice(cell: Vector2i, selection_seed: int, result_count: int) -> int:
+	var hash_value: int = _FNV_32_OFFSET
+	var bytes: PackedByteArray = ("%d:%d:%d:%d" % [
+		cell.x,
+		cell.y,
+		selection_seed,
+		result_count,
+	]).to_utf8_buffer()
+	for value: int in bytes:
+		hash_value = ((hash_value ^ value) * _FNV_32_PRIME) & _UINT_32_MASK
+	return hash_value

@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "id": "gf.standard.ui",
+  "kind": "standard",
+  "version": "unreleased",
+  "display_name": "GF Standard UI",
+  "description": "UI routing, binders, control adapters, display/settings helpers, text fitting, and virtual list utilities.",
+  "dependencies": [
+    "gf.kernel",
+    "gf.standard.base",
+    "gf.standard.state",
+    "gf.standard.storage",
+    "gf.standard.assets",
+    "gf.standard.audio"
+  ],
+  "paths": [
+    "addons/gf/standard/utilities/display/**",
+    "addons/gf/standard/utilities/settings/**",
+    "addons/gf/standard/utilities/ui/**"
+  ],
+  "metadata": {
+    "stage": "standard-split-v1"
+  }
+}

@@ -7,4 +7,3 @@
 - 正式文档：[Read the Docs](https://gf-framework.readthedocs.io/)
 - 中文文档源码：`docs/zh`
 - 导航配置：`mkdocs.yml`
-- 维护规范：`AI_MAINTENANCE.md`

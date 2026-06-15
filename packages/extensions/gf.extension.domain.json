@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "id": "gf.extension.domain",
+  "kind": "extension",
+  "version": "unreleased",
+  "display_name": "GF Domain Models",
+  "description": "Package manifest for the bundled Domain Models extension.",
+  "dependencies": [
+    "gf.kernel",
+    "gf.standard.base",
+    "gf.standard.config",
+    "gf.standard.storage"
+  ],
+  "paths": [
+    "addons/gf/extensions/domain/**"
+  ],
+  "enable_extension": "gf.domain",
+  "metadata": {}
+}

@@ -1,8 +1,9 @@
 ## GFSeedUtility: 全局随机数种子管理器。
 ##
 ## 内部维护一个主 RandomNumberGenerator，并支持基于字符串标签派生
-## 出独立的子 RNG。子 RNG 的生成不推进主随机序列，可用于保证
-## 回放系统的确定性。
+## 出独立的 Godot RNG 或 GF 固定算法随机源。Godot RNG 分支适合
+## 同一 Godot 环境内的运行时复现；需要跨 GF 版本固定序列时使用
+## deterministic 分支。
 ## [br]
 ## @api public
 ## [br]
@@ -15,7 +16,7 @@ extends GFUtility
 
 # --- 常量 ---
 
-const _STATE_SCHEMA_VERSION: int = 2
+const _STATE_SCHEMA_VERSION: int = 3
 const _FNV_32_OFFSET: int = 2_166_136_261
 const _FNV_32_PRIME: int = 16_777_619
 const _UINT_32_MASK: int = 0xffffffff
@@ -26,6 +27,7 @@ const _UINT_32_MASK: int = 0xffffffff
 var _rng: RandomNumberGenerator
 var _global_seed: int
 var _branch_counters: Dictionary = {}
+var _deterministic_branch_counters: Dictionary = {}
 
 
 # --- GF 生命周期方法 ---
@@ -37,6 +39,7 @@ func init() -> void:
 	_rng = RandomNumberGenerator.new()
 	_global_seed = 0
 	_branch_counters.clear()
+	_deterministic_branch_counters.clear()
 
 
 # --- 公共方法 ---
@@ -51,6 +54,7 @@ func set_global_seed(seed_hash: int) -> void:
 	_global_seed = seed_hash
 	_rng.seed = seed_hash
 	_branch_counters.clear()
+	_deterministic_branch_counters.clear()
 
 
 ## 获取当前全局主种子。
@@ -100,9 +104,11 @@ func set_state(state: int) -> void:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @return JSON 安全的完整随机状态。
 ## [br]
-## @schema return: Dictionary with `state_schema_version: int`, `global_seed: String`, `rng_state: String`, and `branch_counters: Dictionary[String, String]`.
+## @schema return: Dictionary with `state_schema_version: int`, `global_seed: String`, `rng_state: String`, `branch_counters: Dictionary[String, String]`, and `deterministic_branch_counters: Dictionary[String, String]`.
 func get_full_state() -> Dictionary:
 	_ensure_rng()
 	return {
@@ -110,6 +116,7 @@ func get_full_state() -> Dictionary:
 		&"global_seed": _int_to_state_text(_global_seed),
 		&"rng_state": _int_to_state_text(_rng.state),
 		&"branch_counters": _encode_branch_counters(_branch_counters),
+		&"deterministic_branch_counters": _encode_branch_counters(_deterministic_branch_counters),
 	}
 
 
@@ -122,12 +129,20 @@ func get_full_state() -> Dictionary:
 ## @schema state: Dictionary produced by get_full_state().
 func set_full_state(state: Dictionary) -> void:
 	_ensure_rng()
+	var schema_version: int = _state_value_to_int(_get_state_value(state, &"state_schema_version", 1), 1)
+	if not _state_schema_version_is_supported(schema_version):
+		push_error("[GFSeedUtility] 不支持的完整随机状态 schema 版本：%d。" % schema_version)
+		return
+
 	_global_seed = _state_value_to_int(_get_state_value(state, &"global_seed", _global_seed), _global_seed)
 	_rng.seed = _global_seed
 	_rng.state = _state_value_to_int(_get_state_value(state, &"rng_state", _rng.state), _rng.state)
 
 	var branch_counters: Variant = _get_state_value(state, &"branch_counters", {})
 	_branch_counters = _decode_branch_counters(branch_counters)
+
+	var deterministic_branch_counters: Variant = _get_state_value(state, &"deterministic_branch_counters", {})
+	_deterministic_branch_counters = _decode_branch_counters(deterministic_branch_counters)
 
 
 ## 基于主 RNG 当前状态与字符串标签，派生出一个独立的子 RNG。
@@ -142,8 +157,7 @@ func set_full_state(state: Dictionary) -> void:
 func get_branched_rng(string_seed: String) -> RandomNumberGenerator:
 	_ensure_rng()
 	var branched: RandomNumberGenerator = RandomNumberGenerator.new()
-	var branch_index: int = GFVariantData.get_option_int(_branch_counters, string_seed)
-	_branch_counters[string_seed] = branch_index + 1
+	var branch_index: int = _next_branch_index(_branch_counters, string_seed)
 
 	var branch_seed: int = _stable_hash("%d:%d:%s:%d" % [
 		_global_seed,
@@ -155,6 +169,29 @@ func get_branched_rng(string_seed: String) -> RandomNumberGenerator:
 	return branched
 
 
+## 基于主 RNG 当前状态与字符串标签，派生 GF 固定算法随机源。
+## 每次调用只推进 deterministic 分支计数，不推进主 RNG 的随机序列，
+## 也不影响 `get_branched_rng()` 的 Godot RNG 分支计数。
+## [br]
+## @api public
+## [br]
+## @since 5.0.0
+## [br]
+## @param string_seed: 用于标识确定性子随机流用途的字符串。
+## [br]
+## @return 一个已完成种子初始化的独立 GFDeterministicRandom 实例。
+func get_branched_deterministic_random(string_seed: String) -> GFDeterministicRandom:
+	_ensure_rng()
+	var branch_index: int = _next_branch_index(_deterministic_branch_counters, string_seed)
+	var branch_seed: int = _stable_hash("%d:%d:deterministic:%s:%d" % [
+		_global_seed,
+		_rng.state,
+		string_seed,
+		branch_index,
+	])
+	return GFDeterministicRandom.from_seed(branch_seed)
+
+
 # --- 私有/辅助方法 ---
 
 func _stable_hash(text: String) -> int:
@@ -163,6 +200,12 @@ func _stable_hash(text: String) -> int:
 	for value: int in bytes:
 		hash_value = ((hash_value ^ value) * _FNV_32_PRIME) & _UINT_32_MASK
 	return hash_value
+
+
+func _next_branch_index(counter_map: Dictionary, string_seed: String) -> int:
+	var branch_index: int = GFVariantData.get_option_int(counter_map, string_seed)
+	counter_map[string_seed] = branch_index + 1
+	return branch_index
 
 
 func _encode_branch_counters(source: Dictionary) -> Dictionary:
@@ -197,6 +240,10 @@ func _state_value_to_int(value: Variant, fallback: int) -> int:
 	if value == null:
 		return fallback
 	return GFVariantData.to_int(value)
+
+
+func _state_schema_version_is_supported(version: int) -> bool:
+	return version >= 1 and version <= _STATE_SCHEMA_VERSION
 
 
 func _int_to_state_text(value: int) -> String:

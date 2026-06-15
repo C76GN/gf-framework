@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "gf.standard.deterministic",
+  "kind": "standard",
+  "version": "unreleased",
+  "display_name": "GF Standard Deterministic",
+  "description": "Deterministic random, seed utilities, deterministic serialization, numeric formatting, fixed decimals, fixed vectors, and numeric serialization support.",
+  "dependencies": [
+    "gf.kernel",
+    "gf.standard.base"
+  ],
+  "paths": [
+    "addons/gf/standard/utilities/random/**",
+    "addons/gf/standard/foundation/formatting/**",
+    "addons/gf/standard/foundation/deterministic/**",
+    "addons/gf/standard/foundation/numeric/**"
+  ],
+  "metadata": {
+    "stage": "standard-split-v1"
+  }
+}

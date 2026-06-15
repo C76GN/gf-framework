@@ -32,6 +32,20 @@ func test_tile_rule_set_allows_results_as_neighbor_value() -> void:
 	assert_eq(GFVariantData.to_text(rules.resolve([1, "results", 2])), "safe", "使用 results 作为普通邻域值也应可解析。")
 
 
+func test_tile_rule_set_weighted_result_uses_fixed_rng_golden_sequence() -> void:
+	var rules: GFTileRuleSet = GFTileRuleSet.new()
+	rules.deterministic_seed = 11
+	rules.register_rule([1, 1, 1, 1], "grass", 1.0)
+	rules.register_rule([1, 1, 1, 1], "flower", 2.0)
+	rules.register_rule([1, 1, 1, 1], "stone", 3.0)
+
+	assert_eq(GFVariantData.to_text(rules.resolve([1, 1, 1, 1], Vector2i.ZERO)), "stone")
+	assert_eq(GFVariantData.to_text(rules.resolve([1, 1, 1, 1], Vector2i(1, 0))), "stone")
+	assert_eq(GFVariantData.to_text(rules.resolve([1, 1, 1, 1], Vector2i(4, 8))), "flower")
+	assert_eq(GFVariantData.to_text(rules.resolve([1, 1, 1, 1], Vector2i(-2, 5))), "flower")
+	assert_eq(GFVariantData.to_text(rules.resolve([1, 1, 1, 1], Vector2i(4, 8), 99)), "flower")
+
+
 func test_tile_map_cache_diff_can_compare_full_record_or_single_key() -> void:
 	var previous: GFTileMapCache = GFTileMapCache.new()
 	var current: GFTileMapCache = GFTileMapCache.new()

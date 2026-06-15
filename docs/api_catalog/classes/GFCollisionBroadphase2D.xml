@@ -1,0 +1,157 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFCollisionBroadphase2D" path="addons/gf/standard/foundation/math/gf_collision_broadphase_2d.gd" module="standard" extends="RefCounted" classDigest="dffd062865966283fc0d14bd7388c0783ecd62c08219a0c8ec8cccd3ab34c6da">
+	<description>GFCollisionBroadphase2D: 纯 2D AABB broadphase 候选对生成工具。
+使用 `Rect2` body 记录生成可能相交的候选对，提供暴力枚举、Sweep and Prune、
+Quadtree 和自动组合入口。它只做 AABB 粗筛，不执行 SAT、接触点计算、
+物理响应、命中分发或玩法规则判断。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_service</tag>
+		<tag name="since">5.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants>
+		<member kind="const" name="ALGORITHM_BRUTE_FORCE">
+			<signature>const ALGORITHM_BRUTE_FORCE: StringName = &amp;"bruteforce"</signature>
+			<description>暴力枚举 broadphase。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="ALGORITHM_SAP">
+			<signature>const ALGORITHM_SAP: StringName = &amp;"sap"</signature>
+			<description>Sweep and Prune broadphase。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="ALGORITHM_QUADTREE">
+			<signature>const ALGORITHM_QUADTREE: StringName = &amp;"quadtree"</signature>
+			<description>Quadtree broadphase。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="ALGORITHM_AUTO">
+			<signature>const ALGORITHM_AUTO: StringName = &amp;"auto"</signature>
+			<description>自动选择 broadphase。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="DEFAULT_COLLISION_LAYER">
+			<signature>const DEFAULT_COLLISION_LAYER: int = 1</signature>
+			<description>默认碰撞层。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="DEFAULT_COLLISION_MASK">
+			<signature>const DEFAULT_COLLISION_MASK: int = 0xffffffff</signature>
+			<description>默认碰撞掩码。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties />
+	<methods>
+		<member kind="method" name="make_body">
+			<signature>static func make_body( entity: Variant, bounds: Rect2, collision_layer: int = DEFAULT_COLLISION_LAYER, collision_mask: int = DEFAULT_COLLISION_MASK, enabled: bool = true, metadata: Dictionary = {} ) -&gt; Dictionary:</signature>
+			<description>创建 2D broadphase body 记录。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">entity: 调用方实体标识。</tag>
+				<tag name="param">bounds: 轴对齐包围矩形；负尺寸会被归一化。</tag>
+				<tag name="param">collision_layer: 当前 body 所在层。</tag>
+				<tag name="param">collision_mask: 当前 body 可匹配的层。</tag>
+				<tag name="param">enabled: 为 false 时默认不会参与候选对生成。</tag>
+				<tag name="param">metadata: 调用方附加元数据；候选对不会解释这些字段。</tag>
+				<tag name="return">body 字典。</tag>
+				<tag name="schema">entity: Variant entity identity copied into generated pair reports.</tag>
+				<tag name="schema">metadata: Dictionary caller metadata copied by value.</tag>
+				<tag name="schema">return: Dictionary with `entity`, `bounds: Rect2`, `collision_layer: int`, `collision_mask: int`, `enabled: bool`, and `metadata: Dictionary`.</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="find_pairs_bruteforce">
+			<signature>static func find_pairs_bruteforce(bodies: Array, options: Dictionary = {}) -&gt; Array[Dictionary]:</signature>
+			<description>使用暴力枚举生成 2D AABB 候选对。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">bodies: body 字典数组，建议由 `make_body()` 创建。</tag>
+				<tag name="param">options: 可选控制，支持 `include_touching`、`use_collision_masks`、`enabled_only` 与 `max_pairs`。</tag>
+				<tag name="return">候选对数组。</tag>
+				<tag name="schema">bodies: Array[Dictionary] broadphase body records.</tag>
+				<tag name="schema">options: Dictionary with optional `include_touching: bool`, `use_collision_masks: bool`, `enabled_only: bool`, and `max_pairs: int`.</tag>
+				<tag name="schema">return: Array[Dictionary] pair records with `a`, `b`, `a_index`, `b_index`, `a_bounds`, and `b_bounds`.</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="find_pairs_sap">
+			<signature>static func find_pairs_sap(bodies: Array, options: Dictionary = {}) -&gt; Array[Dictionary]:</signature>
+			<description>使用 Sweep and Prune 生成 2D AABB 候选对。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">bodies: body 字典数组，建议由 `make_body()` 创建。</tag>
+				<tag name="param">options: 可选控制，支持 `include_touching`、`use_collision_masks`、`enabled_only` 与 `max_pairs`。</tag>
+				<tag name="return">候选对数组。</tag>
+				<tag name="schema">bodies: Array[Dictionary] broadphase body records.</tag>
+				<tag name="schema">options: Dictionary with optional `include_touching: bool`, `use_collision_masks: bool`, `enabled_only: bool`, and `max_pairs: int`.</tag>
+				<tag name="schema">return: Array[Dictionary] pair records with `a`, `b`, `a_index`, `b_index`, `a_bounds`, and `b_bounds`.</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="find_pairs_quadtree">
+			<signature>static func find_pairs_quadtree(bodies: Array, options: Dictionary = {}) -&gt; Array[Dictionary]:</signature>
+			<description>使用 Quadtree 生成 2D AABB 候选对。`world_bounds` 只用于分割提示，不作为过滤条件；
+body 不落入当前分割范围时会退回局部暴力枚举，避免静默丢 pair。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">bodies: body 字典数组，建议由 `make_body()` 创建。</tag>
+				<tag name="param">options: 可选控制，支持 `world_bounds: Rect2`、`quadtree_max_depth`、`quadtree_capacity`、`include_touching`、`use_collision_masks`、`enabled_only` 与 `max_pairs`。</tag>
+				<tag name="return">候选对数组。</tag>
+				<tag name="schema">bodies: Array[Dictionary] broadphase body records.</tag>
+				<tag name="schema">options: Dictionary with optional `world_bounds: Rect2`, `quadtree_max_depth: int`, `quadtree_capacity: int`, `include_touching: bool`, `use_collision_masks: bool`, `enabled_only: bool`, and `max_pairs: int`.</tag>
+				<tag name="schema">return: Array[Dictionary] pair records with `a`, `b`, `a_index`, `b_index`, `a_bounds`, and `b_bounds`.</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="find_pairs_combined">
+			<signature>static func find_pairs_combined(bodies: Array, options: Dictionary = {}) -&gt; Array[Dictionary]:</signature>
+			<description>按选定或自动算法生成 2D AABB 候选对。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">bodies: body 字典数组，建议由 `make_body()` 创建。</tag>
+				<tag name="param">options: 可选控制，支持 `algorithm: StringName` 以及各算法选项。</tag>
+				<tag name="return">候选对数组。</tag>
+				<tag name="schema">bodies: Array[Dictionary] broadphase body records.</tag>
+				<tag name="schema">options: Dictionary with optional `algorithm: StringName` plus bruteforce, SAP, or quadtree options.</tag>
+				<tag name="schema">return: Array[Dictionary] pair records with `a`, `b`, `a_index`, `b_index`, `a_bounds`, and `b_bounds`.</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="build_pair_report">
+			<signature>static func build_pair_report(bodies: Array, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>生成包含算法、输入数量和候选对的 2D broadphase 报告。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">bodies: body 字典数组，建议由 `make_body()` 创建。</tag>
+				<tag name="param">options: 可选控制，支持 `algorithm: StringName` 以及各算法选项。</tag>
+				<tag name="return">broadphase 报告。</tag>
+				<tag name="schema">bodies: Array[Dictionary] broadphase body records.</tag>
+				<tag name="schema">options: Dictionary with optional `algorithm: StringName` plus bruteforce, SAP, or quadtree options.</tag>
+				<tag name="schema">return: Dictionary with `algorithm: StringName`, `body_count: int`, `pair_count: int`, and `pairs: Array[Dictionary]`.</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

@@ -1,12 +1,12 @@
 {
   "id": "gf.dialogue",
   "display_name": "GF Dialogue",
-  "version": "4.4.0",
+  "version": "5.0.0",
   "extension_version": "2.0.0",
   "kind": "extension",
   "description": "Generic dialogue resources, contexts, responses, and runners.",
   "dependencies": ["gf.kernel", "gf.standard"],
   "installer_paths": [],
-  "enabled_by_default": true,
+  "enabled_by_default": false,
   "tags": ["dialogue", "narrative", "resource", "runner"]
 }

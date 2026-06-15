@@ -1645,7 +1645,7 @@ func _type_requires_schema(type_text: String) -> bool:
 
 
 func _layer_matches_source_path(layer: String, path: String) -> bool:
-	var normalized_layer: String = layer.strip_edges().replace(".", "/")
+	var normalized_layer: String = layer.strip_edges()
 	var normalized_path: String = path.replace("\\", "/")
 	normalized_path = normalized_path.trim_prefix("res://")
 	if not normalized_path.begins_with("addons/gf/"):

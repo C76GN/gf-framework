@@ -56,6 +56,11 @@ signal batch_rolled_back(summary: Dictionary)
 signal cleared
 
 
+# --- 常量 ---
+
+const _GF_DEQUE_SCRIPT = preload("res://addons/gf/standard/foundation/collections/gf_deque.gd")
+
+
 # --- 公共变量 ---
 
 ## 提交遇到失败时是否停止后续操作。
@@ -71,7 +76,7 @@ var auto_clear_committed_on_success: bool = false
 
 # --- 私有变量 ---
 
-var _pending_operations: Array[Dictionary] = []
+var _pending_operations: GFDeque = _GF_DEQUE_SCRIPT.new()
 var _committed_operations: Array[Dictionary] = []
 var _next_operation_id: int = 1
 
@@ -97,7 +102,7 @@ func add_operation(operation: Callable, rollback: Callable = Callable(), metadat
 
 	var operation_id: int = _next_operation_id
 	_next_operation_id += 1
-	_pending_operations.append({
+	_pending_operations.push_back({
 		"operation_id": operation_id,
 		"operation": operation,
 		"rollback": rollback,
@@ -121,11 +126,11 @@ func commit(max_operations: int = -1) -> Dictionary:
 	var failed_count: int = 0
 	var errors: Array[Dictionary] = []
 	while not _pending_operations.is_empty() and (max_operations < 0 or committed_count + failed_count < max_operations):
-		var entry: Dictionary = _pending_operations[0]
+		var entry: Dictionary = _get_pending_operation()
 		var operation: Callable = _variant_to_callable(GFVariantData.get_option_value(entry, "operation", Callable()))
 		var operation_result: Dictionary = _normalize_operation_result(operation.call(), entry)
 		if GFVariantData.get_option_bool(operation_result, "ok"):
-			_pending_operations.remove_at(0)
+			var _removed_pending_operation: Variant = _pending_operations.pop_front()
 			_committed_operations.append(entry)
 			committed_count += 1
 			operation_committed.emit(GFVariantData.get_option_int(entry, "operation_id", -1), operation_result)
@@ -135,7 +140,7 @@ func commit(max_operations: int = -1) -> Dictionary:
 		errors.append(operation_result)
 		if stop_on_error:
 			break
-		_pending_operations.remove_at(0)
+		var _removed_failed_operation: Variant = _pending_operations.pop_front()
 
 	var summary: Dictionary = _make_commit_summary(committed_count, failed_count, errors)
 	if GFVariantData.get_option_bool(summary, "ok") and auto_clear_committed_on_success:
@@ -265,6 +270,14 @@ func _make_commit_summary(committed_count: int, failed_count: int, errors: Array
 		"stored_committed_count": _committed_operations.size(),
 		"errors": errors,
 	}
+
+
+func _get_pending_operation() -> Dictionary:
+	var raw_entry: Variant = _pending_operations.peek_front({})
+	if raw_entry is Dictionary:
+		var entry: Dictionary = raw_entry
+		return entry
+	return {}
 
 
 func _variant_to_callable(value: Variant) -> Callable:

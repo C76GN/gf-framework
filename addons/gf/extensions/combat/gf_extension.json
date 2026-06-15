@@ -1,7 +1,7 @@
 {
   "id": "gf.combat",
   "display_name": "GF Combat",
-  "version": "4.4.0",
+  "version": "5.0.0",
   "extension_version": "1.8.0",
   "kind": "extension",
   "description": "Abstract combat attributes, modifiers, buffs, skills, gauges, and hit detection bridges.",
@@ -9,6 +9,6 @@
   "installer_paths": [
     "res://addons/gf/extensions/combat/extension.gd"
   ],
-  "enabled_by_default": true,
-  "tags": ["combat", "attributes", "hit-detection"]
+  "enabled_by_default": false,
+  "tags": ["combat", "attributes", "hit-detection", "externalization-candidate"]
 }

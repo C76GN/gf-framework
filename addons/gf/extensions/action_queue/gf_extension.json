@@ -1,7 +1,7 @@
 {
   "id": "gf.action_queue",
   "display_name": "GF Action Queue",
-  "version": "4.4.0",
+  "version": "5.0.0",
   "extension_version": "2.1.0",
   "kind": "extension",
   "description": "Presentation action queue primitives, interceptors, tween configs, and reusable visual actions.",
@@ -9,6 +9,6 @@
   "installer_paths": [
     "res://addons/gf/extensions/action_queue/extension.gd"
   ],
-  "enabled_by_default": true,
+  "enabled_by_default": false,
   "tags": ["presentation", "queue", "tween"]
 }

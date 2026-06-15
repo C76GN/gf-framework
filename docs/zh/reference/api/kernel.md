@@ -6,9 +6,9 @@
 
 | 类别 | 类 | 成员 | 方法 |
 |---|---:|---:|---:|
-| [运行时服务](#category-runtime_service) | 8 | 199 | 162 |
+| [运行时服务](#category-runtime_service) | 9 | 215 | 175 |
 | [协议与扩展点](#category-protocol) | 17 | 176 | 154 |
-| [资源定义](#category-resource_definition) | 1 | 29 | 5 |
+| [资源定义](#category-resource_definition) | 2 | 40 | 10 |
 | [值对象](#category-value_object) | 1 | 1 | 0 |
 | [编辑器 API](#category-editor_api) | 16 | 198 | 128 |
 
@@ -27,6 +27,7 @@
 | [`GFNodeContext`](classes/GFNodeContext.md#gfnodecontext) | `Node` | `addons/gf/kernel/core/gf_node_context.gd` |
 | [`GFObjectPropertyTools`](classes/GFObjectPropertyTools.md#gfobjectpropertytools) | `RefCounted` | `addons/gf/kernel/core/gf_object_property_tools.gd` |
 | [`GFPathTools`](classes/GFPathTools.md#gfpathtools) | `RefCounted` | `addons/gf/kernel/core/gf_path_tools.gd` |
+| [`GFProjectSettingsTools`](classes/GFProjectSettingsTools.md#gfprojectsettingstools) | `RefCounted` | `addons/gf/kernel/core/gf_project_settings_tools.gd` |
 | [`GFTypeEventSystem`](classes/GFTypeEventSystem.md#gftypeeventsystem) | `Object` | `addons/gf/kernel/core/gf_type_event_system.gd` |
 
 <a id="category-protocol"></a>
@@ -60,6 +61,7 @@
 | 类 | 继承 | 源文件 |
 |---|---|---|
 | [`GFExtensionManifest`](classes/GFExtensionManifest.md#gfextensionmanifest) | `RefCounted` | `addons/gf/kernel/extension/gf_extension_manifest.gd` |
+| [`GFExtensionPreset`](classes/GFExtensionPreset.md#gfextensionpreset) | `RefCounted` | `addons/gf/kernel/extension/gf_extension_preset.gd` |
 
 <a id="category-value_object"></a>
 

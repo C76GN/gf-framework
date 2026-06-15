@@ -1,0 +1,147 @@
+{
+  "schema_version": 1,
+  "packages": {
+    "gf.extension.action_queue": [
+      "res://tests/gf_core/extensions/action_queue/test_gf_action_queue.gd",
+      "res://tests/gf_core/extensions/action_queue/test_gf_visual_actions.gd"
+    ],
+    "gf.extension.asset_metadata": [
+      "res://tests/gf_core/extensions/asset_metadata/test_gf_asset_metadata_record.gd",
+      "res://tests/gf_core/extensions/asset_metadata/test_gf_asset_metadata_utility.gd"
+    ],
+    "gf.extension.behavior_tree": [
+      "res://tests/gf_core/extensions/behavior_tree/test_gf_behavior_tree.gd"
+    ],
+    "gf.extension.camera": [
+      "res://tests/gf_core/extensions/camera/test_gf_camera_extension.gd",
+      "res://tests/gf_core/extensions/camera/test_gf_camera_orbit_3d.gd"
+    ],
+    "gf.extension.capability": [
+      "res://tests/gf_core/extensions/capability/test_gf_capability_utility.gd"
+    ],
+    "gf.extension.combat": [
+      "res://tests/gf_core/extensions/combat/test_gf_combat_extension.gd",
+      "res://tests/gf_core/extensions/combat/test_gf_combat_targeting.gd",
+      "res://tests/gf_core/extensions/combat/test_gf_projectiles.gd"
+    ],
+    "gf.extension.content_package": [
+      "res://tests/gf_core/extensions/content_package/test_gf_content_package.gd"
+    ],
+    "gf.extension.decision": [
+      "res://tests/gf_core/extensions/decision/test_gf_decision_utility.gd"
+    ],
+    "gf.extension.dialogue": [
+      "res://tests/gf_core/extensions/dialogue/test_gf_dialogue_extension.gd"
+    ],
+    "gf.extension.domain": [
+      "res://tests/gf_core/extensions/domain/test_gf_domain_extensions.gd",
+      "res://tests/gf_core/extensions/domain/test_gf_level_utility.gd",
+      "res://tests/gf_core/extensions/domain/test_gf_quest_utility.gd"
+    ],
+    "gf.extension.feedback": [
+      "res://tests/gf_core/extensions/feedback/test_gf_feedback_extension.gd"
+    ],
+    "gf.extension.flow": [
+      "res://tests/gf_core/extensions/flow/test_gf_flow_graph.gd"
+    ],
+    "gf.extension.interaction": [
+      "res://tests/gf_core/extensions/interaction/test_gf_interaction_flow_context.gd",
+      "res://tests/gf_core/extensions/interaction/test_gf_interaction_nodes.gd"
+    ],
+    "gf.extension.network": [
+      "res://tests/gf_core/extensions/network/test_gf_network_extension.gd"
+    ],
+    "gf.extension.physics": [
+      "res://tests/gf_core/extensions/physics/test_gf_gravity_3d.gd"
+    ],
+    "gf.extension.save": [
+      "res://tests/gf_core/extensions/save/test_gf_node_serializers_focused.gd",
+      "res://tests/gf_core/extensions/save/test_gf_persist_properties_source.gd",
+      "res://tests/gf_core/extensions/save/test_gf_save_graph_utility.gd",
+      "res://tests/gf_core/extensions/save/test_gf_save_slot_workflow.gd"
+    ],
+    "gf.extension.turn_based": [
+      "res://tests/gf_core/extensions/turn_based/test_gf_turn_flow_system.gd"
+    ],
+    "gf.kernel": [
+      "res://tests/gf_core/kernel/core/test_gf_singleton.gd",
+      "res://tests/gf_core/kernel/extension/test_gf_extension_manifest.gd",
+      "res://tests/gf_core/kernel/package/test_gf_package_manager_backend.gd"
+    ],
+    "gf.standard.assets": [
+      "res://tests/gf_core/standard/utilities/assets/test_gf_asset_utility.gd",
+      "res://tests/gf_core/standard/utilities/io/test_gf_remote_cache_utility.gd",
+      "res://tests/gf_core/standard/utilities/jobs/test_gf_background_work_utility.gd",
+      "res://tests/gf_core/standard/utilities/scene/test_gf_scene_utility.gd"
+    ],
+    "gf.standard.audio": [
+      "res://tests/gf_core/standard/utilities/audio/test_gf_audio_bank_tools.gd",
+      "res://tests/gf_core/standard/utilities/audio/test_gf_audio_utility.gd"
+    ],
+    "gf.standard.base": [
+      "res://tests/gf_core/standard/foundation/test_gf_value_index_and_mutation_batch.gd",
+      "res://tests/gf_core/standard/foundation/validation/test_gf_result_dictionary.gd",
+      "res://tests/gf_core/standard/foundation/variant/test_gf_variant_data_and_json_codec.gd",
+      "res://tests/gf_core/standard/utilities/logging/test_gf_log_utility.gd",
+      "res://tests/gf_core/standard/utilities/signals/test_gf_signal_utility.gd",
+      "res://tests/gf_core/standard/utilities/time/test_gf_time_utility.gd"
+    ],
+    "gf.standard.config": [
+      "res://tests/gf_core/standard/utilities/config/test_gf_config_provider.gd",
+      "res://tests/gf_core/standard/utilities/config/test_gf_config_table_schema.gd"
+    ],
+    "gf.standard.debug": [
+      "res://tests/gf_core/standard/utilities/debug/test_gf_debug_draw_utility.gd",
+      "res://tests/gf_core/standard/utilities/debug/test_gf_debug_overlay_utility.gd",
+      "res://tests/gf_core/standard/utilities/debug/test_gf_metric_series.gd",
+      "res://tests/gf_core/standard/utilities/debug/test_gf_runtime_inspector_utility.gd",
+      "res://tests/gf_core/standard/utilities/debug/test_gf_screenshot_utility.gd"
+    ],
+    "gf.standard.diagnostics": [
+      "res://tests/gf_core/standard/utilities/debug/test_gf_build_info.gd",
+      "res://tests/gf_core/standard/utilities/debug/test_gf_console_utility.gd",
+      "res://tests/gf_core/standard/utilities/debug/test_gf_diagnostics_utility.gd"
+    ],
+    "gf.standard.deterministic": [
+      "res://tests/gf_core/standard/foundation/deterministic/test_gf_deterministic_random.gd",
+      "res://tests/gf_core/standard/foundation/deterministic/test_gf_deterministic_variant_serializer.gd",
+      "res://tests/gf_core/standard/foundation/formatting/test_gf_number_formatter.gd",
+      "res://tests/gf_core/standard/foundation/numeric/test_gf_fixed_decimal.gd",
+      "res://tests/gf_core/standard/foundation/numeric/test_gf_fixed_vectors.gd",
+      "res://tests/gf_core/standard/utilities/random/test_gf_seed_utility.gd"
+    ],
+    "gf.standard.editor": [
+      "res://tests/gf_core/kernel/editor/test_gf_plugin_helpers.gd"
+    ],
+    "gf.standard.input": [
+      "res://tests/gf_core/standard/input/editor/test_gf_input_mapping_dock.gd",
+      "res://tests/gf_core/standard/input/mapping/test_gf_input_binding.gd",
+      "res://tests/gf_core/standard/input/runtime/test_gf_input_mapping_utility.gd"
+    ],
+    "gf.standard.spatial": [
+      "res://tests/gf_core/standard/foundation/math/test_gf_collision_broadphase_2d.gd",
+      "res://tests/gf_core/standard/foundation/math/test_gf_collision_broadphase_3d.gd",
+      "res://tests/gf_core/standard/foundation/math/test_gf_graph_math.gd",
+      "res://tests/gf_core/standard/foundation/math/test_gf_grid_math.gd",
+      "res://tests/gf_core/standard/utilities/spatial/test_gf_physics_query_utility.gd"
+    ],
+    "gf.standard.state": [
+      "res://tests/gf_core/standard/utilities/state/test_gf_reactive_state_store.gd"
+    ],
+    "gf.standard.state_machine": [
+      "res://tests/gf_core/standard/state_machine/node/test_gf_node_state_machine.gd",
+      "res://tests/gf_core/standard/state_machine/pure/test_gf_state_machine.gd"
+    ],
+    "gf.standard.storage": [
+      "res://tests/gf_core/standard/utilities/history/test_gf_snapshot_history_utility.gd",
+      "res://tests/gf_core/standard/utilities/storage/test_gf_storage_sync_utility.gd",
+      "res://tests/gf_core/standard/utilities/storage/test_gf_storage_utility.gd"
+    ],
+    "gf.standard.ui": [
+      "res://tests/gf_core/standard/utilities/display/test_gf_viewport_utility.gd",
+      "res://tests/gf_core/standard/utilities/settings/test_gf_settings_utility.gd",
+      "res://tests/gf_core/standard/utilities/ui/test_gf_text_fitter.gd",
+      "res://tests/gf_core/standard/utilities/ui/test_gf_ui_utility.gd"
+    ]
+  }
+}

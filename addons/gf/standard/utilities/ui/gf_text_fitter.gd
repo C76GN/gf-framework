@@ -30,13 +30,15 @@ const DEFAULT_MAX_FONT_SIZE: int = 64
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param control: 目标文本控件，支持 Label、RichTextLabel、Button、LineEdit 与 TextEdit，也可通过 options.text 适配自定义控件。
 ## [br]
-## @param options: 可选设置，支持 min_font_size、max_font_size、available_size、fit_width、fit_height、apply、font_name、font_size_name、text、content_insets、use_placeholder、horizontal_alignment、autowrap_mode、line_break_flags、justification_flags、text_direction。
+## @param options: 可选设置，支持 min_font_size、max_font_size、font_size_candidates、available_size、fit_width、fit_height、apply、font_name、font_size_name、text、content_insets、use_placeholder、horizontal_alignment、autowrap_mode、line_break_flags、justification_flags、text_direction。
 ## [br]
 ## @return 计算出的字体尺寸；目标无效或无法读取文本时返回 0。
 ## [br]
-## @schema options: Dictionary，支持 min_font_size、max_font_size、available_size、fit_width、fit_height、apply、font_name、font_size_name、font、text、content_insets、use_placeholder、horizontal_alignment、autowrap_mode、line_break_flags、justification_flags、text_direction。
+## @schema options: Dictionary，支持 min_font_size、max_font_size、font_size_candidates、available_size、fit_width、fit_height、apply、font_name、font_size_name、font、text、content_insets、use_placeholder、horizontal_alignment、autowrap_mode、line_break_flags、justification_flags、text_direction；font_size_candidates 为整数候选字号数组，非空时只从合法候选字号中挑选最大适配值。
 static func fit_control(control: Control, options: Dictionary = {}) -> int:
 	if control == null:
 		return 0
@@ -71,13 +73,15 @@ static func fit_control(control: Control, options: Dictionary = {}) -> int:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param label: 目标 Label。
 ## [br]
-## @param options: 可选设置，支持 min_font_size、max_font_size、available_size、fit_width、fit_height、apply、font_name、font_size_name、horizontal_alignment、autowrap_mode、line_break_flags、justification_flags、text_direction。
+## @param options: 可选设置，支持 min_font_size、max_font_size、font_size_candidates、available_size、fit_width、fit_height、apply、font_name、font_size_name、horizontal_alignment、autowrap_mode、line_break_flags、justification_flags、text_direction。
 ## [br]
 ## @return 计算出的字体尺寸；目标无效时返回 0。
 ## [br]
-## @schema options: Dictionary，支持 min_font_size、max_font_size、available_size、fit_width、fit_height、apply、font_name、font_size_name、font、horizontal_alignment、autowrap_mode、line_break_flags、justification_flags、text_direction。
+## @schema options: Dictionary，支持 min_font_size、max_font_size、font_size_candidates、available_size、fit_width、fit_height、apply、font_name、font_size_name、font、horizontal_alignment、autowrap_mode、line_break_flags、justification_flags、text_direction；font_size_candidates 为整数候选字号数组，非空时只从合法候选字号中挑选最大适配值。
 static func fit_label(label: Label, options: Dictionary = {}) -> int:
 	if label == null:
 		return 0
@@ -102,13 +106,15 @@ static func fit_label(label: Label, options: Dictionary = {}) -> int:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param label: 目标 RichTextLabel。
 ## [br]
-## @param options: 可选设置，支持 min_font_size、max_font_size、available_size、fit_width、fit_height、apply、font_name、font_size_name、horizontal_alignment、autowrap_mode、line_break_flags、justification_flags、text_direction。
+## @param options: 可选设置，支持 min_font_size、max_font_size、font_size_candidates、available_size、fit_width、fit_height、apply、font_name、font_size_name、horizontal_alignment、autowrap_mode、line_break_flags、justification_flags、text_direction。
 ## [br]
 ## @return 计算出的字体尺寸；目标无效时返回 0。
 ## [br]
-## @schema options: Dictionary，支持 min_font_size、max_font_size、available_size、fit_width、fit_height、apply、font_name、font_size_name、font、horizontal_alignment、autowrap_mode、line_break_flags、justification_flags、text_direction。
+## @schema options: Dictionary，支持 min_font_size、max_font_size、font_size_candidates、available_size、fit_width、fit_height、apply、font_name、font_size_name、font、horizontal_alignment、autowrap_mode、line_break_flags、justification_flags、text_direction；font_size_candidates 为整数候选字号数组，非空时只从合法候选字号中挑选最大适配值。
 static func fit_rich_text_label(label: RichTextLabel, options: Dictionary = {}) -> int:
 	if label == null:
 		return 0
@@ -347,6 +353,10 @@ static func _get_rich_text_label_text_info(label: RichTextLabel) -> Dictionary:
 static func _find_largest_fitting_font_size(control: Control, text: String, options: Dictionary) -> int:
 	var min_font_size: int = GFVariantData.get_option_int(options, "min_font_size", DEFAULT_MIN_FONT_SIZE)
 	var max_font_size: int = GFVariantData.get_option_int(options, "max_font_size", DEFAULT_MAX_FONT_SIZE)
+	var font_size_candidates: Array[int] = _resolve_font_size_candidates(options, min_font_size, max_font_size)
+	if not font_size_candidates.is_empty():
+		return _find_largest_candidate_font_size(control, text, options, font_size_candidates, min_font_size)
+
 	var best_size: int = min_font_size
 	var low: int = min_font_size
 	var high: int = max_font_size
@@ -360,6 +370,36 @@ static func _find_largest_fitting_font_size(control: Control, text: String, opti
 			high = candidate - 1
 
 	return best_size
+
+
+static func _find_largest_candidate_font_size(
+	control: Control,
+	text: String,
+	options: Dictionary,
+	font_size_candidates: Array[int],
+	fallback_font_size: int
+) -> int:
+	for candidate: int in font_size_candidates:
+		if _fits(control, text, candidate, options):
+			return candidate
+	return fallback_font_size
+
+
+static func _resolve_font_size_candidates(options: Dictionary, min_font_size: int, max_font_size: int) -> Array[int]:
+	var raw_candidates: Array[int] = GFVariantData.get_option_int_array(options, "font_size_candidates", [])
+	var result: Array[int] = []
+	var seen: Dictionary = {}
+	for raw_candidate: int in raw_candidates:
+		var candidate: int = maxi(raw_candidate, 0)
+		if candidate < min_font_size or candidate > max_font_size:
+			continue
+		if seen.has(candidate):
+			continue
+		seen[candidate] = true
+		result.append(candidate)
+	result.sort()
+	result.reverse()
+	return result
 
 
 static func _fits(control: Control, text: String, font_size: int, options: Dictionary) -> bool:

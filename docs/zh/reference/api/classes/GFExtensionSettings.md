@@ -18,10 +18,12 @@ GF 扩展启用状态与 ProjectSettings 桥接。 负责读取启用扩展 ID�
 | 常量 | [`ENABLED_EXTENSIONS_SETTING`](#member-gfextensionsettings-constants-enabled_extensions_setting) | `const ENABLED_EXTENSIONS_SETTING: String = "gf/extensions/enabled"` |
 | 常量 | [`AUTO_INSTALL_ENABLED_INSTALLERS_SETTING`](#member-gfextensionsettings-constants-auto_install_enabled_installers_setting) | `const AUTO_INSTALL_ENABLED_INSTALLERS_SETTING: String = "gf/extensions/auto_install_enabled_installers"` |
 | 常量 | [`EXTERNAL_EXTENSION_ROOTS_SETTING`](#member-gfextensionsettings-constants-external_extension_roots_setting) | `const EXTERNAL_EXTENSION_ROOTS_SETTING: String = "gf/extensions/external_roots"` |
+| 常量 | [`EXTENSION_PRESET_PATHS_SETTING`](#member-gfextensionsettings-constants-extension_preset_paths_setting) | `const EXTENSION_PRESET_PATHS_SETTING: String = "gf/extensions/preset_paths"` |
 | 常量 | [`EXPORT_EXCLUDE_DISABLED_SETTING`](#member-gfextensionsettings-constants-export_exclude_disabled_setting) | `const EXPORT_EXCLUDE_DISABLED_SETTING: String = "gf/extensions/export_exclude_disabled"` |
 | 常量 | [`EXPORT_FAIL_ON_DISABLED_REFERENCES_SETTING`](#member-gfextensionsettings-constants-export_fail_on_disabled_references_setting) | `const EXPORT_FAIL_ON_DISABLED_REFERENCES_SETTING: String = "gf/extensions/export_fail_on_disabled_references"` |
 | 常量 | [`AUTO_INSTALL_ENABLED_INSTALLERS_DEFAULT`](#member-gfextensionsettings-constants-auto_install_enabled_installers_default) | `const AUTO_INSTALL_ENABLED_INSTALLERS_DEFAULT: bool = true` |
 | 常量 | [`EXTERNAL_EXTENSION_ROOTS_DEFAULT`](#member-gfextensionsettings-constants-external_extension_roots_default) | `const EXTERNAL_EXTENSION_ROOTS_DEFAULT: Array[String] = []` |
+| 常量 | [`EXTENSION_PRESET_PATHS_DEFAULT`](#member-gfextensionsettings-constants-extension_preset_paths_default) | `const EXTENSION_PRESET_PATHS_DEFAULT: Array[String] = []` |
 | 常量 | [`EXPORT_EXCLUDE_DISABLED_DEFAULT`](#member-gfextensionsettings-constants-export_exclude_disabled_default) | `const EXPORT_EXCLUDE_DISABLED_DEFAULT: bool = true` |
 | 常量 | [`EXPORT_FAIL_ON_DISABLED_REFERENCES_DEFAULT`](#member-gfextensionsettings-constants-export_fail_on_disabled_references_default) | `const EXPORT_FAIL_ON_DISABLED_REFERENCES_DEFAULT: bool = true` |
 | 常量 | [`BUILT_IN_EXTENSION_IDS`](#member-gfextensionsettings-constants-built_in_extension_ids) | `const BUILT_IN_EXTENSION_IDS: Array[String] = [` |
@@ -34,11 +36,18 @@ GF 扩展启用状态与 ProjectSettings 桥接。 负责读取启用扩展 ID�
 | 方法 | [`set_auto_install_enabled_installers`](#member-gfextensionsettings-methods-set_auto_install_enabled_installers) | `static func set_auto_install_enabled_installers(enabled: bool) -> void:` |
 | 方法 | [`get_external_extension_roots`](#member-gfextensionsettings-methods-get_external_extension_roots) | `static func get_external_extension_roots() -> Array[String]:` |
 | 方法 | [`set_external_extension_roots`](#member-gfextensionsettings-methods-set_external_extension_roots) | `static func set_external_extension_roots(root_paths: Array[String]) -> void:` |
+| 方法 | [`get_extension_preset_paths`](#member-gfextensionsettings-methods-get_extension_preset_paths) | `static func get_extension_preset_paths() -> Array[String]:` |
+| 方法 | [`set_extension_preset_paths`](#member-gfextensionsettings-methods-set_extension_preset_paths) | `static func set_extension_preset_paths(preset_paths: Array[String]) -> void:` |
+| 方法 | [`add_extension_preset_path`](#member-gfextensionsettings-methods-add_extension_preset_path) | `static func add_extension_preset_path(preset_path: String) -> bool:` |
+| 方法 | [`remove_extension_preset_path`](#member-gfextensionsettings-methods-remove_extension_preset_path) | `static func remove_extension_preset_path(preset_path: String) -> bool:` |
 | 方法 | [`should_export_exclude_disabled_extensions`](#member-gfextensionsettings-methods-should_export_exclude_disabled_extensions) | `static func should_export_exclude_disabled_extensions() -> bool:` |
 | 方法 | [`set_export_exclude_disabled_extensions`](#member-gfextensionsettings-methods-set_export_exclude_disabled_extensions) | `static func set_export_exclude_disabled_extensions(enabled: bool) -> void:` |
 | 方法 | [`should_fail_export_on_disabled_extension_references`](#member-gfextensionsettings-methods-should_fail_export_on_disabled_extension_references) | `static func should_fail_export_on_disabled_extension_references() -> bool:` |
 | 方法 | [`set_fail_export_on_disabled_extension_references`](#member-gfextensionsettings-methods-set_fail_export_on_disabled_extension_references) | `static func set_fail_export_on_disabled_extension_references(enabled: bool) -> void:` |
 | 方法 | [`get_all_manifests`](#member-gfextensionsettings-methods-get_all_manifests) | `static func get_all_manifests() -> Array[GFExtensionManifest]:` |
+| 方法 | [`get_extension_presets`](#member-gfextensionsettings-methods-get_extension_presets) | `static func get_extension_presets() -> Array[GFExtensionPreset]:` |
+| 方法 | [`get_extension_preset_by_id`](#member-gfextensionsettings-methods-get_extension_preset_by_id) | `static func get_extension_preset_by_id(preset_id: StringName) -> GFExtensionPreset:` |
+| 方法 | [`apply_extension_preset`](#member-gfextensionsettings-methods-apply_extension_preset) | `static func apply_extension_preset( preset_id: StringName, include_dependencies: bool = true ) -> bool:` |
 | 方法 | [`clear_manifest_cache`](#member-gfextensionsettings-methods-clear_manifest_cache) | `static func clear_manifest_cache() -> void:` |
 | 方法 | [`get_manifest_by_id`](#member-gfextensionsettings-methods-get_manifest_by_id) | `static func get_manifest_by_id(extension_id: String) -> GFExtensionManifest:` |
 | 方法 | [`has_extension`](#member-gfextensionsettings-methods-has_extension) | `static func has_extension(extension_id: String) -> bool:` |
@@ -98,6 +107,19 @@ const EXTERNAL_EXTENSION_ROOTS_SETTING: String = "gf/extensions/external_roots"
 
 项目设置：额外扩展集合根目录列表。每个根目录下一层为独立扩展目录。
 
+<a id="member-gfextensionsettings-constants-extension_preset_paths_setting"></a>
+
+### `EXTENSION_PRESET_PATHS_SETTING`
+
+- API：`public`
+- 首次版本：`5.0.0`
+
+```gdscript
+const EXTENSION_PRESET_PATHS_SETTING: String = "gf/extensions/preset_paths"
+```
+
+项目设置：扩展 preset JSON 文件路径列表。
+
 <a id="member-gfextensionsettings-constants-export_exclude_disabled_setting"></a>
 
 ### `EXPORT_EXCLUDE_DISABLED_SETTING`
@@ -146,6 +168,19 @@ const EXTERNAL_EXTENSION_ROOTS_DEFAULT: Array[String] = []
 ```
 
 默认不扫描额外扩展根目录。
+
+<a id="member-gfextensionsettings-constants-extension_preset_paths_default"></a>
+
+### `EXTENSION_PRESET_PATHS_DEFAULT`
+
+- API：`public`
+- 首次版本：`5.0.0`
+
+```gdscript
+const EXTENSION_PRESET_PATHS_DEFAULT: Array[String] = []
+```
+
+默认不加载项目侧扩展 preset。
 
 <a id="member-gfextensionsettings-constants-export_exclude_disabled_default"></a>
 
@@ -324,6 +359,82 @@ static func set_external_extension_roots(root_paths: Array[String]) -> void:
 |---|---|
 | `root_paths` | 扩展集合根目录列表。 |
 
+<a id="member-gfextensionsettings-methods-get_extension_preset_paths"></a>
+
+### `get_extension_preset_paths`
+
+- API：`public`
+- 首次版本：`5.0.0`
+
+```gdscript
+static func get_extension_preset_paths() -> Array[String]:
+```
+
+获取项目配置的扩展 preset JSON 文件路径。 只返回 `res://` 下的 `.json` 文件路径，避免 preset 发现越过项目资源边界。
+
+返回：扩展 preset JSON 文件路径列表。
+
+<a id="member-gfextensionsettings-methods-set_extension_preset_paths"></a>
+
+### `set_extension_preset_paths`
+
+- API：`public`
+- 首次版本：`5.0.0`
+
+```gdscript
+static func set_extension_preset_paths(preset_paths: Array[String]) -> void:
+```
+
+保存项目配置的扩展 preset JSON 文件路径。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `preset_paths` | 扩展 preset JSON 文件路径列表。 |
+
+<a id="member-gfextensionsettings-methods-add_extension_preset_path"></a>
+
+### `add_extension_preset_path`
+
+- API：`public`
+- 首次版本：`5.0.0`
+
+```gdscript
+static func add_extension_preset_path(preset_path: String) -> bool:
+```
+
+添加一个项目扩展 preset JSON 文件路径。 路径必须指向能解析为有效 `GFExtensionPreset` 的 `res://` JSON 文件。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `preset_path` | 扩展 preset JSON 文件路径。 |
+
+返回：路径指向有效 preset 且被新增时返回 true；无效或已存在时返回 false。
+
+<a id="member-gfextensionsettings-methods-remove_extension_preset_path"></a>
+
+### `remove_extension_preset_path`
+
+- API：`public`
+- 首次版本：`5.0.0`
+
+```gdscript
+static func remove_extension_preset_path(preset_path: String) -> bool:
+```
+
+移除一个项目扩展 preset JSON 文件路径。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `preset_path` | 扩展 preset JSON 文件路径。 |
+
+返回：路径存在且已移除时返回 true；无效或不存在时返回 false。
+
 <a id="member-gfextensionsettings-methods-should_export_exclude_disabled_extensions"></a>
 
 ### `should_export_exclude_disabled_extensions`
@@ -401,6 +512,64 @@ static func get_all_manifests() -> Array[GFExtensionManifest]:
 获取所有 manifest。
 
 返回：manifest 列表。
+
+<a id="member-gfextensionsettings-methods-get_extension_presets"></a>
+
+### `get_extension_presets`
+
+- API：`public`
+- 首次版本：`5.0.0`
+
+```gdscript
+static func get_extension_presets() -> Array[GFExtensionPreset]:
+```
+
+获取可用的扩展 preset。 返回 GF 内置的动态基础组合，以及项目在 `gf/extensions/preset_paths` 中声明的 preset。
+
+返回：扩展 preset 列表。
+
+<a id="member-gfextensionsettings-methods-get_extension_preset_by_id"></a>
+
+### `get_extension_preset_by_id`
+
+- API：`public`
+- 首次版本：`5.0.0`
+
+```gdscript
+static func get_extension_preset_by_id(preset_id: StringName) -> GFExtensionPreset:
+```
+
+按 ID 获取扩展 preset。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `preset_id` | 扩展 preset ID。 |
+
+返回：找到时返回 preset，否则返回 null。
+
+<a id="member-gfextensionsettings-methods-apply_extension_preset"></a>
+
+### `apply_extension_preset`
+
+- API：`public`
+- 首次版本：`5.0.0`
+
+```gdscript
+static func apply_extension_preset( preset_id: StringName, include_dependencies: bool = true ) -> bool:
+```
+
+应用扩展 preset 到 `gf/extensions/enabled`。 该方法只写入启用扩展 ID；保存 project.godot 由调用方决定。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `preset_id` | 扩展 preset ID。 |
+| `include_dependencies` | 是否自动包含 manifest 硬依赖。 |
+
+返回：找到并写入 preset 时返回 true。
 
 <a id="member-gfextensionsettings-methods-clear_manifest_cache"></a>
 

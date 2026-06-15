@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFVoronoi2D" path="addons/gf/standard/foundation/math/gf_voronoi_2d.gd" module="standard" extends="RefCounted" classDigest="b5b3056e976d553cd46e50cc3cb4b1c56832b3eed61d13538a84e412aa932840">
+	<description>GFVoronoi2D: 通用二维 Delaunay 三角剖分与 Voronoi 图计算工具。
+输入为纯 Vector2 点集，输出结构化 Dictionary 数据。工具不生成 Mesh、Node、场景、
+地形、材质或编辑器交互，项目层负责解释点和多边形的业务含义。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_service</tag>
+		<tag name="since">5.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants>
+		<member kind="const" name="DEFAULT_EPSILON">
+			<signature>const DEFAULT_EPSILON: float = 0.000001</signature>
+			<description>默认浮点容差。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="DEFAULT_MAX_POINTS">
+			<signature>const DEFAULT_MAX_POINTS: int = 512</signature>
+			<description>默认最大输入点数，用于避免误把实时大批量数据交给 O(n²) 纯 GDScript 计算。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties />
+	<methods>
+		<member kind="method" name="build_delaunay">
+			<signature>static func build_delaunay(points: PackedVector2Array, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>基于点集生成 Delaunay 三角剖分。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">points: 输入点集。</tag>
+				<tag name="param">options: 可选参数，支持 epsilon 和 max_points。</tag>
+				<tag name="return">结构化三角剖分结果。</tag>
+				<tag name="schema">options: Dictionary with optional epsilon: float and max_points: int.</tag>
+				<tag name="schema">return: Dictionary with ok: bool, error: String, input_point_count: int, point_count: int, duplicate_count: int, points: PackedVector2Array, triangles: Array[PackedInt32Array], and edges: Array[PackedInt32Array].</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="build_voronoi">
+			<signature>static func build_voronoi(points: PackedVector2Array, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>基于点集生成 Voronoi 图。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">points: 输入点集。</tag>
+				<tag name="param">options: 可选参数，支持 epsilon 和 max_points。</tag>
+				<tag name="return">结构化 Voronoi 结果。</tag>
+				<tag name="schema">options: Dictionary with optional epsilon: float and max_points: int.</tag>
+				<tag name="schema">return: Dictionary with Delaunay fields plus vertices: PackedVector2Array and cells: Array[Dictionary]. Each cell contains point_index: int, point: Vector2, vertex_indices: PackedInt32Array, polygon: PackedVector2Array, and is_open: bool.</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

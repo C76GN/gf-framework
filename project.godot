@@ -34,13 +34,17 @@ gdscript/warnings/unsafe_call_argument=1
 gdscript/warnings/return_value_discarded=1
 gdscript/warnings/missing_await=1
 
+[editor]
+
+run/main_run_args="--verbose"
+
 [editor_plugins]
 
 enabled=PackedStringArray("res://addons/gf/plugin.cfg", "res://addons/gut/plugin.cfg")
 
 [gf]
 
-extensions/enabled=Array[String](["gf.action_queue", "gf.asset_metadata", "gf.behavior_tree", "gf.camera", "gf.capability", "gf.combat", "gf.dialogue", "gf.domain", "gf.feedback", "gf.flow", "gf.interaction", "gf.network", "gf.physics", "gf.save", "gf.turn_based"])
+extensions/enabled=Array[String]([])
 extensions/export_fail_on_disabled_references=true
 network/contract_paths=PackedStringArray()
 network/contract_output_dir="res://gf/generated/network"

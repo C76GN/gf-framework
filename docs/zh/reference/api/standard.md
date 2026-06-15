@@ -6,11 +6,11 @@
 
 | 类别 | 类 | 成员 | 方法 |
 |---|---:|---:|---:|
-| [运行时服务](#category-runtime_service) | 103 | 1942 | 1347 |
+| [运行时服务](#category-runtime_service) | 113 | 2037 | 1397 |
 | [协议与扩展点](#category-protocol) | 18 | 232 | 190 |
 | [资源定义](#category-resource_definition) | 85 | 908 | 443 |
-| [运行时句柄](#category-runtime_handle) | 17 | 295 | 154 |
-| [值对象](#category-value_object) | 18 | 293 | 161 |
+| [运行时句柄](#category-runtime_handle) | 21 | 355 | 205 |
+| [值对象](#category-value_object) | 21 | 371 | 231 |
 | [领域模型](#category-domain_model) | 4 | 60 | 41 |
 | [事件契约](#category-event_contract) | 5 | 47 | 17 |
 | [编辑器 API](#category-editor_api) | 6 | 21 | 17 |
@@ -27,11 +27,15 @@
 | [`GFAssetUtility`](classes/GFAssetUtility.md#gfassetutility) | `GFUtility` | `addons/gf/standard/utilities/assets/gf_asset_utility.gd` |
 | [`GFAudioBankTools`](classes/GFAudioBankTools.md#gfaudiobanktools) | `RefCounted` | `addons/gf/standard/utilities/audio/gf_audio_bank_tools.gd` |
 | [`GFAudioCatalogProvider`](classes/GFAudioCatalogProvider.md#gfaudiocatalogprovider) | `RefCounted` | `addons/gf/standard/utilities/audio/gf_audio_catalog_provider.gd` |
+| [`GFAudioLibraryTools`](classes/GFAudioLibraryTools.md#gfaudiolibrarytools) | `RefCounted` | `addons/gf/standard/utilities/audio/gf_audio_library_tools.gd` |
 | [`GFAudioUtility`](classes/GFAudioUtility.md#gfaudioutility) | `GFUtility` | `addons/gf/standard/utilities/audio/gf_audio_utility.gd` |
 | [`GFBackgroundWorkUtility`](classes/GFBackgroundWorkUtility.md#gfbackgroundworkutility) | `GFUtility` | `addons/gf/standard/utilities/jobs/gf_background_work_utility.gd` |
 | [`GFBatchedLogSink`](classes/GFBatchedLogSink.md#gfbatchedlogsink) | `GFLogSink` | `addons/gf/standard/utilities/logging/gf_batched_log_sink.gd` |
 | [`GFBudgetLedger`](classes/GFBudgetLedger.md#gfbudgetledger) | `RefCounted` | `addons/gf/standard/foundation/budget/gf_budget_ledger.gd` |
 | [`GFBuildInfoUtility`](classes/GFBuildInfoUtility.md#gfbuildinfoutility) | `GFUtility` | `addons/gf/standard/utilities/debug/gf_build_info_utility.gd` |
+| [`GFCollisionBroadphase2D`](classes/GFCollisionBroadphase2D.md#gfcollisionbroadphase2d) | `RefCounted` | `addons/gf/standard/foundation/math/gf_collision_broadphase_2d.gd` |
+| [`GFCollisionBroadphase3D`](classes/GFCollisionBroadphase3D.md#gfcollisionbroadphase3d) | `RefCounted` | `addons/gf/standard/foundation/math/gf_collision_broadphase_3d.gd` |
+| [`GFCollisionNarrowphase2D`](classes/GFCollisionNarrowphase2D.md#gfcollisionnarrowphase2d) | `RefCounted` | `addons/gf/standard/foundation/math/gf_collision_narrowphase_2d.gd` |
 | [`GFCommandHistoryUtility`](classes/GFCommandHistoryUtility.md#gfcommandhistoryutility) | `GFUtility` | `addons/gf/standard/utilities/history/gf_command_history_utility.gd` |
 | [`GFCommandSequence`](classes/GFCommandSequence.md#gfcommandsequence) | `RefCounted` | `addons/gf/standard/sequence/gf_command_sequence.gd` |
 | [`GFConfigReferenceResolver`](classes/GFConfigReferenceResolver.md#gfconfigreferenceresolver) | `RefCounted` | `addons/gf/standard/utilities/config/gf_config_reference_resolver.gd` |
@@ -42,6 +46,7 @@
 | [`GFCurve2DMath`](classes/GFCurve2DMath.md#gfcurve2dmath) | `RefCounted` | `addons/gf/standard/foundation/math/gf_curve_2d_math.gd` |
 | [`GFDebugDrawUtility`](classes/GFDebugDrawUtility.md#gfdebugdrawutility) | `GFUtility` | `addons/gf/standard/utilities/debug/gf_debug_draw_utility.gd` |
 | [`GFDebugOverlayUtility`](classes/GFDebugOverlayUtility.md#gfdebugoverlayutility) | `GFUtility` | `addons/gf/standard/utilities/debug/gf_debug_overlay_utility.gd` |
+| [`GFDeterministicVariantSerializer`](classes/GFDeterministicVariantSerializer.md#gfdeterministicvariantserializer) | `RefCounted` | `addons/gf/standard/foundation/deterministic/gf_deterministic_variant_serializer.gd` |
 | [`GFDiagnosticsUtility`](classes/GFDiagnosticsUtility.md#gfdiagnosticsutility) | `GFUtility` | `addons/gf/standard/utilities/debug/gf_diagnostics_utility.gd` |
 | [`GFDirectoryWatchUtility`](classes/GFDirectoryWatchUtility.md#gfdirectorywatchutility) | `RefCounted` | `addons/gf/standard/utilities/io/gf_directory_watch_utility.gd` |
 | [`GFDisplaySettingsUtility`](classes/GFDisplaySettingsUtility.md#gfdisplaysettingsutility) | `GFUtility` | `addons/gf/standard/utilities/display/gf_display_settings_utility.gd` |
@@ -77,9 +82,11 @@
 | [`GFObjectPoolUtility`](classes/GFObjectPoolUtility.md#gfobjectpoolutility) | `GFUtility` | `addons/gf/standard/utilities/nodes/gf_object_pool_utility.gd` |
 | [`GFPhysicsQueryUtility`](classes/GFPhysicsQueryUtility.md#gfphysicsqueryutility) | `GFUtility` | `addons/gf/standard/utilities/spatial/gf_physics_query_utility.gd` |
 | [`GFPointerActivityUtility`](classes/GFPointerActivityUtility.md#gfpointeractivityutility) | `GFUtility` | `addons/gf/standard/input/runtime/gf_pointer_activity_utility.gd` |
+| [`GFPoissonDisc2D`](classes/GFPoissonDisc2D.md#gfpoissondisc2d) | `RefCounted` | `addons/gf/standard/foundation/math/gf_poisson_disc_2d.gd` |
 | [`GFPolynomialMath`](classes/GFPolynomialMath.md#gfpolynomialmath) | `RefCounted` | `addons/gf/standard/foundation/math/gf_polynomial_math.gd` |
 | [`GFProgressionMath`](classes/GFProgressionMath.md#gfprogressionmath) | `RefCounted` | `addons/gf/standard/foundation/math/gf_progression_math.gd` |
 | [`GFQuadTreeUtility`](classes/GFQuadTreeUtility.md#gfquadtreeutility) | `GFUtility` | `addons/gf/standard/utilities/spatial/gf_quad_tree_utility.gd` |
+| [`GFRectPacking2D`](classes/GFRectPacking2D.md#gfrectpacking2d) | `RefCounted` | `addons/gf/standard/foundation/math/gf_rect_packing_2d.gd` |
 | [`GFRefCountedPool`](classes/GFRefCountedPool.md#gfrefcountedpool) | `RefCounted` | `addons/gf/standard/utilities/pooling/gf_ref_counted_pool.gd` |
 | [`GFRegionMap2D`](classes/GFRegionMap2D.md#gfregionmap2d) | `RefCounted` | `addons/gf/standard/foundation/math/gf_region_map_2d.gd` |
 | [`GFRegionMap3D`](classes/GFRegionMap3D.md#gfregionmap3d) | `RefCounted` | `addons/gf/standard/foundation/math/gf_region_map_3d.gd` |
@@ -92,6 +99,7 @@
 | [`GFRuntimeInspectorUtility`](classes/GFRuntimeInspectorUtility.md#gfruntimeinspectorutility) | `GFUtility` | `addons/gf/standard/utilities/debug/gf_runtime_inspector_utility.gd` |
 | [`GFSceneUtility`](classes/GFSceneUtility.md#gfsceneutility) | `GFUtility` | `addons/gf/standard/utilities/scene/gf_scene_utility.gd` |
 | [`GFScreenTransitionUtility`](classes/GFScreenTransitionUtility.md#gfscreentransitionutility) | `GFUtility` | `addons/gf/standard/utilities/scene/gf_screen_transition_utility.gd` |
+| [`GFScreenshotUtility`](classes/GFScreenshotUtility.md#gfscreenshotutility) | `GFUtility` | `addons/gf/standard/utilities/debug/gf_screenshot_utility.gd` |
 | [`GFSeedUtility`](classes/GFSeedUtility.md#gfseedutility) | `GFUtility` | `addons/gf/standard/utilities/random/gf_seed_utility.gd` |
 | [`GFSettingsUtility`](classes/GFSettingsUtility.md#gfsettingsutility) | `GFUtility` | `addons/gf/standard/utilities/settings/gf_settings_utility.gd` |
 | [`GFShaderParameterUtility`](classes/GFShaderParameterUtility.md#gfshaderparameterutility) | `GFUtility` | `addons/gf/standard/utilities/display/gf_shader_parameter_utility.gd` |
@@ -109,6 +117,7 @@
 | [`GFTagSourceAdapter`](classes/GFTagSourceAdapter.md#gftagsourceadapter) | `RefCounted` | `addons/gf/standard/foundation/tags/gf_tag_source_adapter.gd` |
 | [`GFTextAutoFit`](classes/GFTextAutoFit.md#gftextautofit) | `Node` | `addons/gf/standard/utilities/ui/gf_text_auto_fit.gd` |
 | [`GFTextFitter`](classes/GFTextFitter.md#gftextfitter) | `RefCounted` | `addons/gf/standard/utilities/ui/gf_text_fitter.gd` |
+| [`GFTextSearchScorer`](classes/GFTextSearchScorer.md#gftextsearchscorer) | `RefCounted` | `addons/gf/standard/foundation/collections/gf_text_search_scorer.gd` |
 | [`GFTimeUtility`](classes/GFTimeUtility.md#gftimeutility) | `GFTimeProvider` | `addons/gf/standard/utilities/time/gf_time_utility.gd` |
 | [`GFTimedTextImporter`](classes/GFTimedTextImporter.md#gftimedtextimporter) | `RefCounted` | `addons/gf/standard/foundation/timeline/gf_timed_text_importer.gd` |
 | [`GFTimerUtility`](classes/GFTimerUtility.md#gftimerutility) | `GFUtility` | `addons/gf/standard/utilities/time/gf_timer_utility.gd` |
@@ -126,6 +135,7 @@
 | [`GFVariantReferenceCodec`](classes/GFVariantReferenceCodec.md#gfvariantreferencecodec) | `RefCounted` | `addons/gf/standard/foundation/variant/gf_variant_reference_codec.gd` |
 | [`GFViewportUtility`](classes/GFViewportUtility.md#gfviewportutility) | `GFUtility` | `addons/gf/standard/utilities/display/gf_viewport_utility.gd` |
 | [`GFVirtualListModel`](classes/GFVirtualListModel.md#gfvirtuallistmodel) | `RefCounted` | `addons/gf/standard/utilities/ui/gf_virtual_list_model.gd` |
+| [`GFVoronoi2D`](classes/GFVoronoi2D.md#gfvoronoi2d) | `RefCounted` | `addons/gf/standard/foundation/math/gf_voronoi_2d.gd` |
 
 <a id="category-protocol"></a>
 
@@ -256,13 +266,17 @@
 | [`GFAudioBeatClock`](classes/GFAudioBeatClock.md#gfaudiobeatclock) | `RefCounted` | `addons/gf/standard/utilities/audio/gf_audio_beat_clock.gd` |
 | [`GFAudioEmitterHandle`](classes/GFAudioEmitterHandle.md#gfaudioemitterhandle) | `RefCounted` | `addons/gf/standard/utilities/audio/gf_audio_emitter_handle.gd` |
 | [`GFBackgroundWorkTask`](classes/GFBackgroundWorkTask.md#gfbackgroundworktask) | `RefCounted` | `addons/gf/standard/utilities/jobs/gf_background_work_task.gd` |
+| [`GFDeterministicRandom`](classes/GFDeterministicRandom.md#gfdeterministicrandom) | `RefCounted` | `addons/gf/standard/foundation/deterministic/gf_deterministic_random.gd` |
 | [`GFDownloadTask`](classes/GFDownloadTask.md#gfdownloadtask) | `RefCounted` | `addons/gf/standard/utilities/io/gf_download_task.gd` |
 | [`GFDragSession`](classes/GFDragSession.md#gfdragsession) | `RefCounted` | `addons/gf/standard/input/drag_drop/gf_drag_session.gd` |
 | [`GFFormBinder`](classes/GFFormBinder.md#gfformbinder) | `RefCounted` | `addons/gf/standard/utilities/ui/gf_form_binder.gd` |
+| [`GFGraphPathSearchState`](classes/GFGraphPathSearchState.md#gfgraphpathsearchstate) | `RefCounted` | `addons/gf/standard/foundation/math/gf_graph_path_search_state.gd` |
 | [`GFHttpRequestBuilder`](classes/GFHttpRequestBuilder.md#gfhttprequestbuilder) | `RefCounted` | `addons/gf/standard/utilities/io/gf_http_request_builder.gd` |
 | [`GFHttpResponse`](classes/GFHttpResponse.md#gfhttpresponse) | `RefCounted` | `addons/gf/standard/utilities/io/gf_http_response.gd` |
 | [`GFJob`](classes/GFJob.md#gfjob) | `RefCounted` | `addons/gf/standard/utilities/jobs/gf_job.gd` |
 | [`GFNodeStateGroup`](classes/GFNodeStateGroup.md#gfnodestategroup) | `Node` | `addons/gf/standard/state_machine/node/gf_node_state_group.gd` |
+| [`GFReactiveStateControlBinder`](classes/GFReactiveStateControlBinder.md#gfreactivestatecontrolbinder) | `RefCounted` | `addons/gf/standard/utilities/ui/gf_reactive_state_control_binder.gd` |
+| [`GFReactiveStateStore`](classes/GFReactiveStateStore.md#gfreactivestatestore) | `RefCounted` | `addons/gf/standard/utilities/state/gf_reactive_state_store.gd` |
 | [`GFShaderParameterBinder`](classes/GFShaderParameterBinder.md#gfshaderparameterbinder) | `Node` | `addons/gf/standard/utilities/display/gf_shader_parameter_binder.gd` |
 | [`GFSignalBridgeBinding`](classes/GFSignalBridgeBinding.md#gfsignalbridgebinding) | `RefCounted` | `addons/gf/standard/utilities/signals/bridge/gf_signal_bridge_binding.gd` |
 | [`GFSignalConnection`](classes/GFSignalConnection.md#gfsignalconnection) | `RefCounted` | `addons/gf/standard/utilities/signals/gf_signal_connection.gd` |
@@ -278,8 +292,11 @@
 | [`GFBigNumber`](classes/GFBigNumber.md#gfbignumber) | `RefCounted` | `addons/gf/standard/foundation/numeric/gf_big_number.gd` |
 | [`GFBuildInfo`](classes/GFBuildInfo.md#gfbuildinfo) | `Resource` | `addons/gf/standard/utilities/debug/gf_build_info.gd` |
 | [`GFConfigValidationReport`](classes/GFConfigValidationReport.md#gfconfigvalidationreport) | `RefCounted` | `addons/gf/standard/utilities/config/gf_config_validation_report.gd` |
+| [`GFDeque`](classes/GFDeque.md#gfdeque) | `RefCounted` | `addons/gf/standard/foundation/collections/gf_deque.gd` |
 | [`GFDirectoryChangeSet`](classes/GFDirectoryChangeSet.md#gfdirectorychangeset) | `RefCounted` | `addons/gf/standard/utilities/io/gf_directory_change_set.gd` |
 | [`GFFixedDecimal`](classes/GFFixedDecimal.md#gffixeddecimal) | `RefCounted` | `addons/gf/standard/foundation/numeric/gf_fixed_decimal.gd` |
+| [`GFFixedVector2`](classes/GFFixedVector2.md#gffixedvector2) | `RefCounted` | `addons/gf/standard/foundation/numeric/gf_fixed_vector2.gd` |
+| [`GFFixedVector3`](classes/GFFixedVector3.md#gffixedvector3) | `RefCounted` | `addons/gf/standard/foundation/numeric/gf_fixed_vector3.gd` |
 | [`GFFormulaParameter`](classes/GFFormulaParameter.md#gfformulaparameter) | `RefCounted` | `addons/gf/standard/foundation/formula/gf_formula_parameter.gd` |
 | [`GFMetricSeries`](classes/GFMetricSeries.md#gfmetricseries) | `RefCounted` | `addons/gf/standard/utilities/debug/gf_metric_series.gd` |
 | [`GFModalResult`](classes/GFModalResult.md#gfmodalresult) | `RefCounted` | `addons/gf/standard/utilities/ui/gf_modal_result.gd` |

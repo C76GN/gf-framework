@@ -15,7 +15,16 @@ Gf.architecture.restore_global_snapshot(global_snapshot, func(data):
 )
 ```
 
-快照只负责框架层状态聚合。`Model` 的字段如何序列化、命令字典如何恢复成具体实例、以及最终写入哪个存档文件，仍由项目层决定。
+大型项目应优先使用分帧快照入口，再交给 Storage 的异步写入线程：
+
+```gdscript
+var snapshot := await Gf.architecture.get_global_snapshot_async({
+	"max_models_per_frame": 8,
+})
+storage.save_data_async("profile.json", snapshot)
+```
+
+快照只负责框架层状态聚合。架构通过内部 `GFArchitectureSnapshotCoordinator` 调用 `GFModel.to_dict()` / `from_dict()` 强类型虚方法收集和恢复数据；恢复时每个 Model 条目必须是 `Dictionary`，否则会被跳过并记录 warning。`get_all_models_state_async()`、`restore_all_models_state_async()`、`get_global_snapshot_async()` 与 `restore_global_snapshot_async()` 会按 `max_models_per_frame` 分帧处理 Model；传 `0` 可关闭主动让帧。`Model` 的字段如何序列化、命令字典如何恢复成具体实例、以及最终写入哪个存档文件，仍由项目层决定。
 
 ## 内核基础设施
 

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFDialogueRunner" path="addons/gf/extensions/dialogue/runtime/gf_dialogue_runner.gd" module="extensions/dialogue" extends="RefCounted" classDigest="26bd36ac86a92915f02eb358b50b2747a018d3afac02d7cb7a4aa0374e5c68eb">
+<class name="GFDialogueRunner" path="addons/gf/extensions/dialogue/runtime/gf_dialogue_runner.gd" module="extensions/dialogue" extends="RefCounted" classDigest="1ecc3d110682605bf40380b15f9891fbb40ca79ec61ddf208f9eb3a9d548716d">
 	<description>GFDialogueRunner: 通用对话资源执行器。
 Runner 只沿 GFDialogueResource 的行、响应、跳转、条件和 mutation 推进，
 并发出结构化事件。显示、输入、存档和业务状态由项目层决定。</description>
@@ -55,7 +55,16 @@ Runner 只沿 GFDialogueResource 的行、响应、跳转、条件和 mutation �
 		</member>
 	</signals>
 	<enums />
-	<constants />
+	<constants>
+		<member kind="const" name="SNAPSHOT_SCHEMA_VERSION">
+			<signature>const SNAPSHOT_SCHEMA_VERSION: int = 1</signature>
+			<description>对话运行快照结构版本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+	</constants>
 	<properties>
 		<member kind="property" name="max_steps_per_advance">
 			<signature>var max_steps_per_advance: int = 1024</signature>
@@ -131,6 +140,33 @@ Runner 只沿 GFDialogueResource 的行、响应、跳转、条件和 mutation �
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">运行中返回 true。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="create_runtime_snapshot">
+			<signature>func create_runtime_snapshot() -&gt; Dictionary:</signature>
+			<description>创建可存档的运行快照。
+快照只保存 Runner 的当前位置和上下文值，不保存对话资源本体。
+恢复时由调用方重新提供 GFDialogueResource，避免框架绑定项目存档结构。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">运行快照。</tag>
+				<tag name="schema">return: 包含 schema_version、is_running、current_line_id 和 context_values 字段的 Dictionary。</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="restore_runtime_snapshot">
+			<signature>func restore_runtime_snapshot( resource: GFDialogueResource, snapshot: Dictionary, context: GFDialogueContext = null ) -&gt; GFDialogueLine:</signature>
+			<description>从运行快照恢复到当前可展示行。
+恢复不会重新触发 dialogue_started、line_reached 或 mutation_requested，
+也不会重新执行 mutation。调用方可使用返回行刷新自己的 UI。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">resource: 快照对应的对话资源。</tag>
+				<tag name="param">snapshot: create_runtime_snapshot() 生成的快照。</tag>
+				<tag name="param">context: 可选上下文；为空时创建新上下文并恢复快照中的 context_values。</tag>
+				<tag name="return">恢复后的当前可展示行；快照无效、已结束或资源不匹配时返回 null。</tag>
+				<tag name="schema">snapshot: 包含 schema_version、is_running、current_line_id 和 context_values 字段的 Dictionary。</tag>
+				<tag name="since">5.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_debug_snapshot">

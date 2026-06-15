@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFProjectSettingsTools" path="addons/gf/kernel/core/gf_project_settings_tools.gd" module="kernel" extends="RefCounted" classDigest="c5e4a89e68a34f1dc237d02862dcb0ec0ed154afbf7f4a7afdeffac35e6573a4">
+	<description>GFProjectSettingsTools: ProjectSettings 默认值和属性信息注册工具。
+用于让插件、扩展和项目工具以一致方式声明 ProjectSettings 键、默认值、
+缺失键的初始值和 Inspector 元数据。工具不解释具体设置语义，也不保存 project.godot。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_service</tag>
+		<tag name="since">5.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties />
+	<methods>
+		<member kind="method" name="ensure_setting">
+			<signature>static func ensure_setting( setting_name: String, default_value: Variant, options: Dictionary = {} ) -&gt; bool:</signature>
+			<description>确保 ProjectSettings 键存在，并可选注册 Inspector 属性信息。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">setting_name: ProjectSettings 键名。</tag>
+				<tag name="param">default_value: 缺失时写入的默认值，也会作为缺失键的重置初始值。</tag>
+				<tag name="param">options: 可选参数，支持 type、hint、hint_string、usage、basic、restart_if_changed、internal、register_property_info 和 update_initial_value。</tag>
+				<tag name="return">本次是否写入了默认值。</tag>
+				<tag name="schema">default_value: Variant ProjectSettings default value.</tag>
+				<tag name="schema">options: Dictionary with optional type: int, hint: int, hint_string: String, usage: int, basic: bool, restart_if_changed: bool, internal: bool, register_property_info: bool, and update_initial_value: bool.</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="register_property_info">
+			<signature>static func register_property_info( setting_name: String, value_type: int, options: Dictionary = {} ) -&gt; void:</signature>
+			<description>注册 ProjectSettings Inspector 属性信息和显示标记。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">setting_name: ProjectSettings 键名。</tag>
+				<tag name="param">value_type: Godot Variant 类型常量。</tag>
+				<tag name="param">options: 可选参数，支持 hint、hint_string、usage、basic、restart_if_changed 和 internal。</tag>
+				<tag name="schema">options: Dictionary with optional hint: int, hint_string: String, usage: int, basic: bool, restart_if_changed: bool, and internal: bool.</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

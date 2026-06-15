@@ -79,4 +79,4 @@ Extensions：
 - `GFInstaller`：项目或扩展的集中装配入口。
 - `GFNodeContext`：场景树中的局部架构上下文。
 - `GFAccessGenerator`：强类型访问器生成器。
-- `GF Workspace`：独立编辑器工作区，包含扩展管理、输入映射、存档文件查看、场景存档图、信号诊断和诊断快照等页面。
+- `GF Workspace`：独立编辑器工作区，固定提供扩展管理、输入映射、信号诊断和诊断快照等基础页面；SaveGraph、Flow 等页面由对应可选扩展启用后贡献。

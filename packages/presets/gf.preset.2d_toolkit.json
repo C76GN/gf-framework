@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "id": "gf.preset.2d_toolkit",
+  "kind": "preset",
+  "version": "unreleased",
+  "display_name": "GF 2D Toolkit Preset",
+  "description": "Installs camera, physics, flow, interaction, and UI packages commonly used by 2D projects.",
+  "packages": [
+    "gf.extension.camera",
+    "gf.extension.physics",
+    "gf.extension.flow",
+    "gf.extension.interaction",
+    "gf.standard.ui"
+  ],
+  "metadata": {
+    "stage": "preset-v1"
+  }
+}

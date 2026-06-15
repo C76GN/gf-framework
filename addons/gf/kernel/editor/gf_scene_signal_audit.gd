@@ -271,11 +271,13 @@ static func collect_scene_paths(root_path: String = "res://", options: Dictionar
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param root: 需要扫描的根节点。
 ## [br]
-## @param options: 选项，支持 `include_internal`、`persistent_only`、`include_empty_signals`、`include_external_targets`、`max_node_depth` 与 `max_nodes`。
+## @param options: 选项，支持 `include_internal`、`persistent_only`、`include_empty_signals`、`include_external_targets`、`participating_nodes_only`、`max_node_depth` 与 `max_nodes`。
 ## [br]
-## @schema options: Dictionary with include_internal, persistent_only, include_empty_signals, include_external_targets, max_node_depth, and max_nodes.
+## @schema options: Dictionary with include_internal, persistent_only, include_empty_signals, include_external_targets, participating_nodes_only, max_node_depth, and max_nodes.
 ## [br]
 ## @return 信号连接图报告。
 ## [br]
@@ -299,6 +301,7 @@ static func build_signal_graph(root: Node, options: Dictionary = {}) -> Dictiona
 	var persistent_only: bool = _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(options, "persistent_only", false)
 	var include_empty_signals: bool = _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(options, "include_empty_signals", false)
 	var include_external_targets: bool = _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(options, "include_external_targets", true)
+	var participating_nodes_only: bool = _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(options, "participating_nodes_only", false)
 	var max_node_depth: int = maxi(_GF_VARIANT_ACCESS_SCRIPT.get_option_int(options, "max_node_depth", DEFAULT_MAX_SIGNAL_GRAPH_DEPTH), 0)
 	var max_nodes: int = maxi(_GF_VARIANT_ACCESS_SCRIPT.get_option_int(options, "max_nodes", DEFAULT_MAX_SIGNAL_GRAPH_NODES), 0)
 	var nodes: Array[Node] = []
@@ -306,10 +309,13 @@ static func build_signal_graph(root: Node, options: Dictionary = {}) -> Dictiona
 	_collect_signal_graph_nodes(root, nodes, include_internal, 0, max_node_depth, max_nodes, scan_state)
 
 	var node_entries: Array[Dictionary] = []
+	var candidate_node_entries: Array[Dictionary] = []
+	var participating_node_paths: Dictionary = {}
 	var signal_entries: Array[Dictionary] = []
 	var connection_entries: Array[Dictionary] = []
 	for node: Node in nodes:
-		node_entries.append(_make_runtime_node_entry(root, node))
+		var node_entry: Dictionary = _make_runtime_node_entry(root, node)
+		candidate_node_entries.append(node_entry)
 		for signal_info: Dictionary in node.get_signal_list():
 			var signal_name: StringName = _GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(signal_info, "name")
 			if signal_name == &"":
@@ -326,19 +332,34 @@ static func build_signal_graph(root: Node, options: Dictionary = {}) -> Dictiona
 
 			if include_empty_signals or not connections.is_empty():
 				signal_entries.append({
-					"node_path": _relative_node_path(root, node),
+					"node_path": _GF_VARIANT_ACCESS_SCRIPT.get_option_string(node_entry, "node_path"),
 					"signal_name": String(signal_name),
 					"argument_count": _get_signal_argument_count(node, signal_name),
 					"connection_count": connections.size(),
 				})
+				if participating_nodes_only:
+					participating_node_paths[_GF_VARIANT_ACCESS_SCRIPT.get_option_string(node_entry, "node_path")] = true
 
 			for connection_info: Dictionary in connections:
-				connection_entries.append(_make_runtime_connection_entry(root, node, signal_name, connection_info))
+				var connection_entry: Dictionary = _make_runtime_connection_entry(root, node, signal_name, connection_info)
+				connection_entries.append(connection_entry)
+				if participating_nodes_only:
+					participating_node_paths[_GF_VARIANT_ACCESS_SCRIPT.get_option_string(connection_entry, "source_node_path")] = true
+					var target_path: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(connection_entry, "target_node_path")
+					if not target_path.is_empty():
+						participating_node_paths[target_path] = true
+
+	if participating_nodes_only:
+		for candidate_node_entry: Dictionary in candidate_node_entries:
+			if participating_node_paths.has(_GF_VARIANT_ACCESS_SCRIPT.get_option_string(candidate_node_entry, "node_path")):
+				node_entries.append(candidate_node_entry)
+	else:
+		node_entries = candidate_node_entries
 
 	return {
 		"ok": true,
 		"root_path": root.get_path(),
-		"node_count": nodes.size(),
+		"node_count": node_entries.size(),
 		"signal_count": signal_entries.size(),
 		"connection_count": connection_entries.size(),
 		"nodes": node_entries,

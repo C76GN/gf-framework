@@ -21,6 +21,45 @@ func test_pick_many_is_reproducible_with_seeded_rng() -> void:
 	assert_eq(first, second, "相同随机种子应产生可复现的权重选择序列。")
 
 
+func test_pick_many_uses_fixed_rng_when_deterministic_seed_is_set() -> void:
+	var table: GFWeightedTable = _make_sample_table()
+	table.deterministic_seed = 99
+
+	var values: Array = table.pick_many(8)
+
+	assert_eq(values, ["A", "C", "A", "B", "C", "B", "C", "C"])
+
+
+func test_pick_value_accepts_explicit_deterministic_random_stream() -> void:
+	var table: GFWeightedTable = _make_sample_table()
+	var rng: GFDeterministicRandom = GFDeterministicRandom.from_seed(99)
+
+	var first: String = GFVariantData.to_text(table.pick_value(rng))
+	var second: String = GFVariantData.to_text(table.pick_value(rng))
+
+	assert_eq([first, second], ["A", "C"], "显式传入 GFDeterministicRandom 时应沿同一随机流推进。")
+
+
+func test_pick_many_accepts_explicit_deterministic_random_stream() -> void:
+	var table: GFWeightedTable = _make_sample_table()
+	var rng: GFDeterministicRandom = GFDeterministicRandom.from_seed(99)
+
+	var values: Array = table.pick_many(8, rng)
+
+	assert_eq(values, ["A", "C", "A", "B", "C", "B", "C", "C"])
+
+
+func test_pick_value_restarts_fixed_rng_fallback_per_call() -> void:
+	var table: GFWeightedTable = _make_sample_table()
+	table.deterministic_seed = 99
+
+	var first: String = GFVariantData.to_text(table.pick_value())
+	var second: String = GFVariantData.to_text(table.pick_value())
+
+	assert_eq(first, "A")
+	assert_eq(second, first, "单次 pick 未传入随机源时会按 deterministic_seed 重新创建固定随机源。")
+
+
 func test_pick_many_without_repeats_returns_unique_entries() -> void:
 	var values: Array = _make_sample_table().pick_many(8, _make_rng(7), false)
 

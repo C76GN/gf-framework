@@ -19,6 +19,7 @@
 - [调试可视化、运行时检查与信号诊断](debug-observability/debug-visual-inspection/index.md)：DebugDraw、Overlay、运行时调参和信号探针。
 - [随机种子、日志、构建信息与诊断总览](debug-observability/runtime-telemetry/index.md)：随机流复现、结构化日志、构建信息和诊断快照的分层边界。
 - [随机种子与可复现随机流](debug-observability/runtime-telemetry/seed-utility.md)：全局种子、主 RNG 状态和按标签派生的分支随机流。
+- [响应式状态与控件绑定](reactive-state.md)：状态树、路径订阅、dirty queue、控件双向绑定和自动解绑。
 - [结构化日志与日志 Sink](debug-observability/runtime-telemetry/log-utility/index.md)：分级日志、本地文件、内存缓存、JSONL sink 和批量 sink。
 - [构建信息与诊断快照](debug-observability/runtime-telemetry/build-diagnostics/index.md)：构建信息、诊断命令、信号图、监控预设和工具快照。
 - [支持报告与通知队列](debug-observability/support-notifications/index.md)：支持报告数据聚合和通用通知队列。

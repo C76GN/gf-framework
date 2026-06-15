@@ -7,6 +7,7 @@ extends RefCounted
 # --- 常量 ---
 
 const _GF_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
+const _GF_PROJECT_SETTINGS_TOOLS = preload("res://addons/gf/kernel/core/gf_project_settings_tools.gd")
 
 ## 项目启动 Installer 列表设置。
 ## [br]
@@ -175,63 +176,44 @@ static func get_project_access_output_path() -> String:
 # --- 私有/辅助方法 ---
 
 static func _ensure_default(setting_name: String, default_value: Variant) -> bool:
-	if ProjectSettings.has_setting(setting_name):
-		return false
-	ProjectSettings.set_setting(setting_name, default_value)
-	ProjectSettings.set_initial_value(setting_name, default_value)
-	return true
+	return _GF_PROJECT_SETTINGS_TOOLS.ensure_setting(setting_name, default_value, {
+		"register_property_info": false,
+	})
 
 
 static func _register_property_info() -> void:
-	ProjectSettings.add_property_info({
-		"name": INSTALLERS_SETTING,
-		"type": TYPE_ARRAY,
+	_GF_PROJECT_SETTINGS_TOOLS.register_property_info(INSTALLERS_SETTING, TYPE_ARRAY, {
 		"hint": PROPERTY_HINT_TYPE_STRING,
 		"hint_string": "%d/%d:*.gd" % [TYPE_STRING, PROPERTY_HINT_FILE],
+		"basic": true,
 	})
-	ProjectSettings.set_as_basic(INSTALLERS_SETTING, true)
-	ProjectSettings.add_property_info({
-		"name": FAIL_ON_INSTALLER_ERROR_SETTING,
-		"type": TYPE_BOOL,
+	_GF_PROJECT_SETTINGS_TOOLS.register_property_info(FAIL_ON_INSTALLER_ERROR_SETTING, TYPE_BOOL, {
+		"basic": true,
 	})
-	ProjectSettings.set_as_basic(FAIL_ON_INSTALLER_ERROR_SETTING, true)
-	ProjectSettings.add_property_info({
-		"name": INSTALLER_TIMEOUT_SETTING,
-		"type": TYPE_FLOAT,
+	_GF_PROJECT_SETTINGS_TOOLS.register_property_info(INSTALLER_TIMEOUT_SETTING, TYPE_FLOAT, {
 		"hint": PROPERTY_HINT_RANGE,
 		"hint_string": "0,600,0.1,or_greater",
+		"basic": true,
 	})
-	ProjectSettings.set_as_basic(INSTALLER_TIMEOUT_SETTING, true)
-	ProjectSettings.add_property_info({
-		"name": ACCESS_OUTPUT_SETTING,
-		"type": TYPE_STRING,
+	_GF_PROJECT_SETTINGS_TOOLS.register_property_info(ACCESS_OUTPUT_SETTING, TYPE_STRING, {
 		"hint": PROPERTY_HINT_FILE,
 		"hint_string": "*.gd",
+		"basic": true,
 	})
-	ProjectSettings.set_as_basic(ACCESS_OUTPUT_SETTING, true)
-	ProjectSettings.add_property_info({
-		"name": PROJECT_ACCESS_OUTPUT_SETTING,
-		"type": TYPE_STRING,
+	_GF_PROJECT_SETTINGS_TOOLS.register_property_info(PROJECT_ACCESS_OUTPUT_SETTING, TYPE_STRING, {
 		"hint": PROPERTY_HINT_FILE,
 		"hint_string": "*.gd",
+		"basic": true,
 	})
-	ProjectSettings.set_as_basic(PROJECT_ACCESS_OUTPUT_SETTING, true)
-	ProjectSettings.add_property_info({
-		"name": BUILD_INFO_EXPORT_ENABLED_SETTING,
-		"type": TYPE_BOOL,
+	_GF_PROJECT_SETTINGS_TOOLS.register_property_info(BUILD_INFO_EXPORT_ENABLED_SETTING, TYPE_BOOL, {
+		"basic": true,
 	})
-	ProjectSettings.set_as_basic(BUILD_INFO_EXPORT_ENABLED_SETTING, true)
-	ProjectSettings.add_property_info({
-		"name": BUILD_INFO_EXPORT_RESTORE_SETTING,
-		"type": TYPE_BOOL,
+	_GF_PROJECT_SETTINGS_TOOLS.register_property_info(BUILD_INFO_EXPORT_RESTORE_SETTING, TYPE_BOOL, {
+		"basic": true,
 	})
-	ProjectSettings.set_as_basic(BUILD_INFO_EXPORT_RESTORE_SETTING, true)
-	ProjectSettings.add_property_info({
-		"name": BUILD_INFO_EXPORT_SAVE_SETTING,
-		"type": TYPE_BOOL,
+	_GF_PROJECT_SETTINGS_TOOLS.register_property_info(BUILD_INFO_EXPORT_SAVE_SETTING, TYPE_BOOL, {
+		"basic": true,
 	})
-	ProjectSettings.set_as_basic(BUILD_INFO_EXPORT_SAVE_SETTING, true)
-	ProjectSettings.add_property_info({
-		"name": BUILD_INFO_EXPORT_METADATA_SETTING,
-		"type": TYPE_DICTIONARY,
+	_GF_PROJECT_SETTINGS_TOOLS.register_property_info(BUILD_INFO_EXPORT_METADATA_SETTING, TYPE_DICTIONARY, {
+		"basic": true,
 	})

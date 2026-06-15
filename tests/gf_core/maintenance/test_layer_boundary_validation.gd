@@ -30,12 +30,54 @@ const STANDARD_FORBIDDEN_EXTENSION_PATHS: Array[String] = [
 	"res://addons/gf/extensions/",
 	"addons/gf/extensions/",
 ]
+const KERNEL_EXTENSION_INFRASTRUCTURE_PATHS: Array[String] = [
+	"res://addons/gf/kernel/extension/gf_extension_catalog.gd",
+	"res://addons/gf/kernel/extension/gf_extension_usage_audit.gd",
+]
 const EXTENSION_ALLOWED_DEPENDENCIES: Array[String] = [
 	"gf.kernel",
 	"gf.standard",
 ]
+const EXTENSION_ALLOWED_MANIFEST_FIELDS: Array[String] = [
+	"access_generator_extension_paths",
+	"dependencies",
+	"description",
+	"display_name",
+	"editor_action_paths",
+	"editor_dock_order",
+	"editor_dock_paths",
+	"editor_dock_short_label",
+	"editor_inspector_paths",
+	"enabled_by_default",
+	"export_plugin_paths",
+	"extension_version",
+	"gltf_document_extension_paths",
+	"id",
+	"import_plugin_paths",
+	"installer_paths",
+	"kind",
+	"tags",
+	"version",
+]
 const EXTENSION_FORBIDDEN_MANIFEST_FIELDS: Array[String] = [
+	"after",
+	"before",
+	"bundle",
+	"bundles",
+	"conflicts",
+	"extension_dependencies",
+	"extension_pack",
+	"extension_preset",
+	"integrates_with",
+	"load_after",
+	"load_before",
 	"optional_dependencies",
+	"peer_dependencies",
+	"preset",
+	"presets",
+	"recommends",
+	"soft_dependencies",
+	"suggests",
 ]
 const EXTENSION_FORBIDDEN_SOFT_REFERENCES: Dictionary = {
 	"interaction": [
@@ -56,6 +98,11 @@ const EXTENSION_FORBIDDEN_SOFT_REFERENCES: Dictionary = {
 		"should_wait_for_result",
 	],
 }
+const BUSINESS_EXTENSION_CANDIDATES: Array[String] = [
+	"combat",
+	"domain",
+]
+const EXTERNALIZATION_CANDIDATE_TAG: String = "externalization-candidate"
 const GF_VARIANT_ACCESS = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
 
 
@@ -76,6 +123,26 @@ func test_kernel_does_not_depend_on_standard_layer() -> void:
 		issues,
 		[],
 		"`addons/gf/kernel` 不能直接依赖 `addons/gf/standard`；需要内核识别的契约必须放在 kernel。"
+	)
+
+
+func test_only_kernel_extension_infrastructure_knows_extension_root_path() -> void:
+	var files: Array[String] = []
+	_collect_gd_files(KERNEL_ROOT, files)
+
+	var issues: Array[String] = []
+	for path: String in files:
+		if KERNEL_EXTENSION_INFRASTRUCTURE_PATHS.has(path):
+			continue
+		var source: String = _read_text(path)
+		for forbidden_path: String in STANDARD_FORBIDDEN_EXTENSION_PATHS:
+			if source.contains(forbidden_path):
+				issues.append("%s contains %s" % [path, forbidden_path])
+
+	assert_eq(
+		issues,
+		[],
+		"只有 kernel extension infrastructure 可以识别 `addons/gf/extensions` 根路径；其他 kernel 代码不能硬编码可选扩展路径。"
 	)
 
 
@@ -189,6 +256,16 @@ func test_bundled_extension_manifests_are_atomic() -> void:
 
 		if not manifest_data.has("extension_version"):
 			issues.append("%s missing extension_version" % extension_name)
+		if GF_VARIANT_ACCESS.get_option_string(manifest_data, "kind") != "extension":
+			issues.append("%s must declare kind=extension" % extension_name)
+		if not manifest_data.has("enabled_by_default"):
+			issues.append("%s missing enabled_by_default" % extension_name)
+		elif GF_VARIANT_ACCESS.get_option_bool(manifest_data, "enabled_by_default", true):
+			issues.append("%s must declare enabled_by_default=false" % extension_name)
+		for field_name_variant: Variant in manifest_data.keys():
+			var field_name: String = GF_VARIANT_ACCESS.to_text(field_name_variant)
+			if not EXTENSION_ALLOWED_MANIFEST_FIELDS.has(field_name):
+				issues.append("%s declares unsupported manifest field %s" % [extension_name, field_name])
 
 		var dependencies: Array = GF_VARIANT_ACCESS.get_option_array(manifest_data, "dependencies", [])
 		for dependency_variant: Variant in dependencies:
@@ -236,6 +313,36 @@ func test_bundled_extensions_do_not_reference_other_bundled_extensions() -> void
 		issues,
 		[],
 		"GF 内置扩展之间不能通过路径或扩展 ID 互相引用；跨扩展组合应留给项目或外部插件。"
+	)
+
+
+func test_business_extensions_remain_optional_externalization_candidates() -> void:
+	var manifest_by_extension_name: Dictionary = _collect_manifest_by_extension_name(BUSINESS_EXTENSION_CANDIDATES)
+	var issues: Array[String] = []
+	for extension_name: String in BUSINESS_EXTENSION_CANDIDATES:
+		var manifest_data: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(
+			manifest_by_extension_name,
+			extension_name,
+			{}
+		)
+		if manifest_data.is_empty():
+			issues.append("%s missing manifest" % extension_name)
+			continue
+		if GF_VARIANT_ACCESS.get_option_bool(manifest_data, "enabled_by_default", true):
+			issues.append("%s must stay disabled by default" % extension_name)
+		var dependencies: Array = GF_VARIANT_ACCESS.get_option_array(manifest_data, "dependencies", [])
+		for dependency_variant: Variant in dependencies:
+			var dependency_id: String = GF_VARIANT_ACCESS.to_text(dependency_variant)
+			if not EXTENSION_ALLOWED_DEPENDENCIES.has(dependency_id):
+				issues.append("%s declares non-foundation dependency %s" % [extension_name, dependency_id])
+		var tags: Array = GF_VARIANT_ACCESS.get_option_array(manifest_data, "tags", [])
+		if not tags.has(EXTERNALIZATION_CANDIDATE_TAG):
+			issues.append("%s missing %s tag" % [extension_name, EXTERNALIZATION_CANDIDATE_TAG])
+
+	assert_eq(
+		issues,
+		[],
+		"Domain/Combat 属于业务型扩展候选：发布包内只能作为默认关闭的原子扩展存在，真正组合应进入 preset、项目 Installer 或外部插件。"
 	)
 
 

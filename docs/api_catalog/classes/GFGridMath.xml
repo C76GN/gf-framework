@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFGridMath" path="addons/gf/standard/foundation/math/gf_grid_math.gd" module="standard" extends="RefCounted" classDigest="680d8ead6998696c0c6381eecab4c3afec5a17ffbc89d95692c4698e163e8725">
+<class name="GFGridMath" path="addons/gf/standard/foundation/math/gf_grid_math.gd" module="standard" extends="RefCounted" classDigest="6b0dec342f42d36007742cade92b053d92b20481593cb80340ac58543a5b85d2">
 	<description>GFGridMath: 网格类小游戏的纯算法工具。
 提供一维索引与二维格坐标转换、邻居枚举、范围、外环、直线、视线、
 泛洪搜索、BFS / A* 路径查找、Flow Field 生成以及连连看类“两折连线”判断。
@@ -155,6 +155,40 @@
 				<tag name="param">step_cost: 可选代价回调，签名为 `func(from: Vector2i, to: Vector2i) -&gt; float`；返回负数表示不可通行。</tag>
 				<tag name="param">heuristic: 启发函数名称，支持 `manhattan`、`chebyshev`、`octile`、`euclidean`。</tag>
 				<tag name="return">包含起点与终点的路径；无法到达时返回空数组。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="begin_path_a_star_search">
+			<signature>static func begin_path_a_star_search( grid_size: Vector2i, start: Vector2i, goal: Vector2i, is_walkable: Callable, allow_diagonal: bool = false, step_cost: Callable = Callable(), heuristic: StringName = &amp;"manhattan" ) -&gt; GFGraphPathSearchState:</signature>
+			<description>创建可分步推进的 2D 网格 A* 搜索状态。
+状态由 `GFGraphMath.advance_path_search()` 推进；本方法只负责把网格边界、
+邻居、通行、代价和启发函数适配成通用图搜索回调。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">grid_size: 网格尺寸。</tag>
+				<tag name="param">start: 起点格子。</tag>
+				<tag name="param">goal: 终点格子。</tag>
+				<tag name="param">is_walkable: 可通行回调，签名为 `func(cell: Vector2i) -&gt; bool`。</tag>
+				<tag name="param">allow_diagonal: 是否允许斜向移动。</tag>
+				<tag name="param">step_cost: 可选代价回调，签名为 `func(from: Vector2i, to: Vector2i) -&gt; float`；返回负数表示不可通行。</tag>
+				<tag name="param">heuristic: 启发函数名称，支持 `manhattan`、`chebyshev`、`octile`、`euclidean`。</tag>
+				<tag name="return">`GFGraphMath` 分步路径搜索状态句柄。</tag>
+				<tag name="schema">return: GFGraphPathSearchState returned by `GFGraphMath.begin_path_search()`.</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="simplify_path_line_of_sight">
+			<signature>static func simplify_path_line_of_sight( path: Array[Vector2i], is_blocking: Callable, include_endpoints: bool = false ) -&gt; Array[Vector2i]:</signature>
+			<description>使用视线检测抽稀 2D 网格路径。
+该方法只移除可由直线视线覆盖的中间格子，保留起点与终点；它不执行单位移动、
+转向动画或碰撞响应。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">path: 包含起点与终点的格子路径。</tag>
+				<tag name="param">is_blocking: 阻挡回调，签名为 `func(cell: Vector2i) -&gt; bool`。</tag>
+				<tag name="param">include_endpoints: 是否检查每段抽稀直线的端点是否阻挡。</tag>
+				<tag name="return">抽稀后的路径；空路径仍返回空数组。</tag>
+				<tag name="schema">path: Array[Vector2i] path cells.</tag>
+				<tag name="since">5.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="build_flow_field">

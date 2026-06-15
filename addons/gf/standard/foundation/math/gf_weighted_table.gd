@@ -26,9 +26,11 @@ extends Resource
 ## @schema default_value: Variant fallback value returned when no entry can be selected.
 @export var default_value: Variant = null
 
-## 可选确定性种子；为 0 时使用随机化种子。
+## 可选 GF 固定随机源后备种子；为 0 时使用随机化 Godot RNG。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 @export var deterministic_seed: int = 0
 
 
@@ -134,10 +136,14 @@ func is_empty() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @param rng: 可选随机源；传入同一种子可获得可复现结果。
+## @since 3.17.0
+## [br]
+## @param rng: 可选随机源；支持 `RandomNumberGenerator` 或 `GFDeterministicRandom`。
+## [br]
+## @schema rng: RandomNumberGenerator or GFDeterministicRandom. Null uses deterministic_seed fallback or a randomized Godot RNG.
 ## [br]
 ## @return 选中的条目；没有可选条目时返回 null。
-func pick_entry(rng: RandomNumberGenerator = null) -> GFWeightedEntry:
+func pick_entry(rng: Variant = null) -> GFWeightedEntry:
 	return _pick_entry_from(get_selectable_entries(), _resolve_rng(rng))
 
 
@@ -145,12 +151,16 @@ func pick_entry(rng: RandomNumberGenerator = null) -> GFWeightedEntry:
 ## [br]
 ## @api public
 ## [br]
-## @param rng: 可选随机源；传入同一种子可获得可复现结果。
+## @since 3.17.0
+## [br]
+## @param rng: 可选随机源；支持 `RandomNumberGenerator` 或 `GFDeterministicRandom`。
+## [br]
+## @schema rng: RandomNumberGenerator or GFDeterministicRandom. Null uses deterministic_seed fallback or a randomized Godot RNG.
 ## [br]
 ## @return 选中条目的 value；没有可选条目时返回 default_value。
 ## [br]
 ## @schema return: Variant selected value or default_value.
-func pick_value(rng: RandomNumberGenerator = null) -> Variant:
+func pick_value(rng: Variant = null) -> Variant:
 	var entry: GFWeightedEntry = pick_entry(rng)
 	return entry.value if entry != null else default_value
 
@@ -159,9 +169,13 @@ func pick_value(rng: RandomNumberGenerator = null) -> Variant:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param count: 选择次数。
 ## [br]
-## @param rng: 可选随机源；传入同一种子可获得可复现结果。
+## @param rng: 可选随机源；支持 `RandomNumberGenerator` 或 `GFDeterministicRandom`。
+## [br]
+## @schema rng: RandomNumberGenerator or GFDeterministicRandom. Null uses deterministic_seed fallback or a randomized Godot RNG.
 ## [br]
 ## @param allow_repeats: 是否允许同一条目被重复选择。
 ## [br]
@@ -170,14 +184,14 @@ func pick_value(rng: RandomNumberGenerator = null) -> Variant:
 ## @schema return: Array selected values.
 func pick_many(
 	count: int,
-	rng: RandomNumberGenerator = null,
+	rng: Variant = null,
 	allow_repeats: bool = true
 ) -> Array[Variant]:
 	var result: Array[Variant] = []
 	if count <= 0:
 		return result
 
-	var active_rng: RandomNumberGenerator = _resolve_rng(rng)
+	var active_rng: Variant = _resolve_rng(rng)
 	var available: Array[GFWeightedEntry] = get_selectable_entries()
 	if allow_repeats:
 		for _index: int in range(count):
@@ -271,7 +285,7 @@ static func from_dict(data: Dictionary) -> GFWeightedTable:
 
 # --- 私有/辅助方法 ---
 
-func _pick_entry_from(source_entries: Array[GFWeightedEntry], rng: RandomNumberGenerator) -> GFWeightedEntry:
+func _pick_entry_from(source_entries: Array[GFWeightedEntry], rng: Variant) -> GFWeightedEntry:
 	var total: float = 0.0
 	for entry: GFWeightedEntry in source_entries:
 		if entry != null and entry.is_selectable():
@@ -280,7 +294,7 @@ func _pick_entry_from(source_entries: Array[GFWeightedEntry], rng: RandomNumberG
 	if total <= 0.0:
 		return null
 
-	var threshold: float = rng.randf_range(0.0, total)
+	var threshold: float = _random_float_range(rng, 0.0, total)
 	var accumulated: float = 0.0
 	var fallback: GFWeightedEntry = null
 	for entry: GFWeightedEntry in source_entries:
@@ -295,13 +309,26 @@ func _pick_entry_from(source_entries: Array[GFWeightedEntry], rng: RandomNumberG
 	return fallback
 
 
-func _resolve_rng(rng: RandomNumberGenerator) -> RandomNumberGenerator:
-	if rng != null:
+func _resolve_rng(rng: Variant) -> Variant:
+	if rng is RandomNumberGenerator or rng is GFDeterministicRandom:
 		return rng
 
-	var fallback: RandomNumberGenerator = RandomNumberGenerator.new()
+	if rng != null:
+		push_error("[GFWeightedTable] rng 必须是 RandomNumberGenerator 或 GFDeterministicRandom。")
+
 	if deterministic_seed != 0:
-		fallback.seed = deterministic_seed
-	else:
-		fallback.randomize()
+		return GFDeterministicRandom.from_seed(deterministic_seed)
+
+	var fallback: RandomNumberGenerator = RandomNumberGenerator.new()
+	fallback.randomize()
 	return fallback
+
+
+func _random_float_range(rng: Variant, min_value: float, max_value: float) -> float:
+	if rng is GFDeterministicRandom:
+		var deterministic_rng: GFDeterministicRandom = rng
+		return deterministic_rng.next_float_range(min_value, max_value)
+	if rng is RandomNumberGenerator:
+		var godot_rng: RandomNumberGenerator = rng
+		return godot_rng.randf_range(min_value, max_value)
+	return min_value

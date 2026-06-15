@@ -1,0 +1,211 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFScreenshotUtility" path="addons/gf/standard/utilities/debug/gf_screenshot_utility.gd" module="standard" extends="GFUtility" classDigest="6287f3983a12c99b91686d6c19aebc974ef6d615b391a6c54eb0c286d171ddc3">
+	<description>GFScreenshotUtility: 通用 Viewport 截图捕获与保存工具。
+提供无 UI 的截图捕获、文件保存和批量尺寸/语言截图流程。它不绑定调试面板、
+上传服务、文件浏览器或项目业务命名规则。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_service</tag>
+		<tag name="since">5.0.0</tag>
+	</tags>
+	<signals>
+		<member kind="signal" name="screenshot_saved">
+			<signature>signal screenshot_saved(record: Dictionary)</signature>
+			<description>截图文件保存成功后发出。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">record: 保存结果记录。</tag>
+				<tag name="schema">record: Dictionary，包含 ok、path、format、size、locale、resolution、error 与 reason 字段。</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="signal" name="burst_started">
+			<signature>signal burst_started(options: Dictionary)</signature>
+			<description>批量截图开始前发出。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">options: 批量截图选项副本。</tag>
+				<tag name="schema">options: Dictionary，capture_burst() 接收的选项副本。</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="signal" name="burst_finished">
+			<signature>signal burst_finished(report: Dictionary)</signature>
+			<description>批量截图完成后发出。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">report: 批量截图报告。</tag>
+				<tag name="schema">report: Dictionary，包含 ok、records、saved_count、error_count、locale_count、resolution_count 与 format_count 字段。</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+	</signals>
+	<enums />
+	<constants>
+		<member kind="const" name="FORMAT_PNG">
+			<signature>const FORMAT_PNG: String = "png"</signature>
+			<description>PNG 截图格式。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="FORMAT_JPG">
+			<signature>const FORMAT_JPG: String = "jpg"</signature>
+			<description>JPEG 截图格式。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="FORMAT_WEBP">
+			<signature>const FORMAT_WEBP: String = "webp"</signature>
+			<description>WebP 截图格式。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="DEFAULT_SAVE_DIR">
+			<signature>const DEFAULT_SAVE_DIR: String = "user://screenshots"</signature>
+			<description>默认截图目录。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="DEFAULT_PREFIX">
+			<signature>const DEFAULT_PREFIX: String = "screenshot"</signature>
+			<description>默认截图文件名前缀。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="DEFAULT_MAX_BURST_CAPTURES">
+			<signature>const DEFAULT_MAX_BURST_CAPTURES: int = 128</signature>
+			<description>默认批量截图数量上限。传入 0 表示不限制。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties>
+		<member kind="property" name="default_save_dir">
+			<signature>var default_save_dir: String = DEFAULT_SAVE_DIR</signature>
+			<description>默认截图保存目录。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="default_prefix">
+			<signature>var default_prefix: String = DEFAULT_PREFIX</signature>
+			<description>默认截图文件名前缀。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="default_format">
+			<signature>var default_format: String = FORMAT_PNG:</signature>
+			<description>默认截图格式。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="default_unique_paths">
+			<signature>var default_unique_paths: bool = true</signature>
+			<description>默认是否为已存在文件追加数字后缀。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="default_quality">
+			<signature>var default_quality: float = 0.9:</signature>
+			<description>JPEG/WebP 有损保存质量，范围 0.0 到 1.0。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="capture_viewport_image">
+			<signature>func capture_viewport_image(viewport: Viewport = null) -&gt; Image:</signature>
+			<description>捕获 Viewport 图像。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">viewport: 目标 Viewport；为 null 时使用当前 SceneTree root。</tag>
+				<tag name="return">捕获的 Image；无可用 Viewport 时返回 null。</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="capture_viewport_png_buffer">
+			<signature>func capture_viewport_png_buffer(viewport: Viewport = null) -&gt; PackedByteArray:</signature>
+			<description>捕获 Viewport PNG 字节。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">viewport: 目标 Viewport；为 null 时使用当前 SceneTree root。</tag>
+				<tag name="return">PNG 编码字节；捕获失败时为空数组。</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="save_viewport_screenshot">
+			<signature>func save_viewport_screenshot(file_path: String = "", options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>捕获并保存 Viewport 截图。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">file_path: 目标路径；为空时使用 build_screenshot_path(options)。</tag>
+				<tag name="param">options: 保存选项，支持 viewport、directory、prefix、format、quality、unique、timestamp、locale、resolution 与 use_subdirectories。</tag>
+				<tag name="return">保存结果记录。</tag>
+				<tag name="schema">options: Dictionary，支持 viewport、directory、prefix、format、quality、unique、timestamp、locale、resolution 与 use_subdirectories。</tag>
+				<tag name="schema">return: Dictionary，包含 ok、path、format、size、locale、resolution、error 与 reason 字段。</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="save_image">
+			<signature>func save_image(image: Image, file_path: String = "", options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>保存已有 Image 为截图文件。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">image: 要保存的图像。</tag>
+				<tag name="param">file_path: 目标路径；为空时使用 build_screenshot_path(options)。</tag>
+				<tag name="param">options: 保存选项，支持 directory、prefix、format、quality、unique、timestamp、locale、resolution 与 use_subdirectories。</tag>
+				<tag name="return">保存结果记录。</tag>
+				<tag name="schema">options: Dictionary，支持 directory、prefix、format、quality、unique、timestamp、locale、resolution 与 use_subdirectories。</tag>
+				<tag name="schema">return: Dictionary，包含 ok、path、format、size、locale、resolution、error 与 reason 字段。</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="build_screenshot_path">
+			<signature>func build_screenshot_path(options: Dictionary = {}) -&gt; String:</signature>
+			<description>构建截图保存路径。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">options: 路径选项，支持 directory、prefix、format、timestamp、locale、resolution 与 use_subdirectories。</tag>
+				<tag name="return">截图路径。</tag>
+				<tag name="schema">options: Dictionary，支持 directory、prefix、format、timestamp、locale、resolution 与 use_subdirectories。</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="capture_burst">
+			<signature>func capture_burst(options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>按尺寸、语言和格式批量保存 Viewport 截图。
+该方法只负责临时切换窗口尺寸和 TranslationServer 语言，然后恢复原值；项目层仍应决定
+何时调用、是否隐藏 UI、是否上传或纳入发布流程。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">options: 批量截图选项，支持 viewport、locales、resolutions、formats、max_captures、pause_tree、frame_delay_seconds、directory、prefix、quality、unique 与 use_subdirectories。</tag>
+				<tag name="return">批量截图报告。</tag>
+				<tag name="schema">options: Dictionary，支持 viewport、locales、resolutions、formats、max_captures、pause_tree、frame_delay_seconds、directory、prefix、quality、unique 与 use_subdirectories。</tag>
+				<tag name="schema">return: Dictionary，包含 ok、records、saved_count、error_count、locale_count、resolution_count、format_count、planned_count、max_captures 与 error 字段。</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

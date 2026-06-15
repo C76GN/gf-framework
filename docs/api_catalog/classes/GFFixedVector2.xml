@@ -1,0 +1,275 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFFixedVector2" path="addons/gf/standard/foundation/numeric/gf_fixed_vector2.gd" module="standard" extends="RefCounted" classDigest="b9d6c5b2e9166d2785a01c9ca68bd070096d2711a84a38d17022471e40834cb2">
+	<description>GFFixedVector2: 基于统一整数缩放的二维定点向量值对象。
+它适合锁步、回放、黄金测试和需要稳定序列化的二维坐标或方向值。
+该类型不替代 Vector2i 格子坐标，也不替代 Godot Vector2 在渲染和物理中的浮点表达。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">value_object</tag>
+		<tag name="since">5.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties>
+		<member kind="property" name="raw_x">
+			<signature>var raw_x: int = 0</signature>
+			<description>X 分量的整数缩放值。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="raw_y">
+			<signature>var raw_y: int = 0</signature>
+			<description>Y 分量的整数缩放值。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="decimal_places">
+			<signature>var decimal_places: int = 2</signature>
+			<description>两个分量共享的小数位数。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="from_raw">
+			<signature>static func from_raw(p_raw_x: int, p_raw_y: int, p_decimal_places: int = 2) -&gt; GFFixedVector2:</signature>
+			<description>从 raw 分量创建定点二维向量。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">p_raw_x: X 分量整数缩放值。</tag>
+				<tag name="param">p_raw_y: Y 分量整数缩放值。</tag>
+				<tag name="param">p_decimal_places: 两个分量共享的小数位。</tag>
+				<tag name="return">定点二维向量实例。</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="from_decimal_strings">
+			<signature>static func from_decimal_strings( x_text: String, y_text: String, p_decimal_places: int = 2, rounding_mode: int = GFFixedDecimal.RoundingMode.HALF_UP ) -&gt; GFFixedVector2:</signature>
+			<description>从普通十进制字符串创建定点二维向量。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">x_text: X 分量十进制字符串。</tag>
+				<tag name="param">y_text: Y 分量十进制字符串。</tag>
+				<tag name="param">p_decimal_places: 目标小数位。</tag>
+				<tag name="param">rounding_mode: 舍入策略。</tag>
+				<tag name="return">定点二维向量实例。</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="from_vector2">
+			<signature>static func from_vector2( value: Vector2, p_decimal_places: int = 2, rounding_mode: int = GFFixedDecimal.RoundingMode.HALF_UP ) -&gt; GFFixedVector2:</signature>
+			<description>从 Godot Vector2 创建定点二维向量。
+这是显式浮点适配入口，不应用作 deterministic 真值来源。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">value: Godot 浮点二维向量。</tag>
+				<tag name="param">p_decimal_places: 目标小数位。</tag>
+				<tag name="param">rounding_mode: 舍入策略。</tag>
+				<tag name="return">定点二维向量实例。</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="from_dict">
+			<signature>static func from_dict(data: Dictionary) -&gt; GFFixedVector2:</signature>
+			<description>从状态字典恢复定点二维向量。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">data: `to_dict()` 输出的状态字典。</tag>
+				<tag name="return">定点二维向量实例。</tag>
+				<tag name="schema">data: Dictionary with `type`, `version`, `raw_x`, `raw_y`, and `decimal_places` fields.</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="from_bytes">
+			<signature>static func from_bytes(data: PackedByteArray) -&gt; GFFixedVector2:</signature>
+			<description>从固定字节序列恢复定点二维向量。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">data: `to_bytes()` 输出的字节序列。</tag>
+				<tag name="return">定点二维向量实例。</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="clone">
+			<signature>func clone() -&gt; GFFixedVector2:</signature>
+			<description>克隆当前向量。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">内容相同的新实例。</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_zero">
+			<signature>func is_zero() -&gt; bool:</signature>
+			<description>当前向量是否为零向量。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">两个 raw 分量都为 0 时返回 true。</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_x_decimal">
+			<signature>func get_x_decimal() -&gt; GFFixedDecimal:</signature>
+			<description>X 分量转为 GFFixedDecimal。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">X 分量定点数。</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_y_decimal">
+			<signature>func get_y_decimal() -&gt; GFFixedDecimal:</signature>
+			<description>Y 分量转为 GFFixedDecimal。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">Y 分量定点数。</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="to_vector2">
+			<signature>func to_vector2() -&gt; Vector2:</signature>
+			<description>转为 Godot Vector2。
+该转换会回到 float，仅用于渲染、调试或 Godot API 适配。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">Godot 浮点二维向量。</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="rescaled">
+			<signature>func rescaled( target_decimal_places: int, rounding_mode: int = GFFixedDecimal.RoundingMode.HALF_UP ) -&gt; GFFixedVector2:</signature>
+			<description>重设小数位数。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">target_decimal_places: 目标小数位。</tag>
+				<tag name="param">rounding_mode: 降位时的舍入策略。</tag>
+				<tag name="return">重设后的定点二维向量。</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="negated">
+			<signature>func negated() -&gt; GFFixedVector2:</signature>
+			<description>获取相反向量。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">新的定点二维向量。</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="add">
+			<signature>func add(other: GFFixedVector2) -&gt; GFFixedVector2:</signature>
+			<description>与另一个定点二维向量相加。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">other: 另一个定点二维向量。</tag>
+				<tag name="return">相加结果。</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="subtract">
+			<signature>func subtract(other: GFFixedVector2) -&gt; GFFixedVector2:</signature>
+			<description>与另一个定点二维向量相减。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">other: 另一个定点二维向量。</tag>
+				<tag name="return">相减结果。</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="multiply_scalar">
+			<signature>func multiply_scalar( scalar: GFFixedDecimal, target_decimal_places: int = -1, rounding_mode: int = GFFixedDecimal.RoundingMode.HALF_UP ) -&gt; GFFixedVector2:</signature>
+			<description>乘以定点标量。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">scalar: 定点标量。</tag>
+				<tag name="param">target_decimal_places: 结果小数位；传 -1 时沿用较高小数位。</tag>
+				<tag name="param">rounding_mode: 结果降位时的舍入策略。</tag>
+				<tag name="return">乘法结果。</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="dot">
+			<signature>func dot( other: GFFixedVector2, target_decimal_places: int = -1, rounding_mode: int = GFFixedDecimal.RoundingMode.HALF_UP ) -&gt; GFFixedDecimal:</signature>
+			<description>计算点积。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">other: 另一个定点二维向量。</tag>
+				<tag name="param">target_decimal_places: 结果小数位；传 -1 时沿用较高小数位。</tag>
+				<tag name="param">rounding_mode: 结果降位时的舍入策略。</tag>
+				<tag name="return">点积定点数。</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="length_squared">
+			<signature>func length_squared( target_decimal_places: int = -1, rounding_mode: int = GFFixedDecimal.RoundingMode.HALF_UP ) -&gt; GFFixedDecimal:</signature>
+			<description>计算长度平方。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">target_decimal_places: 结果小数位；传 -1 时沿用当前小数位。</tag>
+				<tag name="param">rounding_mode: 结果降位时的舍入策略。</tag>
+				<tag name="return">长度平方定点数。</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="equals_exact">
+			<signature>func equals_exact(other: GFFixedVector2) -&gt; bool:</signature>
+			<description>判断 raw 分量和小数位是否完全一致。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">other: 另一个定点二维向量。</tag>
+				<tag name="return">raw 分量和小数位完全一致时返回 true。</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="to_dict">
+			<signature>func to_dict() -&gt; Dictionary:</signature>
+			<description>导出 JSON 安全状态字典。
+raw 分量固定写为十进制字符串，避免 JSON 64 位整数精度丢失。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">可稳定恢复定点二维向量的状态字典。</tag>
+				<tag name="schema">return: Dictionary with `type: String`, `version: int`, `raw_x: String`, `raw_y: String`, and `decimal_places: int`.</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="apply_dict">
+			<signature>func apply_dict(data: Dictionary) -&gt; bool:</signature>
+			<description>应用 JSON 安全状态字典。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">data: `to_dict()` 输出的状态字典。</tag>
+				<tag name="return">状态有效并已应用时返回 true。</tag>
+				<tag name="schema">data: Dictionary with `type`, `version`, `raw_x`, `raw_y`, and `decimal_places` fields.</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="to_bytes">
+			<signature>func to_bytes() -&gt; PackedByteArray:</signature>
+			<description>导出固定二进制序列。
+格式为 `GFF2` magic、版本、小数位，以及每个分量的符号位和 8 字节大端绝对 raw 值。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">可稳定恢复定点二维向量的字节序列。</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="apply_bytes">
+			<signature>func apply_bytes(data: PackedByteArray) -&gt; bool:</signature>
+			<description>应用固定二进制序列。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">data: `to_bytes()` 输出的字节序列。</tag>
+				<tag name="return">字节序列有效并已应用时返回 true。</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>
