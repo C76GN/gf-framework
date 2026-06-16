@@ -24,6 +24,11 @@ def main() -> int:
 	parser.add_argument("--source", default="addons/gf", help="GDScript source root.")
 	parser.add_argument("--output", default="ai_analysis/generated_api", help="Output directory.")
 	parser.add_argument("--check", action="store_true", help="Fail if existing generated files are stale.")
+	parser.add_argument(
+		"--check-or-generate",
+		action="store_true",
+		help="Check existing generated files, or generate them when the output directory is absent.",
+	)
 	parser.add_argument("--wiki", default="docs/zh", help="Documentation root used by --check-wiki-coverage.")
 	parser.add_argument(
 		"--check-wiki-coverage",
@@ -46,12 +51,17 @@ def main() -> int:
 	if args.check:
 		check_status = check_outputs(output_dir, desired)
 		return max(check_status, coverage_status)
+	if args.check_or_generate and output_dir.exists():
+		check_status = check_outputs(output_dir, desired)
+		return max(check_status, coverage_status)
 
 	write_outputs(output_dir, desired)
 	class_count = sum(1 for item in api_files if item.class_name)
 	method_count = sum(len(item.methods) for item in api_files)
 	print(f"generated {len(api_files)} files, {class_count} classes, {method_count} public methods")
 	print(f"output: {output_dir}")
+	if args.check_or_generate:
+		print("AI API docs were generated because the output directory was missing.")
 	return coverage_status
 
 

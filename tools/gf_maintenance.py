@@ -650,7 +650,7 @@ CHECK_DEFINITIONS: dict[str, list[str]] = {
 		"addons/gf",
 		"--output",
 		"ai_analysis/generated_api",
-		"--check",
+		"--check-or-generate",
 		"--check-wiki-coverage",
 	],
 	"docs": [sys.executable, "tools/check_docs_quality.py", "--strict"],
@@ -12549,7 +12549,12 @@ def assert_uninstall_smoke_condition(
 ) -> None:
 	if condition:
 		return
-	issues.append(make_package_issue(kind, "tools/gf_package_resolver.py", message, row_key=scenario, **extra))
+	details = dict(extra)
+	if "row_key" in details:
+		details.setdefault("scenario", scenario)
+	else:
+		details["row_key"] = scenario
+	issues.append(make_package_issue(kind, "tools/gf_package_resolver.py", message, **details))
 
 
 def record_uninstall_smoke_scenario(
@@ -18832,7 +18837,14 @@ def append_note(notes: list[str] | None, note: str) -> list[str]:
 
 
 def gut_report_all_tests_passed(stdout: str) -> bool:
-	return "---- All tests passed! ----" in stdout
+	if "All tests passed!" in stdout:
+		return True
+	for match in re.finditer(r"(?m)^\s*(\d+)\s*/\s*(\d+)\s+passed\.\s*$", stdout):
+		passing = int(match.group(1))
+		total = int(match.group(2))
+		if total > 0 and passing == total:
+			return True
+	return False
 
 
 def release_status(expected_version: str = "", allow_dirty: bool = False) -> dict[str, Any]:

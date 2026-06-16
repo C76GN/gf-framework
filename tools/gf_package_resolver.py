@@ -373,6 +373,11 @@ def expand_source_pattern(pattern: str) -> list[Path]:
 	normalized = normalize_manifest_path(pattern)
 	if not normalized:
 		return []
+	if normalized.endswith("/**") and not any(token in normalized[:-3] for token in ("*", "?", "[")):
+		directory = ROOT / normalized[:-3].rstrip("/")
+		if not directory.is_dir():
+			return []
+		return sorted(path for path in directory.rglob("*") if path.is_file())
 	if any(token in normalized for token in ("*", "?", "[")):
 		return sorted(ROOT.glob(normalized))
 	path = ROOT / normalized
