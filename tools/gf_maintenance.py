@@ -6859,6 +6859,7 @@ def make_package_native_parity_smoke_payload(
 def package_editor_wizard_smoke() -> dict[str, Any]:
 	test_path = "res://tests/gf_core/kernel/editor/test_gf_package_manager_dock.gd"
 	log_path = GODOT_LOG_DIR / "package_editor_wizard_smoke.log"
+	import_log_path = GODOT_LOG_DIR / "package_editor_wizard_smoke_import.log"
 	command = [
 		"godot",
 		"--headless",
@@ -6876,6 +6877,58 @@ def package_editor_wizard_smoke() -> dict[str, Any]:
 	issues: list[dict[str, Any]] = []
 	scenarios: list[dict[str, Any]] = []
 	scenario = "package_manager_dock_gut"
+	import_command = [
+		"godot",
+		"--headless",
+		"--log-file",
+		import_log_path.as_posix(),
+		"--path",
+		".",
+		"--import",
+	]
+	try:
+		import_completed = subprocess.run(
+			import_command,
+			cwd=ROOT,
+			capture_output=True,
+			text=True,
+			encoding="utf-8",
+			errors="replace",
+			timeout=180,
+		)
+	except subprocess.TimeoutExpired as error:
+		issues.append(make_package_issue(
+			"package_editor_wizard_smoke_import_timeout",
+			test_path,
+			"Editor package wizard focused GUT import preflight timed out.",
+			row_key=scenario,
+			error=trim_text(str(error), 300),
+		))
+		record_package_editor_wizard_smoke_scenario(
+			scenarios,
+			scenario,
+			False,
+			{"test_path": test_path, "log_path": log_path.as_posix()},
+		)
+		return make_package_editor_wizard_smoke_payload(command, scenarios, issues, test_path, log_path)
+	import_log_text = read_text_file_if_exists(import_log_path)
+	import_output = f"{import_completed.stdout}\n{import_completed.stderr}\n{import_log_text}"
+	if import_completed.returncode != 0 or has_godot_script_error(import_output, "") or has_gdscript_reload_warning(import_output, ""):
+		issues.append(make_package_issue(
+			"package_editor_wizard_smoke_import_failed",
+			test_path,
+			"Editor package wizard focused GUT import preflight failed.",
+			row_key=scenario,
+			actual_value=str(import_completed.returncode),
+			error=trim_text(import_output.strip(), 1200),
+		))
+		record_package_editor_wizard_smoke_scenario(
+			scenarios,
+			scenario,
+			False,
+			{"test_path": test_path, "log_path": log_path.as_posix()},
+		)
+		return make_package_editor_wizard_smoke_payload(command, scenarios, issues, test_path, log_path)
 	try:
 		completed = subprocess.run(
 			command,
