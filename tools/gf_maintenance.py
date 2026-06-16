@@ -20474,6 +20474,8 @@ def render_package_editor_wizard_smoke_text(data: dict[str, Any]) -> str:
 				details.append(f"{key}={issue[key]}")
 		suffix = f" ({', '.join(details)})" if details else ""
 		lines.append(f"- {issue['kind']}: {location}{suffix} {issue.get('message', '')}".rstrip())
+		if issue.get("error"):
+			lines.append(indent_text(str(issue["error"]), "  error_tail: "))
 	return "\n".join(lines)
 
 
