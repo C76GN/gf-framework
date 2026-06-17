@@ -42,7 +42,14 @@
 - API：`public`
 
 ```gdscript
-enum CompletionMode { ## 自动模式：返回 Signal 时等待，否则视为立即完成。 AUTO, ## 显式等待：语义上声明本动作需要等待返回的 Signal。 WAIT_FOR_SIGNAL, ## 发出即走：即使 execute() 返回 Signal，队列也不会等待。 FIRE_AND_FORGET, }
+enum CompletionMode {
+	## 自动模式：返回 Signal 时等待，否则视为立即完成。
+	AUTO,
+	## 显式等待：语义上声明本动作需要等待返回的 Signal。
+	WAIT_FOR_SIGNAL,
+	## 发出即走：即使 execute() 返回 Signal，队列也不会等待。
+	FIRE_AND_FORGET,
+}
 ```
 
 队列如何处理 execute() 的返回值。

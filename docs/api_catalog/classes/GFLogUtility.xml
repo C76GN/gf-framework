@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFLogUtility" path="addons/gf/standard/utilities/logging/gf_log_utility.gd" module="standard" extends="GFUtility" classDigest="471c3a49a4c2dcb38f5079b8238e9e9471ec73da8921ca4c80b8b65d4f4b29a2">
+<class name="GFLogUtility" path="addons/gf/standard/utilities/logging/gf_log_utility.gd" module="standard" extends="GFUtility" classDigest="6e6e1d6caadc8f2a4a9b791a806bc093940476b5cd845626d7dc57becbd72bf2">
 	<description>GFLogUtility: 集中式日志系统。
 取代原生 print / push_error，提供分级日志（DEBUG → FATAL），
 每条日志同时写入本地按日期命名的日志文件，进入内存环形缓存，
@@ -41,7 +41,18 @@
 	</signals>
 	<enums>
 		<member kind="enum" name="LogLevel">
-			<signature>enum LogLevel { ## 调试信息 DEBUG, ## 一般信息 INFO, ## 警告 WARN, ## 错误 ERROR, ## 致命错误 FATAL, }</signature>
+			<signature>enum LogLevel {
+	## 调试信息
+	DEBUG,
+	## 一般信息
+	INFO,
+	## 警告
+	WARN,
+	## 错误
+	ERROR,
+	## 致命错误
+	FATAL,
+}</signature>
 			<description>日志等级，数值越大越严重。</description>
 			<tags>
 				<tag name="api">public</tag>

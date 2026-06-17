@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFConfigTableMergePolicy" path="addons/gf/standard/utilities/config/gf_config_table_merge_policy.gd" module="standard" extends="Resource" classDigest="493d2fa6e0659c6cc5c267ab43d7b5397b09529894a22853cff4a1c7b0337724">
+<class name="GFConfigTableMergePolicy" path="addons/gf/standard/utilities/config/gf_config_table_merge_policy.gd" module="standard" extends="Resource" classDigest="98b7a8c06631a3928786728132b0c21d0598865e9ee5380d8dc57a8c983056ce">
 	<description>GFConfigTableMergePolicy: 配置表补丁合并策略。
 描述如何识别记录、覆盖记录和处理删除标记。它只定义通用合并规则，
 不绑定热更、模组、DLC 或任意项目业务语义。</description>
@@ -11,7 +11,12 @@
 	<signals />
 	<enums>
 		<member kind="enum" name="UpdateMode">
-			<signature>enum UpdateMode { ## patch 记录整体替换 base 记录。 REPLACE_RECORD, ## patch 记录与 base 记录按字段合并，嵌套 Dictionary 递归合并。 MERGE_FIELDS, }</signature>
+			<signature>enum UpdateMode {
+	## patch 记录整体替换 base 记录。
+	REPLACE_RECORD,
+	## patch 记录与 base 记录按字段合并，嵌套 Dictionary 递归合并。
+	MERGE_FIELDS,
+}</signature>
 			<description>记录更新方式。</description>
 			<tags>
 				<tag name="api">public</tag>

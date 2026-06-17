@@ -63,7 +63,24 @@ signal items_changed
 - API：`public`
 
 ```gdscript
-enum PrimitiveType { ## 2D 线段命令。 LINE_2D, ## 2D 矩形命令。 RECT_2D, ## 2D 圆形命令。 CIRCLE_2D, ## 2D 文本命令。 TEXT_2D, ## 3D 线段命令。 LINE_3D, ## 3D AABB 盒命令。 BOX_3D, ## 3D 文本命令。 TEXT_3D, ## 项目自定义命令。 CUSTOM, }
+enum PrimitiveType {
+	## 2D 线段命令。
+	LINE_2D,
+	## 2D 矩形命令。
+	RECT_2D,
+	## 2D 圆形命令。
+	CIRCLE_2D,
+	## 2D 文本命令。
+	TEXT_2D,
+	## 3D 线段命令。
+	LINE_3D,
+	## 3D AABB 盒命令。
+	BOX_3D,
+	## 3D 文本命令。
+	TEXT_3D,
+	## 项目自定义命令。
+	CUSTOM,
+}
 ```
 
 调试绘制命令类型。

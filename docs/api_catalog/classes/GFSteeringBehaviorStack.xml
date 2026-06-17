@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSteeringBehaviorStack" path="addons/gf/standard/foundation/math/gf_steering_behavior_stack.gd" module="standard" extends="Resource" classDigest="0d3c1c4945c6e6bbd877d7af0dd927836736b2b484ab939013abd78cee2a51e6">
+<class name="GFSteeringBehaviorStack" path="addons/gf/standard/foundation/math/gf_steering_behavior_stack.gd" module="standard" extends="Resource" classDigest="a9d68874e184c339023586cac1e4d859aa6139480cdc7962e736b4c8fbe6f11f">
 	<description>GFSteeringBehaviorStack: 资源化 steering 行为组合。
 以 blend 或 priority 模式组合 GFSteeringBehaviorResource。它只返回加速度结果，
 不负责移动节点、应用物理或解释项目 AI 状态。</description>
@@ -11,7 +11,12 @@
 	<signals />
 	<enums>
 		<member kind="enum" name="CompositionMode">
-			<signature>enum CompositionMode { ## 按权重混合所有行为。 BLEND, ## 选择第一个超过阈值的行为。 PRIORITY, }</signature>
+			<signature>enum CompositionMode {
+	## 按权重混合所有行为。
+	BLEND,
+	## 选择第一个超过阈值的行为。
+	PRIORITY,
+}</signature>
 			<description>行为组合方式。</description>
 			<tags>
 				<tag name="api">public</tag>

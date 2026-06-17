@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSurfaceUtility" path="addons/gf/standard/utilities/display/gf_surface_utility.gd" module="standard" extends="GFUtility" classDigest="403cf442f9b56b469ab560889cb5ca4d5f580ceed62bb6bc887b124a73d4368d">
+<class name="GFSurfaceUtility" path="addons/gf/standard/utilities/display/gf_surface_utility.gd" module="standard" extends="GFUtility" classDigest="d3915152e577f5b4b16e670af3d8a8120439152e6a2553550d6379425c00c1ff">
 	<description>GFSurfaceUtility: 3D 表面材质查询工具。
 根据碰撞命中的 face index 推导 MeshInstance3D surface，并返回基础材质、
 覆盖材质或最终 active material。框架只负责几何到材质的映射，不解释材质语义。</description>
@@ -11,7 +11,14 @@
 	<signals />
 	<enums>
 		<member kind="enum" name="CacheMode">
-			<signature>enum CacheMode { ## 不读写缓存，每次查询都重新计算。 DISABLED, ## 只使用显式预热写入的缓存。 MANUAL, ## 查询时自动缓存，并按 auto_cache_size 控制容量。 AUTOMATIC, }</signature>
+			<signature>enum CacheMode {
+	## 不读写缓存，每次查询都重新计算。
+	DISABLED,
+	## 只使用显式预热写入的缓存。
+	MANUAL,
+	## 查询时自动缓存，并按 auto_cache_size 控制容量。
+	AUTOMATIC,
+}</signature>
 			<description>Mesh surface face count 缓存策略。</description>
 			<tags>
 				<tag name="api">public</tag>

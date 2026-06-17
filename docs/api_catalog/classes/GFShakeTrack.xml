@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFShakeTrack" path="addons/gf/extensions/feedback/resources/gf_shake_track.gd" module="extensions/feedback" extends="Resource" classDigest="1f3e8cc6f994bd3b82760b70e45eeff381f3d7fcfe41277168956d1d66faa3d5">
+<class name="GFShakeTrack" path="addons/gf/extensions/feedback/resources/gf_shake_track.gd" module="extensions/feedback" extends="Resource" classDigest="cf516ef9cd30cb2491799c71250747384388727fe5d82af131e9e2c7b7993dfe">
 	<description>GFShakeTrack: 通用反馈采样轨道。
 描述一段可组合的反馈偏移轨道，供 GFShakePreset 混合采样。
 轨道只输出通用 position、rotation_degrees 和 scale 偏移，不绑定目标节点或业务事件。</description>
@@ -11,14 +11,38 @@
 	<signals />
 	<enums>
 		<member kind="enum" name="Waveform">
-			<signature>enum Waveform { ## 正弦波，适合可预期的摆动。 SINE, ## 逐步随机值，适合短促冲击。 RANDOM, ## 平滑随机值，适合持续扰动。 NOISE, ## 使用 wave_curve 采样，曲线值 0.5 表示零偏移。 CURVE, }</signature>
+			<signature>enum Waveform {
+	## 正弦波，适合可预期的摆动。
+	SINE,
+	## 逐步随机值，适合短促冲击。
+	RANDOM,
+	## 平滑随机值，适合持续扰动。
+	NOISE,
+	## 使用 wave_curve 采样，曲线值 0.5 表示零偏移。
+	CURVE,
+}</signature>
 			<description>反馈采样波形。</description>
 			<tags>
 				<tag name="api">public</tag>
 			</tags>
 		</member>
 		<member kind="enum" name="BlendMode">
-			<signature>enum BlendMode { ## 叠加到已有采样上。 ADD, ## 覆盖已有采样。 OVERRIDE, ## 按分量相乘。 MULTIPLY, ## 从已有采样中减去当前轨道。 SUBTRACT, ## 与已有采样求平均。 AVERAGE, ## 逐分量取最大值。 MAX, ## 逐分量取最小值。 MIN, }</signature>
+			<signature>enum BlendMode {
+	## 叠加到已有采样上。
+	ADD,
+	## 覆盖已有采样。
+	OVERRIDE,
+	## 按分量相乘。
+	MULTIPLY,
+	## 从已有采样中减去当前轨道。
+	SUBTRACT,
+	## 与已有采样求平均。
+	AVERAGE,
+	## 逐分量取最大值。
+	MAX,
+	## 逐分量取最小值。
+	MIN,
+}</signature>
 			<description>轨道混合模式。</description>
 			<tags>
 				<tag name="api">public</tag>

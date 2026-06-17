@@ -90,7 +90,14 @@ signal joystick_released
 - API：`public`
 
 ```gdscript
-enum PositionMode { ## 摇杆中心保持在场景中摆放的位置。 FIXED, ## 初次触摸时摇杆中心移动到触点，释放后回到原位置。 RELATIVE, ## 初次触摸时摇杆中心移动到触点，拖动超过半径时中心跟随触点。 FOLLOW, }
+enum PositionMode {
+	## 摇杆中心保持在场景中摆放的位置。
+	FIXED,
+	## 初次触摸时摇杆中心移动到触点，释放后回到原位置。
+	RELATIVE,
+	## 初次触摸时摇杆中心移动到触点，拖动超过半径时中心跟随触点。
+	FOLLOW,
+}
 ```
 
 摇杆定位模式。

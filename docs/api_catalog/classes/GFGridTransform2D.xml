@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFGridTransform2D" path="addons/gf/standard/foundation/math/gf_grid_transform_2d.gd" module="standard" extends="RefCounted" classDigest="551f5a617293695c255aa6417a239cd29e5703ec00d90160a5e29e6d1b8657c7">
+<class name="GFGridTransform2D" path="addons/gf/standard/foundation/math/gf_grid_transform_2d.gd" module="standard" extends="RefCounted" classDigest="5c2823a6aaf70cd6cb1ee23399b96774bd6330d788029946b92959967f0e653b">
 	<description>GFGridTransform2D: 2D 矩形网格坐标变换工具。
 提供旋转、镜像和对角翻转的纯坐标映射，可用于格子模板、画刷、
 房间蓝图、棋盘片段或编辑器工具。它只处理 Vector2i / Vector2 坐标，
@@ -12,7 +12,24 @@
 	<signals />
 	<enums>
 		<member kind="enum" name="Transform">
-			<signature>enum Transform { ## 不变换。 IDENTITY, ## 顺时针旋转 90 度。 ROTATE_90, ## 旋转 180 度。 ROTATE_180, ## 顺时针旋转 270 度。 ROTATE_270, ## 沿 X 轴方向镜像，即左右翻转。 MIRROR_X, ## 沿 Y 轴方向镜像，即上下翻转。 MIRROR_Y, ## 沿左上到右下对角线翻转。 DIAGONAL_MAIN, ## 沿右上到左下对角线翻转。 DIAGONAL_ANTI, }</signature>
+			<signature>enum Transform {
+	## 不变换。
+	IDENTITY,
+	## 顺时针旋转 90 度。
+	ROTATE_90,
+	## 旋转 180 度。
+	ROTATE_180,
+	## 顺时针旋转 270 度。
+	ROTATE_270,
+	## 沿 X 轴方向镜像，即左右翻转。
+	MIRROR_X,
+	## 沿 Y 轴方向镜像，即上下翻转。
+	MIRROR_Y,
+	## 沿左上到右下对角线翻转。
+	DIAGONAL_MAIN,
+	## 沿右上到左下对角线翻转。
+	DIAGONAL_ANTI,
+}</signature>
 			<description>2D 矩形局部空间中的离散变换。</description>
 			<tags>
 				<tag name="api">public</tag>

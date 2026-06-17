@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFActionInterceptionResult" path="addons/gf/extensions/action_queue/core/gf_action_interception_result.gd" module="extensions/action_queue" extends="RefCounted" classDigest="9044f4a4ebfc3f14a37e1f2f7e0a20e8ecb65f68eeac43bac3df9bdc314ead38">
+<class name="GFActionInterceptionResult" path="addons/gf/extensions/action_queue/core/gf_action_interception_result.gd" module="extensions/action_queue" extends="RefCounted" classDigest="e3d6f0c6e879ab6358420fae732273112167129caa7c9d06b2da24d3defdc07b">
 	<description>GFActionInterceptionResult: 动作队列拦截器的处理结果。
 用于在动作执行前后表达继续、跳过、替换或停止队列等通用决策。</description>
 	<tags>
@@ -10,7 +10,16 @@
 	<signals />
 	<enums>
 		<member kind="enum" name="Decision">
-			<signature>enum Decision { ## 继续当前动作。 CONTINUE, ## 跳过当前动作并继续后续队列。 SKIP, ## 用 replacement_action 替换当前动作。 REPLACE, ## 停止并清空当前队列。 STOP_QUEUE, }</signature>
+			<signature>enum Decision {
+	## 继续当前动作。
+	CONTINUE,
+	## 跳过当前动作并继续后续队列。
+	SKIP,
+	## 用 replacement_action 替换当前动作。
+	REPLACE,
+	## 停止并清空当前队列。
+	STOP_QUEUE,
+}</signature>
 			<description>拦截器决策类型。</description>
 			<tags>
 				<tag name="api">public</tag>

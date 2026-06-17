@@ -41,7 +41,38 @@
 - API：`public`
 
 ```gdscript
-enum ValueType { ## 任意 Variant。 VARIANT, ## 布尔值。 BOOL, ## 整数。 INT, ## 浮点数。 FLOAT, ## 字符串。 STRING, ## StringName。 STRING_NAME, ## Vector2。 VECTOR2, ## Vector3。 VECTOR3, ## Vector2i。 VECTOR2I, ## Vector3i。 VECTOR3I, ## Color。 COLOR, ## Dictionary。 DICTIONARY, ## Array。 ARRAY, ## NodePath。 NODE_PATH, ## Object 或 Resource。 OBJECT, }
+enum ValueType {
+	## 任意 Variant。
+	VARIANT,
+	## 布尔值。
+	BOOL,
+	## 整数。
+	INT,
+	## 浮点数。
+	FLOAT,
+	## 字符串。
+	STRING,
+	## StringName。
+	STRING_NAME,
+	## Vector2。
+	VECTOR2,
+	## Vector3。
+	VECTOR3,
+	## Vector2i。
+	VECTOR2I,
+	## Vector3i。
+	VECTOR3I,
+	## Color。
+	COLOR,
+	## Dictionary。
+	DICTIONARY,
+	## Array。
+	ARRAY,
+	## NodePath。
+	NODE_PATH,
+	## Object 或 Resource。
+	OBJECT,
+}
 ```
 
 字段值类型。

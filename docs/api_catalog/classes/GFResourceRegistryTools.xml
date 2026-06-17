@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFResourceRegistryTools" path="addons/gf/standard/utilities/assets/gf_resource_registry_tools.gd" module="standard" extends="RefCounted" classDigest="afb70bc77c33cb13a5daa9863bf41bc096b33d03c37b399c76cc1c3de328a1b9">
+<class name="GFResourceRegistryTools" path="addons/gf/standard/utilities/assets/gf_resource_registry_tools.gd" module="standard" extends="RefCounted" classDigest="006a9122da73f3f7aee1a3b6dc56782fbd01053838ba7a310a3ee0f47bbf2691">
 	<description>GFResourceRegistryTools: 通用资源注册表扫描和生成工具。
 面向编辑器工具、构建脚本和项目安装器复用；它只从路径生成
 `GFResourceRegistry` / `GFResourceRegistryEntry`，不解释业务字段。</description>
@@ -11,7 +11,14 @@
 	<signals />
 	<enums>
 		<member kind="enum" name="EntryIdMode">
-			<signature>enum EntryIdMode { ## 使用文件名，不包含扩展名。 BASENAME, ## 使用相对 base_path 的路径，不包含扩展名。 RELATIVE_PATH, ## 使用完整资源路径，不包含扩展名。 FULL_PATH, }</signature>
+			<signature>enum EntryIdMode {
+	## 使用文件名，不包含扩展名。
+	BASENAME,
+	## 使用相对 base_path 的路径，不包含扩展名。
+	RELATIVE_PATH,
+	## 使用完整资源路径，不包含扩展名。
+	FULL_PATH,
+}</signature>
 			<description>从资源路径生成条目 ID 的方式。</description>
 			<tags>
 				<tag name="api">public</tag>

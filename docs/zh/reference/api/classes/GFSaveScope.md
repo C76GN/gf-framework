@@ -43,7 +43,12 @@
 - API：`public`
 
 ```gdscript
-enum RestorePolicy { ## 只把数据应用到已存在的 Source。 APPLY_ONLY_EXISTING, ## 允许 GFSaveGraphUtility 使用注册的工厂补建实体。 ALLOW_FACTORIES, }
+enum RestorePolicy {
+	## 只把数据应用到已存在的 Source。
+	APPLY_ONLY_EXISTING,
+	## 允许 GFSaveGraphUtility 使用注册的工厂补建实体。
+	ALLOW_FACTORIES,
+}
 ```
 
 恢复未知实体时的处理策略。
@@ -55,7 +60,14 @@ enum RestorePolicy { ## 只把数据应用到已存在的 Source。 APPLY_ONLY_E
 - API：`public`
 
 ```gdscript
-enum Phase { ## 早期执行。 EARLY, ## 普通执行。 NORMAL, ## 后期执行。 LATE, }
+enum Phase {
+	## 早期执行。
+	EARLY,
+	## 普通执行。
+	NORMAL,
+	## 后期执行。
+	LATE,
+}
 ```
 
 Scope/Source 执行阶段。

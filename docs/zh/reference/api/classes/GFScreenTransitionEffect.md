@@ -41,7 +41,18 @@
 - API：`public`
 
 ```gdscript
-enum EasingMode { ## 线性采样。 LINEAR, ## smoothstep 采样。 SMOOTH_STEP, ## 二次缓入。 EASE_IN, ## 二次缓出。 EASE_OUT, ## 二次缓入缓出。 EASE_IN_OUT, }
+enum EasingMode {
+	## 线性采样。
+	LINEAR,
+	## smoothstep 采样。
+	SMOOTH_STEP,
+	## 二次缓入。
+	EASE_IN,
+	## 二次缓出。
+	EASE_OUT,
+	## 二次缓入缓出。
+	EASE_IN_OUT,
+}
 ```
 
 转场权重采样的缓动模式。

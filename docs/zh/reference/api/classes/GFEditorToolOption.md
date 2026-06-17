@@ -42,7 +42,30 @@
 - API：`public`
 
 ```gdscript
-enum ValueType { ## 不做类型约束。 ANY, ## 布尔值。 BOOL, ## 整数。 INT, ## 浮点数。 FLOAT, ## 字符串。 STRING, ## StringName。 STRING_NAME, ## Color。 COLOR, ## Vector2。 VECTOR2, ## Vector2i。 VECTOR2I, ## NodePath。 NODE_PATH, ## 从 choices 中选择。 OPTION, }
+enum ValueType {
+	## 不做类型约束。
+	ANY,
+	## 布尔值。
+	BOOL,
+	## 整数。
+	INT,
+	## 浮点数。
+	FLOAT,
+	## 字符串。
+	STRING,
+	## StringName。
+	STRING_NAME,
+	## Color。
+	COLOR,
+	## Vector2。
+	VECTOR2,
+	## Vector2i。
+	VECTOR2I,
+	## NodePath。
+	NODE_PATH,
+	## 从 choices 中选择。
+	OPTION,
+}
 ```
 
 编辑器工具选项的通用值类型。

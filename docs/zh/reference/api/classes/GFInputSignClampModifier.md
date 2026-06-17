@@ -33,7 +33,12 @@
 - API：`public`
 
 ```gdscript
-enum AllowedSign { ## 只保留大于等于 0 的值。 POSITIVE, ## 只保留小于等于 0 的值。 NEGATIVE, }
+enum AllowedSign {
+	## 只保留大于等于 0 的值。
+	POSITIVE,
+	## 只保留小于等于 0 的值。
+	NEGATIVE,
+}
 ```
 
 允许通过的符号方向。

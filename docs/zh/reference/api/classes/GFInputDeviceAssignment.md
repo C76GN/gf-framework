@@ -31,7 +31,18 @@
 - API：`public`
 
 ```gdscript
-enum DeviceType { ## 键盘与鼠标作为一个本地输入设备。 KEYBOARD_MOUSE, ## Godot 手柄设备。 JOYPAD, ## 触控输入设备。 TOUCH, ## AI 或自动化输入来源。 AI, ## 项目自定义输入设备。 CUSTOM, }
+enum DeviceType {
+	## 键盘与鼠标作为一个本地输入设备。
+	KEYBOARD_MOUSE,
+	## Godot 手柄设备。
+	JOYPAD,
+	## 触控输入设备。
+	TOUCH,
+	## AI 或自动化输入来源。
+	AI,
+	## 项目自定义输入设备。
+	CUSTOM,
+}
 ```
 
 输入设备类型。

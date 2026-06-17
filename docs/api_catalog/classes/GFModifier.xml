@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFModifier" path="addons/gf/extensions/combat/attributes/gf_modifier.gd" module="extensions/combat" extends="RefCounted" classDigest="123b42aa9447ca1bc5d8d2c7429194bc858f77357d9d2e0a38b7f2f5413ce2cf">
+<class name="GFModifier" path="addons/gf/extensions/combat/attributes/gf_modifier.gd" module="extensions/combat" extends="RefCounted" classDigest="679646d62887d2a6646b7df126e9f3802ff51c84fb0b9db930e997f2160834e9">
 	<description>GFModifier: 属性修饰器数据类。
 定义了如何修改一个通用属性（如加值、乘值）。
 `attribute_id` 表示目标属性，`source_id` 表示来源，避免把“改谁”和“从哪来”混在一起。
@@ -12,7 +12,14 @@
 	<signals />
 	<enums>
 		<member kind="enum" name="Type">
-			<signature>enum Type { ## 基础加值。 BASE_ADD, ## 百分比乘区。 PERCENT_ADD, ## 最终加值。 FINAL_ADD, }</signature>
+			<signature>enum Type {
+	## 基础加值。
+	BASE_ADD,
+	## 百分比乘区。
+	PERCENT_ADD,
+	## 最终加值。
+	FINAL_ADD,
+}</signature>
 			<description>修饰器计算类型。</description>
 			<tags>
 				<tag name="api">public</tag>

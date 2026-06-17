@@ -55,7 +55,14 @@
 - API：`public`
 
 ```gdscript
-enum CommandTier { ## 只读观察类命令。 OBSERVE, ## 会改变运行时状态的控制类命令。 CONTROL, ## 删档、跳关、重连等高风险命令。 DANGER, }
+enum CommandTier {
+	## 只读观察类命令。
+	OBSERVE,
+	## 会改变运行时状态的控制类命令。
+	CONTROL,
+	## 删档、跳关、重连等高风险命令。
+	DANGER,
+}
 ```
 
 控制台命令风险等级。

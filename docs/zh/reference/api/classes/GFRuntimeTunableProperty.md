@@ -50,7 +50,26 @@
 - API：`public`
 
 ```gdscript
-enum ValueKind { ## 不转换类型。 ANY, ## 布尔值。 BOOL, ## 整数。 INT, ## 浮点数。 FLOAT, ## 字符串。 STRING, ## StringName。 STRING_NAME, ## Vector2。 VECTOR2, ## Vector3。 VECTOR3, ## Color。 COLOR, }
+enum ValueKind {
+	## 不转换类型。
+	ANY,
+	## 布尔值。
+	BOOL,
+	## 整数。
+	INT,
+	## 浮点数。
+	FLOAT,
+	## 字符串。
+	STRING,
+	## StringName。
+	STRING_NAME,
+	## Vector2。
+	VECTOR2,
+	## Vector3。
+	VECTOR3,
+	## Color。
+	COLOR,
+}
 ```
 
 运行时值类型约束。

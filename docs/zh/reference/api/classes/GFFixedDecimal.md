@@ -51,7 +51,18 @@
 - API：`public`
 
 ```gdscript
-enum RoundingMode { ## 四舍五入，0.5 始终朝绝对值更大的方向进位。 HALF_UP, ## 银行家舍入，0.5 时向最近的偶数靠拢。 HALF_EVEN, ## 向负无穷方向取整。 FLOOR, ## 向正无穷方向取整。 CEIL, ## 直接截断，朝 0 逼近。 TRUNCATE, }
+enum RoundingMode {
+	## 四舍五入，0.5 始终朝绝对值更大的方向进位。
+	HALF_UP,
+	## 银行家舍入，0.5 时向最近的偶数靠拢。
+	HALF_EVEN,
+	## 向负无穷方向取整。
+	FLOOR,
+	## 向正无穷方向取整。
+	CEIL,
+	## 直接截断，朝 0 逼近。
+	TRUNCATE,
+}
 ```
 
 缩放或除法时使用的舍入策略。

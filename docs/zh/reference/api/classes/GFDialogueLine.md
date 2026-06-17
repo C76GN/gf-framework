@@ -47,7 +47,16 @@
 - API：`public`
 
 ```gdscript
-enum LineKind { ## 可展示文本行。 TEXT, ## 请求执行上下文 mutation 后继续。 MUTATION, ## 直接跳转到另一行。 JUMP, ## 结束当前对话。 END, }
+enum LineKind {
+	## 可展示文本行。
+	TEXT,
+	## 请求执行上下文 mutation 后继续。
+	MUTATION,
+	## 直接跳转到另一行。
+	JUMP,
+	## 结束当前对话。
+	END,
+}
 ```
 
 对话行类型。

@@ -43,7 +43,18 @@
 - API：`public`
 
 ```gdscript
-enum State { ## 尚未开始。 IDLE, ## 正在拾取。 PICKING, ## 已准备好应用。 READY, ## 已应用。 APPLIED, ## 已取消。 CANCELLED, }
+enum State {
+	## 尚未开始。
+	IDLE,
+	## 正在拾取。
+	PICKING,
+	## 已准备好应用。
+	READY,
+	## 已应用。
+	APPLIED,
+	## 已取消。
+	CANCELLED,
+}
 ```
 
 拾取操作状态。

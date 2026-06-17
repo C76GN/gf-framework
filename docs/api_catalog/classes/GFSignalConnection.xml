@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSignalConnection" path="addons/gf/standard/utilities/signals/gf_signal_connection.gd" module="standard" extends="RefCounted" classDigest="40d499e08eef8d97c14c342fb2c2c9644e24b3e1da3a2abad334230dbeb33f38">
+<class name="GFSignalConnection" path="addons/gf/standard/utilities/signals/gf_signal_connection.gd" module="standard" extends="RefCounted" classDigest="d2f2a8f12835c33609cb70cccc50584bd91550cbb2c42816109af797ca9d90c6">
 	<description>GFSignalConnection: 可管理的 Godot Signal 链式连接。
 连接支持默认参数、过滤、映射、延迟、防抖、节流、次数限制、
 累积转换、一次性触发和 owner 归属清理。</description>
@@ -11,7 +11,24 @@
 	<signals />
 	<enums>
 		<member kind="enum" name="OperationType">
-			<signature>enum OperationType { ## 过滤信号参数。 FILTER, ## 映射信号参数。 MAP, ## 延迟处理。 DELAY, ## 防抖处理。 DEBOUNCE, ## 节流处理。 THROTTLE, ## 跳过前若干次触发。 SKIP, ## 只接收前若干次触发。 TAKE, ## 累积转换信号参数。 SCAN, }</signature>
+			<signature>enum OperationType {
+	## 过滤信号参数。
+	FILTER,
+	## 映射信号参数。
+	MAP,
+	## 延迟处理。
+	DELAY,
+	## 防抖处理。
+	DEBOUNCE,
+	## 节流处理。
+	THROTTLE,
+	## 跳过前若干次触发。
+	SKIP,
+	## 只接收前若干次触发。
+	TAKE,
+	## 累积转换信号参数。
+	SCAN,
+}</signature>
 			<description>链式连接处理步骤类型。</description>
 			<tags>
 				<tag name="api">public</tag>

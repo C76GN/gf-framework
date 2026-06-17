@@ -40,7 +40,12 @@
 - API：`public`
 
 ```gdscript
-enum UpdateMode { ## patch 记录整体替换 base 记录。 REPLACE_RECORD, ## patch 记录与 base 记录按字段合并，嵌套 Dictionary 递归合并。 MERGE_FIELDS, }
+enum UpdateMode {
+	## patch 记录整体替换 base 记录。
+	REPLACE_RECORD,
+	## patch 记录与 base 记录按字段合并，嵌套 Dictionary 递归合并。
+	MERGE_FIELDS,
+}
 ```
 
 记录更新方式。

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFTouchJoystick" path="addons/gf/standard/input/touch/gf_touch_joystick.gd" module="standard" extends="Node2D" classDigest="2d38d29fd7cf0bd579728548e49a8abd3f1495b69a91294c3941bf3265b9c4b3">
+<class name="GFTouchJoystick" path="addons/gf/standard/input/touch/gf_touch_joystick.gd" module="standard" extends="Node2D" classDigest="6255deea61d506f3d9b3ea6114fe86b91536058b7ab421e09cc588ee2f1387f5">
 	<description>GFTouchJoystick: 通用触屏虚拟摇杆节点。
 可直接发出摇杆向量信号，也可选择映射到 Godot InputMap 动作。</description>
 	<tags>
@@ -33,7 +33,14 @@
 	</signals>
 	<enums>
 		<member kind="enum" name="PositionMode">
-			<signature>enum PositionMode { ## 摇杆中心保持在场景中摆放的位置。 FIXED, ## 初次触摸时摇杆中心移动到触点，释放后回到原位置。 RELATIVE, ## 初次触摸时摇杆中心移动到触点，拖动超过半径时中心跟随触点。 FOLLOW, }</signature>
+			<signature>enum PositionMode {
+	## 摇杆中心保持在场景中摆放的位置。
+	FIXED,
+	## 初次触摸时摇杆中心移动到触点，释放后回到原位置。
+	RELATIVE,
+	## 初次触摸时摇杆中心移动到触点，拖动超过半径时中心跟随触点。
+	FOLLOW,
+}</signature>
 			<description>摇杆定位模式。</description>
 			<tags>
 				<tag name="api">public</tag>

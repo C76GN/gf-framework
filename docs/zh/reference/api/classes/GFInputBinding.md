@@ -39,7 +39,36 @@
 - API：`public`
 
 ```gdscript
-enum ValueTarget { ## 根据动作值类型自动映射；二维/三维轴默认写入 X 分量，需要其他分量时使用显式 AXIS_* 目标。 AUTO, ## 只作为开关输入。 BOOL, ## 一维轴正向。 AXIS_1D_POSITIVE, ## 一维轴负向。 AXIS_1D_NEGATIVE, ## 二维轴 X 正向。 AXIS_2D_X_POSITIVE, ## 二维轴 X 负向。 AXIS_2D_X_NEGATIVE, ## 二维轴 Y 正向。 AXIS_2D_Y_POSITIVE, ## 二维轴 Y 负向。 AXIS_2D_Y_NEGATIVE, ## 三维轴 X 正向。 AXIS_3D_X_POSITIVE, ## 三维轴 X 负向。 AXIS_3D_X_NEGATIVE, ## 三维轴 Y 正向。 AXIS_3D_Y_POSITIVE, ## 三维轴 Y 负向。 AXIS_3D_Y_NEGATIVE, ## 三维轴 Z 正向。 AXIS_3D_Z_POSITIVE, ## 三维轴 Z 负向。 AXIS_3D_Z_NEGATIVE, }
+enum ValueTarget {
+	## 根据动作值类型自动映射；二维/三维轴默认写入 X 分量，需要其他分量时使用显式 AXIS_* 目标。
+	AUTO,
+	## 只作为开关输入。
+	BOOL,
+	## 一维轴正向。
+	AXIS_1D_POSITIVE,
+	## 一维轴负向。
+	AXIS_1D_NEGATIVE,
+	## 二维轴 X 正向。
+	AXIS_2D_X_POSITIVE,
+	## 二维轴 X 负向。
+	AXIS_2D_X_NEGATIVE,
+	## 二维轴 Y 正向。
+	AXIS_2D_Y_POSITIVE,
+	## 二维轴 Y 负向。
+	AXIS_2D_Y_NEGATIVE,
+	## 三维轴 X 正向。
+	AXIS_3D_X_POSITIVE,
+	## 三维轴 X 负向。
+	AXIS_3D_X_NEGATIVE,
+	## 三维轴 Y 正向。
+	AXIS_3D_Y_POSITIVE,
+	## 三维轴 Y 负向。
+	AXIS_3D_Y_NEGATIVE,
+	## 三维轴 Z 正向。
+	AXIS_3D_Z_POSITIVE,
+	## 三维轴 Z 负向。
+	AXIS_3D_Z_NEGATIVE,
+}
 ```
 
 输入值贡献目标。

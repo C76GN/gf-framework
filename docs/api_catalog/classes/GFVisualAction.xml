@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFVisualAction" path="addons/gf/extensions/action_queue/actions/gf_visual_action.gd" module="extensions/action_queue" extends="RefCounted" classDigest="4a66b4ae1db77296349d514e6b1a0475a5d562e17d466ce36e3e49362ea3d119">
+<class name="GFVisualAction" path="addons/gf/extensions/action_queue/actions/gf_visual_action.gd" module="extensions/action_queue" extends="RefCounted" classDigest="b8654fd2f144cdf5687a70633ec8d94896ca3f3366b891db964ac932fb130bdc">
 	<description>GFVisualAction: 视觉表现动作的抽象基类。
 继承自 RefCounted，代表一个具体的、可 await 的表现动作单元，
 如移动动画、卡牌翻面、粒子爆炸等。
@@ -17,7 +17,14 @@
 	<signals />
 	<enums>
 		<member kind="enum" name="CompletionMode">
-			<signature>enum CompletionMode { ## 自动模式：返回 Signal 时等待，否则视为立即完成。 AUTO, ## 显式等待：语义上声明本动作需要等待返回的 Signal。 WAIT_FOR_SIGNAL, ## 发出即走：即使 execute() 返回 Signal，队列也不会等待。 FIRE_AND_FORGET, }</signature>
+			<signature>enum CompletionMode {
+	## 自动模式：返回 Signal 时等待，否则视为立即完成。
+	AUTO,
+	## 显式等待：语义上声明本动作需要等待返回的 Signal。
+	WAIT_FOR_SIGNAL,
+	## 发出即走：即使 execute() 返回 Signal，队列也不会等待。
+	FIRE_AND_FORGET,
+}</signature>
 			<description>队列如何处理 execute() 的返回值。</description>
 			<tags>
 				<tag name="api">public</tag>

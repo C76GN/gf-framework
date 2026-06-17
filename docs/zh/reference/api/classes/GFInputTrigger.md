@@ -30,7 +30,14 @@
 - API：`public`
 
 ```gdscript
-enum TriggerState { ## 输入未达到触发条件。 INACTIVE, ## 输入正在等待触发条件，例如长按计时中。 ONGOING, ## 输入已满足触发条件。 TRIGGERED, }
+enum TriggerState {
+	## 输入未达到触发条件。
+	INACTIVE,
+	## 输入正在等待触发条件，例如长按计时中。
+	ONGOING,
+	## 输入已满足触发条件。
+	TRIGGERED,
+}
 ```
 
 触发器本次更新后的动作状态。

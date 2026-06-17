@@ -17,6 +17,7 @@
 |---|---|---|
 | 信号 | [`asset_handle_acquired`](#member-gfassetutility-signals-asset_handle_acquired) | `signal asset_handle_acquired(handle: GFAssetHandle)` |
 | 信号 | [`asset_handle_released`](#member-gfassetutility-signals-asset_handle_released) | `signal asset_handle_released(path: String, reference_count: int)` |
+| 信号 | [`asset_load_progress`](#member-gfassetutility-signals-asset_load_progress) | `signal asset_load_progress(path: String, progress: float)` |
 | 信号 | [`asset_group_preloaded`](#member-gfassetutility-signals-asset_group_preloaded) | `signal asset_group_preloaded(group_id: StringName, report: Dictionary)` |
 | 属性 | [`max_cache_size`](#member-gfassetutility-properties-max_cache_size) | `var max_cache_size: int:` |
 | 方法 | [`init`](#member-gfassetutility-methods-init) | `func init() -> void:` |
@@ -34,6 +35,7 @@
 | 方法 | [`tick`](#member-gfassetutility-methods-tick) | `func tick(_delta: float = 0.0) -> void:` |
 | 方法 | [`get_cached`](#member-gfassetutility-methods-get_cached) | `func get_cached(path: String) -> Resource:` |
 | 方法 | [`is_loading`](#member-gfassetutility-methods-is_loading) | `func is_loading(path: String, type_hint: String = "") -> bool:` |
+| 方法 | [`get_load_progress`](#member-gfassetutility-methods-get_load_progress) | `func get_load_progress(path: String) -> float:` |
 | 方法 | [`is_cached`](#member-gfassetutility-methods-is_cached) | `func is_cached(path: String) -> bool:` |
 | 方法 | [`cancel`](#member-gfassetutility-methods-cancel) | `func cancel(path: String, type_hint: String = "") -> void:` |
 | 方法 | [`put_cache`](#member-gfassetutility-methods-put_cache) | `func put_cache(path: String, resource: Resource) -> void:` |
@@ -83,6 +85,26 @@ signal asset_handle_released(path: String, reference_count: int)
 |---|---|
 | `path` | 资源路径。 |
 | `reference_count` | 剩余引用数量。 |
+
+<a id="member-gfassetutility-signals-asset_load_progress"></a>
+
+### `asset_load_progress`
+
+- API：`public`
+- 首次版本：`5.1.0`
+
+```gdscript
+signal asset_load_progress(path: String, progress: float)
+```
+
+资源异步加载进度更新时发出。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `path` | 资源路径。 |
+| `progress` | 当前加载进度，范围 0.0 到 1.0。 |
 
 <a id="member-gfassetutility-signals-asset_group_preloaded"></a>
 
@@ -417,6 +439,27 @@ func is_loading(path: String, type_hint: String = "") -> bool:
 
 返回：正在加载时返回 `true`。
 
+<a id="member-gfassetutility-methods-get_load_progress"></a>
+
+### `get_load_progress`
+
+- API：`public`
+- 首次版本：`5.1.0`
+
+```gdscript
+func get_load_progress(path: String) -> float:
+```
+
+获取资源异步加载进度。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `path` | 资源路径。 |
+
+返回：已缓存返回 1.0，正在加载返回最近轮询进度，其余返回 0.0。
+
 <a id="member-gfassetutility-methods-is_cached"></a>
 
 ### `is_cached`
@@ -580,6 +623,7 @@ func is_cache_pinned(path: String) -> bool:
 ### `get_debug_snapshot`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func get_debug_snapshot() -> Dictionary:
@@ -591,4 +635,4 @@ func get_debug_snapshot() -> Dictionary:
 
 结构：
 
-- `return`: Dictionary with cache, pending, pinned, reference count, and group count diagnostic fields.
+- `return`: Dictionary with cache, pending, pending_progress, pinned, reference count, and group count diagnostic fields.

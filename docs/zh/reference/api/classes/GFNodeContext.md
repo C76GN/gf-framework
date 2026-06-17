@@ -87,7 +87,12 @@ signal context_failed(reason: String)
 - API：`public`
 
 ```gdscript
-enum ScopeMode { ## 直接复用最近的父级上下文架构；若不存在则回退到全局 Gf 架构。 INHERITED, ## 创建新的局部架构，并将最近的父级或全局架构作为依赖回退来源。 SCOPED, }
+enum ScopeMode {
+	## 直接复用最近的父级上下文架构；若不存在则回退到全局 Gf 架构。
+	INHERITED,
+	## 创建新的局部架构，并将最近的父级或全局架构作为依赖回退来源。
+	SCOPED,
+}
 ```
 
 上下文作用域模式。

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFCapabilityUtility" path="addons/gf/extensions/capability/core/gf_capability_utility.gd" module="extensions/capability" extends="GFUtility" classDigest="c60b5471721df447efefabc991c57b09f825197578d5bad3bea6f5ecb59590ff">
+<class name="GFCapabilityUtility" path="addons/gf/extensions/capability/core/gf_capability_utility.gd" module="extensions/capability" extends="GFUtility" classDigest="624730b692513572a863012dafa21d5af4908155e70737aba0d28240c5504ae8">
 	<description>GFCapabilityUtility: 对象能力组件管理器。
 提供面向任意 Object / Node 的能力挂载、查询、移除、启停、索引查询与依赖补齐能力。
 能力组合是可选扩展，不改变核心分层容器。</description>
@@ -43,7 +43,12 @@
 	</signals>
 	<enums>
 		<member kind="enum" name="DependencyRemovalPolicy">
-			<signature>enum DependencyRemovalPolicy { ## 保留依赖能力，适合依赖能力需要在主能力移除后继续存在的场景。 KEEP_DEPENDENCIES, ## 移除仅由当前能力自动补齐且未被显式添加的依赖能力。 REMOVE_AUTO_DEPENDENCIES, }</signature>
+			<signature>enum DependencyRemovalPolicy {
+	## 保留依赖能力，适合依赖能力需要在主能力移除后继续存在的场景。
+	KEEP_DEPENDENCIES,
+	## 移除仅由当前能力自动补齐且未被显式添加的依赖能力。
+	REMOVE_AUTO_DEPENDENCIES,
+}</signature>
 			<description>移除能力时自动补齐依赖的清理策略。</description>
 			<tags>
 				<tag name="api">public</tag>

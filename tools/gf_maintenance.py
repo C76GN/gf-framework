@@ -405,7 +405,7 @@ PACKAGE_MANIFEST_FORBIDDEN_FIELDS = {
 } | PACKAGE_SIGNATURE_POLICY_FIELDS
 PACKAGE_MANIFEST_KINDS = {"kernel", "standard", "extension", "preset", "tool"}
 PACKAGE_MANIFEST_SCHEMA_VERSION = 1
-PACKAGE_ID_RE = re.compile(r"^gf\.(kernel|standard|extension|preset|tool)(?:\.[a-z0-9_]+)*$")
+PACKAGE_ID_RE = re.compile(r"^(?:gf\.kernel|gf\.(?:standard|extension|preset|tool)\.[a-z0-9_]+(?:\.[a-z0-9_]+)*)$")
 PACKAGE_CLOSURE_EXTENSION_TOTAL_WARNING_THRESHOLD = 8
 PACKAGE_CLOSURE_EXTENSION_STANDARD_WARNING_THRESHOLD = 6
 PACKAGE_CLOSURE_PRESET_TOTAL_INFO_THRESHOLD = 12
@@ -13519,6 +13519,14 @@ def maintenance_self_test() -> dict[str, Any]:
 		f"valid package manifest fixture should pass: {valid_package_issues}",
 	)
 
+	record_result(
+		"package_boundary_requires_exact_gf_kind_prefix_segments",
+		expected_package_kind_from_id("gf.toolkit.fixture") == ""
+		and expected_package_kind_from_id("gf.standardish.fixture") == ""
+		and expected_package_kind_from_id("gf.tool.fixture") == "tool",
+		"package kind detection should require exact gf.<kind>. prefixes.",
+	)
+
 	invalid_package_data = {
 		"schema_version": 1,
 		"id": "gf.extension.bad",
@@ -13591,12 +13599,42 @@ def maintenance_self_test() -> dict[str, Any]:
 			"paths": ["addons/gf/extensions/dialogue/**"],
 			"issues": [],
 		},
+		{
+			"path": "packages/extensions/gf.extension.bad_tool_dep.json",
+			"id": "gf.extension.bad_tool_dep",
+			"kind": "extension",
+			"dependencies": ["gf.tool.fixture"],
+			"packages": [],
+			"paths": ["addons/gf/extensions/bad_tool_dep/**"],
+			"issues": [],
+		},
+		{
+			"path": "packages/tools/gf.tool.fixture.json",
+			"id": "gf.tool.fixture",
+			"kind": "tool",
+			"dependencies": ["gf.kernel", "gf.standard.a", "gf.extension.dialogue"],
+			"packages": [],
+			"paths": ["addons/gf/tools/fixture/**"],
+			"issues": [],
+		},
+		{
+			"path": "packages/tools/gf.tool.depends_tool.json",
+			"id": "gf.tool.depends_tool",
+			"kind": "tool",
+			"dependencies": ["gf.tool.fixture"],
+			"packages": [],
+			"paths": ["addons/gf/tools/depends_tool/**"],
+			"issues": [],
+		},
 	]
 	package_graph_issues = audit_package_manifest_graph(package_graph_records)
 	record_result(
-		"package_boundary_reports_missing_forbidden_and_cyclic_dependencies",
+		"package_boundary_reports_missing_forbidden_tool_and_cyclic_dependencies",
 		issue_exists(package_graph_issues, "missing_package_dependency", row_key="gf.extension.save", actual_value="gf.standard.missing")
 		and issue_exists(package_graph_issues, "forbidden_package_dependency", row_key="gf.extension.save", actual_value="gf.extension.dialogue")
+		and issue_exists(package_graph_issues, "forbidden_package_dependency", row_key="gf.extension.bad_tool_dep", actual_value="gf.tool.fixture")
+		and issue_exists(package_graph_issues, "forbidden_package_dependency", row_key="gf.tool.depends_tool", actual_value="gf.tool.fixture")
+		and not issue_exists(package_graph_issues, "forbidden_package_dependency", row_key="gf.tool.fixture", actual_value="gf.extension.dialogue")
 		and issue_exists(package_graph_issues, "package_dependency_cycle", actual_value="gf.standard.a -> gf.standard.b -> gf.standard.a"),
 		f"package graph issues should be reported: {package_graph_issues}",
 	)
@@ -15456,7 +15494,7 @@ def audit_package_manifest_graph(records: list[dict[str, Any]]) -> list[dict[str
 				issues.append(make_package_issue(
 					"forbidden_package_dependency",
 					str(record["path"]),
-					"Package dependency direction violates kernel <- standard <- extensions.",
+					"Package dependency direction violates runtime and tool package boundaries.",
 					field="dependencies",
 					row_key=package_id,
 					actual_value=dependency_id,
@@ -16584,14 +16622,14 @@ def package_dependency_allowed(kind: str, dependency_id: str) -> bool:
 	if kind == "kernel":
 		return False
 	if kind == "standard":
-		return dependency_id == "gf.kernel" or dependency_id.startswith("gf.standard")
+		return dependency_id == "gf.kernel" or dependency_id.startswith("gf.standard.")
 	if kind == "extension":
-		return dependency_id == "gf.kernel" or dependency_id.startswith("gf.standard")
+		return dependency_id == "gf.kernel" or dependency_id.startswith("gf.standard.")
 	if kind == "tool":
 		return (
 			dependency_id == "gf.kernel"
-			or dependency_id.startswith("gf.standard")
-			or dependency_id.startswith("gf.tool")
+			or dependency_id.startswith("gf.standard.")
+			or dependency_id.startswith("gf.extension.")
 		)
 	return False
 
@@ -16603,13 +16641,13 @@ def package_id_matches_kind(package_id: str, kind: str) -> bool:
 def expected_package_kind_from_id(package_id: str) -> str:
 	if package_id == "gf.kernel":
 		return "kernel"
-	if package_id.startswith("gf.standard"):
+	if package_id.startswith("gf.standard."):
 		return "standard"
-	if package_id.startswith("gf.extension"):
+	if package_id.startswith("gf.extension."):
 		return "extension"
-	if package_id.startswith("gf.preset"):
+	if package_id.startswith("gf.preset."):
 		return "preset"
-	if package_id.startswith("gf.tool"):
+	if package_id.startswith("gf.tool."):
 		return "tool"
 	return ""
 

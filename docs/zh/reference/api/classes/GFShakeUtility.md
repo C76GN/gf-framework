@@ -105,7 +105,12 @@ signal shake_stopped(shake_id: int, channel: StringName)
 - API：`public`
 
 ```gdscript
-enum OverflowPolicy { ## 跳过新的播放请求。 SKIP_NEW, ## 停止最早的播放实例。 STOP_OLDEST, }
+enum OverflowPolicy {
+	## 跳过新的播放请求。
+	SKIP_NEW,
+	## 停止最早的播放实例。
+	STOP_OLDEST,
+}
 ```
 
 活跃反馈达到上限时的处理方式。

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFAssetUtility" path="addons/gf/standard/utilities/assets/gf_asset_utility.gd" module="standard" extends="GFUtility" classDigest="fced5430a2638f1039bdc766053603583fa04bf003b0b2e05e79f735caaf9846">
+<class name="GFAssetUtility" path="addons/gf/standard/utilities/assets/gf_asset_utility.gd" module="standard" extends="GFUtility" classDigest="2e554026fbc0b4e98778ba1c4b692e2ac60c01910fdc5f934aab49713de4c594">
 	<description>GFAssetUtility: 异步资源加载管理器，带 LRU 缓存。
 封装 Godot 的 threaded `ResourceLoader` 请求，
 用于避免大资源同步加载阻塞主线程，并在完成后统一分发回调与维护缓存。</description>
@@ -24,6 +24,16 @@
 				<tag name="api">public</tag>
 				<tag name="param">path: 资源路径。</tag>
 				<tag name="param">reference_count: 剩余引用数量。</tag>
+			</tags>
+		</member>
+		<member kind="signal" name="asset_load_progress">
+			<signature>signal asset_load_progress(path: String, progress: float)</signature>
+			<description>资源异步加载进度更新时发出。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">path: 资源路径。</tag>
+				<tag name="param">progress: 当前加载进度，范围 0.0 到 1.0。</tag>
+				<tag name="since">5.1.0</tag>
 			</tags>
 		</member>
 		<member kind="signal" name="asset_group_preloaded">
@@ -193,6 +203,16 @@
 				<tag name="return">正在加载时返回 `true`。</tag>
 			</tags>
 		</member>
+		<member kind="method" name="get_load_progress">
+			<signature>func get_load_progress(path: String) -&gt; float:</signature>
+			<description>获取资源异步加载进度。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">path: 资源路径。</tag>
+				<tag name="return">已缓存返回 1.0，正在加载返回最近轮询进度，其余返回 0.0。</tag>
+				<tag name="since">5.1.0</tag>
+			</tags>
+		</member>
 		<member kind="method" name="is_cached">
 			<signature>func is_cached(path: String) -&gt; bool:</signature>
 			<description>检查指定路径是否已缓存。</description>
@@ -274,7 +294,8 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">诊断快照字典。</tag>
-				<tag name="schema">return: Dictionary with cache, pending, pinned, reference count, and group count diagnostic fields.</tag>
+				<tag name="schema">return: Dictionary with cache, pending, pending_progress, pinned, reference count, and group count diagnostic fields.</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</methods>

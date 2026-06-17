@@ -68,7 +68,16 @@ signal completed(response: GFHttpResponse)
 - API：`public`
 
 ```gdscript
-enum State { ## 请求仍在等待完成。 PENDING, ## 请求成功完成。 COMPLETED, ## 请求失败。 FAILED, ## 请求被取消。 CANCELLED, }
+enum State {
+	## 请求仍在等待完成。
+	PENDING,
+	## 请求成功完成。
+	COMPLETED,
+	## 请求失败。
+	FAILED,
+	## 请求被取消。
+	CANCELLED,
+}
 ```
 
 HTTP 响应句柄状态。

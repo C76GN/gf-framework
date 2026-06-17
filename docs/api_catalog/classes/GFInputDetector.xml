@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFInputDetector" path="addons/gf/standard/input/rebinding/gf_input_detector.gd" module="standard" extends="Node" classDigest="3b9e1f893e1c8811f4f3e2a74d96374dfcf57fe2a2560877b56fdc57ca0e98be">
+<class name="GFInputDetector" path="addons/gf/standard/input/rebinding/gf_input_detector.gd" module="standard" extends="Node" classDigest="8dcc56e4ed15fac30b33d76ad135504300e9361f9949da0547a1a8b69fc3f3b1">
 	<description>GFInputDetector: 检测下一次输入事件的辅助节点。
 可用于项目自己的改键界面。检测结果只返回 Godot InputEvent，冲突处理由项目层决定。</description>
 	<tags>
@@ -26,14 +26,34 @@
 	</signals>
 	<enums>
 		<member kind="enum" name="DeviceType">
-			<signature>enum DeviceType { ## 键盘输入。 KEYBOARD, ## 鼠标输入。 MOUSE, ## 手柄按钮或轴输入。 JOYPAD, ## 触屏输入。 TOUCH, }</signature>
+			<signature>enum DeviceType {
+	## 键盘输入。
+	KEYBOARD,
+	## 鼠标输入。
+	MOUSE,
+	## 手柄按钮或轴输入。
+	JOYPAD,
+	## 触屏输入。
+	TOUCH,
+}</signature>
 			<description>设备过滤类型。</description>
 			<tags>
 				<tag name="api">public</tag>
 			</tags>
 		</member>
 		<member kind="enum" name="DetectionState">
-			<signature>enum DetectionState { ## 未检测。 IDLE, ## 倒计时中。 COUNTDOWN, ## 等待取消输入释放。 PRE_CLEAR, ## 正在接收候选输入。 DETECTING, ## 等待检测到的输入释放。 POST_CLEAR, }</signature>
+			<signature>enum DetectionState {
+	## 未检测。
+	IDLE,
+	## 倒计时中。
+	COUNTDOWN,
+	## 等待取消输入释放。
+	PRE_CLEAR,
+	## 正在接收候选输入。
+	DETECTING,
+	## 等待检测到的输入释放。
+	POST_CLEAR,
+}</signature>
 			<description>检测阶段。</description>
 			<tags>
 				<tag name="api">public</tag>

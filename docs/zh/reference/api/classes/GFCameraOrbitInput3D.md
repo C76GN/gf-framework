@@ -49,7 +49,14 @@
 - API：`public`
 
 ```gdscript
-enum UpdateMode { ## 在 _process 中读取输入。 IDLE, ## 在 _physics_process 中读取输入。 PHYSICS, ## 只在 process_input() 被显式调用时读取输入。 MANUAL, }
+enum UpdateMode {
+	## 在 _process 中读取输入。
+	IDLE,
+	## 在 _physics_process 中读取输入。
+	PHYSICS,
+	## 只在 process_input() 被显式调用时读取输入。
+	MANUAL,
+}
 ```
 
 输入自动处理模式。

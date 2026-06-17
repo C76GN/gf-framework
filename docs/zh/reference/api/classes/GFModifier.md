@@ -33,7 +33,14 @@
 - API：`public`
 
 ```gdscript
-enum Type { ## 基础加值。 BASE_ADD, ## 百分比乘区。 PERCENT_ADD, ## 最终加值。 FINAL_ADD, }
+enum Type {
+	## 基础加值。
+	BASE_ADD,
+	## 百分比乘区。
+	PERCENT_ADD,
+	## 最终加值。
+	FINAL_ADD,
+}
 ```
 
 修饰器计算类型。

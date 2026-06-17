@@ -40,7 +40,16 @@
 - API：`public`
 
 ```gdscript
-enum Operator { ## 使用 query 作为叶子查询。 QUERY, ## 全部子表达式都满足。 ALL, ## 任意子表达式满足。 ANY, ## 没有子表达式满足。 NONE, }
+enum Operator {
+	## 使用 query 作为叶子查询。
+	QUERY,
+	## 全部子表达式都满足。
+	ALL,
+	## 任意子表达式满足。
+	ANY,
+	## 没有子表达式满足。
+	NONE,
+}
 ```
 
 表达式运算类型。

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFDiagnosticsUtility" path="addons/gf/standard/utilities/debug/gf_diagnostics_utility.gd" module="standard" extends="GFUtility" classDigest="38e5e73efaf598c99c256132b4aade0d3b4e2c6348568cadd3d82cb0225c74f7">
+<class name="GFDiagnosticsUtility" path="addons/gf/standard/utilities/debug/gf_diagnostics_utility.gd" module="standard" extends="GFUtility" classDigest="f0d7942efbebb89773cb1cf6be92e2ef3801867167abf9e24f4a64d0e5e04a61">
 	<description>GFDiagnosticsUtility: 运行时诊断聚合工具。
 提供架构生命周期、事件系统、性能、日志和外部贡献诊断的统一快照。
 诊断命令、监控项和快照分区通过 Callable 注册，框架只负责调度和包装结果，不解释项目业务数据。</description>
@@ -41,7 +41,16 @@
 	</signals>
 	<enums>
 		<member kind="enum" name="CommandTier">
-			<signature>enum CommandTier { ## 只读取状态。 OBSERVE, ## 修改调试输入或临时过滤条件。 INPUT, ## 控制运行时行为。 CONTROL, ## 可能破坏状态、存档或远端连接。 DANGER, }</signature>
+			<signature>enum CommandTier {
+	## 只读取状态。
+	OBSERVE,
+	## 修改调试输入或临时过滤条件。
+	INPUT,
+	## 控制运行时行为。
+	CONTROL,
+	## 可能破坏状态、存档或远端连接。
+	DANGER,
+}</signature>
 			<description>诊断命令风险等级。</description>
 			<tags>
 				<tag name="api">public</tag>

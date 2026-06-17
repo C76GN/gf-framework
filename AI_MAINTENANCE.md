@@ -27,6 +27,9 @@ GF 源码依赖方向必须保持稳定单向：
 addons/gf/kernel <- addons/gf/standard <- addons/gf/extensions
 ```
 
+- `tool` 是开发期、编辑器期、导入期、构建期或 CI 期 package kind，不是第四个运行时层。运行时包 `kernel`、`standard`、`extension` 不能依赖 `gf.tool.*`。
+- `tool` 可以依赖它服务的运行时包：只操作内核能力的工具依赖 `gf.kernel`；配置、资源、诊断等工具依赖对应 `gf.standard.*`；扩展专属编辑器或烘焙工具可以依赖它服务的 `gf.extension.*`。安装 tool 时可以安装这些 runtime 依赖；安装 runtime 包时不能反向安装 tool。
+- 第一版规则下普通 `gf.tool.*` 不能依赖其他 `gf.tool.*`。如果多个工具后续确实重复同一套开发期基础能力，必须先单独设计最小 `tool base` 包、边界和测试，再放宽这条规则；不要让工具之间形成隐藏链式依赖。
 - 抽象边界判断优先看“机制”与“策略”。GF 应沉淀稳定、通用、可测试的机制；具体业务规则、内容语义、项目流程、视觉风格和跨扩展编排策略留在项目侧或独立插件中。
 - 如果项目或多个扩展反复绕开、复制或重写某个 GF 功能，它是边界审查信号，不是自动上移信号。先判断重复的是稳定机制、扩展点不足、API 使用成本、文档缺口还是业务策略：稳定机制可以上移或增强扩展点；业务策略应收敛、拆分或删除；文档缺口先补文档。
 - 如果两个或更多 GF 内置扩展需要同一份通用机制，优先把最小稳定能力上移到 `addons/gf/standard`，再由扩展依赖标准库入口；不要让扩展互相引用，也不要在多个扩展中长期复制同一实现。
@@ -58,7 +61,7 @@ addons/gf/kernel <- addons/gf/standard <- addons/gf/extensions
 - `python tools\gf_maintenance.py content-package-boundary --json` 是内容包 manifest 硬 gate；它扫描 tracked 和未忽略的 untracked `gf_content_package.json`，拒绝无效 JSON、非白名单字段、缺失或重复包 ID、缺失或循环依赖、资源路径越过包根，以及把下载地址、安装器、包管理策略写进 manifest 的做法。
 - `python tools\gf_maintenance.py asset-lifecycle-boundary --json` 当前是 report-only 生命周期基线检查；它扫描运行时代码中的 `acquire_handle()`、`load_handle_async()` 和 `request_entry_handle_async()`，报告同时缺少 owner 与 group 的句柄获取，因为这类资源只能依赖手动 release，容易形成长期 cache pin。
 - `python tools\gf_maintenance.py project-profile-boundary --json` 是可选项目结构 profile 检查；默认查找 `gf_project_profile.json`、`.gf/project_profile.json` 或 `project_profile.json`，没有 profile 时通过。Profile 只表达项目自有目录约定、zone、glob、扩展名和路径存在规则，不能反向变成 GF 对所有项目的固定目录要求。
-- `python tools\gf_maintenance.py package-boundary --json` 是 GF 模块化发行包 manifest 硬 gate；它扫描 `packages/**/*.json`，拒绝无效 schema、非白名单字段、把下载地址/checksum/installer 策略写进本地 manifest、缺失或循环依赖、违反 `kernel <- standard <- extensions` 的包依赖方向，以及多个包声明重叠源码路径。
+- `python tools\gf_maintenance.py package-boundary --json` 是 GF 模块化发行包 manifest 硬 gate；它扫描 `packages/**/*.json`，拒绝无效 schema、非白名单字段、把下载地址/checksum/installer 策略写进本地 manifest、缺失或循环依赖、违反 `kernel <- standard <- extensions` 与 tool 单向挂载规则的包依赖方向，以及多个包声明重叠源码路径。
 - `python tools\gf_maintenance.py package-closure-audit --json` 是 GF 模块化安装闭包 report-only gate；它从 `packages/**/*.json` 计算每个 package/preset 的真实安装闭包和 standard fan-in，warning 记录过大的 extension 闭包、直接依赖完整 debug 包、debug 闭包拉入 UI 等边界债务，并 hard fail runtime extension 闭包包含 `gf.standard.editor` 的情况。
 - `python tools\gf_maintenance.py package-source-boundary --json` 是 GF 模块化发行包源码引用硬 gate；它扫描 `addons/gf` 中由包 manifest 归属的源码/配置文件，拒绝引用未被本包或直接依赖包拥有的 `addons/gf` 路径或 `class_name`。根插件可用受限字符串发现 standard 编辑器贡献，内核扩展基础设施可知道扩展根目录，但这些例外不能扩散成具体包内部引用。
 - `python tools\gf_maintenance.py package-build-boundary --json` 是 GF 模块化发行包构建硬 gate；它用 `tools/build_gf_package.py --all` 在临时目录构建所有非 preset 包 zip、registry index、registry source manifest 和离线 bundle zip，确认 package zip 根目录只包含 `addons/`、条目都在 `addons/gf/` 内、没有生成物/缓存文件，校验 registry 中的 archive、sha256 和 size 与实际 zip 一致，校验 registry source channel 的 `registry_sha256` / `registry_size_bytes` 绑定到生成的 registry index，校验离线 bundle 只包含生成的 registry/source/package zip 且 registry 内相对 archive 可解析到 bundle 内文件，拒绝在 Godot 原生验签实现前写入 registry package entry 或 registry source 签名字段，拒绝非 `gf.tool.*` 运行时包夹带 Python/npm/Node/shell 工程载荷，并确认 `gf.kernel` archive 不携带维护侧 `addons/gf/kernel/package_tools/` Python 包管理工具。

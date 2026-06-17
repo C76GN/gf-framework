@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSaveScope" path="addons/gf/extensions/save/core/gf_save_scope.gd" module="extensions/save" extends="Node" classDigest="a323551944d5f5ca247590d26802c2499e2b88cd7e926d73938f4d5154fa88d6">
+<class name="GFSaveScope" path="addons/gf/extensions/save/core/gf_save_scope.gd" module="extensions/save" extends="Node" classDigest="49b76b4a8f9a930ed009ea122f9a18298fee7fa68ece3249182cb5fa84ffb656">
 	<description>GFSaveScope: 存档图作用域节点。
 Scope 定义一次保存/加载的边界。它可嵌套组织子 Scope，但不假设具体业务结构。</description>
 	<tags>
@@ -10,14 +10,26 @@ Scope 定义一次保存/加载的边界。它可嵌套组织子 Scope，但不�
 	<signals />
 	<enums>
 		<member kind="enum" name="RestorePolicy">
-			<signature>enum RestorePolicy { ## 只把数据应用到已存在的 Source。 APPLY_ONLY_EXISTING, ## 允许 GFSaveGraphUtility 使用注册的工厂补建实体。 ALLOW_FACTORIES, }</signature>
+			<signature>enum RestorePolicy {
+	## 只把数据应用到已存在的 Source。
+	APPLY_ONLY_EXISTING,
+	## 允许 GFSaveGraphUtility 使用注册的工厂补建实体。
+	ALLOW_FACTORIES,
+}</signature>
 			<description>恢复未知实体时的处理策略。</description>
 			<tags>
 				<tag name="api">public</tag>
 			</tags>
 		</member>
 		<member kind="enum" name="Phase">
-			<signature>enum Phase { ## 早期执行。 EARLY, ## 普通执行。 NORMAL, ## 后期执行。 LATE, }</signature>
+			<signature>enum Phase {
+	## 早期执行。
+	EARLY,
+	## 普通执行。
+	NORMAL,
+	## 后期执行。
+	LATE,
+}</signature>
 			<description>Scope/Source 执行阶段。</description>
 			<tags>
 				<tag name="api">public</tag>

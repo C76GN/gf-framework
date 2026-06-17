@@ -135,7 +135,12 @@ signal route_back_completed(route_id: StringName, layer: int)
 - API：`public`
 
 ```gdscript
-enum Operation { ## 压入当前层级栈顶。 PUSH, ## 替换当前层级栈。 REPLACE, }
+enum Operation {
+	## 压入当前层级栈顶。
+	PUSH,
+	## 替换当前层级栈。
+	REPLACE,
+}
 ```
 
 路由打开操作。

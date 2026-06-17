@@ -56,6 +56,13 @@ const GFPluginDockTools = preload("res://addons/gf/kernel/editor/gf_plugin_dock_
 ## @layer plugin
 const GFPluginImportTools = preload("res://addons/gf/kernel/editor/gf_plugin_import_tools.gd")
 
+## Resource 预览生成器管理辅助脚本。
+## [br]
+## @api framework_internal
+## [br]
+## @layer plugin
+const GFPluginPreviewTools = preload("res://addons/gf/kernel/editor/gf_plugin_preview_tools.gd")
+
 ## glTF 文档扩展管理辅助脚本。
 ## [br]
 ## @api framework_internal
@@ -78,6 +85,7 @@ var _actions: GFPluginActions
 var _menu: GFPluginMenu
 var _dock_tools: GFPluginDockTools
 var _import_tools: GFPluginImportTools
+var _preview_tools: GFPluginPreviewTools
 var _gltf_document_tools: GFPluginGltfDocumentTools
 var _plugin_active: bool = false
 var _standard_editor_extension_records: Dictionary = {}
@@ -104,6 +112,8 @@ func _enter_tree() -> void:
 	_dock_tools = GFPluginDockTools.new()
 	_import_tools = GFPluginImportTools.new()
 	_import_tools.setup(self)
+	_preview_tools = GFPluginPreviewTools.new()
+	_preview_tools.setup(self)
 
 	_gltf_document_tools = GFPluginGltfDocumentTools.new()
 	_gltf_document_tools.setup()
@@ -120,6 +130,9 @@ func _exit_tree() -> void:
 	if _import_tools != null:
 		_import_tools.cleanup(self)
 		_import_tools = null
+	if _preview_tools != null:
+		_preview_tools.cleanup(self)
+		_preview_tools = null
 	if _gltf_document_tools != null:
 		_gltf_document_tools.cleanup()
 		_gltf_document_tools = null

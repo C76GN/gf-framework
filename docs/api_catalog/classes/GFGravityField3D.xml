@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFGravityField3D" path="addons/gf/extensions/physics/nodes/gf_gravity_field_3d.gd" module="extensions/physics" extends="Node3D" classDigest="935f87b2ddb197b5c481a6623d2ac1dfc9a02fbaa26bd2ace214eb4daec92927">
+<class name="GFGravityField3D" path="addons/gf/extensions/physics/nodes/gf_gravity_field_3d.gd" module="extensions/physics" extends="Node3D" classDigest="d9ef49d4ace026a3f05d613c1b4843b5365df913eac4430f763b24c1dc445a45">
 	<description>GFGravityField3D: 通用 3D 重力/加速度场。
 提供点重力、远离中心和固定方向三种方向模式，以及常量、线性、平方反比
 和曲线衰减。项目可继承并重写方向或强度计算以实现更复杂的场。</description>
@@ -19,14 +19,30 @@
 	</signals>
 	<enums>
 		<member kind="enum" name="DirectionMode">
-			<signature>enum DirectionMode { ## 朝向力场节点原点。 TOWARD_ORIGIN, ## 远离力场节点原点。 AWAY_FROM_ORIGIN, ## 使用固定方向。 CONSTANT_DIRECTION, }</signature>
+			<signature>enum DirectionMode {
+	## 朝向力场节点原点。
+	TOWARD_ORIGIN,
+	## 远离力场节点原点。
+	AWAY_FROM_ORIGIN,
+	## 使用固定方向。
+	CONSTANT_DIRECTION,
+}</signature>
 			<description>力场方向模式。</description>
 			<tags>
 				<tag name="api">public</tag>
 			</tags>
 		</member>
 		<member kind="enum" name="FalloffMode">
-			<signature>enum FalloffMode { ## 半径内保持恒定强度。 CONSTANT, ## 从中心到半径边缘线性衰减。 LINEAR, ## 按平方反比衰减。 INVERSE_SQUARE, ## 使用 Curve 采样衰减；横轴为距离占半径比例。 CURVE, }</signature>
+			<signature>enum FalloffMode {
+	## 半径内保持恒定强度。
+	CONSTANT,
+	## 从中心到半径边缘线性衰减。
+	LINEAR,
+	## 按平方反比衰减。
+	INVERSE_SQUARE,
+	## 使用 Curve 采样衰减；横轴为距离占半径比例。
+	CURVE,
+}</signature>
 			<description>强度衰减模式。</description>
 			<tags>
 				<tag name="api">public</tag>

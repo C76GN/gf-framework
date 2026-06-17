@@ -39,7 +39,14 @@
 - API：`public`
 
 ```gdscript
-enum CacheMode { ## 不读写缓存，每次查询都重新计算。 DISABLED, ## 只使用显式预热写入的缓存。 MANUAL, ## 查询时自动缓存，并按 auto_cache_size 控制容量。 AUTOMATIC, }
+enum CacheMode {
+	## 不读写缓存，每次查询都重新计算。
+	DISABLED,
+	## 只使用显式预热写入的缓存。
+	MANUAL,
+	## 查询时自动缓存，并按 auto_cache_size 控制容量。
+	AUTOMATIC,
+}
 ```
 
 Mesh surface face count 缓存策略。

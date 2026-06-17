@@ -137,7 +137,18 @@ signal previous_crash_detected(marker: Dictionary)
 - API：`public`
 
 ```gdscript
-enum LogLevel { ## 调试信息 DEBUG, ## 一般信息 INFO, ## 警告 WARN, ## 错误 ERROR, ## 致命错误 FATAL, }
+enum LogLevel {
+	## 调试信息
+	DEBUG,
+	## 一般信息
+	INFO,
+	## 警告
+	WARN,
+	## 错误
+	ERROR,
+	## 致命错误
+	FATAL,
+}
 ```
 
 日志等级，数值越大越严重。

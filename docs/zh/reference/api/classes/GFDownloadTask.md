@@ -48,7 +48,20 @@
 - API：`public`
 
 ```gdscript
-enum Status { ## 已加入队列。 QUEUED, ## 正在下载。 RUNNING, ## 已暂停，等待恢复。 PAUSED, ## 已完成。 COMPLETED, ## 已失败。 FAILED, ## 已取消。 CANCELLED, }
+enum Status {
+	## 已加入队列。
+	QUEUED,
+	## 正在下载。
+	RUNNING,
+	## 已暂停，等待恢复。
+	PAUSED,
+	## 已完成。
+	COMPLETED,
+	## 已失败。
+	FAILED,
+	## 已取消。
+	CANCELLED,
+}
 ```
 
 下载任务状态。

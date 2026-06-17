@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFValidationIssue" path="addons/gf/standard/foundation/validation/gf_validation_issue.gd" module="standard" extends="RefCounted" classDigest="e67f7984d4c33648737e79eaae517a03c6f97626727b4e1d4f13b8a01dfebf6e">
+<class name="GFValidationIssue" path="addons/gf/standard/foundation/validation/gf_validation_issue.gd" module="standard" extends="RefCounted" classDigest="331afce796d3df7a69b6c5982d110a631fa92dd6e563b33543902d1bf382476a">
 	<description>GFValidationIssue: 通用校验问题条目。
 用于描述配置、资源、节点树、存档载荷或编辑器工具中的单个问题。它只记录
 严重级别、问题类别、定位信息和附加字段，不决定项目如何展示或修复问题。</description>
@@ -11,7 +11,14 @@
 	<signals />
 	<enums>
 		<member kind="enum" name="Severity">
-			<signature>enum Severity { ## 信息提示，不影响健康状态。 INFO, ## 警告，报告仍可继续使用，但不再视为完全健康。 WARNING, ## 错误，报告不应视为通过。 ERROR, }</signature>
+			<signature>enum Severity {
+	## 信息提示，不影响健康状态。
+	INFO,
+	## 警告，报告仍可继续使用，但不再视为完全健康。
+	WARNING,
+	## 错误，报告不应视为通过。
+	ERROR,
+}</signature>
 			<description>校验问题严重级别。</description>
 			<tags>
 				<tag name="api">public</tag>

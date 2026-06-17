@@ -36,7 +36,24 @@
 - API：`public`
 
 ```gdscript
-enum Transform { ## 不变换。 IDENTITY, ## 顺时针旋转 90 度。 ROTATE_90, ## 旋转 180 度。 ROTATE_180, ## 顺时针旋转 270 度。 ROTATE_270, ## 沿 X 轴方向镜像，即左右翻转。 MIRROR_X, ## 沿 Y 轴方向镜像，即上下翻转。 MIRROR_Y, ## 沿左上到右下对角线翻转。 DIAGONAL_MAIN, ## 沿右上到左下对角线翻转。 DIAGONAL_ANTI, }
+enum Transform {
+	## 不变换。
+	IDENTITY,
+	## 顺时针旋转 90 度。
+	ROTATE_90,
+	## 旋转 180 度。
+	ROTATE_180,
+	## 顺时针旋转 270 度。
+	ROTATE_270,
+	## 沿 X 轴方向镜像，即左右翻转。
+	MIRROR_X,
+	## 沿 Y 轴方向镜像，即上下翻转。
+	MIRROR_Y,
+	## 沿左上到右下对角线翻转。
+	DIAGONAL_MAIN,
+	## 沿右上到左下对角线翻转。
+	DIAGONAL_ANTI,
+}
 ```
 
 2D 矩形局部空间中的离散变换。

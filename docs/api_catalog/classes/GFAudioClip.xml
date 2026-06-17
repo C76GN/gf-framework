@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFAudioClip" path="addons/gf/standard/utilities/audio/gf_audio_clip.gd" module="standard" extends="Resource" classDigest="27b7922bfe1a22bf39d5fc29d0e71516a3e58b9c143fa4eab9c85604bfed4299">
+<class name="GFAudioClip" path="addons/gf/standard/utilities/audio/gf_audio_clip.gd" module="standard" extends="Resource" classDigest="10fe25a93db2ef4993fc01af668b6fa0ffcce021f928e3f6e5d7503d395f6b93">
 	<description>GFAudioClip: 可资源化的音频播放配置。
 支持直接引用 `AudioStream`，也支持提供资源路径交给 `GFAudioUtility`
 按需加载。</description>
@@ -76,6 +76,15 @@
 				<tag name="schema">spatial_settings: GFAudioSpatialSettings or compatible Resource with apply_to_2d/apply_to_3d methods.</tag>
 			</tags>
 		</member>
+		<member kind="property" name="metadata" decorators="@export">
+			<signature>var metadata: Dictionary = {}</signature>
+			<description>可选音频元数据，供导入器、编辑器或项目层扩展使用。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">metadata: Dictionary，保存项目或工具附加到片段的通用元数据；GF 不解释具体键。</tag>
+				<tag name="since">5.1.0</tag>
+			</tags>
+		</member>
 	</properties>
 	<methods>
 		<member kind="method" name="has_source">
@@ -102,6 +111,53 @@
 				<tag name="api">public</tag>
 				<tag name="param">rng: 可选随机数生成器；为空时使用确定性的 pitch_scale。</tag>
 				<tag name="return">实际播放音高。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="has_metadata_value">
+			<signature>func has_metadata_value(key: Variant) -&gt; bool:</signature>
+			<description>检查指定元数据键是否存在。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">key: 元数据键。</tag>
+				<tag name="return">存在返回 true。</tag>
+				<tag name="schema">key: Variant，推荐使用 String 或 StringName。</tag>
+				<tag name="since">5.1.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="set_metadata_value">
+			<signature>func set_metadata_value(key: Variant, value: Variant) -&gt; void:</signature>
+			<description>设置元数据项。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">key: 元数据键。</tag>
+				<tag name="param">value: 元数据值。</tag>
+				<tag name="schema">key: Variant，推荐使用 String 或 StringName。</tag>
+				<tag name="schema">value: Variant，推荐使用可序列化的标量、Array、Dictionary 或 Resource 引用。</tag>
+				<tag name="since">5.1.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_metadata_value">
+			<signature>func get_metadata_value(key: Variant, default_value: Variant = null) -&gt; Variant:</signature>
+			<description>获取元数据项。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">key: 元数据键。</tag>
+				<tag name="param">default_value: 缺少键时返回的默认值。</tag>
+				<tag name="return">元数据值或默认值。</tag>
+				<tag name="schema">key: Variant，推荐使用 String 或 StringName。</tag>
+				<tag name="schema">default_value: Variant 默认值。</tag>
+				<tag name="schema">return: Variant 元数据值。</tag>
+				<tag name="since">5.1.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="duplicate_metadata">
+			<signature>func duplicate_metadata() -&gt; Dictionary:</signature>
+			<description>创建元数据深拷贝。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">元数据副本。</tag>
+				<tag name="schema">return: Dictionary 元数据副本。</tag>
+				<tag name="since">5.1.0</tag>
 			</tags>
 		</member>
 	</methods>

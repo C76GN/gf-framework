@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFCameraOrbitInput3D" path="addons/gf/extensions/camera/nodes/gf_camera_orbit_input_3d.gd" module="extensions/camera" extends="Node" classDigest="c0b1d827eb9229ae8ba2a10f48e26b1c4ce9504892550d1e9f79851286b2887c">
+<class name="GFCameraOrbitInput3D" path="addons/gf/extensions/camera/nodes/gf_camera_orbit_input_3d.gd" module="extensions/camera" extends="Node" classDigest="bde2c05d8a7d4e96cbcf1dd99b65a4f53df41cef43067dd47924f48b04f3157a">
 	<description>GFCameraOrbitInput3D: 通用 3D 环绕相机输入桥接节点。
 将 GFInputMappingUtility 的可配置动作值或鼠标拖拽转换为 GFCameraOrbitRig3D 的角度和距离增量。
 它不创建输入上下文，也不定义项目动作绑定。</description>
@@ -11,7 +11,14 @@
 	<signals />
 	<enums>
 		<member kind="enum" name="UpdateMode">
-			<signature>enum UpdateMode { ## 在 _process 中读取输入。 IDLE, ## 在 _physics_process 中读取输入。 PHYSICS, ## 只在 process_input() 被显式调用时读取输入。 MANUAL, }</signature>
+			<signature>enum UpdateMode {
+	## 在 _process 中读取输入。
+	IDLE,
+	## 在 _physics_process 中读取输入。
+	PHYSICS,
+	## 只在 process_input() 被显式调用时读取输入。
+	MANUAL,
+}</signature>
 			<description>输入自动处理模式。</description>
 			<tags>
 				<tag name="api">public</tag>

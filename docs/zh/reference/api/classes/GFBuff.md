@@ -47,7 +47,14 @@
 - API：`public`
 
 ```gdscript
-enum StackMode { ## 只刷新持续时间，不改变层数。 REFRESH_ONLY, ## 刷新持续时间，并在 max_stacks 允许时增加层数。 ADD_STACK, ## 忽略重复添加，不刷新持续时间或层数。 IGNORE, }
+enum StackMode {
+	## 只刷新持续时间，不改变层数。
+	REFRESH_ONLY,
+	## 刷新持续时间，并在 max_stacks 允许时增加层数。
+	ADD_STACK,
+	## 忽略重复添加，不刷新持续时间或层数。
+	IGNORE,
+}
 ```
 
 重复添加同 ID Buff 时的层数策略。
@@ -59,7 +66,16 @@ enum StackMode { ## 只刷新持续时间，不改变层数。 REFRESH_ONLY, ## 
 - API：`public`
 
 ```gdscript
-enum DurationRefreshPolicy { ## 保持当前剩余时间。 KEEP_CURRENT, ## 使用新的持续时间重置剩余时间。 RESET_TO_NEW_DURATION, ## 将新的持续时间追加到当前剩余时间。 EXTEND_BY_NEW_DURATION, ## 保留当前剩余时间与新持续时间中较长者。 KEEP_LONGER_REMAINING, }
+enum DurationRefreshPolicy {
+	## 保持当前剩余时间。
+	KEEP_CURRENT,
+	## 使用新的持续时间重置剩余时间。
+	RESET_TO_NEW_DURATION,
+	## 将新的持续时间追加到当前剩余时间。
+	EXTEND_BY_NEW_DURATION,
+	## 保留当前剩余时间与新持续时间中较长者。
+	KEEP_LONGER_REMAINING,
+}
 ```
 
 重复添加同 ID Buff 时的持续时间刷新策略。

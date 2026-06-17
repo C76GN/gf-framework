@@ -40,7 +40,18 @@
 - API：`public`
 
 ```gdscript
-enum Status { ## 已入队，尚未开始执行。 WAITING, ## 正在执行。 ACTIVE, ## 已成功完成。 COMPLETED, ## 已失败。 FAILED, ## 已取消。 CANCELLED, }
+enum Status {
+	## 已入队，尚未开始执行。
+	WAITING,
+	## 正在执行。
+	ACTIVE,
+	## 已成功完成。
+	COMPLETED,
+	## 已失败。
+	FAILED,
+	## 已取消。
+	CANCELLED,
+}
 ```
 
 任务生命周期状态。

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFRenderWarmupUtility" path="addons/gf/standard/utilities/display/gf_render_warmup_utility.gd" module="standard" extends="GFUtility" classDigest="bc605306573b6c21f048f088c23771ca66219f97009abe3861000bd74a5f3c68">
+<class name="GFRenderWarmupUtility" path="addons/gf/standard/utilities/display/gf_render_warmup_utility.gd" module="standard" extends="GFUtility" classDigest="a6e0f4bd68d3847ca5f5da36037b7fd072f6af96fd62308aada9968abe6ddebe">
 	<description>GFRenderWarmupUtility: 通用渲染资源预热工具。
 通过清单或节点树收集 Mesh、Material、Texture 等渲染资源，并按帧预算提前加载和触碰 RID。
 它不决定项目何时预热、预热哪些场景或如何展示加载进度。</description>
@@ -43,7 +43,12 @@
 	</signals>
 	<enums>
 		<member kind="enum" name="TouchMode">
-			<signature>enum TouchMode { ## 只加载资源并触碰 RID。 RID_ONLY, ## 使用离屏临时渲染节点让材质或 Mesh 参与一次渲染。 TEMPORARY_RENDER_NODES, }</signature>
+			<signature>enum TouchMode {
+	## 只加载资源并触碰 RID。
+	RID_ONLY,
+	## 使用离屏临时渲染节点让材质或 Mesh 参与一次渲染。
+	TEMPORARY_RENDER_NODES,
+}</signature>
 			<description>预热触碰模式。</description>
 			<tags>
 				<tag name="api">public</tag>

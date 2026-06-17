@@ -36,7 +36,24 @@
 - API：`public`
 
 ```gdscript
-enum IssueType { ## 场景资源加载失败。 SCENE_LOAD_FAILED, ## 无法读取场景保存的连接状态。 SCENE_STATE_UNAVAILABLE, ## 场景实例化失败。 SCENE_INSTANTIATION_FAILED, ## 连接源节点缺失。 MISSING_SOURCE, ## 连接目标节点缺失。 MISSING_TARGET, ## 连接源信号缺失。 MISSING_SIGNAL, ## 连接目标方法缺失。 MISSING_METHOD, ## 信号参数数量与目标方法不匹配。 PARAMETER_COUNT_MISMATCH, }
+enum IssueType {
+	## 场景资源加载失败。
+	SCENE_LOAD_FAILED,
+	## 无法读取场景保存的连接状态。
+	SCENE_STATE_UNAVAILABLE,
+	## 场景实例化失败。
+	SCENE_INSTANTIATION_FAILED,
+	## 连接源节点缺失。
+	MISSING_SOURCE,
+	## 连接目标节点缺失。
+	MISSING_TARGET,
+	## 连接源信号缺失。
+	MISSING_SIGNAL,
+	## 连接目标方法缺失。
+	MISSING_METHOD,
+	## 信号参数数量与目标方法不匹配。
+	PARAMETER_COUNT_MISMATCH,
+}
 ```
 
 场景信号连接审计问题类型。

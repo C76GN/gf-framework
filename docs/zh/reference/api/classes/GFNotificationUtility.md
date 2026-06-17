@@ -138,7 +138,16 @@ signal notification_action_invoked(notification: Dictionary, action_id: StringNa
 - API：`public`
 
 ```gdscript
-enum Level { ## 普通信息。 INFO, ## 成功反馈。 SUCCESS, ## 警告信息。 WARNING, ## 错误信息。 ERROR, }
+enum Level {
+	## 普通信息。
+	INFO,
+	## 成功反馈。
+	SUCCESS,
+	## 警告信息。
+	WARNING,
+	## 错误信息。
+	ERROR,
+}
 ```
 
 通知等级。
@@ -150,7 +159,16 @@ enum Level { ## 普通信息。 INFO, ## 成功反馈。 SUCCESS, ## 警告信�
 - API：`public`
 
 ```gdscript
-enum Priority { ## 低优先级。 LOW, ## 默认优先级。 NORMAL, ## 高优先级。 HIGH, ## 最高优先级。 CRITICAL, }
+enum Priority {
+	## 低优先级。
+	LOW,
+	## 默认优先级。
+	NORMAL,
+	## 高优先级。
+	HIGH,
+	## 最高优先级。
+	CRITICAL,
+}
 ```
 
 通知优先级。数值越大越靠前。

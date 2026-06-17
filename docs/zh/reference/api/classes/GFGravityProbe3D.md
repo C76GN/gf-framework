@@ -36,7 +36,14 @@
 - API：`public`
 
 ```gdscript
-enum CombinationMode { ## 汇总所有有效力场的加速度。 SUM, ## 只使用当前点加速度长度最大的力场。 STRONGEST, ## 只汇总当前点非零加速度中最高优先级的力场。 HIGHEST_PRIORITY, }
+enum CombinationMode {
+	## 汇总所有有效力场的加速度。
+	SUM,
+	## 只使用当前点加速度长度最大的力场。
+	STRONGEST,
+	## 只汇总当前点非零加速度中最高优先级的力场。
+	HIGHEST_PRIORITY,
+}
 ```
 
 多个力场重叠时的采样组合策略。

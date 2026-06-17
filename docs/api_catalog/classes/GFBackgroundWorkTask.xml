@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFBackgroundWorkTask" path="addons/gf/standard/utilities/jobs/gf_background_work_task.gd" module="standard" extends="RefCounted" classDigest="0202ee468a02c9c3de1e3b5addb1cdf8586c9518d7dd4d95b33bcb2eeea4bb4a">
+<class name="GFBackgroundWorkTask" path="addons/gf/standard/utilities/jobs/gf_background_work_task.gd" module="standard" extends="RefCounted" classDigest="5efdc0c3ba25ebc247f19ede401fe83d7cab3bc0f1861ecebc3dca41f3d8c23a">
 	<description>GFBackgroundWorkTask: 后台工作记录。
 保存后台工作状态、进度、输入数据、结果、错误文本和应用回调。
 任务本身不直接启动线程；执行由 GFBackgroundWorkUtility 统一协调。</description>
@@ -11,14 +11,34 @@
 	<signals />
 	<enums>
 		<member kind="enum" name="Kind">
-			<signature>enum Kind { ## CPU 计算型线程任务。 CPU, ## IO 型线程任务。 IO, ## ResourceLoader 线程资源加载任务。 RESOURCE, }</signature>
+			<signature>enum Kind {
+	## CPU 计算型线程任务。
+	CPU,
+	## IO 型线程任务。
+	IO,
+	## ResourceLoader 线程资源加载任务。
+	RESOURCE,
+}</signature>
 			<description>后台工作类型。</description>
 			<tags>
 				<tag name="api">public</tag>
 			</tags>
 		</member>
 		<member kind="enum" name="Status">
-			<signature>enum Status { ## 已入队，等待启动。 QUEUED, ## 正在后台运行或等待资源加载。 RUNNING, ## 正在等待主线程应用回调。 APPLYING, ## 已成功完成。 COMPLETED, ## 已失败。 FAILED, ## 已取消。 CANCELLED, }</signature>
+			<signature>enum Status {
+	## 已入队，等待启动。
+	QUEUED,
+	## 正在后台运行或等待资源加载。
+	RUNNING,
+	## 正在等待主线程应用回调。
+	APPLYING,
+	## 已成功完成。
+	COMPLETED,
+	## 已失败。
+	FAILED,
+	## 已取消。
+	CANCELLED,
+}</signature>
 			<description>后台工作生命周期状态。</description>
 			<tags>
 				<tag name="api">public</tag>

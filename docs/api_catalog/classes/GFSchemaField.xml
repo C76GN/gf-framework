@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSchemaField" path="addons/gf/standard/foundation/schema/gf_schema_field.gd" module="standard" extends="Resource" classDigest="eb74314936d70264e16cea6b3644061ecdb09db22aa1abfbb2635e6dbd886a28">
+<class name="GFSchemaField" path="addons/gf/standard/foundation/schema/gf_schema_field.gd" module="standard" extends="Resource" classDigest="b1eec2dde0f4c62443c8d43cdffd5d2f97a8b1c228afe6a2fc0b4b99a8c13adb">
 	<description>GFSchemaField: 通用数据字段声明。
 描述一个 Dictionary 字段或数组元素的类型、必填性、空值策略、默认值和可选嵌套 schema。
 它只表达结构契约，不绑定配置表、黑板、内容包或具体业务字段语义。</description>
@@ -11,7 +11,40 @@
 	<signals />
 	<enums>
 		<member kind="enum" name="ValueType">
-			<signature>enum ValueType { ## 不做类型约束。 ANY, ## 布尔值。 BOOL, ## 整数。 INT, ## 浮点数；int 也视为有效。 FLOAT, ## String。 STRING, ## StringName。 STRING_NAME, ## Vector2。 VECTOR2, ## Vector2i。 VECTOR2I, ## Vector3。 VECTOR3, ## Vector3i。 VECTOR3I, ## Color。 COLOR, ## Dictionary，可选嵌套 GFDictionarySchema。 DICTIONARY, ## Array，可选数组元素 GFSchemaField。 ARRAY, ## Object。 OBJECT, ## Resource。 RESOURCE, ## NodePath。 NODE_PATH, }</signature>
+			<signature>enum ValueType {
+	## 不做类型约束。
+	ANY,
+	## 布尔值。
+	BOOL,
+	## 整数。
+	INT,
+	## 浮点数；int 也视为有效。
+	FLOAT,
+	## String。
+	STRING,
+	## StringName。
+	STRING_NAME,
+	## Vector2。
+	VECTOR2,
+	## Vector2i。
+	VECTOR2I,
+	## Vector3。
+	VECTOR3,
+	## Vector3i。
+	VECTOR3I,
+	## Color。
+	COLOR,
+	## Dictionary，可选嵌套 GFDictionarySchema。
+	DICTIONARY,
+	## Array，可选数组元素 GFSchemaField。
+	ARRAY,
+	## Object。
+	OBJECT,
+	## Resource。
+	RESOURCE,
+	## NodePath。
+	NODE_PATH,
+}</signature>
 			<description>字段值类型。</description>
 			<tags>
 				<tag name="api">public</tag>

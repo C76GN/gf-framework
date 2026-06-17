@@ -57,7 +57,14 @@
 - API：`public`
 
 ```gdscript
-enum Severity { ## 信息提示，不影响健康状态。 INFO, ## 警告，报告仍可继续使用，但不再视为完全健康。 WARNING, ## 错误，报告不应视为通过。 ERROR, }
+enum Severity {
+	## 信息提示，不影响健康状态。
+	INFO,
+	## 警告，报告仍可继续使用，但不再视为完全健康。
+	WARNING,
+	## 错误，报告不应视为通过。
+	ERROR,
+}
 ```
 
 校验问题严重级别。

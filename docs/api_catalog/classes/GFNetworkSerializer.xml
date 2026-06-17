@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFNetworkSerializer" path="addons/gf/extensions/network/serialization/gf_network_serializer.gd" module="extensions/network" extends="RefCounted" classDigest="911e5e38374dcb12d9e8053609e07b6545e2b2ff1807c3aeb346cfcc6e3abe81">
+<class name="GFNetworkSerializer" path="addons/gf/extensions/network/serialization/gf_network_serializer.gd" module="extensions/network" extends="RefCounted" classDigest="7884dd730435406dccc7a72bada52307b4ffee2dcd3d60d2bea18eca48823572">
 	<description>GFNetworkSerializer: 通用网络消息编码器。
 提供 Variant 二进制与 JSON 两种编码方式，供不同网络后端复用。</description>
 	<tags>
@@ -10,7 +10,12 @@
 	<signals />
 	<enums>
 		<member kind="enum" name="Format">
-			<signature>enum Format { ## Godot Variant 二进制编码。 BINARY, ## UTF-8 JSON 编码。 JSON, }</signature>
+			<signature>enum Format {
+	## Godot Variant 二进制编码。
+	BINARY,
+	## UTF-8 JSON 编码。
+	JSON,
+}</signature>
 			<description>消息编码格式。</description>
 			<tags>
 				<tag name="api">public</tag>

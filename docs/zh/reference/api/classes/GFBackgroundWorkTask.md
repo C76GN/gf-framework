@@ -47,7 +47,14 @@
 - API：`public`
 
 ```gdscript
-enum Kind { ## CPU 计算型线程任务。 CPU, ## IO 型线程任务。 IO, ## ResourceLoader 线程资源加载任务。 RESOURCE, }
+enum Kind {
+	## CPU 计算型线程任务。
+	CPU,
+	## IO 型线程任务。
+	IO,
+	## ResourceLoader 线程资源加载任务。
+	RESOURCE,
+}
 ```
 
 后台工作类型。
@@ -59,7 +66,20 @@ enum Kind { ## CPU 计算型线程任务。 CPU, ## IO 型线程任务。 IO, ##
 - API：`public`
 
 ```gdscript
-enum Status { ## 已入队，等待启动。 QUEUED, ## 正在后台运行或等待资源加载。 RUNNING, ## 正在等待主线程应用回调。 APPLYING, ## 已成功完成。 COMPLETED, ## 已失败。 FAILED, ## 已取消。 CANCELLED, }
+enum Status {
+	## 已入队，等待启动。
+	QUEUED,
+	## 正在后台运行或等待资源加载。
+	RUNNING,
+	## 正在等待主线程应用回调。
+	APPLYING,
+	## 已成功完成。
+	COMPLETED,
+	## 已失败。
+	FAILED,
+	## 已取消。
+	CANCELLED,
+}
 ```
 
 后台工作生命周期状态。

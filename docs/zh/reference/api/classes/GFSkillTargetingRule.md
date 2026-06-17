@@ -37,7 +37,16 @@
 - API：`public`
 
 ```gdscript
-enum Shape { ## 轴对齐矩形范围。 RECTANGLE, ## 圆形范围。 CIRCLE, ## 扇形范围。 SECTOR, ## 单体目标。 SINGLE, }
+enum Shape {
+	## 轴对齐矩形范围。
+	RECTANGLE,
+	## 圆形范围。
+	CIRCLE,
+	## 扇形范围。
+	SECTOR,
+	## 单体目标。
+	SINGLE,
+}
 ```
 
 索敌形状。
@@ -49,7 +58,18 @@ enum Shape { ## 轴对齐矩形范围。 RECTANGLE, ## 圆形范围。 CIRCLE, #
 - API：`public`
 
 ```gdscript
-enum SortRule { ## 距离最近优先。 DISTANCE_CLOSEST, ## 距离最远优先。 DISTANCE_FURTHEST, ## 属性值最低优先。 ATTRIBUTE_LOWEST, ## 属性值最高优先。 ATTRIBUTE_HIGHEST, ## 随机顺序。 RANDOM, }
+enum SortRule {
+	## 距离最近优先。
+	DISTANCE_CLOSEST,
+	## 距离最远优先。
+	DISTANCE_FURTHEST,
+	## 属性值最低优先。
+	ATTRIBUTE_LOWEST,
+	## 属性值最高优先。
+	ATTRIBUTE_HIGHEST,
+	## 随机顺序。
+	RANDOM,
+}
 ```
 
 排序规则。

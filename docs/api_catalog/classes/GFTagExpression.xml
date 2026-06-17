@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFTagExpression" path="addons/gf/standard/foundation/tags/gf_tag_expression.gd" module="standard" extends="Resource" classDigest="112f51b65bdb08c78dbe665b13c641a28a734fd34591974af769399cef1f0ba4">
+<class name="GFTagExpression" path="addons/gf/standard/foundation/tags/gf_tag_expression.gd" module="standard" extends="Resource" classDigest="1acdd8ee6d96230e1821eeb621c2e5f2fd476b54e4122406abb450c000b3ed1e">
 	<description>GFTagExpression: 可嵌套标签查询表达式资源。
 在 GFTagQuery 的 all/any/none 单层查询之上提供组合表达式，适合描述
 “任意一组条件成立”“全部子条件成立”或“没有子条件成立”等通用标签规则。
@@ -12,7 +12,16 @@
 	<signals />
 	<enums>
 		<member kind="enum" name="Operator">
-			<signature>enum Operator { ## 使用 query 作为叶子查询。 QUERY, ## 全部子表达式都满足。 ALL, ## 任意子表达式满足。 ANY, ## 没有子表达式满足。 NONE, }</signature>
+			<signature>enum Operator {
+	## 使用 query 作为叶子查询。
+	QUERY,
+	## 全部子表达式都满足。
+	ALL,
+	## 任意子表达式满足。
+	ANY,
+	## 没有子表达式满足。
+	NONE,
+}</signature>
 			<description>表达式运算类型。</description>
 			<tags>
 				<tag name="api">public</tag>

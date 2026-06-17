@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFShakePreset" path="addons/gf/extensions/feedback/resources/gf_shake_preset.gd" module="extensions/feedback" extends="Resource" classDigest="3d3fef6d7a4a946ce99c9007b0b29a990bd262ee1f66663867b8378e08c8cf4e">
+<class name="GFShakePreset" path="addons/gf/extensions/feedback/resources/gf_shake_preset.gd" module="extensions/feedback" extends="Resource" classDigest="5c07f8e07a3cf947f99e0bb7fbc26d0b2f95e02b3d63b6ac1b5cf6e00e77629b">
 	<description>GFShakePreset: 通用反馈采样预设。
 描述一段可采样的位移、旋转和缩放偏移，不绑定相机、角色、UI 或业务事件。</description>
 	<tags>
@@ -10,7 +10,16 @@
 	<signals />
 	<enums>
 		<member kind="enum" name="Waveform">
-			<signature>enum Waveform { ## 正弦波，适合可预期的摆动。 SINE, ## 逐步随机值，适合冲击感。 RANDOM, ## 平滑随机值，适合持续扰动。 NOISE, ## 使用 wave_curve 采样，曲线值 0.5 表示零偏移。 CURVE, }</signature>
+			<signature>enum Waveform {
+	## 正弦波，适合可预期的摆动。
+	SINE,
+	## 逐步随机值，适合冲击感。
+	RANDOM,
+	## 平滑随机值，适合持续扰动。
+	NOISE,
+	## 使用 wave_curve 采样，曲线值 0.5 表示零偏移。
+	CURVE,
+}</signature>
 			<description>反馈采样波形。</description>
 			<tags>
 				<tag name="api">public</tag>

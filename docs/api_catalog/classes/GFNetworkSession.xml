@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFNetworkSession" path="addons/gf/extensions/network/session/gf_network_session.gd" module="extensions/network" extends="RefCounted" classDigest="aa9a06e633e1d1e22fc82c14f28c4a1e9a064a9aae31e521a52988c1f3514422">
+<class name="GFNetworkSession" path="addons/gf/extensions/network/session/gf_network_session.gd" module="extensions/network" extends="RefCounted" classDigest="2aa26df7874c402c289f82ede92b2a64faf382484ac9d28bc416c8127cd72333">
 	<description>GFNetworkSession: 网络会话状态快照。
 记录当前网络工具的主机/客户端意图与连接状态，不绑定房间、账号或匹配逻辑。</description>
 	<tags>
@@ -36,7 +36,14 @@
 	</signals>
 	<enums>
 		<member kind="enum" name="Mode">
-			<signature>enum Mode { ## 无活动会话。 NONE, ## 主机会话。 HOST, ## 客户端会话。 CLIENT, }</signature>
+			<signature>enum Mode {
+	## 无活动会话。
+	NONE,
+	## 主机会话。
+	HOST,
+	## 客户端会话。
+	CLIENT,
+}</signature>
 			<description>会话模式。</description>
 			<tags>
 				<tag name="api">public</tag>

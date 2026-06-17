@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSteeringBehaviorResource" path="addons/gf/standard/foundation/math/gf_steering_behavior_resource.gd" module="standard" extends="Resource" classDigest="118a070aaf747744d19232836479ddb818711b248c1901ccd22b90843b0e1bf5">
+<class name="GFSteeringBehaviorResource" path="addons/gf/standard/foundation/math/gf_steering_behavior_resource.gd" module="standard" extends="Resource" classDigest="11903d98efeec0f565137bb8c3d4a4b7ac07c0abbc7eea8d8425f3ae9503d9cf">
 	<description>GFSteeringBehaviorResource: 可资源化配置的 steering 行为。
 包装 GFSteeringMath 的纯算法，允许项目用 Resource 组合 seek、arrive、avoid 等
 通用行为。动态目标、邻居和路径通过 context 传入，避免把业务对象写死进资源。</description>
@@ -11,7 +11,32 @@
 	<signals />
 	<enums>
 		<member kind="enum" name="BehaviorType">
-			<signature>enum BehaviorType { ## 朝目标位置加速。 SEEK, ## 远离目标位置。 FLEE, ## 抵达目标位置并减速。 ARRIVE, ## 追逐目标代理。 PURSUE, ## 躲避目标代理。 EVADE, ## 面向目标位置。 FACE, ## 朝当前速度方向转向。 LOOK_WHERE_YOU_GO, ## 对齐指定朝向。 ALIGN, ## 与邻居保持距离。 SEPARATION, ## 朝邻居中心靠拢。 COHESION, ## 基于预测最近距离避让碰撞。 AVOID_COLLISIONS, ## 沿路径计算目标点并 seek。 PATH_FOLLOW_SEEK, }</signature>
+			<signature>enum BehaviorType {
+	## 朝目标位置加速。
+	SEEK,
+	## 远离目标位置。
+	FLEE,
+	## 抵达目标位置并减速。
+	ARRIVE,
+	## 追逐目标代理。
+	PURSUE,
+	## 躲避目标代理。
+	EVADE,
+	## 面向目标位置。
+	FACE,
+	## 朝当前速度方向转向。
+	LOOK_WHERE_YOU_GO,
+	## 对齐指定朝向。
+	ALIGN,
+	## 与邻居保持距离。
+	SEPARATION,
+	## 朝邻居中心靠拢。
+	COHESION,
+	## 基于预测最近距离避让碰撞。
+	AVOID_COLLISIONS,
+	## 沿路径计算目标点并 seek。
+	PATH_FOLLOW_SEEK,
+}</signature>
 			<description>Steering 行为类型。</description>
 			<tags>
 				<tag name="api">public</tag>

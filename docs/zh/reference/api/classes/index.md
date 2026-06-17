@@ -7,7 +7,7 @@
 | 模块 | 类 | 成员 | 页面内索引 |
 |---|---:|---:|---|
 | Kernel | 45 | 630 | [Kernel](#module-kernel) |
-| Standard | 273 | 4031 | [Standard](#module-standard) |
+| Standard | 273 | 4039 | [Standard](#module-standard) |
 | Action Queue | 16 | 206 | [Action Queue](#module-extensions-action_queue) |
 | Asset Metadata | 3 | 23 | [Asset Metadata](#module-extensions-asset_metadata) |
 | Behavior Tree | 22 | 86 | [Behavior Tree](#module-extensions-behavior_tree) |
@@ -87,7 +87,7 @@
 | 类 | 类别 | 继承 | 成员 | 源文件 |
 |---|---|---|---:|---|
 | [`GFAnalyticsUtility`](GFAnalyticsUtility.md#gfanalyticsutility) | 运行时服务 (`runtime_service`) | `GFUtility` | 21 | `addons/gf/standard/utilities/analytics/gf_analytics_utility.gd` |
-| [`GFAssetUtility`](GFAssetUtility.md#gfassetutility) | 运行时服务 (`runtime_service`) | `GFUtility` | 29 | `addons/gf/standard/utilities/assets/gf_asset_utility.gd` |
+| [`GFAssetUtility`](GFAssetUtility.md#gfassetutility) | 运行时服务 (`runtime_service`) | `GFUtility` | 31 | `addons/gf/standard/utilities/assets/gf_asset_utility.gd` |
 | [`GFAudioBankTools`](GFAudioBankTools.md#gfaudiobanktools) | 运行时服务 (`runtime_service`) | `RefCounted` | 13 | `addons/gf/standard/utilities/audio/gf_audio_bank_tools.gd` |
 | [`GFAudioCatalogProvider`](GFAudioCatalogProvider.md#gfaudiocatalogprovider) | 运行时服务 (`runtime_service`) | `RefCounted` | 9 | `addons/gf/standard/utilities/audio/gf_audio_catalog_provider.gd` |
 | [`GFAudioLibraryTools`](GFAudioLibraryTools.md#gfaudiolibrarytools) | 运行时服务 (`runtime_service`) | `RefCounted` | 9 | `addons/gf/standard/utilities/audio/gf_audio_library_tools.gd` |
@@ -219,7 +219,7 @@
 | [`GFValidationRule`](GFValidationRule.md#gfvalidationrule) | 协议与扩展点 (`protocol`) | `Resource` | 13 | `addons/gf/standard/foundation/validation/gf_validation_rule.gd` |
 | [`GFAnalyticsConfig`](GFAnalyticsConfig.md#gfanalyticsconfig) | 资源定义 (`resource_definition`) | `Resource` | 13 | `addons/gf/standard/utilities/analytics/gf_analytics_config.gd` |
 | [`GFAudioBank`](GFAudioBank.md#gfaudiobank) | 资源定义 (`resource_definition`) | `Resource` | 17 | `addons/gf/standard/utilities/audio/gf_audio_bank.gd` |
-| [`GFAudioClip`](GFAudioClip.md#gfaudioclip) | 资源定义 (`resource_definition`) | `Resource` | 12 | `addons/gf/standard/utilities/audio/gf_audio_clip.gd` |
+| [`GFAudioClip`](GFAudioClip.md#gfaudioclip) | 资源定义 (`resource_definition`) | `Resource` | 17 | `addons/gf/standard/utilities/audio/gf_audio_clip.gd` |
 | [`GFAudioSpatialSettings`](GFAudioSpatialSettings.md#gfaudiospatialsettings) | 资源定义 (`resource_definition`) | `Resource` | 19 | `addons/gf/standard/utilities/audio/gf_audio_spatial_settings.gd` |
 | [`GFBlackboardEntry`](GFBlackboardEntry.md#gfblackboardentry) | 资源定义 (`resource_definition`) | `Resource` | 14 | `addons/gf/standard/foundation/blackboard/gf_blackboard_entry.gd` |
 | [`GFBlackboardSchema`](GFBlackboardSchema.md#gfblackboardschema) | 资源定义 (`resource_definition`) | `Resource` | 16 | `addons/gf/standard/foundation/blackboard/gf_blackboard_schema.gd` |
@@ -229,7 +229,7 @@
 | [`GFConfigNotDefaultValidationRule`](GFConfigNotDefaultValidationRule.md#gfconfignotdefaultvalidationrule) | 资源定义 (`resource_definition`) | `GFConfigValidationRule` | 5 | `addons/gf/standard/utilities/config/validation/gf_config_not_default_validation_rule.gd` |
 | [`GFConfigRangeValidationRule`](GFConfigRangeValidationRule.md#gfconfigrangevalidationrule) | 资源定义 (`resource_definition`) | `GFConfigValidationRule` | 9 | `addons/gf/standard/utilities/config/validation/gf_config_range_validation_rule.gd` |
 | [`GFConfigRegexValidationRule`](GFConfigRegexValidationRule.md#gfconfigregexvalidationrule) | 资源定义 (`resource_definition`) | `GFConfigValidationRule` | 6 | `addons/gf/standard/utilities/config/validation/gf_config_regex_validation_rule.gd` |
-| [`GFConfigResourcePathValidationRule`](GFConfigResourcePathValidationRule.md#gfconfigresourcepathvalidationrule) | 资源定义 (`resource_definition`) | `GFConfigValidationRule` | 8 | `addons/gf/standard/utilities/config/validation/gf_config_resource_path_validation_rule.gd` |
+| [`GFConfigResourcePathValidationRule`](GFConfigResourcePathValidationRule.md#gfconfigresourcepathvalidationrule) | 资源定义 (`resource_definition`) | `GFConfigValidationRule` | 9 | `addons/gf/standard/utilities/config/validation/gf_config_resource_path_validation_rule.gd` |
 | [`GFConfigSetValidationRule`](GFConfigSetValidationRule.md#gfconfigsetvalidationrule) | 资源定义 (`resource_definition`) | `GFConfigValidationRule` | 5 | `addons/gf/standard/utilities/config/validation/gf_config_set_validation_rule.gd` |
 | [`GFConfigSizeValidationRule`](GFConfigSizeValidationRule.md#gfconfigsizevalidationrule) | 资源定义 (`resource_definition`) | `GFConfigValidationRule` | 8 | `addons/gf/standard/utilities/config/validation/gf_config_size_validation_rule.gd` |
 | [`GFConfigTableColumn`](GFConfigTableColumn.md#gfconfigtablecolumn) | 资源定义 (`resource_definition`) | `Resource` | 14 | `addons/gf/standard/utilities/config/gf_config_table_column.gd` |

@@ -36,7 +36,14 @@
 - API：`public`
 
 ```gdscript
-enum Mode { ## 未连接。 DISCONNECTED, ## 作为服务器监听 TCP 并接受 WebSocket 握手。 SERVER, ## 作为客户端连接远端 WebSocket 地址。 CLIENT, }
+enum Mode {
+	## 未连接。
+	DISCONNECTED,
+	## 作为服务器监听 TCP 并接受 WebSocket 握手。
+	SERVER,
+	## 作为客户端连接远端 WebSocket 地址。
+	CLIENT,
+}
 ```
 
 WebSocket 后端运行模式。

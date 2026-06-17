@@ -37,7 +37,16 @@
 - API：`public`
 
 ```gdscript
-enum Decision { ## 继续当前动作。 CONTINUE, ## 跳过当前动作并继续后续队列。 SKIP, ## 用 replacement_action 替换当前动作。 REPLACE, ## 停止并清空当前队列。 STOP_QUEUE, }
+enum Decision {
+	## 继续当前动作。
+	CONTINUE,
+	## 跳过当前动作并继续后续队列。
+	SKIP,
+	## 用 replacement_action 替换当前动作。
+	REPLACE,
+	## 停止并清空当前队列。
+	STOP_QUEUE,
+}
 ```
 
 拦截器决策类型。

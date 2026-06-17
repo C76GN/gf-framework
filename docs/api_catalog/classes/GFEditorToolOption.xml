@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFEditorToolOption" path="addons/gf/kernel/editor/gf_editor_tool_option.gd" module="kernel" extends="Resource" classDigest="90bf36c998ca1284830b8c96e9ca71cd75decb22f56a0544ae6e9fcf45183fac">
+<class name="GFEditorToolOption" path="addons/gf/kernel/editor/gf_editor_tool_option.gd" module="kernel" extends="Resource" classDigest="60d04d77cd216aae5c27900d11b1eb4c09990a5d5d96763a37511f3a1e0ff618">
 	<description>GFEditorToolOption: 编辑器工具选项声明。
 用通用字段描述工具面板需要的一个选项，不绑定具体 UI 控件或资源类型。</description>
 	<tags>
@@ -11,7 +11,30 @@
 	<signals />
 	<enums>
 		<member kind="enum" name="ValueType">
-			<signature>enum ValueType { ## 不做类型约束。 ANY, ## 布尔值。 BOOL, ## 整数。 INT, ## 浮点数。 FLOAT, ## 字符串。 STRING, ## StringName。 STRING_NAME, ## Color。 COLOR, ## Vector2。 VECTOR2, ## Vector2i。 VECTOR2I, ## NodePath。 NODE_PATH, ## 从 choices 中选择。 OPTION, }</signature>
+			<signature>enum ValueType {
+	## 不做类型约束。
+	ANY,
+	## 布尔值。
+	BOOL,
+	## 整数。
+	INT,
+	## 浮点数。
+	FLOAT,
+	## 字符串。
+	STRING,
+	## StringName。
+	STRING_NAME,
+	## Color。
+	COLOR,
+	## Vector2。
+	VECTOR2,
+	## Vector2i。
+	VECTOR2I,
+	## NodePath。
+	NODE_PATH,
+	## 从 choices 中选择。
+	OPTION,
+}</signature>
 			<description>编辑器工具选项的通用值类型。</description>
 			<tags>
 				<tag name="api">public</tag>

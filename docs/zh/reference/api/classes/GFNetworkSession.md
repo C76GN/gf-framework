@@ -99,7 +99,14 @@ signal session_closed(reason: String)
 - API：`public`
 
 ```gdscript
-enum Mode { ## 无活动会话。 NONE, ## 主机会话。 HOST, ## 客户端会话。 CLIENT, }
+enum Mode {
+	## 无活动会话。
+	NONE,
+	## 主机会话。
+	HOST,
+	## 客户端会话。
+	CLIENT,
+}
 ```
 
 会话模式。

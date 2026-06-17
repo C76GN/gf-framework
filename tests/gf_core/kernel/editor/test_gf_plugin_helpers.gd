@@ -10,7 +10,11 @@ const GF_PLUGIN_DOCK_TOOLS = preload("res://addons/gf/kernel/editor/gf_plugin_do
 const GF_PLUGIN_INSPECTOR_TOOLS = preload("res://addons/gf/kernel/editor/gf_plugin_inspector_tools.gd")
 const GF_PLUGIN_IMPORT_TOOLS = preload("res://addons/gf/kernel/editor/gf_plugin_import_tools.gd")
 const GF_PLUGIN_MENU = preload("res://addons/gf/kernel/editor/gf_plugin_menu.gd")
+const GF_PLUGIN_PREVIEW_TOOLS = preload("res://addons/gf/kernel/editor/gf_plugin_preview_tools.gd")
 const GF_PLUGIN_PROJECT_SETTINGS = preload("res://addons/gf/kernel/editor/gf_plugin_project_settings.gd")
+const GF_RESOURCE_PATH_EDITOR_PROPERTY = preload("res://addons/gf/kernel/editor/gf_resource_path_editor_property.gd")
+const GF_RESOURCE_PATH_INSPECTOR_PLUGIN = preload("res://addons/gf/kernel/editor/gf_resource_path_inspector_plugin.gd")
+const GF_RESOURCE_PREVIEW_GENERATOR = preload("res://addons/gf/kernel/editor/gf_resource_preview_generator.gd")
 const GF_EDITOR_WORKSPACE_DOCK = preload("res://addons/gf/kernel/editor/gf_editor_workspace_dock.gd")
 const GF_EDITOR_WORKSPACE_UI = preload("res://addons/gf/kernel/editor/gf_editor_workspace_ui.gd")
 const GF_EDITOR_WORKSPACE_WINDOW = preload("res://addons/gf/kernel/editor/gf_editor_workspace_window.gd")
@@ -31,7 +35,11 @@ func test_plugin_split_helpers_load() -> void:
 	assert_not_null(GF_PLUGIN_INSPECTOR_TOOLS, "Inspector 辅助脚本应可加载。")
 	assert_not_null(GF_PLUGIN_IMPORT_TOOLS, "导入插件辅助脚本应可加载。")
 	assert_not_null(GF_PLUGIN_MENU, "菜单辅助脚本应可加载。")
+	assert_not_null(GF_PLUGIN_PREVIEW_TOOLS, "预览生成器辅助脚本应可加载。")
 	assert_not_null(GF_PLUGIN_PROJECT_SETTINGS, "ProjectSettings 辅助脚本应可加载。")
+	assert_not_null(GF_RESOURCE_PATH_EDITOR_PROPERTY, "资源路径属性编辑器脚本应可加载。")
+	assert_not_null(GF_RESOURCE_PATH_INSPECTOR_PLUGIN, "资源路径 Inspector 脚本应可加载。")
+	assert_not_null(GF_RESOURCE_PREVIEW_GENERATOR, "Resource 预览生成器脚本应可加载。")
 	assert_not_null(GF_EDITOR_WORKSPACE_UI, "工作区页面 UI 辅助脚本应可加载。")
 	assert_not_null(GF_EDITOR_WORKSPACE_WINDOW, "独立工作区窗口脚本应可加载。")
 	assert_not_null(GF_PACKAGE_MANAGER_DOCK, "包管理工作区页面脚本应可加载。")
@@ -178,6 +186,90 @@ func test_plugin_import_tools_ignores_null_plugin() -> void:
 
 	var import_plugins: Array = GF_VARIANT_ACCESS.as_array(tools.get(&"_import_plugins"))
 	assert_true(import_plugins.is_empty(), "无 EditorPlugin 实例时导入插件辅助脚本不应注册任何对象。")
+
+
+func test_resource_preview_generator_uses_resource_icon_property() -> void:
+	var source_image: Image = Image.create(4, 2, false, Image.FORMAT_RGBA8)
+	source_image.fill(Color(1.0, 0.0, 0.0, 1.0))
+	var source_texture: ImageTexture = ImageTexture.create_from_image(source_image)
+	var resource: PreviewIconResource = PreviewIconResource.new()
+	resource.icon = source_texture
+
+	var source_preview: Texture2D = GF_RESOURCE_PREVIEW_GENERATOR.get_resource_preview_texture(resource)
+	var preview_value: Variant = GF_RESOURCE_PREVIEW_GENERATOR.make_preview_texture(source_preview, Vector2i(8, 8))
+
+	assert_true(preview_value is Texture2D, "带 icon 字段的 Resource 应生成预览纹理。")
+	if not (preview_value is Texture2D):
+		return
+
+	var preview_texture: Texture2D = preview_value
+	var preview_image: Image = preview_texture.get_image()
+	assert_eq(preview_texture.get_size(), Vector2(8.0, 8.0), "预览纹理应使用请求尺寸。")
+	assert_lt(preview_image.get_pixel(0, 0).a, 0.1, "等比适配后的空白区域应保持透明。")
+	assert_gt(preview_image.get_pixel(4, 4).a, 0.9, "源图像主体应居中绘制到预览纹理。")
+
+
+func test_resource_preview_generator_prefers_explicit_preview_method() -> void:
+	var icon_image: Image = Image.create(2, 2, false, Image.FORMAT_RGBA8)
+	icon_image.fill(Color(1.0, 0.0, 0.0, 1.0))
+	var preview_image: Image = Image.create(2, 2, false, Image.FORMAT_RGBA8)
+	preview_image.fill(Color(0.0, 1.0, 0.0, 1.0))
+	var resource: PreviewMethodResource = PreviewMethodResource.new()
+	resource.icon = ImageTexture.create_from_image(icon_image)
+	resource.preview_texture = ImageTexture.create_from_image(preview_image)
+
+	var source_preview: Texture2D = GF_RESOURCE_PREVIEW_GENERATOR.get_resource_preview_texture(resource)
+	var preview_value: Variant = GF_RESOURCE_PREVIEW_GENERATOR.make_preview_texture(source_preview, Vector2i(4, 4))
+
+	assert_true(preview_value is Texture2D, "显式 GF 预览方法应生成预览纹理。")
+	if preview_value is Texture2D:
+		var texture: Texture2D = preview_value
+		var pixel: Color = texture.get_image().get_pixel(2, 2)
+		assert_gt(pixel.g, 0.9, "显式 GF 预览方法应优先于 icon 字段。")
+
+
+func test_resource_path_editor_maps_file_hints_to_resource_types() -> void:
+	assert_eq(
+		GF_RESOURCE_PATH_EDITOR_PROPERTY.get_base_type_for_hint(PROPERTY_HINT_FILE, "*.tscn,*.scn"),
+		"PackedScene",
+		"场景扩展名应映射为 PackedScene。"
+	)
+	assert_eq(
+		GF_RESOURCE_PATH_EDITOR_PROPERTY.get_base_type_for_hint(PROPERTY_HINT_FILE, "*.png,*.jpg"),
+		"Texture2D",
+		"图像扩展名应映射为 Texture2D。"
+	)
+	assert_eq(
+		GF_RESOURCE_PATH_EDITOR_PROPERTY.get_base_type_for_hint(PROPERTY_HINT_FILE, "*.tscn,*.png"),
+		"Resource",
+		"混合资源类型应回退到 Resource。"
+	)
+	assert_eq(
+		GF_RESOURCE_PATH_EDITOR_PROPERTY.get_base_type_for_hint(PROPERTY_HINT_FILE, "*.txt"),
+		"",
+		"普通文本文件不应被 ResourcePicker 接管。"
+	)
+	assert_true(
+		GF_RESOURCE_PATH_EDITOR_PROPERTY.should_handle_property(TYPE_STRING, PROPERTY_HINT_FILE, "*.tscn"),
+		"String + 可识别资源文件 hint 应接管。"
+	)
+	assert_false(
+		GF_RESOURCE_PATH_EDITOR_PROPERTY.should_handle_property(TYPE_STRING_NAME, PROPERTY_HINT_FILE, "*.tscn"),
+		"非 String 字段不应被资源路径编辑器接管。"
+	)
+
+
+func test_resource_path_editor_prefers_uid_paths_for_saved_resources() -> void:
+	var script_path: String = "res://addons/gf/kernel/core/gf_path_tools.gd"
+	var script_resource: Resource = load(script_path)
+	var uid: int = ResourceLoader.get_resource_uid(script_path)
+	assert_ne(uid, ResourceUID.INVALID_ID, "测试脚本资源应具有 Godot UID。")
+
+	var stable_path: String = GF_RESOURCE_PATH_EDITOR_PROPERTY.get_stable_resource_path(script_resource, true)
+	var loaded_resource: Resource = GF_RESOURCE_PATH_EDITOR_PROPERTY.load_resource_from_path(stable_path, "Script")
+
+	assert_eq(stable_path, ResourceUID.id_to_text(uid), "保存路径应优先使用 uid://。")
+	assert_true(loaded_resource is Script, "uid:// 路径应能按类型提示重新加载资源。")
 
 
 func test_plugin_actions_discovers_enabled_extension_menu_entries() -> void:
@@ -905,6 +997,12 @@ func _new_window(script: Variant) -> Window:
 
 
 func _call_value(target: Object, method_name: StringName, args: Array = []) -> Variant:
+	assert_not_null(target, "测试 helper 反射调用目标不能为空：%s" % method_name)
+	if target == null:
+		return null
+	assert_true(target.has_method(method_name), "测试 helper 反射调用目标应包含方法：%s" % method_name)
+	if not target.has_method(method_name):
+		return null
 	return target.callv(method_name, args)
 
 
@@ -1134,3 +1232,19 @@ class WorkspaceButtonState:
 	extends RefCounted
 
 	var count: int = 0
+
+
+class PreviewIconResource:
+	extends Resource
+
+	var icon: Texture2D = null
+
+
+class PreviewMethodResource:
+	extends Resource
+
+	var icon: Texture2D = null
+	var preview_texture: Texture2D = null
+
+	func get_gf_preview_texture() -> Texture2D:
+		return preview_texture

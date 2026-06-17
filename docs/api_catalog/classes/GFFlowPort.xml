@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFFlowPort" path="addons/gf/extensions/flow/resources/gf_flow_port.gd" module="extensions/flow" extends="Resource" classDigest="c95c91656bf0106a8f9f30abc45180b2842cc6eaf4846a4e0a73f9cd8cdfeb24">
+<class name="GFFlowPort" path="addons/gf/extensions/flow/resources/gf_flow_port.gd" module="extensions/flow" extends="Resource" classDigest="82729c1d75f22b65d2ed281ed6936bac2e1b4bf6a57eb69d15ec96bfdea588b9">
 	<description>GFFlowPort: 流程节点端口描述。
 端口只描述节点对外暴露的输入/输出能力，供编辑器、校验器或项目层
 构建可视化流程使用；运行时如何解释端口数据仍由具体节点决定。</description>
@@ -11,14 +11,38 @@
 	<signals />
 	<enums>
 		<member kind="enum" name="Direction">
-			<signature>enum Direction { ## 输入端口。 INPUT, ## 输出端口。 OUTPUT, }</signature>
+			<signature>enum Direction {
+	## 输入端口。
+	INPUT,
+	## 输出端口。
+	OUTPUT,
+}</signature>
 			<description>端口方向。</description>
 			<tags>
 				<tag name="api">public</tag>
 			</tags>
 		</member>
 		<member kind="enum" name="ValueType">
-			<signature>enum ValueType { ## 任意值。 ANY, ## 布尔。 BOOL, ## 数值。 NUMBER, ## 字符串。 STRING, ## Vector2。 VECTOR2, ## Vector3。 VECTOR3, ## Dictionary。 DICTIONARY, ## Array。 ARRAY, ## Object 或 Resource。 OBJECT, }</signature>
+			<signature>enum ValueType {
+	## 任意值。
+	ANY,
+	## 布尔。
+	BOOL,
+	## 数值。
+	NUMBER,
+	## 字符串。
+	STRING,
+	## Vector2。
+	VECTOR2,
+	## Vector3。
+	VECTOR3,
+	## Dictionary。
+	DICTIONARY,
+	## Array。
+	ARRAY,
+	## Object 或 Resource。
+	OBJECT,
+}</signature>
 			<description>端口值类型提示。</description>
 			<tags>
 				<tag name="api">public</tag>

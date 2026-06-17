@@ -80,7 +80,14 @@ signal camera_pose_applied(rig: GFCameraRig3D)
 - API：`public`
 
 ```gdscript
-enum UpdateMode { ## 在 _process 中更新。 IDLE, ## 在 _physics_process 中更新。 PHYSICS, ## 只在 process_camera() 被显式调用时更新。 MANUAL, }
+enum UpdateMode {
+	## 在 _process 中更新。
+	IDLE,
+	## 在 _physics_process 中更新。
+	PHYSICS,
+	## 只在 process_camera() 被显式调用时更新。
+	MANUAL,
+}
 ```
 
 Director 自动更新模式。

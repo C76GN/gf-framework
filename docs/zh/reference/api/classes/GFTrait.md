@@ -34,7 +34,22 @@
 - API：`public`
 
 ```gdscript
-enum CombineMode { ## 与当前值相加。 ADD,  ## 与当前值相乘。 MULTIPLY,  ## 直接覆盖当前值。 SET,  ## 取当前值与特征值中的较大值。 MAX,  ## 取当前值与特征值中的较小值。 MIN, }
+enum CombineMode {
+	## 与当前值相加。
+	ADD,
+
+	## 与当前值相乘。
+	MULTIPLY,
+
+	## 直接覆盖当前值。
+	SET,
+
+	## 取当前值与特征值中的较大值。
+	MAX,
+
+	## 取当前值与特征值中的较小值。
+	MIN,
+}
 ```
 
 数值合并方式。

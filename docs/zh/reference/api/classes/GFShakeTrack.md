@@ -44,7 +44,16 @@
 - API：`public`
 
 ```gdscript
-enum Waveform { ## 正弦波，适合可预期的摆动。 SINE, ## 逐步随机值，适合短促冲击。 RANDOM, ## 平滑随机值，适合持续扰动。 NOISE, ## 使用 wave_curve 采样，曲线值 0.5 表示零偏移。 CURVE, }
+enum Waveform {
+	## 正弦波，适合可预期的摆动。
+	SINE,
+	## 逐步随机值，适合短促冲击。
+	RANDOM,
+	## 平滑随机值，适合持续扰动。
+	NOISE,
+	## 使用 wave_curve 采样，曲线值 0.5 表示零偏移。
+	CURVE,
+}
 ```
 
 反馈采样波形。
@@ -56,7 +65,22 @@ enum Waveform { ## 正弦波，适合可预期的摆动。 SINE, ## 逐步随机
 - API：`public`
 
 ```gdscript
-enum BlendMode { ## 叠加到已有采样上。 ADD, ## 覆盖已有采样。 OVERRIDE, ## 按分量相乘。 MULTIPLY, ## 从已有采样中减去当前轨道。 SUBTRACT, ## 与已有采样求平均。 AVERAGE, ## 逐分量取最大值。 MAX, ## 逐分量取最小值。 MIN, }
+enum BlendMode {
+	## 叠加到已有采样上。
+	ADD,
+	## 覆盖已有采样。
+	OVERRIDE,
+	## 按分量相乘。
+	MULTIPLY,
+	## 从已有采样中减去当前轨道。
+	SUBTRACT,
+	## 与已有采样求平均。
+	AVERAGE,
+	## 逐分量取最大值。
+	MAX,
+	## 逐分量取最小值。
+	MIN,
+}
 ```
 
 轨道混合模式。

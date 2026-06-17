@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFBuff" path="addons/gf/extensions/combat/attributes/gf_buff.gd" module="extensions/combat" extends="RefCounted" classDigest="8402305e18fc5b659df08ee0e4f21e4ae34e73c3c2191ceb5be71b623466dae3">
+<class name="GFBuff" path="addons/gf/extensions/combat/attributes/gf_buff.gd" module="extensions/combat" extends="RefCounted" classDigest="2d0c3934c89bf650434a089ada50b27b5262f75e6e7b51da608e95c812224a91">
 	<description>GFBuff: 状态效果基类。
 管理 Buff 的生命周期、层数以及对属性/标签的影响。
 在 GFCombatSystem 的 tick 中驱动 update。</description>
@@ -11,14 +11,30 @@
 	<signals />
 	<enums>
 		<member kind="enum" name="StackMode">
-			<signature>enum StackMode { ## 只刷新持续时间，不改变层数。 REFRESH_ONLY, ## 刷新持续时间，并在 max_stacks 允许时增加层数。 ADD_STACK, ## 忽略重复添加，不刷新持续时间或层数。 IGNORE, }</signature>
+			<signature>enum StackMode {
+	## 只刷新持续时间，不改变层数。
+	REFRESH_ONLY,
+	## 刷新持续时间，并在 max_stacks 允许时增加层数。
+	ADD_STACK,
+	## 忽略重复添加，不刷新持续时间或层数。
+	IGNORE,
+}</signature>
 			<description>重复添加同 ID Buff 时的层数策略。</description>
 			<tags>
 				<tag name="api">public</tag>
 			</tags>
 		</member>
 		<member kind="enum" name="DurationRefreshPolicy">
-			<signature>enum DurationRefreshPolicy { ## 保持当前剩余时间。 KEEP_CURRENT, ## 使用新的持续时间重置剩余时间。 RESET_TO_NEW_DURATION, ## 将新的持续时间追加到当前剩余时间。 EXTEND_BY_NEW_DURATION, ## 保留当前剩余时间与新持续时间中较长者。 KEEP_LONGER_REMAINING, }</signature>
+			<signature>enum DurationRefreshPolicy {
+	## 保持当前剩余时间。
+	KEEP_CURRENT,
+	## 使用新的持续时间重置剩余时间。
+	RESET_TO_NEW_DURATION,
+	## 将新的持续时间追加到当前剩余时间。
+	EXTEND_BY_NEW_DURATION,
+	## 保留当前剩余时间与新持续时间中较长者。
+	KEEP_LONGER_REMAINING,
+}</signature>
 			<description>重复添加同 ID Buff 时的持续时间刷新策略。</description>
 			<tags>
 				<tag name="api">public</tag>

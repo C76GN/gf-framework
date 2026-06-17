@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFAudioUtility" path="addons/gf/standard/utilities/audio/gf_audio_utility.gd" module="standard" extends="GFUtility" classDigest="77e0fb9df1431dd4105f459f2980a45e73ec0c4b121952fcbbe66fe7ff525289">
+<class name="GFAudioUtility" path="addons/gf/standard/utilities/audio/gf_audio_utility.gd" module="standard" extends="GFUtility" classDigest="72301fa67c5b9848e55a09556b784eda1664e8433c034c894479f08ec5e465c4">
 	<description>GFAudioUtility: 全局音频管理器。
 管理 BGM 和 SFX 的播放与音量。
 注册 GFObjectPoolUtility 时会复用 AudioStreamPlayer，未注册时使用普通播放器。
@@ -21,7 +21,12 @@
 	</signals>
 	<enums>
 		<member kind="enum" name="SFXOverflowPolicy">
-			<signature>enum SFXOverflowPolicy { ## 跳过新的 SFX 请求。 SKIP_NEW, ## 停止最早播放的 SFX，并播放新的请求。 STOP_OLDEST, }</signature>
+			<signature>enum SFXOverflowPolicy {
+	## 跳过新的 SFX 请求。
+	SKIP_NEW,
+	## 停止最早播放的 SFX，并播放新的请求。
+	STOP_OLDEST,
+}</signature>
 			<description>SFX 超出并发上限时的处理策略。</description>
 			<tags>
 				<tag name="api">public</tag>

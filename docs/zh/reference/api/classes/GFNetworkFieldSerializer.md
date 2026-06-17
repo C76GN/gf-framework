@@ -34,7 +34,30 @@
 - API：`public`
 
 ```gdscript
-enum ValueType { ## 保持原始 Variant。 VARIANT, ## 布尔值。 BOOL, ## 整数。 INT, ## 浮点数。 FLOAT, ## 字符串。 STRING, ## StringName，编码时使用 String。 STRING_NAME, ## Vector2，编码为两个数值。 VECTOR2, ## Vector3，编码为三个数值。 VECTOR3, ## Vector2i，编码为两个整数。 VECTOR2I, ## Vector3i，编码为三个整数。 VECTOR3I, ## Color，编码为四个数值。 COLOR, }
+enum ValueType {
+	## 保持原始 Variant。
+	VARIANT,
+	## 布尔值。
+	BOOL,
+	## 整数。
+	INT,
+	## 浮点数。
+	FLOAT,
+	## 字符串。
+	STRING,
+	## StringName，编码时使用 String。
+	STRING_NAME,
+	## Vector2，编码为两个数值。
+	VECTOR2,
+	## Vector3，编码为三个数值。
+	VECTOR3,
+	## Vector2i，编码为两个整数。
+	VECTOR2I,
+	## Vector3i，编码为三个整数。
+	VECTOR3I,
+	## Color，编码为四个数值。
+	COLOR,
+}
 ```
 
 字段值类型。

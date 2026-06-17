@@ -530,6 +530,27 @@ func test_audio_clip_resolve_pitch_without_rng_uses_base_pitch() -> void:
 	assert_almost_eq(clip.resolve_pitch(null), 1.25, 0.001, "未传入 RNG 时应保持基础音高。")
 
 
+func test_audio_clip_metadata_helpers_copy_nested_values() -> void:
+	var clip: GFAudioClip = GFAudioClip.new()
+	var source_tags: Array[String] = ["ui", "confirm"]
+
+	clip.set_metadata_value("tags", source_tags)
+	source_tags.append("mutated")
+	clip.set_metadata_value(&"bpm", 120)
+
+	var stored_tags: Array = GFVariantData.as_array(clip.get_metadata_value("tags"))
+	var metadata_copy: Dictionary = clip.duplicate_metadata()
+	var copied_tags: Array = GFVariantData.as_array(metadata_copy["tags"])
+	copied_tags.append("copy_only")
+	var bpm_value: int = GFVariantData.to_int(clip.get_metadata_value(&"bpm"))
+	var original_tags: Array = GFVariantData.as_array(clip.metadata.get("tags", []))
+
+	assert_true(clip.has_metadata_value("tags"), "元数据 helper 应能查询已有键。")
+	assert_eq(stored_tags.size(), 2, "设置元数据时应复制集合值，避免外部数组继续污染片段。")
+	assert_eq(bpm_value, 120, "StringName 元数据键应按原键读取。")
+	assert_eq(original_tags.size(), 2, "duplicate_metadata 返回值修改不应影响原始元数据。")
+
+
 func test_registered_audio_bank_event_uses_clip_settings() -> void:
 	var stream: AudioStreamGenerator = AudioStreamGenerator.new()
 	var clip: GFAudioClip = GFAudioClip.new()

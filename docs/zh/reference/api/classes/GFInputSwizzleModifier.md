@@ -29,7 +29,20 @@
 - API：`public`
 
 ```gdscript
-enum SwizzleOrder { ## 保持 X/Y/Z。 XYZ, ## 输出 X/Z/Y。 XZY, ## 输出 Y/X/Z。 YXZ, ## 输出 Y/Z/X。 YZX, ## 输出 Z/X/Y。 ZXY, ## 输出 Z/Y/X。 ZYX, }
+enum SwizzleOrder {
+	## 保持 X/Y/Z。
+	XYZ,
+	## 输出 X/Z/Y。
+	XZY,
+	## 输出 Y/X/Z。
+	YXZ,
+	## 输出 Y/Z/X。
+	YZX,
+	## 输出 Z/X/Y。
+	ZXY,
+	## 输出 Z/Y/X。
+	ZYX,
+}
 ```
 
 分量重排顺序。

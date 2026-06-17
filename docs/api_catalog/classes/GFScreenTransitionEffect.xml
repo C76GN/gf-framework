@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFScreenTransitionEffect" path="addons/gf/standard/utilities/scene/gf_screen_transition_effect.gd" module="standard" extends="Resource" classDigest="78716f9cc0516caeba9385cdecab8338e8017b0f9afa5c9321ca858b958763b7">
+<class name="GFScreenTransitionEffect" path="addons/gf/standard/utilities/scene/gf_screen_transition_effect.gd" module="standard" extends="Resource" classDigest="4875484f4c80490572e92effc66e88798196c4fd62d94e5795868b65057ec422">
 	<description>GFScreenTransitionEffect: 屏幕覆盖式转场效果配置。
 只描述通用覆盖层颜色、透明度、时长、缓动和可选 ShaderMaterial 进度参数，
 不绑定具体场景切换流程或项目视觉资源。</description>
@@ -11,7 +11,18 @@
 	<signals />
 	<enums>
 		<member kind="enum" name="EasingMode">
-			<signature>enum EasingMode { ## 线性采样。 LINEAR, ## smoothstep 采样。 SMOOTH_STEP, ## 二次缓入。 EASE_IN, ## 二次缓出。 EASE_OUT, ## 二次缓入缓出。 EASE_IN_OUT, }</signature>
+			<signature>enum EasingMode {
+	## 线性采样。
+	LINEAR,
+	## smoothstep 采样。
+	SMOOTH_STEP,
+	## 二次缓入。
+	EASE_IN,
+	## 二次缓出。
+	EASE_OUT,
+	## 二次缓入缓出。
+	EASE_IN_OUT,
+}</signature>
 			<description>转场权重采样的缓动模式。</description>
 			<tags>
 				<tag name="api">public</tag>

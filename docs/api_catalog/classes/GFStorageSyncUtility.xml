@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFStorageSyncUtility" path="addons/gf/standard/utilities/storage/gf_storage_sync_utility.gd" module="standard" extends="GFUtility" classDigest="13b0b808945d296c1de2e20218c582c516ee90b69b9d389b74bac2cf7d8c02f0">
+<class name="GFStorageSyncUtility" path="addons/gf/standard/utilities/storage/gf_storage_sync_utility.gd" module="standard" extends="GFUtility" classDigest="075ff973050d953ce2a9253457d5bca5da2d099420d677202ed5dfb5aa85eab4">
 	<description>GFStorageSyncUtility: 通用存储后端同步协调器。
 该工具只协调两个 GFStorageBackend 的字典数据同步、冲突检测和写回策略。
 它不绑定本地/云/平台 SDK，也不替项目定义存档业务结构。</description>
@@ -50,14 +50,38 @@
 	</signals>
 	<enums>
 		<member kind="enum" name="ConflictStrategy">
-			<signature>enum ConflictStrategy { ## 按后端元数据中的 revision/timestamp 选择更新的一侧；无法判断时保留冲突。 USE_NEWEST, ## 冲突时使用 local_backend 的数据。 USE_LOCAL, ## 冲突时使用 remote_backend 的数据。 USE_REMOTE, ## 只报告冲突，不自动写回。 MANUAL, ## 调用 options.resolver 或 options.resolution_callback 生成结果。 CUSTOM, }</signature>
+			<signature>enum ConflictStrategy {
+	## 按后端元数据中的 revision/timestamp 选择更新的一侧；无法判断时保留冲突。
+	USE_NEWEST,
+	## 冲突时使用 local_backend 的数据。
+	USE_LOCAL,
+	## 冲突时使用 remote_backend 的数据。
+	USE_REMOTE,
+	## 只报告冲突，不自动写回。
+	MANUAL,
+	## 调用 options.resolver 或 options.resolution_callback 生成结果。
+	CUSTOM,
+}</signature>
 			<description>冲突解决策略。</description>
 			<tags>
 				<tag name="api">public</tag>
 			</tags>
 		</member>
 		<member kind="enum" name="SyncStatus">
-			<signature>enum SyncStatus { ## 两端数据已经一致。 UNCHANGED, ## 已把 local_backend 数据复制到 remote_backend。 COPIED_LOCAL_TO_REMOTE, ## 已把 remote_backend 数据复制到 local_backend。 COPIED_REMOTE_TO_LOCAL, ## 已用自定义合并结果写回两端。 MERGED, ## 存在未解决冲突。 CONFLICT, ## 同步失败。 FAILED, }</signature>
+			<signature>enum SyncStatus {
+	## 两端数据已经一致。
+	UNCHANGED,
+	## 已把 local_backend 数据复制到 remote_backend。
+	COPIED_LOCAL_TO_REMOTE,
+	## 已把 remote_backend 数据复制到 local_backend。
+	COPIED_REMOTE_TO_LOCAL,
+	## 已用自定义合并结果写回两端。
+	MERGED,
+	## 存在未解决冲突。
+	CONFLICT,
+	## 同步失败。
+	FAILED,
+}</signature>
 			<description>同步结果状态。</description>
 			<tags>
 				<tag name="api">public</tag>

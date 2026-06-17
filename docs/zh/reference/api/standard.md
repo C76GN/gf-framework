@@ -6,9 +6,9 @@
 
 | 类别 | 类 | 成员 | 方法 |
 |---|---:|---:|---:|
-| [运行时服务](#category-runtime_service) | 113 | 2037 | 1397 |
+| [运行时服务](#category-runtime_service) | 113 | 2039 | 1398 |
 | [协议与扩展点](#category-protocol) | 18 | 232 | 190 |
-| [资源定义](#category-resource_definition) | 85 | 908 | 443 |
+| [资源定义](#category-resource_definition) | 85 | 914 | 447 |
 | [运行时句柄](#category-runtime_handle) | 21 | 355 | 205 |
 | [值对象](#category-value_object) | 21 | 371 | 231 |
 | [领域模型](#category-domain_model) | 4 | 60 | 41 |

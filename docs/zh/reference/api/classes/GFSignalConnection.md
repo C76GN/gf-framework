@@ -43,7 +43,24 @@
 - API：`public`
 
 ```gdscript
-enum OperationType { ## 过滤信号参数。 FILTER, ## 映射信号参数。 MAP, ## 延迟处理。 DELAY, ## 防抖处理。 DEBOUNCE, ## 节流处理。 THROTTLE, ## 跳过前若干次触发。 SKIP, ## 只接收前若干次触发。 TAKE, ## 累积转换信号参数。 SCAN, }
+enum OperationType {
+	## 过滤信号参数。
+	FILTER,
+	## 映射信号参数。
+	MAP,
+	## 延迟处理。
+	DELAY,
+	## 防抖处理。
+	DEBOUNCE,
+	## 节流处理。
+	THROTTLE,
+	## 跳过前若干次触发。
+	SKIP,
+	## 只接收前若干次触发。
+	TAKE,
+	## 累积转换信号参数。
+	SCAN,
+}
 ```
 
 链式连接处理步骤类型。

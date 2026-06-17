@@ -55,7 +55,14 @@ signal field_changed
 - API：`public`
 
 ```gdscript
-enum DirectionMode { ## 朝向力场节点原点。 TOWARD_ORIGIN, ## 远离力场节点原点。 AWAY_FROM_ORIGIN, ## 使用固定方向。 CONSTANT_DIRECTION, }
+enum DirectionMode {
+	## 朝向力场节点原点。
+	TOWARD_ORIGIN,
+	## 远离力场节点原点。
+	AWAY_FROM_ORIGIN,
+	## 使用固定方向。
+	CONSTANT_DIRECTION,
+}
 ```
 
 力场方向模式。
@@ -67,7 +74,16 @@ enum DirectionMode { ## 朝向力场节点原点。 TOWARD_ORIGIN, ## 远离力�
 - API：`public`
 
 ```gdscript
-enum FalloffMode { ## 半径内保持恒定强度。 CONSTANT, ## 从中心到半径边缘线性衰减。 LINEAR, ## 按平方反比衰减。 INVERSE_SQUARE, ## 使用 Curve 采样衰减；横轴为距离占半径比例。 CURVE, }
+enum FalloffMode {
+	## 半径内保持恒定强度。
+	CONSTANT,
+	## 从中心到半径边缘线性衰减。
+	LINEAR,
+	## 按平方反比衰减。
+	INVERSE_SQUARE,
+	## 使用 Curve 采样衰减；横轴为距离占半径比例。
+	CURVE,
+}
 ```
 
 强度衰减模式。

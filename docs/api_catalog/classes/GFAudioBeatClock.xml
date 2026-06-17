@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFAudioBeatClock" path="addons/gf/standard/utilities/audio/gf_audio_beat_clock.gd" module="standard" extends="RefCounted" classDigest="dff71e108507e2ce546db2368a95fbe7f35b2e285bfff64c50d5474e09b51244">
+<class name="GFAudioBeatClock" path="addons/gf/standard/utilities/audio/gf_audio_beat_clock.gd" module="standard" extends="RefCounted" classDigest="b1c85cd24648327fe5b4c2596e41cab6b672e26f475f87a8a27b14e4321d2d42">
 	<description>GFAudioBeatClock: 通用音频节拍时钟。
 将任意播放时间映射为 beat、measure 和进度快照，并在手动 update() 时发出越过的节拍边界。
 它不持有播放器、不创建节点，也不规定节奏玩法、字幕或演出语义。</description>
@@ -41,7 +41,14 @@
 	</signals>
 	<enums>
 		<member kind="enum" name="QuantizeMode">
-			<signature>enum QuantizeMode { ## 量化到最近的网格点。 NEAREST, ## 量化到不大于当前时间的网格点。 FLOOR, ## 量化到不小于当前时间的网格点。 CEIL, }</signature>
+			<signature>enum QuantizeMode {
+	## 量化到最近的网格点。
+	NEAREST,
+	## 量化到不大于当前时间的网格点。
+	FLOOR,
+	## 量化到不小于当前时间的网格点。
+	CEIL,
+}</signature>
 			<description>量化时间时使用的舍入方式。</description>
 			<tags>
 				<tag name="api">public</tag>

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFStorageCodec" path="addons/gf/standard/utilities/storage/gf_storage_codec.gd" module="standard" extends="Resource" classDigest="1a9fc0d488f7473d74437f31e031767c3631ded6cc31dc0f5e87aa5b64510df7">
+<class name="GFStorageCodec" path="addons/gf/standard/utilities/storage/gf_storage_codec.gd" module="standard" extends="Resource" classDigest="8d9bc54a60bf02d3c447be1afcac15ba4b00fb9ebce9d0e247c2f2202a920dea">
 	<description>GFStorageCodec: 通用存档字典编码与解码策略。
 负责字典序列化、可选压缩、完整性校验和轻量混淆。
 它不负责路径、槽位、事务提交或云同步。</description>
@@ -11,7 +11,12 @@
 	<signals />
 	<enums>
 		<member kind="enum" name="Format">
-			<signature>enum Format { ## 稳定排序后的 JSON 文本。 JSON, ## Godot Variant 二进制格式。 BINARY, }</signature>
+			<signature>enum Format {
+	## 稳定排序后的 JSON 文本。
+	JSON,
+	## Godot Variant 二进制格式。
+	BINARY,
+}</signature>
 			<description>存档载荷序列化格式。</description>
 			<tags>
 				<tag name="api">public</tag>

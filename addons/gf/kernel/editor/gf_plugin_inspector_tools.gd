@@ -13,6 +13,13 @@ extends RefCounted
 ## @layer kernel/editor
 const EXTENSION_EXPORT_PLUGIN_SCRIPT_PATH: String = "res://addons/gf/kernel/editor/extension/gf_extension_export_plugin.gd"
 
+## GF 通用资源路径 Inspector 脚本路径。
+## [br]
+## @api framework_internal
+## [br]
+## @layer kernel/editor
+const RESOURCE_PATH_INSPECTOR_PLUGIN_SCRIPT_PATH: String = "res://addons/gf/kernel/editor/gf_resource_path_inspector_plugin.gd"
+
 ## 扩展启用设置脚本。
 ## [br]
 ## @api framework_internal
@@ -79,6 +86,11 @@ func cleanup(plugin: EditorPlugin) -> void:
 # --- 私有/辅助方法 ---
 
 func _setup_inspector_tools(plugin: EditorPlugin) -> void:
+	_add_inspector_plugin(
+		plugin,
+		RESOURCE_PATH_INSPECTOR_PLUGIN_SCRIPT_PATH,
+		"Resource Path Inspector"
+	)
 	for record: Dictionary in _standard_inspector_records:
 		_add_inspector_plugin(
 			plugin,

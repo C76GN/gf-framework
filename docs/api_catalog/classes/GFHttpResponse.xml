@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFHttpResponse" path="addons/gf/standard/utilities/io/gf_http_response.gd" module="standard" extends="RefCounted" classDigest="b4f695b71c8a5c2592a55020d1ec4b537b7a11a1ee70817a4da9ac13b836fc4f">
+<class name="GFHttpResponse" path="addons/gf/standard/utilities/io/gf_http_response.gd" module="standard" extends="RefCounted" classDigest="180c4190055844a270e2af125ec01ec84bff27bc88126fba0fafdb0da41d3ab7">
 	<description>GFHttpResponse: 通用 HTTP 请求结果。
 以对象形式表达 pending、completed、failed、cancelled 等状态，便于请求构建器、
 批处理器和项目侧工具统一观察异步结果。</description>
@@ -20,7 +20,16 @@
 	</signals>
 	<enums>
 		<member kind="enum" name="State">
-			<signature>enum State { ## 请求仍在等待完成。 PENDING, ## 请求成功完成。 COMPLETED, ## 请求失败。 FAILED, ## 请求被取消。 CANCELLED, }</signature>
+			<signature>enum State {
+	## 请求仍在等待完成。
+	PENDING,
+	## 请求成功完成。
+	COMPLETED,
+	## 请求失败。
+	FAILED,
+	## 请求被取消。
+	CANCELLED,
+}</signature>
 			<description>HTTP 响应句柄状态。</description>
 			<tags>
 				<tag name="api">public</tag>

@@ -117,7 +117,12 @@ signal warmup_completed(queue_id: int, summary: Dictionary)
 - API：`public`
 
 ```gdscript
-enum TouchMode { ## 只加载资源并触碰 RID。 RID_ONLY, ## 使用离屏临时渲染节点让材质或 Mesh 参与一次渲染。 TEMPORARY_RENDER_NODES, }
+enum TouchMode {
+	## 只加载资源并触碰 RID。
+	RID_ONLY,
+	## 使用离屏临时渲染节点让材质或 Mesh 参与一次渲染。
+	TEMPORARY_RENDER_NODES,
+}
 ```
 
 预热触碰模式。

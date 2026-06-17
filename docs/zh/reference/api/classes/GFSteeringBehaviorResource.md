@@ -45,7 +45,32 @@
 - API：`public`
 
 ```gdscript
-enum BehaviorType { ## 朝目标位置加速。 SEEK, ## 远离目标位置。 FLEE, ## 抵达目标位置并减速。 ARRIVE, ## 追逐目标代理。 PURSUE, ## 躲避目标代理。 EVADE, ## 面向目标位置。 FACE, ## 朝当前速度方向转向。 LOOK_WHERE_YOU_GO, ## 对齐指定朝向。 ALIGN, ## 与邻居保持距离。 SEPARATION, ## 朝邻居中心靠拢。 COHESION, ## 基于预测最近距离避让碰撞。 AVOID_COLLISIONS, ## 沿路径计算目标点并 seek。 PATH_FOLLOW_SEEK, }
+enum BehaviorType {
+	## 朝目标位置加速。
+	SEEK,
+	## 远离目标位置。
+	FLEE,
+	## 抵达目标位置并减速。
+	ARRIVE,
+	## 追逐目标代理。
+	PURSUE,
+	## 躲避目标代理。
+	EVADE,
+	## 面向目标位置。
+	FACE,
+	## 朝当前速度方向转向。
+	LOOK_WHERE_YOU_GO,
+	## 对齐指定朝向。
+	ALIGN,
+	## 与邻居保持距离。
+	SEPARATION,
+	## 朝邻居中心靠拢。
+	COHESION,
+	## 基于预测最近距离避让碰撞。
+	AVOID_COLLISIONS,
+	## 沿路径计算目标点并 seek。
+	PATH_FOLLOW_SEEK,
+}
 ```
 
 Steering 行为类型。

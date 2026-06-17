@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFEditorPickOperation" path="addons/gf/kernel/editor/gf_editor_pick_operation.gd" module="kernel" extends="RefCounted" classDigest="269e05a65a5fe771a9b5244a0468f35a8a040cffa1e681cb5ed7eac1192dca18">
+<class name="GFEditorPickOperation" path="addons/gf/kernel/editor/gf_editor_pick_operation.gd" module="kernel" extends="RefCounted" classDigest="b8f26a96055c48f5d2d819e5051193915bc4529bc330fcab26d4a24c53c0e77f">
 	<description>GFEditorPickOperation: 编辑器工具的分阶段拾取操作协议。
 用于描述 pick、preview、ready、apply 和 cancel 这类持续交互流程。</description>
 	<tags>
@@ -11,7 +11,18 @@
 	<signals />
 	<enums>
 		<member kind="enum" name="State">
-			<signature>enum State { ## 尚未开始。 IDLE, ## 正在拾取。 PICKING, ## 已准备好应用。 READY, ## 已应用。 APPLIED, ## 已取消。 CANCELLED, }</signature>
+			<signature>enum State {
+	## 尚未开始。
+	IDLE,
+	## 正在拾取。
+	PICKING,
+	## 已准备好应用。
+	READY,
+	## 已应用。
+	APPLIED,
+	## 已取消。
+	CANCELLED,
+}</signature>
 			<description>拾取操作状态。</description>
 			<tags>
 				<tag name="api">public</tag>

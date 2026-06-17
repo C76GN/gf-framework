@@ -35,7 +35,12 @@
 - API：`public`
 
 ```gdscript
-enum CompositionMode { ## 按权重混合所有行为。 BLEND, ## 选择第一个超过阈值的行为。 PRIORITY, }
+enum CompositionMode {
+	## 按权重混合所有行为。
+	BLEND,
+	## 选择第一个超过阈值的行为。
+	PRIORITY,
+}
 ```
 
 行为组合方式。

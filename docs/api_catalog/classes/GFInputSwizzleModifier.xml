@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFInputSwizzleModifier" path="addons/gf/standard/input/modifiers/gf_input_swizzle_modifier.gd" module="standard" extends="GFInputModifier" classDigest="c1170a70dfdbe710e5a97852ba3fdf0de910d8dd7ebc94d3ab468a876b1093e9">
+<class name="GFInputSwizzleModifier" path="addons/gf/standard/input/modifiers/gf_input_swizzle_modifier.gd" module="standard" extends="GFInputModifier" classDigest="e24f61daaeec1d7b6ad284764cbc877bd13dfaa5db4ddb515e4fc0a7ac92588d">
 	<description>GFInputSwizzleModifier: 输入分量重排修饰器。
 用于把二维或三维输入轴按通用顺序重排，适合在不改绑定资源的情况下
 调整轴方向约定。</description>
@@ -11,7 +11,20 @@
 	<signals />
 	<enums>
 		<member kind="enum" name="SwizzleOrder">
-			<signature>enum SwizzleOrder { ## 保持 X/Y/Z。 XYZ, ## 输出 X/Z/Y。 XZY, ## 输出 Y/X/Z。 YXZ, ## 输出 Y/Z/X。 YZX, ## 输出 Z/X/Y。 ZXY, ## 输出 Z/Y/X。 ZYX, }</signature>
+			<signature>enum SwizzleOrder {
+	## 保持 X/Y/Z。
+	XYZ,
+	## 输出 X/Z/Y。
+	XZY,
+	## 输出 Y/X/Z。
+	YXZ,
+	## 输出 Y/Z/X。
+	YZX,
+	## 输出 Z/X/Y。
+	ZXY,
+	## 输出 Z/Y/X。
+	ZYX,
+}</signature>
 			<description>分量重排顺序。</description>
 			<tags>
 				<tag name="api">public</tag>

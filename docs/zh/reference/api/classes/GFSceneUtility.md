@@ -398,7 +398,16 @@ signal scene_cache_removed(path: String, fixed: bool)
 - API：`public`
 
 ```gdscript
-enum SceneResourceState { ## 未加载。 NOT_LOADED, ## 正在预加载。 PRELOADING, ## 已缓存 PackedScene。 PRELOADED, ## 当前 load_scene_async() 正在等待该资源。 ACTIVE_LOADING, }
+enum SceneResourceState {
+	## 未加载。
+	NOT_LOADED,
+	## 正在预加载。
+	PRELOADING,
+	## 已缓存 PackedScene。
+	PRELOADED,
+	## 当前 load_scene_async() 正在等待该资源。
+	ACTIVE_LOADING,
+}
 ```
 
 场景资源在 GFSceneUtility 内部的缓存状态。

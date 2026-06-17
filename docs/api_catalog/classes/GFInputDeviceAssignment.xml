@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFInputDeviceAssignment" path="addons/gf/standard/input/runtime/gf_input_device_assignment.gd" module="standard" extends="Resource" classDigest="c3b6d9085d321e3784112fab0c1183893c66f3d3f102716020713bdc209ab959">
+<class name="GFInputDeviceAssignment" path="addons/gf/standard/input/runtime/gf_input_device_assignment.gd" module="standard" extends="Resource" classDigest="dd9f77a6056a09d7e264b6d81b6a33bb27eb4ace71d11925d50204a196d730e7">
 	<description>GFInputDeviceAssignment: 玩家与输入设备的通用映射。
 仅描述设备归属，不绑定任何具体输入动作。</description>
 	<tags>
@@ -10,7 +10,18 @@
 	<signals />
 	<enums>
 		<member kind="enum" name="DeviceType">
-			<signature>enum DeviceType { ## 键盘与鼠标作为一个本地输入设备。 KEYBOARD_MOUSE, ## Godot 手柄设备。 JOYPAD, ## 触控输入设备。 TOUCH, ## AI 或自动化输入来源。 AI, ## 项目自定义输入设备。 CUSTOM, }</signature>
+			<signature>enum DeviceType {
+	## 键盘与鼠标作为一个本地输入设备。
+	KEYBOARD_MOUSE,
+	## Godot 手柄设备。
+	JOYPAD,
+	## 触控输入设备。
+	TOUCH,
+	## AI 或自动化输入来源。
+	AI,
+	## 项目自定义输入设备。
+	CUSTOM,
+}</signature>
 			<description>输入设备类型。</description>
 			<tags>
 				<tag name="api">public</tag>

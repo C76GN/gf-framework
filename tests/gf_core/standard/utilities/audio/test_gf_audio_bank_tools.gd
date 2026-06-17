@@ -103,6 +103,39 @@ func test_create_bank_from_paths_accepts_string_name_options_and_normalizes_exte
 	assert_almost_eq(clip.pitch_scale, 1.25, 0.001, "字符串 pitch 选项应稳定转换为 float。")
 
 
+func test_create_bank_from_paths_merges_clip_metadata_options() -> void:
+	var bank: GFAudioBank = GFAudioBankTools.create_bank_from_paths(PackedStringArray([
+		"res://audio/ui/click.ogg",
+		"res://audio/ui/confirm.ogg",
+	]), {
+		"id_mode": "relative_path",
+		"base_path": "res://audio",
+		"metadata": {
+			"category": "ui",
+			"tags": ["shared"],
+		},
+		"metadata_by_path": {
+			"res://audio/ui/click.ogg": {
+				"bpm": 120,
+				"tags": ["click"],
+			},
+		},
+	})
+	var click: GFAudioClip = bank.get_clip(&"ui/click")
+	var confirm: GFAudioClip = bank.get_clip(&"ui/confirm")
+
+	assert_not_null(click, "路径级 metadata 的片段应可读取。")
+	assert_not_null(confirm, "公共 metadata 的片段应可读取。")
+	if click == null or confirm == null:
+		return
+
+	assert_eq(GFVariantData.get_option_string(click.metadata, "category"), "ui", "路径级 metadata 应保留公共字段。")
+	assert_eq(GFVariantData.get_option_int(click.metadata, "bpm"), 120, "路径级 metadata 应合并到指定片段。")
+	assert_eq(GFVariantData.as_array(click.metadata["tags"]), ["click"], "路径级 metadata 应能覆盖公共嵌套字段。")
+	assert_eq(GFVariantData.get_option_string(confirm.metadata, "category"), "ui", "未指定路径 metadata 的片段应保留公共字段。")
+	assert_eq(GFVariantData.as_array(confirm.metadata["tags"]), ["shared"], "公共 metadata 应复制到每个导入片段。")
+
+
 func test_add_paths_to_bank_skips_existing_ids_without_overwrite() -> void:
 	var bank: GFAudioBank = GFAudioBank.new()
 	var existing_clip: GFAudioClip = GFAudioClip.new()

@@ -24,9 +24,14 @@
 | 属性 | [`pitch_random_min`](#member-gfaudioclip-properties-pitch_random_min) | `var pitch_random_min: float = 1.0` |
 | 属性 | [`pitch_random_max`](#member-gfaudioclip-properties-pitch_random_max) | `var pitch_random_max: float = 1.0` |
 | 属性 | [`spatial_settings`](#member-gfaudioclip-properties-spatial_settings) | `var spatial_settings: Resource = null` |
+| 属性 | [`metadata`](#member-gfaudioclip-properties-metadata) | `var metadata: Dictionary = {}` |
 | 方法 | [`has_source`](#member-gfaudioclip-methods-has_source) | `func has_source() -> bool:` |
 | 方法 | [`resolve_bus`](#member-gfaudioclip-methods-resolve_bus) | `func resolve_bus(default_bus: String) -> String:` |
 | 方法 | [`resolve_pitch`](#member-gfaudioclip-methods-resolve_pitch) | `func resolve_pitch(rng: RandomNumberGenerator = null) -> float:` |
+| 方法 | [`has_metadata_value`](#member-gfaudioclip-methods-has_metadata_value) | `func has_metadata_value(key: Variant) -> bool:` |
+| 方法 | [`set_metadata_value`](#member-gfaudioclip-methods-set_metadata_value) | `func set_metadata_value(key: Variant, value: Variant) -> void:` |
+| 方法 | [`get_metadata_value`](#member-gfaudioclip-methods-get_metadata_value) | `func get_metadata_value(key: Variant, default_value: Variant = null) -> Variant:` |
+| 方法 | [`duplicate_metadata`](#member-gfaudioclip-methods-duplicate_metadata) | `func duplicate_metadata() -> Dictionary:` |
 
 ## 属性
 
@@ -142,6 +147,23 @@ var spatial_settings: Resource = null
 
 - `spatial_settings`: GFAudioSpatialSettings or compatible Resource with apply_to_2d/apply_to_3d methods.
 
+<a id="member-gfaudioclip-properties-metadata"></a>
+
+### `metadata`
+
+- API：`public`
+- 首次版本：`5.1.0`
+
+```gdscript
+var metadata: Dictionary = {}
+```
+
+可选音频元数据，供导入器、编辑器或项目层扩展使用。
+
+结构：
+
+- `metadata`: Dictionary，保存项目或工具附加到片段的通用元数据；GF 不解释具体键。
+
 ## 方法
 
 <a id="member-gfaudioclip-methods-has_source"></a>
@@ -197,3 +219,100 @@ func resolve_pitch(rng: RandomNumberGenerator = null) -> float:
 | `rng` | 可选随机数生成器；为空时使用确定性的 pitch_scale。 |
 
 返回：实际播放音高。
+
+<a id="member-gfaudioclip-methods-has_metadata_value"></a>
+
+### `has_metadata_value`
+
+- API：`public`
+- 首次版本：`5.1.0`
+
+```gdscript
+func has_metadata_value(key: Variant) -> bool:
+```
+
+检查指定元数据键是否存在。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `key` | 元数据键。 |
+
+返回：存在返回 true。
+
+结构：
+
+- `key`: Variant，推荐使用 String 或 StringName。
+
+<a id="member-gfaudioclip-methods-set_metadata_value"></a>
+
+### `set_metadata_value`
+
+- API：`public`
+- 首次版本：`5.1.0`
+
+```gdscript
+func set_metadata_value(key: Variant, value: Variant) -> void:
+```
+
+设置元数据项。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `key` | 元数据键。 |
+| `value` | 元数据值。 |
+
+结构：
+
+- `key`: Variant，推荐使用 String 或 StringName。
+- `value`: Variant，推荐使用可序列化的标量、Array、Dictionary 或 Resource 引用。
+
+<a id="member-gfaudioclip-methods-get_metadata_value"></a>
+
+### `get_metadata_value`
+
+- API：`public`
+- 首次版本：`5.1.0`
+
+```gdscript
+func get_metadata_value(key: Variant, default_value: Variant = null) -> Variant:
+```
+
+获取元数据项。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `key` | 元数据键。 |
+| `default_value` | 缺少键时返回的默认值。 |
+
+返回：元数据值或默认值。
+
+结构：
+
+- `key`: Variant，推荐使用 String 或 StringName。
+- `default_value`: Variant 默认值。
+- `return`: Variant 元数据值。
+
+<a id="member-gfaudioclip-methods-duplicate_metadata"></a>
+
+### `duplicate_metadata`
+
+- API：`public`
+- 首次版本：`5.1.0`
+
+```gdscript
+func duplicate_metadata() -> Dictionary:
+```
+
+创建元数据深拷贝。
+
+返回：元数据副本。
+
+结构：
+
+- `return`: Dictionary 元数据副本。

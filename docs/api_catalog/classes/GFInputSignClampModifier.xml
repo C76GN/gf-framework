@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFInputSignClampModifier" path="addons/gf/standard/input/modifiers/gf_input_sign_clamp_modifier.gd" module="standard" extends="GFInputModifier" classDigest="212d8fbba5515076ea5d51daa0e185010532767255b9ea616c9cc1a8e432254a">
+<class name="GFInputSignClampModifier" path="addons/gf/standard/input/modifiers/gf_input_sign_clamp_modifier.gd" module="standard" extends="GFInputModifier" classDigest="897439886e471c5ce88f5fd6b14f2bd8994a5816773d2c1621b6d54a94c197f8">
 	<description>GFInputSignClampModifier: 输入符号方向限制修饰器。
 用于只保留正向或负向输入分量，也可以把保留的负向分量重新映射为正值。</description>
 	<tags>
@@ -10,7 +10,12 @@
 	<signals />
 	<enums>
 		<member kind="enum" name="AllowedSign">
-			<signature>enum AllowedSign { ## 只保留大于等于 0 的值。 POSITIVE, ## 只保留小于等于 0 的值。 NEGATIVE, }</signature>
+			<signature>enum AllowedSign {
+	## 只保留大于等于 0 的值。
+	POSITIVE,
+	## 只保留小于等于 0 的值。
+	NEGATIVE,
+}</signature>
 			<description>允许通过的符号方向。</description>
 			<tags>
 				<tag name="api">public</tag>

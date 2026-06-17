@@ -35,7 +35,20 @@
 - API：`public`
 
 ```gdscript
-enum TargetKind { ## Model 访问器目标。 MODEL, ## System 访问器目标。 SYSTEM, ## Utility 访问器目标。 UTILITY, ## Command 访问器目标。 COMMAND, ## Query 访问器目标。 QUERY, ## Capability 访问器目标。 CAPABILITY, }
+enum TargetKind {
+	## Model 访问器目标。
+	MODEL,
+	## System 访问器目标。
+	SYSTEM,
+	## Utility 访问器目标。
+	UTILITY,
+	## Command 访问器目标。
+	COMMAND,
+	## Query 访问器目标。
+	QUERY,
+	## Capability 访问器目标。
+	CAPABILITY,
+}
 ```
 
 访问器目标类型。

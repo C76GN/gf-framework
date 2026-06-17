@@ -43,7 +43,40 @@
 - API：`public`
 
 ```gdscript
-enum ValueType { ## 不做类型约束。 ANY, ## 布尔值。 BOOL, ## 整数。 INT, ## 浮点数；int 也视为有效。 FLOAT, ## String。 STRING, ## StringName。 STRING_NAME, ## Vector2。 VECTOR2, ## Vector2i。 VECTOR2I, ## Vector3。 VECTOR3, ## Vector3i。 VECTOR3I, ## Color。 COLOR, ## Dictionary，可选嵌套 GFDictionarySchema。 DICTIONARY, ## Array，可选数组元素 GFSchemaField。 ARRAY, ## Object。 OBJECT, ## Resource。 RESOURCE, ## NodePath。 NODE_PATH, }
+enum ValueType {
+	## 不做类型约束。
+	ANY,
+	## 布尔值。
+	BOOL,
+	## 整数。
+	INT,
+	## 浮点数；int 也视为有效。
+	FLOAT,
+	## String。
+	STRING,
+	## StringName。
+	STRING_NAME,
+	## Vector2。
+	VECTOR2,
+	## Vector2i。
+	VECTOR2I,
+	## Vector3。
+	VECTOR3,
+	## Vector3i。
+	VECTOR3I,
+	## Color。
+	COLOR,
+	## Dictionary，可选嵌套 GFDictionarySchema。
+	DICTIONARY,
+	## Array，可选数组元素 GFSchemaField。
+	ARRAY,
+	## Object。
+	OBJECT,
+	## Resource。
+	RESOURCE,
+	## NodePath。
+	NODE_PATH,
+}
 ```
 
 字段值类型。

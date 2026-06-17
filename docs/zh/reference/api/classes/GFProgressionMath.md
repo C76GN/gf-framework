@@ -30,7 +30,14 @@
 - API：`public`
 
 ```gdscript
-enum CurveMode { ## 常量曲线。 CONSTANT, ## 线性曲线。 LINEAR, ## 指数曲线。 EXPONENTIAL, }
+enum CurveMode {
+	## 常量曲线。
+	CONSTANT,
+	## 线性曲线。
+	LINEAR,
+	## 指数曲线。
+	EXPONENTIAL,
+}
 ```
 
 支持的基础曲线类型。

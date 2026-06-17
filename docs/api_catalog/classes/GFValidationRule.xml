@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFValidationRule" path="addons/gf/standard/foundation/validation/gf_validation_rule.gd" module="standard" extends="Resource" classDigest="137be0f30c34c2caa8c6a489f62c850eca80ff7af48a40df96b07cf82d5a72c4">
+<class name="GFValidationRule" path="addons/gf/standard/foundation/validation/gf_validation_rule.gd" module="standard" extends="Resource" classDigest="c2a18b6d796675a38a3354915d3407f14818049acf1882e4a96f863be5dabf46">
 	<description>GFValidationRule: 通用校验规则资源。
 通过 Callable 或子类钩子校验任意对象、资源、节点或数据。规则只负责把问题写入
 GFValidationReport，不约定项目脚本方法名，也不内置业务字段语义。</description>
@@ -11,7 +11,22 @@ GFValidationReport，不约定项目脚本方法名，也不内置业务字段�
 	<signals />
 	<enums>
 		<member kind="enum" name="TargetKind">
-			<signature>enum TargetKind { ## 接受任意目标。 ANY, ## 接受 Node。 NODE, ## 接受 Resource。 RESOURCE, ## 接受 PackedScene。 PACKED_SCENE, ## 接受 Dictionary。 DICTIONARY, ## 接受 Array。 ARRAY, ## 接受 Object。 OBJECT, }</signature>
+			<signature>enum TargetKind {
+	## 接受任意目标。
+	ANY,
+	## 接受 Node。
+	NODE,
+	## 接受 Resource。
+	RESOURCE,
+	## 接受 PackedScene。
+	PACKED_SCENE,
+	## 接受 Dictionary。
+	DICTIONARY,
+	## 接受 Array。
+	ARRAY,
+	## 接受 Object。
+	OBJECT,
+}</signature>
 			<description>规则适用的目标类型。</description>
 			<tags>
 				<tag name="api">public</tag>

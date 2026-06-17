@@ -42,7 +42,14 @@
 - API：`public`
 
 ```gdscript
-enum Operation { ## 增加目标值。 ADD, ## 减少目标值。 SUBTRACT, ## 直接设置目标值。 SET, }
+enum Operation {
+	## 增加目标值。
+	ADD,
+	## 减少目标值。
+	SUBTRACT,
+	## 直接设置目标值。
+	SET,
+}
 ```
 
 数值操作类型。

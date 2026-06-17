@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFAudioBank" path="addons/gf/standard/utilities/audio/gf_audio_bank.gd" module="standard" extends="Resource" classDigest="e222b2ca1f4c54b85a3fab6862ffad8dc918453a449952a8aedb5d6b84a68fec">
+<class name="GFAudioBank" path="addons/gf/standard/utilities/audio/gf_audio_bank.gd" module="standard" extends="Resource" classDigest="3a42e7a053050c4a0fba937266fb07295e60105b07eda4a866d850a732dd6066">
 	<description>GFAudioBank: 音频片段配置集合。
 用 StringName 管理一组 `GFAudioClip`，便于 UI、表现动作或项目配置
 通过稳定 ID 播放音频。单个 ID 可保存一个片段或多个候选片段。</description>
@@ -11,7 +11,16 @@
 	<signals />
 	<enums>
 		<member kind="enum" name="LifecycleState">
-			<signature>enum LifecycleState { ## 尚未加载。 UNLOADED, ## 正在加载。 LOADING, ## 已加载。 LOADED, ## 加载失败。 FAILED, }</signature>
+			<signature>enum LifecycleState {
+	## 尚未加载。
+	UNLOADED,
+	## 正在加载。
+	LOADING,
+	## 已加载。
+	LOADED,
+	## 加载失败。
+	FAILED,
+}</signature>
 			<description>音频集合加载状态。</description>
 			<tags>
 				<tag name="api">public</tag>

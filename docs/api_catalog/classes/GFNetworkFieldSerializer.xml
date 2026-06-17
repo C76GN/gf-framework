@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFNetworkFieldSerializer" path="addons/gf/extensions/network/serialization/gf_network_field_serializer.gd" module="extensions/network" extends="Resource" classDigest="1e07f29192b7e3cac64206f28bbbf930847e69cd8e20c894e47dac983a1fac77">
+<class name="GFNetworkFieldSerializer" path="addons/gf/extensions/network/serialization/gf_network_field_serializer.gd" module="extensions/network" extends="Resource" classDigest="f1416f27896aae19b786157cd45c7a10aabe856ebedde987a5b3a62cf2084d91">
 	<description>GFNetworkFieldSerializer: 网络状态字段编码器。
 将常见 Godot 值归一化为可序列化 Variant。它只处理字段值的形态转换，
 不规定同步方向、可靠性、预测、回滚或冲突解决策略。</description>
@@ -11,7 +11,30 @@
 	<signals />
 	<enums>
 		<member kind="enum" name="ValueType">
-			<signature>enum ValueType { ## 保持原始 Variant。 VARIANT, ## 布尔值。 BOOL, ## 整数。 INT, ## 浮点数。 FLOAT, ## 字符串。 STRING, ## StringName，编码时使用 String。 STRING_NAME, ## Vector2，编码为两个数值。 VECTOR2, ## Vector3，编码为三个数值。 VECTOR3, ## Vector2i，编码为两个整数。 VECTOR2I, ## Vector3i，编码为三个整数。 VECTOR3I, ## Color，编码为四个数值。 COLOR, }</signature>
+			<signature>enum ValueType {
+	## 保持原始 Variant。
+	VARIANT,
+	## 布尔值。
+	BOOL,
+	## 整数。
+	INT,
+	## 浮点数。
+	FLOAT,
+	## 字符串。
+	STRING,
+	## StringName，编码时使用 String。
+	STRING_NAME,
+	## Vector2，编码为两个数值。
+	VECTOR2,
+	## Vector3，编码为三个数值。
+	VECTOR3,
+	## Vector2i，编码为两个整数。
+	VECTOR2I,
+	## Vector3i，编码为三个整数。
+	VECTOR3I,
+	## Color，编码为四个数值。
+	COLOR,
+}</signature>
 			<description>字段值类型。</description>
 			<tags>
 				<tag name="api">public</tag>

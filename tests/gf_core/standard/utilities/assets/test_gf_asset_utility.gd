@@ -201,6 +201,36 @@ func test_pending_load_keeps_multiple_callbacks() -> void:
 	assert_eq(state.count, 2, "同一路径的并发加载请求应回调所有监听者。")
 
 
+func test_load_progress_updates_signal_query_and_cache_completion() -> void:
+	var completing: CompletingAssetUtility = CompletingAssetUtility.new()
+	_replace_utility(completing)
+	var progress_values: Array[float] = []
+	var _progress_connected: Error = _utility.asset_load_progress.connect(func(path: String, progress: float) -> void:
+		if path == "res://progress_resource.tres":
+			progress_values.append(progress)
+	) as Error
+
+	var loaded_resource: Array[Resource] = []
+	_utility.load_async("res://progress_resource.tres", func(res: Resource) -> void:
+		loaded_resource.append(res)
+	)
+
+	completing.progress = 0.35
+	_utility.tick()
+
+	assert_almost_eq(_utility.get_load_progress("res://progress_resource.tres"), 0.35, 0.001, "轮询后应能查询 pending 加载进度。")
+	assert_true(_float_array_has_approx(progress_values, 0.0), "发起请求时应发出初始进度。")
+	assert_true(_float_array_has_approx(progress_values, 0.35), "进度变化时应发出更新信号。")
+
+	completing.complete = true
+	_utility.tick()
+
+	assert_eq(loaded_resource.size(), 1, "加载完成应触发回调。")
+	assert_eq(loaded_resource[0], completing.loaded_resource, "完成回调应收到加载资源。")
+	assert_almost_eq(_utility.get_load_progress("res://progress_resource.tres"), 1.0, 0.001, "已缓存资源进度应返回 1.0。")
+	assert_true(_float_array_has_approx(progress_values, 1.0), "加载完成应发出 1.0 进度。")
+
+
 func test_pending_load_rejects_same_path_with_different_type_hint() -> void:
 	var tracking: TrackingAssetUtility = TrackingAssetUtility.new()
 	_replace_utility(tracking)
@@ -315,11 +345,14 @@ func test_debug_snapshot_reports_cache_pending_and_pinned_state() -> void:
 
 	var snapshot: Dictionary = _utility.get_debug_snapshot()
 	var cached_paths: PackedStringArray = GFVariantData.get_option_packed_string_array(snapshot, "cached_paths")
+	var pending_progress: Dictionary = GFVariantData.get_option_dictionary(snapshot, "pending_progress")
 
 	assert_eq(GFVariantData.get_option_int(snapshot, "cache_count"), 1, "快照应报告缓存数量。")
 	assert_eq(GFVariantData.get_option_int(snapshot, "pending_count"), 1, "快照应报告 pending 数量。")
 	assert_eq(GFVariantData.get_option_int(snapshot, "pinned_count"), 1, "快照应报告 pinned 数量。")
 	assert_true(cached_paths.has("res://cached.tres"), "快照应包含缓存路径。")
+	assert_true(pending_progress.has("res://pending.tres"), "快照应包含 pending 路径进度。")
+	assert_almost_eq(GFVariantData.get_option_float(pending_progress, "res://pending.tres"), 0.0, 0.001, "新建 pending 进度默认为 0.0。")
 
 
 # --- 私有/辅助方法 ---
@@ -343,6 +376,13 @@ func _is_null(value: Variant) -> bool:
 	return value == null
 
 
+func _float_array_has_approx(values: Array[float], expected: float, tolerance: float = 0.001) -> bool:
+	for value: float in values:
+		if absf(value - expected) <= tolerance:
+			return true
+	return false
+
+
 # --- 内部类 ---
 
 class FailingAssetUtility extends GFAssetUtility:
@@ -354,7 +394,7 @@ class FailingAssetUtility extends GFAssetUtility:
 	func _request_threaded(_path: String, _type_hint: String) -> Error:
 		return OK
 
-	func _get_threaded_status(path: String) -> ResourceLoader.ThreadLoadStatus:
+	func _get_threaded_status_with_progress(path: String, _progress: Array) -> ResourceLoader.ThreadLoadStatus:
 		if _should_fail_paths.has(path):
 			return ResourceLoader.THREAD_LOAD_FAILED
 		return ResourceLoader.THREAD_LOAD_IN_PROGRESS
@@ -362,25 +402,29 @@ class FailingAssetUtility extends GFAssetUtility:
 
 class TrackingAssetUtility extends GFAssetUtility:
 	var requested_type_hints: Array[String] = []
+	var progress: float = 0.0
 
 	func _request_threaded(_path: String, type_hint: String) -> Error:
 		requested_type_hints.append(type_hint)
 		return OK
 
-	func _get_threaded_status(_path: String) -> ResourceLoader.ThreadLoadStatus:
+	func _get_threaded_status_with_progress(_path: String, progress_result: Array) -> ResourceLoader.ThreadLoadStatus:
+		progress_result.append(progress)
 		return ResourceLoader.THREAD_LOAD_IN_PROGRESS
 
 
 class CompletingAssetUtility extends GFAssetUtility:
 	var requested_count: int = 0
 	var complete: bool = false
+	var progress: float = 0.0
 	var loaded_resource: Resource = Resource.new()
 
 	func _request_threaded(_path: String, _type_hint: String) -> Error:
 		requested_count += 1
 		return OK
 
-	func _get_threaded_status(_path: String) -> ResourceLoader.ThreadLoadStatus:
+	func _get_threaded_status_with_progress(_path: String, progress_result: Array) -> ResourceLoader.ThreadLoadStatus:
+		progress_result.append(progress)
 		return ResourceLoader.THREAD_LOAD_LOADED if complete else ResourceLoader.THREAD_LOAD_IN_PROGRESS
 
 	func _take_threaded_resource(_path: String) -> Resource:

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFNetworkContractField" path="addons/gf/extensions/network/contracts/gf_network_contract_field.gd" module="extensions/network" extends="Resource" classDigest="0cc5000fa26a3c6d4e1cb9d1a25feea4f9c5ab1eeab1f9bb7b2ff3d559e73df1">
+<class name="GFNetworkContractField" path="addons/gf/extensions/network/contracts/gf_network_contract_field.gd" module="extensions/network" extends="Resource" classDigest="8817bbe2f16a872ea9b33d803b95ab06e4054b54a610205f648fde1f219f7bec">
 	<description>GFNetworkContractField: 网络契约中的单个 payload 字段。
 字段只描述名称、值类型、必填性和默认值，用于生成器、校验器或项目工具，
 不规定消息含义、权限或同步策略。</description>
@@ -11,7 +11,38 @@
 	<signals />
 	<enums>
 		<member kind="enum" name="ValueType">
-			<signature>enum ValueType { ## 任意 Variant。 VARIANT, ## 布尔值。 BOOL, ## 整数。 INT, ## 浮点数。 FLOAT, ## 字符串。 STRING, ## StringName。 STRING_NAME, ## Vector2。 VECTOR2, ## Vector3。 VECTOR3, ## Vector2i。 VECTOR2I, ## Vector3i。 VECTOR3I, ## Color。 COLOR, ## Dictionary。 DICTIONARY, ## Array。 ARRAY, ## NodePath。 NODE_PATH, ## Object 或 Resource。 OBJECT, }</signature>
+			<signature>enum ValueType {
+	## 任意 Variant。
+	VARIANT,
+	## 布尔值。
+	BOOL,
+	## 整数。
+	INT,
+	## 浮点数。
+	FLOAT,
+	## 字符串。
+	STRING,
+	## StringName。
+	STRING_NAME,
+	## Vector2。
+	VECTOR2,
+	## Vector3。
+	VECTOR3,
+	## Vector2i。
+	VECTOR2I,
+	## Vector3i。
+	VECTOR3I,
+	## Color。
+	COLOR,
+	## Dictionary。
+	DICTIONARY,
+	## Array。
+	ARRAY,
+	## NodePath。
+	NODE_PATH,
+	## Object 或 Resource。
+	OBJECT,
+}</signature>
 			<description>字段值类型。</description>
 			<tags>
 				<tag name="api">public</tag>

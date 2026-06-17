@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFWebSocketNetworkBackend" path="addons/gf/extensions/network/backends/gf_websocket_network_backend.gd" module="extensions/network" extends="GFNetworkBackend" classDigest="aba729f089427f97d6bb8c91cc0f4a104a30d39f31ba6b415a40efd130b79b71">
+<class name="GFWebSocketNetworkBackend" path="addons/gf/extensions/network/backends/gf_websocket_network_backend.gd" module="extensions/network" extends="GFNetworkBackend" classDigest="aeb8ad9459c59dee66b17d5b5663306ba3a3b3477f3ae3e4394fc87c7dfb3768">
 	<description>GFWebSocketNetworkBackend: 基于 Godot WebSocketPeer 的网络后端。
 只实现 GFNetworkBackend 的 bytes 传输边界，适合浏览器、原生客户端或工具链
 之间复用同一套 GFNetworkMessage 序列化流程。</description>
@@ -11,7 +11,14 @@
 	<signals />
 	<enums>
 		<member kind="enum" name="Mode">
-			<signature>enum Mode { ## 未连接。 DISCONNECTED, ## 作为服务器监听 TCP 并接受 WebSocket 握手。 SERVER, ## 作为客户端连接远端 WebSocket 地址。 CLIENT, }</signature>
+			<signature>enum Mode {
+	## 未连接。
+	DISCONNECTED,
+	## 作为服务器监听 TCP 并接受 WebSocket 握手。
+	SERVER,
+	## 作为客户端连接远端 WebSocket 地址。
+	CLIENT,
+}</signature>
 			<description>WebSocket 后端运行模式。</description>
 			<tags>
 				<tag name="api">public</tag>

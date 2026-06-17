@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFInputBinding" path="addons/gf/standard/input/mapping/gf_input_binding.gd" module="standard" extends="Resource" classDigest="0d33b8e1230f77b8382cd3c0dc1248150f2382840cb37700b4eef3a86fcd8855">
+<class name="GFInputBinding" path="addons/gf/standard/input/mapping/gf_input_binding.gd" module="standard" extends="Resource" classDigest="1ba02c6de59c59507e7e7ad6987eb4a3443177003886dcc674fd7ceb019dea0a">
 	<description>GFInputBinding: 把一个 Godot 输入事件映射到动作值贡献。
 该资源只描述输入来源和数值方向，实际动作归属由 GFInputMapping 决定。</description>
 	<tags>
@@ -10,7 +10,36 @@
 	<signals />
 	<enums>
 		<member kind="enum" name="ValueTarget">
-			<signature>enum ValueTarget { ## 根据动作值类型自动映射；二维/三维轴默认写入 X 分量，需要其他分量时使用显式 AXIS_* 目标。 AUTO, ## 只作为开关输入。 BOOL, ## 一维轴正向。 AXIS_1D_POSITIVE, ## 一维轴负向。 AXIS_1D_NEGATIVE, ## 二维轴 X 正向。 AXIS_2D_X_POSITIVE, ## 二维轴 X 负向。 AXIS_2D_X_NEGATIVE, ## 二维轴 Y 正向。 AXIS_2D_Y_POSITIVE, ## 二维轴 Y 负向。 AXIS_2D_Y_NEGATIVE, ## 三维轴 X 正向。 AXIS_3D_X_POSITIVE, ## 三维轴 X 负向。 AXIS_3D_X_NEGATIVE, ## 三维轴 Y 正向。 AXIS_3D_Y_POSITIVE, ## 三维轴 Y 负向。 AXIS_3D_Y_NEGATIVE, ## 三维轴 Z 正向。 AXIS_3D_Z_POSITIVE, ## 三维轴 Z 负向。 AXIS_3D_Z_NEGATIVE, }</signature>
+			<signature>enum ValueTarget {
+	## 根据动作值类型自动映射；二维/三维轴默认写入 X 分量，需要其他分量时使用显式 AXIS_* 目标。
+	AUTO,
+	## 只作为开关输入。
+	BOOL,
+	## 一维轴正向。
+	AXIS_1D_POSITIVE,
+	## 一维轴负向。
+	AXIS_1D_NEGATIVE,
+	## 二维轴 X 正向。
+	AXIS_2D_X_POSITIVE,
+	## 二维轴 X 负向。
+	AXIS_2D_X_NEGATIVE,
+	## 二维轴 Y 正向。
+	AXIS_2D_Y_POSITIVE,
+	## 二维轴 Y 负向。
+	AXIS_2D_Y_NEGATIVE,
+	## 三维轴 X 正向。
+	AXIS_3D_X_POSITIVE,
+	## 三维轴 X 负向。
+	AXIS_3D_X_NEGATIVE,
+	## 三维轴 Y 正向。
+	AXIS_3D_Y_POSITIVE,
+	## 三维轴 Y 负向。
+	AXIS_3D_Y_NEGATIVE,
+	## 三维轴 Z 正向。
+	AXIS_3D_Z_POSITIVE,
+	## 三维轴 Z 负向。
+	AXIS_3D_Z_NEGATIVE,
+}</signature>
 			<description>输入值贡献目标。</description>
 			<tags>
 				<tag name="api">public</tag>

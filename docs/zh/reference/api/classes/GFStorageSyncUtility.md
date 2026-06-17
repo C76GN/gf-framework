@@ -125,7 +125,18 @@ signal sync_failed(file_name: String, result: Dictionary)
 - API：`public`
 
 ```gdscript
-enum ConflictStrategy { ## 按后端元数据中的 revision/timestamp 选择更新的一侧；无法判断时保留冲突。 USE_NEWEST, ## 冲突时使用 local_backend 的数据。 USE_LOCAL, ## 冲突时使用 remote_backend 的数据。 USE_REMOTE, ## 只报告冲突，不自动写回。 MANUAL, ## 调用 options.resolver 或 options.resolution_callback 生成结果。 CUSTOM, }
+enum ConflictStrategy {
+	## 按后端元数据中的 revision/timestamp 选择更新的一侧；无法判断时保留冲突。
+	USE_NEWEST,
+	## 冲突时使用 local_backend 的数据。
+	USE_LOCAL,
+	## 冲突时使用 remote_backend 的数据。
+	USE_REMOTE,
+	## 只报告冲突，不自动写回。
+	MANUAL,
+	## 调用 options.resolver 或 options.resolution_callback 生成结果。
+	CUSTOM,
+}
 ```
 
 冲突解决策略。
@@ -137,7 +148,20 @@ enum ConflictStrategy { ## 按后端元数据中的 revision/timestamp 选择更
 - API：`public`
 
 ```gdscript
-enum SyncStatus { ## 两端数据已经一致。 UNCHANGED, ## 已把 local_backend 数据复制到 remote_backend。 COPIED_LOCAL_TO_REMOTE, ## 已把 remote_backend 数据复制到 local_backend。 COPIED_REMOTE_TO_LOCAL, ## 已用自定义合并结果写回两端。 MERGED, ## 存在未解决冲突。 CONFLICT, ## 同步失败。 FAILED, }
+enum SyncStatus {
+	## 两端数据已经一致。
+	UNCHANGED,
+	## 已把 local_backend 数据复制到 remote_backend。
+	COPIED_LOCAL_TO_REMOTE,
+	## 已把 remote_backend 数据复制到 local_backend。
+	COPIED_REMOTE_TO_LOCAL,
+	## 已用自定义合并结果写回两端。
+	MERGED,
+	## 存在未解决冲突。
+	CONFLICT,
+	## 同步失败。
+	FAILED,
+}
 ```
 
 同步结果状态。

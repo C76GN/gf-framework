@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFVisualActionGroup" path="addons/gf/extensions/action_queue/actions/gf_visual_action_group.gd" module="extensions/action_queue" extends="GFVisualAction" classDigest="a1d54943c6500eb4c8b0b4cbb3394000eb34c876238f6c1f76fff1ec449d0dcb">
+<class name="GFVisualActionGroup" path="addons/gf/extensions/action_queue/actions/gf_visual_action_group.gd" module="extensions/action_queue" extends="GFVisualAction" classDigest="57dc5bd1c603e97da40863c5d3ad132388b4cf18977345f17a9219ba3b6bab16">
 	<description>GFVisualActionGroup: 动作组复合节点 (Composite Pattern)
 继承自 GFVisualAction。允许将一组子动作打包，按并行（全部一起发出并按策略等待）
 或顺序（逐个执行并等待各自完成）两种模式执行。
@@ -12,7 +12,12 @@
 	<signals />
 	<enums>
 		<member kind="enum" name="ParallelCompletionPolicy">
-			<signature>enum ParallelCompletionPolicy { ## 等待所有需要等待的子动作完成。 WAIT_FOR_ALL, ## 任一子动作完成后就结束动作组。 FIRST_COMPLETED, }</signature>
+			<signature>enum ParallelCompletionPolicy {
+	## 等待所有需要等待的子动作完成。
+	WAIT_FOR_ALL,
+	## 任一子动作完成后就结束动作组。
+	FIRST_COMPLETED,
+}</signature>
 			<description>并行动作组何时视为完成。</description>
 			<tags>
 				<tag name="api">public</tag>

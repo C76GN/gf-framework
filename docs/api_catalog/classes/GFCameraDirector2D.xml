@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFCameraDirector2D" path="addons/gf/extensions/camera/nodes/gf_camera_director_2d.gd" module="extensions/camera" extends="Node" classDigest="4fa7127bf7f3734234afd386c23f7b08d394be0936770828a970302acad37944">
+<class name="GFCameraDirector2D" path="addons/gf/extensions/camera/nodes/gf_camera_director_2d.gd" module="extensions/camera" extends="Node" classDigest="cc16993e111b4c0a124b01bec897f77ebd7faf5f86bb1c03af0103172ef13356">
 	<description>GFCameraDirector2D: 通用 2D 相机编排节点。
 Director 从显式路径或分组中收集 GFCameraRig2D，按优先级选择当前 Rig，
 并把过渡后的姿态应用到 Camera2D。它不规定目标含义、输入来源或业务流程。</description>
@@ -29,7 +29,14 @@ Director 从显式路径或分组中收集 GFCameraRig2D，按优先级选择当
 	</signals>
 	<enums>
 		<member kind="enum" name="UpdateMode">
-			<signature>enum UpdateMode { ## 在 _process 中更新。 IDLE, ## 在 _physics_process 中更新。 PHYSICS, ## 只在 process_camera() 被显式调用时更新。 MANUAL, }</signature>
+			<signature>enum UpdateMode {
+	## 在 _process 中更新。
+	IDLE,
+	## 在 _physics_process 中更新。
+	PHYSICS,
+	## 只在 process_camera() 被显式调用时更新。
+	MANUAL,
+}</signature>
 			<description>Director 自动更新模式。</description>
 			<tags>
 				<tag name="api">public</tag>

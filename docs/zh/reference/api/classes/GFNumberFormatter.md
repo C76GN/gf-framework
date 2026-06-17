@@ -32,7 +32,18 @@
 - API：`public`
 
 ```gdscript
-enum Notation { ## 尽量输出普通十进制表示。 FULL, ## 输出紧凑缩写表示，如 12.3k。 COMPACT_SHORT, ## 输出科学计数法，如 1.23e8。 SCIENTIFIC, ## 输出工程计数法，如 123.4e6。 ENGINEERING, ## 自动选择更适合当前量级的表示方式。 AUTO, }
+enum Notation {
+	## 尽量输出普通十进制表示。
+	FULL,
+	## 输出紧凑缩写表示，如 12.3k。
+	COMPACT_SHORT,
+	## 输出科学计数法，如 1.23e8。
+	SCIENTIFIC,
+	## 输出工程计数法，如 123.4e6。
+	ENGINEERING,
+	## 自动选择更适合当前量级的表示方式。
+	AUTO,
+}
 ```
 
 格式化记法。
@@ -44,7 +55,14 @@ enum Notation { ## 尽量输出普通十进制表示。 FULL, ## 输出紧凑缩
 - API：`public`
 
 ```gdscript
-enum ScientificStyle { ## 使用小写 e。 E_LOWER, ## 使用大写 E。 E_UPPER, ## 使用 x 10^n 形式。 POWER_OF_TEN, }
+enum ScientificStyle {
+	## 使用小写 e。
+	E_LOWER,
+	## 使用大写 E。
+	E_UPPER,
+	## 使用 x 10^n 形式。
+	POWER_OF_TEN,
+}
 ```
 
 科学计数法输出风格。

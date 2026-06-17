@@ -29,7 +29,18 @@
 - API：`public`
 
 ```gdscript
-enum Status { ## 节点尚未被 tick。 FRESH = -1, ## 节点本次执行成功。 SUCCESS = 0, ## 节点本次执行失败。 FAILURE = 1, ## 节点仍在运行，需要后续 tick 继续推进。 RUNNING = 2, ## 节点被外部中止。 ABORTED = 3, }
+enum Status {
+	## 节点尚未被 tick。
+	FRESH = -1,
+	## 节点本次执行成功。
+	SUCCESS = 0,
+	## 节点本次执行失败。
+	FAILURE = 1,
+	## 节点仍在运行，需要后续 tick 继续推进。
+	RUNNING = 2,
+	## 节点被外部中止。
+	ABORTED = 3,
+}
 ```
 
 行为树节点的执行状态。
@@ -41,7 +52,12 @@ enum Status { ## 节点尚未被 tick。 FRESH = -1, ## 节点本次执行成功
 - API：`public`
 
 ```gdscript
-enum ParallelPolicy { ## 所有子节点成功才成功，任意子节点失败即失败。 REQUIRE_ALL, ## 任意子节点成功即成功，所有子节点失败才失败。 REQUIRE_ONE, }
+enum ParallelPolicy {
+	## 所有子节点成功才成功，任意子节点失败即失败。
+	REQUIRE_ALL,
+	## 任意子节点成功即成功，所有子节点失败才失败。
+	REQUIRE_ONE,
+}
 ```
 
 Parallel 节点的完成策略。

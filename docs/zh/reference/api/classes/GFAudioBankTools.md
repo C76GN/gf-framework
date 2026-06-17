@@ -38,7 +38,14 @@
 - API：`public`
 
 ```gdscript
-enum ClipIdMode { ## 使用文件名，不包含扩展名。 BASENAME, ## 使用相对 base_path 的路径，不包含扩展名。 RELATIVE_PATH, ## 使用完整资源路径，不包含扩展名。 FULL_PATH, }
+enum ClipIdMode {
+	## 使用文件名，不包含扩展名。
+	BASENAME,
+	## 使用相对 base_path 的路径，不包含扩展名。
+	RELATIVE_PATH,
+	## 使用完整资源路径，不包含扩展名。
+	FULL_PATH,
+}
 ```
 
 从音频路径生成片段 ID 的方式。
@@ -146,6 +153,7 @@ static func scan_audio_paths(root_path: String = "res://", options: Dictionary =
 ### `create_bank_from_paths`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 static func create_bank_from_paths(paths: PackedStringArray, options: Dictionary = {}) -> GFAudioBank:
@@ -158,13 +166,13 @@ static func create_bank_from_paths(paths: PackedStringArray, options: Dictionary
 | 名称 | 说明 |
 |---|---|
 | `paths` | 音频资源路径列表。 |
-| `options` | 可选项，支持 id_mode、base_path、path_separator、strip_extension、bus_name、volume_db、pitch_scale。 |
+| `options` | 可选项，支持 id_mode、base_path、path_separator、strip_extension、bus_name、volume_db、pitch_scale、metadata、metadata_by_path。 |
 
 返回：新建的音频集合。
 
 结构：
 
-- `options`: Dictionary，可包含 id_mode、base_path、path_separator、strip_extension、bus_name、volume_db、pitch_scale 和 overwrite 字段。
+- `options`: Dictionary，可包含 id_mode、base_path、path_separator、strip_extension、bus_name、volume_db、pitch_scale、metadata、metadata_by_path 和 overwrite 字段。
 
 <a id="member-gfaudiobanktools-methods-create_bank_from_scan"></a>
 
@@ -196,6 +204,7 @@ static func create_bank_from_scan(root_path: String = "res://", options: Diction
 ### `add_paths_to_bank`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 static func add_paths_to_bank( bank: GFAudioBank, paths: PackedStringArray, options: Dictionary = {} ) -> GFValidationReport:
@@ -209,13 +218,13 @@ static func add_paths_to_bank( bank: GFAudioBank, paths: PackedStringArray, opti
 |---|---|
 | `bank` | 要写入的音频集合。 |
 | `paths` | 音频资源路径列表。 |
-| `options` | 可选项，支持 id_mode、base_path、path_separator、strip_extension、overwrite、bus_name、volume_db、pitch_scale。 |
+| `options` | 可选项，支持 id_mode、base_path、path_separator、strip_extension、overwrite、bus_name、volume_db、pitch_scale、metadata、metadata_by_path。 |
 
 返回：导入报告。
 
 结构：
 
-- `options`: Dictionary，可包含 id_mode、base_path、path_separator、strip_extension、overwrite、bus_name、volume_db 和 pitch_scale 字段。
+- `options`: Dictionary，可包含 id_mode、base_path、path_separator、strip_extension、overwrite、bus_name、volume_db、pitch_scale、metadata 和 metadata_by_path 字段。
 
 <a id="member-gfaudiobanktools-methods-sync_bank_from_scan"></a>
 

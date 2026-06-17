@@ -43,7 +43,12 @@
 - API：`public`
 
 ```gdscript
-enum IssueSeverity { ## 警告，不阻止报告通过。 WARNING, ## 错误，会让报告失败。 ERROR, }
+enum IssueSeverity {
+	## 警告，不阻止报告通过。
+	WARNING,
+	## 错误，会让报告失败。
+	ERROR,
+}
 ```
 
 校验问题严重级别。

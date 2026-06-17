@@ -122,7 +122,14 @@ update() 检测到新的 measure 边界后发出。
 - API：`public`
 
 ```gdscript
-enum QuantizeMode { ## 量化到最近的网格点。 NEAREST, ## 量化到不大于当前时间的网格点。 FLOOR, ## 量化到不小于当前时间的网格点。 CEIL, }
+enum QuantizeMode {
+	## 量化到最近的网格点。
+	NEAREST,
+	## 量化到不大于当前时间的网格点。
+	FLOOR,
+	## 量化到不小于当前时间的网格点。
+	CEIL,
+}
 ```
 
 量化时间时使用的舍入方式。

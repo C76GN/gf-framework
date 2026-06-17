@@ -46,7 +46,20 @@
 - API：`public`
 
 ```gdscript
-enum Method { ## HTTP GET。 GET, ## HTTP POST。 POST, ## HTTP PUT。 PUT, ## HTTP PATCH。 PATCH, ## HTTP DELETE。 DELETE, ## HTTP HEAD。 HEAD, }
+enum Method {
+	## HTTP GET。
+	GET,
+	## HTTP POST。
+	POST,
+	## HTTP PUT。
+	PUT,
+	## HTTP PATCH。
+	PATCH,
+	## HTTP DELETE。
+	DELETE,
+	## HTTP HEAD。
+	HEAD,
+}
 ```
 
 HTTP 请求方法。
@@ -58,7 +71,14 @@ HTTP 请求方法。
 - API：`public`
 
 ```gdscript
-enum ParseMode { ## 不解析响应体。 NONE, ## 按 UTF-8 文本解析。 TEXT, ## 按 JSON 解析。 JSON, }
+enum ParseMode {
+	## 不解析响应体。
+	NONE,
+	## 按 UTF-8 文本解析。
+	TEXT,
+	## 按 JSON 解析。
+	JSON,
+}
 ```
 
 响应体解析模式。

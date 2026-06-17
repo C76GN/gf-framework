@@ -9,7 +9,7 @@
 - 类别：资源定义 (`resource_definition`)
 - 首次版本：`3.17.0`
 
-Godot 资源路径校验规则。 用于检查配置字段中的 `res://` 路径是否存在，并可按扩展名限制资源类型。
+Godot 资源路径校验规则。 用于检查配置字段中的 `res://` 或 `uid://` 路径是否存在，并可按扩展名限制资源类型。
 
 ## 成员概览
 
@@ -17,6 +17,7 @@ Godot 资源路径校验规则。 用于检查配置字段中的 `res://` 路径
 |---|---|---|
 | 属性 | [`allow_empty`](#member-gfconfigresourcepathvalidationrule-properties-allow_empty) | `var allow_empty: bool = true` |
 | 属性 | [`require_resource_prefix`](#member-gfconfigresourcepathvalidationrule-properties-require_resource_prefix) | `var require_resource_prefix: bool = true` |
+| 属性 | [`allow_uid_paths`](#member-gfconfigresourcepathvalidationrule-properties-allow_uid_paths) | `var allow_uid_paths: bool = true` |
 | 属性 | [`allowed_extensions`](#member-gfconfigresourcepathvalidationrule-properties-allowed_extensions) | `var allowed_extensions: PackedStringArray = PackedStringArray()` |
 | 属性 | [`use_resource_loader`](#member-gfconfigresourcepathvalidationrule-properties-use_resource_loader) | `var use_resource_loader: bool = true` |
 | 属性 | [`use_file_access_fallback`](#member-gfconfigresourcepathvalidationrule-properties-use_file_access_fallback) | `var use_file_access_fallback: bool = true` |
@@ -43,12 +44,26 @@ var allow_empty: bool = true
 ### `require_resource_prefix`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var require_resource_prefix: bool = true
 ```
 
-是否要求路径以 res:// 开头。
+是否要求路径以 res:// 或 uid:// 开头。
+
+<a id="member-gfconfigresourcepathvalidationrule-properties-allow_uid_paths"></a>
+
+### `allow_uid_paths`
+
+- API：`public`
+- 首次版本：`5.1.0`
+
+```gdscript
+var allow_uid_paths: bool = true
+```
+
+是否允许 uid:// 资源路径。启用后，扩展名校验会使用 UID 解析出的实际资源路径。
 
 <a id="member-gfconfigresourcepathvalidationrule-properties-allowed_extensions"></a>
 

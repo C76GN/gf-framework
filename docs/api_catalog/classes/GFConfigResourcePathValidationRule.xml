@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFConfigResourcePathValidationRule" path="addons/gf/standard/utilities/config/validation/gf_config_resource_path_validation_rule.gd" module="standard" extends="GFConfigValidationRule" classDigest="212f4eac4f9745790631aa87cab9223d22f00716e300a3df3f34b6bde8fa14fc">
+<class name="GFConfigResourcePathValidationRule" path="addons/gf/standard/utilities/config/validation/gf_config_resource_path_validation_rule.gd" module="standard" extends="GFConfigValidationRule" classDigest="ea4f26020426ebcf05d669db713094025ebca32f157938c5055b76434f3c703f">
 	<description>GFConfigResourcePathValidationRule: Godot 资源路径校验规则。
-用于检查配置字段中的 `res://` 路径是否存在，并可按扩展名限制资源类型。</description>
+用于检查配置字段中的 `res://` 或 `uid://` 路径是否存在，并可按扩展名限制资源类型。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">resource_definition</tag>
@@ -20,9 +20,18 @@
 		</member>
 		<member kind="property" name="require_resource_prefix" decorators="@export">
 			<signature>var require_resource_prefix: bool = true</signature>
-			<description>是否要求路径以 res:// 开头。</description>
+			<description>是否要求路径以 res:// 或 uid:// 开头。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="allow_uid_paths" decorators="@export">
+			<signature>var allow_uid_paths: bool = true</signature>
+			<description>是否允许 uid:// 资源路径。启用后，扩展名校验会使用 UID 解析出的实际资源路径。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">5.1.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="allowed_extensions" decorators="@export">

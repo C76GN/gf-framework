@@ -10,7 +10,15 @@ extends VBoxContainer
 
 const _GF_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
 const _GF_PACKAGE_MANAGER_BACKEND = preload("res://addons/gf/kernel/package/gf_package_manager_backend.gd")
+const _GF_PACKAGE_MANAGER_WORKER = preload("res://addons/gf/kernel/editor/package/gf_package_manager_worker.gd")
 const _MAX_UNINSTALL_BLOCKER_DETAIL_LINES: int = 5
+const _BUSY_PROGRESS_MIN_WIDTH: float = 180.0
+const _BUSY_PROGRESS_START: float = 8.0
+const _BUSY_PROGRESS_STATUS_DONE: float = 88.0
+const _BUSY_PROGRESS_OPERATION_DONE: float = 86.0
+const _PACKAGE_STATUS_AVAILABLE: String = "+ 可安装"
+const _PACKAGE_STATUS_INSTALLED: String = "✓ 已安装"
+const _PACKAGE_STATUS_UPDATE_AVAILABLE: String = "↑ 可更新"
 
 ## 工作区 UI 辅助脚本。
 ## [br]
@@ -93,12 +101,20 @@ var _package_rows: VBoxContainer
 var _details_output: TextEdit
 var _registry_diagnostics_label: Label
 var _status_label: Label
+var _refresh_button: Button
 var _install_plan_button: Button
 var _install_button: Button
 var _uninstall_plan_button: Button
 var _uninstall_button: Button
+var _busy_row: HBoxContainer
+var _busy_progress: ProgressBar
+var _busy_message_label: Label
 var _confirm_dialog: ConfirmationDialog
 var _confirm_operation: String = ""
+var _busy: bool = false
+var _busy_started_msec: int = 0
+var _active_thread: Thread
+var _active_worker: RefCounted
 var _packages: Array[Dictionary] = []
 var _selected_package_id: String = ""
 var _last_status: Dictionary = {}
@@ -110,7 +126,11 @@ func _init() -> void:
 	name = "GF Package Manager"
 	GFEditorWorkspaceUI.apply_page_root(self)
 	_build_ui()
-	call_deferred("_refresh_status")
+	call_deferred("_request_refresh_status")
+
+
+func _exit_tree() -> void:
+	_wait_for_active_thread()
 
 
 # --- 私有/辅助方法 ---
@@ -138,10 +158,27 @@ func _build_ui() -> void:
 	_channel_field.custom_minimum_size = Vector2(92.0, 0.0)
 	registry_row.add_child(_channel_field)
 
-	registry_row.add_child(GFEditorWorkspaceUI.make_button("刷新", "重新读取 package registry 和项目 lockfile。", _refresh_status))
+	_refresh_button = GFEditorWorkspaceUI.make_button("刷新", "重新读取 package registry 和项目 lockfile。", _request_refresh_status)
+	registry_row.add_child(_refresh_button)
 
 	_registry_diagnostics_label = GFEditorWorkspaceUI.make_summary_label()
 	add_child(_registry_diagnostics_label)
+
+	_busy_row = GFEditorWorkspaceUI.make_toolbar()
+	_busy_row.visible = false
+	add_child(_busy_row)
+
+	_busy_progress = ProgressBar.new()
+	_busy_progress.min_value = 0.0
+	_busy_progress.max_value = 100.0
+	_busy_progress.value = 0.0
+	_busy_progress.custom_minimum_size = Vector2(_BUSY_PROGRESS_MIN_WIDTH, 0.0)
+	_busy_progress.size_flags_horizontal = Control.SIZE_FILL
+	_busy_row.add_child(_busy_progress)
+
+	_busy_message_label = GFEditorWorkspaceUI.make_summary_label()
+	_busy_message_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_busy_row.add_child(_busy_message_label)
 
 	var action_row: HBoxContainer = GFEditorWorkspaceUI.make_toolbar()
 	add_child(action_row)
@@ -260,8 +297,34 @@ func _make_backend_options() -> Dictionary:
 	return options
 
 
+func _request_refresh_status() -> void:
+	if _busy:
+		return
+	call_deferred("_refresh_status_async")
+
+
+func _refresh_status_async() -> void:
+	if _busy:
+		return
+	_begin_busy("正在读取 package registry 和项目 lockfile...", _BUSY_PROGRESS_START)
+	_details_output.text = "正在刷新包状态...\n\n会读取 registry source、registry index、项目 lockfile，并计算安装/卸载预览。"
+	var result: Dictionary = await _run_backend_request_async(
+		_make_status_request(),
+		"正在读取 registry / lockfile...",
+		_BUSY_PROGRESS_START,
+		_BUSY_PROGRESS_STATUS_DONE
+	)
+	_set_busy_stage("正在更新包列表...", 94.0)
+	_apply_status_result(result)
+	_end_busy()
+
+
 func _refresh_status() -> void:
 	var result: Dictionary = _run_package_status(_registry_field.text.strip_edges())
+	_apply_status_result(result)
+
+
+func _apply_status_result(result: Dictionary) -> void:
 	_last_status = result
 	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(result, "ok", false):
 		_packages.clear()
@@ -276,15 +339,44 @@ func _refresh_status() -> void:
 	_render_package_rows()
 	_select_first_visible_package()
 	_update_registry_diagnostics(result)
-	var backend_label: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(result, "backend", "godot")
 	_set_status(
-		"包状态已更新（%s）：%d 个包，已安装 %d 个。" % [
-			backend_label,
-			_GF_VARIANT_ACCESS_SCRIPT.get_option_int(result, "package_count", 0),
-			_GF_VARIANT_ACCESS_SCRIPT.get_option_int(result, "installed_count", 0),
-		],
+		_format_status_summary(result),
 		GFEditorWorkspaceUI.OK_TEXT_COLOR
 	)
+
+
+func _make_status_request() -> Dictionary:
+	return {
+		"operation": "status",
+		"registry_value": _registry_field.text.strip_edges(),
+		"project_root": _get_project_root(),
+		"lockfile_path": DEFAULT_LOCKFILE_PATH,
+		"options": _make_backend_options(),
+	}
+
+
+func _format_status_summary(status_data: Dictionary) -> String:
+	var backend_label: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(status_data, "backend", "godot")
+	var package_count: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(status_data, "package_count", 0)
+	var installed_count: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(status_data, "installed_count", 0)
+	var message: String = "包状态已更新（%s）：%d 个包，已安装 %d 个。" % [
+		backend_label,
+		package_count,
+		installed_count,
+	]
+	if _status_is_source_development_project(status_data):
+		message += " 当前是 GF 源码开发仓库：源码目录存在不代表已安装，包状态以 %s 为准。" % DEFAULT_LOCKFILE_PATH
+	return message
+
+
+func _status_is_source_development_project(status_data: Dictionary) -> bool:
+	if _GF_VARIANT_ACCESS_SCRIPT.get_option_int(status_data, "installed_count", 0) > 0:
+		return false
+	if not FileAccess.file_exists(ProjectSettings.globalize_path("res://addons/gf/plugin.gd")):
+		return false
+	if not FileAccess.file_exists(ProjectSettings.globalize_path("res://packages/gf.kernel.json")):
+		return false
+	return FileAccess.file_exists(ProjectSettings.globalize_path("res://tools/build_gf_package.py"))
 
 
 func _read_package_entries(status_data: Dictionary) -> Array[Dictionary]:
@@ -320,9 +412,26 @@ func _create_package_row(package_entry: Dictionary) -> Control:
 func _format_package_row_text(package_entry: Dictionary) -> String:
 	var package_id: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(package_entry, "id", "")
 	var kind: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(package_entry, "kind", "")
-	var state: String = "已安装" if _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(package_entry, "installed", false) else "可安装"
+	var state: String = _format_package_status_label(package_entry)
 	var display_name: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(package_entry, "display_name", package_id)
 	return "[%s] %s | %s | %s" % [state, kind, package_id, display_name]
+
+
+func _format_package_status_label(package_entry: Dictionary) -> String:
+	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(package_entry, "installed", false):
+		return _PACKAGE_STATUS_AVAILABLE
+	if _package_has_update_available(package_entry):
+		return _PACKAGE_STATUS_UPDATE_AVAILABLE
+	return _PACKAGE_STATUS_INSTALLED
+
+
+func _package_has_update_available(package_entry: Dictionary) -> bool:
+	var package_id: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(package_entry, "id", "")
+	if package_id.is_empty():
+		return false
+	var install_preview: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(package_entry, "install_preview", {})
+	var to_update: Array[String] = _GF_VARIANT_ACCESS_SCRIPT.get_option_string_array(install_preview, "to_update")
+	return to_update.has(package_id)
 
 
 func _get_visible_packages() -> Array[Dictionary]:
@@ -392,6 +501,7 @@ func _format_package_details(package_entry: Dictionary) -> String:
 	var package_id: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(package_entry, "id", "")
 	var display_name: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(package_entry, "display_name", package_id)
 	var _added_title: bool = lines.append("%s (%s)" % [display_name, package_id])
+	var _added_status: bool = lines.append("status: %s" % _format_package_status_label(package_entry))
 	var _added_kind: bool = lines.append("kind: %s" % _GF_VARIANT_ACCESS_SCRIPT.get_option_string(package_entry, "kind", ""))
 	var _added_version: bool = lines.append("version: %s" % _GF_VARIANT_ACCESS_SCRIPT.get_option_string(package_entry, "version", ""))
 	var _added_installed: bool = lines.append("installed: %s" % _GF_VARIANT_ACCESS_SCRIPT.to_text(_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(package_entry, "installed", false)))
@@ -690,7 +800,7 @@ func _request_uninstall() -> void:
 
 
 func _open_confirm_dialog(operation: String) -> void:
-	if _selected_package_id.is_empty():
+	if _busy or _selected_package_id.is_empty():
 		return
 	_confirm_operation = operation
 	_confirm_dialog.dialog_text = "确认%s包：%s" % [_get_operation_label(operation), _selected_package_id]
@@ -700,21 +810,152 @@ func _open_confirm_dialog(operation: String) -> void:
 func _on_confirmed() -> void:
 	if _confirm_operation.is_empty():
 		return
-	_run_selected_operation(_confirm_operation, false)
+	var operation: String = _confirm_operation
 	_confirm_operation = ""
+	_run_selected_operation(operation, false)
 
 
 func _run_selected_operation(operation: String, dry_run: bool) -> void:
-	if _selected_package_id.is_empty():
+	if _busy or _selected_package_id.is_empty():
 		return
-	var result: Dictionary = _run_native_operation(operation, dry_run)
+	call_deferred("_run_selected_operation_async", operation, dry_run)
+
+
+func _run_selected_operation_async(operation: String, dry_run: bool) -> void:
+	if _busy or _selected_package_id.is_empty():
+		return
+	var package_id: String = _selected_package_id
+	var operation_label: String = _get_operation_label(operation)
+	var mode_label: String = "预览" if dry_run else "执行"
+	_begin_busy("%s%s：%s..." % [mode_label, operation_label, package_id], _BUSY_PROGRESS_START)
+	_details_output.text = _make_operation_pending_text(operation, dry_run, package_id)
+	var result: Dictionary = await _run_backend_request_async(
+		_make_operation_request(operation, dry_run, package_id),
+		"%s%s后台执行中..." % [mode_label, operation_label],
+		_BUSY_PROGRESS_START,
+		_BUSY_PROGRESS_OPERATION_DONE
+	)
+	_set_busy_stage("正在整理结果...", 90.0)
 	_details_output.text = _format_command_result(result)
 	if _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(result, "ok", false):
-		_set_status("%s%s完成。" % ["Dry-run " if dry_run else "", _get_operation_label(operation)], GFEditorWorkspaceUI.OK_TEXT_COLOR)
+		_set_status("%s%s完成。" % ["Dry-run " if dry_run else "", operation_label], GFEditorWorkspaceUI.OK_TEXT_COLOR)
 		if not dry_run:
-			_refresh_status()
+			_set_busy_stage("正在刷新安装状态...", 94.0)
+			var status_result: Dictionary = await _run_backend_request_async(
+				_make_status_request(),
+				"正在刷新包状态...",
+				94.0,
+				98.0
+			)
+			_apply_status_result(status_result)
 	else:
-		_set_status("%s失败。" % _get_operation_label(operation), GFEditorWorkspaceUI.ERROR_TEXT_COLOR)
+		_set_status("%s失败。" % operation_label, GFEditorWorkspaceUI.ERROR_TEXT_COLOR)
+	_end_busy()
+
+
+func _make_operation_request(operation: String, dry_run: bool, package_id: String) -> Dictionary:
+	return {
+		"operation": operation,
+		"package_ids": PackedStringArray([package_id]),
+		"registry_value": _registry_field.text.strip_edges(),
+		"project_root": _get_project_root(),
+		"lockfile_path": DEFAULT_LOCKFILE_PATH,
+		"reason": "manual",
+		"force": false,
+		"dry_run": dry_run,
+		"options": _make_backend_options(),
+	}
+
+
+func _make_operation_pending_text(operation: String, dry_run: bool, package_id: String) -> String:
+	var lines: PackedStringArray = PackedStringArray()
+	var _append_title: bool = lines.append("%s%s：%s" % ["预览" if dry_run else "执行", _get_operation_label(operation), package_id])
+	var _append_blank: bool = lines.append("")
+	if operation == "install":
+		var _append_install: bool = lines.append("阶段：解析依赖闭包、准备 archive、校验 sha256/size、审计写入路径。")
+	else:
+		var _append_uninstall: bool = lines.append("阶段：读取 lockfile、检查 shared dependency / manual pin / 项目引用、准备删除计划。")
+	if not dry_run:
+		var _append_write: bool = lines.append("写入：后台线程会执行文件事务，完成后自动刷新包列表。")
+	else:
+		var _append_dry_run: bool = lines.append("Dry-run：只生成计划和风险信息，不写入项目文件。")
+	return "\n".join(lines)
+
+
+func _run_backend_request_async(
+	request: Dictionary,
+	stage_message: String,
+	start_progress: float,
+	finish_progress: float
+) -> Dictionary:
+	if not is_inside_tree():
+		return _run_backend_request_sync(request)
+
+	await get_tree().process_frame
+	var thread: Thread = Thread.new()
+	var worker_value: Variant = _GF_PACKAGE_MANAGER_WORKER.new()
+	if not worker_value is RefCounted:
+		return _make_backend_error_result(
+			_GF_VARIANT_ACCESS_SCRIPT.get_option_string(request, "operation"),
+			"Package manager worker could not be created."
+		)
+
+	var worker: RefCounted = worker_value
+	_active_thread = thread
+	_active_worker = worker
+	var start_error: Error = thread.start(Callable(worker, "run_request").bind(request.duplicate(true)))
+	if start_error != OK:
+		_active_thread = null
+		_active_worker = null
+		return _make_backend_error_result(
+			_GF_VARIANT_ACCESS_SCRIPT.get_option_string(request, "operation"),
+			"Package manager worker start failed: %s" % error_string(start_error)
+		)
+
+	while thread.is_alive():
+		_set_busy_stage(stage_message, _estimate_busy_progress(start_progress, finish_progress))
+		await get_tree().process_frame
+
+	var result_value: Variant = thread.wait_to_finish()
+	if _active_thread == thread:
+		_active_thread = null
+		_active_worker = null
+	_set_busy_stage(stage_message, finish_progress)
+	if result_value is Dictionary:
+		var result: Dictionary = result_value
+		return result
+	return _make_backend_error_result(
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_string(request, "operation"),
+		"Package manager worker returned an unsupported result."
+	)
+
+
+func _run_backend_request_sync(request: Dictionary) -> Dictionary:
+	var worker_value: Variant = _GF_PACKAGE_MANAGER_WORKER.new()
+	if not worker_value is RefCounted:
+		return _make_backend_error_result(
+			_GF_VARIANT_ACCESS_SCRIPT.get_option_string(request, "operation"),
+			"Package manager worker could not be created."
+		)
+
+	var worker: RefCounted = worker_value
+	var result_value: Variant = worker.call("run_request", request.duplicate(true))
+	if result_value is Dictionary:
+		var result: Dictionary = result_value
+		return result
+	return _make_backend_error_result(
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_string(request, "operation"),
+		"Package manager worker returned an unsupported result."
+	)
+
+
+func _make_backend_error_result(operation: String, issue: String) -> Dictionary:
+	return {
+		"ok": false,
+		"operation": operation,
+		"backend": "godot_native",
+		"issues": [issue],
+	}
 
 
 func _run_native_operation(operation: String, dry_run: bool) -> Dictionary:
@@ -767,6 +1008,15 @@ func _format_command_result(result: Dictionary) -> String:
 
 
 func _update_action_buttons() -> void:
+	if _install_plan_button == null or _install_button == null or _uninstall_plan_button == null or _uninstall_button == null:
+		return
+	if _busy:
+		_install_plan_button.disabled = true
+		_install_button.disabled = true
+		_uninstall_plan_button.disabled = true
+		_uninstall_button.disabled = true
+		return
+
 	var package_entry: Dictionary = _get_package_entry(_selected_package_id)
 	var has_package: bool = not package_entry.is_empty()
 	var installed: bool = _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(package_entry, "installed", false)
@@ -774,6 +1024,68 @@ func _update_action_buttons() -> void:
 	_install_button.disabled = not has_package
 	_uninstall_plan_button.disabled = not has_package or not installed
 	_uninstall_button.disabled = not has_package or not installed
+
+
+func _begin_busy(message: String, progress: float) -> void:
+	_busy = true
+	_busy_started_msec = Time.get_ticks_msec()
+	_set_editor_inputs_enabled(false)
+	_set_busy_stage(message, progress)
+	_set_status(message, GFEditorWorkspaceUI.INFO_TEXT_COLOR)
+	_update_action_buttons()
+
+
+func _end_busy() -> void:
+	_set_busy_stage("完成。", 100.0)
+	_busy = false
+	if _busy_row != null:
+		_busy_row.visible = false
+	_set_editor_inputs_enabled(true)
+	_update_action_buttons()
+
+
+func _set_editor_inputs_enabled(enabled: bool) -> void:
+	if _registry_field != null:
+		_registry_field.editable = enabled
+	if _channel_field != null:
+		_channel_field.editable = enabled
+	if _search_field != null:
+		_search_field.editable = enabled
+	if _view_filter_option != null:
+		_view_filter_option.disabled = not enabled
+	if _refresh_button != null:
+		_refresh_button.disabled = not enabled
+
+
+func _set_busy_stage(message: String, progress: float) -> void:
+	if _busy_row != null:
+		_busy_row.visible = true
+	if _busy_progress != null:
+		_busy_progress.value = clampf(progress, 0.0, 100.0)
+	if _busy_message_label != null:
+		_busy_message_label.text = _format_busy_message(message)
+
+
+func _format_busy_message(message: String) -> String:
+	if _busy_started_msec <= 0:
+		return message
+	var elapsed_seconds: float = maxf(0.0, float(Time.get_ticks_msec() - _busy_started_msec) / 1000.0)
+	return "%s（%.1fs）" % [message, elapsed_seconds]
+
+
+func _estimate_busy_progress(start_progress: float, finish_progress: float) -> float:
+	var elapsed_seconds: float = maxf(0.0, float(Time.get_ticks_msec() - _busy_started_msec) / 1000.0)
+	var ratio: float = 1.0 - (1.0 / (1.0 + elapsed_seconds * 0.8))
+	return clampf(lerpf(start_progress, finish_progress, ratio), start_progress, finish_progress)
+
+
+func _wait_for_active_thread() -> void:
+	if _active_thread == null:
+		return
+	if _active_thread.is_started():
+		var _thread_result: Variant = _active_thread.wait_to_finish()
+	_active_thread = null
+	_active_worker = null
 
 
 func _set_status(message: String, color: Color = GFEditorWorkspaceUI.INFO_TEXT_COLOR) -> void:

@@ -43,7 +43,12 @@
 - API：`public`
 
 ```gdscript
-enum Direction { ## 输入端口。 INPUT, ## 输出端口。 OUTPUT, }
+enum Direction {
+	## 输入端口。
+	INPUT,
+	## 输出端口。
+	OUTPUT,
+}
 ```
 
 端口方向。
@@ -55,7 +60,26 @@ enum Direction { ## 输入端口。 INPUT, ## 输出端口。 OUTPUT, }
 - API：`public`
 
 ```gdscript
-enum ValueType { ## 任意值。 ANY, ## 布尔。 BOOL, ## 数值。 NUMBER, ## 字符串。 STRING, ## Vector2。 VECTOR2, ## Vector3。 VECTOR3, ## Dictionary。 DICTIONARY, ## Array。 ARRAY, ## Object 或 Resource。 OBJECT, }
+enum ValueType {
+	## 任意值。
+	ANY,
+	## 布尔。
+	BOOL,
+	## 数值。
+	NUMBER,
+	## 字符串。
+	STRING,
+	## Vector2。
+	VECTOR2,
+	## Vector3。
+	VECTOR3,
+	## Dictionary。
+	DICTIONARY,
+	## Array。
+	ARRAY,
+	## Object 或 Resource。
+	OBJECT,
+}
 ```
 
 端口值类型提示。

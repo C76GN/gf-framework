@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFConfigValidationRule" path="addons/gf/standard/utilities/config/validation/gf_config_validation_rule.gd" module="standard" extends="Resource" classDigest="bb360b89117558b4c8b0e522e240df9804a6ba4473d297c8a0db6ce2a0a7daa1">
+<class name="GFConfigValidationRule" path="addons/gf/standard/utilities/config/validation/gf_config_validation_rule.gd" module="standard" extends="Resource" classDigest="68046edf9f639d57cca4b5010b8608e2dc531abbcc44b550ec4a97824e3aa24f">
 	<description>GFConfigValidationRule: 导表校验规则基类。
 用于把字段、记录或整表校验拆成可组合 Resource，便于项目按需声明范围、
 正则、资源路径或本地化 key 等规则，而不把业务表结构写进框架。</description>
@@ -11,7 +11,12 @@
 	<signals />
 	<enums>
 		<member kind="enum" name="IssueSeverity">
-			<signature>enum IssueSeverity { ## 警告，不阻止报告通过。 WARNING, ## 错误，会让报告失败。 ERROR, }</signature>
+			<signature>enum IssueSeverity {
+	## 警告，不阻止报告通过。
+	WARNING,
+	## 错误，会让报告失败。
+	ERROR,
+}</signature>
 			<description>校验问题严重级别。</description>
 			<tags>
 				<tag name="api">public</tag>

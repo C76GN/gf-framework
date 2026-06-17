@@ -243,7 +243,11 @@ class CompletingAssetUtility:
 		requested_paths.append(path)
 		return OK
 
-	func _get_threaded_status(_path: String) -> ResourceLoader.ThreadLoadStatus:
+	func _get_threaded_status_with_progress(_path: String, progress: Array) -> ResourceLoader.ThreadLoadStatus:
+		if progress.size() == 0:
+			progress.append(1.0 if complete else 0.0)
+		else:
+			progress[0] = 1.0 if complete else 0.0
 		return ResourceLoader.THREAD_LOAD_LOADED if complete else ResourceLoader.THREAD_LOAD_IN_PROGRESS
 
 	func _take_threaded_resource(_path: String) -> Resource:

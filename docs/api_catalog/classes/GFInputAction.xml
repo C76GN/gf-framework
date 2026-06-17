@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFInputAction" path="addons/gf/standard/input/mapping/gf_input_action.gd" module="standard" extends="Resource" classDigest="f8be74044ed93f70575d55bab2a149e0a55509bfccd7b64fd1c7ad150ab8c412">
+<class name="GFInputAction" path="addons/gf/standard/input/mapping/gf_input_action.gd" module="standard" extends="Resource" classDigest="741d7e68c2756980c9a10abf324aa153f881f4456c92fdb21f2bdd47d40a1212">
 	<description>GFInputAction: 资源化输入动作描述。
 只描述“项目想要读取的抽象动作”，不绑定具体按键、设备或玩法逻辑。</description>
 	<tags>
@@ -10,7 +10,16 @@
 	<signals />
 	<enums>
 		<member kind="enum" name="ValueType">
-			<signature>enum ValueType { ## 开关型动作，例如确认、跳跃、攻击。 BOOL, ## 一维轴动作，例如水平移动或缩放。 AXIS_1D, ## 二维轴动作，例如移动方向、瞄准方向。 AXIS_2D, ## 三维轴动作，例如飞行移动、自由相机或六自由度控制。 AXIS_3D, }</signature>
+			<signature>enum ValueType {
+	## 开关型动作，例如确认、跳跃、攻击。
+	BOOL,
+	## 一维轴动作，例如水平移动或缩放。
+	AXIS_1D,
+	## 二维轴动作，例如移动方向、瞄准方向。
+	AXIS_2D,
+	## 三维轴动作，例如飞行移动、自由相机或六自由度控制。
+	AXIS_3D,
+}</signature>
 			<description>动作输出值类型。</description>
 			<tags>
 				<tag name="api">public</tag>

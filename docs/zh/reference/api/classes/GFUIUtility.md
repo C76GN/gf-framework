@@ -189,7 +189,14 @@ signal panel_async_load_finished(path: String, layer: int, operation: StringName
 - API：`public`
 
 ```gdscript
-enum Layer { ## 基础信息层，如主界面、血条 HUD 等。 HUD = 0, ## 弹窗层，如背包、设置菜单、对话框等。 POPUP = 1, ## 顶层，如全屏遮罩、断线重连提示等。 TOP = 2, }
+enum Layer {
+	## 基础信息层，如主界面、血条 HUD 等。
+	HUD = 0,
+	## 弹窗层，如背包、设置菜单、对话框等。
+	POPUP = 1,
+	## 顶层，如全屏遮罩、断线重连提示等。
+	TOP = 2,
+}
 ```
 
 UI 层级，数值越大显示越靠前。
@@ -201,7 +208,12 @@ UI 层级，数值越大显示越靠前。
 - API：`public`
 
 ```gdscript
-enum PanelMode { ## 普通面板。 NORMAL, ## Modal 面板，通常会独占当前交互焦点。 MODAL, }
+enum PanelMode {
+	## 普通面板。
+	NORMAL,
+	## Modal 面板，通常会独占当前交互焦点。
+	MODAL,
+}
 ```
 
 面板交互模式。
@@ -213,7 +225,14 @@ enum PanelMode { ## 普通面板。 NORMAL, ## Modal 面板，通常会独占当
 - API：`public`
 
 ```gdscript
-enum AsyncPanelLoadStatus { ## 面板已完成加载并进入 UI 栈。 OPENED, ## 加载资源、实例化或入栈失败。 FAILED, ## 请求被弹出、清层、替换层或销毁 UI 工具取消。 CANCELLED, }
+enum AsyncPanelLoadStatus {
+	## 面板已完成加载并进入 UI 栈。
+	OPENED,
+	## 加载资源、实例化或入栈失败。
+	FAILED,
+	## 请求被弹出、清层、替换层或销毁 UI 工具取消。
+	CANCELLED,
+}
 ```
 
 异步面板加载结束状态。

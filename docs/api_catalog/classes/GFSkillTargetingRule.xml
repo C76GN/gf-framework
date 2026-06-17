@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSkillTargetingRule" path="addons/gf/extensions/combat/skills/gf_skill_targeting_rule.gd" module="extensions/combat" extends="Resource" classDigest="af153a071650d4ecae2eeb5579b181470c9787e7ce28128300a6dcc63c08baa1">
+<class name="GFSkillTargetingRule" path="addons/gf/extensions/combat/skills/gf_skill_targeting_rule.gd" module="extensions/combat" extends="Resource" classDigest="06ee42821d4e284cbd2abe4d9ec306dd26e85992b6ec7cb6945c1c7f9eb71ba4">
 	<description>GFSkillTargetingRule: 技能索敌规则资源。
 使用纯数据结构描述目标筛选时的空间范围、
 朝向约束、排序规则与标签过滤条件。</description>
@@ -11,14 +11,34 @@
 	<signals />
 	<enums>
 		<member kind="enum" name="Shape">
-			<signature>enum Shape { ## 轴对齐矩形范围。 RECTANGLE, ## 圆形范围。 CIRCLE, ## 扇形范围。 SECTOR, ## 单体目标。 SINGLE, }</signature>
+			<signature>enum Shape {
+	## 轴对齐矩形范围。
+	RECTANGLE,
+	## 圆形范围。
+	CIRCLE,
+	## 扇形范围。
+	SECTOR,
+	## 单体目标。
+	SINGLE,
+}</signature>
 			<description>索敌形状。</description>
 			<tags>
 				<tag name="api">public</tag>
 			</tags>
 		</member>
 		<member kind="enum" name="SortRule">
-			<signature>enum SortRule { ## 距离最近优先。 DISTANCE_CLOSEST, ## 距离最远优先。 DISTANCE_FURTHEST, ## 属性值最低优先。 ATTRIBUTE_LOWEST, ## 属性值最高优先。 ATTRIBUTE_HIGHEST, ## 随机顺序。 RANDOM, }</signature>
+			<signature>enum SortRule {
+	## 距离最近优先。
+	DISTANCE_CLOSEST,
+	## 距离最远优先。
+	DISTANCE_FURTHEST,
+	## 属性值最低优先。
+	ATTRIBUTE_LOWEST,
+	## 属性值最高优先。
+	ATTRIBUTE_HIGHEST,
+	## 随机顺序。
+	RANDOM,
+}</signature>
 			<description>排序规则。</description>
 			<tags>
 				<tag name="api">public</tag>

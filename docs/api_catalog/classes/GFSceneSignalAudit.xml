@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSceneSignalAudit" path="addons/gf/kernel/editor/gf_scene_signal_audit.gd" module="kernel" extends="RefCounted" classDigest="df6d262ac46eb94ebf628b6933802f5c701f338c71e18e1e6e566043a3ae734a">
+<class name="GFSceneSignalAudit" path="addons/gf/kernel/editor/gf_scene_signal_audit.gd" module="kernel" extends="RefCounted" classDigest="58ce7964f229bd7baf53d1f3899077288b8430df2235093378096a4e6e146286">
 	<description>GFSceneSignalAudit: 开发期场景信号连接审计工具。
 扫描 PackedScene 中由编辑器保存的信号连接，报告缺失节点、缺失信号、
 缺失方法和可选的参数数量不匹配。该工具只返回结构化报告，不修改场景，
@@ -13,7 +13,24 @@
 	<signals />
 	<enums>
 		<member kind="enum" name="IssueType">
-			<signature>enum IssueType { ## 场景资源加载失败。 SCENE_LOAD_FAILED, ## 无法读取场景保存的连接状态。 SCENE_STATE_UNAVAILABLE, ## 场景实例化失败。 SCENE_INSTANTIATION_FAILED, ## 连接源节点缺失。 MISSING_SOURCE, ## 连接目标节点缺失。 MISSING_TARGET, ## 连接源信号缺失。 MISSING_SIGNAL, ## 连接目标方法缺失。 MISSING_METHOD, ## 信号参数数量与目标方法不匹配。 PARAMETER_COUNT_MISMATCH, }</signature>
+			<signature>enum IssueType {
+	## 场景资源加载失败。
+	SCENE_LOAD_FAILED,
+	## 无法读取场景保存的连接状态。
+	SCENE_STATE_UNAVAILABLE,
+	## 场景实例化失败。
+	SCENE_INSTANTIATION_FAILED,
+	## 连接源节点缺失。
+	MISSING_SOURCE,
+	## 连接目标节点缺失。
+	MISSING_TARGET,
+	## 连接源信号缺失。
+	MISSING_SIGNAL,
+	## 连接目标方法缺失。
+	MISSING_METHOD,
+	## 信号参数数量与目标方法不匹配。
+	PARAMETER_COUNT_MISMATCH,
+}</signature>
 			<description>场景信号连接审计问题类型。</description>
 			<tags>
 				<tag name="api">public</tag>

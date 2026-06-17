@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFDecisionConsideration" path="addons/gf/extensions/decision/resources/gf_decision_consideration.gd" module="extensions/decision" extends="Resource" classDigest="8eea4c32c6b563ee898bff60bb335d48b0f8c6d4dc79bc18c49834ef7c47ef6d">
+<class name="GFDecisionConsideration" path="addons/gf/extensions/decision/resources/gf_decision_consideration.gd" module="extensions/decision" extends="Resource" classDigest="339d103050ed44725b04889c22c463973c028b5f35c3b8eb5415517c29bca47f">
 	<description>GFDecisionConsideration: 单个效用评分考虑项。
 从决策上下文读取一个输入值，将它映射为 0 到 1 的效用分数。
 子类可以重写 `_score()` 扩展项目自己的评分逻辑。</description>
@@ -11,7 +11,16 @@
 	<signals />
 	<enums>
 		<member kind="enum" name="InputSource">
-			<signature>enum InputSource { ## 从 GFDecisionContext 黑板读取。 BLACKBOARD, ## 从 GFDecisionContext metadata 读取。 METADATA, ## 从 GFDecisionContext subject 读取。 SUBJECT, ## 从 GFDecisionContext target 读取。 TARGET, }</signature>
+			<signature>enum InputSource {
+	## 从 GFDecisionContext 黑板读取。
+	BLACKBOARD,
+	## 从 GFDecisionContext metadata 读取。
+	METADATA,
+	## 从 GFDecisionContext subject 读取。
+	SUBJECT,
+	## 从 GFDecisionContext target 读取。
+	TARGET,
+}</signature>
 			<description>考虑项读取输入值的位置。</description>
 			<tags>
 				<tag name="api">public</tag>

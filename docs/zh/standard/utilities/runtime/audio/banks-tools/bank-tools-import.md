@@ -16,8 +16,18 @@ var bank := GFAudioBankTools.create_bank_from_paths(paths, {
 	"base_path": "res://audio",
 	"path_separator": "+",
 	"bus_name": "SFX",
+	"metadata": {
+		"source": "project_audio_import",
+	},
+	"metadata_by_path": {
+		"res://audio/ui/click.ogg": {
+			"category": "ui",
+		},
+	},
 })
 ```
+
+`metadata` 会复制到每个生成的 `GFAudioClip`，`metadata_by_path` 可按资源路径补充或覆盖片段元数据。该字典适合承载导入批次、来源库、标签、预览信息或项目工具需要的附加字段；播放层不会解释这些字段，具体命名和导表约定仍由项目层或独立工具包定义。
 
 ## 校验与同步
 

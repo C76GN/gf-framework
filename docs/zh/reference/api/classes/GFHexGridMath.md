@@ -50,7 +50,16 @@
 - API：`public`
 
 ```gdscript
-enum OffsetLayout { ## 奇数行右偏移，常用于 pointy-top 横向行布局。 ODD_R, ## 偶数行右偏移，常用于 pointy-top 横向行布局。 EVEN_R, ## 奇数列下偏移，常用于 flat-top 纵向列布局。 ODD_Q, ## 偶数列下偏移，常用于 flat-top 纵向列布局。 EVEN_Q, }
+enum OffsetLayout {
+	## 奇数行右偏移，常用于 pointy-top 横向行布局。
+	ODD_R,
+	## 偶数行右偏移，常用于 pointy-top 横向行布局。
+	EVEN_R,
+	## 奇数列下偏移，常用于 flat-top 纵向列布局。
+	ODD_Q,
+	## 偶数列下偏移，常用于 flat-top 纵向列布局。
+	EVEN_Q,
+}
 ```
 
 Offset 坐标布局。
@@ -62,7 +71,12 @@ Offset 坐标布局。
 - API：`public`
 
 ```gdscript
-enum HexOrientation { ## 尖顶朝上。 POINTY_TOP, ## 平顶朝上。 FLAT_TOP, }
+enum HexOrientation {
+	## 尖顶朝上。
+	POINTY_TOP,
+	## 平顶朝上。
+	FLAT_TOP,
+}
 ```
 
 像素坐标换算时使用的六边形朝向。

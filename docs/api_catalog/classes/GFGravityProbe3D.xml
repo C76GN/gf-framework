@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFGravityProbe3D" path="addons/gf/extensions/physics/nodes/gf_gravity_probe_3d.gd" module="extensions/physics" extends="Node3D" classDigest="c27b3c00574ec56c05434fe720196e4655fcf06e4d47b9ea87079fed09060fc4">
+<class name="GFGravityProbe3D" path="addons/gf/extensions/physics/nodes/gf_gravity_probe_3d.gd" module="extensions/physics" extends="Node3D" classDigest="e973c7ff4b32923d5f82fbba0e0360e1912b0d7d56a47660d685f64ca172769a">
 	<description>GFGravityProbe3D: 通用 3D 重力采样器。
 从场景树分组中采样 GFGravityField3D 或任何暴露 get_acceleration_at()
 方法的对象，并按组合策略计算当前位置处的加速度、上下方向。</description>
@@ -11,7 +11,14 @@
 	<signals />
 	<enums>
 		<member kind="enum" name="CombinationMode">
-			<signature>enum CombinationMode { ## 汇总所有有效力场的加速度。 SUM, ## 只使用当前点加速度长度最大的力场。 STRONGEST, ## 只汇总当前点非零加速度中最高优先级的力场。 HIGHEST_PRIORITY, }</signature>
+			<signature>enum CombinationMode {
+	## 汇总所有有效力场的加速度。
+	SUM,
+	## 只使用当前点加速度长度最大的力场。
+	STRONGEST,
+	## 只汇总当前点非零加速度中最高优先级的力场。
+	HIGHEST_PRIORITY,
+}</signature>
 			<description>多个力场重叠时的采样组合策略。</description>
 			<tags>
 				<tag name="api">public</tag>

@@ -40,7 +40,16 @@
 - API：`public`
 
 ```gdscript
-enum InputSource { ## 从 GFDecisionContext 黑板读取。 BLACKBOARD, ## 从 GFDecisionContext metadata 读取。 METADATA, ## 从 GFDecisionContext subject 读取。 SUBJECT, ## 从 GFDecisionContext target 读取。 TARGET, }
+enum InputSource {
+	## 从 GFDecisionContext 黑板读取。
+	BLACKBOARD,
+	## 从 GFDecisionContext metadata 读取。
+	METADATA,
+	## 从 GFDecisionContext subject 读取。
+	SUBJECT,
+	## 从 GFDecisionContext target 读取。
+	TARGET,
+}
 ```
 
 考虑项读取输入值的位置。

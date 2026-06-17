@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFBlackboardEntry" path="addons/gf/standard/foundation/blackboard/gf_blackboard_entry.gd" module="standard" extends="Resource" classDigest="e2d183ab2236a212b804b8fe53ce8c543a42534eadd9883a88f7822391d3b16c">
+<class name="GFBlackboardEntry" path="addons/gf/standard/foundation/blackboard/gf_blackboard_entry.gd" module="standard" extends="Resource" classDigest="9e3842d48d68d4074e9a493df35998ad581cadfdfebd6871aff196ee5d4f0c7c">
 	<description>GFBlackboardEntry: 通用黑板字段声明。
 只描述字段键、类型、必填性、空值策略和默认值，不绑定行为树、AI 或具体玩法。</description>
 	<tags>
@@ -10,7 +10,36 @@
 	<signals />
 	<enums>
 		<member kind="enum" name="ValueType">
-			<signature>enum ValueType { ## 不做类型约束。 ANY, ## 布尔值。 BOOL, ## 整数。 INT, ## 浮点数。 FLOAT, ## 字符串。 STRING, ## StringName。 STRING_NAME, ## Vector2。 VECTOR2, ## Vector2i。 VECTOR2I, ## Vector3。 VECTOR3, ## Vector3i。 VECTOR3I, ## Color。 COLOR, ## Dictionary。 DICTIONARY, ## Array。 ARRAY, ## Object。 OBJECT, }</signature>
+			<signature>enum ValueType {
+	## 不做类型约束。
+	ANY,
+	## 布尔值。
+	BOOL,
+	## 整数。
+	INT,
+	## 浮点数。
+	FLOAT,
+	## 字符串。
+	STRING,
+	## StringName。
+	STRING_NAME,
+	## Vector2。
+	VECTOR2,
+	## Vector2i。
+	VECTOR2I,
+	## Vector3。
+	VECTOR3,
+	## Vector3i。
+	VECTOR3I,
+	## Color。
+	COLOR,
+	## Dictionary。
+	DICTIONARY,
+	## Array。
+	ARRAY,
+	## Object。
+	OBJECT,
+}</signature>
 			<description>黑板字段值类型。</description>
 			<tags>
 				<tag name="api">public</tag>

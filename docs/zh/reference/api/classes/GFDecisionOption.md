@@ -40,7 +40,18 @@
 - API：`public`
 
 ```gdscript
-enum Aggregation { ## 将 base_score 与各考虑项分数相乘，权重作为指数影响。 MULTIPLY, ## 按考虑项权重计算平均值，再乘以 base_score。 WEIGHTED_AVERAGE, ## 将 base_score 与加权分数相加，并钳制到 0 到 1。 SUM, ## 使用所有考虑项中的最低分。 MIN, ## 使用所有考虑项中的最高分。 MAX, }
+enum Aggregation {
+	## 将 base_score 与各考虑项分数相乘，权重作为指数影响。
+	MULTIPLY,
+	## 按考虑项权重计算平均值，再乘以 base_score。
+	WEIGHTED_AVERAGE,
+	## 将 base_score 与加权分数相加，并钳制到 0 到 1。
+	SUM,
+	## 使用所有考虑项中的最低分。
+	MIN,
+	## 使用所有考虑项中的最高分。
+	MAX,
+}
 ```
 
 候选分数聚合策略。

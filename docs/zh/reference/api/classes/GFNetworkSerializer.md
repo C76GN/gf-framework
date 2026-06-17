@@ -34,7 +34,12 @@
 - API：`public`
 
 ```gdscript
-enum Format { ## Godot Variant 二进制编码。 BINARY, ## UTF-8 JSON 编码。 JSON, }
+enum Format {
+	## Godot Variant 二进制编码。
+	BINARY,
+	## UTF-8 JSON 编码。
+	JSON,
+}
 ```
 
 消息编码格式。

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFNodeContext" path="addons/gf/kernel/core/gf_node_context.gd" module="kernel" extends="Node" classDigest="a31ae976ba94c83a61d07b5b32a1d21e8d812e2e04ad805fa44b47f7940bf209">
+<class name="GFNodeContext" path="addons/gf/kernel/core/gf_node_context.gd" module="kernel" extends="Node" classDigest="a5e898cccf65d53e7f70ade33b7a0cf8a3ce09ff36bb886452cfa5692595e505">
 	<description>GFNodeContext: 场景树上的局部架构上下文。
 可选择继承父级架构，或创建带父级回退的 Scoped 架构。
 Scoped 架构会在节点退出树时自动 dispose，适合关卡、战斗房间、调试面板等局部模块。</description>
@@ -29,7 +29,12 @@ Scoped 架构会在节点退出树时自动 dispose，适合关卡、战斗房�
 	</signals>
 	<enums>
 		<member kind="enum" name="ScopeMode">
-			<signature>enum ScopeMode { ## 直接复用最近的父级上下文架构；若不存在则回退到全局 Gf 架构。 INHERITED, ## 创建新的局部架构，并将最近的父级或全局架构作为依赖回退来源。 SCOPED, }</signature>
+			<signature>enum ScopeMode {
+	## 直接复用最近的父级上下文架构；若不存在则回退到全局 Gf 架构。
+	INHERITED,
+	## 创建新的局部架构，并将最近的父级或全局架构作为依赖回退来源。
+	SCOPED,
+}</signature>
 			<description>上下文作用域模式。</description>
 			<tags>
 				<tag name="api">public</tag>

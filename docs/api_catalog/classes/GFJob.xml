@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFJob" path="addons/gf/standard/utilities/jobs/gf_job.gd" module="standard" extends="RefCounted" classDigest="a4207c3d5e672aa79b2a55b2360cd1ad9be38bf64c516ef2c11125db32833a20">
+<class name="GFJob" path="addons/gf/standard/utilities/jobs/gf_job.gd" module="standard" extends="RefCounted" classDigest="b474d1dcf3b7f32b5506cf4a772873c4a724aa98d29bdc51c04c991238724474">
 	<description>GFJob: 通用异步/分帧任务记录。
 只保存任务状态、进度、输入数据、结果和错误文本，不绑定具体业务。</description>
 	<tags>
@@ -10,7 +10,18 @@
 	<signals />
 	<enums>
 		<member kind="enum" name="Status">
-			<signature>enum Status { ## 已入队，尚未开始执行。 WAITING, ## 正在执行。 ACTIVE, ## 已成功完成。 COMPLETED, ## 已失败。 FAILED, ## 已取消。 CANCELLED, }</signature>
+			<signature>enum Status {
+	## 已入队，尚未开始执行。
+	WAITING,
+	## 正在执行。
+	ACTIVE,
+	## 已成功完成。
+	COMPLETED,
+	## 已失败。
+	FAILED,
+	## 已取消。
+	CANCELLED,
+}</signature>
 			<description>任务生命周期状态。</description>
 			<tags>
 				<tag name="api">public</tag>

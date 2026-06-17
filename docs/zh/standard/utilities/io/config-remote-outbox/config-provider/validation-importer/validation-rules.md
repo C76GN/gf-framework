@@ -9,7 +9,7 @@
 - `GFConfigSetValidationRule`：白名单集合。
 - `GFConfigSizeValidationRule`：字段、记录或表大小。
 - `GFConfigNotDefaultValidationRule`：非默认值。
-- `GFConfigResourcePathValidationRule`：Godot 资源路径与扩展名。
+- `GFConfigResourcePathValidationRule`：Godot 资源路径与扩展名，支持 `res://` 和可解析的 `uid://`。
 - `GFConfigLocalizationKeyValidationRule`：文本 key 是否存在。
 
 ## 使用示例
@@ -43,3 +43,5 @@ schema.table_validation_rules.append(table_size)
 字段规则在类型校验通过后执行；记录规则放在 `GFConfigTableSchema.record_validation_rules`，表规则放在 `table_validation_rules`。
 
 校验上下文会写入 `table_name`、`row_key`、`field`、`rule_id`，并在导入器提供来源信息时附带 `source`、`line`、`column`。自定义规则继承 `GFConfigValidationRule`，重写 `_validate_value()`、`_validate_record()` 或 `_validate_table()`，再通过 `_add_issue()` 写入稳定 `kind`。
+
+资源路径规则默认允许 `uid://`。当设置了 `allowed_extensions` 时，规则会先把 UID 解析回实际资源路径，再检查扩展名；无法解析的 UID 会按缺失或扩展名不匹配报告。需要严格限制旧式 `res://` 配置时，可以关闭 `allow_uid_paths`。

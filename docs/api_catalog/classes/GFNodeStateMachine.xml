@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFNodeStateMachine" path="addons/gf/standard/state_machine/node/gf_node_state_machine.gd" module="standard" extends="Node" classDigest="693d85b3441157b86c87e4f47a3887c83f370e373a4c40de31c8e84af1479863">
+<class name="GFNodeStateMachine" path="addons/gf/standard/state_machine/node/gf_node_state_machine.gd" module="standard" extends="Node" classDigest="b1094197e96e9d1cb53b03b9d237310dd6e2a894764a3a53d799067c6cf7f169">
 	<description>GFNodeStateMachine: 基于场景树的多状态组状态机。
 支持直接子 GFNodeState 组成内部状态组，也支持多个 GFNodeStateGroup 并行工作。</description>
 	<tags>
@@ -49,7 +49,14 @@
 	</signals>
 	<enums>
 		<member kind="enum" name="StartMode">
-			<signature>enum StartMode { ## 状态机 ready 时启动，适合需要旧版启动顺序的项目。 ON_READY, ## 等待宿主节点 ready 后启动。 AFTER_HOST_READY, ## 只加载状态，不自动启动；由外部调用 start()。 MANUAL, }</signature>
+			<signature>enum StartMode {
+	## 状态机 ready 时启动，适合需要旧版启动顺序的项目。
+	ON_READY,
+	## 等待宿主节点 ready 后启动。
+	AFTER_HOST_READY,
+	## 只加载状态，不自动启动；由外部调用 start()。
+	MANUAL,
+}</signature>
 			<description>节点状态机初始状态启动时机。</description>
 			<tags>
 				<tag name="api">public</tag>

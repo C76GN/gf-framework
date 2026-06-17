@@ -159,7 +159,14 @@ signal state_event_handled(group: GFNodeStateGroup, event_id: StringName, handle
 - API：`public`
 
 ```gdscript
-enum StartMode { ## 状态机 ready 时启动，适合需要旧版启动顺序的项目。 ON_READY, ## 等待宿主节点 ready 后启动。 AFTER_HOST_READY, ## 只加载状态，不自动启动；由外部调用 start()。 MANUAL, }
+enum StartMode {
+	## 状态机 ready 时启动，适合需要旧版启动顺序的项目。
+	ON_READY,
+	## 等待宿主节点 ready 后启动。
+	AFTER_HOST_READY,
+	## 只加载状态，不自动启动；由外部调用 start()。
+	MANUAL,
+}
 ```
 
 节点状态机初始状态启动时机。

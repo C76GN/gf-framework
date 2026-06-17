@@ -157,6 +157,95 @@ func test_defaults_to_preset_first_view() -> void:
 	dock.free()
 
 
+func test_formats_package_row_status_markers() -> void:
+	var dock: VBoxContainer = _new_vbox_container(GF_PACKAGE_MANAGER_DOCK)
+	var available_entry: Dictionary = _make_package_manager_entry("gf.extension.save", "extension")
+	var installed_entry: Dictionary = _make_package_manager_entry("gf.standard.storage", "standard")
+	installed_entry["installed"] = true
+	var update_entry: Dictionary = _make_package_manager_entry("gf.standard.ui", "standard")
+	update_entry["installed"] = true
+	update_entry["install_preview"] = {
+		"ok": true,
+		"install_order": ["gf.standard.ui"],
+		"to_install": [],
+		"to_update": ["gf.standard.ui"],
+	}
+
+	var available_text: String = _call_text(dock, &"_format_package_row_text", [available_entry])
+	var installed_text: String = _call_text(dock, &"_format_package_row_text", [installed_entry])
+	var update_text: String = _call_text(dock, &"_format_package_row_text", [update_entry])
+	var installed_details: String = _call_text(dock, &"_format_package_details", [installed_entry])
+
+	assert_true(available_text.begins_with("[+ 可安装]"), "未安装包列表行应明确显示可安装状态。")
+	assert_true(installed_text.begins_with("[✓ 已安装]"), "已安装包列表行应显示对勾状态。")
+	assert_true(update_text.begins_with("[↑ 可更新]"), "已安装且存在更新计划的包应显示可更新状态。")
+	assert_true(installed_details.contains("status: ✓ 已安装"), "包详情应同步显示人读状态。")
+
+	dock.free()
+
+
+func test_status_summary_explains_source_checkout_lockfile_state() -> void:
+	var dock: VBoxContainer = _new_vbox_container(GF_PACKAGE_MANAGER_DOCK)
+	var status_data: Dictionary = {
+		"backend": "godot_native",
+		"package_count": 35,
+		"installed_count": 0,
+	}
+
+	var summary: String = _call_text(dock, &"_format_status_summary", [status_data])
+
+	assert_true(summary.contains("35 个包，已安装 0 个"), "状态摘要应继续展示包计数。")
+	assert_true(summary.contains("源码目录存在不代表已安装"), "GF 源码仓库中应解释 lockfile 状态来源。")
+	assert_true(summary.contains(".gf/packages.lock.json"), "开发态提示应指出包状态依据 lockfile。")
+
+	dock.free()
+
+
+func test_busy_state_shows_progress_and_locks_package_controls() -> void:
+	var dock: VBoxContainer = _new_vbox_container(GF_PACKAGE_MANAGER_DOCK)
+	var registry_field: LineEdit = _as_line_edit(dock.get(&"_registry_field"))
+	var channel_field: LineEdit = _as_line_edit(dock.get(&"_channel_field"))
+	var search_field: LineEdit = _as_line_edit(dock.get(&"_search_field"))
+	var view_filter_option: OptionButton = _get_option_button(dock, &"_view_filter_option")
+	var refresh_button: Button = _get_button(dock, &"_refresh_button")
+	var install_button: Button = _get_button(dock, &"_install_button")
+	var uninstall_button: Button = _get_button(dock, &"_uninstall_button")
+	var busy_row: HBoxContainer = _as_hbox_container(dock.get(&"_busy_row"))
+	var busy_progress: ProgressBar = _as_progress_bar(dock.get(&"_busy_progress"))
+	var busy_label: Label = _as_label(dock.get(&"_busy_message_label"))
+	var packages: Array[Dictionary] = [_make_package_manager_entry("gf.extension.save", "extension")]
+	dock.set(&"_packages", packages)
+	dock.set(&"_selected_package_id", "gf.extension.save")
+	_call_void(dock, &"_update_action_buttons")
+
+	assert_false(install_button.disabled, "选中未安装包后安装按钮应可用。")
+	assert_true(uninstall_button.disabled, "未安装包不允许直接卸载。")
+
+	_call_void(dock, &"_begin_busy", ["正在安装：gf.extension.save...", 32.0])
+
+	assert_true(busy_row.visible, "包管理操作开始后应显示进度区域。")
+	assert_eq(busy_progress.value, 32.0, "忙碌状态应记录当前阶段进度。")
+	assert_true(busy_label.text.contains("正在安装"), "忙碌状态应展示当前后台阶段。")
+	assert_false(registry_field.editable, "后台操作期间 registry 输入应锁定。")
+	assert_false(channel_field.editable, "后台操作期间 channel 输入应锁定。")
+	assert_false(search_field.editable, "后台操作期间搜索输入应锁定。")
+	assert_true(view_filter_option.disabled, "后台操作期间视图切换应锁定。")
+	assert_true(refresh_button.disabled, "后台操作期间刷新按钮应锁定。")
+	assert_true(install_button.disabled, "后台操作期间安装按钮应锁定。")
+
+	_call_void(dock, &"_end_busy")
+
+	assert_false(busy_row.visible, "后台操作结束后应隐藏进度区域。")
+	assert_true(registry_field.editable, "后台操作结束后 registry 输入应恢复。")
+	assert_true(channel_field.editable, "后台操作结束后 channel 输入应恢复。")
+	assert_true(search_field.editable, "后台操作结束后搜索输入应恢复。")
+	assert_false(view_filter_option.disabled, "后台操作结束后视图切换应恢复。")
+	assert_false(refresh_button.disabled, "后台操作结束后刷新按钮应恢复。")
+	assert_false(install_button.disabled, "后台操作结束后安装按钮应按包状态恢复。")
+
+	dock.free()
+
+
 func test_switches_to_extension_view() -> void:
 	var dock: VBoxContainer = _new_vbox_container(GF_PACKAGE_MANAGER_DOCK)
 	var packages: Array[Dictionary] = [
@@ -383,4 +472,20 @@ func _as_label(value: Variant) -> Label:
 	if value is Label:
 		var label: Label = value
 		return label
+	return null
+
+
+func _as_hbox_container(value: Variant) -> HBoxContainer:
+	assert_true(value is HBoxContainer, "测试观察值应为 HBoxContainer。")
+	if value is HBoxContainer:
+		var container: HBoxContainer = value
+		return container
+	return null
+
+
+func _as_progress_bar(value: Variant) -> ProgressBar:
+	assert_true(value is ProgressBar, "测试观察值应为 ProgressBar。")
+	if value is ProgressBar:
+		var progress_bar: ProgressBar = value
+		return progress_bar
 	return null

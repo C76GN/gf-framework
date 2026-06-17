@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFHexGridMath" path="addons/gf/standard/foundation/math/gf_hex_grid_math.gd" module="standard" extends="RefCounted" classDigest="ed09fed45efdb91de8f28d05c2ba999298dbbe04072d65e3e4f1ee8ed0c55f6e">
+<class name="GFHexGridMath" path="addons/gf/standard/foundation/math/gf_hex_grid_math.gd" module="standard" extends="RefCounted" classDigest="3f7ececbd83f6a37938fab6fd28a59e3d4a78c9edd94b53cc247cf369b194ff4">
 	<description>GFHexGridMath: 六边形网格的纯算法工具。
 提供 offset / cube 坐标转换、邻居枚举、距离、范围、环、直线、视线、
 A* 路径查找和 Flow Field 生成。它不依赖 GFArchitecture，可直接在
@@ -12,14 +12,28 @@ Model、System、Controller 或测试中静态调用。</description>
 	<signals />
 	<enums>
 		<member kind="enum" name="OffsetLayout">
-			<signature>enum OffsetLayout { ## 奇数行右偏移，常用于 pointy-top 横向行布局。 ODD_R, ## 偶数行右偏移，常用于 pointy-top 横向行布局。 EVEN_R, ## 奇数列下偏移，常用于 flat-top 纵向列布局。 ODD_Q, ## 偶数列下偏移，常用于 flat-top 纵向列布局。 EVEN_Q, }</signature>
+			<signature>enum OffsetLayout {
+	## 奇数行右偏移，常用于 pointy-top 横向行布局。
+	ODD_R,
+	## 偶数行右偏移，常用于 pointy-top 横向行布局。
+	EVEN_R,
+	## 奇数列下偏移，常用于 flat-top 纵向列布局。
+	ODD_Q,
+	## 偶数列下偏移，常用于 flat-top 纵向列布局。
+	EVEN_Q,
+}</signature>
 			<description>Offset 坐标布局。</description>
 			<tags>
 				<tag name="api">public</tag>
 			</tags>
 		</member>
 		<member kind="enum" name="HexOrientation">
-			<signature>enum HexOrientation { ## 尖顶朝上。 POINTY_TOP, ## 平顶朝上。 FLAT_TOP, }</signature>
+			<signature>enum HexOrientation {
+	## 尖顶朝上。
+	POINTY_TOP,
+	## 平顶朝上。
+	FLAT_TOP,
+}</signature>
 			<description>像素坐标换算时使用的六边形朝向。</description>
 			<tags>
 				<tag name="api">public</tag>

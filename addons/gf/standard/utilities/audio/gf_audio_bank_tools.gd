@@ -108,13 +108,15 @@ static func scan_audio_paths(root_path: String = "res://", options: Dictionary =
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param paths: 音频资源路径列表。
 ## [br]
-## @param options: 可选项，支持 id_mode、base_path、path_separator、strip_extension、bus_name、volume_db、pitch_scale。
+## @param options: 可选项，支持 id_mode、base_path、path_separator、strip_extension、bus_name、volume_db、pitch_scale、metadata、metadata_by_path。
 ## [br]
 ## @return: 新建的音频集合。
 ## [br]
-## @schema options: Dictionary，可包含 id_mode、base_path、path_separator、strip_extension、bus_name、volume_db、pitch_scale 和 overwrite 字段。
+## @schema options: Dictionary，可包含 id_mode、base_path、path_separator、strip_extension、bus_name、volume_db、pitch_scale、metadata、metadata_by_path 和 overwrite 字段。
 static func create_bank_from_paths(paths: PackedStringArray, options: Dictionary = {}) -> GFAudioBank:
 	var bank: GFAudioBank = _make_bank()
 	var import_options: Dictionary = GFVariantData.to_dictionary(options)
@@ -143,15 +145,17 @@ static func create_bank_from_scan(root_path: String = "res://", options: Diction
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param bank: 要写入的音频集合。
 ## [br]
 ## @param paths: 音频资源路径列表。
 ## [br]
-## @param options: 可选项，支持 id_mode、base_path、path_separator、strip_extension、overwrite、bus_name、volume_db、pitch_scale。
+## @param options: 可选项，支持 id_mode、base_path、path_separator、strip_extension、overwrite、bus_name、volume_db、pitch_scale、metadata、metadata_by_path。
 ## [br]
 ## @return: 导入报告。
 ## [br]
-## @schema options: Dictionary，可包含 id_mode、base_path、path_separator、strip_extension、overwrite、bus_name、volume_db 和 pitch_scale 字段。
+## @schema options: Dictionary，可包含 id_mode、base_path、path_separator、strip_extension、overwrite、bus_name、volume_db、pitch_scale、metadata 和 metadata_by_path 字段。
 static func add_paths_to_bank(
 	bank: GFAudioBank,
 	paths: PackedStringArray,
@@ -300,7 +304,24 @@ static func _make_clip(path: String, options: Dictionary) -> GFAudioClip:
 	clip.bus_name = GFVariantData.get_option_string(options, "bus_name", "")
 	clip.volume_db = GFVariantData.get_option_float(options, "volume_db", 0.0)
 	clip.pitch_scale = GFVariantData.get_option_float(options, "pitch_scale", 1.0)
+	_apply_clip_metadata(clip, path, options)
 	return clip
+
+
+static func _apply_clip_metadata(clip: GFAudioClip, path: String, options: Dictionary) -> void:
+	var base_metadata: Dictionary = GFVariantData.get_option_dictionary(options, "metadata", {})
+	if not base_metadata.is_empty():
+		clip.metadata = GFVariantData.duplicate_metadata(base_metadata)
+
+	var metadata_by_path: Dictionary = GFVariantData.get_option_dictionary(options, "metadata_by_path", {})
+	if metadata_by_path.is_empty():
+		return
+
+	var path_metadata: Dictionary = GFVariantData.get_option_dictionary(metadata_by_path, path, {})
+	if path_metadata.is_empty():
+		return
+
+	var _merged_metadata: Dictionary = GFVariantData.merge_metadata(clip.metadata, path_metadata, true, true)
 
 
 static func _validate_clip_playback(

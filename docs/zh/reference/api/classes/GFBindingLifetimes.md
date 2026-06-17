@@ -26,7 +26,12 @@
 - API：`public`
 
 ```gdscript
-enum Lifetime { ## 首次解析后缓存实例，后续解析复用。 SINGLETON, ## 每次解析都重新创建实例。 TRANSIENT, }
+enum Lifetime {
+	## 首次解析后缓存实例，后续解析复用。
+	SINGLETON,
+	## 每次解析都重新创建实例。
+	TRANSIENT,
+}
 ```
 
 绑定实例的生命周期。

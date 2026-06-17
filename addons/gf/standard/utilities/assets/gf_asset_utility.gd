@@ -30,6 +30,17 @@ signal asset_handle_acquired(handle: GFAssetHandle)
 ## @param reference_count: 剩余引用数量。
 signal asset_handle_released(path: String, reference_count: int)
 
+## 资源异步加载进度更新时发出。
+## [br]
+## @api public
+## [br]
+## @since 5.1.0
+## [br]
+## @param path: 资源路径。
+## [br]
+## @param progress: 当前加载进度，范围 0.0 到 1.0。
+signal asset_load_progress(path: String, progress: float)
+
 ## 资源分组预加载完成时发出。
 ## [br]
 ## @api public
@@ -172,7 +183,9 @@ func load_async(path: String, on_loaded: Callable, type_hint: String = "") -> vo
 		"type_hint": type_hint,
 		"callbacks": [_make_callback_entry(on_loaded, type_hint)],
 		"cancelled": false,
+		"progress": 0.0,
 	}
+	asset_load_progress.emit(path, 0.0)
 
 
 ## 异步加载资源并在成功后返回所有权句柄。
@@ -478,6 +491,29 @@ func is_loading(path: String, type_hint: String = "") -> bool:
 	return _get_pending_type_hint(pending_request) == type_hint
 
 
+## 获取资源异步加载进度。
+## [br]
+## @api public
+## [br]
+## @since 5.1.0
+## [br]
+## @param path: 资源路径。
+## [br]
+## @return 已缓存返回 1.0，正在加载返回最近轮询进度，其余返回 0.0。
+func get_load_progress(path: String) -> float:
+	if path.is_empty():
+		return 0.0
+	if is_cached(path):
+		return 1.0
+	if not _pending.has(path):
+		return 0.0
+
+	var pending_request: Dictionary = _get_pending_request(path)
+	if _is_pending_cancelled(pending_request):
+		return 0.0
+	return clampf(_get_pending_progress(pending_request), 0.0, 1.0)
+
+
 ## 检查指定路径是否已缓存。
 ## [br]
 ## @api public
@@ -607,9 +643,11 @@ func is_cache_pinned(path: String) -> bool:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @return 诊断快照字典。
 ## [br]
-## @schema return: Dictionary with cache, pending, pinned, reference count, and group count diagnostic fields.
+## @schema return: Dictionary with cache, pending, pending_progress, pinned, reference count, and group count diagnostic fields.
 func get_debug_snapshot() -> Dictionary:
 	var cached_paths: PackedStringArray = PackedStringArray()
 	for path: String in _cache.keys():
@@ -623,6 +661,11 @@ func get_debug_snapshot() -> Dictionary:
 			_append_packed_string(pending_paths, path)
 	pending_paths.sort()
 
+	var pending_progress: Dictionary = {}
+	for path: String in pending_paths:
+		var pending_request: Dictionary = _get_pending_request(path)
+		pending_progress[path] = clampf(_get_pending_progress(pending_request), 0.0, 1.0)
+
 	var pinned_paths: PackedStringArray = PackedStringArray()
 	for path: String in _pinned_cache_paths.keys():
 		if _get_count_value(_pinned_cache_paths, path) > 0:
@@ -635,6 +678,7 @@ func get_debug_snapshot() -> Dictionary:
 		"cached_paths": cached_paths,
 		"pending_count": pending_paths.size(),
 		"pending_paths": pending_paths,
+		"pending_progress": pending_progress,
 		"pinned_count": pinned_paths.size(),
 		"pinned_paths": pinned_paths,
 		"reference_counts": _reference_counts.duplicate(),
@@ -674,6 +718,10 @@ func _get_pending_type_hint(pending_request: Dictionary) -> String:
 
 func _get_pending_callbacks(pending_request: Dictionary) -> Array:
 	return GFVariantData.as_array(GFVariantData.get_option_value(pending_request, "callbacks", []))
+
+
+func _get_pending_progress(pending_request: Dictionary) -> float:
+	return GFVariantData.get_option_float(pending_request, "progress", 0.0)
 
 
 func _is_pending_cancelled(pending_request: Dictionary) -> bool:
@@ -809,11 +857,17 @@ func _poll_pending() -> void:
 		var pending_request: Dictionary = _get_pending_request(path)
 		var callbacks: Array = _get_pending_callbacks(pending_request)
 		var cancelled: bool = _is_pending_cancelled(pending_request)
-		var status: ResourceLoader.ThreadLoadStatus = _get_threaded_status(path)
+		var progress_result: Array = []
+		var status: ResourceLoader.ThreadLoadStatus = _get_threaded_status_with_progress(path, progress_result)
+		if not cancelled:
+			var progress: float = _get_threaded_progress(pending_request, progress_result, status)
+			_update_pending_progress(path, pending_request, progress)
 
 		match status:
 			ResourceLoader.THREAD_LOAD_LOADED:
 				var resource: Resource = _take_threaded_resource(path)
+				if resource != null and not cancelled:
+					_update_pending_progress(path, pending_request, 1.0)
 				_erase_dictionary_key(_pending, path)
 				if resource != null and not cancelled:
 					put_cache(path, resource)
@@ -831,6 +885,28 @@ func _poll_pending() -> void:
 				if not cancelled:
 					push_error("[GFAssetUtility] 无效资源：%s" % path)
 					_dispatch_callbacks(callbacks, null)
+
+
+func _get_threaded_progress(
+	pending_request: Dictionary,
+	progress_result: Array,
+	status: ResourceLoader.ThreadLoadStatus
+) -> float:
+	if status == ResourceLoader.THREAD_LOAD_LOADED:
+		return 1.0
+	if progress_result.size() > 0:
+		return clampf(GFVariantData.to_float(progress_result[0], _get_pending_progress(pending_request)), 0.0, 1.0)
+	return _get_pending_progress(pending_request)
+
+
+func _update_pending_progress(path: String, pending_request: Dictionary, progress: float) -> void:
+	var clamped_progress: float = clampf(progress, 0.0, 1.0)
+	var previous_progress: float = _get_pending_progress(pending_request)
+	if is_equal_approx(previous_progress, clamped_progress):
+		return
+
+	pending_request["progress"] = clamped_progress
+	asset_load_progress.emit(path, clamped_progress)
 
 
 func _dispatch_callbacks(callbacks: Array, resource: Resource) -> void:
@@ -1066,8 +1142,8 @@ func _request_threaded(path: String, type_hint: String) -> Error:
 	return ResourceLoader.load_threaded_request(path, type_hint)
 
 
-func _get_threaded_status(path: String) -> ResourceLoader.ThreadLoadStatus:
-	return ResourceLoader.load_threaded_get_status(path)
+func _get_threaded_status_with_progress(path: String, progress: Array) -> ResourceLoader.ThreadLoadStatus:
+	return ResourceLoader.load_threaded_get_status(path, progress)
 
 
 func _take_threaded_resource(path: String) -> Resource:

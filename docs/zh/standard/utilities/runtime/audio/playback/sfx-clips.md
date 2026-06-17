@@ -14,6 +14,8 @@ clip.volume_db = -3.0
 audio.play_sfx_clip(clip)
 ```
 
+`GFAudioClip.metadata` 是留给导入器、编辑器工具或项目层的通用字典。GF 不解释其中的键，也不会把它变成播放策略；需要时可以用 `set_metadata_value()`、`get_metadata_value()` 和 `duplicate_metadata()` 做安全写入和复制。
+
 `GFAudioClip.spatial_settings` 可引用 `GFAudioSpatialSettings`，但只会在 `play_sfx_clip_2d()` / `play_sfx_clip_3d()` 等空间 SFX 路径中应用。普通 SFX、BGM 和环境音仍只读取 stream/path、bus、音量、pitch 和 pitch 随机范围。
 
 `GFAudioEmitterHandle.stop()` 即使在异步资源返回前调用，也会记录停止请求；迟到的 SFX 资源不会再创建播放器。`stop_all_sfx()` 会递增 SFX 生命周期序号，停止普通 SFX 和 2D/3D 空间 SFX，并阻止尚未返回的异步 SFX 继续落地。

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFNumberFormatter" path="addons/gf/standard/foundation/formatting/gf_number_formatter.gd" module="standard" extends="RefCounted" classDigest="624943771d2d27f44e692a62314502513c618f5754ceaaf5640e87586dbedb84">
+<class name="GFNumberFormatter" path="addons/gf/standard/foundation/formatting/gf_number_formatter.gd" module="standard" extends="RefCounted" classDigest="fd8a7e67ead6a78bdd2de56bc3ecd02881515358f679461bb222f49092b4a9e6">
 	<description>GFNumberFormatter: 统一的数字显示格式化工具。
 负责普通数字、定点小数与大数值对象在 UI 中的显示转换，
 提供完整显示、紧凑缩写、科学计数法、工程计数法与自动模式。</description>
@@ -11,14 +11,32 @@
 	<signals />
 	<enums>
 		<member kind="enum" name="Notation">
-			<signature>enum Notation { ## 尽量输出普通十进制表示。 FULL, ## 输出紧凑缩写表示，如 12.3k。 COMPACT_SHORT, ## 输出科学计数法，如 1.23e8。 SCIENTIFIC, ## 输出工程计数法，如 123.4e6。 ENGINEERING, ## 自动选择更适合当前量级的表示方式。 AUTO, }</signature>
+			<signature>enum Notation {
+	## 尽量输出普通十进制表示。
+	FULL,
+	## 输出紧凑缩写表示，如 12.3k。
+	COMPACT_SHORT,
+	## 输出科学计数法，如 1.23e8。
+	SCIENTIFIC,
+	## 输出工程计数法，如 123.4e6。
+	ENGINEERING,
+	## 自动选择更适合当前量级的表示方式。
+	AUTO,
+}</signature>
 			<description>格式化记法。</description>
 			<tags>
 				<tag name="api">public</tag>
 			</tags>
 		</member>
 		<member kind="enum" name="ScientificStyle">
-			<signature>enum ScientificStyle { ## 使用小写 e。 E_LOWER, ## 使用大写 E。 E_UPPER, ## 使用 x 10^n 形式。 POWER_OF_TEN, }</signature>
+			<signature>enum ScientificStyle {
+	## 使用小写 e。
+	E_LOWER,
+	## 使用大写 E。
+	E_UPPER,
+	## 使用 x 10^n 形式。
+	POWER_OF_TEN,
+}</signature>
 			<description>科学计数法输出风格。</description>
 			<tags>
 				<tag name="api">public</tag>

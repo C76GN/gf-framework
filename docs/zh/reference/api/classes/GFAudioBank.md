@@ -42,7 +42,16 @@
 - API：`public`
 
 ```gdscript
-enum LifecycleState { ## 尚未加载。 UNLOADED, ## 正在加载。 LOADING, ## 已加载。 LOADED, ## 加载失败。 FAILED, }
+enum LifecycleState {
+	## 尚未加载。
+	UNLOADED,
+	## 正在加载。
+	LOADING,
+	## 已加载。
+	LOADED,
+	## 加载失败。
+	FAILED,
+}
 ```
 
 音频集合加载状态。

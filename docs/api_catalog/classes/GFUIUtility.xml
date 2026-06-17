@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFUIUtility" path="addons/gf/standard/utilities/ui/gf_ui_utility.gd" module="standard" extends="GFUtility" classDigest="c109aa95aa055450ab0b5040d4db0b11ab539ac04eb5ebe39be11072dc5c22c6">
+<class name="GFUIUtility" path="addons/gf/standard/utilities/ui/gf_ui_utility.gd" module="standard" extends="GFUtility" classDigest="47e17799fcf99f2289369dd79d87f58529c429bcb7f93700e5531aa129c18a4d">
 	<description>GFUIUtility: 栈式 UI 管理器。
 负责多层级界面的入栈、出栈与异步加载，
 适合 HUD、弹窗和顶层遮罩等需要分层管理的 UI 场景。</description>
@@ -71,21 +71,40 @@
 	</signals>
 	<enums>
 		<member kind="enum" name="Layer">
-			<signature>enum Layer { ## 基础信息层，如主界面、血条 HUD 等。 HUD = 0, ## 弹窗层，如背包、设置菜单、对话框等。 POPUP = 1, ## 顶层，如全屏遮罩、断线重连提示等。 TOP = 2, }</signature>
+			<signature>enum Layer {
+	## 基础信息层，如主界面、血条 HUD 等。
+	HUD = 0,
+	## 弹窗层，如背包、设置菜单、对话框等。
+	POPUP = 1,
+	## 顶层，如全屏遮罩、断线重连提示等。
+	TOP = 2,
+}</signature>
 			<description>UI 层级，数值越大显示越靠前。</description>
 			<tags>
 				<tag name="api">public</tag>
 			</tags>
 		</member>
 		<member kind="enum" name="PanelMode">
-			<signature>enum PanelMode { ## 普通面板。 NORMAL, ## Modal 面板，通常会独占当前交互焦点。 MODAL, }</signature>
+			<signature>enum PanelMode {
+	## 普通面板。
+	NORMAL,
+	## Modal 面板，通常会独占当前交互焦点。
+	MODAL,
+}</signature>
 			<description>面板交互模式。</description>
 			<tags>
 				<tag name="api">public</tag>
 			</tags>
 		</member>
 		<member kind="enum" name="AsyncPanelLoadStatus">
-			<signature>enum AsyncPanelLoadStatus { ## 面板已完成加载并进入 UI 栈。 OPENED, ## 加载资源、实例化或入栈失败。 FAILED, ## 请求被弹出、清层、替换层或销毁 UI 工具取消。 CANCELLED, }</signature>
+			<signature>enum AsyncPanelLoadStatus {
+	## 面板已完成加载并进入 UI 栈。
+	OPENED,
+	## 加载资源、实例化或入栈失败。
+	FAILED,
+	## 请求被弹出、清层、替换层或销毁 UI 工具取消。
+	CANCELLED,
+}</signature>
 			<description>异步面板加载结束状态。</description>
 			<tags>
 				<tag name="api">public</tag>

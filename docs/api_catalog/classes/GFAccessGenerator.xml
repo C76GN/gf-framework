@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFAccessGenerator" path="addons/gf/kernel/editor/gf_access_generator.gd" module="kernel" extends="RefCounted" classDigest="895ed264a9aa09a517f0fe40f034184b3ec53f9537e9f2b99f541d414d20fe76">
+<class name="GFAccessGenerator" path="addons/gf/kernel/editor/gf_access_generator.gd" module="kernel" extends="RefCounted" classDigest="e7b4697a7c0999d97c2618b824ca9d780c34e33f7083fc0ab107815bf1739058">
 	<description>GFAccessGenerator: 生成强类型 GF 访问器脚本。
 生成结果用于减少 `Gf.get_model(Type) as Type` 这类重复样板，
 并为 Model / System / Utility / Command / Query 提供稳定的 IDE 补全入口。</description>
@@ -12,7 +12,20 @@
 	<signals />
 	<enums>
 		<member kind="enum" name="TargetKind">
-			<signature>enum TargetKind { ## Model 访问器目标。 MODEL, ## System 访问器目标。 SYSTEM, ## Utility 访问器目标。 UTILITY, ## Command 访问器目标。 COMMAND, ## Query 访问器目标。 QUERY, ## Capability 访问器目标。 CAPABILITY, }</signature>
+			<signature>enum TargetKind {
+	## Model 访问器目标。
+	MODEL,
+	## System 访问器目标。
+	SYSTEM,
+	## Utility 访问器目标。
+	UTILITY,
+	## Command 访问器目标。
+	COMMAND,
+	## Query 访问器目标。
+	QUERY,
+	## Capability 访问器目标。
+	CAPABILITY,
+}</signature>
 			<description>访问器目标类型。</description>
 			<tags>
 				<tag name="api">public</tag>

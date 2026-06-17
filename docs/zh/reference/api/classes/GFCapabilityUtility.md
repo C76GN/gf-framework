@@ -126,7 +126,12 @@ signal capability_active_changed(receiver: Object, capability_type: Script, capa
 - API：`public`
 
 ```gdscript
-enum DependencyRemovalPolicy { ## 保留依赖能力，适合依赖能力需要在主能力移除后继续存在的场景。 KEEP_DEPENDENCIES, ## 移除仅由当前能力自动补齐且未被显式添加的依赖能力。 REMOVE_AUTO_DEPENDENCIES, }
+enum DependencyRemovalPolicy {
+	## 保留依赖能力，适合依赖能力需要在主能力移除后继续存在的场景。
+	KEEP_DEPENDENCIES,
+	## 移除仅由当前能力自动补齐且未被显式添加的依赖能力。
+	REMOVE_AUTO_DEPENDENCIES,
+}
 ```
 
 移除能力时自动补齐依赖的清理策略。

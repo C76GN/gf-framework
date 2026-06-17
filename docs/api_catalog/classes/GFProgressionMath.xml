@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFProgressionMath" path="addons/gf/standard/foundation/math/gf_progression_math.gd" module="standard" extends="RefCounted" classDigest="b3ba4aab752515716ec2700a49d2fab30641f38a693a2c33d49cc3ebc825c4cb">
+<class name="GFProgressionMath" path="addons/gf/standard/foundation/math/gf_progression_math.gd" module="standard" extends="RefCounted" classDigest="c7ad0b26fa3bf1560923bbb3fa96557859870576c4520d836d95f1dcba321d84">
 	<description>GFProgressionMath: 挂机与模拟经营项目的纯进度曲线数学工具。
 负责价格曲线、收益曲线、里程碑倍率、软上限与分段式离线收益结算。
 它不依赖 GFArchitecture，可直接与 JSON、CSV 或外部工具导出的配置字典配合使用。</description>
@@ -11,7 +11,14 @@
 	<signals />
 	<enums>
 		<member kind="enum" name="CurveMode">
-			<signature>enum CurveMode { ## 常量曲线。 CONSTANT, ## 线性曲线。 LINEAR, ## 指数曲线。 EXPONENTIAL, }</signature>
+			<signature>enum CurveMode {
+	## 常量曲线。
+	CONSTANT,
+	## 线性曲线。
+	LINEAR,
+	## 指数曲线。
+	EXPONENTIAL,
+}</signature>
 			<description>支持的基础曲线类型。</description>
 			<tags>
 				<tag name="api">public</tag>

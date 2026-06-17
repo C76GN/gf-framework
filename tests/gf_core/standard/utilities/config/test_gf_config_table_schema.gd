@@ -432,6 +432,21 @@ func test_resource_and_localization_rules_accept_valid_values() -> void:
 	assert_true(GFVariantData.get_option_bool(report, "ok"), "存在的 Godot 资源路径和显式文本 key 应通过校验。")
 
 
+func test_resource_path_rule_accepts_uid_paths_with_resolved_extension() -> void:
+	var script_path: String = "res://addons/gf/standard/utilities/config/gf_config_provider.gd"
+	var uid: int = ResourceLoader.get_resource_uid(script_path)
+	assert_ne(uid, ResourceUID.INVALID_ID, "测试脚本资源应具有 Godot UID。")
+	var resource_path: GFConfigResourcePathValidationRule = GFConfigResourcePathValidationRule.new()
+	resource_path.allowed_extensions = PackedStringArray(["gd"])
+
+	var report: Dictionary = resource_path.validate_value(ResourceUID.id_to_text(uid), {
+		"table_name": &"assets",
+		"field": &"path",
+	})
+
+	assert_true(GFVariantData.get_option_bool(report, "ok"), "uid:// 资源路径应按真实资源扩展名通过校验。")
+
+
 func test_schema_and_rules_surface_actionable_issue_context() -> void:
 	var schema: GFConfigTableSchema = _make_item_schema()
 	var kind_column: GFConfigTableColumn = _make_column(&"kind", GFConfigTableColumn.ValueType.STRING)

@@ -53,7 +53,12 @@
 - API：`public`
 
 ```gdscript
-enum Format { ## 稳定排序后的 JSON 文本。 JSON, ## Godot Variant 二进制格式。 BINARY, }
+enum Format {
+	## 稳定排序后的 JSON 文本。
+	JSON,
+	## Godot Variant 二进制格式。
+	BINARY,
+}
 ```
 
 存档载荷序列化格式。

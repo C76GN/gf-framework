@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFInputTrigger" path="addons/gf/standard/input/triggers/gf_input_trigger.gd" module="standard" extends="Resource" classDigest="038503b7d6ab9e4c477acd42bc4ad4e98d5cd8713beb87a85d8a759b4b535dcd">
+<class name="GFInputTrigger" path="addons/gf/standard/input/triggers/gf_input_trigger.gd" module="standard" extends="Resource" classDigest="110b13e9aeb6cb6fae79122cd1c28e38ba6deb0d1980fc130ba91eed3105ab25">
 	<description>GFInputTrigger: 输入动作触发器基类。
 触发器只决定“原始输入活跃后何时视为动作活跃”，不修改输入值。运行时状态由
 GFInputMappingUtility 传入的 Dictionary 保存，因此同一资源可被多个上下文复用。</description>
@@ -11,7 +11,14 @@ GFInputMappingUtility 传入的 Dictionary 保存，因此同一资源可被多�
 	<signals />
 	<enums>
 		<member kind="enum" name="TriggerState">
-			<signature>enum TriggerState { ## 输入未达到触发条件。 INACTIVE, ## 输入正在等待触发条件，例如长按计时中。 ONGOING, ## 输入已满足触发条件。 TRIGGERED, }</signature>
+			<signature>enum TriggerState {
+	## 输入未达到触发条件。
+	INACTIVE,
+	## 输入正在等待触发条件，例如长按计时中。
+	ONGOING,
+	## 输入已满足触发条件。
+	TRIGGERED,
+}</signature>
 			<description>触发器本次更新后的动作状态。</description>
 			<tags>
 				<tag name="api">public</tag>

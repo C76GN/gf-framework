@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFUIRouterUtility" path="addons/gf/standard/utilities/ui/gf_ui_router_utility.gd" module="standard" extends="GFUtility" classDigest="21be178041c158b5add40b7c34960d3420a89fd7b007cd04fb9c3fa604d94107">
+<class name="GFUIRouterUtility" path="addons/gf/standard/utilities/ui/gf_ui_router_utility.gd" module="standard" extends="GFUtility" classDigest="57fa2036f719df1f65e8fcf0c93102f0ae6f574afd5450b8e6505ea70e9fa436">
 	<description>GFUIRouterUtility: 基于路由 ID 的 UI 导航工具。
 作为 GFUIUtility 之上的轻量路由层，负责把稳定 route_id 映射到面板场景、
 打开参数、层级和历史记录，不接管具体页面业务或动画表现。</description>
@@ -51,7 +51,12 @@
 	</signals>
 	<enums>
 		<member kind="enum" name="Operation">
-			<signature>enum Operation { ## 压入当前层级栈顶。 PUSH, ## 替换当前层级栈。 REPLACE, }</signature>
+			<signature>enum Operation {
+	## 压入当前层级栈顶。
+	PUSH,
+	## 替换当前层级栈。
+	REPLACE,
+}</signature>
 			<description>路由打开操作。</description>
 			<tags>
 				<tag name="api">public</tag>

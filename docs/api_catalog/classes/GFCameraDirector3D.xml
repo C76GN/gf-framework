@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFCameraDirector3D" path="addons/gf/extensions/camera/nodes/gf_camera_director_3d.gd" module="extensions/camera" extends="Node" classDigest="f4cb857ef5d1ac0415073d750ba6b3925f65b024a3dfc097cda92d1251f91dc3">
+<class name="GFCameraDirector3D" path="addons/gf/extensions/camera/nodes/gf_camera_director_3d.gd" module="extensions/camera" extends="Node" classDigest="bcc0d11172a8cba4a80541a164d3a0ce7b65cc67f1a881dc5600a7a4a95e8f1e">
 	<description>GFCameraDirector3D: 通用 3D 相机编排节点。
 Director 从显式路径或分组中收集 GFCameraRig3D，按优先级选择当前 Rig，
 并把过渡后的 Transform 应用到 Camera3D。它不规定目标含义、输入来源或业务流程。</description>
@@ -29,7 +29,14 @@ Director 从显式路径或分组中收集 GFCameraRig3D，按优先级选择当
 	</signals>
 	<enums>
 		<member kind="enum" name="UpdateMode">
-			<signature>enum UpdateMode { ## 在 _process 中更新。 IDLE, ## 在 _physics_process 中更新。 PHYSICS, ## 只在 process_camera() 被显式调用时更新。 MANUAL, }</signature>
+			<signature>enum UpdateMode {
+	## 在 _process 中更新。
+	IDLE,
+	## 在 _physics_process 中更新。
+	PHYSICS,
+	## 只在 process_camera() 被显式调用时更新。
+	MANUAL,
+}</signature>
 			<description>Director 自动更新模式。</description>
 			<tags>
 				<tag name="api">public</tag>

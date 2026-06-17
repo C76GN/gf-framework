@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFDebugDrawUtility" path="addons/gf/standard/utilities/debug/gf_debug_draw_utility.gd" module="standard" extends="GFUtility" classDigest="c0313d819f3e113867ff48f7a164461fafd8cab84df77b23084d4d36133ce2a9">
+<class name="GFDebugDrawUtility" path="addons/gf/standard/utilities/debug/gf_debug_draw_utility.gd" module="standard" extends="GFUtility" classDigest="12b89cac024ac619873d3eed1fa0e9b9e764a1ef3cb5034139be6ee6fb802d82">
 	<description>GFDebugDrawUtility: 通用调试绘制命令缓冲。
 收集 2D/3D 线段、矩形、圆、文本等即时调试绘制命令。
 Utility 只维护抽象命令和生命周期，具体渲染可由项目层 Overlay/Viewport 适配。</description>
@@ -19,7 +19,24 @@ Utility 只维护抽象命令和生命周期，具体渲染可由项目层 Overl
 	</signals>
 	<enums>
 		<member kind="enum" name="PrimitiveType">
-			<signature>enum PrimitiveType { ## 2D 线段命令。 LINE_2D, ## 2D 矩形命令。 RECT_2D, ## 2D 圆形命令。 CIRCLE_2D, ## 2D 文本命令。 TEXT_2D, ## 3D 线段命令。 LINE_3D, ## 3D AABB 盒命令。 BOX_3D, ## 3D 文本命令。 TEXT_3D, ## 项目自定义命令。 CUSTOM, }</signature>
+			<signature>enum PrimitiveType {
+	## 2D 线段命令。
+	LINE_2D,
+	## 2D 矩形命令。
+	RECT_2D,
+	## 2D 圆形命令。
+	CIRCLE_2D,
+	## 2D 文本命令。
+	TEXT_2D,
+	## 3D 线段命令。
+	LINE_3D,
+	## 3D AABB 盒命令。
+	BOX_3D,
+	## 3D 文本命令。
+	TEXT_3D,
+	## 项目自定义命令。
+	CUSTOM,
+}</signature>
 			<description>调试绘制命令类型。</description>
 			<tags>
 				<tag name="api">public</tag>

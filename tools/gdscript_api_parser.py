@@ -373,10 +373,10 @@ def collect_block_signature(lines: list[str], start: int) -> tuple[str, int]:
 	i = start
 	while depth > 0 and i + 1 < len(lines):
 		i += 1
-		part = lines[i].strip()
+		part = lines[i].rstrip()
 		parts.append(part)
 		depth += brace_delta(part)
-	return " ".join(parts), i + 1
+	return "\n".join(parts), i + 1
 
 
 def parse_function_name(signature: str) -> str:

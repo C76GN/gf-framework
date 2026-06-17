@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFCombatAction" path="addons/gf/extensions/combat/actions/gf_combat_action.gd" module="extensions/combat" extends="Resource" classDigest="727a6cea0eebe5dec427d39f1684f71aa6123a98829a76596533e399920ef95d">
+<class name="GFCombatAction" path="addons/gf/extensions/combat/actions/gf_combat_action.gd" module="extensions/combat" extends="Resource" classDigest="ac1c52bc59df55f4611dea7108a5f1b383f01691083db6592c49c31ff265c613">
 	<description>GFCombatAction: 通用战斗动作数据。
 表达一次对目标系统可解释的数值动作。框架只保存动作类别、操作、数值、
 标签和元数据，不规定伤害、治疗、阵营或生命值语义。</description>
@@ -11,7 +11,14 @@
 	<signals />
 	<enums>
 		<member kind="enum" name="Operation">
-			<signature>enum Operation { ## 增加目标值。 ADD, ## 减少目标值。 SUBTRACT, ## 直接设置目标值。 SET, }</signature>
+			<signature>enum Operation {
+	## 增加目标值。
+	ADD,
+	## 减少目标值。
+	SUBTRACT,
+	## 直接设置目标值。
+	SET,
+}</signature>
 			<description>数值操作类型。</description>
 			<tags>
 				<tag name="api">public</tag>

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFBehaviorTree" path="addons/gf/extensions/behavior_tree/runtime/gf_behavior_tree.gd" module="extensions/behavior_tree" extends="Object" classDigest="4d07a9265553ebe293bcc9c43085ecfe7b37259042804a9b0f891b71c2babd1e">
+<class name="GFBehaviorTree" path="addons/gf/extensions/behavior_tree/runtime/gf_behavior_tree.gd" module="extensions/behavior_tree" extends="Object" classDigest="622ac6438ae3ab0ab3c370cd289e205d110cdf1b4023e7a69e27c274f80cdaab">
 	<description>GFBehaviorTree: 轻量级、纯代码的行为树实现。
 提供无需编辑器的、以代码方式构建 AI 或通用决策逻辑的轻量方案。
 可以在任何 System 中通过 Runner 来驱动 tick()。核心节点包含
@@ -12,14 +12,30 @@ Sequence、Selector、Parallel、Action、Condition 以及常用装饰节点。<
 	<signals />
 	<enums>
 		<member kind="enum" name="Status">
-			<signature>enum Status { ## 节点尚未被 tick。 FRESH = -1, ## 节点本次执行成功。 SUCCESS = 0, ## 节点本次执行失败。 FAILURE = 1, ## 节点仍在运行，需要后续 tick 继续推进。 RUNNING = 2, ## 节点被外部中止。 ABORTED = 3, }</signature>
+			<signature>enum Status {
+	## 节点尚未被 tick。
+	FRESH = -1,
+	## 节点本次执行成功。
+	SUCCESS = 0,
+	## 节点本次执行失败。
+	FAILURE = 1,
+	## 节点仍在运行，需要后续 tick 继续推进。
+	RUNNING = 2,
+	## 节点被外部中止。
+	ABORTED = 3,
+}</signature>
 			<description>行为树节点的执行状态。</description>
 			<tags>
 				<tag name="api">public</tag>
 			</tags>
 		</member>
 		<member kind="enum" name="ParallelPolicy">
-			<signature>enum ParallelPolicy { ## 所有子节点成功才成功，任意子节点失败即失败。 REQUIRE_ALL, ## 任意子节点成功即成功，所有子节点失败才失败。 REQUIRE_ONE, }</signature>
+			<signature>enum ParallelPolicy {
+	## 所有子节点成功才成功，任意子节点失败即失败。
+	REQUIRE_ALL,
+	## 任意子节点成功即成功，所有子节点失败才失败。
+	REQUIRE_ONE,
+}</signature>
 			<description>Parallel 节点的完成策略。</description>
 			<tags>
 				<tag name="api">public</tag>

@@ -38,7 +38,18 @@
 - API：`public`
 
 ```gdscript
-enum Resolution { ## 尚未决定。 UNRESOLVED, ## 使用本地值。 USE_LOCAL, ## 使用远端值。 USE_REMOTE, ## 使用合并后的值。 MERGED, ## 跳过该冲突。 SKIPPED, }
+enum Resolution {
+	## 尚未决定。
+	UNRESOLVED,
+	## 使用本地值。
+	USE_LOCAL,
+	## 使用远端值。
+	USE_REMOTE,
+	## 使用合并后的值。
+	MERGED,
+	## 跳过该冲突。
+	SKIPPED,
+}
 ```
 
 冲突解决策略。

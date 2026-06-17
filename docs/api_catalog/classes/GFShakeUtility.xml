@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFShakeUtility" path="addons/gf/extensions/feedback/runtime/gf_shake_utility.gd" module="extensions/feedback" extends="GFUtility" classDigest="20468588e4d62e7e57a0e7297af461fa60359b9c93b71b5f8025621d0927d747">
+<class name="GFShakeUtility" path="addons/gf/extensions/feedback/runtime/gf_shake_utility.gd" module="extensions/feedback" extends="GFUtility" classDigest="33ee6b4e887e6e5bfe5045255bb0067c54c8b1a10f6a14ea1d593758b93b26d3">
 	<description>GFShakeUtility: 通用反馈播放与采样工具。
 管理命名 channel 上的 `GFShakePreset` 播放状态，项目可按需把采样结果应用到
 Camera、Node2D、Node3D、Control 或任意自定义表现对象。</description>
@@ -39,7 +39,12 @@ Camera、Node2D、Node3D、Control 或任意自定义表现对象。</descriptio
 	</signals>
 	<enums>
 		<member kind="enum" name="OverflowPolicy">
-			<signature>enum OverflowPolicy { ## 跳过新的播放请求。 SKIP_NEW, ## 停止最早的播放实例。 STOP_OLDEST, }</signature>
+			<signature>enum OverflowPolicy {
+	## 跳过新的播放请求。
+	SKIP_NEW,
+	## 停止最早的播放实例。
+	STOP_OLDEST,
+}</signature>
 			<description>活跃反馈达到上限时的处理方式。</description>
 			<tags>
 				<tag name="api">public</tag>

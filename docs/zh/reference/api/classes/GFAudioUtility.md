@@ -119,7 +119,12 @@ signal bgm_finished(history_key: String)
 - API：`public`
 
 ```gdscript
-enum SFXOverflowPolicy { ## 跳过新的 SFX 请求。 SKIP_NEW, ## 停止最早播放的 SFX，并播放新的请求。 STOP_OLDEST, }
+enum SFXOverflowPolicy {
+	## 跳过新的 SFX 请求。
+	SKIP_NEW,
+	## 停止最早播放的 SFX，并播放新的请求。
+	STOP_OLDEST,
+}
 ```
 
 SFX 超出并发上限时的处理策略。

@@ -147,7 +147,16 @@ signal monitor_sampled(monitor_id: StringName, sample: Dictionary)
 - API：`public`
 
 ```gdscript
-enum CommandTier { ## 只读取状态。 OBSERVE, ## 修改调试输入或临时过滤条件。 INPUT, ## 控制运行时行为。 CONTROL, ## 可能破坏状态、存档或远端连接。 DANGER, }
+enum CommandTier {
+	## 只读取状态。
+	OBSERVE,
+	## 修改调试输入或临时过滤条件。
+	INPUT,
+	## 控制运行时行为。
+	CONTROL,
+	## 可能破坏状态、存档或远端连接。
+	DANGER,
+}
 ```
 
 诊断命令风险等级。

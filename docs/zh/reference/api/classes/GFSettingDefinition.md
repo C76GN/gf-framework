@@ -35,7 +35,30 @@
 - API：`public`
 
 ```gdscript
-enum ValueType { ## 不做类型转换。 ANY, ## 布尔值。 BOOL, ## 整数。 INT, ## 浮点数。 FLOAT, ## 字符串。 STRING, ## StringName。 STRING_NAME, ## Vector2。 VECTOR2, ## Vector2i。 VECTOR2I, ## Color。 COLOR, ## Dictionary。 DICTIONARY, ## Array。 ARRAY, }
+enum ValueType {
+	## 不做类型转换。
+	ANY,
+	## 布尔值。
+	BOOL,
+	## 整数。
+	INT,
+	## 浮点数。
+	FLOAT,
+	## 字符串。
+	STRING,
+	## StringName。
+	STRING_NAME,
+	## Vector2。
+	VECTOR2,
+	## Vector2i。
+	VECTOR2I,
+	## Color。
+	COLOR,
+	## Dictionary。
+	DICTIONARY,
+	## Array。
+	ARRAY,
+}
 ```
 
 设置值类型，用于运行时输入钳制和持久化恢复。

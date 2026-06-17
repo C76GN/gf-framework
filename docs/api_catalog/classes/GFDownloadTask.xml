@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFDownloadTask" path="addons/gf/standard/utilities/io/gf_download_task.gd" module="standard" extends="RefCounted" classDigest="5e3e7fd5aa13e040da4125432ceb7011449828dd2f05c49c002092ed1c2f8233">
+<class name="GFDownloadTask" path="addons/gf/standard/utilities/io/gf_download_task.gd" module="standard" extends="RefCounted" classDigest="2a990a9de185fdb5d37fd4012d133e36d4279c46f7c9aaeddf3b559591a75ed3">
 	<description>GFDownloadTask: 通用下载任务描述。
 只记录下载 URL、目标路径、校验信息和运行状态，不假设下载内容的业务语义。</description>
 	<tags>
@@ -10,7 +10,20 @@
 	<signals />
 	<enums>
 		<member kind="enum" name="Status">
-			<signature>enum Status { ## 已加入队列。 QUEUED, ## 正在下载。 RUNNING, ## 已暂停，等待恢复。 PAUSED, ## 已完成。 COMPLETED, ## 已失败。 FAILED, ## 已取消。 CANCELLED, }</signature>
+			<signature>enum Status {
+	## 已加入队列。
+	QUEUED,
+	## 正在下载。
+	RUNNING,
+	## 已暂停，等待恢复。
+	PAUSED,
+	## 已完成。
+	COMPLETED,
+	## 已失败。
+	FAILED,
+	## 已取消。
+	CANCELLED,
+}</signature>
 			<description>下载任务状态。</description>
 			<tags>
 				<tag name="api">public</tag>

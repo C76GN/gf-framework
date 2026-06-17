@@ -37,7 +37,12 @@
 - 首次版本：`3.24.0`
 
 ```gdscript
-enum ParallelCompletionPolicy { ## 等待所有需要等待的子动作完成。 WAIT_FOR_ALL, ## 任一子动作完成后就结束动作组。 FIRST_COMPLETED, }
+enum ParallelCompletionPolicy {
+	## 等待所有需要等待的子动作完成。
+	WAIT_FOR_ALL,
+	## 任一子动作完成后就结束动作组。
+	FIRST_COMPLETED,
+}
 ```
 
 并行动作组何时视为完成。

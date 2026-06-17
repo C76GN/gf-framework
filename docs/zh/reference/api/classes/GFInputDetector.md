@@ -80,7 +80,16 @@ signal input_detected(input_event: InputEvent)
 - API：`public`
 
 ```gdscript
-enum DeviceType { ## 键盘输入。 KEYBOARD, ## 鼠标输入。 MOUSE, ## 手柄按钮或轴输入。 JOYPAD, ## 触屏输入。 TOUCH, }
+enum DeviceType {
+	## 键盘输入。
+	KEYBOARD,
+	## 鼠标输入。
+	MOUSE,
+	## 手柄按钮或轴输入。
+	JOYPAD,
+	## 触屏输入。
+	TOUCH,
+}
 ```
 
 设备过滤类型。
@@ -92,7 +101,18 @@ enum DeviceType { ## 键盘输入。 KEYBOARD, ## 鼠标输入。 MOUSE, ## 手�
 - API：`public`
 
 ```gdscript
-enum DetectionState { ## 未检测。 IDLE, ## 倒计时中。 COUNTDOWN, ## 等待取消输入释放。 PRE_CLEAR, ## 正在接收候选输入。 DETECTING, ## 等待检测到的输入释放。 POST_CLEAR, }
+enum DetectionState {
+	## 未检测。
+	IDLE,
+	## 倒计时中。
+	COUNTDOWN,
+	## 等待取消输入释放。
+	PRE_CLEAR,
+	## 正在接收候选输入。
+	DETECTING,
+	## 等待检测到的输入释放。
+	POST_CLEAR,
+}
 ```
 
 检测阶段。

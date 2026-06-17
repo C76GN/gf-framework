@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFRuntimeTunableProperty" path="addons/gf/standard/utilities/debug/gf_runtime_tunable_property.gd" module="standard" extends="Resource" classDigest="ba284e46dd93f4dd22fc42b4c9e333307403d9b12d0647b5077b9f69fc7ac83f">
+<class name="GFRuntimeTunableProperty" path="addons/gf/standard/utilities/debug/gf_runtime_tunable_property.gd" module="standard" extends="Resource" classDigest="d54de8ff83a850d1c7ae59ece9c55fa4f329e62d620fe3696c880a8f9655a45c">
 	<description>GFRuntimeTunableProperty: 运行时可调属性声明。
 用显式 schema 描述一个目标对象上允许被运行时工具读取或写入的属性。
 它不自动扫描业务对象，也不决定具体调参界面。</description>
@@ -11,7 +11,26 @@
 	<signals />
 	<enums>
 		<member kind="enum" name="ValueKind">
-			<signature>enum ValueKind { ## 不转换类型。 ANY, ## 布尔值。 BOOL, ## 整数。 INT, ## 浮点数。 FLOAT, ## 字符串。 STRING, ## StringName。 STRING_NAME, ## Vector2。 VECTOR2, ## Vector3。 VECTOR3, ## Color。 COLOR, }</signature>
+			<signature>enum ValueKind {
+	## 不转换类型。
+	ANY,
+	## 布尔值。
+	BOOL,
+	## 整数。
+	INT,
+	## 浮点数。
+	FLOAT,
+	## 字符串。
+	STRING,
+	## StringName。
+	STRING_NAME,
+	## Vector2。
+	VECTOR2,
+	## Vector3。
+	VECTOR3,
+	## Color。
+	COLOR,
+}</signature>
 			<description>运行时值类型约束。</description>
 			<tags>
 				<tag name="api">public</tag>

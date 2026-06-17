@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFHttpRequestBuilder" path="addons/gf/standard/utilities/io/gf_http_request_builder.gd" module="standard" extends="RefCounted" classDigest="2928e331a50309bea0001e6ed8e13a6a7642319c9f5341c32e535ac78fd6ef36">
+<class name="GFHttpRequestBuilder" path="addons/gf/standard/utilities/io/gf_http_request_builder.gd" module="standard" extends="RefCounted" classDigest="2f929bd33c8691af0a00cd3114bf099a8f1abfa6a39d6ad3513d68014c12a07f">
 	<description>GFHttpRequestBuilder: 通用 HTTP 请求构建器。
 负责整理 URL、query、headers、body、timeout 和响应解析策略。
 它只封装 Godot HTTPRequest 的通用流程，不内置任何具体服务、鉴权或业务接口。</description>
@@ -11,14 +11,34 @@
 	<signals />
 	<enums>
 		<member kind="enum" name="Method">
-			<signature>enum Method { ## HTTP GET。 GET, ## HTTP POST。 POST, ## HTTP PUT。 PUT, ## HTTP PATCH。 PATCH, ## HTTP DELETE。 DELETE, ## HTTP HEAD。 HEAD, }</signature>
+			<signature>enum Method {
+	## HTTP GET。
+	GET,
+	## HTTP POST。
+	POST,
+	## HTTP PUT。
+	PUT,
+	## HTTP PATCH。
+	PATCH,
+	## HTTP DELETE。
+	DELETE,
+	## HTTP HEAD。
+	HEAD,
+}</signature>
 			<description>HTTP 请求方法。</description>
 			<tags>
 				<tag name="api">public</tag>
 			</tags>
 		</member>
 		<member kind="enum" name="ParseMode">
-			<signature>enum ParseMode { ## 不解析响应体。 NONE, ## 按 UTF-8 文本解析。 TEXT, ## 按 JSON 解析。 JSON, }</signature>
+			<signature>enum ParseMode {
+	## 不解析响应体。
+	NONE,
+	## 按 UTF-8 文本解析。
+	TEXT,
+	## 按 JSON 解析。
+	JSON,
+}</signature>
 			<description>响应体解析模式。</description>
 			<tags>
 				<tag name="api">public</tag>

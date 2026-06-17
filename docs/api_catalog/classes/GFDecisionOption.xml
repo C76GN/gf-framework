@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFDecisionOption" path="addons/gf/extensions/decision/resources/gf_decision_option.gd" module="extensions/decision" extends="Resource" classDigest="e246df0a74b6ae8d1fc35f6c01b547998d98bb4b0b3a9b03fd2eed9010962253">
+<class name="GFDecisionOption" path="addons/gf/extensions/decision/resources/gf_decision_option.gd" module="extensions/decision" extends="Resource" classDigest="f4e430489095f906dcb654679a8a2976917d28815522672a2782439383a51fe3">
 	<description>GFDecisionOption: 可评分的候选决策资源。
 候选决策由一组 GFDecisionConsideration 评分，并按聚合策略得到最终效用分数。
 它描述“如何比较候选”，不执行具体业务动作。</description>
@@ -11,7 +11,18 @@
 	<signals />
 	<enums>
 		<member kind="enum" name="Aggregation">
-			<signature>enum Aggregation { ## 将 base_score 与各考虑项分数相乘，权重作为指数影响。 MULTIPLY, ## 按考虑项权重计算平均值，再乘以 base_score。 WEIGHTED_AVERAGE, ## 将 base_score 与加权分数相加，并钳制到 0 到 1。 SUM, ## 使用所有考虑项中的最低分。 MIN, ## 使用所有考虑项中的最高分。 MAX, }</signature>
+			<signature>enum Aggregation {
+	## 将 base_score 与各考虑项分数相乘，权重作为指数影响。
+	MULTIPLY,
+	## 按考虑项权重计算平均值，再乘以 base_score。
+	WEIGHTED_AVERAGE,
+	## 将 base_score 与加权分数相加，并钳制到 0 到 1。
+	SUM,
+	## 使用所有考虑项中的最低分。
+	MIN,
+	## 使用所有考虑项中的最高分。
+	MAX,
+}</signature>
 			<description>候选分数聚合策略。</description>
 			<tags>
 				<tag name="api">public</tag>

@@ -47,7 +47,14 @@
 - API：`public`
 
 ```gdscript
-enum EntryIdMode { ## 使用文件名，不包含扩展名。 BASENAME, ## 使用相对 base_path 的路径，不包含扩展名。 RELATIVE_PATH, ## 使用完整资源路径，不包含扩展名。 FULL_PATH, }
+enum EntryIdMode {
+	## 使用文件名，不包含扩展名。
+	BASENAME,
+	## 使用相对 base_path 的路径，不包含扩展名。
+	RELATIVE_PATH,
+	## 使用完整资源路径，不包含扩展名。
+	FULL_PATH,
+}
 ```
 
 从资源路径生成条目 ID 的方式。

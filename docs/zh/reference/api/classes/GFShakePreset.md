@@ -45,7 +45,16 @@
 - API：`public`
 
 ```gdscript
-enum Waveform { ## 正弦波，适合可预期的摆动。 SINE, ## 逐步随机值，适合冲击感。 RANDOM, ## 平滑随机值，适合持续扰动。 NOISE, ## 使用 wave_curve 采样，曲线值 0.5 表示零偏移。 CURVE, }
+enum Waveform {
+	## 正弦波，适合可预期的摆动。
+	SINE,
+	## 逐步随机值，适合冲击感。
+	RANDOM,
+	## 平滑随机值，适合持续扰动。
+	NOISE,
+	## 使用 wave_curve 采样，曲线值 0.5 表示零偏移。
+	CURVE,
+}
 ```
 
 反馈采样波形。

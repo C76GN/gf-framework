@@ -61,6 +61,15 @@ extends Resource
 ## @schema spatial_settings: GFAudioSpatialSettings or compatible Resource with apply_to_2d/apply_to_3d methods.
 @export var spatial_settings: Resource = null
 
+## 可选音频元数据，供导入器、编辑器或项目层扩展使用。
+## [br]
+## @api public
+## [br]
+## @since 5.1.0
+## [br]
+## @schema metadata: Dictionary，保存项目或工具附加到片段的通用元数据；GF 不解释具体键。
+@export var metadata: Dictionary = {}
+
 
 # --- 公共方法 ---
 
@@ -108,3 +117,71 @@ func resolve_pitch(rng: RandomNumberGenerator = null) -> float:
 	else:
 		random_scale = min_pitch
 	return clampf(pitch_scale * random_scale, 0.01, 16.0)
+
+
+## 检查指定元数据键是否存在。
+## [br]
+## @api public
+## [br]
+## @since 5.1.0
+## [br]
+## @param key: 元数据键。
+## [br]
+## @schema key: Variant，推荐使用 String 或 StringName。
+## [br]
+## @return 存在返回 true。
+func has_metadata_value(key: Variant) -> bool:
+	return metadata.has(key)
+
+
+## 设置元数据项。
+## [br]
+## @api public
+## [br]
+## @since 5.1.0
+## [br]
+## @param key: 元数据键。
+## [br]
+## @schema key: Variant，推荐使用 String 或 StringName。
+## [br]
+## @param value: 元数据值。
+## [br]
+## @schema value: Variant，推荐使用可序列化的标量、Array、Dictionary 或 Resource 引用。
+func set_metadata_value(key: Variant, value: Variant) -> void:
+	metadata[key] = GFVariantData.duplicate_variant(value)
+
+
+## 获取元数据项。
+## [br]
+## @api public
+## [br]
+## @since 5.1.0
+## [br]
+## @param key: 元数据键。
+## [br]
+## @schema key: Variant，推荐使用 String 或 StringName。
+## [br]
+## @param default_value: 缺少键时返回的默认值。
+## [br]
+## @schema default_value: Variant 默认值。
+## [br]
+## @return 元数据值或默认值。
+## [br]
+## @schema return: Variant 元数据值。
+func get_metadata_value(key: Variant, default_value: Variant = null) -> Variant:
+	if metadata.has(key):
+		return metadata[key]
+	return default_value
+
+
+## 创建元数据深拷贝。
+## [br]
+## @api public
+## [br]
+## @since 5.1.0
+## [br]
+## @return 元数据副本。
+## [br]
+## @schema return: Dictionary 元数据副本。
+func duplicate_metadata() -> Dictionary:
+	return GFVariantData.duplicate_metadata(metadata)

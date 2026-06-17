@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFNotificationUtility" path="addons/gf/standard/utilities/ui/gf_notification_utility.gd" module="standard" extends="GFUtility" classDigest="772fb6fef281e8c0154db0d75a734da00d65e0f6c99fedffa0e6b8eab493f56b">
+<class name="GFNotificationUtility" path="addons/gf/standard/utilities/ui/gf_notification_utility.gd" module="standard" extends="GFUtility" classDigest="7b0777d500efb3334142f69646afdc946e3219c68e1561539e815d71dc2788f3">
 	<description>GFNotificationUtility: 通用运行时通知队列。
 只管理通知数据、队列、去重和生命周期信号，不规定 Toast、HUD 或编辑器 UI 样式。</description>
 	<tags>
@@ -49,14 +49,32 @@
 	</signals>
 	<enums>
 		<member kind="enum" name="Level">
-			<signature>enum Level { ## 普通信息。 INFO, ## 成功反馈。 SUCCESS, ## 警告信息。 WARNING, ## 错误信息。 ERROR, }</signature>
+			<signature>enum Level {
+	## 普通信息。
+	INFO,
+	## 成功反馈。
+	SUCCESS,
+	## 警告信息。
+	WARNING,
+	## 错误信息。
+	ERROR,
+}</signature>
 			<description>通知等级。</description>
 			<tags>
 				<tag name="api">public</tag>
 			</tags>
 		</member>
 		<member kind="enum" name="Priority">
-			<signature>enum Priority { ## 低优先级。 LOW, ## 默认优先级。 NORMAL, ## 高优先级。 HIGH, ## 最高优先级。 CRITICAL, }</signature>
+			<signature>enum Priority {
+	## 低优先级。
+	LOW,
+	## 默认优先级。
+	NORMAL,
+	## 高优先级。
+	HIGH,
+	## 最高优先级。
+	CRITICAL,
+}</signature>
 			<description>通知优先级。数值越大越靠前。</description>
 			<tags>
 				<tag name="api">public</tag>

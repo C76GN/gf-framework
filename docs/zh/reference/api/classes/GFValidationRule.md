@@ -38,7 +38,22 @@
 - API：`public`
 
 ```gdscript
-enum TargetKind { ## 接受任意目标。 ANY, ## 接受 Node。 NODE, ## 接受 Resource。 RESOURCE, ## 接受 PackedScene。 PACKED_SCENE, ## 接受 Dictionary。 DICTIONARY, ## 接受 Array。 ARRAY, ## 接受 Object。 OBJECT, }
+enum TargetKind {
+	## 接受任意目标。
+	ANY,
+	## 接受 Node。
+	NODE,
+	## 接受 Resource。
+	RESOURCE,
+	## 接受 PackedScene。
+	PACKED_SCENE,
+	## 接受 Dictionary。
+	DICTIONARY,
+	## 接受 Array。
+	ARRAY,
+	## 接受 Object。
+	OBJECT,
+}
 ```
 
 规则适用的目标类型。

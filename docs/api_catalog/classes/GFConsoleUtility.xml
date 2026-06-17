@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFConsoleUtility" path="addons/gf/standard/utilities/debug/gf_console_utility.gd" module="standard" extends="GFUtility" classDigest="5bac4775c84b1ef66de342c12f5de945a82c7da3a0e01d1f486a0a5de715b0fc">
+<class name="GFConsoleUtility" path="addons/gf/standard/utilities/debug/gf_console_utility.gd" module="standard" extends="GFUtility" classDigest="6ec825307c54ec391e4562fb144ba365b2e0b31ccf578d275a59c80e32edd06c">
 	<description>GFConsoleUtility: 运行时开发者控制台。
 提供命令注册、解析与执行能力，并在初始化时构建覆盖全屏的调试 GUI。
 默认通过快捷键呼出，同时会消费 `GFLogUtility` 的日志信号进行彩色输出。</description>
@@ -11,7 +11,14 @@
 	<signals />
 	<enums>
 		<member kind="enum" name="CommandTier">
-			<signature>enum CommandTier { ## 只读观察类命令。 OBSERVE, ## 会改变运行时状态的控制类命令。 CONTROL, ## 删档、跳关、重连等高风险命令。 DANGER, }</signature>
+			<signature>enum CommandTier {
+	## 只读观察类命令。
+	OBSERVE,
+	## 会改变运行时状态的控制类命令。
+	CONTROL,
+	## 删档、跳关、重连等高风险命令。
+	DANGER,
+}</signature>
 			<description>控制台命令风险等级。</description>
 			<tags>
 				<tag name="api">public</tag>
