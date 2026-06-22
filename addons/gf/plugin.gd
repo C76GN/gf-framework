@@ -96,8 +96,8 @@ var _standard_editor_extension_records: Dictionary = {}
 func _enter_tree() -> void:
 	_plugin_active = true
 	GFPluginAutoload.ensure(self)
-	GFPluginProjectSettings.ensure_all()
 	_standard_editor_extension_records = _collect_standard_editor_extension_records()
+	GFPluginProjectSettings.ensure_all(_get_record_array(_standard_editor_extension_records, "project_setting_records"))
 
 	_inspector_tools = GFPluginInspectorTools.new()
 	_inspector_tools.setup(self, _standard_editor_extension_records)
@@ -166,12 +166,14 @@ func _collect_standard_editor_extension_records() -> Dictionary:
 			"export_plugin_records": [],
 			"dock_records": [],
 			"template_records": [],
+			"project_setting_records": [],
 		}
 	return {
 		"inspector_plugin_records": _call_record_array(standard_editor_script, &"get_inspector_plugin_records"),
 		"export_plugin_records": _call_record_array(standard_editor_script, &"get_export_plugin_records"),
 		"dock_records": _call_record_array(standard_editor_script, &"get_dock_records"),
 		"template_records": _call_record_array(standard_editor_script, &"get_template_records"),
+		"project_setting_records": _call_record_array(standard_editor_script, &"get_project_setting_records"),
 	}
 
 

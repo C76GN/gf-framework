@@ -191,6 +191,7 @@ python tools\gf_maintenance.py api-class GFValidationReportDictionary
 python tools\gf_maintenance.py api-module extensions/domain
 python tools\generate_api_coverage_matrix.py
 python tools\gf_maintenance.py check --suite quick
+python tools\gf_maintenance.py check --suite package
 python tools\gf_maintenance.py check --suite full
 python tools\gf_maintenance.py release-status --version 3.19.0
 ```
@@ -202,7 +203,7 @@ MCP 暴露的主要工具：
 - `gf_api_search`：按类名、成员名、路径或注释搜索 GF API，避免一次性读取大量源码。
 - `gf_api_class`：返回单个 `class_name` 的路径、摘要、Reference 页面和公开成员。
 - `gf_api_module`：返回单个模块的类清单、路径和成员计数，适合先理解模块边界再打开具体源码。
-- `gf_run_checks`：运行 `api`、`docs`、`quick`、`full` 或 `release` 检查套件。
+- `gf_run_checks`：运行 `api`、`docs`、`quick`、`package`、`full` 或 `release` 检查套件。
 - `gf_release_status`：校验 `plugin.cfg`、扩展 manifest、`ASSET_LIBRARY.md`、`ASSET_STORE.md`、changelog、发布包归档规则和本地 tag 状态。
 
 接入 MCP 客户端时，将 server 命令指向仓库根目录下的 `python tools/gf_mcp_server.py` 即可。不要把个人客户端配置、会话记录或 MCP 运行日志提交到仓库；需要新增维护能力时，优先扩展 `tools/gf_maintenance.py`，再让 MCP server 调用同一套函数。

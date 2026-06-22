@@ -23,7 +23,7 @@ BLOCKED_DIR_NAMES = {".git", ".godot", ".import", ".vs", "__pycache__", "node_mo
 BLOCKED_FILE_NAMES = {".DS_Store", "Thumbs.db"}
 BLOCKED_SUFFIXES = {".import", ".pyc", ".pyo", ".tmp", ".log"}
 PACKAGE_SCHEMA_VERSION = 1
-REGISTRY_SCHEMA_VERSION = 1
+REGISTRY_SCHEMA_VERSION = 2
 REGISTRY_SOURCE_SCHEMA_VERSION = 1
 DEFAULT_REGISTRY_SOURCE_CHANNEL = "stable"
 UNSUPPORTED_REGISTRY_SOURCE_SIGNATURE_FIELDS = {
@@ -137,6 +137,8 @@ def build_gf_packages(
 	resolved_registry_path.parent.mkdir(parents=True, exist_ok=True)
 
 	package_results: list[dict[str, Any]] = []
+	framework_version = version_override.strip() or read_plugin_version()
+	framework_compatibility = make_framework_compatibility_fields(framework_version)
 	registry_packages: dict[str, Any] = {}
 	for package_id in selected_ids:
 		record = records_by_id[package_id]
@@ -169,6 +171,7 @@ def build_gf_packages(
 			"kind": record["kind"],
 			"display_name": record.get("display_name", ""),
 			"description": record.get("description", ""),
+			**framework_compatibility,
 			"dependencies": record["dependencies"],
 			"paths": record["paths"],
 			"archive": archive_field,
@@ -198,6 +201,7 @@ def build_gf_packages(
 			"kind": record["kind"],
 			"display_name": record.get("display_name", ""),
 			"description": record.get("description", ""),
+			**framework_compatibility,
 			"dependencies": [],
 			"packages": record["packages"],
 			"paths": [],
@@ -205,7 +209,8 @@ def build_gf_packages(
 
 	registry = {
 		"schema_version": REGISTRY_SCHEMA_VERSION,
-		"framework_version": version_override.strip() or read_plugin_version(),
+		"framework_version": framework_version,
+		**framework_compatibility,
 		"generated_at": datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z"),
 		"packages": registry_packages,
 	}
@@ -283,6 +288,35 @@ def make_result(
 	if str(offline_bundle_path).strip():
 		result["offline_bundle"] = relative_display_path(resolve_workspace_path(str(offline_bundle_path)))
 	return result
+
+
+def make_framework_compatibility_fields(framework_version: str) -> dict[str, str]:
+	return {
+		"minimum_framework_version": framework_version,
+		"maximum_framework_version_exclusive": next_major_version(framework_version),
+	}
+
+
+def next_major_version(version: str) -> str:
+	parts = parse_semver(version)
+	if parts is None:
+		return ""
+	return f"{parts[0] + 1}.0.0"
+
+
+def parse_semver(version: str) -> tuple[int, int, int] | None:
+	text = version.strip()
+	if text.startswith("v"):
+		text = text[1:]
+	pieces = text.split(".")
+	if len(pieces) != 3:
+		return None
+	result: list[int] = []
+	for piece in pieces:
+		if not piece.isdigit():
+			return None
+		result.append(int(piece))
+	return (result[0], result[1], result[2])
 
 
 def load_package_manifests() -> dict[str, Any]:
@@ -503,6 +537,17 @@ def audit_registry(registry_path: Path, package_results: list[dict[str, Any]]) -
 		return ["Registry root must be an object."]
 	if data.get("schema_version") != REGISTRY_SCHEMA_VERSION:
 		issues.append(f"Registry schema_version must be {REGISTRY_SCHEMA_VERSION}.")
+	framework_version = string_value(data.get("framework_version", ""))
+	if not framework_version:
+		issues.append("Registry framework_version must not be empty.")
+	for field_name in ["minimum_framework_version", "maximum_framework_version_exclusive"]:
+		if field_name not in data:
+			issues.append(f"Registry {field_name} field is required.")
+	if string_value(data.get("minimum_framework_version", "")) != framework_version:
+		issues.append("Registry minimum_framework_version must match framework_version.")
+	expected_maximum = next_major_version(framework_version)
+	if expected_maximum and string_value(data.get("maximum_framework_version_exclusive", "")) != expected_maximum:
+		issues.append("Registry maximum_framework_version_exclusive must be the next major SemVer boundary.")
 	packages = data.get("packages")
 	if not isinstance(packages, dict):
 		return [*issues, "Registry packages must be an object."]
@@ -517,6 +562,13 @@ def audit_registry(registry_path: Path, package_results: list[dict[str, Any]]) -
 				"Registry package signature field is not supported until native verification is implemented: "
 				f"{package_id}.{field_name}"
 			)
+		for field_name in ["minimum_framework_version", "maximum_framework_version_exclusive"]:
+			if field_name not in entry:
+				issues.append(f"Registry package {package_id} is missing {field_name}.")
+		if string_value(entry.get("minimum_framework_version", "")) != string_value(data.get("minimum_framework_version", "")):
+			issues.append(f"Registry package {package_id} minimum_framework_version must match registry root.")
+		if string_value(entry.get("maximum_framework_version_exclusive", "")) != string_value(data.get("maximum_framework_version_exclusive", "")):
+			issues.append(f"Registry package {package_id} maximum_framework_version_exclusive must match registry root.")
 		if package_result.get("kind") == "preset":
 			if entry.get("archive"):
 				issues.append(f"Preset registry archive field must be empty for {package_id}.")

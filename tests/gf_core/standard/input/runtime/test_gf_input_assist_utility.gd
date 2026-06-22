@@ -96,6 +96,33 @@ func test_grace_window_expires_after_window() -> void:
 	assert_false(_utility.is_grace_window_active(&"ground"), "过期后应返回 false。")
 
 
+## 验证宽容窗口自然过期时发出一次过期信号。
+func test_grace_window_expired_signal_emitted_once() -> void:
+	watch_signals(_utility)
+
+	_utility.start_grace_window(&"ground", 0.1, 2)
+	_utility.tick(0.05)
+
+	assert_signal_not_emitted(_utility, "grace_window_expired", "窗口未过期时不应发出过期信号。")
+
+	_utility.tick(0.06)
+	_utility.tick(1.0)
+
+	assert_signal_emitted_with_parameters(_utility, "grace_window_expired", [&"ground", 2])
+	assert_signal_emit_count(_utility, "grace_window_expired", 1)
+
+
+## 验证手动取消宽容窗口不会伪装成自然过期。
+func test_cancel_grace_window_does_not_emit_expired_signal() -> void:
+	watch_signals(_utility)
+
+	_utility.start_grace_window(&"wall", 1.0)
+	_utility.cancel_grace_window(&"wall")
+	_utility.tick(1.1)
+
+	assert_signal_not_emitted(_utility, "grace_window_expired", "手动取消不应发出自然过期信号。")
+
+
 ## 验证手动取消宽容窗口。
 func test_cancel_grace_window() -> void:
 	_utility.start_grace_window(&"wall", 1.0)

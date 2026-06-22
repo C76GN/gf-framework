@@ -5,16 +5,16 @@
 ## 范围
 
 - 源码根目录：`addons/gf`
-- 公开类：`522`
-- 公开成员：`7052`
-- 公开方法：`4295`
+- 公开类：`530`
+- 公开成员：`7167`
+- 公开方法：`4373`
 
 ## 模块
 
 | 模块 | 类 | 成员 | 方法 | 页面 |
 |---|---:|---:|---:|---|
 | Kernel | 45 | 630 | 467 | [kernel.md](kernel.md) |
-| Standard | 273 | 4039 | 2546 | [standard.md](standard.md) |
+| Standard | 277 | 4105 | 2600 | [standard.md](standard.md) |
 | Action Queue | 16 | 206 | 130 | [extensions-action-queue.md](extensions-action-queue.md) |
 | Asset Metadata | 3 | 23 | 17 | [extensions-asset-metadata.md](extensions-asset-metadata.md) |
 | Behavior Tree | 22 | 86 | 64 | [extensions-behavior-tree.md](extensions-behavior-tree.md) |
@@ -32,6 +32,7 @@
 | Physics | 2 | 27 | 8 | [extensions-physics.md](extensions-physics.md) |
 | Save | 24 | 216 | 132 | [extensions-save.md](extensions-save.md) |
 | Turn Based | 4 | 47 | 18 | [extensions-turn-based.md](extensions-turn-based.md) |
+| Tool Packages | 4 | 49 | 24 | [tools.md](tools.md) |
 
 ## 类索引
 

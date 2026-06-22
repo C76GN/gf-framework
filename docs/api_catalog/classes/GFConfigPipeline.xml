@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFConfigPipeline" path="addons/gf/tools/config_pipeline/gf_config_pipeline.gd" module="tools" extends="RefCounted" classDigest="827393089935c1b35c2483b3d6682d13e034cbcec9b26c242a53d89492231e1b">
+	<description>GFConfigPipeline: 配置导表工具的资源构建入口。
+负责把 CSV / JSON / XLSX 文件来源构建为 GFConfigTableResource 与 GFConfigDatabaseResource。
+该工具只处理通用导入、校验、索引重建和 Resource 保存，不绑定任何项目业务表或发布流程。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">tool_api</tag>
+		<tag name="since">5.2.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties />
+	<methods>
+		<member kind="method" name="build_table">
+			<signature>func build_table(source: GFConfigPipelineTableSource, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>从来源文件构建单表资源。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">source: 单表来源声明。</tag>
+				<tag name="param">options: 可选构建选项，支持 parse_options、rebuild_indexes。</tag>
+				<tag name="return">构建结果。</tag>
+				<tag name="schema">options: Dictionary，可包含 parse_options 和 rebuild_indexes。</tag>
+				<tag name="schema">return: Dictionary，包含 success、table、report、source_path、format 和 error。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="build_table_from_text">
+			<signature>func build_table_from_text( source: GFConfigPipelineTableSource, text: String, options: Dictionary = {} ) -&gt; Dictionary:</signature>
+			<description>从文本构建单表资源。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">source: 单表来源声明。</tag>
+				<tag name="param">text: CSV 或 JSON 文本。</tag>
+				<tag name="param">options: 可选构建选项，支持 parse_options、rebuild_indexes。</tag>
+				<tag name="return">构建结果。</tag>
+				<tag name="schema">options: Dictionary，可包含 parse_options 和 rebuild_indexes。</tag>
+				<tag name="schema">return: Dictionary，包含 success、table、report、source_path、format 和 error。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="build_database">
+			<signature>func build_database( sources: Array, options: Dictionary = {} ) -&gt; Dictionary:</signature>
+			<description>从一组来源文件构建配置数据库资源。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">sources: 单表来源声明列表。</tag>
+				<tag name="param">options: 可选构建选项，支持 database_id、version、metadata、validate_database、validate_schema、parse_options、rebuild_indexes。</tag>
+				<tag name="return">构建结果。</tag>
+				<tag name="schema">sources: Array[GFConfigPipelineTableSource]。</tag>
+				<tag name="schema">options: Dictionary，可包含 database_id、version、metadata、validate_database、validate_schema、parse_options 和 rebuild_indexes。</tag>
+				<tag name="schema">return: Dictionary，包含 success、database、report、table_results 和 error。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="build_profile">
+			<signature>func build_profile(profile: GFConfigPipelineProfile, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>从导表 Profile 构建配置数据库资源。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">profile: 导表 Profile 资源。</tag>
+				<tag name="param">options: 本次构建覆盖选项，支持 build_options 以及 build_database() 的直接选项。</tag>
+				<tag name="return">构建结果。</tag>
+				<tag name="schema">profile: GFConfigPipelineProfile resource。</tag>
+				<tag name="schema">options: Dictionary，可包含 build_options、database_id、version、metadata、validate_database、validate_schema、parse_options 和 rebuild_indexes。</tag>
+				<tag name="schema">return: Dictionary，包含 success、database、report、table_results、profile_id、output_path 和 error。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="export_profile">
+			<signature>func export_profile(profile: GFConfigPipelineProfile, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>从导表 Profile 构建并保存配置数据库资源。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">profile: 导表 Profile 资源。</tag>
+				<tag name="param">options: 本次导出覆盖选项，支持 output_path、build_options、save_options、access_output_path、access_options、access_class_name、access_provider_accessor 以及 build_database() 的直接选项。</tag>
+				<tag name="return">导出结果。</tag>
+				<tag name="schema">profile: GFConfigPipelineProfile resource。</tag>
+				<tag name="schema">options: Dictionary，可包含 output_path、build_options、save_options、access_output_path、access_options、access_class_name、access_provider_accessor、database_id、version、metadata、validate_database、validate_schema、parse_options 和 rebuild_indexes。</tag>
+				<tag name="schema">return: Dictionary，包含 success、database、report、table_results、build_result、save_result、access_result、profile_id、output_path 和 error。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="make_database_export">
+			<signature>func make_database_export(database: GFConfigDatabaseResource, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>创建可保存为 JSON 的配置数据库导出字典。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">database: 要导出的配置数据库资源。</tag>
+				<tag name="param">options: 可选导出选项，支持 include_schema、include_indexes 和 max_depth。</tag>
+				<tag name="return">JSON 兼容导出字典；数据库为空或存在不支持的 Variant 时返回空字典。</tag>
+				<tag name="schema">options: Dictionary，可包含 include_schema、include_indexes 和 max_depth。</tag>
+				<tag name="schema">return: Dictionary，包含 format、format_version、database_id、version、metadata 和 tables。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="save_database">
+			<signature>func save_database( database: GFConfigDatabaseResource, output_path: String, options: Dictionary = {} ) -&gt; Dictionary:</signature>
+			<description>保存配置数据库资源。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">database: 要保存的配置数据库资源。</tag>
+				<tag name="param">output_path: 输出路径，通常为 .tres、.res 或 .json。</tag>
+				<tag name="param">options: 保存选项，支持 output_format、include_schema、include_indexes、indent 和 sort_keys。</tag>
+				<tag name="return">保存结果。</tag>
+				<tag name="schema">options: Dictionary，可包含 output_format、include_schema、include_indexes、indent 和 sort_keys。</tag>
+				<tag name="schema">return: Dictionary，包含 success、path、format、error_code 和 error。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="generate_access">
+			<signature>func generate_access( database: GFConfigDatabaseResource, output_path: String, access_class_name: String = "GFConfigAccess", provider_accessor: String = "null", options: Dictionary = {} ) -&gt; Dictionary:</signature>
+			<description>根据配置数据库生成静态访问器脚本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">database: 要生成访问器的配置数据库资源。</tag>
+				<tag name="param">output_path: 访问器脚本输出路径。</tag>
+				<tag name="param">access_class_name: 生成脚本的 class_name。</tag>
+				<tag name="param">provider_accessor: 无显式 provider 参数时用于获取 provider 的表达式。</tag>
+				<tag name="param">options: 访问器生成选项，支持 GFConfigAccessGenerator 选项和 overwrite_existing。</tag>
+				<tag name="return">访问器生成结果。</tag>
+				<tag name="schema">options: Dictionary，可包含 method_name_style、constant_prefix、record_method_pattern、table_method_pattern、include_schema_comments、include_typed_records、typed_record_method_pattern、typed_record_class_suffix 和 overwrite_existing。</tag>
+				<tag name="schema">return: Dictionary，包含 success、skipped、path、class_name、schema_count、error_code 和 error。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

@@ -15,6 +15,7 @@
 
 | 类型 | 名称 | 签名 |
 |---|---|---|
+| 信号 | [`grace_window_expired`](#member-gfinputassistutility-signals-grace_window_expired) | `signal grace_window_expired(window_id: StringName, player_index: int)` |
 | 方法 | [`init`](#member-gfinputassistutility-methods-init) | `func init() -> void:` |
 | 方法 | [`dispose`](#member-gfinputassistutility-methods-dispose) | `func dispose() -> void:` |
 | 方法 | [`tick`](#member-gfinputassistutility-methods-tick) | `func tick(delta: float) -> void:` |
@@ -28,6 +29,28 @@
 | 方法 | [`clear_player`](#member-gfinputassistutility-methods-clear_player) | `func clear_player(player_index: int) -> void:` |
 | 方法 | [`clear_all`](#member-gfinputassistutility-methods-clear_all) | `func clear_all() -> void:` |
 | 方法 | [`get_debug_snapshot`](#member-gfinputassistutility-methods-get_debug_snapshot) | `func get_debug_snapshot() -> Dictionary:` |
+
+## 信号
+
+<a id="member-gfinputassistutility-signals-grace_window_expired"></a>
+
+### `grace_window_expired`
+
+- API：`public`
+- 首次版本：`5.2.0`
+
+```gdscript
+signal grace_window_expired(window_id: StringName, player_index: int)
+```
+
+宽容窗口自然倒计时结束时发出。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `window_id` | 窗口标识。 |
+| `player_index` | 玩家索引；小于 0 表示全局窗口。 |
 
 ## 方法
 

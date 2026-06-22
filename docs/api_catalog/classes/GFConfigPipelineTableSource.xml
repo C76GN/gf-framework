@@ -1,0 +1,164 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFConfigPipelineTableSource" path="addons/gf/tools/config_pipeline/gf_config_pipeline_table_source.gd" module="tools" extends="Resource" classDigest="853fcfd155e429a319d82eab7be8468d3355ccf934085adec04f620a6045b096">
+	<description>GFConfigPipelineTableSource: 配置导表工具的单表来源声明。
+描述一张配置表的输入路径、格式、schema、解析选项和导出元数据。
+该资源属于可选 tool package，只表达制作期或 CI 期通用导入来源，不规定项目表名、业务字段、目录结构或发布策略。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">tool_api</tag>
+		<tag name="since">5.2.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants>
+		<member kind="const" name="FORMAT_AUTO">
+			<signature>const FORMAT_AUTO: StringName = &amp;"auto"</signature>
+			<description>根据 source_path 扩展名推断输入格式。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="FORMAT_CSV">
+			<signature>const FORMAT_CSV: StringName = &amp;"csv"</signature>
+			<description>CSV 输入格式。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="FORMAT_JSON">
+			<signature>const FORMAT_JSON: StringName = &amp;"json"</signature>
+			<description>JSON 输入格式。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="FORMAT_XLSX">
+			<signature>const FORMAT_XLSX: StringName = &amp;"xlsx"</signature>
+			<description>XLSX 输入格式。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties>
+		<member kind="property" name="table_name" decorators="@export">
+			<signature>var table_name: StringName = &amp;""</signature>
+			<description>表名。为空时会尝试使用 schema.table_name 或 source_path 文件名。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="source_path" decorators="@export">
+			<signature>var source_path: String = ""</signature>
+			<description>输入文件路径。支持 Godot 可读取的 res://、user:// 或绝对路径。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="source_format" decorators="@export">
+			<signature>var source_format: StringName = FORMAT_AUTO</signature>
+			<description>输入格式。使用 FORMAT_AUTO 时根据 source_path 扩展名推断。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="schema" decorators="@export">
+			<signature>var schema: GFConfigTableSchema = null</signature>
+			<description>可选 schema。为空且 infer_schema 为 true 时，会从记录样本推导通用 schema。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="infer_schema" decorators="@export">
+			<signature>var infer_schema: bool = true</signature>
+			<description>是否在缺少 schema 时从导入记录推导通用 schema。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="coerce_records" decorators="@export">
+			<signature>var coerce_records: bool = true</signature>
+			<description>是否在 schema.coerce_values 为 true 时把保存进资源的记录也转换为 schema 类型。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="parse_options" decorators="@export">
+			<signature>var parse_options: Dictionary = {}</signature>
+			<description>传给解析器的选项，例如 CSV delimiter、trim_cells、skip_empty_lines，或 XLSX sheet_name、sheet_index、header_row。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">parse_options: Dictionary，可包含 GFConfigTableImporter 支持的 CSV / JSON 解析选项，以及 XLSX sheet_name、sheet_index、header_row、trim_cells、skip_empty_lines 和 reject_duplicate_headers。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="schema_options" decorators="@export">
+			<signature>var schema_options: Dictionary = {}</signature>
+			<description>schema 推导与表头声明选项，例如 id_field、allow_extra_fields、required_if_present_in_all_rows 或 typed_headers。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">schema_options: Dictionary，可包含 GFConfigTableSchema.infer_from_records() 支持的选项，以及 typed_headers、coerce_values、fail_on_coerce_error、require_unique_id。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="metadata" decorators="@export">
+			<signature>var metadata: Dictionary = {}</signature>
+			<description>附加到生成表资源的元数据。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">metadata: Dictionary，保存项目工具、编辑器或 CI 附加的来源信息。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="get_table_key">
+			<signature>func get_table_key() -&gt; StringName:</signature>
+			<description>获取稳定表键。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">表名；无法从 table_name、schema 或 source_path 推断时返回空 StringName。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_resolved_format">
+			<signature>func get_resolved_format() -&gt; StringName:</signature>
+			<description>获取声明或推断出的来源格式。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">FORMAT_CSV、FORMAT_JSON、FORMAT_AUTO 或调用方设置的自定义格式名。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="duplicate_source">
+			<signature>func duplicate_source() -&gt; GFConfigPipelineTableSource:</signature>
+			<description>创建同内容拷贝。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">新来源声明资源。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="describe">
+			<signature>func describe() -&gt; Dictionary:</signature>
+			<description>导出来源声明摘要。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">来源声明字典。</tag>
+				<tag name="schema">return: Dictionary，包含 table_name、source_path、source_format、resolved_format、infer_schema、coerce_records、parse_options、schema_options 和 metadata。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

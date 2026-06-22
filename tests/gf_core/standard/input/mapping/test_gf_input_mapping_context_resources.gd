@@ -1,6 +1,8 @@
 ## 测试 GFInputMapping / GFInputContext 资源上的查询与回退逻辑。
 extends GutTest
 
+const _GFInputContextDiagnostics = preload("res://addons/gf/standard/input/mapping/gf_input_context_diagnostics.gd")
+
 
 func test_input_mapping_get_action_id_delegates_to_action() -> void:
 	var action: GFInputAction = GFInputAction.new()
@@ -71,3 +73,115 @@ func test_input_context_display_name_falls_back_to_resource_basename() -> void:
 	var context: GFInputContext = GFInputContext.new()
 	context.take_over_path("res://tests/gf_core/gameplay_input.tres")
 	assert_eq(context.get_display_name(), "Gameplay Input")
+
+
+func test_input_context_diagnostics_reports_healthy_context() -> void:
+	var context: GFInputContext = GFInputContext.new()
+	context.context_id = &"gameplay"
+	context.mappings = [_make_valid_mapping(&"jump")]
+
+	var report: Dictionary = _GFInputContextDiagnostics.build_context_report(context)
+
+	assert_eq(GFVariantData.get_option_int(report, "mapping_count"), 1)
+	assert_eq(GFVariantData.get_option_int(report, "binding_count"), 1)
+	assert_eq(GFVariantData.get_option_int(report, "issue_count"), 0)
+	assert_true(GFVariantData.get_option_bool(report, "ok"))
+	assert_true(GFVariantData.get_option_bool(report, "healthy"))
+
+
+func test_input_context_diagnostics_reports_structure_issues() -> void:
+	var context: GFInputContext = GFInputContext.new()
+	var missing_action_mapping: GFInputMapping = GFInputMapping.new()
+	var invalid_mapping: GFInputMapping = _make_valid_mapping(&"jump")
+	invalid_mapping.action.activation_threshold = 1.5
+	invalid_mapping.modifiers = [null]
+	invalid_mapping.triggers = [null]
+	invalid_mapping.bindings = [
+		null,
+		GFInputBinding.new(),
+		_make_invalid_deadzone_binding(),
+		_make_input_event_action_binding(&"gf_missing_project_action_for_test"),
+	]
+	context.mappings = [
+		null,
+		missing_action_mapping,
+		invalid_mapping,
+		_make_valid_mapping(&"jump"),
+	]
+
+	var report: Dictionary = _GFInputContextDiagnostics.build_context_report(context)
+	var issue_counts: Dictionary = GFVariantData.get_option_dictionary(report, "issue_counts_by_kind")
+
+	assert_false(GFVariantData.get_option_bool(report, "ok"), "结构错误应让报告失败。")
+	assert_true(issue_counts.has("empty_context_id"))
+	assert_true(issue_counts.has("null_mapping"))
+	assert_true(issue_counts.has("missing_action"))
+	assert_true(issue_counts.has("duplicate_action_id"))
+	assert_true(issue_counts.has("invalid_activation_threshold"))
+	assert_true(issue_counts.has("empty_bindings"))
+	assert_true(issue_counts.has("null_mapping_modifier"))
+	assert_true(issue_counts.has("null_trigger"))
+	assert_true(issue_counts.has("null_binding"))
+	assert_true(issue_counts.has("empty_input_event"))
+	assert_true(issue_counts.has("invalid_deadzone"))
+	assert_true(issue_counts.has("null_binding_modifier"))
+	assert_true(issue_counts.has("missing_project_input_action"))
+
+
+func test_input_context_diagnostics_can_skip_project_input_map_checks() -> void:
+	var context: GFInputContext = GFInputContext.new()
+	context.context_id = &"gameplay"
+	context.mappings = [_make_mapping_with_binding(
+		&"open_map",
+		_make_input_event_action_binding(&"gf_missing_project_action_for_test")
+	)]
+
+	var report: Dictionary = _GFInputContextDiagnostics.build_context_report(
+		context,
+		null,
+		true,
+		{ "include_project_input_map_checks": false }
+	)
+	var issue_counts: Dictionary = GFVariantData.get_option_dictionary(report, "issue_counts_by_kind")
+
+	assert_false(issue_counts.has("missing_project_input_action"))
+	assert_true(GFVariantData.get_option_bool(report, "ok"))
+	assert_true(GFVariantData.get_option_bool(report, "healthy"))
+
+
+# --- 私有/辅助方法 ---
+
+func _make_valid_mapping(action_id: StringName) -> GFInputMapping:
+	var event: InputEventKey = InputEventKey.new()
+	event.keycode = KEY_SPACE
+	event.physical_keycode = KEY_SPACE
+	var binding: GFInputBinding = GFInputBinding.new()
+	binding.input_event = event
+	return _make_mapping_with_binding(action_id, binding)
+
+
+func _make_mapping_with_binding(action_id: StringName, binding: GFInputBinding) -> GFInputMapping:
+	var action: GFInputAction = GFInputAction.new()
+	action.action_id = action_id
+	var mapping: GFInputMapping = GFInputMapping.new()
+	mapping.action = action
+	mapping.bindings = [binding]
+	return mapping
+
+
+func _make_invalid_deadzone_binding() -> GFInputBinding:
+	var event: InputEventKey = InputEventKey.new()
+	event.keycode = KEY_ENTER
+	var binding: GFInputBinding = GFInputBinding.new()
+	binding.input_event = event
+	binding.deadzone = -0.1
+	binding.modifiers = [null]
+	return binding
+
+
+func _make_input_event_action_binding(action_name: StringName) -> GFInputBinding:
+	var event: InputEventAction = InputEventAction.new()
+	event.action = action_name
+	var binding: GFInputBinding = GFInputBinding.new()
+	binding.input_event = event
+	return binding

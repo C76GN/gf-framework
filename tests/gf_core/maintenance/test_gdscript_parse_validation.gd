@@ -5,6 +5,7 @@ extends GutTest
 # --- 常量 ---
 
 const SOURCE_ROOT: String = "res://addons/gf"
+const TEST_ROOT: String = "res://tests/gf_core"
 const KERNEL_CORE_ROOT: String = "res://addons/gf/kernel/core"
 const KERNEL_DYNAMIC_BOUNDARY_PATHS: Array[String] = [
 	KERNEL_CORE_ROOT,
@@ -41,6 +42,10 @@ const DYNAMIC_INFERENCE_TOKENS: Array[String] = [
 ]
 const RESERVED_LOCAL_IDENTIFIERS: Array[String] = [
 	"reference",
+]
+const WARNING_CLEAN_SCAN_ROOTS: Array[String] = [
+	SOURCE_ROOT,
+	TEST_ROOT,
 ]
 const GF_VARIANT_ACCESS = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
 
@@ -113,6 +118,49 @@ func test_kernel_reserved_local_identifiers_are_not_reintroduced() -> void:
 		issues,
 		[],
 		"kernel 的核心运行时边界局部变量和参数不应使用易遮蔽基类 API 的名字：\n%s" % _join_lines(issues)
+	)
+
+
+func test_warning_clean_scripts_do_not_shadow_global_class_names() -> void:
+	var script_paths: Array[String] = _collect_warning_clean_gdscript_files()
+	var class_names_by_name: Dictionary = _collect_class_names_by_name()
+	var issues: Array[String] = []
+	for path: String in script_paths:
+		_collect_global_class_name_shadow_issues(path, _read_text(path), class_names_by_name, issues)
+
+	assert_eq(
+		issues,
+		[],
+		("GF 源码和测试常量不应与全局 class_name 同名；脚本 preload/load 别名应使用 `_SCRIPT`、`_BASE` "
+		+ "或全大写语义名，避免 SHADOWED_GLOBAL_IDENTIFIER：\n%s") % _join_lines(issues)
+	)
+
+
+func test_warning_clean_scripts_do_not_use_unchecked_gf_class_casts() -> void:
+	var script_paths: Array[String] = _collect_warning_clean_gdscript_files()
+	var issues: Array[String] = []
+	for path: String in script_paths:
+		_collect_unchecked_gf_class_cast_issues(path, _read_text(path), issues)
+
+	assert_eq(
+		issues,
+		[],
+		("GF 源码和测试不应直接使用 GF 类强转；请先用 `is` 收窄并赋值给强类型局部变量，"
+		+ "避免 UNSAFE_CAST：\n%s") % _join_lines(issues)
+	)
+
+
+func test_warning_clean_scripts_do_not_instantiate_script_typed_values() -> void:
+	var script_paths: Array[String] = _collect_warning_clean_gdscript_files()
+	var issues: Array[String] = []
+	for path: String in script_paths:
+		_collect_script_typed_new_issues(path, _read_text(path), issues)
+
+	assert_eq(
+		issues,
+		[],
+		("GF 源码和测试不应对 `Script` 类型变量直接 `.new()`；需要实例化时先 `is GDScript` "
+		+ "收窄成 `GDScript`，避免 UNSAFE_METHOD_ACCESS：\n%s") % _join_lines(issues)
 	)
 
 
@@ -211,6 +259,16 @@ func _collect_dynamic_boundary_gdscript_files() -> Array[String]:
 				result.append(scan_path)
 			continue
 		for path: String in _collect_gdscript_files(scan_path):
+			if not result.has(path):
+				result.append(path)
+	result.sort()
+	return result
+
+
+func _collect_warning_clean_gdscript_files() -> Array[String]:
+	var result: Array[String] = []
+	for scan_root: String in WARNING_CLEAN_SCAN_ROOTS:
+		for path: String in _collect_gdscript_files(scan_root):
 			if not result.has(path):
 				result.append(path)
 	result.sort()
@@ -383,6 +441,108 @@ func _collect_dynamic_cast_inference_issues(path: String, source: String, issues
 			issues.append("%s:%d uses inferred dynamic cast: %s" % [path, line_index + 1, trimmed])
 
 
+func _collect_global_class_name_shadow_issues(
+	path: String,
+	source: String,
+	class_names_by_name: Dictionary,
+	issues: Array[String]
+) -> void:
+	var lines: PackedStringArray = source.split("\n")
+	var preload_const_regex: RegEx = RegEx.new()
+	var _compile_result_396: Variant = preload_const_regex.compile("^\\s*const\\s+([A-Za-z_]\\w*)\\s*=\\s*(preload|load)\\s*\\(")
+	var multiline_string_delimiter: String = ""
+	for line_index: int in range(lines.size()):
+		var raw_line: String = _trim_cr(String(lines[line_index]))
+		var trimmed: String = raw_line.strip_edges()
+		multiline_string_delimiter = _update_multiline_string_delimiter(trimmed, multiline_string_delimiter)
+		if not multiline_string_delimiter.is_empty():
+			continue
+		var code_line: String = _strip_inline_strings_and_comments(raw_line)
+		var code_trimmed: String = code_line.strip_edges()
+		if code_trimmed.is_empty():
+			continue
+
+		var match_result: RegExMatch = preload_const_regex.search(code_line)
+		if match_result == null:
+			continue
+
+		var const_name: String = match_result.get_string(1)
+		if not class_names_by_name.has(const_name):
+			continue
+
+		var class_path: String = GF_VARIANT_ACCESS.to_text(class_names_by_name[const_name])
+		if class_path == path:
+			continue
+		issues.append("%s:%d const `%s` shadows class_name from %s" % [
+			path,
+			line_index + 1,
+			const_name,
+			class_path,
+		])
+
+
+func _collect_unchecked_gf_class_cast_issues(path: String, source: String, issues: Array[String]) -> void:
+	var lines: PackedStringArray = source.split("\n")
+	var cast_regex: RegEx = RegEx.new()
+	var _compile_result_432: Variant = cast_regex.compile("\\bas\\s+(GF[A-Za-z_]\\w*)\\b")
+	var multiline_string_delimiter: String = ""
+	for line_index: int in range(lines.size()):
+		var raw_line: String = _trim_cr(String(lines[line_index]))
+		var trimmed: String = raw_line.strip_edges()
+		multiline_string_delimiter = _update_multiline_string_delimiter(trimmed, multiline_string_delimiter)
+		if not multiline_string_delimiter.is_empty():
+			continue
+		var code_line: String = _strip_inline_strings_and_comments(raw_line)
+		var code_trimmed: String = code_line.strip_edges()
+		if code_trimmed.is_empty():
+			continue
+
+		for match_result: RegExMatch in cast_regex.search_all(code_trimmed):
+			var cast_type: String = match_result.get_string(1)
+			var cast_type_end: int = match_result.get_end(1)
+			if cast_type_end < code_trimmed.length() and code_trimmed[cast_type_end] == ".":
+				continue
+			issues.append("%s:%d uses unchecked GF class cast `%s`: %s" % [
+				path,
+				line_index + 1,
+				cast_type,
+				trimmed,
+			])
+
+
+func _collect_script_typed_new_issues(path: String, source: String, issues: Array[String]) -> void:
+	var lines: PackedStringArray = source.split("\n")
+	var script_declaration_regex: RegEx = RegEx.new()
+	var _compile_result_463: Variant = script_declaration_regex.compile("\\bvar\\s+([A-Za-z_]\\w*)\\s*:\\s*Script\\b")
+	var script_variable_lines: Dictionary = {}
+	var multiline_string_delimiter: String = ""
+	for line_index: int in range(lines.size()):
+		var raw_line: String = _trim_cr(String(lines[line_index]))
+		var trimmed: String = raw_line.strip_edges()
+		multiline_string_delimiter = _update_multiline_string_delimiter(trimmed, multiline_string_delimiter)
+		if not multiline_string_delimiter.is_empty():
+			continue
+		var code_line: String = _strip_inline_strings_and_comments(raw_line)
+		var code_trimmed: String = code_line.strip_edges()
+		if code_trimmed.is_empty():
+			continue
+		if code_trimmed.begins_with("func ") or code_trimmed.begins_with("static func "):
+			script_variable_lines = {}
+
+		var declaration_match: RegExMatch = script_declaration_regex.search(code_trimmed)
+		if declaration_match != null:
+			script_variable_lines[declaration_match.get_string(1)] = line_index + 1
+
+		for variable_name: String in script_variable_lines.keys():
+			if code_trimmed.contains("%s.new(" % variable_name):
+				issues.append("%s:%d calls `.new()` on Script-typed variable `%s`: %s" % [
+					path,
+					line_index + 1,
+					variable_name,
+					trimmed,
+				])
+
+
 func _collect_reserved_local_identifier_issues(path: String, source: String, issues: Array[String]) -> void:
 	var lines: PackedStringArray = source.split("\n")
 	var multiline_string_delimiter: String = ""
@@ -473,6 +633,34 @@ func _trim_cr(text: String) -> String:
 	return text
 
 
+func _strip_inline_strings_and_comments(line: String) -> String:
+	var result: String = ""
+	var in_string: bool = false
+	var escaped: bool = false
+	var string_delimiter: String = ""
+	for index: int in range(line.length()):
+		var character: String = line[index]
+		if in_string:
+			if escaped:
+				escaped = false
+			elif character == "\\":
+				escaped = true
+			elif character == string_delimiter:
+				in_string = false
+				string_delimiter = ""
+			result += " "
+			continue
+		if character == "#":
+			break
+		if character == "\"" or character == "'":
+			in_string = true
+			string_delimiter = character
+			result += " "
+			continue
+		result += character
+	return result
+
+
 func _add_typed_parameters(signature: String, types: Dictionary) -> void:
 	var param_regex: RegEx = RegEx.new()
 	var _compile_result_478: Variant = param_regex.compile("\\b([A-Za-z_]\\w*)\\s*:\\s*([A-Za-z_]\\w*)")
@@ -485,6 +673,19 @@ func _add_typed_declaration(line: String, regex: RegEx, types: Dictionary) -> vo
 	if match_result == null:
 		return
 	types[match_result.get_string(1)] = match_result.get_string(2)
+
+
+func _collect_class_names_by_name() -> Dictionary:
+	var class_names_by_name: Dictionary = {}
+	var class_name_regex: RegEx = RegEx.new()
+	var _compile_result_502: Variant = class_name_regex.compile("(?m)^\\s*class_name\\s+([A-Za-z_]\\w*)")
+	for path: String in _collect_gdscript_files(SOURCE_ROOT):
+		var source: String = _read_text(path)
+		var match_result: RegExMatch = class_name_regex.search(source)
+		if match_result == null:
+			continue
+		class_names_by_name[match_result.get_string(1)] = path
+	return class_names_by_name
 
 
 func _get_call_has_default_argument(lines: PackedStringArray, start_line: int, start_column: int) -> bool:

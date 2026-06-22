@@ -154,6 +154,28 @@ func test_standard_template_records_are_injected_without_kernel_hardcoding() -> 
 	assert_eq(_call_text(actions, &"_get_base_class", ["NodeState"]), "GFNodeState", "NodeState 基类应来自模板记录。")
 
 
+func test_plugin_project_settings_accepts_contributed_records() -> void:
+	var setting_name: String = "gf/test/contributed_project_setting"
+	var restore: Dictionary = {
+		"had_setting": ProjectSettings.has_setting(setting_name),
+		"value": ProjectSettings.get_setting(setting_name, null) if ProjectSettings.has_setting(setting_name) else null,
+	}
+	_clear_project_setting_if_exists(setting_name)
+	var changed: bool = GF_PLUGIN_PROJECT_SETTINGS._ensure_project_setting_records([
+		{
+			"name": setting_name,
+			"default_value": "from-record",
+			"type": TYPE_STRING,
+			"basic": true,
+		},
+	])
+	var stored_value: String = GF_VARIANT_ACCESS.to_text(ProjectSettings.get_setting(setting_name, ""))
+	_restore_project_setting(setting_name, restore)
+
+	assert_true(changed, "通用 ProjectSettings 贡献记录应能写入缺失默认值。")
+	assert_eq(stored_value, "from-record", "贡献记录应由所属包提供默认值，kernel 不需要硬编码具体 key。")
+
+
 func test_plugin_inspector_tools_discovers_enabled_extension_inspectors() -> void:
 	var restore: Dictionary = _set_enabled_extensions(["gf.capability", "gf.flow", "gf.save"])
 	var tools: Object = _new_object(GF_PLUGIN_INSPECTOR_TOOLS)
@@ -266,10 +288,51 @@ func test_resource_path_editor_prefers_uid_paths_for_saved_resources() -> void:
 	assert_ne(uid, ResourceUID.INVALID_ID, "测试脚本资源应具有 Godot UID。")
 
 	var stable_path: String = GF_RESOURCE_PATH_EDITOR_PROPERTY.get_stable_resource_path(script_resource, true)
+	var resolved_path: String = GF_RESOURCE_PATH_EDITOR_PROPERTY.get_resolved_resource_path(stable_path, "Script")
+	var status: Dictionary = GF_RESOURCE_PATH_EDITOR_PROPERTY.get_resource_path_status(stable_path, "Script")
 	var loaded_resource: Resource = GF_RESOURCE_PATH_EDITOR_PROPERTY.load_resource_from_path(stable_path, "Script")
 
 	assert_eq(stable_path, ResourceUID.id_to_text(uid), "保存路径应优先使用 uid://。")
+	assert_eq(resolved_path, script_path, "uid:// 路径应能解析回真实 res:// 路径。")
+	assert_true(GF_VARIANT_ACCESS.get_option_bool(status, "valid"), "已注册 UID 状态应有效。")
+	assert_eq(GF_VARIANT_ACCESS.get_option_string(status, "state"), "ok", "已注册 UID 状态应标记为 ok。")
+	assert_eq(GF_VARIANT_ACCESS.get_option_string(status, "resolved_path"), script_path, "状态字典应暴露解析后的资源路径。")
 	assert_true(loaded_resource is Script, "uid:// 路径应能按类型提示重新加载资源。")
+
+
+func test_resource_path_editor_reports_invalid_resource_paths() -> void:
+	var missing_path: String = "res://tests/gf_core/kernel/editor/missing_resource_path_fixture.tres"
+	var missing_status: Dictionary = GF_RESOURCE_PATH_EDITOR_PROPERTY.get_resource_path_status(missing_path, "Resource")
+	var unsupported_status: Dictionary = GF_RESOURCE_PATH_EDITOR_PROPERTY.get_resource_path_status("user://config.tres", "Resource")
+	var unknown_uid_value: int = 123456789012345
+	while ResourceUID.has_id(unknown_uid_value):
+		unknown_uid_value += 1
+	var unknown_uid: String = ResourceUID.id_to_text(unknown_uid_value)
+	var uid_status: Dictionary = GF_RESOURCE_PATH_EDITOR_PROPERTY.get_resource_path_status(unknown_uid, "Resource")
+
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(missing_status, "valid"), "不存在的 res:// 资源应报告无效。")
+	assert_eq(
+		GF_VARIANT_ACCESS.get_option_string(missing_status, "state"),
+		"missing_or_type_mismatch",
+		"缺失资源应使用稳定状态值。"
+	)
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(unsupported_status, "valid"), "非资源路径 scheme 不应被接受。")
+	assert_eq(
+		GF_VARIANT_ACCESS.get_option_string(unsupported_status, "state"),
+		"unsupported_scheme",
+		"不支持的 scheme 应使用稳定状态值。"
+	)
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(uid_status, "valid"), "未注册 UID 应报告无效。")
+	assert_eq(
+		GF_VARIANT_ACCESS.get_option_string(uid_status, "state"),
+		"invalid_uid",
+		"未注册 UID 应使用稳定状态值。"
+	)
+	assert_eq(
+		GF_RESOURCE_PATH_EDITOR_PROPERTY.get_resolved_resource_path(unknown_uid, "Resource"),
+		"",
+		"无效 UID 不应解析出资源路径。"
+	)
 
 
 func test_plugin_actions_discovers_enabled_extension_menu_entries() -> void:
@@ -938,6 +1001,11 @@ func _restore_project_setting(setting_name: String, restore: Dictionary) -> void
 	if GF_VARIANT_ACCESS.get_option_bool(restore, "had_setting"):
 		ProjectSettings.set_setting(setting_name, GF_VARIANT_ACCESS.get_option_value(restore, "value", null))
 	else:
+		_clear_project_setting_if_exists(setting_name)
+
+
+func _clear_project_setting_if_exists(setting_name: String) -> void:
+	if ProjectSettings.has_setting(setting_name):
 		ProjectSettings.clear(setting_name)
 
 

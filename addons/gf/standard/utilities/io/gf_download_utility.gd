@@ -67,6 +67,11 @@ signal download_failed(task_id: int, result: Dictionary)
 signal download_cancelled(task_id: int, result: Dictionary)
 
 
+# --- 常量 ---
+
+const _APPEND_BUFFER_SIZE_BYTES: int = 64 * 1024
+
+
 # --- 公共变量 ---
 
 ## HTTP 请求超时时间，单位秒。
@@ -173,6 +178,38 @@ func tick(_delta: float = 0.0) -> void:
 
 # --- 公共方法 ---
 
+## 解析下载清单为标准条目列表。
+## [br]
+## @api public
+## [br]
+## @param data: 清单数据，可为 JSON 字符串、条目数组，或包含 files、entries、downloads 字段的字典。
+## [br]
+## @param options: 解析选项，支持 base_url、headers/default_headers 和 metadata。
+## [br]
+## @return 标准下载条目数组。
+## [br]
+## @schema data: Variant，JSON 字符串、Array[Dictionary] 或 Dictionary 清单。
+## [br]
+## @schema options: Dictionary，可包含 base_url、headers、default_headers 和 metadata。
+## [br]
+## @schema return: Array[Dictionary]，每个条目包含 url、target_path、headers、metadata 以及可选 expected_sha256、expected_size、resume、overwrite、max_retries、retry_delay_seconds。
+## [br]
+## @since 5.2.0
+static func parse_manifest_entries(data: Variant, options: Dictionary = {}) -> Array[Dictionary]:
+	var parsed_data: Variant = _parse_manifest_data(data)
+	var raw_entries: Array = _get_manifest_raw_entries(parsed_data)
+	var defaults: Dictionary = _build_manifest_defaults(parsed_data, options)
+	var result: Array[Dictionary] = []
+
+	for index: int in range(raw_entries.size()):
+		var normalized: Dictionary = _normalize_manifest_entry(raw_entries[index], defaults, index)
+		if normalized.is_empty():
+			continue
+		result.append(normalized)
+
+	return result
+
+
 ## 将下载任务加入队列。
 ## [br]
 ## @api public
@@ -218,6 +255,77 @@ func enqueue_download(
 	_pending_tasks.append(task)
 	_try_start_next_download()
 	return task.task_id
+
+
+## 批量加入标准下载清单条目。
+## [br]
+## @api public
+## [br]
+## @param entries: parse_manifest_entries() 返回的标准条目，或兼容字段的条目字典数组。
+## [br]
+## @param target_root: 相对 target_path 的写入根路径。
+## [br]
+## @param callback: 每个任务完成、失败或取消时执行的回调，签名为 func(result: Dictionary)。
+## [br]
+## @param options: 批量默认选项，支持 enqueue_download() 的通用选项。
+## [br]
+## @return 成功入队的任务句柄数组。
+## [br]
+## @schema entries: Array[Dictionary]，每个条目至少包含 url 和 target_path/path/file。
+## [br]
+## @schema options: Dictionary，可包含 headers、resume、overwrite、metadata、max_retries 和 retry_delay_seconds。
+## [br]
+## @since 5.2.0
+func enqueue_manifest_entries(
+	entries: Array[Dictionary],
+	target_root: String,
+	callback: Callable = Callable(),
+	options: Dictionary = {}
+) -> PackedInt32Array:
+	var task_ids: PackedInt32Array = PackedInt32Array()
+	for index: int in range(entries.size()):
+		var entry: Dictionary = entries[index]
+		var url: String = GFVariantData.get_option_string(entry, "url").strip_edges()
+		var target_path: String = _resolve_manifest_target_path(entry, target_root)
+		if url.is_empty() or target_path.is_empty():
+			continue
+
+		var download_options: Dictionary = _build_manifest_download_options(entry, options, index)
+		var task_id: int = enqueue_download(url, target_path, callback, download_options)
+		if task_id > 0:
+			_append_packed_int32(task_ids, task_id)
+
+	return task_ids
+
+
+## 解析并批量加入下载清单。
+## [br]
+## @api public
+## [br]
+## @param data: 清单数据，可为 JSON 字符串、条目数组，或包含 files、entries、downloads 字段的字典。
+## [br]
+## @param target_root: 相对 target_path 的写入根路径。
+## [br]
+## @param callback: 每个任务完成、失败或取消时执行的回调，签名为 func(result: Dictionary)。
+## [br]
+## @param options: 解析和入队选项，解析阶段支持 base_url、headers/default_headers、metadata，入队阶段支持 enqueue_download() 的通用选项。
+## [br]
+## @return 成功入队的任务句柄数组。
+## [br]
+## @schema data: Variant，JSON 字符串、Array[Dictionary] 或 Dictionary 清单。
+## [br]
+## @schema options: Dictionary，可包含 base_url、headers/default_headers、metadata、resume、overwrite、max_retries 和 retry_delay_seconds。
+## [br]
+## @since 5.2.0
+func enqueue_manifest(
+	data: Variant,
+	target_root: String,
+	callback: Callable = Callable(),
+	options: Dictionary = {}
+) -> PackedInt32Array:
+	var entries: Array[Dictionary] = parse_manifest_entries(data, options)
+	var enqueue_options: Dictionary = _strip_manifest_parse_options(options)
+	return enqueue_manifest_entries(entries, target_root, callback, enqueue_options)
 
 
 ## 取消下载任务。
@@ -353,6 +461,114 @@ func get_result(task_id: int) -> Dictionary:
 	return GFVariantData.to_dictionary(GFVariantData.get_option_value(_results, task_id, {}))
 
 
+## 获取指定任务的当前快照或最终结果。
+## [br]
+## @api public
+## [br]
+## @param task_id: 任务句柄。
+## [br]
+## @return 任务快照；不存在时返回空字典。
+## [br]
+## @schema return: Dictionary，运行中或等待中的任务字段，或最终结果字段。
+## [br]
+## @since 5.2.0
+func get_task_snapshot(task_id: int) -> Dictionary:
+	if task_id <= 0:
+		return {}
+	if _active_task != null and _active_task.task_id == task_id:
+		return _active_task.to_dict()
+	for task: GFDownloadTask in _pending_tasks:
+		if task.task_id == task_id:
+			return task.to_dict()
+	return get_result(task_id)
+
+
+## 聚合多个下载任务的进度。
+## [br]
+## @api public
+## [br]
+## @param task_ids: 任务句柄数组。
+## [br]
+## @return 聚合进度字典。
+## [br]
+## @schema return: Dictionary，包含 task_count、missing_count、completed_count、failed_count、cancelled_count、running_count、queued_count、terminal_count、finished、success、received_bytes、total_bytes、known_total_bytes、unknown_total_count 和 progress_ratio。
+## [br]
+## @since 5.2.0
+func get_tasks_progress(task_ids: PackedInt32Array) -> Dictionary:
+	var completed_count: int = 0
+	var failed_count: int = 0
+	var cancelled_count: int = 0
+	var running_count: int = 0
+	var queued_count: int = 0
+	var missing_count: int = 0
+	var received_bytes: int = 0
+	var known_total_bytes: int = 0
+	var unknown_total_count: int = 0
+	var snapshot_lookup: Dictionary = _make_task_snapshot_lookup(task_ids)
+
+	for task_id: int in task_ids:
+		var snapshot_value: Variant = snapshot_lookup.get(task_id, {})
+		var snapshot: Dictionary = GFVariantData.as_dictionary(snapshot_value)
+		if snapshot.is_empty():
+			missing_count += 1
+			continue
+
+		var status: int = GFVariantData.get_option_int(snapshot, "status", GFDownloadTask.Status.QUEUED)
+		match status:
+			GFDownloadTask.Status.COMPLETED:
+				completed_count += 1
+			GFDownloadTask.Status.FAILED:
+				failed_count += 1
+			GFDownloadTask.Status.CANCELLED:
+				cancelled_count += 1
+			GFDownloadTask.Status.RUNNING:
+				running_count += 1
+			_:
+				queued_count += 1
+
+		var total_bytes: int = GFVariantData.get_option_int(snapshot, "total_bytes", -1)
+		var expected_size: int = _get_snapshot_expected_size(snapshot)
+		var effective_total_bytes: int = total_bytes if total_bytes >= 0 else expected_size
+		if effective_total_bytes >= 0:
+			known_total_bytes += effective_total_bytes
+		else:
+			unknown_total_count += 1
+
+		var task_received_bytes: int = maxi(0, GFVariantData.get_option_int(snapshot, "received_bytes"))
+		if status == GFDownloadTask.Status.COMPLETED and task_received_bytes == 0 and effective_total_bytes > 0:
+			task_received_bytes = effective_total_bytes
+		received_bytes += task_received_bytes
+
+	var terminal_count: int = completed_count + failed_count + cancelled_count
+	var task_count: int = task_ids.size()
+	var finished: bool = task_count > 0 and missing_count == 0 and terminal_count == task_count
+	var success: bool = finished and completed_count == task_count
+	var aggregate_total_bytes: int = known_total_bytes if unknown_total_count == 0 else -1
+	var progress_ratio: float = -1.0
+	if aggregate_total_bytes > 0:
+		progress_ratio = clampf(float(received_bytes) / float(aggregate_total_bytes), 0.0, 1.0)
+	elif aggregate_total_bytes == 0 and finished:
+		progress_ratio = 1.0
+
+	return {
+		"task_count": task_count,
+		"missing_count": missing_count,
+		"completed_count": completed_count,
+		"failed_count": failed_count,
+		"cancelled_count": cancelled_count,
+		"running_count": running_count,
+		"queued_count": queued_count,
+		"terminal_count": terminal_count,
+		"finished": finished,
+		"success": success,
+		"received_bytes": received_bytes,
+		"total_bytes": aggregate_total_bytes,
+		"known_total_bytes": known_total_bytes,
+		"unknown_total_count": unknown_total_count,
+		"progress_ratio": progress_ratio,
+	}
+
+
 ## 获取下载工具诊断快照。
 ## [br]
 ## @api public
@@ -445,6 +661,204 @@ func _complete_active_download(
 
 
 # --- 私有/辅助方法 ---
+
+static func _parse_manifest_data(data: Variant) -> Variant:
+	if data is String:
+		var manifest_text: String = data
+		var text: String = manifest_text.strip_edges()
+		if text.is_empty():
+			return []
+		var json: JSON = JSON.new()
+		if json.parse(text) != OK:
+			return []
+		return json.data
+	return data
+
+
+static func _get_manifest_raw_entries(data: Variant) -> Array:
+	if data is Array:
+		var array_entries: Array = data
+		return array_entries
+	if data is Dictionary:
+		var manifest: Dictionary = data
+		var files: Array = GFVariantData.get_option_array(manifest, "files")
+		if not files.is_empty():
+			return files
+		var entries: Array = GFVariantData.get_option_array(manifest, "entries")
+		if not entries.is_empty():
+			return entries
+		return GFVariantData.get_option_array(manifest, "downloads")
+	return []
+
+
+static func _build_manifest_defaults(data: Variant, options: Dictionary) -> Dictionary:
+	var defaults: Dictionary = {
+		"base_url": GFVariantData.get_option_string(options, "base_url").strip_edges(),
+		"headers": _normalize_headers(GFVariantData.get_option_value(options, "headers", GFVariantData.get_option_value(options, "default_headers", PackedStringArray()))),
+		"metadata": GFVariantData.get_option_dictionary(options, "metadata"),
+	}
+	if data is Dictionary:
+		var manifest: Dictionary = data
+		var base_url: String = GFVariantData.get_option_string(manifest, "base_url").strip_edges()
+		if not base_url.is_empty():
+			defaults["base_url"] = base_url
+		defaults["headers"] = _merge_headers(
+			GFVariantData.get_option_packed_string_array(defaults, "headers"),
+			_normalize_headers(GFVariantData.get_option_value(manifest, "default_headers", GFVariantData.get_option_value(manifest, "headers", PackedStringArray())))
+		)
+		defaults["metadata"] = _merge_metadata(
+			GFVariantData.get_option_dictionary(defaults, "metadata"),
+			GFVariantData.get_option_dictionary(manifest, "metadata")
+		)
+	return defaults
+
+
+static func _normalize_manifest_entry(value: Variant, defaults: Dictionary, index: int) -> Dictionary:
+	var entry: Dictionary = {}
+	if value is Dictionary:
+		entry = value
+	elif value is String:
+		entry = {
+			"path": value,
+		}
+	else:
+		return {}
+
+	var source_url: String = _first_entry_string(entry, ["url", "source", "href"])
+	var target_path: String = _first_entry_string(entry, ["target_path", "path", "file"])
+	if source_url.is_empty():
+		source_url = target_path
+	source_url = _resolve_manifest_url(source_url, GFVariantData.get_option_string(defaults, "base_url"))
+	if source_url.is_empty():
+		return {}
+	if target_path.is_empty():
+		target_path = _get_url_file_name(source_url)
+
+	var headers: PackedStringArray = _merge_headers(
+		GFVariantData.get_option_packed_string_array(defaults, "headers"),
+		_normalize_headers(GFVariantData.get_option_value(entry, "headers", PackedStringArray()))
+	)
+	var metadata: Dictionary = _merge_metadata(
+		GFVariantData.get_option_dictionary(defaults, "metadata"),
+		GFVariantData.get_option_dictionary(entry, "metadata")
+	)
+	metadata["manifest_index"] = index
+	metadata["manifest_path"] = target_path
+
+	var normalized: Dictionary = {
+		"url": source_url,
+		"target_path": target_path,
+		"headers": headers,
+		"metadata": metadata,
+	}
+	var expected_sha256: String = _get_entry_expected_sha256(entry)
+	if not expected_sha256.is_empty():
+		normalized["expected_sha256"] = expected_sha256
+	var expected_size: int = _first_entry_int(entry, ["expected_size", "size", "bytes"], -1)
+	if expected_size >= 0:
+		normalized["expected_size"] = expected_size
+		metadata["expected_size"] = expected_size
+		normalized["metadata"] = metadata
+
+	_copy_manifest_entry_option(entry, normalized, "resume")
+	_copy_manifest_entry_option(entry, normalized, "overwrite")
+	_copy_manifest_entry_option(entry, normalized, "max_retries")
+	_copy_manifest_entry_option(entry, normalized, "retry_delay_seconds")
+	return normalized
+
+
+static func _strip_manifest_parse_options(options: Dictionary) -> Dictionary:
+	var result: Dictionary = options.duplicate(true)
+	_erase_dictionary_key_static(result, "base_url")
+	_erase_dictionary_key_static(result, &"base_url")
+	_erase_dictionary_key_static(result, "headers")
+	_erase_dictionary_key_static(result, &"headers")
+	_erase_dictionary_key_static(result, "default_headers")
+	_erase_dictionary_key_static(result, &"default_headers")
+	_erase_dictionary_key_static(result, "metadata")
+	_erase_dictionary_key_static(result, &"metadata")
+	return result
+
+
+static func _resolve_manifest_url(url: String, base_url: String) -> String:
+	var value: String = url.strip_edges()
+	if value.is_empty() or _has_uri_scheme(value) or base_url.strip_edges().is_empty():
+		return value
+	return base_url.strip_edges().trim_suffix("/") + "/" + value.trim_prefix("/")
+
+
+static func _has_uri_scheme(value: String) -> bool:
+	return value.contains("://") or value.begins_with("uid://")
+
+
+static func _get_url_file_name(url: String) -> String:
+	var path: String = url
+	var query_index: int = path.find("?")
+	if query_index >= 0:
+		path = path.substr(0, query_index)
+	var fragment_index: int = path.find("#")
+	if fragment_index >= 0:
+		path = path.substr(0, fragment_index)
+	return path.get_file()
+
+
+static func _first_entry_string(entry: Dictionary, keys: Array, default_value: String = "") -> String:
+	for key: Variant in keys:
+		if _has_dictionary_key(entry, key):
+			return str(GFVariantData.get_option_value(entry, key, default_value)).strip_edges()
+	return default_value
+
+
+static func _first_entry_int(entry: Dictionary, keys: Array, default_value: int = 0) -> int:
+	for key: Variant in keys:
+		if _has_dictionary_key(entry, key):
+			return GFVariantData.get_option_int(entry, key, default_value)
+	return default_value
+
+
+static func _get_entry_expected_sha256(entry: Dictionary) -> String:
+	var value: String = _first_entry_string(entry, ["expected_sha256", "sha256"]).to_lower()
+	if not value.is_empty():
+		return value
+	var generic_hash: String = _first_entry_string(entry, ["hash"]).to_lower()
+	return generic_hash if generic_hash.length() == 64 else ""
+
+
+static func _copy_manifest_entry_option(source: Dictionary, target: Dictionary, key: String) -> void:
+	if not _has_dictionary_key(source, key):
+		return
+	target[key] = GFVariantData.duplicate_variant(GFVariantData.get_option_value(source, key))
+
+
+static func _has_dictionary_key(source: Dictionary, key: Variant) -> bool:
+	if source.has(key):
+		return true
+	if key is String:
+		var string_key: String = key
+		return source.has(StringName(string_key))
+	if key is StringName:
+		var string_name_key: StringName = key
+		return source.has(str(string_name_key))
+	return false
+
+
+static func _merge_headers(first: PackedStringArray, second: PackedStringArray) -> PackedStringArray:
+	var result: PackedStringArray = first.duplicate()
+	result.append_array(second)
+	return result
+
+
+static func _merge_metadata(first: Dictionary, second: Dictionary) -> Dictionary:
+	var result: Dictionary = first.duplicate(true)
+	for key: Variant in second.keys():
+		result[key] = GFVariantData.duplicate_variant(second[key])
+	return result
+
+
+static func _erase_dictionary_key_static(target: Dictionary, key: Variant) -> void:
+	var erased: bool = target.erase(key)
+	if erased:
+		return
 
 func _try_start_next_download() -> void:
 	if _paused or _active_task != null or _pending_tasks.is_empty():
@@ -564,7 +978,11 @@ func _append_file(source_path: String, target_path: String) -> Error:
 		return FileAccess.get_open_error()
 
 	target.seek_end()
-	var _stored: Variant = target.store_buffer(source.get_buffer(source.get_length()))
+	while not source.eof_reached():
+		var chunk: PackedByteArray = source.get_buffer(_APPEND_BUFFER_SIZE_BYTES)
+		if chunk.is_empty():
+			break
+		var _store_buffer_result: Variant = target.store_buffer(chunk)
 	source.close()
 	target.close()
 	return OK
@@ -627,7 +1045,7 @@ func _pause_active_task() -> void:
 	_pending_tasks.push_front(task)
 
 
-func _normalize_headers(value: Variant) -> PackedStringArray:
+static func _normalize_headers(value: Variant) -> PackedStringArray:
 	if value is PackedStringArray:
 		var headers: PackedStringArray = value
 		return headers.duplicate()
@@ -643,6 +1061,98 @@ func _normalize_headers(value: Variant) -> PackedStringArray:
 			_append_packed_string(result, "%s: %s" % [str(key), str(data[key])])
 		return result
 	return PackedStringArray()
+
+
+func _resolve_manifest_target_path(entry: Dictionary, target_root: String) -> String:
+	var target_path: String = _first_entry_string(entry, ["target_path", "path", "file"])
+	if target_path.is_empty():
+		target_path = _get_url_file_name(GFVariantData.get_option_string(entry, "url"))
+	target_path = target_path.replace("\\", "/").strip_edges()
+	if _is_supported_absolute_target_path(target_path):
+		if _has_parent_path_segment(target_path.trim_prefix("res://").trim_prefix("user://")):
+			return ""
+		return target_path.simplify_path()
+	if not _is_safe_relative_download_path(target_path):
+		return ""
+
+	var root: String = target_root.strip_edges()
+	if root.is_empty():
+		return ""
+	return root.path_join(target_path).simplify_path()
+
+
+func _is_supported_absolute_target_path(path: String) -> bool:
+	return path.begins_with("res://") or path.begins_with("user://")
+
+
+func _is_safe_relative_download_path(path: String) -> bool:
+	if path.is_empty() or path.begins_with("/") or path.contains("://") or path.contains(":"):
+		return false
+	if path == "." or path.get_file().is_empty() or _has_parent_path_segment(path):
+		return false
+	return true
+
+
+func _has_parent_path_segment(path: String) -> bool:
+	for segment: String in path.split("/", false):
+		if segment == "..":
+			return true
+	return false
+
+
+func _build_manifest_download_options(entry: Dictionary, options: Dictionary, index: int) -> Dictionary:
+	var result: Dictionary = options.duplicate(true)
+	_erase_dictionary_key_static(result, "temp_path")
+	_erase_dictionary_key_static(result, &"temp_path")
+	_erase_dictionary_key_static(result, "segment_path")
+	_erase_dictionary_key_static(result, &"segment_path")
+	var metadata: Dictionary = _merge_metadata(
+		GFVariantData.get_option_dictionary(options, "metadata"),
+		GFVariantData.get_option_dictionary(entry, "metadata")
+	)
+	metadata["manifest_index"] = GFVariantData.get_option_int(metadata, "manifest_index", index)
+	result["metadata"] = metadata
+
+	result["headers"] = _merge_headers(
+		_normalize_headers(GFVariantData.get_option_value(options, "headers", PackedStringArray())),
+		_normalize_headers(GFVariantData.get_option_value(entry, "headers", PackedStringArray()))
+	)
+
+	for key: String in ["expected_sha256", "resume", "overwrite", "temp_path", "segment_path", "max_retries", "retry_delay_seconds"]:
+		if _has_dictionary_key(entry, key):
+			result[key] = GFVariantData.duplicate_variant(GFVariantData.get_option_value(entry, key))
+	return result
+
+
+func _get_snapshot_expected_size(snapshot: Dictionary) -> int:
+	var expected_size: int = GFVariantData.get_option_int(snapshot, "expected_size", -1)
+	if expected_size >= 0:
+		return expected_size
+	var metadata: Dictionary = GFVariantData.get_option_dictionary(snapshot, "metadata")
+	return GFVariantData.get_option_int(metadata, "expected_size", -1)
+
+
+func _make_task_snapshot_lookup(task_ids: PackedInt32Array) -> Dictionary:
+	var requested_ids: Dictionary = {}
+	for task_id: int in task_ids:
+		if task_id > 0:
+			requested_ids[task_id] = true
+
+	var snapshots: Dictionary = {}
+	if _active_task != null and requested_ids.has(_active_task.task_id):
+		snapshots[_active_task.task_id] = _active_task.to_dict()
+
+	for task: GFDownloadTask in _pending_tasks:
+		if requested_ids.has(task.task_id):
+			snapshots[task.task_id] = task.to_dict()
+
+	for task_id: int in task_ids:
+		if task_id <= 0 or snapshots.has(task_id):
+			continue
+		var result: Dictionary = get_result(task_id)
+		if not result.is_empty():
+			snapshots[task_id] = result
+	return snapshots
 
 
 func _pop_next_ready_task() -> GFDownloadTask:
@@ -741,13 +1251,13 @@ func _connect_request_completed(request: HTTPRequest) -> void:
 		return
 
 
-func _append_packed_int32(target: PackedInt32Array, value: int) -> void:
+static func _append_packed_int32(target: PackedInt32Array, value: int) -> void:
 	var appended: bool = target.append(value)
 	if appended:
 		return
 
 
-func _append_packed_string(target: PackedStringArray, value: String) -> void:
+static func _append_packed_string(target: PackedStringArray, value: String) -> void:
 	var appended: bool = target.append(value)
 	if appended:
 		return

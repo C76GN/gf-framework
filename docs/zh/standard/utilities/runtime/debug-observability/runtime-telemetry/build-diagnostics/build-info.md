@@ -4,9 +4,9 @@
 
 `GFBuildInfo.collect()` 会从 `ProjectSettings` 与 `addons/gf/plugin.cfg` 采集当前环境。项目发布流水线可以写入 `gf/build/id`、`gf/build/commit_hash`、`gf/build/branch`、`gf/build/tag`、`gf/build/commit_count`、`gf/build/is_dirty`、`gf/build/time_utc` 与 `gf/build/metadata`，运行时再统一读取。
 
-需要在导出前从本地 Git 工作区写入这些字段时，可在编辑器脚本或 CI 脚本中调用 `GFBuildInfo.write_git_metadata_to_project_settings(work_dir, extra_metadata, save_settings)`。
+GF 不在运行时包或导出插件中调用 Git、Python 或 shell。需要提交号、分支、标签或流水线编号时，应由项目自己的 CI、编辑器脚本或外部构建工具采集，再调用 `GFBuildInfo.write_metadata_to_project_settings(build_data, extra_metadata, save_settings)` 写入 ProjectSettings。
 
-启用 GF 插件后，`GFBuildInfoExportPlugin` 会注册可选导出入口；把 `gf/build/export/write_git_metadata` 设为 `true` 后，导出开始时会写入 Git 元数据，默认在导出结束后恢复旧 ProjectSettings，避免开发期配置被导出流程污染。
+启用 GF 插件后，`GFBuildInfoExportPlugin` 会注册可选导出入口；把 `gf/build/export/write_metadata` 设为 `true` 后，导出开始时会读取 `gf/build/export/build_metadata` 与 `gf/build/export/metadata`，写入构建快照并补齐导出时间，默认在导出结束后恢复旧 ProjectSettings，避免开发期配置被导出流程污染。
 
 ```gdscript
 var build_info := GFBuildInfo.collect()

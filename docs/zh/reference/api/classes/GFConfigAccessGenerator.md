@@ -9,7 +9,7 @@
 - 类别：编辑器 API (`editor_api`)
 - 首次版本：`3.17.0`
 
-生成静态导表访问器脚本。 生成结果只封装 provider 的 `get_record()` / `get_table()` 调用， 不规定项目表结构语义，适合需要 IDE 补全和集中表名常量的项目使用。
+生成静态导表访问器脚本。 默认生成结果只封装 provider 的 `get_record()` / `get_table()` 调用， 也可按 schema 字段声明生成可选记录包装类；生成器本身不规定项目表结构语义。
 
 ## 成员概览
 
@@ -67,6 +67,7 @@ const DEFAULT_PROVIDER_ACCESSOR: String = "null"
 ### `generate`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func generate( schemas: Array, output_path: String = DEFAULT_OUTPUT_PATH, overwrite_existing: bool = true, access_class_name: String = DEFAULT_CLASS_NAME, provider_accessor: String = DEFAULT_PROVIDER_ACCESSOR, options: Dictionary = {} ) -> Error:
@@ -83,20 +84,21 @@ func generate( schemas: Array, output_path: String = DEFAULT_OUTPUT_PATH, overwr
 | `overwrite_existing` | 为 false 时目标已存在会返回 ERR_ALREADY_EXISTS。 |
 | `access_class_name` | 生成脚本的 class_name。 |
 | `provider_accessor` | 无显式 provider 参数时用于获取 provider 的表达式。 |
-| `options` | 可选生成选项，支持 method_name_style、constant_prefix、record_method_pattern、table_method_pattern、include_schema_comments。 |
+| `options` | 可选生成选项，支持 method_name_style、constant_prefix、record_method_pattern、table_method_pattern、include_schema_comments、include_typed_records、typed_record_method_pattern、typed_record_class_suffix。 |
 
 返回：写入结果错误码。
 
 结构：
 
 - `schemas`: Array of Dictionary or Object schemas with table_name/table_key and optional metadata.
-- `options`: Dictionary controlling method_name_style, constant_prefix, record_method_pattern, table_method_pattern, and include_schema_comments.
+- `options`: Dictionary controlling method_name_style, constant_prefix, record_method_pattern, table_method_pattern, include_schema_comments, include_typed_records, typed_record_method_pattern, and typed_record_class_suffix.
 
 <a id="member-gfconfigaccessgenerator-methods-build_source"></a>
 
 ### `build_source`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func build_source( schemas: Array, access_class_name: String = DEFAULT_CLASS_NAME, provider_accessor: String = DEFAULT_PROVIDER_ACCESSOR, options: Dictionary = {} ) -> String:
@@ -118,7 +120,7 @@ func build_source( schemas: Array, access_class_name: String = DEFAULT_CLASS_NAM
 结构：
 
 - `schemas`: Array of Dictionary or Object schemas with table_name/table_key and optional metadata.
-- `options`: Dictionary controlling method_name_style, constant_prefix, record_method_pattern, table_method_pattern, and include_schema_comments.
+- `options`: Dictionary controlling method_name_style, constant_prefix, record_method_pattern, table_method_pattern, include_schema_comments, include_typed_records, typed_record_method_pattern, and typed_record_class_suffix.
 
 <a id="member-gfconfigaccessgenerator-methods-save_source"></a>
 

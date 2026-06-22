@@ -354,6 +354,26 @@ GF 框架源码以长期维护和 Godot strict warning clean 为优先级。`add
 *   **布尔、数字和字符串**: 对来自 `Variant` 的标量值先确认可转换类型，再调用 `bool()`、`int()`、`float()`、`String()` 或 `StringName()`，避免 Godot 4.6 的 unsafe call argument 警告。
 *   **命名防御**: 局部变量和参数不得使用容易遮蔽基类 API 或 Godot 属性的名字，例如 `name`、`reference`。使用语义名，如 `property_name`、`object_ref`、`weak_ref`。
 
+### 4.4 GDScript warning-clean 规则
+GF 源码和测试必须保持 Godot reload warning clean。新增或修改 GDScript 时，不允许用 `@warning_ignore` 掩盖本可修复的问题，优先改成静态类型明确的写法。
+
+*   **禁止遮蔽**: 局部变量、参数和测试常量不得与当前类成员或全局 `class_name` 同名。测试需要 preload 脚本时使用 `_SCRIPT` 后缀；如果已有全局类名，优先直接使用全局类。
+	```gdscript
+	const GF_CONFIG_PIPELINE_SCRIPT = preload("res://addons/gf/tools/config_pipeline/gf_config_pipeline.gd")
+	```
+*   **禁止裸动态 cast**: 不要从 `Variant` 直接写 `value as GFType`。先用 `is` 判断，再赋给显式类型变量；重复逻辑收进私有 helper。
+	```gdscript
+	func _variant_to_database(value: Variant) -> GFConfigDatabaseResource:
+		if value is GFConfigDatabaseResource:
+			var database: GFConfigDatabaseResource = value
+			return database
+		return null
+	```
+*   **构造函数参数先收窄**: `String()`、`StringName()`、`NodePath()` 等构造函数只接收已收窄的 `String`、`StringName` 或 `NodePath`，不要直接传 `Variant`。
+*   **动态脚本实例化先收窄**: `get_script()` 返回值先接收为 `Variant`，确认 `is GDScript` 后再调用 `new()`；不要把它声明成 `Script` 后直接 `.new()`。
+*   **返回值必须处理**: Godot API 或 GF API 有返回值时必须接收、检查或明确命名为 `_xxx_result`。例如 `store_string()`、`merge_dictionary()`、`connect()`、`append()` 等不要直接丢弃返回值。
+*   **改完必须验证**: 涉及 `.gd` 的修改至少运行相关 focused GUT；提交前或收敛前运行 `python tools\gf_maintenance.py check --check gdscript_warnings --json`，截图中出现的 `UNSAFE_*`、`SHADOWED_*`、`RETURN_VALUE_DISCARDED` 等 warning 必须清零。维护测试 `test_gdscript_parse_validation.gd` 会静态拦截遮蔽全局 `class_name` 的脚本常量、未收窄的 GF 类强转，以及对 `Script` 类型变量直接 `.new()` 的写法。
+
 ---
 
 ## 5. 格式与最佳实践

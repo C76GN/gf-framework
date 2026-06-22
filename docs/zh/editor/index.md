@@ -22,3 +22,4 @@ GF 的编辑器层只负责装配和生成，不承载可选扩展的运行时�
 - [访问器生成](access-generator.md)：`GFAccessGenerator` 和扩展生成钩子。
 - [Inspector、工作区页面与导出插件](editor-extensions.md)：标准库和扩展贡献编辑器入口的方式。
 - [通用 Resource 表格控件](resource-table-editor.md)：`GFResourceTableEditor` 的扫描、显示和编辑能力。
+- [工具包](tools/index.md)：制作期、编辑器期、导入期、构建期或 CI 期工具包的边界与入口。

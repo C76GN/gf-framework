@@ -246,7 +246,8 @@ func test_collect_project_records_includes_known_gf_settings_without_plugin_regi
 
 	assert_true(settings.has("gf/codegen/access_output_path"), "生成器应稳定包含 GF codegen 设置。")
 	assert_true(settings.has("gf/project/installers"), "生成器应稳定包含 GF installer 设置。")
-	assert_true(settings.has("gf/build/export/write_git_metadata"), "生成器应稳定包含 GF build export 设置。")
+	assert_false(settings.has("gf/build/export/write_metadata"), "kernel 生成器不应硬编码标准库 debug 导出设置。")
+	assert_false(settings.has("gf/build/export/build_metadata"), "kernel 生成器不应硬编码标准库 debug 导出元数据设置。")
 
 
 # --- 私有/辅助方法 ---

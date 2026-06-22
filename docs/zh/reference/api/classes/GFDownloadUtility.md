@@ -30,7 +30,10 @@
 | 方法 | [`init`](#member-gfdownloadutility-methods-init) | `func init() -> void:` |
 | 方法 | [`dispose`](#member-gfdownloadutility-methods-dispose) | `func dispose() -> void:` |
 | 方法 | [`tick`](#member-gfdownloadutility-methods-tick) | `func tick(_delta: float = 0.0) -> void:` |
+| 方法 | [`parse_manifest_entries`](#member-gfdownloadutility-methods-parse_manifest_entries) | `static func parse_manifest_entries(data: Variant, options: Dictionary = {}) -> Array[Dictionary]:` |
 | 方法 | [`enqueue_download`](#member-gfdownloadutility-methods-enqueue_download) | `func enqueue_download( url: String, target_path: String, callback: Callable = Callable(), options: Dictionary = {} ) -> int:` |
+| 方法 | [`enqueue_manifest_entries`](#member-gfdownloadutility-methods-enqueue_manifest_entries) | `func enqueue_manifest_entries( entries: Array[Dictionary], target_root: String, callback: Callable = Callable(), options: Dictionary = {} ) -> PackedInt32Array:` |
+| 方法 | [`enqueue_manifest`](#member-gfdownloadutility-methods-enqueue_manifest) | `func enqueue_manifest( data: Variant, target_root: String, callback: Callable = Callable(), options: Dictionary = {} ) -> PackedInt32Array:` |
 | 方法 | [`cancel`](#member-gfdownloadutility-methods-cancel) | `func cancel(task_id: int, delete_temp: bool = false) -> bool:` |
 | 方法 | [`set_paused`](#member-gfdownloadutility-methods-set_paused) | `func set_paused(value: bool) -> void:` |
 | 方法 | [`pause`](#member-gfdownloadutility-methods-pause) | `func pause() -> void:` |
@@ -40,6 +43,8 @@
 | 方法 | [`get_active_task`](#member-gfdownloadutility-methods-get_active_task) | `func get_active_task() -> GFDownloadTask:` |
 | 方法 | [`get_queued_task_ids`](#member-gfdownloadutility-methods-get_queued_task_ids) | `func get_queued_task_ids() -> PackedInt32Array:` |
 | 方法 | [`get_result`](#member-gfdownloadutility-methods-get_result) | `func get_result(task_id: int) -> Dictionary:` |
+| 方法 | [`get_task_snapshot`](#member-gfdownloadutility-methods-get_task_snapshot) | `func get_task_snapshot(task_id: int) -> Dictionary:` |
+| 方法 | [`get_tasks_progress`](#member-gfdownloadutility-methods-get_tasks_progress) | `func get_tasks_progress(task_ids: PackedInt32Array) -> Dictionary:` |
 | 方法 | [`get_debug_snapshot`](#member-gfdownloadutility-methods-get_debug_snapshot) | `func get_debug_snapshot() -> Dictionary:` |
 | 方法 | [`_start_http_request`](#member-gfdownloadutility-methods-_start_http_request) | `func _start_http_request(request_data: Dictionary) -> Error:` |
 | 方法 | [`_complete_active_download`](#member-gfdownloadutility-methods-_complete_active_download) | `func _complete_active_download( success: bool, response_code: int, error: String = "", retryable: bool = false ) -> void:` |
@@ -284,6 +289,34 @@ func tick(_delta: float = 0.0) -> void:
 |---|---|
 | `_delta` | 为兼容统一 tick 签名而保留的参数。 |
 
+<a id="member-gfdownloadutility-methods-parse_manifest_entries"></a>
+
+### `parse_manifest_entries`
+
+- API：`public`
+- 首次版本：`5.2.0`
+
+```gdscript
+static func parse_manifest_entries(data: Variant, options: Dictionary = {}) -> Array[Dictionary]:
+```
+
+解析下载清单为标准条目列表。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `data` | 清单数据，可为 JSON 字符串、条目数组，或包含 files、entries、downloads 字段的字典。 |
+| `options` | 解析选项，支持 base_url、headers/default_headers 和 metadata。 |
+
+返回：标准下载条目数组。
+
+结构：
+
+- `data`: Variant，JSON 字符串、Array[Dictionary] 或 Dictionary 清单。
+- `options`: Dictionary，可包含 base_url、headers、default_headers 和 metadata。
+- `return`: Array[Dictionary]，每个条目包含 url、target_path、headers、metadata 以及可选 expected_sha256、expected_size、resume、overwrite、max_retries、retry_delay_seconds。
+
 <a id="member-gfdownloadutility-methods-enqueue_download"></a>
 
 ### `enqueue_download`
@@ -310,6 +343,64 @@ func enqueue_download( url: String, target_path: String, callback: Callable = Ca
 结构：
 
 - `options`: Dictionary，可包含 headers、resume、overwrite、expected_sha256、metadata、temp_path、segment_path、max_retries 和 retry_delay_seconds。
+
+<a id="member-gfdownloadutility-methods-enqueue_manifest_entries"></a>
+
+### `enqueue_manifest_entries`
+
+- API：`public`
+- 首次版本：`5.2.0`
+
+```gdscript
+func enqueue_manifest_entries( entries: Array[Dictionary], target_root: String, callback: Callable = Callable(), options: Dictionary = {} ) -> PackedInt32Array:
+```
+
+批量加入标准下载清单条目。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `entries` | parse_manifest_entries() 返回的标准条目，或兼容字段的条目字典数组。 |
+| `target_root` | 相对 target_path 的写入根路径。 |
+| `callback` | 每个任务完成、失败或取消时执行的回调，签名为 func(result: Dictionary)。 |
+| `options` | 批量默认选项，支持 enqueue_download() 的通用选项。 |
+
+返回：成功入队的任务句柄数组。
+
+结构：
+
+- `entries`: Array[Dictionary]，每个条目至少包含 url 和 target_path/path/file。
+- `options`: Dictionary，可包含 headers、resume、overwrite、metadata、max_retries 和 retry_delay_seconds。
+
+<a id="member-gfdownloadutility-methods-enqueue_manifest"></a>
+
+### `enqueue_manifest`
+
+- API：`public`
+- 首次版本：`5.2.0`
+
+```gdscript
+func enqueue_manifest( data: Variant, target_root: String, callback: Callable = Callable(), options: Dictionary = {} ) -> PackedInt32Array:
+```
+
+解析并批量加入下载清单。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `data` | 清单数据，可为 JSON 字符串、条目数组，或包含 files、entries、downloads 字段的字典。 |
+| `target_root` | 相对 target_path 的写入根路径。 |
+| `callback` | 每个任务完成、失败或取消时执行的回调，签名为 func(result: Dictionary)。 |
+| `options` | 解析和入队选项，解析阶段支持 base_url、headers/default_headers、metadata，入队阶段支持 enqueue_download() 的通用选项。 |
+
+返回：成功入队的任务句柄数组。
+
+结构：
+
+- `data`: Variant，JSON 字符串、Array[Dictionary] 或 Dictionary 清单。
+- `options`: Dictionary，可包含 base_url、headers/default_headers、metadata、resume、overwrite、max_retries 和 retry_delay_seconds。
 
 <a id="member-gfdownloadutility-methods-cancel"></a>
 
@@ -458,6 +549,56 @@ func get_result(task_id: int) -> Dictionary:
 结构：
 
 - `return`: Dictionary，包含最新任务结果；没有结果时为空字典。
+
+<a id="member-gfdownloadutility-methods-get_task_snapshot"></a>
+
+### `get_task_snapshot`
+
+- API：`public`
+- 首次版本：`5.2.0`
+
+```gdscript
+func get_task_snapshot(task_id: int) -> Dictionary:
+```
+
+获取指定任务的当前快照或最终结果。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `task_id` | 任务句柄。 |
+
+返回：任务快照；不存在时返回空字典。
+
+结构：
+
+- `return`: Dictionary，运行中或等待中的任务字段，或最终结果字段。
+
+<a id="member-gfdownloadutility-methods-get_tasks_progress"></a>
+
+### `get_tasks_progress`
+
+- API：`public`
+- 首次版本：`5.2.0`
+
+```gdscript
+func get_tasks_progress(task_ids: PackedInt32Array) -> Dictionary:
+```
+
+聚合多个下载任务的进度。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `task_ids` | 任务句柄数组。 |
+
+返回：聚合进度字典。
+
+结构：
+
+- `return`: Dictionary，包含 task_count、missing_count、completed_count、failed_count、cancelled_count、running_count、queued_count、terminal_count、finished、success、received_bytes、total_bytes、known_total_bytes、unknown_total_count 和 progress_ratio。
 
 <a id="member-gfdownloadutility-methods-get_debug_snapshot"></a>
 

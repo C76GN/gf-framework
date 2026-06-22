@@ -1,0 +1,205 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFResourceConfigProvider" path="addons/gf/standard/utilities/config/gf_resource_config_provider.gd" module="standard" extends="GFConfigProvider" classDigest="794f6f966c2f79d6fe2d2aa06b47b3dac8ceb6c85cbc03805226b28e580931ec">
+	<description>GFResourceConfigProvider: 读取 GFConfigTableResource 的运行时配置 Provider。
+用于把导表工具生成的 `.tres` / `.res` 表资源接入 `GFConfigProvider` 查询协议。
+它只处理通用表资源注册、表查询和记录查询，不绑定业务字段、构建 profile 或热更新策略。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_service</tag>
+		<tag name="since">5.2.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties />
+	<methods>
+		<member kind="method" name="register_table">
+			<signature>func register_table(table_resource: GFConfigTableResource) -&gt; bool:</signature>
+			<description>注册一张配置表资源。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">table_resource: 要注册的配置表资源。</tag>
+				<tag name="return">注册成功返回 true。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="register_tables">
+			<signature>func register_tables(table_resources: Array[GFConfigTableResource]) -&gt; int:</signature>
+			<description>批量注册配置表资源。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">table_resources: 要注册的配置表资源列表。</tag>
+				<tag name="return">成功注册的数量。</tag>
+				<tag name="schema">table_resources: Array[GFConfigTableResource]，每个元素是一张配置表资源。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="set_table_resources">
+			<signature>func set_table_resources(table_resources: Array[GFConfigTableResource], duplicate_tables: bool = false) -&gt; int:</signature>
+			<description>批量替换配置表资源并重建内部查询索引。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">table_resources: 要设置的配置表资源列表。</tag>
+				<tag name="param">duplicate_tables: 为 true 时保存表资源副本。</tag>
+				<tag name="return">成功注册的表数量。</tag>
+				<tag name="schema">table_resources: Array[GFConfigTableResource]，每个元素是一张配置表资源。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_table_resources">
+			<signature>func get_table_resources(duplicate_tables: bool = true) -&gt; Array[GFConfigTableResource]:</signature>
+			<description>获取已注册配置表资源。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">duplicate_tables: 为 true 时返回资源深拷贝，避免调用方修改 Provider 内部数据。</tag>
+				<tag name="return">配置表资源列表。</tag>
+				<tag name="schema">return: Array[GFConfigTableResource]，每个元素是一张配置表资源。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="from_database">
+			<signature>static func from_database(database: GFConfigDatabaseResource, duplicate_tables: bool = false) -&gt; GFResourceConfigProvider:</signature>
+			<description>从配置数据库资源创建 Provider。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">database: 配置数据库资源。</tag>
+				<tag name="param">duplicate_tables: 为 true 时把表资源副本注册到 Provider。</tag>
+				<tag name="return">新 Resource Provider；database 为空时返回 null。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="rebuild_table_registry">
+			<signature>func rebuild_table_registry() -&gt; int:</signature>
+			<description>重新建立内部查询索引和 schema registry。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">成功注册的表数量。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="unregister_table">
+			<signature>func unregister_table(table_name: StringName) -&gt; bool:</signature>
+			<description>注销配置表资源。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">table_name: 表名。</tag>
+				<tag name="return">找到并移除时返回 true。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="clear_tables">
+			<signature>func clear_tables() -&gt; void:</signature>
+			<description>清空所有配置表资源和由表资源注册的 schema。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="has_table">
+			<signature>func has_table(table_name: StringName) -&gt; bool:</signature>
+			<description>检查配置表是否已注册。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">table_name: 表名。</tag>
+				<tag name="return">已注册返回 true。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_table_ids">
+			<signature>func get_table_ids() -&gt; PackedStringArray:</signature>
+			<description>获取已注册配置表名。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">排序后的表名列表。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_table_resource">
+			<signature>func get_table_resource(table_name: StringName, duplicate_table: bool = true) -&gt; GFConfigTableResource:</signature>
+			<description>获取配置表资源。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">table_name: 表名。</tag>
+				<tag name="param">duplicate_table: 为 true 时返回资源深拷贝，避免调用方修改 Provider 内部数据。</tag>
+				<tag name="return">配置表资源；未命中时返回 null。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_record">
+			<signature>func get_record(table_name: StringName, record_id: Variant) -&gt; Variant:</signature>
+			<description>根据表名和 ID 获取单条记录。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">table_name: 表名。</tag>
+				<tag name="param">record_id: 记录的唯一标识符。</tag>
+				<tag name="return">返回对应记录副本，未命中时返回 null。</tag>
+				<tag name="schema">record_id: Variant，项目配置表使用的记录键，通常为 String、StringName 或 int。</tag>
+				<tag name="schema">return: Variant，找到时为 Dictionary，未命中时为 null。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="make_index_key">
+			<signature>func make_index_key(table_name: StringName, index_id: StringName, record: Dictionary) -&gt; String:</signature>
+			<description>根据表名和索引声明构建索引键。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">table_name: 表名。</tag>
+				<tag name="param">index_id: 索引 ID。</tag>
+				<tag name="param">record: 用于构建索引键的记录或字段值字典。</tag>
+				<tag name="return">索引键；表、索引或字段无效时返回空字符串。</tag>
+				<tag name="schema">record: Dictionary，键为索引字段名，值为字段数据。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="has_index_key">
+			<signature>func has_index_key(table_name: StringName, index_id: StringName, index_key: String) -&gt; bool:</signature>
+			<description>检查表资源中的命名索引键是否存在。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">table_name: 表名。</tag>
+				<tag name="param">index_id: 索引 ID。</tag>
+				<tag name="param">index_key: 由 make_index_key() 或同等规则生成的索引键。</tag>
+				<tag name="return">存在返回 true。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_index_records">
+			<signature>func get_index_records(table_name: StringName, index_id: StringName, index_key: String) -&gt; Array[Dictionary]:</signature>
+			<description>根据表名和命名索引获取记录列表。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">table_name: 表名。</tag>
+				<tag name="param">index_id: 索引 ID。</tag>
+				<tag name="param">index_key: 由 make_index_key() 或同等规则生成的索引键。</tag>
+				<tag name="return">命中的记录列表；未命中时返回空数组。</tag>
+				<tag name="schema">return: Array[Dictionary]，每个 Dictionary 是一条配置记录。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_index_record">
+			<signature>func get_index_record(table_name: StringName, index_id: StringName, index_key: String) -&gt; Variant:</signature>
+			<description>根据表名和命名索引获取第一条记录。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">table_name: 表名。</tag>
+				<tag name="param">index_id: 索引 ID。</tag>
+				<tag name="param">index_key: 由 make_index_key() 或同等规则生成的索引键。</tag>
+				<tag name="return">找到时返回第一条记录 Dictionary，否则返回 null。</tag>
+				<tag name="schema">return: Variant，找到时为 Dictionary，未命中时为 null。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_table">
+			<signature>func get_table(table_name: StringName) -&gt; Variant:</signature>
+			<description>根据表名获取整张表的数据。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">table_name: 表名。</tag>
+				<tag name="return">返回 Array[Dictionary] 表数据副本，未命中时返回 null。</tag>
+				<tag name="schema">return: Variant，找到时为 Array[Dictionary]，未命中时为 null。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

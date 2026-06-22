@@ -1,7 +1,7 @@
 {
   "id": "gf.content_package",
   "display_name": "GF Content Package",
-  "version": "5.1.0",
+  "version": "5.2.0",
   "extension_version": "1.0.0",
   "kind": "extension",
   "description": "Generic content package manifests, dependency diagnostics, and resource resolver registration.",

@@ -1,0 +1,232 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFConfigTableResource" path="addons/gf/standard/utilities/config/gf_config_table_resource.gd" module="standard" extends="Resource" classDigest="e6891a49e99ea6584eab129c58c423f1f863b727cc39c74638dc122a5a09b272">
+	<description>GFConfigTableResource: 可保存为 Godot Resource 的通用配置表。
+用于承载导表工具生成的单表数据，保留稳定顺序、可选 schema、可选 ID 索引和元数据。
+该资源不绑定业务表语义，适合保存为 `.tres` / `.res` 后由运行时 Provider 读取。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">resource_definition</tag>
+		<tag name="since">5.2.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties>
+		<member kind="property" name="table_name" decorators="@export">
+			<signature>var table_name: StringName = &amp;""</signature>
+			<description>表名。为空时优先使用 schema.table_name。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="schema" decorators="@export">
+			<signature>var schema: GFConfigTableSchema = null</signature>
+			<description>可选表结构声明，用于校验、字段转换和默认 ID 字段声明。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="records" decorators="@export">
+			<signature>var records: Array[Dictionary] = []</signature>
+			<description>表记录列表。记录顺序应保持导出时的稳定顺序，便于 Inspector、调试和确定性导出。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">records: Array[Dictionary]，每个 Dictionary 是一条配置记录。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="records_by_id" decorators="@export">
+			<signature>var records_by_id: Dictionary = {}</signature>
+			<description>可选 ID 索引。为空时 get_record() 会按 schema.id_field 或默认 id 字段扫描 records。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">records_by_id: Dictionary，键为配置记录 ID，值为对应记录 Dictionary。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="records_by_index" decorators="@export">
+			<signature>var records_by_index: Dictionary = {}</signature>
+			<description>可选命名索引缓存。为空时索引查询会按 schema.indexes 临时构建。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">records_by_index: Dictionary，键为索引 ID，值为索引键到记录列表的 Dictionary。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="metadata" decorators="@export">
+			<signature>var metadata: Dictionary = {}</signature>
+			<description>可选元数据，供导入器、编辑器或项目层扩展使用。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">metadata: Dictionary，保存导表来源、构建摘要或项目侧附加信息。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="get_table_key">
+			<signature>func get_table_key() -&gt; StringName:</signature>
+			<description>获取稳定表键。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">表名；本资源未声明且 schema 也未声明时返回空 StringName。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_id_field">
+			<signature>func get_id_field() -&gt; StringName:</signature>
+			<description>获取用于构建默认索引的 ID 字段。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">ID 字段名；schema 显式声明空 id_field 时返回空 StringName。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_records">
+			<signature>func get_records(duplicate_records: bool = true) -&gt; Array[Dictionary]:</signature>
+			<description>获取表记录列表。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">duplicate_records: 为 true 时返回记录深拷贝，避免调用方修改资源内数据。</tag>
+				<tag name="return">表记录列表。</tag>
+				<tag name="schema">return: Array[Dictionary]，每个 Dictionary 是一条配置记录。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_records_by_id">
+			<signature>func get_records_by_id(duplicate_records: bool = true) -&gt; Dictionary:</signature>
+			<description>获取 ID 索引。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">duplicate_records: 为 true 时返回记录深拷贝，避免调用方修改资源内数据。</tag>
+				<tag name="return">ID 索引副本；records_by_id 为空时按 records 临时构建。</tag>
+				<tag name="schema">return: Dictionary，键为配置记录 ID，值为对应记录 Dictionary。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_index_ids">
+			<signature>func get_index_ids() -&gt; PackedStringArray:</signature>
+			<description>获取当前可查询的命名索引 ID。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">排序后的索引 ID 列表。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="has_record">
+			<signature>func has_record(record_id: Variant) -&gt; bool:</signature>
+			<description>检查记录是否存在。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">record_id: 记录 ID。</tag>
+				<tag name="return">存在返回 true。</tag>
+				<tag name="schema">record_id: Variant，项目配置表使用的记录键，通常为 String、StringName 或 int。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_record">
+			<signature>func get_record(record_id: Variant, duplicate_record: bool = true) -&gt; Variant:</signature>
+			<description>根据 ID 获取记录。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">record_id: 记录 ID。</tag>
+				<tag name="param">duplicate_record: 为 true 时返回记录深拷贝，避免调用方修改资源内数据。</tag>
+				<tag name="return">找到时返回记录 Dictionary，否则返回 null。</tag>
+				<tag name="schema">record_id: Variant，项目配置表使用的记录键，通常为 String、StringName 或 int。</tag>
+				<tag name="schema">return: Variant，找到时为 Dictionary，未命中时为 null。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="make_index_key">
+			<signature>func make_index_key(index_id: StringName, record: Dictionary) -&gt; String:</signature>
+			<description>根据索引声明构建索引键。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">index_id: 索引 ID。</tag>
+				<tag name="param">record: 用于构建索引键的记录或字段值字典。</tag>
+				<tag name="return">索引键；索引不存在、字段缺失或字段值不符合索引声明时返回空字符串。</tag>
+				<tag name="schema">record: Dictionary，键为索引字段名，值为字段数据。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="has_index_key">
+			<signature>func has_index_key(index_id: StringName, index_key: String) -&gt; bool:</signature>
+			<description>检查命名索引键是否存在。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">index_id: 索引 ID。</tag>
+				<tag name="param">index_key: 由 make_index_key() 或同等规则生成的索引键。</tag>
+				<tag name="return">存在返回 true。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_index_records">
+			<signature>func get_index_records(index_id: StringName, index_key: String, duplicate_records: bool = true) -&gt; Array[Dictionary]:</signature>
+			<description>根据命名索引获取记录列表。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">index_id: 索引 ID。</tag>
+				<tag name="param">index_key: 由 make_index_key() 或同等规则生成的索引键。</tag>
+				<tag name="param">duplicate_records: 为 true 时返回记录深拷贝，避免调用方修改资源内数据。</tag>
+				<tag name="return">命中的记录列表；未命中时返回空数组。</tag>
+				<tag name="schema">return: Array[Dictionary]，每个 Dictionary 是一条配置记录。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_index_record">
+			<signature>func get_index_record(index_id: StringName, index_key: String, duplicate_record: bool = true) -&gt; Variant:</signature>
+			<description>根据命名索引获取第一条记录。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">index_id: 索引 ID。</tag>
+				<tag name="param">index_key: 由 make_index_key() 或同等规则生成的索引键。</tag>
+				<tag name="param">duplicate_record: 为 true 时返回记录深拷贝，避免调用方修改资源内数据。</tag>
+				<tag name="return">找到时返回第一条记录 Dictionary，否则返回 null。</tag>
+				<tag name="schema">return: Variant，找到时为 Dictionary，未命中时为 null。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="rebuild_index">
+			<signature>func rebuild_index() -&gt; int:</signature>
+			<description>按 records 重建 records_by_id。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">新索引中的记录数量。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="rebuild_indexes">
+			<signature>func rebuild_indexes() -&gt; int:</signature>
+			<description>按 schema.indexes 重建 records_by_index。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">新索引缓存中的索引数量。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="validate_records">
+			<signature>func validate_records(options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>使用 schema 校验当前记录列表。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">options: 可选上下文，支持 source、row_locations 等校验报告字段。</tag>
+				<tag name="return">校验报告字典。</tag>
+				<tag name="schema">options: Dictionary，可包含 source、line、column、row_index、column_index 和 row_locations。</tag>
+				<tag name="schema">return: GFConfigValidationReport 兼容 Dictionary。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="duplicate_table">
+			<signature>func duplicate_table() -&gt; GFConfigTableResource:</signature>
+			<description>创建同内容拷贝，避免运行时修改污染共享 Resource。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">新配置表资源。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

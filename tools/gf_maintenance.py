@@ -14,6 +14,7 @@ import json
 import os
 import posixpath
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -217,6 +218,11 @@ RESOURCE_BOUNDARY_DIRECT_PATH_PREFIXES = ("res://", "uid://", "user://")
 RESOURCE_BOUNDARY_EDITOR_METADATA_TARGETS = {
 	"res://addons/gf/plugin.cfg",
 }
+RESOURCE_BOUNDARY_OBSERVATION_KINDS = {
+	"direct_editor_metadata_load",
+	"direct_script_dependency_load",
+}
+RESOURCE_BOUNDARY_OBSERVATION_SAMPLE_LIMIT = 12
 CONTENT_PACKAGE_MANIFEST_FILE = "gf_content_package.json"
 CONTENT_PACKAGE_ALLOWED_FIELDS = {
 	"schema_version",
@@ -351,7 +357,15 @@ PACKAGE_EXTERNAL_COMMAND_AUDIT_PROCESS_CALL_RE = re.compile(
 	r"\bOS\.(?P<api>execute|create_process|shell_open)\s*\("
 )
 PACKAGE_EXTERNAL_COMMAND_AUDIT_SOURCE_EXTENSIONS = {".gd"}
-PACKAGE_EXTERNAL_COMMAND_AUDIT_GIT_BUILD_INFO_PATH = "addons/gf/standard/utilities/debug/gf_build_info.gd"
+PACKAGE_EXTERNAL_COMMAND_AUDIT_ALLOWED_CALLS = (
+	{
+		"path": "addons/gf/kernel/editor/gf_editor_workspace_dock.gd",
+		"package_id": "gf.kernel",
+		"api": "shell_open",
+		"command": "",
+		"reason": "Editor-only Workspace links open public documentation and release pages.",
+	},
+)
 PACKAGE_SIGNATURE_POLICY_FIELDS = {
 	"public_key",
 	"public_keys",
@@ -405,6 +419,7 @@ PACKAGE_MANIFEST_FORBIDDEN_FIELDS = {
 } | PACKAGE_SIGNATURE_POLICY_FIELDS
 PACKAGE_MANIFEST_KINDS = {"kernel", "standard", "extension", "preset", "tool"}
 PACKAGE_MANIFEST_SCHEMA_VERSION = 1
+PACKAGE_REGISTRY_SCHEMA_VERSION = 2
 PACKAGE_ID_RE = re.compile(r"^(?:gf\.kernel|gf\.(?:standard|extension|preset|tool)\.[a-z0-9_]+(?:\.[a-z0-9_]+)*)$")
 PACKAGE_CLOSURE_EXTENSION_TOTAL_WARNING_THRESHOLD = 8
 PACKAGE_CLOSURE_EXTENSION_STANDARD_WARNING_THRESHOLD = 6
@@ -656,7 +671,7 @@ CHECK_DEFINITIONS: dict[str, list[str]] = {
 	"docs": [sys.executable, "tools/check_docs_quality.py", "--strict"],
 	"public_docs_boundary": [sys.executable, "tools/gf_maintenance.py", "public-docs-boundary"],
 	"public_api_boundary": [sys.executable, "tools/gf_maintenance.py", "public-api-boundary"],
-	"resource_boundary": [sys.executable, "tools/gf_maintenance.py", "resource-boundary"],
+	"resource_boundary": [sys.executable, "tools/gf_maintenance.py", "resource-boundary", "--fail-on-issues"],
 	"content_package_boundary": [sys.executable, "tools/gf_maintenance.py", "content-package-boundary"],
 	"asset_lifecycle_boundary": [sys.executable, "tools/gf_maintenance.py", "asset-lifecycle-boundary"],
 	"project_profile_boundary": [sys.executable, "tools/gf_maintenance.py", "project-profile-boundary"],
@@ -665,7 +680,7 @@ CHECK_DEFINITIONS: dict[str, list[str]] = {
 	"package_source_boundary": [sys.executable, "tools/gf_maintenance.py", "package-source-boundary"],
 	"package_build_boundary": [sys.executable, "tools/gf_maintenance.py", "package-build-boundary"],
 	"package_user_dependency_boundary": [sys.executable, "tools/gf_maintenance.py", "package-user-dependency-boundary"],
-	"package_external_command_audit": [sys.executable, "tools/gf_maintenance.py", "package-external-command-audit"],
+	"package_external_command_audit": [sys.executable, "tools/gf_maintenance.py", "package-external-command-audit", "--fail-on-warnings"],
 	"core_only_smoke": [sys.executable, "tools/gf_maintenance.py", "core-only-smoke"],
 	"package_install_smoke": [sys.executable, "tools/gf_maintenance.py", "package-install-smoke"],
 	"network_install_smoke": [sys.executable, "tools/gf_maintenance.py", "network-install-smoke"],
@@ -753,13 +768,114 @@ CHECK_DEFINITIONS: dict[str, list[str]] = {
 	],
 }
 
+API_CHECKS: list[str] = ["api", "ai_api", "public_api_boundary"]
+DOCS_CHECKS: list[str] = ["docs", "public_docs_boundary", "mkdocs"]
+EXAMPLES_CHECKS: list[str] = [
+	"examples_sync",
+	"examples_scan",
+	"examples_boot",
+	"examples_smoke",
+	"examples_coverage",
+]
+LIGHT_BOUNDARY_CHECKS: list[str] = [
+	"resource_boundary",
+	"content_package_boundary",
+	"asset_lifecycle_boundary",
+	"project_profile_boundary",
+	"package_boundary",
+	"package_closure_audit",
+	"package_source_boundary",
+	"package_user_dependency_boundary",
+	"package_external_command_audit",
+	"core_only_smoke",
+	"package_focused_gut_mapping",
+	"api_since_touched",
+	"path_hygiene",
+	"maintenance_self_test",
+	"dependency_boundary",
+	"diff",
+]
+PACKAGE_SMOKE_CHECKS: list[str] = [
+	"package_build_boundary",
+	"package_install_smoke",
+	"network_install_smoke",
+	"preset_smoke",
+	"package_manager_status_smoke",
+	"package_native_parity_smoke",
+	"package_editor_wizard_smoke",
+	"package_godot_cli_smoke",
+	"uninstall_smoke",
+]
+PACKAGE_CHECKS: list[str] = [
+	"package_boundary",
+	"package_closure_audit",
+	"package_source_boundary",
+	"package_user_dependency_boundary",
+	"package_external_command_audit",
+	"core_only_smoke",
+	"package_focused_gut_mapping",
+	*PACKAGE_SMOKE_CHECKS,
+]
+QUICK_CHECKS: list[str] = [
+	"api",
+	"ai_api",
+	"docs",
+	"public_docs_boundary",
+	"public_api_boundary",
+	*LIGHT_BOUNDARY_CHECKS,
+]
+FULL_CHECKS: list[str] = [
+	"gut",
+	"api",
+	"ai_api",
+	"docs",
+	"public_docs_boundary",
+	"public_api_boundary",
+	"resource_boundary",
+	"content_package_boundary",
+	"asset_lifecycle_boundary",
+	"project_profile_boundary",
+	*PACKAGE_CHECKS,
+	"package_godot_smoke",
+	"mkdocs",
+	"api_since_touched",
+	"path_hygiene",
+	"maintenance_self_test",
+	"dependency_boundary",
+	"gdscript_warnings",
+	"diff",
+]
+RELEASE_CHECKS: list[str] = [
+	"gut",
+	"api",
+	"ai_api",
+	"docs",
+	"public_docs_boundary",
+	"public_api_boundary",
+	"resource_boundary",
+	"content_package_boundary",
+	"asset_lifecycle_boundary",
+	"project_profile_boundary",
+	*PACKAGE_CHECKS,
+	"package_godot_matrix_smoke",
+	"mkdocs",
+	"api_since_touched",
+	"path_hygiene",
+	"maintenance_self_test",
+	"dependency_boundary",
+	"gdscript_warnings",
+	"diff",
+	"release_metadata",
+]
+
 CHECK_SUITES: dict[str, list[str]] = {
-	"api": ["api", "ai_api", "public_api_boundary"],
-	"docs": ["docs", "public_docs_boundary", "mkdocs"],
-	"examples": ["examples_sync", "examples_scan", "examples_boot", "examples_smoke", "examples_coverage"],
-	"quick": ["api", "ai_api", "docs", "public_docs_boundary", "public_api_boundary", "resource_boundary", "content_package_boundary", "asset_lifecycle_boundary", "project_profile_boundary", "package_boundary", "package_closure_audit", "package_source_boundary", "package_build_boundary", "package_user_dependency_boundary", "package_external_command_audit", "core_only_smoke", "package_install_smoke", "network_install_smoke", "preset_smoke", "package_manager_status_smoke", "package_native_parity_smoke", "package_editor_wizard_smoke", "package_focused_gut_mapping", "package_godot_cli_smoke", "uninstall_smoke", "api_since_touched", "path_hygiene", "maintenance_self_test", "dependency_boundary", "diff"],
-	"full": ["gut", "api", "ai_api", "docs", "public_docs_boundary", "public_api_boundary", "resource_boundary", "content_package_boundary", "asset_lifecycle_boundary", "project_profile_boundary", "package_boundary", "package_closure_audit", "package_source_boundary", "package_build_boundary", "package_user_dependency_boundary", "package_external_command_audit", "core_only_smoke", "package_install_smoke", "network_install_smoke", "preset_smoke", "package_manager_status_smoke", "package_native_parity_smoke", "package_editor_wizard_smoke", "package_focused_gut_mapping", "package_godot_cli_smoke", "package_godot_smoke", "uninstall_smoke", "mkdocs", "api_since_touched", "path_hygiene", "maintenance_self_test", "dependency_boundary", "gdscript_warnings", "diff"],
-	"release": ["gut", "api", "ai_api", "docs", "public_docs_boundary", "public_api_boundary", "resource_boundary", "content_package_boundary", "asset_lifecycle_boundary", "project_profile_boundary", "package_boundary", "package_closure_audit", "package_source_boundary", "package_build_boundary", "package_user_dependency_boundary", "package_external_command_audit", "core_only_smoke", "package_install_smoke", "network_install_smoke", "preset_smoke", "package_manager_status_smoke", "package_native_parity_smoke", "package_editor_wizard_smoke", "package_focused_gut_mapping", "package_godot_cli_smoke", "package_godot_matrix_smoke", "uninstall_smoke", "mkdocs", "api_since_touched", "path_hygiene", "maintenance_self_test", "dependency_boundary", "gdscript_warnings", "diff", "release_metadata"],
+	"api": API_CHECKS,
+	"docs": DOCS_CHECKS,
+	"examples": EXAMPLES_CHECKS,
+	"quick": QUICK_CHECKS,
+	"package": PACKAGE_CHECKS,
+	"full": FULL_CHECKS,
+	"release": RELEASE_CHECKS,
 }
 
 _API_CACHE: list[ApiScript] | None = None
@@ -864,6 +980,11 @@ def main() -> int:
 		"--fail-on-issues",
 		action="store_true",
 		help="Return a failing exit code when any direct resource load issue is found. Default is report-only.",
+	)
+	resource_boundary_parser.add_argument(
+		"--include-observations",
+		action="store_true",
+		help="Include full script-dependency and editor-metadata observation records in JSON output.",
 	)
 	resource_boundary_parser.add_argument("--json", action="store_true", help="Print JSON instead of text.")
 
@@ -1090,6 +1211,11 @@ def main() -> int:
 		action="store_true",
 		help="Allow local diagnostics on a dirty worktree. Never use for release packaging.",
 	)
+	release_parser.add_argument(
+		"--allow-breaking-api",
+		action="store_true",
+		help="Allow explicitly approved breaking API baseline changes without requiring a major version bump.",
+	)
 	release_parser.add_argument("--json", action="store_true", help="Print JSON instead of text.")
 
 	api_index_parser = subparsers.add_parser("api-index", help="Print compact GF API index statistics.")
@@ -1150,7 +1276,10 @@ def main() -> int:
 		print_output(data, args.json, render_public_api_boundary_text)
 		return 0 if data["ok"] else 1
 	if args.command == "resource-boundary":
-		data = resource_boundary(fail_on_issues=args.fail_on_issues)
+		data = resource_boundary(
+			fail_on_issues=args.fail_on_issues,
+			include_observations=args.include_observations,
+		)
 		print_output(data, args.json, render_resource_boundary_text)
 		return 0 if data["ok"] else 1
 	if args.command == "content-package-boundary":
@@ -1266,7 +1395,11 @@ def main() -> int:
 			print_github_check_annotations(data)
 		return 0 if data["ok"] else 1
 	if args.command == "release-status":
-		data = release_status(args.version, allow_dirty=args.allow_dirty)
+		data = release_status(
+			args.version,
+			allow_dirty=args.allow_dirty,
+			allow_breaking_api=args.allow_breaking_api,
+		)
 		print_output(data, args.json, render_release_status_text)
 		return 0 if data["ok"] else 1
 	if args.command == "api-index":
@@ -1929,6 +2062,7 @@ def workspace_status() -> dict[str, Any]:
 	entries = parse_git_status(git_lines(["status", "--short"]))
 	categories: dict[str, list[dict[str, str]]] = {
 		"runtime_source": [],
+		"tool_source": [],
 		"examples": [],
 		"tests": [],
 		"manual_docs": [],
@@ -1984,6 +2118,7 @@ def path_hygiene() -> dict[str, Any]:
 		*find_case_collision_issues(scanned_paths),
 		*find_blocked_tracked_dir_issues(scanned_paths),
 		*find_missing_local_github_action_issues(scanned_paths),
+		*find_gdscript_utf8_bom_issues(scanned_paths),
 	]
 	return {
 		"ok": len(issues) == 0,
@@ -2213,7 +2348,10 @@ def public_docs_boundary() -> dict[str, Any]:
 	}
 
 
-def resource_boundary(fail_on_issues: bool = False) -> dict[str, Any]:
+def resource_boundary(
+	fail_on_issues: bool = False,
+	include_observations: bool = False,
+) -> dict[str, Any]:
 	paths_payload = collect_resource_boundary_paths()
 	scan_errors = paths_payload["errors"]
 	if scan_errors:
@@ -2229,15 +2367,29 @@ def resource_boundary(fail_on_issues: bool = False) -> dict[str, Any]:
 		}
 
 	files: list[str] = paths_payload["paths"]
-	issues: list[dict[str, Any]] = []
+	findings: list[dict[str, Any]] = []
 	for path in files:
 		source_path = ROOT / path
 		source = read_text_file(source_path)
 		if not source:
 			continue
-		issues.extend(audit_resource_boundary_text(source, path))
+		findings.extend(audit_resource_boundary_text(source, path))
+	source_owner_entries = collect_resource_boundary_source_owner_entries()
+	annotate_resource_boundary_packages(findings, source_owner_entries)
+	return make_resource_boundary_payload(files, findings, fail_on_issues, include_observations)
+
+
+def make_resource_boundary_payload(
+	files: list[str],
+	findings: list[dict[str, Any]],
+	fail_on_issues: bool,
+	include_observations: bool = False,
+) -> dict[str, Any]:
+	issues = [finding for finding in findings if not is_resource_boundary_observation(finding)]
+	observations = [finding for finding in findings if is_resource_boundary_observation(finding)]
 	warning_count = sum(1 for issue in issues if issue.get("severity") == "warning")
 	info_count = sum(1 for issue in issues if issue.get("severity") == "info")
+	observation_samples = observations[:RESOURCE_BOUNDARY_OBSERVATION_SAMPLE_LIMIT]
 	return {
 		"ok": not fail_on_issues or len(issues) == 0,
 		"root": str(ROOT),
@@ -2249,8 +2401,58 @@ def resource_boundary(fail_on_issues: bool = False) -> dict[str, Any]:
 		"severity_counts": count_issue_field(issues, "severity"),
 		"issue_kind_counts": count_issue_field(issues, "kind"),
 		"target_extension_counts": count_issue_field(issues, "target_extension"),
+		"source_kind_counts": count_issue_field(issues, "source_kind"),
+		"source_package_counts": count_issue_field(issues, "source_package"),
+		"target_package_counts": count_issue_field(issues, "target_package"),
+		"source_target_package_counts": count_issue_field_pair(issues, "source_package", "target_package"),
+		"observation_count": len(observations),
+		"observation_kind_counts": count_issue_field(observations, "kind"),
+		"observation_target_extension_counts": count_issue_field(observations, "target_extension"),
+		"observation_source_kind_counts": count_issue_field(observations, "source_kind"),
+		"observation_source_package_counts": count_issue_field(observations, "source_package"),
+		"observation_target_package_counts": count_issue_field(observations, "target_package"),
+		"observation_source_target_package_counts": count_issue_field_pair(observations, "source_package", "target_package"),
+		"observation_samples": observation_samples,
+		"observations": observations if include_observations else [],
 		"issues": issues,
 	}
+
+
+def is_resource_boundary_observation(finding: dict[str, Any]) -> bool:
+	return str(finding.get("kind", "")) in RESOURCE_BOUNDARY_OBSERVATION_KINDS
+
+
+def collect_resource_boundary_source_owner_entries() -> list[dict[str, str]]:
+	paths_payload = collect_package_manifest_paths()
+	if paths_payload["errors"]:
+		return []
+
+	records: list[dict[str, Any]] = []
+	issues: list[dict[str, Any]] = []
+	for path in paths_payload["paths"]:
+		record = load_package_manifest_record(path)
+		records.append(record)
+		issues.extend(record["issues"])
+	issues.extend(audit_package_manifest_graph(records))
+	issues.extend(audit_package_path_ownership(records))
+	if package_issue_error_count(issues) > 0:
+		return []
+	return collect_package_source_owner_entries(records)
+
+
+def annotate_resource_boundary_packages(
+	findings: list[dict[str, Any]],
+	owner_entries: list[dict[str, str]],
+) -> None:
+	for finding in findings:
+		finding["source_package"] = resource_boundary_source_package(
+			str(finding.get("path", "")),
+			owner_entries,
+		)
+		finding["target_package"] = resource_boundary_target_package(
+			str(finding.get("target", "")),
+			owner_entries,
+		)
 
 
 def content_package_boundary(check_resource_exists: bool = False) -> dict[str, Any]:
@@ -3171,6 +3373,8 @@ def audit_package_external_command_source(
 		for match in PACKAGE_EXTERNAL_COMMAND_AUDIT_PROCESS_CALL_RE.finditer(line):
 			api = match.group("api")
 			command_literal = package_external_command_literal_from_call_line(line, match.end())
+			if package_external_command_is_allowed(path, package_id, api, command_literal):
+				continue
 			severity = package_external_command_severity(path, package_id, api, command_literal)
 			issues.append(make_boundary_issue(
 				"package_external_process_call",
@@ -3190,22 +3394,29 @@ def package_external_command_literal_from_call_line(line: str, call_args_start: 
 	return str(literals[0]).strip() if literals else ""
 
 
+def package_external_command_is_allowed(
+	path: str,
+	package_id: str,
+	api: str,
+	command_literal: str,
+) -> bool:
+	for allowed_call in PACKAGE_EXTERNAL_COMMAND_AUDIT_ALLOWED_CALLS:
+		if (
+			allowed_call["path"] == path
+			and allowed_call["package_id"] == package_id
+			and allowed_call["api"] == api
+			and allowed_call["command"] == command_literal
+		):
+			return True
+	return False
+
+
 def package_external_command_severity(
 	path: str,
 	package_id: str,
 	api: str,
 	command_literal: str,
 ) -> str:
-	if (
-		path == PACKAGE_EXTERNAL_COMMAND_AUDIT_GIT_BUILD_INFO_PATH
-		and api == "execute"
-		and command_literal.lower() == "git"
-	):
-		return "info"
-	if api == "shell_open" and "/editor/" in path:
-		return "info"
-	if package_id == "gf.kernel" and api == "shell_open" and path.startswith("addons/gf/kernel/editor/"):
-		return "info"
 	return "warning"
 
 
@@ -3347,6 +3558,8 @@ def package_install_smoke() -> dict[str, Any]:
 
 		run_package_install_smoke_save_install(temp_root, registry_path, scenarios, issues)
 		run_package_install_smoke_dry_run(temp_root, registry_path, scenarios, issues)
+		run_package_install_smoke_update_all_installed(temp_root, registry_path, scenarios, issues)
+		run_package_install_smoke_framework_compatibility(temp_root, registry_path, scenarios, issues)
 		run_package_install_smoke_checksum_failure(temp_root, registry_path, scenarios, issues)
 		run_package_install_smoke_path_audit_failure(temp_root, registry_path, scenarios, issues)
 		run_package_install_smoke_external_tool_payload_failure(temp_root, registry_path, scenarios, issues)
@@ -3508,6 +3721,166 @@ def run_package_install_smoke_dry_run(
 		scenario,
 		len(issues) == start_issue_count,
 		{"installed_file_count": install_data.get("installed_file_count", 0)},
+	)
+
+
+def run_package_install_smoke_update_all_installed(
+	temp_root: Path,
+	registry_path: Path,
+	scenarios: list[dict[str, Any]],
+	issues: list[dict[str, Any]],
+) -> None:
+	scenario = "update_all_installed"
+	start_issue_count = len(issues)
+	project_root = temp_root / scenario
+	scenario_registry_path = temp_root / f"{scenario}_registry/index.json"
+	scenario_registry_path.parent.mkdir(parents=True, exist_ok=True)
+	shutil.copy2(registry_path, scenario_registry_path)
+	install_data = run_package_installer_smoke(
+		scenario,
+		[
+			"install",
+			"gf.extension.save",
+			"--registry",
+			str(scenario_registry_path),
+			"--project-root",
+			str(project_root),
+			"--json",
+		],
+		issues,
+	)
+	registry_data = read_json_object(scenario_registry_path)
+	packages = registry_data.get("packages", {}) if isinstance(registry_data.get("packages", {}), dict) else {}
+	storage_entry = packages.get("gf.standard.storage", {}) if isinstance(packages.get("gf.standard.storage", {}), dict) else {}
+	storage_entry["version"] = "update-smoke"
+	packages["gf.standard.storage"] = storage_entry
+	registry_data["packages"] = packages
+	write_json_object(scenario_registry_path, registry_data)
+	update_data = run_package_installer_smoke(
+		scenario,
+		[
+			"update",
+			"--all-installed",
+			"--registry",
+			str(scenario_registry_path),
+			"--project-root",
+			str(project_root),
+			"--json",
+		],
+		issues,
+	)
+	lockfile_data = read_json_object(project_root / ".gf/packages.lock.json")
+	installed = lockfile_data.get("installed", {}) if isinstance(lockfile_data.get("installed", {}), dict) else {}
+	updated_storage_entry = (
+		installed.get("gf.standard.storage", {})
+		if isinstance(installed.get("gf.standard.storage", {}), dict)
+		else {}
+	)
+	storage_reasons = uninstall_smoke_string_list(updated_storage_entry.get("reason", []))
+	assert_package_install_smoke_condition(
+		bool(install_data.get("ok")) and bool(update_data.get("ok")),
+		issues,
+		scenario,
+		"package_install_smoke_update_all_failed",
+		"update --all-installed should update already installed packages from the selected registry.",
+		actual_value=str(update_data.get("issues", [])),
+	)
+	assert_package_install_smoke_condition(
+		"gf.standard.storage" in uninstall_smoke_string_list(update_data.get("updated_packages", [])),
+		issues,
+		scenario,
+		"package_install_smoke_update_all_missing_updated_package",
+		"Changed installed package should be reported as updated.",
+		expected_value="gf.standard.storage",
+	)
+	assert_package_install_smoke_condition(
+		updated_storage_entry.get("version") == "update-smoke",
+		issues,
+		scenario,
+		"package_install_smoke_update_all_lockfile_not_updated",
+		"update --all-installed should rewrite the lockfile entry from the current registry.",
+		actual_value=str(updated_storage_entry.get("version", "")),
+	)
+	assert_package_install_smoke_condition(
+		"dependency" in storage_reasons and "manual" not in storage_reasons,
+		issues,
+		scenario,
+		"package_install_smoke_update_all_reason_polluted",
+		"Updating installed dependency packages should preserve dependency reason without adding manual.",
+		actual_value=str(storage_reasons),
+	)
+	record_package_install_smoke_scenario(
+		scenarios,
+		scenario,
+		len(issues) == start_issue_count,
+		{
+			"updated_packages": update_data.get("updated_packages", []),
+			"updated_file_count": update_data.get("updated_file_count", 0),
+		},
+	)
+
+
+def run_package_install_smoke_framework_compatibility(
+	temp_root: Path,
+	registry_path: Path,
+	scenarios: list[dict[str, Any]],
+	issues: list[dict[str, Any]],
+) -> None:
+	scenario = "framework_compatibility_failure_no_mutation"
+	start_issue_count = len(issues)
+	project_root = temp_root / scenario
+	plugin_cfg_path = project_root / "addons/gf/plugin.cfg"
+	plugin_cfg_path.parent.mkdir(parents=True, exist_ok=True)
+	plugin_cfg_path.write_text("[plugin]\nversion=\"1.0.0\"\n", encoding="utf-8")
+	incompatible_registry_path = temp_root / "incompatible_registry/index.json"
+	registry_data = read_json_object(registry_path)
+	registry_data["framework_version"] = "9.0.0"
+	registry_data["minimum_framework_version"] = "9.0.0"
+	registry_data["maximum_framework_version_exclusive"] = "10.0.0"
+	packages = registry_data.get("packages", {})
+	if isinstance(packages, dict):
+		for package_entry in packages.values():
+			if not isinstance(package_entry, dict):
+				continue
+			package_entry["minimum_framework_version"] = "9.0.0"
+			package_entry["maximum_framework_version_exclusive"] = "10.0.0"
+	write_json_object(incompatible_registry_path, registry_data)
+	install_data = run_package_installer_smoke(
+		scenario,
+		[
+			"install",
+			"gf.extension.save",
+			"--registry",
+			str(incompatible_registry_path),
+			"--project-root",
+			str(project_root),
+			"--json",
+		],
+		issues,
+		allow_failure=True,
+	)
+	install_issues = "\n".join(uninstall_smoke_string_list(install_data.get("issues", [])))
+	assert_package_install_smoke_condition(
+		not bool(install_data.get("ok")) and "minimum_framework_version 9.0.0" in install_issues,
+		issues,
+		scenario,
+		"package_install_smoke_framework_compatibility_not_rejected",
+		"Installer should reject packages that require a newer GF framework version before staging archives.",
+		actual_value=install_issues,
+	)
+	assert_package_install_smoke_condition(
+		not (project_root / ".gf/packages.lock.json").exists()
+		and not (project_root / "addons/gf/extensions/save/gf_extension.json").exists(),
+		issues,
+		scenario,
+		"package_install_smoke_framework_compatibility_mutated_project",
+		"Framework compatibility failure must not write lockfiles or package files.",
+	)
+	record_package_install_smoke_scenario(
+		scenarios,
+		scenario,
+		len(issues) == start_issue_count,
+		{"issue_count": len(uninstall_smoke_string_list(install_data.get("issues", [])))},
 	)
 
 
@@ -9095,6 +9468,28 @@ def run_package_godot_cli_smoke_minimal_kernel_local_install_verify_uninstall(
 		"package_godot_cli_smoke_minimal_kernel_local_added_package_tools",
 		"Local registry install must not add maintenance-side Python package tools to a user project.",
 	)
+	update_data = run_package_godot_cli_smoke_command(
+		scenario,
+		[
+			"update",
+			"--all-installed",
+			"--registry",
+			str(registry_path),
+			"--project-root",
+			str(project_root),
+			"--json",
+		],
+		issues,
+		godot_project_root=project_root,
+	)
+	assert_package_godot_cli_smoke_condition(
+		bool(update_data.get("ok")) and bool(update_data.get("all_installed")),
+		issues,
+		scenario,
+		"package_godot_cli_smoke_minimal_kernel_local_update_failed",
+		"Minimal gf.kernel project CLI should support update --all-installed after installing a package closure.",
+		actual_value=str(update_data.get("issues", [])),
+	)
 	verify_data = run_package_godot_cli_smoke_command(
 		scenario,
 		[
@@ -9184,6 +9579,7 @@ def run_package_godot_cli_smoke_minimal_kernel_local_install_verify_uninstall(
 		len(issues) == start_issue_count,
 		{
 			"installed_file_count": install_data.get("installed_file_count", 0),
+			"updated_file_count": update_data.get("updated_file_count", 0),
 			"removed_file_count": uninstall_data.get("removed_file_count", 0),
 			"post_uninstall_issue_count": post_uninstall_verify_data.get("issue_count", 0),
 		},
@@ -12675,6 +13071,16 @@ def maintenance_self_test() -> dict[str, Any]:
 		GF_PRESET_ALLOWED_FIELDS.isdisjoint(GF_PRESET_FORBIDDEN_PACKAGE_FIELDS),
 		"preset package fields must stay outside the allowed preset field set.",
 	)
+	record_result(
+		"quick_suite_excludes_long_package_smokes",
+		set(CHECK_SUITES["quick"]).isdisjoint(PACKAGE_SMOKE_CHECKS),
+		"quick suite must stay light; long package build/install/Godot CLI smoke belongs to the package suite.",
+	)
+	record_result(
+		"package_suite_includes_long_package_smokes",
+		set(PACKAGE_SMOKE_CHECKS).issubset(CHECK_SUITES["package"]),
+		"package suite must cover the package build/install/Godot CLI/uninstall smoke checks.",
+	)
 	leak_fixture_warnings = collect_godot_exit_leak_warnings(
 		"ERROR: 3 RID allocations of type 'DummyTexture' were leaked at exit.",
 		"\n".join([
@@ -13056,6 +13462,12 @@ def maintenance_self_test() -> dict[str, Any]:
 		"public API docs that already declare @since must pass the diff-scoped check.",
 	)
 
+	record_result(
+		"path_hygiene_detects_utf8_bom_prefix",
+		has_utf8_bom(b"\xef\xbb\xbfextends Node\n") and not has_utf8_bom(b"extends Node\n"),
+		"GDScript path hygiene must detect UTF-8 BOM prefixes.",
+	)
+
 	public_doc_allowed_source = (
 		"GF Workspace 固定提供扩展管理和诊断快照等基础页面。"
 		"SaveGraph、Flow 等工具页面只在对应可选扩展启用后贡献到工作区。"
@@ -13182,10 +13594,12 @@ def maintenance_self_test() -> dict[str, Any]:
 		"var threaded = ResourceLoader.load_threaded_request(\"uid://fixture-resource\")",
 		"# var ignored = load(\"res://ignored/comment.tres\")",
 		"var text := \"load(\\\"res://ignored/string.tres\\\")\"",
+		"var generated_source := 'const Other = preload(\"res://addons/gf/extensions/save_extra/example.gd\")'",
 	])
+	resource_boundary_fixture_path = "addons/gf/kernel/fixture.gd"
 	resource_boundary_issues = audit_resource_boundary_text(
 		resource_boundary_fixture,
-		"addons/gf/fixture.gd",
+		resource_boundary_fixture_path,
 	)
 	record_result(
 		"resource_boundary_reports_direct_resource_path_load",
@@ -13238,6 +13652,123 @@ def maintenance_self_test() -> dict[str, Any]:
 		not issue_exists(resource_boundary_issues, "direct_resource_path_load", target="res://ignored/comment.tres")
 		and not issue_exists(resource_boundary_issues, "direct_resource_path_load", target="res://ignored/string.tres"),
 		f"comments or plain string content should not be reported as loads: {resource_boundary_issues}",
+	)
+	record_result(
+		"resource_boundary_ignores_load_calls_inside_plain_string_content",
+		not issue_exists(resource_boundary_issues, "direct_script_dependency_load", target="res://addons/gf/extensions/save_extra/example.gd"),
+		f"load calls embedded inside generated source strings should not be reported: {resource_boundary_issues}",
+	)
+	record_result(
+		"resource_boundary_source_kind_classifies_common_roots",
+		resource_boundary_source_kind("addons/gf/kernel/core/gf.gd") == "runtime"
+		and resource_boundary_source_kind("addons/gf/kernel/editor/gf_editor_workspace_dock.gd") == "editor"
+		and resource_boundary_source_kind("addons/gf/standard/utilities/debug/editor/gf_build_info_export_plugin.gd") == "editor"
+		and resource_boundary_source_kind("addons/gf/tools/config_pipeline/gf_config_pipeline.gd") == "tool"
+		and resource_boundary_source_kind("tests/gf_core/kernel/test_fixture.gd") == "test",
+		"resource-boundary source kinds should keep runtime/editor/tool/test observations distinct.",
+	)
+	resource_boundary_owner_entries = [
+		{
+			"package_id": "gf.kernel",
+			"manifest_path": "packages/gf.kernel.json",
+			"root_path": "addons/gf/plugin.cfg",
+		},
+		{
+			"package_id": "gf.kernel",
+			"manifest_path": "packages/gf.kernel.json",
+			"root_path": "addons/gf/kernel",
+		},
+		{
+			"package_id": "gf.standard.diagnostics",
+			"manifest_path": "packages/gf.standard.diagnostics.json",
+			"root_path": "addons/gf/standard/utilities/debug",
+		},
+	]
+	record_result(
+		"resource_boundary_source_package_classifies_manifest_owners",
+		resource_boundary_source_package("addons/gf/kernel/core/gf.gd", resource_boundary_owner_entries) == "gf.kernel"
+		and resource_boundary_source_package("addons/gf/standard/utilities/debug/gf_build_info.gd", resource_boundary_owner_entries) == "gf.standard.diagnostics"
+		and resource_boundary_source_package("tests/gf_core/kernel/test_fixture.gd", resource_boundary_owner_entries) == "<test>"
+		and resource_boundary_source_package("addons/gf/unowned/fixture.gd", resource_boundary_owner_entries) == "<unowned>"
+		and resource_boundary_source_package("project/local_fixture.gd", resource_boundary_owner_entries) == "<other>"
+		and resource_boundary_source_package("addons/gf/kernel/core/gf.gd", []) == "<unknown>",
+		"resource-boundary source packages should come from package manifest owners when available.",
+	)
+	record_result(
+		"resource_boundary_target_package_classifies_targets",
+		resource_boundary_target_package("res://addons/gf/kernel/core/gf.gd", resource_boundary_owner_entries) == "gf.kernel"
+		and resource_boundary_target_package("res://addons/gf/plugin.cfg", resource_boundary_owner_entries) == "gf.kernel"
+		and resource_boundary_target_package("res://ui/panel.tscn", resource_boundary_owner_entries) == "<project>"
+		and resource_boundary_target_package("user://cache/report.tres", resource_boundary_owner_entries) == "<user>"
+		and resource_boundary_target_package("uid://fixture-resource", resource_boundary_owner_entries) == "<uid>"
+		and resource_boundary_target_package("res://addons/gf/unowned/fixture.tres", resource_boundary_owner_entries) == "<unowned>"
+		and resource_boundary_target_package("res://addons/gf/kernel/core/gf.gd", []) == "<unknown>",
+		"resource-boundary target packages should classify GF packages, project resources, user paths, and UID paths.",
+	)
+	annotate_resource_boundary_packages(resource_boundary_issues, resource_boundary_owner_entries)
+	resource_boundary_payload = make_resource_boundary_payload(
+		[resource_boundary_fixture_path],
+		resource_boundary_issues,
+		False,
+		False,
+	)
+	record_result(
+		"resource_boundary_payload_splits_observations_from_actionable_issues",
+		resource_boundary_payload["issue_count"] == 3
+		and resource_boundary_payload["observation_count"] == 2
+		and { "key": "runtime", "count": 3 } in resource_boundary_payload["source_kind_counts"]
+		and { "key": "runtime", "count": 2 } in resource_boundary_payload["observation_source_kind_counts"]
+		and { "key": "gf.kernel", "count": 3 } in resource_boundary_payload["source_package_counts"]
+		and { "key": "gf.kernel", "count": 2 } in resource_boundary_payload["observation_source_package_counts"]
+		and { "key": "<project>", "count": 1 } in resource_boundary_payload["target_package_counts"]
+		and { "key": "<uid>", "count": 1 } in resource_boundary_payload["target_package_counts"]
+		and { "key": "<user>", "count": 1 } in resource_boundary_payload["target_package_counts"]
+		and { "key": "gf.kernel", "count": 2 } in resource_boundary_payload["observation_target_package_counts"]
+		and {
+			"key": "gf.kernel -> <project>",
+			"source": "gf.kernel",
+			"target": "<project>",
+			"count": 1,
+		} in resource_boundary_payload["source_target_package_counts"]
+		and {
+			"key": "gf.kernel -> gf.kernel",
+			"source": "gf.kernel",
+			"target": "gf.kernel",
+			"count": 2,
+		} in resource_boundary_payload["observation_source_target_package_counts"]
+		and issue_exists(resource_boundary_payload["issues"], "direct_resource_path_load", target="res://ui/panel.tscn")
+		and issue_exists(resource_boundary_payload["issues"], "direct_user_resource_load", target="user://cache/report.tres")
+		and issue_exists(resource_boundary_payload["issues"], "direct_uid_resource_load", target="uid://fixture-resource")
+		and resource_boundary_payload["observations"] == []
+		and issue_exists(resource_boundary_payload["observation_samples"], "direct_script_dependency_load", target="res://addons/gf/kernel/core/gf.gd")
+		and issue_exists(resource_boundary_payload["observation_samples"], "direct_editor_metadata_load", target="res://addons/gf/plugin.cfg"),
+		f"resource-boundary payload should keep observations out of actionable issues: {resource_boundary_payload}",
+	)
+	resource_boundary_observation_only_findings = [
+		make_resource_boundary_issue(
+			resource_boundary_fixture_path,
+			1,
+			"preload",
+			"res://addons/gf/kernel/core/gf.gd",
+		),
+	]
+	annotate_resource_boundary_packages(
+		resource_boundary_observation_only_findings,
+		resource_boundary_owner_entries,
+	)
+	resource_boundary_observation_only_payload = make_resource_boundary_payload(
+		[resource_boundary_fixture_path],
+		resource_boundary_observation_only_findings,
+		True,
+		True,
+	)
+	record_result(
+		"resource_boundary_strict_mode_ignores_observation_only_payloads",
+		resource_boundary_observation_only_payload["ok"]
+		and resource_boundary_observation_only_payload["issue_count"] == 0
+		and resource_boundary_observation_only_payload["observation_count"] == 1
+		and len(resource_boundary_observation_only_payload["observations"]) == 1,
+		f"strict mode should fail only actionable resource issues: {resource_boundary_observation_only_payload}",
 	)
 
 	valid_content_package_data = {
@@ -13821,22 +14352,32 @@ def maintenance_self_test() -> dict[str, Any]:
 		and not issue_exists(package_external_command_issues, "package_external_process_call", command="git"),
 		f"external process calls should be reported while comments stay ignored: {package_external_command_issues}",
 	)
-	package_build_info_command_issues = audit_package_external_command_source(
+	package_git_command_issues = audit_package_external_command_source(
 		"func collect() -> void:\n\tOS.execute(\"git\", PackedStringArray(), [], true, false)",
-		PACKAGE_EXTERNAL_COMMAND_AUDIT_GIT_BUILD_INFO_PATH,
+		"addons/gf/standard/utilities/debug/gf_build_info.gd",
 		"gf.standard.diagnostics",
 	)
 	record_result(
-		"package_external_command_audit_marks_build_info_git_as_info",
+		"package_external_command_audit_marks_package_git_as_warning",
 		issue_exists(
-			package_build_info_command_issues,
+			package_git_command_issues,
 			"package_external_process_call",
 			row_key="gf.standard.diagnostics",
 			api="OS.execute",
 			command="git",
-			severity="info",
+			severity="warning",
 		),
-		f"GFBuildInfo git metadata call should stay visible as info: {package_build_info_command_issues}",
+		f"package git process calls should be warnings: {package_git_command_issues}",
+	)
+	package_editor_shell_open_issues = audit_package_external_command_source(
+		"func open(url: String) -> void:\n\tOS.shell_open(url)",
+		"addons/gf/kernel/editor/gf_editor_workspace_dock.gd",
+		"gf.kernel",
+	)
+	record_result(
+		"package_external_command_audit_allows_declared_editor_shell_open",
+		package_editor_shell_open_issues == [],
+		f"declared editor shell_open calls should be allowlisted: {package_editor_shell_open_issues}",
 	)
 	record_result(
 		"package_external_command_audit_report_only_and_strict_modes",
@@ -14037,9 +14578,14 @@ def maintenance_self_test() -> dict[str, Any]:
 		registry_path = Path(temp_dir) / "registry/index.json"
 		registry_path.parent.mkdir(parents=True, exist_ok=True)
 		registry_path.write_text(json.dumps({
-			"schema_version": 1,
+			"schema_version": PACKAGE_REGISTRY_SCHEMA_VERSION,
+			"framework_version": "unreleased",
+			"minimum_framework_version": "unreleased",
+			"maximum_framework_version_exclusive": "",
 			"packages": {
 				"gf.kernel": {
+					"minimum_framework_version": "unreleased",
+					"maximum_framework_version_exclusive": "",
 					"archive": "../packages/gf-kernel-unreleased.zip",
 					"sha256": "not-the-archive-sha",
 					"size_bytes": 123,
@@ -14082,9 +14628,14 @@ def maintenance_self_test() -> dict[str, Any]:
 		registry_path = Path(temp_dir) / "registry/index.json"
 		registry_path.parent.mkdir(parents=True, exist_ok=True)
 		registry_path.write_text(json.dumps({
-			"schema_version": 1,
+			"schema_version": PACKAGE_REGISTRY_SCHEMA_VERSION,
+			"framework_version": "unreleased",
+			"minimum_framework_version": "unreleased",
+			"maximum_framework_version_exclusive": "",
 			"packages": {
 				"gf.kernel": {
+					"minimum_framework_version": "unreleased",
+					"maximum_framework_version_exclusive": "",
 					"archive": "../packages/gf-kernel-unreleased.zip",
 					"sha256": sha256_path(archive_path),
 					"size_bytes": archive_path.stat().st_size,
@@ -14124,9 +14675,14 @@ def maintenance_self_test() -> dict[str, Any]:
 		registry_path = Path(temp_dir) / "registry/index.json"
 		registry_path.parent.mkdir(parents=True, exist_ok=True)
 		registry_path.write_text(json.dumps({
-			"schema_version": 1,
+			"schema_version": PACKAGE_REGISTRY_SCHEMA_VERSION,
+			"framework_version": "unreleased",
+			"minimum_framework_version": "unreleased",
+			"maximum_framework_version_exclusive": "",
 			"packages": {
 				"gf.extension.save": {
+					"minimum_framework_version": "unreleased",
+					"maximum_framework_version_exclusive": "",
 					"archive": "../packages/gf-extension-save-unreleased.zip",
 					"sha256": sha256_path(archive_path),
 					"size_bytes": archive_path.stat().st_size,
@@ -14161,8 +14717,10 @@ def maintenance_self_test() -> dict[str, Any]:
 		registry_source_path = Path(temp_dir) / "registry/gf-registry-source.json"
 		registry_path.parent.mkdir(parents=True, exist_ok=True)
 		registry_path.write_text(json.dumps({
-			"schema_version": 1,
+			"schema_version": PACKAGE_REGISTRY_SCHEMA_VERSION,
 			"framework_version": "1.2.3",
+			"minimum_framework_version": "1.2.3",
+			"maximum_framework_version_exclusive": "2.0.0",
 			"packages": {},
 		}), encoding="utf-8")
 		registry_source_path.write_text(json.dumps({
@@ -14196,12 +14754,16 @@ def maintenance_self_test() -> dict[str, Any]:
 	with tempfile.TemporaryDirectory(prefix="gf-release-package-registry-self-test-") as temp_dir:
 		registry_path = Path(temp_dir) / "gf-registry-1.2.3.json"
 		registry_path.write_text(json.dumps({
-			"schema_version": 1,
+			"schema_version": PACKAGE_REGISTRY_SCHEMA_VERSION,
 			"framework_version": "unreleased",
+			"minimum_framework_version": "unreleased",
+			"maximum_framework_version_exclusive": "",
 			"packages": {
 				"gf.kernel": {
 					"version": "unreleased",
 					"kind": "kernel",
+					"minimum_framework_version": "unreleased",
+					"maximum_framework_version_exclusive": "",
 					"archive": "https://example.invalid/gf-kernel-unreleased.zip",
 					"sha256": "0" * 64,
 					"size_bytes": 1,
@@ -14236,8 +14798,10 @@ def maintenance_self_test() -> dict[str, Any]:
 		registry_source_path = Path(temp_dir) / "gf-registry-source.json"
 		registry_path = Path(temp_dir) / "gf-registry-1.2.3.json"
 		registry_path.write_text(json.dumps({
-			"schema_version": 1,
+			"schema_version": PACKAGE_REGISTRY_SCHEMA_VERSION,
 			"framework_version": "1.2.3",
+			"minimum_framework_version": "1.2.3",
+			"maximum_framework_version_exclusive": "2.0.0",
 			"packages": {},
 		}), encoding="utf-8")
 		registry_source_path.write_text(json.dumps({
@@ -14274,12 +14838,16 @@ def maintenance_self_test() -> dict[str, Any]:
 		offline_bundle_path = Path(temp_dir) / "gf-package-offline-bundle-1.2.3.zip"
 		registry_path.parent.mkdir(parents=True, exist_ok=True)
 		registry_path.write_text(json.dumps({
-			"schema_version": 1,
+			"schema_version": PACKAGE_REGISTRY_SCHEMA_VERSION,
 			"framework_version": "1.2.3",
+			"minimum_framework_version": "1.2.3",
+			"maximum_framework_version_exclusive": "2.0.0",
 			"packages": {
 				"gf.kernel": {
 					"version": "1.2.3",
 					"kind": "kernel",
+					"minimum_framework_version": "1.2.3",
+					"maximum_framework_version_exclusive": "2.0.0",
 					"archive": "https://example.invalid/gf-kernel-1.2.3.zip",
 					"sha256": "0" * 64,
 					"size_bytes": 1,
@@ -15947,6 +16515,15 @@ def audit_package_build_result(builder_data: dict[str, Any], registry_path: Path
 				row_key=package_id,
 				field=field_name,
 			))
+		for field_name in ["minimum_framework_version", "maximum_framework_version_exclusive"]:
+			if field_name not in registry_entry:
+				issues.append(make_package_issue(
+					"package_registry_missing_package_compatibility_field",
+					relative_or_absolute_path(registry_path),
+					"Generated registry package entries must declare framework compatibility bounds.",
+					row_key=package_id,
+					field=field_name,
+				))
 		if str(package.get("kind", "")) == "preset":
 			issues.extend(audit_package_build_preset_registry_entry(package_id, registry_entry, registry_path))
 			continue
@@ -16424,14 +17001,23 @@ def load_package_build_registry_data(registry_path: Path, issues: list[dict[str,
 			actual_value=type(data).__name__,
 		))
 		return {}
-	if data.get("schema_version") != 1:
+	if data.get("schema_version") != PACKAGE_REGISTRY_SCHEMA_VERSION:
 		issues.append(make_package_issue(
 			"invalid_package_registry_schema_version",
 			relative_or_absolute_path(registry_path),
-			"Generated package registry schema_version must be 1.",
+			f"Generated package registry schema_version must be {PACKAGE_REGISTRY_SCHEMA_VERSION}.",
 			field="schema_version",
+			expected_value=PACKAGE_REGISTRY_SCHEMA_VERSION,
 			actual_value=str(data.get("schema_version", "")),
 		))
+	for field_name in ["minimum_framework_version", "maximum_framework_version_exclusive"]:
+		if field_name not in data:
+			issues.append(make_package_issue(
+				"package_registry_missing_framework_compatibility_field",
+				relative_or_absolute_path(registry_path),
+				"Generated package registry must declare framework compatibility bounds.",
+				field=field_name,
+			))
 	return data
 
 
@@ -18045,6 +18631,8 @@ def audit_resource_boundary_text(source: str, path: str) -> list[dict[str, Any]]
 		if not line.strip():
 			continue
 		for match in RESOURCE_LOAD_LITERAL_RE.finditer(line):
+			if not gdscript_position_is_code(line, match.start()):
+				continue
 			target = unescape_gdscript_string_literal(match.group("target"))
 			if not target.startswith(RESOURCE_BOUNDARY_DIRECT_PATH_PREFIXES):
 				continue
@@ -18059,6 +18647,7 @@ def audit_resource_boundary_text(source: str, path: str) -> list[dict[str, Any]]
 
 def make_resource_boundary_issue(path: str, line_number: int, callee: str, target: str) -> dict[str, Any]:
 	extension = get_resource_target_extension(target)
+	source_kind = resource_boundary_source_kind(path)
 	if extension == ".gd":
 		return make_boundary_issue(
 			"direct_script_dependency_load",
@@ -18069,6 +18658,7 @@ def make_resource_boundary_issue(path: str, line_number: int, callee: str, targe
 			callee=callee,
 			target=target,
 			target_extension=extension,
+			source_kind=source_kind,
 		)
 	if target in RESOURCE_BOUNDARY_EDITOR_METADATA_TARGETS:
 		return make_boundary_issue(
@@ -18080,6 +18670,7 @@ def make_resource_boundary_issue(path: str, line_number: int, callee: str, targe
 			callee=callee,
 			target=target,
 			target_extension=extension,
+			source_kind=source_kind,
 		)
 	if target.startswith("user://"):
 		return make_boundary_issue(
@@ -18091,6 +18682,7 @@ def make_resource_boundary_issue(path: str, line_number: int, callee: str, targe
 			callee=callee,
 			target=target,
 			target_extension=extension,
+			source_kind=source_kind,
 		)
 	if target.startswith("uid://"):
 		return make_boundary_issue(
@@ -18102,6 +18694,7 @@ def make_resource_boundary_issue(path: str, line_number: int, callee: str, targe
 			callee=callee,
 			target=target,
 			target_extension=extension,
+			source_kind=source_kind,
 		)
 	return make_boundary_issue(
 		"direct_resource_path_load",
@@ -18112,7 +18705,62 @@ def make_resource_boundary_issue(path: str, line_number: int, callee: str, targe
 		callee=callee,
 		target=target,
 		target_extension=extension,
+		source_kind=source_kind,
 	)
+
+
+def resource_boundary_source_kind(path: str) -> str:
+	normalized_path = path.replace("\\", "/")
+	if normalized_path.startswith("tests/"):
+		return "test"
+	if normalized_path.startswith("addons/gf/tools/"):
+		return "tool"
+	if (
+		normalized_path.startswith("addons/gf/kernel/editor/")
+		or normalized_path.startswith("addons/gf/standard/editor/")
+		or "/editor/" in normalized_path
+	):
+		return "editor"
+	if normalized_path.startswith("addons/gf/"):
+		return "runtime"
+	return "other"
+
+
+def resource_boundary_source_package(path: str, owner_entries: list[dict[str, str]]) -> str:
+	normalized_path = normalize_package_manifest_path(path)
+	if not normalized_path:
+		return "<other>"
+	if normalized_path.startswith("tests/"):
+		return "<test>"
+	if not normalized_path.startswith("addons/gf/"):
+		return "<other>"
+	owner = find_package_source_owner(normalized_path, owner_entries)
+	if owner:
+		return owner["package_id"]
+	if not owner_entries:
+		return "<unknown>"
+	return "<unowned>"
+
+
+def resource_boundary_target_package(target: str, owner_entries: list[dict[str, str]]) -> str:
+	normalized_target = target.strip().replace("\\", "/")
+	if normalized_target.startswith("uid://"):
+		return "<uid>"
+	if normalized_target.startswith("user://"):
+		return "<user>"
+	if normalized_target.startswith("res://"):
+		target_path = normalize_package_manifest_path(normalized_target.removeprefix("res://"))
+		if not target_path:
+			return "<other>"
+		if not target_path.startswith("addons/gf/"):
+			return "<project>"
+		owner = find_package_source_owner(target_path, owner_entries)
+		if owner:
+			return owner["package_id"]
+		if not owner_entries:
+			return "<unknown>"
+		return "<unowned>"
+	return "<other>"
 
 
 def count_issue_field(issues: list[dict[str, Any]], field_name: str) -> list[dict[str, Any]]:
@@ -18121,6 +18769,33 @@ def count_issue_field(issues: list[dict[str, Any]], field_name: str) -> list[dic
 		key = str(issue.get(field_name) or "<empty>")
 		increment_counter(counter, key)
 	return counter_items(counter)
+
+
+def count_issue_field_pair(
+	issues: list[dict[str, Any]],
+	left_field_name: str,
+	right_field_name: str,
+) -> list[dict[str, Any]]:
+	counter: dict[tuple[str, str], int] = {}
+	for issue in issues:
+		left_value = str(issue.get(left_field_name, ""))
+		right_value = str(issue.get(right_field_name, ""))
+		if not left_value or not right_value:
+			continue
+		key = (left_value, right_value)
+		counter[key] = counter.get(key, 0) + 1
+	return [
+		{
+			"key": f"{left_value} -> {right_value}",
+			"source": left_value,
+			"target": right_value,
+			"count": count,
+		}
+		for (left_value, right_value), count in sorted(
+			counter.items(),
+			key=lambda item: (-item[1], item[0][0], item[0][1]),
+		)
+	]
 
 
 def count_record_field(records: list[dict[str, Any]], field_name: str) -> list[dict[str, Any]]:
@@ -18154,6 +18829,33 @@ def strip_gdscript_line_comment(line: str) -> str:
 		if character == "#" and not in_string:
 			return line[:index]
 	return line
+
+
+def gdscript_position_is_code(line: str, target_index: int) -> bool:
+	in_string = False
+	string_quote = ""
+	escaped = False
+	for index, character in enumerate(line):
+		if index >= target_index:
+			return not in_string
+		if escaped:
+			escaped = False
+			continue
+		if in_string and character == "\\":
+			escaped = True
+			continue
+		if character in ("'", '"'):
+			if not in_string:
+				in_string = True
+				string_quote = character
+				continue
+			if character == string_quote:
+				in_string = False
+				string_quote = ""
+				continue
+		if character == "#" and not in_string:
+			return False
+	return not in_string
 
 
 def unescape_gdscript_string_literal(value: str) -> str:
@@ -18315,6 +19017,37 @@ def find_missing_local_github_action_issues(scanned_paths: list[str]) -> list[di
 	return issues
 
 
+def find_gdscript_utf8_bom_issues(scanned_paths: list[str]) -> list[dict[str, Any]]:
+	issues: list[dict[str, Any]] = []
+	for path in scanned_paths:
+		if not path.endswith(".gd"):
+			continue
+		source_path = ROOT / path
+		if not source_path.is_file():
+			continue
+		try:
+			with source_path.open("rb") as file:
+				prefix = file.read(3)
+		except OSError as exc:
+			issues.append({
+				"kind": "gdscript_source_unreadable",
+				"path": path,
+				"message": f"Could not read GDScript source while checking encoding: {exc}",
+			})
+			continue
+		if has_utf8_bom(prefix):
+			issues.append({
+				"kind": "gdscript_utf8_bom",
+				"path": path,
+				"message": "GDScript files must be UTF-8 without BOM.",
+			})
+	return issues
+
+
+def has_utf8_bom(data: bytes) -> bool:
+	return data.startswith(b"\xef\xbb\xbf")
+
+
 def parse_git_status(lines: list[str]) -> list[dict[str, str]]:
 	entries: list[dict[str, str]] = []
 	for line in lines:
@@ -18355,6 +19088,8 @@ def classify_status_path(path: str) -> str:
 		or normalized.endswith("/gf_extension.json")
 	):
 		return "release_metadata"
+	if normalized.startswith("addons/gf/tools/"):
+		return "tool_source"
 	if normalized.startswith("addons/gf/"):
 		return "runtime_source"
 	return "other"
@@ -18362,7 +19097,7 @@ def classify_status_path(path: str) -> str:
 
 def recommend_checks(categories: dict[str, list[dict[str, str]]]) -> list[str]:
 	recommendations: list[str] = []
-	if categories["runtime_source"]:
+	if categories["runtime_source"] or categories["tool_source"]:
 		recommendations.extend([
 			"python tools/generate_api_reference.py --check",
 			"python tools/generate_ai_api.py --source addons/gf --output ai_analysis/generated_api --check --check-wiki-coverage",
@@ -18375,18 +19110,7 @@ def recommend_checks(categories: dict[str, list[dict[str, str]]]) -> list[str]:
 			"python tools/gf_maintenance.py content-package-boundary --json",
 			"python tools/gf_maintenance.py asset-lifecycle-boundary --json",
 			"python tools/gf_maintenance.py project-profile-boundary --json",
-			"python tools/gf_maintenance.py package-boundary --json",
-			"python tools/gf_maintenance.py package-closure-audit --json",
-			"python tools/gf_maintenance.py package-source-boundary --json",
-			"python tools/gf_maintenance.py package-build-boundary --json",
-			"python tools/gf_maintenance.py package-user-dependency-boundary --json",
-			"python tools/gf_maintenance.py package-external-command-audit --json",
-			"python tools/gf_maintenance.py core-only-smoke --json",
-			"python tools/gf_maintenance.py package-manager-status-smoke --json",
-			"python tools/gf_maintenance.py package-native-parity-smoke --json",
-			"python tools/gf_maintenance.py package-editor-wizard-smoke --json",
-			"python tools/gf_maintenance.py package-focused-gut-mapping --json",
-			"python tools/gf_maintenance.py package-godot-cli-smoke --json",
+			"python tools/gf_maintenance.py check --suite package --json",
 			"python tools/gf_maintenance.py package-godot-smoke --json",
 		])
 	if categories["examples"]:
@@ -18411,24 +19135,9 @@ def recommend_checks(categories: dict[str, list[dict[str, str]]]) -> list[str]:
 			"python tools/gf_maintenance.py content-package-boundary --json",
 			"python tools/gf_maintenance.py asset-lifecycle-boundary --json",
 			"python tools/gf_maintenance.py project-profile-boundary --json",
-			"python tools/gf_maintenance.py package-boundary --json",
-			"python tools/gf_maintenance.py package-closure-audit --json",
-			"python tools/gf_maintenance.py package-source-boundary --json",
-			"python tools/gf_maintenance.py package-build-boundary --json",
-			"python tools/gf_maintenance.py package-user-dependency-boundary --json",
-			"python tools/gf_maintenance.py package-external-command-audit --json",
-			"python tools/gf_maintenance.py core-only-smoke --json",
-			"python tools/gf_maintenance.py package-install-smoke --json",
-			"python tools/gf_maintenance.py network-install-smoke --json",
-			"python tools/gf_maintenance.py preset-smoke --json",
-			"python tools/gf_maintenance.py package-manager-status-smoke --json",
-			"python tools/gf_maintenance.py package-native-parity-smoke --json",
-			"python tools/gf_maintenance.py package-editor-wizard-smoke --json",
-			"python tools/gf_maintenance.py package-focused-gut-mapping --json",
-			"python tools/gf_maintenance.py package-godot-cli-smoke --json",
+			"python tools/gf_maintenance.py check --suite package --json",
 			"python tools/gf_maintenance.py package-godot-smoke --json",
 			"python tools/gf_maintenance.py check --check package_godot_matrix_smoke --json",
-			"python tools/gf_maintenance.py uninstall-smoke --json",
 			"python tools/gf_maintenance.py check --suite quick --json",
 		])
 	if categories["release_metadata"]:
@@ -18437,17 +19146,7 @@ def recommend_checks(categories: dict[str, list[dict[str, str]]]) -> list[str]:
 		recommendations.append("python tools/gf_maintenance.py dependency-boundary --json")
 		recommendations.append("python tools/gf_maintenance.py content-package-boundary --json")
 		recommendations.append("python tools/gf_maintenance.py project-profile-boundary --json")
-		recommendations.append("python tools/gf_maintenance.py package-boundary --json")
-		recommendations.append("python tools/gf_maintenance.py package-closure-audit --json")
-		recommendations.append("python tools/gf_maintenance.py package-source-boundary --json")
-		recommendations.append("python tools/gf_maintenance.py package-build-boundary --json")
-		recommendations.append("python tools/gf_maintenance.py package-user-dependency-boundary --json")
-		recommendations.append("python tools/gf_maintenance.py package-external-command-audit --json")
-		recommendations.append("python tools/gf_maintenance.py package-manager-status-smoke --json")
-		recommendations.append("python tools/gf_maintenance.py package-native-parity-smoke --json")
-		recommendations.append("python tools/gf_maintenance.py package-editor-wizard-smoke --json")
-		recommendations.append("python tools/gf_maintenance.py package-focused-gut-mapping --json")
-		recommendations.append("python tools/gf_maintenance.py package-godot-cli-smoke --json")
+		recommendations.append("python tools/gf_maintenance.py check --suite package --json")
 		recommendations.append("python tools/gf_maintenance.py check --check package_godot_matrix_smoke --json")
 		recommendations.append("python tools/gf_maintenance.py public-docs-boundary --json")
 	if categories["other"]:
@@ -18938,7 +19637,11 @@ def gut_report_all_tests_passed(stdout: str) -> bool:
 	return False
 
 
-def release_status(expected_version: str = "", allow_dirty: bool = False) -> dict[str, Any]:
+def release_status(
+	expected_version: str = "",
+	allow_dirty: bool = False,
+	allow_breaking_api: bool = False,
+) -> dict[str, Any]:
 	plugin_audit = audit_plugin_cfg()
 	plugin_version = plugin_audit["version"]
 	version = expected_version.strip() or plugin_version
@@ -18959,7 +19662,7 @@ def release_status(expected_version: str = "", allow_dirty: bool = False) -> dic
 	future_since_markers = read_future_since_markers(version)
 	if future_since_markers:
 		issues.append(format_future_since_issue(version, future_since_markers))
-	api_diff = api_baseline_diff("", version, enforce_version=True)
+	api_diff = api_baseline_diff("", version, enforce_version=not allow_breaking_api)
 	for api_issue in api_diff.get("issues", []):
 		issues.append(f"API baseline diff: {api_issue}")
 	for field_name in plugin_audit["missing_required_fields"]:
@@ -19056,6 +19759,7 @@ def release_status(expected_version: str = "", allow_dirty: bool = False) -> dic
 		"version": version,
 		"issues": issues,
 		"allow_dirty": allow_dirty,
+		"allow_breaking_api": allow_breaking_api,
 		"worktree_dirty": len(dirty_files) > 0,
 		"dirty_file_count": len(dirty_files),
 		"dirty_files": dirty_files[:80],
@@ -19502,6 +20206,13 @@ def release_package_registry_url(version: str) -> str:
 	return f"{release_package_archive_base_url(version)}/gf-registry-{version}.json"
 
 
+def next_major_semver(version: str) -> str:
+	parts = parse_semver(version)
+	if parts is None:
+		return ""
+	return f"{parts[0] + 1}.0.0"
+
+
 def release_package_offline_bundle_name(version: str) -> str:
 	return f"gf-package-offline-bundle-{version}.zip"
 
@@ -19682,6 +20393,17 @@ def audit_release_package_registry_metadata(
 			"registry framework_version is "
 			f"{registry_data.get('framework_version', '')!r}, expected {version!r}."
 		)
+	if str(registry_data.get("minimum_framework_version", "")) != version:
+		issues.append(
+			"registry minimum_framework_version is "
+			f"{registry_data.get('minimum_framework_version', '')!r}, expected {version!r}."
+		)
+	expected_maximum_version = next_major_semver(version)
+	if expected_maximum_version and str(registry_data.get("maximum_framework_version_exclusive", "")) != expected_maximum_version:
+		issues.append(
+			"registry maximum_framework_version_exclusive is "
+			f"{registry_data.get('maximum_framework_version_exclusive', '')!r}, expected {expected_maximum_version!r}."
+		)
 	packages = registry_data.get("packages", {})
 	if not isinstance(packages, dict):
 		return [*issues, "registry packages field must be an object for release-specific checks."]
@@ -19704,6 +20426,16 @@ def audit_release_package_registry_metadata(
 		if str(entry.get("version", "")) != version:
 			issues.append(
 				f"registry entry {package_id} version is {entry.get('version', '')!r}, expected {version!r}."
+			)
+		if str(entry.get("minimum_framework_version", "")) != version:
+			issues.append(
+				f"registry entry {package_id} minimum_framework_version is "
+				f"{entry.get('minimum_framework_version', '')!r}, expected {version!r}."
+			)
+		if expected_maximum_version and str(entry.get("maximum_framework_version_exclusive", "")) != expected_maximum_version:
+			issues.append(
+				f"registry entry {package_id} maximum_framework_version_exclusive is "
+				f"{entry.get('maximum_framework_version_exclusive', '')!r}, expected {expected_maximum_version!r}."
 			)
 		kind = str(entry.get("kind", ""))
 		if kind == "preset":
@@ -20094,15 +20826,46 @@ def render_resource_boundary_text(data: dict[str, Any]) -> str:
 			f"files={data['file_count']} "
 			f"issues={data['issue_count']} "
 			f"warnings={data.get('warning_count', 0)} "
-			f"info={data.get('info_count', 0)}"
+			f"info={data.get('info_count', 0)} "
+			f"observations={data.get('observation_count', 0)}"
 		),
 	]
 	kind_summary = format_counter_summary(data.get("issue_kind_counts", []))
 	extension_summary = format_counter_summary(data.get("target_extension_counts", []))
+	source_kind_summary = format_counter_summary(data.get("source_kind_counts", []))
+	source_package_summary = format_counter_summary(data.get("source_package_counts", []))
+	target_package_summary = format_counter_summary(data.get("target_package_counts", []))
+	source_target_package_summary = format_counter_summary(data.get("source_target_package_counts", []))
+	observation_kind_summary = format_counter_summary(data.get("observation_kind_counts", []))
+	observation_extension_summary = format_counter_summary(data.get("observation_target_extension_counts", []))
+	observation_source_kind_summary = format_counter_summary(data.get("observation_source_kind_counts", []))
+	observation_source_package_summary = format_counter_summary(data.get("observation_source_package_counts", []))
+	observation_target_package_summary = format_counter_summary(data.get("observation_target_package_counts", []))
+	observation_source_target_package_summary = format_counter_summary(data.get("observation_source_target_package_counts", []))
 	if kind_summary:
 		lines.append(f"kinds: {kind_summary}")
 	if extension_summary:
 		lines.append(f"target_extensions: {extension_summary}")
+	if source_kind_summary:
+		lines.append(f"source_kinds: {source_kind_summary}")
+	if source_package_summary:
+		lines.append(f"source_packages: {source_package_summary}")
+	if target_package_summary:
+		lines.append(f"target_packages: {target_package_summary}")
+	if source_target_package_summary:
+		lines.append(f"source_target_packages: {source_target_package_summary}")
+	if observation_kind_summary:
+		lines.append(f"observation_kinds: {observation_kind_summary}")
+	if observation_extension_summary:
+		lines.append(f"observation_target_extensions: {observation_extension_summary}")
+	if observation_source_kind_summary:
+		lines.append(f"observation_source_kinds: {observation_source_kind_summary}")
+	if observation_source_package_summary:
+		lines.append(f"observation_source_packages: {observation_source_package_summary}")
+	if observation_target_package_summary:
+		lines.append(f"observation_target_packages: {observation_target_package_summary}")
+	if observation_source_target_package_summary:
+		lines.append(f"observation_source_target_packages: {observation_source_target_package_summary}")
 	warning_issues = [issue for issue in data["issues"] if issue.get("severity") == "warning"]
 	info_issues = [issue for issue in data["issues"] if issue.get("severity") != "warning"]
 	display_limit = 12
@@ -20114,17 +20877,28 @@ def render_resource_boundary_text(data: dict[str, Any]) -> str:
 		target = issue.get("target", "")
 		callee = issue.get("callee", "")
 		severity = issue.get("severity", "")
+		source_kind = issue.get("source_kind", "")
+		source_package = issue.get("source_package", "")
+		target_package = issue.get("target_package", "")
 		details = []
 		if severity:
 			details.append(f"severity={severity}")
 		if callee:
 			details.append(f"callee={callee}")
+		if source_kind:
+			details.append(f"source_kind={source_kind}")
+		if source_package:
+			details.append(f"source_package={source_package}")
+		if target_package:
+			details.append(f"target_package={target_package}")
 		if target:
 			details.append(f"target={target}")
 		suffix = f" ({', '.join(details)})" if details else ""
 		lines.append(f"- {issue['kind']}: {location}{suffix} {issue.get('message', '')}".rstrip())
 	if len(data["issues"]) > len(display_issues):
 		lines.append(f"... {len(data['issues']) - len(display_issues)} more issue(s) omitted from text output; use --json for the full report.")
+	if data.get("observation_count", 0) > 0:
+		lines.append("Observations are summarized separately; pass --include-observations --json for full records.")
 	return "\n".join(lines)
 
 
@@ -20835,6 +21609,10 @@ def render_release_status_text(data: dict[str, Any]) -> str:
 		f"dirty={data.get('worktree_dirty', False)} "
 		f"changed={data.get('dirty_file_count', 0)} "
 		f"allow_dirty={data.get('allow_dirty', False)}"
+	)
+	lines.append(
+		"compatibility: "
+		f"allow_breaking_api={data.get('allow_breaking_api', False)}"
 	)
 	lines.append(
 		"since: "

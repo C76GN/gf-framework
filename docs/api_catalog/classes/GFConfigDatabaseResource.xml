@@ -1,0 +1,194 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFConfigDatabaseResource" path="addons/gf/standard/utilities/config/gf_config_database_resource.gd" module="standard" extends="Resource" classDigest="32ae9d362fce35d3a02431c4d8bb83b0dbbfd886f00a420f0ab229c13e100ec7">
+	<description>GFConfigDatabaseResource: 可保存为 Godot Resource 的通用配置数据库。
+用于聚合多张 GFConfigTableResource，作为导表工具生成的整包配置产物。
+该资源只承载通用表集合、校验入口和元数据，不绑定业务表语义、构建 profile 或热更新策略。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">resource_definition</tag>
+		<tag name="since">5.2.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties>
+		<member kind="property" name="database_id" decorators="@export">
+			<signature>var database_id: StringName = &amp;""</signature>
+			<description>配置数据库稳定标识。可用于区分主配置、测试配置或项目侧不同配置集合。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="version" decorators="@export">
+			<signature>var version: String = ""</signature>
+			<description>可选配置版本。GF 不解释版本语义，只保存导表工具或项目层写入的字符串。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="tables" decorators="@export">
+			<signature>var tables: Array[GFConfigTableResource] = []</signature>
+			<description>配置表资源列表。表名由每张 GFConfigTableResource.get_table_key() 决定。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">tables: Array[GFConfigTableResource]，每个元素是一张配置表资源。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="metadata" decorators="@export">
+			<signature>var metadata: Dictionary = {}</signature>
+			<description>可选元数据，供导入器、编辑器或项目层扩展使用。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">metadata: Dictionary，保存导表来源、构建摘要或项目侧附加信息。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="get_database_key">
+			<signature>func get_database_key() -&gt; StringName:</signature>
+			<description>获取配置数据库稳定标识。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">配置数据库 ID；未声明时返回空 StringName。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="register_table">
+			<signature>func register_table(table_resource: GFConfigTableResource) -&gt; bool:</signature>
+			<description>注册一张配置表资源。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">table_resource: 要注册的配置表资源。</tag>
+				<tag name="return">注册成功返回 true。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="register_tables">
+			<signature>func register_tables(table_resources: Array[GFConfigTableResource]) -&gt; int:</signature>
+			<description>批量注册配置表资源。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">table_resources: 要注册的配置表资源列表。</tag>
+				<tag name="return">成功注册的数量。</tag>
+				<tag name="schema">table_resources: Array[GFConfigTableResource]，每个元素是一张配置表资源。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="unregister_table">
+			<signature>func unregister_table(table_name: StringName) -&gt; bool:</signature>
+			<description>注销配置表资源。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">table_name: 表名。</tag>
+				<tag name="return">找到并移除时返回 true。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="clear_tables">
+			<signature>func clear_tables() -&gt; void:</signature>
+			<description>清空所有配置表资源。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="has_table">
+			<signature>func has_table(table_name: StringName) -&gt; bool:</signature>
+			<description>检查配置表是否存在。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">table_name: 表名。</tag>
+				<tag name="return">存在返回 true。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_table_ids">
+			<signature>func get_table_ids() -&gt; PackedStringArray:</signature>
+			<description>获取配置表名列表。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">排序后的表名列表。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_tables_by_name">
+			<signature>func get_tables_by_name(duplicate_records: bool = true) -&gt; Dictionary:</signature>
+			<description>获取表名到表数据的字典。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">duplicate_records: 为 true 时返回记录深拷贝，避免调用方修改数据库资源内数据。</tag>
+				<tag name="return">表名到表数据的字典。</tag>
+				<tag name="schema">return: Dictionary，键为表名 StringName，值为 Array[Dictionary] 表数据。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_schemas">
+			<signature>func get_schemas(duplicate_schemas: bool = true) -&gt; Array[GFConfigTableSchema]:</signature>
+			<description>获取数据库中的 schema 列表。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">duplicate_schemas: 为 true 时返回 schema 深拷贝，避免调用方修改数据库资源内数据。</tag>
+				<tag name="return">schema 列表。</tag>
+				<tag name="schema">return: Array[GFConfigTableSchema]，每个元素是一张表的 schema。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_table_resources">
+			<signature>func get_table_resources(duplicate_tables: bool = true) -&gt; Array[GFConfigTableResource]:</signature>
+			<description>获取配置表资源列表。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">duplicate_tables: 为 true 时返回资源深拷贝，避免调用方修改数据库资源内数据。</tag>
+				<tag name="return">表资源列表。</tag>
+				<tag name="schema">return: Array[GFConfigTableResource]，每个元素是一张配置表资源。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_table_resource">
+			<signature>func get_table_resource(table_name: StringName, duplicate_table: bool = true) -&gt; GFConfigTableResource:</signature>
+			<description>获取配置表资源。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">table_name: 表名。</tag>
+				<tag name="param">duplicate_table: 为 true 时返回资源深拷贝，避免调用方修改数据库资源内数据。</tag>
+				<tag name="return">配置表资源；未命中时返回 null。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="validate_database">
+			<signature>func validate_database(options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>校验数据库中的表结构、表数据和跨表引用。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">options: 可选上下文，支持 validate_schema，并透传给引用校验器。</tag>
+				<tag name="return">聚合校验报告字典。</tag>
+				<tag name="schema">options: Dictionary，可包含 validate_schema。</tag>
+				<tag name="schema">return: GFConfigValidationReport 兼容 Dictionary。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="rebuild_table_indexes">
+			<signature>func rebuild_table_indexes() -&gt; int:</signature>
+			<description>重建所有表资源的 ID 索引和命名索引缓存。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">成功处理的有效表数量。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="duplicate_database">
+			<signature>func duplicate_database() -&gt; GFConfigDatabaseResource:</signature>
+			<description>创建同内容拷贝，避免运行时修改污染共享 Resource。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">新配置数据库资源。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFConfigAccessGenerator" path="addons/gf/kernel/editor/gf_config_access_generator.gd" module="kernel" extends="RefCounted" classDigest="3af259a9d5dea6e81c278b2c7b055db14d030cf44fa99ec9e2a6187d72c550ec">
+<class name="GFConfigAccessGenerator" path="addons/gf/kernel/editor/gf_config_access_generator.gd" module="kernel" extends="RefCounted" classDigest="0146cd40ba283b6c9796ab64645c9d19530a477c813c46a9dd75c3964474d8ed">
 	<description>GFConfigAccessGenerator: 生成静态导表访问器脚本。
-生成结果只封装 provider 的 `get_record()` / `get_table()` 调用，
-不规定项目表结构语义，适合需要 IDE 补全和集中表名常量的项目使用。</description>
+默认生成结果只封装 provider 的 `get_record()` / `get_table()` 调用，
+也可按 schema 字段声明生成可选记录包装类；生成器本身不规定项目表结构语义。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">editor_api</tag>
@@ -46,10 +46,11 @@
 				<tag name="param">overwrite_existing: 为 false 时目标已存在会返回 ERR_ALREADY_EXISTS。</tag>
 				<tag name="param">access_class_name: 生成脚本的 class_name。</tag>
 				<tag name="param">provider_accessor: 无显式 provider 参数时用于获取 provider 的表达式。</tag>
-				<tag name="param">options: 可选生成选项，支持 method_name_style、constant_prefix、record_method_pattern、table_method_pattern、include_schema_comments。</tag>
+				<tag name="param">options: 可选生成选项，支持 method_name_style、constant_prefix、record_method_pattern、table_method_pattern、include_schema_comments、include_typed_records、typed_record_method_pattern、typed_record_class_suffix。</tag>
 				<tag name="return">写入结果错误码。</tag>
 				<tag name="schema">schemas: Array of Dictionary or Object schemas with table_name/table_key and optional metadata.</tag>
-				<tag name="schema">options: Dictionary controlling method_name_style, constant_prefix, record_method_pattern, table_method_pattern, and include_schema_comments.</tag>
+				<tag name="schema">options: Dictionary controlling method_name_style, constant_prefix, record_method_pattern, table_method_pattern, include_schema_comments, include_typed_records, typed_record_method_pattern, and typed_record_class_suffix.</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="build_source">
@@ -63,7 +64,8 @@
 				<tag name="param">options: 可选生成选项。</tag>
 				<tag name="return">GDScript 源码。</tag>
 				<tag name="schema">schemas: Array of Dictionary or Object schemas with table_name/table_key and optional metadata.</tag>
-				<tag name="schema">options: Dictionary controlling method_name_style, constant_prefix, record_method_pattern, table_method_pattern, and include_schema_comments.</tag>
+				<tag name="schema">options: Dictionary controlling method_name_style, constant_prefix, record_method_pattern, table_method_pattern, include_schema_comments, include_typed_records, typed_record_method_pattern, and typed_record_class_suffix.</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="save_source">

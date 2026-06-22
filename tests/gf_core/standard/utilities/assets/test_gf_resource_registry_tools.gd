@@ -111,7 +111,7 @@ func test_collect_dependency_paths_reads_direct_external_resource_dependencies()
 	var _configured_entry: Resource = entry.configure(&"menu", "res://assets/ui/menu.tscn", "PackedScene")
 	assert_eq(ResourceSaver.save(entry, dependency_path), OK, "测试应能保存依赖资源。")
 
-	var dependency: GFResourceRegistryEntry = ResourceLoader.load(dependency_path) as GFResourceRegistryEntry
+	var dependency: GFResourceRegistryEntry = _load_registry_entry(dependency_path)
 	assert_not_null(dependency, "测试应能加载依赖资源。")
 	var registry: GFResourceRegistry = GFResourceRegistry.new()
 	registry.entries.append(dependency)
@@ -137,7 +137,7 @@ func test_collect_dependency_paths_respects_limit() -> void:
 	var _configured_entry: Resource = entry.configure(&"menu", "res://assets/ui/menu.tscn", "PackedScene")
 	assert_eq(ResourceSaver.save(entry, dependency_path), OK, "测试应能保存依赖资源。")
 	var registry: GFResourceRegistry = GFResourceRegistry.new()
-	registry.entries.append(ResourceLoader.load(dependency_path) as GFResourceRegistryEntry)
+	registry.entries.append(_load_registry_entry(dependency_path))
 	assert_eq(ResourceSaver.save(registry, root_path), OK, "测试应能保存引用依赖的根资源。")
 
 	var paths: PackedStringArray = GFResourceRegistryTools.collect_dependency_paths(root_path, {
@@ -160,7 +160,7 @@ func test_build_dependency_report_records_resources_and_direct_dependencies() ->
 	var _configured_entry: Resource = entry.configure(&"menu", "res://assets/ui/menu.tscn", "PackedScene")
 	assert_eq(ResourceSaver.save(entry, dependency_path), OK, "测试应能保存依赖资源。")
 	var registry: GFResourceRegistry = GFResourceRegistry.new()
-	registry.entries.append(ResourceLoader.load(dependency_path) as GFResourceRegistryEntry)
+	registry.entries.append(_load_registry_entry(dependency_path))
 	assert_eq(ResourceSaver.save(registry, root_path), OK, "测试应能保存引用依赖的根资源。")
 
 	var report: Dictionary = GFResourceRegistryTools.build_dependency_report(root_path, {
@@ -204,7 +204,7 @@ func test_build_dependency_report_records_limit_without_push_warning() -> void:
 	var _configured_entry: Resource = entry.configure(&"menu", "res://assets/ui/menu.tscn", "PackedScene")
 	assert_eq(ResourceSaver.save(entry, dependency_path), OK, "测试应能保存依赖资源。")
 	var registry: GFResourceRegistry = GFResourceRegistry.new()
-	registry.entries.append(ResourceLoader.load(dependency_path) as GFResourceRegistryEntry)
+	registry.entries.append(_load_registry_entry(dependency_path))
 	assert_eq(ResourceSaver.save(registry, root_path), OK, "测试应能保存引用依赖的根资源。")
 
 	var report: Dictionary = GFResourceRegistryTools.build_dependency_report(root_path, {
@@ -244,6 +244,14 @@ func _report_has_issue_kind(issues: Array, kind: String) -> bool:
 		if GFVariantData.get_option_string(issue, "kind") == kind:
 			return true
 	return false
+
+
+func _load_registry_entry(path: String) -> GFResourceRegistryEntry:
+	var resource: Resource = ResourceLoader.load(path)
+	if resource is GFResourceRegistryEntry:
+		var entry: GFResourceRegistryEntry = resource
+		return entry
+	return null
 
 
 func _write_empty_user_file(path: String) -> void:

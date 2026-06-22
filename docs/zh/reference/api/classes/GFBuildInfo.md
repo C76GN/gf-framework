@@ -43,8 +43,7 @@
 | 方法 | [`apply_dict`](#member-gfbuildinfo-methods-apply_dict) | `func apply_dict(data: Dictionary) -> void:` |
 | 方法 | [`collect`](#member-gfbuildinfo-methods-collect) | `static func collect() -> GFBuildInfo:` |
 | 方法 | [`from_dict`](#member-gfbuildinfo-methods-from_dict) | `static func from_dict(data: Dictionary) -> GFBuildInfo:` |
-| 方法 | [`collect_git_metadata`](#member-gfbuildinfo-methods-collect_git_metadata) | `static func collect_git_metadata(work_dir: String = "res://") -> Dictionary:` |
-| 方法 | [`write_git_metadata_to_project_settings`](#member-gfbuildinfo-methods-write_git_metadata_to_project_settings) | `static func write_git_metadata_to_project_settings( work_dir: String = "res://", extra_metadata: Dictionary = {}, save_settings: bool = false ) -> Dictionary:` |
+| 方法 | [`write_metadata_to_project_settings`](#member-gfbuildinfo-methods-write_metadata_to_project_settings) | `static func write_metadata_to_project_settings( build_data: Dictionary = {}, extra_metadata: Dictionary = {}, save_settings: bool = false ) -> Dictionary:` |
 | 方法 | [`duplicate_info`](#member-gfbuildinfo-methods-duplicate_info) | `func duplicate_info() -> GFBuildInfo:` |
 
 ## 常量
@@ -423,56 +422,34 @@ static func from_dict(data: Dictionary) -> GFBuildInfo:
 
 - `data`: Dictionary，可包含 GFBuildInfo.to_dict() 输出的字段。
 
-<a id="member-gfbuildinfo-methods-collect_git_metadata"></a>
+<a id="member-gfbuildinfo-methods-write_metadata_to_project_settings"></a>
 
-### `collect_git_metadata`
+### `write_metadata_to_project_settings`
 
 - API：`public`
+- 首次版本：`5.2.0`
 
 ```gdscript
-static func collect_git_metadata(work_dir: String = "res://") -> Dictionary:
+static func write_metadata_to_project_settings( build_data: Dictionary = {}, extra_metadata: Dictionary = {}, save_settings: bool = false ) -> Dictionary:
 ```
 
-从当前 Git 工作区收集构建元数据。该方法通常由导出脚本或编辑器工具调用。
+把外部构建流水线提供的构建元数据写入 ProjectSettings，供 collect() 在运行时读取。
 
 参数：
 
 | 名称 | 说明 |
 |---|---|
-| `work_dir` | Git 工作区目录；支持 `res://`、`user://` 或原生路径。 |
-
-返回：Git 构建元数据。
-
-结构：
-
-- `return`: Dictionary，包含 commit_hash、branch、tag、commit_count、is_dirty 和 build_time_utc 字段。
-
-<a id="member-gfbuildinfo-methods-write_git_metadata_to_project_settings"></a>
-
-### `write_git_metadata_to_project_settings`
-
-- API：`public`
-
-```gdscript
-static func write_git_metadata_to_project_settings( work_dir: String = "res://", extra_metadata: Dictionary = {}, save_settings: bool = false ) -> Dictionary:
-```
-
-把 Git 构建元数据写入 ProjectSettings，供 collect() 在运行时读取。
-
-参数：
-
-| 名称 | 说明 |
-|---|---|
-| `work_dir` | Git 工作区目录；支持 `res://`、`user://` 或原生路径。 |
+| `build_data` | 构建流水线提供的构建元数据。 |
 | `extra_metadata` | 项目自定义构建元数据。 |
 | `save_settings` | 是否立即保存 ProjectSettings。 |
 
-返回：写入的构建元数据。
+返回：实际写入的构建元数据。
 
 结构：
 
+- `build_data`: Dictionary，可包含 build_id、commit_hash、branch、tag、commit_count、is_dirty、build_time_utc 和 metadata 字段。
 - `extra_metadata`: Dictionary，保存项目自定义构建元数据。
-- `return`: Dictionary，包含已写入的 Git 构建元数据。
+- `return`: Dictionary，包含已写入的构建元数据。
 
 <a id="member-gfbuildinfo-methods-duplicate_info"></a>
 

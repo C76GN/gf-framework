@@ -6,7 +6,7 @@
 
 - [虚拟输入与录制回放](virtual-recording.md)：`GFVirtualInputSource`、`GFInputRecording` 和 `GFInputPlayback`。
 - [重映射配置与 Profile](remap-profiles.md)：`GFInputRemapConfig`、`GFInputProfileBank` 和持久化格式。
-- [输入检测、格式化与图标](detection-formatting-icons.md)：`GFInputDetector`、`GFInputFormatter`、图标 provider 和冲突分析。
+- [输入检测、格式化与图标](detection-formatting-icons.md)：`GFInputDetector`、`GFInputFormatter`、图标 provider、冲突分析和上下文结构诊断。
 
 ## 使用边界
 

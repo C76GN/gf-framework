@@ -25,6 +25,7 @@ def find_workspace_root(start: Path, fallback: Path) -> Path:
 SCRIPT_PATH = Path(__file__).resolve()
 ROOT = find_workspace_root(SCRIPT_PATH.parent, SCRIPT_PATH.parents[1])
 LOCKFILE_SCHEMA_VERSION = 1
+REGISTRY_SCHEMA_VERSION = 2
 VALID_REASONS = {"manual", "dependency", "preset", "bundled", "dev"}
 PROTECTED_REASONS = {"manual", "preset", "bundled", "dev"}
 PROJECT_SCAN_EXTENSIONS = {".cfg", ".gd", ".godot", ".json", ".tres", ".tscn"}
@@ -69,6 +70,12 @@ def main() -> int:
 	install_parser.add_argument("--reason", choices=sorted(VALID_REASONS - {"dependency"}), default="manual")
 	install_parser.add_argument("--write-lock", action="store_true")
 
+	update_parser = subparsers.add_parser("update-plan", help="Plan updates for packages already present in the lockfile.")
+	update_parser.add_argument("packages", nargs="*", help="Installed package ids to update.")
+	add_common_args(update_parser)
+	update_parser.add_argument("--all-installed", action="store_true", help="Update every installed package that is present in the registry.")
+	update_parser.add_argument("--write-lock", action="store_true")
+
 	uninstall_parser = subparsers.add_parser("uninstall-plan", help="Plan safe package removal from a lockfile.")
 	uninstall_parser.add_argument("packages", nargs="+", help="Package ids to uninstall.")
 	add_common_args(uninstall_parser)
@@ -87,6 +94,16 @@ def main() -> int:
 			package_ids=args.packages,
 			reason=args.reason,
 			write_lock=args.write_lock,
+			current_framework_version=args.current_framework_version,
+		)
+	elif args.command == "update-plan":
+		result = update_plan(
+			registry_path=args.registry,
+			lockfile_path=args.lockfile,
+			package_ids=args.packages,
+			all_installed=args.all_installed,
+			write_lock=args.write_lock,
+			current_framework_version=args.current_framework_version,
 		)
 	elif args.command == "uninstall-plan":
 		result = uninstall_plan(
@@ -106,6 +123,7 @@ def main() -> int:
 def add_common_args(parser: argparse.ArgumentParser) -> None:
 	parser.add_argument("--registry", required=True, help="Registry index JSON path.")
 	parser.add_argument("--lockfile", default=".gf/packages.lock.json", help="Project package lockfile path.")
+	parser.add_argument("--current-framework-version", default="", help="Current target project GF version. Empty allows bootstrap installs.")
 	parser.add_argument("--json", action="store_true", help="Print JSON instead of text.")
 
 
@@ -121,6 +139,7 @@ def install_plan(
 	package_ids: list[str],
 	reason: str,
 	write_lock: bool,
+	current_framework_version: str = "",
 ) -> dict[str, Any]:
 	registry = load_registry(resolve_path(registry_path))
 	lockfile = load_lockfile(resolve_path(lockfile_path))
@@ -133,6 +152,14 @@ def install_plan(
 	closure = resolve_dependency_closure(registry["packages"], package_ids)
 	if closure["issues"]:
 		return make_plan_result(False, "install", [], [], [], [], closure["issues"], lockfile["data"], write_lock, lockfile_path)
+	compatibility_issues = framework_compatibility_issues(
+		registry,
+		registry["packages"],
+		closure["order"],
+		current_framework_version,
+	)
+	if compatibility_issues:
+		return make_plan_result(False, "install", [], [], [], [], compatibility_issues, lockfile["data"], write_lock, lockfile_path)
 
 	original_installed = copy.deepcopy(lockfile["data"]["installed"])
 	installed = copy.deepcopy(original_installed)
@@ -142,6 +169,8 @@ def install_plan(
 		entry = make_lock_entry(registry_entry, package_id)
 		existing = installed.get(package_id, {})
 		reasons = set(string_array(existing.get("reason", [])))
+		if isinstance(existing, dict) and string_array(existing.get("files", [])):
+			entry["files"] = string_array(existing.get("files", []))
 		if package_id in requested_package_ids:
 			reasons.add(reason)
 		elif package_id == "gf.kernel":
@@ -164,6 +193,81 @@ def install_plan(
 	return make_plan_result(
 		True,
 		"install",
+		closure["order"],
+		to_install,
+		to_update,
+		[],
+		[],
+		planned_lock,
+		write_lock,
+		lockfile_path,
+	)
+
+
+def update_plan(
+	registry_path: str,
+	lockfile_path: str,
+	package_ids: list[str],
+	all_installed: bool,
+	write_lock: bool,
+	current_framework_version: str = "",
+) -> dict[str, Any]:
+	registry = load_registry(resolve_path(registry_path))
+	lockfile = load_lockfile(resolve_path(lockfile_path))
+	issues = [*registry["issues"], *lockfile["issues"]]
+	if issues:
+		return make_plan_result(False, "update", [], [], [], [], issues, lockfile["data"], write_lock, lockfile_path)
+
+	registry_packages = registry["packages"]
+	installed = lockfile["data"]["installed"]
+	target_ids = collect_update_targets(package_ids, all_installed, installed, registry_packages, issues)
+	if issues:
+		return make_plan_result(False, "update", [], [], [], [], issues, lockfile["data"], write_lock, lockfile_path)
+	if not target_ids:
+		planned_lock = make_lockfile(lockfile["data"], installed, registry["framework_version"])
+		if write_lock and planned_lock != lockfile["data"]:
+			write_lockfile(resolve_path(lockfile_path), planned_lock)
+		return make_plan_result(True, "update", [], [], [], [], [], planned_lock, write_lock and planned_lock != lockfile["data"], lockfile_path)
+
+	closure = resolve_dependency_closure(registry_packages, target_ids)
+	if closure["issues"]:
+		return make_plan_result(False, "update", [], [], [], [], closure["issues"], lockfile["data"], write_lock, lockfile_path)
+	compatibility_issues = framework_compatibility_issues(
+		registry,
+		registry_packages,
+		closure["order"],
+		current_framework_version,
+	)
+	if compatibility_issues:
+		return make_plan_result(False, "update", [], [], [], [], compatibility_issues, lockfile["data"], write_lock, lockfile_path)
+
+	original_installed = copy.deepcopy(installed)
+	updated_installed = copy.deepcopy(original_installed)
+	for package_id in closure["order"]:
+		registry_entry = registry_packages[package_id]
+		entry = make_lock_entry(registry_entry, package_id)
+		existing = updated_installed.get(package_id, {})
+		reasons = set(string_array(existing.get("reason", []))) if isinstance(existing, dict) else set()
+		if isinstance(existing, dict) and string_array(existing.get("files", [])):
+			entry["files"] = string_array(existing.get("files", []))
+		if not reasons:
+			reasons.add("bundled" if package_id == "gf.kernel" else "dependency")
+		entry["reason"] = sorted(reasons)
+		updated_installed[package_id] = entry
+	recompute_required_by(updated_installed, registry_packages)
+	planned_lock = make_lockfile(lockfile["data"], updated_installed, registry["framework_version"])
+	to_install = [package_id for package_id in closure["order"] if package_id not in original_installed]
+	to_update = [
+		package_id
+		for package_id in closure["order"]
+		if package_id in original_installed
+		and lock_entry_changed(original_installed[package_id], updated_installed[package_id])
+	]
+	if write_lock:
+		write_lockfile(resolve_path(lockfile_path), planned_lock)
+	return make_plan_result(
+		True,
+		"update",
 		closure["order"],
 		to_install,
 		to_update,
@@ -241,6 +345,13 @@ def verify_lock(registry_path: str, lockfile_path: str) -> dict[str, Any]:
 	lockfile = load_lockfile(resolve_path(lockfile_path))
 	issues = [*registry["issues"], *lockfile["issues"]]
 	installed = lockfile["data"]["installed"]
+	lockfile_framework_version = str(lockfile["data"].get("framework_version", "")).strip()
+	registry_framework_version = str(registry.get("framework_version", "")).strip()
+	if lockfile_framework_version and registry_framework_version and lockfile_framework_version != registry_framework_version:
+		issues.append(
+			"Lockfile framework_version differs from registry framework_version: "
+			f"{lockfile_framework_version} != {registry_framework_version}"
+		)
 	expected = copy.deepcopy(installed)
 	recompute_required_by(expected, registry["packages"])
 	for package_id, entry in installed.items():
@@ -397,6 +508,37 @@ def package_path_tokens(paths: list[str]) -> list[str]:
 	return tokens
 
 
+def collect_update_targets(
+	package_ids: list[str],
+	all_installed: bool,
+	installed: dict[str, Any],
+	registry_packages: dict[str, dict[str, Any]],
+	issues: list[str],
+) -> list[str]:
+	requested_ids = list(package_ids)
+	if all_installed:
+		requested_ids.extend(sorted(str(package_id) for package_id in installed.keys()))
+	if not requested_ids:
+		issues.append("Missing package id. Use --all-installed to update every installed package.")
+		return []
+
+	result: list[str] = []
+	for package_id in requested_ids:
+		package_id = package_id.strip()
+		if not package_id:
+			continue
+		if package_id in result:
+			continue
+		if package_id not in installed:
+			issues.append(f"Package is not installed: {package_id}. Use install to add it.")
+			continue
+		if package_id not in registry_packages:
+			issues.append(f"Installed package is missing from registry: {package_id}")
+			continue
+		result.append(package_id)
+	return result
+
+
 def make_lock_entry(registry_entry: dict[str, Any], package_id: str) -> dict[str, Any]:
 	entry = {
 		"version": str(registry_entry.get("version", "")),
@@ -426,6 +568,71 @@ def make_lockfile(base_lockfile: dict[str, Any], installed: dict[str, Any], fram
 		"framework_version": framework_version or str(base_lockfile.get("framework_version", "")),
 		"installed": {package_id: installed[package_id] for package_id in sorted(installed.keys())},
 	}
+
+
+def framework_compatibility_issues(
+	registry: dict[str, Any],
+	registry_packages: dict[str, dict[str, Any]],
+	package_ids: list[str],
+	current_framework_version: str,
+) -> list[str]:
+	current_version = current_framework_version.strip()
+	if not current_version:
+		return []
+	issues = compatibility_range_issues(
+		"registry",
+		current_version,
+		str(registry.get("minimum_framework_version", "")),
+		str(registry.get("maximum_framework_version_exclusive", "")),
+	)
+	for package_id in package_ids:
+		entry = registry_packages.get(package_id, {})
+		issues.extend(compatibility_range_issues(
+			f"package {package_id}",
+			current_version,
+			str(entry.get("minimum_framework_version", "")),
+			str(entry.get("maximum_framework_version_exclusive", "")),
+		))
+	return issues
+
+
+def compatibility_range_issues(label: str, current_version: str, minimum_version: str, maximum_exclusive: str) -> list[str]:
+	issues: list[str] = []
+	current = parse_semver(current_version)
+	minimum = parse_semver(minimum_version)
+	maximum = parse_semver(maximum_exclusive)
+	if current is None:
+		return []
+	if minimum_version.strip() and minimum is None:
+		issues.append(f"{label}: minimum_framework_version is not SemVer: {minimum_version}")
+	elif minimum is not None and current < minimum:
+		issues.append(
+			f"{label}: target GF framework version {current_version} is lower than "
+			f"minimum_framework_version {minimum_version}"
+		)
+	if maximum_exclusive.strip() and maximum is None:
+		issues.append(f"{label}: maximum_framework_version_exclusive is not SemVer: {maximum_exclusive}")
+	elif maximum is not None and current >= maximum:
+		issues.append(
+			f"{label}: target GF framework version {current_version} must be lower than "
+			f"maximum_framework_version_exclusive {maximum_exclusive}"
+		)
+	return issues
+
+
+def parse_semver(version: str) -> tuple[int, int, int] | None:
+	text = version.strip()
+	if text.startswith("v"):
+		text = text[1:]
+	pieces = text.split(".")
+	if len(pieces) != 3:
+		return None
+	result: list[int] = []
+	for piece in pieces:
+		if not piece.isdigit():
+			return None
+		result.append(int(piece))
+	return (result[0], result[1], result[2])
 
 
 def make_plan_result(
@@ -465,8 +672,11 @@ def load_registry(path: Path) -> dict[str, Any]:
 		return {"packages": {}, "framework_version": "", "issues": [f"Could not read registry: {error}"]}
 	if not isinstance(data, dict):
 		return {"packages": {}, "framework_version": "", "issues": ["Registry root must be an object."]}
-	if data.get("schema_version") != 1:
-		issues.append("Registry schema_version must be 1.")
+	if data.get("schema_version") != REGISTRY_SCHEMA_VERSION:
+		issues.append(f"Registry schema_version must be {REGISTRY_SCHEMA_VERSION}.")
+	for field_name in ["minimum_framework_version", "maximum_framework_version_exclusive"]:
+		if field_name not in data:
+			issues.append(f"Registry {field_name} field is required.")
 	packages = data.get("packages", {})
 	if not isinstance(packages, dict):
 		issues.append("Registry packages must be an object.")
@@ -482,12 +692,17 @@ def load_registry(path: Path) -> dict[str, Any]:
 				"Registry package signature field is not supported until native verification is implemented: "
 				f"{package_id}.{field_name}"
 			)
+		for field_name in ["minimum_framework_version", "maximum_framework_version_exclusive"]:
+			if field_name not in package_entry:
+				issues.append(f"Registry package {package_id} is missing {field_name}.")
 		if has_unsupported_signature:
 			continue
 		clean_packages[str(package_id)] = package_entry
 	return {
 		"packages": clean_packages,
 		"framework_version": str(data.get("framework_version", "")),
+		"minimum_framework_version": str(data.get("minimum_framework_version", "")),
+		"maximum_framework_version_exclusive": str(data.get("maximum_framework_version_exclusive", "")),
 		"issues": issues,
 	}
 

@@ -146,8 +146,14 @@ func test_csv_importer_parses_quotes_and_validates_with_coercion() -> void:
 	var report: Dictionary = GFConfigTableImporter.validate_csv_table("id,name,power\n1,\"A,B\",2.5\n", schema)
 	var rows: Array = GFVariantData.get_option_array(parsed, "data")
 	var first_row: Dictionary = GFVariantData.as_dictionary(rows[0])
+	var header_value: Variant = GFVariantData.get_option_value(parsed, "header")
+	var header: PackedStringArray = PackedStringArray()
+	if header_value is PackedStringArray:
+		var parsed_header: PackedStringArray = header_value
+		header = parsed_header
 
 	assert_true(GFVariantData.get_option_bool(parsed, "success"), "CSV 应解析成功。")
+	assert_eq(header, PackedStringArray(["id", "name", "power"]), "CSV 解析结果应保留表头。")
 	assert_eq(GFVariantData.get_option_string(first_row, "name"), "A,B", "引号内逗号应保留为单元格内容。")
 	assert_true(GFVariantData.get_option_bool(report, "ok"), "启用 coerce_values 后 CSV 字符串值应可通过 schema 校验。")
 

@@ -231,6 +231,180 @@ func test_cancel_active_download_reports_cancelled() -> void:
 	assert_true(active_task.is_empty(), "取消后不应保留 active_task。")
 
 
+func test_parse_manifest_entries_normalizes_defaults_and_metadata() -> void:
+	var checksum: String = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+	var manifest: Dictionary = {
+		"base_url": "https://cdn.example.test/assets",
+		"default_headers": PackedStringArray(["Accept: application/octet-stream"]),
+		"metadata": {
+			"channel": "stable",
+		},
+		"files": [
+			{
+				"path": "audio/theme.ogg",
+				"sha256": checksum,
+				"size": 12,
+			},
+			{
+				"url": "https://other.example.test/ui.png",
+				"target_path": "ui/ui.png",
+				"headers": {
+					"X-Test": "1",
+				},
+				"metadata": {
+					"kind": "ui",
+				},
+			},
+		],
+	}
+
+	var entries: Array[Dictionary] = GFDownloadUtility.parse_manifest_entries(manifest)
+	var first: Dictionary = entries[0]
+	var second: Dictionary = entries[1]
+	var first_headers: PackedStringArray = GFVariantData.get_option_packed_string_array(first, "headers")
+	var second_headers: PackedStringArray = GFVariantData.get_option_packed_string_array(second, "headers")
+	var first_metadata: Dictionary = GFVariantData.get_option_dictionary(first, "metadata")
+	var second_metadata: Dictionary = GFVariantData.get_option_dictionary(second, "metadata")
+
+	assert_eq(entries.size(), 2, "清单应解析为两个标准条目。")
+	assert_eq(GFVariantData.get_option_string(first, "url"), "https://cdn.example.test/assets/audio/theme.ogg", "相对 URL 应按 base_url 解析。")
+	assert_eq(GFVariantData.get_option_string(first, "target_path"), "audio/theme.ogg", "path 应作为默认目标路径。")
+	assert_eq(GFVariantData.get_option_string(first, "expected_sha256"), checksum, "sha256 应映射为 expected_sha256。")
+	assert_eq(GFVariantData.get_option_int(first, "expected_size"), 12, "size 应映射为 expected_size。")
+	assert_true(first_headers.has("Accept: application/octet-stream"), "默认请求头应复制到条目。")
+	assert_eq(GFVariantData.get_option_string(first_metadata, "channel"), "stable", "清单 metadata 应复制到条目。")
+	assert_true(second_headers.has("X-Test: 1"), "条目请求头应转换为 HTTP 头字符串。")
+	assert_eq(GFVariantData.get_option_string(second_metadata, "kind"), "ui", "条目 metadata 应覆盖到标准条目。")
+
+
+func test_enqueue_manifest_batches_entries_under_target_root_and_metadata() -> void:
+	var file_a: String = "gf_download_manifest_a_%d.txt" % Time.get_ticks_usec()
+	var file_b: String = "gf_download_manifest_b_%d.txt" % Time.get_ticks_usec()
+	var target_a: String = _track_path("user://" + file_a)
+	var target_b: String = _track_path("user://" + file_b)
+	var results: Array[Dictionary] = []
+	_utility.responses.append({ "success": true, "response_code": 200, "content": "aa" })
+	_utility.responses.append({ "success": true, "response_code": 200, "content": "bb" })
+
+	var ids: PackedInt32Array = _utility.enqueue_manifest([
+		{
+			"url": "https://example.test/a.txt",
+			"target_path": file_a,
+			"size": 2,
+		},
+		{
+			"url": "https://example.test/b.txt",
+			"target_path": file_b,
+			"metadata": {
+				"label": "b",
+			},
+		},
+	], "user://", func(result: Dictionary) -> void:
+		results.append(result)
+	, {
+		"metadata": {
+			"batch": "main",
+		},
+		"overwrite": true,
+		"temp_path": "user://gf_download_manifest_shared_temp.tmp",
+	})
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var first_metadata: Dictionary = GFVariantData.get_option_dictionary(results[0], "metadata")
+	var second_metadata: Dictionary = GFVariantData.get_option_dictionary(results[1], "metadata")
+
+	assert_eq(ids.size(), 2, "有效清单条目应全部入队。")
+	assert_eq(_read_text(target_a), "aa", "第一个清单条目应写入 target_root 下的目标路径。")
+	assert_eq(_read_text(target_b), "bb", "第二个清单条目应写入 target_root 下的目标路径。")
+	assert_eq(results.size(), 2, "批量回调应按每个任务执行一次。")
+	assert_eq(GFVariantData.get_option_string(first_metadata, "batch"), "main", "批量 metadata 应透传到任务结果。")
+	assert_eq(GFVariantData.get_option_int(first_metadata, "manifest_index"), 0, "任务 metadata 应包含清单索引。")
+	assert_eq(GFVariantData.get_option_string(second_metadata, "label"), "b", "条目 metadata 应透传到任务结果。")
+	assert_ne(GFVariantData.get_option_string(results[0], "temp_path"), "user://gf_download_manifest_shared_temp.tmp", "批量默认 temp_path 不应被复用到每个条目。")
+
+
+func test_get_tasks_progress_aggregates_manifest_results() -> void:
+	var file_a: String = "gf_download_progress_a_%d.txt" % Time.get_ticks_usec()
+	var file_b: String = "gf_download_progress_b_%d.txt" % Time.get_ticks_usec()
+	var _target_a: String = _track_path("user://" + file_a)
+	var _target_b: String = _track_path("user://" + file_b)
+	_utility.responses.append({ "success": true, "response_code": 200, "content": "aa" })
+	_utility.responses.append({ "success": true, "response_code": 200, "content": "bb" })
+
+	var ids: PackedInt32Array = _utility.enqueue_manifest([
+		{
+			"url": "https://example.test/a.txt",
+			"target_path": file_a,
+			"size": 2,
+		},
+		{
+			"url": "https://example.test/b.txt",
+			"target_path": file_b,
+			"size": 2,
+		},
+	], "user://")
+	await get_tree().process_frame
+	await get_tree().process_frame
+
+	var progress: Dictionary = _utility.get_tasks_progress(ids)
+
+	assert_eq(GFVariantData.get_option_int(progress, "task_count"), 2, "聚合进度应记录任务总数。")
+	assert_eq(GFVariantData.get_option_int(progress, "completed_count"), 2, "全部完成时应统计完成数。")
+	assert_true(GFVariantData.get_option_bool(progress, "finished"), "全部终态且无缺失时应标记 finished。")
+	assert_true(GFVariantData.get_option_bool(progress, "success"), "全部成功完成时应标记 success。")
+	assert_eq(GFVariantData.get_option_int(progress, "total_bytes"), 4, "清单 expected_size 应作为聚合总字节数。")
+	assert_eq(GFVariantData.get_option_int(progress, "received_bytes"), 4, "完成任务应使用 expected_size 补足接收字节数。")
+	assert_almost_eq(GFVariantData.get_option_float(progress, "progress_ratio"), 1.0, 0.001, "全部完成时进度比例应为 1。")
+
+
+func test_get_tasks_progress_aggregates_large_pending_queue() -> void:
+	_utility.auto_complete = false
+	var manifest: Array[Dictionary] = []
+	for index: int in range(512):
+		manifest.append({
+			"url": "https://example.test/%d.txt" % index,
+			"target_path": "gf_download_large_pending_%d_%d.txt" % [Time.get_ticks_usec(), index],
+			"size": 10,
+		})
+	var ids: PackedInt32Array = _utility.enqueue_manifest(manifest, "user://")
+	var _append_result: bool = ids.append(999_999)
+
+	var progress: Dictionary = _utility.get_tasks_progress(ids)
+
+	assert_eq(ids.size(), 513, "测试输入应包含大量有效任务与一个缺失任务。")
+	assert_eq(GFVariantData.get_option_int(progress, "task_count"), 513, "聚合进度应保留输入任务总数。")
+	assert_eq(GFVariantData.get_option_int(progress, "running_count"), 1, "当前下载任务应统计为 running。")
+	assert_eq(GFVariantData.get_option_int(progress, "queued_count"), 511, "等待队列应一次性聚合为 queued。")
+	assert_eq(GFVariantData.get_option_int(progress, "missing_count"), 1, "不存在的任务 ID 应统计为 missing。")
+	assert_eq(GFVariantData.get_option_int(progress, "known_total_bytes"), 5120, "大队列聚合应保留清单 size 总和。")
+
+
+func test_enqueue_manifest_rejects_unsafe_relative_targets() -> void:
+	var file_name: String = "gf_download_manifest_safe_%d.txt" % Time.get_ticks_usec()
+	var target: String = _track_path("user://" + file_name)
+	_utility.responses.append({ "success": true, "response_code": 200, "content": "ok" })
+
+	var ids: PackedInt32Array = _utility.enqueue_manifest([
+		{
+			"url": "https://example.test/escape.txt",
+			"target_path": "../escape.txt",
+		},
+		{
+			"url": "https://example.test/escape-tail.txt",
+			"target_path": "folder/..",
+		},
+		{
+			"url": "https://example.test/safe.txt",
+			"target_path": file_name,
+		},
+	], "user://")
+	await get_tree().process_frame
+
+	assert_eq(ids.size(), 1, "危险相对目标路径不应入队。")
+	assert_eq(_utility.request_log.size(), 1, "只有安全条目应发起下载。")
+	assert_eq(_read_text(target), "ok", "安全条目仍应正常写入。")
+
+
 # --- 私有/辅助方法 ---
 
 func _track_path(path: String) -> String:

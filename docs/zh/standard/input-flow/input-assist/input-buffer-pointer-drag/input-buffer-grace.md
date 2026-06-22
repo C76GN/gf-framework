@@ -18,4 +18,6 @@ if input_assist.is_grace_window_active(&"grounded"):
 	pass
 ```
 
+如果项目需要在宽容窗口自然倒计时结束时执行一次性逻辑，可以监听 `grace_window_expired(window_id, player_index)`。`cancel_grace_window()`、`clear_player()` 和 `clear_all()` 属于显式清理，不会触发这个自然过期信号。
+
 本地多人项目可以传入 `player_index` 让动作缓冲和宽容窗口按玩家隔离；全局输入辅助则继续使用默认的 `-1`。

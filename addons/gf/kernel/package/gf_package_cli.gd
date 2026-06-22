@@ -39,6 +39,13 @@ const COMMAND_INSTALL: String = "install"
 ## @layer kernel/package
 const COMMAND_UNINSTALL: String = "uninstall"
 
+## update 命令名称。
+## [br]
+## @api framework_internal
+## [br]
+## @layer kernel/package
+const COMMAND_UPDATE: String = "update"
+
 ## verify 命令名称。
 ## [br]
 ## @api framework_internal
@@ -109,7 +116,8 @@ func _run_cli(raw_args: PackedStringArray) -> Dictionary:
 		return _run_verify(registry_path, options)
 
 	var package_ids: PackedStringArray = _GF_VARIANT_ACCESS_SCRIPT.get_option_packed_string_array(options, "packages")
-	if package_ids.is_empty():
+	var all_installed: bool = _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(options, "all_installed", false)
+	if package_ids.is_empty() and command != COMMAND_UPDATE:
 		return _make_usage_error(command, PackedStringArray(["Missing package id."]))
 	if command == COMMAND_INSTALL:
 		return _GF_PACKAGE_MANAGER_BACKEND.install_packages(
@@ -118,6 +126,18 @@ func _run_cli(raw_args: PackedStringArray) -> Dictionary:
 			_GF_VARIANT_ACCESS_SCRIPT.get_option_string(options, "project_root"),
 			_GF_VARIANT_ACCESS_SCRIPT.get_option_string(options, "lockfile"),
 			_GF_VARIANT_ACCESS_SCRIPT.get_option_string(options, "reason"),
+			_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(options, "dry_run"),
+			_make_backend_options(options)
+		)
+	if command == COMMAND_UPDATE:
+		if package_ids.is_empty() and not all_installed:
+			return _make_usage_error(command, PackedStringArray(["Missing package id. Use --all-installed to update every installed package."]))
+		return _GF_PACKAGE_MANAGER_BACKEND.update_packages(
+			package_ids,
+			registry_path,
+			_GF_VARIANT_ACCESS_SCRIPT.get_option_string(options, "project_root"),
+			_GF_VARIANT_ACCESS_SCRIPT.get_option_string(options, "lockfile"),
+			all_installed,
 			_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(options, "dry_run"),
 			_make_backend_options(options)
 		)
@@ -140,6 +160,7 @@ func _parse_options(args: PackedStringArray) -> Dictionary:
 		"reason": "manual",
 		"dry_run": false,
 		"force": false,
+		"all_installed": false,
 		"cache_dir": "",
 		"channel": "",
 		"packages": [],
@@ -177,6 +198,8 @@ func _parse_options(args: PackedStringArray) -> Dictionary:
 			options["dry_run"] = true
 		elif argument == "--force":
 			options["force"] = true
+		elif argument == "--all-installed":
+			options["all_installed"] = true
 		elif argument == "--json":
 			options["json"] = true
 		elif argument == "--help" or argument == "-h":
@@ -273,6 +296,7 @@ func _is_valid_command(command: String) -> bool:
 		command == COMMAND_STATUS
 		or command == COMMAND_INSTALL
 		or command == COMMAND_UNINSTALL
+		or command == COMMAND_UPDATE
 		or command == COMMAND_VERIFY
 	)
 
@@ -305,6 +329,7 @@ func _usage_text() -> String:
 		"Usage:",
 		"  godot --headless --path <project> --script res://addons/gf/kernel/package/gf_package_cli.gd -- status [--registry <index.json-or-url-or-source.json>] [--channel <name>] [--project-root <target>] [--lockfile <path>] [--json]",
 		"  godot --headless --path <project> --script res://addons/gf/kernel/package/gf_package_cli.gd -- install <package-id>... [--registry <index.json-or-url-or-source.json>] [--channel <name>] [--project-root <target>] [--lockfile <path>] [--reason manual|preset|bundled|dev] [--cache-dir <path>] [--dry-run] [--json]",
+		"  godot --headless --path <project> --script res://addons/gf/kernel/package/gf_package_cli.gd -- update [<package-id>...] [--all-installed] [--registry <index.json-or-url-or-source.json>] [--channel <name>] [--project-root <target>] [--lockfile <path>] [--cache-dir <path>] [--dry-run] [--json]",
 		"  godot --headless --path <project> --script res://addons/gf/kernel/package/gf_package_cli.gd -- uninstall <package-id>... [--registry <index.json-or-url-or-source.json>] [--channel <name>] [--project-root <target>] [--lockfile <path>] [--cache-dir <path>] [--dry-run] [--force] [--json]",
 		"  godot --headless --path <project> --script res://addons/gf/kernel/package/gf_package_cli.gd -- verify [--registry <index.json-or-url-or-source.json>] [--channel <name>] [--project-root <target>] [--lockfile <path>] [--json]",
 		"  --registry is optional; omit it to use the default GF release registry source.",
@@ -349,6 +374,17 @@ func _format_human_result(result: Dictionary) -> String:
 			_GF_VARIANT_ACCESS_SCRIPT.get_option_array(result, "to_update").size(),
 		])
 		_append_human_count_line(lines, "Installed files", _GF_VARIANT_ACCESS_SCRIPT.get_option_int(result, "installed_file_count", 0))
+		_append_human_flag_line(lines, "Dry run", _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(result, "dry_run", false))
+		_append_human_flag_line(lines, "Rolled back", _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(result, "rolled_back", false))
+	elif operation == COMMAND_UPDATE:
+		_append_human_package_list(lines, "Requested", _GF_VARIANT_ACCESS_SCRIPT.get_option_array(result, "requested_packages"))
+		_append_human_package_list(lines, "Updated packages", _GF_VARIANT_ACCESS_SCRIPT.get_option_array(result, "updated_packages"))
+		_append_human_line(lines, "Update plan: %d install, %d update" % [
+			_GF_VARIANT_ACCESS_SCRIPT.get_option_array(result, "to_install").size(),
+			_GF_VARIANT_ACCESS_SCRIPT.get_option_array(result, "to_update").size(),
+		])
+		_append_human_count_line(lines, "Updated files", _GF_VARIANT_ACCESS_SCRIPT.get_option_int(result, "updated_file_count", 0))
+		_append_human_flag_line(lines, "All installed", _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(result, "all_installed", false))
 		_append_human_flag_line(lines, "Dry run", _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(result, "dry_run", false))
 		_append_human_flag_line(lines, "Rolled back", _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(result, "rolled_back", false))
 	elif operation == COMMAND_UNINSTALL:

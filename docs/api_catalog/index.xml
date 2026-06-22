@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<apiCatalog schemaVersion="2" name="GF Framework" sourceRoot="addons/gf" sourceDigest="bee503dffdf1060315e2cf90fff14ee4492305663cc36b63010833d831ab4c86" classCount="522" methodCount="4295">
+<apiCatalog schemaVersion="2" name="GF Framework" sourceRoot="addons/gf" sourceDigest="c883292e18df048d28cb234cf6a79974994dd7b7f67e9d5b820d41f4372f0109" classCount="530" methodCount="4373">
 	<module id="kernel" label="Kernel" classCount="45" methodCount="467">
 		<class name="GFAccessGenerator" path="classes/GFAccessGenerator.xml" sourcePath="addons/gf/kernel/editor/gf_access_generator.gd" extends="RefCounted" />
 		<class name="GFArchitecture" path="classes/GFArchitecture.xml" sourcePath="addons/gf/kernel/core/gf_architecture.gd" extends="Object" />
@@ -47,7 +47,7 @@
 		<class name="GFTypeEventSystem" path="classes/GFTypeEventSystem.xml" sourcePath="addons/gf/kernel/core/gf_type_event_system.gd" extends="Object" />
 		<class name="GFUtility" path="classes/GFUtility.xml" sourcePath="addons/gf/kernel/base/gf_utility.gd" extends="Object" />
 	</module>
-	<module id="standard" label="Standard" classCount="273" methodCount="2546">
+	<module id="standard" label="Standard" classCount="277" methodCount="2600">
 		<class name="GFAnalyticsConfig" path="classes/GFAnalyticsConfig.xml" sourcePath="addons/gf/standard/utilities/analytics/gf_analytics_config.gd" extends="Resource" />
 		<class name="GFAnalyticsUtility" path="classes/GFAnalyticsUtility.xml" sourcePath="addons/gf/standard/utilities/analytics/gf_analytics_utility.gd" extends="GFUtility" />
 		<class name="GFAssetHandle" path="classes/GFAssetHandle.xml" sourcePath="addons/gf/standard/utilities/assets/gf_asset_handle.gd" extends="RefCounted" />
@@ -86,6 +86,7 @@
 		<class name="GFCommandHistoryUtility" path="classes/GFCommandHistoryUtility.xml" sourcePath="addons/gf/standard/utilities/history/gf_command_history_utility.gd" extends="GFUtility" />
 		<class name="GFCommandSequence" path="classes/GFCommandSequence.xml" sourcePath="addons/gf/standard/sequence/gf_command_sequence.gd" extends="RefCounted" />
 		<class name="GFConfigBuildProfile" path="classes/GFConfigBuildProfile.xml" sourcePath="addons/gf/standard/utilities/config/gf_config_build_profile.gd" extends="Resource" />
+		<class name="GFConfigDatabaseResource" path="classes/GFConfigDatabaseResource.xml" sourcePath="addons/gf/standard/utilities/config/gf_config_database_resource.gd" extends="Resource" />
 		<class name="GFConfigLocalizationKeyValidationRule" path="classes/GFConfigLocalizationKeyValidationRule.xml" sourcePath="addons/gf/standard/utilities/config/validation/gf_config_localization_key_validation_rule.gd" extends="GFConfigValidationRule" />
 		<class name="GFConfigNotDefaultValidationRule" path="classes/GFConfigNotDefaultValidationRule.xml" sourcePath="addons/gf/standard/utilities/config/validation/gf_config_not_default_validation_rule.gd" extends="GFConfigValidationRule" />
 		<class name="GFConfigProvider" path="classes/GFConfigProvider.xml" sourcePath="addons/gf/standard/utilities/config/gf_config_provider.gd" extends="GFUtility" />
@@ -101,6 +102,7 @@
 		<class name="GFConfigTableMergePolicy" path="classes/GFConfigTableMergePolicy.xml" sourcePath="addons/gf/standard/utilities/config/gf_config_table_merge_policy.gd" extends="Resource" />
 		<class name="GFConfigTableMergeTools" path="classes/GFConfigTableMergeTools.xml" sourcePath="addons/gf/standard/utilities/config/gf_config_table_merge_tools.gd" extends="RefCounted" />
 		<class name="GFConfigTableReference" path="classes/GFConfigTableReference.xml" sourcePath="addons/gf/standard/utilities/config/gf_config_table_reference.gd" extends="Resource" />
+		<class name="GFConfigTableResource" path="classes/GFConfigTableResource.xml" sourcePath="addons/gf/standard/utilities/config/gf_config_table_resource.gd" extends="Resource" />
 		<class name="GFConfigTableSchema" path="classes/GFConfigTableSchema.xml" sourcePath="addons/gf/standard/utilities/config/gf_config_table_schema.gd" extends="Resource" />
 		<class name="GFConfigValidationReport" path="classes/GFConfigValidationReport.xml" sourcePath="addons/gf/standard/utilities/config/gf_config_validation_report.gd" extends="RefCounted" />
 		<class name="GFConfigValidationRule" path="classes/GFConfigValidationRule.xml" sourcePath="addons/gf/standard/utilities/config/validation/gf_config_validation_rule.gd" extends="Resource" />
@@ -152,6 +154,7 @@
 		<class name="GFInputChordTrigger" path="classes/GFInputChordTrigger.xml" sourcePath="addons/gf/standard/input/triggers/gf_input_chord_trigger.gd" extends="GFInputTrigger" />
 		<class name="GFInputConflictAnalyzer" path="classes/GFInputConflictAnalyzer.xml" sourcePath="addons/gf/standard/input/rebinding/gf_input_conflict_analyzer.gd" extends="RefCounted" />
 		<class name="GFInputContext" path="classes/GFInputContext.xml" sourcePath="addons/gf/standard/input/mapping/gf_input_context.gd" extends="Resource" />
+		<class name="GFInputContextDiagnostics" path="classes/GFInputContextDiagnostics.xml" sourcePath="addons/gf/standard/input/mapping/gf_input_context_diagnostics.gd" extends="RefCounted" />
 		<class name="GFInputCurveModifier" path="classes/GFInputCurveModifier.xml" sourcePath="addons/gf/standard/input/modifiers/gf_input_curve_modifier.gd" extends="GFInputModifier" />
 		<class name="GFInputDeadzoneModifier" path="classes/GFInputDeadzoneModifier.xml" sourcePath="addons/gf/standard/input/modifiers/gf_input_deadzone_modifier.gd" extends="GFInputModifier" />
 		<class name="GFInputDetector" path="classes/GFInputDetector.xml" sourcePath="addons/gf/standard/input/rebinding/gf_input_detector.gd" extends="Node" />
@@ -230,6 +233,7 @@
 		<class name="GFReplayTimeline" path="classes/GFReplayTimeline.xml" sourcePath="addons/gf/standard/foundation/timeline/gf_replay_timeline.gd" extends="RefCounted" />
 		<class name="GFRequestEnvelope" path="classes/GFRequestEnvelope.xml" sourcePath="addons/gf/standard/utilities/io/gf_request_envelope.gd" extends="RefCounted" />
 		<class name="GFRequestOutboxUtility" path="classes/GFRequestOutboxUtility.xml" sourcePath="addons/gf/standard/utilities/io/gf_request_outbox_utility.gd" extends="GFUtility" />
+		<class name="GFResourceConfigProvider" path="classes/GFResourceConfigProvider.xml" sourcePath="addons/gf/standard/utilities/config/gf_resource_config_provider.gd" extends="GFConfigProvider" />
 		<class name="GFResourceRegistry" path="classes/GFResourceRegistry.xml" sourcePath="addons/gf/standard/utilities/assets/gf_resource_registry.gd" extends="Resource" />
 		<class name="GFResourceRegistryEntry" path="classes/GFResourceRegistryEntry.xml" sourcePath="addons/gf/standard/utilities/assets/gf_resource_registry_entry.gd" extends="Resource" />
 		<class name="GFResourceRegistryTools" path="classes/GFResourceRegistryTools.xml" sourcePath="addons/gf/standard/utilities/assets/gf_resource_registry_tools.gd" extends="RefCounted" />
@@ -559,5 +563,11 @@
 		<class name="GFTurnContext" path="classes/GFTurnContext.xml" sourcePath="addons/gf/extensions/turn_based/runtime/gf_turn_context.gd" extends="RefCounted" />
 		<class name="GFTurnFlowSystem" path="classes/GFTurnFlowSystem.xml" sourcePath="addons/gf/extensions/turn_based/runtime/gf_turn_flow_system.gd" extends="GFSystem" />
 		<class name="GFTurnPhase" path="classes/GFTurnPhase.xml" sourcePath="addons/gf/extensions/turn_based/resources/gf_turn_phase.gd" extends="Resource" />
+	</module>
+	<module id="tools" label="Tool Packages" classCount="4" methodCount="24">
+		<class name="GFConfigPipeline" path="classes/GFConfigPipeline.xml" sourcePath="addons/gf/tools/config_pipeline/gf_config_pipeline.gd" extends="RefCounted" />
+		<class name="GFConfigPipelineProfile" path="classes/GFConfigPipelineProfile.xml" sourcePath="addons/gf/tools/config_pipeline/gf_config_pipeline_profile.gd" extends="Resource" />
+		<class name="GFConfigPipelineRunner" path="classes/GFConfigPipelineRunner.xml" sourcePath="addons/gf/tools/config_pipeline/gf_config_pipeline_runner.gd" extends="RefCounted" />
+		<class name="GFConfigPipelineTableSource" path="classes/GFConfigPipelineTableSource.xml" sourcePath="addons/gf/tools/config_pipeline/gf_config_pipeline_table_source.gd" extends="Resource" />
 	</module>
 </apiCatalog>

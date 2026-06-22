@@ -79,34 +79,6 @@ const PROJECT_ACCESS_OUTPUT_SETTING: String = "gf/codegen/project_access_output_
 ## @layer kernel/editor
 const PROJECT_ACCESS_OUTPUT_DEFAULT: String = "res://gf/generated/gf_project_access.gd"
 
-## 构建信息导出开关设置。
-## [br]
-## @api framework_internal
-## [br]
-## @layer kernel/editor
-const BUILD_INFO_EXPORT_ENABLED_SETTING: String = "gf/build/export/write_git_metadata"
-
-## 构建信息导出后是否恢复设置。
-## [br]
-## @api framework_internal
-## [br]
-## @layer kernel/editor
-const BUILD_INFO_EXPORT_RESTORE_SETTING: String = "gf/build/export/restore_previous_settings"
-
-## 构建信息导出后是否保存项目设置。
-## [br]
-## @api framework_internal
-## [br]
-## @layer kernel/editor
-const BUILD_INFO_EXPORT_SAVE_SETTING: String = "gf/build/export/save_project_settings"
-
-## 构建信息导出元数据设置。
-## [br]
-## @api framework_internal
-## [br]
-## @layer kernel/editor
-const BUILD_INFO_EXPORT_METADATA_SETTING: String = "gf/build/export/metadata"
-
 ## 扩展启用设置脚本。
 ## [br]
 ## @api framework_internal
@@ -122,7 +94,11 @@ const GFExtensionSettingsBase = preload("res://addons/gf/kernel/extension/gf_ext
 ## @api framework_internal
 ## [br]
 ## @layer kernel/editor
-static func ensure_all() -> void:
+## [br]
+## @param project_setting_records: 由标准库或扩展贡献的 ProjectSettings 记录。
+## [br]
+## @schema project_setting_records: Array[Dictionary] with name, default_value, type, hint, hint_string, basic, restart_if_changed, and internal.
+static func ensure_all(project_setting_records: Array[Dictionary] = []) -> void:
 	var should_save: bool = false
 	if _ensure_default(INSTALLERS_SETTING, INSTALLERS_DEFAULT):
 		should_save = true
@@ -134,13 +110,7 @@ static func ensure_all() -> void:
 		should_save = true
 	if _ensure_default(PROJECT_ACCESS_OUTPUT_SETTING, PROJECT_ACCESS_OUTPUT_DEFAULT):
 		should_save = true
-	if _ensure_default(BUILD_INFO_EXPORT_ENABLED_SETTING, false):
-		should_save = true
-	if _ensure_default(BUILD_INFO_EXPORT_RESTORE_SETTING, true):
-		should_save = true
-	if _ensure_default(BUILD_INFO_EXPORT_SAVE_SETTING, false):
-		should_save = true
-	if _ensure_default(BUILD_INFO_EXPORT_METADATA_SETTING, {}):
+	if _ensure_project_setting_records(project_setting_records):
 		should_save = true
 	if GFExtensionSettingsBase.ensure_defaults():
 		should_save = true
@@ -181,6 +151,20 @@ static func _ensure_default(setting_name: String, default_value: Variant) -> boo
 	})
 
 
+static func _ensure_project_setting_records(project_setting_records: Array[Dictionary]) -> bool:
+	var should_save: bool = false
+	for record: Dictionary in project_setting_records:
+		var setting_name: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(record, "name").strip_edges()
+		if setting_name.is_empty():
+			continue
+
+		var default_value: Variant = _GF_VARIANT_ACCESS_SCRIPT.get_option_value(record, "default_value")
+		var options: Dictionary = _make_project_setting_options(record, default_value)
+		if _GF_PROJECT_SETTINGS_TOOLS.ensure_setting(setting_name, default_value, options):
+			should_save = true
+	return should_save
+
+
 static func _register_property_info() -> void:
 	_GF_PROJECT_SETTINGS_TOOLS.register_property_info(INSTALLERS_SETTING, TYPE_ARRAY, {
 		"hint": PROPERTY_HINT_TYPE_STRING,
@@ -205,15 +189,20 @@ static func _register_property_info() -> void:
 		"hint_string": "*.gd",
 		"basic": true,
 	})
-	_GF_PROJECT_SETTINGS_TOOLS.register_property_info(BUILD_INFO_EXPORT_ENABLED_SETTING, TYPE_BOOL, {
-		"basic": true,
-	})
-	_GF_PROJECT_SETTINGS_TOOLS.register_property_info(BUILD_INFO_EXPORT_RESTORE_SETTING, TYPE_BOOL, {
-		"basic": true,
-	})
-	_GF_PROJECT_SETTINGS_TOOLS.register_property_info(BUILD_INFO_EXPORT_SAVE_SETTING, TYPE_BOOL, {
-		"basic": true,
-	})
-	_GF_PROJECT_SETTINGS_TOOLS.register_property_info(BUILD_INFO_EXPORT_METADATA_SETTING, TYPE_DICTIONARY, {
-		"basic": true,
-	})
+
+
+static func _make_project_setting_options(record: Dictionary, default_value: Variant) -> Dictionary:
+	var options: Dictionary = {
+		"type": _GF_VARIANT_ACCESS_SCRIPT.get_option_int(record, "type", typeof(default_value)),
+		"register_property_info": true,
+	}
+	for bool_key: String in ["basic", "restart_if_changed", "internal", "update_initial_value"]:
+		if record.has(bool_key):
+			options[bool_key] = _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(record, bool_key, false)
+	if record.has("hint"):
+		options["hint"] = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(record, "hint", PROPERTY_HINT_NONE)
+	if record.has("hint_string"):
+		options["hint_string"] = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(record, "hint_string", "")
+	if record.has("usage"):
+		options["usage"] = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(record, "usage", -1)
+	return options

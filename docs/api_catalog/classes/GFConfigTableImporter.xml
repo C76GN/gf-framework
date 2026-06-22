@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFConfigTableImporter" path="addons/gf/standard/utilities/config/gf_config_table_importer.gd" module="standard" extends="RefCounted" classDigest="4eb24cb93780d0377ffb316191288fdc23f28d783b8e5705937b98e66e2d9eba">
+<class name="GFConfigTableImporter" path="addons/gf/standard/utilities/config/gf_config_table_importer.gd" module="standard" extends="RefCounted" classDigest="f90966bc4fea08614d0b1e70c36d3c2eeb3e278bda4b084c9e72f270ba592f5d">
 	<description>GFConfigTableImporter: 通用导表文本解析与 schema 校验入口。
 提供 JSON 与 CSV 的轻量解析，适合编辑器工具或 CI 在进入项目 Provider 前做结构检查。</description>
 	<tags>
@@ -31,9 +31,10 @@
 				<tag name="api">public</tag>
 				<tag name="param">text: CSV 文本。</tag>
 				<tag name="param">options: 可选参数，支持 delimiter、trim_cells、skip_empty_lines、reject_duplicate_headers、source。</tag>
-				<tag name="return">结果字典，包含 success、data、row_locations 与 error。</tag>
+				<tag name="return">结果字典，包含 success、data、header、row_locations 与 error。</tag>
 				<tag name="schema">options: Dictionary，可包含 delimiter、trim_cells、skip_empty_lines、reject_duplicate_headers 和 source。</tag>
-				<tag name="schema">return: Dictionary，包含 success、data、row_locations、error、error_line、error_column 和 source。</tag>
+				<tag name="schema">return: Dictionary，包含 success、data、header、row_locations、error、error_line、error_column 和 source。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="validate_json_table">

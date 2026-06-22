@@ -55,6 +55,7 @@ static func parse_json_table(text: String, options: Dictionary = {}) -> Dictiona
 ### `parse_csv_table`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 static func parse_csv_table(text: String, options: Dictionary = {}) -> Dictionary:
@@ -69,12 +70,12 @@ static func parse_csv_table(text: String, options: Dictionary = {}) -> Dictionar
 | `text` | CSV 文本。 |
 | `options` | 可选参数，支持 delimiter、trim_cells、skip_empty_lines、reject_duplicate_headers、source。 |
 
-返回：结果字典，包含 success、data、row_locations 与 error。
+返回：结果字典，包含 success、data、header、row_locations 与 error。
 
 结构：
 
 - `options`: Dictionary，可包含 delimiter、trim_cells、skip_empty_lines、reject_duplicate_headers 和 source。
-- `return`: Dictionary，包含 success、data、row_locations、error、error_line、error_column 和 source。
+- `return`: Dictionary，包含 success、data、header、row_locations、error、error_line、error_column 和 source。
 
 <a id="member-gfconfigtableimporter-methods-validate_json_table"></a>
 

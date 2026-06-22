@@ -50,6 +50,17 @@ func run_request(request: Dictionary) -> Dictionary:
 			dry_run,
 			options
 		)
+	if operation == "update":
+		var update_all_installed: bool = _GF_VARIANT_ACCESS.get_option_bool(request, "all_installed", false)
+		return _GF_PACKAGE_MANAGER_BACKEND.update_packages(
+			package_ids,
+			registry_value,
+			project_root,
+			lockfile_path,
+			update_all_installed,
+			dry_run,
+			options
+		)
 	if operation == "uninstall":
 		var force: bool = _GF_VARIANT_ACCESS.get_option_bool(request, "force", false)
 		return _GF_PACKAGE_MANAGER_BACKEND.uninstall_packages(

@@ -2,7 +2,7 @@
 
 ## GFBuildInfoExportPlugin: 导出时写入构建元数据的可选编辑器插件。
 ##
-## 只负责把通用 Git 构建字段写入 ProjectSettings，项目仍可决定是否保存、
+## 只负责把外部构建流水线已提供的构建字段写入 ProjectSettings，项目仍可决定是否保存、
 ## 是否恢复旧值以及如何展示这些字段。
 ## [br]
 ## @api public
@@ -16,10 +16,21 @@ extends EditorExportPlugin
 
 # --- 常量 ---
 
-## 是否在导出开始时写入 Git 构建元数据的 ProjectSettings 键。
+## 是否在导出开始时写入构建元数据的 ProjectSettings 键。
 ## [br]
 ## @api public
-const ENABLED_SETTING: String = "gf/build/export/write_git_metadata"
+## [br]
+## @since 3.17.0
+const ENABLED_SETTING: String = "gf/build/export/write_metadata"
+
+## 导出时写入 ProjectSettings 的构建元数据字典键。
+## [br]
+## @api public
+## [br]
+## @since 5.2.0
+## [br]
+## @schema value: Dictionary，可包含 GFBuildInfo.write_metadata_to_project_settings() 支持的构建字段。
+const BUILD_METADATA_SETTING: String = "gf/build/export/build_metadata"
 
 ## 导出结束后是否恢复旧构建元数据的 ProjectSettings 键。
 ## [br]
@@ -37,6 +48,7 @@ const SAVE_PROJECT_SETTINGS_SETTING: String = "gf/build/export/save_project_sett
 const EXTRA_METADATA_SETTING: String = "gf/build/export/metadata"
 
 const _BUILD_SETTING_PATHS: Array[String] = [
+	"gf/build/id",
 	"gf/build/commit_hash",
 	"gf/build/branch",
 	"gf/build/tag",
@@ -50,7 +62,6 @@ const _BUILD_SETTING_PATHS: Array[String] = [
 # --- 私有变量 ---
 
 var _previous_settings: Dictionary = {}
-var _had_previous_setting: Dictionary = {}
 var _export_wrote_metadata: bool = false
 
 
@@ -69,13 +80,7 @@ func _export_begin(
 	if not GFVariantData.to_bool(ProjectSettings.get_setting(ENABLED_SETTING, false)):
 		return
 
-	_capture_previous_settings()
-	var extra_metadata: Dictionary = GFVariantData.to_dictionary(ProjectSettings.get_setting(EXTRA_METADATA_SETTING, {}))
-	var _write_git_metadata_to_project_settings_result_74: Variant = GFBuildInfo.write_git_metadata_to_project_settings(
-		"res://",
-		extra_metadata.duplicate(true),
-		GFVariantData.to_bool(ProjectSettings.get_setting(SAVE_PROJECT_SETTINGS_SETTING, false))
-	)
+	_previous_settings = _write_export_metadata_from_project_settings()
 	_export_wrote_metadata = true
 
 
@@ -84,29 +89,49 @@ func _export_end() -> void:
 		return
 
 	if GFVariantData.to_bool(ProjectSettings.get_setting(RESTORE_PREVIOUS_SETTING, true)):
-		_restore_previous_settings()
+		_restore_export_metadata(_previous_settings)
 		if GFVariantData.to_bool(ProjectSettings.get_setting(SAVE_PROJECT_SETTINGS_SETTING, false)):
 			var _save_result_89: Variant = ProjectSettings.save()
 
 	_previous_settings.clear()
-	_had_previous_setting.clear()
 	_export_wrote_metadata = false
 
 
 # --- 私有/辅助方法 ---
 
-func _capture_previous_settings() -> void:
-	_previous_settings.clear()
-	_had_previous_setting.clear()
-	for setting_path: String in _BUILD_SETTING_PATHS:
-		_had_previous_setting[setting_path] = ProjectSettings.has_setting(setting_path)
-		if ProjectSettings.has_setting(setting_path):
-			_previous_settings[setting_path] = ProjectSettings.get_setting(setting_path)
+static func _write_export_metadata_from_project_settings() -> Dictionary:
+	var previous_settings: Dictionary = _capture_build_settings()
+	var build_data: Dictionary = GFVariantData.to_dictionary(ProjectSettings.get_setting(BUILD_METADATA_SETTING, {}))
+	var extra_metadata: Dictionary = GFVariantData.to_dictionary(ProjectSettings.get_setting(EXTRA_METADATA_SETTING, {}))
+	var _write_metadata_to_project_settings_result: Dictionary = GFBuildInfo.write_metadata_to_project_settings(
+		build_data.duplicate(true),
+		extra_metadata.duplicate(true),
+		GFVariantData.to_bool(ProjectSettings.get_setting(SAVE_PROJECT_SETTINGS_SETTING, false))
+	)
+	return previous_settings
 
 
-func _restore_previous_settings() -> void:
+static func _restore_export_metadata(previous_settings: Dictionary) -> void:
 	for setting_path: String in _BUILD_SETTING_PATHS:
-		if GFVariantData.get_option_bool(_had_previous_setting, setting_path, false):
-			ProjectSettings.set_setting(setting_path, GFVariantData.get_option_value(_previous_settings, setting_path))
+		var entry: Dictionary = GFVariantData.as_dictionary(GFVariantData.get_option_value(previous_settings, setting_path, {}))
+		if GFVariantData.get_option_bool(entry, "had_setting", false):
+			ProjectSettings.set_setting(setting_path, GFVariantData.get_option_value(entry, "value"))
 		else:
-			ProjectSettings.clear(setting_path)
+			_clear_project_setting_if_exists(setting_path)
+
+
+static func _capture_build_settings() -> Dictionary:
+	var previous_settings: Dictionary = {}
+	for setting_path: String in _BUILD_SETTING_PATHS:
+		var entry: Dictionary = {
+			"had_setting": ProjectSettings.has_setting(setting_path),
+		}
+		if ProjectSettings.has_setting(setting_path):
+			entry["value"] = ProjectSettings.get_setting(setting_path)
+		previous_settings[setting_path] = entry
+	return previous_settings
+
+
+static func _clear_project_setting_if_exists(setting_path: String) -> void:
+	if ProjectSettings.has_setting(setting_path):
+		ProjectSettings.clear(setting_path)

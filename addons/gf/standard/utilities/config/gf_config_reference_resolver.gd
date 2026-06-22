@@ -67,6 +67,7 @@ static func validate_tables(
 	var report: Dictionary = _make_report()
 	var schema_lookup: Dictionary = _build_schema_lookup(schemas)
 	var validate_schema: bool = GFVariantData.get_option_bool(options, "validate_schema", true)
+	var reference_index_cache: Dictionary = {}
 
 	for schema: GFConfigTableSchema in schemas:
 		if schema == null:
@@ -78,7 +79,7 @@ static func validate_tables(
 		if validate_schema:
 			_merge_report(report, schema.validate_definition())
 			_merge_report(report, schema.validate_table(tables_by_name[table_name]))
-		_validate_schema_references(schema, tables_by_name, schema_lookup, report)
+		_validate_schema_references(schema, tables_by_name, schema_lookup, reference_index_cache, report)
 
 	_finalize_report(report)
 	return report
@@ -115,6 +116,7 @@ static func resolve_record_references(
 	if schema == null:
 		return result
 
+	var reference_index_cache: Dictionary = {}
 	for reference_definition: GFConfigTableReference in schema.references:
 		if reference_definition == null or not reference_definition.is_valid_definition():
 			continue
@@ -124,7 +126,15 @@ static func resolve_record_references(
 
 		var target_schema: GFConfigTableSchema = _get_schema_by_name(schemas_by_name, reference_definition.target_table_name)
 		var target_fields: PackedStringArray = reference_definition.get_target_fields(target_schema)
-		var target_index: Dictionary = build_index(_get_table_by_name(tables_by_name, reference_definition.target_table_name), target_fields)
+		var target_table: Variant = _get_table_by_name(tables_by_name, reference_definition.target_table_name, null)
+		if target_table == null:
+			continue
+		var target_index: Dictionary = _get_reference_index(
+			target_table,
+			reference_definition.target_table_name,
+			target_fields,
+			reference_index_cache
+		)
 		var matches: Array = _get_index_records(target_index, source_key)
 		if not matches.is_empty():
 			var matched_record: Dictionary = GFVariantData.as_dictionary(matches[0])
@@ -138,6 +148,7 @@ static func _validate_schema_references(
 	schema: GFConfigTableSchema,
 	tables_by_name: Dictionary,
 	schema_lookup: Dictionary,
+	reference_index_cache: Dictionary,
 	report: Dictionary
 ) -> void:
 	for reference_definition: GFConfigTableReference in schema.references:
@@ -172,7 +183,12 @@ static func _validate_schema_references(
 			)
 			continue
 
-		var target_index: Dictionary = build_index(target_table, target_fields)
+		var target_index: Dictionary = _get_reference_index(
+			target_table,
+			reference_definition.target_table_name,
+			target_fields,
+			reference_index_cache
+		)
 		for entry: Dictionary in _normalize_rows(_get_table_by_name(tables_by_name, schema.get_table_key())):
 			var record: Dictionary = _get_row_record(entry)
 			var source_key: String = reference_definition.make_source_key(record)
@@ -206,6 +222,26 @@ static func _build_schema_lookup(schemas: Array[GFConfigTableSchema]) -> Diction
 		if schema != null and schema.get_table_key() != &"":
 			result[schema.get_table_key()] = schema
 	return result
+
+
+static func _get_reference_index(
+	target_table: Variant,
+	table_name: StringName,
+	field_names: PackedStringArray,
+	index_cache: Dictionary
+) -> Dictionary:
+	var cache_key: String = _make_reference_index_cache_key(table_name, field_names)
+	if index_cache.has(cache_key):
+		var cached_value: Variant = index_cache[cache_key]
+		return GFVariantData.as_dictionary(cached_value)
+
+	var index: Dictionary = build_index(target_table, field_names)
+	index_cache[cache_key] = index
+	return index
+
+
+static func _make_reference_index_cache_key(table_name: StringName, field_names: PackedStringArray) -> String:
+	return "%s::%s" % [String(table_name), "|".join(field_names)]
 
 
 static func _get_schema_by_name(schemas_by_name: Dictionary, table_name: StringName) -> GFConfigTableSchema:

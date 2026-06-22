@@ -34,6 +34,8 @@ unstaged_changes.diff
 
 build/
 site/
+.gf/package_cache/
+.gf/package_temp/
 
 # AI 临时工作区：任务记录、本地审计、生成的上下文文件等不进入 Git。
 ai_analysis

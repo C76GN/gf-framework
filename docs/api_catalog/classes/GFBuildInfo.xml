@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFBuildInfo" path="addons/gf/standard/utilities/debug/gf_build_info.gd" module="standard" extends="Resource" classDigest="a7e6c08414ec7d3ad0918c2f9e30e9c4428c3c74870a1c5c305fe9f0c6690a55">
+<class name="GFBuildInfo" path="addons/gf/standard/utilities/debug/gf_build_info.gd" module="standard" extends="Resource" classDigest="864b6242cedfa9c0009e19617973786c2dcd229e52a01d7aa37c13293fd1b70a">
 	<description>GFBuildInfo: 运行时构建信息快照。
 用统一 Resource 承载项目版本、GF 版本、构建号、提交号和运行平台信息，
 便于诊断、日志、存档元数据或项目自己的版本界面复用。</description>
@@ -220,27 +220,19 @@
 				<tag name="schema">data: Dictionary，可包含 GFBuildInfo.to_dict() 输出的字段。</tag>
 			</tags>
 		</member>
-		<member kind="method" name="collect_git_metadata">
-			<signature>static func collect_git_metadata(work_dir: String = "res://") -&gt; Dictionary:</signature>
-			<description>从当前 Git 工作区收集构建元数据。该方法通常由导出脚本或编辑器工具调用。</description>
+		<member kind="method" name="write_metadata_to_project_settings">
+			<signature>static func write_metadata_to_project_settings( build_data: Dictionary = {}, extra_metadata: Dictionary = {}, save_settings: bool = false ) -&gt; Dictionary:</signature>
+			<description>把外部构建流水线提供的构建元数据写入 ProjectSettings，供 collect() 在运行时读取。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="param">work_dir: Git 工作区目录；支持 `res://`、`user://` 或原生路径。</tag>
-				<tag name="return">Git 构建元数据。</tag>
-				<tag name="schema">return: Dictionary，包含 commit_hash、branch、tag、commit_count、is_dirty 和 build_time_utc 字段。</tag>
-			</tags>
-		</member>
-		<member kind="method" name="write_git_metadata_to_project_settings">
-			<signature>static func write_git_metadata_to_project_settings( work_dir: String = "res://", extra_metadata: Dictionary = {}, save_settings: bool = false ) -&gt; Dictionary:</signature>
-			<description>把 Git 构建元数据写入 ProjectSettings，供 collect() 在运行时读取。</description>
-			<tags>
-				<tag name="api">public</tag>
-				<tag name="param">work_dir: Git 工作区目录；支持 `res://`、`user://` 或原生路径。</tag>
+				<tag name="param">build_data: 构建流水线提供的构建元数据。</tag>
 				<tag name="param">extra_metadata: 项目自定义构建元数据。</tag>
 				<tag name="param">save_settings: 是否立即保存 ProjectSettings。</tag>
-				<tag name="return">写入的构建元数据。</tag>
+				<tag name="return">实际写入的构建元数据。</tag>
+				<tag name="schema">build_data: Dictionary，可包含 build_id、commit_hash、branch、tag、commit_count、is_dirty、build_time_utc 和 metadata 字段。</tag>
 				<tag name="schema">extra_metadata: Dictionary，保存项目自定义构建元数据。</tag>
-				<tag name="schema">return: Dictionary，包含已写入的 Git 构建元数据。</tag>
+				<tag name="schema">return: Dictionary，包含已写入的构建元数据。</tag>
+				<tag name="since">5.2.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="duplicate_info">

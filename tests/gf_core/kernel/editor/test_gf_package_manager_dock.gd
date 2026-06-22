@@ -270,6 +270,32 @@ func test_switches_to_extension_view() -> void:
 	dock.free()
 
 
+func test_switches_to_tool_view() -> void:
+	var dock: VBoxContainer = _new_vbox_container(GF_PACKAGE_MANAGER_DOCK)
+	var packages: Array[Dictionary] = [
+		_make_package_manager_entry("gf.preset.rpg_save_dialogue", "preset"),
+		_make_package_manager_entry("gf.extension.save", "extension"),
+		_make_package_manager_entry("gf.standard.storage", "standard"),
+		_make_package_manager_entry("gf.tool.config_pipeline", "tool"),
+	]
+	dock.set(&"_packages", packages)
+	var view_filter_option: OptionButton = _get_option_button(dock, &"_view_filter_option")
+	view_filter_option.select(3)
+
+	_call_void(dock, &"_on_view_filter_selected", [3])
+
+	var visible_packages: Array = _call_array(dock, &"_get_visible_packages")
+	var first_visible: Dictionary = _dictionary_at(visible_packages, 0)
+	var selected_package_id: String = GF_VARIANT_ACCESS.to_text(dock.get(&"_selected_package_id"))
+
+	assert_eq(view_filter_option.get_item_text(view_filter_option.selected), "工具包", "包管理工作区应提供工具包视图。")
+	assert_eq(visible_packages.size(), 1, "工具包视图应只展示 tool 包。")
+	assert_eq(GF_VARIANT_ACCESS.get_option_string(first_visible, "id"), "gf.tool.config_pipeline", "工具包视图应暴露 tool 包。")
+	assert_eq(selected_package_id, "gf.tool.config_pipeline", "切换工具包视图后应选中当前视图中的第一个包。")
+
+	dock.free()
+
+
 func test_formats_install_dependency_risk_summary() -> void:
 	var dock: VBoxContainer = _new_vbox_container(GF_PACKAGE_MANAGER_DOCK)
 	var package_entry: Dictionary = _make_package_manager_entry("gf.extension.save", "extension")

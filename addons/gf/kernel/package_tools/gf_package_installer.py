@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import configparser
 import copy
 import fnmatch
 import hashlib
@@ -88,6 +89,18 @@ def main() -> int:
 	install_parser.add_argument("--json", action="store_true", help="Print JSON instead of text.")
 	install_parser.add_argument("--simulate-copy-failure-after", type=int, default=0, help=argparse.SUPPRESS)
 
+	update_parser = subparsers.add_parser("update", help="Update packages that are already present in the project lockfile.")
+	update_parser.add_argument("packages", nargs="*", help="Installed package ids to update.")
+	update_parser.add_argument("--all-installed", action="store_true", help="Update every installed package that is present in the registry.")
+	update_parser.add_argument("--registry", required=True, help="Registry index JSON path.")
+	update_parser.add_argument("--channel", default="", help="Channel name when --registry points to a registry source manifest.")
+	update_parser.add_argument("--project-root", required=True, help="Target Godot project root.")
+	update_parser.add_argument("--lockfile", default=".gf/packages.lock.json", help="Lockfile path, relative to --project-root unless absolute.")
+	update_parser.add_argument("--cache-dir", default="", help="Package download cache directory. Defaults to <project-root>/.gf/package_cache.")
+	update_parser.add_argument("--dry-run", action="store_true", help="Resolve and validate updates without copying files or writing the lockfile.")
+	update_parser.add_argument("--json", action="store_true", help="Print JSON instead of text.")
+	update_parser.add_argument("--simulate-copy-failure-after", type=int, default=0, help=argparse.SUPPRESS)
+
 	uninstall_parser = subparsers.add_parser("uninstall", help="Uninstall packages using the project lockfile.")
 	uninstall_parser.add_argument("packages", nargs="+", help="Package ids to uninstall.")
 	uninstall_parser.add_argument("--registry", required=True, help="Registry index JSON path.")
@@ -118,6 +131,18 @@ def main() -> int:
 			lockfile_path=args.lockfile,
 			cache_dir=args.cache_dir,
 			reason=args.reason,
+			dry_run=args.dry_run,
+			simulate_copy_failure_after=args.simulate_copy_failure_after,
+		)
+	elif args.command == "update":
+		result = update_packages(
+			package_ids=args.packages,
+			all_installed=args.all_installed,
+			registry_path=args.registry,
+			channel=args.channel,
+			project_root=args.project_root,
+			lockfile_path=args.lockfile,
+			cache_dir=args.cache_dir,
 			dry_run=args.dry_run,
 			simulate_copy_failure_after=args.simulate_copy_failure_after,
 		)
@@ -189,6 +214,7 @@ def install_packages(
 		package_ids=package_ids,
 		reason=reason,
 		write_lock=False,
+		current_framework_version=read_project_framework_version(resolved_project_root),
 	)
 	if not plan.get("ok"):
 		return make_install_result(
@@ -326,6 +352,244 @@ def install_packages(
 			installed_file_count,
 			False,
 			False,
+			[],
+			registry_source,
+		)
+
+
+def update_packages(
+	package_ids: list[str],
+	all_installed: bool,
+	registry_path: str,
+	channel: str,
+	project_root: str,
+	lockfile_path: str,
+	cache_dir: str,
+	dry_run: bool,
+	simulate_copy_failure_after: int = 0,
+) -> dict[str, Any]:
+	resolved_project_root = resolve_tool_path(project_root)
+	resolved_lockfile_path = resolve_project_lockfile_path(resolved_project_root, lockfile_path)
+	issues: list[str] = []
+	registry_source = prepare_registry_source(registry_path, channel, resolved_project_root, cache_dir, issues)
+	resolved_registry_path = registry_source["path"]
+	resolved_cache_dir = registry_source["cache_dir"]
+	if issues:
+		return make_update_result(
+			False,
+			resolved_registry_path,
+			resolved_project_root,
+			resolved_lockfile_path,
+			package_ids,
+			all_installed,
+			{},
+			[],
+			0,
+			dry_run,
+			False,
+			False,
+			issues,
+			registry_source,
+		)
+
+	plan = gf_package_resolver.update_plan(
+		registry_path=str(resolved_registry_path),
+		lockfile_path=str(resolved_lockfile_path),
+		package_ids=package_ids,
+		all_installed=all_installed,
+		write_lock=False,
+		current_framework_version=read_project_framework_version(resolved_project_root),
+	)
+	if not plan.get("ok"):
+		return make_update_result(
+			False,
+			resolved_registry_path,
+			resolved_project_root,
+			resolved_lockfile_path,
+			package_ids,
+			all_installed,
+			plan,
+			[],
+			0,
+			dry_run,
+			False,
+			False,
+			string_list(plan.get("issues", [])),
+			registry_source,
+		)
+
+	registry = gf_package_resolver.load_registry(resolved_registry_path)
+	lockfile = gf_package_resolver.load_lockfile(resolved_lockfile_path)
+	issues.extend(string_list(registry.get("issues", [])))
+	issues.extend(string_list(lockfile.get("issues", [])))
+	to_change = set(string_list(plan.get("to_install", [])) + string_list(plan.get("to_update", [])))
+	packages_to_change = [package_id for package_id in string_list(plan.get("install_order", [])) if package_id in to_change]
+	packages_to_stage = [
+		package_id
+		for package_id in packages_to_change
+		if package_requires_archive(registry["packages"].get(package_id, {}))
+	]
+	planned_lockfile = plan.get("planned_lockfile", {}) if isinstance(plan.get("planned_lockfile", {}), dict) else {}
+	lockfile_changed = lockfile_data_changed(lockfile.get("data", {}), planned_lockfile)
+	if issues:
+		return make_update_result(
+			False,
+			resolved_registry_path,
+			resolved_project_root,
+			resolved_lockfile_path,
+			package_ids,
+			all_installed,
+			plan,
+			packages_to_change,
+			0,
+			dry_run,
+			False,
+			False,
+			issues,
+			registry_source,
+		)
+	if not packages_to_change:
+		if dry_run or not lockfile_changed:
+			return make_update_result(
+				True,
+				resolved_registry_path,
+				resolved_project_root,
+				resolved_lockfile_path,
+				package_ids,
+				all_installed,
+				plan,
+				[],
+				0,
+				dry_run,
+				False,
+				False,
+				[],
+				registry_source,
+			)
+		try:
+			write_lockfile_last(resolved_lockfile_path, planned_lockfile)
+		except Exception as error:
+			issues.append(f"Could not write package lockfile: {error}")
+			return make_update_result(
+				False,
+				resolved_registry_path,
+				resolved_project_root,
+				resolved_lockfile_path,
+				package_ids,
+				all_installed,
+				plan,
+				[],
+				0,
+				False,
+				False,
+				False,
+				issues,
+				registry_source,
+			)
+		return make_update_result(
+			True,
+			resolved_registry_path,
+			resolved_project_root,
+			resolved_lockfile_path,
+			package_ids,
+			all_installed,
+			plan,
+			[],
+			0,
+			False,
+			False,
+			True,
+			[],
+			registry_source,
+		)
+
+	with tempfile.TemporaryDirectory(prefix="gf-package-update-") as temp_dir:
+		temp_root = Path(temp_dir)
+		staging_root = temp_root / "staging"
+		backup_root = temp_root / "backup"
+		staged_files = stage_package_archives(
+			packages_to_stage,
+			registry["packages"],
+			resolved_registry_path,
+			resolved_cache_dir,
+			staging_root,
+			issues,
+		)
+		if issues:
+			return make_update_result(
+				False,
+				resolved_registry_path,
+				resolved_project_root,
+				resolved_lockfile_path,
+				package_ids,
+				all_installed,
+				plan,
+				packages_to_change,
+				0,
+				dry_run,
+				False,
+				False,
+				issues,
+				registry_source,
+			)
+		if dry_run:
+			return make_update_result(
+				True,
+				resolved_registry_path,
+				resolved_project_root,
+				resolved_lockfile_path,
+				package_ids,
+				all_installed,
+				plan,
+				packages_to_change,
+				0,
+				True,
+				False,
+				False,
+				[],
+				registry_source,
+			)
+		planned_lockfile = lockfile_with_installed_files(planned_lockfile, staged_files)
+		try:
+			updated_file_count = copy_staged_files_to_project(
+				staged_files,
+				resolved_project_root,
+				resolved_lockfile_path,
+				planned_lockfile,
+				backup_root,
+				simulate_copy_failure_after,
+			)
+		except InstallFailure as error:
+			issues.append(str(error))
+			return make_update_result(
+				False,
+				resolved_registry_path,
+				resolved_project_root,
+				resolved_lockfile_path,
+				package_ids,
+				all_installed,
+				plan,
+				packages_to_change,
+				0,
+				False,
+				True,
+				False,
+				issues,
+				registry_source,
+			)
+		return make_update_result(
+			True,
+			resolved_registry_path,
+			resolved_project_root,
+			resolved_lockfile_path,
+			package_ids,
+			all_installed,
+			plan,
+			packages_to_change,
+			updated_file_count,
+			False,
+			False,
+			True,
 			[],
 			registry_source,
 		)
@@ -553,6 +817,13 @@ def package_status(
 	registry_packages = registry.get("packages", {})
 	if not isinstance(registry_packages, dict):
 		registry_packages = {}
+	current_framework_version = read_project_framework_version(resolved_project_root)
+	issues.extend(gf_package_resolver.framework_compatibility_issues(
+		registry,
+		registry_packages,
+		sorted(str(package_id) for package_id in registry_packages.keys()),
+		current_framework_version,
+	))
 	lockfile_data = lockfile.get("data", {})
 	installed = lockfile_data.get("installed", {}) if isinstance(lockfile_data, dict) else {}
 	if not isinstance(installed, dict):
@@ -587,6 +858,7 @@ def package_status(
 			resolved_registry_path,
 			resolved_lockfile_path,
 			resolved_project_root,
+			current_framework_version,
 		))
 	orphan_packages = sorted(package_id for package_id in installed.keys() if package_id not in registry_packages)
 	return make_status_result(
@@ -624,6 +896,7 @@ def make_status_package_entry(
 	registry_path: Path,
 	lockfile_path: Path,
 	project_root: Path,
+	current_framework_version: str,
 ) -> dict[str, Any]:
 	installed = bool(lock_entry)
 	install_preview = gf_package_resolver.install_plan(
@@ -632,6 +905,7 @@ def make_status_package_entry(
 		package_ids=[package_id],
 		reason="manual",
 		write_lock=False,
+		current_framework_version=current_framework_version,
 	)
 	uninstall_preview: dict[str, Any] = {}
 	if installed:
@@ -1454,6 +1728,47 @@ def make_install_result(
 	return result
 
 
+def make_update_result(
+	ok: bool,
+	registry_path: Path,
+	project_root: Path,
+	lockfile_path: Path,
+	requested_packages: list[str],
+	all_installed: bool,
+	plan: dict[str, Any],
+	updated_packages: list[str],
+	updated_file_count: int,
+	dry_run: bool,
+	rolled_back: bool,
+	lockfile_written: bool,
+	issues: list[str],
+	registry_source: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+	result = {
+		"ok": ok,
+		"operation": "update",
+		"project_root": display_path(project_root),
+		"registry": display_path(registry_path),
+		"lockfile": display_path(lockfile_path),
+		"requested_packages": requested_packages,
+		"all_installed": all_installed,
+		"install_order": string_list(plan.get("install_order", [])),
+		"to_install": string_list(plan.get("to_install", [])),
+		"to_update": string_list(plan.get("to_update", [])),
+		"updated_packages": updated_packages,
+		"installed_packages": updated_packages,
+		"updated_file_count": updated_file_count,
+		"installed_file_count": updated_file_count,
+		"lockfile_written": lockfile_written and ok and not dry_run,
+		"dry_run": dry_run,
+		"rolled_back": rolled_back,
+		"issue_count": len(issues),
+		"issues": issues,
+	}
+	append_registry_source_fields(result, registry_source or {})
+	return result
+
+
 def make_uninstall_result(
 	ok: bool,
 	registry_path: Path,
@@ -1572,6 +1887,23 @@ def resolve_project_lockfile_path(project_root: Path, lockfile_path: str) -> Pat
 	return (project_root / path).resolve()
 
 
+def read_project_framework_version(project_root: Path) -> str:
+	plugin_cfg_path = project_root / "addons/gf/plugin.cfg"
+	if not plugin_cfg_path.is_file():
+		return ""
+	config = configparser.ConfigParser()
+	try:
+		config.read(plugin_cfg_path, encoding="utf-8")
+	except configparser.Error:
+		return ""
+	if not config.has_section("plugin"):
+		return ""
+	value = config.get("plugin", "version", fallback="").strip()
+	if len(value) >= 2 and value[0] == '"' and value[-1] == '"':
+		return value[1:-1]
+	return value
+
+
 def display_path(path: Path) -> str:
 	try:
 		return path.relative_to(ROOT).as_posix()
@@ -1585,6 +1917,14 @@ def int_value(value: Any) -> int:
 	if isinstance(value, str) and value.isdigit():
 		return int(value)
 	return 0
+
+
+def lockfile_data_changed(current_lockfile: Any, planned_lockfile: Any) -> bool:
+	return json.dumps(current_lockfile, ensure_ascii=False, sort_keys=True) != json.dumps(
+		planned_lockfile,
+		ensure_ascii=False,
+		sort_keys=True,
+	)
 
 
 def string_array(value: Any) -> list[str]:
@@ -1633,6 +1973,20 @@ def print_result(result: dict[str, Any], as_json: bool) -> None:
 			print("blocked:")
 			for item in result["blocked"]:
 				print(f"- {item}")
+		if result["issues"]:
+			print("issues:")
+			for issue in result["issues"]:
+				print(f"- {issue}")
+		return
+	if result.get("operation") == "update":
+		print(
+			f"{result['operation']}: ok={result['ok']} "
+			f"packages={len(result['updated_packages'])} "
+			f"files={result['updated_file_count']} "
+			f"lockfile_written={result['lockfile_written']}"
+		)
+		if result["updated_packages"]:
+			print("updated: " + ", ".join(result["updated_packages"]))
 		if result["issues"]:
 			print("issues:")
 			for issue in result["issues"]:

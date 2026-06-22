@@ -30,6 +30,7 @@ API Surface Contract 用来明确 GF 源码中哪些符号属于公开承诺、�
 | `protocol` | 基类、接口式契约、扩展点。 | protected 方法必须说明重写契约。 |
 | `event_contract` | Command、Query、Signal payload。 | 参数和载荷 schema 必须稳定。 |
 | `editor_api` | Dock、Inspector、编辑器动作。 | 必须标明 editor-only 语义。 |
+| `tool_api` | 可选 tool package 中的构建、导入、校验、批处理入口。 | 必须标明制作期、编辑器期或 CI 期语义，不能被运行时包依赖。 |
 | `internal_helper` | 内部解析器、缓存、Builder。 | 不进入公开文档，不得出现在 public 签名中。 |
 
 ## 文档标签

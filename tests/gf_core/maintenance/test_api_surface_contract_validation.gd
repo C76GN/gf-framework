@@ -39,6 +39,7 @@ const VALID_CATEGORIES: Array[String] = [
 	"protocol",
 	"event_contract",
 	"editor_api",
+	"tool_api",
 	"internal_helper",
 ]
 const RAW_STRUCTURAL_TYPES: Array[String] = [

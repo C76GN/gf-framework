@@ -4,6 +4,11 @@
 extends RefCounted
 
 
+# --- 常量 ---
+
+const _GF_BUILD_INFO_EXPORT_PLUGIN_SCRIPT = preload("res://addons/gf/standard/utilities/debug/editor/gf_build_info_export_plugin.gd")
+
+
 # --- 公共方法 ---
 
 ## 获取标准库 Inspector 插件记录。
@@ -46,6 +51,50 @@ static func get_export_plugin_records() -> Array[Dictionary]:
 		{
 			"path": "res://addons/gf/standard/utilities/debug/editor/gf_build_info_export_plugin.gd",
 			"label": "构建信息导出插件",
+		},
+	]
+
+
+## 获取标准库 ProjectSettings 记录。
+## [br]
+## @api framework_internal
+## [br]
+## @layer standard/editor
+## [br]
+## @return ProjectSettings 记录列表。
+## [br]
+## @schema return: Array of Dictionary project setting records.
+static func get_project_setting_records() -> Array[Dictionary]:
+	return [
+		{
+			"name": _GF_BUILD_INFO_EXPORT_PLUGIN_SCRIPT.ENABLED_SETTING,
+			"default_value": false,
+			"type": TYPE_BOOL,
+			"basic": true,
+		},
+		{
+			"name": _GF_BUILD_INFO_EXPORT_PLUGIN_SCRIPT.RESTORE_PREVIOUS_SETTING,
+			"default_value": true,
+			"type": TYPE_BOOL,
+			"basic": true,
+		},
+		{
+			"name": _GF_BUILD_INFO_EXPORT_PLUGIN_SCRIPT.SAVE_PROJECT_SETTINGS_SETTING,
+			"default_value": false,
+			"type": TYPE_BOOL,
+			"basic": true,
+		},
+		{
+			"name": _GF_BUILD_INFO_EXPORT_PLUGIN_SCRIPT.BUILD_METADATA_SETTING,
+			"default_value": {},
+			"type": TYPE_DICTIONARY,
+			"basic": true,
+		},
+		{
+			"name": _GF_BUILD_INFO_EXPORT_PLUGIN_SCRIPT.EXTRA_METADATA_SETTING,
+			"default_value": {},
+			"type": TYPE_DICTIONARY,
+			"basic": true,
 		},
 	]
 

@@ -29,6 +29,7 @@ CATALOG_VERSION = "2"
 MODULE_LABELS = {
 	"kernel": "Kernel",
 	"standard": "Standard",
+	"tools": "Tool Packages",
 	"extensions/action_queue": "Action Queue",
 	"extensions/asset_metadata": "Asset Metadata",
 	"extensions/behavior_tree": "Behavior Tree",
@@ -61,6 +62,7 @@ CATEGORY_LABELS = {
 	"resource_definition": "资源定义",
 	"runtime_handle": "运行时句柄",
 	"runtime_service": "运行时服务",
+	"tool_api": "工具 API",
 	"value_object": "值对象",
 	"uncategorized": "未分类",
 }
@@ -73,7 +75,8 @@ CATEGORY_ORDER = {
 	"domain_model": 5,
 	"event_contract": 6,
 	"editor_api": 7,
-	"uncategorized": 8,
+	"tool_api": 8,
+	"uncategorized": 9,
 }
 
 

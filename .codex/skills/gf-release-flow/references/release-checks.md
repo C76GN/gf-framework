@@ -10,6 +10,8 @@ git diff --check
 git diff --cached --check
 ```
 
+If a maintainer explicitly approves a minor or patch release with breaking API baseline changes and the reason is recorded in the changelog or release notes, run `release-status` with `--allow-breaking-api`. Do not use that flag for ordinary releases.
+
 For releases involving the external reference project, also run:
 
 ```powershell

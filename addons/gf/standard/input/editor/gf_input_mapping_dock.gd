@@ -16,6 +16,7 @@ extends Control
 # --- 常量 ---
 
 const _GFEditorWorkspaceUI = preload("res://addons/gf/kernel/editor/gf_editor_workspace_ui.gd")
+const _GFInputContextDiagnostics = preload("res://addons/gf/standard/input/mapping/gf_input_context_diagnostics.gd")
 
 
 # --- 私有变量 ---
@@ -185,73 +186,7 @@ func _build_report(context: GFInputContext) -> Dictionary:
 		_include_non_remappable_check == null
 		or _include_non_remappable_check.button_pressed
 	)
-	var report: Dictionary = GFInputConflictAnalyzer.build_rebind_report(
-		[context],
-		null,
-		false,
-		include_non_remappable
-	)
-	var issues: Array[Dictionary] = []
-	_collect_structure_issues(context, issues)
-	for conflict_variant: Variant in GFVariantData.get_option_array(report, "conflicts"):
-		if not (conflict_variant is Dictionary):
-			continue
-		var conflict: Dictionary = GFVariantData.as_dictionary(conflict_variant)
-		issues.append({
-			"severity": "warning",
-			"kind": "binding_conflict",
-			"path": "%s/%s" % [
-				GFVariantData.get_option_string(conflict, "context_id", ""),
-				GFVariantData.get_option_string(conflict, "action_id", ""),
-			],
-			"message": "输入绑定冲突：%s" % GFVariantData.get_option_string(conflict, "event_text", ""),
-			"metadata": _sanitize_for_display(conflict),
-		})
-
-	report["context_id"] = context.get_context_id()
-	report["context_name"] = context.get_display_name()
-	report["mapping_count"] = context.mappings.size()
-	report["binding_count"] = _count_bindings(context)
-	report["issues"] = issues
-	report["resource_summary"] = "动作：%d  绑定：%d  冲突：%d  问题：%d" % [
-		context.mappings.size(),
-		GFVariantData.get_option_int(report, "item_count", 0),
-		GFVariantData.get_option_int(report, "conflict_count", 0),
-		issues.size(),
-	]
-	return GFValidationReportDictionary.finalize_report(report, "Input mapping", {
-		"include_issue_count": true,
-		"next_actions": _get_validation_next_actions(),
-		"fallback_action": "检查输入映射诊断中的第一条问题。",
-		"no_action": "当前输入上下文结构健康。",
-	})
-
-
-func _collect_structure_issues(context: GFInputContext, issues: Array[Dictionary]) -> void:
-	if context.get_context_id() == &"":
-		issues.append(_make_issue("warning", "empty_context_id", "", "输入上下文缺少稳定 context_id。"))
-
-	for mapping_index: int in range(context.mappings.size()):
-		var mapping: GFInputMapping = context.mappings[mapping_index]
-		var mapping_path: String = "mappings/%d" % mapping_index
-		if mapping == null:
-			issues.append(_make_issue("error", "null_mapping", mapping_path, "映射为空。"))
-			continue
-		if mapping.action == null:
-			issues.append(_make_issue("error", "missing_action", mapping_path, "映射缺少 GFInputAction。"))
-		elif mapping.get_action_id() == &"":
-			issues.append(_make_issue("warning", "empty_action_id", mapping_path, "动作缺少稳定 action_id。"))
-		if mapping.bindings.is_empty():
-			issues.append(_make_issue("warning", "empty_bindings", mapping_path, "动作没有任何输入绑定。"))
-
-		for binding_index: int in range(mapping.bindings.size()):
-			var binding: GFInputBinding = mapping.bindings[binding_index]
-			var binding_path: String = "%s/bindings/%d" % [mapping_path, binding_index]
-			if binding == null:
-				issues.append(_make_issue("error", "null_binding", binding_path, "绑定为空。"))
-				continue
-			if binding.input_event == null:
-				issues.append(_make_issue("warning", "empty_input_event", binding_path, "绑定没有输入事件。"))
+	return _GFInputContextDiagnostics.build_context_report(context, null, include_non_remappable)
 
 
 func _render_context() -> void:
@@ -385,27 +320,6 @@ func _make_issue(severity: String, kind: String, path: String, message: String) 
 		"kind": kind,
 		"path": path,
 		"message": message,
-	}
-
-
-func _count_bindings(context: GFInputContext) -> int:
-	var count: int = 0
-	for mapping: GFInputMapping in context.mappings:
-		if mapping != null:
-			count += mapping.bindings.size()
-	return count
-
-
-func _get_validation_next_actions() -> Dictionary:
-	return {
-		"binding_conflict": "检查冲突输入绑定并决定是否保留、改键或拆分上下文。",
-		"empty_context_id": "为输入上下文设置稳定 context_id。",
-		"null_mapping": "移除空映射或补齐 GFInputMapping 资源。",
-		"missing_action": "为映射补齐 GFInputAction。",
-		"empty_action_id": "为动作设置稳定 action_id。",
-		"empty_bindings": "按需补齐输入绑定，或确认该动作只由虚拟输入驱动。",
-		"null_binding": "移除空绑定或补齐 GFInputBinding 资源。",
-		"empty_input_event": "为绑定设置 InputEvent，或移除该空绑定。",
 	}
 
 

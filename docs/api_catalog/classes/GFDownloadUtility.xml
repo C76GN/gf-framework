@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFDownloadUtility" path="addons/gf/standard/utilities/io/gf_download_utility.gd" module="standard" extends="GFUtility" classDigest="c5a952fe4443485eca2117ea92478e232dff863ce351c0853f7a2d2e9ad2cc0c">
+<class name="GFDownloadUtility" path="addons/gf/standard/utilities/io/gf_download_utility.gd" module="standard" extends="GFUtility" classDigest="c8a52d1f3e7b758fdd003a373611435910347394b9260036b4d2a34044ba8232">
 	<description>GFDownloadUtility: 通用文件下载队列。
 提供顺序下载、临时文件提交、可选续传、SHA-256 校验、暂停、取消和诊断快照。</description>
 	<tags>
@@ -134,6 +134,20 @@
 				<tag name="param">_delta: 为兼容统一 tick 签名而保留的参数。</tag>
 			</tags>
 		</member>
+		<member kind="method" name="parse_manifest_entries">
+			<signature>static func parse_manifest_entries(data: Variant, options: Dictionary = {}) -&gt; Array[Dictionary]:</signature>
+			<description>解析下载清单为标准条目列表。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">data: 清单数据，可为 JSON 字符串、条目数组，或包含 files、entries、downloads 字段的字典。</tag>
+				<tag name="param">options: 解析选项，支持 base_url、headers/default_headers 和 metadata。</tag>
+				<tag name="return">标准下载条目数组。</tag>
+				<tag name="schema">data: Variant，JSON 字符串、Array[Dictionary] 或 Dictionary 清单。</tag>
+				<tag name="schema">options: Dictionary，可包含 base_url、headers、default_headers 和 metadata。</tag>
+				<tag name="schema">return: Array[Dictionary]，每个条目包含 url、target_path、headers、metadata 以及可选 expected_sha256、expected_size、resume、overwrite、max_retries、retry_delay_seconds。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
 		<member kind="method" name="enqueue_download">
 			<signature>func enqueue_download( url: String, target_path: String, callback: Callable = Callable(), options: Dictionary = {} ) -&gt; int:</signature>
 			<description>将下载任务加入队列。</description>
@@ -145,6 +159,36 @@
 				<tag name="param">options: 可选参数，支持 headers、resume、overwrite、expected_sha256、metadata、temp_path、segment_path、max_retries、retry_delay_seconds。</tag>
 				<tag name="return">任务句柄；输入无效时返回 0。</tag>
 				<tag name="schema">options: Dictionary，可包含 headers、resume、overwrite、expected_sha256、metadata、temp_path、segment_path、max_retries 和 retry_delay_seconds。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="enqueue_manifest_entries">
+			<signature>func enqueue_manifest_entries( entries: Array[Dictionary], target_root: String, callback: Callable = Callable(), options: Dictionary = {} ) -&gt; PackedInt32Array:</signature>
+			<description>批量加入标准下载清单条目。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">entries: parse_manifest_entries() 返回的标准条目，或兼容字段的条目字典数组。</tag>
+				<tag name="param">target_root: 相对 target_path 的写入根路径。</tag>
+				<tag name="param">callback: 每个任务完成、失败或取消时执行的回调，签名为 func(result: Dictionary)。</tag>
+				<tag name="param">options: 批量默认选项，支持 enqueue_download() 的通用选项。</tag>
+				<tag name="return">成功入队的任务句柄数组。</tag>
+				<tag name="schema">entries: Array[Dictionary]，每个条目至少包含 url 和 target_path/path/file。</tag>
+				<tag name="schema">options: Dictionary，可包含 headers、resume、overwrite、metadata、max_retries 和 retry_delay_seconds。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="enqueue_manifest">
+			<signature>func enqueue_manifest( data: Variant, target_root: String, callback: Callable = Callable(), options: Dictionary = {} ) -&gt; PackedInt32Array:</signature>
+			<description>解析并批量加入下载清单。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">data: 清单数据，可为 JSON 字符串、条目数组，或包含 files、entries、downloads 字段的字典。</tag>
+				<tag name="param">target_root: 相对 target_path 的写入根路径。</tag>
+				<tag name="param">callback: 每个任务完成、失败或取消时执行的回调，签名为 func(result: Dictionary)。</tag>
+				<tag name="param">options: 解析和入队选项，解析阶段支持 base_url、headers/default_headers、metadata，入队阶段支持 enqueue_download() 的通用选项。</tag>
+				<tag name="return">成功入队的任务句柄数组。</tag>
+				<tag name="schema">data: Variant，JSON 字符串、Array[Dictionary] 或 Dictionary 清单。</tag>
+				<tag name="schema">options: Dictionary，可包含 base_url、headers/default_headers、metadata、resume、overwrite、max_retries 和 retry_delay_seconds。</tag>
+				<tag name="since">5.2.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="cancel">
@@ -220,6 +264,28 @@
 				<tag name="param">task_id: 任务句柄。</tag>
 				<tag name="return">结果字典；不存在时返回空字典。</tag>
 				<tag name="schema">return: Dictionary，包含最新任务结果；没有结果时为空字典。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_task_snapshot">
+			<signature>func get_task_snapshot(task_id: int) -&gt; Dictionary:</signature>
+			<description>获取指定任务的当前快照或最终结果。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">task_id: 任务句柄。</tag>
+				<tag name="return">任务快照；不存在时返回空字典。</tag>
+				<tag name="schema">return: Dictionary，运行中或等待中的任务字段，或最终结果字段。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_tasks_progress">
+			<signature>func get_tasks_progress(task_ids: PackedInt32Array) -&gt; Dictionary:</signature>
+			<description>聚合多个下载任务的进度。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">task_ids: 任务句柄数组。</tag>
+				<tag name="return">聚合进度字典。</tag>
+				<tag name="schema">return: Dictionary，包含 task_count、missing_count、completed_count、failed_count、cancelled_count、running_count、queued_count、terminal_count、finished、success、received_bytes、total_bytes、known_total_bytes、unknown_total_count 和 progress_ratio。</tag>
+				<tag name="since">5.2.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_debug_snapshot">

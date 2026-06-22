@@ -13,6 +13,7 @@ Use this skill as the default project workflow for GF Framework maintenance. It 
 2. Run `python tools\gf_maintenance.py workspace-status --json` to classify current changes before choosing checks.
 3. Use `python tools\gf_maintenance.py summary` or the API commands (`api-search`, `api-class`, `api-module`) to gather context before scanning broad source trees.
 4. Keep `ai_analysis/` ignored and out of commits. Do not submit temporary reports, generated AI API summaries, local logs, or session notes.
+5. For any `.gd` edit, keep Godot reload warning clean while writing the code: do not generate `Variant as GFType` casts, direct `Variant` method calls, discarded return values, `Script.new()` on a `Script`-typed value, or constants/locals that shadow `class_name` values. Use explicit `is` checks, typed helper functions, `_result` variables, and `_SCRIPT` suffixes where needed.
 
 ## Decision Tree
 
@@ -22,6 +23,7 @@ Use this skill as the default project workflow for GF Framework maintenance. It 
 - Release metadata changed: use `$gf-release-flow`.
 - External reference project changed or examples suite is involved: use `$gf-reference-boundary`.
 - Broad refactor, layer move, or multi-module behavior change: use `$gf-change-audit`.
+- GDScript warning fixes: prefer real type narrowing and ownership changes over `@warning_ignore`; after edits run focused GUT for the touched scripts plus `python tools\gf_maintenance.py check --check gdscript_warnings --json`. If the change touches shadowed names, GF class casts, or dynamic script instantiation, also run `tests/gf_core/maintenance/test_gdscript_parse_validation.gd`.
 
 ## Testing Style
 

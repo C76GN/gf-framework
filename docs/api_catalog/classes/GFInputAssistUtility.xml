@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFInputAssistUtility" path="addons/gf/standard/input/runtime/gf_input_assist_utility.gd" module="standard" extends="GFUtility" classDigest="5a9e08d0729b87bfacdc6e58bd518f4425faf08fc395a17dbcc5e2a75dcbaabc">
+<class name="GFInputAssistUtility" path="addons/gf/standard/input/runtime/gf_input_assist_utility.gd" module="standard" extends="GFUtility" classDigest="e32b3ff031d5e3648afd0df4cee7d93bc3818afa8618919def4cf7433df064a1">
 	<description>GFInputAssistUtility: 输入手感辅助工具。
 负责动作意图缓冲和通用宽容窗口。它不读取 InputEvent、不处理重绑定、
 不维护玩家设备，也不替代 GFInputMappingUtility；正式输入映射仍应由
@@ -9,7 +9,18 @@ GFInputMappingUtility 负责。</description>
 		<tag name="category">runtime_service</tag>
 		<tag name="since">3.17.0</tag>
 	</tags>
-	<signals />
+	<signals>
+		<member kind="signal" name="grace_window_expired">
+			<signature>signal grace_window_expired(window_id: StringName, player_index: int)</signature>
+			<description>宽容窗口自然倒计时结束时发出。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">window_id: 窗口标识。</tag>
+				<tag name="param">player_index: 玩家索引；小于 0 表示全局窗口。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+	</signals>
 	<enums />
 	<constants />
 	<properties />

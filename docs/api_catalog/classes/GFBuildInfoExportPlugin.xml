@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFBuildInfoExportPlugin" path="addons/gf/standard/utilities/debug/editor/gf_build_info_export_plugin.gd" module="standard" extends="EditorExportPlugin" classDigest="224c287d86e8237ae79825515d96d8dc207d2930ea826b27e15be11358bce4ef">
+<class name="GFBuildInfoExportPlugin" path="addons/gf/standard/utilities/debug/editor/gf_build_info_export_plugin.gd" module="standard" extends="EditorExportPlugin" classDigest="027c375c6a80f983d5e02853782cdb784736fff5b02e9c9f4632a226cc5df96e">
 	<description>GFBuildInfoExportPlugin: 导出时写入构建元数据的可选编辑器插件。
-只负责把通用 Git 构建字段写入 ProjectSettings，项目仍可决定是否保存、
+只负责把外部构建流水线已提供的构建字段写入 ProjectSettings，项目仍可决定是否保存、
 是否恢复旧值以及如何展示这些字段。</description>
 	<tags>
 		<tag name="api">public</tag>
@@ -12,10 +12,20 @@
 	<enums />
 	<constants>
 		<member kind="const" name="ENABLED_SETTING">
-			<signature>const ENABLED_SETTING: String = "gf/build/export/write_git_metadata"</signature>
-			<description>是否在导出开始时写入 Git 构建元数据的 ProjectSettings 键。</description>
+			<signature>const ENABLED_SETTING: String = "gf/build/export/write_metadata"</signature>
+			<description>是否在导出开始时写入构建元数据的 ProjectSettings 键。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="BUILD_METADATA_SETTING">
+			<signature>const BUILD_METADATA_SETTING: String = "gf/build/export/build_metadata"</signature>
+			<description>导出时写入 ProjectSettings 的构建元数据字典键。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">value: Dictionary，可包含 GFBuildInfo.write_metadata_to_project_settings() 支持的构建字段。</tag>
+				<tag name="since">5.2.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="RESTORE_PREVIOUS_SETTING">

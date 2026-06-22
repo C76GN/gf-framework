@@ -53,15 +53,17 @@ static func parse_json_table(text: String, options: Dictionary = {}) -> Dictiona
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param text: CSV 文本。
 ## [br]
 ## @param options: 可选参数，支持 delimiter、trim_cells、skip_empty_lines、reject_duplicate_headers、source。
 ## [br]
 ## @schema options: Dictionary，可包含 delimiter、trim_cells、skip_empty_lines、reject_duplicate_headers 和 source。
 ## [br]
-## @return 结果字典，包含 success、data、row_locations 与 error。
+## @return 结果字典，包含 success、data、header、row_locations 与 error。
 ## [br]
-## @schema return: Dictionary，包含 success、data、row_locations、error、error_line、error_column 和 source。
+## @schema return: Dictionary，包含 success、data、header、row_locations、error、error_line、error_column 和 source。
 static func parse_csv_table(text: String, options: Dictionary = {}) -> Dictionary:
 	var delimiter: String = GFVariantData.get_option_string(options, "delimiter", ",")
 	if delimiter.is_empty():
@@ -75,6 +77,7 @@ static func parse_csv_table(text: String, options: Dictionary = {}) -> Dictionar
 		return {
 			"success": false,
 			"data": null,
+			"header": PackedStringArray(),
 			"row_locations": [],
 			"error": GFVariantData.get_option_string(parse_result, "error"),
 			"error_line": GFVariantData.get_option_int(parse_result, "error_line"),
@@ -87,6 +90,7 @@ static func parse_csv_table(text: String, options: Dictionary = {}) -> Dictionar
 		return {
 			"success": true,
 			"data": [],
+			"header": PackedStringArray(),
 			"row_locations": [],
 			"error": "",
 			"error_line": 0,
@@ -100,6 +104,7 @@ static func parse_csv_table(text: String, options: Dictionary = {}) -> Dictionar
 		return {
 			"success": false,
 			"data": null,
+			"header": header,
 			"row_locations": [],
 			"error": header_error,
 			"error_line": 1,
@@ -127,6 +132,7 @@ static func parse_csv_table(text: String, options: Dictionary = {}) -> Dictionar
 	return {
 		"success": true,
 		"data": records,
+		"header": header,
 		"row_locations": row_locations,
 		"error": "",
 		"error_line": 0,

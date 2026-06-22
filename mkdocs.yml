@@ -12,6 +12,7 @@ not_in_nav: |
   standard/**/*.md
   extensions/**/*.md
   editor/*.md
+  editor/tools/config-pipeline.md
 
 theme:
   name: material
@@ -101,12 +102,15 @@ nav:
       - 访问器生成: editor/access-generator.md
       - Inspector、工作区页面与导出插件: editor/editor-extensions.md
       - 通用 Resource 表格控件: editor/resource-table-editor.md
+      - 工具包:
+          - 总览: editor/tools/index.md
   - Reference:
       - 参考资料: reference/index.md
       - API Reference:
           - 总览: reference/api/index.md
           - Kernel: reference/api/kernel.md
           - Standard: reference/api/standard.md
+          - Tool Packages API: reference/api/tools.md
           - Extensions:
               - Action Queue: reference/api/extensions-action-queue.md
               - Asset Metadata: reference/api/extensions-asset-metadata.md

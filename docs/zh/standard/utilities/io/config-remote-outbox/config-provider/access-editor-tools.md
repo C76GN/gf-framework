@@ -27,6 +27,24 @@ var levels := GFConfigAccess.get_levels_table()
 
 生成器只读取 schema 的 `table_name` 或 `table_key` 属性，不调用项目自定义取表名方法，适合在编辑器批量生成时避开非 `@tool` 脚本副作用。生成器只输出 GDScript，可用 `method_name_style`、`constant_prefix`、`record_method_pattern`、`table_method_pattern` 和 `include_schema_comments` 微调命名与注释，不生成其他语言代码。
 
+如果项目希望在策划表字段上获得更强的 IDE 补全，可以显式开启 `include_typed_records`。该模式会根据 schema 的 `columns` 额外生成记录包装类和 `get_xxx_typed_record()` 方法：
+
+```gdscript
+var source := GFConfigAccessGenerator.new().build_source(
+	[items_schema],
+	"GFConfigAccess",
+	"Gf.get_utility(GFConfigProvider) as GFConfigProvider",
+	{
+		"include_typed_records": true,
+		"typed_record_class_suffix": "Record",
+	}
+)
+```
+
+生成的包装类只包裹 provider 返回的 `Dictionary`，字段 getter 也只做通用类型收窄，不把业务枚举、默认值策略或表间规则写入框架。`columns` 可以来自 `GFConfigTableColumn` 资源，也可以是 `{ "field_name": "id", "value_type": "int" }` 这类外部工具字典；不符合字段声明的数据仍应由导入校验或项目运行时策略处理。
+
+使用 `gf.tool.config_pipeline` 时，也可以在 `GFConfigPipelineProfile.access_output_path` 中配置访问器输出路径，让一次导表同时保存配置数据库并生成访问器脚本。该串联仍是制作期动作，运行时只依赖生成后的脚本和项目实际安装的 provider。
+
 ## 编辑器工具
 
 开发期如果需要做 Resource 批量检查或表格式编辑，可以复用 `GFResourceTableEditor` 和 `GFEditorValueField`。

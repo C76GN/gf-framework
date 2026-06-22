@@ -18,7 +18,7 @@ Inspector 与导出插件仍按对应类型装载，例如 Node State Machine In
 
 GF 会注册一个通用 Resource 预览生成器。资源可以通过 `get_gf_preview_texture()` 或 `get_gf_icon_texture()` 返回 `Texture2D`；没有显式方法时，生成器会尝试读取 `preview_texture` 或 `icon` 字段。预览生成器只把已有纹理等比适配到编辑器请求尺寸，不解释资源业务含义，也不要求项目资源继承某个 GF 基类。
 
-GF 也会为 `String` 类型且带有可识别 `@export_file()` 资源 hint 的字段提供 ResourcePicker。例如 `@export_file("*.tscn") var scene_path: String` 会显示场景资源选择器，保存时优先写入 `uid://`，资源没有 UID 时回退到 `res://`。普通文本文件路径、未识别扩展名和非 String 字段不会被接管。
+GF 也会为 `String` 类型且带有可识别 `@export_file()` 资源 hint 的字段提供 ResourcePicker。例如 `@export_file("*.tscn") var scene_path: String` 会显示场景资源选择器，保存时优先写入 `uid://`，资源没有 UID 时回退到 `res://`。当字段当前值是 `uid://` 时，Inspector 会显示解析后的 `res://` 路径；路径缺失、UID 无效或类型不匹配时会在字段下方显示状态提示。普通文本文件路径、未识别扩展名和非 String 字段不会被接管。
 
 ## 扩展贡献
 

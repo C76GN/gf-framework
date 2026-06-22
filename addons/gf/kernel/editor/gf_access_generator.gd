@@ -64,10 +64,6 @@ const _LAYER_TYPES: Dictionary = {
 	"avoidance": 32,
 }
 const _KNOWN_GF_PROJECT_SETTINGS: Array[String] = [
-	"gf/build/export/metadata",
-	"gf/build/export/restore_previous_settings",
-	"gf/build/export/save_project_settings",
-	"gf/build/export/write_git_metadata",
 	"gf/codegen/access_output_path",
 	"gf/codegen/project_access_output_path",
 	"gf/extensions/auto_install_enabled_installers",

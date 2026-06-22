@@ -146,6 +146,121 @@ func test_native_install_dry_run_validates_archives_without_mutating_project() -
 	assert_false(_file_exists(project_root.path_join("addons/gf/extensions/save/gf_save_fixture.gd")), "dry-run 不应写包文件。")
 
 
+func test_native_update_all_installed_updates_changed_package_without_manual_pinning_dependency() -> void:
+	var project_root: String = TEST_ROOT.path_join("update_all_project")
+	var registry_path: String = TEST_ROOT.path_join("registry/index.json")
+	var registry: Dictionary = _make_fixture_registry()
+	_write_fixture_archives(registry)
+	_write_json(registry_path, registry)
+	var install_result: Dictionary = _install_fixture_save(registry_path, project_root)
+	assert_true(GF_VARIANT_ACCESS.get_option_bool(install_result, "ok"), "测试 fixture 应先完成安装。")
+
+	_write_package_archive(
+		registry,
+		"gf.standard.storage",
+		{
+			"addons/gf/standard/utilities/storage/gf_storage_fixture.gd": "extends RefCounted\nconst UPDATED_FIXTURE := true\n",
+		}
+	)
+	_write_json(registry_path, registry)
+
+	var result: Dictionary = GF_PACKAGE_MANAGER_BACKEND.update_packages(
+		PackedStringArray(),
+		registry_path,
+		ProjectSettings.globalize_path(project_root),
+		".gf/packages.lock.json",
+		true
+	)
+	var to_update: PackedStringArray = GF_VARIANT_ACCESS.get_option_packed_string_array(result, "to_update")
+	var updated_packages: PackedStringArray = GF_VARIANT_ACCESS.get_option_packed_string_array(result, "updated_packages")
+	var storage_source: String = _read_text(project_root.path_join("addons/gf/standard/utilities/storage/gf_storage_fixture.gd"))
+	var lockfile: Dictionary = _read_json(project_root.path_join(".gf/packages.lock.json"))
+	var installed: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(lockfile, "installed")
+	var storage_entry: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(installed, "gf.standard.storage")
+	var storage_reasons: PackedStringArray = GF_VARIANT_ACCESS.get_option_packed_string_array(storage_entry, "reason")
+
+	assert_true(GF_VARIANT_ACCESS.get_option_bool(result, "ok"), "更新全部已安装包应成功。")
+	assert_true(GF_VARIANT_ACCESS.get_option_bool(result, "all_installed"), "结果应标记 update-all。")
+	assert_true(to_update.has("gf.standard.storage"), "变更 sha 的已安装包应出现在 to_update。")
+	assert_true(updated_packages.has("gf.standard.storage"), "变更包应出现在 updated_packages。")
+	assert_true(storage_source.contains("UPDATED_FIXTURE"), "更新应覆盖 package 文件。")
+	assert_true(storage_reasons.has("dependency"), "被依赖包更新后仍应保留 dependency reason。")
+	assert_false(storage_reasons.has("manual"), "update-all 不应把依赖包误标为 manual。")
+
+
+func test_native_update_rejects_uninstalled_package_without_mutating_project() -> void:
+	var project_root: String = TEST_ROOT.path_join("update_missing_project")
+	var registry_path: String = TEST_ROOT.path_join("registry/index.json")
+	var registry: Dictionary = _make_fixture_registry()
+	_write_fixture_archives(registry)
+	_write_json(registry_path, registry)
+
+	var result: Dictionary = GF_PACKAGE_MANAGER_BACKEND.update_packages(
+		PackedStringArray(["gf.extension.save"]),
+		registry_path,
+		ProjectSettings.globalize_path(project_root)
+	)
+
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(result, "ok"), "未安装包不能通过 update 隐式安装。")
+	assert_true(_issues_contain(GF_VARIANT_ACCESS.get_option_packed_string_array(result, "issues"), "Package is not installed"), "错误应提示使用 install 新增包。")
+	assert_false(_file_exists(project_root.path_join(".gf/packages.lock.json")), "失败的 update 不能写 lockfile。")
+	assert_false(_file_exists(project_root.path_join("addons/gf/extensions/save/gf_save_fixture.gd")), "失败的 update 不能写 package 文件。")
+
+
+func test_native_status_marks_incompatible_registry_packages_not_installable() -> void:
+	var project_root: String = TEST_ROOT.path_join("old_framework_status_project")
+	var registry_path: String = TEST_ROOT.path_join("registry/index.json")
+	var registry: Dictionary = _make_fixture_registry()
+	_set_registry_framework_range(registry, "9.0.0", "10.0.0")
+	_write_json(registry_path, registry)
+	_write_project_plugin_cfg(project_root, "1.0.0")
+
+	var status: Dictionary = GF_PACKAGE_MANAGER_BACKEND.make_status(
+		registry_path,
+		ProjectSettings.globalize_path(project_root)
+	)
+	var save_entry: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(_package_index(status), "gf.extension.save")
+	var install_preview: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(save_entry, "install_preview")
+
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(status, "ok"), "旧 GF 项目读取要求更高框架版本的 registry 应报告失败。")
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(save_entry, "can_install"), "不兼容包不应在状态页显示为可安装。")
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(install_preview, "ok"), "不兼容包的安装预览应失败。")
+	assert_true(
+		_issues_contain(
+			GF_VARIANT_ACCESS.get_option_packed_string_array(status, "issues"),
+			"minimum_framework_version 9.0.0"
+		),
+		"状态 issues 应说明所需 GF 最小版本。"
+	)
+
+
+func test_native_install_rejects_incompatible_registry_without_mutating_project() -> void:
+	var project_root: String = TEST_ROOT.path_join("old_framework_install_project")
+	var registry_path: String = TEST_ROOT.path_join("registry/index.json")
+	var registry: Dictionary = _make_fixture_registry()
+	_set_registry_framework_range(registry, "9.0.0", "10.0.0")
+	_write_fixture_archives(registry)
+	_write_json(registry_path, registry)
+	_write_project_plugin_cfg(project_root, "1.0.0")
+
+	var result: Dictionary = GF_PACKAGE_MANAGER_BACKEND.install_packages(
+		PackedStringArray(["gf.extension.save"]),
+		registry_path,
+		ProjectSettings.globalize_path(project_root)
+	)
+
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(result, "ok"), "旧 GF 项目不应安装要求更高框架版本的包。")
+	assert_true(
+		_issues_contain(
+			GF_VARIANT_ACCESS.get_option_packed_string_array(result, "issues"),
+			"minimum_framework_version 9.0.0"
+		),
+		"安装 issues 应说明所需 GF 最小版本。"
+	)
+	assert_false(_file_exists(project_root.path_join(".gf/packages.lock.json")), "兼容性失败不能写 lockfile。")
+	assert_false(_file_exists(project_root.path_join("addons/gf/extensions/save/gf_save_fixture.gd")), "兼容性失败不能写项目文件。")
+
+
 func test_native_install_checksum_failure_does_not_mutate_project() -> void:
 	var project_root: String = TEST_ROOT.path_join("checksum_project")
 	var registry_path: String = TEST_ROOT.path_join("registry/index.json")
@@ -650,9 +765,11 @@ func test_native_uninstall_delete_failure_rolls_back_files_and_lockfile() -> voi
 # --- 私有/辅助方法 ---
 
 func _make_fixture_registry() -> Dictionary:
-	return {
-		"schema_version": 1,
+	var registry: Dictionary = {
+		"schema_version": 2,
 		"framework_version": "unreleased",
+		"minimum_framework_version": "unreleased",
+		"maximum_framework_version_exclusive": "",
 		"packages": {
 			"gf.kernel": {
 				"version": "unreleased",
@@ -710,6 +827,14 @@ func _make_fixture_registry() -> Dictionary:
 			},
 		},
 	}
+	var packages: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(registry, "packages")
+	for package_id: String in _sorted_dictionary_keys(packages):
+		var package_entry: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(packages, package_id)
+		package_entry["minimum_framework_version"] = "unreleased"
+		package_entry["maximum_framework_version_exclusive"] = ""
+		packages[package_id] = package_entry
+	registry["packages"] = packages
+	return registry
 
 
 func _make_planned_lockfile(registry: Dictionary, package_ids: PackedStringArray) -> Dictionary:
@@ -746,6 +871,26 @@ func _make_planned_lockfile(registry: Dictionary, package_ids: PackedStringArray
 		installed[package_id] = entry
 	planned_lockfile["installed"] = installed
 	return planned_lockfile
+
+
+func _set_registry_framework_range(registry: Dictionary, minimum_version: String, maximum_exclusive: String) -> void:
+	registry["framework_version"] = minimum_version
+	registry["minimum_framework_version"] = minimum_version
+	registry["maximum_framework_version_exclusive"] = maximum_exclusive
+	var packages: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(registry, "packages")
+	for package_id: String in _sorted_dictionary_keys(packages):
+		var package_entry: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(packages, package_id)
+		package_entry["minimum_framework_version"] = minimum_version
+		package_entry["maximum_framework_version_exclusive"] = maximum_exclusive
+		packages[package_id] = package_entry
+	registry["packages"] = packages
+
+
+func _write_project_plugin_cfg(project_root: String, framework_version: String) -> void:
+	_write_text(
+		project_root.path_join("addons/gf/plugin.cfg"),
+		"[plugin]\nversion=\"%s\"\n" % framework_version
+	)
 
 
 func _write_fixture_archives(registry: Dictionary) -> void:
@@ -1016,6 +1161,17 @@ func _write_text(path: String, text: String) -> void:
 		return
 	var _store_text_result: Variant = file.store_string(text)
 	file.close()
+
+
+func _read_text(path: String) -> String:
+	var absolute_path: String = ProjectSettings.globalize_path(path)
+	var file: FileAccess = FileAccess.open(absolute_path, FileAccess.READ)
+	assert_not_null(file, "测试应能读取 fixture 文本文件。")
+	if file == null:
+		return ""
+	var text: String = file.get_as_text()
+	file.close()
+	return text
 
 
 func _file_exists(path: String) -> bool:

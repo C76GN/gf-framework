@@ -1,0 +1,219 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFConfigPipelineProfile" path="addons/gf/tools/config_pipeline/gf_config_pipeline_profile.gd" module="tools" extends="Resource" classDigest="9ff4df7743e49c80c6b180740828382850d156266f8857ab653e3ce6dd4f9c70">
+	<description>GFConfigPipelineProfile: 配置导表工具的批量构建声明。
+描述一组表来源、数据库标识、输出路径和构建选项，供编辑器工具、CI 或项目脚本复用。
+该资源属于可选 tool package，只表达制作期或 CI 期通用导表任务，不规定项目目录结构、业务字段语义或发布流程。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">tool_api</tag>
+		<tag name="since">5.2.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties>
+		<member kind="property" name="profile_id" decorators="@export">
+			<signature>var profile_id: StringName = &amp;""</signature>
+			<description>Profile 稳定标识。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="database_id" decorators="@export">
+			<signature>var database_id: StringName = &amp;""</signature>
+			<description>生成数据库资源的标识。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="version" decorators="@export">
+			<signature>var version: String = ""</signature>
+			<description>写入数据库资源的版本字符串。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="output_path" decorators="@export">
+			<signature>var output_path: String = ""</signature>
+			<description>导出目标路径。通常指向 .tres、.res 或 .json。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="access_output_path" decorators="@export">
+			<signature>var access_output_path: String = ""</signature>
+			<description>可选访问器脚本输出路径。为空时不生成访问器。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="access_class_name" decorators="@export">
+			<signature>var access_class_name: String = "GFConfigAccess"</signature>
+			<description>可选访问器脚本 class_name。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="access_provider_accessor" decorators="@export">
+			<signature>var access_provider_accessor: String = "null"</signature>
+			<description>可选访问器脚本默认 provider 获取表达式。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="sources" decorators="@export">
+			<signature>var sources: Array[GFConfigPipelineTableSource] = []</signature>
+			<description>单表来源列表。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">sources: Array[GFConfigPipelineTableSource]。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="build_options" decorators="@export">
+			<signature>var build_options: Dictionary = {}</signature>
+			<description>传给 GFConfigPipeline.build_database() 的构建选项。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">build_options: Dictionary，可包含 database_id、version、metadata、validate_database、validate_schema、parse_options 和 rebuild_indexes。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="save_options" decorators="@export">
+			<signature>var save_options: Dictionary = {}</signature>
+			<description>传给 GFConfigPipeline.save_database() 的保存选项。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">save_options: Dictionary，可包含 output_format、include_schema、include_indexes、indent 和 sort_keys。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="access_options" decorators="@export">
+			<signature>var access_options: Dictionary = {}</signature>
+			<description>传给 GFConfigAccessGenerator 的访问器生成选项。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">access_options: Dictionary，可包含 method_name_style、constant_prefix、record_method_pattern、table_method_pattern、include_schema_comments、include_typed_records、typed_record_method_pattern、typed_record_class_suffix 和 overwrite_existing。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="metadata" decorators="@export">
+			<signature>var metadata: Dictionary = {}</signature>
+			<description>附加到生成数据库资源的元数据。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">metadata: Dictionary，保存项目工具、编辑器或 CI 附加的构建信息。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="make_build_options">
+			<signature>func make_build_options(overrides: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>合成构建选项。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">overrides: 本次构建的覆盖选项；build_options 子字典和直接字段都会覆盖 Profile 默认值。</tag>
+				<tag name="return">传给 GFConfigPipeline.build_database() 的选项。</tag>
+				<tag name="schema">overrides: Dictionary，可包含 build_options、database_id、version、metadata、validate_database、validate_schema、parse_options 和 rebuild_indexes。</tag>
+				<tag name="schema">return: Dictionary，包含合成后的构建选项。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="make_save_options">
+			<signature>func make_save_options(overrides: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>合成保存选项。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">overrides: 本次导出的覆盖选项。</tag>
+				<tag name="return">传给 GFConfigPipeline.save_database() 的选项。</tag>
+				<tag name="schema">overrides: Dictionary，可包含 save_options。</tag>
+				<tag name="schema">return: Dictionary，包含合成后的保存选项。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="make_access_options">
+			<signature>func make_access_options(overrides: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>合成访问器生成选项。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">overrides: 本次访问器生成的覆盖选项。</tag>
+				<tag name="return">传给 GFConfigAccessGenerator 的生成选项。</tag>
+				<tag name="schema">overrides: Dictionary，可包含 access_options。</tag>
+				<tag name="schema">return: Dictionary，包含合成后的访问器生成选项。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="resolve_output_path">
+			<signature>func resolve_output_path(overrides: Dictionary = {}) -&gt; String:</signature>
+			<description>获取本次导出的输出路径。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">overrides: 本次导出的覆盖选项。</tag>
+				<tag name="return">覆盖后的输出路径；未覆盖时返回 output_path。</tag>
+				<tag name="schema">overrides: Dictionary，可包含 output_path。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="resolve_access_output_path">
+			<signature>func resolve_access_output_path(overrides: Dictionary = {}) -&gt; String:</signature>
+			<description>获取本次访问器生成的输出路径。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">overrides: 本次访问器生成的覆盖选项。</tag>
+				<tag name="return">覆盖后的访问器输出路径；未配置时返回空字符串。</tag>
+				<tag name="schema">overrides: Dictionary，可包含 access_output_path。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="resolve_access_class_name">
+			<signature>func resolve_access_class_name(overrides: Dictionary = {}) -&gt; String:</signature>
+			<description>获取本次访问器生成的 class_name。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">overrides: 本次访问器生成的覆盖选项。</tag>
+				<tag name="return">覆盖后的访问器 class_name。</tag>
+				<tag name="schema">overrides: Dictionary，可包含 access_class_name。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="resolve_access_provider_accessor">
+			<signature>func resolve_access_provider_accessor(overrides: Dictionary = {}) -&gt; String:</signature>
+			<description>获取本次访问器生成的默认 provider 获取表达式。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">overrides: 本次访问器生成的覆盖选项。</tag>
+				<tag name="return">覆盖后的 provider 获取表达式。</tag>
+				<tag name="schema">overrides: Dictionary，可包含 access_provider_accessor。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="duplicate_profile">
+			<signature>func duplicate_profile() -&gt; GFConfigPipelineProfile:</signature>
+			<description>创建同内容拷贝。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">新 Profile 资源。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="describe">
+			<signature>func describe() -&gt; Dictionary:</signature>
+			<description>导出 Profile 摘要。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">Profile 摘要字典。</tag>
+				<tag name="schema">return: Dictionary，包含 profile_id、database_id、version、output_path、access_output_path、access_class_name、access_provider_accessor、source_count、sources、build_options、save_options、access_options 和 metadata。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

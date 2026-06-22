@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFConfigPipelineRunner" path="addons/gf/tools/config_pipeline/gf_config_pipeline_runner.gd" module="tools" extends="RefCounted" classDigest="3f88194631ac9523ec17bcda468efece6adb159b0d74fd2323dc81a2ef06a368">
+	<description>GFConfigPipelineRunner: 配置导表 Profile 的 Godot 原生运行入口。
+负责从 Godot 资源路径加载 GFConfigPipelineProfile，并调用 GFConfigPipeline 构建或导出。
+Runner 不处理命令行参数、编辑器 UI、外部进程、项目目录约定或发布策略。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">tool_api</tag>
+		<tag name="since">5.2.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties />
+	<methods>
+		<member kind="method" name="load_profile">
+			<signature>func load_profile(profile_path: String, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>加载导表 Profile 资源。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">profile_path: Profile 资源路径，通常为 .tres 或 .res。</tag>
+				<tag name="param">options: 加载选项，支持 type_hint 和 cache_mode。</tag>
+				<tag name="return">加载结果。</tag>
+				<tag name="schema">options: Dictionary，可包含 type_hint: String 和 cache_mode: ResourceLoader.CacheMode 对应整数。</tag>
+				<tag name="schema">return: Dictionary，包含 success、operation、profile_path、profile、profile_id、report、error_code 和 error。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="build_profile_path">
+			<signature>func build_profile_path(profile_path: String, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>从 Profile 路径构建配置数据库资源。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">profile_path: Profile 资源路径，通常为 .tres 或 .res。</tag>
+				<tag name="param">options: 加载和构建覆盖选项。</tag>
+				<tag name="return">运行结果。</tag>
+				<tag name="schema">options: Dictionary，可包含 type_hint、cache_mode、build_options、database_id、version、metadata、validate_database、validate_schema、parse_options 和 rebuild_indexes。</tag>
+				<tag name="schema">return: Dictionary，包含 success、operation、profile_path、profile_id、output_path、database、report、table_results、load_result、build_result、error_code 和 error。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="export_profile_path">
+			<signature>func export_profile_path(profile_path: String, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>从 Profile 路径构建并保存配置数据库资源。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">profile_path: Profile 资源路径，通常为 .tres 或 .res。</tag>
+				<tag name="param">options: 加载、构建、保存和访问器生成覆盖选项。</tag>
+				<tag name="return">运行结果。</tag>
+				<tag name="schema">options: Dictionary，可包含 type_hint、cache_mode、output_path、build_options、save_options、access_output_path、access_options、access_class_name、access_provider_accessor、database_id、version、metadata、validate_database、validate_schema、parse_options 和 rebuild_indexes。</tag>
+				<tag name="schema">return: Dictionary，包含 success、operation、profile_path、profile_id、output_path、database、report、table_results、load_result、build_result、save_result、access_result、export_result、error_code 和 error。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

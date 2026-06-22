@@ -19,4 +19,4 @@ var rich_text := GFInputFormatter.input_event_as_rich_text(jump_binding.input_ev
 
 图标 provider 不附带任何图片资源，也不规定平台品牌、按钮文案或美术风格。项目可以用 `icon_paths` 精确映射少量按钮，也可以用路径模板批量组织素材；`split_key_modifiers` 会把 Ctrl/Shift/Alt/Meta 组合键拆成多个图标，便于设置界面显示。
 
-`GFInputConflictAnalyzer` 可在保存重绑定前检查同一上下文或跨上下文的有效输入冲突，也可以通过 `build_rebind_report()` 一次性获取有效绑定条目和冲突列表。它只读取资源和重映射配置，不接管运行时输入逻辑。编辑器中的 `GFInputMappingDock` 渲染 `GF Workspace > Input` 页面，复用同一套资源与冲突分析能力，用标准校验报告字段描述 `GFInputContext` 中的动作、绑定和结构问题；页面只读查看资源，不保存项目按键配置，也不规定输入设置界面布局。
+`GFInputConflictAnalyzer` 可在保存重绑定前检查同一上下文或跨上下文的有效输入冲突，也可以通过 `build_rebind_report()` 一次性获取有效绑定条目和冲突列表。它只读取资源和重映射配置，不接管运行时输入逻辑。`GFInputContextDiagnostics` 在冲突报告之上补充输入上下文结构诊断，例如空上下文标识、空映射、缺失动作、重复 `action_id`、空绑定、无效死区、空修饰器/触发器槽位，以及 `InputEventAction` 是否缺少 ProjectSettings/Input Map action。编辑器中的 `GFInputMappingDock` 渲染 `GF Workspace > Input` 页面，并复用该诊断工具输出标准校验报告字段；页面只读查看资源，不保存项目按键配置，也不规定输入设置界面布局。

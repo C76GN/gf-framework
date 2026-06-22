@@ -142,6 +142,9 @@
       "res://tests/gf_core/standard/utilities/settings/test_gf_settings_utility.gd",
       "res://tests/gf_core/standard/utilities/ui/test_gf_text_fitter.gd",
       "res://tests/gf_core/standard/utilities/ui/test_gf_ui_utility.gd"
+    ],
+    "gf.tool.config_pipeline": [
+      "res://tests/gf_core/tools/config_pipeline/test_gf_config_pipeline.gd"
     ]
   }
 }

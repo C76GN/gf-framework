@@ -4,7 +4,7 @@
   "kind": "standard",
   "version": "unreleased",
   "display_name": "GF Standard Config",
-  "description": "Config providers, config tables, config schema helpers, import tools, and validation rules.",
+  "description": "Config providers, config tables, config schema helpers, and validation rules.",
   "dependencies": [
     "gf.kernel",
     "gf.standard.base"

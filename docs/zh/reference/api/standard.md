@@ -6,14 +6,14 @@
 
 | 类别 | 类 | 成员 | 方法 |
 |---|---:|---:|---:|
-| [运行时服务](#category-runtime_service) | 113 | 2039 | 1398 |
+| [运行时服务](#category-runtime_service) | 115 | 2066 | 1424 |
 | [协议与扩展点](#category-protocol) | 18 | 232 | 190 |
-| [资源定义](#category-resource_definition) | 85 | 914 | 447 |
+| [资源定义](#category-resource_definition) | 87 | 953 | 476 |
 | [运行时句柄](#category-runtime_handle) | 21 | 355 | 205 |
-| [值对象](#category-value_object) | 21 | 371 | 231 |
+| [值对象](#category-value_object) | 21 | 370 | 230 |
 | [领域模型](#category-domain_model) | 4 | 60 | 41 |
 | [事件契约](#category-event_contract) | 5 | 47 | 17 |
-| [编辑器 API](#category-editor_api) | 6 | 21 | 17 |
+| [编辑器 API](#category-editor_api) | 6 | 22 | 17 |
 
 ## 类
 
@@ -63,6 +63,7 @@
 | [`GFHexGridMath`](classes/GFHexGridMath.md#gfhexgridmath) | `RefCounted` | `addons/gf/standard/foundation/math/gf_hex_grid_math.gd` |
 | [`GFInputAssistUtility`](classes/GFInputAssistUtility.md#gfinputassistutility) | `GFUtility` | `addons/gf/standard/input/runtime/gf_input_assist_utility.gd` |
 | [`GFInputConflictAnalyzer`](classes/GFInputConflictAnalyzer.md#gfinputconflictanalyzer) | `RefCounted` | `addons/gf/standard/input/rebinding/gf_input_conflict_analyzer.gd` |
+| [`GFInputContextDiagnostics`](classes/GFInputContextDiagnostics.md#gfinputcontextdiagnostics) | `RefCounted` | `addons/gf/standard/input/mapping/gf_input_context_diagnostics.gd` |
 | [`GFInputDetector`](classes/GFInputDetector.md#gfinputdetector) | `Node` | `addons/gf/standard/input/rebinding/gf_input_detector.gd` |
 | [`GFInputDeviceUtility`](classes/GFInputDeviceUtility.md#gfinputdeviceutility) | `GFUtility` | `addons/gf/standard/input/runtime/gf_input_device_utility.gd` |
 | [`GFInputFormatter`](classes/GFInputFormatter.md#gfinputformatter) | `RefCounted` | `addons/gf/standard/input/formatting/gf_input_formatter.gd` |
@@ -93,6 +94,7 @@
 | [`GFRemoteCacheUtility`](classes/GFRemoteCacheUtility.md#gfremotecacheutility) | `GFUtility` | `addons/gf/standard/utilities/io/gf_remote_cache_utility.gd` |
 | [`GFRenderWarmupUtility`](classes/GFRenderWarmupUtility.md#gfrenderwarmuputility) | `GFUtility` | `addons/gf/standard/utilities/display/gf_render_warmup_utility.gd` |
 | [`GFRequestOutboxUtility`](classes/GFRequestOutboxUtility.md#gfrequestoutboxutility) | `GFUtility` | `addons/gf/standard/utilities/io/gf_request_outbox_utility.gd` |
+| [`GFResourceConfigProvider`](classes/GFResourceConfigProvider.md#gfresourceconfigprovider) | `GFConfigProvider` | `addons/gf/standard/utilities/config/gf_resource_config_provider.gd` |
 | [`GFResourceRegistryTools`](classes/GFResourceRegistryTools.md#gfresourceregistrytools) | `RefCounted` | `addons/gf/standard/utilities/assets/gf_resource_registry_tools.gd` |
 | [`GFResourceResolverUtility`](classes/GFResourceResolverUtility.md#gfresourceresolverutility) | `GFUtility` | `addons/gf/standard/utilities/assets/gf_resource_resolver_utility.gd` |
 | [`GFRichTextFormatter`](classes/GFRichTextFormatter.md#gfrichtextformatter) | `RefCounted` | `addons/gf/standard/utilities/ui/gf_rich_text_formatter.gd` |
@@ -176,6 +178,7 @@
 | [`GFBlackboardSchema`](classes/GFBlackboardSchema.md#gfblackboardschema) | `Resource` | `addons/gf/standard/foundation/blackboard/gf_blackboard_schema.gd` |
 | [`GFCallableTargetRef`](classes/GFCallableTargetRef.md#gfcallabletargetref) | `Resource` | `addons/gf/standard/utilities/signals/bridge/gf_callable_target_ref.gd` |
 | [`GFConfigBuildProfile`](classes/GFConfigBuildProfile.md#gfconfigbuildprofile) | `Resource` | `addons/gf/standard/utilities/config/gf_config_build_profile.gd` |
+| [`GFConfigDatabaseResource`](classes/GFConfigDatabaseResource.md#gfconfigdatabaseresource) | `Resource` | `addons/gf/standard/utilities/config/gf_config_database_resource.gd` |
 | [`GFConfigLocalizationKeyValidationRule`](classes/GFConfigLocalizationKeyValidationRule.md#gfconfiglocalizationkeyvalidationrule) | `GFConfigValidationRule` | `addons/gf/standard/utilities/config/validation/gf_config_localization_key_validation_rule.gd` |
 | [`GFConfigNotDefaultValidationRule`](classes/GFConfigNotDefaultValidationRule.md#gfconfignotdefaultvalidationrule) | `GFConfigValidationRule` | `addons/gf/standard/utilities/config/validation/gf_config_not_default_validation_rule.gd` |
 | [`GFConfigRangeValidationRule`](classes/GFConfigRangeValidationRule.md#gfconfigrangevalidationrule) | `GFConfigValidationRule` | `addons/gf/standard/utilities/config/validation/gf_config_range_validation_rule.gd` |
@@ -187,6 +190,7 @@
 | [`GFConfigTableIndexDefinition`](classes/GFConfigTableIndexDefinition.md#gfconfigtableindexdefinition) | `Resource` | `addons/gf/standard/utilities/config/gf_config_table_index_definition.gd` |
 | [`GFConfigTableMergePolicy`](classes/GFConfigTableMergePolicy.md#gfconfigtablemergepolicy) | `Resource` | `addons/gf/standard/utilities/config/gf_config_table_merge_policy.gd` |
 | [`GFConfigTableReference`](classes/GFConfigTableReference.md#gfconfigtablereference) | `Resource` | `addons/gf/standard/utilities/config/gf_config_table_reference.gd` |
+| [`GFConfigTableResource`](classes/GFConfigTableResource.md#gfconfigtableresource) | `Resource` | `addons/gf/standard/utilities/config/gf_config_table_resource.gd` |
 | [`GFConfigTableSchema`](classes/GFConfigTableSchema.md#gfconfigtableschema) | `Resource` | `addons/gf/standard/utilities/config/gf_config_table_schema.gd` |
 | [`GFConsoleCommandDefinition`](classes/GFConsoleCommandDefinition.md#gfconsolecommanddefinition) | `Resource` | `addons/gf/standard/utilities/debug/gf_console_command_definition.gd` |
 | [`GFDictionarySchema`](classes/GFDictionarySchema.md#gfdictionaryschema) | `Resource` | `addons/gf/standard/foundation/schema/gf_dictionary_schema.gd` |

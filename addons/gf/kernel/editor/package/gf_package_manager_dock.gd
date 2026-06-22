@@ -83,6 +83,13 @@ const VIEW_FILTER_EXTENSIONS: String = "extensions"
 ## @layer kernel/editor
 const VIEW_FILTER_STANDARD: String = "standard"
 
+## 工具包视图过滤值。
+## [br]
+## @api framework_internal
+## [br]
+## @layer kernel/editor
+const VIEW_FILTER_TOOLS: String = "tools"
+
 ## 全部包视图过滤值。
 ## [br]
 ## @api framework_internal
@@ -104,6 +111,9 @@ var _status_label: Label
 var _refresh_button: Button
 var _install_plan_button: Button
 var _install_button: Button
+var _update_plan_button: Button
+var _update_button: Button
+var _update_all_button: Button
 var _uninstall_plan_button: Button
 var _uninstall_button: Button
 var _busy_row: HBoxContainer
@@ -184,7 +194,7 @@ func _build_ui() -> void:
 	add_child(action_row)
 
 	_view_filter_option = OptionButton.new()
-	_view_filter_option.tooltip_text = "切换推荐组合、扩展包、标准包或全部包。"
+	_view_filter_option.tooltip_text = "切换推荐组合、扩展包、标准包、工具包或全部包。"
 	_view_filter_option.custom_minimum_size = Vector2(112.0, 0.0)
 	_view_filter_option.add_item("推荐组合")
 	_view_filter_option.set_item_metadata(0, VIEW_FILTER_PRESETS)
@@ -192,8 +202,10 @@ func _build_ui() -> void:
 	_view_filter_option.set_item_metadata(1, VIEW_FILTER_EXTENSIONS)
 	_view_filter_option.add_item("标准包")
 	_view_filter_option.set_item_metadata(2, VIEW_FILTER_STANDARD)
+	_view_filter_option.add_item("工具包")
+	_view_filter_option.set_item_metadata(3, VIEW_FILTER_TOOLS)
 	_view_filter_option.add_item("全部包")
-	_view_filter_option.set_item_metadata(3, VIEW_FILTER_ALL)
+	_view_filter_option.set_item_metadata(4, VIEW_FILTER_ALL)
 	_connect_signal_checked(_view_filter_option.item_selected, _on_view_filter_selected)
 	action_row.add_child(_view_filter_option)
 
@@ -208,6 +220,15 @@ func _build_ui() -> void:
 
 	_install_button = GFEditorWorkspaceUI.make_button("安装", "安装选中包及依赖。", _request_install)
 	action_row.add_child(_install_button)
+
+	_update_plan_button = GFEditorWorkspaceUI.make_button("预览更新", "对已安装的选中包执行 dry-run update。", _preview_update)
+	action_row.add_child(_update_plan_button)
+
+	_update_button = GFEditorWorkspaceUI.make_button("更新", "更新已安装的选中包及其依赖闭包。", _request_update)
+	action_row.add_child(_update_button)
+
+	_update_all_button = GFEditorWorkspaceUI.make_button("更新全部", "更新 lockfile 中全部已安装包。", _request_update_all)
+	action_row.add_child(_update_all_button)
 
 	_uninstall_plan_button = GFEditorWorkspaceUI.make_button("预览卸载", "对选中包执行 dry-run uninstall。", _preview_uninstall)
 	action_row.add_child(_uninstall_plan_button)
@@ -751,6 +772,8 @@ func _package_matches_view_filter(package_entry: Dictionary, view_filter: String
 		return kind == "extension"
 	if view_filter == VIEW_FILTER_STANDARD:
 		return kind == "standard"
+	if view_filter == VIEW_FILTER_TOOLS:
+		return kind == "tool"
 	return true
 
 
@@ -778,13 +801,19 @@ func _package_kind_sort_weight(kind: String) -> int:
 		return 1
 	if kind == "standard":
 		return 2
-	if kind == "kernel":
+	if kind == "tool":
 		return 3
-	return 4
+	if kind == "kernel":
+		return 4
+	return 5
 
 
 func _preview_install() -> void:
 	_run_selected_operation("install", true)
+
+
+func _preview_update() -> void:
+	_run_selected_operation("update", true)
 
 
 func _preview_uninstall() -> void:
@@ -795,15 +824,28 @@ func _request_install() -> void:
 	_open_confirm_dialog("install")
 
 
+func _request_update() -> void:
+	_open_confirm_dialog("update")
+
+
+func _request_update_all() -> void:
+	_open_confirm_dialog("update_all")
+
+
 func _request_uninstall() -> void:
 	_open_confirm_dialog("uninstall")
 
 
 func _open_confirm_dialog(operation: String) -> void:
-	if _busy or _selected_package_id.is_empty():
+	if _busy:
 		return
+	if operation == "update_all":
+		_confirm_dialog.dialog_text = "确认更新全部已安装包？"
+	else:
+		if _selected_package_id.is_empty():
+			return
+		_confirm_dialog.dialog_text = "确认%s包：%s" % [_get_operation_label(operation), _selected_package_id]
 	_confirm_operation = operation
-	_confirm_dialog.dialog_text = "确认%s包：%s" % [_get_operation_label(operation), _selected_package_id]
 	_confirm_dialog.popup_centered()
 
 
@@ -812,6 +854,9 @@ func _on_confirmed() -> void:
 		return
 	var operation: String = _confirm_operation
 	_confirm_operation = ""
+	if operation == "update_all":
+		_run_all_installed_update(false)
+		return
 	_run_selected_operation(operation, false)
 
 
@@ -830,7 +875,7 @@ func _run_selected_operation_async(operation: String, dry_run: bool) -> void:
 	_begin_busy("%s%s：%s..." % [mode_label, operation_label, package_id], _BUSY_PROGRESS_START)
 	_details_output.text = _make_operation_pending_text(operation, dry_run, package_id)
 	var result: Dictionary = await _run_backend_request_async(
-		_make_operation_request(operation, dry_run, package_id),
+		_make_operation_request(operation, dry_run, package_id, false),
 		"%s%s后台执行中..." % [mode_label, operation_label],
 		_BUSY_PROGRESS_START,
 		_BUSY_PROGRESS_OPERATION_DONE
@@ -853,10 +898,51 @@ func _run_selected_operation_async(operation: String, dry_run: bool) -> void:
 	_end_busy()
 
 
-func _make_operation_request(operation: String, dry_run: bool, package_id: String) -> Dictionary:
+func _run_all_installed_update(dry_run: bool) -> void:
+	if _busy:
+		return
+	call_deferred("_run_all_installed_update_async", dry_run)
+
+
+func _run_all_installed_update_async(dry_run: bool) -> void:
+	if _busy:
+		return
+	var operation_label: String = _get_operation_label("update_all")
+	var mode_label: String = "预览" if dry_run else "执行"
+	_begin_busy("%s%s..." % [mode_label, operation_label], _BUSY_PROGRESS_START)
+	_details_output.text = _make_operation_pending_text("update_all", dry_run, "")
+	var result: Dictionary = await _run_backend_request_async(
+		_make_operation_request("update", dry_run, "", true),
+		"%s%s后台执行中..." % [mode_label, operation_label],
+		_BUSY_PROGRESS_START,
+		_BUSY_PROGRESS_OPERATION_DONE
+	)
+	_set_busy_stage("正在整理结果...", 90.0)
+	_details_output.text = _format_command_result(result)
+	if _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(result, "ok", false):
+		_set_status("%s%s完成。" % ["Dry-run " if dry_run else "", operation_label], GFEditorWorkspaceUI.OK_TEXT_COLOR)
+		if not dry_run:
+			_set_busy_stage("正在刷新安装状态...", 94.0)
+			var status_result: Dictionary = await _run_backend_request_async(
+				_make_status_request(),
+				"正在刷新包状态...",
+				94.0,
+				98.0
+			)
+			_apply_status_result(status_result)
+	else:
+		_set_status("%s失败。" % operation_label, GFEditorWorkspaceUI.ERROR_TEXT_COLOR)
+	_end_busy()
+
+
+func _make_operation_request(operation: String, dry_run: bool, package_id: String, update_all_installed: bool) -> Dictionary:
+	var package_ids: PackedStringArray = PackedStringArray()
+	if not package_id.is_empty():
+		var _append_package: bool = package_ids.append(package_id)
 	return {
 		"operation": operation,
-		"package_ids": PackedStringArray([package_id]),
+		"package_ids": package_ids,
+		"all_installed": update_all_installed,
 		"registry_value": _registry_field.text.strip_edges(),
 		"project_root": _get_project_root(),
 		"lockfile_path": DEFAULT_LOCKFILE_PATH,
@@ -869,10 +955,13 @@ func _make_operation_request(operation: String, dry_run: bool, package_id: Strin
 
 func _make_operation_pending_text(operation: String, dry_run: bool, package_id: String) -> String:
 	var lines: PackedStringArray = PackedStringArray()
-	var _append_title: bool = lines.append("%s%s：%s" % ["预览" if dry_run else "执行", _get_operation_label(operation), package_id])
+	var package_suffix: String = "" if package_id.is_empty() else "：%s" % package_id
+	var _append_title: bool = lines.append("%s%s%s" % ["预览" if dry_run else "执行", _get_operation_label(operation), package_suffix])
 	var _append_blank: bool = lines.append("")
 	if operation == "install":
 		var _append_install: bool = lines.append("阶段：解析依赖闭包、准备 archive、校验 sha256/size、审计写入路径。")
+	elif operation == "update" or operation == "update_all":
+		var _append_update: bool = lines.append("阶段：读取 lockfile、筛选已安装包、解析更新闭包、校验 archive 和写入路径。")
 	else:
 		var _append_uninstall: bool = lines.append("阶段：读取 lockfile、检查 shared dependency / manual pin / 项目引用、准备删除计划。")
 	if not dry_run:
@@ -971,6 +1060,16 @@ func _run_native_operation(operation: String, dry_run: bool) -> Dictionary:
 			dry_run,
 			backend_options
 		)
+	if operation == "update" and _can_use_native_backend(registry_value):
+		return _GF_PACKAGE_MANAGER_BACKEND.update_packages(
+			PackedStringArray([_selected_package_id]),
+			registry_value,
+			_get_project_root(),
+			DEFAULT_LOCKFILE_PATH,
+			false,
+			dry_run,
+			backend_options
+		)
 	if operation == "uninstall" and _can_use_native_backend(registry_value):
 		return _GF_PACKAGE_MANAGER_BACKEND.uninstall_packages(
 			PackedStringArray([_selected_package_id]),
@@ -1000,6 +1099,10 @@ func _can_use_native_backend(_registry_value: String) -> bool:
 func _get_operation_label(operation: String) -> String:
 	if operation == "uninstall":
 		return "卸载"
+	if operation == "update_all":
+		return "更新全部"
+	if operation == "update":
+		return "更新"
 	return "安装"
 
 
@@ -1008,11 +1111,22 @@ func _format_command_result(result: Dictionary) -> String:
 
 
 func _update_action_buttons() -> void:
-	if _install_plan_button == null or _install_button == null or _uninstall_plan_button == null or _uninstall_button == null:
+	if (
+		_install_plan_button == null
+		or _install_button == null
+		or _update_plan_button == null
+		or _update_button == null
+		or _update_all_button == null
+		or _uninstall_plan_button == null
+		or _uninstall_button == null
+	):
 		return
 	if _busy:
 		_install_plan_button.disabled = true
 		_install_button.disabled = true
+		_update_plan_button.disabled = true
+		_update_button.disabled = true
+		_update_all_button.disabled = true
 		_uninstall_plan_button.disabled = true
 		_uninstall_button.disabled = true
 		return
@@ -1020,8 +1134,12 @@ func _update_action_buttons() -> void:
 	var package_entry: Dictionary = _get_package_entry(_selected_package_id)
 	var has_package: bool = not package_entry.is_empty()
 	var installed: bool = _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(package_entry, "installed", false)
+	var installed_count: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(_last_status, "installed_count", 0)
 	_install_plan_button.disabled = not has_package
 	_install_button.disabled = not has_package
+	_update_plan_button.disabled = not has_package or not installed
+	_update_button.disabled = not has_package or not installed
+	_update_all_button.disabled = installed_count <= 0
 	_uninstall_plan_button.disabled = not has_package or not installed
 	_uninstall_button.disabled = not has_package or not installed
 

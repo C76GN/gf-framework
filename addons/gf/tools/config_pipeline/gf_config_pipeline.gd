@@ -1,0 +1,1839 @@
+## GFConfigPipeline: 配置导表工具的资源构建入口。
+##
+## 负责把 CSV / JSON / XLSX 文件来源构建为 GFConfigTableResource 与 GFConfigDatabaseResource。
+## 该工具只处理通用导入、校验、索引重建和 Resource 保存，不绑定任何项目业务表或发布流程。
+## [br]
+## @api public
+## [br]
+## @category tool_api
+## [br]
+## @since 5.2.0
+class_name GFConfigPipeline
+extends RefCounted
+
+
+# --- 常量 ---
+
+const _FORMAT_AUTO: StringName = &"auto"
+const _FORMAT_CSV: StringName = &"csv"
+const _FORMAT_JSON: StringName = &"json"
+const _FORMAT_XLSX: StringName = &"xlsx"
+const _OUTPUT_FORMAT_AUTO: StringName = &"auto"
+const _OUTPUT_FORMAT_JSON: StringName = &"json"
+const _OUTPUT_FORMAT_RESOURCE: StringName = &"resource"
+const _JSON_EXPORT_FORMAT: String = "gf.config.database"
+const _JSON_EXPORT_VERSION: int = 1
+const _JSON_VARIANT_TYPE_KEY: String = "__gf_variant_type"
+const _JSON_VARIANT_VALUE_KEY: String = "value"
+const _DEFAULT_JSON_INDENT: String = "\t"
+
+
+# --- 公共方法 ---
+
+## 从来源文件构建单表资源。
+## [br]
+## @api public
+## [br]
+## @since 5.2.0
+## [br]
+## @param source: 单表来源声明。
+## [br]
+## @param options: 可选构建选项，支持 parse_options、rebuild_indexes。
+## [br]
+## @schema options: Dictionary，可包含 parse_options 和 rebuild_indexes。
+## [br]
+## @return: 构建结果。
+## [br]
+## @schema return: Dictionary，包含 success、table、report、source_path、format 和 error。
+func build_table(source: GFConfigPipelineTableSource, options: Dictionary = {}) -> Dictionary:
+	if source == null:
+		return _make_table_failure(&"", "invalid_table_source", "表来源声明为空。")
+
+	var resolved_format: StringName = source.get_resolved_format()
+	if resolved_format == _FORMAT_XLSX:
+		return _build_table_from_xlsx(source, options)
+
+	var read_result: Dictionary = _read_text_file(source.source_path, source.get_table_key())
+	if not GFVariantData.get_option_bool(read_result, "success"):
+		return read_result
+	return build_table_from_text(source, GFVariantData.get_option_string(read_result, "text"), options)
+
+
+## 从文本构建单表资源。
+## [br]
+## @api public
+## [br]
+## @since 5.2.0
+## [br]
+## @param source: 单表来源声明。
+## [br]
+## @param text: CSV 或 JSON 文本。
+## [br]
+## @param options: 可选构建选项，支持 parse_options、rebuild_indexes。
+## [br]
+## @schema options: Dictionary，可包含 parse_options 和 rebuild_indexes。
+## [br]
+## @return: 构建结果。
+## [br]
+## @schema return: Dictionary，包含 success、table、report、source_path、format 和 error。
+func build_table_from_text(
+	source: GFConfigPipelineTableSource,
+	text: String,
+	options: Dictionary = {}
+) -> Dictionary:
+	if source == null:
+		return _make_table_failure(&"", "invalid_table_source", "表来源声明为空。")
+
+	var table_name: StringName = source.get_table_key()
+	if table_name == &"":
+		return _make_table_failure(&"", "empty_table_name", "无法确定配置表名。")
+
+	var resolved_format: StringName = source.get_resolved_format()
+	if not _is_supported_format(resolved_format):
+		return _make_table_failure(
+			table_name,
+			"unsupported_source_format",
+			"不支持的配置表来源格式：%s。" % String(resolved_format),
+			{
+				"source": source.source_path,
+				"actual_value": resolved_format,
+				"supported_formats": [String(_FORMAT_CSV), String(_FORMAT_JSON)],
+			}
+		)
+
+	var parse_result: Dictionary = _parse_table_text(source, text, resolved_format, options)
+	if not GFVariantData.get_option_bool(parse_result, "success"):
+		return _make_table_failure(
+			table_name,
+			"parse_failed",
+			GFVariantData.get_option_string(parse_result, "error"),
+			{
+				"source": source.source_path,
+				"line": GFVariantData.get_option_int(parse_result, "error_line"),
+				"column": GFVariantData.get_option_int(parse_result, "error_column"),
+			}
+		)
+
+	return _build_table_from_parse_result(source, table_name, resolved_format, parse_result, options)
+
+
+## 从一组来源文件构建配置数据库资源。
+## [br]
+## @api public
+## [br]
+## @since 5.2.0
+## [br]
+## @param sources: 单表来源声明列表。
+## [br]
+## @schema sources: Array[GFConfigPipelineTableSource]。
+## [br]
+## @param options: 可选构建选项，支持 database_id、version、metadata、validate_database、validate_schema、parse_options、rebuild_indexes。
+## [br]
+## @schema options: Dictionary，可包含 database_id、version、metadata、validate_database、validate_schema、parse_options 和 rebuild_indexes。
+## [br]
+## @return: 构建结果。
+## [br]
+## @schema return: Dictionary，包含 success、database、report、table_results 和 error。
+func build_database(
+	sources: Array,
+	options: Dictionary = {}
+) -> Dictionary:
+	var database: GFConfigDatabaseResource = GFConfigDatabaseResource.new()
+	database.database_id = GFVariantData.get_option_string_name(options, "database_id", &"")
+	database.version = GFVariantData.get_option_string(options, "version")
+	database.metadata = GFVariantData.get_option_dictionary(options, "metadata").duplicate(true)
+
+	var report_builder: GFConfigValidationReport = GFConfigValidationReport.new()
+	var report: Dictionary = report_builder.make_report(database.database_id)
+	var table_results: Array[Dictionary] = []
+	var all_tables_succeeded: bool = true
+	if sources.is_empty():
+		report_builder.add_issue(
+			report,
+			"error",
+			"empty_table_sources",
+			database.database_id,
+			null,
+			&"sources",
+			"配置数据库没有表来源。",
+			{}
+		)
+		report_builder.finalize_report(report)
+		return {
+			"success": false,
+			"database": database,
+			"report": report,
+			"table_results": table_results,
+			"error": "配置数据库没有表来源。",
+		}
+
+	for source_value: Variant in sources:
+		if not (source_value is GFConfigPipelineTableSource):
+			var invalid_source_result: Dictionary = _make_table_failure(
+				&"",
+				"invalid_table_source",
+				"表来源声明必须是 GFConfigPipelineTableSource。"
+			)
+			table_results.append(_duplicate_result_dictionary(invalid_source_result))
+			report_builder.merge_report(report, GFVariantData.get_option_dictionary(invalid_source_result, "report"), true)
+			all_tables_succeeded = false
+			continue
+
+		var source: GFConfigPipelineTableSource = source_value
+		var table_result: Dictionary = build_table(source, options)
+		table_results.append(_duplicate_result_dictionary(table_result))
+		report_builder.merge_report(report, GFVariantData.get_option_dictionary(table_result, "report"), true)
+		if GFVariantData.get_option_bool(table_result, "success"):
+			var table: GFConfigTableResource = _get_table_from_result(table_result)
+			if table != null:
+				var _registered: bool = database.register_table(table)
+		else:
+			all_tables_succeeded = false
+
+	if GFVariantData.get_option_bool(options, "validate_database", true):
+		var validate_options: Dictionary = options.duplicate(true)
+		if not validate_options.has("validate_schema"):
+			validate_options["validate_schema"] = false
+		var database_report: Dictionary = database.validate_database(validate_options)
+		report_builder.merge_report(report, database_report, false)
+
+	report_builder.finalize_report(report)
+	return {
+		"success": all_tables_succeeded and GFVariantData.get_option_bool(report, "ok"),
+		"database": database,
+		"report": report,
+		"table_results": table_results,
+		"error": "",
+	}
+
+
+## 从导表 Profile 构建配置数据库资源。
+## [br]
+## @api public
+## [br]
+## @since 5.2.0
+## [br]
+## @param profile: 导表 Profile 资源。
+## [br]
+## @schema profile: GFConfigPipelineProfile resource。
+## [br]
+## @param options: 本次构建覆盖选项，支持 build_options 以及 build_database() 的直接选项。
+## [br]
+## @schema options: Dictionary，可包含 build_options、database_id、version、metadata、validate_database、validate_schema、parse_options 和 rebuild_indexes。
+## [br]
+## @return: 构建结果。
+## [br]
+## @schema return: Dictionary，包含 success、database、report、table_results、profile_id、output_path 和 error。
+func build_profile(profile: GFConfigPipelineProfile, options: Dictionary = {}) -> Dictionary:
+	if profile == null:
+		return _make_profile_failure(&"", "invalid_pipeline_profile", "导表 Profile 为空。")
+
+	var profile_id: StringName = profile.profile_id
+	if profile.sources.is_empty():
+		return _make_profile_failure(profile_id, "empty_pipeline_sources", "导表 Profile 没有配置表来源。")
+
+	var build_options: Dictionary = profile.make_build_options(options)
+	var build_result: Dictionary = build_database(profile.sources, build_options)
+	build_result["profile_id"] = profile_id
+	build_result["output_path"] = profile.resolve_output_path(options)
+	return build_result
+
+
+## 从导表 Profile 构建并保存配置数据库资源。
+## [br]
+## @api public
+## [br]
+## @since 5.2.0
+## [br]
+## @param profile: 导表 Profile 资源。
+## [br]
+## @schema profile: GFConfigPipelineProfile resource。
+## [br]
+## @param options: 本次导出覆盖选项，支持 output_path、build_options、save_options、access_output_path、access_options、access_class_name、access_provider_accessor 以及 build_database() 的直接选项。
+## [br]
+## @schema options: Dictionary，可包含 output_path、build_options、save_options、access_output_path、access_options、access_class_name、access_provider_accessor、database_id、version、metadata、validate_database、validate_schema、parse_options 和 rebuild_indexes。
+## [br]
+## @return: 导出结果。
+## [br]
+## @schema return: Dictionary，包含 success、database、report、table_results、build_result、save_result、access_result、profile_id、output_path 和 error。
+func export_profile(profile: GFConfigPipelineProfile, options: Dictionary = {}) -> Dictionary:
+	var build_result: Dictionary = build_profile(profile, options)
+	var profile_id: StringName = GFVariantData.get_option_string_name(build_result, "profile_id")
+	var output_path: String = GFVariantData.get_option_string(build_result, "output_path")
+	if not GFVariantData.get_option_bool(build_result, "success"):
+		return _make_profile_export_result(
+			false,
+			build_result,
+			{},
+			{},
+			profile_id,
+			output_path,
+			GFVariantData.get_option_string(build_result, "error")
+		)
+
+	var database: GFConfigDatabaseResource = _get_database_from_result(build_result)
+	var save_options: Dictionary = profile.make_save_options(options) if profile != null else {}
+	var save_result: Dictionary = save_database(database, output_path, save_options)
+	var access_result: Dictionary = _make_access_result(true, "", "", OK, "", true, 0)
+	if GFVariantData.get_option_bool(save_result, "success") and profile != null:
+		var access_output_path: String = profile.resolve_access_output_path(options)
+		if not access_output_path.is_empty():
+			access_result = generate_access(
+				database,
+				access_output_path,
+				profile.resolve_access_class_name(options),
+				profile.resolve_access_provider_accessor(options),
+				profile.make_access_options(options)
+			)
+
+	var export_success: bool = (
+		GFVariantData.get_option_bool(save_result, "success")
+		and GFVariantData.get_option_bool(access_result, "success", true)
+	)
+	var export_error: String = GFVariantData.get_option_string(save_result, "error")
+	if export_error.is_empty() and not GFVariantData.get_option_bool(access_result, "success", true):
+		export_error = GFVariantData.get_option_string(access_result, "error")
+	return _make_profile_export_result(
+		export_success,
+		build_result,
+		save_result,
+		access_result,
+		profile_id,
+		output_path,
+		export_error
+	)
+
+
+## 创建可保存为 JSON 的配置数据库导出字典。
+## [br]
+## @api public
+## [br]
+## @since 5.2.0
+## [br]
+## @param database: 要导出的配置数据库资源。
+## [br]
+## @param options: 可选导出选项，支持 include_schema、include_indexes 和 max_depth。
+## [br]
+## @schema options: Dictionary，可包含 include_schema、include_indexes 和 max_depth。
+## [br]
+## @return: JSON 兼容导出字典；数据库为空或存在不支持的 Variant 时返回空字典。
+## [br]
+## @schema return: Dictionary，包含 format、format_version、database_id、version、metadata 和 tables。
+func make_database_export(database: GFConfigDatabaseResource, options: Dictionary = {}) -> Dictionary:
+	var export_result: Dictionary = _make_database_export_result(database, options)
+	if GFVariantData.get_option_bool(export_result, "success"):
+		return GFVariantData.get_option_dictionary(export_result, "data")
+	return {}
+
+
+## 保存配置数据库资源。
+## [br]
+## @api public
+## [br]
+## @since 5.2.0
+## [br]
+## @param database: 要保存的配置数据库资源。
+## [br]
+## @param output_path: 输出路径，通常为 .tres、.res 或 .json。
+## [br]
+## @param options: 保存选项，支持 output_format、include_schema、include_indexes、indent 和 sort_keys。
+## [br]
+## @schema options: Dictionary，可包含 output_format、include_schema、include_indexes、indent 和 sort_keys。
+## [br]
+## @return: 保存结果。
+## [br]
+## @schema return: Dictionary，包含 success、path、format、error_code 和 error。
+func save_database(
+	database: GFConfigDatabaseResource,
+	output_path: String,
+	options: Dictionary = {}
+) -> Dictionary:
+	if database == null:
+		return _make_save_result(false, output_path, _OUTPUT_FORMAT_AUTO, ERR_INVALID_PARAMETER, "配置数据库资源为空。")
+	if output_path.is_empty():
+		return _make_save_result(false, output_path, _OUTPUT_FORMAT_AUTO, ERR_INVALID_PARAMETER, "输出路径为空。")
+
+	var output_format: StringName = _resolve_output_format(output_path, options)
+	if output_format == _OUTPUT_FORMAT_JSON:
+		return _save_database_json(database, output_path, options)
+	if output_format != _OUTPUT_FORMAT_RESOURCE:
+		return _make_save_result(
+			false,
+			output_path,
+			output_format,
+			ERR_UNAVAILABLE,
+			"不支持的配置数据库输出格式：%s。" % String(output_format)
+		)
+
+	var save_error: Error = ResourceSaver.save(database, output_path)
+	if save_error != OK:
+		return _make_save_result(false, output_path, output_format, save_error, "保存配置数据库失败：%s。" % error_string(save_error))
+	return _make_save_result(true, output_path, output_format, OK, "")
+
+
+## 根据配置数据库生成静态访问器脚本。
+## [br]
+## @api public
+## [br]
+## @since 5.2.0
+## [br]
+## @param database: 要生成访问器的配置数据库资源。
+## [br]
+## @param output_path: 访问器脚本输出路径。
+## [br]
+## @param access_class_name: 生成脚本的 class_name。
+## [br]
+## @param provider_accessor: 无显式 provider 参数时用于获取 provider 的表达式。
+## [br]
+## @param options: 访问器生成选项，支持 GFConfigAccessGenerator 选项和 overwrite_existing。
+## [br]
+## @schema options: Dictionary，可包含 method_name_style、constant_prefix、record_method_pattern、table_method_pattern、include_schema_comments、include_typed_records、typed_record_method_pattern、typed_record_class_suffix 和 overwrite_existing。
+## [br]
+## @return: 访问器生成结果。
+## [br]
+## @schema return: Dictionary，包含 success、skipped、path、class_name、schema_count、error_code 和 error。
+func generate_access(
+	database: GFConfigDatabaseResource,
+	output_path: String,
+	access_class_name: String = "GFConfigAccess",
+	provider_accessor: String = "null",
+	options: Dictionary = {}
+) -> Dictionary:
+	var class_name_value: String = access_class_name if not access_class_name.is_empty() else "GFConfigAccess"
+	if database == null:
+		return _make_access_result(false, output_path, class_name_value, ERR_INVALID_PARAMETER, "配置数据库资源为空。", false, 0)
+	if output_path.is_empty():
+		return _make_access_result(false, output_path, class_name_value, ERR_INVALID_PARAMETER, "访问器输出路径为空。", false, 0)
+
+	var schemas: Array = _collect_access_schemas(database)
+	if schemas.is_empty():
+		return _make_access_result(false, output_path, class_name_value, ERR_INVALID_DATA, "配置数据库没有可生成访问器的表。", false, 0)
+
+	var accessor: String = provider_accessor if not provider_accessor.is_empty() else "null"
+	var overwrite_existing: bool = GFVariantData.get_option_bool(options, "overwrite_existing", true)
+	var generator: GFConfigAccessGenerator = GFConfigAccessGenerator.new()
+	var generate_error: Error = generator.generate(
+		schemas,
+		output_path,
+		overwrite_existing,
+		class_name_value,
+		accessor,
+		options
+	)
+	if generate_error != OK:
+		return _make_access_result(
+			false,
+			output_path,
+			class_name_value,
+			generate_error,
+			"生成配置访问器失败：%s。" % error_string(generate_error),
+			false,
+			schemas.size()
+		)
+	return _make_access_result(true, output_path, class_name_value, OK, "", false, schemas.size())
+
+
+# --- 私有/辅助方法 ---
+
+func _read_text_file(path: String, table_name: StringName) -> Dictionary:
+	if path.is_empty():
+		return _make_table_failure(table_name, "missing_source_path", "配置表来源路径为空。")
+
+	var file: FileAccess = FileAccess.open(path, FileAccess.READ)
+	if file == null:
+		var open_error: Error = FileAccess.get_open_error()
+		return _make_table_failure(
+			table_name,
+			"source_read_failed",
+			"读取配置表来源失败：%s。" % error_string(open_error),
+			{
+				"source": path,
+				"error_code": open_error,
+			}
+		)
+
+	return {
+		"success": true,
+		"text": file.get_as_text(),
+		"report": GFConfigValidationReport.new().make_report(table_name),
+		"source_path": path,
+		"format": _FORMAT_AUTO,
+		"error": "",
+	}
+
+
+func _parse_table_text(
+	source: GFConfigPipelineTableSource,
+	text: String,
+	resolved_format: StringName,
+	options: Dictionary
+) -> Dictionary:
+	var parse_options: Dictionary = source.parse_options.duplicate(true)
+	var _merge_parse_options_result: Dictionary = GFVariantData.merge_dictionary(parse_options, GFVariantData.get_option_dictionary(options, "parse_options"))
+	if not source.source_path.is_empty():
+		parse_options["source"] = source.source_path
+
+	if resolved_format == _FORMAT_CSV:
+		return GFConfigTableImporter.parse_csv_table(text, parse_options)
+	if resolved_format == _FORMAT_JSON:
+		return GFConfigTableImporter.parse_json_table(text, parse_options)
+	return {
+		"success": false,
+		"data": null,
+		"error": "unsupported_source_format",
+		"error_line": 0,
+		"error_column": 0,
+		"source": source.source_path,
+	}
+
+
+func _build_table_from_xlsx(source: GFConfigPipelineTableSource, options: Dictionary) -> Dictionary:
+	var table_name: StringName = source.get_table_key()
+	if table_name == &"":
+		return _make_table_failure(&"", "empty_table_name", "无法确定配置表名。")
+	if source.source_path.is_empty():
+		return _make_table_failure(table_name, "missing_source_path", "配置表来源路径为空。")
+
+	var parse_options: Dictionary = source.parse_options.duplicate(true)
+	var _merge_parse_options_result: Dictionary = GFVariantData.merge_dictionary(parse_options, GFVariantData.get_option_dictionary(options, "parse_options"))
+	if not source.source_path.is_empty():
+		parse_options["source"] = source.source_path
+
+	var parse_result: Dictionary = _parse_xlsx_file(source.source_path, parse_options)
+	if not GFVariantData.get_option_bool(parse_result, "success"):
+		return _make_table_failure(
+			table_name,
+			"parse_failed",
+			GFVariantData.get_option_string(parse_result, "error"),
+			{
+				"source": source.source_path,
+				"actual_value": _FORMAT_XLSX,
+				"line": GFVariantData.get_option_int(parse_result, "error_line"),
+				"column": GFVariantData.get_option_int(parse_result, "error_column"),
+			}
+		)
+	return _build_table_from_parse_result(source, table_name, _FORMAT_XLSX, parse_result, options)
+
+
+func _build_table_from_parse_result(
+	source: GFConfigPipelineTableSource,
+	table_name: StringName,
+	resolved_format: StringName,
+	parse_result: Dictionary,
+	options: Dictionary
+) -> Dictionary:
+	var records_result: Dictionary = _normalize_records(GFVariantData.get_option_value(parse_result, "data"))
+	if not GFVariantData.get_option_bool(records_result, "success"):
+		return _make_table_failure(
+			table_name,
+			"invalid_table_data",
+			"配置表数据必须是 Array[Dictionary] 或 Dictionary[String, Dictionary]。",
+			{
+				"source": source.source_path,
+				"actual_value": GFVariantData.get_option_string(records_result, "actual_value"),
+				"expected_value": "Array[Dictionary] or Dictionary[String, Dictionary]",
+			}
+		)
+
+	var records: Array[Dictionary] = _get_result_records(records_result)
+	var typed_header_result: Dictionary = _apply_typed_header_schema(source, table_name, records, parse_result)
+	if not GFVariantData.get_option_bool(typed_header_result, "success", true):
+		var typed_header_context: Dictionary = GFVariantData.get_option_dictionary(typed_header_result, "context")
+		if not source.source_path.is_empty():
+			typed_header_context["source"] = source.source_path
+		return _make_table_failure(
+			table_name,
+			GFVariantData.get_option_string(typed_header_result, "kind", "invalid_typed_header"),
+			GFVariantData.get_option_string(typed_header_result, "error"),
+			typed_header_context
+		)
+
+	records = _get_result_records(typed_header_result)
+	var declared_schema: GFConfigTableSchema = _get_schema_from_result(typed_header_result)
+	var schema: GFConfigTableSchema = _resolve_schema(source, table_name, records, declared_schema)
+	var report: Dictionary = _validate_table_source(source, table_name, records, schema, parse_result)
+	if schema != null and schema.coerce_values and source.coerce_records and GFVariantData.get_option_bool(report, "ok"):
+		records = _coerce_records(records, schema)
+
+	var table: GFConfigTableResource = GFConfigTableResource.new()
+	table.table_name = table_name
+	table.schema = schema
+	table.records = records
+	table.metadata = _make_table_metadata(source, resolved_format)
+	if GFVariantData.get_option_bool(options, "rebuild_indexes", true):
+		var _id_index_count: int = table.rebuild_index()
+		var _named_index_count: int = table.rebuild_indexes()
+
+	return {
+		"success": GFVariantData.get_option_bool(report, "ok"),
+		"table": table,
+		"report": report,
+		"source_path": source.source_path,
+		"format": resolved_format,
+		"error": "",
+	}
+
+
+func _parse_xlsx_file(path: String, options: Dictionary) -> Dictionary:
+	var reader: ZIPReader = ZIPReader.new()
+	var open_error: Error = reader.open(path)
+	if open_error != OK:
+		return _make_xlsx_parse_failure("XLSX open failed: %s" % error_string(open_error), path)
+
+	var files: PackedStringArray = reader.get_files()
+	var shared_strings: PackedStringArray = _read_xlsx_shared_strings(reader, files)
+	var workbook_sheets: Array[Dictionary] = _read_xlsx_workbook_sheets(reader, files)
+	var worksheet_path: String = _resolve_xlsx_worksheet_path(files, workbook_sheets, options)
+	if worksheet_path.is_empty():
+		_close_zip_reader(reader)
+		return _make_xlsx_parse_failure("XLSX sheet not found.", path)
+
+	var worksheet_bytes: PackedByteArray = _zip_read_bytes(reader, files, worksheet_path)
+	_close_zip_reader(reader)
+	if worksheet_bytes.size() == 0:
+		return _make_xlsx_parse_failure("XLSX worksheet is empty: %s" % worksheet_path, path)
+	return _parse_xlsx_sheet(worksheet_bytes, shared_strings, options)
+
+
+func _read_xlsx_shared_strings(reader: ZIPReader, files: PackedStringArray) -> PackedStringArray:
+	var result: PackedStringArray = PackedStringArray()
+	var bytes: PackedByteArray = _zip_read_bytes(reader, files, "xl/sharedStrings.xml")
+	if bytes.size() == 0:
+		return result
+
+	var parser: XMLParser = XMLParser.new()
+	var open_error: Error = parser.open_buffer(bytes)
+	if open_error != OK:
+		return result
+
+	var current_text: String = ""
+	var in_shared_string: bool = false
+	var in_text: bool = false
+	while parser.read() == OK:
+		var node_type: XMLParser.NodeType = parser.get_node_type()
+		if node_type == XMLParser.NODE_ELEMENT:
+			var node_name: String = parser.get_node_name()
+			if node_name == "si":
+				in_shared_string = true
+				current_text = ""
+			elif in_shared_string and node_name == "t":
+				in_text = true
+		elif node_type == XMLParser.NODE_TEXT or node_type == XMLParser.NODE_CDATA:
+			if in_shared_string and in_text:
+				current_text += parser.get_node_data()
+		elif node_type == XMLParser.NODE_ELEMENT_END:
+			var end_name: String = parser.get_node_name()
+			if end_name == "t":
+				in_text = false
+			elif end_name == "si":
+				var _text_appended: bool = result.append(current_text)
+				in_shared_string = false
+				in_text = false
+				current_text = ""
+	return result
+
+
+func _read_xlsx_workbook_sheets(reader: ZIPReader, files: PackedStringArray) -> Array[Dictionary]:
+	var workbook_bytes: PackedByteArray = _zip_read_bytes(reader, files, "xl/workbook.xml")
+	if workbook_bytes.size() == 0:
+		return []
+
+	var sheets: Array[Dictionary] = _parse_xlsx_workbook_sheet_entries(workbook_bytes)
+	var relationships: Dictionary = _parse_xlsx_workbook_relationships(_zip_read_bytes(reader, files, "xl/_rels/workbook.xml.rels"))
+	for sheet: Dictionary in sheets:
+		var relation_id: String = GFVariantData.get_option_string(sheet, "relation_id")
+		var target: String = GFVariantData.get_option_string(relationships, relation_id)
+		if not target.is_empty():
+			sheet["path"] = _normalize_xlsx_relationship_target("xl/workbook.xml", target)
+	return sheets
+
+
+func _parse_xlsx_workbook_sheet_entries(bytes: PackedByteArray) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	var parser: XMLParser = XMLParser.new()
+	var open_error: Error = parser.open_buffer(bytes)
+	if open_error != OK:
+		return result
+
+	while parser.read() == OK:
+		if parser.get_node_type() != XMLParser.NODE_ELEMENT:
+			continue
+		if parser.get_node_name() != "sheet":
+			continue
+
+		var entry: Dictionary = {
+			"name": _get_xml_attribute(parser, "name"),
+			"sheet_id": _get_xml_attribute(parser, "sheetId"),
+			"relation_id": _get_xml_attribute_any(parser, PackedStringArray(["r:id", "id"])),
+			"path": "",
+		}
+		result.append(entry)
+	return result
+
+
+func _parse_xlsx_workbook_relationships(bytes: PackedByteArray) -> Dictionary:
+	var result: Dictionary = {}
+	if bytes.size() == 0:
+		return result
+
+	var parser: XMLParser = XMLParser.new()
+	var open_error: Error = parser.open_buffer(bytes)
+	if open_error != OK:
+		return result
+
+	while parser.read() == OK:
+		if parser.get_node_type() != XMLParser.NODE_ELEMENT:
+			continue
+		if parser.get_node_name() != "Relationship":
+			continue
+
+		var relation_id: String = _get_xml_attribute(parser, "Id")
+		if relation_id.is_empty():
+			continue
+		result[relation_id] = _get_xml_attribute(parser, "Target")
+	return result
+
+
+func _resolve_xlsx_worksheet_path(
+	files: PackedStringArray,
+	sheets: Array[Dictionary],
+	options: Dictionary
+) -> String:
+	var sheet_name: String = GFVariantData.get_option_string(options, "sheet_name")
+	if not sheet_name.is_empty():
+		for sheet: Dictionary in sheets:
+			if GFVariantData.get_option_string(sheet, "name") != sheet_name:
+				continue
+			var named_path: String = GFVariantData.get_option_string(sheet, "path")
+			return named_path if _zip_has_file(files, named_path) else ""
+		return ""
+
+	var sheet_index: int = maxi(GFVariantData.get_option_int(options, "sheet_index", 0), 0)
+	if sheet_index < sheets.size():
+		var sheet: Dictionary = sheets[sheet_index]
+		var indexed_path: String = GFVariantData.get_option_string(sheet, "path")
+		if _zip_has_file(files, indexed_path):
+			return indexed_path
+
+	var fallback_path: String = "xl/worksheets/sheet%d.xml" % (sheet_index + 1)
+	return fallback_path if _zip_has_file(files, fallback_path) else ""
+
+
+func _parse_xlsx_sheet(
+	bytes: PackedByteArray,
+	shared_strings: PackedStringArray,
+	options: Dictionary
+) -> Dictionary:
+	var parser: XMLParser = XMLParser.new()
+	var open_error: Error = parser.open_buffer(bytes)
+	if open_error != OK:
+		return _make_xlsx_parse_failure("XLSX worksheet parse failed: %s" % error_string(open_error), GFVariantData.get_option_string(options, "source"))
+
+	var rows: Array[Dictionary] = []
+	var current_cells: Dictionary = {}
+	var current_row_number: int = 0
+	var row_fallback_number: int = 0
+	var current_cell_ref: String = ""
+	var current_cell_type: String = ""
+	var current_cell_value: String = ""
+	var in_cell: bool = false
+	var in_value: bool = false
+	var in_inline_text: bool = false
+
+	while parser.read() == OK:
+		var node_type: XMLParser.NodeType = parser.get_node_type()
+		if node_type == XMLParser.NODE_ELEMENT:
+			var node_name: String = parser.get_node_name()
+			if node_name == "row":
+				row_fallback_number += 1
+				current_row_number = _parse_positive_int(_get_xml_attribute(parser, "r"), row_fallback_number)
+				current_cells = {}
+			elif node_name == "c":
+				in_cell = true
+				current_cell_ref = _get_xml_attribute(parser, "r")
+				current_cell_type = _get_xml_attribute(parser, "t")
+				current_cell_value = ""
+			elif in_cell and node_name == "v":
+				in_value = true
+			elif in_cell and current_cell_type == "inlineStr" and node_name == "t":
+				in_inline_text = true
+		elif node_type == XMLParser.NODE_TEXT or node_type == XMLParser.NODE_CDATA:
+			if in_value or in_inline_text:
+				current_cell_value += parser.get_node_data()
+		elif node_type == XMLParser.NODE_ELEMENT_END:
+			var end_name: String = parser.get_node_name()
+			if end_name == "v":
+				in_value = false
+			elif end_name == "t":
+				in_inline_text = false
+			elif end_name == "c":
+				var column_index: int = _xlsx_column_index_from_cell_ref(current_cell_ref)
+				if column_index >= 0:
+					current_cells[column_index] = _resolve_xlsx_cell_value(current_cell_value, current_cell_type, shared_strings)
+				in_cell = false
+				in_value = false
+				in_inline_text = false
+			elif end_name == "row":
+				rows.append({
+					"row_number": current_row_number,
+					"cells": current_cells.duplicate(true),
+				})
+				current_cells = {}
+
+	return _xlsx_rows_to_parse_result(rows, options)
+
+
+func _xlsx_rows_to_parse_result(rows: Array[Dictionary], options: Dictionary) -> Dictionary:
+	var source: String = GFVariantData.get_option_string(options, "source")
+	var header_row_number: int = maxi(GFVariantData.get_option_int(options, "header_row", 1), 1)
+	var trim_cells: bool = GFVariantData.get_option_bool(options, "trim_cells", true)
+	var skip_empty_lines: bool = GFVariantData.get_option_bool(options, "skip_empty_lines", true)
+	var reject_duplicate_headers: bool = GFVariantData.get_option_bool(options, "reject_duplicate_headers", true)
+	var header: PackedStringArray = PackedStringArray()
+	var records: Array[Dictionary] = []
+	var row_locations: Array[Dictionary] = []
+	var data_row_index: int = 0
+
+	for row_info: Dictionary in rows:
+		var row_number: int = GFVariantData.get_option_int(row_info, "row_number")
+		var cells: Dictionary = GFVariantData.get_option_dictionary(row_info, "cells")
+		if row_number == header_row_number:
+			header = _xlsx_cells_to_row(cells, trim_cells)
+			var header_error: String = _validate_xlsx_header(header, reject_duplicate_headers)
+			if not header_error.is_empty():
+				return _make_xlsx_parse_failure(header_error, source, row_number, 1)
+			continue
+		if row_number <= header_row_number:
+			continue
+
+		var row: PackedStringArray = _xlsx_cells_to_row(cells, trim_cells)
+		if skip_empty_lines and _xlsx_row_is_empty(row):
+			continue
+
+		var record: Dictionary = {}
+		for column_index: int in range(header.size()):
+			var key: StringName = StringName(header[column_index])
+			if key == &"":
+				continue
+			record[key] = row[column_index] if column_index < row.size() else ""
+		records.append(record)
+		row_locations.append(_make_xlsx_row_location(source, row_number, data_row_index, header))
+		data_row_index += 1
+
+	return {
+		"success": true,
+		"data": records,
+		"header": header,
+		"row_locations": row_locations,
+		"error": "",
+		"error_line": 0,
+		"error_column": 0,
+		"source": source,
+	}
+
+
+func _xlsx_cells_to_row(cells: Dictionary, trim_cells: bool) -> PackedStringArray:
+	var max_column_index: int = -1
+	for key: Variant in cells.keys():
+		if key is int:
+			var column_index: int = key
+			max_column_index = maxi(max_column_index, column_index)
+
+	var result: PackedStringArray = PackedStringArray()
+	for column_index: int in range(max_column_index + 1):
+		var text: String = GFVariantData.to_text(GFVariantData.get_option_value(cells, column_index, ""))
+		var _cell_appended: bool = result.append(text.strip_edges() if trim_cells else text)
+	return result
+
+
+func _resolve_xlsx_cell_value(
+	raw_value: String,
+	cell_type: String,
+	shared_strings: PackedStringArray
+) -> String:
+	var text: String = raw_value.strip_edges()
+	if cell_type == "s":
+		if text.is_valid_int():
+			var shared_index: int = text.to_int()
+			if shared_index >= 0 and shared_index < shared_strings.size():
+				return shared_strings[shared_index]
+		return ""
+	if cell_type == "b":
+		return "true" if text == "1" else "false"
+	return raw_value
+
+
+func _validate_xlsx_header(header: PackedStringArray, reject_duplicate_headers: bool) -> String:
+	if not reject_duplicate_headers:
+		return ""
+
+	var seen: Dictionary = {}
+	for column_name: String in header:
+		if column_name.is_empty():
+			continue
+		if seen.has(column_name):
+			return "XLSX header has duplicate column: %s" % column_name
+		seen[column_name] = true
+	return ""
+
+
+func _make_xlsx_row_location(
+	source: String,
+	row_number: int,
+	row_index: int,
+	header: PackedStringArray
+) -> Dictionary:
+	var fields: Dictionary = {}
+	for column_index: int in range(header.size()):
+		var key: StringName = StringName(header[column_index])
+		if key == &"":
+			continue
+		var field_location: Dictionary = {
+			"line": row_number,
+			"column": column_index + 1,
+			"column_index": column_index,
+		}
+		if not source.is_empty():
+			field_location["source"] = source
+		fields[key] = field_location
+		fields[String(key)] = field_location
+
+	var row_location: Dictionary = {
+		"line": row_number,
+		"row_index": row_index,
+		"fields": fields,
+	}
+	if not source.is_empty():
+		row_location["source"] = source
+	return row_location
+
+
+func _xlsx_row_is_empty(row: PackedStringArray) -> bool:
+	for cell: String in row:
+		if not cell.strip_edges().is_empty():
+			return false
+	return true
+
+
+func _xlsx_column_index_from_cell_ref(cell_ref: String) -> int:
+	var result: int = 0
+	var has_letters: bool = false
+	for index: int in range(cell_ref.length()):
+		var character: String = cell_ref.substr(index, 1).to_upper()
+		var code: int = character.unicode_at(0)
+		if code < 65 or code > 90:
+			break
+		result = result * 26 + code - 64
+		has_letters = true
+	return result - 1 if has_letters else -1
+
+
+func _parse_positive_int(text: String, fallback_value: int) -> int:
+	if text.is_valid_int():
+		return maxi(text.to_int(), 1)
+	return fallback_value
+
+
+func _zip_read_bytes(
+	reader: ZIPReader,
+	files: PackedStringArray,
+	path: String
+) -> PackedByteArray:
+	if not _zip_has_file(files, path):
+		return PackedByteArray()
+	return reader.read_file(path)
+
+
+func _zip_has_file(files: PackedStringArray, path: String) -> bool:
+	if path.is_empty():
+		return false
+	return files.has(path)
+
+
+func _close_zip_reader(reader: ZIPReader) -> void:
+	var _close_result: Variant = reader.call("close")
+
+
+func _normalize_xlsx_relationship_target(base_path: String, target: String) -> String:
+	var normalized_target: String = target.replace("\\", "/")
+	if normalized_target.begins_with("/"):
+		return _normalize_zip_path(normalized_target.trim_prefix("/"))
+	return _normalize_zip_path("%s/%s" % [base_path.get_base_dir(), normalized_target])
+
+
+func _normalize_zip_path(path: String) -> String:
+	var stack: PackedStringArray = PackedStringArray()
+	var parts: PackedStringArray = path.split("/", false)
+	for part: String in parts:
+		if part.is_empty() or part == ".":
+			continue
+		if part == "..":
+			if not stack.is_empty():
+				stack.remove_at(stack.size() - 1)
+			continue
+		var _part_appended: bool = stack.append(part)
+	return "/".join(stack)
+
+
+func _get_xml_attribute(parser: XMLParser, attribute_name: String) -> String:
+	for attribute_index: int in range(parser.get_attribute_count()):
+		if parser.get_attribute_name(attribute_index) == attribute_name:
+			return parser.get_attribute_value(attribute_index)
+	return ""
+
+
+func _get_xml_attribute_any(parser: XMLParser, attribute_names: PackedStringArray) -> String:
+	for attribute_name: String in attribute_names:
+		var value: String = _get_xml_attribute(parser, attribute_name)
+		if not value.is_empty():
+			return value
+	return ""
+
+
+func _make_xlsx_parse_failure(
+	message: String,
+	source: String,
+	line: int = 0,
+	column: int = 0
+) -> Dictionary:
+	return {
+		"success": false,
+		"data": null,
+		"row_locations": [],
+		"error": message,
+		"error_line": line,
+		"error_column": column,
+		"source": source,
+	}
+
+
+func _normalize_records(table_data: Variant) -> Dictionary:
+	var records: Array[Dictionary] = []
+	if table_data is Array:
+		var rows: Array = GFVariantData.as_array(table_data)
+		for row_value: Variant in rows:
+			if not (row_value is Dictionary):
+				return _make_records_failure(table_data)
+			var row: Dictionary = row_value
+			records.append(row.duplicate(true))
+		return {
+			"success": true,
+			"records": records,
+			"actual_value": "Array",
+		}
+
+	if table_data is Dictionary:
+		var table: Dictionary = GFVariantData.as_dictionary(table_data)
+		var keys: Array = table.keys()
+		keys.sort()
+		for key: Variant in keys:
+			var row_value: Variant = table[key]
+			if not (row_value is Dictionary):
+				return _make_records_failure(table_data)
+			var row: Dictionary = row_value
+			records.append(row.duplicate(true))
+		return {
+			"success": true,
+			"records": records,
+			"actual_value": "Dictionary",
+		}
+
+	return _make_records_failure(table_data)
+
+
+func _resolve_schema(
+	source: GFConfigPipelineTableSource,
+	table_name: StringName,
+	records: Array[Dictionary],
+	declared_schema: GFConfigTableSchema = null
+) -> GFConfigTableSchema:
+	var source_schema: GFConfigTableSchema = source.schema
+	var schema: GFConfigTableSchema = source_schema.duplicate_schema() if source_schema != null else null
+	if schema == null and declared_schema != null:
+		schema = declared_schema.duplicate_schema()
+	if schema == null and source.infer_schema:
+		schema = GFConfigTableSchema.infer_from_records(table_name, records, source.schema_options)
+	if schema != null and schema.table_name == &"":
+		schema.table_name = table_name
+	return schema
+
+
+func _validate_table_source(
+	source: GFConfigPipelineTableSource,
+	table_name: StringName,
+	records: Array[Dictionary],
+	schema: GFConfigTableSchema,
+	parse_result: Dictionary
+) -> Dictionary:
+	var report_builder: GFConfigValidationReport = GFConfigValidationReport.new()
+	var report: Dictionary = report_builder.make_report(table_name, records.size())
+	if schema == null:
+		report_builder.add_issue(
+			report,
+			"warning",
+			"missing_schema",
+			table_name,
+			null,
+			&"",
+			"配置表来源没有 schema，已跳过结构校验。",
+			{ "source": source.source_path }
+		)
+		report_builder.finalize_report(report)
+		return report
+
+	var validation_options: Dictionary = source.parse_options.duplicate(true)
+	if not source.source_path.is_empty():
+		validation_options["source"] = source.source_path
+	if parse_result.has("row_locations"):
+		validation_options["row_locations"] = GFVariantData.get_option_value(parse_result, "row_locations")
+	report_builder.merge_report(report, schema.validate_definition(validation_options), false)
+	report_builder.merge_report(report, schema.validate_table(records, validation_options), false)
+	report_builder.finalize_report(report)
+	return report
+
+
+func _apply_typed_header_schema(
+	source: GFConfigPipelineTableSource,
+	table_name: StringName,
+	records: Array[Dictionary],
+	parse_result: Dictionary
+) -> Dictionary:
+	if not GFVariantData.get_option_bool(source.schema_options, "typed_headers", false):
+		return {
+			"success": true,
+			"records": records,
+			"schema": null,
+		}
+
+	var raw_fields: Array[StringName] = _collect_typed_header_field_names(parse_result, records)
+	var schema: GFConfigTableSchema = _make_typed_header_schema(table_name, source.schema_options)
+	var field_name_map: Dictionary = {}
+	var seen_fields: Dictionary = {}
+	for raw_field_name: StringName in raw_fields:
+		var header_result: Dictionary = _parse_typed_header_column(raw_field_name)
+		if not GFVariantData.get_option_bool(header_result, "success"):
+			return header_result
+
+		var column: GFConfigTableColumn = _get_column_from_result(header_result)
+		if column == null:
+			return _make_typed_header_failure(
+				"invalid_typed_header",
+				"类型化表头声明无效：%s。" % String(raw_field_name),
+				raw_field_name
+			)
+
+		var field_name: StringName = column.get_field_key()
+		if seen_fields.has(field_name):
+			return _make_typed_header_failure(
+				"duplicate_typed_header_field",
+				"类型化表头声明了重复字段：%s。" % String(field_name),
+				raw_field_name
+			)
+
+		seen_fields[field_name] = true
+		field_name_map[raw_field_name] = field_name
+		schema.columns.append(column)
+
+	_remap_parse_result_field_locations(parse_result, field_name_map)
+	return {
+		"success": true,
+		"records": _remap_record_fields(records, field_name_map),
+		"schema": schema,
+	}
+
+
+func _collect_typed_header_field_names(parse_result: Dictionary, records: Array[Dictionary]) -> Array[StringName]:
+	var header_fields: Array[StringName] = _collect_header_field_names(GFVariantData.get_option_value(parse_result, "header"))
+	if not header_fields.is_empty():
+		return header_fields
+	return _collect_record_field_names(records)
+
+
+func _collect_header_field_names(header_value: Variant) -> Array[StringName]:
+	var result: Array[StringName] = []
+	var seen_fields: Dictionary = {}
+	if header_value is PackedStringArray:
+		var packed_header: PackedStringArray = header_value
+		for column_name: String in packed_header:
+			_append_header_field_name(result, seen_fields, column_name)
+	elif header_value is Array:
+		var header_array: Array = header_value
+		for column_value: Variant in header_array:
+			_append_header_field_name(result, seen_fields, GFVariantData.to_text(column_value))
+	return result
+
+
+func _append_header_field_name(target: Array[StringName], seen_fields: Dictionary, column_name: String) -> void:
+	var field_name: StringName = StringName(column_name.strip_edges())
+	if field_name == &"" or seen_fields.has(field_name):
+		return
+	seen_fields[field_name] = true
+	target.append(field_name)
+
+
+func _collect_record_field_names(records: Array[Dictionary]) -> Array[StringName]:
+	var result: Array[StringName] = []
+	var seen_fields: Dictionary = {}
+	for record: Dictionary in records:
+		for field_key: Variant in record.keys():
+			var field_name: StringName = GFVariantData.to_string_name(field_key)
+			if field_name == &"" or seen_fields.has(field_name):
+				continue
+			seen_fields[field_name] = true
+			result.append(field_name)
+	return result
+
+
+func _make_typed_header_schema(table_name: StringName, schema_options: Dictionary) -> GFConfigTableSchema:
+	var schema: GFConfigTableSchema = GFConfigTableSchema.new()
+	schema.table_name = table_name
+	schema.id_field = GFVariantData.get_option_string_name(schema_options, "id_field", &"id")
+	schema.allow_extra_fields = GFVariantData.get_option_bool(schema_options, "allow_extra_fields", false)
+	schema.coerce_values = GFVariantData.get_option_bool(schema_options, "coerce_values", true)
+	schema.fail_on_coerce_error = GFVariantData.get_option_bool(schema_options, "fail_on_coerce_error", true)
+	schema.require_unique_id = GFVariantData.get_option_bool(schema_options, "require_unique_id", false)
+	schema.metadata = {
+		"schema_source": "typed_headers",
+		"header_syntax": "gf.typed_headers.v1",
+	}
+	return schema
+
+
+func _parse_typed_header_column(raw_field_name: StringName) -> Dictionary:
+	var raw_text: String = String(raw_field_name).strip_edges()
+	if raw_text.is_empty():
+		return _make_typed_header_failure("empty_typed_header", "类型化表头字段名为空。", raw_field_name)
+
+	var separator_index: int = raw_text.rfind(":")
+	var field_text: String = raw_text
+	var type_text: String = "any"
+	if separator_index >= 0:
+		field_text = raw_text.substr(0, separator_index).strip_edges()
+		type_text = raw_text.substr(separator_index + 1).strip_edges().to_lower()
+
+	var markers: Dictionary = _strip_typed_header_markers(field_text, type_text)
+	field_text = GFVariantData.get_option_string(markers, "field_text")
+	type_text = GFVariantData.get_option_string(markers, "type_text", "any")
+	if field_text.is_empty():
+		return _make_typed_header_failure("empty_typed_header_field", "类型化表头字段名为空：%s。" % raw_text, raw_field_name)
+
+	var column: GFConfigTableColumn = GFConfigTableColumn.new()
+	column.field_name = StringName(field_text)
+	column.required = GFVariantData.get_option_bool(markers, "required")
+	column.allow_null = GFVariantData.get_option_bool(markers, "allow_null", true) and not column.required
+	column.metadata = { "source_header": raw_text }
+	if not _assign_typed_header_value_type(column, type_text):
+		return _make_typed_header_failure(
+			"unsupported_typed_header_type",
+			"类型化表头字段 %s 使用了不支持的类型：%s。" % [field_text, type_text],
+			raw_field_name
+		)
+
+	return {
+		"success": true,
+		"column": column,
+		"error": "",
+	}
+
+
+func _strip_typed_header_markers(field_text: String, type_text: String) -> Dictionary:
+	var required: bool = false
+	var allow_null: bool = true
+	while field_text.ends_with("!") or field_text.ends_with("?"):
+		if field_text.ends_with("!"):
+			required = true
+			allow_null = false
+		else:
+			allow_null = true
+		field_text = field_text.substr(0, field_text.length() - 1).strip_edges()
+	while type_text.ends_with("!") or type_text.ends_with("?"):
+		if type_text.ends_with("!"):
+			required = true
+			allow_null = false
+		else:
+			allow_null = true
+		type_text = type_text.substr(0, type_text.length() - 1).strip_edges()
+	if type_text.is_empty():
+		type_text = "any"
+	return {
+		"field_text": field_text,
+		"type_text": type_text,
+		"required": required,
+		"allow_null": allow_null,
+	}
+
+
+func _assign_typed_header_value_type(column: GFConfigTableColumn, type_text: String) -> bool:
+	match type_text:
+		"", "any", "variant":
+			column.value_type = GFConfigTableColumn.ValueType.ANY
+		"bool", "boolean":
+			column.value_type = GFConfigTableColumn.ValueType.BOOL
+		"int", "integer":
+			column.value_type = GFConfigTableColumn.ValueType.INT
+		"float", "double", "number":
+			column.value_type = GFConfigTableColumn.ValueType.FLOAT
+		"string", "str":
+			column.value_type = GFConfigTableColumn.ValueType.STRING
+		"string_name", "stringname", "name":
+			column.value_type = GFConfigTableColumn.ValueType.STRING_NAME
+		"vector2", "vec2":
+			column.value_type = GFConfigTableColumn.ValueType.VECTOR2
+		"vector2i", "vec2i":
+			column.value_type = GFConfigTableColumn.ValueType.VECTOR2I
+		"color", "colour":
+			column.value_type = GFConfigTableColumn.ValueType.COLOR
+		"dictionary", "dict", "object":
+			column.value_type = GFConfigTableColumn.ValueType.DICTIONARY
+		"array", "list":
+			column.value_type = GFConfigTableColumn.ValueType.ARRAY
+		_:
+			return false
+	return true
+
+
+func _remap_record_fields(records: Array[Dictionary], field_name_map: Dictionary) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	for record: Dictionary in records:
+		var remapped_record: Dictionary = {}
+		for field_key: Variant in record.keys():
+			var raw_field_name: StringName = GFVariantData.to_string_name(field_key)
+			var target_field_name: StringName = GFVariantData.get_option_string_name(field_name_map, raw_field_name, raw_field_name)
+			if target_field_name == &"":
+				continue
+			remapped_record[target_field_name] = GFVariantData.duplicate_variant(record[field_key])
+		result.append(remapped_record)
+	return result
+
+
+func _remap_parse_result_field_locations(parse_result: Dictionary, field_name_map: Dictionary) -> void:
+	var raw_locations: Variant = GFVariantData.get_option_value(parse_result, "row_locations", [])
+	if not (raw_locations is Array):
+		return
+
+	var locations: Array = raw_locations
+	for row_location_value: Variant in locations:
+		if not (row_location_value is Dictionary):
+			continue
+		var row_location: Dictionary = row_location_value
+		var raw_fields: Variant = GFVariantData.get_option_value(row_location, "fields", {})
+		if not (raw_fields is Dictionary):
+			continue
+		var fields: Dictionary = raw_fields
+		for raw_key_variant: Variant in field_name_map.keys():
+			var raw_field_name: StringName = GFVariantData.to_string_name(raw_key_variant)
+			var target_field_name: StringName = GFVariantData.get_option_string_name(field_name_map, raw_field_name, raw_field_name)
+			var field_location: Variant = GFVariantData.get_option_value(fields, raw_field_name)
+			if not (field_location is Dictionary):
+				field_location = GFVariantData.get_option_value(fields, String(raw_field_name))
+			if field_location is Dictionary:
+				fields[target_field_name] = field_location
+				fields[String(target_field_name)] = field_location
+
+
+func _make_typed_header_failure(
+	kind: String,
+	message: String,
+	raw_field_name: StringName
+) -> Dictionary:
+	return {
+		"success": false,
+		"kind": kind,
+		"error": message,
+		"context": {
+			"field": raw_field_name,
+			"actual_value": String(raw_field_name),
+			"supported_values": PackedStringArray([
+				"any",
+				"bool",
+				"int",
+				"float",
+				"string",
+				"string_name",
+				"vector2",
+				"vector2i",
+				"color",
+				"dictionary",
+				"array",
+			]),
+		},
+	}
+
+
+func _coerce_records(records: Array[Dictionary], schema: GFConfigTableSchema) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	for record: Dictionary in records:
+		result.append(schema.coerce_record(record))
+	return result
+
+
+func _make_table_metadata(source: GFConfigPipelineTableSource, resolved_format: StringName) -> Dictionary:
+	var result: Dictionary = source.metadata.duplicate(true)
+	result["source_path"] = source.source_path
+	result["source_format"] = resolved_format
+	return result
+
+
+func _is_supported_format(resolved_format: StringName) -> bool:
+	return (
+		resolved_format == _FORMAT_CSV
+		or resolved_format == _FORMAT_JSON
+	)
+
+
+func _make_table_failure(
+	table_name: StringName,
+	kind: String,
+	message: String,
+	context: Dictionary = {}
+) -> Dictionary:
+	var report: Dictionary = GFConfigValidationReport.new().make_error_report(table_name, kind, message, context)
+	return {
+		"success": false,
+		"table": null,
+		"report": report,
+		"source_path": GFVariantData.get_option_string(context, "source"),
+		"format": GFVariantData.get_option_string_name(context, "actual_value", _FORMAT_AUTO),
+		"error": message,
+	}
+
+
+func _make_records_failure(table_data: Variant) -> Dictionary:
+	return {
+		"success": false,
+		"records": [],
+		"actual_value": type_string(typeof(table_data)),
+	}
+
+
+func _make_save_result(
+	success: bool,
+	output_path: String,
+	output_format: StringName,
+	error_code: Error,
+	message: String
+) -> Dictionary:
+	return {
+		"success": success,
+		"path": output_path,
+		"format": output_format,
+		"error_code": error_code,
+		"error": message,
+	}
+
+
+func _make_profile_failure(
+	profile_id: StringName,
+	kind: String,
+	message: String,
+	context: Dictionary = {}
+) -> Dictionary:
+	var report: Dictionary = GFConfigValidationReport.new().make_error_report(profile_id, kind, message, context)
+	return {
+		"success": false,
+		"database": null,
+		"report": report,
+		"table_results": [],
+		"profile_id": profile_id,
+		"output_path": GFVariantData.get_option_string(context, "output_path"),
+		"error": message,
+	}
+
+
+func _make_profile_export_result(
+	success: bool,
+	build_result: Dictionary,
+	save_result: Dictionary,
+	access_result: Dictionary,
+	profile_id: StringName,
+	output_path: String,
+	message: String
+) -> Dictionary:
+	return {
+		"success": success,
+		"database": _get_database_from_result(build_result),
+		"report": GFVariantData.get_option_dictionary(build_result, "report"),
+		"table_results": GFVariantData.get_option_array(build_result, "table_results"),
+		"build_result": _duplicate_database_result_dictionary(build_result),
+		"save_result": save_result.duplicate(true),
+		"access_result": access_result.duplicate(true),
+		"profile_id": profile_id,
+		"output_path": output_path,
+		"error": message,
+	}
+
+
+func _make_access_result(
+	success: bool,
+	output_path: String,
+	access_class_name: String,
+	error_code: Error,
+	message: String,
+	skipped: bool,
+	schema_count: int
+) -> Dictionary:
+	return {
+		"success": success,
+		"skipped": skipped,
+		"path": output_path,
+		"class_name": access_class_name,
+		"schema_count": schema_count,
+		"error_code": error_code,
+		"error": message,
+	}
+
+
+func _collect_access_schemas(database: GFConfigDatabaseResource) -> Array:
+	var schemas: Array = []
+	if database == null:
+		return schemas
+
+	var table_ids: PackedStringArray = database.get_table_ids()
+	for table_id: String in table_ids:
+		var table_resource: GFConfigTableResource = database.get_table_resource(StringName(table_id), false)
+		if table_resource == null:
+			continue
+		if table_resource.schema != null:
+			schemas.append(table_resource.schema)
+		else:
+			schemas.append({ "table_name": table_resource.get_table_key() })
+	return schemas
+
+
+func _get_result_records(result: Dictionary) -> Array[Dictionary]:
+	var records: Array[Dictionary] = []
+	var raw_records: Variant = GFVariantData.get_option_value(result, "records", [])
+	if not (raw_records is Array):
+		return records
+	var raw_array: Array = raw_records
+	for row_value: Variant in raw_array:
+		if row_value is Dictionary:
+			var row: Dictionary = row_value
+			records.append(row)
+	return records
+
+
+func _get_schema_from_result(result: Dictionary) -> GFConfigTableSchema:
+	var schema_value: Variant = GFVariantData.get_option_value(result, "schema")
+	if schema_value is GFConfigTableSchema:
+		var schema: GFConfigTableSchema = schema_value
+		return schema
+	return null
+
+
+func _get_column_from_result(result: Dictionary) -> GFConfigTableColumn:
+	var column_value: Variant = GFVariantData.get_option_value(result, "column")
+	if column_value is GFConfigTableColumn:
+		var column: GFConfigTableColumn = column_value
+		return column
+	return null
+
+
+func _get_table_from_result(result: Dictionary) -> GFConfigTableResource:
+	var table_value: Variant = GFVariantData.get_option_value(result, "table")
+	if table_value is GFConfigTableResource:
+		var table: GFConfigTableResource = table_value
+		return table
+	return null
+
+
+func _get_database_from_result(result: Dictionary) -> GFConfigDatabaseResource:
+	var database_value: Variant = GFVariantData.get_option_value(result, "database")
+	if database_value is GFConfigDatabaseResource:
+		var database: GFConfigDatabaseResource = database_value
+		return database
+	return null
+
+
+func _duplicate_result_dictionary(result: Dictionary) -> Dictionary:
+	return _duplicate_dictionary_without_keys(result, { "table": true })
+
+
+func _duplicate_database_result_dictionary(result: Dictionary) -> Dictionary:
+	return _duplicate_dictionary_without_keys(result, { "database": true })
+
+
+func _duplicate_dictionary_without_keys(result: Dictionary, skipped_keys: Dictionary) -> Dictionary:
+	var copy: Dictionary = {}
+	for key: Variant in result.keys():
+		if skipped_keys.has(key):
+			continue
+		copy[key] = GFVariantData.duplicate_variant(result[key])
+	return copy
+
+
+func _save_database_json(
+	database: GFConfigDatabaseResource,
+	output_path: String,
+	options: Dictionary
+) -> Dictionary:
+	var export_result: Dictionary = _make_database_export_result(database, options)
+	if not GFVariantData.get_option_bool(export_result, "success"):
+		return _make_save_result(
+			false,
+			output_path,
+			_OUTPUT_FORMAT_JSON,
+			ERR_INVALID_DATA,
+			GFVariantData.get_option_string(export_result, "error")
+		)
+
+	var export_data: Dictionary = GFVariantData.get_option_dictionary(export_result, "data")
+	var indent: String = GFVariantData.get_option_string(options, "indent", _DEFAULT_JSON_INDENT)
+	var sort_keys: bool = GFVariantData.get_option_bool(options, "sort_keys", true)
+	var json_text: String = JSON.stringify(export_data, indent, sort_keys)
+	var file: FileAccess = FileAccess.open(output_path, FileAccess.WRITE)
+	if file == null:
+		var open_error: Error = FileAccess.get_open_error()
+		return _make_save_result(
+			false,
+			output_path,
+			_OUTPUT_FORMAT_JSON,
+			open_error,
+			"保存配置数据库 JSON 失败：%s。" % error_string(open_error)
+		)
+
+	var _store_string_result: bool = file.store_string(json_text)
+	return _make_save_result(true, output_path, _OUTPUT_FORMAT_JSON, OK, "")
+
+
+func _make_database_export_result(database: GFConfigDatabaseResource, options: Dictionary) -> Dictionary:
+	if database == null:
+		return _make_export_failure("配置数据库资源为空。")
+
+	var state: Dictionary = _make_json_state(options)
+	var tables: Array[Dictionary] = []
+	var table_ids: PackedStringArray = database.get_table_ids()
+	for table_id: String in table_ids:
+		var table_resource: GFConfigTableResource = database.get_table_resource(StringName(table_id), false)
+		if table_resource == null:
+			continue
+		var table_data: Dictionary = _make_table_export(table_resource, state, options)
+		if not GFVariantData.get_option_bool(state, "success", true):
+			return _make_export_failure(GFVariantData.get_option_string(state, "error"))
+		tables.append(table_data)
+
+	var export_data: Dictionary = {
+		"format": _JSON_EXPORT_FORMAT,
+		"format_version": _JSON_EXPORT_VERSION,
+		"database_id": String(database.database_id),
+		"version": database.version,
+		"metadata": _to_json_compatible(database.metadata, state, 0),
+		"tables": tables,
+	}
+	if not GFVariantData.get_option_bool(state, "success", true):
+		return _make_export_failure(GFVariantData.get_option_string(state, "error"))
+	return {
+		"success": true,
+		"data": export_data,
+		"error": "",
+	}
+
+
+func _make_table_export(
+	table_resource: GFConfigTableResource,
+	state: Dictionary,
+	options: Dictionary
+) -> Dictionary:
+	var include_schema: bool = GFVariantData.get_option_bool(options, "include_schema", true)
+	var include_indexes: bool = GFVariantData.get_option_bool(options, "include_indexes", false)
+	var result: Dictionary = {
+		"table_name": String(table_resource.get_table_key()),
+		"metadata": _to_json_compatible(table_resource.metadata, state, 0),
+		"records": _to_json_compatible(table_resource.records, state, 0),
+	}
+	if include_schema and table_resource.schema != null:
+		result["schema"] = _to_json_compatible(table_resource.schema.describe(), state, 0)
+	if include_indexes:
+		result["records_by_id"] = _to_json_compatible(table_resource.records_by_id, state, 0)
+		result["records_by_index"] = _to_json_compatible(table_resource.records_by_index, state, 0)
+	return result
+
+
+func _resolve_output_format(output_path: String, options: Dictionary) -> StringName:
+	var configured_format: StringName = GFVariantData.get_option_string_name(options, "output_format", _OUTPUT_FORMAT_AUTO)
+	if configured_format != &"" and configured_format != _OUTPUT_FORMAT_AUTO:
+		return configured_format
+
+	var extension: String = output_path.get_extension().to_lower()
+	if extension == "json":
+		return _OUTPUT_FORMAT_JSON
+	return _OUTPUT_FORMAT_RESOURCE
+
+
+func _make_export_failure(message: String) -> Dictionary:
+	return {
+		"success": false,
+		"data": {},
+		"error": message,
+	}
+
+
+func _make_json_state(options: Dictionary) -> Dictionary:
+	return {
+		"success": true,
+		"error": "",
+		"max_depth": maxi(GFVariantData.get_option_int(options, "max_depth", 256), 1),
+	}
+
+
+func _to_json_compatible(value: Variant, state: Dictionary, depth: int) -> Variant:
+	if not GFVariantData.get_option_bool(state, "success", true):
+		return null
+	if depth > GFVariantData.get_option_int(state, "max_depth", 256):
+		return _fail_json_export(state, "配置数据库 JSON 导出结构超过 max_depth。")
+
+	match typeof(value):
+		TYPE_NIL:
+			return null
+		TYPE_BOOL:
+			var bool_value: bool = value
+			return bool_value
+		TYPE_INT:
+			var int_value: int = value
+			return int_value
+		TYPE_FLOAT:
+			var float_value: float = value
+			if is_nan(float_value) or is_inf(float_value):
+				return _fail_json_export(state, "配置数据库 JSON 导出不支持 NaN 或 Inf。")
+			return float_value
+		TYPE_STRING:
+			var string_value: String = value
+			return string_value
+		TYPE_STRING_NAME:
+			var string_name_value: StringName = value
+			return String(string_name_value)
+		TYPE_NODE_PATH:
+			var node_path_value: NodePath = value
+			return String(node_path_value)
+		TYPE_VECTOR2:
+			var vector_2: Vector2 = value
+			return _make_json_variant("Vector2", [vector_2.x, vector_2.y])
+		TYPE_VECTOR2I:
+			var vector_2i: Vector2i = value
+			return _make_json_variant("Vector2i", [vector_2i.x, vector_2i.y])
+		TYPE_VECTOR3:
+			var vector_3: Vector3 = value
+			return _make_json_variant("Vector3", [vector_3.x, vector_3.y, vector_3.z])
+		TYPE_VECTOR3I:
+			var vector_3i: Vector3i = value
+			return _make_json_variant("Vector3i", [vector_3i.x, vector_3i.y, vector_3i.z])
+		TYPE_COLOR:
+			var color_value: Color = value
+			return _make_json_variant("Color", [color_value.r, color_value.g, color_value.b, color_value.a])
+		TYPE_ARRAY:
+			return _array_to_json_compatible(value, state, depth)
+		TYPE_DICTIONARY:
+			return _dictionary_to_json_compatible(value, state, depth)
+		TYPE_PACKED_STRING_ARRAY:
+			var packed_strings: PackedStringArray = value
+			return _packed_string_array_to_json(packed_strings)
+		TYPE_PACKED_INT32_ARRAY:
+			var packed_int32: PackedInt32Array = value
+			return _packed_int32_array_to_json(packed_int32)
+		TYPE_PACKED_INT64_ARRAY:
+			var packed_int64: PackedInt64Array = value
+			return _packed_int64_array_to_json(packed_int64)
+		TYPE_PACKED_FLOAT32_ARRAY:
+			var packed_float32: PackedFloat32Array = value
+			return _packed_float32_array_to_json(packed_float32, state)
+		TYPE_PACKED_FLOAT64_ARRAY:
+			var packed_float64: PackedFloat64Array = value
+			return _packed_float64_array_to_json(packed_float64, state)
+
+	return _fail_json_export(state, "配置数据库 JSON 导出不支持 Variant 类型：%s。" % type_string(typeof(value)))
+
+
+func _array_to_json_compatible(value: Variant, state: Dictionary, depth: int) -> Array:
+	var source: Array = GFVariantData.as_array(value)
+	var result: Array = []
+	for item: Variant in source:
+		result.append(_to_json_compatible(item, state, depth + 1))
+		if not GFVariantData.get_option_bool(state, "success", true):
+			return []
+	return result
+
+
+func _dictionary_to_json_compatible(value: Variant, state: Dictionary, depth: int) -> Dictionary:
+	var source: Dictionary = GFVariantData.as_dictionary(value)
+	var result: Dictionary = {}
+	for key: Variant in source.keys():
+		var key_text: String = _json_key_to_text(key, state)
+		if not GFVariantData.get_option_bool(state, "success", true):
+			return {}
+		if result.has(key_text):
+			var _failed_duplicate_key: Variant = _fail_json_export(state, "配置数据库 JSON 导出遇到重复 JSON key：%s。" % key_text)
+			return {}
+		result[key_text] = _to_json_compatible(source[key], state, depth + 1)
+		if not GFVariantData.get_option_bool(state, "success", true):
+			return {}
+	return result
+
+
+func _json_key_to_text(key: Variant, state: Dictionary) -> String:
+	match typeof(key):
+		TYPE_STRING:
+			var string_key: String = key
+			return string_key
+		TYPE_STRING_NAME:
+			var string_name_key: StringName = key
+			return String(string_name_key)
+		TYPE_INT:
+			var int_key: int = key
+			return str(int_key)
+	var _failed_key_type: Variant = _fail_json_export(state, "配置数据库 JSON 导出不支持 Dictionary key 类型：%s。" % type_string(typeof(key)))
+	return ""
+
+
+func _packed_string_array_to_json(values: PackedStringArray) -> Array:
+	var result: Array = []
+	for value: String in values:
+		result.append(value)
+	return result
+
+
+func _packed_int32_array_to_json(values: PackedInt32Array) -> Array:
+	var result: Array = []
+	for value: int in values:
+		result.append(value)
+	return result
+
+
+func _packed_int64_array_to_json(values: PackedInt64Array) -> Array:
+	var result: Array = []
+	for value: int in values:
+		result.append(value)
+	return result
+
+
+func _packed_float32_array_to_json(values: PackedFloat32Array, state: Dictionary) -> Array:
+	var result: Array = []
+	for value: float in values:
+		if is_nan(value) or is_inf(value):
+			var _failed_non_finite: Variant = _fail_json_export(state, "配置数据库 JSON 导出不支持 NaN 或 Inf。")
+			return []
+		result.append(value)
+	return result
+
+
+func _packed_float64_array_to_json(values: PackedFloat64Array, state: Dictionary) -> Array:
+	var result: Array = []
+	for value: float in values:
+		if is_nan(value) or is_inf(value):
+			var _failed_non_finite: Variant = _fail_json_export(state, "配置数据库 JSON 导出不支持 NaN 或 Inf。")
+			return []
+		result.append(value)
+	return result
+
+
+func _make_json_variant(type_name: String, variant_value: Variant) -> Dictionary:
+	return {
+		_JSON_VARIANT_TYPE_KEY: type_name,
+		_JSON_VARIANT_VALUE_KEY: variant_value,
+	}
+
+
+func _fail_json_export(state: Dictionary, message: String) -> Variant:
+	if GFVariantData.get_option_bool(state, "success", true):
+		state["success"] = false
+		state["error"] = message
+	return null
