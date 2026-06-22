@@ -40,7 +40,12 @@ jobs:
 
       - name: Run release maintenance suite
         run: |
-          python tools/gf_maintenance.py release-status --version "${GITHUB_REF_NAME}"
+          release_status_flags=()
+          # 5.2.0 is an explicitly approved 5.x compatibility break documented in the changelog.
+          if [ "${GITHUB_REF_NAME}" = "5.2.0" ]; then
+            release_status_flags+=(--allow-breaking-api)
+          fi
+          python tools/gf_maintenance.py release-status --version "${GITHUB_REF_NAME}" "${release_status_flags[@]}"
           python tools/gf_maintenance.py check --suite release --timeout 1200 --failed-only --github-annotations
 
       - name: Extract release notes
