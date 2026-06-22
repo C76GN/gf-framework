@@ -1202,6 +1202,11 @@ def main() -> int:
 		action="store_true",
 		help="Emit GitHub Actions error annotations for failed checks.",
 	)
+	check_parser.add_argument(
+		"--allow-breaking-api",
+		action="store_true",
+		help="Allow explicitly approved breaking API baseline changes in the release_metadata check.",
+	)
 	check_parser.add_argument("--json", action="store_true", help="Print JSON instead of text.")
 
 	release_parser = subparsers.add_parser("release-status", help="Check release metadata consistency.")
@@ -1388,6 +1393,7 @@ def main() -> int:
 			timeout_seconds=args.timeout,
 			fail_fast=args.fail_fast,
 			sync_examples=args.sync_examples,
+			allow_breaking_api=args.allow_breaking_api,
 		)
 		renderer = render_failed_checks_text if args.failed_only else render_checks_text
 		print_output(data, args.json, renderer)
@@ -19241,6 +19247,7 @@ def run_checks(
 	timeout_seconds: int = 600,
 	fail_fast: bool = False,
 	sync_examples: bool = False,
+	allow_breaking_api: bool = False,
 ) -> dict[str, Any]:
 	check_names = list(checks if checks else CHECK_SUITES[suite])
 	if sync_examples:
@@ -19251,7 +19258,7 @@ def run_checks(
 	results: list[dict[str, Any]] = []
 	for name in check_names:
 		if name == "release_metadata":
-			status = release_status("")
+			status = release_status("", allow_breaking_api=allow_breaking_api)
 			results.append({
 				"name": name,
 				"exit_code": 0 if status["ok"] else 1,

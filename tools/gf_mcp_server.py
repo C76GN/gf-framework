@@ -155,6 +155,11 @@ def list_tools() -> list[dict[str, Any]]:
 					},
 					"timeout_seconds": {"type": "integer", "minimum": 30, "maximum": 1800, "default": 600},
 					"fail_fast": {"type": "boolean", "default": False},
+					"allow_breaking_api": {
+						"type": "boolean",
+						"default": False,
+						"description": "Allow explicitly approved breaking API baseline changes in release_metadata.",
+					},
 				},
 				"additionalProperties": False,
 			},
@@ -168,6 +173,11 @@ def list_tools() -> list[dict[str, Any]]:
 				"properties": {
 					"version": {"type": "string", "description": "Expected SemVer. Defaults to addons/gf/plugin.cfg version."},
 					"allow_dirty": {"type": "boolean", "default": False, "description": "Allow dirty-worktree diagnostics. Do not use for release packaging."},
+					"allow_breaking_api": {
+						"type": "boolean",
+						"default": False,
+						"description": "Allow explicitly approved breaking API baseline changes without requiring a major version bump.",
+					},
 				},
 				"additionalProperties": False,
 			},
@@ -208,11 +218,13 @@ def call_tool(request_id: Any, params: dict[str, Any]) -> dict[str, Any]:
 				checks=checks if isinstance(checks, list) else None,
 				timeout_seconds=int(arguments.get("timeout_seconds", 600)),
 				fail_fast=bool(arguments.get("fail_fast", False)),
+				allow_breaking_api=bool(arguments.get("allow_breaking_api", False)),
 			)
 		elif name == "gf_release_status":
 			data = gf_maintenance.release_status(
 				str(arguments.get("version", "")),
 				allow_dirty=bool(arguments.get("allow_dirty", False)),
+				allow_breaking_api=bool(arguments.get("allow_breaking_api", False)),
 			)
 		else:
 			return error_response(request_id, -32602, f"Unknown tool: {name}")

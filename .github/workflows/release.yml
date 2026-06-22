@@ -46,7 +46,7 @@ jobs:
             release_status_flags+=(--allow-breaking-api)
           fi
           python tools/gf_maintenance.py release-status --version "${GITHUB_REF_NAME}" "${release_status_flags[@]}"
-          python tools/gf_maintenance.py check --suite release --timeout 1200 --failed-only --github-annotations
+          python tools/gf_maintenance.py check --suite release --timeout 1200 --failed-only --github-annotations "${release_status_flags[@]}"
 
       - name: Extract release notes
         run: >
