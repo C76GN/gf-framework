@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFRawResourceArtifact" path="addons/gf/standard/utilities/assets/gf_raw_resource_artifact.gd" module="standard" extends="Resource" classDigest="5425c3cedf85761cd57d20638f646822aa51605a61e91b2a4549defacd7ce59d">
+	<description>GFRawResourceArtifact: 原始文件数据资源。
+保存一个外部或导入前源文件的相对路径、字节数据和元数据，并可显式物化到 user:// 或授权路径。
+它不绑定任何第三方格式或运行库，只提供通用的原始资源载荷封装。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">resource_definition</tag>
+		<tag name="since">6.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants>
+		<member kind="const" name="DEFAULT_MATERIALIZE_DIR">
+			<signature>const DEFAULT_MATERIALIZE_DIR: String = "user://gf/artifacts"</signature>
+			<description>默认物化目录。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties>
+		<member kind="property" name="source_path" decorators="@export">
+			<signature>var source_path: String = ""</signature>
+			<description>原始源路径。可以是项目相对路径、res:// 路径或调用方自定义路径文本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="data" decorators="@export">
+			<signature>var data: PackedByteArray = PackedByteArray()</signature>
+			<description>原始文件字节数据。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="type_hint" decorators="@export">
+			<signature>var type_hint: String = ""</signature>
+			<description>可选类型提示或格式名。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="metadata" decorators="@export">
+			<signature>var metadata: Dictionary = {}</signature>
+			<description>调用方自定义元数据。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">metadata: Dictionary project-defined artifact metadata.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="configure">
+			<signature>func configure( p_source_path: String, p_data: PackedByteArray, p_type_hint: String = "", p_metadata: Dictionary = {} ) -&gt; GFRawResourceArtifact:</signature>
+			<description>配置原始文件资源。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">p_source_path: 原始源路径。</tag>
+				<tag name="param">p_data: 原始文件字节数据。</tag>
+				<tag name="param">p_type_hint: 可选类型提示或格式名。</tag>
+				<tag name="param">p_metadata: 调用方自定义元数据。</tag>
+				<tag name="return">当前资源。</tag>
+				<tag name="schema">p_metadata: Dictionary project-defined artifact metadata.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="has_data">
+			<signature>func has_data() -&gt; bool:</signature>
+			<description>检查是否包含字节数据。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">包含数据时返回 true。</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_size_bytes">
+			<signature>func get_size_bytes() -&gt; int:</signature>
+			<description>获取数据字节数。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">数据字节数。</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="materialize_to_path">
+			<signature>func materialize_to_path(target_path: String, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>物化到指定路径。
+默认只允许写入 user://，需要写入 res:// 时必须显式传入 allow_res_path。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">target_path: 输出文件路径。</tag>
+				<tag name="param">options: 写入选项。</tag>
+				<tag name="return">写入报告。</tag>
+				<tag name="schema">options: Dictionary，可包含 allow_user_path、allow_res_path、overwrite 和 create_directories。</tag>
+				<tag name="schema">return: Dictionary with ok, path, reason, size_bytes, and metadata.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="materialize_temp">
+			<signature>func materialize_temp(options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>物化到临时 artifact 目录。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">options: 写入选项，可包含 directory_path、file_name、extension、overwrite。</tag>
+				<tag name="return">写入报告。</tag>
+				<tag name="schema">options: Dictionary，可包含 directory_path、file_name、extension、overwrite、allow_user_path、allow_res_path。</tag>
+				<tag name="schema">return: Dictionary with ok, path, reason, size_bytes, and metadata.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="to_summary_dictionary">
+			<signature>func to_summary_dictionary() -&gt; Dictionary:</signature>
+			<description>转换为轻量字典，不包含完整 data。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">摘要字典。</tag>
+				<tag name="schema">return: Dictionary with source_path, type_hint, size_bytes, and metadata.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

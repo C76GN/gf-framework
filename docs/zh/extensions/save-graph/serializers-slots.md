@@ -13,7 +13,7 @@ SaveGraph 的默认节点序列化器按节点类型拆分，覆盖常见场景�
 - `GFNodeAudioStreamPlayerSerializer`：保存音频播放器状态。
 - `GFNodePropertySerializer`：保存项目显式声明的属性列表。
 
-属性序列化器采集时会把常见 Godot 值类型转成可 JSON 落盘的类型化值，并用 `GFVariantReferenceCodec` 保存显式引用。Resource 引用会记录路径、可用时的 `ResourceUID` 和类型提示；同一 SaveGraph Scope 内的 Node 引用会记录相对 Scope 的 `NodePath`。没有路径的内嵌资源、Scope 外节点引用或其他裸 `Object` 会被跳过并输出 warning。应用数据时会先恢复类型化值或引用，再检查属性存在、可写性和基础 Variant 类型兼容性。
+属性序列化器采集时会把常见 Godot 值类型转成可 JSON 落盘的类型化值，并用 `GFVariantReferenceCodec` 保存显式引用。Resource 引用会记录路径、可用时的 `ResourceUID` 和类型提示；同一 SaveGraph Scope 内的 Node 引用会记录相对 Scope 的 `NodePath`。没有路径的内嵌资源、Scope 外节点引用或其他裸 `Object` 会被跳过并输出 warning。应用数据时会先恢复类型化值或引用，再检查属性存在、可写性和基础 Variant 类型兼容性。Resource 引用恢复默认拒绝加载；项目需要在调用 context 中传入 `allowed_resource_roots` / `allowed_resource_patterns`，或在 `GFNodePropertySerializer`、`GFPersistPropertiesSource` 上配置同名 allowlist。
 
 如果只需要在场景树里声明属性白名单，可以直接使用 `GFPersistPropertiesSource`。它是 `GFSaveSource` 的薄封装，内部仍使用 `GFNodePropertySerializer`，默认目标是父节点，也可以通过继承的 `target_node_path` 指向其他节点。
 

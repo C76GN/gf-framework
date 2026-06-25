@@ -6,16 +6,19 @@ extends GutTest
 
 const GF_CONTENT_PACKAGE_EXTENSION = preload("res://addons/gf/extensions/content_package/extension.gd")
 const TEMP_ROOT: String = "res://tests/gf_core/tmp_content_packages"
+const TEMP_USER_ROOT: String = "user://gf_tmp_content_packages"
 
 
 # --- 测试生命周期 ---
 
 func before_each() -> void:
 	_remove_path_if_exists(TEMP_ROOT)
+	_remove_path_if_exists(TEMP_USER_ROOT)
 
 
 func after_each() -> void:
 	_remove_path_if_exists(TEMP_ROOT)
+	_remove_path_if_exists(TEMP_USER_ROOT)
 
 
 # --- 测试用例 ---
@@ -99,6 +102,69 @@ func test_manifest_rejects_uid_resources_because_package_root_cannot_be_verified
 		"resource_path_not_allowed",
 		"被拒绝的 uid:// 路径应使用稳定 issue kind。"
 	)
+
+
+func test_manifest_accepts_user_resources_inside_user_root() -> void:
+	var manifest: GFContentPackageManifest = _make_manifest(
+		&"author.runtime",
+		[],
+		[
+			{
+				"key": "runtime.data",
+				"path": "assets/data.tres",
+			},
+		],
+		TEMP_USER_ROOT.path_join("runtime")
+	)
+	var resources: Array[Dictionary] = manifest.get_normalized_resources()
+	var first_resource: Dictionary = resources[0]
+
+	assert_true(manifest.is_valid(), "user:// source root 内的资源路径应可用于运行时内容包。")
+	assert_eq(
+		GFVariantData.get_option_string(first_resource, "path"),
+		TEMP_USER_ROOT.path_join("runtime/assets/data.tres"),
+		"user:// 相对资源路径应归一到 user:// 内容包根目录。"
+	)
+
+
+func test_manifest_rejects_code_resources_for_data_only_packages() -> void:
+	var manifest: GFContentPackageManifest = _make_manifest(
+		&"author.data",
+		[],
+		[
+			{
+				"key": "script",
+				"path": "scripts/tool.gd",
+			},
+		],
+		TEMP_ROOT.path_join("data")
+	)
+	var report: Dictionary = manifest.get_validation_report()
+	var issue: Dictionary = _find_issue(report, "resource_extension_forbidden")
+
+	assert_false(GFVariantData.get_option_bool(report, "ok"), "data_only 内容包不应接受脚本资源。")
+	assert_eq(
+		GFVariantData.get_option_string(issue, "kind"),
+		"resource_extension_forbidden",
+		"安全分类拒绝扩展名时应使用稳定 issue kind。"
+	)
+
+
+func test_manifest_allows_code_resources_for_trusted_developer_packages() -> void:
+	var manifest: GFContentPackageManifest = _make_manifest(
+		&"author.tooling",
+		[],
+		[
+			{
+				"key": "script",
+				"path": "scripts/tool.gd",
+			},
+		],
+		TEMP_ROOT.path_join("tooling")
+	)
+	manifest.safety_kind = GFContentPackageManifest.SAFETY_KIND_TRUSTED_DEVELOPER
+
+	assert_true(manifest.is_valid(), "trusted_developer 内容包可显式承载开发者代码资源。")
 
 
 func test_catalog_orders_dependencies_before_dependents() -> void:
@@ -233,6 +299,58 @@ func test_utility_reports_invalid_manifest_files() -> void:
 	utility.dispose()
 
 
+func test_utility_discovers_user_source_root_manifests() -> void:
+	_write_manifest_file(
+		TEMP_USER_ROOT.path_join("runtime/gf_content_package.json"),
+		{
+			"package_id": "author.runtime",
+			"version": "1.0.0",
+			"resources": [],
+		}
+	)
+	var utility: GFContentPackageUtility = GFContentPackageUtility.new()
+	utility.init()
+	var registered: bool = utility.register_source_root(TEMP_USER_ROOT)
+	var paths: PackedStringArray = utility.discover_manifest_paths()
+	var report: Dictionary = utility.rebuild_catalog()
+
+	assert_true(registered, "user:// source root 应可注册。")
+	assert_eq(paths.size(), 1, "user:// source root 的直接子目录 manifest 应被发现。")
+	assert_true(GFVariantData.get_option_bool(report, "ok"), "user:// 内容包 manifest 应能重建目录。")
+	assert_true(utility.get_catalog().has_package(&"author.runtime"), "重建后的目录应包含 user:// 内容包。")
+	utility.dispose()
+
+
+func test_export_plan_builds_manifest_and_resource_entries() -> void:
+	var manifest: GFContentPackageManifest = _make_manifest(
+		&"author.base",
+		[],
+		[
+			{
+				"key": "icon",
+				"path": "assets/icon.tres",
+				"type_hint": "Resource",
+			},
+		],
+		TEMP_ROOT.path_join("base")
+	)
+
+	var plan: GFContentPackageExportPlan = GFContentPackageExportPlan.from_manifest(manifest, {
+		"archive_root": "packages/base",
+	})
+	var report: Dictionary = plan.get_validation_report()
+	var entries: Array = GFVariantData.get_option_array(report, "entries")
+	var resource_entry: Dictionary = _find_export_entry(entries, &"resource")
+
+	assert_true(GFVariantData.get_option_bool(report, "ok"), "有效 manifest 应能构建导出计划。")
+	assert_eq(GFVariantData.get_option_int(report, "entry_count"), 2, "计划应包含 manifest 和资源条目。")
+	assert_eq(
+		GFVariantData.get_option_string(resource_entry, "archive_path"),
+		"packages/base/assets/icon.tres",
+		"归档路径应按内容包根目录生成，不依赖项目业务规则。"
+	)
+
+
 func test_extension_installer_registers_content_package_utility() -> void:
 	var architecture: GFArchitecture = GFArchitecture.new()
 	var installer: GFInstaller = GF_CONTENT_PACKAGE_EXTENSION.new()
@@ -274,6 +392,14 @@ func _find_issue(report: Dictionary, kind: String) -> Dictionary:
 		var issue: Dictionary = GFVariantData.as_dictionary(issue_variant)
 		if GFVariantData.get_option_string(issue, "kind") == kind:
 			return issue
+	return {}
+
+
+func _find_export_entry(entries: Array, role: StringName) -> Dictionary:
+	for entry_value: Variant in entries:
+		var entry: Dictionary = GFVariantData.as_dictionary(entry_value)
+		if GFVariantData.get_option_string_name(entry, "role") == role:
+			return entry
 	return {}
 
 

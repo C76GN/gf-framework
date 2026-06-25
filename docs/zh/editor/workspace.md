@@ -42,7 +42,17 @@ godot --headless --path . --script res://addons/gf/kernel/package/gf_package_cli
 godot --headless --path . --script res://addons/gf/kernel/package/gf_package_cli.gd -- verify
 ```
 
-常用参数包括 `--registry`、`--channel`、`--project-root`、`--lockfile`、`--cache-dir`、`--dry-run`、`--all-installed`、`--force` 和 `--json`。`status` 用来查看 registry 中有哪些 package、哪些已安装、哪些可安装或可更新；`install` 会根据依赖闭包安装新 package；`update` 只更新 lockfile 中已经安装的 package，可显式指定 package id，也可用 `--all-installed` 对齐全部已安装 package；`uninstall` 会按 lockfile、依赖关系和项目引用检查卸载风险；`verify` 用来检查 lockfile 与当前 registry 是否一致。
+常用参数包括 `--registry`、`--channel`、`--project-root`、`--lockfile`、`--cache-dir`、`--dry-run`、`--all-installed`、`--all-concrete`、`--kind`、`--exclude-kind`、`--force` 和 `--json`。`status` 用来查看 registry 中有哪些 package、哪些已安装、哪些可安装或可更新；`install` 会根据依赖闭包安装新 package；`update` 只更新 lockfile 中已经安装的 package，可显式指定 package id，也可用 `--all-installed` 对齐全部已安装 package；`uninstall` 会按 lockfile、依赖关系和项目引用检查卸载风险；`verify` 用来检查 lockfile 与当前 registry 是否一致。
+
+安装时可以显式列出 package id，也可以用 selector 从当前 registry 选择一组具体 package：
+
+```powershell
+godot --headless --path . --script res://addons/gf/kernel/package/gf_package_cli.gd -- install --all-concrete --kind standard,extension --exclude-kind tool
+```
+
+`--all-concrete` 只选择有真实包内容的 package，不会把 preset 当成安装根；`--kind` 与 `--exclude-kind` 使用 registry 中的 package kind 过滤结果。选择器只基于 registry 元数据生成安装根，依赖闭包、兼容性检查、archive 校验、staging、回滚和 lockfile 写入仍由同一条安装事务处理。
+
+`.gf/packages.lock.json` 会记录本次使用的 registry source、channel、offline bundle、mirror index、registry hash 和 size 等来源信息。后续 `verify`、`status`、更新预览或编辑器页面可以用这些字段解释项目当前 package 状态来自哪个源，而不是只保存包版本号。
 
 Package Manager 不是正在运行的 GF 框架自更新器。使用默认源时，GF `1.0.0` 项目执行 `install gf.kernel` 仍然会对齐 `1.0.0` registry；要升级到 GF `1.0.1`，应先用 GF `1.0.1` release 替换框架，再刷新 Package Manager 或运行 `status`，最后用 `update --all-installed` 同步已安装 package。
 

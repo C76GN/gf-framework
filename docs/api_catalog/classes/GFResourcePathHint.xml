@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFResourcePathHint" path="addons/gf/kernel/editor/gf_resource_path_hint.gd" module="kernel" extends="Object" classDigest="7b262412d700db7f635087ca1d0cdf3b8aa6d2d6dcf527f96c7793c598362454">
+	<description>GFResourcePathHint: GF 编辑器资源路径字段使用的自定义 PropertyHint 常量。
+用于让项目在 `@export_custom()` 或 `_get_property_list()` 中显式声明资源路径字段。
+常量只描述编辑器展示语义，不绑定资源业务含义。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">editor_api</tag>
+		<tag name="layer">kernel/editor</tag>
+		<tag name="since">6.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants>
+		<member kind="const" name="RESOURCE_PATH">
+			<signature>const RESOURCE_PATH: int = 760010</signature>
+			<description>单个资源路径字符串 hint。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="RESOURCE_PATH_ARRAY">
+			<signature>const RESOURCE_PATH_ARRAY: int = 760011</signature>
+			<description>资源路径数组 hint。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties />
+	<methods />
+	<innerClasses />
+</class>

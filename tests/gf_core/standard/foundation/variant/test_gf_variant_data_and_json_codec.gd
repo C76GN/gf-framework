@@ -117,6 +117,20 @@ func test_scalar_variant_narrowing_helpers_use_explicit_fallbacks() -> void:
 	assert_eq(GFVariantData.to_string_name(null, &"fallback"), &"fallback", "null 名称应返回 fallback。")
 
 
+func test_values_equal_handles_numeric_and_string_name_options() -> void:
+	assert_true(GFVariantData.values_equal(1, 1.0), "int/float 同数值应按通用等值语义相等。")
+	assert_false(GFVariantData.values_equal(1.0, 1.01), "默认数值等值不应隐藏实际差异。")
+	assert_true(
+		GFVariantData.values_equal(1.0, 1.01, { "numeric_epsilon": 0.02 }),
+		"numeric_epsilon 应允许调用方显式容忍浮点误差。"
+	)
+	assert_false(GFVariantData.values_equal("state.ready", &"state.ready"), "默认 String 与 StringName 不应跨类型相等。")
+	assert_true(
+		GFVariantData.values_equal("state.ready", &"state.ready", { "match_string_names": true }),
+		"显式启用时 String 与 StringName 可按文本比较。"
+	)
+
+
 func test_vector_variant_narrowing_helpers_support_common_shapes() -> void:
 	var fallback_2: Vector2 = Vector2(9.0, 8.0)
 	var fallback_3: Vector3 = Vector3(7.0, 6.0, 5.0)
@@ -507,7 +521,11 @@ func test_json_compatible_codec_only_decodes_dedicated_variant_marker() -> void:
 
 
 func test_reference_codec_roundtrips_resource_reference() -> void:
-	var resource_path: String = "user://gf_variant_reference_codec_resource.tres"
+	var directory_path: String = "user://gf_variant_reference_codec"
+	var resource_path: String = directory_path.path_join("resource.tres")
+	var make_dir_error: Error = DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(directory_path))
+	assert_true(make_dir_error == OK or make_dir_error == ERR_ALREADY_EXISTS, "测试应能创建 user:// 引用目录。")
+
 	var resource: Resource = Resource.new()
 	resource.resource_name = "ReferenceCodecResource"
 	assert_eq(ResourceSaver.save(resource, resource_path), OK, "测试 Resource 应能保存。")
@@ -516,9 +534,13 @@ func test_reference_codec_roundtrips_resource_reference() -> void:
 	var encoded: Dictionary = GFVariantReferenceCodec.encode_reference(loaded_resource)
 	var marker: Dictionary = GFVariantReferenceCodec.get_reference_marker(encoded)
 	var json_encoded: Dictionary = _as_dictionary(JSON.parse_string(JSON.stringify(encoded)))
-	var result: Dictionary = GFVariantReferenceCodec.decode_reference(json_encoded)
+	var denied_result: Dictionary = GFVariantReferenceCodec.decode_reference(json_encoded)
+	var result: Dictionary = GFVariantReferenceCodec.decode_reference(json_encoded, {
+		GFVariantReferenceCodec.OPTION_ALLOWED_RESOURCE_ROOTS: PackedStringArray([resource_path.get_base_dir()]),
+	})
 	var decoded_resource: Resource = _as_resource(GFVariantData.get_option_value(result, "value"))
 
+	assert_false(GFVariantData.get_option_bool(denied_result, "ok", true), "未提供 Resource allowlist 时不应恢复引用。")
 	assert_true(GFVariantData.get_option_bool(result, "ok"), "Resource 引用标记应能经 JSON 往返后恢复。")
 	assert_eq(GFVariantData.get_option_string(marker, GFVariantReferenceCodec.REFERENCE_KIND_KEY), GFVariantReferenceCodec.REFERENCE_KIND_RESOURCE, "Resource 引用应标记类型。")
 	assert_eq(GFVariantData.get_option_string(marker, GFVariantReferenceCodec.REFERENCE_PATH_KEY), resource_path, "Resource 引用应保留路径。")
@@ -527,6 +549,44 @@ func test_reference_codec_roundtrips_resource_reference() -> void:
 	var absolute_path: String = ProjectSettings.globalize_path(resource_path)
 	if FileAccess.file_exists(resource_path):
 		var _remove_absolute_result: Variant = DirAccess.remove_absolute(absolute_path)
+	var absolute_directory_path: String = ProjectSettings.globalize_path(directory_path)
+	if DirAccess.dir_exists_absolute(absolute_directory_path):
+		var _remove_directory_result: Variant = DirAccess.remove_absolute(absolute_directory_path)
+
+
+func test_reference_codec_can_restrict_resource_decode_paths() -> void:
+	var directory_path: String = "user://gf_variant_reference_policy"
+	var resource_path: String = directory_path.path_join("resource.tres")
+	var make_dir_error: Error = DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(directory_path))
+	assert_true(make_dir_error == OK or make_dir_error == ERR_ALREADY_EXISTS, "测试应能创建 user:// 策略目录。")
+
+	var resource: Resource = Resource.new()
+	resource.resource_name = "PolicyResource"
+	assert_eq(ResourceSaver.save(resource, resource_path), OK, "测试 Resource 应能保存到策略目录。")
+	var loaded_resource: Resource = ResourceLoader.load(resource_path, "", ResourceLoader.CACHE_MODE_IGNORE)
+	var encoded: Dictionary = GFVariantReferenceCodec.encode_reference(loaded_resource)
+
+	var denied_result: Dictionary = GFVariantReferenceCodec.decode_reference(encoded, {
+		GFVariantReferenceCodec.OPTION_ALLOWED_RESOURCE_ROOTS: PackedStringArray(["res://allowed"]),
+	})
+	var allowed_root_result: Dictionary = GFVariantReferenceCodec.decode_reference(encoded, {
+		GFVariantReferenceCodec.OPTION_ALLOWED_RESOURCE_ROOTS: PackedStringArray([directory_path]),
+	})
+	var allowed_pattern_result: Dictionary = GFVariantReferenceCodec.decode_reference(encoded, {
+		GFVariantReferenceCodec.OPTION_ALLOWED_RESOURCE_PATTERNS: PackedStringArray([directory_path.path_join("*.tres")]),
+	})
+
+	assert_false(GFVariantData.get_option_bool(denied_result, "ok", true), "不在允许根目录内的 Resource 引用不应恢复。")
+	assert_eq(GFVariantData.get_option_string(denied_result, "kind"), GFVariantReferenceCodec.REFERENCE_KIND_RESOURCE, "拒绝报告应保留引用类型。")
+	assert_true(GFVariantData.get_option_bool(allowed_root_result, "ok"), "允许根目录内的 Resource 引用应可恢复。")
+	assert_true(GFVariantData.get_option_bool(allowed_pattern_result, "ok"), "匹配允许模式的 Resource 引用应可恢复。")
+
+	var absolute_path: String = ProjectSettings.globalize_path(resource_path)
+	if FileAccess.file_exists(resource_path):
+		var _remove_absolute_result: Variant = DirAccess.remove_absolute(absolute_path)
+	var absolute_directory_path: String = ProjectSettings.globalize_path(directory_path)
+	if DirAccess.dir_exists_absolute(absolute_directory_path):
+		var _remove_directory_result: Variant = DirAccess.remove_absolute(absolute_directory_path)
 
 
 func test_reference_codec_roundtrips_node_reference_with_explicit_root() -> void:

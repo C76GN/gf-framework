@@ -56,12 +56,14 @@ func dispose() -> void:
 ## [br]
 ## @api public
 ## [br]
-## @param root_path: `res://` 下的内容包根目录。该目录自身或其直接子目录可包含 `gf_content_package.json`。
+## @since 6.0.0
+## [br]
+## @param root_path: `res://` 或 `user://` 下的内容包根目录。该目录自身或其直接子目录可包含 `gf_content_package.json`。
 ## [br]
 ## @return 注册成功返回 true。
 func register_source_root(root_path: String) -> bool:
 	var normalized_root: String = _normalize_root_path(root_path)
-	if normalized_root.is_empty() or not normalized_root.begins_with("res://"):
+	if normalized_root.is_empty() or not _is_supported_source_root(normalized_root):
 		return false
 	if _source_roots.has(normalized_root):
 		return false
@@ -241,7 +243,7 @@ func get_debug_snapshot() -> Dictionary:
 # --- 私有/辅助方法 ---
 
 func _append_manifest_paths_for_root(root_path: String, result: PackedStringArray) -> void:
-	if root_path.is_empty() or not root_path.begins_with("res://"):
+	if root_path.is_empty() or not _is_supported_source_root(root_path):
 		return
 
 	var direct_manifest_path: String = root_path.path_join(GFContentPackageManifest.FILE_NAME)
@@ -298,3 +300,7 @@ func _add_manifest_load_failures(report: Dictionary, failed_manifest_paths: Pack
 
 static func _normalize_root_path(path: String) -> String:
 	return _GF_PATH_TOOLS.normalize_root_path(path)
+
+
+static func _is_supported_source_root(path: String) -> bool:
+	return path.begins_with("res://") or path.begins_with("user://")

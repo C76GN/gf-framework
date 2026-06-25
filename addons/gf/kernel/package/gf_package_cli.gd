@@ -117,7 +117,9 @@ func _run_cli(raw_args: PackedStringArray) -> Dictionary:
 
 	var package_ids: PackedStringArray = _GF_VARIANT_ACCESS_SCRIPT.get_option_packed_string_array(options, "packages")
 	var all_installed: bool = _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(options, "all_installed", false)
-	if package_ids.is_empty() and command != COMMAND_UPDATE:
+	if package_ids.is_empty() and command == COMMAND_INSTALL and not _install_options_have_selectors(options):
+		return _make_usage_error(command, PackedStringArray(["Missing package id."]))
+	if package_ids.is_empty() and command == COMMAND_UNINSTALL:
 		return _make_usage_error(command, PackedStringArray(["Missing package id."]))
 	if command == COMMAND_INSTALL:
 		return _GF_PACKAGE_MANAGER_BACKEND.install_packages(
@@ -161,6 +163,9 @@ func _parse_options(args: PackedStringArray) -> Dictionary:
 		"dry_run": false,
 		"force": false,
 		"all_installed": false,
+		"all_concrete": false,
+		"include_kinds": [],
+		"exclude_kinds": [],
 		"cache_dir": "",
 		"channel": "",
 		"packages": [],
@@ -200,6 +205,16 @@ func _parse_options(args: PackedStringArray) -> Dictionary:
 			options["force"] = true
 		elif argument == "--all-installed":
 			options["all_installed"] = true
+		elif argument == "--all-concrete":
+			options["all_concrete"] = true
+		elif argument == "--kind":
+			index = _read_string_list_option_value(args, index, "kind", "include_kinds", options, issues)
+		elif argument.begins_with("--kind="):
+			_append_string_list_option_values(options, "include_kinds", argument.substr("--kind=".length()))
+		elif argument == "--exclude-kind":
+			index = _read_string_list_option_value(args, index, "exclude-kind", "exclude_kinds", options, issues)
+		elif argument.begins_with("--exclude-kind="):
+			_append_string_list_option_values(options, "exclude_kinds", argument.substr("--exclude-kind=".length()))
 		elif argument == "--json":
 			options["json"] = true
 		elif argument == "--help" or argument == "-h":
@@ -211,6 +226,35 @@ func _parse_options(args: PackedStringArray) -> Dictionary:
 		index += 1
 	options["packages"] = _packed_to_array(package_ids)
 	return { "options": options, "issues": _packed_to_array(issues) }
+
+
+func _read_string_list_option_value(
+	args: PackedStringArray,
+	index: int,
+	display_key: String,
+	option_key: String,
+	options: Dictionary,
+	issues: PackedStringArray
+) -> int:
+	if index + 1 >= args.size():
+		var _append_missing: bool = issues.append("Missing value for --%s" % display_key)
+		return index
+	var value: String = args[index + 1].strip_edges()
+	if value.is_empty():
+		var _append_empty: bool = issues.append("Empty value for --%s" % display_key)
+	else:
+		_append_string_list_option_values(options, option_key, value)
+	return index + 1
+
+
+func _append_string_list_option_values(options: Dictionary, key: String, value_text: String) -> void:
+	var values: PackedStringArray = _GF_VARIANT_ACCESS_SCRIPT.get_option_packed_string_array(options, key)
+	for raw_value: String in value_text.split(",", false):
+		var value: String = raw_value.strip_edges()
+		if value.is_empty() or values.has(value):
+			continue
+		var _append_value: bool = values.append(value)
+	options[key] = _packed_to_array(values)
 
 
 func _read_option_value(
@@ -267,7 +311,23 @@ func _make_backend_options(options: Dictionary) -> Dictionary:
 	var channel: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(options, "channel")
 	if not channel.is_empty():
 		result["channel"] = channel
+	if _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(options, "all_concrete", false):
+		result["all_concrete"] = true
+	var include_kinds: PackedStringArray = _GF_VARIANT_ACCESS_SCRIPT.get_option_packed_string_array(options, "include_kinds")
+	if not include_kinds.is_empty():
+		result["include_kinds"] = _packed_to_array(include_kinds)
+	var exclude_kinds: PackedStringArray = _GF_VARIANT_ACCESS_SCRIPT.get_option_packed_string_array(options, "exclude_kinds")
+	if not exclude_kinds.is_empty():
+		result["exclude_kinds"] = _packed_to_array(exclude_kinds)
 	return result
+
+
+func _install_options_have_selectors(options: Dictionary) -> bool:
+	return (
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(options, "all_concrete", false)
+		or not _GF_VARIANT_ACCESS_SCRIPT.get_option_packed_string_array(options, "include_kinds").is_empty()
+		or not _GF_VARIANT_ACCESS_SCRIPT.get_option_packed_string_array(options, "exclude_kinds").is_empty()
+	)
 
 
 func _copy_registry_source_fields(target: Dictionary, source: Dictionary) -> void:
@@ -328,7 +388,7 @@ func _usage_text() -> String:
 		"GF Package CLI (Godot native)",
 		"Usage:",
 		"  godot --headless --path <project> --script res://addons/gf/kernel/package/gf_package_cli.gd -- status [--registry <index.json-or-url-or-source.json>] [--channel <name>] [--project-root <target>] [--lockfile <path>] [--json]",
-		"  godot --headless --path <project> --script res://addons/gf/kernel/package/gf_package_cli.gd -- install <package-id>... [--registry <index.json-or-url-or-source.json>] [--channel <name>] [--project-root <target>] [--lockfile <path>] [--reason manual|preset|bundled|dev] [--cache-dir <path>] [--dry-run] [--json]",
+		"  godot --headless --path <project> --script res://addons/gf/kernel/package/gf_package_cli.gd -- install [<package-id>...] [--all-concrete] [--kind <kind[,kind...]>] [--exclude-kind <kind[,kind...]>] [--registry <index.json-or-url-or-source.json>] [--channel <name>] [--project-root <target>] [--lockfile <path>] [--reason manual|preset|bundled|dev] [--cache-dir <path>] [--dry-run] [--json]",
 		"  godot --headless --path <project> --script res://addons/gf/kernel/package/gf_package_cli.gd -- update [<package-id>...] [--all-installed] [--registry <index.json-or-url-or-source.json>] [--channel <name>] [--project-root <target>] [--lockfile <path>] [--cache-dir <path>] [--dry-run] [--json]",
 		"  godot --headless --path <project> --script res://addons/gf/kernel/package/gf_package_cli.gd -- uninstall <package-id>... [--registry <index.json-or-url-or-source.json>] [--channel <name>] [--project-root <target>] [--lockfile <path>] [--cache-dir <path>] [--dry-run] [--force] [--json]",
 		"  godot --headless --path <project> --script res://addons/gf/kernel/package/gf_package_cli.gd -- verify [--registry <index.json-or-url-or-source.json>] [--channel <name>] [--project-root <target>] [--lockfile <path>] [--json]",

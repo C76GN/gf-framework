@@ -349,6 +349,155 @@ static func coerce_property_value(value: Variant, property_type: int) -> Variant
 			return value
 
 
+## 将对象声明的属性导出为 Dictionary。
+## [br]
+## @api public
+## [br]
+## @since 6.0.0
+## [br]
+## @param object: 目标对象。
+## [br]
+## @param options: 可选项，支持 usage_filter、include_properties、exclude_properties、include_null、copy_values、duplicate_resources、sort_keys。
+## [br]
+## @schema options: Dictionary with optional keys usage_filter: int, include_properties: Array[String] or PackedStringArray, exclude_properties: Array[String] or PackedStringArray, include_null: bool, copy_values: bool, duplicate_resources: bool, sort_keys: bool.
+## [br]
+## @return 以属性名 String 为键的属性值字典。
+## [br]
+## @schema return: Dictionary[String, Variant] containing direct declared object properties.
+static func object_to_dictionary(object: Object, options: Dictionary = {}) -> Dictionary:
+	var result: Dictionary = {}
+	if not is_instance_valid(object):
+		return result
+
+	var usage_filter: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(options, "usage_filter", PROPERTY_USAGE_STORAGE)
+	var include_filter: Dictionary = _make_property_name_filter(
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_value(options, "include_properties")
+	)
+	var exclude_filter: Dictionary = _make_property_name_filter(
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_value(options, "exclude_properties")
+	)
+	var include_null: bool = _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(options, "include_null", true)
+	var copy_values: bool = _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(options, "copy_values", true)
+	var duplicate_resources: bool = _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(options, "duplicate_resources", false)
+	var sort_keys: bool = _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(options, "sort_keys", true)
+	var property_names: PackedStringArray = PackedStringArray()
+	var property_values: Dictionary = {}
+
+	for property_info: Dictionary in get_property_infos(object, usage_filter):
+		var property_name: StringName = _GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(property_info, "name", &"")
+		if not _should_snapshot_property(property_name, include_filter, exclude_filter):
+			continue
+		var property_value: Variant = object.get(property_name)
+		if property_value == null and not include_null:
+			continue
+		if copy_values:
+			property_value = _GF_VARIANT_ACCESS_SCRIPT.duplicate_variant(
+				property_value,
+				true,
+				duplicate_resources
+			)
+		var property_key: String = String(property_name)
+		var _append_result_264: bool = property_names.append(property_key)
+		property_values[property_key] = property_value
+
+	if sort_keys:
+		property_names.sort()
+	for property_key: String in property_names:
+		result[property_key] = property_values[property_key]
+	return result
+
+
+## 将 Dictionary 字段批量写回对象属性。
+## [br]
+## @api public
+## [br]
+## @since 6.0.0
+## [br]
+## @param object: 目标对象。
+## [br]
+## @param values: 以属性名为键的字段字典。
+## [br]
+## @param options: 可选项，支持 check_writable、check_type、coerce_value、ignore_unknown_properties、copy_values、duplicate_resources。
+## [br]
+## @schema values: Dictionary[String or StringName, Variant] containing direct property assignments.
+## [br]
+## @schema options: Dictionary with optional bool keys check_writable, check_type, coerce_value, ignore_unknown_properties, copy_values, and duplicate_resources.
+## [br]
+## @return 写入报告，包含 ok、applied_count、skipped_count 与 issues。
+## [br]
+## @schema return: Dictionary { ok: bool, applied_count: int, skipped_count: int, issues: Array[Dictionary] }.
+static func apply_dictionary(object: Object, values: Dictionary, options: Dictionary = {}) -> Dictionary:
+	var issues: Array[Dictionary] = []
+	var report: Dictionary = {
+		"ok": true,
+		"applied_count": 0,
+		"skipped_count": 0,
+		"issues": issues,
+	}
+	if not is_instance_valid(object):
+		_append_apply_issue(issues, &"", "invalid_object", "Object is null.")
+		report["ok"] = false
+		report["skipped_count"] = values.size()
+		return report
+
+	var ignore_unknown: bool = _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+		options,
+		"ignore_unknown_properties",
+		false
+	)
+	var copy_values: bool = _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(options, "copy_values", true)
+	var duplicate_resources: bool = _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(options, "duplicate_resources", false)
+	var write_options: Dictionary = {
+		"check_writable": _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(options, "check_writable", true),
+		"check_type": _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(options, "check_type", true),
+		"coerce_value": _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(options, "coerce_value", true),
+	}
+
+	for key: Variant in values.keys():
+		var property_name: StringName = _GF_VARIANT_ACCESS_SCRIPT.to_string_name(key)
+		if property_name == &"":
+			_append_apply_issue(issues, property_name, "invalid_property", "Property name is empty.")
+			report["skipped_count"] += 1
+			continue
+		if not has_property(object, property_name):
+			if not ignore_unknown:
+				_append_apply_issue(
+					issues,
+					property_name,
+					"unknown_property",
+					"Missing property: %s" % String(property_name)
+				)
+			report["skipped_count"] += 1
+			continue
+
+		var value_to_write: Variant = values[key]
+		if copy_values:
+			value_to_write = _GF_VARIANT_ACCESS_SCRIPT.duplicate_variant(
+				value_to_write,
+				true,
+				duplicate_resources
+			)
+		var write_result: Dictionary = write_property(
+			object,
+			NodePath(String(property_name)),
+			value_to_write,
+			write_options
+		)
+		if _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(write_result, "ok", false):
+			report["applied_count"] += 1
+		else:
+			_append_apply_issue(
+				issues,
+				property_name,
+				"write_failed",
+				_GF_VARIANT_ACCESS_SCRIPT.get_option_string(write_result, "error", "Write failed.")
+			)
+			report["skipped_count"] += 1
+
+	report["ok"] = issues.is_empty()
+	return report
+
+
 ## 获取属性路径的根属性名。
 ## [br]
 ## @api public
@@ -382,6 +531,53 @@ static func _get_effective_property_type(
 
 static func _is_direct_property_path(property_path: NodePath) -> bool:
 	return property_path.get_name_count() <= 1 and property_path.get_subname_count() == 0
+
+
+static func _make_property_name_filter(value: Variant) -> Dictionary:
+	var result: Dictionary = {}
+	if value is PackedStringArray:
+		var packed_names: PackedStringArray = value
+		for property_name: String in packed_names:
+			if not property_name.is_empty():
+				result[StringName(property_name)] = true
+	elif value is Array:
+		var names: Array = value
+		for item: Variant in names:
+			var item_name: StringName = _GF_VARIANT_ACCESS_SCRIPT.to_string_name(item)
+			if item_name != &"":
+				result[item_name] = true
+	elif value is String or value is StringName:
+		var single_name: StringName = _GF_VARIANT_ACCESS_SCRIPT.to_string_name(value)
+		if single_name != &"":
+			result[single_name] = true
+	return result
+
+
+static func _should_snapshot_property(
+	property_name: StringName,
+	include_filter: Dictionary,
+	exclude_filter: Dictionary
+) -> bool:
+	if property_name == &"":
+		return false
+	if not include_filter.is_empty() and not include_filter.has(property_name):
+		return false
+	if exclude_filter.has(property_name):
+		return false
+	return true
+
+
+static func _append_apply_issue(
+	issues: Array[Dictionary],
+	property_name: StringName,
+	kind: String,
+	message: String
+) -> void:
+	issues.append({
+		"property_name": property_name,
+		"kind": kind,
+		"message": message,
+	})
 
 
 static func _make_write_result(

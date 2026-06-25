@@ -136,12 +136,13 @@ var pitch_random_max: float = 1.0
 ### `spatial_settings`
 
 - API：`public`
+- 首次版本：`3.19.0`
 
 ```gdscript
 var spatial_settings: Resource = null
 ```
 
-可选空间播放设置。为空时空间 SFX 使用 Godot 播放器默认空间参数。
+可选空间播放设置。为空时空间 SFX 使用 GF 默认空间参数，并保留区域掩码 layer 1。
 
 结构：
 

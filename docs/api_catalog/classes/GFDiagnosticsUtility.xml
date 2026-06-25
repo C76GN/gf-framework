@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFDiagnosticsUtility" path="addons/gf/standard/utilities/debug/gf_diagnostics_utility.gd" module="standard" extends="GFUtility" classDigest="f0d7942efbebb89773cb1cf6be92e2ef3801867167abf9e24f4a64d0e5e04a61">
+<class name="GFDiagnosticsUtility" path="addons/gf/standard/utilities/debug/gf_diagnostics_utility.gd" module="standard" extends="GFUtility" classDigest="485ce8b738b6dac9b1fbd4ad85fbdcd2de21dc7de0748664227fedfbfd0b0710">
 	<description>GFDiagnosticsUtility: 运行时诊断聚合工具。
 提供架构生命周期、事件系统、性能、日志和外部贡献诊断的统一快照。
 诊断命令、监控项和快照分区通过 Callable 注册，框架只负责调度和包装结果，不解释项目业务数据。</description>
@@ -57,7 +57,64 @@
 			</tags>
 		</member>
 	</enums>
-	<constants />
+	<constants>
+		<member kind="const" name="DEBUGGER_CAPTURE_NAME">
+			<signature>const DEBUGGER_CAPTURE_NAME: StringName = &amp;"gf_diagnostics"</signature>
+			<description>EditorDebugger 与运行时诊断桥使用的 capture 名称。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="DEBUGGER_MESSAGE_REQUEST_SNAPSHOT">
+			<signature>const DEBUGGER_MESSAGE_REQUEST_SNAPSHOT: String = "gf_diagnostics:request_snapshot"</signature>
+			<description>EditorDebugger 请求快照消息。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="DEBUGGER_MESSAGE_REQUEST_CATALOG">
+			<signature>const DEBUGGER_MESSAGE_REQUEST_CATALOG: String = "gf_diagnostics:request_catalog"</signature>
+			<description>EditorDebugger 请求目录消息。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="DEBUGGER_MESSAGE_EXECUTE_COMMAND">
+			<signature>const DEBUGGER_MESSAGE_EXECUTE_COMMAND: String = "gf_diagnostics:execute_command"</signature>
+			<description>EditorDebugger 执行诊断命令消息。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="DEBUGGER_MESSAGE_SNAPSHOT">
+			<signature>const DEBUGGER_MESSAGE_SNAPSHOT: String = "gf_diagnostics:snapshot"</signature>
+			<description>运行时返回快照消息。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="DEBUGGER_MESSAGE_CATALOG">
+			<signature>const DEBUGGER_MESSAGE_CATALOG: String = "gf_diagnostics:catalog"</signature>
+			<description>运行时返回目录消息。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="DEBUGGER_MESSAGE_COMMAND_RESULT">
+			<signature>const DEBUGGER_MESSAGE_COMMAND_RESULT: String = "gf_diagnostics:command_result"</signature>
+			<description>运行时返回命令结果消息。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+	</constants>
 	<properties>
 		<member kind="property" name="include_performance_monitors">
 			<signature>var include_performance_monitors: bool = true</signature>
@@ -460,6 +517,16 @@
 				<tag name="return">快照字典。</tag>
 				<tag name="schema">options: Dictionary，支持 recent_log_count、include_recent_logs、include_scene_tree、scene_tree_options、include_signal_graph、signal_graph_options、include_monitors、monitor_preset、monitor_ids、include_hidden_monitors。</tag>
 				<tag name="schema">return: Dictionary，包含 timestamp_unix、engine、build、architecture、event_system、performance、logs、network、tools，可选 scene_tree、signal_graph、monitors 和注册分区。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_debugger_bridge_state">
+			<signature>func get_debugger_bridge_state() -&gt; Dictionary:</signature>
+			<description>获取 EditorDebugger 桥接状态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">桥接状态字典。</tag>
+				<tag name="schema">return: Dictionary with capture_name, registered, debugger_active, editor_feature, and editor_hint.</tag>
+				<tag name="since">6.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="collect_performance_snapshot">

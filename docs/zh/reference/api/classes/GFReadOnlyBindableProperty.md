@@ -16,6 +16,7 @@
 | 类型 | 名称 | 签名 |
 |---|---|---|
 | 方法 | [`_init`](#member-gfreadonlybindableproperty-methods-_init) | `func _init(default_value: Variant = null) -> void:` |
+| 方法 | [`get_value`](#member-gfreadonlybindableproperty-methods-get_value) | `func get_value() -> Variant:` |
 | 方法 | [`set_value`](#member-gfreadonlybindableproperty-methods-set_value) | `func set_value(_new_value: Variant) -> void:` |
 | 方法 | [`mutate`](#member-gfreadonlybindableproperty-methods-mutate) | `func mutate(_mutator: Callable) -> bool:` |
 | 方法 | [`append_to_array`](#member-gfreadonlybindableproperty-methods-append_to_array) | `func append_to_array(_item: Variant) -> bool:` |
@@ -48,6 +49,25 @@ func _init(default_value: Variant = null) -> void:
 结构：
 
 - `default_value {`:
+
+<a id="member-gfreadonlybindableproperty-methods-get_value"></a>
+
+### `get_value`
+
+- API：`public`
+- 首次版本：`5.0.0`
+
+```gdscript
+func get_value() -> Variant:
+```
+
+读取只读视图的当前值。 Array 与 Dictionary 会返回深拷贝，避免调用方通过集合引用绕过只读约束。
+
+返回：当前值；集合类型返回副本。
+
+结构：
+
+- `return`: Variant current read-only value; Array and Dictionary values are returned as deep copies.
 
 <a id="member-gfreadonlybindableproperty-methods-set_value"></a>
 

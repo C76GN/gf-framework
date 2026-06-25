@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFContentPackageManifest" path="addons/gf/extensions/content_package/resources/gf_content_package_manifest.gd" module="extensions/content_package" extends="Resource" classDigest="b6949c2d084b006b930aed8e3fca796ccbf9581b11f5dadb9cd85a07277d86a3">
+<class name="GFContentPackageManifest" path="addons/gf/extensions/content_package/resources/gf_content_package_manifest.gd" module="extensions/content_package" extends="Resource" classDigest="ce2ee413c9309455425a10329ba95df84b2d9c0692b9530757bafd5fdd37d3ab">
 	<description>GFContentPackageManifest: 通用内容包 manifest。
 描述一个内容包的稳定包 ID、版本、依赖和资源键映射。GF 只校验结构、路径安全和依赖关系，
 不解释内容类型的业务语义，也不负责下载、启用策略或具体玩法规则。</description>
@@ -23,6 +23,22 @@
 			<description>当前 manifest schema 版本。</description>
 			<tags>
 				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="const" name="SAFETY_KIND_DATA_ONLY">
+			<signature>const SAFETY_KIND_DATA_ONLY: StringName = &amp;"data_only"</signature>
+			<description>只允许数据资源的内容包安全分类。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="SAFETY_KIND_TRUSTED_DEVELOPER">
+			<signature>const SAFETY_KIND_TRUSTED_DEVELOPER: StringName = &amp;"trusted_developer"</signature>
+			<description>允许开发者代码资源的内容包安全分类。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
 			</tags>
 		</member>
 	</constants>
@@ -62,6 +78,22 @@
 				<tag name="api">public</tag>
 			</tags>
 		</member>
+		<member kind="property" name="safety_kind" decorators="@export">
+			<signature>var safety_kind: StringName = SAFETY_KIND_DATA_ONLY</signature>
+			<description>内容包安全分类。data_only 默认拒绝脚本、shader、GDExtension 和可执行文件。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="forbidden_resource_extensions" decorators="@export">
+			<signature>var forbidden_resource_extensions: PackedStringArray = PackedStringArray()</signature>
+			<description>调用方额外禁止的资源扩展名，不需要前导点。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
 		<member kind="property" name="resources" decorators="@export">
 			<signature>var resources: Array[Dictionary] = []</signature>
 			<description>资源键映射列表。</description>
@@ -95,7 +127,7 @@
 	</properties>
 	<methods>
 		<member kind="method" name="configure">
-			<signature>func configure( p_package_id: StringName, p_version: String, p_resources: Array[Dictionary] = [], p_display_name: String = "", p_content_types: PackedStringArray = PackedStringArray(), p_dependencies: PackedStringArray = PackedStringArray(), p_metadata: Dictionary = {}, p_root_path: String = "", p_source_path: String = "" ) -&gt; GFContentPackageManifest:</signature>
+			<signature>func configure( p_package_id: StringName, p_version: String, p_resources: Array[Dictionary] = [], p_display_name: String = "", p_content_types: PackedStringArray = PackedStringArray(), p_dependencies: PackedStringArray = PackedStringArray(), p_metadata: Dictionary = {}, p_root_path: String = "", p_source_path: String = "", p_safety_kind: StringName = SAFETY_KIND_DATA_ONLY, p_forbidden_resource_extensions: PackedStringArray = PackedStringArray() ) -&gt; GFContentPackageManifest:</signature>
 			<description>配置 manifest。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -108,9 +140,13 @@
 				<tag name="param">p_metadata: 项目自定义元数据。</tag>
 				<tag name="param">p_root_path: 内容包根目录。</tag>
 				<tag name="param">p_source_path: manifest 文件路径。</tag>
+				<tag name="param">p_safety_kind: 内容包安全分类。</tag>
+				<tag name="param">p_forbidden_resource_extensions: 调用方额外禁止的资源扩展名。</tag>
 				<tag name="return">当前 manifest。</tag>
 				<tag name="schema">p_resources: Array[Dictionary]，每项包含 key、path、可选 type_hint、priority 和 metadata。</tag>
 				<tag name="schema">p_metadata: Dictionary project-defined content package metadata.</tag>
+				<tag name="schema">p_forbidden_resource_extensions: PackedStringArray extension names without leading dots.</tag>
+				<tag name="since">6.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="apply_dictionary">

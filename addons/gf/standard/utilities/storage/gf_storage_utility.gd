@@ -3,6 +3,7 @@
 ## 支持槽位存档、元数据分离读取、`Resource` 存取，
 ## 以及可配置 codec、完整性校验、版本迁移和简单混淆，适合通用本地持久化场景。
 ## 该混淆不提供安全加密能力，请勿用于保护敏感数据。
+## `Resource` 存取只面向项目生成或项目已确认来源与格式的本地文件；它不是未确认来源资源的沙盒化导入器。
 ## [br]
 ## @api public
 ## [br]
@@ -135,6 +136,34 @@ var include_storage_metadata: bool = false
 ## @api public
 var allow_absolute_paths: bool = false
 
+## 是否允许通过 `load_resource()` 调用 Godot `ResourceLoader`。默认关闭，避免未确认来源文件进入资源加载链路。
+## [br]
+## @api public
+## [br]
+## @since 6.0.0
+var allow_resource_loads: bool = false
+
+## `load_resource()` 允许读取的文件扩展名。不包含点号；空列表表示不允许任何 Resource 读取。
+## [br]
+## @api public
+## [br]
+## @since 6.0.0
+var allowed_resource_load_extensions: PackedStringArray = PackedStringArray(["tres", "res"])
+
+## `load_resource()` 允许的类型提示。为空时不限制类型提示值；启用时 `type_hint` 必须精确匹配其中之一。
+## [br]
+## @api public
+## [br]
+## @since 6.0.0
+var allowed_resource_load_type_hints: PackedStringArray = PackedStringArray()
+
+## `load_resource()` 是否要求调用方传入非空 `type_hint`。
+## [br]
+## @api public
+## [br]
+## @since 6.0.0
+var require_resource_load_type_hint: bool = true
+
 ## 写入嵌套相对路径时是否自动创建目录。
 ## [br]
 ## @api public
@@ -251,17 +280,36 @@ func save_resource(file_name: String, resource: Resource) -> Error:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param file_name: 目标文件名。
 ## [br]
 ## @param type_hint: 可选类型提示。
 ## [br]
 ## @return 读取到的资源实例；不存在时返回 `null`。
+## [br]
+## 该方法会调用 Godot `ResourceLoader`，默认关闭。调用方必须先启用 `allow_resource_loads`，并通过类型提示、扩展名 allowlist 与存储路径策略收窄加载边界。
 func load_resource(file_name: String, type_hint: String = "") -> Resource:
+	if not allow_resource_loads:
+		push_error("[GFStorageUtility] load_resource 已被默认安全策略拒绝：请先显式启用 allow_resource_loads。")
+		return null
+
 	var path: String = _get_full_path(file_name)
 	if not FileAccess.file_exists(path):
 		return null
+	if not _is_resource_load_extension_allowed(path):
+		push_error("[GFStorageUtility] load_resource 拒绝读取未允许扩展名的文件：%s。" % path)
+		return null
 
-	return ResourceLoader.load(path, type_hint)
+	var normalized_type_hint: String = type_hint.strip_edges()
+	if require_resource_load_type_hint and normalized_type_hint.is_empty():
+		push_error("[GFStorageUtility] load_resource 需要显式 type_hint。")
+		return null
+	if not _is_resource_load_type_hint_allowed(normalized_type_hint):
+		push_error("[GFStorageUtility] load_resource 拒绝未允许的 type_hint：%s。" % normalized_type_hint)
+		return null
+
+	return ResourceLoader.load(path, normalized_type_hint)
 
 
 # --- 公共方法（文件管理） ---
@@ -1160,6 +1208,26 @@ func _get_save_base_path() -> String:
 func _get_full_path(file_name: String) -> String:
 	_ensure_storage_helpers()
 	return _path_policy._get_full_path(file_name)
+
+
+func _is_resource_load_extension_allowed(path: String) -> bool:
+	var extension: String = path.get_extension().to_lower()
+	if extension.is_empty():
+		return false
+	for allowed_extension: String in allowed_resource_load_extensions:
+		var normalized_extension: String = allowed_extension.strip_edges().trim_prefix(".").to_lower()
+		if normalized_extension == extension:
+			return true
+	return false
+
+
+func _is_resource_load_type_hint_allowed(type_hint: String) -> bool:
+	if allowed_resource_load_type_hints.is_empty():
+		return true
+	for allowed_type_hint: String in allowed_resource_load_type_hints:
+		if allowed_type_hint.strip_edges() == type_hint:
+			return true
+	return false
 
 
 func _get_full_directory_path_from_normalized(directory_name: String) -> String:

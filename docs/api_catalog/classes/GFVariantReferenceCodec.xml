@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFVariantReferenceCodec" path="addons/gf/standard/foundation/variant/gf_variant_reference_codec.gd" module="standard" extends="RefCounted" classDigest="067e58861e5e490bcd296f5d688391073776aaba7813327c760ac4564b7b309d">
+<class name="GFVariantReferenceCodec" path="addons/gf/standard/foundation/variant/gf_variant_reference_codec.gd" module="standard" extends="RefCounted" classDigest="09e159d49bac1bac6370610e7f8da37a4819a9ae26f8569137aaf8440ae8c42b">
 	<description>GFVariantReferenceCodec: Resource 与 Node 引用的显式编码器。
 只把 Resource 路径 / UID 或相对 root 的 NodePath 转成可持久化标记，
 不序列化对象图、不加载任意脚本，也不从场景树全局搜索节点。</description>
@@ -72,6 +72,22 @@
 			<description>options 中传入引用 root Node 的字段。</description>
 			<tags>
 				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="const" name="OPTION_ALLOWED_RESOURCE_ROOTS">
+			<signature>const OPTION_ALLOWED_RESOURCE_ROOTS: String = "allowed_resource_roots"</signature>
+			<description>options 中传入允许 Resource 解码路径根目录集合的字段。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="OPTION_ALLOWED_RESOURCE_PATTERNS">
+			<signature>const OPTION_ALLOWED_RESOURCE_PATTERNS: String = "allowed_resource_patterns"</signature>
+			<description>options 中传入允许 Resource 解码路径通配模式集合的字段。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="REFERENCE_KIND_RESOURCE">
@@ -169,11 +185,12 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">value: 引用标记字典。</tag>
-				<tag name="param">options: 可选项；reference_root_node 用于解析 NodePath。</tag>
+				<tag name="param">options: 可选项；reference_root_node 用于解析 NodePath；Resource 解码必须显式提供 allowed_resource_roots 或 allowed_resource_patterns。</tag>
 				<tag name="return">解码结果。</tag>
 				<tag name="schema">value: Dictionary reference marker produced by encode_reference().</tag>
-				<tag name="schema">options: Dictionary with optional reference_root_node: Node.</tag>
+				<tag name="schema">options: Dictionary with optional reference_root_node: Node, allowed_resource_roots: PackedStringArray/Array[String], and allowed_resource_patterns: PackedStringArray/Array[String].</tag>
 				<tag name="schema">return: Dictionary with ok: bool, value: Variant, error: String, and kind: String.</tag>
+				<tag name="since">4.3.0</tag>
 			</tags>
 		</member>
 	</methods>

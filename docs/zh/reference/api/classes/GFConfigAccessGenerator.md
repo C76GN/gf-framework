@@ -19,8 +19,10 @@
 | 常量 | [`DEFAULT_CLASS_NAME`](#member-gfconfigaccessgenerator-constants-default_class_name) | `const DEFAULT_CLASS_NAME: String = "GFConfigAccess"` |
 | 常量 | [`DEFAULT_PROVIDER_ACCESSOR`](#member-gfconfigaccessgenerator-constants-default_provider_accessor) | `const DEFAULT_PROVIDER_ACCESSOR: String = "null"` |
 | 方法 | [`generate`](#member-gfconfigaccessgenerator-methods-generate) | `func generate( schemas: Array, output_path: String = DEFAULT_OUTPUT_PATH, overwrite_existing: bool = true, access_class_name: String = DEFAULT_CLASS_NAME, provider_accessor: String = DEFAULT_PROVIDER_ACCESSOR, options: Dictionary = {} ) -> Error:` |
+| 方法 | [`generate_with_report`](#member-gfconfigaccessgenerator-methods-generate_with_report) | `func generate_with_report( schemas: Array, output_path: String = DEFAULT_OUTPUT_PATH, access_class_name: String = DEFAULT_CLASS_NAME, provider_accessor: String = DEFAULT_PROVIDER_ACCESSOR, options: Dictionary = {} ) -> Dictionary:` |
 | 方法 | [`build_source`](#member-gfconfigaccessgenerator-methods-build_source) | `func build_source( schemas: Array, access_class_name: String = DEFAULT_CLASS_NAME, provider_accessor: String = DEFAULT_PROVIDER_ACCESSOR, options: Dictionary = {} ) -> String:` |
 | 方法 | [`save_source`](#member-gfconfigaccessgenerator-methods-save_source) | `func save_source(output_path: String, source: String, overwrite_existing: bool = true) -> Error:` |
+| 方法 | [`save_source_with_report`](#member-gfconfigaccessgenerator-methods-save_source_with_report) | `func save_source_with_report(output_path: String, source: String, options: Dictionary = {}) -> Dictionary:` |
 
 ## 常量
 
@@ -93,6 +95,37 @@ func generate( schemas: Array, output_path: String = DEFAULT_OUTPUT_PATH, overwr
 - `schemas`: Array of Dictionary or Object schemas with table_name/table_key and optional metadata.
 - `options`: Dictionary controlling method_name_style, constant_prefix, record_method_pattern, table_method_pattern, include_schema_comments, include_typed_records, typed_record_method_pattern, and typed_record_class_suffix.
 
+<a id="member-gfconfigaccessgenerator-methods-generate_with_report"></a>
+
+### `generate_with_report`
+
+- API：`public`
+- 首次版本：`6.0.0`
+
+```gdscript
+func generate_with_report( schemas: Array, output_path: String = DEFAULT_OUTPUT_PATH, access_class_name: String = DEFAULT_CLASS_NAME, provider_accessor: String = DEFAULT_PROVIDER_ACCESSOR, options: Dictionary = {} ) -> Dictionary:
+```
+
+根据 schema 列表生成访问器并返回生成产物报告。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `schemas` | 带有 `table_name` 或 `table_key` 属性的 schema 列表。 |
+| `output_path` | 生成文件输出路径。 |
+| `access_class_name` | 生成脚本的 class_name。 |
+| `provider_accessor` | 无显式 provider 参数时用于获取 provider 的表达式。 |
+| `options` | 可选生成与保存选项，支持 build_source 选项、overwrite_existing、dry_run、scan_filesystem 和 metadata。 |
+
+返回：生成产物报告。
+
+结构：
+
+- `schemas`: Array of Dictionary or Object schemas with table_name/table_key and optional metadata.
+- `options`: Dictionary，可包含 method_name_style、constant_prefix、record_method_pattern、table_method_pattern、include_schema_comments、include_typed_records、typed_record_method_pattern、typed_record_class_suffix、overwrite_existing、dry_run、scan_filesystem 和 metadata。
+- `return`: Dictionary，包含 success、path、status、error_code、error、written、changed、dry_run、size_bytes 和 metadata。
+
 <a id="member-gfconfigaccessgenerator-methods-build_source"></a>
 
 ### `build_source`
@@ -143,3 +176,31 @@ func save_source(output_path: String, source: String, overwrite_existing: bool =
 | `overwrite_existing` | 为 false 时目标已存在会返回 ERR_ALREADY_EXISTS。 |
 
 返回：写入结果错误码。
+
+<a id="member-gfconfigaccessgenerator-methods-save_source_with_report"></a>
+
+### `save_source_with_report`
+
+- API：`public`
+- 首次版本：`6.0.0`
+
+```gdscript
+func save_source_with_report(output_path: String, source: String, options: Dictionary = {}) -> Dictionary:
+```
+
+保存生成源码到指定路径并返回生成产物报告。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `output_path` | 生成文件输出路径。 |
+| `source` | GDScript 源码。 |
+| `options` | 保存选项，支持 overwrite_existing、dry_run、scan_filesystem 和 metadata。 |
+
+返回：生成产物报告。
+
+结构：
+
+- `options`: Dictionary，可包含 overwrite_existing、dry_run、scan_filesystem 和 metadata。
+- `return`: Dictionary，包含 success、path、status、error_code、error、written、changed、dry_run、size_bytes 和 metadata。

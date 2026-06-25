@@ -88,6 +88,7 @@ func test_property_serializer_restores_external_resource_reference() -> void:
 	holder.resource_value = ResourceLoader.load(resource_path, "", ResourceLoader.CACHE_MODE_IGNORE)
 	var serializer: GFNodePropertySerializer = GFNodePropertySerializer.new()
 	serializer.properties = PackedStringArray(["resource_value"])
+	serializer.allowed_resource_patterns = PackedStringArray([resource_path])
 
 	var payload: Dictionary = serializer.gather(holder)
 	var json_payload: Dictionary = GFVariantData.as_dictionary(JSON.parse_string(JSON.stringify(payload)))
@@ -101,6 +102,31 @@ func test_property_serializer_restores_external_resource_reference() -> void:
 	var absolute_path: String = ProjectSettings.globalize_path(resource_path)
 	if FileAccess.file_exists(resource_path):
 		var _remove_absolute_result_103: Variant = DirAccess.remove_absolute(absolute_path)
+
+
+func test_property_serializer_rejects_external_resource_reference_without_policy() -> void:
+	var resource_path: String = "user://gf_property_serializer_blocked_resource.tres"
+	var resource: Resource = Resource.new()
+	resource.resource_name = "BlockedPropertyResource"
+	assert_eq(ResourceSaver.save(resource, resource_path), OK, "测试资源应能保存到 user://。")
+
+	var holder: ResourcePropertyNode = ResourcePropertyNode.new()
+	add_child_autofree(holder)
+	holder.resource_value = ResourceLoader.load(resource_path, "", ResourceLoader.CACHE_MODE_IGNORE)
+	var serializer: GFNodePropertySerializer = GFNodePropertySerializer.new()
+	serializer.properties = PackedStringArray(["resource_value"])
+
+	var payload: Dictionary = serializer.gather(holder)
+	var json_payload: Dictionary = GFVariantData.as_dictionary(JSON.parse_string(JSON.stringify(payload)))
+	holder.resource_value = null
+	var result: Dictionary = serializer.apply(holder, json_payload)
+
+	assert_false(GFVariantData.get_option_bool(result, "ok", true), "没有 Resource 路径策略时不应恢复外部 Resource 引用。")
+	assert_null(holder.resource_value, "Resource 引用被拒绝时不应写入属性。")
+
+	var absolute_path: String = ProjectSettings.globalize_path(resource_path)
+	if FileAccess.file_exists(resource_path):
+		var _remove_absolute_result_126: Variant = DirAccess.remove_absolute(absolute_path)
 
 
 func test_property_serializer_rejects_legacy_resource_path_marker() -> void:

@@ -167,6 +167,50 @@ func test_dictionary_schema_configure_applies_options_without_fields() -> void:
 	assert_eq(GFVariantData.get_option_string(copied_schema.metadata, "owner"), "tools", "duplicate_schema() 应保留 metadata。")
 
 
+func test_schema_field_validation_rules_inherit_field_context() -> void:
+	var positive_rule: GFValidationRule = GFValidationRule.new().configure(
+		&"positive_value",
+		func(value: Variant, _report: GFValidationReport, _context: Dictionary) -> String:
+			return "" if GFVariantData.to_int(value, 0) > 0 else "Value must be positive."
+	)
+	var schema: GFDictionarySchema = GFDictionarySchema.new()
+	var score_field: GFSchemaField = _make_field(&"score", GFSchemaField.ValueType.INT, {
+		"validation_rules": [positive_rule],
+	})
+	var _score_added: bool = schema.add_field(score_field)
+
+	var report: GFValidationReport = schema.validate_dictionary({
+		"score": 0,
+	}, {
+		"path": "profile",
+	})
+
+	assert_false(report.is_ok(), "字段级规则返回错误时应让 schema 校验失败。")
+	assert_eq(_find_issue_kind(report, "positive_value"), "positive_value", "规则 ID 应成为稳定 issue kind。")
+	assert_eq(_find_issue_path(report, "positive_value"), "profile/score", "规则 issue 应继承字段路径。")
+
+
+func test_schema_field_duplicates_validation_rules() -> void:
+	var rule: GFValidationRule = GFValidationRule.new().configure(&"not_empty")
+	rule.metadata = {
+		"owner": "schema",
+	}
+	var field: GFSchemaField = _make_field(&"name", GFSchemaField.ValueType.STRING)
+	var _rule_added: bool = field.add_validation_rule(rule)
+
+	var copied_field: GFSchemaField = field.duplicate_field()
+	var description: Dictionary = copied_field.describe()
+	var rule_descriptions: Array = GFVariantData.get_option_array(description, "validation_rules")
+	var first_rule_description: Dictionary = {}
+	if not rule_descriptions.is_empty():
+		first_rule_description = GFVariantData.as_dictionary(rule_descriptions[0])
+
+	assert_eq(copied_field.get_enabled_validation_rules().size(), 1, "字段副本应保留启用的校验规则。")
+	assert_eq(copied_field.validation_rules[0].rule_id, &"not_empty", "字段副本应复制规则配置。")
+	assert_eq(rule_descriptions.size(), 1, "describe() 应包含字段级规则摘要。")
+	assert_eq(GFVariantData.get_option_string(first_rule_description, "rule_id"), "not_empty", "规则摘要应包含 rule_id。")
+
+
 # --- 私有/辅助方法 ---
 
 func _make_field(

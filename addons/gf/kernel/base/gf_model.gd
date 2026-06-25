@@ -137,8 +137,7 @@ func inject_dependencies(architecture: GFArchitecture) -> void:
 ## [br]
 ## @return 所属架构仍处于活动生命周期时返回 true。
 func is_lifecycle_active() -> bool:
-	var architecture: GFArchitecture = _get_architecture_or_null()
-	return architecture != null and architecture.is_lifecycle_active()
+	return _DEPENDENCY_SCOPE_SUPPORT._is_lifecycle_active(_dependency_scope, "GFModel")
 
 
 ## 检查当前模块是否已经完成 ready 阶段。
@@ -198,8 +197,8 @@ func send_simple_event(event_id: StringName, payload: Variant = null) -> void:
 
 # --- 私有/辅助方法 ---
 
-func _gf_set_dependency_scope(architecture: GFArchitecture) -> void:
-	_DEPENDENCY_SCOPE_SUPPORT._bind_scope(_dependency_scope, architecture)
+func _gf_set_dependency_scope(architecture: GFArchitecture, lifecycle_serial: int = -1) -> void:
+	_DEPENDENCY_SCOPE_SUPPORT._bind_scope(_dependency_scope, architecture, lifecycle_serial)
 
 
 func _get_architecture() -> GFArchitecture:

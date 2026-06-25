@@ -19,12 +19,15 @@
 | 常量 | [`DEFAULT_OUTPUT_PATH`](#member-gfaccessgenerator-constants-default_output_path) | `const DEFAULT_OUTPUT_PATH: String = "res://gf/generated/gf_access.gd"` |
 | 常量 | [`DEFAULT_PROJECT_OUTPUT_PATH`](#member-gfaccessgenerator-constants-default_project_output_path) | `const DEFAULT_PROJECT_OUTPUT_PATH: String = "res://gf/generated/gf_project_access.gd"` |
 | 方法 | [`generate`](#member-gfaccessgenerator-methods-generate) | `func generate(output_path: String = DEFAULT_OUTPUT_PATH, overwrite_existing: bool = true) -> Error:` |
+| 方法 | [`generate_with_report`](#member-gfaccessgenerator-methods-generate_with_report) | `func generate_with_report(output_path: String = DEFAULT_OUTPUT_PATH, options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`generate_project_access`](#member-gfaccessgenerator-methods-generate_project_access) | `func generate_project_access(output_path: String = DEFAULT_PROJECT_OUTPUT_PATH, overwrite_existing: bool = true) -> Error:` |
+| 方法 | [`generate_project_access_with_report`](#member-gfaccessgenerator-methods-generate_project_access_with_report) | `func generate_project_access_with_report( output_path: String = DEFAULT_PROJECT_OUTPUT_PATH, options: Dictionary = {} ) -> Dictionary:` |
 | 方法 | [`collect_records`](#member-gfaccessgenerator-methods-collect_records) | `func collect_records() -> Array[Dictionary]:` |
 | 方法 | [`collect_project_records`](#member-gfaccessgenerator-methods-collect_project_records) | `func collect_project_records() -> Dictionary:` |
 | 方法 | [`build_source`](#member-gfaccessgenerator-methods-build_source) | `func build_source(records: Array) -> String:` |
 | 方法 | [`build_project_source`](#member-gfaccessgenerator-methods-build_project_source) | `func build_project_source(records: Dictionary) -> String:` |
 | 方法 | [`save_source`](#member-gfaccessgenerator-methods-save_source) | `func save_source(output_path: String, source: String, overwrite_existing: bool = true) -> Error:` |
+| 方法 | [`save_source_with_report`](#member-gfaccessgenerator-methods-save_source_with_report) | `func save_source_with_report(output_path: String, source: String, options: Dictionary = {}) -> Dictionary:` |
 
 ## 枚举
 
@@ -102,6 +105,33 @@ func generate(output_path: String = DEFAULT_OUTPUT_PATH, overwrite_existing: boo
 
 返回：写入结果错误码。
 
+<a id="member-gfaccessgenerator-methods-generate_with_report"></a>
+
+### `generate_with_report`
+
+- API：`public`
+- 首次版本：`6.0.0`
+
+```gdscript
+func generate_with_report(output_path: String = DEFAULT_OUTPUT_PATH, options: Dictionary = {}) -> Dictionary:
+```
+
+扫描项目 class_name 脚本并生成访问器报告。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `output_path` | 生成文件输出路径。 |
+| `options` | 保存选项，支持 overwrite_existing、dry_run、scan_filesystem 和 metadata。 |
+
+返回：生成产物报告。
+
+结构：
+
+- `options`: Dictionary，可包含 overwrite_existing、dry_run、scan_filesystem 和 metadata。
+- `return`: Dictionary，包含 success、path、status、error_code、error、written、changed、dry_run、size_bytes 和 metadata。
+
 <a id="member-gfaccessgenerator-methods-generate_project_access"></a>
 
 ### `generate_project_access`
@@ -122,6 +152,33 @@ func generate_project_access(output_path: String = DEFAULT_PROJECT_OUTPUT_PATH, 
 | `overwrite_existing` | 为 false 时目标已存在会返回 ERR_ALREADY_EXISTS。 |
 
 返回：写入结果错误码。
+
+<a id="member-gfaccessgenerator-methods-generate_project_access_with_report"></a>
+
+### `generate_project_access_with_report`
+
+- API：`public`
+- 首次版本：`6.0.0`
+
+```gdscript
+func generate_project_access_with_report( output_path: String = DEFAULT_PROJECT_OUTPUT_PATH, options: Dictionary = {} ) -> Dictionary:
+```
+
+生成项目常量访问器报告。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `output_path` | 生成文件输出路径。 |
+| `options` | 保存选项，支持 overwrite_existing、dry_run、scan_filesystem 和 metadata。 |
+
+返回：生成产物报告。
+
+结构：
+
+- `options`: Dictionary，可包含 overwrite_existing、dry_run、scan_filesystem 和 metadata。
+- `return`: Dictionary，包含 success、path、status、error_code、error、written、changed、dry_run、size_bytes 和 metadata。
 
 <a id="member-gfaccessgenerator-methods-collect_records"></a>
 
@@ -212,6 +269,7 @@ func build_project_source(records: Dictionary) -> String:
 ### `save_source`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func save_source(output_path: String, source: String, overwrite_existing: bool = true) -> Error:
@@ -224,7 +282,35 @@ func save_source(output_path: String, source: String, overwrite_existing: bool =
 | 名称 | 说明 |
 |---|---|
 | `output_path` | 生成文件输出路径。 |
-| `source` | 源对象或资源。 |
+| `source` | GDScript 源码。 |
 | `overwrite_existing` | 为 false 时目标已存在会返回 ERR_ALREADY_EXISTS。 |
 
 返回：写入结果错误码。
+
+<a id="member-gfaccessgenerator-methods-save_source_with_report"></a>
+
+### `save_source_with_report`
+
+- API：`public`
+- 首次版本：`6.0.0`
+
+```gdscript
+func save_source_with_report(output_path: String, source: String, options: Dictionary = {}) -> Dictionary:
+```
+
+保存生成源码到指定路径并返回生成产物报告。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `output_path` | 生成文件输出路径。 |
+| `source` | GDScript 源码。 |
+| `options` | 保存选项，支持 overwrite_existing、dry_run、scan_filesystem 和 metadata。 |
+
+返回：生成产物报告。
+
+结构：
+
+- `options`: Dictionary，可包含 overwrite_existing、dry_run、scan_filesystem 和 metadata。
+- `return`: Dictionary，包含 success、path、status、error_code、error、written、changed、dry_run、size_bytes 和 metadata。

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFAssetUtility" path="addons/gf/standard/utilities/assets/gf_asset_utility.gd" module="standard" extends="GFUtility" classDigest="2e554026fbc0b4e98778ba1c4b692e2ac60c01910fdc5f934aab49713de4c594">
+<class name="GFAssetUtility" path="addons/gf/standard/utilities/assets/gf_asset_utility.gd" module="standard" extends="GFUtility" classDigest="b60528798a96d31c26808c864ad83dc0bd6323fe7b857dacd32408b5a8b83792">
 	<description>GFAssetUtility: 异步资源加载管理器，带 LRU 缓存。
 封装 Godot 的 threaded `ResourceLoader` 请求，
 用于避免大资源同步加载阻塞主线程，并在完成后统一分发回调与维护缓存。</description>
@@ -46,15 +46,42 @@
 				<tag name="schema">report: Dictionary with `ok: bool`, `group_id: StringName`, `paths: PackedStringArray`, `failed_paths: PackedStringArray`, `total: int`, and `completed: int`.</tag>
 			</tags>
 		</member>
+		<member kind="signal" name="asset_load_queued">
+			<signature>signal asset_load_queued(path: String, lane_id: StringName)</signature>
+			<description>资源加载进入队列时发出。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">path: 资源路径。</tag>
+				<tag name="param">lane_id: 加载 lane 标识。</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
 	</signals>
 	<enums />
-	<constants />
+	<constants>
+		<member kind="const" name="DEFAULT_LOAD_LANE_ID">
+			<signature>const DEFAULT_LOAD_LANE_ID: StringName = &amp;"_default"</signature>
+			<description>未显式指定 lane 但启用全局并发限制时使用的默认 lane。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+	</constants>
 	<properties>
 		<member kind="property" name="max_cache_size">
 			<signature>var max_cache_size: int:</signature>
 			<description>LRU 缓存最大容量；设为 `0` 时表示禁用缓存。</description>
 			<tags>
 				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="property" name="default_max_concurrent_loads">
+			<signature>var default_max_concurrent_loads: int = 0</signature>
+			<description>默认最大并发加载数；设为 `0` 表示默认不限制并发。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
 			</tags>
 		</member>
 	</properties>
@@ -74,17 +101,20 @@
 			</tags>
 		</member>
 		<member kind="method" name="load_async">
-			<signature>func load_async(path: String, on_loaded: Callable, type_hint: String = "") -&gt; void:</signature>
+			<signature>func load_async(path: String, on_loaded: Callable, type_hint: String = "", options: Dictionary = {}) -&gt; void:</signature>
 			<description>发起异步资源加载。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">path: 目标资源路径。</tag>
 				<tag name="param">on_loaded: 加载完成后的回调。</tag>
 				<tag name="param">type_hint: 可选资源类型提示。</tag>
+				<tag name="param">options: 可选参数，支持 serial_lane_id、lane_id、max_concurrent_loads。</tag>
+				<tag name="schema">options: Dictionary with optional `serial_lane_id: StringName`, `lane_id: StringName`, and `max_concurrent_loads: int`. A non-empty lane defaults to serial loading when no limit is provided.</tag>
+				<tag name="since">6.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="load_handle_async">
-			<signature>func load_handle_async( path: String, on_loaded: Callable, type_hint: String = "", owner: Object = null, group_id: StringName = &amp;"" ) -&gt; void:</signature>
+			<signature>func load_handle_async( path: String, on_loaded: Callable, type_hint: String = "", owner: Object = null, group_id: StringName = &amp;"", options: Dictionary = {} ) -&gt; void:</signature>
 			<description>异步加载资源并在成功后返回所有权句柄。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -93,6 +123,9 @@
 				<tag name="param">type_hint: 可选资源类型提示。</tag>
 				<tag name="param">owner: 可选拥有者。若为 Node，会在退出树时自动释放其持有的句柄引用。</tag>
 				<tag name="param">group_id: 可选资源分组。</tag>
+				<tag name="param">options: 传给 load_async() 的加载选项。</tag>
+				<tag name="schema">options: Dictionary with optional serial loading lane fields.</tag>
+				<tag name="since">6.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="acquire_handle">
@@ -164,7 +197,8 @@
 				<tag name="param">on_completed: 完成回调，签名为 func(report: Dictionary)。</tag>
 				<tag name="param">options: 可选参数，支持 pin_cache。</tag>
 				<tag name="schema">entries: Array[String|Dictionary] where dictionary entries may contain `path: String` and `type_hint: String`.</tag>
-				<tag name="schema">options: Dictionary with optional `pin_cache: bool`.</tag>
+				<tag name="schema">options: Dictionary with optional `pin_cache: bool`, `serial_lane_id: StringName`, `lane_id: StringName`, and `max_concurrent_loads: int`.</tag>
+				<tag name="since">6.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="unload_group">

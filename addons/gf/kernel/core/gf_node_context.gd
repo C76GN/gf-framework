@@ -120,11 +120,11 @@ func _enter_tree() -> void:
 		if not _is_owned_architecture_current(context_architecture):
 			_is_context_installing = false
 			return
-		install(context_architecture)
+		await call(&"install", context_architecture)
 		if not _is_owned_architecture_current(context_architecture):
 			_is_context_installing = false
 			return
-		install_bindings(context_architecture.create_binder())
+		await call(&"install_bindings", context_architecture.create_binder())
 		if not _is_owned_architecture_current(context_architecture):
 			_is_context_installing = false
 			return

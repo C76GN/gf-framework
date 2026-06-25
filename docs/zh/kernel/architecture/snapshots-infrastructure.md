@@ -50,6 +50,20 @@ if GFObjectPropertyTools.can_write_property(node, ^"position:x"):
 		push_warning(result["error"])
 ```
 
+需要把一组声明属性作为工具状态、编辑器草稿或轻量配置暂存时，可以用字典快照入口。默认只导出 `PROPERTY_USAGE_STORAGE` 属性，并复制集合值；写回时会逐项返回报告，未知字段或只读字段不会静默吞掉：
+
+```gdscript
+var snapshot := GFObjectPropertyTools.object_to_dictionary(node, {
+	"include_properties": ["name", "position", "visible"],
+})
+
+var report := GFObjectPropertyTools.apply_dictionary(node, snapshot, {
+	"ignore_unknown_properties": true,
+})
+if not report["ok"]:
+	push_warning(str(report["issues"]))
+```
+
 `GFObjectPropertyTools` 只处理 Godot 属性机制本身，不做属性绑定、自动派发、表达式执行、转换管线或业务字段解释。需要长期监听属性变化、把属性映射到玩法数据，或定义复杂编辑器表单时，应在项目自己的模块或更高层工具中组合它，而不是把这些语义写入内核。
 
 ### `GFTimeProvider`

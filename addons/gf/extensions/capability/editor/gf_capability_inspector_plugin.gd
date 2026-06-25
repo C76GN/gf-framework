@@ -657,7 +657,7 @@ func _get_node_capability_base_scripts() -> Array[Script]:
 	return result
 
 
-func _get_capability_container_script() -> Script:
+static func _get_capability_container_script() -> Script:
 	return _load_script_or_null(_GF_CAPABILITY_CONTAINER_SCRIPT_PATH)
 
 
@@ -665,7 +665,7 @@ func _get_capability_recipe_script() -> Script:
 	return _load_script_or_null(_GF_CAPABILITY_RECIPE_SCRIPT_PATH)
 
 
-func _load_script_or_null(path: String) -> Script:
+static func _load_script_or_null(path: String) -> Script:
 	if path.is_empty() or not ResourceLoader.exists(path):
 		return null
 	return _get_script_value(load(path))
@@ -843,7 +843,7 @@ func _get_capability_display_name(capability: Node) -> String:
 	return capability.name
 
 
-func _get_capability_containers(target: Node) -> Array[Node]:
+static func _get_capability_containers(target: Node) -> Array[Node]:
 	var result: Array[Node] = []
 	for child: Node in target.get_children(true):
 		if _is_capability_container(child):
@@ -852,19 +852,31 @@ func _get_capability_containers(target: Node) -> Array[Node]:
 
 
 func _get_or_create_capability_container(target: Node, capability: Node) -> Node:
-	for existing: Node in _get_capability_containers(target):
-		if _container_matches_capability(existing, capability):
-			return existing
+	var existing: Node = _find_capability_container(target, capability)
+	if existing != null:
+		return existing
 
-	var container: Node = _create_capability_container_node(target, capability)
-	container.set_meta(_META_CAPABILITY_CONTAINER, true)
-	_try_attach_capability_container_script(container)
+	var container: Node = _make_capability_container(target, capability)
 	target.add_child(container, true)
 	_set_owner_recursive(container, EditorInterface.get_edited_scene_root())
 	return container
 
 
-func _create_capability_container_node(target: Node, capability: Node) -> Node:
+static func _find_capability_container(target: Node, capability: Node) -> Node:
+	for existing: Node in _get_capability_containers(target):
+		if _container_matches_capability(existing, capability):
+			return existing
+	return null
+
+
+static func _make_capability_container(target: Node, capability: Node) -> Node:
+	var container: Node = _create_capability_container_node(target, capability)
+	container.set_meta(_META_CAPABILITY_CONTAINER, true)
+	_try_attach_capability_container_script(container)
+	return container
+
+
+static func _create_capability_container_node(target: Node, capability: Node) -> Node:
 	var container: Node = null
 	if target is Node3D and capability is Node3D:
 		container = Node3D.new()
@@ -883,7 +895,7 @@ func _create_capability_container_node(target: Node, capability: Node) -> Node:
 	return container
 
 
-func _try_attach_capability_container_script(container: Node) -> void:
+static func _try_attach_capability_container_script(container: Node) -> void:
 	var container_script: Script = _get_capability_container_script()
 	if container_script == null or not container_script.can_instantiate():
 		push_warning("[GF Framework] 能力容器脚本不可用，已改用元数据标记容器。")
@@ -897,7 +909,7 @@ func _try_attach_capability_container_script(container: Node) -> void:
 	container.set_script(container_script)
 
 
-func _configure_control_container(container: Control) -> void:
+static func _configure_control_container(container: Control) -> void:
 	container.mouse_filter = Control.MOUSE_FILTER_IGNORE as Control.MouseFilter
 	container.set_anchors_preset(Control.PRESET_FULL_RECT)
 	container.offset_left = 0.0
@@ -906,7 +918,7 @@ func _configure_control_container(container: Control) -> void:
 	container.offset_bottom = 0.0
 
 
-func _container_matches_capability(container: Node, capability: Node) -> bool:
+static func _container_matches_capability(container: Node, capability: Node) -> bool:
 	if capability is Node3D:
 		return container is Node3D
 	if capability is Node2D:
@@ -916,7 +928,7 @@ func _container_matches_capability(container: Node, capability: Node) -> bool:
 	return not (container is Node2D) and not (container is Node3D) and not (container is Control)
 
 
-func _is_capability_container(node: Node) -> bool:
+static func _is_capability_container(node: Node) -> bool:
 	if GFVariantData.to_bool(node.get_meta(_META_CAPABILITY_CONTAINER, false)):
 		return true
 
@@ -967,12 +979,178 @@ func _add_capability_node(target: Node, candidate: Dictionary) -> void:
 	if node == null:
 		return
 
-	var container: Node = _get_or_create_capability_container(target, node)
-	node.name = _make_unique_child_name(container, GFVariantData.get_option_string(candidate, "default_name", ""))
-	container.add_child(node, true)
+	var plans: Array[Dictionary] = [
+		_make_capability_add_plan(target, node, GFVariantData.get_option_string(candidate, "default_name", ""))
+	]
+	_commit_capability_add_plans("添加 GF 节点能力", target, plans, node)
+
+
+static func _make_capability_add_plan(
+	target: Node,
+	node: Node,
+	default_name: String,
+	planned_additions: Array[Dictionary] = []
+) -> Dictionary:
+	var container: Node = _find_planned_capability_container(planned_additions, node)
+	var container_is_new: bool = false
+	if container == null:
+		container = _find_capability_container(target, node)
+	if container == null:
+		container = _make_capability_container(target, node)
+		container_is_new = true
+
+	var used_names: Dictionary = _get_planned_child_names(container, planned_additions)
+	node.name = _make_unique_child_name_with_used(container, default_name, used_names)
+	return {
+		"target": target,
+		"container": container,
+		"container_is_new": container_is_new,
+		"container_index": _get_planned_container_index(target, planned_additions),
+		"node": node,
+		"node_index": _get_planned_node_index(container, planned_additions),
+	}
+
+
+static func _find_planned_capability_container(planned_additions: Array[Dictionary], capability: Node) -> Node:
+	for plan: Dictionary in planned_additions:
+		var container: Node = _get_node_value(plan.get("container", null))
+		if container != null and _container_matches_capability(container, capability):
+			return container
+	return null
+
+
+static func _get_planned_child_names(container: Node, planned_additions: Array[Dictionary]) -> Dictionary:
+	var used_names: Dictionary = {}
+	if container != null:
+		for child: Node in container.get_children(true):
+			used_names[String(child.name)] = true
+
+	for plan: Dictionary in planned_additions:
+		var planned_container: Node = _get_node_value(plan.get("container", null))
+		if planned_container != container:
+			continue
+		var planned_node: Node = _get_node_value(plan.get("node", null))
+		if planned_node != null:
+			used_names[String(planned_node.name)] = true
+	return used_names
+
+
+static func _get_planned_container_index(target: Node, planned_additions: Array[Dictionary]) -> int:
+	var index: int = target.get_child_count() if is_instance_valid(target) else 0
+	for plan: Dictionary in planned_additions:
+		if not GFVariantData.get_option_bool(plan, "container_is_new", false):
+			continue
+		var planned_target: Node = _get_node_value(plan.get("target", null))
+		if planned_target == target:
+			index += 1
+	return index
+
+
+static func _get_planned_node_index(container: Node, planned_additions: Array[Dictionary]) -> int:
+	var index: int = container.get_child_count() if is_instance_valid(container) else 0
+	for plan: Dictionary in planned_additions:
+		var planned_container: Node = _get_node_value(plan.get("container", null))
+		if planned_container == container:
+			index += 1
+	return index
+
+
+static func _make_unique_child_name_with_used(parent: Node, base_name: String, used_names: Dictionary) -> String:
+	var clean_name: String = base_name if not base_name.is_empty() else "Capability"
+	if not parent.has_node(NodePath(clean_name)) and not used_names.has(clean_name):
+		return clean_name
+
+	var index: int = 2
+	while parent.has_node(NodePath("%s%d" % [clean_name, index])) or used_names.has("%s%d" % [clean_name, index]):
+		index += 1
+	return "%s%d" % [clean_name, index]
+
+
+func _commit_capability_add_plans(
+	action_name: String,
+	target: Node,
+	plans: Array[Dictionary],
+	selection_after_do: Node
+) -> void:
+	if plans.is_empty():
+		return
+
+	var undo_redo: EditorUndoRedoManager = EditorInterface.get_editor_undo_redo()
+	if undo_redo == null:
+		for plan: Dictionary in plans:
+			_execute_capability_add_plan(plan)
+		_select_and_inspect_node(selection_after_do)
+		return
+
+	undo_redo.create_action(action_name)
+	for plan: Dictionary in plans:
+		_add_capability_plan_to_undo(undo_redo, plan)
+	undo_redo.add_do_method(self, "_select_and_inspect_node", selection_after_do)
+	if is_instance_valid(target):
+		undo_redo.add_undo_method(self, "_select_and_inspect_node", target)
+	undo_redo.commit_action()
+
+
+func _add_capability_plan_to_undo(undo_redo: EditorUndoRedoManager, plan: Dictionary) -> void:
+	var target: Node = _get_node_value(plan.get("target", null))
+	var container: Node = _get_node_value(plan.get("container", null))
+	var node: Node = _get_node_value(plan.get("node", null))
+	if not is_instance_valid(target) or container == null or node == null:
+		return
+
+	var scene_root: Node = EditorInterface.get_edited_scene_root()
+	if GFVariantData.get_option_bool(plan, "container_is_new", false):
+		undo_redo.add_do_method(
+			self,
+			"_add_child_at",
+			target,
+			container,
+			GFVariantData.get_option_int(plan, "container_index", target.get_child_count()),
+			true
+		)
+		undo_redo.add_do_method(self, "_set_owner_recursive", container, scene_root)
+
+	undo_redo.add_do_method(
+		self,
+		"_add_child_at",
+		container,
+		node,
+		GFVariantData.get_option_int(plan, "node_index", container.get_child_count()),
+		true
+	)
+	undo_redo.add_do_method(self, "_set_owner_recursive", node, scene_root)
+	if plan.has("active"):
+		undo_redo.add_do_method(
+			self,
+			"_set_editor_capability_active",
+			node,
+			GFVariantData.get_option_bool(plan, "active", true)
+		)
+
+	undo_redo.add_undo_method(self, "_remove_child_if_parent", container, node)
+	if GFVariantData.get_option_bool(plan, "container_is_new", false):
+		undo_redo.add_undo_method(self, "_remove_child_if_parent", target, container)
+		undo_redo.add_do_reference(container)
+		undo_redo.add_undo_reference(container)
+	undo_redo.add_do_reference(node)
+	undo_redo.add_undo_reference(node)
+
+
+func _execute_capability_add_plan(plan: Dictionary) -> void:
+	var target: Node = _get_node_value(plan.get("target", null))
+	var container: Node = _get_node_value(plan.get("container", null))
+	var node: Node = _get_node_value(plan.get("node", null))
+	if not is_instance_valid(target) or container == null or node == null:
+		return
+
+	if GFVariantData.get_option_bool(plan, "container_is_new", false):
+		_add_child_at(target, container, GFVariantData.get_option_int(plan, "container_index", target.get_child_count()), true)
+		_set_owner_recursive(container, EditorInterface.get_edited_scene_root())
+
+	_add_child_at(container, node, GFVariantData.get_option_int(plan, "node_index", container.get_child_count()), true)
 	_set_owner_recursive(node, EditorInterface.get_edited_scene_root())
-	_select_editor_node(node)
-	EditorInterface.inspect_object(node)
+	if plan.has("active"):
+		_set_editor_capability_active(node, GFVariantData.get_option_bool(plan, "active", true))
 
 
 func _apply_recipe_to_target(target: Node, recipe: Resource) -> Dictionary:
@@ -987,6 +1165,8 @@ func _apply_recipe_to_target(target: Node, recipe: Resource) -> Dictionary:
 		return _recipe_apply_report_to_dict(report, recipe, added, skipped)
 
 	var entries: Array = GFVariantData.as_array(_read_property(recipe, "entries", []))
+	var add_plans: Array[Dictionary] = []
+	var planned_capability_keys: Dictionary = {}
 
 	for index: int in range(entries.size()):
 		var entry: Resource = _get_resource_value(entries[index])
@@ -1008,28 +1188,40 @@ func _apply_recipe_to_target(target: Node, recipe: Resource) -> Dictionary:
 		var capability_script: Script = _get_script_value(_read_property(entry, "capability_type"))
 		if capability_script == null:
 			capability_script = _get_script_value(node.get_script())
-		if capability_script != null and _target_has_capability_script(target, capability_script):
+		var capability_key: String = _get_script_key(capability_script)
+		if capability_script != null and (
+			_target_has_capability_script(target, capability_script)
+			or planned_capability_keys.has(capability_key)
+		):
 			node.queue_free()
 			skipped.append({
 				"index": index,
 				"kind": "already_exists",
-				"type": _get_script_key(capability_script),
+				"type": capability_key,
 			})
 			continue
 
-		var container: Node = _get_or_create_capability_container(target, node)
-		node.name = _make_unique_child_name(container, _get_recipe_entry_node_name(entry, node, index))
-		container.add_child(node, true)
-		_set_owner_recursive(node, EditorInterface.get_edited_scene_root())
 		var active: bool = GFVariantData.to_bool(_read_property(entry, "active", true), true)
 		_set_editor_capability_active(node, active)
+		var plan: Dictionary = _make_capability_add_plan(
+			target,
+			node,
+			_get_recipe_entry_node_name(entry, node, index),
+			add_plans
+		)
+		plan["active"] = active
+		add_plans.append(plan)
+		if capability_script != null:
+			planned_capability_keys[capability_key] = true
 		added.append({
 			"index": index,
-			"type": _get_script_key(capability_script),
+			"type": capability_key,
 			"name": node.name,
 			"active": active,
 		})
 
+	if not add_plans.is_empty():
+		_commit_capability_add_plans("应用 GF Capability Recipe", target, add_plans, target)
 	var result: Dictionary = _recipe_apply_report_to_dict(report, recipe, added, skipped)
 	result["dependency_report"] = _build_editor_capability_report(target)
 	_select_editor_node(target)
@@ -1298,12 +1490,42 @@ func _remove_capability_node(target: Node, capability: Node) -> void:
 		return
 
 	var container: Node = capability.get_parent()
-	capability.queue_free()
-	if is_instance_valid(target):
-		_select_editor_node(target)
-		EditorInterface.inspect_object(target)
-	if is_instance_valid(container) and container.get_child_count(true) <= 1:
-		container.queue_free()
+	if container == null:
+		capability.queue_free()
+		return
+
+	var container_parent: Node = container.get_parent()
+	var capability_index: int = capability.get_index()
+	var container_index: int = container.get_index() if container_parent != null else -1
+	var remove_container: bool = is_instance_valid(container_parent) and container.get_child_count(true) <= 1
+	var scene_root: Node = EditorInterface.get_edited_scene_root()
+	var undo_redo: EditorUndoRedoManager = EditorInterface.get_editor_undo_redo()
+	if undo_redo == null:
+		_remove_child_if_parent(container, capability)
+		if remove_container:
+			_remove_child_if_parent(container_parent, container)
+		capability.queue_free()
+		if remove_container:
+			container.queue_free()
+		_select_and_inspect_node(target)
+		return
+
+	undo_redo.create_action("移除 GF 节点能力")
+	undo_redo.add_do_method(self, "_remove_child_if_parent", container, capability)
+	if remove_container:
+		undo_redo.add_do_method(self, "_remove_child_if_parent", container_parent, container)
+	undo_redo.add_do_method(self, "_select_and_inspect_node", target)
+	if remove_container:
+		undo_redo.add_undo_method(self, "_add_child_at", container_parent, container, container_index, true)
+		undo_redo.add_undo_method(self, "_set_owner_recursive", container, scene_root)
+		undo_redo.add_do_reference(container)
+		undo_redo.add_undo_reference(container)
+	undo_redo.add_undo_method(self, "_add_child_at", container, capability, capability_index, true)
+	undo_redo.add_undo_method(self, "_set_owner_recursive", capability, scene_root)
+	undo_redo.add_undo_method(self, "_select_and_inspect_node", capability)
+	undo_redo.add_do_reference(capability)
+	undo_redo.add_undo_reference(capability)
+	undo_redo.commit_action()
 
 
 func _make_unique_child_name(parent: Node, base_name: String) -> String:
@@ -1329,6 +1551,13 @@ func _select_editor_node(node: Node) -> void:
 	selection.add_node(node)
 
 
+func _select_and_inspect_node(node: Node) -> void:
+	if not is_instance_valid(node):
+		return
+	_select_editor_node(node)
+	EditorInterface.inspect_object(node)
+
+
 func _set_owner_recursive(node: Node, owner: Node) -> void:
 	if owner == null:
 		return
@@ -1336,6 +1565,27 @@ func _set_owner_recursive(node: Node, owner: Node) -> void:
 	node.owner = owner
 	for child: Node in node.get_children(true):
 		_set_owner_recursive(child, owner)
+
+
+func _add_child_at(parent: Node, child: Node, index: int, force_readable_name: bool = true) -> void:
+	if not is_instance_valid(parent) or not is_instance_valid(child):
+		return
+
+	var current_parent: Node = child.get_parent()
+	if current_parent != null and current_parent != parent:
+		current_parent.remove_child(child)
+	if child.get_parent() == null:
+		parent.add_child(child, force_readable_name)
+
+	var max_index: int = maxi(parent.get_child_count() - 1, 0)
+	parent.move_child(child, clampi(index, 0, max_index))
+
+
+func _remove_child_if_parent(parent: Node, child: Node) -> void:
+	if not is_instance_valid(parent) or not is_instance_valid(child):
+		return
+	if child.get_parent() == parent:
+		parent.remove_child(child)
 
 
 func _read_editor_capability_active(capability: Node) -> bool:
@@ -1404,8 +1654,24 @@ func _on_validate_capabilities_pressed(target: Node) -> void:
 
 
 func _on_capability_active_toggled(active: bool, capability: Node) -> void:
-	if is_instance_valid(capability):
+	if not is_instance_valid(capability):
+		return
+
+	var old_active: bool = _read_editor_capability_active(capability)
+	if old_active == active:
+		return
+
+	var undo_redo: EditorUndoRedoManager = EditorInterface.get_editor_undo_redo()
+	if undo_redo == null:
 		_set_editor_capability_active(capability, active)
+		return
+
+	undo_redo.create_action("设置 GF 节点能力启用状态")
+	undo_redo.add_do_method(self, "_set_editor_capability_active", capability, active)
+	undo_redo.add_undo_method(self, "_set_editor_capability_active", capability, old_active)
+	undo_redo.add_do_reference(capability)
+	undo_redo.add_undo_reference(capability)
+	undo_redo.commit_action()
 
 
 func _on_capability_edit_pressed(capability: Node) -> void:

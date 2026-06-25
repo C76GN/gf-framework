@@ -55,6 +55,24 @@ static func get_export_plugin_records() -> Array[Dictionary]:
 	]
 
 
+## 获取标准库 Debugger 插件记录。
+## [br]
+## @api framework_internal
+## [br]
+## @layer standard/editor
+## [br]
+## @return Debugger 插件记录列表。
+## [br]
+## @schema return: Array of Dictionary debugger plugin records.
+static func get_debugger_plugin_records() -> Array[Dictionary]:
+	return [
+		{
+			"path": "res://addons/gf/standard/utilities/debug/editor/gf_runtime_debugger_plugin.gd",
+			"label": "GF Runtime Debugger",
+		},
+	]
+
+
 ## 获取标准库 ProjectSettings 记录。
 ## [br]
 ## @api framework_internal

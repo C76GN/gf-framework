@@ -15,6 +15,11 @@
 
 | 类型 | 名称 | 签名 |
 |---|---|---|
+| 常量 | [`GROUP_SOURCE_ID`](#member-gfresourceregistry-constants-group_source_id) | `const GROUP_SOURCE_ID: StringName = &"id"` |
+| 常量 | [`GROUP_SOURCE_PATH`](#member-gfresourceregistry-constants-group_source_path) | `const GROUP_SOURCE_PATH: StringName = &"path"` |
+| 常量 | [`GROUP_SOURCE_PATH_BASENAME`](#member-gfresourceregistry-constants-group_source_path_basename) | `const GROUP_SOURCE_PATH_BASENAME: StringName = &"path_basename"` |
+| 常量 | [`GROUP_SOURCE_TYPE_HINT`](#member-gfresourceregistry-constants-group_source_type_hint) | `const GROUP_SOURCE_TYPE_HINT: StringName = &"type_hint"` |
+| 常量 | [`GROUP_SOURCE_FIELD`](#member-gfresourceregistry-constants-group_source_field) | `const GROUP_SOURCE_FIELD: StringName = &"field"` |
 | 属性 | [`entries`](#member-gfresourceregistry-properties-entries) | `var entries: Array[GFResourceRegistryEntry] = []` |
 | 方法 | [`set_entry`](#member-gfresourceregistry-methods-set_entry) | `func set_entry(entry: Resource) -> bool:` |
 | 方法 | [`remove_entry`](#member-gfresourceregistry-methods-remove_entry) | `func remove_entry(entry_id: StringName) -> bool:` |
@@ -30,6 +35,12 @@
 | 方法 | [`get_all_paths`](#member-gfresourceregistry-methods-get_all_paths) | `func get_all_paths() -> PackedStringArray:` |
 | 方法 | [`query`](#member-gfresourceregistry-methods-query) | `func query(field_id: StringName, field_value: Variant) -> PackedStringArray:` |
 | 方法 | [`query_many`](#member-gfresourceregistry-methods-query_many) | `func query_many(criteria: Dictionary, match_all: bool = true) -> PackedStringArray:` |
+| 方法 | [`make_search_candidates`](#member-gfresourceregistry-methods-make_search_candidates) | `func make_search_candidates(entry_ids: PackedStringArray = PackedStringArray()) -> Array[Dictionary]:` |
+| 方法 | [`search`](#member-gfresourceregistry-methods-search) | `func search(query_text: String, options: Dictionary = {}) -> Array[Dictionary]:` |
+| 方法 | [`make_entry_summary`](#member-gfresourceregistry-methods-make_entry_summary) | `func make_entry_summary(entry_id: StringName, options: Dictionary = {}) -> Dictionary:` |
+| 方法 | [`make_entry_summaries`](#member-gfresourceregistry-methods-make_entry_summaries) | `func make_entry_summaries(entry_ids: PackedStringArray = PackedStringArray(), options: Dictionary = {}) -> Array[Dictionary]:` |
+| 方法 | [`search_page`](#member-gfresourceregistry-methods-search_page) | `func search_page( query_text: String, page: int = 1, page_size: int = 50, options: Dictionary = {} ) -> Dictionary:` |
+| 方法 | [`group_entry_ids`](#member-gfresourceregistry-methods-group_entry_ids) | `func group_entry_ids(group_source: StringName = GROUP_SOURCE_ID, options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`load_entry`](#member-gfresourceregistry-methods-load_entry) | `func load_entry( entry_id: StringName, type_hint_override: String = "", cache_mode: int = ResourceLoader.CACHE_MODE_REUSE ) -> Resource:` |
 | 方法 | [`request_entry_async`](#member-gfresourceregistry-methods-request_entry_async) | `func request_entry_async( asset_utility: GFAssetUtility, entry_id: StringName, on_loaded: Callable, type_hint_override: String = "" ) -> void:` |
 | 方法 | [`request_entry_handle_async`](#member-gfresourceregistry-methods-request_entry_handle_async) | `func request_entry_handle_async( asset_utility: GFAssetUtility, entry_id: StringName, on_loaded: Callable, owner: Object = null, group_id: StringName = &"", type_hint_override: String = "" ) -> void:` |
@@ -38,6 +49,73 @@
 | 方法 | [`to_dict`](#member-gfresourceregistry-methods-to_dict) | `func to_dict() -> Dictionary:` |
 | 方法 | [`apply_dict`](#member-gfresourceregistry-methods-apply_dict) | `func apply_dict(data: Dictionary) -> void:` |
 | 方法 | [`from_dict`](#member-gfresourceregistry-methods-from_dict) | `static func from_dict(data: Dictionary) -> Resource:` |
+
+## 常量
+
+<a id="member-gfresourceregistry-constants-group_source_id"></a>
+
+### `GROUP_SOURCE_ID`
+
+- API：`public`
+- 首次版本：`6.0.0`
+
+```gdscript
+const GROUP_SOURCE_ID: StringName = &"id"
+```
+
+按条目 ID 分组。
+
+<a id="member-gfresourceregistry-constants-group_source_path"></a>
+
+### `GROUP_SOURCE_PATH`
+
+- API：`public`
+- 首次版本：`6.0.0`
+
+```gdscript
+const GROUP_SOURCE_PATH: StringName = &"path"
+```
+
+按完整资源路径分组。
+
+<a id="member-gfresourceregistry-constants-group_source_path_basename"></a>
+
+### `GROUP_SOURCE_PATH_BASENAME`
+
+- API：`public`
+- 首次版本：`6.0.0`
+
+```gdscript
+const GROUP_SOURCE_PATH_BASENAME: StringName = &"path_basename"
+```
+
+按资源路径文件名去扩展名分组。
+
+<a id="member-gfresourceregistry-constants-group_source_type_hint"></a>
+
+### `GROUP_SOURCE_TYPE_HINT`
+
+- API：`public`
+- 首次版本：`6.0.0`
+
+```gdscript
+const GROUP_SOURCE_TYPE_HINT: StringName = &"type_hint"
+```
+
+按资源类型提示分组。
+
+<a id="member-gfresourceregistry-constants-group_source_field"></a>
+
+### `GROUP_SOURCE_FIELD`
+
+- API：`public`
+- 首次版本：`6.0.0`
+
+```gdscript
+const GROUP_SOURCE_FIELD: StringName = &"field"
+```
+
+按条目 fields 中的字段值分组。字段名由 options.field_id 指定。
 
 ## 属性
 
@@ -316,6 +394,170 @@ func query_many(criteria: Dictionary, match_all: bool = true) -> PackedStringArr
 结构：
 
 - `criteria`: Dictionary from field id to query value.
+
+<a id="member-gfresourceregistry-methods-make_search_candidates"></a>
+
+### `make_search_candidates`
+
+- API：`public`
+- 首次版本：`6.0.0`
+
+```gdscript
+func make_search_candidates(entry_ids: PackedStringArray = PackedStringArray()) -> Array[Dictionary]:
+```
+
+构建可交给 GFTextSearchScorer 的搜索候选。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `entry_ids` | 要导出的条目 ID；为空时导出全部有效条目。 |
+
+返回：搜索候选字典数组。
+
+结构：
+
+- `entry_ids`: PackedStringArray selected entry ids.
+- `return`: Array[Dictionary] where each candidate contains id, entry_id, title, name, path, type_hint, keywords, and fields.
+
+<a id="member-gfresourceregistry-methods-search"></a>
+
+### `search`
+
+- API：`public`
+- 首次版本：`6.0.0`
+
+```gdscript
+func search(query_text: String, options: Dictionary = {}) -> Array[Dictionary]:
+```
+
+用通用文本评分器搜索注册表条目。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `query_text` | 查询文本。 |
+| `options` | 可选项，支持 GFTextSearchScorer.rank_candidates() 的选项，并额外支持 entry_ids。 |
+
+返回：排序后的匹配报告数组。
+
+结构：
+
+- `options`: Dictionary with optional entry_ids: PackedStringArray or Array[String], plus GFTextSearchScorer rank options.
+- `return`: Array[Dictionary] from GFTextSearchScorer.rank_candidates().
+
+<a id="member-gfresourceregistry-methods-make_entry_summary"></a>
+
+### `make_entry_summary`
+
+- API：`public`
+- 首次版本：`6.0.0`
+
+```gdscript
+func make_entry_summary(entry_id: StringName, options: Dictionary = {}) -> Dictionary:
+```
+
+构建单个条目的工具层摘要。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `entry_id` | 条目稳定 ID。 |
+| `options` | 可选项，支持 title_fields、description_fields、preview_path_fields、tag_fields、category_fields 和 include_fields。 |
+
+返回：条目摘要；条目不存在时返回空字典。
+
+结构：
+
+- `options`: Dictionary where field list options are PackedStringArray or Array[String], and include_fields controls whether fields is copied into the summary.
+- `return`: Dictionary with id, entry_id, title, path, path_basename, type_hint, description, preview_path, tags, category, and optional fields.
+
+<a id="member-gfresourceregistry-methods-make_entry_summaries"></a>
+
+### `make_entry_summaries`
+
+- API：`public`
+- 首次版本：`6.0.0`
+
+```gdscript
+func make_entry_summaries(entry_ids: PackedStringArray = PackedStringArray(), options: Dictionary = {}) -> Array[Dictionary]:
+```
+
+批量构建条目摘要。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `entry_ids` | 要导出的条目 ID；为空时导出全部有效条目。 |
+| `options` | 传给 make_entry_summary() 的摘要选项。 |
+
+返回：条目摘要数组。
+
+结构：
+
+- `entry_ids`: PackedStringArray selected entry ids.
+- `options`: Dictionary summary options.
+- `return`: Array[Dictionary] where each item is make_entry_summary() output.
+
+<a id="member-gfresourceregistry-methods-search_page"></a>
+
+### `search_page`
+
+- API：`public`
+- 首次版本：`6.0.0`
+
+```gdscript
+func search_page( query_text: String, page: int = 1, page_size: int = 50, options: Dictionary = {} ) -> Dictionary:
+```
+
+搜索条目并返回分页报告。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `query_text` | 查询文本；为空时默认按当前候选顺序列出条目。 |
+| `page` | 页码，从 1 开始。 |
+| `page_size` | 每页数量，会被规整为至少 1。 |
+| `options` | 可选项，支持 search() 选项，并额外支持 empty_query_returns_all、include_summaries 和 summary_options。 |
+
+返回：分页搜索报告。
+
+结构：
+
+- `options`: Dictionary with search options, empty_query_returns_all: bool, include_summaries: bool, and summary_options: Dictionary.
+- `return`: Dictionary with query, page, page_size, page_count, total_count, start_index, end_index, has_previous, has_next, results, entry_ids, and summaries.
+
+<a id="member-gfresourceregistry-methods-group_entry_ids"></a>
+
+### `group_entry_ids`
+
+- API：`public`
+- 首次版本：`6.0.0`
+
+```gdscript
+func group_entry_ids(group_source: StringName = GROUP_SOURCE_ID, options: Dictionary = {}) -> Dictionary:
+```
+
+按通用来源把条目 ID 分组。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `group_source` | 分组来源，支持 GROUP_SOURCE_ID、GROUP_SOURCE_PATH、GROUP_SOURCE_PATH_BASENAME、GROUP_SOURCE_TYPE_HINT 与 GROUP_SOURCE_FIELD。 |
+| `options` | 可选项，支持 entry_ids、field_id、include_empty 和 empty_key。 |
+
+返回：分组字典，key 为分组文本，value 为排序后的条目 ID 列表。
+
+结构：
+
+- `options`: Dictionary with optional entry_ids, field_id, include_empty, and empty_key.
+- `return`: Dictionary[String, PackedStringArray] grouped entry ids.
 
 <a id="member-gfresourceregistry-methods-load_entry"></a>
 

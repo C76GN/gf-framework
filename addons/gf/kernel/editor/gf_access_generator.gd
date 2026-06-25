@@ -54,6 +54,7 @@ const _BASE_UTILITY_SCRIPT = preload("res://addons/gf/kernel/base/gf_utility.gd"
 const _BASE_COMMAND_SCRIPT = preload("res://addons/gf/kernel/base/gf_command.gd")
 const _BASE_QUERY_SCRIPT = preload("res://addons/gf/kernel/base/gf_query.gd")
 const _GF_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
+const _GENERATED_ARTIFACT_REPORT_SCRIPT = preload("res://addons/gf/kernel/editor/gf_generated_artifact_report.gd")
 const _LAYER_TYPES: Dictionary = {
 	"2d_render": 20,
 	"2d_physics": 32,
@@ -88,9 +89,31 @@ const _KNOWN_GF_PROJECT_SETTINGS: Array[String] = [
 ## [br]
 ## @return 写入结果错误码。
 func generate(output_path: String = DEFAULT_OUTPUT_PATH, overwrite_existing: bool = true) -> Error:
+	var report: Dictionary = generate_with_report(output_path, {
+		"overwrite_existing": overwrite_existing,
+	})
+	return _GENERATED_ARTIFACT_REPORT_SCRIPT.get_error_code(report)
+
+
+## 扫描项目 class_name 脚本并生成访问器报告。
+## [br]
+## @api public
+## [br]
+## @since 6.0.0
+## [br]
+## @param output_path: 生成文件输出路径。
+## [br]
+## @param options: 保存选项，支持 overwrite_existing、dry_run、scan_filesystem 和 metadata。
+## [br]
+## @schema options: Dictionary，可包含 overwrite_existing、dry_run、scan_filesystem 和 metadata。
+## [br]
+## @return: 生成产物报告。
+## [br]
+## @schema return: Dictionary，包含 success、path、status、error_code、error、written、changed、dry_run、size_bytes 和 metadata。
+func generate_with_report(output_path: String = DEFAULT_OUTPUT_PATH, options: Dictionary = {}) -> Dictionary:
 	var records: Array[Dictionary] = collect_records()
 	var source: String = build_source(records)
-	return save_source(output_path, source, overwrite_existing)
+	return save_source_with_report(output_path, source, options)
 
 
 ## 生成项目常量访问器。
@@ -103,9 +126,34 @@ func generate(output_path: String = DEFAULT_OUTPUT_PATH, overwrite_existing: boo
 ## [br]
 ## @return 写入结果错误码。
 func generate_project_access(output_path: String = DEFAULT_PROJECT_OUTPUT_PATH, overwrite_existing: bool = true) -> Error:
+	var report: Dictionary = generate_project_access_with_report(output_path, {
+		"overwrite_existing": overwrite_existing,
+	})
+	return _GENERATED_ARTIFACT_REPORT_SCRIPT.get_error_code(report)
+
+
+## 生成项目常量访问器报告。
+## [br]
+## @api public
+## [br]
+## @since 6.0.0
+## [br]
+## @param output_path: 生成文件输出路径。
+## [br]
+## @param options: 保存选项，支持 overwrite_existing、dry_run、scan_filesystem 和 metadata。
+## [br]
+## @schema options: Dictionary，可包含 overwrite_existing、dry_run、scan_filesystem 和 metadata。
+## [br]
+## @return: 生成产物报告。
+## [br]
+## @schema return: Dictionary，包含 success、path、status、error_code、error、written、changed、dry_run、size_bytes 和 metadata。
+func generate_project_access_with_report(
+	output_path: String = DEFAULT_PROJECT_OUTPUT_PATH,
+	options: Dictionary = {}
+) -> Dictionary:
 	var records: Dictionary = collect_project_records()
 	var source: String = build_project_source(records)
-	return save_source(output_path, source, overwrite_existing)
+	return save_source_with_report(output_path, source, options)
 
 
 ## 收集当前项目中可生成访问器的 GF 类型记录。
@@ -317,42 +365,43 @@ func build_project_source(records: Dictionary) -> String:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param output_path: 生成文件输出路径。
 ## [br]
-## @param source: 源对象或资源。
+## @param source: GDScript 源码。
 ## [br]
 ## @param overwrite_existing: 为 false 时目标已存在会返回 ERR_ALREADY_EXISTS。
 ## [br]
 ## @return 写入结果错误码。
 func save_source(output_path: String, source: String, overwrite_existing: bool = true) -> Error:
-	if output_path.is_empty():
-		push_error("[GFAccessGenerator] 输出路径为空。")
-		return ERR_INVALID_PARAMETER
+	var report: Dictionary = save_source_with_report(output_path, source, {
+		"overwrite_existing": overwrite_existing,
+	})
+	return _GENERATED_ARTIFACT_REPORT_SCRIPT.get_error_code(report)
 
-	if FileAccess.file_exists(output_path) and not overwrite_existing:
-		push_warning("[GFAccessGenerator] 目标文件已存在，已跳过：%s" % output_path)
-		return ERR_ALREADY_EXISTS
 
-	var dir_error: Error = DirAccess.make_dir_recursive_absolute(output_path.get_base_dir())
-	if dir_error != OK:
-		push_error("[GFAccessGenerator] 无法创建访问器输出目录：%s (%s)" % [output_path.get_base_dir(), error_string(dir_error)])
-		return dir_error
-
-	var file: FileAccess = FileAccess.open(output_path, FileAccess.WRITE)
-	if file == null:
-		var open_error: Error = FileAccess.get_open_error()
-		push_error("[GFAccessGenerator] 无法写入访问器脚本：%s (%s)" % [output_path, error_string(open_error)])
-		return open_error
-
-	_store_file_string(file, source)
-	file.close()
-
-	if Engine.is_editor_hint():
-		var filesystem: EditorFileSystem = EditorInterface.get_resource_filesystem()
-		if filesystem != null:
-			filesystem.scan()
-
-	return OK
+## 保存生成源码到指定路径并返回生成产物报告。
+## [br]
+## @api public
+## [br]
+## @since 6.0.0
+## [br]
+## @param output_path: 生成文件输出路径。
+## [br]
+## @param source: GDScript 源码。
+## [br]
+## @param options: 保存选项，支持 overwrite_existing、dry_run、scan_filesystem 和 metadata。
+## [br]
+## @schema options: Dictionary，可包含 overwrite_existing、dry_run、scan_filesystem 和 metadata。
+## [br]
+## @return: 生成产物报告。
+## [br]
+## @schema return: Dictionary，包含 success、path、status、error_code、error、written、changed、dry_run、size_bytes 和 metadata。
+func save_source_with_report(output_path: String, source: String, options: Dictionary = {}) -> Dictionary:
+	var save_options: Dictionary = options.duplicate(true)
+	save_options["label"] = "GFAccessGenerator"
+	return _GENERATED_ARTIFACT_REPORT_SCRIPT.save_text(output_path, source, save_options)
 
 
 # --- 私有/辅助方法 ---

@@ -19,6 +19,13 @@
 | 信号 | [`diagnostic_command_executed`](#member-gfdiagnosticsutility-signals-diagnostic_command_executed) | `signal diagnostic_command_executed(command_name: StringName, result: Dictionary)` |
 | 信号 | [`monitor_sampled`](#member-gfdiagnosticsutility-signals-monitor_sampled) | `signal monitor_sampled(monitor_id: StringName, sample: Dictionary)` |
 | 枚举 | [`CommandTier`](#member-gfdiagnosticsutility-enums-commandtier) | `enum CommandTier` |
+| 常量 | [`DEBUGGER_CAPTURE_NAME`](#member-gfdiagnosticsutility-constants-debugger_capture_name) | `const DEBUGGER_CAPTURE_NAME: StringName = &"gf_diagnostics"` |
+| 常量 | [`DEBUGGER_MESSAGE_REQUEST_SNAPSHOT`](#member-gfdiagnosticsutility-constants-debugger_message_request_snapshot) | `const DEBUGGER_MESSAGE_REQUEST_SNAPSHOT: String = "gf_diagnostics:request_snapshot"` |
+| 常量 | [`DEBUGGER_MESSAGE_REQUEST_CATALOG`](#member-gfdiagnosticsutility-constants-debugger_message_request_catalog) | `const DEBUGGER_MESSAGE_REQUEST_CATALOG: String = "gf_diagnostics:request_catalog"` |
+| 常量 | [`DEBUGGER_MESSAGE_EXECUTE_COMMAND`](#member-gfdiagnosticsutility-constants-debugger_message_execute_command) | `const DEBUGGER_MESSAGE_EXECUTE_COMMAND: String = "gf_diagnostics:execute_command"` |
+| 常量 | [`DEBUGGER_MESSAGE_SNAPSHOT`](#member-gfdiagnosticsutility-constants-debugger_message_snapshot) | `const DEBUGGER_MESSAGE_SNAPSHOT: String = "gf_diagnostics:snapshot"` |
+| 常量 | [`DEBUGGER_MESSAGE_CATALOG`](#member-gfdiagnosticsutility-constants-debugger_message_catalog) | `const DEBUGGER_MESSAGE_CATALOG: String = "gf_diagnostics:catalog"` |
+| 常量 | [`DEBUGGER_MESSAGE_COMMAND_RESULT`](#member-gfdiagnosticsutility-constants-debugger_message_command_result) | `const DEBUGGER_MESSAGE_COMMAND_RESULT: String = "gf_diagnostics:command_result"` |
 | 属性 | [`include_performance_monitors`](#member-gfdiagnosticsutility-properties-include_performance_monitors) | `var include_performance_monitors: bool = true` |
 | 属性 | [`default_recent_log_count`](#member-gfdiagnosticsutility-properties-default_recent_log_count) | `var default_recent_log_count: int = 20` |
 | 属性 | [`max_command_tier`](#member-gfdiagnosticsutility-properties-max_command_tier) | `var max_command_tier: CommandTier = CommandTier.OBSERVE` |
@@ -63,6 +70,7 @@
 | 方法 | [`execute_command_json_safe`](#member-gfdiagnosticsutility-methods-execute_command_json_safe) | `func execute_command_json_safe(command_name: StringName, args: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`command_result_to_json_compatible`](#member-gfdiagnosticsutility-methods-command_result_to_json_compatible) | `func command_result_to_json_compatible(result: Dictionary, options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`collect_snapshot`](#member-gfdiagnosticsutility-methods-collect_snapshot) | `func collect_snapshot(options: Dictionary = {}) -> Dictionary:` |
+| 方法 | [`get_debugger_bridge_state`](#member-gfdiagnosticsutility-methods-get_debugger_bridge_state) | `func get_debugger_bridge_state() -> Dictionary:` |
 | 方法 | [`collect_performance_snapshot`](#member-gfdiagnosticsutility-methods-collect_performance_snapshot) | `func collect_performance_snapshot() -> Dictionary:` |
 | 方法 | [`collect_log_snapshot`](#member-gfdiagnosticsutility-methods-collect_log_snapshot) | `func collect_log_snapshot(recent_log_count: int = 20, include_recent_logs: bool = true) -> Dictionary:` |
 | 方法 | [`collect_scene_tree_snapshot`](#member-gfdiagnosticsutility-methods-collect_scene_tree_snapshot) | `func collect_scene_tree_snapshot(root: Node = null, options: Dictionary = {}) -> Dictionary:` |
@@ -160,6 +168,99 @@ enum CommandTier {
 ```
 
 诊断命令风险等级。
+
+## 常量
+
+<a id="member-gfdiagnosticsutility-constants-debugger_capture_name"></a>
+
+### `DEBUGGER_CAPTURE_NAME`
+
+- API：`public`
+- 首次版本：`6.0.0`
+
+```gdscript
+const DEBUGGER_CAPTURE_NAME: StringName = &"gf_diagnostics"
+```
+
+EditorDebugger 与运行时诊断桥使用的 capture 名称。
+
+<a id="member-gfdiagnosticsutility-constants-debugger_message_request_snapshot"></a>
+
+### `DEBUGGER_MESSAGE_REQUEST_SNAPSHOT`
+
+- API：`public`
+- 首次版本：`6.0.0`
+
+```gdscript
+const DEBUGGER_MESSAGE_REQUEST_SNAPSHOT: String = "gf_diagnostics:request_snapshot"
+```
+
+EditorDebugger 请求快照消息。
+
+<a id="member-gfdiagnosticsutility-constants-debugger_message_request_catalog"></a>
+
+### `DEBUGGER_MESSAGE_REQUEST_CATALOG`
+
+- API：`public`
+- 首次版本：`6.0.0`
+
+```gdscript
+const DEBUGGER_MESSAGE_REQUEST_CATALOG: String = "gf_diagnostics:request_catalog"
+```
+
+EditorDebugger 请求目录消息。
+
+<a id="member-gfdiagnosticsutility-constants-debugger_message_execute_command"></a>
+
+### `DEBUGGER_MESSAGE_EXECUTE_COMMAND`
+
+- API：`public`
+- 首次版本：`6.0.0`
+
+```gdscript
+const DEBUGGER_MESSAGE_EXECUTE_COMMAND: String = "gf_diagnostics:execute_command"
+```
+
+EditorDebugger 执行诊断命令消息。
+
+<a id="member-gfdiagnosticsutility-constants-debugger_message_snapshot"></a>
+
+### `DEBUGGER_MESSAGE_SNAPSHOT`
+
+- API：`public`
+- 首次版本：`6.0.0`
+
+```gdscript
+const DEBUGGER_MESSAGE_SNAPSHOT: String = "gf_diagnostics:snapshot"
+```
+
+运行时返回快照消息。
+
+<a id="member-gfdiagnosticsutility-constants-debugger_message_catalog"></a>
+
+### `DEBUGGER_MESSAGE_CATALOG`
+
+- API：`public`
+- 首次版本：`6.0.0`
+
+```gdscript
+const DEBUGGER_MESSAGE_CATALOG: String = "gf_diagnostics:catalog"
+```
+
+运行时返回目录消息。
+
+<a id="member-gfdiagnosticsutility-constants-debugger_message_command_result"></a>
+
+### `DEBUGGER_MESSAGE_COMMAND_RESULT`
+
+- API：`public`
+- 首次版本：`6.0.0`
+
+```gdscript
+const DEBUGGER_MESSAGE_COMMAND_RESULT: String = "gf_diagnostics:command_result"
+```
+
+运行时返回命令结果消息。
 
 ## 属性
 
@@ -992,6 +1093,25 @@ func collect_snapshot(options: Dictionary = {}) -> Dictionary:
 
 - `options`: Dictionary，支持 recent_log_count、include_recent_logs、include_scene_tree、scene_tree_options、include_signal_graph、signal_graph_options、include_monitors、monitor_preset、monitor_ids、include_hidden_monitors。
 - `return`: Dictionary，包含 timestamp_unix、engine、build、architecture、event_system、performance、logs、network、tools，可选 scene_tree、signal_graph、monitors 和注册分区。
+
+<a id="member-gfdiagnosticsutility-methods-get_debugger_bridge_state"></a>
+
+### `get_debugger_bridge_state`
+
+- API：`public`
+- 首次版本：`6.0.0`
+
+```gdscript
+func get_debugger_bridge_state() -> Dictionary:
+```
+
+获取 EditorDebugger 桥接状态。
+
+返回：桥接状态字典。
+
+结构：
+
+- `return`: Dictionary with capture_name, registered, debugger_active, editor_feature, and editor_hint.
 
 <a id="member-gfdiagnosticsutility-methods-collect_performance_snapshot"></a>
 

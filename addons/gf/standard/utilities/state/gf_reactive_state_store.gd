@@ -184,24 +184,29 @@ func get_state(copy_value: bool = true) -> Dictionary:
 ## [br]
 ## @param new_state: 新状态字典。
 ## [br]
-## @param options: 可选项。支持 copy_values。
+## @param options: 可选项。支持 copy_values、max_changes。
 ## [br]
 ## @return 状态发生变化时返回 true。
 ## [br]
 ## @schema new_state: Dictionary，新状态会被深拷贝保存。
 ## [br]
-## @schema options: Dictionary，可选字段 copy_values 默认为 true。
+## @schema options: Dictionary，可选字段 copy_values 默认为 true，max_changes 控制路径级 diff 上限；diff 截断时会发根级 state_replaced 变更。
 func set_state(new_state: Dictionary, options: Dictionary = {}) -> bool:
 	var next_state: Dictionary = GFVariantData.to_dictionary(new_state)
 	var diff_options: Dictionary = {
 		"copy_values": GFVariantData.get_option_bool(options, "copy_values", true),
+		"max_changes": GFVariantData.get_option_int(options, "max_changes", 1024),
 	}
 	var diff_report: Dictionary = GFVariantData.diff_variant(_state, next_state, diff_options)
 	if not GFVariantData.get_option_bool(diff_report, "changed", false):
 		return false
 
+	var previous_state: Dictionary = _state
 	_state = next_state
-	_enqueue_report_changes(diff_report, [])
+	if GFVariantData.get_option_bool(diff_report, "truncated", false):
+		_enqueue_change(_make_change("state_replaced", [], previous_state, next_state, true, true))
+	else:
+		_enqueue_report_changes(diff_report, [])
 	_flush_if_ready()
 	return true
 
@@ -570,27 +575,7 @@ static func _format_path_segments(segments: Array) -> String:
 
 
 static func _variant_values_equal(left: Variant, right: Variant) -> bool:
-	var left_type: int = typeof(left)
-	var right_type: int = typeof(right)
-	if left_type == right_type:
-		return left == right
-	if _is_numeric_variant_type(left_type) and _is_numeric_variant_type(right_type):
-		return _variant_to_float(left) == _variant_to_float(right)
-	return false
-
-
-static func _is_numeric_variant_type(variant_type: int) -> bool:
-	return variant_type == TYPE_INT or variant_type == TYPE_FLOAT
-
-
-static func _variant_to_float(raw_value: Variant) -> float:
-	if raw_value is int:
-		var int_value: int = raw_value
-		return float(int_value)
-	if raw_value is float:
-		var float_value: float = raw_value
-		return float_value
-	return 0.0
+	return GFVariantData.values_equal(left, right)
 
 
 func _read_path(segments: Array) -> Dictionary:
@@ -856,6 +841,12 @@ func _notify_subscribers(changes: Array[Dictionary]) -> void:
 
 
 func _subscription_matches_change(subscription: Dictionary, change: Dictionary) -> bool:
+	if (
+		GFVariantData.get_option_string(change, "kind") == "state_replaced"
+		and GFVariantData.get_option_array(change, "path_segments").is_empty()
+	):
+		return true
+
 	var mode: int = GFVariantData.get_option_int(subscription, "mode", SUBSCRIBE_EXACT)
 	if mode == SUBSCRIBE_ANY:
 		return true

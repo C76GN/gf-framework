@@ -15,7 +15,7 @@ GF Framework 是一个面向 Godot 4 的轻量级游戏架构框架。它把数�
 
 ## 环境要求
 
-- Godot 4.6 或更新版本。
+- Godot 4.7 或更新版本。
 - 只有运行仓库测试时需要 GUT。
 - 只有本地构建文档时需要安装 [`docs/requirements.txt`](docs/requirements.txt) 中的 Python 依赖。
 

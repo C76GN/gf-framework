@@ -510,6 +510,24 @@ func test_computed_property_rejects_in_place_mutation_helpers() -> void:
 	assert_push_error_count(7, "每次外部原地修改尝试都应报告只读错误。")
 
 
+func test_computed_property_get_value_returns_collection_copy() -> void:
+	var source: GFBindableProperty = GFBindableProperty.new(1)
+	var computed_array: GFComputedProperty = GFComputedProperty.new([source], func() -> Array:
+		return ["base"]
+	)
+	var computed_dict: GFComputedProperty = GFComputedProperty.new([source], func() -> Dictionary:
+		return { "hp": 1 }
+	)
+
+	var leaked_array: Array = _value_array(computed_array)
+	var leaked_dict: Dictionary = _value_dictionary(computed_dict)
+	leaked_array.append("external")
+	leaked_dict["hp"] = 99
+
+	assert_eq(_value_array(computed_array), ["base"], "computed get_value() 返回的数组副本不应影响内部值。")
+	assert_eq(_value_dictionary(computed_dict), { "hp": 1 }, "computed get_value() 返回的字典副本不应影响内部值。")
+
+
 func test_read_only_bindable_property_rejects_in_place_mutation_helpers() -> void:
 	var read_only_array: GFReadOnlyBindableProperty = GFReadOnlyBindableProperty.new(["base"])
 	var read_only_dict: GFReadOnlyBindableProperty = GFReadOnlyBindableProperty.new({ "hp": 1 })
@@ -531,6 +549,19 @@ func test_read_only_bindable_property_rejects_in_place_mutation_helpers() -> voi
 	assert_signal_not_emitted(read_only_array, "value_changed", "拒绝原地修改时不应发出数组变化信号。")
 	assert_signal_not_emitted(read_only_dict, "value_changed", "拒绝原地修改时不应发出字典变化信号。")
 	assert_push_error_count(7, "每次外部原地修改尝试都应报告只读错误。")
+
+
+func test_read_only_bindable_property_get_value_returns_collection_copy() -> void:
+	var read_only_array: GFReadOnlyBindableProperty = GFReadOnlyBindableProperty.new(["base"])
+	var read_only_dict: GFReadOnlyBindableProperty = GFReadOnlyBindableProperty.new({ "hp": 1 })
+
+	var leaked_array: Array = _value_array(read_only_array)
+	var leaked_dict: Dictionary = _value_dictionary(read_only_dict)
+	leaked_array.append("external")
+	leaked_dict["hp"] = 99
+
+	assert_eq(_value_array(read_only_array), ["base"], "只读 get_value() 返回的数组副本不应影响内部值。")
+	assert_eq(_value_dictionary(read_only_dict), { "hp": 1 }, "只读 get_value() 返回的字典副本不应影响内部值。")
 
 
 # --- 私有/辅助方法 ---

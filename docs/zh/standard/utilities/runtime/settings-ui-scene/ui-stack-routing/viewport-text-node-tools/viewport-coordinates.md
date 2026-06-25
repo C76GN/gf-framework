@@ -15,3 +15,17 @@ viewport_util.set_viewport_camera(0, $Camera2D)
 同一个工具还提供少量不绑定输入来源的坐标辅助。`screen_to_world_ray_3d(camera, screen_position, length)` 可从 Camera3D 和 Viewport 坐标生成射线，`raycast_from_screen_3d()` 在此基础上执行物理射线检测，`world_to_screen_3d()` 做 3D 投影；2D 侧可用 `world_to_screen_2d(canvas_item, world_position)` 与 `screen_to_world_2d(canvas_item, screen_position)` 在 CanvasItem 世界坐标和屏幕坐标之间转换。
 
 这些方法不读取鼠标、不选择玩家、不决定命中对象含义，只提供稳定几何转换。
+
+## 移动安全区
+
+移动端 UI 需要避开刘海、圆角、系统手势区域或项目自己的固定遮挡时，可以用 `GFViewportUtility` 把 `DisplayServer.get_display_safe_area()` 返回的物理像素安全区转换为当前 Viewport 的逻辑边距。
+
+```gdscript
+var viewport_util := GFViewportUtility.new()
+var margins := viewport_util.get_display_safe_area_margins(get_viewport(), {
+	"bottom": 48.0,
+})
+viewport_util.apply_safe_area_margins(%SafeAreaRoot, margins)
+```
+
+`calculate_safe_area_margins()` 是纯计算入口，适合测试、编辑器工具或项目自己从平台插件获得安全区数据后复用。`extra_margins` 使用 Viewport 逻辑坐标，可以叠加项目自有底栏、悬浮输入区域或其他遮挡，但这些遮挡来源仍由项目决定。

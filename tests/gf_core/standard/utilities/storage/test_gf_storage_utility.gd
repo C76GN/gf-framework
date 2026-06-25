@@ -304,13 +304,29 @@ func test_save_and_load_resource() -> void:
 	var err: Error = _storage.save_resource(file_name, res)
 	assert_eq(err, OK, "保存 Resource 应成功。")
 
-	var loaded_resource: Resource = _storage.load_resource(file_name)
+	_storage.allow_resource_loads = true
+	var loaded_resource: Resource = _storage.load_resource(file_name, "NoiseTexture2D")
 	assert_true(loaded_resource is NoiseTexture2D, "读取的 Resource 应保持原类型。")
 	if not (loaded_resource is NoiseTexture2D):
 		return
 	var loaded_res: NoiseTexture2D = loaded_resource
 	assert_eq(loaded_res.width, 128, "读取的 Resource 宽度应与保存值一致。")
 	assert_eq(loaded_res.height, 128, "读取的 Resource 高度应与保存值一致。")
+
+
+func test_load_resource_requires_explicit_opt_in_and_type_hint() -> void:
+	var res: Resource = Resource.new()
+	var file_name: String = "test_resource_policy.tres"
+	assert_eq(_storage.save_resource(file_name, res), OK, "测试 Resource 应能保存。")
+
+	var denied_resource: Resource = _storage.load_resource(file_name, "Resource")
+	_storage.allow_resource_loads = true
+	var missing_type_hint_resource: Resource = _storage.load_resource(file_name)
+
+	assert_null(denied_resource, "默认策略不应允许 ResourceLoader 读取。")
+	assert_null(missing_type_hint_resource, "启用 Resource 读取后仍应要求 type_hint。")
+	assert_push_error("[GFStorageUtility] load_resource 已被默认安全策略拒绝：请先显式启用 allow_resource_loads。")
+	assert_push_error("[GFStorageUtility] load_resource 需要显式 type_hint。")
 
 
 func test_file_management_ensure_list_and_delete_files() -> void:

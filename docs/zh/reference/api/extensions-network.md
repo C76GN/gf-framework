@@ -6,7 +6,7 @@
 
 | 类别 | 类 | 成员 | 方法 |
 |---|---:|---:|---:|
-| [运行时服务](#category-runtime_service) | 1 | 25 | 15 |
+| [运行时服务](#category-runtime_service) | 2 | 36 | 23 |
 | [协议与扩展点](#category-protocol) | 3 | 28 | 14 |
 | [资源定义](#category-resource_definition) | 6 | 74 | 42 |
 | [运行时句柄](#category-runtime_handle) | 7 | 87 | 51 |
@@ -21,6 +21,7 @@
 
 | 类 | 继承 | 源文件 |
 |---|---|---|
+| [`GFNetworkDirtyStateTracker`](classes/GFNetworkDirtyStateTracker.md#gfnetworkdirtystatetracker) | `RefCounted` | `addons/gf/extensions/network/session/gf_network_dirty_state_tracker.gd` |
 | [`GFNetworkUtility`](classes/GFNetworkUtility.md#gfnetworkutility) | `GFUtility` | `addons/gf/extensions/network/runtime/gf_network_utility.gd` |
 
 <a id="category-protocol"></a>

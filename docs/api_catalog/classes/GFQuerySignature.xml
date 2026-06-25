@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFQuerySignature" path="addons/gf/standard/foundation/collections/gf_query_signature.gd" module="standard" extends="RefCounted" classDigest="0ad17d6140da94e4f8e4acd7fa97730d153942f330b11a13820b5dbb69276d73">
+	<description>GFQuerySignature: 域分离的通用查询签名。
+用稳定的 domain/value 结构生成可缓存的查询 key，避免把不同语义域的条件简单合并后产生歧义。
+它只负责签名构建，不规定查询含义或匹配规则。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">value_object</tag>
+		<tag name="since">6.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties />
+	<methods>
+		<member kind="method" name="clear">
+			<signature>func clear() -&gt; void:</signature>
+			<description>清空签名内容。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="add_value">
+			<signature>func add_value(domain: StringName, value: Variant) -&gt; GFQuerySignature:</signature>
+			<description>添加单个域值。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">domain: 条件域，例如 all、any、none、group。</tag>
+				<tag name="param">value: 条件值。</tag>
+				<tag name="return">当前签名，便于链式调用。</tag>
+				<tag name="schema">value: Variant condition value encoded with typeof() and var_to_str().</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="add_values">
+			<signature>func add_values(domain: StringName, values: Variant) -&gt; GFQuerySignature:</signature>
+			<description>添加一组域值。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">domain: 条件域。</tag>
+				<tag name="param">values: 条件值集合。</tag>
+				<tag name="return">当前签名，便于链式调用。</tag>
+				<tag name="schema">values: Variant accepted as Array, Dictionary keys, PackedStringArray, PackedInt32Array, PackedInt64Array, PackedFloat32Array, PackedFloat64Array, or scalar value.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="add_flag">
+			<signature>func add_flag(domain: StringName, enabled: bool) -&gt; GFQuerySignature:</signature>
+			<description>添加布尔标记域。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">domain: 条件域。</tag>
+				<tag name="param">enabled: 标记值。</tag>
+				<tag name="return">当前签名，便于链式调用。</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="has_domain">
+			<signature>func has_domain(domain: StringName) -&gt; bool:</signature>
+			<description>检查域是否存在。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">domain: 条件域。</tag>
+				<tag name="return">存在返回 true。</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_domain_values">
+			<signature>func get_domain_values(domain: StringName) -&gt; PackedStringArray:</signature>
+			<description>获取域内规范化值列表。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">domain: 条件域。</tag>
+				<tag name="return">已排序的规范化值列表。</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="to_dictionary">
+			<signature>func to_dictionary() -&gt; Dictionary:</signature>
+			<description>导出为稳定字典。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">签名字典。</tag>
+				<tag name="schema">return: Dictionary mapping domain names to sorted PackedStringArray encoded values.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="to_text">
+			<signature>func to_text() -&gt; String:</signature>
+			<description>导出为稳定文本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">可作为缓存 key 的签名文本。</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="to_hash">
+			<signature>func to_hash() -&gt; int:</signature>
+			<description>获取签名 hash。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">基于 to_text() 的运行时 hash。</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="from_dictionary">
+			<signature>static func from_dictionary(domains: Dictionary) -&gt; GFQuerySignature:</signature>
+			<description>从域字典创建签名。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">domains: 域到值集合的字典。</tag>
+				<tag name="return">新签名。</tag>
+				<tag name="schema">domains: Dictionary mapping domain names to value collections.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

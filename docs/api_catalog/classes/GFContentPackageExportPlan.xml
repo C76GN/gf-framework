@@ -1,0 +1,161 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFContentPackageExportPlan" path="addons/gf/extensions/content_package/runtime/gf_content_package_export_plan.gd" module="extensions/content_package" extends="RefCounted" classDigest="9dfb5fce3c3e0ad78ff463ad32925c27b7e763797b3004b345ae6cb71684ed3a">
+	<description>GFContentPackageExportPlan: 内容包导出计划。
+从 GFContentPackageManifest 或 GFContentPackageCatalog 构建可审计的资源条目列表，
+供编辑器工具、构建脚本或项目安装器决定后续打包方式。本类只生成计划和诊断，不写 zip、不改 remap、
+不规定项目目录结构。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_service</tag>
+		<tag name="since">6.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties>
+		<member kind="property" name="package_id">
+			<signature>var package_id: StringName = &amp;""</signature>
+			<description>计划关联的主内容包 ID。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="version">
+			<signature>var version: String = ""</signature>
+			<description>计划关联的主内容包版本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="root_path">
+			<signature>var root_path: String = ""</signature>
+			<description>计划关联的内容包根目录。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="entries">
+			<signature>var entries: Array[Dictionary] = []</signature>
+			<description>导出条目列表。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">entries: Array[Dictionary]，每项包含 source_path、archive_path、role、resource_key、package_id、type_hint 和 metadata。</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="issues">
+			<signature>var issues: Array[Dictionary] = []</signature>
+			<description>计划诊断问题。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">issues: Array[Dictionary] GFValidationReportDictionary-compatible issue payloads.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="metadata">
+			<signature>var metadata: Dictionary = {}</signature>
+			<description>调用方自定义元数据。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">metadata: Dictionary project-defined export metadata.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="clear">
+			<signature>func clear() -&gt; void:</signature>
+			<description>清空计划。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="add_entry">
+			<signature>func add_entry( source_path: String, archive_path: String = "", role: StringName = &amp;"resource", entry_metadata: Dictionary = {} ) -&gt; bool:</signature>
+			<description>添加导出条目。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">source_path: 源资源路径。</tag>
+				<tag name="param">archive_path: 归档内路径；为空时按 root_path 推导相对路径。</tag>
+				<tag name="param">role: 条目角色，例如 manifest、resource 或 dependency。</tag>
+				<tag name="param">entry_metadata: 条目元数据。</tag>
+				<tag name="return">成功加入返回 true。</tag>
+				<tag name="schema">entry_metadata: Dictionary project-defined entry metadata.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="build_from_manifest">
+			<signature>func build_from_manifest( manifest: GFContentPackageManifest, options: Dictionary = {} ) -&gt; GFContentPackageExportPlan:</signature>
+			<description>从单个内容包 manifest 构建计划。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">manifest: 内容包 manifest。</tag>
+				<tag name="param">options: 构建选项。</tag>
+				<tag name="return">当前计划。</tag>
+				<tag name="schema">options: Dictionary，可包含 include_manifest、include_resource_dependencies、check_files、archive_root、dependency_options 和 metadata。</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="build_from_catalog">
+			<signature>func build_from_catalog( catalog: GFContentPackageCatalog, options: Dictionary = {} ) -&gt; GFContentPackageExportPlan:</signature>
+			<description>从内容包目录构建多包计划。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">catalog: 内容包目录。</tag>
+				<tag name="param">options: 构建选项。</tag>
+				<tag name="return">当前计划。</tag>
+				<tag name="schema">options: Dictionary，可包含 package_ids、include_manifest、include_resource_dependencies、check_files、archive_root、dependency_options 和 metadata。</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_validation_report">
+			<signature>func get_validation_report() -&gt; Dictionary:</signature>
+			<description>获取导出计划诊断报告。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">GFValidationReportDictionary 兼容报告。</tag>
+				<tag name="schema">return: Dictionary with ok, healthy, entries, entry_count, issues, summary, and next_action.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="to_dictionary">
+			<signature>func to_dictionary() -&gt; Dictionary:</signature>
+			<description>转换为可序列化字典。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">计划字典。</tag>
+				<tag name="schema">return: Dictionary with package_id, version, root_path, entries, issues, and metadata.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="from_manifest">
+			<signature>static func from_manifest( manifest: GFContentPackageManifest, options: Dictionary = {} ) -&gt; GFContentPackageExportPlan:</signature>
+			<description>从 manifest 创建计划。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">manifest: 内容包 manifest。</tag>
+				<tag name="param">options: 构建选项，见 build_from_manifest()。</tag>
+				<tag name="return">新计划。</tag>
+				<tag name="schema">options: Dictionary，可包含 include_manifest、include_resource_dependencies、check_files、archive_root、dependency_options 和 metadata。</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="from_catalog">
+			<signature>static func from_catalog( catalog: GFContentPackageCatalog, options: Dictionary = {} ) -&gt; GFContentPackageExportPlan:</signature>
+			<description>从 catalog 创建计划。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">catalog: 内容包目录。</tag>
+				<tag name="param">options: 构建选项，见 build_from_catalog()。</tag>
+				<tag name="return">新计划。</tag>
+				<tag name="schema">options: Dictionary，可包含 package_ids、include_manifest、include_resource_dependencies、check_files、archive_root、dependency_options 和 metadata。</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

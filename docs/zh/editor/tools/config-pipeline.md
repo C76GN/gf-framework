@@ -45,6 +45,8 @@ pipeline.save_database(database, "res://generated/config/main_config.json", {
 
 JSON 导出包含稳定格式标识、数据库 ID、版本、元数据、表名、记录和可选 schema 摘要；默认不写入可由运行时重建的索引缓存，避免把导出文件变成冗余快照。`make_database_export()` 可在不写文件时返回同结构字典，供 CI 检查或项目侧打包器继续处理。
 
+`save_database()` 和访问器生成结果会返回 `artifact_report`，记录本次产物是 `new`、`changed`、`unchanged`、`skipped` 还是 `failed`，以及 `written`、`changed`、`dry_run` 和错误码。需要在 CI、编辑器预览或提交前审查中只看差异而不落盘时，可以传入 `dry_run: true`；需要防止覆盖已有产物时，可以传入 `overwrite_existing: false`。
+
 批量导表可以把来源和输出保存进 Profile：
 
 ```gdscript
@@ -70,6 +72,7 @@ profile.access_options = {
 
 var export_result: Dictionary = pipeline.export_profile(profile)
 var access_result: Dictionary = GFVariantData.get_option_dictionary(export_result, "access_result")
+var artifact_report: Dictionary = GFVariantData.get_option_dictionary(access_result, "artifact_report")
 ```
 
 没有配置 `access_output_path` 时，Profile 导出只构建并保存数据库，`access_result.skipped` 会为 `true`。访问器生成失败会让本次 `export_profile()` 返回失败，但已经构建出的数据库资源仍会留在结果字典中，便于 CI 或编辑器工具展示问题。
@@ -96,6 +99,21 @@ source.schema_options = {
 ```
 
 启用后，表头可以写成 `id:int!`、`name:string`、`power:float`。冒号前是生成后的字段名，冒号后是通用值类型；`!` 表示必填且不允许 `null`，`?` 表示允许空值。支持的类型包括 `any`、`bool`、`int`、`float`、`string`、`string_name`、`vector2`、`vector2i`、`color`、`dictionary` 和 `array`。导入到资源中的记录字段会被清理为 `id`、`name`、`power` 这样的稳定字段名。
+
+如果表格来源更适合把字段名和类型分成两行，可以同时开启 `typed_header_type_row`。第一行保留稳定字段名，第二行写类型声明；类型行只用于生成 schema，不会进入最终记录列表：
+
+```gdscript
+source.schema_options = {
+	"typed_headers": true,
+	"typed_header_type_row": true,
+}
+```
+
+```csv
+id,name,power
+int!,string,float
+1,Potion,2.5
+```
 
 类型化表头生成的是已有的 `GFConfigTableSchema` / `GFConfigTableColumn`，默认启用字段转换、默认不允许未声明字段。显式挂在 `source.schema` 上的 schema 优先级更高；类型化表头适合降低简单表的维护成本，不替代复杂表的索引、引用和业务校验资源。
 

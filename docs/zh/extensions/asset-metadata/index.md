@@ -25,11 +25,29 @@ for record: GFAssetMetadataRecord in records:
 	# 项目层在这里解释 metadata 字段。
 ```
 
+需要对 metadata 做通用结构约束时，复用 `GFDictionarySchema` / `GFSchemaField`，不要另建一套模板系统：
+
+```gdscript
+var schema := GFDictionarySchema.new()
+schema.schema_id = &"asset_metadata"
+schema.coerce_values = true
+schema.add_field(GFSchemaField.new().configure(&"kind", GFSchemaField.ValueType.STRING, {
+	"required": true,
+	"allow_null": false,
+	"default_value": "asset",
+}))
+
+var normalized := utility.read_object_metadata_with_schema(imported_root, schema)
+var report := utility.validate_object_metadata(imported_root, schema)
+```
+
+`read_object_metadata_with_schema()` 只返回补齐默认值后的副本，不会改写对象 metadata；`validate_object_metadata()` 返回标准 `GFValidationReport` 字典。字段含义、错误分级、跨资产引用和迁移策略仍属于项目工具。
+
 ## 使用边界
 
 - Asset Metadata 不内置 `spawn_point`、`loot`、`quest`、`door` 等业务字段。
-- 项目可以自由定义 metadata schema，并在自己的导入管线、Installer 或工具中消费记录。
-- 需要强 schema、必填字段或跨资产引用检查时，应在项目工具中基于 `GFAssetMetadataRecord` 实现。
+- 项目可以用 `GFDictionarySchema` 定义 metadata schema，并在自己的导入管线、Installer 或工具中消费记录。
+- 需要跨资产引用检查、业务级错误分级或版本迁移时，应在项目工具中基于 `GFAssetMetadataRecord` 和通用 schema 报告实现。
 - 其他 GF 内置扩展不应直接依赖 Asset Metadata；跨扩展组合应放在项目 Installer 或独立插件中。
 
 ## API Reference

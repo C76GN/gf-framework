@@ -27,6 +27,26 @@ assets.pin_cache("res://ui/common_icons.tres")
 
 同一路径的并发加载会合并到同一个 threaded request。如果已存在请求或缓存的资源类型与新的 `type_hint` 明显不兼容，回调会收到 `null`。命中缓存时回调会同步执行。
 
+## 加载通道与并发上限
+
+默认情况下，`GFAssetUtility` 会立即发起新的 `ResourceLoader.load_threaded_request()`。当项目需要控制同类资源的并发数量时，可以在 `load_async()`、`load_handle_async()` 或 `preload_group_async()` 的 options 中传入 `serial_lane_id` / `lane_id` 和 `max_concurrent_loads`。
+
+```gdscript
+assets.load_async(
+	"res://levels/chunk_01.tscn",
+	_on_chunk_loaded,
+	"PackedScene",
+	{
+		"lane_id": &"chunk_streaming",
+		"max_concurrent_loads": 1,
+	}
+)
+```
+
+非空通道没有显式上限时会按串行处理；`max_concurrent_loads = 0` 表示不限制并发。`default_max_concurrent_loads` 可为未声明上限的请求提供默认值。被通道限制挡住的请求会进入队列并发出 `asset_load_queued(path, lane_id)`，此时 `is_loading(path)` 仍返回 `true`，`get_load_progress(path)` 返回 `0.0`，直到请求真正开始。
+
+`preload_group_async()` 如果设置了 `max_concurrent_loads` 但没有显式通道，会用 group id 作为加载通道，适合让一个预热组内部受限，同时不影响其他组或单资源请求。
+
 ## 进度反馈
 
 需要把加载状态接到 UI 或诊断面板时，可以监听 `asset_load_progress(path, progress)`，也可以用 `get_load_progress(path)` 主动读取最近一次轮询到的进度。已缓存资源返回 `1.0`，无请求或已取消请求返回 `0.0`。

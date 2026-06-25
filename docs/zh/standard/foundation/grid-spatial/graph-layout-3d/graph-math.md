@@ -26,6 +26,25 @@ var reachable := GFGraphMath.find_reachable(
 
 `get_step_cost()` 返回负数时表示该边不可通行；启发函数为空时 A* 会退化为 Dijkstra。
 
+## 拓扑排序
+
+当图表示“先依赖、后使用”的关系时，使用 `sort_topological()` 得到稳定加载顺序。回调返回当前节点依赖的节点；只在传入 `nodes` 内的依赖参与排序，外部依赖会进入报告，方便调用方决定是忽略、补齐还是报错。
+
+```gdscript
+var report := GFGraphMath.sort_topological(
+	[&"gameplay", &"core", &"ui"],
+	func(node):
+		return dependencies.get(node, [])
+)
+
+if report.get("ok", false):
+	var ordered_nodes := report["order"]
+else:
+	var cycles := report["cycles"]
+```
+
+排序结果保证依赖节点排在使用者之前；若检测到循环，`ok` 为 false，`reason` 为 `cycle_detected`，`cycles` 中保留可诊断的环路节点序列。
+
 ## 分步搜索
 
 大图或编辑器工具不适合一帧内完成搜索时，使用 `begin_path_search()` 创建 `GFGraphPathSearchState` 运行期句柄，再用 `advance_path_search()` 按预算推进。

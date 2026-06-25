@@ -101,6 +101,41 @@ func test_architecture_prefers_model_save_key_for_serialization() -> void:
 	assert_eq(model.value, 42, "恢复时也应使用自定义存档键。")
 
 
+func test_architecture_rejects_duplicate_model_save_keys_for_snapshot() -> void:
+	var arch: GFArchitecture = GFArchitecture.new()
+	var first_model: DuplicateKeyModelA = DuplicateKeyModelA.new()
+	var second_model: DuplicateKeyModelB = DuplicateKeyModelB.new()
+	first_model.value = 10
+	second_model.value = 20
+
+	await arch.register_model_instance(first_model)
+	await arch.register_model_instance(second_model)
+
+	var state: Dictionary = arch.get_all_models_state()
+
+	assert_true(state.is_empty(), "重复 Model 存档键应阻断快照，避免静默覆盖。")
+	assert_push_error("[GFArchitecture] Model 快照键重复：duplicate_model。请为每个 Model 提供唯一 get_save_key()。")
+
+
+func test_architecture_rejects_duplicate_model_save_keys_for_restore() -> void:
+	var arch: GFArchitecture = GFArchitecture.new()
+	var first_model: DuplicateKeyModelA = DuplicateKeyModelA.new()
+	var second_model: DuplicateKeyModelB = DuplicateKeyModelB.new()
+	first_model.value = 10
+	second_model.value = 20
+
+	await arch.register_model_instance(first_model)
+	await arch.register_model_instance(second_model)
+
+	arch.restore_all_models_state({
+		"duplicate_model": { "value": 99 },
+	})
+
+	assert_eq(first_model.value, 10, "重复键时 restore 不应修改前面的 Model。")
+	assert_eq(second_model.value, 20, "重复键时 restore 不应修改后面的 Model。")
+	assert_push_error("[GFArchitecture] Model 快照键重复：duplicate_model。请为每个 Model 提供唯一 get_save_key()。")
+
+
 ## 验证 restore_all_models_state 恢复多个 Model 的数据。
 func test_architecture_restore_all_models_state() -> void:
 	var arch: GFArchitecture = GFArchitecture.new()
@@ -259,6 +294,29 @@ func test_architecture_global_snapshot_async() -> void:
 	assert_eq(_object_int(score_model, "score"), 88, "分帧全局快照应恢复 Model 数据。")
 
 
+func test_global_snapshot_ignores_incomplete_command_history_contract() -> void:
+	var arch: GFArchitecture = GFArchitecture.new()
+	var history_util: IncompleteHistoryUtility = IncompleteHistoryUtility.new()
+	await arch.register_utility_instance(history_util)
+
+	var snapshot: Dictionary = arch.get_global_snapshot()
+
+	assert_false(snapshot.has("command_history"), "命令历史快照应要求完整序列化/反序列化契约。")
+
+
+func test_global_snapshot_rejects_multiple_command_history_stores() -> void:
+	var arch: GFArchitecture = GFArchitecture.new()
+	var first_history: CompleteHistoryUtilityA = CompleteHistoryUtilityA.new()
+	var second_history: CompleteHistoryUtilityB = CompleteHistoryUtilityB.new()
+	await arch.register_utility_instance(first_history)
+	await arch.register_utility_instance(second_history)
+
+	var snapshot: Dictionary = arch.get_global_snapshot()
+
+	assert_false(snapshot.has("command_history"), "多个命令历史工具匹配时不应按注册顺序选择。")
+	assert_push_error("[GFArchitecture] 命令历史快照工具匹配到多个 Utility，请使用唯一的历史工具实例。")
+
+
 # --- 私有/辅助方法 ---
 
 func _create_score_model_fixture() -> Object:
@@ -341,3 +399,66 @@ class StableKeyModel:
 
 	func from_dict(data: Dictionary) -> void:
 		value = GF_VARIANT_ACCESS.get_option_int(data, "value")
+
+
+class DuplicateKeyModelA:
+	extends GFModel
+
+	var value: int = 0
+
+	func get_save_key() -> StringName:
+		return &"duplicate_model"
+
+	func to_dict() -> Dictionary:
+		return { "value": value }
+
+	func from_dict(data: Dictionary) -> void:
+		value = GF_VARIANT_ACCESS.get_option_int(data, "value")
+
+
+class DuplicateKeyModelB:
+	extends GFModel
+
+	var value: int = 0
+
+	func get_save_key() -> StringName:
+		return &"duplicate_model"
+
+	func to_dict() -> Dictionary:
+		return { "value": value }
+
+	func from_dict(data: Dictionary) -> void:
+		value = GF_VARIANT_ACCESS.get_option_int(data, "value")
+
+
+class IncompleteHistoryUtility:
+	extends GFUtility
+
+	func serialize_full_history() -> Dictionary:
+		return { "incomplete": true }
+
+
+class CompleteHistoryUtilityA:
+	extends GFUtility
+
+	func serialize_full_history() -> Dictionary:
+		return { "complete": true }
+
+	func deserialize_history(_data_array: Array, _command_builder: Callable) -> void:
+		pass
+
+	func deserialize_full_history(_data: Dictionary, _command_builder: Callable) -> void:
+		pass
+
+
+class CompleteHistoryUtilityB:
+	extends GFUtility
+
+	func serialize_full_history() -> Dictionary:
+		return { "complete": true }
+
+	func deserialize_history(_data_array: Array, _command_builder: Callable) -> void:
+		pass
+
+	func deserialize_full_history(_data: Dictionary, _command_builder: Callable) -> void:
+		pass

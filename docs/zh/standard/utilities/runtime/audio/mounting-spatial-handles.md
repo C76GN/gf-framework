@@ -38,6 +38,8 @@ audio.play_sfx_clip_2d(clip, source_2d, true) # 需要跟随声源时启用 foll
 
 需要调节距离衰减、区域掩码、复音、播放类型、3D 发射角、滤波或多普勒时，可在 `GFAudioClip.spatial_settings` 上挂 `GFAudioSpatialSettings`。该资源只在空间 SFX 播放路径应用，不改变普通 SFX、BGM 或环境音的行为。
 
+未挂空间设置时，GF 会把 2D/3D 空间播放器的 `area_mask` 保持在 layer 1，避免 Godot 4.7 的空默认掩码导致 Area 音频总线覆盖失效。需要禁用 Area 覆盖时，在 `GFAudioSpatialSettings` 中把对应 `area_mask_*` 设为 0。
+
 ```gdscript
 var spatial := GFAudioSpatialSettings.new()
 spatial.max_distance_3d = 24.0

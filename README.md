@@ -15,7 +15,7 @@ The legacy GitHub Wiki keeps only entry links. Read the Docs is the single offic
 
 ## Requirements
 
-- Godot 4.6 or newer.
+- Godot 4.7 or newer.
 - GUT, only when running the repository test suite.
 - Python dependencies from [`docs/requirements.txt`](docs/requirements.txt), only when building the documentation locally.
 

@@ -24,6 +24,30 @@ func test_editor_command_executes_and_reverts() -> void:
 	assert_eq(state.value, 0, "撤销后应恢复目标状态。")
 
 
+func test_editor_command_session_previews_commits_and_reverts() -> void:
+	var state: CounterState = CounterState.new()
+	var command: CounterCommand = CounterCommand.new()
+	command.target = state
+	command.delta = 5
+	command.command_name = "Session Increase"
+	var session: GFEditorCommandSession = GFEditorCommandSession.new()
+	var _configured_session: GFEditorCommandSession = session.configure(&"counter", "Counter")
+
+	var preview: Dictionary = session.preview_command(command, { "source": "test" })
+	var commit: Dictionary = session.commit_command(command)
+	var snapshot: Dictionary = session.get_debug_snapshot()
+
+	assert_true(GF_VARIANT_ACCESS.get_option_bool(preview, "ok"), "会话预览应报告命令可执行。")
+	assert_eq(GF_VARIANT_ACCESS.get_option_string_name(preview, "status"), &"ready", "预览状态应为 ready。")
+	assert_true(GF_VARIANT_ACCESS.get_option_bool(commit, "ok"), "会话应能提交命令。")
+	assert_eq(state.value, 5, "提交后应影响目标状态。")
+	assert_eq(GF_VARIANT_ACCESS.get_option_int(snapshot, "history_count"), 1, "提交后会话历史应记录命令。")
+	var revert: Dictionary = session.revert_last()
+	assert_true(GF_VARIANT_ACCESS.get_option_bool(revert, "ok"), "会话应能撤销最近命令。")
+	assert_eq(state.value, 0, "撤销后目标状态应恢复。")
+	assert_eq(session.get_history_count(), 0, "撤销后历史应移除命令。")
+
+
 func test_editor_action_creates_and_invokes_command() -> void:
 	var state: CounterState = CounterState.new()
 	var action: GFEditorActionDefinition = GFEditorActionDefinition.new()

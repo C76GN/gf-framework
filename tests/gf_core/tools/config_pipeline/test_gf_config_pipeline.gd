@@ -83,6 +83,46 @@ func test_pipeline_saves_database_as_json_export() -> void:
 	assert_eq(GFVariantData.get_option_string(table_metadata, "source_format"), "csv", "JSON 导出应把 StringName metadata 转为 JSON 字符串。")
 
 
+func test_pipeline_save_database_json_dry_run_reports_artifact_without_writing() -> void:
+	var database: GFConfigDatabaseResource = _build_items_database_from_csv("json_dry_run")
+	var output_path: String = _track_path("user://gf_config_pipeline_database_dry_run_%d.json" % Time.get_ticks_usec())
+
+	var save_result: Dictionary = _call_pipeline(&"save_database", [database, output_path, {
+		"output_format": &"json",
+		"dry_run": true,
+	}])
+	var artifact_report: Dictionary = GFVariantData.get_option_dictionary(save_result, "artifact_report")
+
+	assert_true(GFVariantData.get_option_bool(save_result, "success"), "JSON dry-run 保存应报告成功。")
+	assert_eq(GFVariantData.get_option_string_name(save_result, "status"), GFGeneratedArtifactReport.STATUS_NEW, "新文件 dry-run 应报告 new。")
+	assert_true(GFVariantData.get_option_bool(save_result, "dry_run"), "保存结果应保留 dry_run 标记。")
+	assert_false(GFVariantData.get_option_bool(save_result, "written"), "dry-run 不应写入文件。")
+	assert_eq(GFVariantData.get_option_string_name(artifact_report, "status"), GFGeneratedArtifactReport.STATUS_NEW, "artifact_report 应保留产物状态。")
+	assert_false(FileAccess.file_exists(output_path), "JSON dry-run 不应创建输出文件。")
+
+
+func test_pipeline_generate_access_dry_run_reports_artifact_without_writing() -> void:
+	var database: GFConfigDatabaseResource = _build_items_database_from_csv("access_dry_run")
+	var output_path: String = _track_path("user://gf_config_pipeline_access_dry_run_%d.gd" % Time.get_ticks_usec())
+
+	var access_result: Dictionary = _call_pipeline(&"generate_access", [
+		database,
+		output_path,
+		"DryRunConfigAccess",
+		"null",
+		{
+			"dry_run": true,
+		},
+	])
+	var artifact_report: Dictionary = GFVariantData.get_option_dictionary(access_result, "artifact_report")
+
+	assert_true(GFVariantData.get_option_bool(access_result, "success"), "访问器 dry-run 生成应报告成功。")
+	assert_eq(GFVariantData.get_option_string_name(artifact_report, "status"), GFGeneratedArtifactReport.STATUS_NEW, "artifact_report 应报告 new。")
+	assert_true(GFVariantData.get_option_bool(artifact_report, "dry_run"), "artifact_report 应保留 dry_run 标记。")
+	assert_false(GFVariantData.get_option_bool(artifact_report, "written"), "dry-run 不应写入访问器。")
+	assert_false(FileAccess.file_exists(output_path), "访问器 dry-run 不应创建输出文件。")
+
+
 func test_pipeline_loads_json_source_with_auto_format() -> void:
 	var json_path: String = _write_text("user://gf_config_pipeline_items_%d.json" % Time.get_ticks_usec(), "{\"b\":{\"id\":2,\"name\":\"Ether\",\"power\":3.0},\"a\":{\"id\":1,\"name\":\"Potion\",\"power\":2.5}}")
 	var source: GFConfigPipelineTableSource = GFConfigPipelineTableSource.new()
@@ -155,6 +195,77 @@ func test_pipeline_builds_schema_from_typed_csv_headers() -> void:
 	assert_eq(GFVariantData.get_option_int(first_record, "id"), 1, "类型化表头生成的 schema 应默认转换 CSV 字符串 ID。")
 	assert_eq(GFVariantData.get_option_float(first_record, "power"), 2.5, "类型化表头生成的 schema 应默认转换 CSV 字符串数值。")
 	assert_false(first_record.has(&"id:int!"), "写入资源的记录字段名应清理为稳定字段名。")
+
+
+func test_pipeline_builds_schema_from_typed_csv_header_type_row() -> void:
+	var csv_path: String = _write_text("user://gf_config_pipeline_typed_header_type_row_%d.csv" % Time.get_ticks_usec(), "id,name,power\nint!,string,float\n1,Potion,2.5\n")
+	var source: GFConfigPipelineTableSource = GFConfigPipelineTableSource.new()
+	source.table_name = &"items"
+	source.source_path = csv_path
+	source.source_format = GFConfigPipelineTableSource.FORMAT_CSV
+	source.schema_options = {
+		"typed_headers": true,
+		"typed_header_type_row": true,
+		"require_unique_id": true,
+	}
+
+	var table_result: Dictionary = _call_pipeline(&"build_table", [source])
+	var table: GFConfigTableResource = _get_table_from_result(table_result)
+	var schema: GFConfigTableSchema = table.schema if table != null else null
+	var id_column: GFConfigTableColumn = schema.get_column(&"id") if schema != null else null
+	var power_column: GFConfigTableColumn = schema.get_column(&"power") if schema != null else null
+	var first_record: Dictionary = table.records[0] if table != null and not table.records.is_empty() else {}
+
+	assert_true(GFVariantData.get_option_bool(table_result, "success"), "独立类型行应能生成 schema 并构建表资源。")
+	assert_not_null(id_column, "类型行应生成 id 字段声明。")
+	assert_not_null(power_column, "类型行应生成 power 字段声明。")
+	assert_eq(id_column.value_type, GFConfigTableColumn.ValueType.INT, "类型行 int! 应声明为 int 必填字段。")
+	assert_true(id_column.required, "类型行 int! 应保留必填标记。")
+	assert_eq(power_column.value_type, GFConfigTableColumn.ValueType.FLOAT, "类型行 float 应声明为 float 字段。")
+	assert_eq(table.records.size(), 1, "类型行本身不应写入记录列表。")
+	assert_eq(GFVariantData.get_option_int(first_record, "id"), 1, "类型行生成的 schema 应转换 CSV 字符串 ID。")
+	assert_eq(GFVariantData.get_option_float(first_record, "power"), 2.5, "类型行生成的 schema 应转换 CSV 字符串数值。")
+	assert_eq(GFVariantData.get_option_string(schema.metadata, "schema_source"), "typed_header_type_row", "schema metadata 应标记类型行来源。")
+
+
+func test_pipeline_reports_missing_typed_csv_header_type_row() -> void:
+	var csv_path: String = _write_text("user://gf_config_pipeline_missing_typed_header_type_row_%d.csv" % Time.get_ticks_usec(), "id,name\n")
+	var source: GFConfigPipelineTableSource = GFConfigPipelineTableSource.new()
+	source.table_name = &"items"
+	source.source_path = csv_path
+	source.source_format = GFConfigPipelineTableSource.FORMAT_CSV
+	source.schema_options = {
+		"typed_headers": true,
+		"typed_header_type_row": true,
+	}
+
+	var table_result: Dictionary = _call_pipeline(&"build_table", [source])
+	var report: Dictionary = GFVariantData.get_option_dictionary(table_result, "report")
+
+	assert_false(GFVariantData.get_option_bool(table_result, "success"), "启用类型行但缺少类型行时应报告错误。")
+	assert_true(_has_issue_kind(GFVariantData.get_option_array(report, "issues"), "missing_typed_header_type_row"), "错误报告应包含缺少类型行。")
+
+
+func test_pipeline_builds_schema_from_typed_csv_header_type_row_without_data_rows() -> void:
+	var csv_path: String = _write_text("user://gf_config_pipeline_empty_typed_header_type_row_%d.csv" % Time.get_ticks_usec(), "id,name\nint!,string\n")
+	var source: GFConfigPipelineTableSource = GFConfigPipelineTableSource.new()
+	source.table_name = &"items"
+	source.source_path = csv_path
+	source.source_format = GFConfigPipelineTableSource.FORMAT_CSV
+	source.schema_options = {
+		"typed_headers": true,
+		"typed_header_type_row": true,
+	}
+
+	var table_result: Dictionary = _call_pipeline(&"build_table", [source])
+	var table: GFConfigTableResource = _get_table_from_result(table_result)
+	var schema: GFConfigTableSchema = table.schema if table != null else null
+	var id_column: GFConfigTableColumn = schema.get_column(&"id") if schema != null else null
+
+	assert_true(GFVariantData.get_option_bool(table_result, "success"), "只有表头和类型行时也应能构建空表资源。")
+	assert_not_null(id_column, "空表 schema 应包含类型行声明的字段。")
+	assert_eq(id_column.value_type, GFConfigTableColumn.ValueType.INT, "空表 schema 应保留类型行字段类型。")
+	assert_eq(table.records.size(), 0, "类型行空表不应生成数据记录。")
 
 
 func test_pipeline_builds_schema_from_typed_csv_headers_without_rows() -> void:

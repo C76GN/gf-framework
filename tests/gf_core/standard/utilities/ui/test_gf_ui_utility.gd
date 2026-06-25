@@ -9,7 +9,7 @@ var _arch: GFArchitecture = null
 class ManualAssetUtility extends GFAssetUtility:
 	var _callbacks: Dictionary = {}
 
-	func load_async(path: String, on_loaded: Callable, _type_hint: String = "") -> void:
+	func load_async(path: String, on_loaded: Callable, _type_hint: String = "", _options: Dictionary = {}) -> void:
 		if not _callbacks.has(path):
 			var created_callbacks: Array[Callable] = []
 			_callbacks[path] = created_callbacks

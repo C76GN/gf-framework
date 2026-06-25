@@ -1,0 +1,150 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFCallableRuntimeTask" path="addons/gf/standard/sequence/gf_callable_runtime_task.gd" module="standard" extends="GFRuntimeTask" classDigest="486d4735fbad8718c0ed11281820db98a992afe30982e2b6f574c7e6e322d27a">
+	<description>使用 Callable 描述生命周期的运行时任务。
+适合把轻量项目逻辑注入 [GFRuntimeTaskScheduler]，而不必为一次性任务创建脚本类。
+所有回调都接收当前任务和调度器，便于在闭包之外保持可测试的上下文。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_handle</tag>
+		<tag name="since">6.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties>
+		<member kind="property" name="initialize_callable">
+			<signature>var initialize_callable: Callable = Callable()</signature>
+			<description>初始化回调，签名为 [code]func(task: GFCallableRuntimeTask, scheduler: GFRuntimeTaskScheduler) -&gt; void[/code]。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="category">callback</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="tick_callable">
+			<signature>var tick_callable: Callable = Callable()</signature>
+			<description>帧推进回调，签名为 [code]func(delta: float, task: GFCallableRuntimeTask, scheduler: GFRuntimeTaskScheduler) -&gt; void[/code]。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="category">callback</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="physics_tick_callable">
+			<signature>var physics_tick_callable: Callable = Callable()</signature>
+			<description>物理帧推进回调，签名为 [code]func(delta: float, task: GFCallableRuntimeTask, scheduler: GFRuntimeTaskScheduler) -&gt; void[/code]。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="category">callback</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="finished_callable">
+			<signature>var finished_callable: Callable = Callable()</signature>
+			<description>完成判断回调，签名为 [code]func(task: GFCallableRuntimeTask, scheduler: GFRuntimeTaskScheduler) -&gt; bool[/code]。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="category">callback</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="end_callable">
+			<signature>var end_callable: Callable = Callable()</signature>
+			<description>结束回调，签名为 [code]func(interrupted: bool, task: GFCallableRuntimeTask, scheduler: GFRuntimeTaskScheduler) -&gt; void[/code]。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="category">callback</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="finish_after_initialize">
+			<signature>var finish_after_initialize: bool = true</signature>
+			<description>是否在初始化后立即完成。
+设为 [code]false[/code] 时，任务会持续运行直到 [member finished_callable] 返回 [code]true[/code]。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="category">lifecycle</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="_init">
+			<signature>func _init( p_initialize_callable: Callable = Callable(), p_tick_callable: Callable = Callable(), p_finished_callable: Callable = Callable(), p_end_callable: Callable = Callable(), p_requirements: Array[Object] = [], p_interruptible: bool = true ) -&gt; void:</signature>
+			<description>创建 Callable 运行时任务。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="category">lifecycle</tag>
+				<tag name="param">p_initialize_callable: 初始化回调。</tag>
+				<tag name="param">p_tick_callable: 帧推进回调。</tag>
+				<tag name="param">p_finished_callable: 完成判断回调。</tag>
+				<tag name="param">p_end_callable: 结束回调。</tag>
+				<tag name="param">p_requirements: 初始占用对象列表。</tag>
+				<tag name="param">p_interruptible: 任务是否允许被其他任务中断。</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="with_physics_tick">
+			<signature>func with_physics_tick(p_physics_tick_callable: Callable) -&gt; GFCallableRuntimeTask:</signature>
+			<description>设置物理帧推进回调。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="category">config</tag>
+				<tag name="param">p_physics_tick_callable: 物理帧推进回调。</tag>
+				<tag name="return">当前 Callable 任务。</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="initialize">
+			<signature>func initialize(scheduler: GFRuntimeTaskScheduler) -&gt; void:</signature>
+			<description>初始化任务。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="category">lifecycle</tag>
+				<tag name="param">scheduler: 当前调度器。</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="tick">
+			<signature>func tick(delta: float) -&gt; void:</signature>
+			<description>按帧推进任务。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="category">lifecycle</tag>
+				<tag name="param">delta: 帧间隔秒数。</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="physics_tick">
+			<signature>func physics_tick(delta: float) -&gt; void:</signature>
+			<description>按物理帧推进任务。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="category">lifecycle</tag>
+				<tag name="param">delta: 物理帧间隔秒数。</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_finished">
+			<signature>func is_finished() -&gt; bool:</signature>
+			<description>判断任务是否已经完成。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="category">lifecycle</tag>
+				<tag name="return">任务已完成时返回 true。</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="end">
+			<signature>func end(interrupted: bool) -&gt; void:</signature>
+			<description>结束任务。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="category">lifecycle</tag>
+				<tag name="param">interrupted: 为 true 时表示任务被其他任务或调度器取消。</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

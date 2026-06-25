@@ -46,6 +46,19 @@ for change in report["changes"]:
 
 该方法只比较 Variant 数据形状，不读取文件、不实例化脚本、不扫描对象属性，也不理解业务身份。需要对象图序列化、资源导入或领域级变更解释时，应在具体模块先转换成稳定 ID、路径或纯数据字典，再交给 diff 工具处理。
 
+## Variant 等值判断
+
+`GFVariantData.values_equal()` 提供通用浅层等值判断，适合状态 store、导入计划、缓存键预检和轻量工具比较标量值。它默认要求类型一致；`int` 与 `float` 会按数值比较，必要时可通过 `numeric_epsilon` 给浮点比较设置容差。
+
+```gdscript
+var same_number := GFVariantData.values_equal(1, 1.0)
+var close_value := GFVariantData.values_equal(0.1 + 0.2, 0.3, {
+	"numeric_epsilon": 0.00001,
+})
+```
+
+如果项目明确希望把 `String` 与 `StringName` 的同名值视为相等，可以传入 `{ "match_string_names": true }`。该入口不做深层对象图比较，也不加载 Resource；复杂结构的差异仍应使用 `diff_variant()` 或先转换成稳定纯数据后再比较。
+
 ## Metadata 与 Options
 
 项目自定义 `metadata` 应保持普通 `Dictionary`，框架只复制、合并和透传，不解释业务键。需要合并时优先使用 `merge_metadata()`，避免不同模块手写深拷贝和嵌套合并规则：
@@ -102,13 +115,24 @@ var compact_json := GFVariantJsonCodec.compact_json_text(pretty_json)
 
 ```gdscript
 var encoded_resource := GFVariantReferenceCodec.encode_reference(texture)
-var decoded_resource := GFVariantReferenceCodec.decode_reference(encoded_resource)
+var decoded_resource := GFVariantReferenceCodec.decode_reference(encoded_resource, {
+	GFVariantReferenceCodec.OPTION_ALLOWED_RESOURCE_ROOTS: PackedStringArray(["res://content"]),
+})
 
 var encoded_node := GFVariantReferenceCodec.encode_reference(target_node, {
 	GFVariantReferenceCodec.OPTION_ROOT_NODE: scope_root,
 })
 var decoded_node := GFVariantReferenceCodec.decode_reference(encoded_node, {
 	GFVariantReferenceCodec.OPTION_ROOT_NODE: scope_root,
+})
+```
+
+解码 Resource 引用必须显式限制可加载路径。`allowed_resource_roots` 按目录根匹配，`allowed_resource_patterns` 按 Godot `String.match()` 通配模式匹配；两者都为空时会拒绝恢复 Resource，避免未确认来源标记直接进入 `ResourceLoader.load()`。
+
+```gdscript
+var decoded_resource := GFVariantReferenceCodec.decode_reference(encoded_resource, {
+	GFVariantReferenceCodec.OPTION_ALLOWED_RESOURCE_ROOTS: PackedStringArray(["res://content/items"]),
+	GFVariantReferenceCodec.OPTION_ALLOWED_RESOURCE_PATTERNS: PackedStringArray(["user://trusted_exports/*.tres"]),
 })
 ```
 

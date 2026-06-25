@@ -26,6 +26,8 @@ func dispose() -> void:
 	unregister_event(DamagePayload, _on_damage_taken)
 ```
 
+`GFSystem`、`GFUtility`、`GFController` 和状态对象的 `register_event()` 会把自身作为 owner 注册，配套 `unregister_event()` 会按 owner 精确注销。直接使用全局入口时，`Gf.listen_owned(owner, EventType, callback)` 应搭配 `Gf.unlisten_owned(owner, EventType, callback)`；普通 `unlisten()` 只移除无 owner 的监听，不会误删其它 owner 使用同一 `Callable` 注册的监听。
+
 ## 消费语义与性能边界
 
 `GFPayload` 提供 `is_consumed` 字段。Type Event 派发后会检查事件实例上的 `is_consumed == true`，命中时停止后续监听。非 `GFPayload` 事件如果也定义并设置了同名字段，同样会触发消费语义。

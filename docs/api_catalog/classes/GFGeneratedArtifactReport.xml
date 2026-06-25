@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFGeneratedArtifactReport" path="addons/gf/kernel/editor/gf_generated_artifact_report.gd" module="kernel" extends="RefCounted" classDigest="7c1ea81391475462ad17d88848a5520c94f9ab534e79b876ca21e66f44cb7f7c">
+	<description>GFGeneratedArtifactReport: 生成文本产物的保存报告辅助。
+用于编辑器代码生成、导表导出或项目工具在写入前后获得统一的
+new / changed / unchanged / skipped / failed 状态，不绑定具体生成器语义。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">editor_api</tag>
+		<tag name="layer">kernel/editor</tag>
+		<tag name="since">6.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants>
+		<member kind="const" name="STATUS_NEW">
+			<signature>const STATUS_NEW: StringName = &amp;"new"</signature>
+			<description>目标文件不存在，本次产物是新增内容。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_CHANGED">
+			<signature>const STATUS_CHANGED: StringName = &amp;"changed"</signature>
+			<description>目标文件存在且内容不同。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_UNCHANGED">
+			<signature>const STATUS_UNCHANGED: StringName = &amp;"unchanged"</signature>
+			<description>目标文件存在且内容相同。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_SKIPPED">
+			<signature>const STATUS_SKIPPED: StringName = &amp;"skipped"</signature>
+			<description>目标文件因保存策略跳过。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_FAILED">
+			<signature>const STATUS_FAILED: StringName = &amp;"failed"</signature>
+			<description>产物写入或准备失败。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties />
+	<methods>
+		<member kind="method" name="make_report">
+			<signature>static func make_report( output_path: String, status: StringName, error_code: Error = OK, message: String = "", options: Dictionary = {} ) -&gt; Dictionary:</signature>
+			<description>创建统一生成产物报告。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">output_path: 产物输出路径。</tag>
+				<tag name="param">status: 产物状态。</tag>
+				<tag name="param">error_code: Godot Error 错误码。</tag>
+				<tag name="param">message: 错误或跳过说明。</tag>
+				<tag name="param">options: 报告选项，支持 written、changed、dry_run、size_bytes 和 metadata。</tag>
+				<tag name="return">生成产物报告。</tag>
+				<tag name="schema">options: Dictionary，可包含 written、changed、dry_run、size_bytes 和 metadata。</tag>
+				<tag name="schema">return: Dictionary，包含 success、path、status、error_code、error、written、changed、dry_run、size_bytes 和 metadata。</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="save_text">
+			<signature>static func save_text(output_path: String, text: String, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>保存文本产物并返回统一报告。
+dry_run 为 true 时只比较目标文件状态，不创建目录或写入文件。
+overwrite_existing 为 false 且目标文件需要改写时返回 skipped / ERR_ALREADY_EXISTS。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">output_path: 产物输出路径。</tag>
+				<tag name="param">text: 要写入的文本内容。</tag>
+				<tag name="param">options: 保存选项，支持 overwrite_existing、dry_run、scan_filesystem、label 和 metadata。</tag>
+				<tag name="return">生成产物保存报告。</tag>
+				<tag name="schema">options: Dictionary，可包含 overwrite_existing、dry_run、scan_filesystem、label 和 metadata。</tag>
+				<tag name="schema">return: Dictionary，包含 success、path、status、error_code、error、written、changed、dry_run、size_bytes 和 metadata。</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_error_code">
+			<signature>static func get_error_code(report: Dictionary) -&gt; Error:</signature>
+			<description>从报告读取 Error 错误码。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">report: make_report() 或 save_text() 返回的报告。</tag>
+				<tag name="return">Godot Error 错误码。</tag>
+				<tag name="schema">report: Dictionary，包含 error_code 字段。</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

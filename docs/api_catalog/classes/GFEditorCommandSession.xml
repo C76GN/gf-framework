@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFEditorCommandSession" path="addons/gf/kernel/editor/gf_editor_command_session.gd" module="kernel" extends="RefCounted" classDigest="72364de3b7508c6a26dbca8420b9b9dfd9804bad53fbd0c85c5565e923f03de6">
+	<description>GFEditorCommandSession: 编辑器命令会话。
+为编辑器工具、Dock 或快捷键入口提供统一的命令预览、提交、撤销和结果字典格式。
+会话只管理通用命令生命周期，不绑定具体资源、节点类型或项目业务。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">editor_api</tag>
+		<tag name="layer">kernel/editor</tag>
+		<tag name="since">6.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties>
+		<member kind="property" name="session_id">
+			<signature>var session_id: StringName = &amp;""</signature>
+			<description>会话稳定标识。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="label">
+			<signature>var label: String = ""</signature>
+			<description>会话显示名称。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="metadata">
+			<signature>var metadata: Dictionary = {}</signature>
+			<description>调用方附加元数据。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">metadata: Dictionary for caller-defined editor command session metadata.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="configure">
+			<signature>func configure( p_session_id: StringName, p_label: String = "", p_metadata: Dictionary = {} ) -&gt; GFEditorCommandSession:</signature>
+			<description>配置会话。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">p_session_id: 会话稳定标识。</tag>
+				<tag name="param">p_label: 会话显示名称。</tag>
+				<tag name="param">p_metadata: 调用方元数据。</tag>
+				<tag name="return">当前会话。</tag>
+				<tag name="schema">p_metadata: Dictionary copied into metadata.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="preview_command">
+			<signature>func preview_command(command: GFEditorCommandBase, context: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>预览命令可执行性，不修改项目状态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">command: 待预览命令。</tag>
+				<tag name="param">context: 调用方上下文字典，会复制到结果中便于诊断。</tag>
+				<tag name="return">预览结果字典。</tag>
+				<tag name="schema">context: Dictionary command preview context.</tag>
+				<tag name="schema">return: Dictionary with ok, status, command_name, executed, history_count, context, and metadata.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="commit_command">
+			<signature>func commit_command( command: GFEditorCommandBase, context: GFEditorToolContextBase = null, use_undo: bool = true ) -&gt; Dictionary:</signature>
+			<description>提交命令。存在上下文时可接入 UndoRedo，否则直接执行。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">command: 待提交命令。</tag>
+				<tag name="param">context: 可选编辑器工具上下文。</tag>
+				<tag name="param">use_undo: 为 true 且 context 拥有 undo_manager 时写入 UndoRedo。</tag>
+				<tag name="return">提交结果字典。</tag>
+				<tag name="schema">return: Dictionary with ok, status, error, command_name, executed, history_count, and metadata.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="revert_last">
+			<signature>func revert_last() -&gt; Dictionary:</signature>
+			<description>撤销最近一次提交的命令。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">撤销结果字典。</tag>
+				<tag name="schema">return: Dictionary with ok, status, error, command_name, executed, history_count, and metadata.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="clear_history">
+			<signature>func clear_history() -&gt; void:</signature>
+			<description>清空会话历史，不调用撤销。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_history_count">
+			<signature>func get_history_count() -&gt; int:</signature>
+			<description>获取命令历史数量。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">已提交命令数量。</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_debug_snapshot">
+			<signature>func get_debug_snapshot() -&gt; Dictionary:</signature>
+			<description>获取调试快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">调试信息字典。</tag>
+				<tag name="schema">return: Dictionary containing session_id, label, history_count, command_names, and metadata.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

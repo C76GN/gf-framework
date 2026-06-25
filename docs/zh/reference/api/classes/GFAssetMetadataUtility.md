@@ -20,6 +20,8 @@
 | 方法 | [`normalize_metadata`](#member-gfassetmetadatautility-methods-normalize_metadata) | `static func normalize_metadata(value: Variant) -> Dictionary:` |
 | 方法 | [`write_object_metadata`](#member-gfassetmetadatautility-methods-write_object_metadata) | `func write_object_metadata( target: Object, metadata: Dictionary, options: Dictionary = {} ) -> GFAssetMetadataRecord:` |
 | 方法 | [`read_object_metadata`](#member-gfassetmetadatautility-methods-read_object_metadata) | `func read_object_metadata(target: Object, options: Dictionary = {}) -> Dictionary:` |
+| 方法 | [`read_object_metadata_with_schema`](#member-gfassetmetadatautility-methods-read_object_metadata_with_schema) | `func read_object_metadata_with_schema( target: Object, schema: GFDictionarySchema, options: Dictionary = {} ) -> Dictionary:` |
+| 方法 | [`validate_object_metadata`](#member-gfassetmetadatautility-methods-validate_object_metadata) | `func validate_object_metadata( target: Object, schema: GFDictionarySchema, options: Dictionary = {} ) -> Dictionary:` |
 | 方法 | [`has_object_metadata`](#member-gfassetmetadatautility-methods-has_object_metadata) | `func has_object_metadata(target: Object, options: Dictionary = {}) -> bool:` |
 | 方法 | [`clear_object_metadata`](#member-gfassetmetadatautility-methods-clear_object_metadata) | `func clear_object_metadata(target: Object, options: Dictionary = {}) -> void:` |
 | 方法 | [`collect_node_tree`](#member-gfassetmetadatautility-methods-collect_node_tree) | `func collect_node_tree(root: Node, options: Dictionary = {}) -> Array[GFAssetMetadataRecord]:` |
@@ -131,6 +133,62 @@ func read_object_metadata(target: Object, options: Dictionary = {}) -> Dictionar
 
 - `options`: Dictionary，可包含 metadata_key 或 metadata_keys。
 - `return`: Dictionary，读取到的结构化资产元数据字段。
+
+<a id="member-gfassetmetadatautility-methods-read_object_metadata_with_schema"></a>
+
+### `read_object_metadata_with_schema`
+
+- API：`public`
+- 首次版本：`6.0.0`
+
+```gdscript
+func read_object_metadata_with_schema( target: Object, schema: GFDictionarySchema, options: Dictionary = {} ) -> Dictionary:
+```
+
+读取对象资产元数据，并按通用 Dictionary schema 补默认值与可选转换。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `target` | 目标 Object。 |
+| `schema` | 通用 Dictionary schema；为空时只返回普通读取结果。 |
+| `options` | 可选项，支持 read_object_metadata() 的参数，并额外支持 include_optional_defaults 和 coerce_values。 |
+
+返回：补齐后的元数据字典副本。
+
+结构：
+
+- `options`: Dictionary，可包含 metadata_key、metadata_keys、include_optional_defaults 与 coerce_values。
+- `return`: Dictionary，按 schema 归一后的资产元数据字段。
+
+<a id="member-gfassetmetadatautility-methods-validate_object_metadata"></a>
+
+### `validate_object_metadata`
+
+- API：`public`
+- 首次版本：`6.0.0`
+
+```gdscript
+func validate_object_metadata( target: Object, schema: GFDictionarySchema, options: Dictionary = {} ) -> Dictionary:
+```
+
+用通用 Dictionary schema 校验对象资产元数据。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `target` | 目标 Object。 |
+| `schema` | 通用 Dictionary schema。 |
+| `options` | 可选项，支持 read_object_metadata() 的参数，以及 source_path、subject、path。 |
+
+返回：GFValidationReport 兼容字典。
+
+结构：
+
+- `options`: Dictionary，可包含 metadata_key、metadata_keys、source_path、subject 和 path。
+- `return`: Dictionary，包含 ok、healthy、summary、issues 等校验报告字段。
 
 <a id="member-gfassetmetadatautility-methods-has_object_metadata"></a>
 

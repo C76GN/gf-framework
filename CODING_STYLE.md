@@ -351,7 +351,7 @@ GF 框架源码以长期维护和 Godot strict warning clean 为优先级。`add
 	if raw_entry is Dictionary:
 		var entry: Dictionary = raw_entry
 	```
-*   **布尔、数字和字符串**: 对来自 `Variant` 的标量值先确认可转换类型，再调用 `bool()`、`int()`、`float()`、`String()` 或 `StringName()`，避免 Godot 4.6 的 unsafe call argument 警告。
+*   **布尔、数字和字符串**: 对来自 `Variant` 的标量值先确认可转换类型，再调用 `bool()`、`int()`、`float()`、`String()` 或 `StringName()`，避免 Godot 的 unsafe call argument 警告。
 *   **命名防御**: 局部变量和参数不得使用容易遮蔽基类 API 或 Godot 属性的名字，例如 `name`、`reference`。使用语义名，如 `property_name`、`object_ref`、`weak_ref`。
 
 ### 4.4 GDScript warning-clean 规则

@@ -6,7 +6,7 @@
 
 `GFStorageCodec` 提供 JSON/Binary 编码、可选压缩、SHA-256 完整性校验、轻量 XOR 混淆和框架存储元信息。若业务载荷根字典本身已有 `_meta` 字段，codec 会把框架元信息写入独立 envelope，读取时仍还原用户自己的 `_meta`，避免存档格式和业务数据抢同一个键。这里的混淆只用于降低误编辑概率，不能用于保护敏感数据。
 
-同时原生支持 Godot 的 `Resource` 类型直接存取，例如 `.tres` 或 `.res`。
+同时原生支持 Godot 的 `Resource` 类型保存，例如 `.tres` 或 `.res`。读取 Resource 会进入 Godot `ResourceLoader`，因此默认关闭；项目必须先显式启用 `allow_resource_loads`，并用 `type_hint`、扩展名 allowlist 和存储路径策略收窄加载边界。这个入口只面向项目生成或项目已确认来源与格式的本地文件，不是沙盒化的资源导入器；对用户下载、导入或可被篡改的资源，项目层应先做来源检查、格式转换，或改用纯 `Dictionary` / JSON 载荷。
 
 `GFStorageCodec` 的 JSON 格式面向普通 JSON 数据。需要保留 Vector、Color、PackedArray 等 Godot 值类型时，先用 `GFVariantJsonCodec` 转换；需要保存 Resource 或 Node 引用时，使用 `GFVariantReferenceCodec` 的显式引用标记，或由 SaveGraph 属性序列化器代为处理。
 
@@ -42,7 +42,10 @@ var full_data := storage.load_slot(1)
 var my_res := Resource.new()
 storage.save_resource("my_custom_resource.tres", my_res)
 
-var loaded_res := storage.load_resource("my_custom_resource.tres")
+# 仅加载项目自己写入或已确认来源与格式的资源文件。
+storage.allow_resource_loads = true
+storage.allowed_resource_load_extensions = PackedStringArray(["tres"])
+var loaded_res := storage.load_resource("my_custom_resource.tres", "Resource")
 ```
 
 ## 文件管理
@@ -51,6 +54,6 @@ var loaded_res := storage.load_resource("my_custom_resource.tres")
 
 `get_storage_directory_path()` 只解析路径，不创建目录；需要目录实际存在时再调用 `ensure_directory()`。这些 API 复用 `GFStorageUtility` 的路径安全策略：默认拒绝绝对路径并阻止 `..` 跨目录；纯字典读写 API 会直接拒绝空 `file_name`，而不是写入内部兜底文件名。
 
-递归枚举默认限制深度和返回数量，可通过 `list_files(..., { "max_scan_depth": 64, "max_file_count": 20000 })` 调整。枚举结果返回存储相对路径，适合交给 `load_data()`、`load_resource()` 或项目自己的读取流程继续处理。
+递归枚举默认限制深度和返回数量，可通过 `list_files(..., { "max_scan_depth": 64, "max_file_count": 20000 })` 调整。枚举结果返回存储相对路径，适合交给 `load_data()`、显式启用后的 `load_resource()` 或项目自己的读取流程继续处理。
 
 槽位列表仍应优先使用 `list_slots()`，避免把内部事务文件、备份文件或项目临时文件混入读档 UI。

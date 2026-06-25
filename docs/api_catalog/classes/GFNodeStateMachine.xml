@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFNodeStateMachine" path="addons/gf/standard/state_machine/node/gf_node_state_machine.gd" module="standard" extends="Node" classDigest="b1094197e96e9d1cb53b03b9d237310dd6e2a894764a3a53d799067c6cf7f169">
+<class name="GFNodeStateMachine" path="addons/gf/standard/state_machine/node/gf_node_state_machine.gd" module="standard" extends="Node" classDigest="22eee33d56b26733e7599d9d1b77f5a22042f3d10e92cc32b446e50d5960306a">
 	<description>GFNodeStateMachine: 基于场景树的多状态组状态机。
 支持直接子 GFNodeState 组成内部状态组，也支持多个 GFNodeStateGroup 并行工作。</description>
 	<tags>
@@ -419,12 +419,14 @@
 			</tags>
 		</member>
 		<member kind="method" name="unregister_event">
-			<signature>func unregister_event(event_type: Script, callback: Callable) -&gt; void:</signature>
+			<signature>func unregister_event(event_type: Script, callback: Callable, listener_owner: Object = null) -&gt; void:</signature>
 			<description>注销类型事件监听器。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">event_type: 要注销的脚本类型。</tag>
 				<tag name="param">callback: 要移除的回调函数。</tag>
+				<tag name="param">listener_owner: 注册监听时使用的拥有者；为空时只注销无 owner 监听。</tag>
+				<tag name="since">5.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="register_assignable_event_owned">
@@ -439,12 +441,14 @@
 			</tags>
 		</member>
 		<member kind="method" name="unregister_assignable_event">
-			<signature>func unregister_assignable_event(base_event_type: Script, callback: Callable) -&gt; void:</signature>
+			<signature>func unregister_assignable_event(base_event_type: Script, callback: Callable, listener_owner: Object = null) -&gt; void:</signature>
 			<description>注销可赋值类型事件监听器。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">base_event_type: 注册时使用的基类脚本类型。</tag>
 				<tag name="param">callback: 要移除的回调函数。</tag>
+				<tag name="param">listener_owner: 注册监听时使用的拥有者；为空时只注销无 owner 监听。</tag>
+				<tag name="since">5.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="register_simple_event_owned">
@@ -458,12 +462,14 @@
 			</tags>
 		</member>
 		<member kind="method" name="unregister_simple_event">
-			<signature>func unregister_simple_event(event_id: StringName, callback: Callable) -&gt; void:</signature>
+			<signature>func unregister_simple_event(event_id: StringName, callback: Callable, listener_owner: Object = null) -&gt; void:</signature>
 			<description>注销轻量级 StringName 事件监听器。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">event_id: StringName 事件标识符。</tag>
 				<tag name="param">callback: 要移除的回调函数。</tag>
+				<tag name="param">listener_owner: 注册监听时使用的拥有者；为空时只注销无 owner 监听。</tag>
+				<tag name="since">5.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="unregister_owner_events">

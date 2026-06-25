@@ -18,6 +18,22 @@ func test_build_source_generates_config_accessors() -> void:
 	assert_true(source.contains("static func get_item_data_table(provider: Variant = null) -> Variant:"), "应生成整表读取方法。")
 
 
+func test_generate_with_report_supports_dry_run_without_writing() -> void:
+	var schema: ConfigSchemaStub = ConfigSchemaStub.new(&"item_data")
+	var generator: GFConfigAccessGenerator = GFConfigAccessGenerator.new()
+	var output_path: String = "user://gf_config_access_generator_dry_run_%d.gd" % Time.get_ticks_usec()
+
+	var report: Dictionary = generator.generate_with_report([schema], output_path, "DryRunConfigAccess", "null", {
+		"dry_run": true,
+	})
+
+	assert_true(GFVariantData.get_option_bool(report, "success"), "dry-run 生成报告应成功。")
+	assert_eq(GFVariantData.get_option_string_name(report, "status"), GFGeneratedArtifactReport.STATUS_NEW, "不存在的目标应报告 new。")
+	assert_false(GFVariantData.get_option_bool(report, "written"), "dry-run 不应写入访问器文件。")
+	assert_true(GFVariantData.get_option_bool(report, "dry_run"), "报告应保留 dry_run 标记。")
+	assert_false(FileAccess.file_exists(output_path), "dry-run 不应创建访问器文件。")
+
+
 func test_build_source_sanitizes_invalid_table_names() -> void:
 	var schema: ConfigSchemaStub = ConfigSchemaStub.new(&"123 item-data")
 	var generator: GFConfigAccessGenerator = GFConfigAccessGenerator.new()

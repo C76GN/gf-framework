@@ -96,13 +96,13 @@ const FORMAT_XLSX: StringName = &"xlsx"
 ## @schema parse_options: Dictionary，可包含 GFConfigTableImporter 支持的 CSV / JSON 解析选项，以及 XLSX sheet_name、sheet_index、header_row、trim_cells、skip_empty_lines 和 reject_duplicate_headers。
 @export var parse_options: Dictionary = {}
 
-## schema 推导与表头声明选项，例如 id_field、allow_extra_fields、required_if_present_in_all_rows 或 typed_headers。
+## schema 推导与表头声明选项，例如 id_field、allow_extra_fields、required_if_present_in_all_rows、typed_headers 或 typed_header_type_row。
 ## [br]
 ## @api public
 ## [br]
 ## @since 5.2.0
 ## [br]
-## @schema schema_options: Dictionary，可包含 GFConfigTableSchema.infer_from_records() 支持的选项，以及 typed_headers、coerce_values、fail_on_coerce_error、require_unique_id。
+## @schema schema_options: Dictionary，可包含 GFConfigTableSchema.infer_from_records() 支持的选项，以及 typed_headers、typed_header_type_row、coerce_values、fail_on_coerce_error、require_unique_id。
 @export var schema_options: Dictionary = {}
 
 ## 附加到生成表资源的元数据。

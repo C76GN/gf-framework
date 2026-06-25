@@ -28,6 +28,6 @@ func _ready() -> void:
 
 ## 使用边界
 
-`Model`、`System` 与 `Utility` 的注册表遵循同一套规则：重复注册会被忽略并提示使用 `replace_*()`；通过 alias 注销会释放目标实例并清理同目标别名；注册表变化后继承匹配缓存会失效。
+`Model`、`System` 与 `Utility` 的注册表遵循同一套规则：重复注册会被忽略并提示使用 `replace_*()`；同一实例不能用多个脚本键重复注册；`unregister_*()` 只注销直接注册键，删除 alias 应使用 `unregister_*_alias()`，且不会释放目标实例；注册表变化后继承匹配缓存会失效。
 
-显式 alias 会校验 `target_cls` 必须继承或等于 `alias_cls`。无关类型会被拒绝，避免 `get_utility(AbstractType)` 返回无法强转的实例。项目层只需要保持注册键、alias 和实际实例类型一致。
+显式 alias 会校验 `target_cls` 必须继承或等于 `alias_cls`。无关类型会被拒绝，避免 `get_utility(AbstractType)` 返回无法强转的实例。若 alias 指向的目标类型尚未注册，查询会报告错误，并且不会在同一架构内退回另一个可赋值实现；非严格子架构仍可继续回退父架构。项目层应保持注册键、alias 和实际实例类型一致。

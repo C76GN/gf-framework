@@ -22,6 +22,34 @@ settings.save_settings()
 
 自动保存默认会按 `save_debounce_seconds` 做防抖，避免设置页拖动滑块时每次变化都落盘。需要一次性应用多个字段时，可用 `begin_batch()` / `end_batch()` 包裹，或手动 `queue_save()` 后在合适时机 `flush_pending_save()`。
 
+## 暂存设置
+
+设置页如果需要“应用 / 取消”按钮，不应让滑块、选项框直接写入真实设置。可以先把用户选择写入暂存层，用 `get_staged_or_value()` 渲染预览值，确认后再提交。
+
+```gdscript
+settings.stage_value(&"audio/master", 0.6)
+
+var preview_value: Variant = settings.get_staged_or_value(&"audio/master")
+
+if settings.has_staged_values():
+	var report: Dictionary = settings.apply_staged_values()
+	if not report["ok"]:
+		print(report["issues"])
+```
+
+暂存值会沿用 `GFSettingDefinition` 做类型转换，但不会触发 `setting_changed`、不会保存，也不会出现在 `to_dict()` 中。`apply_staged_values()` 会复用 `apply_values()` 的真实设置应用流程，因此会按现有批处理和自动保存规则合并落盘。需要放弃用户未确认的选择时，调用 `discard_staged_value(key)` 或 `discard_staged_values()`。
+
+如果一个设置页只想提交当前页负责的键，可以通过 `scope` 限制提交范围；未在 scope 中的暂存值会继续保留，供其他页面或后续流程处理。
+
+```gdscript
+var report: Dictionary = settings.apply_staged_values({
+	"scope": PackedStringArray([
+		"video/window_mode",
+		"video/window_size",
+	]),
+})
+```
+
 ## 预设应用
 
 需要把“低画质”“无障碍”“手柄方案”这类项目预设一次性应用到设置中时，可以使用 `apply_values()`。它会沿用已注册定义做类型转换，并把自动保存合并成一次。

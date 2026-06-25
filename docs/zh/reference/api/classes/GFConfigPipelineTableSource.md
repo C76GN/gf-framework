@@ -195,11 +195,11 @@ var parse_options: Dictionary = {}
 var schema_options: Dictionary = {}
 ```
 
-schema 推导与表头声明选项，例如 id_field、allow_extra_fields、required_if_present_in_all_rows 或 typed_headers。
+schema 推导与表头声明选项，例如 id_field、allow_extra_fields、required_if_present_in_all_rows、typed_headers 或 typed_header_type_row。
 
 结构：
 
-- `schema_options`: Dictionary，可包含 GFConfigTableSchema.infer_from_records() 支持的选项，以及 typed_headers、coerce_values、fail_on_coerce_error、require_unique_id。
+- `schema_options`: Dictionary，可包含 GFConfigTableSchema.infer_from_records() 支持的选项，以及 typed_headers、typed_header_type_row、coerce_values、fail_on_coerce_error、require_unique_id。
 
 <a id="member-gfconfigpipelinetablesource-properties-metadata"></a>
 

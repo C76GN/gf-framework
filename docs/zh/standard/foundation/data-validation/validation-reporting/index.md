@@ -5,6 +5,7 @@
 ## 阅读入口
 
 - [校验报告与诊断](reports-diagnostics/index.md)：`GFSourceSpan`、`GFValidationIssue`、`GFValidationReport` 和兼容字典报告。
+- [通用策略注册表](policy-registry.md)：`GFPolicyProvider` 与 `GFPolicyRegistry` 的 artifact 策略分发和结果汇总。
 - [校验规则套件与 Runner](suites-runner.md)：`GFValidationRule`、`GFValidationSuite`、`GFValidationRunner` 和 JUnit 导出。
 - [轻量结果字典](result-dictionary.md)：`GFResultDictionary` 的成功、失败、原因、元数据和轻量问题载荷结构。
 

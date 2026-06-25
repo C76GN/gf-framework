@@ -492,7 +492,7 @@ func register_event(event_type: Script, callback: Callable, priority: int = 0) -
 ## @param callback: 要移除的回调函数。
 func unregister_event(event_type: Script, callback: Callable) -> void:
 	for architecture: GFArchitecture in _get_tracked_event_architectures():
-		architecture.unregister_event(event_type, callback)
+		architecture.unregister_event_owned(self, event_type, callback)
 
 
 ## 注册可赋值类型事件监听器，默认以当前状态作为 owner。
@@ -520,7 +520,7 @@ func register_assignable_event(base_event_type: Script, callback: Callable, prio
 ## @param callback: 要移除的回调函数。
 func unregister_assignable_event(base_event_type: Script, callback: Callable) -> void:
 	for architecture: GFArchitecture in _get_tracked_event_architectures():
-		architecture.unregister_assignable_event(base_event_type, callback)
+		architecture.unregister_assignable_event_owned(self, base_event_type, callback)
 
 
 ## 注册轻量级 StringName 事件监听器，默认以当前状态作为 owner。
@@ -546,7 +546,7 @@ func register_simple_event(event_id: StringName, callback: Callable) -> void:
 ## @param callback: 要移除的回调函数。
 func unregister_simple_event(event_id: StringName, callback: Callable) -> void:
 	for architecture: GFArchitecture in _get_tracked_event_architectures():
-		architecture.unregister_simple_event(event_id, callback)
+		architecture.unregister_simple_event_owned(self, event_id, callback)
 
 
 ## 注销当前状态通过事件代理注册过的全部监听器。

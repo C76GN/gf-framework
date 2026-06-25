@@ -27,13 +27,27 @@ const _DEPENDENCY_SCOPE_SUPPORT = preload("res://addons/gf/kernel/base/gf_depend
 ## 该 Utility 的 tick / physics_tick 仍会接收到原始（未缩放）的 delta 值。
 ## [br]
 ## @api public
-var ignore_pause: bool = false
+## [br]
+## @since 5.0.0
+var ignore_pause: bool = false:
+	set(value):
+		if ignore_pause == value:
+			return
+		ignore_pause = value
+		_request_tick_cache_refresh()
 
 ## 是否忽略当前 GFTimeProvider 的时间缩放。为 true 且未全局暂停时，
 ## 该 Utility 的 tick / physics_tick 会接收到原始 delta。
 ## [br]
 ## @api public
-var ignore_time_scale: bool = false
+## [br]
+## @since 5.0.0
+var ignore_time_scale: bool = false:
+	set(value):
+		if ignore_time_scale == value:
+			return
+		ignore_time_scale = value
+		_request_tick_cache_refresh()
 
 ## 生命周期优先级。数值越大越早执行 init/async_init/ready，dispose 时越晚释放。
 ## 默认 0 表示同优先级下按注册顺序执行；只有存在明确依赖顺序时才建议设置。
@@ -45,13 +59,27 @@ var lifecycle_priority: int = 0
 ## 默认 0 表示同优先级下按注册顺序执行。
 ## [br]
 ## @api public
-var tick_priority: int = 0
+## [br]
+## @since 5.0.0
+var tick_priority: int = 0:
+	set(value):
+		if tick_priority == value:
+			return
+		tick_priority = value
+		_request_tick_cache_refresh()
 
 ## 物理帧 tick 优先级。数值越大越早执行 physics_tick()。
 ## 默认 0 表示同优先级下按注册顺序执行。
 ## [br]
 ## @api public
-var physics_tick_priority: int = 0
+## [br]
+## @since 5.0.0
+var physics_tick_priority: int = 0:
+	set(value):
+		if physics_tick_priority == value:
+			return
+		physics_tick_priority = value
+		_request_tick_cache_refresh()
 
 ## 是否显式加入每帧 tick 缓存。
 ## 实现 tick() 的旧项目无需设置；仅在需要强制声明运行时 tick 能力时启用。
@@ -143,8 +171,7 @@ func inject_dependencies(architecture: GFArchitecture) -> void:
 ## [br]
 ## @return 所属架构仍处于活动生命周期时返回 true。
 func is_lifecycle_active() -> bool:
-	var architecture: GFArchitecture = _get_architecture_or_null()
-	return architecture != null and architecture.is_lifecycle_active()
+	return _DEPENDENCY_SCOPE_SUPPORT._is_lifecycle_active(_dependency_scope, "GFUtility")
 
 
 ## 检查当前模块是否已经完成 ready 阶段。
@@ -230,7 +257,7 @@ func register_event(event_type: Script, callback: Callable, priority: int = 0) -
 func unregister_event(event_type: Script, callback: Callable) -> void:
 	var architecture: GFArchitecture = _get_architecture_or_null()
 	if architecture != null:
-		architecture.unregister_event(event_type, callback)
+		architecture.unregister_event_owned(self, event_type, callback)
 
 
 ## 注册可赋值类型事件监听器。Utility 注销时框架会自动清理由该方法注册的监听。
@@ -258,7 +285,7 @@ func register_assignable_event(base_event_type: Script, callback: Callable, prio
 func unregister_assignable_event(base_event_type: Script, callback: Callable) -> void:
 	var architecture: GFArchitecture = _get_architecture_or_null()
 	if architecture != null:
-		architecture.unregister_assignable_event(base_event_type, callback)
+		architecture.unregister_assignable_event_owned(self, base_event_type, callback)
 
 
 ## 向架构发送类型事件。
@@ -295,7 +322,7 @@ func register_simple_event(event_id: StringName, callback: Callable) -> void:
 func unregister_simple_event(event_id: StringName, callback: Callable) -> void:
 	var architecture: GFArchitecture = _get_architecture_or_null()
 	if architecture != null:
-		architecture.unregister_simple_event(event_id, callback)
+		architecture.unregister_simple_event_owned(self, event_id, callback)
 
 
 ## 发送轻量级 StringName 事件，避免高频 new() 带来的 GC 压力。
@@ -318,8 +345,8 @@ func send_simple_event(event_id: StringName, payload: Variant = null) -> void:
 
 # --- 私有/辅助方法 ---
 
-func _gf_set_dependency_scope(architecture: GFArchitecture) -> void:
-	_DEPENDENCY_SCOPE_SUPPORT._bind_scope(_dependency_scope, architecture)
+func _gf_set_dependency_scope(architecture: GFArchitecture, lifecycle_serial: int = -1) -> void:
+	_DEPENDENCY_SCOPE_SUPPORT._bind_scope(_dependency_scope, architecture, lifecycle_serial)
 
 
 func _get_architecture() -> GFArchitecture:

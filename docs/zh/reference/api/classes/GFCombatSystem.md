@@ -26,7 +26,9 @@
 | 方法 | [`get_buffs`](#member-gfcombatsystem-methods-get_buffs) | `func get_buffs(p_entity: Object) -> Array[GFBuff]:` |
 | 方法 | [`refresh_buff_modifiers`](#member-gfcombatsystem-methods-refresh_buff_modifiers) | `func refresh_buff_modifiers(p_entity: Object, p_buff_id: StringName) -> bool:` |
 | 方法 | [`remove_buff`](#member-gfcombatsystem-methods-remove_buff) | `func remove_buff(p_entity: Object, p_buff_id: StringName) -> bool:` |
+| 方法 | [`remove_buff_with_reason`](#member-gfcombatsystem-methods-remove_buff_with_reason) | `func remove_buff_with_reason( p_entity: Object, p_buff_id: StringName, reason: StringName = GFBuff.REMOVAL_REASON_REMOVED ) -> bool:` |
 | 方法 | [`clear_buffs`](#member-gfcombatsystem-methods-clear_buffs) | `func clear_buffs(p_entity: Object, predicate: Callable = Callable()) -> int:` |
+| 方法 | [`clear_buffs_with_reason`](#member-gfcombatsystem-methods-clear_buffs_with_reason) | `func clear_buffs_with_reason( p_entity: Object, predicate: Callable = Callable(), reason: StringName = GFBuff.REMOVAL_REASON_CLEARED ) -> int:` |
 | 方法 | [`remove_skill`](#member-gfcombatsystem-methods-remove_skill) | `func remove_skill(p_entity: Object, p_skill: GFSkill) -> bool:` |
 
 ## 方法
@@ -239,6 +241,29 @@ func remove_buff(p_entity: Object, p_buff_id: StringName) -> bool:
 
 返回：找到并移除 Buff 时返回 true。
 
+<a id="member-gfcombatsystem-methods-remove_buff_with_reason"></a>
+
+### `remove_buff_with_reason`
+
+- API：`public`
+- 首次版本：`6.0.0`
+
+```gdscript
+func remove_buff_with_reason( p_entity: Object, p_buff_id: StringName, reason: StringName = GFBuff.REMOVAL_REASON_REMOVED ) -> bool:
+```
+
+移除实体上的指定 Buff，并记录移除原因。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `p_entity` | 实体对象。 |
+| `p_buff_id` | Buff 标识。 |
+| `reason` | 移除原因。 |
+
+返回：找到并移除 Buff 时返回 true。
+
 <a id="member-gfcombatsystem-methods-clear_buffs"></a>
 
 ### `clear_buffs`
@@ -257,6 +282,29 @@ func clear_buffs(p_entity: Object, predicate: Callable = Callable()) -> int:
 |---|---|
 | `p_entity` | 实体对象。 |
 | `predicate` | 可选过滤回调，签名为 `func(buff: GFBuff) -> bool`。 |
+
+返回：被清理的 Buff 数量。
+
+<a id="member-gfcombatsystem-methods-clear_buffs_with_reason"></a>
+
+### `clear_buffs_with_reason`
+
+- API：`public`
+- 首次版本：`6.0.0`
+
+```gdscript
+func clear_buffs_with_reason( p_entity: Object, predicate: Callable = Callable(), reason: StringName = GFBuff.REMOVAL_REASON_CLEARED ) -> int:
+```
+
+清理实体上的 Buff，并记录移除原因。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `p_entity` | 实体对象。 |
+| `predicate` | 可选过滤回调，签名为 `func(buff: GFBuff) -> bool`。 |
+| `reason` | 移除原因。 |
 
 返回：被清理的 Buff 数量。
 

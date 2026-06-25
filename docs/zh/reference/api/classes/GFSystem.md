@@ -15,11 +15,11 @@
 
 | 类型 | 名称 | 签名 |
 |---|---|---|
-| 属性 | [`ignore_pause`](#member-gfsystem-properties-ignore_pause) | `var ignore_pause: bool = false` |
-| 属性 | [`ignore_time_scale`](#member-gfsystem-properties-ignore_time_scale) | `var ignore_time_scale: bool = false` |
+| 属性 | [`ignore_pause`](#member-gfsystem-properties-ignore_pause) | `var ignore_pause: bool = false:` |
+| 属性 | [`ignore_time_scale`](#member-gfsystem-properties-ignore_time_scale) | `var ignore_time_scale: bool = false:` |
 | 属性 | [`lifecycle_priority`](#member-gfsystem-properties-lifecycle_priority) | `var lifecycle_priority: int = 0` |
-| 属性 | [`tick_priority`](#member-gfsystem-properties-tick_priority) | `var tick_priority: int = 0` |
-| 属性 | [`physics_tick_priority`](#member-gfsystem-properties-physics_tick_priority) | `var physics_tick_priority: int = 0` |
+| 属性 | [`tick_priority`](#member-gfsystem-properties-tick_priority) | `var tick_priority: int = 0:` |
+| 属性 | [`physics_tick_priority`](#member-gfsystem-properties-physics_tick_priority) | `var physics_tick_priority: int = 0:` |
 | 属性 | [`tick_enabled`](#member-gfsystem-properties-tick_enabled) | `var tick_enabled: bool = false:` |
 | 属性 | [`physics_tick_enabled`](#member-gfsystem-properties-physics_tick_enabled) | `var physics_tick_enabled: bool = false:` |
 | 方法 | [`init`](#member-gfsystem-methods-init) | `func init() -> void:` |
@@ -50,9 +50,10 @@
 ### `ignore_pause`
 
 - API：`public`
+- 首次版本：`5.0.0`
 
 ```gdscript
-var ignore_pause: bool = false
+var ignore_pause: bool = false:
 ```
 
 是否忽略全局暂停。为 true 时，即使当前 GFTimeProvider 处于暂停状态， 该 System 仍会接收到原始（未缩放）的 delta 值。 典型场景：暂停菜单动画、设置界面过渡效果等。
@@ -62,9 +63,10 @@ var ignore_pause: bool = false
 ### `ignore_time_scale`
 
 - API：`public`
+- 首次版本：`5.0.0`
 
 ```gdscript
-var ignore_time_scale: bool = false
+var ignore_time_scale: bool = false:
 ```
 
 是否忽略当前 GFTimeProvider 的时间缩放。为 true 且未全局暂停时， 该 System 的 tick / physics_tick 会接收到原始 delta。
@@ -86,9 +88,10 @@ var lifecycle_priority: int = 0
 ### `tick_priority`
 
 - API：`public`
+- 首次版本：`5.0.0`
 
 ```gdscript
-var tick_priority: int = 0
+var tick_priority: int = 0:
 ```
 
 每帧 tick 优先级。数值越大越早执行 tick()。 默认 0 表示同优先级下按注册顺序执行。
@@ -98,9 +101,10 @@ var tick_priority: int = 0
 ### `physics_tick_priority`
 
 - API：`public`
+- 首次版本：`5.0.0`
 
 ```gdscript
-var physics_tick_priority: int = 0
+var physics_tick_priority: int = 0:
 ```
 
 物理帧 tick 优先级。数值越大越早执行 physics_tick()。 默认 0 表示同优先级下按注册顺序执行。

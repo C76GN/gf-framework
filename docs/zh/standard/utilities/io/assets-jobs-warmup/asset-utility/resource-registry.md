@@ -29,6 +29,57 @@ var ui_ids := registry.query(&"group", "ui")
 var panel_scene := registry.load_entry(&"inventory_panel") as PackedScene
 ```
 
+需要给资源选择器、命令面板或调试工具做文本检索时，可以直接把注册表条目交给 `GFTextSearchScorer`：
+
+```gdscript
+var results := registry.search("inventory panel", {
+	"limit": 8,
+})
+
+for result in results:
+	var candidate: Dictionary = result["candidate"]
+	print(candidate["id"], candidate["path"])
+```
+
+`make_search_candidates()` 会把条目 ID、路径、类型提示和 `fields` 中的通用值整理成候选字典；`search()` 只做文本评分和排序，不加载资源，也不解释字段业务含义。项目如果需要更细的搜索权重，可以传入 `GFTextSearchScorer.rank_candidates()` 支持的 `fields`、`require_all_tokens`、`case_sensitive`、`include_unmatched` 或 `limit` 选项。
+
+资源选择器、调试面板或编辑器列表通常还需要稳定摘要和分页元数据。`make_entry_summary()` 会从条目字段里抽取显示名、说明、预览路径、标签和分类，并保留 ID、路径、basename 与类型提示；它不会加载预览图，也不会要求项目使用固定字段名。需要使用项目自有字段时，把候选字段列表传给对应选项即可。
+
+```gdscript
+var summary := registry.make_entry_summary(&"inventory_panel", {
+	"title_fields": PackedStringArray(["display_name", "label"]),
+	"preview_path_fields": PackedStringArray(["preview_path", "thumbnail"]),
+	"tag_fields": PackedStringArray(["tags", "keywords"]),
+})
+
+print(summary["title"], summary["preview_path"])
+```
+
+`search_page()` 在 `search()` 的基础上返回页码、总数、当前页条目 ID、搜索报告和摘要数组。空查询默认按注册表候选顺序列出条目，适合资源浏览器第一次打开时展示全部内容；如果只需要纯文本命中，可以把 `empty_query_returns_all` 设为 `false`。
+
+```gdscript
+var page := registry.search_page("panel", 1, 24, {
+	"summary_options": {
+		"include_fields": false,
+	},
+})
+
+for item in page["summaries"]:
+	print(item["entry_id"], item["title"])
+```
+
+如果工具链需要把资源目录或条目字段组织成菜单、分组面板或构建索引，使用 `group_entry_ids()` 导出“分组 key -> 条目 ID 列表”。它只返回 ID，不加载资源，也不要求 key 唯一：
+
+```gdscript
+var by_tag := registry.group_entry_ids(GFResourceRegistry.GROUP_SOURCE_FIELD, {
+	"field_id": &"tags",
+})
+
+var by_file := registry.group_entry_ids(GFResourceRegistry.GROUP_SOURCE_PATH_BASENAME)
+```
+
+`group_entry_ids()` 支持按 ID、完整路径、路径 basename、类型提示或 `fields` 中的字段值分组。字段值可以是单值、`Array` 或 `PackedStringArray`；数组值会让同一个条目进入多个分组。需要只处理部分条目时传入 `entry_ids`，需要保留空 key 时传入 `include_empty` 与 `empty_key`。
+
 需要异步加载时，把 `GFAssetUtility` 显式传入注册表。这样注册表仍然是纯资源描述，缓存、并发合并和句柄所有权继续由 `GFAssetUtility` 负责。
 
 ```gdscript

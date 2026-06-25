@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFBuffCheck" path="addons/gf/extensions/combat/attributes/gf_buff_check.gd" module="extensions/combat" extends="Resource" classDigest="6c245e4c94ebfe67b19187fab2dc0bd75ae34871ab2ba4058356565d8bf3856c">
+	<description>GFBuffCheck: Buff 应用检查基类。
+为数据化 Buff 提供通用可组合检查入口。检查只返回是否允许应用和诊断原因，
+不规定具体玩法、阵营、成本或状态语义。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">protocol</tag>
+		<tag name="since">6.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties>
+		<member kind="property" name="check_id" decorators="@export">
+			<signature>var check_id: StringName = &amp;""</signature>
+			<description>检查标识，用于诊断或项目侧过滤。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="metadata" decorators="@export">
+			<signature>var metadata: Dictionary = {}</signature>
+			<description>项目自定义元数据。GF 不解释其中字段。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">metadata: Dictionary project-defined check metadata.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="can_apply">
+			<signature>func can_apply(context: Dictionary) -&gt; Dictionary:</signature>
+			<description>检查 Buff 是否允许应用。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">context: Buff 应用上下文。</tag>
+				<tag name="return">检查报告。</tag>
+				<tag name="schema">context: Dictionary with buff, owner, event, and metadata.</tag>
+				<tag name="schema">return: Dictionary with ok, reason, check_id, and metadata.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_can_apply">
+			<signature>func _can_apply(_context: Dictionary) -&gt; Dictionary:</signature>
+			<description>Buff 应用检查钩子。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">_context: Buff 应用上下文。</tag>
+				<tag name="return">检查报告。</tag>
+				<tag name="schema">_context: Dictionary with buff, owner, event, and metadata.</tag>
+				<tag name="schema">return: Dictionary with optional ok, reason, and metadata.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

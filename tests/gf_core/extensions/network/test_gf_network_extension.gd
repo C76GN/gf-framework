@@ -315,6 +315,44 @@ func test_network_channel_controls_send_options() -> void:
 	assert_eq(GFVariantData.get_option_array(snapshot, "channels").size(), 1, "调试快照应包含已注册通道。")
 
 
+func test_network_dirty_state_tracker_filters_priority_and_approximate_values() -> void:
+	var tracker: GFNetworkDirtyStateTracker = GFNetworkDirtyStateTracker.new()
+	tracker.epsilon = 0.01
+	tracker.set_baseline({
+		"position": Vector2.ZERO,
+		"hp": 10,
+		"spawn": "initial",
+		"local_note": "old",
+	})
+	tracker.set_field_priority(&"position", GFNetworkDirtyStateTracker.Priority.REALTIME)
+	tracker.set_field_priority(&"hp", GFNetworkDirtyStateTracker.Priority.HIGH)
+	tracker.set_field_priority(&"spawn", GFNetworkDirtyStateTracker.Priority.SPAWN_ONLY)
+	tracker.set_field_priority(&"local_note", GFNetworkDirtyStateTracker.Priority.LOCAL_ONLY)
+
+	var state: Dictionary = {
+		"position": Vector2(0.005, 0.0),
+		"hp": 8,
+		"spawn": "changed",
+		"local_note": "changed",
+	}
+	var default_report: Dictionary = tracker.get_dirty_report(state)
+	var high_only_report: Dictionary = tracker.get_dirty_report(state, {
+		"priorities": [GFNetworkDirtyStateTracker.Priority.HIGH],
+	})
+	var spawn_report: Dictionary = tracker.get_dirty_report(state, {
+		"include_spawn_only": true,
+	})
+
+	assert_false(tracker.is_field_dirty(state, &"position"), "小于 epsilon 的向量变化不应标记 dirty。")
+	assert_eq(GFVariantData.get_option_packed_string_array(default_report, "dirty_fields"), PackedStringArray(["hp"]), "默认报告应排除 spawn/local 并只包含真实变化字段。")
+	assert_eq(GFVariantData.get_option_packed_string_array(high_only_report, "dirty_fields"), PackedStringArray(["hp"]), "优先级过滤应只保留指定级别字段。")
+	assert_true(GFVariantData.get_option_packed_string_array(spawn_report, "dirty_fields").has("spawn"), "显式 include_spawn_only 时应包含出生字段。")
+
+	var updated_count: int = tracker.update_baseline(state, PackedStringArray(["hp"]))
+	assert_eq(updated_count, 1, "更新指定字段基线应返回更新数量。")
+	assert_false(tracker.is_field_dirty(state, &"hp"), "更新基线后字段不应继续 dirty。")
+
+
 ## 验证按通道发送会写入消息通道元信息，且不修改原始消息 payload。
 func test_send_message_on_channel_serializes_channel_id_metadata() -> void:
 	var utility: GFNetworkUtility = GFNetworkUtility.new()

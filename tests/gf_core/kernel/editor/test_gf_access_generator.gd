@@ -160,6 +160,22 @@ func test_save_source_can_refuse_overwrite() -> void:
 	assert_push_warning("[GFAccessGenerator] 目标文件已存在，已跳过：%s" % path)
 
 
+func test_save_source_with_report_supports_dry_run_without_writing() -> void:
+	var generator: GFAccessGenerator = GFAccessGenerator.new()
+	var path: String = "user://gf_access_generator_dry_run_%d.gd" % Time.get_ticks_usec()
+
+	var report: Dictionary = generator.save_source_with_report(path, "new", {
+		"dry_run": true,
+	})
+
+	assert_true(GF_VARIANT_ACCESS.get_option_bool(report, "success"), "dry-run 报告应成功。")
+	assert_eq(GF_VARIANT_ACCESS.get_option_string_name(report, "status"), GFGeneratedArtifactReport.STATUS_NEW, "不存在的目标应报告 new。")
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(report, "written"), "dry-run 不应写入文件。")
+	assert_true(GF_VARIANT_ACCESS.get_option_bool(report, "changed"), "dry-run 应报告有待写入内容。")
+	assert_true(GF_VARIANT_ACCESS.get_option_bool(report, "dry_run"), "报告应保留 dry_run 标记。")
+	assert_false(FileAccess.file_exists(path), "dry-run 不应创建目标文件。")
+
+
 func test_capability_access_extension_accepts_spatial_node_capability_bases() -> void:
 	var extension: Object = _new_object(GF_CAPABILITY_ACCESS_GENERATOR_EXTENSION_BASE)
 

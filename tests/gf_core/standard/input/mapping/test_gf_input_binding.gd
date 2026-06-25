@@ -51,6 +51,63 @@ func test_match_device_requires_same_device_id() -> void:
 	assert_true(binding.matches_event(other_device), "设备与按键一致时应匹配。")
 
 
+func test_match_device_accepts_legacy_keyboard_device_zero() -> void:
+	var template: InputEventKey = InputEventKey.new()
+	template.device = 0
+	template.keycode = KEY_A
+	template.physical_keycode = KEY_A
+	template.pressed = true
+	var binding: GFInputBinding = GFInputBinding.new()
+	binding.input_event = template
+	binding.match_device = true
+
+	var runtime_key: InputEventKey = InputEventKey.new()
+	runtime_key.device = -1
+	runtime_key.keycode = KEY_A
+	runtime_key.physical_keycode = KEY_A
+	runtime_key.pressed = true
+
+	assert_true(binding.matches_event(runtime_key), "旧键盘模板 device 0 应匹配 Godot 4.7 的键盘设备 ID。")
+
+
+func test_match_device_accepts_legacy_mouse_device_zero() -> void:
+	var template: InputEventMouseButton = InputEventMouseButton.new()
+	template.device = 0
+	template.button_index = MOUSE_BUTTON_LEFT
+	template.pressed = true
+	var binding: GFInputBinding = GFInputBinding.new()
+	binding.input_event = template
+	binding.match_device = true
+
+	var runtime_mouse: InputEventMouseButton = InputEventMouseButton.new()
+	runtime_mouse.device = -2
+	runtime_mouse.button_index = MOUSE_BUTTON_LEFT
+	runtime_mouse.pressed = true
+
+	assert_true(binding.matches_event(runtime_mouse), "旧鼠标模板 device 0 应匹配 Godot 4.7 的鼠标设备 ID。")
+
+
+func test_match_device_keeps_explicit_keyboard_devices_exact() -> void:
+	var template: InputEventKey = InputEventKey.new()
+	template.device = 2
+	template.keycode = KEY_A
+	template.physical_keycode = KEY_A
+	template.pressed = true
+	var binding: GFInputBinding = GFInputBinding.new()
+	binding.input_event = template
+	binding.match_device = true
+
+	var runtime_key: InputEventKey = InputEventKey.new()
+	runtime_key.device = 3
+	runtime_key.keycode = KEY_A
+	runtime_key.physical_keycode = KEY_A
+	runtime_key.pressed = true
+	assert_false(binding.matches_event(runtime_key), "明确非 0 键盘设备 ID 仍应精确匹配。")
+
+	runtime_key.device = 2
+	assert_true(binding.matches_event(runtime_key), "明确非 0 键盘设备 ID 一致时应匹配。")
+
+
 func test_key_release_matches_template_without_modifier_state() -> void:
 	var template: InputEventKey = InputEventKey.new()
 	template.keycode = KEY_A

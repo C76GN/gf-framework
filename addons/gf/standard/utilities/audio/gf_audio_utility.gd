@@ -56,6 +56,7 @@ const SILENCE_VOLUME_DB: float = -80.0
 const _FALLBACK_BUS_NAME: String = "Master"
 const _APPLY_SPATIAL_SETTINGS_2D_METHOD: StringName = &"apply_to_2d"
 const _APPLY_SPATIAL_SETTINGS_3D_METHOD: StringName = &"apply_to_3d"
+const _DEFAULT_SPATIAL_AREA_MASK: int = 1
 const _MIX_SNAPSHOT_BUSES_KEY: String = "buses"
 const _MIX_SNAPSHOT_EFFECTS_KEY: String = "effects"
 
@@ -2418,12 +2419,18 @@ func _get_clip_spatial_settings(clip: GFAudioClip) -> Resource:
 
 func _apply_spatial_settings_2d(player: AudioStreamPlayer2D, spatial_settings: Resource) -> void:
 	if spatial_settings != null and spatial_settings.has_method(_APPLY_SPATIAL_SETTINGS_2D_METHOD):
-		spatial_settings.call(_APPLY_SPATIAL_SETTINGS_2D_METHOD, player)
+		var _apply_result: Variant = spatial_settings.call(_APPLY_SPATIAL_SETTINGS_2D_METHOD, player)
+		return
+
+	player.area_mask = _DEFAULT_SPATIAL_AREA_MASK
 
 
 func _apply_spatial_settings_3d(player: AudioStreamPlayer3D, spatial_settings: Resource) -> void:
 	if spatial_settings != null and spatial_settings.has_method(_APPLY_SPATIAL_SETTINGS_3D_METHOD):
-		spatial_settings.call(_APPLY_SPATIAL_SETTINGS_3D_METHOD, player)
+		var _apply_result: Variant = spatial_settings.call(_APPLY_SPATIAL_SETTINGS_3D_METHOD, player)
+		return
+
+	player.area_mask = _DEFAULT_SPATIAL_AREA_MASK
 
 
 func _get_spatial_sfx_parent(source: Node) -> Node:

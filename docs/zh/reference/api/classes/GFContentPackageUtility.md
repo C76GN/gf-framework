@@ -55,6 +55,7 @@ signal catalog_rebuilt(catalog: GFContentPackageCatalog)
 ### `register_source_root`
 
 - API：`public`
+- 首次版本：`6.0.0`
 
 ```gdscript
 func register_source_root(root_path: String) -> bool:
@@ -66,7 +67,7 @@ func register_source_root(root_path: String) -> bool:
 
 | 名称 | 说明 |
 |---|---|
-| `root_path` | `res://` 下的内容包根目录。该目录自身或其直接子目录可包含 `gf_content_package.json`。 |
+| `root_path` | `res://` 或 `user://` 下的内容包根目录。该目录自身或其直接子目录可包含 `gf_content_package.json`。 |
 
 返回：注册成功返回 true。
 

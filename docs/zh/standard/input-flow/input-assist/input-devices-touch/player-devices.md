@@ -13,7 +13,7 @@ for assignment in devices.get_assignments():
 
 `GFInputDeviceAssignment` 只是“玩家席位 -> 设备”的资源化记录，字段包含 `player_index`、`device_type`、`device_id` 和项目自定义 `metadata`，不会绑定任何动作名。
 
-键鼠通常使用设备 ID `0`，AI、虚拟触屏或自定义席位可以使用项目约定的 ID。
+Godot 4.7 下键盘和鼠标事件使用引擎提供的键盘/鼠标设备 ID；GF 会把旧资源中的键鼠 `device = 0` 视为兼容占位。AI、虚拟触屏或自定义席位可以继续使用项目约定的 ID。
 
 `GFInputDeviceUtility` 会把输入事件解析到玩家席位；`GFInputMappingUtility` 在存在该工具时会同步维护玩家级动作状态。
 

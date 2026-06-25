@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFComputedProperty" path="addons/gf/kernel/core/gf_computed_property.gd" module="kernel" extends="GFBindableProperty" classDigest="5f6028124e3fd132ae0f0ee8ec9a4c531d78aa44ea161168198fa99f1e5667da">
+<class name="GFComputedProperty" path="addons/gf/kernel/core/gf_computed_property.gd" module="kernel" extends="GFBindableProperty" classDigest="e86f084c63b25a11259c7e97e6fba8cd9546364c89d8d303d59cc1530f1db7ee">
 	<description>GFComputedProperty: 由多个 GFBindableProperty 派生的只读响应式属性。
 通过 compute 回调计算自身值，并在任一来源属性变化时自动刷新。</description>
 	<tags>
@@ -25,6 +25,17 @@
 				<tag name="param">default_value: 初始默认值。</tag>
 				<tag name="param">owner: 可选 Node 生命周期宿主。</tag>
 				<tag name="schema">default_value {</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_value">
+			<signature>func get_value() -&gt; Variant:</signature>
+			<description>读取派生属性的当前值。
+Array 与 Dictionary 会返回深拷贝，避免调用方通过集合引用绕过只读约束。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">当前值；集合类型返回副本。</tag>
+				<tag name="schema">return: Variant current computed value; Array and Dictionary values are returned as deep copies.</tag>
+				<tag name="since">5.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="bind_sources">

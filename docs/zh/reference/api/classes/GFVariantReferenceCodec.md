@@ -24,6 +24,8 @@ Resource 与 Node 引用的显式编码器。 只把 Resource 路径 / UID 或�
 | 常量 | [`REFERENCE_NODE_PATH_KEY`](#member-gfvariantreferencecodec-constants-reference_node_path_key) | `const REFERENCE_NODE_PATH_KEY: String = "node_path"` |
 | 常量 | [`REFERENCE_UNSUPPORTED_CLASS_KEY`](#member-gfvariantreferencecodec-constants-reference_unsupported_class_key) | `const REFERENCE_UNSUPPORTED_CLASS_KEY: String = "class"` |
 | 常量 | [`OPTION_ROOT_NODE`](#member-gfvariantreferencecodec-constants-option_root_node) | `const OPTION_ROOT_NODE: String = "reference_root_node"` |
+| 常量 | [`OPTION_ALLOWED_RESOURCE_ROOTS`](#member-gfvariantreferencecodec-constants-option_allowed_resource_roots) | `const OPTION_ALLOWED_RESOURCE_ROOTS: String = "allowed_resource_roots"` |
+| 常量 | [`OPTION_ALLOWED_RESOURCE_PATTERNS`](#member-gfvariantreferencecodec-constants-option_allowed_resource_patterns) | `const OPTION_ALLOWED_RESOURCE_PATTERNS: String = "allowed_resource_patterns"` |
 | 常量 | [`REFERENCE_KIND_RESOURCE`](#member-gfvariantreferencecodec-constants-reference_kind_resource) | `const REFERENCE_KIND_RESOURCE: String = "Resource"` |
 | 常量 | [`REFERENCE_KIND_NODE`](#member-gfvariantreferencecodec-constants-reference_kind_node) | `const REFERENCE_KIND_NODE: String = "Node"` |
 | 常量 | [`REFERENCE_KIND_UNSUPPORTED_OBJECT`](#member-gfvariantreferencecodec-constants-reference_kind_unsupported_object) | `const REFERENCE_KIND_UNSUPPORTED_OBJECT: String = "UnsupportedObject"` |
@@ -144,6 +146,32 @@ const OPTION_ROOT_NODE: String = "reference_root_node"
 ```
 
 options 中传入引用 root Node 的字段。
+
+<a id="member-gfvariantreferencecodec-constants-option_allowed_resource_roots"></a>
+
+### `OPTION_ALLOWED_RESOURCE_ROOTS`
+
+- API：`public`
+- 首次版本：`6.0.0`
+
+```gdscript
+const OPTION_ALLOWED_RESOURCE_ROOTS: String = "allowed_resource_roots"
+```
+
+options 中传入允许 Resource 解码路径根目录集合的字段。
+
+<a id="member-gfvariantreferencecodec-constants-option_allowed_resource_patterns"></a>
+
+### `OPTION_ALLOWED_RESOURCE_PATTERNS`
+
+- API：`public`
+- 首次版本：`6.0.0`
+
+```gdscript
+const OPTION_ALLOWED_RESOURCE_PATTERNS: String = "allowed_resource_patterns"
+```
+
+options 中传入允许 Resource 解码路径通配模式集合的字段。
 
 <a id="member-gfvariantreferencecodec-constants-reference_kind_resource"></a>
 
@@ -337,6 +365,7 @@ static func encode_reference(value: Variant, options: Dictionary = {}) -> Dictio
 ### `decode_reference`
 
 - API：`public`
+- 首次版本：`4.3.0`
 
 ```gdscript
 static func decode_reference(value: Variant, options: Dictionary = {}) -> Dictionary:
@@ -349,12 +378,12 @@ static func decode_reference(value: Variant, options: Dictionary = {}) -> Dictio
 | 名称 | 说明 |
 |---|---|
 | `value` | 引用标记字典。 |
-| `options` | 可选项；reference_root_node 用于解析 NodePath。 |
+| `options` | 可选项；reference_root_node 用于解析 NodePath；Resource 解码必须显式提供 allowed_resource_roots 或 allowed_resource_patterns。 |
 
 返回：解码结果。
 
 结构：
 
 - `value`: Dictionary reference marker produced by encode_reference().
-- `options`: Dictionary with optional reference_root_node: Node.
+- `options`: Dictionary with optional reference_root_node: Node, allowed_resource_roots: PackedStringArray/Array[String], and allowed_resource_patterns: PackedStringArray/Array[String].
 - `return`: Dictionary with ok: bool, value: Variant, error: String, and kind: String.

@@ -3,9 +3,9 @@ description: Install the pinned Godot binary used by GF maintenance checks.
 
 inputs:
   version:
-    description: Godot version suffix, for example 4.6.3-stable.
+    description: Godot version suffix, for example 4.7-stable.
     required: false
-    default: 4.6.3-stable
+    default: 4.7-stable
 
 runs:
   using: composite

@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFResourceVariantProvider" path="addons/gf/standard/utilities/assets/gf_resource_variant_provider.gd" module="standard" extends="RefCounted" classDigest="aa07cc6189a9aee974116b34e306f3dd7d77e591906dc076c1ac7ad211aa48fb">
+	<description>GFResourceVariantProvider: 资源键变体解析 provider。
+为 GFResourceResolverUtility 提供按变体键选择资源路径的通用 provider。变体键可以表示语言、
+平台、皮肤、质量档位或项目自定义域；本类只处理优先级和回退，不解释变体业务含义。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_service</tag>
+		<tag name="since">6.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants>
+		<member kind="const" name="DEFAULT_VARIANT_KEY">
+			<signature>const DEFAULT_VARIANT_KEY: StringName = &amp;"default"</signature>
+			<description>默认变体键。注册为空变体时可作为最后回退。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties />
+	<methods>
+		<member kind="method" name="clear">
+			<signature>func clear() -&gt; void:</signature>
+			<description>清空全部变体注册。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="set_default_variant_order">
+			<signature>func set_default_variant_order(variant_keys: PackedStringArray) -&gt; void:</signature>
+			<description>设置默认变体回退顺序。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">variant_keys: 变体键列表，越靠前越优先。</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_default_variant_order">
+			<signature>func get_default_variant_order() -&gt; PackedStringArray:</signature>
+			<description>获取默认变体回退顺序副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">变体键列表。</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="register_variant">
+			<signature>func register_variant( resource_key: StringName, variant_key: StringName, path: String, type_hint: String = "", priority: int = 0, metadata: Dictionary = {} ) -&gt; bool:</signature>
+			<description>注册资源键的某个变体路径。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">resource_key: 稳定资源键。</tag>
+				<tag name="param">variant_key: 变体键；为空时归一为 default。</tag>
+				<tag name="param">path: Godot 资源路径。</tag>
+				<tag name="param">type_hint: 可选 ResourceLoader 类型提示。</tag>
+				<tag name="param">priority: 同一资源键和变体键重复注册时，数值越大越优先。</tag>
+				<tag name="param">metadata: 调用方自定义元数据。</tag>
+				<tag name="return">注册成功返回 true。</tag>
+				<tag name="schema">metadata: Dictionary project-defined metadata copied into resolution reports.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="unregister_variant">
+			<signature>func unregister_variant(resource_key: StringName, variant_key: StringName) -&gt; bool:</signature>
+			<description>注销资源键的某个变体。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">resource_key: 稳定资源键。</tag>
+				<tag name="param">variant_key: 变体键；为空时归一为 default。</tag>
+				<tag name="return">成功移除返回 true。</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="has_variant">
+			<signature>func has_variant(resource_key: StringName, variant_key: StringName) -&gt; bool:</signature>
+			<description>检查资源键是否有指定变体。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">resource_key: 稳定资源键。</tag>
+				<tag name="param">variant_key: 变体键；为空时归一为 default。</tag>
+				<tag name="return">存在返回 true。</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_variant_keys">
+			<signature>func get_variant_keys(resource_key: StringName) -&gt; PackedStringArray:</signature>
+			<description>获取资源键已注册的变体键。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">resource_key: 稳定资源键。</tag>
+				<tag name="return">排序后的变体键列表。</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="resolve_resource">
+			<signature>func resolve_resource(request: Dictionary) -&gt; Dictionary:</signature>
+			<description>GFResourceResolverUtility provider 协议入口。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">request: 资源解析请求。</tag>
+				<tag name="return">provider 解析报告。</tag>
+				<tag name="schema">request: Dictionary from GFResourceResolverUtility containing key, type_hint, and options.</tag>
+				<tag name="schema">return: Dictionary with ok, path, type_hint, provider_id, reason, and metadata.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_debug_snapshot">
+			<signature>func get_debug_snapshot() -&gt; Dictionary:</signature>
+			<description>获取诊断快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">诊断快照。</tag>
+				<tag name="schema">return: Dictionary with resource_key_count, variant_count, default_variant_order, and keys.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

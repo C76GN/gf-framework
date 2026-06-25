@@ -25,6 +25,20 @@ extends GFSaveSource
 ## @api public
 @export var skip_missing_properties: bool = true
 
+## Resource 引用恢复时允许加载的资源根目录。为空时使用 context 中的同名策略；仍为空则拒绝恢复 Resource 引用。
+## [br]
+## @api public
+## [br]
+## @since 6.0.0
+@export var allowed_resource_roots: PackedStringArray = PackedStringArray()
+
+## Resource 引用恢复时允许加载的资源路径通配模式。为空时使用 context 中的同名策略；仍为空则拒绝恢复 Resource 引用。
+## [br]
+## @api public
+## [br]
+## @since 6.0.0
+@export var allowed_resource_patterns: PackedStringArray = PackedStringArray()
+
 
 # --- 私有变量 ---
 
@@ -210,6 +224,8 @@ func _get_configured_serializers(
 func _prepare_property_serializer() -> void:
 	_property_serializer.properties = properties
 	_property_serializer.skip_missing_properties = skip_missing_properties
+	_property_serializer.allowed_resource_roots = allowed_resource_roots
+	_property_serializer.allowed_resource_patterns = allowed_resource_patterns
 
 
 func _get_node_serializer_value(value: Variant) -> GFNodeSerializer:

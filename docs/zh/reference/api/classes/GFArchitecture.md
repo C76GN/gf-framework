@@ -27,11 +27,14 @@
 | 属性 | [`module_async_init_timeout_seconds`](#member-gfarchitecture-properties-module_async_init_timeout_seconds) | `var module_async_init_timeout_seconds: float = 0.0:` |
 | 属性 | [`module_lifecycle_max_stage_passes`](#member-gfarchitecture-properties-module_lifecycle_max_stage_passes) | `var module_lifecycle_max_stage_passes: int = 256:` |
 | 属性 | [`strict_dependency_lookup`](#member-gfarchitecture-properties-strict_dependency_lookup) | `var strict_dependency_lookup: bool = false` |
+| 属性 | [`fail_on_missing_declared_dependencies`](#member-gfarchitecture-properties-fail_on_missing_declared_dependencies) | `var fail_on_missing_declared_dependencies: bool = false` |
 | 属性 | [`last_initialization_error`](#member-gfarchitecture-properties-last_initialization_error) | `var last_initialization_error: String = ""` |
 | 方法 | [`_init`](#member-gfarchitecture-methods-_init) | `func _init(parent_architecture: GFArchitecture = null) -> void:` |
 | 方法 | [`is_inited`](#member-gfarchitecture-methods-is_inited) | `func is_inited() -> bool:` |
 | 方法 | [`has_initialization_failed`](#member-gfarchitecture-methods-has_initialization_failed) | `func has_initialization_failed() -> bool:` |
 | 方法 | [`is_lifecycle_active`](#member-gfarchitecture-methods-is_lifecycle_active) | `func is_lifecycle_active() -> bool:` |
+| 方法 | [`get_lifecycle_generation`](#member-gfarchitecture-methods-get_lifecycle_generation) | `func get_lifecycle_generation() -> int:` |
+| 方法 | [`is_lifecycle_generation_active`](#member-gfarchitecture-methods-is_lifecycle_generation_active) | `func is_lifecycle_generation_active(lifecycle_generation: int) -> bool:` |
 | 方法 | [`is_module_ready`](#member-gfarchitecture-methods-is_module_ready) | `func is_module_ready(instance: Object) -> bool:` |
 | 方法 | [`fail_initialization`](#member-gfarchitecture-methods-fail_initialization) | `func fail_initialization(reason: String) -> void:` |
 | 方法 | [`get_parent_architecture`](#member-gfarchitecture-methods-get_parent_architecture) | `func get_parent_architecture() -> GFArchitecture:` |
@@ -54,10 +57,13 @@
 | 方法 | [`register_assignable_event`](#member-gfarchitecture-methods-register_assignable_event) | `func register_assignable_event(base_event_type: Script, on_event: Callable, priority: int = 0) -> void:` |
 | 方法 | [`register_assignable_event_owned`](#member-gfarchitecture-methods-register_assignable_event_owned) | `func register_assignable_event_owned( owner: Object, base_event_type: Script, on_event: Callable, priority: int = 0 ) -> void:` |
 | 方法 | [`unregister_event`](#member-gfarchitecture-methods-unregister_event) | `func unregister_event(event_type: Script, on_event: Callable) -> void:` |
+| 方法 | [`unregister_event_owned`](#member-gfarchitecture-methods-unregister_event_owned) | `func unregister_event_owned(owner: Object, event_type: Script, on_event: Callable) -> void:` |
 | 方法 | [`unregister_assignable_event`](#member-gfarchitecture-methods-unregister_assignable_event) | `func unregister_assignable_event(base_event_type: Script, on_event: Callable) -> void:` |
+| 方法 | [`unregister_assignable_event_owned`](#member-gfarchitecture-methods-unregister_assignable_event_owned) | `func unregister_assignable_event_owned(owner: Object, base_event_type: Script, on_event: Callable) -> void:` |
 | 方法 | [`register_simple_event`](#member-gfarchitecture-methods-register_simple_event) | `func register_simple_event(event_id: StringName, on_event: Callable) -> void:` |
 | 方法 | [`register_simple_event_owned`](#member-gfarchitecture-methods-register_simple_event_owned) | `func register_simple_event_owned(owner: Object, event_id: StringName, on_event: Callable) -> void:` |
 | 方法 | [`unregister_simple_event`](#member-gfarchitecture-methods-unregister_simple_event) | `func unregister_simple_event(event_id: StringName, on_event: Callable) -> void:` |
+| 方法 | [`unregister_simple_event_owned`](#member-gfarchitecture-methods-unregister_simple_event_owned) | `func unregister_simple_event_owned(owner: Object, event_id: StringName, on_event: Callable) -> void:` |
 | 方法 | [`unregister_owner_events`](#member-gfarchitecture-methods-unregister_owner_events) | `func unregister_owner_events(owner: Object) -> void:` |
 | 方法 | [`send_simple_event`](#member-gfarchitecture-methods-send_simple_event) | `func send_simple_event(event_id: StringName, payload: Variant = null) -> void:` |
 | 方法 | [`get_event_debug_stats`](#member-gfarchitecture-methods-get_event_debug_stats) | `func get_event_debug_stats() -> Dictionary:` |
@@ -79,6 +85,9 @@
 | 方法 | [`register_system_alias`](#member-gfarchitecture-methods-register_system_alias) | `func register_system_alias(alias_cls: Script, target_cls: Script) -> void:` |
 | 方法 | [`register_model_alias`](#member-gfarchitecture-methods-register_model_alias) | `func register_model_alias(alias_cls: Script, target_cls: Script) -> void:` |
 | 方法 | [`register_utility_alias`](#member-gfarchitecture-methods-register_utility_alias) | `func register_utility_alias(alias_cls: Script, target_cls: Script) -> void:` |
+| 方法 | [`unregister_system_alias`](#member-gfarchitecture-methods-unregister_system_alias) | `func unregister_system_alias(alias_cls: Script) -> void:` |
+| 方法 | [`unregister_model_alias`](#member-gfarchitecture-methods-unregister_model_alias) | `func unregister_model_alias(alias_cls: Script) -> void:` |
+| 方法 | [`unregister_utility_alias`](#member-gfarchitecture-methods-unregister_utility_alias) | `func unregister_utility_alias(alias_cls: Script) -> void:` |
 | 方法 | [`register_system_instance`](#member-gfarchitecture-methods-register_system_instance) | `func register_system_instance(instance: Object) -> void:` |
 | 方法 | [`register_model_instance`](#member-gfarchitecture-methods-register_model_instance) | `func register_model_instance(instance: Object) -> void:` |
 | 方法 | [`register_utility_instance`](#member-gfarchitecture-methods-register_utility_instance) | `func register_utility_instance(instance: Object) -> void:` |
@@ -267,6 +276,19 @@ var strict_dependency_lookup: bool = false
 
 严格依赖查询模式。开启后本架构查询不到本地模块时不会回退父级架构。
 
+<a id="member-gfarchitecture-properties-fail_on_missing_declared_dependencies"></a>
+
+### `fail_on_missing_declared_dependencies`
+
+- API：`public`
+- 首次版本：`5.0.0`
+
+```gdscript
+var fail_on_missing_declared_dependencies: bool = false
+```
+
+声明式依赖缺失时是否直接使初始化失败。 模块可通过 get_required_dependencies() 或 get_required_models/systems/utilities/factories() 声明依赖。 开启后，init() 会在模块生命周期推进前校验依赖图，缺失依赖会中止本次初始化。
+
 <a id="member-gfarchitecture-properties-last_initialization_error"></a>
 
 ### `last_initialization_error`
@@ -340,6 +362,42 @@ func is_lifecycle_active() -> bool:
 检查当前架构生命周期是否仍处于可安全继续异步写回的活动状态。
 
 返回：正在初始化或已完成初始化，且未被 dispose() 或失败保护中断时返回 true。
+
+<a id="member-gfarchitecture-methods-get_lifecycle_generation"></a>
+
+### `get_lifecycle_generation`
+
+- API：`public`
+- 首次版本：`5.0.0`
+
+```gdscript
+func get_lifecycle_generation() -> int:
+```
+
+获取当前架构生命周期 generation。 每次 init()、dispose() 或初始化失败都会推进 generation，用于异步流程判断自身是否仍属于当前生命周期。
+
+返回：当前生命周期 generation。
+
+<a id="member-gfarchitecture-methods-is_lifecycle_generation_active"></a>
+
+### `is_lifecycle_generation_active`
+
+- API：`public`
+- 首次版本：`5.0.0`
+
+```gdscript
+func is_lifecycle_generation_active(lifecycle_generation: int) -> bool:
+```
+
+检查指定生命周期 generation 是否仍是当前活动生命周期。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `lifecycle_generation` | 由 get_lifecycle_generation() 读取到的 generation。 |
+
+返回：generation 匹配且架构生命周期仍活动时返回 true。
 
 <a id="member-gfarchitecture-methods-is_module_ready"></a>
 
@@ -722,6 +780,27 @@ func unregister_event(event_type: Script, on_event: Callable) -> void:
 | `event_type` | 要注销的脚本类型。 |
 | `on_event` | 要移除的回调函数。 |
 
+<a id="member-gfarchitecture-methods-unregister_event_owned"></a>
+
+### `unregister_event_owned`
+
+- API：`public`
+- 首次版本：`5.0.0`
+
+```gdscript
+func unregister_event_owned(owner: Object, event_type: Script, on_event: Callable) -> void:
+```
+
+注销带拥有者的脚本类型事件监听器。 只移除 owner 与回调都匹配的监听，不影响其它 owner 使用同一 Callable 注册的监听。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `owner` | 注册监听时使用的拥有者。 |
+| `event_type` | 要注销的脚本类型。 |
+| `on_event` | 要移除的回调函数。 |
+
 <a id="member-gfarchitecture-methods-unregister_assignable_event"></a>
 
 ### `unregister_assignable_event`
@@ -738,6 +817,27 @@ func unregister_assignable_event(base_event_type: Script, on_event: Callable) ->
 
 | 名称 | 说明 |
 |---|---|
+| `base_event_type` | 注册时使用的基类脚本类型。 |
+| `on_event` | 要移除的回调函数。 |
+
+<a id="member-gfarchitecture-methods-unregister_assignable_event_owned"></a>
+
+### `unregister_assignable_event_owned`
+
+- API：`public`
+- 首次版本：`5.0.0`
+
+```gdscript
+func unregister_assignable_event_owned(owner: Object, base_event_type: Script, on_event: Callable) -> void:
+```
+
+注销带拥有者的可赋值类型事件监听器。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `owner` | 注册监听时使用的拥有者。 |
 | `base_event_type` | 注册时使用的基类脚本类型。 |
 | `on_event` | 要移除的回调函数。 |
 
@@ -796,6 +896,27 @@ func unregister_simple_event(event_id: StringName, on_event: Callable) -> void:
 
 | 名称 | 说明 |
 |---|---|
+| `event_id` | StringName 事件标识符。 |
+| `on_event` | 要移除的回调函数。 |
+
+<a id="member-gfarchitecture-methods-unregister_simple_event_owned"></a>
+
+### `unregister_simple_event_owned`
+
+- API：`public`
+- 首次版本：`5.0.0`
+
+```gdscript
+func unregister_simple_event_owned(owner: Object, event_id: StringName, on_event: Callable) -> void:
+```
+
+注销带拥有者的轻量级 StringName 事件监听器。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `owner` | 注册监听时使用的拥有者。 |
 | `event_id` | StringName 事件标识符。 |
 | `on_event` | 要移除的回调函数。 |
 
@@ -913,6 +1034,7 @@ func clear_event_dispatch_trace() -> void:
 ### `register_system`
 
 - API：`public`
+- 首次版本：`5.0.0`
 
 ```gdscript
 func register_system(script_cls: Script, instance: Object) -> void:
@@ -932,6 +1054,7 @@ func register_system(script_cls: Script, instance: Object) -> void:
 ### `register_model`
 
 - API：`public`
+- 首次版本：`5.0.0`
 
 ```gdscript
 func register_model(script_cls: Script, instance: Object) -> void:
@@ -970,12 +1093,13 @@ func register_utility(script_cls: Script, instance: Object) -> void:
 ### `replace_system`
 
 - API：`public`
+- 首次版本：`5.0.0`
 
 ```gdscript
 func replace_system(script_cls: Script, instance: Object) -> void:
 ```
 
-替换 System 实例。若旧实例存在，会先调用 dispose() 并移除相关别名。
+替换 System 实例。新实例成功完成当前生命周期阶段后才会提交替换。
 
 参数：
 
@@ -989,12 +1113,13 @@ func replace_system(script_cls: Script, instance: Object) -> void:
 ### `replace_model`
 
 - API：`public`
+- 首次版本：`5.0.0`
 
 ```gdscript
 func replace_model(script_cls: Script, instance: Object) -> void:
 ```
 
-替换 Model 实例。若旧实例存在，会先调用 dispose() 并移除相关别名。
+替换 Model 实例。新实例成功完成当前生命周期阶段后才会提交替换。
 
 参数：
 
@@ -1008,12 +1133,13 @@ func replace_model(script_cls: Script, instance: Object) -> void:
 ### `replace_utility`
 
 - API：`public`
+- 首次版本：`5.0.0`
 
 ```gdscript
 func replace_utility(script_cls: Script, instance: Object) -> void:
 ```
 
-替换 Utility 实例。若旧实例存在，会先调用 dispose() 并移除相关别名。
+替换 Utility 实例。新实例成功完成当前生命周期阶段后才会提交替换。
 
 参数：
 
@@ -1194,6 +1320,63 @@ func register_utility_alias(alias_cls: Script, target_cls: Script) -> void:
 |---|---|
 | `alias_cls` | 调用 get_utility() 时使用的别名脚本类。 |
 | `target_cls` | 已注册 Utility 的实际脚本类。 |
+
+<a id="member-gfarchitecture-methods-unregister_system_alias"></a>
+
+### `unregister_system_alias`
+
+- API：`public`
+- 首次版本：`5.0.0`
+
+```gdscript
+func unregister_system_alias(alias_cls: Script) -> void:
+```
+
+注销 System 查询别名，不影响目标 System 实例。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `alias_cls` | 要移除的别名脚本类。 |
+
+<a id="member-gfarchitecture-methods-unregister_model_alias"></a>
+
+### `unregister_model_alias`
+
+- API：`public`
+- 首次版本：`5.0.0`
+
+```gdscript
+func unregister_model_alias(alias_cls: Script) -> void:
+```
+
+注销 Model 查询别名，不影响目标 Model 实例。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `alias_cls` | 要移除的别名脚本类。 |
+
+<a id="member-gfarchitecture-methods-unregister_utility_alias"></a>
+
+### `unregister_utility_alias`
+
+- API：`public`
+- 首次版本：`5.0.0`
+
+```gdscript
+func unregister_utility_alias(alias_cls: Script) -> void:
+```
+
+注销 Utility 查询别名，不影响目标 Utility 实例。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `alias_cls` | 要移除的别名脚本类。 |
 
 <a id="member-gfarchitecture-methods-register_system_instance"></a>
 

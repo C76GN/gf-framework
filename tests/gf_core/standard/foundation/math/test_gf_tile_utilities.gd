@@ -71,3 +71,42 @@ func test_tile_map_cache_roundtrips_serialized_cell_keys() -> void:
 
 	assert_true(restored.has_cell(Vector2i(-2, 5)), "序列化恢复后应保留格坐标。")
 	assert_eq(GFVariantData.to_int(restored.get_value(Vector2i(-2, 5), &"terrain")), 3, "序列化恢复后应保留格子字段。")
+
+
+func test_tile_map_cache_extracts_translates_and_reports_bounds() -> void:
+	var cache: GFTileMapCache = GFTileMapCache.new()
+	cache.set_cell_data(Vector2i(4, 5), { "source_id": 1 })
+	cache.set_cell_data(Vector2i(5, 5), { "source_id": 2 })
+	cache.set_cell_data(Vector2i(9, 9), { "source_id": 3 })
+
+	var region: GFTileMapCache = cache.extract_region(Rect2i(Vector2i(4, 5), Vector2i(2, 1)))
+	var moved: GFTileMapCache = region.translated(Vector2i(10, -1))
+
+	assert_true(region.has_cell(Vector2i.ZERO), "归一区域应把左上角映射到原点。")
+	assert_true(region.has_cell(Vector2i(1, 0)), "区域内第二格应保留相对坐标。")
+	assert_false(region.has_cell(Vector2i(9, 9)), "区域外格子不应进入片段。")
+	assert_true(moved.has_cell(Vector2i(10, -1)), "translated 应返回偏移后的缓存副本。")
+	assert_eq(cache.get_used_rect(), Rect2i(Vector2i(4, 5), Vector2i(6, 5)), "覆盖区域应包含全部缓存格子。")
+
+
+func test_tile_map_cache_applies_to_tile_map_layer_with_offset_and_overwrite_policy() -> void:
+	var cache: GFTileMapCache = GFTileMapCache.new()
+	cache.set_cell_data(Vector2i.ZERO, {
+		"source_id": 1,
+		"atlas_coords": Vector2i(2, 3),
+		"alternative_tile": 0,
+	})
+	cache.set_cell_data(Vector2i(1, 0), { "source_id": -1 })
+
+	var layer: TileMapLayer = TileMapLayer.new()
+	layer.set_cell(Vector2i(10, 10), 7, Vector2i(0, 0), 0)
+
+	var skipped_report: Dictionary = cache.apply_to_tile_map(layer, Vector2i(10, 10), { "overwrite": false })
+	var applied_report: Dictionary = cache.apply_to_tile_map(layer, Vector2i(20, 10))
+
+	assert_eq(GFVariantData.get_option_int(skipped_report, "skipped_count"), 1, "overwrite=false 时已有格子应跳过。")
+	assert_eq(layer.get_cell_source_id(Vector2i(10, 10)), 7, "跳过时原格子不应被覆盖。")
+	assert_eq(GFVariantData.get_option_int(applied_report, "applied_count"), 1, "空目标应写入缓存格子。")
+	assert_eq(layer.get_cell_source_id(Vector2i(20, 10)), 1, "写回后目标格子 source_id 应匹配缓存。")
+	assert_eq(layer.get_cell_atlas_coords(Vector2i(20, 10)), Vector2i(2, 3), "写回后 atlas 坐标应匹配缓存。")
+	assert_eq(GFVariantData.get_option_int(applied_report, "erased_count"), 1, "source_id < 0 的记录应按 erase_empty 策略清理目标格。")

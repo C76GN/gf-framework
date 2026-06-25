@@ -64,15 +64,18 @@ func configure(
 ## [br]
 ## @schema return: Dictionary keyed by stable model save key, storing each Model.to_dict() result.
 func get_all_models_state() -> Dictionary:
+	var entry_report: Dictionary = _collect_model_snapshot_entries()
+	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(entry_report, "ok", false):
+		return {}
+
 	var state: Dictionary = {}
-	for script_cls: Script in _models:
-		var model_object: Object = _get_dictionary_object(_models, script_cls)
-		if not model_object is GFModel:
+	var entries: Array = _GF_VARIANT_ACCESS_SCRIPT.get_option_array(entry_report, "entries")
+	for entry_variant: Variant in entries:
+		var entry: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.as_dictionary(entry_variant)
+		var model: GFModel = _get_model_from_snapshot_entry(entry)
+		if model == null:
 			continue
-		var model: GFModel = model_object
-		var class_name_key: String = _get_model_key(script_cls, model)
-		if class_name_key.is_empty():
-			continue
+		var class_name_key: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(entry, "key")
 		state[class_name_key] = model.to_dict()
 	return state
 
@@ -91,21 +94,21 @@ func get_all_models_state() -> Dictionary:
 ## [br]
 ## @schema return: Dictionary keyed by stable model save key, storing each Model.to_dict() result.
 func get_all_models_state_async(options: Dictionary = {}) -> Dictionary:
+	var entry_report: Dictionary = _collect_model_snapshot_entries()
+	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(entry_report, "ok", false):
+		return {}
+
 	var state: Dictionary = {}
 	var max_models_per_frame: int = _get_snapshot_models_per_frame(options)
 	var processed_since_yield: int = 0
-	var model_scripts: Array = _models.keys()
-	for script_cls_variant: Variant in model_scripts:
-		if not script_cls_variant is Script:
+	var entries: Array = _GF_VARIANT_ACCESS_SCRIPT.get_option_array(entry_report, "entries")
+	for entry_variant: Variant in entries:
+		var entry: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.as_dictionary(entry_variant)
+		var model: GFModel = _get_model_from_snapshot_entry(entry)
+		if model == null:
 			continue
-		var script_cls: Script = script_cls_variant
-		var model_object: Object = _get_dictionary_object(_models, script_cls)
-		if not model_object is GFModel:
-			continue
-		var model: GFModel = model_object
-		var class_name_key: String = _get_model_key(script_cls, model)
-		if not class_name_key.is_empty():
-			state[class_name_key] = model.to_dict()
+		var class_name_key: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(entry, "key")
+		state[class_name_key] = model.to_dict()
 		processed_since_yield += 1
 		var yielded: bool = await _wait_snapshot_frame_if_needed(processed_since_yield, max_models_per_frame)
 		if yielded:
@@ -123,14 +126,17 @@ func get_all_models_state_async(options: Dictionary = {}) -> Dictionary:
 ## [br]
 ## @schema data: Dictionary keyed by stable model save key, storing serialized model data.
 func restore_all_models_state(data: Dictionary) -> void:
-	for script_cls: Script in _models:
-		var model_object: Object = _get_dictionary_object(_models, script_cls)
-		if not model_object is GFModel:
+	var entry_report: Dictionary = _collect_model_snapshot_entries()
+	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(entry_report, "ok", false):
+		return
+
+	var entries: Array = _GF_VARIANT_ACCESS_SCRIPT.get_option_array(entry_report, "entries")
+	for entry_variant: Variant in entries:
+		var entry: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.as_dictionary(entry_variant)
+		var model: GFModel = _get_model_from_snapshot_entry(entry)
+		if model == null:
 			continue
-		var model: GFModel = model_object
-		var class_name_key: String = _get_model_key(script_cls, model)
-		if class_name_key.is_empty():
-			continue
+		var class_name_key: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(entry, "key")
 		if data.has(class_name_key) and data[class_name_key] is Dictionary:
 			model.from_dict(_GF_VARIANT_ACCESS_SCRIPT.as_dictionary(data[class_name_key]))
 		elif data.has(class_name_key):
@@ -151,20 +157,19 @@ func restore_all_models_state(data: Dictionary) -> void:
 ## [br]
 ## @schema options: Dictionary，可包含 max_models_per_frame: int。
 func restore_all_models_state_async(data: Dictionary, options: Dictionary = {}) -> void:
+	var entry_report: Dictionary = _collect_model_snapshot_entries()
+	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(entry_report, "ok", false):
+		return
+
 	var max_models_per_frame: int = _get_snapshot_models_per_frame(options)
 	var processed_since_yield: int = 0
-	var model_scripts: Array = _models.keys()
-	for script_cls_variant: Variant in model_scripts:
-		if not script_cls_variant is Script:
+	var entries: Array = _GF_VARIANT_ACCESS_SCRIPT.get_option_array(entry_report, "entries")
+	for entry_variant: Variant in entries:
+		var entry: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.as_dictionary(entry_variant)
+		var model: GFModel = _get_model_from_snapshot_entry(entry)
+		if model == null:
 			continue
-		var script_cls: Script = script_cls_variant
-		var model_object: Object = _get_dictionary_object(_models, script_cls)
-		if not model_object is GFModel:
-			continue
-		var model: GFModel = model_object
-		var class_name_key: String = _get_model_key(script_cls, model)
-		if class_name_key.is_empty():
-			continue
+		var class_name_key: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(entry, "key")
 		if data.has(class_name_key) and data[class_name_key] is Dictionary:
 			model.from_dict(_GF_VARIANT_ACCESS_SCRIPT.as_dictionary(data[class_name_key]))
 		elif data.has(class_name_key):
@@ -321,6 +326,49 @@ func _get_command_history_store() -> Object:
 	if result is Object:
 		var history_store: Object = result
 		return history_store
+	return null
+
+
+func _collect_model_snapshot_entries() -> Dictionary:
+	var entries: Array[Dictionary] = []
+	var used_keys: Dictionary = {}
+	var duplicate_keys: PackedStringArray = PackedStringArray()
+	for script_cls: Script in _models:
+		var model_object: Object = _get_dictionary_object(_models, script_cls)
+		if not model_object is GFModel:
+			continue
+		var model: GFModel = model_object
+		var class_name_key: String = _get_model_key(script_cls, model)
+		if class_name_key.is_empty():
+			continue
+		if used_keys.has(class_name_key):
+			if not duplicate_keys.has(class_name_key):
+				var _duplicate_appended: bool = duplicate_keys.append(class_name_key)
+			continue
+		used_keys[class_name_key] = true
+		entries.append({
+			"key": class_name_key,
+			"model": model,
+		})
+
+	if not duplicate_keys.is_empty():
+		push_error("[GFArchitecture] Model 快照键重复：%s。请为每个 Model 提供唯一 get_save_key()。" % ", ".join(duplicate_keys))
+		return {
+			"ok": false,
+			"entries": [],
+		}
+
+	return {
+		"ok": true,
+		"entries": entries,
+	}
+
+
+func _get_model_from_snapshot_entry(entry: Dictionary) -> GFModel:
+	var model_value: Variant = _GF_VARIANT_ACCESS_SCRIPT.get_option_value(entry, "model")
+	if model_value is GFModel:
+		var model: GFModel = model_value
+		return model
 	return null
 
 

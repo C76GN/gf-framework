@@ -1,0 +1,268 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFTableColumnDefinition" path="addons/gf/standard/utilities/ui/gf_table_column_definition.gd" module="standard" extends="Resource" classDigest="a545edfabdc6bf18490711a2e5f6cefdb6649d7e1948daa477fec5f9b563197f">
+	<description>GFTableColumnDefinition: 通用表格列定义。
+描述一列如何从任意行数据中读取、格式化、排序、过滤和写回值。
+它不创建 Control、不绑定资源表或配置表格式，也不规定视觉、编辑器或业务语义。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">resource_definition</tag>
+		<tag name="since">5.2.0</tag>
+	</tags>
+	<signals />
+	<enums>
+		<member kind="enum" name="SortMode">
+			<signature>enum SortMode {
+	## 根据值类型自动选择排序方式。
+	AUTO,
+	## 按文本排序。
+	TEXT,
+	## 按数字排序。
+	NUMBER,
+	## 按布尔值排序。
+	BOOL,
+}</signature>
+			<description>默认排序值解释方式。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+	</enums>
+	<constants />
+	<properties>
+		<member kind="property" name="column_id" decorators="@export">
+			<signature>var column_id: StringName = &amp;""</signature>
+			<description>列稳定 ID，用于排序、提交和保存 UI 状态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="value_key" decorators="@export">
+			<signature>var value_key: StringName = &amp;""</signature>
+			<description>读取行数据时使用的字段键。为空时使用 column_id。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="display_label" decorators="@export">
+			<signature>var display_label: String = ""</signature>
+			<description>显示标题。为空时使用 column_id。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="visible" decorators="@export">
+			<signature>var visible: bool = true</signature>
+			<description>该列是否应出现在默认可见列中。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="sortable" decorators="@export">
+			<signature>var sortable: bool = true</signature>
+			<description>该列是否允许参与排序。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="filterable" decorators="@export">
+			<signature>var filterable: bool = true</signature>
+			<description>该列是否允许参与文本过滤。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="editable" decorators="@export">
+			<signature>var editable: bool = false</signature>
+			<description>该列是否允许通过 write_value() 或 GFTableDataView.commit_cell_value() 写回。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="sort_mode" decorators="@export">
+			<signature>var sort_mode: SortMode = SortMode.AUTO</signature>
+			<description>默认排序方式。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="metadata" decorators="@export">
+			<signature>var metadata: Dictionary = {}</signature>
+			<description>可选元数据，供项目 UI、编辑器工具或自定义渲染器使用。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">metadata: Dictionary，保存调用方附加到列定义上的元数据。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="value_getter">
+			<signature>var value_getter: Callable = Callable()</signature>
+			<description>自定义取值回调。有效时应接收 row 与 column 两个参数。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="value_setter">
+			<signature>var value_setter: Callable = Callable()</signature>
+			<description>自定义写值回调。有效时应接收 row、value 与 column 三个参数；返回 false 表示写入失败。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="value_formatter">
+			<signature>var value_formatter: Callable = Callable()</signature>
+			<description>自定义格式化回调。有效时应接收 value、row 与 column 三个参数。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="value_comparator">
+			<signature>var value_comparator: Callable = Callable()</signature>
+			<description>自定义比较回调。有效时应接收 left_value、right_value、left_row、right_row 与 column 五个参数。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="configure">
+			<signature>func configure( p_column_id: StringName, p_display_label: String = "", p_value_key: StringName = &amp;"" ) -&gt; GFTableColumnDefinition:</signature>
+			<description>配置列定义并返回自身，便于测试或运行时快速创建列。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">p_column_id: 列稳定 ID。</tag>
+				<tag name="param">p_display_label: 可选显示标题。</tag>
+				<tag name="param">p_value_key: 可选字段键；为空时使用列 ID。</tag>
+				<tag name="return">当前列定义。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_column_key">
+			<signature>func get_column_key() -&gt; StringName:</signature>
+			<description>获取稳定列键。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">列 ID。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_value_key">
+			<signature>func get_value_key() -&gt; StringName:</signature>
+			<description>获取读取值时使用的字段键。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">字段键。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_display_label">
+			<signature>func get_display_label() -&gt; String:</signature>
+			<description>获取显示标题。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">显示标题。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="read_value">
+			<signature>func read_value(row_data: Variant) -&gt; Variant:</signature>
+			<description>从行数据中读取该列的值。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">row_data: 行数据，可为 Dictionary、Object、Resource 或自定义回调支持的类型。</tag>
+				<tag name="return">读取到的值。</tag>
+				<tag name="schema">row_data: Variant，调用方保存的行数据。</tag>
+				<tag name="schema">return: Variant，列值。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="write_value">
+			<signature>func write_value(row_data: Variant, new_value: Variant) -&gt; bool:</signature>
+			<description>将该列的值写回行数据。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">row_data: 行数据。</tag>
+				<tag name="param">new_value: 要写入的新值。</tag>
+				<tag name="return">写入成功返回 true。</tag>
+				<tag name="schema">row_data: Variant，调用方保存的行数据。</tag>
+				<tag name="schema">new_value: Variant，列新值。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="format_value">
+			<signature>func format_value(value: Variant, row_data: Variant = null) -&gt; String:</signature>
+			<description>将值格式化成用于过滤或显示的文本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">value: 列值。</tag>
+				<tag name="param">row_data: 行数据。</tag>
+				<tag name="return">文本值。</tag>
+				<tag name="schema">value: Variant，待格式化列值。</tag>
+				<tag name="schema">row_data: Variant，调用方保存的行数据。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="matches_query">
+			<signature>func matches_query(row_data: Variant, query: String, case_sensitive: bool = false) -&gt; bool:</signature>
+			<description>判断该列是否匹配过滤文本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">row_data: 行数据。</tag>
+				<tag name="param">query: 过滤文本。</tag>
+				<tag name="param">case_sensitive: 是否区分大小写。</tag>
+				<tag name="return">匹配时返回 true。</tag>
+				<tag name="schema">row_data: Variant，调用方保存的行数据。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="compare_values">
+			<signature>func compare_values( left_value: Variant, right_value: Variant, left_row: Variant = null, right_row: Variant = null ) -&gt; int:</signature>
+			<description>比较两个行值。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">left_value: 左侧值。</tag>
+				<tag name="param">right_value: 右侧值。</tag>
+				<tag name="param">left_row: 左侧行数据。</tag>
+				<tag name="param">right_row: 右侧行数据。</tag>
+				<tag name="return">小于返回 -1，等于返回 0，大于返回 1。</tag>
+				<tag name="schema">left_value: Variant，左侧列值。</tag>
+				<tag name="schema">right_value: Variant，右侧列值。</tag>
+				<tag name="schema">left_row: Variant，左侧行数据。</tag>
+				<tag name="schema">right_row: Variant，右侧行数据。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="duplicate_column">
+			<signature>func duplicate_column() -&gt; GFTableColumnDefinition:</signature>
+			<description>创建同内容拷贝。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">新列定义。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="describe">
+			<signature>func describe() -&gt; Dictionary:</signature>
+			<description>导出列定义摘要。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">列定义字典。</tag>
+				<tag name="schema">return: Dictionary，包含 column_id、value_key、display_label、visible、sortable、filterable、editable、sort_mode 和 metadata。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

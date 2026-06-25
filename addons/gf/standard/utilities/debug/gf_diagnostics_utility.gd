@@ -63,6 +63,58 @@ enum CommandTier {
 }
 
 
+# --- 常量 ---
+
+## EditorDebugger 与运行时诊断桥使用的 capture 名称。
+## [br]
+## @api public
+## [br]
+## @since 6.0.0
+const DEBUGGER_CAPTURE_NAME: StringName = &"gf_diagnostics"
+
+## EditorDebugger 请求快照消息。
+## [br]
+## @api public
+## [br]
+## @since 6.0.0
+const DEBUGGER_MESSAGE_REQUEST_SNAPSHOT: String = "gf_diagnostics:request_snapshot"
+
+## EditorDebugger 请求目录消息。
+## [br]
+## @api public
+## [br]
+## @since 6.0.0
+const DEBUGGER_MESSAGE_REQUEST_CATALOG: String = "gf_diagnostics:request_catalog"
+
+## EditorDebugger 执行诊断命令消息。
+## [br]
+## @api public
+## [br]
+## @since 6.0.0
+const DEBUGGER_MESSAGE_EXECUTE_COMMAND: String = "gf_diagnostics:execute_command"
+
+## 运行时返回快照消息。
+## [br]
+## @api public
+## [br]
+## @since 6.0.0
+const DEBUGGER_MESSAGE_SNAPSHOT: String = "gf_diagnostics:snapshot"
+
+## 运行时返回目录消息。
+## [br]
+## @api public
+## [br]
+## @since 6.0.0
+const DEBUGGER_MESSAGE_CATALOG: String = "gf_diagnostics:catalog"
+
+## 运行时返回命令结果消息。
+## [br]
+## @api public
+## [br]
+## @since 6.0.0
+const DEBUGGER_MESSAGE_COMMAND_RESULT: String = "gf_diagnostics:command_result"
+
+
 # --- 公共变量 ---
 
 ## 是否采集 Godot Performance 监视器。
@@ -122,6 +174,7 @@ var _tool_snapshot_providers: Dictionary = {}
 var _monitor_order_counter: int = 0
 var _console_utility: GFConsoleUtility = null
 var _console_command_registered: bool = false
+var _debugger_capture_registered: bool = false
 
 
 # --- GF 生命周期方法 ---
@@ -138,6 +191,7 @@ func init() -> void:
 	register_command(&"diagnostics.tools", Callable(self, "_command_collect_tools"), "采集已注册 GF 工具快照。", CommandTier.OBSERVE)
 	register_command(&"diagnostics.scene", Callable(self, "_command_collect_scene"), "采集只读场景树快照。", CommandTier.OBSERVE)
 	register_command(&"diagnostics.signals", Callable(self, "_command_collect_signals"), "采集只读信号连接图快照。", CommandTier.OBSERVE)
+	_register_debugger_capture()
 
 
 ## 绑定控制台诊断命令。
@@ -151,6 +205,7 @@ func ready() -> void:
 ## [br]
 ## @api public
 func dispose() -> void:
+	_unregister_debugger_capture()
 	if _console_utility != null and _console_command_registered:
 		_console_utility.unregister_command("diagnostics")
 	_console_utility = null
@@ -849,6 +904,25 @@ func collect_snapshot(options: Dictionary = {}) -> Dictionary:
 	return snapshot
 
 
+## 获取 EditorDebugger 桥接状态。
+## [br]
+## @api public
+## [br]
+## @since 6.0.0
+## [br]
+## @return 桥接状态字典。
+## [br]
+## @schema return: Dictionary with capture_name, registered, debugger_active, editor_feature, and editor_hint.
+func get_debugger_bridge_state() -> Dictionary:
+	return {
+		"capture_name": DEBUGGER_CAPTURE_NAME,
+		"registered": _debugger_capture_registered,
+		"debugger_active": EngineDebugger.is_active(),
+		"editor_feature": OS.has_feature("editor"),
+		"editor_hint": Engine.is_editor_hint(),
+	}
+
+
 ## 采集性能监视器快照。
 ## [br]
 ## @return 性能数据字典。
@@ -1064,6 +1138,84 @@ func _bind_console_command() -> void:
 
 	_console_utility.register_command("diagnostics", Callable(self, "_on_console_diagnostics_command"), "输出 GF 诊断摘要。")
 	_console_command_registered = true
+
+
+func _register_debugger_capture() -> void:
+	if Engine.is_editor_hint():
+		return
+	if not OS.has_feature("editor") and not EngineDebugger.is_active():
+		return
+	if EngineDebugger.has_capture(DEBUGGER_CAPTURE_NAME):
+		return
+
+	EngineDebugger.register_message_capture(DEBUGGER_CAPTURE_NAME, Callable(self, "_handle_debugger_message"))
+	_debugger_capture_registered = true
+
+
+func _unregister_debugger_capture() -> void:
+	if not _debugger_capture_registered:
+		return
+	if EngineDebugger.has_capture(DEBUGGER_CAPTURE_NAME):
+		EngineDebugger.unregister_message_capture(DEBUGGER_CAPTURE_NAME)
+	_debugger_capture_registered = false
+
+
+func _handle_debugger_message(message: String, data: Array) -> bool:
+	match _normalize_debugger_message(message):
+		"request_snapshot":
+			var snapshot_options: Dictionary = _debugger_data_dictionary(data, 0)
+			EngineDebugger.send_message(DEBUGGER_MESSAGE_SNAPSHOT, [_make_debugger_payload(collect_snapshot(snapshot_options))])
+			return true
+		"request_catalog":
+			EngineDebugger.send_message(DEBUGGER_MESSAGE_CATALOG, [_make_debugger_payload(_make_debugger_catalog())])
+			return true
+		"execute_command":
+			var command_name: StringName = _debugger_data_string_name(data, 0)
+			var args: Dictionary = _debugger_data_dictionary(data, 1)
+			var result: Dictionary = execute_command_json_safe(command_name, args)
+			EngineDebugger.send_message(DEBUGGER_MESSAGE_COMMAND_RESULT, [
+				String(command_name),
+				_make_debugger_payload(result),
+			])
+			return true
+		_:
+			return false
+
+
+func _normalize_debugger_message(message: String) -> String:
+	var prefix: String = String(DEBUGGER_CAPTURE_NAME) + ":"
+	if message.begins_with(prefix):
+		return message.substr(prefix.length())
+	return message
+
+
+func _make_debugger_catalog() -> Dictionary:
+	return {
+		"commands": get_command_catalog(),
+		"monitors": get_monitor_catalog(),
+		"monitor_presets": get_monitor_preset_ids(),
+		"bridge": get_debugger_bridge_state(),
+	}
+
+
+func _make_debugger_payload(value: Variant) -> Variant:
+	return GFVariantJsonCodec.variant_to_json_compatible(value)
+
+
+func _debugger_data_dictionary(data: Array, index: int) -> Dictionary:
+	if index < 0 or index >= data.size():
+		return {}
+	var value: Variant = data[index]
+	if value is Dictionary:
+		var dictionary: Dictionary = value
+		return dictionary.duplicate(true)
+	return {}
+
+
+func _debugger_data_string_name(data: Array, index: int) -> StringName:
+	if index < 0 or index >= data.size():
+		return &""
+	return GFVariantData.to_string_name(data[index])
 
 
 func _make_command_result(ok: bool, value: Variant, error: String, metadata: Dictionary = {}) -> Dictionary:

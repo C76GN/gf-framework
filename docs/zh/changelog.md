@@ -22,9 +22,103 @@
 
 ---
 
-## [5.2.0] - 2026-06-22
+## [6.0.0] - 2026-06-25
 
-本版本是 5.x 内的兼容性重整版本。为移除运行时 Git / 外部进程依赖、统一构建元数据写入入口，并推进 package registry schema 2，本次接受少量破坏性 API 变更；受影响入口见下方 API 变动说明与升级指南。
+本版本是 GF 6.0.0 主版本发布，汇总运行时生命周期、资源安全边界、编辑器工具、Package 管线和标准库能力的大规模增强。由于本轮包含移除旧构建元数据入口、调整部分项目设置键，以及 System/Utility tick 策略属性实现方式等破坏性 API 变化，因此按主版本发布。
+
+
+### 🚀 新增特性 (Added)
+
+- `GFSettingsUtility` 新增设置暂存层，可先 `stage_value()` 预览待应用值，再通过 `apply_staged_values()` 或 `discard_staged_values()` 完成设置页的“应用 / 取消”事务。
+- 新增 `GFTableDataView`、`GFTableColumnDefinition` 与 `GFTableSelectionModel`，提供不绑定 Control 的通用表格数据视图、排序、过滤、单元格提交和稳定 row id 选择模型。
+- `GFTableDataView` 与 `GFResourceTableEditor` 新增批量单元格提交入口，可一次应用多格变更、统一刷新，并返回包含成功、未变化与失败项的结构化报告。
+- `GFViewportUtility` 新增移动安全区边距计算与 `MarginContainer` 应用入口，可把 `DisplayServer` 物理安全区转换为当前 Viewport 逻辑边距，并叠加项目自定义遮挡。
+- 新增 `GFQuerySignature` 与 `GFCacheDiagnostics`，提供领域隔离的稳定查询签名和通用缓存命中/失效诊断快照。
+- `GFTileMapCache` 新增区域片段、平移、占用矩形和 `TileMapLayer` 写回报告，便于编辑器工具或导入流程复用通用 tile 数据片段。
+- `GFVariantReferenceCodec.decode_reference()` 新增 Resource 路径允许根目录与通配模式选项，便于从未确认来源恢复显式 Resource 引用时先收窄加载边界。
+- `GFAssetUtility` 新增加载通道、并发上限、队列信号和缓存诊断快照，可对成组预热或流式加载做串行/限流调度。
+- 新增 `GFResourceGraphScanner`、`GFResourceVariantProvider` 与 `GFRawResourceArtifact`，提供资源图诊断、资源键变体回退和原始文件字节物化能力。
+- 新增 `GFImportPlan`，提供导入来源、目标、操作类型、source trace、预检报告和修复建议的通用计划结构。
+- 新增 `GFPolicyProvider` 与 `GFPolicyRegistry`，为资源导入、构建产物、内容审查和项目工具提供通用 artifact 策略分发协议。
+- 新增 `GFEditorCommandSession`，为编辑器工具提供 preview、commit、revert history 和命令调试快照。
+- `GFContentPackageExportPlan` 新增内容包导出计划报告，可从 manifest 或 catalog 生成可审计的 source/archive 条目。
+- Combat 新增 `GFBuffRecipe`、`GFBuffCheck`、`GFBuffEffect` 和 Buff 状态快照/移除原因入口，用于数据化 Buff、检查、生命周期效果和存档诊断。
+- 新增 `GFThemeOverridePropertyList`，为自定义 `Control` 生成 Inspector 可识别的 theme override 属性列表，并可按声明收集、清空覆盖值或生成 `Theme`。
+- `GFDiagnosticsUtility` 新增 Godot 调试器 bridge，标准编辑器插件提供 `GF Runtime Debugger` 会话页，可请求运行时快照、命令目录和受保护命令结果。
+- 新增 `GFNetworkDirtyStateTracker`，为 Network 状态字典提供字段级脏检查、优先级分组和基线更新 helper。
+- `GFObjectPropertyTools` 新增对象属性字典快照与批量应用入口，便于工具状态、编辑器草稿和轻量配置复用统一属性边界判断。
+- 新增 `GFInputMapPresetTools`，可把运行时 `InputMap` 捕获为通用预设字典并应用回动作表；`GFInputProfileBank` 新增整体字典往返能力。
+- `GFInputFormatter` 新增 `action_as_text()`、`action_as_rich_text()` 与 `action_icon()`，可按 InputMap 动作名读取 runtime / ProjectSettings 事件，并按首选设备类型输出文本或图标。
+- 新增 `GFRuntimeTask`、`GFCallableRuntimeTask`、`GFRuntimeTaskGroup` 与 `GFRuntimeTaskScheduler`，提供按运行时对象 requirement 仲裁的任务调度、默认任务恢复和组合任务编排。
+- `GFResourceRegistry` 新增搜索候选生成和文本搜索入口，复用 `GFTextSearchScorer` 对注册表 ID、路径、类型提示和字段值进行通用排序。
+- `GFResourceRegistry` 新增条目摘要与分页搜索报告入口，可为资源选择器、调试面板或编辑器列表导出稳定的标题、说明、预览路径、标签、页码和当前页条目 ID。
+- `GFResourceRegistry` 新增 `group_entry_ids()` 和通用分组来源常量，可按 ID、路径、basename、类型提示或条目字段导出非唯一条目 ID 分组。
+- `GFConfigPipelineTableSource.schema_options` 新增 `typed_header_type_row`，支持字段名与类型声明分行的轻量 schema 生成方式。
+- `GFAssetMetadataUtility` 新增 `read_object_metadata_with_schema()` 与 `validate_object_metadata()`，复用 `GFDictionarySchema` 为对象 metadata 补默认值、转换和校验。
+- `GFSchemaField` 新增字段级 `validation_rules`，可组合 `GFValidationRule` 表达范围、集合、格式或项目自定义约束。
+- `GFGraphMath` 新增 `sort_topological()`，为依赖、加载顺序和任务流水线提供稳定拓扑排序与循环报告。
+- `GFSpatialHash3D` 新增世界坐标到格子的映射、格子级候选查询和调试快照，便于项目在不引入业务 chunk 策略的前提下复用通用空间桶索引。
+- 新增 `GFGeneratedArtifactReport`，为访问器生成、导表 JSON 和项目工具提供统一的产物状态、dry-run、写入和错误报告。
+- `GFConfigTableEditorTools` 新增 schema 列描述、字段编辑描述和跨表引用候选记录辅助，供项目编辑器、Inspector 或 CI 预览复用通用配置表结构。
+- `GFCapabilityQuery` 新增资源化能力查询条件，`GFCapabilityUtility` 可直接按查询资源筛选或检查 receiver。
+- 新增 `GFResourcePathHint`，为资源路径字符串和资源路径数组提供 GF 自定义 Inspector hint；`Array[String]` 与 `PackedStringArray` 可显示为可排序的 ResourcePicker 列表。
+- `GFArchitecture` / `Gf` 新增 `unregister_*_alias()`，用于只删除 Model/System/Utility 查询别名而不释放目标实例。
+- `GFArchitecture`、`GFTypeEventSystem` 与 `Gf` 新增 owner 精确事件注销入口，`listen_owned()` 可搭配 `unlisten_owned()`，避免同一 `Callable` 被不同 owner 注册时互相误删。
+- `GFArchitecture` 新增 `fail_on_missing_declared_dependencies`、`get_lifecycle_generation()` 与 `is_lifecycle_generation_active()`，用于严格依赖装配和异步生命周期校验。
+- `GFVariantData` 新增 `values_equal()`，集中处理浅层 Variant 等值判断、数值跨类型比较和可选 `String` / `StringName` 同名匹配。
+- `GFStorageUtility` 新增 `allow_resource_loads`、`allowed_resource_load_extensions`、`allowed_resource_load_type_hints` 与 `require_resource_load_type_hint`，用于显式开启并收窄 ResourceLoader 读取边界。
+- `GFNodePropertySerializer` 与 `GFPersistPropertiesSource` 新增 `allowed_resource_roots` / `allowed_resource_patterns`，用于恢复属性 Resource 引用时声明可加载路径边界。
+
+### 🔄 机制更改 (Changed)
+
+- GF 最低 Godot 版本抬到 4.7，并同步 README、Asset Library、Asset Store 与 GitHub Actions 的默认验证版本。
+- 标准编辑器扩展记录新增 debugger plugin 贡献入口，`kernel/editor` 只负责通用注册，不硬编码标准层调试器实现。
+- `GFInputRemapConfig` 的输入事件记录编码/解码收敛到标准输入内部工具，运行时重映射和 InputMap 预设共享同一套事件字段白名单。
+- `GFConfigPipeline.save_database()` 与配置访问器生成结果会返回 `artifact_report`，并支持 dry-run / 禁止覆盖语义，便于制作期差异审查。
+- `工具 > GF` 新增“刷新 GF 编辑器贡献”，可重新收集 GF 标准库编辑器贡献记录并重建菜单、Inspector、Debugger 和工作区记录。
+- Capability Inspector 的添加、Recipe 应用、启停和移除能力操作现在会写入 Godot 编辑器撤销栈，批量 Recipe 应用会作为一次编辑器事务提交。
+- `GFCapabilityUtility` 的多条件查询在同时指定分组与 required 能力时，会先选取更窄的候选索引并与分组取交集，减少大场景 receiver 扫描成本。
+- `replace_model()`、`replace_system()` 与 `replace_utility()` 改为事务式替换：新实例完成当前生命周期阶段后才提交，初始化失败或超时时保留旧实例。
+- `Gf.set_architecture()` 改为事务式全局架构切换，新架构 installer/init 成功后才替换当前架构；失败时保留旧架构。
+- Tick 调度改为 System/Utility 共用全局优先级队列，`tick_priority` 与 `physics_tick_priority` 可跨模块类型排序；运行时修改 tick 优先级或时间策略会刷新缓存。
+- `GFReadOnlyBindableProperty` 与 `GFComputedProperty` 读取 `Array` / `Dictionary` 时返回深拷贝，避免通过 `get_value()` 原地修改只读集合。
+- `GFCommand` / `GFQuery` 通过 `send_command()` / `send_query()` 执行时绑定一次性生命周期作用域，同一实例重复发送会被拒绝。
+- `GFNodeContext` 现在会等待重写的异步 `install()` 与 `install_bindings()` 完成后才清除安装状态并进入上下文初始化，避免场景级容器提前 ready。
+- `GFVariantReferenceCodec.decode_reference()` 现在默认拒绝 Resource 标记解码，必须提供 `allowed_resource_roots` 或 `allowed_resource_patterns` 才会进入 `ResourceLoader`。
+- `GFNodePropertySerializer` 与 `GFPersistPropertiesSource` 恢复 Resource 属性引用时会复用 context 中的 Resource 路径策略；没有 context 策略时才使用自身 allowlist。
+- `GFStorageUtility.load_resource()` 默认拒绝调用 Godot `ResourceLoader`；项目需显式启用 `allow_resource_loads`，并提供类型提示与扩展名策略。
+- `GFReactiveStateStore.set_state()` 在 diff 达到 `max_changes` 上限时会派发根级 `state_replaced` 变更，避免内部状态已替换但部分路径订阅者漏通知。
+- `GFReactiveStateStore` 的状态等值判断改为复用 `GFVariantData.values_equal()`，避免状态、导入和工具链各自维护不同的浅层比较规则。
+- `GF Package Manager` 的安装计划支持 `--all-concrete`、`--kind` 和 `--exclude-kind` 选择器，lockfile 会记录 registry source、channel、mirror、hash 和 size 等来源信息。
+- Content Package manifest 支持 `user://` 来源根、`safety_kind` 和 `forbidden_resource_extensions`，默认 data-only 包会拒绝脚本、动态库和 shader 等代码形态资源。
+- `GFArchitecture` 查询失效 alias 时不再落到同架构内的 assignable fallback，命令历史快照工具也要求唯一完整契约，避免注册顺序决定快照结果。
+- `release-status` 会在目标版本 tag 已存在但不指向当前 HEAD 时失败，避免发布版本事实分裂。
+
+### 🐛 Bug 修复 (Fixed)
+
+- `GFAudioUtility` 在空间 SFX 未提供 `GFAudioSpatialSettings` 时会显式保留 `area_mask = 1`，避免 Godot 4.7 的空默认区域掩码影响 Area 音频总线覆盖。
+- `GFInputBinding.match_device` 会把旧资源中的键鼠 `device = 0` 视为 Godot 4.7 键盘/鼠标设备 ID 的兼容占位，同时保留非 0 设备 ID 的精确匹配语义。
+- 修复通过 alias 调用 `unregister_*()` 会间接销毁真实模块的问题；现在该调用会报错并要求使用 `unregister_*_alias()`。
+- 修复事件系统按 `Callable` 注销时会误删其它 owner 监听的问题，派发中的 pending remove 也会按 owner 匹配。
+- 修复同一模块实例可通过多个脚本键重复进入注册表导致 dispose、alias 和生命周期状态不一致的问题。
+- 修复 Architecture Model 快照在多个 Model 使用同一 `get_save_key()` 时静默覆盖的问题；现在 capture 与 restore 都会先拒绝重复键。
+
+### 📘 升级指南 (Migration Guide)
+
+- 项目需要使用 Godot 4.7 或更新版本打开 GF。仍保存了键鼠 `device = 0` 的旧输入绑定可继续匹配；如果项目希望区分明确设备，应保存 Godot 4.7 产生的非 0 键盘/鼠标设备 ID。
+- 空间音效如果需要禁用 Area 音频总线覆盖，请显式提供 `GFAudioSpatialSettings` 并把对应 `area_mask_2d` 或 `area_mask_3d` 设为 0。
+- 如果旧代码依赖 `unregister_utility(AbstractAlias)` 这类 alias 注销目标实例的行为，请改为 `unregister_utility(TargetScript)`；只删除 alias 时使用 `unregister_utility_alias(AbstractAlias)`。
+- 如果旧代码复用同一个 `GFCommand` / `GFQuery` 实例多次发送，请改为每次发送创建新实例，避免异步执行上下文被覆盖。
+- 如果项目使用 `Gf.listen_owned()` 或通过框架对象注册 owner 监听，单个注销应使用对应 owner-aware 入口；普通 `unlisten()` 只移除无 owner 监听。
+- 如果项目需要恢复 `GFVariantReferenceCodec` 生成的 Resource 标记，必须传入允许根目录或通配模式；不再支持无策略默认加载。
+- 如果项目用 `GFNodePropertySerializer` 或 `GFPersistPropertiesSource` 保存 Resource 属性，请在 SaveGraph context 中传入 `allowed_resource_roots` / `allowed_resource_patterns`，或直接配置 Source / Serializer 上的同名 allowlist。
+- 如果项目使用 `GFStorageUtility.load_resource()`，先设置 `allow_resource_loads = true`，并传入非空 `type_hint`；必要时收窄 `allowed_resource_load_extensions` 与 `allowed_resource_load_type_hints`。
+
+---
+
+### 🔁 5.x 预发布内容合并
+
+以下内容原作为 5.x 兼容性重整记录维护，本次随 6.0.0 一并发布；受影响入口见下方 API 变动说明与升级指南。
 
 ### 🚀 新增特性 (Added)
 

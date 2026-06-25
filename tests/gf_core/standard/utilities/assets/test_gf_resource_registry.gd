@@ -82,6 +82,182 @@ func test_make_asset_group_entries_uses_registered_type_hints() -> void:
 	assert_eq(GFVariantData.get_option_string(entry, "type_hint"), "Resource")
 
 
+func test_search_ranks_entries_by_id_path_type_and_fields() -> void:
+	var registry: GFResourceRegistry = GFResourceRegistry.new()
+	_set_entry(registry, _make_entry(&"sword", "res://items/silver_sword.tres", {
+		&"kind": "weapon",
+		&"tags": ["sharp", "metal"],
+	}, "Resource"))
+	_set_entry(registry, _make_entry(&"shield", "res://items/round_shield.tres", {
+		&"kind": "armor",
+		&"tags": ["metal"],
+	}, "Resource"))
+
+	var results: Array[Dictionary] = registry.search("sharp sword")
+	var candidate: Dictionary = GFVariantData.get_option_dictionary(results[0], "candidate")
+
+	assert_eq(results.size(), 1, "默认应只返回命中的候选。")
+	assert_eq(GFVariantData.get_option_string(candidate, "id"), "sword")
+	assert_eq(GFVariantData.get_option_string(candidate, "path"), "res://items/silver_sword.tres")
+	assert_eq(GFVariantData.get_option_dictionary(candidate, "fields"), {
+		&"kind": "weapon",
+		&"tags": ["sharp", "metal"],
+	})
+
+
+func test_search_accepts_entry_id_filter() -> void:
+	var registry: GFResourceRegistry = GFResourceRegistry.new()
+	_set_entry(registry, _make_entry(&"sword", "res://items/sword.tres", {
+		&"tags": ["metal"],
+	}))
+	_set_entry(registry, _make_entry(&"shield", "res://items/shield.tres", {
+		&"tags": ["metal"],
+	}))
+
+	var results: Array[Dictionary] = registry.search("metal", {
+		"entry_ids": PackedStringArray(["shield"]),
+	})
+	var candidate: Dictionary = GFVariantData.get_option_dictionary(results[0], "candidate")
+
+	assert_eq(results.size(), 1)
+	assert_eq(GFVariantData.get_option_string(candidate, "id"), "shield")
+
+
+func test_make_entry_summary_uses_generic_display_preview_and_tags() -> void:
+	var registry: GFResourceRegistry = GFResourceRegistry.new()
+	_set_entry(registry, _make_entry(&"sword", "res://items/sword.tres", {
+		&"display_name": "Silver Sword",
+		&"description": "Sharp enough for tests.",
+		&"preview_path": "res://thumbs/sword.png",
+		&"tags": ["weapon", "rare", "weapon"],
+		&"category": "items",
+	}, "Resource"))
+
+	var summary: Dictionary = registry.make_entry_summary(&"sword")
+
+	assert_eq(GFVariantData.get_option_string(summary, "id"), "sword")
+	assert_eq(GFVariantData.get_option_string(summary, "entry_id"), "sword")
+	assert_eq(GFVariantData.get_option_string(summary, "title"), "Silver Sword")
+	assert_eq(GFVariantData.get_option_string(summary, "path"), "res://items/sword.tres")
+	assert_eq(GFVariantData.get_option_string(summary, "path_basename"), "sword")
+	assert_eq(GFVariantData.get_option_string(summary, "type_hint"), "Resource")
+	assert_eq(GFVariantData.get_option_string(summary, "description"), "Sharp enough for tests.")
+	assert_eq(GFVariantData.get_option_string(summary, "preview_path"), "res://thumbs/sword.png")
+	assert_eq(GFVariantData.get_option_string(summary, "category"), "items")
+	assert_eq(
+		GFVariantData.get_option_packed_string_array(summary, "tags"),
+		PackedStringArray(["rare", "weapon"]),
+		"摘要标签应去重并稳定排序，方便工具层展示。"
+	)
+	assert_true(summary.has("fields"), "默认摘要应保留 fields 副本，便于工具面板读取通用字段。")
+
+
+func test_make_entry_summary_accepts_custom_field_options() -> void:
+	var registry: GFResourceRegistry = GFResourceRegistry.new()
+	_set_entry(registry, _make_entry(&"lantern", "res://items/lantern.tres", {
+		&"label": "Traveler Lantern",
+		&"brief": "Portable light.",
+		&"thumb": "res://thumbs/lantern.png",
+		&"keywords": PackedStringArray(["tool", "light"]),
+	}, "Resource"))
+
+	var summary: Dictionary = registry.make_entry_summary(&"lantern", {
+		"title_fields": PackedStringArray(["label"]),
+		"description_fields": PackedStringArray(["brief"]),
+		"preview_path_fields": PackedStringArray(["thumb"]),
+		"tag_fields": PackedStringArray(["keywords"]),
+		"include_fields": false,
+	})
+
+	assert_eq(GFVariantData.get_option_string(summary, "title"), "Traveler Lantern")
+	assert_eq(GFVariantData.get_option_string(summary, "description"), "Portable light.")
+	assert_eq(GFVariantData.get_option_string(summary, "preview_path"), "res://thumbs/lantern.png")
+	assert_eq(GFVariantData.get_option_packed_string_array(summary, "tags"), PackedStringArray(["light", "tool"]))
+	assert_false(summary.has("fields"), "工具需要轻量列表时应可关闭 fields 输出。")
+
+
+func test_search_page_returns_page_metadata_and_summaries() -> void:
+	var registry: GFResourceRegistry = GFResourceRegistry.new()
+	_set_entry(registry, _make_entry(&"axe", "res://items/axe.tres", {
+		&"display_name": "Axe",
+		&"tags": ["metal"],
+	}))
+	_set_entry(registry, _make_entry(&"shield", "res://items/shield.tres", {
+		&"display_name": "Shield",
+		&"tags": ["metal"],
+	}))
+	_set_entry(registry, _make_entry(&"sword", "res://items/sword.tres", {
+		&"display_name": "Sword",
+		&"tags": ["metal"],
+	}))
+
+	var page: Dictionary = registry.search_page("metal", 1, 2)
+	var page_entry_ids: PackedStringArray = GFVariantData.get_option_packed_string_array(page, "entry_ids")
+	var summaries: Array = GFVariantData.get_option_array(page, "summaries")
+	var summary: Dictionary = GFVariantData.as_dictionary(summaries[0])
+	var second_summary: Dictionary = GFVariantData.as_dictionary(summaries[1])
+
+	assert_eq(GFVariantData.get_option_int(page, "page"), 1)
+	assert_eq(GFVariantData.get_option_int(page, "page_size"), 2)
+	assert_eq(GFVariantData.get_option_int(page, "page_count"), 2)
+	assert_eq(GFVariantData.get_option_int(page, "total_count"), 3)
+	assert_eq(GFVariantData.get_option_int(page, "start_index"), 0)
+	assert_eq(GFVariantData.get_option_int(page, "end_index"), 2)
+	assert_false(GFVariantData.get_option_bool(page, "has_previous"))
+	assert_true(GFVariantData.get_option_bool(page, "has_next"))
+	assert_eq(page_entry_ids.size(), 2)
+	assert_eq(summaries.size(), 2)
+	assert_eq(GFVariantData.get_option_string(summary, "entry_id"), page_entry_ids[0])
+	assert_eq(GFVariantData.get_option_string(second_summary, "entry_id"), page_entry_ids[1])
+	assert_false(GFVariantData.get_option_string(summary, "title").is_empty())
+
+
+func test_search_page_empty_query_lists_all_entries_without_resource_loads() -> void:
+	var registry: GFResourceRegistry = GFResourceRegistry.new()
+	_set_entry(registry, _make_entry(&"sword", "res://items/sword.tres"))
+	_set_entry(registry, _make_entry(&"shield", "res://items/shield.tres"))
+	_set_entry(registry, _make_entry(&"axe", "res://items/axe.tres"))
+
+	var page: Dictionary = registry.search_page("", 1, 2, {
+		"include_summaries": false,
+	})
+	var results: Array = GFVariantData.get_option_array(page, "results")
+	var first_report: Dictionary = GFVariantData.as_dictionary(results[0])
+
+	assert_eq(GFVariantData.get_option_int(page, "total_count"), 3)
+	assert_eq(GFVariantData.get_option_int(page, "page_count"), 2)
+	assert_eq(
+		GFVariantData.get_option_packed_string_array(page, "entry_ids"),
+		PackedStringArray(["axe", "shield"])
+	)
+	assert_true(GFVariantData.get_option_array(page, "summaries").is_empty())
+	assert_false(GFVariantData.get_option_bool(first_report, "matched"), "空查询列表报告不伪装成文本命中。")
+
+
+func test_group_entry_ids_groups_by_field_values_and_path_basename() -> void:
+	var registry: GFResourceRegistry = GFResourceRegistry.new()
+	_set_entry(registry, _make_entry(&"sword", "res://items/silver_sword.tres", {
+		&"kind": "weapon",
+		&"tags": ["sharp", "metal"],
+	}, "Resource"))
+	_set_entry(registry, _make_entry(&"shield", "res://items/round_shield.tres", {
+		&"kind": "armor",
+		&"tags": ["metal"],
+	}, "Resource"))
+
+	var tag_groups: Dictionary = registry.group_entry_ids(GFResourceRegistry.GROUP_SOURCE_FIELD, {
+		"field_id": &"tags",
+	})
+	var path_groups: Dictionary = registry.group_entry_ids(GFResourceRegistry.GROUP_SOURCE_PATH_BASENAME, {
+		"entry_ids": PackedStringArray(["sword"]),
+	})
+
+	assert_eq(GFVariantData.get_option_packed_string_array(tag_groups, "metal"), PackedStringArray(["shield", "sword"]), "字段数组值应产生非唯一分组。")
+	assert_eq(GFVariantData.get_option_packed_string_array(tag_groups, "sharp"), PackedStringArray(["sword"]))
+	assert_eq(GFVariantData.get_option_packed_string_array(path_groups, "silver_sword"), PackedStringArray(["sword"]), "路径 basename 分组应可配合 entry_ids 过滤。")
+	assert_false(path_groups.has("round_shield"), "entry_ids 过滤外的条目不应进入分组。")
+
+
 func test_load_entry_uses_resource_loader_path_and_type_hint() -> void:
 	var registry: GFResourceRegistry = GFResourceRegistry.new()
 	_set_entry(registry, _make_entry(
@@ -195,7 +371,7 @@ class ManualAssetUtility extends GFAssetUtility:
 	var requested_group_id: StringName = &""
 	var returned_resource: Resource = Resource.new()
 
-	func load_async(path: String, on_loaded: Callable, type_hint: String = "") -> void:
+	func load_async(path: String, on_loaded: Callable, type_hint: String = "", _options: Dictionary = {}) -> void:
 		requested_path = path
 		requested_type_hint = type_hint
 		var _callback_result: Variant = on_loaded.call(returned_resource)
@@ -205,7 +381,8 @@ class ManualAssetUtility extends GFAssetUtility:
 		on_loaded: Callable,
 		type_hint: String = "",
 		owner: Object = null,
-		group_id: StringName = &""
+		group_id: StringName = &"",
+		_options: Dictionary = {}
 	) -> void:
 		requested_handle_path = path
 		requested_handle_type_hint = type_hint

@@ -50,6 +50,19 @@ func configure(p_cell_size: float) -> void:
 	clear()
 
 
+## 获取世界坐标所在的哈希格子。
+## [br]
+## @api public
+## [br]
+## @since 6.0.0
+## [br]
+## @param position: 世界坐标。
+## [br]
+## @return 哈希格子坐标。
+func get_cell_for_position(position: Vector3) -> Vector3i:
+	return _world_to_cell(position)
+
+
 ## 插入实体。
 ## [br]
 ## @api public
@@ -139,6 +152,38 @@ func get_entity_count() -> int:
 	return _entity_records.size()
 
 
+## 获取空间哈希调试快照。
+## [br]
+## @api public
+## [br]
+## @since 6.0.0
+## [br]
+## @return 调试快照。
+## [br]
+## @schema return: Dictionary with cell_size, entity_count, bucket_count, max_bucket_size, and average_bucket_size.
+func get_debug_snapshot() -> Dictionary:
+	prune_invalid_entities()
+	var bucket_count: int = _bucket_entities.size()
+	var total_bucket_size: int = 0
+	var max_bucket_size: int = 0
+	for cell_key: Vector3i in _bucket_entities.keys():
+		var bucket_size: int = _get_bucket(cell_key).size()
+		total_bucket_size += bucket_size
+		max_bucket_size = maxi(max_bucket_size, bucket_size)
+
+	var average_bucket_size: float = 0.0
+	if bucket_count > 0:
+		average_bucket_size = float(total_bucket_size) / float(bucket_count)
+
+	return {
+		"cell_size": _cell_size,
+		"entity_count": _entity_records.size(),
+		"bucket_count": bucket_count,
+		"max_bucket_size": max_bucket_size,
+		"average_bucket_size": average_bucket_size,
+	}
+
+
 ## 查询与 AABB 相交的实体。
 ## [br]
 ## @api public
@@ -195,6 +240,55 @@ func query_radius(center: Vector3, radius: float) -> Array[Variant]:
 		)
 		if center.distance_squared_to(closest) <= radius_sq:
 			result.append(entity)
+	return result
+
+
+## 查询指定哈希格子中的候选实体。
+##
+## 返回值是该格子桶内的粗筛候选，调用方如需精确几何或玩法规则过滤，应继续使用自己的规则处理。
+## [br]
+## @api public
+## [br]
+## @since 6.0.0
+## [br]
+## @param cell: 哈希格子坐标。
+## [br]
+## @return 实体数组。
+## [br]
+## @schema return: Array entity values restored from spatial hash records.
+func query_cell(cell: Vector3i) -> Array[Variant]:
+	prune_invalid_entities()
+	var result: Array[Variant] = []
+	var seen: Dictionary = {}
+	_append_cell_entities(cell, result, seen)
+	return result
+
+
+## 查询以中心格子为基准的哈希格子范围。
+##
+## `radius` 按轴表示要向外扩展的格子数；例如 `Vector3i(2, 0, 2)` 会查询同一 Y 层上
+## X/Z 各扩展 2 格的区域。
+## [br]
+## @api public
+## [br]
+## @since 6.0.0
+## [br]
+## @param center_cell: 中心哈希格子。
+## [br]
+## @param radius: 各轴扩展格子数，负数会按绝对值处理。
+## [br]
+## @return 去重后的实体数组。
+## [br]
+## @schema return: Array entity values restored from spatial hash records.
+func query_cell_range(center_cell: Vector3i, radius: Vector3i = Vector3i.ZERO) -> Array[Variant]:
+	prune_invalid_entities()
+	var safe_radius: Vector3i = Vector3i(absi(radius.x), absi(radius.y), absi(radius.z))
+	var result: Array[Variant] = []
+	var seen: Dictionary = {}
+	for x: int in range(center_cell.x - safe_radius.x, center_cell.x + safe_radius.x + 1):
+		for y: int in range(center_cell.y - safe_radius.y, center_cell.y + safe_radius.y + 1):
+			for z: int in range(center_cell.z - safe_radius.z, center_cell.z + safe_radius.z + 1):
+				_append_cell_entities(Vector3i(x, y, z), result, seen)
 	return result
 
 
@@ -291,6 +385,18 @@ func _query_candidate_keys(area: AABB) -> Array[String]:
 			seen[entity_key] = true
 			result.append(entity_key)
 	return result
+
+
+func _append_cell_entities(cell_key: Vector3i, result: Array[Variant], seen: Dictionary) -> void:
+	var bucket: Array = _get_bucket(cell_key)
+	for entity_key: String in bucket:
+		if seen.has(entity_key):
+			continue
+		var record: Dictionary = _get_record(entity_key)
+		if record.is_empty():
+			continue
+		seen[entity_key] = true
+		result.append(_record_to_entity(record))
 
 
 func _get_cells_for_aabb(bounds: AABB) -> Array[Vector3i]:

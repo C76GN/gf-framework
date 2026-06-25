@@ -77,6 +77,24 @@ class ArgumentReceiver:
 		count += 1
 
 
+class OwnedUnregisterReceiver:
+	var system: GFTypeEventSystem
+	var state: EventTestState
+	var target_owner: Object
+	var type_callback: Callable = Callable()
+	var simple_callback: Callable = Callable()
+
+	func on_type_event(_event: SampleEventA) -> void:
+		state.count += 1
+		if state.count == 1:
+			system.unregister_owned(target_owner, SampleEventA, type_callback)
+
+	func on_simple_event(_payload: Variant) -> void:
+		state.simple += 1
+		if state.simple == 1:
+			system.unregister_simple_owned(target_owner, &"owned_simple", simple_callback)
+
+
 # --- 测试：类型事件 ---
 
 ## 验证无效 Callable 不会通过 assert 造成不一致行为，而是输出错误并跳过注册。
@@ -265,6 +283,60 @@ func test_same_callable_can_register_with_different_owners() -> void:
 	_system.send(SampleEventA.new())
 
 	assert_eq(state.count, 3, "不同 owner 的同一 Callable 应分别注册并可独立注销。")
+
+
+## 验证普通 unregister 不会误删带 owner 的同 Callable 监听。
+func test_unregister_without_owner_does_not_remove_owned_listener() -> void:
+	var listener_owner: RefCounted = RefCounted.new()
+	var state: EventTestState = EventTestState.new()
+	var callback: Callable = func(_e: SampleEventA) -> void:
+		state.count += 1
+
+	_system.register(SampleEventA, callback, 0, listener_owner)
+	_system.unregister(SampleEventA, callback)
+	_system.send(SampleEventA.new())
+	_system.unregister_owned(listener_owner, SampleEventA, callback)
+	_system.send(SampleEventA.new())
+
+	assert_eq(state.count, 1, "普通 unregister 只应移除无 owner 监听，owned 监听需用 unregister_owned。")
+
+
+## 验证派发中按 owner 注销同 Callable 监听不会跳过或误删其它 owner。
+func test_unregister_owned_during_dispatch_matches_owner() -> void:
+	var owner_a: RefCounted = RefCounted.new()
+	var owner_b: RefCounted = RefCounted.new()
+	var state: EventTestState = EventTestState.new()
+	var receiver: OwnedUnregisterReceiver = OwnedUnregisterReceiver.new()
+	receiver.system = _system
+	receiver.state = state
+	receiver.target_owner = owner_b
+	receiver.type_callback = Callable(receiver, &"on_type_event")
+
+	_system.register(SampleEventA, receiver.type_callback, 0, owner_a)
+	_system.register(SampleEventA, receiver.type_callback, 0, owner_b)
+	_system.send(SampleEventA.new())
+	_system.send(SampleEventA.new())
+
+	assert_eq(state.count, 2, "派发中注销 owner_b 后，本轮和后续派发都不应再调用 owner_b 的监听。")
+
+
+## 验证简单事件派发中的 owner 精确注销同样按 owner 匹配。
+func test_unregister_simple_owned_during_dispatch_matches_owner() -> void:
+	var owner_a: RefCounted = RefCounted.new()
+	var owner_b: RefCounted = RefCounted.new()
+	var state: EventTestState = EventTestState.new()
+	var receiver: OwnedUnregisterReceiver = OwnedUnregisterReceiver.new()
+	receiver.system = _system
+	receiver.state = state
+	receiver.target_owner = owner_b
+	receiver.simple_callback = Callable(receiver, &"on_simple_event")
+
+	_system.register_simple(&"owned_simple", receiver.simple_callback, owner_a)
+	_system.register_simple(&"owned_simple", receiver.simple_callback, owner_b)
+	_system.send_simple(&"owned_simple")
+	_system.send_simple(&"owned_simple")
+
+	assert_eq(state.simple, 2, "简单事件派发中注销 owner_b 后不应影响 owner_a。")
 
 
 ## 验证诊断统计会报告各事件轨道监听数量。

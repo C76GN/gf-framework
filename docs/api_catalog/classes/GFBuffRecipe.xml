@@ -1,0 +1,173 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFBuffRecipe" path="addons/gf/extensions/combat/attributes/gf_buff_recipe.gd" module="extensions/combat" extends="Resource" classDigest="79b4f4c6e83a415d3949a3e502be6e23adb80e4d42e4e6bdae95b74e4fa05659">
+	<description>GFBuffRecipe: 数据化 Buff 配方。
+描述如何创建一个运行时 GFBuff，包括通用生命周期参数、属性修饰器、标签、检查和效果。
+配方不包含具体战斗业务规则；项目可通过 GFBuffEffect / GFBuffCheck 子类扩展。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">resource_definition</tag>
+		<tag name="since">6.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties>
+		<member kind="property" name="id" decorators="@export">
+			<signature>var id: StringName = &amp;""</signature>
+			<description>运行时 Buff ID。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="duration" decorators="@export">
+			<signature>var duration: float = 0.0</signature>
+			<description>运行时 Buff 持续时间。-1 表示永久。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="stacks" decorators="@export">
+			<signature>var stacks: int = 1</signature>
+			<description>初始层数。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="max_stacks" decorators="@export">
+			<signature>var max_stacks: int = 1</signature>
+			<description>最大层数。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="stack_mode" decorators="@export">
+			<signature>var stack_mode: GFBuff.StackMode = GFBuff.StackMode.ADD_STACK</signature>
+			<description>重复添加时的层数策略。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="duration_refresh_policy" decorators="@export">
+			<signature>var duration_refresh_policy: GFBuff.DurationRefreshPolicy = GFBuff.DurationRefreshPolicy.RESET_TO_NEW_DURATION</signature>
+			<description>重复添加时的持续时间刷新策略。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="tick_interval_seconds" decorators="@export">
+			<signature>var tick_interval_seconds: float = 0.0</signature>
+			<description>周期 Tick 间隔。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="max_periodic_ticks_per_update" decorators="@export">
+			<signature>var max_periodic_ticks_per_update: int = 8</signature>
+			<description>单次 update 最多补偿 tick 次数。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="remove_on_expire" decorators="@export">
+			<signature>var remove_on_expire: bool = true</signature>
+			<description>持续时间耗尽时是否由 CombatSystem 移除。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="buff_script" decorators="@export">
+			<signature>var buff_script: Script = null</signature>
+			<description>可选 Buff 脚本。为空时创建基础 GFBuff。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="tags" decorators="@export">
+			<signature>var tags: Array[StringName] = []</signature>
+			<description>Buff 附带的标签。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="modifier_entries" decorators="@export">
+			<signature>var modifier_entries: Array[Dictionary] = []</signature>
+			<description>Buff 附带的属性修饰器字典。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">modifier_entries: Array[Dictionary]，每项包含 type、value、attribute_id 和 source_id。</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="checks" decorators="@export">
+			<signature>var checks: Array[GFBuffCheck] = []</signature>
+			<description>Buff 应用前检查。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="effects" decorators="@export">
+			<signature>var effects: Array[GFBuffEffect] = []</signature>
+			<description>Buff 生命周期效果。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="metadata" decorators="@export">
+			<signature>var metadata: Dictionary = {}</signature>
+			<description>项目自定义元数据。GF 不解释其中字段。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">metadata: Dictionary project-defined buff metadata.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="create_buff">
+			<signature>func create_buff(owner: Object = null, context: Dictionary = {}) -&gt; GFBuff:</signature>
+			<description>创建运行时 Buff。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">owner: Buff 拥有者。</tag>
+				<tag name="param">context: 创建上下文。</tag>
+				<tag name="return">新 Buff；配方无效时仍返回基础 Buff，诊断可通过 get_validation_report() 获取。</tag>
+				<tag name="schema">context: Dictionary，可包含 metadata 作为运行时附加元数据。</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_validation_report">
+			<signature>func get_validation_report() -&gt; Dictionary:</signature>
+			<description>获取配方诊断报告。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">GFValidationReportDictionary 兼容报告。</tag>
+				<tag name="schema">return: Dictionary with ok, healthy, issues, summary, and next_action.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="to_dictionary">
+			<signature>func to_dictionary() -&gt; Dictionary:</signature>
+			<description>转换为可序列化字典。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">配方字典。</tag>
+				<tag name="schema">return: Dictionary with generic buff recipe fields.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

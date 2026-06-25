@@ -21,6 +21,7 @@ const _DEPENDENCY_SCOPE_SUPPORT = preload("res://addons/gf/kernel/base/gf_depend
 # --- 私有变量 ---
 
 var _dependency_scope: Dictionary = _DEPENDENCY_SCOPE_SUPPORT._make_scope()
+var _execution_started: bool = false
 
 
 # --- 公共方法 ---
@@ -54,8 +55,7 @@ func execute() -> Variant:
 ## [br]
 ## @return 所属架构仍处于活动生命周期时返回 true。
 func is_lifecycle_active() -> bool:
-	var architecture: GFArchitecture = _get_architecture_or_null()
-	return architecture != null and architecture.is_lifecycle_active()
+	return _DEPENDENCY_SCOPE_SUPPORT._is_lifecycle_active(_dependency_scope, "GFCommand")
 
 
 ## 通过类型获取 Model 实例。
@@ -156,8 +156,17 @@ func send_simple_event(event_id: StringName, payload: Variant = null) -> void:
 
 # --- 私有/辅助方法 ---
 
-func _gf_set_dependency_scope(architecture: GFArchitecture) -> void:
-	_DEPENDENCY_SCOPE_SUPPORT._bind_scope(_dependency_scope, architecture)
+func _gf_begin_execution_scope(architecture: GFArchitecture, lifecycle_serial: int) -> bool:
+	if _execution_started:
+		push_error("[GFCommand] 命令实例已经进入过执行作用域，请为每次发送创建新的命令实例。")
+		return false
+	_execution_started = true
+	_gf_set_dependency_scope(architecture, lifecycle_serial)
+	return true
+
+
+func _gf_set_dependency_scope(architecture: GFArchitecture, lifecycle_serial: int = -1) -> void:
+	_DEPENDENCY_SCOPE_SUPPORT._bind_scope(_dependency_scope, architecture, lifecycle_serial)
 
 
 func _get_architecture() -> GFArchitecture:

@@ -211,14 +211,14 @@ func save_database( database: GFConfigDatabaseResource, output_path: String, opt
 |---|---|
 | `database` | 要保存的配置数据库资源。 |
 | `output_path` | 输出路径，通常为 .tres、.res 或 .json。 |
-| `options` | 保存选项，支持 output_format、include_schema、include_indexes、indent 和 sort_keys。 |
+| `options` | 保存选项，支持 output_format、include_schema、include_indexes、indent、sort_keys、overwrite_existing、dry_run 和 artifact_metadata。 |
 
 返回：保存结果。
 
 结构：
 
-- `options`: Dictionary，可包含 output_format、include_schema、include_indexes、indent 和 sort_keys。
-- `return`: Dictionary，包含 success、path、format、error_code 和 error。
+- `options`: Dictionary，可包含 output_format、include_schema、include_indexes、indent、sort_keys、overwrite_existing、dry_run 和 artifact_metadata。
+- `return`: Dictionary，包含 success、path、format、error_code、error、artifact_report、status、written、changed 和 dry_run。
 
 <a id="member-gfconfigpipeline-methods-generate_access"></a>
 
@@ -241,11 +241,11 @@ func generate_access( database: GFConfigDatabaseResource, output_path: String, a
 | `output_path` | 访问器脚本输出路径。 |
 | `access_class_name` | 生成脚本的 class_name。 |
 | `provider_accessor` | 无显式 provider 参数时用于获取 provider 的表达式。 |
-| `options` | 访问器生成选项，支持 GFConfigAccessGenerator 选项和 overwrite_existing。 |
+| `options` | 访问器生成选项，支持 GFConfigAccessGenerator 选项、overwrite_existing、dry_run、scan_filesystem 和 metadata。 |
 
 返回：访问器生成结果。
 
 结构：
 
-- `options`: Dictionary，可包含 method_name_style、constant_prefix、record_method_pattern、table_method_pattern、include_schema_comments、include_typed_records、typed_record_method_pattern、typed_record_class_suffix 和 overwrite_existing。
-- `return`: Dictionary，包含 success、skipped、path、class_name、schema_count、error_code 和 error。
+- `options`: Dictionary，可包含 method_name_style、constant_prefix、record_method_pattern、table_method_pattern、include_schema_comments、include_typed_records、typed_record_method_pattern、typed_record_class_suffix、overwrite_existing、dry_run、scan_filesystem 和 metadata。
+- `return`: Dictionary，包含 success、skipped、path、class_name、schema_count、error_code、error 和 artifact_report。

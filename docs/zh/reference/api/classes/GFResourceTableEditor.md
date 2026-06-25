@@ -45,6 +45,8 @@
 | 方法 | [`duplicate_resource`](#member-gfresourcetableeditor-methods-duplicate_resource) | `func duplicate_resource(row_index: int, deep: bool = false, insert_after: bool = true) -> Resource:` |
 | 方法 | [`commit_cell_value`](#member-gfresourcetableeditor-methods-commit_cell_value) | `func commit_cell_value(row_index: int, property: StringName, new_value: Variant) -> bool:` |
 | 方法 | [`commit_visible_cell_value`](#member-gfresourcetableeditor-methods-commit_visible_cell_value) | `func commit_visible_cell_value(visible_row_index: int, property: StringName, new_value: Variant) -> bool:` |
+| 方法 | [`commit_cell_values`](#member-gfresourcetableeditor-methods-commit_cell_values) | `func commit_cell_values(changes: Array[Dictionary]) -> Dictionary:` |
+| 方法 | [`commit_visible_cell_values`](#member-gfresourcetableeditor-methods-commit_visible_cell_values) | `func commit_visible_cell_values(changes: Array[Dictionary]) -> Dictionary:` |
 | 方法 | [`refresh`](#member-gfresourcetableeditor-methods-refresh) | `func refresh() -> void:` |
 
 ## 信号
@@ -617,6 +619,58 @@ func commit_visible_cell_value(visible_row_index: int, property: StringName, new
 结构：
 
 - `new_value`: Variant value assigned to the resource property.
+
+<a id="member-gfresourcetableeditor-methods-commit_cell_values"></a>
+
+### `commit_cell_values`
+
+- API：`public`
+- 首次版本：`6.0.0`
+
+```gdscript
+func commit_cell_values(changes: Array[Dictionary]) -> Dictionary:
+```
+
+批量提交资源行单元格值。 该方法会先处理所有变更，再统一刷新表格；启用自动保存时同一 Resource 只保存一次。 它不是事务，部分失败不会回滚已成功的变更。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `changes` | 单元格变更数组；每项包含 row_index、property 与 new_value。 |
+
+返回：批量提交报告。
+
+结构：
+
+- `changes`: Array[Dictionary]，每项包含 row_index: int、property: StringName/String、new_value: Variant。
+- `return`: Dictionary，包含 ok、requested_count、applied_count、unchanged_count、failed_count、committed 和 errors。
+
+<a id="member-gfresourcetableeditor-methods-commit_visible_cell_values"></a>
+
+### `commit_visible_cell_values`
+
+- API：`public`
+- 首次版本：`6.0.0`
+
+```gdscript
+func commit_visible_cell_values(changes: Array[Dictionary]) -> Dictionary:
+```
+
+批量提交可见资源行单元格值。 可见行索引会在任何写入发生前解析为资源行索引，避免搜索过滤刷新导致同一批变更漂移。 启用自动保存时同一 Resource 只保存一次；该方法不是事务，部分失败不会回滚已成功的变更。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `changes` | 单元格变更数组；每项包含 visible_row_index、property 与 new_value。 |
+
+返回：批量提交报告。
+
+结构：
+
+- `changes`: Array[Dictionary]，每项包含 visible_row_index: int、property: StringName/String、new_value: Variant。
+- `return`: Dictionary，包含 ok、requested_count、applied_count、unchanged_count、failed_count、committed 和 errors。
 
 <a id="member-gfresourcetableeditor-methods-refresh"></a>
 

@@ -39,6 +39,28 @@ var enemy_targets := capabilities.get_receivers_in_group_with(
 )
 ```
 
+需要组合多个能力条件时，可直接使用多条件查询。`required` 列表会全部命中，`rejected` 列表命中任意一项都会排除；传入分组名时只在该分组内筛选：
+
+```gdscript
+var selectable_damageables := capabilities.get_receivers_matching_capabilities(
+	[SelectableCapability, DamageableCapability],
+	[DeadCapability],
+	true,
+	&"enemies"
+)
+```
+
+如果查询条件需要保存成资源、挂到编辑器工具或被多个系统复用，可以使用 `GFCapabilityQuery`：
+
+```gdscript
+var query: GFCapabilityQuery = GFCapabilityQuery.new()
+query.required_capability_types = [SelectableCapability, DamageableCapability]
+query.rejected_capability_types = [DeadCapability]
+query.group_name = &"enemies"
+
+var receivers := capabilities.get_receivers_matching_query(query)
+```
+
 分组只负责查询索引，不改变 Godot 场景树分组，也不接管 receiver 生命周期。receiver 释放后，查询路径会自动清理失效索引；如果索引中的能力实例已经失效，`get_receivers_with()` 也会在返回前清理对应记录。`tick()` 中的周期性清理会按 `prune_invalid_receivers_per_tick` 分批推进，避免大量 receiver 同时失效时造成单帧尖峰；如果需要立刻得到精确索引，仍可主动调用 `prune_invalid_receivers()` 做全量清理。
 
 

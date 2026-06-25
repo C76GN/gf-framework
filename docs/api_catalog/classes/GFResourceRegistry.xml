@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFResourceRegistry" path="addons/gf/standard/utilities/assets/gf_resource_registry.gd" module="standard" extends="Resource" classDigest="55b546611f1f60883431b883e53f9903d000c856614eff037174790a6a63cff9">
+<class name="GFResourceRegistry" path="addons/gf/standard/utilities/assets/gf_resource_registry.gd" module="standard" extends="Resource" classDigest="d74287e145a9e520696dd938e17ea683d16500e2c0f33c131fcf646d2c94ac24">
 	<description>GFResourceRegistry: 通用资源注册表。
 通过稳定 ID 管理资源路径、类型提示和字段索引，便于项目用统一方式查询、
 预加载或加载资源定义。注册表只描述资源位置和通用字段，不规定物品、技能、
@@ -11,7 +11,48 @@
 	</tags>
 	<signals />
 	<enums />
-	<constants />
+	<constants>
+		<member kind="const" name="GROUP_SOURCE_ID">
+			<signature>const GROUP_SOURCE_ID: StringName = &amp;"id"</signature>
+			<description>按条目 ID 分组。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="GROUP_SOURCE_PATH">
+			<signature>const GROUP_SOURCE_PATH: StringName = &amp;"path"</signature>
+			<description>按完整资源路径分组。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="GROUP_SOURCE_PATH_BASENAME">
+			<signature>const GROUP_SOURCE_PATH_BASENAME: StringName = &amp;"path_basename"</signature>
+			<description>按资源路径文件名去扩展名分组。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="GROUP_SOURCE_TYPE_HINT">
+			<signature>const GROUP_SOURCE_TYPE_HINT: StringName = &amp;"type_hint"</signature>
+			<description>按资源类型提示分组。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="GROUP_SOURCE_FIELD">
+			<signature>const GROUP_SOURCE_FIELD: StringName = &amp;"field"</signature>
+			<description>按条目 fields 中的字段值分组。字段名由 options.field_id 指定。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+	</constants>
 	<properties>
 		<member kind="property" name="entries" decorators="@export">
 			<signature>var entries: Array[GFResourceRegistryEntry] = []</signature>
@@ -145,6 +186,86 @@
 				<tag name="param">match_all: true 表示交集查询，false 表示并集查询。</tag>
 				<tag name="return">匹配的条目 ID。</tag>
 				<tag name="schema">criteria: Dictionary from field id to query value.</tag>
+			</tags>
+		</member>
+		<member kind="method" name="make_search_candidates">
+			<signature>func make_search_candidates(entry_ids: PackedStringArray = PackedStringArray()) -&gt; Array[Dictionary]:</signature>
+			<description>构建可交给 GFTextSearchScorer 的搜索候选。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">entry_ids: 要导出的条目 ID；为空时导出全部有效条目。</tag>
+				<tag name="return">搜索候选字典数组。</tag>
+				<tag name="schema">entry_ids: PackedStringArray selected entry ids.</tag>
+				<tag name="schema">return: Array[Dictionary] where each candidate contains id, entry_id, title, name, path, type_hint, keywords, and fields.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="search">
+			<signature>func search(query_text: String, options: Dictionary = {}) -&gt; Array[Dictionary]:</signature>
+			<description>用通用文本评分器搜索注册表条目。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">query_text: 查询文本。</tag>
+				<tag name="param">options: 可选项，支持 GFTextSearchScorer.rank_candidates() 的选项，并额外支持 entry_ids。</tag>
+				<tag name="return">排序后的匹配报告数组。</tag>
+				<tag name="schema">options: Dictionary with optional entry_ids: PackedStringArray or Array[String], plus GFTextSearchScorer rank options.</tag>
+				<tag name="schema">return: Array[Dictionary] from GFTextSearchScorer.rank_candidates().</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="make_entry_summary">
+			<signature>func make_entry_summary(entry_id: StringName, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>构建单个条目的工具层摘要。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">entry_id: 条目稳定 ID。</tag>
+				<tag name="param">options: 可选项，支持 title_fields、description_fields、preview_path_fields、tag_fields、category_fields 和 include_fields。</tag>
+				<tag name="return">条目摘要；条目不存在时返回空字典。</tag>
+				<tag name="schema">options: Dictionary where field list options are PackedStringArray or Array[String], and include_fields controls whether fields is copied into the summary.</tag>
+				<tag name="schema">return: Dictionary with id, entry_id, title, path, path_basename, type_hint, description, preview_path, tags, category, and optional fields.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="make_entry_summaries">
+			<signature>func make_entry_summaries(entry_ids: PackedStringArray = PackedStringArray(), options: Dictionary = {}) -&gt; Array[Dictionary]:</signature>
+			<description>批量构建条目摘要。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">entry_ids: 要导出的条目 ID；为空时导出全部有效条目。</tag>
+				<tag name="param">options: 传给 make_entry_summary() 的摘要选项。</tag>
+				<tag name="return">条目摘要数组。</tag>
+				<tag name="schema">entry_ids: PackedStringArray selected entry ids.</tag>
+				<tag name="schema">options: Dictionary summary options.</tag>
+				<tag name="schema">return: Array[Dictionary] where each item is make_entry_summary() output.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="search_page">
+			<signature>func search_page( query_text: String, page: int = 1, page_size: int = 50, options: Dictionary = {} ) -&gt; Dictionary:</signature>
+			<description>搜索条目并返回分页报告。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">query_text: 查询文本；为空时默认按当前候选顺序列出条目。</tag>
+				<tag name="param">page: 页码，从 1 开始。</tag>
+				<tag name="param">page_size: 每页数量，会被规整为至少 1。</tag>
+				<tag name="param">options: 可选项，支持 search() 选项，并额外支持 empty_query_returns_all、include_summaries 和 summary_options。</tag>
+				<tag name="return">分页搜索报告。</tag>
+				<tag name="schema">options: Dictionary with search options, empty_query_returns_all: bool, include_summaries: bool, and summary_options: Dictionary.</tag>
+				<tag name="schema">return: Dictionary with query, page, page_size, page_count, total_count, start_index, end_index, has_previous, has_next, results, entry_ids, and summaries.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="group_entry_ids">
+			<signature>func group_entry_ids(group_source: StringName = GROUP_SOURCE_ID, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>按通用来源把条目 ID 分组。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">group_source: 分组来源，支持 GROUP_SOURCE_ID、GROUP_SOURCE_PATH、GROUP_SOURCE_PATH_BASENAME、GROUP_SOURCE_TYPE_HINT 与 GROUP_SOURCE_FIELD。</tag>
+				<tag name="param">options: 可选项，支持 entry_ids、field_id、include_empty 和 empty_key。</tag>
+				<tag name="return">分组字典，key 为分组文本，value 为排序后的条目 ID 列表。</tag>
+				<tag name="schema">options: Dictionary with optional entry_ids, field_id, include_empty, and empty_key.</tag>
+				<tag name="schema">return: Dictionary[String, PackedStringArray] grouped entry ids.</tag>
+				<tag name="since">6.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="load_entry">

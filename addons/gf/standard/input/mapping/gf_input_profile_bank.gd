@@ -179,19 +179,91 @@ func get_active_profile(duplicate_result: bool = false) -> GFInputRemapConfig:
 	return get_profile(active_profile_id, duplicate_result)
 
 
+## 转换为可写入配置或存档的 Dictionary。
+## [br]
+## @api public
+## [br]
+## @since 6.0.0
+## [br]
+## @return Profile bank 字典。
+## [br]
+## @schema return: Dictionary with profiles, active_profile_id, and custom_data fields. profiles maps profile id String to GFInputRemapConfig.to_dict().
+func to_dict() -> Dictionary:
+	var profile_data: Dictionary = {}
+	for profile_id_string: String in get_profile_ids():
+		var profile_id: StringName = StringName(profile_id_string)
+		var config: GFInputRemapConfig = get_profile(profile_id)
+		if config != null:
+			profile_data[profile_id_string] = config.to_dict()
+	return {
+		"profiles": profile_data,
+		"active_profile_id": String(active_profile_id),
+		"custom_data": GFVariantData.duplicate_variant(custom_data),
+	}
+
+
+## 应用由 to_dict() 生成的 Profile bank 字典。
+## [br]
+## @api public
+## [br]
+## @since 6.0.0
+## [br]
+## @param data: Profile bank 字典。
+## [br]
+## @schema data: Dictionary with profiles, active_profile_id, and custom_data fields.
+func apply_dict(data: Dictionary) -> void:
+	clear_profiles()
+	var profile_data: Dictionary = GFVariantData.get_option_dictionary(data, "profiles")
+	for profile_key: Variant in profile_data.keys():
+		var profile_id: StringName = GFVariantData.to_string_name(profile_key)
+		if profile_id == &"":
+			continue
+
+		var profile_value: Variant = GFVariantData.get_option_value(profile_data, profile_key)
+		if profile_value is GFInputRemapConfig:
+			var resource_config: GFInputRemapConfig = profile_value
+			set_profile(profile_id, resource_config, true)
+		elif profile_value is Dictionary:
+			var config_data: Dictionary = GFVariantData.as_dictionary(profile_value)
+			var restored_config: GFInputRemapConfig = GFInputRemapConfig.from_dict(config_data)
+			set_profile(profile_id, restored_config, false)
+
+	var requested_active_id: StringName = GFVariantData.get_option_string_name(data, "active_profile_id", &"")
+	if requested_active_id != &"" and has_profile(requested_active_id):
+		active_profile_id = requested_active_id
+	else:
+		var ids: PackedStringArray = get_profile_ids()
+		active_profile_id = StringName(ids[0]) if not ids.is_empty() else &""
+
+	custom_data = GFVariantData.get_option_dictionary(data, "custom_data")
+
+
+## 从 Dictionary 创建 Profile bank。
+## [br]
+## @api public
+## [br]
+## @since 6.0.0
+## [br]
+## @param data: Profile bank 字典。
+## [br]
+## @schema data: Dictionary with profiles, active_profile_id, and custom_data fields.
+## [br]
+## @return 新的配置集合。
+static func from_dict(data: Dictionary) -> GFInputProfileBank:
+	var bank: GFInputProfileBank = GFInputProfileBank.new()
+	bank.apply_dict(data)
+	return bank
+
+
 ## 创建 bank 的深拷贝。
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @return 新的配置集合。
 func duplicate_bank() -> GFInputProfileBank:
-	var bank: GFInputProfileBank = GFInputProfileBank.new()
-	for profile_id_string: String in get_profile_ids():
-		var profile_id: StringName = StringName(profile_id_string)
-		bank.set_profile(profile_id, get_profile(profile_id), true)
-	bank.active_profile_id = active_profile_id
-	bank.custom_data = GFVariantData.duplicate_variant(custom_data)
-	return bank
+	return GFInputProfileBank.from_dict(to_dict())
 
 
 # --- 私有/辅助方法 ---

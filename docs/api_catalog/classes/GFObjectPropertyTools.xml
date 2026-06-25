@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFObjectPropertyTools" path="addons/gf/kernel/core/gf_object_property_tools.gd" module="kernel" extends="RefCounted" classDigest="80fee299e0da324c98e56ebdd6db627b32ecde37c59a09d88db2569cb6b1b552">
+<class name="GFObjectPropertyTools" path="addons/gf/kernel/core/gf_object_property_tools.gd" module="kernel" extends="RefCounted" classDigest="0cd089b4b778193a1f29d88ec0d0a17c7a808c15cc32c9664e4e5e683be7dfbd">
 	<description>GFObjectPropertyTools: Godot Object 属性访问辅助。
 集中处理属性列表查询、属性路径读写、可写性判断和基础类型校验。
 它不负责属性绑定、自动派发、表达式执行或业务字段解释。</description>
@@ -146,6 +146,34 @@
 				<tag name="return">转换后的值；不支持转换时返回原值。</tag>
 				<tag name="schema">value: Variant value to coerce.</tag>
 				<tag name="schema">return: Variant coerced value or original value.</tag>
+			</tags>
+		</member>
+		<member kind="method" name="object_to_dictionary">
+			<signature>static func object_to_dictionary(object: Object, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>将对象声明的属性导出为 Dictionary。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">object: 目标对象。</tag>
+				<tag name="param">options: 可选项，支持 usage_filter、include_properties、exclude_properties、include_null、copy_values、duplicate_resources、sort_keys。</tag>
+				<tag name="return">以属性名 String 为键的属性值字典。</tag>
+				<tag name="schema">options: Dictionary with optional keys usage_filter: int, include_properties: Array[String] or PackedStringArray, exclude_properties: Array[String] or PackedStringArray, include_null: bool, copy_values: bool, duplicate_resources: bool, sort_keys: bool.</tag>
+				<tag name="schema">return: Dictionary[String, Variant] containing direct declared object properties.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="apply_dictionary">
+			<signature>static func apply_dictionary(object: Object, values: Dictionary, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>将 Dictionary 字段批量写回对象属性。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">object: 目标对象。</tag>
+				<tag name="param">values: 以属性名为键的字段字典。</tag>
+				<tag name="param">options: 可选项，支持 check_writable、check_type、coerce_value、ignore_unknown_properties、copy_values、duplicate_resources。</tag>
+				<tag name="return">写入报告，包含 ok、applied_count、skipped_count 与 issues。</tag>
+				<tag name="schema">values: Dictionary[String or StringName, Variant] containing direct property assignments.</tag>
+				<tag name="schema">options: Dictionary with optional bool keys check_writable, check_type, coerce_value, ignore_unknown_properties, copy_values, and duplicate_resources.</tag>
+				<tag name="schema">return: Dictionary { ok: bool, applied_count: int, skipped_count: int, issues: Array[Dictionary] }.</tag>
+				<tag name="since">6.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_root_property_name">

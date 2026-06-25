@@ -17,21 +17,28 @@ static func _make_scope() -> Dictionary:
 		"architecture_ref": null,
 		"was_bound": false,
 		"released": false,
+		"lifecycle_serial": -1,
 	}
 
 
-static func _bind_scope(scope: Dictionary, architecture: GFArchitecture) -> void:
+static func _bind_scope(scope: Dictionary, architecture: GFArchitecture, lifecycle_serial: int = -1) -> void:
 	if architecture == null:
 		_release_scope(scope)
 		return
 
+	var previous_architecture: GFArchitecture = _get_bound_architecture_or_null(scope)
 	scope["was_bound"] = true
 	scope["released"] = false
 	scope["architecture_ref"] = weakref(architecture)
+	if lifecycle_serial >= 0:
+		scope["lifecycle_serial"] = lifecycle_serial
+	elif previous_architecture != architecture:
+		scope["lifecycle_serial"] = -1
 
 
 static func _release_scope(scope: Dictionary) -> void:
 	scope["architecture_ref"] = null
+	scope["lifecycle_serial"] = -1
 	if _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(scope, "was_bound"):
 		scope["released"] = true
 
@@ -45,6 +52,8 @@ static func _get_architecture_or_null(scope: Dictionary, owner_label: String) ->
 	if architecture_ref != null:
 		var architecture: GFArchitecture = _get_architecture_from_ref_or_null(architecture_ref)
 		if architecture != null:
+			if not _is_scope_lifecycle_current(scope, architecture):
+				return null
 			return architecture
 		if _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(scope, "was_bound"):
 			push_error("[%s] 注入的架构已失效，无法回退到全局架构。" % owner_label)
@@ -69,6 +78,18 @@ static func _get_bound_architecture_or_null(scope: Dictionary) -> GFArchitecture
 	if architecture_ref == null:
 		return null
 	return _get_architecture_from_ref_or_null(architecture_ref)
+
+
+static func _is_lifecycle_active(scope: Dictionary, owner_label: String) -> bool:
+	var architecture: GFArchitecture = _get_architecture_or_null(scope, owner_label)
+	return architecture != null and architecture.is_lifecycle_active()
+
+
+static func _is_scope_lifecycle_current(scope: Dictionary, architecture: GFArchitecture) -> bool:
+	var lifecycle_serial: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(scope, "lifecycle_serial", -1)
+	if lifecycle_serial < 0:
+		return true
+	return architecture.is_lifecycle_generation_active(lifecycle_serial)
 
 
 static func _get_scope_architecture_ref_or_null(scope: Dictionary) -> WeakRef:

@@ -316,7 +316,7 @@ func unregister_event(event_type: Script, callback: Callable) -> void:
 	if not _unregister_event_from_tracked_architectures(event_type, callback):
 		var architecture: GFArchitecture = _get_architecture_or_null()
 		if architecture != null:
-			architecture.unregister_event(event_type, callback)
+			architecture.unregister_event_owned(self, event_type, callback)
 
 
 ## 注册可赋值类型事件监听器。
@@ -350,7 +350,7 @@ func unregister_assignable_event(base_event_type: Script, callback: Callable) ->
 	if not _unregister_assignable_event_from_tracked_architectures(base_event_type, callback):
 		var architecture: GFArchitecture = _get_architecture_or_null()
 		if architecture != null:
-			architecture.unregister_assignable_event(base_event_type, callback)
+			architecture.unregister_assignable_event_owned(self, base_event_type, callback)
 
 
 ## 通过事件系统发送类型事件。
@@ -393,7 +393,7 @@ func unregister_simple_event(event_id: StringName, callback: Callable) -> void:
 	if not _unregister_simple_event_from_tracked_architectures(event_id, callback):
 		var architecture: GFArchitecture = _get_architecture_or_null()
 		if architecture != null:
-			architecture.unregister_simple_event(event_id, callback)
+			architecture.unregister_simple_event_owned(self, event_id, callback)
 
 
 ## 发送轻量级 StringName 事件，避免高频 new() 带来的 GC 压力。
@@ -523,7 +523,7 @@ func _unregister_event_from_tracked_architectures(event_type: Script, callback: 
 	var handled: bool = false
 	for architecture: GFArchitecture in _event_architectures:
 		if architecture != null and is_instance_valid(architecture):
-			architecture.unregister_event(event_type, callback)
+			architecture.unregister_event_owned(self, event_type, callback)
 			handled = true
 	return handled
 
@@ -535,7 +535,7 @@ func _unregister_assignable_event_from_tracked_architectures(
 	var handled: bool = false
 	for architecture: GFArchitecture in _event_architectures:
 		if architecture != null and is_instance_valid(architecture):
-			architecture.unregister_assignable_event(base_event_type, callback)
+			architecture.unregister_assignable_event_owned(self, base_event_type, callback)
 			handled = true
 	return handled
 
@@ -544,7 +544,7 @@ func _unregister_simple_event_from_tracked_architectures(event_id: StringName, c
 	var handled: bool = false
 	for architecture: GFArchitecture in _event_architectures:
 		if architecture != null and is_instance_valid(architecture):
-			architecture.unregister_simple_event(event_id, callback)
+			architecture.unregister_simple_event_owned(self, event_id, callback)
 			handled = true
 	return handled
 

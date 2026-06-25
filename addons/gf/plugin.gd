@@ -49,6 +49,13 @@ const GFPluginMenu = preload("res://addons/gf/kernel/editor/gf_plugin_menu.gd")
 ## @layer plugin
 const GFPluginDockTools = preload("res://addons/gf/kernel/editor/gf_plugin_dock_tools.gd")
 
+## Debugger 插件管理辅助脚本。
+## [br]
+## @api framework_internal
+## [br]
+## @layer plugin
+const GFPluginDebuggerTools = preload("res://addons/gf/kernel/editor/gf_plugin_debugger_tools.gd")
+
 ## 导入插件管理辅助脚本。
 ## [br]
 ## @api framework_internal
@@ -84,6 +91,7 @@ var _inspector_tools: GFPluginInspectorTools
 var _actions: GFPluginActions
 var _menu: GFPluginMenu
 var _dock_tools: GFPluginDockTools
+var _debugger_tools: GFPluginDebuggerTools
 var _import_tools: GFPluginImportTools
 var _preview_tools: GFPluginPreviewTools
 var _gltf_document_tools: GFPluginGltfDocumentTools
@@ -102,14 +110,12 @@ func _enter_tree() -> void:
 	_inspector_tools = GFPluginInspectorTools.new()
 	_inspector_tools.setup(self, _standard_editor_extension_records)
 
-	_actions = GFPluginActions.new()
-	_actions.setup(_get_record_array(_standard_editor_extension_records, "template_records"))
-	var _workspace_requested_connected: int = Signal(_actions, &"workspace_requested").connect(_on_workspace_requested)
-
-	_menu = GFPluginMenu.new()
-	_menu.setup(self, Callable(_actions, "handle_menu_id"), _actions.get_menu_entries())
+	_setup_actions_and_menu()
 
 	_dock_tools = GFPluginDockTools.new()
+	_debugger_tools = GFPluginDebuggerTools.new()
+	_debugger_tools.setup(self, _standard_editor_extension_records)
+
 	_import_tools = GFPluginImportTools.new()
 	_import_tools.setup(self)
 	_preview_tools = GFPluginPreviewTools.new()
@@ -127,6 +133,9 @@ func _exit_tree() -> void:
 	if _dock_tools != null:
 		_dock_tools.cleanup(self)
 		_dock_tools = null
+	if _debugger_tools != null:
+		_debugger_tools.cleanup(self)
+		_debugger_tools = null
 	if _import_tools != null:
 		_import_tools.cleanup(self)
 		_import_tools = null
@@ -158,12 +167,75 @@ func _setup_dock_tools() -> void:
 	_dock_tools.setup(self, dock_records)
 
 
+func _setup_actions_and_menu() -> void:
+	if _actions == null:
+		_actions = GFPluginActions.new()
+	_actions.setup(_get_record_array(_standard_editor_extension_records, "template_records"))
+	_connect_action_signals()
+
+	if _menu == null:
+		_menu = GFPluginMenu.new()
+	else:
+		_menu.cleanup(self)
+	_menu.setup(self, Callable(_actions, "handle_menu_id"), _actions.get_menu_entries())
+
+
+func _connect_action_signals() -> void:
+	if _actions == null:
+		return
+
+	var workspace_callable: Callable = Callable(self, "_on_workspace_requested")
+	var workspace_signal: Signal = Signal(_actions, &"workspace_requested")
+	if not workspace_signal.is_connected(workspace_callable):
+		var _workspace_requested_connected: int = workspace_signal.connect(workspace_callable)
+
+	var refresh_callable: Callable = Callable(self, "_on_editor_contributions_refresh_requested")
+	var refresh_signal: Signal = Signal(_actions, &"editor_contributions_refresh_requested")
+	if not refresh_signal.is_connected(refresh_callable):
+		var _refresh_requested_connected: int = refresh_signal.connect(refresh_callable)
+
+
+func _refresh_editor_contributions() -> void:
+	if not _plugin_active:
+		return
+
+	_scan_editor_filesystem()
+	_standard_editor_extension_records = _collect_standard_editor_extension_records()
+	GFPluginProjectSettings.ensure_all(_get_record_array(_standard_editor_extension_records, "project_setting_records"))
+
+	if _inspector_tools != null:
+		_inspector_tools.cleanup(self)
+		_inspector_tools.setup(self, _standard_editor_extension_records)
+
+	_setup_actions_and_menu()
+
+	if _debugger_tools != null:
+		_debugger_tools.cleanup(self)
+		_debugger_tools.setup(self, _standard_editor_extension_records)
+
+	if _dock_tools != null:
+		var dock_records: Array[Dictionary] = []
+		dock_records.assign(_get_record_array(_standard_editor_extension_records, "dock_records"))
+		_dock_tools.setup(self, dock_records)
+
+	print("[GF Framework] 已刷新 GF 编辑器贡献记录。")
+
+
+func _scan_editor_filesystem() -> void:
+	if not Engine.is_editor_hint():
+		return
+	var filesystem: EditorFileSystem = EditorInterface.get_resource_filesystem()
+	if filesystem != null:
+		filesystem.scan()
+
+
 func _collect_standard_editor_extension_records() -> Dictionary:
 	var standard_editor_script: Script = _load_optional_script(STANDARD_EDITOR_EXTENSIONS_SCRIPT_PATH)
 	if standard_editor_script == null:
 		return {
 			"inspector_plugin_records": [],
 			"export_plugin_records": [],
+			"debugger_plugin_records": [],
 			"dock_records": [],
 			"template_records": [],
 			"project_setting_records": [],
@@ -171,6 +243,7 @@ func _collect_standard_editor_extension_records() -> Dictionary:
 	return {
 		"inspector_plugin_records": _call_record_array(standard_editor_script, &"get_inspector_plugin_records"),
 		"export_plugin_records": _call_record_array(standard_editor_script, &"get_export_plugin_records"),
+		"debugger_plugin_records": _call_record_array(standard_editor_script, &"get_debugger_plugin_records"),
 		"dock_records": _call_record_array(standard_editor_script, &"get_dock_records"),
 		"template_records": _call_record_array(standard_editor_script, &"get_template_records"),
 		"project_setting_records": _call_record_array(standard_editor_script, &"get_project_setting_records"),
@@ -220,3 +293,7 @@ func _get_record_array(records: Dictionary, key: String) -> Array[Dictionary]:
 func _on_workspace_requested() -> void:
 	if _dock_tools != null:
 		_dock_tools.show_workspace()
+
+
+func _on_editor_contributions_refresh_requested() -> void:
+	call_deferred("_refresh_editor_contributions")

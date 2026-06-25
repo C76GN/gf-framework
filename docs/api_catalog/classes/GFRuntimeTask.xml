@@ -1,0 +1,226 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFRuntimeTask" path="addons/gf/standard/sequence/gf_runtime_task.gd" module="standard" extends="RefCounted" classDigest="f1662116a9c20449b495ed5407d80af1cd0bd269d7e84c93fbd698d532b548dd">
+	<description>可被运行时调度器管理的通用任务协议。
+Runtime task 用于描述“占用一组运行时对象并按帧推进”的行为单元，例如角色默认状态、
+临时交互、工具模式或项目自定义流程。任务只声明依赖、生命周期和完成条件，不解释业务含义。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">protocol</tag>
+		<tag name="since">6.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties>
+		<member kind="property" name="task_id">
+			<signature>var task_id: StringName = &amp;""</signature>
+			<description>调试和诊断用任务标识。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="category">state</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="requirements">
+			<signature>var requirements: Array[Object] = []</signature>
+			<description>此任务占用的运行时对象。
+相同 requirement 同一时间只能被一个任务占用。调度器会忽略已经释放的对象。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="category">state</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="interruptible">
+			<signature>var interruptible: bool = true</signature>
+			<description>当其他任务请求相同 requirement 时，当前任务是否允许被中断。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="category">state</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="_init">
+			<signature>func _init(p_requirements: Array[Object] = [], p_interruptible: bool = true) -&gt; void:</signature>
+			<description>创建运行时任务。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="category">lifecycle</tag>
+				<tag name="param">p_requirements: 初始占用对象列表。</tag>
+				<tag name="param">p_interruptible: 任务是否允许被其他任务中断。</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="set_requirements">
+			<signature>func set_requirements(next_requirements: Array[Object]) -&gt; GFRuntimeTask:</signature>
+			<description>替换任务占用对象列表。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="category">config</tag>
+				<tag name="param">next_requirements: 新的占用对象列表。</tag>
+				<tag name="return">当前任务。</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="add_requirement">
+			<signature>func add_requirement(requirement: Object) -&gt; GFRuntimeTask:</signature>
+			<description>添加一个占用对象。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="category">config</tag>
+				<tag name="param">requirement: 要添加的占用对象。</tag>
+				<tag name="return">当前任务。</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="remove_requirement">
+			<signature>func remove_requirement(requirement: Object) -&gt; bool:</signature>
+			<description>移除一个占用对象。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="category">config</tag>
+				<tag name="param">requirement: 要移除的占用对象。</tag>
+				<tag name="return">成功移除时返回 true。</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="clear_requirements">
+			<signature>func clear_requirements() -&gt; void:</signature>
+			<description>清空占用对象列表。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="category">config</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_requirements">
+			<signature>func get_requirements() -&gt; Array[Object]:</signature>
+			<description>返回仍然有效的占用对象副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="category">query</tag>
+				<tag name="return">仍然有效的占用对象副本。</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="has_requirement">
+			<signature>func has_requirement(requirement: Object) -&gt; bool:</signature>
+			<description>判断任务是否占用指定对象。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="category">query</tag>
+				<tag name="param">requirement: 要检查的占用对象。</tag>
+				<tag name="return">任务占用该对象时返回 true。</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="set_interruptible">
+			<signature>func set_interruptible(value: bool) -&gt; GFRuntimeTask:</signature>
+			<description>设置任务是否可中断。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="category">config</tag>
+				<tag name="param">value: 是否允许被中断。</tag>
+				<tag name="return">当前任务。</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_interruptible">
+			<signature>func is_interruptible() -&gt; bool:</signature>
+			<description>判断任务是否可中断。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="category">query</tag>
+				<tag name="return">任务允许被中断时返回 true。</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_scheduled">
+			<signature>func is_scheduled() -&gt; bool:</signature>
+			<description>判断任务是否已经进入调度器。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="category">query</tag>
+				<tag name="return">任务已经进入调度器时返回 true。</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="has_initialized">
+			<signature>func has_initialized() -&gt; bool:</signature>
+			<description>判断任务本轮调度是否已经初始化。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="category">query</tag>
+				<tag name="return">本轮调度已经完成初始化时返回 true。</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="initialize">
+			<signature>func initialize(_scheduler: GFRuntimeTaskScheduler) -&gt; void:</signature>
+			<description>初始化任务。
+调度器会在第一次推进任务前调用此方法。子类可在此读取架构、准备本轮状态或发出开始事件。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="category">lifecycle</tag>
+				<tag name="param">_scheduler: 当前调度器。</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="tick">
+			<signature>func tick(_delta: float) -&gt; void:</signature>
+			<description>按帧推进任务。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="category">lifecycle</tag>
+				<tag name="param">_delta: 帧间隔秒数。</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="physics_tick">
+			<signature>func physics_tick(_delta: float) -&gt; void:</signature>
+			<description>按物理帧推进任务。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="category">lifecycle</tag>
+				<tag name="param">_delta: 物理帧间隔秒数。</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_finished">
+			<signature>func is_finished() -&gt; bool:</signature>
+			<description>判断任务是否已经完成。
+默认任务会在初始化后的第一次检查中完成。需要跨帧运行的任务应重写此方法。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="category">lifecycle</tag>
+				<tag name="return">任务已完成时返回 true。</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="end">
+			<signature>func end(_interrupted: bool) -&gt; void:</signature>
+			<description>结束任务。
+[param interrupted] 为 [code]true[/code] 时表示任务被其他任务或调度器取消。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="category">lifecycle</tag>
+				<tag name="param">_interrupted: 为 true 时表示任务被其他任务或调度器取消。</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_debug_snapshot">
+			<signature>func get_debug_snapshot() -&gt; Dictionary:</signature>
+			<description>返回任务诊断快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="category">diagnostics</tag>
+				<tag name="return">任务诊断快照。</tag>
+				<tag name="schema">return: Dictionary with task_id, interruptible, scheduled, initialized, and requirement_ids.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

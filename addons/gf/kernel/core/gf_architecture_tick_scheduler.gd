@@ -29,6 +29,8 @@ var _tick_systems: Array[GFArchitectureTickRecord] = []
 var _physics_systems: Array[GFArchitectureTickRecord] = []
 var _tick_utilities: Array[GFArchitectureTickRecord] = []
 var _physics_utilities: Array[GFArchitectureTickRecord] = []
+var _tick_records: Array[GFArchitectureTickRecord] = []
+var _physics_records: Array[GFArchitectureTickRecord] = []
 var _is_iterating_tick_caches: bool = false
 var _tick_caches_dirty: bool = false
 
@@ -92,7 +94,7 @@ func refresh() -> void:
 func drive_tick(delta: float, time_provider: Object) -> void:
 	var scaled_delta: float = _get_scaled_delta(delta, time_provider)
 	var time_paused: bool = _is_time_paused(time_provider)
-	_drive_record_sets(_tick_systems, _tick_utilities, delta, scaled_delta, time_paused)
+	_drive_records(_tick_records, delta, scaled_delta, time_paused)
 
 
 ## 驱动所有参与 physics_tick 的 System 与 Utility。
@@ -167,23 +169,19 @@ func get_module_debug_fields(instance: Object) -> Dictionary:
 
 func _drive_physics_tick_step(raw_delta: float, scaled_delta: float, time_provider: Object) -> void:
 	var time_paused: bool = _is_time_paused(time_provider)
-	_drive_record_sets(_physics_systems, _physics_utilities, raw_delta, scaled_delta, time_paused)
+	_drive_records(_physics_records, raw_delta, scaled_delta, time_paused)
 
 
-func _drive_record_sets(
-	system_records: Array[GFArchitectureTickRecord],
-	utility_records: Array[GFArchitectureTickRecord],
+func _drive_records(
+	records: Array[GFArchitectureTickRecord],
 	raw_delta: float,
 	scaled_delta: float,
 	time_paused: bool
 ) -> void:
 	_is_iterating_tick_caches = true
-	for system_record: GFArchitectureTickRecord in system_records:
-		if _is_tick_record_ready_for_tick(system_record):
-			system_record.invoke(raw_delta, scaled_delta, time_paused)
-	for utility_record: GFArchitectureTickRecord in utility_records:
-		if _is_tick_record_ready_for_tick(utility_record):
-			utility_record.invoke(raw_delta, scaled_delta, time_paused)
+	for record: GFArchitectureTickRecord in records:
+		if _is_tick_record_ready_for_tick(record):
+			record.invoke(raw_delta, scaled_delta, time_paused)
 	_is_iterating_tick_caches = false
 	_flush_tick_cache_refresh()
 
@@ -205,56 +203,62 @@ func _rebuild_tick_caches() -> void:
 	_physics_systems.clear()
 	_tick_utilities.clear()
 	_physics_utilities.clear()
+	_tick_records.clear()
+	_physics_records.clear()
 	_tick_caches_dirty = false
 
-	var system_tick_order: int = 0
-	var system_physics_order: int = 0
+	var tick_order: int = 0
+	var physics_order: int = 0
 	for system: Object in _systems.values():
 		var system_tick_record: GFArchitectureTickRecord = _make_tick_record(
 			system,
 			&"tick",
 			&"tick_enabled",
 			&"tick_priority",
-			system_tick_order
+			tick_order
 		)
 		if system_tick_record != null:
 			_tick_systems.append(system_tick_record)
-			system_tick_order += 1
+			_tick_records.append(system_tick_record)
+			tick_order += 1
 		var system_physics_record: GFArchitectureTickRecord = _make_tick_record(
 			system,
 			&"physics_tick",
 			&"physics_tick_enabled",
 			&"physics_tick_priority",
-			system_physics_order
+			physics_order
 		)
 		if system_physics_record != null:
 			_physics_systems.append(system_physics_record)
-			system_physics_order += 1
+			_physics_records.append(system_physics_record)
+			physics_order += 1
 
-	var utility_tick_order: int = 0
-	var utility_physics_order: int = 0
 	for utility: Object in _utilities.values():
 		var utility_tick_record: GFArchitectureTickRecord = _make_tick_record(
 			utility,
 			&"tick",
 			&"tick_enabled",
 			&"tick_priority",
-			utility_tick_order
+			tick_order
 		)
 		if utility_tick_record != null:
 			_tick_utilities.append(utility_tick_record)
-			utility_tick_order += 1
+			_tick_records.append(utility_tick_record)
+			tick_order += 1
 		var utility_physics_record: GFArchitectureTickRecord = _make_tick_record(
 			utility,
 			&"physics_tick",
 			&"physics_tick_enabled",
 			&"physics_tick_priority",
-			utility_physics_order
+			physics_order
 		)
 		if utility_physics_record != null:
 			_physics_utilities.append(utility_physics_record)
-			utility_physics_order += 1
+			_physics_records.append(utility_physics_record)
+			physics_order += 1
 
+	_sort_tick_records_for_tick(_tick_records)
+	_sort_tick_records_for_tick(_physics_records)
 	_sort_tick_records_for_tick(_tick_systems)
 	_sort_tick_records_for_tick(_physics_systems)
 	_sort_tick_records_for_tick(_tick_utilities)

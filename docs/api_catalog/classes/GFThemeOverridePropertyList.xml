@@ -1,0 +1,183 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFThemeOverridePropertyList" path="addons/gf/standard/utilities/ui/gf_theme_override_property_list.gd" module="standard" extends="RefCounted" classDigest="20008ed94f10fe847acb57b4a3da57c1f9f2221090ea56ef16a08d5889912e07">
+	<description>GFThemeOverridePropertyList: Control 主题覆盖属性列表构建器。
+帮助自定义 Control 把一组主题覆盖项暴露到 Inspector。它只生成 Godot 属性列表
+与 revert 信息，不规定控件外观、主题命名或业务语义。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">editor_api</tag>
+		<tag name="since">6.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants>
+		<member kind="const" name="KEY_NAME">
+			<signature>const KEY_NAME: String = "name"</signature>
+			<description>定义字段：主题项名称。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="KEY_DATA_TYPE">
+			<signature>const KEY_DATA_TYPE: String = "data_type"</signature>
+			<description>定义字段：Theme.DataType。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="KEY_HINT">
+			<signature>const KEY_HINT: String = "hint"</signature>
+			<description>定义字段：可选 hint。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="KEY_HINT_STRING">
+			<signature>const KEY_HINT_STRING: String = "hint_string"</signature>
+			<description>定义字段：可选 hint_string。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties />
+	<methods>
+		<member kind="method" name="make_definition">
+			<signature>static func make_definition(override_name: StringName, data_type: int, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>创建主题覆盖定义。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">override_name: 主题项名称。</tag>
+				<tag name="param">data_type: Theme.DataType 值。</tag>
+				<tag name="param">options: 可选 hint/hint_string。</tag>
+				<tag name="return">定义字典。</tag>
+				<tag name="schema">options: Dictionary with optional hint and hint_string.</tag>
+				<tag name="schema">return: Dictionary theme override definition.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="make_property_list">
+			<signature>static func make_property_list( control: Control, definitions: Array, options: Dictionary = {} ) -&gt; Array[Dictionary]:</signature>
+			<description>构建 Inspector 属性列表。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">control: 目标 Control；用于判断当前 override 是否需要 storage usage。</tag>
+				<tag name="param">definitions: 主题覆盖定义列表。</tag>
+				<tag name="param">options: 可选参数，支持 group_prefix。</tag>
+				<tag name="return">Godot _get_property_list() 可返回的属性列表。</tag>
+				<tag name="schema">definitions: Array[Dictionary] created by make_definition() or compatible dictionaries.</tag>
+				<tag name="schema">options: Dictionary with optional `group_prefix: String`.</tag>
+				<tag name="schema">return: Array[Dictionary] property list entries.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_property_path">
+			<signature>static func get_property_path(definition: Dictionary) -&gt; String:</signature>
+			<description>获取定义对应的 Control 属性路径。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">definition: 主题覆盖定义。</tag>
+				<tag name="return">形如 theme_override_colors/accent 的属性路径。</tag>
+				<tag name="schema">definition: Dictionary theme override definition.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="has_property_path">
+			<signature>static func has_property_path(property_path: StringName, definitions: Array) -&gt; bool:</signature>
+			<description>检查属性是否由定义列表声明。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">property_path: Control 属性路径。</tag>
+				<tag name="param">definitions: 主题覆盖定义列表。</tag>
+				<tag name="return">存在返回 true。</tag>
+				<tag name="schema">definitions: Array[Dictionary] theme override definitions.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="can_revert">
+			<signature>static func can_revert(property_path: StringName, definitions: Array) -&gt; bool:</signature>
+			<description>判断属性是否可以 revert。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">property_path: Control 属性路径。</tag>
+				<tag name="param">definitions: 主题覆盖定义列表。</tag>
+				<tag name="return">由定义声明时返回 true。</tag>
+				<tag name="schema">definitions: Array[Dictionary] theme override definitions.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_revert_value">
+			<signature>static func get_revert_value(_property_path: StringName) -&gt; Variant:</signature>
+			<description>获取主题覆盖属性的 revert 值。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">_property_path: Control 属性路径。</tag>
+				<tag name="return">Godot theme override 的默认空值。</tag>
+				<tag name="schema">return: null clears the override.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="collect_override_values">
+			<signature>static func collect_override_values( control: Control, definitions: Array, options: Dictionary = {} ) -&gt; Dictionary:</signature>
+			<description>收集控件当前已设置的主题覆盖值。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">control: 目标 Control。</tag>
+				<tag name="param">definitions: 主题覆盖定义列表。</tag>
+				<tag name="param">options: 可选参数，支持 include_null、copy_values、duplicate_resources。</tag>
+				<tag name="return">以属性路径为键的覆盖值字典。</tag>
+				<tag name="schema">definitions: Array[Dictionary] created by make_definition() or compatible dictionaries.</tag>
+				<tag name="schema">options: Dictionary with optional include_null: bool, copy_values: bool, duplicate_resources: bool.</tag>
+				<tag name="schema">return: Dictionary[String, Variant] mapping theme override property paths to values.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="clear_overrides">
+			<signature>static func clear_overrides(control: Control, definitions: Array) -&gt; Dictionary:</signature>
+			<description>清空控件上由定义列表声明的主题覆盖。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">control: 目标 Control。</tag>
+				<tag name="param">definitions: 主题覆盖定义列表。</tag>
+				<tag name="return">清空报告。</tag>
+				<tag name="schema">definitions: Array[Dictionary] created by make_definition() or compatible dictionaries.</tag>
+				<tag name="schema">return: Dictionary { ok: bool, cleared_count: int, skipped_count: int, issues: Array[Dictionary] }.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="make_theme_from_control">
+			<signature>static func make_theme_from_control( control: Control, definitions: Array, theme_type: StringName = &amp;"", options: Dictionary = {} ) -&gt; Theme:</signature>
+			<description>从控件当前主题覆盖创建 Theme。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">control: 目标 Control。</tag>
+				<tag name="param">definitions: 主题覆盖定义列表。</tag>
+				<tag name="param">theme_type: Theme 类型名；为空时使用 control.get_class()。</tag>
+				<tag name="param">options: 透传给 collect_override_values()。</tag>
+				<tag name="return">新建 Theme，包含定义列表中已设置的有效覆盖值。</tag>
+				<tag name="schema">definitions: Array[Dictionary] created by make_definition() or compatible dictionaries.</tag>
+				<tag name="schema">options: Dictionary with optional include_null: bool, copy_values: bool, duplicate_resources: bool.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="make_theme_from_values">
+			<signature>static func make_theme_from_values( definitions: Array, values: Dictionary, theme_type: StringName ) -&gt; Theme:</signature>
+			<description>从已收集的主题覆盖值创建 Theme。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">definitions: 主题覆盖定义列表。</tag>
+				<tag name="param">values: 以属性路径为键的覆盖值字典。</tag>
+				<tag name="param">theme_type: Theme 类型名。</tag>
+				<tag name="return">新建 Theme，包含定义列表中已设置的有效覆盖值。</tag>
+				<tag name="schema">definitions: Array[Dictionary] created by make_definition() or compatible dictionaries.</tag>
+				<tag name="schema">values: Dictionary[String, Variant] mapping theme override property paths to values.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFCapabilityUtility" path="addons/gf/extensions/capability/core/gf_capability_utility.gd" module="extensions/capability" extends="GFUtility" classDigest="624730b692513572a863012dafa21d5af4908155e70737aba0d28240c5504ae8">
+<class name="GFCapabilityUtility" path="addons/gf/extensions/capability/core/gf_capability_utility.gd" module="extensions/capability" extends="GFUtility" classDigest="89cc2aa1166aab402672a0a03ae6c88dfe8e195008b2a273b1c6e90f92fe9c63">
 	<description>GFCapabilityUtility: 对象能力组件管理器。
 提供面向任意 Object / Node 的能力挂载、查询、移除、启停、索引查询与依赖补齐能力。
 能力组合是可选扩展，不改变核心分层容器。</description>
@@ -166,6 +166,49 @@
 				<tag name="param">include_subclasses: 为 true 时同时匹配指定能力的子类能力。</tag>
 				<tag name="return">当前拥有该能力的 receiver 列表。</tag>
 				<tag name="schema">return: Array[Object]，元素为当前仍有效的能力接收对象。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_receivers_matching_capabilities">
+			<signature>func get_receivers_matching_capabilities( required_capability_types: Array[Script] = [], rejected_capability_types: Array[Script] = [], include_subclasses: bool = true, group_name: StringName = &amp;"" ) -&gt; Array[Object]:</signature>
+			<description>获取同时满足多个能力条件的 receiver。
+receiver 必须拥有 required_capability_types 中的所有能力，
+且不能拥有 rejected_capability_types 中的任意能力。
+required_capability_types 为空时，会从当前已索引 receiver 或指定分组中筛选。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">required_capability_types: 必须拥有的能力脚本类型列表。</tag>
+				<tag name="param">rejected_capability_types: 必须排除的能力脚本类型列表。</tag>
+				<tag name="param">include_subclasses: 为 true 时 required/rejected 都同时匹配指定类型的子类。</tag>
+				<tag name="param">group_name: 可选能力组名称；非空时只在该分组内筛选。</tag>
+				<tag name="return">当前仍有效且满足条件的 receiver 列表。</tag>
+				<tag name="schema">required_capability_types: Array[Script]，元素为必须拥有的能力脚本类型。</tag>
+				<tag name="schema">rejected_capability_types: Array[Script]，元素为必须排除的能力脚本类型。</tag>
+				<tag name="schema">return: Array[Object]，元素为当前仍有效的能力接收对象。</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_receivers_matching_query">
+			<signature>func get_receivers_matching_query(query: GFCapabilityQuery) -&gt; Array[Object]:</signature>
+			<description>使用资源化查询条件获取 receiver。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">query: 能力查询资源。</tag>
+				<tag name="return">当前仍有效且满足条件的 receiver 列表。</tag>
+				<tag name="schema">query: GFCapabilityQuery resource，包含 required_capability_types、rejected_capability_types、include_subclasses 和 group_name。</tag>
+				<tag name="schema">return: Array[Object]，元素为当前仍有效的能力接收对象。</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="receiver_matches_query">
+			<signature>func receiver_matches_query(receiver: Object, query: GFCapabilityQuery) -&gt; bool:</signature>
+			<description>判断指定 receiver 是否满足资源化查询条件。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">receiver: 要检查的能力接收对象。</tag>
+				<tag name="param">query: 能力查询资源。</tag>
+				<tag name="return">receiver 当前有效且满足查询时返回 true。</tag>
+				<tag name="schema">query: GFCapabilityQuery resource，包含 required_capability_types、rejected_capability_types、include_subclasses 和 group_name。</tag>
+				<tag name="since">6.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="prune_invalid_receivers">

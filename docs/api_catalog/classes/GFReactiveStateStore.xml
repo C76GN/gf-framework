@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFReactiveStateStore" path="addons/gf/standard/utilities/state/gf_reactive_state_store.gd" module="standard" extends="RefCounted" classDigest="6d6f8443296cc33bb53b74e5ba4273cbfde3f62d6df9ce17ec7f755230dac2bf">
+<class name="GFReactiveStateStore" path="addons/gf/standard/utilities/state/gf_reactive_state_store.gd" module="standard" extends="RefCounted" classDigest="77530581db4e0699c336829332880eceda871a83b9af6ca202f954cf50c27779">
 	<description>GFReactiveStateStore: 运行时 Dictionary 状态树与路径订阅容器。
 管理一份纯 Variant Dictionary 状态，提供路径读写、批量 dirty 派发、
 路径订阅和 owner 生命周期清理。它不定义业务字段含义，也不替代
@@ -113,10 +113,10 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">new_state: 新状态字典。</tag>
-				<tag name="param">options: 可选项。支持 copy_values。</tag>
+				<tag name="param">options: 可选项。支持 copy_values、max_changes。</tag>
 				<tag name="return">状态发生变化时返回 true。</tag>
 				<tag name="schema">new_state: Dictionary，新状态会被深拷贝保存。</tag>
-				<tag name="schema">options: Dictionary，可选字段 copy_values 默认为 true。</tag>
+				<tag name="schema">options: Dictionary，可选字段 copy_values 默认为 true，max_changes 控制路径级 diff 上限；diff 截断时会发根级 state_replaced 变更。</tag>
 				<tag name="since">5.0.0</tag>
 			</tags>
 		</member>

@@ -20,6 +20,22 @@ GF 会注册一个通用 Resource 预览生成器。资源可以通过 `get_gf_p
 
 GF 也会为 `String` 类型且带有可识别 `@export_file()` 资源 hint 的字段提供 ResourcePicker。例如 `@export_file("*.tscn") var scene_path: String` 会显示场景资源选择器，保存时优先写入 `uid://`，资源没有 UID 时回退到 `res://`。当字段当前值是 `uid://` 时，Inspector 会显示解析后的 `res://` 路径；路径缺失、UID 无效或类型不匹配时会在字段下方显示状态提示。普通文本文件路径、未识别扩展名和非 String 字段不会被接管。
 
+需要用资源类型而不是扩展名声明单个路径时，可以使用 `GFResourcePathHint.RESOURCE_PATH`：
+
+```gdscript
+@export_custom(GFResourcePathHint.RESOURCE_PATH, "Texture2D")
+var icon_path: String = ""
+```
+
+资源路径列表可以显式使用 `GFResourcePathHint.RESOURCE_PATH_ARRAY`。编辑器会为 `Array[String]` 和 `PackedStringArray` 提供按行选择、排序、移除和状态提示，并沿用单值路径字段的 `uid://` 写入策略：
+
+```gdscript
+@export_custom(GFResourcePathHint.RESOURCE_PATH_ARRAY, "PackedScene")
+var preload_scene_paths: PackedStringArray = []
+```
+
+数组字段必须显式使用 GF hint，避免普通字符串数组被 Inspector 误判为资源路径列表。`hint_string` 可以写 Godot 资源类名，例如 `PackedScene`、`Texture2D`、`AudioStream`，为空时按通用 `Resource` 处理。
+
 ## 扩展贡献
 
 GF 内置扩展或外部扩展的编辑器增强由各自 manifest 声明：

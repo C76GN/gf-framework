@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFInputBinding" path="addons/gf/standard/input/mapping/gf_input_binding.gd" module="standard" extends="Resource" classDigest="1ba02c6de59c59507e7e7ad6987eb4a3443177003886dcc674fd7ceb019dea0a">
+<class name="GFInputBinding" path="addons/gf/standard/input/mapping/gf_input_binding.gd" module="standard" extends="Resource" classDigest="b8b24fa992fcdd15736a29eccb51887fb823aea1e78cb3d57cbf5cef44e9064e">
 	<description>GFInputBinding: 把一个 Godot 输入事件映射到动作值贡献。
 该资源只描述输入来源和数值方向，实际动作归属由 GFInputMapping 决定。</description>
 	<tags>
@@ -85,9 +85,11 @@
 		</member>
 		<member kind="property" name="match_device" decorators="@export">
 			<signature>var match_device: bool = false</signature>
-			<description>是否按设备 ID 精确匹配。关闭时同类按键、鼠标按钮或手柄按钮可跨设备匹配。</description>
+			<description>是否按设备 ID 精确匹配。关闭时同类按键、鼠标按钮或手柄按钮可跨设备匹配。
+旧资源中的键鼠设备 ID 0 会兼容 Godot 4.7 的键鼠设备 ID。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="match_touch_index" decorators="@export">

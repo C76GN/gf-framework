@@ -224,6 +224,23 @@ func test_diagnostics_monitor_registry_collects_custom_monitor() -> void:
 	assert_true("Value" in exported_text, "文本导出应包含监控标签。")
 
 
+func test_diagnostics_debugger_bridge_state_and_catalog_are_available() -> void:
+	var diagnostics: GFDiagnosticsUtility = GFDiagnosticsUtility.new()
+	diagnostics.init()
+
+	var bridge_state: Dictionary = diagnostics.get_debugger_bridge_state()
+	var catalog_value: Variant = diagnostics.call("_make_debugger_catalog")
+	var catalog: Dictionary = GFVariantData.as_dictionary(catalog_value)
+	var commands: Dictionary = GFVariantData.get_option_dictionary(catalog, "commands")
+	var monitors: Dictionary = GFVariantData.get_option_dictionary(catalog, "monitors")
+
+	assert_eq(GFVariantData.get_option_string_name(bridge_state, "capture_name"), GFDiagnosticsUtility.DEBUGGER_CAPTURE_NAME, "Debugger bridge 应暴露稳定 capture 名称。")
+	assert_true(commands.has(&"diagnostics.snapshot"), "Debugger catalog 应包含内置快照命令。")
+	assert_true(monitors.has(&"performance.fps"), "Debugger catalog 应包含内置性能监控。")
+
+	diagnostics.dispose()
+
+
 func test_diagnostics_collects_external_snapshot_providers() -> void:
 	var diagnostics: GFDiagnosticsUtility = GFDiagnosticsUtility.new()
 	diagnostics.init()

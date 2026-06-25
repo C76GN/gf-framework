@@ -252,14 +252,14 @@ func set_state(new_state: Dictionary, options: Dictionary = {}) -> bool:
 | 名称 | 说明 |
 |---|---|
 | `new_state` | 新状态字典。 |
-| `options` | 可选项。支持 copy_values。 |
+| `options` | 可选项。支持 copy_values、max_changes。 |
 
 返回：状态发生变化时返回 true。
 
 结构：
 
 - `new_state`: Dictionary，新状态会被深拷贝保存。
-- `options`: Dictionary，可选字段 copy_values 默认为 true。
+- `options`: Dictionary，可选字段 copy_values 默认为 true，max_changes 控制路径级 diff 上限；diff 截断时会发根级 state_replaced 变更。
 
 <a id="member-gfreactivestatestore-methods-get_value"></a>
 

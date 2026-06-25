@@ -16,6 +16,8 @@
 - `tools/gf_maintenance.py path-hygiene` 必须同时扫描 tracked 文件和未跟踪但未忽略的文件，避免新增文件绕过大小写冲突、缓存目录和路径卫生检查；GitHub workflow 使用本地 `./.github/actions/...` 时，也必须确认对应 `action.yml` 存在。
 - GUT 进程退出码只能在无 `SCRIPT ERROR`、无 Parse Error、无 GDScript reload warning 且 GUT 明确报告全部通过时被维护工具降级；脚本错误或 reload warning 不能被测试汇总覆盖。
 - AI 生成或修改 GDScript 时必须主动避免 Godot reload warning：不要让局部变量、参数或测试常量遮蔽成员/全局类名；不要从 `Variant` 直接 `as GFType`；不要对 `Variant` 直接调用 `strip_edges()`、`StringName()` 等强类型 API；不要把 `get_script()` 声明成 `Script` 后直接 `.new()`；不要丢弃 `merge_dictionary()`、`store_string()`、`connect()` 等有返回值 API。改完相关 `.gd` 后必须运行 focused GUT 和 `python tools\gf_maintenance.py check --check gdscript_warnings --json`；若改动涉及这些模式，还必须运行 `tests/gf_core/maintenance/test_gdscript_parse_validation.gd`，把可静态判断的问题拦在提交前。
+- 修改公开、protected 或被测试 mock/子类重写的方法签名后，必须用 `rg "func <method_name>" addons/gf tests/gf_core` 搜索同名实现，更新所有 override、测试替身和反射调用；GDScript 的 override 签名不匹配会直接变成 parse error，不能等到完整套件才发现。
+- Headless GUT 不应直接实例化需要真实编辑器 owner 的 Godot 编辑器专属类，例如 `EditorDebuggerPlugin` 派生类。此类能力优先测试贡献记录、脚本元数据、继承契约和 helper 装配路径；确实需要实例化时必须走真实 editor-context smoke 或插件生命周期。
 - `.codex/skills/` 可以提交 GF 项目专用 Codex skill，用于沉淀维护流程、检查矩阵、发布流程和多子代理审查分工；它只描述“怎么做”，不能替代本文件、`CODING_STYLE.md`、`API_SURFACE.md` 的硬规则。评估 `ai_analysis/skills/` 中的外部候选时只能吸收可验证的工作流和检查点，不要直接复制玩法模板、示例脚本、强人格化话术或单个游戏项目业务规则。
 - 参考项目维护在 GF 仓库同级目录 `../gf-reference-project`，也可用环境变量 `GF_REFERENCE_PROJECT_PATH` 指向其他本地路径；它不再位于仓库内 `examples/reference_project`。开发参考项目时，遇到重复劳动、框架痛点、抽象机会或最佳实践雏形，必须记录到 GF 侧 `ai_analysis/framework_feedback.md`。先判断它属于项目级约定、文档建议、工具能力还是框架候选，不要直接把单个示例项目的业务需求写进 `addons/gf`。
 - `tools/sync_reference_project.py` 是显式写入同步命令；`tools/gf_maintenance.py check --suite examples` 默认只读校验外部项目中的 `addons/gf` 是否已经同步。需要在 examples suite 前自动写入同步时，必须显式传 `--sync-examples`，或先单独运行 `python tools\sync_reference_project.py --project-root ../gf-reference-project`。
@@ -273,7 +275,7 @@ godot --headless --path . -s res://addons/gut/gut_cmdln.gd -gtest=res://tests/gf
 - `与其他模块的关系`
 - `迁移与兼容`
 
-示例要短，并尽量保持 Godot 4.6 / GDScript 风格可用。除非页面就是示例页，否则不要把具体项目玩法规则写成框架规则。
+示例要短，并尽量保持 Godot 4.7 / GDScript 风格可用。除非页面就是示例页，否则不要把具体项目玩法规则写成框架规则。
 
 MkDocs 页面拆分约定：
 

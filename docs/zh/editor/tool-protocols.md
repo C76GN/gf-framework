@@ -5,6 +5,7 @@
 ## 协议类型
 
 - `GFEditorCommand`：封装一次可执行、可撤销的编辑器修改，可直接 `execute()` / `revert()`，也可写入 `EditorUndoRedoManager`。
+- `GFEditorCommandSession`：围绕一组命令提供 preview、commit、revert history 和 debug snapshot，适合需要连续交互的编辑器工具。
 - `GFEditorActionDefinition`：描述菜单、按钮或快捷键入口，通过 `command_factory` 按上下文创建命令。
 - `GFEditorTool`：封装需要持续激活、接收输入和绘制辅助的交互工具。
 - `GFEditorToolContext`：在工具、动作和命令之间传递 `EditorPlugin`、UndoRedo、当前场景根节点、选中节点和元数据。
@@ -28,3 +29,21 @@ schema.add_option(radius)
 tool.set_option_schema(schema)
 tool.set_tool_option(&"radius", 8)
 ```
+
+## 命令会话
+
+`GFEditorCommandSession` 用于把“预览”和“提交”分开。交互式工具可以在鼠标移动、拖拽或参数调整时调用 `preview_command()` 只执行临时效果；用户确认后再调用 `commit_command()` 写入命令历史或 Godot `EditorUndoRedoManager`。取消或回退时调用 `revert_last()`，不需要工具 UI 自己维护一套命令栈。
+
+```gdscript
+var session := GFEditorCommandSession.new()
+session.configure(&"paint_tiles", "Paint Tiles", { "tool": "tile_painter" })
+
+session.preview_command(preview_command, context)
+
+if accepted:
+	session.commit_command(final_command, context, true)
+else:
+	session.revert_last()
+```
+
+会话只管理通用命令生命周期和历史，不知道命令修改的是节点、资源、TileMap、曲线还是项目自定义数据。具体命令仍由工具或扩展按 `GFEditorCommand` 协议实现。

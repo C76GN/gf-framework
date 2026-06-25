@@ -394,6 +394,10 @@ static func make_status(
 ## [br]
 ## @schema current_framework_version: String。
 ## [br]
+## @param registry_source: registry source 元数据。
+## [br]
+## @schema registry_source: Dictionary written into planned lockfile registry_source.
+## [br]
 ## @return 安装计划 Dictionary。
 ## [br]
 ## @schema return: install_order、to_install、to_update、planned_lockfile 与 issues。
@@ -404,7 +408,8 @@ static func make_install_plan(
 	reason: String = "manual",
 	lockfile_path: String = ".gf/packages.lock.json",
 	registry_framework_version: String = "",
-	current_framework_version: String = ""
+	current_framework_version: String = "",
+	registry_source: Dictionary = {}
 ) -> Dictionary:
 	var installed: Dictionary = _GF_VARIANT_ACCESS.get_option_dictionary(lockfile_data, "installed").duplicate(true)
 	var issues: PackedStringArray = PackedStringArray()
@@ -446,7 +451,7 @@ static func make_install_plan(
 		installed[package_id] = entry
 
 	_recompute_required_by(installed, registry_packages)
-	var planned_lockfile: Dictionary = _make_lockfile(lockfile_data, installed, registry_framework_version)
+	var planned_lockfile: Dictionary = _make_lockfile(lockfile_data, installed, registry_framework_version, registry_source)
 	var to_install: PackedStringArray = PackedStringArray()
 	var to_update: PackedStringArray = PackedStringArray()
 	for package_id: String in order:
@@ -493,6 +498,10 @@ static func make_install_plan(
 ## [br]
 ## @schema current_framework_version: String。
 ## [br]
+## @param registry_source: registry source 元数据。
+## [br]
+## @schema registry_source: Dictionary written into planned lockfile registry_source.
+## [br]
 ## @return 更新计划 Dictionary。
 ## [br]
 ## @schema return: install_order、to_install、to_update、planned_lockfile 与 issues。
@@ -503,7 +512,8 @@ static func make_update_plan(
 	update_all_installed: bool = false,
 	lockfile_path: String = ".gf/packages.lock.json",
 	registry_framework_version: String = "",
-	current_framework_version: String = ""
+	current_framework_version: String = "",
+	registry_source: Dictionary = {}
 ) -> Dictionary:
 	var installed: Dictionary = _GF_VARIANT_ACCESS.get_option_dictionary(lockfile_data, "installed").duplicate(true)
 	var issues: PackedStringArray = PackedStringArray()
@@ -517,7 +527,7 @@ static func make_update_plan(
 	if not issues.is_empty():
 		return _make_plan_result(false, "update", PackedStringArray(), PackedStringArray(), PackedStringArray(), PackedStringArray(), issues, lockfile_data, lockfile_path)
 	if target_ids.is_empty():
-		var no_target_lockfile: Dictionary = _make_lockfile(lockfile_data, installed, registry_framework_version)
+		var no_target_lockfile: Dictionary = _make_lockfile(lockfile_data, installed, registry_framework_version, registry_source)
 		return _make_plan_result(true, "update", PackedStringArray(), PackedStringArray(), PackedStringArray(), PackedStringArray(), issues, no_target_lockfile, lockfile_path)
 
 	var closure: Dictionary = _resolve_dependency_closure(registry_packages, target_ids)
@@ -545,7 +555,7 @@ static func make_update_plan(
 		installed[package_id] = entry
 
 	_recompute_required_by(installed, registry_packages)
-	var planned_lockfile: Dictionary = _make_lockfile(lockfile_data, installed, registry_framework_version)
+	var planned_lockfile: Dictionary = _make_lockfile(lockfile_data, installed, registry_framework_version, registry_source)
 	var to_install: PackedStringArray = PackedStringArray()
 	var to_update: PackedStringArray = PackedStringArray()
 	for package_id: String in order:
@@ -712,14 +722,18 @@ static func install_packages(
 	)
 	if not issues.is_empty():
 		return _make_install_result(false, resolved_registry_path, resolved_project_root, resolved_lockfile_path, package_ids, {}, PackedStringArray(), 0, dry_run, false, issues, registry_source)
+	var target_package_ids: PackedStringArray = _collect_install_targets(package_ids, registry_packages, options, issues)
+	if not issues.is_empty():
+		return _make_install_result(false, resolved_registry_path, resolved_project_root, resolved_lockfile_path, target_package_ids, {}, PackedStringArray(), 0, dry_run, false, issues, registry_source)
 	var plan: Dictionary = make_install_plan(
 		registry_packages,
 		lockfile_data,
-		package_ids,
+		target_package_ids,
 		reason,
 		resolved_lockfile_path,
 		_GF_VARIANT_ACCESS.get_option_string(registry, "framework_version"),
-		current_framework_version
+		current_framework_version,
+		registry_source
 	)
 	if not _GF_VARIANT_ACCESS.get_option_bool(plan, "ok"):
 		return _make_install_result(
@@ -727,7 +741,7 @@ static func install_packages(
 			resolved_registry_path,
 			resolved_project_root,
 			resolved_lockfile_path,
-			package_ids,
+			target_package_ids,
 			plan,
 			PackedStringArray(),
 			0,
@@ -739,7 +753,7 @@ static func install_packages(
 
 	var packages_to_change: PackedStringArray = _packages_to_change_from_plan(plan)
 	if packages_to_change.is_empty():
-		return _make_install_result(true, resolved_registry_path, resolved_project_root, resolved_lockfile_path, package_ids, plan, PackedStringArray(), 0, dry_run, false, PackedStringArray(), registry_source)
+		return _make_install_result(true, resolved_registry_path, resolved_project_root, resolved_lockfile_path, target_package_ids, plan, PackedStringArray(), 0, dry_run, false, PackedStringArray(), registry_source)
 
 	var packages_to_stage: PackedStringArray = _packages_requiring_archive(packages_to_change, registry_packages)
 	var temp_root: String = _make_temp_root(resolved_project_root)
@@ -755,10 +769,10 @@ static func install_packages(
 	)
 	if not issues.is_empty():
 		_remove_path_recursive_absolute(temp_root)
-		return _make_install_result(false, resolved_registry_path, resolved_project_root, resolved_lockfile_path, package_ids, plan, packages_to_change, 0, dry_run, false, issues, registry_source)
+		return _make_install_result(false, resolved_registry_path, resolved_project_root, resolved_lockfile_path, target_package_ids, plan, packages_to_change, 0, dry_run, false, issues, registry_source)
 	if dry_run:
 		_remove_path_recursive_absolute(temp_root)
-		return _make_install_result(true, resolved_registry_path, resolved_project_root, resolved_lockfile_path, package_ids, plan, packages_to_change, 0, true, false, PackedStringArray(), registry_source)
+		return _make_install_result(true, resolved_registry_path, resolved_project_root, resolved_lockfile_path, target_package_ids, plan, packages_to_change, 0, true, false, PackedStringArray(), registry_source)
 
 	var planned_lockfile: Dictionary = _lockfile_with_installed_files(
 		_GF_VARIANT_ACCESS.get_option_dictionary(plan, "planned_lockfile"),
@@ -776,8 +790,8 @@ static func install_packages(
 	)
 	_remove_path_recursive_absolute(temp_root)
 	if not issues.is_empty():
-		return _make_install_result(false, resolved_registry_path, resolved_project_root, resolved_lockfile_path, package_ids, plan, packages_to_change, 0, false, true, issues, registry_source)
-	return _make_install_result(true, resolved_registry_path, resolved_project_root, resolved_lockfile_path, package_ids, plan, packages_to_change, installed_file_count, false, false, PackedStringArray(), registry_source)
+		return _make_install_result(false, resolved_registry_path, resolved_project_root, resolved_lockfile_path, target_package_ids, plan, packages_to_change, 0, false, true, issues, registry_source)
+	return _make_install_result(true, resolved_registry_path, resolved_project_root, resolved_lockfile_path, target_package_ids, plan, packages_to_change, installed_file_count, false, false, PackedStringArray(), registry_source)
 
 
 ## 从 registry 更新当前 lockfile 中已安装的包。
@@ -861,7 +875,8 @@ static func update_packages(
 		update_all_installed,
 		resolved_lockfile_path,
 		_GF_VARIANT_ACCESS.get_option_string(registry, "framework_version"),
-		current_framework_version
+		current_framework_version,
+		registry_source
 	)
 	if not _GF_VARIANT_ACCESS.get_option_bool(plan, "ok"):
 		return _make_update_result(
@@ -1369,12 +1384,53 @@ static func _make_lock_entry(registry_entry: Dictionary) -> Dictionary:
 	return entry
 
 
-static func _make_lockfile(base_lockfile: Dictionary, installed: Dictionary, framework_version: String = "") -> Dictionary:
-	return {
+static func _make_lockfile(
+	base_lockfile: Dictionary,
+	installed: Dictionary,
+	framework_version: String = "",
+	registry_source: Dictionary = {}
+) -> Dictionary:
+	var lockfile: Dictionary = {
 		"schema_version": LOCKFILE_SCHEMA_VERSION,
 		"framework_version": framework_version if not framework_version.is_empty() else _GF_VARIANT_ACCESS.get_option_string(base_lockfile, "framework_version"),
 		"installed": _sort_dictionary_by_key(installed),
 	}
+	var lock_registry_source: Dictionary = _make_lockfile_registry_source(base_lockfile, registry_source)
+	if not lock_registry_source.is_empty():
+		lockfile["registry_source"] = lock_registry_source
+	return lockfile
+
+
+static func _make_lockfile_registry_source(base_lockfile: Dictionary, registry_source: Dictionary) -> Dictionary:
+	var result: Dictionary = _GF_VARIANT_ACCESS.get_option_dictionary(base_lockfile, "registry_source")
+	if registry_source.is_empty():
+		return result
+
+	result = {}
+	_append_lockfile_source_string(result, registry_source, "source")
+	_append_lockfile_source_string(result, registry_source, "registry_source_manifest", "source_manifest")
+	_append_lockfile_source_string(result, registry_source, "channel")
+	_append_lockfile_source_string(result, registry_source, "offline_bundle")
+	_append_lockfile_source_string(result, registry_source, "registry_sha256")
+	if registry_source.has("remote"):
+		result["remote"] = _GF_VARIANT_ACCESS.get_option_bool(registry_source, "remote", false)
+	if registry_source.has("mirror_index"):
+		result["mirror_index"] = _GF_VARIANT_ACCESS.get_option_int(registry_source, "mirror_index", -2)
+	if registry_source.has("registry_size_bytes"):
+		result["registry_size_bytes"] = _GF_VARIANT_ACCESS.get_option_int(registry_source, "registry_size_bytes", 0)
+	return result
+
+
+static func _append_lockfile_source_string(
+	target: Dictionary,
+	source: Dictionary,
+	source_key: String,
+	target_key: String = ""
+) -> void:
+	var value: String = _GF_VARIANT_ACCESS.get_option_string(source, source_key)
+	if value.is_empty():
+		return
+	target[target_key if not target_key.is_empty() else source_key] = value
 
 
 static func _make_plan_result(
@@ -1612,6 +1668,56 @@ static func _collect_update_targets(
 			var _append_missing_registry: bool = issues.append("Installed package is missing from registry: %s" % package_id)
 			continue
 		var _append_target: bool = result.append(package_id)
+	return result
+
+
+static func _collect_install_targets(
+	package_ids: PackedStringArray,
+	registry_packages: Dictionary,
+	options: Dictionary,
+	issues: PackedStringArray
+) -> PackedStringArray:
+	var result: PackedStringArray = PackedStringArray()
+	for package_id: String in package_ids:
+		var trimmed_id: String = package_id.strip_edges()
+		if trimmed_id.is_empty() or result.has(trimmed_id):
+			continue
+		var _append_explicit: bool = result.append(trimmed_id)
+
+	var selected_ids: PackedStringArray = _select_registry_package_ids(registry_packages, options)
+	for package_id: String in selected_ids:
+		if result.has(package_id):
+			continue
+		var _append_selected: bool = result.append(package_id)
+
+	if result.is_empty():
+		var _append_missing: bool = issues.append("Missing package id or matching package selector.")
+		return result
+
+	for package_id: String in result:
+		if not registry_packages.has(package_id):
+			var _append_missing_registry: bool = issues.append("Missing package: %s" % package_id)
+	return result
+
+
+static func _select_registry_package_ids(registry_packages: Dictionary, options: Dictionary) -> PackedStringArray:
+	var all_concrete: bool = _GF_VARIANT_ACCESS.get_option_bool(options, "all_concrete", false)
+	var include_kinds: PackedStringArray = _GF_VARIANT_ACCESS.get_option_packed_string_array(options, "include_kinds")
+	var exclude_kinds: PackedStringArray = _GF_VARIANT_ACCESS.get_option_packed_string_array(options, "exclude_kinds")
+	if not all_concrete and include_kinds.is_empty() and exclude_kinds.is_empty():
+		return PackedStringArray()
+
+	var result: PackedStringArray = PackedStringArray()
+	for package_id: String in _sorted_dictionary_keys(registry_packages):
+		var registry_entry: Dictionary = _GF_VARIANT_ACCESS.get_option_dictionary(registry_packages, package_id)
+		var package_kind: String = _GF_VARIANT_ACCESS.get_option_string(registry_entry, "kind")
+		if all_concrete and package_kind == "preset":
+			continue
+		if not include_kinds.is_empty() and not include_kinds.has(package_kind):
+			continue
+		if exclude_kinds.has(package_kind):
+			continue
+		var _append_package: bool = result.append(package_id)
 	return result
 
 

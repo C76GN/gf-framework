@@ -72,6 +72,36 @@ func test_set_state_uses_variant_diff_for_path_level_changes() -> void:
 	assert_true(changed_paths.has("player.level"), "diff 应报告嵌套新增字段。")
 
 
+func test_set_state_emits_root_replacement_when_diff_truncates() -> void:
+	var store: GFReactiveStateStoreBase = GFReactiveStateStoreBase.new({
+		"items": {
+			"a": 1,
+			"b": 2,
+		},
+	})
+	var received_changes: Array[Dictionary] = []
+	var _unsubscribe: Callable = store.subscribe("items", func(change: Dictionary, _store: GFReactiveStateStoreBase) -> void:
+		received_changes.append(change)
+	, {
+		"mode": GFReactiveStateStoreBase.SUBSCRIBE_PREFIX,
+	})
+
+	assert_true(store.set_state({
+		"items": {
+			"a": 10,
+			"b": 20,
+			"c": 30,
+		},
+	}, {
+		"max_changes": 1,
+	}), "diff 截断时整树替换仍应报告变化。")
+
+	assert_eq(received_changes.size(), 1, "根级替换应通知前缀订阅者一次。")
+	assert_eq(GFVariantData.get_option_string(received_changes[0], "kind"), "state_replaced", "截断 diff 应降级为整树替换变更。")
+	assert_eq(GFVariantData.get_option_string(received_changes[0], "path"), "", "整树替换应使用空路径。")
+	assert_eq(GFVariantData.to_int(store.get_value("items.c")), 30, "状态本身应完成替换。")
+
+
 func test_batch_coalesces_repeated_path_and_flushes_once() -> void:
 	var store: GFReactiveStateStoreBase = GFReactiveStateStoreBase.new({
 		"score": 0,

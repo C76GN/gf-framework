@@ -21,11 +21,14 @@
 | 属性 | [`max_trace_entries`](#member-gftypeeventsystem-properties-max_trace_entries) | `var max_trace_entries: int = 64:` |
 | 方法 | [`register`](#member-gftypeeventsystem-methods-register) | `func register(event_type: Script, on_event: Callable, priority: int = 0, owner: Object = null) -> void:` |
 | 方法 | [`unregister`](#member-gftypeeventsystem-methods-unregister) | `func unregister(event_type: Script, on_event: Callable) -> void:` |
+| 方法 | [`unregister_owned`](#member-gftypeeventsystem-methods-unregister_owned) | `func unregister_owned(owner: Object, event_type: Script, on_event: Callable) -> void:` |
 | 方法 | [`register_assignable`](#member-gftypeeventsystem-methods-register_assignable) | `func register_assignable(base_event_type: Script, on_event: Callable, priority: int = 0, owner: Object = null) -> void:` |
 | 方法 | [`unregister_assignable`](#member-gftypeeventsystem-methods-unregister_assignable) | `func unregister_assignable(base_event_type: Script, on_event: Callable) -> void:` |
+| 方法 | [`unregister_assignable_owned`](#member-gftypeeventsystem-methods-unregister_assignable_owned) | `func unregister_assignable_owned(owner: Object, base_event_type: Script, on_event: Callable) -> void:` |
 | 方法 | [`send`](#member-gftypeeventsystem-methods-send) | `func send(event_instance: Object) -> void:` |
 | 方法 | [`register_simple`](#member-gftypeeventsystem-methods-register_simple) | `func register_simple(event_id: StringName, on_event: Callable, owner: Object = null) -> void:` |
 | 方法 | [`unregister_simple`](#member-gftypeeventsystem-methods-unregister_simple) | `func unregister_simple(event_id: StringName, on_event: Callable) -> void:` |
+| 方法 | [`unregister_simple_owned`](#member-gftypeeventsystem-methods-unregister_simple_owned) | `func unregister_simple_owned(owner: Object, event_id: StringName, on_event: Callable) -> void:` |
 | 方法 | [`send_simple`](#member-gftypeeventsystem-methods-send_simple) | `func send_simple(event_id: StringName, payload: Variant = null) -> void:` |
 | 方法 | [`unregister_owner`](#member-gftypeeventsystem-methods-unregister_owner) | `func unregister_owner(owner: Object) -> void:` |
 | 方法 | [`get_debug_stats`](#member-gftypeeventsystem-methods-get_debug_stats) | `func get_debug_stats() -> Dictionary:` |
@@ -127,6 +130,27 @@ func unregister(event_type: Script, on_event: Callable) -> void:
 | `event_type` | 要注销的脚本类型。 |
 | `on_event` | 要移除的回调函数。 |
 
+<a id="member-gftypeeventsystem-methods-unregister_owned"></a>
+
+### `unregister_owned`
+
+- API：`public`
+- 首次版本：`5.0.0`
+
+```gdscript
+func unregister_owned(owner: Object, event_type: Script, on_event: Callable) -> void:
+```
+
+注销带拥有者的特定脚本类型事件监听器。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `owner` | 注册监听时使用的拥有者。 |
+| `event_type` | 要注销的脚本类型。 |
+| `on_event` | 要移除的回调函数。 |
+
 <a id="member-gftypeeventsystem-methods-register_assignable"></a>
 
 ### `register_assignable`
@@ -164,6 +188,27 @@ func unregister_assignable(base_event_type: Script, on_event: Callable) -> void:
 
 | 名称 | 说明 |
 |---|---|
+| `base_event_type` | 注册时使用的基类脚本类型。 |
+| `on_event` | 要移除的回调函数。 |
+
+<a id="member-gftypeeventsystem-methods-unregister_assignable_owned"></a>
+
+### `unregister_assignable_owned`
+
+- API：`public`
+- 首次版本：`5.0.0`
+
+```gdscript
+func unregister_assignable_owned(owner: Object, base_event_type: Script, on_event: Callable) -> void:
+```
+
+注销带拥有者的可赋值类型事件监听器。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `owner` | 注册监听时使用的拥有者。 |
 | `base_event_type` | 注册时使用的基类脚本类型。 |
 | `on_event` | 要移除的回调函数。 |
 
@@ -221,6 +266,27 @@ func unregister_simple(event_id: StringName, on_event: Callable) -> void:
 
 | 名称 | 说明 |
 |---|---|
+| `event_id` | StringName 事件标识符。 |
+| `on_event` | 要移除的回调函数。 |
+
+<a id="member-gftypeeventsystem-methods-unregister_simple_owned"></a>
+
+### `unregister_simple_owned`
+
+- API：`public`
+- 首次版本：`5.0.0`
+
+```gdscript
+func unregister_simple_owned(owner: Object, event_id: StringName, on_event: Callable) -> void:
+```
+
+注销带拥有者的轻量级 StringName 事件监听器。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `owner` | 注册监听时使用的拥有者。 |
 | `event_id` | StringName 事件标识符。 |
 | `on_event` | 要移除的回调函数。 |
 

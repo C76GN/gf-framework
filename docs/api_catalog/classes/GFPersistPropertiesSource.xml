@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFPersistPropertiesSource" path="addons/gf/extensions/save/core/gf_persist_properties_source.gd" module="extensions/save" extends="GFSaveSource" classDigest="b25d7b43bc63a4538ce07af95cbea01c25797ce84d31be36c076254ffb5d0fc5">
+<class name="GFPersistPropertiesSource" path="addons/gf/extensions/save/core/gf_persist_properties_source.gd" module="extensions/save" extends="GFSaveSource" classDigest="700e121e7d949375a77cfaabfa752e1eacf5585ff8c401f3c6e8c761ebbcf6b4">
 	<description>GFPersistPropertiesSource: 属性白名单存档 Source。
 以节点形式包装 `GFNodePropertySerializer`，让项目可以直接在场景树中声明
 需要保存的目标属性。它仍然使用 SaveGraph 的 Source/Serializer 协议，
@@ -25,6 +25,22 @@
 			<description>应用数据时遇到缺失属性是否跳过。</description>
 			<tags>
 				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="property" name="allowed_resource_roots" decorators="@export">
+			<signature>var allowed_resource_roots: PackedStringArray = PackedStringArray()</signature>
+			<description>Resource 引用恢复时允许加载的资源根目录。为空时使用 context 中的同名策略；仍为空则拒绝恢复 Resource 引用。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="allowed_resource_patterns" decorators="@export">
+			<signature>var allowed_resource_patterns: PackedStringArray = PackedStringArray()</signature>
+			<description>Resource 引用恢复时允许加载的资源路径通配模式。为空时使用 context 中的同名策略；仍为空则拒绝恢复 Resource 引用。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
 			</tags>
 		</member>
 	</properties>

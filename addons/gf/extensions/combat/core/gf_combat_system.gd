@@ -49,7 +49,7 @@ func tick(p_delta: float) -> void:
 ## @api public
 func dispose() -> void:
 	for entity_id: int in _entities.keys():
-		_remove_entity_record_by_id(entity_id, true)
+		_remove_entity_record_by_id(entity_id, true, GFBuff.REMOVAL_REASON_DISPOSED)
 
 	_entities.clear()
 	_active_entities.clear()
@@ -83,7 +83,7 @@ func register_entity(p_entity: Object) -> void:
 ## [br]
 ## @param p_entity: 实体对象。
 func unregister_entity(p_entity: Object) -> void:
-	_remove_entity_record(p_entity, true)
+	_remove_entity_record(p_entity, true, GFBuff.REMOVAL_REASON_ENTITY_UNREGISTERED)
 
 
 ## 给实体添加一个 Buff。
@@ -103,6 +103,12 @@ func add_buff(p_entity: Object, p_buff: GFBuff) -> void:
 
 	if p_buff.owner == null:
 		p_buff.owner = p_entity
+	var apply_report: Dictionary = p_buff.get_apply_report({
+		"entity": p_entity,
+		"system": self,
+	})
+	if not GFVariantData.get_option_bool(apply_report, "ok", true):
+		return
 
 	var data: Dictionary = _get_entity_data(entity_id)
 	var buffs: Array = _get_entity_buffs(data)
@@ -242,6 +248,27 @@ func refresh_buff_modifiers(p_entity: Object, p_buff_id: StringName) -> bool:
 ## [br]
 ## @return 找到并移除 Buff 时返回 true。
 func remove_buff(p_entity: Object, p_buff_id: StringName) -> bool:
+	return remove_buff_with_reason(p_entity, p_buff_id, GFBuff.REMOVAL_REASON_REMOVED)
+
+
+## 移除实体上的指定 Buff，并记录移除原因。
+## [br]
+## @api public
+## [br]
+## @since 6.0.0
+## [br]
+## @param p_entity: 实体对象。
+## [br]
+## @param p_buff_id: Buff 标识。
+## [br]
+## @param reason: 移除原因。
+## [br]
+## @return 找到并移除 Buff 时返回 true。
+func remove_buff_with_reason(
+	p_entity: Object,
+	p_buff_id: StringName,
+	reason: StringName = GFBuff.REMOVAL_REASON_REMOVED
+) -> bool:
 	if p_entity == null:
 		return false
 
@@ -254,7 +281,7 @@ func remove_buff(p_entity: Object, p_buff_id: StringName) -> bool:
 	for index: int in range(buffs.size() - 1, -1, -1):
 		var buff: GFBuff = _get_buff_at(buffs, index)
 		if buff != null and buff.id == p_buff_id:
-			_remove_buff_at(p_entity, buffs, index, true)
+			_remove_buff_at(p_entity, buffs, index, true, reason)
 			_update_active_status(p_entity)
 			return true
 	return false
@@ -270,6 +297,27 @@ func remove_buff(p_entity: Object, p_buff_id: StringName) -> bool:
 ## [br]
 ## @return 被清理的 Buff 数量。
 func clear_buffs(p_entity: Object, predicate: Callable = Callable()) -> int:
+	return clear_buffs_with_reason(p_entity, predicate, GFBuff.REMOVAL_REASON_CLEARED)
+
+
+## 清理实体上的 Buff，并记录移除原因。
+## [br]
+## @api public
+## [br]
+## @since 6.0.0
+## [br]
+## @param p_entity: 实体对象。
+## [br]
+## @param predicate: 可选过滤回调，签名为 `func(buff: GFBuff) -> bool`。
+## [br]
+## @param reason: 移除原因。
+## [br]
+## @return 被清理的 Buff 数量。
+func clear_buffs_with_reason(
+	p_entity: Object,
+	predicate: Callable = Callable(),
+	reason: StringName = GFBuff.REMOVAL_REASON_CLEARED
+) -> int:
 	if p_entity == null:
 		return 0
 
@@ -287,7 +335,7 @@ func clear_buffs(p_entity: Object, predicate: Callable = Callable()) -> int:
 			continue
 		if not _predicate_accepts_buff(predicate, buff):
 			continue
-		_remove_buff_at(p_entity, buffs, index, true)
+		_remove_buff_at(p_entity, buffs, index, true, reason)
 		removed_count += 1
 
 	if removed_count > 0:
@@ -461,31 +509,40 @@ func _cleanup_invalid_entities() -> void:
 			_erase_dictionary_key(_active_entities, entity_id)
 
 
-func _remove_entity_record(p_entity: Object, remove_effects: bool) -> void:
+func _remove_entity_record(
+	p_entity: Object,
+	remove_effects: bool,
+	reason: StringName = GFBuff.REMOVAL_REASON_REMOVED
+) -> void:
 	if p_entity == null:
 		return
 
-	_remove_entity_record_by_id(p_entity.get_instance_id(), remove_effects)
+	_remove_entity_record_by_id(p_entity.get_instance_id(), remove_effects, reason)
 
 
-func _remove_entity_record_by_id(entity_id: int, remove_effects: bool) -> void:
+func _remove_entity_record_by_id(
+	entity_id: int,
+	remove_effects: bool,
+	reason: StringName = GFBuff.REMOVAL_REASON_REMOVED
+) -> void:
 	if not _entities.has(entity_id):
 		_erase_dictionary_key(_active_entities, entity_id)
 		return
 
 	var data: Dictionary = _get_entity_data(entity_id)
-	_cleanup_entity_data(data, remove_effects)
+	_cleanup_entity_data(data, remove_effects, reason)
 	_erase_dictionary_key(_entities, entity_id)
 	_erase_dictionary_key(_active_entities, entity_id)
 
 
-func _cleanup_entity_data(data: Dictionary, remove_effects: bool) -> void:
+func _cleanup_entity_data(data: Dictionary, remove_effects: bool, reason: StringName) -> void:
 	var buffs: Array = _get_entity_buffs(data)
 	for buff_value: Variant in buffs:
 		var buff: GFBuff = _variant_to_buff(buff_value)
 		if buff == null:
 			continue
 		if remove_effects:
+			buff.mark_removed(reason)
 			buff.on_remove()
 
 	var skills: Array = _get_entity_skills(data)
@@ -508,7 +565,13 @@ func _send_combat_event(event_instance: Object) -> void:
 		arch.send_event(event_instance)
 
 
-func _remove_buff_at(p_entity: Object, buffs: Array, index: int, remove_effects: bool) -> void:
+func _remove_buff_at(
+	p_entity: Object,
+	buffs: Array,
+	index: int,
+	remove_effects: bool,
+	reason: StringName = GFBuff.REMOVAL_REASON_REMOVED
+) -> void:
 	var buff: GFBuff = _get_buff_at(buffs, index)
 	buffs.remove_at(index)
 	if buff == null:
@@ -516,6 +579,7 @@ func _remove_buff_at(p_entity: Object, buffs: Array, index: int, remove_effects:
 
 	var removed_id: StringName = buff.id
 	if remove_effects:
+		buff.mark_removed(reason)
 		buff.on_remove()
 	_send_combat_event(GFCombatPayloads.GFBuffRemovedPayload.new(p_entity, removed_id))
 
@@ -573,9 +637,10 @@ func _process_entity(p_entity: Object, p_delta: float) -> void:
 			continue
 		if buff.update(p_delta):
 			if buff_index < buffs.size() and buffs[buff_index] == buff:
-				_remove_buff_at(p_entity, buffs, buff_index, true)
+				_remove_buff_at(p_entity, buffs, buff_index, true, GFBuff.REMOVAL_REASON_EXPIRED)
 			else:
 				buffs.erase(buff)
+				buff.mark_removed(GFBuff.REMOVAL_REASON_EXPIRED)
 				buff.on_remove()
 				_send_combat_event(GFCombatPayloads.GFBuffRemovedPayload.new(p_entity, buff.id))
 		buff_index -= 1

@@ -117,6 +117,91 @@ static func input_event_icon(input_event: InputEvent, options: Dictionary = {}) 
 	return null
 
 
+## 将 InputMap 动作的首选事件格式化为通用文本。
+## [br]
+## @api public
+## [br]
+## @since 6.0.0
+## [br]
+## @param action_name: InputMap 动作名。
+## [br]
+## @param options: 可选格式化参数。
+## [br]
+## @schema options: Dictionary，可包含 unbound_text、preferred_device_type、preferred_event_index 和 provider 特定格式化字段。
+## [br]
+## @return 可显示文本。
+static func action_as_text(action_name: StringName, options: Dictionary = {}) -> String:
+	var fallback_text: String = GFVariantData.get_option_string(options, "unbound_text", "Unbound")
+	if action_name == &"":
+		return fallback_text
+
+	var selected_event: InputEvent = _select_action_event(action_name, options)
+	if selected_event == null:
+		return fallback_text
+	return input_event_as_text(selected_event, options)
+
+
+## 将 InputMap 动作的首选事件格式化为 RichTextLabel BBCode。
+## [br]
+## @api public
+## [br]
+## @since 6.0.0
+## [br]
+## @param action_name: InputMap 动作名。
+## [br]
+## @param options: 可选格式化参数。
+## [br]
+## @schema options: Dictionary，可包含 unbound_text、icon_size、preferred_device_type、preferred_event_index、prefer_action_icon 和 provider 特定富文本字段。
+## [br]
+## @return BBCode 文本。
+static func action_as_rich_text(action_name: StringName, options: Dictionary = {}) -> String:
+	var fallback_text: String = _escape_bbcode(GFVariantData.get_option_string(options, "unbound_text", "Unbound"))
+	if action_name == &"":
+		return fallback_text
+
+	if GFVariantData.get_option_bool(options, "prefer_action_icon", false):
+		var action_rich_text: String = _action_event_as_rich_text(action_name, options)
+		if not action_rich_text.is_empty():
+			return action_rich_text
+
+	var selected_event: InputEvent = _select_action_event(action_name, options)
+	if selected_event != null:
+		return input_event_as_rich_text(selected_event, options)
+
+	var fallback_rich_text: String = _action_event_as_rich_text(action_name, options)
+	return fallback_rich_text if not fallback_rich_text.is_empty() else fallback_text
+
+
+## 获取 InputMap 动作的首选图标。
+## [br]
+## @api public
+## [br]
+## @since 6.0.0
+## [br]
+## @param action_name: InputMap 动作名。
+## [br]
+## @param options: 可选格式化参数。
+## [br]
+## @schema options: Dictionary，可包含 preferred_device_type、preferred_event_index、prefer_action_icon 和 provider 特定图标字段。
+## [br]
+## @return 图标资源。
+static func action_icon(action_name: StringName, options: Dictionary = {}) -> Texture2D:
+	if action_name == &"":
+		return null
+
+	if GFVariantData.get_option_bool(options, "prefer_action_icon", false):
+		var action_texture: Texture2D = _action_event_icon(action_name, options)
+		if action_texture != null:
+			return action_texture
+
+	var selected_event: InputEvent = _select_action_event(action_name, options)
+	if selected_event != null:
+		var event_texture: Texture2D = input_event_icon(selected_event, options)
+		if event_texture != null:
+			return event_texture
+	return _action_event_icon(action_name, options)
+
+
 ## 将绑定格式化为通用文本。
 ## [br]
 ## @api public
@@ -308,6 +393,120 @@ static func get_icon_providers() -> Array[GFInputIconProvider]:
 
 
 # --- 私有/辅助方法 ---
+
+static func _select_action_event(action_name: StringName, options: Dictionary) -> InputEvent:
+	var action_events: Array[InputEvent] = _get_action_events(action_name)
+	if action_events.is_empty():
+		return null
+
+	var preferred_device_type: StringName = GFVariantData.get_option_string_name(options, "preferred_device_type", &"")
+	var candidate_events: Array[InputEvent] = _filter_action_events_by_device(action_events, preferred_device_type)
+	if candidate_events.is_empty():
+		candidate_events = action_events
+
+	var preferred_index: int = maxi(GFVariantData.get_option_int(options, "preferred_event_index", 0), 0)
+	if preferred_index >= candidate_events.size():
+		preferred_index = 0
+	return candidate_events[preferred_index]
+
+
+static func _get_action_events(action_name: StringName) -> Array[InputEvent]:
+	var events: Array[InputEvent] = []
+	if InputMap.has_action(action_name):
+		for event_value: Variant in InputMap.action_get_events(action_name):
+			var input_event: InputEvent = _INPUT_EVENT_TOOLS.get_input_event(event_value)
+			if input_event != null:
+				events.append(input_event)
+	if not events.is_empty():
+		return events
+	return _get_project_setting_action_events(action_name)
+
+
+static func _get_project_setting_action_events(action_name: StringName) -> Array[InputEvent]:
+	var setting_name: String = "input/%s" % String(action_name)
+	if not ProjectSettings.has_setting(setting_name):
+		return []
+
+	var setting_value: Variant = ProjectSettings.get_setting(setting_name)
+	if not (setting_value is Dictionary):
+		return []
+
+	var setting_dictionary: Dictionary = setting_value
+	var event_values: Variant = GFVariantData.get_option_value(setting_dictionary, "events", [])
+	if not (event_values is Array):
+		return []
+
+	var events: Array[InputEvent] = []
+	var event_array: Array = event_values
+	for event_value: Variant in event_array:
+		var input_event: InputEvent = _INPUT_EVENT_TOOLS.get_input_event(event_value)
+		if input_event != null:
+			events.append(input_event)
+	return events
+
+
+static func _filter_action_events_by_device(
+	action_events: Array[InputEvent],
+	preferred_device_type: StringName
+) -> Array[InputEvent]:
+	if preferred_device_type == &"" or preferred_device_type == &"any":
+		return action_events.duplicate()
+
+	var result: Array[InputEvent] = []
+	for input_event: InputEvent in action_events:
+		if _event_matches_preferred_device_type(input_event, preferred_device_type):
+			result.append(input_event)
+	return result
+
+
+static func _event_matches_preferred_device_type(
+	input_event: InputEvent,
+	preferred_device_type: StringName
+) -> bool:
+	match String(preferred_device_type).strip_edges().to_lower():
+		"keyboard_mouse", "key_mouse", "keys_mouse":
+			return input_event is InputEventKey or input_event is InputEventMouse
+		"keyboard", "key", "keys":
+			return input_event is InputEventKey
+		"mouse":
+			return input_event is InputEventMouse
+		"joypad", "gamepad", "controller":
+			return input_event is InputEventJoypadButton or input_event is InputEventJoypadMotion
+		"touch", "screen":
+			return input_event is InputEventScreenTouch or input_event is InputEventScreenDrag
+		_:
+			return false
+
+
+static func _action_event_as_rich_text(action_name: StringName, options: Dictionary) -> String:
+	var action_event: InputEventAction = _make_action_event(action_name)
+	for provider: GFInputIconProvider in _icon_providers:
+		if provider == null or not provider.supports_event(action_event, options):
+			continue
+		var rich_text: String = provider.get_event_rich_text(action_event, options)
+		if not rich_text.is_empty():
+			return rich_text
+	return ""
+
+
+static func _action_event_icon(action_name: StringName, options: Dictionary) -> Texture2D:
+	var action_event: InputEventAction = _make_action_event(action_name)
+	for provider: GFInputIconProvider in _icon_providers:
+		if provider == null or not provider.supports_event(action_event, options):
+			continue
+		var icon: Texture2D = provider.get_event_icon(action_event, options)
+		if icon != null:
+			return icon
+	return null
+
+
+static func _make_action_event(action_name: StringName) -> InputEventAction:
+	var action_event: InputEventAction = InputEventAction.new()
+	action_event.action = action_name
+	action_event.pressed = true
+	action_event.strength = 1.0
+	return action_event
+
 
 static func _sort_text_providers() -> void:
 	_text_providers.sort_custom(func(left: GFInputTextProvider, right: GFInputTextProvider) -> bool:

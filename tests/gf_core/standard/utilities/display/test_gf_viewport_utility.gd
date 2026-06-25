@@ -120,6 +120,52 @@ func test_world_screen_2d_roundtrip() -> void:
 	assert_almost_eq(restored_position.y, world_position.y, 0.001)
 
 
+func test_calculate_safe_area_margins_converts_physical_pixels_to_viewport_units() -> void:
+	var report: Dictionary = _utility.calculate_safe_area_margins(
+		Rect2i(Vector2i(10, 20), Vector2i(980, 1880)),
+		Vector2i(1000, 2000),
+		Vector2(500.0, 1000.0),
+		{ "bottom": 12.0 }
+	)
+
+	assert_true(GFVariantData.get_option_bool(report, "ok"), "有效尺寸应返回安全区报告。")
+	assert_eq(GFVariantData.get_option_float(report, "left"), 5.0, "左边距应按 viewport 宽度比例换算。")
+	assert_eq(GFVariantData.get_option_float(report, "top"), 10.0, "顶部边距应按 viewport 高度比例换算。")
+	assert_eq(GFVariantData.get_option_float(report, "right"), 5.0, "右边距应按 viewport 宽度比例换算。")
+	assert_eq(GFVariantData.get_option_float(report, "bottom"), 62.0, "底部边距应包含额外逻辑遮挡。")
+
+
+func test_empty_safe_area_is_treated_as_full_window() -> void:
+	var report: Dictionary = _utility.calculate_safe_area_margins(
+		Rect2i(),
+		Vector2i(1000, 2000),
+		Vector2(500.0, 1000.0)
+	)
+
+	assert_true(GFVariantData.get_option_bool(report, "ok"), "空安全区应归一为完整窗口。")
+	assert_eq(GFVariantData.get_option_float(report, "left"), 0.0)
+	assert_eq(GFVariantData.get_option_float(report, "top"), 0.0)
+	assert_eq(GFVariantData.get_option_float(report, "right"), 0.0)
+	assert_eq(GFVariantData.get_option_float(report, "bottom"), 0.0)
+
+
+func test_apply_safe_area_margins_updates_margin_container_theme_constants() -> void:
+	var container: MarginContainer = MarginContainer.new()
+	add_child_autofree(container)
+	var margins: Dictionary = {
+		"top": 12.4,
+		"left": 4.2,
+		"bottom": 8.6,
+		"right": 2.0,
+	}
+
+	assert_true(_utility.apply_safe_area_margins(container, margins), "有效 MarginContainer 应接收安全区边距。")
+	assert_eq(container.get_theme_constant("margin_top"), 12)
+	assert_eq(container.get_theme_constant("margin_left"), 4)
+	assert_eq(container.get_theme_constant("margin_bottom"), 9)
+	assert_eq(container.get_theme_constant("margin_right"), 2)
+
+
 func test_setup_with_zero_count_clears_layout() -> void:
 	var _setup_split_screen_result_124: Variant = _utility.setup_split_screen(_root, 2)
 	var viewports: Array[SubViewport] = _utility.setup_split_screen(_root, 0)

@@ -124,6 +124,15 @@ var module_lifecycle_max_stage_passes: int = 256:
 ## @api public
 var strict_dependency_lookup: bool = false
 
+## 声明式依赖缺失时是否直接使初始化失败。
+## 模块可通过 get_required_dependencies() 或 get_required_models/systems/utilities/factories() 声明依赖。
+## 开启后，init() 会在模块生命周期推进前校验依赖图，缺失依赖会中止本次初始化。
+## [br]
+## @api public
+## [br]
+## @since 5.0.0
+var fail_on_missing_declared_dependencies: bool = false
+
 ## 最近一次初始化失败原因；没有失败时为空字符串。
 ## [br]
 ## @api public
@@ -203,6 +212,31 @@ func has_initialization_failed() -> bool:
 ## @return 正在初始化或已完成初始化，且未被 dispose() 或失败保护中断时返回 true。
 func is_lifecycle_active() -> bool:
 	return (_is_initializing or _inited) and not _initialization_failed
+
+
+## 获取当前架构生命周期 generation。
+## 每次 init()、dispose() 或初始化失败都会推进 generation，用于异步流程判断自身是否仍属于当前生命周期。
+## [br]
+## @api public
+## [br]
+## @since 5.0.0
+## [br]
+## @return 当前生命周期 generation。
+func get_lifecycle_generation() -> int:
+	return _lifecycle_serial
+
+
+## 检查指定生命周期 generation 是否仍是当前活动生命周期。
+## [br]
+## @api public
+## [br]
+## @since 5.0.0
+## [br]
+## @param lifecycle_generation: 由 get_lifecycle_generation() 读取到的 generation。
+## [br]
+## @return generation 匹配且架构生命周期仍活动时返回 true。
+func is_lifecycle_generation_active(lifecycle_generation: int) -> bool:
+	return _lifecycle_serial == lifecycle_generation and is_lifecycle_active()
 
 
 ## 检查指定模块实例是否已经完成 ready 阶段。
@@ -338,6 +372,8 @@ func init() -> void:
 	_initialization_failed = false
 	last_initialization_error = ""
 	_on_init()
+	if fail_on_missing_declared_dependencies and not _validate_declared_dependencies_or_fail(current_serial):
+		return
 	await _advance_all_modules_to_stage(1, current_serial)
 	if not _is_lifecycle_current(current_serial) or _initialization_failed:
 		return
@@ -433,7 +469,8 @@ func send_command(command: Object) -> Variant:
 		push_error("[GFArchitecture] send_command 失败：command 为空。")
 		return null
 
-	_inject_dependencies_if_needed(command)
+	if not _inject_dependencies_if_needed(command, _get_active_lifecycle_serial_or_unbound(), true):
+		return null
 	if command.has_method("execute"):
 		return command.call("execute")
 	push_warning("[GFArchitecture] send_command 失败：command 缺少 execute() 方法，已忽略。")
@@ -455,7 +492,8 @@ func send_query(query: Object) -> Variant:
 		push_error("[GFArchitecture] send_query 失败：query 为空。")
 		return null
 
-	_inject_dependencies_if_needed(query)
+	if not _inject_dependencies_if_needed(query, _get_active_lifecycle_serial_or_unbound(), true):
+		return null
 	if query.has_method("execute"):
 		return query.call("execute")
 	push_warning("[GFArchitecture] send_query 失败：query 缺少 execute() 方法，已忽略。")
@@ -549,6 +587,22 @@ func unregister_event(event_type: Script, on_event: Callable) -> void:
 	_event_system.unregister(event_type, on_event)
 
 
+## 注销带拥有者的脚本类型事件监听器。
+## 只移除 owner 与回调都匹配的监听，不影响其它 owner 使用同一 Callable 注册的监听。
+## [br]
+## @api public
+## [br]
+## @since 5.0.0
+## [br]
+## @param owner: 注册监听时使用的拥有者。
+## [br]
+## @param event_type: 要注销的脚本类型。
+## [br]
+## @param on_event: 要移除的回调函数。
+func unregister_event_owned(owner: Object, event_type: Script, on_event: Callable) -> void:
+	_event_system.unregister_owned(owner, event_type, on_event)
+
+
 ## 注销可赋值类型事件监听器。
 ## [br]
 ## @api public
@@ -558,6 +612,21 @@ func unregister_event(event_type: Script, on_event: Callable) -> void:
 ## @param on_event: 要移除的回调函数。
 func unregister_assignable_event(base_event_type: Script, on_event: Callable) -> void:
 	_event_system.unregister_assignable(base_event_type, on_event)
+
+
+## 注销带拥有者的可赋值类型事件监听器。
+## [br]
+## @api public
+## [br]
+## @since 5.0.0
+## [br]
+## @param owner: 注册监听时使用的拥有者。
+## [br]
+## @param base_event_type: 注册时使用的基类脚本类型。
+## [br]
+## @param on_event: 要移除的回调函数。
+func unregister_assignable_event_owned(owner: Object, base_event_type: Script, on_event: Callable) -> void:
+	_event_system.unregister_assignable_owned(owner, base_event_type, on_event)
 
 
 ## 注册轻量级 StringName 事件监听器。
@@ -593,6 +662,21 @@ func register_simple_event_owned(owner: Object, event_id: StringName, on_event: 
 ## @param on_event: 要移除的回调函数。
 func unregister_simple_event(event_id: StringName, on_event: Callable) -> void:
 	_event_system.unregister_simple(event_id, on_event)
+
+
+## 注销带拥有者的轻量级 StringName 事件监听器。
+## [br]
+## @api public
+## [br]
+## @since 5.0.0
+## [br]
+## @param owner: 注册监听时使用的拥有者。
+## [br]
+## @param event_id: StringName 事件标识符。
+## [br]
+## @param on_event: 要移除的回调函数。
+func unregister_simple_event_owned(owner: Object, event_id: StringName, on_event: Callable) -> void:
+	_event_system.unregister_simple_owned(owner, event_id, on_event)
 
 
 ## 注销某个拥有者注册过的所有事件监听器。
@@ -671,6 +755,8 @@ func clear_event_dispatch_trace() -> void:
 ## [br]
 ## @api public
 ## [br]
+## @since 5.0.0
+## [br]
 ## @param script_cls: 系统的脚本类。
 ## [br]
 ## @param instance: 系统实例。
@@ -686,6 +772,8 @@ func register_system(script_cls: Script, instance: Object) -> void:
 ## 注册 Model 实例。
 ## [br]
 ## @api public
+## [br]
+## @since 5.0.0
 ## [br]
 ## @param script_cls: 模型的脚本类。
 ## [br]
@@ -716,49 +804,48 @@ func register_utility(script_cls: Script, instance: Object) -> void:
 		_refresh_cached_utility_refs()
 
 
-## 替换 System 实例。若旧实例存在，会先调用 dispose() 并移除相关别名。
+## 替换 System 实例。新实例成功完成当前生命周期阶段后才会提交替换。
 ## [br]
 ## @api public
+## [br]
+## @since 5.0.0
 ## [br]
 ## @param script_cls: 系统的脚本类。
 ## [br]
 ## @param instance: 新系统实例。
 func replace_system(script_cls: Script, instance: Object) -> void:
-	if not _validate_registration(script_cls, instance, "System"):
-		return
-	if _system_registry._has_direct(script_cls):
-		unregister_system(script_cls)
-	await register_system(script_cls, instance)
+	var replaced: bool = await _replace_module(_system_registry, script_cls, instance)
+	if replaced:
+		_refresh_tick_caches()
 
 
-## 替换 Model 实例。若旧实例存在，会先调用 dispose() 并移除相关别名。
+## 替换 Model 实例。新实例成功完成当前生命周期阶段后才会提交替换。
 ## [br]
 ## @api public
+## [br]
+## @since 5.0.0
 ## [br]
 ## @param script_cls: 模型的脚本类。
 ## [br]
 ## @param instance: 新模型实例。
 func replace_model(script_cls: Script, instance: Object) -> void:
-	if not _validate_registration(script_cls, instance, "Model"):
-		return
-	if _model_registry._has_direct(script_cls):
-		unregister_model(script_cls)
-	await register_model(script_cls, instance)
+	var _replaced: bool = await _replace_module(_model_registry, script_cls, instance)
 
 
-## 替换 Utility 实例。若旧实例存在，会先调用 dispose() 并移除相关别名。
+## 替换 Utility 实例。新实例成功完成当前生命周期阶段后才会提交替换。
 ## [br]
 ## @api public
+## [br]
+## @since 5.0.0
 ## [br]
 ## @param script_cls: 工具的脚本类。
 ## [br]
 ## @param instance: 新工具实例。
 func replace_utility(script_cls: Script, instance: Object) -> void:
-	if not _validate_registration(script_cls, instance, "Utility"):
-		return
-	if _utility_registry._has_direct(script_cls):
-		unregister_utility(script_cls)
-	await register_utility(script_cls, instance)
+	var replaced: bool = await _replace_module(_utility_registry, script_cls, instance)
+	if replaced:
+		_refresh_cached_utility_refs()
+		_refresh_tick_caches()
 
 
 ## 注册短生命周期对象工厂。
@@ -922,6 +1009,39 @@ func register_utility_alias(alias_cls: Script, target_cls: Script) -> void:
 	_register_module_alias(_utility_registry, alias_cls, target_cls)
 
 
+## 注销 System 查询别名，不影响目标 System 实例。
+## [br]
+## @api public
+## [br]
+## @since 5.0.0
+## [br]
+## @param alias_cls: 要移除的别名脚本类。
+func unregister_system_alias(alias_cls: Script) -> void:
+	var _unregistered_alias: bool = _unregister_module_alias(_system_registry, alias_cls)
+
+
+## 注销 Model 查询别名，不影响目标 Model 实例。
+## [br]
+## @api public
+## [br]
+## @since 5.0.0
+## [br]
+## @param alias_cls: 要移除的别名脚本类。
+func unregister_model_alias(alias_cls: Script) -> void:
+	var _unregistered_alias: bool = _unregister_module_alias(_model_registry, alias_cls)
+
+
+## 注销 Utility 查询别名，不影响目标 Utility 实例。
+## [br]
+## @api public
+## [br]
+## @since 5.0.0
+## [br]
+## @param alias_cls: 要移除的别名脚本类。
+func unregister_utility_alias(alias_cls: Script) -> void:
+	var _unregistered_alias: bool = _unregister_module_alias(_utility_registry, alias_cls)
+
+
 ## 便捷注册 System 实例，自动从实例获取脚本类作为注册键。
 ## [br]
 ## @api public
@@ -1063,7 +1183,14 @@ func get_system(script_cls: Script, require_ready: bool = false) -> Object:
 	var instance: Object = _get_local_registered_instance(_system_registry, script_cls)
 	if instance != null:
 		return instance if not require_ready or _is_module_ready_for_lookup(instance) else null
-	if _parent_architecture != null and not strict_dependency_lookup and not _has_assignable_instance(_system_registry, script_cls):
+	if (
+		_parent_architecture != null
+		and not strict_dependency_lookup
+		and (
+			not _has_assignable_instance(_system_registry, script_cls)
+			or _has_unresolved_alias(_system_registry, script_cls)
+		)
+	):
 		return _parent_architecture.get_system(script_cls, require_ready)
 	if strict_dependency_lookup:
 		_report_strict_lookup_miss(script_cls, "System")
@@ -1083,7 +1210,14 @@ func get_model(script_cls: Script, require_ready: bool = false) -> Object:
 	var instance: Object = _get_local_registered_instance(_model_registry, script_cls)
 	if instance != null:
 		return instance if not require_ready or _is_module_ready_for_lookup(instance) else null
-	if _parent_architecture != null and not strict_dependency_lookup and not _has_assignable_instance(_model_registry, script_cls):
+	if (
+		_parent_architecture != null
+		and not strict_dependency_lookup
+		and (
+			not _has_assignable_instance(_model_registry, script_cls)
+			or _has_unresolved_alias(_model_registry, script_cls)
+		)
+	):
 		return _parent_architecture.get_model(script_cls, require_ready)
 	if strict_dependency_lookup:
 		_report_strict_lookup_miss(script_cls, "Model")
@@ -1103,7 +1237,14 @@ func get_utility(script_cls: Script, require_ready: bool = false) -> Object:
 	var instance: Object = _get_local_registered_instance(_utility_registry, script_cls)
 	if instance != null:
 		return instance if not require_ready or _is_module_ready_for_lookup(instance) else null
-	if _parent_architecture != null and not strict_dependency_lookup and not _has_assignable_instance(_utility_registry, script_cls):
+	if (
+		_parent_architecture != null
+		and not strict_dependency_lookup
+		and (
+			not _has_assignable_instance(_utility_registry, script_cls)
+			or _has_unresolved_alias(_utility_registry, script_cls)
+		)
+	):
 		return _parent_architecture.get_utility(script_cls, require_ready)
 	if strict_dependency_lookup:
 		_report_strict_lookup_miss(script_cls, "Utility")
@@ -1173,7 +1314,7 @@ func create_instance(script_cls: Script) -> Object:
 ## [br]
 ## @param instance: 需要注入的对象。
 func inject_object(instance: Object) -> void:
-	_inject_dependencies_if_needed(instance)
+	var _injected_dependencies: bool = _inject_dependencies_if_needed(instance)
 
 
 ## 递归向节点树中实现注入 Hook 的节点注入当前架构。
@@ -1427,6 +1568,22 @@ func _on_dispose() -> void:
 
 
 # --- 私有/辅助方法 ---
+
+func _validate_declared_dependencies_or_fail(lifecycle_serial: int) -> bool:
+	var diagnostics: Dictionary = get_dependency_diagnostics({
+		"include_parent_lookup": not strict_dependency_lookup,
+		"include_factories": true,
+	})
+	var error_count: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(diagnostics, "error_count", 0)
+	if error_count <= 0:
+		return true
+	var summary: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
+		diagnostics,
+		"summary",
+		"Declared dependency validation failed."
+	)
+	_fail_initialization("[GFArchitecture] 声明式依赖校验失败：%s" % summary, lifecycle_serial)
+	return false
 
 func _collect_registry_dependency_diagnostics(
 	module_kind: String,
@@ -2279,6 +2436,7 @@ func _advance_module_to_stage(
 			return advanced
 
 		current_stage += 1
+		_bind_dependency_scope_if_needed(instance, lifecycle_serial)
 		match current_stage:
 			1:
 				_call_module_init(instance)
@@ -2374,10 +2532,7 @@ func _track_registered_module(instance: Object) -> void:
 func _module_registry_contains_instance(module_registry: ModuleRegistry, instance: Object) -> bool:
 	if instance == null:
 		return false
-	for registered_instance: Object in module_registry.instances.values():
-		if registered_instance == instance:
-			return true
-	return false
+	return module_registry._get_key_for_instance(instance) != null
 
 
 func _register_module(module_registry: ModuleRegistry, script_cls: Script, instance: Object) -> bool:
@@ -2394,11 +2549,130 @@ func _register_module(module_registry: ModuleRegistry, script_cls: Script, insta
 		])
 		return false
 
-	_inject_dependencies_if_needed(instance)
+	var existing_key: Script = module_registry._get_key_for_instance(instance)
+	if existing_key != null:
+		push_error("[GFArchitecture] register_%s 失败：同一实例已注册为 %s，禁止用多个脚本键重复注册同一模块。" % [
+			module_registry._label_key(),
+			_get_script_debug_key(existing_key, instance),
+		])
+		return false
+
+	var _injected_dependencies: bool = _inject_dependencies_if_needed(instance, _get_active_lifecycle_serial_or_unbound())
 	module_registry.instances[script_cls] = instance
+	module_registry._track_instance_key(instance, script_cls)
 	module_registry._clear_assignable_cache()
 	_track_registered_module(instance)
 	return true
+
+
+func _replace_module(module_registry: ModuleRegistry, script_cls: Script, instance: Object) -> bool:
+	if not _can_mutate_registration_state("replace_%s" % module_registry._label_key()):
+		return false
+	if not _validate_registration(script_cls, instance, module_registry.label):
+		return false
+
+	var existing_key: Script = module_registry._get_key_for_instance(instance)
+	if existing_key != null and existing_key != script_cls:
+		push_error("[GFArchitecture] replace_%s 失败：同一实例已注册为 %s，不能同时替换到其它脚本键。" % [
+			module_registry._label_key(),
+			_get_script_debug_key(existing_key, instance),
+		])
+		return false
+
+	var current_instance: Object = _get_dictionary_object(module_registry.instances, script_cls)
+	if current_instance == instance:
+		return true
+
+	if _inited:
+		return await _replace_initialized_module(module_registry, script_cls, instance)
+
+	if current_instance != null:
+		var _removed_current_instance: Object = _remove_registered_module(module_registry, script_cls, true, false)
+	if not _inject_dependencies_if_needed(instance, _get_active_lifecycle_serial_or_unbound()):
+		return false
+	module_registry.instances[script_cls] = instance
+	module_registry._track_instance_key(instance, script_cls)
+	module_registry._clear_assignable_cache()
+	_track_registered_module(instance)
+	return true
+
+
+func _replace_initialized_module(module_registry: ModuleRegistry, script_cls: Script, instance: Object) -> bool:
+	var lifecycle_serial: int = _lifecycle_serial
+	var prepared: bool = await _prepare_replacement_module(instance, lifecycle_serial)
+	if not prepared:
+		_call_module_dispose(instance)
+		_release_module_dependencies(instance)
+		return false
+	if not _is_lifecycle_current(lifecycle_serial) or _initialization_failed:
+		_call_module_dispose(instance)
+		_release_module_dependencies(instance)
+		return false
+
+	if module_registry._has_direct(script_cls):
+		var _removed_current_instance: Object = _remove_registered_module(module_registry, script_cls, true, false)
+	module_registry.instances[script_cls] = instance
+	module_registry._track_instance_key(instance, script_cls)
+	module_registry._clear_assignable_cache()
+	_module_lifecycle_stages[instance] = 3
+	return true
+
+
+func _prepare_replacement_module(instance: Object, lifecycle_serial: int) -> bool:
+	if not _inject_dependencies_if_needed(instance, lifecycle_serial):
+		return false
+	_call_module_init(instance)
+	if not _is_lifecycle_current(lifecycle_serial) or _initialization_failed:
+		return false
+	var async_initialized: bool = await _await_replacement_module_async_init(instance, lifecycle_serial)
+	if not async_initialized:
+		return false
+	if not _is_lifecycle_current(lifecycle_serial) or _initialization_failed:
+		return false
+	_bind_dependency_scope_if_needed(instance, lifecycle_serial)
+	_call_module_ready(instance)
+	return _is_lifecycle_current(lifecycle_serial) and not _initialization_failed
+
+
+func _await_replacement_module_async_init(instance: Object, lifecycle_serial: int) -> bool:
+	if module_async_init_timeout_seconds <= 0.0:
+		await _call_module_async_init(instance)
+		return _is_lifecycle_current(lifecycle_serial) and not _initialization_failed
+
+	var scene_tree: SceneTree = _get_scene_tree_or_null()
+	if scene_tree == null:
+		await _call_module_async_init(instance)
+		return _is_lifecycle_current(lifecycle_serial) and not _initialization_failed
+
+	var completion_state: Dictionary = {
+		"done": false,
+		"write_blocked": false,
+	}
+	_GF_ASYNC_CALL_SCRIPT.run_detached(Callable(self, &"_complete_replacement_module_async_init"), [instance, completion_state])
+	var start_msec: int = Time.get_ticks_msec()
+	var timeout_msec: int = int(module_async_init_timeout_seconds * 1000.0)
+	while not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(completion_state, "done", false):
+		if not _is_lifecycle_current(lifecycle_serial) or _initialization_failed:
+			return false
+		var elapsed_msec: int = Time.get_ticks_msec() - start_msec
+		if elapsed_msec >= timeout_msec:
+			completion_state["write_blocked"] = true
+			_begin_stale_async_write_block()
+			push_error("[GFArchitecture] replace_%s 超时：%s 的 async_init() 超过 %.2f 秒，已保留旧实例。" % [
+				_get_module_label_for_instance(instance),
+				_get_instance_debug_key(instance),
+				module_async_init_timeout_seconds,
+			])
+			return false
+		await scene_tree.process_frame
+	return _is_lifecycle_current(lifecycle_serial) and not _initialization_failed
+
+
+func _complete_replacement_module_async_init(instance: Object, completion_state: Dictionary) -> void:
+	await _call_module_async_init(instance)
+	if _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(completion_state, "write_blocked", false):
+		_end_stale_async_write_block()
+	completion_state["done"] = true
 
 
 func _can_mutate_registration_state(context: String) -> bool:
@@ -2420,32 +2694,70 @@ func _end_stale_async_write_block() -> void:
 
 
 func _unregister_module(module_registry: ModuleRegistry, script_cls: Script) -> bool:
-	var registered_key: Script = _resolve_registered_key(module_registry, script_cls)
-	if registered_key != null and module_registry._has_direct(registered_key):
-		var instance: Object = _get_dictionary_object(module_registry.instances, registered_key)
-		if instance != null:
-			_call_module_dispose(instance)
-		if instance != null:
-			_event_system.unregister_owner(instance)
-			_release_module_dependencies(instance)
-		var _removed_stage: bool = _module_lifecycle_stages.erase(instance)
-		var _removed_instance: bool = module_registry.instances.erase(registered_key)
-		_remove_aliases_for(module_registry, registered_key)
-		module_registry._clear_assignable_cache()
+	if script_cls == null:
+		return false
+	if module_registry._has_direct(script_cls):
+		var _removed_instance: Object = _remove_registered_module(module_registry, script_cls, true, true)
 		return true
-
-	var _removed_alias: bool = module_registry.aliases.erase(script_cls)
-	module_registry._clear_assignable_cache()
+	if module_registry.aliases.has(script_cls):
+		push_error("[GFArchitecture] unregister_%s 失败：传入的是 alias，请使用 unregister_%s_alias()。" % [
+			module_registry._label_key(),
+			module_registry._label_key(),
+		])
+		return false
 	return false
 
 
-func _inject_dependencies_if_needed(instance: Object) -> void:
-	if instance != null and instance.has_method("_gf_set_dependency_scope"):
-		instance.call("_gf_set_dependency_scope", self)
+func _remove_registered_module(
+	module_registry: ModuleRegistry,
+	registered_key: Script,
+	dispose_instance: bool,
+	remove_aliases: bool
+) -> Object:
+	var instance: Object = _get_dictionary_object(module_registry.instances, registered_key)
+	if instance != null and dispose_instance:
+		_call_module_dispose(instance)
+	if instance != null:
+		_event_system.unregister_owner(instance)
+		_release_module_dependencies(instance)
+		var _removed_stage: bool = _module_lifecycle_stages.erase(instance)
+	module_registry._untrack_instance(instance)
+	var _removed_instance: bool = module_registry.instances.erase(registered_key)
+	if remove_aliases:
+		_remove_aliases_for(module_registry, registered_key)
+	module_registry._clear_assignable_cache()
+	return instance
+
+
+func _inject_dependencies_if_needed(
+	instance: Object,
+	lifecycle_serial: int = -1,
+	execution_context: bool = false
+) -> bool:
+	if instance == null:
+		return true
+	var execution_scope_bound: bool = false
+	if execution_context and instance.has_method("_gf_begin_execution_scope"):
+		var begin_result: Variant = instance.call("_gf_begin_execution_scope", self, lifecycle_serial)
+		if not _GF_VARIANT_ACCESS_SCRIPT.to_bool(begin_result):
+			return false
+		execution_scope_bound = true
+	if not execution_scope_bound:
+		_bind_dependency_scope_if_needed(instance, lifecycle_serial)
 	if instance != null and instance.has_method("inject_dependencies"):
 		var _inject_dependencies_result: Variant = instance.call("inject_dependencies", self)
 	if instance != null and instance.has_method("inject"):
 		var _inject_result: Variant = instance.call("inject", self)
+	return true
+
+
+func _bind_dependency_scope_if_needed(instance: Object, lifecycle_serial: int = -1) -> void:
+	if instance == null or not instance.has_method("_gf_set_dependency_scope"):
+		return
+	if instance is GFModel or instance is GFSystem or instance is GFUtility or instance is GFCommand or instance is GFQuery:
+		instance.call("_gf_set_dependency_scope", self, lifecycle_serial)
+		return
+	instance.call("_gf_set_dependency_scope", self)
 
 
 func _clear_injected_scope(instance: Object) -> void:
@@ -2470,7 +2782,7 @@ func _stop_project_installers_after_failure() -> void:
 
 
 func _inject_node_tree(node: Node) -> void:
-	_inject_dependencies_if_needed(node)
+	var _injected_dependencies: bool = _inject_dependencies_if_needed(node)
 	for child: Node in node.get_children(true):
 		_inject_node_tree(child)
 
@@ -2540,8 +2852,10 @@ func _get_time_provider() -> Object:
 
 
 func _get_command_history_store() -> Object:
-	var history_store: Object = _find_local_utility_with_methods(PackedStringArray([
+	var history_store: Object = _find_single_local_utility_with_methods(PackedStringArray([
 		"serialize_full_history",
+		"deserialize_full_history",
+		"deserialize_history",
 	]))
 	if history_store != null:
 		return history_store
@@ -2550,10 +2864,15 @@ func _get_command_history_store() -> Object:
 	return null
 
 
-func _find_local_utility_with_methods(method_names: PackedStringArray) -> Object:
+func _find_single_local_utility_with_methods(method_names: PackedStringArray) -> Object:
+	var matches: Array[Object] = []
 	for utility: Object in _utilities.values():
 		if _object_has_methods(utility, method_names):
-			return utility
+			matches.append(utility)
+	if matches.size() == 1:
+		return matches[0]
+	if matches.size() > 1:
+		push_error("[GFArchitecture] 命令历史快照工具匹配到多个 Utility，请使用唯一的历史工具实例。")
 	return null
 
 
@@ -2570,8 +2889,24 @@ func _refresh_tick_caches() -> void:
 	_tick_scheduler.refresh()
 
 
+func _get_active_lifecycle_serial_or_unbound() -> int:
+	if is_lifecycle_active():
+		return _lifecycle_serial
+	return -1
+
+
 func _is_lifecycle_current(lifecycle_serial: int) -> bool:
 	return _lifecycle_serial == lifecycle_serial
+
+
+func _get_module_label_for_instance(instance: Object) -> String:
+	if instance is GFModel:
+		return "model"
+	if instance is GFSystem:
+		return "system"
+	if instance is GFUtility:
+		return "utility"
+	return "module"
 
 
 func _is_module_ready_for_lookup(instance: Object) -> bool:
@@ -2598,6 +2933,19 @@ func _register_module_alias(module_registry: ModuleRegistry, alias_cls: Script, 
 	module_registry._clear_assignable_cache()
 
 
+func _unregister_module_alias(module_registry: ModuleRegistry, alias_cls: Script) -> bool:
+	if not _can_mutate_registration_state("unregister_%s_alias" % module_registry._label_key()):
+		return false
+	if alias_cls == null:
+		push_error("[GFArchitecture] unregister_%s_alias 失败：alias 为空。" % module_registry._label_key())
+		return false
+	if not module_registry.aliases.has(alias_cls):
+		return false
+	var _removed_alias: bool = module_registry.aliases.erase(alias_cls)
+	module_registry._clear_assignable_cache()
+	return true
+
+
 func _resolve_registered_key(module_registry: ModuleRegistry, script_cls: Script) -> Script:
 	if script_cls == null:
 		return null
@@ -2607,6 +2955,7 @@ func _resolve_registered_key(module_registry: ModuleRegistry, script_cls: Script
 		var target_cls: Script = _get_dictionary_script(module_registry.aliases, script_cls)
 		if target_cls != null and module_registry._has_direct(target_cls):
 			return target_cls
+		_report_unresolved_alias(module_registry, script_cls, target_cls)
 	return null
 
 
@@ -2614,6 +2963,8 @@ func _get_local_registered_instance(module_registry: ModuleRegistry, script_cls:
 	var registered_key: Script = _resolve_registered_key(module_registry, script_cls)
 	if registered_key != null:
 		return _get_dictionary_object(module_registry.instances, registered_key)
+	if _has_unresolved_alias(module_registry, script_cls):
+		return null
 	registered_key = _resolve_assignable_cached_key(module_registry, script_cls)
 	if registered_key != null:
 		return _get_dictionary_object(module_registry.instances, registered_key)
@@ -2638,6 +2989,21 @@ func _remove_aliases_for(module_registry: ModuleRegistry, registered_key: Script
 			keys_to_remove.append(alias_cls)
 	for alias_cls: Script in keys_to_remove:
 		var _removed_alias: bool = module_registry.aliases.erase(alias_cls)
+
+
+func _has_unresolved_alias(module_registry: ModuleRegistry, script_cls: Script) -> bool:
+	if script_cls == null or not module_registry.aliases.has(script_cls):
+		return false
+	var target_cls: Script = _get_dictionary_script(module_registry.aliases, script_cls)
+	return target_cls == null or not module_registry._has_direct(target_cls)
+
+
+func _report_unresolved_alias(module_registry: ModuleRegistry, alias_cls: Script, target_cls: Script) -> void:
+	push_error("[GFArchitecture] get_%s(%s) 失败：alias 指向的目标未注册：%s。" % [
+		module_registry._label_key(),
+		_get_script_debug_key(alias_cls),
+		_get_script_debug_key(target_cls),
+	])
 
 
 func _resolve_assignable_cached_key(module_registry: ModuleRegistry, script_cls: Script) -> Script:
@@ -2904,6 +3270,13 @@ class ModuleRegistry:
 	## @schema assignable_cache: Dictionary keyed by requested Script, storing resolved registered Script.
 	var assignable_cache: Dictionary = {}
 
+	## 实例 ID 到直接注册脚本的反向索引。
+	## [br]
+	## @api framework_internal
+	## [br]
+	## @schema instance_keys: Dictionary keyed by Object instance id, storing registered Script.
+	var instance_keys: Dictionary = {}
+
 	func _init(p_label: String) -> void:
 		label = p_label
 
@@ -2916,7 +3289,39 @@ class ModuleRegistry:
 	func _clear_assignable_cache() -> void:
 		assignable_cache.clear()
 
+	func _track_instance_key(instance: Object, script_cls: Script) -> void:
+		if instance == null or script_cls == null:
+			return
+		instance_keys[instance.get_instance_id()] = script_cls
+
+	func _untrack_instance(instance: Object) -> void:
+		if instance == null:
+			return
+		var _removed_instance_key: bool = instance_keys.erase(instance.get_instance_id())
+
+	func _get_key_for_instance(instance: Object) -> Script:
+		if instance == null:
+			return null
+		var instance_id: int = instance.get_instance_id()
+		if not instance_keys.has(instance_id):
+			return null
+		var script_cls: Script = _get_script_from_variant(instance_keys[instance_id])
+		if script_cls == null or not instances.has(script_cls):
+			var _removed_stale_key: bool = instance_keys.erase(instance_id)
+			return null
+		if instances[script_cls] != instance:
+			var _removed_mismatched_key: bool = instance_keys.erase(instance_id)
+			return null
+		return script_cls
+
 	func _clear() -> void:
 		instances.clear()
 		aliases.clear()
 		assignable_cache.clear()
+		instance_keys.clear()
+
+	func _get_script_from_variant(value: Variant) -> Script:
+		if value is Script:
+			var script_cls: Script = value
+			return script_cls
+		return null

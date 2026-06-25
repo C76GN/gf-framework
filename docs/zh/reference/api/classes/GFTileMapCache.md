@@ -17,6 +17,10 @@
 |---|---|---|
 | 属性 | [`cells`](#member-gftilemapcache-properties-cells) | `var cells: Dictionary = {}` |
 | 方法 | [`update_from_tile_map`](#member-gftilemapcache-methods-update_from_tile_map) | `func update_from_tile_map(layer: TileMapLayer, target_cells: Array[Vector2i] = []) -> void:` |
+| 方法 | [`apply_to_tile_map`](#member-gftilemapcache-methods-apply_to_tile_map) | `func apply_to_tile_map( layer: TileMapLayer, origin: Vector2i = Vector2i.ZERO, options: Dictionary = {} ) -> Dictionary:` |
+| 方法 | [`extract_region`](#member-gftilemapcache-methods-extract_region) | `func extract_region(region: Rect2i, normalize_origin: bool = true) -> GFTileMapCache:` |
+| 方法 | [`translated`](#member-gftilemapcache-methods-translated) | `func translated(offset: Vector2i) -> GFTileMapCache:` |
+| 方法 | [`get_used_rect`](#member-gftilemapcache-methods-get_used_rect) | `func get_used_rect() -> Rect2i:` |
 | 方法 | [`set_cell_data`](#member-gftilemapcache-methods-set_cell_data) | `func set_cell_data(cell: Vector2i, data: Dictionary) -> void:` |
 | 方法 | [`erase_cell`](#member-gftilemapcache-methods-erase_cell) | `func erase_cell(cell: Vector2i) -> void:` |
 | 方法 | [`has_cell`](#member-gftilemapcache-methods-has_cell) | `func has_cell(cell: Vector2i) -> bool:` |
@@ -65,6 +69,92 @@ func update_from_tile_map(layer: TileMapLayer, target_cells: Array[Vector2i] = [
 |---|---|
 | `layer` | 目标 TileMapLayer。 |
 | `target_cells` | 要更新的格子；为空时采集 layer.get_used_cells()。 |
+
+<a id="member-gftilemapcache-methods-apply_to_tile_map"></a>
+
+### `apply_to_tile_map`
+
+- API：`public`
+- 首次版本：`6.0.0`
+
+```gdscript
+func apply_to_tile_map( layer: TileMapLayer, origin: Vector2i = Vector2i.ZERO, options: Dictionary = {} ) -> Dictionary:
+```
+
+将缓存写回 TileMapLayer。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `layer` | 目标 TileMapLayer。 |
+| `origin` | 写回偏移，缓存坐标会加上该偏移。 |
+| `options` | 可选参数，支持 overwrite、erase_empty。 |
+
+返回：写回报告。
+
+结构：
+
+- `options`: Dictionary with optional `overwrite: bool` and `erase_empty: bool`.
+- `return`: Dictionary with ok, applied_count, skipped_count, erased_count, failed_count, applied_cells, skipped_cells, erased_cells, failed_cells, and error.
+
+<a id="member-gftilemapcache-methods-extract_region"></a>
+
+### `extract_region`
+
+- API：`public`
+- 首次版本：`6.0.0`
+
+```gdscript
+func extract_region(region: Rect2i, normalize_origin: bool = true) -> GFTileMapCache:
+```
+
+提取区域片段。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `region` | 要提取的区域。 |
+| `normalize_origin` | 为 true 时把区域左上角归一到 Vector2i.ZERO。 |
+
+返回：新缓存。
+
+<a id="member-gftilemapcache-methods-translated"></a>
+
+### `translated`
+
+- API：`public`
+- 首次版本：`6.0.0`
+
+```gdscript
+func translated(offset: Vector2i) -> GFTileMapCache:
+```
+
+创建坐标平移后的缓存副本。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `offset` | 坐标偏移。 |
+
+返回：新缓存。
+
+<a id="member-gftilemapcache-methods-get_used_rect"></a>
+
+### `get_used_rect`
+
+- API：`public`
+- 首次版本：`6.0.0`
+
+```gdscript
+func get_used_rect() -> Rect2i:
+```
+
+获取缓存覆盖区域。
+
+返回：覆盖区域；缓存为空时返回空 Rect2i。
 
 <a id="member-gftilemapcache-methods-set_cell_data"></a>
 

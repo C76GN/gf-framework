@@ -110,6 +110,7 @@ func test_native_install_local_archives_writes_files_and_lockfile() -> void:
 	)
 	var lockfile: Dictionary = _read_json(project_root.path_join(".gf/packages.lock.json"))
 	var installed: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(lockfile, "installed")
+	var registry_source: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(lockfile, "registry_source")
 	var save_entry: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(installed, "gf.extension.save")
 	var save_files: PackedStringArray = GF_VARIANT_ACCESS.get_option_packed_string_array(save_entry, "files")
 
@@ -122,6 +123,37 @@ func test_native_install_local_archives_writes_files_and_lockfile() -> void:
 	assert_true(_file_exists(project_root.path_join("addons/gf/extensions/save/gf_save_fixture.gd")), "extension fixture 应写入项目。")
 	assert_true(installed.has("gf.standard.storage"), "lockfile 应记录扩展依赖的 standard 包。")
 	assert_true(save_files.has("addons/gf/extensions/save/gf_save_fixture.gd"), "lockfile 应记录包安装文件清单。")
+	assert_eq(GF_VARIANT_ACCESS.get_option_string(registry_source, "source"), registry_path, "lockfile 应记录安装使用的 registry 来源。")
+
+
+func test_native_install_selects_concrete_packages_by_kind_filters() -> void:
+	var project_root: String = TEST_ROOT.path_join("selector_project")
+	var registry_path: String = TEST_ROOT.path_join("registry/index.json")
+	var registry: Dictionary = _make_fixture_registry()
+	_write_fixture_archives(registry)
+	_write_json(registry_path, registry)
+
+	var result: Dictionary = GF_PACKAGE_MANAGER_BACKEND.install_packages(
+		PackedStringArray(),
+		registry_path,
+		ProjectSettings.globalize_path(project_root),
+		".gf/packages.lock.json",
+		"manual",
+		false,
+		{
+			"all_concrete": true,
+			"exclude_kinds": PackedStringArray(["extension"]),
+		}
+	)
+	var lockfile: Dictionary = _read_json(project_root.path_join(".gf/packages.lock.json"))
+	var installed: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(lockfile, "installed")
+
+	assert_true(GF_VARIANT_ACCESS.get_option_bool(result, "ok"), "安装选择器应能在没有显式 package id 时选择目标。")
+	assert_true(installed.has("gf.kernel"), "all_concrete 应包含 kernel。")
+	assert_true(installed.has("gf.standard.base"), "all_concrete 应包含 standard。")
+	assert_true(installed.has("gf.standard.storage"), "all_concrete 应包含另一个 standard。")
+	assert_false(installed.has("gf.extension.save"), "exclude_kinds 应排除 extension。")
+	assert_false(installed.has("gf.preset.save"), "all_concrete 不应安装 preset。")
 
 
 func test_native_install_dry_run_validates_archives_without_mutating_project() -> void:

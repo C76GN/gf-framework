@@ -15,4 +15,15 @@ editor.move_resource(0, 2)
 
 `scan_resource_paths()` 默认限制递归深度和收集数量，项目工具可通过 `max_scan_depth` / `max_resource_paths` 调整。`commit_cell_value()` 始终接收原始资源行索引；启用过滤后可用 `get_visible_row_indices()` 做映射，或直接调用 `commit_visible_cell_value()`。
 
+需要一次性应用多格修改时，可使用 `commit_cell_values()` 或 `commit_visible_cell_values()`。前者接收原始资源行索引，后者接收当前可见行索引；可见行索引会在写入前统一解析，避免第一项修改刷新过滤结果后影响后续项。
+
+```gdscript
+var report := editor.commit_visible_cell_values([
+	{ "visible_row_index": 0, "property": &"label", "new_value": "Iron Sword" },
+	{ "visible_row_index": 1, "property": &"amount", "new_value": 3 },
+])
+```
+
+批量提交不是事务；部分失败不会回滚已成功的资源修改。返回报告包含 `ok`、`requested_count`、`applied_count`、`unchanged_count`、`failed_count`、`committed` 和 `errors`。启用自动保存时，同一批中同一个 `Resource` 只会保存一次。
+
 自动保存只会在 `auto_save_committed_resources = true` 且资源已有 `resource_path` 时触发；保存失败通过 `resource_save_failed` 交给调用方处理。

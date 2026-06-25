@@ -18,6 +18,8 @@ audio.play_sfx_clip(clip)
 
 `GFAudioClip.spatial_settings` 可引用 `GFAudioSpatialSettings`，但只会在 `play_sfx_clip_2d()` / `play_sfx_clip_3d()` 等空间 SFX 路径中应用。普通 SFX、BGM 和环境音仍只读取 stream/path、bus、音量、pitch 和 pitch 随机范围。
 
+空间设置为空时，GF 仍会把空间播放器的 `area_mask` 设为 layer 1；项目需要关闭 Area 音频总线覆盖时，应显式提供 `GFAudioSpatialSettings` 并把对应掩码设为 0。
+
 `GFAudioEmitterHandle.stop()` 即使在异步资源返回前调用，也会记录停止请求；迟到的 SFX 资源不会再创建播放器。`stop_all_sfx()` 会递增 SFX 生命周期序号，停止普通 SFX 和 2D/3D 空间 SFX，并阻止尚未返回的异步 SFX 继续落地。
 
 池化播放器归还前会重置 stream、bus、音量和 pitch，避免上一次播放设置污染下一次请求。

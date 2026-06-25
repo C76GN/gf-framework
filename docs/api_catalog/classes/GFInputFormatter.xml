@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFInputFormatter" path="addons/gf/standard/input/formatting/gf_input_formatter.gd" module="standard" extends="RefCounted" classDigest="b8136201a2cae4ef57c47c9cecf70123caff63d5fa54fbe9896760e9dd760a28">
+<class name="GFInputFormatter" path="addons/gf/standard/input/formatting/gf_input_formatter.gd" module="standard" extends="RefCounted" classDigest="6a1eac2d7f48fddfb9863494c4b0f09ac6c42ddadb4814cb765dc4fe7359e907">
 	<description>GFInputFormatter: 输入事件与绑定的轻量文本格式化工具。</description>
 	<tags>
 		<tag name="api">public</tag>
@@ -42,6 +42,42 @@
 				<tag name="param">options: 可选格式化参数。</tag>
 				<tag name="return">图标资源。</tag>
 				<tag name="schema">options: Dictionary，透传给已注册的图标 provider。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="action_as_text">
+			<signature>static func action_as_text(action_name: StringName, options: Dictionary = {}) -&gt; String:</signature>
+			<description>将 InputMap 动作的首选事件格式化为通用文本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">action_name: InputMap 动作名。</tag>
+				<tag name="param">options: 可选格式化参数。</tag>
+				<tag name="return">可显示文本。</tag>
+				<tag name="schema">options: Dictionary，可包含 unbound_text、preferred_device_type、preferred_event_index 和 provider 特定格式化字段。</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="action_as_rich_text">
+			<signature>static func action_as_rich_text(action_name: StringName, options: Dictionary = {}) -&gt; String:</signature>
+			<description>将 InputMap 动作的首选事件格式化为 RichTextLabel BBCode。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">action_name: InputMap 动作名。</tag>
+				<tag name="param">options: 可选格式化参数。</tag>
+				<tag name="return">BBCode 文本。</tag>
+				<tag name="schema">options: Dictionary，可包含 unbound_text、icon_size、preferred_device_type、preferred_event_index、prefer_action_icon 和 provider 特定富文本字段。</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="action_icon">
+			<signature>static func action_icon(action_name: StringName, options: Dictionary = {}) -&gt; Texture2D:</signature>
+			<description>获取 InputMap 动作的首选图标。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">action_name: InputMap 动作名。</tag>
+				<tag name="param">options: 可选格式化参数。</tag>
+				<tag name="return">图标资源。</tag>
+				<tag name="schema">options: Dictionary，可包含 preferred_device_type、preferred_event_index、prefer_action_icon 和 provider 特定图标字段。</tag>
+				<tag name="since">6.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="binding_as_text">

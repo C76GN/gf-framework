@@ -71,12 +71,45 @@ func test_write_property_coerces_supported_value_types() -> void:
 	assert_eq(object.target_path_value, ^"Child/Label")
 
 
+func test_object_to_dictionary_filters_and_copies_values() -> void:
+	var object: DynamicPropertyObject = DynamicPropertyObject.new()
+	var snapshot: Dictionary = GFObjectPropertyTools.object_to_dictionary(object, {
+		"include_properties": PackedStringArray(["dynamic_number", "payload"]),
+	})
+	var payload: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(snapshot, "payload")
+	var tags: Array = GF_VARIANT_ACCESS.get_option_array(payload, "tags")
+	tags.append("mutated")
+	var object_tags: Array = GF_VARIANT_ACCESS.get_option_array(object.payload_value, "tags")
+
+	assert_eq(snapshot.keys(), ["dynamic_number", "payload"], "属性快照应只包含请求的 storage 属性并保持排序。")
+	assert_eq(object_tags, ["base"], "快照中的集合值应默认复制，避免污染对象。")
+
+
+func test_apply_dictionary_reports_partial_writes_and_unknown_properties() -> void:
+	var object: DynamicPropertyObject = DynamicPropertyObject.new()
+
+	var report: Dictionary = GFObjectPropertyTools.apply_dictionary(object, {
+		"dynamic_number": 12,
+		"target_path": "Child/Label",
+		"missing": 1,
+	})
+
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(report, "ok"), "未知属性应记录 issue。")
+	assert_eq(GF_VARIANT_ACCESS.get_option_int(report, "applied_count"), 2)
+	assert_eq(GF_VARIANT_ACCESS.get_option_int(report, "skipped_count"), 1)
+	assert_eq(object.dynamic_number_value, 12)
+	assert_eq(object.target_path_value, ^"Child/Label")
+
+
 # --- 内部类 ---
 
 class DynamicPropertyObject extends RefCounted:
 	var dynamic_number_value: int = 5
 	var locked_number_value: int = 7
 	var target_path_value: NodePath = NodePath("")
+	var payload_value: Dictionary = {
+		"tags": ["base"],
+	}
 
 
 	func _get_property_list() -> Array[Dictionary]:
@@ -97,6 +130,11 @@ class DynamicPropertyObject extends RefCounted:
 				"usage": PROPERTY_USAGE_DEFAULT | PROPERTY_USAGE_STORAGE,
 			},
 			{
+				"name": "payload",
+				"type": TYPE_DICTIONARY,
+				"usage": PROPERTY_USAGE_DEFAULT | PROPERTY_USAGE_STORAGE,
+			},
+			{
 				"name": "editor_only",
 				"type": TYPE_STRING,
 				"usage": PROPERTY_USAGE_EDITOR,
@@ -112,6 +150,8 @@ class DynamicPropertyObject extends RefCounted:
 				return locked_number_value
 			&"target_path":
 				return target_path_value
+			&"payload":
+				return payload_value
 			_:
 				return null
 
@@ -123,6 +163,9 @@ class DynamicPropertyObject extends RefCounted:
 				return true
 			&"target_path":
 				target_path_value = value if value is NodePath else NodePath(GF_VARIANT_ACCESS.to_text(value))
+				return true
+			&"payload":
+				payload_value = GF_VARIANT_ACCESS.to_dictionary(value)
 				return true
 			_:
 				return false

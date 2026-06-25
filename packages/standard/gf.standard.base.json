@@ -17,6 +17,7 @@
     "addons/gf/standard/foundation/collections/**",
     "addons/gf/standard/foundation/formula/**",
     "addons/gf/standard/foundation/identity/**",
+    "addons/gf/standard/foundation/policy/**",
     "addons/gf/standard/foundation/schema/**",
     "addons/gf/standard/foundation/tags/**",
     "addons/gf/standard/foundation/timeline/**",

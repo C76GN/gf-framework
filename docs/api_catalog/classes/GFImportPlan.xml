@@ -1,0 +1,157 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFImportPlan" path="addons/gf/standard/utilities/assets/gf_import_plan.gd" module="standard" extends="Resource" classDigest="b511b7cc77918cd6f148edfcf55f79c9dc20e85c3f437b81927e2e1dcc3f3a34">
+	<description>GFImportPlan: 通用导入计划与预检报告。
+描述一组来源到目标的导入、复制或转换条目，并提供 source trace、预检和修复动作报告。
+该类不执行文件复制或格式转换，具体导入器可把它作为编辑器工具和 CI 的共享计划格式。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">resource_definition</tag>
+		<tag name="since">6.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants>
+		<member kind="const" name="OPERATION_COPY">
+			<signature>const OPERATION_COPY: StringName = &amp;"copy"</signature>
+			<description>复制来源文件。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="OPERATION_CONVERT">
+			<signature>const OPERATION_CONVERT: StringName = &amp;"convert"</signature>
+			<description>转换来源文件。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="OPERATION_SKIP">
+			<signature>const OPERATION_SKIP: StringName = &amp;"skip"</signature>
+			<description>跳过来源文件。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties>
+		<member kind="property" name="entries" decorators="@export">
+			<signature>var entries: Array[Dictionary] = []</signature>
+			<description>导入条目列表。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">entries: Array[Dictionary] where each entry contains source_path, target_path, operation, source_trace, repair_actions, and metadata.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="metadata" decorators="@export">
+			<signature>var metadata: Dictionary = {}</signature>
+			<description>调用方附加元数据。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">metadata: Dictionary for caller-defined import plan metadata.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="add_entry">
+			<signature>func add_entry( source_path: String, target_path: String, operation: StringName = OPERATION_COPY, options: Dictionary = {} ) -&gt; GFImportPlan:</signature>
+			<description>添加导入条目。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">source_path: 来源路径。</tag>
+				<tag name="param">target_path: 目标路径。</tag>
+				<tag name="param">operation: 导入操作。</tag>
+				<tag name="param">options: 条目选项。</tag>
+				<tag name="return">当前计划。</tag>
+				<tag name="schema">options: Dictionary，可包含 source_format、target_format、type_hint、source_trace、repair_actions 和 metadata。</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="clear">
+			<signature>func clear() -&gt; void:</signature>
+			<description>清空导入条目。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_entries">
+			<signature>func get_entries() -&gt; Array[Dictionary]:</signature>
+			<description>获取条目副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">条目副本。</tag>
+				<tag name="schema">return: Array[Dictionary] import plan entries.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_source_traces">
+			<signature>func get_source_traces() -&gt; Array[Dictionary]:</signature>
+			<description>获取 source trace 列表。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">source trace 字典数组。</tag>
+				<tag name="schema">return: Array[Dictionary] where each trace contains source_path, target_path, operation, source_format, target_format, and metadata.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_validation_report">
+			<signature>func get_validation_report(options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>生成导入预检报告。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">options: 预检选项。</tag>
+				<tag name="return">GFValidationReportDictionary 兼容报告。</tag>
+				<tag name="schema">options: Dictionary，可包含 check_source_exists、target_root 和 allow_empty_target。</tag>
+				<tag name="schema">return: GFValidationReportDictionary.finalize_report() output with entry_count and source_traces.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_repair_report">
+			<signature>func get_repair_report() -&gt; Dictionary:</signature>
+			<description>生成修复动作报告，不执行修复。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">修复动作报告。</tag>
+				<tag name="schema">return: Dictionary with action_count, actions, source_traces, and metadata.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="to_dict">
+			<signature>func to_dict() -&gt; Dictionary:</signature>
+			<description>转换为可序列化字典。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">导入计划字典。</tag>
+				<tag name="schema">return: Dictionary with entries and metadata.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="apply_dict">
+			<signature>func apply_dict(data: Dictionary) -&gt; void:</signature>
+			<description>应用字典数据。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">data: 导入计划字典。</tag>
+				<tag name="schema">data: Dictionary with entries and metadata.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="from_dict">
+			<signature>static func from_dict(data: Dictionary) -&gt; GFImportPlan:</signature>
+			<description>从字典创建导入计划。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">data: 导入计划字典。</tag>
+				<tag name="return">新导入计划。</tag>
+				<tag name="schema">data: Dictionary with entries and metadata.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

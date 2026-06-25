@@ -9,7 +9,7 @@
 - 类别：运行时服务 (`runtime_service`)
 - 首次版本：`3.17.0`
 
-基于 `user://` 的轻量存档系统。 支持槽位存档、元数据分离读取、`Resource` 存取， 以及可配置 codec、完整性校验、版本迁移和简单混淆，适合通用本地持久化场景。 该混淆不提供安全加密能力，请勿用于保护敏感数据。
+基于 `user://` 的轻量存档系统。 支持槽位存档、元数据分离读取、`Resource` 存取， 以及可配置 codec、完整性校验、版本迁移和简单混淆，适合通用本地持久化场景。 该混淆不提供安全加密能力，请勿用于保护敏感数据。 `Resource` 存取只面向项目生成或项目已确认来源与格式的本地文件；它不是未确认来源资源的沙盒化导入器。
 
 ## 成员概览
 
@@ -33,6 +33,10 @@
 | 属性 | [`require_integrity_checksum`](#member-gfstorageutility-properties-require_integrity_checksum) | `var require_integrity_checksum: bool = true` |
 | 属性 | [`include_storage_metadata`](#member-gfstorageutility-properties-include_storage_metadata) | `var include_storage_metadata: bool = false` |
 | 属性 | [`allow_absolute_paths`](#member-gfstorageutility-properties-allow_absolute_paths) | `var allow_absolute_paths: bool = false` |
+| 属性 | [`allow_resource_loads`](#member-gfstorageutility-properties-allow_resource_loads) | `var allow_resource_loads: bool = false` |
+| 属性 | [`allowed_resource_load_extensions`](#member-gfstorageutility-properties-allowed_resource_load_extensions) | `var allowed_resource_load_extensions: PackedStringArray = PackedStringArray(["tres", "res"])` |
+| 属性 | [`allowed_resource_load_type_hints`](#member-gfstorageutility-properties-allowed_resource_load_type_hints) | `var allowed_resource_load_type_hints: PackedStringArray = PackedStringArray()` |
+| 属性 | [`require_resource_load_type_hint`](#member-gfstorageutility-properties-require_resource_load_type_hint) | `var require_resource_load_type_hint: bool = true` |
 | 属性 | [`create_directories_for_nested_paths`](#member-gfstorageutility-properties-create_directories_for_nested_paths) | `var create_directories_for_nested_paths: bool = true` |
 | 属性 | [`max_async_thread_count`](#member-gfstorageutility-properties-max_async_thread_count) | `var max_async_thread_count: int = 4:` |
 | 属性 | [`save_version`](#member-gfstorageutility-properties-save_version) | `var save_version: int = 1:` |
@@ -323,6 +327,58 @@ var allow_absolute_paths: bool = false
 
 是否允许传入绝对路径。关闭后绝对路径会被收敛到存档目录下的同名文件。
 
+<a id="member-gfstorageutility-properties-allow_resource_loads"></a>
+
+### `allow_resource_loads`
+
+- API：`public`
+- 首次版本：`6.0.0`
+
+```gdscript
+var allow_resource_loads: bool = false
+```
+
+是否允许通过 `load_resource()` 调用 Godot `ResourceLoader`。默认关闭，避免未确认来源文件进入资源加载链路。
+
+<a id="member-gfstorageutility-properties-allowed_resource_load_extensions"></a>
+
+### `allowed_resource_load_extensions`
+
+- API：`public`
+- 首次版本：`6.0.0`
+
+```gdscript
+var allowed_resource_load_extensions: PackedStringArray = PackedStringArray(["tres", "res"])
+```
+
+`load_resource()` 允许读取的文件扩展名。不包含点号；空列表表示不允许任何 Resource 读取。
+
+<a id="member-gfstorageutility-properties-allowed_resource_load_type_hints"></a>
+
+### `allowed_resource_load_type_hints`
+
+- API：`public`
+- 首次版本：`6.0.0`
+
+```gdscript
+var allowed_resource_load_type_hints: PackedStringArray = PackedStringArray()
+```
+
+`load_resource()` 允许的类型提示。为空时不限制类型提示值；启用时 `type_hint` 必须精确匹配其中之一。
+
+<a id="member-gfstorageutility-properties-require_resource_load_type_hint"></a>
+
+### `require_resource_load_type_hint`
+
+- API：`public`
+- 首次版本：`6.0.0`
+
+```gdscript
+var require_resource_load_type_hint: bool = true
+```
+
+`load_resource()` 是否要求调用方传入非空 `type_hint`。
+
 <a id="member-gfstorageutility-properties-create_directories_for_nested_paths"></a>
 
 ### `create_directories_for_nested_paths`
@@ -473,12 +529,13 @@ func save_resource(file_name: String, resource: Resource) -> Error:
 ### `load_resource`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func load_resource(file_name: String, type_hint: String = "") -> Resource:
 ```
 
-读取一个 `Resource` 文件。
+读取一个 `Resource` 文件。 该方法会调用 Godot `ResourceLoader`，默认关闭。调用方必须先启用 `allow_resource_loads`，并通过类型提示、扩展名 allowlist 与存储路径策略收窄加载边界。
 
 参数：
 

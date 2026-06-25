@@ -86,6 +86,71 @@ func test_resource_table_search_filters_visible_rows_and_commits_visible_cell() 
 	assert_eq(second.amount, 5, "可见行提交应更新匹配资源。")
 
 
+func test_resource_table_commit_cell_values_reports_partial_failures() -> void:
+	var first: TableResource = TableResource.new()
+	first.label = "Alpha"
+	first.amount = 1
+	var second: TableResource = TableResource.new()
+	second.label = "Beta"
+	second.amount = 2
+	var editor: GFResourceTableEditor = GFResourceTableEditor.new()
+	add_child_autofree(editor)
+	watch_signals(editor)
+	editor.load_resources([first, second], [{
+		"name": &"label",
+		"type": TYPE_STRING,
+	}, {
+		"name": &"amount",
+		"type": TYPE_INT,
+	}])
+
+	var report: Dictionary = editor.commit_cell_values([
+		{ "row_index": 0, "property": &"label", "new_value": "Gamma" },
+		{ "row_index": 1, "property": &"amount", "new_value": 2 },
+		{ "row_index": 9, "property": &"amount", "new_value": 3 },
+		{ "row_index": 0, "property": &"missing", "new_value": 1 },
+	])
+
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(report, "ok"), "部分失败时批量报告应标记为失败。")
+	assert_eq(GF_VARIANT_ACCESS.get_option_int(report, "requested_count"), 4, "报告应记录请求数量。")
+	assert_eq(GF_VARIANT_ACCESS.get_option_int(report, "applied_count"), 1, "只应计入实际改值的单元格。")
+	assert_eq(GF_VARIANT_ACCESS.get_option_int(report, "unchanged_count"), 1, "相同值应计为未变化。")
+	assert_eq(GF_VARIANT_ACCESS.get_option_int(report, "failed_count"), 2, "无效行和未知属性应计为失败。")
+	assert_eq(first.label, "Gamma", "有效变更应写回资源。")
+	assert_eq(second.amount, 2, "相同值应保持不变。")
+	assert_signal_emit_count(editor, "cell_value_committed", 1)
+
+
+func test_resource_table_commit_visible_cell_values_resolves_indices_before_refresh() -> void:
+	var first: TableResource = TableResource.new()
+	first.label = "keep-a"
+	first.amount = 1
+	var second: TableResource = TableResource.new()
+	second.label = "keep-b"
+	second.amount = 2
+	var editor: GFResourceTableEditor = GFResourceTableEditor.new()
+	add_child_autofree(editor)
+	editor.load_resources([first, second], [{
+		"name": &"label",
+		"type": TYPE_STRING,
+	}, {
+		"name": &"amount",
+		"type": TYPE_INT,
+	}])
+	editor.set_search_text("keep")
+
+	var report: Dictionary = editor.commit_visible_cell_values([
+		{ "visible_row_index": 0, "property": &"label", "new_value": "drop-a" },
+		{ "visible_row_index": 1, "property": &"amount", "new_value": 9 },
+	])
+
+	assert_true(GF_VARIANT_ACCESS.get_option_bool(report, "ok"), "有效可见行批量提交应成功。")
+	assert_eq(GF_VARIANT_ACCESS.get_option_int(report, "applied_count"), 2, "两个可见行变更都应应用。")
+	assert_eq(first.label, "drop-a", "第一个可见行应仍指向提交前的 first。")
+	assert_eq(second.amount, 9, "第二个可见行应仍指向提交前的 second。")
+	assert_eq(editor.get_visible_row_indices(), PackedInt32Array([1]), "刷新后过滤结果应反映最终资源值。")
+
+
 func test_resource_table_supports_sort_duplicate_move_and_remove() -> void:
 	var first: TableResource = TableResource.new()
 	first.label = "First"

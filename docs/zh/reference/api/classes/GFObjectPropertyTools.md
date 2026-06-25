@@ -27,6 +27,8 @@ Godot Object 属性访问辅助。 集中处理属性列表查询、属性路径
 | 方法 | [`write_property`](#member-gfobjectpropertytools-methods-write_property) | `static func write_property( object: Object, property_path: NodePath, value: Variant, options: Dictionary = {} ) -> Dictionary:` |
 | 方法 | [`value_matches_property_type`](#member-gfobjectpropertytools-methods-value_matches_property_type) | `static func value_matches_property_type(value: Variant, property_type: int) -> bool:` |
 | 方法 | [`coerce_property_value`](#member-gfobjectpropertytools-methods-coerce_property_value) | `static func coerce_property_value(value: Variant, property_type: int) -> Variant:` |
+| 方法 | [`object_to_dictionary`](#member-gfobjectpropertytools-methods-object_to_dictionary) | `static func object_to_dictionary(object: Object, options: Dictionary = {}) -> Dictionary:` |
+| 方法 | [`apply_dictionary`](#member-gfobjectpropertytools-methods-apply_dictionary) | `static func apply_dictionary(object: Object, values: Dictionary, options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`get_root_property_name`](#member-gfobjectpropertytools-methods-get_root_property_name) | `static func get_root_property_name(property_path: NodePath) -> StringName:` |
 
 ## 方法
@@ -320,6 +322,62 @@ static func coerce_property_value(value: Variant, property_type: int) -> Variant
 
 - `value`: Variant value to coerce.
 - `return`: Variant coerced value or original value.
+
+<a id="member-gfobjectpropertytools-methods-object_to_dictionary"></a>
+
+### `object_to_dictionary`
+
+- API：`public`
+- 首次版本：`6.0.0`
+
+```gdscript
+static func object_to_dictionary(object: Object, options: Dictionary = {}) -> Dictionary:
+```
+
+将对象声明的属性导出为 Dictionary。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `object` | 目标对象。 |
+| `options` | 可选项，支持 usage_filter、include_properties、exclude_properties、include_null、copy_values、duplicate_resources、sort_keys。 |
+
+返回：以属性名 String 为键的属性值字典。
+
+结构：
+
+- `options`: Dictionary with optional keys usage_filter: int, include_properties: Array[String] or PackedStringArray, exclude_properties: Array[String] or PackedStringArray, include_null: bool, copy_values: bool, duplicate_resources: bool, sort_keys: bool.
+- `return`: Dictionary[String, Variant] containing direct declared object properties.
+
+<a id="member-gfobjectpropertytools-methods-apply_dictionary"></a>
+
+### `apply_dictionary`
+
+- API：`public`
+- 首次版本：`6.0.0`
+
+```gdscript
+static func apply_dictionary(object: Object, values: Dictionary, options: Dictionary = {}) -> Dictionary:
+```
+
+将 Dictionary 字段批量写回对象属性。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `object` | 目标对象。 |
+| `values` | 以属性名为键的字段字典。 |
+| `options` | 可选项，支持 check_writable、check_type、coerce_value、ignore_unknown_properties、copy_values、duplicate_resources。 |
+
+返回：写入报告，包含 ok、applied_count、skipped_count 与 issues。
+
+结构：
+
+- `values`: Dictionary[String or StringName, Variant] containing direct property assignments.
+- `options`: Dictionary with optional bool keys check_writable, check_type, coerce_value, ignore_unknown_properties, copy_values, and duplicate_resources.
+- `return`: Dictionary { ok: bool, applied_count: int, skipped_count: int, issues: Array[Dictionary] }.
 
 <a id="member-gfobjectpropertytools-methods-get_root_property_name"></a>
 

@@ -6,11 +6,11 @@
 
 | 类别 | 类 | 成员 | 方法 |
 |---|---:|---:|---:|
-| [运行时服务](#category-runtime_service) | 9 | 215 | 175 |
-| [协议与扩展点](#category-protocol) | 17 | 176 | 154 |
+| [运行时服务](#category-runtime_service) | 9 | 229 | 188 |
+| [协议与扩展点](#category-protocol) | 17 | 178 | 156 |
 | [资源定义](#category-resource_definition) | 2 | 40 | 10 |
 | [值对象](#category-value_object) | 1 | 1 | 0 |
-| [编辑器 API](#category-editor_api) | 16 | 198 | 128 |
+| [编辑器 API](#category-editor_api) | 19 | 225 | 145 |
 
 ## 类
 
@@ -81,6 +81,7 @@
 | [`GFConfigAccessGenerator`](classes/GFConfigAccessGenerator.md#gfconfigaccessgenerator) | `RefCounted` | `addons/gf/kernel/editor/gf_config_access_generator.gd` |
 | [`GFEditorActionDefinition`](classes/GFEditorActionDefinition.md#gfeditoractiondefinition) | `RefCounted` | `addons/gf/kernel/editor/gf_editor_action_definition.gd` |
 | [`GFEditorCommand`](classes/GFEditorCommand.md#gfeditorcommand) | `RefCounted` | `addons/gf/kernel/editor/gf_editor_command.gd` |
+| [`GFEditorCommandSession`](classes/GFEditorCommandSession.md#gfeditorcommandsession) | `RefCounted` | `addons/gf/kernel/editor/gf_editor_command_session.gd` |
 | [`GFEditorPickOperation`](classes/GFEditorPickOperation.md#gfeditorpickoperation) | `RefCounted` | `addons/gf/kernel/editor/gf_editor_pick_operation.gd` |
 | [`GFEditorTool`](classes/GFEditorTool.md#gfeditortool) | `RefCounted` | `addons/gf/kernel/editor/gf_editor_tool.gd` |
 | [`GFEditorToolContext`](classes/GFEditorToolContext.md#gfeditortoolcontext) | `RefCounted` | `addons/gf/kernel/editor/gf_editor_tool_context.gd` |
@@ -89,6 +90,8 @@
 | [`GFEditorTypeIndex`](classes/GFEditorTypeIndex.md#gfeditortypeindex) | `RefCounted` | `addons/gf/kernel/editor/gf_editor_type_index.gd` |
 | [`GFEditorValueField`](classes/GFEditorValueField.md#gfeditorvaluefield) | `HBoxContainer` | `addons/gf/kernel/editor/gf_editor_value_field.gd` |
 | [`GFExtensionUsageAudit`](classes/GFExtensionUsageAudit.md#gfextensionusageaudit) | `RefCounted` | `addons/gf/kernel/extension/gf_extension_usage_audit.gd` |
+| [`GFGeneratedArtifactReport`](classes/GFGeneratedArtifactReport.md#gfgeneratedartifactreport) | `RefCounted` | `addons/gf/kernel/editor/gf_generated_artifact_report.gd` |
+| [`GFResourcePathHint`](classes/GFResourcePathHint.md#gfresourcepathhint) | `Object` | `addons/gf/kernel/editor/gf_resource_path_hint.gd` |
 | [`GFResourceTableEditor`](classes/GFResourceTableEditor.md#gfresourcetableeditor) | `VBoxContainer` | `addons/gf/kernel/editor/gf_resource_table_editor.gd` |
 | [`GFSceneSignalAudit`](classes/GFSceneSignalAudit.md#gfscenesignalaudit) | `RefCounted` | `addons/gf/kernel/editor/gf_scene_signal_audit.gd` |
 | [`GFSourceBuilder`](classes/GFSourceBuilder.md#gfsourcebuilder) | `RefCounted` | `addons/gf/kernel/editor/gf_source_builder.gd` |

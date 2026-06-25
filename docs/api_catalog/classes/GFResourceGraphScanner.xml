@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFResourceGraphScanner" path="addons/gf/standard/utilities/assets/gf_resource_graph_scanner.gd" module="standard" extends="RefCounted" classDigest="95348fa2fc95b524387afc832764a2a7ed630e92b2861066ceba1c8b0860642d">
+	<description>GFResourceGraphScanner: 通用 Object / Resource 图扫描器。
+递归读取 Resource、Object、Array 和 Dictionary 的属性图，生成可用于诊断、编辑器工具和测试的结构化报告。
+它只描述图形状，不修改对象、不注入编辑器 UI，也不解释资源业务含义。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_service</tag>
+		<tag name="since">6.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants>
+		<member kind="const" name="DEFAULT_MAX_DEPTH">
+			<signature>const DEFAULT_MAX_DEPTH: int = 32</signature>
+			<description>默认递归深度上限。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="DEFAULT_MAX_NODES">
+			<signature>const DEFAULT_MAX_NODES: int = 10000</signature>
+			<description>默认节点数量上限。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties />
+	<methods>
+		<member kind="method" name="scan">
+			<signature>static func scan(root: Variant, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>扫描一个 Variant 图并返回结构化报告。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">root: 扫描根对象，可为 Resource、Object、Array、Dictionary 或标量。</tag>
+				<tag name="param">options: 扫描选项。</tag>
+				<tag name="return">资源图报告。</tag>
+				<tag name="schema">root: Variant graph root.</tag>
+				<tag name="schema">options: Dictionary，可包含 max_depth、max_nodes、include_nodes、include_scalar、include_null、include_all_properties、excluded_properties。</tag>
+				<tag name="schema">return: Dictionary with ok, nodes, node_count, cycle_count, truncated, depth_limit_reached, and root_type.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="collect_paths">
+			<signature>static func collect_paths(root: Variant, options: Dictionary = {}) -&gt; PackedStringArray:</signature>
+			<description>只返回扫描到的路径列表。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">root: 扫描根对象。</tag>
+				<tag name="param">options: 扫描选项，见 scan()。</tag>
+				<tag name="return">排序后的路径列表。</tag>
+				<tag name="schema">root: Variant graph root.</tag>
+				<tag name="schema">options: Dictionary，可包含 max_depth、max_nodes、include_nodes、include_scalar、include_null、include_all_properties、excluded_properties。</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFCombatSystem" path="addons/gf/extensions/combat/core/gf_combat_system.gd" module="extensions/combat" extends="GFSystem" classDigest="4e599e7e9bd8208e88d69470847133ccb5b4ea39c9ba9e9b470b4c5ce06c4e19">
+<class name="GFCombatSystem" path="addons/gf/extensions/combat/core/gf_combat_system.gd" module="extensions/combat" extends="GFSystem" classDigest="1e736c1556248f63b07826941ac2b6fbd1eceb2bd9a5ad4e8816472b929adf46">
 	<description>GFCombatSystem: 战斗核心系统。
 负责驱动所有注册实体的 Buff 计时、周期触发以及技能 CD 更新。
 继承自 GFSystem，可通过架构的 tick 自动运行。</description>
@@ -111,6 +111,18 @@
 				<tag name="return">找到并移除 Buff 时返回 true。</tag>
 			</tags>
 		</member>
+		<member kind="method" name="remove_buff_with_reason">
+			<signature>func remove_buff_with_reason( p_entity: Object, p_buff_id: StringName, reason: StringName = GFBuff.REMOVAL_REASON_REMOVED ) -&gt; bool:</signature>
+			<description>移除实体上的指定 Buff，并记录移除原因。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">p_entity: 实体对象。</tag>
+				<tag name="param">p_buff_id: Buff 标识。</tag>
+				<tag name="param">reason: 移除原因。</tag>
+				<tag name="return">找到并移除 Buff 时返回 true。</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
 		<member kind="method" name="clear_buffs">
 			<signature>func clear_buffs(p_entity: Object, predicate: Callable = Callable()) -&gt; int:</signature>
 			<description>清理实体上的 Buff。predicate 为空时清理全部；否则仅清理返回 true 的 Buff。</description>
@@ -119,6 +131,18 @@
 				<tag name="param">p_entity: 实体对象。</tag>
 				<tag name="param">predicate: 可选过滤回调，签名为 `func(buff: GFBuff) -&gt; bool`。</tag>
 				<tag name="return">被清理的 Buff 数量。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="clear_buffs_with_reason">
+			<signature>func clear_buffs_with_reason( p_entity: Object, predicate: Callable = Callable(), reason: StringName = GFBuff.REMOVAL_REASON_CLEARED ) -&gt; int:</signature>
+			<description>清理实体上的 Buff，并记录移除原因。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">p_entity: 实体对象。</tag>
+				<tag name="param">predicate: 可选过滤回调，签名为 `func(buff: GFBuff) -&gt; bool`。</tag>
+				<tag name="param">reason: 移除原因。</tag>
+				<tag name="return">被清理的 Buff 数量。</tag>
+				<tag name="since">6.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="remove_skill">

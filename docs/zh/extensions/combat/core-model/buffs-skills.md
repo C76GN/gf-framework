@@ -13,10 +13,28 @@
 - 刷新语义：同 ID Buff 默认通过已有实例的 `refresh_from(new_buff)` 刷新持续时间并按 `max_stacks` 增加层数，不自动替换新 Buff 的 tags、modifiers 或 max_stacks。
 - 可配置策略：`stack_mode` 可选择只刷新、叠层或忽略重复添加；`duration_refresh_policy` 可选择保持、重置、追加或保留更长剩余时间。
 - 周期 Tick：`tick_interval_seconds <= 0` 时保持每帧调用 `on_tick(delta)`；大于 0 时按固定间隔触发。
+- 数据化扩展：`GFBuffRecipe` 可创建通用运行时 Buff，`GFBuffCheck` 可组合应用检查，`GFBuffEffect` 可响应 apply、remove、refresh 和 tick。
+- 状态快照：`get_state_snapshot()` / `restore_state_snapshot()` 保存持续时间、层数、标签、修饰器、metadata 和 effect 状态。
 
 `max_periodic_ticks_per_update` 会限制单次卡顿后的补偿 tick 数，避免大量 Buff 在一帧内无上限追赶。`on_tick(delta)` 只在 Buff 存活帧调用，过期帧不会额外补一次 tick。`remove_on_expire = false` 时，持续时间耗尽后不会要求 `GFCombatSystem` 移除该 Buff，项目可自行决定何时清理或复用。
 
 需要替换强度、合并配置或触发项目事件时，继承 Buff 并覆写 `refresh_from()`。
+
+需要让策划或编辑器资源创建 Buff 时，可以使用 `GFBuffRecipe`。配方只描述通用字段，不内置伤害、治疗、阵营或状态名：
+
+```gdscript
+var recipe := GFBuffRecipe.new()
+recipe.id = &"runtime.power"
+recipe.duration = 5.0
+recipe.modifier_entries = [{
+	"type": "base_add",
+	"value": 5.0,
+	"attribute_id": &"power",
+	"source_id": &"runtime.power",
+}]
+
+combat_system.add_buff(entity, recipe.create_buff(entity))
+```
 
 ## 技能
 

@@ -27,6 +27,9 @@
 | 方法 | [`clear_profiles`](#member-gfinputprofilebank-methods-clear_profiles) | `func clear_profiles() -> void:` |
 | 方法 | [`set_active_profile`](#member-gfinputprofilebank-methods-set_active_profile) | `func set_active_profile(profile_id: StringName) -> bool:` |
 | 方法 | [`get_active_profile`](#member-gfinputprofilebank-methods-get_active_profile) | `func get_active_profile(duplicate_result: bool = false) -> GFInputRemapConfig:` |
+| 方法 | [`to_dict`](#member-gfinputprofilebank-methods-to_dict) | `func to_dict() -> Dictionary:` |
+| 方法 | [`apply_dict`](#member-gfinputprofilebank-methods-apply_dict) | `func apply_dict(data: Dictionary) -> void:` |
+| 方法 | [`from_dict`](#member-gfinputprofilebank-methods-from_dict) | `static func from_dict(data: Dictionary) -> GFInputProfileBank:` |
 | 方法 | [`duplicate_bank`](#member-gfinputprofilebank-methods-duplicate_bank) | `func duplicate_bank() -> GFInputProfileBank:` |
 
 ## 属性
@@ -244,11 +247,79 @@ func get_active_profile(duplicate_result: bool = false) -> GFInputRemapConfig:
 
 返回：当前配置；未设置或不存在时返回 null。
 
+<a id="member-gfinputprofilebank-methods-to_dict"></a>
+
+### `to_dict`
+
+- API：`public`
+- 首次版本：`6.0.0`
+
+```gdscript
+func to_dict() -> Dictionary:
+```
+
+转换为可写入配置或存档的 Dictionary。
+
+返回：Profile bank 字典。
+
+结构：
+
+- `return`: Dictionary with profiles, active_profile_id, and custom_data fields. profiles maps profile id String to GFInputRemapConfig.to_dict().
+
+<a id="member-gfinputprofilebank-methods-apply_dict"></a>
+
+### `apply_dict`
+
+- API：`public`
+- 首次版本：`6.0.0`
+
+```gdscript
+func apply_dict(data: Dictionary) -> void:
+```
+
+应用由 to_dict() 生成的 Profile bank 字典。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `data` | Profile bank 字典。 |
+
+结构：
+
+- `data`: Dictionary with profiles, active_profile_id, and custom_data fields.
+
+<a id="member-gfinputprofilebank-methods-from_dict"></a>
+
+### `from_dict`
+
+- API：`public`
+- 首次版本：`6.0.0`
+
+```gdscript
+static func from_dict(data: Dictionary) -> GFInputProfileBank:
+```
+
+从 Dictionary 创建 Profile bank。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `data` | Profile bank 字典。 |
+
+返回：新的配置集合。
+
+结构：
+
+- `data`: Dictionary with profiles, active_profile_id, and custom_data fields.
+
 <a id="member-gfinputprofilebank-methods-duplicate_bank"></a>
 
 ### `duplicate_bank`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func duplicate_bank() -> GFInputProfileBank:

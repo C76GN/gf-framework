@@ -45,6 +45,7 @@ const VIRTUAL_SECTION_MARKERS: Array[String] = [
 ]
 const GODOT_CALLBACK_NAMES: Dictionary = {
 	"_can_handle": true,
+	"_capture": true,
 	"_draw": true,
 	"_enter_tree": true,
 	"_export_begin": true,
@@ -56,6 +57,7 @@ const GODOT_CALLBACK_NAMES: Dictionary = {
 	"_get_name": true,
 	"_get_property_list": true,
 	"_gui_input": true,
+	"_has_capture": true,
 	"_init": true,
 	"_input": true,
 	"_notification": true,
@@ -70,6 +72,7 @@ const GODOT_CALLBACK_NAMES: Dictionary = {
 	"_property_get_revert": true,
 	"_ready": true,
 	"_set": true,
+	"_setup_session": true,
 	"_shortcut_input": true,
 	"_to_string": true,
 	"_unhandled_input": true,

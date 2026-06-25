@@ -114,6 +114,95 @@ func test_setting_changed_signal_reports_old_and_new_value() -> void:
 	assert_signal_emitted_with_parameters(_settings, "setting_changed", [&"audio/master", 1.0, 0.25])
 
 
+func test_stage_value_keeps_effective_value_until_applied() -> void:
+	var _register_setting_result_118: Variant = _settings.register_setting(&"audio/master", 1.0, GFSettingDefinition.ValueType.FLOAT)
+	watch_signals(_settings)
+
+	_settings.stage_value(&"audio/master", "0.5")
+
+	assert_eq(_setting_float(_settings, &"audio/master"), 1.0, "暂存值不应立刻改变有效设置。")
+	assert_eq(GFVariantData.to_float(_settings.get_staged_value(&"audio/master")), 0.5, "暂存值应按设置定义钳制。")
+	assert_eq(GFVariantData.to_float(_settings.get_staged_or_value(&"audio/master")), 0.5, "预览读取应优先返回暂存值。")
+	assert_true(_settings.has_staged_value(&"audio/master"), "设置应记录暂存状态。")
+	assert_signal_not_emitted(_settings, "setting_changed", "暂存值不应触发有效设置变化信号。")
+	assert_signal_emitted(_settings, "staged_setting_changed", "暂存状态变化应发出信号。")
+
+
+func test_stage_value_equal_to_effective_value_clears_pending_value() -> void:
+	var _register_setting_result_136: Variant = _settings.register_setting(&"audio/master", 1.0, GFSettingDefinition.ValueType.FLOAT)
+	_settings.stage_value(&"audio/master", 0.5)
+
+	_settings.stage_value(&"audio/master", 1.0)
+
+	assert_false(_settings.has_staged_value(&"audio/master"), "暂存值回到当前有效值时应清除 pending。")
+	assert_false(_settings.has_staged_values(), "唯一暂存值清除后应报告无 pending。")
+
+
+func test_apply_staged_values_commits_selected_keys_and_preserves_remaining() -> void:
+	var _register_setting_result_149: Variant = _settings.register_setting(&"audio/master", 1.0, GFSettingDefinition.ValueType.FLOAT)
+	var _register_setting_result_150: Variant = _settings.register_setting(&"audio/music", 1.0, GFSettingDefinition.ValueType.FLOAT)
+	_settings.stage_value(&"audio/master", 0.5)
+	_settings.stage_value(&"audio/music", 0.25)
+	watch_signals(_settings)
+
+	var report: Dictionary = _settings.apply_staged_values({
+		"scope": PackedStringArray(["audio/master"]),
+		"save_after_change": false,
+	})
+
+	assert_true(GFVariantData.get_option_bool(report, "ok"), "暂存应用应成功。")
+	assert_eq(GFVariantData.get_option_int(report, "applied_count"), 1, "只应应用 scope 中的暂存键。")
+	assert_eq(GFVariantData.get_option_int(report, "changed_count"), 1, "实际变化数量应来自 apply_values。")
+	assert_eq(GFVariantData.get_option_int(report, "staged_applied_count"), 1, "应报告已提交暂存键数量。")
+	assert_eq(GFVariantData.get_option_int(report, "staged_remaining_count"), 1, "scope 外暂存值应保留。")
+	assert_eq(_setting_float(_settings, &"audio/master"), 0.5, "scope 内暂存值应提交为有效设置。")
+	assert_eq(_setting_float(_settings, &"audio/music"), 1.0, "scope 外暂存值不应提交。")
+	assert_false(_settings.has_staged_value(&"audio/master"), "已提交键应移出暂存层。")
+	assert_true(_settings.has_staged_value(&"audio/music"), "未提交键应继续暂存。")
+	assert_signal_emitted(_settings, "setting_changed", "提交暂存值应触发有效设置变化。")
+	assert_signal_emitted(_settings, "staged_settings_applied", "提交暂存值应发出批量应用信号。")
+
+
+func test_apply_staged_values_batches_auto_save_once() -> void:
+	var settings: RecordingSettingsUtility = RecordingSettingsUtility.new()
+	settings.auto_load_on_init = false
+	settings.auto_save_on_change = true
+	settings.save_debounce_seconds = 0.5
+	settings.init()
+	var _register_setting_result_189: Variant = settings.register_setting(&"audio/master", 1.0, GFSettingDefinition.ValueType.FLOAT)
+	var _register_setting_result_190: Variant = settings.register_setting(&"audio/music", 1.0, GFSettingDefinition.ValueType.FLOAT)
+	settings.stage_value(&"audio/master", 0.8)
+	settings.stage_value(&"audio/music", 0.6)
+
+	var report: Dictionary = settings.apply_staged_values()
+	settings.tick(0.25)
+	settings.tick(0.25)
+
+	assert_true(GFVariantData.get_option_bool(report, "ok"), "暂存应用应成功。")
+	assert_eq(settings.save_count, 1, "提交多个暂存值时应合并自动保存。")
+	assert_eq(settings.saved_files, [settings.storage_file_name], "暂存应用保存应使用当前 storage_file_name。")
+	assert_false(settings.has_staged_values(), "全部暂存值提交后不应保留 pending。")
+
+	settings.dispose()
+
+
+func test_discard_staged_values_clears_pending_without_changing_effective_values() -> void:
+	var _register_setting_result_211: Variant = _settings.register_setting(&"audio/master", 1.0, GFSettingDefinition.ValueType.FLOAT)
+	var _register_setting_result_212: Variant = _settings.register_setting(&"video/fullscreen", false, GFSettingDefinition.ValueType.BOOL)
+	_settings.stage_value(&"audio/master", 0.5)
+	_settings.stage_value(&"video/fullscreen", true)
+	watch_signals(_settings)
+
+	var discarded_keys: PackedStringArray = _settings.discard_staged_values()
+
+	assert_eq(discarded_keys, PackedStringArray(["audio/master", "video/fullscreen"]), "丢弃应返回排序后的暂存键。")
+	assert_false(_settings.has_staged_values(), "丢弃后不应还有暂存值。")
+	assert_eq(_setting_float(_settings, &"audio/master"), 1.0, "丢弃暂存不应改变有效设置。")
+	assert_eq(_setting_bool(_settings, &"video/fullscreen"), false, "丢弃暂存不应改变有效设置。")
+	assert_signal_not_emitted(_settings, "setting_changed", "丢弃暂存不应触发有效设置变化。")
+	assert_signal_emitted(_settings, "staged_settings_discarded", "丢弃暂存应发出批量信号。")
+
+
 func test_apply_values_coerces_values_and_reports_counts() -> void:
 	var _register_setting_result_118: Variant = _settings.register_setting(&"audio/master", 1.0, GFSettingDefinition.ValueType.FLOAT)
 	var _register_setting_result_119: Variant = _settings.register_setting(&"video/fullscreen", false, GFSettingDefinition.ValueType.BOOL)

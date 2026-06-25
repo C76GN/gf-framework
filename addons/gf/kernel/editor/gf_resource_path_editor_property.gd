@@ -34,6 +34,7 @@ const _STATUS_MISSING_OR_TYPE_MISMATCH: String = "missing_or_type_mismatch"
 const _STATUS_UNSUPPORTED_SCHEME: String = "unsupported_scheme"
 const _INFO_TEXT_COLOR: Color = Color(0.62, 0.66, 0.72, 1.0)
 const _WARNING_TEXT_COLOR: Color = Color(1.0, 0.58, 0.30, 1.0)
+const _GF_RESOURCE_PATH_HINT_SCRIPT = preload("res://addons/gf/kernel/editor/gf_resource_path_hint.gd")
 const _RESOURCE_EXTENSIONS: Dictionary = {
 	"gd": "Script",
 	"gdshader": "Shader",
@@ -143,27 +144,29 @@ func setup(base_type: String = DEFAULT_BASE_TYPE, prefer_uid: bool = true) -> vo
 static func should_handle_property(type: Variant.Type, hint_type: int, hint_string: String) -> bool:
 	if type != TYPE_STRING:
 		return false
-	if hint_type != PROPERTY_HINT_FILE:
+	if hint_type != PROPERTY_HINT_FILE and hint_type != _GF_RESOURCE_PATH_HINT_SCRIPT.RESOURCE_PATH:
 		return false
 	return not get_base_type_for_hint(hint_type, hint_string).is_empty()
 
 
-## 从 Godot 文件 hint 推导 ResourcePicker 基础类型。
+## 从资源路径 hint 推导 ResourcePicker 基础类型。
 ## [br]
 ## @api framework_internal
 ## [br]
 ## @layer kernel/editor
 ## [br]
-## @param hint_type: Godot 属性 hint 类型。
+## @param hint_type: Godot 属性 hint 类型或 GFResourcePathHint 常量。
 ## [br]
 ## @param hint_string: Godot 属性 hint 字符串。
 ## [br]
 ## @return 可用于 EditorResourcePicker.base_type 的类型名；无法安全推导时返回空字符串。
 static func get_base_type_for_hint(hint_type: int, hint_string: String) -> String:
-	if hint_type != PROPERTY_HINT_FILE:
+	if not _is_resource_path_hint(hint_type):
 		return ""
 
 	var direct_type: String = hint_string.strip_edges()
+	if direct_type.is_empty() and hint_type != PROPERTY_HINT_FILE:
+		return DEFAULT_BASE_TYPE
 	if _is_resource_class(direct_type):
 		return direct_type
 
@@ -317,6 +320,14 @@ static func load_resource_from_path(path: String, base_type: String = DEFAULT_BA
 static func _normalize_base_type(base_type: String) -> String:
 	var normalized_base_type: String = base_type.strip_edges()
 	return normalized_base_type if not normalized_base_type.is_empty() else DEFAULT_BASE_TYPE
+
+
+static func _is_resource_path_hint(hint_type: int) -> bool:
+	return (
+		hint_type == PROPERTY_HINT_FILE
+		or hint_type == _GF_RESOURCE_PATH_HINT_SCRIPT.RESOURCE_PATH
+		or hint_type == _GF_RESOURCE_PATH_HINT_SCRIPT.RESOURCE_PATH_ARRAY
+	)
 
 
 static func _is_resource_class(type_name: String) -> bool:

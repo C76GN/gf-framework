@@ -65,11 +65,14 @@
     ],
     "gf.kernel": [
       "res://tests/gf_core/kernel/core/test_gf_singleton.gd",
+      "res://tests/gf_core/kernel/editor/test_gf_editor_command_tools.gd",
       "res://tests/gf_core/kernel/extension/test_gf_extension_manifest.gd",
       "res://tests/gf_core/kernel/package/test_gf_package_manager_backend.gd"
     ],
     "gf.standard.assets": [
       "res://tests/gf_core/standard/utilities/assets/test_gf_asset_utility.gd",
+      "res://tests/gf_core/standard/utilities/assets/test_gf_import_plan.gd",
+      "res://tests/gf_core/standard/utilities/assets/test_gf_resource_registry.gd",
       "res://tests/gf_core/standard/utilities/io/test_gf_remote_cache_utility.gd",
       "res://tests/gf_core/standard/utilities/jobs/test_gf_background_work_utility.gd",
       "res://tests/gf_core/standard/utilities/scene/test_gf_scene_utility.gd"
@@ -80,8 +83,10 @@
     ],
     "gf.standard.base": [
       "res://tests/gf_core/standard/foundation/test_gf_value_index_and_mutation_batch.gd",
+      "res://tests/gf_core/standard/foundation/policy/test_gf_policy_registry.gd",
       "res://tests/gf_core/standard/foundation/validation/test_gf_result_dictionary.gd",
       "res://tests/gf_core/standard/foundation/variant/test_gf_variant_data_and_json_codec.gd",
+      "res://tests/gf_core/standard/sequence/test_gf_runtime_task_scheduler.gd",
       "res://tests/gf_core/standard/utilities/logging/test_gf_log_utility.gd",
       "res://tests/gf_core/standard/utilities/signals/test_gf_signal_utility.gd",
       "res://tests/gf_core/standard/utilities/time/test_gf_time_utility.gd"

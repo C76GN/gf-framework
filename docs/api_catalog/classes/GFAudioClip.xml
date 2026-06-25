@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFAudioClip" path="addons/gf/standard/utilities/audio/gf_audio_clip.gd" module="standard" extends="Resource" classDigest="10fe25a93db2ef4993fc01af668b6fa0ffcce021f928e3f6e5d7503d395f6b93">
+<class name="GFAudioClip" path="addons/gf/standard/utilities/audio/gf_audio_clip.gd" module="standard" extends="Resource" classDigest="32b11aa1044bd560e490e9304b3c1e94a83daa6524af84838ff194228cd97659">
 	<description>GFAudioClip: 可资源化的音频播放配置。
 支持直接引用 `AudioStream`，也支持提供资源路径交给 `GFAudioUtility`
 按需加载。</description>
@@ -70,10 +70,11 @@
 		</member>
 		<member kind="property" name="spatial_settings" decorators="@export">
 			<signature>var spatial_settings: Resource = null</signature>
-			<description>可选空间播放设置。为空时空间 SFX 使用 Godot 播放器默认空间参数。</description>
+			<description>可选空间播放设置。为空时空间 SFX 使用 GF 默认空间参数，并保留区域掩码 layer 1。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="schema">spatial_settings: GFAudioSpatialSettings or compatible Resource with apply_to_2d/apply_to_3d methods.</tag>
+				<tag name="since">3.19.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="metadata" decorators="@export">

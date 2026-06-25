@@ -23,6 +23,10 @@
 | 方法 | [`create_base_add`](#member-gfmodifier-methods-create_base_add) | `static func create_base_add( p_value: float, p_attribute_id: StringName = &"", p_source_id: StringName = &"" ) -> GFModifier:` |
 | 方法 | [`create_percent_add`](#member-gfmodifier-methods-create_percent_add) | `static func create_percent_add( p_value: float, p_attribute_id: StringName = &"", p_source_id: StringName = &"" ) -> GFModifier:` |
 | 方法 | [`create_final_add`](#member-gfmodifier-methods-create_final_add) | `static func create_final_add( p_value: float, p_attribute_id: StringName = &"", p_source_id: StringName = &"" ) -> GFModifier:` |
+| 方法 | [`duplicate_modifier`](#member-gfmodifier-methods-duplicate_modifier) | `func duplicate_modifier() -> GFModifier:` |
+| 方法 | [`to_dictionary`](#member-gfmodifier-methods-to_dictionary) | `func to_dictionary() -> Dictionary:` |
+| 方法 | [`apply_dictionary`](#member-gfmodifier-methods-apply_dictionary) | `func apply_dictionary(data: Dictionary) -> void:` |
+| 方法 | [`from_dictionary`](#member-gfmodifier-methods-from_dictionary) | `static func from_dictionary(data: Dictionary) -> GFModifier:` |
 
 ## 枚举
 
@@ -162,3 +166,85 @@ static func create_final_add( p_value: float, p_attribute_id: StringName = &"", 
 | `p_source_id` | 修饰器来源标识。 |
 
 返回：新修饰器。
+
+<a id="member-gfmodifier-methods-duplicate_modifier"></a>
+
+### `duplicate_modifier`
+
+- API：`public`
+- 首次版本：`6.0.0`
+
+```gdscript
+func duplicate_modifier() -> GFModifier:
+```
+
+创建修饰器副本。
+
+返回：新修饰器。
+
+<a id="member-gfmodifier-methods-to_dictionary"></a>
+
+### `to_dictionary`
+
+- API：`public`
+- 首次版本：`6.0.0`
+
+```gdscript
+func to_dictionary() -> Dictionary:
+```
+
+转换为可序列化字典。
+
+返回：修饰器字典。
+
+结构：
+
+- `return`: Dictionary with type, value, attribute_id, and source_id.
+
+<a id="member-gfmodifier-methods-apply_dictionary"></a>
+
+### `apply_dictionary`
+
+- API：`public`
+- 首次版本：`6.0.0`
+
+```gdscript
+func apply_dictionary(data: Dictionary) -> void:
+```
+
+从字典应用修饰器字段。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `data` | 修饰器字典。 |
+
+结构：
+
+- `data`: Dictionary with optional type, value, attribute_id, and source_id.
+
+<a id="member-gfmodifier-methods-from_dictionary"></a>
+
+### `from_dictionary`
+
+- API：`public`
+- 首次版本：`6.0.0`
+
+```gdscript
+static func from_dictionary(data: Dictionary) -> GFModifier:
+```
+
+从字典创建修饰器。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `data` | 修饰器字典。 |
+
+返回：新修饰器。
+
+结构：
+
+- `data`: Dictionary with optional type, value, attribute_id, and source_id.

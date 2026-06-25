@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFViewportUtility" path="addons/gf/standard/utilities/display/gf_viewport_utility.gd" module="standard" extends="GFUtility" classDigest="83d39d6b6dc9cba2cd348598e1bd47e7eba8908837559f15ba6e52b1f7146454">
+<class name="GFViewportUtility" path="addons/gf/standard/utilities/display/gf_viewport_utility.gd" module="standard" extends="GFUtility" classDigest="9f5a1e738e27d01f7eeb0c4e9585e980fca455280171bb42bb0ccd6841d9981b">
 	<description>GFViewportUtility: 通用 SubViewport 布局管理工具。
 用于本地多人、调试监视器、小地图或多视角预览等场景。它只管理 Viewport
 容器、相机挂载和后处理材质，不接管玩家、场景切换或输入规则。</description>
@@ -180,6 +180,62 @@
 				<tag name="param">canvas_item: 参考 CanvasItem。</tag>
 				<tag name="param">screen_position: 屏幕坐标。</tag>
 				<tag name="return">2D 世界坐标。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="calculate_safe_area_margins">
+			<signature>func calculate_safe_area_margins( safe_area: Rect2i, window_size: Vector2i, viewport_size: Vector2, extra_margins: Dictionary = {} ) -&gt; Dictionary:</signature>
+			<description>根据物理屏幕安全区计算 Viewport 逻辑坐标中的边距。
+extra_margins 使用已经转换到 Viewport 逻辑坐标的 top、left、bottom、right，
+可用于叠加项目自己的遮挡区域。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">safe_area: DisplayServer 返回的物理像素安全区。</tag>
+				<tag name="param">window_size: DisplayServer 返回的物理窗口尺寸。</tag>
+				<tag name="param">viewport_size: 当前 Viewport 可见尺寸。</tag>
+				<tag name="param">extra_margins: 额外逻辑边距。</tag>
+				<tag name="return">安全区边距报告。</tag>
+				<tag name="schema">extra_margins: Dictionary，可选 top、left、bottom、right，单位为 Viewport 逻辑坐标。</tag>
+				<tag name="schema">return: Dictionary，包含 ok、top、left、bottom、right、scale_x、scale_y、safe_area、window_size 和 viewport_size。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_display_safe_area_margins">
+			<signature>func get_display_safe_area_margins(viewport: Viewport = null, extra_margins: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>读取当前 DisplayServer 安全区并转换为 Viewport 逻辑边距。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">viewport: 可选 Viewport；为空时使用物理窗口尺寸作为逻辑尺寸。</tag>
+				<tag name="param">extra_margins: 额外逻辑边距。</tag>
+				<tag name="return">安全区边距报告。</tag>
+				<tag name="schema">extra_margins: Dictionary，可选 top、left、bottom、right，单位为 Viewport 逻辑坐标。</tag>
+				<tag name="schema">return: Dictionary，包含 ok、top、left、bottom、right、scale_x、scale_y、safe_area、window_size 和 viewport_size。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="apply_safe_area_margins">
+			<signature>func apply_safe_area_margins(container: MarginContainer, margins: Dictionary) -&gt; bool:</signature>
+			<description>将边距字典应用到 MarginContainer。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">container: 目标 MarginContainer。</tag>
+				<tag name="param">margins: 边距字典。</tag>
+				<tag name="return">应用成功返回 true。</tag>
+				<tag name="schema">margins: Dictionary，包含 top、left、bottom、right，单位为 Viewport 逻辑坐标。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="apply_display_safe_area_margins">
+			<signature>func apply_display_safe_area_margins( container: MarginContainer, viewport: Viewport = null, extra_margins: Dictionary = {} ) -&gt; Dictionary:</signature>
+			<description>读取当前 DisplayServer 安全区并应用到 MarginContainer。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">container: 目标 MarginContainer。</tag>
+				<tag name="param">viewport: 可选 Viewport；为空时优先使用 container 所在 Viewport。</tag>
+				<tag name="param">extra_margins: 额外逻辑边距。</tag>
+				<tag name="return">安全区边距报告，applied 表示是否成功写入 container。</tag>
+				<tag name="schema">extra_margins: Dictionary，可选 top、left、bottom、right，单位为 Viewport 逻辑坐标。</tag>
+				<tag name="schema">return: Dictionary，包含 ok、applied、top、left、bottom、right、scale_x、scale_y、safe_area、window_size 和 viewport_size。</tag>
+				<tag name="since">5.2.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_debug_snapshot">

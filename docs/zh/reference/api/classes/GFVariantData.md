@@ -32,6 +32,7 @@
 | 方法 | [`to_string_name_array`](#member-gfvariantdata-methods-to_string_name_array) | `static func to_string_name_array(value: Variant, default_value: Array[StringName] = []) -> Array[StringName]:` |
 | 方法 | [`to_int_array`](#member-gfvariantdata-methods-to_int_array) | `static func to_int_array(value: Variant, default_value: Array[int] = []) -> Array[int]:` |
 | 方法 | [`duplicate_metadata`](#member-gfvariantdata-methods-duplicate_metadata) | `static func duplicate_metadata(metadata: Dictionary) -> Dictionary:` |
+| 方法 | [`values_equal`](#member-gfvariantdata-methods-values_equal) | `static func values_equal(left: Variant, right: Variant, options: Dictionary = {}) -> bool:` |
 | 方法 | [`merge_dictionary`](#member-gfvariantdata-methods-merge_dictionary) | `static func merge_dictionary( target: Dictionary, source: Dictionary, overwrite: bool = true, recursive: bool = true ) -> Dictionary:` |
 | 方法 | [`merge_metadata`](#member-gfvariantdata-methods-merge_metadata) | `static func merge_metadata( target: Dictionary, source: Dictionary, overwrite: bool = true, recursive: bool = true ) -> Dictionary:` |
 | 方法 | [`deep_merge_defaults`](#member-gfvariantdata-methods-deep_merge_defaults) | `static func deep_merge_defaults(base: Dictionary, defaults: Dictionary) -> Dictionary:` |
@@ -496,6 +497,35 @@ static func duplicate_metadata(metadata: Dictionary) -> Dictionary:
 
 - `metadata`: 调用方元数据 Dictionary。
 - `return`: 复制后的元数据 Dictionary。
+
+<a id="member-gfvariantdata-methods-values_equal"></a>
+
+### `values_equal`
+
+- API：`public`
+- 首次版本：`6.0.0`
+
+```gdscript
+static func values_equal(left: Variant, right: Variant, options: Dictionary = {}) -> bool:
+```
+
+安全比较两个 Variant 值是否等价。 默认只在类型相同或 int/float 数值类型互比时返回 true。需要容忍浮点误差时可传入 numeric_epsilon。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `left` | 左值。 |
+| `right` | 右值。 |
+| `options` | 比较选项。支持 numeric_epsilon 和 match_string_names。 |
+
+返回：两个值按 GF 通用 Variant 语义等价时返回 true。
+
+结构：
+
+- `left`: Variant comparison value.
+- `right`: Variant comparison value.
+- `options`: Dictionary，可选字段：numeric_epsilon 为 int/float 误差，默认 0；match_string_names 为 true 时 String 与 StringName 按文本比较。
 
 <a id="member-gfvariantdata-methods-merge_dictionary"></a>
 

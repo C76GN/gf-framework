@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFReadOnlyBindableProperty" path="addons/gf/kernel/core/gf_read_only_bindable_property.gd" module="kernel" extends="GFBindableProperty" classDigest="bc96beed9429959e4d1afae8104e46058c0b3140bfbe1b6dc077c75b7bb7c804">
+<class name="GFReadOnlyBindableProperty" path="addons/gf/kernel/core/gf_read_only_bindable_property.gd" module="kernel" extends="GFBindableProperty" classDigest="18973156b85dbb6c7e2aafcfa2fd4206f41f4f894cdeb05692bee8a7526f5b49">
 	<description>GFReadOnlyBindableProperty: 只读响应式属性视图。
 复用 `GFBindableProperty` 的读取、信号和生命周期绑定能力，
 但阻止外部直接调用 `set_value()` 修改底层值。</description>
@@ -23,6 +23,17 @@
 				<tag name="api">public</tag>
 				<tag name="param">default_value: 属性的初始值。</tag>
 				<tag name="schema">default_value {</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_value">
+			<signature>func get_value() -&gt; Variant:</signature>
+			<description>读取只读视图的当前值。
+Array 与 Dictionary 会返回深拷贝，避免调用方通过集合引用绕过只读约束。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">当前值；集合类型返回副本。</tag>
+				<tag name="schema">return: Variant current read-only value; Array and Dictionary values are returned as deep copies.</tag>
+				<tag name="since">5.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="set_value">

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFConfigAccessGenerator" path="addons/gf/kernel/editor/gf_config_access_generator.gd" module="kernel" extends="RefCounted" classDigest="0146cd40ba283b6c9796ab64645c9d19530a477c813c46a9dd75c3964474d8ed">
+<class name="GFConfigAccessGenerator" path="addons/gf/kernel/editor/gf_config_access_generator.gd" module="kernel" extends="RefCounted" classDigest="c320550e494d9e9545e0e2c02fc49fabc8990b9665ab49ba8ecb80a67093ea07">
 	<description>GFConfigAccessGenerator: 生成静态导表访问器脚本。
 默认生成结果只封装 provider 的 `get_record()` / `get_table()` 调用，
 也可按 schema 字段声明生成可选记录包装类；生成器本身不规定项目表结构语义。</description>
@@ -53,6 +53,23 @@
 				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
+		<member kind="method" name="generate_with_report">
+			<signature>func generate_with_report( schemas: Array, output_path: String = DEFAULT_OUTPUT_PATH, access_class_name: String = DEFAULT_CLASS_NAME, provider_accessor: String = DEFAULT_PROVIDER_ACCESSOR, options: Dictionary = {} ) -&gt; Dictionary:</signature>
+			<description>根据 schema 列表生成访问器并返回生成产物报告。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">schemas: 带有 `table_name` 或 `table_key` 属性的 schema 列表。</tag>
+				<tag name="param">output_path: 生成文件输出路径。</tag>
+				<tag name="param">access_class_name: 生成脚本的 class_name。</tag>
+				<tag name="param">provider_accessor: 无显式 provider 参数时用于获取 provider 的表达式。</tag>
+				<tag name="param">options: 可选生成与保存选项，支持 build_source 选项、overwrite_existing、dry_run、scan_filesystem 和 metadata。</tag>
+				<tag name="return">生成产物报告。</tag>
+				<tag name="schema">schemas: Array of Dictionary or Object schemas with table_name/table_key and optional metadata.</tag>
+				<tag name="schema">options: Dictionary，可包含 method_name_style、constant_prefix、record_method_pattern、table_method_pattern、include_schema_comments、include_typed_records、typed_record_method_pattern、typed_record_class_suffix、overwrite_existing、dry_run、scan_filesystem 和 metadata。</tag>
+				<tag name="schema">return: Dictionary，包含 success、path、status、error_code、error、written、changed、dry_run、size_bytes 和 metadata。</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
 		<member kind="method" name="build_source">
 			<signature>func build_source( schemas: Array, access_class_name: String = DEFAULT_CLASS_NAME, provider_accessor: String = DEFAULT_PROVIDER_ACCESSOR, options: Dictionary = {} ) -&gt; String:</signature>
 			<description>根据 schema 列表生成访问器源码。</description>
@@ -77,6 +94,20 @@
 				<tag name="param">source: GDScript 源码。</tag>
 				<tag name="param">overwrite_existing: 为 false 时目标已存在会返回 ERR_ALREADY_EXISTS。</tag>
 				<tag name="return">写入结果错误码。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="save_source_with_report">
+			<signature>func save_source_with_report(output_path: String, source: String, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>保存生成源码到指定路径并返回生成产物报告。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">output_path: 生成文件输出路径。</tag>
+				<tag name="param">source: GDScript 源码。</tag>
+				<tag name="param">options: 保存选项，支持 overwrite_existing、dry_run、scan_filesystem 和 metadata。</tag>
+				<tag name="return">生成产物报告。</tag>
+				<tag name="schema">options: Dictionary，可包含 overwrite_existing、dry_run、scan_filesystem 和 metadata。</tag>
+				<tag name="schema">return: Dictionary，包含 success、path、status、error_code、error、written、changed、dry_run、size_bytes 和 metadata。</tag>
+				<tag name="since">6.0.0</tag>
 			</tags>
 		</member>
 	</methods>

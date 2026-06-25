@@ -1,6 +1,6 @@
 # 通用 Dictionary Schema
 
-`GFSchemaField` 与 `GFDictionarySchema` 提供最小化的 Dictionary 结构声明：字段名、类型、必填性、空值策略、默认值、宽松转换、嵌套 Dictionary 和数组元素 schema。
+`GFSchemaField` 与 `GFDictionarySchema` 提供最小化的 Dictionary 结构声明：字段名、类型、必填性、空值策略、默认值、宽松转换、嵌套 Dictionary、数组元素 schema 和字段级校验规则。
 
 它们位于 Foundation 层，只表达数据形状，不读取项目设置、不访问场景树，也不解释字段的业务含义。适合给 manifest、工具参数、轻量元数据、诊断命令 payload 或项目自定义资源字典提供统一校验报告。
 
@@ -41,7 +41,7 @@ var report := schema.validate_dictionary({
 - `coerce_values = true` 时，`validate_dictionary()` 会先尝试转换字段值。
 - `fail_on_coerce_error = false` 时，转换失败会记录 warning，并使用该字段类型的安全兜底值继续校验。
 
-转换只覆盖常见 Variant 类型：bool、int、float、String、StringName、Vector2/3、Vector2i/3i、Color、Dictionary、Array、Object、Resource 和 NodePath。复杂字符串格式、枚举集、资源存在性、跨字段关系和跨表引用应由更具体的校验规则处理。
+转换只覆盖常见 Variant 类型：bool、int、float、String、StringName、Vector2/3、Vector2i/3i、Color、Dictionary、Array、Object、Resource 和 NodePath。复杂字符串格式、枚举集、资源存在性、跨字段关系和跨表引用应由字段级 `GFValidationRule`、更高层 schema 或项目工具处理。
 
 ## 嵌套结构
 
@@ -64,12 +64,30 @@ root_schema.add_field(GFSchemaField.new().configure(&"tags", GFSchemaField.Value
 
 嵌套问题会保留路径，例如 `stats/power` 或 `tags[1]`。`validate_definition()` 也会递归检查嵌套 schema 的空字段名、重复字段名和 null 字段。
 
+## 字段级规则
+
+`GFSchemaField.validation_rules` 可挂接通用 `GFValidationRule`。这些规则会在基础类型、空值和嵌套 schema 通过后执行，适合表达范围、集合、格式或项目自定义约束，而不需要把所有可能的校验关键字都写进 Foundation 字段类型。
+
+```gdscript
+var positive_rule := GFValidationRule.new().configure(
+	&"positive_value",
+	func(value, _report, _context):
+		return "" if int(value) > 0 else "Value must be positive."
+)
+
+var score_field := GFSchemaField.new().configure(&"score", GFSchemaField.ValueType.INT, {
+	"validation_rules": [positive_rule],
+})
+```
+
+规则返回的普通 issue 会继承字段路径与 key；需要更细粒度定位时，规则回调也可以直接向传入的 `GFValidationReport` 写入自定义 issue。
+
 ## 与其他 Schema 的边界
 
 - `GFDictionarySchema` 是通用字典形状工具，适合被 Foundation、Utilities、扩展和项目代码复用。
 - `GFBlackboardSchema` 面向运行时黑板，保留黑板字段契约和默认值语义。
 - `GFConfigTableSchema` 面向导表和配置表，包含列、索引、跨表引用、导入期转换和配置校验规则。
-- 需要完整 JSON Schema、项目枚举库、资源解析、导入器 UI、存档迁移或业务规则时，应在 Utilities、扩展或项目层组合实现，不应塞进 Foundation schema primitives。
+- 需要完整 JSON Schema 兼容、项目枚举库、资源解析、导入器 UI、存档迁移或业务规则时，应在 Utilities、扩展或项目层组合实现，不应塞进 Foundation schema primitives。
 
 ## API Reference
 

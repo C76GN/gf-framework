@@ -266,6 +266,53 @@ func test_distance_map_respects_max_cost() -> void:
 	assert_false(distances.has("D"), "超过 max_cost 的节点不应进入距离图。")
 
 
+func test_topological_sort_orders_dependencies_before_dependents() -> void:
+	var dependencies: Dictionary = {
+		"gameplay": ["core"],
+		"ui": ["core"],
+		"core": [],
+	}
+
+	var report: Dictionary = GF_GRAPH_MATH.sort_topological(
+		["gameplay", "core", "ui"],
+		func(node: Variant) -> Array:
+			return GFVariantData.get_option_array(dependencies, node, [])
+	)
+	var order: Array = GFVariantData.get_option_array(report, "order")
+
+	assert_true(GFVariantData.get_option_bool(report, "ok"), "无环依赖图应排序成功。")
+	assert_eq(order.size(), 3, "排序结果应包含全部唯一节点。")
+	assert_true(order.find("core") < order.find("gameplay"), "依赖节点应排在使用者之前。")
+	assert_true(order.find("core") < order.find("ui"), "共享依赖应排在所有使用者之前。")
+
+
+func test_topological_sort_reports_cycles_and_external_dependencies() -> void:
+	var dependencies: Dictionary = {
+		"a": ["b"],
+		"b": ["a"],
+		"c": ["missing"],
+	}
+
+	var report: Dictionary = GF_GRAPH_MATH.sort_topological(
+		["a", "b", "c"],
+		func(node: Variant) -> Array:
+			return GFVariantData.get_option_array(dependencies, node, [])
+	)
+	var cycles: Array = GFVariantData.get_option_array(report, "cycles")
+	var external_dependencies: Array = GFVariantData.get_option_array(report, "external_dependencies")
+	var first_external_dependency: Dictionary = {}
+	if not external_dependencies.is_empty():
+		first_external_dependency = GFVariantData.as_dictionary(external_dependencies[0])
+
+	assert_false(GFVariantData.get_option_bool(report, "ok"), "有环依赖图应报告失败。")
+	assert_eq(GFVariantData.get_option_string_name(report, "reason"), &"cycle_detected", "失败原因应稳定。")
+	assert_eq(GFVariantData.get_option_int(report, "cycle_count"), 1, "应报告依赖环数量。")
+	assert_true(_cycle_contains(cycles, "a") and _cycle_contains(cycles, "b"), "依赖环应包含循环节点。")
+	assert_eq(GFVariantData.get_option_int(report, "external_dependency_count"), 1, "外部依赖应被记录但不参与排序。")
+	assert_eq(GFVariantData.get_option_string(first_external_dependency, "node"), "c")
+	assert_eq(GFVariantData.get_option_string(first_external_dependency, "dependency"), "missing")
+
+
 func _as_vector2i(value: Variant) -> Vector2i:
 	if value is Vector2i:
 		var cell: Vector2i = value
@@ -284,3 +331,13 @@ func _as_path_search_state(value: Variant) -> GFGraphPathSearchState:
 		var search_state: GFGraphPathSearchState = value
 		return search_state
 	return null
+
+
+func _cycle_contains(cycles: Array, node: Variant) -> bool:
+	for cycle_variant: Variant in cycles:
+		if not (cycle_variant is Array):
+			continue
+		var cycle: Array = cycle_variant
+		if cycle.has(node):
+			return true
+	return false

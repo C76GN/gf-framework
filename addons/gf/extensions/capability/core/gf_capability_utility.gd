@@ -253,6 +253,117 @@ func get_receivers_with(capability_type: Script, include_subclasses: bool = true
 	return result
 
 
+## 获取同时满足多个能力条件的 receiver。
+## [br]
+## receiver 必须拥有 required_capability_types 中的所有能力，
+## 且不能拥有 rejected_capability_types 中的任意能力。
+## required_capability_types 为空时，会从当前已索引 receiver 或指定分组中筛选。
+## [br]
+## @api public
+## [br]
+## @since 6.0.0
+## [br]
+## @param required_capability_types: 必须拥有的能力脚本类型列表。
+## [br]
+## @param rejected_capability_types: 必须排除的能力脚本类型列表。
+## [br]
+## @param include_subclasses: 为 true 时 required/rejected 都同时匹配指定类型的子类。
+## [br]
+## @param group_name: 可选能力组名称；非空时只在该分组内筛选。
+## [br]
+## @return: 当前仍有效且满足条件的 receiver 列表。
+## [br]
+## @schema required_capability_types: Array[Script]，元素为必须拥有的能力脚本类型。
+## [br]
+## @schema rejected_capability_types: Array[Script]，元素为必须排除的能力脚本类型。
+## [br]
+## @schema return: Array[Object]，元素为当前仍有效的能力接收对象。
+func get_receivers_matching_capabilities(
+	required_capability_types: Array[Script] = [],
+	rejected_capability_types: Array[Script] = [],
+	include_subclasses: bool = true,
+	group_name: StringName = &""
+) -> Array[Object]:
+	_prune_invalid_receivers()
+
+	var required_types: Array[Script] = _deduplicate_script_list(required_capability_types)
+	var rejected_types: Array[Script] = _deduplicate_script_list(rejected_capability_types)
+	var candidate_ids: Array = _get_capability_query_candidate_ids(
+		required_types,
+		include_subclasses,
+		group_name
+	)
+	var result: Array[Object] = []
+	var seen_ids: Dictionary = {}
+	for receiver_id_variant: Variant in candidate_ids:
+		var receiver_id: int = GFVariantData.to_int(receiver_id_variant)
+		if seen_ids.has(receiver_id):
+			continue
+		var receiver: Object = _get_receiver_from_id(receiver_id)
+		if receiver == null:
+			continue
+		if not _receiver_has_all_capability_types(receiver, required_types, include_subclasses):
+			continue
+		if _receiver_has_any_capability_type(receiver, rejected_types, include_subclasses):
+			continue
+		seen_ids[receiver_id] = true
+		result.append(receiver)
+	return result
+
+
+## 使用资源化查询条件获取 receiver。
+## [br]
+## @api public
+## [br]
+## @since 6.0.0
+## [br]
+## @param query: 能力查询资源。
+## [br]
+## @schema query: GFCapabilityQuery resource，包含 required_capability_types、rejected_capability_types、include_subclasses 和 group_name。
+## [br]
+## @return: 当前仍有效且满足条件的 receiver 列表。
+## [br]
+## @schema return: Array[Object]，元素为当前仍有效的能力接收对象。
+func get_receivers_matching_query(query: GFCapabilityQuery) -> Array[Object]:
+	if query == null:
+		var empty_result: Array[Object] = []
+		return empty_result
+	return get_receivers_matching_capabilities(
+		query.required_capability_types,
+		query.rejected_capability_types,
+		query.include_subclasses,
+		query.group_name
+	)
+
+
+## 判断指定 receiver 是否满足资源化查询条件。
+## [br]
+## @api public
+## [br]
+## @since 6.0.0
+## [br]
+## @param receiver: 要检查的能力接收对象。
+## [br]
+## @param query: 能力查询资源。
+## [br]
+## @schema query: GFCapabilityQuery resource，包含 required_capability_types、rejected_capability_types、include_subclasses 和 group_name。
+## [br]
+## @return: receiver 当前有效且满足查询时返回 true。
+func receiver_matches_query(receiver: Object, query: GFCapabilityQuery) -> bool:
+	if not is_instance_valid(receiver) or query == null:
+		return false
+
+	_prune_invalid_receivers()
+	if query.group_name != &"" and not get_receiver_groups(receiver).has(query.group_name):
+		return false
+
+	var required_types: Array[Script] = _deduplicate_script_list(query.required_capability_types)
+	var rejected_types: Array[Script] = _deduplicate_script_list(query.rejected_capability_types)
+	if not _receiver_has_all_capability_types(receiver, required_types, query.include_subclasses):
+		return false
+	return not _receiver_has_any_capability_type(receiver, rejected_types, query.include_subclasses)
+
+
 ## 主动清理已经失效的 receiver 弱引用与反向索引。
 ## [br]
 ## @api public
@@ -1832,6 +1943,121 @@ func _get_capability_receiver_ids(capability_type: Script) -> Dictionary:
 	if not _capability_receivers.has(capability_type):
 		_capability_receivers[capability_type] = {}
 	return GFVariantData.as_dictionary(_capability_receivers[capability_type])
+
+
+func _deduplicate_script_list(source: Array[Script]) -> Array[Script]:
+	var result: Array[Script] = []
+	var seen: Dictionary = {}
+	for script_type: Script in source:
+		if script_type == null or seen.has(script_type):
+			continue
+		seen[script_type] = true
+		result.append(script_type)
+	return result
+
+
+func _get_capability_query_candidate_ids(
+	required_types: Array[Script],
+	include_subclasses: bool,
+	group_name: StringName
+) -> Array:
+	var best_ids: Array = []
+	var has_best: bool = false
+	if group_name != &"":
+		best_ids = _get_dictionary_ref(_receiver_groups, group_name).keys()
+		has_best = true
+		if best_ids.is_empty():
+			return best_ids
+
+	if required_types.is_empty() and not has_best:
+		return _receiver_refs.keys()
+
+	for required_type: Script in required_types:
+		var candidate_ids: Array = _get_capability_receiver_candidate_ids(
+			required_type,
+			include_subclasses
+		)
+		if not has_best or candidate_ids.size() < best_ids.size():
+			best_ids = candidate_ids
+			has_best = true
+		if best_ids.is_empty():
+			break
+	if group_name != &"":
+		return _filter_candidate_ids_by_group(best_ids, group_name)
+	return best_ids
+
+
+func _filter_candidate_ids_by_group(candidate_ids: Array, group_name: StringName) -> Array:
+	if group_name == &"":
+		return candidate_ids
+
+	var group_receivers: Dictionary = _get_dictionary_ref(_receiver_groups, group_name)
+	if candidate_ids.is_empty() or group_receivers.is_empty():
+		return []
+
+	var result: Array = []
+	for receiver_id_variant: Variant in candidate_ids:
+		var receiver_id: int = GFVariantData.to_int(receiver_id_variant)
+		if group_receivers.has(receiver_id):
+			result.append(receiver_id)
+	return result
+
+
+func _get_capability_receiver_candidate_ids(capability_type: Script, include_subclasses: bool) -> Array:
+	var result: Array = []
+	var seen_ids: Dictionary = {}
+	for registered_type: Script in _get_indexed_capability_types(capability_type, include_subclasses):
+		var receiver_ids: Dictionary = _get_dictionary_ref(_capability_receivers, registered_type)
+		for receiver_id: int in receiver_ids:
+			if seen_ids.has(receiver_id):
+				continue
+			seen_ids[receiver_id] = true
+			result.append(receiver_id)
+	return result
+
+
+func _receiver_has_all_capability_types(
+	receiver: Object,
+	capability_types: Array[Script],
+	include_subclasses: bool
+) -> bool:
+	for capability_type: Script in capability_types:
+		if not _receiver_has_capability_type(receiver, capability_type, include_subclasses):
+			return false
+	return true
+
+
+func _receiver_has_any_capability_type(
+	receiver: Object,
+	capability_types: Array[Script],
+	include_subclasses: bool
+) -> bool:
+	for capability_type: Script in capability_types:
+		if _receiver_has_capability_type(receiver, capability_type, include_subclasses):
+			return true
+	return false
+
+
+func _receiver_has_capability_type(
+	receiver: Object,
+	capability_type: Script,
+	include_subclasses: bool
+) -> bool:
+	if receiver == null or capability_type == null:
+		return false
+
+	if _get_capability_instance(receiver, capability_type) != null:
+		return true
+	if not include_subclasses:
+		return false
+
+	for registered_type: Script in _get_capability_type_list(receiver):
+		if registered_type == capability_type:
+			continue
+		if _script_extends_or_equals(registered_type, capability_type):
+			if _get_capability_instance(receiver, registered_type) != null:
+				return true
+	return false
 
 
 func _get_group_receiver_ids(group_name: StringName) -> Dictionary:

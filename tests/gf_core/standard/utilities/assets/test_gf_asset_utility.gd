@@ -355,6 +355,78 @@ func test_debug_snapshot_reports_cache_pending_and_pinned_state() -> void:
 	assert_almost_eq(GFVariantData.get_option_float(pending_progress, "res://pending.tres"), 0.0, 0.001, "新建 pending 进度默认为 0.0。")
 
 
+func test_serial_load_lane_queues_until_active_request_finishes() -> void:
+	var completing: CompletingAssetUtility = CompletingAssetUtility.new()
+	_replace_utility(completing)
+	var results: Array[String] = []
+	var queued_paths: Array[String] = []
+	var _queued_connected: Error = _utility.asset_load_queued.connect(func(path: String, _lane_id: StringName) -> void:
+		queued_paths.append(path)
+	) as Error
+
+	_utility.load_async("res://lane_a.tres", func(_res: Resource) -> void:
+		results.append("a")
+	, "", { "serial_lane_id": &"level" })
+	_utility.load_async("res://lane_b.tres", func(_res: Resource) -> void:
+		results.append("b")
+	, "", { "serial_lane_id": &"level" })
+
+	var queued_snapshot: Dictionary = _utility.get_debug_snapshot()
+	var queued_snapshot_paths: PackedStringArray = GFVariantData.get_option_packed_string_array(queued_snapshot, "queued_paths")
+
+	assert_eq(completing.requested_count, 1, "同一 serial lane 同时只应启动一个 threaded request。")
+	assert_eq(queued_paths, ["res://lane_b.tres"], "第二个请求应进入队列。")
+	assert_true(_utility.is_loading("res://lane_b.tres"), "排队请求也应被视为正在加载。")
+	assert_eq(GFVariantData.get_option_int(queued_snapshot, "queued_count"), 1, "诊断快照应报告排队数量。")
+	assert_true(queued_snapshot_paths.has("res://lane_b.tres"), "诊断快照应报告排队路径。")
+
+	completing.complete = true
+	_utility.tick()
+
+	assert_eq(results, ["a"], "第一帧完成时只应回调已完成的请求。")
+	assert_eq(completing.requested_count, 2, "释放 lane 后应启动下一个排队请求。")
+
+	_utility.tick()
+
+	assert_eq(results, ["a", "b"], "排队请求随后应正常完成。")
+
+
+func test_cancel_queued_serial_load_prevents_callback_and_start() -> void:
+	var completing: CompletingAssetUtility = CompletingAssetUtility.new()
+	_replace_utility(completing)
+	var state: CallbackState = CallbackState.new()
+
+	_utility.load_async("res://active.tres", func(_res: Resource) -> void:
+		state.count += 1
+	, "", { "serial_lane_id": &"level" })
+	_utility.load_async("res://queued.tres", func(_res: Resource) -> void:
+		state.count += 10
+	, "", { "serial_lane_id": &"level" })
+	_utility.cancel("res://queued.tres")
+
+	assert_false(_utility.is_loading("res://queued.tres"), "取消后的排队请求不应再被视为加载中。")
+
+	completing.complete = true
+	_utility.tick()
+	_utility.tick()
+
+	assert_eq(state.count, 1, "取消后的排队请求不应触发回调。")
+	assert_eq(completing.requested_paths, ["res://active.tres"], "取消后的排队请求不应启动底层 threaded request。")
+
+
+func test_cache_diagnostics_are_reported_in_asset_snapshot() -> void:
+	_utility.put_cache("res://cached.tres", Resource.new())
+	var _hit_result: Resource = _utility.get_cached("res://cached.tres")
+	var _miss_result: Resource = _utility.get_cached("res://missing.tres")
+
+	var snapshot: Dictionary = _utility.get_debug_snapshot()
+	var diagnostics: Dictionary = GFVariantData.get_option_dictionary(snapshot, "cache_diagnostics")
+
+	assert_eq(GFVariantData.get_option_int(diagnostics, "write_count"), 1, "写入缓存应被诊断统计记录。")
+	assert_eq(GFVariantData.get_option_int(diagnostics, "hit_count"), 1, "缓存命中应被诊断统计记录。")
+	assert_eq(GFVariantData.get_option_int(diagnostics, "miss_count"), 1, "缓存未命中应被诊断统计记录。")
+
+
 # --- 私有/辅助方法 ---
 
 func _replace_utility(utility: GFAssetUtility) -> void:
@@ -415,12 +487,14 @@ class TrackingAssetUtility extends GFAssetUtility:
 
 class CompletingAssetUtility extends GFAssetUtility:
 	var requested_count: int = 0
+	var requested_paths: Array[String] = []
 	var complete: bool = false
 	var progress: float = 0.0
 	var loaded_resource: Resource = Resource.new()
 
-	func _request_threaded(_path: String, _type_hint: String) -> Error:
+	func _request_threaded(path: String, _type_hint: String) -> Error:
 		requested_count += 1
+		requested_paths.append(path)
 		return OK
 
 	func _get_threaded_status_with_progress(_path: String, progress_result: Array) -> ResourceLoader.ThreadLoadStatus:

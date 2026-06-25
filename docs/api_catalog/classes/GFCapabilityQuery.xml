@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFCapabilityQuery" path="addons/gf/extensions/capability/core/gf_capability_query.gd" module="extensions/capability" extends="Resource" classDigest="c24097bfd4711bed95e2d3fae459bade90f78638bc1ad473c37bd00912c3e6f9">
+	<description>GFCapabilityQuery: 可资源化的能力接收者查询条件。
+用于把 required / rejected 能力类型、分组和子类匹配策略保存为 Resource，
+便于编辑器工具、配置资源或项目脚本复用同一套查询声明。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">resource_definition</tag>
+		<tag name="since">6.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties>
+		<member kind="property" name="required_capability_types" decorators="@export">
+			<signature>var required_capability_types: Array[Script] = []</signature>
+			<description>查询必须拥有的能力类型列表。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">required_capability_types: Array[Script]，元素为必须拥有的能力脚本类型。</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="rejected_capability_types" decorators="@export">
+			<signature>var rejected_capability_types: Array[Script] = []</signature>
+			<description>查询必须排除的能力类型列表。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">rejected_capability_types: Array[Script]，元素为必须排除的能力脚本类型。</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="include_subclasses" decorators="@export">
+			<signature>var include_subclasses: bool = true</signature>
+			<description>是否在 required / rejected 匹配中包含子类能力。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="group_name" decorators="@export">
+			<signature>var group_name: StringName = &amp;""</signature>
+			<description>可选能力分组；非空时只在该分组内查询。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="metadata" decorators="@export">
+			<signature>var metadata: Dictionary = {}</signature>
+			<description>项目或工具自定义元数据。框架不解释该字段。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">metadata: Dictionary，保存项目或工具附加信息。</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="get_receivers">
+			<signature>func get_receivers(capability_utility: GFCapabilityUtility) -&gt; Array[Object]:</signature>
+			<description>使用指定 Utility 执行当前查询。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">capability_utility: 能力 Utility。</tag>
+				<tag name="return">当前仍有效且满足条件的 receiver 列表。</tag>
+				<tag name="schema">return: Array[Object]，元素为当前仍有效的能力接收对象。</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="matches_receiver">
+			<signature>func matches_receiver(capability_utility: GFCapabilityUtility, receiver: Object) -&gt; bool:</signature>
+			<description>判断指定 receiver 是否满足当前查询。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">capability_utility: 能力 Utility。</tag>
+				<tag name="param">receiver: 要检查的能力接收对象。</tag>
+				<tag name="return">满足查询返回 true。</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="duplicate_query">
+			<signature>func duplicate_query() -&gt; GFCapabilityQuery:</signature>
+			<description>创建同内容查询拷贝。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">新查询资源。</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="describe_query">
+			<signature>func describe_query() -&gt; Dictionary:</signature>
+			<description>导出查询声明摘要。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">查询声明字典。</tag>
+				<tag name="schema">return: Dictionary，包含 required_capability_types、rejected_capability_types、include_subclasses、group_name 和 metadata。</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

@@ -140,12 +140,13 @@ var modifiers: Array[GFInputModifier] = []
 ### `match_device`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var match_device: bool = false
 ```
 
-是否按设备 ID 精确匹配。关闭时同类按键、鼠标按钮或手柄按钮可跨设备匹配。
+是否按设备 ID 精确匹配。关闭时同类按键、鼠标按钮或手柄按钮可跨设备匹配。 旧资源中的键鼠设备 ID 0 会兼容 Godot 4.7 的键鼠设备 ID。
 
 <a id="member-gfinputbinding-properties-match_touch_index"></a>
 

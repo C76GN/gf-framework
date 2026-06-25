@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFRuntimeDebuggerPlugin" path="addons/gf/standard/utilities/debug/editor/gf_runtime_debugger_plugin.gd" module="standard" extends="EditorDebuggerPlugin" classDigest="18fee04f5bb4fe6610bcbb5390426bceedc77e7c042c14d93417dd090a7e33a0">
+	<description>GFRuntimeDebuggerPlugin: GF 运行时诊断 EditorDebugger 插件。
+为每个 Godot 调试会话安装 GF Runtime 页，并把运行时 GFDiagnosticsUtility
+通过 EngineDebugger 返回的消息转发给对应页面。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">editor_api</tag>
+		<tag name="since">6.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties />
+	<methods>
+		<member kind="method" name="get_debug_snapshot">
+			<signature>func get_debug_snapshot() -&gt; Dictionary:</signature>
+			<description>获取插件调试快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">调试快照。</tag>
+				<tag name="schema">return: Dictionary with session_ids and tab_count.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

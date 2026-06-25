@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFBuff" path="addons/gf/extensions/combat/attributes/gf_buff.gd" module="extensions/combat" extends="RefCounted" classDigest="2d0c3934c89bf650434a089ada50b27b5262f75e6e7b51da608e95c812224a91">
+<class name="GFBuff" path="addons/gf/extensions/combat/attributes/gf_buff.gd" module="extensions/combat" extends="RefCounted" classDigest="3acc5ca755871dd435853c590437dce323f39ec516abf5b0de59ba7340d028d0">
 	<description>GFBuff: 状态效果基类。
 管理 Buff 的生命周期、层数以及对属性/标签的影响。
 在 GFCombatSystem 的 tick 中驱动 update。</description>
@@ -41,7 +41,48 @@
 			</tags>
 		</member>
 	</enums>
-	<constants />
+	<constants>
+		<member kind="const" name="REMOVAL_REASON_EXPIRED">
+			<signature>const REMOVAL_REASON_EXPIRED: StringName = &amp;"expired"</signature>
+			<description>Buff 因持续时间耗尽而移除。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="REMOVAL_REASON_REMOVED">
+			<signature>const REMOVAL_REASON_REMOVED: StringName = &amp;"removed"</signature>
+			<description>Buff 被显式移除。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="REMOVAL_REASON_CLEARED">
+			<signature>const REMOVAL_REASON_CLEARED: StringName = &amp;"cleared"</signature>
+			<description>Buff 被批量清理。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="REMOVAL_REASON_ENTITY_UNREGISTERED">
+			<signature>const REMOVAL_REASON_ENTITY_UNREGISTERED: StringName = &amp;"entity_unregistered"</signature>
+			<description>Buff 随实体注销而移除。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="REMOVAL_REASON_DISPOSED">
+			<signature>const REMOVAL_REASON_DISPOSED: StringName = &amp;"disposed"</signature>
+			<description>Buff 随系统释放而移除。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+	</constants>
 	<properties>
 		<member kind="property" name="id">
 			<signature>var id: StringName = &amp;""</signature>
@@ -134,6 +175,39 @@
 				<tag name="api">public</tag>
 			</tags>
 		</member>
+		<member kind="property" name="checks">
+			<signature>var checks: Array[GFBuffCheck] = []</signature>
+			<description>Buff 应用前检查列表。全部通过后才会应用。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="effects">
+			<signature>var effects: Array[GFBuffEffect] = []</signature>
+			<description>Buff 生命周期效果列表。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="metadata">
+			<signature>var metadata: Dictionary = {}</signature>
+			<description>项目自定义元数据。GF 不解释该字段。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">metadata: Dictionary project-defined buff metadata.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="removal_reason">
+			<signature>var removal_reason: StringName = &amp;""</signature>
+			<description>最近一次移除原因。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
 	</properties>
 	<methods>
 		<member kind="method" name="setup">
@@ -144,6 +218,18 @@
 				<tag name="param">p_id: Buff 标识。</tag>
 				<tag name="param">p_duration: Buff 持续时间（秒）。</tag>
 				<tag name="param">p_owner: Buff 所属对象。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_apply_report">
+			<signature>func get_apply_report(context: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>获取应用检查报告。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">context: 可选应用上下文。</tag>
+				<tag name="return">检查报告。</tag>
+				<tag name="schema">context: Dictionary merged into the default buff apply context.</tag>
+				<tag name="schema">return: Dictionary with ok, reason, buff_id, failed_check_id, metadata, and issues.</tag>
+				<tag name="since">6.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="on_apply">
@@ -191,6 +277,36 @@
 				<tag name="api">public</tag>
 				<tag name="param">p_delta: 帧间隔。</tag>
 				<tag name="return">如果 Buff 已耗尽生命周期需要被移除，则返回 true。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="mark_removed">
+			<signature>func mark_removed(reason: StringName = REMOVAL_REASON_REMOVED) -&gt; void:</signature>
+			<description>标记移除原因。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">reason: 移除原因。</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_state_snapshot">
+			<signature>func get_state_snapshot() -&gt; Dictionary:</signature>
+			<description>获取运行时状态快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">状态快照。</tag>
+				<tag name="schema">return: Dictionary with generic buff runtime state, modifiers, tags, metadata, and effect_states.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="restore_state_snapshot">
+			<signature>func restore_state_snapshot(snapshot: Dictionary, owner_override: Object = null) -&gt; void:</signature>
+			<description>恢复运行时状态快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">snapshot: 状态快照。</tag>
+				<tag name="param">owner_override: 可选 owner 覆盖；为空时保留当前 owner。</tag>
+				<tag name="schema">snapshot: Dictionary returned by get_state_snapshot().</tag>
+				<tag name="since">6.0.0</tag>
 			</tags>
 		</member>
 	</methods>

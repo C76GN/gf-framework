@@ -23,6 +23,20 @@ extends GFNodeSerializer
 ## @api public
 @export var skip_missing_properties: bool = true
 
+## Resource 引用恢复时允许加载的资源根目录。为空时使用 context 中的同名策略；仍为空则拒绝恢复 Resource 引用。
+## [br]
+## @api public
+## [br]
+## @since 6.0.0
+@export var allowed_resource_roots: PackedStringArray = PackedStringArray()
+
+## Resource 引用恢复时允许加载的资源路径通配模式。为空时使用 context 中的同名策略；仍为空则拒绝恢复 Resource 引用。
+## [br]
+## @api public
+## [br]
+## @since 6.0.0
+@export var allowed_resource_patterns: PackedStringArray = PackedStringArray()
+
 
 # --- Godot 生命周期方法 ---
 
@@ -67,6 +81,8 @@ func gather(node: Node, context: Dictionary = {}) -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param node: 目标节点。
 ## [br]
 ## @param payload: 属性载荷字典。
@@ -77,7 +93,7 @@ func gather(node: Node, context: Dictionary = {}) -> Dictionary:
 ## [br]
 ## @schema payload: Dictionary，键为属性名，值为 JSON 兼容值或 __gf_reference__ 标记。
 ## [br]
-## @schema context: Dictionary，可包含 reference_root_node: Node，用于恢复 Node 引用属性。
+## @schema context: Dictionary，可包含 reference_root_node: Node，用于恢复 Node 引用属性；可包含 allowed_resource_roots / allowed_resource_patterns，用于恢复 Resource 引用属性。
 ## [br]
 ## @schema return: Dictionary，包含 ok: bool 与 error: String。
 func apply(node: Node, payload: Dictionary, context: Dictionary = {}) -> Dictionary:
@@ -114,12 +130,39 @@ func _encode_payload_property_value(value: Variant, context: Dictionary) -> Vari
 
 func _decode_payload_property_value(value: Variant, context: Dictionary) -> Dictionary:
 	if GFVariantReferenceCodec.is_reference_marker(value):
-		return GFVariantReferenceCodec.decode_reference(value, context)
+		return GFVariantReferenceCodec.decode_reference(value, _make_reference_decode_context(context))
 	return _make_decode_result(true, GFVariantJsonCodec.json_compatible_to_variant(value))
 
 
 func _is_unsupported_property_marker(value: Variant) -> bool:
 	return GFVariantReferenceCodec.is_unsupported_reference_marker(value)
+
+
+func _make_reference_decode_context(context: Dictionary) -> Dictionary:
+	if _context_has_resource_decode_policy(context):
+		return context
+	if allowed_resource_roots.is_empty() and allowed_resource_patterns.is_empty():
+		return context
+
+	var result: Dictionary = context.duplicate()
+	if not allowed_resource_roots.is_empty():
+		result[GFVariantReferenceCodec.OPTION_ALLOWED_RESOURCE_ROOTS] = allowed_resource_roots
+	if not allowed_resource_patterns.is_empty():
+		result[GFVariantReferenceCodec.OPTION_ALLOWED_RESOURCE_PATTERNS] = allowed_resource_patterns
+	return result
+
+
+func _context_has_resource_decode_policy(context: Dictionary) -> bool:
+	return (
+		not GFVariantData.get_option_packed_string_array(
+			context,
+			GFVariantReferenceCodec.OPTION_ALLOWED_RESOURCE_ROOTS
+		).is_empty()
+		or not GFVariantData.get_option_packed_string_array(
+			context,
+			GFVariantReferenceCodec.OPTION_ALLOWED_RESOURCE_PATTERNS
+		).is_empty()
+	)
 
 
 func _make_decode_result(ok: bool, value: Variant = null, error: String = "") -> Dictionary:

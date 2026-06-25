@@ -47,6 +47,32 @@ var decoded := schema.decode_snapshot(encoded)
 
 Schema 只改变状态字段的表示形式，不决定哪些字段应该同步、发给谁、是否可靠、如何预测或如何解决冲突。
 
+## 脏字段跟踪
+
+`GFNetworkDirtyStateTracker` 用于比较当前状态字典和基线，输出脏字段、优先级分组和调试快照。字段优先级可用于项目侧决定发送频率、可靠通道、压缩策略或只在生成时同步，但 tracker 本身不发送消息，也不读取节点树。
+
+```gdscript
+var tracker := GFNetworkDirtyStateTracker.new()
+tracker.set_field_priority(&"position", GFNetworkDirtyStateTracker.Priority.REALTIME)
+tracker.set_field_priority(&"health", GFNetworkDirtyStateTracker.Priority.HIGH)
+tracker.set_baseline({
+	"position": Vector2.ZERO,
+	"health": 100,
+})
+
+var report := tracker.get_dirty_report({
+	"position": Vector2(2, 0),
+	"health": 100,
+}, {
+	"priorities": [
+		GFNetworkDirtyStateTracker.Priority.REALTIME,
+		GFNetworkDirtyStateTracker.Priority.HIGH,
+	],
+})
+```
+
+浮点、`Vector2`、`Vector3` 和 `Color` 会按 `epsilon` 做近似比较；其他值按普通相等比较。调用 `update_baseline(state, field_ids)` 可以在项目确认发送或应用后只更新部分字段。
+
 路径级 patch 用 `set` / `erase` 操作描述嵌套字典变化。它适合状态字典中有实体表、组件表或多层配置片段的同步场景；数组、向量和其他非字典值仍作为整体字段比较。需要压缩或量化 patch 时，`GFNetworkSnapshotSchema.encode_patch()` / `decode_patch()` 会复用已注册的顶层字段编码器。
 
 ```gdscript
@@ -63,4 +89,4 @@ var next_snapshot := previous.apply_patch(decoded_patch)
 
 `GFNetworkHistoryBuffer` 可查询 tick 范围或某个 tick 前后的快照，方便项目做插值、对账或回放定位。`GFNetworkSnapshot.make_message()` 可以把快照打包成 `GFNetworkMessage`，方便复用已有 serializer、channel 和 backend。
 
-浅层 delta 只比较字典第一层字段，适合简单状态或需要保持载荷结构极直观的流程；路径级 patch 只负责表达嵌套字典的字段变化，不决定实体复制、冲突解决、预测、回滚或安全过滤。接收端处理入站消息时，`GFNetworkUtility` 会以底层 backend 报告的 `peer_id` 覆盖 `message.sender_id`，项目不要信任客户端 payload 中自带的 sender 身份。
+浅层 delta 和脏字段 report 只比较字典第一层字段，适合简单状态或需要保持载荷结构极直观的流程；路径级 patch 只负责表达嵌套字典的字段变化，不决定实体复制、冲突解决、预测、回滚或安全过滤。接收端处理入站消息时，`GFNetworkUtility` 会以底层 backend 报告的 `peer_id` 覆盖 `message.sender_id`，项目不要信任客户端 payload 中自带的 sender 身份。

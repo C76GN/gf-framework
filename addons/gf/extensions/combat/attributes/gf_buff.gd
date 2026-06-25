@@ -41,6 +41,44 @@ enum DurationRefreshPolicy {
 }
 
 
+# --- 常量 ---
+
+## Buff 因持续时间耗尽而移除。
+## [br]
+## @api public
+## [br]
+## @since 6.0.0
+const REMOVAL_REASON_EXPIRED: StringName = &"expired"
+
+## Buff 被显式移除。
+## [br]
+## @api public
+## [br]
+## @since 6.0.0
+const REMOVAL_REASON_REMOVED: StringName = &"removed"
+
+## Buff 被批量清理。
+## [br]
+## @api public
+## [br]
+## @since 6.0.0
+const REMOVAL_REASON_CLEARED: StringName = &"cleared"
+
+## Buff 随实体注销而移除。
+## [br]
+## @api public
+## [br]
+## @since 6.0.0
+const REMOVAL_REASON_ENTITY_UNREGISTERED: StringName = &"entity_unregistered"
+
+## Buff 随系统释放而移除。
+## [br]
+## @api public
+## [br]
+## @since 6.0.0
+const REMOVAL_REASON_DISPOSED: StringName = &"disposed"
+
+
 # --- 公共变量 ---
 
 ## Buff 的唯一标识名（通常用于排斥逻辑）。
@@ -108,6 +146,36 @@ var tags: Array[StringName] = []
 ## @api public
 var owner: Object = null
 
+## Buff 应用前检查列表。全部通过后才会应用。
+## [br]
+## @api public
+## [br]
+## @since 6.0.0
+var checks: Array[GFBuffCheck] = []
+
+## Buff 生命周期效果列表。
+## [br]
+## @api public
+## [br]
+## @since 6.0.0
+var effects: Array[GFBuffEffect] = []
+
+## 项目自定义元数据。GF 不解释该字段。
+## [br]
+## @api public
+## [br]
+## @since 6.0.0
+## [br]
+## @schema metadata: Dictionary project-defined buff metadata.
+var metadata: Dictionary = {}
+
+## 最近一次移除原因。
+## [br]
+## @api public
+## [br]
+## @since 6.0.0
+var removal_reason: StringName = &""
+
 
 # --- 私有变量 ---
 
@@ -130,7 +198,53 @@ func setup(p_id: StringName, p_duration: float, p_owner: Object) -> void:
 	duration = p_duration
 	time_left = duration
 	owner = p_owner
+	removal_reason = &""
 	_tick_accumulator = 0.0
+
+
+## 获取应用检查报告。
+## [br]
+## @api public
+## [br]
+## @since 6.0.0
+## [br]
+## @param context: 可选应用上下文。
+## [br]
+## @return 检查报告。
+## [br]
+## @schema context: Dictionary merged into the default buff apply context.
+## [br]
+## @schema return: Dictionary with ok, reason, buff_id, failed_check_id, metadata, and issues.
+func get_apply_report(context: Dictionary = {}) -> Dictionary:
+	var report: Dictionary = _make_apply_report(context)
+	for check: GFBuffCheck in checks:
+		if check == null:
+			continue
+		var check_report: Dictionary = check.can_apply(_make_lifecycle_context(&"apply_check", context))
+		if GFVariantData.get_option_bool(check_report, "ok", true):
+			var report_metadata: Dictionary = GFVariantData.get_option_dictionary(report, "metadata")
+			var check_metadata: Dictionary = GFVariantData.get_option_dictionary(check_report, "metadata")
+			var _metadata_merge: Dictionary = GFVariantData.merge_dictionary(report_metadata, check_metadata, true, true)
+			report["metadata"] = report_metadata
+			continue
+
+		var failed_reason: StringName = GFVariantData.get_option_string_name(check_report, "reason", &"buff_check_failed")
+		report["ok"] = false
+		report["reason"] = failed_reason
+		report["failed_check_id"] = GFVariantData.get_option_string_name(check_report, "check_id")
+		var issue: Dictionary = {
+			"severity": "error",
+			"kind": String(failed_reason),
+			"message": "buff check failed",
+			"key": id,
+			"row_key": report["failed_check_id"],
+			"metadata": GFVariantData.get_option_dictionary(check_report, "metadata"),
+		}
+		var report_issues: Array = GFVariantData.get_option_array(report, "issues")
+		report_issues.append(issue)
+		report["issues"] = report_issues
+		return report
+	return report
 
 
 ## 当 Buff 首次应用时触发。
@@ -138,12 +252,14 @@ func setup(p_id: StringName, p_duration: float, p_owner: Object) -> void:
 ## @api public
 func on_apply() -> void:
 	_apply_effects()
+	var _reports: Array[Dictionary] = _run_effects(&"apply")
 
 
 ## 当 Buff 被移除时触发。
 ## [br]
 ## @api public
 func on_remove() -> void:
+	var _reports: Array[Dictionary] = _run_effects(&"remove", { "reason": removal_reason })
 	_remove_effects()
 
 
@@ -159,6 +275,7 @@ func on_refresh(p_new_duration: float) -> void:
 	_apply_refresh_duration(p_new_duration)
 	if stack_mode == StackMode.ADD_STACK and max_stacks > 1:
 		stacks = mini(stacks + 1, max_stacks)
+	var _reports: Array[Dictionary] = _run_effects(&"refresh", { "refresh_duration": p_new_duration })
 
 
 ## 使用同 ID 的新 Buff 刷新当前运行中实例。
@@ -178,7 +295,7 @@ func refresh_from(source_buff: GFBuff) -> void:
 ## [br]
 ## @param _p_delta: 帧间隔。
 func on_tick(_p_delta: float) -> void:
-	pass
+	var _reports: Array[Dictionary] = _run_effects(&"tick", { "delta": _p_delta })
 
 
 ## 内部状态更新流程。
@@ -201,7 +318,205 @@ func update(p_delta: float) -> bool:
 	return false
 
 
+## 标记移除原因。
+## [br]
+## @api public
+## [br]
+## @since 6.0.0
+## [br]
+## @param reason: 移除原因。
+func mark_removed(reason: StringName = REMOVAL_REASON_REMOVED) -> void:
+	removal_reason = reason if reason != &"" else REMOVAL_REASON_REMOVED
+
+
+## 获取运行时状态快照。
+## [br]
+## @api public
+## [br]
+## @since 6.0.0
+## [br]
+## @return 状态快照。
+## [br]
+## @schema return: Dictionary with generic buff runtime state, modifiers, tags, metadata, and effect_states.
+func get_state_snapshot() -> Dictionary:
+	return {
+		"id": id,
+		"duration": duration,
+		"time_left": time_left,
+		"stacks": stacks,
+		"max_stacks": max_stacks,
+		"stack_mode": stack_mode,
+		"duration_refresh_policy": duration_refresh_policy,
+		"tick_interval_seconds": tick_interval_seconds,
+		"max_periodic_ticks_per_update": max_periodic_ticks_per_update,
+		"remove_on_expire": remove_on_expire,
+		"tick_accumulator": _tick_accumulator,
+		"removal_reason": removal_reason,
+		"tags": tags.duplicate(),
+		"modifiers": _modifiers_to_dictionaries(),
+		"metadata": metadata.duplicate(true),
+		"effect_states": _get_effect_state_snapshots(),
+	}
+
+
+## 恢复运行时状态快照。
+## [br]
+## @api public
+## [br]
+## @since 6.0.0
+## [br]
+## @param snapshot: 状态快照。
+## [br]
+## @param owner_override: 可选 owner 覆盖；为空时保留当前 owner。
+## [br]
+## @schema snapshot: Dictionary returned by get_state_snapshot().
+func restore_state_snapshot(snapshot: Dictionary, owner_override: Object = null) -> void:
+	id = GFVariantData.get_option_string_name(snapshot, "id", id)
+	duration = GFVariantData.get_option_float(snapshot, "duration", duration)
+	time_left = GFVariantData.get_option_float(snapshot, "time_left", time_left)
+	stacks = maxi(GFVariantData.get_option_int(snapshot, "stacks", stacks), 1)
+	max_stacks = maxi(GFVariantData.get_option_int(snapshot, "max_stacks", max_stacks), 1)
+	stack_mode = _int_to_stack_mode(GFVariantData.get_option_int(snapshot, "stack_mode", stack_mode))
+	duration_refresh_policy = _int_to_duration_refresh_policy(
+		GFVariantData.get_option_int(snapshot, "duration_refresh_policy", duration_refresh_policy)
+	)
+	tick_interval_seconds = GFVariantData.get_option_float(snapshot, "tick_interval_seconds", tick_interval_seconds)
+	max_periodic_ticks_per_update = GFVariantData.get_option_int(
+		snapshot,
+		"max_periodic_ticks_per_update",
+		max_periodic_ticks_per_update
+	)
+	remove_on_expire = GFVariantData.get_option_bool(snapshot, "remove_on_expire", remove_on_expire)
+	_tick_accumulator = GFVariantData.get_option_float(snapshot, "tick_accumulator", _tick_accumulator)
+	removal_reason = GFVariantData.get_option_string_name(snapshot, "removal_reason", removal_reason)
+	tags = GFVariantData.get_option_string_name_array(snapshot, "tags", tags)
+	modifiers = _dictionaries_to_modifiers(GFVariantData.get_option_array(snapshot, "modifiers"))
+	metadata = GFVariantData.get_option_dictionary(snapshot, "metadata", metadata)
+	if owner_override != null:
+		owner = owner_override
+	_restore_effect_state_snapshots(GFVariantData.get_option_array(snapshot, "effect_states"))
+
+
 # --- 私有/辅助方法 ---
+
+func _make_apply_report(context: Dictionary) -> Dictionary:
+	var report_metadata: Dictionary = metadata.duplicate(true)
+	var context_metadata: Dictionary = GFVariantData.get_option_dictionary(context, "metadata")
+	var _metadata_merge: Dictionary = GFVariantData.merge_dictionary(report_metadata, context_metadata, true, true)
+	return {
+		"ok": true,
+		"reason": &"",
+		"buff_id": id,
+		"failed_check_id": &"",
+		"metadata": report_metadata,
+		"issues": [],
+	}
+
+
+func _make_lifecycle_context(event_name: StringName, extra: Dictionary = {}) -> Dictionary:
+	var context: Dictionary = {
+		"buff": self,
+		"owner": _get_valid_owner(),
+		"event": event_name,
+		"buff_id": id,
+		"stacks": stacks,
+		"time_left": time_left,
+		"duration": duration,
+		"metadata": metadata.duplicate(true),
+	}
+	var _extra_merge: Dictionary = GFVariantData.merge_dictionary(context, extra, true, true)
+	return context
+
+
+func _run_effects(event_name: StringName, extra: Dictionary = {}) -> Array[Dictionary]:
+	var reports: Array[Dictionary] = []
+	var context: Dictionary = _make_lifecycle_context(event_name, extra)
+	for effect: GFBuffEffect in effects:
+		if effect == null:
+			continue
+		var report: Dictionary = {}
+		match event_name:
+			&"apply":
+				report = effect.apply(context)
+			&"remove":
+				report = effect.remove(context)
+			&"refresh":
+				report = effect.refresh(context)
+			&"tick":
+				report = effect.tick(context)
+			_:
+				report = { "ok": true }
+		reports.append(report)
+	return reports
+
+
+func _modifiers_to_dictionaries() -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	for modifier: GFModifier in modifiers:
+		if modifier == null:
+			continue
+		result.append(modifier.to_dictionary())
+	return result
+
+
+func _dictionaries_to_modifiers(entries: Array) -> Array[GFModifier]:
+	var result: Array[GFModifier] = []
+	for entry_value: Variant in entries:
+		if not entry_value is Dictionary:
+			continue
+		var entry: Dictionary = entry_value
+		result.append(GFModifier.from_dictionary(entry))
+	return result
+
+
+func _get_effect_state_snapshots() -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	for effect_index: int in range(effects.size()):
+		var effect: GFBuffEffect = effects[effect_index]
+		if effect == null:
+			continue
+		result.append({
+			"index": effect_index,
+			"effect_id": effect.effect_id,
+			"state": effect.get_state_snapshot(),
+		})
+	return result
+
+
+func _restore_effect_state_snapshots(effect_states: Array) -> void:
+	for state_value: Variant in effect_states:
+		if not state_value is Dictionary:
+			continue
+		var state_entry: Dictionary = state_value
+		var effect_index: int = GFVariantData.get_option_int(state_entry, "index", -1)
+		if effect_index < 0 or effect_index >= effects.size():
+			continue
+		var effect: GFBuffEffect = effects[effect_index]
+		if effect == null:
+			continue
+		effect.restore_state_snapshot(GFVariantData.get_option_dictionary(state_entry, "state"))
+
+
+func _int_to_stack_mode(value: int) -> StackMode:
+	match clampi(value, StackMode.REFRESH_ONLY, StackMode.IGNORE):
+		StackMode.REFRESH_ONLY:
+			return StackMode.REFRESH_ONLY
+		StackMode.IGNORE:
+			return StackMode.IGNORE
+		_:
+			return StackMode.ADD_STACK
+
+
+func _int_to_duration_refresh_policy(value: int) -> DurationRefreshPolicy:
+	match clampi(value, DurationRefreshPolicy.KEEP_CURRENT, DurationRefreshPolicy.KEEP_LONGER_REMAINING):
+		DurationRefreshPolicy.KEEP_CURRENT:
+			return DurationRefreshPolicy.KEEP_CURRENT
+		DurationRefreshPolicy.EXTEND_BY_NEW_DURATION:
+			return DurationRefreshPolicy.EXTEND_BY_NEW_DURATION
+		DurationRefreshPolicy.KEEP_LONGER_REMAINING:
+			return DurationRefreshPolicy.KEEP_LONGER_REMAINING
+		_:
+			return DurationRefreshPolicy.RESET_TO_NEW_DURATION
 
 func _apply_refresh_duration(p_new_duration: float) -> void:
 	match duration_refresh_policy:

@@ -1,11 +1,11 @@
 # Network 与 TurnBased
 
-Network 扩展提供传输抽象、消息载体、序列化、通道、校验、同步快照和契约生成。TurnBased 扩展提供通用阶段推进和行动解析流程。它们都只定义框架级基础设施，不内置服务器、房间、账号、鉴权、同步策略、参与者字段或行动效果。
+Network 扩展提供传输抽象、消息载体、序列化、通道、校验、同步快照、脏字段跟踪和契约生成。TurnBased 扩展提供通用阶段推进和行动解析流程。它们都只定义框架级基础设施，不内置服务器、房间、账号、鉴权、同步策略、参与者字段或行动效果。
 
 ## 阅读入口
 
 - [Network 传输抽象](network-transport/index.md)：`GFNetworkUtility`、后端、session、serializer、WebSocket、channel 和 rate limiter。
-- [Network 固定 tick、快照与历史](network-snapshots.md)：`GFFixedTickClock`、`GFNetworkSnapshot`、`GFNetworkHistoryBuffer` 和字段序列化 schema。
+- [Network 固定 tick、快照与历史](network-snapshots.md)：`GFFixedTickClock`、`GFNetworkSnapshot`、`GFNetworkHistoryBuffer`、`GFNetworkDirtyStateTracker` 和字段序列化 schema。
 - [Network 契约、生成器与重连策略](network-contracts.md)：`GFNetworkContract`、消息契约、辅助类生成、重连退避和包体大小限制。
 - [TurnBased 通用回合流程](turn-flow.md)：`GFTurnFlowSystem`、阶段、行动队列、排序和异步阶段安全等待。
 

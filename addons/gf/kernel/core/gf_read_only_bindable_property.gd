@@ -15,6 +15,7 @@ extends GFBindableProperty
 # --- 常量 ---
 
 const _READ_ONLY_ERROR: String = "[GFReadOnlyBindableProperty] 当前属性为只读视图，请通过宿主对象修改其值。"
+const _READ_ONLY_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
 
 
 # --- Godot 生命周期方法 ---
@@ -34,6 +35,20 @@ func _init(default_value: Variant = null) -> void:
 
 
 # --- 公共方法 ---
+
+## 读取只读视图的当前值。
+## Array 与 Dictionary 会返回深拷贝，避免调用方通过集合引用绕过只读约束。
+## [br]
+## @api public
+## [br]
+## @since 5.0.0
+## [br]
+## @return 当前值；集合类型返回副本。
+## [br]
+## @schema return: Variant current read-only value; Array and Dictionary values are returned as deep copies.
+func get_value() -> Variant:
+	return _READ_ONLY_VARIANT_ACCESS_SCRIPT.duplicate_collection(super.get_value(), true)
+
 
 ## 只读视图不允许外部直接写入值。
 ## [br]

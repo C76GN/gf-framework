@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFStateMachine" path="addons/gf/standard/state_machine/pure/gf_state_machine.gd" module="standard" extends="RefCounted" classDigest="88614d01c7eb132423f39cd4ef0c2730c83c31ac8c8981b73a214f8974a2745f">
+<class name="GFStateMachine" path="addons/gf/standard/state_machine/pure/gf_state_machine.gd" module="standard" extends="RefCounted" classDigest="d9ce27cfeed1b28f18ba2fdeb82350525d817029961ba96a1cae2219cb30aa52">
 	<description>GFStateMachine: 纯代码分层有限状态机。
 继承自 RefCounted，不依赖 Node 树，可在 GFSystem 或 GFUtility 中直接持有。
 支持平铺 FSM，也支持通过 parent_state_name 组成父子状态层级；切换时会
@@ -309,12 +309,14 @@ _fsm.start(&amp;"Idle")</description>
 			</tags>
 		</member>
 		<member kind="method" name="unregister_event">
-			<signature>func unregister_event(event_type: Script, callback: Callable) -&gt; void:</signature>
+			<signature>func unregister_event(event_type: Script, callback: Callable, owner: Object = null) -&gt; void:</signature>
 			<description>注销类型事件监听器。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">event_type: 要注销的脚本类型。</tag>
 				<tag name="param">callback: 要移除的回调函数。</tag>
+				<tag name="param">owner: 注册监听时使用的拥有者；为空时只注销无 owner 监听。</tag>
+				<tag name="since">5.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="register_assignable_event_owned">
@@ -329,12 +331,14 @@ _fsm.start(&amp;"Idle")</description>
 			</tags>
 		</member>
 		<member kind="method" name="unregister_assignable_event">
-			<signature>func unregister_assignable_event(base_event_type: Script, callback: Callable) -&gt; void:</signature>
+			<signature>func unregister_assignable_event(base_event_type: Script, callback: Callable, owner: Object = null) -&gt; void:</signature>
 			<description>注销可赋值类型事件监听器。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">base_event_type: 注册时使用的基类脚本类型。</tag>
 				<tag name="param">callback: 要移除的回调函数。</tag>
+				<tag name="param">owner: 注册监听时使用的拥有者；为空时只注销无 owner 监听。</tag>
+				<tag name="since">5.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="register_simple_event_owned">
@@ -348,12 +352,14 @@ _fsm.start(&amp;"Idle")</description>
 			</tags>
 		</member>
 		<member kind="method" name="unregister_simple_event">
-			<signature>func unregister_simple_event(event_id: StringName, callback: Callable) -&gt; void:</signature>
+			<signature>func unregister_simple_event(event_id: StringName, callback: Callable, owner: Object = null) -&gt; void:</signature>
 			<description>注销轻量级 StringName 事件监听器。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">event_id: StringName 事件标识符。</tag>
 				<tag name="param">callback: 要移除的回调函数。</tag>
+				<tag name="param">owner: 注册监听时使用的拥有者；为空时只注销无 owner 监听。</tag>
+				<tag name="since">5.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="unregister_owner_events">

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFArchitecture" path="addons/gf/kernel/core/gf_architecture.gd" module="kernel" extends="Object" classDigest="f0191a193a7765df2a62a0192306ed3f37a378f7a4a2ca225c4e9c1472e7828a">
+<class name="GFArchitecture" path="addons/gf/kernel/core/gf_architecture.gd" module="kernel" extends="Object" classDigest="10b58f883db87eba7a3dfec519a4ff62c0ec588fe8ee254bf5b114df027cc6f1">
 	<description>GFArchitecture: 管理 Model、System 和 Utility 的注册与生命周期的容器。
 生命周期遵循三阶段初始化协议：
 阶段一 (init)       ：所有模块执行自身内部变量初始化。
@@ -104,6 +104,16 @@
 				<tag name="api">public</tag>
 			</tags>
 		</member>
+		<member kind="property" name="fail_on_missing_declared_dependencies">
+			<signature>var fail_on_missing_declared_dependencies: bool = false</signature>
+			<description>声明式依赖缺失时是否直接使初始化失败。
+模块可通过 get_required_dependencies() 或 get_required_models/systems/utilities/factories() 声明依赖。
+开启后，init() 会在模块生命周期推进前校验依赖图，缺失依赖会中止本次初始化。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
 		<member kind="property" name="last_initialization_error">
 			<signature>var last_initialization_error: String = ""</signature>
 			<description>最近一次初始化失败原因；没有失败时为空字符串。</description>
@@ -143,6 +153,26 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">正在初始化或已完成初始化，且未被 dispose() 或失败保护中断时返回 true。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_lifecycle_generation">
+			<signature>func get_lifecycle_generation() -&gt; int:</signature>
+			<description>获取当前架构生命周期 generation。
+每次 init()、dispose() 或初始化失败都会推进 generation，用于异步流程判断自身是否仍属于当前生命周期。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">当前生命周期 generation。</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_lifecycle_generation_active">
+			<signature>func is_lifecycle_generation_active(lifecycle_generation: int) -&gt; bool:</signature>
+			<description>检查指定生命周期 generation 是否仍是当前活动生命周期。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">lifecycle_generation: 由 get_lifecycle_generation() 读取到的 generation。</tag>
+				<tag name="return">generation 匹配且架构生命周期仍活动时返回 true。</tag>
+				<tag name="since">5.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_module_ready">
@@ -349,6 +379,18 @@ query 缺少 execute() 方法时会输出 warning 并返回 null。</description
 				<tag name="param">on_event: 要移除的回调函数。</tag>
 			</tags>
 		</member>
+		<member kind="method" name="unregister_event_owned">
+			<signature>func unregister_event_owned(owner: Object, event_type: Script, on_event: Callable) -&gt; void:</signature>
+			<description>注销带拥有者的脚本类型事件监听器。
+只移除 owner 与回调都匹配的监听，不影响其它 owner 使用同一 Callable 注册的监听。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">owner: 注册监听时使用的拥有者。</tag>
+				<tag name="param">event_type: 要注销的脚本类型。</tag>
+				<tag name="param">on_event: 要移除的回调函数。</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
 		<member kind="method" name="unregister_assignable_event">
 			<signature>func unregister_assignable_event(base_event_type: Script, on_event: Callable) -&gt; void:</signature>
 			<description>注销可赋值类型事件监听器。</description>
@@ -356,6 +398,17 @@ query 缺少 execute() 方法时会输出 warning 并返回 null。</description
 				<tag name="api">public</tag>
 				<tag name="param">base_event_type: 注册时使用的基类脚本类型。</tag>
 				<tag name="param">on_event: 要移除的回调函数。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="unregister_assignable_event_owned">
+			<signature>func unregister_assignable_event_owned(owner: Object, base_event_type: Script, on_event: Callable) -&gt; void:</signature>
+			<description>注销带拥有者的可赋值类型事件监听器。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">owner: 注册监听时使用的拥有者。</tag>
+				<tag name="param">base_event_type: 注册时使用的基类脚本类型。</tag>
+				<tag name="param">on_event: 要移除的回调函数。</tag>
+				<tag name="since">5.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="register_simple_event">
@@ -384,6 +437,17 @@ query 缺少 execute() 方法时会输出 warning 并返回 null。</description
 				<tag name="api">public</tag>
 				<tag name="param">event_id: StringName 事件标识符。</tag>
 				<tag name="param">on_event: 要移除的回调函数。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="unregister_simple_event_owned">
+			<signature>func unregister_simple_event_owned(owner: Object, event_id: StringName, on_event: Callable) -&gt; void:</signature>
+			<description>注销带拥有者的轻量级 StringName 事件监听器。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">owner: 注册监听时使用的拥有者。</tag>
+				<tag name="param">event_id: StringName 事件标识符。</tag>
+				<tag name="param">on_event: 要移除的回调函数。</tag>
+				<tag name="since">5.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="unregister_owner_events">
@@ -446,6 +510,7 @@ query 缺少 execute() 方法时会输出 warning 并返回 null。</description
 				<tag name="api">public</tag>
 				<tag name="param">script_cls: 系统的脚本类。</tag>
 				<tag name="param">instance: 系统实例。</tag>
+				<tag name="since">5.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="register_model">
@@ -455,6 +520,7 @@ query 缺少 execute() 方法时会输出 warning 并返回 null。</description
 				<tag name="api">public</tag>
 				<tag name="param">script_cls: 模型的脚本类。</tag>
 				<tag name="param">instance: 模型实例。</tag>
+				<tag name="since">5.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="register_utility">
@@ -468,29 +534,32 @@ query 缺少 execute() 方法时会输出 warning 并返回 null。</description
 		</member>
 		<member kind="method" name="replace_system">
 			<signature>func replace_system(script_cls: Script, instance: Object) -&gt; void:</signature>
-			<description>替换 System 实例。若旧实例存在，会先调用 dispose() 并移除相关别名。</description>
+			<description>替换 System 实例。新实例成功完成当前生命周期阶段后才会提交替换。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">script_cls: 系统的脚本类。</tag>
 				<tag name="param">instance: 新系统实例。</tag>
+				<tag name="since">5.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="replace_model">
 			<signature>func replace_model(script_cls: Script, instance: Object) -&gt; void:</signature>
-			<description>替换 Model 实例。若旧实例存在，会先调用 dispose() 并移除相关别名。</description>
+			<description>替换 Model 实例。新实例成功完成当前生命周期阶段后才会提交替换。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">script_cls: 模型的脚本类。</tag>
 				<tag name="param">instance: 新模型实例。</tag>
+				<tag name="since">5.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="replace_utility">
 			<signature>func replace_utility(script_cls: Script, instance: Object) -&gt; void:</signature>
-			<description>替换 Utility 实例。若旧实例存在，会先调用 dispose() 并移除相关别名。</description>
+			<description>替换 Utility 实例。新实例成功完成当前生命周期阶段后才会提交替换。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">script_cls: 工具的脚本类。</tag>
 				<tag name="param">instance: 新工具实例。</tag>
+				<tag name="since">5.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="register_factory">
@@ -574,6 +643,33 @@ query 缺少 execute() 方法时会输出 warning 并返回 null。</description
 				<tag name="api">public</tag>
 				<tag name="param">alias_cls: 调用 get_utility() 时使用的别名脚本类。</tag>
 				<tag name="param">target_cls: 已注册 Utility 的实际脚本类。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="unregister_system_alias">
+			<signature>func unregister_system_alias(alias_cls: Script) -&gt; void:</signature>
+			<description>注销 System 查询别名，不影响目标 System 实例。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">alias_cls: 要移除的别名脚本类。</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="unregister_model_alias">
+			<signature>func unregister_model_alias(alias_cls: Script) -&gt; void:</signature>
+			<description>注销 Model 查询别名，不影响目标 Model 实例。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">alias_cls: 要移除的别名脚本类。</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="unregister_utility_alias">
+			<signature>func unregister_utility_alias(alias_cls: Script) -&gt; void:</signature>
+			<description>注销 Utility 查询别名，不影响目标 Utility 实例。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">alias_cls: 要移除的别名脚本类。</tag>
+				<tag name="since">5.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="register_system_instance">

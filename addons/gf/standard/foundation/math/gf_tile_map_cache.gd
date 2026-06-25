@@ -57,6 +57,145 @@ func update_from_tile_map(layer: TileMapLayer, target_cells: Array[Vector2i] = [
 		set_cell_data(cell, record)
 
 
+## 将缓存写回 TileMapLayer。
+## [br]
+## @api public
+## [br]
+## @since 6.0.0
+## [br]
+## @param layer: 目标 TileMapLayer。
+## [br]
+## @param origin: 写回偏移，缓存坐标会加上该偏移。
+## [br]
+## @param options: 可选参数，支持 overwrite、erase_empty。
+## [br]
+## @schema options: Dictionary with optional `overwrite: bool` and `erase_empty: bool`.
+## [br]
+## @return 写回报告。
+## [br]
+## @schema return: Dictionary with ok, applied_count, skipped_count, erased_count, failed_count, applied_cells, skipped_cells, erased_cells, failed_cells, and error.
+func apply_to_tile_map(
+	layer: TileMapLayer,
+	origin: Vector2i = Vector2i.ZERO,
+	options: Dictionary = {}
+) -> Dictionary:
+	var report: Dictionary = {
+		"ok": layer != null,
+		"applied_count": 0,
+		"skipped_count": 0,
+		"erased_count": 0,
+		"failed_count": 0,
+		"applied_cells": [],
+		"skipped_cells": [],
+		"erased_cells": [],
+		"failed_cells": [],
+		"error": "",
+	}
+	if layer == null:
+		report["error"] = "TileMapLayer is null."
+		return report
+
+	var overwrite: bool = GFVariantData.get_option_bool(options, "overwrite", true)
+	var erase_empty: bool = GFVariantData.get_option_bool(options, "erase_empty", true)
+	for cell: Vector2i in _get_sorted_cells():
+		var target_cell: Vector2i = cell + origin
+		var record: Dictionary = _get_cell_record(cell)
+		var source_id: int = _get_record_source_id(record)
+		if source_id < 0:
+			if erase_empty:
+				layer.erase_cell(target_cell)
+				_append_report_cell(report, "erased_cells", target_cell)
+				report["erased_count"] = GFVariantData.get_option_int(report, "erased_count") + 1
+			else:
+				_append_report_cell(report, "skipped_cells", target_cell)
+				report["skipped_count"] = GFVariantData.get_option_int(report, "skipped_count") + 1
+			continue
+
+		if not overwrite and layer.get_cell_source_id(target_cell) != -1:
+			_append_report_cell(report, "skipped_cells", target_cell)
+			report["skipped_count"] = GFVariantData.get_option_int(report, "skipped_count") + 1
+			continue
+
+		layer.set_cell(
+			target_cell,
+			source_id,
+			_get_record_atlas_coords(record),
+			_get_record_alternative_tile(record)
+		)
+		_append_report_cell(report, "applied_cells", target_cell)
+		report["applied_count"] = GFVariantData.get_option_int(report, "applied_count") + 1
+
+	report["failed_count"] = GFVariantData.get_option_array(report, "failed_cells").size()
+	return report
+
+
+## 提取区域片段。
+## [br]
+## @api public
+## [br]
+## @since 6.0.0
+## [br]
+## @param region: 要提取的区域。
+## [br]
+## @param normalize_origin: 为 true 时把区域左上角归一到 Vector2i.ZERO。
+## [br]
+## @return 新缓存。
+func extract_region(region: Rect2i, normalize_origin: bool = true) -> GFTileMapCache:
+	var result: GFTileMapCache = GFTileMapCache.new()
+	if region.size.x <= 0 or region.size.y <= 0:
+		return result
+
+	for cell: Vector2i in cells:
+		if not region.has_point(cell):
+			continue
+		var target_cell: Vector2i = cell - region.position if normalize_origin else cell
+		result.set_cell_data(target_cell, _get_cell_record(cell))
+	return result
+
+
+## 创建坐标平移后的缓存副本。
+## [br]
+## @api public
+## [br]
+## @since 6.0.0
+## [br]
+## @param offset: 坐标偏移。
+## [br]
+## @return 新缓存。
+func translated(offset: Vector2i) -> GFTileMapCache:
+	var result: GFTileMapCache = GFTileMapCache.new()
+	for cell: Vector2i in cells:
+		result.set_cell_data(cell + offset, _get_cell_record(cell))
+	return result
+
+
+## 获取缓存覆盖区域。
+## [br]
+## @api public
+## [br]
+## @since 6.0.0
+## [br]
+## @return 覆盖区域；缓存为空时返回空 Rect2i。
+func get_used_rect() -> Rect2i:
+	if cells.is_empty():
+		return Rect2i()
+
+	var first: bool = true
+	var min_cell: Vector2i = Vector2i.ZERO
+	var max_cell: Vector2i = Vector2i.ZERO
+	for cell: Vector2i in cells:
+		if first:
+			min_cell = cell
+			max_cell = cell
+			first = false
+			continue
+		min_cell.x = mini(min_cell.x, cell.x)
+		min_cell.y = mini(min_cell.y, cell.y)
+		max_cell.x = maxi(max_cell.x, cell.x)
+		max_cell.y = maxi(max_cell.y, cell.y)
+	return Rect2i(min_cell, max_cell - min_cell + Vector2i.ONE)
+
+
 ## 设置一个格子的字典数据。
 ## [br]
 ## @api public
@@ -214,3 +353,42 @@ func _parse_cell_key(key: String) -> Vector2i:
 	if not parts[0].is_valid_int() or not parts[1].is_valid_int():
 		return Vector2i(-2_147_483_648, -2_147_483_648)
 	return Vector2i(int(parts[0]), int(parts[1]))
+
+
+func _get_sorted_cells() -> Array[Vector2i]:
+	var result: Array[Vector2i] = []
+	for cell: Vector2i in cells:
+		result.append(cell)
+	result.sort_custom(_sort_cells)
+	return result
+
+
+func _sort_cells(left: Vector2i, right: Vector2i) -> bool:
+	if left.y != right.y:
+		return left.y < right.y
+	return left.x < right.x
+
+
+func _get_record_source_id(record: Dictionary) -> int:
+	return GFVariantData.get_option_int(record, "source_id", -1)
+
+
+func _get_record_atlas_coords(record: Dictionary) -> Vector2i:
+	var value: Variant = GFVariantData.get_option_value(record, "atlas_coords", Vector2i(-1, -1))
+	if value is Vector2i:
+		var vector: Vector2i = value
+		return vector
+	if value is Vector2:
+		var vector_float: Vector2 = value
+		return Vector2i(int(vector_float.x), int(vector_float.y))
+	return Vector2i(-1, -1)
+
+
+func _get_record_alternative_tile(record: Dictionary) -> int:
+	return GFVariantData.get_option_int(record, "alternative_tile", 0)
+
+
+func _append_report_cell(report: Dictionary, key: String, cell: Vector2i) -> void:
+	var values: Array = GFVariantData.get_option_array(report, key)
+	values.append(cell)
+	report[key] = values

@@ -1,0 +1,166 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFPolicyProvider" path="addons/gf/standard/foundation/policy/gf_policy_provider.gd" module="standard" extends="Resource" classDigest="ff77b8d1ede4782363e5898175766447972ef63a02b41cb6c5a23a9350b30636">
+	<description>GFPolicyProvider: 通用策略提供者协议。
+描述可对某类 artifact 字典执行校验、治理或打分的策略扩展点。
+Provider 只声明输入输出和执行协议，不规定具体业务类型。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">protocol</tag>
+		<tag name="since">6.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties>
+		<member kind="property" name="provider_id" decorators="@export">
+			<signature>var provider_id: StringName = &amp;""</signature>
+			<description>Provider 稳定标识。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="display_name" decorators="@export">
+			<signature>var display_name: String = ""</signature>
+			<description>显示名称。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="supported_artifact_kinds" decorators="@export">
+			<signature>var supported_artifact_kinds: PackedStringArray = PackedStringArray()</signature>
+			<description>支持的 artifact kind；为空表示支持所有 kind。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="priority" decorators="@export">
+			<signature>var priority: int = 0</signature>
+			<description>策略优先级，较小值先执行。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="input_schema" decorators="@export">
+			<signature>var input_schema: Dictionary = {}</signature>
+			<description>输入 schema 描述。GF 不解释字段业务含义。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">input_schema: Dictionary caller-defined policy input schema.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="output_schema" decorators="@export">
+			<signature>var output_schema: Dictionary = {}</signature>
+			<description>输出 schema 描述。GF 不解释字段业务含义。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">output_schema: Dictionary caller-defined policy output schema.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="deterministic" decorators="@export">
+			<signature>var deterministic: bool = true</signature>
+			<description>策略是否声明为确定性。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="metadata" decorators="@export">
+			<signature>var metadata: Dictionary = {}</signature>
+			<description>调用方附加元数据。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">metadata: Dictionary for caller-defined policy metadata.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="configure">
+			<signature>func configure( p_provider_id: StringName, p_supported_artifact_kinds: PackedStringArray = PackedStringArray(), p_metadata: Dictionary = {} ) -&gt; GFPolicyProvider:</signature>
+			<description>配置 Provider。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">p_provider_id: Provider 稳定标识。</tag>
+				<tag name="param">p_supported_artifact_kinds: 支持的 artifact kind；为空表示支持所有 kind。</tag>
+				<tag name="param">p_metadata: 调用方元数据。</tag>
+				<tag name="return">当前 Provider。</tag>
+				<tag name="schema">p_metadata: Dictionary copied into metadata.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="supports_artifact">
+			<signature>func supports_artifact(artifact: Dictionary) -&gt; bool:</signature>
+			<description>判断 Provider 是否支持该 artifact。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">artifact: artifact 字典。</tag>
+				<tag name="return">支持时返回 true。</tag>
+				<tag name="schema">artifact: Dictionary with optional kind or artifact_kind.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="evaluate">
+			<signature>func evaluate(artifact: Dictionary, context: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>执行策略。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">artifact: artifact 字典。</tag>
+				<tag name="param">context: 调用方上下文。</tag>
+				<tag name="return">策略结果。</tag>
+				<tag name="schema">artifact: Dictionary policy input artifact.</tag>
+				<tag name="schema">context: Dictionary caller-defined policy context.</tag>
+				<tag name="schema">return: Dictionary with ok, status, provider_id, artifact_kind, issues, data, and metadata.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="make_result">
+			<signature>func make_result( ok: bool, status: StringName, artifact: Dictionary, issues: Array = [], data: Dictionary = {} ) -&gt; Dictionary:</signature>
+			<description>创建策略结果。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">ok: 策略是否通过。</tag>
+				<tag name="param">status: 策略状态。</tag>
+				<tag name="param">artifact: artifact 字典。</tag>
+				<tag name="param">issues: issue 字典数组。</tag>
+				<tag name="param">data: 策略输出数据。</tag>
+				<tag name="return">策略结果。</tag>
+				<tag name="schema">artifact: Dictionary policy input artifact.</tag>
+				<tag name="schema">issues: Array[Dictionary] policy issues.</tag>
+				<tag name="schema">data: Dictionary policy output data.</tag>
+				<tag name="schema">return: Dictionary with ok, status, provider_id, artifact_kind, issues, data, and metadata.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_debug_snapshot">
+			<signature>func get_debug_snapshot() -&gt; Dictionary:</signature>
+			<description>获取调试快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">调试信息字典。</tag>
+				<tag name="schema">return: Dictionary containing provider_id, supported_artifact_kinds, priority, deterministic, and metadata.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_evaluate_policy">
+			<signature>func _evaluate_policy(_artifact: Dictionary, _context: Dictionary) -&gt; Dictionary:</signature>
+			<description>执行具体策略，供子类重写。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">_artifact: artifact 字典副本。</tag>
+				<tag name="param">_context: 调用方上下文字典副本。</tag>
+				<tag name="return">策略结果；返回空字典表示通过。</tag>
+				<tag name="schema">_artifact: Dictionary policy input artifact.</tag>
+				<tag name="schema">_context: Dictionary caller-defined policy context.</tag>
+				<tag name="schema">return: Dictionary policy result; empty means passed.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

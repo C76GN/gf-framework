@@ -9,6 +9,7 @@
 - [资源句柄与分组预热](handles-groups.md)：`GFAssetHandle`、owner 释放、缓存 pin 和资源分组预加载。
 - [通用资源注册表](resource-registry.md)：`GFResourceRegistry`、稳定资源 ID、字段索引、同步加载和与 `GFAssetUtility` 的显式衔接。
 - [资源解析器](resource-resolver.md)：`GFResourceResolverUtility`、资源键解析、provider 覆盖链、直接路径回退和 AssetUtility 衔接。
+- [资源图、变体、Artifact 与导入计划](resource-graph-variants-artifacts.md)：`GFResourceGraphScanner`、`GFResourceVariantProvider`、`GFRawResourceArtifact` 和 `GFImportPlan`。
 
 ## 使用边界
 

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFInputProfileBank" path="addons/gf/standard/input/mapping/gf_input_profile_bank.gd" module="standard" extends="Resource" classDigest="88244c955a8212d34dfddcf87b05c9efd16b8604a1fc51c6ebc024c6b7575a8f">
+<class name="GFInputProfileBank" path="addons/gf/standard/input/mapping/gf_input_profile_bank.gd" module="standard" extends="Resource" classDigest="ed46f427f704e0b2ebfd382867f662874fd43290164ef87f7943307fdcff6528">
 	<description>GFInputProfileBank: 命名输入重映射配置集合。
 用于保存、切换和复制多个 GFInputRemapConfig。它只管理配置资源，
 不规定玩家、存档槽位、UI 展示或项目业务语义。</description>
@@ -117,12 +117,44 @@
 				<tag name="return">当前配置；未设置或不存在时返回 null。</tag>
 			</tags>
 		</member>
+		<member kind="method" name="to_dict">
+			<signature>func to_dict() -&gt; Dictionary:</signature>
+			<description>转换为可写入配置或存档的 Dictionary。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">Profile bank 字典。</tag>
+				<tag name="schema">return: Dictionary with profiles, active_profile_id, and custom_data fields. profiles maps profile id String to GFInputRemapConfig.to_dict().</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="apply_dict">
+			<signature>func apply_dict(data: Dictionary) -&gt; void:</signature>
+			<description>应用由 to_dict() 生成的 Profile bank 字典。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">data: Profile bank 字典。</tag>
+				<tag name="schema">data: Dictionary with profiles, active_profile_id, and custom_data fields.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="from_dict">
+			<signature>static func from_dict(data: Dictionary) -&gt; GFInputProfileBank:</signature>
+			<description>从 Dictionary 创建 Profile bank。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">data: Profile bank 字典。</tag>
+				<tag name="return">新的配置集合。</tag>
+				<tag name="schema">data: Dictionary with profiles, active_profile_id, and custom_data fields.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
 		<member kind="method" name="duplicate_bank">
 			<signature>func duplicate_bank() -&gt; GFInputProfileBank:</signature>
 			<description>创建 bank 的深拷贝。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">新的配置集合。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</methods>

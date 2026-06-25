@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSystem" path="addons/gf/kernel/base/gf_system.gd" module="kernel" extends="Object" classDigest="a4078a1c7b98e11a167b5b5cf8cd20dd645e1715bc5ce43816a6f00c1e7251df">
+<class name="GFSystem" path="addons/gf/kernel/base/gf_system.gd" module="kernel" extends="Object" classDigest="91194caeb8e42ced1e3edc54b53f3ac35c719ec06ce3a8dbbcae84047329e991">
 	<description>GFSystem: 逻辑层抽象基类。
 负责实现核心业务逻辑。
 子类可以实现 'init'、'async_init'、'ready'、'dispose' 来管理其生命周期。
@@ -17,20 +17,22 @@
 	<constants />
 	<properties>
 		<member kind="property" name="ignore_pause">
-			<signature>var ignore_pause: bool = false</signature>
+			<signature>var ignore_pause: bool = false:</signature>
 			<description>是否忽略全局暂停。为 true 时，即使当前 GFTimeProvider 处于暂停状态，
 该 System 仍会接收到原始（未缩放）的 delta 值。
 典型场景：暂停菜单动画、设置界面过渡效果等。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">5.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="ignore_time_scale">
-			<signature>var ignore_time_scale: bool = false</signature>
+			<signature>var ignore_time_scale: bool = false:</signature>
 			<description>是否忽略当前 GFTimeProvider 的时间缩放。为 true 且未全局暂停时，
 该 System 的 tick / physics_tick 会接收到原始 delta。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">5.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="lifecycle_priority">
@@ -42,19 +44,21 @@
 			</tags>
 		</member>
 		<member kind="property" name="tick_priority">
-			<signature>var tick_priority: int = 0</signature>
+			<signature>var tick_priority: int = 0:</signature>
 			<description>每帧 tick 优先级。数值越大越早执行 tick()。
 默认 0 表示同优先级下按注册顺序执行。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">5.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="physics_tick_priority">
-			<signature>var physics_tick_priority: int = 0</signature>
+			<signature>var physics_tick_priority: int = 0:</signature>
 			<description>物理帧 tick 优先级。数值越大越早执行 physics_tick()。
 默认 0 表示同优先级下按注册顺序执行。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">5.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="tick_enabled">

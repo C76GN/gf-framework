@@ -54,9 +54,11 @@ extends Resource
 ## @api public
 @export_range(0.01, 4.0, 0.01) var pitch_random_max: float = 1.0
 
-## 可选空间播放设置。为空时空间 SFX 使用 Godot 播放器默认空间参数。
+## 可选空间播放设置。为空时空间 SFX 使用 GF 默认空间参数，并保留区域掩码 layer 1。
 ## [br]
 ## @api public
+## [br]
+## @since 3.19.0
 ## [br]
 ## @schema spatial_settings: GFAudioSpatialSettings or compatible Resource with apply_to_2d/apply_to_3d methods.
 @export var spatial_settings: Resource = null

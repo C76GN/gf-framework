@@ -17,6 +17,8 @@
 |---|---|---|
 | 属性 | [`properties`](#member-gfnodepropertyserializer-properties-properties) | `var properties: PackedStringArray = PackedStringArray()` |
 | 属性 | [`skip_missing_properties`](#member-gfnodepropertyserializer-properties-skip_missing_properties) | `var skip_missing_properties: bool = true` |
+| 属性 | [`allowed_resource_roots`](#member-gfnodepropertyserializer-properties-allowed_resource_roots) | `var allowed_resource_roots: PackedStringArray = PackedStringArray()` |
+| 属性 | [`allowed_resource_patterns`](#member-gfnodepropertyserializer-properties-allowed_resource_patterns) | `var allowed_resource_patterns: PackedStringArray = PackedStringArray()` |
 | 方法 | [`gather`](#member-gfnodepropertyserializer-methods-gather) | `func gather(node: Node, context: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`apply`](#member-gfnodepropertyserializer-methods-apply) | `func apply(node: Node, payload: Dictionary, context: Dictionary = {}) -> Dictionary:` |
 
@@ -45,6 +47,32 @@ var skip_missing_properties: bool = true
 ```
 
 应用数据时遇到缺失属性是否跳过。
+
+<a id="member-gfnodepropertyserializer-properties-allowed_resource_roots"></a>
+
+### `allowed_resource_roots`
+
+- API：`public`
+- 首次版本：`6.0.0`
+
+```gdscript
+var allowed_resource_roots: PackedStringArray = PackedStringArray()
+```
+
+Resource 引用恢复时允许加载的资源根目录。为空时使用 context 中的同名策略；仍为空则拒绝恢复 Resource 引用。
+
+<a id="member-gfnodepropertyserializer-properties-allowed_resource_patterns"></a>
+
+### `allowed_resource_patterns`
+
+- API：`public`
+- 首次版本：`6.0.0`
+
+```gdscript
+var allowed_resource_patterns: PackedStringArray = PackedStringArray()
+```
+
+Resource 引用恢复时允许加载的资源路径通配模式。为空时使用 context 中的同名策略；仍为空则拒绝恢复 Resource 引用。
 
 ## 方法
 
@@ -79,6 +107,7 @@ func gather(node: Node, context: Dictionary = {}) -> Dictionary:
 ### `apply`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func apply(node: Node, payload: Dictionary, context: Dictionary = {}) -> Dictionary:
@@ -99,5 +128,5 @@ func apply(node: Node, payload: Dictionary, context: Dictionary = {}) -> Diction
 结构：
 
 - `payload`: Dictionary，键为属性名，值为 JSON 兼容值或 __gf_reference__ 标记。
-- `context`: Dictionary，可包含 reference_root_node: Node，用于恢复 Node 引用属性。
+- `context`: Dictionary，可包含 reference_root_node: Node，用于恢复 Node 引用属性；可包含 allowed_resource_roots / allowed_resource_patterns，用于恢复 Resource 引用属性。
 - `return`: Dictionary，包含 ok: bool 与 error: String。

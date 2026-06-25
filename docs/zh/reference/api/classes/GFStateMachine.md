@@ -46,11 +46,11 @@
 | 方法 | [`send_event`](#member-gfstatemachine-methods-send_event) | `func send_event(event_instance: Object) -> void:` |
 | 方法 | [`send_simple_event`](#member-gfstatemachine-methods-send_simple_event) | `func send_simple_event(event_id: StringName, payload: Variant = null) -> void:` |
 | 方法 | [`register_event_owned`](#member-gfstatemachine-methods-register_event_owned) | `func register_event_owned(owner: Object, event_type: Script, callback: Callable, priority: int = 0) -> void:` |
-| 方法 | [`unregister_event`](#member-gfstatemachine-methods-unregister_event) | `func unregister_event(event_type: Script, callback: Callable) -> void:` |
+| 方法 | [`unregister_event`](#member-gfstatemachine-methods-unregister_event) | `func unregister_event(event_type: Script, callback: Callable, owner: Object = null) -> void:` |
 | 方法 | [`register_assignable_event_owned`](#member-gfstatemachine-methods-register_assignable_event_owned) | `func register_assignable_event_owned( owner: Object, base_event_type: Script, callback: Callable, priority: int = 0 ) -> void:` |
-| 方法 | [`unregister_assignable_event`](#member-gfstatemachine-methods-unregister_assignable_event) | `func unregister_assignable_event(base_event_type: Script, callback: Callable) -> void:` |
+| 方法 | [`unregister_assignable_event`](#member-gfstatemachine-methods-unregister_assignable_event) | `func unregister_assignable_event(base_event_type: Script, callback: Callable, owner: Object = null) -> void:` |
 | 方法 | [`register_simple_event_owned`](#member-gfstatemachine-methods-register_simple_event_owned) | `func register_simple_event_owned(owner: Object, event_id: StringName, callback: Callable) -> void:` |
-| 方法 | [`unregister_simple_event`](#member-gfstatemachine-methods-unregister_simple_event) | `func unregister_simple_event(event_id: StringName, callback: Callable) -> void:` |
+| 方法 | [`unregister_simple_event`](#member-gfstatemachine-methods-unregister_simple_event) | `func unregister_simple_event(event_id: StringName, callback: Callable, owner: Object = null) -> void:` |
 | 方法 | [`unregister_owner_events`](#member-gfstatemachine-methods-unregister_owner_events) | `func unregister_owner_events(owner: Object) -> void:` |
 
 ## 信号
@@ -662,9 +662,10 @@ func register_event_owned(owner: Object, event_type: Script, callback: Callable,
 ### `unregister_event`
 
 - API：`public`
+- 首次版本：`5.0.0`
 
 ```gdscript
-func unregister_event(event_type: Script, callback: Callable) -> void:
+func unregister_event(event_type: Script, callback: Callable, owner: Object = null) -> void:
 ```
 
 注销类型事件监听器。
@@ -675,6 +676,7 @@ func unregister_event(event_type: Script, callback: Callable) -> void:
 |---|---|
 | `event_type` | 要注销的脚本类型。 |
 | `callback` | 要移除的回调函数。 |
+| `owner` | 注册监听时使用的拥有者；为空时只注销无 owner 监听。 |
 
 <a id="member-gfstatemachine-methods-register_assignable_event_owned"></a>
 
@@ -702,9 +704,10 @@ func register_assignable_event_owned( owner: Object, base_event_type: Script, ca
 ### `unregister_assignable_event`
 
 - API：`public`
+- 首次版本：`5.0.0`
 
 ```gdscript
-func unregister_assignable_event(base_event_type: Script, callback: Callable) -> void:
+func unregister_assignable_event(base_event_type: Script, callback: Callable, owner: Object = null) -> void:
 ```
 
 注销可赋值类型事件监听器。
@@ -715,6 +718,7 @@ func unregister_assignable_event(base_event_type: Script, callback: Callable) ->
 |---|---|
 | `base_event_type` | 注册时使用的基类脚本类型。 |
 | `callback` | 要移除的回调函数。 |
+| `owner` | 注册监听时使用的拥有者；为空时只注销无 owner 监听。 |
 
 <a id="member-gfstatemachine-methods-register_simple_event_owned"></a>
 
@@ -741,9 +745,10 @@ func register_simple_event_owned(owner: Object, event_id: StringName, callback: 
 ### `unregister_simple_event`
 
 - API：`public`
+- 首次版本：`5.0.0`
 
 ```gdscript
-func unregister_simple_event(event_id: StringName, callback: Callable) -> void:
+func unregister_simple_event(event_id: StringName, callback: Callable, owner: Object = null) -> void:
 ```
 
 注销轻量级 StringName 事件监听器。
@@ -754,6 +759,7 @@ func unregister_simple_event(event_id: StringName, callback: Callable) -> void:
 |---|---|
 | `event_id` | StringName 事件标识符。 |
 | `callback` | 要移除的回调函数。 |
+| `owner` | 注册监听时使用的拥有者；为空时只注销无 owner 监听。 |
 
 <a id="member-gfstatemachine-methods-unregister_owner_events"></a>
 

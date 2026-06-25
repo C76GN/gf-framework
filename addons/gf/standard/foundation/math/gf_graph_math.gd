@@ -252,6 +252,108 @@ static func find_reachable(
 	return build_distance_map(start, get_neighbors, get_step_cost, max_cost)
 
 
+## 对节点执行稳定拓扑排序。
+## [br]
+## `get_dependencies` 签名为 `func(node: Variant) -> Array`，返回该节点依赖的节点。
+## 只会排序 `nodes` 中声明的节点；外部依赖会进入报告但不会导致失败。
+## [br]
+## @api public
+## [br]
+## @since 6.0.0
+## [br]
+## @param nodes: 需要排序的节点列表；重复节点会按首次出现去重。
+## [br]
+## @schema nodes: Array graph node identities.
+## [br]
+## @param get_dependencies: 依赖回调，签名为 `func(node: Variant) -> Array`。
+## [br]
+## @return 排序报告，包含 ok、reason、order、cycles、cycle_count、node_count、external_dependencies 和 external_dependency_count。
+## [br]
+## @schema return: Dictionary with ok, reason, order, cycles, cycle_count, node_count, external_dependencies, and external_dependency_count.
+static func sort_topological(nodes: Array, get_dependencies: Callable) -> Dictionary:
+	if not get_dependencies.is_valid():
+		return {
+			"ok": false,
+			"reason": &"invalid_dependency_callback",
+			"order": [],
+			"cycles": [],
+			"cycle_count": 0,
+			"node_count": 0,
+			"external_dependencies": [],
+			"external_dependency_count": 0,
+		}
+
+	var ordered_nodes: Array[Variant] = []
+	var node_set: Dictionary = {}
+	for node: Variant in nodes:
+		if node_set.has(node):
+			continue
+		node_set[node] = true
+		ordered_nodes.append(node)
+
+	var dependencies_by_node: Dictionary = {}
+	var dependents_by_node: Dictionary = {}
+	var in_degrees: Dictionary = {}
+	for node: Variant in ordered_nodes:
+		dependencies_by_node[node] = []
+		dependents_by_node[node] = []
+		in_degrees[node] = 0
+
+	var external_dependencies: Array[Dictionary] = []
+	for node: Variant in ordered_nodes:
+		var seen_dependencies: Dictionary = {}
+		var dependencies: Array = _get_topological_dependencies(node, get_dependencies)
+		for dependency: Variant in dependencies:
+			if seen_dependencies.has(dependency):
+				continue
+			seen_dependencies[dependency] = true
+			if not node_set.has(dependency):
+				external_dependencies.append({
+					"node": GFVariantData.duplicate_variant(node),
+					"dependency": GFVariantData.duplicate_variant(dependency),
+				})
+				continue
+
+			var node_dependencies: Array = _get_topological_array(dependencies_by_node, node)
+			node_dependencies.append(dependency)
+			dependencies_by_node[node] = node_dependencies
+
+			var dependency_dependents: Array = _get_topological_array(dependents_by_node, dependency)
+			dependency_dependents.append(node)
+			dependents_by_node[dependency] = dependency_dependents
+			in_degrees[node] = _get_topological_int(in_degrees, node) + 1
+
+	var ready: Array[Variant] = []
+	for node: Variant in ordered_nodes:
+		if _get_topological_int(in_degrees, node) == 0:
+			ready.append(node)
+
+	var sorted_nodes: Array[Variant] = []
+	while not ready.is_empty():
+		var current: Variant = ready.pop_front()
+		sorted_nodes.append(current)
+		for dependent: Variant in _get_topological_array(dependents_by_node, current):
+			var next_degree: int = _get_topological_int(in_degrees, dependent) - 1
+			in_degrees[dependent] = next_degree
+			if next_degree == 0:
+				ready.append(dependent)
+
+	var cycles: Array = []
+	if sorted_nodes.size() != ordered_nodes.size():
+		cycles = _find_topological_cycles(ordered_nodes, dependencies_by_node)
+
+	return {
+		"ok": cycles.is_empty(),
+		"reason": &"" if cycles.is_empty() else &"cycle_detected",
+		"order": sorted_nodes,
+		"cycles": cycles,
+		"cycle_count": cycles.size(),
+		"node_count": ordered_nodes.size(),
+		"external_dependencies": external_dependencies,
+		"external_dependency_count": external_dependencies.size(),
+	}
+
+
 # --- 私有/辅助方法 ---
 
 static func _find_path(
@@ -426,3 +528,73 @@ static func _path_heap_entry_is_before(left_entry: Dictionary, right_entry: Dict
 		GFVariantData.get_option_int(left_entry, "sequence")
 		< GFVariantData.get_option_int(right_entry, "sequence")
 	)
+
+
+static func _get_topological_dependencies(node: Variant, get_dependencies: Callable) -> Array:
+	var raw_dependencies: Variant = get_dependencies.call(node)
+	if raw_dependencies is Array:
+		var dependencies: Array = raw_dependencies
+		return dependencies
+	return []
+
+
+static func _get_topological_array(source: Dictionary, key: Variant) -> Array:
+	var value: Variant = source.get(key, [])
+	if value is Array:
+		var array_value: Array = value
+		return array_value
+	return []
+
+
+static func _get_topological_int(source: Dictionary, key: Variant) -> int:
+	var value: Variant = source.get(key, 0)
+	if value is int:
+		var int_value: int = value
+		return int_value
+	return 0
+
+
+static func _find_topological_cycles(nodes: Array, dependencies_by_node: Dictionary) -> Array:
+	var cycles: Array = []
+	var states: Dictionary = {}
+	var path: Array = []
+	var seen_cycles: Dictionary = {}
+	for node: Variant in nodes:
+		if _get_topological_int(states, node) != 0:
+			continue
+		_collect_topological_cycles(node, dependencies_by_node, states, path, cycles, seen_cycles)
+	return cycles
+
+
+static func _collect_topological_cycles(
+	node: Variant,
+	dependencies_by_node: Dictionary,
+	states: Dictionary,
+	path: Array,
+	cycles: Array,
+	seen_cycles: Dictionary
+) -> void:
+	states[node] = 1
+	path.append(node)
+	for dependency: Variant in _get_topological_array(dependencies_by_node, node):
+		var dependency_state: int = _get_topological_int(states, dependency)
+		if dependency_state == 0:
+			_collect_topological_cycles(dependency, dependencies_by_node, states, path, cycles, seen_cycles)
+		elif dependency_state == 1:
+			var start_index: int = path.find(dependency)
+			if start_index >= 0:
+				var cycle: Array = path.slice(start_index)
+				cycle.append(dependency)
+				var cycle_key: String = _make_topological_cycle_key(cycle)
+				if not seen_cycles.has(cycle_key):
+					seen_cycles[cycle_key] = true
+					cycles.append(cycle)
+	var _removed_node: Variant = path.pop_back()
+	states[node] = 2
+
+
+static func _make_topological_cycle_key(cycle: Array) -> String:
+	var parts: PackedStringArray = PackedStringArray()
+	for node: Variant in cycle:
+		var _append_result: bool = parts.append(var_to_str(node))
+	return " -> ".join(parts)

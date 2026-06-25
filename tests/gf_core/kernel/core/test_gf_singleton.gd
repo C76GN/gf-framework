@@ -215,6 +215,21 @@ class ManualInitScopedContext extends GFNodeContext:
 		utility = TickUtility.new()
 		await architecture_instance.register_utility_instance(utility)
 
+class AsyncInstallScopedContext extends GFNodeContext:
+	var utility: TickUtility = null
+	var install_started: bool = false
+	var install_finished: bool = false
+
+	func _init() -> void:
+		scope_mode = GFNodeContext.ScopeMode.SCOPED
+
+	func install(architecture_instance: GFArchitecture) -> void:
+		install_started = true
+		await get_tree().process_frame
+		utility = TickUtility.new()
+		await architecture_instance.register_utility_instance(utility)
+		install_finished = true
+
 class FactoryCommand extends GFCommand:
 	func get_parent_utility_from_command() -> ParentScopedUtility:
 		var utility: Variant = get_utility(ParentScopedUtility)
@@ -444,6 +459,55 @@ class HighPriorityTickSystem extends GFSystem:
 
 	func tick(_delta: float) -> void:
 		tick_order.append("high")
+
+
+class PriorityTickUtility extends GFUtility:
+	var tick_order: Array
+
+	func _init(p_tick_order: Array) -> void:
+		tick_order = p_tick_order
+		tick_priority = 20
+
+	func tick(_delta: float) -> void:
+		tick_order.append("utility")
+
+
+class ReplaceableAsyncUtility extends GFUtility:
+	signal async_continue
+
+	var version: String = ""
+	var block_async: bool = false
+	var async_started: bool = false
+	var ready_called: bool = false
+	var disposed: bool = false
+
+	func _init(p_version: String = "", p_block_async: bool = false) -> void:
+		version = p_version
+		block_async = p_block_async
+
+	func async_init() -> void:
+		async_started = true
+		if block_async:
+			await async_continue
+
+	func ready() -> void:
+		ready_called = true
+
+	func dispose() -> void:
+		disposed = true
+
+
+class MissingDependencyUtility extends GFUtility:
+	func get_required_models() -> Array:
+		return [RegistryConcreteModel]
+
+
+class LifecycleProbeCommand extends GFCommand:
+	var active_during_execute: bool = false
+
+	func execute() -> Variant:
+		active_during_execute = is_lifecycle_active()
+		return active_during_execute
 
 
 class DummyQuery extends GFQuery:
@@ -721,8 +785,8 @@ func test_register_utility_alias_rejects_unrelated_target_type() -> void:
 	arch.dispose()
 
 
-## 验证共享注册表逻辑能通过 alias 注销三类模块。
-func test_module_registry_alias_unregister_removes_all_module_kinds() -> void:
+## 验证 alias 注销与目标模块注销保持分离。
+func test_module_registry_alias_unregister_does_not_remove_targets() -> void:
 	var arch: GFArchitecture = GFArchitecture.new()
 	var model: RegistryConcreteModel = RegistryConcreteModel.new()
 	var system: RegistryConcreteSystem = RegistryConcreteSystem.new()
@@ -743,12 +807,33 @@ func test_module_registry_alias_unregister_removes_all_module_kinds() -> void:
 	arch.unregister_system(RegistrySystemBase)
 	arch.unregister_utility(RegistryUtilityBase)
 
-	assert_true(model.disposed, "通过 alias 注销 Model 应释放目标实例。")
-	assert_true(system.disposed, "通过 alias 注销 System 应释放目标实例。")
-	assert_true(utility.disposed, "通过 alias 注销 Utility 应释放目标实例。")
-	assert_null(arch.get_model(RegistryConcreteModel), "Model 注销后不应继续存在。")
-	assert_null(arch.get_system(RegistryConcreteSystem), "System 注销后不应继续存在。")
-	assert_null(arch.get_utility(RegistryConcreteUtility), "Utility 注销后不应继续存在。")
+	assert_push_error_count(3, "通过 alias 调用 unregister_* 应提示使用 unregister_*_alias。")
+	assert_false(model.disposed, "unregister_model(alias) 不应释放目标 Model。")
+	assert_false(system.disposed, "unregister_system(alias) 不应释放目标 System。")
+	assert_false(utility.disposed, "unregister_utility(alias) 不应释放目标 Utility。")
+	assert_eq(arch.get_model(RegistryConcreteModel), model, "目标 Model 应继续直接可查。")
+	assert_eq(arch.get_system(RegistryConcreteSystem), system, "目标 System 应继续直接可查。")
+	assert_eq(arch.get_utility(RegistryConcreteUtility), utility, "目标 Utility 应继续直接可查。")
+
+	arch.unregister_model_alias(RegistryModelBase)
+	arch.unregister_system_alias(RegistrySystemBase)
+	arch.unregister_utility_alias(RegistryUtilityBase)
+
+	var alias_state: Dictionary = GFVariantData.get_option_dictionary(arch.get_debug_lifecycle_state(), "aliases")
+	assert_eq(GFVariantData.get_option_int(alias_state, "models", -1), 0, "显式注销 Model alias 后 alias 计数应归零。")
+	assert_eq(GFVariantData.get_option_int(alias_state, "systems", -1), 0, "显式注销 System alias 后 alias 计数应归零。")
+	assert_eq(GFVariantData.get_option_int(alias_state, "utilities", -1), 0, "显式注销 Utility alias 后 alias 计数应归零。")
+	assert_false(model.disposed, "注销 alias 不应释放目标 Model。")
+	assert_false(system.disposed, "注销 alias 不应释放目标 System。")
+	assert_false(utility.disposed, "注销 alias 不应释放目标 Utility。")
+
+	arch.unregister_model(RegistryConcreteModel)
+	arch.unregister_system(RegistryConcreteSystem)
+	arch.unregister_utility(RegistryConcreteUtility)
+
+	assert_true(model.disposed, "直接注销目标 Model 才应释放实例。")
+	assert_true(system.disposed, "直接注销目标 System 才应释放实例。")
+	assert_true(utility.disposed, "直接注销目标 Utility 才应释放实例。")
 	arch.dispose()
 
 
@@ -788,6 +873,45 @@ func test_duplicate_register_warns_and_replace_utility() -> void:
 
 	assert_true(old_utility.disposed, "replace_utility 应释放旧实例。")
 	assert_eq(Gf.get_utility(DisposableUtility), duplicate_utility, "replace_utility 应注册新实例。")
+
+
+## 验证同一模块实例不能被多个脚本键重复注册。
+func test_register_rejects_same_instance_under_multiple_keys() -> void:
+	var arch: GFArchitecture = GFArchitecture.new()
+	var concrete: ConcreteUtility = ConcreteUtility.new()
+
+	await arch.register_utility(ConcreteUtility, concrete)
+	await arch.register_utility(UtilityBase, concrete)
+
+	var state: Dictionary = arch.get_debug_lifecycle_state()
+	var utilities: Dictionary = GFVariantData.get_option_dictionary(state, "utilities")
+
+	assert_push_error_count(1, "同一实例用第二个脚本键注册时应报错。")
+	assert_eq(utilities.size(), 1, "重复实例注册失败后注册表中应只有一个 Utility。")
+	assert_eq(arch.get_utility(ConcreteUtility), concrete, "原始注册应保持可用。")
+	arch.dispose()
+
+
+## 验证已初始化架构替换模块时，新实例未准备好不会破坏旧实例。
+func test_replace_utility_timeout_keeps_old_instance() -> void:
+	var arch: GFArchitecture = GFArchitecture.new()
+	arch.module_async_init_timeout_seconds = 0.001
+	var old_utility: ReplaceableAsyncUtility = ReplaceableAsyncUtility.new("old", false)
+	var new_utility: ReplaceableAsyncUtility = ReplaceableAsyncUtility.new("new", true)
+
+	await arch.register_utility_instance(old_utility)
+	await arch.init()
+	await arch.replace_utility(ReplaceableAsyncUtility, new_utility)
+
+	assert_true(new_utility.async_started, "替换实例应进入 async_init。")
+	assert_true(new_utility.disposed, "替换失败的新实例应被 dispose。")
+	assert_false(old_utility.disposed, "替换失败不应释放旧实例。")
+	assert_eq(arch.get_utility(ReplaceableAsyncUtility), old_utility, "替换失败后旧实例应继续可用。")
+	assert_push_error_count(1, "替换 async_init 超时时应输出错误。")
+
+	new_utility.async_continue.emit()
+	await get_tree().process_frame
+	arch.dispose()
 
 
 ## 验证模块可通过 inject_dependencies 接收当前架构引用。
@@ -919,9 +1043,25 @@ func test_stale_child_alias_does_not_shadow_parent_fallback() -> void:
 
 	assert_push_warning("[GFArchitecture] register_utility_alias：目标类型尚未注册，仍会记录别名。")
 	assert_eq(child_arch.get_utility(UtilityBase), parent_utility, "子架构失效 alias 不应阻断父架构基类回退。")
+	assert_push_error_count(1, "失效 alias 查询应报告目标缺失。")
 
 	child_arch.dispose()
 	parent_arch.dispose()
+
+
+func test_stale_alias_does_not_fallback_to_local_assignable_instance() -> void:
+	var arch: GFArchitecture = GFArchitecture.new()
+	var alternate_utility: AlternateConcreteUtility = AlternateConcreteUtility.new()
+	await arch.register_utility_instance(alternate_utility)
+
+	arch.register_utility_alias(UtilityBase, ConcreteUtility)
+	var resolved: Object = arch.get_utility(UtilityBase)
+
+	assert_push_warning("[GFArchitecture] register_utility_alias：目标类型尚未注册，仍会记录别名。")
+	assert_null(resolved, "失效 alias 不应回落到同架构内另一个可赋值实现。")
+	assert_push_error_count(1, "失效 alias 查询应报告目标缺失。")
+
+	arch.dispose()
 
 
 ## 验证子架构本地已注册但未 ready 的模块不会在 require_ready 查询中偷用父级同类型模块。
@@ -1395,6 +1535,29 @@ func test_scoped_node_context_initialize_context_runs_manual_lifecycle() -> void
 	assert_true(context.is_context_ready(), "手动初始化后上下文应进入 ready。")
 	assert_true(context.utility.ready_called, "手动初始化应驱动局部模块 ready。")
 	assert_signal_emitted(context, "context_ready", "手动初始化成功应发出 context_ready。")
+
+	context.queue_free()
+	await get_tree().process_frame
+
+
+func test_scoped_node_context_awaits_async_install_before_init() -> void:
+	if Gf.has_architecture():
+		Gf.get_architecture().dispose()
+	Gf._architecture = null
+
+	var context: AsyncInstallScopedContext = AsyncInstallScopedContext.new()
+	add_child(context)
+
+	assert_true(context.install_started, "进入树时应启动 install。")
+	assert_false(context.install_finished, "install await 完成前不应被视为安装结束。")
+	assert_false(context.is_context_ready(), "异步 install 完成前上下文不应提前 ready。")
+
+	var architecture: GFArchitecture = await context.wait_until_ready()
+
+	assert_not_null(architecture, "异步 install 完成后上下文应能初始化。")
+	assert_true(context.install_finished, "wait_until_ready 应等待 install 完成。")
+	assert_not_null(context.utility, "异步 install 注册的 Utility 应存在。")
+	assert_true(context.utility.ready_called, "异步 install 注册的 Utility 应参与 ready 阶段。")
 
 	context.queue_free()
 	await get_tree().process_frame
@@ -2155,6 +2318,83 @@ func test_tick_priority_orders_system_tick_cache() -> void:
 
 	assert_eq(tick_order, ["high", "low"], "高 tick_priority 的 System 应更早 tick。")
 	arch.dispose()
+
+
+## 验证 tick_priority 在 System 与 Utility 之间按全局队列排序。
+func test_tick_priority_orders_systems_and_utilities_together() -> void:
+	var arch: GFArchitecture = GFArchitecture.new()
+	var tick_order: Array = []
+	await arch.register_system_instance(LowPriorityTickSystem.new(tick_order))
+	await arch.register_utility_instance(PriorityTickUtility.new(tick_order))
+	await arch.init()
+
+	arch.tick(0.016)
+
+	assert_eq(tick_order, ["utility", "low"], "Utility 的更高 tick_priority 应早于低优先级 System 执行。")
+	arch.dispose()
+
+
+## 验证 Command 执行作用域绑定当前生命周期，且同一实例不能重复发送。
+func test_command_execution_scope_is_single_use_and_lifecycle_bound() -> void:
+	var arch: GFArchitecture = GFArchitecture.new()
+	await arch.init()
+	var lifecycle_generation: int = arch.get_lifecycle_generation()
+	var command: LifecycleProbeCommand = LifecycleProbeCommand.new()
+
+	var result: Variant = arch.send_command(command)
+	var second_result: Variant = arch.send_command(command)
+
+	assert_true(GFVariantData.to_bool(result), "Command 执行期间应能看到活动生命周期。")
+	assert_true(command.active_during_execute, "Command 内部 is_lifecycle_active() 应为 true。")
+	assert_true(second_result == null, "同一 Command 实例重复发送应被拒绝。")
+	assert_push_error_count(1, "重复发送同一 Command 实例应输出错误。")
+
+	arch.dispose()
+	assert_false(arch.is_lifecycle_generation_active(lifecycle_generation), "dispose 后旧 lifecycle generation 应失效。")
+	assert_false(command.is_lifecycle_active(), "dispose 后 Command 执行作用域应失效。")
+	assert_push_error_count(1, "只有重复发送同一 Command 实例应输出错误。")
+
+
+## 验证声明式依赖严格模式会在生命周期推进前失败。
+func test_fail_on_missing_declared_dependencies_blocks_init() -> void:
+	var arch: GFArchitecture = GFArchitecture.new()
+	arch.fail_on_missing_declared_dependencies = true
+	await arch.register_utility_instance(MissingDependencyUtility.new())
+	watch_signals(arch)
+
+	await arch.init()
+
+	assert_false(arch.is_inited(), "声明依赖缺失时架构不应初始化成功。")
+	assert_true(arch.has_initialization_failed(), "声明依赖缺失应标记初始化失败。")
+	assert_true(arch.last_initialization_error.contains("声明式依赖校验失败"), "失败原因应说明依赖校验失败。")
+	assert_signal_emitted(arch, "initialization_failed", "严格依赖校验失败时应发出 initialization_failed。")
+	assert_push_error_count(1, "严格依赖校验失败应输出错误。")
+	arch.dispose()
+
+
+## 验证 Gf.set_architecture 在新架构初始化失败时保留旧架构。
+func test_set_architecture_keeps_previous_architecture_when_new_init_fails() -> void:
+	if Gf.has_architecture():
+		Gf.get_architecture().dispose()
+	Gf._architecture = null
+
+	var old_arch: GFArchitecture = GFArchitecture.new()
+	await old_arch.register_utility_instance(DummyUtility.new())
+	await Gf.set_architecture(old_arch)
+	assert_eq(Gf.get_architecture(), old_arch, "旧架构应先成功成为全局架构。")
+
+	var failing_arch: GFArchitecture = GFArchitecture.new()
+	failing_arch.fail_on_missing_declared_dependencies = true
+	await failing_arch.register_utility_instance(MissingDependencyUtility.new())
+	await Gf.set_architecture(failing_arch)
+
+	assert_eq(Gf.get_architecture(), old_arch, "新架构初始化失败时全局架构应仍指向旧架构。")
+	assert_true(old_arch.is_inited(), "旧架构不应被提前 dispose。")
+	assert_true(failing_arch.has_initialization_failed(), "失败的新架构应保留失败状态。")
+	assert_push_error_count(1, "失败的新架构初始化应输出错误。")
+
+	old_arch.dispose()
+	Gf._architecture = null
 
 
 ## 验证并发 init 调用会等待同一轮初始化完成。

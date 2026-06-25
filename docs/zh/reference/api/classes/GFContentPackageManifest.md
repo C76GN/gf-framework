@@ -17,16 +17,20 @@
 |---|---|---|
 | 常量 | [`FILE_NAME`](#member-gfcontentpackagemanifest-constants-file_name) | `const FILE_NAME: String = "gf_content_package.json"` |
 | 常量 | [`SCHEMA_VERSION`](#member-gfcontentpackagemanifest-constants-schema_version) | `const SCHEMA_VERSION: int = 1` |
+| 常量 | [`SAFETY_KIND_DATA_ONLY`](#member-gfcontentpackagemanifest-constants-safety_kind_data_only) | `const SAFETY_KIND_DATA_ONLY: StringName = &"data_only"` |
+| 常量 | [`SAFETY_KIND_TRUSTED_DEVELOPER`](#member-gfcontentpackagemanifest-constants-safety_kind_trusted_developer) | `const SAFETY_KIND_TRUSTED_DEVELOPER: StringName = &"trusted_developer"` |
 | 属性 | [`package_id`](#member-gfcontentpackagemanifest-properties-package_id) | `var package_id: StringName = &""` |
 | 属性 | [`display_name`](#member-gfcontentpackagemanifest-properties-display_name) | `var display_name: String = ""` |
 | 属性 | [`version`](#member-gfcontentpackagemanifest-properties-version) | `var version: String = ""` |
 | 属性 | [`content_types`](#member-gfcontentpackagemanifest-properties-content_types) | `var content_types: PackedStringArray = PackedStringArray()` |
 | 属性 | [`dependencies`](#member-gfcontentpackagemanifest-properties-dependencies) | `var dependencies: PackedStringArray = PackedStringArray()` |
+| 属性 | [`safety_kind`](#member-gfcontentpackagemanifest-properties-safety_kind) | `var safety_kind: StringName = SAFETY_KIND_DATA_ONLY` |
+| 属性 | [`forbidden_resource_extensions`](#member-gfcontentpackagemanifest-properties-forbidden_resource_extensions) | `var forbidden_resource_extensions: PackedStringArray = PackedStringArray()` |
 | 属性 | [`resources`](#member-gfcontentpackagemanifest-properties-resources) | `var resources: Array[Dictionary] = []` |
 | 属性 | [`metadata`](#member-gfcontentpackagemanifest-properties-metadata) | `var metadata: Dictionary = {}` |
 | 属性 | [`root_path`](#member-gfcontentpackagemanifest-properties-root_path) | `var root_path: String = ""` |
 | 属性 | [`source_path`](#member-gfcontentpackagemanifest-properties-source_path) | `var source_path: String = ""` |
-| 方法 | [`configure`](#member-gfcontentpackagemanifest-methods-configure) | `func configure( p_package_id: StringName, p_version: String, p_resources: Array[Dictionary] = [], p_display_name: String = "", p_content_types: PackedStringArray = PackedStringArray(), p_dependencies: PackedStringArray = PackedStringArray(), p_metadata: Dictionary = {}, p_root_path: String = "", p_source_path: String = "" ) -> GFContentPackageManifest:` |
+| 方法 | [`configure`](#member-gfcontentpackagemanifest-methods-configure) | `func configure( p_package_id: StringName, p_version: String, p_resources: Array[Dictionary] = [], p_display_name: String = "", p_content_types: PackedStringArray = PackedStringArray(), p_dependencies: PackedStringArray = PackedStringArray(), p_metadata: Dictionary = {}, p_root_path: String = "", p_source_path: String = "", p_safety_kind: StringName = SAFETY_KIND_DATA_ONLY, p_forbidden_resource_extensions: PackedStringArray = PackedStringArray() ) -> GFContentPackageManifest:` |
 | 方法 | [`apply_dictionary`](#member-gfcontentpackagemanifest-methods-apply_dictionary) | `func apply_dictionary(data: Dictionary, p_root_path: String = "", p_source_path: String = "") -> void:` |
 | 方法 | [`to_dictionary`](#member-gfcontentpackagemanifest-methods-to_dictionary) | `func to_dictionary() -> Dictionary:` |
 | 方法 | [`duplicate_manifest`](#member-gfcontentpackagemanifest-methods-duplicate_manifest) | `func duplicate_manifest() -> GFContentPackageManifest:` |
@@ -63,6 +67,32 @@ const SCHEMA_VERSION: int = 1
 ```
 
 当前 manifest schema 版本。
+
+<a id="member-gfcontentpackagemanifest-constants-safety_kind_data_only"></a>
+
+### `SAFETY_KIND_DATA_ONLY`
+
+- API：`public`
+- 首次版本：`6.0.0`
+
+```gdscript
+const SAFETY_KIND_DATA_ONLY: StringName = &"data_only"
+```
+
+只允许数据资源的内容包安全分类。
+
+<a id="member-gfcontentpackagemanifest-constants-safety_kind_trusted_developer"></a>
+
+### `SAFETY_KIND_TRUSTED_DEVELOPER`
+
+- API：`public`
+- 首次版本：`6.0.0`
+
+```gdscript
+const SAFETY_KIND_TRUSTED_DEVELOPER: StringName = &"trusted_developer"
+```
+
+允许开发者代码资源的内容包安全分类。
 
 ## 属性
 
@@ -125,6 +155,32 @@ var dependencies: PackedStringArray = PackedStringArray()
 ```
 
 依赖内容包 ID 列表。
+
+<a id="member-gfcontentpackagemanifest-properties-safety_kind"></a>
+
+### `safety_kind`
+
+- API：`public`
+- 首次版本：`6.0.0`
+
+```gdscript
+var safety_kind: StringName = SAFETY_KIND_DATA_ONLY
+```
+
+内容包安全分类。data_only 默认拒绝脚本、shader、GDExtension 和可执行文件。
+
+<a id="member-gfcontentpackagemanifest-properties-forbidden_resource_extensions"></a>
+
+### `forbidden_resource_extensions`
+
+- API：`public`
+- 首次版本：`6.0.0`
+
+```gdscript
+var forbidden_resource_extensions: PackedStringArray = PackedStringArray()
+```
+
+调用方额外禁止的资源扩展名，不需要前导点。
 
 <a id="member-gfcontentpackagemanifest-properties-resources"></a>
 
@@ -189,9 +245,10 @@ manifest 文件路径。通常指向 `gf_content_package.json`。
 ### `configure`
 
 - API：`public`
+- 首次版本：`6.0.0`
 
 ```gdscript
-func configure( p_package_id: StringName, p_version: String, p_resources: Array[Dictionary] = [], p_display_name: String = "", p_content_types: PackedStringArray = PackedStringArray(), p_dependencies: PackedStringArray = PackedStringArray(), p_metadata: Dictionary = {}, p_root_path: String = "", p_source_path: String = "" ) -> GFContentPackageManifest:
+func configure( p_package_id: StringName, p_version: String, p_resources: Array[Dictionary] = [], p_display_name: String = "", p_content_types: PackedStringArray = PackedStringArray(), p_dependencies: PackedStringArray = PackedStringArray(), p_metadata: Dictionary = {}, p_root_path: String = "", p_source_path: String = "", p_safety_kind: StringName = SAFETY_KIND_DATA_ONLY, p_forbidden_resource_extensions: PackedStringArray = PackedStringArray() ) -> GFContentPackageManifest:
 ```
 
 配置 manifest。
@@ -209,6 +266,8 @@ func configure( p_package_id: StringName, p_version: String, p_resources: Array[
 | `p_metadata` | 项目自定义元数据。 |
 | `p_root_path` | 内容包根目录。 |
 | `p_source_path` | manifest 文件路径。 |
+| `p_safety_kind` | 内容包安全分类。 |
+| `p_forbidden_resource_extensions` | 调用方额外禁止的资源扩展名。 |
 
 返回：当前 manifest。
 
@@ -216,6 +275,7 @@ func configure( p_package_id: StringName, p_version: String, p_resources: Array[
 
 - `p_resources`: Array[Dictionary]，每项包含 key、path、可选 type_hint、priority 和 metadata。
 - `p_metadata`: Dictionary project-defined content package metadata.
+- `p_forbidden_resource_extensions`: PackedStringArray extension names without leading dots.
 
 <a id="member-gfcontentpackagemanifest-methods-apply_dictionary"></a>
 

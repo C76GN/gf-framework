@@ -32,6 +32,9 @@
 | 方法 | [`get_capability`](#member-gfcapabilityutility-methods-get_capability) | `func get_capability(receiver: Object, capability_type: Script) -> Object:` |
 | 方法 | [`get_capability_types`](#member-gfcapabilityutility-methods-get_capability_types) | `func get_capability_types(receiver: Object) -> Array[Script]:` |
 | 方法 | [`get_receivers_with`](#member-gfcapabilityutility-methods-get_receivers_with) | `func get_receivers_with(capability_type: Script, include_subclasses: bool = true) -> Array[Object]:` |
+| 方法 | [`get_receivers_matching_capabilities`](#member-gfcapabilityutility-methods-get_receivers_matching_capabilities) | `func get_receivers_matching_capabilities( required_capability_types: Array[Script] = [], rejected_capability_types: Array[Script] = [], include_subclasses: bool = true, group_name: StringName = &"" ) -> Array[Object]:` |
+| 方法 | [`get_receivers_matching_query`](#member-gfcapabilityutility-methods-get_receivers_matching_query) | `func get_receivers_matching_query(query: GFCapabilityQuery) -> Array[Object]:` |
+| 方法 | [`receiver_matches_query`](#member-gfcapabilityutility-methods-receiver_matches_query) | `func receiver_matches_query(receiver: Object, query: GFCapabilityQuery) -> bool:` |
 | 方法 | [`prune_invalid_receivers`](#member-gfcapabilityutility-methods-prune_invalid_receivers) | `func prune_invalid_receivers() -> void:` |
 | 方法 | [`get_capabilities`](#member-gfcapabilityutility-methods-get_capabilities) | `func get_capabilities(capability_type: Script, include_subclasses: bool = true) -> Array[Object]:` |
 | 方法 | [`add_receiver_to_group`](#member-gfcapabilityutility-methods-add_receiver_to_group) | `func add_receiver_to_group(receiver: Object, group_name: StringName) -> void:` |
@@ -346,6 +349,88 @@ func get_receivers_with(capability_type: Script, include_subclasses: bool = true
 结构：
 
 - `return`: Array[Object]，元素为当前仍有效的能力接收对象。
+
+<a id="member-gfcapabilityutility-methods-get_receivers_matching_capabilities"></a>
+
+### `get_receivers_matching_capabilities`
+
+- API：`public`
+- 首次版本：`6.0.0`
+
+```gdscript
+func get_receivers_matching_capabilities( required_capability_types: Array[Script] = [], rejected_capability_types: Array[Script] = [], include_subclasses: bool = true, group_name: StringName = &"" ) -> Array[Object]:
+```
+
+获取同时满足多个能力条件的 receiver。 receiver 必须拥有 required_capability_types 中的所有能力， 且不能拥有 rejected_capability_types 中的任意能力。 required_capability_types 为空时，会从当前已索引 receiver 或指定分组中筛选。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `required_capability_types` | 必须拥有的能力脚本类型列表。 |
+| `rejected_capability_types` | 必须排除的能力脚本类型列表。 |
+| `include_subclasses` | 为 true 时 required/rejected 都同时匹配指定类型的子类。 |
+| `group_name` | 可选能力组名称；非空时只在该分组内筛选。 |
+
+返回：当前仍有效且满足条件的 receiver 列表。
+
+结构：
+
+- `required_capability_types`: Array[Script]，元素为必须拥有的能力脚本类型。
+- `rejected_capability_types`: Array[Script]，元素为必须排除的能力脚本类型。
+- `return`: Array[Object]，元素为当前仍有效的能力接收对象。
+
+<a id="member-gfcapabilityutility-methods-get_receivers_matching_query"></a>
+
+### `get_receivers_matching_query`
+
+- API：`public`
+- 首次版本：`6.0.0`
+
+```gdscript
+func get_receivers_matching_query(query: GFCapabilityQuery) -> Array[Object]:
+```
+
+使用资源化查询条件获取 receiver。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `query` | 能力查询资源。 |
+
+返回：当前仍有效且满足条件的 receiver 列表。
+
+结构：
+
+- `query`: GFCapabilityQuery resource，包含 required_capability_types、rejected_capability_types、include_subclasses 和 group_name。
+- `return`: Array[Object]，元素为当前仍有效的能力接收对象。
+
+<a id="member-gfcapabilityutility-methods-receiver_matches_query"></a>
+
+### `receiver_matches_query`
+
+- API：`public`
+- 首次版本：`6.0.0`
+
+```gdscript
+func receiver_matches_query(receiver: Object, query: GFCapabilityQuery) -> bool:
+```
+
+判断指定 receiver 是否满足资源化查询条件。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `receiver` | 要检查的能力接收对象。 |
+| `query` | 能力查询资源。 |
+
+返回：receiver 当前有效且满足查询时返回 true。
+
+结构：
+
+- `query`: GFCapabilityQuery resource，包含 required_capability_types、rejected_capability_types、include_subclasses 和 group_name。
 
 <a id="member-gfcapabilityutility-methods-prune_invalid_receivers"></a>
 

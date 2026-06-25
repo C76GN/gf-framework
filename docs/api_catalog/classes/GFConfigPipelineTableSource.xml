@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFConfigPipelineTableSource" path="addons/gf/tools/config_pipeline/gf_config_pipeline_table_source.gd" module="tools" extends="Resource" classDigest="853fcfd155e429a319d82eab7be8468d3355ccf934085adec04f620a6045b096">
+<class name="GFConfigPipelineTableSource" path="addons/gf/tools/config_pipeline/gf_config_pipeline_table_source.gd" module="tools" extends="Resource" classDigest="7b4a5389d02a1b638e4e5641965b28f6ee0cbe5a1e66107009f29f81ff91e137">
 	<description>GFConfigPipelineTableSource: 配置导表工具的单表来源声明。
 描述一张配置表的输入路径、格式、schema、解析选项和导出元数据。
 该资源属于可选 tool package，只表达制作期或 CI 期通用导入来源，不规定项目表名、业务字段、目录结构或发布策略。</description>
@@ -104,10 +104,10 @@
 		</member>
 		<member kind="property" name="schema_options" decorators="@export">
 			<signature>var schema_options: Dictionary = {}</signature>
-			<description>schema 推导与表头声明选项，例如 id_field、allow_extra_fields、required_if_present_in_all_rows 或 typed_headers。</description>
+			<description>schema 推导与表头声明选项，例如 id_field、allow_extra_fields、required_if_present_in_all_rows、typed_headers 或 typed_header_type_row。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="schema">schema_options: Dictionary，可包含 GFConfigTableSchema.infer_from_records() 支持的选项，以及 typed_headers、coerce_values、fail_on_coerce_error、require_unique_id。</tag>
+				<tag name="schema">schema_options: Dictionary，可包含 GFConfigTableSchema.infer_from_records() 支持的选项，以及 typed_headers、typed_header_type_row、coerce_values、fail_on_coerce_error、require_unique_id。</tag>
 				<tag name="since">5.2.0</tag>
 			</tags>
 		</member>

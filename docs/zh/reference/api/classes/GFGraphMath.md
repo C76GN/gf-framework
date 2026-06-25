@@ -25,6 +25,7 @@
 | 方法 | [`advance_path_search`](#member-gfgraphmath-methods-advance_path_search) | `static func advance_path_search(search_state: GFGraphPathSearchState, max_iterations: int = 64) -> Dictionary:` |
 | 方法 | [`build_distance_map`](#member-gfgraphmath-methods-build_distance_map) | `static func build_distance_map( start: Variant, get_neighbors: Callable, get_step_cost: Callable = Callable(), max_cost: float = INF ) -> Dictionary:` |
 | 方法 | [`find_reachable`](#member-gfgraphmath-methods-find_reachable) | `static func find_reachable( start: Variant, max_cost: float, get_neighbors: Callable, get_step_cost: Callable = Callable() ) -> Dictionary:` |
+| 方法 | [`sort_topological`](#member-gfgraphmath-methods-sort_topological) | `static func sort_topological(nodes: Array, get_dependencies: Callable) -> Dictionary:` |
 
 ## 常量
 
@@ -254,3 +255,30 @@ static func find_reachable( start: Variant, max_cost: float, get_neighbors: Call
 
 - `start`: Variant graph node identity.
 - `return`: Dictionary mapping reachable graph nodes to lowest float costs.
+
+<a id="member-gfgraphmath-methods-sort_topological"></a>
+
+### `sort_topological`
+
+- API：`public`
+- 首次版本：`6.0.0`
+
+```gdscript
+static func sort_topological(nodes: Array, get_dependencies: Callable) -> Dictionary:
+```
+
+对节点执行稳定拓扑排序。 `get_dependencies` 签名为 `func(node: Variant) -> Array`，返回该节点依赖的节点。 只会排序 `nodes` 中声明的节点；外部依赖会进入报告但不会导致失败。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `nodes` | 需要排序的节点列表；重复节点会按首次出现去重。 |
+| `get_dependencies` | 依赖回调，签名为 `func(node: Variant) -> Array`。 |
+
+返回：排序报告，包含 ok、reason、order、cycles、cycle_count、node_count、external_dependencies 和 external_dependency_count。
+
+结构：
+
+- `nodes`: Array graph node identities.
+- `return`: Dictionary with ok, reason, order, cycles, cycle_count, node_count, external_dependencies, and external_dependency_count.

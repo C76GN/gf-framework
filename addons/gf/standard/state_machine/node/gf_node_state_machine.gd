@@ -714,12 +714,19 @@ func register_event_owned(listener_owner: Object, event_type: Script, callback: 
 ## [br]
 ## @api public
 ## [br]
+## @since 5.0.0
+## [br]
 ## @param event_type: 要注销的脚本类型。
 ## [br]
 ## @param callback: 要移除的回调函数。
-func unregister_event(event_type: Script, callback: Callable) -> void:
+## [br]
+## @param listener_owner: 注册监听时使用的拥有者；为空时只注销无 owner 监听。
+func unregister_event(event_type: Script, callback: Callable, listener_owner: Object = null) -> void:
 	for architecture: GFArchitecture in _get_tracked_event_architectures():
-		architecture.unregister_event(event_type, callback)
+		if listener_owner != null:
+			architecture.unregister_event_owned(listener_owner, event_type, callback)
+		else:
+			architecture.unregister_event(event_type, callback)
 
 
 ## 注册带拥有者的可赋值类型事件监听器。
@@ -749,12 +756,19 @@ func register_assignable_event_owned(
 ## [br]
 ## @api public
 ## [br]
+## @since 5.0.0
+## [br]
 ## @param base_event_type: 注册时使用的基类脚本类型。
 ## [br]
 ## @param callback: 要移除的回调函数。
-func unregister_assignable_event(base_event_type: Script, callback: Callable) -> void:
+## [br]
+## @param listener_owner: 注册监听时使用的拥有者；为空时只注销无 owner 监听。
+func unregister_assignable_event(base_event_type: Script, callback: Callable, listener_owner: Object = null) -> void:
 	for architecture: GFArchitecture in _get_tracked_event_architectures():
-		architecture.unregister_assignable_event(base_event_type, callback)
+		if listener_owner != null:
+			architecture.unregister_assignable_event_owned(listener_owner, base_event_type, callback)
+		else:
+			architecture.unregister_assignable_event(base_event_type, callback)
 
 
 ## 注册带拥有者的轻量级 StringName 事件监听器。
@@ -777,12 +791,19 @@ func register_simple_event_owned(listener_owner: Object, event_id: StringName, c
 ## [br]
 ## @api public
 ## [br]
+## @since 5.0.0
+## [br]
 ## @param event_id: StringName 事件标识符。
 ## [br]
 ## @param callback: 要移除的回调函数。
-func unregister_simple_event(event_id: StringName, callback: Callable) -> void:
+## [br]
+## @param listener_owner: 注册监听时使用的拥有者；为空时只注销无 owner 监听。
+func unregister_simple_event(event_id: StringName, callback: Callable, listener_owner: Object = null) -> void:
 	for architecture: GFArchitecture in _get_tracked_event_architectures():
-		architecture.unregister_simple_event(event_id, callback)
+		if listener_owner != null:
+			architecture.unregister_simple_event_owned(listener_owner, event_id, callback)
+		else:
+			architecture.unregister_simple_event(event_id, callback)
 
 
 ## 注销指定拥有者通过状态机事件代理注册过的全部监听器。

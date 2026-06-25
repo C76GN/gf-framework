@@ -76,8 +76,11 @@ enum ValueTarget {
 @export var modifiers: Array[GFInputModifier] = []
 
 ## 是否按设备 ID 精确匹配。关闭时同类按键、鼠标按钮或手柄按钮可跨设备匹配。
+## 旧资源中的键鼠设备 ID 0 会兼容 Godot 4.7 的键鼠设备 ID。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 @export var match_device: bool = false
 
 ## 是否按触点 index 精确匹配 InputEventScreenTouch。
@@ -131,7 +134,7 @@ func duplicate_binding() -> GFInputBinding:
 func matches_event(event: InputEvent) -> bool:
 	if input_event == null or event == null:
 		return false
-	if match_device and event.device != input_event.device:
+	if match_device and not _devices_match(event, input_event):
 		return false
 
 	if input_event is InputEventAction and event is InputEventAction:
@@ -240,6 +243,18 @@ func get_display_name() -> String:
 
 
 # --- 私有/辅助方法 ---
+
+func _devices_match(event: InputEvent, template: InputEvent) -> bool:
+	if event.device == template.device:
+		return true
+	if event.device != 0 and template.device != 0:
+		return false
+	return _is_keyboard_mouse_event(event) and _is_keyboard_mouse_event(template)
+
+
+func _is_keyboard_mouse_event(event: InputEvent) -> bool:
+	return event is InputEventKey or event is InputEventMouse
+
 
 func _matches_key(event: InputEventKey, template: InputEventKey) -> bool:
 	var template_key: Key = template.physical_keycode

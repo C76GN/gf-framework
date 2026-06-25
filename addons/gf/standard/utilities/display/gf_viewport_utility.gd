@@ -341,6 +341,138 @@ func screen_to_world_2d(canvas_item: CanvasItem, screen_position: Vector2) -> Ve
 	return canvas_item.get_global_transform_with_canvas().affine_inverse() * screen_position
 
 
+## 根据物理屏幕安全区计算 Viewport 逻辑坐标中的边距。
+##
+## extra_margins 使用已经转换到 Viewport 逻辑坐标的 top、left、bottom、right，
+## 可用于叠加项目自己的遮挡区域。
+## [br]
+## @api public
+## [br]
+## @since 5.2.0
+## [br]
+## @param safe_area: DisplayServer 返回的物理像素安全区。
+## [br]
+## @param window_size: DisplayServer 返回的物理窗口尺寸。
+## [br]
+## @param viewport_size: 当前 Viewport 可见尺寸。
+## [br]
+## @param extra_margins: 额外逻辑边距。
+## [br]
+## @return 安全区边距报告。
+## [br]
+## @schema extra_margins: Dictionary，可选 top、left、bottom、right，单位为 Viewport 逻辑坐标。
+## [br]
+## @schema return: Dictionary，包含 ok、top、left、bottom、right、scale_x、scale_y、safe_area、window_size 和 viewport_size。
+func calculate_safe_area_margins(
+	safe_area: Rect2i,
+	window_size: Vector2i,
+	viewport_size: Vector2,
+	extra_margins: Dictionary = {}
+) -> Dictionary:
+	var normalized_safe_area: Rect2i = safe_area
+	if normalized_safe_area.size.x <= 0 or normalized_safe_area.size.y <= 0:
+		normalized_safe_area = Rect2i(Vector2i.ZERO, window_size)
+
+	var report: Dictionary = _make_safe_area_report(normalized_safe_area, window_size, viewport_size)
+	if window_size.x <= 0 or window_size.y <= 0 or viewport_size.x <= 0.0 or viewport_size.y <= 0.0:
+		return report
+
+	var scale_x: float = viewport_size.x / float(window_size.x)
+	var scale_y: float = viewport_size.y / float(window_size.y)
+	var top_margin: float = maxf(float(normalized_safe_area.position.y) * scale_y, 0.0)
+	var left_margin: float = maxf(float(normalized_safe_area.position.x) * scale_x, 0.0)
+	var bottom_physical: int = window_size.y - (normalized_safe_area.position.y + normalized_safe_area.size.y)
+	var right_physical: int = window_size.x - (normalized_safe_area.position.x + normalized_safe_area.size.x)
+	var bottom_margin: float = maxf(float(bottom_physical) * scale_y, 0.0)
+	var right_margin: float = maxf(float(right_physical) * scale_x, 0.0)
+
+	report["ok"] = true
+	report["top"] = top_margin + maxf(GFVariantData.get_option_float(extra_margins, "top"), 0.0)
+	report["left"] = left_margin + maxf(GFVariantData.get_option_float(extra_margins, "left"), 0.0)
+	report["bottom"] = bottom_margin + maxf(GFVariantData.get_option_float(extra_margins, "bottom"), 0.0)
+	report["right"] = right_margin + maxf(GFVariantData.get_option_float(extra_margins, "right"), 0.0)
+	report["scale_x"] = scale_x
+	report["scale_y"] = scale_y
+	return report
+
+
+## 读取当前 DisplayServer 安全区并转换为 Viewport 逻辑边距。
+## [br]
+## @api public
+## [br]
+## @since 5.2.0
+## [br]
+## @param viewport: 可选 Viewport；为空时使用物理窗口尺寸作为逻辑尺寸。
+## [br]
+## @param extra_margins: 额外逻辑边距。
+## [br]
+## @return 安全区边距报告。
+## [br]
+## @schema extra_margins: Dictionary，可选 top、left、bottom、right，单位为 Viewport 逻辑坐标。
+## [br]
+## @schema return: Dictionary，包含 ok、top、left、bottom、right、scale_x、scale_y、safe_area、window_size 和 viewport_size。
+func get_display_safe_area_margins(viewport: Viewport = null, extra_margins: Dictionary = {}) -> Dictionary:
+	var safe_area: Rect2i = DisplayServer.get_display_safe_area()
+	var window_size: Vector2i = DisplayServer.window_get_size()
+	var viewport_size: Vector2 = Vector2(window_size)
+	if is_instance_valid(viewport):
+		viewport_size = viewport.get_visible_rect().size
+	return calculate_safe_area_margins(safe_area, window_size, viewport_size, extra_margins)
+
+
+## 将边距字典应用到 MarginContainer。
+## [br]
+## @api public
+## [br]
+## @since 5.2.0
+## [br]
+## @param container: 目标 MarginContainer。
+## [br]
+## @param margins: 边距字典。
+## [br]
+## @return 应用成功返回 true。
+## [br]
+## @schema margins: Dictionary，包含 top、left、bottom、right，单位为 Viewport 逻辑坐标。
+func apply_safe_area_margins(container: MarginContainer, margins: Dictionary) -> bool:
+	if not is_instance_valid(container):
+		return false
+	container.add_theme_constant_override("margin_top", maxi(roundi(GFVariantData.get_option_float(margins, "top")), 0))
+	container.add_theme_constant_override("margin_left", maxi(roundi(GFVariantData.get_option_float(margins, "left")), 0))
+	container.add_theme_constant_override("margin_bottom", maxi(roundi(GFVariantData.get_option_float(margins, "bottom")), 0))
+	container.add_theme_constant_override("margin_right", maxi(roundi(GFVariantData.get_option_float(margins, "right")), 0))
+	return true
+
+
+## 读取当前 DisplayServer 安全区并应用到 MarginContainer。
+## [br]
+## @api public
+## [br]
+## @since 5.2.0
+## [br]
+## @param container: 目标 MarginContainer。
+## [br]
+## @param viewport: 可选 Viewport；为空时优先使用 container 所在 Viewport。
+## [br]
+## @param extra_margins: 额外逻辑边距。
+## [br]
+## @return 安全区边距报告，applied 表示是否成功写入 container。
+## [br]
+## @schema extra_margins: Dictionary，可选 top、left、bottom、right，单位为 Viewport 逻辑坐标。
+## [br]
+## @schema return: Dictionary，包含 ok、applied、top、left、bottom、right、scale_x、scale_y、safe_area、window_size 和 viewport_size。
+func apply_display_safe_area_margins(
+	container: MarginContainer,
+	viewport: Viewport = null,
+	extra_margins: Dictionary = {}
+) -> Dictionary:
+	var target_viewport: Viewport = viewport
+	if target_viewport == null and is_instance_valid(container):
+		target_viewport = container.get_viewport()
+	var report: Dictionary = get_display_safe_area_margins(target_viewport, extra_margins)
+	report["applied"] = GFVariantData.get_option_bool(report, "ok") and apply_safe_area_margins(container, report)
+	return report
+
+
 ## 获取调试快照。
 ## [br]
 ## @api public
@@ -430,3 +562,18 @@ func _activate_camera(camera: Node) -> void:
 	elif camera is Camera3D:
 		var camera_3d: Camera3D = camera
 		camera_3d.current = true
+
+
+func _make_safe_area_report(safe_area: Rect2i, window_size: Vector2i, viewport_size: Vector2) -> Dictionary:
+	return {
+		"ok": false,
+		"top": 0.0,
+		"left": 0.0,
+		"bottom": 0.0,
+		"right": 0.0,
+		"scale_x": 0.0,
+		"scale_y": 0.0,
+		"safe_area": safe_area,
+		"window_size": window_size,
+		"viewport_size": viewport_size,
+	}

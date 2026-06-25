@@ -18,6 +18,9 @@
 | 信号 | [`setting_changed`](#member-gfsettingsutility-signals-setting_changed) | `signal setting_changed(key: StringName, old_value: Variant, new_value: Variant)` |
 | 信号 | [`settings_loaded`](#member-gfsettingsutility-signals-settings_loaded) | `signal settings_loaded(data: Dictionary)` |
 | 信号 | [`settings_saved`](#member-gfsettingsutility-signals-settings_saved) | `signal settings_saved(data: Dictionary)` |
+| 信号 | [`staged_setting_changed`](#member-gfsettingsutility-signals-staged_setting_changed) | `signal staged_setting_changed(key: StringName)` |
+| 信号 | [`staged_settings_applied`](#member-gfsettingsutility-signals-staged_settings_applied) | `signal staged_settings_applied(report: Dictionary)` |
+| 信号 | [`staged_settings_discarded`](#member-gfsettingsutility-signals-staged_settings_discarded) | `signal staged_settings_discarded(keys: PackedStringArray)` |
 | 属性 | [`storage_file_name`](#member-gfsettingsutility-properties-storage_file_name) | `var storage_file_name: String = "settings.sav"` |
 | 属性 | [`auto_load_on_init`](#member-gfsettingsutility-properties-auto_load_on_init) | `var auto_load_on_init: bool = true` |
 | 属性 | [`auto_save_on_change`](#member-gfsettingsutility-properties-auto_save_on_change) | `var auto_save_on_change: bool = true` |
@@ -30,6 +33,16 @@
 | 方法 | [`get_definition`](#member-gfsettingsutility-methods-get_definition) | `func get_definition(key: StringName) -> GFSettingDefinition:` |
 | 方法 | [`get_definitions`](#member-gfsettingsutility-methods-get_definitions) | `func get_definitions() -> Array[GFSettingDefinition]:` |
 | 方法 | [`set_value`](#member-gfsettingsutility-methods-set_value) | `func set_value(key: StringName, value: Variant, save_after_change: bool = true) -> void:` |
+| 方法 | [`stage_value`](#member-gfsettingsutility-methods-stage_value) | `func stage_value(key: StringName, value: Variant) -> void:` |
+| 方法 | [`get_staged_value`](#member-gfsettingsutility-methods-get_staged_value) | `func get_staged_value(key: StringName, fallback: Variant = null) -> Variant:` |
+| 方法 | [`get_staged_or_value`](#member-gfsettingsutility-methods-get_staged_or_value) | `func get_staged_or_value(key: StringName, fallback: Variant = null) -> Variant:` |
+| 方法 | [`has_staged_value`](#member-gfsettingsutility-methods-has_staged_value) | `func has_staged_value(key: StringName) -> bool:` |
+| 方法 | [`has_staged_values`](#member-gfsettingsutility-methods-has_staged_values) | `func has_staged_values() -> bool:` |
+| 方法 | [`get_staged_values`](#member-gfsettingsutility-methods-get_staged_values) | `func get_staged_values() -> Dictionary:` |
+| 方法 | [`get_staged_keys`](#member-gfsettingsutility-methods-get_staged_keys) | `func get_staged_keys() -> PackedStringArray:` |
+| 方法 | [`discard_staged_value`](#member-gfsettingsutility-methods-discard_staged_value) | `func discard_staged_value(key: StringName) -> bool:` |
+| 方法 | [`discard_staged_values`](#member-gfsettingsutility-methods-discard_staged_values) | `func discard_staged_values() -> PackedStringArray:` |
+| 方法 | [`apply_staged_values`](#member-gfsettingsutility-methods-apply_staged_values) | `func apply_staged_values(options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`apply_values`](#member-gfsettingsutility-methods-apply_values) | `func apply_values(values: Dictionary, options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`begin_batch`](#member-gfsettingsutility-methods-begin_batch) | `func begin_batch() -> void:` |
 | 方法 | [`end_batch`](#member-gfsettingsutility-methods-end_batch) | `func end_batch(save_after_change: bool = true) -> void:` |
@@ -117,6 +130,67 @@ signal settings_saved(data: Dictionary)
 结构：
 
 - `data`: Dictionary[String, Variant] saved persisted settings data produced by to_dict(true).
+
+<a id="member-gfsettingsutility-signals-staged_setting_changed"></a>
+
+### `staged_setting_changed`
+
+- API：`public`
+- 首次版本：`5.2.0`
+
+```gdscript
+signal staged_setting_changed(key: StringName)
+```
+
+暂存设置值变化时发出。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `key` | 暂存状态变化的设置键。 |
+
+<a id="member-gfsettingsutility-signals-staged_settings_applied"></a>
+
+### `staged_settings_applied`
+
+- API：`public`
+- 首次版本：`5.2.0`
+
+```gdscript
+signal staged_settings_applied(report: Dictionary)
+```
+
+暂存设置值被应用到真实设置后发出。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `report` | 应用报告。 |
+
+结构：
+
+- `report`: Dictionary with apply_values() report fields plus staged_applied_count, staged_remaining_count, and staged_applied_keys.
+
+<a id="member-gfsettingsutility-signals-staged_settings_discarded"></a>
+
+### `staged_settings_discarded`
+
+- API：`public`
+- 首次版本：`5.2.0`
+
+```gdscript
+signal staged_settings_discarded(keys: PackedStringArray)
+```
+
+暂存设置值被丢弃后发出。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `keys` | 被丢弃暂存值的设置键。 |
 
 ## 属性
 
@@ -317,6 +391,216 @@ func set_value(key: StringName, value: Variant, save_after_change: bool = true) 
 结构：
 
 - `value`: Variant setting value coerced by the registered definition when present.
+
+<a id="member-gfsettingsutility-methods-stage_value"></a>
+
+### `stage_value`
+
+- API：`public`
+- 首次版本：`5.2.0`
+
+```gdscript
+func stage_value(key: StringName, value: Variant) -> void:
+```
+
+设置一个暂存值。 暂存值不会改变当前有效设置，也不会触发保存；调用 apply_staged_values() 后才会写入真实设置。 如果暂存值等于当前有效值，会清除该键已有的暂存值。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `key` | 设置键。 |
+| `value` | 暂存设置值。 |
+
+结构：
+
+- `value`: Variant setting value coerced by the registered definition when present.
+
+<a id="member-gfsettingsutility-methods-get_staged_value"></a>
+
+### `get_staged_value`
+
+- API：`public`
+- 首次版本：`5.2.0`
+
+```gdscript
+func get_staged_value(key: StringName, fallback: Variant = null) -> Variant:
+```
+
+获取指定键的暂存值。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `key` | 设置键。 |
+| `fallback` | 没有暂存值时返回的值。 |
+
+返回：暂存值或 fallback。
+
+结构：
+
+- `fallback`: Variant value returned when the setting has no staged value.
+- `return`: Variant pending staged value or fallback.
+
+<a id="member-gfsettingsutility-methods-get_staged_or_value"></a>
+
+### `get_staged_or_value`
+
+- API：`public`
+- 首次版本：`5.2.0`
+
+```gdscript
+func get_staged_or_value(key: StringName, fallback: Variant = null) -> Variant:
+```
+
+获取用于预览的设置值。 若存在暂存值则返回暂存值，否则返回当前有效值。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `key` | 设置键。 |
+| `fallback` | 无当前值、默认值和暂存值时返回的值。 |
+
+返回：暂存值或当前有效值。
+
+结构：
+
+- `fallback`: Variant value returned when the setting has no staged, current, or default value.
+- `return`: Variant staged value when present, otherwise current setting value.
+
+<a id="member-gfsettingsutility-methods-has_staged_value"></a>
+
+### `has_staged_value`
+
+- API：`public`
+- 首次版本：`5.2.0`
+
+```gdscript
+func has_staged_value(key: StringName) -> bool:
+```
+
+检查指定键是否存在暂存值。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `key` | 设置键。 |
+
+返回：存在暂存值时返回 true。
+
+<a id="member-gfsettingsutility-methods-has_staged_values"></a>
+
+### `has_staged_values`
+
+- API：`public`
+- 首次版本：`5.2.0`
+
+```gdscript
+func has_staged_values() -> bool:
+```
+
+检查是否存在任意暂存值。
+
+返回：至少有一个暂存值时返回 true。
+
+<a id="member-gfsettingsutility-methods-get_staged_values"></a>
+
+### `get_staged_values`
+
+- API：`public`
+- 首次版本：`5.2.0`
+
+```gdscript
+func get_staged_values() -> Dictionary:
+```
+
+获取所有暂存值。
+
+返回：暂存设置字典副本。
+
+结构：
+
+- `return`: Dictionary[StringName, Variant] staged setting values that are not yet applied.
+
+<a id="member-gfsettingsutility-methods-get_staged_keys"></a>
+
+### `get_staged_keys`
+
+- API：`public`
+- 首次版本：`5.2.0`
+
+```gdscript
+func get_staged_keys() -> PackedStringArray:
+```
+
+获取所有存在暂存值的设置键。
+
+返回：排序后的暂存设置键。
+
+<a id="member-gfsettingsutility-methods-discard_staged_value"></a>
+
+### `discard_staged_value`
+
+- API：`public`
+- 首次版本：`5.2.0`
+
+```gdscript
+func discard_staged_value(key: StringName) -> bool:
+```
+
+丢弃指定键的暂存值。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `key` | 设置键。 |
+
+返回：实际丢弃暂存值时返回 true。
+
+<a id="member-gfsettingsutility-methods-discard_staged_values"></a>
+
+### `discard_staged_values`
+
+- API：`public`
+- 首次版本：`5.2.0`
+
+```gdscript
+func discard_staged_values() -> PackedStringArray:
+```
+
+丢弃全部暂存值。
+
+返回：被丢弃暂存值的设置键。
+
+<a id="member-gfsettingsutility-methods-apply_staged_values"></a>
+
+### `apply_staged_values`
+
+- API：`public`
+- 首次版本：`5.2.0`
+
+```gdscript
+func apply_staged_values(options: Dictionary = {}) -> Dictionary:
+```
+
+应用暂存设置值。 只把暂存层提交到真实设置；真实设置变化、类型钳制和自动保存仍沿用 apply_values() 语义。 可通过 options.scope 只提交指定键。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `options` | 可选行为。支持 save_after_change、emit_changes 与 scope。 |
+
+返回：应用报告。
+
+结构：
+
+- `options`: Dictionary with save_after_change: bool, emit_changes: bool, and scope as Array, PackedStringArray, Dictionary, String, or StringName.
+- `return`: Dictionary with apply_values() report fields plus staged_applied_count, staged_remaining_count, and staged_applied_keys: PackedStringArray.
 
 <a id="member-gfsettingsutility-methods-apply_values"></a>
 

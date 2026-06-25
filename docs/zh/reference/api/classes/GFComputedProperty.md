@@ -16,6 +16,7 @@
 | 类型 | 名称 | 签名 |
 |---|---|---|
 | 方法 | [`_init`](#member-gfcomputedproperty-methods-_init) | `func _init( sources: Array[GFBindableProperty] = [], compute: Callable = Callable(), default_value: Variant = null, owner: Node = null ) -> void:` |
+| 方法 | [`get_value`](#member-gfcomputedproperty-methods-get_value) | `func get_value() -> Variant:` |
 | 方法 | [`bind_sources`](#member-gfcomputedproperty-methods-bind_sources) | `func bind_sources( sources: Array[GFBindableProperty], compute: Callable, owner: Node = null, run_immediately: bool = true ) -> void:` |
 | 方法 | [`stop`](#member-gfcomputedproperty-methods-stop) | `func stop() -> void:` |
 | 方法 | [`dispose`](#member-gfcomputedproperty-methods-dispose) | `func dispose() -> void:` |
@@ -55,6 +56,25 @@ func _init( sources: Array[GFBindableProperty] = [], compute: Callable = Callabl
 结构：
 
 - `default_value {`:
+
+<a id="member-gfcomputedproperty-methods-get_value"></a>
+
+### `get_value`
+
+- API：`public`
+- 首次版本：`5.0.0`
+
+```gdscript
+func get_value() -> Variant:
+```
+
+读取派生属性的当前值。 Array 与 Dictionary 会返回深拷贝，避免调用方通过集合引用绕过只读约束。
+
+返回：当前值；集合类型返回副本。
+
+结构：
+
+- `return`: Variant current computed value; Array and Dictionary values are returned as deep copies.
 
 <a id="member-gfcomputedproperty-methods-bind_sources"></a>
 

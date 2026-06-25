@@ -59,6 +59,20 @@ const REFERENCE_UNSUPPORTED_CLASS_KEY: String = "class"
 ## @api public
 const OPTION_ROOT_NODE: String = "reference_root_node"
 
+## options 中传入允许 Resource 解码路径根目录集合的字段。
+## [br]
+## @api public
+## [br]
+## @since 6.0.0
+const OPTION_ALLOWED_RESOURCE_ROOTS: String = "allowed_resource_roots"
+
+## options 中传入允许 Resource 解码路径通配模式集合的字段。
+## [br]
+## @api public
+## [br]
+## @since 6.0.0
+const OPTION_ALLOWED_RESOURCE_PATTERNS: String = "allowed_resource_patterns"
+
 ## Resource 引用类型。
 ## [br]
 ## @api public
@@ -208,13 +222,15 @@ static func encode_reference(value: Variant, options: Dictionary = {}) -> Dictio
 ## [br]
 ## @api public
 ## [br]
+## @since 4.3.0
+## [br]
 ## @param value: 引用标记字典。
 ## [br]
 ## @schema value: Dictionary reference marker produced by encode_reference().
 ## [br]
-## @param options: 可选项；reference_root_node 用于解析 NodePath。
+## @param options: 可选项；reference_root_node 用于解析 NodePath；Resource 解码必须显式提供 allowed_resource_roots 或 allowed_resource_patterns。
 ## [br]
-## @schema options: Dictionary with optional reference_root_node: Node.
+## @schema options: Dictionary with optional reference_root_node: Node, allowed_resource_roots: PackedStringArray/Array[String], and allowed_resource_patterns: PackedStringArray/Array[String].
 ## [br]
 ## @return 解码结果。
 ## [br]
@@ -227,7 +243,7 @@ static func decode_reference(value: Variant, options: Dictionary = {}) -> Dictio
 	var marker_kind: String = GFVariantData.get_option_string(marker, REFERENCE_KIND_KEY)
 	match marker_kind:
 		REFERENCE_KIND_RESOURCE:
-			return _decode_resource_marker(marker)
+			return _decode_resource_marker(marker, options)
 		REFERENCE_KIND_NODE:
 			return _decode_node_marker(marker, _get_root_node_option(options))
 		REFERENCE_KIND_UNSUPPORTED_OBJECT:
@@ -252,16 +268,25 @@ static func _make_unsupported_marker(class_name_text: String) -> Dictionary:
 	})
 
 
-static func _decode_resource_marker(marker: Dictionary) -> Dictionary:
+static func _decode_resource_marker(marker: Dictionary, options: Dictionary) -> Dictionary:
+	if not _has_resource_path_policy(options):
+		return _make_decode_result(false, null, "Resource decode requires allowed_resource_roots or allowed_resource_patterns.", REFERENCE_KIND_RESOURCE)
+
 	var resource_paths: Array[String] = _get_resource_candidate_paths(marker)
 	if resource_paths.is_empty():
 		return _make_decode_result(false, null, "Resource path is empty.", REFERENCE_KIND_RESOURCE)
 
 	var type_hint: String = GFVariantData.get_option_string(marker, REFERENCE_TYPE_HINT_KEY)
+	var has_allowed_candidate: bool = false
 	for resource_path: String in resource_paths:
+		if not _resource_path_allowed(resource_path, options):
+			continue
+		has_allowed_candidate = true
 		var resource: Resource = ResourceLoader.load(resource_path, type_hint)
 		if resource != null:
 			return _make_decode_result(true, resource, "", REFERENCE_KIND_RESOURCE)
+	if _has_resource_path_policy(options) and not has_allowed_candidate:
+		return _make_decode_result(false, null, "Resource path is not allowed: %s" % ", ".join(resource_paths), REFERENCE_KIND_RESOURCE)
 	return _make_decode_result(false, null, "Resource could not be loaded: %s" % ", ".join(resource_paths), REFERENCE_KIND_RESOURCE)
 
 
@@ -305,6 +330,35 @@ static func _get_resource_candidate_paths(marker: Dictionary) -> Array[String]:
 	if not fallback_path.is_empty() and fallback_path != uid_path:
 		result.append(fallback_path)
 	return result
+
+
+static func _resource_path_allowed(resource_path: String, options: Dictionary) -> bool:
+	if not _has_resource_path_policy(options):
+		return false
+
+	var normalized_path: String = GFPathTools.normalize_resource_path(resource_path)
+	if normalized_path.is_empty():
+		return false
+
+	var allowed_roots: PackedStringArray = GFVariantData.get_option_packed_string_array(options, OPTION_ALLOWED_RESOURCE_ROOTS)
+	for allowed_root: String in allowed_roots:
+		if GFPathTools.is_path_under_root(normalized_path, allowed_root):
+			return true
+
+	var allowed_patterns: PackedStringArray = GFVariantData.get_option_packed_string_array(options, OPTION_ALLOWED_RESOURCE_PATTERNS)
+	for allowed_pattern: String in allowed_patterns:
+		var normalized_pattern: String = GFPathTools.normalize_resource_path(allowed_pattern, "", false)
+		if not normalized_pattern.is_empty() and normalized_path.match(normalized_pattern):
+			return true
+
+	return false
+
+
+static func _has_resource_path_policy(options: Dictionary) -> bool:
+	return (
+		not GFVariantData.get_option_packed_string_array(options, OPTION_ALLOWED_RESOURCE_ROOTS).is_empty()
+		or not GFVariantData.get_option_packed_string_array(options, OPTION_ALLOWED_RESOURCE_PATTERNS).is_empty()
+	)
 
 
 static func _get_root_node_option(options: Dictionary) -> Node:

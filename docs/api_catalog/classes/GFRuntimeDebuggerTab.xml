@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFRuntimeDebuggerTab" path="addons/gf/standard/utilities/debug/editor/gf_runtime_debugger_tab.gd" module="standard" extends="Control" classDigest="8951422be05cbf9e5672ae4cac18299d1a6e26b1234afe2342c68c59fe83f294">
+	<description>GFRuntimeDebuggerTab: GF 运行时调试会话页。
+通过 Godot EditorDebuggerSession 向正在运行的游戏请求 GFDiagnosticsUtility 快照，
+并以只读树和 JSON 详情展示返回数据。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">editor_api</tag>
+		<tag name="since">6.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties />
+	<methods>
+		<member kind="method" name="setup_session">
+			<signature>func setup_session(session: EditorDebuggerSession, session_id: int) -&gt; void:</signature>
+			<description>绑定调试会话。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">session: Godot 调试会话。</tag>
+				<tag name="param">session_id: 会话 ID。</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="request_snapshot">
+			<signature>func request_snapshot() -&gt; bool:</signature>
+			<description>请求运行时诊断快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">消息是否已发送。</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="request_catalog">
+			<signature>func request_catalog() -&gt; bool:</signature>
+			<description>请求运行时诊断目录。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">消息是否已发送。</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="execute_command">
+			<signature>func execute_command(command_name: StringName, args: Dictionary = {}) -&gt; bool:</signature>
+			<description>执行运行时诊断命令。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">command_name: 命令名。</tag>
+				<tag name="param">args: 命令参数。</tag>
+				<tag name="return">消息是否已发送。</tag>
+				<tag name="schema">args: Dictionary diagnostic command arguments.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="handle_snapshot">
+			<signature>func handle_snapshot(payload: Dictionary) -&gt; void:</signature>
+			<description>处理运行时快照 payload。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">payload: 运行时返回的快照。</tag>
+				<tag name="schema">payload: Dictionary snapshot payload.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="handle_catalog">
+			<signature>func handle_catalog(payload: Dictionary) -&gt; void:</signature>
+			<description>处理运行时目录 payload。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">payload: 运行时返回的目录。</tag>
+				<tag name="schema">payload: Dictionary catalog payload.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="handle_command_result">
+			<signature>func handle_command_result(command_name: StringName, payload: Dictionary) -&gt; void:</signature>
+			<description>处理诊断命令结果。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">command_name: 命令名。</tag>
+				<tag name="param">payload: 命令结果。</tag>
+				<tag name="schema">payload: Dictionary command result payload.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_debug_snapshot">
+			<signature>func get_debug_snapshot() -&gt; Dictionary:</signature>
+			<description>获取页面调试快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">页面调试快照。</tag>
+				<tag name="schema">return: Dictionary containing session_id, last_snapshot, last_catalog, last_command_result, and ui fields.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

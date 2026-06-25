@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFVariantData" path="addons/gf/standard/foundation/variant/gf_variant_data.gd" module="standard" extends="RefCounted" classDigest="0540fa6478376914f85dff2581a8386cbfc2dc64a29ee7726f4fc4174a3f686f">
+<class name="GFVariantData" path="addons/gf/standard/foundation/variant/gf_variant_data.gd" module="standard" extends="RefCounted" classDigest="5a6cb2b260db0b10fbffc51ac1d9d32e3d74dc6cdaaa7b0523f97606bebe01b3">
 	<description>GFVariantData: 通用 Variant 数据复制与默认值合并。
 提供不依赖 GFArchitecture 的集合复制、Resource 可选复制、差异报告和默认值递归补齐。
 JSON 兼容编码由 GFVariantJsonCodec 负责。</description>
@@ -217,6 +217,22 @@ JSON 兼容编码由 GFVariantJsonCodec 负责。</description>
 				<tag name="return">元数据副本。</tag>
 				<tag name="schema">metadata: 调用方元数据 Dictionary。</tag>
 				<tag name="schema">return: 复制后的元数据 Dictionary。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="values_equal">
+			<signature>static func values_equal(left: Variant, right: Variant, options: Dictionary = {}) -&gt; bool:</signature>
+			<description>安全比较两个 Variant 值是否等价。
+默认只在类型相同或 int/float 数值类型互比时返回 true。需要容忍浮点误差时可传入 numeric_epsilon。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">left: 左值。</tag>
+				<tag name="param">right: 右值。</tag>
+				<tag name="param">options: 比较选项。支持 numeric_epsilon 和 match_string_names。</tag>
+				<tag name="return">两个值按 GF 通用 Variant 语义等价时返回 true。</tag>
+				<tag name="schema">left: Variant comparison value.</tag>
+				<tag name="schema">right: Variant comparison value.</tag>
+				<tag name="schema">options: Dictionary，可选字段：numeric_epsilon 为 int/float 误差，默认 0；match_string_names 为 true 时 String 与 StringName 按文本比较。</tag>
+				<tag name="since">6.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="merge_dictionary">

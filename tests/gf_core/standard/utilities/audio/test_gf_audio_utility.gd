@@ -11,7 +11,7 @@ class MockAssetUtility:
 
 	var pending: Dictionary = {}
 
-	func load_async(path: String, on_loaded: Callable, _type_hint: String = "") -> void:
+	func load_async(path: String, on_loaded: Callable, _type_hint: String = "", _options: Dictionary = {}) -> void:
 		pending[path] = on_loaded
 
 	func finish(path: String, resource: Resource) -> void:
@@ -705,6 +705,25 @@ func test_play_sfx_clip_2d_creates_spatial_player() -> void:
 	assert_not_null(player, "2D 空间 SFX 应创建播放器。")
 	assert_eq(player.stream, stream, "2D 空间 SFX 应写入对应音频流。")
 	assert_eq(player.bus, "Master", "2D 空间 SFX 应应用总线配置。")
+	assert_eq(player.area_mask, 1, "未提供空间设置时 2D 空间 SFX 应保留 GF 默认区域掩码。")
+	if is_instance_valid(player):
+		player.queue_free()
+
+
+func test_play_sfx_clip_3d_preserves_default_area_mask_without_spatial_settings() -> void:
+	var source: Node3D = Node3D.new()
+	add_child_autofree(source)
+	var stream: AudioStreamGenerator = AudioStreamGenerator.new()
+	var clip: GFAudioClip = GFAudioClip.new()
+	clip.stream = stream
+	clip.bus_name = "Master"
+
+	var player: AudioStreamPlayer3D = _audio.play_sfx_clip_3d(clip, source)
+
+	assert_not_null(player, "3D 空间 SFX 应创建播放器。")
+	assert_eq(player.stream, stream, "3D 空间 SFX 应写入对应音频流。")
+	assert_eq(player.bus, "Master", "3D 空间 SFX 应应用总线配置。")
+	assert_eq(player.area_mask, 1, "未提供空间设置时 3D 空间 SFX 应保留 GF 默认区域掩码。")
 	if is_instance_valid(player):
 		player.queue_free()
 

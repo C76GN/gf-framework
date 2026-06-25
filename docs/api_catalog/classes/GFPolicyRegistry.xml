@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFPolicyRegistry" path="addons/gf/standard/foundation/policy/gf_policy_registry.gd" module="standard" extends="Resource" classDigest="b07e244187f8767d3dd1c983fbdd583dab8765cc8d9fc752bfa99dc589284389">
+	<description>GFPolicyRegistry: 通用策略 Provider 注册表。
+管理 GFPolicyProvider 集合，并按 artifact kind 对输入 artifact 执行匹配策略。
+注册表只负责协议分发和结果汇总，不解释具体业务字段。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_service</tag>
+		<tag name="since">6.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties>
+		<member kind="property" name="providers" decorators="@export">
+			<signature>var providers: Array[GFPolicyProvider] = []</signature>
+			<description>已注册 Provider 列表。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">providers: Array[GFPolicyProvider] policy providers.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="register_provider">
+			<signature>func register_provider(provider: GFPolicyProvider) -&gt; bool:</signature>
+			<description>注册或替换 Provider。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">provider: 策略 Provider。</tag>
+				<tag name="return">注册成功返回 true。</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="unregister_provider">
+			<signature>func unregister_provider(provider_id: StringName) -&gt; bool:</signature>
+			<description>注销 Provider。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">provider_id: Provider 稳定标识。</tag>
+				<tag name="return">注销成功返回 true。</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="clear">
+			<signature>func clear() -&gt; void:</signature>
+			<description>清空 Provider。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_provider">
+			<signature>func get_provider(provider_id: StringName) -&gt; GFPolicyProvider:</signature>
+			<description>获取 Provider。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">provider_id: Provider 稳定标识。</tag>
+				<tag name="return">Provider；不存在时返回 null。</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_providers_for_artifact">
+			<signature>func get_providers_for_artifact(artifact: Dictionary) -&gt; Array[GFPolicyProvider]:</signature>
+			<description>获取支持 artifact 的 Provider 列表。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">artifact: artifact 字典。</tag>
+				<tag name="return">Provider 列表。</tag>
+				<tag name="schema">artifact: Dictionary with optional kind or artifact_kind.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="evaluate_artifact">
+			<signature>func evaluate_artifact(artifact: Dictionary, context: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>对 artifact 执行匹配策略。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">artifact: artifact 字典。</tag>
+				<tag name="param">context: 调用方上下文。</tag>
+				<tag name="return">汇总结果。</tag>
+				<tag name="schema">artifact: Dictionary policy input artifact.</tag>
+				<tag name="schema">context: Dictionary caller-defined policy context.</tag>
+				<tag name="schema">return: Dictionary with ok, provider_count, result_count, results, issues, and artifact.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_debug_snapshot">
+			<signature>func get_debug_snapshot() -&gt; Dictionary:</signature>
+			<description>获取调试快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">调试信息字典。</tag>
+				<tag name="schema">return: Dictionary containing provider_count and provider_ids.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

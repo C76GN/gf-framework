@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFTypeEventSystem" path="addons/gf/kernel/core/gf_type_event_system.gd" module="kernel" extends="Object" classDigest="0cf1d6a1954bedd09ef15c824511dce01738a18afa6a5fbb675abf57895c4f12">
+<class name="GFTypeEventSystem" path="addons/gf/kernel/core/gf_type_event_system.gd" module="kernel" extends="Object" classDigest="a649ada915f3f6b2789440029facb28c1bc1581526037bf98e16337c3bf6bd30">
 	<description>GFTypeEventSystem: 基于类型和 StringName 的双轨事件系统。
 轨道一（类型事件）：使用 Script 类型作为键，以对象实例为载体分发事件。
 轨道二（简单事件）：使用 StringName 作为键，以 Variant 为 payload 分发事件。</description>
@@ -64,6 +64,17 @@
 				<tag name="param">on_event: 要移除的回调函数。</tag>
 			</tags>
 		</member>
+		<member kind="method" name="unregister_owned">
+			<signature>func unregister_owned(owner: Object, event_type: Script, on_event: Callable) -&gt; void:</signature>
+			<description>注销带拥有者的特定脚本类型事件监听器。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">owner: 注册监听时使用的拥有者。</tag>
+				<tag name="param">event_type: 要注销的脚本类型。</tag>
+				<tag name="param">on_event: 要移除的回调函数。</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
 		<member kind="method" name="register_assignable">
 			<signature>func register_assignable(base_event_type: Script, on_event: Callable, priority: int = 0, owner: Object = null) -&gt; void:</signature>
 			<description>注册可赋值类型事件监听器。
@@ -83,6 +94,17 @@
 				<tag name="api">public</tag>
 				<tag name="param">base_event_type: 注册时使用的基类脚本类型。</tag>
 				<tag name="param">on_event: 要移除的回调函数。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="unregister_assignable_owned">
+			<signature>func unregister_assignable_owned(owner: Object, base_event_type: Script, on_event: Callable) -&gt; void:</signature>
+			<description>注销带拥有者的可赋值类型事件监听器。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">owner: 注册监听时使用的拥有者。</tag>
+				<tag name="param">base_event_type: 注册时使用的基类脚本类型。</tag>
+				<tag name="param">on_event: 要移除的回调函数。</tag>
+				<tag name="since">5.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="send">
@@ -110,6 +132,17 @@
 				<tag name="api">public</tag>
 				<tag name="param">event_id: StringName 事件标识符。</tag>
 				<tag name="param">on_event: 要移除的回调函数。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="unregister_simple_owned">
+			<signature>func unregister_simple_owned(owner: Object, event_id: StringName, on_event: Callable) -&gt; void:</signature>
+			<description>注销带拥有者的轻量级 StringName 事件监听器。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">owner: 注册监听时使用的拥有者。</tag>
+				<tag name="param">event_id: StringName 事件标识符。</tag>
+				<tag name="param">on_event: 要移除的回调函数。</tag>
+				<tag name="since">5.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="send_simple">

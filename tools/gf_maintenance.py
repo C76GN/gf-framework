@@ -19761,6 +19761,8 @@ def release_status(
 
 	tag_exists = git_exit_code(["rev-parse", "-q", "--verify", f"refs/tags/{version}"]) == 0
 	tag_points_at_head = version in git_lines(["tag", "--points-at", "HEAD"])
+	if tag_exists and not tag_points_at_head:
+		issues.append(f"Git tag {version} exists but does not point at HEAD.")
 	return {
 		"ok": len(issues) == 0,
 		"version": version,

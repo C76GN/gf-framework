@@ -9,6 +9,7 @@
 - Node State 与 Node State Machine 模板由标准库编辑器扩展注入，用于标准库节点状态机。
 - `生成强类型访问器` 会生成 `GFAccess`。
 - `生成项目常量访问器` 会生成 `GFProjectAccess`。
+- `刷新 GF 编辑器贡献` 会重新扫描资源并重建 GF 自身收集到的标准库编辑器贡献记录，例如菜单模板、工作区页面、Inspector、Debugger 插件和 ProjectSettings 记录；它不负责热重载任意 Godot 插件或执行项目业务脚本。
 
 `GFPluginActions` 只持有通用文件对话框、占位符替换和核心模板；标准库或扩展的模板应以记录形式注入，记录至少包含 `type`、`label`、`base_class` 和 `template`。
 

@@ -24,6 +24,8 @@ Use this skill as the default project workflow for GF Framework maintenance. It 
 - External reference project changed or examples suite is involved: use `$gf-reference-boundary`.
 - Broad refactor, layer move, or multi-module behavior change: use `$gf-change-audit`.
 - GDScript warning fixes: prefer real type narrowing and ownership changes over `@warning_ignore`; after edits run focused GUT for the touched scripts plus `python tools\gf_maintenance.py check --check gdscript_warnings --json`. If the change touches shadowed names, GF class casts, or dynamic script instantiation, also run `tests/gf_core/maintenance/test_gdscript_parse_validation.gd`.
+- Signature changes: search `addons/gf` and `tests/gf_core` for same-name `func` declarations, mocks, and reflective call sites before validating, because override signature drift is a Godot parse error.
+- Editor-only plugin tests: do not instantiate editor-owned Godot plugin classes such as `EditorDebuggerPlugin` in plain headless GUT. Validate contributed records, script metadata, inheritance, and helper wiring unless the test runs through a real editor plugin lifecycle.
 
 ## Testing Style
 

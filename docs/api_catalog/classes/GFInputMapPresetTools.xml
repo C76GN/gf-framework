@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFInputMapPresetTools" path="addons/gf/standard/input/mapping/gf_input_map_preset_tools.gd" module="standard" extends="RefCounted" classDigest="fdd7a10d0684316b3c94da4e2928e884f42480cac43dcf0452a10b4d4ce3f8de">
+	<description>GFInputMapPresetTools: Godot InputMap 预设转换工具。
+用于把当前运行时 InputMap 捕获为通用字典，或把字典预设应用回
+InputMap。它不负责保存文件、写入 ProjectSettings、玩家 profile 语义或 UI 流程。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_service</tag>
+		<tag name="layer">standard/input</tag>
+		<tag name="since">6.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants>
+		<member kind="const" name="PRESET_VERSION">
+			<signature>const PRESET_VERSION: int = 1</signature>
+			<description>InputMap 预设格式版本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties />
+	<methods>
+		<member kind="method" name="capture_input_map">
+			<signature>static func capture_input_map(options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>捕获当前 InputMap 为可序列化预设字典。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">options: 可选项，支持 action_ids、include_ui_actions、include_empty_actions、sort_actions、metadata。</tag>
+				<tag name="return">InputMap 预设字典。</tag>
+				<tag name="schema">options: Dictionary with optional action_ids: Array[String] or PackedStringArray, include_ui_actions: bool, include_empty_actions: bool, sort_actions: bool, metadata: Dictionary.</tag>
+				<tag name="schema">return: Dictionary { version: int, actions: Array[Dictionary], metadata: Dictionary }. Each action has action_id, deadzone, and events.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="apply_input_map_preset">
+			<signature>static func apply_input_map_preset(preset: Dictionary, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>将预设字典应用到当前 InputMap。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">preset: InputMap 预设字典。</tag>
+				<tag name="param">options: 可选项，支持 action_ids、include_ui_actions、clear_existing_events。</tag>
+				<tag name="return">应用报告。</tag>
+				<tag name="schema">preset: Dictionary created by capture_input_map().</tag>
+				<tag name="schema">options: Dictionary with optional action_ids: Array[String] or PackedStringArray, include_ui_actions: bool, clear_existing_events: bool.</tag>
+				<tag name="schema">return: Dictionary { ok: bool, applied_count: int, event_count: int, skipped_count: int, issues: Array[Dictionary] }.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

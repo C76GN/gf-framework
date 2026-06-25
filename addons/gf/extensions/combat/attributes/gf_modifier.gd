@@ -122,3 +122,90 @@ static func create_final_add(
 	p_source_id: StringName = &""
 ) -> GFModifier:
 	return GFModifier.new(Type.FINAL_ADD, p_value, p_attribute_id, p_source_id)
+
+
+## 创建修饰器副本。
+## [br]
+## @api public
+## [br]
+## @since 6.0.0
+## [br]
+## @return 新修饰器。
+func duplicate_modifier() -> GFModifier:
+	return GFModifier.new(type, value, attribute_id, source_id)
+
+
+## 转换为可序列化字典。
+## [br]
+## @api public
+## [br]
+## @since 6.0.0
+## [br]
+## @return 修饰器字典。
+## [br]
+## @schema return: Dictionary with type, value, attribute_id, and source_id.
+func to_dictionary() -> Dictionary:
+	return {
+		"type": type,
+		"value": value,
+		"attribute_id": attribute_id,
+		"source_id": source_id,
+	}
+
+
+## 从字典应用修饰器字段。
+## [br]
+## @api public
+## [br]
+## @since 6.0.0
+## [br]
+## @param data: 修饰器字典。
+## [br]
+## @schema data: Dictionary with optional type, value, attribute_id, and source_id.
+func apply_dictionary(data: Dictionary) -> void:
+	type = _normalize_type(GFVariantData.get_option_value(data, "type", type))
+	value = GFVariantData.get_option_float(data, "value", value)
+	attribute_id = GFVariantData.get_option_string_name(data, "attribute_id", attribute_id)
+	source_id = GFVariantData.get_option_string_name(data, "source_id", source_id)
+
+
+## 从字典创建修饰器。
+## [br]
+## @api public
+## [br]
+## @since 6.0.0
+## [br]
+## @param data: 修饰器字典。
+## [br]
+## @return 新修饰器。
+## [br]
+## @schema data: Dictionary with optional type, value, attribute_id, and source_id.
+static func from_dictionary(data: Dictionary) -> GFModifier:
+	var modifier: GFModifier = GFModifier.new()
+	modifier.apply_dictionary(data)
+	return modifier
+
+
+# --- 私有/辅助方法 ---
+
+static func _normalize_type(raw_value: Variant) -> Type:
+	if raw_value is int:
+		var type_value: int = raw_value
+		return _int_to_type(type_value)
+	match GFVariantData.to_text(raw_value).strip_edges().to_lower():
+		"percent_add", "percent":
+			return Type.PERCENT_ADD
+		"final_add", "final":
+			return Type.FINAL_ADD
+		_:
+			return Type.BASE_ADD
+
+
+static func _int_to_type(type_index: int) -> Type:
+	match clampi(type_index, Type.BASE_ADD, Type.FINAL_ADD):
+		Type.PERCENT_ADD:
+			return Type.PERCENT_ADD
+		Type.FINAL_ADD:
+			return Type.FINAL_ADD
+		_:
+			return Type.BASE_ADD

@@ -1,7 +1,7 @@
 {
   "id": "gf.camera",
   "display_name": "GF Camera",
-  "version": "5.2.0",
+  "version": "6.0.0",
   "extension_version": "1.1.0",
   "kind": "extension",
   "description": "Generic camera rigs, directors, priorities, and blend resources.",

@@ -58,6 +58,32 @@ func test_get_active_profile_can_return_copy() -> void:
 	)
 
 
+## 验证 Profile bank 可序列化到字典再恢复。
+func test_profile_bank_to_dict_roundtrip_preserves_profiles_active_and_custom_data() -> void:
+	var bank: GFInputProfileBank = GFInputProfileBank.new()
+	var keyboard_config: GFInputRemapConfig = GFInputRemapConfig.new()
+	keyboard_config.set_binding(&"gameplay", &"jump", 0, _make_key_event(KEY_SPACE, true))
+	bank.set_profile(&"keyboard", keyboard_config)
+	bank.set_profile(&"gamepad", GFInputRemapConfig.new())
+	var switched: bool = bank.set_active_profile(&"gamepad")
+	bank.custom_data = {
+		"label": "Player One",
+	}
+
+	var restored: GFInputProfileBank = GFInputProfileBank.from_dict(bank.to_dict())
+	var restored_keyboard: GFInputRemapConfig = restored.get_profile(&"keyboard")
+	var restored_event: InputEventKey = _variant_to_input_event_key(
+		restored_keyboard.get_bound_event_or_null(&"gameplay", &"jump", 0)
+	)
+
+	assert_true(switched, "测试应能切换 active profile。")
+	assert_eq(restored.get_profile_ids(), PackedStringArray(["gamepad", "keyboard"]))
+	assert_eq(restored.active_profile_id, &"gamepad")
+	assert_eq(GFVariantData.get_option_string(restored.custom_data, "label"), "Player One")
+	assert_not_null(restored_event, "Profile bank 往返后应保留 profile 内的输入事件。")
+	assert_eq(restored_event.physical_keycode, KEY_SPACE)
+
+
 ## 验证移除 active profile 后会选择剩余 profile。
 func test_remove_active_profile_selects_remaining_profile() -> void:
 	var bank: GFInputProfileBank = GFInputProfileBank.new()

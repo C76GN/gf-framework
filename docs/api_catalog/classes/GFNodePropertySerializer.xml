@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFNodePropertySerializer" path="addons/gf/extensions/save/serializers/gf_node_property_serializer.gd" module="extensions/save" extends="GFNodeSerializer" classDigest="beea68dac3aea8895b4670b257200551afc6845f33583a579c23958c941ee1d7">
+<class name="GFNodePropertySerializer" path="addons/gf/extensions/save/serializers/gf_node_property_serializer.gd" module="extensions/save" extends="GFNodeSerializer" classDigest="2d74894dd486a03ed800b7fcb44488be7c5911894eef91576763d19506a06486">
 	<description>GFNodePropertySerializer: 通用节点属性序列化器。
 通过显式属性白名单保存和恢复节点属性，适合项目层快速接入简单状态。</description>
 	<tags>
@@ -23,6 +23,22 @@
 			<description>应用数据时遇到缺失属性是否跳过。</description>
 			<tags>
 				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="property" name="allowed_resource_roots" decorators="@export">
+			<signature>var allowed_resource_roots: PackedStringArray = PackedStringArray()</signature>
+			<description>Resource 引用恢复时允许加载的资源根目录。为空时使用 context 中的同名策略；仍为空则拒绝恢复 Resource 引用。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="allowed_resource_patterns" decorators="@export">
+			<signature>var allowed_resource_patterns: PackedStringArray = PackedStringArray()</signature>
+			<description>Resource 引用恢复时允许加载的资源路径通配模式。为空时使用 context 中的同名策略；仍为空则拒绝恢复 Resource 引用。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
 			</tags>
 		</member>
 	</properties>
@@ -49,8 +65,9 @@
 				<tag name="param">context: 操作上下文字典。</tag>
 				<tag name="return">应用结果字典。</tag>
 				<tag name="schema">payload: Dictionary，键为属性名，值为 JSON 兼容值或 __gf_reference__ 标记。</tag>
-				<tag name="schema">context: Dictionary，可包含 reference_root_node: Node，用于恢复 Node 引用属性。</tag>
+				<tag name="schema">context: Dictionary，可包含 reference_root_node: Node，用于恢复 Node 引用属性；可包含 allowed_resource_roots / allowed_resource_patterns，用于恢复 Resource 引用属性。</tag>
 				<tag name="schema">return: Dictionary，包含 ok: bool 与 error: String。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</methods>

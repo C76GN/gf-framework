@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFUtility" path="addons/gf/kernel/base/gf_utility.gd" module="kernel" extends="Object" classDigest="6b620ec22f077d1967e94d74dc0d467000fe1702a32a353949b8f2c9d11a91c4">
+<class name="GFUtility" path="addons/gf/kernel/base/gf_utility.gd" module="kernel" extends="Object" classDigest="21e3e9f0d2e98b907f1710db1c302ae6db3f076e23d95b9b3af84cd9f09babca">
 	<description>GFUtility: 工具组件抽象基类。
 提供不依赖其他架构组件的独立工具功能。
 子类可以实现 'init'、'async_init'、'ready'、 'dispose' 来管理其生命周期。
@@ -17,19 +17,21 @@
 	<constants />
 	<properties>
 		<member kind="property" name="ignore_pause">
-			<signature>var ignore_pause: bool = false</signature>
+			<signature>var ignore_pause: bool = false:</signature>
 			<description>是否忽略全局暂停。为 true 时，即使当前 GFTimeProvider 处于暂停状态，
 该 Utility 的 tick / physics_tick 仍会接收到原始（未缩放）的 delta 值。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">5.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="ignore_time_scale">
-			<signature>var ignore_time_scale: bool = false</signature>
+			<signature>var ignore_time_scale: bool = false:</signature>
 			<description>是否忽略当前 GFTimeProvider 的时间缩放。为 true 且未全局暂停时，
 该 Utility 的 tick / physics_tick 会接收到原始 delta。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">5.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="lifecycle_priority">
@@ -41,19 +43,21 @@
 			</tags>
 		</member>
 		<member kind="property" name="tick_priority">
-			<signature>var tick_priority: int = 0</signature>
+			<signature>var tick_priority: int = 0:</signature>
 			<description>每帧 tick 优先级。数值越大越早执行 tick()。
 默认 0 表示同优先级下按注册顺序执行。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">5.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="physics_tick_priority">
-			<signature>var physics_tick_priority: int = 0</signature>
+			<signature>var physics_tick_priority: int = 0:</signature>
 			<description>物理帧 tick 优先级。数值越大越早执行 physics_tick()。
 默认 0 表示同优先级下按注册顺序执行。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">5.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="tick_enabled">

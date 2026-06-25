@@ -9,7 +9,7 @@
 - [预算、集合与时间文本](budget-collections-timeline/index.md)：预算账本、值索引、变更批次和时间段文本轨道。
 - [公式与 Variant 数据](formula-variant/index.md)：资源化公式、公式参数、公式集合、Variant 深拷贝和 JSON 兼容转换。
 - [通用标识](identity/index.md)：`GFUuid` 的 UUID v4/v7 生成与 canonical 字符串校验。
-- [校验报告与结果字典](validation-reporting/index.md)：来源位置、校验问题、校验报告、规则套件、Runner、JUnit 导出和轻量结果字典。
+- [校验报告、策略与结果字典](validation-reporting/index.md)：来源位置、校验问题、校验报告、通用策略注册表、规则套件、Runner、JUnit 导出和轻量结果字典。
 
 ## 使用边界
 

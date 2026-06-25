@@ -115,13 +115,39 @@ func unregister(event_type: Script, on_event: Callable) -> void:
 	if event_type == null:
 		return
 	if _type_dispatch_depth > 0:
-		_type_track.remove_pending_add(event_type, on_event)
-		_type_track.queue_remove(event_type, on_event)
+		_type_track.remove_pending_add(event_type, on_event, 0, true)
+		_type_track.queue_remove(event_type, on_event, 0, true)
 		return
 
 	if _event_listeners.has(event_type):
 		var listeners: Array = _get_registry_array(_event_listeners, event_type)
-		_remove_entry_by_callable(listeners, on_event, event_type, false)
+		_remove_entry_by_callable(listeners, on_event, event_type, false, 0, true)
+		_erase_listener_key_if_empty(_event_listeners, event_type)
+
+
+## 注销带拥有者的特定脚本类型事件监听器。
+## [br]
+## @api public
+## [br]
+## @since 5.0.0
+## [br]
+## @param owner: 注册监听时使用的拥有者。
+## [br]
+## @param event_type: 要注销的脚本类型。
+## [br]
+## @param on_event: 要移除的回调函数。
+func unregister_owned(owner: Object, event_type: Script, on_event: Callable) -> void:
+	if owner == null or event_type == null:
+		return
+	var owner_id: int = owner.get_instance_id()
+	if _type_dispatch_depth > 0:
+		_type_track.remove_pending_add(event_type, on_event, owner_id, true)
+		_type_track.queue_remove(event_type, on_event, owner_id, true)
+		return
+
+	if _event_listeners.has(event_type):
+		var listeners: Array = _get_registry_array(_event_listeners, event_type)
+		_remove_entry_by_callable(listeners, on_event, event_type, false, owner_id, true)
 		_erase_listener_key_if_empty(_event_listeners, event_type)
 
 
@@ -169,13 +195,39 @@ func unregister_assignable(base_event_type: Script, on_event: Callable) -> void:
 	if base_event_type == null:
 		return
 	if _type_dispatch_depth > 0:
-		_assignable_type_track.remove_pending_add(base_event_type, on_event)
-		_assignable_type_track.queue_remove(base_event_type, on_event)
+		_assignable_type_track.remove_pending_add(base_event_type, on_event, 0, true)
+		_assignable_type_track.queue_remove(base_event_type, on_event, 0, true)
 		return
 
 	if _assignable_event_listeners.has(base_event_type):
 		var listeners: Array = _get_registry_array(_assignable_event_listeners, base_event_type)
-		_remove_entry_by_callable(listeners, on_event, base_event_type, true)
+		_remove_entry_by_callable(listeners, on_event, base_event_type, true, 0, true)
+		_erase_listener_key_if_empty(_assignable_event_listeners, base_event_type)
+
+
+## 注销带拥有者的可赋值类型事件监听器。
+## [br]
+## @api public
+## [br]
+## @since 5.0.0
+## [br]
+## @param owner: 注册监听时使用的拥有者。
+## [br]
+## @param base_event_type: 注册时使用的基类脚本类型。
+## [br]
+## @param on_event: 要移除的回调函数。
+func unregister_assignable_owned(owner: Object, base_event_type: Script, on_event: Callable) -> void:
+	if owner == null or base_event_type == null:
+		return
+	var owner_id: int = owner.get_instance_id()
+	if _type_dispatch_depth > 0:
+		_assignable_type_track.remove_pending_add(base_event_type, on_event, owner_id, true)
+		_assignable_type_track.queue_remove(base_event_type, on_event, owner_id, true)
+		return
+
+	if _assignable_event_listeners.has(base_event_type):
+		var listeners: Array = _get_registry_array(_assignable_event_listeners, base_event_type)
+		_remove_entry_by_callable(listeners, on_event, base_event_type, true, owner_id, true)
 		_erase_listener_key_if_empty(_assignable_event_listeners, base_event_type)
 
 
@@ -260,13 +312,39 @@ func unregister_simple(event_id: StringName, on_event: Callable) -> void:
 	if not _validate_simple_event_id(event_id, "unregister_simple"):
 		return
 	if _simple_dispatch_depth > 0:
-		_simple_track.remove_pending_add(event_id, on_event)
-		_simple_track.queue_remove(event_id, on_event)
+		_simple_track.remove_pending_add(event_id, on_event, 0, true)
+		_simple_track.queue_remove(event_id, on_event, 0, true)
 		return
 
 	if _simple_event_listeners.has(event_id):
 		var listeners: Array = _get_registry_array(_simple_event_listeners, event_id)
-		_remove_entry_by_callable(listeners, on_event)
+		_remove_entry_by_callable(listeners, on_event, null, false, 0, true)
+		_erase_listener_key_if_empty(_simple_event_listeners, event_id)
+
+
+## 注销带拥有者的轻量级 StringName 事件监听器。
+## [br]
+## @api public
+## [br]
+## @since 5.0.0
+## [br]
+## @param owner: 注册监听时使用的拥有者。
+## [br]
+## @param event_id: StringName 事件标识符。
+## [br]
+## @param on_event: 要移除的回调函数。
+func unregister_simple_owned(owner: Object, event_id: StringName, on_event: Callable) -> void:
+	if owner == null or not _validate_simple_event_id(event_id, "unregister_simple_owned"):
+		return
+	var owner_id: int = owner.get_instance_id()
+	if _simple_dispatch_depth > 0:
+		_simple_track.remove_pending_add(event_id, on_event, owner_id, true)
+		_simple_track.queue_remove(event_id, on_event, owner_id, true)
+		return
+
+	if _simple_event_listeners.has(event_id):
+		var listeners: Array = _get_registry_array(_simple_event_listeners, event_id)
+		_remove_entry_by_callable(listeners, on_event, null, false, owner_id, true)
 		_erase_listener_key_if_empty(_simple_event_listeners, event_id)
 
 
@@ -305,16 +383,16 @@ func send_simple(event_id: StringName, payload: Variant = null) -> void:
 		var callback: Callable = entry.callable
 
 		if _entry_owner_is_released(entry):
-			_simple_track.queue_remove(event_id, callback)
+			_simple_track.queue_remove(event_id, callback, _entry_owner_id(entry), true)
 			has_pending_removes = true
 			continue
 		if has_pending_owner_removes and _is_pending_owner_remove(entry, _simple_track.pending_owner_removes):
 			continue
 		if not callback.is_valid() or (callback.get_object() != null and not is_instance_valid(callback.get_object())):
-			_simple_track.queue_remove(event_id, callback)
+			_simple_track.queue_remove(event_id, callback, _entry_owner_id(entry), true)
 			has_pending_removes = true
 			continue
-		if has_pending_removes and _simple_track.has_pending_remove(event_id, callback):
+		if has_pending_removes and _simple_track.has_pending_remove(event_id, callback, _entry_owner_id(entry), true):
 			continue
 
 		callback.call(payload)
@@ -549,14 +627,14 @@ func _dispatch_type_listener_entries(event_instance: Object, listeners: Array[Di
 		var assignable: bool = _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(entry, "assignable", false)
 		var track: EventListenerTrack = _get_type_track(assignable)
 		if _entry_owner_is_released(entry):
-			_append_pending_type_remove(event_type, callback, assignable)
+			_append_pending_type_remove(event_type, callback, assignable, _entry_owner_id(entry), true)
 			continue
 		if _is_pending_owner_remove(entry, track.pending_owner_removes):
 			continue
 		if not callback.is_valid() or (callback.get_object() != null and not is_instance_valid(callback.get_object())):
-			_append_pending_type_remove(event_type, callback, assignable)
+			_append_pending_type_remove(event_type, callback, assignable, _entry_owner_id(entry), true)
 			continue
-		if track.has_pending_remove(event_type, callback):
+		if track.has_pending_remove(event_type, callback, _entry_owner_id(entry), true):
 			continue
 
 		callback.call(event_instance)
@@ -573,8 +651,14 @@ func _event_is_consumed(event_instance: Object) -> bool:
 	return _GF_VARIANT_ACCESS_SCRIPT.to_bool(event_instance.get_indexed(NodePath("is_consumed")))
 
 
-func _append_pending_type_remove(event_type: Script, callback: Callable, assignable: bool) -> void:
-	_get_type_track(assignable).queue_remove(event_type, callback)
+func _append_pending_type_remove(
+	event_type: Script,
+	callback: Callable,
+	assignable: bool,
+	owner_id: int,
+	owner_filter_enabled: bool
+) -> void:
+	_get_type_track(assignable).queue_remove(event_type, callback, owner_id, owner_filter_enabled)
 
 
 func _would_exceed_dispatch_depth(current_depth: int) -> bool:
@@ -711,7 +795,14 @@ func _flush_listener_track_removes(track: EventListenerTrack, assignable: bool) 
 		if not track.listeners.has(key):
 			continue
 		var listeners: Array = _get_registry_array(track.listeners, key)
-		_remove_entry_by_callable(listeners, _get_callable_option(pending, "callable"), _event_type_from_key(key), assignable)
+		_remove_entry_by_callable(
+			listeners,
+			_get_callable_option(pending, "callable"),
+			_event_type_from_key(key),
+			assignable,
+			_get_pending_owner_id(pending),
+			_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(pending, "owner_filter_enabled", true)
+		)
 		_erase_listener_key_if_empty(track.listeners, key)
 	track.pending_removes.clear()
 
@@ -782,12 +873,14 @@ func _remove_entry_by_callable(
 	listeners: Array,
 	on_event: Callable,
 	event_type: Script = null,
-	assignable: bool = false
+	assignable: bool = false,
+	owner_id: int = 0,
+	owner_filter_enabled: bool = true
 ) -> void:
 	var removed: bool = false
 	for i: int in range(listeners.size() - 1, -1, -1):
 		var entry: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.as_dictionary(listeners[i])
-		if entry.callable == on_event:
+		if entry.callable == on_event and (not owner_filter_enabled or _entry_owner_id(entry) == owner_id):
 			listeners.remove_at(i)
 			removed = true
 	if removed and event_type != null:
@@ -828,6 +921,10 @@ func _entry_owner_id(entry: Dictionary) -> int:
 	if stored_owner_id != 0:
 		return stored_owner_id
 	return _owner_id_from_ref(_GF_VARIANT_ACCESS_SCRIPT.get_option_value(entry, "owner_ref"))
+
+
+func _get_pending_owner_id(pending: Dictionary) -> int:
+	return _GF_VARIANT_ACCESS_SCRIPT.get_option_int(pending, "owner_id", 0)
 
 
 func _make_owner_ref(owner: Object) -> WeakRef:
@@ -1034,9 +1131,20 @@ class EventListenerTrack:
 	## @schema key: Script or StringName listener key matching key_field.
 	## [br]
 	## @param on_event: 要注销的事件回调。
-	func queue_remove(key: Variant, on_event: Callable) -> void:
+	## [br]
+	## @param owner_id: 要匹配的监听 owner 实例 ID；0 表示无 owner。
+	## [br]
+	## @param owner_filter_enabled: 是否要求 owner_id 精确匹配。
+	func queue_remove(
+		key: Variant,
+		on_event: Callable,
+		owner_id: int = 0,
+		owner_filter_enabled: bool = true
+	) -> void:
 		var pending: Dictionary = {
 			"callable": on_event,
+			"owner_id": owner_id,
+			"owner_filter_enabled": owner_filter_enabled,
 		}
 		pending[key_field] = key
 		pending_removes.append(pending)
@@ -1050,7 +1158,16 @@ class EventListenerTrack:
 	## @schema key: Script or StringName listener key matching key_field.
 	## [br]
 	## @param on_event: 要移除的事件回调。
-	func remove_pending_add(key: Variant, on_event: Callable) -> void:
+	## [br]
+	## @param owner_id: 要匹配的监听 owner 实例 ID；0 表示无 owner。
+	## [br]
+	## @param owner_filter_enabled: 是否要求 owner_id 精确匹配。
+	func remove_pending_add(
+		key: Variant,
+		on_event: Callable,
+		owner_id: int = 0,
+		owner_filter_enabled: bool = true
+	) -> void:
 		for i: int in range(pending_adds.size() - 1, -1, -1):
 			var pending_variant: Variant = pending_adds[i]
 			if not (pending_variant is Dictionary):
@@ -1058,7 +1175,12 @@ class EventListenerTrack:
 			var pending: Dictionary = pending_variant
 			var pending_key: Variant = pending[key_field] if pending.has(key_field) else null
 			var pending_callable: Variant = pending["callable"] if pending.has("callable") else Callable()
-			if pending_key == key and pending_callable == on_event:
+			var pending_owner_id: int = _get_owner_id_from_pending(pending)
+			if (
+				pending_key == key
+				and pending_callable == on_event
+				and (not owner_filter_enabled or pending_owner_id == owner_id)
+			):
 				pending_adds.remove_at(i)
 
 	## 移除指定 owner 在同一派发周期内尚未落地的注册。
@@ -1086,12 +1208,33 @@ class EventListenerTrack:
 	## [br]
 	## @param on_event: 要查询的事件回调。
 	## [br]
+	## @param owner_id: 要匹配的监听 owner 实例 ID；0 表示无 owner。
+	## [br]
+	## @param owner_filter_enabled: 是否要求 owner_id 精确匹配。
+	## [br]
 	## @return 已暂存注销时返回 true。
-	func has_pending_remove(key: Variant, on_event: Callable) -> bool:
+	func has_pending_remove(
+		key: Variant,
+		on_event: Callable,
+		owner_id: int = 0,
+		owner_filter_enabled: bool = true
+	) -> bool:
 		for pending: Dictionary in pending_removes:
 			var pending_key: Variant = pending[key_field] if pending.has(key_field) else null
 			var pending_callable: Variant = pending["callable"] if pending.has("callable") else Callable()
-			if pending_key == key and pending_callable == on_event:
+			var pending_owner_filter_enabled: bool = true
+			if pending.has("owner_filter_enabled") and pending["owner_filter_enabled"] is bool:
+				pending_owner_filter_enabled = pending["owner_filter_enabled"]
+			var pending_owner_id: int = _get_owner_id_from_pending(pending)
+			if (
+				pending_key == key
+				and pending_callable == on_event
+				and (
+					not pending_owner_filter_enabled
+					or not owner_filter_enabled
+					or pending_owner_id == owner_id
+				)
+			):
 				return true
 		return false
 

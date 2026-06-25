@@ -1,0 +1,172 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFBuffEffect" path="addons/gf/extensions/combat/attributes/gf_buff_effect.gd" module="extensions/combat" extends="Resource" classDigest="632ed519aeea0d908a134a54ec9e6d27066cc592c68a1e3e4067d242dd9253d7">
+	<description>GFBuffEffect: Buff 可组合效果基类。
+作为数据化 Buff 的通用效果扩展点，响应 apply、remove、refresh 和 tick 生命周期。
+基类不规定伤害、治疗、控制等业务语义；项目可通过子类实现具体效果。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">protocol</tag>
+		<tag name="since">6.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties>
+		<member kind="property" name="effect_id" decorators="@export">
+			<signature>var effect_id: StringName = &amp;""</signature>
+			<description>效果标识，用于诊断、状态快照或项目侧过滤。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="metadata" decorators="@export">
+			<signature>var metadata: Dictionary = {}</signature>
+			<description>项目自定义元数据。GF 不解释其中字段。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">metadata: Dictionary project-defined effect metadata.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="apply">
+			<signature>func apply(context: Dictionary) -&gt; Dictionary:</signature>
+			<description>响应 Buff 应用。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">context: Buff 生命周期上下文。</tag>
+				<tag name="return">效果报告。</tag>
+				<tag name="schema">context: Dictionary with buff, owner, event, and metadata.</tag>
+				<tag name="schema">return: Dictionary with ok, reason, effect_id, and metadata.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="remove">
+			<signature>func remove(context: Dictionary) -&gt; Dictionary:</signature>
+			<description>响应 Buff 移除。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">context: Buff 生命周期上下文。</tag>
+				<tag name="return">效果报告。</tag>
+				<tag name="schema">context: Dictionary with buff, owner, event, reason, and metadata.</tag>
+				<tag name="schema">return: Dictionary with ok, reason, effect_id, and metadata.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="refresh">
+			<signature>func refresh(context: Dictionary) -&gt; Dictionary:</signature>
+			<description>响应 Buff 刷新。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">context: Buff 生命周期上下文。</tag>
+				<tag name="return">效果报告。</tag>
+				<tag name="schema">context: Dictionary with buff, owner, event, refresh_duration, and metadata.</tag>
+				<tag name="schema">return: Dictionary with ok, reason, effect_id, and metadata.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="tick">
+			<signature>func tick(context: Dictionary) -&gt; Dictionary:</signature>
+			<description>响应 Buff tick。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">context: Buff 生命周期上下文。</tag>
+				<tag name="return">效果报告。</tag>
+				<tag name="schema">context: Dictionary with buff, owner, event, delta, and metadata.</tag>
+				<tag name="schema">return: Dictionary with ok, reason, effect_id, and metadata.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_state_snapshot">
+			<signature>func get_state_snapshot() -&gt; Dictionary:</signature>
+			<description>获取效果运行时状态快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">状态快照。</tag>
+				<tag name="schema">return: Dictionary project-defined effect state payload.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="restore_state_snapshot">
+			<signature>func restore_state_snapshot(snapshot: Dictionary) -&gt; void:</signature>
+			<description>恢复效果运行时状态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">snapshot: 状态快照。</tag>
+				<tag name="schema">snapshot: Dictionary project-defined effect state payload.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_apply">
+			<signature>func _apply(_context: Dictionary) -&gt; Dictionary:</signature>
+			<description>Buff 应用钩子。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">_context: Buff 生命周期上下文。</tag>
+				<tag name="return">效果报告。</tag>
+				<tag name="schema">_context: Dictionary with buff, owner, event, and metadata.</tag>
+				<tag name="schema">return: Dictionary with optional ok, reason, and metadata.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_remove">
+			<signature>func _remove(_context: Dictionary) -&gt; Dictionary:</signature>
+			<description>Buff 移除钩子。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">_context: Buff 生命周期上下文。</tag>
+				<tag name="return">效果报告。</tag>
+				<tag name="schema">_context: Dictionary with buff, owner, event, reason, and metadata.</tag>
+				<tag name="schema">return: Dictionary with optional ok, reason, and metadata.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_refresh">
+			<signature>func _refresh(_context: Dictionary) -&gt; Dictionary:</signature>
+			<description>Buff 刷新钩子。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">_context: Buff 生命周期上下文。</tag>
+				<tag name="return">效果报告。</tag>
+				<tag name="schema">_context: Dictionary with buff, owner, event, refresh_duration, and metadata.</tag>
+				<tag name="schema">return: Dictionary with optional ok, reason, and metadata.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_tick">
+			<signature>func _tick(_context: Dictionary) -&gt; Dictionary:</signature>
+			<description>Buff tick 钩子。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">_context: Buff 生命周期上下文。</tag>
+				<tag name="return">效果报告。</tag>
+				<tag name="schema">_context: Dictionary with buff, owner, event, delta, and metadata.</tag>
+				<tag name="schema">return: Dictionary with optional ok, reason, and metadata.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_get_state_snapshot">
+			<signature>func _get_state_snapshot() -&gt; Dictionary:</signature>
+			<description>状态快照钩子。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="return">状态快照。</tag>
+				<tag name="schema">return: Dictionary project-defined effect state payload.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_restore_state_snapshot">
+			<signature>func _restore_state_snapshot(_snapshot: Dictionary) -&gt; void:</signature>
+			<description>状态恢复钩子。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">_snapshot: 状态快照。</tag>
+				<tag name="schema">_snapshot: Dictionary project-defined effect state payload.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

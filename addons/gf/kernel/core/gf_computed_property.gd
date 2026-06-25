@@ -14,6 +14,7 @@ extends GFBindableProperty
 # --- 常量 ---
 
 const _READ_ONLY_ERROR: String = "[GFComputedProperty] 当前属性由 compute 回调派生，请修改来源属性。"
+const _COMPUTED_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
 
 
 # --- 私有变量 ---
@@ -51,6 +52,20 @@ func _init(
 
 
 # --- 公共方法 ---
+
+## 读取派生属性的当前值。
+## Array 与 Dictionary 会返回深拷贝，避免调用方通过集合引用绕过只读约束。
+## [br]
+## @api public
+## [br]
+## @since 5.0.0
+## [br]
+## @return 当前值；集合类型返回副本。
+## [br]
+## @schema return: Variant current computed value; Array and Dictionary values are returned as deep copies.
+func get_value() -> Variant:
+	return _COMPUTED_VARIANT_ACCESS_SCRIPT.duplicate_collection(super.get_value(), true)
+
 
 ## 绑定来源属性与计算回调。重复调用会替换旧绑定。
 ## [br]

@@ -1,0 +1,143 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFNetworkDirtyStateTracker" path="addons/gf/extensions/network/session/gf_network_dirty_state_tracker.gd" module="extensions/network" extends="RefCounted" classDigest="ea5c177498f344a4d67bd94d007594347b908f5586a71ccd59b7e37e9f05d421">
+	<description>GFNetworkDirtyStateTracker: 通用网络状态 dirty 字段追踪器。
+维护字段基线、优先级和近似比较规则，帮助项目或扩展决定哪些状态需要同步。
+它不扫描节点、不规定 authority，也不发送消息。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_service</tag>
+		<tag name="since">6.0.0</tag>
+	</tags>
+	<signals />
+	<enums>
+		<member kind="enum" name="Priority">
+			<signature>enum Priority {
+	## 高频、强实时字段。
+	REALTIME,
+	## 高优先级字段。
+	HIGH,
+	## 普通字段。
+	NORMAL,
+	## 低频字段。
+	LOW,
+	## 只适合出生或初始状态同步的字段。
+	SPAWN_ONLY,
+	## 只保留在本地的字段。
+	LOCAL_ONLY,
+}</signature>
+			<description>字段同步优先级。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+	</enums>
+	<constants />
+	<properties>
+		<member kind="property" name="epsilon">
+			<signature>var epsilon: float = 0.001</signature>
+			<description>浮点和向量近似比较阈值。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="default_priority">
+			<signature>var default_priority: Priority = Priority.NORMAL</signature>
+			<description>默认字段优先级。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="set_field_priority">
+			<signature>func set_field_priority(field_id: StringName, priority: Priority) -&gt; void:</signature>
+			<description>设置字段优先级。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">field_id: 字段标识。</tag>
+				<tag name="param">priority: 优先级。</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_field_priority">
+			<signature>func get_field_priority(field_id: StringName) -&gt; Priority:</signature>
+			<description>获取字段优先级。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">field_id: 字段标识。</tag>
+				<tag name="return">字段优先级。</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="set_baseline">
+			<signature>func set_baseline(state: Dictionary) -&gt; void:</signature>
+			<description>设置基线状态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">state: 字段状态。</tag>
+				<tag name="schema">state: Dictionary mapping field ids to values.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="update_baseline">
+			<signature>func update_baseline(state: Dictionary, field_ids: PackedStringArray = PackedStringArray()) -&gt; int:</signature>
+			<description>使用当前状态更新全部或指定字段基线。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">state: 字段状态。</tag>
+				<tag name="param">field_ids: 指定字段；为空时更新全部字段。</tag>
+				<tag name="return">更新字段数量。</tag>
+				<tag name="schema">state: Dictionary mapping field ids to values.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_dirty_report">
+			<signature>func get_dirty_report(state: Dictionary, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>获取 dirty 字段报告。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">state: 当前字段状态。</tag>
+				<tag name="param">options: 可选参数，支持 include_spawn_only、include_local_only、priorities。</tag>
+				<tag name="return">dirty 字段报告。</tag>
+				<tag name="schema">state: Dictionary mapping field ids to values.</tag>
+				<tag name="schema">options: Dictionary with optional `include_spawn_only: bool`, `include_local_only: bool`, and `priorities: Array`.</tag>
+				<tag name="schema">return: Dictionary with dirty_count, dirty_fields, by_priority, and values.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_field_dirty">
+			<signature>func is_field_dirty(state: Dictionary, field_id: StringName) -&gt; bool:</signature>
+			<description>检查字段是否 dirty。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">state: 当前字段状态。</tag>
+				<tag name="param">field_id: 字段标识。</tag>
+				<tag name="return">字段值变化时返回 true。</tag>
+				<tag name="schema">state: Dictionary mapping field ids to values.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="clear">
+			<signature>func clear() -&gt; void:</signature>
+			<description>清空基线和优先级。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_debug_snapshot">
+			<signature>func get_debug_snapshot() -&gt; Dictionary:</signature>
+			<description>获取调试快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">调试快照。</tag>
+				<tag name="schema">return: Dictionary with baseline_count, priority_count, epsilon, and default_priority.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

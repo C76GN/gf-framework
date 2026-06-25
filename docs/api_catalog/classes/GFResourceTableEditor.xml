@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFResourceTableEditor" path="addons/gf/kernel/editor/gf_resource_table_editor.gd" module="kernel" extends="VBoxContainer" classDigest="c147e3a13bbc09bd20a0f6b77f1c2f456881102ac02eb33a2917f8fbcb908e88">
+<class name="GFResourceTableEditor" path="addons/gf/kernel/editor/gf_resource_table_editor.gd" module="kernel" extends="VBoxContainer" classDigest="da5d0a5bee320fe9f632c44f9d8d37281e898df399729c594605859aaa88e1a8">
 	<description>GFResourceTableEditor: 通用 Resource 表格编辑控件。
 提供资源扫描、属性列提取、表格刷新与单元格提交，不绑定具体资源类型或业务数据。</description>
 	<tags>
@@ -289,6 +289,34 @@
 				<tag name="param">new_value: 新值。</tag>
 				<tag name="return">提交成功返回 true。</tag>
 				<tag name="schema">new_value: Variant value assigned to the resource property.</tag>
+			</tags>
+		</member>
+		<member kind="method" name="commit_cell_values">
+			<signature>func commit_cell_values(changes: Array[Dictionary]) -&gt; Dictionary:</signature>
+			<description>批量提交资源行单元格值。
+该方法会先处理所有变更，再统一刷新表格；启用自动保存时同一 Resource 只保存一次。
+它不是事务，部分失败不会回滚已成功的变更。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">changes: 单元格变更数组；每项包含 row_index、property 与 new_value。</tag>
+				<tag name="return">批量提交报告。</tag>
+				<tag name="schema">changes: Array[Dictionary]，每项包含 row_index: int、property: StringName/String、new_value: Variant。</tag>
+				<tag name="schema">return: Dictionary，包含 ok、requested_count、applied_count、unchanged_count、failed_count、committed 和 errors。</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="commit_visible_cell_values">
+			<signature>func commit_visible_cell_values(changes: Array[Dictionary]) -&gt; Dictionary:</signature>
+			<description>批量提交可见资源行单元格值。
+可见行索引会在任何写入发生前解析为资源行索引，避免搜索过滤刷新导致同一批变更漂移。
+启用自动保存时同一 Resource 只保存一次；该方法不是事务，部分失败不会回滚已成功的变更。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">changes: 单元格变更数组；每项包含 visible_row_index、property 与 new_value。</tag>
+				<tag name="return">批量提交报告。</tag>
+				<tag name="schema">changes: Array[Dictionary]，每项包含 visible_row_index: int、property: StringName/String、new_value: Variant。</tag>
+				<tag name="schema">return: Dictionary，包含 ok、requested_count、applied_count、unchanged_count、failed_count、committed 和 errors。</tag>
+				<tag name="since">6.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="refresh">

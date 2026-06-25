@@ -99,6 +99,18 @@ enum ValueType {
 ## @schema metadata: Dictionary caller-defined schema metadata.
 @export var metadata: Dictionary = {}
 
+## 字段级附加校验规则。
+## [br]
+## 规则在基础类型、空值和嵌套 schema 校验通过后执行，用于表达范围、集合、
+## 格式或项目自定义约束，而不把这些策略硬编码进字段类型。
+## [br]
+## @api public
+## [br]
+## @since 6.0.0
+## [br]
+## @schema validation_rules: Array[GFValidationRule] field-level validation rules.
+@export var validation_rules: Array[GFValidationRule] = []
+
 
 # --- 公共方法 ---
 
@@ -132,6 +144,7 @@ func configure(
 	if array_item_schema_value is GFSchemaField:
 		array_item_schema = array_item_schema_value
 	metadata = GFVariantData.get_option_dictionary(options, "metadata", metadata)
+	validation_rules = _read_validation_rules(GFVariantData.get_option_value(options, "validation_rules", validation_rules))
 	return self
 
 
@@ -288,6 +301,37 @@ func validate_value(value: Variant, context: Dictionary = {}) -> GFValidationRep
 	return report
 
 
+## 添加字段级校验规则。
+## [br]
+## @api public
+## [br]
+## @since 6.0.0
+## [br]
+## @param rule: 校验规则。
+## [br]
+## @return 添加成功返回 true。
+func add_validation_rule(rule: GFValidationRule) -> bool:
+	if rule == null:
+		return false
+	validation_rules.append(rule)
+	return true
+
+
+## 获取启用的字段级校验规则。
+## [br]
+## @api public
+## [br]
+## @since 6.0.0
+## [br]
+## @return 规则数组副本。
+func get_enabled_validation_rules() -> Array[GFValidationRule]:
+	var result: Array[GFValidationRule] = []
+	for rule: GFValidationRule in validation_rules:
+		if rule != null and rule.enabled:
+			result.append(rule)
+	return result
+
+
 ## 创建同内容拷贝。
 ## [br]
 ## @api public
@@ -307,6 +351,8 @@ func duplicate_field() -> GFSchemaField:
 	if array_item_schema != null:
 		field.array_item_schema = array_item_schema.duplicate_field()
 	field.metadata = metadata.duplicate(true)
+	for rule: GFValidationRule in validation_rules:
+		field.validation_rules.append(rule.duplicate_rule() if rule != null else null)
 	return field
 
 
@@ -328,6 +374,7 @@ func describe() -> Dictionary:
 		"has_dictionary_schema": dictionary_schema != null,
 		"has_array_item_schema": array_item_schema != null,
 		"metadata": metadata.duplicate(true),
+		"validation_rules": _describe_validation_rules(),
 	}
 
 
@@ -403,6 +450,8 @@ func _validate_value_into(value: Variant, report: GFValidationReport, context: D
 	elif value_type == ValueType.ARRAY and array_item_schema != null:
 		_validate_array_items(GFVariantData.as_array(value), report, context)
 
+	_validate_rules_into(value, report, context)
+
 
 # --- 私有/辅助方法 ---
 
@@ -410,6 +459,42 @@ func _validate_array_items(values: Array, report: GFValidationReport, context: D
 	for index: int in range(values.size()):
 		var item_context: Dictionary = _make_array_item_context(context, index)
 		array_item_schema._validate_value_into(values[index], report, item_context)
+
+
+func _validate_rules_into(value: Variant, report: GFValidationReport, context: Dictionary) -> void:
+	for rule: GFValidationRule in validation_rules:
+		if rule == null:
+			continue
+		var rule_context: Dictionary = _make_rule_context(context)
+		var rule_report: GFValidationReport = rule.validate(value, rule_context)
+		_merge_rule_report(report, rule_report, rule_context)
+
+
+func _make_rule_context(context: Dictionary) -> Dictionary:
+	var rule_context: Dictionary = context.duplicate(true)
+	if not rule_context.has("subject"):
+		rule_context["subject"] = _make_subject(context)
+	if not rule_context.has("path") and field_name != &"":
+		rule_context["path"] = String(field_name)
+	if not rule_context.has("key") and field_name != &"":
+		rule_context["key"] = field_name
+	return rule_context
+
+
+func _merge_rule_report(report: GFValidationReport, rule_report: GFValidationReport, context: Dictionary) -> void:
+	if rule_report == null:
+		return
+	for issue_ref: RefCounted in rule_report.issues:
+		if not (issue_ref is GFValidationIssue):
+			continue
+		var issue: GFValidationIssue = issue_ref
+		if issue.path.is_empty():
+			issue.path = GFVariantData.get_option_string(context, "path", String(field_name))
+		if issue.key == null:
+			issue.key = GFVariantData.get_option_value(context, "key", field_name)
+		if issue.subject.is_empty():
+			issue.subject = GFVariantData.get_option_string(context, "subject", _make_subject(context))
+		var _rule_issue: RefCounted = report.add_issue(issue)
 
 
 func _make_subject(context: Dictionary) -> String:
@@ -477,6 +562,37 @@ func _make_coerce_result(ok: bool, coerced_value: Variant, message: String = "")
 		"value": coerced_value,
 		"message": message,
 	}
+
+
+func _read_validation_rules(value: Variant) -> Array[GFValidationRule]:
+	var result: Array[GFValidationRule] = []
+	if not (value is Array):
+		return result
+	var source_rules: Array = value
+	for rule_variant: Variant in source_rules:
+		if rule_variant is GFValidationRule:
+			var rule: GFValidationRule = rule_variant
+			result.append(rule)
+	return result
+
+
+func _describe_validation_rules() -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	for rule: GFValidationRule in validation_rules:
+		if rule == null:
+			result.append({
+				"valid": false,
+			})
+			continue
+		result.append({
+			"valid": true,
+			"rule_id": rule.rule_id,
+			"enabled": rule.enabled,
+			"target_kind": rule.target_kind,
+			"severity": rule.severity,
+			"metadata": rule.metadata.duplicate(true),
+		})
+	return result
 
 
 func _try_coerce_bool(value: Variant) -> Dictionary:

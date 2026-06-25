@@ -78,13 +78,16 @@ def main() -> int:
 	subparsers = parser.add_subparsers(dest="command", required=True)
 
 	install_parser = subparsers.add_parser("install", help="Install packages from a local registry archive set.")
-	install_parser.add_argument("packages", nargs="+", help="Package ids to install.")
+	install_parser.add_argument("packages", nargs="*", help="Package ids to install.")
 	install_parser.add_argument("--registry", required=True, help="Registry index JSON path.")
 	install_parser.add_argument("--channel", default="", help="Channel name when --registry points to a registry source manifest.")
 	install_parser.add_argument("--project-root", required=True, help="Target Godot project root.")
 	install_parser.add_argument("--lockfile", default=".gf/packages.lock.json", help="Lockfile path, relative to --project-root unless absolute.")
 	install_parser.add_argument("--cache-dir", default="", help="Package download cache directory. Defaults to <project-root>/.gf/package_cache.")
 	install_parser.add_argument("--reason", choices=sorted(gf_package_resolver.VALID_REASONS - {"dependency"}), default="manual")
+	install_parser.add_argument("--all-concrete", action="store_true", help="Install every non-preset package selected by the registry.")
+	install_parser.add_argument("--kind", action="append", default=[], help="Install packages matching one or more comma-separated package kinds.")
+	install_parser.add_argument("--exclude-kind", action="append", default=[], help="Exclude packages matching one or more comma-separated package kinds.")
 	install_parser.add_argument("--dry-run", action="store_true", help="Resolve and validate archives without copying files or writing the lockfile.")
 	install_parser.add_argument("--json", action="store_true", help="Print JSON instead of text.")
 	install_parser.add_argument("--simulate-copy-failure-after", type=int, default=0, help=argparse.SUPPRESS)
@@ -131,6 +134,9 @@ def main() -> int:
 			lockfile_path=args.lockfile,
 			cache_dir=args.cache_dir,
 			reason=args.reason,
+			all_concrete=args.all_concrete,
+			include_kinds=gf_package_resolver.split_selector_values(args.kind),
+			exclude_kinds=gf_package_resolver.split_selector_values(args.exclude_kind),
 			dry_run=args.dry_run,
 			simulate_copy_failure_after=args.simulate_copy_failure_after,
 		)
@@ -184,7 +190,10 @@ def install_packages(
 	lockfile_path: str,
 	cache_dir: str,
 	reason: str,
-	dry_run: bool,
+	all_concrete: bool = False,
+	include_kinds: list[str] | None = None,
+	exclude_kinds: list[str] | None = None,
+	dry_run: bool = False,
 	simulate_copy_failure_after: int = 0,
 ) -> dict[str, Any]:
 	resolved_project_root = resolve_tool_path(project_root)
@@ -213,16 +222,21 @@ def install_packages(
 		lockfile_path=str(resolved_lockfile_path),
 		package_ids=package_ids,
 		reason=reason,
+		all_concrete=all_concrete,
+		include_kinds=include_kinds or [],
+		exclude_kinds=exclude_kinds or [],
 		write_lock=False,
 		current_framework_version=read_project_framework_version(resolved_project_root),
 	)
+	plan = plan_with_registry_source(plan, registry_source)
+	resolved_package_ids = string_list(plan.get("requested_packages", package_ids))
 	if not plan.get("ok"):
 		return make_install_result(
 			False,
 			resolved_registry_path,
 			resolved_project_root,
 			resolved_lockfile_path,
-			package_ids,
+			resolved_package_ids,
 			plan,
 			[],
 			0,
@@ -248,7 +262,7 @@ def install_packages(
 			resolved_registry_path,
 			resolved_project_root,
 			resolved_lockfile_path,
-			package_ids,
+			resolved_package_ids,
 			plan,
 			packages_to_change,
 			0,
@@ -263,7 +277,7 @@ def install_packages(
 			resolved_registry_path,
 			resolved_project_root,
 			resolved_lockfile_path,
-			package_ids,
+			resolved_package_ids,
 			plan,
 			[],
 			0,
@@ -291,7 +305,7 @@ def install_packages(
 				resolved_registry_path,
 				resolved_project_root,
 				resolved_lockfile_path,
-				package_ids,
+				resolved_package_ids,
 				plan,
 				packages_to_change,
 				0,
@@ -306,7 +320,7 @@ def install_packages(
 				resolved_registry_path,
 				resolved_project_root,
 				resolved_lockfile_path,
-				package_ids,
+				resolved_package_ids,
 				plan,
 				packages_to_change,
 				0,
@@ -332,7 +346,7 @@ def install_packages(
 				resolved_registry_path,
 				resolved_project_root,
 				resolved_lockfile_path,
-				package_ids,
+				resolved_package_ids,
 				plan,
 				packages_to_change,
 				0,
@@ -346,7 +360,7 @@ def install_packages(
 			resolved_registry_path,
 			resolved_project_root,
 			resolved_lockfile_path,
-			package_ids,
+			resolved_package_ids,
 			plan,
 			packages_to_change,
 			installed_file_count,
@@ -400,6 +414,7 @@ def update_packages(
 		write_lock=False,
 		current_framework_version=read_project_framework_version(resolved_project_root),
 	)
+	plan = plan_with_registry_source(plan, registry_source)
 	if not plan.get("ok"):
 		return make_update_result(
 			False,
@@ -957,6 +972,18 @@ def compact_uninstall_preview(plan: dict[str, Any]) -> dict[str, Any]:
 	}
 
 
+def plan_with_registry_source(plan: dict[str, Any], registry_source: dict[str, Any]) -> dict[str, Any]:
+	result = copy.deepcopy(plan)
+	planned_lockfile = result.get("planned_lockfile", {})
+	if not isinstance(planned_lockfile, dict):
+		return result
+	source_info = gf_package_resolver.make_lockfile_registry_source(planned_lockfile, registry_source)
+	if source_info:
+		planned_lockfile["registry_source"] = source_info
+	result["planned_lockfile"] = planned_lockfile
+	return result
+
+
 def lockfile_with_installed_files(planned_lockfile: dict[str, Any], staged_files: list[dict[str, Any]]) -> dict[str, Any]:
 	lockfile = copy.deepcopy(planned_lockfile)
 	installed = lockfile.get("installed", {})
@@ -1388,6 +1415,7 @@ def prepare_registry_source_channel(
 			expected_size,
 		)
 		if not candidate_issues:
+			result["registry_source_manifest"] = str(source.get("source", "")).strip()
 			result["channel"] = selected_channel
 			result["mirror_index"] = index - 1
 			if expected_sha:

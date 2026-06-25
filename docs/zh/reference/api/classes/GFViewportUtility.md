@@ -33,6 +33,10 @@
 | 方法 | [`world_to_screen_3d`](#member-gfviewportutility-methods-world_to_screen_3d) | `func world_to_screen_3d(camera: Camera3D, world_position: Vector3) -> Vector2:` |
 | 方法 | [`world_to_screen_2d`](#member-gfviewportutility-methods-world_to_screen_2d) | `func world_to_screen_2d(canvas_item: CanvasItem, world_position: Vector2) -> Vector2:` |
 | 方法 | [`screen_to_world_2d`](#member-gfviewportutility-methods-screen_to_world_2d) | `func screen_to_world_2d(canvas_item: CanvasItem, screen_position: Vector2) -> Vector2:` |
+| 方法 | [`calculate_safe_area_margins`](#member-gfviewportutility-methods-calculate_safe_area_margins) | `func calculate_safe_area_margins( safe_area: Rect2i, window_size: Vector2i, viewport_size: Vector2, extra_margins: Dictionary = {} ) -> Dictionary:` |
+| 方法 | [`get_display_safe_area_margins`](#member-gfviewportutility-methods-get_display_safe_area_margins) | `func get_display_safe_area_margins(viewport: Viewport = null, extra_margins: Dictionary = {}) -> Dictionary:` |
+| 方法 | [`apply_safe_area_margins`](#member-gfviewportutility-methods-apply_safe_area_margins) | `func apply_safe_area_margins(container: MarginContainer, margins: Dictionary) -> bool:` |
+| 方法 | [`apply_display_safe_area_margins`](#member-gfviewportutility-methods-apply_display_safe_area_margins) | `func apply_display_safe_area_margins( container: MarginContainer, viewport: Viewport = null, extra_margins: Dictionary = {} ) -> Dictionary:` |
 | 方法 | [`get_debug_snapshot`](#member-gfviewportutility-methods-get_debug_snapshot) | `func get_debug_snapshot() -> Dictionary:` |
 | 方法 | [`tick`](#member-gfviewportutility-methods-tick) | `func tick(_delta: float) -> void:` |
 
@@ -382,6 +386,116 @@ func screen_to_world_2d(canvas_item: CanvasItem, screen_position: Vector2) -> Ve
 | `screen_position` | 屏幕坐标。 |
 
 返回：2D 世界坐标。
+
+<a id="member-gfviewportutility-methods-calculate_safe_area_margins"></a>
+
+### `calculate_safe_area_margins`
+
+- API：`public`
+- 首次版本：`5.2.0`
+
+```gdscript
+func calculate_safe_area_margins( safe_area: Rect2i, window_size: Vector2i, viewport_size: Vector2, extra_margins: Dictionary = {} ) -> Dictionary:
+```
+
+根据物理屏幕安全区计算 Viewport 逻辑坐标中的边距。 extra_margins 使用已经转换到 Viewport 逻辑坐标的 top、left、bottom、right， 可用于叠加项目自己的遮挡区域。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `safe_area` | DisplayServer 返回的物理像素安全区。 |
+| `window_size` | DisplayServer 返回的物理窗口尺寸。 |
+| `viewport_size` | 当前 Viewport 可见尺寸。 |
+| `extra_margins` | 额外逻辑边距。 |
+
+返回：安全区边距报告。
+
+结构：
+
+- `extra_margins`: Dictionary，可选 top、left、bottom、right，单位为 Viewport 逻辑坐标。
+- `return`: Dictionary，包含 ok、top、left、bottom、right、scale_x、scale_y、safe_area、window_size 和 viewport_size。
+
+<a id="member-gfviewportutility-methods-get_display_safe_area_margins"></a>
+
+### `get_display_safe_area_margins`
+
+- API：`public`
+- 首次版本：`5.2.0`
+
+```gdscript
+func get_display_safe_area_margins(viewport: Viewport = null, extra_margins: Dictionary = {}) -> Dictionary:
+```
+
+读取当前 DisplayServer 安全区并转换为 Viewport 逻辑边距。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `viewport` | 可选 Viewport；为空时使用物理窗口尺寸作为逻辑尺寸。 |
+| `extra_margins` | 额外逻辑边距。 |
+
+返回：安全区边距报告。
+
+结构：
+
+- `extra_margins`: Dictionary，可选 top、left、bottom、right，单位为 Viewport 逻辑坐标。
+- `return`: Dictionary，包含 ok、top、left、bottom、right、scale_x、scale_y、safe_area、window_size 和 viewport_size。
+
+<a id="member-gfviewportutility-methods-apply_safe_area_margins"></a>
+
+### `apply_safe_area_margins`
+
+- API：`public`
+- 首次版本：`5.2.0`
+
+```gdscript
+func apply_safe_area_margins(container: MarginContainer, margins: Dictionary) -> bool:
+```
+
+将边距字典应用到 MarginContainer。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `container` | 目标 MarginContainer。 |
+| `margins` | 边距字典。 |
+
+返回：应用成功返回 true。
+
+结构：
+
+- `margins`: Dictionary，包含 top、left、bottom、right，单位为 Viewport 逻辑坐标。
+
+<a id="member-gfviewportutility-methods-apply_display_safe_area_margins"></a>
+
+### `apply_display_safe_area_margins`
+
+- API：`public`
+- 首次版本：`5.2.0`
+
+```gdscript
+func apply_display_safe_area_margins( container: MarginContainer, viewport: Viewport = null, extra_margins: Dictionary = {} ) -> Dictionary:
+```
+
+读取当前 DisplayServer 安全区并应用到 MarginContainer。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `container` | 目标 MarginContainer。 |
+| `viewport` | 可选 Viewport；为空时优先使用 container 所在 Viewport。 |
+| `extra_margins` | 额外逻辑边距。 |
+
+返回：安全区边距报告，applied 表示是否成功写入 container。
+
+结构：
+
+- `extra_margins`: Dictionary，可选 top、left、bottom、right，单位为 Viewport 逻辑坐标。
+- `return`: Dictionary，包含 ok、applied、top、left、bottom、right、scale_x、scale_y、safe_area、window_size 和 viewport_size。
 
 <a id="member-gfviewportutility-methods-get_debug_snapshot"></a>
 

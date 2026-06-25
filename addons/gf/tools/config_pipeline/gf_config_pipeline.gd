@@ -26,6 +26,7 @@ const _JSON_EXPORT_VERSION: int = 1
 const _JSON_VARIANT_TYPE_KEY: String = "__gf_variant_type"
 const _JSON_VARIANT_VALUE_KEY: String = "value"
 const _DEFAULT_JSON_INDENT: String = "\t"
+const _GENERATED_ARTIFACT_REPORT_SCRIPT = preload("res://addons/gf/kernel/editor/gf_generated_artifact_report.gd")
 
 
 # --- 公共方法 ---
@@ -336,13 +337,13 @@ func make_database_export(database: GFConfigDatabaseResource, options: Dictionar
 ## [br]
 ## @param output_path: 输出路径，通常为 .tres、.res 或 .json。
 ## [br]
-## @param options: 保存选项，支持 output_format、include_schema、include_indexes、indent 和 sort_keys。
+## @param options: 保存选项，支持 output_format、include_schema、include_indexes、indent、sort_keys、overwrite_existing、dry_run 和 artifact_metadata。
 ## [br]
-## @schema options: Dictionary，可包含 output_format、include_schema、include_indexes、indent 和 sort_keys。
+## @schema options: Dictionary，可包含 output_format、include_schema、include_indexes、indent、sort_keys、overwrite_existing、dry_run 和 artifact_metadata。
 ## [br]
 ## @return: 保存结果。
 ## [br]
-## @schema return: Dictionary，包含 success、path、format、error_code 和 error。
+## @schema return: Dictionary，包含 success、path、format、error_code、error、artifact_report、status、written、changed 和 dry_run。
 func save_database(
 	database: GFConfigDatabaseResource,
 	output_path: String,
@@ -365,10 +366,44 @@ func save_database(
 			"不支持的配置数据库输出格式：%s。" % String(output_format)
 		)
 
+	var resource_artifact_report: Dictionary = _make_pending_resource_artifact_report(output_path, output_format, options)
+	var pending_error: Error = _GENERATED_ARTIFACT_REPORT_SCRIPT.get_error_code(resource_artifact_report)
+	if pending_error != OK:
+		return _make_save_result(
+			false,
+			output_path,
+			output_format,
+			pending_error,
+			GFVariantData.get_option_string(resource_artifact_report, "error"),
+			resource_artifact_report
+		)
+	if GFVariantData.get_option_bool(resource_artifact_report, "dry_run"):
+		return _make_save_result(true, output_path, output_format, OK, "", resource_artifact_report)
+
 	var save_error: Error = ResourceSaver.save(database, output_path)
 	if save_error != OK:
-		return _make_save_result(false, output_path, output_format, save_error, "保存配置数据库失败：%s。" % error_string(save_error))
-	return _make_save_result(true, output_path, output_format, OK, "")
+		var failed_artifact_report: Dictionary = _make_resource_artifact_report(
+			output_path,
+			output_format,
+			_GENERATED_ARTIFACT_REPORT_SCRIPT.STATUS_FAILED,
+			save_error,
+			"保存配置数据库失败：%s。" % error_string(save_error),
+			options,
+			false,
+			GFVariantData.get_option_bool(resource_artifact_report, "changed")
+		)
+		return _make_save_result(false, output_path, output_format, save_error, "保存配置数据库失败：%s。" % error_string(save_error), failed_artifact_report)
+	var saved_artifact_report: Dictionary = _make_resource_artifact_report(
+		output_path,
+		output_format,
+		GFVariantData.get_option_string_name(resource_artifact_report, "status"),
+		OK,
+		"",
+		options,
+		true,
+		GFVariantData.get_option_bool(resource_artifact_report, "changed")
+	)
+	return _make_save_result(true, output_path, output_format, OK, "", saved_artifact_report)
 
 
 ## 根据配置数据库生成静态访问器脚本。
@@ -385,13 +420,13 @@ func save_database(
 ## [br]
 ## @param provider_accessor: 无显式 provider 参数时用于获取 provider 的表达式。
 ## [br]
-## @param options: 访问器生成选项，支持 GFConfigAccessGenerator 选项和 overwrite_existing。
+## @param options: 访问器生成选项，支持 GFConfigAccessGenerator 选项、overwrite_existing、dry_run、scan_filesystem 和 metadata。
 ## [br]
-## @schema options: Dictionary，可包含 method_name_style、constant_prefix、record_method_pattern、table_method_pattern、include_schema_comments、include_typed_records、typed_record_method_pattern、typed_record_class_suffix 和 overwrite_existing。
+## @schema options: Dictionary，可包含 method_name_style、constant_prefix、record_method_pattern、table_method_pattern、include_schema_comments、include_typed_records、typed_record_method_pattern、typed_record_class_suffix、overwrite_existing、dry_run、scan_filesystem 和 metadata。
 ## [br]
 ## @return: 访问器生成结果。
 ## [br]
-## @schema return: Dictionary，包含 success、skipped、path、class_name、schema_count、error_code 和 error。
+## @schema return: Dictionary，包含 success、skipped、path、class_name、schema_count、error_code、error 和 artifact_report。
 func generate_access(
 	database: GFConfigDatabaseResource,
 	output_path: String,
@@ -411,14 +446,20 @@ func generate_access(
 
 	var accessor: String = provider_accessor if not provider_accessor.is_empty() else "null"
 	var overwrite_existing: bool = GFVariantData.get_option_bool(options, "overwrite_existing", true)
+	var generation_options: Dictionary = options.duplicate(true)
+	generation_options["overwrite_existing"] = overwrite_existing
 	var generator: GFConfigAccessGenerator = GFConfigAccessGenerator.new()
-	var generate_error: Error = generator.generate(
+	var artifact_report: Dictionary = generator.generate_with_report(
 		schemas,
 		output_path,
-		overwrite_existing,
 		class_name_value,
 		accessor,
-		options
+		generation_options
+	)
+	var generate_error: Error = _GENERATED_ARTIFACT_REPORT_SCRIPT.get_error_code(artifact_report)
+	var access_skipped: bool = (
+		GFVariantData.get_option_string_name(artifact_report, "status")
+		== _GENERATED_ARTIFACT_REPORT_SCRIPT.STATUS_SKIPPED
 	)
 	if generate_error != OK:
 		return _make_access_result(
@@ -427,10 +468,11 @@ func generate_access(
 			class_name_value,
 			generate_error,
 			"生成配置访问器失败：%s。" % error_string(generate_error),
-			false,
-			schemas.size()
+			access_skipped,
+			schemas.size(),
+			artifact_report
 		)
-	return _make_access_result(true, output_path, class_name_value, OK, "", false, schemas.size())
+	return _make_access_result(true, output_path, class_name_value, OK, "", false, schemas.size(), artifact_report)
 
 
 # --- 私有/辅助方法 ---
@@ -1105,7 +1147,18 @@ func _apply_typed_header_schema(
 			"schema": null,
 		}
 
-	var raw_fields: Array[StringName] = _collect_typed_header_field_names(parse_result, records)
+	var source_records: Array[Dictionary] = records
+	var raw_fields: Array[StringName] = []
+	if GFVariantData.get_option_bool(source.schema_options, "typed_header_type_row", false):
+		var type_row_result: Dictionary = _collect_typed_header_type_row_field_names(parse_result, records)
+		if not GFVariantData.get_option_bool(type_row_result, "success", true):
+			return type_row_result
+		raw_fields = _get_typed_header_field_array(type_row_result)
+		source_records = _drop_first_record(records)
+		_drop_first_parse_result_row_location(parse_result)
+	else:
+		raw_fields = _collect_typed_header_field_names(parse_result, records)
+
 	var schema: GFConfigTableSchema = _make_typed_header_schema(table_name, source.schema_options)
 	var field_name_map: Dictionary = {}
 	var seen_fields: Dictionary = {}
@@ -1137,7 +1190,7 @@ func _apply_typed_header_schema(
 	_remap_parse_result_field_locations(parse_result, field_name_map)
 	return {
 		"success": true,
-		"records": _remap_record_fields(records, field_name_map),
+		"records": _remap_record_fields(source_records, field_name_map),
 		"schema": schema,
 	}
 
@@ -1184,6 +1237,80 @@ func _collect_record_field_names(records: Array[Dictionary]) -> Array[StringName
 	return result
 
 
+func _collect_typed_header_type_row_field_names(
+	parse_result: Dictionary,
+	records: Array[Dictionary]
+) -> Dictionary:
+	if records.is_empty():
+		return _make_typed_header_failure(
+			"missing_typed_header_type_row",
+			"启用了 typed_header_type_row，但配置表缺少类型行。",
+			&""
+		)
+
+	var header_fields: Array[StringName] = _collect_header_field_names(GFVariantData.get_option_value(parse_result, "header"))
+	if header_fields.is_empty():
+		header_fields = _collect_record_field_names(records)
+	if header_fields.is_empty():
+		return _make_typed_header_failure(
+			"missing_typed_header_fields",
+			"启用了 typed_header_type_row，但配置表缺少表头字段。",
+			&""
+		)
+
+	var type_record: Dictionary = records[0]
+	var result: Array[StringName] = []
+	for raw_field_name: StringName in header_fields:
+		var field_text: String = String(raw_field_name).strip_edges()
+		if field_text.is_empty():
+			continue
+		var type_text: String = GFVariantData.to_text(_get_record_field_value(type_record, raw_field_name)).strip_edges()
+		if type_text.is_empty():
+			result.append(StringName(field_text))
+		else:
+			result.append(StringName("%s:%s" % [field_text, type_text]))
+	return {
+		"success": true,
+		"fields": result,
+	}
+
+
+func _get_typed_header_field_array(data: Dictionary) -> Array[StringName]:
+	var result: Array[StringName] = []
+	for field_value: Variant in GFVariantData.get_option_array(data, "fields"):
+		var field_name: StringName = GFVariantData.to_string_name(field_value)
+		if field_name != &"":
+			result.append(field_name)
+	return result
+
+
+func _get_record_field_value(record: Dictionary, field_name: StringName) -> Variant:
+	if record.has(field_name):
+		return record[field_name]
+	var field_text: String = String(field_name)
+	if record.has(field_text):
+		return record[field_text]
+	return null
+
+
+func _drop_first_record(records: Array[Dictionary]) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	for index: int in range(1, records.size()):
+		result.append(records[index])
+	return result
+
+
+func _drop_first_parse_result_row_location(parse_result: Dictionary) -> void:
+	var row_locations_value: Variant = GFVariantData.get_option_value(parse_result, "row_locations", [])
+	if not (row_locations_value is Array):
+		return
+	var row_locations: Array = row_locations_value
+	if row_locations.is_empty():
+		return
+	row_locations.remove_at(0)
+	parse_result["row_locations"] = row_locations
+
+
 func _make_typed_header_schema(table_name: StringName, schema_options: Dictionary) -> GFConfigTableSchema:
 	var schema: GFConfigTableSchema = GFConfigTableSchema.new()
 	schema.table_name = table_name
@@ -1192,9 +1319,10 @@ func _make_typed_header_schema(table_name: StringName, schema_options: Dictionar
 	schema.coerce_values = GFVariantData.get_option_bool(schema_options, "coerce_values", true)
 	schema.fail_on_coerce_error = GFVariantData.get_option_bool(schema_options, "fail_on_coerce_error", true)
 	schema.require_unique_id = GFVariantData.get_option_bool(schema_options, "require_unique_id", false)
+	var uses_type_row: bool = GFVariantData.get_option_bool(schema_options, "typed_header_type_row", false)
 	schema.metadata = {
-		"schema_source": "typed_headers",
-		"header_syntax": "gf.typed_headers.v1",
+		"schema_source": "typed_header_type_row" if uses_type_row else "typed_headers",
+		"header_syntax": "gf.typed_header_type_row.v1" if uses_type_row else "gf.typed_headers.v1",
 	}
 	return schema
 
@@ -1411,7 +1539,8 @@ func _make_save_result(
 	output_path: String,
 	output_format: StringName,
 	error_code: Error,
-	message: String
+	message: String,
+	artifact_report: Dictionary = {}
 ) -> Dictionary:
 	return {
 		"success": success,
@@ -1419,6 +1548,11 @@ func _make_save_result(
 		"format": output_format,
 		"error_code": error_code,
 		"error": message,
+		"artifact_report": artifact_report.duplicate(true),
+		"status": GFVariantData.get_option_string_name(artifact_report, "status"),
+		"written": GFVariantData.get_option_bool(artifact_report, "written"),
+		"changed": GFVariantData.get_option_bool(artifact_report, "changed"),
+		"dry_run": GFVariantData.get_option_bool(artifact_report, "dry_run"),
 	}
 
 
@@ -1470,7 +1604,8 @@ func _make_access_result(
 	error_code: Error,
 	message: String,
 	skipped: bool,
-	schema_count: int
+	schema_count: int,
+	artifact_report: Dictionary = {}
 ) -> Dictionary:
 	return {
 		"success": success,
@@ -1480,6 +1615,7 @@ func _make_access_result(
 		"schema_count": schema_count,
 		"error_code": error_code,
 		"error": message,
+		"artifact_report": artifact_report.duplicate(true),
 	}
 
 
@@ -1562,6 +1698,71 @@ func _duplicate_dictionary_without_keys(result: Dictionary, skipped_keys: Dictio
 	return copy
 
 
+func _make_pending_resource_artifact_report(
+	output_path: String,
+	output_format: StringName,
+	options: Dictionary
+) -> Dictionary:
+	var exists: bool = FileAccess.file_exists(output_path)
+	var status: StringName = _GENERATED_ARTIFACT_REPORT_SCRIPT.STATUS_CHANGED if exists else _GENERATED_ARTIFACT_REPORT_SCRIPT.STATUS_NEW
+	var overwrite_existing: bool = GFVariantData.get_option_bool(options, "overwrite_existing", true)
+	if exists and not overwrite_existing:
+		var skipped_message: String = "目标文件已存在，已跳过：%s" % output_path
+		push_warning("[GFConfigPipeline] %s" % skipped_message)
+		return _make_resource_artifact_report(
+			output_path,
+			output_format,
+			_GENERATED_ARTIFACT_REPORT_SCRIPT.STATUS_SKIPPED,
+			ERR_ALREADY_EXISTS,
+			skipped_message,
+			options,
+			false,
+			true
+		)
+
+	return _make_resource_artifact_report(
+		output_path,
+		output_format,
+		status,
+		OK,
+		"",
+		options,
+		false,
+		true
+	)
+
+
+func _make_resource_artifact_report(
+	output_path: String,
+	output_format: StringName,
+	status: StringName,
+	error_code: Error,
+	message: String,
+	options: Dictionary,
+	written: bool,
+	changed: bool
+) -> Dictionary:
+	return _GENERATED_ARTIFACT_REPORT_SCRIPT.make_report(output_path, status, error_code, message, {
+		"written": written,
+		"changed": changed,
+		"dry_run": GFVariantData.get_option_bool(options, "dry_run", false),
+		"metadata": _make_artifact_metadata(options, output_format),
+	})
+
+
+func _make_text_artifact_options(options: Dictionary, output_format: StringName) -> Dictionary:
+	var artifact_options: Dictionary = options.duplicate(true)
+	artifact_options["label"] = "GFConfigPipeline"
+	artifact_options["metadata"] = _make_artifact_metadata(options, output_format)
+	return artifact_options
+
+
+func _make_artifact_metadata(options: Dictionary, output_format: StringName) -> Dictionary:
+	var metadata: Dictionary = GFVariantData.get_option_dictionary(options, "artifact_metadata").duplicate(true)
+	metadata["format"] = output_format
+	return metadata
+
+
 func _save_database_json(
 	database: GFConfigDatabaseResource,
 	output_path: String,
@@ -1581,19 +1782,19 @@ func _save_database_json(
 	var indent: String = GFVariantData.get_option_string(options, "indent", _DEFAULT_JSON_INDENT)
 	var sort_keys: bool = GFVariantData.get_option_bool(options, "sort_keys", true)
 	var json_text: String = JSON.stringify(export_data, indent, sort_keys)
-	var file: FileAccess = FileAccess.open(output_path, FileAccess.WRITE)
-	if file == null:
-		var open_error: Error = FileAccess.get_open_error()
+	var artifact_options: Dictionary = _make_text_artifact_options(options, _OUTPUT_FORMAT_JSON)
+	var artifact_report: Dictionary = _GENERATED_ARTIFACT_REPORT_SCRIPT.save_text(output_path, json_text, artifact_options)
+	var save_error: Error = _GENERATED_ARTIFACT_REPORT_SCRIPT.get_error_code(artifact_report)
+	if save_error != OK:
 		return _make_save_result(
 			false,
 			output_path,
 			_OUTPUT_FORMAT_JSON,
-			open_error,
-			"保存配置数据库 JSON 失败：%s。" % error_string(open_error)
+			save_error,
+			GFVariantData.get_option_string(artifact_report, "error"),
+			artifact_report
 		)
-
-	var _store_string_result: bool = file.store_string(json_text)
-	return _make_save_result(true, output_path, _OUTPUT_FORMAT_JSON, OK, "")
+	return _make_save_result(true, output_path, _OUTPUT_FORMAT_JSON, OK, "", artifact_report)
 
 
 func _make_database_export_result(database: GFConfigDatabaseResource, options: Dictionary) -> Dictionary:

@@ -6,11 +6,11 @@
 
 | 类别 | 类 | 成员 | 方法 |
 |---|---:|---:|---:|
-| [运行时服务](#category-runtime_service) | 2 | 14 | 14 |
-| [协议与扩展点](#category-protocol) | 6 | 59 | 28 |
-| [资源定义](#category-resource_definition) | 13 | 106 | 30 |
+| [运行时服务](#category-runtime_service) | 2 | 16 | 16 |
+| [协议与扩展点](#category-protocol) | 8 | 90 | 46 |
+| [资源定义](#category-resource_definition) | 14 | 124 | 33 |
 | [运行时句柄](#category-runtime_handle) | 16 | 264 | 113 |
-| [值对象](#category-value_object) | 4 | 49 | 18 |
+| [值对象](#category-value_object) | 4 | 53 | 22 |
 | [事件契约](#category-event_contract) | 4 | 6 | 0 |
 
 ## 类
@@ -31,6 +31,8 @@
 | 类 | 继承 | 源文件 |
 |---|---|---|
 | [`GFBuff`](classes/GFBuff.md#gfbuff) | `RefCounted` | `addons/gf/extensions/combat/attributes/gf_buff.gd` |
+| [`GFBuffCheck`](classes/GFBuffCheck.md#gfbuffcheck) | `Resource` | `addons/gf/extensions/combat/attributes/gf_buff_check.gd` |
+| [`GFBuffEffect`](classes/GFBuffEffect.md#gfbuffeffect) | `Resource` | `addons/gf/extensions/combat/attributes/gf_buff_effect.gd` |
 | [`GFProjectileLifetimePolicy`](classes/GFProjectileLifetimePolicy.md#gfprojectilelifetimepolicy) | `Resource` | `addons/gf/extensions/combat/projectiles/gf_projectile_lifetime_policy.gd` |
 | [`GFProjectileMotion`](classes/GFProjectileMotion.md#gfprojectilemotion) | `Resource` | `addons/gf/extensions/combat/projectiles/gf_projectile_motion.gd` |
 | [`GFProjectileSpawnPattern2D`](classes/GFProjectileSpawnPattern2D.md#gfprojectilespawnpattern2d) | `Resource` | `addons/gf/extensions/combat/projectiles/gf_projectile_spawn_pattern_2d.gd` |
@@ -43,6 +45,7 @@
 
 | 类 | 继承 | 源文件 |
 |---|---|---|
+| [`GFBuffRecipe`](classes/GFBuffRecipe.md#gfbuffrecipe) | `Resource` | `addons/gf/extensions/combat/attributes/gf_buff_recipe.gd` |
 | [`GFCombatAction`](classes/GFCombatAction.md#gfcombataction) | `Resource` | `addons/gf/extensions/combat/actions/gf_combat_action.gd` |
 | [`GFCombatActionModifier`](classes/GFCombatActionModifier.md#gfcombatactionmodifier) | `Resource` | `addons/gf/extensions/combat/actions/gf_combat_action_modifier.gd` |
 | [`GFHitCollisionShapeConfig2D`](classes/GFHitCollisionShapeConfig2D.md#gfhitcollisionshapeconfig2d) | `Resource` | `addons/gf/extensions/combat/hit_detection/gf_hit_collision_shape_config_2d.gd` |

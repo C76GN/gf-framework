@@ -146,16 +146,21 @@ func set_architecture(architecture_instance: GFArchitecture) -> void:
 
 	_architecture_assignment_serial += 1
 	var assignment_serial: int = _architecture_assignment_serial
-	if _architecture != null and _architecture != architecture_instance:
-		_architecture.dispose()
-	_architecture = architecture_instance
+	var previous_architecture: GFArchitecture = _architecture
 	var installers_ready: bool = await _run_project_installers(architecture_instance)
-	if not _is_architecture_assignment_current(architecture_instance, assignment_serial):
+	if not _is_architecture_assignment_serial_current(assignment_serial):
 		return
 	if not installers_ready:
 		return
 	if not architecture_instance.is_inited():
 		await architecture_instance.init()
+	if not _is_architecture_assignment_serial_current(assignment_serial):
+		return
+	if architecture_instance.has_initialization_failed():
+		return
+	if previous_architecture != null and previous_architecture != architecture_instance:
+		previous_architecture.dispose()
+	_architecture = architecture_instance
 
 
 ## 初始化当前架构。若尚未创建架构，则自动创建默认 GFArchitecture。
@@ -405,6 +410,42 @@ func register_utility_alias(alias_cls: Script, target_cls: Script) -> void:
 	var arch: GFArchitecture = _get_architecture_or_null("register_utility_alias")
 	if arch != null:
 		arch.register_utility_alias(alias_cls, target_cls)
+
+## 注销 System 查询别名，不影响目标实例。
+## [br]
+## @api public
+## [br]
+## @since 5.0.0
+## [br]
+## @param alias_cls: 要移除的别名脚本类型。
+func unregister_system_alias(alias_cls: Script) -> void:
+	var arch: GFArchitecture = _get_architecture_or_null("unregister_system_alias")
+	if arch != null:
+		arch.unregister_system_alias(alias_cls)
+
+## 注销 Model 查询别名，不影响目标实例。
+## [br]
+## @api public
+## [br]
+## @since 5.0.0
+## [br]
+## @param alias_cls: 要移除的别名脚本类型。
+func unregister_model_alias(alias_cls: Script) -> void:
+	var arch: GFArchitecture = _get_architecture_or_null("unregister_model_alias")
+	if arch != null:
+		arch.unregister_model_alias(alias_cls)
+
+## 注销 Utility 查询别名，不影响目标实例。
+## [br]
+## @api public
+## [br]
+## @since 5.0.0
+## [br]
+## @param alias_cls: 要移除的别名脚本类型。
+func unregister_utility_alias(alias_cls: Script) -> void:
+	var arch: GFArchitecture = _get_architecture_or_null("unregister_utility_alias")
+	if arch != null:
+		arch.unregister_utility_alias(alias_cls)
 
 ## 获取 System 实例。
 ## [br]
@@ -669,6 +710,22 @@ func unlisten(event_type: Script, on_event: Callable) -> void:
 	if arch != null:
 		arch.unregister_event(event_type, on_event)
 
+## 快捷注销带拥有者的类型事件监听。
+## [br]
+## @api public
+## [br]
+## @since 5.0.0
+## [br]
+## @param listener_owner: 注册监听时使用的拥有者。
+## [br]
+## @param event_type: 要取消监听的事件脚本类型。
+## [br]
+## @param on_event: 要移除的回调。
+func unlisten_owned(listener_owner: Object, event_type: Script, on_event: Callable) -> void:
+	var arch: GFArchitecture = _get_architecture_or_null("unlisten_owned")
+	if arch != null:
+		arch.unregister_event_owned(listener_owner, event_type, on_event)
+
 ## 快捷注销可赋值类型事件监听。
 ## [br]
 ## @api public
@@ -680,6 +737,22 @@ func unlisten_assignable(base_event_type: Script, on_event: Callable) -> void:
 	var arch: GFArchitecture = _get_architecture_or_null("unlisten_assignable")
 	if arch != null:
 		arch.unregister_assignable_event(base_event_type, on_event)
+
+## 快捷注销带拥有者的可赋值类型事件监听。
+## [br]
+## @api public
+## [br]
+## @since 5.0.0
+## [br]
+## @param listener_owner: 注册监听时使用的拥有者。
+## [br]
+## @param base_event_type: 要取消监听的基类事件脚本类型。
+## [br]
+## @param on_event: 要移除的回调。
+func unlisten_assignable_owned(listener_owner: Object, base_event_type: Script, on_event: Callable) -> void:
+	var arch: GFArchitecture = _get_architecture_or_null("unlisten_assignable_owned")
+	if arch != null:
+		arch.unregister_assignable_event_owned(listener_owner, base_event_type, on_event)
 
 ## 快捷注册轻量事件监听（别名：listen_simple）。
 ## [br]
@@ -718,6 +791,22 @@ func unlisten_simple(event_id: StringName, on_event: Callable) -> void:
 	var arch: GFArchitecture = _get_architecture_or_null("unlisten_simple")
 	if arch != null:
 		arch.unregister_simple_event(event_id, on_event)
+
+## 快捷注销带拥有者的轻量事件监听。
+## [br]
+## @api public
+## [br]
+## @since 5.0.0
+## [br]
+## @param listener_owner: 注册监听时使用的拥有者。
+## [br]
+## @param event_id: 简单事件标识符。
+## [br]
+## @param on_event: 要移除的回调。
+func unlisten_simple_owned(listener_owner: Object, event_id: StringName, on_event: Callable) -> void:
+	var arch: GFArchitecture = _get_architecture_or_null("unlisten_simple_owned")
+	if arch != null:
+		arch.unregister_simple_event_owned(listener_owner, event_id, on_event)
 
 ## 快捷注销某个拥有者注册过的所有事件监听。
 ## [br]
@@ -1014,3 +1103,7 @@ func _report_project_installer_error(message: String) -> void:
 
 func _is_architecture_assignment_current(architecture_instance: GFArchitecture, assignment_serial: int) -> bool:
 	return _architecture == architecture_instance and _architecture_assignment_serial == assignment_serial
+
+
+func _is_architecture_assignment_serial_current(assignment_serial: int) -> bool:
+	return _architecture_assignment_serial == assignment_serial

@@ -24,12 +24,15 @@
 | 属性 | [`dictionary_schema`](#member-gfschemafield-properties-dictionary_schema) | `var dictionary_schema: GFDictionarySchema = null` |
 | 属性 | [`array_item_schema`](#member-gfschemafield-properties-array_item_schema) | `var array_item_schema: GFSchemaField = null` |
 | 属性 | [`metadata`](#member-gfschemafield-properties-metadata) | `var metadata: Dictionary = {}` |
+| 属性 | [`validation_rules`](#member-gfschemafield-properties-validation_rules) | `var validation_rules: Array[GFValidationRule] = []` |
 | 方法 | [`configure`](#member-gfschemafield-methods-configure) | `func configure( p_field_name: StringName, p_value_type: ValueType = ValueType.ANY, options: Dictionary = {} ) -> GFSchemaField:` |
 | 方法 | [`get_field_key`](#member-gfschemafield-methods-get_field_key) | `func get_field_key() -> StringName:` |
 | 方法 | [`is_value_valid`](#member-gfschemafield-methods-is_value_valid) | `func is_value_valid(value: Variant) -> bool:` |
 | 方法 | [`coerce_value`](#member-gfschemafield-methods-coerce_value) | `func coerce_value(value: Variant) -> Variant:` |
 | 方法 | [`try_coerce_value`](#member-gfschemafield-methods-try_coerce_value) | `func try_coerce_value(value: Variant) -> Dictionary:` |
 | 方法 | [`validate_value`](#member-gfschemafield-methods-validate_value) | `func validate_value(value: Variant, context: Dictionary = {}) -> GFValidationReport:` |
+| 方法 | [`add_validation_rule`](#member-gfschemafield-methods-add_validation_rule) | `func add_validation_rule(rule: GFValidationRule) -> bool:` |
+| 方法 | [`get_enabled_validation_rules`](#member-gfschemafield-methods-get_enabled_validation_rules) | `func get_enabled_validation_rules() -> Array[GFValidationRule]:` |
 | 方法 | [`duplicate_field`](#member-gfschemafield-methods-duplicate_field) | `func duplicate_field() -> GFSchemaField:` |
 | 方法 | [`describe`](#member-gfschemafield-methods-describe) | `func describe() -> Dictionary:` |
 | 方法 | [`value_type_to_name`](#member-gfschemafield-methods-value_type_to_name) | `static func value_type_to_name(type_id: ValueType) -> String:` |
@@ -187,6 +190,23 @@ var metadata: Dictionary = {}
 
 - `metadata`: Dictionary caller-defined schema metadata.
 
+<a id="member-gfschemafield-properties-validation_rules"></a>
+
+### `validation_rules`
+
+- API：`public`
+- 首次版本：`6.0.0`
+
+```gdscript
+var validation_rules: Array[GFValidationRule] = []
+```
+
+字段级附加校验规则。 规则在基础类型、空值和嵌套 schema 校验通过后执行，用于表达范围、集合、 格式或项目自定义约束，而不把这些策略硬编码进字段类型。
+
+结构：
+
+- `validation_rules`: Array[GFValidationRule] field-level validation rules.
+
 ## 方法
 
 <a id="member-gfschemafield-methods-configure"></a>
@@ -328,6 +348,42 @@ func validate_value(value: Variant, context: Dictionary = {}) -> GFValidationRep
 
 - `value`: Variant value to validate.
 - `context`: Dictionary validation context.
+
+<a id="member-gfschemafield-methods-add_validation_rule"></a>
+
+### `add_validation_rule`
+
+- API：`public`
+- 首次版本：`6.0.0`
+
+```gdscript
+func add_validation_rule(rule: GFValidationRule) -> bool:
+```
+
+添加字段级校验规则。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `rule` | 校验规则。 |
+
+返回：添加成功返回 true。
+
+<a id="member-gfschemafield-methods-get_enabled_validation_rules"></a>
+
+### `get_enabled_validation_rules`
+
+- API：`public`
+- 首次版本：`6.0.0`
+
+```gdscript
+func get_enabled_validation_rules() -> Array[GFValidationRule]:
+```
+
+获取启用的字段级校验规则。
+
+返回：规则数组副本。
 
 <a id="member-gfschemafield-methods-duplicate_field"></a>
 

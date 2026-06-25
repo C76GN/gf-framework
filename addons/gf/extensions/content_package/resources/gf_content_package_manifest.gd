@@ -38,7 +38,41 @@ const _KIND_DUPLICATE_RESOURCE_KEY: String = "duplicate_resource_key"
 const _KIND_INVALID_RESOURCE_PATH: String = "invalid_resource_path"
 const _KIND_RESOURCE_PATH_NOT_ALLOWED: String = "resource_path_not_allowed"
 const _KIND_RESOURCE_PATH_OUTSIDE_PACKAGE: String = "resource_path_outside_package"
+const _KIND_RESOURCE_EXTENSION_FORBIDDEN: String = "resource_extension_forbidden"
 const _KIND_MISSING_RESOURCE_FILE: String = "missing_resource_file"
+const _KIND_INVALID_SAFETY_KIND: String = "invalid_safety_kind"
+
+## 只允许数据资源的内容包安全分类。
+## [br]
+## @api public
+## [br]
+## @since 6.0.0
+const SAFETY_KIND_DATA_ONLY: StringName = &"data_only"
+
+## 允许开发者代码资源的内容包安全分类。
+## [br]
+## @api public
+## [br]
+## @since 6.0.0
+const SAFETY_KIND_TRUSTED_DEVELOPER: StringName = &"trusted_developer"
+
+const _DATA_ONLY_FORBIDDEN_EXTENSIONS: PackedStringArray = [
+	"bat",
+	"cmd",
+	"cs",
+	"dll",
+	"dylib",
+	"exe",
+	"gd",
+	"gdc",
+	"gdextension",
+	"gdshader",
+	"ps1",
+	"py",
+	"sh",
+	"shader",
+	"so",
+]
 
 
 # --- 导出变量 ---
@@ -67,6 +101,20 @@ const _KIND_MISSING_RESOURCE_FILE: String = "missing_resource_file"
 ## [br]
 ## @api public
 @export var dependencies: PackedStringArray = PackedStringArray()
+
+## 内容包安全分类。data_only 默认拒绝脚本、shader、GDExtension 和可执行文件。
+## [br]
+## @api public
+## [br]
+## @since 6.0.0
+@export var safety_kind: StringName = SAFETY_KIND_DATA_ONLY
+
+## 调用方额外禁止的资源扩展名，不需要前导点。
+## [br]
+## @api public
+## [br]
+## @since 6.0.0
+@export var forbidden_resource_extensions: PackedStringArray = PackedStringArray()
 
 ## 资源键映射列表。
 ## [br]
@@ -102,6 +150,8 @@ var source_path: String = ""
 ## [br]
 ## @api public
 ## [br]
+## @since 6.0.0
+## [br]
 ## @param p_package_id: 稳定内容包 ID。
 ## [br]
 ## @param p_version: 内容包版本。
@@ -120,11 +170,17 @@ var source_path: String = ""
 ## [br]
 ## @param p_source_path: manifest 文件路径。
 ## [br]
+## @param p_safety_kind: 内容包安全分类。
+## [br]
+## @param p_forbidden_resource_extensions: 调用方额外禁止的资源扩展名。
+## [br]
 ## @return 当前 manifest。
 ## [br]
 ## @schema p_resources: Array[Dictionary]，每项包含 key、path、可选 type_hint、priority 和 metadata。
 ## [br]
 ## @schema p_metadata: Dictionary project-defined content package metadata.
+## [br]
+## @schema p_forbidden_resource_extensions: PackedStringArray extension names without leading dots.
 func configure(
 	p_package_id: StringName,
 	p_version: String,
@@ -134,7 +190,9 @@ func configure(
 	p_dependencies: PackedStringArray = PackedStringArray(),
 	p_metadata: Dictionary = {},
 	p_root_path: String = "",
-	p_source_path: String = ""
+	p_source_path: String = "",
+	p_safety_kind: StringName = SAFETY_KIND_DATA_ONLY,
+	p_forbidden_resource_extensions: PackedStringArray = PackedStringArray()
 ) -> GFContentPackageManifest:
 	package_id = p_package_id
 	version = p_version.strip_edges()
@@ -145,6 +203,8 @@ func configure(
 	metadata = p_metadata.duplicate(true)
 	root_path = _normalize_root_path(p_root_path)
 	source_path = _normalize_resource_path(p_source_path, "")
+	safety_kind = p_safety_kind
+	forbidden_resource_extensions = _normalize_extensions(p_forbidden_resource_extensions)
 	return self
 
 
@@ -173,6 +233,10 @@ func apply_dictionary(data: Dictionary, p_root_path: String = "", p_source_path:
 	version = GFVariantData.get_option_string(data, "version", version).strip_edges()
 	content_types = GFVariantData.get_option_packed_string_array(data, "content_types", content_types)
 	dependencies = GFVariantData.get_option_packed_string_array(data, "dependencies", dependencies)
+	safety_kind = GFVariantData.get_option_string_name(data, "safety_kind", safety_kind)
+	forbidden_resource_extensions = _normalize_extensions(
+		GFVariantData.get_option_packed_string_array(data, "forbidden_resource_extensions", forbidden_resource_extensions)
+	)
 	resources = _copy_resource_entries(_get_resource_entries(data))
 	metadata = GFVariantData.get_option_dictionary(data, "metadata", metadata)
 	root_path = _normalize_root_path(p_root_path)
@@ -194,6 +258,8 @@ func to_dictionary() -> Dictionary:
 		"version": version,
 		"content_types": content_types.duplicate(),
 		"dependencies": dependencies.duplicate(),
+		"safety_kind": safety_kind,
+		"forbidden_resource_extensions": forbidden_resource_extensions.duplicate(),
 		"resources": _copy_resource_entries(resources),
 		"metadata": metadata.duplicate(true),
 	}
@@ -215,7 +281,9 @@ func duplicate_manifest() -> GFContentPackageManifest:
 		dependencies,
 		metadata,
 		root_path,
-		source_path
+		source_path,
+		safety_kind,
+		forbidden_resource_extensions
 	)
 	return manifest
 
@@ -248,6 +316,7 @@ func is_valid(options: Dictionary = {}) -> bool:
 func get_validation_report(options: Dictionary = {}) -> Dictionary:
 	var report: Dictionary = _make_validation_report()
 	_validate_required_fields(report)
+	_validate_safety_kind(report)
 	_validate_string_list(content_types, "content_types", _KIND_INVALID_CONTENT_TYPE, report)
 	_validate_string_list(dependencies, "dependencies", _KIND_INVALID_DEPENDENCY, report)
 	_validate_resources(options, report)
@@ -466,7 +535,7 @@ func _validate_resource_path(
 			"resource path is required",
 			&"resources",
 			{
-				"expected_value": "res:// or package-relative path",
+				"expected_value": "res://, user:// or package-relative path",
 			}
 		)
 		return
@@ -478,11 +547,11 @@ func _validate_resource_path(
 			_KIND_RESOURCE_PATH_NOT_ALLOWED,
 			index,
 			resource_key,
-			"resource path must be res://, uid://, or package-relative",
+			"resource path must be res://, user://, or package-relative",
 			&"resources",
 			{
 				"actual_value": raw_path,
-				"expected_value": "res:// or package-relative path",
+				"expected_value": "res://, user:// or package-relative path",
 			}
 		)
 		return
@@ -502,6 +571,8 @@ func _validate_resource_path(
 		)
 		return
 
+	_validate_resource_safety(normalized_path, index, resource_key, report)
+
 	if (
 		GFVariantData.get_option_bool(options, "check_resource_exists", false)
 		and not ResourceLoader.exists(normalized_path, GFVariantData.get_option_string(entry, "type_hint"))
@@ -517,6 +588,49 @@ func _validate_resource_path(
 				"actual_value": normalized_path,
 			}
 		)
+
+
+func _validate_safety_kind(report: Dictionary) -> void:
+	if safety_kind == SAFETY_KIND_DATA_ONLY or safety_kind == SAFETY_KIND_TRUSTED_DEVELOPER:
+		return
+	_add_manifest_issue(
+		report,
+		_KIND_INVALID_SAFETY_KIND,
+		&"safety_kind",
+		"safety_kind is not supported",
+		{
+			"actual_value": safety_kind,
+			"expected_value": PackedStringArray([String(SAFETY_KIND_DATA_ONLY), String(SAFETY_KIND_TRUSTED_DEVELOPER)]),
+		}
+	)
+
+
+func _validate_resource_safety(
+	normalized_path: String,
+	index: int,
+	resource_key: StringName,
+	report: Dictionary
+) -> void:
+	var extension: String = _normalize_extension(normalized_path.get_extension())
+	if extension.is_empty():
+		return
+	var forbidden_extensions: PackedStringArray = _get_effective_forbidden_extensions()
+	if not forbidden_extensions.has(extension):
+		return
+	_add_resource_issue(
+		report,
+		_KIND_RESOURCE_EXTENSION_FORBIDDEN,
+		index,
+		resource_key,
+		"resource extension is forbidden for this content package safety kind",
+		&"resources",
+		{
+			"actual_value": normalized_path,
+			"expected_value": "resource extension allowed by safety_kind",
+			"extension": extension,
+			"safety_kind": safety_kind,
+		}
+	)
 
 
 func _add_resource_issue(
@@ -638,6 +752,37 @@ static func _copy_packed_string_array(items: PackedStringArray) -> PackedStringA
 	return items.duplicate()
 
 
+func _get_effective_forbidden_extensions() -> PackedStringArray:
+	var result: PackedStringArray = _normalize_extensions(forbidden_resource_extensions)
+	if safety_kind == SAFETY_KIND_DATA_ONLY or safety_kind == &"":
+		for extension: String in _DATA_ONLY_FORBIDDEN_EXTENSIONS:
+			_append_unique_extension(result, extension)
+	result.sort()
+	return result
+
+
+static func _normalize_extensions(items: PackedStringArray) -> PackedStringArray:
+	var result: PackedStringArray = PackedStringArray()
+	for item: String in items:
+		_append_unique_extension(result, item)
+	result.sort()
+	return result
+
+
+static func _append_unique_extension(items: PackedStringArray, value: String) -> void:
+	var extension: String = _normalize_extension(value)
+	if extension.is_empty() or items.has(extension):
+		return
+	var _append_extension: bool = items.append(extension)
+
+
+static func _normalize_extension(value: String) -> String:
+	var extension: String = value.strip_edges().to_lower()
+	while extension.begins_with("."):
+		extension = extension.substr(1)
+	return extension
+
+
 static func _normalize_package_resource_path(path: String, package_root: String) -> String:
 	var normalized_path: String = _normalize_resource_path(path, "")
 	if normalized_path.is_empty():
@@ -662,7 +807,7 @@ static func _normalize_root_path(path: String) -> String:
 
 
 static func _is_supported_resource_path(path: String) -> bool:
-	return path.begins_with("res://")
+	return path.begins_with("res://") or path.begins_with("user://")
 
 
 static func _is_path_inside_root(path: String, package_root: String) -> bool:

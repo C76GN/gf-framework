@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFCacheDiagnostics" path="addons/gf/standard/foundation/collections/gf_cache_diagnostics.gd" module="standard" extends="RefCounted" classDigest="4b1e1553ae79d26b9de65fd35e5e723d72d9241e7475062d53f71d273ba0488c">
+	<description>GFCacheDiagnostics: 通用缓存命中、写入和失效统计。
+用于给各类缓存、索引或预热池提供一致的诊断快照。它不持有缓存内容，
+也不规定缓存淘汰策略，只记录可观测事件。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_service</tag>
+		<tag name="since">6.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties>
+		<member kind="property" name="cache_id">
+			<signature>var cache_id: StringName = &amp;""</signature>
+			<description>诊断对象标识。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="record_hit">
+			<signature>func record_hit(key: Variant = null) -&gt; void:</signature>
+			<description>记录缓存命中。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">key: 可选缓存 key。</tag>
+				<tag name="schema">key: 任意缓存键；诊断快照会以字符串形式记录。</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="record_miss">
+			<signature>func record_miss(key: Variant = null) -&gt; void:</signature>
+			<description>记录缓存未命中。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">key: 可选缓存 key。</tag>
+				<tag name="schema">key: 任意缓存键；诊断快照会以字符串形式记录。</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="record_write">
+			<signature>func record_write(key: Variant = null) -&gt; void:</signature>
+			<description>记录缓存写入。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">key: 可选缓存 key。</tag>
+				<tag name="schema">key: 任意缓存键；诊断快照会以字符串形式记录。</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="record_eviction">
+			<signature>func record_eviction(reason: StringName = &amp;"evicted", key: Variant = null) -&gt; void:</signature>
+			<description>记录缓存淘汰。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">reason: 淘汰原因。</tag>
+				<tag name="param">key: 可选缓存 key。</tag>
+				<tag name="schema">key: 任意缓存键；诊断快照会以字符串形式记录。</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="record_invalidation">
+			<signature>func record_invalidation(reason: StringName = &amp;"invalidated", key: Variant = null, amount: int = 1) -&gt; void:</signature>
+			<description>记录缓存失效。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">reason: 失效原因。</tag>
+				<tag name="param">key: 可选缓存 key。</tag>
+				<tag name="param">amount: 失效数量。</tag>
+				<tag name="schema">key: 任意缓存键；诊断快照会以字符串形式记录。</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="reset">
+			<signature>func reset() -&gt; void:</signature>
+			<description>清空统计。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_hit_ratio">
+			<signature>func get_hit_ratio() -&gt; float:</signature>
+			<description>获取命中率。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">命中率；没有读请求时返回 0.0。</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_debug_snapshot">
+			<signature>func get_debug_snapshot() -&gt; Dictionary:</signature>
+			<description>获取诊断快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">诊断快照。</tag>
+				<tag name="schema">return: Dictionary with cache_id, hit_count, miss_count, write_count, eviction_count, invalidation_count, hit_ratio, invalidation_reasons, and last_event.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

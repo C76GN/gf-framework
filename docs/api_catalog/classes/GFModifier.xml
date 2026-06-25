@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFModifier" path="addons/gf/extensions/combat/attributes/gf_modifier.gd" module="extensions/combat" extends="RefCounted" classDigest="679646d62887d2a6646b7df126e9f3802ff51c84fb0b9db930e997f2160834e9">
+<class name="GFModifier" path="addons/gf/extensions/combat/attributes/gf_modifier.gd" module="extensions/combat" extends="RefCounted" classDigest="24221116149c8a2b9bb6d2d42b8abc72f422ff161941e1fbdc207b32a5f9bdf0">
 	<description>GFModifier: 属性修饰器数据类。
 定义了如何修改一个通用属性（如加值、乘值）。
 `attribute_id` 表示目标属性，`source_id` 表示来源，避免把“改谁”和“从哪来”混在一起。
@@ -89,6 +89,46 @@
 				<tag name="param">p_attribute_id: 修饰器作用的属性标识。</tag>
 				<tag name="param">p_source_id: 修饰器来源标识。</tag>
 				<tag name="return">新修饰器。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="duplicate_modifier">
+			<signature>func duplicate_modifier() -&gt; GFModifier:</signature>
+			<description>创建修饰器副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">新修饰器。</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="to_dictionary">
+			<signature>func to_dictionary() -&gt; Dictionary:</signature>
+			<description>转换为可序列化字典。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">修饰器字典。</tag>
+				<tag name="schema">return: Dictionary with type, value, attribute_id, and source_id.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="apply_dictionary">
+			<signature>func apply_dictionary(data: Dictionary) -&gt; void:</signature>
+			<description>从字典应用修饰器字段。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">data: 修饰器字典。</tag>
+				<tag name="schema">data: Dictionary with optional type, value, attribute_id, and source_id.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="from_dictionary">
+			<signature>static func from_dictionary(data: Dictionary) -&gt; GFModifier:</signature>
+			<description>从字典创建修饰器。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">data: 修饰器字典。</tag>
+				<tag name="return">新修饰器。</tag>
+				<tag name="schema">data: Dictionary with optional type, value, attribute_id, and source_id.</tag>
+				<tag name="since">6.0.0</tag>
 			</tags>
 		</member>
 	</methods>

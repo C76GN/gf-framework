@@ -45,9 +45,15 @@ var source := GFConfigAccessGenerator.new().build_source(
 
 使用 `gf.tool.config_pipeline` 时，也可以在 `GFConfigPipelineProfile.access_output_path` 中配置访问器输出路径，让一次导表同时保存配置数据库并生成访问器脚本。该串联仍是制作期动作，运行时只依赖生成后的脚本和项目实际安装的 provider。
 
+需要在保存前预览访问器产物时，可以使用 `generate_with_report()` 或 `save_source_with_report()`。报告会说明产物状态、是否写入、是否 dry-run 和错误码，适合编辑器按钮、CI 检查或提交前差异审查复用。
+
 ## 编辑器工具
 
 开发期如果需要做 Resource 批量检查或表格式编辑，可以复用 `GFResourceTableEditor` 和 `GFEditorValueField`。
+
+`GFConfigTableEditorTools` 可以把 `GFConfigTableSchema` 转成通用列描述，也可以生成字段编辑描述和跨表引用候选记录。字段编辑描述会保留列名、标签、默认值、可编辑状态和 metadata，并额外输出 `editor_kind`、Godot `property_info`、字段约束、校验规则摘要、引用描述和可选引用候选；这些信息来自 `GFConfigTableColumn`、字段校验规则、`GFConfigTableReference` 和调用方显式写入的 metadata。
+
+它只返回 `Dictionary` / `Array` 描述数据，不创建 Control，也不解释字段业务含义；项目工具可以把这些描述映射到自己的表格控件、Inspector 或校验面板。需要强制指定项目侧控件语义时，优先通过字段 metadata 覆盖 `editor_kind`、`property_type`、`property_hint`、`property_hint_string`、`resource_type` 或 `resource_extensions`，而不是在框架里写死表名、字段名或资源分类。
 
 `GFResourceTableEditor` 负责扫描 `.tres` / `.res`、从 Resource export 推导列、提交单元格值并广播变更。`scan_resource_paths()` 默认限制递归深度和收集数量，项目工具可按需要传入 `max_scan_depth` / `max_resource_paths`。默认只修改内存中的 Resource，不接管完整 UndoRedo 工作流；如果资源已有 `resource_path` 且项目希望提交后立即写盘，可以开启 `auto_save_committed_resources` 并监听 `resource_save_failed`。
 

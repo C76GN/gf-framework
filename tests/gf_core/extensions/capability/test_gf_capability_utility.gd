@@ -863,6 +863,98 @@ func test_capability_reverse_index_and_groups() -> void:
 	assert_eq(boss_base_receivers, [receiver_b], "分组能力交集查询应只返回匹配 receiver。")
 
 
+func test_capability_multi_condition_query_filters_required_rejected_and_group() -> void:
+	var receiver_a: RefCounted = RefCounted.new()
+	var receiver_b: RefCounted = RefCounted.new()
+	var receiver_c: RefCounted = RefCounted.new()
+	var _add_concrete_a_result: Object = _utility.add_capability(receiver_a, ConcreteCapabilityA)
+	var _add_health_a_result: Object = _utility.add_capability(receiver_a, HealthCapability)
+	var _add_concrete_b_result: Object = _utility.add_capability(receiver_b, ConcreteCapabilityB)
+	var _add_damage_b_result: Object = _utility.add_capability(receiver_b, DamageCapability)
+	var _add_health_c_result: Object = _utility.add_capability(receiver_c, HealthCapability)
+
+	_utility.add_receiver_to_group(receiver_a, &"targets")
+	_utility.add_receiver_to_group(receiver_b, &"targets")
+	_utility.add_receiver_to_group(receiver_c, &"targets")
+
+	var base_with_health_without_damage: Array[Object] = _utility.get_receivers_matching_capabilities(
+		[BaseCapability, HealthCapability],
+		[DamageCapability]
+	)
+	var target_without_base: Array[Object] = _utility.get_receivers_matching_capabilities(
+		[],
+		[BaseCapability],
+		true,
+		&"targets"
+	)
+	var exact_base_only: Array[Object] = _utility.get_receivers_matching_capabilities(
+		[BaseCapability],
+		[],
+		false
+	)
+
+	assert_eq(base_with_health_without_damage, [receiver_a], "多条件查询应要求全部 required，并排除任一 rejected。")
+	assert_eq(target_without_base, [receiver_c], "空 required 时应能在分组内按 rejected 能力筛选。")
+	assert_true(exact_base_only.is_empty(), "关闭子类匹配时，基类条件不应匹配已注册子类能力。")
+
+
+func test_capability_query_candidate_planner_intersects_group_and_required_index() -> void:
+	var group_only_a: RefCounted = RefCounted.new()
+	var group_only_b: RefCounted = RefCounted.new()
+	var health_outside_group: RefCounted = RefCounted.new()
+	var health_inside_group: RefCounted = RefCounted.new()
+	var _add_health_outside_result: Object = _utility.add_capability(health_outside_group, HealthCapability)
+	var _add_health_inside_result: Object = _utility.add_capability(health_inside_group, HealthCapability)
+
+	_utility.add_receiver_to_group(group_only_a, &"targets")
+	_utility.add_receiver_to_group(group_only_b, &"targets")
+	_utility.add_receiver_to_group(health_inside_group, &"targets")
+
+	var candidate_ids: Array = _utility._get_capability_query_candidate_ids(
+		[HealthCapability],
+		true,
+		&"targets"
+	)
+	var receivers: Array[Object] = _utility.get_receivers_matching_capabilities(
+		[HealthCapability],
+		[],
+		true,
+		&"targets"
+	)
+
+	assert_eq(candidate_ids.size(), 1, "同时指定分组和 required 能力时，应取索引交集作为候选。")
+	if not candidate_ids.is_empty():
+		assert_eq(GFVariantData.to_int(candidate_ids[0]), health_inside_group.get_instance_id(), "候选集不应包含分组外 receiver。")
+	assert_eq(receivers, [health_inside_group], "优化后的候选集仍应返回同一查询结果。")
+
+
+func test_capability_query_resource_filters_receivers_and_matches_single_receiver() -> void:
+	var receiver_a: RefCounted = RefCounted.new()
+	var receiver_b: RefCounted = RefCounted.new()
+	var _add_concrete_a_result: Object = _utility.add_capability(receiver_a, ConcreteCapabilityA)
+	var _add_health_a_result: Object = _utility.add_capability(receiver_a, HealthCapability)
+	var _add_concrete_b_result: Object = _utility.add_capability(receiver_b, ConcreteCapabilityB)
+	var _add_damage_b_result: Object = _utility.add_capability(receiver_b, DamageCapability)
+
+	_utility.add_receiver_to_group(receiver_a, &"targets")
+	_utility.add_receiver_to_group(receiver_b, &"targets")
+
+	var query: GFCapabilityQuery = GFCapabilityQuery.new()
+	query.required_capability_types = [BaseCapability, HealthCapability]
+	query.rejected_capability_types = [DamageCapability]
+	query.group_name = &"targets"
+	query.metadata = { "owner": "test" }
+
+	var receivers: Array[Object] = _utility.get_receivers_matching_query(query)
+	var duplicated_query: GFCapabilityQuery = query.duplicate_query()
+
+	assert_eq(receivers, [receiver_a], "资源化查询应复用 required/rejected/group 条件。")
+	assert_true(query.matches_receiver(_utility, receiver_a), "匹配 receiver 应返回 true。")
+	assert_false(query.matches_receiver(_utility, receiver_b), "包含 rejected 能力的 receiver 应返回 false。")
+	assert_eq(duplicated_query.group_name, &"targets", "查询拷贝应保留分组。")
+	assert_eq(GFVariantData.get_option_string(duplicated_query.metadata, "owner"), "test", "查询拷贝应保留 metadata。")
+
+
 func test_prune_invalid_receivers_removes_stale_indices() -> void:
 	var receiver: Object = Object.new()
 	var _add_capability_result_825: Variant = _utility.add_capability(receiver, HealthCapability)
@@ -1037,6 +1129,41 @@ func test_capability_inspector_reads_required_property_without_calling_capabilit
 	assert_eq(required_types, [HealthCapability], "编辑器 Inspector 应从 required_capabilities 读取依赖。")
 
 	capability.free()
+
+
+func test_capability_inspector_add_plan_reuses_pending_container_and_names() -> void:
+	var inspector_script: Script = _load_capability_inspector_plugin()
+	assert_not_null(inspector_script, "应能加载 Capability Inspector 插件。")
+	if inspector_script == null:
+		return
+
+	var target: Node = Node.new()
+	var first: Node = Node.new()
+	var second: Node = Node.new()
+	var planned: Array[Dictionary] = []
+
+	var first_plan: Dictionary = GFVariantData.as_dictionary(
+		inspector_script.call(&"_make_capability_add_plan", target, first, "SharedCapability", planned)
+	)
+	planned.append(first_plan)
+	var second_plan: Dictionary = GFVariantData.as_dictionary(
+		inspector_script.call(&"_make_capability_add_plan", target, second, "SharedCapability", planned)
+	)
+	var first_container: Node = _get_node_value(first_plan.get("container", null))
+	var second_container: Node = _get_node_value(second_plan.get("container", null))
+
+	assert_true(GFVariantData.get_option_bool(first_plan, "container_is_new"), "第一条待添加能力应准备新容器。")
+	assert_false(GFVariantData.get_option_bool(second_plan, "container_is_new"), "同类待添加能力应复用已计划的新容器。")
+	assert_eq(first_container, second_container, "批量添加计划应复用同一个能力容器。")
+	assert_eq(String(first.name), "SharedCapability", "第一条能力应使用请求名称。")
+	assert_eq(String(second.name), "SharedCapability2", "第二条同名能力应生成稳定唯一名称。")
+	assert_eq(GFVariantData.get_option_int(second_plan, "node_index"), 1, "第二条能力应排在同容器下一位。")
+
+	first.free()
+	second.free()
+	if first_container != null:
+		first_container.free()
+	target.free()
 
 
 # --- 私有/辅助方法 ---

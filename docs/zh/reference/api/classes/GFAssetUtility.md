@@ -19,11 +19,14 @@
 | 信号 | [`asset_handle_released`](#member-gfassetutility-signals-asset_handle_released) | `signal asset_handle_released(path: String, reference_count: int)` |
 | 信号 | [`asset_load_progress`](#member-gfassetutility-signals-asset_load_progress) | `signal asset_load_progress(path: String, progress: float)` |
 | 信号 | [`asset_group_preloaded`](#member-gfassetutility-signals-asset_group_preloaded) | `signal asset_group_preloaded(group_id: StringName, report: Dictionary)` |
+| 信号 | [`asset_load_queued`](#member-gfassetutility-signals-asset_load_queued) | `signal asset_load_queued(path: String, lane_id: StringName)` |
+| 常量 | [`DEFAULT_LOAD_LANE_ID`](#member-gfassetutility-constants-default_load_lane_id) | `const DEFAULT_LOAD_LANE_ID: StringName = &"_default"` |
 | 属性 | [`max_cache_size`](#member-gfassetutility-properties-max_cache_size) | `var max_cache_size: int:` |
+| 属性 | [`default_max_concurrent_loads`](#member-gfassetutility-properties-default_max_concurrent_loads) | `var default_max_concurrent_loads: int = 0` |
 | 方法 | [`init`](#member-gfassetutility-methods-init) | `func init() -> void:` |
 | 方法 | [`dispose`](#member-gfassetutility-methods-dispose) | `func dispose() -> void:` |
-| 方法 | [`load_async`](#member-gfassetutility-methods-load_async) | `func load_async(path: String, on_loaded: Callable, type_hint: String = "") -> void:` |
-| 方法 | [`load_handle_async`](#member-gfassetutility-methods-load_handle_async) | `func load_handle_async( path: String, on_loaded: Callable, type_hint: String = "", owner: Object = null, group_id: StringName = &"" ) -> void:` |
+| 方法 | [`load_async`](#member-gfassetutility-methods-load_async) | `func load_async(path: String, on_loaded: Callable, type_hint: String = "", options: Dictionary = {}) -> void:` |
+| 方法 | [`load_handle_async`](#member-gfassetutility-methods-load_handle_async) | `func load_handle_async( path: String, on_loaded: Callable, type_hint: String = "", owner: Object = null, group_id: StringName = &"", options: Dictionary = {} ) -> void:` |
 | 方法 | [`acquire_handle`](#member-gfassetutility-methods-acquire_handle) | `func acquire_handle( path: String, owner: Object = null, group_id: StringName = &"", type_hint: String = "", resource_override: Resource = null ) -> GFAssetHandle:` |
 | 方法 | [`release_handle`](#member-gfassetutility-methods-release_handle) | `func release_handle(handle: GFAssetHandle) -> bool:` |
 | 方法 | [`release_owner`](#member-gfassetutility-methods-release_owner) | `func release_owner(owner: Object) -> int:` |
@@ -129,6 +132,41 @@ signal asset_group_preloaded(group_id: StringName, report: Dictionary)
 
 - `report`: Dictionary with `ok: bool`, `group_id: StringName`, `paths: PackedStringArray`, `failed_paths: PackedStringArray`, `total: int`, and `completed: int`.
 
+<a id="member-gfassetutility-signals-asset_load_queued"></a>
+
+### `asset_load_queued`
+
+- API：`public`
+- 首次版本：`6.0.0`
+
+```gdscript
+signal asset_load_queued(path: String, lane_id: StringName)
+```
+
+资源加载进入队列时发出。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `path` | 资源路径。 |
+| `lane_id` | 加载 lane 标识。 |
+
+## 常量
+
+<a id="member-gfassetutility-constants-default_load_lane_id"></a>
+
+### `DEFAULT_LOAD_LANE_ID`
+
+- API：`public`
+- 首次版本：`6.0.0`
+
+```gdscript
+const DEFAULT_LOAD_LANE_ID: StringName = &"_default"
+```
+
+未显式指定 lane 但启用全局并发限制时使用的默认 lane。
+
 ## 属性
 
 <a id="member-gfassetutility-properties-max_cache_size"></a>
@@ -142,6 +180,19 @@ var max_cache_size: int:
 ```
 
 LRU 缓存最大容量；设为 `0` 时表示禁用缓存。
+
+<a id="member-gfassetutility-properties-default_max_concurrent_loads"></a>
+
+### `default_max_concurrent_loads`
+
+- API：`public`
+- 首次版本：`6.0.0`
+
+```gdscript
+var default_max_concurrent_loads: int = 0
+```
+
+默认最大并发加载数；设为 `0` 表示默认不限制并发。
 
 ## 方法
 
@@ -174,9 +225,10 @@ func dispose() -> void:
 ### `load_async`
 
 - API：`public`
+- 首次版本：`6.0.0`
 
 ```gdscript
-func load_async(path: String, on_loaded: Callable, type_hint: String = "") -> void:
+func load_async(path: String, on_loaded: Callable, type_hint: String = "", options: Dictionary = {}) -> void:
 ```
 
 发起异步资源加载。
@@ -188,15 +240,21 @@ func load_async(path: String, on_loaded: Callable, type_hint: String = "") -> vo
 | `path` | 目标资源路径。 |
 | `on_loaded` | 加载完成后的回调。 |
 | `type_hint` | 可选资源类型提示。 |
+| `options` | 可选参数，支持 serial_lane_id、lane_id、max_concurrent_loads。 |
+
+结构：
+
+- `options`: Dictionary with optional `serial_lane_id: StringName`, `lane_id: StringName`, and `max_concurrent_loads: int`. A non-empty lane defaults to serial loading when no limit is provided.
 
 <a id="member-gfassetutility-methods-load_handle_async"></a>
 
 ### `load_handle_async`
 
 - API：`public`
+- 首次版本：`6.0.0`
 
 ```gdscript
-func load_handle_async( path: String, on_loaded: Callable, type_hint: String = "", owner: Object = null, group_id: StringName = &"" ) -> void:
+func load_handle_async( path: String, on_loaded: Callable, type_hint: String = "", owner: Object = null, group_id: StringName = &"", options: Dictionary = {} ) -> void:
 ```
 
 异步加载资源并在成功后返回所有权句柄。
@@ -210,6 +268,11 @@ func load_handle_async( path: String, on_loaded: Callable, type_hint: String = "
 | `type_hint` | 可选资源类型提示。 |
 | `owner` | 可选拥有者。若为 Node，会在退出树时自动释放其持有的句柄引用。 |
 | `group_id` | 可选资源分组。 |
+| `options` | 传给 load_async() 的加载选项。 |
+
+结构：
+
+- `options`: Dictionary with optional serial loading lane fields.
 
 <a id="member-gfassetutility-methods-acquire_handle"></a>
 
@@ -340,6 +403,7 @@ func get_group_paths(group_id: StringName) -> PackedStringArray:
 ### `preload_group_async`
 
 - API：`public`
+- 首次版本：`6.0.0`
 
 ```gdscript
 func preload_group_async( group_id: StringName, entries: Array, on_completed: Callable = Callable(), options: Dictionary = {} ) -> void:
@@ -359,7 +423,7 @@ func preload_group_async( group_id: StringName, entries: Array, on_completed: Ca
 结构：
 
 - `entries`: Array[String|Dictionary] where dictionary entries may contain `path: String` and `type_hint: String`.
-- `options`: Dictionary with optional `pin_cache: bool`.
+- `options`: Dictionary with optional `pin_cache: bool`, `serial_lane_id: StringName`, `lane_id: StringName`, and `max_concurrent_loads: int`.
 
 <a id="member-gfassetutility-methods-unload_group"></a>
 

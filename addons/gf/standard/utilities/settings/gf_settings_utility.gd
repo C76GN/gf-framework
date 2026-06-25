@@ -47,6 +47,35 @@ signal settings_loaded(data: Dictionary)
 ## @schema data: Dictionary[String, Variant] saved persisted settings data produced by to_dict(true).
 signal settings_saved(data: Dictionary)
 
+## 暂存设置值变化时发出。
+## [br]
+## @api public
+## [br]
+## @since 5.2.0
+## [br]
+## @param key: 暂存状态变化的设置键。
+signal staged_setting_changed(key: StringName)
+
+## 暂存设置值被应用到真实设置后发出。
+## [br]
+## @api public
+## [br]
+## @since 5.2.0
+## [br]
+## @param report: 应用报告。
+## [br]
+## @schema report: Dictionary with apply_values() report fields plus staged_applied_count, staged_remaining_count, and staged_applied_keys.
+signal staged_settings_applied(report: Dictionary)
+
+## 暂存设置值被丢弃后发出。
+## [br]
+## @api public
+## [br]
+## @since 5.2.0
+## [br]
+## @param keys: 被丢弃暂存值的设置键。
+signal staged_settings_discarded(keys: PackedStringArray)
+
 
 # --- 常量 ---
 
@@ -81,6 +110,7 @@ var save_debounce_seconds: float = 0.25
 
 var _definitions: Dictionary = {}
 var _values: Dictionary = {}
+var _staged_values: Dictionary = {}
 var _save_queued: bool = false
 var _save_elapsed_seconds: float = 0.0
 var _save_queued_file_name: String = ""
@@ -107,6 +137,7 @@ func dispose() -> void:
 	var _flush_error: Error = flush_pending_save()
 	_definitions.clear()
 	_values.clear()
+	_staged_values.clear()
 	_save_queued = false
 	_save_elapsed_seconds = 0.0
 	_save_queued_file_name = ""
@@ -138,6 +169,7 @@ func register_definition(definition: GFSettingDefinition, apply_default: bool = 
 		_values[key] = definition.coerce_value(_values[key])
 	elif apply_default:
 		_values[key] = definition.coerce_value(definition.default_value)
+	_reconcile_staged_value(key)
 
 
 ## 使用参数快速注册一个设置定义。
@@ -225,6 +257,203 @@ func get_definitions() -> Array[GFSettingDefinition]:
 ## @param save_after_change: 若为持久化设置，变化后是否保存。
 func set_value(key: StringName, value: Variant, save_after_change: bool = true) -> void:
 	_set_value_internal(key, value, true, save_after_change)
+
+
+## 设置一个暂存值。
+##
+## 暂存值不会改变当前有效设置，也不会触发保存；调用 apply_staged_values() 后才会写入真实设置。
+## 如果暂存值等于当前有效值，会清除该键已有的暂存值。
+## [br]
+## @api public
+## [br]
+## @since 5.2.0
+## [br]
+## @param key: 设置键。
+## [br]
+## @param value: 暂存设置值。
+## [br]
+## @schema value: Variant setting value coerced by the registered definition when present.
+func stage_value(key: StringName, value: Variant) -> void:
+	_stage_value_internal(key, value, true)
+
+
+## 获取指定键的暂存值。
+## [br]
+## @api public
+## [br]
+## @since 5.2.0
+## [br]
+## @param key: 设置键。
+## [br]
+## @param fallback: 没有暂存值时返回的值。
+## [br]
+## @schema fallback: Variant value returned when the setting has no staged value.
+## [br]
+## @return 暂存值或 fallback。
+## [br]
+## @schema return: Variant pending staged value or fallback.
+func get_staged_value(key: StringName, fallback: Variant = null) -> Variant:
+	if _staged_values.has(key):
+		return _staged_values[key]
+	return fallback
+
+
+## 获取用于预览的设置值。
+##
+## 若存在暂存值则返回暂存值，否则返回当前有效值。
+## [br]
+## @api public
+## [br]
+## @since 5.2.0
+## [br]
+## @param key: 设置键。
+## [br]
+## @param fallback: 无当前值、默认值和暂存值时返回的值。
+## [br]
+## @schema fallback: Variant value returned when the setting has no staged, current, or default value.
+## [br]
+## @return 暂存值或当前有效值。
+## [br]
+## @schema return: Variant staged value when present, otherwise current setting value.
+func get_staged_or_value(key: StringName, fallback: Variant = null) -> Variant:
+	if _staged_values.has(key):
+		return _staged_values[key]
+	return get_value(key, fallback)
+
+
+## 检查指定键是否存在暂存值。
+## [br]
+## @api public
+## [br]
+## @since 5.2.0
+## [br]
+## @param key: 设置键。
+## [br]
+## @return 存在暂存值时返回 true。
+func has_staged_value(key: StringName) -> bool:
+	return _staged_values.has(key)
+
+
+## 检查是否存在任意暂存值。
+## [br]
+## @api public
+## [br]
+## @since 5.2.0
+## [br]
+## @return 至少有一个暂存值时返回 true。
+func has_staged_values() -> bool:
+	return not _staged_values.is_empty()
+
+
+## 获取所有暂存值。
+## [br]
+## @api public
+## [br]
+## @since 5.2.0
+## [br]
+## @return 暂存设置字典副本。
+## [br]
+## @schema return: Dictionary[StringName, Variant] staged setting values that are not yet applied.
+func get_staged_values() -> Dictionary:
+	return _staged_values.duplicate(true)
+
+
+## 获取所有存在暂存值的设置键。
+## [br]
+## @api public
+## [br]
+## @since 5.2.0
+## [br]
+## @return 排序后的暂存设置键。
+func get_staged_keys() -> PackedStringArray:
+	var result: PackedStringArray = PackedStringArray()
+	for key_variant: Variant in _staged_values.keys():
+		var key: StringName = GFVariantData.to_string_name(key_variant)
+		if key != &"":
+			var _key_appended: bool = result.append(String(key))
+	result.sort()
+	return result
+
+
+## 丢弃指定键的暂存值。
+## [br]
+## @api public
+## [br]
+## @since 5.2.0
+## [br]
+## @param key: 设置键。
+## [br]
+## @return 实际丢弃暂存值时返回 true。
+func discard_staged_value(key: StringName) -> bool:
+	var discarded: bool = _discard_staged_value_internal(key, true)
+	if discarded:
+		var keys: PackedStringArray = PackedStringArray()
+		var _key_appended: bool = keys.append(String(key))
+		staged_settings_discarded.emit(keys)
+	return discarded
+
+
+## 丢弃全部暂存值。
+## [br]
+## @api public
+## [br]
+## @since 5.2.0
+## [br]
+## @return 被丢弃暂存值的设置键。
+func discard_staged_values() -> PackedStringArray:
+	var discarded_keys: PackedStringArray = get_staged_keys()
+	for key_text: String in discarded_keys:
+		var _discarded: bool = _discard_staged_value_internal(StringName(key_text), true)
+	if not discarded_keys.is_empty():
+		staged_settings_discarded.emit(discarded_keys)
+	return discarded_keys
+
+
+## 应用暂存设置值。
+##
+## 只把暂存层提交到真实设置；真实设置变化、类型钳制和自动保存仍沿用 apply_values() 语义。
+## 可通过 options.scope 只提交指定键。
+## [br]
+## @api public
+## [br]
+## @since 5.2.0
+## [br]
+## @param options: 可选行为。支持 save_after_change、emit_changes 与 scope。
+## [br]
+## @schema options: Dictionary with save_after_change: bool, emit_changes: bool, and scope as Array, PackedStringArray, Dictionary, String, or StringName.
+## [br]
+## @return 应用报告。
+## [br]
+## @schema return: Dictionary with apply_values() report fields plus staged_applied_count, staged_remaining_count, and staged_applied_keys: PackedStringArray.
+func apply_staged_values(options: Dictionary = {}) -> Dictionary:
+	var scope: Dictionary = _normalize_apply_scope(GFVariantData.get_option_value(options, "scope", []))
+	var selected_values: Dictionary = {}
+	for key_variant: Variant in _staged_values.keys():
+		var key: StringName = GFVariantData.to_string_name(key_variant)
+		if key == &"":
+			continue
+		if not scope.is_empty() and not scope.has(key):
+			continue
+		selected_values[key] = GFVariantData.duplicate_variant(_staged_values[key_variant])
+
+	var apply_options: Dictionary = {
+		"save_after_change": GFVariantData.get_option_bool(options, "save_after_change", true),
+		"emit_changes": GFVariantData.get_option_bool(options, "emit_changes", true),
+	}
+	var report: Dictionary = apply_values(selected_values, apply_options)
+	var applied_keys: PackedStringArray = PackedStringArray()
+	if GFVariantData.get_option_bool(report, "ok"):
+		for key: StringName in selected_values.keys():
+			var discarded: bool = _discard_staged_value_internal(key, true)
+			if discarded:
+				var _key_appended: bool = applied_keys.append(String(key))
+		applied_keys.sort()
+
+	report["staged_applied_count"] = applied_keys.size()
+	report["staged_remaining_count"] = _staged_values.size()
+	report["staged_applied_keys"] = applied_keys
+	staged_settings_applied.emit(report)
+	return report
 
 
 ## 批量应用一组设置值，适合图形质量、辅助功能或输入方案等项目预设。
@@ -620,6 +849,43 @@ func _set_value_internal(
 
 	if save_after_change and auto_save_on_change and _should_persist(key):
 		_queue_auto_save()
+
+
+func _stage_value_internal(key: StringName, value: Variant, emit_change: bool) -> void:
+	if key == &"":
+		push_error("[GFSettingsUtility] stage_value 失败：设置键为空。")
+		return
+
+	var definition: GFSettingDefinition = _get_definition(key)
+	var next_value: Variant = definition.coerce_value(value) if definition != null else value
+	var current_value: Variant = get_value(key)
+	if current_value == next_value:
+		var _discarded_equal_value: bool = _discard_staged_value_internal(key, emit_change)
+		return
+
+	var previous_staged_value: Variant = GFVariantData.get_option_value(_staged_values, key)
+	if _staged_values.has(key) and previous_staged_value == next_value:
+		return
+
+	_staged_values[key] = GFVariantData.duplicate_variant(next_value)
+	if emit_change:
+		staged_setting_changed.emit(key)
+
+
+func _discard_staged_value_internal(key: StringName, emit_change: bool) -> bool:
+	if not _staged_values.has(key):
+		return false
+
+	var _erased: bool = _staged_values.erase(key)
+	if emit_change:
+		staged_setting_changed.emit(key)
+	return true
+
+
+func _reconcile_staged_value(key: StringName) -> void:
+	if not _staged_values.has(key):
+		return
+	_stage_value_internal(key, _staged_values[key], true)
 
 
 func _make_apply_values_report() -> Dictionary:

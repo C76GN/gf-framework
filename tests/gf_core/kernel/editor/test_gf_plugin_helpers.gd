@@ -6,6 +6,7 @@ extends GutTest
 const GF_PLUGIN_SCRIPT = preload("res://addons/gf/plugin.gd")
 const GF_PLUGIN_ACTIONS = preload("res://addons/gf/kernel/editor/gf_plugin_actions.gd")
 const GF_PLUGIN_AUTOLOAD = preload("res://addons/gf/kernel/editor/gf_plugin_autoload.gd")
+const GF_PLUGIN_DEBUGGER_TOOLS = preload("res://addons/gf/kernel/editor/gf_plugin_debugger_tools.gd")
 const GF_PLUGIN_DOCK_TOOLS = preload("res://addons/gf/kernel/editor/gf_plugin_dock_tools.gd")
 const GF_PLUGIN_INSPECTOR_TOOLS = preload("res://addons/gf/kernel/editor/gf_plugin_inspector_tools.gd")
 const GF_PLUGIN_IMPORT_TOOLS = preload("res://addons/gf/kernel/editor/gf_plugin_import_tools.gd")
@@ -13,6 +14,8 @@ const GF_PLUGIN_MENU = preload("res://addons/gf/kernel/editor/gf_plugin_menu.gd"
 const GF_PLUGIN_PREVIEW_TOOLS = preload("res://addons/gf/kernel/editor/gf_plugin_preview_tools.gd")
 const GF_PLUGIN_PROJECT_SETTINGS = preload("res://addons/gf/kernel/editor/gf_plugin_project_settings.gd")
 const GF_RESOURCE_PATH_EDITOR_PROPERTY = preload("res://addons/gf/kernel/editor/gf_resource_path_editor_property.gd")
+const GF_RESOURCE_PATH_ARRAY_EDITOR_PROPERTY = preload("res://addons/gf/kernel/editor/gf_resource_path_array_editor_property.gd")
+const GF_RESOURCE_PATH_HINT = preload("res://addons/gf/kernel/editor/gf_resource_path_hint.gd")
 const GF_RESOURCE_PATH_INSPECTOR_PLUGIN = preload("res://addons/gf/kernel/editor/gf_resource_path_inspector_plugin.gd")
 const GF_RESOURCE_PREVIEW_GENERATOR = preload("res://addons/gf/kernel/editor/gf_resource_preview_generator.gd")
 const GF_EDITOR_WORKSPACE_DOCK = preload("res://addons/gf/kernel/editor/gf_editor_workspace_dock.gd")
@@ -31,6 +34,7 @@ func test_plugin_split_helpers_load() -> void:
 	assert_not_null(GF_PLUGIN_SCRIPT, "主插件脚本应可加载。")
 	assert_not_null(GF_PLUGIN_ACTIONS, "菜单动作辅助脚本应可加载。")
 	assert_not_null(GF_PLUGIN_AUTOLOAD, "Autoload 辅助脚本应可加载。")
+	assert_not_null(GF_PLUGIN_DEBUGGER_TOOLS, "Debugger 插件辅助脚本应可加载。")
 	assert_not_null(GF_PLUGIN_DOCK_TOOLS, "Dock 辅助脚本应可加载。")
 	assert_not_null(GF_PLUGIN_INSPECTOR_TOOLS, "Inspector 辅助脚本应可加载。")
 	assert_not_null(GF_PLUGIN_IMPORT_TOOLS, "导入插件辅助脚本应可加载。")
@@ -38,6 +42,8 @@ func test_plugin_split_helpers_load() -> void:
 	assert_not_null(GF_PLUGIN_PREVIEW_TOOLS, "预览生成器辅助脚本应可加载。")
 	assert_not_null(GF_PLUGIN_PROJECT_SETTINGS, "ProjectSettings 辅助脚本应可加载。")
 	assert_not_null(GF_RESOURCE_PATH_EDITOR_PROPERTY, "资源路径属性编辑器脚本应可加载。")
+	assert_not_null(GF_RESOURCE_PATH_ARRAY_EDITOR_PROPERTY, "资源路径数组属性编辑器脚本应可加载。")
+	assert_not_null(GF_RESOURCE_PATH_HINT, "资源路径 hint 脚本应可加载。")
 	assert_not_null(GF_RESOURCE_PATH_INSPECTOR_PLUGIN, "资源路径 Inspector 脚本应可加载。")
 	assert_not_null(GF_RESOURCE_PREVIEW_GENERATOR, "Resource 预览生成器脚本应可加载。")
 	assert_not_null(GF_EDITOR_WORKSPACE_UI, "工作区页面 UI 辅助脚本应可加载。")
@@ -144,6 +150,17 @@ func test_plugin_action_open_workspace_emits_signal() -> void:
 	_call_void(actions, &"_cleanup_extension_editor_actions")
 
 
+func test_plugin_action_refresh_editor_contributions_emits_signal() -> void:
+	var actions: Object = _new_object(GF_PLUGIN_ACTIONS)
+	_call_void(actions, &"_setup_menu_actions", [[]])
+	watch_signals(actions)
+
+	_call_void(actions, &"handle_menu_id", [GF_PLUGIN_ACTIONS.MENU_REFRESH_EDITOR_CONTRIBUTIONS])
+
+	assert_signal_emitted(actions, "editor_contributions_refresh_requested", "GF 工具菜单应能请求刷新编辑器贡献。")
+	_call_void(actions, &"_cleanup_extension_editor_actions")
+
+
 func test_standard_template_records_are_injected_without_kernel_hardcoding() -> void:
 	var actions: Object = _new_object(GF_PLUGIN_ACTIONS)
 	_call_void(actions, &"_setup_menu_actions", [GF_STANDARD_EDITOR_EXTENSIONS.get_template_records()])
@@ -152,6 +169,32 @@ func test_standard_template_records_are_injected_without_kernel_hardcoding() -> 
 
 	assert_true(source.contains("func _enter("), "NodeState 模板应由 standard 扩展记录注入。")
 	assert_eq(_call_text(actions, &"_get_base_class", ["NodeState"]), "GFNodeState", "NodeState 基类应来自模板记录。")
+
+
+func test_standard_debugger_records_are_injected_without_kernel_hardcoding() -> void:
+	var tools: Object = _new_object(GF_PLUGIN_DEBUGGER_TOOLS)
+	var records: Array = GF_STANDARD_EDITOR_EXTENSIONS.get_debugger_plugin_records()
+	var normalized: Array = _call_array(tools, &"_to_record_array", [records])
+
+	assert_eq(normalized.size(), 1, "标准库应贡献一个 Runtime Debugger 插件记录。")
+	if normalized.is_empty():
+		return
+
+	var record: Dictionary = _dictionary_at(normalized, 0)
+	var script_path: String = GF_VARIANT_ACCESS.get_option_string(record, "path")
+	var debugger_script: Script = _load_script_resource(script_path)
+	var debugger_source: String = _read_text_file(script_path)
+
+	assert_eq(script_path, "res://addons/gf/standard/utilities/debug/editor/gf_runtime_debugger_plugin.gd", "Debugger 插件记录应来自 standard 贡献。")
+	assert_eq(GF_VARIANT_ACCESS.get_option_string(record, "label"), "GF Runtime Debugger", "Debugger 插件记录应保留显示标签。")
+	assert_not_null(debugger_script, "Debugger 插件脚本应可加载。")
+	if debugger_script == null:
+		return
+	assert_true(debugger_script.can_instantiate(), "Debugger 插件脚本应可实例化。")
+	assert_eq(String(debugger_script.get_global_name()), "GFRuntimeDebuggerPlugin", "Debugger 插件记录应指向 GFRuntimeDebuggerPlugin。")
+	assert_eq(String(debugger_script.get_instance_base_type()), "EditorDebuggerPlugin", "Runtime Debugger 插件应继承 EditorDebuggerPlugin。")
+	assert_true(debugger_source.contains("func _has_capture(capture: String) -> bool:"), "Runtime Debugger 插件应声明 capture 回调。")
+	assert_true(debugger_source.contains("GFDiagnosticsUtility.DEBUGGER_CAPTURE_NAME"), "Runtime Debugger 插件应声明 GF diagnostics capture。")
 
 
 func test_plugin_project_settings_accepts_contributed_records() -> void:
@@ -275,10 +318,56 @@ func test_resource_path_editor_maps_file_hints_to_resource_types() -> void:
 		GF_RESOURCE_PATH_EDITOR_PROPERTY.should_handle_property(TYPE_STRING, PROPERTY_HINT_FILE, "*.tscn"),
 		"String + 可识别资源文件 hint 应接管。"
 	)
+	assert_true(
+		GF_RESOURCE_PATH_EDITOR_PROPERTY.should_handle_property(TYPE_STRING, GF_RESOURCE_PATH_HINT.RESOURCE_PATH, "PackedScene"),
+		"String + GF 资源路径 hint 应接管。"
+	)
+	assert_eq(
+		GF_RESOURCE_PATH_EDITOR_PROPERTY.get_base_type_for_hint(GF_RESOURCE_PATH_HINT.RESOURCE_PATH, ""),
+		"Resource",
+		"GF 资源路径 hint 未声明类型时应回退到 Resource。"
+	)
 	assert_false(
 		GF_RESOURCE_PATH_EDITOR_PROPERTY.should_handle_property(TYPE_STRING_NAME, PROPERTY_HINT_FILE, "*.tscn"),
 		"非 String 字段不应被资源路径编辑器接管。"
 	)
+	assert_false(
+		GF_RESOURCE_PATH_EDITOR_PROPERTY.should_handle_property(TYPE_STRING, GF_RESOURCE_PATH_HINT.RESOURCE_PATH_ARRAY, "PackedScene"),
+		"单值 String 不应被数组资源路径 hint 接管。"
+	)
+
+
+func test_resource_path_array_editor_uses_explicit_custom_hint() -> void:
+	assert_true(
+		GF_RESOURCE_PATH_ARRAY_EDITOR_PROPERTY.should_handle_property(TYPE_ARRAY, GF_RESOURCE_PATH_HINT.RESOURCE_PATH_ARRAY, "PackedScene"),
+		"Array + GF 资源路径数组 hint 应接管。"
+	)
+	assert_true(
+		GF_RESOURCE_PATH_ARRAY_EDITOR_PROPERTY.should_handle_property(TYPE_PACKED_STRING_ARRAY, GF_RESOURCE_PATH_HINT.RESOURCE_PATH_ARRAY, "*.tscn"),
+		"PackedStringArray + GF 资源路径数组 hint 应接管。"
+	)
+	assert_false(
+		GF_RESOURCE_PATH_ARRAY_EDITOR_PROPERTY.should_handle_property(TYPE_ARRAY, PROPERTY_HINT_FILE, "*.tscn"),
+		"数组字段必须显式使用 GF 资源路径数组 hint，避免误接管普通数组。"
+	)
+	assert_eq(
+		GF_RESOURCE_PATH_ARRAY_EDITOR_PROPERTY.get_base_type_for_hint(GF_RESOURCE_PATH_HINT.RESOURCE_PATH_ARRAY, ""),
+		"Resource",
+		"资源路径数组 hint 未声明类型时应回退到 Resource。"
+	)
+
+	var paths: PackedStringArray = GF_RESOURCE_PATH_ARRAY_EDITOR_PROPERTY.to_resource_path_array([
+		" res://scene.tscn ",
+		&"uid://abc",
+		123,
+	])
+	var packed_value: Variant = GF_RESOURCE_PATH_ARRAY_EDITOR_PROPERTY.make_property_value(paths, TYPE_PACKED_STRING_ARRAY)
+	var array_value: Variant = GF_RESOURCE_PATH_ARRAY_EDITOR_PROPERTY.make_property_value(paths, TYPE_ARRAY)
+
+	assert_eq(paths, PackedStringArray(["res://scene.tscn", "uid://abc", ""]), "资源路径数组应规范化 String 与 StringName。")
+	assert_true(packed_value is PackedStringArray, "PackedStringArray 字段应写回 PackedStringArray。")
+	assert_true(array_value is Array, "Array 字段应写回 Array。")
+	assert_eq(GF_VARIANT_ACCESS.as_array(array_value), ["res://scene.tscn", "uid://abc", ""], "Array 写回值应保留路径顺序。")
 
 
 func test_resource_path_editor_prefers_uid_paths_for_saved_resources() -> void:
@@ -1023,6 +1112,26 @@ func _remove_path_if_exists(path: String) -> void:
 	var absolute_path: String = ProjectSettings.globalize_path(path)
 	if FileAccess.file_exists(absolute_path) or DirAccess.dir_exists_absolute(absolute_path):
 		var _remove_absolute_result: Variant = DirAccess.remove_absolute(absolute_path)
+
+
+func _load_script_resource(path: String) -> Script:
+	var resource: Resource = load(path)
+	assert_true(resource is Script, "测试资源路径应指向 Script：%s" % path)
+	if resource is Script:
+		var script: Script = resource
+		return script
+	return null
+
+
+func _read_text_file(path: String) -> String:
+	var read_path: String = ProjectSettings.globalize_path(path) if path.begins_with("res://") else path
+	var file: FileAccess = FileAccess.open(read_path, FileAccess.READ)
+	assert_not_null(file, "测试应能读取文本文件：%s" % path)
+	if file == null:
+		return ""
+	var text: String = file.get_as_text()
+	file.close()
+	return text
 
 
 func _new_object(script: Variant) -> Object:

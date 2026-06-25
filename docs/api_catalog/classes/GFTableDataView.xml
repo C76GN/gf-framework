@@ -1,0 +1,442 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFTableDataView" path="addons/gf/standard/utilities/ui/gf_table_data_view.gd" module="standard" extends="RefCounted" classDigest="b53cc9cd47747bfb285fe154aebc1c4be711ee0234a4e01c1a20d8cc31dad501">
+	<description>GFTableDataView: 通用表格数据视图模型。
+维护行数据、列定义、可见行索引、排序、过滤和单元格提交，
+供运行时 UI、编辑器 Dock、资源表或配置表工具自行选择渲染方式。
+它不创建 Control，不规定键鼠交互、主题样式或业务字段含义。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_service</tag>
+		<tag name="since">5.2.0</tag>
+	</tags>
+	<signals>
+		<member kind="signal" name="rows_changed">
+			<signature>signal rows_changed(row_count: int)</signature>
+			<description>行数据集合变化后发出。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">row_count: 当前行数量。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="signal" name="view_changed">
+			<signature>signal view_changed(visible_count: int)</signature>
+			<description>可见行集合变化后发出。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">visible_count: 当前可见行数量。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="signal" name="filter_changed">
+			<signature>signal filter_changed(query: String, visible_count: int)</signature>
+			<description>过滤文本变化后发出。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">query: 当前过滤文本。</tag>
+				<tag name="param">visible_count: 当前可见行数量。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="signal" name="sort_changed">
+			<signature>signal sort_changed(column_id: StringName, ascending: bool)</signature>
+			<description>排序设置变化后发出。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">column_id: 当前排序列 ID；为空表示未排序。</tag>
+				<tag name="param">ascending: 是否升序。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="signal" name="cell_value_committed">
+			<signature>signal cell_value_committed(</signature>
+			<description>单元格成功提交后发出。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">row_index: 源行索引。</tag>
+				<tag name="param">row_id: 稳定行 ID。</tag>
+				<tag name="param">column_id: 列 ID。</tag>
+				<tag name="param">old_value: 旧值。</tag>
+				<tag name="param">new_value: 新值。</tag>
+				<tag name="schema">row_id: Variant，提交前的稳定行 ID。</tag>
+				<tag name="schema">old_value: Variant，提交前的列值。</tag>
+				<tag name="schema">new_value: Variant，提交后的列值。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+	</signals>
+	<enums />
+	<constants />
+	<properties>
+		<member kind="property" name="row_id_column">
+			<signature>var row_id_column: StringName = &amp;"id"</signature>
+			<description>用作稳定行 ID 的字段键。为空时使用源行索引。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="case_sensitive_filter">
+			<signature>var case_sensitive_filter: bool = false</signature>
+			<description>过滤时是否区分大小写。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="selection_model">
+			<signature>var selection_model: GFTableSelectionModel = GFTableSelectionModel.new()</signature>
+			<description>该视图使用的选择模型。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="set_columns">
+			<signature>func set_columns(column_definitions: Array[GFTableColumnDefinition]) -&gt; void:</signature>
+			<description>设置列定义列表。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">column_definitions: 列定义列表；null 项会被忽略。</tag>
+				<tag name="schema">column_definitions: Array，包含 GFTableColumnDefinition。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="add_column">
+			<signature>func add_column(column: GFTableColumnDefinition) -&gt; bool:</signature>
+			<description>追加列定义。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">column: 列定义。</tag>
+				<tag name="return">追加成功返回 true。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_columns">
+			<signature>func get_columns() -&gt; Array[GFTableColumnDefinition]:</signature>
+			<description>获取列定义列表副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">列定义列表。</tag>
+				<tag name="schema">return: Array，包含 GFTableColumnDefinition。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_column">
+			<signature>func get_column(column_id: StringName) -&gt; GFTableColumnDefinition:</signature>
+			<description>获取指定列定义。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">column_id: 列 ID。</tag>
+				<tag name="return">列定义；不存在时返回 null。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="set_rows">
+			<signature>func set_rows(row_values: Array, duplicate_rows: bool = false) -&gt; void:</signature>
+			<description>设置源行数据。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">row_values: 行数据列表。</tag>
+				<tag name="param">duplicate_rows: 是否复制 Dictionary / Array 行数据。</tag>
+				<tag name="schema">row_values: Array，调用方保存的行数据。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="append_row">
+			<signature>func append_row(row_data: Variant) -&gt; int:</signature>
+			<description>追加源行数据。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">row_data: 行数据。</tag>
+				<tag name="return">新行索引。</tag>
+				<tag name="schema">row_data: Variant，调用方保存的行数据。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="remove_row">
+			<signature>func remove_row(row_index: int, should_prune_selection: bool = true) -&gt; bool:</signature>
+			<description>移除源行。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">row_index: 源行索引。</tag>
+				<tag name="param">should_prune_selection: 是否移除已不存在行 ID 的选择。</tag>
+				<tag name="return">移除成功返回 true。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="clear_rows">
+			<signature>func clear_rows() -&gt; void:</signature>
+			<description>清空所有行数据。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_row_count">
+			<signature>func get_row_count() -&gt; int:</signature>
+			<description>获取源行数量。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">源行数量。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_visible_row_count">
+			<signature>func get_visible_row_count() -&gt; int:</signature>
+			<description>获取可见行数量。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">可见行数量。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_row">
+			<signature>func get_row(row_index: int) -&gt; Variant:</signature>
+			<description>获取源行数据。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">row_index: 源行索引。</tag>
+				<tag name="return">行数据；索引无效时返回 null。</tag>
+				<tag name="schema">return: Variant，调用方保存的行数据。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_visible_row">
+			<signature>func get_visible_row(visible_row_index: int) -&gt; Variant:</signature>
+			<description>获取可见行数据。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">visible_row_index: 可见行索引。</tag>
+				<tag name="return">行数据；索引无效时返回 null。</tag>
+				<tag name="schema">return: Variant，调用方保存的行数据。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_source_row_index">
+			<signature>func get_source_row_index(visible_row_index: int) -&gt; int:</signature>
+			<description>获取可见行对应的源行索引。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">visible_row_index: 可见行索引。</tag>
+				<tag name="return">源行索引；无效时返回 -1。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_visible_row_indices">
+			<signature>func get_visible_row_indices() -&gt; PackedInt32Array:</signature>
+			<description>获取可见行源索引副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">可见行源索引。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_row_id">
+			<signature>func get_row_id(row_index: int) -&gt; Variant:</signature>
+			<description>获取源行稳定 ID。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">row_index: 源行索引。</tag>
+				<tag name="return">稳定行 ID；没有字段值时回退为源行索引。</tag>
+				<tag name="schema">return: Variant，稳定行 ID。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_visible_row_id">
+			<signature>func get_visible_row_id(visible_row_index: int) -&gt; Variant:</signature>
+			<description>获取可见行稳定 ID。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">visible_row_index: 可见行索引。</tag>
+				<tag name="return">稳定行 ID。</tag>
+				<tag name="schema">return: Variant，稳定行 ID。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_row_ids">
+			<signature>func get_row_ids() -&gt; Array:</signature>
+			<description>获取全部源行 ID。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">行 ID 列表。</tag>
+				<tag name="schema">return: Array，全部源行稳定 ID。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_visible_row_ids">
+			<signature>func get_visible_row_ids() -&gt; Array:</signature>
+			<description>获取当前可见顺序中的行 ID。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">可见行 ID 列表。</tag>
+				<tag name="schema">return: Array，当前可见顺序中的稳定行 ID。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="set_filter_query">
+			<signature>func set_filter_query(query: String) -&gt; void:</signature>
+			<description>设置过滤文本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">query: 过滤文本；空字符串显示全部行。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_filter_query">
+			<signature>func get_filter_query() -&gt; String:</signature>
+			<description>获取当前过滤文本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">过滤文本。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="sort_by_column">
+			<signature>func sort_by_column(column_id: StringName, ascending: bool = true) -&gt; bool:</signature>
+			<description>按列排序。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">column_id: 排序列 ID。</tag>
+				<tag name="param">ascending: 是否升序。</tag>
+				<tag name="return">排序设置成功返回 true。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="clear_sort">
+			<signature>func clear_sort() -&gt; bool:</signature>
+			<description>清除排序。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">排序状态发生变化时返回 true。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_sort_column_id">
+			<signature>func get_sort_column_id() -&gt; StringName:</signature>
+			<description>获取当前排序列 ID。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">排序列 ID；为空表示未排序。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_sort_ascending">
+			<signature>func is_sort_ascending() -&gt; bool:</signature>
+			<description>当前排序是否升序。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">升序时返回 true。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="refresh_view">
+			<signature>func refresh_view() -&gt; void:</signature>
+			<description>重新构建可见行索引。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_cell_value">
+			<signature>func get_cell_value(row_index: int, column_id: StringName) -&gt; Variant:</signature>
+			<description>获取源行单元格值。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">row_index: 源行索引。</tag>
+				<tag name="param">column_id: 列 ID。</tag>
+				<tag name="return">单元格值。</tag>
+				<tag name="schema">return: Variant，单元格值。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="commit_cell_value">
+			<signature>func commit_cell_value(row_index: int, column_id: StringName, new_value: Variant) -&gt; bool:</signature>
+			<description>提交源行单元格值。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">row_index: 源行索引。</tag>
+				<tag name="param">column_id: 列 ID。</tag>
+				<tag name="param">new_value: 新值。</tag>
+				<tag name="return">提交成功返回 true。</tag>
+				<tag name="schema">new_value: Variant，要提交的新值。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="commit_visible_cell_value">
+			<signature>func commit_visible_cell_value( visible_row_index: int, column_id: StringName, new_value: Variant ) -&gt; bool:</signature>
+			<description>提交可见行单元格值。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">visible_row_index: 可见行索引。</tag>
+				<tag name="param">column_id: 列 ID。</tag>
+				<tag name="param">new_value: 新值。</tag>
+				<tag name="return">提交成功返回 true。</tag>
+				<tag name="schema">new_value: Variant，要提交的新值。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="commit_cell_values">
+			<signature>func commit_cell_values(changes: Array[Dictionary]) -&gt; Dictionary:</signature>
+			<description>批量提交源行单元格值。
+该方法会先处理所有变更，再在有实际写入时统一刷新视图并发送单元格提交信号；
+它不是事务，部分失败不会回滚已成功的变更。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">changes: 单元格变更数组；每项包含 row_index、column_id 与 new_value。</tag>
+				<tag name="return">批量提交报告。</tag>
+				<tag name="schema">changes: Array[Dictionary]，每项包含 row_index: int、column_id: StringName/String、new_value: Variant。</tag>
+				<tag name="schema">return: Dictionary，包含 ok、requested_count、applied_count、unchanged_count、failed_count、committed 和 errors。</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="commit_visible_cell_values">
+			<signature>func commit_visible_cell_values(changes: Array[Dictionary]) -&gt; Dictionary:</signature>
+			<description>批量提交可见行单元格值。
+可见行索引会在任何写入发生前解析为源行索引，避免排序或过滤重建导致同一批变更漂移。
+该方法不是事务，部分失败不会回滚已成功的变更。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">changes: 单元格变更数组；每项包含 visible_row_index、column_id 与 new_value。</tag>
+				<tag name="return">批量提交报告。</tag>
+				<tag name="schema">changes: Array[Dictionary]，每项包含 visible_row_index: int、column_id: StringName/String、new_value: Variant。</tag>
+				<tag name="schema">return: Dictionary，包含 ok、requested_count、applied_count、unchanged_count、failed_count、committed 和 errors。</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="describe_visible_row">
+			<signature>func describe_visible_row(visible_row_index: int) -&gt; Dictionary:</signature>
+			<description>描述当前可见行。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">visible_row_index: 可见行索引。</tag>
+				<tag name="return">可见行摘要。</tag>
+				<tag name="schema">return: Dictionary，包含 ok、row_index、visible_row_index、row_id、selected 和 values。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="prune_selection">
+			<signature>func prune_selection(visible_only: bool = false) -&gt; bool:</signature>
+			<description>移除已不存在源行中的选择。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">visible_only: 为 true 时只保留当前可见行选择。</tag>
+				<tag name="return">选择发生变化时返回 true。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_debug_snapshot">
+			<signature>func get_debug_snapshot() -&gt; Dictionary:</signature>
+			<description>获取调试快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">数据视图状态字典。</tag>
+				<tag name="schema">return: Dictionary，包含 row_count、visible_count、column_count、filter_query、sort_column_id 和 sort_ascending。</tag>
+				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

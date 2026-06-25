@@ -108,6 +108,71 @@ func read_object_metadata(target: Object, options: Dictionary = {}) -> Dictionar
 	return {}
 
 
+## 读取对象资产元数据，并按通用 Dictionary schema 补默认值与可选转换。
+## [br]
+## @api public
+## [br]
+## @since 6.0.0
+## [br]
+## @param target: 目标 Object。
+## [br]
+## @param schema: 通用 Dictionary schema；为空时只返回普通读取结果。
+## [br]
+## @param options: 可选项，支持 read_object_metadata() 的参数，并额外支持 include_optional_defaults 和 coerce_values。
+## [br]
+## @schema options: Dictionary，可包含 metadata_key、metadata_keys、include_optional_defaults 与 coerce_values。
+## [br]
+## @return 补齐后的元数据字典副本。
+## [br]
+## @schema return: Dictionary，按 schema 归一后的资产元数据字段。
+func read_object_metadata_with_schema(
+	target: Object,
+	schema: GFDictionarySchema,
+	options: Dictionary = {}
+) -> Dictionary:
+	var metadata: Dictionary = read_object_metadata(target, options)
+	if schema == null:
+		return metadata
+
+	var include_optional: bool = GFVariantData.get_option_bool(options, "include_optional_defaults", true)
+	var should_coerce: bool = GFVariantData.get_option_bool(options, "coerce_values", schema.coerce_values)
+	return schema.apply_defaults(metadata, include_optional, should_coerce)
+
+
+## 用通用 Dictionary schema 校验对象资产元数据。
+## [br]
+## @api public
+## [br]
+## @since 6.0.0
+## [br]
+## @param target: 目标 Object。
+## [br]
+## @param schema: 通用 Dictionary schema。
+## [br]
+## @param options: 可选项，支持 read_object_metadata() 的参数，以及 source_path、subject、path。
+## [br]
+## @schema options: Dictionary，可包含 metadata_key、metadata_keys、source_path、subject 和 path。
+## [br]
+## @return GFValidationReport 兼容字典。
+## [br]
+## @schema return: Dictionary，包含 ok、healthy、summary、issues 等校验报告字段。
+func validate_object_metadata(
+	target: Object,
+	schema: GFDictionarySchema,
+	options: Dictionary = {}
+) -> Dictionary:
+	if schema == null:
+		var missing_schema_report: GFValidationReport = GFValidationReport.new("Asset metadata")
+		var _missing_schema_issue: RefCounted = missing_schema_report.add_error(
+			&"missing_schema",
+			"Metadata schema is null."
+		)
+		return missing_schema_report.to_dict()
+
+	var metadata: Dictionary = read_object_metadata(target, options)
+	return schema.validate_dictionary(metadata, _make_schema_validation_options(target, options)).to_dict()
+
+
 ## 检查对象是否带有资产元数据。
 ## [br]
 ## @api public
@@ -301,6 +366,22 @@ func _get_metadata_keys(options: Dictionary) -> Array[StringName]:
 func _append_metadata_key(result: Array[StringName], key: StringName) -> void:
 	if key != &"" and not result.has(key):
 		result.append(key)
+
+
+func _make_schema_validation_options(target: Object, options: Dictionary) -> Dictionary:
+	var result: Dictionary = options.duplicate(true)
+	if not result.has("subject"):
+		result["subject"] = "Asset metadata"
+	if not result.has("path"):
+		result["path"] = "metadata"
+	if not result.has("source_path"):
+		var source_path: String = GFVariantData.get_option_string(options, "source_path")
+		if source_path.is_empty() and target is Node:
+			var node: Node = target
+			source_path = node.scene_file_path
+		if not source_path.is_empty():
+			result["source_path"] = source_path
+	return result
 
 
 func _get_report_options() -> Dictionary:

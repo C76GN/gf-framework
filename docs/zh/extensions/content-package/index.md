@@ -17,6 +17,8 @@ Content Package 扩展用于把项目或插件中的可选内容收束为稳定 
   "package_id": "author.chapter_one",
   "display_name": "Chapter One",
   "version": "1.0.0",
+  "safety_kind": "data_only",
+  "forbidden_resource_extensions": ["gd", "gdshader", "dll"],
   "content_types": ["scene", "audio"],
   "dependencies": ["author.base"],
   "resources": [
@@ -34,7 +36,15 @@ Content Package 扩展用于把项目或插件中的可选内容收束为稳定 
 }
 ```
 
-`path` 可以是包根目录内的相对路径或 `res://` 路径。相对路径会归一化到 manifest 所在目录；`res://` 路径必须留在内容包根目录内；`uid://`、`user://`、绝对路径和越界 `..` 路径会进入错误报告。Content Package 不接受 `uid://`，因为 manifest 校验必须能证明资源仍在包根目录内。
+`path` 可以是包根目录内的相对路径、`res://` 路径或 `user://` 路径。相对路径会归一化到 manifest 所在目录；显式路径必须留在内容包根目录内；`uid://`、绝对路径和越界 `..` 路径会进入错误报告。Content Package 不接受 `uid://`，因为 manifest 校验必须能证明资源仍在包根目录内。
+
+## 来源根与安全分类
+
+`GFContentPackageUtility.register_source_root()` 支持 `res://` 与 `user://` 来源根。项目可以把内置内容放在 `res://content_packages`，把运行时下载、编辑器导入或用户生成内容放在 `user://content_packages`，再用同一套 `rebuild_catalog()` 和资源键注册流程处理。
+
+`GFContentPackageManifest.safety_kind` 默认是 `data_only`。该分类会拒绝脚本、动态库、shader、shell 脚本等可执行或代码形态扩展名；项目可以通过 `forbidden_resource_extensions` 追加或替换拦截列表。只有确实由开发者控制、并且项目侧已经决定如何加载和审计代码资源时，才应把分类改成 `trusted_developer`。
+
+这个安全分类只负责内容包 manifest 的静态资源路径约束，不下载文件、不加载脚本，也不声明某个包可以被普通用户信任执行。下载、完整性校验、解包、隔离和启用策略仍属于项目安装器或独立工具。
 
 ## 诊断报告
 
@@ -61,6 +71,21 @@ if GFVariantData.get_option_bool(report, "ok"):
 ```gdscript
 var scene: Resource = resolver.load(&"chapter_one.main_scene", "PackedScene")
 ```
+
+## 导出计划
+
+`GFContentPackageExportPlan` 可以从单个 manifest 或 catalog 构建可审计的导出条目列表。它只输出 `source_path`、`archive_path`、`role`、`resource_key`、`package_id`、`type_hint` 和诊断报告，不写 zip、不改 Godot remap，也不规定项目发布流程。
+
+```gdscript
+var plan := GFContentPackageExportPlan.from_manifest(manifest, {
+	"archive_root": "packages/chapter_one",
+	"include_resource_dependencies": true,
+})
+
+var report := plan.get_validation_report()
+```
+
+项目可以把这份计划交给自己的构建脚本、编辑器面板或 CI 流程继续处理。需要下载、签名、平台上传或工作坊发布时，应在项目工具或独立插件中完成。
 
 ## 使用边界
 

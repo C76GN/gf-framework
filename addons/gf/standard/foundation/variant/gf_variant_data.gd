@@ -309,6 +309,45 @@ static func duplicate_metadata(metadata: Dictionary) -> Dictionary:
 	return metadata.duplicate(true)
 
 
+## 安全比较两个 Variant 值是否等价。
+## [br]
+## 默认只在类型相同或 int/float 数值类型互比时返回 true。需要容忍浮点误差时可传入 numeric_epsilon。
+## [br]
+## @api public
+## [br]
+## @since 6.0.0
+## [br]
+## @param left: 左值。
+## [br]
+## @schema left: Variant comparison value.
+## [br]
+## @param right: 右值。
+## [br]
+## @schema right: Variant comparison value.
+## [br]
+## @param options: 比较选项。支持 numeric_epsilon 和 match_string_names。
+## [br]
+## @schema options: Dictionary，可选字段：numeric_epsilon 为 int/float 误差，默认 0；match_string_names 为 true 时 String 与 StringName 按文本比较。
+## [br]
+## @return 两个值按 GF 通用 Variant 语义等价时返回 true。
+static func values_equal(left: Variant, right: Variant, options: Dictionary = {}) -> bool:
+	var left_type: int = typeof(left)
+	var right_type: int = typeof(right)
+	if left_type == right_type:
+		if _is_numeric_variant_type(left_type):
+			return _numeric_values_equal(left, right, options)
+		return left == right
+	if _is_numeric_variant_type(left_type) and _is_numeric_variant_type(right_type):
+		return _numeric_values_equal(left, right, options)
+	if (
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(options, "match_string_names", false)
+		and _is_string_like_key(left)
+		and _is_string_like_key(right)
+	):
+		return to_text(left) == to_text(right)
+	return false
+
+
 ## 将 source 合并到 target。
 ## `String` 与 `StringName` 等价键会复用 target 中已有字段，避免重复键。
 ## [br]
@@ -881,11 +920,34 @@ static func _copy_diff_value(value: Variant, state: Dictionary) -> Variant:
 
 
 static func _variant_values_equal(left: Variant, right: Variant) -> bool:
-	return left == right
+	return values_equal(left, right)
 
 
 static func _is_diff_truncated(state: Dictionary) -> bool:
 	return _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(state, "truncated")
+
+
+static func _numeric_values_equal(left: Variant, right: Variant, options: Dictionary) -> bool:
+	var left_number: float = _variant_to_float(left)
+	var right_number: float = _variant_to_float(right)
+	var epsilon: float = maxf(_GF_VARIANT_ACCESS_SCRIPT.get_option_float(options, "numeric_epsilon", 0.0), 0.0)
+	if epsilon <= 0.0:
+		return left_number == right_number
+	return absf(left_number - right_number) <= epsilon
+
+
+static func _is_numeric_variant_type(variant_type: int) -> bool:
+	return variant_type == TYPE_INT or variant_type == TYPE_FLOAT
+
+
+static func _variant_to_float(value: Variant) -> float:
+	if value is int:
+		var int_value: int = value
+		return float(int_value)
+	if value is float:
+		var float_value: float = value
+		return float_value
+	return 0.0
 
 
 static func _is_string_like_key(key: Variant) -> bool:

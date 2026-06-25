@@ -30,4 +30,8 @@ if buff != null and not buff.modifiers.is_empty():
 
 运行时可通过 `remove_buff(entity, buff_id)` 驱散单个 Buff，通过 `clear_buffs(entity, predicate)` 清理全部或部分 Buff，通过 `remove_skill(entity, skill)` 取消某个技能的系统驱动与冷却信号监听。
 
+需要给诊断、存档或项目日志记录来源时，可以使用 `remove_buff_with_reason(entity, buff_id, reason)` 或 `clear_buffs_with_reason(entity, predicate, reason)`。Buff 会在 `removal_reason` 中保留最近一次移除原因，默认原因包括 `expired`、`removed`、`cleared`、`entity_unregistered` 和 `disposed`。
+
+运行时状态可用 `get_state_snapshot()` 保存，再用 `restore_state_snapshot(snapshot, owner)` 恢复到新的 Buff 实例。快照只保存通用数据和 effect 状态，不把 owner 对象序列化进数据。
+
 手动目标施放会先经过 `targeting_rule` 校验；即使 `max_count <= 0` 表示不截断目标，未通过校验的手动目标也不会让技能以空目标执行。若技能 owner 没有 `global_position` 且调用时未传入 `cast_center`，索敌中心会回退到 `Vector2.ZERO`，项目应为非空间对象显式传入施法中心。

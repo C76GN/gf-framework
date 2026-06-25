@@ -85,6 +85,35 @@ func test_collect_node_tree_respects_custom_keys_and_depth() -> void:
 	root.free()
 
 
+func test_object_metadata_can_use_dictionary_schema() -> void:
+	var utility: GFAssetMetadataUtility = GFAssetMetadataUtility.new()
+	var node: Node = Node.new()
+	var schema: GFDictionarySchema = GFDictionarySchema.new()
+	schema.schema_id = &"asset_metadata"
+	schema.coerce_values = true
+	schema.allow_extra_fields = false
+	var _kind_added: bool = schema.add_field(GFSchemaField.new().configure(&"kind", GFSchemaField.ValueType.STRING, {
+		"required": true,
+		"allow_null": false,
+		"default_value": "asset",
+	}))
+	var _priority_added: bool = schema.add_field(GFSchemaField.new().configure(&"priority", GFSchemaField.ValueType.INT, {
+		"default_value": 0,
+	}))
+	var _write_metadata_result: GFAssetMetadataRecord = utility.write_object_metadata(node, {
+		"priority": "4",
+	})
+
+	var normalized: Dictionary = utility.read_object_metadata_with_schema(node, schema)
+	var report: Dictionary = utility.validate_object_metadata(node, schema)
+
+	assert_eq(GFVariantData.get_option_string(normalized, "kind"), "asset", "schema 默认值应补齐 metadata。")
+	assert_eq(GFVariantData.get_option_int(normalized, "priority"), 4, "schema 应按字段声明转换 metadata。")
+	assert_true(GFVariantData.get_option_bool(report, "ok"), "按 schema 补默认值和转换后应通过校验。")
+
+	node.free()
+
+
 func test_build_node_tree_report_reports_missing_root() -> void:
 	var utility: GFAssetMetadataUtility = GFAssetMetadataUtility.new()
 	var report: Dictionary = utility.build_node_tree_report(null)

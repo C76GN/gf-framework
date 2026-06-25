@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFContentPackageUtility" path="addons/gf/extensions/content_package/runtime/gf_content_package_utility.gd" module="extensions/content_package" extends="GFUtility" classDigest="84e5a5763408d43b918f846a6b429878bc5e529ed8918dd930ddfc99f0033059">
+<class name="GFContentPackageUtility" path="addons/gf/extensions/content_package/runtime/gf_content_package_utility.gd" module="extensions/content_package" extends="GFUtility" classDigest="c5800cae06e20c8be2afe7627556f7fb0534ffa669d68fea63fb6c305273b65b">
 	<description>GFContentPackageUtility: 内容包发现、目录构建和资源解析注册服务。
 维护显式 source root 列表，加载其中的 `gf_content_package.json`，构建 GFContentPackageCatalog，
 并把内容包资源键映射同步到 GFResourceResolverUtility。它不下载内容、不扫描全项目、不决定包启用策略。</description>
@@ -27,8 +27,9 @@
 			<description>注册内容包 source root。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="param">root_path: `res://` 下的内容包根目录。该目录自身或其直接子目录可包含 `gf_content_package.json`。</tag>
+				<tag name="param">root_path: `res://` 或 `user://` 下的内容包根目录。该目录自身或其直接子目录可包含 `gf_content_package.json`。</tag>
 				<tag name="return">注册成功返回 true。</tag>
+				<tag name="since">6.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="unregister_source_root">

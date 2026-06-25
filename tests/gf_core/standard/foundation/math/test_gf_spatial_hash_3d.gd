@@ -46,3 +46,52 @@ func test_remove_erases_entity() -> void:
 
 	assert_eq(spatial_hash.get_entity_count(), 0, "移除后实体数量应为 0。")
 	assert_false(spatial_hash.has_entity("unit"), "移除后实体不应存在。")
+
+
+## 验证世界坐标会按 floor 规则映射到格子，负坐标不会被截断到 0。
+func test_get_cell_for_position_uses_floor_for_negative_positions() -> void:
+	var spatial_hash: GFSpatialHash3D = GFSpatialHash3D.new(4.0)
+
+	assert_eq(spatial_hash.get_cell_for_position(Vector3(-0.1, 0.0, -4.1)), Vector3i(-1, 0, -2), "负坐标应映射到正确格子。")
+
+
+## 验证可以直接查询指定空间格子的候选实体。
+func test_query_cell_returns_bucket_candidates() -> void:
+	var spatial_hash: GFSpatialHash3D = GFSpatialHash3D.new(4.0)
+	var _insert_result_60: Variant = spatial_hash.insert("inside", AABB(Vector3(1.0, 0.0, 1.0), Vector3.ONE))
+	var _insert_result_61: Variant = spatial_hash.insert("outside", AABB(Vector3(10.0, 0.0, 0.0), Vector3.ONE))
+
+	var result: Array[Variant] = spatial_hash.query_cell(Vector3i(0, 0, 0))
+
+	assert_true(result.has("inside"), "目标格子应返回桶内实体。")
+	assert_false(result.has("outside"), "其他格子的实体不应返回。")
+
+
+## 验证格子范围查询会跨格收集并去重。
+func test_query_cell_range_collects_cells_and_deduplicates_entities() -> void:
+	var spatial_hash: GFSpatialHash3D = GFSpatialHash3D.new(4.0)
+	var _insert_result_72: Variant = spatial_hash.insert("wide", AABB(Vector3(3.5, 0.0, 0.0), Vector3(2.0, 1.0, 1.0)))
+	var _insert_result_73: Variant = spatial_hash.insert("far", AABB(Vector3(20.0, 0.0, 0.0), Vector3.ONE))
+
+	var result: Array[Variant] = spatial_hash.query_cell_range(Vector3i(0, 0, 0), Vector3i(1, 0, 0))
+
+	assert_eq(result.count("wide"), 1, "跨多个格子的实体只应返回一次。")
+	assert_false(result.has("far"), "范围外实体不应返回。")
+
+
+## 验证调试快照包含空间桶基础统计。
+func test_get_debug_snapshot_reports_bucket_statistics() -> void:
+	var spatial_hash: GFSpatialHash3D = GFSpatialHash3D.new(4.0)
+	var _insert_result_84: Variant = spatial_hash.insert("a", AABB(Vector3.ZERO, Vector3.ONE))
+	var _insert_result_85: Variant = spatial_hash.insert("b", AABB(Vector3(8.0, 0.0, 0.0), Vector3.ONE))
+
+	var snapshot: Dictionary = spatial_hash.get_debug_snapshot()
+	var cell_size: float = GFVariantData.get_option_float(snapshot, "cell_size")
+	var entity_count: int = GFVariantData.get_option_int(snapshot, "entity_count")
+	var bucket_count: int = GFVariantData.get_option_int(snapshot, "bucket_count")
+	var max_bucket_size: int = GFVariantData.get_option_int(snapshot, "max_bucket_size")
+
+	assert_eq(cell_size, 4.0, "快照应包含格子尺寸。")
+	assert_eq(entity_count, 2, "快照应包含实体数量。")
+	assert_gt(bucket_count, 0, "快照应包含桶数量。")
+	assert_gt(max_bucket_size, 0, "快照应包含最大桶大小。")

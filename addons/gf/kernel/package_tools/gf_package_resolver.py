@@ -65,9 +65,12 @@ def main() -> int:
 	subparsers = parser.add_subparsers(dest="command", required=True)
 
 	install_parser = subparsers.add_parser("install-plan", help="Resolve package dependencies and optionally write a lockfile.")
-	install_parser.add_argument("packages", nargs="+", help="Package ids to install.")
+	install_parser.add_argument("packages", nargs="*", help="Package ids to install.")
 	add_common_args(install_parser)
 	install_parser.add_argument("--reason", choices=sorted(VALID_REASONS - {"dependency"}), default="manual")
+	install_parser.add_argument("--all-concrete", action="store_true", help="Install every non-preset package selected by the registry.")
+	install_parser.add_argument("--kind", action="append", default=[], help="Install packages matching one or more comma-separated package kinds.")
+	install_parser.add_argument("--exclude-kind", action="append", default=[], help="Exclude packages matching one or more comma-separated package kinds.")
 	install_parser.add_argument("--write-lock", action="store_true")
 
 	update_parser = subparsers.add_parser("update-plan", help="Plan updates for packages already present in the lockfile.")
@@ -93,6 +96,9 @@ def main() -> int:
 			lockfile_path=args.lockfile,
 			package_ids=args.packages,
 			reason=args.reason,
+			all_concrete=args.all_concrete,
+			include_kinds=split_selector_values(args.kind),
+			exclude_kinds=split_selector_values(args.exclude_kind),
 			write_lock=args.write_lock,
 			current_framework_version=args.current_framework_version,
 		)
@@ -133,12 +139,25 @@ def configure_stdio() -> None:
 			stream.reconfigure(encoding="utf-8", errors="replace")
 
 
+def split_selector_values(values: list[str]) -> list[str]:
+	result: list[str] = []
+	for value in values:
+		for item in value.split(","):
+			trimmed_item = item.strip()
+			if trimmed_item:
+				append_unique(result, trimmed_item)
+	return result
+
+
 def install_plan(
 	registry_path: str,
 	lockfile_path: str,
 	package_ids: list[str],
 	reason: str,
-	write_lock: bool,
+	all_concrete: bool = False,
+	include_kinds: list[str] | None = None,
+	exclude_kinds: list[str] | None = None,
+	write_lock: bool = False,
 	current_framework_version: str = "",
 ) -> dict[str, Any]:
 	registry = load_registry(resolve_path(registry_path))
@@ -146,12 +165,24 @@ def install_plan(
 	issues = [*registry["issues"], *lockfile["issues"]]
 	if reason not in VALID_REASONS or reason == "dependency":
 		issues.append(f"Invalid install reason: {reason}")
+	target_package_ids = collect_install_targets(
+		package_ids,
+		registry["packages"],
+		all_concrete,
+		include_kinds or [],
+		exclude_kinds or [],
+		issues,
+	)
 	if issues:
-		return make_plan_result(False, "install", [], [], [], [], issues, lockfile["data"], write_lock, lockfile_path)
+		result = make_plan_result(False, "install", [], [], [], [], issues, lockfile["data"], write_lock, lockfile_path)
+		result["requested_packages"] = target_package_ids
+		return result
 
-	closure = resolve_dependency_closure(registry["packages"], package_ids)
+	closure = resolve_dependency_closure(registry["packages"], target_package_ids)
 	if closure["issues"]:
-		return make_plan_result(False, "install", [], [], [], [], closure["issues"], lockfile["data"], write_lock, lockfile_path)
+		result = make_plan_result(False, "install", [], [], [], [], closure["issues"], lockfile["data"], write_lock, lockfile_path)
+		result["requested_packages"] = target_package_ids
+		return result
 	compatibility_issues = framework_compatibility_issues(
 		registry,
 		registry["packages"],
@@ -159,11 +190,13 @@ def install_plan(
 		current_framework_version,
 	)
 	if compatibility_issues:
-		return make_plan_result(False, "install", [], [], [], [], compatibility_issues, lockfile["data"], write_lock, lockfile_path)
+		result = make_plan_result(False, "install", [], [], [], [], compatibility_issues, lockfile["data"], write_lock, lockfile_path)
+		result["requested_packages"] = target_package_ids
+		return result
 
 	original_installed = copy.deepcopy(lockfile["data"]["installed"])
 	installed = copy.deepcopy(original_installed)
-	requested_package_ids = set(package_ids)
+	requested_package_ids = set(target_package_ids)
 	for package_id in closure["order"]:
 		registry_entry = registry["packages"][package_id]
 		entry = make_lock_entry(registry_entry, package_id)
@@ -180,7 +213,7 @@ def install_plan(
 		entry["reason"] = sorted(reasons)
 		installed[package_id] = entry
 	recompute_required_by(installed, registry["packages"])
-	planned_lock = make_lockfile(lockfile["data"], installed, registry["framework_version"])
+	planned_lock = make_lockfile(lockfile["data"], installed, registry["framework_version"], {"source": registry_path})
 	to_install = [package_id for package_id in closure["order"] if package_id not in original_installed]
 	to_update = [
 		package_id
@@ -190,7 +223,7 @@ def install_plan(
 	]
 	if write_lock:
 		write_lockfile(resolve_path(lockfile_path), planned_lock)
-	return make_plan_result(
+	result = make_plan_result(
 		True,
 		"install",
 		closure["order"],
@@ -202,6 +235,8 @@ def install_plan(
 		write_lock,
 		lockfile_path,
 	)
+	result["requested_packages"] = target_package_ids
+	return result
 
 
 def update_plan(
@@ -224,7 +259,7 @@ def update_plan(
 	if issues:
 		return make_plan_result(False, "update", [], [], [], [], issues, lockfile["data"], write_lock, lockfile_path)
 	if not target_ids:
-		planned_lock = make_lockfile(lockfile["data"], installed, registry["framework_version"])
+		planned_lock = make_lockfile(lockfile["data"], installed, registry["framework_version"], {"source": registry_path})
 		if write_lock and planned_lock != lockfile["data"]:
 			write_lockfile(resolve_path(lockfile_path), planned_lock)
 		return make_plan_result(True, "update", [], [], [], [], [], planned_lock, write_lock and planned_lock != lockfile["data"], lockfile_path)
@@ -255,7 +290,7 @@ def update_plan(
 		entry["reason"] = sorted(reasons)
 		updated_installed[package_id] = entry
 	recompute_required_by(updated_installed, registry_packages)
-	planned_lock = make_lockfile(lockfile["data"], updated_installed, registry["framework_version"])
+	planned_lock = make_lockfile(lockfile["data"], updated_installed, registry["framework_version"], {"source": registry_path})
 	to_install = [package_id for package_id in closure["order"] if package_id not in original_installed]
 	to_update = [
 		package_id
@@ -508,6 +543,54 @@ def package_path_tokens(paths: list[str]) -> list[str]:
 	return tokens
 
 
+def collect_install_targets(
+	package_ids: list[str],
+	registry_packages: dict[str, dict[str, Any]],
+	all_concrete: bool,
+	include_kinds: list[str],
+	exclude_kinds: list[str],
+	issues: list[str],
+) -> list[str]:
+	result: list[str] = []
+	for package_id in package_ids:
+		trimmed_id = package_id.strip()
+		if trimmed_id:
+			append_unique(result, trimmed_id)
+	for package_id in select_registry_package_ids(registry_packages, all_concrete, include_kinds, exclude_kinds):
+		append_unique(result, package_id)
+	if not result:
+		issues.append("Missing package id or matching package selector.")
+		return result
+	for package_id in result:
+		if package_id not in registry_packages:
+			issues.append(f"Missing package: {package_id}")
+	return result
+
+
+def select_registry_package_ids(
+	registry_packages: dict[str, dict[str, Any]],
+	all_concrete: bool,
+	include_kinds: list[str],
+	exclude_kinds: list[str],
+) -> list[str]:
+	include = {item.strip() for item in include_kinds if item.strip()}
+	exclude = {item.strip() for item in exclude_kinds if item.strip()}
+	if not all_concrete and not include and not exclude:
+		return []
+	result: list[str] = []
+	for package_id in sorted(registry_packages.keys()):
+		entry = registry_packages.get(package_id, {})
+		package_kind = str(entry.get("kind", "")) if isinstance(entry, dict) else ""
+		if all_concrete and package_kind == "preset":
+			continue
+		if include and package_kind not in include:
+			continue
+		if package_kind in exclude:
+			continue
+		result.append(package_id)
+	return result
+
+
 def collect_update_targets(
 	package_ids: list[str],
 	all_installed: bool,
@@ -562,12 +645,45 @@ def package_dependency_ids(registry_entry: dict[str, Any]) -> list[str]:
 	return string_array(registry_entry.get("dependencies", []))
 
 
-def make_lockfile(base_lockfile: dict[str, Any], installed: dict[str, Any], framework_version: str) -> dict[str, Any]:
-	return {
+def make_lockfile(
+	base_lockfile: dict[str, Any],
+	installed: dict[str, Any],
+	framework_version: str,
+	registry_source: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+	lockfile = {
 		"schema_version": LOCKFILE_SCHEMA_VERSION,
 		"framework_version": framework_version or str(base_lockfile.get("framework_version", "")),
 		"installed": {package_id: installed[package_id] for package_id in sorted(installed.keys())},
 	}
+	source_info = make_lockfile_registry_source(base_lockfile, registry_source or {})
+	if source_info:
+		lockfile["registry_source"] = source_info
+	return lockfile
+
+
+def make_lockfile_registry_source(base_lockfile: dict[str, Any], registry_source: dict[str, Any]) -> dict[str, Any]:
+	if not registry_source:
+		existing = base_lockfile.get("registry_source", {})
+		return dict(existing) if isinstance(existing, dict) else {}
+	result: dict[str, Any] = {}
+	for source_key, target_key in (
+		("source", "source"),
+		("registry_source_manifest", "source_manifest"),
+		("channel", "channel"),
+		("offline_bundle", "offline_bundle"),
+		("registry_sha256", "registry_sha256"),
+	):
+		value = str(registry_source.get(source_key, "")).strip()
+		if value:
+			result[target_key] = value
+	for key in ("remote",):
+		if key in registry_source:
+			result[key] = bool(registry_source[key])
+	for key in ("mirror_index", "registry_size_bytes"):
+		if key in registry_source:
+			result[key] = int(registry_source[key])
+	return result
 
 
 def framework_compatibility_issues(

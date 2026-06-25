@@ -12,6 +12,8 @@
 
 如果项目已有清晰的业务 Model，应优先把业务状态归属留在 Model 中；store 更适合 UI 本地状态、工具状态、筛选条件、面板草稿和可丢弃的运行时视图状态。
 
+`GFReadOnlyBindableProperty` 与 `GFComputedProperty` 的 `get_value()` 会对 `Array` / `Dictionary` 返回深拷贝，避免调用方通过集合引用绕过只读约束；需要可写集合时应使用普通 `GFBindableProperty` 并通过其 mutator 或宿主 Model 更新。
+
 ## 状态路径
 
 路径可以使用点号字符串、`StringName`、`PackedStringArray` 或 `Array`：
@@ -50,7 +52,7 @@ store.set_value("profile.level", 2)
 var changes := store.end_batch()
 ```
 
-同一路径在一个批次内会合并为一条 dirty change，并保留第一次写入前的旧值和最后一次写入后的新值。`set_state()` 会复用 `GFVariantData.diff_variant()` 生成路径级差异，方便调试、日志和保存工具复用同一种变更记录形态。
+同一路径在一个批次内会合并为一条 dirty change，并保留第一次写入前的旧值和最后一次写入后的新值。`set_state()` 会复用 `GFVariantData.diff_variant()` 生成路径级差异，方便调试、日志和保存工具复用同一种变更记录形态。若 diff 达到 `max_changes` 上限并被截断，store 会降级派发根级 `state_replaced` 变更，表示订阅者应全量刷新，而不是只相信已收集到的部分路径。
 
 订阅回调、`state_changed` 或 `path_changed` 中再次写入 store 时，新 dirty change 不会重入当前正在通知的订阅者批次；当前批次完成后，store 会按下一批继续派发，避免嵌套 flush 打乱同一批订阅者顺序。
 
@@ -107,6 +109,7 @@ binder.bind_control(store, "profile.name", %NameEdit, {
 - Store 不替代 `GFArchitecture` 中的 Model/System/Utility 生命周期。
 - 需要字段类型声明和默认值校验时，使用 `GFBlackboardSchema` 或 `GFDictionarySchema` 处理数据契约，再把结果写入 store。
 - 需要提交/回滚一组业务操作时，使用 `GFMutationBatch`；store 的 batch 只合并通知，不提供事务语义。
+- 大状态树替换时应按需设置 `set_state(..., { "max_changes": ... })`，或者让截断触发 `state_replaced` 后由订阅者主动拉取最新状态。
 
 参考测试：
 

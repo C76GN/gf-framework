@@ -250,7 +250,7 @@ func register_event(event_type: Script, callback: Callable, priority: int = 0) -
 func unregister_event(event_type: Script, callback: Callable) -> void:
 	var machine: GFStateMachine = _get_machine()
 	if machine != null:
-		machine.unregister_event(event_type, callback)
+		machine.unregister_event(event_type, callback, self)
 
 
 ## 注册可赋值类型事件监听器，默认以当前状态作为 owner。
@@ -278,7 +278,7 @@ func register_assignable_event(base_event_type: Script, callback: Callable, prio
 func unregister_assignable_event(base_event_type: Script, callback: Callable) -> void:
 	var machine: GFStateMachine = _get_machine()
 	if machine != null:
-		machine.unregister_assignable_event(base_event_type, callback)
+		machine.unregister_assignable_event(base_event_type, callback, self)
 
 
 ## 注册轻量级 StringName 事件监听器，默认以当前状态作为 owner。
@@ -304,7 +304,7 @@ func register_simple_event(event_id: StringName, callback: Callable) -> void:
 func unregister_simple_event(event_id: StringName, callback: Callable) -> void:
 	var machine: GFStateMachine = _get_machine()
 	if machine != null:
-		machine.unregister_simple_event(event_id, callback)
+		machine.unregister_simple_event(event_id, callback, self)
 
 
 ## 注销当前状态通过事件代理注册过的全部监听器。
