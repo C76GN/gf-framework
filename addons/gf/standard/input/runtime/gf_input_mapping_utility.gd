@@ -156,6 +156,7 @@ var _remap_config: GFInputRemapConfig
 var _timestamp: int = 0
 var _router: _GFInputRouter
 var _router_attach_serial: int = 0
+var _input_devices: GFInputDeviceUtility = null
 var _clear_transient_input_state_queued: bool = false
 var _transient_input_state_mark_frame: int = -1
 
@@ -172,11 +173,21 @@ func init() -> void:
 	_ensure_router()
 
 
+## 绑定可选的设备分配工具，用于在玩家设备变化时清理运行时输入状态。
+## [br]
+## @api public
+## [br]
+## @since 7.0.0
+func ready() -> void:
+	_bind_input_device_utility()
+
+
 ## 释放输入路由节点并清理全部运行时状态。
 ## [br]
 ## @api public
 func dispose() -> void:
 	_router_attach_serial += 1
+	_unbind_input_device_utility()
 	_active_contexts.clear()
 	_effective_entries.clear()
 	_clear_runtime_state()
@@ -191,6 +202,7 @@ func dispose() -> void:
 ## [br]
 ## @param delta: 本帧时间增量（秒）。
 func tick(delta: float) -> void:
+	_bind_input_device_utility()
 	_clear_transient_input_state_if_queued()
 	_advance_active_durations(delta)
 	_refresh_triggered_action_states(delta)
@@ -1766,6 +1778,63 @@ func _duplicate_triggers(triggers: Array[GFInputTrigger]) -> Array[GFInputTrigge
 		if duplicate_trigger != null:
 			_append_array_value(result, duplicate_trigger)
 	return result
+
+
+func _bind_input_device_utility() -> void:
+	var devices: GFInputDeviceUtility = _get_input_device_utility()
+	if devices == _input_devices:
+		return
+
+	_unbind_input_device_utility()
+	_input_devices = devices
+	if _input_devices == null:
+		return
+	if not _input_devices.assignment_event_recorded.is_connected(_on_input_assignment_event_recorded):
+		var _connect_result: int = _input_devices.assignment_event_recorded.connect(_on_input_assignment_event_recorded)
+
+
+func _unbind_input_device_utility() -> void:
+	if _input_devices == null:
+		return
+	if _input_devices.assignment_event_recorded.is_connected(_on_input_assignment_event_recorded):
+		_input_devices.assignment_event_recorded.disconnect(_on_input_assignment_event_recorded)
+	_input_devices = null
+
+
+func _on_input_assignment_event_recorded(event_record: Dictionary) -> void:
+	var event_type: StringName = GFVariantData.get_option_string_name(event_record, "event_type")
+	match event_type:
+		&"assignment_removed":
+			_clear_player_state_from_assignment_record(
+				GFVariantData.get_option_dictionary(event_record, "previous_assignment")
+			)
+		&"assignment_set":
+			_clear_player_state_from_assignment_record(
+				GFVariantData.get_option_dictionary(event_record, "previous_assignment")
+			)
+			_clear_displaced_player_states(GFVariantData.get_option_dictionary(event_record, "metadata"))
+			_clear_player_state_from_assignment_record(
+				GFVariantData.get_option_dictionary(event_record, "assignment")
+			)
+		&"assignments_cleared", &"assignments_refreshed":
+			clear_input_state()
+
+
+func _clear_player_state_from_assignment_record(record: Dictionary) -> void:
+	if record.is_empty():
+		return
+	var player_index: int = GFVariantData.get_option_int(record, "player_index", -1)
+	if player_index < 0:
+		return
+	_clear_player_runtime_state(player_index, true)
+
+
+func _clear_displaced_player_states(metadata: Dictionary) -> void:
+	var displaced_players: Array = GFVariantData.get_option_array(metadata, "displaced_player_indices")
+	for player_value: Variant in displaced_players:
+		var player_index: int = GFVariantData.to_int(player_value, -1)
+		if player_index >= 0:
+			_clear_player_runtime_state(player_index, true)
 
 
 func _get_input_device_utility() -> GFInputDeviceUtility:

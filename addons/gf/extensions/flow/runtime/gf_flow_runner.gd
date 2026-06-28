@@ -85,6 +85,7 @@ var isolate_graph_runtime_state: bool = true
 # --- 私有变量 ---
 
 var _cancel_requested: bool = false
+var _abort_reason: StringName = &""
 var _architecture_ref: WeakRef = null
 
 
@@ -120,18 +121,11 @@ func run(graph: GFFlowGraph, context: GFFlowContext = null) -> void:
 
 	is_running = true
 	_cancel_requested = false
+	_abort_reason = &""
 	flow_started.emit(graph)
-	var original_runtime_state: Dictionary = graph.serialize_runtime_state() if isolate_graph_runtime_state else {}
-	if isolate_graph_runtime_state:
-		graph.clear_runtime_state()
-		graph.deserialize_runtime_state(flow_context.serialize_runtime_state())
 	await _run_graph(graph, flow_context)
-	if isolate_graph_runtime_state:
-		flow_context.deserialize_runtime_state(graph.serialize_runtime_state())
-		graph.clear_runtime_state()
-		graph.deserialize_runtime_state(original_runtime_state)
 	is_running = false
-	if _cancel_requested:
+	if _cancel_requested or _abort_reason != &"":
 		flow_cancelled.emit()
 	else:
 		flow_completed.emit()
@@ -163,14 +157,16 @@ func with_signal_timeout(seconds: float, respect_time_scale: bool = true) -> GFF
 
 func _run_graph(graph: GFFlowGraph, context: GFFlowContext) -> void:
 	var pending: PackedStringArray = PackedStringArray([String(graph.start_node_id)])
+	var pending_index: int = 0
 	var executed_count: int = 0
-	while not pending.is_empty() and not _cancel_requested:
+	while pending_index < pending.size() and not _cancel_requested:
 		if max_executed_nodes > 0 and executed_count >= max_executed_nodes:
+			_abort_reason = &"max_executed_nodes"
 			push_warning("[GFFlowRunner] 达到最大节点执行数量，流程停止。")
 			break
 
-		var node_id: StringName = StringName(pending[0])
-		pending.remove_at(0)
+		var node_id: StringName = StringName(pending[pending_index])
+		pending_index += 1
 		if node_id == &"":
 			continue
 
@@ -182,7 +178,7 @@ func _run_graph(graph: GFFlowGraph, context: GFFlowContext) -> void:
 		executed_count += 1
 		context.clear_next_nodes()
 		node_started.emit(node_id, node)
-		var result: Variant = node.execute(context)
+		var result: Variant = _execute_node_with_runtime_state(node, context)
 		if node.wait_for_result and result is Signal:
 			var result_signal: Signal = result
 			await _await_signal_safely(result_signal)
@@ -190,9 +186,7 @@ func _run_graph(graph: GFFlowGraph, context: GFFlowContext) -> void:
 				return
 		node_completed.emit(node_id, node)
 
-		var next_ids: PackedStringArray = node.get_next_nodes(context)
-		if next_ids.is_empty() and not context.has_next_nodes_override() and node.next_node_ids.is_empty():
-			next_ids = graph.get_connected_node_ids_from(node_id)
+		var next_ids: PackedStringArray = _get_runtime_successor_node_ids(graph, node, context)
 		for next_id: String in next_ids:
 			_append_packed_string(pending, next_id)
 
@@ -206,6 +200,64 @@ func _await_signal_safely(result_signal: Signal) -> void:
 		signal_timeout_respects_time_scale,
 		"[GFFlowRunner] 等待 Signal 超时，流程将继续执行后续节点。"
 	)
+
+
+func _execute_node_with_runtime_state(node: GFFlowNode, context: GFFlowContext) -> Variant:
+	if not isolate_graph_runtime_state:
+		return node.execute(context)
+
+	var original_state: Dictionary = node.serialize_runtime_state()
+	_apply_context_runtime_state_to_node(node, context)
+	var result: Variant = node.execute(context)
+	_store_node_runtime_state_in_context(node, context)
+	node.clear_runtime_state()
+	node.deserialize_runtime_state(original_state)
+	return result
+
+
+func _apply_context_runtime_state_to_node(node: GFFlowNode, context: GFFlowContext) -> void:
+	node.clear_runtime_state()
+	node.deserialize_runtime_state(_get_context_node_runtime_state(context, node.node_id))
+
+
+func _store_node_runtime_state_in_context(node: GFFlowNode, context: GFFlowContext) -> void:
+	var context_state: Dictionary = context.serialize_runtime_state()
+	var node_states: Dictionary = GFVariantData.get_option_dictionary(context_state, "nodes")
+	var node_state: Dictionary = node.serialize_runtime_state()
+	if node_state.is_empty():
+		var _erased_name: bool = node_states.erase(node.node_id)
+		var _erased_text: bool = node_states.erase(String(node.node_id))
+	else:
+		node_states[node.node_id] = node_state
+	context.deserialize_runtime_state({
+		"nodes": node_states,
+	})
+
+
+func _get_context_node_runtime_state(context: GFFlowContext, node_id: StringName) -> Dictionary:
+	var context_state: Dictionary = context.serialize_runtime_state()
+	var node_states: Dictionary = GFVariantData.get_option_dictionary(context_state, "nodes")
+	var state_value: Variant = GFVariantData.get_option_value(node_states, node_id, null)
+	if state_value == null:
+		state_value = GFVariantData.get_option_value(node_states, String(node_id), {})
+	if state_value is Dictionary:
+		var state: Dictionary = state_value
+		return state.duplicate(true)
+	return {}
+
+
+func _get_runtime_successor_node_ids(
+	graph: GFFlowGraph,
+	node: GFFlowNode,
+	context: GFFlowContext
+) -> PackedStringArray:
+	if context.has_next_nodes_override():
+		return context.next_node_ids.duplicate()
+
+	var result: PackedStringArray = node.get_next_nodes(context)
+	for next_id: String in graph.get_connected_node_ids_from(node.node_id):
+		_append_unique_packed_string(result, next_id)
+	return result
 
 
 func _get_time_utility() -> GFTimeUtility:
@@ -232,7 +284,17 @@ func _get_architecture_or_null() -> GFArchitecture:
 	return GFAutoload.get_architecture_or_null()
 
 
+func _append_unique_packed_string(target: PackedStringArray, value: String) -> void:
+	if value.is_empty() or target.has(value):
+		return
+	var appended: bool = target.append(value)
+	if appended:
+		return
+
+
 func _append_packed_string(target: PackedStringArray, value: String) -> void:
+	if value.is_empty():
+		return
 	var appended: bool = target.append(value)
 	if appended:
 		return

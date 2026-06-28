@@ -48,13 +48,62 @@ func test_policy_registry_aggregates_failed_policy_issues() -> void:
 	assert_eq(GFVariantData.get_option_string(issue, "kind"), "denied", "失败策略 issue 应进入汇总。")
 
 
+func test_policy_provider_normalizes_failed_status_without_ok() -> void:
+	var provider: RecordingPolicyProvider = RecordingPolicyProvider.new()
+	var _configured_provider: GFPolicyProvider = provider.configure(&"status_only", PackedStringArray(["asset"]))
+	provider.raw_result = {
+		"status": &"failed",
+		"issues": [
+			{
+				"kind": "status_failed",
+				"message": "failed by status",
+			},
+		],
+	}
+
+	var result: Dictionary = provider.evaluate({ "artifact_kind": "asset" })
+
+	assert_false(GFVariantData.get_option_bool(result, "ok", true), "失败 status 不应在缺少 ok 字段时默认通过。")
+	assert_eq(GFVariantData.get_option_string_name(result, "provider_id"), &"status_only", "provider_id 应来自 provider。")
+
+
+func test_policy_provider_preserves_extra_fields_without_identity_override() -> void:
+	var provider: RecordingPolicyProvider = RecordingPolicyProvider.new()
+	var _configured_provider: GFPolicyProvider = provider.configure(&"source", PackedStringArray(["asset"]), { "base": true })
+	provider.raw_result = {
+		"ok": true,
+		"status": &"passed",
+		"provider_id": &"spoofed",
+		"artifact_kind": "spoofed",
+		"metadata": {
+			"local": true,
+		},
+		"diagnostics": {
+			"score": 3,
+		},
+	}
+
+	var result: Dictionary = provider.evaluate({ "artifact_kind": "asset" })
+	var result_metadata: Dictionary = GFVariantData.get_option_dictionary(result, "metadata")
+	var diagnostics: Dictionary = GFVariantData.get_option_dictionary(result, "diagnostics")
+
+	assert_eq(GFVariantData.get_option_string_name(result, "provider_id"), &"source", "raw result 不应覆盖 provider_id。")
+	assert_eq(GFVariantData.get_option_string(result, "artifact_kind"), "asset", "raw result 不应覆盖 artifact kind。")
+	assert_true(GFVariantData.get_option_bool(result_metadata, "base"), "provider metadata 应保留。")
+	assert_true(GFVariantData.get_option_bool(result_metadata, "local"), "raw result metadata 应合并。")
+	assert_eq(GFVariantData.get_option_int(diagnostics, "score"), 3, "非保留诊断字段应保留。")
+
+
 class RecordingPolicyProvider extends GFPolicyProvider:
 	var evaluate_count: int = 0
 	var should_fail: bool = false
+	var raw_result: Dictionary = {}
 
 
 	func _evaluate_policy(_artifact: Dictionary, _context: Dictionary) -> Dictionary:
 		evaluate_count += 1
+		if not raw_result.is_empty():
+			return raw_result.duplicate(true)
 		if should_fail:
 			return make_result(false, &"failed", _artifact, [
 				{

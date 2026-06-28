@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFLevelUtility" path="addons/gf/extensions/domain/level/gf_level_utility.gd" module="extensions/domain" extends="GFUtility" classDigest="2e032377463b9c1af2818c096e5e12710dba86c32a272a6660ecd291018b1ae2">
+<class name="GFLevelUtility" path="addons/gf/extensions/domain/level/gf_level_utility.gd" module="extensions/domain" extends="GFUtility" classDigest="48d3a24a8a45dc7c73789dc101c4a2ca3eb51b52e2b30b683d259292c73c993b">
 	<description>GFLevelUtility: 关卡流程管理工具。
 负责统一关卡数据读取、开始、重开、胜利和失败信号派发。
 默认通过 GFConfigProvider 读取静态关卡表，并可在重开关卡时清理
@@ -11,43 +11,47 @@
 	</tags>
 	<signals>
 		<member kind="signal" name="level_started">
-			<signature>signal level_started(level_id: Variant, level_data: Dictionary)</signature>
+			<signature>signal level_started(level_id: StringName, level_data: Dictionary)</signature>
 			<description>当关卡开始时发出。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">level_id: 关卡 ID。</tag>
 				<tag name="param">level_data: 当前关卡数据。</tag>
-				<tag name="schema">level_id: Variant，项目传入的关卡 ID，通常为 StringName 或 String。</tag>
+				<tag name="schema">level_id: StringName，入口规范化后的关卡 ID。</tag>
 				<tag name="schema">level_data: Dictionary，当前关卡数据副本。</tag>
+				<tag name="since">7.0.0</tag>
 			</tags>
 		</member>
 		<member kind="signal" name="level_restarted">
-			<signature>signal level_restarted(level_id: Variant, level_data: Dictionary)</signature>
+			<signature>signal level_restarted(level_id: StringName, level_data: Dictionary)</signature>
 			<description>当关卡重开时发出。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">level_id: 关卡 ID。</tag>
 				<tag name="param">level_data: 当前关卡数据。</tag>
-				<tag name="schema">level_id: Variant，项目传入的关卡 ID，通常为 StringName 或 String。</tag>
+				<tag name="schema">level_id: StringName，入口规范化后的关卡 ID。</tag>
 				<tag name="schema">level_data: Dictionary，当前关卡数据副本。</tag>
+				<tag name="since">7.0.0</tag>
 			</tags>
 		</member>
 		<member kind="signal" name="level_won">
-			<signature>signal level_won(level_id: Variant)</signature>
+			<signature>signal level_won(level_id: StringName)</signature>
 			<description>当关卡胜利时发出。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">level_id: 关卡 ID。</tag>
-				<tag name="schema">level_id: Variant，项目传入的关卡 ID，通常为 StringName 或 String。</tag>
+				<tag name="schema">level_id: StringName，入口规范化后的关卡 ID。</tag>
+				<tag name="since">7.0.0</tag>
 			</tags>
 		</member>
 		<member kind="signal" name="level_lost">
-			<signature>signal level_lost(level_id: Variant)</signature>
+			<signature>signal level_lost(level_id: StringName)</signature>
 			<description>当关卡失败时发出。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">level_id: 关卡 ID。</tag>
-				<tag name="schema">level_id: Variant，项目传入的关卡 ID，通常为 StringName 或 String。</tag>
+				<tag name="schema">level_id: StringName，入口规范化后的关卡 ID。</tag>
+				<tag name="since">7.0.0</tag>
 			</tags>
 		</member>
 	</signals>
@@ -62,11 +66,12 @@
 			</tags>
 		</member>
 		<member kind="property" name="current_level_id">
-			<signature>var current_level_id: Variant = null</signature>
+			<signature>var current_level_id: StringName = &amp;""</signature>
 			<description>当前关卡 ID。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="schema">current_level_id: Variant，项目传入的当前关卡 ID；未启动关卡时为 null。</tag>
+				<tag name="schema">current_level_id: StringName，入口规范化后的当前关卡 ID；未启动关卡时为空。</tag>
+				<tag name="since">7.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="current_level_data">

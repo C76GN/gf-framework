@@ -428,6 +428,13 @@ func test_snapshot_deep_copy() -> void:
 	assert_eq(GFVariantData.get_option_int(snapshot, "a"), 1, "字典快照不应受原字典修改影响。")
 	assert_eq(GFVariantData.get_option_array(snapshot, "b").size(), 2, "嵌套数组快照不应受原数组修改影响。")
 
+	snapshot["a"] = 42
+	var snapshot_values: Array = GFVariantData.get_option_array(snapshot, "b")
+	snapshot_values.append(99)
+	var second_snapshot: Dictionary = GFVariantData.as_dictionary(cmd.get_snapshot())
+	assert_eq(GFVariantData.get_option_int(second_snapshot, "a"), 1, "get_snapshot 返回值不应共享内部快照。")
+	assert_eq(GFVariantData.get_option_array(second_snapshot, "b").size(), 2, "修改已返回快照不应污染内部嵌套数组。")
+
 
 # --- 内部类 ---
 

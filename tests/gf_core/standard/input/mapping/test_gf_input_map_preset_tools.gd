@@ -4,6 +4,7 @@ extends GutTest
 
 const _CAPTURE_ACTION: StringName = &"gf_test_capture_input_map_preset"
 const _APPLY_ACTION: StringName = &"gf_test_apply_input_map_preset"
+const _INPUT_EVENT_TOOLS = preload("res://addons/gf/standard/input/common/gf_input_event_tools.gd")
 
 
 # --- 生命周期 ---
@@ -84,9 +85,33 @@ func test_apply_input_map_preset_reports_invalid_event_records() -> void:
 	var report: Dictionary = GFInputMapPresetTools.apply_input_map_preset(preset)
 
 	assert_false(GFVariantData.get_option_bool(report, "ok"), "非法事件记录应进入 issues。")
-	assert_eq(GFVariantData.get_option_int(report, "applied_count"), 1)
+	assert_eq(GFVariantData.get_option_int(report, "applied_count"), 0)
 	assert_eq(GFVariantData.get_option_int(report, "event_count"), 0)
-	assert_eq(InputMap.action_get_events(_APPLY_ACTION).size(), 0)
+	assert_false(InputMap.has_action(_APPLY_ACTION), "存在非法事件时不应创建或修改任何动作。")
+
+
+func test_apply_input_map_preset_is_all_or_nothing_for_invalid_event_records() -> void:
+	var preset: Dictionary = {
+		"version": GFInputMapPresetTools.PRESET_VERSION,
+		"actions": [
+			{
+				"action_id": String(_CAPTURE_ACTION),
+				"deadzone": 0.2,
+				"events": [_event_to_record(_make_key_event(KEY_H, true))],
+			},
+			{
+				"action_id": String(_APPLY_ACTION),
+				"deadzone": 0.5,
+				"events": [{ "event_class": "NotInputEvent" }],
+			},
+		],
+	}
+
+	var report: Dictionary = GFInputMapPresetTools.apply_input_map_preset(preset)
+
+	assert_false(GFVariantData.get_option_bool(report, "ok"), "任一事件非法时整批应用应失败。")
+	assert_false(InputMap.has_action(_CAPTURE_ACTION), "事务失败时前面的有效动作也不应被创建。")
+	assert_false(InputMap.has_action(_APPLY_ACTION), "事务失败时非法动作不应被创建。")
 
 
 # --- 私有/辅助方法 ---
@@ -103,6 +128,10 @@ func _make_key_event(key: Key, pressed: bool) -> InputEventKey:
 	event.physical_keycode = key
 	event.pressed = pressed
 	return event
+
+
+func _event_to_record(input_event: InputEvent) -> Dictionary:
+	return _INPUT_EVENT_TOOLS.input_event_to_record(input_event)
 
 
 func _get_first_key_event(action_id: StringName) -> InputEventKey:

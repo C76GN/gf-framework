@@ -23,6 +23,24 @@ var report := resolver.resolve(&"ui.panel", "Resource", {
 
 变体键只是一段稳定标识。它可以来自项目 profile、语言设置、画质档位或平台检测，但这些策略应留在项目侧；GF 只负责按顺序查找、回退和输出诊断 metadata。
 
+## Feature 重映射计划
+
+`GFResourceFeatureRemapTools` 根据调用方提供的 feature 集合与 remap 声明生成纯数据计划。它只回答“当前 feature 应把哪个 source 解析到哪个 target”以及“哪些 unused target 可以由外层工具跳过”，不读取 ProjectSettings、不注册导出插件、不写文件，也不决定移动端、Web、语言包或 DLC 的项目策略。
+
+```gdscript
+var plan := GFResourceFeatureRemapTools.build_remap_plan({
+	"res://ui/panel.tres": [
+		["mobile", "res://ui/panel_mobile.tres"],
+		["web", "res://ui/panel_web.tres"],
+	],
+}, PackedStringArray(["mobile"]))
+
+for record in GFVariantData.get_option_array(plan, "resolved"):
+	print(record["source_path"], " -> ", record["target_path"])
+```
+
+entry 的声明顺序就是优先级；多个 active feature 同时命中时选择最靠前的 entry。`skip_paths` 只是一份候选诊断，项目自己的导出器、包构建器或安装器需要结合实际导出列表、受保护路径和资源写入策略再执行。
+
 ## 资源图扫描
 
 `GFResourceGraphScanner.scan(root)` 会递归读取 `Resource`、`Object`、`Array` 和 `Dictionary`，返回 `nodes`、`node_count`、`cycle_count`、`truncated` 和路径信息。它不修改对象，也不依赖 Inspector UI，适合编辑器工具、资源表校验、测试断言和诊断面板。
@@ -38,6 +56,71 @@ for node in GFVariantData.get_option_array(report, "nodes"):
 ```
 
 默认扫描可存储或编辑器可见的属性，并跳过 `script`、`resource_path` 等 Godot 资源元字段。需要扫描场景节点时显式传入 `include_nodes = true`。
+
+## 脚本结构检查
+
+`GFScriptStructureTools` 用 Godot 的 `Script` 反射结果生成纯数据描述，并可按调用方声明检查常量、方法、属性、信号和继承关系。它不会创建脚本实例，也不假设组件架构、资源数据库、导入器或项目业务层类型，适合编辑器工具、导入预检、测试断言和生成器自检复用。
+
+```gdscript
+var script: Script = load("res://tools/importers/item_importer.gd")
+var report := GFScriptStructureTools.check_script_structure(script, {
+	"base_class": "RefCounted",
+	"required_methods": [
+		{ "name": "import_rows", "min_argument_count": 1 },
+	],
+	"required_signals": PackedStringArray(["import_finished"]),
+})
+
+if not GFVariantData.get_option_bool(report, "ok"):
+	print(GFVariantData.get_option_array(report, "issues"))
+```
+
+路径扫描通过 `GFResourceRegistryTools.scan_resource_paths()` 执行，并默认只收集 `.gd`。结果按目录深度优先排序，便于需要先处理父目录脚本、再处理子目录脚本的工具链稳定复现。
+
+需要给编辑器工具或代码生成器准备函数文本时，可把 Godot 方法元数据交给 `format_method_signature()` 或 `format_method_stub()`。它们只返回报告和文本片段，不会插入、保存或修改脚本文件。
+
+```gdscript
+var methods := script.get_script_method_list()
+if not methods.is_empty():
+	var method := GFVariantData.as_dictionary(methods[0])
+	var stub := GFScriptStructureTools.format_method_stub(method, {
+		"body_lines": PackedStringArray(["pass"]),
+	})
+	print(GFVariantData.get_option_string(stub, "stub"))
+```
+
+## 资源属性 Patch
+
+`GFResourcePropertyPatch` 用一组属性定义和覆盖值描述资源差异。它默认只写入 `definitions` 声明过的属性，并要求目标对象真实暴露该属性；需要生成变体资源时，`build()` 会先复制 base Resource，再把覆盖值应用到副本。
+
+```gdscript
+var patch := GFResourcePropertyPatch.new()
+patch.definitions = [
+	GFResourcePropertyPatch.make_definition(&"bg_color", TYPE_COLOR),
+	GFResourcePropertyPatch.make_definition(&"corner_radius_top_left", TYPE_INT),
+]
+patch.set_patch_value(&"bg_color", Color("#3f7cff"))
+
+var report := patch.build(base_stylebox)
+var result_stylebox := GFVariantData.get_option_value(report, "resource") as StyleBoxFlat
+```
+
+需要给自定义 Inspector 暴露补丁字段时，可以用 `make_property_list()` 生成 Godot `_get_property_list()` 可返回的条目。属性定义只描述路径、类型、hint、分组和默认值；具体视觉 token、资源目录、皮肤层级和回退策略仍应留在项目侧。
+
+需要把多层覆盖拆开时，可以用 `GFResourceOverlay` 或 `GFResourcePropertyPatch.apply_patch_chain()` 按顺序应用多份补丁。靠后的补丁覆盖同一属性，报告会保留每个 patch 的应用结果，方便编辑器工具显示“哪一层改了什么”：
+
+```gdscript
+var overlay := GFResourceOverlay.new()
+overlay.base_resource = base_stylebox
+overlay.patches = [base_patch, platform_patch, user_patch]
+
+var report := overlay.resolve({
+	"include_patch_reports": true,
+})
+var stylebox := GFVariantData.get_option_value(report, "resource") as StyleBoxFlat
+```
+
+覆盖链仍然只处理声明过的属性和对象写入，不负责选择平台、语言、主题层级或用户配置来源。项目侧可以把这些策略转换成 patch 顺序，再交给 GF 输出稳定报告。
 
 ## 原始 Artifact
 
@@ -69,8 +152,23 @@ plan.add_entry(
 )
 
 var report := plan.get_validation_report({
-	"require_existing_source": false,
+	"check_source_exists": false,
 })
 ```
 
-`get_validation_report()` 会检查来源、目标、操作类型和可选的源文件存在性；`get_repair_report()` 会输出可提示给工具 UI 的修复建议，例如跳过无效条目或补齐目标路径。项目如果需要真正复制、转换格式、重建 import remap 或写入数据库，应把计划交给自己的工具链执行，GF 不在这里规定项目目录或业务 schema。
+`get_validation_report()` 会检查来源、目标、操作类型、可选的源文件存在性和默认启用的重复目标路径；`get_operation_summary()` 会按操作、来源格式、目标格式和重复目标输出纯数据摘要，便于批处理 UI 或 CI 在执行前展示影响范围。`get_repair_report()` 会输出可提示给工具 UI 的修复建议，例如跳过无效条目或补齐目标路径。项目如果需要真正复制、转换格式、重建 import remap 或写入数据库，应把计划交给自己的工具链执行，GF 不在这里规定项目目录或业务 schema。
+
+`GFTextureSetClassifier` 可把常见 PBR 贴图后缀归并成纹理集，并把每个集合转换为 `GFImportPlan` 条目：
+
+```gdscript
+var plan := GFTextureSetClassifier.build_material_import_plan(
+	PackedStringArray([
+		"res://textures/stone_albedo.png",
+		"res://textures/stone_normal.png",
+		"res://textures/stone_roughness.png",
+	]),
+	"res://generated/materials"
+)
+```
+
+分类器只输出 `textures` 角色字典、source trace 和修复建议，不创建 `StandardMaterial3D`，也不假设目标项目的材质目录、压缩策略、导入 preset 或 shader 参数。项目导入器可以读取计划中的 metadata，再决定实际材质类型和写入流程。

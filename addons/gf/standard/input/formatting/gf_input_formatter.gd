@@ -557,4 +557,14 @@ static func _mouse_button_as_text(button: MouseButton) -> String:
 
 
 static func _escape_bbcode(text: String) -> String:
-	return text.replace("]", "[rb]").replace("[", "[lb]")
+	var result: String = ""
+	for index: int in range(text.length()):
+		var character: String = text.substr(index, 1)
+		match character:
+			"[":
+				result += "[lb]"
+			"]":
+				result += "[rb]"
+			_:
+				result += character
+	return result

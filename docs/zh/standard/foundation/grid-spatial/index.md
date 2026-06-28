@@ -7,6 +7,7 @@
 - [2D 曲线与折线](curve-2d.md)：`GFCurve2DMath` 的折线长度、采样、简化、虚线切分和基础闭合形状生成。
 - [2D 矩形打包](rect-packing-2d.md)：`GFRectPacking2D` 的固定容器、自动正方形和归一化放置结果。
 - [2D Poisson-disc 采样](poisson-disc-2d.md)：`GFPoissonDisc2D` 的确定性最小间距点集生成。
+- [3D 高度场与表面散布采样](heightfield-surface-scatter-3d.md)：`GFHeightfield3D` 与 `GFSurfaceScatterSampler3D` 的高度、法线和纯数据 Transform 采样报告。
 - [AABB Broadphase 候选对](collision-broadphase.md)：`GFCollisionBroadphase2D/3D` 的 body、SAP、2D Quadtree 和组合候选对生成。
 - [2D SAT Narrowphase 精确检测](collision-narrowphase-2d.md)：`GFCollisionNarrowphase2D` 的凸多边形、旋转盒、相切策略和最小平移向量。
 - [弹簧平滑数学](spring-math.md)：`GFSpringMath` 的标量、角度、Vector2 与 Vector3 二阶弹簧步进。

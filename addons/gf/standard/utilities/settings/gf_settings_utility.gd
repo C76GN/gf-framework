@@ -765,6 +765,8 @@ func _read_persisted_data(file_name: String) -> Dictionary:
 		return storage.load_data(file_name)
 
 	var path: String = _get_fallback_path(file_name)
+	if path.is_empty():
+		return {}
 	if not FileAccess.file_exists(path):
 		return {}
 
@@ -793,6 +795,8 @@ func _write_persisted_data(file_name: String, data: Dictionary) -> Error:
 		return storage.save_data(file_name, data)
 
 	var path: String = _get_fallback_path(file_name)
+	if path.is_empty():
+		return ERR_INVALID_PARAMETER
 	var base_dir: String = path.get_base_dir()
 	if not base_dir.is_empty():
 		var dir_error: Error = DirAccess.make_dir_recursive_absolute(base_dir)
@@ -1028,7 +1032,8 @@ func _store_string_checked(file: FileAccess, value: String) -> void:
 
 func _get_fallback_path(file_name: String) -> String:
 	if file_name.is_absolute_path():
-		return file_name
+		push_error("[GFSettingsUtility] 已拒绝原生绝对设置路径：%s。" % file_name)
+		return ""
 	return "user://" + file_name
 
 
@@ -1090,7 +1095,7 @@ func _deserialize_value(value: Variant) -> Variant:
 	if data.size() == 1 and data.has(GFVariantJsonCodec.JSON_MARKER_KEY):
 		return GFVariantJsonCodec.json_compatible_to_variant(data)
 
-	if data.has(_SETTING_TYPE_KEY):
+	if _is_serialized_setting_wrapper(data):
 		match str(data[_SETTING_TYPE_KEY]):
 			"Vector2":
 				return Vector2(GFVariantData.get_option_float(data, "x", 0.0), GFVariantData.get_option_float(data, "y", 0.0))
@@ -1110,3 +1115,16 @@ func _deserialize_value(value: Variant) -> Variant:
 	for key_variant: Variant in data.keys():
 		dictionary_result[key_variant] = _deserialize_value(data[key_variant])
 	return dictionary_result
+
+
+func _is_serialized_setting_wrapper(data: Dictionary) -> bool:
+	if not data.has(_SETTING_TYPE_KEY):
+		return false
+	match str(data[_SETTING_TYPE_KEY]):
+		"Vector2", "Vector2i":
+			return data.size() == 3 and data.has("x") and data.has("y")
+		"Color":
+			return data.size() == 5 and data.has("r") and data.has("g") and data.has("b") and data.has("a")
+		"StringName":
+			return data.size() == 2 and data.has(_SETTING_VALUE_KEY)
+	return false

@@ -135,6 +135,11 @@ var default_quality: float = 0.9:
 		default_quality = clampf(value, 0.0, 1.0)
 
 
+# --- 私有变量 ---
+
+var _burst_capture_active: bool = false
+
+
 # --- 公共方法 ---
 
 ## 捕获 Viewport 图像。
@@ -328,6 +333,10 @@ func capture_burst(options: Dictionary = {}) -> Dictionary:
 		report["error"] = "Viewport is unavailable."
 		burst_finished.emit(report)
 		return report
+	if _burst_capture_active:
+		report["error"] = "capture_burst_already_running"
+		burst_finished.emit(report)
+		return report
 
 	var tree: SceneTree = _get_scene_tree()
 	var previous_paused: bool = false
@@ -340,6 +349,7 @@ func capture_burst(options: Dictionary = {}) -> Dictionary:
 	var previous_locale: String = TranslationServer.get_locale()
 	var previous_size: Vector2i = DisplayServer.window_get_size()
 	var resized_window: bool = false
+	_burst_capture_active = true
 	burst_started.emit(options.duplicate(true))
 
 	for locale: String in locales:
@@ -365,6 +375,7 @@ func capture_burst(options: Dictionary = {}) -> Dictionary:
 	if tree != null and should_pause_tree:
 		tree.paused = previous_paused
 
+	_burst_capture_active = false
 	_update_burst_report_counts(report, records)
 	burst_finished.emit(report)
 	return report

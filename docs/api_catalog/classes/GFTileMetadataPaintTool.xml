@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFTileMetadataPaintTool" path="addons/gf/standard/foundation/math/editor/gf_tile_metadata_paint_tool.gd" module="standard" extends="RefCounted" classDigest="de8d4fdb6ab1896122f484ad1a8d3b64c05a7ebe07a74e2467ca954ed3f3ad9a">
+	<description>GFTileMetadataPaintTool: Tile 元数据绘制工具辅助。
+为 `GFTileMetadataLayer` 提供编辑器友好的 patch、UndoRedo 和 overlay 数据。
+它只处理通用格子元数据差异，不绑定 TileSet、TileMapLayer、寻路、地形或项目业务语义。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">editor_api</tag>
+		<tag name="since">7.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants>
+		<member kind="const" name="DEFAULT_OVERLAY_COLOR">
+			<signature>const DEFAULT_OVERLAY_COLOR: Color = Color(0.2, 0.65, 1.0, 0.45)</signature>
+			<description>默认 overlay 颜色。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties />
+	<methods>
+		<member kind="method" name="make_paint_patch">
+			<signature>static func make_paint_patch( layer: GFTileMetadataLayer, target_cells: Array[Vector2i], key: StringName, value: Variant, erase: bool = false ) -&gt; Dictionary:</signature>
+			<description>创建一个绘制或擦除 patch，不修改 layer。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">layer: 目标元数据层。</tag>
+				<tag name="param">target_cells: 目标格子。</tag>
+				<tag name="param">key: 元数据字段名。</tag>
+				<tag name="param">value: 绘制值；erase 为 true 时忽略。</tag>
+				<tag name="param">erase: 为 true 时擦除字段。</tag>
+				<tag name="return">patch 字典。</tag>
+				<tag name="schema">target_cells: Array[Vector2i]，要绘制或擦除的格子。</tag>
+				<tag name="schema">value: Variant metadata field value.</tag>
+				<tag name="schema">return: Dictionary，包含 ok、key、erase、cells、before、after、changed_cells 和 changed_count。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="apply_paint_patch">
+			<signature>static func apply_paint_patch(layer: GFTileMetadataLayer, patch: Dictionary) -&gt; Dictionary:</signature>
+			<description>应用 paint patch。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">layer: 目标元数据层。</tag>
+				<tag name="param">patch: make_paint_patch() 返回的 patch。</tag>
+				<tag name="return">应用报告。</tag>
+				<tag name="schema">patch: Dictionary，包含 after 与 changed_cells。</tag>
+				<tag name="schema">return: Dictionary，包含 ok、changed_count 和 changed_cells。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="revert_paint_patch">
+			<signature>static func revert_paint_patch(layer: GFTileMetadataLayer, patch: Dictionary) -&gt; Dictionary:</signature>
+			<description>回滚 paint patch。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">layer: 目标元数据层。</tag>
+				<tag name="param">patch: make_paint_patch() 返回的 patch。</tag>
+				<tag name="return">回滚报告。</tag>
+				<tag name="schema">patch: Dictionary，包含 before 与 changed_cells。</tag>
+				<tag name="schema">return: Dictionary，包含 ok、changed_count 和 changed_cells。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="commit_paint_patch">
+			<signature>static func commit_paint_patch( layer: GFTileMetadataLayer, patch: Dictionary, undo_manager: Object, action_name: String = "Paint Tile Metadata", execute_immediately: bool = true ) -&gt; Error:</signature>
+			<description>将 paint patch 写入 UndoRedo 兼容对象。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">layer: 目标元数据层。</tag>
+				<tag name="param">patch: make_paint_patch() 返回的 patch。</tag>
+				<tag name="param">undo_manager: EditorUndoRedoManager、UndoRedo 或兼容对象。</tag>
+				<tag name="param">action_name: UndoRedo action 名称。</tag>
+				<tag name="param">execute_immediately: 提交 action 时是否立即执行 do 方法。</tag>
+				<tag name="return">Godot 错误码。</tag>
+				<tag name="schema">patch: Dictionary，包含 before、after 与 changed_cells。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_schema_field_options">
+			<signature>static func get_schema_field_options(layer: GFTileMetadataLayer) -&gt; Array[Dictionary]:</signature>
+			<description>读取 schema 字段选项。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">layer: 元数据层。</tag>
+				<tag name="return">字段选项数组。</tag>
+				<tag name="schema">return: Array[Dictionary]，每项包含 key、metadata、color 和 value。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_cell_overlay_segments">
+			<signature>static func get_cell_overlay_segments( layer: GFTileMetadataLayer, cell: Vector2i, options: Dictionary = {} ) -&gt; Array[Dictionary]:</signature>
+			<description>获取单个格子的 overlay 分段数据。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">layer: 元数据层。</tag>
+				<tag name="param">cell: 格坐标。</tag>
+				<tag name="param">options: 可选项。支持 field_order、default_color、alpha 和 include_unconfigured。</tag>
+				<tag name="return">overlay 分段数组。</tag>
+				<tag name="schema">options: Dictionary，field_order 为字段顺序数组，default_color 为 Color，alpha 为透明度乘数，include_unconfigured 默认为 true。</tag>
+				<tag name="schema">return: Array[Dictionary]，每项包含 key、value、color、index、count、start_ratio 和 end_ratio。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

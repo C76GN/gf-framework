@@ -677,7 +677,16 @@ func _make_attachment_entry(attachment_id: StringName, content: Variant, options
 		elif content_dictionary.has("text"):
 			payload = content_dictionary["text"]
 		elif content_dictionary.has("path"):
-			payload = _read_attachment_path(GFVariantData.get_option_string(content_dictionary, "path"))
+			var path_filename: String = GFVariantData.get_option_string(attachment_options, "filename")
+			if path_filename.is_empty():
+				path_filename = GFVariantData.get_option_string(content_dictionary, "path").get_file()
+				if path_filename.is_empty():
+					path_filename = String(attachment_id)
+				attachment_options["filename"] = path_filename
+			return _make_path_attachment_entry(
+				GFVariantData.get_option_string(content_dictionary, "path"),
+				attachment_options
+			)
 
 	var filename: String = GFVariantData.get_option_string(attachment_options, "filename", String(attachment_id))
 	var mime_type: String = GFVariantData.get_option_string(attachment_options, "mime_type", "application/octet-stream")
@@ -768,6 +777,10 @@ func _save_attachment_if_requested(entry: Dictionary, bytes: PackedByteArray, op
 	var save_path: String = GFVariantData.get_option_string(options, "save_path")
 	if save_path.is_empty():
 		return
+	if not _is_path_under_allowed_roots(save_path, _get_path_roots(options, "allowed_output_roots", PackedStringArray(["user://"]))):
+		entry["save_error"] = ERR_UNAUTHORIZED
+		entry["save_error_reason"] = "save_path_not_allowed"
+		return
 
 	var base_dir: String = save_path.get_base_dir()
 	if not base_dir.is_empty() and base_dir != "user://":
@@ -790,17 +803,75 @@ func _save_attachment_if_requested(entry: Dictionary, bytes: PackedByteArray, op
 		entry["save_error"] = error
 
 
-func _read_attachment_path(path: String) -> PackedByteArray:
+func _make_path_attachment_entry(path: String, options: Dictionary) -> Dictionary:
+	var filename: String = GFVariantData.get_option_string(options, "filename", path.get_file())
+	var mime_type: String = GFVariantData.get_option_string(options, "mime_type", "application/octet-stream")
+	var metadata: Dictionary = _get_dictionary_option(options, "metadata")
 	if path.is_empty() or not FileAccess.file_exists(path):
-		return PackedByteArray()
+		return _make_path_rejected_attachment_entry(filename, mime_type, 0, metadata, "attachment_path_missing")
+	if not GFVariantData.get_option_bool(options, "allow_path_attachments", false):
+		return _make_path_rejected_attachment_entry(filename, mime_type, 0, metadata, "attachment_path_not_allowed")
+	if not _is_path_under_allowed_roots(path, _get_path_roots(options, "allowed_attachment_roots", PackedStringArray(["user://"]))):
+		return _make_path_rejected_attachment_entry(filename, mime_type, 0, metadata, "attachment_path_not_allowed")
 
 	var file: FileAccess = FileAccess.open(path, FileAccess.READ)
 	if file == null:
-		return PackedByteArray()
+		return _make_path_rejected_attachment_entry(filename, mime_type, 0, metadata, "attachment_path_open_failed")
 
-	var bytes: PackedByteArray = file.get_buffer(file.get_length())
+	var size_bytes: int = file.get_length()
+	var max_bytes: int = GFVariantData.get_option_int(options, "max_attachment_bytes", default_max_attachment_bytes)
+	if max_bytes > 0 and size_bytes > max_bytes:
+		file.close()
+		return _make_rejected_attachment_entry(filename, mime_type, size_bytes, max_bytes, metadata)
+
+	var bytes: PackedByteArray = file.get_buffer(size_bytes)
 	file.close()
-	return bytes
+	return _make_binary_attachment_entry(bytes, filename, mime_type, metadata, options)
+
+
+func _make_path_rejected_attachment_entry(
+	filename: String,
+	mime_type: String,
+	size_bytes: int,
+	metadata: Dictionary,
+	reason: String
+) -> Dictionary:
+	return {
+		"ok": false,
+		"filename": filename,
+		"mime_type": mime_type,
+		"size_bytes": size_bytes,
+		"reason": reason,
+		"metadata": metadata,
+	}
+
+
+func _get_path_roots(options: Dictionary, key: String, default_roots: PackedStringArray) -> PackedStringArray:
+	var result: PackedStringArray = PackedStringArray()
+	var raw_roots: Array = GFVariantData.get_option_array(options, key)
+	if raw_roots.is_empty():
+		return default_roots
+	for root_value: Variant in raw_roots:
+		var root: String = GFVariantData.to_text(root_value).strip_edges()
+		if not root.is_empty():
+			var _appended: bool = result.append(root.replace("\\", "/"))
+	return result
+
+
+func _is_path_under_allowed_roots(path: String, roots: PackedStringArray) -> bool:
+	var normalized_path: String = path.replace("\\", "/")
+	for root: String in roots:
+		var normalized_root: String = root.replace("\\", "/")
+		if normalized_root.is_empty():
+			continue
+		if normalized_path == normalized_root:
+			return true
+		var prefix: String = normalized_root
+		if not prefix.ends_with("/"):
+			prefix += "/"
+		if normalized_path.begins_with(prefix):
+			return true
+	return false
 
 
 func _normalize_submit_result(raw_result: Variant) -> Dictionary:

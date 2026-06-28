@@ -32,3 +32,22 @@ Gf.configure_event_debugging(8, true, 32)
 Gf.send_simple_event(&"ui_opened", { "panel": "inventory" })
 print(Gf.get_event_dispatch_trace())
 ```
+
+## 监听器诊断
+
+需要排查 owner 生命周期或监听器泄漏时，可以读取事件系统统计和监听器明细：
+
+```gdscript
+print(Gf.get_event_debug_stats())
+print(Gf.get_event_listener_diagnostics({ "include_entries": true }))
+```
+
+诊断会统计总监听器数量、已释放 owner 数量、pending 变更、dispatch cache 大小和每条轨道的监听器数量。`include_entries` 会列出事件 key、owner 状态、Callable 状态、优先级和注册顺序，只建议在工具面板或临时排查中开启。
+
+如果诊断发现 owner 已释放但监听器还没等到下一次派发自动清理，可以调用：
+
+```gdscript
+var removed := Gf.compact_event_listeners()
+```
+
+派发期间调用 compact 时，清理会进入 pending 队列，并在最外层派发结束后合并。

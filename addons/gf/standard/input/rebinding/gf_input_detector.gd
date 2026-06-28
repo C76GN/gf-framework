@@ -113,6 +113,8 @@ var _countdown_remaining: float = 0.0
 var _value_type: int = _ANY_VALUE_TYPE
 var _allowed_device_types: Array[int] = []
 var _pending_detected_event: InputEvent = null
+var _pending_screen_touch_index: int = -1
+var _pending_screen_touch_pressed: bool = false
 
 
 # --- Godot 生命周期方法 ---
@@ -132,6 +134,7 @@ func _input(event: InputEvent) -> void:
 			_start_accepting_input()
 		return
 	if _state == DetectionState.POST_CLEAR:
+		_update_pending_touch_release(event)
 		if _pending_detected_event == null or not _is_event_still_pressed(_pending_detected_event):
 			_emit_detected_input()
 		return
@@ -155,6 +158,12 @@ func _process(delta: float) -> void:
 		return
 
 	var safe_delta: float = maxf(delta, 0.0)
+	if timeout_seconds > 0.0:
+		_elapsed += safe_delta
+		if _elapsed >= timeout_seconds:
+			cancel_detection()
+			return
+
 	if _state == DetectionState.COUNTDOWN:
 		_countdown_remaining = maxf(_countdown_remaining - safe_delta, 0.0)
 		if _countdown_remaining <= 0.0:
@@ -170,13 +179,6 @@ func _process(delta: float) -> void:
 		if _pending_detected_event == null or not _is_event_still_pressed(_pending_detected_event):
 			_emit_detected_input()
 		return
-
-	if timeout_seconds <= 0.0:
-		return
-
-	_elapsed += safe_delta
-	if _elapsed >= timeout_seconds:
-		cancel_detection()
 
 
 # --- 公共方法 ---
@@ -320,11 +322,15 @@ func is_detecting() -> bool:
 # --- 私有/辅助方法 ---
 
 func _begin_detection_internal(value_type: int, allowed_device_types: Array[int]) -> void:
+	if _state != DetectionState.IDLE:
+		cancel_detection()
 	_allowed_device_types = allowed_device_types.duplicate()
 	_elapsed = 0.0
 	_countdown_remaining = maxf(countdown_seconds, 0.0)
 	_value_type = value_type
 	_pending_detected_event = null
+	_pending_screen_touch_index = -1
+	_pending_screen_touch_pressed = false
 	_state = DetectionState.COUNTDOWN if _countdown_remaining > 0.0 else DetectionState.PRE_CLEAR
 	if _state == DetectionState.PRE_CLEAR:
 		_enter_pre_clear_or_detecting()
@@ -335,6 +341,7 @@ func _begin_detection_internal(value_type: int, allowed_device_types: Array[int]
 func _finish_detection(input_event: InputEvent, wait_for_release: bool) -> void:
 	if input_event != null and wait_for_release and _is_event_still_pressed(input_event):
 		_pending_detected_event = input_event
+		_track_pending_touch(input_event)
 		_state = DetectionState.POST_CLEAR
 		set_process(true)
 		return
@@ -350,6 +357,8 @@ func _emit_detected_input() -> void:
 	_countdown_remaining = 0.0
 	_value_type = _ANY_VALUE_TYPE
 	_pending_detected_event = null
+	_pending_screen_touch_index = -1
+	_pending_screen_touch_pressed = false
 	set_process(false)
 	input_detected.emit(input_event)
 
@@ -417,8 +426,31 @@ func _is_event_still_pressed(event: InputEvent) -> bool:
 
 	var screen_touch: InputEventScreenTouch = _INPUT_EVENT_TOOLS.get_screen_touch_event(event)
 	if screen_touch != null:
+		if _pending_screen_touch_index == screen_touch.index:
+			return _pending_screen_touch_pressed
+		if _state != DetectionState.DETECTING:
+			return false
 		return screen_touch.pressed
 	return false
+
+
+func _track_pending_touch(event: InputEvent) -> void:
+	var screen_touch: InputEventScreenTouch = _INPUT_EVENT_TOOLS.get_screen_touch_event(event)
+	if screen_touch == null:
+		_pending_screen_touch_index = -1
+		_pending_screen_touch_pressed = false
+		return
+	_pending_screen_touch_index = screen_touch.index
+	_pending_screen_touch_pressed = screen_touch.pressed
+
+
+func _update_pending_touch_release(event: InputEvent) -> void:
+	var screen_touch: InputEventScreenTouch = _INPUT_EVENT_TOOLS.get_screen_touch_event(event)
+	if screen_touch == null:
+		return
+	if screen_touch.index != _pending_screen_touch_index:
+		return
+	_pending_screen_touch_pressed = screen_touch.pressed
 
 
 func _matches_device_filter(event: InputEvent) -> bool:

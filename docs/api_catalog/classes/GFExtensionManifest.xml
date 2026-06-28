@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFExtensionManifest" path="addons/gf/kernel/extension/gf_extension_manifest.gd" module="kernel" extends="RefCounted" classDigest="ec761d826989f2aa2ce76ac267e940874c6a0d502789b440cf2ac1bc486ed884">
+<class name="GFExtensionManifest" path="addons/gf/kernel/extension/gf_extension_manifest.gd" module="kernel" extends="RefCounted" classDigest="f8f8608600e3b4a30a5f00c6cf03f126b163d6e07884148eec2a926526424c2d">
 	<description>GFExtensionManifest: GF 扩展元数据描述。
 用于描述 GF 扩展的稳定 ID、版本、依赖、安装入口和编辑器扩展。</description>
 	<tags>
@@ -203,6 +203,40 @@
 				<tag name="api">public</tag>
 				<tag name="param">path: `gf_extension.json` 文件路径。</tag>
 				<tag name="return">读取成功时返回 manifest；失败时返回 null。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="from_json_file_report">
+			<signature>static func from_json_file_report(path: String) -&gt; Dictionary:</signature>
+			<description>从 JSON 文件读取扩展 manifest 并返回诊断报告。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">path: `gf_extension.json` 文件路径。</tag>
+				<tag name="return">读取诊断，包含 ok、source_path、manifest 和 errors。</tag>
+				<tag name="schema">return: Dictionary { ok: bool, source_path: String, manifest: GFExtensionManifest, errors: Array[String] }.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_valid_extension_id">
+			<signature>static func is_valid_extension_id(extension_id: String) -&gt; bool:</signature>
+			<description>判断文本是否是合法 GF 扩展 ID。
+合法 ID 使用小写 dotted identifier segments，例如 `vendor.feature` 或
+`author.feature_name`。它是机器稳定 ID，不承载显示名、路径或加载顺序。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">extension_id: 要检查的扩展 ID。</tag>
+				<tag name="return">满足扩展 ID 语法时返回 true。</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_extension_id_validation_error">
+			<signature>static func get_extension_id_validation_error(extension_id: String, field_name: String = "id") -&gt; String:</signature>
+			<description>获取扩展 ID 语法错误。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">extension_id: 要检查的扩展 ID。</tag>
+				<tag name="param">field_name: 报错中使用的字段名。</tag>
+				<tag name="return">ID 合法时返回空字符串，否则返回错误说明。</tag>
+				<tag name="since">6.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="to_dictionary">

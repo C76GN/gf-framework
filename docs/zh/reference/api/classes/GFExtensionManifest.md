@@ -41,6 +41,9 @@ GF 扩展元数据描述。 用于描述 GF 扩展的稳定 ID、版本、依赖
 | 属性 | [`source_path`](#member-gfextensionmanifest-properties-source_path) | `var source_path: String = ""` |
 | 方法 | [`from_dictionary`](#member-gfextensionmanifest-methods-from_dictionary) | `static func from_dictionary( data: Dictionary, extension_root_path: String = "", manifest_source_path: String = "" ) -> GFExtensionManifest:` |
 | 方法 | [`from_json_file`](#member-gfextensionmanifest-methods-from_json_file) | `static func from_json_file(path: String) -> GFExtensionManifest:` |
+| 方法 | [`from_json_file_report`](#member-gfextensionmanifest-methods-from_json_file_report) | `static func from_json_file_report(path: String) -> Dictionary:` |
+| 方法 | [`is_valid_extension_id`](#member-gfextensionmanifest-methods-is_valid_extension_id) | `static func is_valid_extension_id(extension_id: String) -> bool:` |
+| 方法 | [`get_extension_id_validation_error`](#member-gfextensionmanifest-methods-get_extension_id_validation_error) | `static func get_extension_id_validation_error(extension_id: String, field_name: String = "id") -> String:` |
 | 方法 | [`to_dictionary`](#member-gfextensionmanifest-methods-to_dictionary) | `func to_dictionary() -> Dictionary:` |
 | 方法 | [`is_valid`](#member-gfextensionmanifest-methods-is_valid) | `func is_valid() -> bool:` |
 | 方法 | [`get_validation_errors`](#member-gfextensionmanifest-methods-get_validation_errors) | `func get_validation_errors() -> Array[String]:` |
@@ -385,6 +388,74 @@ static func from_json_file(path: String) -> GFExtensionManifest:
 | `path` | `gf_extension.json` 文件路径。 |
 
 返回：读取成功时返回 manifest；失败时返回 null。
+
+<a id="member-gfextensionmanifest-methods-from_json_file_report"></a>
+
+### `from_json_file_report`
+
+- API：`public`
+- 首次版本：`6.0.0`
+
+```gdscript
+static func from_json_file_report(path: String) -> Dictionary:
+```
+
+从 JSON 文件读取扩展 manifest 并返回诊断报告。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `path` | `gf_extension.json` 文件路径。 |
+
+返回：读取诊断，包含 ok、source_path、manifest 和 errors。
+
+结构：
+
+- `return`: Dictionary { ok: bool, source_path: String, manifest: GFExtensionManifest, errors: Array[String] }.
+
+<a id="member-gfextensionmanifest-methods-is_valid_extension_id"></a>
+
+### `is_valid_extension_id`
+
+- API：`public`
+- 首次版本：`6.0.0`
+
+```gdscript
+static func is_valid_extension_id(extension_id: String) -> bool:
+```
+
+判断文本是否是合法 GF 扩展 ID。 合法 ID 使用小写 dotted identifier segments，例如 `vendor.feature` 或 `author.feature_name`。它是机器稳定 ID，不承载显示名、路径或加载顺序。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `extension_id` | 要检查的扩展 ID。 |
+
+返回：满足扩展 ID 语法时返回 true。
+
+<a id="member-gfextensionmanifest-methods-get_extension_id_validation_error"></a>
+
+### `get_extension_id_validation_error`
+
+- API：`public`
+- 首次版本：`6.0.0`
+
+```gdscript
+static func get_extension_id_validation_error(extension_id: String, field_name: String = "id") -> String:
+```
+
+获取扩展 ID 语法错误。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `extension_id` | 要检查的扩展 ID。 |
+| `field_name` | 报错中使用的字段名。 |
+
+返回：ID 合法时返回空字符串，否则返回错误说明。
 
 <a id="member-gfextensionmanifest-methods-to_dictionary"></a>
 

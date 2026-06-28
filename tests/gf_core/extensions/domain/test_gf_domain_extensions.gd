@@ -48,6 +48,25 @@ func test_inventory_model_serializes_items() -> void:
 	assert_eq(GFVariantData.get_option_string(restored.get_item_metadata(&"item_a"), "tag"), "test", "恢复后元数据应一致。")
 
 
+func test_inventory_model_from_dict_rejects_invalid_stacks() -> void:
+	var inventory: GFInventoryModel = GFInventoryModel.new()
+
+	inventory.from_dict({
+		"items": {
+			"": { "amount": 5, "metadata": {} },
+			"zero": { "amount": 0, "metadata": {} },
+			"negative": { "amount": -2, "metadata": {} },
+			"valid": { "amount": 3, "metadata": { "tag": "kept" } },
+		},
+	})
+
+	assert_eq(inventory.get_item_amount(&""), 0, "空 item_id 不应从存档恢复。")
+	assert_eq(inventory.get_item_amount(&"zero"), 0, "非正数量不应从存档恢复。")
+	assert_eq(inventory.get_item_amount(&"negative"), 0, "负数数量不应从存档恢复。")
+	assert_eq(inventory.get_item_amount(&"valid"), 3, "合法堆叠应正常恢复。")
+	assert_eq(GFVariantData.get_option_string(inventory.get_item_metadata(&"valid"), "tag"), "kept", "合法堆叠元数据应保留。")
+
+
 ## 验证槽位库存遵守堆叠容量、堆叠数量上限与序列化。
 func test_slot_inventory_respects_stack_rules_and_serializes() -> void:
 	var definition: GFInventoryItemDefinition = GFInventoryItemDefinition.new()
@@ -77,6 +96,60 @@ func test_slot_inventory_respects_stack_rules_and_serializes() -> void:
 
 	assert_eq(restored.get_slot_count(), 3, "恢复后槽位数量应一致。")
 	assert_eq(restored.get_item_total(&"item_a"), 10, "恢复后物品总数应一致。")
+
+
+func test_slot_inventory_shrink_removes_dropped_slots_from_index_and_signals() -> void:
+	var inventory: GFSlotInventoryModel = GFSlotInventoryModel.new()
+	inventory.set_slot_count(2)
+	var _add_first_result: Variant = inventory.add_item_to_slot(0, &"item_a", 1)
+	var _add_second_result: Variant = inventory.add_item_to_slot(1, &"item_b", 2)
+	var emptied_events: Array[Dictionary] = []
+	var _connect_emptied_result: Variant = inventory.slot_emptied.connect(func(slot_index: int, previous_stack_data: Dictionary) -> void:
+		emptied_events.append({
+			"slot_index": slot_index,
+			"stack": previous_stack_data.duplicate(true),
+		})
+	)
+
+	inventory.set_slot_count(1)
+
+	assert_eq(inventory.get_slot_count(), 1, "缩容后槽位数量应更新。")
+	assert_eq(inventory.get_item_total(&"item_b"), 0, "被删除槽位中的物品不应继续进入总数。")
+	assert_eq(inventory.get_slots_for_item(&"item_b"), PackedInt32Array(), "被删除槽位不应残留在索引中。")
+	assert_eq(emptied_events.size(), 1, "缩容删除非空槽位应发出 slot_emptied。")
+	if emptied_events.is_empty():
+		return
+	var emptied_event: Dictionary = emptied_events[0]
+	assert_eq(GFVariantData.get_option_int(emptied_event, "slot_index"), 1, "事件应指向被删除的槽位索引。")
+	assert_eq(GFVariantData.get_option_string(GFVariantData.get_option_dictionary(emptied_event, "stack"), "item_id"), "item_b", "事件应携带被删除槽位的堆叠快照。")
+
+
+func test_slot_inventory_from_dict_shrink_removes_dropped_slots_from_index_and_signals() -> void:
+	var inventory: GFSlotInventoryModel = GFSlotInventoryModel.new()
+	inventory.set_slot_count(2)
+	var _add_first_result: Variant = inventory.add_item_to_slot(0, &"item_a", 1)
+	var _add_second_result: Variant = inventory.add_item_to_slot(1, &"item_b", 2)
+	var emptied_events: Array[Dictionary] = []
+	var _connect_emptied_result: Variant = inventory.slot_emptied.connect(func(slot_index: int, previous_stack_data: Dictionary) -> void:
+		emptied_events.append({
+			"slot_index": slot_index,
+			"stack": previous_stack_data.duplicate(true),
+		})
+	)
+
+	inventory.from_dict({
+		"slot_count": 1,
+		"allow_growth": false,
+		"slots": [
+			{ "item_id": "item_a", "amount": 4, "instance_data": {} },
+		],
+	})
+
+	assert_eq(inventory.get_slot_count(), 1, "恢复较小存档后槽位数量应收缩。")
+	assert_eq(inventory.get_item_total(&"item_b"), 0, "恢复较小存档后旧槽位物品不应残留。")
+	assert_eq(inventory.get_slots_for_item(&"item_b"), PackedInt32Array(), "恢复较小存档后旧槽位索引应失效。")
+	assert_eq(inventory.get_item_total(&"item_a"), 4, "恢复后保留槽位应使用新存档内容。")
+	assert_eq(emptied_events.size(), 1, "恢复较小存档删除非空旧槽位应发出 slot_emptied。")
 
 
 ## 验证 0 槽位库存默认不会隐式新增槽位。
@@ -534,6 +607,28 @@ func test_attribute_set_recalculates_derived_rules_when_limits_clamp_base() -> v
 	var _set_limits_result_530: Variant = attributes.set_limits(&"strength", 0.0, 10.0)
 
 	assert_eq(attributes.get_value(&"score"), 10.0, "limits 改变并夹取 base 时应重算派生属性。")
+
+
+func test_attribute_set_skips_entire_derived_cycle_without_partial_writes() -> void:
+	var attributes: GFAttributeSet = GFAttributeSet.new()
+	attributes.define_attribute(&"a", 5.0)
+	attributes.define_attribute(&"b", 7.0)
+	var rule_a: GFDerivedAttributeRuleBase = GFDerivedAttributeRuleBase.new()
+	rule_a.attribute_id = &"a"
+	rule_a.source_attribute_ids = [&"b"]
+	rule_a.compute_callback = func(_attribute_set: GFAttributeSet, _rule: GFDerivedAttributeRuleBase) -> float:
+		return 10.0
+	var rule_b: GFDerivedAttributeRuleBase = GFDerivedAttributeRuleBase.new()
+	rule_b.attribute_id = &"b"
+	rule_b.source_attribute_ids = [&"a"]
+	rule_b.compute_callback = func(_attribute_set: GFAttributeSet, _rule: GFDerivedAttributeRuleBase) -> float:
+		return 20.0
+	attributes.derived_rules = [rule_a, rule_b]
+
+	attributes.recalculate_derived()
+
+	assert_eq(attributes.get_value(&"a"), 5.0, "派生规则成环时环内目标不应被部分写入。")
+	assert_eq(attributes.get_value(&"b"), 7.0, "派生规则成环时整组环内目标都应跳过。")
 
 
 # --- 私有/辅助方法 ---

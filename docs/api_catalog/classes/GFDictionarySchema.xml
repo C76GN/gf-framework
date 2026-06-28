@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFDictionarySchema" path="addons/gf/standard/foundation/schema/gf_dictionary_schema.gd" module="standard" extends="Resource" classDigest="0e3167e40ff7ccdb17569521a4a706b1b8694e39a99a25eefbf1ddc5115059aa">
+<class name="GFDictionarySchema" path="addons/gf/standard/foundation/schema/gf_dictionary_schema.gd" module="standard" extends="Resource" classDigest="7873957416011e40bc8ca1a32d907fd160b2f9f1c4ca650635c02c90d98c6cec">
 	<description>GFDictionarySchema: 通用 Dictionary 结构声明与校验器。
 为任意 Dictionary 提供字段声明、默认值补齐、类型转换、嵌套结构校验和定义自检。
 它只描述数据形态，不包含配置表索引、跨表引用、内容包启用策略或游戏业务规则。</description>
@@ -161,6 +161,20 @@
 				<tag name="return">校验报告。</tag>
 				<tag name="schema">values: Dictionary source values.</tag>
 				<tag name="schema">options: Dictionary validation context.</tag>
+			</tags>
+		</member>
+		<member kind="method" name="normalize_dictionary_array">
+			<signature>func normalize_dictionary_array(values: Array, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>批量规范化 Dictionary 数组，并汇总行级校验报告。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">values: 输入数组。</tag>
+				<tag name="param">options: 可选配置，支持 include_optional、coerce、strip_extra_fields、validate_rows、keep_invalid_rows、path、subject、source_path 和 source。</tag>
+				<tag name="return">规范化结果字典。</tag>
+				<tag name="schema">values: Array[Dictionary] source rows; non-Dictionary rows are reported as invalid_row.</tag>
+				<tag name="schema">options: Dictionary normalization options.</tag>
+				<tag name="schema">return: Dictionary with ok, rows, row_count, normalized_count, invalid_row_count, skipped_row_count, and report.</tag>
+				<tag name="since">7.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="duplicate_schema">

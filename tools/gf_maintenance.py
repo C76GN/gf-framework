@@ -442,11 +442,10 @@ PACKAGE_SOURCE_BOUNDARY_SCAN_EXTENSIONS = {
 	".tres",
 	".tscn",
 }
-PACKAGED_PACKAGE_TOOL_PAIRS = (
-	("tools/gf_package_installer.py", "addons/gf/kernel/package_tools/gf_package_installer.py"),
-	("tools/gf_package_resolver.py", "addons/gf/kernel/package_tools/gf_package_resolver.py"),
+KERNEL_FORBIDDEN_PACKAGE_TOOL_PATHS = (
+	"addons/gf/kernel/package_tools/gf_package_installer.py",
+	"addons/gf/kernel/package_tools/gf_package_resolver.py",
 )
-KERNEL_EXCLUDED_PACKAGE_TOOL_PATHS = tuple(packaged_path for _source_path, packaged_path in PACKAGED_PACKAGE_TOOL_PAIRS)
 RUNTIME_PACKAGE_FORBIDDEN_EXTERNAL_TOOL_SUFFIXES = {
 	".bash",
 	".bat",
@@ -707,6 +706,34 @@ CHECK_DEFINITIONS: dict[str, list[str]] = {
 		".",
 		"--editor",
 		"--quit",
+	],
+	"gdscript_lsp_diagnostics": [
+		sys.executable,
+		"tools/gdscript_lsp_diagnostics.py",
+		"--spawn-lsp",
+		"--port",
+		"0",
+		"--startup-timeout",
+		"120",
+		"--request-timeout",
+		"60",
+		"--per-file-timeout",
+		"3",
+		"--max-file-timeout",
+		"12",
+		"--timeout-retries",
+		"2",
+		"--include",
+		"addons/gf",
+		"--include",
+		"tests/gf_core",
+		"--exclude-prefix",
+		"addons/gut",
+		"--log-file",
+		godot_log_path("gdscript_lsp_diagnostics"),
+		"--keep-log",
+		"--format",
+		"json",
 	],
 	"diff": ["git", "diff", "--check"],
 	"examples_sync": [
@@ -13087,6 +13114,21 @@ def maintenance_self_test() -> dict[str, Any]:
 		set(PACKAGE_SMOKE_CHECKS).issubset(CHECK_SUITES["package"]),
 		"package suite must cover the package build/install/Godot CLI/uninstall smoke checks.",
 	)
+	record_result(
+		"gdscript_lsp_diagnostics_is_manual_until_ci_baseline_is_stable",
+		all(
+			"gdscript_lsp_diagnostics" not in set(checks)
+			for checks in CHECK_SUITES.values()
+		),
+		"GDScript LSP diagnostics should stay an explicit check until its CI baseline is proven stable.",
+	)
+	gdscript_lsp_command = CHECK_DEFINITIONS["gdscript_lsp_diagnostics"]
+	record_result(
+		"gdscript_lsp_diagnostics_uses_scaled_timeout_retries",
+		"--max-file-timeout" in gdscript_lsp_command
+		and "--timeout-retries" in gdscript_lsp_command,
+		"GDScript LSP diagnostics should use scaled file timeouts and retry timed out files.",
+	)
 	leak_fixture_warnings = collect_godot_exit_leak_warnings(
 		"ERROR: 3 RID allocations of type 'DummyTexture' were leaked at exit.",
 		"\n".join([
@@ -13159,19 +13201,11 @@ def maintenance_self_test() -> dict[str, Any]:
 		command_payload.get("godot_exit_leak_report", {}).get("rid_allocation_total") == 2,
 		f"unexpected command payload: {command_payload}",
 	)
-	for source_path, packaged_path in PACKAGED_PACKAGE_TOOL_PAIRS:
-		source_file = ROOT / source_path
-		packaged_file = ROOT / packaged_path
-		matches = (
-			source_file.is_file()
-			and packaged_file.is_file()
-			and source_file.read_bytes() == packaged_file.read_bytes()
-		)
-		record_result(
-			"packaged_package_tool_matches_" + Path(source_path).stem,
-			matches,
-			f"{packaged_path} must match {source_path}; copy the root tool after changing package manager logic.",
-		)
+	record_result(
+		"addons_kernel_package_tools_removed_from_plugin_tree",
+		not (ROOT / "addons/gf/kernel/package_tools").exists(),
+		"Python package manager maintenance tools must live under tools/ only; ordinary users should install GF with Godot alone.",
+	)
 	layer_boundary_constants = read_layer_boundary_manifest_constants()
 	record_result(
 		"layer_boundary_allowed_dependencies_match_python_tool",
@@ -17062,7 +17096,7 @@ def audit_package_build_archive(package_id: str, archive_path: Path) -> list[dic
 			actual_value=", ".join(top_level_entries),
 		))
 	if package_id == "gf.kernel":
-		for tool_path in KERNEL_EXCLUDED_PACKAGE_TOOL_PATHS:
+		for tool_path in KERNEL_FORBIDDEN_PACKAGE_TOOL_PATHS:
 			if tool_path in names:
 				issues.append(make_package_issue(
 					"kernel_archive_contains_package_tool",

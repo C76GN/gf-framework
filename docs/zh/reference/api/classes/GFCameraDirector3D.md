@@ -23,13 +23,15 @@
 | 属性 | [`collect_group_rigs`](#member-gfcameradirector3d-properties-collect_group_rigs) | `var collect_group_rigs: bool = true` |
 | 属性 | [`rig_group_name`](#member-gfcameradirector3d-properties-rig_group_name) | `var rig_group_name: StringName = &"gf_camera_rig_3d"` |
 | 属性 | [`update_mode`](#member-gfcameradirector3d-properties-update_mode) | `var update_mode: UpdateMode = UpdateMode.IDLE` |
-| 属性 | [`default_blend`](#member-gfcameradirector3d-properties-default_blend) | `var default_blend: GFCameraBlend = GFCameraBlend.new()` |
+| 属性 | [`default_blend`](#member-gfcameradirector3d-properties-default_blend) | `var default_blend: GFCameraBlend = null` |
 | 属性 | [`keep_camera_when_no_rig`](#member-gfcameradirector3d-properties-keep_camera_when_no_rig) | `var keep_camera_when_no_rig: bool = true` |
+| 属性 | [`make_current_on_apply`](#member-gfcameradirector3d-properties-make_current_on_apply) | `var make_current_on_apply: bool = false` |
 | 方法 | [`get_camera`](#member-gfcameradirector3d-methods-get_camera) | `func get_camera() -> Camera3D:` |
 | 方法 | [`get_active_rig`](#member-gfcameradirector3d-methods-get_active_rig) | `func get_active_rig() -> GFCameraRig3D:` |
 | 方法 | [`collect_candidate_rigs`](#member-gfcameradirector3d-methods-collect_candidate_rigs) | `func collect_candidate_rigs() -> Array[GFCameraRig3D]:` |
 | 方法 | [`refresh_active_rig`](#member-gfcameradirector3d-methods-refresh_active_rig) | `func refresh_active_rig(force_snap: bool = false) -> GFCameraRig3D:` |
 | 方法 | [`set_active_rig`](#member-gfcameradirector3d-methods-set_active_rig) | `func set_active_rig(rig: GFCameraRig3D, force_snap: bool = false) -> bool:` |
+| 方法 | [`clear_active_rig_override`](#member-gfcameradirector3d-methods-clear_active_rig_override) | `func clear_active_rig_override(force_snap: bool = false) -> GFCameraRig3D:` |
 | 方法 | [`process_camera`](#member-gfcameradirector3d-methods-process_camera) | `func process_camera(delta: float) -> bool:` |
 
 ## 信号
@@ -163,9 +165,10 @@ var update_mode: UpdateMode = UpdateMode.IDLE
 ### `default_blend`
 
 - API：`public`
+- 首次版本：`6.0.0`
 
 ```gdscript
-var default_blend: GFCameraBlend = GFCameraBlend.new()
+var default_blend: GFCameraBlend = null
 ```
 
 默认过渡资源。Rig 没有设置 blend 时使用它。
@@ -181,6 +184,19 @@ var keep_camera_when_no_rig: bool = true
 ```
 
 没有 Rig 时是否保持相机当前姿态。
+
+<a id="member-gfcameradirector3d-properties-make_current_on_apply"></a>
+
+### `make_current_on_apply`
+
+- API：`public`
+- 首次版本：`7.0.0`
+
+```gdscript
+var make_current_on_apply: bool = false
+```
+
+应用姿态时是否显式把 Camera3D 设为当前相机。
 
 ## 方法
 
@@ -255,12 +271,13 @@ func refresh_active_rig(force_snap: bool = false) -> GFCameraRig3D:
 ### `set_active_rig`
 
 - API：`public`
+- 首次版本：`6.0.0`
 
 ```gdscript
 func set_active_rig(rig: GFCameraRig3D, force_snap: bool = false) -> bool:
 ```
 
-显式设置当前 Rig。
+显式设置当前 Rig，并进入手动覆盖模式。 手动覆盖模式下，refresh_active_rig() 不会自动切换到更高优先级 Rig； 调用 clear_active_rig_override() 后才恢复自动选择。
 
 参数：
 
@@ -270,6 +287,27 @@ func set_active_rig(rig: GFCameraRig3D, force_snap: bool = false) -> bool:
 | `force_snap` | 为 true 时立即切换。 |
 
 返回：设置成功返回 true。
+
+<a id="member-gfcameradirector3d-methods-clear_active_rig_override"></a>
+
+### `clear_active_rig_override`
+
+- API：`public`
+- 首次版本：`6.0.0`
+
+```gdscript
+func clear_active_rig_override(force_snap: bool = false) -> GFCameraRig3D:
+```
+
+清除手动 Rig 覆盖，并立即恢复自动选择。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `force_snap` | 为 true 时立即切换。 |
+
+返回：自动选择后的当前 Rig。
 
 <a id="member-gfcameradirector3d-methods-process_camera"></a>
 

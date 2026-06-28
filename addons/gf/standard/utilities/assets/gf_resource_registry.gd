@@ -105,12 +105,11 @@ func set_entry(entry: Resource) -> bool:
 		return false
 
 	var stored_entry: GFResourceRegistryEntry = _duplicate_registry_entry(source_entry)
-	for index: int in range(entries.size()):
+	var stored_entry_id: StringName = _get_entry_id(stored_entry)
+	for index: int in range(entries.size() - 1, -1, -1):
 		var existing: GFResourceRegistryEntry = entries[index]
-		if _is_valid_registry_entry(existing) and _get_entry_id(existing) == _get_entry_id(stored_entry):
-			entries[index] = stored_entry
-			mark_index_dirty()
-			return true
+		if _is_valid_registry_entry(existing) and _get_entry_id(existing) == stored_entry_id:
+			entries.remove_at(index)
 
 	entries.append(stored_entry)
 	mark_index_dirty()

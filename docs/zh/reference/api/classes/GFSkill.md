@@ -215,16 +215,17 @@ var activation_checks: Array[Callable] = []
 ### `activation_commit_callbacks`
 
 - API：`public`
+- 首次版本：`6.0.0`
 
 ```gdscript
 var activation_commit_callbacks: Array[Callable] = []
 ```
 
-激活提交回调。检查和目标解析通过后、执行技能逻辑前调用。
+激活提交回调。执行成功后、进入冷却前调用。
 
 结构：
 
-- `activation_commit_callbacks`: Array[Callable]，用于项目自定义成本提交、资源预留或日志写入。
+- `activation_commit_callbacks`: Array[Callable]，用于项目自定义成功提交、资源结算或日志写入。
 
 ## 方法
 

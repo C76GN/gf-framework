@@ -51,6 +51,19 @@ func test_direct_new_lazily_initializes_rng() -> void:
 	assert_true(rng != null, "懒初始化后应能派生子 RNG。")
 
 
+func test_default_init_seed_is_deterministic_without_explicit_seed() -> void:
+	var first_seed_util: GFSeedUtility = GFSeedUtility.new()
+	var second_seed_util: GFSeedUtility = GFSeedUtility.new()
+	first_seed_util.init()
+	second_seed_util.init()
+
+	var first_rng: GF_DETERMINISTIC_RANDOM = first_seed_util.get_branched_deterministic_random("loot")
+	var second_rng: GF_DETERMINISTIC_RANDOM = second_seed_util.get_branched_deterministic_random("loot")
+
+	assert_eq(first_seed_util.get_global_seed(), 0, "默认全局种子应稳定为 0。")
+	assert_eq(first_rng.get_initial_seed(), second_rng.get_initial_seed(), "未显式设置种子时，同名 deterministic 分支也应稳定。")
+
+
 func test_get_branched_rng_uniqueness() -> void:
 	_seed_util.set_global_seed(12345)
 	var rng1: RandomNumberGenerator = _seed_util.get_branched_rng("test")
@@ -70,6 +83,18 @@ func test_get_branched_rng_determinism() -> void:
 	var val2: int = rng2.randi()
 
 	assert_eq(val1, val2, "在完全相同的主状态和标签下，生成的子 RNG 序列应当是确定性的。")
+
+
+func test_get_branched_godot_rng_matches_legacy_godot_rng_stream() -> void:
+	_seed_util.set_global_seed(12345)
+	var godot_rng: RandomNumberGenerator = _seed_util.get_branched_godot_rng("module_a")
+	var godot_value: int = godot_rng.randi()
+
+	_seed_util.set_global_seed(12345)
+	var legacy_rng: RandomNumberGenerator = _seed_util.get_branched_rng("module_a")
+	var legacy_value: int = legacy_rng.randi()
+
+	assert_eq(godot_value, legacy_value, "明确命名的 Godot RNG 分支应保持旧入口的 Godot RNG 行为。")
 
 
 func test_get_branched_rng_does_not_advance_main_rng() -> void:
@@ -163,6 +188,47 @@ func test_full_state_rejects_future_schema_version_without_mutating_state() -> v
 	assert_eq(_seed_util.get_state(), original_state, "未来 schema 不应覆盖当前 RNG 状态。")
 
 
+func test_full_state_rejects_malformed_rng_state_without_mutating_state() -> void:
+	_seed_util.set_global_seed(13579)
+	var _branched_rng_result: Variant = _seed_util.get_branched_rng("loot")
+	var original_snapshot: Dictionary = _seed_util.get_full_state()
+	var expected_rng: RandomNumberGenerator = _seed_util.get_branched_rng("loot")
+	var expected_seed: int = expected_rng.seed
+	_seed_util.set_full_state(original_snapshot)
+	var invalid_snapshot: Dictionary = original_snapshot.duplicate(true)
+	invalid_snapshot[&"global_seed"] = "24680"
+	invalid_snapshot[&"rng_state"] = "not-an-int"
+
+	_seed_util.set_full_state(invalid_snapshot)
+	var restored_rng: RandomNumberGenerator = _seed_util.get_branched_rng("loot")
+
+	assert_push_error("[GFSeedUtility] 无效完整随机状态：字段 rng_state 必须是整数或十进制整数字符串。")
+	assert_eq(_seed_util.get_global_seed(), GFVariantData.get_option_int(original_snapshot, &"global_seed"), "非法 rng_state 不应覆盖当前主种子。")
+	assert_eq(_seed_util.get_state(), GFVariantData.get_option_int(original_snapshot, &"rng_state"), "非法 rng_state 不应覆盖当前 RNG 状态。")
+	assert_eq(restored_rng.seed, expected_seed, "非法 rng_state 不应重置分支计数。")
+
+
+func test_full_state_rejects_malformed_branch_counter_without_mutating_state() -> void:
+	_seed_util.set_global_seed(24680)
+	var _branched_rng_result: Variant = _seed_util.get_branched_rng("loot")
+	var original_snapshot: Dictionary = _seed_util.get_full_state()
+	var expected_rng: RandomNumberGenerator = _seed_util.get_branched_rng("loot")
+	var expected_seed: int = expected_rng.seed
+	_seed_util.set_full_state(original_snapshot)
+	var invalid_snapshot: Dictionary = original_snapshot.duplicate(true)
+	var branch_counters: Dictionary = GFVariantData.get_option_dictionary(invalid_snapshot, &"branch_counters")
+	branch_counters["loot"] = "bad"
+	invalid_snapshot[&"branch_counters"] = branch_counters
+
+	_seed_util.set_full_state(invalid_snapshot)
+	var restored_rng: RandomNumberGenerator = _seed_util.get_branched_rng("loot")
+
+	assert_push_error("[GFSeedUtility] 无效完整随机状态：字段 branch_counters.loot 必须是整数或十进制整数字符串。")
+	assert_eq(_seed_util.get_global_seed(), GFVariantData.get_option_int(original_snapshot, &"global_seed"), "非法分支计数不应覆盖当前主种子。")
+	assert_eq(_seed_util.get_state(), GFVariantData.get_option_int(original_snapshot, &"rng_state"), "非法分支计数不应覆盖当前 RNG 状态。")
+	assert_eq(restored_rng.seed, expected_seed, "非法分支计数不应改变下一次分支序列。")
+
+
 func test_full_state_uses_json_safe_text_numbers() -> void:
 	_seed_util.set_global_seed(9_223_372_036_854_775_000)
 	var _get_branched_rng_result_99: Variant = _seed_util.get_branched_rng("loot")
@@ -202,3 +268,27 @@ func test_full_state_roundtrips_through_json_with_large_64_bit_values() -> void:
 	assert_eq(restored_rng.seed, expected_rng_seed, "JSON 往返后应精确恢复分支计数与分支种子。")
 	assert_eq(restored_rng.randi(), expected_rng_value, "JSON 往返后分支 RNG 序列应保持一致。")
 	assert_eq(_seed_util.get_rng().randi(), expected_next_main, "JSON 往返后主 RNG 序列应保持一致。")
+
+
+func test_full_state_json_text_is_stable_for_equivalent_branch_counters() -> void:
+	var first_seed_util: GFSeedUtility = GFSeedUtility.new()
+	var second_seed_util: GFSeedUtility = GFSeedUtility.new()
+	first_seed_util.init()
+	second_seed_util.init()
+	first_seed_util.set_global_seed(123)
+	second_seed_util.set_global_seed(123)
+
+	var _first_a: Variant = first_seed_util.get_branched_rng("a")
+	var _first_b: Variant = first_seed_util.get_branched_rng("b")
+	var _first_det_a: Variant = first_seed_util.get_branched_deterministic_random("a")
+	var _first_det_b: Variant = first_seed_util.get_branched_deterministic_random("b")
+	var _second_b: Variant = second_seed_util.get_branched_rng("b")
+	var _second_a: Variant = second_seed_util.get_branched_rng("a")
+	var _second_det_b: Variant = second_seed_util.get_branched_deterministic_random("b")
+	var _second_det_a: Variant = second_seed_util.get_branched_deterministic_random("a")
+
+	assert_eq(
+		JSON.stringify(first_seed_util.get_full_state()),
+		JSON.stringify(second_seed_util.get_full_state()),
+		"分支计数导出应按 key 排序，语义相同的完整状态应得到稳定 JSON 文本。"
+	)

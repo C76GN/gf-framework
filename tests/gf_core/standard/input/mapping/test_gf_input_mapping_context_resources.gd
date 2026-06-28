@@ -12,6 +12,13 @@ func test_input_mapping_get_action_id_delegates_to_action() -> void:
 	assert_eq(mapping.get_action_id(), &"fire")
 
 
+func test_input_action_id_does_not_fall_back_to_resource_path() -> void:
+	var action: GFInputAction = GFInputAction.new()
+	action.take_over_path("res://tests/gf_core/input_action_unit.tres")
+
+	assert_eq(action.get_action_id(), &"", "动作稳定 ID 必须显式设置，不能由资源路径隐式生成。")
+
+
 func test_input_mapping_get_action_id_empty_without_action() -> void:
 	var mapping: GFInputMapping = GFInputMapping.new()
 	assert_eq(mapping.get_action_id(), &"")

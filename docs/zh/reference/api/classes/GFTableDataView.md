@@ -54,6 +54,8 @@
 | 方法 | [`commit_cell_values`](#member-gftabledataview-methods-commit_cell_values) | `func commit_cell_values(changes: Array[Dictionary]) -> Dictionary:` |
 | 方法 | [`commit_visible_cell_values`](#member-gftabledataview-methods-commit_visible_cell_values) | `func commit_visible_cell_values(changes: Array[Dictionary]) -> Dictionary:` |
 | 方法 | [`describe_visible_row`](#member-gftabledataview-methods-describe_visible_row) | `func describe_visible_row(visible_row_index: int) -> Dictionary:` |
+| 方法 | [`describe_row`](#member-gftabledataview-methods-describe_row) | `func describe_row(row_index: int, options: Dictionary = {}) -> Dictionary:` |
+| 方法 | [`describe_view`](#member-gftabledataview-methods-describe_view) | `func describe_view(options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`prune_selection`](#member-gftabledataview-methods-prune_selection) | `func prune_selection(visible_only: bool = false) -> bool:` |
 | 方法 | [`get_debug_snapshot`](#member-gftabledataview-methods-get_debug_snapshot) | `func get_debug_snapshot() -> Dictionary:` |
 
@@ -851,6 +853,59 @@ func describe_visible_row(visible_row_index: int) -> Dictionary:
 结构：
 
 - `return`: Dictionary，包含 ok、row_index、visible_row_index、row_id、selected 和 values。
+
+<a id="member-gftabledataview-methods-describe_row"></a>
+
+### `describe_row`
+
+- API：`public`
+- 首次版本：`7.0.0`
+
+```gdscript
+func describe_row(row_index: int, options: Dictionary = {}) -> Dictionary:
+```
+
+描述源行。 返回结构面向调试、导出、编辑器表格或虚拟列表渲染，不附带具体 Control 或文件格式语义。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `row_index` | 源行索引。 |
+| `options` | 描述选项。 |
+
+返回：行摘要。
+
+结构：
+
+- `options`: Dictionary，可包含 include_values: bool、include_hidden_columns: bool、include_row_data: bool、copy_values: bool。
+- `return`: Dictionary，包含 ok、row_index、visible_row_index、row_id、selected、values 和可选 row_data。
+
+<a id="member-gftabledataview-methods-describe_view"></a>
+
+### `describe_view`
+
+- API：`public`
+- 首次版本：`7.0.0`
+
+```gdscript
+func describe_view(options: Dictionary = {}) -> Dictionary:
+```
+
+描述当前表格视图。 默认只导出当前可见行和可见列；调用方可以通过 options 请求源行、隐藏列或原始行数据。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `options` | 描述选项。 |
+
+返回：视图摘要。
+
+结构：
+
+- `options`: Dictionary，可包含 visible_only: bool、include_values: bool、include_columns: bool、include_hidden_columns: bool、include_row_data: bool、copy_values: bool。
+- `return`: Dictionary，包含 row_count、visible_count、column_count、filter_query、sort_column_id、sort_ascending、visible_only、columns 和 rows。
 
 <a id="member-gftabledataview-methods-prune_selection"></a>
 

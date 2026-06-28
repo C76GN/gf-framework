@@ -121,11 +121,11 @@ func get_records(duplicate_records: bool = true) -> Array[Dictionary]:
 ## [br]
 ## @param duplicate_records: 为 true 时返回记录深拷贝，避免调用方修改资源内数据。
 ## [br]
-## @return: ID 索引副本；records_by_id 为空时按 records 临时构建。
+## @return: 按当前 records 构建的 ID 索引副本。
 ## [br]
 ## @schema return: Dictionary，键为配置记录 ID，值为对应记录 Dictionary。
 func get_records_by_id(duplicate_records: bool = true) -> Dictionary:
-	var source_index: Dictionary = records_by_id if not records_by_id.is_empty() else _build_index_from_records()
+	var source_index: Dictionary = _build_index_from_records()
 	return _duplicate_record_index(source_index, duplicate_records)
 
 
@@ -179,11 +179,6 @@ func has_record(record_id: Variant) -> bool:
 ## [br]
 ## @schema return: Variant，找到时为 Dictionary，未命中时为 null。
 func get_record(record_id: Variant, duplicate_record: bool = true) -> Variant:
-	var indexed_record: Variant = GFVariantData.get_option_value(records_by_id, record_id, null)
-	if indexed_record is Dictionary:
-		var record: Dictionary = indexed_record
-		return _duplicate_record(record) if duplicate_record else record
-
 	for record: Dictionary in records:
 		if _record_matches_id(record, record_id):
 			return _duplicate_record(record) if duplicate_record else record
@@ -448,15 +443,15 @@ func _get_index_definition(index_id: StringName) -> GFConfigTableIndexDefinition
 
 
 func _get_index_data(index_id: StringName) -> Dictionary:
+	var index: GFConfigTableIndexDefinition = _get_index_definition(index_id)
+	if index != null and index.is_valid_definition():
+		return _build_index_from_definition(index)
+
 	var value: Variant = GFVariantData.get_option_value(records_by_index, index_id, null)
 	if value is Dictionary:
 		var index_data: Dictionary = value
 		return index_data
-
-	var index: GFConfigTableIndexDefinition = _get_index_definition(index_id)
-	if index == null or not index.is_valid_definition():
-		return {}
-	return _build_index_from_definition(index)
+	return {}
 
 
 func _append_index_id(target: PackedStringArray, index_id: StringName) -> void:

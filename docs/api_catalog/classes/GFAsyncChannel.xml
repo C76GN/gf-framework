@@ -1,0 +1,215 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFAsyncChannel" path="addons/gf/standard/common/gf_async_channel.gd" module="standard" extends="RefCounted" classDigest="5ccb320f74a42cb22a2c3015a3110517ac73e1297c9149c68d0e11f55219bace">
+	<description>GFAsyncChannel: 轻量异步事件通道。
+提供多生产者、单消费者的无界队列语义，可同步写入，也可异步等待下一条数据。
+它不负责调度任务、流式转换或业务协议，只在生产者和消费者之间传递 Variant 事件。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_handle</tag>
+		<tag name="since">7.0.0</tag>
+	</tags>
+	<signals>
+		<member kind="signal" name="item_written">
+			<signature>signal item_written(item: Variant)</signature>
+			<description>成功写入一条数据时发出。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">item: 写入的数据副本。</tag>
+				<tag name="schema">item: Variant 写入通道的数据副本。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="signal" name="closed">
+			<signature>signal closed(reason: StringName, metadata: Dictionary)</signature>
+			<description>通道关闭时发出。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">reason: 关闭原因。</tag>
+				<tag name="param">metadata: 关闭上下文。</tag>
+				<tag name="schema">metadata: Dictionary，包含调用方定义的关闭上下文。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+	</signals>
+	<enums />
+	<constants>
+		<member kind="const" name="STATUS_COMPLETED">
+			<signature>const STATUS_COMPLETED: StringName = GFAsyncWaitUtility.STATUS_COMPLETED</signature>
+			<description>读取已完成。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_CANCELLED">
+			<signature>const STATUS_CANCELLED: StringName = GFAsyncWaitUtility.STATUS_CANCELLED</signature>
+			<description>读取等待被取消。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_TIMEOUT">
+			<signature>const STATUS_TIMEOUT: StringName = GFAsyncWaitUtility.STATUS_TIMEOUT</signature>
+			<description>读取等待超时。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_INVALID">
+			<signature>const STATUS_INVALID: StringName = GFAsyncWaitUtility.STATUS_INVALID</signature>
+			<description>读取等待因上下文失效结束。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_CLOSED">
+			<signature>const STATUS_CLOSED: StringName = &amp;"closed"</signature>
+			<description>通道已关闭且没有可读数据。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_PENDING">
+			<signature>const STATUS_PENDING: StringName = &amp;"pending"</signature>
+			<description>通道当前没有可读数据。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties />
+	<methods>
+		<member kind="method" name="try_write">
+			<signature>func try_write(item: Variant) -&gt; bool:</signature>
+			<description>写入一条数据。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">item: 待写入的数据。</tag>
+				<tag name="return">写入成功时返回 true；关闭后返回 false。</tag>
+				<tag name="schema">item: Variant 待写入通道的数据。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="close">
+			<signature>func close(reason: StringName = STATUS_CLOSED, metadata: Dictionary = {}) -&gt; bool:</signature>
+			<description>关闭通道。已缓冲的数据仍可继续读出。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">reason: 关闭原因。</tag>
+				<tag name="param">metadata: 关闭上下文。</tag>
+				<tag name="return">首次关闭时返回 true。</tag>
+				<tag name="schema">metadata: Dictionary，包含调用方定义的关闭上下文。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="try_read">
+			<signature>func try_read(default_value: Variant = null) -&gt; Dictionary:</signature>
+			<description>同步尝试读取一条数据。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">default_value: 无可读数据时返回的兜底 item。</tag>
+				<tag name="return">读取结果。</tag>
+				<tag name="schema">default_value: Variant 无可读数据时写入返回结果 item 的兜底值。</tag>
+				<tag name="schema">return: Dictionary，包含 status、ok、item、closed、reason 和 metadata。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="read_async">
+			<signature>func read_async(options: Dictionary = {}, default_value: Variant = null) -&gt; Dictionary:</signature>
+			<description>等待并读取下一条数据。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">options: 等待选项，透传给 GFAsyncWaitUtility.wait_until。</tag>
+				<tag name="param">default_value: 无可读数据时返回的兜底 item。</tag>
+				<tag name="return">读取结果。</tag>
+				<tag name="schema">default_value: Variant 无可读数据时写入返回结果 item 的兜底值。</tag>
+				<tag name="schema">options: Dictionary，可包含 timeout_seconds、cancel_token、guard_node、tree、time_utility、respect_time_scale 和 process_in_physics。</tag>
+				<tag name="schema">return: Dictionary，包含 status、ok、item、closed、reason、metadata 和 wait_result。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="wait_to_read_async">
+			<signature>func wait_to_read_async(options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>等待通道进入可读或关闭状态，不消费数据。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">options: 等待选项，透传给 GFAsyncWaitUtility.wait_until。</tag>
+				<tag name="return">等待结果。</tag>
+				<tag name="schema">options: Dictionary，可包含 timeout_seconds、cancel_token、guard_node、tree、time_utility、respect_time_scale 和 process_in_physics。</tag>
+				<tag name="schema">return: Dictionary，包含 status、readable、closed、reason、metadata 和 count。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="drain">
+			<signature>func drain(max_items: int = -1) -&gt; Array:</signature>
+			<description>读出当前缓冲区中的数据。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">max_items: 最多读出数量；小于 0 时读出全部。</tag>
+				<tag name="return">已读出的数据数组。</tag>
+				<tag name="schema">return: Array[Variant]，包含按 FIFO 顺序读出的数据副本。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="clear">
+			<signature>func clear() -&gt; void:</signature>
+			<description>清空当前缓冲区。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_closed">
+			<signature>func is_closed() -&gt; bool:</signature>
+			<description>判断通道是否已经关闭。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">已关闭时返回 true。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_open">
+			<signature>func is_open() -&gt; bool:</signature>
+			<description>判断通道是否仍可写入。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">可写入时返回 true。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="has_items">
+			<signature>func has_items() -&gt; bool:</signature>
+			<description>判断缓冲区中是否存在可读数据。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">存在可读数据时返回 true。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_count">
+			<signature>func get_count() -&gt; int:</signature>
+			<description>获取当前缓冲数量。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">当前缓冲数量。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_debug_snapshot">
+			<signature>func get_debug_snapshot() -&gt; Dictionary:</signature>
+			<description>获取通道调试快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">调试快照。</tag>
+				<tag name="schema">return: Dictionary，包含 closed、count、written_count、read_count、reason 和 metadata。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

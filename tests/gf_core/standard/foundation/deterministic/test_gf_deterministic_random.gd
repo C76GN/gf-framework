@@ -90,6 +90,27 @@ func test_int_range_matches_golden_sequence() -> void:
 	assert_eq(values, [10, 19, 10, 20, 20, 14, 16, 19, 10, 19, 13, 16])
 
 
+func test_int_range_accepts_exact_u32_span() -> void:
+	var rng: GF_DETERMINISTIC_RANDOM = GF_DETERMINISTIC_RANDOM.from_seed(42)
+	var previous_state: int = rng.get_state()
+
+	var value: int = rng.next_int_range(-2_147_483_648, 2_147_483_647)
+
+	assert_eq(value, -2_136_128_216, "正好 u32 跨度的闭区间应使用一次 u32 样本映射。")
+	assert_ne(rng.get_state(), previous_state, "合法 u32 跨度应推进随机序列。")
+
+
+func test_int_range_rejects_span_larger_than_u32_without_advancing() -> void:
+	var rng: GF_DETERMINISTIC_RANDOM = GF_DETERMINISTIC_RANDOM.from_seed(42)
+	var previous_state: int = rng.get_state()
+
+	var value: int = rng.next_int_range(-2_147_483_648, 2_147_483_648)
+
+	assert_eq(value, -2_147_483_648, "超过 u32 跨度时应返回规范化后的下界。")
+	assert_eq(rng.get_state(), previous_state, "非法跨度不应消耗随机序列。")
+	assert_push_error("[GFDeterministicRandom] next_int_range 只支持跨度不超过 u32 的闭区间。")
+
+
 func test_float_unit_matches_scaled_u32_golden_sequence() -> void:
 	var rng: GF_DETERMINISTIC_RANDOM = GF_DETERMINISTIC_RANDOM.from_seed(42)
 
@@ -113,6 +134,17 @@ func test_float_range_rejects_non_finite_bounds() -> void:
 
 	assert_eq(value, 0.0)
 	assert_push_error("[GFDeterministicRandom] next_float_range 只支持有限浮点边界。")
+
+
+func test_float_range_rejects_non_finite_span_without_advancing() -> void:
+	var rng: GF_DETERMINISTIC_RANDOM = GF_DETERMINISTIC_RANDOM.from_seed(42)
+	var previous_state: int = rng.get_state()
+
+	var value: float = rng.next_float_range(-1.0e308, 1.0e308)
+
+	assert_eq(value, 0.0)
+	assert_eq(rng.get_state(), previous_state, "范围跨度变成非有限值时不应消耗随机序列。")
+	assert_push_error("[GFDeterministicRandom] next_float_range 只支持有限浮点范围。")
 
 
 func test_skip_matches_manual_consumption() -> void:

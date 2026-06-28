@@ -26,6 +26,7 @@
 | 信号 | [`player_action_triggered`](#member-gfinputmappingutility-signals-player_action_triggered) | `signal player_action_triggered(player_index: int, action_id: StringName, value: Variant)` |
 | 信号 | [`player_action_completed`](#member-gfinputmappingutility-signals-player_action_completed) | `signal player_action_completed(player_index: int, action_id: StringName, value: Variant)` |
 | 方法 | [`init`](#member-gfinputmappingutility-methods-init) | `func init() -> void:` |
+| 方法 | [`ready`](#member-gfinputmappingutility-methods-ready) | `func ready() -> void:` |
 | 方法 | [`dispose`](#member-gfinputmappingutility-methods-dispose) | `func dispose() -> void:` |
 | 方法 | [`tick`](#member-gfinputmappingutility-methods-tick) | `func tick(delta: float) -> void:` |
 | 方法 | [`set_remap_config`](#member-gfinputmappingutility-methods-set_remap_config) | `func set_remap_config(config: GFInputRemapConfig) -> void:` |
@@ -302,6 +303,19 @@ func init() -> void:
 ```
 
 初始化输入映射运行时状态并挂载输入路由节点。
+
+<a id="member-gfinputmappingutility-methods-ready"></a>
+
+### `ready`
+
+- API：`public`
+- 首次版本：`7.0.0`
+
+```gdscript
+func ready() -> void:
+```
+
+绑定可选的设备分配工具，用于在玩家设备变化时清理运行时输入状态。
 
 <a id="member-gfinputmappingutility-methods-dispose"></a>
 

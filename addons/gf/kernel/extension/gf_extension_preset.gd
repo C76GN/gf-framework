@@ -18,6 +18,7 @@ extends RefCounted
 
 const _GF_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
 const _GF_PATH_TOOLS = preload("res://addons/gf/kernel/core/gf_path_tools.gd")
+const _GF_EXTENSION_MANIFEST_SCRIPT = preload("res://addons/gf/kernel/extension/gf_extension_manifest.gd")
 const _SUPPORTED_FIELDS: Array[String] = [
 	"description",
 	"display_name",
@@ -169,22 +170,62 @@ static func from_dictionary(data: Dictionary, preset_source_path: String = "") -
 ## [br]
 ## @return 读取成功时返回 preset；失败时返回 null。
 static func from_json_file(path: String) -> GFExtensionPreset:
+	var report: Dictionary = from_json_file_report(path)
+	var preset_value: Variant = _GF_VARIANT_ACCESS_SCRIPT.get_option_value(report, "preset")
+	if preset_value is GFExtensionPreset:
+		var preset: GFExtensionPreset = preset_value
+		return preset
+	return null
+
+
+## 从 JSON 文件读取扩展 preset 并返回诊断报告。
+## [br]
+## @api public
+## [br]
+## @since 6.0.0
+## [br]
+## @param path: preset JSON 文件路径。
+## [br]
+## @return 读取诊断，包含 ok、source_path、preset 和 errors。
+## [br]
+## @schema return: Dictionary { ok: bool, source_path: String, preset: GFExtensionPreset, errors: Array[String] }.
+static func from_json_file_report(path: String) -> Dictionary:
 	var normalized_path: String = _GF_PATH_TOOLS.normalize_resource_path(path)
+	var errors: Array[String] = []
 	if normalized_path.is_empty():
-		return null
+		errors.append("preset path is empty")
+		return _make_json_file_report(false, normalized_path, null, errors)
 
 	var file: FileAccess = FileAccess.open(normalized_path, FileAccess.READ)
 	if file == null:
-		return null
+		errors.append("could not open preset: %s" % error_string(FileAccess.get_open_error()))
+		return _make_json_file_report(false, normalized_path, null, errors)
 
 	var text: String = file.get_as_text()
+	var read_error: Error = file.get_error()
 	file.close()
-	var parsed: Variant = JSON.parse_string(text)
+	if read_error != OK:
+		errors.append("could not read preset: %s" % error_string(read_error))
+		return _make_json_file_report(false, normalized_path, null, errors)
+
+	var parser: JSON = JSON.new()
+	var parse_error: Error = parser.parse(text)
+	if parse_error != OK:
+		errors.append("could not parse preset JSON at line %d: %s" % [
+			parser.get_error_line(),
+			parser.get_error_message(),
+		])
+		return _make_json_file_report(false, normalized_path, null, errors)
+
+	var parsed: Variant = parser.data
 	if not (parsed is Dictionary):
-		return null
+		errors.append("preset JSON root must be an object")
+		return _make_json_file_report(false, normalized_path, null, errors)
 
 	var parsed_dictionary: Dictionary = parsed
-	return from_dictionary(parsed_dictionary, normalized_path)
+	var preset: GFExtensionPreset = from_dictionary(parsed_dictionary, normalized_path)
+	errors.append_array(preset.get_validation_errors())
+	return _make_json_file_report(errors.is_empty(), normalized_path, preset, errors)
 
 
 ## 转换为字典。
@@ -227,14 +268,12 @@ func is_valid() -> bool:
 func get_validation_errors() -> Array[String]:
 	var errors: Array[String] = []
 	_append_unsupported_field_errors(errors)
-	if id == &"":
-		errors.append("id is required")
+	var id_error: String = _GF_EXTENSION_MANIFEST_SCRIPT.get_extension_id_validation_error(String(id))
+	if not id_error.is_empty():
+		errors.append(id_error)
 	if display_name.strip_edges().is_empty():
 		errors.append("display_name is required")
-	for extension_id: String in extension_ids:
-		if extension_id.strip_edges().is_empty():
-			errors.append("extension_ids contains empty id")
-			break
+	_append_identifier_errors(errors, "extension_ids", extension_ids)
 	return errors
 
 
@@ -272,3 +311,28 @@ func _append_unsupported_field_errors(errors: Array[String]) -> void:
 			errors.append("unsupported preset package field: %s" % field_name)
 		elif not _SUPPORTED_FIELDS.has(field_name):
 			errors.append("unsupported preset field: %s" % field_name)
+
+
+static func _make_json_file_report(
+	ok: bool,
+	report_source_path: String,
+	preset: GFExtensionPreset,
+	errors: Array[String]
+) -> Dictionary:
+	return {
+		"ok": ok,
+		"source_path": report_source_path,
+		"preset": preset,
+		"errors": errors.duplicate(),
+	}
+
+
+func _append_identifier_errors(
+	errors: Array[String],
+	property_name: String,
+	values: Array[String]
+) -> void:
+	for value: String in values:
+		var id_error: String = _GF_EXTENSION_MANIFEST_SCRIPT.get_extension_id_validation_error(value, property_name)
+		if not id_error.is_empty():
+			errors.append(id_error)

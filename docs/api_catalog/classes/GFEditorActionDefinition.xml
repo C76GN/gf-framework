@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFEditorActionDefinition" path="addons/gf/kernel/editor/gf_editor_action_definition.gd" module="kernel" extends="RefCounted" classDigest="324a94ac4f349a93211684ae22c2c252bbb3b9b80041efa3e05a16ce492fd9de">
+<class name="GFEditorActionDefinition" path="addons/gf/kernel/editor/gf_editor_action_definition.gd" module="kernel" extends="RefCounted" classDigest="588e93e7437fdcb76ab4c38e5d332a3066058d36eea17b5438195015eee5570b">
 	<description>GFEditorActionDefinition: 编辑器动作声明。
 把菜单、按钮、快捷键或面板入口与命令工厂解耦。动作只负责描述入口和创建命令，
 具体执行、撤销和业务含义由调用方或命令实现决定。</description>
@@ -27,6 +27,14 @@
 				<tag name="api">public</tag>
 			</tags>
 		</member>
+		<member kind="property" name="group">
+			<signature>var group: StringName = &amp;""</signature>
+			<description>动作分组。用于命令面板、工具栏或菜单按领域组织入口。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
 		<member kind="property" name="tooltip">
 			<signature>var tooltip: String = ""</signature>
 			<description>动作提示文本。</description>
@@ -41,11 +49,43 @@
 				<tag name="api">public</tag>
 			</tags>
 		</member>
+		<member kind="property" name="source_id">
+			<signature>var source_id: StringName = &amp;""</signature>
+			<description>动作来源标识。通常是贡献该动作的 package、插件或工具 ID。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="sort_order">
+			<signature>var sort_order: int = 0</signature>
+			<description>同组内排序权重，数值越小越靠前。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="enabled">
+			<signature>var enabled: bool = true</signature>
+			<description>动作是否启用。禁用动作不会创建命令或被调用。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
 		<member kind="property" name="command_factory">
 			<signature>var command_factory: Callable = Callable()</signature>
 			<description>命令工厂。推荐签名为 `func(context: Dictionary) -&gt; GFEditorCommand`。</description>
 			<tags>
 				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="property" name="availability_callback">
+			<signature>var availability_callback: Callable = Callable()</signature>
+			<description>可用性回调。推荐签名为 `func(context: Dictionary) -&gt; bool`，必须保持纯查询，不应创建或执行命令。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="metadata">
@@ -95,7 +135,8 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">调试信息字典。</tag>
-				<tag name="schema">return: Dictionary containing action_id, label, tooltip, shortcut_text, has_command_factory, and metadata.</tag>
+				<tag name="schema">return: Dictionary containing action_id, label, group, tooltip, shortcut_text, source_id, sort_order, enabled, has_command_factory, and metadata.</tag>
+				<tag name="since">6.0.0</tag>
 			</tags>
 		</member>
 	</methods>

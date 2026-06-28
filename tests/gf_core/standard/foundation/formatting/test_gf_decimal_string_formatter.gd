@@ -28,6 +28,30 @@ func test_decimal_string_formatting_rounds_truncates_and_trims() -> void:
 	)
 
 
+func test_decimal_string_formatting_rejects_non_finite_values() -> void:
+	assert_eq(
+		GFDecimalStringFormatterBase.format_decimal_value(INF, 2, true, false),
+		"0",
+		"非有限浮点值应格式化为稳定 fallback。"
+	)
+	assert_push_error("[GFDecimalStringFormatter] 只能格式化有限浮点值。")
+
+	assert_eq(
+		GFDecimalStringFormatterBase.apply_decimal_places(NAN, 2, false),
+		0.0,
+		"直接调整非有限浮点值时也应返回稳定 fallback。"
+	)
+	assert_push_error("[GFDecimalStringFormatter] 只能格式化有限浮点值。")
+
+
+func test_decimal_string_formatting_clamps_excessive_decimal_places() -> void:
+	var text: String = GFDecimalStringFormatterBase.format_decimal_value(1.25, 1_000_000, false, false)
+
+	assert_push_error("[GFDecimalStringFormatter] decimal_places 不能超过 18，已钳制。")
+	assert_eq(text, "1.250000000000000000", "超大小数位数应被钳制到显示层上限。")
+	assert_lte(text.length(), 24, "钳制后不应生成巨大字符串。")
+
+
 ## 验证小数字符串拆分校验只接受纯数字部分。
 func test_decimal_string_parts_validation() -> void:
 	assert_true(

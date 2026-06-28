@@ -7,7 +7,8 @@
   "description": "Package manifest for the bundled Feedback extension.",
   "dependencies": [
     "gf.kernel",
-    "gf.standard.base"
+    "gf.standard.base",
+    "gf.standard.input"
   ],
   "paths": [
     "addons/gf/extensions/feedback/**"

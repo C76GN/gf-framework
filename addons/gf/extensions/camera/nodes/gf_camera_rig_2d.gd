@@ -89,7 +89,13 @@ signal priority_changed(priority: int)
 ## 自动加入的分组名。Director 可按该分组收集候选。
 ## [br]
 ## @api public
-@export var group_name: StringName = &"gf_camera_rig_2d"
+## [br]
+## @since 6.0.0
+@export var group_name: StringName = &"gf_camera_rig_2d":
+	get:
+		return _group_name
+	set(value):
+		_set_group_name(value)
 
 ## 项目自定义元数据。框架不解释该字段。
 ## [br]
@@ -99,16 +105,20 @@ signal priority_changed(priority: int)
 @export var metadata: Dictionary = {}
 
 
+# --- 私有变量 ---
+
+var _group_name: StringName = &"gf_camera_rig_2d"
+var _registered_group_name: StringName = &""
+
+
 # --- Godot 生命周期方法 ---
 
 func _enter_tree() -> void:
-	if group_name != &"":
-		add_to_group(group_name)
+	_update_group_registration()
 
 
 func _exit_tree() -> void:
-	if group_name != &"":
-		remove_from_group(group_name)
+	_unregister_group()
 
 
 # --- 公共方法 ---
@@ -155,10 +165,35 @@ func get_camera_pose() -> Dictionary:
 ## [br]
 ## @return 可用时返回 true。
 func is_available() -> bool:
-	return active and is_inside_tree()
+	return active and is_inside_tree() and (target_path.is_empty() or get_target_node() != null)
 
 
 # --- 私有/辅助方法 ---
+
+func _set_group_name(value: StringName) -> void:
+	if _group_name == value:
+		return
+	_group_name = value
+	_update_group_registration()
+
+
+func _update_group_registration() -> void:
+	if not is_inside_tree():
+		return
+	if _registered_group_name != &"" and _registered_group_name != _group_name:
+		remove_from_group(_registered_group_name)
+		_registered_group_name = &""
+	if _group_name != &"" and _registered_group_name != _group_name:
+		add_to_group(_group_name)
+		_registered_group_name = _group_name
+
+
+func _unregister_group() -> void:
+	if _registered_group_name == &"":
+		return
+	remove_from_group(_registered_group_name)
+	_registered_group_name = &""
+
 
 func _get_node_2d_value(value: Variant) -> Node2D:
 	if value is Node2D:

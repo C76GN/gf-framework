@@ -1,0 +1,166 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFDeferredMutationQueue" path="addons/gf/standard/common/gf_deferred_mutation_queue.gd" module="standard" extends="GFUtility" classDigest="ea9d257d66eaab1a1930995b05ead0d0c02b03a2c9e77ea6d297c8ac8eafce7b">
+	<description>GFDeferredMutationQueue: 确定性延迟变更队列。
+用于把运行时或工具流程中收集到的状态变更延迟到显式 playback 点执行。
+队列只保存 Callable、排序信息和诊断 metadata，不解释调用方的实体、组件、
+节点或资源语义。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_service</tag>
+		<tag name="since">7.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants>
+		<member kind="const" name="DEFAULT_PHASE">
+			<signature>const DEFAULT_PHASE: StringName = &amp;"default"</signature>
+			<description>默认变更阶段。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties>
+		<member kind="property" name="max_mutations_per_playback">
+			<signature>var max_mutations_per_playback: int = 0:</signature>
+			<description>playback() 默认每次最多应用多少条变更；小于等于 0 时不限制数量。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="max_seconds_per_playback">
+			<signature>var max_seconds_per_playback: float = 0.0:</signature>
+			<description>playback() 默认最多占用多少秒；小于等于 0 时不启用时间预算。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="init">
+			<signature>func init() -&gt; void:</signature>
+			<description>初始化队列并清空统计。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="dispose">
+			<signature>func dispose() -&gt; void:</signature>
+			<description>清空队列。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="record">
+			<signature>func record(mutation: Callable, options: Dictionary = {}) -&gt; int:</signature>
+			<description>记录一条延迟变更。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">mutation: playback() 时执行的回调。</tag>
+				<tag name="param">options: 记录选项，支持 phase、sort_key、order、label、metadata 和 owner。</tag>
+				<tag name="return">变更句柄；mutation 无效时返回 0。</tag>
+				<tag name="schema">options: Dictionary，可包含 phase: StringName、sort_key: int、order: int、label: String、metadata: Dictionary、owner: Object。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="record_owned">
+			<signature>func record_owned(owner: Object, mutation: Callable, options: Dictionary = {}) -&gt; int:</signature>
+			<description>记录一条绑定 owner 的延迟变更。owner 释放后变更会在 playback() 时跳过。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">owner: 变更拥有者。</tag>
+				<tag name="param">mutation: playback() 时执行的回调。</tag>
+				<tag name="param">options: 记录选项，支持 phase、sort_key、order、label 和 metadata。</tag>
+				<tag name="return">变更句柄；参数无效时返回 0。</tag>
+				<tag name="schema">options: Dictionary，可包含 phase: StringName、sort_key: int、order: int、label: String、metadata: Dictionary。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="playback">
+			<signature>func playback(options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>按 phase、sort_key、order 和记录句柄的稳定顺序应用延迟变更。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">options: playback 选项，支持 phase、max_count、max_seconds 和 include_records。</tag>
+				<tag name="return">应用报告。</tag>
+				<tag name="schema">options: Dictionary，可包含 phase: StringName、max_count: int、max_seconds: float、include_records: bool。</tag>
+				<tag name="schema">return: Dictionary，包含 applied_count、failed_count、skipped_owner_count、pending_count、budget_exhausted、phase 和可选 records。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="preview">
+			<signature>func preview(options: Dictionary = {}) -&gt; Array[Dictionary]:</signature>
+			<description>预览待应用变更，不执行回调。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">options: 预览选项，支持 phase 和 limit。</tag>
+				<tag name="return">待应用变更快照数组。</tag>
+				<tag name="schema">options: Dictionary，可包含 phase: StringName 和 limit: int。</tag>
+				<tag name="schema">return: Array[Dictionary]，每个元素包含 handle、phase、sort_key、order、owner_id、label、metadata 和 recorded_msec。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="cancel">
+			<signature>func cancel(handle: int) -&gt; bool:</signature>
+			<description>取消一条尚未应用的变更。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">handle: record() 返回的变更句柄。</tag>
+				<tag name="return">找到并取消时返回 true。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="cancel_owner">
+			<signature>func cancel_owner(owner: Object) -&gt; int:</signature>
+			<description>取消指定 owner 绑定的全部待应用变更。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">owner: 变更拥有者。</tag>
+				<tag name="return">取消数量。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="clear">
+			<signature>func clear() -&gt; void:</signature>
+			<description>清空全部待应用变更和统计。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_pending_count">
+			<signature>func get_pending_count() -&gt; int:</signature>
+			<description>获取待应用变更数量。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">队列长度。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_empty">
+			<signature>func is_empty() -&gt; bool:</signature>
+			<description>检查队列是否为空。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">队列为空时返回 true。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_debug_snapshot">
+			<signature>func get_debug_snapshot() -&gt; Dictionary:</signature>
+			<description>获取队列调试快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">调试快照。</tag>
+				<tag name="schema">return: Dictionary，包含 pending_count、phase_counts、recorded_count、applied_count、cancelled_count、failed_count 和 skipped_owner_count。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

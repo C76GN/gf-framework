@@ -364,7 +364,7 @@ func auto_layout(graph: GFFlowGraph, options: Dictionary = {}) -> Dictionary:
 		if node != null and node.node_id != &"":
 			_append_packed_string(node_ids, String(node.node_id))
 
-	var positions: Dictionary = _make_layered_layout(node_ids, graph.connections, options)
+	var positions: Dictionary = _make_layered_layout(node_ids, _build_layout_connections(graph), options)
 	var changed_count: int = apply_node_positions(graph, positions)
 	return {
 		"ok": true,
@@ -607,6 +607,49 @@ func _make_layered_layout(node_ids: PackedStringArray, connections: Array[Dictio
 	return GFVariantData.as_dictionary(_GF_GRAPH_LAYOUT_UTILITY_SCRIPT.call("make_layered_layout", node_ids, connections, options))
 
 
+func _build_layout_connections(graph: GFFlowGraph) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	var connection_keys: Dictionary = {}
+	for connection: Dictionary in graph.connections:
+		_append_layout_connection(result, connection_keys, connection)
+	for node: GFFlowNode in graph.nodes:
+		if node == null or node.node_id == &"":
+			continue
+		for next_id_text: String in node.next_node_ids:
+			_append_layout_connection(result, connection_keys, {
+				"from_node_id": node.node_id,
+				"from_port_id": &"",
+				"to_node_id": StringName(next_id_text),
+				"to_port_id": &"",
+				"metadata": {},
+			})
+	return result
+
+
+func _append_layout_connection(
+	result: Array[Dictionary],
+	connection_keys: Dictionary,
+	connection: Dictionary
+) -> void:
+	var from_node_id: StringName = _get_connection_from_node_id(connection)
+	var from_port_id: StringName = _get_connection_from_port_id(connection)
+	var to_node_id: StringName = _get_connection_to_node_id(connection)
+	var to_port_id: StringName = _get_connection_to_port_id(connection)
+	if from_node_id == &"" or to_node_id == &"":
+		return
+	var connection_key: String = _get_connection_key(from_node_id, from_port_id, to_node_id, to_port_id)
+	if connection_keys.has(connection_key):
+		return
+	connection_keys[connection_key] = true
+	result.append({
+		"from_node_id": from_node_id,
+		"from_port_id": from_port_id,
+		"to_node_id": to_node_id,
+		"to_port_id": to_port_id,
+		"metadata": GFVariantData.get_option_dictionary(connection, "metadata"),
+	})
+
+
 func _find_reachable_nodes(start_node_id: StringName, graph: Resource, node_ids: Dictionary, node_lookup: Dictionary) -> Dictionary:
 	return GFVariantData.as_dictionary(_GF_GRAPH_MATH_SCRIPT.call(
 		"find_reachable",
@@ -696,6 +739,8 @@ func _build_connection_entry(connection: Dictionary, node_lookup: Dictionary) ->
 	if from_port_id != &"" and from_port_index < 0:
 		valid = false
 	if to_port_id != &"" and to_port_index < 0:
+		valid = false
+	if _has_mixed_connection_ports(from_port_id, to_port_id):
 		valid = false
 	return {
 		"from_node_id": from_node_id,
@@ -826,6 +871,9 @@ func _validate_connections_for_editor(
 
 		if from_node_id == &"" or to_node_id == &"":
 			_append_validation_issue(report, "error", "invalid_connection", str(index), "Flow connection requires from_node_id and to_node_id.")
+			continue
+		if _has_mixed_connection_ports(from_port_id, to_port_id):
+			_append_validation_issue(report, "error", "invalid_mixed_connection_ports", String(from_node_id), "Flow connection must use either two node-level endpoints or two explicit ports.")
 			continue
 		if connection_keys.has(connection_key):
 			_append_validation_issue(report, "error", "duplicate_connection", String(from_node_id), "Duplicate flow connection.")
@@ -982,34 +1030,49 @@ func _validate_cycles_for_editor(
 	var reported_cycles: Dictionary = {}
 	for node_id: StringName in _get_sorted_node_ids(node_ids):
 		if GFVariantData.get_option_int(states, node_id, 0) == 0:
-			_visit_node_for_cycles_for_editor(graph, node_id, node_ids, node_lookup, states, [], reported_cycles, report)
+			_visit_node_for_cycles_for_editor_iterative(graph, node_id, node_ids, node_lookup, states, reported_cycles, report)
 
 
-func _visit_node_for_cycles_for_editor(
+func _visit_node_for_cycles_for_editor_iterative(
 	graph: Resource,
-	node_id: StringName,
+	start_node_id: StringName,
 	node_ids: Dictionary,
 	node_lookup: Dictionary,
 	states: Dictionary,
-	stack: Array[StringName],
 	reported_cycles: Dictionary,
 	report: Dictionary
 ) -> void:
-	states[node_id] = 1
-	stack.append(node_id)
-	for successor_id: StringName in _get_successor_node_ids_for_editor(graph, node_id, node_ids, node_lookup):
+	var node_stack: Array[StringName] = [start_node_id]
+	var successor_stack: Array = [_get_successor_node_ids_for_editor(graph, start_node_id, node_ids, node_lookup)]
+	var index_stack: Array[int] = [0]
+	states[start_node_id] = 1
+
+	while not node_stack.is_empty():
+		var stack_index: int = node_stack.size() - 1
+		var current_node_id: StringName = node_stack[stack_index]
+		var successors: Array = GFVariantData.as_array(successor_stack[stack_index])
+		var successor_index: int = index_stack[stack_index]
+		if successor_index >= successors.size():
+			states[current_node_id] = 2
+			node_stack.pop_back()
+			successor_stack.pop_back()
+			index_stack.pop_back()
+			continue
+
+		var successor_id: StringName = GFVariantData.to_string_name(successors[successor_index])
+		index_stack[stack_index] = successor_index + 1
 		var successor_state: int = GFVariantData.get_option_int(states, successor_id, 0)
 		if successor_state == 1:
-			var cycle_key: String = _make_cycle_key(successor_id, stack)
+			var cycle_key: String = _make_cycle_key(successor_id, node_stack)
 			if not reported_cycles.has(cycle_key):
 				reported_cycles[cycle_key] = true
 				_append_validation_issue(report, "warning", "cycle_detected", cycle_key, "Flow graph contains a cycle: %s" % cycle_key)
 			continue
 		if successor_state == 0:
-			_visit_node_for_cycles_for_editor(graph, successor_id, node_ids, node_lookup, states, stack, reported_cycles, report)
-
-	stack.pop_back()
-	states[node_id] = 2
+			states[successor_id] = 1
+			node_stack.append(successor_id)
+			successor_stack.append(_get_successor_node_ids_for_editor(graph, successor_id, node_ids, node_lookup))
+			index_stack.append(0)
 
 
 func _validate_terminal_nodes_for_editor(
@@ -1138,6 +1201,7 @@ func _get_validation_next_actions() -> Dictionary:
 		"missing_start_node": "Set start_node_id to an existing node or leave it empty for manual runner selection.",
 		"missing_next_node": "Create the referenced next node or remove it from next_node_ids.",
 		"invalid_connection": "Fill both from_node_id and to_node_id for every flow connection.",
+		"invalid_mixed_connection_ports": "Use either a node-level connection with both port ids empty, or a port-level connection with both port ids set.",
 		"duplicate_connection": "Remove the duplicated flow connection.",
 		"missing_connection_from_node": "Create the connection source node or remove the connection.",
 		"missing_connection_to_node": "Create the connection target node or remove the connection.",
@@ -1181,6 +1245,10 @@ func _get_connection_key(
 		String(to_node_id),
 		String(to_port_id),
 	]
+
+
+func _has_mixed_connection_ports(from_port_id: StringName, to_port_id: StringName) -> bool:
+	return (from_port_id == &"" and to_port_id != &"") or (from_port_id != &"" and to_port_id == &"")
 
 
 func _make_null_validation_report() -> Dictionary:

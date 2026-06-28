@@ -8,12 +8,13 @@
   "dependencies": [
     "gf.kernel",
     "gf.standard.base",
-    "gf.standard.input",
-    "gf.standard.storage",
-    "gf.standard.state_machine",
-    "gf.standard.audio",
-    "gf.standard.debug",
-    "gf.standard.spatial"
+    "gf.standard.diagnostics",
+    "gf.standard.input.editor",
+    "gf.standard.storage.editor",
+    "gf.standard.state_machine.editor",
+    "gf.standard.audio.editor",
+    "gf.standard.debug.editor",
+    "gf.standard.spatial.editor"
   ],
   "paths": [
     "addons/gf/standard/editor/**"

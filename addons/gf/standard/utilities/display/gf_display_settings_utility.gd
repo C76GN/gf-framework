@@ -150,7 +150,8 @@ func register_default_settings() -> void:
 ## @api public
 func apply_all() -> void:
 	apply_window_mode()
-	apply_window_size()
+	if get_window_mode() == DisplayServer.WINDOW_MODE_WINDOWED:
+		apply_window_size()
 	apply_vsync_mode()
 	apply_locale()
 	apply_registered_audio_bus_volumes()
@@ -164,6 +165,8 @@ func apply_all() -> void:
 func set_window_mode(mode: DisplayServer.WindowMode) -> void:
 	_set_setting_value(WINDOW_MODE_KEY, int(mode))
 	apply_window_mode()
+	if mode == DisplayServer.WINDOW_MODE_WINDOWED:
+		apply_window_size()
 
 
 ## 获取窗口模式设置。
@@ -241,6 +244,8 @@ func get_window_size() -> Vector2i:
 func apply_window_size() -> void:
 	var size: Vector2i = get_window_size()
 	if size.x <= 0 or size.y <= 0:
+		return
+	if DisplayServer.window_get_mode() != DisplayServer.WINDOW_MODE_WINDOWED:
 		return
 
 	DisplayServer.window_set_size(size)
@@ -362,15 +367,21 @@ func get_audio_bus_volume(bus_name: String, fallback: float = 1.0) -> float:
 ## @param bus_name: 音频总线名。
 func apply_audio_bus_volume(bus_name: String) -> void:
 	var volume: float = get_audio_bus_volume(bus_name)
+	var volume_db: float = linear_to_db(maxf(volume, 0.0001))
+	var applied: bool = false
 	var audio: GFAudioUtility = _get_audio_utility()
 	if audio != null:
-		audio.set_bus_volume(bus_name, volume)
+		applied = audio.set_bus_volume_db(bus_name, volume_db)
 	else:
 		var bus_index: int = AudioServer.get_bus_index(bus_name)
 		if bus_index >= 0:
-			AudioServer.set_bus_volume_db(bus_index, linear_to_db(maxf(volume, 0.0001)))
+			AudioServer.set_bus_volume_db(bus_index, volume_db)
+			applied = true
 
-	display_setting_applied.emit(_get_audio_bus_volume_key(bus_name), volume)
+	if applied:
+		display_setting_applied.emit(_get_audio_bus_volume_key(bus_name), volume)
+	else:
+		push_warning("[GFDisplaySettingsUtility] 无法应用音频总线音量，未找到总线或后端拒绝：%s。" % bus_name)
 
 
 ## 应用所有已注册音频总线音量设置。

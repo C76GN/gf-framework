@@ -25,6 +25,7 @@
 | 属性 | [`sector_angle_degrees`](#member-gfskilltargetingrule-properties-sector_angle_degrees) | `var sector_angle_degrees: float = 90.0` |
 | 属性 | [`sort_rule`](#member-gfskilltargetingrule-properties-sort_rule) | `var sort_rule: SortRule = SortRule.DISTANCE_CLOSEST` |
 | 属性 | [`sort_attribute_name`](#member-gfskilltargetingrule-properties-sort_attribute_name) | `var sort_attribute_name: StringName = &"HP"` |
+| 属性 | [`random_seed`](#member-gfskilltargetingrule-properties-random_seed) | `var random_seed: int = 0` |
 | 属性 | [`require_tags`](#member-gfskilltargetingrule-properties-require_tags) | `var require_tags: Array[StringName] = []` |
 | 属性 | [`ignore_tags`](#member-gfskilltargetingrule-properties-ignore_tags) | `var ignore_tags: Array[StringName] = []` |
 
@@ -171,6 +172,19 @@ var sort_attribute_name: StringName = &"HP"
 ```
 
 按属性排序时使用的属性名。
+
+<a id="member-gfskilltargetingrule-properties-random_seed"></a>
+
+### `random_seed`
+
+- API：`public`
+- 首次版本：`6.0.0`
+
+```gdscript
+var random_seed: int = 0
+```
+
+RANDOM 排序使用的确定性种子。相同候选集合、相同实例顺序与相同种子会得到相同顺序。
 
 <a id="member-gfskilltargetingrule-properties-require_tags"></a>
 

@@ -96,8 +96,46 @@ static func _call_debug_snapshot(snapshot_owner: Object) -> Dictionary:
 
 static func _variant_to_status(value: Variant, fallback_status: int = Status.FAILURE) -> int:
 	if value is int:
-		return value
+		var status: int = value
+		if _is_valid_status(status):
+			return status
 	return fallback_status
+
+
+static func _is_valid_status(status: int) -> bool:
+	return (
+		status == Status.FRESH
+		or status == Status.SUCCESS
+		or status == Status.FAILURE
+		or status == Status.RUNNING
+		or status == Status.ABORTED
+	)
+
+
+static func _is_success(status: int) -> bool:
+	return status == Status.SUCCESS
+
+
+static func _is_failure(status: int) -> bool:
+	return status == Status.FAILURE
+
+
+static func _is_running(status: int) -> bool:
+	return status == Status.RUNNING
+
+
+static func _is_aborted(status: int) -> bool:
+	return status == Status.ABORTED
+
+
+static func _status_reason_from_value(value: Variant, normalized_status: int) -> StringName:
+	if value is int:
+		var status: int = value
+		if not _is_valid_status(status):
+			return &"invalid_status"
+	if normalized_status == Status.ABORTED:
+		return &"aborted"
+	return &""
 
 
 static func _condition_result_to_bool(value: Variant) -> bool:
@@ -287,6 +325,43 @@ class BTNode extends RefCounted:
 		return result
 
 
+	func _copy_child_nodes(children: Array[BTNode]) -> Array[BTNode]:
+		var result: Array[BTNode] = []
+		for child: BTNode in children:
+			result.append(child)
+		return result
+
+
+	func _would_create_cycle(candidate: BTNode) -> bool:
+		if candidate == null:
+			return false
+		return _node_contains_descendant(candidate, self, {})
+
+
+	func _node_contains_descendant(candidate: BTNode, target: BTNode, visited: Dictionary) -> bool:
+		if candidate == null:
+			return false
+		if candidate == target:
+			return true
+		var instance_id: int = candidate.get_instance_id()
+		if visited.has(instance_id):
+			return false
+		visited[instance_id] = true
+		for child: BTNode in candidate._get_debug_children():
+			if _node_contains_descendant(child, target, visited):
+				return true
+		return false
+
+
+	func _get_child_status_reason(child: BTNode, value: Variant, normalized_status: int) -> StringName:
+		var reason: StringName = GFBehaviorTree._status_reason_from_value(value, normalized_status)
+		if reason != &"":
+			return reason
+		if child != null and (child.last_reason == &"invalid_status" or child.last_reason == &"aborted"):
+			return child.last_reason
+		return &""
+
+
 	func _get_debug_children() -> Array[BTNode]:
 		return []
 
@@ -328,7 +403,7 @@ class BlackboardScope extends RefCounted:
 	## [br]
 	## @schema value: 任意可存入黑板的项目值。
 	func set_value(key: StringName, value: Variant) -> void:
-		values[key] = value
+		values[key] = GFVariantData.duplicate_variant(value)
 
 
 	## 获取作用域值。
@@ -346,10 +421,10 @@ class BlackboardScope extends RefCounted:
 	## @schema return: 找到的黑板值，或传入的 default_value。
 	func get_value(key: StringName, default_value: Variant = null) -> Variant:
 		if values.has(key):
-			return values[key]
+			return GFVariantData.duplicate_variant(values[key])
 		if parent != null:
 			return parent.get_value(key, default_value)
-		return default_value
+		return GFVariantData.duplicate_variant(default_value)
 
 
 	## 检查作用域值是否存在。
@@ -373,7 +448,7 @@ class BlackboardScope extends RefCounted:
 	func to_dictionary() -> Dictionary:
 		var result: Dictionary = parent.to_dictionary() if parent != null else {}
 		for key: Variant in values.keys():
-			result[key] = values[key]
+			result[key] = GFVariantData.duplicate_variant(values[key])
 		return result
 
 
@@ -392,7 +467,7 @@ class Sequence extends BTNode:
 
 	func _init(children_nodes: Array[BTNode]) -> void:
 		name = "Sequence"
-		_children = children_nodes
+		_children = _copy_child_nodes(children_nodes)
 
 
 	## 推进运行时逻辑。
@@ -412,11 +487,13 @@ class Sequence extends BTNode:
 				_current_child_idx += 1
 				continue
 
-			var status: int = child.tick(blackboard)
-			if status != Status.SUCCESS:
-				if status == Status.FAILURE:
+			var status_value: int = child.tick(blackboard)
+			var status: int = GFBehaviorTree._variant_to_status(status_value)
+			var reason: StringName = _get_child_status_reason(child, status_value, status)
+			if not GFBehaviorTree._is_success(status):
+				if GFBehaviorTree._is_failure(status) or GFBehaviorTree._is_aborted(status):
 					reset()
-				return _record_tick(status, &"", started)
+				return _record_tick(status, reason, started)
 			_current_child_idx += 1
 
 		reset()
@@ -464,7 +541,7 @@ class Selector extends BTNode:
 
 	func _init(children_nodes: Array[BTNode]) -> void:
 		name = "Selector"
-		_children = children_nodes
+		_children = _copy_child_nodes(children_nodes)
 
 
 	## 推进运行时逻辑。
@@ -484,11 +561,16 @@ class Selector extends BTNode:
 				_current_child_idx += 1
 				continue
 
-			var status: int = child.tick(blackboard)
-			if status != Status.FAILURE:
-				if status == Status.SUCCESS:
+			var status_value: int = child.tick(blackboard)
+			var status: int = GFBehaviorTree._variant_to_status(status_value)
+			var reason: StringName = _get_child_status_reason(child, status_value, status)
+			if reason == &"invalid_status" or GFBehaviorTree._is_aborted(status):
+				reset()
+				return _record_tick(status, reason, started)
+			if not GFBehaviorTree._is_failure(status):
+				if GFBehaviorTree._is_success(status):
 					reset()
-				return _record_tick(status, &"", started)
+				return _record_tick(status, reason, started)
 			_current_child_idx += 1
 
 		reset()
@@ -544,7 +626,7 @@ class Parallel extends BTNode:
 		completion_policy: ParallelPolicy = ParallelPolicy.REQUIRE_ALL
 	) -> void:
 		name = "Parallel"
-		_children = children_nodes
+		_children = _copy_child_nodes(children_nodes)
 		policy = completion_policy
 
 
@@ -568,6 +650,7 @@ class Parallel extends BTNode:
 		var has_running: bool = false
 		var has_success: bool = false
 		var has_failure: bool = false
+		var has_aborted: bool = false
 		for index: int in range(_children.size()):
 			var child: BTNode = _children[index]
 			if child == null:
@@ -575,14 +658,20 @@ class Parallel extends BTNode:
 
 			active_count += 1
 			var status: int = _child_statuses[index]
-			if status == Status.RUNNING:
-				status = child.tick(blackboard)
-				if status != Status.RUNNING:
+			if GFBehaviorTree._is_running(status):
+				var status_value: int = child.tick(blackboard)
+				status = GFBehaviorTree._variant_to_status(status_value)
+				var reason: StringName = _get_child_status_reason(child, status_value, status)
+				if reason == &"invalid_status":
+					reset()
+					return _record_tick(Status.FAILURE, reason, started)
+				if not GFBehaviorTree._is_running(status):
 					_child_statuses[index] = status
 
-			has_success = has_success or status == Status.SUCCESS
-			has_failure = has_failure or status == Status.FAILURE
-			has_running = has_running or status == Status.RUNNING
+			has_success = has_success or GFBehaviorTree._is_success(status)
+			has_failure = has_failure or GFBehaviorTree._is_failure(status)
+			has_running = has_running or GFBehaviorTree._is_running(status)
+			has_aborted = has_aborted or GFBehaviorTree._is_aborted(status)
 
 		if active_count <= 0:
 			reset()
@@ -590,6 +679,9 @@ class Parallel extends BTNode:
 			return _record_tick(inactive_status, &"empty_parallel", started)
 
 		if policy == ParallelPolicy.REQUIRE_ONE:
+			if has_aborted:
+				reset()
+				return _record_tick(Status.ABORTED, &"aborted", started)
 			if has_success:
 				reset()
 				return _record_tick(Status.SUCCESS, &"", started)
@@ -598,6 +690,9 @@ class Parallel extends BTNode:
 			reset()
 			return _record_tick(Status.FAILURE, &"", started)
 
+		if has_aborted:
+			reset()
+			return _record_tick(Status.ABORTED, &"aborted", started)
 		if has_failure:
 			reset()
 			return _record_tick(Status.FAILURE, &"", started)
@@ -663,7 +758,7 @@ class RandomSelector extends BTNode:
 
 	func _init(children_nodes: Array[BTNode], random_source: RandomNumberGenerator = null) -> void:
 		name = "RandomSelector"
-		_children = children_nodes
+		_children = _copy_child_nodes(children_nodes)
 		rng = random_source
 
 
@@ -687,11 +782,16 @@ class RandomSelector extends BTNode:
 				_current_child_idx += 1
 				continue
 
-			var status: int = child.tick(blackboard)
-			if status != Status.FAILURE:
-				if status == Status.SUCCESS:
+			var status_value: int = child.tick(blackboard)
+			var status: int = GFBehaviorTree._variant_to_status(status_value)
+			var reason: StringName = _get_child_status_reason(child, status_value, status)
+			if reason == &"invalid_status" or GFBehaviorTree._is_aborted(status):
+				reset()
+				return _record_tick(status, reason, started)
+			if not GFBehaviorTree._is_failure(status):
+				if GFBehaviorTree._is_success(status):
 					reset()
-				return _record_tick(status, &"", started)
+				return _record_tick(status, reason, started)
 			_current_child_idx += 1
 
 		reset()
@@ -773,7 +873,7 @@ class RandomSequence extends BTNode:
 
 	func _init(children_nodes: Array[BTNode], random_source: RandomNumberGenerator = null) -> void:
 		name = "RandomSequence"
-		_children = children_nodes
+		_children = _copy_child_nodes(children_nodes)
 		rng = random_source
 
 
@@ -797,11 +897,13 @@ class RandomSequence extends BTNode:
 				_current_child_idx += 1
 				continue
 
-			var status: int = child.tick(blackboard)
-			if status != Status.SUCCESS:
-				if status == Status.FAILURE:
+			var status_value: int = child.tick(blackboard)
+			var status: int = GFBehaviorTree._variant_to_status(status_value)
+			var reason: StringName = _get_child_status_reason(child, status_value, status)
+			if not GFBehaviorTree._is_success(status):
+				if GFBehaviorTree._is_failure(status) or GFBehaviorTree._is_aborted(status):
 					reset()
-				return _record_tick(status, &"", started)
+				return _record_tick(status, reason, started)
 			_current_child_idx += 1
 
 		reset()
@@ -892,7 +994,9 @@ class Action extends BTNode:
 		var started: int = Time.get_ticks_usec()
 		if _action_func.is_valid():
 			var status_value: Variant = _action_func.call(blackboard)
-			return _record_tick(GFBehaviorTree._variant_to_status(status_value), &"", started)
+			var status: int = GFBehaviorTree._variant_to_status(status_value)
+			var reason: StringName = GFBehaviorTree._status_reason_from_value(status_value, status)
+			return _record_tick(status, reason, started)
 		return _record_tick(Status.FAILURE, &"invalid_action", started)
 
 
@@ -966,7 +1070,9 @@ class Decorator extends BTNode:
 	var _child: BTNode
 
 	func _init(child_node: BTNode = null) -> void:
-		_child = child_node
+		_child = null
+		if child_node != null:
+			var _set_child_result: Decorator = set_child(child_node)
 
 
 	## 设置被装饰的子节点。
@@ -977,6 +1083,9 @@ class Decorator extends BTNode:
 	## [br]
 	## @return: 当前装饰器。
 	func set_child(child_node: BTNode) -> Decorator:
+		if _would_create_cycle(child_node):
+			push_error("[GFBehaviorTree] 拒绝设置会形成循环的 decorator 子节点。")
+			return self
 		_child = child_node
 		return self
 
@@ -1042,14 +1151,19 @@ class Inverter extends Decorator:
 		var started: int = Time.get_ticks_usec()
 		if _child == null:
 			return _record_tick(Status.FAILURE, &"missing_child", started)
-		var status: int = _child.tick(blackboard)
-		if status == Status.SUCCESS:
+		var status_value: int = _child.tick(blackboard)
+		var status: int = GFBehaviorTree._variant_to_status(status_value)
+		var reason: StringName = _get_child_status_reason(_child, status_value, status)
+		if reason == &"invalid_status" or GFBehaviorTree._is_aborted(status):
+			_child.reset()
+			return _record_tick(status, reason, started)
+		if GFBehaviorTree._is_success(status):
 			_child.reset()
 			return _record_tick(Status.FAILURE, &"", started)
-		if status == Status.FAILURE:
+		if GFBehaviorTree._is_failure(status):
 			_child.reset()
 			return _record_tick(Status.SUCCESS, &"", started)
-		return _record_tick(status, &"", started)
+		return _record_tick(status, reason, started)
 
 
 	## 创建可独立运行的反转装饰节点副本。
@@ -1091,8 +1205,13 @@ class AlwaysSucceed extends Decorator:
 		var started: int = Time.get_ticks_usec()
 		if _child == null:
 			return _record_tick(Status.SUCCESS, &"missing_child", started)
-		var status: int = _child.tick(blackboard)
-		if status == Status.RUNNING:
+		var status_value: int = _child.tick(blackboard)
+		var status: int = GFBehaviorTree._variant_to_status(status_value)
+		var reason: StringName = _get_child_status_reason(_child, status_value, status)
+		if reason == &"invalid_status" or GFBehaviorTree._is_aborted(status):
+			_child.reset()
+			return _record_tick(status, reason, started)
+		if GFBehaviorTree._is_running(status):
 			return _record_tick(Status.RUNNING, &"", started)
 		_child.reset()
 		return _record_tick(Status.SUCCESS, &"", started)
@@ -1137,8 +1256,13 @@ class AlwaysFail extends Decorator:
 		var started: int = Time.get_ticks_usec()
 		if _child == null:
 			return _record_tick(Status.FAILURE, &"missing_child", started)
-		var status: int = _child.tick(blackboard)
-		if status == Status.RUNNING:
+		var status_value: int = _child.tick(blackboard)
+		var status: int = GFBehaviorTree._variant_to_status(status_value)
+		var reason: StringName = _get_child_status_reason(_child, status_value, status)
+		if reason == &"invalid_status" or GFBehaviorTree._is_aborted(status):
+			_child.reset()
+			return _record_tick(status, reason, started)
+		if GFBehaviorTree._is_running(status):
 			return _record_tick(Status.RUNNING, &"", started)
 		_child.reset()
 		return _record_tick(Status.FAILURE, &"", started)
@@ -1206,10 +1330,12 @@ class Probability extends Decorator:
 			reset()
 			return _record_tick(Status.FAILURE, &"probability_miss", started)
 
-		var status: int = _child.tick(blackboard)
-		if status != Status.RUNNING:
+		var status_value: int = _child.tick(blackboard)
+		var status: int = GFBehaviorTree._variant_to_status(status_value)
+		var reason: StringName = _get_child_status_reason(_child, status_value, status)
+		if not GFBehaviorTree._is_running(status):
 			reset()
-		return _record_tick(status, &"", started)
+		return _record_tick(status, reason, started)
 
 
 	## 重置当前概率轮次与子节点状态。
@@ -1278,10 +1404,12 @@ class Cooldown extends Decorator:
 		var now: int = _resolve_time_msec(blackboard)
 		if _last_finish_msec >= 0 and now - _last_finish_msec < roundi(cooldown_seconds * 1000.0):
 			return _record_tick(Status.FAILURE, &"cooldown_active", started)
-		var status: int = _child.tick(blackboard)
-		if status != Status.RUNNING:
+		var status_value: int = _child.tick(blackboard)
+		var status: int = GFBehaviorTree._variant_to_status(status_value)
+		var reason: StringName = _get_child_status_reason(_child, status_value, status)
+		if reason == &"" and (GFBehaviorTree._is_success(status) or GFBehaviorTree._is_failure(status)):
 			_last_finish_msec = now
-		return _record_tick(status, &"", started)
+		return _record_tick(status, reason, started)
 
 
 	## 重置运行状态，保留已经开始的冷却。
@@ -1354,10 +1482,12 @@ class TimeLimit extends Decorator:
 		if now - _started_msec > roundi(limit_seconds * 1000.0):
 			reset()
 			return _record_tick(Status.FAILURE, &"time_limit_exceeded", started)
-		var status: int = _child.tick(blackboard)
-		if status != Status.RUNNING:
+		var status_value: int = _child.tick(blackboard)
+		var status: int = GFBehaviorTree._variant_to_status(status_value)
+		var reason: StringName = _get_child_status_reason(_child, status_value, status)
+		if not GFBehaviorTree._is_running(status):
 			reset()
-		return _record_tick(status, &"", started)
+		return _record_tick(status, reason, started)
 
 
 	## 重置计时状态。
@@ -1415,10 +1545,14 @@ class Limit extends Decorator:
 		if _child == null or max_ticks <= 0:
 			return _record_tick(Status.FAILURE, &"limit_blocked", started)
 		if _tick_count >= max_ticks:
+			_child.reset()
 			return _record_tick(Status.FAILURE, &"limit_exceeded", started)
 
 		_tick_count += 1
-		return _record_tick(_child.tick(blackboard), &"", started)
+		var status_value: int = _child.tick(blackboard)
+		var status: int = GFBehaviorTree._variant_to_status(status_value)
+		var reason: StringName = _get_child_status_reason(_child, status_value, status)
+		return _record_tick(status, reason, started)
 
 
 	## 重置调用计数与子节点状态。
@@ -1476,12 +1610,17 @@ class Repeat extends Decorator:
 		if _child == null:
 			return _record_tick(Status.FAILURE, &"missing_child", started)
 
-		var status: int = _child.tick(blackboard)
-		if status == Status.RUNNING:
+		var status_value: int = _child.tick(blackboard)
+		var status: int = GFBehaviorTree._variant_to_status(status_value)
+		var reason: StringName = _get_child_status_reason(_child, status_value, status)
+		if GFBehaviorTree._is_running(status):
 			return _record_tick(Status.RUNNING, &"", started)
-		if status == Status.FAILURE:
+		if GFBehaviorTree._is_failure(status) or reason == &"invalid_status":
 			reset()
-			return _record_tick(Status.FAILURE, &"", started)
+			return _record_tick(Status.FAILURE, reason, started)
+		if GFBehaviorTree._is_aborted(status):
+			reset()
+			return _record_tick(Status.ABORTED, reason, started)
 
 		_success_count += 1
 		_child.reset()
@@ -1538,8 +1677,13 @@ class UntilSuccess extends Decorator:
 		var started: int = Time.get_ticks_usec()
 		if _child == null:
 			return _record_tick(Status.FAILURE, &"missing_child", started)
-		var status: int = _child.tick(blackboard)
-		if status == Status.SUCCESS:
+		var status_value: int = _child.tick(blackboard)
+		var status: int = GFBehaviorTree._variant_to_status(status_value)
+		var reason: StringName = _get_child_status_reason(_child, status_value, status)
+		if reason == &"invalid_status" or GFBehaviorTree._is_aborted(status):
+			reset()
+			return _record_tick(status, reason, started)
+		if GFBehaviorTree._is_success(status):
 			reset()
 			return _record_tick(Status.SUCCESS, &"", started)
 		return _record_tick(Status.RUNNING, &"", started)
@@ -1584,8 +1728,13 @@ class UntilFail extends Decorator:
 		var started: int = Time.get_ticks_usec()
 		if _child == null:
 			return _record_tick(Status.FAILURE, &"missing_child", started)
-		var status: int = _child.tick(blackboard)
-		if status == Status.FAILURE:
+		var status_value: int = _child.tick(blackboard)
+		var status: int = GFBehaviorTree._variant_to_status(status_value)
+		var reason: StringName = _get_child_status_reason(_child, status_value, status)
+		if reason == &"invalid_status" or GFBehaviorTree._is_aborted(status):
+			reset()
+			return _record_tick(status, reason, started)
+		if GFBehaviorTree._is_failure(status):
 			reset()
 			return _record_tick(Status.SUCCESS, &"", started)
 		return _record_tick(Status.RUNNING, &"", started)

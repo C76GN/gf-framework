@@ -120,6 +120,8 @@ var replay_filter: Callable = Callable()
 var _queue: Array[GFRequestEnvelope] = []
 var _failed_requests: Array[GFRequestEnvelope] = []
 var _is_replaying: bool = false
+var _disposed: bool = false
+var _replay_generation: int = 0
 
 
 # --- GF 生命周期方法 ---
@@ -129,6 +131,7 @@ var _is_replaying: bool = false
 ## @api public
 func init() -> void:
 	ignore_pause = true
+	_disposed = false
 	if auto_load_on_init:
 		var _load_error: Error = load_queue()
 
@@ -137,6 +140,8 @@ func init() -> void:
 ## [br]
 ## @api public
 func dispose() -> void:
+	_invalidate_replay()
+	_disposed = true
 	if auto_persist:
 		var _save_error: Error = save_queue()
 	_queue.clear()
@@ -185,6 +190,8 @@ func enqueue_request(
 ## [br]
 ## @return 入队成功返回 true。
 func enqueue(envelope: GFRequestEnvelope) -> bool:
+	if _disposed:
+		return false
 	if envelope == null or not envelope.is_valid():
 		return false
 	if max_queue_size > 0 and _queue.size() >= max_queue_size:
@@ -231,9 +238,12 @@ func replay(max_count: int = 0) -> Dictionary:
 		return report
 
 	_is_replaying = true
+	var replay_generation: int = _replay_generation
 	var now_msec: int = Time.get_ticks_msec()
 	var index: int = 0
 	while index < _queue.size():
+		if _is_replay_invalid(replay_generation):
+			return _make_interrupted_replay_report(report, replay_generation)
 		if max_count > 0 and _get_report_count(report, "processed") >= max_count:
 			break
 
@@ -247,6 +257,8 @@ func replay(max_count: int = 0) -> Dictionary:
 		request_started.emit(envelope)
 		envelope.mark_attempt()
 		var result: Dictionary = await _call_transport(envelope)
+		if _is_replay_invalid(replay_generation):
+			return _make_interrupted_replay_report(report, replay_generation)
 		var queue_index: int = _find_queue_index(envelope)
 		if _is_success_result(result):
 			envelope.mark_success()
@@ -305,6 +317,7 @@ func remove_request(request_id: StringName) -> bool:
 ## [br]
 ## @api public
 func clear_queue() -> void:
+	_invalidate_replay()
 	_queue.clear()
 	_persist_and_emit_changed()
 
@@ -395,6 +408,7 @@ func save_queue() -> Error:
 ## [br]
 ## @return Godot 错误码。
 func load_queue() -> Error:
+	_invalidate_replay()
 	_queue.clear()
 	_failed_requests.clear()
 	if storage_path.is_empty() or not FileAccess.file_exists(storage_path):
@@ -447,6 +461,25 @@ func get_debug_snapshot() -> Dictionary:
 
 func _get_report_count(report: Dictionary, key: String) -> int:
 	return GFVariantData.get_option_int(report, key)
+
+
+func _invalidate_replay() -> void:
+	_replay_generation += 1
+	_is_replaying = false
+
+
+func _is_replay_invalid(replay_generation: int) -> bool:
+	return _disposed or replay_generation != _replay_generation
+
+
+func _make_interrupted_replay_report(report: Dictionary, replay_generation: int) -> Dictionary:
+	report["ok"] = false
+	report["pending"] = _queue.size()
+	report["failed_stored"] = _failed_requests.size()
+	report["reason"] = "disposed" if _disposed else "replay_invalidated"
+	if replay_generation == _replay_generation:
+		_is_replaying = false
+	return report
 
 
 func _increment_report_count(report: Dictionary, key: String) -> void:

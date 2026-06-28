@@ -104,6 +104,27 @@ func test_serialized_settings_preserve_unsafe_int64_values_through_json() -> voi
 	restored.dispose()
 
 
+func test_dictionary_values_may_use_setting_type_key_as_data() -> void:
+	var payload: Dictionary = {
+		"__gf_setting_type": "Color",
+		"value": "business-data",
+	}
+	var _register_setting_result: Variant = _settings.register_setting(&"meta/payload", {}, GFSettingDefinition.ValueType.DICTIONARY)
+	_settings.set_value(&"meta/payload", payload)
+
+	var restored: GFSettingsUtility = GFSettingsUtility.new()
+	restored.auto_load_on_init = false
+	restored.auto_save_on_change = false
+	restored.init()
+	restored.from_dict(_settings.to_dict(true), false)
+	var _restored_register_result: Variant = restored.register_setting(&"meta/payload", {}, GFSettingDefinition.ValueType.DICTIONARY)
+	var restored_payload: Dictionary = GFVariantData.as_dictionary(restored.get_value(&"meta/payload"))
+
+	assert_eq(GFVariantData.get_option_string(restored_payload, "__gf_setting_type"), "Color", "业务字典中的 marker 字段应保留为普通字段。")
+	assert_eq(GFVariantData.get_option_string(restored_payload, "value"), "business-data", "业务字典字段不应被类型包装解析吞掉。")
+	restored.dispose()
+
+
 func test_setting_changed_signal_reports_old_and_new_value() -> void:
 	var _register_setting_result_108: Variant = _settings.register_setting(&"audio/master", 1.0, GFSettingDefinition.ValueType.FLOAT)
 	watch_signals(_settings)
@@ -304,6 +325,19 @@ func test_auto_save_debounce_and_batch_flush_once() -> void:
 	assert_eq(settings.saved_files, [settings.storage_file_name], "防抖保存应使用当前 storage_file_name。")
 
 	settings.dispose()
+
+
+func test_fallback_persistence_rejects_native_absolute_paths() -> void:
+	var native_absolute_path: String = "C:/gf_settings_denied.json"
+	var _register_setting_result: Variant = _settings.register_setting(&"audio/master", 1.0, GFSettingDefinition.ValueType.FLOAT)
+
+	var save_error: Error = _settings.save_settings(native_absolute_path)
+	var loaded: Dictionary = _settings.load_settings(native_absolute_path)
+
+	assert_eq(save_error, ERR_INVALID_PARAMETER, "无 GFStorageUtility 后端时 fallback 持久化不应写入原生绝对路径。")
+	assert_true(loaded.is_empty(), "被拒绝的原生绝对路径不应读取数据。")
+	assert_push_error("[GFSettingsUtility] 已拒绝原生绝对设置路径：C:/gf_settings_denied.json。")
+	assert_push_error("[GFSettingsUtility] 已拒绝原生绝对设置路径：C:/gf_settings_denied.json。")
 
 
 # --- 私有/辅助方法 ---

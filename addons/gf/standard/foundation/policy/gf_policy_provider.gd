@@ -238,14 +238,30 @@ func _evaluate_policy(_artifact: Dictionary, _context: Dictionary) -> Dictionary
 # --- 私有/辅助方法 ---
 
 func _normalize_result(result: Dictionary, artifact: Dictionary) -> Dictionary:
+	var status: StringName = GFVariantData.get_option_string_name(result, "status", &"passed")
+	var ok: bool = GFVariantData.get_option_bool(result, "ok", not _status_implies_failure(status))
+	if _status_implies_failure(status):
+		ok = false
 	var normalized: Dictionary = make_result(
-		GFVariantData.get_option_bool(result, "ok", true),
-		GFVariantData.get_option_string_name(result, "status", &"passed"),
+		ok,
+		status,
 		artifact,
 		GFVariantData.get_option_array(result, "issues"),
 		GFVariantData.get_option_dictionary(result, "data")
 	)
-	var _merged_result: Dictionary = GFVariantData.merge_dictionary(normalized, result, true, true)
+	var result_metadata: Dictionary = GFVariantData.get_option_dictionary(result, "metadata")
+	if not result_metadata.is_empty():
+		normalized["metadata"] = GFVariantData.merge_dictionary(
+			GFVariantData.get_option_dictionary(normalized, "metadata"),
+			result_metadata,
+			true,
+			true
+		)
+
+	for key: Variant in result.keys():
+		if _is_reserved_result_key(key):
+			continue
+		normalized[key] = GFVariantData.duplicate_variant(result[key], true, true)
 	return normalized
 
 
@@ -255,3 +271,26 @@ static func _get_artifact_kind(artifact: Dictionary) -> String:
 		"artifact_kind",
 		GFVariantData.get_option_string(artifact, "kind")
 	)
+
+
+static func _status_implies_failure(status: StringName) -> bool:
+	return [
+		&"blocked",
+		&"denied",
+		&"error",
+		&"failed",
+		&"rejected",
+	].has(status)
+
+
+static func _is_reserved_result_key(key: Variant) -> bool:
+	var text: String = GFVariantData.to_text(key)
+	return [
+		"artifact_kind",
+		"data",
+		"issues",
+		"metadata",
+		"ok",
+		"provider_id",
+		"status",
+	].has(text)

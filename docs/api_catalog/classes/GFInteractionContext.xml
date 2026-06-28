@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFInteractionContext" path="addons/gf/extensions/interaction/runtime/gf_interaction_context.gd" module="extensions/interaction" extends="RefCounted" classDigest="102dd86279fe48f91486479ce648cba9074d1a6d143ac8ef4502715cd8b9534b">
+<class name="GFInteractionContext" path="addons/gf/extensions/interaction/runtime/gf_interaction_context.gd" module="extensions/interaction" extends="RefCounted" classDigest="821ad25db5f84c1b942fce965208703302fa547edeb5261e4e238440302bc77b">
 	<description>GFInteractionContext: 一次交互流程的轻量上下文。
 用于在 Command、事件或项目自定义方法之间传递 sender、target、payload 与可选分组信息。</description>
 	<tags>
@@ -12,17 +12,67 @@
 	<constants />
 	<properties>
 		<member kind="property" name="sender">
-			<signature>var sender: Object = null</signature>
+			<signature>var sender: Object:</signature>
 			<description>交互发起者。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="target">
-			<signature>var target: Object = null</signature>
+			<signature>var target: Object:</signature>
 			<description>交互目标。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="sender_instance_id">
+			<signature>var sender_instance_id: int = 0</signature>
+			<description>交互发起者实例 ID 快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="target_instance_id">
+			<signature>var target_instance_id: int = 0</signature>
+			<description>交互目标实例 ID 快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="sender_path">
+			<signature>var sender_path: NodePath = NodePath("")</signature>
+			<description>交互发起者节点路径快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="target_path">
+			<signature>var target_path: NodePath = NodePath("")</signature>
+			<description>交互目标节点路径快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="sender_class">
+			<signature>var sender_class: String = ""</signature>
+			<description>交互发起者类名快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="target_class">
+			<signature>var target_class: String = ""</signature>
+			<description>交互目标类名快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="payload">
@@ -77,6 +127,24 @@
 				<tag name="api">public</tag>
 				<tag name="param">value: 要写入或修改的值。</tag>
 				<tag name="return">当前上下文。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_sender_or_null">
+			<signature>func get_sender_or_null() -&gt; Object:</signature>
+			<description>获取当前 sender；对象已释放时返回 null。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">当前 sender 或 null。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_target_or_null">
+			<signature>func get_target_or_null() -&gt; Object:</signature>
+			<description>获取当前 target；对象已释放时返回 null。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">当前 target 或 null。</tag>
+				<tag name="since">7.0.0</tag>
 			</tags>
 		</member>
 	</methods>

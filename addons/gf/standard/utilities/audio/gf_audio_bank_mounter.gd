@@ -69,6 +69,7 @@ var audio_utility: GFAudioUtility = null
 
 var _mounted: bool = false
 var _mount_token: int = 0
+var _mounted_bank_id: StringName = &""
 
 
 # --- Godot 生命周期方法 ---
@@ -111,12 +112,14 @@ func mount() -> bool:
 		if _mount_token <= 0:
 			return false
 	else:
-		var _unmount_audio_bank_result_114: Variant = utility.unmount_audio_bank(bank_id, _mount_token)
+		var _unmount_audio_bank_result_115: Variant = utility.unmount_audio_bank(_mounted_bank_id, _mount_token)
 		_mount_token = utility.mount_audio_bank(bank_id, bank, restore_previous_bank)
 		if _mount_token <= 0:
 			_mounted = false
+			_mounted_bank_id = &""
 			return false
 	_mounted = true
+	_mounted_bank_id = bank_id
 	bank_mounted.emit(bank_id)
 	return true
 
@@ -127,17 +130,19 @@ func mount() -> bool:
 ## [br]
 ## @return: 卸载成功返回 true。
 func unmount() -> bool:
-	if not _mounted or bank_id == &"":
+	if not _mounted or _mounted_bank_id == &"":
 		return false
 	var utility: GFAudioUtility = _get_audio_utility()
 	if utility == null:
 		return false
 
-	if not utility.unmount_audio_bank(bank_id, _mount_token):
+	var mounted_bank_id: StringName = _mounted_bank_id
+	if not utility.unmount_audio_bank(mounted_bank_id, _mount_token):
 		return false
 	_mounted = false
 	_mount_token = 0
-	bank_unmounted.emit(bank_id)
+	_mounted_bank_id = &""
+	bank_unmounted.emit(mounted_bank_id)
 	return true
 
 

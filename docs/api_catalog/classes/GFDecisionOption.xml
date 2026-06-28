@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFDecisionOption" path="addons/gf/extensions/decision/resources/gf_decision_option.gd" module="extensions/decision" extends="Resource" classDigest="f4e430489095f906dcb654679a8a2976917d28815522672a2782439383a51fe3">
+<class name="GFDecisionOption" path="addons/gf/extensions/decision/resources/gf_decision_option.gd" module="extensions/decision" extends="Resource" classDigest="478a9458ab11ce1236312164f2f55d36913ef15fe8f7202f864330d08fd8fed5">
 	<description>GFDecisionOption: 可评分的候选决策资源。
 候选决策由一组 GFDecisionConsideration 评分，并按聚合策略得到最终效用分数。
 它描述“如何比较候选”，不执行具体业务动作。</description>
@@ -137,13 +137,14 @@
 			</tags>
 		</member>
 		<member kind="method" name="get_debug_snapshot">
-			<signature>func get_debug_snapshot(context: GFDecisionContext) -&gt; Dictionary:</signature>
+			<signature>func get_debug_snapshot(score_snapshot: GFDecisionScore = null) -&gt; Dictionary:</signature>
 			<description>获取候选决策调试快照。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="param">context: 决策上下文。</tag>
+				<tag name="param">score_snapshot: 已计算的评分快照；为空时 score 字段返回空字典。</tag>
 				<tag name="return">调试快照字典。</tag>
 				<tag name="schema">return: 包含 decision_id、display_name、enabled、aggregation、base_score 和 score 字段的 Dictionary。</tag>
+				<tag name="since">7.0.0</tag>
 			</tags>
 		</member>
 	</methods>

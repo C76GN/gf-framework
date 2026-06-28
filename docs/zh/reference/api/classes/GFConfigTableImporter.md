@@ -9,7 +9,7 @@
 - 类别：运行时服务 (`runtime_service`)
 - 首次版本：`3.17.0`
 
-通用导表文本解析与 schema 校验入口。 提供 JSON 与 CSV 的轻量解析，适合编辑器工具或 CI 在进入项目 Provider 前做结构检查。
+通用导表文本解析与 schema 校验入口。 提供 JSON、CSV 与 ConfigFile 的轻量解析，适合编辑器工具或 CI 在进入项目 Provider 前做结构检查。
 
 ## 成员概览
 
@@ -17,9 +17,11 @@
 |---|---|---|
 | 方法 | [`parse_json_table`](#member-gfconfigtableimporter-methods-parse_json_table) | `static func parse_json_table(text: String, options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`parse_csv_table`](#member-gfconfigtableimporter-methods-parse_csv_table) | `static func parse_csv_table(text: String, options: Dictionary = {}) -> Dictionary:` |
+| 方法 | [`parse_config_file_table`](#member-gfconfigtableimporter-methods-parse_config_file_table) | `static func parse_config_file_table(text: String, options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`validate_json_table`](#member-gfconfigtableimporter-methods-validate_json_table) | `static func validate_json_table(text: String, schema: GFConfigTableSchema, options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`validate_json_record`](#member-gfconfigtableimporter-methods-validate_json_record) | `static func validate_json_record( text: String, schema: GFConfigTableSchema, row_key: Variant = null, options: Dictionary = {} ) -> Dictionary:` |
 | 方法 | [`validate_csv_table`](#member-gfconfigtableimporter-methods-validate_csv_table) | `static func validate_csv_table(text: String, schema: GFConfigTableSchema, options: Dictionary = {}) -> Dictionary:` |
+| 方法 | [`validate_config_file_table`](#member-gfconfigtableimporter-methods-validate_config_file_table) | `static func validate_config_file_table(text: String, schema: GFConfigTableSchema, options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`export_csv_table`](#member-gfconfigtableimporter-methods-export_csv_table) | `static func export_csv_table( table_data: Variant, schema: GFConfigTableSchema = null, options: Dictionary = {} ) -> Dictionary:` |
 
 ## 方法
@@ -76,6 +78,33 @@ static func parse_csv_table(text: String, options: Dictionary = {}) -> Dictionar
 
 - `options`: Dictionary，可包含 delimiter、trim_cells、skip_empty_lines、reject_duplicate_headers 和 source。
 - `return`: Dictionary，包含 success、data、header、row_locations、error、error_line、error_column 和 source。
+
+<a id="member-gfconfigtableimporter-methods-parse_config_file_table"></a>
+
+### `parse_config_file_table`
+
+- API：`public`
+- 首次版本：`7.0.0`
+
+```gdscript
+static func parse_config_file_table(text: String, options: Dictionary = {}) -> Dictionary:
+```
+
+解析 Godot ConfigFile 表文本。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `text` | ConfigFile 文本。 |
+| `options` | 可选参数，支持 source、section_field、include_empty_sections。 |
+
+返回：结果字典，包含 success、data、sections、row_locations 与 error。
+
+结构：
+
+- `options`: Dictionary，可包含 source、section_field、include_empty_sections 字段；section_field 为空 StringName 时不写入 section 名字段。
+- `return`: Dictionary，包含 success、data、sections、row_locations、error、error_line、error_column 和 source。
 
 <a id="member-gfconfigtableimporter-methods-validate_json_table"></a>
 
@@ -159,6 +188,34 @@ static func validate_csv_table(text: String, schema: GFConfigTableSchema, option
 结构：
 
 - `options`: Dictionary，可包含 delimiter、trim_cells、skip_empty_lines、reject_duplicate_headers 和 source。
+- `return`: GFConfigValidationReport 兼容 Dictionary。
+
+<a id="member-gfconfigtableimporter-methods-validate_config_file_table"></a>
+
+### `validate_config_file_table`
+
+- API：`public`
+- 首次版本：`7.0.0`
+
+```gdscript
+static func validate_config_file_table(text: String, schema: GFConfigTableSchema, options: Dictionary = {}) -> Dictionary:
+```
+
+解析并校验 Godot ConfigFile 表文本。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `text` | ConfigFile 文本。 |
+| `schema` | 表结构声明。 |
+| `options` | 可选参数，支持 source、section_field、include_empty_sections。 |
+
+返回：校验报告；解析失败时返回失败报告。
+
+结构：
+
+- `options`: Dictionary，可包含 source、section_field 和 include_empty_sections 字段。
 - `return`: GFConfigValidationReport 兼容 Dictionary。
 
 <a id="member-gfconfigtableimporter-methods-export_csv_table"></a>

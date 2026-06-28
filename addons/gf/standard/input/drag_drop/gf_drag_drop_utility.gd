@@ -107,6 +107,8 @@ func dispose() -> void:
 func register_zone(zone: GFDropZone) -> bool:
 	if zone == null or zone.zone_id == &"":
 		return false
+	if _zones.has(zone.zone_id):
+		drop_zone_unregistered.emit(zone.zone_id)
 	_zones[zone.zone_id] = zone
 	drop_zone_registered.emit(zone.zone_id)
 	return true
@@ -271,6 +273,7 @@ func drop(session_id: int, position: Vector2) -> Dictionary:
 	session.update_position(position)
 	var zone: GFDropZone = get_best_drop_zone(session_id, position)
 	if zone == null:
+		var _removed_no_zone: bool = _sessions.erase(session_id)
 		drag_drop_rejected.emit(session_id, &"no_drop_zone")
 		return _make_result(false, session_id, &"", &"no_drop_zone")
 

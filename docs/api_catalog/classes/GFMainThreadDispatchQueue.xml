@@ -1,0 +1,170 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFMainThreadDispatchQueue" path="addons/gf/standard/common/gf_main_thread_dispatch_queue.gd" module="standard" extends="GFUtility" classDigest="30641dbea05e83b0414a1f1a5be90412dff7503343d78c024ce7b968e9346b6c">
+	<description>GFMainThreadDispatchQueue: 主线程回调派发队列。
+用于让后台线程、资源加载回调或项目侧异步流程把最终应用逻辑排回主线程。
+队列只保存和派发 Callable，不创建线程、不校验线程身份，也不解释调用方的业务语义。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_service</tag>
+		<tag name="since">7.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties>
+		<member kind="property" name="max_callbacks_per_tick">
+			<signature>var max_callbacks_per_tick: int = 16:</signature>
+			<description>tick() 每次最多派发多少个回调。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="max_seconds_per_tick">
+			<signature>var max_seconds_per_tick: float = 0.0:</signature>
+			<description>tick() 每次最多占用多少秒。小于等于 0 时不启用时间预算。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="init">
+			<signature>func init() -&gt; void:</signature>
+			<description>初始化队列，并标记该实例已有显式派发点。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="tick">
+			<signature>func tick(_delta: float = 0.0) -&gt; void:</signature>
+			<description>按当前预算派发队列中的回调。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">_delta: 为兼容 GF tick 签名而保留。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="dispose">
+			<signature>func dispose() -&gt; void:</signature>
+			<description>清空队列。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="post">
+			<signature>func post(callback: Callable, options: Dictionary = {}) -&gt; int:</signature>
+			<description>把回调加入主线程派发队列。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">callback: 需要在显式派发点执行的回调。</tag>
+				<tag name="param">options: 队列选项，支持 owner、metadata、label 和 front。</tag>
+				<tag name="return">派发句柄；callback 无效时返回 0。</tag>
+				<tag name="schema">options: Dictionary，可包含 owner: Object、metadata: Dictionary、label: String、front: bool。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="post_owned">
+			<signature>func post_owned(owner: Object, callback: Callable, options: Dictionary = {}) -&gt; int:</signature>
+			<description>把 owner 绑定回调加入主线程派发队列。owner 释放后回调会被跳过。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">owner: 回调拥有者。</tag>
+				<tag name="param">callback: 需要在显式派发点执行的回调。</tag>
+				<tag name="param">options: 队列选项，支持 metadata、label 和 front。</tag>
+				<tag name="return">派发句柄；参数无效时返回 0。</tag>
+				<tag name="schema">options: Dictionary，可包含 metadata: Dictionary、label: String、front: bool。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="dispatch">
+			<signature>func dispatch(max_count: int = 0, max_seconds: float = 0.0) -&gt; Dictionary:</signature>
+			<description>派发队列中的回调。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">max_count: 最大派发数量；小于等于 0 时不限制数量。</tag>
+				<tag name="param">max_seconds: 最大派发秒数；小于等于 0 时不启用时间预算。</tag>
+				<tag name="return">派发报告。</tag>
+				<tag name="schema">return: Dictionary，包含 dispatched_count、failed_count、skipped_owner_count、pending_count、budget_exhausted 和 dispatch_context_marked。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="cancel">
+			<signature>func cancel(handle: int) -&gt; bool:</signature>
+			<description>取消一个尚未派发的回调。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">handle: post() 返回的派发句柄。</tag>
+				<tag name="return">找到并取消时返回 true。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="cancel_owner">
+			<signature>func cancel_owner(owner: Object) -&gt; int:</signature>
+			<description>取消指定 owner 绑定的全部待派发回调。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">owner: 回调拥有者。</tag>
+				<tag name="return">取消数量。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="clear">
+			<signature>func clear() -&gt; void:</signature>
+			<description>清空全部待派发回调和统计。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="mark_dispatch_context">
+			<signature>func mark_dispatch_context() -&gt; void:</signature>
+			<description>标记该实例已有显式派发点。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="has_dispatch_context">
+			<signature>func has_dispatch_context() -&gt; bool:</signature>
+			<description>当前实例是否已经标记显式派发点。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">已标记显式派发点时返回 true。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_pending_count">
+			<signature>func get_pending_count() -&gt; int:</signature>
+			<description>获取待派发数量。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">队列长度。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_empty">
+			<signature>func is_empty() -&gt; bool:</signature>
+			<description>检查队列是否为空。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">队列为空时返回 true。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_debug_snapshot">
+			<signature>func get_debug_snapshot() -&gt; Dictionary:</signature>
+			<description>获取队列调试快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">调试快照。</tag>
+				<tag name="schema">return: Dictionary，包含 pending_count、pending_handles、posted_count、dispatched_count、cancelled_count、failed_count、skipped_owner_count 和 dispatch_context_marked。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

@@ -127,6 +127,28 @@ func test_support_report_collects_text_attachments() -> void:
 	assert_eq(GFVariantData.get_option_string(log_attachment, "data"), "hello", "文本附件应保留内容。")
 
 
+## 验证路径型附件默认被拒绝，避免支持报告读取任意本地文件。
+func test_support_report_rejects_path_attachments_by_default() -> void:
+	var utility: GFSupportReportUtility = GFSupportReportUtility.new()
+	var attachment_path: String = "user://gf_support_report_path_attachment.txt"
+	var file: FileAccess = FileAccess.open(attachment_path, FileAccess.WRITE)
+	assert_not_null(file, "测试应能创建 user:// 附件文件。")
+	if file != null:
+		var _store_result: Variant = file.store_string("secret")
+		file.close()
+
+	var attachments: Dictionary = utility.collect_attachments({
+		"local_file": {
+			"path": attachment_path,
+		},
+	})
+	var file_attachment: Dictionary = GFVariantData.get_option_dictionary(attachments, &"local_file")
+
+	assert_false(GFVariantData.get_option_bool(file_attachment, "ok"), "未显式开启时路径型附件应被拒绝。")
+	assert_eq(GFVariantData.get_option_string(file_attachment, "reason"), "attachment_path_not_allowed", "拒绝原因应稳定。")
+	var _remove_result: Error = DirAccess.remove_absolute(attachment_path)
+
+
 ## 验证场景节点数量统计会遵守节点上限。
 func test_support_report_scene_node_count_respects_limit() -> void:
 	var utility: GFSupportReportUtility = GFSupportReportUtility.new()

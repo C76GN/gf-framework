@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFNumericModifierMath" path="addons/gf/standard/foundation/math/gf_numeric_modifier_math.gd" module="standard" extends="RefCounted" classDigest="e71ce53a4f7095163fedbd1c91a7601b3471209cff47c0c6234e4e65eec656d0">
+	<description>GFNumericModifierMath: 通用数值修饰计算工具。
+按 priority 顺序把 add / multiply / divide 修饰应用到基础数值上，并返回结构化报告。
+该类只处理纯数值计算，不绑定属性、装备、Buff、经济或任意项目业务语义。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_service</tag>
+		<tag name="since">7.0.0</tag>
+	</tags>
+	<signals />
+	<enums>
+		<member kind="enum" name="Operation">
+			<signature>enum Operation {
+	## 把修饰值加到当前值上。
+	ADD,
+	## 把当前值乘以修饰值。
+	MULTIPLY,
+	## 把当前值除以修饰值；除零会被报告并跳过。
+	DIVIDE,
+}</signature>
+			<description>支持的数值修饰操作。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+	</enums>
+	<constants />
+	<properties />
+	<methods>
+		<member kind="method" name="make_modifier">
+			<signature>static func make_modifier( value: float, operation: Operation = Operation.ADD, priority: int = 0, enabled: bool = true, modifier_id: StringName = &amp;"", metadata: Dictionary = {} ) -&gt; Dictionary:</signature>
+			<description>创建通用数值修饰字典。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">value: 修饰数值。</tag>
+				<tag name="param">operation: 修饰操作。</tag>
+				<tag name="param">priority: 应用优先级；数值越小越早应用。</tag>
+				<tag name="param">enabled: 是否启用该修饰。</tag>
+				<tag name="param">modifier_id: 可选修饰标识，用于报告和项目侧去重。</tag>
+				<tag name="param">metadata: 项目层元数据，框架不解释其含义。</tag>
+				<tag name="return">通用数值修饰字典。</tag>
+				<tag name="schema">metadata: Dictionary extension metadata copied into the modifier payload.</tag>
+				<tag name="schema">return: Dictionary with `id: StringName`, `value: float`, `operation: Operation`, `priority: int`, `enabled: bool`, and `metadata: Dictionary`.</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="normalize_modifier">
+			<signature>static func normalize_modifier(raw_modifier: Dictionary) -&gt; Dictionary:</signature>
+			<description>规范化通用数值修饰字典。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">raw_modifier: 支持 `id/modifier_id/value/operation/priority/enabled/metadata` 的修饰字典。</tag>
+				<tag name="return">规范化后的修饰字典。</tag>
+				<tag name="schema">raw_modifier: Dictionary numeric modifier payload.</tag>
+				<tag name="schema">return: Dictionary with `id: StringName`, `value: float`, `operation: Operation`, `priority: int`, `enabled: bool`, and `metadata: Dictionary`.</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="calculate">
+			<signature>static func calculate(base_value: float, modifiers: Array, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>计算基础值叠加修饰后的结构化报告。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">base_value: 基础数值；非有限值会被 `fallback_value` 或 0 替换并记录 issue。</tag>
+				<tag name="param">modifiers: 修饰数组；每项支持 `id/modifier_id/value/operation/priority/enabled/metadata`。</tag>
+				<tag name="param">options: 支持 `fallback_value`、`clamp_enabled`、`min_value` / `clamp_min`、`max_value` / `clamp_max`。</tag>
+				<tag name="return">结构化计算报告。</tag>
+				<tag name="schema">modifiers: Array[Dictionary] numeric modifier payloads. `operation` accepts Operation values or `add`, `multiply`, `divide` text.</tag>
+				<tag name="schema">options: Dictionary calculation options.</tag>
+				<tag name="schema">return: Dictionary with `ok: bool`, finite `base_value`, finite `value`, finite `unclamped_value`, `clamped: bool`, `applied_count: int`, `skipped_count: int`, `issue_count: int`, `applied_modifiers: Array[Dictionary]`, `skipped_modifiers: Array[Dictionary]`, and `issues: Array[Dictionary]`.</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="calculate_value">
+			<signature>static func calculate_value(base_value: float, modifiers: Array, options: Dictionary = {}) -&gt; float:</signature>
+			<description>计算基础值叠加修饰后的数值。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">base_value: 基础数值。</tag>
+				<tag name="param">modifiers: 修饰数组；格式同 calculate()。</tag>
+				<tag name="param">options: 计算选项；格式同 calculate()。</tag>
+				<tag name="return">计算后的有限数值。</tag>
+				<tag name="schema">modifiers: Array[Dictionary] numeric modifier payloads.</tag>
+				<tag name="schema">options: Dictionary calculation options.</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

@@ -84,10 +84,19 @@ var validator: GFNetworkMessageValidator = GFNetworkMessageValidator.new()
 ## @api public
 var session: GFNetworkSession = GFNetworkSession.new()
 
+## 客户端连接超时时间，单位毫秒。小于等于 0 表示不主动超时。
+## [br]
+## @api public
+## [br]
+## @since 6.0.0
+var connect_timeout_msec: int = 15000
+
 
 # --- 私有变量 ---
 
 var _channels: Dictionary = {}
+var _connect_timeout_active: bool = false
+var _connect_timeout_elapsed_msec: int = 0
 
 
 # --- GF 生命周期方法 ---
@@ -107,6 +116,7 @@ func ready() -> void:
 func tick(delta: float) -> void:
 	if backend != null:
 		backend.poll(delta)
+	_update_connect_timeout(delta)
 
 
 ## 释放后端、通道和诊断贡献。
@@ -198,6 +208,7 @@ func host(options: Dictionary = {}) -> Error:
 	if backend == null:
 		return ERR_UNCONFIGURED
 
+	_end_connect_timeout()
 	if session != null:
 		session.start_host(options)
 	var error: Error = backend.host(options)
@@ -225,8 +236,10 @@ func connect_to_endpoint(endpoint: String, options: Dictionary = {}) -> Error:
 
 	if session != null:
 		session.start_client(endpoint, options)
+	_begin_connect_timeout()
 	var error: Error = backend.connect_to_endpoint(endpoint, options)
 	if error != OK and session != null:
+		_end_connect_timeout()
 		session.close("connect_failed")
 	return error
 
@@ -235,6 +248,7 @@ func connect_to_endpoint(endpoint: String, options: Dictionary = {}) -> Error:
 ## [br]
 ## @api public
 func disconnect_network() -> void:
+	_end_connect_timeout()
 	if backend != null:
 		backend.disconnect_backend()
 	elif session != null:
@@ -305,7 +319,7 @@ func get_debug_snapshot() -> Dictionary:
 	}
 	if backend != null:
 		snapshot["backend"] = backend.get_debug_snapshot()
-	return snapshot
+	return GFNetworkDebugTools.sanitize_debug_dictionary(snapshot)
 
 
 # --- 私有/辅助方法 ---
@@ -362,6 +376,7 @@ func _replace_backend(next_backend: GFNetworkBackend, close_reason: String) -> v
 	if backend == next_backend:
 		return
 
+	_end_connect_timeout()
 	var previous_backend: GFNetworkBackend = backend
 	if previous_backend != null:
 		_disconnect_backend_signals(previous_backend)
@@ -375,6 +390,7 @@ func _replace_backend(next_backend: GFNetworkBackend, close_reason: String) -> v
 
 
 func _on_backend_connected() -> void:
+	_end_connect_timeout()
 	if session != null:
 		if not session.has_connection:
 			session.mark_connected()
@@ -382,6 +398,7 @@ func _on_backend_connected() -> void:
 
 
 func _on_backend_disconnected(reason: String) -> void:
+	_end_connect_timeout()
 	if session != null:
 		session.close(reason)
 	disconnected.emit(reason)
@@ -418,8 +435,7 @@ func _on_backend_message_received(peer_id: int, bytes: PackedByteArray) -> void:
 		return
 	message.sender_id = peer_id
 	if validator != null:
-		var channel: GFNetworkChannel = _resolve_inbound_channel(message)
-		if channel != null:
+		for channel: GFNetworkChannel in _resolve_inbound_channels(message):
 			var channel_bytes_report: Dictionary = validator.validate_bytes(bytes, channel)
 			if not GFVariantData.get_option_bool(channel_bytes_report, "ok", false):
 				message_rejected.emit(peer_id, "invalid_packet", channel_bytes_report)
@@ -439,14 +455,57 @@ func _describe_channels() -> Array[Dictionary]:
 	return result
 
 
-func _resolve_inbound_channel(message: GFNetworkMessage) -> GFNetworkChannel:
+func _resolve_inbound_channels(message: GFNetworkMessage) -> Array[GFNetworkChannel]:
+	var result: Array[GFNetworkChannel] = []
 	if message == null:
-		return null
-	if message.channel_id != &"" and _channels.has(message.channel_id):
-		return _get_network_channel_value(_channels[message.channel_id])
-	if _channels.has(message.message_type):
-		return _get_network_channel_value(_channels[message.message_type])
-	return null
+		return result
+	_append_inbound_channel(result, message.message_type)
+	if message.channel_id != message.message_type:
+		_append_inbound_channel(result, message.channel_id)
+	return result
+
+
+func _append_inbound_channel(result: Array[GFNetworkChannel], channel_id: StringName) -> void:
+	if channel_id == &"" or not _channels.has(channel_id):
+		return
+	var channel: GFNetworkChannel = _get_network_channel_value(_channels[channel_id])
+	if channel == null or result.has(channel):
+		return
+	result.append(channel)
+
+
+func _begin_connect_timeout() -> void:
+	_connect_timeout_elapsed_msec = 0
+	_connect_timeout_active = connect_timeout_msec > 0
+
+
+func _end_connect_timeout() -> void:
+	_connect_timeout_active = false
+	_connect_timeout_elapsed_msec = 0
+
+
+func _update_connect_timeout(delta: float) -> void:
+	if not _connect_timeout_active or connect_timeout_msec <= 0:
+		return
+	if session == null or not session.is_active or session.mode != GFNetworkSession.Mode.CLIENT:
+		_end_connect_timeout()
+		return
+	if session.has_connection:
+		_end_connect_timeout()
+		return
+
+	_connect_timeout_elapsed_msec += maxi(roundi(delta * 1000.0), 0)
+	if _connect_timeout_elapsed_msec < connect_timeout_msec:
+		return
+
+	_end_connect_timeout()
+	if backend != null:
+		_disconnect_backend_signals(backend)
+		backend.disconnect_backend()
+		_connect_backend_signals(backend)
+	if session != null:
+		session.close("connect_timeout")
+	disconnected.emit("connect_timeout")
 
 
 func _copy_message_for_channel(message: GFNetworkMessage, channel_id: StringName) -> GFNetworkMessage:

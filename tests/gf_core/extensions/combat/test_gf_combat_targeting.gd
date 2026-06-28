@@ -154,6 +154,24 @@ func test_targeting_max_count() -> void:
 	assert_eq(targets.size(), 2)
 
 
+func test_targeting_random_sort_is_deterministic_for_same_seed() -> void:
+	var utility: GFSkillTargetingUtility = _targeting_utility()
+	var rule: GFSkillTargetingRule = GFSkillTargetingRule.new()
+	rule.radius = 1000.0
+	rule.max_count = 10
+	rule.sort_rule = GFSkillTargetingRule.SortRule.RANDOM
+	rule.random_seed = 42
+
+	var e1: DummyEntity = DummyEntity.new()
+	var e2: DummyEntity = DummyEntity.new()
+	var e3: DummyEntity = DummyEntity.new()
+
+	var first_targets: Array[Object] = utility.find_targets(Vector2.ZERO, rule, [e1, e2, e3])
+	var second_targets: Array[Object] = utility.find_targets(Vector2.ZERO, rule, [e3, e2, e1])
+
+	assert_eq(second_targets, first_targets, "相同 seed 和候选集合应得到稳定 RANDOM 顺序。")
+
+
 func test_rectangle_shape_filters_axis_aligned_bounds() -> void:
 	var utility: GFSkillTargetingUtility = _targeting_utility()
 	var rule: GFSkillTargetingRule = GFSkillTargetingRule.new()

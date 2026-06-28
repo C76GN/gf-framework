@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFDependencyGraphTools" path="addons/gf/kernel/core/gf_dependency_graph_tools.gd" module="kernel" extends="RefCounted" classDigest="2143f5c6360390d5cda4fcbde86f403567899299cdfc60f8713811c6e9588973">
+<class name="GFDependencyGraphTools" path="addons/gf/kernel/core/gf_dependency_graph_tools.gd" module="kernel" extends="RefCounted" classDigest="212807fab1b7caf48adc6bfe47a3b6005543cedf9d7b69eae47e39cf6258923d">
 	<description>GFDependencyGraphTools: 字符串 ID 依赖图排序与循环诊断。
 面向扩展 manifest、内容包、资源包等“稳定 ID -&gt; 依赖 ID 列表”的轻量依赖图。
 它只负责依赖优先排序、缺失依赖记录和循环检测，不解释节点业务类型。</description>
@@ -22,7 +22,8 @@
 				<tag name="param">dependency_map: 依赖表，key 为节点 ID，value 为该节点依赖的 ID 列表。</tag>
 				<tag name="return">诊断字典，包含 ok、ordered_ids、missing_dependencies、dependency_cycles 和计数字段。</tag>
 				<tag name="schema">dependency_map: Dictionary keyed by String or StringName node id, with Array or PackedStringArray dependency id values.</tag>
-				<tag name="schema">return: Dictionary with ok, ordered_ids, missing_dependencies, dependency_cycles, node_count, missing_dependency_count, and cycle_count.</tag>
+				<tag name="schema">return: Dictionary with ok, ordered_ids, missing_root_ids, missing_dependencies, dependency_cycles, node_count, missing_root_count, missing_dependency_count, and cycle_count.</tag>
+				<tag name="since">4.4.0</tag>
 			</tags>
 		</member>
 	</methods>

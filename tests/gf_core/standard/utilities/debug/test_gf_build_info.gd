@@ -37,6 +37,25 @@ func test_build_info_roundtrip_deep_copies_metadata() -> void:
 	assert_eq(GFVariantData.get_option_int(source_nested, "value"), 1, "metadata 应深拷贝，避免外部修改原始对象。")
 
 
+func test_build_info_partial_apply_preserves_existing_metadata() -> void:
+	var info: GFBuildInfo = GFBuildInfo.new()
+	info.build_id = "old"
+	info.metadata = {
+		"channel": "nightly",
+		"nested": {
+			"value": "keep",
+		},
+	}
+
+	info.apply_dict({
+		"build_id": "new",
+	})
+
+	assert_eq(info.build_id, "new", "partial apply 应更新显式字段。")
+	assert_eq(GFVariantData.get_option_string(info.metadata, "channel"), "nightly", "partial apply 缺省 metadata 时应保留原元数据。")
+	assert_eq(GFVariantData.get_option_string(GFVariantData.get_option_dictionary(info.metadata, "nested"), "value"), "keep", "partial apply 应保留嵌套 metadata。")
+
+
 func test_build_info_collect_reads_framework_and_engine_version() -> void:
 	var info: GFBuildInfo = GFBuildInfo.collect()
 

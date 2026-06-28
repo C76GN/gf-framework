@@ -180,6 +180,7 @@ var removal_reason: StringName = &""
 # --- 私有变量 ---
 
 var _tick_accumulator: float = 0.0
+var _effects_applied: bool = false
 
 
 # --- 公共方法 ---
@@ -251,7 +252,11 @@ func get_apply_report(context: Dictionary = {}) -> Dictionary:
 ## [br]
 ## @api public
 func on_apply() -> void:
+	if _effects_applied:
+		_remove_effects()
+		_effects_applied = false
 	_apply_effects()
+	_effects_applied = true
 	var _reports: Array[Dictionary] = _run_effects(&"apply")
 
 
@@ -260,7 +265,9 @@ func on_apply() -> void:
 ## @api public
 func on_remove() -> void:
 	var _reports: Array[Dictionary] = _run_effects(&"remove", { "reason": removal_reason })
-	_remove_effects()
+	if _effects_applied:
+		_remove_effects()
+		_effects_applied = false
 
 
 ## 当 Buff 层数增加时触发（通常用于刷新持续时间）。
@@ -309,12 +316,12 @@ func update(p_delta: float) -> bool:
 	var step_delta: float = maxf(0.0, p_delta)
 	if duration != -1.0:
 		time_left -= step_delta
-		if time_left <= 0.0:
-			if remove_on_expire:
-				return true
-			time_left = 0.0
 
 	_update_periodic_tick(step_delta)
+	if duration != -1.0 and time_left <= 0.0:
+		if remove_on_expire:
+			return true
+		time_left = 0.0
 	return false
 
 
@@ -371,6 +378,11 @@ func get_state_snapshot() -> Dictionary:
 ## [br]
 ## @schema snapshot: Dictionary returned by get_state_snapshot().
 func restore_state_snapshot(snapshot: Dictionary, owner_override: Object = null) -> void:
+	var was_applied: bool = _effects_applied
+	if was_applied:
+		_remove_effects()
+		_effects_applied = false
+
 	id = GFVariantData.get_option_string_name(snapshot, "id", id)
 	duration = GFVariantData.get_option_float(snapshot, "duration", duration)
 	time_left = GFVariantData.get_option_float(snapshot, "time_left", time_left)
@@ -395,6 +407,9 @@ func restore_state_snapshot(snapshot: Dictionary, owner_override: Object = null)
 	if owner_override != null:
 		owner = owner_override
 	_restore_effect_state_snapshots(GFVariantData.get_option_array(snapshot, "effect_states"))
+	if was_applied:
+		_apply_effects()
+		_effects_applied = true
 
 
 # --- 私有/辅助方法 ---

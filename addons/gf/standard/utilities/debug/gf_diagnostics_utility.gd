@@ -142,6 +142,13 @@ var require_auth_token: bool = false
 ## @api public
 var auth_token: String = ""
 
+## 是否允许 EditorDebugger 桥执行诊断命令。
+## [br]
+## @api public
+## [br]
+## @since 6.0.0
+var allow_debugger_command_execution: bool = false
+
 ## 是否允许执行 DANGER 等级命令。即使 max_command_tier 足够，也需要显式开启。
 ## [br]
 ## @api public
@@ -573,6 +580,9 @@ func get_monitor_preset_ids() -> PackedStringArray:
 func register_snapshot_section_provider(section_id: StringName, provider: Callable) -> bool:
 	if section_id == &"" or not provider.is_valid():
 		return false
+	if _is_reserved_snapshot_section_id(section_id):
+		push_warning("[GFDiagnosticsUtility] 快照分区使用了保留字段，已拒绝：%s。" % String(section_id))
+		return false
 	_snapshot_section_providers[section_id] = provider
 	return true
 
@@ -608,6 +618,9 @@ func has_snapshot_section_provider(section_id: StringName) -> bool:
 ## @return 注册成功返回 true。
 func register_tool_snapshot_provider(tool_id: StringName, provider: Callable) -> bool:
 	if tool_id == &"" or not provider.is_valid():
+		return false
+	if _is_builtin_tool_snapshot_id(tool_id):
+		push_warning("[GFDiagnosticsUtility] 工具快照使用了内置字段，已拒绝：%s。" % String(tool_id))
 		return false
 	_tool_snapshot_providers[tool_id] = provider
 	return true
@@ -838,13 +851,15 @@ func command_result_to_json_compatible(result: Dictionary, options: Dictionary =
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param options: 可选参数，支持 recent_log_count、include_recent_logs、include_scene_tree、scene_tree_options、include_signal_graph、signal_graph_options。
 ## [br]
 ## @return 快照字典。
 ## [br]
 ## @schema options: Dictionary，支持 recent_log_count、include_recent_logs、include_scene_tree、scene_tree_options、include_signal_graph、signal_graph_options、include_monitors、monitor_preset、monitor_ids、include_hidden_monitors。
 ## [br]
-## @schema return: Dictionary，包含 timestamp_unix、engine、build、architecture、event_system、performance、logs、network、tools，可选 scene_tree、signal_graph、monitors 和注册分区。
+## @schema return: Dictionary，包含 timestamp_unix、engine、build、architecture、event_system、performance、logs、tools，可选 scene_tree、signal_graph、monitors 和注册分区。
 func collect_snapshot(options: Dictionary = {}) -> Dictionary:
 	var snapshot: Dictionary = {
 		"timestamp_unix": Time.get_unix_time_from_system(),
@@ -854,7 +869,6 @@ func collect_snapshot(options: Dictionary = {}) -> Dictionary:
 		"event_system": {},
 		"performance": {},
 		"logs": {},
-		"network": {},
 		"tools": {},
 	}
 
@@ -912,7 +926,7 @@ func collect_snapshot(options: Dictionary = {}) -> Dictionary:
 ## [br]
 ## @return 桥接状态字典。
 ## [br]
-## @schema return: Dictionary with capture_name, registered, debugger_active, editor_feature, and editor_hint.
+## @schema return: Dictionary with capture_name, registered, debugger_active, editor_feature, editor_hint, and allow_command_execution.
 func get_debugger_bridge_state() -> Dictionary:
 	return {
 		"capture_name": DEBUGGER_CAPTURE_NAME,
@@ -920,6 +934,7 @@ func get_debugger_bridge_state() -> Dictionary:
 		"debugger_active": EngineDebugger.is_active(),
 		"editor_feature": OS.has_feature("editor"),
 		"editor_hint": Engine.is_editor_hint(),
+		"allow_command_execution": allow_debugger_command_execution,
 	}
 
 
@@ -975,13 +990,15 @@ func collect_log_snapshot(recent_log_count: int = 20, include_recent_logs: bool 
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param root: 可选根节点；为空时优先使用当前场景，再回退到 Viewport root。
 ## [br]
-## @param options: 可选参数，支持 max_depth、max_nodes、include_groups、include_owner_path、include_script_path、include_internal。
+## @param options: 可选参数，支持 max_depth、max_nodes、include_groups、include_owner_path、include_script_path、include_internal、redact_paths。
 ## [br]
 ## @return 场景树快照字典。
 ## [br]
-## @schema options: Dictionary，支持 max_depth、max_nodes、include_groups、include_owner_path、include_script_path、include_internal、root_path、prefer_current_scene。
+## @schema options: Dictionary，支持 max_depth、max_nodes、include_groups、include_owner_path、include_script_path、include_internal、redact_paths、root_path、prefer_current_scene。
 ## [br]
 ## @schema return: Dictionary，包含 available、node_count、truncated、root_path、root。
 func collect_scene_tree_snapshot(root: Node = null, options: Dictionary = {}) -> Dictionary:
@@ -995,6 +1012,7 @@ func collect_scene_tree_snapshot(root: Node = null, options: Dictionary = {}) ->
 		"include_owner_path": GFVariantData.get_option_bool(options, "include_owner_path", true),
 		"include_script_path": GFVariantData.get_option_bool(options, "include_script_path", true),
 		"include_internal": GFVariantData.get_option_bool(options, "include_internal", false),
+		"redact_paths": GFVariantData.get_option_bool(options, "redact_paths", false),
 	}
 
 	if target_root == null:
@@ -1015,7 +1033,7 @@ func collect_scene_tree_snapshot(root: Node = null, options: Dictionary = {}) ->
 		"available": true,
 		"node_count": GFVariantData.get_option_int(counters, "count", 0),
 		"truncated": GFVariantData.get_option_bool(counters, "truncated", false),
-		"root_path": _get_node_path_or_empty(target_root),
+		"root_path": _redact_path_if_needed(_get_node_path_or_empty(target_root), normalized_options),
 		"root": root_snapshot,
 	}
 
@@ -1024,13 +1042,15 @@ func collect_scene_tree_snapshot(root: Node = null, options: Dictionary = {}) ->
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param root: 可选根节点；为空时优先使用当前场景，再回退到 Viewport root。
 ## [br]
-## @param options: 可选参数，支持 include_internal、persistent_only、include_empty_signals、include_external_targets、include_index。
+## @param options: 可选参数，支持 include_internal、persistent_only、include_empty_signals、include_external_targets、include_index、redact_paths。
 ## [br]
 ## @return 信号图快照字典。
 ## [br]
-## @schema options: Dictionary，支持 include_internal、persistent_only、include_empty_signals、include_external_targets、include_index、root_path、prefer_current_scene。
+## @schema options: Dictionary，支持 include_internal、persistent_only、include_empty_signals、include_external_targets、include_index、redact_paths、root_path、prefer_current_scene。
 ## [br]
 ## @schema return: Dictionary，包含 ok、root_path、node_count、signal_count、connection_count、nodes、signals、connections，可选 index。
 func collect_signal_graph_snapshot(root: Node = null, options: Dictionary = {}) -> Dictionary:
@@ -1048,13 +1068,160 @@ func collect_signal_graph_snapshot(root: Node = null, options: Dictionary = {}) 
 			"message": "Signal graph root is unavailable.",
 		}
 
-	var graph: Dictionary = GFSceneSignalAudit.build_signal_graph(target_root, options)
+	var graph: Dictionary = _build_runtime_signal_graph(target_root, options)
 	if GFVariantData.get_option_bool(options, "include_index", false):
-		graph["index"] = GFSceneSignalAudit.index_signal_graph(graph)
+		graph["index"] = _index_signal_graph(graph)
 	return graph
 
 
 # --- 私有/辅助方法 ---
+
+func _build_runtime_signal_graph(root: Node, options: Dictionary) -> Dictionary:
+	var state: Dictionary = {
+		"include_internal": GFVariantData.get_option_bool(options, "include_internal", false),
+		"include_empty_signals": GFVariantData.get_option_bool(options, "include_empty_signals", false),
+		"include_external_targets": GFVariantData.get_option_bool(options, "include_external_targets", true),
+		"persistent_only": GFVariantData.get_option_bool(options, "persistent_only", false),
+		"max_nodes": maxi(GFVariantData.get_option_int(options, "max_nodes", default_scene_tree_max_nodes), 1),
+		"redact_paths": GFVariantData.get_option_bool(options, "redact_paths", false),
+		"truncated": false,
+	}
+	var graph: Dictionary = {
+		"ok": true,
+		"root_path": _redact_path_if_needed(_get_node_path_or_empty(root), state),
+		"node_count": 0,
+		"signal_count": 0,
+		"connection_count": 0,
+		"nodes": [],
+		"signals": [],
+		"connections": [],
+	}
+	_collect_signal_graph_node(root, root, graph, state)
+	graph["node_count"] = GFVariantData.get_option_array(graph, "nodes").size()
+	graph["signal_count"] = GFVariantData.get_option_array(graph, "signals").size()
+	graph["connection_count"] = GFVariantData.get_option_array(graph, "connections").size()
+	graph["truncated"] = GFVariantData.get_option_bool(state, "truncated", false)
+	return graph
+
+
+func _collect_signal_graph_node(root: Node, node: Node, graph: Dictionary, state: Dictionary) -> void:
+	if node == null or GFVariantData.get_option_bool(state, "truncated", false):
+		return
+	var nodes: Array = GFVariantData.get_option_array(graph, "nodes")
+	if nodes.size() >= GFVariantData.get_option_int(state, "max_nodes", default_scene_tree_max_nodes):
+		state["truncated"] = true
+		return
+
+	var node_path: String = _redact_path_if_needed(_get_node_path_or_empty(node), state)
+	nodes.append({
+		"path": node_path,
+		"name": node.name,
+		"type": node.get_class(),
+	})
+	graph["nodes"] = nodes
+
+	for signal_info: Dictionary in node.get_signal_list():
+		var signal_name: StringName = GFVariantData.get_option_string_name(signal_info, "name")
+		if signal_name == &"":
+			continue
+		if not GFVariantData.get_option_bool(state, "include_internal", false) and String(signal_name).begins_with("_"):
+			continue
+		var raw_connections: Array = node.get_signal_connection_list(signal_name)
+		var connections: Array = _filter_signal_connections(root, node_path, signal_name, raw_connections, state)
+		if connections.is_empty() and not GFVariantData.get_option_bool(state, "include_empty_signals", false):
+			continue
+		var signals: Array = GFVariantData.get_option_array(graph, "signals")
+		signals.append({
+			"node_path": node_path,
+			"signal": String(signal_name),
+			"connection_count": connections.size(),
+		})
+		graph["signals"] = signals
+		var graph_connections: Array = GFVariantData.get_option_array(graph, "connections")
+		graph_connections.append_array(connections)
+		graph["connections"] = graph_connections
+
+	for child: Node in node.get_children():
+		_collect_signal_graph_node(root, child, graph, state)
+
+
+func _filter_signal_connections(
+	root: Node,
+	source_path: String,
+	signal_name: StringName,
+	raw_connections: Array,
+	state: Dictionary
+) -> Array:
+	var result: Array = []
+	for connection_value: Variant in raw_connections:
+		var connection: Dictionary = GFVariantData.as_dictionary(connection_value)
+		var flags: int = GFVariantData.get_option_int(connection, "flags", 0)
+		if GFVariantData.get_option_bool(state, "persistent_only", false) and (flags & CONNECT_PERSIST) == 0:
+			continue
+		var callback: Callable = _get_callable_value(GFVariantData.get_option_value(connection, "callable", Callable()))
+		if not callback.is_valid():
+			continue
+		var target: Object = callback.get_object()
+		if not _signal_connection_target_allowed(root, target, state):
+			continue
+		var target_path: String = ""
+		if target is Node:
+			var target_node: Node = target
+			target_path = _redact_path_if_needed(_get_node_path_or_empty(target_node), state)
+		result.append({
+			"source_path": source_path,
+			"signal": String(signal_name),
+			"target_path": target_path,
+			"target_class": target.get_class() if target != null else "",
+			"method": callback.get_method(),
+			"flags": flags,
+		})
+	return result
+
+
+func _signal_connection_target_allowed(root: Node, target: Object, state: Dictionary) -> bool:
+	if GFVariantData.get_option_bool(state, "include_external_targets", true):
+		return true
+	if not (target is Node):
+		return false
+	var target_node: Node = target
+	return target_node == root or root.is_ancestor_of(target_node)
+
+
+func _index_signal_graph(graph: Dictionary) -> Dictionary:
+	var by_source: Dictionary = {}
+	var by_target: Dictionary = {}
+	for connection: Dictionary in GFVariantData.get_option_array(graph, "connections"):
+		var source_path: String = GFVariantData.get_option_string(connection, "source_path")
+		var target_path: String = GFVariantData.get_option_string(connection, "target_path")
+		var source_entries: Array = GFVariantData.get_option_array(by_source, source_path)
+		source_entries.append(connection.duplicate(true))
+		by_source[source_path] = source_entries
+		if not target_path.is_empty():
+			var target_entries: Array = GFVariantData.get_option_array(by_target, target_path)
+			target_entries.append(connection.duplicate(true))
+			by_target[target_path] = target_entries
+	return {
+		"by_source": by_source,
+		"by_target": by_target,
+	}
+
+
+func _is_reserved_snapshot_section_id(section_id: StringName) -> bool:
+	match section_id:
+		&"timestamp_unix", &"engine", &"build", &"architecture", &"event_system", &"performance", &"logs", &"tools", &"scene_tree", &"signal_graph", &"monitors":
+			return true
+		_:
+			return false
+
+
+func _is_builtin_tool_snapshot_id(tool_id: StringName) -> bool:
+	match tool_id:
+		&"build_info", &"asset", &"timer", &"remote_cache", &"download", &"object_pool", &"operation_diagnostics", &"async_tracker":
+			return true
+		_:
+			return false
+
 
 func _get_build_info_utility() -> GFBuildInfoUtility:
 	var utility: Variant = get_utility(GFBuildInfoUtility)
@@ -1143,7 +1310,7 @@ func _bind_console_command() -> void:
 func _register_debugger_capture() -> void:
 	if Engine.is_editor_hint():
 		return
-	if not OS.has_feature("editor") and not EngineDebugger.is_active():
+	if not EngineDebugger.is_active():
 		return
 	if EngineDebugger.has_capture(DEBUGGER_CAPTURE_NAME):
 		return
@@ -1172,7 +1339,7 @@ func _handle_debugger_message(message: String, data: Array) -> bool:
 		"execute_command":
 			var command_name: StringName = _debugger_data_string_name(data, 0)
 			var args: Dictionary = _debugger_data_dictionary(data, 1)
-			var result: Dictionary = execute_command_json_safe(command_name, args)
+			var result: Dictionary = execute_command_json_safe(command_name, args) if allow_debugger_command_execution else _make_command_result(false, null, "Debugger command execution is disabled.")
 			EngineDebugger.send_message(DEBUGGER_MESSAGE_COMMAND_RESULT, [
 				String(command_name),
 				_make_debugger_payload(result),
@@ -1274,16 +1441,16 @@ func _collect_scene_tree_node(node: Node, depth: int, options: Dictionary, count
 	var info: Dictionary = {
 		"name": node.name,
 		"type": node.get_class(),
-		"path": _get_node_path_or_empty(node),
+		"path": _redact_path_if_needed(_get_node_path_or_empty(node), options),
 		"depth": depth,
 		"child_count": child_count,
 		"children": [],
 	}
 
 	if GFVariantData.get_option_bool(options, "include_owner_path", true):
-		info["owner_path"] = _get_node_path_or_empty(node.owner)
+		info["owner_path"] = _redact_path_if_needed(_get_node_path_or_empty(node.owner), options)
 	if GFVariantData.get_option_bool(options, "include_script_path", true):
-		info["script_path"] = _get_node_script_path(node)
+		info["script_path"] = _redact_path_if_needed(_get_node_script_path(node), options)
 	if GFVariantData.get_option_bool(options, "include_groups", false):
 		info["groups"] = _get_node_group_names(node)
 
@@ -1337,6 +1504,12 @@ func _get_node_script_path(node: Node) -> String:
 	if script == null:
 		return ""
 	return script.resource_path
+
+
+func _redact_path_if_needed(path: String, options: Dictionary) -> String:
+	if path.is_empty() or not GFVariantData.get_option_bool(options, "redact_paths", false):
+		return path
+	return "<redacted>"
 
 
 func _get_node_group_names(node: Node) -> PackedStringArray:
@@ -1508,6 +1681,8 @@ func _collect_tool_debug_snapshots() -> Dictionary:
 	_add_tool_debug_snapshot(result, &"remote_cache", get_utility(GFRemoteCacheUtility))
 	_add_tool_debug_snapshot(result, &"download", get_utility(GFDownloadUtility))
 	_add_tool_debug_snapshot(result, &"object_pool", get_utility(GFObjectPoolUtility))
+	_add_tool_debug_snapshot(result, &"operation_diagnostics", get_utility(GFOperationDiagnosticsUtility))
+	_add_tool_debug_snapshot(result, &"async_tracker", get_utility(GFAsyncTrackerUtility))
 	_add_registered_tool_debug_snapshots(result)
 	return result
 
@@ -1520,6 +1695,8 @@ func _add_tool_debug_snapshot(result: Dictionary, key: StringName, instance: Obj
 
 func _add_registered_tool_debug_snapshots(result: Dictionary) -> void:
 	for tool_id: StringName in _tool_snapshot_providers.keys():
+		if result.has(tool_id):
+			continue
 		var provider: Callable = _get_callable_value(_tool_snapshot_providers[tool_id])
 		var snapshot: Dictionary = _call_dictionary_provider(provider)
 		if not snapshot.is_empty():
@@ -1528,6 +1705,8 @@ func _add_registered_tool_debug_snapshots(result: Dictionary) -> void:
 
 func _collect_registered_snapshot_sections(snapshot: Dictionary) -> void:
 	for section_id: StringName in _snapshot_section_providers.keys():
+		if snapshot.has(section_id):
+			continue
 		var provider: Callable = _get_callable_value(_snapshot_section_providers[section_id])
 		var section: Dictionary = _call_dictionary_provider(provider)
 		if not section.is_empty():

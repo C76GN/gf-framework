@@ -29,6 +29,17 @@ var room_fragment := current.extract_region(Rect2i(Vector2i(8, 8), Vector2i(6, 5
 var pasted := room_fragment.translated(Vector2i(32, 12))
 ```
 
+`transformed(transform, options)` 会使用 `GFGridTransform2D.Transform` 在当前占用矩形内旋转、镜像或对角翻转片段；默认把变换后片段归一到 `(0, 0)`。`remapped_tiles(remaps)` 可按 `Vector4i(source_id, atlas_x, atlas_y, alternative_tile)` 或 source id 重映射 tile identity，同时保留调用方写入的额外字段。
+
+```gdscript
+var rotated := room_fragment.transformed(GFGridTransform2D.Transform.ROTATE_90)
+var swapped := rotated.remapped_tiles({
+	Vector4i(1, 0, 0, 0): Vector4i(2, 4, 1, 0),
+})
+```
+
+`transformed_and_remapped()` 只是把这两步组合起来。GF 不判断旋转后的门、墙、碰撞、导航或房间规则是否合理；这些业务含义应由项目工具在写回前验证。
+
 当缓存记录来自 `update_from_tile_map()` 或手动写入了 Godot TileMap 字段时，可以用 `apply_to_tile_map(layer, origin, options)` 写回 `TileMapLayer`：
 
 ```gdscript

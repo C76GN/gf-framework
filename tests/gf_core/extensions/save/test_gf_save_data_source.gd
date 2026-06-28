@@ -26,6 +26,10 @@ class PayloadHolder extends Node:
 	@export var payload: Resource = null
 
 
+class ObjectPayloadHolder extends Node:
+	var payload_object: Object = null
+
+
 # --- 私有变量 ---
 
 var _utility: GFSaveGraphUtility
@@ -124,6 +128,30 @@ func test_missing_gather_method_records_pipeline_error() -> void:
 		String(pipeline_context.errors[0]).contains("gather method"),
 		"流程错误应说明缺失采集方法。"
 	)
+
+
+func test_freed_property_provider_is_rejected_without_calling_protocol_methods() -> void:
+	var provider: Node = Node.new()
+	var holder: ObjectPayloadHolder = ObjectPayloadHolder.new()
+	holder.name = "Holder"
+	holder.payload_object = provider
+	_scope.add_child(holder)
+	provider.free()
+
+	var source: GFSaveDataSource = _make_data_source(&"freed_provider")
+	source.target_node_path = NodePath("../Holder")
+	source.provider_property = &"payload_object"
+	_scope.add_child(source)
+	var pipeline_context: GFSavePipelineContext = _utility.create_pipeline_context(&"gather", _scope)
+
+	var payload: Variant = source._gather_save_data({
+		"pipeline_context": pipeline_context,
+	})
+	var descriptor: Dictionary = source.describe_data_provider()
+
+	assert_true(GFVariantData.as_dictionary(payload).is_empty(), "已释放 provider 不应产生有效载荷。")
+	assert_eq(GFVariantData.get_option_string(descriptor, "reason"), "invalid_property_object", "诊断应明确属性对象已失效。")
+	assert_gt(pipeline_context.errors.size(), 0, "已释放 provider 应记录流程错误。")
 
 
 ## 验证应用载荷必须是 Dictionary。

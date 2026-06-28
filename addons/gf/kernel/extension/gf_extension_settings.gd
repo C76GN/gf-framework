@@ -103,7 +103,10 @@ const BUILT_IN_EXTENSION_IDS: Array[String] = [
 # --- 私有变量 ---
 
 static var _all_manifests_cache: Array[GFExtensionManifest] = []
+static var _manifest_load_errors_cache: Array[Dictionary] = []
+static var _manifest_cache_external_roots: Array[String] = []
 static var _has_all_manifests_cache: bool = false
+static var _has_manual_manifest_cache: bool = false
 
 
 # --- 公共方法 ---
@@ -193,9 +196,10 @@ static func get_enabled_extension_ids() -> Array[String]:
 ## [br]
 ## @param include_dependencies: 是否自动包含依赖扩展。
 static func set_enabled_extension_ids(extension_ids: Array[String], include_dependencies: bool = true) -> void:
-	var ids: Array[String] = _sorted_unique(extension_ids)
+	var manifests: Array[GFExtensionManifest] = get_all_manifests()
+	var ids: Array[String] = _filter_known_extension_ids(_sorted_unique(extension_ids), manifests)
 	if include_dependencies:
-		ids = resolve_extension_dependencies(ids)
+		ids = resolve_extension_dependencies(ids, manifests)
 	ProjectSettings.set_setting(ENABLED_EXTENSIONS_SETTING, ids)
 
 
@@ -380,9 +384,16 @@ static func set_fail_export_on_disabled_extension_references(enabled: bool) -> v
 ## [br]
 ## @return manifest 列表。
 static func get_all_manifests() -> Array[GFExtensionManifest]:
-	if not _has_all_manifests_cache:
-		_all_manifests_cache = GFExtensionCatalogBase.load_all_manifests(get_external_extension_roots())
+	var external_roots: Array[String] = get_external_extension_roots()
+	if (
+		not _has_all_manifests_cache
+		or (not _has_manual_manifest_cache and _manifest_cache_external_roots != external_roots)
+	):
+		_all_manifests_cache = GFExtensionCatalogBase.load_all_manifests(external_roots)
+		_manifest_load_errors_cache = GFExtensionCatalogBase.get_last_manifest_load_errors()
+		_manifest_cache_external_roots = external_roots.duplicate()
 		_has_all_manifests_cache = true
+		_has_manual_manifest_cache = false
 	return _all_manifests_cache.duplicate()
 
 
@@ -396,15 +407,23 @@ static func get_all_manifests() -> Array[GFExtensionManifest]:
 ## @return 扩展 preset 列表。
 static func get_extension_presets() -> Array[GFExtensionPreset]:
 	var manifests: Array[GFExtensionManifest] = get_all_manifests()
-	var presets: Array[GFExtensionPreset] = _get_builtin_extension_presets(manifests)
-	var seen_ids: Dictionary = _build_preset_id_lookup(presets)
-	for preset_path: String in get_extension_preset_paths():
-		var preset: GFExtensionPreset = _GF_EXTENSION_PRESET_SCRIPT.from_json_file(preset_path)
-		if preset == null or not preset.is_valid() or seen_ids.has(preset.id):
-			continue
-		presets.append(preset)
-		seen_ids[preset.id] = true
-	return presets
+	var collection: Dictionary = _collect_extension_presets_with_report(manifests)
+	return _get_preset_array_from_value(_GF_VARIANT_ACCESS_SCRIPT.get_option_value(collection, "presets", []))
+
+
+## 获取扩展 preset 发现诊断。
+## [br]
+## @api public
+## [br]
+## @since 6.0.0
+## [br]
+## @return preset 发现报告，包含有效、无效、重复和跳过的 preset 记录。
+## [br]
+## @schema return: Dictionary containing ok, preset_count, valid_presets, invalid_presets, skipped_presets, duplicate_ids, issue_count, issues, and configured_paths.
+static func get_extension_preset_report() -> Dictionary:
+	var manifests: Array[GFExtensionManifest] = get_all_manifests()
+	var collection: Dictionary = _collect_extension_presets_with_report(manifests)
+	return _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(collection, "report")
 
 
 ## 按 ID 获取扩展 preset。
@@ -454,7 +473,10 @@ static func apply_extension_preset(
 ## @api public
 static func clear_manifest_cache() -> void:
 	_all_manifests_cache.clear()
+	_manifest_load_errors_cache.clear()
+	_manifest_cache_external_roots.clear()
 	_has_all_manifests_cache = false
+	_has_manual_manifest_cache = false
 
 
 ## 按 ID 获取 manifest。
@@ -602,6 +624,8 @@ static func get_enabled_manifests() -> Array[GFExtensionManifest]:
 ## @return 禁用 manifest 列表。
 static func get_disabled_manifests() -> Array[GFExtensionManifest]:
 	var manifests: Array[GFExtensionManifest] = get_all_manifests()
+	if not _manifest_graph_allows_runtime_paths(manifests, "get_disabled_manifests"):
+		return []
 	var enabled_ids: Array[String] = resolve_extension_dependencies(get_enabled_extension_ids(), manifests)
 	var result: Array[GFExtensionManifest] = []
 	for manifest: GFExtensionManifest in manifests:
@@ -730,13 +754,16 @@ static func resolve_extension_dependencies(
 ## [br]
 ## @api public
 ## [br]
+## @since 5.0.0
+## [br]
 ## @param manifests: 可选 manifest 列表；为空时扫描所有 GF 内置扩展。
 ## [br]
 ## @return 包含重复 ID、无效 manifest、缺失依赖和循环依赖的诊断字典。
 ## [br]
-## @schema return: Dictionary containing ok, extension_count, issue_count, duplicate_ids, invalid_manifests, missing_dependencies, and dependency_cycles.
+## @schema return: Dictionary containing ok, extension_count, issue_count, duplicate_ids, invalid_manifests, manifest_load_errors, missing_dependencies, and dependency_cycles.
 static func get_manifest_graph_report(manifests: Array[GFExtensionManifest] = []) -> Dictionary:
 	var source_manifests: Array[GFExtensionManifest] = manifests
+	var include_load_errors: bool = source_manifests.is_empty()
 	if source_manifests.is_empty():
 		source_manifests = get_all_manifests()
 
@@ -744,8 +771,11 @@ static func get_manifest_graph_report(manifests: Array[GFExtensionManifest] = []
 	var seen_ids: Dictionary = {}
 	var duplicate_ids: PackedStringArray = PackedStringArray()
 	var invalid_manifests: Array[Dictionary] = []
+	var manifest_load_errors: Array[Dictionary] = _get_manifest_load_errors_for_report(include_load_errors)
 	var missing_dependencies: Array[Dictionary] = []
 	var dependency_cycles: Array[PackedStringArray] = []
+	for load_error: Dictionary in manifest_load_errors:
+		invalid_manifests.append(_manifest_load_error_to_invalid_manifest(load_error))
 
 	for manifest: GFExtensionManifest in source_manifests:
 		if manifest == null:
@@ -773,6 +803,8 @@ static func get_manifest_graph_report(manifests: Array[GFExtensionManifest] = []
 		if manifest == null:
 			continue
 		for dependency_id: String in manifest.dependencies:
+			if not GFExtensionManifest.is_valid_extension_id(dependency_id):
+				continue
 			if _is_builtin_extension_id(dependency_id):
 				continue
 			if not manifest_by_id.has(dependency_id):
@@ -799,6 +831,7 @@ static func get_manifest_graph_report(manifests: Array[GFExtensionManifest] = []
 		"issue_count": issue_count,
 		"duplicate_ids": duplicate_ids,
 		"invalid_manifests": invalid_manifests,
+		"manifest_load_errors": manifest_load_errors,
 		"missing_dependencies": missing_dependencies,
 		"dependency_cycles": dependency_cycles,
 	}
@@ -847,7 +880,10 @@ static func get_extension_selection_report() -> Dictionary:
 static func set_cached_manifests(manifests: Array[GFExtensionManifest]) -> void:
 	_all_manifests_cache.clear()
 	_all_manifests_cache.append_array(manifests)
+	_manifest_load_errors_cache.clear()
+	_manifest_cache_external_roots = get_external_extension_roots()
 	_has_all_manifests_cache = true
+	_has_manual_manifest_cache = true
 
 
 # --- 私有/辅助方法 ---
@@ -921,6 +957,20 @@ static func _get_all_extension_ids_from_manifests(manifests: Array[GFExtensionMa
 	return _sorted_unique(ids)
 
 
+static func _filter_known_extension_ids(
+	extension_ids: Array[String],
+	manifests: Array[GFExtensionManifest]
+) -> Array[String]:
+	var manifest_by_id: Dictionary = _build_manifest_map(manifests)
+	var result: Array[String] = []
+	for extension_id: String in extension_ids:
+		var normalized_id: String = extension_id.strip_edges()
+		if normalized_id.is_empty() or not manifest_by_id.has(normalized_id):
+			continue
+		result.append(normalized_id)
+	return _sorted_unique(result)
+
+
 static func _get_builtin_extension_presets(
 	manifests: Array[GFExtensionManifest]
 ) -> Array[GFExtensionPreset]:
@@ -949,8 +999,94 @@ static func _get_builtin_extension_presets(
 	return presets
 
 
+static func _collect_extension_presets_with_report(
+	manifests: Array[GFExtensionManifest]
+) -> Dictionary:
+	var presets: Array[GFExtensionPreset] = _get_builtin_extension_presets(manifests)
+	var seen_ids: Dictionary = _build_preset_id_lookup(presets)
+	var valid_presets: Array[Dictionary] = []
+	var invalid_presets: Array[Dictionary] = []
+	var skipped_presets: Array[Dictionary] = []
+	var duplicate_ids: PackedStringArray = PackedStringArray()
+	var issues: PackedStringArray = PackedStringArray()
+	for builtin_preset: GFExtensionPreset in presets:
+		valid_presets.append(_preset_to_report_record(builtin_preset, "builtin"))
+
+	var configured_paths: Array[String] = _GF_VARIANT_ACCESS_SCRIPT.to_string_array(ProjectSettings.get_setting(
+		EXTENSION_PRESET_PATHS_SETTING,
+		EXTENSION_PRESET_PATHS_DEFAULT
+	))
+	var seen_paths: Dictionary = {}
+	for raw_path: String in configured_paths:
+		var normalized_path: String = _GF_PATH_TOOLS.normalize_resource_path(raw_path)
+		if not _extension_preset_path_is_supported(normalized_path):
+			var path_errors: Array[String] = ["preset path must be a res:// JSON file"]
+			invalid_presets.append(_make_preset_issue_record(raw_path, &"", path_errors))
+			var _append_path_issue: bool = issues.append("%s: %s" % [raw_path, path_errors[0]])
+			continue
+		if seen_paths.has(normalized_path):
+			skipped_presets.append(_make_preset_skip_record(normalized_path, &"", "duplicate_path"))
+			continue
+
+		seen_paths[normalized_path] = true
+		var preset: GFExtensionPreset = _GF_EXTENSION_PRESET_SCRIPT.from_json_file(normalized_path)
+		if preset == null:
+			var read_errors: Array[String] = ["could not read preset JSON"]
+			invalid_presets.append(_make_preset_issue_record(normalized_path, &"", read_errors))
+			var _append_read_issue: bool = issues.append("%s: %s" % [normalized_path, read_errors[0]])
+			continue
+
+		var validation_errors: Array[String] = preset.get_validation_errors()
+		if not validation_errors.is_empty():
+			invalid_presets.append(_make_preset_issue_record(normalized_path, preset.id, validation_errors))
+			var _append_validation_issue: bool = issues.append("%s: %s" % [normalized_path, validation_errors[0]])
+			continue
+		if seen_ids.has(preset.id):
+			if not duplicate_ids.has(String(preset.id)):
+				var _append_duplicate_id: bool = duplicate_ids.append(String(preset.id))
+			skipped_presets.append(_make_preset_skip_record(normalized_path, preset.id, "duplicate_id"))
+			var _append_duplicate_issue: bool = issues.append("%s: duplicate preset id %s" % [
+				normalized_path,
+				String(preset.id),
+			])
+			continue
+
+		presets.append(preset)
+		seen_ids[preset.id] = true
+		valid_presets.append(_preset_to_report_record(preset, "project"))
+
+	var issue_count: int = invalid_presets.size() + skipped_presets.size()
+	return {
+		"presets": presets,
+		"report": {
+			"ok": issue_count == 0,
+			"preset_count": valid_presets.size(),
+			"valid_presets": valid_presets,
+			"invalid_presets": invalid_presets,
+			"skipped_presets": skipped_presets,
+			"duplicate_ids": duplicate_ids,
+			"issue_count": issue_count,
+			"issues": issues,
+			"configured_paths": _normalize_extension_preset_paths(configured_paths),
+		},
+	}
+
+
 static func _make_extension_preset(data: Dictionary) -> GFExtensionPreset:
 	return _GF_EXTENSION_PRESET_SCRIPT.from_dictionary(data)
+
+
+static func _get_preset_array_from_value(value: Variant) -> Array[GFExtensionPreset]:
+	var result: Array[GFExtensionPreset] = []
+	if not (value is Array):
+		return result
+
+	var values: Array = value
+	for item: Variant in values:
+		if item is GFExtensionPreset:
+			var preset: GFExtensionPreset = item
+			result.append(preset)
+	return result
 
 
 static func _build_preset_id_lookup(presets: Array[GFExtensionPreset]) -> Dictionary:
@@ -959,6 +1095,47 @@ static func _build_preset_id_lookup(presets: Array[GFExtensionPreset]) -> Dictio
 		if preset != null and preset.id != &"":
 			result[preset.id] = true
 	return result
+
+
+static func _extension_preset_path_is_supported(path: String) -> bool:
+	return path.begins_with("res://") and path.get_extension().to_lower() == "json"
+
+
+static func _preset_to_report_record(preset: GFExtensionPreset, source_kind: String) -> Dictionary:
+	if preset == null:
+		return {}
+	return {
+		"id": String(preset.id),
+		"display_name": preset.display_name,
+		"source_path": preset.source_path,
+		"source_kind": source_kind,
+		"extension_ids": preset.extension_ids.duplicate(),
+		"tags": preset.tags.duplicate(),
+	}
+
+
+static func _make_preset_issue_record(
+	source_path: String,
+	preset_id: StringName,
+	errors: Array[String]
+) -> Dictionary:
+	return {
+		"id": String(preset_id),
+		"source_path": source_path,
+		"errors": errors.duplicate(),
+	}
+
+
+static func _make_preset_skip_record(
+	source_path: String,
+	preset_id: StringName,
+	reason: String
+) -> Dictionary:
+	return {
+		"id": String(preset_id),
+		"source_path": source_path,
+		"reason": reason,
+	}
 
 
 static func _build_dependency_map(manifest_by_id: Dictionary) -> Dictionary:
@@ -975,6 +1152,7 @@ static func _build_dependency_map(manifest_by_id: Dictionary) -> Dictionary:
 			var normalized_dependency_id: String = dependency_id.strip_edges()
 			if (
 				normalized_dependency_id.is_empty()
+				or not GFExtensionManifest.is_valid_extension_id(normalized_dependency_id)
 				or _is_builtin_extension_id(normalized_dependency_id)
 				or not manifest_by_id.has(normalized_dependency_id)
 			):
@@ -1026,6 +1204,20 @@ static func _get_graph_cycles(report: Dictionary) -> Array[PackedStringArray]:
 			var cycle_items: Array = cycle_variant
 			result.append(_GF_VARIANT_ACCESS_SCRIPT.get_option_packed_string_array({ "cycle": cycle_items }, "cycle", PackedStringArray()))
 	return result
+
+
+static func _get_manifest_load_errors_for_report(include_load_errors: bool) -> Array[Dictionary]:
+	if not include_load_errors:
+		return []
+	return _manifest_load_errors_cache.duplicate(true)
+
+
+static func _manifest_load_error_to_invalid_manifest(load_error: Dictionary) -> Dictionary:
+	return {
+		"extension_id": "",
+		"source_path": _GF_VARIANT_ACCESS_SCRIPT.get_option_string(load_error, "source_path"),
+		"errors": _GF_VARIANT_ACCESS_SCRIPT.get_option_array(load_error, "errors"),
+	}
 
 
 static func _build_manifest_map(manifests: Array[GFExtensionManifest]) -> Dictionary:

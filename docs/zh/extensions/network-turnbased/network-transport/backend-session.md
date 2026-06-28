@@ -25,6 +25,8 @@ network.send_message(-1, message)
 
 `options.metadata` 必须是 `Dictionary`，传入其他类型会被忽略并输出 warning，避免把错误配置静默保存到会话快照里。替换或清空 backend 时，`GFNetworkUtility` 会关闭旧后端并清理旧会话，避免把底层连接资源留给已失效的 backend。
 
+`GFNetworkUtility`、`GFNetworkSession`、`GFNetworkChannel` 和内置后端返回的调试快照会经过 `GFNetworkDebugTools` 脱敏处理。常见 token、secret、password、authorization、cookie、session 等字段会替换为占位文本，endpoint 会保留协议与主机但隐藏路径、查询和片段。项目如果把额外敏感信息放进自定义 metadata，应在进入网络快照前先转换为可公开的诊断值。
+
 ## 服务端权威请求
 
 GF 网络层不会规定房间、实体归属或玩法权限；这些规则应留在项目服务器或项目后端中。但入站消息进入 `message_received` 前，`GFNetworkUtility` 会用底层 backend 报告的 `peer_id` 覆盖 `GFNetworkMessage.sender_id`，项目不要信任客户端 payload 中自报的身份字段。

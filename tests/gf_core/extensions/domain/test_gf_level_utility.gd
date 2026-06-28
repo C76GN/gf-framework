@@ -57,7 +57,7 @@ func before_each() -> void:
 
 	_config.records = {
 		&"levels": {
-			1: {
+			&"1": {
 				"name": "Level 1",
 				"moves": 10,
 			},
@@ -89,7 +89,7 @@ func test_start_level_loads_data_from_config_provider() -> void:
 	var data: Dictionary = _level.start_level(1)
 
 	assert_eq(GFVariantData.get_option_string(data, "name"), "Level 1", "start_level 应从配置工具读取关卡数据。")
-	assert_eq(GFVariantData.to_int(_level.current_level_id), 1, "当前关卡 ID 应更新。")
+	assert_eq(_level.current_level_id, &"1", "当前关卡 ID 应规范化为 StringName。")
 	assert_eq(GFVariantData.get_option_int(_level.current_level_data, "moves"), 10, "当前关卡数据应保存在工具中。")
 
 
@@ -129,7 +129,7 @@ func test_strict_start_level_rejects_missing_data() -> void:
 	var data: Dictionary = _level.start_level(&"missing")
 
 	assert_true(data.is_empty(), "严格模式下缺失关卡数据应返回空字典。")
-	assert_true(_level.current_level_id == null, "严格模式下缺失关卡不应更新 current_level_id。")
+	assert_eq(_level.current_level_id, &"", "严格模式下缺失关卡不应更新 current_level_id。")
 	assert_push_error("[GFLevelUtility] 找不到关卡数据：missing")
 
 

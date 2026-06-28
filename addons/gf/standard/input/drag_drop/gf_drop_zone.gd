@@ -216,6 +216,8 @@ static func from_control(
 		var current: Control = _INSTANCE_GUARD._get_live_control_from_ref(control_ref)
 		if current == null:
 			return false
+		if not current.is_inside_tree() or not current.is_visible_in_tree():
+			return false
 		return current.get_global_rect().has_point(local_position)
 	return zone
 

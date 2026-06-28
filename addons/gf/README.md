@@ -10,6 +10,8 @@ Gf -> res://addons/gf/kernel/core/gf.gd
 
 The plugin also opens the standalone `GF Workspace`. New projects start with only the GF kernel and standard library active; bundled optional extensions are disabled until explicitly enabled. The `GF Extensions` page is used for inspecting extension manifests, enabling or disabling extensions, auto-running enabled extension installers, excluding disabled extensions during export, and reporting disabled-extension references when strict export checks are enabled.
 
+The official Godot Asset Store/Asset Library package and the main GitHub Release package are the full `gf-framework-<version>.zip` addon package. Minimal `gf-kernel-<version>.zip` release assets are intended for advanced modular bootstrap flows where a project installs additional GF packages through the package manager.
+
 ## Package Management
 
 If this project was installed from the minimal `gf.kernel` package, open `Tools > GF > Open GF Workspace` and use the `GF Package Manager` page to inspect, install, update, or remove additional GF packages.
@@ -53,6 +55,8 @@ Bundled GF extensions are atomic and disabled by default: they depend only on th
 ## 中文说明
 
 本目录是 GF Framework 的 Godot 插件分发目录。将 `addons/gf` 复制到 Godot 4 项目后，在 `Project > Project Settings > Plugins` 启用 `GF Framework`，插件会自动注册 `Gf` AutoLoad，并默认打开独立的 `GF Workspace`；其中的 `GF Extensions` 页面用于查看、启用、禁用和导出管理 GF 扩展。
+
+Godot Asset Store / Asset Library 官方页面和 GitHub Release 主下载包使用完整的 `gf-framework-<version>.zip` 插件包。`gf-kernel-<version>.zip` 是高级模块化引导入口，适合项目先安装最小 kernel，再通过包管理器按需安装其他 GF package。
 
 ## 包管理快速入口
 

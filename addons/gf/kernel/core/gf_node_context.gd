@@ -100,6 +100,7 @@ var _is_context_ready: bool = false
 var _is_context_installing: bool = false
 var _context_ready_emitted: bool = false
 var _context_failed_emitted: bool = false
+var _context_failure_reason: String = ""
 var _context_lifecycle_serial: int = 0
 
 
@@ -109,6 +110,7 @@ func _enter_tree() -> void:
 	_context_lifecycle_serial += 1
 	_context_ready_emitted = false
 	_context_failed_emitted = false
+	_context_failure_reason = ""
 	_setup_architecture()
 	if _owns_architecture:
 		_is_context_installing = true
@@ -160,6 +162,7 @@ func _exit_tree() -> void:
 	_is_context_installing = false
 	_context_ready_emitted = false
 	_context_failed_emitted = false
+	_context_failure_reason = ""
 
 
 # --- 公共方法 ---
@@ -202,12 +205,36 @@ func is_context_ready() -> bool:
 	return _is_context_ready
 
 
+## 检查上下文是否已经进入失败终态。
+## [br]
+## @api public
+## [br]
+## @since 6.0.0
+## [br]
+## @return 失败后返回 true。
+func is_context_failed() -> bool:
+	return _context_failed_emitted
+
+
+## 获取上下文失败原因。
+## [br]
+## @api public
+## [br]
+## @since 6.0.0
+## [br]
+## @return context_failed 发出的失败原因；未失败时为空字符串。
+func get_context_failure_reason() -> String:
+	return _context_failure_reason
+
+
 ## 手动初始化当前 Scoped 上下文。适合 auto_init 为 false 时，在 install()/install_bindings() 完成后统一触发初始化与 context_ready/context_failed 信号。
 ## [br]
 ## @api public
 ## [br]
 ## @return 初始化完成的架构；上下文失效或初始化失败时返回 null。
 func initialize_context() -> GFArchitecture:
+	if _context_failed_emitted:
+		return null
 	if _architecture == null:
 		return null
 	if not _owns_architecture:
@@ -243,8 +270,12 @@ func initialize_context() -> GFArchitecture:
 ## [br]
 ## @return 当前上下文架构；上下文失效时返回 null。
 func wait_until_ready() -> GFArchitecture:
+	if _context_failed_emitted:
+		return null
 	var start_msec: int = Time.get_ticks_msec()
 	while _architecture != null and not _architecture.is_inited():
+		if _context_failed_emitted:
+			return null
 		if not is_inside_tree():
 			return null
 		var waiting_architecture: GFArchitecture = _architecture
@@ -260,6 +291,8 @@ func wait_until_ready() -> GFArchitecture:
 			return null
 
 	if _architecture != null:
+		if _context_failed_emitted:
+			return null
 		_mark_context_ready(_architecture)
 	return _architecture
 
@@ -395,6 +428,8 @@ func _setup_architecture() -> void:
 
 
 func _initialize_owned_architecture(architecture_instance: GFArchitecture = null) -> void:
+	if _context_failed_emitted:
+		return
 	var initializing_architecture: GFArchitecture = architecture_instance
 	if initializing_architecture == null:
 		initializing_architecture = _architecture
@@ -410,8 +445,12 @@ func _initialize_owned_architecture(architecture_instance: GFArchitecture = null
 
 func _watch_inherited_architecture_ready(inherited_architecture: GFArchitecture, lifecycle_serial: int) -> void:
 	await get_tree().process_frame
+	if _context_failed_emitted:
+		return
 	var start_msec: int = Time.get_ticks_msec()
 	while _is_inherited_architecture_current(inherited_architecture, lifecycle_serial):
+		if _context_failed_emitted:
+			return
 		if inherited_architecture.is_inited():
 			_mark_context_ready(inherited_architecture)
 			return
@@ -426,6 +465,8 @@ func _watch_inherited_architecture_ready(inherited_architecture: GFArchitecture,
 
 
 func _wait_for_parent_architecture_ready(architecture_instance: GFArchitecture = null) -> bool:
+	if _context_failed_emitted:
+		return false
 	var scoped_architecture: GFArchitecture = architecture_instance
 	if scoped_architecture == null:
 		scoped_architecture = _architecture
@@ -435,6 +476,8 @@ func _wait_for_parent_architecture_ready(architecture_instance: GFArchitecture =
 	var parent_architecture: GFArchitecture = scoped_architecture.get_parent_architecture()
 	var start_msec: int = Time.get_ticks_msec()
 	while parent_architecture != null and not parent_architecture.is_inited():
+		if _context_failed_emitted:
+			return false
 		if not _is_owned_architecture_current(scoped_architecture):
 			return false
 		if parent_architecture.has_initialization_failed():
@@ -484,6 +527,8 @@ func _get_wait_timeout_reason(start_msec: int, reason: String) -> String:
 func _fail_context(reason: String) -> void:
 	if reason.is_empty():
 		return
+	_is_context_ready = false
+	_context_failure_reason = reason
 	if _context_failed_emitted:
 		return
 	_context_failed_emitted = true

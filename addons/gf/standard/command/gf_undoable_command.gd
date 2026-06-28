@@ -83,4 +83,4 @@ func set_snapshot(data: Variant) -> void:
 ## [br]
 ## @schema return: Variant snapshot value or null.
 func get_snapshot() -> Variant:
-	return _snapshot
+	return GFVariantData.duplicate_collection(_snapshot, true)

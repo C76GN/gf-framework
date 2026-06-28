@@ -534,10 +534,12 @@ func _append_human_issues(lines: PackedStringArray, issues: Array) -> void:
 func _blocked_package_ids(blocked: Array) -> Array:
 	var result: Array = []
 	for value: Variant in blocked:
-		if value is Dictionary:
-			var package_id: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(value, "package_id")
-			if not package_id.is_empty():
-				result.append(package_id)
+		if not value is Dictionary:
+			continue
+		var blocked_entry: Dictionary = value
+		var package_id: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(blocked_entry, "id")
+		if not package_id.is_empty():
+			result.append(package_id)
 	return result
 
 

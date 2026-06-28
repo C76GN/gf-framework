@@ -9,7 +9,7 @@
 - 类别：运行时服务 (`runtime_service`)
 - 首次版本：`5.0.0`
 
-纯 Variant 数据的确定性规范编码器。 该类型为锁步、回放、黄金测试和内容 hash 提供稳定的 canonical value、JSON、 UTF-8 bytes 与 SHA-256。它不读取文件，不处理存档 metadata、压缩、混淆或对象图。
+纯 Variant 数据的确定性规范编码器。 该类型为锁步、回放、黄金测试和内容 hash 提供稳定的 canonical value、JSON、 UTF-8 bytes 与 SHA-256。强确定性输入应使用整数、字符串、布尔、整数向量、 PackedByteArray 或定点数编码；`allow_floats` 仅用于接受 Godot 浮点值的规范文本， 不承诺跨平台、跨 Godot 版本或跨编译配置的数值演算一致性。它不读取文件， 不处理存档 metadata、压缩、混淆或对象图。
 
 ## 成员概览
 
@@ -40,7 +40,7 @@ static func to_canonical_value(value: Variant, options: Dictionary = {}) -> Vari
 | 名称 | 说明 |
 |---|---|
 | `value` | 待编码的 Variant。应为纯数据结构；Object、Resource、Callable、RID 和循环引用会失败。 |
-| `options` | 可选项。`allow_floats` 默认为 false；`max_depth` 默认为 256。 |
+| `options` | 可选项。`allow_floats` 默认为 false；`max_depth` 默认为 256。启用 `allow_floats` 只表示接受并规范化浮点值，不表示浮点计算具备强确定性。 |
 
 返回：规范化后的 JSON 兼容 Variant；失败时返回 null 并输出错误。
 

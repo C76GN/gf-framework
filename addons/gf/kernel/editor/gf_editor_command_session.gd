@@ -138,12 +138,15 @@ func commit_command(
 	if command == null:
 		return _make_command_result(false, &"missing_command", null, ERR_INVALID_PARAMETER)
 	var error: Error = OK
+	var managed_by_undo: bool = context != null and use_undo and context.undo_manager != null
 	if context != null:
 		error = context.commit_command(command, use_undo)
 	else:
 		error = command.execute()
 	if error != OK:
 		return _make_command_result(false, &"commit_failed", command, error)
+	if managed_by_undo:
+		return _make_command_result(true, &"committed_to_undo_manager", command, OK)
 	_history.append(command)
 	return _make_command_result(true, &"committed", command, OK)
 

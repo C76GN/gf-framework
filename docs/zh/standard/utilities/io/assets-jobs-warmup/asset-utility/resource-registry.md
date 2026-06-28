@@ -118,6 +118,17 @@ var registry := GFResourceRegistryTools.create_registry_from_scan("res://assets"
 })
 ```
 
+扫描阶段只需要收窄“哪些资源路径进入注册表”时，使用 `include_patterns` 和 `exclude_patterns`。模式按 `pattern_base_path` 的相对路径匹配，也会兼容完整资源路径和文件名；支持 `*`、`**` 与 `?`，适合表达项目工具层的通用资源集合，不需要新增单独的运行时分组资源。
+
+```gdscript
+var registry := GFResourceRegistryTools.create_registry_from_scan("res://assets", {
+	"id_mode": "relative_path",
+	"base_path": "res://assets",
+	"include_patterns": PackedStringArray(["ui/**/*.tscn", "icons/*.png"]),
+	"exclude_patterns": PackedStringArray(["**/draft_*", "temp/**"]),
+})
+```
+
 已有入口资源时，也可以先按 Godot 的依赖关系展开路径，再生成注册表或预加载分组。`collect_dependency_paths()` 只读取 `ResourceLoader.get_dependencies()`，不改写 remap、不打包 PCK，也不解释依赖的业务含义。
 
 ```gdscript
@@ -160,5 +171,6 @@ else:
 - 字段索引只基于条目 `fields`，不会为了查询而加载实际资源。
 - 自动扫描应作为项目工具、编辑器按钮、构建步骤或 Installer 的一部分运行；运行时加载仍交给 `GFAssetUtility`。
 - `scan_resource_paths()`、`collect_dependency_paths()` 和 `build_dependency_report()` 的 `excluded_paths` 会按 `GFPathTools` 规范化并去重，命中排除目录自身或其子路径都会被跳过。
+- `scan_resource_paths()` 的 `include_patterns` / `exclude_patterns` 只筛选扫描结果，不定义业务分组、导出包或热更策略；这些策略应在项目工具中组合注册表、内容包或安装流程。
 - 依赖收集只返回路径闭包，不决定导出、热更新、DLC 或分包策略；这些策略应留在项目构建流程里。
 - 依赖报告中的 `excluded` 只表示被调用方过滤，不代表资源错误；`issues` 才是需要工具链显式处理的诊断入口。

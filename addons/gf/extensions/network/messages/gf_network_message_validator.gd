@@ -62,7 +62,7 @@ func validate_message(message: GFNetworkMessage) -> Dictionary:
 	if message.message_type == &"" and not allow_empty_message_type:
 		var _append_result_63: Variant = errors.append("empty_message_type")
 	for key: String in required_payload_keys:
-		if not message.payload.has(key):
+		if not _payload_has_key(message.payload, key):
 			var _append_result_66: Variant = errors.append("missing_payload_key:%s" % key)
 	return _make_report(errors)
 
@@ -115,3 +115,9 @@ func _make_report(errors: PackedStringArray) -> Dictionary:
 		"ok": errors.is_empty(),
 		"errors": errors,
 	}
+
+
+func _payload_has_key(payload: Dictionary, key: String) -> bool:
+	if payload.has(key):
+		return true
+	return payload.has(StringName(key))

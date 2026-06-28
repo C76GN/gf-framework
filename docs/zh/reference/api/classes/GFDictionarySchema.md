@@ -31,6 +31,7 @@
 | 方法 | [`coerce_dictionary`](#member-gfdictionaryschema-methods-coerce_dictionary) | `func coerce_dictionary(values: Dictionary, include_defaults: bool = true) -> Dictionary:` |
 | 方法 | [`validate_definition`](#member-gfdictionaryschema-methods-validate_definition) | `func validate_definition(options: Dictionary = {}) -> GFValidationReport:` |
 | 方法 | [`validate_dictionary`](#member-gfdictionaryschema-methods-validate_dictionary) | `func validate_dictionary(values: Dictionary, options: Dictionary = {}) -> GFValidationReport:` |
+| 方法 | [`normalize_dictionary_array`](#member-gfdictionaryschema-methods-normalize_dictionary_array) | `func normalize_dictionary_array(values: Array, options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`duplicate_schema`](#member-gfdictionaryschema-methods-duplicate_schema) | `func duplicate_schema() -> GFDictionarySchema:` |
 | 方法 | [`describe`](#member-gfdictionaryschema-methods-describe) | `func describe() -> Dictionary:` |
 
@@ -345,6 +346,34 @@ func validate_dictionary(values: Dictionary, options: Dictionary = {}) -> GFVali
 
 - `values`: Dictionary source values.
 - `options`: Dictionary validation context.
+
+<a id="member-gfdictionaryschema-methods-normalize_dictionary_array"></a>
+
+### `normalize_dictionary_array`
+
+- API：`public`
+- 首次版本：`7.0.0`
+
+```gdscript
+func normalize_dictionary_array(values: Array, options: Dictionary = {}) -> Dictionary:
+```
+
+批量规范化 Dictionary 数组，并汇总行级校验报告。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `values` | 输入数组。 |
+| `options` | 可选配置，支持 include_optional、coerce、strip_extra_fields、validate_rows、keep_invalid_rows、path、subject、source_path 和 source。 |
+
+返回：规范化结果字典。
+
+结构：
+
+- `values`: Array[Dictionary] source rows; non-Dictionary rows are reported as invalid_row.
+- `options`: Dictionary normalization options.
+- `return`: Dictionary with ok, rows, row_count, normalized_count, invalid_row_count, skipped_row_count, and report.
 
 <a id="member-gfdictionaryschema-methods-duplicate_schema"></a>
 

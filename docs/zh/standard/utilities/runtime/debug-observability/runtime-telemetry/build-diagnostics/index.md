@@ -6,6 +6,7 @@
 
 - [构建信息快照](build-info.md)：`GFBuildInfo`、`GFBuildInfoUtility` 和导出前构建元数据写入。
 - [诊断快照与命令](diagnostics-commands/index.md)：`GFDiagnosticsUtility`、快照采集、命令 schema 和命令风险等级。
+- [操作诊断时间线](operation-diagnostics.md)：`GFOperationDiagnosticsUtility` 的操作、阶段耗时、异常事件和健康快照。
 - [信号图、工具快照与监控预设](signals-monitors.md)：场景树快照、信号图、工具快照 provider 和监控导出。
 
 ## 使用边界

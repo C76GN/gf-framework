@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFShakeReceiver2D" path="addons/gf/extensions/feedback/nodes/gf_shake_receiver_2d.gd" module="extensions/feedback" extends="Node" classDigest="1e6a6422103ec7e7e6f63cbdf5dc480e781614f090c899f14fe4720bb27e280d">
+<class name="GFShakeReceiver2D" path="addons/gf/extensions/feedback/nodes/gf_shake_receiver_2d.gd" module="extensions/feedback" extends="Node" classDigest="5d3e11817acd132b1be57937483bf6b7ef68f894b9b9c7db1d37b5211e9dc852">
 	<description>GFShakeReceiver2D: 将反馈采样应用到 Node2D 的通用接收器。</description>
 	<tags>
 		<tag name="api">public</tag>
@@ -11,10 +11,11 @@
 	<constants />
 	<properties>
 		<member kind="property" name="target_path" decorators="@export_node_path(&quot;Node2D&quot;)">
-			<signature>var target_path: NodePath = NodePath("")</signature>
+			<signature>var target_path: NodePath = NodePath(""):</signature>
 			<description>目标 Node2D 路径；为空时优先使用自身，其次使用父节点。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="channel" decorators="@export">

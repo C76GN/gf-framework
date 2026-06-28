@@ -1,0 +1,153 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFAsyncWaitUtility" path="addons/gf/standard/common/gf_async_wait_utility.gd" module="standard" extends="RefCounted" classDigest="3cea507b249112159a9d47fbdcbba8d554435cede99aa9959855afe9b9fecbaa">
+	<description>GFAsyncWaitUtility: 公共 Signal 等待辅助。
+提供带超时、取消 token、生命周期保护和 payload 捕获的 Signal、帧、延迟和条件等待入口。
+它只负责等待状态，不创建业务任务，也不替代项目自己的流程编排。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_service</tag>
+		<tag name="since">7.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants>
+		<member kind="const" name="STATUS_COMPLETED">
+			<signature>const STATUS_COMPLETED: StringName = &amp;"completed"</signature>
+			<description>等待正常由目标 Signal 完成。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_CANCELLED">
+			<signature>const STATUS_CANCELLED: StringName = &amp;"cancelled"</signature>
+			<description>等待被取消 token 结束。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_TIMEOUT">
+			<signature>const STATUS_TIMEOUT: StringName = &amp;"timeout"</signature>
+			<description>等待因超时结束。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_INVALID">
+			<signature>const STATUS_INVALID: StringName = &amp;"invalid"</signature>
+			<description>等待因目标或保护节点失效结束。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties />
+	<methods>
+		<member kind="method" name="await_signal">
+			<signature>static func await_signal(result_signal: Signal, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>等待 Signal 发出，不捕获参数。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">result_signal: 要等待的 Signal。</tag>
+				<tag name="param">options: 等待选项。</tag>
+				<tag name="return">等待结果。</tag>
+				<tag name="schema">options: Dictionary，可包含 timeout_seconds、cancel_token、guard_node、tree、time_utility、respect_time_scale、process_in_physics 和 timeout_warning。</tag>
+				<tag name="schema">return: Dictionary，包含 status、completed、cancelled、timed_out、invalid、reason、metadata 和 args。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="await_signal_payload">
+			<signature>static func await_signal_payload(result_signal: Signal, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>等待 Signal 发出，并捕获最多 16 个参数。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">result_signal: 要等待的 Signal。</tag>
+				<tag name="param">options: 等待选项。</tag>
+				<tag name="return">等待结果。</tag>
+				<tag name="schema">options: Dictionary，可包含 timeout_seconds、cancel_token、guard_node、tree、time_utility、respect_time_scale、process_in_physics 和 timeout_warning。</tag>
+				<tag name="schema">return: Dictionary，包含 status、completed、cancelled、timed_out、invalid、reason、metadata 和 args。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="next_frame">
+			<signature>static func next_frame(options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>等待下一帧 process_frame。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">options: 等待选项。</tag>
+				<tag name="return">等待结果。</tag>
+				<tag name="schema">options: Dictionary，可包含 timeout_seconds、cancel_token、guard_node、tree、time_utility 和 respect_time_scale。</tag>
+				<tag name="schema">return: Dictionary，包含 status、completed、cancelled、timed_out、invalid、reason、metadata 和 args。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="physics_frame">
+			<signature>static func physics_frame(options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>等待下一帧 physics_frame。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">options: 等待选项。</tag>
+				<tag name="return">等待结果。</tag>
+				<tag name="schema">options: Dictionary，可包含 timeout_seconds、cancel_token、guard_node、tree、time_utility 和 respect_time_scale。</tag>
+				<tag name="schema">return: Dictionary，包含 status、completed、cancelled、timed_out、invalid、reason、metadata 和 args。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="delay_seconds">
+			<signature>static func delay_seconds(seconds: float, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>等待指定秒数。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">seconds: 等待秒数；小于等于 0 时立即完成。</tag>
+				<tag name="param">options: 等待选项。</tag>
+				<tag name="return">等待结果。</tag>
+				<tag name="schema">options: Dictionary，可包含 timeout_seconds、cancel_token、guard_node、tree、time_utility、respect_time_scale 和 process_in_physics。</tag>
+				<tag name="schema">return: Dictionary，包含 status、completed、cancelled、timed_out、invalid、reason、metadata 和 args。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="wait_until">
+			<signature>static func wait_until(predicate: Callable, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>等待 predicate 返回 true。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">predicate: 无参判断回调；返回值会收窄为 bool。</tag>
+				<tag name="param">options: 等待选项。</tag>
+				<tag name="return">等待结果。</tag>
+				<tag name="schema">options: Dictionary，可包含 timeout_seconds、cancel_token、guard_node、tree、time_utility、respect_time_scale 和 process_in_physics。</tag>
+				<tag name="schema">return: Dictionary，包含 status、completed、cancelled、timed_out、invalid、reason、metadata 和 args。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="wait_while">
+			<signature>static func wait_while(predicate: Callable, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>等待 predicate 返回 false。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">predicate: 无参判断回调；返回值会收窄为 bool。</tag>
+				<tag name="param">options: 等待选项。</tag>
+				<tag name="return">等待结果。</tag>
+				<tag name="schema">options: Dictionary，可包含 timeout_seconds、cancel_token、guard_node、tree、time_utility、respect_time_scale 和 process_in_physics。</tag>
+				<tag name="schema">return: Dictionary，包含 status、completed、cancelled、timed_out、invalid、reason、metadata 和 args。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="wait_until_value_changed">
+			<signature>static func wait_until_value_changed(getter: Callable, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>等待 getter 返回值发生变化。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">getter: 无参取值回调。</tag>
+				<tag name="param">options: 等待选项。</tag>
+				<tag name="return">等待结果；完成时包含 previous_value 和 value。</tag>
+				<tag name="schema">options: Dictionary，可包含 timeout_seconds、cancel_token、guard_node、tree、time_utility、respect_time_scale 和 process_in_physics。</tag>
+				<tag name="schema">return: Dictionary，包含 status、completed、cancelled、timed_out、invalid、reason、metadata、args、previous_value 和 value。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

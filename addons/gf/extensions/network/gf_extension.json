@@ -1,7 +1,7 @@
 {
   "id": "gf.network",
   "display_name": "GF Network",
-  "version": "6.0.0",
+  "version": "7.0.0",
   "extension_version": "3.0.0",
   "kind": "extension",
   "description": "Pluggable network backends, sessions, messages, serializers, snapshots, and fixed tick helpers.",

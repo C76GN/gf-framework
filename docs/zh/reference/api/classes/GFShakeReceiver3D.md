@@ -15,7 +15,7 @@
 
 | 类型 | 名称 | 签名 |
 |---|---|---|
-| 属性 | [`target_path`](#member-gfshakereceiver3d-properties-target_path) | `var target_path: NodePath = NodePath("")` |
+| 属性 | [`target_path`](#member-gfshakereceiver3d-properties-target_path) | `var target_path: NodePath = NodePath(""):` |
 | 属性 | [`channel`](#member-gfshakereceiver3d-properties-channel) | `var channel: StringName = &"default"` |
 | 属性 | [`apply_position`](#member-gfshakereceiver3d-properties-apply_position) | `var apply_position: bool = true` |
 | 属性 | [`apply_rotation`](#member-gfshakereceiver3d-properties-apply_rotation) | `var apply_rotation: bool = true` |
@@ -36,9 +36,10 @@
 ### `target_path`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-var target_path: NodePath = NodePath("")
+var target_path: NodePath = NodePath(""):
 ```
 
 目标 Node3D 路径；为空时优先使用自身，其次使用父节点。

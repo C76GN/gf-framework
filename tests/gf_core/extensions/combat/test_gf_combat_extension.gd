@@ -379,7 +379,7 @@ func test_skill_activation_context_commit_and_cooldown_flow() -> void:
 	var context_targets: Array[Object] = activation_context.targets
 
 	assert_true(executed, "激活提交和执行成功时 execute 应返回 true。")
-	assert_eq(committed_targets, [target], "提交回调应在执行前收到激活上下文。")
+	assert_eq(committed_targets, [target], "提交回调应在执行成功后收到激活上下文。")
 	assert_eq(skill.cooldown_left, 2.0, "执行成功后应进入冷却。")
 	assert_same(activation_context.manual_target, target, "上下文应保留手动目标。")
 	assert_eq(activation_context.resolved_center, Vector2(4.0, 5.0), "上下文应保留解析后的施放中心。")
@@ -529,12 +529,33 @@ func test_skill_does_not_start_cooldown_when_execute_hook_fails() -> void:
 	var entity: MockEntity = MockEntity.new()
 	var skill: FailingExecuteSkill = FailingExecuteSkill.new(entity)
 	skill.cooldown_max = 5.0
+	var committed: Array[bool] = []
+	skill.activation_commit_callbacks.append(func(_context: RefCounted) -> bool:
+		committed.append(true)
+		return true
+	)
 
 	var executed: bool = skill.execute()
 
 	assert_false(executed, "执行钩子显式失败时 execute() 应返回 false。")
 	assert_true(skill.executed, "技能应已经进入执行钩子。")
+	assert_true(committed.is_empty(), "执行钩子失败时不应运行提交回调。")
 	assert_eq(skill.cooldown_left, 0.0, "执行钩子失败时不应进入冷却。")
+
+
+func test_add_skill_rebinds_existing_owner_to_registered_entity() -> void:
+	var system: GFCombatSystem = GFCombatSystem.new()
+	var old_entity: MockEntity = MockEntity.new()
+	var new_entity: MockEntity = MockEntity.new()
+	system.register_entity(new_entity)
+
+	var skill: GFSkill = GFSkill.new(old_entity)
+	skill.cooldown_max = 1.0
+	system.add_skill(new_entity, skill)
+	var _execute_result: Variant = skill.execute()
+
+	assert_eq(skill.owner, new_entity, "添加技能时应以系统实体作为唯一 owner。")
+	assert_eq(skill.cooldown_left, 1.0, "重绑 owner 后技能应基于新实体正常执行。")
 
 
 func test_add_skill_assigns_owner_when_missing() -> void:
@@ -564,6 +585,24 @@ func test_add_buff_assigns_owner_when_missing() -> void:
 
 	assert_eq(buff.owner, entity, "未设置 owner 的 Buff 在加入实体时应自动回填所属者。")
 	assert_eq(_entity_attribute_value(entity, &"ATK"), 15.0, "自动回填 owner 后，Buff 效果应能正常生效。")
+
+
+func test_add_buff_rebinds_existing_owner_to_registered_entity() -> void:
+	var system: GFCombatSystem = GFCombatSystem.new()
+	var old_entity: MockEntity = MockEntity.new()
+	var new_entity: MockEntity = MockEntity.new()
+	old_entity.add_attr(&"ATK", 10.0)
+	new_entity.add_attr(&"ATK", 10.0)
+	system.register_entity(new_entity)
+
+	var buff: GFBuff = GFBuff.new()
+	buff.modifiers.append(GFModifier.create_base_add(5.0, &"ATK"))
+	buff.setup(&"PowerUp", 1.0, old_entity)
+	system.add_buff(new_entity, buff)
+
+	assert_eq(buff.owner, new_entity, "添加 Buff 时应以系统实体作为唯一 owner。")
+	assert_eq(_entity_attribute_value(old_entity, &"ATK"), 10.0, "旧 owner 不应收到 Buff 效果。")
+	assert_eq(_entity_attribute_value(new_entity, &"ATK"), 15.0, "新 owner 应收到 Buff 效果。")
 
 
 func test_get_buff_has_buff_and_get_buffs_are_safe_queries() -> void:
@@ -716,6 +755,16 @@ func test_buff_periodic_tick_uses_interval() -> void:
 	assert_almost_eq(buff.tick_deltas[0], 0.5, 0.001, "Tick 回调应收到配置的周期长度。")
 
 
+func test_buff_expiration_still_runs_final_tick() -> void:
+	var buff: TickRecordingBuff = TickRecordingBuff.new()
+	buff.setup(&"Pulse", 1.0, null)
+
+	var should_remove: bool = buff.update(1.0)
+
+	assert_true(should_remove, "持续时间耗尽时 Buff 应报告需要移除。")
+	assert_eq(buff.tick_deltas, [1.0], "过期帧仍应先触发最终 tick。")
+
+
 func test_buff_periodic_tick_limits_catchup_budget() -> void:
 	var buff: TickRecordingBuff = TickRecordingBuff.new()
 	buff.setup(&"Pulse", -1.0, null)
@@ -757,6 +806,30 @@ func test_remove_buff_removes_effects_and_reports_result() -> void:
 	assert_false(missing, "remove_buff 未命中时应返回 false。")
 	assert_eq(_entity_attribute_value(entity, &"ATK"), 10.0, "remove_buff 应移除属性修饰器。")
 	assert_false(entity.tag_component.has_tag(&"Buffed"), "remove_buff 应移除标签。")
+
+
+func test_live_buff_restore_replaces_previously_applied_effects() -> void:
+	var system: GFCombatSystem = GFCombatSystem.new()
+	var entity: MockEntity = MockEntity.new()
+	entity.add_attr(&"ATK", 10.0)
+	system.register_entity(entity)
+
+	var buff: GFBuff = GFBuff.new()
+	buff.modifiers.append(GFModifier.create_base_add(5.0, &"ATK", &"OldBuff"))
+	buff.tags.append(&"OldTag")
+	buff.setup(&"OldBuff", -1.0, entity)
+	system.add_buff(entity, buff)
+
+	var snapshot_source: GFBuff = GFBuff.new()
+	snapshot_source.modifiers.append(GFModifier.create_base_add(3.0, &"ATK", &"NewBuff"))
+	snapshot_source.tags.append(&"NewTag")
+	snapshot_source.setup(&"NewBuff", -1.0, entity)
+
+	buff.restore_state_snapshot(snapshot_source.get_state_snapshot(), entity)
+
+	assert_false(entity.tag_component.has_tag(&"OldTag"), "恢复 live Buff 快照时应移除旧标签。")
+	assert_true(entity.tag_component.has_tag(&"NewTag"), "恢复 live Buff 快照时应应用新标签。")
+	assert_eq(_entity_attribute_value(entity, &"ATK"), 13.0, "恢复 live Buff 快照时不应叠加旧修饰器。")
 
 
 func test_clear_buffs_supports_optional_predicate() -> void:

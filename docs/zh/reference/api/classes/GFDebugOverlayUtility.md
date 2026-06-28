@@ -23,6 +23,7 @@
 | 属性 | [`recent_log_count`](#member-gfdebugoverlayutility-properties-recent_log_count) | `var recent_log_count: int = 12` |
 | 属性 | [`include_metric_series_panel`](#member-gfdebugoverlayutility-properties-include_metric_series_panel) | `var include_metric_series_panel: bool = true` |
 | 属性 | [`metric_series_width`](#member-gfdebugoverlayutility-properties-metric_series_width) | `var metric_series_width: int = 32` |
+| 属性 | [`max_metric_series`](#member-gfdebugoverlayutility-properties-max_metric_series) | `var max_metric_series: int = 256:` |
 | 属性 | [`debug_only`](#member-gfdebugoverlayutility-properties-debug_only) | `var debug_only: bool = true` |
 | 方法 | [`init`](#member-gfdebugoverlayutility-methods-init) | `func init() -> void:` |
 | 方法 | [`dispose`](#member-gfdebugoverlayutility-methods-dispose) | `func dispose() -> void:` |
@@ -150,6 +151,19 @@ var metric_series_width: int = 32
 ```
 
 指标趋势 sparkline 输出宽度。
+
+<a id="member-gfdebugoverlayutility-properties-max_metric_series"></a>
+
+### `max_metric_series`
+
+- API：`public`
+- 首次版本：`6.0.0`
+
+```gdscript
+var max_metric_series: int = 256:
+```
+
+Overlay 最多维护的指标序列数量。设为 0 表示不限制。
 
 <a id="member-gfdebugoverlayutility-properties-debug_only"></a>
 

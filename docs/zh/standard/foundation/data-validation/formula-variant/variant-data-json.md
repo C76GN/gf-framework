@@ -105,7 +105,7 @@ var pretty_json := GFVariantJsonCodec.format_json_text("{\"b\":2,\"a\":1}", "  "
 var compact_json := GFVariantJsonCodec.compact_json_text(pretty_json)
 ```
 
-`GFVariantJsonCodec.variant_to_json_compatible()` 会为 `Vector2/3/4`、整数向量、`Color`、`Rect2`、`Transform2D/3D`、`Basis`、`Quaternion`、`AABB`、`Plane`、`NodePath`、`StringName` 和常见 PackedArray 写入专用 `__gf_variant__` 类型标记，再由 `json_compatible_to_variant()` 恢复。
+`GFVariantJsonCodec.variant_to_json_compatible()` 会为 `Vector2/3/4`、整数向量、`Color`、`Rect2`、`Transform2D/3D`、`Basis`、`Quaternion`、`AABB`、`Plane`、`NodePath`、`StringName` 和常见 PackedArray 写入专用 `__gf_variant__` 类型标记，再由 `json_compatible_to_variant()` 恢复。`NaN`、`Infinity` 和 `-Infinity` 不能由 JSON number 表达，因此会写成 `Float` 类型标记，而不是交给 Godot `JSON.stringify()` 替换成 `null`。
 
 `parse_json_text()`、`format_json_text()` 和 `compact_json_text()` 面向已经是 JSON 文本的输入：它们先通过 Godot JSON 解析器确认文本有效，再返回解析值、格式化文本或去除非必要空白后的文本。解析失败时返回调用方提供的 fallback，不会把无效输入静默改写成空集合。
 

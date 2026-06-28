@@ -108,6 +108,25 @@ func test_plugin_action_menu_ids_are_unique() -> void:
 	assert_gt(highest_id, GF_PLUGIN_ACTIONS.MENU_GENERATE_PROJECT_ACCESSORS, "动态模板或包动作应可注册到菜单。")
 
 
+func test_plugin_actions_reject_duplicate_template_types() -> void:
+	var actions: Object = _new_object(GF_PLUGIN_ACTIONS)
+	_call_void(actions, &"_setup_menu_actions", [[
+		{
+			"type": "System",
+			"label": "重复 System",
+			"base_class": "BadSystem",
+			"template": "bad",
+		},
+	]])
+	var source: String = _call_text(actions, &"_get_template", ["System"])
+	var base_class: String = _call_text(actions, &"_get_base_class", ["System"])
+	_call_void(actions, &"_cleanup_extension_editor_actions")
+
+	assert_ne(source, "bad", "重复模板 type 不应覆盖已有模板记录。")
+	assert_eq(base_class, "GFSystem", "重复模板 type 不应覆盖已有 base_class。")
+	assert_push_error("[GF Framework] 模板 type 重复，已跳过: System")
+
+
 func test_plugin_actions_setup_replaces_previous_file_dialog_immediately() -> void:
 	var actions: Object = _new_object(GF_PLUGIN_ACTIONS)
 	var old_dialog: FileDialog = FileDialog.new()
@@ -161,6 +180,28 @@ func test_plugin_action_refresh_editor_contributions_emits_signal() -> void:
 	_call_void(actions, &"_cleanup_extension_editor_actions")
 
 
+func test_plugin_refresh_path_clears_manifest_cache_and_reloads_dynamic_tools() -> void:
+	var source: String = _read_text_file("res://addons/gf/plugin.gd")
+	var refresh_source: String = _extract_function_source(
+		source,
+		"func _refresh_editor_contributions() -> void:",
+		"func _scan_editor_filesystem() -> void:"
+	)
+
+	assert_true(refresh_source.contains("GFExtensionSettingsBase.clear_manifest_cache()"), "编辑器贡献刷新必须清理扩展 manifest 缓存。")
+	assert_true(refresh_source.contains("_import_tools.cleanup(self)"), "编辑器贡献刷新必须卸载旧 ImportPlugin。")
+	assert_true(refresh_source.contains("_import_tools.setup(self)"), "编辑器贡献刷新必须重新安装启用扩展的 ImportPlugin。")
+	assert_true(refresh_source.contains("_gltf_document_tools.cleanup()"), "编辑器贡献刷新必须卸载旧 glTF 文档扩展。")
+	assert_true(refresh_source.contains("_gltf_document_tools.setup()"), "编辑器贡献刷新必须重新安装启用扩展的 glTF 文档扩展。")
+
+
+func test_plugin_project_settings_reports_save_errors() -> void:
+	var source: String = _read_text_file("res://addons/gf/kernel/editor/gf_plugin_project_settings.gd")
+
+	assert_true(source.contains("var save_result: Error = ProjectSettings.save()"), "ProjectSettings 保存结果必须显式收窄为 Error。")
+	assert_true(source.contains("push_error(\"[GFPluginProjectSettings] ProjectSettings.save() 失败"), "ProjectSettings 保存失败必须有可观察错误。")
+
+
 func test_standard_template_records_are_injected_without_kernel_hardcoding() -> void:
 	var actions: Object = _new_object(GF_PLUGIN_ACTIONS)
 	_call_void(actions, &"_setup_menu_actions", [GF_STANDARD_EDITOR_EXTENSIONS.get_template_records()])
@@ -197,6 +238,21 @@ func test_standard_debugger_records_are_injected_without_kernel_hardcoding() -> 
 	assert_true(debugger_source.contains("GFDiagnosticsUtility.DEBUGGER_CAPTURE_NAME"), "Runtime Debugger 插件应声明 GF diagnostics capture。")
 
 
+func test_standard_project_setting_records_use_runtime_build_info_constants() -> void:
+	var source: String = _read_text_file("res://addons/gf/standard/editor/gf_standard_editor_extensions.gd")
+	var records: Array[Dictionary] = GF_STANDARD_EDITOR_EXTENSIONS.get_project_setting_records()
+	var names: Array[String] = []
+	for record: Dictionary in records:
+		names.append(GF_VARIANT_ACCESS.get_option_string(record, "name"))
+
+	assert_false(
+		source.contains("gf_build_info_export_plugin.gd\")"),
+		"标准编辑器聚合入口不应只为读取常量而 preload EditorExportPlugin。"
+	)
+	assert_true(names.has(GFBuildInfo.EXPORT_ENABLED_SETTING), "导出开关应来自 GFBuildInfo 常量。")
+	assert_true(names.has(GFBuildInfo.EXPORT_BUILD_METADATA_SETTING), "导出元数据设置应来自 GFBuildInfo 常量。")
+
+
 func test_plugin_project_settings_accepts_contributed_records() -> void:
 	var setting_name: String = "gf/test/contributed_project_setting"
 	var restore: Dictionary = {
@@ -217,6 +273,18 @@ func test_plugin_project_settings_accepts_contributed_records() -> void:
 
 	assert_true(changed, "通用 ProjectSettings 贡献记录应能写入缺失默认值。")
 	assert_eq(stored_value, "from-record", "贡献记录应由所属包提供默认值，kernel 不需要硬编码具体 key。")
+
+
+func test_plugin_project_settings_retains_project_owned_settings_when_records_disappear() -> void:
+	var setting_name: String = "gf/test/retained_project_setting"
+	var restore: Dictionary = _set_project_setting(setting_name, "project-owned")
+
+	GF_PLUGIN_PROJECT_SETTINGS.ensure_all([])
+	var stored_value: String = GF_VARIANT_ACCESS.to_text(ProjectSettings.get_setting(setting_name, ""))
+
+	_restore_project_setting(setting_name, restore)
+
+	assert_eq(stored_value, "project-owned", "ensure_all 不应清理本次未贡献但已归项目所有的设置。")
 
 
 func test_plugin_inspector_tools_discovers_enabled_extension_inspectors() -> void:
@@ -1132,6 +1200,18 @@ func _read_text_file(path: String) -> String:
 	var text: String = file.get_as_text()
 	file.close()
 	return text
+
+
+func _extract_function_source(source: String, start_marker: String, end_marker: String) -> String:
+	var start_index: int = source.find(start_marker)
+	assert_gte(start_index, 0, "测试 helper 应能找到函数起点。")
+	if start_index < 0:
+		return ""
+	var end_index: int = source.find(end_marker, start_index)
+	assert_gt(end_index, start_index, "测试 helper 应能找到函数终点。")
+	if end_index <= start_index:
+		return source.substr(start_index)
+	return source.substr(start_index, end_index - start_index)
 
 
 func _new_object(script: Variant) -> Object:

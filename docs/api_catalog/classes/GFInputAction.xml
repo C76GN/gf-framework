@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFInputAction" path="addons/gf/standard/input/mapping/gf_input_action.gd" module="standard" extends="Resource" classDigest="741d7e68c2756980c9a10abf324aa153f881f4456c92fdb21f2bdd47d40a1212">
+<class name="GFInputAction" path="addons/gf/standard/input/mapping/gf_input_action.gd" module="standard" extends="Resource" classDigest="3137015960ee314f2c1e0440afcf361799c43e0efbc2a4f1ddfc99b1f2a9a101">
 	<description>GFInputAction: 资源化输入动作描述。
 只描述“项目想要读取的抽象动作”，不绑定具体按键、设备或玩法逻辑。</description>
 	<tags>
@@ -92,7 +92,8 @@
 			<description>获取稳定动作标识。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="return">动作标识；未显式设置时尝试使用资源路径。</tag>
+				<tag name="return">显式动作标识；未设置时返回空标识。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</methods>

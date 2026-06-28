@@ -16,7 +16,7 @@
 | 类型 | 名称 | 签名 |
 |---|---|---|
 | 枚举 | [`UpdateMode`](#member-gfcameraorbitinput3d-enums-updatemode) | `enum UpdateMode` |
-| 属性 | [`enabled`](#member-gfcameraorbitinput3d-properties-enabled) | `var enabled: bool = true` |
+| 属性 | [`enabled`](#member-gfcameraorbitinput3d-properties-enabled) | `var enabled: bool = true:` |
 | 属性 | [`orbit_rig_path`](#member-gfcameraorbitinput3d-properties-orbit_rig_path) | `var orbit_rig_path: NodePath = NodePath("")` |
 | 属性 | [`update_mode`](#member-gfcameraorbitinput3d-properties-update_mode) | `var update_mode: UpdateMode = UpdateMode.IDLE` |
 | 属性 | [`use_input_mapping`](#member-gfcameraorbitinput3d-properties-use_input_mapping) | `var use_input_mapping: bool = false` |
@@ -26,7 +26,7 @@
 | 属性 | [`orbit_degrees_per_second`](#member-gfcameraorbitinput3d-properties-orbit_degrees_per_second) | `var orbit_degrees_per_second: float = 120.0` |
 | 属性 | [`zoom_units_per_second`](#member-gfcameraorbitinput3d-properties-zoom_units_per_second) | `var zoom_units_per_second: float = 8.0` |
 | 属性 | [`invert_y`](#member-gfcameraorbitinput3d-properties-invert_y) | `var invert_y: bool = false` |
-| 属性 | [`mouse_orbit_enabled`](#member-gfcameraorbitinput3d-properties-mouse_orbit_enabled) | `var mouse_orbit_enabled: bool = false` |
+| 属性 | [`mouse_orbit_enabled`](#member-gfcameraorbitinput3d-properties-mouse_orbit_enabled) | `var mouse_orbit_enabled: bool = false:` |
 | 属性 | [`mouse_button`](#member-gfcameraorbitinput3d-properties-mouse_button) | `var mouse_button: MouseButton = MOUSE_BUTTON_RIGHT` |
 | 属性 | [`mouse_degrees_per_pixel`](#member-gfcameraorbitinput3d-properties-mouse_degrees_per_pixel) | `var mouse_degrees_per_pixel: float = 0.15` |
 | 属性 | [`mouse_zoom_enabled`](#member-gfcameraorbitinput3d-properties-mouse_zoom_enabled) | `var mouse_zoom_enabled: bool = false` |
@@ -68,9 +68,10 @@ enum UpdateMode {
 ### `enabled`
 
 - API：`public`
+- 首次版本：`6.0.0`
 
 ```gdscript
-var enabled: bool = true
+var enabled: bool = true:
 ```
 
 是否启用输入桥接。
@@ -188,9 +189,10 @@ var invert_y: bool = false
 ### `mouse_orbit_enabled`
 
 - API：`public`
+- 首次版本：`6.0.0`
 
 ```gdscript
-var mouse_orbit_enabled: bool = false
+var mouse_orbit_enabled: bool = false:
 ```
 
 是否启用鼠标拖拽环绕。默认关闭，避免框架节点隐式接管项目输入。

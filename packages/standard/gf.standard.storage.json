@@ -4,14 +4,27 @@
   "kind": "standard",
   "version": "unreleased",
   "display_name": "GF Standard Storage",
-  "description": "Storage backends, snapshot utilities, history helpers, and storage editor tooling.",
+  "description": "Storage backends, snapshot utilities, history helpers, and safe resource codecs.",
   "dependencies": [
     "gf.kernel",
     "gf.standard.base"
   ],
   "paths": [
     "addons/gf/standard/utilities/history/**",
-    "addons/gf/standard/utilities/storage/**"
+    "addons/gf/standard/utilities/storage/gf_safe_resource_codec.gd",
+    "addons/gf/standard/utilities/storage/gf_safe_resource_codec.gd.uid",
+    "addons/gf/standard/utilities/storage/gf_safe_resource_codec_policy.gd",
+    "addons/gf/standard/utilities/storage/gf_safe_resource_codec_policy.gd.uid",
+    "addons/gf/standard/utilities/storage/gf_storage_backend.gd",
+    "addons/gf/standard/utilities/storage/gf_storage_backend.gd.uid",
+    "addons/gf/standard/utilities/storage/gf_storage_codec.gd",
+    "addons/gf/standard/utilities/storage/gf_storage_codec.gd.uid",
+    "addons/gf/standard/utilities/storage/gf_storage_conflict_report.gd",
+    "addons/gf/standard/utilities/storage/gf_storage_conflict_report.gd.uid",
+    "addons/gf/standard/utilities/storage/gf_storage_sync_utility.gd",
+    "addons/gf/standard/utilities/storage/gf_storage_sync_utility.gd.uid",
+    "addons/gf/standard/utilities/storage/gf_storage_utility.gd",
+    "addons/gf/standard/utilities/storage/gf_storage_utility.gd.uid"
   ],
   "metadata": {
     "stage": "standard-split-v1"

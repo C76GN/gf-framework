@@ -1,0 +1,161 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFRepeaterBinder" path="addons/gf/standard/utilities/ui/gf_repeater_binder.gd" module="standard" extends="RefCounted" classDigest="d303807358f317c4013f2473022dd331a3d8cb16960374dff21127b475bda044">
+	<description>GFRepeaterBinder: 响应式模板重复渲染绑定器。
+将数组数据渲染为容器中的模板副本，也可以订阅 `GFReactiveStateStore`
+的路径并在数组变化时重建。它只负责模板复制、生命周期清理和通用文本写入，
+具体行控件结构和业务交互由项目节点或 configure_callable 决定。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_handle</tag>
+		<tag name="since">7.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants>
+		<member kind="const" name="META_CLONE">
+			<signature>const META_CLONE: StringName = &amp;"gf_repeater_clone"</signature>
+			<description>重复节点标记 meta key。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="META_GROUP_KEY">
+			<signature>const META_GROUP_KEY: StringName = &amp;"gf_repeater_group_key"</signature>
+			<description>重复节点分组 meta key。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="META_INDEX">
+			<signature>const META_INDEX: StringName = &amp;"gf_repeater_index"</signature>
+			<description>重复节点索引 meta key。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="META_ITEM">
+			<signature>const META_ITEM: StringName = &amp;"gf_repeater_item"</signature>
+			<description>重复节点原始条目 meta key。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties />
+	<methods>
+		<member kind="method" name="bind_repeater">
+			<signature>func bind_repeater( store: RefCounted, path: Variant, container: Node, template: Node, options: Dictionary = {} ) -&gt; bool:</signature>
+			<description>绑定 store 路径到模板重复渲染。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">store: `GFReactiveStateStore` 实例。</tag>
+				<tag name="param">path: 状态路径，路径值应为 Array。</tag>
+				<tag name="param">container: 承载重复节点的容器。</tag>
+				<tag name="param">template: 要复制的模板节点。</tag>
+				<tag name="param">options: 可选项。支持 group_key、text_key、clear_existing、hide_template、duplicate_flags、configure_callable、sync_initial 和 default_items。</tag>
+				<tag name="return">成功绑定时返回 true。</tag>
+				<tag name="schema">store: GFReactiveStateStore 实例；签名使用 RefCounted 以避免新全局类注册顺序影响脚本解析。</tag>
+				<tag name="schema">path: Variant，路径表达。</tag>
+				<tag name="schema">options: Dictionary，模板复制和字段映射选项。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="rebuild_target">
+			<signature>func rebuild_target(container: Node, template: Node, items: Array, options: Dictionary = {}) -&gt; Array[Node]:</signature>
+			<description>直接重建容器中的模板副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">container: 承载重复节点的容器。</tag>
+				<tag name="param">template: 要复制的模板节点。</tag>
+				<tag name="param">items: 条目数组。</tag>
+				<tag name="param">options: 可选项，字段同 bind_repeater()。</tag>
+				<tag name="return">新建的节点数组。</tag>
+				<tag name="schema">items: Array，重复渲染的数据条目。</tag>
+				<tag name="schema">options: Dictionary，模板复制和字段映射选项。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="unbind_container">
+			<signature>func unbind_container(container: Node, options: Dictionary = {}) -&gt; bool:</signature>
+			<description>解绑指定容器。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">container: 目标容器。</tag>
+				<tag name="param">options: 可选项，支持 group_key。</tag>
+				<tag name="return">找到并解绑时返回 true。</tag>
+				<tag name="schema">options: Dictionary，包含可选 group_key。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="unbind_path">
+			<signature>func unbind_path(store: RefCounted, path: Variant) -&gt; int:</signature>
+			<description>解绑指定 store 路径上的所有重复渲染。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">store: `GFReactiveStateStore` 实例。</tag>
+				<tag name="param">path: 状态路径。</tag>
+				<tag name="return">解绑数量。</tag>
+				<tag name="schema">store: GFReactiveStateStore 实例；签名使用 RefCounted 以避免新全局类注册顺序影响脚本解析。</tag>
+				<tag name="schema">path: Variant，路径表达。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="clear">
+			<signature>func clear() -&gt; void:</signature>
+			<description>清理所有绑定。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_binding_count">
+			<signature>func get_binding_count() -&gt; int:</signature>
+			<description>获取当前有效绑定数量。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">有效绑定数量。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="dispose">
+			<signature>func dispose() -&gt; void:</signature>
+			<description>释放所有绑定。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="rebuild_container">
+			<signature>static func rebuild_container( container: Node, template: Node, items: Array, options: Dictionary = {} ) -&gt; Array[Node]:</signature>
+			<description>重建容器中的模板副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">container: 承载重复节点的容器。</tag>
+				<tag name="param">template: 要复制的模板节点。</tag>
+				<tag name="param">items: 条目数组。</tag>
+				<tag name="param">options: 可选项。支持 group_key、text_key、clear_existing、hide_template、duplicate_flags 和 configure_callable。</tag>
+				<tag name="return">新建的节点数组。</tag>
+				<tag name="schema">items: Array，重复渲染的数据条目。</tag>
+				<tag name="schema">options: Dictionary，模板复制和字段映射选项。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="clear_clones">
+			<signature>static func clear_clones(container: Node, options: Dictionary = {}) -&gt; int:</signature>
+			<description>清理容器中由 GFRepeaterBinder 创建的副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">container: 目标容器。</tag>
+				<tag name="param">options: 可选项，支持 group_key。</tag>
+				<tag name="return">清理的节点数量。</tag>
+				<tag name="schema">options: Dictionary，包含可选 group_key。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

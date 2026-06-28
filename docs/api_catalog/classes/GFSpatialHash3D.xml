@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSpatialHash3D" path="addons/gf/standard/foundation/math/gf_spatial_hash_3d.gd" module="standard" extends="RefCounted" classDigest="a10784fa8e88c56317cc756e3a1a14e79bca8d04019dc48bb46095c6109f3404">
+<class name="GFSpatialHash3D" path="addons/gf/standard/foundation/math/gf_spatial_hash_3d.gd" module="standard" extends="RefCounted" classDigest="319ecc21755c80a13ba66e0c43934828d850018072584c7d8bf8229b06da379b">
 	<description>GFSpatialHash3D: 纯逻辑 3D 空间哈希。
 适用于大量动态 3D 实体的粗粒度范围查询。它只维护 AABB 索引，
 不负责物理碰撞、可见性或玩法规则。</description>
@@ -10,13 +10,32 @@
 	</tags>
 	<signals />
 	<enums />
-	<constants />
+	<constants>
+		<member kind="const" name="DEFAULT_MAX_COVERED_CELLS">
+			<signature>const DEFAULT_MAX_COVERED_CELLS: int = 262144</signature>
+			<description>单次插入或查询允许覆盖的默认最大哈希格子数。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+	</constants>
 	<properties>
 		<member kind="property" name="cell_size">
 			<signature>var cell_size: float:</signature>
 			<description>单个哈希格子的世界尺寸。</description>
 			<tags>
 				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="property" name="max_covered_cells">
+			<signature>var max_covered_cells: int:</signature>
+			<description>单个 AABB 或格子范围允许覆盖的最大哈希格子数。
+超过上限的插入会返回 false；超过上限的查询会返回空结果，避免误用超大范围导致
+一帧内分配海量中间数组。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
 			</tags>
 		</member>
 	</properties>
@@ -47,7 +66,8 @@
 				<tag name="param">entity: 实体标识或 Object。</tag>
 				<tag name="param">bounds: 实体 AABB。</tag>
 				<tag name="return">成功时返回 true。</tag>
-				<tag name="schema">entity: Variant entity identity stored by value or weak Object reference.</tag>
+				<tag name="schema">entity: Object, StringName, String, or int identity stored by value or weak Object reference.</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="remove">
@@ -56,7 +76,8 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">entity: 实体标识或 Object。</tag>
-				<tag name="schema">entity: Variant entity identity stored by value or weak Object reference.</tag>
+				<tag name="schema">entity: Object, StringName, String, or int identity stored by value or weak Object reference.</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="update">
@@ -67,7 +88,8 @@
 				<tag name="param">entity: 实体标识或 Object。</tag>
 				<tag name="param">bounds: 新 AABB。</tag>
 				<tag name="return">成功时返回 true。</tag>
-				<tag name="schema">entity: Variant entity identity stored by value or weak Object reference.</tag>
+				<tag name="schema">entity: Object, StringName, String, or int identity stored by value or weak Object reference.</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="has_entity">
@@ -77,7 +99,8 @@
 				<tag name="api">public</tag>
 				<tag name="param">entity: 实体标识或 Object。</tag>
 				<tag name="return">存在时返回 true。</tag>
-				<tag name="schema">entity: Variant entity identity stored by value or weak Object reference.</tag>
+				<tag name="schema">entity: Object, StringName, String, or int identity stored by value or weak Object reference.</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_entity_count">
@@ -94,7 +117,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">调试快照。</tag>
-				<tag name="schema">return: Dictionary with cell_size, entity_count, bucket_count, max_bucket_size, and average_bucket_size.</tag>
+				<tag name="schema">return: Dictionary with cell_size, max_covered_cells, entity_count, bucket_count, max_bucket_size, and average_bucket_size.</tag>
 				<tag name="since">6.0.0</tag>
 			</tags>
 		</member>

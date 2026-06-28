@@ -43,12 +43,13 @@ var message_type: StringName = &""
 ### `sequence`
 
 - API：`public`
+- 首次版本：`7.0.0`
 
 ```gdscript
 var sequence: int = 0
 ```
 
-发送端自增序号。
+发送端自增序号。 该字段只是项目层可序列化 metadata；GF Network 不基于它提供 ACK、重试或去重。
 
 <a id="member-gfnetworkmessage-properties-tick"></a>
 

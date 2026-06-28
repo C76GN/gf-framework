@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFSurfaceScatterSampler3D" path="addons/gf/standard/foundation/math/gf_surface_scatter_sampler_3d.gd" module="standard" extends="RefCounted" classDigest="0a0d0b4fb4f925081d55775fbc87fc6905ee0b69e99ae42ec748a59543677126">
+	<description>GFSurfaceScatterSampler3D: 通用 3D 表面散布 Transform 采样器。
+在 X/Z 区域或候选点集上调用高度/法线提供者，按高度、坡度、旋转和缩放约束
+输出纯 Transform3D 与诊断报告。它不创建 Node、MultiMesh、碰撞体或项目对象。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_service</tag>
+		<tag name="since">7.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants>
+		<member kind="const" name="DEFAULT_MAX_ATTEMPT_MULTIPLIER">
+			<signature>const DEFAULT_MAX_ATTEMPT_MULTIPLIER: int = 12</signature>
+			<description>区域随机采样的默认最大尝试倍数。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="DEFAULT_MAX_RANDOM_ATTEMPTS">
+			<signature>const DEFAULT_MAX_RANDOM_ATTEMPTS: int = 65536</signature>
+			<description>默认最大候选点数量，避免误把超大散布任务交给单帧纯 GDScript。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties />
+	<methods>
+		<member kind="method" name="sample_heightfield">
+			<signature>static func sample_heightfield( heightfield: GFHeightfield3D, area: Rect2, count: int, options: Dictionary = {} ) -&gt; Dictionary:</signature>
+			<description>在高度场覆盖的 X/Z 区域中生成散布 Transform。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">heightfield: 高度场数据。</tag>
+				<tag name="param">area: X/Z 采样区域，Rect2.position 为最小 X/Z，Rect2.size 为范围尺寸。</tag>
+				<tag name="param">count: 目标 Transform 数量。</tag>
+				<tag name="param">options: 采样选项。</tag>
+				<tag name="return">散布报告。</tag>
+				<tag name="schema">options: Dictionary supports seed, max_attempt_multiplier, max_random_attempts, height_min, height_max, slope_min, slope_max, yaw_min, yaw_max, scale_min, scale_max, y_offset, align_to_normal, and vertical_scale.</tag>
+				<tag name="schema">return: Dictionary with ok, error, area, target_count, accepted_count, attempt_count, max_attempts, seed, transforms, points, normals, exhausted_attempts, rejected_height_count, rejected_slope_count, and rejected_invalid_count.</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="sample_heightfield_points">
+			<signature>static func sample_heightfield_points( heightfield: GFHeightfield3D, points: PackedVector2Array, options: Dictionary = {} ) -&gt; Dictionary:</signature>
+			<description>将候选 X/Z 点投射到高度场并生成散布 Transform。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">heightfield: 高度场数据。</tag>
+				<tag name="param">points: 候选 X/Z 点集。</tag>
+				<tag name="param">options: 采样选项。</tag>
+				<tag name="return">散布报告。</tag>
+				<tag name="schema">options: Dictionary supports seed, max_points, height_min, height_max, slope_min, slope_max, yaw_min, yaw_max, scale_min, scale_max, y_offset, align_to_normal, and vertical_scale.</tag>
+				<tag name="schema">return: Dictionary with ok, error, area, target_count, accepted_count, attempt_count, max_attempts, seed, transforms, points, normals, exhausted_attempts, rejected_height_count, rejected_slope_count, and rejected_invalid_count.</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="sample">
+			<signature>static func sample( area: Rect2, count: int, height_provider: Callable, normal_provider: Callable = Callable(), options: Dictionary = {} ) -&gt; Dictionary:</signature>
+			<description>在 X/Z 区域中随机生成候选点并采样散布 Transform。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">area: X/Z 采样区域，Rect2.position 为最小 X/Z，Rect2.size 为范围尺寸。</tag>
+				<tag name="param">count: 目标 Transform 数量。</tag>
+				<tag name="param">height_provider: 高度回调，签名为 func(world_x: float, world_z: float) -&gt; float。</tag>
+				<tag name="param">normal_provider: 法线回调，签名为 func(world_x: float, world_z: float, vertical_scale: float) -&gt; Vector3；无效时使用 Vector3.UP。</tag>
+				<tag name="param">options: 采样选项。</tag>
+				<tag name="return">散布报告。</tag>
+				<tag name="schema">options: Dictionary supports seed, max_attempt_multiplier, max_random_attempts, height_min, height_max, slope_min, slope_max, yaw_min, yaw_max, scale_min, scale_max, y_offset, align_to_normal, and vertical_scale.</tag>
+				<tag name="schema">return: Dictionary with ok, error, area, target_count, accepted_count, attempt_count, max_attempts, seed, transforms, points, normals, exhausted_attempts, rejected_height_count, rejected_slope_count, and rejected_invalid_count.</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="sample_points">
+			<signature>static func sample_points( points: PackedVector2Array, height_provider: Callable, normal_provider: Callable = Callable(), options: Dictionary = {} ) -&gt; Dictionary:</signature>
+			<description>将已有候选 X/Z 点投射为散布 Transform。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">points: 候选 X/Z 点集。</tag>
+				<tag name="param">height_provider: 高度回调，签名为 func(world_x: float, world_z: float) -&gt; float。</tag>
+				<tag name="param">normal_provider: 法线回调，签名为 func(world_x: float, world_z: float, vertical_scale: float) -&gt; Vector3；无效时使用 Vector3.UP。</tag>
+				<tag name="param">options: 采样选项。</tag>
+				<tag name="return">散布报告。</tag>
+				<tag name="schema">options: Dictionary supports seed, max_points, height_min, height_max, slope_min, slope_max, yaw_min, yaw_max, scale_min, scale_max, y_offset, align_to_normal, and vertical_scale.</tag>
+				<tag name="schema">return: Dictionary with ok, error, area, target_count, accepted_count, attempt_count, max_attempts, seed, transforms, points, normals, exhausted_attempts, rejected_height_count, rejected_slope_count, and rejected_invalid_count.</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

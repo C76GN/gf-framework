@@ -37,12 +37,21 @@ signal fetch_completed(url: String, result: Dictionary)
 signal fetch_failed(url: String, result: Dictionary)
 
 
+# --- 常量 ---
+
+const _DEFAULT_CACHE_DIR_NAME: String = "gf_remote_cache"
+
+
 # --- 公共变量 ---
 
 ## user:// 下的缓存子目录名。
 ## [br]
 ## @api public
-var cache_dir_name: String = "gf_remote_cache"
+## [br]
+## @since 3.17.0
+var cache_dir_name: String = _DEFAULT_CACHE_DIR_NAME:
+	set(value):
+		cache_dir_name = _sanitize_cache_dir_name(value)
 
 ## 默认缓存有效期，单位秒。单次请求可覆盖。
 ## [br]
@@ -94,6 +103,7 @@ func dispose() -> void:
 	_pending_requests.clear()
 	_active_request.clear()
 	if is_instance_valid(_http_request):
+		_http_request.cancel_request()
 		_http_request.queue_free()
 	_http_request = null
 
@@ -461,6 +471,8 @@ func _cancel_by_cache_key(cache_key: String) -> int:
 func _cancel_http_request() -> void:
 	if is_instance_valid(_http_request):
 		_http_request.cancel_request()
+		_http_request.queue_free()
+	_http_request = null
 
 
 func _get_request_callbacks(request_data: Dictionary) -> Array[Callable]:
@@ -582,6 +594,24 @@ func _ensure_cache_dir() -> void:
 
 func _get_cache_dir_path() -> String:
 	return "user://%s" % cache_dir_name
+
+
+func _sanitize_cache_dir_name(value: String) -> String:
+	var normalized: String = value.replace("\\", "/").strip_edges()
+	if normalized.is_empty() or normalized == "." or normalized == "..":
+		return _DEFAULT_CACHE_DIR_NAME
+	if normalized.begins_with("/") or normalized.contains("://") or normalized.contains(":"):
+		return _DEFAULT_CACHE_DIR_NAME
+	if normalized.contains("/") or _has_parent_path_segment(normalized):
+		return _DEFAULT_CACHE_DIR_NAME
+	return normalized
+
+
+func _has_parent_path_segment(path: String) -> bool:
+	for segment: String in path.split("/", false):
+		if segment == "..":
+			return true
+	return false
 
 
 func _build_cache_key(url: String, headers: PackedStringArray, format: StringName) -> String:

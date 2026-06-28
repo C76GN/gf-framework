@@ -337,7 +337,6 @@ func multiply(
 	if other == null:
 		return clone()
 
-	var product_raw: int = _checked_multiply(raw_value, other.raw_value, "multiply")
 	var product_places: int = decimal_places + other.decimal_places
 	var result_places: int = target_decimal_places
 	if result_places < 0:
@@ -345,7 +344,10 @@ func multiply(
 	else:
 		result_places = _normalize_decimal_places(result_places)
 
-	return GFFixedDecimal.new(product_raw, product_places).rescaled(result_places, rounding_mode)
+	return GFFixedDecimal.new(
+		_multiply_rescaled_raw(raw_value, other.raw_value, product_places - result_places, rounding_mode),
+		result_places
+	)
 
 
 ## 与另一个定点数相除。
@@ -451,11 +453,12 @@ func to_decimal_string(trim_zeroes: bool = false) -> String:
 ## @schema return: Dictionary with `type: String`, `version: int`, `raw_value: String`, and `decimal_places: int`.
 func to_dict() -> Dictionary:
 	var serialized_raw: int = _normalize_raw_value(raw_value, "to_dict")
+	var serialized_places: int = _normalize_decimal_places(decimal_places)
 	return {
 		"type": _SERIALIZATION_TYPE,
 		"version": _SERIALIZATION_VERSION,
 		"raw_value": str(serialized_raw),
-		"decimal_places": decimal_places,
+		"decimal_places": serialized_places,
 	}
 
 
@@ -505,7 +508,7 @@ func to_bytes() -> PackedByteArray:
 	var _magic_2: bool = result.append(_BYTE_MAGIC_2)
 	var _magic_3: bool = result.append(_BYTE_MAGIC_3)
 	var _version_appended: bool = result.append(_SERIALIZATION_VERSION)
-	var _places_appended: bool = result.append(decimal_places)
+	var _places_appended: bool = result.append(_normalize_decimal_places(decimal_places))
 	result = _append_signed_magnitude(result, raw_value, "GFFixedDecimal", "to_bytes")
 	return result
 
@@ -767,6 +770,22 @@ static func _divide_with_scaled_float(
 	return _decimal_string_to_int_saturated(adjusted_text, negative)
 
 
+static func _multiply_rescaled_raw(
+	left_raw: int,
+	right_raw: int,
+	scale_diff: int,
+	rounding_mode: RoundingMode
+) -> int:
+	var negative: bool = (left_raw < 0) != (right_raw < 0)
+	var product_text: String = _multiply_decimal_strings(str(_abs_int(left_raw)), str(_abs_int(right_raw)))
+	var adjusted_text: String = product_text
+	if scale_diff >= 0:
+		adjusted_text = _round_decimal_string_by_power(product_text, scale_diff, negative, rounding_mode)
+	else:
+		adjusted_text = product_text + _repeat_character("0", -scale_diff)
+	return _decimal_string_to_int_saturated(adjusted_text, negative, "multiply")
+
+
 static func _parse_decimal_to_raw(
 	integer_part: String,
 	fractional_part: String,
@@ -865,6 +884,96 @@ static func _normalize_decimal_string(text: String) -> String:
 	return result
 
 
+static func _multiply_decimal_strings(left: String, right: String) -> String:
+	var normalized_left: String = _normalize_decimal_string(left)
+	var normalized_right: String = _normalize_decimal_string(right)
+	if normalized_left == "0" or normalized_right == "0":
+		return "0"
+
+	var result: String = "0"
+	var zero_suffix: String = ""
+	for index: int in range(normalized_right.length() - 1, -1, -1):
+		var digit: int = normalized_right.substr(index, 1).to_int()
+		var partial: String = _multiply_decimal_string_by_digit(normalized_left, digit)
+		if partial != "0":
+			partial += zero_suffix
+		result = _add_decimal_strings(result, partial)
+		zero_suffix += "0"
+	return _normalize_decimal_string(result)
+
+
+static func _add_decimal_strings(left: String, right: String) -> String:
+	var left_text: String = _normalize_decimal_string(left)
+	var right_text: String = _normalize_decimal_string(right)
+	var result_parts: PackedStringArray = PackedStringArray()
+	var carry: int = 0
+	var left_index: int = left_text.length() - 1
+	var right_index: int = right_text.length() - 1
+	while left_index >= 0 or right_index >= 0 or carry > 0:
+		var digit_sum: int = carry
+		if left_index >= 0:
+			digit_sum += left_text.substr(left_index, 1).to_int()
+		if right_index >= 0:
+			digit_sum += right_text.substr(right_index, 1).to_int()
+		_append_packed_string(result_parts, str(digit_sum % 10))
+		carry = _divide_truncated(digit_sum, 10)
+		left_index -= 1
+		right_index -= 1
+	result_parts.reverse()
+	return _normalize_decimal_string("".join(result_parts))
+
+
+static func _round_decimal_string_by_power(
+	value: String,
+	scale_diff: int,
+	negative: bool,
+	rounding_mode: RoundingMode
+) -> String:
+	if scale_diff <= 0:
+		return value
+
+	var normalized_value: String = _normalize_decimal_string(value)
+	var quotient: String = "0"
+	var remainder: String = normalized_value
+	if normalized_value.length() > scale_diff:
+		quotient = normalized_value.left(normalized_value.length() - scale_diff)
+		remainder = normalized_value.substr(normalized_value.length() - scale_diff)
+	else:
+		remainder = _repeat_character("0", scale_diff - normalized_value.length()) + normalized_value
+
+	if _should_round_decimal_remainder(remainder, quotient, negative, rounding_mode):
+		return _add_one_decimal_string(quotient)
+	return _normalize_decimal_string(quotient)
+
+
+static func _should_round_decimal_remainder(
+	remainder: String,
+	quotient: String,
+	negative: bool,
+	rounding_mode: RoundingMode
+) -> bool:
+	if remainder.is_empty() or not _has_non_zero_digit(remainder):
+		return false
+
+	var first_digit: int = remainder.substr(0, 1).to_int()
+	match rounding_mode:
+		RoundingMode.HALF_UP:
+			return first_digit >= 5
+		RoundingMode.HALF_EVEN:
+			if first_digit > 5:
+				return true
+			if first_digit < 5:
+				return false
+			return _has_non_zero_digit(remainder.substr(1)) or _decimal_string_is_odd(quotient)
+		RoundingMode.FLOOR:
+			return negative
+		RoundingMode.CEIL:
+			return not negative
+		RoundingMode.TRUNCATE:
+			return false
+	return false
+
+
 static func _state_value_is_int(value: Variant) -> bool:
 	return _call_serialization_support_bool(&"state_value_is_int", [value])
 
@@ -948,19 +1057,19 @@ static func _decimal_string_is_odd(text: String) -> bool:
 	return normalized_text.substr(normalized_text.length() - 1, 1).to_int() % 2 != 0
 
 
-static func _decimal_string_to_int_saturated(text: String, is_negative: bool) -> int:
+static func _decimal_string_to_int_saturated(text: String, is_negative: bool, context: String = "divide") -> int:
 	var normalized_text: String = _normalize_decimal_string(text)
 	if normalized_text.length() > 19 or (
 		normalized_text.length() == 19
 		and normalized_text > str(_MAX_INT_VALUE)
 	):
-		push_error("[GFFixedDecimal] divide 结果超出可表示范围，已钳制。")
+		push_error("[GFFixedDecimal] %s 结果超出可表示范围，已钳制。" % context)
 		return _get_saturated_int(is_negative)
 
 	var result: int = 0
 	for i: int in range(normalized_text.length()):
-		result = _checked_multiply(result, 10, "divide")
-		result = _checked_add(result, normalized_text.substr(i, 1).to_int(), "divide")
+		result = _checked_multiply(result, 10, context)
+		result = _checked_add(result, normalized_text.substr(i, 1).to_int(), context)
 
 	return -result if is_negative else result
 

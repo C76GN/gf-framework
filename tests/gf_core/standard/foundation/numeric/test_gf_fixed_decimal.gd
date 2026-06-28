@@ -62,6 +62,16 @@ func test_multiply_and_divide_keep_expected_scale() -> void:
 	assert_eq(divided.to_decimal_string(), "0.3333", "1 / 3 在 4 位小数截断下应得到 0.3333。")
 
 
+func test_multiply_uses_final_scale_before_saturating() -> void:
+	var left: GFFixedDecimal = GFFixedDecimal.new(9_000_000_000_000_000_000, 18)
+	var right: GFFixedDecimal = GFFixedDecimal.new(1_000_000_000_000_000_000, 18)
+
+	var result: GFFixedDecimal = left.multiply(right, 18)
+
+	assert_eq(result.raw_value, 9_000_000_000_000_000_000, "最终 raw 可表示时，乘法不应因中间 raw 乘积过大而提前钳制。")
+	assert_eq(result.to_decimal_string(), "9.000000000000000000")
+
+
 func test_to_string_can_trim_trailing_zeroes() -> void:
 	var value: GFFixedDecimal = GFFixedDecimal.from_string("1234.500", 3)
 
@@ -77,6 +87,19 @@ func test_to_dict_uses_json_safe_raw_value() -> void:
 	assert_eq(GFVariantData.get_option_int(data, "version"), 1, "状态字典应带格式版本。")
 	assert_eq(GFVariantData.get_option_string(data, "raw_value"), "9223372036854775000", "raw_value 应保存为字符串，避免 JSON 精度丢失。")
 	assert_eq(GFVariantData.get_option_int(data, "decimal_places"), 18, "状态字典应保存小数位。")
+
+
+func test_serialization_normalizes_mutated_decimal_places() -> void:
+	var value: GFFixedDecimal = GFFixedDecimal.new(123, 2)
+	value.decimal_places = 30
+
+	var data: Dictionary = value.to_dict()
+	var bytes: PackedByteArray = value.to_bytes()
+
+	assert_push_error("[GFFixedDecimal] decimal_places 超出上限 18，已自动钳制。")
+	assert_push_error("[GFFixedDecimal] decimal_places 超出上限 18，已自动钳制。")
+	assert_eq(GFVariantData.get_option_int(data, "decimal_places"), GFFixedDecimal.MAX_DECIMAL_PLACES, "状态字典应序列化归一化后的小数位。")
+	assert_eq(bytes[5], GFFixedDecimal.MAX_DECIMAL_PLACES, "字节格式应序列化归一化后的小数位。")
 
 
 func test_dict_roundtrips_through_json() -> void:

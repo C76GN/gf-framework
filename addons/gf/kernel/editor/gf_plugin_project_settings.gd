@@ -90,6 +90,10 @@ const GFExtensionSettingsBase = preload("res://addons/gf/kernel/extension/gf_ext
 # --- 公共方法 ---
 
 ## 确保所有 GF ProjectSettings 存在并注册显示信息。
+##
+## 该方法只补齐缺失默认值和 Inspector 属性提示，不会清理本次未贡献的设置。
+## 已写入的 ProjectSettings 归项目所有；模块禁用、贡献消失或 core-only 回退时，
+## GF 不会自动删除用户项目配置。
 ## [br]
 ## @api framework_internal
 ## [br]
@@ -118,7 +122,7 @@ static func ensure_all(project_setting_records: Array[Dictionary] = []) -> void:
 	_register_property_info()
 	GFExtensionSettingsBase.register_property_info()
 	if should_save:
-		var _save_result_150: Variant = ProjectSettings.save()
+		var _saved: bool = _save_project_settings()
 
 
 ## 获取 GF 访问器输出路径。
@@ -163,6 +167,14 @@ static func _ensure_project_setting_records(project_setting_records: Array[Dicti
 		if _GF_PROJECT_SETTINGS_TOOLS.ensure_setting(setting_name, default_value, options):
 			should_save = true
 	return should_save
+
+
+static func _save_project_settings() -> bool:
+	var save_result: Error = ProjectSettings.save()
+	if save_result != OK:
+		push_error("[GFPluginProjectSettings] ProjectSettings.save() 失败：%s" % error_string(save_result))
+		return false
+	return true
 
 
 static func _register_property_info() -> void:

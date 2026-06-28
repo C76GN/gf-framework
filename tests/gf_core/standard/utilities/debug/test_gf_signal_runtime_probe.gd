@@ -56,6 +56,30 @@ func test_probe_records_wide_signal_payload() -> void:
 	source.free()
 
 
+func test_probe_snapshots_object_arguments_without_live_references() -> void:
+	var source: SignalSource = SignalSource.new()
+	var payload: Resource = Resource.new()
+	payload.resource_name = "Payload"
+	var probe: GFSignalRuntimeProbe = GFSignalRuntimeProbe.new()
+
+	var report: Dictionary = probe.watch_node(source, {
+		"include_signals": [&"object_payload"],
+	})
+	source.object_payload.emit(payload)
+
+	var events: Array[Dictionary] = probe.get_events()
+	var event: Dictionary = events[0]
+	var arguments: Array = GFVariantData.as_array(GFVariantData.get_option_value(event, "arguments"))
+	var argument_snapshot: Dictionary = GFVariantData.as_dictionary(arguments[0])
+
+	assert_true(GFVariantData.get_option_bool(report, "ok"), "对象参数信号应能被监听。")
+	assert_eq(GFVariantData.get_option_string(argument_snapshot, "type"), "Resource", "对象参数应转换为诊断快照。")
+	assert_false(arguments[0] is Resource, "事件历史不应保留 live Resource 引用。")
+
+	var _unwatch_all_result: Variant = probe.unwatch_all()
+	source.free()
+
+
 func test_probe_respects_event_limit_and_unwatch() -> void:
 	var source: SignalSource = SignalSource.new()
 	var probe: GFSignalRuntimeProbe = GFSignalRuntimeProbe.new()
@@ -149,6 +173,7 @@ class SignalSource extends Node:
 	signal no_args
 	signal value_changed(value: Variant)
 	signal pair_changed(left: Variant, right: Variant)
+	signal object_payload(payload: Variant)
 	signal wide_payload(
 		a: Variant,
 		b: Variant,

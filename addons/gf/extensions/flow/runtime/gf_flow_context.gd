@@ -305,6 +305,8 @@ func _normalize_condition_result(condition_id: StringName, raw_result: Variant, 
 			"reason": GFVariantData.get_option_string(data, "reason", GFVariantData.get_option_string(data, "error", "")),
 			"metadata": GFVariantData.get_option_dictionary(data, "metadata"),
 		}
+	if raw_result == null:
+		return _make_condition_result(true, condition_id, default_value, "")
 	return _make_condition_result(true, condition_id, raw_result, "")
 
 

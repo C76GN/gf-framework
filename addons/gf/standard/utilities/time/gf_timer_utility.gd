@@ -12,6 +12,11 @@ class_name GFTimerUtility
 extends GFUtility
 
 
+# --- 常量 ---
+
+const _MAX_CATCH_UP_EXECUTIONS: int = 1024
+
+
 # --- 私有变量 ---
 
 # 待执行的延时任务列表。每项包含 `id`、`remaining`、`interval`、`repeat_count` 与 `callback` 字段。
@@ -60,10 +65,12 @@ func tick(delta: float) -> void:
 			_pending_timers.remove_at(index)
 			continue
 
-		timer_data["remaining"] = maxf(_get_timer_remaining(timer_data) - delta, 0.0)
+		var remaining: float = _get_timer_remaining(timer_data) - delta
+		timer_data["remaining"] = remaining
 		_pending_timers[index] = timer_data
 
-		if _get_timer_remaining(timer_data) <= 0.0:
+		if remaining <= 0.0:
+			timer_data["overshoot"] = -remaining
 			ready_timers.append(timer_data)
 			_pending_timers.remove_at(index)
 
@@ -283,35 +290,45 @@ func _queue_timer(
 
 func _execute_ready_timer(timer_data: Dictionary) -> void:
 	var handle: int = _get_timer_id(timer_data)
-	if _cancelled_handles.has(handle) or _timer_owner_is_released(timer_data):
-		var _removed: bool = _cancelled_handles.erase(handle)
-		return
+	var overshoot: float = maxf(GFVariantData.get_option_float(timer_data, "overshoot", 0.0), 0.0)
+	var catch_up_count: int = 0
+	while true:
+		if _cancelled_handles.has(handle) or _timer_owner_is_released(timer_data):
+			var _removed_cancelled_before: bool = _cancelled_handles.erase(handle)
+			return
 
-	var callback: Callable = _get_timer_callback(timer_data)
-	if callback.is_valid():
+		var callback: Callable = _get_timer_callback(timer_data)
+		if not callback.is_valid():
+			return
+
 		_executing_handles[handle] = true
 		var _result: Variant = callback.call()
-		var _removed: bool = _executing_handles.erase(handle)
+		var _removed_executing: bool = _executing_handles.erase(handle)
 
-	if _cancelled_handles.has(handle):
-		var _removed: bool = _cancelled_handles.erase(handle)
-		return
-	if _timer_owner_is_released(timer_data):
-		return
-
-	var interval: float = _get_timer_interval(timer_data)
-	if interval <= 0.0:
-		return
-
-	var repeat_count: int = _get_timer_repeat_count(timer_data)
-	if repeat_count > 0:
-		repeat_count -= 1
-		if repeat_count <= 0:
+		if _cancelled_handles.has(handle):
+			var _removed_cancelled_after: bool = _cancelled_handles.erase(handle)
 			return
-		timer_data["repeat_count"] = repeat_count
+		if _timer_owner_is_released(timer_data):
+			return
 
-	timer_data["remaining"] = interval
-	_pending_timers.append(timer_data)
+		var interval: float = _get_timer_interval(timer_data)
+		if interval <= 0.0:
+			return
+
+		var repeat_count: int = _get_timer_repeat_count(timer_data)
+		if repeat_count > 0:
+			repeat_count -= 1
+			if repeat_count <= 0:
+				return
+			timer_data["repeat_count"] = repeat_count
+
+		catch_up_count += 1
+		if catch_up_count >= _MAX_CATCH_UP_EXECUTIONS or overshoot < interval:
+			timer_data["remaining"] = interval - overshoot if overshoot < interval else interval
+			timer_data["overshoot"] = 0.0
+			_pending_timers.append(timer_data)
+			return
+		overshoot -= interval
 
 
 func _timer_owner_is_released(timer_data: Dictionary) -> bool:

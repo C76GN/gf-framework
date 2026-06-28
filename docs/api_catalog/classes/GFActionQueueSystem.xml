@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFActionQueueSystem" path="addons/gf/extensions/action_queue/core/gf_action_queue_system.gd" module="extensions/action_queue" extends="GFSystem" classDigest="4a538f9428fa609a253b4dc25c6643b590582597128c5c214498dbd5f8f69588">
+<class name="GFActionQueueSystem" path="addons/gf/extensions/action_queue/core/gf_action_queue_system.gd" module="extensions/action_queue" extends="GFSystem" classDigest="1b06c3060af25dfc30f209d900f4a36842177a6c42ac0426c7ad6bfa9dfedeb8">
 	<description>GFActionQueueSystem: 逻辑与表现解耦的动作队列系统。
 负责串行或并行消费动作对象，并在等待 Signal 时对发射源失效做防死锁保护。
 动作可继承 `GFVisualAction`，也可直接实现 execute()/can_execute()/cancel() 等同名协议方法。</description>
@@ -274,7 +274,8 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">诊断快照字典。</tag>
-				<tag name="schema">return: Dictionary，包含 is_processing、queued_count、has_current_action、processing_serial、named_queue_count、named_queues、linked_node_alive 和 interceptor_count。</tag>
+				<tag name="schema">return: Dictionary，包含 is_processing、is_paused、queued_count、has_current_action、processing_serial、named_queue_count、named_queues、linked_node_alive 和 interceptor_count。</tag>
+				<tag name="since">6.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="tick">

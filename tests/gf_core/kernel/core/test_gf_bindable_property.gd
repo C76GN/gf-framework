@@ -152,6 +152,40 @@ func test_force_emit_broadcasts_current_value() -> void:
 	assert_signal_emitted_with_parameters(prop, "value_changed", [value, value])
 
 
+func test_subscribe_collection_payloads_are_isolated_between_listeners() -> void:
+	var prop: GFBindableProperty = GFBindableProperty.new({ "hp": 10 })
+	var second_listener_values: Array[Dictionary] = []
+	var _unsubscribe_first: Callable = prop.subscribe(func(_old_value: Variant, new_value: Variant) -> void:
+		var payload: Dictionary = GFVariantData.as_dictionary(new_value)
+		payload["hp"] = 1
+	)
+	var _unsubscribe_second: Callable = prop.subscribe(func(_old_value: Variant, new_value: Variant) -> void:
+		second_listener_values.append(GFVariantData.as_dictionary(new_value))
+	)
+
+	prop.set_value({ "hp": 20 })
+
+	assert_eq(second_listener_values.size(), 1, "第二个监听者应收到一次变化。")
+	if second_listener_values.size() == 1:
+		assert_eq(GFVariantData.get_option_int(second_listener_values[0], "hp"), 20, "后续监听者不应看到前一个监听者改写过的集合 payload。")
+	assert_eq(GFVariantData.get_option_int(_value_dictionary(prop), "hp"), 20, "监听者改写信号 payload 不应影响属性内部值。")
+
+
+func test_value_changed_respects_godot_signal_blocking() -> void:
+	var prop: GFBindableProperty = GFBindableProperty.new(1)
+	var state: CounterState = CounterState.new()
+	var _connect_result: Variant = prop.value_changed.connect(func(_old_value: Variant, _new_value: Variant) -> void:
+		state.count += 1
+	)
+
+	prop.set_block_signals(true)
+	prop.set_value(2)
+	prop.set_block_signals(false)
+	prop.set_value(3)
+
+	assert_eq(state.count, 1, "value_changed 应使用 Godot 原生 signal 发射并尊重 set_block_signals。")
+
+
 func test_mutate_helper_emits_after_in_place_change() -> void:
 	var prop: GFBindableProperty = GFBindableProperty.new({ "hp": 10 })
 	watch_signals(prop)

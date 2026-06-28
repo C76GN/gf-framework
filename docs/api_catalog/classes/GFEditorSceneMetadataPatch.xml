@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFEditorSceneMetadataPatch" path="addons/gf/kernel/editor/gf_editor_scene_metadata_patch.gd" module="kernel" extends="GFEditorCommand" classDigest="4dffa76df7daf596ffc43f09479d382eb2ca87b4341fcc452c58381fb8711803">
+	<description>GFEditorSceneMetadataPatch: 可撤销的场景节点 metadata 修改命令。
+用于把编辑器工具对场景根节点或普通节点 metadata 的读写收敛成 GFEditorCommand。
+该命令只处理 Object metadata，不规定具体工具面板、场景分组或业务含义。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">editor_api</tag>
+		<tag name="layer">kernel/editor</tag>
+		<tag name="since">7.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties>
+		<member kind="property" name="target_node">
+			<signature>var target_node: Node = null</signature>
+			<description>要修改的节点。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="metadata_key">
+			<signature>var metadata_key: StringName = &amp;""</signature>
+			<description>要修改的 metadata key。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="value">
+			<signature>var value: Variant = null</signature>
+			<description>执行时写入的新值。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">value: Variant copied when configured and written.</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="remove_on_execute">
+			<signature>var remove_on_execute: bool = false</signature>
+			<description>执行时是否移除 metadata key，而不是写入 value。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="configure">
+			<signature>func configure( node: Node, key: StringName, new_value: Variant = null, options: Dictionary = {} ) -&gt; GFEditorCommand:</signature>
+			<description>配置 metadata 修改命令。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">node: 要修改的节点。</tag>
+				<tag name="param">key: metadata key。</tag>
+				<tag name="param">new_value: 写入值。</tag>
+				<tag name="param">options: 配置选项。</tag>
+				<tag name="return">当前命令实例。</tag>
+				<tag name="schema">new_value: Variant copied into value.</tag>
+				<tag name="schema">options: Dictionary，支持 command_name、remove_on_execute、metadata 和 duplicate_resources。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_metadata_debug_snapshot">
+			<signature>func get_metadata_debug_snapshot() -&gt; Dictionary:</signature>
+			<description>获取调试快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">调试信息字典。</tag>
+				<tag name="schema">return: Dictionary containing command fields and previous metadata snapshot state.</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="can_execute">
+			<signature>func can_execute() -&gt; bool:</signature>
+			<description>命令当前是否允许执行。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">允许执行时返回 true。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_do_it">
+			<signature>func _do_it() -&gt; Error:</signature>
+			<description>执行 metadata 修改。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="return">Godot 错误码。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_undo_it">
+			<signature>func _undo_it() -&gt; Error:</signature>
+			<description>撤销 metadata 修改。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="return">Godot 错误码。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

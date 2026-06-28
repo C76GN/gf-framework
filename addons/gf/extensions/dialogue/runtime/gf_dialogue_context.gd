@@ -202,12 +202,12 @@ func _normalize_result(raw_result: Variant, default_reason: StringName = &"ok") 
 	if raw_result is Dictionary:
 		var result: Dictionary = GFVariantData.to_dictionary(raw_result, {}, true)
 		if not result.has("ok"):
-			result["ok"] = true
+			result["ok"] = false
 		if not result.has("reason"):
 			result["reason"] = default_reason if GFVariantData.get_option_bool(result, "ok", false) else &"rejected"
 		return result
 
-	var ok: bool = true
+	var ok: bool = false
 	if raw_result is bool:
 		ok = GFVariantData.to_bool(raw_result, false)
 	return {

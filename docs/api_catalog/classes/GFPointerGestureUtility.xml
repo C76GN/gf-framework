@@ -1,0 +1,150 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFPointerGestureUtility" path="addons/gf/standard/input/runtime/gf_pointer_gesture_utility.gd" module="standard" extends="GFUtility" classDigest="12347e6bfcd18607139aebc32486dc36b5130dd085e90bbdb3e5f869d0d2a582">
+	<description>GFPointerGestureUtility: 通用指针手势摘要工具。
+把鼠标、触摸和系统手势事件归一为平移、缩放和旋转摘要。
+工具只输出数据，不控制 Camera、Control、Node2D 或项目业务对象。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_service</tag>
+		<tag name="since">7.0.0</tag>
+	</tags>
+	<signals>
+		<member kind="signal" name="gesture_updated">
+			<signature>signal gesture_updated(snapshot: Dictionary, event: InputEvent)</signature>
+			<description>手势摘要更新时发出。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">snapshot: 手势摘要字典。</tag>
+				<tag name="param">event: 原始输入事件。</tag>
+				<tag name="schema">snapshot: Dictionary with active, source, pointer_count, pointer_ids, center, previous_center, pan_delta, scale, rotation_delta, distance, previous_distance, and primary_pointer_id.</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="signal" name="gesture_ended">
+			<signature>signal gesture_ended(snapshot: Dictionary)</signature>
+			<description>最后一个活动指针释放或 reset_gesture() 清理活动手势时发出。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">snapshot: 结束后的手势摘要。</tag>
+				<tag name="schema">snapshot: Dictionary with active=false and the last known center fields.</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+	</signals>
+	<enums />
+	<constants />
+	<properties>
+		<member kind="property" name="track_mouse">
+			<signature>var track_mouse: bool = true</signature>
+			<description>是否追踪鼠标拖拽事件。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="track_mouse_wheel">
+			<signature>var track_mouse_wheel: bool = true</signature>
+			<description>是否把鼠标滚轮归一为缩放手势。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="track_touch">
+			<signature>var track_touch: bool = true</signature>
+			<description>是否追踪触摸事件。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="track_gesture_events">
+			<signature>var track_gesture_events: bool = true</signature>
+			<description>是否追踪 Godot 提供的 pan / magnify 系统手势事件。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="mouse_button_index">
+			<signature>var mouse_button_index: MouseButton = MOUSE_BUTTON_LEFT</signature>
+			<description>鼠标模式下作为拖拽指针的按钮。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="mouse_wheel_zoom_factor">
+			<signature>var mouse_wheel_zoom_factor: float = 1.1</signature>
+			<description>鼠标滚轮单步缩放因子。向下滚动会使用该值的倒数。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="minimum_pinch_distance">
+			<signature>var minimum_pinch_distance: float = _DEFAULT_MINIMUM_PINCH_DISTANCE</signature>
+			<description>双指距离低于该阈值时不产生缩放因子。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="handle_input_event">
+			<signature>func handle_input_event(event: InputEvent) -&gt; bool:</signature>
+			<description>处理一个输入事件。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">event: 输入事件。</tag>
+				<tag name="return">识别为受追踪手势事件时返回 true。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="reset_gesture">
+			<signature>func reset_gesture() -&gt; void:</signature>
+			<description>清理当前手势状态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_active_pointer_count">
+			<signature>func get_active_pointer_count() -&gt; int:</signature>
+			<description>获取活动指针数量。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">当前活动指针数量。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_gesture_snapshot">
+			<signature>func get_gesture_snapshot() -&gt; Dictionary:</signature>
+			<description>获取最近一次手势摘要。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">手势摘要副本。</tag>
+				<tag name="schema">return: Dictionary with active, source, pointer_count, pointer_ids, center, previous_center, pan_delta, scale, rotation_delta, distance, previous_distance, and primary_pointer_id.</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="calculate_gesture">
+			<signature>static func calculate_gesture( previous_points: Dictionary, current_points: Dictionary, source: StringName = &amp;"pointer", minimum_distance: float = _DEFAULT_MINIMUM_PINCH_DISTANCE ) -&gt; Dictionary:</signature>
+			<description>根据上一组和当前组指针位置计算手势摘要。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">previous_points: 上一组指针位置，键为 pointer id，值为 Vector2。</tag>
+				<tag name="param">current_points: 当前指针位置，键为 pointer id，值为 Vector2。</tag>
+				<tag name="param">source: 摘要来源标识。</tag>
+				<tag name="param">minimum_distance: 缩放计算的最小安全距离。</tag>
+				<tag name="return">手势摘要字典。</tag>
+				<tag name="schema">previous_points: Dictionary[int, Vector2] previous pointer positions.</tag>
+				<tag name="schema">current_points: Dictionary[int, Vector2] current pointer positions.</tag>
+				<tag name="schema">return: Dictionary with active, source, pointer_count, pointer_ids, center, previous_center, pan_delta, scale, rotation_delta, distance, previous_distance, and primary_pointer_id.</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

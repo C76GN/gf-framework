@@ -413,4 +413,5 @@ func _validate_table_resource_entries(report: Dictionary, options: Dictionary) -
 			continue
 
 		if validate_schema:
+			report_builder.merge_report(report, table_resource.schema.validate_definition(options), false)
 			report_builder.merge_report(report, table_resource.validate_records(options), false)

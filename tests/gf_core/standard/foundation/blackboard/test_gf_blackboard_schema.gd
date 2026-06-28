@@ -35,6 +35,21 @@ func test_blackboard_schema_reports_missing_type_and_extra_keys() -> void:
 	assert_true(_has_issue(report, "extra_key"), "报告应包含额外字段。")
 
 
+func test_blackboard_schema_validation_does_not_apply_defaults() -> void:
+	var schema: GFBlackboardSchema = _make_agent_schema()
+	schema.coerce_values = true
+	var enabled_entry: GFBlackboardEntry = schema.get_entry(&"enabled")
+	enabled_entry.required = true
+
+	var report: Dictionary = schema.validate_values({
+		"hp": "12",
+		"target": "enemy",
+	})
+
+	assert_false(GFVariantData.get_option_bool(report, "ok"), "validate_values 只校验输入，不应隐式补默认值。")
+	assert_true(_has_issue(report, "missing_required"), "必填默认值缺失时仍应报告 missing_required。")
+
+
 func test_blackboard_schema_duplicate_isolated_entries() -> void:
 	var schema: GFBlackboardSchema = _make_agent_schema()
 	var schema_copy: GFBlackboardSchema = schema.duplicate_schema()
@@ -47,6 +62,22 @@ func test_blackboard_schema_duplicate_isolated_entries() -> void:
 
 	assert_true(GFVariantData.get_option_bool(report, "ok"), "修改 schema 拷贝不应污染原 schema。")
 	assert_eq(schema_copy.entries.size(), 0, "拷贝应可独立修改。")
+
+
+func test_blackboard_schema_reports_duplicate_entry_keys() -> void:
+	var schema: GFBlackboardSchema = _make_agent_schema()
+	var duplicate_entry: GFBlackboardEntry = GFBlackboardEntry.new()
+	duplicate_entry.key = &"hp"
+	duplicate_entry.value_type = GFBlackboardEntry.ValueType.FLOAT
+	schema.entries.append(duplicate_entry)
+
+	var report: Dictionary = schema.validate_values({
+		"hp": 10,
+		"target": &"enemy",
+	})
+
+	assert_false(GFVariantData.get_option_bool(report, "ok"), "重复字段声明应让 schema 校验失败。")
+	assert_true(_has_issue(report, "duplicate_entry_key"), "报告应包含 duplicate_entry_key。")
 
 
 func test_blackboard_entry_rejects_invalid_color_string() -> void:

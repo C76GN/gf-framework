@@ -364,6 +364,10 @@ func clear_queue(queue_name: StringName = &"default", cancel_jobs: bool = true) 
 ## [br]
 ## @api public
 func clear_all() -> void:
+	for job_variant: Variant in _jobs.values():
+		var job: GFJob = _variant_to_job(job_variant)
+		if job != null and not job.is_finished():
+			var _cancelled_job: bool = cancel_job(job.job_id)
 	_job_serial = 0
 	_queues.clear()
 	_jobs.clear()

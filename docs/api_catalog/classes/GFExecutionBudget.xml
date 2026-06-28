@@ -1,0 +1,235 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFExecutionBudget" path="addons/gf/standard/common/gf_execution_budget.gd" module="standard" extends="RefCounted" classDigest="02e8d70150f1e0197961ce0ae8b6a50cbf2410803abf4d824e2944679be13568">
+	<description>GFExecutionBudget: 通用执行预算与取消检查器。
+用于给生成器、导入器、批处理或受控规则循环提供统一的步数、深度、
+输出长度、耗时和取消 token 检查。它不调度任务，也不执行调用方逻辑。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_handle</tag>
+		<tag name="since">7.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties>
+		<member kind="property" name="max_steps">
+			<signature>var max_steps: int = 0</signature>
+			<description>最大步数；小于等于 0 表示不限制。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="max_depth">
+			<signature>var max_depth: int = 0</signature>
+			<description>最大嵌套深度；小于等于 0 表示不限制。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="max_output_length">
+			<signature>var max_output_length: int = 0</signature>
+			<description>最大输出文本长度；小于等于 0 表示不限制。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="max_elapsed_msec">
+			<signature>var max_elapsed_msec: int = 0</signature>
+			<description>最大运行毫秒数；小于等于 0 表示不限制。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="cancel_token">
+			<signature>var cancel_token: GFCancelToken = null</signature>
+			<description>关联的取消 token；为空时不检查取消状态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="metadata">
+			<signature>var metadata: Dictionary = {}</signature>
+			<description>调用方附加元数据。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">metadata: Dictionary，包含调用方定义的预算上下文。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="_init">
+			<signature>func _init(options: Dictionary = {}) -&gt; void:</signature>
+			<description>创建执行预算。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">options: 可选配置，支持 max_steps、max_depth、max_output_length、max_elapsed_msec、cancel_token 和 metadata。</tag>
+				<tag name="schema">options: Dictionary，包含执行预算配置。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="configure">
+			<signature>func configure(options: Dictionary = {}) -&gt; GFExecutionBudget:</signature>
+			<description>配置执行预算并重置运行状态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">options: 可选配置，支持 max_steps、max_depth、max_output_length、max_elapsed_msec、cancel_token 和 metadata。</tag>
+				<tag name="return">当前预算。</tag>
+				<tag name="schema">options: Dictionary，包含执行预算配置。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="reset">
+			<signature>func reset() -&gt; void:</signature>
+			<description>重置计数器和违规状态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="bind_cancel_token">
+			<signature>func bind_cancel_token(token: GFCancelToken) -&gt; GFExecutionBudget:</signature>
+			<description>绑定取消 token。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">token: 取消 token。</tag>
+				<tag name="return">当前预算。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="consume_steps">
+			<signature>func consume_steps(amount: int = 1, source_span: Variant = null) -&gt; bool:</signature>
+			<description>消耗执行步数并检查预算。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">amount: 消耗步数。</tag>
+				<tag name="param">source_span: 可选源码定位。</tag>
+				<tag name="return">仍在预算内时返回 true。</tag>
+				<tag name="schema">source_span: Variant，可传 GFSourceSpan 或兼容字典。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="enter_depth">
+			<signature>func enter_depth(source_span: Variant = null) -&gt; bool:</signature>
+			<description>进入一层嵌套并检查深度预算。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">source_span: 可选源码定位。</tag>
+				<tag name="return">仍在预算内时返回 true。</tag>
+				<tag name="schema">source_span: Variant，可传 GFSourceSpan 或兼容字典。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="exit_depth">
+			<signature>func exit_depth() -&gt; void:</signature>
+			<description>退出一层嵌套。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="check_output_length">
+			<signature>func check_output_length(output_length: int, source_span: Variant = null) -&gt; bool:</signature>
+			<description>检查输出长度预算。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">output_length: 当前或即将写入后的输出长度。</tag>
+				<tag name="param">source_span: 可选源码定位。</tag>
+				<tag name="return">仍在预算内时返回 true。</tag>
+				<tag name="schema">source_span: Variant，可传 GFSourceSpan 或兼容字典。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="check">
+			<signature>func check(source_span: Variant = null) -&gt; bool:</signature>
+			<description>检查取消、耗时和既有违规状态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">source_span: 可选源码定位。</tag>
+				<tag name="return">仍可继续执行时返回 true。</tag>
+				<tag name="schema">source_span: Variant，可传 GFSourceSpan 或兼容字典。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_exceeded">
+			<signature>func is_exceeded() -&gt; bool:</signature>
+			<description>检查预算是否已经违规。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">已违规时返回 true。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_steps">
+			<signature>func get_steps() -&gt; int:</signature>
+			<description>获取已消耗步数。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">已消耗步数。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_depth">
+			<signature>func get_depth() -&gt; int:</signature>
+			<description>获取当前嵌套深度。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">当前嵌套深度。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_elapsed_msec">
+			<signature>func get_elapsed_msec() -&gt; int:</signature>
+			<description>获取已运行毫秒数。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">从最近一次 reset 起经过的毫秒数。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_violation_reason">
+			<signature>func get_violation_reason() -&gt; StringName:</signature>
+			<description>获取违规原因。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">稳定违规原因。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_violation_message">
+			<signature>func get_violation_message() -&gt; String:</signature>
+			<description>获取违规说明。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">违规说明。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="make_report">
+			<signature>func make_report(subject: String = "Execution budget") -&gt; GFValidationReport:</signature>
+			<description>创建预算违规报告。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">subject: 报告主题。</tag>
+				<tag name="return">校验报告。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_debug_snapshot">
+			<signature>func get_debug_snapshot() -&gt; Dictionary:</signature>
+			<description>获取调试快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">预算状态字典。</tag>
+				<tag name="schema">return: Dictionary，包含预算限制、计数器、取消状态和违规信息。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFGeneratedArtifactReport" path="addons/gf/kernel/editor/gf_generated_artifact_report.gd" module="kernel" extends="RefCounted" classDigest="7c1ea81391475462ad17d88848a5520c94f9ab534e79b876ca21e66f44cb7f7c">
+<class name="GFGeneratedArtifactReport" path="addons/gf/kernel/editor/gf_generated_artifact_report.gd" module="kernel" extends="RefCounted" classDigest="22abbf952e9354aa676b7ed53d409a0ac3cd2181361c73855b2328b471b214e9">
 	<description>GFGeneratedArtifactReport: 生成文本产物的保存报告辅助。
 用于编辑器代码生成、导表导出或项目工具在写入前后获得统一的
 new / changed / unchanged / skipped / failed 状态，不绑定具体生成器语义。</description>
@@ -52,6 +52,30 @@ new / changed / unchanged / skipped / failed 状态，不绑定具体生成器�
 				<tag name="since">6.0.0</tag>
 			</tags>
 		</member>
+		<member kind="const" name="OWNER_GENERATED">
+			<signature>const OWNER_GENERATED: StringName = &amp;"generated"</signature>
+			<description>框架或项目工具生成并可安全重建的产物。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="OWNER_USER">
+			<signature>const OWNER_USER: StringName = &amp;"user"</signature>
+			<description>用户手写或需要人工维护的产物。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="OWNER_EXTERNAL">
+			<signature>const OWNER_EXTERNAL: StringName = &amp;"external"</signature>
+			<description>外部工具或框架边界外来源管理的产物。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
 	</constants>
 	<properties />
 	<methods>
@@ -64,10 +88,27 @@ new / changed / unchanged / skipped / failed 状态，不绑定具体生成器�
 				<tag name="param">status: 产物状态。</tag>
 				<tag name="param">error_code: Godot Error 错误码。</tag>
 				<tag name="param">message: 错误或跳过说明。</tag>
-				<tag name="param">options: 报告选项，支持 written、changed、dry_run、size_bytes 和 metadata。</tag>
+				<tag name="param">options: 报告选项，支持 written、changed、dry_run、size_bytes、metadata、artifact_owner、generator_id、source_id、content_sha256、previous_sha256 和 encoding。</tag>
 				<tag name="return">生成产物报告。</tag>
-				<tag name="schema">options: Dictionary，可包含 written、changed、dry_run、size_bytes 和 metadata。</tag>
-				<tag name="schema">return: Dictionary，包含 success、path、status、error_code、error、written、changed、dry_run、size_bytes 和 metadata。</tag>
+				<tag name="schema">options: Dictionary，可包含 written、changed、dry_run、size_bytes、metadata、artifact_owner、generator_id、source_id、content_sha256、previous_sha256 和 encoding。</tag>
+				<tag name="schema">return: Dictionary，包含 success、path、status、error_code、error、written、changed、dry_run、size_bytes、artifact_owner、generator_id、source_id、content_sha256、previous_sha256、encoding 和 metadata。</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="summarize_reports">
+			<signature>static func summarize_reports( reports: Array[Dictionary], subject: String = "", options: Dictionary = {} ) -&gt; Dictionary:</signature>
+			<description>汇总多份生成产物报告。
+用于访问器生成、导表导出或批处理工具在一次操作后得到稳定的状态计数、
+写入数量、dry-run 数量和产物所有权分布。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">reports: make_report() 或 save_text() 返回的报告数组。</tag>
+				<tag name="param">subject: 汇总主题。</tag>
+				<tag name="param">options: 汇总选项，支持 include_reports 和 metadata。</tag>
+				<tag name="return">批量产物报告摘要。</tag>
+				<tag name="schema">reports: Array of Dictionary artifact reports.</tag>
+				<tag name="schema">options: Dictionary，可包含 include_reports 和 metadata。</tag>
+				<tag name="schema">return: Dictionary，包含 success、subject、artifact_count、status_counts、owner_counts、written_count、changed_count、dry_run_count、failed_count、skipped_count、paths、errors、metadata 和可选 reports。</tag>
 				<tag name="since">6.0.0</tag>
 			</tags>
 		</member>
@@ -80,10 +121,10 @@ overwrite_existing 为 false 且目标文件需要改写时返回 skipped / ERR_
 				<tag name="api">public</tag>
 				<tag name="param">output_path: 产物输出路径。</tag>
 				<tag name="param">text: 要写入的文本内容。</tag>
-				<tag name="param">options: 保存选项，支持 overwrite_existing、dry_run、scan_filesystem、label 和 metadata。</tag>
+				<tag name="param">options: 保存选项，支持 overwrite_existing、dry_run、scan_filesystem、label、metadata、artifact_owner、generator_id 和 source_id。</tag>
 				<tag name="return">生成产物保存报告。</tag>
-				<tag name="schema">options: Dictionary，可包含 overwrite_existing、dry_run、scan_filesystem、label 和 metadata。</tag>
-				<tag name="schema">return: Dictionary，包含 success、path、status、error_code、error、written、changed、dry_run、size_bytes 和 metadata。</tag>
+				<tag name="schema">options: Dictionary，可包含 overwrite_existing、dry_run、scan_filesystem、label、metadata、artifact_owner、generator_id 和 source_id。</tag>
+				<tag name="schema">return: Dictionary，包含 success、path、status、error_code、error、written、changed、dry_run、size_bytes、artifact_owner、generator_id、source_id、content_sha256、previous_sha256、encoding 和 metadata。</tag>
 				<tag name="since">6.0.0</tag>
 			</tags>
 		</member>

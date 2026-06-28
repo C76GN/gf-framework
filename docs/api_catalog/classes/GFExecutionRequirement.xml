@@ -1,0 +1,203 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFExecutionRequirement" path="addons/gf/standard/common/gf_execution_requirement.gd" module="standard" extends="RefCounted" classDigest="0f79a6f89d1b7c2ea07d817b3d971560ce9c2d918c9569d6a76ba105103f85ca">
+	<description>GFExecutionRequirement: 通用执行条件集合。
+用于在任务、系统、工具按钮或资源流程执行前统一评估一组声明式条件。
+它只读取调用方传入的 context 字典和可选谓词，不绑定具体调度器或业务系统。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">value_object</tag>
+		<tag name="since">7.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants>
+		<member kind="const" name="MODE_ALL">
+			<signature>const MODE_ALL: StringName = &amp;"all"</signature>
+			<description>条件必须满足。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="MODE_ANY">
+			<signature>const MODE_ANY: StringName = &amp;"any"</signature>
+			<description>同组条件至少满足一个。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="MODE_NONE">
+			<signature>const MODE_NONE: StringName = &amp;"none"</signature>
+			<description>条件必须不满足。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="KIND_PREDICATE">
+			<signature>const KIND_PREDICATE: StringName = &amp;"predicate"</signature>
+			<description>Callable 谓词条件。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="KIND_VALUE">
+			<signature>const KIND_VALUE: StringName = &amp;"value"</signature>
+			<description>context 值比较条件。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="KIND_PRESENT">
+			<signature>const KIND_PRESENT: StringName = &amp;"present"</signature>
+			<description>context key 存在性条件。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties>
+		<member kind="property" name="requirement_id">
+			<signature>var requirement_id: StringName = &amp;""</signature>
+			<description>条件集合稳定标识。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="label">
+			<signature>var label: String = ""</signature>
+			<description>条件集合显示名称。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="metadata">
+			<signature>var metadata: Dictionary = {}</signature>
+			<description>调用方元数据。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">metadata: Dictionary for caller-defined requirement metadata.</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="configure">
+			<signature>func configure( p_requirement_id: StringName, p_label: String = "", p_metadata: Dictionary = {} ) -&gt; GFExecutionRequirement:</signature>
+			<description>配置条件集合。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">p_requirement_id: 条件集合稳定标识。</tag>
+				<tag name="param">p_label: 显示名称。</tag>
+				<tag name="param">p_metadata: 调用方元数据。</tag>
+				<tag name="return">当前条件集合。</tag>
+				<tag name="schema">p_metadata: Dictionary copied into metadata.</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="add_predicate">
+			<signature>func add_predicate(condition_id: StringName, predicate: Callable, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>添加 Callable 谓词条件。谓词签名为 `(context: Dictionary) -&gt; bool|Dictionary`。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">condition_id: 条件稳定标识。</tag>
+				<tag name="param">predicate: 条件谓词。</tag>
+				<tag name="param">options: 条件选项，支持 mode、label、negate 和 metadata。</tag>
+				<tag name="return">条件快照；predicate 无效时为空字典。</tag>
+				<tag name="schema">options: Dictionary，可包含 mode: StringName、label: String、negate: bool、metadata: Dictionary。</tag>
+				<tag name="schema">return: Dictionary，包含 condition_id、kind、mode、label、negate、metadata 和 has_predicate。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="add_value">
+			<signature>func add_value( condition_id: StringName, key: Variant, expected_value: Variant, options: Dictionary = {} ) -&gt; Dictionary:</signature>
+			<description>添加 context 值比较条件。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">condition_id: 条件稳定标识。</tag>
+				<tag name="param">key: 要从 context 读取的 key。</tag>
+				<tag name="param">expected_value: 期望值。</tag>
+				<tag name="param">options: 条件选项，支持 mode、label、negate、metadata 和 equals_options。</tag>
+				<tag name="return">条件快照。</tag>
+				<tag name="schema">key: Variant context key，通常为 String 或 StringName。</tag>
+				<tag name="schema">expected_value: Variant expected context value.</tag>
+				<tag name="schema">options: Dictionary，可包含 mode: StringName、label: String、negate: bool、metadata: Dictionary、equals_options: Dictionary。</tag>
+				<tag name="schema">return: Dictionary，包含 condition_id、kind、mode、label、key、expected、negate 和 metadata。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="add_presence">
+			<signature>func add_presence(condition_id: StringName, key: Variant, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>添加 context key 存在性条件。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">condition_id: 条件稳定标识。</tag>
+				<tag name="param">key: 要检查的 context key。</tag>
+				<tag name="param">options: 条件选项，支持 mode、label、negate 和 metadata。</tag>
+				<tag name="return">条件快照。</tag>
+				<tag name="schema">key: Variant context key，通常为 String 或 StringName。</tag>
+				<tag name="schema">options: Dictionary，可包含 mode: StringName、label: String、negate: bool、metadata: Dictionary。</tag>
+				<tag name="schema">return: Dictionary，包含 condition_id、kind、mode、label、key、negate 和 metadata。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="evaluate">
+			<signature>func evaluate(context: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>评估条件集合。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">context: 调用方上下文字典。</tag>
+				<tag name="return">条件评估报告。</tag>
+				<tag name="schema">context: Dictionary read by value and predicate conditions.</tag>
+				<tag name="schema">return: Dictionary，包含 ok、requirement_id、label、all_satisfied、any_satisfied、none_clear、satisfied_count、failed_count、conditions 和 metadata。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_satisfied">
+			<signature>func is_satisfied(context: Dictionary = {}) -&gt; bool:</signature>
+			<description>检查条件集合是否满足。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">context: 调用方上下文字典。</tag>
+				<tag name="return">满足时返回 true。</tag>
+				<tag name="schema">context: Dictionary read by value and predicate conditions.</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_conditions">
+			<signature>func get_conditions() -&gt; Array[Dictionary]:</signature>
+			<description>获取条件快照数组。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">条件快照数组，不包含 Callable 本体。</tag>
+				<tag name="schema">return: Array[Dictionary]，每个元素包含 condition_id、kind、mode、label、key、expected、negate、metadata 和 has_predicate。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="clear">
+			<signature>func clear() -&gt; void:</signature>
+			<description>清空全部条件。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_debug_snapshot">
+			<signature>func get_debug_snapshot() -&gt; Dictionary:</signature>
+			<description>获取调试快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">调试快照。</tag>
+				<tag name="schema">return: Dictionary，包含 requirement_id、label、condition_count、conditions 和 metadata。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

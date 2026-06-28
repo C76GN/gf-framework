@@ -1,0 +1,162 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFAsyncTrackerUtility" path="addons/gf/standard/utilities/debug/gf_async_tracker_utility.gd" module="standard" extends="GFUtility" classDigest="33140d070039a831e93cdb9d4c0e2bbdf0fe1793ea11fcb9243b1de9c8d62ed9">
+	<description>GFAsyncTrackerUtility: 可选异步句柄追踪工具。
+默认关闭。启用后可登记异步完成源、通道、超时控制器或项目自定义句柄，
+并通过弱引用生成活动句柄快照，帮助诊断未完成、未释放或异常停留的异步流程。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_service</tag>
+		<tag name="since">7.0.0</tag>
+	</tags>
+	<signals>
+		<member kind="signal" name="async_handle_tracked">
+			<signature>signal async_handle_tracked(tracking_id: int, label: StringName)</signature>
+			<description>句柄被登记时发出。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">tracking_id: 追踪 ID。</tag>
+				<tag name="param">label: 追踪标签。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="signal" name="async_handle_untracked">
+			<signature>signal async_handle_untracked(tracking_id: int, label: StringName)</signature>
+			<description>句柄被移除追踪时发出。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">tracking_id: 追踪 ID。</tag>
+				<tag name="param">label: 追踪标签。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+	</signals>
+	<enums />
+	<constants>
+		<member kind="const" name="DEFAULT_MAX_STACK_TRACE_CHARS">
+			<signature>const DEFAULT_MAX_STACK_TRACE_CHARS: int = 4000</signature>
+			<description>默认堆栈文本最大长度。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties>
+		<member kind="property" name="tracking_enabled">
+			<signature>var tracking_enabled: bool = false</signature>
+			<description>是否启用追踪。关闭时 track_handle 直接返回 0。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="stack_trace_enabled">
+			<signature>var stack_trace_enabled: bool = false</signature>
+			<description>是否在登记时捕获调用堆栈。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="max_stack_trace_chars">
+			<signature>var max_stack_trace_chars: int = DEFAULT_MAX_STACK_TRACE_CHARS:</signature>
+			<description>单条堆栈文本最大长度。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="dispose">
+			<signature>func dispose() -&gt; void:</signature>
+			<description>清除所有追踪记录。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="track_handle">
+			<signature>func track_handle( handle: Object, label: StringName = &amp;"", metadata: Dictionary = {}, snapshot_provider: Callable = Callable() ) -&gt; int:</signature>
+			<description>登记一个异步句柄。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">handle: 待追踪对象。</tag>
+				<tag name="param">label: 稳定标签；为空时使用 handle.get_class()。</tag>
+				<tag name="param">metadata: 追踪上下文。</tag>
+				<tag name="param">snapshot_provider: 可选无参快照回调；返回值会收窄为 Dictionary。</tag>
+				<tag name="return">追踪 ID；未启用或 handle 为空时返回 0。</tag>
+				<tag name="schema">metadata: Dictionary，包含调用方定义的追踪上下文。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="untrack_id">
+			<signature>func untrack_id(tracking_id: int) -&gt; bool:</signature>
+			<description>按追踪 ID 取消登记。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">tracking_id: 追踪 ID。</tag>
+				<tag name="return">成功移除时返回 true。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="untrack_handle">
+			<signature>func untrack_handle(handle: Object) -&gt; int:</signature>
+			<description>移除指定对象的所有追踪记录。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">handle: 待移除对象。</tag>
+				<tag name="return">移除数量。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="clear_invalid">
+			<signature>func clear_invalid() -&gt; int:</signature>
+			<description>清除已经失效的弱引用记录。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">清除数量。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="clear">
+			<signature>func clear() -&gt; void:</signature>
+			<description>清空所有追踪记录。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="check_and_reset_dirty">
+			<signature>func check_and_reset_dirty() -&gt; bool:</signature>
+			<description>判断是否存在未读取的追踪变更，并重置 dirty 标记。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">自上次调用以来有追踪变化时返回 true。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_active_records">
+			<signature>func get_active_records(include_invalid: bool = false) -&gt; Array[Dictionary]:</signature>
+			<description>获取活动追踪记录快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">include_invalid: 是否包含弱引用已失效的记录。</tag>
+				<tag name="return">追踪记录数组。</tag>
+				<tag name="schema">return: Array[Dictionary]，每项包含 tracking_id、label、valid、age_msec、metadata 和可选 snapshot / stack_trace。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_debug_snapshot">
+			<signature>func get_debug_snapshot() -&gt; Dictionary:</signature>
+			<description>获取追踪调试快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">调试快照。</tag>
+				<tag name="schema">return: Dictionary，包含 enabled、active_count、invalid_count、dirty 和 records。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

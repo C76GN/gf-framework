@@ -1,0 +1,149 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFManualTimerQueue" path="addons/gf/standard/utilities/time/gf_manual_timer_queue.gd" module="standard" extends="RefCounted" classDigest="d5a77470df2786c55e7d1dfa88e62e38a3d4e15c0240442a8795b9fe8d82e344">
+	<description>GFManualTimerQueue: 手动 tick 驱动的确定性计时队列。
+用整数 tick 调度一次性回调，适合回放、模拟、服务器步进、测试或编辑器批处理。
+队列不读取引擎时间，也不创建 Timer 节点；调用方显式调用 advance_to() 或 advance_by() 推进时间。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_handle</tag>
+		<tag name="since">7.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties>
+		<member kind="property" name="max_callbacks_per_advance">
+			<signature>var max_callbacks_per_advance: int = 1024:</signature>
+			<description>单次 advance 最多执行多少个回调，避免同 tick 回调递归排队导致无限循环。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="schedule_at">
+			<signature>func schedule_at(target_tick: int, callback: Callable, options: Dictionary = {}) -&gt; int:</signature>
+			<description>在绝对 tick 上调度回调。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">target_tick: 目标 tick；小于当前 tick 时会归一到当前 tick。</tag>
+				<tag name="param">callback: 到期后执行的回调。</tag>
+				<tag name="param">options: 调度选项，支持 owner、metadata、label 和 front。</tag>
+				<tag name="return">计时器句柄；callback 无效时返回 0。</tag>
+				<tag name="schema">options: Dictionary，可包含 owner: Object、metadata: Dictionary、label: String、front: bool。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="schedule_after">
+			<signature>func schedule_after(delay_ticks: int, callback: Callable, options: Dictionary = {}) -&gt; int:</signature>
+			<description>在当前 tick 之后延迟若干 tick 调度回调。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">delay_ticks: 延迟 tick 数；小于 0 时按 0 处理。</tag>
+				<tag name="param">callback: 到期后执行的回调。</tag>
+				<tag name="param">options: 调度选项，支持 owner、metadata、label 和 front。</tag>
+				<tag name="return">计时器句柄；callback 无效时返回 0。</tag>
+				<tag name="schema">options: Dictionary，可包含 owner: Object、metadata: Dictionary、label: String、front: bool。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="schedule_at_owned">
+			<signature>func schedule_at_owned(owner: Object, target_tick: int, callback: Callable, options: Dictionary = {}) -&gt; int:</signature>
+			<description>在绝对 tick 上调度 owner 绑定回调。owner 释放后回调会被跳过。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">owner: 计时器拥有者。</tag>
+				<tag name="param">target_tick: 目标 tick；小于当前 tick 时会归一到当前 tick。</tag>
+				<tag name="param">callback: 到期后执行的回调。</tag>
+				<tag name="param">options: 调度选项，支持 metadata、label 和 front。</tag>
+				<tag name="return">计时器句柄；参数无效时返回 0。</tag>
+				<tag name="schema">options: Dictionary，可包含 metadata: Dictionary、label: String、front: bool。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="advance_to">
+			<signature>func advance_to(target_tick: int, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>推进到指定绝对 tick，并执行所有到期回调。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">target_tick: 目标 tick，不能小于当前 tick。</tag>
+				<tag name="param">options: 推进选项，支持 max_callbacks。</tag>
+				<tag name="return">推进报告。</tag>
+				<tag name="schema">options: Dictionary，可包含 max_callbacks: int。</tag>
+				<tag name="schema">return: Dictionary，包含 ok、status、from_tick、target_tick、current_tick、executed_count、failed_count、skipped_owner_count、truncated 和 pending_count。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="advance_by">
+			<signature>func advance_by(delta_ticks: int, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>按相对 tick 推进队列。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">delta_ticks: 推进 tick 数；小于 0 时返回错误报告。</tag>
+				<tag name="param">options: 推进选项，支持 max_callbacks。</tag>
+				<tag name="return">推进报告。</tag>
+				<tag name="schema">options: Dictionary，可包含 max_callbacks: int。</tag>
+				<tag name="schema">return: Dictionary，结构同 advance_to()。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="cancel">
+			<signature>func cancel(handle: int) -&gt; bool:</signature>
+			<description>取消一个尚未执行的计时器。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">handle: schedule_at() 返回的计时器句柄。</tag>
+				<tag name="return">找到并取消时返回 true。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="cancel_owner">
+			<signature>func cancel_owner(owner: Object) -&gt; int:</signature>
+			<description>取消指定 owner 绑定的全部待执行计时器。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">owner: 计时器拥有者。</tag>
+				<tag name="return">取消数量。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="clear">
+			<signature>func clear() -&gt; void:</signature>
+			<description>清空队列和统计。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_current_tick">
+			<signature>func get_current_tick() -&gt; int:</signature>
+			<description>获取当前 tick。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">当前 tick。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_pending_count">
+			<signature>func get_pending_count() -&gt; int:</signature>
+			<description>获取待执行计时器数量。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">待执行数量。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_debug_snapshot">
+			<signature>func get_debug_snapshot() -&gt; Dictionary:</signature>
+			<description>获取调试快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">调试快照。</tag>
+				<tag name="schema">return: Dictionary，包含 current_tick、pending_count、next_due_tick、pending_handles、executed_count、cancelled_count、failed_count 和 skipped_owner_count。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

@@ -23,6 +23,7 @@ GF 扩展启用组合描述。 Preset 只描述一组要写入 `gf/extensions/en
 | 属性 | [`source_path`](#member-gfextensionpreset-properties-source_path) | `var source_path: String = ""` |
 | 方法 | [`from_dictionary`](#member-gfextensionpreset-methods-from_dictionary) | `static func from_dictionary(data: Dictionary, preset_source_path: String = "") -> GFExtensionPreset:` |
 | 方法 | [`from_json_file`](#member-gfextensionpreset-methods-from_json_file) | `static func from_json_file(path: String) -> GFExtensionPreset:` |
+| 方法 | [`from_json_file_report`](#member-gfextensionpreset-methods-from_json_file_report) | `static func from_json_file_report(path: String) -> Dictionary:` |
 | 方法 | [`to_dictionary`](#member-gfextensionpreset-methods-to_dictionary) | `func to_dictionary() -> Dictionary:` |
 | 方法 | [`is_valid`](#member-gfextensionpreset-methods-is_valid) | `func is_valid() -> bool:` |
 | 方法 | [`get_validation_errors`](#member-gfextensionpreset-methods-get_validation_errors) | `func get_validation_errors() -> Array[String]:` |
@@ -155,6 +156,31 @@ static func from_json_file(path: String) -> GFExtensionPreset:
 | `path` | preset JSON 文件路径。 |
 
 返回：读取成功时返回 preset；失败时返回 null。
+
+<a id="member-gfextensionpreset-methods-from_json_file_report"></a>
+
+### `from_json_file_report`
+
+- API：`public`
+- 首次版本：`6.0.0`
+
+```gdscript
+static func from_json_file_report(path: String) -> Dictionary:
+```
+
+从 JSON 文件读取扩展 preset 并返回诊断报告。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `path` | preset JSON 文件路径。 |
+
+返回：读取诊断，包含 ok、source_path、preset 和 errors。
+
+结构：
+
+- `return`: Dictionary { ok: bool, source_path: String, preset: GFExtensionPreset, errors: Array[String] }.
 
 <a id="member-gfextensionpreset-methods-to_dictionary"></a>
 

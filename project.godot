@@ -48,6 +48,12 @@ extensions/enabled=Array[String]([])
 extensions/export_fail_on_disabled_references=true
 network/contract_paths=PackedStringArray()
 network/contract_output_dir="res://gf/generated/network"
+test/retained_project_setting="project-owned"
+project/installers=[]
+extensions/auto_install_enabled_installers=true
+test/blocking_installer_started=false
+test/release_blocking_installer=false
+project/installer_timeout_seconds=0.0
 
 [physics]
 

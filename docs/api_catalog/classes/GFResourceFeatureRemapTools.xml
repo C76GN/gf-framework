@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFResourceFeatureRemapTools" path="addons/gf/standard/utilities/assets/gf_resource_feature_remap_tools.gd" module="standard" extends="RefCounted" classDigest="501b2d4e6926337745a915c6db34c6e20f4661acaa8b1d2f40c7a1714fca203e">
+	<description>GFResourceFeatureRemapTools: 资源 feature 重映射计划工具。
+根据调用方提供的 feature 集合与 remap 声明，生成纯数据解析计划。
+它不读取 ProjectSettings、不注册导出插件、不写文件，也不决定平台策略；
+编辑器导出、资源打包或项目 Installer 可在审查计划后自行执行替换。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_service</tag>
+		<tag name="since">6.1.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties />
+	<methods>
+		<member kind="method" name="normalize_remaps">
+			<signature>static func normalize_remaps(remaps: Variant, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>归一化资源 feature 重映射声明。
+支持 `Dictionary[source_path] = entries` 或条目数组。每个 entry 可为
+`[feature, target_path]`、`PackedStringArray([feature, target_path])`，
+或包含 `feature` / `features` 与 `target_path` / `path` / `remap_path` 的 Dictionary；
+source 值也可直接使用单条 `[feature, target_path]` 简写。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">remaps: 待归一化的 remap 声明。</tag>
+				<tag name="param">options: 可选项，支持 keep_invalid_entries。</tag>
+				<tag name="return">归一化报告。</tag>
+				<tag name="schema">remaps: Dictionary 或 Array 形式的资源 feature remap 声明。</tag>
+				<tag name="schema">options: Dictionary，可包含 keep_invalid_entries 字段。</tag>
+				<tag name="schema">return: Dictionary，包含 ok、remaps、sources、issues、source_count、entry_count、issue_count、error_count、warning_count 与 summary 字段。</tag>
+				<tag name="since">6.1.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="select_remap_for_path">
+			<signature>static func select_remap_for_path( path: String, remaps: Variant, active_features: PackedStringArray, options: Dictionary = {} ) -&gt; Dictionary:</signature>
+			<description>为单个资源路径选择第一个命中的 feature 重映射。
+entry 顺序就是优先级；当多个 active feature 同时命中时，返回声明中最靠前的 entry。
+未命中时 `selected=false`，`resolved_path` 保持为原始路径。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">path: 待解析的原始资源路径。</tag>
+				<tag name="param">remaps: 资源 feature remap 声明。</tag>
+				<tag name="param">active_features: 当前启用的 feature 集合。</tag>
+				<tag name="param">options: 传给 normalize_remaps() 的可选项。</tag>
+				<tag name="return">路径解析报告。</tag>
+				<tag name="schema">remaps: Dictionary 或 Array 形式的资源 feature remap 声明。</tag>
+				<tag name="schema">options: Dictionary，可包含 keep_invalid_entries 字段。</tag>
+				<tag name="schema">return: Dictionary，包含 ok、selected、source_path、target_path、resolved_path、feature、entry、entry_index、issues 与计数字段。</tag>
+				<tag name="since">6.1.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="build_remap_plan">
+			<signature>static func build_remap_plan( remaps: Variant, active_features: PackedStringArray, options: Dictionary = {} ) -&gt; Dictionary:</signature>
+			<description>生成一组资源 feature 重映射的执行计划。
+计划报告只描述 source 到 target 的选择结果、未命中 source，以及可由外层工具跳过的
+unused target 路径；调用方仍需自行决定如何替换 Resource、原始文件或导出包内容。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">remaps: 资源 feature remap 声明。</tag>
+				<tag name="param">active_features: 当前启用的 feature 集合。</tag>
+				<tag name="param">options: 可选项，支持 keep_invalid_entries、resource_extensions、exported_paths、protected_paths、protect_original_paths、protect_selected_targets、skip_unused_targets 与 include_unmatched。</tag>
+				<tag name="return">重映射计划报告。</tag>
+				<tag name="schema">remaps: Dictionary 或 Array 形式的资源 feature remap 声明。</tag>
+				<tag name="schema">options: Dictionary，可包含归一化、资源扩展名、导出路径和 skip 保护选项。</tag>
+				<tag name="schema">return: Dictionary，包含 ok、active_features、selected_targets、resolved、unmatched、skip_paths、issues 与计数字段。</tag>
+				<tag name="since">6.1.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

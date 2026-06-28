@@ -258,11 +258,18 @@ func _sample_tracks(
 ) -> Dictionary:
 	var result: Dictionary = zero_sample()
 	result["progress"] = progress
+	var has_track_sample: bool = false
 	for track: GFShakeTrack in tracks:
 		if track == null or not track.enabled:
 			continue
 		var track_sample: Dictionary = track.sample(progress, elapsed_seconds, strength, phase_offset)
-		result = GFShakeTrack.blend_sample(result, track_sample, track.blend_mode)
+		if not has_track_sample:
+			if _is_zero_sample(track_sample):
+				continue
+			result = track_sample.duplicate(true)
+			has_track_sample = true
+		else:
+			result = GFShakeTrack.blend_sample(result, track_sample, track.blend_mode)
 	result["progress"] = progress
 	return result
 
@@ -320,3 +327,12 @@ static func _read_sample_vector3(sample_data: Dictionary, key: Variant) -> Vecto
 		var vector: Vector3 = value
 		return vector
 	return Vector3.ZERO
+
+
+static func _is_zero_sample(sample_data: Dictionary) -> bool:
+	return (
+		_read_sample_vector3(sample_data, "position") == Vector3.ZERO
+		and _read_sample_vector3(sample_data, "rotation_degrees") == Vector3.ZERO
+		and _read_sample_vector3(sample_data, "scale") == Vector3.ZERO
+		and is_zero_approx(GFVariantData.get_option_float(sample_data, "intensity", 0.0))
+	)

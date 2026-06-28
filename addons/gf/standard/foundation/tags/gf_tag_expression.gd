@@ -30,6 +30,11 @@ enum Operator {
 }
 
 
+# --- 常量 ---
+
+const _MAX_RESTORE_DEPTH: int = 128
+
+
 # --- 导出变量 ---
 
 ## 当前表达式运算类型。
@@ -160,12 +165,7 @@ func configure_none(child_expressions: Array[GFTagExpression]) -> GFTagExpressio
 ## [br]
 ## @return 新表达式。
 func duplicate_expression() -> GFTagExpression:
-	var copy: GFTagExpression = _instantiate_expression()
-	copy.operator = operator
-	copy.query = query.duplicate_query() if query != null else null
-	for expression: GFTagExpression in expressions:
-		copy.expressions.append(expression.duplicate_expression() if expression != null else null)
-	return copy
+	return _duplicate_expression({})
 
 
 ## 导出为字典。
@@ -176,16 +176,7 @@ func duplicate_expression() -> GFTagExpression:
 ## [br]
 ## @schema return: Dictionary serialized tag expression.
 func to_dictionary() -> Dictionary:
-	var child_dictionaries: Array[Dictionary] = []
-	for expression: GFTagExpression in expressions:
-		if expression != null:
-			child_dictionaries.append(expression.to_dictionary())
-
-	return {
-		"operator": _operator_to_string(operator),
-		"query": query.to_dictionary() if query != null else {},
-		"expressions": child_dictionaries,
-	}
+	return _to_dictionary({})
 
 
 ## 从字典创建表达式。
@@ -198,16 +189,8 @@ func to_dictionary() -> Dictionary:
 ## [br]
 ## @return 新表达式。
 static func from_dictionary(data: Dictionary) -> GFTagExpression:
-	var expression: GFTagExpression = GFTagExpression.new()
-	expression.operator = _operator_from_variant(GFVariantData.get_option_value(data, "operator", Operator.QUERY))
-	var query_data: Dictionary = GFVariantData.get_option_dictionary(data, "query")
-	if not query_data.is_empty():
-		expression.query = GFTagQuery.from_dictionary(query_data)
-	var child_data: Array = GFVariantData.get_option_array(data, "expressions")
-	for child_variant: Variant in child_data:
-		if child_variant is Dictionary:
-			expression.expressions.append(GFTagExpression.from_dictionary(GFVariantData.as_dictionary(child_variant)))
-	return expression
+	var expression: GFTagExpression = _from_dictionary(data, [], 0)
+	return expression if expression != null else GFTagExpression.new()
 
 
 ## 以查询资源创建叶子表达式。
@@ -222,6 +205,94 @@ static func from_query(tag_query: GFTagQuery) -> GFTagExpression:
 
 
 # --- 私有/辅助方法 ---
+
+static func _from_dictionary(data: Dictionary, visited: Array, depth: int) -> GFTagExpression:
+	if depth > _MAX_RESTORE_DEPTH or _visited_contains_dictionary(visited, data):
+		return null
+
+	var expression: GFTagExpression = GFTagExpression.new()
+	visited.append(data)
+	expression.operator = _operator_from_variant(GFVariantData.get_option_value(data, "operator", Operator.QUERY))
+	var query_data: Dictionary = _get_raw_dictionary(data, "query")
+	if not query_data.is_empty():
+		expression.query = GFTagQuery.from_dictionary(query_data)
+	var child_values: Array = _get_raw_array(data, "expressions")
+	for child_variant: Variant in child_values:
+		if child_variant is Dictionary:
+			var child_dictionary: Dictionary = child_variant
+			if GFVariantData.get_option_bool(child_dictionary, "null_expression"):
+				expression.expressions.append(null)
+			elif GFVariantData.get_option_bool(child_dictionary, "cycle_detected"):
+				expression.expressions.append(null)
+			else:
+				expression.expressions.append(_from_dictionary(child_dictionary, visited, depth + 1))
+	var _removed_visit: Variant = visited.pop_back()
+	return expression
+
+
+static func _get_raw_dictionary(data: Dictionary, key: String) -> Dictionary:
+	if data.has(key):
+		var value: Variant = data[key]
+		if value is Dictionary:
+			return value
+
+	var string_name_key: StringName = StringName(key)
+	if data.has(string_name_key):
+		var named_value: Variant = data[string_name_key]
+		if named_value is Dictionary:
+			return named_value
+
+	return {}
+
+
+static func _get_raw_array(data: Dictionary, key: String) -> Array:
+	if data.has(key):
+		var value: Variant = data[key]
+		if value is Array:
+			return value
+
+	var string_name_key: StringName = StringName(key)
+	if data.has(string_name_key):
+		var named_value: Variant = data[string_name_key]
+		if named_value is Array:
+			return named_value
+
+	return []
+
+
+func _duplicate_expression(visited: Dictionary) -> GFTagExpression:
+	var instance_id: int = get_instance_id()
+	if visited.has(instance_id):
+		var existing: Variant = visited[instance_id]
+		if existing is GFTagExpression:
+			return existing
+
+	var copy: GFTagExpression = _instantiate_expression()
+	visited[instance_id] = copy
+	copy.operator = operator
+	copy.query = query.duplicate_query() if query != null else null
+	for expression: GFTagExpression in expressions:
+		copy.expressions.append(expression._duplicate_expression(visited) if expression != null else null)
+	return copy
+
+
+func _to_dictionary(visited: Dictionary) -> Dictionary:
+	var instance_id: int = get_instance_id()
+	if visited.has(instance_id):
+		return _make_cycle_dictionary()
+	visited[instance_id] = true
+
+	var child_dictionaries: Array[Dictionary] = []
+	for expression: GFTagExpression in expressions:
+		child_dictionaries.append(_make_null_dictionary() if expression == null else expression._to_dictionary(visited))
+	var _removed_visit: bool = visited.erase(instance_id)
+
+	return {
+		"operator": _operator_to_string(operator),
+		"query": query.to_dictionary() if query != null else {},
+		"expressions": child_dictionaries,
+	}
+
 
 func _get_match_report(source: Variant, visited: Array[int]) -> Dictionary:
 	var instance_id: int = get_instance_id()
@@ -344,6 +415,24 @@ func _get_null_child_report() -> Dictionary:
 	}
 
 
+static func _make_null_dictionary() -> Dictionary:
+	return {
+		"operator": "null",
+		"query": {},
+		"expressions": [],
+		"null_expression": true,
+	}
+
+
+static func _make_cycle_dictionary() -> Dictionary:
+	return {
+		"operator": "cycle",
+		"query": {},
+		"expressions": [],
+		"cycle_detected": true,
+	}
+
+
 static func _operator_to_string(value: int) -> String:
 	match value:
 		Operator.QUERY:
@@ -383,6 +472,13 @@ static func _operator_from_variant(value: Variant) -> Operator:
 			return Operator.NONE
 		_:
 			return Operator.QUERY
+
+
+static func _visited_contains_dictionary(visited: Array, data: Dictionary) -> bool:
+	for entry: Variant in visited:
+		if entry is Dictionary and is_same(entry, data):
+			return true
+	return false
 
 
 func _instantiate_expression() -> GFTagExpression:

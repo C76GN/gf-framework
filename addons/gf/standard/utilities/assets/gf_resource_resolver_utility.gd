@@ -380,6 +380,7 @@ func make_asset_group_entries(
 ## [br]
 ## @schema return: Dictionary with `registered_key_count`, `registered_keys`, `provider_count`, and `providers`.
 func get_debug_snapshot() -> Dictionary:
+	_prune_invalid_providers()
 	var providers: Array[Dictionary] = []
 	for provider_record: Dictionary in _providers:
 		providers.append({
@@ -406,6 +407,7 @@ func _make_request(resource_key: StringName, type_hint_override: String, options
 
 
 func _collect_candidates(request: Dictionary) -> Array[Dictionary]:
+	_prune_invalid_providers()
 	var candidates: Array[Dictionary] = []
 	var key: StringName = GFVariantData.get_option_string_name(request, "key")
 	if _path_records.has(key):
@@ -628,6 +630,13 @@ func _find_provider_index(provider: Object) -> int:
 		if registered_provider == provider:
 			return index
 	return -1
+
+
+func _prune_invalid_providers() -> void:
+	for index: int in range(_providers.size() - 1, -1, -1):
+		var provider: Object = _get_record_provider(_providers[index])
+		if provider == null or not is_instance_valid(provider) or not provider.has_method(PROVIDER_METHOD):
+			_providers.remove_at(index)
 
 
 func _resolve_provider_id(provider: Object, provider_id: StringName) -> StringName:

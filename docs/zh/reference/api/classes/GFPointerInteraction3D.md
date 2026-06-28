@@ -22,7 +22,7 @@
 | 信号 | [`pointer_clicked`](#member-gfpointerinteraction3d-signals-pointer_clicked) | `signal pointer_clicked(context: GFInteractionContext, event: InputEventMouseButton)` |
 | 信号 | [`pointer_wheel`](#member-gfpointerinteraction3d-signals-pointer_wheel) | `signal pointer_wheel(context: GFInteractionContext, event: InputEventMouseButton)` |
 | 信号 | [`pointer_interaction_sent`](#member-gfpointerinteraction3d-signals-pointer_interaction_sent) | `signal pointer_interaction_sent(context: GFInteractionContext, receiver: Object, report: Dictionary)` |
-| 属性 | [`enabled`](#member-gfpointerinteraction3d-properties-enabled) | `var enabled: bool = true` |
+| 属性 | [`enabled`](#member-gfpointerinteraction3d-properties-enabled) | `var enabled: bool = true:` |
 | 属性 | [`interaction_id`](#member-gfpointerinteraction3d-properties-interaction_id) | `var interaction_id: StringName = &""` |
 | 属性 | [`group_name`](#member-gfpointerinteraction3d-properties-group_name) | `var group_name: StringName = &""` |
 | 属性 | [`payload`](#member-gfpointerinteraction3d-properties-payload) | `var payload: Dictionary = {}` |
@@ -189,9 +189,10 @@ signal pointer_interaction_sent(context: GFInteractionContext, receiver: Object,
 ### `enabled`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-var enabled: bool = true
+var enabled: bool = true:
 ```
 
 是否启用指针桥接。
@@ -435,6 +436,7 @@ func get_collision_object() -> CollisionObject3D:
 ### `build_context`
 
 - API：`public`
+- 首次版本：`7.0.0`
 
 ```gdscript
 func build_context( pointer_event: StringName, pointer_data: Dictionary = {}, receiver: Object = null ) -> GFInteractionContext:
@@ -454,13 +456,14 @@ func build_context( pointer_event: StringName, pointer_data: Dictionary = {}, re
 
 结构：
 
-- `pointer_data`: 指针事件数据 Dictionary；常见字段包括 pointer_position、pointer_normal、pointer_shape_idx、pointer_camera 和 pointer_input_event。
+- `pointer_data`: 指针事件数据 Dictionary；常见字段包括 pointer_position、pointer_normal、pointer_shape_idx、pointer_camera_path 和 pointer_input_event_class。
 
 <a id="member-gfpointerinteraction3d-methods-send_pointer_interaction"></a>
 
 ### `send_pointer_interaction`
 
 - API：`public`
+- 首次版本：`7.0.0`
 
 ```gdscript
 func send_pointer_interaction( pointer_event: StringName, pointer_data: Dictionary = {}, interaction_id_override: StringName = &"" ) -> Dictionary:
@@ -480,5 +483,5 @@ func send_pointer_interaction( pointer_event: StringName, pointer_data: Dictiona
 
 结构：
 
-- `pointer_data`: 指针事件数据 Dictionary；常见字段包括 pointer_position、pointer_normal、pointer_shape_idx、pointer_camera 和 pointer_input_event。
+- `pointer_data`: 指针事件数据 Dictionary；常见字段包括 pointer_position、pointer_normal、pointer_shape_idx、pointer_camera_path 和 pointer_input_event_class。
 - `return`: 交互结果报告 Dictionary，包含 ok、interaction_id、receiver、reason、message 和 metadata 等字段。

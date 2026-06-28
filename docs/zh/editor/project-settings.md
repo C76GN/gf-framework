@@ -14,4 +14,4 @@ GF 编辑器插件启用后会写入几组项目设置。这些设置是项目�
 
 运行时代码需要读取这些设置时，应通过对应工具类或 `ProjectSettings.get_setting()` 明确访问。`kernel/editor` 只提供通用注册机制；标准库或扩展需要自己的设置键时，应由所属编辑器贡献主动声明，避免让内核硬编码具体业务含义。
 
-`GFProjectSettingsTools` 是底层声明工具，用于统一写入缺失默认值、缺失键的重置初始值和注册 Inspector 属性提示。它不会保存 `project.godot`，也不会替业务模块解释设置值；需要持久化时由插件、扩展管理器或项目工具显式调用 `ProjectSettings.save()`。
+`GFProjectSettingsTools` 是底层声明工具，用于统一写入缺失默认值、缺失键的重置初始值和注册 Inspector 属性提示。它不会保存 `project.godot`，也不会替业务模块解释设置值；需要持久化时由插件、扩展管理器或项目工具显式调用 `ProjectSettings.save()`。设置贡献消失、核心插件降级或只加载 kernel 时，它也不会自动删除既有项目设置，避免把项目自有配置误判为框架残留。

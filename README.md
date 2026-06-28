@@ -21,7 +21,11 @@ The legacy GitHub Wiki keeps only entry links. Read the Docs is the single offic
 
 ## Installation
 
-Copy [`addons/gf`](addons/gf) into your Godot project, then enable `GF Framework` from `Project > Project Settings > Plugins`.
+For normal installs, use the official Godot Asset Store/Asset Library package or the GitHub Release asset named `gf-framework-<version>.zip`. This package contains the full `addons/gf` addon folder: kernel, standard library, editor tooling, package manager, and bundled optional extensions. Optional extensions remain disabled until the project explicitly enables them, so the full package is the recommended first-install path.
+
+Advanced users who want a minimal bootstrap can download `gf-kernel-<version>.zip` from the same GitHub Release, enable the plugin, then install only the needed packages from `GF Package Manager` or the Godot-native package CLI. This modular path is useful for controlled project templates and offline/internal registries, but it is not the default package for the Godot websites.
+
+Copy `addons/gf` from the package into your Godot project, then enable `GF Framework` from `Project > Project Settings > Plugins`.
 
 Godot does not automatically enable editor plugins after files are copied into `addons`. This is expected: plugin enablement belongs to the target project's `project.godot`, and the user must opt in before editor plugin code runs.
 

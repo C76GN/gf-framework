@@ -32,6 +32,15 @@ func test_register_command() -> void:
 	assert_true(_console.has_command("test_cmd"), "register_command 后应记录命令。")
 
 
+func test_register_command_rejects_empty_name_and_invalid_callback() -> void:
+	_console.register_command("", Callable(), "空指令。")
+	_console.register_command("broken", Callable(), "无效回调。")
+
+	assert_false(_console.has_command(""), "空命令名不应进入命令表。")
+	assert_false(_console.has_command("broken"), "无效 callback 不应进入命令表。")
+	assert_false(_console.execute_command("broken"), "无效 callback 命令不应可执行。")
+
+
 func test_builtin_help_registered() -> void:
 	assert_true(_console.has_command("help"), "init 后应注册内置 help 指令。")
 
@@ -47,6 +56,13 @@ func test_builtin_scene_commands_registered_as_observe() -> void:
 	assert_true(_console.has_command("scene.tree"), "init 后应注册只读场景树指令。")
 	assert_true(_console.has_command("scene.node"), "init 后应注册只读节点查看指令。")
 	assert_eq(GFVariantData.get_option_int(scene_tree_entry, "tier"), GFConsoleUtility.CommandTier.OBSERVE, "scene.tree 应是观察级命令。")
+
+
+func test_init_is_idempotent_for_console_overlay() -> void:
+	_console.init()
+	await get_tree().process_frame
+
+	assert_eq(_count_console_overlays(), 1, "重复 init 不应创建多个控制台 overlay。")
 
 
 func test_unregister_command() -> void:
@@ -164,6 +180,23 @@ func test_register_command_definition_registers_aliases() -> void:
 
 	assert_true(result, "资源化命令别名应可执行。")
 	assert_eq(called.count, 1, "别名应调用同一回调。")
+
+
+func test_register_command_definition_preserves_metadata_tier() -> void:
+	var definition: GFConsoleCommandDefinition = GFConsoleCommandDefinition.new()
+	definition.command_name = "resource_wipe"
+	definition.metadata = { "tier": GFConsoleUtility.CommandTier.DANGER }
+	var called: CommandCallState = CommandCallState.new()
+	var cb: Callable = func(_args: PackedStringArray) -> void:
+		called.count += 1
+
+	_console.register_command_definition(definition, cb)
+
+	assert_false(_console.execute_command("resource_wipe"), "资源化 DANGER 命令默认应被风险等级拒绝。")
+	_console.max_command_tier = GFConsoleUtility.CommandTier.DANGER
+	assert_false(_console.execute_command("resource_wipe"), "资源化 DANGER 命令缺少确认参数时仍应拒绝。")
+	assert_true(_console.execute_command("resource_wipe --confirm"), "资源化 DANGER 命令确认后应可执行。")
+	assert_eq(called.count, 1, "资源化 DANGER 命令只应成功执行一次。")
 
 
 func test_execute_unknown_command_returns_false() -> void:
@@ -351,6 +384,14 @@ func _get_console_output_lines() -> PackedStringArray:
 func _get_console_command_history() -> PackedStringArray:
 	var gui_snapshot: Dictionary = _get_console_gui_snapshot()
 	return GFVariantData.get_option_packed_string_array(gui_snapshot, "command_history")
+
+
+func _count_console_overlays() -> int:
+	var count: int = 0
+	for child: Node in get_tree().root.get_children():
+		if child.name == "GFConsoleOverlay":
+			count += 1
+	return count
 
 
 func _script_from_object(object: Object) -> Script:

@@ -161,6 +161,8 @@ var _project_installers_applied: bool = false
 var _project_installers_running: bool = false
 var _initialization_failed: bool = false
 var _stale_async_write_block_count: int = 0
+var _is_disposing: bool = false
+var _disposed: bool = false
 
 
 # --- Godot 生命周期方法 ---
@@ -211,7 +213,7 @@ func has_initialization_failed() -> bool:
 ## [br]
 ## @return 正在初始化或已完成初始化，且未被 dispose() 或失败保护中断时返回 true。
 func is_lifecycle_active() -> bool:
-	return (_is_initializing or _inited) and not _initialization_failed
+	return (_is_initializing or _inited) and not _initialization_failed and not _is_disposing and not _disposed
 
 
 ## 获取当前架构生命周期 generation。
@@ -354,6 +356,9 @@ func create_binder() -> GFBinder:
 ## [br]
 ## @api public
 func init() -> void:
+	if _disposed:
+		push_error("[GFArchitecture] init 失败：架构已 dispose，不能重新初始化。")
+		return
 	if _inited:
 		return
 
@@ -394,6 +399,9 @@ func init() -> void:
 ## [br]
 ## @api public
 func dispose() -> void:
+	if _is_disposing or _disposed:
+		return
+	_is_disposing = true
 	var was_initializing: bool = _is_initializing
 	_lifecycle_serial += 1
 	_is_initializing = false
@@ -420,6 +428,8 @@ func dispose() -> void:
 	_refresh_tick_caches()
 	if was_initializing:
 		initialization_finished.emit()
+	_disposed = true
+	_is_disposing = false
 
 
 ## 驱动所有参与 tick 的 System 与 Utility 的每帧更新。
@@ -710,6 +720,34 @@ func send_simple_event(event_id: StringName, payload: Variant = null) -> void:
 ## @schema return: Dictionary produced by GFTypeEventSystem.get_debug_stats().
 func get_event_debug_stats() -> Dictionary:
 	return _event_system.get_debug_stats()
+
+
+## 获取事件监听器诊断明细。
+## [br]
+## @api public
+## [br]
+## @since 7.0.0
+## [br]
+## @param options: 诊断选项，支持 include_entries。
+## [br]
+## @schema options: Dictionary，可包含 include_entries。
+## [br]
+## @return 监听器诊断报告。
+## [br]
+## @schema return: Dictionary produced by GFTypeEventSystem.get_listener_diagnostics().
+func get_event_listener_diagnostics(options: Dictionary = {}) -> Dictionary:
+	return _event_system.get_listener_diagnostics(options)
+
+
+## 清理 owner 已释放的事件监听器。
+## [br]
+## @api public
+## [br]
+## @since 7.0.0
+## [br]
+## @return 本次立即移除或排队清理的监听器数量。
+func compact_event_listeners() -> int:
+	return _event_system.compact_released_owner_listeners()
 
 
 ## 配置事件系统调试与保护选项。
@@ -1304,6 +1342,9 @@ func create_instance(script_cls: Script) -> Object:
 	if script_cls == null:
 		push_error("[GFArchitecture] create_instance 失败：脚本类型为空。")
 		return null
+	if _disposed or _is_disposing:
+		push_error("[GFArchitecture] create_instance 失败：架构已 dispose。")
+		return null
 
 	return _create_instance_for_requester(script_cls, self)
 
@@ -1478,6 +1519,60 @@ func get_debug_lifecycle_state() -> Dictionary:
 		},
 		"tick": _tick_scheduler.get_debug_state(),
 	}
+
+
+## 获取架构绑定图诊断。
+## 该报告只读取当前注册表、别名、工厂和父级链摘要，不触发依赖解析或生命周期推进。
+## [br]
+## @api public
+## [br]
+## @since 7.0.0
+## [br]
+## @param options: 可选参数，支持 include_entries、include_parent_chain 与 max_parent_depth。
+## [br]
+## @schema options: Dictionary with optional bool keys include_entries/include_parent_chain and int key max_parent_depth.
+## [br]
+## @return 绑定图诊断报告。
+## [br]
+## @schema return: Dictionary containing ok, registry counts, registry entries, factory bindings, parent chain, lifecycle flags, and issues.
+func get_binding_diagnostics(options: Dictionary = {}) -> Dictionary:
+	var include_entries: bool = _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(options, "include_entries", true)
+	var include_parent_chain: bool = _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(options, "include_parent_chain", true)
+	var max_parent_depth: int = maxi(_GF_VARIANT_ACCESS_SCRIPT.get_option_int(options, "max_parent_depth", 16), 0)
+	var registries: Dictionary = {
+		"models": _collect_binding_registry_diagnostics("model", _model_registry, include_entries),
+		"systems": _collect_binding_registry_diagnostics("system", _system_registry, include_entries),
+		"utilities": _collect_binding_registry_diagnostics("utility", _utility_registry, include_entries),
+	}
+	var factories: Dictionary = _collect_binding_factory_diagnostics(include_entries)
+	var issues: Array[Dictionary] = []
+	_append_binding_registry_issues(issues, registries)
+	_append_binding_factory_issues(issues, factories)
+
+	var result: Dictionary = {
+		"ok": issues.is_empty(),
+		"healthy": issues.is_empty(),
+		"issue_count": issues.size(),
+		"issues": issues,
+		"lifecycle_generation": _lifecycle_serial,
+		"inited": _inited,
+		"is_initializing": _is_initializing,
+		"disposed": _disposed,
+		"strict_dependency_lookup": strict_dependency_lookup,
+		"registry_counts": {
+			"models": _model_registry.instances.size(),
+			"systems": _system_registry.instances.size(),
+			"utilities": _utility_registry.instances.size(),
+			"factories": _factories.size(),
+			"aliases": _model_registry.aliases.size() + _system_registry.aliases.size() + _utility_registry.aliases.size(),
+		},
+		"registries": registries,
+		"factories": factories,
+		"parent_depth": _get_parent_chain_depth(max_parent_depth),
+	}
+	if include_parent_chain:
+		result["parent_chain"] = _collect_parent_chain_diagnostics(max_parent_depth)
+	return result
 
 
 ## 获取架构中已注册模块的声明式依赖诊断报告。
@@ -2231,6 +2326,156 @@ func _collect_module_debug_state(registry: Dictionary) -> Dictionary:
 	return result
 
 
+func _collect_binding_registry_diagnostics(
+	module_kind: String,
+	module_registry: ModuleRegistry,
+	include_entries: bool
+) -> Dictionary:
+	var result: Dictionary = {
+		"kind": module_kind,
+		"label": module_registry.label,
+		"registered_count": module_registry.instances.size(),
+		"alias_count": module_registry.aliases.size(),
+		"assignable_cache_count": module_registry.assignable_cache.size(),
+		"instance_key_count": module_registry.instance_keys.size(),
+		"invalid_alias_count": 0,
+	}
+	if not include_entries:
+		return result
+
+	var entries: Array[Dictionary] = []
+	for script_cls: Script in module_registry.instances.keys():
+		var instance: Object = _get_dictionary_object(module_registry.instances, script_cls)
+		var stage: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(_module_lifecycle_stages, instance, 0)
+		entries.append({
+			"script": _get_script_debug_key(script_cls, instance),
+			"instance": _get_instance_debug_key(instance),
+			"valid": instance != null,
+			"stage": stage,
+			"stage_name": _get_lifecycle_stage_name(stage),
+			"ready": stage >= 3,
+		})
+
+	var aliases: Array[Dictionary] = []
+	var invalid_alias_count: int = 0
+	for alias_cls: Script in module_registry.aliases.keys():
+		var target_cls: Script = _get_dictionary_script(module_registry.aliases, alias_cls)
+		var target_registered: bool = target_cls != null and module_registry.instances.has(target_cls)
+		if not target_registered:
+			invalid_alias_count += 1
+		aliases.append({
+			"alias": _get_script_debug_key(alias_cls),
+			"target": _get_script_debug_key(target_cls),
+			"target_registered": target_registered,
+		})
+
+	var assignable_cache: Array[Dictionary] = []
+	for request_cls: Script in module_registry.assignable_cache.keys():
+		var resolved_cls: Script = _get_dictionary_script(module_registry.assignable_cache, request_cls)
+		assignable_cache.append({
+			"request": _get_script_debug_key(request_cls),
+			"resolved": _get_script_debug_key(resolved_cls),
+			"resolved_registered": resolved_cls != null and module_registry.instances.has(resolved_cls),
+		})
+
+	result["invalid_alias_count"] = invalid_alias_count
+	result["entries"] = entries
+	result["aliases"] = aliases
+	result["assignable_cache"] = assignable_cache
+	return result
+
+
+func _collect_binding_factory_diagnostics(include_entries: bool) -> Dictionary:
+	var result: Dictionary = {
+		"count": _factories.size(),
+		"invalid_count": 0,
+	}
+	if not include_entries:
+		return result
+
+	var entries: Array[Dictionary] = []
+	var invalid_count: int = 0
+	for script_cls: Script in _factories.keys():
+		var binding: Object = _get_dictionary_object(_factories, script_cls)
+		var lifetime: int = -1
+		if binding != null and "lifetime" in binding:
+			lifetime = _get_object_int_property(binding, &"lifetime", -1)
+		if binding == null:
+			invalid_count += 1
+		entries.append({
+			"script": _get_script_debug_key(script_cls),
+			"valid": binding != null,
+			"lifetime": lifetime,
+			"lifetime_name": _get_binding_lifetime_name(lifetime),
+		})
+	result["invalid_count"] = invalid_count
+	result["entries"] = entries
+	return result
+
+
+func _append_binding_registry_issues(issues: Array[Dictionary], registries: Dictionary) -> void:
+	for registry_key: Variant in registries.keys():
+		var registry: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.as_dictionary(registries[registry_key])
+		for alias_variant: Variant in _GF_VARIANT_ACCESS_SCRIPT.get_option_array(registry, "aliases"):
+			var alias: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.as_dictionary(alias_variant)
+			if _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(alias, "target_registered", false):
+				continue
+			issues.append({
+				"kind": "invalid_alias",
+				"severity": "error",
+				"registry": str(registry_key),
+				"alias": _GF_VARIANT_ACCESS_SCRIPT.get_option_string(alias, "alias"),
+				"target": _GF_VARIANT_ACCESS_SCRIPT.get_option_string(alias, "target"),
+				"message": "Alias target is not registered.",
+			})
+
+
+func _append_binding_factory_issues(issues: Array[Dictionary], factories: Dictionary) -> void:
+	for entry_variant: Variant in _GF_VARIANT_ACCESS_SCRIPT.get_option_array(factories, "entries"):
+		var entry: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.as_dictionary(entry_variant)
+		if _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(entry, "valid", false):
+			continue
+		issues.append({
+			"kind": "invalid_factory_binding",
+			"severity": "error",
+			"script": _GF_VARIANT_ACCESS_SCRIPT.get_option_string(entry, "script"),
+			"message": "Factory binding is missing or invalid.",
+		})
+
+
+func _collect_parent_chain_diagnostics(max_parent_depth: int) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	var parent: GFArchitecture = _parent_architecture
+	var depth: int = 0
+	while parent != null and (max_parent_depth <= 0 or depth < max_parent_depth):
+		depth += 1
+		result.append({
+			"depth": depth,
+			"inited": parent._inited,
+			"is_initializing": parent._is_initializing,
+			"disposed": parent._disposed,
+			"lifecycle_generation": parent._lifecycle_serial,
+			"registry_counts": {
+				"models": parent._model_registry.instances.size(),
+				"systems": parent._system_registry.instances.size(),
+				"utilities": parent._utility_registry.instances.size(),
+				"factories": parent._factories.size(),
+				"aliases": parent._model_registry.aliases.size() + parent._system_registry.aliases.size() + parent._utility_registry.aliases.size(),
+			},
+		})
+		parent = parent._parent_architecture
+	return result
+
+
+func _get_parent_chain_depth(max_parent_depth: int) -> int:
+	var parent: GFArchitecture = _parent_architecture
+	var depth: int = 0
+	while parent != null and (max_parent_depth <= 0 or depth < max_parent_depth):
+		depth += 1
+		parent = parent._parent_architecture
+	return depth
+
+
 func _clear_factory_binding(script_cls: Script) -> void:
 	if script_cls == null or not _factories.has(script_cls):
 		return
@@ -2609,11 +2854,24 @@ func _replace_initialized_module(module_registry: ModuleRegistry, script_cls: Sc
 		_release_module_dependencies(instance)
 		return false
 
+	var previous_instance: Object = null
 	if module_registry._has_direct(script_cls):
-		var _removed_current_instance: Object = _remove_registered_module(module_registry, script_cls, true, false)
+		previous_instance = _get_dictionary_object(module_registry.instances, script_cls)
+		module_registry._untrack_instance(previous_instance)
+		var _detached_previous_instance: bool = module_registry.instances.erase(script_cls)
 	module_registry.instances[script_cls] = instance
 	module_registry._track_instance_key(instance, script_cls)
 	module_registry._clear_assignable_cache()
+	_track_registered_module(instance)
+	_module_lifecycle_stages[instance] = 2
+	_call_module_ready(instance)
+	if not _is_lifecycle_current(lifecycle_serial) or _initialization_failed:
+		return false
+	if previous_instance != null:
+		_call_module_dispose(previous_instance)
+		_event_system.unregister_owner(previous_instance)
+		_release_module_dependencies(previous_instance)
+		var _removed_previous_stage: bool = _module_lifecycle_stages.erase(previous_instance)
 	_module_lifecycle_stages[instance] = 3
 	return true
 
@@ -2630,7 +2888,6 @@ func _prepare_replacement_module(instance: Object, lifecycle_serial: int) -> boo
 	if not _is_lifecycle_current(lifecycle_serial) or _initialization_failed:
 		return false
 	_bind_dependency_scope_if_needed(instance, lifecycle_serial)
-	_call_module_ready(instance)
 	return _is_lifecycle_current(lifecycle_serial) and not _initialization_failed
 
 
@@ -2676,6 +2933,9 @@ func _complete_replacement_module_async_init(instance: Object, completion_state:
 
 
 func _can_mutate_registration_state(context: String) -> bool:
+	if _disposed or _is_disposing:
+		push_error("[GFArchitecture] %s 失败：架构已 dispose，不能继续修改注册表。" % context)
+		return false
 	if _initialization_failed:
 		push_error("[GFArchitecture] %s 失败：架构初始化已失败，已拒绝迟到写入。" % context)
 		return false

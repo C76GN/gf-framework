@@ -213,6 +213,8 @@ func set_rows(row_values: Array, duplicate_rows: bool = false) -> void:
 		else:
 			_rows.append(row_data)
 	refresh_view()
+	if selection_model != null:
+		var _prune_result: bool = selection_model.prune_to_row_ids(get_row_ids())
 	rows_changed.emit(_rows.size())
 
 
@@ -654,21 +656,69 @@ func commit_visible_cell_values(changes: Array[Dictionary]) -> Dictionary:
 ## @schema return: Dictionary，包含 ok、row_index、visible_row_index、row_id、selected 和 values。
 func describe_visible_row(visible_row_index: int) -> Dictionary:
 	var row_index: int = get_source_row_index(visible_row_index)
-	if row_index < 0:
-		return { "ok": false }
+	return _describe_row(row_index, visible_row_index, { "include_hidden_columns": true })
 
-	var values: Dictionary = {}
-	var row_data: Variant = _rows[row_index]
-	for column: GFTableColumnDefinition in _columns:
-		values[column.column_id] = column.read_value(row_data)
-	var row_id: Variant = get_row_id(row_index)
+
+## 描述源行。
+## [br]
+## 返回结构面向调试、导出、编辑器表格或虚拟列表渲染，不附带具体 Control 或文件格式语义。
+## [br]
+## @api public
+## [br]
+## @since 7.0.0
+## [br]
+## @param row_index: 源行索引。
+## [br]
+## @param options: 描述选项。
+## [br]
+## @return 行摘要。
+## [br]
+## @schema options: Dictionary，可包含 include_values: bool、include_hidden_columns: bool、include_row_data: bool、copy_values: bool。
+## [br]
+## @schema return: Dictionary，包含 ok、row_index、visible_row_index、row_id、selected、values 和可选 row_data。
+func describe_row(row_index: int, options: Dictionary = {}) -> Dictionary:
+	var visible_row_index: int = _find_visible_row_index(row_index)
+	return _describe_row(row_index, visible_row_index, options)
+
+
+## 描述当前表格视图。
+## [br]
+## 默认只导出当前可见行和可见列；调用方可以通过 options 请求源行、隐藏列或原始行数据。
+## [br]
+## @api public
+## [br]
+## @since 7.0.0
+## [br]
+## @param options: 描述选项。
+## [br]
+## @return 视图摘要。
+## [br]
+## @schema options: Dictionary，可包含 visible_only: bool、include_values: bool、include_columns: bool、include_hidden_columns: bool、include_row_data: bool、copy_values: bool。
+## [br]
+## @schema return: Dictionary，包含 row_count、visible_count、column_count、filter_query、sort_column_id、sort_ascending、visible_only、columns 和 rows。
+func describe_view(options: Dictionary = {}) -> Dictionary:
+	var visible_only: bool = GFVariantData.get_option_bool(options, "visible_only", true)
+	var include_columns: bool = GFVariantData.get_option_bool(options, "include_columns", true)
+	var rows: Array[Dictionary] = []
+	if visible_only:
+		for visible_index: int in range(_visible_row_indices.size()):
+			var row_index: int = _visible_row_indices[visible_index]
+			rows.append(_describe_row(row_index, visible_index, options))
+	else:
+		var visible_row_indices_by_source: Dictionary = _make_visible_row_index_map()
+		for row_index: int in range(_rows.size()):
+			var visible_row_index: int = visible_row_indices_by_source.get(row_index, -1)
+			rows.append(_describe_row(row_index, visible_row_index, options))
 	return {
-		"ok": true,
-		"row_index": row_index,
-		"visible_row_index": visible_row_index,
-		"row_id": row_id,
-		"selected": selection_model != null and selection_model.is_selected(row_id),
-		"values": values,
+		"row_count": _rows.size(),
+		"visible_count": _visible_row_indices.size(),
+		"column_count": _columns.size(),
+		"filter_query": _filter_query,
+		"sort_column_id": _sort_column_id,
+		"sort_ascending": _sort_ascending,
+		"visible_only": visible_only,
+		"columns": _describe_columns(options) if include_columns else [],
+		"rows": rows,
 	}
 
 
@@ -709,6 +759,78 @@ func get_debug_snapshot() -> Dictionary:
 
 
 # --- 私有/辅助方法 ---
+
+func _describe_row(row_index: int, visible_row_index: int, options: Dictionary) -> Dictionary:
+	if not _is_valid_row_index(row_index):
+		return {
+			"ok": false,
+			"row_index": row_index,
+			"visible_row_index": visible_row_index,
+		}
+
+	var copy_values: bool = GFVariantData.get_option_bool(options, "copy_values", true)
+	var include_values: bool = GFVariantData.get_option_bool(options, "include_values", true)
+	var include_row_data: bool = GFVariantData.get_option_bool(options, "include_row_data", false)
+	var row_data: Variant = _rows[row_index]
+	var row_id: Variant = get_row_id(row_index)
+	var result: Dictionary = {
+		"ok": true,
+		"row_index": row_index,
+		"visible_row_index": visible_row_index,
+		"row_id": _copy_snapshot_value(row_id, copy_values),
+		"selected": selection_model != null and selection_model.is_selected(row_id),
+	}
+	if include_values:
+		result["values"] = _describe_row_values(row_data, options)
+	if include_row_data:
+		result["row_data"] = _copy_snapshot_value(row_data, copy_values)
+	return result
+
+
+func _describe_row_values(row_data: Variant, options: Dictionary) -> Dictionary:
+	var copy_values: bool = GFVariantData.get_option_bool(options, "copy_values", true)
+	var include_hidden_columns: bool = GFVariantData.get_option_bool(options, "include_hidden_columns", false)
+	var values: Dictionary = {}
+	for column: GFTableColumnDefinition in _columns:
+		if column == null:
+			continue
+		if not include_hidden_columns and not column.visible:
+			continue
+		values[column.column_id] = _copy_snapshot_value(column.read_value(row_data), copy_values)
+	return values
+
+
+func _describe_columns(options: Dictionary) -> Array[Dictionary]:
+	var include_hidden_columns: bool = GFVariantData.get_option_bool(options, "include_hidden_columns", false)
+	var result: Array[Dictionary] = []
+	for column: GFTableColumnDefinition in _columns:
+		if column == null:
+			continue
+		if not include_hidden_columns and not column.visible:
+			continue
+		result.append(column.describe())
+	return result
+
+
+func _copy_snapshot_value(value: Variant, copy_values: bool) -> Variant:
+	if not copy_values:
+		return value
+	return GFVariantData.duplicate_variant(value, true, false)
+
+
+func _find_visible_row_index(row_index: int) -> int:
+	for visible_index: int in range(_visible_row_indices.size()):
+		if _visible_row_indices[visible_index] == row_index:
+			return visible_index
+	return -1
+
+
+func _make_visible_row_index_map() -> Dictionary:
+	var result: Dictionary = {}
+	for visible_index: int in range(_visible_row_indices.size()):
+		result[_visible_row_indices[visible_index]] = visible_index
+	return result
+
 
 func _commit_cell_value_changes(changes: Array[Dictionary], use_visible_rows: bool) -> Dictionary:
 	var committed: Array[Dictionary] = []

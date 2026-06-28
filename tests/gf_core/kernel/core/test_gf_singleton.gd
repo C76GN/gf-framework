@@ -497,6 +497,19 @@ class ReplaceableAsyncUtility extends GFUtility:
 		disposed = true
 
 
+class ReadyLookupReplacementUtility extends GFUtility:
+	var ready_lookup: ReadyLookupReplacementUtility = null
+	var disposed: bool = false
+
+	func ready() -> void:
+		var value: Variant = get_utility(ReadyLookupReplacementUtility)
+		if value is ReadyLookupReplacementUtility:
+			ready_lookup = value
+
+	func dispose() -> void:
+		disposed = true
+
+
 class MissingDependencyUtility extends GFUtility:
 	func get_required_models() -> Array:
 		return [RegistryConcreteModel]
@@ -544,6 +557,34 @@ class RecoveringFactory extends RefCounted:
 		call_count += 1
 		if call_count == 1:
 			return WrongFactoryNode.new()
+		return FactoryNode.new()
+
+class CyclicFactory extends RefCounted:
+	var architecture: GFArchitecture = null
+	var call_count: int = 0
+
+	func _init(p_architecture: GFArchitecture) -> void:
+		architecture = p_architecture
+
+	func create() -> Object:
+		call_count += 1
+		if architecture != null:
+			return architecture.create_instance(FactoryNode)
+		return null
+
+class FallbackAfterRecursiveFactory extends RefCounted:
+	var architecture: GFArchitecture = null
+	var call_count: int = 0
+	var recursive_result_was_null: bool = false
+
+	func _init(p_architecture: GFArchitecture) -> void:
+		architecture = p_architecture
+
+	func create() -> Object:
+		call_count += 1
+		if call_count == 1 and architecture != null:
+			var recursive_result: Object = architecture.create_instance(FactoryNode)
+			recursive_result_was_null = recursive_result == null
 		return FactoryNode.new()
 
 # --- Godot 生命周期方法 ---
@@ -911,6 +952,22 @@ func test_replace_utility_timeout_keeps_old_instance() -> void:
 
 	new_utility.async_continue.emit()
 	await get_tree().process_frame
+	arch.dispose()
+
+
+## 验证已初始化架构替换模块时，ready 阶段查询应解析到替换后的新实例。
+func test_replace_utility_ready_lookup_resolves_replacement_instance() -> void:
+	var arch: GFArchitecture = GFArchitecture.new()
+	var old_utility: ReadyLookupReplacementUtility = ReadyLookupReplacementUtility.new()
+	var new_utility: ReadyLookupReplacementUtility = ReadyLookupReplacementUtility.new()
+
+	await arch.register_utility_instance(old_utility)
+	await arch.init()
+	await arch.replace_utility(ReadyLookupReplacementUtility, new_utility)
+
+	assert_eq(new_utility.ready_lookup, new_utility, "替换实例 ready() 中的查询应返回新实例。")
+	assert_true(old_utility.disposed, "替换成功后旧实例应被释放。")
+	assert_false(new_utility.disposed, "替换成功的新实例不应被释放。")
 	arch.dispose()
 
 
@@ -1713,7 +1770,13 @@ func test_context_wait_until_ready_times_out_when_parent_never_initializes() -> 
 
 	assert_null(architecture, "父架构一直未初始化时，wait_until_ready 应在超时后返回 null。")
 	assert_signal_emitted(context, "context_failed", "等待超时应发出 context_failed。")
+	assert_true(context.is_context_failed(), "超时后上下文应进入失败终态。")
+	assert_eq(context.get_context_failure_reason(), "等待上下文初始化超时。", "失败原因应保留给后续诊断。")
 	assert_push_warning("[GFNodeContext] 等待上下文初始化超时。")
+
+	var retry_architecture: GFArchitecture = await context.wait_until_ready()
+
+	assert_null(retry_architecture, "失败终态的上下文不应在后续等待中重新进入初始化流程。")
 
 	context.queue_free()
 	await get_tree().process_frame
@@ -1984,6 +2047,39 @@ func test_singleton_factory_does_not_cache_wrong_type_failure() -> void:
 	assert_push_error("[GFBinding] 绑定来源返回的实例脚本必须继承或等于绑定键。")
 	assert_eq(factory.call_count, 2, "失败结果不应写入 Singleton 缓存，下一次应重新调用 provider。")
 	assert_not_null(second, "后续 provider 返回正确类型后应能成功解析。")
+
+	second.free()
+	arch.dispose()
+
+
+## 验证 Singleton 工厂循环解析会被拒绝，而不是递归创建直到栈溢出。
+func test_singleton_factory_rejects_recursive_resolution() -> void:
+	var arch: GFArchitecture = GFArchitecture.new()
+	var factory: CyclicFactory = CyclicFactory.new(arch)
+	arch.register_factory(FactoryNode, Callable(factory, "create"), GFBindingLifetimes.Lifetime.SINGLETON)
+
+	var resolved: Object = arch.create_instance(FactoryNode)
+
+	assert_null(resolved, "循环解析的 Singleton 工厂应返回 null。")
+	assert_eq(factory.call_count, 1, "循环解析应在第二次进入同一 binding 时被拦截。")
+	assert_push_error("[GFBinding] Singleton 工厂正在解析中，检测到循环依赖。")
+	arch.dispose()
+
+
+## 验证 Singleton 工厂在递归解析后即使 provider 返回对象，也不能缓存该对象。
+func test_singleton_factory_rejects_provider_value_after_recursive_resolution() -> void:
+	var arch: GFArchitecture = GFArchitecture.new()
+	var factory: FallbackAfterRecursiveFactory = FallbackAfterRecursiveFactory.new(arch)
+	arch.register_factory(FactoryNode, Callable(factory, "create"), GFBindingLifetimes.Lifetime.SINGLETON)
+
+	var first: Object = arch.create_instance(FactoryNode)
+	var second: FactoryNode = _factory_node(arch.create_instance(FactoryNode))
+
+	assert_null(first, "递归解析发生后外层 provider 的补偿返回值也应被拒绝。")
+	assert_true(factory.recursive_result_was_null, "递归进入同一 Singleton binding 时应被拦截。")
+	assert_eq(factory.call_count, 2, "递归失败不应写入 Singleton 缓存，后续解析应重新调用 provider。")
+	assert_not_null(second, "后续非递归解析仍应恢复。")
+	assert_push_error("[GFBinding] Singleton 工厂正在解析中，检测到循环依赖。")
 
 	second.free()
 	arch.dispose()
@@ -2586,6 +2682,22 @@ func test_dispose_during_timed_async_init_cancels_waiters_and_stale_resume() -> 
 	assert_false(arch.is_inited(), "限时 async_init 迟到恢复后不应重新写回已初始化状态。")
 	assert_false(slow_utility.ready_called, "被 dispose 中断的限时 async_init 模块不应进入 ready。")
 	assert_signal_emit_count(arch, "initialization_finished", 1)
+
+
+## 验证 dispose 后架构进入终态，不能被重新初始化或继续写入。
+func test_disposed_architecture_rejects_reuse_and_late_registration() -> void:
+	var arch: GFArchitecture = GFArchitecture.new()
+
+	arch.dispose()
+	arch.dispose()
+	await arch.register_utility_instance(DummyUtility.new())
+	await arch.init()
+	var created: Object = arch.create_instance(FactoryCommand)
+
+	assert_null(created, "dispose 后 create_instance 应返回 null。")
+	assert_push_error("[GFArchitecture] register_utility 失败：架构已 dispose，不能继续修改注册表。")
+	assert_push_error("[GFArchitecture] init 失败：架构已 dispose，不能重新初始化。")
+	assert_push_error("[GFArchitecture] create_instance 失败：架构已 dispose。")
 
 
 ## 验证无架构时 Gf 门面方法只报错并返回空值，不发生空引用崩溃。

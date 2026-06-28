@@ -49,3 +49,31 @@ func test_apply_dict_ignores_non_dictionary_metadata() -> void:
 	assert_eq(record.subject_path, NodePath("Node"))
 	assert_eq(record.subject_kind, &"node")
 	assert_true(record.metadata.is_empty(), "非 Dictionary metadata 不应进入记录。")
+
+
+func test_apply_dict_replaces_existing_fields_instead_of_patch_merging() -> void:
+	var record: GFAssetMetadataRecord = GFAssetMetadataRecord.new()
+	var _configured_record: GFAssetMetadataRecord = record.configure("res://assets/old.glb", NodePath("Old"), &"node", {
+		"old": true,
+	})
+
+	record.apply_dict({
+		"metadata": "bad",
+	})
+
+	assert_eq(record.source_path, "", "缺失 source_path 时 apply_dict 应按完整替换清空旧值。")
+	assert_eq(record.subject_path, NodePath("."), "缺失 subject_path 时 apply_dict 应回到默认根路径。")
+	assert_eq(record.subject_kind, &"", "缺失 subject_kind 时 apply_dict 应清空旧类别。")
+	assert_true(record.metadata.is_empty(), "坏 metadata 输入不应保留旧 metadata。")
+
+
+func test_source_path_is_canonicalized_for_records() -> void:
+	var record: GFAssetMetadataRecord = GFAssetMetadataRecord.new()
+	var _configure_result: GFAssetMetadataRecord = record.configure(
+		"res://assets/../assets\\tree.glb",
+		NodePath("."),
+		&"asset",
+		{}
+	)
+
+	assert_eq(record.source_path, "res://assets/tree.glb", "记录 source_path 应规范化分隔符和 . / .. 片段。")

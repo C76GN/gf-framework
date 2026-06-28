@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFGravityProbe3D" path="addons/gf/extensions/physics/nodes/gf_gravity_probe_3d.gd" module="extensions/physics" extends="Node3D" classDigest="e973c7ff4b32923d5f82fbba0e0360e1912b0d7d56a47660d685f64ca172769a">
+<class name="GFGravityProbe3D" path="addons/gf/extensions/physics/nodes/gf_gravity_probe_3d.gd" module="extensions/physics" extends="Node3D" classDigest="07f3fd33f688ac5778ecec240c6765c9d5704b63cf5adc30539afa80e862954d">
 	<description>GFGravityProbe3D: 通用 3D 重力采样器。
 从场景树分组中采样 GFGravityField3D 或任何暴露 get_acceleration_at()
 方法的对象，并按组合策略计算当前位置处的加速度、上下方向。</description>
@@ -103,6 +103,14 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">向上方向。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="invalidate_cache">
+			<signature>func invalidate_cache() -&gt; void:</signature>
+			<description>清空当前帧采样缓存。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
 			</tags>
 		</member>
 	</methods>

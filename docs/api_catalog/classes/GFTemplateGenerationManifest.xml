@@ -1,0 +1,163 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFTemplateGenerationManifest" path="addons/gf/kernel/editor/gf_template_generation_manifest.gd" module="kernel" extends="RefCounted" classDigest="58c00913c55b89ebebf96cccab00b82ddd24bc026151ff90f83382337522af6c">
+	<description>GFTemplateGenerationManifest: 代码生成模板清单辅助。
+用普通字典描述模板 ID、模板路径、输出路径、变量、要求和产物所有权，并可从 JSON
+sidecar 读取。它不绑定具体模板引擎，也不规定项目目录结构，只为生成器提供稳定、
+可校验、可汇总并可接入 GFGeneratedArtifactReport 的计划格式。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">editor_api</tag>
+		<tag name="layer">kernel/editor</tag>
+		<tag name="since">6.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants>
+		<member kind="const" name="STATUS_READY">
+			<signature>const STATUS_READY: StringName = &amp;"ready"</signature>
+			<description>清单有效。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_INVALID">
+			<signature>const STATUS_INVALID: StringName = &amp;"invalid"</signature>
+			<description>清单缺少必要字段。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_PARSE_FAILED">
+			<signature>const STATUS_PARSE_FAILED: StringName = &amp;"parse_failed"</signature>
+			<description>清单 JSON 无法解析。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_LOAD_FAILED">
+			<signature>const STATUS_LOAD_FAILED: StringName = &amp;"load_failed"</signature>
+			<description>清单文件无法读取。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties />
+	<methods>
+		<member kind="method" name="make_manifest">
+			<signature>static func make_manifest( template_id: StringName, template_path: String, output_path: String, options: Dictionary = {} ) -&gt; Dictionary:</signature>
+			<description>创建模板生成清单。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">template_id: 稳定模板 ID。</tag>
+				<tag name="param">template_path: 模板资源路径。</tag>
+				<tag name="param">output_path: 生成产物输出路径。</tag>
+				<tag name="param">options: 清单选项，支持 generator_id、source_id、artifact_owner、variables、requirements 和 metadata。</tag>
+				<tag name="return">模板生成清单字典。</tag>
+				<tag name="schema">options: Dictionary with generator_id, source_id, artifact_owner, variables, requirements, and metadata.</tag>
+				<tag name="schema">return: Dictionary containing valid, status, template_id, template_path, output_path, generator_id, source_id, artifact_owner, variables, requirements, metadata, and errors.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="from_dictionary">
+			<signature>static func from_dictionary(data: Dictionary, defaults: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>从字典创建模板生成清单。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">data: 清单字段。</tag>
+				<tag name="param">defaults: 默认字段，data 会覆盖 defaults。</tag>
+				<tag name="return">模板生成清单字典。</tag>
+				<tag name="schema">data: Dictionary manifest fields.</tag>
+				<tag name="schema">defaults: Dictionary default manifest fields.</tag>
+				<tag name="schema">return: Dictionary containing valid, status, template_id, template_path, output_path, generator_id, source_id, artifact_owner, variables, requirements, metadata, and errors.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="from_json_text">
+			<signature>static func from_json_text(text: String, defaults: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>从 JSON 文本创建模板生成清单。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">text: JSON 文本。</tag>
+				<tag name="param">defaults: 默认字段。</tag>
+				<tag name="return">模板生成清单字典。</tag>
+				<tag name="schema">defaults: Dictionary default manifest fields.</tag>
+				<tag name="schema">return: Dictionary containing valid, status, fields, and errors.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="load_sidecar">
+			<signature>static func load_sidecar(sidecar_path: String, defaults: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>从 JSON sidecar 文件创建模板生成清单。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">sidecar_path: JSON sidecar 路径。</tag>
+				<tag name="param">defaults: 默认字段。</tag>
+				<tag name="return">模板生成清单字典。</tag>
+				<tag name="schema">defaults: Dictionary default manifest fields.</tag>
+				<tag name="schema">return: Dictionary containing valid, status, fields, sidecar_path, and errors.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="validate_manifest">
+			<signature>static func validate_manifest(manifest: Dictionary) -&gt; Dictionary:</signature>
+			<description>校验模板生成清单。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">manifest: 待校验清单。</tag>
+				<tag name="return">校验后的清单副本。</tag>
+				<tag name="schema">manifest: Dictionary manifest fields.</tag>
+				<tag name="schema">return: Dictionary containing valid, status, and errors.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="make_artifact_options">
+			<signature>static func make_artifact_options(manifest: Dictionary, extra_options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>从清单生成 GFGeneratedArtifactReport 保存选项。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">manifest: 模板生成清单。</tag>
+				<tag name="param">extra_options: 额外保存选项，会覆盖清单派生字段。</tag>
+				<tag name="return">保存选项字典。</tag>
+				<tag name="schema">manifest: Dictionary returned by make_manifest().</tag>
+				<tag name="schema">extra_options: Dictionary GFGeneratedArtifactReport.save_text() options.</tag>
+				<tag name="schema">return: Dictionary with artifact_owner, generator_id, source_id, metadata, and caller extra options.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="save_text_from_manifest">
+			<signature>static func save_text_from_manifest(manifest: Dictionary, text: String, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>按清单保存文本产物。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">manifest: 模板生成清单。</tag>
+				<tag name="param">text: 要保存的文本。</tag>
+				<tag name="param">options: 额外保存选项。</tag>
+				<tag name="return">生成产物报告。</tag>
+				<tag name="schema">manifest: Dictionary returned by make_manifest().</tag>
+				<tag name="schema">options: Dictionary GFGeneratedArtifactReport.save_text() options.</tag>
+				<tag name="schema">return: Dictionary returned by GFGeneratedArtifactReport.save_text().</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="summarize_manifests">
+			<signature>static func summarize_manifests(manifests: Array[Dictionary], options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>汇总多份模板生成清单。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">manifests: 清单数组。</tag>
+				<tag name="param">options: 汇总选项，支持 include_manifests 和 metadata。</tag>
+				<tag name="return">清单摘要。</tag>
+				<tag name="schema">manifests: Array[Dictionary] template generation manifests.</tag>
+				<tag name="schema">options: Dictionary with include_manifests and metadata.</tag>
+				<tag name="schema">return: Dictionary containing valid, manifest_count, valid_count, invalid_count, template_ids, output_paths, errors, metadata, and optional manifests.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

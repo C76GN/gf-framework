@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFVisualActionGroup" path="addons/gf/extensions/action_queue/actions/gf_visual_action_group.gd" module="extensions/action_queue" extends="GFVisualAction" classDigest="57dc5bd1c603e97da40863c5d3ad132388b4cf18977345f17a9219ba3b6bab16">
+<class name="GFVisualActionGroup" path="addons/gf/extensions/action_queue/actions/gf_visual_action_group.gd" module="extensions/action_queue" extends="GFVisualAction" classDigest="5fc3ed77bfd079901dd19b6c155f955ae1e7feea1467a7c235fd407d8f70abdc">
 	<description>GFVisualActionGroup: 动作组复合节点 (Composite Pattern)
 继承自 GFVisualAction。允许将一组子动作打包，按并行（全部一起发出并按策略等待）
 或顺序（逐个执行并等待各自完成）两种模式执行。
@@ -87,16 +87,18 @@
 		</member>
 		<member kind="method" name="pause">
 			<signature>func pause() -&gt; void:</signature>
-			<description>暂停所有有效子动作。</description>
+			<description>暂停当前已启动子动作，并阻止后续子动作启动。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="resume">
 			<signature>func resume() -&gt; void:</signature>
-			<description>恢复所有有效子动作。</description>
+			<description>恢复当前已启动子动作，并允许后续子动作继续启动。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="finish">

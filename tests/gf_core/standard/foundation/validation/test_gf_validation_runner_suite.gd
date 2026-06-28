@@ -2,7 +2,7 @@
 extends GutTest
 
 
-const VALIDATION_SCAN_ROOT: String = "user://gf_validation_suite_scan"
+const VALIDATION_SCAN_ROOT: String = "res://gf_validation_suite_scan.tmp"
 
 
 # --- Godot 生命周期方法 ---
@@ -109,6 +109,47 @@ func test_validation_runner_promotes_warnings_when_requested() -> void:
 	assert_eq(runner_report.get_error_count(), 1, "warning 应提升为 error。")
 
 
+func test_validation_rule_string_result_inherits_context_fields() -> void:
+	var rule: GFValidationRule = GFValidationRule.new().configure(
+		&"invalid_value",
+		func(_target: Variant, _validation_report: GFValidationReport, _context: Dictionary) -> String:
+			return "Value is invalid."
+	)
+
+	var validation_report: GFValidationReport = rule.validate({}, {
+		"subject": "Profile",
+		"key": "score",
+		"path": "profile/score",
+		"source_path": "res://profiles/player.json",
+		"line": 7,
+		"column": 3,
+	})
+	var issue: GFValidationIssue = _first_issue(validation_report)
+
+	assert_not_null(issue, "字符串结果应生成 issue。")
+	assert_eq(issue.subject, "Profile", "规则 issue 应继承 subject。")
+	assert_eq(issue.path, "profile/score", "规则 issue 应继承 path。")
+	assert_eq(issue.source_path, "res://profiles/player.json", "规则 issue 应继承 source_path。")
+	assert_eq(issue.line, 7, "规则 issue 应继承 line。")
+	assert_eq(issue.column, 3, "规则 issue 应继承 column。")
+
+
+func test_validation_runner_reports_missing_resource_paths_without_loading() -> void:
+	var suite: GFValidationSuite = GFValidationSuite.new()
+	suite.scene_extensions = PackedStringArray(["tscn"])
+	suite.resource_extensions = PackedStringArray(["tres"])
+	var runner_report: GFValidationReport = GFValidationRunner.new().run_paths(
+		PackedStringArray(["res://tests/gf_core/fixtures/missing_validation_resource.tres"]),
+		suite
+	)
+	var issue: GFValidationIssue = _first_issue(runner_report)
+
+	assert_false(runner_report.is_ok(), "缺失资源路径应让校验失败。")
+	assert_not_null(issue, "缺失资源路径应生成 issue。")
+	assert_eq(issue.get_kind_key(), "resource_missing", "缺失资源路径应使用稳定 issue kind。")
+	assert_eq(issue.path, "res://tests/gf_core/fixtures/missing_validation_resource.tres", "缺失资源 issue 应记录原路径。")
+
+
 func test_validation_junit_exporter_writes_failure_cases() -> void:
 	var validation_report: GFValidationReport = GFValidationReport.new("Config")
 	var _add_error_result_114: Variant = validation_report.add_error(&"invalid_value", "Value < 0.", "score")
@@ -165,3 +206,13 @@ func _remove_absolute_path(path: String, is_directory: bool) -> void:
 	var remove_error: Error = DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
 	var message: String = "测试应能删除临时校验资源目录。" if is_directory else "测试应能删除临时校验资源文件。"
 	assert_eq(remove_error, OK, message)
+
+
+func _first_issue(report: GFValidationReport) -> GFValidationIssue:
+	if report.issues.is_empty():
+		return null
+	var issue_value: Variant = report.issues[0]
+	if issue_value is GFValidationIssue:
+		var issue: GFValidationIssue = issue_value
+		return issue
+	return null

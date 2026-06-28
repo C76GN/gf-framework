@@ -48,6 +48,11 @@ extends GFConfigValidationRule
 @export var use_file_access_fallback: bool = true
 
 
+# --- 私有变量 ---
+
+var _path_exists_cache: Dictionary = {}
+
+
 # --- 公共方法 ---
 
 ## 导出规则摘要。
@@ -131,11 +136,17 @@ func _extension_allowed(path: String) -> bool:
 
 
 func _path_exists(path: String) -> bool:
+	var cache_key: String = _make_path_exists_cache_key(path)
+	if _path_exists_cache.has(cache_key):
+		return GFVariantData.to_bool(_path_exists_cache[cache_key])
+
+	var exists: bool = false
 	if use_resource_loader and ResourceLoader.exists(path):
-		return true
-	if use_file_access_fallback and path.begins_with("res://") and FileAccess.file_exists(path):
-		return true
-	return false
+		exists = true
+	elif use_file_access_fallback and path.begins_with("res://") and FileAccess.file_exists(path):
+		exists = true
+	_path_exists_cache[cache_key] = exists
+	return exists
 
 
 func _has_allowed_resource_prefix(path: String) -> bool:
@@ -190,3 +201,12 @@ func _describe_allowed_prefixes() -> PackedStringArray:
 		if allow_uid_paths:
 			var _uid_prefix_appended: bool = result.append("uid://")
 	return result
+
+
+func _make_path_exists_cache_key(path: String) -> String:
+	return "%s|loader:%s|file:%s|uid:%s" % [
+		path,
+		str(use_resource_loader),
+		str(use_file_access_fallback),
+		str(allow_uid_paths),
+	]

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFConfigTableResource" path="addons/gf/standard/utilities/config/gf_config_table_resource.gd" module="standard" extends="Resource" classDigest="e6891a49e99ea6584eab129c58c423f1f863b727cc39c74638dc122a5a09b272">
+<class name="GFConfigTableResource" path="addons/gf/standard/utilities/config/gf_config_table_resource.gd" module="standard" extends="Resource" classDigest="e5fc80f16486a0080b572e928686d9e653e25610461e86fb8617af93bf6decb1">
 	<description>GFConfigTableResource: 可保存为 Godot Resource 的通用配置表。
 用于承载导表工具生成的单表数据，保留稳定顺序、可选 schema、可选 ID 索引和元数据。
 该资源不绑定业务表语义，适合保存为 `.tres` / `.res` 后由运行时 Provider 读取。</description>
@@ -101,7 +101,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">duplicate_records: 为 true 时返回记录深拷贝，避免调用方修改资源内数据。</tag>
-				<tag name="return">ID 索引副本；records_by_id 为空时按 records 临时构建。</tag>
+				<tag name="return">按当前 records 构建的 ID 索引副本。</tag>
 				<tag name="schema">return: Dictionary，键为配置记录 ID，值为对应记录 Dictionary。</tag>
 				<tag name="since">5.2.0</tag>
 			</tags>

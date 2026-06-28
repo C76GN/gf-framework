@@ -37,6 +37,23 @@ func test_sort_dependency_first_reports_missing_dependencies_once() -> void:
 	assert_eq(GFVariantData.get_option_string(missing_entry, "dependency_id"), "base", "缺失依赖应记录目标 ID。")
 
 
+func test_sort_dependency_first_reports_missing_root_ids() -> void:
+	var dependency_map: Dictionary = {
+		"base": PackedStringArray(),
+	}
+	var report: Dictionary = GFDependencyGraphTools.sort_dependency_first(
+		PackedStringArray(["feature", "base"]),
+		dependency_map
+	)
+	var missing_root_ids: PackedStringArray = GFVariantData.get_option_packed_string_array(report, "missing_root_ids")
+	var ordered_ids: PackedStringArray = GFVariantData.get_option_packed_string_array(report, "ordered_ids")
+
+	assert_false(GFVariantData.get_option_bool(report, "ok"), "未知根节点应让依赖图诊断失败。")
+	assert_eq(Array(missing_root_ids), ["feature"], "未知根节点应进入 missing_root_ids。")
+	assert_eq(GFVariantData.get_option_int(report, "missing_root_count", -1), 1, "未知根节点数量应进入计数字段。")
+	assert_eq(Array(ordered_ids), ["base"], "有效根节点仍应被排序。")
+
+
 func test_sort_dependency_first_normalizes_packed_string_dependencies() -> void:
 	var dependency_map: Dictionary = {
 		"feature": PackedStringArray([" base ", "base", ""]),

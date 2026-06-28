@@ -123,6 +123,53 @@ func test_manifest_validation_reports_required_fields() -> void:
 	)
 
 
+func test_manifest_from_json_file_report_includes_parse_and_validation_errors() -> void:
+	var root_path: String = "res://tests/gf_core/tmp_manifest_file_report"
+	var parse_path: String = root_path.path_join(GFExtensionManifest.FILE_NAME)
+	var invalid_path: String = root_path.path_join("invalid_extension.json")
+	_remove_path_if_exists(parse_path)
+	_remove_path_if_exists(invalid_path)
+	_remove_path_if_exists(root_path)
+	var _make_dir_result: Variant = DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(root_path))
+	_write_text_file(parse_path, "{")
+	_write_text_file(invalid_path, JSON.stringify({
+		"display_name": "Invalid",
+		"version": "1.0.0",
+		"kind": "extension",
+	}))
+
+	var parse_report: Dictionary = GFExtensionManifest.from_json_file_report(parse_path)
+	var invalid_report: Dictionary = GFExtensionManifest.from_json_file_report(invalid_path)
+	var missing_report: Dictionary = GFExtensionManifest.from_json_file_report(root_path.path_join("missing.json"))
+	var invalid_errors: Array = GF_VARIANT_ACCESS.get_option_array(invalid_report, "errors")
+
+	_remove_path_if_exists(parse_path)
+	_remove_path_if_exists(invalid_path)
+	_remove_path_if_exists(root_path)
+
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(parse_report, "ok"), "JSON 解析失败应返回诊断报告。")
+	assert_true(GF_VARIANT_ACCESS.get_option_string_array(parse_report, "errors")[0].contains("could not parse JSON"), "解析报告应包含 JSON 错误。")
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(invalid_report, "ok"), "字段校验失败应返回 ok=false。")
+	assert_true(invalid_errors.has("id is required"), "校验错误应进入诊断报告。")
+	assert_true(GF_VARIANT_ACCESS.get_option_value(invalid_report, "manifest") is GFExtensionManifest, "可解析但无效的 manifest 应保留实例供诊断。")
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(missing_report, "ok"), "缺失文件应返回读取失败诊断。")
+
+
+func test_manifest_validation_rejects_non_canonical_extension_ids() -> void:
+	var manifest: GFExtensionManifest = GFExtensionManifest.from_dictionary({
+		"id": "GF.Save",
+		"display_name": "GF Save",
+		"version": "1.0.0",
+		"kind": "extension",
+		"dependencies": ["gf.kernel", "gf.Invalid"],
+	}, "res://addons/gf/extensions/save", "")
+	var errors: Array[String] = manifest.get_validation_errors()
+
+	assert_false(GFExtensionManifest.is_valid_extension_id("GF.Save"), "大写扩展 ID 不应通过共享校验器。")
+	assert_true(errors.has("id must use lowercase dotted identifier segments: GF.Save"), "manifest id 应使用严格小写 dotted identifier。")
+	assert_true(errors.has("dependencies must use lowercase dotted identifier segments: gf.Invalid"), "manifest dependency ID 应使用同一套严格校验。")
+
+
 func test_manifest_validation_rejects_unsupported_relation_fields() -> void:
 	var manifest: GFExtensionManifest = GFExtensionManifest.from_dictionary({
 		"id": "author.feature",
@@ -261,6 +308,37 @@ func test_extension_preset_validation_reports_required_fields() -> void:
 	assert_true(errors.has("display_name is required"), "缺少 display_name 应报告错误。")
 
 
+func test_extension_preset_from_json_file_report_includes_parse_and_validation_errors() -> void:
+	var root_path: String = "res://tests/gf_core/tmp_preset_file_report"
+	var parse_path: String = root_path.path_join("broken.json")
+	var invalid_path: String = root_path.path_join("invalid.json")
+	_remove_path_if_exists(parse_path)
+	_remove_path_if_exists(invalid_path)
+	_remove_path_if_exists(root_path)
+	var _make_dir_result: Variant = DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(root_path))
+	_write_text_file(parse_path, "{")
+	_write_text_file(invalid_path, JSON.stringify({
+		"display_name": "Invalid",
+		"extension_ids": [],
+	}))
+
+	var parse_report: Dictionary = GF_EXTENSION_PRESET_BASE.from_json_file_report(parse_path)
+	var invalid_report: Dictionary = GF_EXTENSION_PRESET_BASE.from_json_file_report(invalid_path)
+	var missing_report: Dictionary = GF_EXTENSION_PRESET_BASE.from_json_file_report(root_path.path_join("missing.json"))
+	var invalid_errors: Array = GF_VARIANT_ACCESS.get_option_array(invalid_report, "errors")
+
+	_remove_path_if_exists(parse_path)
+	_remove_path_if_exists(invalid_path)
+	_remove_path_if_exists(root_path)
+
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(parse_report, "ok"), "JSON 解析失败应返回诊断报告。")
+	assert_true(GF_VARIANT_ACCESS.get_option_string_array(parse_report, "errors")[0].contains("could not parse preset JSON"), "解析报告应包含 JSON 错误。")
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(invalid_report, "ok"), "字段校验失败应返回 ok=false。")
+	assert_true(invalid_errors.has("id is required"), "校验错误应进入诊断报告。")
+	assert_true(GF_VARIANT_ACCESS.get_option_value(invalid_report, "preset") is Object, "可解析但无效的 preset 应保留实例供诊断。")
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(missing_report, "ok"), "缺失文件应返回读取失败诊断。")
+
+
 func test_extension_preset_validation_rejects_unsupported_boundary_fields() -> void:
 	var preset: Object = GF_EXTENSION_PRESET_BASE.from_dictionary({
 		"id": "project.rpg",
@@ -325,6 +403,27 @@ func test_catalog_loads_extension_manifests() -> void:
 	assert_true(ids.has("gf.save"), "扩展目录应能发现 save manifest。")
 
 
+func test_catalog_direct_load_clears_previous_manifest_errors() -> void:
+	var root_path: String = "res://tests/gf_core/tmp_catalog_error_reset"
+	var extension_dir: String = root_path.path_join("broken")
+	var manifest_path: String = extension_dir.path_join(GFExtensionManifest.FILE_NAME)
+	_cleanup_extension_root_fixture(root_path, extension_dir, manifest_path)
+	var _make_dir_result: Variant = DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(extension_dir))
+	_write_text_file(manifest_path, "{")
+
+	var broken_manifests: Array[GFExtensionManifest] = GFExtensionCatalog.load_manifests_in(root_path)
+	var broken_errors: Array[Dictionary] = GFExtensionCatalog.get_last_manifest_load_errors()
+	var clean_manifests: Array[GFExtensionManifest] = GFExtensionCatalog.load_manifests_in(root_path.path_join("missing"))
+	var clean_errors: Array[Dictionary] = GFExtensionCatalog.get_last_manifest_load_errors()
+
+	_cleanup_extension_root_fixture(root_path, extension_dir, manifest_path)
+
+	assert_true(broken_manifests.is_empty(), "坏 manifest 不应被加载。")
+	assert_eq(broken_errors.size(), 1, "坏 manifest 应记录一次读取错误。")
+	assert_true(clean_manifests.is_empty(), "空根目录不应加载 manifest。")
+	assert_true(clean_errors.is_empty(), "后续直接扫描应清空上次读取错误。")
+
+
 func test_extension_settings_loads_external_extension_roots_from_project_settings() -> void:
 	var root_path: String = "res://tests/gf_core/tmp_external_extensions"
 	var extension_dir: String = root_path.path_join("sample")
@@ -361,6 +460,76 @@ func test_extension_settings_loads_external_extension_roots_from_project_setting
 	assert_not_null(manifest, "ProjectSettings 声明的额外扩展根目录应参与 manifest 发现。")
 	assert_eq(manifest.root_path, extension_dir, "外部 manifest root_path 应指向扩展自身目录。")
 	assert_eq(external_roots, [root_path], "启用状态诊断应暴露当前额外扩展根目录。")
+
+
+func test_extension_settings_refreshes_manifest_cache_when_external_roots_setting_changes_directly() -> void:
+	var first_root_path: String = "res://tests/gf_core/tmp_external_roots_first"
+	var second_root_path: String = "res://tests/gf_core/tmp_external_roots_second"
+	var first_extension_dir: String = first_root_path.path_join("first")
+	var second_extension_dir: String = second_root_path.path_join("second")
+	var first_manifest_path: String = first_extension_dir.path_join(GFExtensionManifest.FILE_NAME)
+	var second_manifest_path: String = second_extension_dir.path_join(GFExtensionManifest.FILE_NAME)
+	_cleanup_extension_root_fixture(first_root_path, first_extension_dir, first_manifest_path)
+	_cleanup_extension_root_fixture(second_root_path, second_extension_dir, second_manifest_path)
+	var _make_first_dir_result: Variant = DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(first_extension_dir))
+	var _make_second_dir_result: Variant = DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(second_extension_dir))
+	_write_text_file(first_manifest_path, JSON.stringify({
+		"id": "author.first",
+		"display_name": "First",
+		"version": "1.0.0",
+		"kind": "extension",
+	}))
+	_write_text_file(second_manifest_path, JSON.stringify({
+		"id": "author.second",
+		"display_name": "Second",
+		"version": "1.0.0",
+		"kind": "extension",
+	}))
+	var restore: Dictionary = _set_project_setting(
+		GFExtensionSettings.EXTERNAL_EXTENSION_ROOTS_SETTING,
+		[first_root_path]
+	)
+	GFExtensionSettings.clear_manifest_cache()
+
+	var first_manifest: GFExtensionManifest = GFExtensionSettings.get_manifest_by_id("author.first")
+	ProjectSettings.set_setting(GFExtensionSettings.EXTERNAL_EXTENSION_ROOTS_SETTING, [second_root_path])
+	var second_manifest: GFExtensionManifest = GFExtensionSettings.get_manifest_by_id("author.second")
+	var stale_first_manifest: GFExtensionManifest = GFExtensionSettings.get_manifest_by_id("author.first")
+
+	GFExtensionSettings.clear_manifest_cache()
+	_restore_project_setting(GFExtensionSettings.EXTERNAL_EXTENSION_ROOTS_SETTING, restore)
+	_cleanup_extension_root_fixture(first_root_path, first_extension_dir, first_manifest_path)
+	_cleanup_extension_root_fixture(second_root_path, second_extension_dir, second_manifest_path)
+
+	assert_not_null(first_manifest, "初始 external root 应进入 manifest 缓存。")
+	assert_not_null(second_manifest, "直接修改 ProjectSettings external roots 后应刷新 manifest 缓存。")
+	assert_null(stale_first_manifest, "刷新后旧 external root 的 manifest 不应残留。")
+
+
+func test_manifest_graph_report_includes_manifest_load_errors() -> void:
+	var root_path: String = "res://tests/gf_core/tmp_bad_external_extensions"
+	var extension_dir: String = root_path.path_join("broken")
+	var manifest_path: String = extension_dir.path_join(GFExtensionManifest.FILE_NAME)
+	_cleanup_extension_root_fixture(root_path, extension_dir, manifest_path)
+	var _make_dir_result: Variant = DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(extension_dir))
+	_write_text_file(manifest_path, "{")
+	var restore: Dictionary = _set_project_setting(
+		GFExtensionSettings.EXTERNAL_EXTENSION_ROOTS_SETTING,
+		[root_path]
+	)
+	GFExtensionSettings.clear_manifest_cache()
+
+	var report: Dictionary = GFExtensionSettings.get_manifest_graph_report()
+	var manifest_load_errors: Array = GF_VARIANT_ACCESS.get_option_array(report, "manifest_load_errors")
+	var invalid_manifests: Array = GF_VARIANT_ACCESS.get_option_array(report, "invalid_manifests")
+
+	GFExtensionSettings.clear_manifest_cache()
+	_restore_project_setting(GFExtensionSettings.EXTERNAL_EXTENSION_ROOTS_SETTING, restore)
+	_cleanup_extension_root_fixture(root_path, extension_dir, manifest_path)
+
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(report, "ok"), "无法解析的 manifest 应让图诊断失败。")
+	assert_eq(manifest_load_errors.size(), 1, "读取失败的 manifest 应进入 manifest_load_errors。")
+	assert_eq(invalid_manifests.size(), 1, "读取失败的 manifest 也应折叠进 invalid_manifests。")
 
 
 func test_extension_settings_loads_project_extension_presets_from_project_settings() -> void:
@@ -411,6 +580,65 @@ func test_extension_settings_loads_project_extension_presets_from_project_settin
 		preset_ids.has(&"project.download"),
 		"包含下载包字段的 preset JSON 应被视为无效并跳过。"
 	)
+
+
+func test_extension_preset_validation_rejects_non_canonical_extension_ids() -> void:
+	var preset: GF_EXTENSION_PRESET_BASE = GF_EXTENSION_PRESET_BASE.from_dictionary({
+		"id": "project.tools",
+		"display_name": "Tools",
+		"extension_ids": ["gf.Valid"],
+	})
+	var errors: Array[String] = preset.get_validation_errors()
+
+	assert_true(errors.has("extension_ids must use lowercase dotted identifier segments: gf.Valid"), "preset extension_ids 应复用 manifest 扩展 ID 校验。")
+
+
+func test_extension_settings_reports_project_extension_preset_diagnostics() -> void:
+	var directory: String = "res://tests/gf_core/tmp_extension_preset_report"
+	var valid_path: String = directory.path_join("valid.json")
+	var duplicate_path: String = directory.path_join("duplicate.json")
+	var invalid_path: String = directory.path_join("invalid.json")
+	_remove_path_if_exists(valid_path)
+	_remove_path_if_exists(duplicate_path)
+	_remove_path_if_exists(invalid_path)
+	_remove_path_if_exists(directory)
+	var _make_dir_result: Variant = DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(directory))
+	_write_text_file(valid_path, JSON.stringify({
+		"id": "project.tools",
+		"display_name": "Tools",
+		"extension_ids": ["gf.save"],
+	}))
+	_write_text_file(duplicate_path, JSON.stringify({
+		"id": "project.tools",
+		"display_name": "Tools Duplicate",
+		"extension_ids": ["gf.save"],
+	}))
+	_write_text_file(invalid_path, JSON.stringify({
+		"id": "project.Invalid",
+		"display_name": "Invalid",
+		"extension_ids": ["gf.save"],
+	}))
+	var restore: Dictionary = _set_project_setting(
+		GFExtensionSettings.EXTENSION_PRESET_PATHS_SETTING,
+		[valid_path, duplicate_path, invalid_path, valid_path.replace("/", "\\"), "user://ignored.json"]
+	)
+
+	var report: Dictionary = GFExtensionSettings.get_extension_preset_report()
+	var invalid_presets: Array = GF_VARIANT_ACCESS.get_option_array(report, "invalid_presets")
+	var skipped_presets: Array = GF_VARIANT_ACCESS.get_option_array(report, "skipped_presets")
+	var duplicate_ids: PackedStringArray = GF_VARIANT_ACCESS.get_option_packed_string_array(report, "duplicate_ids")
+
+	_restore_project_setting(GFExtensionSettings.EXTENSION_PRESET_PATHS_SETTING, restore)
+	_remove_path_if_exists(valid_path)
+	_remove_path_if_exists(duplicate_path)
+	_remove_path_if_exists(invalid_path)
+	_remove_path_if_exists(directory)
+
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(report, "ok"), "存在无效或跳过 preset 时诊断应失败。")
+	assert_gt(GF_VARIANT_ACCESS.get_option_int(report, "preset_count"), 0, "报告应包含有效 preset 数量。")
+	assert_eq(invalid_presets.size(), 2, "无效 JSON 内容和非法路径都应进入 invalid_presets。")
+	assert_eq(skipped_presets.size(), 2, "重复 id 和重复路径都应进入 skipped_presets。")
+	assert_true(duplicate_ids.has("project.tools"), "重复 preset id 应进入 duplicate_ids。")
 
 
 func test_extension_settings_apply_extension_preset_resolves_dependencies() -> void:
@@ -670,6 +898,24 @@ func test_enabled_manifest_paths_are_blocked_when_manifest_graph_is_invalid() ->
 	assert_push_warning("[GFExtensionSettings] get_enabled_manifests blocked: missing dependency author.feature -> author.missing")
 
 
+func test_disabled_manifests_are_blocked_when_manifest_graph_is_invalid() -> void:
+	var feature_manifest: GFExtensionManifest = GFExtensionManifest.from_dictionary({
+		"id": "author.feature",
+		"display_name": "Feature",
+		"version": "1.0.0",
+		"kind": "extension",
+		"dependencies": ["author.missing"],
+	}, "res://addons/author_feature", "")
+	GFExtensionSettings.set_cached_manifests([feature_manifest])
+
+	var disabled_manifests: Array[GFExtensionManifest] = GFExtensionSettings.get_disabled_manifests()
+
+	GFExtensionSettings.clear_manifest_cache()
+
+	assert_true(disabled_manifests.is_empty(), "扩展依赖图无效时不应继续收集禁用 manifest。")
+	assert_push_warning("[GFExtensionSettings] get_disabled_manifests blocked: missing dependency author.feature -> author.missing")
+
+
 func test_extension_settings_resolves_only_known_manifest_ids() -> void:
 	var feature_manifest: GFExtensionManifest = GFExtensionManifest.from_dictionary({
 		"id": "author.feature",
@@ -919,6 +1165,20 @@ func test_set_enabled_extension_ids_drops_unknown_ids() -> void:
 	_restore_project_setting(GFExtensionSettings.ENABLED_EXTENSIONS_SETTING, restore)
 
 	assert_eq(stored_ids, ["gf.save"], "保存启用扩展时应只保留可发现的 manifest ID。")
+
+
+func test_set_enabled_extension_ids_drops_unknown_ids_without_dependency_expansion() -> void:
+	var restore: Dictionary = _set_project_setting(
+		GFExtensionSettings.ENABLED_EXTENSIONS_SETTING,
+		["author.missing"]
+	)
+
+	GFExtensionSettings.set_enabled_extension_ids(["gf.save", "author.missing"], false)
+	var stored_ids: Array[String] = GFExtensionSettings.get_enabled_extension_ids()
+
+	_restore_project_setting(GFExtensionSettings.ENABLED_EXTENSIONS_SETTING, restore)
+
+	assert_eq(stored_ids, ["gf.save"], "即使不补齐依赖，保存启用扩展时也不应保留未知 ID。")
 
 
 func test_extension_settings_defaults_to_strict_disabled_reference_policy() -> void:
@@ -1189,6 +1449,30 @@ func test_extension_usage_audit_finds_project_reference() -> void:
 	assert_eq(GF_VARIANT_ACCESS.get_option_string(GF_VARIANT_ACCESS.as_dictionary(references[0]), "path"), path, "审计结果应包含引用文件路径。")
 
 
+func test_extension_usage_audit_finds_windows_style_project_reference() -> void:
+	var directory: String = "user://gf_extension_usage_audit_windows"
+	var path: String = directory.path_join("uses_save_windows.gd")
+	var _make_dir_recursive_absolute_result: Variant = DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(directory))
+	_write_text_file(
+		path,
+		"const SaveWin = preload(\"res:\\\\addons\\\\gf\\\\extensions\\\\save\\\\graph\\\\gf_save_graph_utility.gd\")"
+	)
+
+	var references: Array = GFExtensionUsageAudit.find_references_to_root(
+		"res://addons/gf/extensions/save",
+		{
+			"scan_roots": [directory],
+			"ignored_roots": [],
+		}
+	)
+
+	_remove_path_if_exists(path)
+	_remove_path_if_exists(directory)
+
+	assert_eq(references.size(), 1, "反斜杠形式的禁用扩展资源路径也应被审计发现。")
+	assert_eq(GF_VARIANT_ACCESS.get_option_string(GF_VARIANT_ACCESS.as_dictionary(references[0]), "path"), path, "审计结果应包含引用文件路径。")
+
+
 func test_extension_usage_audit_normalizes_scan_and_ignored_roots() -> void:
 	var directory: String = "user://gf_extension_usage_audit_ignored"
 	var keep_dir: String = directory.path_join("keep")
@@ -1363,6 +1647,50 @@ func test_extension_usage_audit_finds_class_name_reference() -> void:
 	assert_eq(GF_VARIANT_ACCESS.get_option_string(reference, "symbol"), "GFSaveGraphUtility", "审计结果应包含命中的类名。")
 
 
+func test_extension_usage_audit_reports_multiple_disabled_roots_from_one_scan() -> void:
+	var directory: String = "user://gf_extension_usage_audit_multi"
+	var first_path: String = directory.path_join("uses_first.gd")
+	var second_path: String = directory.path_join("uses_second.gd")
+	var _make_directory_result: Error = DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(directory))
+	_write_text_file(first_path, 'const First = preload("res://addons/author/first/runtime/tool.gd")')
+	_write_text_file(second_path, 'const Second = preload("res://addons/author/second/runtime/tool.gd")')
+	var first_manifest: GFExtensionManifest = GFExtensionManifest.from_dictionary({
+		"id": "author.first",
+		"display_name": "First",
+		"version": "1.0.0",
+		"kind": "extension",
+		"dependencies": [],
+	}, "res://addons/author/first", "")
+	var second_manifest: GFExtensionManifest = GFExtensionManifest.from_dictionary({
+		"id": "author.second",
+		"display_name": "Second",
+		"version": "1.0.0",
+		"kind": "extension",
+		"dependencies": [],
+	}, "res://addons/author/second", "")
+	var disabled_manifests: Array[GFExtensionManifest] = [first_manifest, second_manifest]
+
+	var report: Dictionary = GFExtensionUsageAudit.audit_disabled_extensions(
+		disabled_manifests,
+		{
+			"scan_roots": [directory],
+			"ignored_roots": [],
+			"max_references_per_extension": 10,
+		}
+	)
+
+	_remove_path_if_exists(first_path)
+	_remove_path_if_exists(second_path)
+	_remove_path_if_exists(directory)
+
+	var extensions: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(report, "extensions")
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(report, "ok"), "多个禁用扩展被引用时审计应失败。")
+	assert_eq(GF_VARIANT_ACCESS.get_option_int(report, "extension_count"), 2, "审计应同时报告两个被引用扩展。")
+	assert_eq(GF_VARIANT_ACCESS.get_option_int(report, "reference_count"), 2, "审计应保留两个扩展各自的引用。")
+	assert_true(extensions.has(&"author.first"), "报告应包含第一个禁用扩展。")
+	assert_true(extensions.has(&"author.second"), "报告应包含第二个禁用扩展。")
+
+
 # --- 私有/辅助方法 ---
 
 func _collect_gd_files(root_path: String, result: Array[String]) -> void:
@@ -1405,6 +1733,12 @@ func _remove_path_if_exists(path: String) -> void:
 	var absolute_path: String = ProjectSettings.globalize_path(path)
 	if FileAccess.file_exists(absolute_path) or DirAccess.dir_exists_absolute(absolute_path):
 		var _remove_absolute_result: Variant = DirAccess.remove_absolute(absolute_path)
+
+
+func _cleanup_extension_root_fixture(root_path: String, extension_dir: String, manifest_path: String) -> void:
+	_remove_path_if_exists(manifest_path)
+	_remove_path_if_exists(extension_dir)
+	_remove_path_if_exists(root_path)
 
 
 func _get_extension_root(path: String) -> String:

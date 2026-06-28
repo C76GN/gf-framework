@@ -26,6 +26,12 @@ extends GFConfigValidationRule
 @export var case_sensitive: bool = true
 
 
+# --- 私有变量 ---
+
+var _lookup_cache: Dictionary = {}
+var _lookup_signature: String = ""
+
+
 # --- 公共方法 ---
 
 ## 导出规则摘要。
@@ -77,9 +83,15 @@ func _validate_value(value: Variant, context: Dictionary, report: Dictionary) ->
 # --- 私有/辅助方法 ---
 
 func _build_lookup() -> Dictionary:
+	var signature: String = _make_lookup_signature()
+	if signature == _lookup_signature:
+		return _lookup_cache
+
 	var lookup: Dictionary = {}
 	for value: Variant in allowed_values:
 		lookup[_make_comparison_key(value)] = true
+	_lookup_cache = lookup
+	_lookup_signature = signature
 	return lookup
 
 
@@ -95,3 +107,11 @@ func _make_issue_context(context: Dictionary, value: Variant) -> Dictionary:
 	issue_context["actual_value"] = GFVariantData.duplicate_variant(value)
 	issue_context["supported_values"] = GFVariantData.duplicate_variant(allowed_values)
 	return issue_context
+
+
+func _make_lookup_signature() -> String:
+	var parts: PackedStringArray = PackedStringArray()
+	var _case_sensitive_appended: bool = parts.append("case:%s" % str(case_sensitive))
+	for value: Variant in allowed_values:
+		var _value_appended: bool = parts.append(var_to_str(value))
+	return "|".join(parts)

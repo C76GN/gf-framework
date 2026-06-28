@@ -21,6 +21,12 @@ extends Resource
 @export var tag_counts: Dictionary = {}
 
 
+# --- 私有变量 ---
+
+var _hierarchical_count_cache: Dictionary = {}
+var _tag_count_cache_signature: String = ""
+
+
 # --- 公共方法 ---
 
 ## 清空并设置标签集合。
@@ -61,6 +67,7 @@ func add_tag(tag: StringName, count: int = 1) -> GFTagSet:
 		return self
 
 	tag_counts[tag] = GFVariantData.get_option_int(tag_counts, tag, 0) + count
+	_invalidate_count_cache()
 	return self
 
 
@@ -78,6 +85,7 @@ func remove_tag(tag: StringName, count: int = 1) -> GFTagSet:
 		return self
 	if count == -1:
 		var _erase_result_80: Variant = tag_counts.erase(tag)
+		_invalidate_count_cache()
 		return self
 	if count <= 0:
 		return self
@@ -87,6 +95,7 @@ func remove_tag(tag: StringName, count: int = 1) -> GFTagSet:
 		var _erase_result_87: Variant = tag_counts.erase(tag)
 	else:
 		tag_counts[tag] = updated_count
+	_invalidate_count_cache()
 	return self
 
 
@@ -120,13 +129,8 @@ func get_tag_count(tag: StringName, include_child_tags: bool = false) -> int:
 	if not include_child_tags:
 		return GFVariantData.get_option_int(tag_counts, tag, 0)
 
-	var count: int = 0
-	var prefix: String = "%s." % String(tag)
-	for candidate_variant: Variant in tag_counts.keys():
-		var candidate: StringName = GFVariantData.to_string_name(candidate_variant)
-		if candidate == tag or String(candidate).begins_with(prefix):
-			count += GFVariantData.get_option_int(tag_counts, candidate_variant, 0)
-	return count
+	_ensure_hierarchical_count_cache()
+	return GFVariantData.get_option_int(_hierarchical_count_cache, tag, 0)
 
 
 ## 获取所有标签名。
@@ -159,6 +163,7 @@ func get_tag_counts() -> Dictionary:
 ## @api public
 func clear() -> void:
 	tag_counts.clear()
+	_invalidate_count_cache()
 
 
 ## 创建同内容拷贝。
@@ -198,3 +203,44 @@ static func from_dictionary(data: Dictionary) -> GFTagSet:
 	var next_set: GFTagSet = GFTagSet.new()
 	var _set_tags_result_199: Variant = next_set.set_tags(GFVariantData.get_option_value(data, "tag_counts", data))
 	return next_set
+
+
+# --- 私有/辅助方法 ---
+
+func _ensure_hierarchical_count_cache() -> void:
+	var signature: String = _make_tag_counts_signature()
+	if signature == _tag_count_cache_signature:
+		return
+
+	var next_cache: Dictionary = {}
+	for tag_variant: Variant in tag_counts.keys():
+		var count: int = GFVariantData.get_option_int(tag_counts, tag_variant, 0)
+		if count <= 0:
+			continue
+		var tag_text: String = GFVariantData.to_text(tag_variant)
+		if tag_text.is_empty():
+			continue
+		var prefix: String = ""
+		for segment: String in tag_text.split("."):
+			if segment.is_empty():
+				continue
+			prefix = segment if prefix.is_empty() else "%s.%s" % [prefix, segment]
+			var prefix_key: StringName = StringName(prefix)
+			next_cache[prefix_key] = GFVariantData.get_option_int(next_cache, prefix_key, 0) + count
+	_hierarchical_count_cache = next_cache
+	_tag_count_cache_signature = signature
+
+
+func _make_tag_counts_signature() -> String:
+	var parts: PackedStringArray = PackedStringArray()
+	for tag_variant: Variant in tag_counts.keys():
+		var tag_text: String = GFVariantData.to_text(tag_variant)
+		var count: int = GFVariantData.get_option_int(tag_counts, tag_variant, 0)
+		var _append_part: bool = parts.append("%d:%s=%d" % [tag_text.length(), tag_text, count])
+	parts.sort()
+	return "|".join(parts)
+
+
+func _invalidate_count_cache() -> void:
+	_hierarchical_count_cache.clear()
+	_tag_count_cache_signature = ""

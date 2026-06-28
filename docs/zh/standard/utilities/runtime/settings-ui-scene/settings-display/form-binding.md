@@ -19,3 +19,5 @@ binder.field_changed.connect(func(key: StringName, value: Variant) -> void:
 需要自己管理连接生命周期时，可使用 `connect_value_changed_with_handles()` 和 `disconnect_value_changed_handles()`。
 
 如果需要把控件长期同步到一棵运行时状态树，而不是一次性批量 read/write 表单值，使用 [响应式状态与控件绑定](../../reactive-state.md) 中的 `GFReactiveStateStore` 和 `GFReactiveStateControlBinder`。`GFFormBinder` 负责表单字段读写，`GFReactiveStateControlBinder` 负责 store path 与单个控件的双向同步。
+
+需要把数组写入 `ItemList`、`OptionButton`、`PopupMenu` 或用模板节点重复生成列表行时，使用 [列表与模板绑定](list-repeat-binding.md)。

@@ -19,6 +19,25 @@ func test_render_warmup_manifest_processes_material_resource() -> void:
 	assert_eq(utility.get_cached_resource_count(), 1, "默认应缓存已预热资源引用。")
 
 
+## 验证通过路径加载的预热资源也会保留缓存引用。
+func test_render_warmup_caches_resource_loaded_from_path() -> void:
+	var resource_path: String = "user://gf_render_warmup_cache_material.tres"
+	var material: StandardMaterial3D = StandardMaterial3D.new()
+	var _save_result: Error = ResourceSaver.save(material, resource_path)
+	var manifest: GFRenderWarmupManifest = GFRenderWarmupManifest.new()
+	var _add_path_result: Variant = manifest.add_resource_path(resource_path, &"material", "StandardMaterial3D")
+	var utility: GFRenderWarmupUtility = GFRenderWarmupUtility.new()
+
+	var summary: Dictionary = utility.warmup_manifest_now(manifest)
+
+	if FileAccess.file_exists(resource_path):
+		var _remove_result: Error = DirAccess.remove_absolute(ProjectSettings.globalize_path(resource_path))
+
+	assert_eq(_save_result, OK, "测试材质资源应可保存到 user://。")
+	assert_true(GFVariantData.get_option_bool(summary, "ok"), "路径资源预热应成功。")
+	assert_eq(utility.get_cached_resource_count(), 1, "路径加载资源应进入预热缓存。")
+
+
 ## 验证 Utility 可以从节点树收集 Mesh 与材质资源。
 func test_render_warmup_builds_manifest_from_mesh_tree() -> void:
 	var utility: GFRenderWarmupUtility = GFRenderWarmupUtility.new()

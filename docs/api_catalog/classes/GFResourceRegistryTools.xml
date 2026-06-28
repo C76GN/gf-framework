@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFResourceRegistryTools" path="addons/gf/standard/utilities/assets/gf_resource_registry_tools.gd" module="standard" extends="RefCounted" classDigest="006a9122da73f3f7aee1a3b6dc56782fbd01053838ba7a310a3ee0f47bbf2691">
+<class name="GFResourceRegistryTools" path="addons/gf/standard/utilities/assets/gf_resource_registry_tools.gd" module="standard" extends="RefCounted" classDigest="ddd6c8f519bb8ebd2ee74035ae7e4b1b1063398e43e3267dba85293a19dccc1a">
 	<description>GFResourceRegistryTools: 通用资源注册表扫描和生成工具。
 面向编辑器工具、构建脚本和项目安装器复用；它只从路径生成
 `GFResourceRegistry` / `GFResourceRegistryEntry`，不解释业务字段。</description>
@@ -115,9 +115,10 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">root_path: 扫描起点，通常是 res:// 下的目录。</tag>
-				<tag name="param">options: 可选项，支持 recursive、include_addons、excluded_paths、extensions、include_hidden、include_import_sidecars、max_scan_depth 与 max_resource_paths。</tag>
+				<tag name="param">options: 可选项，支持 recursive、include_addons、excluded_paths、extensions、include_patterns、exclude_patterns、pattern_base_path、include_hidden、include_import_sidecars、max_scan_depth 与 max_resource_paths。</tag>
 				<tag name="return">按字典序排序的资源路径。</tag>
-				<tag name="schema">options: Dictionary，可包含 recursive、include_addons、excluded_paths、extensions、include_hidden、include_import_sidecars、max_scan_depth 和 max_resource_paths 字段。</tag>
+				<tag name="schema">options: Dictionary，可包含 recursive、include_addons、excluded_paths、extensions、include_patterns、exclude_patterns、pattern_base_path、include_hidden、include_import_sidecars、max_scan_depth 和 max_resource_paths 字段。</tag>
+				<tag name="since">3.23.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="create_registry_from_paths">

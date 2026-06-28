@@ -1,6 +1,6 @@
 ## GFWaitAction: 动作队列中的通用等待动作。
 ##
-## 通过 SceneTreeTimer 表达一段时间等待，不携带业务含义。
+## 通过可暂停的帧循环表达一段时间等待，不携带业务含义。
 ## [br]
 ## @api public
 ## [br]
@@ -54,8 +54,9 @@ var ignore_time_scale: bool = false
 
 # --- 私有变量 ---
 
-var _timer: SceneTreeTimer = null
 var _execution_serial: int = 0
+var _remaining_seconds: float = 0.0
+var _paused: bool = false
 
 
 # --- Godot 生命周期方法 ---
@@ -83,8 +84,9 @@ func execute() -> Variant:
 		return null
 
 	_execution_serial += 1
-	_timer = tree.create_timer(seconds, process_always, process_in_physics, ignore_time_scale)
-	_GF_ASYNC_CALL_SCRIPT.run_detached(Callable(self, &"_complete_after_timer_async"), [_timer, _execution_serial])
+	_remaining_seconds = seconds
+	_paused = false
+	_GF_ASYNC_CALL_SCRIPT.run_detached(Callable(self, &"_complete_after_delay_async"), [tree, _execution_serial])
 	return wait_completed
 
 
@@ -93,7 +95,26 @@ func execute() -> Variant:
 ## @api public
 func cancel() -> void:
 	_execution_serial += 1
-	_timer = null
+	_remaining_seconds = 0.0
+	_paused = false
+
+
+## 暂停当前等待。
+## [br]
+## @api public
+## [br]
+## @since 6.0.0
+func pause() -> void:
+	_paused = true
+
+
+## 恢复当前等待。
+## [br]
+## @api public
+## [br]
+## @since 6.0.0
+func resume() -> void:
+	_paused = false
 
 
 ## 立即完成当前等待并发出 wait_completed。
@@ -101,21 +122,36 @@ func cancel() -> void:
 ## @api public
 func finish() -> void:
 	_execution_serial += 1
+	_remaining_seconds = 0.0
+	_paused = false
 	wait_completed.emit()
-	_timer = null
 
 
 # --- 私有/辅助方法 ---
 
-func _complete_after_timer_async(timer: SceneTreeTimer, serial: int) -> void:
-	if not is_instance_valid(timer):
-		return
+func _complete_after_delay_async(tree: SceneTree, serial: int) -> void:
+	var last_msec: int = Time.get_ticks_msec()
+	while serial == _execution_serial and _remaining_seconds > 0.0:
+		if tree == null:
+			return
+		await _await_frame(tree)
+		if serial != _execution_serial:
+			return
 
-	await timer.timeout
+		var current_msec: int = Time.get_ticks_msec()
+		var delta_seconds: float = float(current_msec - last_msec) / 1000.0
+		last_msec = current_msec
+		if _should_pause_countdown(tree):
+			continue
+		if not ignore_time_scale:
+			delta_seconds *= Engine.time_scale
+		_remaining_seconds = maxf(_remaining_seconds - delta_seconds, 0.0)
+
 	if serial != _execution_serial:
 		return
 
-	_timer = null
+	_remaining_seconds = 0.0
+	_paused = false
 	wait_completed.emit()
 
 
@@ -130,3 +166,18 @@ func _get_scene_tree_value(value: Variant) -> SceneTree:
 		var tree: SceneTree = value
 		return tree
 	return null
+
+
+func _await_frame(tree: SceneTree) -> void:
+	if process_in_physics:
+		await tree.physics_frame
+		return
+	await tree.process_frame
+
+
+func _should_pause_countdown(tree: SceneTree) -> bool:
+	if _paused:
+		return true
+	if process_always:
+		return false
+	return tree.paused

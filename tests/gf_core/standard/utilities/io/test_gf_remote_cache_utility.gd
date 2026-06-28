@@ -25,6 +25,33 @@ func after_each() -> void:
 
 # --- 测试 ---
 
+func test_cache_dir_name_sanitizes_empty_and_traversal_values() -> void:
+	var sentinel_path: String = "user://gf_remote_cache_sentinel_%d.txt" % Time.get_ticks_usec()
+	var file: FileAccess = FileAccess.open(sentinel_path, FileAccess.WRITE)
+	assert_not_null(file, "测试应能创建 user:// 根目录哨兵文件。")
+	if file != null:
+		var _store_result: Variant = file.store_string("keep")
+		file.close()
+
+	_cache.cache_dir_name = ""
+	_cache.clear_cache()
+	assert_true(FileAccess.file_exists(sentinel_path), "空 cache_dir_name 不应导致 clear_cache 删除 user:// 根文件。")
+	assert_eq(
+		GFVariantData.get_option_string(_cache.get_debug_snapshot(), "cache_dir_path"),
+		"user://gf_remote_cache",
+		"空 cache_dir_name 应回退到稳定默认目录。"
+	)
+
+	_cache.cache_dir_name = "../unsafe/cache"
+	assert_eq(
+		GFVariantData.get_option_string(_cache.get_debug_snapshot(), "cache_dir_path"),
+		"user://gf_remote_cache",
+		"带 traversal 的 cache_dir_name 应回退到稳定默认目录。"
+	)
+
+	var _remove_error: Error = DirAccess.remove_absolute(sentinel_path)
+
+
 func test_fetch_text_writes_and_reuses_cache() -> void:
 	var results: Array[Dictionary] = []
 	_cache.responses.append({

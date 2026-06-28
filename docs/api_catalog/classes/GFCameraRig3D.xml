@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFCameraRig3D" path="addons/gf/extensions/camera/nodes/gf_camera_rig_3d.gd" module="extensions/camera" extends="Node3D" classDigest="f28aa4c0789d42dda9c69f613ccbf789c29dd94e385a51e727bbd449ac418f21">
+<class name="GFCameraRig3D" path="addons/gf/extensions/camera/nodes/gf_camera_rig_3d.gd" module="extensions/camera" extends="Node3D" classDigest="01dc3e9779206cc4f31e50dc3fe878d372efbe84f5dc6207381ce9dd0e022e25">
 	<description>GFCameraRig3D: 通用 3D 相机姿态提供节点。
 Rig 只计算期望 Camera3D Transform，不直接控制 Camera3D。
 项目可用多个 Rig 表达不同视角，再交给 GFCameraDirector3D 按优先级选择。</description>
@@ -107,10 +107,11 @@ Rig 只计算期望 Camera3D Transform，不直接控制 Camera3D。
 			</tags>
 		</member>
 		<member kind="property" name="group_name" decorators="@export">
-			<signature>var group_name: StringName = &amp;"gf_camera_rig_3d"</signature>
+			<signature>var group_name: StringName = &amp;"gf_camera_rig_3d":</signature>
 			<description>自动加入的分组名。Director 可按该分组收集候选。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="metadata" decorators="@export">

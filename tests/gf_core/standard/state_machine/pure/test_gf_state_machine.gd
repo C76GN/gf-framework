@@ -680,6 +680,25 @@ func test_state_can_register_events_through_state_machine_architecture() -> void
 	assert_eq(state.simple_values, ["tick"], "状态退出后调用 unregister_owner_events 应移除轻量事件监听。")
 
 
+func test_state_machine_unregisters_owned_events_after_state_exit() -> void:
+	var architecture: GFArchitecture = GFArchitecture.new()
+	await Gf.set_architecture(architecture)
+	var state: EventListeningState = EventListeningState.new()
+	state.unregister_on_exit = false
+	_fsm.add_state(&"Listen", state)
+	_fsm.add_state(&"Idle", TrackingState.new())
+	_fsm.start(&"Listen")
+
+	architecture.send_event(StateEventPayload.new(3))
+	architecture.send_simple_event(&"state_simple_event", "tick")
+	_fsm.change_state(&"Idle")
+	architecture.send_event(StateEventPayload.new(7))
+	architecture.send_simple_event(&"state_simple_event", "late")
+
+	assert_eq(state.typed_values, [3], "状态自身忘记注销时，状态机 exit 后也应移除类型事件监听。")
+	assert_eq(state.simple_values, ["tick"], "状态自身忘记注销时，状态机 exit 后也应移除轻量事件监听。")
+
+
 func test_state_dispose_unregisters_owned_event_listeners() -> void:
 	var architecture: GFArchitecture = GFArchitecture.new()
 	await Gf.set_architecture(architecture)

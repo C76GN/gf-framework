@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFTextureSetClassifier" path="addons/gf/standard/utilities/assets/gf_texture_set_classifier.gd" module="standard" extends="RefCounted" classDigest="181c15a41d9cb99c8007951f8f887add3a2527a315706f8c40dd4a08b2a7f622">
+	<description>GFTextureSetClassifier: 纹理集命名分类与导入计划构建工具。
+根据常见后缀把贴图文件归并为材质纹理集，并可生成 GFImportPlan。
+它只做路径解析和计划输出，不创建材质、不执行导入、不绑定编辑器 UI。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_service</tag>
+		<tag name="since">6.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants>
+		<member kind="const" name="ROLE_ALBEDO">
+			<signature>const ROLE_ALBEDO: StringName = &amp;"albedo"</signature>
+			<description>Albedo/BaseColor 贴图角色。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="ROLE_NORMAL">
+			<signature>const ROLE_NORMAL: StringName = &amp;"normal"</signature>
+			<description>Normal 贴图角色。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="ROLE_ROUGHNESS">
+			<signature>const ROLE_ROUGHNESS: StringName = &amp;"roughness"</signature>
+			<description>Roughness 贴图角色。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="ROLE_METALLIC">
+			<signature>const ROLE_METALLIC: StringName = &amp;"metallic"</signature>
+			<description>Metallic/Metalness 贴图角色。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="ROLE_AO">
+			<signature>const ROLE_AO: StringName = &amp;"ao"</signature>
+			<description>Ambient Occlusion 贴图角色。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="ROLE_HEIGHT">
+			<signature>const ROLE_HEIGHT: StringName = &amp;"height"</signature>
+			<description>Height/Displacement 贴图角色。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="ROLE_EMISSION">
+			<signature>const ROLE_EMISSION: StringName = &amp;"emission"</signature>
+			<description>Emission 贴图角色。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties />
+	<methods>
+		<member kind="method" name="classify_files">
+			<signature>static func classify_files(paths: PackedStringArray, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>分类纹理路径。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">paths: 输入路径列表。</tag>
+				<tag name="param">options: 分类选项。</tag>
+				<tag name="return">分类报告。</tag>
+				<tag name="schema">paths: PackedStringArray texture file paths.</tag>
+				<tag name="schema">options: Dictionary，可包含 suffix_rules、allowed_extensions 和 normalize_directory.</tag>
+				<tag name="schema">return: Dictionary with ok, sets, unmatched, matched_count, unmatched_count, and suffix_rules.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="build_material_import_plan">
+			<signature>static func build_material_import_plan( paths: PackedStringArray, target_root: String, options: Dictionary = {} ) -&gt; GFImportPlan:</signature>
+			<description>从纹理路径构建材质导入计划。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">paths: 输入路径列表。</tag>
+				<tag name="param">target_root: 目标材质目录。</tag>
+				<tag name="param">options: 构建选项。</tag>
+				<tag name="return">导入计划。</tag>
+				<tag name="schema">paths: PackedStringArray texture file paths.</tag>
+				<tag name="schema">options: Dictionary，可包含 material_extension、type_hint、suffix_rules、allowed_extensions 和 metadata。</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_default_suffix_rules">
+			<signature>static func get_default_suffix_rules() -&gt; Dictionary:</signature>
+			<description>获取默认后缀规则。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">后缀规则副本。</tag>
+				<tag name="schema">return: Dictionary mapping role StringName to Array[String] suffixes.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

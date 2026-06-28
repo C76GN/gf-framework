@@ -46,6 +46,7 @@ GF 扩展启用状态与 ProjectSettings 桥接。 负责读取启用扩展 ID�
 | 方法 | [`set_fail_export_on_disabled_extension_references`](#member-gfextensionsettings-methods-set_fail_export_on_disabled_extension_references) | `static func set_fail_export_on_disabled_extension_references(enabled: bool) -> void:` |
 | 方法 | [`get_all_manifests`](#member-gfextensionsettings-methods-get_all_manifests) | `static func get_all_manifests() -> Array[GFExtensionManifest]:` |
 | 方法 | [`get_extension_presets`](#member-gfextensionsettings-methods-get_extension_presets) | `static func get_extension_presets() -> Array[GFExtensionPreset]:` |
+| 方法 | [`get_extension_preset_report`](#member-gfextensionsettings-methods-get_extension_preset_report) | `static func get_extension_preset_report() -> Dictionary:` |
 | 方法 | [`get_extension_preset_by_id`](#member-gfextensionsettings-methods-get_extension_preset_by_id) | `static func get_extension_preset_by_id(preset_id: StringName) -> GFExtensionPreset:` |
 | 方法 | [`apply_extension_preset`](#member-gfextensionsettings-methods-apply_extension_preset) | `static func apply_extension_preset( preset_id: StringName, include_dependencies: bool = true ) -> bool:` |
 | 方法 | [`clear_manifest_cache`](#member-gfextensionsettings-methods-clear_manifest_cache) | `static func clear_manifest_cache() -> void:` |
@@ -528,6 +529,25 @@ static func get_extension_presets() -> Array[GFExtensionPreset]:
 
 返回：扩展 preset 列表。
 
+<a id="member-gfextensionsettings-methods-get_extension_preset_report"></a>
+
+### `get_extension_preset_report`
+
+- API：`public`
+- 首次版本：`6.0.0`
+
+```gdscript
+static func get_extension_preset_report() -> Dictionary:
+```
+
+获取扩展 preset 发现诊断。
+
+返回：preset 发现报告，包含有效、无效、重复和跳过的 preset 记录。
+
+结构：
+
+- `return`: Dictionary containing ok, preset_count, valid_presets, invalid_presets, skipped_presets, duplicate_ids, issue_count, issues, and configured_paths.
+
 <a id="member-gfextensionsettings-methods-get_extension_preset_by_id"></a>
 
 ### `get_extension_preset_by_id`
@@ -853,6 +873,7 @@ static func resolve_extension_dependencies( extension_ids: Array[String], manife
 ### `get_manifest_graph_report`
 
 - API：`public`
+- 首次版本：`5.0.0`
 
 ```gdscript
 static func get_manifest_graph_report(manifests: Array[GFExtensionManifest] = []) -> Dictionary:
@@ -870,7 +891,7 @@ static func get_manifest_graph_report(manifests: Array[GFExtensionManifest] = []
 
 结构：
 
-- `return`: Dictionary containing ok, extension_count, issue_count, duplicate_ids, invalid_manifests, missing_dependencies, and dependency_cycles.
+- `return`: Dictionary containing ok, extension_count, issue_count, duplicate_ids, invalid_manifests, manifest_load_errors, missing_dependencies, and dependency_cycles.
 
 <a id="member-gfextensionsettings-methods-get_extension_selection_report"></a>
 

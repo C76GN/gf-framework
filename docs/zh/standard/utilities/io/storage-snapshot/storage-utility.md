@@ -10,6 +10,19 @@
 
 `GFStorageCodec` 的 JSON 格式面向普通 JSON 数据。需要保留 Vector、Color、PackedArray 等 Godot 值类型时，先用 `GFVariantJsonCodec` 转换；需要保存 Resource 或 Node 引用时，使用 `GFVariantReferenceCodec` 的显式引用标记，或由 SaveGraph 属性序列化器代为处理。
 
+如果确实需要把受控 `Resource` 属性图编码成字典，再使用 `GFSafeResourceCodec` 与 `GFSafeResourceCodecPolicy`。默认策略不会实例化任何对象，项目必须显式允许类、脚本路径和外部资源路径：
+
+```gdscript
+var policy := GFSafeResourceCodecPolicy.new()
+policy.allow_class("Resource")
+policy.allow_resource_path("res://data/*.tres")
+
+var encoded := GFSafeResourceCodec.encode(my_resource, policy)
+var decoded := GFSafeResourceCodec.decode(encoded.data, policy)
+```
+
+安全 codec 只处理 allowlist 内的存储属性、集合、重复引用和可选外部资源路径。它不注册 Godot ResourceFormatLoader/Saver，不执行表达式，也不把未知内容变成可直接使用的对象；面对用户下载内容或网络载荷时，应先在项目层完成格式收窄和风险处理。
+
 ## 项目级存档聚合
 
 `GFStorageUtility` 只负责把项目给出的载荷可靠落盘，不提供全局 SaveSystem、业务模块注册表或固定存档目录规范。项目可以在自己的 System、Installer 或存档服务中收集多个 Model、Domain 容器、运行时快照和项目配置，再把聚合后的字典交给 `save_data()` 或 `save_slot()`。

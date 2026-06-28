@@ -25,3 +25,23 @@ await outbox.replay()
 同一个 outbox 实例同一时间只执行一轮 `replay()`；当异步 `transport_callback` 尚未返回时再次调用，会立即得到 `{ "ok": false, "reason": "replay_in_progress" }`。如果等待期间项目层调用 `remove_request()` 或 `clear_queue()` 改变队列，重放恢复后会重新定位正在处理的请求，避免按过期索引误删后续请求；项目自己的 transport 仍应保证请求幂等或能处理重复提交。
 
 这个工具适合做“通用离线 outbox”边界，例如分析事件、自定义远程配置写入、轻量状态提交或编辑器工具请求。它不替项目决定哪些请求可重放、是否幂等、如何签名、如何脱敏、如何处理冲突；这些策略应放在项目自己的 `transport_callback`、`replay_filter` 或更高层同步系统中。
+
+## 协议确认账本 (`GFProtocolAckLedger`)
+
+如果项目自己的协议或 SDK 包装层需要记录“哪些 packet 还在等待 ACK、哪些已经失败或超时”，可以使用 `GFProtocolAckLedger`。它只保存 ID、状态、时间戳、deadline、结果和 metadata，不生成 ID、不发送网络包，也不规定重传策略。
+
+```gdscript
+var ledger := GFProtocolAckLedger.new()
+ledger.timeout_msec = 5000
+
+ledger.register_packet(packet_id, { "channel": "matchmaking" })
+
+if accepted:
+	ledger.acknowledge_packet(packet_id, { "code": 200 })
+else:
+	ledger.fail_packet(packet_id, "rejected")
+
+var expiration := ledger.expire_pending()
+```
+
+这个账本适合被 WebSocket、蓝牙、本地进程桥接、平台 SDK 或自定义可靠消息层复用。具体协议帧格式、QoS、连接状态、重试节奏和安全策略都应留在项目或独立适配器里。

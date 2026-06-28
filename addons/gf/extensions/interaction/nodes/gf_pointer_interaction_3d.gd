@@ -88,7 +88,13 @@ const _MESSAGE_DISPATCH_SUPPORT = preload("res://addons/gf/standard/common/gf_me
 ## 是否启用指针桥接。
 ## [br]
 ## @api public
-@export var enabled: bool = true
+## [br]
+## @since 3.17.0
+@export var enabled: bool = true:
+	set(value):
+		enabled = value
+		if not enabled:
+			_reset_pointer_state(true)
 
 ## 默认交互 ID。
 ## [br]
@@ -181,6 +187,10 @@ var _collision_object_ref: WeakRef = null
 var _is_hovered: bool = false
 var _pressed_button: int = 0
 var _pressed_shape_idx: int = -1
+var _bound_input_ray_pickable_original: bool = false
+var _bound_input_ray_pickable_changed: bool = false
+var _has_previous_cursor_shape: bool = false
+var _previous_cursor_shape: Input.CursorShape = Input.CURSOR_ARROW
 
 
 # --- Godot 生命周期方法 ---
@@ -206,7 +216,9 @@ func bind_collision_object(collision_object: CollisionObject3D) -> void:
 		return
 
 	_collision_object_ref = weakref(collision_object)
-	if ensure_input_ray_pickable:
+	_bound_input_ray_pickable_original = collision_object.input_ray_pickable
+	_bound_input_ray_pickable_changed = ensure_input_ray_pickable and not collision_object.input_ray_pickable
+	if _bound_input_ray_pickable_changed:
 		collision_object.input_ray_pickable = true
 	if not collision_object.mouse_entered.is_connected(_on_collision_mouse_entered):
 		var _mouse_entered_connected: Error = collision_object.mouse_entered.connect(_on_collision_mouse_entered) as Error
@@ -231,11 +243,13 @@ func get_collision_object() -> CollisionObject3D:
 ## [br]
 ## @api public
 ## [br]
+## @since 7.0.0
+## [br]
 ## @param pointer_event: 指针事件标识。
 ## [br]
 ## @param pointer_data: 指针事件数据。
 ## [br]
-## @schema pointer_data: 指针事件数据 Dictionary；常见字段包括 pointer_position、pointer_normal、pointer_shape_idx、pointer_camera 和 pointer_input_event。
+## @schema pointer_data: 指针事件数据 Dictionary；常见字段包括 pointer_position、pointer_normal、pointer_shape_idx、pointer_camera_path 和 pointer_input_event_class。
 ## [br]
 ## @param receiver: 可选接收对象；为空时自动解析。
 ## [br]
@@ -260,11 +274,13 @@ func build_context(
 ## [br]
 ## @api public
 ## [br]
+## @since 7.0.0
+## [br]
 ## @param pointer_event: 指针事件标识。
 ## [br]
 ## @param pointer_data: 指针事件数据。
 ## [br]
-## @schema pointer_data: 指针事件数据 Dictionary；常见字段包括 pointer_position、pointer_normal、pointer_shape_idx、pointer_camera 和 pointer_input_event。
+## @schema pointer_data: 指针事件数据 Dictionary；常见字段包括 pointer_position、pointer_normal、pointer_shape_idx、pointer_camera_path 和 pointer_input_event_class。
 ## [br]
 ## @param interaction_id_override: 可选交互 ID 覆盖。
 ## [br]
@@ -307,14 +323,19 @@ func _resolve_collision_object() -> CollisionObject3D:
 func _disconnect_collision_object() -> void:
 	var collision_object: CollisionObject3D = get_collision_object()
 	if collision_object == null:
+		_reset_pointer_state(true)
+		_clear_collision_binding_state()
 		_collision_object_ref = null
 		return
+	_reset_pointer_state(true)
 	if collision_object.mouse_entered.is_connected(_on_collision_mouse_entered):
 		collision_object.mouse_entered.disconnect(_on_collision_mouse_entered)
 	if collision_object.mouse_exited.is_connected(_on_collision_mouse_exited):
 		collision_object.mouse_exited.disconnect(_on_collision_mouse_exited)
 	if collision_object.input_event.is_connected(_on_collision_input_event):
 		collision_object.input_event.disconnect(_on_collision_input_event)
+	_restore_input_ray_pickable(collision_object)
+	_clear_collision_binding_state()
 	_collision_object_ref = null
 
 
@@ -343,15 +364,21 @@ func _make_pointer_data(
 	shape_idx: int = -1
 ) -> Dictionary:
 	var collision_object: CollisionObject3D = get_collision_object()
-	return {
+	var data: Dictionary = {
 		"pointer_event": event_name,
 		"pointer_position": position,
 		"pointer_normal": normal,
 		"pointer_shape_idx": shape_idx,
-		"pointer_camera": camera,
-		"pointer_input_event": input_event,
+		"pointer_camera_instance_id": camera.get_instance_id() if camera != null and is_instance_valid(camera) else 0,
+		"pointer_camera_path": camera.get_path() if camera != null and camera.is_inside_tree() else NodePath(""),
+		"pointer_input_device": input_event.device if input_event != null else 0,
+		"pointer_input_event_class": input_event.get_class() if input_event != null else "",
 		"pointer_collision_path": collision_object.get_path() if collision_object != null and collision_object.is_inside_tree() else NodePath(""),
 	}
+	if input_event is InputEventFromWindow:
+		var window_event: InputEventFromWindow = input_event
+		data["pointer_input_window_id"] = window_event.window_id
+	return data
 
 
 func _make_mouse_button_data(
@@ -370,13 +397,14 @@ func _make_mouse_button_data(
 
 
 func _emit_or_send_hover(event_name: StringName) -> void:
-	var context: GFInteractionContext = build_context(event_name, _make_pointer_data(event_name))
+	var data: Dictionary = _make_pointer_data(event_name)
+	var context: GFInteractionContext = build_context(event_name, data)
 	if event_name == &"entered":
 		pointer_entered.emit(context)
 	else:
 		pointer_exited.emit(context)
 	if send_on_hover:
-		var _send_pointer_interaction_result_379: Variant = send_pointer_interaction(event_name, _make_pointer_data(event_name))
+		var _send_pointer_interaction_result_379: Variant = send_pointer_interaction(event_name, data)
 
 
 func _emit_or_send_button_event(
@@ -411,7 +439,37 @@ func _is_wheel_button(button_index: int) -> bool:
 func _set_hover_cursor(active: bool) -> void:
 	if not change_cursor_on_hover:
 		return
-	Input.set_default_cursor_shape(cursor_shape if active else Input.CURSOR_ARROW)
+	if active:
+		if not _has_previous_cursor_shape:
+			_previous_cursor_shape = Input.get_current_cursor_shape()
+			_has_previous_cursor_shape = true
+		Input.set_default_cursor_shape(cursor_shape)
+		return
+	if _has_previous_cursor_shape:
+		Input.set_default_cursor_shape(_previous_cursor_shape)
+		_has_previous_cursor_shape = false
+		return
+	Input.set_default_cursor_shape(Input.CURSOR_ARROW)
+
+
+func _reset_pointer_state(reset_cursor: bool) -> void:
+	var should_reset_cursor: bool = reset_cursor and (_is_hovered or _has_previous_cursor_shape)
+	_is_hovered = false
+	_pressed_button = 0
+	_pressed_shape_idx = -1
+	if should_reset_cursor:
+		_set_hover_cursor(false)
+
+
+func _restore_input_ray_pickable(collision_object: CollisionObject3D) -> void:
+	if collision_object == null or not _bound_input_ray_pickable_changed:
+		return
+	collision_object.input_ray_pickable = _bound_input_ray_pickable_original
+
+
+func _clear_collision_binding_state() -> void:
+	_bound_input_ray_pickable_original = false
+	_bound_input_ray_pickable_changed = false
 
 
 func _get_collision_object_value(value: Variant) -> CollisionObject3D:

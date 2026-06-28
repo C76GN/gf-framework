@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFArtifactFreshnessReport" path="addons/gf/standard/foundation/policy/gf_artifact_freshness_report.gd" module="standard" extends="RefCounted" classDigest="45e7e84b0079f458a1b275bd0d79f01edb5d4517dc8620cd0e3c5533a090d950">
+	<description>GFArtifactFreshnessReport: 通用 artifact 新鲜度与完整性报告。
+检查本地 artifact 是否存在、可读、大小和 sha256 是否符合期望，以及生成时记录的
+source digest 是否仍匹配当前 source digest。它只读取本地文件元数据，不解析业务内容。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_service</tag>
+		<tag name="since">7.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties>
+		<member kind="property" name="subject">
+			<signature>var subject: String = _DEFAULT_SUBJECT</signature>
+			<description>报告主题。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="artifacts">
+			<signature>var artifacts: Array[Dictionary] = []</signature>
+			<description>artifact 条目列表。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">artifacts: Array[Dictionary]，每项包含 artifact_id/id、path、expected_sha256、expected_size_bytes、recorded_source_digest、current_source_digest 和 metadata。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="metadata">
+			<signature>var metadata: Dictionary = {}</signature>
+			<description>调用方自定义元数据。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">metadata: Dictionary caller-defined report metadata.</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="configure">
+			<signature>func configure(p_subject: String = _DEFAULT_SUBJECT, p_metadata: Dictionary = {}) -&gt; GFArtifactFreshnessReport:</signature>
+			<description>配置报告构建器。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">p_subject: 报告主题。</tag>
+				<tag name="param">p_metadata: 调用方元数据。</tag>
+				<tag name="return">当前构建器。</tag>
+				<tag name="schema">p_metadata: Dictionary caller-defined report metadata.</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="clear">
+			<signature>func clear() -&gt; void:</signature>
+			<description>清空 artifact 条目与元数据。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="add_artifact">
+			<signature>func add_artifact(artifact_id: StringName, path: String, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>添加 artifact 条目。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">artifact_id: artifact ID。</tag>
+				<tag name="param">path: 本地文件路径。</tag>
+				<tag name="param">options: 附加字段，支持 expected_sha256、expected_size_bytes、minimum_modified_time、recorded_source_digest、current_source_digest、required 和 metadata。</tag>
+				<tag name="return">添加后的条目副本。</tag>
+				<tag name="schema">options: Dictionary artifact freshness metadata.</tag>
+				<tag name="schema">return: Dictionary artifact entry.</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="add_artifacts">
+			<signature>func add_artifacts(entries: Array[Dictionary]) -&gt; GFArtifactFreshnessReport:</signature>
+			<description>批量添加 artifact 条目。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">entries: artifact 条目数组。</tag>
+				<tag name="return">当前构建器。</tag>
+				<tag name="schema">entries: Array[Dictionary] artifact entries.</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_report">
+			<signature>func get_report(options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>构建新鲜度报告。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">options: 报告选项，支持 include_sha256、include_modified_time、warnings_as_errors、fallback_action 和 no_action。</tag>
+				<tag name="return">GFValidationReportDictionary 兼容报告。</tag>
+				<tag name="schema">options: Dictionary report options.</tag>
+				<tag name="schema">return: Dictionary with ok, healthy, artifacts, issues, summary, and next_action.</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="from_artifacts">
+			<signature>static func from_artifacts(entries: Array[Dictionary], options: Dictionary = {}) -&gt; GFArtifactFreshnessReport:</signature>
+			<description>从 artifact 条目数组创建报告构建器。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">entries: artifact 条目数组。</tag>
+				<tag name="param">options: 构建器选项，支持 subject 和 metadata。</tag>
+				<tag name="return">新构建器。</tag>
+				<tag name="schema">entries: Array[Dictionary] artifact entries.</tag>
+				<tag name="schema">options: Dictionary builder options.</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

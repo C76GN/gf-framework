@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSurfaceUtility" path="addons/gf/standard/utilities/display/gf_surface_utility.gd" module="standard" extends="GFUtility" classDigest="d3915152e577f5b4b16e670af3d8a8120439152e6a2553550d6379425c00c1ff">
+<class name="GFSurfaceUtility" path="addons/gf/standard/utilities/display/gf_surface_utility.gd" module="standard" extends="GFUtility" classDigest="90a49a973cc844e99144c113748a28fd428477e35a07ce2b7f3893db94a40460">
 	<description>GFSurfaceUtility: 3D 表面材质查询工具。
 根据碰撞命中的 face index 推导 MeshInstance3D surface，并返回基础材质、
 覆盖材质或最终 active material。框架只负责几何到材质的映射，不解释材质语义。</description>
@@ -66,6 +66,20 @@
 				<tag name="param">source: MeshInstance3D、CollisionObject3D 或其相邻节点。</tag>
 				<tag name="param">face_index: RayCast3D.get_collision_face_index() 返回的面索引。</tag>
 				<tag name="return">命中材质；无法解析时返回 null。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="describe_surface_hit">
+			<signature>func describe_surface_hit(source: Object, face_index: int) -&gt; Dictionary:</signature>
+			<description>描述命中表面的结构化报告。
+返回值面向运行时分发、调试面板和日志摘要；GF 只暴露 surface/material 数据，
+不解释脚步声、弹孔、地形标签或其它业务语义。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">source: MeshInstance3D、CollisionObject3D 或其相邻节点。</tag>
+				<tag name="param">face_index: RayCast3D.get_collision_face_index() 返回的面索引。</tag>
+				<tag name="return">表面命中报告；无法解析时 ok 为 false，并保留 reason。</tag>
+				<tag name="schema">return: Dictionary，包含 ok、reason、face_index、surface_index、base_material、override_material、active_material、has_*_material 以及对应 *_material_name、*_material_path、*_material_type 字段。</tag>
+				<tag name="since">7.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_surface_override_material">

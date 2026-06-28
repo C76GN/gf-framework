@@ -105,11 +105,12 @@ static func tokenize(query: String, options: Dictionary = {}) -> PackedStringArr
 ## [br]
 ## @schema return: Dictionary，包含 matched、score 和 matched_tokens。
 static func score_text(query: String, text: String, options: Dictionary = {}) -> Dictionary:
-	var case_sensitive: bool = GFVariantData.get_option_bool(options, "case_sensitive", false)
-	var tokens: PackedStringArray = tokenize(query, options)
-	var normalized_query: String = _normalize_search_text(query, case_sensitive)
+	var context: Dictionary = _make_query_context(query, options)
+	var case_sensitive: bool = GFVariantData.get_option_bool(context, "case_sensitive", false)
+	var tokens: PackedStringArray = GFVariantData.get_option_packed_string_array(context, "tokens")
+	var normalized_query: String = GFVariantData.get_option_string(context, "normalized_query")
 	var normalized_text: String = _normalize_search_text(text, case_sensitive)
-	var require_all_tokens: bool = GFVariantData.get_option_bool(options, "require_all_tokens", true)
+	var require_all_tokens: bool = GFVariantData.get_option_bool(context, "require_all_tokens", true)
 	return _score_normalized_text(normalized_query, tokens, normalized_text, require_all_tokens)
 
 
@@ -133,12 +134,67 @@ static func score_text(query: String, text: String, options: Dictionary = {}) ->
 ## [br]
 ## @schema return: Dictionary，包含 matched、score、matched_tokens、field_scores 和 candidate。
 static func score_candidate(query: String, candidate: Dictionary, options: Dictionary = {}) -> Dictionary:
+	return _score_candidate_with_context(candidate, _make_query_context(query, options))
+
+
+## 按查询文本排序候选字典。
+## [br]
+## @api public
+## [br]
+## @since 5.0.0
+## [br]
+## @param query: 查询文本。
+## [br]
+## @param candidates: 候选字典数组。
+## [br]
+## @schema candidates: Array[Dictionary]，每个候选字段由 options.fields 指定。
+## [br]
+## @param options: 可选项；include_unmatched 默认为 false，limit 小于等于 0 表示不限制，case_sensitive 默认为 false。
+## [br]
+## @schema options: Dictionary，支持 fields、require_all_tokens、case_sensitive、duplicate_candidate、include_unmatched、limit。
+## [br]
+## @return 排序后的匹配报告数组。
+## [br]
+## @schema return: Array[Dictionary]，每项包含 matched、score、matched_tokens、field_scores、candidate 和 index。
+static func rank_candidates(query: String, candidates: Array[Dictionary], options: Dictionary = {}) -> Array[Dictionary]:
+	var reports: Array[Dictionary] = []
+	var include_unmatched: bool = GFVariantData.get_option_bool(options, "include_unmatched", false)
+	var limit: int = GFVariantData.get_option_int(options, "limit", 0)
+	var context: Dictionary = _make_query_context(query, options)
+
+	for index: int in range(candidates.size()):
+		var report: Dictionary = _score_candidate_with_context(candidates[index], context)
+		report["index"] = index
+		if GFVariantData.get_option_bool(report, "matched", false) or include_unmatched:
+			reports.append(report)
+
+	reports.sort_custom(_sort_reports_descending)
+	if limit <= 0 or reports.size() <= limit:
+		return reports
+	return reports.slice(0, limit)
+
+
+# --- 私有/辅助方法 ---
+
+static func _make_query_context(query: String, options: Dictionary) -> Dictionary:
 	var case_sensitive: bool = GFVariantData.get_option_bool(options, "case_sensitive", false)
-	var tokens: PackedStringArray = tokenize(query, options)
-	var normalized_query: String = _normalize_search_text(query, case_sensitive)
-	var require_all_tokens: bool = GFVariantData.get_option_bool(options, "require_all_tokens", true)
-	var duplicate_candidate: bool = GFVariantData.get_option_bool(options, "duplicate_candidate", true)
-	var fields: Array[Dictionary] = _get_fields(options)
+	return {
+		"case_sensitive": case_sensitive,
+		"tokens": tokenize(query, options),
+		"normalized_query": _normalize_search_text(query, case_sensitive),
+		"require_all_tokens": GFVariantData.get_option_bool(options, "require_all_tokens", true),
+		"duplicate_candidate": GFVariantData.get_option_bool(options, "duplicate_candidate", true),
+		"fields": _get_fields(options),
+	}
+
+
+static func _score_candidate_with_context(candidate: Dictionary, context: Dictionary) -> Dictionary:
+	var case_sensitive: bool = GFVariantData.get_option_bool(context, "case_sensitive", false)
+	var tokens: PackedStringArray = GFVariantData.get_option_packed_string_array(context, "tokens")
+	var normalized_query: String = GFVariantData.get_option_string(context, "normalized_query")
+	var require_all_tokens: bool = GFVariantData.get_option_bool(context, "require_all_tokens", true)
+	var duplicate_candidate: bool = GFVariantData.get_option_bool(context, "duplicate_candidate", true)
+	var fields: Array[Dictionary] = _get_context_fields(context)
 	var matched_lookup: Dictionary = {}
 	var field_scores: Dictionary = {}
 	var total_score: float = 0.0
@@ -184,44 +240,6 @@ static func score_candidate(query: String, candidate: Dictionary, options: Dicti
 		"candidate": candidate.duplicate(true) if duplicate_candidate else candidate,
 	}
 
-
-## 按查询文本排序候选字典。
-## [br]
-## @api public
-## [br]
-## @since 5.0.0
-## [br]
-## @param query: 查询文本。
-## [br]
-## @param candidates: 候选字典数组。
-## [br]
-## @schema candidates: Array[Dictionary]，每个候选字段由 options.fields 指定。
-## [br]
-## @param options: 可选项；include_unmatched 默认为 false，limit 小于等于 0 表示不限制，case_sensitive 默认为 false。
-## [br]
-## @schema options: Dictionary，支持 fields、require_all_tokens、case_sensitive、duplicate_candidate、include_unmatched、limit。
-## [br]
-## @return 排序后的匹配报告数组。
-## [br]
-## @schema return: Array[Dictionary]，每项包含 matched、score、matched_tokens、field_scores、candidate 和 index。
-static func rank_candidates(query: String, candidates: Array[Dictionary], options: Dictionary = {}) -> Array[Dictionary]:
-	var reports: Array[Dictionary] = []
-	var include_unmatched: bool = GFVariantData.get_option_bool(options, "include_unmatched", false)
-	var limit: int = GFVariantData.get_option_int(options, "limit", 0)
-
-	for index: int in range(candidates.size()):
-		var report: Dictionary = score_candidate(query, candidates[index], options)
-		report["index"] = index
-		if GFVariantData.get_option_bool(report, "matched", false) or include_unmatched:
-			reports.append(report)
-
-	reports.sort_custom(_sort_reports_descending)
-	if limit <= 0 or reports.size() <= limit:
-		return reports
-	return reports.slice(0, limit)
-
-
-# --- 私有/辅助方法 ---
 
 static func _score_normalized_text(
 	normalized_query: String,
@@ -290,6 +308,19 @@ static func _get_fields(options: Dictionary) -> Array[Dictionary]:
 		var field_names: PackedStringArray = fields_value
 		for field_name: String in field_names:
 			var field_entry: Dictionary = _normalize_field_entry(field_name)
+			if not field_entry.is_empty():
+				fields.append(field_entry)
+	if fields.is_empty():
+		fields.append_array(DEFAULT_FIELDS)
+	return fields
+
+
+static func _get_context_fields(context: Dictionary) -> Array[Dictionary]:
+	var fields_value: Variant = GFVariantData.get_option_value(context, "fields", DEFAULT_FIELDS)
+	var fields: Array[Dictionary] = []
+	if fields_value is Array:
+		for field_value: Variant in fields_value:
+			var field_entry: Dictionary = _normalize_field_entry(field_value)
 			if not field_entry.is_empty():
 				fields.append(field_entry)
 	if fields.is_empty():

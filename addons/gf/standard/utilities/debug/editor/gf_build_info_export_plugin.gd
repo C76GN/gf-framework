@@ -21,7 +21,7 @@ extends EditorExportPlugin
 ## @api public
 ## [br]
 ## @since 3.17.0
-const ENABLED_SETTING: String = "gf/build/export/write_metadata"
+const ENABLED_SETTING: String = GFBuildInfo.EXPORT_ENABLED_SETTING
 
 ## 导出时写入 ProjectSettings 的构建元数据字典键。
 ## [br]
@@ -30,32 +30,38 @@ const ENABLED_SETTING: String = "gf/build/export/write_metadata"
 ## @since 5.2.0
 ## [br]
 ## @schema value: Dictionary，可包含 GFBuildInfo.write_metadata_to_project_settings() 支持的构建字段。
-const BUILD_METADATA_SETTING: String = "gf/build/export/build_metadata"
+const BUILD_METADATA_SETTING: String = GFBuildInfo.EXPORT_BUILD_METADATA_SETTING
 
 ## 导出结束后是否恢复旧构建元数据的 ProjectSettings 键。
 ## [br]
 ## @api public
-const RESTORE_PREVIOUS_SETTING: String = "gf/build/export/restore_previous_settings"
+## [br]
+## @since 6.0.0
+const RESTORE_PREVIOUS_SETTING: String = GFBuildInfo.EXPORT_RESTORE_PREVIOUS_SETTING
 
 ## 写入或恢复后是否立即保存 ProjectSettings 的设置键。
 ## [br]
 ## @api public
-const SAVE_PROJECT_SETTINGS_SETTING: String = "gf/build/export/save_project_settings"
+## [br]
+## @since 6.0.0
+const SAVE_PROJECT_SETTINGS_SETTING: String = GFBuildInfo.EXPORT_SAVE_PROJECT_SETTINGS_SETTING
 
 ## 导出时附加到构建信息中的自定义元数据 ProjectSettings 键。
 ## [br]
 ## @api public
-const EXTRA_METADATA_SETTING: String = "gf/build/export/metadata"
+## [br]
+## @since 6.0.0
+const EXTRA_METADATA_SETTING: String = GFBuildInfo.EXPORT_EXTRA_METADATA_SETTING
 
 const _BUILD_SETTING_PATHS: Array[String] = [
-	"gf/build/id",
-	"gf/build/commit_hash",
-	"gf/build/branch",
-	"gf/build/tag",
-	"gf/build/commit_count",
-	"gf/build/is_dirty",
-	"gf/build/time_utc",
-	"gf/build/metadata",
+	GFBuildInfo.BUILD_ID_SETTING,
+	GFBuildInfo.COMMIT_HASH_SETTING,
+	GFBuildInfo.BRANCH_SETTING,
+	GFBuildInfo.TAG_SETTING,
+	GFBuildInfo.COMMIT_COUNT_SETTING,
+	GFBuildInfo.IS_DIRTY_SETTING,
+	GFBuildInfo.TIME_UTC_SETTING,
+	GFBuildInfo.METADATA_SETTING,
 ]
 
 

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFDebugOverlayUtility" path="addons/gf/standard/utilities/debug/gf_debug_overlay_utility.gd" module="standard" extends="GFUtility" classDigest="acc64314489d8fe74b382f55068abbc193c85f21635f930f045089de5159a0e6">
+<class name="GFDebugOverlayUtility" path="addons/gf/standard/utilities/debug/gf_debug_overlay_utility.gd" module="standard" extends="GFUtility" classDigest="3e5fdee6cb556de215f6e5c277af3fdea8fe0a93ae11090df4c2e23be4b88f3e">
 	<description>GFDebugOverlayUtility: 开发期运行时观察覆盖层。
 提供 watch / panel 注册、轻量运行时快照和可选调试 GUI。默认只在 debug 构建中创建 GUI。
 发布构建如确实需要显示，必须显式关闭 debug_only 并自行确认可见性与数据脱敏策略。</description>
@@ -66,6 +66,14 @@
 			<description>指标趋势 sparkline 输出宽度。</description>
 			<tags>
 				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="property" name="max_metric_series">
+			<signature>var max_metric_series: int = 256:</signature>
+			<description>Overlay 最多维护的指标序列数量。设为 0 表示不限制。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="debug_only">

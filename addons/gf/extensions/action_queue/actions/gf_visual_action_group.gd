@@ -21,6 +21,9 @@ signal _parallel_completed
 # 内部使用：顺序执行全部完成时发出。
 signal _sequence_completed
 
+# 内部使用：暂停、取消或完成时唤醒内部等待。
+signal _state_changed
+
 
 # --- 枚举 ---
 
@@ -77,9 +80,11 @@ var cancel_remaining_on_first_completed: bool = true
 
 var _execution_serial: int = 0
 var _is_executing: bool = false
+var _paused: bool = false
 var _active_is_parallel: bool = true
 var _active_parallel_completion_policy: ParallelCompletionPolicy = ParallelCompletionPolicy.WAIT_FOR_ALL
 var _active_cancel_remaining_on_first_completed: bool = true
+var _active_actions: Array[Object] = []
 
 
 # --- Godot 生命周期方法 ---
@@ -124,6 +129,8 @@ func execute() -> Variant:
 	_execution_serial += 1
 	var current_serial: int = _execution_serial
 	_is_executing = true
+	_set_paused(false)
+	_clear_active_actions()
 	_active_is_parallel = is_parallel
 	_active_parallel_completion_policy = parallel_completion_policy
 	_active_cancel_remaining_on_first_completed = cancel_remaining_on_first_completed
@@ -138,28 +145,29 @@ func execute() -> Variant:
 ## @api public
 func cancel() -> void:
 	_execution_serial += 1
-	for action: Object in actions:
-		if is_instance_valid(action):
-			_ACTION_PROTOCOL.cancel(action)
+	_set_paused(false)
+	_cancel_active_actions()
 	_emit_active_completion()
 
 
-## 暂停所有有效子动作。
+## 暂停当前已启动子动作，并阻止后续子动作启动。
 ## [br]
 ## @api public
+## [br]
+## @since 6.0.0
 func pause() -> void:
-	for action: Object in actions:
-		if is_instance_valid(action):
-			_ACTION_PROTOCOL.pause(action)
+	_set_paused(true)
+	_pause_active_actions()
 
 
-## 恢复所有有效子动作。
+## 恢复当前已启动子动作，并允许后续子动作继续启动。
 ## [br]
 ## @api public
+## [br]
+## @since 6.0.0
 func resume() -> void:
-	for action: Object in actions:
-		if is_instance_valid(action):
-			_ACTION_PROTOCOL.resume(action)
+	_resume_active_actions()
+	_set_paused(false)
 
 
 ## 立即完成所有有效子动作并释放等待者。
@@ -167,9 +175,8 @@ func resume() -> void:
 ## @api public
 func finish() -> void:
 	_execution_serial += 1
-	for action: Object in actions:
-		if is_instance_valid(action):
-			_ACTION_PROTOCOL.finish(action)
+	_set_paused(false)
+	_finish_active_actions()
 	_emit_active_completion()
 
 
@@ -188,6 +195,9 @@ func _run_sequence(current_serial: int) -> Variant:
 func _do_parallel_async(current_serial: int) -> void:
 	if current_serial != _execution_serial:
 		return
+	await _wait_until_resumed(current_serial)
+	if current_serial != _execution_serial:
+		return
 
 	var pending_state: Dictionary = {
 		"count": 0,
@@ -204,6 +214,7 @@ func _do_parallel_async(current_serial: int) -> void:
 		if not _ACTION_PROTOCOL.can_execute(action):
 			continue
 
+		_mark_action_active(action)
 		var result: Variant = _ACTION_PROTOCOL.execute(action)
 		if _ACTION_PROTOCOL.should_wait_for_result(action, result):
 			pending_state["count"] = GFVariantData.get_option_int(pending_state, "count") + 1
@@ -214,7 +225,10 @@ func _do_parallel_async(current_serial: int) -> void:
 				[action, result, pending_state, current_serial]
 			)
 		elif _active_parallel_completion_policy == ParallelCompletionPolicy.FIRST_COMPLETED:
+			_unmark_action_active(action)
 			pending_state["completed_count"] = GFVariantData.get_option_int(pending_state, "completed_count") + 1
+		else:
+			_unmark_action_active(action)
 
 	pending_state["launching"] = false
 	_try_emit_parallel_completed(pending_state, current_serial)
@@ -225,6 +239,10 @@ func _do_sequence_async(current_serial: int) -> void:
 		return
 
 	for action: Object in actions:
+		await _wait_until_resumed(current_serial)
+		if current_serial != _execution_serial:
+			return
+
 		if not _ACTION_PROTOCOL.is_action_valid(action):
 			continue
 
@@ -232,19 +250,26 @@ func _do_sequence_async(current_serial: int) -> void:
 		if not _ACTION_PROTOCOL.can_execute(action):
 			continue
 
+		_mark_action_active(action)
 		var result: Variant = _ACTION_PROTOCOL.execute(action)
 		if _ACTION_PROTOCOL.should_wait_for_result(action, result):
 			await _ACTION_PROTOCOL.await_result_safely(
 				action,
 				result,
 				_is_execution_serial_current.bind(current_serial),
+				_is_timeout_paused.bind(current_serial),
 				_get_architecture_or_null()
 			)
+			if current_serial != _execution_serial:
+				return
+			await _wait_until_resumed(current_serial)
+		_unmark_action_active(action)
 
 		if current_serial != _execution_serial:
 			return
 
 	_is_executing = false
+	_clear_active_actions()
 	_sequence_completed.emit()
 
 
@@ -257,6 +282,7 @@ func _wait_parallel_action(
 	if current_serial != _execution_serial:
 		return
 	if not is_instance_valid(action):
+		_unmark_action_active(action)
 		pending_state["count"] = GFVariantData.get_option_int(pending_state, "count") - 1
 		pending_state["completed_count"] = GFVariantData.get_option_int(pending_state, "completed_count") + 1
 		_try_emit_parallel_completed(pending_state, current_serial)
@@ -266,9 +292,11 @@ func _wait_parallel_action(
 		action,
 		result,
 		_is_execution_serial_current.bind(current_serial),
+		_is_timeout_paused.bind(current_serial),
 		_get_architecture_or_null()
 	)
 
+	_unmark_action_active(action)
 	if current_serial != _execution_serial:
 		return
 
@@ -305,9 +333,11 @@ func _try_emit_parallel_completed(
 	pending_state["emitted"] = true
 	if _active_parallel_completion_policy == ParallelCompletionPolicy.FIRST_COMPLETED:
 		_execution_serial += 1
+		_set_paused(false)
 		if _active_cancel_remaining_on_first_completed:
 			_cancel_pending_parallel_actions(pending_state, completed_action)
 	_is_executing = false
+	_clear_active_actions()
 	_parallel_completed.emit()
 
 
@@ -320,10 +350,20 @@ func _cancel_pending_parallel_actions(pending_state: Dictionary, completed_actio
 			continue
 		if is_instance_valid(action):
 			_ACTION_PROTOCOL.cancel(action)
+			_unmark_action_active(action)
 
 
 func _is_execution_serial_current(serial: int) -> bool:
 	return serial == _execution_serial
+
+
+func _is_timeout_paused(serial: int) -> bool:
+	return serial == _execution_serial and _paused
+
+
+func _wait_until_resumed(serial: int) -> void:
+	while serial == _execution_serial and _paused:
+		await _state_changed
 
 
 func _emit_active_completion() -> void:
@@ -331,14 +371,65 @@ func _emit_active_completion() -> void:
 		return
 
 	_is_executing = false
+	_clear_active_actions()
 	if _active_is_parallel:
 		_parallel_completed.emit()
 	else:
 		_sequence_completed.emit()
+	_state_changed.emit()
 
 
 func _get_pending_actions(pending_state: Dictionary) -> Array:
 	return GFVariantData.as_array(GFVariantData.get_option_value(pending_state, "actions", []))
+
+
+func _mark_action_active(action: Object) -> void:
+	if is_instance_valid(action) and not _active_actions.has(action):
+		_active_actions.append(action)
+
+
+func _unmark_action_active(action: Object) -> void:
+	if _active_actions.has(action):
+		_active_actions.erase(action)
+
+
+func _clear_active_actions() -> void:
+	_active_actions.clear()
+
+
+func _cancel_active_actions() -> void:
+	var active_snapshot: Array[Object] = _active_actions.duplicate()
+	_clear_active_actions()
+	for action: Object in active_snapshot:
+		if is_instance_valid(action):
+			_ACTION_PROTOCOL.cancel(action)
+
+
+func _finish_active_actions() -> void:
+	var active_snapshot: Array[Object] = _active_actions.duplicate()
+	_clear_active_actions()
+	for action: Object in active_snapshot:
+		if is_instance_valid(action):
+			_ACTION_PROTOCOL.finish(action)
+
+
+func _pause_active_actions() -> void:
+	for action: Object in _active_actions:
+		if is_instance_valid(action):
+			_ACTION_PROTOCOL.pause(action)
+
+
+func _resume_active_actions() -> void:
+	for action: Object in _active_actions:
+		if is_instance_valid(action):
+			_ACTION_PROTOCOL.resume(action)
+
+
+func _set_paused(paused: bool) -> void:
+	if _paused == paused:
+		return
+	_paused = paused
+	_state_changed.emit()
 
 
 func _get_object_value(value: Variant) -> Object:

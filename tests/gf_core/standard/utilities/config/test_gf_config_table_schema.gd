@@ -187,6 +187,45 @@ func test_csv_importer_reports_unclosed_quote_location() -> void:
 	assert_eq(GFVariantData.get_option_int(issue, "line"), 2, "校验报告应透出解析失败行号。")
 
 
+func test_csv_importer_reports_extra_cells() -> void:
+	var parsed: Dictionary = GFConfigTableImporter.parse_csv_table("id,name\n1,Potion,Unexpected\n")
+
+	assert_false(GFVariantData.get_option_bool(parsed, "success"), "超过 header 宽度的 CSV 行应报告解析失败。")
+	assert_true(GFVariantData.get_option_string(parsed, "error").contains("row_has_extra_cells"), "错误信息应说明存在多余单元格。")
+	assert_eq(GFVariantData.get_option_int(parsed, "error_line"), 2, "多余单元格错误应报告行号。")
+	assert_eq(GFVariantData.get_option_int(parsed, "error_column"), 3, "多余单元格错误应报告首个越界列。")
+
+
+func test_csv_importer_reports_unescaped_quote_inside_unquoted_cell() -> void:
+	var parsed: Dictionary = GFConfigTableImporter.parse_csv_table("id,name\n1,Po\"tion\n")
+
+	assert_false(GFVariantData.get_option_bool(parsed, "success"), "未转义 quote 不应被静默解析。")
+	assert_true(GFVariantData.get_option_string(parsed, "error").contains("malformed_quote"), "错误信息应说明 quote 格式错误。")
+	assert_eq(GFVariantData.get_option_int(parsed, "error_line"), 2, "quote 格式错误应报告行号。")
+
+
+func test_config_file_importer_maps_sections_to_records_and_validates() -> void:
+	var schema: GFConfigTableSchema = _make_item_schema()
+	schema.coerce_values = true
+	var text: String = "[1]\nname=\"Potion\"\npower=2.5\n\n[2]\nname=\"Ether\"\npower=3\n"
+
+	var parsed: Dictionary = GFConfigTableImporter.parse_config_file_table(text, {
+		"section_field": &"id",
+		"source": "res://configs/items.cfg",
+	})
+	var report: Dictionary = GFConfigTableImporter.validate_config_file_table(text, schema, {
+		"section_field": &"id",
+		"source": "res://configs/items.cfg",
+	})
+	var rows: Array = GFVariantData.get_option_array(parsed, "data")
+	var first_row: Dictionary = GFVariantData.as_dictionary(rows[0])
+
+	assert_true(GFVariantData.get_option_bool(parsed, "success"), "ConfigFile 表应解析成功。")
+	assert_eq(GFVariantData.get_option_string(first_row, "id"), "1", "section_field 应把 section 名写入记录。")
+	assert_eq(GFVariantData.get_option_string(first_row, "name"), "Potion", "ConfigFile 键值应写入记录字段。")
+	assert_true(GFVariantData.get_option_bool(report, "ok"), "ConfigFile 表应复用 schema 校验和类型转换。")
+
+
 func test_json_importer_reports_parse_failure_as_validation_report() -> void:
 	var report: Dictionary = GFConfigTableImporter.validate_json_table("{bad", _make_item_schema())
 	var issues: Array = GFVariantData.get_option_array(report, "issues")

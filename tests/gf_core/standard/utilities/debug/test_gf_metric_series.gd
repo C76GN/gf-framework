@@ -60,3 +60,15 @@ func test_hidden_metric_series_is_filtered_by_default() -> void:
 
 	assert_eq(overlay.get_metric_series_snapshot().size(), 0, "默认快照不应包含隐藏指标。")
 	assert_eq(overlay.get_metric_series_snapshot(true).size(), 1, "include_hidden 时应包含隐藏指标。")
+
+
+func test_debug_overlay_rejects_metric_series_above_limit() -> void:
+	var overlay: GFDebugOverlayUtility = GFDebugOverlayUtility.new()
+	overlay.max_metric_series = 1
+	var first: GFMetricSeries = overlay.get_or_create_metric_series(&"first")
+	var second: GFMetricSeries = overlay.get_or_create_metric_series(&"second")
+
+	assert_not_null(first, "上限内指标应创建成功。")
+	assert_null(second, "超过上限的指标序列应被拒绝。")
+	assert_eq(overlay.get_metric_series_snapshot(true).size(), 1, "拒绝后快照不应增长。")
+	assert_push_warning("[GFDebugOverlayUtility] 指标序列数量已达到上限，已拒绝创建：second")

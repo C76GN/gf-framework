@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFMetricSeries" path="addons/gf/standard/utilities/debug/gf_metric_series.gd" module="standard" extends="RefCounted" classDigest="7bc8d20a9a79525e10571420cc7afe95f210965bbc5df4aadfc7303fdae448e4">
+<class name="GFMetricSeries" path="addons/gf/standard/utilities/debug/gf_metric_series.gd" module="standard" extends="RefCounted" classDigest="2d19e37359314757e00bbb892b4920c5e996b51d86214b1de3bfc6cba7d130d0">
 	<description>GFMetricSeries: 调试用短期数值序列。
 保存固定长度的数值采样，并提供统计值、归一化值和 ASCII sparkline。
 适合开发期 Overlay 观察短期趋势，不承担长期日志、遥测或业务分析职责。</description>
@@ -161,13 +161,15 @@
 			</tags>
 		</member>
 		<member kind="method" name="to_dict">
-			<signature>func to_dict(include_samples: bool = false) -&gt; Dictionary:</signature>
+			<signature>func to_dict(include_samples: bool = false, sparkline_width: int = 32) -&gt; Dictionary:</signature>
 			<description>转换为 Dictionary。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">include_samples: 是否包含采样明细。</tag>
+				<tag name="param">sparkline_width: sparkline 输出宽度。</tag>
 				<tag name="return">指标序列快照。</tag>
 				<tag name="schema">return: Dictionary，包含 id、label、group、visible、max_samples、sample_count、latest_value、min_value、max_value、average_value、sparkline、metadata，可选 samples。</tag>
+				<tag name="since">3.23.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="duplicate_series">

@@ -35,6 +35,22 @@ func test_formula_parameter_stores_values() -> void:
 	target.free()
 
 
+func test_formula_parameter_isolates_collection_values() -> void:
+	var source_stats: Dictionary = { "tags": ["base"] }
+	var parameter: GFFormulaParameter = GFFormulaParameter.new().set_value(&"stats", source_stats)
+	var raw_source_tags: Variant = source_stats["tags"]
+	var source_tags: Array = raw_source_tags if raw_source_tags is Array else []
+	source_tags.append("source_mutation")
+
+	var first_read: Dictionary = GFVariantData.as_dictionary(parameter.get_value(&"stats", {}))
+	var raw_first_read_tags: Variant = first_read["tags"]
+	var first_read_tags: Array = raw_first_read_tags if raw_first_read_tags is Array else []
+	first_read_tags.append("read_mutation")
+	var second_read: Dictionary = GFVariantData.as_dictionary(parameter.get_value(&"stats", {}))
+
+	assert_eq(GFVariantData.as_array(second_read["tags"]), ["base"], "set_value 与 get_value 都应隔离集合引用。")
+
+
 ## 验证公式类型转换使用稳定兜底。
 func test_formula_type_helpers() -> void:
 	var formula: ValueFormula = ValueFormula.new(&"value", "3.5")
@@ -53,6 +69,26 @@ func test_formula_float_uses_fallback_for_invalid_string() -> void:
 	var parameter: GFFormulaParameter = GFFormulaParameter.new().set_value(&"value", "not-a-number")
 
 	assert_almost_eq(formula.calculate_float(parameter, -3.5), -3.5, 0.001, "非法数字字符串应返回 fallback。")
+
+
+func test_formula_numeric_helpers_reject_nan_and_inf() -> void:
+	var formula: ValueFormula = ValueFormula.new(&"value", 0.0)
+
+	assert_almost_eq(
+		formula.calculate_float(GFFormulaParameter.new().set_value(&"value", NAN), -3.5),
+		-3.5,
+		0.001,
+		"NaN 应返回 float fallback。"
+	)
+	assert_eq(
+		formula.calculate_int(GFFormulaParameter.new().set_value(&"value", INF), -7),
+		-7,
+		"INF 应返回 int fallback。"
+	)
+	assert_false(
+		formula.calculate_bool(GFFormulaParameter.new().set_value(&"value", INF), false),
+		"INF 不应被 bool helper 当作 true。"
+	)
 
 
 ## 验证公式集合按 StringName 调度公式。

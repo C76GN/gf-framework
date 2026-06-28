@@ -1,0 +1,185 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFSourceTextLoader" path="addons/gf/standard/utilities/io/gf_source_text_loader.gd" module="standard" extends="RefCounted" classDigest="bb15739ec50a0f875b1d0adf588c2a8f6481c369687d53a1c29a5caf7d1f87cb">
+	<description>GFSourceTextLoader: 受根路径约束的源码文本加载器。
+将逻辑 key 解析、文本加载、内存注册文本、缓存 key 和诊断报告拆开，
+供生成器、导入器、编辑器工具或校验器读取 UTF-8 文本。文件访问默认要求
+root_path，避免 include 或片段加载越过调用方声明的根目录。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_service</tag>
+		<tag name="since">7.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties>
+		<member kind="property" name="root_path">
+			<signature>var root_path: String = ""</signature>
+			<description>文件加载根路径；读取文件时必须非空。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="allow_registered_text">
+			<signature>var allow_registered_text: bool = true</signature>
+			<description>是否允许读取通过 register_text() 注册的内存文本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="allow_file_access">
+			<signature>var allow_file_access: bool = true</signature>
+			<description>是否允许文件系统访问。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="cache_enabled">
+			<signature>var cache_enabled: bool = true</signature>
+			<description>是否缓存加载结果。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="max_bytes">
+			<signature>var max_bytes: int = 0</signature>
+			<description>最大文本字节数；小于等于 0 表示不限制。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="metadata">
+			<signature>var metadata: Dictionary = {}</signature>
+			<description>调用方附加元数据。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">metadata: Dictionary，包含调用方定义的加载器上下文。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="_init">
+			<signature>func _init(p_root_path: String = "", options: Dictionary = {}) -&gt; void:</signature>
+			<description>创建源码文本加载器。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">p_root_path: 文件加载根路径。</tag>
+				<tag name="param">options: 可选配置，支持 allow_registered_text、allow_file_access、cache_enabled、max_bytes、subject 和 metadata。</tag>
+				<tag name="schema">options: Dictionary，包含加载器配置。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="configure">
+			<signature>func configure(p_root_path: String = "", options: Dictionary = {}) -&gt; GFSourceTextLoader:</signature>
+			<description>配置加载器并清空诊断。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">p_root_path: 文件加载根路径。</tag>
+				<tag name="param">options: 可选配置，支持 allow_registered_text、allow_file_access、cache_enabled、max_bytes、subject 和 metadata。</tag>
+				<tag name="return">当前加载器。</tag>
+				<tag name="schema">options: Dictionary，包含加载器配置。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="clear">
+			<signature>func clear() -&gt; void:</signature>
+			<description>清空注册文本、缓存和诊断。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="clear_cache">
+			<signature>func clear_cache() -&gt; void:</signature>
+			<description>清空加载结果缓存。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="register_text">
+			<signature>func register_text(source_key: String, text: String, entry_metadata: Dictionary = {}) -&gt; bool:</signature>
+			<description>注册内存文本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">source_key: 逻辑 key。</tag>
+				<tag name="param">text: 文本内容。</tag>
+				<tag name="param">entry_metadata: 条目元数据。</tag>
+				<tag name="return">注册成功时返回 true。</tag>
+				<tag name="schema">entry_metadata: Dictionary，包含调用方定义的文本条目上下文。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="unregister_text">
+			<signature>func unregister_text(source_key: String) -&gt; bool:</signature>
+			<description>移除注册文本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">source_key: 逻辑 key。</tag>
+				<tag name="return">移除成功时返回 true。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="resolve_key">
+			<signature>func resolve_key(source_key: String, caller_span: Variant = null) -&gt; Dictionary:</signature>
+			<description>解析逻辑 key。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">source_key: 逻辑 key 或 root_path 内的相对路径。</tag>
+				<tag name="param">caller_span: 可选调用点源码定位。</tag>
+				<tag name="return">解析结果字典。</tag>
+				<tag name="schema">caller_span: Variant，可传 GFSourceSpan 或兼容字典。</tag>
+				<tag name="schema">return: Dictionary，包含 ok、source_key、resolved_path、cache_key、registered 和 report。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="load_text">
+			<signature>func load_text(source_key: String, caller_span: Variant = null) -&gt; Dictionary:</signature>
+			<description>加载 UTF-8 文本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">source_key: 逻辑 key 或 root_path 内的相对路径。</tag>
+				<tag name="param">caller_span: 可选调用点源码定位。</tag>
+				<tag name="return">加载结果字典。</tag>
+				<tag name="schema">caller_span: Variant，可传 GFSourceSpan 或兼容字典。</tag>
+				<tag name="schema">return: Dictionary，包含 ok、text、content_hash、byte_size、source_key、resolved_path、from_cache 和 report。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_report">
+			<signature>func get_report() -&gt; GFValidationReport:</signature>
+			<description>获取当前报告。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">校验报告。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="duplicate_report">
+			<signature>func duplicate_report() -&gt; GFValidationReport:</signature>
+			<description>创建报告副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">校验报告副本。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_debug_snapshot">
+			<signature>func get_debug_snapshot() -&gt; Dictionary:</signature>
+			<description>获取调试快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">加载器状态字典。</tag>
+				<tag name="schema">return: Dictionary，包含 root、缓存和注册文本状态。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

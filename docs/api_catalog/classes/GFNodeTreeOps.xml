@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFNodeTreeOps" path="addons/gf/standard/utilities/nodes/gf_node_tree_ops.gd" module="standard" extends="RefCounted" classDigest="3ab32236aa8d9825030d1de8b0e169566e489cddb771fe533113d96544e3cf42">
+<class name="GFNodeTreeOps" path="addons/gf/standard/utilities/nodes/gf_node_tree_ops.gd" module="standard" extends="RefCounted" classDigest="1fc37304bd2e91ec0afb6f6701dcff15c76dc67b21ddff81d5e75acd376cda1a">
 	<description>GFNodeTreeOps: 通用节点树操作集合。
 提供安全添加、重挂、替换、遍历、类型查找和 owner 传播等节点树基础操作。
 该工具只处理 Godot Node 结构，不绑定具体玩法、UI 或场景业务。</description>
@@ -78,7 +78,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="collect_node_tree">
-			<signature>static func collect_node_tree( root: Node, type_filter: Variant = null, include_root: bool = true, include_internal: bool = false ) -&gt; Array[Node]:</signature>
+			<signature>static func collect_node_tree( root: Node, type_filter: Variant = null, include_root: bool = true, include_internal: bool = false, max_depth: int = -1, limit: int = -1 ) -&gt; Array[Node]:</signature>
 			<description>收集节点树中的节点。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -86,8 +86,86 @@
 				<tag name="param">type_filter: 可选类型过滤器，可为脚本类型、原生类或类名字符串。</tag>
 				<tag name="param">include_root: 是否包含 root 自身。</tag>
 				<tag name="param">include_internal: 是否包含内部子节点。</tag>
+				<tag name="param">max_depth: 最大遍历深度；0 只允许 root，负数表示不限深度。</tag>
+				<tag name="param">limit: 最多返回多少个匹配节点；负数表示不限数量，0 表示返回空数组。</tag>
 				<tag name="return">匹配节点列表。</tag>
 				<tag name="schema">type_filter: Variant type filter accepted by is_instance_of(), native class name, GDScript class_name, script resource path, or null for all nodes.</tag>
+				<tag name="since">3.17.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="collect_children">
+			<signature>static func collect_children( parent: Node, type_filter: Variant = null, include_self: bool = false, include_internal: bool = false, limit: int = -1 ) -&gt; Array[Node]:</signature>
+			<description>收集直接子节点，可选包含起点自身。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">parent: 查询起点。</tag>
+				<tag name="param">type_filter: 可选类型过滤器，可为脚本类型、原生类或类名字符串。</tag>
+				<tag name="param">include_self: 是否把 parent 自身作为第一个候选。</tag>
+				<tag name="param">include_internal: 是否包含内部子节点。</tag>
+				<tag name="param">limit: 最多返回多少个匹配节点；负数表示不限数量，0 表示返回空数组。</tag>
+				<tag name="return">匹配节点列表。</tag>
+				<tag name="schema">type_filter: Variant type filter accepted by is_instance_of(), native class name, GDScript class_name, script resource path, or null for all nodes.</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="collect_descendants">
+			<signature>static func collect_descendants( root: Node, type_filter: Variant = null, include_root: bool = false, include_internal: bool = false, max_depth: int = -1, limit: int = -1 ) -&gt; Array[Node]:</signature>
+			<description>按场景树顺序收集后代节点，可选包含 root 自身。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">root: 查询起点。</tag>
+				<tag name="param">type_filter: 可选类型过滤器，可为脚本类型、原生类或类名字符串。</tag>
+				<tag name="param">include_root: 是否把 root 自身作为第一个候选。</tag>
+				<tag name="param">include_internal: 是否包含内部子节点。</tag>
+				<tag name="param">max_depth: 最大遍历深度；0 只允许 root，负数表示不限深度。</tag>
+				<tag name="param">limit: 最多返回多少个匹配节点；负数表示不限数量，0 表示返回空数组。</tag>
+				<tag name="return">匹配节点列表。</tag>
+				<tag name="schema">type_filter: Variant type filter accepted by is_instance_of(), native class name, GDScript class_name, script resource path, or null for all nodes.</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="collect_ancestors">
+			<signature>static func collect_ancestors( node: Node, type_filter: Variant = null, include_self: bool = false, limit: int = -1 ) -&gt; Array[Node]:</signature>
+			<description>从节点向上收集祖先节点，可选包含起点自身。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">node: 查询起点。</tag>
+				<tag name="param">type_filter: 可选类型过滤器，可为脚本类型、原生类或类名字符串。</tag>
+				<tag name="param">include_self: 是否把 node 自身作为第一个候选。</tag>
+				<tag name="param">limit: 最多返回多少个匹配节点；负数表示不限数量，0 表示返回空数组。</tag>
+				<tag name="return">匹配节点列表。</tag>
+				<tag name="schema">type_filter: Variant type filter accepted by is_instance_of(), native class name, GDScript class_name, script resource path, or null for all nodes.</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="collect_previous_siblings">
+			<signature>static func collect_previous_siblings( node: Node, type_filter: Variant = null, include_self: bool = false, include_internal: bool = false, limit: int = -1 ) -&gt; Array[Node]:</signature>
+			<description>按场景树顺序收集位于节点之前的同级节点，可选包含起点自身。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">node: 查询起点。</tag>
+				<tag name="param">type_filter: 可选类型过滤器，可为脚本类型、原生类或类名字符串。</tag>
+				<tag name="param">include_self: 是否把 node 自身作为最后一个候选。</tag>
+				<tag name="param">include_internal: 是否包含内部同级节点。</tag>
+				<tag name="param">limit: 最多返回多少个匹配节点；负数表示不限数量，0 表示返回空数组。</tag>
+				<tag name="return">匹配节点列表。</tag>
+				<tag name="schema">type_filter: Variant type filter accepted by is_instance_of(), native class name, GDScript class_name, script resource path, or null for all nodes.</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="collect_next_siblings">
+			<signature>static func collect_next_siblings( node: Node, type_filter: Variant = null, include_self: bool = false, include_internal: bool = false, limit: int = -1 ) -&gt; Array[Node]:</signature>
+			<description>按场景树顺序收集位于节点之后的同级节点，可选包含起点自身。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">node: 查询起点。</tag>
+				<tag name="param">type_filter: 可选类型过滤器，可为脚本类型、原生类或类名字符串。</tag>
+				<tag name="param">include_self: 是否把 node 自身作为第一个候选。</tag>
+				<tag name="param">include_internal: 是否包含内部同级节点。</tag>
+				<tag name="param">limit: 最多返回多少个匹配节点；负数表示不限数量，0 表示返回空数组。</tag>
+				<tag name="return">匹配节点列表。</tag>
+				<tag name="schema">type_filter: Variant type filter accepted by is_instance_of(), native class name, GDScript class_name, script resource path, or null for all nodes.</tag>
+				<tag name="since">7.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="set_owner_recursive">

@@ -23,6 +23,9 @@ const _ADDITION_DROP_THRESHOLD: int = 18
 # to_plain_string() 默认保留的小数位数。
 const _DEFAULT_PLAIN_DECIMALS: int = 6
 
+# 大数用于玩法和显示近似，不承诺 int64 全范围指数算术。
+const _MAX_EXPONENT_MAGNITUDE: int = 1_000_000
+
 const _DECIMAL_STRING_FORMATTER = preload("res://addons/gf/standard/foundation/formatting/gf_decimal_string_formatter.gd")
 
 
@@ -110,11 +113,15 @@ static func from_string(value: String) -> GFBigNumber:
 	if scientific_index != -1:
 		var exponent_text: String = trimmed.substr(scientific_index + 1)
 		trimmed = trimmed.substr(0, scientific_index)
-		if exponent_text.is_valid_int():
-			exponent_offset = exponent_text.to_int()
-		else:
+		var exponent_result: Dictionary = _try_parse_exponent_text(exponent_text)
+		if not GFVariantData.get_option_bool(exponent_result, &"ok", false):
+			if GFVariantData.get_option_string(exponent_result, &"reason") == "range":
+				push_error("[GFBigNumber] 指数超出支持范围。")
+				return GFBigNumber.zero()
+
 			push_error("[GFBigNumber] 无法解析科学计数法指数：%s" % value)
 			return GFBigNumber.zero()
+		exponent_offset = GFVariantData.get_option_int(exponent_result, &"value")
 
 	var sign_multiplier: float = 1.0
 	if trimmed.begins_with("-"):
@@ -152,6 +159,9 @@ static func from_string(value: String) -> GFBigNumber:
 
 	var mantissa_value: float = mantissa_text.to_float() * sign_multiplier
 	var normalized_exponent: int = integer_part.length() - first_non_zero - 1 + exponent_offset
+	if not _exponent_is_supported(normalized_exponent):
+		push_error("[GFBigNumber] 指数超出支持范围。")
+		return GFBigNumber.zero()
 	return GFBigNumber.new(mantissa_value, normalized_exponent)
 
 
@@ -323,7 +333,12 @@ func multiply(other: GFBigNumber) -> GFBigNumber:
 	if is_zero() or other.is_zero():
 		return GFBigNumber.zero()
 
-	return GFBigNumber.new(mantissa * other.mantissa, exponent + other.exponent)
+	var exponent_result: Dictionary = _try_add_exponents(exponent, other.exponent)
+	if not GFVariantData.get_option_bool(exponent_result, &"ok", false):
+		push_error("[GFBigNumber] 指数超出支持范围。")
+		return GFBigNumber.zero()
+
+	return GFBigNumber.new(mantissa * other.mantissa, GFVariantData.get_option_int(exponent_result, &"value"))
 
 
 ## 与另一个大数相除。
@@ -341,7 +356,12 @@ func divide(other: GFBigNumber) -> GFBigNumber:
 	if is_zero():
 		return GFBigNumber.zero()
 
-	return GFBigNumber.new(mantissa / other.mantissa, exponent - other.exponent)
+	var exponent_result: Dictionary = _try_add_exponents(exponent, -other.exponent)
+	if not GFVariantData.get_option_bool(exponent_result, &"ok", false):
+		push_error("[GFBigNumber] 指数超出支持范围。")
+		return GFBigNumber.zero()
+
+	return GFBigNumber.new(mantissa / other.mantissa, GFVariantData.get_option_int(exponent_result, &"value"))
 
 
 ## 将当前大数提升到整数次幂。
@@ -389,7 +409,15 @@ func powf(power: float) -> GFBigNumber:
 
 	var abs_mantissa: float = absf(mantissa)
 	var power_log10: float = (log(abs_mantissa) / log(10.0) + float(exponent)) * power
+	if is_nan(power_log10) or is_inf(power_log10):
+		push_error("[GFBigNumber] 指数超出支持范围。")
+		return GFBigNumber.zero()
+
 	var power_log10_floor: float = floor(power_log10)
+	if power_log10_floor < -float(_MAX_EXPONENT_MAGNITUDE) or power_log10_floor > float(_MAX_EXPONENT_MAGNITUDE):
+		push_error("[GFBigNumber] 指数超出支持范围。")
+		return GFBigNumber.zero()
+
 	var power_exponent: int = int(power_log10_floor)
 	var power_mantissa: float = pow(10.0, power_log10 - power_exponent) * sign_multiplier
 	return GFBigNumber.new(power_mantissa, power_exponent)
@@ -449,6 +477,10 @@ func to_scientific_string(
 	var output_exponent: int = exponent
 	var mantissa_text: String = _DECIMAL_STRING_FORMATTER.format_decimal_value(output_mantissa, decimal_places, trim_zeroes, use_truncation)
 	if absf(mantissa_text.to_float()) >= 10.0:
+		if not _exponent_is_supported(output_exponent + 1):
+			push_error("[GFBigNumber] 指数超出支持范围。")
+			return "0"
+
 		output_mantissa /= 10.0
 		output_exponent += 1
 		mantissa_text = _DECIMAL_STRING_FORMATTER.format_decimal_value(output_mantissa, decimal_places, trim_zeroes, use_truncation)
@@ -459,6 +491,12 @@ func to_scientific_string(
 # --- 私有/辅助方法 ---
 
 func _normalize() -> void:
+	if is_nan(mantissa) or is_inf(mantissa):
+		push_error("[GFBigNumber] mantissa 必须是有限浮点值。")
+		mantissa = 0.0
+		exponent = 0
+		return
+
 	if absf(mantissa) <= _NORMALIZATION_EPSILON:
 		mantissa = 0.0
 		exponent = 0
@@ -482,6 +520,11 @@ func _normalize() -> void:
 		mantissa = 0.0
 		exponent = 0
 
+	if not _exponent_is_supported(exponent):
+		push_error("[GFBigNumber] 指数超出支持范围。")
+		mantissa = 0.0
+		exponent = 0
+
 
 static func _get_sign(value: float) -> int:
 	if value > 0.0:
@@ -491,3 +534,62 @@ static func _get_sign(value: float) -> int:
 		return -1
 
 	return 0
+
+
+static func _try_parse_exponent_text(text: String) -> Dictionary:
+	var trimmed: String = text.strip_edges()
+	if trimmed.is_empty():
+		return _make_parse_error()
+
+	var digits: String = trimmed
+	var negative: bool = false
+	if digits.begins_with("-") or digits.begins_with("+"):
+		negative = digits.begins_with("-")
+		digits = digits.substr(1)
+
+	if digits.is_empty():
+		return _make_parse_error()
+
+	for index: int in range(digits.length()):
+		var character: String = digits.substr(index, 1)
+		if character < "0" or character > "9":
+			return _make_parse_error()
+
+	var significant_digits: String = digits
+	while significant_digits.length() > 1 and significant_digits.begins_with("0"):
+		significant_digits = significant_digits.substr(1)
+
+	var limit_text: String = str(_MAX_EXPONENT_MAGNITUDE)
+	if significant_digits.length() > limit_text.length():
+		return _make_parse_error("range")
+	if significant_digits.length() == limit_text.length() and significant_digits > limit_text:
+		return _make_parse_error("range")
+
+	var value: int = significant_digits.to_int()
+	if negative:
+		value = -value
+	return {
+		&"ok": true,
+		&"value": value,
+	}
+
+
+static func _try_add_exponents(left: int, right: int) -> Dictionary:
+	var result: int = left + right
+	if not _exponent_is_supported(result):
+		return _make_parse_error()
+	return {
+		&"ok": true,
+		&"value": result,
+	}
+
+
+static func _exponent_is_supported(value: int) -> bool:
+	return value >= -_MAX_EXPONENT_MAGNITUDE and value <= _MAX_EXPONENT_MAGNITUDE
+
+
+static func _make_parse_error(reason: String = "") -> Dictionary:
+	return {
+		&"ok": false,
+		&"reason": reason,
+	}

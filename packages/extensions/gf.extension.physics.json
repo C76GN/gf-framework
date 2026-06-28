@@ -6,7 +6,8 @@
   "display_name": "GF Physics",
   "description": "Package manifest for the bundled Physics extension.",
   "dependencies": [
-    "gf.kernel"
+    "gf.kernel",
+    "gf.standard.base"
   ],
   "paths": [
     "addons/gf/extensions/physics/**"

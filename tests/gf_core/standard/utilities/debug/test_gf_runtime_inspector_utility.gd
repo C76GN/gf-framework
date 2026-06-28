@@ -31,6 +31,19 @@ func test_tunable_property_normalizes_numeric_range() -> void:
 	assert_eq(GFVariantData.to_int(property.normalize_value(-5)), 0, "整数值应按 schema 下限夹取。")
 
 
+func test_tunable_property_normalizes_option_fallback_to_value_kind() -> void:
+	var property: GFRuntimeTunableProperty = GFRuntimeTunableProperty.new(
+		&"quality",
+		^"quality",
+		GFRuntimeTunableProperty.ValueKind.INT
+	).with_options(["3", "5"])
+
+	var normalized: Variant = property.normalize_value(9)
+
+	assert_true(normalized is int, "选项兜底值也应归一到 value_kind。")
+	assert_eq(GFVariantData.to_int(normalized), 3, "非法输入应回退到归一化后的首个选项。")
+
+
 func test_runtime_inspector_sets_registered_property() -> void:
 	var target: TunableTarget = TunableTarget.new()
 	var property: GFRuntimeTunableProperty = GFRuntimeTunableProperty.new(

@@ -4,13 +4,27 @@
   "kind": "standard",
   "version": "unreleased",
   "display_name": "GF Standard State Machine",
-  "description": "Pure and node state machine runtime, validators, and editor helpers.",
+  "description": "Pure and node state machine runtime plus structural validators.",
   "dependencies": [
     "gf.kernel",
     "gf.standard.base"
   ],
   "paths": [
-    "addons/gf/standard/state_machine/**"
+    "addons/gf/standard/state_machine/node/gf_node_state.gd",
+    "addons/gf/standard/state_machine/node/gf_node_state.gd.uid",
+    "addons/gf/standard/state_machine/node/gf_node_state_behavior.gd",
+    "addons/gf/standard/state_machine/node/gf_node_state_behavior.gd.uid",
+    "addons/gf/standard/state_machine/node/gf_node_state_condition.gd",
+    "addons/gf/standard/state_machine/node/gf_node_state_condition.gd.uid",
+    "addons/gf/standard/state_machine/node/gf_node_state_group.gd",
+    "addons/gf/standard/state_machine/node/gf_node_state_group.gd.uid",
+    "addons/gf/standard/state_machine/node/gf_node_state_machine.gd",
+    "addons/gf/standard/state_machine/node/gf_node_state_machine.gd.uid",
+    "addons/gf/standard/state_machine/node/gf_node_state_machine_config.gd",
+    "addons/gf/standard/state_machine/node/gf_node_state_machine_config.gd.uid",
+    "addons/gf/standard/state_machine/node/gf_node_state_machine_validator.gd",
+    "addons/gf/standard/state_machine/node/gf_node_state_machine_validator.gd.uid",
+    "addons/gf/standard/state_machine/pure/**"
   ],
   "metadata": {
     "stage": "standard-split-v1"

@@ -338,22 +338,10 @@ func get_enabled_validation_rules() -> Array[GFValidationRule]:
 ## [br]
 ## @return 新字段声明。
 func duplicate_field() -> GFSchemaField:
-	var field: GFSchemaField = GFSchemaField.new()
-	field.field_name = field_name
-	field.value_type = value_type
-	field.required = required
-	field.allow_null = allow_null
-	field.default_value = GFVariantData.duplicate_variant(default_value)
-	field.dictionary_schema = null
-	if dictionary_schema != null:
-		field.dictionary_schema = dictionary_schema.duplicate_schema()
-	field.array_item_schema = null
-	if array_item_schema != null:
-		field.array_item_schema = array_item_schema.duplicate_field()
-	field.metadata = metadata.duplicate(true)
-	for rule: GFValidationRule in validation_rules:
-		field.validation_rules.append(rule.duplicate_rule() if rule != null else null)
-	return field
+	return _duplicate_field_with_context({
+		"schemas": {},
+		"fields": {},
+	})
 
 
 ## 导出字段声明摘要。
@@ -451,6 +439,34 @@ func _validate_value_into(value: Variant, report: GFValidationReport, context: D
 		_validate_array_items(GFVariantData.as_array(value), report, context)
 
 	_validate_rules_into(value, report, context)
+
+
+func _duplicate_field_with_context(state: Dictionary) -> GFSchemaField:
+	var field_key: int = get_instance_id()
+	var visited_fields: Dictionary = GFVariantData.as_dictionary(GFVariantData.get_option_value(state, "fields", {}))
+	if visited_fields.has(field_key):
+		var existing_field: Variant = visited_fields[field_key]
+		if existing_field is GFSchemaField:
+			return existing_field
+
+	var field: GFSchemaField = GFSchemaField.new()
+	visited_fields[field_key] = field
+	state["fields"] = visited_fields
+	field.field_name = field_name
+	field.value_type = value_type
+	field.required = required
+	field.allow_null = allow_null
+	field.default_value = GFVariantData.duplicate_variant(default_value)
+	field.dictionary_schema = null
+	if dictionary_schema != null:
+		field.dictionary_schema = dictionary_schema._duplicate_schema(state)
+	field.array_item_schema = null
+	if array_item_schema != null:
+		field.array_item_schema = array_item_schema._duplicate_field_with_context(state)
+	field.metadata = metadata.duplicate(true)
+	for rule: GFValidationRule in validation_rules:
+		field.validation_rules.append(rule.duplicate_rule() if rule != null else null)
+	return field
 
 
 # --- 私有/辅助方法 ---
@@ -584,14 +600,7 @@ func _describe_validation_rules() -> Array[Dictionary]:
 				"valid": false,
 			})
 			continue
-		result.append({
-			"valid": true,
-			"rule_id": rule.rule_id,
-			"enabled": rule.enabled,
-			"target_kind": rule.target_kind,
-			"severity": rule.severity,
-			"metadata": rule.metadata.duplicate(true),
-		})
+		result.append(rule.describe())
 	return result
 
 

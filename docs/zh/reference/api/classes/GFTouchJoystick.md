@@ -19,13 +19,18 @@
 | 信号 | [`joystick_pressed`](#member-gftouchjoystick-signals-joystick_pressed) | `signal joystick_pressed` |
 | 信号 | [`joystick_released`](#member-gftouchjoystick-signals-joystick_released) | `signal joystick_released` |
 | 枚举 | [`PositionMode`](#member-gftouchjoystick-enums-positionmode) | `enum PositionMode` |
+| 枚举 | [`OutputMode`](#member-gftouchjoystick-enums-outputmode) | `enum OutputMode` |
 | 属性 | [`radius`](#member-gftouchjoystick-properties-radius) | `var radius: float = 64.0:` |
 | 属性 | [`knob_radius_ratio`](#member-gftouchjoystick-properties-knob_radius_ratio) | `var knob_radius_ratio: float = 3.0:` |
 | 属性 | [`color`](#member-gftouchjoystick-properties-color) | `var color: Color = Color(1.0, 1.0, 1.0, 0.35):` |
 | 属性 | [`draw_interaction_zone`](#member-gftouchjoystick-properties-draw_interaction_zone) | `var draw_interaction_zone: bool = false:` |
 | 属性 | [`deadzone`](#member-gftouchjoystick-properties-deadzone) | `var deadzone: float = 0.1` |
+| 属性 | [`output_mode`](#member-gftouchjoystick-properties-output_mode) | `var output_mode: OutputMode = OutputMode.ANALOG` |
 | 属性 | [`position_mode`](#member-gftouchjoystick-properties-position_mode) | `var position_mode: PositionMode = PositionMode.FIXED:` |
 | 属性 | [`interaction_radius`](#member-gftouchjoystick-properties-interaction_radius) | `var interaction_radius: float = 160.0:` |
+| 属性 | [`use_active_region`](#member-gftouchjoystick-properties-use_active_region) | `var use_active_region: bool = false` |
+| 属性 | [`active_region`](#member-gftouchjoystick-properties-active_region) | `var active_region: Rect2 = Rect2()` |
+| 属性 | [`release_outside_active_region`](#member-gftouchjoystick-properties-release_outside_active_region) | `var release_outside_active_region: bool = true` |
 | 属性 | [`action_left`](#member-gftouchjoystick-properties-action_left) | `var action_left: StringName = &""` |
 | 属性 | [`action_right`](#member-gftouchjoystick-properties-action_right) | `var action_right: StringName = &""` |
 | 属性 | [`action_up`](#member-gftouchjoystick-properties-action_up) | `var action_up: StringName = &""` |
@@ -102,6 +107,26 @@ enum PositionMode {
 
 摇杆定位模式。
 
+<a id="member-gftouchjoystick-enums-outputmode"></a>
+
+### `OutputMode`
+
+- API：`public`
+- 首次版本：`7.0.0`
+
+```gdscript
+enum OutputMode {
+	## 输出连续模拟向量。
+	ANALOG,
+	## 输出四方向离散向量。
+	DPAD_4,
+	## 输出八方向离散向量。
+	DPAD_8,
+}
+```
+
+摇杆输出模式。
+
 ## 属性
 
 <a id="member-gftouchjoystick-properties-radius"></a>
@@ -164,6 +189,19 @@ var deadzone: float = 0.1
 
 输入死区，范围 0 到 1。
 
+<a id="member-gftouchjoystick-properties-output_mode"></a>
+
+### `output_mode`
+
+- API：`public`
+- 首次版本：`7.0.0`
+
+```gdscript
+var output_mode: OutputMode = OutputMode.ANALOG
+```
+
+输出模式。ANALOG 保留模拟强度，DPAD_4 / DPAD_8 输出离散方向。
+
 <a id="member-gftouchjoystick-properties-position_mode"></a>
 
 ### `position_mode`
@@ -187,6 +225,45 @@ var interaction_radius: float = 160.0:
 ```
 
 相对模式下允许开始触控的交互半径。
+
+<a id="member-gftouchjoystick-properties-use_active_region"></a>
+
+### `use_active_region`
+
+- API：`public`
+- 首次版本：`7.0.0`
+
+```gdscript
+var use_active_region: bool = false
+```
+
+是否限制触摸起点必须位于 active_region 内。
+
+<a id="member-gftouchjoystick-properties-active_region"></a>
+
+### `active_region`
+
+- API：`public`
+- 首次版本：`7.0.0`
+
+```gdscript
+var active_region: Rect2 = Rect2()
+```
+
+允许开始触控的屏幕区域，使用 viewport 像素坐标。
+
+<a id="member-gftouchjoystick-properties-release_outside_active_region"></a>
+
+### `release_outside_active_region`
+
+- API：`public`
+- 首次版本：`7.0.0`
+
+```gdscript
+var release_outside_active_region: bool = true
+```
+
+拖动离开 active_region 时是否自动释放。
 
 <a id="member-gftouchjoystick-properties-action_left"></a>
 

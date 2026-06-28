@@ -27,6 +27,7 @@
 | 方法 | [`applies_to`](#member-gfvalidationrule-methods-applies_to) | `func applies_to(target: Variant, context: Dictionary = {}) -> bool:` |
 | 方法 | [`validate`](#member-gfvalidationrule-methods-validate) | `func validate(target: Variant, context: Dictionary = {}) -> GFValidationReport:` |
 | 方法 | [`duplicate_rule`](#member-gfvalidationrule-methods-duplicate_rule) | `func duplicate_rule() -> GFValidationRule:` |
+| 方法 | [`describe`](#member-gfvalidationrule-methods-describe) | `func describe() -> Dictionary:` |
 | 方法 | [`_validate`](#member-gfvalidationrule-methods-_validate) | `func _validate(_target: Variant, _report: GFValidationReport, _context: Dictionary) -> Variant:` |
 
 ## 枚举
@@ -241,6 +242,25 @@ func duplicate_rule() -> GFValidationRule:
 创建当前规则的浅配置副本。
 
 返回：新规则。
+
+<a id="member-gfvalidationrule-methods-describe"></a>
+
+### `describe`
+
+- API：`public`
+- 首次版本：`6.0.0`
+
+```gdscript
+func describe() -> Dictionary:
+```
+
+导出规则摘要。
+
+返回：规则描述字典。
+
+结构：
+
+- `return`: Dictionary validation rule descriptor.
 
 <a id="member-gfvalidationrule-methods-_validate"></a>
 

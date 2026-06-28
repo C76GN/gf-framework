@@ -1,6 +1,6 @@
 # 信号图、工具快照与监控预设
 
-诊断快照的 `tools` 字段会聚合已注册模块公开的 `get_debug_snapshot()`。标准库内置读取 `GFBuildInfoUtility`、`GFAssetUtility`、`GFTimerUtility`、`GFRemoteCacheUtility`、`GFDownloadUtility` 和 `GFObjectPoolUtility`。
+诊断快照的 `tools` 字段会聚合已注册模块公开的 `get_debug_snapshot()`。标准库内置读取 `GFBuildInfoUtility`、`GFAssetUtility`、`GFTimerUtility`、`GFRemoteCacheUtility`、`GFDownloadUtility`、`GFObjectPoolUtility` 和 `GFOperationDiagnosticsUtility`。
 
 GF 内置扩展或项目模块如果也想进入诊断快照，应主动调用 `register_tool_snapshot_provider()`、`register_snapshot_section_provider()`、`register_monitor()` 或 `register_command()` 贡献数据。
 

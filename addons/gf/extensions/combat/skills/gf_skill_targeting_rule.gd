@@ -93,6 +93,13 @@ enum SortRule {
 ## @api public
 @export var sort_attribute_name: StringName = &"HP"
 
+## RANDOM 排序使用的确定性种子。相同候选集合、相同实例顺序与相同种子会得到相同顺序。
+## [br]
+## @api public
+## [br]
+## @since 6.0.0
+@export var random_seed: int = 0
+
 @export_group("标签过滤")
 
 ## 目标必须拥有的标签列表。

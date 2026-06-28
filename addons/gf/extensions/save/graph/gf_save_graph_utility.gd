@@ -26,6 +26,7 @@ const FORMAT_VERSION: int = 1
 
 const _GF_VALIDATION_REPORT_DICTIONARY_SCRIPT = preload("res://addons/gf/standard/foundation/validation/gf_validation_report_dictionary.gd")
 const _CREATED_ENTITIES_CONTEXT_KEY: String = "_gf_save_graph_created_entities"
+const _SOURCE_SNAPSHOTS_CONTEXT_KEY: String = "_gf_save_graph_source_snapshots"
 
 
 # --- 公共变量 ---
@@ -228,7 +229,7 @@ func validate_payload_for_scope(scope: GFSaveScope, payload: Dictionary, strict:
 	if GFVariantData.get_option_string(payload, "format") != FORMAT_ID:
 		_append_diagnostic_issue(report, "error", "format_mismatch", String(_get_scope_key_for_inspection(scope)), _get_node_debug_path(scope), "Payload format does not match GF save graph.")
 	if GFVariantData.get_option_int(payload, "format_version", -1) > FORMAT_VERSION:
-		_append_diagnostic_issue(report, "warning", "future_format_version", String(_get_scope_key_for_inspection(scope)), _get_node_debug_path(scope), "Payload format version is newer than this utility.")
+		_append_diagnostic_issue(report, "error", "future_format_version", String(_get_scope_key_for_inspection(scope)), _get_node_debug_path(scope), "Payload format version is newer than this utility.")
 
 	_validate_payload_scope_recursive(scope, payload, strict, report, String(_get_scope_key_for_inspection(scope)))
 	report["ok"] = _report_has_no_error_issues(report)
@@ -394,6 +395,9 @@ func apply_scope(
 	var owns_created_entities: bool = not context.has(_CREATED_ENTITIES_CONTEXT_KEY)
 	if owns_created_entities:
 		context[_CREATED_ENTITIES_CONTEXT_KEY] = []
+	var owns_source_snapshots: bool = not context.has(_SOURCE_SNAPSHOTS_CONTEXT_KEY)
+	if owns_source_snapshots:
+		context[_SOURCE_SNAPSHOTS_CONTEXT_KEY] = []
 	if owns_pipeline_context:
 		_record_pipeline_event(pipeline_context, &"apply_started", scope)
 
@@ -402,6 +406,18 @@ func apply_scope(
 	var applied: int = 0
 	var errors: Array[String] = []
 	var missing: Array[String] = []
+	_append_apply_format_errors(payload, errors, pipeline_context)
+	if not errors.is_empty():
+		return _finalize_apply_scope(
+			scope,
+			payload,
+			_make_apply_result(false, applied, errors, missing),
+			context,
+			pipeline_context,
+			owns_pipeline_context,
+			owns_created_entities,
+			owns_source_snapshots
+		)
 	var source_payloads: Dictionary = _get_payload_dictionary_field(
 		payload,
 		"sources",
@@ -424,15 +440,39 @@ func apply_scope(
 			context,
 			pipeline_context,
 			owns_pipeline_context,
-			owns_created_entities
+			owns_created_entities,
+			owns_source_snapshots
+		)
+
+	_append_apply_preflight_errors(
+		scope,
+		source_payloads,
+		child_payloads,
+		strict,
+		errors,
+		missing,
+		pipeline_context,
+		String(_get_scope_key_for_inspection(scope))
+	)
+	if not errors.is_empty():
+		return _finalize_apply_scope(
+			scope,
+			payload,
+			_make_apply_result(false, applied, errors, missing),
+			context,
+			pipeline_context,
+			owns_pipeline_context,
+			owns_created_entities,
+			owns_source_snapshots
 		)
 
 	scope._before_load(payload, context)
 	var source_index: Dictionary = _index_sources_by_key_for_inspection(scope)
 	var source_keys: Array = source_payloads.keys()
 	source_keys.sort_custom(func(left: Variant, right: Variant) -> bool:
-		return _source_payload_phase(source_payloads[left]) < _source_payload_phase(source_payloads[right])
+		return _compare_source_payload_keys(left, right, source_payloads)
 	)
+	var loaded_sources: Array[Dictionary] = []
 
 	for source_key_variant: Variant in source_keys:
 		var source_key: String = str(source_key_variant)
@@ -465,6 +505,7 @@ func apply_scope(
 			_pop_reference_root_context(context, reference_root_state)
 			continue
 
+		_track_source_snapshot(context, source)
 		_record_pipeline_event(pipeline_context, &"apply_source_started", scope, source, "", {
 			"source_key": source_key,
 		})
@@ -472,7 +513,10 @@ func apply_scope(
 		var result: Dictionary = GFVariantData.as_dictionary(source._apply_save_data(source_data, context, serializer_registry))
 		if GFVariantData.get_option_bool(result, "ok", false):
 			applied += 1
-			source._after_load(source_data, context)
+			loaded_sources.append({
+				"source": source,
+				"data": GFVariantData.duplicate_variant(source_data),
+			})
 			_record_pipeline_event(pipeline_context, &"apply_source_finished", scope, source, "", {
 				"source_key": source_key,
 			})
@@ -487,7 +531,11 @@ func apply_scope(
 		_pop_reference_root_context(context, reference_root_state)
 
 	var child_scope_index: Dictionary = _index_child_scopes_for_inspection(scope)
-	for child_key_variant: Variant in child_payloads.keys():
+	var child_keys: Array = child_payloads.keys()
+	child_keys.sort_custom(func(left: Variant, right: Variant) -> bool:
+		return _compare_scope_payload_keys(left, right, child_payloads)
+	)
+	for child_key_variant: Variant in child_keys:
 		var child_key: String = str(child_key_variant)
 		var child_scope: GFSaveScope = _get_save_scope_value(GFVariantData.get_option_value(child_scope_index, child_key))
 		if child_scope == null:
@@ -516,7 +564,13 @@ func apply_scope(
 		for missing_key: String in GFVariantData.to_string_array(GFVariantData.get_option_value(child_result, "missing", [])):
 			missing.append("%s/%s" % [child_key, missing_key])
 
-	scope._after_load(payload, context)
+	if errors.is_empty():
+		for loaded_source_entry: Dictionary in loaded_sources:
+			var loaded_source: GFSaveSource = _get_save_source_value(GFVariantData.get_option_value(loaded_source_entry, "source"))
+			if loaded_source == null or not is_instance_valid(loaded_source):
+				continue
+			loaded_source._after_load(GFVariantData.get_option_value(loaded_source_entry, "data"), context)
+		scope._after_load(payload, context)
 	return _finalize_apply_scope(
 		scope,
 		payload,
@@ -524,7 +578,8 @@ func apply_scope(
 		context,
 		pipeline_context,
 		owns_pipeline_context,
-		owns_created_entities
+		owns_created_entities,
+		owns_source_snapshots
 	)
 
 
@@ -897,6 +952,7 @@ func _validate_payload_scope_recursive(
 ) -> void:
 	report["checked_scope_count"] = GFVariantData.get_option_int(report, "checked_scope_count") + 1
 	var severity: String = "error" if strict else "warning"
+	_append_duplicate_key_diagnostics(scope, report, scope_path)
 	var source_index: Dictionary = _index_sources_by_key_for_inspection(scope)
 	var source_payload_value: Variant = GFVariantData.get_option_value(payload, "sources", {})
 	var source_payloads: Dictionary = GFVariantData.as_dictionary(source_payload_value)
@@ -964,6 +1020,7 @@ func _get_child_scopes(scope: GFSaveScope) -> Array[GFSaveScope]:
 			var child_scope: GFSaveScope = _get_save_scope_value(child)
 			if child_scope != null:
 				result.append(child_scope)
+	result.sort_custom(_compare_scopes_for_traversal)
 	return result
 
 
@@ -977,6 +1034,7 @@ func _get_child_scopes_for_inspection(scope: Node) -> Array[GFSaveScope]:
 			var child_scope: GFSaveScope = _get_save_scope_value(child)
 			if child_scope != null:
 				result.append(child_scope)
+	result.sort_custom(_compare_scopes_for_traversal)
 	return result
 
 
@@ -991,6 +1049,152 @@ func _index_child_scopes_for_inspection(scope: Node) -> Dictionary:
 	var result: Dictionary = {}
 	for child_scope: GFSaveScope in _get_child_scopes_for_inspection(scope):
 		result[String(_get_scope_key_for_inspection(child_scope))] = child_scope
+	return result
+
+
+func _append_duplicate_key_diagnostics(scope: Node, report: Dictionary, _scope_path: String) -> void:
+	var source_key_counts: Dictionary = _count_source_keys_for_inspection(scope)
+	for source_key_variant: Variant in source_key_counts.keys():
+		var source_key: String = str(source_key_variant)
+		if GFVariantData.get_option_int(source_key_counts, source_key) > 1:
+			_append_diagnostic_issue(report, "error", "duplicate_source_key", source_key, _get_node_debug_path(scope), "Duplicate save source key in the same scope.")
+
+	var child_scope_key_counts: Dictionary = _count_child_scope_keys_for_inspection(scope)
+	for child_key_variant: Variant in child_scope_key_counts.keys():
+		var child_key: String = str(child_key_variant)
+		if GFVariantData.get_option_int(child_scope_key_counts, child_key) > 1:
+			_append_diagnostic_issue(report, "error", "duplicate_scope_key", child_key, _get_node_debug_path(scope), "Duplicate child scope key in the same scope.")
+
+
+func _count_source_keys_for_inspection(scope: Node) -> Dictionary:
+	var result: Dictionary = {}
+	for source: GFSaveSource in _get_sources_for_scope_for_inspection(scope):
+		var source_key: String = _make_scoped_source_key_for_inspection(scope, source)
+		result[source_key] = GFVariantData.get_option_int(result, source_key) + 1
+	return result
+
+
+func _count_child_scope_keys_for_inspection(scope: Node) -> Dictionary:
+	var result: Dictionary = {}
+	for child_scope: GFSaveScope in _get_child_scopes_for_inspection(scope):
+		var child_key: String = String(_get_scope_key_for_inspection(child_scope))
+		result[child_key] = GFVariantData.get_option_int(result, child_key) + 1
+	return result
+
+
+func _append_apply_format_errors(
+	payload: Dictionary,
+	errors: Array[String],
+	pipeline_context: GFSavePipelineContext
+) -> void:
+	if GFVariantData.get_option_string(payload, "format") != FORMAT_ID:
+		var format_error: String = "Payload format does not match GF save graph."
+		errors.append(format_error)
+		pipeline_context.add_error(format_error, { "kind": "format_mismatch" })
+	if GFVariantData.get_option_int(payload, "format_version", -1) > FORMAT_VERSION:
+		var version_error: String = "Payload uses a future format version newer than this utility."
+		errors.append(version_error)
+		pipeline_context.add_error(version_error, { "kind": "future_format_version" })
+
+
+func _append_apply_preflight_errors(
+	scope: GFSaveScope,
+	source_payloads: Dictionary,
+	child_payloads: Dictionary,
+	strict: bool,
+	errors: Array[String],
+	missing: Array[String],
+	pipeline_context: GFSavePipelineContext,
+	scope_path: String
+) -> void:
+	for source_key_variant: Variant in _sorted_dictionary_keys(source_payloads):
+		var source_key: String = str(source_key_variant)
+		if not (source_payloads[source_key_variant] is Dictionary):
+			var invalid_source_error: String = "Invalid source payload: %s" % source_key
+			errors.append(invalid_source_error)
+			pipeline_context.add_error(invalid_source_error, { "source_key": source_key })
+
+	for source_key_variant: Variant in _duplicate_keys_from_counts(_count_source_keys_for_inspection(scope)):
+		var duplicate_source_key: String = str(source_key_variant)
+		var duplicate_source_error: String = "Duplicate source key: %s" % duplicate_source_key
+		errors.append(duplicate_source_error)
+		pipeline_context.add_error(duplicate_source_error, {
+			"scope_key": scope_path,
+			"source_key": duplicate_source_key,
+		})
+
+	for child_key_variant: Variant in _duplicate_keys_from_counts(_count_child_scope_keys_for_inspection(scope)):
+		var duplicate_child_key: String = str(child_key_variant)
+		var duplicate_child_error: String = "Duplicate child scope key: %s" % duplicate_child_key
+		errors.append(duplicate_child_error)
+		pipeline_context.add_error(duplicate_child_error, {
+			"scope_key": scope_path,
+			"child_scope_key": duplicate_child_key,
+		})
+
+	var child_scope_index: Dictionary = _index_child_scopes_for_inspection(scope)
+	for child_key_variant: Variant in _sorted_dictionary_keys(child_payloads):
+		var child_key: String = str(child_key_variant)
+		var child_payload_value: Variant = child_payloads[child_key_variant]
+		if not (child_payload_value is Dictionary):
+			var invalid_child_error: String = "Invalid child scope payload: %s" % child_key
+			errors.append(invalid_child_error)
+			pipeline_context.add_error(invalid_child_error, { "scope_key": child_key })
+			continue
+
+		var child_scope: GFSaveScope = _get_save_scope_value(GFVariantData.get_option_value(child_scope_index, child_key))
+		if child_scope == null:
+			missing.append(child_key)
+			if strict:
+				var missing_scope_error: String = "Missing scope: %s" % child_key
+				errors.append(missing_scope_error)
+				pipeline_context.add_error(missing_scope_error, { "scope_key": child_key })
+			continue
+
+		var child_payload: Dictionary = GFVariantData.as_dictionary(child_payload_value)
+		var nested_source_payloads_value: Variant = GFVariantData.get_option_value(child_payload, "sources", {})
+		var nested_child_payloads_value: Variant = GFVariantData.get_option_value(child_payload, "scopes", {})
+		if not (nested_source_payloads_value is Dictionary):
+			var invalid_nested_sources_error: String = "Invalid save payload: sources must be a Dictionary."
+			errors.append(invalid_nested_sources_error)
+			pipeline_context.add_error(invalid_nested_sources_error, {
+				"scope_key": child_key,
+			})
+			continue
+		if not (nested_child_payloads_value is Dictionary):
+			var invalid_nested_scopes_error: String = "Invalid save payload: scopes must be a Dictionary."
+			errors.append(invalid_nested_scopes_error)
+			pipeline_context.add_error(invalid_nested_scopes_error, {
+				"scope_key": child_key,
+			})
+			continue
+		_append_apply_preflight_errors(
+			child_scope,
+			GFVariantData.as_dictionary(nested_source_payloads_value),
+			GFVariantData.as_dictionary(nested_child_payloads_value),
+			strict,
+			errors,
+			missing,
+			pipeline_context,
+			"%s/%s" % [scope_path, child_key]
+		)
+
+
+func _duplicate_keys_from_counts(counts: Dictionary) -> PackedStringArray:
+	var result: PackedStringArray = PackedStringArray()
+	for key_variant: Variant in counts.keys():
+		var key: String = str(key_variant)
+		if GFVariantData.get_option_int(counts, key) > 1:
+			var _append_key: bool = result.append(key)
+	result.sort()
+	return result
+
+
+func _sorted_dictionary_keys(data: Dictionary) -> Array:
+	var result: Array = data.keys()
+	result.sort_custom(func(left: Variant, right: Variant) -> bool:
+		return str(left) < str(right)
+	)
 	return result
 
 
@@ -1225,6 +1429,39 @@ func _source_payload_phase(source_payload_variant: Variant) -> int:
 	return GFVariantData.get_option_int(descriptor, "phase", GFSaveScope.Phase.NORMAL)
 
 
+func _scope_payload_phase(scope_payload_variant: Variant) -> int:
+	if not (scope_payload_variant is Dictionary):
+		return GFSaveScope.Phase.NORMAL
+
+	var scope_payload: Dictionary = GFVariantData.as_dictionary(scope_payload_variant)
+	var descriptor: Dictionary = _get_dictionary_field(scope_payload, "scope")
+	return GFVariantData.get_option_int(descriptor, "phase", GFSaveScope.Phase.NORMAL)
+
+
+func _compare_source_payload_keys(left: Variant, right: Variant, source_payloads: Dictionary) -> bool:
+	var left_phase: int = _source_payload_phase(GFVariantData.get_option_value(source_payloads, left))
+	var right_phase: int = _source_payload_phase(GFVariantData.get_option_value(source_payloads, right))
+	if left_phase != right_phase:
+		return left_phase < right_phase
+	return str(left) < str(right)
+
+
+func _compare_scope_payload_keys(left: Variant, right: Variant, child_payloads: Dictionary) -> bool:
+	var left_phase: int = _scope_payload_phase(GFVariantData.get_option_value(child_payloads, left))
+	var right_phase: int = _scope_payload_phase(GFVariantData.get_option_value(child_payloads, right))
+	if left_phase != right_phase:
+		return left_phase < right_phase
+	return str(left) < str(right)
+
+
+func _compare_scopes_for_traversal(left: GFSaveScope, right: GFSaveScope) -> bool:
+	var left_phase: int = _get_int_property(left, &"phase", GFSaveScope.Phase.NORMAL)
+	var right_phase: int = _get_int_property(right, &"phase", GFSaveScope.Phase.NORMAL)
+	if left_phase != right_phase:
+		return left_phase < right_phase
+	return String(_get_scope_key_for_inspection(left)) < String(_get_scope_key_for_inspection(right))
+
+
 func _make_apply_result(ok: bool, applied: int, errors: Array[String], missing: Array[String]) -> Dictionary:
 	return {
 		"ok": ok,
@@ -1279,8 +1516,18 @@ func _finalize_apply_scope(
 	context: Dictionary,
 	pipeline_context: GFSavePipelineContext,
 	owns_pipeline_context: bool,
-	owns_created_entities: bool
+	owns_created_entities: bool,
+	owns_source_snapshots: bool
 ) -> Dictionary:
+	var should_rollback: bool = (
+		GFVariantData.get_option_bool(context, "transactional_apply", true)
+		and not GFVariantData.get_option_bool(result, "ok", false)
+	)
+	if should_rollback and owns_source_snapshots:
+		_rollback_source_snapshots(context, pipeline_context)
+	if should_rollback and owns_created_entities:
+		_rollback_created_entities(context)
+
 	var final_result: Dictionary = _finish_apply_scope(
 		scope,
 		payload,
@@ -1290,10 +1537,56 @@ func _finalize_apply_scope(
 		owns_pipeline_context
 	)
 	if owns_created_entities:
-		if GFVariantData.get_option_bool(context, "transactional_apply", true) and not GFVariantData.get_option_bool(final_result, "ok", false):
-			_rollback_created_entities(context)
 		_erase_dictionary_key(context, _CREATED_ENTITIES_CONTEXT_KEY)
+	if owns_source_snapshots:
+		_erase_dictionary_key(context, _SOURCE_SNAPSHOTS_CONTEXT_KEY)
 	return final_result
+
+
+func _track_source_snapshot(context: Dictionary, source: GFSaveSource) -> void:
+	if (
+		not GFVariantData.get_option_bool(context, "transactional_apply", true)
+		or not context.has(_SOURCE_SNAPSHOTS_CONTEXT_KEY)
+		or source == null
+		or not is_instance_valid(source)
+		or _source_snapshot_exists(context, source)
+		or _is_created_entity_or_descendant(context, source)
+	):
+		return
+
+	var snapshots: Array = GFVariantData.as_array(GFVariantData.get_option_value(context, _SOURCE_SNAPSHOTS_CONTEXT_KEY, []))
+	var snapshot_data: Variant = source._gather_save_data(context, serializer_registry)
+	snapshots.append({
+		"source": source,
+		"data": GFVariantData.duplicate_variant(snapshot_data),
+	})
+	context[_SOURCE_SNAPSHOTS_CONTEXT_KEY] = snapshots
+
+
+func _source_snapshot_exists(context: Dictionary, source: GFSaveSource) -> bool:
+	for snapshot_variant: Variant in GFVariantData.as_array(GFVariantData.get_option_value(context, _SOURCE_SNAPSHOTS_CONTEXT_KEY, [])):
+		var snapshot: Dictionary = GFVariantData.as_dictionary(snapshot_variant)
+		var snapshot_source: GFSaveSource = _get_save_source_value(GFVariantData.get_option_value(snapshot, "source"))
+		if snapshot_source == source:
+			return true
+	return false
+
+
+func _rollback_source_snapshots(context: Dictionary, pipeline_context: GFSavePipelineContext) -> void:
+	var snapshots: Array = GFVariantData.as_array(GFVariantData.get_option_value(context, _SOURCE_SNAPSHOTS_CONTEXT_KEY, []))
+	for index: int in range(snapshots.size() - 1, -1, -1):
+		var snapshot: Dictionary = GFVariantData.as_dictionary(snapshots[index])
+		var source: GFSaveSource = _get_save_source_value(GFVariantData.get_option_value(snapshot, "source"))
+		if source == null or not is_instance_valid(source):
+			continue
+		var snapshot_data: Variant = GFVariantData.get_option_value(snapshot, "data")
+		var result: Dictionary = GFVariantData.as_dictionary(source._apply_save_data(snapshot_data, context, serializer_registry))
+		if not GFVariantData.get_option_bool(result, "ok", false):
+			var rollback_error: String = "Source rollback failed: %s" % String(source.get_source_key())
+			pipeline_context.add_error(rollback_error, {
+				"source_key": String(source.get_source_key()),
+			})
+	snapshots.clear()
 
 
 func _track_created_entity(context: Dictionary, entity: Node) -> void:
@@ -1315,6 +1608,18 @@ func _rollback_created_entities(context: Dictionary) -> void:
 			continue
 		_free_created_entity(entity)
 	created_entities.clear()
+
+
+func _is_created_entity_or_descendant(context: Dictionary, node: Node) -> bool:
+	if node == null:
+		return false
+	for entity_variant: Variant in GFVariantData.as_array(GFVariantData.get_option_value(context, _CREATED_ENTITIES_CONTEXT_KEY, [])):
+		var entity: Node = _get_node_value(entity_variant)
+		if not is_instance_valid(entity):
+			continue
+		if entity == node or entity.is_ancestor_of(node):
+			return true
+	return false
 
 
 func _free_created_entity(entity: Node) -> void:

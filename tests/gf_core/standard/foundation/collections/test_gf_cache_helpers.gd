@@ -21,16 +21,26 @@ func test_query_signature_is_domain_separated_and_order_stable() -> void:
 
 
 func test_query_signature_exports_sorted_dictionary() -> void:
-	var signature: GFQuerySignature = GFQuerySignature.from_dictionary({
-		"none": PackedStringArray(["blocked"]),
-		"all": PackedStringArray(["ready", "actor"]),
-	})
+	var signature: GFQuerySignature = GFQuerySignature.new()
+	var _all_values: GFQuerySignature = signature.add_values(&"all", ["ready", "actor"])
+	var _none_values: GFQuerySignature = signature.add_values(&"none", ["blocked"])
 	var data: Dictionary = signature.to_dictionary()
 	var all_values: PackedStringArray = GFVariantData.get_option_packed_string_array(data, "all")
 
 	assert_true(data.has("all"), "导出字典应包含 all 域。")
 	assert_eq(all_values.size(), 2, "all 域应包含两个规范化值。")
 	assert_true(signature.has_domain(&"none"), "签名应能查询域是否存在。")
+
+
+func test_query_signature_dictionary_round_trip_keeps_encoded_values() -> void:
+	var signature: GFQuerySignature = GFQuerySignature.new()
+	var _all_values: GFQuerySignature = signature.add_values(&"all", ["ready", 3, true])
+	var data: Dictionary = signature.to_dictionary()
+
+	var restored: GFQuerySignature = GFQuerySignature.from_dictionary(data)
+
+	assert_eq(restored.to_dictionary(), data, "签名字典往返不应二次编码规范化值。")
+	assert_eq(restored.to_text(), signature.to_text(), "签名文本应在字典往返后保持稳定。")
 
 
 func test_cache_diagnostics_tracks_hits_misses_and_reasons() -> void:
@@ -50,6 +60,7 @@ func test_cache_diagnostics_tracks_hits_misses_and_reasons() -> void:
 	assert_eq(GFVariantData.get_option_int(snapshot, "hit_count"), 1)
 	assert_eq(GFVariantData.get_option_int(snapshot, "miss_count"), 1)
 	assert_almost_eq(GFVariantData.get_option_float(snapshot, "hit_ratio"), 0.5, 0.001)
+	assert_eq(GFVariantData.get_option_int(snapshot, "invalidation_count"), 4, "eviction 应同时进入 invalidation 总计。")
 	assert_eq(GFVariantData.get_option_int(reasons, "lru_capacity"), 1)
 	assert_eq(GFVariantData.get_option_int(reasons, "clear"), 3)
 

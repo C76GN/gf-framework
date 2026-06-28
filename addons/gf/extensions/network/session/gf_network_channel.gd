@@ -89,11 +89,11 @@ func build_send_options(overrides: Dictionary = {}) -> Dictionary:
 ## [br]
 ## @schema return: Dictionary，包含 channel_id、display_name、transfer_channel、reliable、max_packet_size、metadata。
 func describe() -> Dictionary:
-	return {
+	return GFNetworkDebugTools.sanitize_debug_dictionary({
 		"channel_id": channel_id,
 		"display_name": get_display_name(),
 		"transfer_channel": transfer_channel,
 		"reliable": reliable,
 		"max_packet_size": max_packet_size,
 		"metadata": metadata.duplicate(true),
-	}
+	})

@@ -121,7 +121,8 @@ func get_focus_position() -> Vector3:
 	if target != null:
 		focus_transform = target.global_transform
 
-	var effective_offset: Vector3 = focus_transform.basis * offset if offset_follows_rotation else offset
+	var focus_basis: Basis = focus_transform.basis.orthonormalized()
+	var effective_offset: Vector3 = focus_basis * offset if offset_follows_rotation else offset
 	return focus_transform.origin + effective_offset
 
 
@@ -152,9 +153,9 @@ func get_orbit_direction() -> Vector3:
 func get_camera_transform() -> Transform3D:
 	var focus: Vector3 = get_focus_position()
 	var camera_position: Vector3 = focus + get_orbit_direction() * distance
-	var camera_transform: Transform3D = Transform3D(global_transform.basis, camera_position)
+	var camera_transform: Transform3D = Transform3D(global_transform.basis.orthonormalized(), camera_position)
 	if look_at_focus and not camera_position.is_equal_approx(focus):
-		camera_transform = camera_transform.looking_at(focus, _get_safe_orbit_up_axis())
+		camera_transform = camera_transform.looking_at(focus, _get_safe_orbit_up_axis_for_direction(focus - camera_position))
 	return camera_transform
 
 
@@ -245,3 +246,15 @@ func _get_safe_orbit_up_axis() -> Vector3:
 	if orbit_up_axis.length_squared() <= 0.000001:
 		return Vector3.UP
 	return orbit_up_axis.normalized()
+
+
+func _get_safe_orbit_up_axis_for_direction(direction: Vector3) -> Vector3:
+	var safe_up: Vector3 = _get_safe_orbit_up_axis()
+	if direction.length_squared() <= 0.000001:
+		return safe_up
+	var normalized_direction: Vector3 = direction.normalized()
+	if absf(normalized_direction.dot(safe_up)) < 0.999:
+		return safe_up
+	if absf(normalized_direction.dot(Vector3.UP)) < 0.999:
+		return Vector3.UP
+	return Vector3.RIGHT

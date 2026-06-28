@@ -83,7 +83,9 @@ enum Aggregation {
 ## [br]
 ## @return: 添加成功返回 true。
 func add_consideration(consideration: GFDecisionConsideration) -> bool:
-	if consideration == null:
+	if consideration == null or consideration.consideration_id == &"":
+		return false
+	if has_consideration(consideration.consideration_id):
 		return false
 	considerations.append(consideration)
 	return true
@@ -122,7 +124,7 @@ func has_consideration(consideration_id: StringName) -> bool:
 ## [br]
 ## @return: 移除成功返回 true。
 func remove_consideration(consideration_id: StringName) -> bool:
-	for index: int in range(considerations.size() - 1, -1, -1):
+	for index: int in range(considerations.size()):
 		var consideration: GFDecisionConsideration = considerations[index]
 		if consideration != null and consideration.consideration_id == consideration_id:
 			considerations.remove_at(index)
@@ -157,19 +159,21 @@ func score(context: GFDecisionContext) -> GFDecisionScore:
 ## [br]
 ## @api public
 ## [br]
-## @param context: 决策上下文。
+## @since 7.0.0
+## [br]
+## @param score_snapshot: 已计算的评分快照；为空时 score 字段返回空字典。
 ## [br]
 ## @return: 调试快照字典。
 ## [br]
 ## @schema return: 包含 decision_id、display_name、enabled、aggregation、base_score 和 score 字段的 Dictionary。
-func get_debug_snapshot(context: GFDecisionContext) -> Dictionary:
+func get_debug_snapshot(score_snapshot: GFDecisionScore = null) -> Dictionary:
 	return {
 		"decision_id": decision_id,
 		"display_name": display_name,
 		"enabled": enabled,
 		"aggregation": aggregation,
 		"base_score": base_score,
-		"score": score(context).to_dictionary(),
+		"score": score_snapshot.to_dictionary() if score_snapshot != null else {},
 	}
 
 
@@ -178,7 +182,7 @@ func get_debug_snapshot(context: GFDecisionContext) -> Dictionary:
 func _score_considerations(context: GFDecisionContext) -> Array[Dictionary]:
 	var details: Array[Dictionary] = []
 	for consideration: GFDecisionConsideration in considerations:
-		if consideration == null:
+		if consideration == null or not consideration.enabled:
 			continue
 		var raw_score: float = consideration.score(context)
 		var weighted_score: float = _apply_weight(raw_score, consideration.weight)

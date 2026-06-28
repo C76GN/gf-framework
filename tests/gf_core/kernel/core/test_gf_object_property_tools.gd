@@ -62,6 +62,21 @@ func test_write_property_supports_indexed_subproperty() -> void:
 	node.free()
 
 
+func test_indexed_subproperty_rejects_unresolvable_path_before_godot_error() -> void:
+	var node: Node2D = Node2D.new()
+	node.position = Vector2(1.0, 2.0)
+
+	var read_value: Variant = GFObjectPropertyTools.read_property(node, ^"position:missing", "fallback")
+	var result: Dictionary = GFObjectPropertyTools.write_property(node, ^"position:missing", 4.5)
+
+	assert_eq(GF_VARIANT_ACCESS.to_text(read_value), "fallback", "无法解析的子属性读取应返回默认值。")
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(result, "ok"), "无法解析的子属性写入应失败。")
+	assert_true(GF_VARIANT_ACCESS.get_option_string(result, "error").contains("Property path cannot be resolved"))
+	assert_eq(node.position, Vector2(1.0, 2.0), "失败写入不应改变原始属性。")
+
+	node.free()
+
+
 func test_write_property_coerces_supported_value_types() -> void:
 	var object: DynamicPropertyObject = DynamicPropertyObject.new()
 

@@ -9,7 +9,7 @@
 - 类别：工具 API (`tool_api`)
 - 首次版本：`5.2.0`
 
-配置导表工具的资源构建入口。 负责把 CSV / JSON / XLSX 文件来源构建为 GFConfigTableResource 与 GFConfigDatabaseResource。 该工具只处理通用导入、校验、索引重建和 Resource 保存，不绑定任何项目业务表或发布流程。
+配置导表工具的资源构建入口。 负责把 CSV / JSON / ConfigFile / XLSX 文件来源构建为 GFConfigTableResource 与 GFConfigDatabaseResource。 该工具只处理通用导入、校验、索引重建和 Resource 保存，不绑定任何项目业务表或发布流程。
 
 ## 成员概览
 
@@ -71,7 +71,7 @@ func build_table_from_text( source: GFConfigPipelineTableSource, text: String, o
 | 名称 | 说明 |
 |---|---|
 | `source` | 单表来源声明。 |
-| `text` | CSV 或 JSON 文本。 |
+| `text` | CSV、JSON 或 ConfigFile 文本。 |
 | `options` | 可选构建选项，支持 parse_options、rebuild_indexes。 |
 
 返回：构建结果。

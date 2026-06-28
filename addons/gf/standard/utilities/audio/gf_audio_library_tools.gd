@@ -474,6 +474,26 @@ static func _finalize_copy_report_metadata(
 
 
 static func _copy_file(source_path: String, target_path: String) -> Error:
+	var temp_path: String = _make_copy_sidecar_path(target_path, ".tmp")
+	var backup_path: String = _make_copy_sidecar_path(target_path, ".bak")
+	_remove_file_if_exists(temp_path)
+	_remove_file_if_exists(backup_path)
+
+	var copy_error: Error = _copy_file_to_path(source_path, temp_path)
+	if copy_error != OK:
+		_remove_file_if_exists(temp_path)
+		return copy_error
+
+	var replace_error: Error = _replace_file_with_backup(temp_path, target_path, backup_path)
+	if replace_error != OK:
+		_remove_file_if_exists(temp_path)
+		return replace_error
+
+	_remove_file_if_exists(backup_path)
+	return OK
+
+
+static func _copy_file_to_path(source_path: String, target_path: String) -> Error:
 	var source_file: FileAccess = FileAccess.open(source_path, FileAccess.READ)
 	if source_file == null:
 		return FileAccess.get_open_error()
@@ -501,6 +521,31 @@ static func _copy_file(source_path: String, target_path: String) -> Error:
 	source_file.close()
 	target_file.close()
 	return OK
+
+
+static func _replace_file_with_backup(temp_path: String, target_path: String, backup_path: String) -> Error:
+	var had_target: bool = _file_exists(target_path)
+	if had_target:
+		var backup_error: Error = DirAccess.rename_absolute(_to_absolute_path(target_path), _to_absolute_path(backup_path))
+		if backup_error != OK:
+			return backup_error
+
+	var replace_error: Error = DirAccess.rename_absolute(_to_absolute_path(temp_path), _to_absolute_path(target_path))
+	if replace_error != OK:
+		if had_target:
+			var _restore_error: Error = DirAccess.rename_absolute(_to_absolute_path(backup_path), _to_absolute_path(target_path))
+		return replace_error
+
+	return OK
+
+
+static func _make_copy_sidecar_path(target_path: String, suffix: String) -> String:
+	return "%s.gf-copy-%d%s" % [target_path, Time.get_ticks_usec(), suffix]
+
+
+static func _remove_file_if_exists(path: String) -> void:
+	if _file_exists(path):
+		var _remove_result: Error = DirAccess.remove_absolute(_to_absolute_path(path))
 
 
 static func _make_target_relative_path(entry: Dictionary, options: Dictionary) -> String:

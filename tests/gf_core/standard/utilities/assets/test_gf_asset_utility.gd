@@ -74,6 +74,27 @@ func test_remove_cache() -> void:
 	assert_eq(_utility.get_cache_count(), 0, "移除后缓存数量应归零。")
 
 
+func test_remove_cache_releases_handles_for_path() -> void:
+	var held_resource: Resource = Resource.new()
+	var handle: GFAssetHandle = _utility.acquire_handle("res://held_remove.tres", null, &"", "", held_resource)
+
+	_utility.remove_cache("res://held_remove.tres")
+
+	assert_true(handle.is_released(), "remove_cache 应释放对应路径的外部句柄。")
+	assert_false(handle.is_valid(), "remove_cache 后旧句柄不应继续暴露资源。")
+	assert_eq(_utility.get_asset_reference_count("res://held_remove.tres"), 0, "remove_cache 应清理路径引用计数。")
+	assert_false(_utility.is_cache_pinned("res://held_remove.tres"), "remove_cache 应清理句柄 pin 状态。")
+
+
+func test_dispose_releases_tracked_asset_handles() -> void:
+	var handle: GFAssetHandle = _utility.acquire_handle("res://held_dispose.tres", null, &"", "", Resource.new())
+
+	_utility.dispose()
+
+	assert_true(handle.is_released(), "dispose 应释放所有已追踪句柄。")
+	assert_false(handle.is_valid(), "dispose 后外部句柄不应继续有效。")
+
+
 func test_clear_cache() -> void:
 	_utility.put_cache("res://a.tres", Resource.new())
 	_utility.put_cache("res://b.tres", Resource.new())

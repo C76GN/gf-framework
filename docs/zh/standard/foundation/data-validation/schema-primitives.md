@@ -43,6 +43,22 @@ var report := schema.validate_dictionary({
 
 转换只覆盖常见 Variant 类型：bool、int、float、String、StringName、Vector2/3、Vector2i/3i、Color、Dictionary、Array、Object、Resource 和 NodePath。复杂字符串格式、枚举集、资源存在性、跨字段关系和跨表引用应由字段级 `GFValidationRule`、更高层 schema 或项目工具处理。
 
+## 字典数组规范化
+
+`normalize_dictionary_array()` 面向编辑器资源、manifest、轻量表格和工具参数这类 `Array[Dictionary]` 数据。它会逐行补默认值、转换字段、按需剔除未声明字段，并把缺字段、类型错误或非 Dictionary 行汇总到一个 `GFValidationReport`。
+
+```gdscript
+var result := schema.normalize_dictionary_array(rows, {
+	"path": "items",
+	"keep_invalid_rows": false,
+})
+
+var normalized_rows := result["rows"] as Array
+var report := result["report"] as GFValidationReport
+```
+
+默认行为会保留无效但可编辑的行；传入 `keep_invalid_rows = false` 时，输出 `rows` 只包含通过校验的行，但 `ok` 仍会反映源数据报告是否有错误。`strip_extra_fields` 默认跟随 `allow_extra_fields`：schema 不允许额外字段时，规范化结果也会剔除它们。
+
 ## 嵌套结构
 
 Dictionary 字段可挂接另一个 `GFDictionarySchema`；Array 字段可挂接一个元素 `GFSchemaField`。
@@ -68,19 +84,23 @@ root_schema.add_field(GFSchemaField.new().configure(&"tags", GFSchemaField.Value
 
 `GFSchemaField.validation_rules` 可挂接通用 `GFValidationRule`。这些规则会在基础类型、空值和嵌套 schema 通过后执行，适合表达范围、集合、格式或项目自定义约束，而不需要把所有可能的校验关键字都写进 Foundation 字段类型。
 
+常见的范围、集合、正则和尺寸校验可直接使用 `GFValidationConstraintRule`：
+
 ```gdscript
-var positive_rule := GFValidationRule.new().configure(
-	&"positive_value",
-	func(value, _report, _context):
-		return "" if int(value) > 0 else "Value must be positive."
-)
+var score_range := GFValidationConstraintRule.new().configure_range(0.0, 100.0, {
+	"rule_id": &"score_range",
+})
+
+var state_set := GFValidationConstraintRule.new().configure_set(["idle", "run", "jump"], {
+	"rule_id": &"state_allowed",
+})
 
 var score_field := GFSchemaField.new().configure(&"score", GFSchemaField.ValueType.INT, {
-	"validation_rules": [positive_rule],
+	"validation_rules": [score_range],
 })
 ```
 
-规则返回的普通 issue 会继承字段路径与 key；需要更细粒度定位时，规则回调也可以直接向传入的 `GFValidationReport` 写入自定义 issue。
+规则返回的普通 issue 会继承字段路径与 key；需要项目自定义跨字段、资源存在性或上下文相关校验时，仍可直接继承 `GFValidationRule`，或通过 `configure()` 的回调向传入的 `GFValidationReport` 写入自定义 issue。
 
 ## 与其他 Schema 的边界
 
@@ -93,3 +113,5 @@ var score_field := GFSchemaField.new().configure(&"score", GFSchemaField.ValueTy
 
 - [`GFDictionarySchema`](../../../reference/api/classes/GFDictionarySchema.md)
 - [`GFSchemaField`](../../../reference/api/classes/GFSchemaField.md)
+- [`GFValidationConstraintRule`](../../../reference/api/classes/GFValidationConstraintRule.md)
+- [`GFValidationRule`](../../../reference/api/classes/GFValidationRule.md)

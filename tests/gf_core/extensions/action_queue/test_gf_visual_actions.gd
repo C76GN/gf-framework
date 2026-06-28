@@ -28,6 +28,8 @@ class ManualSignalAction:
 
 	var executed: bool = false
 	var cancelled: bool = false
+	var paused: bool = false
+	var resumed: bool = false
 
 	func execute() -> Variant:
 		executed = true
@@ -36,8 +38,40 @@ class ManualSignalAction:
 	func cancel() -> void:
 		cancelled = true
 
+	func pause() -> void:
+		paused = true
+
+	func resume() -> void:
+		resumed = true
+
 	func complete() -> void:
 		completed.emit()
+
+
+class ProbeAction:
+	extends GFVisualAction
+
+	var executed: bool = false
+	var cancel_count: int = 0
+	var pause_count: int = 0
+	var resume_count: int = 0
+	var finish_count: int = 0
+
+	func execute() -> Variant:
+		executed = true
+		return null
+
+	func cancel() -> void:
+		cancel_count += 1
+
+	func pause() -> void:
+		pause_count += 1
+
+	func resume() -> void:
+		resume_count += 1
+
+	func finish() -> void:
+		finish_count += 1
 
 
 func after_each() -> void:
@@ -379,6 +413,50 @@ func test_action_group_cancel_releases_sequence_waiters() -> void:
 	assert_true(completed[0], "取消顺序动作组时等待者应被释放。")
 
 
+func test_sequence_group_cancel_does_not_touch_unstarted_children() -> void:
+	var waiting_action: ManualSignalAction = ManualSignalAction.new()
+	var pending_action: ProbeAction = ProbeAction.new()
+	var group: GFVisualActionGroup = GFAction.sequence([waiting_action, pending_action])
+	var result: Variant = group.execute()
+	var completed: Array[bool] = [false]
+	var wait_for_group: Callable = func() -> void:
+		await group.await_result_safely(result)
+		completed[0] = true
+
+	wait_for_group.call()
+	await get_tree().process_frame
+	group.cancel()
+	await get_tree().process_frame
+
+	assert_true(waiting_action.cancelled, "取消顺序组应只取消当前运行子动作。")
+	assert_false(pending_action.executed, "未启动子动作不应被执行。")
+	assert_eq(pending_action.cancel_count, 0, "未启动子动作不应收到 cancel。")
+	assert_true(completed[0], "取消顺序组时等待者应释放。")
+
+
+func test_sequence_group_pause_blocks_next_child_until_resume() -> void:
+	var waiting_action: ManualSignalAction = ManualSignalAction.new()
+	var pending_action: ProbeAction = ProbeAction.new()
+	var group: GFVisualActionGroup = GFAction.sequence([waiting_action, pending_action])
+	var _result: Variant = group.execute()
+
+	await get_tree().process_frame
+	group.pause()
+	waiting_action.complete()
+	await get_tree().process_frame
+	await get_tree().process_frame
+
+	assert_true(waiting_action.paused, "暂停顺序组应暂停当前子动作。")
+	assert_false(pending_action.executed, "顺序组暂停期间不应启动下一子动作。")
+
+	group.resume()
+	await get_tree().process_frame
+	await get_tree().process_frame
+
+	assert_true(waiting_action.resumed, "恢复顺序组应恢复当前子动作。")
+	assert_true(pending_action.executed, "恢复后应继续启动后续子动作。")
+
+
 func test_action_group_cancel_releases_parallel_waiters() -> void:
 	var group: GFVisualAction = GFAction.parallel([
 		GFAction.wait(1.0, self),
@@ -585,6 +663,7 @@ func test_flash_action_rejects_missing_property() -> void:
 
 func test_flash_action_cancel_releases_waiters() -> void:
 	var item: ColorRect = ColorRect.new()
+	item.modulate = Color(0.2, 0.4, 0.6)
 	add_child_autofree(item)
 
 	var action: GFVisualAction = GFFlashAction.new(item, Color.RED, 1.0)
@@ -600,6 +679,28 @@ func test_flash_action_cancel_releases_waiters() -> void:
 	await get_tree().process_frame
 
 	assert_true(completed[0], "取消闪色动作时等待者应被释放。")
+	assert_eq(item.modulate, Color(0.2, 0.4, 0.6), "取消闪色动作时应恢复原始颜色。")
+
+
+func test_flash_action_pause_freezes_tween_until_resume() -> void:
+	var item: ColorRect = ColorRect.new()
+	item.modulate = Color(0.2, 0.4, 0.6)
+	add_child_autofree(item)
+
+	var action: GFFlashAction = GFFlashAction.new(item, Color.RED, 0.2)
+	var result: Variant = action.execute()
+	await get_tree().process_frame
+
+	action.pause()
+	var paused_color: Color = item.modulate
+	await get_tree().create_timer(0.05).timeout
+
+	assert_eq(item.modulate, paused_color, "暂停期间闪色 Tween 不应继续推进。")
+
+	action.resume()
+	await action.await_result_safely(result)
+
+	assert_eq(item.modulate, Color(0.2, 0.4, 0.6), "恢复并完成后应恢复原始颜色。")
 
 
 func test_shader_parameter_action_sets_value_immediately() -> void:

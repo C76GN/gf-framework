@@ -33,7 +33,7 @@
 | 方法 | [`get_average_value`](#member-gfmetricseries-methods-get_average_value) | `func get_average_value() -> float:` |
 | 方法 | [`get_normalized_values`](#member-gfmetricseries-methods-get_normalized_values) | `func get_normalized_values() -> PackedFloat32Array:` |
 | 方法 | [`make_sparkline`](#member-gfmetricseries-methods-make_sparkline) | `func make_sparkline(width: int = 32) -> String:` |
-| 方法 | [`to_dict`](#member-gfmetricseries-methods-to_dict) | `func to_dict(include_samples: bool = false) -> Dictionary:` |
+| 方法 | [`to_dict`](#member-gfmetricseries-methods-to_dict) | `func to_dict(include_samples: bool = false, sparkline_width: int = 32) -> Dictionary:` |
 | 方法 | [`duplicate_series`](#member-gfmetricseries-methods-duplicate_series) | `func duplicate_series(include_samples: bool = true) -> GFMetricSeries:` |
 
 ## 常量
@@ -318,9 +318,10 @@ func make_sparkline(width: int = 32) -> String:
 ### `to_dict`
 
 - API：`public`
+- 首次版本：`3.23.0`
 
 ```gdscript
-func to_dict(include_samples: bool = false) -> Dictionary:
+func to_dict(include_samples: bool = false, sparkline_width: int = 32) -> Dictionary:
 ```
 
 转换为 Dictionary。
@@ -330,6 +331,7 @@ func to_dict(include_samples: bool = false) -> Dictionary:
 | 名称 | 说明 |
 |---|---|
 | `include_samples` | 是否包含采样明细。 |
+| `sparkline_width` | sparkline 输出宽度。 |
 
 返回：指标序列快照。
 

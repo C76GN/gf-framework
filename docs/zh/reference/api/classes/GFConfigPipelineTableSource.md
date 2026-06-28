@@ -18,6 +18,7 @@
 | 常量 | [`FORMAT_AUTO`](#member-gfconfigpipelinetablesource-constants-format_auto) | `const FORMAT_AUTO: StringName = &"auto"` |
 | 常量 | [`FORMAT_CSV`](#member-gfconfigpipelinetablesource-constants-format_csv) | `const FORMAT_CSV: StringName = &"csv"` |
 | 常量 | [`FORMAT_JSON`](#member-gfconfigpipelinetablesource-constants-format_json) | `const FORMAT_JSON: StringName = &"json"` |
+| 常量 | [`FORMAT_CONFIG_FILE`](#member-gfconfigpipelinetablesource-constants-format_config_file) | `const FORMAT_CONFIG_FILE: StringName = &"config_file"` |
 | 常量 | [`FORMAT_XLSX`](#member-gfconfigpipelinetablesource-constants-format_xlsx) | `const FORMAT_XLSX: StringName = &"xlsx"` |
 | 属性 | [`table_name`](#member-gfconfigpipelinetablesource-properties-table_name) | `var table_name: StringName = &""` |
 | 属性 | [`source_path`](#member-gfconfigpipelinetablesource-properties-source_path) | `var source_path: String = ""` |
@@ -73,6 +74,19 @@ const FORMAT_JSON: StringName = &"json"
 ```
 
 JSON 输入格式。
+
+<a id="member-gfconfigpipelinetablesource-constants-format_config_file"></a>
+
+### `FORMAT_CONFIG_FILE`
+
+- API：`public`
+- 首次版本：`7.0.0`
+
+```gdscript
+const FORMAT_CONFIG_FILE: StringName = &"config_file"
+```
+
+Godot ConfigFile 输入格式。
 
 <a id="member-gfconfigpipelinetablesource-constants-format_xlsx"></a>
 
@@ -178,11 +192,11 @@ var coerce_records: bool = true
 var parse_options: Dictionary = {}
 ```
 
-传给解析器的选项，例如 CSV delimiter、trim_cells、skip_empty_lines，或 XLSX sheet_name、sheet_index、header_row。
+传给解析器的选项，例如 CSV delimiter、trim_cells、skip_empty_lines，ConfigFile section_field、include_empty_sections，或 XLSX sheet_name、sheet_index、header_row。
 
 结构：
 
-- `parse_options`: Dictionary，可包含 GFConfigTableImporter 支持的 CSV / JSON 解析选项，以及 XLSX sheet_name、sheet_index、header_row、trim_cells、skip_empty_lines 和 reject_duplicate_headers。
+- `parse_options`: Dictionary，可包含 GFConfigTableImporter 支持的 CSV / JSON / ConfigFile 解析选项，以及 XLSX sheet_name、sheet_index、header_row、trim_cells、skip_empty_lines 和 reject_duplicate_headers。
 
 <a id="member-gfconfigpipelinetablesource-properties-schema_options"></a>
 
@@ -248,7 +262,7 @@ func get_resolved_format() -> StringName:
 
 获取声明或推断出的来源格式。
 
-返回：FORMAT_CSV、FORMAT_JSON、FORMAT_AUTO 或调用方设置的自定义格式名。
+返回：FORMAT_CSV、FORMAT_JSON、FORMAT_CONFIG_FILE、FORMAT_AUTO 或调用方设置的自定义格式名。
 
 <a id="member-gfconfigpipelinetablesource-methods-duplicate_source"></a>
 

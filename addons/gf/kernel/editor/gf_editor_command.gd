@@ -34,6 +34,8 @@ var metadata: Dictionary = {}
 # --- 私有变量 ---
 
 var _executed: bool = false
+var _last_execute_error: Error = OK
+var _last_revert_error: Error = OK
 
 
 # --- 公共方法 ---
@@ -45,9 +47,11 @@ var _executed: bool = false
 ## @return Godot 错误码。
 func execute() -> Error:
 	if not can_execute():
+		_last_execute_error = ERR_UNAVAILABLE
 		return ERR_UNAVAILABLE
 
 	var error: Error = _do_it()
+	_last_execute_error = error
 	if error == OK:
 		_executed = true
 	return error
@@ -60,17 +64,25 @@ func execute() -> Error:
 ## @return Godot 错误码。
 func revert() -> Error:
 	if not _executed and not can_revert_before_execute():
+		_last_revert_error = ERR_UNAVAILABLE
 		return ERR_UNAVAILABLE
 
 	var error: Error = _undo_it()
+	_last_revert_error = error
 	if error == OK:
 		_executed = false
 	return error
 
 
 ## 将命令写入 Godot 编辑器 UndoRedo 管理器。
+##
+## 返回值只表示 action 已成功写入并提交给 UndoRedo 管理器；Godot 原生
+## `EditorUndoRedoManager` 不会把 do/undo 回调的错误码回传给提交方。需要诊断
+## 回调执行结果时，读取命令自身的最近执行/撤销错误或调试快照。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @param undo_manager: EditorUndoRedoManager 或兼容对象。
 ## [br]
@@ -80,6 +92,8 @@ func revert() -> Error:
 func add_to_undo_manager(undo_manager: Object, execute_immediately: bool = true) -> Error:
 	if undo_manager == null:
 		return ERR_UNCONFIGURED
+	if execute_immediately and not can_execute():
+		return ERR_UNAVAILABLE
 	if not undo_manager.has_method("create_action"):
 		return ERR_INVALID_PARAMETER
 	if not undo_manager.has_method("add_do_method"):
@@ -96,8 +110,32 @@ func add_to_undo_manager(undo_manager: Object, execute_immediately: bool = true)
 		undo_manager.call("add_do_reference", self)
 	if undo_manager.has_method("add_undo_reference"):
 		undo_manager.call("add_undo_reference", self)
-	undo_manager.call("commit_action", execute_immediately)
+	var commit_result: Variant = undo_manager.call("commit_action", execute_immediately)
+	if commit_result is int:
+		return commit_result
 	return OK
+
+
+## 获取最近一次 execute() 的错误码。
+## [br]
+## @api public
+## [br]
+## @since 7.0.0
+## [br]
+## @return 最近 execute() 返回的 Godot 错误码。
+func get_last_execute_error() -> Error:
+	return _last_execute_error
+
+
+## 获取最近一次 revert() 的错误码。
+## [br]
+## @api public
+## [br]
+## @since 7.0.0
+## [br]
+## @return 最近 revert() 返回的 Godot 错误码。
+func get_last_revert_error() -> Error:
+	return _last_revert_error
 
 
 ## 当前命令是否已执行。
@@ -138,6 +176,8 @@ func get_debug_snapshot() -> Dictionary:
 	return {
 		"command_name": command_name,
 		"executed": _executed,
+		"last_execute_error": _last_execute_error,
+		"last_revert_error": _last_revert_error,
 		"metadata": metadata.duplicate(true),
 	}
 

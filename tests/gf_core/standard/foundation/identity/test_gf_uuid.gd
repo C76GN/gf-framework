@@ -27,8 +27,24 @@ func test_generate_v7_clamps_timestamp_to_48_bits() -> void:
 	assert_true(GFUuid.is_valid(uuid, 7), "钳制后的 v7 UUID 仍应有效。")
 
 
+func test_generate_v7_same_millisecond_is_strictly_monotonic() -> void:
+	var first_uuid: String = GFUuid.generate_v7(0x000000000123)
+	var second_uuid: String = GFUuid.generate_v7(0x000000000123)
+	var third_uuid: String = GFUuid.generate_v7(0x000000000123)
+
+	assert_true(first_uuid.begins_with("00000000-0123-7"), "同毫秒 v7 仍应写入原时间戳。")
+	assert_true(second_uuid.begins_with("00000000-0123-7"), "同毫秒 v7 仍应写入原时间戳。")
+	assert_lt(first_uuid, second_uuid, "同一毫秒连续生成的 v7 UUID 应严格递增。")
+	assert_lt(second_uuid, third_uuid, "同一毫秒连续生成的 v7 UUID 应持续严格递增。")
+
+
 func test_is_valid_rejects_invalid_shape_version_and_variant() -> void:
 	assert_false(GFUuid.is_valid("not-a-uuid"), "非 canonical 字符串应被拒绝。")
 	assert_false(GFUuid.is_valid("01234567-89ab-7cde-7abc-0123456789ab"), "非 RFC variant 应被拒绝。")
 	assert_false(GFUuid.is_valid("01234567-89ab-7cde-8abc-0123456789ab", 4), "版本过滤不匹配时应返回 false。")
 	assert_true(GFUuid.is_valid("01234567-89ab-7cde-8abc-0123456789ab", 7), "版本过滤匹配时应返回 true。")
+
+
+func test_is_valid_requires_canonical_lowercase_without_padding() -> void:
+	assert_false(GFUuid.is_valid("01234567-89AB-7cde-8abc-0123456789ab"), "canonical UUID 应拒绝大写十六进制。")
+	assert_false(GFUuid.is_valid(" 01234567-89ab-7cde-8abc-0123456789ab "), "canonical UUID 应拒绝前后空白。")

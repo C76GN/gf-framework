@@ -55,8 +55,8 @@ func add_entry(
 	entry_metadata: Dictionary = {}
 ) -> GFTimedTextEntry:
 	var entry: GFTimedTextEntry = GFTimedTextEntry.new()
-	entry.start_time = maxf(start_time, 0.0)
-	entry.end_time = maxf(end_time, entry.start_time)
+	entry.start_time = _normalize_time_seconds(start_time)
+	entry.end_time = maxf(_normalize_time_seconds(end_time), entry.start_time)
 	entry.text = text
 	entry.metadata = entry_metadata.duplicate(true)
 	entries.append(entry)
@@ -74,8 +74,15 @@ func clear() -> void:
 ## [br]
 ## @api public
 func sort_entries() -> void:
+	var sequence_by_instance_id: Dictionary = _make_entry_sequence_lookup()
 	entries.sort_custom(func(left: GFTimedTextEntry, right: GFTimedTextEntry) -> bool:
+		if left == null:
+			return false
+		if right == null:
+			return true
 		if is_equal_approx(left.start_time, right.start_time):
+			if is_equal_approx(left.end_time, right.end_time):
+				return _get_entry_sequence(left, sequence_by_instance_id) < _get_entry_sequence(right, sequence_by_instance_id)
 			return left.end_time < right.end_time
 		return left.start_time < right.start_time
 	)
@@ -120,8 +127,10 @@ func get_text_at_time(time_seconds: float, default_text: String = "") -> String:
 ## @return 条目列表。
 func get_entries_in_range(range_start: float, range_end: float) -> Array[GFTimedTextEntry]:
 	var result: Array[GFTimedTextEntry] = []
+	var start_time: float = minf(range_start, range_end)
+	var end_time: float = maxf(range_start, range_end)
 	for entry: GFTimedTextEntry in entries:
-		if entry != null and entry.intersects_range(range_start, range_end):
+		if entry != null and entry.intersects_range(start_time, end_time):
 			result.append(entry)
 	return result
 
@@ -190,3 +199,25 @@ func apply_dictionary(data: Dictionary) -> void:
 			entries.append(entry)
 	var raw_metadata: Dictionary = GFVariantData.as_dictionary(GFVariantData.get_option_value(data, "metadata", {}))
 	metadata = raw_metadata.duplicate(true)
+	sort_entries()
+
+
+# --- 私有/辅助方法 ---
+
+static func _normalize_time_seconds(value: float) -> float:
+	if is_nan(value) or is_inf(value):
+		return 0.0
+	return maxf(value, 0.0)
+
+
+func _make_entry_sequence_lookup() -> Dictionary:
+	var result: Dictionary = {}
+	for index: int in range(entries.size()):
+		var entry: GFTimedTextEntry = entries[index]
+		if entry != null:
+			result[entry.get_instance_id()] = index
+	return result
+
+
+func _get_entry_sequence(entry: GFTimedTextEntry, sequence_by_instance_id: Dictionary) -> int:
+	return GFVariantData.get_option_int(sequence_by_instance_id, entry.get_instance_id(), 0)

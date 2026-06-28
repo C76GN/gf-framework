@@ -194,6 +194,14 @@ func test_prewarm_rejects_invalid_scene() -> void:
 	assert_eq(_parent.get_child_count(), 0, "无效 PackedScene 不应创建任何节点。")
 
 
+func test_acquire_rejects_invalid_parent() -> void:
+	var node: Node = _pool.acquire(_scene, null)
+
+	assert_null(node, "parent 为空时 acquire 应返回 null。")
+	assert_push_error("[GFObjectPoolUtility] acquire 失败：parent 无效。")
+	assert_eq(_parent.get_child_count(), 0, "无效 parent 不应创建或挂载节点。")
+
+
 func test_prewarm_async_batches_nodes() -> void:
 	await _pool.prewarm_async(_scene, _parent, 3, 1)
 

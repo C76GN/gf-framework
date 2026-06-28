@@ -19,6 +19,9 @@
 | 信号 | [`active_player_changed`](#member-gfinputdeviceutility-signals-active_player_changed) | `signal active_player_changed(player_index: int)` |
 | 信号 | [`active_device_changed`](#member-gfinputdeviceutility-signals-active_device_changed) | `signal active_device_changed(player_index: int, assignment: GFInputDeviceAssignment, event: InputEvent)` |
 | 信号 | [`player_join_requested`](#member-gfinputdeviceutility-signals-player_join_requested) | `signal player_join_requested(player_index: int, assignment: GFInputDeviceAssignment, event: InputEvent)` |
+| 信号 | [`assignment_event_recorded`](#member-gfinputdeviceutility-signals-assignment_event_recorded) | `signal assignment_event_recorded(event_record: Dictionary)` |
+| 常量 | [`DEFAULT_MAX_ASSIGNMENT_EVENTS`](#member-gfinputdeviceutility-constants-default_max_assignment_events) | `const DEFAULT_MAX_ASSIGNMENT_EVENTS: int = 64` |
+| 属性 | [`max_assignment_events`](#member-gfinputdeviceutility-properties-max_assignment_events) | `var max_assignment_events: int = DEFAULT_MAX_ASSIGNMENT_EVENTS:` |
 | 属性 | [`max_players`](#member-gfinputdeviceutility-properties-max_players) | `var max_players: int = 4:` |
 | 属性 | [`include_keyboard_mouse`](#member-gfinputdeviceutility-properties-include_keyboard_mouse) | `var include_keyboard_mouse: bool = true` |
 | 属性 | [`include_touch`](#member-gfinputdeviceutility-properties-include_touch) | `var include_touch: bool = true` |
@@ -32,8 +35,8 @@
 | 方法 | [`dispose`](#member-gfinputdeviceutility-methods-dispose) | `func dispose() -> void:` |
 | 方法 | [`refresh_connected_devices`](#member-gfinputdeviceutility-methods-refresh_connected_devices) | `func refresh_connected_devices() -> void:` |
 | 方法 | [`create_assignment`](#member-gfinputdeviceutility-methods-create_assignment) | `func create_assignment( player_index: int, device_type: GFInputDeviceAssignment.DeviceType, device_id: int ) -> GFInputDeviceAssignment:` |
-| 方法 | [`set_assignment`](#member-gfinputdeviceutility-methods-set_assignment) | `func set_assignment(assignment: GFInputDeviceAssignment) -> void:` |
-| 方法 | [`remove_assignment`](#member-gfinputdeviceutility-methods-remove_assignment) | `func remove_assignment(player_index: int) -> void:` |
+| 方法 | [`set_assignment`](#member-gfinputdeviceutility-methods-set_assignment) | `func set_assignment( assignment: GFInputDeviceAssignment, reason: StringName = &"manual", event_metadata: Dictionary = {}, source_event: InputEvent = null ) -> void:` |
+| 方法 | [`remove_assignment`](#member-gfinputdeviceutility-methods-remove_assignment) | `func remove_assignment(player_index: int, reason: StringName = &"manual") -> void:` |
 | 方法 | [`get_assignment`](#member-gfinputdeviceutility-methods-get_assignment) | `func get_assignment(player_index: int) -> GFInputDeviceAssignment:` |
 | 方法 | [`get_player_for_device`](#member-gfinputdeviceutility-methods-get_player_for_device) | `func get_player_for_device( device_type: GFInputDeviceAssignment.DeviceType, device_id: int ) -> int:` |
 | 方法 | [`get_player_for_event`](#member-gfinputdeviceutility-methods-get_player_for_event) | `func get_player_for_event(event: InputEvent) -> int:` |
@@ -42,7 +45,7 @@
 | 方法 | [`is_join_input_event`](#member-gfinputdeviceutility-methods-is_join_input_event) | `func is_join_input_event(event: InputEvent) -> bool:` |
 | 方法 | [`configure_default_join_events`](#member-gfinputdeviceutility-methods-configure_default_join_events) | `func configure_default_join_events(include_keyboard: bool = true, include_joypad: bool = true) -> void:` |
 | 方法 | [`clear_join_events`](#member-gfinputdeviceutility-methods-clear_join_events) | `func clear_join_events() -> void:` |
-| 方法 | [`assign_device_to_next_player`](#member-gfinputdeviceutility-methods-assign_device_to_next_player) | `func assign_device_to_next_player( device_type: GFInputDeviceAssignment.DeviceType, device_id: int ) -> int:` |
+| 方法 | [`assign_device_to_next_player`](#member-gfinputdeviceutility-methods-assign_device_to_next_player) | `func assign_device_to_next_player( device_type: GFInputDeviceAssignment.DeviceType, device_id: int, reason: StringName = &"auto_assign", source_event: InputEvent = null ) -> int:` |
 | 方法 | [`set_active_player`](#member-gfinputdeviceutility-methods-set_active_player) | `func set_active_player(player_index: int) -> void:` |
 | 方法 | [`set_player_deadzone`](#member-gfinputdeviceutility-methods-set_player_deadzone) | `func set_player_deadzone(player_index: int, deadzone: float) -> void:` |
 | 方法 | [`get_player_deadzone`](#member-gfinputdeviceutility-methods-get_player_deadzone) | `func get_player_deadzone(player_index: int, fallback: float = -1.0) -> float:` |
@@ -52,7 +55,9 @@
 | 方法 | [`start_vibration_for_player`](#member-gfinputdeviceutility-methods-start_vibration_for_player) | `func start_vibration_for_player( player_index: int, weak_magnitude: float, strong_magnitude: float, duration_seconds: float = 0.0 ) -> bool:` |
 | 方法 | [`stop_vibration_for_player`](#member-gfinputdeviceutility-methods-stop_vibration_for_player) | `func stop_vibration_for_player(player_index: int) -> bool:` |
 | 方法 | [`get_assignments`](#member-gfinputdeviceutility-methods-get_assignments) | `func get_assignments() -> Array[GFInputDeviceAssignment]:` |
-| 方法 | [`clear_assignments`](#member-gfinputdeviceutility-methods-clear_assignments) | `func clear_assignments() -> void:` |
+| 方法 | [`clear_assignments`](#member-gfinputdeviceutility-methods-clear_assignments) | `func clear_assignments(reason: StringName = &"manual") -> void:` |
+| 方法 | [`get_assignment_events`](#member-gfinputdeviceutility-methods-get_assignment_events) | `func get_assignment_events(limit: int = 0) -> Array[Dictionary]:` |
+| 方法 | [`get_assignment_report`](#member-gfinputdeviceutility-methods-get_assignment_report) | `func get_assignment_report(event_limit: int = 10) -> Dictionary:` |
 
 ## 信号
 
@@ -132,7 +137,58 @@ signal player_join_requested(player_index: int, assignment: GFInputDeviceAssignm
 | `assignment` | 触发加入请求的设备映射副本。 |
 | `event` | 触发加入请求的输入事件副本。 |
 
+<a id="member-gfinputdeviceutility-signals-assignment_event_recorded"></a>
+
+### `assignment_event_recorded`
+
+- API：`public`
+- 首次版本：`7.0.0`
+
+```gdscript
+signal assignment_event_recorded(event_record: Dictionary)
+```
+
+设备分配诊断事件被记录时发出。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `event_record` | 结构化设备分配事件副本。 |
+
+结构：
+
+- `event_record`: Dictionary assignment event record.
+
+## 常量
+
+<a id="member-gfinputdeviceutility-constants-default_max_assignment_events"></a>
+
+### `DEFAULT_MAX_ASSIGNMENT_EVENTS`
+
+- API：`public`
+- 首次版本：`7.0.0`
+
+```gdscript
+const DEFAULT_MAX_ASSIGNMENT_EVENTS: int = 64
+```
+
+默认保留的设备分配诊断事件数量。
+
 ## 属性
+
+<a id="member-gfinputdeviceutility-properties-max_assignment_events"></a>
+
+### `max_assignment_events`
+
+- API：`public`
+- 首次版本：`7.0.0`
+
+```gdscript
+var max_assignment_events: int = DEFAULT_MAX_ASSIGNMENT_EVENTS:
+```
+
+最多保留的设备分配诊断事件数量。设置为 0 时不保留历史。
 
 <a id="member-gfinputdeviceutility-properties-max_players"></a>
 
@@ -307,9 +363,10 @@ func create_assignment( player_index: int, device_type: GFInputDeviceAssignment.
 ### `set_assignment`
 
 - API：`public`
+- 首次版本：`7.0.0`
 
 ```gdscript
-func set_assignment(assignment: GFInputDeviceAssignment) -> void:
+func set_assignment( assignment: GFInputDeviceAssignment, reason: StringName = &"manual", event_metadata: Dictionary = {}, source_event: InputEvent = null ) -> void:
 ```
 
 手动设置一个玩家的设备映射。
@@ -319,15 +376,23 @@ func set_assignment(assignment: GFInputDeviceAssignment) -> void:
 | 名称 | 说明 |
 |---|---|
 | `assignment` | 设备映射。 |
+| `reason` | 调用方给出的分配原因。 |
+| `event_metadata` | 额外诊断元数据。 |
+| `source_event` | 触发分配的输入事件；可为空。 |
+
+结构：
+
+- `event_metadata`: Dictionary assignment event metadata.
 
 <a id="member-gfinputdeviceutility-methods-remove_assignment"></a>
 
 ### `remove_assignment`
 
 - API：`public`
+- 首次版本：`7.0.0`
 
 ```gdscript
-func remove_assignment(player_index: int) -> void:
+func remove_assignment(player_index: int, reason: StringName = &"manual") -> void:
 ```
 
 移除指定玩家的设备映射。
@@ -337,6 +402,7 @@ func remove_assignment(player_index: int) -> void:
 | 名称 | 说明 |
 |---|---|
 | `player_index` | 玩家索引。 |
+| `reason` | 调用方给出的移除原因。 |
 
 <a id="member-gfinputdeviceutility-methods-get_assignment"></a>
 
@@ -495,9 +561,10 @@ func clear_join_events() -> void:
 ### `assign_device_to_next_player`
 
 - API：`public`
+- 首次版本：`7.0.0`
 
 ```gdscript
-func assign_device_to_next_player( device_type: GFInputDeviceAssignment.DeviceType, device_id: int ) -> int:
+func assign_device_to_next_player( device_type: GFInputDeviceAssignment.DeviceType, device_id: int, reason: StringName = &"auto_assign", source_event: InputEvent = null ) -> int:
 ```
 
 把设备分配给第一个空玩家席位。
@@ -508,6 +575,8 @@ func assign_device_to_next_player( device_type: GFInputDeviceAssignment.DeviceTy
 |---|---|
 | `device_type` | 设备类型。 |
 | `device_id` | 设备 ID。 |
+| `reason` | 调用方给出的分配原因。 |
+| `source_event` | 触发分配的输入事件；可为空。 |
 
 返回：分配到的玩家索引；无空位时返回 -1。
 
@@ -679,9 +748,66 @@ func get_assignments() -> Array[GFInputDeviceAssignment]:
 ### `clear_assignments`
 
 - API：`public`
+- 首次版本：`7.0.0`
 
 ```gdscript
-func clear_assignments() -> void:
+func clear_assignments(reason: StringName = &"manual") -> void:
 ```
 
 清空所有映射。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `reason` | 调用方给出的清空原因。 |
+
+<a id="member-gfinputdeviceutility-methods-get_assignment_events"></a>
+
+### `get_assignment_events`
+
+- API：`public`
+- 首次版本：`7.0.0`
+
+```gdscript
+func get_assignment_events(limit: int = 0) -> Array[Dictionary]:
+```
+
+获取设备分配诊断事件。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `limit` | 最大返回数量；小于等于 0 时返回全部事件。 |
+
+返回：设备分配事件数组。
+
+结构：
+
+- `return`: Array[Dictionary] assignment event records.
+
+<a id="member-gfinputdeviceutility-methods-get_assignment_report"></a>
+
+### `get_assignment_report`
+
+- API：`public`
+- 首次版本：`7.0.0`
+
+```gdscript
+func get_assignment_report(event_limit: int = 10) -> Dictionary:
+```
+
+获取当前设备分配诊断报告。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `event_limit` | 最近事件数量。 |
+
+返回：设备分配报告。
+
+结构：
+
+- `return`: Dictionary containing max_players, active_player_index, assignments, active_assignment, event_count, and recent_events.

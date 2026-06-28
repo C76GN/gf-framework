@@ -179,7 +179,7 @@ static func from_dictionary(domains: Dictionary) -> GFQuerySignature:
 	var signature: GFQuerySignature = GFQuerySignature.new()
 	for domain_variant: Variant in domains.keys():
 		var domain: StringName = GFVariantData.to_string_name(domain_variant)
-		var _signature: GFQuerySignature = signature.add_values(domain, domains[domain_variant])
+		var _restored: GFQuerySignature = signature._set_encoded_values(domain, domains[domain_variant])
 	return signature
 
 
@@ -233,3 +233,61 @@ func _extract_values(values: Variant) -> Array:
 
 func _make_value_key(value: Variant) -> String:
 	return "%d:%s" % [typeof(value), var_to_str(value)]
+
+
+func _set_encoded_values(domain: StringName, values: Variant) -> GFQuerySignature:
+	if domain == &"":
+		return self
+
+	var encoded_values: PackedStringArray = _extract_encoded_value_keys(values)
+	if encoded_values.is_empty():
+		return self
+
+	var domain_key: String = String(domain)
+	if not _domains.has(domain_key):
+		_domains[domain_key] = {}
+	var domain_values: Dictionary = GFVariantData.as_dictionary(_domains[domain_key])
+	for encoded_value: String in encoded_values:
+		if _is_encoded_value_key(encoded_value):
+			domain_values[encoded_value] = true
+	return self
+
+
+static func _extract_encoded_value_keys(values: Variant) -> PackedStringArray:
+	var result: PackedStringArray = PackedStringArray()
+	if values is PackedStringArray:
+		var packed_strings: PackedStringArray = values
+		for item: String in packed_strings:
+			var _append_packed_result: bool = result.append(item)
+	elif values is Array:
+		var array: Array = values
+		for item: Variant in array:
+			if item is String:
+				var text: String = item
+				var _append_array_result: bool = result.append(text)
+	elif values is Dictionary:
+		var dictionary: Dictionary = values
+		for key: Variant in dictionary.keys():
+			if key is String:
+				var key_text: String = key
+				var _append_key_result: bool = result.append(key_text)
+	result.sort()
+	return result
+
+
+static func _is_encoded_value_key(value_key: String) -> bool:
+	var separator_index: int = value_key.find(":")
+	if separator_index <= 0:
+		return false
+
+	var type_text: String = value_key.substr(0, separator_index)
+	if not type_text.is_valid_int():
+		return false
+
+	var type_id: int = type_text.to_int()
+	if type_id < TYPE_NIL:
+		return false
+
+	var encoded_value: String = value_key.substr(separator_index + 1)
+	var decoded_value: Variant = str_to_var(encoded_value)
+	return typeof(decoded_value) == type_id

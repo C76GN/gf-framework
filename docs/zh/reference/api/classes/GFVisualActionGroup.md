@@ -158,24 +158,26 @@ func cancel() -> void:
 ### `pause`
 
 - API：`public`
+- 首次版本：`6.0.0`
 
 ```gdscript
 func pause() -> void:
 ```
 
-暂停所有有效子动作。
+暂停当前已启动子动作，并阻止后续子动作启动。
 
 <a id="member-gfvisualactiongroup-methods-resume"></a>
 
 ### `resume`
 
 - API：`public`
+- 首次版本：`6.0.0`
 
 ```gdscript
 func resume() -> void:
 ```
 
-恢复所有有效子动作。
+恢复当前已启动子动作，并允许后续子动作继续启动。
 
 <a id="member-gfvisualactiongroup-methods-finish"></a>
 

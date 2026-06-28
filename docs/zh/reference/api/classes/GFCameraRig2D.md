@@ -26,7 +26,7 @@
 | 属性 | [`rotation_degrees_offset`](#member-gfcamerarig2d-properties-rotation_degrees_offset) | `var rotation_degrees_offset: float = 0.0` |
 | 属性 | [`zoom`](#member-gfcamerarig2d-properties-zoom) | `var zoom: Vector2 = Vector2.ONE` |
 | 属性 | [`blend`](#member-gfcamerarig2d-properties-blend) | `var blend: GFCameraBlend = null` |
-| 属性 | [`group_name`](#member-gfcamerarig2d-properties-group_name) | `var group_name: StringName = &"gf_camera_rig_2d"` |
+| 属性 | [`group_name`](#member-gfcamerarig2d-properties-group_name) | `var group_name: StringName = &"gf_camera_rig_2d":` |
 | 属性 | [`metadata`](#member-gfcamerarig2d-properties-metadata) | `var metadata: Dictionary = {}` |
 | 方法 | [`get_target_node`](#member-gfcamerarig2d-methods-get_target_node) | `func get_target_node() -> Node2D:` |
 | 方法 | [`get_camera_pose`](#member-gfcamerarig2d-methods-get_camera_pose) | `func get_camera_pose() -> Dictionary:` |
@@ -185,9 +185,10 @@ var blend: GFCameraBlend = null
 ### `group_name`
 
 - API：`public`
+- 首次版本：`6.0.0`
 
 ```gdscript
-var group_name: StringName = &"gf_camera_rig_2d"
+var group_name: StringName = &"gf_camera_rig_2d":
 ```
 
 自动加入的分组名。Director 可按该分组收集候选。

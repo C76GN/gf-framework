@@ -19,6 +19,7 @@ const AUTOLOAD_NAME: String = "Gf"
 ## [br]
 ## @layer kernel/editor
 const AUTOLOAD_PATH: String = "res://addons/gf/kernel/core/gf.gd"
+const _AUTOLOAD_OWNERSHIP_SETTING: String = "gf/internal/autoload_gf_owned"
 const _GF_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
 
 
@@ -36,7 +37,9 @@ static func ensure(plugin: EditorPlugin) -> void:
 		return
 	if not ProjectSettings.has_setting("autoload/%s" % AUTOLOAD_NAME):
 		plugin.add_autoload_singleton(AUTOLOAD_NAME, AUTOLOAD_PATH)
+		_set_autoload_ownership_marker(true)
 	elif not _autoload_points_to_gf():
+		_set_autoload_ownership_marker(false)
 		push_warning("[GFPlugin] 已存在名为 Gf 的 AutoLoad，且目标不是 GF Framework；插件不会覆盖该设置。")
 
 
@@ -50,8 +53,9 @@ static func ensure(plugin: EditorPlugin) -> void:
 static func remove(plugin: EditorPlugin) -> void:
 	if plugin == null:
 		return
-	if ProjectSettings.has_setting("autoload/%s" % AUTOLOAD_NAME) and _autoload_points_to_gf():
+	if ProjectSettings.has_setting("autoload/%s" % AUTOLOAD_NAME) and _autoload_points_to_gf() and _has_autoload_ownership_marker():
 		plugin.remove_autoload_singleton(AUTOLOAD_NAME)
+	_set_autoload_ownership_marker(false)
 
 
 # --- 私有/辅助方法 ---
@@ -67,3 +71,14 @@ static func _autoload_points_to_gf() -> bool:
 	if uid == -1:
 		return false
 	return autoload_value == ResourceUID.id_to_text(uid)
+
+
+static func _has_autoload_ownership_marker() -> bool:
+	return _GF_VARIANT_ACCESS_SCRIPT.to_bool(ProjectSettings.get_setting(_AUTOLOAD_OWNERSHIP_SETTING, false))
+
+
+static func _set_autoload_ownership_marker(enabled: bool) -> void:
+	if enabled:
+		ProjectSettings.set_setting(_AUTOLOAD_OWNERSHIP_SETTING, true)
+	elif ProjectSettings.has_setting(_AUTOLOAD_OWNERSHIP_SETTING):
+		ProjectSettings.clear(_AUTOLOAD_OWNERSHIP_SETTING)

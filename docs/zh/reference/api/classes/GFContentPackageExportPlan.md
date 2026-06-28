@@ -26,6 +26,8 @@
 | 方法 | [`build_from_manifest`](#member-gfcontentpackageexportplan-methods-build_from_manifest) | `func build_from_manifest( manifest: GFContentPackageManifest, options: Dictionary = {} ) -> GFContentPackageExportPlan:` |
 | 方法 | [`build_from_catalog`](#member-gfcontentpackageexportplan-methods-build_from_catalog) | `func build_from_catalog( catalog: GFContentPackageCatalog, options: Dictionary = {} ) -> GFContentPackageExportPlan:` |
 | 方法 | [`get_validation_report`](#member-gfcontentpackageexportplan-methods-get_validation_report) | `func get_validation_report() -> Dictionary:` |
+| 方法 | [`get_artifact_report`](#member-gfcontentpackageexportplan-methods-get_artifact_report) | `func get_artifact_report(options: Dictionary = {}) -> Dictionary:` |
+| 方法 | [`get_preflight_report`](#member-gfcontentpackageexportplan-methods-get_preflight_report) | `func get_preflight_report( profile: GFCompatibilityProfile = null, options: Dictionary = {} ) -> Dictionary:` |
 | 方法 | [`to_dictionary`](#member-gfcontentpackageexportplan-methods-to_dictionary) | `func to_dictionary() -> Dictionary:` |
 | 方法 | [`from_manifest`](#member-gfcontentpackageexportplan-methods-from_manifest) | `static func from_manifest( manifest: GFContentPackageManifest, options: Dictionary = {} ) -> GFContentPackageExportPlan:` |
 | 方法 | [`from_catalog`](#member-gfcontentpackageexportplan-methods-from_catalog) | `static func from_catalog( catalog: GFContentPackageCatalog, options: Dictionary = {} ) -> GFContentPackageExportPlan:` |
@@ -235,6 +237,59 @@ func get_validation_report() -> Dictionary:
 结构：
 
 - `return`: Dictionary with ok, healthy, entries, entry_count, issues, summary, and next_action.
+
+<a id="member-gfcontentpackageexportplan-methods-get_artifact_report"></a>
+
+### `get_artifact_report`
+
+- API：`public`
+- 首次版本：`6.0.0`
+
+```gdscript
+func get_artifact_report(options: Dictionary = {}) -> Dictionary:
+```
+
+获取导出条目的本地 artifact 完整性报告。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `options` | 报告选项。 |
+
+返回：GFValidationReportDictionary 兼容报告。
+
+结构：
+
+- `options`: Dictionary，可包含 include_sha256、include_modified_time、include_entry_metadata 和 verify_expected_metadata。
+- `return`: Dictionary with ok, healthy, artifacts, artifact_count, existing_count, missing_count, unreadable_count, total_size_bytes, issues, summary, and next_action.
+
+<a id="member-gfcontentpackageexportplan-methods-get_preflight_report"></a>
+
+### `get_preflight_report`
+
+- API：`public`
+- 首次版本：`7.0.0`
+
+```gdscript
+func get_preflight_report( profile: GFCompatibilityProfile = null, options: Dictionary = {} ) -> Dictionary:
+```
+
+获取内容包导出预检报告。 该报告会合并导出计划校验、可选 artifact 完整性校验，以及调用方显式传入的兼容性 Profile 约束。 GF 不在这里决定下载、启用、远程发布或业务内容策略。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `profile` | 可选兼容性 Profile。 |
+| `options` | 预检选项。 |
+
+返回：GFValidationReportDictionary 兼容报告。
+
+结构：
+
+- `options`: Dictionary，可包含 include_artifacts、artifact_options、required_features、required_platforms、minimum_godot_version、minimum_framework_version 和 metadata。
+- `return`: Dictionary with ok, healthy, profile, checks, issues, summary, and next_action.
 
 <a id="member-gfcontentpackageexportplan-methods-to_dictionary"></a>
 

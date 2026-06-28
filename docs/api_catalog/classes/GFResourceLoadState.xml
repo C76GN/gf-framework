@@ -1,0 +1,333 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFResourceLoadState" path="addons/gf/standard/utilities/assets/gf_resource_load_state.gd" module="standard" extends="RefCounted" classDigest="fafc48b4a2b7fee19c01890f732f3bac431fe3d7abfd75387235a9863016498f">
+	<description>GFResourceLoadState: 资源加载状态与引用快照。
+用于把资源键、路径、加载状态、进度、错误和弱/强引用模式收敛为统一状态对象。
+它不发起 ResourceLoader 请求，也不规定资源包、下载或缓存策略。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">value_object</tag>
+		<tag name="since">7.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants>
+		<member kind="const" name="STATUS_UNREQUESTED">
+			<signature>const STATUS_UNREQUESTED: StringName = &amp;"unrequested"</signature>
+			<description>尚未请求资源。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_REQUESTED">
+			<signature>const STATUS_REQUESTED: StringName = &amp;"requested"</signature>
+			<description>已请求资源但尚未开始加载。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_LOADING">
+			<signature>const STATUS_LOADING: StringName = &amp;"loading"</signature>
+			<description>资源正在加载。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_LOADED">
+			<signature>const STATUS_LOADED: StringName = &amp;"loaded"</signature>
+			<description>资源已加载。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_FAILED">
+			<signature>const STATUS_FAILED: StringName = &amp;"failed"</signature>
+			<description>资源加载失败。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_RELEASED">
+			<signature>const STATUS_RELEASED: StringName = &amp;"released"</signature>
+			<description>资源引用已释放。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_STALE">
+			<signature>const STATUS_STALE: StringName = &amp;"stale"</signature>
+			<description>资源状态已过期，需要调用方重新解析或加载。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="REFERENCE_WEAK">
+			<signature>const REFERENCE_WEAK: StringName = &amp;"weak"</signature>
+			<description>只保存弱引用。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="REFERENCE_STRONG">
+			<signature>const REFERENCE_STRONG: StringName = &amp;"strong"</signature>
+			<description>保存强引用，由状态对象持有资源。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties>
+		<member kind="property" name="resource_key">
+			<signature>var resource_key: StringName = &amp;""</signature>
+			<description>稳定资源键。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="resource_path">
+			<signature>var resource_path: String = ""</signature>
+			<description>资源路径或解析后的路径。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="status">
+			<signature>var status: StringName = STATUS_UNREQUESTED:</signature>
+			<description>当前加载状态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="progress">
+			<signature>var progress: float = 0.0:</signature>
+			<description>加载进度，范围 0 到 1。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="error">
+			<signature>var error: String = ""</signature>
+			<description>最近错误文本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="reference_mode">
+			<signature>var reference_mode: StringName = REFERENCE_WEAK:</signature>
+			<description>资源引用模式。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="metadata">
+			<signature>var metadata: Dictionary = {}</signature>
+			<description>调用方元数据。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">metadata: Dictionary for caller-defined resource state metadata.</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="configure">
+			<signature>func configure( p_resource_key: StringName, p_resource_path: String = "", options: Dictionary = {} ) -&gt; GFResourceLoadState:</signature>
+			<description>配置资源加载状态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">p_resource_key: 稳定资源键。</tag>
+				<tag name="param">p_resource_path: 资源路径。</tag>
+				<tag name="param">options: 状态选项，支持 status、progress、error、reference_mode 和 metadata。</tag>
+				<tag name="return">当前状态。</tag>
+				<tag name="schema">options: Dictionary，可包含 status: StringName、progress: float、error: String、reference_mode: StringName、metadata: Dictionary。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="set_status">
+			<signature>func set_status(p_status: StringName, options: Dictionary = {}) -&gt; GFResourceLoadState:</signature>
+			<description>设置状态并按需合并 metadata。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">p_status: 新状态。</tag>
+				<tag name="param">options: 状态选项，支持 progress、error、metadata 和 clear_error。</tag>
+				<tag name="return">当前状态。</tag>
+				<tag name="schema">options: Dictionary，可包含 progress: float、error: String、metadata: Dictionary、clear_error: bool。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="set_resource">
+			<signature>func set_resource(resource: Resource, options: Dictionary = {}) -&gt; GFResourceLoadState:</signature>
+			<description>设置当前资源引用。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">resource: 已加载资源；为空时会清除引用。</tag>
+				<tag name="param">options: 引用选项，支持 reference_mode 和 metadata。</tag>
+				<tag name="return">当前状态。</tag>
+				<tag name="schema">options: Dictionary，可包含 reference_mode: StringName 和 metadata: Dictionary。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_resource">
+			<signature>func get_resource() -&gt; Resource:</signature>
+			<description>获取当前资源引用。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">当前资源；弱引用已释放时返回 null。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="has_resource">
+			<signature>func has_resource() -&gt; bool:</signature>
+			<description>检查当前状态是否仍能取得资源。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">资源引用仍有效时返回 true。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="clear_resource">
+			<signature>func clear_resource(options: Dictionary = {}) -&gt; GFResourceLoadState:</signature>
+			<description>清除当前资源引用。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">options: 清除选项，支持 status 和 metadata。</tag>
+				<tag name="return">当前状态。</tag>
+				<tag name="schema">options: Dictionary，可包含 status: StringName 和 metadata: Dictionary。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="mark_requested">
+			<signature>func mark_requested(p_metadata: Dictionary = {}) -&gt; GFResourceLoadState:</signature>
+			<description>标记资源已请求。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">p_metadata: 调用方元数据。</tag>
+				<tag name="return">当前状态。</tag>
+				<tag name="schema">p_metadata: Dictionary merged into metadata.</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="mark_loading">
+			<signature>func mark_loading(p_progress: float = 0.0, p_metadata: Dictionary = {}) -&gt; GFResourceLoadState:</signature>
+			<description>标记资源正在加载。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">p_progress: 加载进度。</tag>
+				<tag name="param">p_metadata: 调用方元数据。</tag>
+				<tag name="return">当前状态。</tag>
+				<tag name="schema">p_metadata: Dictionary merged into metadata.</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="mark_loaded">
+			<signature>func mark_loaded(resource: Resource, p_metadata: Dictionary = {}) -&gt; GFResourceLoadState:</signature>
+			<description>标记资源已加载并保存引用。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">resource: 已加载资源。</tag>
+				<tag name="param">p_metadata: 调用方元数据。</tag>
+				<tag name="return">当前状态。</tag>
+				<tag name="schema">p_metadata: Dictionary merged into metadata.</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="mark_failed">
+			<signature>func mark_failed(error_text: String, p_metadata: Dictionary = {}) -&gt; GFResourceLoadState:</signature>
+			<description>标记加载失败。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">error_text: 错误文本。</tag>
+				<tag name="param">p_metadata: 调用方元数据。</tag>
+				<tag name="return">当前状态。</tag>
+				<tag name="schema">p_metadata: Dictionary merged into metadata.</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="mark_released">
+			<signature>func mark_released(p_metadata: Dictionary = {}) -&gt; GFResourceLoadState:</signature>
+			<description>标记资源已释放。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">p_metadata: 调用方元数据。</tag>
+				<tag name="return">当前状态。</tag>
+				<tag name="schema">p_metadata: Dictionary merged into metadata.</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="mark_stale">
+			<signature>func mark_stale(reason: String = "", p_metadata: Dictionary = {}) -&gt; GFResourceLoadState:</signature>
+			<description>标记资源状态已过期。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">reason: 过期原因。</tag>
+				<tag name="param">p_metadata: 调用方元数据。</tag>
+				<tag name="return">当前状态。</tag>
+				<tag name="schema">p_metadata: Dictionary merged into metadata.</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_success">
+			<signature>func is_success() -&gt; bool:</signature>
+			<description>检查当前状态是否为成功终态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">成功加载且资源引用有效时返回 true。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_terminal">
+			<signature>func is_terminal() -&gt; bool:</signature>
+			<description>检查当前状态是否为终态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">loaded、failed 或 released 时返回 true。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="to_dictionary">
+			<signature>func to_dictionary() -&gt; Dictionary:</signature>
+			<description>导出状态字典。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">状态字典。</tag>
+				<tag name="schema">return: Dictionary，包含 resource_key、resource_path、status、progress、error、reference_mode、has_resource、resource_instance_id 和 metadata。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="duplicate_state">
+			<signature>func duplicate_state() -&gt; GFResourceLoadState:</signature>
+			<description>复制状态对象；当前资源引用会以相同引用模式传递。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">状态副本。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="from_dictionary">
+			<signature>static func from_dictionary(data: Dictionary) -&gt; GFResourceLoadState:</signature>
+			<description>从字典恢复状态对象。资源引用不会从字典中恢复。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">data: to_dictionary() 兼容字典。</tag>
+				<tag name="return">状态对象。</tag>
+				<tag name="schema">data: Dictionary with resource_key, resource_path, status, progress, error, reference_mode and metadata.</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

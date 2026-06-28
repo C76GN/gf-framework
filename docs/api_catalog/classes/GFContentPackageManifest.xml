@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFContentPackageManifest" path="addons/gf/extensions/content_package/resources/gf_content_package_manifest.gd" module="extensions/content_package" extends="Resource" classDigest="ce2ee413c9309455425a10329ba95df84b2d9c0692b9530757bafd5fdd37d3ab">
+<class name="GFContentPackageManifest" path="addons/gf/extensions/content_package/resources/gf_content_package_manifest.gd" module="extensions/content_package" extends="Resource" classDigest="77bbc0b0ca867acbbaf6e32263900070d85a133684e31978400bbef517bc68cf">
 	<description>GFContentPackageManifest: 通用内容包 manifest。
 描述一个内容包的稳定包 ID、版本、依赖和资源键映射。GF 只校验结构、路径安全和依赖关系，
 不解释内容类型的业务语义，也不负责下载、启用策略或具体玩法规则。</description>
@@ -43,6 +43,14 @@
 		</member>
 	</constants>
 	<properties>
+		<member kind="property" name="schema_version" decorators="@export">
+			<signature>var schema_version: int = SCHEMA_VERSION</signature>
+			<description>manifest schema 版本。JSON manifest 必须显式声明当前支持的版本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
 		<member kind="property" name="package_id" decorators="@export">
 			<signature>var package_id: StringName = &amp;""</signature>
 			<description>稳定内容包 ID。</description>

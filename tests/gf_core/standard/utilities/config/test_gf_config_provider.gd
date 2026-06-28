@@ -81,6 +81,26 @@ func test_config_table_resource_queries_schema_indexes() -> void:
 	assert_eq(GFVariantData.get_option_string(original_record, "name"), "Potion", "索引查询结果默认应返回记录副本。")
 
 
+func test_config_table_resource_queries_current_records_after_index_cache_becomes_stale() -> void:
+	var table: GFConfigTableResource = _make_item_table_resource()
+	table.schema.indexes.append(_make_name_index())
+	var _id_index_count: int = table.rebuild_index()
+	var _named_index_count: int = table.rebuild_indexes()
+
+	table.records = [
+		{ "id": 3, "name": "New", "power": 9.0 },
+	]
+	var old_record: Variant = table.get_record(1)
+	var new_record: Dictionary = GFVariantData.as_dictionary(table.get_record(3))
+	var old_index_key: String = table.make_index_key(&"name", { "name": "Potion" })
+	var new_index_key: String = table.make_index_key(&"name", { "name": "New" })
+
+	assert_true(_is_null(old_record), "records 变更后 get_record 不应返回旧 records_by_id 缓存。")
+	assert_eq(GFVariantData.get_option_string(new_record, "name"), "New", "records 变更后 get_record 应读取当前记录。")
+	assert_eq(table.get_index_records(&"name", old_index_key).size(), 0, "records 变更后命名索引查询不应返回旧缓存。")
+	assert_eq(table.get_index_records(&"name", new_index_key).size(), 1, "records 变更后命名索引查询应读取当前记录。")
+
+
 func test_config_table_resource_uses_schema_table_name_when_table_name_empty() -> void:
 	var table: GFConfigTableResource = _make_item_table_resource()
 	table.table_name = &""
@@ -278,6 +298,23 @@ func test_config_database_resource_reports_schema_table_name_mismatch() -> void:
 	assert_true(
 		_has_issue_kind(GFVariantData.get_option_array(report, "issues"), "schema_table_name_mismatch"),
 		"数据库校验应报告表名与 schema 表名不一致。"
+	)
+
+
+func test_config_database_resource_reports_schema_definition_errors() -> void:
+	var database: GFConfigDatabaseResource = _make_config_database_resource()
+	var table: GFConfigTableResource = database.get_table_resource(&"items", false)
+	var duplicate_column: GFConfigTableColumn = GFConfigTableColumn.new()
+	duplicate_column.field_name = &"name"
+	duplicate_column.value_type = GFConfigTableColumn.ValueType.STRING
+	table.schema.columns.append(duplicate_column)
+
+	var report: Dictionary = database.validate_database()
+
+	assert_false(GFVariantData.get_option_bool(report, "ok"), "数据库校验应包含 schema definition 错误。")
+	assert_true(
+		_has_issue_kind(GFVariantData.get_option_array(report, "issues"), "duplicate_column_field"),
+		"数据库校验应报告重复字段声明。"
 	)
 
 

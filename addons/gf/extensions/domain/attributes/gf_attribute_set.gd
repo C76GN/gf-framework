@@ -398,14 +398,15 @@ func recalculate_derived(attribute_id: StringName = &"") -> void:
 	if _suspend_derived_recalculation:
 		return
 
+	var cycle_targets: Dictionary = _get_derived_cycle_targets()
 	if attribute_id != &"":
 		var rule: GFDerivedAttributeRule = get_derived_rule(attribute_id)
 		if rule != null:
-			var _target_rule_applied: bool = _apply_derived_rule(rule, {})
+			var _target_rule_applied: bool = _apply_derived_rule(rule, {}, cycle_targets)
 		return
 
 	for rule: GFDerivedAttributeRule in derived_rules:
-		var _rule_applied: bool = _apply_derived_rule(rule, {})
+		var _rule_applied: bool = _apply_derived_rule(rule, {}, cycle_targets)
 
 
 ## 导出快照。
@@ -485,13 +486,21 @@ func _recalculate_derived_dependents(source_attribute_id: StringName, visited: D
 	if _suspend_derived_recalculation:
 		return
 
+	var cycle_targets: Dictionary = _get_derived_cycle_targets()
 	for rule: GFDerivedAttributeRule in derived_rules:
 		if rule != null and rule.depends_on(source_attribute_id):
-			var _dependent_rule_applied: bool = _apply_derived_rule(rule, visited)
+			var _dependent_rule_applied: bool = _apply_derived_rule(rule, visited, cycle_targets)
 
 
-func _apply_derived_rule(rule: GFDerivedAttributeRule, visited: Dictionary) -> bool:
+func _apply_derived_rule(
+	rule: GFDerivedAttributeRule,
+	visited: Dictionary,
+	cycle_targets: Dictionary = {}
+) -> bool:
 	if rule == null or rule.attribute_id == &"":
+		return false
+	if cycle_targets.has(rule.attribute_id):
+		push_warning("[GFAttributeSet] 检测到派生属性循环，已跳过：" + String(rule.attribute_id))
 		return false
 	if GFVariantData.get_option_bool(visited, rule.attribute_id, false):
 		push_warning("[GFAttributeSet] 检测到派生属性循环，已跳过：" + String(rule.attribute_id))
@@ -504,6 +513,80 @@ func _apply_derived_rule(rule: GFDerivedAttributeRule, visited: Dictionary) -> b
 		_recalculate_derived_dependents(rule.attribute_id, visited)
 	var _visited_removed: bool = visited.erase(rule.attribute_id)
 	return did_change
+
+
+func _get_derived_cycle_targets() -> Dictionary:
+	var rule_map: Dictionary = _get_derived_rule_map()
+	var states: Dictionary = {}
+	var cycle_targets: Dictionary = {}
+	for target_id: StringName in _get_sorted_string_name_keys(rule_map):
+		if GFVariantData.get_option_int(states, target_id, 0) == 0:
+			_visit_derived_rule_for_cycles(target_id, rule_map, states, [], cycle_targets)
+	return cycle_targets
+
+
+func _get_derived_rule_map() -> Dictionary:
+	var result: Dictionary = {}
+	for rule: GFDerivedAttributeRule in derived_rules:
+		if rule != null and rule.attribute_id != &"":
+			result[rule.attribute_id] = rule
+	return result
+
+
+func _visit_derived_rule_for_cycles(
+	attribute_id: StringName,
+	rule_map: Dictionary,
+	states: Dictionary,
+	stack: Array[StringName],
+	cycle_targets: Dictionary
+) -> void:
+	states[attribute_id] = 1
+	stack.append(attribute_id)
+	var rule: GFDerivedAttributeRule = _get_derived_rule_from_map(rule_map, attribute_id)
+	if rule != null:
+		for source_id: StringName in rule.get_source_attribute_ids():
+			if not rule_map.has(source_id):
+				continue
+			var source_state: int = GFVariantData.get_option_int(states, source_id, 0)
+			if source_state == 1:
+				_mark_derived_cycle_targets(source_id, stack, cycle_targets)
+				continue
+			if source_state == 0:
+				_visit_derived_rule_for_cycles(source_id, rule_map, states, stack, cycle_targets)
+	stack.pop_back()
+	states[attribute_id] = 2
+
+
+func _mark_derived_cycle_targets(
+	first_repeated_attribute_id: StringName,
+	stack: Array[StringName],
+	cycle_targets: Dictionary
+) -> void:
+	var include: bool = false
+	for attribute_id: StringName in stack:
+		if attribute_id == first_repeated_attribute_id:
+			include = true
+		if include:
+			cycle_targets[attribute_id] = true
+
+
+func _get_derived_rule_from_map(rule_map: Dictionary, attribute_id: StringName) -> GFDerivedAttributeRule:
+	var value: Variant = GFVariantData.get_option_value(rule_map, attribute_id)
+	if value is GFDerivedAttributeRule:
+		var rule: GFDerivedAttributeRule = value
+		return rule
+	return null
+
+
+func _get_sorted_string_name_keys(dictionary: Dictionary) -> Array[StringName]:
+	var values: PackedStringArray = PackedStringArray()
+	for key: Variant in dictionary.keys():
+		var _append_result: Variant = values.append(GFVariantData.to_text(key))
+	values.sort()
+	var result: Array[StringName] = []
+	for value: String in values:
+		result.append(StringName(value))
+	return result
 
 
 func _write_derived_value(rule: GFDerivedAttributeRule, value: float) -> bool:

@@ -32,7 +32,13 @@ enum UpdateMode {
 ## 是否启用输入桥接。
 ## [br]
 ## @api public
-@export var enabled: bool = true
+## [br]
+## @since 6.0.0
+@export var enabled: bool = true:
+	set(value):
+		enabled = value
+		if not enabled:
+			_clear_mouse_orbit_capture()
 
 ## 要控制的环绕 Rig。为空时使用父节点中的 GFCameraOrbitRig3D。
 ## [br]
@@ -82,7 +88,13 @@ enum UpdateMode {
 ## 是否启用鼠标拖拽环绕。默认关闭，避免框架节点隐式接管项目输入。
 ## [br]
 ## @api public
-@export var mouse_orbit_enabled: bool = false
+## [br]
+## @since 6.0.0
+@export var mouse_orbit_enabled: bool = false:
+	set(value):
+		mouse_orbit_enabled = value
+		if not mouse_orbit_enabled:
+			_clear_mouse_orbit_capture()
 
 ## 鼠标拖拽环绕使用的按键。
 ## [br]
@@ -118,22 +130,37 @@ enum UpdateMode {
 var input_mapping_utility: GFInputMappingUtility = null
 
 
+# --- 私有变量 ---
+
+var _mouse_orbit_active: bool = false
+var _mouse_orbit_device: int = 0
+
+
 # --- Godot 生命周期方法 ---
 
 func _unhandled_input(event: InputEvent) -> void:
 	if not enabled:
+		_clear_mouse_orbit_capture()
 		return
 
 	var applied: bool = false
-	if mouse_orbit_enabled and event is InputEventMouseMotion and Input.is_mouse_button_pressed(mouse_button):
-		var motion: InputEventMouseMotion = _get_mouse_motion_event(event)
-		applied = _apply_mouse_orbit(motion.relative)
-	elif mouse_zoom_enabled and event is InputEventMouseButton:
+	if event is InputEventMouseButton:
 		var button_event: InputEventMouseButton = _get_mouse_button_event(event)
-		applied = _apply_mouse_wheel(button_event)
+		if mouse_orbit_enabled and button_event.button_index == mouse_button:
+			applied = _apply_mouse_orbit_button(button_event)
+		elif mouse_zoom_enabled:
+			applied = _apply_mouse_wheel(button_event)
+	elif mouse_orbit_enabled and event is InputEventMouseMotion:
+		var motion: InputEventMouseMotion = _get_mouse_motion_event(event)
+		if _mouse_orbit_active and motion.device == _mouse_orbit_device:
+			applied = _apply_mouse_orbit(motion.relative)
 
 	if applied and consume_mouse_input:
 		get_viewport().set_input_as_handled()
+
+
+func _exit_tree() -> void:
+	_clear_mouse_orbit_capture()
 
 
 func _process(delta: float) -> void:
@@ -269,6 +296,22 @@ func _apply_mouse_wheel(event: InputEventMouseButton) -> bool:
 	if event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
 		return apply_zoom_value(mouse_wheel_step, 1.0)
 	return false
+
+
+func _apply_mouse_orbit_button(event: InputEventMouseButton) -> bool:
+	if event.pressed:
+		_mouse_orbit_active = true
+		_mouse_orbit_device = event.device
+		return true
+	if _mouse_orbit_active and event.device == _mouse_orbit_device:
+		_clear_mouse_orbit_capture()
+		return true
+	return false
+
+
+func _clear_mouse_orbit_capture() -> void:
+	_mouse_orbit_active = false
+	_mouse_orbit_device = 0
 
 
 func _coerce_zoom_value(value: Variant) -> float:

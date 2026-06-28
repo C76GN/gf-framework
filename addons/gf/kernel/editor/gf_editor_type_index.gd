@@ -34,6 +34,7 @@ const _GF_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_varian
 
 var _script_cache: Dictionary = {}
 var _scene_root_script_cache: Dictionary = {}
+var _connected_editor_filesystem_id: int = 0
 
 
 # --- 公共方法 ---
@@ -54,6 +55,7 @@ func collect_scripts_extending(base_script: Script, excluded_scripts: Array[Scri
 	if base_script == null:
 		return records
 
+	_ensure_cache_invalidation_signals()
 	var used_paths: Dictionary = {}
 	for global_class: Dictionary in ProjectSettings.get_global_class_list():
 		var class_name_value: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(global_class, "class")
@@ -112,6 +114,7 @@ func collect_scene_roots_extending(
 	if base_script == null or not Engine.is_editor_hint():
 		return records
 
+	_ensure_cache_invalidation_signals()
 	var filesystem: EditorFileSystem = EditorInterface.get_resource_filesystem()
 	if filesystem == null:
 		return records
@@ -145,16 +148,15 @@ func collect_scene_roots_extending(
 		for i: int in range(current_dir.get_file_count()):
 			if current_dir.get_file_type(i) != "PackedScene":
 				continue
-			if not _can_scan_more_scene_files(scan_state, max_scanned_scenes):
-				_warn_scene_file_limit(max_scanned_scenes, scan_state)
-				break
-			scan_state["scanned_scene_count"] = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(scan_state, "scanned_scene_count", 0) + 1
-
 			var path: String = _join_resource_path(current_dir.get_path(), current_dir.get_file(i))
 			if used_paths.has(path):
 				continue
 			if not _path_matches_roots(path, root_paths):
 				continue
+			if not _can_scan_more_scene_files(scan_state, max_scanned_scenes):
+				_warn_scene_file_limit(max_scanned_scenes, scan_state)
+				break
+			scan_state["scanned_scene_count"] = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(scan_state, "scanned_scene_count", 0) + 1
 
 			var script: Script = get_scene_root_script(path)
 			if script == null or not _SCRIPT_TYPE_INSPECTOR.script_extends_or_equals(script, base_script):
@@ -184,17 +186,19 @@ func collect_scene_roots_extending(
 ## [br]
 ## @return 根节点脚本；无法解析时返回 null。
 func get_scene_root_script(path: String) -> Script:
-	if _scene_root_script_cache.has(path):
-		return _variant_to_script(_scene_root_script_cache[path])
+	_ensure_cache_invalidation_signals()
+	var cached_script: Script = _get_cached_script(path, _scene_root_script_cache)
+	if cached_script != null or _cache_has_current_null(path, _scene_root_script_cache):
+		return cached_script
 
 	var packed_scene: PackedScene = _variant_to_packed_scene(load(path))
 	if packed_scene == null:
-		_scene_root_script_cache[path] = null
+		_scene_root_script_cache[path] = _make_cache_entry(path, null)
 		return null
 
 	var state: SceneState = packed_scene.get_state()
 	if state == null:
-		_scene_root_script_cache[path] = null
+		_scene_root_script_cache[path] = _make_cache_entry(path, null)
 		return null
 
 	for node_index: int in range(state.get_node_count()):
@@ -204,10 +208,10 @@ func get_scene_root_script(path: String) -> Script:
 		for property_index: int in range(state.get_node_property_count(node_index)):
 			if state.get_node_property_name(node_index, property_index) == &"script":
 				var script: Script = _variant_to_script(state.get_node_property_value(node_index, property_index))
-				_scene_root_script_cache[path] = script
+				_scene_root_script_cache[path] = _make_cache_entry(path, script)
 				return script
 
-	_scene_root_script_cache[path] = null
+	_scene_root_script_cache[path] = _make_cache_entry(path, null)
 	return null
 
 
@@ -222,18 +226,91 @@ func clear_cache() -> void:
 # --- 私有/辅助方法 ---
 
 func _load_script(path: String) -> Script:
-	if _script_cache.has(path):
-		return _variant_to_script(_script_cache[path])
+	_ensure_cache_invalidation_signals()
+	var cached_script: Script = _get_cached_script(path, _script_cache)
+	if cached_script != null or _cache_has_current_null(path, _script_cache):
+		return cached_script
 
 	var script: Script = _variant_to_script(load(path))
-	_script_cache[path] = script
+	_script_cache[path] = _make_cache_entry(path, script)
 	return script
+
+
+func _get_cached_script(path: String, cache: Dictionary) -> Script:
+	if not cache.has(path):
+		return null
+	var entry: Variant = cache[path]
+	if entry is Dictionary:
+		var entry_data: Dictionary = entry
+		if _GF_VARIANT_ACCESS_SCRIPT.get_option_int(entry_data, "modified_time", -1) != _get_resource_modified_time(path):
+			var _removed_stale: bool = cache.erase(path)
+			return null
+		return _variant_to_script(_GF_VARIANT_ACCESS_SCRIPT.get_option_value(entry_data, "script"))
+	var legacy_script: Script = _variant_to_script(entry)
+	var _removed_legacy: bool = cache.erase(path)
+	return legacy_script
+
+
+func _cache_has_current_null(path: String, cache: Dictionary) -> bool:
+	if not cache.has(path):
+		return false
+	var entry: Variant = cache[path]
+	if not (entry is Dictionary):
+		return false
+	var entry_data: Dictionary = entry
+	if _GF_VARIANT_ACCESS_SCRIPT.get_option_int(entry_data, "modified_time", -1) != _get_resource_modified_time(path):
+		var _removed_stale: bool = cache.erase(path)
+		return false
+	var script_value: Variant = _GF_VARIANT_ACCESS_SCRIPT.get_option_value(entry_data, "script")
+	return not (script_value is Script)
+
+
+func _make_cache_entry(path: String, script: Script) -> Dictionary:
+	return {
+		"modified_time": _get_resource_modified_time(path),
+		"script": script,
+	}
+
+
+func _get_resource_modified_time(path: String) -> int:
+	var resolved_path: String = path
+	if path.begins_with("res://") or path.begins_with("user://"):
+		resolved_path = ProjectSettings.globalize_path(path)
+	return int(FileAccess.get_modified_time(resolved_path))
 
 
 func _join_resource_path(dir_path: String, file_name: String) -> String:
 	if dir_path.ends_with("/"):
 		return dir_path + file_name
 	return "%s/%s" % [dir_path, file_name]
+
+
+func _ensure_cache_invalidation_signals() -> void:
+	if not Engine.is_editor_hint():
+		return
+
+	var filesystem: EditorFileSystem = EditorInterface.get_resource_filesystem()
+	if filesystem == null:
+		return
+
+	var filesystem_id: int = filesystem.get_instance_id()
+	if _connected_editor_filesystem_id == filesystem_id:
+		return
+
+	_connected_editor_filesystem_id = filesystem_id
+	_connect_editor_filesystem_signal(filesystem, &"filesystem_changed", Callable(self, "_on_editor_filesystem_changed"))
+	_connect_editor_filesystem_signal(filesystem, &"resources_reimported", Callable(self, "_on_editor_filesystem_resources_changed"))
+	_connect_editor_filesystem_signal(filesystem, &"resources_reload", Callable(self, "_on_editor_filesystem_resources_changed"))
+	_connect_editor_filesystem_signal(filesystem, &"script_classes_updated", Callable(self, "_on_editor_filesystem_changed"))
+
+
+func _connect_editor_filesystem_signal(filesystem: EditorFileSystem, signal_name: StringName, callback: Callable) -> void:
+	if not filesystem.has_signal(signal_name):
+		return
+	if filesystem.is_connected(signal_name, callback):
+		return
+
+	var _connect_result: Error = filesystem.connect(signal_name, callback) as Error
 
 
 func _path_matches_roots(path: String, root_paths: PackedStringArray) -> bool:
@@ -301,3 +378,13 @@ func _variant_to_editor_directory(value: Variant) -> EditorFileSystemDirectory:
 		var directory: EditorFileSystemDirectory = value
 		return directory
 	return null
+
+
+# --- 信号处理函数 ---
+
+func _on_editor_filesystem_changed() -> void:
+	clear_cache()
+
+
+func _on_editor_filesystem_resources_changed(_resources: PackedStringArray = PackedStringArray()) -> void:
+	clear_cache()

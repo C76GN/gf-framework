@@ -12,6 +12,7 @@ extends GFInstaller
 func install(architecture: GFArchitecture) -> void:
 	if architecture == null:
 		return
-	if architecture.get_local_utility(GFShakeUtility) != null:
-		return
-	await architecture.register_utility_instance(GFShakeUtility.new())
+	if architecture.get_local_utility(GFShakeUtility) == null:
+		await architecture.register_utility_instance(GFShakeUtility.new())
+	if architecture.get_local_utility(GFHapticUtility) == null:
+		await architecture.register_utility_instance(GFHapticUtility.new())

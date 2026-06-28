@@ -112,6 +112,7 @@ static func apply_input_map_preset(preset: Dictionary, options: Dictionary = {})
 	var include_ui_actions: bool = GFVariantData.get_option_bool(options, "include_ui_actions", false)
 	var clear_existing_events: bool = GFVariantData.get_option_bool(options, "clear_existing_events", true)
 	var actions: Array = GFVariantData.get_option_array(preset, "actions")
+	var plans: Array[Dictionary] = []
 
 	for action_value: Variant in actions:
 		var action_record: Dictionary = GFVariantData.as_dictionary(action_value)
@@ -128,22 +129,42 @@ static func apply_input_map_preset(preset: Dictionary, options: Dictionary = {})
 			continue
 
 		var deadzone: float = GFVariantData.get_option_float(action_record, "deadzone", 0.5)
-		if not InputMap.has_action(action_id):
-			InputMap.add_action(action_id, deadzone)
-		else:
-			InputMap.action_set_deadzone(action_id, deadzone)
-			if clear_existing_events:
-				InputMap.action_erase_events(action_id)
-
+		var input_events: Array[InputEvent] = []
 		var event_records: Array = GFVariantData.get_option_array(action_record, "events")
 		for event_record_value: Variant in event_records:
 			var event_record: Dictionary = GFVariantData.as_dictionary(event_record_value)
 			var input_event: InputEvent = _INPUT_EVENT_TOOLS.input_event_from_record(event_record)
 			if input_event == null:
 				_append_issue(issues, action_id, "invalid_event", "Input event record is invalid.")
+				report["skipped_count"] += 1
 				continue
-			InputMap.action_add_event(action_id, input_event)
-			report["event_count"] += 1
+			input_events.append(input_event)
+		plans.append({
+			"action_id": action_id,
+			"deadzone": deadzone,
+			"events": input_events,
+		})
+
+	if not issues.is_empty():
+		report["ok"] = false
+		return report
+
+	for plan: Dictionary in plans:
+		var plan_action_id: StringName = GFVariantData.get_option_string_name(plan, "action_id")
+		var plan_deadzone: float = GFVariantData.get_option_float(plan, "deadzone", 0.5)
+		if not InputMap.has_action(plan_action_id):
+			InputMap.add_action(plan_action_id, plan_deadzone)
+		else:
+			InputMap.action_set_deadzone(plan_action_id, plan_deadzone)
+			if clear_existing_events:
+				InputMap.action_erase_events(plan_action_id)
+
+		var plan_events: Array = GFVariantData.get_option_array(plan, "events")
+		for event_value: Variant in plan_events:
+			var input_event: InputEvent = _INPUT_EVENT_TOOLS.get_input_event(event_value)
+			if input_event != null:
+				InputMap.action_add_event(plan_action_id, input_event)
+				report["event_count"] += 1
 		report["applied_count"] += 1
 
 	report["ok"] = issues.is_empty()

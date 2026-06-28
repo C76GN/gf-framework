@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFRemoteCacheUtility" path="addons/gf/standard/utilities/io/gf_remote_cache_utility.gd" module="standard" extends="GFUtility" classDigest="d3076b091335c40d6b95cf547a1b5e7ba326dac34965d7476559e6dbaacd9b75">
+<class name="GFRemoteCacheUtility" path="addons/gf/standard/utilities/io/gf_remote_cache_utility.gd" module="standard" extends="GFUtility" classDigest="588b83749e0a92f882d5d06b71512901313e53154d8a2126aa805ace62fe3567">
 	<description>GFRemoteCacheUtility: 通用远程文本与 JSON 缓存工具。
 提供 URL 请求、本地 TTL 缓存、失败时陈旧缓存回退和队列化 HTTP 访问。
 具体内容类型、字段结构和业务策略由项目层自行决定。</description>
@@ -34,10 +34,11 @@
 	<constants />
 	<properties>
 		<member kind="property" name="cache_dir_name">
-			<signature>var cache_dir_name: String = "gf_remote_cache"</signature>
+			<signature>var cache_dir_name: String = _DEFAULT_CACHE_DIR_NAME:</signature>
 			<description>user:// 下的缓存子目录名。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="default_ttl_seconds">

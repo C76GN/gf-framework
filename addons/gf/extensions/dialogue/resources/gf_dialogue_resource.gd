@@ -140,9 +140,34 @@ func validate_resource() -> Dictionary:
 			var _append_result_140: Variant = next_ids.append(String(line.jump_line_id))
 		if line.fallback_line_id != &"":
 			var _append_result_142: Variant = next_ids.append(String(line.fallback_line_id))
-		for response: GFDialogueResponse in line.responses:
-			if response != null and response.next_line_id != &"":
-				var _append_result_145: Variant = next_ids.append(String(response.next_line_id))
+		var seen_response_ids: Dictionary = {}
+		for response_index: int in range(line.responses.size()):
+			var response: GFDialogueResponse = line.responses[response_index]
+			if response == null:
+				_append_issue(
+					report,
+					&"null_response",
+					"%s.responses[%d]" % [line.line_id, response_index],
+					"Dialogue response is null."
+				)
+				continue
+			if response.response_id == &"":
+				_append_issue(
+					report,
+					&"empty_response_id",
+					"%s.responses[%d]" % [line.line_id, response_index],
+					"Dialogue response_id is empty."
+				)
+			elif seen_response_ids.has(response.response_id):
+				_append_issue(
+					report,
+					&"duplicate_response_id",
+					"%s.responses.%s" % [line.line_id, response.response_id],
+					"Dialogue response_id is duplicated within the line."
+				)
+			seen_response_ids[response.response_id] = true
+			if response.next_line_id != &"":
+				var _append_result_167: Variant = next_ids.append(String(response.next_line_id))
 		for next_id: String in next_ids:
 			if get_line(StringName(next_id)) == null:
 				_append_issue(
@@ -207,6 +232,9 @@ func _get_validation_next_actions() -> Dictionary:
 		"null_line": "Remove empty dialogue line slots or assign a GFDialogueLine resource.",
 		"empty_line_id": "Assign every dialogue line a stable line_id.",
 		"duplicate_line_id": "Make every dialogue line_id unique.",
+		"null_response": "Remove empty dialogue response slots or assign a GFDialogueResponse resource.",
+		"empty_response_id": "Assign every response on a line a stable non-empty response_id.",
+		"duplicate_response_id": "Make response_id values unique within each dialogue line.",
 		"missing_next_line": "Create the referenced dialogue line or update the transition id.",
 	}
 

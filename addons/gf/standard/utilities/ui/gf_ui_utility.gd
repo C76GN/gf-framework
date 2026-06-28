@@ -1010,7 +1010,6 @@ func _add_panel_instance(
 			push_warning("[GFUIUtility] config_callback 销毁了面板实例，本次入栈已取消。")
 			return false
 
-	_capture_previous_focus(panel, normalized_options)
 	stack.push_back(panel)
 	_panel_options[panel.get_instance_id()] = normalized_options
 	var _tree_exited_connected: Error = panel.tree_exited.connect(
@@ -1021,6 +1020,7 @@ func _add_panel_instance(
 		panel.get_parent().remove_child(panel)
 	if panel.get_parent() != canvas:
 		canvas.add_child(panel)
+	_capture_previous_focus(panel, normalized_options)
 	_apply_open_focus_policy(panel, normalized_options)
 	panel_opened.emit(panel, layer)
 	_emit_navigation_changed(layer)

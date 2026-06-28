@@ -386,12 +386,13 @@ func equals_exact(other: GFFixedVector2) -> bool:
 func to_dict() -> Dictionary:
 	var serialized_raw_x: int = _normalize_raw_value(raw_x, "to_dict")
 	var serialized_raw_y: int = _normalize_raw_value(raw_y, "to_dict")
+	var serialized_places: int = _normalize_decimal_places(decimal_places)
 	return {
 		"type": _SERIALIZATION_TYPE,
 		"version": _SERIALIZATION_VERSION,
 		"raw_x": str(serialized_raw_x),
 		"raw_y": str(serialized_raw_y),
-		"decimal_places": decimal_places,
+		"decimal_places": serialized_places,
 	}
 
 
@@ -444,7 +445,7 @@ func to_bytes() -> PackedByteArray:
 	var _magic_2: bool = result.append(_BYTE_MAGIC_2)
 	var _magic_3: bool = result.append(_BYTE_MAGIC_3)
 	var _version_appended: bool = result.append(_SERIALIZATION_VERSION)
-	var _places_appended: bool = result.append(decimal_places)
+	var _places_appended: bool = result.append(_normalize_decimal_places(decimal_places))
 	result = _append_signed_magnitude(result, raw_x, "GFFixedVector2", "to_bytes")
 	result = _append_signed_magnitude(result, raw_y, "GFFixedVector2", "to_bytes")
 	return result

@@ -208,6 +208,7 @@ func capture(metadata: Dictionary = {}) -> int:
 ### `push_snapshot`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func push_snapshot(data: Variant, metadata: Dictionary = {}) -> int:
@@ -226,7 +227,7 @@ func push_snapshot(data: Variant, metadata: Dictionary = {}) -> int:
 
 结构：
 
-- `data`: Variant snapshot payload; Array and Dictionary values are deep-copied.
+- `data`: Pure Variant snapshot payload; Object and Resource references are rejected.
 - `metadata`: Dictionary[String, Variant] copied into the snapshot record.
 
 <a id="member-gfsnapshothistoryutility-methods-step"></a>

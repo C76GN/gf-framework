@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFShakeReceiver3D" path="addons/gf/extensions/feedback/nodes/gf_shake_receiver_3d.gd" module="extensions/feedback" extends="Node" classDigest="7c6d624fdca9bcb2159cd751cb6b016f4e09756b556b70578dbc021b938c804f">
+<class name="GFShakeReceiver3D" path="addons/gf/extensions/feedback/nodes/gf_shake_receiver_3d.gd" module="extensions/feedback" extends="Node" classDigest="3824ee656c0b92d3bd4c1b422df8ef998bcaac1cf482c65bb7bc6353d2b4424f">
 	<description>GFShakeReceiver3D: 将反馈采样应用到 Node3D 的通用接收器。</description>
 	<tags>
 		<tag name="api">public</tag>
@@ -11,10 +11,11 @@
 	<constants />
 	<properties>
 		<member kind="property" name="target_path" decorators="@export_node_path(&quot;Node3D&quot;)">
-			<signature>var target_path: NodePath = NodePath("")</signature>
+			<signature>var target_path: NodePath = NodePath(""):</signature>
 			<description>目标 Node3D 路径；为空时优先使用自身，其次使用父节点。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="channel" decorators="@export">

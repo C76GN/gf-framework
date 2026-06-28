@@ -398,6 +398,41 @@ func test_audio_library_copy_import_plan_handles_large_binary_files() -> void:
 	assert_eq(copied_bytes[copied_bytes.size() - 1], source_bytes[source_bytes.size() - 1], "复制结果应保留文件末尾字节。")
 
 
+func test_audio_library_copy_import_plan_overwrites_existing_target_atomically() -> void:
+	var root_path: String = "user://gf_audio_library_overwrite_source"
+	var target_root: String = "user://gf_audio_library_overwrite_target"
+	var source_dir: String = root_path.path_join("ui")
+	var target_dir: String = target_root.path_join("ui")
+	var source_path: String = source_dir.path_join("replace.ogg")
+	var target_path: String = target_dir.path_join("replace.ogg")
+	var _make_source_dir_result: Variant = DirAccess.make_dir_recursive_absolute(source_dir)
+	var _make_target_dir_result: Variant = DirAccess.make_dir_recursive_absolute(target_dir)
+	_write_user_file(source_path, "new-audio")
+	_write_user_file(target_path, "old-audio")
+	var plan: Array[Dictionary] = [
+		{
+			"source_path": source_path,
+			"target_path": target_path,
+			"will_copy": false,
+			"reason": "target_exists",
+		},
+	]
+
+	var report: GFValidationReport = GFAudioLibraryToolsScript.copy_import_plan(plan, { "overwrite": true })
+	var target_content: String = FileAccess.get_file_as_string(target_path)
+
+	_remove_user_file(source_path)
+	_remove_user_file(target_path)
+	_remove_user_dir(source_dir)
+	_remove_user_dir(target_dir)
+	_remove_user_dir(root_path)
+	_remove_user_dir(target_root)
+
+	assert_true(report.is_ok(), "overwrite=true 时应允许替换已存在目标。")
+	assert_eq(GFVariantData.get_option_int(report.metadata, "copied_count"), 1, "替换成功应计为复制。")
+	assert_eq(target_content, "new-audio", "目标文件应被完整替换为新内容。")
+
+
 func test_audio_library_copy_import_plan_rejects_file_count_above_limit() -> void:
 	var root_path: String = "user://gf_audio_library_copy_count_source"
 	var target_root: String = "user://gf_audio_library_copy_count_target"

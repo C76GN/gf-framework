@@ -67,6 +67,8 @@
 | 方法 | [`unregister_owner_events`](#member-gfarchitecture-methods-unregister_owner_events) | `func unregister_owner_events(owner: Object) -> void:` |
 | 方法 | [`send_simple_event`](#member-gfarchitecture-methods-send_simple_event) | `func send_simple_event(event_id: StringName, payload: Variant = null) -> void:` |
 | 方法 | [`get_event_debug_stats`](#member-gfarchitecture-methods-get_event_debug_stats) | `func get_event_debug_stats() -> Dictionary:` |
+| 方法 | [`get_event_listener_diagnostics`](#member-gfarchitecture-methods-get_event_listener_diagnostics) | `func get_event_listener_diagnostics(options: Dictionary = {}) -> Dictionary:` |
+| 方法 | [`compact_event_listeners`](#member-gfarchitecture-methods-compact_event_listeners) | `func compact_event_listeners() -> int:` |
 | 方法 | [`configure_event_debugging`](#member-gfarchitecture-methods-configure_event_debugging) | `func configure_event_debugging( max_dispatch_depth: int = GFTypeEventSystem.DEFAULT_MAX_DISPATCH_DEPTH, trace_enabled: bool = false, max_trace_entries: int = 64 ) -> void:` |
 | 方法 | [`get_event_dispatch_trace`](#member-gfarchitecture-methods-get_event_dispatch_trace) | `func get_event_dispatch_trace() -> Array[Dictionary]:` |
 | 方法 | [`clear_event_dispatch_trace`](#member-gfarchitecture-methods-clear_event_dispatch_trace) | `func clear_event_dispatch_trace() -> void:` |
@@ -115,6 +117,7 @@
 | 方法 | [`restore_global_snapshot`](#member-gfarchitecture-methods-restore_global_snapshot) | `func restore_global_snapshot(data: Dictionary, command_builder: Callable = Callable()) -> void:` |
 | 方法 | [`restore_global_snapshot_async`](#member-gfarchitecture-methods-restore_global_snapshot_async) | `func restore_global_snapshot_async( data: Dictionary, command_builder: Callable = Callable(), options: Dictionary = {} ) -> void:` |
 | 方法 | [`get_debug_lifecycle_state`](#member-gfarchitecture-methods-get_debug_lifecycle_state) | `func get_debug_lifecycle_state() -> Dictionary:` |
+| 方法 | [`get_binding_diagnostics`](#member-gfarchitecture-methods-get_binding_diagnostics) | `func get_binding_diagnostics(options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`get_dependency_diagnostics`](#member-gfarchitecture-methods-get_dependency_diagnostics) | `func get_dependency_diagnostics(options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`_on_init`](#member-gfarchitecture-methods-_on_init) | `func _on_init() -> void:` |
 | 方法 | [`_on_dispose`](#member-gfarchitecture-methods-_on_dispose) | `func _on_dispose() -> void:` |
@@ -978,6 +981,47 @@ func get_event_debug_stats() -> Dictionary:
 结构：
 
 - `return`: Dictionary produced by GFTypeEventSystem.get_debug_stats().
+
+<a id="member-gfarchitecture-methods-get_event_listener_diagnostics"></a>
+
+### `get_event_listener_diagnostics`
+
+- API：`public`
+- 首次版本：`7.0.0`
+
+```gdscript
+func get_event_listener_diagnostics(options: Dictionary = {}) -> Dictionary:
+```
+
+获取事件监听器诊断明细。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `options` | 诊断选项，支持 include_entries。 |
+
+返回：监听器诊断报告。
+
+结构：
+
+- `options`: Dictionary，可包含 include_entries。
+- `return`: Dictionary produced by GFTypeEventSystem.get_listener_diagnostics().
+
+<a id="member-gfarchitecture-methods-compact_event_listeners"></a>
+
+### `compact_event_listeners`
+
+- API：`public`
+- 首次版本：`7.0.0`
+
+```gdscript
+func compact_event_listeners() -> int:
+```
+
+清理 owner 已释放的事件监听器。
+
+返回：本次立即移除或排队清理的监听器数量。
 
 <a id="member-gfarchitecture-methods-configure_event_debugging"></a>
 
@@ -1926,6 +1970,32 @@ func get_debug_lifecycle_state() -> Dictionary:
 结构：
 
 - `return`: Dictionary containing lifecycle flags, registered module summaries, factory summaries, alias counts, and tick cache counts.
+
+<a id="member-gfarchitecture-methods-get_binding_diagnostics"></a>
+
+### `get_binding_diagnostics`
+
+- API：`public`
+- 首次版本：`7.0.0`
+
+```gdscript
+func get_binding_diagnostics(options: Dictionary = {}) -> Dictionary:
+```
+
+获取架构绑定图诊断。 该报告只读取当前注册表、别名、工厂和父级链摘要，不触发依赖解析或生命周期推进。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `options` | 可选参数，支持 include_entries、include_parent_chain 与 max_parent_depth。 |
+
+返回：绑定图诊断报告。
+
+结构：
+
+- `options`: Dictionary with optional bool keys include_entries/include_parent_chain and int key max_parent_depth.
+- `return`: Dictionary containing ok, registry counts, registry entries, factory bindings, parent chain, lifecycle flags, and issues.
 
 <a id="member-gfarchitecture-methods-get_dependency_diagnostics"></a>
 

@@ -1,0 +1,236 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFCompatibilityPreflight" path="addons/gf/standard/foundation/policy/gf_compatibility_preflight.gd" module="standard" extends="RefCounted" classDigest="23286a05608a200b31cf3c487e3152017b386193ebfad86ad85c30ba79af0145">
+	<description>GFCompatibilityPreflight: 通用兼容性预检报告构建器。
+将版本、平台、功能、包和外部报告合并为标准校验报告。它只做显式声明的
+预检，不安装包、不下载资源、不执行代码，也不把项目发布策略写入框架。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_service</tag>
+		<tag name="since">7.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants>
+		<member kind="const" name="MATCH_ANY">
+			<signature>const MATCH_ANY: StringName = &amp;"any"</signature>
+			<description>任一候选满足即可。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="MATCH_ALL">
+			<signature>const MATCH_ALL: StringName = &amp;"all"</signature>
+			<description>全部候选都必须满足。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties>
+		<member kind="property" name="subject">
+			<signature>var subject: String = _DEFAULT_SUBJECT</signature>
+			<description>报告主题。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="target_id">
+			<signature>var target_id: StringName = &amp;""</signature>
+			<description>预检目标 ID。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="target_version">
+			<signature>var target_version: String = ""</signature>
+			<description>预检目标版本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="profile">
+			<signature>var profile: GFCompatibilityProfile = null</signature>
+			<description>当前使用的 Profile。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="checks">
+			<signature>var checks: Array[Dictionary] = []</signature>
+			<description>预检检查记录。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">checks: Array[Dictionary]，每项包含 check_id、kind、ok、expected_value、actual_value 和 metadata。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="issues">
+			<signature>var issues: Array[Dictionary] = []</signature>
+			<description>预检问题。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">issues: Array[Dictionary] GFValidationReportDictionary-compatible issue payloads.</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="metadata">
+			<signature>var metadata: Dictionary = {}</signature>
+			<description>调用方自定义元数据。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">metadata: Dictionary caller-defined preflight metadata.</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="configure">
+			<signature>func configure( p_subject: String = _DEFAULT_SUBJECT, p_profile: GFCompatibilityProfile = null, p_metadata: Dictionary = {} ) -&gt; GFCompatibilityPreflight:</signature>
+			<description>配置预检构建器。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">p_subject: 报告主题。</tag>
+				<tag name="param">p_profile: 兼容性 Profile。</tag>
+				<tag name="param">p_metadata: 调用方元数据。</tag>
+				<tag name="return">当前构建器。</tag>
+				<tag name="schema">p_metadata: Dictionary caller-defined preflight metadata.</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="clear">
+			<signature>func clear() -&gt; void:</signature>
+			<description>清空检查和问题。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="set_profile">
+			<signature>func set_profile(p_profile: GFCompatibilityProfile) -&gt; GFCompatibilityPreflight:</signature>
+			<description>设置 Profile。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">p_profile: 兼容性 Profile。</tag>
+				<tag name="return">当前构建器。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="require_godot_version">
+			<signature>func require_godot_version( minimum_version: String = "", maximum_version_exclusive: String = "", options: Dictionary = {} ) -&gt; Dictionary:</signature>
+			<description>要求 Godot 版本满足范围。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">minimum_version: 最低版本；为空时不检查。</tag>
+				<tag name="param">maximum_version_exclusive: 排他最高版本；为空时不检查。</tag>
+				<tag name="param">options: 检查选项，支持 check_id、severity 和 metadata。</tag>
+				<tag name="return">检查记录副本。</tag>
+				<tag name="schema">options: Dictionary check metadata.</tag>
+				<tag name="schema">return: Dictionary check record.</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="require_framework_version">
+			<signature>func require_framework_version( minimum_version: String = "", maximum_version_exclusive: String = "", options: Dictionary = {} ) -&gt; Dictionary:</signature>
+			<description>要求 GF 框架版本满足范围。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">minimum_version: 最低版本；为空时不检查。</tag>
+				<tag name="param">maximum_version_exclusive: 排他最高版本；为空时不检查。</tag>
+				<tag name="param">options: 检查选项，支持 check_id、severity 和 metadata。</tag>
+				<tag name="return">检查记录副本。</tag>
+				<tag name="schema">options: Dictionary check metadata.</tag>
+				<tag name="schema">return: Dictionary check record.</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="require_platforms">
+			<signature>func require_platforms( required_platforms: PackedStringArray, mode: StringName = MATCH_ANY, options: Dictionary = {} ) -&gt; Dictionary:</signature>
+			<description>要求平台能力满足候选集合。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">required_platforms: 平台标识候选。</tag>
+				<tag name="param">mode: MATCH_ANY 或 MATCH_ALL。</tag>
+				<tag name="param">options: 检查选项，支持 check_id、severity 和 metadata。</tag>
+				<tag name="return">检查记录副本。</tag>
+				<tag name="schema">options: Dictionary check metadata.</tag>
+				<tag name="schema">return: Dictionary check record.</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="require_features">
+			<signature>func require_features( required_features: PackedStringArray, mode: StringName = MATCH_ALL, options: Dictionary = {} ) -&gt; Dictionary:</signature>
+			<description>要求功能能力满足候选集合。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">required_features: 功能能力标识候选。</tag>
+				<tag name="param">mode: MATCH_ANY 或 MATCH_ALL。</tag>
+				<tag name="param">options: 检查选项，支持 check_id、severity 和 metadata。</tag>
+				<tag name="return">检查记录副本。</tag>
+				<tag name="schema">options: Dictionary check metadata.</tag>
+				<tag name="schema">return: Dictionary check record.</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="require_package">
+			<signature>func require_package( package_id: StringName, minimum_version: String = "", maximum_version_exclusive: String = "", options: Dictionary = {} ) -&gt; Dictionary:</signature>
+			<description>要求包存在并可选满足版本范围。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">package_id: 包 ID。</tag>
+				<tag name="param">minimum_version: 最低版本；为空时不检查。</tag>
+				<tag name="param">maximum_version_exclusive: 排他最高版本；为空时不检查。</tag>
+				<tag name="param">options: 检查选项，支持 check_id、severity 和 metadata。</tag>
+				<tag name="return">检查记录副本。</tag>
+				<tag name="schema">options: Dictionary check metadata.</tag>
+				<tag name="schema">return: Dictionary check record.</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="add_check">
+			<signature>func add_check(check_id: StringName, ok: bool, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>添加自定义检查结果。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">check_id: 检查 ID。</tag>
+				<tag name="param">ok: 检查是否通过。</tag>
+				<tag name="param">options: 检查选项，支持 kind、expected_value、actual_value、issue_kind、message、severity 和 metadata。</tag>
+				<tag name="return">检查记录副本。</tag>
+				<tag name="schema">options: Dictionary check metadata.</tag>
+				<tag name="schema">return: Dictionary check record.</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="merge_report">
+			<signature>func merge_report(report: Dictionary, options: Dictionary = {}) -&gt; GFCompatibilityPreflight:</signature>
+			<description>合并另一份校验报告的问题。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">report: GFValidationReportDictionary 兼容报告。</tag>
+				<tag name="param">options: 合并选项，支持 component、phase 和 issue_kind。</tag>
+				<tag name="return">当前构建器。</tag>
+				<tag name="schema">report: Dictionary report payload.</tag>
+				<tag name="schema">options: Dictionary merge metadata.</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_report">
+			<signature>func get_report(options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>获取预检报告。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">options: 报告选项，支持 subject、fallback_action、no_action 和 warnings_as_errors。</tag>
+				<tag name="return">GFValidationReportDictionary 兼容报告。</tag>
+				<tag name="schema">options: Dictionary report finalization options.</tag>
+				<tag name="schema">return: Dictionary with ok, healthy, profile, checks, issues, summary, and next_action.</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

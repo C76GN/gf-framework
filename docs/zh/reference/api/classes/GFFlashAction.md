@@ -21,6 +21,9 @@
 | 属性 | [`property_name`](#member-gfflashaction-properties-property_name) | `var property_name: NodePath = ^"modulate"` |
 | 方法 | [`execute`](#member-gfflashaction-methods-execute) | `func execute() -> Variant:` |
 | 方法 | [`cancel`](#member-gfflashaction-methods-cancel) | `func cancel() -> void:` |
+| 方法 | [`pause`](#member-gfflashaction-methods-pause) | `func pause() -> void:` |
+| 方法 | [`resume`](#member-gfflashaction-methods-resume) | `func resume() -> void:` |
+| 方法 | [`finish`](#member-gfflashaction-methods-finish) | `func finish() -> void:` |
 | 方法 | [`get_wait_guard_node`](#member-gfflashaction-methods-get_wait_guard_node) | `func get_wait_guard_node() -> Node:` |
 
 ## 属性
@@ -104,6 +107,45 @@ func cancel() -> void:
 ```
 
 取消当前 Tween 并释放等待者。
+
+<a id="member-gfflashaction-methods-pause"></a>
+
+### `pause`
+
+- API：`public`
+- 首次版本：`6.0.0`
+
+```gdscript
+func pause() -> void:
+```
+
+暂停当前闪色 Tween。
+
+<a id="member-gfflashaction-methods-resume"></a>
+
+### `resume`
+
+- API：`public`
+- 首次版本：`6.0.0`
+
+```gdscript
+func resume() -> void:
+```
+
+恢复当前闪色 Tween。
+
+<a id="member-gfflashaction-methods-finish"></a>
+
+### `finish`
+
+- API：`public`
+- 首次版本：`6.0.0`
+
+```gdscript
+func finish() -> void:
+```
+
+立即结束当前闪色动作并恢复原色。
 
 <a id="member-gfflashaction-methods-get_wait_guard_node"></a>
 

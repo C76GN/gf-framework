@@ -1,0 +1,231 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFEditorCommandRegistry" path="addons/gf/kernel/editor/gf_editor_command_registry.gd" module="kernel" extends="RefCounted" classDigest="fc0629b2dac2b99ded7331e0df1f876015540bdd176a1840782981fb154c6d51">
+	<description>GFEditorCommandRegistry: 编辑器动作注册表。
+收集由 kernel、standard、扩展或项目工具主动贡献的编辑器动作，并提供按 ID
+查询、排序、布局解析和调用入口。注册表只保存动作声明与来源信息，不扫描脚本、
+不保存业务逻辑，也不规定命令面板或工具栏的具体 UI。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">editor_api</tag>
+		<tag name="layer">kernel/editor</tag>
+		<tag name="since">7.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants>
+		<member kind="const" name="STATUS_REGISTERED">
+			<signature>const STATUS_REGISTERED: StringName = &amp;"registered"</signature>
+			<description>动作已新增注册。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_REPLACED">
+			<signature>const STATUS_REPLACED: StringName = &amp;"replaced"</signature>
+			<description>已存在动作被替换。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_DUPLICATE">
+			<signature>const STATUS_DUPLICATE: StringName = &amp;"duplicate"</signature>
+			<description>动作 ID 已存在且未允许替换。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_INVALID">
+			<signature>const STATUS_INVALID: StringName = &amp;"invalid"</signature>
+			<description>动作声明无效。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_MISSING">
+			<signature>const STATUS_MISSING: StringName = &amp;"missing"</signature>
+			<description>动作不存在。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_INVOKED">
+			<signature>const STATUS_INVOKED: StringName = &amp;"invoked"</signature>
+			<description>动作已调用。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_FAILED">
+			<signature>const STATUS_FAILED: StringName = &amp;"failed"</signature>
+			<description>动作调用失败。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties>
+		<member kind="property" name="metadata">
+			<signature>var metadata: Dictionary = {}</signature>
+			<description>注册表元数据。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">metadata: Dictionary for caller-defined registry metadata.</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="clear">
+			<signature>func clear() -&gt; void:</signature>
+			<description>清空所有动作记录。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="register_action">
+			<signature>func register_action(action: GFEditorActionDefinitionBase, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>注册单个动作。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">action: 要注册的动作声明。</tag>
+				<tag name="param">options: 注册选项，支持 replace_existing、group、source_id、sort_order 和 metadata。</tag>
+				<tag name="return">注册结果。</tag>
+				<tag name="schema">options: Dictionary with replace_existing, group, source_id, sort_order, and metadata.</tag>
+				<tag name="schema">return: Dictionary containing ok, status, action_id, replaced, error_code, message, and metadata.</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="register_actions">
+			<signature>func register_actions(actions: Array[GFEditorActionDefinitionBase], options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>批量注册动作。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">actions: 动作声明数组。</tag>
+				<tag name="param">options: 注册选项，会传给每个 register_action()。</tag>
+				<tag name="return">批量注册摘要。</tag>
+				<tag name="schema">actions: Array of GFEditorActionDefinition.</tag>
+				<tag name="schema">options: Dictionary register_action() options.</tag>
+				<tag name="schema">return: Dictionary containing ok, action_count, registered_count, failed_count, and results.</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="unregister_action">
+			<signature>func unregister_action(action_id: StringName) -&gt; bool:</signature>
+			<description>取消注册动作。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">action_id: 动作 ID。</tag>
+				<tag name="return">存在并移除时返回 true。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="has_action">
+			<signature>func has_action(action_id: StringName) -&gt; bool:</signature>
+			<description>检查动作是否已注册。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">action_id: 动作 ID。</tag>
+				<tag name="return">存在返回 true。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_action">
+			<signature>func get_action(action_id: StringName) -&gt; GFEditorActionDefinitionBase:</signature>
+			<description>获取动作声明。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">action_id: 动作 ID。</tag>
+				<tag name="return">动作声明；不存在时返回 null。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_action_record">
+			<signature>func get_action_record(action_id: StringName) -&gt; Dictionary:</signature>
+			<description>获取动作注册记录副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">action_id: 动作 ID。</tag>
+				<tag name="return">动作记录；不存在时返回空字典。</tag>
+				<tag name="schema">return: Dictionary containing action, action_id, group, source_id, sort_order, and metadata.</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_action_ids">
+			<signature>func get_action_ids(filters: Dictionary = {}) -&gt; PackedStringArray:</signature>
+			<description>获取动作 ID 列表。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">filters: 可选过滤条件，支持 group 与 source_id。</tag>
+				<tag name="return">按 group、sort_order、label 排序的动作 ID。</tag>
+				<tag name="schema">filters: Dictionary with optional group and source_id.</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_action_snapshots">
+			<signature>func get_action_snapshots(context: Dictionary = {}, options: Dictionary = {}) -&gt; Array[Dictionary]:</signature>
+			<description>获取动作快照列表。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">context: 用于可用性检查的调用上下文。</tag>
+				<tag name="param">options: 可选参数，支持 group、source_id 和 include_availability。</tag>
+				<tag name="return">动作快照数组。</tag>
+				<tag name="schema">context: Dictionary passed to action availability checks.</tag>
+				<tag name="schema">options: Dictionary with group, source_id, and include_availability.</tag>
+				<tag name="schema">return: Array[Dictionary] action snapshots sorted for UI display.</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="resolve_layout">
+			<signature>func resolve_layout( action_ids: PackedStringArray, context: Dictionary = {}, options: Dictionary = {} ) -&gt; Dictionary:</signature>
+			<description>按保存的动作 ID 布局解析动作快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">action_ids: 已保存的动作 ID 顺序。</tag>
+				<tag name="param">context: 用于可用性检查的调用上下文。</tag>
+				<tag name="param">options: 可选参数，支持 include_availability。</tag>
+				<tag name="return">布局解析报告。</tag>
+				<tag name="schema">context: Dictionary passed to action availability checks.</tag>
+				<tag name="schema">options: Dictionary with optional include_availability.</tag>
+				<tag name="schema">return: Dictionary containing entries and missing_ids.</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="invoke_action">
+			<signature>func invoke_action( action_id: StringName, context: Dictionary = {}, undo_manager: Object = null ) -&gt; Dictionary:</signature>
+			<description>按 ID 调用动作。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">action_id: 动作 ID。</tag>
+				<tag name="param">context: 动作上下文。</tag>
+				<tag name="param">undo_manager: EditorUndoRedoManager 或兼容对象；为空时直接执行命令。</tag>
+				<tag name="return">调用结果。</tag>
+				<tag name="schema">context: Dictionary passed to action.invoke().</tag>
+				<tag name="schema">return: Dictionary containing ok, status, action_id, error_code, message, and metadata.</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_debug_snapshot">
+			<signature>func get_debug_snapshot(context: Dictionary = {}, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>获取注册表调试快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">context: 可选动作上下文。</tag>
+				<tag name="param">options: 可选参数，透传给 get_action_snapshots()。</tag>
+				<tag name="return">调试快照。</tag>
+				<tag name="schema">context: Dictionary passed to get_action_snapshots().</tag>
+				<tag name="schema">options: Dictionary get_action_snapshots() options.</tag>
+				<tag name="schema">return: Dictionary containing action_count, action_ids, actions, and metadata.</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

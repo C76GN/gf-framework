@@ -91,6 +91,47 @@ func test_dependency_diagnostics_reads_dictionary_hook() -> void:
 	arch.dispose()
 
 
+func test_binding_diagnostics_reports_registries_aliases_factories_and_parent_chain() -> void:
+	var parent_arch: GFArchitecture = GFArchitecture.new()
+	var child_arch: GFArchitecture = GFArchitecture.new(parent_arch)
+	await parent_arch.register_model_instance(DiagnosticModel.new())
+	await child_arch.register_utility_instance(DiagnosticUtilityAlias.new())
+	child_arch.register_utility_alias(DiagnosticUtility, DiagnosticUtilityAlias)
+	child_arch.register_factory(
+		DiagnosticFactoryObject,
+		func() -> DiagnosticFactoryObject:
+			return DiagnosticFactoryObject.new(),
+		GFBindingLifetimes.Lifetime.SINGLETON
+	)
+
+	var report: Dictionary = child_arch.get_binding_diagnostics()
+	var counts: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(report, "registry_counts")
+	var registries: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(report, "registries")
+	var utilities: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(registries, "utilities")
+	var utility_aliases: Array = GF_VARIANT_ACCESS.get_option_array(utilities, "aliases")
+	var first_alias: Dictionary = GF_VARIANT_ACCESS.as_dictionary(utility_aliases[0])
+	var factories: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(report, "factories")
+	var factory_entries: Array = GF_VARIANT_ACCESS.get_option_array(factories, "entries")
+	var first_factory: Dictionary = GF_VARIANT_ACCESS.as_dictionary(factory_entries[0])
+	var parent_chain: Array = GF_VARIANT_ACCESS.get_option_array(report, "parent_chain")
+	var parent_entry: Dictionary = GF_VARIANT_ACCESS.as_dictionary(parent_chain[0])
+	var parent_counts: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(parent_entry, "registry_counts")
+
+	assert_true(GF_VARIANT_ACCESS.get_option_bool(report, "ok"), "有效绑定图诊断应通过。")
+	assert_eq(GF_VARIANT_ACCESS.get_option_int(counts, "utilities"), 1, "诊断应统计本地 Utility。")
+	assert_eq(GF_VARIANT_ACCESS.get_option_int(counts, "factories"), 1, "诊断应统计工厂绑定。")
+	assert_eq(GF_VARIANT_ACCESS.get_option_int(counts, "aliases"), 1, "诊断应统计别名。")
+	assert_true(GF_VARIANT_ACCESS.get_option_bool(first_alias, "target_registered"), "有效别名应报告目标已注册。")
+	assert_eq(
+		GF_VARIANT_ACCESS.get_option_string(first_factory, "lifetime_name"),
+		"singleton",
+		"工厂诊断应报告生命周期。"
+	)
+	assert_eq(GF_VARIANT_ACCESS.get_option_int(parent_counts, "models"), 1, "父级链摘要应报告父架构 Model。")
+	child_arch.dispose()
+	parent_arch.dispose()
+
+
 # --- 辅助类型 ---
 
 class DiagnosticModel extends GFModel:
@@ -98,6 +139,10 @@ class DiagnosticModel extends GFModel:
 
 
 class DiagnosticUtility extends GFUtility:
+	pass
+
+
+class DiagnosticUtilityAlias extends DiagnosticUtility:
 	pass
 
 

@@ -194,6 +194,10 @@ func validate_values(values: Dictionary) -> Dictionary:
 			_append_issue(report, "error", "empty_key", &"", "字段键为空。")
 			continue
 
+		if declared_keys.has(entry_key):
+			_append_issue(report, "error", "duplicate_entry_key", entry_key, "字段键重复：%s。" % String(entry_key))
+			continue
+
 		declared_keys[entry_key] = true
 		if not working_values.has(entry_key):
 			if entry.required:
@@ -282,10 +286,10 @@ func _coerce_values_for_validation(values: Dictionary, report: Dictionary) -> Di
 
 		var entry_key: StringName = entry.get_key()
 		var has_value: bool = result.has(entry_key)
-		if not has_value and entry.default_value == null:
+		if not has_value:
 			continue
 
-		var source_value: Variant = result[entry_key] if has_value else entry.default_value
+		var source_value: Variant = result[entry_key]
 		var coerce_result: Dictionary = entry.try_coerce_value(source_value)
 		result[entry_key] = GFVariantData.get_option_value(coerce_result, "value")
 		if GFVariantData.get_option_bool(coerce_result, "ok", false):
@@ -323,6 +327,7 @@ func _get_validation_next_actions() -> Dictionary:
 		"missing_required": "Provide the required key or apply defaults before validation.",
 		"null_value": "Provide a non-null value or allow null for this entry.",
 		"invalid_type": "Update the value type or coerce the value before writing it to the blackboard.",
+		"duplicate_entry_key": "Keep one GFBlackboardEntry per stable key.",
 		"extra_key": "Remove the undeclared key or enable allow_extra_keys.",
 		"coerce_failed": "Fix the source value so it can be converted to the declared blackboard entry type.",
 	}

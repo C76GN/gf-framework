@@ -114,6 +114,98 @@ func test_object_metadata_can_use_dictionary_schema() -> void:
 	node.free()
 
 
+func test_validate_object_metadata_reports_missing_target() -> void:
+	var utility: GFAssetMetadataUtility = GFAssetMetadataUtility.new()
+	var schema: GFDictionarySchema = GFDictionarySchema.new()
+	schema.allow_extra_fields = true
+
+	var report: Dictionary = utility.validate_object_metadata(null, schema)
+	var issues: Array = GFVariantData.get_option_array(report, "issues")
+	var first_issue: Dictionary = GFVariantData.as_dictionary(issues[0])
+
+	assert_false(GFVariantData.get_option_bool(report, "ok"), "缺少目标对象时 schema 默认值不应掩盖错误。")
+	assert_eq(GFVariantData.get_option_string(first_issue, "kind"), "missing_target")
+
+
+func test_metadata_source_is_scoped_per_metadata_key() -> void:
+	var utility: GFAssetMetadataUtility = GFAssetMetadataUtility.new()
+	var node: Node = Node.new()
+
+	var _default_record: GFAssetMetadataRecord = utility.write_object_metadata(node, { "kind": "default" }, {
+		"metadata_source": "default_source",
+	})
+	var _custom_record: GFAssetMetadataRecord = utility.write_object_metadata(node, { "kind": "custom" }, {
+		"metadata_key": &"custom_metadata",
+		"metadata_source": "custom_source",
+	})
+
+	assert_eq(
+		GFVariantData.to_text(node.get_meta(GFAssetMetadataUtility.META_ASSET_METADATA_SOURCE)),
+		"default_source",
+		"写入自定义 metadata key 不应覆盖默认 key 的 source。"
+	)
+	assert_eq(
+		GFVariantData.to_text(node.get_meta(&"gf_asset_metadata_source__637573746f6d5f6d65746164617461")),
+		"custom_source",
+		"自定义 metadata key 应拥有独立 source。"
+	)
+
+	utility.clear_object_metadata(node, { "metadata_key": &"custom_metadata" })
+
+	assert_true(node.has_meta(GFAssetMetadataUtility.META_ASSET_METADATA), "清理自定义 key 不应删除默认 metadata。")
+	assert_eq(
+		GFVariantData.to_text(node.get_meta(GFAssetMetadataUtility.META_ASSET_METADATA_SOURCE)),
+		"default_source",
+		"清理自定义 key 不应删除默认 metadata 的 source。"
+	)
+	assert_false(node.has_meta(&"gf_asset_metadata_source__637573746f6d5f6d65746164617461"), "清理自定义 key 应删除对应 source。")
+
+	node.free()
+
+
+func test_empty_singular_metadata_key_falls_back_to_default_key() -> void:
+	var utility: GFAssetMetadataUtility = GFAssetMetadataUtility.new()
+	var node: Node = Node.new()
+
+	var _record: GFAssetMetadataRecord = utility.write_object_metadata(node, { "kind": "asset" }, {
+		"metadata_key": "",
+	})
+
+	assert_true(node.has_meta(GFAssetMetadataUtility.META_ASSET_METADATA), "空 metadata_key 应回退默认 key。")
+	assert_false(node.get_meta_list().has(&""), "空 metadata_key 不应创建空 Object metadata。")
+
+	node.free()
+
+
+func test_validate_object_metadata_reports_unknown_fields_after_schema_normalization() -> void:
+	var utility: GFAssetMetadataUtility = GFAssetMetadataUtility.new()
+	var node: Node = Node.new()
+	var schema: GFDictionarySchema = GFDictionarySchema.new()
+	schema.schema_id = &"asset_metadata"
+	schema.coerce_values = true
+	schema.allow_extra_fields = false
+	var _kind_added: bool = schema.add_field(GFSchemaField.new().configure(&"kind", GFSchemaField.ValueType.STRING, {
+		"required": true,
+		"default_value": "asset",
+	}))
+	var _priority_added: bool = schema.add_field(GFSchemaField.new().configure(&"priority", GFSchemaField.ValueType.INT, {
+		"default_value": 0,
+	}))
+	var _record: GFAssetMetadataRecord = utility.write_object_metadata(node, {
+		"priority": "4",
+		"legacy": true,
+	})
+
+	var report: Dictionary = utility.validate_object_metadata(node, schema)
+	var issues: Array = GFVariantData.get_option_array(report, "issues")
+	var first_issue: Dictionary = GFVariantData.as_dictionary(issues[0])
+
+	assert_false(GFVariantData.get_option_bool(report, "ok"), "未知字段应被 schema 校验报告。")
+	assert_eq(GFVariantData.get_option_string(first_issue, "kind"), "extra_field")
+
+	node.free()
+
+
 func test_build_node_tree_report_reports_missing_root() -> void:
 	var utility: GFAssetMetadataUtility = GFAssetMetadataUtility.new()
 	var report: Dictionary = utility.build_node_tree_report(null)

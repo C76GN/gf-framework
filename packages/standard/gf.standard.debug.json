@@ -4,7 +4,7 @@
   "kind": "standard",
   "version": "unreleased",
   "display_name": "GF Standard Debug",
-  "description": "Debug draw and overlay, metrics, screenshots, support reports, and debug editor docks.",
+  "description": "Runtime debug draw and overlay, metrics, screenshots, support reports, runtime inspector, tunables, and signal probes.",
   "dependencies": [
     "gf.kernel",
     "gf.standard.base",
@@ -12,7 +12,6 @@
     "gf.standard.diagnostics"
   ],
   "paths": [
-    "addons/gf/standard/utilities/debug/editor/**",
     "addons/gf/standard/utilities/debug/gf_debug_draw_utility.gd",
     "addons/gf/standard/utilities/debug/gf_debug_draw_utility.gd.uid",
     "addons/gf/standard/utilities/debug/gf_debug_overlay_utility.gd",

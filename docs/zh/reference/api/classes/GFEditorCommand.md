@@ -20,6 +20,8 @@
 | 方法 | [`execute`](#member-gfeditorcommand-methods-execute) | `func execute() -> Error:` |
 | 方法 | [`revert`](#member-gfeditorcommand-methods-revert) | `func revert() -> Error:` |
 | 方法 | [`add_to_undo_manager`](#member-gfeditorcommand-methods-add_to_undo_manager) | `func add_to_undo_manager(undo_manager: Object, execute_immediately: bool = true) -> Error:` |
+| 方法 | [`get_last_execute_error`](#member-gfeditorcommand-methods-get_last_execute_error) | `func get_last_execute_error() -> Error:` |
+| 方法 | [`get_last_revert_error`](#member-gfeditorcommand-methods-get_last_revert_error) | `func get_last_revert_error() -> Error:` |
 | 方法 | [`is_executed`](#member-gfeditorcommand-methods-is_executed) | `func is_executed() -> bool:` |
 | 方法 | [`can_execute`](#member-gfeditorcommand-methods-can_execute) | `func can_execute() -> bool:` |
 | 方法 | [`can_revert_before_execute`](#member-gfeditorcommand-methods-can_revert_before_execute) | `func can_revert_before_execute() -> bool:` |
@@ -92,12 +94,13 @@ func revert() -> Error:
 ### `add_to_undo_manager`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func add_to_undo_manager(undo_manager: Object, execute_immediately: bool = true) -> Error:
 ```
 
-将命令写入 Godot 编辑器 UndoRedo 管理器。
+将命令写入 Godot 编辑器 UndoRedo 管理器。 返回值只表示 action 已成功写入并提交给 UndoRedo 管理器；Godot 原生 `EditorUndoRedoManager` 不会把 do/undo 回调的错误码回传给提交方。需要诊断 回调执行结果时，读取命令自身的最近执行/撤销错误或调试快照。
 
 参数：
 
@@ -107,6 +110,36 @@ func add_to_undo_manager(undo_manager: Object, execute_immediately: bool = true)
 | `execute_immediately` | 提交 action 时是否立即执行 do 方法。 |
 
 返回：Godot 错误码。
+
+<a id="member-gfeditorcommand-methods-get_last_execute_error"></a>
+
+### `get_last_execute_error`
+
+- API：`public`
+- 首次版本：`7.0.0`
+
+```gdscript
+func get_last_execute_error() -> Error:
+```
+
+获取最近一次 execute() 的错误码。
+
+返回：最近 execute() 返回的 Godot 错误码。
+
+<a id="member-gfeditorcommand-methods-get_last_revert_error"></a>
+
+### `get_last_revert_error`
+
+- API：`public`
+- 首次版本：`7.0.0`
+
+```gdscript
+func get_last_revert_error() -> Error:
+```
+
+获取最近一次 revert() 的错误码。
+
+返回：最近 revert() 返回的 Godot 错误码。
 
 <a id="member-gfeditorcommand-methods-is_executed"></a>
 

@@ -664,6 +664,52 @@ func test_push_and_pop_state_uses_pause_and_resume() -> void:
 	assert_eq(idle.last_previous, &"Menu", "恢复状态应收到来源子状态名。")
 
 
+func test_push_state_does_not_use_exit_guard_for_paused_state() -> void:
+	var machine: GFNodeStateMachine = GFNodeStateMachine.new()
+	var idle: GuardedNodeState = GuardedNodeState.new()
+	var menu: TrackingNodeState = TrackingNodeState.new()
+	idle.name = "Idle"
+	idle.allow_exit = false
+	menu.name = "Menu"
+	machine.initial_state = &"Idle"
+	add_child_autofree(machine)
+	machine.add_child(idle)
+	machine.add_child(menu)
+	await get_tree().process_frame
+
+	machine.push_state(&"Menu")
+
+	assert_eq(machine.get_current_state(), menu, "push_state 是暂停叠加，不应被当前状态 exit guard 阻止。")
+	assert_eq(idle.pause_count, 1, "push_state 应暂停旧状态。")
+	assert_eq(idle.exit_count, 0, "push_state 不应退出旧状态。")
+
+
+func test_remove_state_uses_registration_key_after_state_rename() -> void:
+	var group: GFNodeStateGroup = GFNodeStateGroup.new()
+	var state: TrackingNodeState = TrackingNodeState.new()
+	state.state_name = &"Idle"
+	group.add_state(state)
+	state.state_name = &"Renamed"
+
+	var removed: bool = group.remove_state(state)
+
+	assert_true(removed, "移除状态应使用注册 key，不应受节点后续改名影响。")
+	assert_null(group.get_state(&"Idle"), "移除后注册 key 应清理。")
+
+
+func test_remove_state_group_uses_registration_key_after_group_rename() -> void:
+	var machine: GFNodeStateMachine = GFNodeStateMachine.new()
+	var group: GFNodeStateGroup = GFNodeStateGroup.new()
+	group.group_name = &"External"
+	machine.add_state_group(group)
+	group.group_name = &"Renamed"
+
+	var removed: bool = machine.remove_state_group(group)
+
+	assert_true(removed, "移除状态组应使用注册 key，不应受节点后续改名影响。")
+	assert_null(machine.get_state_group(&"External"), "移除后注册 group key 应清理。")
+
+
 func test_pop_state_redirect_does_not_reexit_current_state_when_stacked_state_redirects() -> void:
 	var machine: GFNodeStateMachine = GFNodeStateMachine.new()
 	var idle: TrackingNodeState = TrackingNodeState.new()

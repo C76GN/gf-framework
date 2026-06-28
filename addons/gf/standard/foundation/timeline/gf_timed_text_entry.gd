@@ -100,8 +100,16 @@ func to_dictionary() -> Dictionary:
 ## [br]
 ## @schema data: Dictionary serialized timed text entry.
 func apply_dictionary(data: Dictionary) -> void:
-	start_time = GFVariantData.get_option_float(data, "start_time", start_time)
-	end_time = GFVariantData.get_option_float(data, "end_time", end_time)
+	start_time = _normalize_time_seconds(GFVariantData.get_option_float(data, "start_time", start_time))
+	end_time = maxf(_normalize_time_seconds(GFVariantData.get_option_float(data, "end_time", end_time)), start_time)
 	text = GFVariantData.get_option_string(data, "text", text)
 	var raw_metadata: Dictionary = GFVariantData.as_dictionary(GFVariantData.get_option_value(data, "metadata", {}))
 	metadata = raw_metadata.duplicate(true)
+
+
+# --- 私有/辅助方法 ---
+
+static func _normalize_time_seconds(value: float) -> float:
+	if is_nan(value) or is_inf(value):
+		return 0.0
+	return maxf(value, 0.0)

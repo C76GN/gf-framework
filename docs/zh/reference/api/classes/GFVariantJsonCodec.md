@@ -20,11 +20,11 @@ Godot Variant 的 JSON 兼容编码器。 负责在 JSON.stringify() 可编码�
 | 方法 | [`parse_json_text`](#member-gfvariantjsoncodec-methods-parse_json_text) | `static func parse_json_text(text: String, fallback: Variant = null) -> Variant:` |
 | 方法 | [`format_json_text`](#member-gfvariantjsoncodec-methods-format_json_text) | `static func format_json_text( text: String, indent: String = "\t", sort_keys: bool = false, fallback: String = "" ) -> String:` |
 | 方法 | [`compact_json_text`](#member-gfvariantjsoncodec-methods-compact_json_text) | `static func compact_json_text(text: String, sort_keys: bool = false, fallback: String = "") -> String:` |
-| 方法 | [`vector2_to_array`](#member-gfvariantjsoncodec-methods-vector2_to_array) | `static func vector2_to_array(value: Vector2) -> Array[float]:` |
+| 方法 | [`vector2_to_array`](#member-gfvariantjsoncodec-methods-vector2_to_array) | `static func vector2_to_array(value: Vector2) -> Array:` |
 | 方法 | [`array_to_vector2`](#member-gfvariantjsoncodec-methods-array_to_vector2) | `static func array_to_vector2(value: Variant, fallback: Vector2 = Vector2.ZERO) -> Vector2:` |
-| 方法 | [`vector3_to_array`](#member-gfvariantjsoncodec-methods-vector3_to_array) | `static func vector3_to_array(value: Vector3) -> Array[float]:` |
+| 方法 | [`vector3_to_array`](#member-gfvariantjsoncodec-methods-vector3_to_array) | `static func vector3_to_array(value: Vector3) -> Array:` |
 | 方法 | [`array_to_vector3`](#member-gfvariantjsoncodec-methods-array_to_vector3) | `static func array_to_vector3(value: Variant, fallback: Vector3 = Vector3.ZERO) -> Vector3:` |
-| 方法 | [`color_to_array`](#member-gfvariantjsoncodec-methods-color_to_array) | `static func color_to_array(value: Color) -> Array[float]:` |
+| 方法 | [`color_to_array`](#member-gfvariantjsoncodec-methods-color_to_array) | `static func color_to_array(value: Color) -> Array:` |
 | 方法 | [`array_to_color`](#member-gfvariantjsoncodec-methods-array_to_color) | `static func array_to_color(value: Variant, fallback: Color = Color.WHITE) -> Color:` |
 
 ## 方法
@@ -159,12 +159,13 @@ static func compact_json_text(text: String, sort_keys: bool = false, fallback: S
 ### `vector2_to_array`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-static func vector2_to_array(value: Vector2) -> Array[float]:
+static func vector2_to_array(value: Vector2) -> Array:
 ```
 
-将 Vector2 转成 JSON 友好的数组。
+将 Vector2 转成 JSON 友好的数组，非有限分量使用 Float typed marker。
 
 参数：
 
@@ -173,6 +174,10 @@ static func vector2_to_array(value: Vector2) -> Array[float]:
 | `value` | 待转换的 Vector2。 |
 
 返回：[x, y] 数组。
+
+结构：
+
+- `return`: Array with two JSON-compatible float values; non-finite components use Float typed markers.
 
 <a id="member-gfvariantjsoncodec-methods-array_to_vector2"></a>
 
@@ -204,12 +209,13 @@ static func array_to_vector2(value: Variant, fallback: Vector2 = Vector2.ZERO) -
 ### `vector3_to_array`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-static func vector3_to_array(value: Vector3) -> Array[float]:
+static func vector3_to_array(value: Vector3) -> Array:
 ```
 
-将 Vector3 转成 JSON 友好的数组。
+将 Vector3 转成 JSON 友好的数组，非有限分量使用 Float typed marker。
 
 参数：
 
@@ -218,6 +224,10 @@ static func vector3_to_array(value: Vector3) -> Array[float]:
 | `value` | 待转换的 Vector3。 |
 
 返回：[x, y, z] 数组。
+
+结构：
+
+- `return`: Array with three JSON-compatible float values; non-finite components use Float typed markers.
 
 <a id="member-gfvariantjsoncodec-methods-array_to_vector3"></a>
 
@@ -249,12 +259,13 @@ static func array_to_vector3(value: Variant, fallback: Vector3 = Vector3.ZERO) -
 ### `color_to_array`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-static func color_to_array(value: Color) -> Array[float]:
+static func color_to_array(value: Color) -> Array:
 ```
 
-将 Color 转成 JSON 友好的数组。
+将 Color 转成 JSON 友好的数组，非有限通道使用 Float typed marker。
 
 参数：
 
@@ -263,6 +274,10 @@ static func color_to_array(value: Color) -> Array[float]:
 | `value` | 待转换的 Color。 |
 
 返回：[r, g, b, a] 数组。
+
+结构：
+
+- `return`: Array with four JSON-compatible float values; non-finite components use Float typed markers.
 
 <a id="member-gfvariantjsoncodec-methods-array_to_color"></a>
 

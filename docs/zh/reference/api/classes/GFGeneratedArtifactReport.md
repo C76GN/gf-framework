@@ -20,7 +20,11 @@
 | 常量 | [`STATUS_UNCHANGED`](#member-gfgeneratedartifactreport-constants-status_unchanged) | `const STATUS_UNCHANGED: StringName = &"unchanged"` |
 | 常量 | [`STATUS_SKIPPED`](#member-gfgeneratedartifactreport-constants-status_skipped) | `const STATUS_SKIPPED: StringName = &"skipped"` |
 | 常量 | [`STATUS_FAILED`](#member-gfgeneratedartifactreport-constants-status_failed) | `const STATUS_FAILED: StringName = &"failed"` |
+| 常量 | [`OWNER_GENERATED`](#member-gfgeneratedartifactreport-constants-owner_generated) | `const OWNER_GENERATED: StringName = &"generated"` |
+| 常量 | [`OWNER_USER`](#member-gfgeneratedartifactreport-constants-owner_user) | `const OWNER_USER: StringName = &"user"` |
+| 常量 | [`OWNER_EXTERNAL`](#member-gfgeneratedartifactreport-constants-owner_external) | `const OWNER_EXTERNAL: StringName = &"external"` |
 | 方法 | [`make_report`](#member-gfgeneratedartifactreport-methods-make_report) | `static func make_report( output_path: String, status: StringName, error_code: Error = OK, message: String = "", options: Dictionary = {} ) -> Dictionary:` |
+| 方法 | [`summarize_reports`](#member-gfgeneratedartifactreport-methods-summarize_reports) | `static func summarize_reports( reports: Array[Dictionary], subject: String = "", options: Dictionary = {} ) -> Dictionary:` |
 | 方法 | [`save_text`](#member-gfgeneratedartifactreport-methods-save_text) | `static func save_text(output_path: String, text: String, options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`get_error_code`](#member-gfgeneratedartifactreport-methods-get_error_code) | `static func get_error_code(report: Dictionary) -> Error:` |
 
@@ -91,6 +95,45 @@ const STATUS_FAILED: StringName = &"failed"
 
 产物写入或准备失败。
 
+<a id="member-gfgeneratedartifactreport-constants-owner_generated"></a>
+
+### `OWNER_GENERATED`
+
+- API：`public`
+- 首次版本：`6.0.0`
+
+```gdscript
+const OWNER_GENERATED: StringName = &"generated"
+```
+
+框架或项目工具生成并可安全重建的产物。
+
+<a id="member-gfgeneratedartifactreport-constants-owner_user"></a>
+
+### `OWNER_USER`
+
+- API：`public`
+- 首次版本：`6.0.0`
+
+```gdscript
+const OWNER_USER: StringName = &"user"
+```
+
+用户手写或需要人工维护的产物。
+
+<a id="member-gfgeneratedartifactreport-constants-owner_external"></a>
+
+### `OWNER_EXTERNAL`
+
+- API：`public`
+- 首次版本：`6.0.0`
+
+```gdscript
+const OWNER_EXTERNAL: StringName = &"external"
+```
+
+外部工具或框架边界外来源管理的产物。
+
 ## 方法
 
 <a id="member-gfgeneratedartifactreport-methods-make_report"></a>
@@ -114,14 +157,43 @@ static func make_report( output_path: String, status: StringName, error_code: Er
 | `status` | 产物状态。 |
 | `error_code` | Godot Error 错误码。 |
 | `message` | 错误或跳过说明。 |
-| `options` | 报告选项，支持 written、changed、dry_run、size_bytes 和 metadata。 |
+| `options` | 报告选项，支持 written、changed、dry_run、size_bytes、metadata、artifact_owner、generator_id、source_id、content_sha256、previous_sha256 和 encoding。 |
 
 返回：生成产物报告。
 
 结构：
 
-- `options`: Dictionary，可包含 written、changed、dry_run、size_bytes 和 metadata。
-- `return`: Dictionary，包含 success、path、status、error_code、error、written、changed、dry_run、size_bytes 和 metadata。
+- `options`: Dictionary，可包含 written、changed、dry_run、size_bytes、metadata、artifact_owner、generator_id、source_id、content_sha256、previous_sha256 和 encoding。
+- `return`: Dictionary，包含 success、path、status、error_code、error、written、changed、dry_run、size_bytes、artifact_owner、generator_id、source_id、content_sha256、previous_sha256、encoding 和 metadata。
+
+<a id="member-gfgeneratedartifactreport-methods-summarize_reports"></a>
+
+### `summarize_reports`
+
+- API：`public`
+- 首次版本：`6.0.0`
+
+```gdscript
+static func summarize_reports( reports: Array[Dictionary], subject: String = "", options: Dictionary = {} ) -> Dictionary:
+```
+
+汇总多份生成产物报告。 用于访问器生成、导表导出或批处理工具在一次操作后得到稳定的状态计数、 写入数量、dry-run 数量和产物所有权分布。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `reports` | make_report() 或 save_text() 返回的报告数组。 |
+| `subject` | 汇总主题。 |
+| `options` | 汇总选项，支持 include_reports 和 metadata。 |
+
+返回：批量产物报告摘要。
+
+结构：
+
+- `reports`: Array of Dictionary artifact reports.
+- `options`: Dictionary，可包含 include_reports 和 metadata。
+- `return`: Dictionary，包含 success、subject、artifact_count、status_counts、owner_counts、written_count、changed_count、dry_run_count、failed_count、skipped_count、paths、errors、metadata 和可选 reports。
 
 <a id="member-gfgeneratedartifactreport-methods-save_text"></a>
 
@@ -142,14 +214,14 @@ static func save_text(output_path: String, text: String, options: Dictionary = {
 |---|---|
 | `output_path` | 产物输出路径。 |
 | `text` | 要写入的文本内容。 |
-| `options` | 保存选项，支持 overwrite_existing、dry_run、scan_filesystem、label 和 metadata。 |
+| `options` | 保存选项，支持 overwrite_existing、dry_run、scan_filesystem、label、metadata、artifact_owner、generator_id 和 source_id。 |
 
 返回：生成产物保存报告。
 
 结构：
 
-- `options`: Dictionary，可包含 overwrite_existing、dry_run、scan_filesystem、label 和 metadata。
-- `return`: Dictionary，包含 success、path、status、error_code、error、written、changed、dry_run、size_bytes 和 metadata。
+- `options`: Dictionary，可包含 overwrite_existing、dry_run、scan_filesystem、label、metadata、artifact_owner、generator_id 和 source_id。
+- `return`: Dictionary，包含 success、path、status、error_code、error、written、changed、dry_run、size_bytes、artifact_owner、generator_id、source_id、content_sha256、previous_sha256、encoding 和 metadata。
 
 <a id="member-gfgeneratedartifactreport-methods-get_error_code"></a>
 

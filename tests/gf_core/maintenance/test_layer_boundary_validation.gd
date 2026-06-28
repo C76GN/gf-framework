@@ -8,6 +8,7 @@ const KERNEL_ROOT: String = "res://addons/gf/kernel"
 const KERNEL_EDITOR_ROOT: String = "res://addons/gf/kernel/editor"
 const STANDARD_ROOT: String = "res://addons/gf/standard"
 const EXTENSIONS_ROOT: String = "res://addons/gf/extensions"
+const PACKAGE_ROOT: String = "res://packages"
 const KERNEL_FORBIDDEN_TEXTS: Array[String] = [
 	"res://addons/gf/standard",
 	"addons/gf/standard",
@@ -346,6 +347,36 @@ func test_business_extensions_remain_optional_externalization_candidates() -> vo
 	)
 
 
+func test_2d_toolkit_preset_closure_stays_runtime_only_and_expected_size() -> void:
+	var manifests_by_id: Dictionary = _collect_package_manifests(PACKAGE_ROOT)
+	var closure: Dictionary = _resolve_package_closure("gf.preset.2d_toolkit", manifests_by_id)
+	var expected_ids: Array[String] = [
+		"gf.extension.camera",
+		"gf.extension.flow",
+		"gf.extension.interaction",
+		"gf.extension.physics",
+		"gf.kernel",
+		"gf.preset.2d_toolkit",
+		"gf.standard.assets",
+		"gf.standard.audio",
+		"gf.standard.base",
+		"gf.standard.deterministic",
+		"gf.standard.input",
+		"gf.standard.spatial",
+		"gf.standard.state",
+		"gf.standard.storage",
+		"gf.standard.ui",
+	]
+	var actual_ids: Array[String] = _sorted_dictionary_string_keys(closure)
+	var editor_packages: Array[String] = []
+	for package_id: String in actual_ids:
+		if package_id.contains(".editor"):
+			editor_packages.append(package_id)
+
+	assert_eq(actual_ids, expected_ids, "2D toolkit preset 闭包应稳定包含 2D 运行时常用能力和必要依赖。")
+	assert_eq(editor_packages, [], "2D toolkit runtime preset 不能拉入 editor-only package。")
+
+
 func test_bundled_extensions_do_not_call_global_gf_facade() -> void:
 	var files: Array[String] = []
 	_collect_gd_files(EXTENSIONS_ROOT, files)
@@ -440,6 +471,73 @@ func _collect_manifest_by_extension_name(extension_names: Array[String]) -> Dict
 		if manifest_data.is_empty():
 			continue
 		result[extension_name] = manifest_data
+	return result
+
+
+func _collect_package_manifests(root_path: String) -> Dictionary:
+	var files: Array[String] = []
+	_collect_json_files(root_path, files)
+	var result: Dictionary = {}
+	for path: String in files:
+		var manifest_data: Dictionary = _read_json_dictionary(path)
+		var package_id: String = GF_VARIANT_ACCESS.get_option_string(manifest_data, "id")
+		if package_id.is_empty():
+			continue
+		result[package_id] = manifest_data
+	return result
+
+
+func _collect_json_files(root_path: String, result: Array[String]) -> void:
+	var dir: DirAccess = DirAccess.open(root_path)
+	if dir == null:
+		return
+
+	var _list_dir_begin_result_json: Variant = dir.list_dir_begin()
+	var entry: String = dir.get_next()
+	while not entry.is_empty():
+		var path: String = root_path.path_join(entry)
+		if dir.current_is_dir():
+			if not entry.begins_with("."):
+				_collect_json_files(path, result)
+		elif entry.ends_with(".json"):
+			result.append(path)
+		entry = dir.get_next()
+	dir.list_dir_end()
+
+
+func _resolve_package_closure(root_package_id: String, manifests_by_id: Dictionary) -> Dictionary:
+	var result: Dictionary = {}
+	var visiting: Dictionary = {}
+	_resolve_package_closure_recursive(root_package_id, manifests_by_id, result, visiting)
+	return result
+
+
+func _resolve_package_closure_recursive(
+	package_id: String,
+	manifests_by_id: Dictionary,
+	result: Dictionary,
+	visiting: Dictionary
+) -> void:
+	if result.has(package_id) or visiting.has(package_id):
+		return
+
+	visiting[package_id] = true
+	result[package_id] = true
+	var manifest_data: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(manifests_by_id, package_id, {})
+	var child_ids: Array = GF_VARIANT_ACCESS.get_option_array(manifest_data, "dependencies", [])
+	if GF_VARIANT_ACCESS.get_option_string(manifest_data, "kind") == "preset":
+		child_ids = GF_VARIANT_ACCESS.get_option_array(manifest_data, "packages", [])
+	for child_id_variant: Variant in child_ids:
+		var child_id: String = GF_VARIANT_ACCESS.to_text(child_id_variant)
+		_resolve_package_closure_recursive(child_id, manifests_by_id, result, visiting)
+	var _remove_visiting_result: bool = visiting.erase(package_id)
+
+
+func _sorted_dictionary_string_keys(source: Dictionary) -> Array[String]:
+	var result: Array[String] = []
+	for key_variant: Variant in source.keys():
+		result.append(GF_VARIANT_ACCESS.to_text(key_variant))
+	result.sort()
 	return result
 
 

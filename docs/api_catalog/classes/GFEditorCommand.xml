@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFEditorCommand" path="addons/gf/kernel/editor/gf_editor_command.gd" module="kernel" extends="RefCounted" classDigest="5d8163087b7d85d89d9b9dbc3c37977972c3dfb52bce34dd1fe724cdc35978cf">
+<class name="GFEditorCommand" path="addons/gf/kernel/editor/gf_editor_command.gd" module="kernel" extends="RefCounted" classDigest="2d78f93cffbf2335d03945c96bd30b652b95cd907a95e295e73c7cab93037008">
 	<description>GFEditorCommand: 可撤销编辑器操作的通用基类。
 用于把编辑器 UI、快捷键或交互工具产生的修改收敛成可执行、可撤销的命令。
 命令只描述操作协议，不绑定具体资源、节点类型或业务含义。</description>
@@ -48,12 +48,34 @@
 		</member>
 		<member kind="method" name="add_to_undo_manager">
 			<signature>func add_to_undo_manager(undo_manager: Object, execute_immediately: bool = true) -&gt; Error:</signature>
-			<description>将命令写入 Godot 编辑器 UndoRedo 管理器。</description>
+			<description>将命令写入 Godot 编辑器 UndoRedo 管理器。
+返回值只表示 action 已成功写入并提交给 UndoRedo 管理器；Godot 原生
+`EditorUndoRedoManager` 不会把 do/undo 回调的错误码回传给提交方。需要诊断
+回调执行结果时，读取命令自身的最近执行/撤销错误或调试快照。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">undo_manager: EditorUndoRedoManager 或兼容对象。</tag>
 				<tag name="param">execute_immediately: 提交 action 时是否立即执行 do 方法。</tag>
 				<tag name="return">Godot 错误码。</tag>
+				<tag name="since">3.17.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_last_execute_error">
+			<signature>func get_last_execute_error() -&gt; Error:</signature>
+			<description>获取最近一次 execute() 的错误码。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">最近 execute() 返回的 Godot 错误码。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_last_revert_error">
+			<signature>func get_last_revert_error() -&gt; Error:</signature>
+			<description>获取最近一次 revert() 的错误码。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">最近 revert() 返回的 Godot 错误码。</tag>
+				<tag name="since">7.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_executed">

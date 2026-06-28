@@ -1,0 +1,381 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFHapticUtility" path="addons/gf/extensions/feedback/runtime/gf_haptic_utility.gd" module="extensions/feedback" extends="GFUtility" classDigest="210ab39d2a10742b959c8c4545b19d3b08d008de3db423cfc6ee000ef34c9468">
+	<description>GFHapticUtility: 通用手柄震动播放工具。
+管理命名 channel 上的 `GFHapticPreset` 播放状态，并把合成后的弱/强马达强度
+路由到玩家席位或手柄设备。项目仍然决定何时播放、如何分组以及玩法语义。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_service</tag>
+		<tag name="since">7.0.0</tag>
+	</tags>
+	<signals>
+		<member kind="signal" name="haptic_started">
+			<signature>signal haptic_started(haptic_id: int, channel: StringName, target_type: int, target_id: int)</signature>
+			<description>震动播放开始时发出。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">haptic_id: 播放实例 ID。</tag>
+				<tag name="param">channel: 震动 channel。</tag>
+				<tag name="param">target_type: 目标类型，见 TargetType。</tag>
+				<tag name="param">target_id: 玩家索引或设备 ID。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="signal" name="haptic_finished">
+			<signature>signal haptic_finished(haptic_id: int, channel: StringName, target_type: int, target_id: int)</signature>
+			<description>震动播放结束时发出。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">haptic_id: 播放实例 ID。</tag>
+				<tag name="param">channel: 震动 channel。</tag>
+				<tag name="param">target_type: 目标类型，见 TargetType。</tag>
+				<tag name="param">target_id: 玩家索引或设备 ID。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="signal" name="haptic_stopped">
+			<signature>signal haptic_stopped(haptic_id: int, channel: StringName, target_type: int, target_id: int)</signature>
+			<description>震动播放被停止时发出。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">haptic_id: 播放实例 ID。</tag>
+				<tag name="param">channel: 震动 channel。</tag>
+				<tag name="param">target_type: 目标类型，见 TargetType。</tag>
+				<tag name="param">target_id: 玩家索引或设备 ID。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+	</signals>
+	<enums>
+		<member kind="enum" name="TargetType">
+			<signature>enum TargetType {
+	## 目标是本地玩家索引，通过 GFInputDeviceUtility 解析到手柄设备。
+	PLAYER,
+	## 目标是 Godot 手柄设备 ID。
+	DEVICE,
+}</signature>
+			<description>震动输出目标类型。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="enum" name="OverflowPolicy">
+			<signature>enum OverflowPolicy {
+	## 跳过新的播放请求。
+	SKIP_NEW,
+	## 停止最早的播放实例。
+	STOP_OLDEST,
+}</signature>
+			<description>活跃震动达到上限时的处理方式。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+	</enums>
+	<constants />
+	<properties>
+		<member kind="property" name="default_channel">
+			<signature>var default_channel: StringName = &amp;"default"</signature>
+			<description>默认 channel。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="default_player_index">
+			<signature>var default_player_index: int = 0</signature>
+			<description>默认玩家索引。play_haptic() 传入负数时使用该值。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="master_strength">
+			<signature>var master_strength: float = 1.0:</signature>
+			<description>全局震动强度倍率。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="max_active_haptics">
+			<signature>var max_active_haptics: int = 64</signature>
+			<description>最大活跃震动数量；小于等于 0 表示不限制。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="overflow_policy">
+			<signature>var overflow_policy: OverflowPolicy = OverflowPolicy.STOP_OLDEST</signature>
+			<description>达到上限时的处理方式。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="auto_apply_on_tick">
+			<signature>var auto_apply_on_tick: bool = true</signature>
+			<description>tick() 后是否自动把当前采样输出到设备。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="output_refresh_seconds">
+			<signature>var output_refresh_seconds: float = 0.05:</signature>
+			<description>每次输出请求的刷新持续时间，单位秒。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="input_device_utility">
+			<signature>var input_device_utility: GFInputDeviceUtility = null</signature>
+			<description>可选输入设备工具。为空时 ready() 会尝试从架构中获取。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="output_handler">
+			<signature>var output_handler: Callable = Callable()</signature>
+			<description>可选输出回调。有效时替代默认 Input/GFInputDeviceUtility 路由。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">output_handler: Callable(target_type: int, target_id: int, weak_magnitude: float, strong_magnitude: float, duration_seconds: float, metadata: Dictionary) -&gt; bool。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="stop_handler">
+			<signature>var stop_handler: Callable = Callable()</signature>
+			<description>可选停止回调。有效时替代默认停止路由。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">stop_handler: Callable(target_type: int, target_id: int, metadata: Dictionary) -&gt; bool。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="init">
+			<signature>func init() -&gt; void:</signature>
+			<description>初始化震动运行时状态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="ready">
+			<signature>func ready() -&gt; void:</signature>
+			<description>在架构 ready 后补全输入设备工具引用。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="dispose">
+			<signature>func dispose() -&gt; void:</signature>
+			<description>停止全部震动并释放状态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="tick">
+			<signature>func tick(delta: float) -&gt; void:</signature>
+			<description>推进震动播放状态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">delta: 本帧时间增量。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="play_haptic">
+			<signature>func play_haptic( channel: StringName, preset: GFHapticPreset, player_index: int = -1, strength: float = 1.0, metadata: Dictionary = {} ) -&gt; int:</signature>
+			<description>播放一个玩家震动预设。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">channel: 震动 channel；为空时使用 default_channel。</tag>
+				<tag name="param">preset: 震动预设。</tag>
+				<tag name="param">player_index: 玩家索引；小于 0 时使用 default_player_index。</tag>
+				<tag name="param">strength: 播放强度倍率。</tag>
+				<tag name="param">metadata: 项目自定义元数据。</tag>
+				<tag name="return">播放实例 ID；无法播放时返回 -1。</tag>
+				<tag name="schema">metadata: Dictionary，播放实例自定义元数据，会在 get_haptic_info() 快照中复制返回。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="play_haptic_for_device">
+			<signature>func play_haptic_for_device( channel: StringName, preset: GFHapticPreset, device_id: int, strength: float = 1.0, metadata: Dictionary = {} ) -&gt; int:</signature>
+			<description>播放一个设备震动预设。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">channel: 震动 channel；为空时使用 default_channel。</tag>
+				<tag name="param">preset: 震动预设。</tag>
+				<tag name="param">device_id: Godot 手柄设备 ID。</tag>
+				<tag name="param">strength: 播放强度倍率。</tag>
+				<tag name="param">metadata: 项目自定义元数据。</tag>
+				<tag name="return">播放实例 ID；无法播放时返回 -1。</tag>
+				<tag name="schema">metadata: Dictionary，播放实例自定义元数据，会在 get_haptic_info() 快照中复制返回。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="stop_haptic">
+			<signature>func stop_haptic(haptic_id: int, emit_stopped: bool = true) -&gt; bool:</signature>
+			<description>停止指定震动实例。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">haptic_id: 播放实例 ID。</tag>
+				<tag name="param">emit_stopped: 是否发出停止信号。</tag>
+				<tag name="return">成功停止返回 true。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="stop_channel">
+			<signature>func stop_channel(channel: StringName) -&gt; int:</signature>
+			<description>停止指定 channel 上的全部震动实例。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">channel: 震动 channel；为空时使用 default_channel。</tag>
+				<tag name="return">停止数量。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="stop_player">
+			<signature>func stop_player(player_index: int) -&gt; int:</signature>
+			<description>停止指定玩家的全部震动实例。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">player_index: 玩家索引。</tag>
+				<tag name="return">停止数量。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="stop_device">
+			<signature>func stop_device(device_id: int) -&gt; int:</signature>
+			<description>停止指定设备的全部震动实例。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">device_id: Godot 手柄设备 ID。</tag>
+				<tag name="return">停止数量。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="clear">
+			<signature>func clear() -&gt; void:</signature>
+			<description>清空全部震动实例并停止上次输出过的目标。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_haptic_active">
+			<signature>func is_haptic_active(haptic_id: int) -&gt; bool:</signature>
+			<description>检查震动实例是否仍在播放。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">haptic_id: 播放实例 ID。</tag>
+				<tag name="return">正在播放返回 true。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_active_haptic_count">
+			<signature>func get_active_haptic_count(channel: StringName = &amp;"") -&gt; int:</signature>
+			<description>获取活跃震动数量。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">channel: 可选 channel；为空时统计全部。</tag>
+				<tag name="return">活跃震动数量。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="set_channel_strength">
+			<signature>func set_channel_strength(channel: StringName, strength: float) -&gt; void:</signature>
+			<description>设置 channel 强度倍率。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">channel: 震动 channel；为空时使用 default_channel。</tag>
+				<tag name="param">strength: 强度倍率；小于 0 时按 0 处理。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_channel_strength">
+			<signature>func get_channel_strength(channel: StringName) -&gt; float:</signature>
+			<description>获取 channel 强度倍率。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">channel: 震动 channel；为空时使用 default_channel。</tag>
+				<tag name="return">强度倍率。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="clear_channel_strengths">
+			<signature>func clear_channel_strengths() -&gt; void:</signature>
+			<description>清空全部 channel 强度覆盖。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="sample_player">
+			<signature>func sample_player(player_index: int, channel: StringName = &amp;"") -&gt; Dictionary:</signature>
+			<description>采样指定玩家当前的合成震动。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">player_index: 玩家索引。</tag>
+				<tag name="param">channel: 可选 channel；为空时合成该玩家全部 channel。</tag>
+				<tag name="return">合成震动采样。</tag>
+				<tag name="schema">return: Dictionary，包含 weak_magnitude、strong_magnitude、intensity 与 progress。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="sample_device">
+			<signature>func sample_device(device_id: int, channel: StringName = &amp;"") -&gt; Dictionary:</signature>
+			<description>采样指定设备当前的合成震动。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">device_id: Godot 手柄设备 ID。</tag>
+				<tag name="param">channel: 可选 channel；为空时合成该设备全部 channel。</tag>
+				<tag name="return">合成震动采样。</tag>
+				<tag name="schema">return: Dictionary，包含 weak_magnitude、strong_magnitude、intensity 与 progress。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="apply_current_outputs">
+			<signature>func apply_current_outputs(duration_seconds: float = -1.0) -&gt; Dictionary:</signature>
+			<description>把当前采样输出到所有活跃目标。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">duration_seconds: 输出请求持续时间；小于 0 时使用 output_refresh_seconds。</tag>
+				<tag name="return">输出报告。</tag>
+				<tag name="schema">return: Dictionary，包含 applied_count、stopped_count、applied 与 stopped。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_haptic_info">
+			<signature>func get_haptic_info(haptic_id: int) -&gt; Dictionary:</signature>
+			<description>获取指定震动实例的只读快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">haptic_id: 播放实例 ID。</tag>
+				<tag name="return">播放实例快照。</tag>
+				<tag name="schema">return: Dictionary，包含 id、channel、target_type、target_id、elapsed_seconds、duration_seconds、strength 与 metadata；实例不存在时为空。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_debug_snapshot">
+			<signature>func get_debug_snapshot() -&gt; Dictionary:</signature>
+			<description>获取震动系统调试快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">调试快照。</tag>
+				<tag name="schema">return: Dictionary，包含 active_count、max_active_haptics、channels、targets 与 play_order。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

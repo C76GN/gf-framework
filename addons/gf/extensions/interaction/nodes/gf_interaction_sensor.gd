@@ -204,12 +204,15 @@ func broadcast_to_group(target_group_name: StringName = &"", max_count: int = 0)
 
 	var receivers: Array[Node] = get_tree().get_nodes_in_group(String(effective_group))
 	var dispatch_host: Object = _resolve_collision_dispatch_host()
+	var accepted_count: int = 0
 	for receiver: Node in receivers:
-		if max_count > 0 and reports.size() >= max_count:
+		if max_count > 0 and accepted_count >= max_count:
 			break
 		var report: Dictionary = _get_report_value(_send_to_with_dispatch_host(dispatch_host, receiver, null, &""))
 		if not report.is_empty():
 			reports.append(report)
+			if GFVariantData.get_option_bool(report, "ok"):
+				accepted_count += 1
 	return reports
 
 
@@ -395,7 +398,7 @@ func _resolve_sender() -> Object:
 
 func _resolve_collision_dispatch_host() -> Object:
 	var sender: Object = _resolve_sender()
-	if sender != self and sender.has_method(&"send_to"):
+	if sender != self and _can_use_send_to_override(sender):
 		return sender
 	return self
 
@@ -406,6 +409,8 @@ func _send_to_with_dispatch_host(
 	payload_override: Variant,
 	interaction_id_override: StringName
 ) -> Variant:
+	if dispatch_host == null or not dispatch_host.has_method(&"send_to"):
+		return null
 	var report_value: Variant = dispatch_host.call("send_to", receiver, payload_override, interaction_id_override)
 	if not report_value is Dictionary:
 		return null
@@ -417,3 +422,14 @@ func _send_to_with_dispatch_host(
 
 func _get_report_value(value: Variant) -> Dictionary:
 	return GFVariantData.as_dictionary(value)
+
+
+func _can_use_send_to_override(candidate: Object) -> bool:
+	if candidate == null or not candidate.has_method(&"send_to"):
+		return false
+	for method_value: Dictionary in candidate.get_method_list():
+		var method_name: StringName = GFVariantData.to_string_name(GFVariantData.get_option_value(method_value, "name", &""))
+		if method_name != &"send_to":
+			continue
+		return GFVariantData.get_option_array(method_value, "args").size() >= 3
+	return false

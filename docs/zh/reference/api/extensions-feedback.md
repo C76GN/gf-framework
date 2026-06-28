@@ -6,8 +6,8 @@
 
 | 类别 | 类 | 成员 | 方法 |
 |---|---:|---:|---:|
-| [运行时服务](#category-runtime_service) | 1 | 21 | 13 |
-| [资源定义](#category-resource_definition) | 2 | 39 | 11 |
+| [运行时服务](#category-runtime_service) | 2 | 57 | 34 |
+| [资源定义](#category-resource_definition) | 3 | 50 | 16 |
 | [运行时句柄](#category-runtime_handle) | 2 | 26 | 10 |
 
 ## 类
@@ -18,6 +18,7 @@
 
 | 类 | 继承 | 源文件 |
 |---|---|---|
+| [`GFHapticUtility`](classes/GFHapticUtility.md#gfhapticutility) | `GFUtility` | `addons/gf/extensions/feedback/runtime/gf_haptic_utility.gd` |
 | [`GFShakeUtility`](classes/GFShakeUtility.md#gfshakeutility) | `GFUtility` | `addons/gf/extensions/feedback/runtime/gf_shake_utility.gd` |
 
 <a id="category-resource_definition"></a>
@@ -26,6 +27,7 @@
 
 | 类 | 继承 | 源文件 |
 |---|---|---|
+| [`GFHapticPreset`](classes/GFHapticPreset.md#gfhapticpreset) | `Resource` | `addons/gf/extensions/feedback/resources/gf_haptic_preset.gd` |
 | [`GFShakePreset`](classes/GFShakePreset.md#gfshakepreset) | `Resource` | `addons/gf/extensions/feedback/resources/gf_shake_preset.gd` |
 | [`GFShakeTrack`](classes/GFShakeTrack.md#gfshaketrack) | `Resource` | `addons/gf/extensions/feedback/resources/gf_shake_track.gd` |
 

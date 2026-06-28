@@ -90,6 +90,7 @@ func record_write(key: Variant = null) -> void:
 ## @schema key: 任意缓存键；诊断快照会以字符串形式记录。
 func record_eviction(reason: StringName = &"evicted", key: Variant = null) -> void:
 	_eviction_count += 1
+	_invalidation_count += 1
 	_record_invalidation_reason(reason)
 	_last_event = _make_event(reason, key)
 

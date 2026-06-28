@@ -34,6 +34,22 @@ if not report["ok"]:
 		push_warning(issue["message"])
 ```
 
+## 绑定图诊断
+
+`get_dependency_diagnostics()` 面向“模块声明的依赖是否满足”。如果需要排查当前架构实际注册了什么、别名是否指向有效目标、工厂是什么生命周期、scoped 架构会回退到哪些父级，可以读取 `get_binding_diagnostics()`：
+
+```gdscript
+var bindings := architecture.get_binding_diagnostics({
+	"include_entries": true,
+	"include_parent_chain": true,
+})
+
+for issue in bindings["issues"]:
+	push_warning(issue["message"])
+```
+
+绑定图诊断同样只读，不会触发工厂实例化，也不会调用 `get_model()` / `get_utility()` 这类查询入口。它适合编辑器面板、调试命令、局部 `GFNodeContext` 自检和测试断言。
+
 ## 使用边界
 
 依赖声明应保持抽象和稳定，优先声明模块真正需要的接口脚本、基类或别名类型；不要把具体关卡、敌人、UI 页面或临时玩法条件写进通用模块 hook。

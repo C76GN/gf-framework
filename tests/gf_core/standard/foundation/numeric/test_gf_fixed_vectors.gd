@@ -59,6 +59,19 @@ func test_vector2_dict_roundtrips_through_json() -> void:
 	assert_true(restored.equals_exact(source), "JSON 往返应保持 raw 分量和小数位。")
 
 
+func test_vector2_serialization_normalizes_mutated_decimal_places() -> void:
+	var value: GF_FIXED_VECTOR2 = GF_FIXED_VECTOR2.new(1, 2, 2)
+	value.decimal_places = 30
+
+	var data: Dictionary = value.to_dict()
+	var bytes: PackedByteArray = value.to_bytes()
+
+	assert_push_error("[GFFixedVector2] decimal_places 超出上限 18，已自动钳制。")
+	assert_push_error("[GFFixedVector2] decimal_places 超出上限 18，已自动钳制。")
+	assert_eq(GFVariantData.get_option_int(data, "decimal_places"), GFFixedDecimal.MAX_DECIMAL_PLACES)
+	assert_eq(bytes[5], GFFixedDecimal.MAX_DECIMAL_PLACES)
+
+
 func test_vector2_bytes_match_golden_big_endian_format() -> void:
 	var value: GF_FIXED_VECTOR2 = GF_FIXED_VECTOR2.new(-12_345, 678, 3)
 
@@ -140,6 +153,19 @@ func test_vector3_dict_roundtrips_through_json() -> void:
 	assert_eq(GFVariantData.get_option_string(encoded, "raw_y"), "-9223372036854775000")
 	assert_eq(GFVariantData.get_option_string(encoded, "raw_z"), "1234567890123456789")
 	assert_true(restored.equals_exact(source), "JSON 往返应保持三维 raw 分量和小数位。")
+
+
+func test_vector3_serialization_normalizes_mutated_decimal_places() -> void:
+	var value: GF_FIXED_VECTOR3 = GF_FIXED_VECTOR3.new(1, 2, 3, 2)
+	value.decimal_places = 30
+
+	var data: Dictionary = value.to_dict()
+	var bytes: PackedByteArray = value.to_bytes()
+
+	assert_push_error("[GFFixedVector3] decimal_places 超出上限 18，已自动钳制。")
+	assert_push_error("[GFFixedVector3] decimal_places 超出上限 18，已自动钳制。")
+	assert_eq(GFVariantData.get_option_int(data, "decimal_places"), GFFixedDecimal.MAX_DECIMAL_PLACES)
+	assert_eq(bytes[5], GFFixedDecimal.MAX_DECIMAL_PLACES)
 
 
 func test_vector3_bytes_match_golden_big_endian_format() -> void:

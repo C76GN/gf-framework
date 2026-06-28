@@ -38,6 +38,23 @@ func test_registry_replaces_entries_by_stable_id() -> void:
 	assert_eq(registry.query(&"kind", "new"), PackedStringArray(["item"]))
 
 
+func test_registry_set_entry_collapses_preexisting_duplicate_ids() -> void:
+	var registry: GFResourceRegistry = GFResourceRegistry.new()
+	registry.entries = [
+		_make_entry(&"item", "res://old_a.tres", { &"kind": "old_a" }),
+		_make_entry(&"item", "res://old_b.tres", { &"kind": "old_b" }),
+	]
+	registry.mark_index_dirty()
+
+	assert_true(registry.set_entry(_make_entry(&"item", "res://new.tres", { &"kind": "new" })), "set_entry 应能替换脏数据中的重复 ID。")
+
+	assert_eq(registry.entries.size(), 1, "set_entry 应清理所有旧重复 ID 条目。")
+	assert_eq(registry.get_entry_path(&"item"), "res://new.tres", "重复 ID 清理后新条目应成为有效条目。")
+	assert_eq(registry.query(&"kind", "old_a"), PackedStringArray(), "旧重复条目的字段索引应清理。")
+	assert_eq(registry.query(&"kind", "old_b"), PackedStringArray(), "后出现旧重复条目的字段索引也应清理。")
+	assert_eq(registry.query(&"kind", "new"), PackedStringArray(["item"]), "新条目字段应进入索引。")
+
+
 func test_query_supports_multi_value_fields_and_many_criteria() -> void:
 	var registry: GFResourceRegistry = GFResourceRegistry.new()
 	_set_entry(registry, _make_entry(&"sword", "res://sword.tres", {

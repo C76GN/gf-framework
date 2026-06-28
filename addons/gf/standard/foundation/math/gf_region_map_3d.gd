@@ -242,8 +242,13 @@ func clear_dirty(region_key: Variant = null) -> void:
 ## [br]
 ## @api public
 func clear() -> void:
+	var removed_region_keys: Array = _regions.keys()
 	_regions.clear()
 	_dirty_regions.clear()
+	for region_key_variant: Variant in removed_region_keys:
+		if region_key_variant is Vector3i:
+			var region_key: Vector3i = region_key_variant
+			_mark_dirty(region_key)
 
 
 ## 获取调试快照。

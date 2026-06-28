@@ -38,6 +38,8 @@ var property_name: NodePath = ^"modulate"
 # --- 私有变量 ---
 
 var _active_tween: Tween = null
+var _original_color: Color = Color.WHITE
+var _has_original_color: bool = false
 
 
 # --- Godot 生命周期方法 ---
@@ -67,21 +69,24 @@ func execute() -> Variant:
 	if not is_instance_valid(target):
 		return null
 
-	_clear_active_tween()
+	_clear_active_tween(true)
 	_reset_completion_state()
+	_has_original_color = false
 	var original_color_value: Variant = _get_color_property_value()
 	if not (original_color_value is Color):
 		return null
 
-	var original_color: Color = _get_color_value(original_color_value)
+	_original_color = _get_color_value(original_color_value)
+	_has_original_color = true
 	if duration <= 0.0:
-		target.set_indexed(property_name, original_color)
+		target.set_indexed(property_name, _original_color)
+		_clear_original_color()
 		return null
 
 	_active_tween = target.create_tween()
 	var half_duration: float = duration * 0.5
 	var _tween_property_result_83: Variant = _active_tween.tween_property(target, property_name, flash_color, half_duration)
-	var _tween_property_result_84: Variant = _active_tween.tween_property(target, property_name, original_color, half_duration)
+	var _tween_property_result_84: Variant = _active_tween.tween_property(target, property_name, _original_color, half_duration)
 	var _finished_connected: Error = _active_tween.finished.connect(
 		_on_active_tween_finished,
 		CONNECT_ONE_SHOT as Object.ConnectFlags
@@ -93,7 +98,37 @@ func execute() -> Variant:
 ## [br]
 ## @api public
 func cancel() -> void:
-	_clear_active_tween()
+	_clear_active_tween(true)
+	_emit_completed_once()
+
+
+## 暂停当前闪色 Tween。
+## [br]
+## @api public
+## [br]
+## @since 6.0.0
+func pause() -> void:
+	if is_instance_valid(_active_tween):
+		_active_tween.pause()
+
+
+## 恢复当前闪色 Tween。
+## [br]
+## @api public
+## [br]
+## @since 6.0.0
+func resume() -> void:
+	if is_instance_valid(_active_tween):
+		_active_tween.play()
+
+
+## 立即结束当前闪色动作并恢复原色。
+## [br]
+## @api public
+## [br]
+## @since 6.0.0
+func finish() -> void:
+	_clear_active_tween(true)
 	_emit_completed_once()
 
 
@@ -108,12 +143,15 @@ func get_wait_guard_node() -> Node:
 
 # --- 私有/辅助方法 ---
 
-func _clear_active_tween() -> void:
+func _clear_active_tween(restore_original: bool = false) -> void:
 	if is_instance_valid(_active_tween):
 		if _active_tween.finished.is_connected(_on_active_tween_finished):
 			_active_tween.finished.disconnect(_on_active_tween_finished)
 		_active_tween.kill()
 	_active_tween = null
+	if restore_original:
+		_restore_original_color()
+	_clear_original_color()
 
 
 func _get_color_property_value() -> Variant:
@@ -158,8 +196,18 @@ func _get_color_value(value: Variant) -> Color:
 	return Color.WHITE
 
 
+func _restore_original_color() -> void:
+	if _has_original_color and is_instance_valid(target):
+		target.set_indexed(property_name, _original_color)
+
+
+func _clear_original_color() -> void:
+	_has_original_color = false
+
+
 # --- 信号处理函数 ---
 
 func _on_active_tween_finished() -> void:
 	_active_tween = null
+	_clear_original_color()
 	_emit_completed_once()

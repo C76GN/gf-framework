@@ -22,6 +22,7 @@
 | 方法 | [`has_attempts_remaining`](#member-gfnetworkreconnectpolicy-methods-has_attempts_remaining) | `func has_attempts_remaining() -> bool:` |
 | 方法 | [`get_next_delay_msec`](#member-gfnetworkreconnectpolicy-methods-get_next_delay_msec) | `func get_next_delay_msec() -> int:` |
 | 方法 | [`record_success`](#member-gfnetworkreconnectpolicy-methods-record_success) | `func record_success() -> void:` |
+| 方法 | [`set_jitter_seed`](#member-gfnetworkreconnectpolicy-methods-set_jitter_seed) | `func set_jitter_seed(seed_value: int) -> void:` |
 | 方法 | [`get_attempt_count`](#member-gfnetworkreconnectpolicy-methods-get_attempt_count) | `func get_attempt_count() -> int:` |
 
 ## 属性
@@ -119,6 +120,25 @@ func record_success() -> void:
 ```
 
 记录一次成功并清空尝试计数。
+
+<a id="member-gfnetworkreconnectpolicy-methods-set_jitter_seed"></a>
+
+### `set_jitter_seed`
+
+- API：`public`
+- 首次版本：`6.0.0`
+
+```gdscript
+func set_jitter_seed(seed_value: int) -> void:
+```
+
+设置 jitter 使用的确定性随机种子。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `seed_value` | 初始种子；0 会映射到 GFDeterministicRandom 的稳定默认种子。 |
 
 <a id="member-gfnetworkreconnectpolicy-methods-get_attempt_count"></a>
 

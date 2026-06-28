@@ -13,7 +13,38 @@ const _GF_VARIANT_ACCESS = preload("res://addons/gf/kernel/core/gf_variant_acces
 const _GF_PACKAGE_MANAGER_BACKEND = preload("res://addons/gf/kernel/package/gf_package_manager_backend.gd")
 
 
+# --- 私有变量 ---
+
+var _cancel_mutex: Mutex = Mutex.new()
+var _cancel_requested: bool = false
+
+
 # --- 层内方法 ---
+
+## 请求取消当前后台包管理操作。
+## [br]
+## @api layer_internal
+## [br]
+## @layer kernel/editor
+func cancel() -> void:
+	_cancel_mutex.lock()
+	_cancel_requested = true
+	_cancel_mutex.unlock()
+
+
+## 返回当前后台包管理操作是否已被请求取消。
+## [br]
+## @api layer_internal
+## [br]
+## @layer kernel/editor
+## [br]
+## @return 已请求取消时返回 true。
+func is_cancel_requested() -> bool:
+	_cancel_mutex.lock()
+	var result: bool = _cancel_requested
+	_cancel_mutex.unlock()
+	return result
+
 
 ## 执行包管理后台请求。
 ## [br]
@@ -33,7 +64,10 @@ func run_request(request: Dictionary) -> Dictionary:
 	var registry_value: String = _GF_VARIANT_ACCESS.get_option_string(request, "registry_value")
 	var project_root: String = _GF_VARIANT_ACCESS.get_option_string(request, "project_root")
 	var lockfile_path: String = _GF_VARIANT_ACCESS.get_option_string(request, "lockfile_path", ".gf/packages.lock.json")
-	var options: Dictionary = _GF_VARIANT_ACCESS.get_option_dictionary(request, "options")
+	var options: Dictionary = _GF_VARIANT_ACCESS.get_option_dictionary(request, "options").duplicate(true)
+	options["cancel_callback"] = Callable(self, "is_cancel_requested")
+	if is_cancel_requested():
+		return _make_cancelled_result(operation)
 	if operation == "status":
 		return _GF_PACKAGE_MANAGER_BACKEND.make_status(registry_value, project_root, lockfile_path, options)
 
@@ -94,3 +128,13 @@ func _read_package_ids(request: Dictionary) -> PackedStringArray:
 			if not text_value.is_empty():
 				var _append_result: bool = ids.append(text_value)
 	return ids
+
+
+func _make_cancelled_result(operation: String) -> Dictionary:
+	return {
+		"ok": false,
+		"operation": operation,
+		"backend": "godot_native",
+		"cancelled": true,
+		"issues": ["Package manager operation was cancelled."],
+	}

@@ -783,6 +783,126 @@ func test_input_playback_can_respect_recorded_player_index() -> void:
 	assert_true(_utility.is_action_active_for_player(1, &"jump"), "录制玩家索引应被用于虚拟源写入。")
 
 
+func test_assignment_removal_clears_player_input_state() -> void:
+	var arch: GFArchitecture = GFArchitecture.new()
+	var devices: GFInputDeviceUtility = GFInputDeviceUtility.new()
+	devices.include_keyboard_mouse = false
+	devices.include_touch = false
+	devices.max_players = 1
+	await arch.register_utility_instance(devices)
+	await arch.register_utility_instance(_utility)
+	await arch.init()
+	devices.set_assignment(devices.create_assignment(0, GFInputDeviceAssignment.DeviceType.JOYPAD, 7))
+	_utility.enable_context(_make_context(&"gameplay", [
+		_make_mapping(_make_action(&"jump"), [
+			_make_joy_button_binding(JOY_BUTTON_A),
+		]),
+	]))
+
+	_utility.handle_input_event(_make_joy_button_event(7, JOY_BUTTON_A, true))
+	assert_true(_utility.is_action_active_for_player(0, &"jump"), "设备移除前玩家动作应处于按下状态。")
+
+	devices.remove_assignment(0, &"test_disconnect")
+
+	assert_false(_utility.is_action_active_for_player(0, &"jump"), "移除玩家设备后应清理该玩家输入状态。")
+	assert_false(_utility.is_action_active(&"jump"), "玩家贡献被清理后全局动作也应结束。")
+	arch.dispose()
+	_utility = null
+	await get_tree().process_frame
+
+
+func test_input_playback_seek_rebuilds_virtual_source_state() -> void:
+	var bindings: Array[GFInputBinding] = []
+	var context: GFInputContext = _make_context(&"gameplay", [
+		_make_mapping(_make_action(&"jump"), bindings),
+	])
+	_utility.enable_context(context)
+	var source: GFVirtualInputSource = _utility.create_virtual_source(&"recording")
+	var recording: GFInputRecording = GFInputRecording.new()
+	var _press: Dictionary = recording.add_event(&"jump", true, 0.0)
+	var _release: Dictionary = recording.add_event(&"jump", false, 1.0)
+	var playback: GFInputPlayback = GFInputPlayback.new()
+	var _started: bool = playback.start(recording, source)
+
+	playback.seek(0.5)
+
+	assert_true(_utility.is_action_active(&"jump"), "seek 到按下和释放之间时应重建为按下状态。")
+
+	playback.seek(1.0)
+
+	assert_false(_utility.is_action_active(&"jump"), "seek 到释放事件之后时应重建为释放状态。")
+	assert_eq(playback.tick(0.0), 0, "seek 已应用到期事件后，同时间 tick 不应重复应用。")
+
+
+func test_input_recording_preserves_same_time_event_order() -> void:
+	var recording: GFInputRecording = GFInputRecording.new()
+	var _press: Dictionary = recording.add_event(&"jump", true, 0.0)
+	var _release: Dictionary = recording.add_event(&"jump", false, 0.0)
+	var restored: GFInputRecording = GFInputRecording.from_dict(recording.to_dict())
+	var events: Array[Dictionary] = restored.get_events()
+
+	assert_true(GFVariantData.to_bool(GFVariantData.get_option_value(events[0], "value")), "同时间事件应保留原始插入顺序。")
+	assert_false(GFVariantData.to_bool(GFVariantData.get_option_value(events[1], "value")), "同时间事件恢复后顺序仍应稳定。")
+
+
+func test_tap_trigger_counts_release_delta_for_min_tap_window() -> void:
+	var trigger: GFInputTapTrigger = GFInputTapTrigger.new()
+	trigger.min_tap_seconds = 0.05
+	trigger.max_tap_seconds = 0.2
+	var state: Dictionary = {}
+	trigger.reset_trigger_state(state)
+
+	var _started: int = trigger.update(true, true, 0.0, state)
+	var _held: int = trigger.update(true, true, 0.04, state)
+	var released: int = trigger.update(false, false, 0.02, state)
+
+	assert_eq(released, GFInputTrigger.TriggerState.TRIGGERED, "释放帧 delta 应计入短按时长。")
+
+
+func test_sequence_trigger_completed_branch_expires_after_gap() -> void:
+	var sequence_trigger: GFInputSequenceTrigger = GFInputSequenceTrigger.new()
+	var branch_ids: Array[StringName] = [&"left", &"down"]
+	var branches: Array[GFInputSequenceBranch] = [GFInputSequenceBranch.from_action_ids(branch_ids, 0.3)]
+	sequence_trigger.branches = branches
+	var special_mapping: GFInputMapping = _make_mapping(_make_action(&"special"), [
+		_make_key_binding(KEY_P),
+	])
+	special_mapping.triggers = [sequence_trigger]
+	var context: GFInputContext = _make_context(&"gameplay", [
+		_make_mapping(_make_action(&"left"), [
+			_make_key_binding(KEY_A),
+		]),
+		_make_mapping(_make_action(&"down"), [
+			_make_key_binding(KEY_S),
+		]),
+		special_mapping,
+	])
+	_utility.enable_context(context)
+
+	_utility.handle_input_event(_make_key_event(KEY_A, true))
+	_utility.tick(0.0)
+	_utility.handle_input_event(_make_key_event(KEY_S, true))
+	_utility.tick(0.0)
+	_utility.tick(0.31)
+	_utility.handle_input_event(_make_key_event(KEY_P, true))
+
+	assert_false(_utility.is_action_active(&"special"), "完成序列超过 gap 后不应无限期允许后续动作触发。")
+
+
+func test_input_conflict_analyzer_separates_joy_axis_positive_and_negative_bindings() -> void:
+	var left_mapping: GFInputMapping = _make_mapping(_make_action(&"move_left"), [
+		_make_joy_axis_binding(JOY_AXIS_LEFT_X, GFInputBinding.ValueTarget.AXIS_1D_NEGATIVE),
+	])
+	var right_mapping: GFInputMapping = _make_mapping(_make_action(&"move_right"), [
+		_make_joy_axis_binding(JOY_AXIS_LEFT_X, GFInputBinding.ValueTarget.AXIS_1D_POSITIVE),
+	])
+	var context: GFInputContext = _make_context(&"gameplay", [left_mapping, right_mapping])
+
+	var conflicts: Array[Dictionary] = GFInputConflictAnalyzer.analyze_context(context)
+
+	assert_true(conflicts.is_empty(), "同一手柄轴的正向和负向绑定不应互相冲突。")
+
+
 # --- 私有/辅助方法 ---
 
 func _action_float(action_id: StringName) -> float:

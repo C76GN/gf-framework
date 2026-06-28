@@ -15,7 +15,9 @@
 
 | 类型 | 名称 | 签名 |
 |---|---|---|
+| 常量 | [`DEFAULT_MAX_COVERED_CELLS`](#member-gfspatialhash3d-constants-default_max_covered_cells) | `const DEFAULT_MAX_COVERED_CELLS: int = 262144` |
 | 属性 | [`cell_size`](#member-gfspatialhash3d-properties-cell_size) | `var cell_size: float:` |
+| 属性 | [`max_covered_cells`](#member-gfspatialhash3d-properties-max_covered_cells) | `var max_covered_cells: int:` |
 | 方法 | [`configure`](#member-gfspatialhash3d-methods-configure) | `func configure(p_cell_size: float) -> void:` |
 | 方法 | [`get_cell_for_position`](#member-gfspatialhash3d-methods-get_cell_for_position) | `func get_cell_for_position(position: Vector3) -> Vector3i:` |
 | 方法 | [`insert`](#member-gfspatialhash3d-methods-insert) | `func insert(entity: Variant, bounds: AABB) -> bool:` |
@@ -31,6 +33,21 @@
 | 方法 | [`prune_invalid_entities`](#member-gfspatialhash3d-methods-prune_invalid_entities) | `func prune_invalid_entities() -> void:` |
 | 方法 | [`clear`](#member-gfspatialhash3d-methods-clear) | `func clear() -> void:` |
 
+## 常量
+
+<a id="member-gfspatialhash3d-constants-default_max_covered_cells"></a>
+
+### `DEFAULT_MAX_COVERED_CELLS`
+
+- API：`public`
+- 首次版本：`7.0.0`
+
+```gdscript
+const DEFAULT_MAX_COVERED_CELLS: int = 262144
+```
+
+单次插入或查询允许覆盖的默认最大哈希格子数。
+
 ## 属性
 
 <a id="member-gfspatialhash3d-properties-cell_size"></a>
@@ -44,6 +61,19 @@ var cell_size: float:
 ```
 
 单个哈希格子的世界尺寸。
+
+<a id="member-gfspatialhash3d-properties-max_covered_cells"></a>
+
+### `max_covered_cells`
+
+- API：`public`
+- 首次版本：`7.0.0`
+
+```gdscript
+var max_covered_cells: int:
+```
+
+单个 AABB 或格子范围允许覆盖的最大哈希格子数。 超过上限的插入会返回 false；超过上限的查询会返回空结果，避免误用超大范围导致 一帧内分配海量中间数组。
 
 ## 方法
 
@@ -91,6 +121,7 @@ func get_cell_for_position(position: Vector3) -> Vector3i:
 ### `insert`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func insert(entity: Variant, bounds: AABB) -> bool:
@@ -109,13 +140,14 @@ func insert(entity: Variant, bounds: AABB) -> bool:
 
 结构：
 
-- `entity`: Variant entity identity stored by value or weak Object reference.
+- `entity`: Object, StringName, String, or int identity stored by value or weak Object reference.
 
 <a id="member-gfspatialhash3d-methods-remove"></a>
 
 ### `remove`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func remove(entity: Variant) -> void:
@@ -131,13 +163,14 @@ func remove(entity: Variant) -> void:
 
 结构：
 
-- `entity`: Variant entity identity stored by value or weak Object reference.
+- `entity`: Object, StringName, String, or int identity stored by value or weak Object reference.
 
 <a id="member-gfspatialhash3d-methods-update"></a>
 
 ### `update`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func update(entity: Variant, bounds: AABB) -> bool:
@@ -156,13 +189,14 @@ func update(entity: Variant, bounds: AABB) -> bool:
 
 结构：
 
-- `entity`: Variant entity identity stored by value or weak Object reference.
+- `entity`: Object, StringName, String, or int identity stored by value or weak Object reference.
 
 <a id="member-gfspatialhash3d-methods-has_entity"></a>
 
 ### `has_entity`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func has_entity(entity: Variant) -> bool:
@@ -180,7 +214,7 @@ func has_entity(entity: Variant) -> bool:
 
 结构：
 
-- `entity`: Variant entity identity stored by value or weak Object reference.
+- `entity`: Object, StringName, String, or int identity stored by value or weak Object reference.
 
 <a id="member-gfspatialhash3d-methods-get_entity_count"></a>
 
@@ -213,7 +247,7 @@ func get_debug_snapshot() -> Dictionary:
 
 结构：
 
-- `return`: Dictionary with cell_size, entity_count, bucket_count, max_bucket_size, and average_bucket_size.
+- `return`: Dictionary with cell_size, max_covered_cells, entity_count, bucket_count, max_bucket_size, and average_bucket_size.
 
 <a id="member-gfspatialhash3d-methods-query_aabb"></a>
 

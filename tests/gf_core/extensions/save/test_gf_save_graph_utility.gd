@@ -145,6 +145,23 @@ class NodeReferencePropertyNode extends Node:
 		return false
 
 
+class RecordingApplySource extends GFSaveSource:
+	var order: Array[String] = []
+
+	func _init(p_source_key: StringName, p_order: Array[String]) -> void:
+		name = String(p_source_key)
+		source_key = p_source_key
+		order = p_order
+
+	func _apply_save_data(
+		_data: Variant,
+		_context: Dictionary = {},
+		_serializer_registry: GFNodeSerializerRegistry = null
+	) -> Dictionary:
+		order.append(String(source_key))
+		return make_result(true)
+
+
 # --- 私有变量 ---
 
 var _utility: GFSaveGraphUtility
@@ -598,6 +615,108 @@ func test_apply_scope_rejects_invalid_child_payload() -> void:
 	assert_true(GFVariantData.get_option_array(result, "errors").has("Invalid child scope payload: child"), "坏子载荷应写入明确错误。")
 
 
+func test_apply_scope_rejects_future_format_before_mutating_sources() -> void:
+	var target: Node2D = Node2D.new()
+	target.name = "Target"
+	_scope.add_child(target)
+	_scope.add_child(_make_source(&"target_state", NodePath("../Target")))
+	var payload: Dictionary = {
+		"format": GFSaveGraphUtility.FORMAT_ID,
+		"format_version": GFSaveGraphUtility.FORMAT_VERSION + 1,
+		"scope": {},
+		"sources": {
+			"target_state": {
+				"descriptor": {},
+				"data": {
+					"serializers": [{
+						"id": &"gf.transform_2d",
+						"data": {
+							"position": Vector2(9.0, 3.0),
+							"rotation": 0.0,
+							"scale": Vector2.ONE,
+						},
+					}],
+				},
+			},
+		},
+		"scopes": {},
+	}
+
+	var result: Dictionary = _utility.apply_scope(_scope, payload)
+
+	assert_false(GFVariantData.get_option_bool(result, "ok"), "未来格式版本不应被应用。")
+	assert_eq(target.position, Vector2.ZERO, "格式门禁失败应发生在 Source 变更之前。")
+	assert_true(GFVariantData.to_text(GFVariantData.get_option_array(result, "errors")).contains("future format"), "错误应指出未来格式版本。")
+
+
+func test_apply_scope_rejects_duplicate_source_keys_before_mutating_sources() -> void:
+	var target_a: Node2D = Node2D.new()
+	target_a.name = "TargetA"
+	_scope.add_child(target_a)
+	var target_b: Node2D = Node2D.new()
+	target_b.name = "TargetB"
+	_scope.add_child(target_b)
+	_scope.add_child(_make_source(&"target_state", NodePath("../TargetA")))
+	_scope.add_child(_make_source(&"target_state", NodePath("../TargetB")))
+	var payload: Dictionary = {
+		"format": GFSaveGraphUtility.FORMAT_ID,
+		"format_version": GFSaveGraphUtility.FORMAT_VERSION,
+		"scope": {},
+		"sources": {
+			"target_state": {
+				"descriptor": {},
+				"data": {
+					"serializers": [{
+						"id": &"gf.transform_2d",
+						"data": {
+							"position": Vector2(5.0, 0.0),
+							"rotation": 0.0,
+							"scale": Vector2.ONE,
+						},
+					}],
+				},
+			},
+		},
+		"scopes": {},
+	}
+
+	var result: Dictionary = _utility.apply_scope(_scope, payload)
+
+	assert_false(GFVariantData.get_option_bool(result, "ok"), "重复 Source key 不应继续应用。")
+	assert_eq(target_a.position, Vector2.ZERO, "重复 key 失败不应改变第一个目标。")
+	assert_eq(target_b.position, Vector2.ZERO, "重复 key 失败不应改变第二个目标。")
+	assert_true(GFVariantData.to_text(GFVariantData.get_option_array(result, "errors")).contains("Duplicate source key"), "错误应指出重复 Source key。")
+
+
+func test_apply_scope_orders_same_phase_sources_by_stable_key() -> void:
+	var order: Array[String] = []
+	_scope.add_child(RecordingApplySource.new(&"b_state", order))
+	_scope.add_child(RecordingApplySource.new(&"a_state", order))
+	var payload: Dictionary = {
+		"format": GFSaveGraphUtility.FORMAT_ID,
+		"format_version": GFSaveGraphUtility.FORMAT_VERSION,
+		"scope": {},
+		"sources": {
+			"b_state": {
+				"descriptor": {},
+				"phase": GFSaveScope.Phase.NORMAL,
+				"data": {},
+			},
+			"a_state": {
+				"descriptor": {},
+				"phase": GFSaveScope.Phase.NORMAL,
+				"data": {},
+			},
+		},
+		"scopes": {},
+	}
+
+	var result: Dictionary = _utility.apply_scope(_scope, payload)
+
+	assert_true(GFVariantData.get_option_bool(result, "ok"), "合法 Source 应用应成功。")
+	assert_eq(order, ["a_state", "b_state"], "同 phase Source 应按 key 稳定排序，避免 Dictionary 插入顺序影响结果。")
+
+
 func test_apply_scope_rejects_invalid_serializer_data() -> void:
 	var target: Node2D = Node2D.new()
 	target.name = "Target"
@@ -652,6 +771,53 @@ func test_apply_scope_rejects_non_dictionary_source_data() -> void:
 
 	assert_false(GFVariantData.get_option_bool(result, "ok"), "Source data 非 Dictionary 时不应被视为成功。")
 	assert_true(GFVariantData.to_text(errors[0]).contains("Source data must be a Dictionary."), "Source 错误应指出数据结构问题。")
+
+
+func test_apply_scope_transaction_rolls_back_existing_source_state_on_later_failure() -> void:
+	var target_a: Node2D = Node2D.new()
+	target_a.name = "TargetA"
+	_scope.add_child(target_a)
+	var target_b: Node2D = Node2D.new()
+	target_b.name = "TargetB"
+	_scope.add_child(target_b)
+	_scope.add_child(_make_source(&"a_state", NodePath("../TargetA")))
+	_scope.add_child(_make_source(&"b_state", NodePath("../TargetB")))
+	var payload: Dictionary = {
+		"format": GFSaveGraphUtility.FORMAT_ID,
+		"format_version": GFSaveGraphUtility.FORMAT_VERSION,
+		"scope": {},
+		"sources": {
+			"a_state": {
+				"descriptor": {},
+				"data": {
+					"serializers": [{
+						"id": &"gf.transform_2d",
+						"data": {
+							"position": Vector2(8.0, 1.0),
+							"rotation": 0.0,
+							"scale": Vector2.ONE,
+						},
+					}],
+				},
+			},
+			"b_state": {
+				"descriptor": {},
+				"data": {
+					"serializers": [{
+						"id": &"gf.transform_2d",
+						"data": [],
+					}],
+				},
+			},
+		},
+		"scopes": {},
+	}
+
+	var result: Dictionary = _utility.apply_scope(_scope, payload, {}, true)
+
+	assert_false(GFVariantData.get_option_bool(result, "ok"), "后续 Source 失败应让事务整体失败。")
+	assert_eq(target_a.position, Vector2.ZERO, "事务失败应回滚已应用的已有 Source 状态。")
+	assert_eq(target_b.position, Vector2.ZERO, "失败 Source 也不应留下部分状态。")
 
 
 func test_property_serializer_rejects_type_mismatch_before_setting() -> void:

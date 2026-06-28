@@ -154,10 +154,10 @@ func validate(target: Variant, context: Dictionary = {}) -> GFValidationReport:
 		report.metadata["rule_metadata"] = metadata.duplicate(true)
 
 	var hook_result: Variant = _validate(target, report, context)
-	_apply_result(report, hook_result)
+	_apply_result(report, hook_result, context)
 	if callback.is_valid():
 		var callback_result: Variant = callback.call(target, report, context.duplicate(true))
-		_apply_result(report, callback_result)
+		_apply_result(report, callback_result, context)
 	return report
 
 
@@ -176,6 +176,28 @@ func duplicate_rule() -> GFValidationRule:
 	rule.metadata = metadata.duplicate(true)
 	rule.callback = callback
 	return rule
+
+
+## 导出规则摘要。
+## [br]
+## @api public
+## [br]
+## @since 6.0.0
+## [br]
+## @return 规则描述字典。
+## [br]
+## @schema return: Dictionary validation rule descriptor.
+func describe() -> Dictionary:
+	return {
+		"valid": true,
+		"rule_id": rule_id,
+		"description": description,
+		"target_kind": target_kind,
+		"enabled": enabled,
+		"severity": severity,
+		"severity_name": GFValidationIssue.severity_to_string(severity),
+		"metadata": metadata.duplicate(true),
+	}
 
 
 # --- 可重写钩子 / 虚方法 ---
@@ -203,7 +225,7 @@ func _validate(_target: Variant, _report: GFValidationReport, _context: Dictiona
 
 # --- 私有/辅助方法 ---
 
-func _apply_result(report: GFValidationReport, value: Variant) -> void:
+func _apply_result(report: GFValidationReport, value: Variant, context: Dictionary) -> void:
 	if value == null:
 		return
 	if value is GFValidationReport:
@@ -219,17 +241,24 @@ func _apply_result(report: GFValidationReport, value: Variant) -> void:
 		return
 	if value is bool:
 		if not GFVariantData.to_bool(value):
-			_add_issue_if_valid(report, _make_issue("Validation rule failed."))
+			_add_issue_if_valid(report, _make_issue("Validation rule failed.", context))
 		return
 	if value is String or value is StringName:
 		var message: String = GFVariantData.to_text(value)
 		if not message.is_empty():
-			_add_issue_if_valid(report, _make_issue(message))
+			_add_issue_if_valid(report, _make_issue(message, context))
 
 
-func _make_issue(message: String) -> GFValidationIssue:
+func _make_issue(message: String, context: Dictionary) -> GFValidationIssue:
 	var issue: GFValidationIssue = GFValidationIssue.new(severity, _get_issue_kind(), message)
-	issue.subject = String(rule_id)
+	issue.subject = _make_subject(context)
+	issue.key = GFVariantData.get_option_value(context, "key", issue.key)
+	issue.path = GFVariantData.get_option_string(context, "path", issue.path)
+	issue.source_path = GFVariantData.get_option_string(context, "source_path", issue.source_path)
+	if issue.source_path.is_empty():
+		issue.source_path = GFVariantData.get_option_string(context, "source", issue.source_path)
+	issue.line = GFVariantData.get_option_int(context, "line", issue.line)
+	issue.column = GFVariantData.get_option_int(context, "column", issue.column)
 	if not metadata.is_empty():
 		issue.metadata = metadata.duplicate(true)
 	return issue

@@ -181,6 +181,8 @@ static func read_property(
 		return default_value
 	if not has_property_path(object, property_path):
 		return default_value
+	if not _property_path_can_resolve(object, property_path):
+		return default_value
 	return object.get_indexed(property_path)
 
 
@@ -220,6 +222,8 @@ static func write_property(
 		return _make_write_result(false, "Missing property: %s" % String(root_property), root_property)
 	if _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(options, "check_writable", true) and not is_property_writable(property_info):
 		return _make_write_result(false, "Property is not writable: %s" % String(root_property), root_property)
+	if not _property_path_can_resolve(object, property_path):
+		return _make_write_result(false, "Property path cannot be resolved: %s" % String(property_path), root_property)
 
 	var old_value: Variant = object.get_indexed(property_path)
 	var property_type: int = _get_effective_property_type(property_path, property_info, old_value)
@@ -531,6 +535,173 @@ static func _get_effective_property_type(
 
 static func _is_direct_property_path(property_path: NodePath) -> bool:
 	return property_path.get_name_count() <= 1 and property_path.get_subname_count() == 0
+
+
+static func _property_path_can_resolve(object: Object, property_path: NodePath) -> bool:
+	if not is_instance_valid(object) or property_path.is_empty():
+		return false
+	var root_property: StringName = get_root_property_name(property_path)
+	if root_property == &"" or not has_property(object, root_property):
+		return false
+	if _is_direct_property_path(property_path):
+		return true
+	if property_path.get_name_count() > 1:
+		return false
+
+	var current_value: Variant = object.get(root_property)
+	var subname_start: int = 0
+	if property_path.get_name_count() == 0 and property_path.get_subname_count() > 0:
+		subname_start = 1
+	for subname_index: int in range(subname_start, property_path.get_subname_count()):
+		var subname: StringName = StringName(property_path.get_subname(subname_index))
+		var subvalue: Dictionary = _get_supported_subproperty_value(current_value, subname)
+		if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(subvalue, "ok", false):
+			return false
+		current_value = _GF_VARIANT_ACCESS_SCRIPT.get_option_value(subvalue, "value")
+	return true
+
+
+static func _get_supported_subproperty_value(value: Variant, subname: StringName) -> Dictionary:
+	if subname == &"":
+		return { "ok": false }
+	if value is Object:
+		var object_value: Object = value
+		if not is_instance_valid(object_value) or not has_property(object_value, subname):
+			return { "ok": false }
+		return { "ok": true, "value": object_value.get(subname) }
+
+	match typeof(value):
+		TYPE_VECTOR2:
+			var vector2_value: Vector2 = value
+			match subname:
+				&"x":
+					return { "ok": true, "value": vector2_value.x }
+				&"y":
+					return { "ok": true, "value": vector2_value.y }
+		TYPE_VECTOR2I:
+			var vector2i_value: Vector2i = value
+			match subname:
+				&"x":
+					return { "ok": true, "value": vector2i_value.x }
+				&"y":
+					return { "ok": true, "value": vector2i_value.y }
+		TYPE_VECTOR3:
+			var vector3_value: Vector3 = value
+			match subname:
+				&"x":
+					return { "ok": true, "value": vector3_value.x }
+				&"y":
+					return { "ok": true, "value": vector3_value.y }
+				&"z":
+					return { "ok": true, "value": vector3_value.z }
+		TYPE_VECTOR3I:
+			var vector3i_value: Vector3i = value
+			match subname:
+				&"x":
+					return { "ok": true, "value": vector3i_value.x }
+				&"y":
+					return { "ok": true, "value": vector3i_value.y }
+				&"z":
+					return { "ok": true, "value": vector3i_value.z }
+		TYPE_VECTOR4:
+			var vector4_value: Vector4 = value
+			match subname:
+				&"x":
+					return { "ok": true, "value": vector4_value.x }
+				&"y":
+					return { "ok": true, "value": vector4_value.y }
+				&"z":
+					return { "ok": true, "value": vector4_value.z }
+				&"w":
+					return { "ok": true, "value": vector4_value.w }
+		TYPE_VECTOR4I:
+			var vector4i_value: Vector4i = value
+			match subname:
+				&"x":
+					return { "ok": true, "value": vector4i_value.x }
+				&"y":
+					return { "ok": true, "value": vector4i_value.y }
+				&"z":
+					return { "ok": true, "value": vector4i_value.z }
+				&"w":
+					return { "ok": true, "value": vector4i_value.w }
+		TYPE_COLOR:
+			var color_value: Color = value
+			match subname:
+				&"r":
+					return { "ok": true, "value": color_value.r }
+				&"g":
+					return { "ok": true, "value": color_value.g }
+				&"b":
+					return { "ok": true, "value": color_value.b }
+				&"a":
+					return { "ok": true, "value": color_value.a }
+		TYPE_QUATERNION:
+			var quaternion_value: Quaternion = value
+			match subname:
+				&"x":
+					return { "ok": true, "value": quaternion_value.x }
+				&"y":
+					return { "ok": true, "value": quaternion_value.y }
+				&"z":
+					return { "ok": true, "value": quaternion_value.z }
+				&"w":
+					return { "ok": true, "value": quaternion_value.w }
+		TYPE_RECT2:
+			var rect2_value: Rect2 = value
+			match subname:
+				&"position":
+					return { "ok": true, "value": rect2_value.position }
+				&"size":
+					return { "ok": true, "value": rect2_value.size }
+				&"end":
+					return { "ok": true, "value": rect2_value.end }
+		TYPE_RECT2I:
+			var rect2i_value: Rect2i = value
+			match subname:
+				&"position":
+					return { "ok": true, "value": rect2i_value.position }
+				&"size":
+					return { "ok": true, "value": rect2i_value.size }
+				&"end":
+					return { "ok": true, "value": rect2i_value.end }
+		TYPE_AABB:
+			var aabb_value: AABB = value
+			match subname:
+				&"position":
+					return { "ok": true, "value": aabb_value.position }
+				&"size":
+					return { "ok": true, "value": aabb_value.size }
+				&"end":
+					return { "ok": true, "value": aabb_value.end }
+		TYPE_TRANSFORM2D:
+			var transform2d_value: Transform2D = value
+			match subname:
+				&"x":
+					return { "ok": true, "value": transform2d_value.x }
+				&"y":
+					return { "ok": true, "value": transform2d_value.y }
+				&"origin":
+					return { "ok": true, "value": transform2d_value.origin }
+		TYPE_BASIS:
+			var basis_value: Basis = value
+			match subname:
+				&"x":
+					return { "ok": true, "value": basis_value.x }
+				&"y":
+					return { "ok": true, "value": basis_value.y }
+				&"z":
+					return { "ok": true, "value": basis_value.z }
+		TYPE_TRANSFORM3D:
+			var transform3d_value: Transform3D = value
+			match subname:
+				&"basis":
+					return { "ok": true, "value": transform3d_value.basis }
+				&"origin":
+					return { "ok": true, "value": transform3d_value.origin }
+		_:
+			pass
+	return { "ok": false }
 
 
 static func _make_property_name_filter(value: Variant) -> Dictionary:

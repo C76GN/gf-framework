@@ -29,6 +29,20 @@ extends GFInputModifier
 ## @api public
 @export var apply_delta_time: bool = true
 
+## 是否使用 manual_delta_seconds 替代系统时钟。
+## [br]
+## @api public
+## [br]
+## @since 7.0.0
+@export var use_manual_delta_time: bool = false
+
+## 手动驱动的每步 delta 秒数，用于确定性输入回放。
+## [br]
+## @api public
+## [br]
+## @since 7.0.0
+@export_range(0.0, 10.0, 0.0001) var manual_delta_seconds: float = 0.0
+
 ## 是否将位置限制在 clamp_rect 内。
 ## [br]
 ## @api public
@@ -120,6 +134,56 @@ func reset_position() -> GFInputVirtualCursorModifier:
 	return self
 
 
+## 设置下一步和后续步骤使用的手动 delta 秒数。
+## [br]
+## @api public
+## [br]
+## @since 7.0.0
+## [br]
+## @param delta_seconds: 手动 delta 秒数；小于 0 时按 0 处理。
+## [br]
+## @return 当前修饰器。
+func set_manual_delta_seconds(delta_seconds: float) -> GFInputVirtualCursorModifier:
+	manual_delta_seconds = maxf(delta_seconds, 0.0)
+	use_manual_delta_time = true
+	_last_ticks_msec = 0
+	return self
+
+
+## 获取运行时状态快照。
+## [br]
+## @api public
+## [br]
+## @since 7.0.0
+## [br]
+## @return 当前运行时状态。
+## [br]
+## @schema return: Dictionary，包含 position 与 initialized。
+func get_runtime_state() -> Dictionary:
+	return {
+		"position": position,
+		"initialized": _initialized,
+	}
+
+
+## 从运行时状态快照恢复虚拟光标。
+## [br]
+## @api public
+## [br]
+## @since 7.0.0
+## [br]
+## @param state: get_runtime_state() 生成的状态。
+## [br]
+## @return 当前修饰器。
+## [br]
+## @schema state: Dictionary，可包含 position: Vector2 与 initialized: bool。
+func restore_runtime_state(state: Dictionary) -> GFInputVirtualCursorModifier:
+	position = GFVariantData.get_option_vector2(state, "position", initial_position)
+	_initialized = GFVariantData.get_option_bool(state, "initialized", false)
+	_last_ticks_msec = 0
+	return self
+
+
 ## 创建运行时副本。
 ## [br]
 ## @api public
@@ -149,6 +213,9 @@ func _get_step_delta() -> float:
 	if not apply_delta_time:
 		_update_ticks()
 		return 1.0
+	if use_manual_delta_time:
+		_last_ticks_msec = 0
+		return maxf(manual_delta_seconds, 0.0)
 
 	var now: int = Time.get_ticks_msec()
 	var delta: float = 0.0
@@ -159,6 +226,9 @@ func _get_step_delta() -> float:
 
 
 func _update_ticks() -> void:
+	if use_manual_delta_time:
+		_last_ticks_msec = 0
+		return
 	_last_ticks_msec = Time.get_ticks_msec()
 
 

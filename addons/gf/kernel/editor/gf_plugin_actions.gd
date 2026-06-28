@@ -336,6 +336,9 @@ func _register_template_record(source_record: Dictionary) -> void:
 	record["type"] = template_type
 	if not record.has("base_class"):
 		record["base_class"] = "GF" + template_type
+	if _template_records.has(template_type):
+		push_error("[GF Framework] 模板 type 重复，已跳过: %s" % template_type)
+		return
 
 	var menu_id: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(record, "menu_id", -1)
 	if menu_id < 0:

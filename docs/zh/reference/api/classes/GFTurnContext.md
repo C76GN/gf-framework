@@ -18,7 +18,6 @@
 | 属性 | [`actors`](#member-gfturncontext-properties-actors) | `var actors: Array[Object] = []` |
 | 属性 | [`actions`](#member-gfturncontext-properties-actions) | `var actions: Array[GFTurnAction] = []` |
 | 属性 | [`current_actor`](#member-gfturncontext-properties-current_actor) | `var current_actor: Object = null` |
-| 属性 | [`turn_index`](#member-gfturncontext-properties-turn_index) | `var turn_index: int = 0` |
 | 属性 | [`round_index`](#member-gfturncontext-properties-round_index) | `var round_index: int = 0` |
 | 属性 | [`metadata`](#member-gfturncontext-properties-metadata) | `var metadata: Dictionary = {}` |
 | 方法 | [`add_actor`](#member-gfturncontext-methods-add_actor) | `func add_actor(actor: Object) -> void:` |
@@ -63,18 +62,6 @@ var current_actor: Object = null
 ```
 
 当前行动主体。
-
-<a id="member-gfturncontext-properties-turn_index"></a>
-
-### `turn_index`
-
-- API：`public`
-
-```gdscript
-var turn_index: int = 0
-```
-
-当前回合索引。
 
 <a id="member-gfturncontext-properties-round_index"></a>
 

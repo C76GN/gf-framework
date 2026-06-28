@@ -95,8 +95,24 @@ var _pressed: bool = false
 
 # --- Godot 生命周期方法 ---
 
+func _notification(what: int) -> void:
+	if Engine.is_editor_hint():
+		return
+	if what == CanvasItem.NOTIFICATION_VISIBILITY_CHANGED and not is_visible_in_tree():
+		release()
+
+
+func _exit_tree() -> void:
+	if Engine.is_editor_hint():
+		return
+	release()
+
+
 func _input(event: InputEvent) -> void:
 	if Engine.is_editor_hint():
+		return
+	if not is_visible_in_tree():
+		release()
 		return
 
 	var screen_touch: InputEventScreenTouch = _INPUT_EVENT_TOOLS.get_screen_touch_event(event)

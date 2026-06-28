@@ -100,7 +100,10 @@ func score(context: GFDecisionContext) -> float:
 	if not enabled:
 		return 1.0
 
-	var raw_score: float = clampf(_score(context), 0.0, 1.0)
+	var raw_score: float = _score(context)
+	if is_nan(raw_score) or is_inf(raw_score):
+		raw_score = missing_score
+	raw_score = clampf(raw_score, 0.0, 1.0)
 	if invert:
 		raw_score = 1.0 - raw_score
 	return clampf(raw_score, 0.0, 1.0)

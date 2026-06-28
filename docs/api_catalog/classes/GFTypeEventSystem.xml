@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFTypeEventSystem" path="addons/gf/kernel/core/gf_type_event_system.gd" module="kernel" extends="Object" classDigest="a649ada915f3f6b2789440029facb28c1bc1581526037bf98e16337c3bf6bd30">
+<class name="GFTypeEventSystem" path="addons/gf/kernel/core/gf_type_event_system.gd" module="kernel" extends="Object" classDigest="8270caecc768e66a4de342a739f600f0d92ad0a9a8e1ec0f977a9a46f4a6afcd">
 	<description>GFTypeEventSystem: 基于类型和 StringName 的双轨事件系统。
 轨道一（类型事件）：使用 Script 类型作为键，以对象实例为载体分发事件。
 轨道二（简单事件）：使用 StringName 作为键，以 Variant 为 payload 分发事件。</description>
@@ -170,6 +170,29 @@
 				<tag name="api">public</tag>
 				<tag name="return">包含类型事件、可赋值事件和简单事件监听数量的字典。</tag>
 				<tag name="schema">return: Dictionary containing listener counts, pending operation counts, dispatch counters, depth limits, and trace counters.</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_listener_diagnostics">
+			<signature>func get_listener_diagnostics(options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>获取事件监听器诊断明细。
+默认只返回每条轨道的数量统计；传入 `{ "include_entries": true }` 时会附带每个监听器的事件 key、owner 状态、优先级和 Callable 状态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">options: 诊断选项。</tag>
+				<tag name="return">监听器诊断报告。</tag>
+				<tag name="schema">options: Dictionary，可包含 include_entries。</tag>
+				<tag name="schema">return: Dictionary containing listener counts, stale owner counts, track summaries, and optional entry rows.</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="compact_released_owner_listeners">
+			<signature>func compact_released_owner_listeners() -&gt; int:</signature>
+			<description>清理 owner 已释放的监听器并返回清理数量。
+派发期间调用时只会把清理动作加入 pending 队列，并在最外层派发结束后合并。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">本次立即移除或排队清理的监听器数量。</tag>
+				<tag name="since">7.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_dispatch_trace">

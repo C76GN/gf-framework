@@ -51,6 +51,16 @@ class RecordingAudioUtility:
 		return super._play_sfx_stream(stream)
 
 
+class FailingSpatialSettings:
+	extends Resource
+
+	func apply_to_2d(_player: AudioStreamPlayer2D) -> bool:
+		return false
+
+	func apply_to_3d(_player: AudioStreamPlayer3D) -> bool:
+		return false
+
+
 class MockAudioBackend:
 	extends GFAudioBackend
 
@@ -618,6 +628,25 @@ func test_audio_bank_mounter_keeps_nested_mount_stack_consistent() -> void:
 	second_mounter.free()
 
 
+func test_audio_bank_mounter_unmounts_original_bank_id_after_id_change() -> void:
+	var base_bank: GFAudioBank = GFAudioBank.new()
+	var mounted_bank: GFAudioBank = GFAudioBank.new()
+	_audio.register_audio_bank(&"scene_a", base_bank)
+
+	var mounter: GFAudioBankMounter = GFAudioBankMounter.new()
+	mounter.bank_id = &"scene_a"
+	mounter.bank = mounted_bank
+	mounter.set_audio_utility(_audio)
+
+	assert_true(mounter.mount(), "测试应先成功挂载 scene_a。")
+	mounter.bank_id = &"scene_b"
+
+	assert_true(mounter.unmount(), "bank_id 变更后仍应能卸载原始挂载。")
+	assert_same(_audio.get_audio_bank(&"scene_a"), base_bank, "卸载应恢复原始 bank ID 的基础 bank。")
+	assert_null(_audio.get_audio_bank(&"scene_b"), "新 bank ID 不应误消费旧挂载 token。")
+	mounter.free()
+
+
 func test_audio_backend_can_handle_selected_requests() -> void:
 	var backend: MockAudioBackend = MockAudioBackend.new()
 	_audio.set_audio_backend(backend)
@@ -692,6 +721,15 @@ func test_audio_catalog_provider_lists_entries() -> void:
 	assert_eq(GFVariantData.get_option_float(parameter_entry, "max"), 1.0, "目录应返回条目元数据。")
 
 
+func test_audio_catalog_provider_ignores_unknown_catalog_ids() -> void:
+	var catalog: GFAudioCatalogProvider = GFAudioCatalogProvider.new()
+
+	catalog.set_entry(&"parameter", &"intensity", { "min": 0.0 })
+
+	assert_eq(catalog.get_ids(&"events"), PackedStringArray(), "未知目录 ID 不应默认写入 events。")
+	assert_eq(catalog.get_ids(&"parameter"), PackedStringArray(), "未知目录 ID 查询应返回空列表。")
+
+
 func test_play_sfx_clip_2d_creates_spatial_player() -> void:
 	var source: Node2D = Node2D.new()
 	add_child_autofree(source)
@@ -710,6 +748,28 @@ func test_play_sfx_clip_2d_creates_spatial_player() -> void:
 		player.queue_free()
 
 
+func test_post_audio_event_spatial_sfx_uses_default_spatial_player() -> void:
+	var source: Node2D = Node2D.new()
+	add_child_autofree(source)
+	var stream: AudioStreamGenerator = AudioStreamGenerator.new()
+	var clip: GFAudioClip = GFAudioClip.new()
+	clip.stream = stream
+	var event: GFAudioEvent = GFAudioEvent.new()
+	event.channel = &"spatial_sfx"
+	event.clip = clip
+
+	var handle: GFAudioEmitterHandle = _audio.post_audio_event(event, {
+		"source": source,
+		"follow_source": true,
+	})
+
+	assert_not_null(handle, "带 source 的 spatial_sfx 事件应返回空间播放句柄。")
+	assert_true(handle.is_valid(), "默认空间 SFX 播放器应绑定到返回句柄。")
+	assert_eq(_audio._active_spatial_sfx_players.size(), 1, "默认 spatial_sfx 事件应创建空间播放器。")
+	assert_same(handle.get_player().get_parent(), source, "follow_source=true 时空间播放器应挂到声源下。")
+	handle.stop()
+
+
 func test_play_sfx_clip_3d_preserves_default_area_mask_without_spatial_settings() -> void:
 	var source: Node3D = Node3D.new()
 	add_child_autofree(source)
@@ -724,6 +784,21 @@ func test_play_sfx_clip_3d_preserves_default_area_mask_without_spatial_settings(
 	assert_eq(player.stream, stream, "3D 空间 SFX 应写入对应音频流。")
 	assert_eq(player.bus, "Master", "3D 空间 SFX 应应用总线配置。")
 	assert_eq(player.area_mask, 1, "未提供空间设置时 3D 空间 SFX 应保留 GF 默认区域掩码。")
+	if is_instance_valid(player):
+		player.queue_free()
+
+
+func test_play_sfx_clip_2d_falls_back_to_default_area_mask_when_compatible_settings_fail() -> void:
+	var source: Node2D = Node2D.new()
+	add_child_autofree(source)
+	var clip: GFAudioClip = GFAudioClip.new()
+	clip.stream = AudioStreamGenerator.new()
+	clip.spatial_settings = FailingSpatialSettings.new()
+
+	var player: AudioStreamPlayer2D = _audio.play_sfx_clip_2d(clip, source)
+
+	assert_not_null(player, "兼容空间设置失败时仍应创建播放器。")
+	assert_eq(player.area_mask, 1, "兼容空间设置返回 false 时应恢复 GF 默认 area_mask。")
 	if is_instance_valid(player):
 		player.queue_free()
 
@@ -925,11 +1000,36 @@ func test_sfx_handle_stop_before_async_load_prevents_playback() -> void:
 	await get_tree().process_frame
 
 	var handle: GFAudioEmitterHandle = audio.play_sfx_handle("res://audio/sfx.ogg")
+	var stopped_count: Array[int] = [0]
+	var _connect_result: Error = handle.stopped.connect(func(_handle: GFAudioEmitterHandle) -> void:
+		stopped_count[0] += 1
+	) as Error
 	handle.stop()
 	mock_asset.finish("res://audio/sfx.ogg", AudioStreamGenerator.new())
 
 	assert_true(handle.is_stop_requested(), "异步资源返回前停止句柄应记录停止请求。")
+	assert_eq(stopped_count[0], 1, "pending handle 停止时应发出 exactly-once 终态信号。")
 	assert_eq(audio.sfx_play_count, 0, "已停止的异步 SFX 请求完成后不应再播放。")
+	audio.dispose()
+	await get_tree().process_frame
+
+
+func test_sfx_handle_failed_async_load_emits_terminal_stop() -> void:
+	var mock_asset: MockAssetUtility = MockAssetUtility.new()
+	var audio: RecordingAudioUtility = RecordingAudioUtility.new(mock_asset)
+	audio.init()
+	await get_tree().process_frame
+	var stopped_count: Array[int] = [0]
+
+	var handle: GFAudioEmitterHandle = audio.play_sfx_handle("res://audio/missing.ogg")
+	var _connect_result: Error = handle.stopped.connect(func(_handle: GFAudioEmitterHandle) -> void:
+		stopped_count[0] += 1
+	) as Error
+	mock_asset.finish("res://audio/missing.ogg", null)
+
+	assert_eq(stopped_count[0], 1, "异步资源缺失时 public handle 应进入可观察终态。")
+	assert_false(handle.is_valid(), "异步资源缺失后句柄不应保持 pending 有效状态。")
+	assert_eq(audio.sfx_play_count, 0, "异步资源缺失不应尝试播放。")
 	audio.dispose()
 	await get_tree().process_frame
 
@@ -946,6 +1046,23 @@ func test_sfx_capacity_can_skip_new_requests() -> void:
 
 	assert_eq(_audio._active_sfx_players.size(), 1, "SFX 达到上限后应只保留一个播放器。")
 	assert_eq(_audio._active_sfx_players[0].stream, first_stream, "跳过策略不应替换正在播放的 SFX。")
+
+
+func test_sfx_capacity_skip_marks_returned_handle_terminal() -> void:
+	_audio.max_sfx_players = 1
+	_audio.sfx_overflow_policy = GFAudioUtility.SFXOverflowPolicy.SKIP_NEW
+	var first_clip: GFAudioClip = GFAudioClip.new()
+	first_clip.stream = AudioStreamGenerator.new()
+	var skipped_clip: GFAudioClip = GFAudioClip.new()
+	skipped_clip.stream = AudioStreamGenerator.new()
+	var _first_handle: GFAudioEmitterHandle = _audio.play_sfx_clip_handle(first_clip)
+
+	var skipped_handle: GFAudioEmitterHandle = _audio.play_sfx_clip_handle(skipped_clip)
+	await get_tree().process_frame
+
+	assert_eq(_audio._active_sfx_players.size(), 1, "跳过策略不应创建第二个播放器。")
+	assert_true(skipped_handle.is_stop_requested(), "被容量策略跳过的 handle 应进入终态请求状态。")
+	assert_false(skipped_handle.is_valid(), "被容量策略跳过的 handle 不应保持有效。")
 
 
 func test_sfx_capacity_can_stop_oldest_request() -> void:

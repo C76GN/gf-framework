@@ -1,0 +1,262 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFValidationConstraintRule" path="addons/gf/standard/foundation/validation/gf_validation_constraint_rule.gd" module="standard" extends="GFValidationRule" classDigest="17f3d697c724f0e11a48dfed31d54016d6a669506d7ebacacb9b655ea37d0162">
+	<description>GFValidationConstraintRule: 通用约束校验规则资源。
+为 `GFValidationRule` 补齐范围、集合、正则和尺寸这类跨模块常用约束。
+规则只检查传入值，不解释字段业务语义；调用方可把它挂到 `GFSchemaField`、
+设置定义、导入计划或项目自己的校验套件中。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">resource_definition</tag>
+		<tag name="since">6.0.0</tag>
+	</tags>
+	<signals />
+	<enums>
+		<member kind="enum" name="ConstraintKind">
+			<signature>enum ConstraintKind {
+	## 数值范围。
+	RANGE,
+	## 允许值集合。
+	SET,
+	## 字符串正则表达式。
+	REGEX,
+	## String、Array、Dictionary 或 PackedArray 尺寸。
+	SIZE,
+}</signature>
+			<description>约束类别。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+	</enums>
+	<constants />
+	<properties>
+		<member kind="property" name="constraint_kind" decorators="@export">
+			<signature>var constraint_kind: ConstraintKind = ConstraintKind.RANGE</signature>
+			<description>约束类别。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="has_minimum" decorators="@export">
+			<signature>var has_minimum: bool = false</signature>
+			<description>是否检查最小数值。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="minimum" decorators="@export">
+			<signature>var minimum: float = 0.0</signature>
+			<description>最小数值。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="inclusive_minimum" decorators="@export">
+			<signature>var inclusive_minimum: bool = true</signature>
+			<description>最小数值是否包含边界。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="has_maximum" decorators="@export">
+			<signature>var has_maximum: bool = false</signature>
+			<description>是否检查最大数值。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="maximum" decorators="@export">
+			<signature>var maximum: float = 0.0</signature>
+			<description>最大数值。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="inclusive_maximum" decorators="@export">
+			<signature>var inclusive_maximum: bool = true</signature>
+			<description>最大数值是否包含边界。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="allowed_values" decorators="@export">
+			<signature>var allowed_values: Array = []</signature>
+			<description>允许值集合。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">allowed_values: Array of accepted Variant values.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="case_sensitive" decorators="@export">
+			<signature>var case_sensitive: bool = true</signature>
+			<description>字符串集合比较是否区分大小写。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="pattern" decorators="@export">
+			<signature>var pattern: String = ""</signature>
+			<description>正则表达式。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="require_full_match" decorators="@export">
+			<signature>var require_full_match: bool = false</signature>
+			<description>是否要求正则匹配覆盖整个字符串。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="allow_empty" decorators="@export">
+			<signature>var allow_empty: bool = true</signature>
+			<description>是否允许空字符串跳过正则检查。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="has_minimum_size" decorators="@export">
+			<signature>var has_minimum_size: bool = false</signature>
+			<description>是否检查最小尺寸。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="minimum_size" decorators="@export">
+			<signature>var minimum_size: int = 0</signature>
+			<description>最小尺寸。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="has_maximum_size" decorators="@export">
+			<signature>var has_maximum_size: bool = false</signature>
+			<description>是否检查最大尺寸。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="maximum_size" decorators="@export">
+			<signature>var maximum_size: int = 0</signature>
+			<description>最大尺寸。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="configure_range">
+			<signature>func configure_range( p_minimum: float, p_maximum: float, options: Dictionary = {} ) -&gt; GFValidationConstraintRule:</signature>
+			<description>配置数值范围约束。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">p_minimum: 最小值。</tag>
+				<tag name="param">p_maximum: 最大值。</tag>
+				<tag name="param">options: 可选字段，支持 rule_id、description、enabled、severity、metadata、has_minimum、has_maximum、inclusive_minimum 和 inclusive_maximum。</tag>
+				<tag name="return">当前规则。</tag>
+				<tag name="schema">options: Dictionary range constraint configuration.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="configure_set">
+			<signature>func configure_set(p_allowed_values: Array, options: Dictionary = {}) -&gt; GFValidationConstraintRule:</signature>
+			<description>配置允许值集合约束。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">p_allowed_values: 允许值数组。</tag>
+				<tag name="param">options: 可选字段，支持 rule_id、description、enabled、severity、metadata 和 case_sensitive。</tag>
+				<tag name="return">当前规则。</tag>
+				<tag name="schema">p_allowed_values: Array of accepted Variant values.</tag>
+				<tag name="schema">options: Dictionary set constraint configuration.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="configure_regex">
+			<signature>func configure_regex(p_pattern: String, options: Dictionary = {}) -&gt; GFValidationConstraintRule:</signature>
+			<description>配置字符串正则约束。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">p_pattern: 正则表达式。</tag>
+				<tag name="param">options: 可选字段，支持 rule_id、description、enabled、severity、metadata、require_full_match 和 allow_empty。</tag>
+				<tag name="return">当前规则。</tag>
+				<tag name="schema">options: Dictionary regex constraint configuration.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="configure_size">
+			<signature>func configure_size( p_minimum_size: int, p_maximum_size: int, options: Dictionary = {} ) -&gt; GFValidationConstraintRule:</signature>
+			<description>配置尺寸约束。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">p_minimum_size: 最小尺寸。</tag>
+				<tag name="param">p_maximum_size: 最大尺寸。</tag>
+				<tag name="param">options: 可选字段，支持 rule_id、description、enabled、severity、metadata、has_minimum_size 和 has_maximum_size。</tag>
+				<tag name="return">当前规则。</tag>
+				<tag name="schema">options: Dictionary size constraint configuration.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="duplicate_rule">
+			<signature>func duplicate_rule() -&gt; GFValidationRule:</signature>
+			<description>创建当前约束规则的配置副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">新规则。</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="describe">
+			<signature>func describe() -&gt; Dictionary:</signature>
+			<description>导出规则摘要。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">规则描述字典。</tag>
+				<tag name="schema">return: Dictionary validation constraint rule descriptor.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="constraint_kind_to_name">
+			<signature>static func constraint_kind_to_name(value: ConstraintKind) -&gt; String:</signature>
+			<description>将约束类别转换为稳定名称。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">value: 约束类别。</tag>
+				<tag name="return">类别名称。</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_validate">
+			<signature>func _validate(_target: Variant, _report: GFValidationReport, _context: Dictionary) -&gt; Variant:</signature>
+			<description>执行约束校验逻辑。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">_target: 待校验值。</tag>
+				<tag name="param">_report: 当前规则报告。</tag>
+				<tag name="param">_context: 调用方上下文。</tag>
+				<tag name="return">约束校验结果。</tag>
+				<tag name="schema">_target: Variant validation target.</tag>
+				<tag name="schema">_context: Dictionary validation context.</tag>
+				<tag name="schema">return: Variant validation hook result.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

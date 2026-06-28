@@ -65,7 +65,7 @@ signal line_blocked(line_id: StringName, reason: StringName)
 ## @api public
 ## [br]
 ## @since 5.0.0
-const SNAPSHOT_SCHEMA_VERSION: int = 1
+const SNAPSHOT_SCHEMA_VERSION: int = 2
 
 
 # --- 公共变量 ---
@@ -120,6 +120,8 @@ func start(
 ) -> GFDialogueLine:
 	if resource == null:
 		return null
+	if _is_running:
+		_end_dialogue()
 	_resource = resource
 	_context = _prepare_context(context)
 
@@ -213,12 +215,13 @@ func is_running() -> bool:
 ## [br]
 ## @return: 运行快照。
 ## [br]
-## @schema return: 包含 schema_version、is_running、current_line_id 和 context_values 字段的 Dictionary。
+## @schema return: 包含 schema_version、is_running、current_line_id、resource_fingerprint 和 context_values 字段的 Dictionary。
 func create_runtime_snapshot() -> Dictionary:
 	return {
 		"schema_version": SNAPSHOT_SCHEMA_VERSION,
 		"is_running": _is_running,
 		"current_line_id": _current_line_id,
+		"resource_fingerprint": _get_resource_fingerprint(_resource),
 		"context_values": _context.serialize_values() if _context != null else {},
 	}
 
@@ -240,13 +243,16 @@ func create_runtime_snapshot() -> Dictionary:
 ## [br]
 ## @return: 恢复后的当前可展示行；快照无效、已结束或资源不匹配时返回 null。
 ## [br]
-## @schema snapshot: 包含 schema_version、is_running、current_line_id 和 context_values 字段的 Dictionary。
+## @schema snapshot: 包含 schema_version、is_running、current_line_id、resource_fingerprint 和 context_values 字段的 Dictionary。
 func restore_runtime_snapshot(
 	resource: GFDialogueResource,
 	snapshot: Dictionary,
 	context: GFDialogueContext = null
 ) -> GFDialogueLine:
 	_reset_runtime_state()
+
+	if GFVariantData.get_option_int(snapshot, "schema_version", -1) != SNAPSHOT_SCHEMA_VERSION:
+		return null
 
 	var restored_context: GFDialogueContext = _prepare_context(context)
 	restored_context.deserialize_values(GFVariantData.get_option_dictionary(snapshot, "context_values", {}))
@@ -255,6 +261,9 @@ func restore_runtime_snapshot(
 	if not GFVariantData.get_option_bool(snapshot, "is_running", false):
 		return null
 	if resource == null:
+		return null
+	var snapshot_fingerprint: String = GFVariantData.get_option_string(snapshot, "resource_fingerprint")
+	if snapshot_fingerprint == "" or snapshot_fingerprint != _get_resource_fingerprint(resource):
 		return null
 
 	var line_id: StringName = GFVariantData.get_option_string_name(snapshot, "current_line_id", &"")
@@ -306,12 +315,20 @@ func _reset_runtime_state() -> void:
 
 func _advance_to_next_text() -> GFDialogueLine:
 	var steps: int = 0
+	var visited_line_ids: Dictionary = {}
 	while _is_running:
 		if max_steps_per_advance > 0 and steps >= max_steps_per_advance:
 			line_blocked.emit(_current_line_id, &"max_steps_reached")
 			_end_dialogue()
 			return null
 		steps += 1
+
+		if _current_line_id != &"":
+			if visited_line_ids.has(_current_line_id):
+				line_blocked.emit(_current_line_id, &"automatic_cycle_detected")
+				_end_dialogue()
+				return null
+			visited_line_ids[_current_line_id] = true
 
 		var line: GFDialogueLine = _resource.get_line(_current_line_id)
 		if line == null:
@@ -328,7 +345,10 @@ func _advance_to_next_text() -> GFDialogueLine:
 				line_reached.emit(line)
 				return line
 			GFDialogueLine.LineKind.MUTATION:
-				_apply_line_mutation(line)
+				if not _apply_line_mutation(line):
+					line_blocked.emit(line.line_id, &"line_mutation_failed")
+					_end_dialogue()
+					return null
 				_current_line_id = line.get_default_next_line_id()
 			GFDialogueLine.LineKind.JUMP:
 				_current_line_id = line.get_default_next_line_id()
@@ -344,19 +364,22 @@ func _advance_to_next_text() -> GFDialogueLine:
 
 func _apply_response(response_id: StringName) -> bool:
 	if _current_line == null:
-		line_blocked.emit(response_id, &"missing_current_line")
+		line_blocked.emit(_current_line_id, &"missing_current_line")
 		return false
 
 	var response: GFDialogueResponse = _current_line.get_response(response_id)
 	if response == null:
-		line_blocked.emit(response_id, &"missing_response")
+		line_blocked.emit(_current_line.line_id, &"missing_response")
 		return false
 	if not response.is_available(_context):
-		line_blocked.emit(response_id, &"response_condition_failed")
+		line_blocked.emit(_current_line.line_id, &"response_condition_failed")
 		return false
 
 	if response.mutation_id != &"":
-		var _apply_mutation_result_267: Variant = _context.apply_mutation(response.mutation_id, response.mutation_payload, response)
+		var mutation_result: Dictionary = _context.apply_mutation(response.mutation_id, response.mutation_payload, response)
+		if not GFVariantData.get_option_bool(mutation_result, "ok", false):
+			line_blocked.emit(_current_line.line_id, &"response_mutation_failed")
+			return false
 	var next_id: StringName = response.next_line_id if response.next_line_id != &"" else _current_line.get_default_next_line_id()
 	_current_line_id = next_id
 	_current_line = null
@@ -366,11 +389,12 @@ func _apply_response(response_id: StringName) -> bool:
 	return true
 
 
-func _apply_line_mutation(line: GFDialogueLine) -> void:
+func _apply_line_mutation(line: GFDialogueLine) -> bool:
 	if line.mutation_id == &"":
-		return
+		return true
 	mutation_requested.emit(line.mutation_id, line.mutation_payload, line)
-	var _apply_mutation_result_281: Variant = _context.apply_mutation(line.mutation_id, line.mutation_payload, line)
+	var mutation_result: Dictionary = _context.apply_mutation(line.mutation_id, line.mutation_payload, line)
+	return GFVariantData.get_option_bool(mutation_result, "ok", false)
 
 
 func _move_after_blocked_line(line: GFDialogueLine) -> bool:
@@ -408,3 +432,9 @@ func _get_architecture_value(value: Variant) -> GFArchitecture:
 		var architecture: GFArchitecture = value
 		return architecture
 	return null
+
+
+func _get_resource_fingerprint(resource: GFDialogueResource) -> String:
+	if resource == null:
+		return ""
+	return JSON.stringify(resource.to_dictionary())

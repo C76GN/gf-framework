@@ -26,6 +26,7 @@
 | 方法 | [`sample_fields`](#member-gfgravityprobe3d-methods-sample_fields) | `func sample_fields(fields: Array) -> Vector3:` |
 | 方法 | [`get_down_direction`](#member-gfgravityprobe3d-methods-get_down_direction) | `func get_down_direction() -> Vector3:` |
 | 方法 | [`get_up_direction`](#member-gfgravityprobe3d-methods-get_up_direction) | `func get_up_direction() -> Vector3:` |
+| 方法 | [`invalidate_cache`](#member-gfgravityprobe3d-methods-invalidate_cache) | `func invalidate_cache() -> void:` |
 
 ## 枚举
 
@@ -189,3 +190,16 @@ func get_up_direction() -> Vector3:
 获取当前位置的向上方向。
 
 返回：向上方向。
+
+<a id="member-gfgravityprobe3d-methods-invalidate_cache"></a>
+
+### `invalidate_cache`
+
+- API：`public`
+- 首次版本：`7.0.0`
+
+```gdscript
+func invalidate_cache() -> void:
+```
+
+清空当前帧采样缓存。

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFNodeContext" path="addons/gf/kernel/core/gf_node_context.gd" module="kernel" extends="Node" classDigest="a5e898cccf65d53e7f70ade33b7a0cf8a3ce09ff36bb886452cfa5692595e505">
+<class name="GFNodeContext" path="addons/gf/kernel/core/gf_node_context.gd" module="kernel" extends="Node" classDigest="c6acfce55d1852c6210eec861eba88f01ea94d74b1fba3a41207697d3abacfe9">
 	<description>GFNodeContext: 场景树上的局部架构上下文。
 可选择继承父级架构，或创建带父级回退的 Scoped 架构。
 Scoped 架构会在节点退出树时自动 dispose，适合关卡、战斗房间、调试面板等局部模块。</description>
@@ -125,6 +125,24 @@ Scoped 架构会在节点退出树时自动 dispose，适合关卡、战斗房�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">已完成初始化返回 true。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_context_failed">
+			<signature>func is_context_failed() -&gt; bool:</signature>
+			<description>检查上下文是否已经进入失败终态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">失败后返回 true。</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_context_failure_reason">
+			<signature>func get_context_failure_reason() -&gt; String:</signature>
+			<description>获取上下文失败原因。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">context_failed 发出的失败原因；未失败时为空字符串。</tag>
+				<tag name="since">6.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="initialize_context">

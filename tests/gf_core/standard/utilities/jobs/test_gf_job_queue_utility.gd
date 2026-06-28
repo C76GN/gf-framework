@@ -56,6 +56,23 @@ func test_job_queue_pause_cancel_and_run_failure() -> void:
 	utility.dispose()
 
 
+func test_clear_all_cancels_active_jobs_before_dropping_registry() -> void:
+	var utility: GFJobQueueUtility = GFJobQueueUtility.new()
+	utility.init()
+	watch_signals(utility)
+	var job: GFJob = utility.enqueue(&"main", null)
+	var started: GFJob = utility.start_next_job(&"main")
+
+	utility.clear_all()
+
+	assert_same(started, job, "测试应先启动同一个任务。")
+	assert_eq(job.status, GFJob.Status.CANCELLED, "clear_all 应把 active job 标记为 cancelled。")
+	assert_true(job.is_finished(), "clear_all 后调用方持有的 active job 应进入终态。")
+	assert_signal_emitted(utility, "job_cancelled", "clear_all 取消 active job 时应发出终态信号。")
+	assert_null(utility.get_job(job.job_id), "clear_all 后 registry 应清空。")
+	utility.dispose()
+
+
 func test_job_worker_processes_queue_batch() -> void:
 	var utility: GFJobQueueUtility = GFJobQueueUtility.new()
 	utility.init()

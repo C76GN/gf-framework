@@ -54,6 +54,39 @@ func test_set_assignment_rejects_out_of_range_and_keeps_device_unique() -> void:
 	assert_push_warning("[GFInputDeviceUtility] 忽略越界玩家设备映射：2")
 
 
+## 验证设备分配报告会记录原因、旧映射和触发输入。
+func test_assignment_report_records_reasons_previous_assignment_and_input_event() -> void:
+	var utility: GFInputDeviceUtility = GFInputDeviceUtility.new()
+	utility.max_assignment_events = 4
+	utility.include_keyboard_mouse = false
+	utility.include_touch = false
+
+	utility.set_assignment(
+		utility.create_assignment(0, GFInputDeviceAssignment.DeviceType.CUSTOM, 9),
+		&"initial"
+	)
+	utility.set_assignment(
+		utility.create_assignment(0, GFInputDeviceAssignment.DeviceType.JOYPAD, 3),
+		&"rebinding",
+		{ "slot": "primary" },
+		_make_joy_button_event(3, JOY_BUTTON_A, true)
+	)
+
+	var report: Dictionary = utility.get_assignment_report()
+	var events: Array = GFVariantData.get_option_array(report, "recent_events")
+	var latest: Dictionary = GFVariantData.as_dictionary(events[events.size() - 1])
+	var previous_assignment: Dictionary = GFVariantData.get_option_dictionary(latest, "previous_assignment")
+	var input_event: Dictionary = GFVariantData.get_option_dictionary(latest, "input_event")
+	var metadata: Dictionary = GFVariantData.get_option_dictionary(latest, "metadata")
+
+	assert_eq(GFVariantData.get_option_int(report, "assignment_count"), 1, "报告应包含当前映射数量。")
+	assert_eq(GFVariantData.get_option_string_name(latest, "reason"), &"rebinding", "事件应保留调用方原因。")
+	assert_eq(GFVariantData.get_option_int(previous_assignment, "device_id"), 9, "替换映射应记录旧设备。")
+	assert_eq(GFVariantData.get_option_string(input_event, "class"), "InputEventJoypadButton", "事件应记录触发输入类型。")
+	assert_eq(GFVariantData.get_option_int(input_event, "device"), 3, "事件应记录触发输入设备 ID。")
+	assert_eq(GFVariantData.get_option_string(metadata, "slot"), "primary", "事件应保留调用方元数据。")
+
+
 ## 验证返回的映射是拷贝，避免外部直接污染内部表。
 func test_get_assignments_returns_copies() -> void:
 	var utility: GFInputDeviceUtility = GFInputDeviceUtility.new()
@@ -173,6 +206,52 @@ func test_vibration_for_player_requires_joypad_assignment() -> void:
 	assert_false(utility.start_vibration_for_player(0, 1.5, -1.0, -2.0), "非手柄玩家不应启动震动。")
 	assert_true(utility.start_vibration_for_player(1, 1.5, -1.0, -2.0), "手柄玩家应能启动震动。")
 	assert_true(utility.stop_vibration_for_player(1), "手柄玩家应能停止震动。")
+
+
+## 验证键鼠和触控设备查询会兼容不同原始 device id。
+func test_get_player_for_device_normalizes_keyboard_mouse_and_touch_ids() -> void:
+	var utility: GFInputDeviceUtility = GFInputDeviceUtility.new()
+	utility.include_keyboard_mouse = false
+	utility.include_touch = false
+	utility.set_assignment(utility.create_assignment(0, GFInputDeviceAssignment.DeviceType.KEYBOARD_MOUSE, 999))
+	utility.set_assignment(utility.create_assignment(1, GFInputDeviceAssignment.DeviceType.TOUCH, 42))
+
+	assert_eq(utility.get_player_for_device(GFInputDeviceAssignment.DeviceType.KEYBOARD_MOUSE, -7), 0, "键鼠应按逻辑设备匹配，而不是按原始 device id。")
+	assert_eq(utility.get_player_for_device(GFInputDeviceAssignment.DeviceType.TOUCH, 99), 1, "触控应按逻辑设备匹配，而不是按原始 device id。")
+
+
+## 验证公开 active player 切换只接受已分配玩家。
+func test_set_active_player_rejects_unassigned_or_out_of_range_players() -> void:
+	var utility: GFInputDeviceUtility = GFInputDeviceUtility.new()
+	utility.max_players = 2
+	utility.include_keyboard_mouse = false
+	utility.include_touch = false
+	utility.set_assignment(utility.create_assignment(0, GFInputDeviceAssignment.DeviceType.KEYBOARD_MOUSE, 0))
+
+	utility.set_active_player(1)
+	assert_eq(utility.active_player_index, 0, "未分配玩家不应成为 active player。")
+
+	utility.set_active_player(99)
+	assert_eq(utility.active_player_index, 0, "越界玩家不应成为 active player。")
+
+
+## 验证移除当前活跃设备后会修正 active player。
+func test_remove_active_assignment_repairs_active_player() -> void:
+	var utility: GFInputDeviceUtility = GFInputDeviceUtility.new()
+	utility.max_players = 2
+	utility.include_keyboard_mouse = false
+	utility.include_touch = false
+	utility.set_assignment(utility.create_assignment(0, GFInputDeviceAssignment.DeviceType.KEYBOARD_MOUSE, 0))
+	utility.set_assignment(utility.create_assignment(1, GFInputDeviceAssignment.DeviceType.JOYPAD, 7))
+	utility.set_active_player(1)
+
+	utility.remove_assignment(1)
+
+	assert_eq(utility.active_player_index, 0, "移除当前活跃玩家后应切回仍存在的分配。")
+
+	utility.clear_assignments()
+
+	assert_eq(utility.active_player_index, -1, "没有任何分配时 active player 应进入空状态。")
 
 
 # --- 私有/辅助方法 ---

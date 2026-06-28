@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSkillTargetingRule" path="addons/gf/extensions/combat/skills/gf_skill_targeting_rule.gd" module="extensions/combat" extends="Resource" classDigest="06ee42821d4e284cbd2abe4d9ec306dd26e85992b6ec7cb6945c1c7f9eb71ba4">
+<class name="GFSkillTargetingRule" path="addons/gf/extensions/combat/skills/gf_skill_targeting_rule.gd" module="extensions/combat" extends="Resource" classDigest="6802a371fdd7f615e513b48ead5f9a61c33ea11d71031d3385db6eccc764842e">
 	<description>GFSkillTargetingRule: 技能索敌规则资源。
 使用纯数据结构描述目标筛选时的空间范围、
 朝向约束、排序规则与标签过滤条件。</description>
@@ -101,6 +101,14 @@
 			<description>按属性排序时使用的属性名。</description>
 			<tags>
 				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="property" name="random_seed" decorators="@export">
+			<signature>var random_seed: int = 0</signature>
+			<description>RANDOM 排序使用的确定性种子。相同候选集合、相同实例顺序与相同种子会得到相同顺序。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="require_tags" decorators="@export_group(&quot;标签过滤&quot;) @export">

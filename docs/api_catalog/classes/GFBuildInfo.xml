@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFBuildInfo" path="addons/gf/standard/utilities/debug/gf_build_info.gd" module="standard" extends="Resource" classDigest="864b6242cedfa9c0009e19617973786c2dcd229e52a01d7aa37c13293fd1b70a">
+<class name="GFBuildInfo" path="addons/gf/standard/utilities/debug/gf_build_info.gd" module="standard" extends="Resource" classDigest="a410c13746672bddc7900dfe8fa3ebfb216ed86eb81d23b332de43c668733a90">
 	<description>GFBuildInfo: 运行时构建信息快照。
 用统一 Resource 承载项目版本、GF 版本、构建号、提交号和运行平台信息，
 便于诊断、日志、存档元数据或项目自己的版本界面复用。</description>
@@ -65,6 +65,47 @@
 			<description>项目自定义构建元数据 ProjectSettings 键。</description>
 			<tags>
 				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="const" name="EXPORT_ENABLED_SETTING">
+			<signature>const EXPORT_ENABLED_SETTING: String = "gf/build/export/write_metadata"</signature>
+			<description>是否在导出开始时写入构建元数据的 ProjectSettings 键。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="EXPORT_BUILD_METADATA_SETTING">
+			<signature>const EXPORT_BUILD_METADATA_SETTING: String = "gf/build/export/build_metadata"</signature>
+			<description>导出时写入 ProjectSettings 的构建元数据字典键。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">value: Dictionary，可包含 GFBuildInfo.write_metadata_to_project_settings() 支持的构建字段。</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="EXPORT_RESTORE_PREVIOUS_SETTING">
+			<signature>const EXPORT_RESTORE_PREVIOUS_SETTING: String = "gf/build/export/restore_previous_settings"</signature>
+			<description>导出结束后是否恢复旧构建元数据的 ProjectSettings 键。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="EXPORT_SAVE_PROJECT_SETTINGS_SETTING">
+			<signature>const EXPORT_SAVE_PROJECT_SETTINGS_SETTING: String = "gf/build/export/save_project_settings"</signature>
+			<description>写入或恢复后是否立即保存 ProjectSettings 的设置键。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="EXPORT_EXTRA_METADATA_SETTING">
+			<signature>const EXPORT_EXTRA_METADATA_SETTING: String = "gf/build/export/metadata"</signature>
+			<description>导出时附加到构建信息中的自定义元数据 ProjectSettings 键。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="PROJECT_NAME_SETTING">
@@ -231,7 +272,7 @@
 				<tag name="return">实际写入的构建元数据。</tag>
 				<tag name="schema">build_data: Dictionary，可包含 build_id、commit_hash、branch、tag、commit_count、is_dirty、build_time_utc 和 metadata 字段。</tag>
 				<tag name="schema">extra_metadata: Dictionary，保存项目自定义构建元数据。</tag>
-				<tag name="schema">return: Dictionary，包含已写入的构建元数据。</tag>
+				<tag name="schema">return: Dictionary，包含已写入的构建元数据和可选 save_error。</tag>
 				<tag name="since">5.2.0</tag>
 			</tags>
 		</member>

@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFAudioPitchAnalysisTools" path="addons/gf/standard/utilities/audio/gf_audio_pitch_analysis_tools.gd" module="standard" extends="RefCounted" classDigest="1ac453590c27d1bad50342f7fba207c578712c2815ffd82bfd53ba04243c5976">
+	<description>GFAudioPitchAnalysisTools: 纯样本音高分析工具。
+对调用方提供的 mono 或 stereo 样本做能量与基频估计，返回频率、音名、
+cents 偏差和置信度报告。它不读取麦克风、不创建节点，也不接管音频采集流程。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_service</tag>
+		<tag name="since">6.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants>
+		<member kind="const" name="ALGORITHM_AUTOCORRELATION">
+			<signature>const ALGORITHM_AUTOCORRELATION: StringName = &amp;"autocorrelation"</signature>
+			<description>自动相关基频估计算法。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="DEFAULT_MIN_FREQUENCY_HZ">
+			<signature>const DEFAULT_MIN_FREQUENCY_HZ: float = 50.0</signature>
+			<description>默认最低检测频率。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="DEFAULT_MAX_FREQUENCY_HZ">
+			<signature>const DEFAULT_MAX_FREQUENCY_HZ: float = 2000.0</signature>
+			<description>默认最高检测频率。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="DEFAULT_MIN_RMS">
+			<signature>const DEFAULT_MIN_RMS: float = 0.005</signature>
+			<description>默认最小 RMS。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="DEFAULT_CONFIDENCE_THRESHOLD">
+			<signature>const DEFAULT_CONFIDENCE_THRESHOLD: float = 0.45</signature>
+			<description>默认置信度阈值。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties />
+	<methods>
+		<member kind="method" name="analyze_mono_samples">
+			<signature>static func analyze_mono_samples( samples: PackedFloat32Array, sample_rate: float, options: Dictionary = {} ) -&gt; Dictionary:</signature>
+			<description>分析 mono 样本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">samples: mono PCM 样本。</tag>
+				<tag name="param">sample_rate: 样本率。</tag>
+				<tag name="param">options: 分析选项。</tag>
+				<tag name="return">分析报告。</tag>
+				<tag name="schema">samples: PackedFloat32Array mono samples in -1..1 range.</tag>
+				<tag name="schema">options: Dictionary，可包含 min_frequency_hz、max_frequency_hz、min_rms、confidence_threshold、start_index 和 sample_count。</tag>
+				<tag name="schema">return: Dictionary with ok, detected, frequency_hz, confidence, rms, lag, note_number, note_name, cents, issues, and issue_count.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="analyze_stereo_frames">
+			<signature>static func analyze_stereo_frames( frames: PackedVector2Array, sample_rate: float, options: Dictionary = {} ) -&gt; Dictionary:</signature>
+			<description>分析 stereo 帧。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">frames: stereo PCM 帧。</tag>
+				<tag name="param">sample_rate: 样本率。</tag>
+				<tag name="param">options: 分析选项。</tag>
+				<tag name="return">分析报告。</tag>
+				<tag name="schema">frames: PackedVector2Array where x/y are left/right samples.</tag>
+				<tag name="schema">options: Dictionary forwarded to analyze_mono_samples().</tag>
+				<tag name="schema">return: Dictionary with ok, detected, frequency_hz, confidence, rms, lag, note_number, note_name, cents, issues, issue_count, and stereo_mix_mode.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="calculate_rms">
+			<signature>static func calculate_rms(samples: PackedFloat32Array) -&gt; float:</signature>
+			<description>计算样本 RMS。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">samples: mono PCM 样本。</tag>
+				<tag name="return">RMS 值。</tag>
+				<tag name="schema">samples: PackedFloat32Array mono samples.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="frequency_to_note">
+			<signature>static func frequency_to_note(frequency_hz: float) -&gt; Dictionary:</signature>
+			<description>将频率转换为十二平均律音名。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">frequency_hz: 频率。</tag>
+				<tag name="return">音名报告。</tag>
+				<tag name="schema">return: Dictionary with ok, frequency_hz, note_number, note_name, midi_float, and cents.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

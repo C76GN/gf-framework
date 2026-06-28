@@ -171,6 +171,8 @@ static func should_wait_for_result(action: Object, result: Variant) -> bool:
 ## [br]
 ## @param should_continue: 可选取消检查回调；返回 false 时停止等待。
 ## [br]
+## @param should_pause_timeout: 可选超时暂停检查；返回 true 时暂停 timeout 计时。
+## [br]
 ## @param architecture: 当前架构，用于读取时间缩放工具。
 ## [br]
 ## @schema result: Variant，由动作 execute() 返回，等待时必须是 Signal。
@@ -178,6 +180,7 @@ static func await_result_safely(
 	action: Object,
 	result: Variant,
 	should_continue: Callable = Callable(),
+	should_pause_timeout: Callable = Callable(),
 	architecture: GFArchitecture = null
 ) -> void:
 	if not should_wait_for_result(action, result):
@@ -191,7 +194,8 @@ static func await_result_safely(
 		_get_signal_timeout_seconds(action),
 		_get_signal_timeout_respects_time_scale(action),
 		"[GFActionQueueSystem] 等待动作 Signal 超时，队列将继续执行后续动作。",
-		_get_wait_guard_node(action)
+		_get_wait_guard_node(action),
+		should_pause_timeout
 	)
 
 

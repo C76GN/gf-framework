@@ -165,7 +165,7 @@ static func are_events_equivalent(
 ) -> bool:
 	var left_key: String = _get_event_key(left_event)
 	var right_key: String = _get_event_key(right_event)
-	if left_key.is_empty() or left_key != right_key:
+	if left_key.is_empty() or not _event_keys_conflict(left_key, right_key):
 		return false
 
 	var left_device: String = _get_device_scope(left_event, left_match_device)
@@ -202,7 +202,7 @@ static func _collect_context_binding_items(
 			if event == null:
 				continue
 
-			var event_key: String = _get_event_key(event)
+			var event_key: String = _get_binding_event_key(event, binding)
 			if event_key.is_empty():
 				continue
 
@@ -215,7 +215,7 @@ static func _collect_context_binding_items(
 				"event": event,
 				"event_text": GFInputFormatter.input_event_as_text(event),
 				"event_key": event_key,
-				"signature": get_event_signature(event, binding.match_device),
+				"signature": "%s@%s" % [event_key, _get_device_scope(event, binding.match_device)],
 				"device_scope": _get_device_scope(event, binding.match_device),
 				"match_device": binding.match_device,
 			})
@@ -244,7 +244,7 @@ static func _count_contexts(contexts: Array[GFInputContext]) -> int:
 
 
 static func _items_conflict(left: Dictionary, right: Dictionary) -> bool:
-	if _get_item_event_key(left) != _get_item_event_key(right):
+	if not _event_keys_conflict(_get_item_event_key(left), _get_item_event_key(right)):
 		return false
 
 	var left_device: String = _get_item_device_scope(left)
@@ -325,12 +325,76 @@ static func _get_event_key(input_event: InputEvent) -> String:
 
 	if input_event is InputEventJoypadMotion:
 		var joypad_motion_event: InputEventJoypadMotion = input_event
-		return "joy_axis:%d" % int(joypad_motion_event.axis)
+		return _make_joy_axis_event_key(
+			joypad_motion_event.axis,
+			_get_joy_axis_direction_for_value(joypad_motion_event.axis_value)
+		)
 
 	if input_event is InputEventScreenTouch:
 		return "screen_touch"
 
 	return "event:%s" % input_event.as_text()
+
+
+static func _get_binding_event_key(input_event: InputEvent, binding: GFInputBinding) -> String:
+	if input_event is InputEventJoypadMotion:
+		var joypad_motion_event: InputEventJoypadMotion = input_event
+		return _make_joy_axis_event_key(
+			joypad_motion_event.axis,
+			_get_joy_axis_direction_for_binding(binding)
+		)
+	return _get_event_key(input_event)
+
+
+static func _make_joy_axis_event_key(axis: JoyAxis, direction: String) -> String:
+	return "joy_axis:%d:%s" % [int(axis), direction]
+
+
+static func _get_joy_axis_direction_for_value(axis_value: float) -> String:
+	if axis_value > 0.0:
+		return "+"
+	if axis_value < 0.0:
+		return "-"
+	return "*"
+
+
+static func _get_joy_axis_direction_for_binding(binding: GFInputBinding) -> String:
+	if binding == null:
+		return "*"
+	var target: GFInputBinding.ValueTarget = binding.value_target
+	if (
+		target == GFInputBinding.ValueTarget.AXIS_1D_POSITIVE
+		or target == GFInputBinding.ValueTarget.AXIS_2D_X_POSITIVE
+		or target == GFInputBinding.ValueTarget.AXIS_2D_Y_POSITIVE
+		or target == GFInputBinding.ValueTarget.AXIS_3D_X_POSITIVE
+		or target == GFInputBinding.ValueTarget.AXIS_3D_Y_POSITIVE
+		or target == GFInputBinding.ValueTarget.AXIS_3D_Z_POSITIVE
+	):
+		return "+"
+	if (
+		target == GFInputBinding.ValueTarget.AXIS_1D_NEGATIVE
+		or target == GFInputBinding.ValueTarget.AXIS_2D_X_NEGATIVE
+		or target == GFInputBinding.ValueTarget.AXIS_2D_Y_NEGATIVE
+		or target == GFInputBinding.ValueTarget.AXIS_3D_X_NEGATIVE
+		or target == GFInputBinding.ValueTarget.AXIS_3D_Y_NEGATIVE
+		or target == GFInputBinding.ValueTarget.AXIS_3D_Z_NEGATIVE
+	):
+		return "-"
+	return "*"
+
+
+static func _event_keys_conflict(left_key: String, right_key: String) -> bool:
+	if left_key == right_key:
+		return true
+	if not left_key.begins_with("joy_axis:") or not right_key.begins_with("joy_axis:"):
+		return false
+	var left_parts: PackedStringArray = left_key.split(":")
+	var right_parts: PackedStringArray = right_key.split(":")
+	if left_parts.size() != 3 or right_parts.size() != 3:
+		return false
+	if left_parts[1] != right_parts[1]:
+		return false
+	return left_parts[2] == "*" or right_parts[2] == "*"
 
 
 static func _get_device_scope(input_event: InputEvent, match_device: bool) -> String:

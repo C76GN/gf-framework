@@ -10,7 +10,7 @@
 | [协议与扩展点](#category-protocol) | 1 | 15 | 3 |
 | [资源定义](#category-resource_definition) | 2 | 28 | 15 |
 | [值对象](#category-value_object) | 1 | 8 | 2 |
-| [领域模型](#category-domain_model) | 2 | 25 | 18 |
+| [领域模型](#category-domain_model) | 2 | 29 | 20 |
 
 ## 类
 

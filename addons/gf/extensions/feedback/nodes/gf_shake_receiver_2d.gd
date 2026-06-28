@@ -19,7 +19,17 @@ const _INSTANCE_GUARD = preload("res://addons/gf/kernel/core/gf_instance_guard.g
 ## 目标 Node2D 路径；为空时优先使用自身，其次使用父节点。
 ## [br]
 ## @api public
-@export_node_path("Node2D") var target_path: NodePath = NodePath("")
+## [br]
+## @since 3.17.0
+@export_node_path("Node2D") var target_path: NodePath = NodePath(""):
+	set(value):
+		if target_path == value:
+			return
+		if is_inside_tree():
+			var _reset_to_base_result: Variant = reset_to_base()
+		target_path = value
+		if is_inside_tree():
+			_rebind_target(capture_on_ready)
 
 ## 采样 channel。
 ## [br]
@@ -74,9 +84,7 @@ var _last_scale_offset: Vector2 = Vector2.ZERO
 # --- Godot 生命周期方法 ---
 
 func _ready() -> void:
-	_target_ref = weakref(_resolve_target())
-	if capture_on_ready:
-		var _capture_base_transform_result_79: Variant = capture_base_transform()
+	_rebind_target(capture_on_ready)
 
 
 func _process(_delta: float) -> void:
@@ -202,7 +210,17 @@ func _get_utility() -> GFShakeUtility:
 func _resolve_target() -> Node2D:
 	if target_path != NodePath(""):
 		return _get_node_2d_value(get_node_or_null(target_path))
+	var self_target: Node2D = _get_node_2d_value(self)
+	if self_target != null:
+		return self_target
 	return _get_node_2d_value(get_parent())
+
+
+func _rebind_target(should_capture_base: bool) -> void:
+	var target: Node2D = _resolve_target()
+	_target_ref = weakref(target) if target != null else null
+	if should_capture_base:
+		var _capture_base_transform_result: Variant = capture_base_transform()
 
 
 func _get_node_2d_value(value: Variant) -> Node2D:

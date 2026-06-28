@@ -68,6 +68,21 @@ class RuntimeStateFlowNode extends GFFlowNode:
 		return null
 
 
+class RuntimeStateWaitFlowNode extends GFFlowNode:
+	signal completed
+
+	func _init() -> void:
+		node_id = &"runtime_wait"
+		wait_for_result = true
+
+	func execute(_context: GFFlowContext) -> Variant:
+		set_runtime_value(&"count", GFVariantData.to_int(get_runtime_value(&"count", 0)) + 1)
+		return completed
+
+	func complete() -> void:
+		completed.emit()
+
+
 class MethodTrapFlowPort extends GFFlowPort:
 	var get_port_id_called: bool = false
 	var get_display_name_called: bool = false
@@ -238,6 +253,26 @@ func test_flow_runner_executes_graph_connections() -> void:
 	assert_eq(order, ["start", "end"], "流程应能通过图连接推进后继节点。")
 
 
+func test_flow_runner_executes_node_links_and_graph_connections_together() -> void:
+	var order: Array[String] = []
+	var graph: GFFlowGraph = GFFlowGraph.new()
+	graph.start_node_id = &"start"
+	graph.nodes = [
+		RecordingFlowNode.new(&"start", order, PackedStringArray(["left"])),
+		RecordingFlowNode.new(&"left", order),
+		RecordingFlowNode.new(&"right", order),
+	]
+	var _add_connection_result_244: Variant = graph.add_connection(&"start", &"", &"right", &"")
+	var runner: GFFlowRunner = GFFlowRunner.new()
+
+	await runner.run(graph, GFFlowContext.new())
+	var report: Dictionary = graph.validate_graph()
+
+	assert_eq(order, ["start", "left", "right"], "节点后继与图连接应使用同一执行拓扑。")
+	assert_true(GFVariantData.get_option_bool(report, "ok"), "校验拓扑应与运行拓扑一致。")
+	assert_false(_has_issue(report, "unreachable_node"), "连接后继不应被运行时跳过。")
+
+
 ## 验证上下文显式空后继会阻止连接回退。
 func test_flow_context_empty_override_stops_connection_fallback() -> void:
 	var order: Array[String] = []
@@ -278,6 +313,47 @@ func test_flow_runner_cancel_during_signal_wait_stops_after_await() -> void:
 	assert_eq(order, ["wait"], "取消后不应继续推进后继节点。")
 	assert_signal_not_emitted(runner, "node_completed", "取消等待后不应再报告当前节点完成。")
 	assert_signal_emitted(runner, "flow_cancelled", "取消等待后应发出流程取消信号。")
+
+
+func test_flow_runner_restores_graph_runtime_state_during_signal_wait() -> void:
+	var graph: GFFlowGraph = GFFlowGraph.new()
+	var node: RuntimeStateWaitFlowNode = RuntimeStateWaitFlowNode.new()
+	node.set_runtime_value(&"count", 7)
+	graph.start_node_id = &"runtime_wait"
+	graph.nodes = [node]
+	var context: GFFlowContext = GFFlowContext.new()
+	context.set_node_runtime_value(&"runtime_wait", &"count", 2)
+	var runner: GFFlowRunner = GFFlowRunner.new()
+	@warning_ignore("missing_await")
+	runner.run(graph, context)
+
+	await get_tree().process_frame
+	var graph_state_during_wait: int = GFVariantData.to_int(node.get_runtime_value(&"count", 0))
+	node.complete()
+	await get_tree().process_frame
+	await get_tree().process_frame
+
+	assert_eq(graph_state_during_wait, 7, "等待 Signal 期间共享图资源不应暴露本次运行态。")
+	assert_eq(GFVariantData.to_int(node.get_runtime_value(&"count", 0)), 7, "运行结束后共享图资源应恢复原始运行态。")
+	assert_eq(GFVariantData.to_int(context.get_node_runtime_value(&"runtime_wait", &"count", 0)), 3, "本次运行态应写回 FlowContext。")
+
+
+func test_flow_runner_loop_guard_cancels_instead_of_completing() -> void:
+	var order: Array[String] = []
+	var graph: GFFlowGraph = GFFlowGraph.new()
+	graph.start_node_id = &"start"
+	graph.nodes = [
+		RecordingFlowNode.new(&"start", order, PackedStringArray(["start"])),
+	]
+	var runner: GFFlowRunner = GFFlowRunner.new()
+	runner.max_executed_nodes = 2
+	watch_signals(runner)
+
+	await runner.run(graph, GFFlowContext.new())
+
+	assert_eq(order, ["start", "start"], "loop guard 应在达到上限后停止。")
+	assert_signal_not_emitted(runner, "flow_completed", "loop guard 截断不应被报告为普通完成。")
+	assert_signal_emitted(runner, "flow_cancelled", "loop guard 截断应走非完成终态。")
 
 
 ## 验证流程图会校验连接端点与端口。
@@ -333,6 +409,33 @@ func test_flow_graph_validate_reports_incompatible_ports_by_default() -> void:
 	assert_false(GFVariantData.get_option_bool(report, "ok"), "默认严格校验下类型不匹配应失败。")
 	assert_true(_has_issue(report, "incompatible_connection_ports"), "校验报告应包含 incompatible_connection_ports。")
 	assert_false(GFVariantData.get_option_bool(compatibility, "ok"), "兼容性检查应返回失败。")
+
+
+func test_flow_graph_rejects_mixed_node_and_port_connections() -> void:
+	var graph: GFFlowGraph = GFFlowGraph.new()
+	var start: GFFlowNode = GFFlowNode.new()
+	start.node_id = &"start"
+	start.output_ports = [_make_typed_port(&"done", GFFlowPort.Direction.OUTPUT, GFFlowPort.ValueType.ANY)]
+	var end: GFFlowNode = GFFlowNode.new()
+	end.node_id = &"end"
+	graph.nodes = [start, end]
+
+	var added: bool = graph.add_connection(&"start", &"done", &"end", &"")
+	graph.connections = [
+		{
+			"from_node_id": &"start",
+			"from_port_id": &"done",
+			"to_node_id": &"end",
+			"to_port_id": &"",
+			"metadata": {},
+		},
+	]
+	var report: Dictionary = graph.validate_graph()
+	var compatibility: Dictionary = graph.check_connection_compatibility(&"start", &"done", &"end", &"")
+
+	assert_false(added, "数据端口不能连接到节点级执行入口。")
+	assert_false(GFVariantData.get_option_bool(compatibility, "ok"), "半端口兼容性检查应失败。")
+	assert_true(_has_issue(report, "invalid_mixed_connection_ports"), "校验报告应标记半端口连接。")
 
 
 ## 验证流程图默认拒绝新增不兼容端口连接。
@@ -540,6 +643,22 @@ func test_flow_graph_editor_model_applies_auto_layout() -> void:
 	assert_eq(GFVariantData.get_option_int(report, "changed_count"), 2, "两个节点都应被写入布局。")
 
 
+func test_flow_graph_editor_model_auto_layout_uses_next_node_ids() -> void:
+	var graph: GFFlowGraph = GFFlowGraph.new()
+	var start: GFFlowNode = GFFlowNode.new()
+	start.node_id = &"start"
+	start.next_node_ids = PackedStringArray(["end"])
+	var end: GFFlowNode = GFFlowNode.new()
+	end.node_id = &"end"
+	graph.nodes = [start, end]
+	var editor_model: GFFlowGraphEditorModel = GFFlowGraphEditorModel.new()
+
+	var report: Dictionary = editor_model.auto_layout(graph, { "x_spacing": 120.0 })
+
+	assert_true(GFVariantData.get_option_bool(report, "ok"), "自动布局应完成。")
+	assert_almost_eq(end.editor_position.x, 120.0, 0.001, "next_node_ids 执行边应参与分层布局。")
+
+
 ## 验证 Flow 工具面板复用编辑器模型展示结构报告。
 func test_flow_graph_dock_builds_view_model_for_loaded_graph() -> void:
 	var graph: GFFlowGraph = GFFlowGraph.new()
@@ -639,6 +758,18 @@ func test_flow_context_queries_condition_handlers() -> void:
 	assert_eq(GFVariantData.get_option_string(missing, "reason"), "missing_condition_handler", "缺失处理器应有稳定 reason。")
 
 
+func test_flow_context_null_condition_result_uses_default_value() -> void:
+	var context: GFFlowContext = GFFlowContext.new()
+	var _register_result_643: Variant = context.register_condition_handler(&"ready", func(_condition_id: StringName, _payload: Variant, _flow_context: GFFlowContext) -> Variant:
+		return null
+	)
+
+	var result: Dictionary = context.query_condition(&"ready", null, false)
+
+	assert_true(GFVariantData.get_option_bool(result, "ok"), "null 结果仍应归一为有效条件报告。")
+	assert_false(GFVariantData.get_option_bool(result, "value", true), "handler 未返回值时应使用 default_value。")
+
+
 ## 验证流程图可保存、恢复和清空节点运行态。
 func test_flow_graph_serializes_runtime_state() -> void:
 	var graph: GFFlowGraph = GFFlowGraph.new()
@@ -729,6 +860,23 @@ func test_flow_graph_editor_model_builds_and_pastes_selection_package() -> void:
 	assert_false(graph.has_connection(&"start_2", &"", &"end_2", &""), "批量删除应移除相关连接。")
 
 
+func test_flow_graph_remove_node_cleans_stale_next_node_ids() -> void:
+	var graph: GFFlowGraph = GFFlowGraph.new()
+	var start: GFFlowNode = GFFlowNode.new()
+	start.node_id = &"start"
+	start.next_node_ids = PackedStringArray(["end"])
+	var end: GFFlowNode = GFFlowNode.new()
+	end.node_id = &"end"
+	graph.start_node_id = &"start"
+	graph.nodes = [start, end]
+
+	graph.remove_node(&"end")
+	var report: Dictionary = graph.validate_graph()
+
+	assert_false(start.next_node_ids.has("end"), "删除节点应同步清理其他节点的 stale next_node_ids。")
+	assert_false(_has_issue(report, "missing_next_node"), "删除后的图不应留下缺失后继错误。")
+
+
 ## 验证流程图校验会报告缺失后继节点。
 func test_flow_graph_validate_reports_missing_next_node() -> void:
 	var order: Array[String] = []
@@ -778,6 +926,27 @@ func test_flow_graph_validate_warns_cycles() -> void:
 
 	assert_true(GFVariantData.get_option_bool(report, "ok"), "循环只应作为结构警告，运行时仍由 loop guard 保护。")
 	assert_true(_has_issue(report, "cycle_detected"), "校验报告应包含 cycle_detected。")
+
+
+func test_flow_graph_validate_cycles_uses_iterative_traversal_for_long_chains() -> void:
+	var order: Array[String] = []
+	var graph: GFFlowGraph = GFFlowGraph.new()
+	graph.start_node_id = &"node_0"
+	var chain_length: int = 2048
+	var cycle_target_index: int = 1024
+	for index: int in range(chain_length):
+		var node_id: StringName = StringName("node_%d" % index)
+		var next_ids: PackedStringArray = PackedStringArray()
+		if index < chain_length - 1:
+			var _append_next_result: bool = next_ids.append("node_%d" % (index + 1))
+		else:
+			var _append_cycle_result: bool = next_ids.append("node_%d" % cycle_target_index)
+		graph.nodes.append(RecordingFlowNode.new(node_id, order, next_ids))
+
+	var report: Dictionary = graph.validate_graph()
+
+	assert_true(GFVariantData.get_option_bool(report, "ok"), "长链尾部循环仍只应作为结构警告。")
+	assert_true(_has_issue(report, "cycle_detected"), "长链尾部循环应被迭代检测报告。")
 
 
 ## 验证项目可显式开启终端节点提示。

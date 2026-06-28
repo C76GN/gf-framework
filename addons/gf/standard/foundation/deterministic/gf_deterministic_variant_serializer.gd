@@ -1,7 +1,10 @@
 ## GFDeterministicVariantSerializer: 纯 Variant 数据的确定性规范编码器。
 ##
 ## 该类型为锁步、回放、黄金测试和内容 hash 提供稳定的 canonical value、JSON、
-## UTF-8 bytes 与 SHA-256。它不读取文件，不处理存档 metadata、压缩、混淆或对象图。
+## UTF-8 bytes 与 SHA-256。强确定性输入应使用整数、字符串、布尔、整数向量、
+## PackedByteArray 或定点数编码；`allow_floats` 仅用于接受 Godot 浮点值的规范文本，
+## 不承诺跨平台、跨 Godot 版本或跨编译配置的数值演算一致性。它不读取文件，
+## 不处理存档 metadata、压缩、混淆或对象图。
 ## [br]
 ## @api public
 ## [br]
@@ -33,7 +36,7 @@ const _VERSION_KEY: String = "version"
 ## [br]
 ## @schema value: Variant value made from nil, bool, int, String, StringName, NodePath, integer vectors, arrays, dictionaries and packed scalar arrays. Float-based values require `options.allow_floats = true`.
 ## [br]
-## @param options: 可选项。`allow_floats` 默认为 false；`max_depth` 默认为 256。
+## @param options: 可选项。`allow_floats` 默认为 false；`max_depth` 默认为 256。启用 `allow_floats` 只表示接受并规范化浮点值，不表示浮点计算具备强确定性。
 ## [br]
 ## @schema options: Dictionary with optional `allow_floats: bool` and `max_depth: int`.
 ## [br]

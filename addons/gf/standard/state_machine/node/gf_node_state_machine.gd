@@ -133,6 +133,7 @@ const _GF_ASYNC_CALL_SCRIPT = preload("res://addons/gf/kernel/core/gf_async_call
 
 var _groups: Dictionary = {}
 var _internal_group: GFNodeStateGroup = null
+var _group_keys_by_instance_id: Dictionary = {}
 var _group_state_changed_callables: Dictionary = {}
 var _group_state_event_handled_callables: Dictionary = {}
 var _event_architectures: Array[GFArchitecture] = []
@@ -336,6 +337,7 @@ func add_state_group(group: GFNodeStateGroup) -> void:
 		return
 
 	_groups[key] = group
+	_group_keys_by_instance_id[group.get_instance_id()] = key
 	var changed_callable: Callable = _on_group_current_state_changed.bind(group)
 	_group_state_changed_callables[key] = changed_callable
 	_connect_state_group_signals(group, changed_callable)
@@ -354,12 +356,13 @@ func remove_state_group(group: GFNodeStateGroup) -> bool:
 	if not _is_node_state_group(group):
 		return false
 
-	var key: StringName = group.get_group_name()
+	var key: StringName = _get_registered_group_key(group)
 	if not _groups.has(key):
 		return false
 	var changed_callable: Callable = _get_dictionary_callable(_group_state_changed_callables, key)
 	_disconnect_state_group_signals(group, changed_callable)
 	_erase_dictionary_key(_groups, key)
+	_erase_dictionary_key(_group_keys_by_instance_id, group.get_instance_id())
 	_erase_dictionary_key(_group_state_changed_callables, key)
 	state_group_removed.emit(group)
 	return true
@@ -872,10 +875,11 @@ func clear_state_groups(free_groups: bool = false) -> void:
 	for group: GFNodeStateGroup in _get_registered_groups():
 		groups.append(group)
 	for group: GFNodeStateGroup in groups:
-		var key: StringName = group.get_group_name()
+		var key: StringName = _get_registered_group_key(group)
 		var changed_callable: Callable = _get_dictionary_callable(_group_state_changed_callables, key)
 		_disconnect_state_group_signals(group, changed_callable)
 	_groups.clear()
+	_group_keys_by_instance_id.clear()
 	_group_state_changed_callables.clear()
 	_group_state_event_handled_callables.clear()
 	for group: GFNodeStateGroup in groups:
@@ -945,7 +949,7 @@ func _connect_state_group_signals(group: GFNodeStateGroup, changed_callable: Cal
 		var _changed_connect_error: int = changed_signal.connect(changed_callable)
 	if not transition_signal.is_connected(transition_group_to):
 		var _transition_connect_error: int = transition_signal.connect(transition_group_to)
-	var key: StringName = group.get_group_name()
+	var key: StringName = _get_registered_group_key(group)
 	var handled_signal: Signal = group.state_event_handled
 	var handled_callable: Callable = _on_group_state_event_handled.bind(group)
 	_group_state_event_handled_callables[key] = handled_callable
@@ -960,7 +964,7 @@ func _disconnect_state_group_signals(group: GFNodeStateGroup, changed_callable: 
 		changed_signal.disconnect(changed_callable)
 	if transition_signal.is_connected(transition_group_to):
 		transition_signal.disconnect(transition_group_to)
-	var key: StringName = group.get_group_name()
+	var key: StringName = _get_registered_group_key(group)
 	var handled_signal: Signal = group.state_event_handled
 	var handled_callable: Callable = _get_dictionary_callable(_group_state_event_handled_callables, key)
 	if handled_signal.is_connected(handled_callable):
@@ -1136,6 +1140,17 @@ func _get_registered_groups() -> Array[GFNodeStateGroup]:
 	return result
 
 
+func _get_registered_group_key(group: GFNodeStateGroup) -> StringName:
+	if group == null:
+		return &""
+	var key_value: Variant = GFVariantData.get_option_value(
+		_group_keys_by_instance_id,
+		group.get_instance_id(),
+		group.get_group_name()
+	)
+	return GFVariantData.to_string_name(key_value)
+
+
 func _get_dictionary_callable(source: Dictionary, key: Variant) -> Callable:
 	return _variant_to_callable(GFVariantData.get_option_value(source, key, Callable()))
 
@@ -1168,12 +1183,7 @@ func _capture_state_snapshot() -> Dictionary:
 		var group: GFNodeStateGroup = _variant_to_state_group(_groups[group_key])
 		if group == null:
 			continue
-		var current_state_name: StringName = group.get_current_state_name()
-		if current_state_name == &"":
-			continue
-		result[group_key] = {
-			"current_state": current_state_name,
-		}
+		result[group_key] = group.get_state_snapshot()
 	return result
 
 
@@ -1184,8 +1194,9 @@ func _restore_state_snapshot(snapshot: Dictionary) -> void:
 			continue
 
 		var group_snapshot: Dictionary = GFVariantData.get_option_dictionary(snapshot, group_key)
-		var current_state_name: StringName = GFVariantData.get_option_string_name(group_snapshot, "current_state")
-		if current_state_name != &"" and group.get_state(current_state_name) != null:
-			group.transition_to(current_state_name, {})
+		if not group_snapshot.is_empty():
+			group.restore_state_snapshot(group_snapshot)
+			if group.get_current_state_name() == &"" and _should_start_group_on_initialize():
+				_start_group_node(group, {})
 		elif _should_start_group_on_initialize():
 			_start_group_node(group, {})

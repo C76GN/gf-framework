@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFVariantJsonCodec" path="addons/gf/standard/foundation/variant/gf_variant_json_codec.gd" module="standard" extends="RefCounted" classDigest="e572ae7d09069afc2a48ddd2199006f120aa0851e5772c3c887e71cf3d0520a7">
+<class name="GFVariantJsonCodec" path="addons/gf/standard/foundation/variant/gf_variant_json_codec.gd" module="standard" extends="RefCounted" classDigest="50991b2665efdbd60d3546b7a941a089cb98f7d0e54032ec0eb9f91f12a44295">
 	<description>GFVariantJsonCodec: Godot Variant 的 JSON 兼容编码器。
 负责在 JSON.stringify() 可编码的数据和常见 Godot Variant 类型之间往返转换。
 该类不负责集合复制或默认值合并；这类数据操作由 GFVariantData 提供。</description>
@@ -75,12 +75,14 @@
 			</tags>
 		</member>
 		<member kind="method" name="vector2_to_array">
-			<signature>static func vector2_to_array(value: Vector2) -&gt; Array[float]:</signature>
-			<description>将 Vector2 转成 JSON 友好的数组。</description>
+			<signature>static func vector2_to_array(value: Vector2) -&gt; Array:</signature>
+			<description>将 Vector2 转成 JSON 友好的数组，非有限分量使用 Float typed marker。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">value: 待转换的 Vector2。</tag>
 				<tag name="return">[x, y] 数组。</tag>
+				<tag name="schema">return: Array with two JSON-compatible float values; non-finite components use Float typed markers.</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="array_to_vector2">
@@ -95,12 +97,14 @@
 			</tags>
 		</member>
 		<member kind="method" name="vector3_to_array">
-			<signature>static func vector3_to_array(value: Vector3) -&gt; Array[float]:</signature>
-			<description>将 Vector3 转成 JSON 友好的数组。</description>
+			<signature>static func vector3_to_array(value: Vector3) -&gt; Array:</signature>
+			<description>将 Vector3 转成 JSON 友好的数组，非有限分量使用 Float typed marker。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">value: 待转换的 Vector3。</tag>
 				<tag name="return">[x, y, z] 数组。</tag>
+				<tag name="schema">return: Array with three JSON-compatible float values; non-finite components use Float typed markers.</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="array_to_vector3">
@@ -115,12 +119,14 @@
 			</tags>
 		</member>
 		<member kind="method" name="color_to_array">
-			<signature>static func color_to_array(value: Color) -&gt; Array[float]:</signature>
-			<description>将 Color 转成 JSON 友好的数组。</description>
+			<signature>static func color_to_array(value: Color) -&gt; Array:</signature>
+			<description>将 Color 转成 JSON 友好的数组，非有限通道使用 Float typed marker。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">value: 待转换的 Color。</tag>
 				<tag name="return">[r, g, b, a] 数组。</tag>
+				<tag name="schema">return: Array with four JSON-compatible float values; non-finite components use Float typed markers.</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="array_to_color">

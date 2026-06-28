@@ -118,10 +118,20 @@ func tick(delta: float) -> void:
 		if state.is_empty():
 			var _invalid_state_id_appended: bool = finished_ids.append(shake_id)
 			continue
-		state["elapsed_seconds"] = _get_state_float(state, "elapsed_seconds", 0.0) + maxf(delta, 0.0)
+		var previous_elapsed: float = _get_state_float(state, "elapsed_seconds", 0.0)
+		var next_elapsed: float = previous_elapsed + maxf(delta, 0.0)
 		var preset: GFShakePreset = _get_state_preset(state)
-		if preset == null or _get_state_float(state, "elapsed_seconds", 0.0) >= preset.get_duration_seconds():
+		if preset == null:
 			var _finished_id_appended: bool = finished_ids.append(shake_id)
+			continue
+		var duration: float = preset.get_duration_seconds()
+		if next_elapsed >= duration:
+			if previous_elapsed <= 0.0 and delta > 0.0:
+				state["elapsed_seconds"] = duration * 0.25
+				continue
+			var _finished_id_appended: bool = finished_ids.append(shake_id)
+		else:
+			state["elapsed_seconds"] = next_elapsed
 
 	for shake_id: int in finished_ids:
 		_finish_shake(shake_id)

@@ -173,9 +173,16 @@ func from_dict(data: Dictionary) -> void:
 	var raw_items: Dictionary = GFVariantData.get_option_dictionary(data, "items")
 	for key: Variant in raw_items:
 		var item_id: StringName = StringName(GFVariantData.to_text(key))
+		if item_id == &"":
+			continue
 		var stack: Dictionary = GFVariantData.as_dictionary(raw_items[key])
-		if not stack.is_empty():
-			_stacks[item_id] = stack.duplicate(true)
+		var amount: int = GFVariantData.get_option_int(stack, "amount")
+		if amount <= 0:
+			continue
+		_stacks[item_id] = {
+			"amount": amount,
+			"metadata": GFVariantData.get_option_dictionary(stack, "metadata"),
+		}
 
 
 # --- 私有/辅助方法 ---

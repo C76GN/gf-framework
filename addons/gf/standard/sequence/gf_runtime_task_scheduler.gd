@@ -125,6 +125,9 @@ func schedule(task: GFRuntimeTask) -> bool:
 		return false
 	if is_scheduled(task):
 		return true
+	if task.is_scheduled():
+		task_rejected.emit(task, &"already_scheduled")
+		return false
 	var conflicts: Array[GFRuntimeTask] = _get_conflicting_tasks(task)
 	for conflict: GFRuntimeTask in conflicts:
 		if conflict != null and not conflict.is_interruptible():
@@ -192,8 +195,14 @@ func cancel_all() -> void:
 func register_default_task(requirement: Object, task: GFRuntimeTask) -> bool:
 	if requirement == null or not is_instance_valid(requirement) or task == null:
 		return false
-	var _add_requirement_result: GFRuntimeTask = task.add_requirement(requirement)
-	_default_tasks[requirement.get_instance_id()] = task
+	if not task.has_requirement(requirement):
+		var _add_requirement_result: GFRuntimeTask = task.add_requirement(requirement)
+		if not task.has_requirement(requirement):
+			return false
+	_default_tasks[requirement.get_instance_id()] = {
+		"requirement_ref": weakref(requirement),
+		"task": task,
+	}
 	return true
 
 
@@ -231,8 +240,9 @@ func get_default_task(requirement: Object) -> GFRuntimeTask:
 	if requirement == null or not is_instance_valid(requirement):
 		return null
 	var value: Variant = _default_tasks.get(requirement.get_instance_id(), null)
-	if value is GFRuntimeTask:
-		return value
+	var record: Dictionary = _default_record_from_value(value)
+	if _default_record_requirement(record) == requirement:
+		return _default_record_task(record)
 	return null
 
 
@@ -366,6 +376,7 @@ func dispose() -> void:
 ## [br]
 ## @schema return: Dictionary with active_tasks, requirement_owner_ids, and default_requirement_ids.
 func get_debug_snapshot() -> Dictionary:
+	_prune_invalid_default_tasks()
 	var task_snapshots: Array[Dictionary] = []
 	for task: GFRuntimeTask in get_active_tasks():
 		task_snapshots.append(task.get_debug_snapshot())
@@ -383,22 +394,30 @@ func _run_tasks(delta: float, use_physics: bool) -> void:
 	for task: GFRuntimeTask in snapshot:
 		if not is_scheduled(task):
 			continue
-		_ensure_initialized(task)
+		if not _ensure_initialized(task):
+			continue
 		if use_physics:
 			task.physics_tick(delta)
 		else:
 			task.tick(delta)
+		if not is_scheduled(task):
+			continue
 		if task.is_finished():
 			_finish_task(task, false)
 	if auto_schedule_default_tasks:
 		_schedule_available_defaults()
 
 
-func _ensure_initialized(task: GFRuntimeTask) -> void:
-	if task == null or task.has_initialized():
-		return
+func _ensure_initialized(task: GFRuntimeTask) -> bool:
+	if task == null:
+		return false
+	if task.has_initialized():
+		return true
 	task.initialize(self)
+	if not is_scheduled(task):
+		return false
 	task.mark_initialized()
+	return true
 
 
 func _finish_task(task: GFRuntimeTask, interrupted: bool) -> void:
@@ -441,13 +460,19 @@ func _get_conflicting_tasks(task: GFRuntimeTask) -> Array[GFRuntimeTask]:
 
 
 func _schedule_available_defaults() -> void:
+	_prune_invalid_default_tasks()
 	for key: Variant in _default_tasks.keys():
+		var record: Dictionary = _default_record_from_value(_default_tasks.get(key, null))
+		var requirement: Object = _default_record_requirement(record)
+		if requirement == null:
+			var _removed_invalid_default: bool = _default_tasks.erase(key)
+			continue
 		if _requirement_owners.has(key):
 			continue
-		var value: Variant = _default_tasks.get(key, null)
-		if not (value is GFRuntimeTask):
+		var task: GFRuntimeTask = _default_record_task(record)
+		if task == null:
+			var _removed_null_default: bool = _default_tasks.erase(key)
 			continue
-		var task: GFRuntimeTask = value
 		if is_scheduled(task):
 			continue
 		if _has_busy_requirement(task):
@@ -460,3 +485,40 @@ func _has_busy_requirement(task: GFRuntimeTask) -> bool:
 		if get_task_for_requirement(requirement) != null:
 			return true
 	return false
+
+
+func _prune_invalid_default_tasks() -> void:
+	for key: Variant in _default_tasks.keys():
+		var record: Dictionary = _default_record_from_value(_default_tasks.get(key, null))
+		if _default_record_requirement(record) == null or _default_record_task(record) == null:
+			var _removed_invalid_default: bool = _default_tasks.erase(key)
+
+
+func _default_record_from_value(value: Variant) -> Dictionary:
+	if value is Dictionary:
+		var record: Dictionary = value
+		return record
+	if value is GFRuntimeTask:
+		var task: GFRuntimeTask = value
+		return { "task": task }
+	return {}
+
+
+func _default_record_task(record: Dictionary) -> GFRuntimeTask:
+	var value: Variant = GFVariantData.get_option_value(record, "task")
+	if value is GFRuntimeTask:
+		var task: GFRuntimeTask = value
+		return task
+	return null
+
+
+func _default_record_requirement(record: Dictionary) -> Object:
+	var value: Variant = GFVariantData.get_option_value(record, "requirement_ref")
+	if value is WeakRef:
+		var requirement_ref: WeakRef = value
+		var requirement: Variant = requirement_ref.get_ref()
+		if requirement is Object:
+			var object_ref: Object = requirement
+			if is_instance_valid(object_ref):
+				return object_ref
+	return null

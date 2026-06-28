@@ -36,13 +36,7 @@ var jitter_ratio: float = 0.0:
 # --- 私有变量 ---
 
 var _attempt_count: int = 0
-var _rng: RandomNumberGenerator = RandomNumberGenerator.new()
-
-
-# --- Godot 生命周期方法 ---
-
-func _init() -> void:
-	_rng.randomize()
+var _rng: GFDeterministicRandom = GFDeterministicRandom.new()
 
 
 # --- 公共方法 ---
@@ -84,6 +78,17 @@ func record_success() -> void:
 	reset()
 
 
+## 设置 jitter 使用的确定性随机种子。
+## [br]
+## @api public
+## [br]
+## @since 6.0.0
+## [br]
+## @param seed_value: 初始种子；0 会映射到 GFDeterministicRandom 的稳定默认种子。
+func set_jitter_seed(seed_value: int) -> void:
+	_rng.set_seed(seed_value)
+
+
 ## 获取已经消费的失败尝试次数。
 ## [br]
 ## @api public
@@ -107,5 +112,5 @@ func _apply_jitter(delay_msec: int) -> int:
 		return delay_msec
 
 	var jitter_amount: float = delay_msec * jitter_ratio
-	var offset: float = _rng.randf_range(-jitter_amount, jitter_amount)
+	var offset: float = _rng.next_float_range(-jitter_amount, jitter_amount)
 	return maxi(roundi(float(delay_msec) + offset), 0)

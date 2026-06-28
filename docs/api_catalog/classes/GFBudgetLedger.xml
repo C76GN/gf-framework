@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFBudgetLedger" path="addons/gf/standard/foundation/budget/gf_budget_ledger.gd" module="standard" extends="RefCounted" classDigest="5a25082904f8b4c8d1ee7d82f58b55bcfd69751af5a69fb33a08abf029718bde">
+<class name="GFBudgetLedger" path="addons/gf/standard/foundation/budget/gf_budget_ledger.gd" module="standard" extends="RefCounted" classDigest="bcc512400433b8adad447046d2f5a432b550d2aefe82e550b901cc4c04da326e">
 	<description>GFBudgetLedger: 通用资源预算账本。
 用于记录一组抽象资源的容量、可用量和消耗结果。
 资源含义由项目决定，框架只提供预算检查、消费、释放和快照。</description>
@@ -36,6 +36,15 @@
 				<tag name="param">budget_id: 预算标识。</tag>
 				<tag name="param">amount: 请求数量。</tag>
 				<tag name="param">reason: 拒绝原因。</tag>
+			</tags>
+		</member>
+		<member kind="signal" name="budgets_cleared">
+			<signature>signal budgets_cleared(budget_ids: PackedStringArray)</signature>
+			<description>所有预算清空后发出。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">budget_ids: 被清空的预算标识列表。</tag>
+				<tag name="since">7.0.0</tag>
 			</tags>
 		</member>
 	</signals>

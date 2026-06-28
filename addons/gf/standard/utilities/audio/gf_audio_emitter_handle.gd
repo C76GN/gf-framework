@@ -61,6 +61,7 @@ var _fade_tween_ref: WeakRef = null
 var _owner_ref: WeakRef = null
 var _owner_exit_callback: Callable = Callable()
 var _owner_stop_fade_seconds: float = 0.0
+var _stopped_emitted: bool = false
 
 
 # --- Godot 生命周期方法 ---
@@ -86,6 +87,10 @@ func _init(
 ## [br]
 ## @param player: 要绑定的播放器节点。
 func set_player(player: Node) -> void:
+	if _stopped_emitted:
+		_release_player(player)
+		return
+
 	_player_ref = weakref(player) if player != null else null
 	if player != null:
 		player_attached.emit(self, player)
@@ -177,6 +182,7 @@ func stop(fade_seconds: float = 0.0) -> void:
 	_pending_stop_fade_seconds = maxf(fade_seconds, 0.0)
 	var player: Node = get_player()
 	if player == null:
+		_finish_stop(null)
 		return
 
 	if _pending_stop_fade_seconds > 0.0 and _is_player_playing(player):
@@ -203,6 +209,7 @@ func fade_to(volume_db: float, fade_seconds: float) -> void:
 	var player: Node = get_player()
 	if player == null:
 		return
+	_kill_fade_tween()
 	if fade_seconds <= 0.0:
 		player.set("volume_db", volume_db)
 		return
@@ -277,18 +284,32 @@ func get_debug_snapshot() -> Dictionary:
 # --- 私有/辅助方法 ---
 
 func _finish_stop(player: Node) -> void:
+	_kill_fade_tween()
 	if player == null:
 		_player_ref = null
 		_disconnect_owner_exit()
-		stopped.emit(self)
+		_emit_stopped_once()
 		return
 
+	_release_player(player)
+	_player_ref = null
+	_disconnect_owner_exit()
+	_emit_stopped_once()
+
+
+func _release_player(player: Node) -> void:
+	if player == null:
+		return
 	if is_instance_valid(player) and player.has_method("stop"):
 		player.call("stop")
 	if is_instance_valid(player) and _release_callback.is_valid():
 		_release_callback.call(player)
-	_player_ref = null
-	_disconnect_owner_exit()
+
+
+func _emit_stopped_once() -> void:
+	if _stopped_emitted:
+		return
+	_stopped_emitted = true
 	stopped.emit(self)
 
 
@@ -306,6 +327,13 @@ func _get_fade_tween() -> Tween:
 		var tween: Tween = value
 		return tween
 	return null
+
+
+func _kill_fade_tween() -> void:
+	var tween: Tween = _get_fade_tween()
+	if tween != null and tween.is_valid():
+		tween.kill()
+	_fade_tween_ref = null
 
 
 func _is_player_playing(player: Node) -> bool:

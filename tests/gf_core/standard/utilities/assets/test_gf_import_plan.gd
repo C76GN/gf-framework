@@ -53,6 +53,35 @@ func test_import_plan_preflight_reports_invalid_entries() -> void:
 	assert_true(_has_issue_kind(report, "target_outside_root"), "预检应报告目标越界。")
 
 
+func test_import_plan_summary_counts_and_duplicate_targets() -> void:
+	var plan: GFImportPlan = GFImportPlan.new()
+	var _first_entry_plan: GFImportPlan = plan.add_entry("res://source/a.csv", "res://generated/items.tres", GFImportPlan.OPERATION_COPY, {
+		"source_format": "csv",
+		"target_format": "tres",
+	})
+	var _second_entry_plan: GFImportPlan = plan.add_entry("res://source/b.csv", "res://generated/items.tres", GFImportPlan.OPERATION_CONVERT, {
+		"source_format": "csv",
+		"target_format": "tres",
+	})
+	var _third_entry_plan: GFImportPlan = plan.add_entry("res://source/c.csv", "", GFImportPlan.OPERATION_SKIP)
+
+	var summary: Dictionary = plan.get_operation_summary()
+	var validation_report: Dictionary = plan.get_validation_report()
+	var counts_by_operation: Dictionary = GFVariantData.get_option_dictionary(summary, "counts_by_operation")
+	var duplicate_targets: Array = GFVariantData.get_option_array(summary, "duplicate_targets")
+	var first_duplicate: Dictionary = GFVariantData.as_dictionary(duplicate_targets[0])
+
+	assert_eq(GFVariantData.get_option_int(summary, "entry_count"), 3, "摘要应统计总条目。")
+	assert_eq(GFVariantData.get_option_int(summary, "actionable_entry_count"), 2, "摘要应统计非 skip 条目。")
+	assert_eq(GFVariantData.get_option_int(summary, "skipped_entry_count"), 1, "摘要应统计 skip 条目。")
+	assert_eq(GFVariantData.get_option_int(counts_by_operation, "copy"), 1, "摘要应按操作统计 copy。")
+	assert_eq(GFVariantData.get_option_int(counts_by_operation, "convert"), 1, "摘要应按操作统计 convert。")
+	assert_eq(duplicate_targets.size(), 1, "摘要应报告重复目标路径。")
+	assert_eq(GFVariantData.get_option_string(first_duplicate, "target_path"), "res://generated/items.tres", "重复目标应保留目标路径。")
+	assert_false(GFVariantData.get_option_bool(validation_report, "ok"), "重复目标默认应让预检失败。")
+	assert_true(_has_issue_kind(validation_report, "duplicate_target_path"), "预检应报告重复目标路径。")
+
+
 func test_import_plan_round_trips_dictionary_data() -> void:
 	var plan: GFImportPlan = GFImportPlan.new()
 	plan.metadata["profile"] = "default"

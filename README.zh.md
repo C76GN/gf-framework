@@ -21,7 +21,11 @@ GF Framework 是一个面向 Godot 4 的轻量级游戏架构框架。它把数�
 
 ## 安装
 
-将 [`addons/gf`](addons/gf) 复制到 Godot 项目中，然后在 `Project > Project Settings > Plugins` 启用 `GF Framework`。
+普通安装推荐使用 Godot Asset Store / Asset Library 官方页面下载的包，或 GitHub Release 中的 `gf-framework-<version>.zip`。这个包包含完整的 `addons/gf` 插件目录：kernel、standard、编辑器工具、包管理器和随包发布的可选内置扩展。可选扩展默认仍是关闭的，只有项目显式启用后才参与装配，所以完整包是默认首装入口。
+
+如果只想做最小引导，可以从同一个 GitHub Release 下载 `gf-kernel-<version>.zip`，启用插件后再通过 `GF Package Manager` 或 Godot 原生命令行按需安装 package。这个模块化路径适合受控项目模板、离线包或团队内部 registry，但不作为 Godot 官方站点的默认下载包。
+
+将包里的 `addons/gf` 复制到 Godot 项目中，然后在 `Project > Project Settings > Plugins` 启用 `GF Framework`。
 
 Godot 不会在文件复制到 `addons` 后自动启用编辑器插件，这是正常行为。插件启用状态属于目标项目的 `project.godot`，需要用户明确启用后，编辑器插件代码才会运行。
 

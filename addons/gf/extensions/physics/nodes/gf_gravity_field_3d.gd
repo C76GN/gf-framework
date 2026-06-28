@@ -168,21 +168,22 @@ func get_acceleration_at(world_position: Vector3) -> Vector3:
 func get_strength_at_distance(distance: float) -> float:
 	if acceleration <= 0.0:
 		return 0.0
-	if radius > 0.0 and distance > radius:
+	var safe_distance: float = maxf(distance, 0.0)
+	if radius > 0.0 and safe_distance > radius:
 		return 0.0
 
 	match falloff_mode:
 		FalloffMode.LINEAR:
 			if radius <= 0.0:
 				return acceleration
-			return acceleration * clampf(1.0 - distance / radius, 0.0, 1.0)
+			return acceleration * clampf(1.0 - safe_distance / radius, 0.0, 1.0)
 		FalloffMode.INVERSE_SQUARE:
-			var effective_distance: float = maxf(distance, min_distance)
+			var effective_distance: float = maxf(safe_distance, min_distance)
 			return acceleration * min_distance * min_distance / (effective_distance * effective_distance)
 		FalloffMode.CURVE:
 			if falloff_curve == null:
 				return acceleration
-			var sample_position: float = clampf(distance / radius, 0.0, 1.0) if radius > 0.0 else 0.0
+			var sample_position: float = clampf(safe_distance / radius, 0.0, 1.0) if radius > 0.0 else 0.0
 			return acceleration * maxf(falloff_curve.sample(sample_position), 0.0)
 		_:
 			return acceleration

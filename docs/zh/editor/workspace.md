@@ -18,6 +18,8 @@
 
 `GF Extensions` 页面用于查看 `gf_extension.json`、显式启用或禁用默认关闭的内置可选扩展、检查 manifest 状态、扫描禁用扩展引用并保存扩展相关设置。
 
+扩展 preset 会先校验 ID、依赖 ID 和来源路径；项目工具需要审查 preset 配置时，可读取 `GFExtensionSettings.get_extension_preset_report()` 获取有效、无效、重复和跳过的 preset 记录。
+
 面板里的三个开关含义不同：
 
 - `自动装配启用扩展 Installer`：`Gf.init()` / `Gf.set_architecture()` 时执行启用扩展 manifest 声明的 `installer_paths`。
@@ -43,6 +45,10 @@ godot --headless --path . --script res://addons/gf/kernel/package/gf_package_cli
 ```
 
 常用参数包括 `--registry`、`--channel`、`--project-root`、`--lockfile`、`--cache-dir`、`--dry-run`、`--all-installed`、`--all-concrete`、`--kind`、`--exclude-kind`、`--force` 和 `--json`。`status` 用来查看 registry 中有哪些 package、哪些已安装、哪些可安装或可更新；`install` 会根据依赖闭包安装新 package；`update` 只更新 lockfile 中已经安装的 package，可显式指定 package id，也可用 `--all-installed` 对齐全部已安装 package；`uninstall` 会按 lockfile、依赖关系和项目引用检查卸载风险；`verify` 用来检查 lockfile 与当前 registry 是否一致。
+
+安装、更新和卸载预览会返回 `plan_entries` 与 `plan_summary`。每个条目说明 package 的动作是 `install`、`update`、`keep`、`remove`、`prune_dependency` 还是 `blocked`，并保留 `requested`、`dependency`、`already_satisfied`、`lockfile_changed` 等计划原因，方便编辑器页面或项目工具在执行前解释 dry-run 结果。
+
+编辑器页面关闭或插件卸载时，后台 Package Manager 任务会发出协作取消请求。原生 backend 会在扫描、下载、解包、复制、删除和 lockfile 写入前后的关键边界检查取消状态，并在结果中标记 `cancelled`，避免退出树后继续长时间写项目文件。
 
 安装时可以显式列出 package id，也可以用 selector 从当前 registry 选择一组具体 package：
 

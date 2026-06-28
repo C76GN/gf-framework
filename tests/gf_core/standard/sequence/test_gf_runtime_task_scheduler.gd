@@ -44,6 +44,42 @@ class RecordingTask extends GFRuntimeTask:
 		order.append(("cancel_" if interrupted else "end_") + label)
 
 
+class SelfCancellingTask extends GFRuntimeTask:
+	var finished_checks: int = 0
+	var cancel_count: int = 0
+	var _scheduler: GFRuntimeTaskScheduler = null
+
+	func initialize(scheduler: GFRuntimeTaskScheduler) -> void:
+		_scheduler = scheduler
+
+	func tick(_delta: float) -> void:
+		if _scheduler != null:
+			var _cancelled: bool = _scheduler.cancel(self)
+
+	func is_finished() -> bool:
+		finished_checks += 1
+		return true
+
+	func end(interrupted: bool) -> void:
+		if interrupted:
+			cancel_count += 1
+
+
+class InitializeCancellingTask extends GFRuntimeTask:
+	var tick_count: int = 0
+	var cancel_count: int = 0
+
+	func initialize(scheduler: GFRuntimeTaskScheduler) -> void:
+		var _cancelled: bool = scheduler.cancel(self)
+
+	func tick(_delta: float) -> void:
+		tick_count += 1
+
+	func end(interrupted: bool) -> void:
+		if interrupted:
+			cancel_count += 1
+
+
 # --- 测试方法 ---
 
 ## 验证调度器会初始化、推进并完成任务。
@@ -101,6 +137,37 @@ func test_requirement_conflict_interrupts_owner() -> void:
 	assert_signal_emitted(scheduler, "task_cancelled", "被替换的任务应发出取消信号。")
 
 
+func test_scheduled_task_rejects_requirement_mutation() -> void:
+	var scheduler: GFRuntimeTaskScheduler = GFRuntimeTaskScheduler.new()
+	var requirement_a: RefCounted = RefCounted.new()
+	var requirement_b: RefCounted = RefCounted.new()
+	var order: Array[String] = []
+	var task: RecordingTask = RecordingTask.new(order, "locked", [requirement_a], true, 99)
+
+	assert_true(scheduler.schedule(task), "任务应能进入调度器。")
+	var _add_result: GFRuntimeTask = task.add_requirement(requirement_b)
+	assert_false(task.remove_requirement(requirement_a), "已调度任务不应允许移除 requirement。")
+	task.clear_requirements()
+	var _set_result: GFRuntimeTask = task.set_requirements([requirement_b])
+
+	assert_true(task.has_requirement(requirement_a), "已调度任务应保留原 requirement。")
+	assert_false(task.has_requirement(requirement_b), "已调度任务不应接受新增 requirement。")
+
+
+func test_register_default_task_rejects_scheduled_task_missing_requirement() -> void:
+	var scheduler: GFRuntimeTaskScheduler = GFRuntimeTaskScheduler.new()
+	var active_requirement: RefCounted = RefCounted.new()
+	var default_requirement: RefCounted = RefCounted.new()
+	var order: Array[String] = []
+	var task: RecordingTask = RecordingTask.new(order, "active", [active_requirement], true, 99)
+
+	assert_true(scheduler.schedule(task), "任务应能先进入调度器。")
+	assert_false(scheduler.register_default_task(default_requirement, task), "已调度且不能新增 requirement 的任务不应注册为默认任务。")
+
+	assert_false(task.has_requirement(default_requirement), "失败注册不应修改已调度任务 requirement。")
+	assert_null(scheduler.get_default_task(default_requirement), "失败注册不应留下默认任务记录。")
+
+
 ## 验证默认任务会在 requirement 空闲时自动恢复。
 func test_default_task_runs_when_requirement_becomes_idle() -> void:
 	var scheduler: GFRuntimeTaskScheduler = GFRuntimeTaskScheduler.new()
@@ -131,6 +198,23 @@ func test_default_task_runs_when_requirement_becomes_idle() -> void:
 		"默认任务应在前台任务完成后的下一次推进中恢复。"
 	)
 	assert_same(scheduler.get_task_for_requirement(requirement), default_task, "Requirement 应重新回到默认任务。")
+
+
+func test_default_task_is_pruned_when_requirement_is_released() -> void:
+	var scheduler: GFRuntimeTaskScheduler = GFRuntimeTaskScheduler.new()
+	var requirement: Node = Node.new()
+	var requirement_id: int = requirement.get_instance_id()
+	var order: Array[String] = []
+	var default_task: RecordingTask = RecordingTask.new(order, "default", [], true, 99)
+
+	assert_true(scheduler.register_default_task(requirement, default_task), "应能注册默认任务。")
+	requirement.free()
+	scheduler.tick(0.1)
+
+	var snapshot: Dictionary = scheduler.get_debug_snapshot()
+	var default_requirement_ids: Array = GFVariantData.get_option_array(snapshot, "default_requirement_ids")
+	assert_false(default_task.is_scheduled(), "已释放 requirement 的默认任务不应被调度。")
+	assert_false(default_requirement_ids.has(requirement_id), "已释放 requirement 的默认任务记录应被清理。")
 
 
 ## 验证 Callable 任务可用闭包定义生命周期。
@@ -174,6 +258,37 @@ func test_task_group_sequence_runs_children_in_order() -> void:
 	assert_false(group.is_scheduled(), "所有子任务完成后任务组应结束。")
 
 
+func test_scheduled_task_group_rejects_child_mutation() -> void:
+	var scheduler: GFRuntimeTaskScheduler = GFRuntimeTaskScheduler.new()
+	var order: Array[String] = []
+	var first: RecordingTask = RecordingTask.new(order, "first", [], true, 99)
+	var second: RecordingTask = RecordingTask.new(order, "second", [], true, 99)
+	var group: GFRuntimeTaskGroup = GFRuntimeTaskGroup.new([first], GFRuntimeTaskGroup.Mode.PARALLEL_ALL)
+
+	assert_true(scheduler.schedule(group), "任务组应能进入调度器。")
+	var _add_result: GFRuntimeTaskGroup = group.add_task(second)
+	assert_false(group.remove_task(first), "已调度任务组不应允许移除子任务。")
+	group.rebuild_requirements()
+
+	assert_eq(group.tasks, [first], "已调度任务组不应接受子任务集合变更。")
+
+
+func test_scheduler_rejects_group_child_scheduled_independently() -> void:
+	var scheduler: GFRuntimeTaskScheduler = GFRuntimeTaskScheduler.new()
+	var order: Array[String] = []
+	var first: RecordingTask = RecordingTask.new(order, "first", [], true, 99)
+	var group: GFRuntimeTaskGroup = GFRuntimeTaskGroup.new([first], GFRuntimeTaskGroup.Mode.PARALLEL_ALL)
+	watch_signals(scheduler)
+
+	assert_true(scheduler.schedule(group), "任务组应能进入调度器。")
+	scheduler.tick(0.1)
+
+	assert_true(first.is_scheduled(), "子任务应由任务组内部调度。")
+	assert_false(scheduler.schedule(first), "已被任务组调度的子任务不应再次进入外层调度器。")
+	assert_eq(scheduler.get_active_tasks(), [group], "外层调度器不应同时持有任务组和其子任务。")
+	assert_signal_emitted(scheduler, "task_rejected", "重复所有权应发出拒绝信号。")
+
+
 ## 验证竞速任务组会在首个子任务完成后中断剩余子任务。
 func test_task_group_race_cancels_remaining_children() -> void:
 	var scheduler: GFRuntimeTaskScheduler = GFRuntimeTaskScheduler.new()
@@ -201,3 +316,56 @@ func test_task_group_race_cancels_remaining_children() -> void:
 		"竞速任务组应在首个子任务完成后中断未完成子任务。"
 	)
 	assert_false(group.is_scheduled(), "竞速完成后任务组应离开调度器。")
+
+
+func test_task_group_race_closes_remaining_children_when_not_interrupted() -> void:
+	var scheduler: GFRuntimeTaskScheduler = GFRuntimeTaskScheduler.new()
+	var order: Array[String] = []
+	var slow: RecordingTask = RecordingTask.new(order, "slow", [], true, 99)
+	var fast: RecordingTask = RecordingTask.new(order, "fast", [], true, 1)
+	var group: GFRuntimeTaskGroup = GFRuntimeTaskGroup.new(
+		[slow, fast],
+		GFRuntimeTaskGroup.Mode.PARALLEL_RACE
+	)
+	group.cancel_remaining_on_finish = false
+
+	assert_true(scheduler.schedule(group), "竞速任务组应能进入调度器。")
+	scheduler.tick(0.1)
+
+	assert_eq(
+		order,
+		[
+			"init_slow",
+			"init_fast",
+			"tick_slow",
+			"tick_fast",
+			"end_fast",
+			"end_slow",
+		],
+		"竞速完成后即使不标记中断，也必须关闭未完成子任务。"
+	)
+	assert_false(group.is_scheduled(), "竞速完成后任务组应离开调度器。")
+
+
+func test_scheduler_skips_finished_check_after_self_cancel() -> void:
+	var scheduler: GFRuntimeTaskScheduler = GFRuntimeTaskScheduler.new()
+	var task: SelfCancellingTask = SelfCancellingTask.new()
+
+	assert_true(scheduler.schedule(task), "任务应能进入调度器。")
+	scheduler.tick(0.1)
+
+	assert_false(task.is_scheduled(), "自取消任务应离开调度器。")
+	assert_eq(task.cancel_count, 1, "自取消任务应以 interrupted=true 结束。")
+	assert_eq(task.finished_checks, 0, "任务在 tick 内自取消后不应再执行 is_finished。")
+
+
+func test_scheduler_skips_tick_after_initialize_self_cancel() -> void:
+	var scheduler: GFRuntimeTaskScheduler = GFRuntimeTaskScheduler.new()
+	var task: InitializeCancellingTask = InitializeCancellingTask.new()
+
+	assert_true(scheduler.schedule(task), "任务应能进入调度器。")
+	scheduler.tick(0.1)
+
+	assert_false(task.is_scheduled(), "初始化中自取消任务应离开调度器。")
+	assert_eq(task.cancel_count, 1, "初始化中自取消任务应以 interrupted=true 结束。")
+	assert_eq(task.tick_count, 0, "任务在 initialize 内自取消后不应继续 tick。")

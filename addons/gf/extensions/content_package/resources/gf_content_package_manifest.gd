@@ -30,6 +30,9 @@ const SCHEMA_VERSION: int = 1
 const _REPORT_SUBJECT: String = "Content package manifest"
 const _KIND_MISSING_PACKAGE_ID: String = "missing_package_id"
 const _KIND_MISSING_VERSION: String = "missing_version"
+const _KIND_MISSING_SCHEMA_VERSION: String = "missing_schema_version"
+const _KIND_INVALID_SCHEMA_VERSION: String = "invalid_schema_version"
+const _KIND_UNSUPPORTED_SCHEMA_VERSION: String = "unsupported_schema_version"
 const _KIND_INVALID_CONTENT_TYPE: String = "invalid_content_type"
 const _KIND_INVALID_DEPENDENCY: String = "invalid_dependency"
 const _KIND_INVALID_RESOURCE_ENTRY: String = "invalid_resource_entry"
@@ -76,6 +79,13 @@ const _DATA_ONLY_FORBIDDEN_EXTENSIONS: PackedStringArray = [
 
 
 # --- 导出变量 ---
+
+## manifest schema 版本。JSON manifest 必须显式声明当前支持的版本。
+## [br]
+## @api public
+## [br]
+## @since 6.0.0
+@export var schema_version: int = SCHEMA_VERSION
 
 ## 稳定内容包 ID。
 ## [br]
@@ -144,6 +154,12 @@ var root_path: String = ""
 var source_path: String = ""
 
 
+# --- 私有变量 ---
+
+var _schema_version_was_present: bool = true
+var _schema_version_has_valid_type: bool = true
+
+
 # --- 公共方法 ---
 
 ## 配置 manifest。
@@ -194,12 +210,15 @@ func configure(
 	p_safety_kind: StringName = SAFETY_KIND_DATA_ONLY,
 	p_forbidden_resource_extensions: PackedStringArray = PackedStringArray()
 ) -> GFContentPackageManifest:
+	schema_version = SCHEMA_VERSION
+	_schema_version_was_present = true
+	_schema_version_has_valid_type = true
 	package_id = p_package_id
 	version = p_version.strip_edges()
 	resources = _copy_resource_entries(p_resources)
 	display_name = p_display_name.strip_edges()
-	content_types = _copy_packed_string_array(p_content_types)
-	dependencies = _copy_packed_string_array(p_dependencies)
+	content_types = _normalize_string_list(p_content_types)
+	dependencies = _normalize_string_list(p_dependencies)
 	metadata = p_metadata.duplicate(true)
 	root_path = _normalize_root_path(p_root_path)
 	source_path = _normalize_resource_path(p_source_path, "")
@@ -220,6 +239,7 @@ func configure(
 ## [br]
 ## @schema data: Dictionary，支持 package_id/id、display_name/name、version、content_types、dependencies、resources 和 metadata。
 func apply_dictionary(data: Dictionary, p_root_path: String = "", p_source_path: String = "") -> void:
+	_apply_schema_version(data)
 	package_id = GFVariantData.get_option_string_name(
 		data,
 		"package_id",
@@ -231,8 +251,8 @@ func apply_dictionary(data: Dictionary, p_root_path: String = "", p_source_path:
 		GFVariantData.get_option_string(data, "name", display_name)
 	).strip_edges()
 	version = GFVariantData.get_option_string(data, "version", version).strip_edges()
-	content_types = GFVariantData.get_option_packed_string_array(data, "content_types", content_types)
-	dependencies = GFVariantData.get_option_packed_string_array(data, "dependencies", dependencies)
+	content_types = _normalize_string_list(GFVariantData.get_option_packed_string_array(data, "content_types", content_types))
+	dependencies = _normalize_string_list(GFVariantData.get_option_packed_string_array(data, "dependencies", dependencies))
 	safety_kind = GFVariantData.get_option_string_name(data, "safety_kind", safety_kind)
 	forbidden_resource_extensions = _normalize_extensions(
 		GFVariantData.get_option_packed_string_array(data, "forbidden_resource_extensions", forbidden_resource_extensions)
@@ -252,7 +272,7 @@ func apply_dictionary(data: Dictionary, p_root_path: String = "", p_source_path:
 ## @schema return: Dictionary，包含 schema_version、package_id、display_name、version、content_types、dependencies、resources 和 metadata。
 func to_dictionary() -> Dictionary:
 	return {
-		"schema_version": SCHEMA_VERSION,
+		"schema_version": schema_version,
 		"package_id": package_id,
 		"display_name": display_name,
 		"version": version,
@@ -285,6 +305,9 @@ func duplicate_manifest() -> GFContentPackageManifest:
 		safety_kind,
 		forbidden_resource_extensions
 	)
+	manifest.schema_version = schema_version
+	manifest._schema_version_was_present = _schema_version_was_present
+	manifest._schema_version_has_valid_type = _schema_version_has_valid_type
 	return manifest
 
 
@@ -315,6 +338,7 @@ func is_valid(options: Dictionary = {}) -> bool:
 ## @schema return: GFValidationReportDictionary.finalize_report() 生成的 Dictionary，包含 ok、healthy、summary、issues、next_action、error_count、warning_count、issue_count、package_id、source_path 和 resource_count。
 func get_validation_report(options: Dictionary = {}) -> Dictionary:
 	var report: Dictionary = _make_validation_report()
+	_validate_schema_version(report)
 	_validate_required_fields(report)
 	_validate_safety_kind(report)
 	_validate_string_list(content_types, "content_types", _KIND_INVALID_CONTENT_TYPE, report)
@@ -433,6 +457,62 @@ static func load_from_path(path: String) -> GFContentPackageManifest:
 
 
 # --- 私有/辅助方法 ---
+
+func _apply_schema_version(data: Dictionary) -> void:
+	_schema_version_was_present = data.has("schema_version") or data.has(&"schema_version")
+	_schema_version_has_valid_type = true
+	schema_version = 0
+	if not _schema_version_was_present:
+		return
+
+	var raw_version: Variant = GFVariantData.get_option_value(data, "schema_version")
+	if raw_version is int:
+		schema_version = raw_version
+		return
+	if raw_version is float:
+		var float_version: float = raw_version
+		if is_equal_approx(float_version, floorf(float_version)):
+			schema_version = int(float_version)
+			return
+	_schema_version_has_valid_type = false
+
+
+func _validate_schema_version(report: Dictionary) -> void:
+	if not _schema_version_was_present:
+		_add_manifest_issue(
+			report,
+			_KIND_MISSING_SCHEMA_VERSION,
+			&"schema_version",
+			"schema_version is required",
+			{
+				"expected_value": SCHEMA_VERSION,
+			}
+		)
+		return
+	if not _schema_version_has_valid_type:
+		_add_manifest_issue(
+			report,
+			_KIND_INVALID_SCHEMA_VERSION,
+			&"schema_version",
+			"schema_version must be an integer",
+			{
+				"actual_value": schema_version,
+				"expected_value": SCHEMA_VERSION,
+			}
+		)
+		return
+	if schema_version != SCHEMA_VERSION:
+		_add_manifest_issue(
+			report,
+			_KIND_UNSUPPORTED_SCHEMA_VERSION,
+			&"schema_version",
+			"schema_version is not supported",
+			{
+				"actual_value": schema_version,
+				"expected_value": SCHEMA_VERSION,
+			}
+		)
+
 
 func _validate_required_fields(report: Dictionary) -> void:
 	if package_id == &"":
@@ -687,6 +767,7 @@ func _add_manifest_issue(
 func _make_validation_report() -> Dictionary:
 	return {
 		"subject": _REPORT_SUBJECT,
+		"schema_version": schema_version,
 		"package_id": package_id,
 		"source_path": source_path,
 		"resource_count": resources.size(),
@@ -750,6 +831,16 @@ static func _copy_resource_entries(entries: Array[Dictionary]) -> Array[Dictiona
 
 static func _copy_packed_string_array(items: PackedStringArray) -> PackedStringArray:
 	return items.duplicate()
+
+
+static func _normalize_string_list(items: PackedStringArray) -> PackedStringArray:
+	var result: PackedStringArray = PackedStringArray()
+	for item: String in items:
+		var normalized: String = item.strip_edges()
+		if result.has(normalized):
+			continue
+		var _append_result: bool = result.append(normalized)
+	return result
 
 
 func _get_effective_forbidden_extensions() -> PackedStringArray:

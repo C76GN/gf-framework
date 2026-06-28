@@ -142,6 +142,7 @@ var _connected_log_util: GFLogUtility = null
 ## [br]
 ## @api public
 func init() -> void:
+	dispose()
 	if debug_only and not OS.is_debug_build():
 		return
 
@@ -224,7 +225,14 @@ func dispose() -> void:
 ## [br]
 ## @schema metadata: Dictionary，支持 tier 等项目自定义命令元数据。
 func register_command(cmd_name: String, callback: Callable, description: String, metadata: Dictionary = {}) -> void:
-	_commands[cmd_name] = {
+	var normalized_name: String = cmd_name.strip_edges()
+	if normalized_name.is_empty():
+		push_warning("[GFConsoleUtility] 注册命令失败：命令名为空。")
+		return
+	if not callback.is_valid():
+		push_warning("[GFConsoleUtility] 注册命令失败：callback 无效：%s。" % normalized_name)
+		return
+	_commands[normalized_name] = {
 		"callback": callback,
 		"description": description,
 		"metadata": metadata.duplicate(true),
@@ -243,10 +251,10 @@ func register_command_definition(definition: GFConsoleCommandDefinition, callbac
 		return
 
 	for cmd_name: String in definition.get_all_names():
-		register_command(cmd_name, callback, definition.description, {
-			"definition": definition,
-			"primary_command_name": definition.command_name,
-		})
+		var metadata: Dictionary = definition.metadata.duplicate(true)
+		metadata["definition"] = definition
+		metadata["primary_command_name"] = definition.command_name
+		register_command(cmd_name, callback, definition.description, metadata)
 
 
 ## 注销控制台命令。
@@ -388,7 +396,11 @@ func execute_command(raw_input: String) -> bool:
 	if not _prepare_command_execution(cmd_name, entry, args):
 		return false
 
-	var cb: Callable = entry["callback"]
+	var cb: Callable = _get_callable_value(GFVariantData.get_option_value(entry, "callback", Callable()))
+	if not cb.is_valid():
+		if is_instance_valid(_console_gui):
+			_console_gui.append_text("[color=red]指令回调无效：%s。[/color]" % _escape_bbcode_text(cmd_name))
+		return false
 	cb.call(args)
 	return true
 
@@ -569,6 +581,13 @@ func _get_command_tier(entry: Dictionary) -> CommandTier:
 	return _to_command_tier(GFVariantData.to_int(tier_value, CommandTier.OBSERVE))
 
 
+func _get_callable_value(value: Variant) -> Callable:
+	if value is Callable:
+		var callback: Callable = value
+		return callback
+	return Callable()
+
+
 func _to_command_tier(value: int) -> CommandTier:
 	match clampi(value, CommandTier.OBSERVE, CommandTier.DANGER):
 		CommandTier.CONTROL:
@@ -592,7 +611,7 @@ func _cmd_help(_args: PackedStringArray) -> void:
 		return
 
 	_console_gui.append_text("[color=cyan]--- 可用指令 ---[/color]")
-	for cmd_name: String in _commands:
+	for cmd_name: String in get_command_names():
 		var entry: Dictionary = _get_command_entry(cmd_name)
 		var desc: String = GFVariantData.get_option_string(entry, "description")
 		_console_gui.append_text("  [color=white]%s[/color] - %s" % [

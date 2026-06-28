@@ -91,6 +91,7 @@ func remove_manifest(package_id: StringName) -> bool:
 	var order_index: int = _manifest_order.find(package_id)
 	if order_index >= 0:
 		_manifest_order.remove_at(order_index)
+	_remove_duplicate_package_id(package_id)
 	return true
 
 
@@ -184,6 +185,7 @@ func get_graph_report(options: Dictionary = {}) -> Dictionary:
 ## @schema return: GFValidationReportDictionary.finalize_report() 生成的 Dictionary，并包含 registered_count。
 func register_resources(resolver: GFResourceResolverUtility, options: Dictionary = {}) -> Dictionary:
 	var report: Dictionary = _make_report("Content package resource registration")
+	_unregister_content_package_resources(resolver)
 	var graph_report: Dictionary = get_graph_report(options)
 	var _merged_report: Dictionary = GFValidationReportDictionary.merge_report(report, graph_report, {
 		"copy_fields": PackedStringArray([
@@ -210,6 +212,9 @@ func register_resources(resolver: GFResourceResolverUtility, options: Dictionary
 			var type_hint: String = GFVariantData.get_option_string(resource_entry, "type_hint")
 			var priority: int = base_priority + GFVariantData.get_option_int(resource_entry, "priority")
 			var metadata: Dictionary = GFVariantData.get_option_dictionary(resource_entry, "metadata")
+			metadata["content_package_id"] = StringName(package_id_text)
+			metadata["content_package_resource_key"] = resource_key
+			metadata["_gf_content_package_resource"] = true
 			if resolver.register_path(resource_key, path, type_hint, priority, metadata):
 				registered_count += 1
 				continue
@@ -254,6 +259,26 @@ func _add_duplicate_package_id(package_id: StringName) -> void:
 	var package_id_text: String = String(package_id)
 	if not _duplicate_package_ids.has(package_id_text):
 		var _append_result: bool = _duplicate_package_ids.append(package_id_text)
+
+
+func _remove_duplicate_package_id(package_id: StringName) -> void:
+	var package_id_text: String = String(package_id)
+	var index: int = _duplicate_package_ids.find(package_id_text)
+	while index >= 0:
+		_duplicate_package_ids.remove_at(index)
+		index = _duplicate_package_ids.find(package_id_text)
+
+
+func _unregister_content_package_resources(resolver: GFResourceResolverUtility) -> void:
+	if resolver == null:
+		return
+	for key_text: String in resolver.get_registered_keys():
+		var key: StringName = StringName(key_text)
+		var report: Dictionary = resolver.resolve(key, "", { "check_exists": false })
+		var metadata: Dictionary = GFVariantData.get_option_dictionary(report, "metadata")
+		if not GFVariantData.get_option_bool(metadata, "_gf_content_package_resource"):
+			continue
+		var _unregistered: bool = resolver.unregister_path(key)
 
 
 func _add_duplicate_issues(report: Dictionary) -> void:

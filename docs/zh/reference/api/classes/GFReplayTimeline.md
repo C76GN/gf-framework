@@ -108,16 +108,17 @@ var duration_seconds: float = 0.0
 ### `events`
 
 - API：`public`
+- 首次版本：`3.20.0`
 
 ```gdscript
 var events: Array[Dictionary] = []
 ```
 
-事件列表。每项包含 time_seconds、event_kind、payload 和 metadata。
+事件列表。每项包含 time_seconds、event_kind、sequence、payload 和 metadata。
 
 结构：
 
-- `events`: Array[Dictionary]，包含 time_seconds: float、event_kind: StringName、payload: Variant 和 metadata: Dictionary。
+- `events`: Array[Dictionary]，包含 time_seconds: float、event_kind: StringName、sequence: int、payload: Variant 和 metadata: Dictionary。
 
 <a id="member-gfreplaytimeline-properties-metadata"></a>
 

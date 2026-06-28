@@ -275,6 +275,24 @@ func test_invalid_callback_is_not_tracked_as_connection() -> void:
 	assert_eq(_utility.get_connection_count(), 0, "启动失败的连接不应残留在工具追踪列表中。")
 
 
+func test_signal_connect_error_is_not_tracked_as_connection() -> void:
+	var emitter: SampleEmitter = SampleEmitter.new()
+	var callback: Callable = func(value: int) -> void:
+		var _unused_value: int = value
+	var connection: GFSignalConnection = GFSignalConnection.new(emitter.changed, callback)
+	var internal_callable: Callable = Callable(connection, &"_on_signal_emitted")
+
+	var manual_connect_error: Error = emitter.changed.connect(internal_callable) as Error
+	assert_eq(manual_connect_error, OK, "测试准备阶段应能先占用内部连接 callable。")
+
+	var _start_result_290: GFSignalConnection = connection.start()
+	assert_push_error("[GFSignalConnection] start 失败：Signal 已连接。")
+	assert_false(connection.is_active(), "connect 返回错误时连接句柄不应标记为已连接。")
+
+	if emitter.changed.is_connected(internal_callable):
+		emitter.changed.disconnect(internal_callable)
+
+
 func test_disconnect_signal_cancels_pending_delayed_callback() -> void:
 	var emitter: SampleEmitter = SampleEmitter.new()
 	var received: Array[Variant] = []

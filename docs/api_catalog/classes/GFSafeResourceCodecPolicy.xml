@@ -1,0 +1,158 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFSafeResourceCodecPolicy" path="addons/gf/standard/utilities/storage/gf_safe_resource_codec_policy.gd" module="standard" extends="Resource" classDigest="9565c5d42ba3a6ecac51d55f8ebaba80fa7a1b255943d52e7c23d4da8e918fc6">
+	<description>GFSafeResourceCodecPolicy: 安全资源图编解码策略。
+定义对象图编解码允许的类、脚本路径、资源路径和大小上限。
+默认策略不允许实例化对象；调用方必须显式加入 allowlist，避免把存档、
+网络载荷或工具缓存变成任意对象创建入口。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">resource_definition</tag>
+		<tag name="since">6.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties>
+		<member kind="property" name="allowed_classes" decorators="@export">
+			<signature>var allowed_classes: PackedStringArray = PackedStringArray()</signature>
+			<description>允许编解码的原生类名或通配模式。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">allowed_classes: PackedStringArray of ClassDB class names or wildcard patterns.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="allowed_script_paths" decorators="@export">
+			<signature>var allowed_script_paths: PackedStringArray = PackedStringArray()</signature>
+			<description>允许设置到对象上的脚本路径或通配模式。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">allowed_script_paths: PackedStringArray of res:// script paths or wildcard patterns.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="allowed_resource_paths" decorators="@export">
+			<signature>var allowed_resource_paths: PackedStringArray = PackedStringArray()</signature>
+			<description>允许按路径引用或加载的外部资源路径或通配模式。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">allowed_resource_paths: PackedStringArray of res:// resource paths or wildcard patterns.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="max_depth" decorators="@export">
+			<signature>var max_depth: int = 32:</signature>
+			<description>允许递归编解码的最大深度。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="max_items" decorators="@export">
+			<signature>var max_items: int = 4096:</signature>
+			<description>允许处理的最大节点、集合项和属性项总数。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="allow_external_resource_paths" decorators="@export">
+			<signature>var allow_external_resource_paths: bool = true</signature>
+			<description>是否允许把外部 Resource 编码为 resource_path 引用。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="allow_object_identity_references" decorators="@export">
+			<signature>var allow_object_identity_references: bool = true</signature>
+			<description>是否允许对象图中的重复引用被编码为 identity reference。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="allow_class">
+			<signature>func allow_class(class_id: String) -&gt; GFSafeResourceCodecPolicy:</signature>
+			<description>添加允许的类。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">class_id: ClassDB 类名或通配模式。</tag>
+				<tag name="return">当前策略。</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="allow_script_path">
+			<signature>func allow_script_path(script_path: String) -&gt; GFSafeResourceCodecPolicy:</signature>
+			<description>添加允许的脚本路径。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">script_path: res:// 脚本路径或通配模式。</tag>
+				<tag name="return">当前策略。</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="allow_resource_path">
+			<signature>func allow_resource_path(path_pattern: String) -&gt; GFSafeResourceCodecPolicy:</signature>
+			<description>添加允许的资源路径。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">path_pattern: res:// 资源路径或通配模式。</tag>
+				<tag name="return">当前策略。</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="allows_class">
+			<signature>func allows_class(class_id: String) -&gt; bool:</signature>
+			<description>检查类是否允许。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">class_id: ClassDB 类名。</tag>
+				<tag name="return">允许时返回 true。</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="allows_script_path">
+			<signature>func allows_script_path(script_path: String) -&gt; bool:</signature>
+			<description>检查脚本路径是否允许。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">script_path: res:// 脚本路径。</tag>
+				<tag name="return">允许时返回 true。</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="allows_resource_path">
+			<signature>func allows_resource_path(path: String) -&gt; bool:</signature>
+			<description>检查资源路径是否允许。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">path: res:// 资源路径。</tag>
+				<tag name="return">允许时返回 true。</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="duplicate_policy">
+			<signature>func duplicate_policy() -&gt; GFSafeResourceCodecPolicy:</signature>
+			<description>复制策略。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">新策略。</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_debug_snapshot">
+			<signature>func get_debug_snapshot() -&gt; Dictionary:</signature>
+			<description>获取调试快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">调试快照。</tag>
+				<tag name="schema">return: Dictionary with allowlists and limits.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

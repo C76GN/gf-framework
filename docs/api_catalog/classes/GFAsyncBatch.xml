@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFAsyncBatch" path="addons/gf/standard/utilities/io/gf_async_batch.gd" module="standard" extends="RefCounted" classDigest="35449623afcb9a09a6221f229d39a902b14e46613cc5044a1dd731b859dbc7e5">
+<class name="GFAsyncBatch" path="addons/gf/standard/utilities/io/gf_async_batch.gd" module="standard" extends="RefCounted" classDigest="072a73a3cb0cba0755a473e70203b6b80538928e3ac56e668089b8cb11ac7f5f">
 	<description>GFAsyncBatch: 通用异步结果批处理器。
-用于等待一组 GFHttpResponse 或手动标记的异步任务完成，并统一汇总结果。
-它不负责调度具体任务，只观察任务何时完成。</description>
+用于等待一组 [GFHttpResponse] 或手动标记的异步条目，并统一汇总成功、失败、
+取消、超时和首个完成项。它不负责调度具体任务，只观察任务何时进入终态。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">runtime_handle</tag>
@@ -11,28 +11,122 @@
 	<signals>
 		<member kind="signal" name="item_completed">
 			<signature>signal item_completed(key: Variant, result: Variant)</signature>
-			<description>单个条目完成后发出。</description>
+			<description>单个条目成功完成后发出。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">key: 条目标识。</tag>
 				<tag name="param">result: 条目结果。</tag>
 				<tag name="schema">key: Variant，调用方持有的条目标识，会作为结果字典的键。</tag>
 				<tag name="schema">result: Variant，已完成条目的结果。</tag>
+				<tag name="since">3.17.0</tag>
+			</tags>
+		</member>
+		<member kind="signal" name="item_settled">
+			<signature>signal item_settled(key: Variant, result: Variant, state: StringName)</signature>
+			<description>单个条目进入任意终态后发出。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">key: 条目标识。</tag>
+				<tag name="param">result: 条目结果。</tag>
+				<tag name="param">state: 条目终态。</tag>
+				<tag name="schema">key: Variant，调用方持有的条目标识。</tag>
+				<tag name="schema">result: Variant，调用方定义的条目结果。</tag>
+				<tag name="since">7.0.0</tag>
 			</tags>
 		</member>
 		<member kind="signal" name="completed">
 			<signature>signal completed(results: Dictionary)</signature>
-			<description>全部条目完成后发出。</description>
+			<description>全部或策略要求的条目完成后发出旧式结果字典。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">results: 批处理结果字典。</tag>
 				<tag name="schema">results: Dictionary，将每个被等待的 key 映射到对应完成结果。</tag>
+				<tag name="since">3.17.0</tag>
+			</tags>
+		</member>
+		<member kind="signal" name="settled">
+			<signature>signal settled(report: Dictionary)</signature>
+			<description>批处理进入终态后发出结构化报告。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">report: 批处理终态报告。</tag>
+				<tag name="schema">report: Dictionary，包含 policy、success、cancelled、timed_out、counts、items、results、completion_order 和 first_completed_key。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="signal" name="cancelled">
+			<signature>signal cancelled(reason: StringName, metadata: Dictionary)</signature>
+			<description>批处理被外部取消时发出。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">reason: 取消原因。</tag>
+				<tag name="param">metadata: 取消上下文。</tag>
+				<tag name="schema">metadata: Dictionary，调用方定义的取消上下文。</tag>
+				<tag name="since">7.0.0</tag>
 			</tags>
 		</member>
 	</signals>
-	<enums />
+	<enums>
+		<member kind="enum" name="CompletionPolicy">
+			<signature>enum CompletionPolicy {
+	## 所有条目都成功时批处理成功；失败或取消可按 fail_fast 提前结束。
+	ALL,
+	## 任一条目成功时批处理成功；所有条目都失败或取消时批处理失败。
+	ANY,
+	## 等待每个条目进入任意终态，适合 all-settled 汇总。
+	EACH,
+}</signature>
+			<description>批处理完成策略。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="enum" name="ItemState">
+			<signature>enum ItemState {
+	## 条目仍在等待。
+	PENDING,
+	## 条目成功完成。
+	SUCCEEDED,
+	## 条目失败。
+	FAILED,
+	## 条目被取消。
+	CANCELLED,
+}</signature>
+			<description>条目状态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+	</enums>
 	<constants />
-	<properties />
+	<properties>
+		<member kind="property" name="completion_policy">
+			<signature>var completion_policy: CompletionPolicy = CompletionPolicy.ALL</signature>
+			<description>批处理完成策略。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="fail_fast">
+			<signature>var fail_fast: bool = true</signature>
+			<description>ALL / ANY 策略遇到失败或取消时是否提前结束。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="cancel_remaining_on_finish">
+			<signature>var cancel_remaining_on_finish: bool = false</signature>
+			<description>批处理终态确定后是否取消仍在等待的条目。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+	</properties>
 	<methods>
 		<member kind="method" name="add_item">
 			<signature>func add_item(key: Variant, metadata: Dictionary = {}) -&gt; bool:</signature>
@@ -44,6 +138,19 @@
 				<tag name="return">是否添加成功。</tag>
 				<tag name="schema">key: Variant，调用方持有的条目标识，会作为结果字典的键。</tag>
 				<tag name="schema">metadata: Dictionary，调用方持有并关联到该条目的元数据。</tag>
+				<tag name="since">3.17.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="set_item_cancel_callback">
+			<signature>func set_item_cancel_callback(key: Variant, callback: Callable) -&gt; bool:</signature>
+			<description>为条目设置取消回调。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">key: 条目标识。</tag>
+				<tag name="param">callback: 取消回调，签名推荐为 func(key: Variant, reason: StringName)。</tag>
+				<tag name="return">设置成功时返回 true。</tag>
+				<tag name="schema">key: Variant，调用方持有的条目标识。</tag>
+				<tag name="since">7.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="watch_response">
@@ -59,7 +166,7 @@
 		</member>
 		<member kind="method" name="mark_completed">
 			<signature>func mark_completed(key: Variant, result: Variant = null) -&gt; bool:</signature>
-			<description>手动标记条目完成。</description>
+			<description>手动标记条目成功完成。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">key: 条目标识。</tag>
@@ -67,14 +174,89 @@
 				<tag name="return">是否成功标记。</tag>
 				<tag name="schema">key: Variant，调用方持有的条目标识，会作为结果字典的键。</tag>
 				<tag name="schema">result: Variant，已完成条目的结果。</tag>
+				<tag name="since">3.17.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="mark_failed">
+			<signature>func mark_failed(key: Variant, error: String = "", result: Variant = null) -&gt; bool:</signature>
+			<description>手动标记条目失败。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">key: 条目标识。</tag>
+				<tag name="param">error: 失败说明。</tag>
+				<tag name="param">result: 可选失败结果。</tag>
+				<tag name="return">是否成功标记。</tag>
+				<tag name="schema">key: Variant，调用方持有的条目标识。</tag>
+				<tag name="schema">result: Variant，调用方定义的失败载荷。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="mark_cancelled">
+			<signature>func mark_cancelled(key: Variant, reason: StringName = &amp;"cancelled", result: Variant = null) -&gt; bool:</signature>
+			<description>手动标记条目取消。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">key: 条目标识。</tag>
+				<tag name="param">reason: 取消原因。</tag>
+				<tag name="param">result: 可选取消结果。</tag>
+				<tag name="return">是否成功标记。</tag>
+				<tag name="schema">key: Variant，调用方持有的条目标识。</tag>
+				<tag name="schema">result: Variant，调用方定义的取消载荷。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="cancel">
+			<signature>func cancel(reason: StringName = &amp;"cancelled", metadata: Dictionary = {}) -&gt; bool:</signature>
+			<description>取消整个批处理，并取消仍在等待的条目。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">reason: 取消原因。</tag>
+				<tag name="param">metadata: 取消上下文。</tag>
+				<tag name="return">首次取消批处理时返回 true。</tag>
+				<tag name="schema">metadata: Dictionary，调用方定义的取消上下文。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="bind_cancel_token">
+			<signature>func bind_cancel_token(token: GFCancelToken) -&gt; bool:</signature>
+			<description>绑定取消 token；token 取消时取消整个批处理。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">token: 取消 token。</tag>
+				<tag name="return">成功绑定或 token 已触发取消时返回 true。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="set_timeout">
+			<signature>func set_timeout( seconds: float, tree: SceneTree = null, reason: StringName = &amp;"timeout", metadata: Dictionary = {} ) -&gt; bool:</signature>
+			<description>设置批处理超时。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">seconds: 超时时间；小于等于 0 时立即取消。</tag>
+				<tag name="param">tree: 可选 SceneTree；为空时使用当前主循环。</tag>
+				<tag name="param">reason: 超时取消原因。</tag>
+				<tag name="param">metadata: 取消上下文。</tag>
+				<tag name="return">成功安排或立即触发取消时返回 true。</tag>
+				<tag name="schema">metadata: Dictionary，调用方定义的取消上下文。</tag>
+				<tag name="since">7.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_completed">
 			<signature>func is_completed() -&gt; bool:</signature>
-			<description>是否所有条目都已完成。</description>
+			<description>是否批处理已经进入终态。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="return">所有条目完成时返回 true。</tag>
+				<tag name="return">批处理完成、失败或取消时返回 true。</tag>
+				<tag name="since">3.17.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_successful">
+			<signature>func is_successful() -&gt; bool:</signature>
+			<description>批处理是否以成功状态结束。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">成功结束时返回 true。</tag>
+				<tag name="since">7.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_count">
@@ -87,10 +269,38 @@
 		</member>
 		<member kind="method" name="get_completed_count">
 			<signature>func get_completed_count() -&gt; int:</signature>
-			<description>获取已完成条目数量。</description>
+			<description>获取已进入终态的条目数量。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="return">已完成条目的数量。</tag>
+				<tag name="return">已进入终态的条目数量。</tag>
+				<tag name="since">3.17.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_pending_count">
+			<signature>func get_pending_count() -&gt; int:</signature>
+			<description>获取等待中的条目数量。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">等待中的条目数量。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_failed_count">
+			<signature>func get_failed_count() -&gt; int:</signature>
+			<description>获取失败条目数量。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">失败条目数量。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_cancelled_count">
+			<signature>func get_cancelled_count() -&gt; int:</signature>
+			<description>获取取消条目数量。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">取消条目数量。</tag>
+				<tag name="since">7.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_results">
@@ -100,6 +310,16 @@
 				<tag name="api">public</tag>
 				<tag name="return">key -&gt; result 的字典副本。</tag>
 				<tag name="schema">return: Dictionary，将每个被等待的 key 映射到对应完成结果或 null。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_report">
+			<signature>func get_report() -&gt; Dictionary:</signature>
+			<description>获取结构化批处理报告。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">批处理报告。</tag>
+				<tag name="schema">return: Dictionary，包含 policy、completed、success、cancelled、timed_out、counts、items、results、completion_order、first_completed_key、first_success_key、cancel_reason 和 cancel_metadata。</tag>
+				<tag name="since">7.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="clear">
@@ -115,7 +335,8 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">调试信息字典。</tag>
-				<tag name="schema">return: Dictionary，包含 count、completed_count、completed 和 keys。</tag>
+				<tag name="schema">return: Dictionary，包含 count、completed_count、completed、success、policy_name、keys 和 counts。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</methods>

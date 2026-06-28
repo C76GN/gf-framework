@@ -1,0 +1,231 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFBakeDependencyReport" path="addons/gf/kernel/editor/gf_bake_dependency_report.gd" module="kernel" extends="RefCounted" classDigest="5bb4f3443841cefee135e73d17b8193113a17f11b87f55e9b3ae6ae1d8a57ea0">
+	<description>GFBakeDependencyReport: 编辑器烘焙依赖与失效报告。
+用于编辑器工具、导入流程或项目构建脚本记录输入、输出、依赖项和失效原因。
+它只生成结构化诊断报告，不执行烘焙、不规定项目目录，也不写入任何资源。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">editor_api</tag>
+		<tag name="layer">kernel/editor</tag>
+		<tag name="since">7.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants>
+		<member kind="const" name="STATUS_CURRENT">
+			<signature>const STATUS_CURRENT: StringName = &amp;"current"</signature>
+			<description>依赖当前有效。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_STALE">
+			<signature>const STATUS_STALE: StringName = &amp;"stale"</signature>
+			<description>依赖或输出需要重建。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_MISSING">
+			<signature>const STATUS_MISSING: StringName = &amp;"missing"</signature>
+			<description>必需输入或输出缺失。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_FAILED">
+			<signature>const STATUS_FAILED: StringName = &amp;"failed"</signature>
+			<description>依赖分析或产物处理失败。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_UNKNOWN">
+			<signature>const STATUS_UNKNOWN: StringName = &amp;"unknown"</signature>
+			<description>没有足够信息判断状态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties>
+		<member kind="property" name="report_id">
+			<signature>var report_id: StringName = &amp;""</signature>
+			<description>报告稳定标识。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="label">
+			<signature>var label: String = ""</signature>
+			<description>报告显示名称。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="metadata">
+			<signature>var metadata: Dictionary = {}</signature>
+			<description>调用方元数据。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">metadata: Dictionary for caller-defined bake metadata.</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="configure">
+			<signature>func configure( p_report_id: StringName, p_label: String = "", p_metadata: Dictionary = {} ) -&gt; GFBakeDependencyReport:</signature>
+			<description>配置报告。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">p_report_id: 报告稳定标识。</tag>
+				<tag name="param">p_label: 显示名称。</tag>
+				<tag name="param">p_metadata: 调用方元数据。</tag>
+				<tag name="return">当前报告。</tag>
+				<tag name="schema">p_metadata: Dictionary copied into metadata.</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="add_input">
+			<signature>func add_input(path: String, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>添加一个输入资源或文件记录。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">path: 输入路径或稳定资源标识。</tag>
+				<tag name="param">options: 输入选项，支持 dependency_id、exists、required、status、content_sha256、modified_time、check_filesystem 和 metadata。</tag>
+				<tag name="return">输入记录副本。</tag>
+				<tag name="schema">options: Dictionary，可包含 dependency_id、exists、required、status、content_sha256、modified_time、check_filesystem 和 metadata。</tag>
+				<tag name="schema">return: Dictionary，包含 path、dependency_id、exists、required、status、content_sha256、modified_time 和 metadata。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="add_output">
+			<signature>func add_output(path: String, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>添加一个输出产物记录。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">path: 输出路径或稳定产物标识。</tag>
+				<tag name="param">options: 输出选项，支持 dependency_id、exists、required、status、content_sha256、modified_time、check_filesystem 和 metadata。</tag>
+				<tag name="return">输出记录副本。</tag>
+				<tag name="schema">options: Dictionary，可包含 dependency_id、exists、required、status、content_sha256、modified_time、check_filesystem 和 metadata。</tag>
+				<tag name="schema">return: Dictionary，包含 path、dependency_id、exists、required、status、content_sha256、modified_time 和 metadata。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="add_dependency">
+			<signature>func add_dependency(dependency_id: StringName, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>添加一个逻辑依赖项记录。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">dependency_id: 依赖稳定标识。</tag>
+				<tag name="param">options: 依赖选项，支持 status、version、content_sha256、error 和 metadata。</tag>
+				<tag name="return">依赖记录副本。</tag>
+				<tag name="schema">options: Dictionary，可包含 status、version、content_sha256、error 和 metadata。</tag>
+				<tag name="schema">return: Dictionary，包含 dependency_id、status、version、content_sha256、error 和 metadata。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="mark_stale">
+			<signature>func mark_stale(reason: String, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>记录一个失效原因。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">reason: 失效原因。</tag>
+				<tag name="param">options: 失效选项，支持 path、dependency_id、severity 和 metadata。</tag>
+				<tag name="return">失效记录副本。</tag>
+				<tag name="schema">options: Dictionary，可包含 path、dependency_id、severity 和 metadata。</tag>
+				<tag name="schema">return: Dictionary，包含 reason、path、dependency_id、severity、timestamp_msec 和 metadata。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="add_artifact_report">
+			<signature>func add_artifact_report(report: Dictionary) -&gt; void:</signature>
+			<description>添加生成产物报告。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">report: GFGeneratedArtifactReport 兼容报告。</tag>
+				<tag name="schema">report: Dictionary，包含 status、path、error_code、dry_run 等字段。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_inputs">
+			<signature>func get_inputs() -&gt; Array[Dictionary]:</signature>
+			<description>获取输入记录副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">输入记录数组。</tag>
+				<tag name="schema">return: Array[Dictionary]，每个元素为 add_input() 返回结构。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_outputs">
+			<signature>func get_outputs() -&gt; Array[Dictionary]:</signature>
+			<description>获取输出记录副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">输出记录数组。</tag>
+				<tag name="schema">return: Array[Dictionary]，每个元素为 add_output() 返回结构。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_dependencies">
+			<signature>func get_dependencies() -&gt; Array[Dictionary]:</signature>
+			<description>获取依赖记录副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">依赖记录数组。</tag>
+				<tag name="schema">return: Array[Dictionary]，每个元素为 add_dependency() 返回结构。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_invalidations">
+			<signature>func get_invalidations() -&gt; Array[Dictionary]:</signature>
+			<description>获取失效记录副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">失效记录数组。</tag>
+				<tag name="schema">return: Array[Dictionary]，每个元素为 mark_stale() 返回结构。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_artifact_reports">
+			<signature>func get_artifact_reports() -&gt; Array[Dictionary]:</signature>
+			<description>获取生成产物报告副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">生成产物报告数组。</tag>
+				<tag name="schema">return: Array[Dictionary]，每个元素为 GFGeneratedArtifactReport 兼容报告。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="clear">
+			<signature>func clear() -&gt; void:</signature>
+			<description>清空输入、输出、依赖、失效和产物记录。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="summarize">
+			<signature>func summarize(options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>汇总烘焙依赖状态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">options: 汇总选项，支持 include_inputs、include_outputs、include_dependencies、include_invalidations、include_artifacts 和 metadata。</tag>
+				<tag name="return">烘焙依赖摘要。</tag>
+				<tag name="schema">options: Dictionary，可包含 include_inputs、include_outputs、include_dependencies、include_invalidations、include_artifacts 和 metadata。</tag>
+				<tag name="schema">return: Dictionary，包含 success、current、status、report_id、label、计数、缺失路径、失效记录、artifact_summary 和 metadata。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

@@ -17,9 +17,14 @@
 |---|---|---|
 | 属性 | [`action_id`](#member-gfeditoractiondefinition-properties-action_id) | `var action_id: StringName = &""` |
 | 属性 | [`label`](#member-gfeditoractiondefinition-properties-label) | `var label: String = ""` |
+| 属性 | [`group`](#member-gfeditoractiondefinition-properties-group) | `var group: StringName = &""` |
 | 属性 | [`tooltip`](#member-gfeditoractiondefinition-properties-tooltip) | `var tooltip: String = ""` |
 | 属性 | [`shortcut_text`](#member-gfeditoractiondefinition-properties-shortcut_text) | `var shortcut_text: String = ""` |
+| 属性 | [`source_id`](#member-gfeditoractiondefinition-properties-source_id) | `var source_id: StringName = &""` |
+| 属性 | [`sort_order`](#member-gfeditoractiondefinition-properties-sort_order) | `var sort_order: int = 0` |
+| 属性 | [`enabled`](#member-gfeditoractiondefinition-properties-enabled) | `var enabled: bool = true` |
 | 属性 | [`command_factory`](#member-gfeditoractiondefinition-properties-command_factory) | `var command_factory: Callable = Callable()` |
+| 属性 | [`availability_callback`](#member-gfeditoractiondefinition-properties-availability_callback) | `var availability_callback: Callable = Callable()` |
 | 属性 | [`metadata`](#member-gfeditoractiondefinition-properties-metadata) | `var metadata: Dictionary = {}` |
 | 方法 | [`create_command`](#member-gfeditoractiondefinition-methods-create_command) | `func create_command(context: Dictionary = {}) -> GFEditorCommandBase:` |
 | 方法 | [`invoke`](#member-gfeditoractiondefinition-methods-invoke) | `func invoke(context: Dictionary = {}, undo_manager: Object = null) -> Error:` |
@@ -52,6 +57,19 @@ var label: String = ""
 
 动作显示名称。
 
+<a id="member-gfeditoractiondefinition-properties-group"></a>
+
+### `group`
+
+- API：`public`
+- 首次版本：`6.0.0`
+
+```gdscript
+var group: StringName = &""
+```
+
+动作分组。用于命令面板、工具栏或菜单按领域组织入口。
+
 <a id="member-gfeditoractiondefinition-properties-tooltip"></a>
 
 ### `tooltip`
@@ -76,6 +94,45 @@ var shortcut_text: String = ""
 
 快捷键说明文本，由具体 UI 决定是否展示。
 
+<a id="member-gfeditoractiondefinition-properties-source_id"></a>
+
+### `source_id`
+
+- API：`public`
+- 首次版本：`6.0.0`
+
+```gdscript
+var source_id: StringName = &""
+```
+
+动作来源标识。通常是贡献该动作的 package、插件或工具 ID。
+
+<a id="member-gfeditoractiondefinition-properties-sort_order"></a>
+
+### `sort_order`
+
+- API：`public`
+- 首次版本：`6.0.0`
+
+```gdscript
+var sort_order: int = 0
+```
+
+同组内排序权重，数值越小越靠前。
+
+<a id="member-gfeditoractiondefinition-properties-enabled"></a>
+
+### `enabled`
+
+- API：`public`
+- 首次版本：`6.0.0`
+
+```gdscript
+var enabled: bool = true
+```
+
+动作是否启用。禁用动作不会创建命令或被调用。
+
 <a id="member-gfeditoractiondefinition-properties-command_factory"></a>
 
 ### `command_factory`
@@ -87,6 +144,19 @@ var command_factory: Callable = Callable()
 ```
 
 命令工厂。推荐签名为 `func(context: Dictionary) -> GFEditorCommand`。
+
+<a id="member-gfeditoractiondefinition-properties-availability_callback"></a>
+
+### `availability_callback`
+
+- API：`public`
+- 首次版本：`6.0.0`
+
+```gdscript
+var availability_callback: Callable = Callable()
+```
+
+可用性回调。推荐签名为 `func(context: Dictionary) -> bool`，必须保持纯查询，不应创建或执行命令。
 
 <a id="member-gfeditoractiondefinition-properties-metadata"></a>
 
@@ -184,6 +254,7 @@ func is_available(context: Dictionary = {}) -> bool:
 ### `get_debug_snapshot`
 
 - API：`public`
+- 首次版本：`6.0.0`
 
 ```gdscript
 func get_debug_snapshot() -> Dictionary:
@@ -195,4 +266,4 @@ func get_debug_snapshot() -> Dictionary:
 
 结构：
 
-- `return`: Dictionary containing action_id, label, tooltip, shortcut_text, has_command_factory, and metadata.
+- `return`: Dictionary containing action_id, label, group, tooltip, shortcut_text, source_id, sort_order, enabled, has_command_factory, and metadata.

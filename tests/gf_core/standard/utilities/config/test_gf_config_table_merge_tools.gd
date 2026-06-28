@@ -68,6 +68,14 @@ func test_build_profile_filters_schema_and_records_by_metadata() -> void:
 	var server_column: GFConfigTableColumn = _make_column(&"server_note")
 	server_column.metadata = { "tags": ["server_only"] }
 	schema.columns = [id_column, runtime_column, server_column]
+	var runtime_rule: GFConfigValidationRule = GFConfigValidationRule.new()
+	runtime_rule.rule_id = &"runtime_rule"
+	runtime_rule.metadata = { "groups": ["runtime"] }
+	var server_rule: GFConfigValidationRule = GFConfigValidationRule.new()
+	server_rule.rule_id = &"server_rule"
+	server_rule.metadata = { "tags": ["server_only"] }
+	schema.record_validation_rules = [runtime_rule, server_rule]
+	schema.table_validation_rules = [server_rule]
 	var index: GFConfigTableIndexDefinition = GFConfigTableIndexDefinition.new()
 	index.field_names = PackedStringArray(["runtime_name"])
 	index.unique = true
@@ -87,6 +95,9 @@ func test_build_profile_filters_schema_and_records_by_metadata() -> void:
 
 	assert_eq(filtered_schema.get_column_names(), PackedStringArray(["runtime_name"]), "Profile 应按列 metadata 裁剪 schema。")
 	assert_eq(filtered_schema.indexes.size(), 1, "字段仍存在时索引应保留。")
+	assert_eq(filtered_schema.record_validation_rules.size(), 1, "Profile 应按 rule metadata 裁剪记录规则。")
+	assert_eq(filtered_schema.record_validation_rules[0].get_rule_id(), &"runtime_rule", "Profile 应保留命中 runtime 分组的规则。")
+	assert_eq(filtered_schema.table_validation_rules.size(), 0, "Profile 应移除被排除 metadata 命中的表规则。")
 	assert_eq(filtered_records.size(), 1, "Profile 应按记录 metadata 裁剪数据。")
 	assert_eq(GFVariantData.get_option_int(filtered_record, "id"), 1, "只应保留命中 runtime 分组的记录。")
 

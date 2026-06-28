@@ -1,0 +1,233 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFProtocolAckLedger" path="addons/gf/standard/utilities/io/gf_protocol_ack_ledger.gd" module="standard" extends="RefCounted" classDigest="1c1edc9318609153638505ceddc05535c631e57c44f7ea4f4f6a504eb47d04f5">
+	<description>GFProtocolAckLedger: 通用协议确认账本。
+记录任意协议的待确认 packet/request ID、确认结果、失败和过期状态。
+它不实现具体网络协议，也不规定 ID 生成、重传策略或连接生命周期。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_handle</tag>
+		<tag name="since">7.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants>
+		<member kind="const" name="STATE_PENDING">
+			<signature>const STATE_PENDING: StringName = &amp;"pending"</signature>
+			<description>条目等待确认。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATE_ACKED">
+			<signature>const STATE_ACKED: StringName = &amp;"acked"</signature>
+			<description>条目已经确认。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATE_FAILED">
+			<signature>const STATE_FAILED: StringName = &amp;"failed"</signature>
+			<description>条目失败。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATE_EXPIRED">
+			<signature>const STATE_EXPIRED: StringName = &amp;"expired"</signature>
+			<description>条目等待超时。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties>
+		<member kind="property" name="timeout_msec">
+			<signature>var timeout_msec: int = 0:</signature>
+			<description>新条目的默认等待超时；小于等于 0 时不自动过期。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="max_entries">
+			<signature>var max_entries: int = 256</signature>
+			<description>最大记录数量；小于等于 0 时不限制。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="metadata">
+			<signature>var metadata: Dictionary = {}</signature>
+			<description>调用方自定义元数据。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">metadata: Dictionary[String, Variant] copied into debug snapshots.</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="clear">
+			<signature>func clear() -&gt; void:</signature>
+			<description>清空全部记录。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="register_packet">
+			<signature>func register_packet(packet_id: Variant, entry_metadata: Dictionary = {}, now_msec: int = -1) -&gt; bool:</signature>
+			<description>注册一个待确认条目。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">packet_id: 协议层稳定 ID。</tag>
+				<tag name="param">entry_metadata: 条目元数据。</tag>
+				<tag name="param">now_msec: 当前时间；小于 0 时使用 Time.get_ticks_msec()。</tag>
+				<tag name="return">注册成功返回 true。</tag>
+				<tag name="schema">packet_id: Variant used as dictionary key; null and empty text keys are rejected.</tag>
+				<tag name="schema">entry_metadata: Dictionary copied into the ledger entry.</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="acknowledge_packet">
+			<signature>func acknowledge_packet(packet_id: Variant, result: Variant = null, now_msec: int = -1) -&gt; bool:</signature>
+			<description>标记条目确认成功。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">packet_id: 协议层稳定 ID。</tag>
+				<tag name="param">result: 确认结果。</tag>
+				<tag name="param">now_msec: 当前时间；小于 0 时使用 Time.get_ticks_msec()。</tag>
+				<tag name="return">状态成功变更时返回 true。</tag>
+				<tag name="schema">packet_id: Variant stable protocol packet id.</tag>
+				<tag name="schema">result: Variant copied into the ledger entry.</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="fail_packet">
+			<signature>func fail_packet(packet_id: Variant, error: String = "", result: Variant = null, now_msec: int = -1) -&gt; bool:</signature>
+			<description>标记条目失败。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">packet_id: 协议层稳定 ID。</tag>
+				<tag name="param">error: 失败说明。</tag>
+				<tag name="param">result: 失败结果。</tag>
+				<tag name="param">now_msec: 当前时间；小于 0 时使用 Time.get_ticks_msec()。</tag>
+				<tag name="return">状态成功变更时返回 true。</tag>
+				<tag name="schema">packet_id: Variant stable protocol packet id.</tag>
+				<tag name="schema">result: Variant copied into the ledger entry.</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="expire_pending">
+			<signature>func expire_pending(now_msec: int = -1) -&gt; Dictionary:</signature>
+			<description>让超过 deadline 的待确认条目进入 expired 状态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">now_msec: 当前时间；小于 0 时使用 Time.get_ticks_msec()。</tag>
+				<tag name="return">过期报告。</tag>
+				<tag name="schema">return: Dictionary with expired_count, expired_ids, pending_count, and state_counts.</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="remove_packet">
+			<signature>func remove_packet(packet_id: Variant) -&gt; bool:</signature>
+			<description>移除指定条目。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">packet_id: 协议层稳定 ID。</tag>
+				<tag name="return">移除成功返回 true。</tag>
+				<tag name="schema">packet_id: Variant stable protocol packet id.</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="has_packet">
+			<signature>func has_packet(packet_id: Variant) -&gt; bool:</signature>
+			<description>检查条目是否存在。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">packet_id: 协议层稳定 ID。</tag>
+				<tag name="return">存在返回 true。</tag>
+				<tag name="schema">packet_id: Variant stable protocol packet id.</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_pending">
+			<signature>func is_pending(packet_id: Variant) -&gt; bool:</signature>
+			<description>检查条目是否仍待确认。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">packet_id: 协议层稳定 ID。</tag>
+				<tag name="return">待确认返回 true。</tag>
+				<tag name="schema">packet_id: Variant stable protocol packet id.</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_packet">
+			<signature>func get_packet(packet_id: Variant) -&gt; Dictionary:</signature>
+			<description>获取条目副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">packet_id: 协议层稳定 ID。</tag>
+				<tag name="return">条目副本；不存在时返回空字典。</tag>
+				<tag name="schema">packet_id: Variant stable protocol packet id.</tag>
+				<tag name="schema">return: Dictionary with id, state, timestamps, deadline_msec, result, error, and metadata.</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_packets">
+			<signature>func get_packets(state_filter: StringName = &amp;"") -&gt; Array[Dictionary]:</signature>
+			<description>按状态获取条目副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">state_filter: 状态过滤；为空时返回所有条目。</tag>
+				<tag name="return">条目数组。</tag>
+				<tag name="schema">return: Array[Dictionary] of ledger entry copies.</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_pending_ids">
+			<signature>func get_pending_ids() -&gt; Array:</signature>
+			<description>获取待确认 ID 列表。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">待确认 ID 数组。</tag>
+				<tag name="schema">return: Array[Variant] copied from pending ledger entries.</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_count">
+			<signature>func get_count() -&gt; int:</signature>
+			<description>获取总记录数。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">总记录数。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_pending_count">
+			<signature>func get_pending_count() -&gt; int:</signature>
+			<description>获取待确认记录数。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">待确认记录数。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_debug_snapshot">
+			<signature>func get_debug_snapshot() -&gt; Dictionary:</signature>
+			<description>获取调试快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">调试快照。</tag>
+				<tag name="schema">return: Dictionary with count, pending_count, state_counts, ids, timeout_msec, max_entries, and metadata.</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

@@ -232,15 +232,15 @@ func test_reconnect_policy_uses_delay_sequence_and_attempt_limit() -> void:
 
 func test_reconnect_policy_jitter_respects_seeded_rng_state() -> void:
 	var policy: GFNetworkReconnectPolicy = GFNetworkReconnectPolicy.new()
-	var expected_rng: RandomNumberGenerator = RandomNumberGenerator.new()
+	var expected_rng: GFDeterministicRandom = GFDeterministicRandom.new()
 	policy.delays_msec = [100]
 	policy.jitter_ratio = 0.5
-	policy._rng.seed = 12345
-	expected_rng.seed = 12345
+	policy.set_jitter_seed(12345)
+	expected_rng.set_seed(12345)
 
-	var expected: int = maxi(roundi(100.0 + expected_rng.randf_range(-50.0, 50.0)), 0)
+	var expected: int = maxi(roundi(100.0 + expected_rng.next_float_range(-50.0, 50.0)), 0)
 
-	assert_eq(policy.get_next_delay_msec(), expected, "jitter 不应在每次计算时重新 randomize 覆盖已设定 RNG 状态。")
+	assert_eq(policy.get_next_delay_msec(), expected, "jitter 应通过公开 seed 入口保持确定性。")
 
 
 ## 验证 NetworkUtility 会通过后端发送并解码后端收到的消息。
@@ -262,6 +262,25 @@ func test_network_utility_bridges_backend_messages() -> void:
 	assert_eq(received.size(), 1, "后端消息应被解码并广播。")
 	assert_eq(received[0].message_type, &"ping", "解码后的消息类型应正确。")
 	assert_eq(received[0].sender_id, 4, "入站消息的 sender_id 应以传输层 peer_id 为准，不能信任载荷自报。")
+
+
+func test_network_sequence_is_transport_metadata_not_builtin_dedupe() -> void:
+	var utility: GFNetworkUtility = GFNetworkUtility.new()
+	var backend: FakeBackend = FakeBackend.new()
+	utility.set_backend(backend)
+	var received: Array[GFNetworkMessage] = []
+	var _connect_result_271: Variant = utility.message_received.connect(func(_peer_id: int, received_message: GFNetworkMessage) -> void:
+		received.append(received_message)
+	)
+	var serializer: GFNetworkSerializer = GFNetworkSerializer.new()
+	var bytes: PackedByteArray = serializer.serialize_message(GFNetworkMessage.new(&"state", { "hp": 10 }, 7))
+
+	backend.message_received.emit(4, bytes)
+	backend.message_received.emit(4, bytes)
+
+	assert_eq(received.size(), 2, "GF Network 不应基于 sequence 内置去重，ACK/去重属于项目层协议。")
+	assert_eq(received[0].sequence, 7)
+	assert_eq(received[1].sequence, 7)
 
 
 func test_network_utility_reports_decode_failure_details() -> void:
@@ -407,6 +426,27 @@ func test_network_utility_rejects_inbound_packet_over_channel_id_limit() -> void
 	assert_signal_not_emitted(utility, "message_received", "被拒绝的入站消息不应继续广播。")
 
 
+func test_network_utility_rejects_conflicting_channel_id_bypass() -> void:
+	var utility: GFNetworkUtility = GFNetworkUtility.new()
+	var backend: FakeBackend = FakeBackend.new()
+	utility.set_backend(backend)
+	var strict_channel: GFNetworkChannel = GFNetworkChannel.new()
+	strict_channel.channel_id = &"state"
+	strict_channel.max_packet_size = 8
+	var loose_channel: GFNetworkChannel = GFNetworkChannel.new()
+	loose_channel.channel_id = &"bulk"
+	loose_channel.max_packet_size = 0
+	utility.register_channel(strict_channel)
+	utility.register_channel(loose_channel)
+	watch_signals(utility)
+
+	var bytes: PackedByteArray = utility.serializer.serialize_message(GFNetworkMessage.new(&"state", { "payload": "too large" }, 0, 0, -1, &"bulk"))
+	backend.message_received.emit(1, bytes)
+
+	assert_signal_emitted(utility, "message_rejected", "message_type 匹配的严格通道不能被 conflicting channel_id 绕过。")
+	assert_signal_not_emitted(utility, "message_received", "被拒绝的入站消息不应继续广播。")
+
+
 ## 验证入站通道匹配不再读取业务 payload.channel_id。
 func test_network_utility_does_not_resolve_channel_from_payload_field() -> void:
 	var utility: GFNetworkUtility = GFNetworkUtility.new()
@@ -521,6 +561,15 @@ func test_network_message_validator_rejects_invalid_message() -> void:
 	assert_true(GFVariantData.get_option_packed_string_array(report, "errors").has("empty_message_type"), "校验报告应包含 empty_message_type。")
 
 
+func test_network_message_validator_accepts_string_name_required_payload_keys() -> void:
+	var validator: GFNetworkMessageValidator = GFNetworkMessageValidator.new()
+	validator.required_payload_keys = PackedStringArray(["entity_id"])
+
+	var report: Dictionary = validator.validate_message(GFNetworkMessage.new(&"spawn", { &"entity_id": 7 }))
+
+	assert_true(GFVariantData.get_option_bool(report, "ok"), "required_payload_keys 应接受 StringName payload key。")
+
+
 ## 验证消息校验器默认启用全局包体上限。
 func test_network_message_validator_rejects_large_packet_by_default() -> void:
 	var validator: GFNetworkMessageValidator = GFNetworkMessageValidator.new()
@@ -564,6 +613,22 @@ func test_network_utility_tracks_session_state() -> void:
 	assert_eq(GFVariantData.get_option_string(host_session, "mode_name"), "host", "主机会话应记录 host 模式。")
 	assert_eq(GFVariantData.get_option_int(host_session, "max_peers"), 8, "主机会话应记录最大连接数。")
 	assert_eq(GFVariantData.get_option_string(client_session, "mode_name"), "client", "客户端连接应记录 client 模式。")
+
+
+func test_network_utility_times_out_silent_client_connect() -> void:
+	var utility: GFNetworkUtility = GFNetworkUtility.new()
+	var backend: FakeBackend = FakeBackend.new()
+	utility.set_backend(backend)
+	utility.connect_timeout_msec = 1
+	watch_signals(utility)
+
+	var error: Error = utility.connect_to_endpoint("127.0.0.1:9000")
+	utility.tick(0.002)
+
+	assert_eq(error, OK, "后端接受异步连接请求时应先返回 OK。")
+	assert_false(utility.session.is_active, "静默连接超过超时时间后应关闭 session。")
+	assert_true(backend.disconnected_by_utility, "连接超时应关闭后端资源。")
+	assert_signal_emitted(utility, "disconnected", "连接超时应发出断开信号。")
 
 
 func test_network_session_warns_and_ignores_non_dictionary_metadata() -> void:
@@ -653,6 +718,60 @@ func test_network_utility_contributes_diagnostics_snapshot() -> void:
 	assert_true(GFVariantData.get_option_bool(network, "backend_configured"), "贡献的 network 快照应来自当前 NetworkUtility。")
 
 	arch.dispose()
+
+
+func test_network_debug_snapshot_redacts_endpoint_and_secret_metadata() -> void:
+	var utility: GFNetworkUtility = GFNetworkUtility.new()
+	utility.set_backend(FakeBackend.new())
+	var channel: GFNetworkChannel = GFNetworkChannel.new()
+	channel.channel_id = &"state"
+	channel.metadata = {
+		"auth_token": "abc",
+		"region": "asia",
+	}
+	utility.register_channel(channel)
+
+	var _connect_result_661: Variant = utility.connect_to_endpoint("wss://user:pass@example.test/game?token=abc", {
+		"metadata": {
+			"auth_token": "abc",
+			"region": "asia",
+		},
+	})
+	var snapshot_text: String = JSON.stringify(utility.get_debug_snapshot())
+
+	assert_false(snapshot_text.contains("abc"), "诊断快照不应包含 token 原文。")
+	assert_false(snapshot_text.contains("user:pass"), "诊断快照不应包含 URL userinfo。")
+	assert_false(snapshot_text.contains("token=abc"), "诊断快照不应包含 URL query token。")
+	assert_true(snapshot_text.contains("asia"), "非敏感 metadata 应保留调试价值。")
+
+
+func test_network_direct_debug_entries_redact_sensitive_values() -> void:
+	var session: GFNetworkSession = GFNetworkSession.new()
+	session.start_client("wss://user:pass@example.test/game?token=abc", {
+		"metadata": {
+			"auth_token": "abc",
+			"region": "asia",
+		},
+	})
+	var channel: GFNetworkChannel = GFNetworkChannel.new()
+	channel.metadata = {
+		"secret": "abc",
+		"region": "asia",
+	}
+	var websocket: GFWebSocketNetworkBackend = GFWebSocketNetworkBackend.new()
+	websocket._mode = GFWebSocketNetworkBackend.Mode.CLIENT
+	websocket._endpoint = "wss://user:pass@example.test/game?token=abc"
+
+	var snapshot_text: String = JSON.stringify({
+		"session": session.get_debug_snapshot(),
+		"channel": channel.describe(),
+		"backend": websocket.get_debug_snapshot(),
+	})
+
+	assert_false(snapshot_text.contains("abc"), "直接调试入口不应泄露敏感值。")
+	assert_false(snapshot_text.contains("user:pass"), "直接调试入口不应泄露 URL userinfo。")
+	assert_false(snapshot_text.contains("token=abc"), "直接调试入口不应泄露 URL query token。")
+	assert_true(snapshot_text.contains("asia"), "非敏感 metadata 应保留。")
 
 
 ## 验证固定 tick 时钟按预算推进并保留插值 alpha。

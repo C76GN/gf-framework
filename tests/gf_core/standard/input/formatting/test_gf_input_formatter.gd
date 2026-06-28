@@ -103,6 +103,19 @@ func test_action_rich_text_reads_project_settings_action_events() -> void:
 	assert_true(rich_text.contains("mouse_right.png"), "未注册到 runtime InputMap 时应读取 ProjectSettings 事件。")
 
 
+## 验证富文本格式化会稳定转义显示名和回退文本中的 BBCode 括号。
+func test_rich_text_escapes_bbcode_brackets_without_reescaping_replacements() -> void:
+	var binding: GFInputBinding = GFInputBinding.new()
+	binding.display_name = "[A]"
+
+	assert_eq(GFInputFormatter.binding_as_rich_text(binding), "[lb]A[rb]", "显示名中的 BBCode 括号应被转义一次。")
+	assert_eq(
+		GFInputFormatter.input_event_as_rich_text(null, { "unbound_text": "[none]" }),
+		"[lb]none[rb]",
+		"解绑文本中的 BBCode 括号也应被转义一次。"
+	)
+
+
 # --- 私有/辅助方法 ---
 
 func _set_input_map_action(action_name: StringName, events: Array[InputEvent]) -> void:

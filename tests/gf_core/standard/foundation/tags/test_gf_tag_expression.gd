@@ -59,6 +59,67 @@ func test_expression_dictionary_roundtrip_preserves_nested_logic() -> void:
 	assert_false(restored.matches([&"team.neutral"]), "字典往返后未满足条件仍应失败。")
 
 
+func test_expression_dictionary_roundtrip_preserves_null_children() -> void:
+	var enemy: GFTagExpression = GFTagExpression.from_query(_make_query([&"team.enemy"]))
+	var children: Array[GFTagExpression] = [enemy, null]
+	var expression: GFTagExpression = GFTagExpression.new().configure_all(children)
+
+	var restored: GFTagExpression = GFTagExpression.from_dictionary(expression.to_dictionary())
+	var report: Dictionary = restored.get_match_report([&"team.enemy"])
+
+	assert_false(GFVariantData.get_option_bool(report, "ok"), "null 子表达式往返后仍应按失败处理。")
+	assert_eq(GFVariantData.get_option_array(report, "matched_indices"), [0], "非空子表达式应保留原索引。")
+	assert_eq(GFVariantData.get_option_array(report, "failed_indices"), [1], "null 子表达式不应在序列化时被静默丢弃。")
+
+
+func test_expression_dictionary_serialization_marks_cycles() -> void:
+	var expression: GFTagExpression = GFTagExpression.new()
+	expression.operator = GFTagExpression.Operator.ALL
+	expression.expressions.append(expression)
+
+	var data: Dictionary = expression.to_dictionary()
+	var serialized_children: Array = GFVariantData.get_option_array(data, "expressions")
+
+	assert_eq(serialized_children.size(), 1, "循环子表达式应留下显式占位诊断。")
+	assert_true(
+		GFVariantData.get_option_bool(GFVariantData.as_dictionary(serialized_children[0]), "cycle_detected"),
+		"循环序列化应显式标记 cycle_detected。"
+	)
+	expression.expressions.clear()
+
+
+func test_expression_from_dictionary_guards_cyclic_dictionaries() -> void:
+	var data: Dictionary = {
+		"operator": "all",
+		"query": {},
+		"expressions": [],
+	}
+	data["expressions"] = [data]
+
+	var restored: GFTagExpression = GFTagExpression.from_dictionary(data)
+	var report: Dictionary = restored.get_match_report([&"team.enemy"])
+
+	assert_eq(restored.expressions.size(), 1, "循环字典应保留一个子表达式占位。")
+	assert_eq(restored.expressions[0], null, "循环字典子节点应恢复为空表达式占位。")
+	assert_false(GFVariantData.get_option_bool(report, "ok"), "循环字典恢复后不应误判通过。")
+	data["expressions"] = []
+	data.clear()
+
+
+func test_expression_duplicate_preserves_cycle_guard() -> void:
+	var expression: GFTagExpression = GFTagExpression.new()
+	expression.operator = GFTagExpression.Operator.ALL
+	expression.expressions.append(expression)
+
+	var copy: GFTagExpression = expression.duplicate_expression()
+	var report: Dictionary = copy.get_match_report([&"team.enemy"])
+
+	assert_false(GFVariantData.get_option_bool(report, "ok"), "复制循环表达式不应无限递归或误判通过。")
+	assert_eq(GFVariantData.get_option_string(report, "reason"), "child_failed", "循环子节点失败应汇总为子表达式失败。")
+	expression.expressions.clear()
+	copy.expressions.clear()
+
+
 func test_expression_cycle_guard_reports_failure() -> void:
 	var expression: GFTagExpression = GFTagExpression.new()
 	expression.operator = GFTagExpression.Operator.ALL

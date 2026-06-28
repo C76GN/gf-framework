@@ -181,7 +181,7 @@ func poll(_delta: float) -> void:
 ## @schema return: Dictionary，包含 backend、available、endpoint、is_server、connection_status、connection_status_name、available_packet_count、max_packets_per_poll。
 func get_debug_snapshot() -> Dictionary:
 	var status: int = MultiplayerPeer.CONNECTION_DISCONNECTED if _peer == null else _peer.get_connection_status()
-	return {
+	return GFNetworkDebugTools.sanitize_debug_dictionary({
 		"backend": "GFENetNetworkBackend",
 		"available": _peer != null,
 		"endpoint": _endpoint,
@@ -190,7 +190,7 @@ func get_debug_snapshot() -> Dictionary:
 		"connection_status_name": _get_status_name(status),
 		"available_packet_count": 0 if _peer == null else _peer.get_available_packet_count(),
 		"max_packets_per_poll": max_packets_per_poll,
-	}
+	})
 
 
 # --- 私有/辅助方法 ---

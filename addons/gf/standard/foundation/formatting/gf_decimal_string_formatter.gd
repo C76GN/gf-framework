@@ -7,6 +7,11 @@ class_name GFDecimalStringFormatter
 extends RefCounted
 
 
+# --- 常量 ---
+
+const _MAX_DECIMAL_PLACES: int = 18
+
+
 # --- 公共方法 ---
 
 ## 按小数位数调整浮点值。
@@ -21,12 +26,17 @@ extends RefCounted
 ## [br]
 ## @return 调整后的值。
 static func apply_decimal_places(value: float, decimal_places: int, use_truncation: bool) -> float:
-	if decimal_places <= 0:
+	if _is_non_finite(value):
+		push_error("[GFDecimalStringFormatter] 只能格式化有限浮点值。")
+		return 0.0
+
+	var normalized_decimal_places: int = _normalize_decimal_places(decimal_places)
+	if normalized_decimal_places <= 0:
 		if use_truncation:
 			return floor(value) if value >= 0.0 else ceil(value)
 		return round(value)
 
-	var scale: float = pow(10.0, decimal_places)
+	var scale: float = pow(10.0, normalized_decimal_places)
 	if use_truncation:
 		if value >= 0.0:
 			return floor(value * scale) / scale
@@ -54,11 +64,16 @@ static func format_decimal_value(
 	trim_zeroes: bool,
 	use_truncation: bool
 ) -> String:
-	var adjusted_value: float = apply_decimal_places(value, decimal_places, use_truncation)
-	if decimal_places <= 0:
+	if _is_non_finite(value):
+		push_error("[GFDecimalStringFormatter] 只能格式化有限浮点值。")
+		return "0"
+
+	var normalized_decimal_places: int = _normalize_decimal_places(decimal_places)
+	var adjusted_value: float = apply_decimal_places(value, normalized_decimal_places, use_truncation)
+	if normalized_decimal_places <= 0:
 		return str(int(adjusted_value))
 
-	var text: String = ("%." + str(decimal_places) + "f") % adjusted_value
+	var text: String = ("%." + str(normalized_decimal_places) + "f") % adjusted_value
 	if trim_zeroes:
 		text = trim_trailing_zeroes(text)
 	return text
@@ -78,6 +93,9 @@ static func trim_trailing_zeroes(text: String) -> String:
 
 	if result.ends_with("."):
 		result = result.left(result.length() - 1)
+
+	if result.is_empty() or result == "-":
+		return "0"
 
 	if result == "-0":
 		return "0"
@@ -125,3 +143,20 @@ static func contains_only_digits(text: String) -> bool:
 		if character < "0" or character > "9":
 			return false
 	return true
+
+
+# --- 私有/辅助方法 ---
+
+static func _normalize_decimal_places(decimal_places: int) -> int:
+	if decimal_places <= 0:
+		return 0
+
+	if decimal_places > _MAX_DECIMAL_PLACES:
+		push_error("[GFDecimalStringFormatter] decimal_places 不能超过 %d，已钳制。" % _MAX_DECIMAL_PLACES)
+		return _MAX_DECIMAL_PLACES
+
+	return decimal_places
+
+
+static func _is_non_finite(value: float) -> bool:
+	return is_nan(value) or is_inf(value)

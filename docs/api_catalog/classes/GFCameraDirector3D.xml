@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFCameraDirector3D" path="addons/gf/extensions/camera/nodes/gf_camera_director_3d.gd" module="extensions/camera" extends="Node" classDigest="bcc0d11172a8cba4a80541a164d3a0ce7b65cc67f1a881dc5600a7a4a95e8f1e">
+<class name="GFCameraDirector3D" path="addons/gf/extensions/camera/nodes/gf_camera_director_3d.gd" module="extensions/camera" extends="Node" classDigest="c70b0a0c5aa90eebea353e12397f6a225bc06ed35783b0000a9cd21a4458ba81">
 	<description>GFCameraDirector3D: 通用 3D 相机编排节点。
 Director 从显式路径或分组中收集 GFCameraRig3D，按优先级选择当前 Rig，
 并把过渡后的 Transform 应用到 Camera3D。它不规定目标含义、输入来源或业务流程。</description>
@@ -82,10 +82,11 @@ Director 从显式路径或分组中收集 GFCameraRig3D，按优先级选择当
 			</tags>
 		</member>
 		<member kind="property" name="default_blend" decorators="@export">
-			<signature>var default_blend: GFCameraBlend = GFCameraBlend.new()</signature>
+			<signature>var default_blend: GFCameraBlend = null</signature>
 			<description>默认过渡资源。Rig 没有设置 blend 时使用它。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="keep_camera_when_no_rig" decorators="@export">
@@ -93,6 +94,14 @@ Director 从显式路径或分组中收集 GFCameraRig3D，按优先级选择当
 			<description>没有 Rig 时是否保持相机当前姿态。</description>
 			<tags>
 				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="property" name="make_current_on_apply" decorators="@export">
+			<signature>var make_current_on_apply: bool = false</signature>
+			<description>应用姿态时是否显式把 Camera3D 设为当前相机。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
 			</tags>
 		</member>
 	</properties>
@@ -133,12 +142,25 @@ Director 从显式路径或分组中收集 GFCameraRig3D，按优先级选择当
 		</member>
 		<member kind="method" name="set_active_rig">
 			<signature>func set_active_rig(rig: GFCameraRig3D, force_snap: bool = false) -&gt; bool:</signature>
-			<description>显式设置当前 Rig。</description>
+			<description>显式设置当前 Rig，并进入手动覆盖模式。
+手动覆盖模式下，refresh_active_rig() 不会自动切换到更高优先级 Rig；
+调用 clear_active_rig_override() 后才恢复自动选择。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">rig: 新 Rig；可为 null。</tag>
 				<tag name="param">force_snap: 为 true 时立即切换。</tag>
 				<tag name="return">设置成功返回 true。</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="clear_active_rig_override">
+			<signature>func clear_active_rig_override(force_snap: bool = false) -&gt; GFCameraRig3D:</signature>
+			<description>清除手动 Rig 覆盖，并立即恢复自动选择。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">force_snap: 为 true 时立即切换。</tag>
+				<tag name="return">自动选择后的当前 Rig。</tag>
+				<tag name="since">6.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="process_camera">

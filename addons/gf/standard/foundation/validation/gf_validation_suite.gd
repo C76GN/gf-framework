@@ -262,12 +262,13 @@ func _should_scan_directory(entry: String, path: String, current_depth: int, sca
 
 
 func _append_path_if_allowed(path: String, result: PackedStringArray, scan_state: Dictionary) -> void:
-	if not matches_path(path) or result.has(path):
+	if not matches_path(path) or _scan_state_has_path(scan_state, path):
 		return
 	if not _can_collect_more_paths(result):
 		_warn_collected_path_limit(scan_state)
 		return
 	_append_packed_string(result, path)
+	_scan_state_add_path(scan_state, path)
 
 
 func _can_collect_more_paths(result: PackedStringArray) -> bool:
@@ -278,6 +279,7 @@ func _make_scan_state() -> Dictionary:
 	return {
 		"count_warning_emitted": false,
 		"depth_warning_emitted": false,
+		"path_lookup": {},
 	}
 
 
@@ -310,6 +312,17 @@ func _is_excluded(path: String) -> bool:
 			if path.match(pattern):
 				return true
 	return false
+
+
+func _scan_state_has_path(scan_state: Dictionary, path: String) -> bool:
+	var path_lookup: Dictionary = GFVariantData.get_option_dictionary(scan_state, "path_lookup")
+	return path_lookup.has(path)
+
+
+func _scan_state_add_path(scan_state: Dictionary, path: String) -> void:
+	var path_lookup: Dictionary = GFVariantData.get_option_dictionary(scan_state, "path_lookup")
+	path_lookup[path] = true
+	scan_state["path_lookup"] = path_lookup
 
 
 static func _append_packed_string(target: PackedStringArray, value: String) -> void:

@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFConfigPipeline" path="addons/gf/tools/config_pipeline/gf_config_pipeline.gd" module="tools" extends="RefCounted" classDigest="89395e2d4b185914dae5a148374e19c6d0390f4fade8d811861f38f1b3a20a23">
+<class name="GFConfigPipeline" path="addons/gf/tools/config_pipeline/gf_config_pipeline.gd" module="tools" extends="RefCounted" classDigest="88cfd9d177996ffee458f5c5a7834520ce21b88b2c07fca682f0be75f719281d">
 	<description>GFConfigPipeline: 配置导表工具的资源构建入口。
-负责把 CSV / JSON / XLSX 文件来源构建为 GFConfigTableResource 与 GFConfigDatabaseResource。
+负责把 CSV / JSON / ConfigFile / XLSX 文件来源构建为 GFConfigTableResource 与 GFConfigDatabaseResource。
 该工具只处理通用导入、校验、索引重建和 Resource 保存，不绑定任何项目业务表或发布流程。</description>
 	<tags>
 		<tag name="api">public</tag>
@@ -32,7 +32,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">source: 单表来源声明。</tag>
-				<tag name="param">text: CSV 或 JSON 文本。</tag>
+				<tag name="param">text: CSV、JSON 或 ConfigFile 文本。</tag>
 				<tag name="param">options: 可选构建选项，支持 parse_options、rebuild_indexes。</tag>
 				<tag name="return">构建结果。</tag>
 				<tag name="schema">options: Dictionary，可包含 parse_options 和 rebuild_indexes。</tag>

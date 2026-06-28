@@ -87,7 +87,9 @@ var max_history: int = 64
 
 var _routes: Dictionary = {}
 var _ui_utility_ref: WeakRef = null
+var _connected_ui_utility_ref: WeakRef = null
 var _history: Array[Dictionary] = []
+var _pending_async_routes: Dictionary = {}
 
 
 # --- GF 生命周期方法 ---
@@ -96,18 +98,24 @@ var _history: Array[Dictionary] = []
 ## [br]
 ## @api public
 func init() -> void:
+	_disconnect_connected_ui_utility()
 	_routes.clear()
 	_ui_utility_ref = null
+	_connected_ui_utility_ref = null
 	_history.clear()
+	_pending_async_routes.clear()
 
 
 ## 释放路由表、UI 工具引用和历史记录。
 ## [br]
 ## @api public
 func dispose() -> void:
+	_disconnect_connected_ui_utility()
 	_routes.clear()
 	_ui_utility_ref = null
+	_connected_ui_utility_ref = null
 	_history.clear()
+	_pending_async_routes.clear()
 
 
 # --- 公共方法 ---
@@ -133,6 +141,10 @@ func configure(routes: Array[GFUIRoute] = [], ui_utility: GFUIUtility = null) ->
 ## @param ui_utility: UI 栈工具实例。
 func set_ui_utility(ui_utility: GFUIUtility) -> void:
 	_ui_utility_ref = weakref(ui_utility) if ui_utility != null else null
+	if ui_utility != null:
+		_ensure_ui_async_signal_connected(ui_utility)
+	else:
+		_disconnect_connected_ui_utility()
 
 
 ## 注册一个路由。
@@ -464,8 +476,13 @@ func _open_route_async(
 	route_open_requested.emit(route_id, operation, params.duplicate(true))
 	var options: Dictionary = route.build_options(params, option_overrides)
 	var wrapped_callback: Callable = _make_route_config_callback(route, params, config_callback, operation)
+	_ensure_ui_async_signal_connected(ui_utility)
+	_pending_async_routes[_make_pending_async_route_key(route.scene_path, route.layer, operation)] = {
+		"route_id": route_id,
+		"layer": route.layer,
+		"operation": operation,
+	}
 	if operation == Operation.REPLACE:
-		_remove_history_for_layer(route.layer)
 		ui_utility.replace_layer_async_with_options(
 			route.scene_path,
 			_get_ui_layer(route.layer),
@@ -495,6 +512,49 @@ func _resolve_route_or_fail(route_id: StringName) -> GFUIRoute:
 func _fail_route(route_id: StringName, reason: String) -> void:
 	route_open_failed.emit(route_id, reason)
 	push_warning("[GFUIRouterUtility] 路由打开失败：%s (%s)" % [String(route_id), reason])
+
+
+func _ensure_ui_async_signal_connected(ui_utility: GFUIUtility) -> void:
+	if ui_utility == null:
+		return
+	var connected_ui_utility: GFUIUtility = _get_connected_ui_utility()
+	if connected_ui_utility == ui_utility:
+		return
+	_disconnect_connected_ui_utility()
+	if not ui_utility.panel_async_load_finished.is_connected(_on_ui_panel_async_load_finished):
+		var _connect_error: Error = ui_utility.panel_async_load_finished.connect(_on_ui_panel_async_load_finished) as Error
+	_connected_ui_utility_ref = weakref(ui_utility)
+
+
+func _disconnect_connected_ui_utility() -> void:
+	var ui_utility: GFUIUtility = _get_connected_ui_utility()
+	if ui_utility != null and ui_utility.panel_async_load_finished.is_connected(_on_ui_panel_async_load_finished):
+		ui_utility.panel_async_load_finished.disconnect(_on_ui_panel_async_load_finished)
+	_connected_ui_utility_ref = null
+
+
+func _get_connected_ui_utility() -> GFUIUtility:
+	if _connected_ui_utility_ref == null:
+		return null
+	return _get_ui_utility_value(_connected_ui_utility_ref.get_ref())
+
+
+func _make_pending_async_route_key(path: String, layer: int, operation: Operation) -> String:
+	return "%d:%d:%s" % [layer, int(operation), path]
+
+
+func _take_pending_async_route(path: String, layer: int, operation: StringName) -> Dictionary:
+	var route_operation: Operation = _operation_name_to_operation(operation)
+	var key: String = _make_pending_async_route_key(path, layer, route_operation)
+	var result: Dictionary = GFVariantData.get_option_dictionary(_pending_async_routes, key)
+	var _erased: bool = _pending_async_routes.erase(key)
+	return result
+
+
+func _operation_name_to_operation(operation: StringName) -> Operation:
+	if operation == &"replace":
+		return Operation.REPLACE
+	return Operation.PUSH
 
 
 func _make_route_config_callback(
@@ -533,6 +593,8 @@ func _record_async_open_if_needed(
 		return
 	if _history_has_panel(panel):
 		return
+	if operation == Operation.REPLACE:
+		_remove_history_for_layer(route.layer)
 	_record_route_open(route, panel, params, operation)
 
 
@@ -644,3 +706,21 @@ func _get_ui_layer(value: Variant, fallback: GFUIUtility.Layer = GFUIUtility.Lay
 	if not GFUIUtility.Layer.values().has(layer_value):
 		return fallback
 	return layer_value as GFUIUtility.Layer
+
+
+# --- 信号处理函数 ---
+
+func _on_ui_panel_async_load_finished(
+	path: String,
+	layer: int,
+	operation: StringName,
+	status: int,
+	_panel: Node
+) -> void:
+	var route_entry: Dictionary = _take_pending_async_route(path, layer, operation)
+	if route_entry.is_empty() or status == GFUIUtility.AsyncPanelLoadStatus.OPENED:
+		return
+
+	var route_id: StringName = GFVariantData.get_option_string_name(route_entry, "route_id", &"")
+	var reason: String = "panel_async_cancelled" if status == GFUIUtility.AsyncPanelLoadStatus.CANCELLED else "panel_async_failed"
+	_fail_route(route_id, reason)

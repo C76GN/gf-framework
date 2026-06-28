@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFDataProjection" path="addons/gf/standard/foundation/variant/gf_data_projection.gd" module="standard" extends="RefCounted" classDigest="2890cf1418c89e85835f5c083ecd3bfee0c92649916b38c862fe99ac89565b37">
+	<description>GFDataProjection: 显式安全数据投影辅助。
+用于把 Dictionary、Object 或 Resource 的少量字段转换成纯 Variant 数据模型，
+供生成器、编辑器工具、诊断面板或文本上下文使用。对象投影必须提供字段名单；
+不会默认暴露宿主对象的全部属性。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_service</tag>
+		<tag name="since">7.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties />
+	<methods>
+		<member kind="method" name="project_dictionary">
+			<signature>static func project_dictionary(values: Dictionary, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>投影 Dictionary 为安全数据副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">values: 输入字典。</tag>
+				<tag name="param">options: 可选配置，支持 allowed_fields、rename_fields、schema、max_depth、unsupported、include_null 和 defaults。</tag>
+				<tag name="return">投影后的字典。</tag>
+				<tag name="schema">values: Dictionary，来源数据。</tag>
+				<tag name="schema">options: Dictionary，包含投影配置。</tag>
+				<tag name="schema">return: Dictionary，投影后的纯数据。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="project_object">
+			<signature>static func project_object( object_ref: Object, fields: PackedStringArray = PackedStringArray(), options: Dictionary = {} ) -&gt; Dictionary:</signature>
+			<description>投影 Object 或 Resource 的显式字段。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">object_ref: 输入对象。</tag>
+				<tag name="param">fields: 要读取的字段名单；为空时不暴露任何字段。</tag>
+				<tag name="param">options: 可选配置，支持 rename_fields、max_depth、unsupported、include_null 和 defaults。</tag>
+				<tag name="return">投影后的字典。</tag>
+				<tag name="schema">fields: PackedStringArray，显式允许读取的属性名。</tag>
+				<tag name="schema">options: Dictionary，包含投影配置。</tag>
+				<tag name="schema">return: Dictionary，投影后的纯数据。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="project_value">
+			<signature>static func project_value(value: Variant, options: Dictionary = {}) -&gt; Variant:</signature>
+			<description>投影任意 Variant 值。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">value: 输入值。</tag>
+				<tag name="param">options: 可选配置，支持 max_depth、unsupported 和 include_null。</tag>
+				<tag name="return">投影后的值；无法投影且 unsupported 为 drop 时返回 null。</tag>
+				<tag name="schema">value: Variant，来源值。</tag>
+				<tag name="schema">options: Dictionary，包含投影配置。</tag>
+				<tag name="schema">return: Variant，投影后的纯数据。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="project_with_report">
+			<signature>static func project_with_report(source: Variant, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>投影数据并返回带报告的结果字典。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">source: Dictionary、Object 或 Resource。</tag>
+				<tag name="param">options: 可选配置。Object 来源必须提供 fields。</tag>
+				<tag name="return">结果字典，包含 ok、data 和 report。</tag>
+				<tag name="schema">source: Variant，支持 Dictionary 或 Object。</tag>
+				<tag name="schema">options: Dictionary，包含投影配置。</tag>
+				<tag name="schema">return: Dictionary，包含投影结果和校验报告。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

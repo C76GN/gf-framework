@@ -233,7 +233,7 @@ static func format_compact(
 ) -> String:
 	var compact_suffixes: PackedStringArray = suffixes
 	if compact_suffixes.is_empty():
-		compact_suffixes = DEFAULT_COMPACT_SUFFIXES
+		compact_suffixes = _get_default_compact_suffixes()
 
 	var big_value: GFBigNumber = GFBigNumber.from_variant(value)
 	if big_value.is_zero():
@@ -350,7 +350,7 @@ static func format_auto(
 	if big_value.is_zero():
 		return "0"
 
-	var max_compact_exponent: int = (DEFAULT_COMPACT_SUFFIXES.size() - 1) * 3 + 2
+	var max_compact_exponent: int = (_get_default_compact_suffixes().size() - 1) * 3 + 2
 	if big_value.exponent >= _AUTO_COMPACT_THRESHOLD and big_value.exponent <= max_compact_exponent:
 		return format_compact(value, decimal_places, trim_zeroes, use_truncation)
 
@@ -361,6 +361,28 @@ static func format_auto(
 
 
 # --- 私有/辅助方法 ---
+
+
+static func _get_default_compact_suffixes() -> PackedStringArray:
+	return PackedStringArray([
+		"",
+		"k",
+		"M",
+		"B",
+		"T",
+		"Qa",
+		"Qi",
+		"Sx",
+		"Sp",
+		"Oc",
+		"No",
+		"De",
+		"Ud",
+		"Dd",
+		"Td",
+		"Qad",
+		"Qid",
+	])
 
 
 static func _group_integer_part(text: String) -> String:

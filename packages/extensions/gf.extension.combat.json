@@ -7,8 +7,7 @@
   "description": "Package manifest for the bundled Combat extension.",
   "dependencies": [
     "gf.kernel",
-    "gf.standard.base",
-    "gf.standard.spatial"
+    "gf.standard.base"
   ],
   "paths": [
     "addons/gf/extensions/combat/**"

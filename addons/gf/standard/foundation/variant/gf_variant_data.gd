@@ -776,6 +776,7 @@ static func _make_diff_state(options: Dictionary) -> Dictionary:
 		"truncated": false,
 		"max_changes": max_changes,
 		"copy_values": copy_values,
+		"visited_pairs": [],
 	}
 
 
@@ -790,15 +791,25 @@ static func _diff_variant_recursive(before: Variant, after: Variant, path_segmen
 		return
 
 	if before is Dictionary and after is Dictionary:
+		if _is_diff_pair_active(before, after, state):
+			_append_diff_change("circular_reference", path_segments, null, null, state)
+			return
+		_push_diff_pair(before, after, state)
 		var before_dictionary: Dictionary = before
 		var after_dictionary: Dictionary = after
 		_diff_dictionary(before_dictionary, after_dictionary, path_segments, state)
+		_pop_diff_pair(state)
 		return
 
 	if before is Array and after is Array:
+		if _is_diff_pair_active(before, after, state):
+			_append_diff_change("circular_reference", path_segments, null, null, state)
+			return
+		_push_diff_pair(before, after, state)
 		var before_array: Array = before
 		var after_array: Array = after
 		_diff_array(before_array, after_array, path_segments, state)
+		_pop_diff_pair(state)
 		return
 
 	if not _variant_values_equal(before, after):
@@ -925,6 +936,46 @@ static func _variant_values_equal(left: Variant, right: Variant) -> bool:
 
 static func _is_diff_truncated(state: Dictionary) -> bool:
 	return _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(state, "truncated")
+
+
+static func _is_diff_pair_active(before: Variant, after: Variant, state: Dictionary) -> bool:
+	var visited_pairs: Array = _get_diff_pair_stack(state)
+	for pair_value: Variant in visited_pairs:
+		if not (pair_value is Dictionary):
+			continue
+		var pair: Dictionary = pair_value
+		if (
+			is_same(_GF_VARIANT_ACCESS_SCRIPT.get_option_value(pair, "before"), before)
+			and is_same(_GF_VARIANT_ACCESS_SCRIPT.get_option_value(pair, "after"), after)
+		):
+			return true
+	return false
+
+
+static func _push_diff_pair(before: Variant, after: Variant, state: Dictionary) -> void:
+	var visited_pairs: Array = _get_diff_pair_stack(state)
+	visited_pairs.append({
+		"before": before,
+		"after": after,
+	})
+	state["visited_pairs"] = visited_pairs
+
+
+static func _pop_diff_pair(state: Dictionary) -> void:
+	var visited_pairs: Array = _get_diff_pair_stack(state)
+	if not visited_pairs.is_empty():
+		visited_pairs.remove_at(visited_pairs.size() - 1)
+	state["visited_pairs"] = visited_pairs
+
+
+static func _get_diff_pair_stack(state: Dictionary) -> Array:
+	var value: Variant = state.get("visited_pairs", [])
+	if value is Array:
+		var pairs: Array = value
+		return pairs
+	var empty_pairs: Array = []
+	state["visited_pairs"] = empty_pairs
+	return empty_pairs
 
 
 static func _numeric_values_equal(left: Variant, right: Variant, options: Dictionary) -> bool:

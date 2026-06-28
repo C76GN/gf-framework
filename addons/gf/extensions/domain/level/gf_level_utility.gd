@@ -19,45 +19,53 @@ extends GFUtility
 ## [br]
 ## @api public
 ## [br]
+## @since 7.0.0
+## [br]
 ## @param level_id: 关卡 ID。
 ## [br]
 ## @param level_data: 当前关卡数据。
 ## [br]
-## @schema level_id: Variant，项目传入的关卡 ID，通常为 StringName 或 String。
+## @schema level_id: StringName，入口规范化后的关卡 ID。
 ## [br]
 ## @schema level_data: Dictionary，当前关卡数据副本。
-signal level_started(level_id: Variant, level_data: Dictionary)
+signal level_started(level_id: StringName, level_data: Dictionary)
 
 ## 当关卡重开时发出。
 ## [br]
 ## @api public
 ## [br]
+## @since 7.0.0
+## [br]
 ## @param level_id: 关卡 ID。
 ## [br]
 ## @param level_data: 当前关卡数据。
 ## [br]
-## @schema level_id: Variant，项目传入的关卡 ID，通常为 StringName 或 String。
+## @schema level_id: StringName，入口规范化后的关卡 ID。
 ## [br]
 ## @schema level_data: Dictionary，当前关卡数据副本。
-signal level_restarted(level_id: Variant, level_data: Dictionary)
+signal level_restarted(level_id: StringName, level_data: Dictionary)
 
 ## 当关卡胜利时发出。
 ## [br]
 ## @api public
 ## [br]
+## @since 7.0.0
+## [br]
 ## @param level_id: 关卡 ID。
 ## [br]
-## @schema level_id: Variant，项目传入的关卡 ID，通常为 StringName 或 String。
-signal level_won(level_id: Variant)
+## @schema level_id: StringName，入口规范化后的关卡 ID。
+signal level_won(level_id: StringName)
 
 ## 当关卡失败时发出。
 ## [br]
 ## @api public
 ## [br]
+## @since 7.0.0
+## [br]
 ## @param level_id: 关卡 ID。
 ## [br]
-## @schema level_id: Variant，项目传入的关卡 ID，通常为 StringName 或 String。
-signal level_lost(level_id: Variant)
+## @schema level_id: StringName，入口规范化后的关卡 ID。
+signal level_lost(level_id: StringName)
 
 
 # --- 公共变量 ---
@@ -71,8 +79,10 @@ var level_table_name: StringName = &"levels"
 ## [br]
 ## @api public
 ## [br]
-## @schema current_level_id: Variant，项目传入的当前关卡 ID；未启动关卡时为 null。
-var current_level_id: Variant = null
+## @since 7.0.0
+## [br]
+## @schema current_level_id: StringName，入口规范化后的当前关卡 ID；未启动关卡时为空。
+var current_level_id: StringName = &""
 
 ## 当前关卡数据副本。
 ## [br]
@@ -104,7 +114,7 @@ var _runtime_cleanup_callbacks: Dictionary = {}
 ## [br]
 ## @api framework_internal
 func init() -> void:
-	current_level_id = null
+	current_level_id = &""
 	current_level_data.clear()
 	_current_level_override.clear()
 
@@ -113,7 +123,7 @@ func init() -> void:
 ## [br]
 ## @api framework_internal
 func dispose() -> void:
-	current_level_id = null
+	current_level_id = &""
 	current_level_data.clear()
 	_current_level_override.clear()
 	_runtime_cleanup_callbacks.clear()
@@ -189,9 +199,10 @@ func get_catalog_levels(pack_id: StringName = &"") -> Array[GFLevelEntry]:
 ## [br]
 ## @schema return: Dictionary，当前关卡数据副本；找不到数据时为空字典。
 func load_level_data(level_id: Variant) -> Dictionary:
+	var canonical_level_id: StringName = _to_level_id(level_id)
 	var config_provider: GFConfigProvider = _get_config_provider()
 	if config_provider != null:
-		var record: Variant = config_provider.get_record(level_table_name, level_id)
+		var record: Variant = config_provider.get_record(level_table_name, canonical_level_id)
 		if record is Dictionary:
 			var record_data: Dictionary = record
 			return record_data.duplicate(true)
@@ -203,7 +214,7 @@ func load_level_data(level_id: Variant) -> Dictionary:
 				var data: Dictionary = raw_data
 				return data.duplicate(true)
 
-	var entry: GFLevelEntry = get_level_entry(_to_level_id(level_id))
+	var entry: GFLevelEntry = get_level_entry(canonical_level_id)
 	if entry != null:
 		var entry_data: Dictionary = entry.metadata.duplicate(true)
 		entry_data["level_id"] = entry.get_level_id()
@@ -232,13 +243,14 @@ func load_level_data(level_id: Variant) -> Dictionary:
 ## [br]
 ## @schema return: Dictionary，启动后的当前关卡数据副本；失败时为空字典。
 func start_level(level_id: Variant, level_data_override: Dictionary = {}) -> Dictionary:
+	var canonical_level_id: StringName = _to_level_id(level_id)
 	var next_override: Dictionary = level_data_override.duplicate(true)
-	var next_data: Dictionary = next_override.duplicate(true) if not next_override.is_empty() else load_level_data(level_id)
+	var next_data: Dictionary = next_override.duplicate(true) if not next_override.is_empty() else load_level_data(canonical_level_id)
 	if fail_on_missing_level_data and next_data.is_empty():
-		push_error("[GFLevelUtility] 找不到关卡数据：%s" % GFVariantData.to_text(level_id))
+		push_error("[GFLevelUtility] 找不到关卡数据：%s" % String(canonical_level_id))
 		return {}
 
-	current_level_id = level_id
+	current_level_id = canonical_level_id
 	_current_level_override = next_override
 	current_level_data = next_data
 	level_started.emit(current_level_id, current_level_data.duplicate(true))
@@ -255,7 +267,7 @@ func start_level(level_id: Variant, level_data_override: Dictionary = {}) -> Dic
 ## [br]
 ## @schema return: Dictionary，重开后的当前关卡数据副本；失败时为空字典。
 func restart_level(clear_runtime: bool = true) -> Dictionary:
-	if current_level_id == null:
+	if current_level_id == &"":
 		return {}
 
 	if clear_runtime:
@@ -275,7 +287,7 @@ func restart_level(clear_runtime: bool = true) -> Dictionary:
 ## [br]
 ## @api public
 func win_current_level() -> void:
-	if current_level_id == null:
+	if current_level_id == &"":
 		return
 
 	level_won.emit(current_level_id)
@@ -297,7 +309,7 @@ func complete_current_level(
 	unlock_next: bool = true,
 	emit_win_signal: bool = true
 ) -> void:
-	if current_level_id == null:
+	if current_level_id == &"":
 		return
 
 	var level_id: StringName = _to_level_id(current_level_id)
@@ -318,7 +330,7 @@ func complete_current_level(
 ## [br]
 ## @api public
 func lose_current_level() -> void:
-	if current_level_id == null:
+	if current_level_id == &"":
 		return
 
 	level_lost.emit(current_level_id)
@@ -391,7 +403,7 @@ func get_runtime_cleanup_ids() -> PackedStringArray:
 ## [br]
 ## @api public
 func clear_current_level() -> void:
-	current_level_id = null
+	current_level_id = &""
 	current_level_data.clear()
 	_current_level_override.clear()
 
@@ -404,7 +416,7 @@ func clear_current_level() -> void:
 ## [br]
 ## @schema return: Dictionary，下一个关卡数据副本；没有后续关卡时为空字典。
 func start_next_level() -> Dictionary:
-	if current_level_id == null or catalog == null:
+	if current_level_id == &"" or catalog == null:
 		return {}
 
 	var next_level_id: StringName = catalog.get_next_level_id(_to_level_id(current_level_id))

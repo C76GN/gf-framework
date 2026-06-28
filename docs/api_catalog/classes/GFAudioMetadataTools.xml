@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFAudioMetadataTools" path="addons/gf/standard/utilities/audio/gf_audio_metadata_tools.gd" module="standard" extends="RefCounted" classDigest="ac8771de565ccf3f2c27cd9a71f5623f99aaac1a7dcefa2a0b3e988b968f2e00">
+	<description>GFAudioMetadataTools: 通用音频元数据提取与规范化工具。
+负责把 `AudioStream` 属性、`GFAudioClip.metadata` 和常见 ID3v2 文本帧
+规范化为纯 Dictionary 报告。该类不接管导入器、不解码封面图片、不定义项目音频命名或播放策略。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_service</tag>
+		<tag name="since">7.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties />
+	<methods>
+		<member kind="method" name="normalize_tag_name">
+			<signature>static func normalize_tag_name(tag_name: String) -&gt; StringName:</signature>
+			<description>规范化音频元数据标签名。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">tag_name: 原始标签名。</tag>
+				<tag name="return">规范化后的标签名。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="normalize_metadata">
+			<signature>static func normalize_metadata(metadata: Dictionary, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>规范化音频元数据字典。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">metadata: 原始元数据字典。</tag>
+				<tag name="param">options: 可选项，支持 `drop_null_values`。</tag>
+				<tag name="return">规范化后的元数据副本。</tag>
+				<tag name="schema">metadata: Dictionary audio metadata payload.</tag>
+				<tag name="schema">options: Dictionary normalization options.</tag>
+				<tag name="schema">return: Dictionary normalized audio metadata.</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="merge_metadata">
+			<signature>static func merge_metadata( base_metadata: Dictionary, overlay_metadata: Dictionary, options: Dictionary = {} ) -&gt; Dictionary:</signature>
+			<description>合并两份音频元数据。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">base_metadata: 基础元数据。</tag>
+				<tag name="param">overlay_metadata: 覆盖元数据。</tag>
+				<tag name="param">options: 可选项，支持 `overwrite` 与 normalize_metadata() 的选项。</tag>
+				<tag name="return">合并后的元数据副本。</tag>
+				<tag name="schema">base_metadata: Dictionary audio metadata payload.</tag>
+				<tag name="schema">overlay_metadata: Dictionary audio metadata payload.</tag>
+				<tag name="schema">options: Dictionary merge options.</tag>
+				<tag name="schema">return: Dictionary merged normalized audio metadata.</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="make_display_summary">
+			<signature>static func make_display_summary(metadata: Dictionary, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>从元数据生成展示摘要。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">metadata: 音频元数据。</tag>
+				<tag name="param">options: 可选项，支持 `fallback_title`。</tag>
+				<tag name="return">展示摘要。</tag>
+				<tag name="schema">metadata: Dictionary audio metadata payload.</tag>
+				<tag name="schema">options: Dictionary summary options.</tag>
+				<tag name="schema">return: Dictionary with `title`, `artist`, `album`, `album_artist`, `genre`, `track_number`, `track_count`, `year`, `bpm`, `duration_seconds`, and `has_cover`.</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="extract_stream_metadata">
+			<signature>static func extract_stream_metadata(stream: AudioStream, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>从 AudioStream 提取元数据报告。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">stream: 要读取的音频流。</tag>
+				<tag name="param">options: 可选项，支持 `parse_stream_data`。</tag>
+				<tag name="return">元数据报告。</tag>
+				<tag name="schema">options: Dictionary extraction options.</tag>
+				<tag name="schema">return: Dictionary with `ok: bool`, `recognized: bool`, `metadata: Dictionary`, `issues: Array[Dictionary]`, `issue_count: int`, and optional `id3_version`.</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="parse_id3v2_metadata">
+			<signature>static func parse_id3v2_metadata(bytes: PackedByteArray, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>解析 ID3v2 字节中的常见音频元数据。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">bytes: 音频文件开头或完整文件字节。</tag>
+				<tag name="param">options: 可选项，支持 `fail_on_frame_error`。</tag>
+				<tag name="return">ID3v2 元数据报告。</tag>
+				<tag name="schema">options: Dictionary ID3 parsing options.</tag>
+				<tag name="schema">return: Dictionary with `ok: bool`, `recognized: bool`, `metadata: Dictionary`, `issues: Array[Dictionary]`, `issue_count: int`, `id3_version: String`, `tag_size: int`, `frame_count: int`, and `skipped_frame_count: int`.</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="read_path_metadata">
+			<signature>static func read_path_metadata(path: String, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>从本地路径读取音频元数据报告。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">path: `res://`、`user://` 或绝对路径。</tag>
+				<tag name="param">options: 可选项，支持 `max_id3_bytes`。</tag>
+				<tag name="return">元数据报告。</tag>
+				<tag name="schema">options: Dictionary read options.</tag>
+				<tag name="schema">return: Dictionary with `ok: bool`, `recognized: bool`, `metadata: Dictionary`, `issues: Array[Dictionary]`, `issue_count: int`, and `path: String`.</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="read_clip_metadata">
+			<signature>static func read_clip_metadata(clip: GFAudioClip, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>读取音频片段的合并元数据报告。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">clip: 要读取的音频片段。</tag>
+				<tag name="param">options: 可选项，支持 `include_stream`、`include_path` 和 `overwrite_existing`。</tag>
+				<tag name="return">元数据报告。</tag>
+				<tag name="schema">options: Dictionary clip metadata options.</tag>
+				<tag name="schema">return: Dictionary with `ok: bool`, `recognized: bool`, `metadata: Dictionary`, `issues: Array[Dictionary]`, and `issue_count: int`.</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="apply_clip_metadata">
+			<signature>static func apply_clip_metadata(clip: GFAudioClip, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>将读取到的元数据写回音频片段。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">clip: 要写入的音频片段。</tag>
+				<tag name="param">options: 可选项，格式同 read_clip_metadata()。</tag>
+				<tag name="return">写入报告。</tag>
+				<tag name="schema">options: Dictionary clip metadata options.</tag>
+				<tag name="schema">return: Dictionary with `ok: bool`, `recognized: bool`, `metadata: Dictionary`, `issues: Array[Dictionary]`, `issue_count: int`, and `applied: bool`.</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

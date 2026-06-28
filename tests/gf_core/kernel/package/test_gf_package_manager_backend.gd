@@ -21,6 +21,19 @@ func after_each() -> void:
 
 # --- 测试用例 ---
 
+func test_native_status_reports_cancelled_option() -> void:
+	var result: Dictionary = GF_PACKAGE_MANAGER_BACKEND.make_status(
+		TEST_ROOT.path_join("missing_registry.json"),
+		ProjectSettings.globalize_path(TEST_ROOT.path_join("cancelled_project")),
+		".gf/packages.lock.json",
+		{ "cancel_requested": true }
+	)
+
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(result, "ok"), "取消后的状态读取不应报告成功。")
+	assert_true(GF_VARIANT_ACCESS.get_option_bool(result, "cancelled"), "结果应明确标记 cancelled。")
+	assert_true(GF_VARIANT_ACCESS.get_option_packed_string_array(result, "issues").has("Package manager operation was cancelled."), "结果应包含取消原因。")
+
+
 func test_native_status_reads_local_registry_and_preset_preview() -> void:
 	var project_root: String = TEST_ROOT.path_join("empty_project")
 	var registry_path: String = TEST_ROOT.path_join("registry/index.json")
@@ -34,6 +47,10 @@ func test_native_status_reads_local_registry_and_preset_preview() -> void:
 	var preset_entry: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(packages, "gf.preset.save")
 	var install_preview: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(preset_entry, "install_preview")
 	var to_install: PackedStringArray = GF_VARIANT_ACCESS.get_option_packed_string_array(install_preview, "to_install")
+	var plan_entries: Array = GF_VARIANT_ACCESS.get_option_array(install_preview, "plan_entries")
+	var plan_summary: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(install_preview, "plan_summary")
+	var preset_plan_entry: Dictionary = _find_plan_entry(plan_entries, "gf.preset.save")
+	var save_plan_entry: Dictionary = _find_plan_entry(plan_entries, "gf.extension.save")
 
 	assert_true(GF_VARIANT_ACCESS.get_option_bool(status, "ok"), "本地 registry 状态读取应成功。")
 	assert_eq(GF_VARIANT_ACCESS.get_option_string(status, "backend"), "godot_native", "状态页应标明使用 Godot 原生后端。")
@@ -42,6 +59,12 @@ func test_native_status_reads_local_registry_and_preset_preview() -> void:
 	assert_true(to_install.has("gf.kernel"), "preset 安装预览应展开 kernel 依赖。")
 	assert_true(to_install.has("gf.standard.storage"), "preset 安装预览应展开 standard 依赖。")
 	assert_true(to_install.has("gf.extension.save"), "preset 安装预览应展开扩展包。")
+	assert_eq(GF_VARIANT_ACCESS.get_option_int(plan_summary, "entry_count"), plan_entries.size(), "计划摘要应统计逐包条目。")
+	assert_eq(GF_VARIANT_ACCESS.get_option_string(preset_plan_entry, "action"), "install", "请求的 preset 应报告 install 动作。")
+	assert_true(GF_VARIANT_ACCESS.get_option_bool(preset_plan_entry, "requested"), "根请求包应标记 requested。")
+	assert_eq(GF_VARIANT_ACCESS.get_option_string(save_plan_entry, "action"), "install", "依赖扩展包应报告 install 动作。")
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(save_plan_entry, "requested"), "依赖包不应误标记 requested。")
+	assert_true(GF_VARIANT_ACCESS.get_option_packed_string_array(save_plan_entry, "decision_reasons").has("dependency"), "依赖包应暴露 dependency 计划原因。")
 
 
 func test_native_status_exposes_dependency_uninstall_blocker() -> void:
@@ -113,6 +136,11 @@ func test_native_install_local_archives_writes_files_and_lockfile() -> void:
 	var registry_source: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(lockfile, "registry_source")
 	var save_entry: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(installed, "gf.extension.save")
 	var save_files: PackedStringArray = GF_VARIANT_ACCESS.get_option_packed_string_array(save_entry, "files")
+	var save_file_metadata: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(save_entry, "file_metadata")
+	var save_fixture_metadata: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(
+		save_file_metadata,
+		"addons/gf/extensions/save/gf_save_fixture.gd"
+	)
 
 	assert_true(GF_VARIANT_ACCESS.get_option_bool(result, "ok"), "Godot 原生后端应能安装本地 archive 闭包。")
 	assert_eq(GF_VARIANT_ACCESS.get_option_string(result, "backend"), "godot_native", "安装结果应标记 Godot 原生后端。")
@@ -123,7 +151,59 @@ func test_native_install_local_archives_writes_files_and_lockfile() -> void:
 	assert_true(_file_exists(project_root.path_join("addons/gf/extensions/save/gf_save_fixture.gd")), "extension fixture 应写入项目。")
 	assert_true(installed.has("gf.standard.storage"), "lockfile 应记录扩展依赖的 standard 包。")
 	assert_true(save_files.has("addons/gf/extensions/save/gf_save_fixture.gd"), "lockfile 应记录包安装文件清单。")
+	assert_true(GF_VARIANT_ACCESS.get_option_int(save_fixture_metadata, "size_bytes") > 0, "lockfile 应记录安装文件大小。")
+	assert_false(GF_VARIANT_ACCESS.get_option_string(save_fixture_metadata, "sha256").is_empty(), "lockfile 应记录安装文件 sha256。")
 	assert_eq(GF_VARIANT_ACCESS.get_option_string(registry_source, "source"), registry_path, "lockfile 应记录安装使用的 registry 来源。")
+
+
+func test_native_install_refuses_to_overwrite_unowned_existing_gf_file() -> void:
+	var project_root: String = TEST_ROOT.path_join("install_unowned_existing_project")
+	var registry_path: String = TEST_ROOT.path_join("registry/index.json")
+	var registry: Dictionary = _make_fixture_registry()
+	_write_fixture_archives(registry)
+	_write_json(registry_path, registry)
+	_write_text(
+		project_root.path_join("addons/gf/kernel/core/gf_core_fixture.gd"),
+		"extends RefCounted\nconst PROJECT_FILE := true\n"
+	)
+
+	var result: Dictionary = GF_PACKAGE_MANAGER_BACKEND.install_packages(
+		PackedStringArray(["gf.extension.save"]),
+		registry_path,
+		ProjectSettings.globalize_path(project_root)
+	)
+	var issues: PackedStringArray = GF_VARIANT_ACCESS.get_option_packed_string_array(result, "issues")
+
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(result, "ok"), "安装不应覆盖 lockfile 未拥有的 GF 目标文件。")
+	assert_true(_issues_contain(issues, "not owned by the lockfile"), "未归属目标文件应进入 issues。")
+	assert_false(_file_exists(project_root.path_join(".gf/packages.lock.json")), "失败安装不能写 lockfile。")
+	assert_true(_read_text(project_root.path_join("addons/gf/kernel/core/gf_core_fixture.gd")).contains("PROJECT_FILE"), "原项目文件应保持不变。")
+
+
+func test_native_install_adopts_unowned_existing_matching_gf_file() -> void:
+	var project_root: String = TEST_ROOT.path_join("install_unowned_matching_project")
+	var registry_path: String = TEST_ROOT.path_join("registry/index.json")
+	var registry: Dictionary = _make_fixture_registry()
+	_write_fixture_archives(registry)
+	_write_json(registry_path, registry)
+	_write_text(
+		project_root.path_join("addons/gf/kernel/core/gf_core_fixture.gd"),
+		"extends RefCounted\n"
+	)
+
+	var result: Dictionary = GF_PACKAGE_MANAGER_BACKEND.install_packages(
+		PackedStringArray(["gf.extension.save"]),
+		registry_path,
+		ProjectSettings.globalize_path(project_root)
+	)
+	var lockfile: Dictionary = _read_json(project_root.path_join(".gf/packages.lock.json"))
+	var installed: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(lockfile, "installed")
+	var kernel_entry: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(installed, "gf.kernel")
+	var kernel_files: PackedStringArray = GF_VARIANT_ACCESS.get_option_packed_string_array(kernel_entry, "files")
+
+	assert_true(GF_VARIANT_ACCESS.get_option_bool(result, "ok"), "内容完全一致的未归属 GF 文件应允许被安装闭包采纳。")
+	assert_true(kernel_files.has("addons/gf/kernel/core/gf_core_fixture.gd"), "采纳后 lockfile 应记录既有 kernel 文件。")
+	assert_eq(_read_text(project_root.path_join("addons/gf/kernel/core/gf_core_fixture.gd")), "extends RefCounted\n", "内容一致文件应保持原内容。")
 
 
 func test_native_install_selects_concrete_packages_by_kind_filters() -> void:
@@ -171,11 +251,71 @@ func test_native_install_dry_run_validates_archives_without_mutating_project() -
 		"manual",
 		true
 	)
+	var plan_entries: Array = GF_VARIANT_ACCESS.get_option_array(result, "plan_entries")
+	var plan_summary: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(result, "plan_summary")
+	var save_entry: Dictionary = _find_plan_entry(plan_entries, "gf.extension.save")
 
-	assert_true(GF_VARIANT_ACCESS.get_option_bool(result, "ok"), "dry-run 应完成计划、archive 校验和 staging。")
+	assert_true(GF_VARIANT_ACCESS.get_option_bool(result, "ok"), "dry-run 应完成计划与 archive 元数据校验。")
 	assert_true(GF_VARIANT_ACCESS.get_option_bool(result, "dry_run"), "结果应标记 dry-run。")
+	assert_false(plan_entries.is_empty(), "dry-run 结果应暴露逐包计划条目。")
+	assert_eq(GF_VARIANT_ACCESS.get_option_string(save_entry, "action"), "install", "dry-run 计划应说明目标包会被安装。")
+	assert_true(GF_VARIANT_ACCESS.get_option_bool(save_entry, "requested"), "dry-run 计划应保留根请求包。")
+	assert_eq(GF_VARIANT_ACCESS.get_option_int(plan_summary, "archive_required_count"), 4, "计划摘要应统计需要 archive 校验的包。")
 	assert_false(_file_exists(project_root.path_join(".gf/packages.lock.json")), "dry-run 不应写 lockfile。")
 	assert_false(_file_exists(project_root.path_join("addons/gf/extensions/save/gf_save_fixture.gd")), "dry-run 不应写包文件。")
+
+
+func test_native_install_rejects_lockfile_path_outside_project_root() -> void:
+	var project_root: String = TEST_ROOT.path_join("escaped_lockfile_project")
+	var registry_path: String = TEST_ROOT.path_join("registry/index.json")
+	var registry: Dictionary = _make_fixture_registry()
+	_write_fixture_archives(registry)
+	_write_json(registry_path, registry)
+
+	var result: Dictionary = GF_PACKAGE_MANAGER_BACKEND.install_packages(
+		PackedStringArray(["gf.extension.save"]),
+		registry_path,
+		ProjectSettings.globalize_path(project_root),
+		"../outside.lock"
+	)
+
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(result, "ok"), "lockfile 路径不能越过项目根目录。")
+	assert_true(
+		_issues_contain(
+			GF_VARIANT_ACCESS.get_option_packed_string_array(result, "issues"),
+			"Lockfile path must stay inside project root"
+		),
+		"越界 lockfile 路径应进入 issues。"
+	)
+	assert_false(_file_exists(TEST_ROOT.path_join("outside.lock")), "越界 lockfile 失败时不能写入项目外文件。")
+
+
+func test_native_status_rejects_unsafe_registry_package_ids() -> void:
+	var project_root: String = TEST_ROOT.path_join("unsafe_id_status_project")
+	var registry_path: String = TEST_ROOT.path_join("unsafe_id_registry/index.json")
+	var registry: Dictionary = _make_fixture_registry()
+	var packages: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(registry, "packages")
+	var save_entry: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(packages, "gf.extension.save")
+	packages["gf.extension.save/../../escape"] = save_entry
+	var _erase_save: bool = packages.erase("gf.extension.save")
+	registry["packages"] = packages
+	_write_json(registry_path, registry)
+
+	var status: Dictionary = GF_PACKAGE_MANAGER_BACKEND.make_status(
+		registry_path,
+		ProjectSettings.globalize_path(project_root)
+	)
+	var package_index: Dictionary = _package_index(status)
+
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(status, "ok"), "不安全 package id 应让 registry 状态失败。")
+	assert_false(package_index.has("gf.extension.save/../../escape"), "不安全 package id 不能进入可安装列表。")
+	assert_true(
+		_issues_contain(
+			GF_VARIANT_ACCESS.get_option_packed_string_array(status, "issues"),
+			"invalid package id"
+		),
+		"非法 package id 应进入 issues。"
+	)
 
 
 func test_native_update_all_installed_updates_changed_package_without_manual_pinning_dependency() -> void:
@@ -218,6 +358,115 @@ func test_native_update_all_installed_updates_changed_package_without_manual_pin
 	assert_true(storage_source.contains("UPDATED_FIXTURE"), "更新应覆盖 package 文件。")
 	assert_true(storage_reasons.has("dependency"), "被依赖包更新后仍应保留 dependency reason。")
 	assert_false(storage_reasons.has("manual"), "update-all 不应把依赖包误标为 manual。")
+
+
+func test_native_update_removes_obsolete_package_files_when_old_hash_matches() -> void:
+	var project_root: String = TEST_ROOT.path_join("update_obsolete_project")
+	var registry_path: String = TEST_ROOT.path_join("registry/index.json")
+	var registry: Dictionary = _make_fixture_registry()
+	_write_fixture_archives(registry)
+	_write_json(registry_path, registry)
+	var install_result: Dictionary = _install_fixture_save(registry_path, project_root)
+	assert_true(GF_VARIANT_ACCESS.get_option_bool(install_result, "ok"), "测试 fixture 应先完成安装。")
+
+	_write_package_archive(
+		registry,
+		"gf.extension.save",
+		{
+			"addons/gf/extensions/save/gf_save_fixture_v2.gd": "extends RefCounted\nconst UPDATED_FIXTURE := true\n",
+		}
+	)
+	_write_json(registry_path, registry)
+
+	var result: Dictionary = GF_PACKAGE_MANAGER_BACKEND.update_packages(
+		PackedStringArray(["gf.extension.save"]),
+		registry_path,
+		ProjectSettings.globalize_path(project_root)
+	)
+	var lockfile: Dictionary = _read_json(project_root.path_join(".gf/packages.lock.json"))
+	var installed: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(lockfile, "installed")
+	var save_entry: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(installed, "gf.extension.save")
+	var save_files: PackedStringArray = GF_VARIANT_ACCESS.get_option_packed_string_array(save_entry, "files")
+
+	assert_true(GF_VARIANT_ACCESS.get_option_bool(result, "ok"), "更新应能清理旧版本已移除的 package 文件。")
+	assert_false(_file_exists(project_root.path_join("addons/gf/extensions/save/gf_save_fixture.gd")), "旧版本移除的文件应被删除。")
+	assert_true(_file_exists(project_root.path_join("addons/gf/extensions/save/gf_save_fixture_v2.gd")), "新版本文件应被写入。")
+	assert_false(save_files.has("addons/gf/extensions/save/gf_save_fixture.gd"), "lockfile 不应保留旧文件清单。")
+	assert_true(save_files.has("addons/gf/extensions/save/gf_save_fixture_v2.gd"), "lockfile 应记录新文件清单。")
+
+
+func test_native_update_refuses_to_delete_modified_obsolete_package_file() -> void:
+	var project_root: String = TEST_ROOT.path_join("update_modified_obsolete_project")
+	var registry_path: String = TEST_ROOT.path_join("registry/index.json")
+	var registry: Dictionary = _make_fixture_registry()
+	_write_fixture_archives(registry)
+	_write_json(registry_path, registry)
+	var install_result: Dictionary = _install_fixture_save(registry_path, project_root)
+	assert_true(GF_VARIANT_ACCESS.get_option_bool(install_result, "ok"), "测试 fixture 应先完成安装。")
+	_write_text(project_root.path_join("addons/gf/extensions/save/gf_save_fixture.gd"), "extends RefCounted\nconst USER_MODIFIED := true\n")
+
+	_write_package_archive(
+		registry,
+		"gf.extension.save",
+		{
+			"addons/gf/extensions/save/gf_save_fixture_v2.gd": "extends RefCounted\nconst UPDATED_FIXTURE := true\n",
+		}
+	)
+	_write_json(registry_path, registry)
+
+	var result: Dictionary = GF_PACKAGE_MANAGER_BACKEND.update_packages(
+		PackedStringArray(["gf.extension.save"]),
+		registry_path,
+		ProjectSettings.globalize_path(project_root)
+	)
+
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(result, "ok"), "用户改动过的旧文件不能被 update 静默删除。")
+	assert_true(
+		_issues_contain(
+			GF_VARIANT_ACCESS.get_option_packed_string_array(result, "issues"),
+			"obsolete installed file was modified"
+		),
+		"拒绝删除用户改动文件时应进入 issues。"
+	)
+	assert_true(_file_exists(project_root.path_join("addons/gf/extensions/save/gf_save_fixture.gd")), "被用户改动的旧文件应保留。")
+	assert_false(_file_exists(project_root.path_join("addons/gf/extensions/save/gf_save_fixture_v2.gd")), "拒绝更新时不应写入新文件。")
+
+
+func test_native_update_refuses_to_overwrite_modified_existing_package_file() -> void:
+	var project_root: String = TEST_ROOT.path_join("update_modified_existing_project")
+	var registry_path: String = TEST_ROOT.path_join("registry/index.json")
+	var registry: Dictionary = _make_fixture_registry()
+	_write_fixture_archives(registry)
+	_write_json(registry_path, registry)
+	var install_result: Dictionary = _install_fixture_save(registry_path, project_root)
+	assert_true(GF_VARIANT_ACCESS.get_option_bool(install_result, "ok"), "测试 fixture 应先完成安装。")
+	var fixture_path: String = project_root.path_join("addons/gf/extensions/save/gf_save_fixture.gd")
+	_write_text(fixture_path, "extends RefCounted\nconst USER_MODIFIED := true\n")
+
+	_write_package_archive(
+		registry,
+		"gf.extension.save",
+		{
+			"addons/gf/extensions/save/gf_save_fixture.gd": "extends RefCounted\nconst UPDATED_FIXTURE := true\n",
+		}
+	)
+	_write_json(registry_path, registry)
+
+	var result: Dictionary = GF_PACKAGE_MANAGER_BACKEND.update_packages(
+		PackedStringArray(["gf.extension.save"]),
+		registry_path,
+		ProjectSettings.globalize_path(project_root)
+	)
+
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(result, "ok"), "用户改动过的同路径文件不能被 update 静默覆盖。")
+	assert_true(
+		_issues_contain(
+			GF_VARIANT_ACCESS.get_option_packed_string_array(result, "issues"),
+			"installed file was modified"
+		),
+		"拒绝覆盖用户改动文件时应进入 issues。"
+	)
+	assert_true(_read_text(fixture_path).contains("USER_MODIFIED"), "拒绝更新时应保留用户改动内容。")
 
 
 func test_native_update_rejects_uninstalled_package_without_mutating_project() -> void:
@@ -423,6 +672,119 @@ func test_native_status_reads_http_registry_and_caches_registry() -> void:
 	assert_true(GF_VARIANT_ACCESS.get_option_string(save_entry, "archive").begins_with("http://127.0.0.1:"), "相对 archive URL 应在缓存 registry 中重写为 HTTP URL。")
 
 
+func test_native_status_rejects_http_registry_local_archive_reference() -> void:
+	var project_root: String = TEST_ROOT.path_join("http_local_archive_status_project")
+	var http_root: String = TEST_ROOT.path_join("http_local_archive_status_server")
+	var registry_root: String = http_root.path_join("registry")
+	var registry: Dictionary = _make_fixture_registry()
+	var packages: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(registry, "packages")
+	var save_entry: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(packages, "gf.extension.save")
+	save_entry["archive"] = "res://addons/gf/extensions/save.zip"
+	packages["gf.extension.save"] = save_entry
+	registry["packages"] = packages
+	_write_json(registry_root.path_join("index.json"), registry)
+	var server: HttpFixtureServer = _start_http_fixture_server(http_root)
+
+	var status: Dictionary = GF_PACKAGE_MANAGER_BACKEND.make_status(
+		server.url("registry/index.json"),
+		ProjectSettings.globalize_path(project_root)
+	)
+	server.stop()
+	var issues: PackedStringArray = GF_VARIANT_ACCESS.get_option_packed_string_array(status, "issues")
+
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(status, "ok"), "HTTP registry 不能声明本地 archive 引用。")
+	assert_true(_issues_contain(issues, "remote registry archive reference is not allowed"), "本地 archive 引用应进入 issues。")
+
+
+func test_native_status_reuses_verified_http_registry_cache_from_source_metadata() -> void:
+	var project_root: String = TEST_ROOT.path_join("http_source_cache_project")
+	var http_root: String = TEST_ROOT.path_join("http_source_cache_server")
+	var registry_root: String = http_root.path_join("registry")
+	var source_path: String = TEST_ROOT.path_join("http_source_cache/source.json")
+	var registry: Dictionary = _make_fixture_registry()
+	_write_fixture_archives_at(registry, registry_root)
+	_write_json(registry_root.path_join("index.json"), registry)
+	var registry_absolute: String = ProjectSettings.globalize_path(registry_root.path_join("index.json")).replace("\\", "/")
+	var server: HttpFixtureServer = _start_http_fixture_server(http_root)
+	_write_json(source_path, {
+		"schema_version": 1,
+		"default_channel": "stable",
+		"channels": {
+			"stable": {
+				"registry": server.url("registry/index.json"),
+				"registry_sha256": FileAccess.get_sha256(registry_absolute).to_lower(),
+				"registry_size_bytes": _file_size_absolute(registry_absolute),
+				"mirrors": [],
+			},
+		},
+	})
+
+	var first_status: Dictionary = GF_PACKAGE_MANAGER_BACKEND.make_status(
+		source_path,
+		ProjectSettings.globalize_path(project_root),
+		".gf/packages.lock.json",
+		{ "channel": "stable" }
+	)
+	server.stop()
+	var second_status: Dictionary = GF_PACKAGE_MANAGER_BACKEND.make_status(
+		source_path,
+		ProjectSettings.globalize_path(project_root),
+		".gf/packages.lock.json",
+		{ "channel": "stable" }
+	)
+
+	assert_true(GF_VARIANT_ACCESS.get_option_bool(first_status, "ok"), "第一次读取应下载并缓存 HTTP registry。")
+	assert_true(GF_VARIANT_ACCESS.get_option_bool(second_status, "ok"), "source metadata 未变时应能在 HTTP 服务停止后复用 verified registry cache。")
+	assert_eq(GF_VARIANT_ACCESS.get_option_int(second_status, "package_count"), 5, "复用缓存后仍应列出全部 fixture 包。")
+	assert_true(_cache_has_file(project_root.path_join(".gf/package_cache/registries"), ".metadata.json"), "verified registry cache 应写入 metadata sidecar。")
+
+
+func test_native_status_rejects_tampered_verified_http_registry_cache() -> void:
+	var project_root: String = TEST_ROOT.path_join("http_source_cache_tamper_project")
+	var http_root: String = TEST_ROOT.path_join("http_source_cache_tamper_server")
+	var registry_root: String = http_root.path_join("registry")
+	var source_path: String = TEST_ROOT.path_join("http_source_cache_tamper/source.json")
+	var registry: Dictionary = _make_fixture_registry()
+	_write_fixture_archives_at(registry, registry_root)
+	_write_json(registry_root.path_join("index.json"), registry)
+	var registry_absolute: String = ProjectSettings.globalize_path(registry_root.path_join("index.json")).replace("\\", "/")
+	var server: HttpFixtureServer = _start_http_fixture_server(http_root)
+	_write_json(source_path, {
+		"schema_version": 1,
+		"default_channel": "stable",
+		"channels": {
+			"stable": {
+				"registry": server.url("registry/index.json"),
+				"registry_sha256": FileAccess.get_sha256(registry_absolute).to_lower(),
+				"registry_size_bytes": _file_size_absolute(registry_absolute),
+				"mirrors": [],
+			},
+		},
+	})
+
+	var first_status: Dictionary = GF_PACKAGE_MANAGER_BACKEND.make_status(
+		source_path,
+		ProjectSettings.globalize_path(project_root),
+		".gf/packages.lock.json",
+		{ "channel": "stable" }
+	)
+	var cache_path: String = _cache_file_with_suffix(project_root.path_join(".gf/package_cache/registries"), ".json", ".metadata.json")
+	if not cache_path.is_empty():
+		_write_text(cache_path, "{ \"schema_version\": 2, \"packages\": {} }\n")
+	server.stop()
+	var second_status: Dictionary = GF_PACKAGE_MANAGER_BACKEND.make_status(
+		source_path,
+		ProjectSettings.globalize_path(project_root),
+		".gf/packages.lock.json",
+		{ "channel": "stable" }
+	)
+
+	assert_true(GF_VARIANT_ACCESS.get_option_bool(first_status, "ok"), "第一次读取应成功写入 verified cache。")
+	assert_false(cache_path.is_empty(), "测试应找到 registry cache JSON。")
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(second_status, "ok"), "缓存 JSON 被篡改后不应复用 verified cache。")
+	assert_eq(GF_VARIANT_ACCESS.get_option_int(second_status, "package_count"), 0, "拒绝篡改缓存后不应列出 package。")
+
+
 func test_native_status_reads_offline_bundle_zip_and_caches_registry() -> void:
 	var project_root: String = TEST_ROOT.path_join("offline_bundle_status_project")
 	var bundle_path: String = TEST_ROOT.path_join("bundle/gf-package-offline-bundle.zip")
@@ -440,6 +802,31 @@ func test_native_status_reads_offline_bundle_zip_and_caches_registry() -> void:
 	assert_true(GF_VARIANT_ACCESS.get_option_string(status, "registry").contains("/offline_bundles/"), "offline bundle registry 应解包到项目缓存。")
 	assert_true(GF_VARIANT_ACCESS.get_option_string(status, "registry_offline_bundle").ends_with("gf-package-offline-bundle.zip"), "状态应报告离线 bundle zip 路径。")
 	assert_true(GF_VARIANT_ACCESS.get_option_string(status, "registry_offline_bundle_extracted").contains("/offline_bundles/"), "状态应报告离线 bundle 解包目录。")
+
+
+func test_native_status_rejects_offline_bundle_entry_path_over_limits() -> void:
+	var project_root: String = TEST_ROOT.path_join("offline_bundle_long_path_project")
+	var bundle_path: String = TEST_ROOT.path_join("bundle_long_path/gf-package-offline-bundle.zip")
+	var long_entry_path: String = "packages/%s.zip" % _repeat_text("a", 600)
+	_write_zip_entries(bundle_path, {
+		"registry/index.json": "{}",
+		long_entry_path: "not a real package archive",
+	})
+
+	var status: Dictionary = GF_PACKAGE_MANAGER_BACKEND.make_status(
+		bundle_path,
+		ProjectSettings.globalize_path(project_root)
+	)
+
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(status, "ok"), "offline bundle entry path 超限时应拒绝读取。")
+	assert_eq(GF_VARIANT_ACCESS.get_option_int(status, "package_count"), 0, "bundle 校验失败时不应继续列包。")
+	assert_true(
+		_issues_contain(
+			GF_VARIANT_ACCESS.get_option_packed_string_array(status, "issues"),
+			"Offline bundle entry path is too long"
+		),
+		"超长 bundle entry path 应进入 issues。"
+	)
 
 
 func test_native_status_selects_http_registry_source_channel_mirror() -> void:
@@ -482,6 +869,50 @@ func test_native_status_selects_http_registry_source_channel_mirror() -> void:
 	assert_eq(GF_VARIANT_ACCESS.get_option_int(status, "registry_source_size_bytes"), _file_size_absolute(registry_absolute), "source manifest 状态应报告 registry 大小。")
 	assert_eq(GF_VARIANT_ACCESS.get_option_int(status, "package_count"), 5, "source manifest mirror 应列出全部 fixture 包。")
 	assert_true(_cache_has_file(project_root.path_join(".gf/package_cache/registries"), ".json"), "source manifest 与 mirror registry 都应写入 registry cache。")
+
+
+func test_native_status_rejects_registry_source_invalid_mirrors() -> void:
+	var project_root: String = TEST_ROOT.path_join("source_invalid_mirrors_project")
+	var registry_path: String = TEST_ROOT.path_join("source_invalid_mirrors_registry/index.json")
+	var source_path: String = TEST_ROOT.path_join("source_invalid_mirrors/gf-registry-source.json")
+	var registry: Dictionary = _make_fixture_registry()
+	_write_fixture_archives_at(registry, TEST_ROOT.path_join("source_invalid_mirrors_registry"))
+	_write_json(registry_path, registry)
+	var registry_absolute: String = ProjectSettings.globalize_path(registry_path).replace("\\", "/")
+	_write_json(source_path, {
+		"schema_version": 1,
+		"default_channel": "stable",
+		"channels": {
+			"stable": {
+				"registry": "../source_invalid_mirrors_registry/index.json",
+				"registry_sha256": FileAccess.get_sha256(registry_absolute).to_lower(),
+				"registry_size_bytes": _file_size_absolute(registry_absolute),
+				"mirrors": [123, ""],
+			},
+		},
+	})
+
+	var status: Dictionary = GF_PACKAGE_MANAGER_BACKEND.make_status(
+		source_path,
+		ProjectSettings.globalize_path(project_root)
+	)
+
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(status, "ok"), "source manifest mirrors 含非法项时应拒绝读取状态。")
+	assert_eq(GF_VARIANT_ACCESS.get_option_int(status, "package_count"), 0, "非法 mirrors 不能被宽松转换后继续列包。")
+	assert_true(
+		_issues_contain(
+			GF_VARIANT_ACCESS.get_option_packed_string_array(status, "issues"),
+			"mirror must be a string"
+		),
+		"非字符串 mirror 应进入 issues。"
+	)
+	assert_true(
+		_issues_contain(
+			GF_VARIANT_ACCESS.get_option_packed_string_array(status, "issues"),
+			"mirror must be non-empty"
+		),
+		"空 mirror 应进入 issues。"
+	)
 
 
 func test_native_status_rejects_registry_source_channel_hash_mismatch() -> void:
@@ -703,6 +1134,37 @@ func test_native_uninstall_removes_extension_and_pruned_dependencies() -> void:
 	assert_false(installed.has("gf.extension.save"), "lockfile 应移除 save 包。")
 	assert_false(installed.has("gf.standard.storage"), "lockfile 应移除被剪枝的 storage 包。")
 	assert_true(installed.has("gf.kernel"), "lockfile 应保留 kernel。")
+
+
+func test_native_uninstall_blocks_pruned_dependency_with_project_reference() -> void:
+	var project_root: String = TEST_ROOT.path_join("uninstall_pruned_dependency_reference_project")
+	var registry_path: String = TEST_ROOT.path_join("registry/index.json")
+	var registry: Dictionary = _make_fixture_registry()
+	_write_fixture_archives(registry)
+	_write_json(registry_path, registry)
+	var install_fixture_result: Dictionary = _install_fixture_save(registry_path, project_root)
+	assert_true(GF_VARIANT_ACCESS.get_option_bool(install_fixture_result, "ok"), "测试 fixture 应先完成安装。")
+	_write_text(
+		project_root.path_join("scripts/uses_storage.gd"),
+		"extends Node\nconst StorageFixture = preload(\"res://addons/gf/standard/utilities/storage/gf_storage_fixture.gd\")\n"
+	)
+
+	var result: Dictionary = GF_PACKAGE_MANAGER_BACKEND.uninstall_packages(
+		PackedStringArray(["gf.extension.save"]),
+		registry_path,
+		ProjectSettings.globalize_path(project_root)
+	)
+	var lockfile: Dictionary = _read_json(project_root.path_join(".gf/packages.lock.json"))
+	var installed: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(lockfile, "installed")
+	var plan: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(result, "plan")
+	var blocked: Array = GF_VARIANT_ACCESS.get_option_array(plan, "blocked")
+
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(result, "ok"), "自动剪枝依赖仍被项目引用时应阻断卸载事务。")
+	assert_true(_blocked_contains_reason(blocked, "project_references"), "被剪枝依赖的项目引用应进入 blocked。")
+	assert_true(installed.has("gf.extension.save"), "阻断卸载时 lockfile 不应移除根包。")
+	assert_true(installed.has("gf.standard.storage"), "阻断卸载时 lockfile 不应移除被引用依赖。")
+	assert_true(_file_exists(project_root.path_join("addons/gf/extensions/save/gf_save_fixture.gd")), "阻断卸载时扩展文件应保留。")
+	assert_true(_file_exists(project_root.path_join("addons/gf/standard/utilities/storage/gf_storage_fixture.gd")), "阻断卸载时被引用依赖文件应保留。")
 
 
 func test_native_uninstall_dry_run_does_not_mutate_project() -> void:
@@ -1076,6 +1538,36 @@ func _write_zip_file_entry(writer: ZIPPacker, entry_path: String, source_path: S
 	assert_eq(close_file_error, OK, "测试应能关闭 offline bundle entry。")
 
 
+func _write_zip_entries(zip_path: String, entries: Dictionary) -> void:
+	var absolute_zip_path: String = ProjectSettings.globalize_path(zip_path).replace("\\", "/")
+	var make_error: Error = DirAccess.make_dir_recursive_absolute(absolute_zip_path.get_base_dir())
+	assert_eq(make_error, OK, "测试应能创建 zip 输出目录。")
+	var writer: ZIPPacker = ZIPPacker.new()
+	var open_error: Error = writer.open(absolute_zip_path)
+	assert_eq(open_error, OK, "测试应能创建 zip 文件。")
+	if open_error != OK:
+		return
+	for entry_path: String in _sorted_dictionary_keys(entries):
+		var start_error: Error = writer.start_file(entry_path)
+		assert_eq(start_error, OK, "测试应能创建 zip entry。")
+		if start_error != OK:
+			continue
+		var entry_text: String = GF_VARIANT_ACCESS.to_text(entries.get(entry_path, ""))
+		var write_error: Error = writer.write_file(entry_text.to_utf8_buffer())
+		assert_eq(write_error, OK, "测试应能写入 zip entry。")
+		var close_file_error: Error = writer.close_file()
+		assert_eq(close_file_error, OK, "测试应能关闭 zip entry。")
+	var close_error: Error = writer.close()
+	assert_eq(close_error, OK, "测试应能关闭 zip 文件。")
+
+
+func _repeat_text(text: String, count: int) -> String:
+	var result: String = ""
+	for _index: int in range(maxi(count, 0)):
+		result += text
+	return result
+
+
 func _package_archive_path(package_entry: Dictionary, registry_root: String = TEST_ROOT.path_join("registry")) -> String:
 	var archive_relative: String = GF_VARIANT_ACCESS.get_option_string(package_entry, "archive")
 	return ProjectSettings.globalize_path(registry_root.path_join(archive_relative)).replace("\\", "/")
@@ -1089,6 +1581,15 @@ func _package_index(status: Dictionary) -> Dictionary:
 			var package_id: String = GF_VARIANT_ACCESS.get_option_string(entry, "id")
 			result[package_id] = entry
 	return result
+
+
+func _find_plan_entry(entries: Array, package_id: String) -> Dictionary:
+	for raw_entry: Variant in entries:
+		if raw_entry is Dictionary:
+			var entry: Dictionary = raw_entry
+			if GF_VARIANT_ACCESS.get_option_string(entry, "package_id") == package_id:
+				return entry
+	return {}
 
 
 func _blocked_contains_reason(blocked: Array, reason: String) -> bool:
@@ -1160,6 +1661,21 @@ func _cache_has_file(path: String, suffix: String) -> bool:
 		if file_path.ends_with(suffix):
 			return true
 	return false
+
+
+func _cache_file_with_suffix(path: String, suffix: String, excluded_suffix: String = "") -> String:
+	var absolute_path: String = ProjectSettings.globalize_path(path)
+	if not DirAccess.dir_exists_absolute(absolute_path):
+		return ""
+	var files: PackedStringArray = PackedStringArray()
+	_collect_files_absolute(absolute_path, files)
+	for file_path: String in files:
+		if not file_path.ends_with(suffix):
+			continue
+		if not excluded_suffix.is_empty() and file_path.ends_with(excluded_suffix):
+			continue
+		return file_path
+	return ""
 
 
 func _collect_files_absolute(path: String, result: PackedStringArray) -> void:

@@ -20,6 +20,15 @@ func test_action_node() -> void:
 	assert_eq(GFVariantData.get_option_int(bb_test, "val"), 42)
 
 
+func test_action_node_rejects_invalid_integer_status() -> void:
+	var act: GFBehaviorTree.Action = GFBehaviorTree.Action.new(func(_bb: Dictionary) -> int:
+		return 999
+	)
+
+	assert_eq(act.tick({}), GFBehaviorTree.Status.FAILURE)
+	assert_eq(act.last_reason, &"invalid_status", "非法 int 状态应归一为 FAILURE 并记录原因。")
+
+
 func test_sequence_success() -> void:
 	var act1: GFBehaviorTree.Action = GFBehaviorTree.Action.new(func(_bb: Dictionary) -> int: return GFBehaviorTree.Status.SUCCESS)
 	var act2: GFBehaviorTree.Action = GFBehaviorTree.Action.new(func(_bb: Dictionary) -> int: return GFBehaviorTree.Status.SUCCESS)
@@ -123,6 +132,22 @@ func test_parallel_require_all_does_not_retick_completed_children_while_running(
 	state["running_status"] = GFBehaviorTree.Status.SUCCESS
 	assert_eq(parallel.tick(state), GFBehaviorTree.Status.SUCCESS)
 	assert_eq(GFVariantData.get_option_int(state, "success_ticks"), 1, "已成功的并行子节点不应在同一轮运行中重复 tick。")
+
+
+func test_parallel_require_all_propagates_aborted_status() -> void:
+	var aborted: GFBehaviorTree.Action = GFBehaviorTree.Action.new(func(_bb: Dictionary) -> int:
+		return GFBehaviorTree.Status.ABORTED
+	)
+	var success: GFBehaviorTree.Action = GFBehaviorTree.Action.new(func(_bb: Dictionary) -> int:
+		return GFBehaviorTree.Status.SUCCESS
+	)
+	var parallel: GFBehaviorTree.Parallel = GFBehaviorTree.Parallel.new(
+		_nodes([aborted, success]),
+		GFBehaviorTree.ParallelPolicy.REQUIRE_ALL
+	)
+
+	assert_eq(parallel.tick({}), GFBehaviorTree.Status.ABORTED, "ABORTED 不应被 REQUIRE_ALL 误判为 SUCCESS。")
+	assert_eq(parallel.last_reason, &"aborted")
 
 
 func test_parallel_require_one_succeeds_when_any_child_succeeds() -> void:
@@ -250,6 +275,39 @@ func test_always_succeed_and_always_fail_preserve_running() -> void:
 	assert_eq(GFBehaviorTree.AlwaysFail.new(running).tick({}), GFBehaviorTree.Status.RUNNING)
 
 
+func test_decorators_propagate_aborted_status() -> void:
+	var aborted: GFBehaviorTree.Action = GFBehaviorTree.Action.new(func(_bb: Dictionary) -> int:
+		return GFBehaviorTree.Status.ABORTED
+	)
+
+	assert_eq(GFBehaviorTree.Inverter.new(aborted).tick({}), GFBehaviorTree.Status.ABORTED)
+	assert_eq(GFBehaviorTree.AlwaysSucceed.new(aborted).tick({}), GFBehaviorTree.Status.ABORTED)
+	assert_eq(GFBehaviorTree.AlwaysFail.new(aborted).tick({}), GFBehaviorTree.Status.ABORTED)
+	assert_eq(GFBehaviorTree.Repeat.new(aborted, 2).tick({}), GFBehaviorTree.Status.ABORTED)
+	assert_eq(GFBehaviorTree.UntilSuccess.new(aborted).tick({}), GFBehaviorTree.Status.ABORTED)
+	assert_eq(GFBehaviorTree.UntilFail.new(aborted).tick({}), GFBehaviorTree.Status.ABORTED)
+
+
+func test_composite_nodes_own_child_array_snapshot() -> void:
+	var success: GFBehaviorTree.Action = GFBehaviorTree.Action.new(func(_bb: Dictionary) -> int:
+		return GFBehaviorTree.Status.SUCCESS
+	)
+	var children: Array[GFBehaviorTree.BTNode] = _nodes([success])
+	var sequence: GFBehaviorTree.Sequence = GFBehaviorTree.Sequence.new(children)
+	children.clear()
+
+	assert_eq(sequence.tick({}), GFBehaviorTree.Status.SUCCESS, "构造后外部数组突变不应改变已构造树拓扑。")
+
+
+func test_decorator_rejects_self_cycle() -> void:
+	var inverter: GFBehaviorTree.Inverter = GFBehaviorTree.Inverter.new(null)
+	var _set_result: GFBehaviorTree.Decorator = inverter.set_child(inverter)
+
+	assert_eq(inverter.tick({}), GFBehaviorTree.Status.FAILURE, "set_child(self) 应被拒绝并保留 missing_child 行为。")
+	assert_eq(inverter.last_reason, &"missing_child")
+	assert_push_error("[GFBehaviorTree] 拒绝设置会形成循环的 decorator 子节点。")
+
+
 func test_limit_blocks_after_max_ticks() -> void:
 	var state: Dictionary = { "count": 0 }
 	var child: GFBehaviorTree.Action = GFBehaviorTree.Action.new(func(bb: Dictionary) -> int:
@@ -262,6 +320,15 @@ func test_limit_blocks_after_max_ticks() -> void:
 	assert_eq(limit.tick(state), GFBehaviorTree.Status.SUCCESS)
 	assert_eq(limit.tick(state), GFBehaviorTree.Status.FAILURE)
 	assert_eq(GFVariantData.get_option_int(state, "count"), 2)
+
+
+func test_limit_resets_running_child_when_limit_is_exceeded() -> void:
+	var child: ResetCountingNode = ResetCountingNode.new()
+	var limit: GFBehaviorTree.Limit = GFBehaviorTree.Limit.new(child, 1)
+
+	assert_eq(limit.tick({}), GFBehaviorTree.Status.RUNNING)
+	assert_eq(limit.tick({}), GFBehaviorTree.Status.FAILURE)
+	assert_eq(child.reset_count, 1, "Limit 终止 RUNNING 子节点时应 reset 子节点运行态。")
 
 
 func test_repeat_returns_success_after_count() -> void:
@@ -325,6 +392,21 @@ func test_blackboard_scope_overlays_parent_values() -> void:
 	assert_eq(GFVariantData.to_int(child.get_value(&"speed")), 5, "子作用域应覆盖父级值。")
 	assert_eq(GFVariantData.to_text(child.get_value(&"mode")), "base", "缺失值应回退到父作用域。")
 	assert_eq(GFVariantData.get_option_int(data, &"speed"), 5, "合并字典应保留覆盖后的值。")
+
+
+func test_blackboard_scope_returns_deep_snapshots_for_nested_values() -> void:
+	var parent: GFBehaviorTree.BlackboardScope = GFBehaviorTree.BlackboardScope.new({
+		&"target": {
+			"hp": 10,
+		},
+	})
+	var child: GFBehaviorTree.BlackboardScope = GFBehaviorTree.BlackboardScope.new({}, parent)
+	var data: Dictionary = child.to_dictionary()
+	var target_data: Dictionary = GFVariantData.get_option_dictionary(data, &"target")
+	target_data["hp"] = 0
+	var stored_target: Dictionary = GFVariantData.as_dictionary(child.get_value(&"target"))
+
+	assert_eq(GFVariantData.get_option_int(stored_target, "hp"), 10, "修改合并字典的嵌套值不应污染 scope。")
 
 
 func test_probability_cooldown_and_time_limit_decorators() -> void:
@@ -474,3 +556,14 @@ class CustomCountingNode extends GFBehaviorTree.BTNode:
 	func tick(_blackboard: Dictionary) -> int:
 		tick_count_value += 1
 		return _record_tick(GFBehaviorTree.Status.SUCCESS)
+
+
+class ResetCountingNode extends GFBehaviorTree.BTNode:
+	var reset_count: int = 0
+
+	func tick(_blackboard: Dictionary) -> int:
+		return _record_tick(GFBehaviorTree.Status.RUNNING)
+
+	func reset() -> void:
+		reset_count += 1
+		super.reset()

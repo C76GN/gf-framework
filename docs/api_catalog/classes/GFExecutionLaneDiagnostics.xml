@@ -1,0 +1,264 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFExecutionLaneDiagnostics" path="addons/gf/standard/common/gf_execution_lane_diagnostics.gd" module="standard" extends="RefCounted" classDigest="0327052c4b372278d1ff59d9900d60e31bcf507279dca3cc0329d6f95313a563">
+	<description>GFExecutionLaneDiagnostics: 通用执行通道诊断快照。
+用于记录按 lane 划分的 queued / active / completed / failed / timeout / cancelled
+等运行态指标。它只保存诊断数据，不调度任务、不决定重试策略，也不绑定具体业务通道。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_service</tag>
+		<tag name="since">7.0.0</tag>
+	</tags>
+	<signals>
+		<member kind="signal" name="lane_snapshot_recorded">
+			<signature>signal lane_snapshot_recorded(lane_id: StringName, snapshot: Dictionary)</signature>
+			<description>lane 快照记录或更新时发出。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">lane_id: 执行通道 ID。</tag>
+				<tag name="param">snapshot: lane 快照副本。</tag>
+				<tag name="schema">snapshot: Dictionary，包含 queued_count、active_count、completed_count、failed_count、timeout_count、cancelled_count 和 metadata。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="signal" name="lane_event_recorded">
+			<signature>signal lane_event_recorded(lane_id: StringName, event: Dictionary)</signature>
+			<description>lane 事件记录时发出。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">lane_id: 执行通道 ID。</tag>
+				<tag name="param">event: 事件快照副本。</tag>
+				<tag name="schema">event: Dictionary，包含 event_type、lane_id、status、计数和 metadata。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+	</signals>
+	<enums />
+	<constants>
+		<member kind="const" name="STATUS_OK">
+			<signature>const STATUS_OK: StringName = &amp;"ok"</signature>
+			<description>lane 处于正常状态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_WARNING">
+			<signature>const STATUS_WARNING: StringName = &amp;"warning"</signature>
+			<description>lane 存在排队积压或取消。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_ERROR">
+			<signature>const STATUS_ERROR: StringName = &amp;"error"</signature>
+			<description>lane 存在失败或超时。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="EVENT_QUEUED">
+			<signature>const EVENT_QUEUED: StringName = &amp;"queued"</signature>
+			<description>请求进入队列事件。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="EVENT_STARTED">
+			<signature>const EVENT_STARTED: StringName = &amp;"started"</signature>
+			<description>请求开始执行事件。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="EVENT_COMPLETED">
+			<signature>const EVENT_COMPLETED: StringName = &amp;"completed"</signature>
+			<description>请求完成事件。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="EVENT_FAILED">
+			<signature>const EVENT_FAILED: StringName = &amp;"failed"</signature>
+			<description>请求失败事件。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="EVENT_CANCELLED">
+			<signature>const EVENT_CANCELLED: StringName = &amp;"cancelled"</signature>
+			<description>请求取消事件。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="EVENT_TIMEOUT">
+			<signature>const EVENT_TIMEOUT: StringName = &amp;"timeout"</signature>
+			<description>请求超时事件。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="EVENT_RELEASED">
+			<signature>const EVENT_RELEASED: StringName = &amp;"released"</signature>
+			<description>请求释放槽位事件。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="DEFAULT_MAX_RECENT_EVENTS">
+			<signature>const DEFAULT_MAX_RECENT_EVENTS: int = 128</signature>
+			<description>默认保留的最近事件数量。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties>
+		<member kind="property" name="max_recent_events">
+			<signature>var max_recent_events: int = DEFAULT_MAX_RECENT_EVENTS:</signature>
+			<description>最近事件历史上限。设置为 0 时不保留事件。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="max_lanes">
+			<signature>var max_lanes: int = 1024:</signature>
+			<description>lane 记录数量上限。为 0 时不限制；自动清理只会移除 inactive lane。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="max_inactive_lane_age_msec">
+			<signature>var max_inactive_lane_age_msec: int = 0:</signature>
+			<description>自动清理 inactive lane 的年龄阈值，单位毫秒。为 0 时不按时间自动清理。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="record_lane_snapshot">
+			<signature>func record_lane_snapshot(lane_id: StringName, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>记录一个 lane 的完整快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">lane_id: 执行通道 ID。</tag>
+				<tag name="param">options: 快照选项，支持 queued_count、active_count、completed_count、failed_count、timeout_count、cancelled_count、status、label 和 metadata。</tag>
+				<tag name="return">lane 快照。</tag>
+				<tag name="schema">options: Dictionary，包含计数、status、label 和 metadata。</tag>
+				<tag name="schema">return: Dictionary，包含 lane_id、status、计数、max_queued_count、max_active_count、event_count 和 metadata。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="record_lane_event">
+			<signature>func record_lane_event(lane_id: StringName, event_type: StringName, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>记录一个 lane 事件并更新计数。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">lane_id: 执行通道 ID。</tag>
+				<tag name="param">event_type: 事件类型，建议使用 EVENT_* 常量。</tag>
+				<tag name="param">options: 事件选项，支持 queued_delta、active_delta、status、label 和 metadata。</tag>
+				<tag name="return">事件快照。</tag>
+				<tag name="schema">options: Dictionary，包含 queued_delta、active_delta、status、label 和 metadata。</tag>
+				<tag name="schema">return: Dictionary，包含 sequence、event_type、lane_id、status、计数和 metadata。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="remove_lane">
+			<signature>func remove_lane(lane_id: StringName) -&gt; bool:</signature>
+			<description>移除一个 lane。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">lane_id: 执行通道 ID。</tag>
+				<tag name="return">找到并移除时返回 true。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="compact_lanes">
+			<signature>func compact_lanes(max_age_msec: int = -1) -&gt; int:</signature>
+			<description>清理 inactive lane。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">max_age_msec: 大于等于 0 时移除超过该年龄的 inactive lane；小于 0 时仅应用 max_lanes 容量上限。</tag>
+				<tag name="return">移除的 lane 数量。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="clear">
+			<signature>func clear() -&gt; void:</signature>
+			<description>清空全部 lane 和事件历史。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_lane_snapshot">
+			<signature>func get_lane_snapshot(lane_id: StringName) -&gt; Dictionary:</signature>
+			<description>获取一个 lane 的快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">lane_id: 执行通道 ID。</tag>
+				<tag name="return">lane 快照；不存在时为空字典。</tag>
+				<tag name="schema">return: Dictionary，包含 lane_id、status、计数、max_queued_count、max_active_count、event_count 和 metadata。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_lane_snapshots">
+			<signature>func get_lane_snapshots(limit: int = 0) -&gt; Array[Dictionary]:</signature>
+			<description>获取全部 lane 快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">limit: 最大返回数量；小于等于 0 时返回全部。</tag>
+				<tag name="return">lane 快照数组，按最近更新时间倒序排列。</tag>
+				<tag name="schema">return: Array[Dictionary]，每个元素为 lane 快照。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_recent_events">
+			<signature>func get_recent_events(limit: int = 0) -&gt; Array[Dictionary]:</signature>
+			<description>获取最近 lane 事件。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">limit: 最大返回数量；小于等于 0 时返回全部。</tag>
+				<tag name="return">最近事件数组，按记录顺序返回。</tag>
+				<tag name="schema">return: Array[Dictionary]，每个元素包含 sequence、event_type、lane_id、status、计数和 metadata。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_health_snapshot">
+			<signature>func get_health_snapshot(limit: int = 5) -&gt; Dictionary:</signature>
+			<description>获取整体健康快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">limit: recent_lanes 与 recent_events 的最大数量。</tag>
+				<tag name="return">健康快照字典。</tag>
+				<tag name="schema">return: Dictionary，包含 status、lane_count、queued_count、active_count、failed_count、timeout_count、cancelled_count、recent_lanes 和 recent_events。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_debug_snapshot">
+			<signature>func get_debug_snapshot() -&gt; Dictionary:</signature>
+			<description>获取调试快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">调试快照字典。</tag>
+				<tag name="schema">return: Dictionary，包含 max_recent_events、health、lanes 和 recent_events。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

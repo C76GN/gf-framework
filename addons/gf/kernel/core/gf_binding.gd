@@ -49,6 +49,8 @@ var _cached_instance: Object = null
 var _has_cached_instance: bool = false
 var _should_auto_inject: bool = true
 var _should_dispose_cached_instance: bool = true
+var _is_resolving_singleton: bool = false
+var _resolution_cycle_detected: bool = false
 
 
 # --- Godot 生命周期方法 ---
@@ -83,9 +85,19 @@ func get_instance(requesting_architecture: GFArchitecture = null) -> Object:
 		GFBindingLifetimesBase.Lifetime.SINGLETON:
 			if _has_cached_instance and _cached_instance_is_valid():
 				return _cached_instance
+			if _is_resolving_singleton:
+				_resolution_cycle_detected = true
+				push_error("[GFBinding] Singleton 工厂正在解析中，检测到循环依赖。")
+				return null
 
 			clear_cached_instance()
+			_is_resolving_singleton = true
+			_resolution_cycle_detected = false
 			var provided_instance: Object = _provide(_owner_architecture)
+			_is_resolving_singleton = false
+			if _resolution_cycle_detected:
+				_resolution_cycle_detected = false
+				return null
 			if provided_instance == null:
 				return null
 
@@ -146,6 +158,8 @@ func _provide(injection_architecture: GFArchitecture) -> Object:
 		value = provider
 
 	if not value is Object:
+		if _resolution_cycle_detected:
+			return null
 		push_error("[GFBinding] 绑定来源必须返回 Object 实例。")
 		return null
 

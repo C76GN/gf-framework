@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFDiagnosticsUtility" path="addons/gf/standard/utilities/debug/gf_diagnostics_utility.gd" module="standard" extends="GFUtility" classDigest="485ce8b738b6dac9b1fbd4ad85fbdcd2de21dc7de0748664227fedfbfd0b0710">
+<class name="GFDiagnosticsUtility" path="addons/gf/standard/utilities/debug/gf_diagnostics_utility.gd" module="standard" extends="GFUtility" classDigest="ae19b120741f10d46fe64c324800648b35210a6c09c156b0ef129bce4eb67915">
 	<description>GFDiagnosticsUtility: 运行时诊断聚合工具。
 提供架构生命周期、事件系统、性能、日志和外部贡献诊断的统一快照。
 诊断命令、监控项和快照分区通过 Callable 注册，框架只负责调度和包装结果，不解释项目业务数据。</description>
@@ -149,6 +149,14 @@
 			<description>诊断命令认证 token。为空时无法通过认证。</description>
 			<tags>
 				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="property" name="allow_debugger_command_execution">
+			<signature>var allow_debugger_command_execution: bool = false</signature>
+			<description>是否允许 EditorDebugger 桥执行诊断命令。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="allow_danger_commands">
@@ -516,7 +524,8 @@
 				<tag name="param">options: 可选参数，支持 recent_log_count、include_recent_logs、include_scene_tree、scene_tree_options、include_signal_graph、signal_graph_options。</tag>
 				<tag name="return">快照字典。</tag>
 				<tag name="schema">options: Dictionary，支持 recent_log_count、include_recent_logs、include_scene_tree、scene_tree_options、include_signal_graph、signal_graph_options、include_monitors、monitor_preset、monitor_ids、include_hidden_monitors。</tag>
-				<tag name="schema">return: Dictionary，包含 timestamp_unix、engine、build、architecture、event_system、performance、logs、network、tools，可选 scene_tree、signal_graph、monitors 和注册分区。</tag>
+				<tag name="schema">return: Dictionary，包含 timestamp_unix、engine、build、architecture、event_system、performance、logs、tools，可选 scene_tree、signal_graph、monitors 和注册分区。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_debugger_bridge_state">
@@ -525,7 +534,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">桥接状态字典。</tag>
-				<tag name="schema">return: Dictionary with capture_name, registered, debugger_active, editor_feature, and editor_hint.</tag>
+				<tag name="schema">return: Dictionary with capture_name, registered, debugger_active, editor_feature, editor_hint, and allow_command_execution.</tag>
 				<tag name="since">6.0.0</tag>
 			</tags>
 		</member>
@@ -555,10 +564,11 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">root: 可选根节点；为空时优先使用当前场景，再回退到 Viewport root。</tag>
-				<tag name="param">options: 可选参数，支持 max_depth、max_nodes、include_groups、include_owner_path、include_script_path、include_internal。</tag>
+				<tag name="param">options: 可选参数，支持 max_depth、max_nodes、include_groups、include_owner_path、include_script_path、include_internal、redact_paths。</tag>
 				<tag name="return">场景树快照字典。</tag>
-				<tag name="schema">options: Dictionary，支持 max_depth、max_nodes、include_groups、include_owner_path、include_script_path、include_internal、root_path、prefer_current_scene。</tag>
+				<tag name="schema">options: Dictionary，支持 max_depth、max_nodes、include_groups、include_owner_path、include_script_path、include_internal、redact_paths、root_path、prefer_current_scene。</tag>
 				<tag name="schema">return: Dictionary，包含 available、node_count、truncated、root_path、root。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="collect_signal_graph_snapshot">
@@ -567,10 +577,11 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">root: 可选根节点；为空时优先使用当前场景，再回退到 Viewport root。</tag>
-				<tag name="param">options: 可选参数，支持 include_internal、persistent_only、include_empty_signals、include_external_targets、include_index。</tag>
+				<tag name="param">options: 可选参数，支持 include_internal、persistent_only、include_empty_signals、include_external_targets、include_index、redact_paths。</tag>
 				<tag name="return">信号图快照字典。</tag>
-				<tag name="schema">options: Dictionary，支持 include_internal、persistent_only、include_empty_signals、include_external_targets、include_index、root_path、prefer_current_scene。</tag>
+				<tag name="schema">options: Dictionary，支持 include_internal、persistent_only、include_empty_signals、include_external_targets、include_index、redact_paths、root_path、prefer_current_scene。</tag>
 				<tag name="schema">return: Dictionary，包含 ok、root_path、node_count、signal_count、connection_count、nodes、signals、connections，可选 index。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</methods>

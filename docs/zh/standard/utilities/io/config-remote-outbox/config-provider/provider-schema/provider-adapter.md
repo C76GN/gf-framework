@@ -29,6 +29,26 @@ func get_table(table_name: StringName) -> Variant:
 
 表名建议使用稳定 `StringName`，记录 ID 可保持项目导表原始类型。
 
+## 通用表源适配
+
+如果项目已经有生成表对象、远程配置缓存、字典表或懒加载函数，不必为了接入 GF 先转换成 Resource。`GFConfigProviderAdapter` 可以注册单张表源，并在 `get_record()` / `get_table()` 时统一查询：
+
+```gdscript
+var provider := GFConfigProviderAdapter.new()
+provider.register_table_source(&"items", func(table_name: StringName, metadata: Dictionary) -> Array[Dictionary]:
+	return load_items_from_project_cache(table_name, metadata)
+, {
+	"id_field": &"id",
+	"metadata": { "source": "runtime_cache" },
+})
+
+var item := provider.get_record(&"items", 1001)
+```
+
+表源可以是 `Array`、`Dictionary`、自定义对象或 `Callable`。数组表默认按 `id_field` 查找记录；字典表按键查找，并支持 `String` / `StringName` 文本等价；对象表默认尝试调用 `get_table()` 和 `get_record(record_id)`。`cache` 默认为 `true`，懒加载结果会缓存到 Provider 内，`clear_table_cache()` 可清掉单表缓存。
+
+这个适配器只做运行时读取边界，不解析 CSV、JSON、二进制包或网络协议，也不规定表名、字段名和热更新策略。复杂导入、签名、下载和分端裁剪仍应放在项目工具或独立制作期包里。
+
 ## Resource 表 Provider
 
 如果导表流水线已经输出 Godot 原生 `.tres/.res`，可以用 `GFConfigTableResource` 承载单张表，再交给 `GFResourceConfigProvider` 查询。

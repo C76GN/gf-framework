@@ -253,7 +253,7 @@ func accept_quest(quest_id: StringName) -> bool:
 ## @return: 完成成功返回 true。
 func complete_quest(quest_id: StringName) -> bool:
 	var data: _QuestData = _get_quest_data(quest_id)
-	if data == null:
+	if data == null or data._status != STATUS_ACTIVE:
 		return false
 	return _try_complete_quest(data)
 
@@ -653,7 +653,7 @@ func _detach_quest_from_event(data: _QuestData) -> void:
 
 
 func _try_complete_quest(data: _QuestData) -> bool:
-	if data == null or data._is_completed or data._status == STATUS_CANCELLED or data._status == STATUS_FAILED:
+	if data == null or data._is_completed or data._status != STATUS_ACTIVE:
 		return false
 
 	var blocker_result: Dictionary = _check_conditions(data._completion_blockers, data)

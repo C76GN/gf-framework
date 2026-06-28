@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFItemListBinder" path="addons/gf/standard/utilities/ui/gf_item_list_binder.gd" module="standard" extends="RefCounted" classDigest="084cc7c2ff6fca86ac99b2c6dfc2d4ba04d9807ccb310352b232249b28d89107">
+	<description>GFItemListBinder: 响应式条目控件绑定器。
+将数组数据写入 `ItemList`、`OptionButton` 或 `PopupMenu`，也可以订阅
+`GFReactiveStateStore` 的路径并在数组变化时刷新目标控件。它只负责条目展示、
+metadata 和选择状态同步，不定义业务字段含义。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_handle</tag>
+		<tag name="since">7.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties />
+	<methods>
+		<member kind="method" name="bind_items">
+			<signature>func bind_items( store: RefCounted, path: Variant, target: Object, options: Dictionary = {} ) -&gt; bool:</signature>
+			<description>绑定 store 路径到条目控件。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">store: `GFReactiveStateStore` 实例。</tag>
+				<tag name="param">path: 状态路径，路径值应为 Array。</tag>
+				<tag name="param">target: `ItemList`、`OptionButton` 或 `PopupMenu`。</tag>
+				<tag name="param">options: 可选映射项。支持 text_key、id_key、metadata_key、icon_key、disabled_key、selectable_key、tooltip_key、selected_key、clear、sync_initial 和 default_items。</tag>
+				<tag name="return">成功绑定时返回 true。</tag>
+				<tag name="schema">store: GFReactiveStateStore 实例；签名使用 RefCounted 以避免新全局类注册顺序影响脚本解析。</tag>
+				<tag name="schema">path: Variant，路径表达。</tag>
+				<tag name="schema">options: Dictionary，键名映射与初始同步选项。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="write_target_items">
+			<signature>func write_target_items(target: Object, items: Array, options: Dictionary = {}) -&gt; int:</signature>
+			<description>直接写入目标控件条目。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">target: `ItemList`、`OptionButton` 或 `PopupMenu`。</tag>
+				<tag name="param">items: 条目数组。元素可为 Dictionary 或标量值。</tag>
+				<tag name="param">options: 可选映射项，字段同 bind_items()。</tag>
+				<tag name="return">实际写入条目数。</tag>
+				<tag name="schema">items: Array，元素为 Dictionary 或标量值。</tag>
+				<tag name="schema">options: Dictionary，键名映射与 clear 选项。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="unbind_target">
+			<signature>func unbind_target(target: Object) -&gt; bool:</signature>
+			<description>解绑指定目标控件。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">target: 目标控件。</tag>
+				<tag name="return">找到并解绑时返回 true。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="unbind_path">
+			<signature>func unbind_path(store: RefCounted, path: Variant) -&gt; int:</signature>
+			<description>解绑指定 store 路径上的所有目标控件。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">store: `GFReactiveStateStore` 实例。</tag>
+				<tag name="param">path: 状态路径。</tag>
+				<tag name="return">解绑数量。</tag>
+				<tag name="schema">store: GFReactiveStateStore 实例；签名使用 RefCounted 以避免新全局类注册顺序影响脚本解析。</tag>
+				<tag name="schema">path: Variant，路径表达。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="clear">
+			<signature>func clear() -&gt; void:</signature>
+			<description>清理所有绑定。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_binding_count">
+			<signature>func get_binding_count() -&gt; int:</signature>
+			<description>获取当前有效绑定数量。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">有效绑定数量。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="dispose">
+			<signature>func dispose() -&gt; void:</signature>
+			<description>释放所有绑定。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="write_items">
+			<signature>static func write_items(target: Object, items: Array, options: Dictionary = {}) -&gt; int:</signature>
+			<description>将数组数据写入条目控件。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">target: `ItemList`、`OptionButton` 或 `PopupMenu`。</tag>
+				<tag name="param">items: 条目数组。元素可为 Dictionary 或标量值。</tag>
+				<tag name="param">options: 可选映射项。支持 text_key、id_key、metadata_key、icon_key、disabled_key、selectable_key、tooltip_key、selected_key 和 clear。</tag>
+				<tag name="return">实际写入条目数。</tag>
+				<tag name="schema">items: Array，元素为 Dictionary 或标量值。</tag>
+				<tag name="schema">options: Dictionary，键名映射与 clear 选项。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_item_metadata">
+			<signature>static func get_item_metadata(target: Object, index: int, fallback: Variant = null) -&gt; Variant:</signature>
+			<description>读取控件指定索引的 metadata。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">target: `ItemList`、`OptionButton` 或 `PopupMenu`。</tag>
+				<tag name="param">index: 条目索引。</tag>
+				<tag name="param">fallback: 索引无效时返回的值。</tag>
+				<tag name="return">条目 metadata 或 fallback。</tag>
+				<tag name="schema">fallback: Variant fallback value.</tag>
+				<tag name="schema">return: Variant item metadata or fallback.</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_selected_metadata">
+			<signature>static func get_selected_metadata(target: Object) -&gt; Array:</signature>
+			<description>读取当前选中条目的 metadata。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">target: `ItemList` 或 `OptionButton`。</tag>
+				<tag name="return">选中 metadata 数组。</tag>
+				<tag name="schema">return: Array，ItemList 返回所有选中条目 metadata，OptionButton 返回单个 metadata。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

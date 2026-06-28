@@ -85,6 +85,8 @@ func make_context(
 func register_decision_set(decision_set_id: StringName, decision_set: GFDecisionSet) -> bool:
 	if decision_set_id == &"" or decision_set == null:
 		return false
+	if _decision_sets.has(decision_set_id):
+		return false
 
 	if decision_set.decision_set_id == &"":
 		decision_set.decision_set_id = decision_set_id
@@ -152,7 +154,13 @@ func get_decision_set_ids() -> PackedStringArray:
 ## [br]
 ## @api public
 func clear_decision_sets() -> void:
+	var registered_ids: Array[StringName] = []
+	for decision_set_id_variant: Variant in _decision_sets.keys():
+		registered_ids.append(StringName(GFVariantData.to_text(decision_set_id_variant)))
+	registered_ids.sort()
 	_decision_sets.clear()
+	for decision_set_id: StringName in registered_ids:
+		decision_set_unregistered.emit(decision_set_id)
 
 
 ## 计算指定决策集合中的所有候选分数。

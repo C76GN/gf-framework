@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "id": "gf.standard.input.editor",
+  "kind": "standard",
+  "version": "unreleased",
+  "display_name": "GF Standard Input Editor",
+  "description": "Editor-only input mapping docks and input authoring helpers.",
+  "dependencies": [
+    "gf.kernel",
+    "gf.standard.base",
+    "gf.standard.input"
+  ],
+  "paths": [
+    "addons/gf/standard/input/editor/**"
+  ],
+  "metadata": {
+    "stage": "standard-editor-split-v1"
+  }
+}

@@ -356,6 +356,43 @@ func test_debug_stats_reports_listener_counts() -> void:
 	assert_eq(_sum_listener_counts(_GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(stats, "type_events")), 1, "诊断统计应包含精确类型监听数量。")
 	assert_eq(_sum_listener_counts(_GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(stats, "assignable_type_events")), 1, "诊断统计应包含可赋值类型监听数量。")
 	assert_eq(_sum_listener_counts(_GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(stats, "simple_events")), 1, "诊断统计应包含简单事件监听数量。")
+	assert_eq(_GF_VARIANT_ACCESS_SCRIPT.get_option_int(stats, "listener_count"), 3, "诊断统计应报告总监听器数量。")
+
+
+func test_listener_diagnostics_reports_stale_owner_entries_and_compacts() -> void:
+	var listener_owner: RefCounted = RefCounted.new()
+	var state: EventTestState = EventTestState.new()
+	_system.register(SampleEventA, func(_e: SampleEventA) -> void:
+		state.count += 1
+	, 0, listener_owner)
+	_system.register_simple(&"stale_owner_simple", func(_payload: Variant) -> void:
+		state.simple += 1
+	, listener_owner)
+
+	listener_owner = null
+	var diagnostics: Dictionary = _system.get_listener_diagnostics({
+		"include_entries": true,
+	})
+	var tracks: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(diagnostics, "tracks")
+	var type_track: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(tracks, "type")
+	var simple_track: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(tracks, "simple")
+	var type_entries: Array = _GF_VARIANT_ACCESS_SCRIPT.get_option_array(type_track, "entries")
+	var first_type_entry: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.as_dictionary(type_entries[0])
+
+	assert_false(_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(diagnostics, "ok"), "存在已释放 owner 时诊断不应 ok。")
+	assert_eq(_GF_VARIANT_ACCESS_SCRIPT.get_option_int(diagnostics, "listener_count"), 2, "诊断应统计所有轨道监听器。")
+	assert_eq(_GF_VARIANT_ACCESS_SCRIPT.get_option_int(diagnostics, "stale_owner_count"), 2, "诊断应统计已释放 owner。")
+	assert_eq(_GF_VARIANT_ACCESS_SCRIPT.get_option_int(type_track, "stale_owner_count"), 1, "类型轨道应报告 stale owner。")
+	assert_eq(_GF_VARIANT_ACCESS_SCRIPT.get_option_int(simple_track, "stale_owner_count"), 1, "简单事件轨道应报告 stale owner。")
+	assert_true(_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(first_type_entry, "owner_released"), "明细条目应暴露 owner_released。")
+	assert_true(_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(first_type_entry, "callable_valid"), "owner 释放不代表 Callable 本身无效。")
+
+	var compacted_count: int = _system.compact_released_owner_listeners()
+	var compacted_diagnostics: Dictionary = _system.get_listener_diagnostics()
+
+	assert_eq(compacted_count, 2, "compact 应移除所有已释放 owner 的监听器。")
+	assert_eq(_GF_VARIANT_ACCESS_SCRIPT.get_option_int(compacted_diagnostics, "listener_count"), 0, "compact 后不应残留监听器。")
+	assert_eq(_GF_VARIANT_ACCESS_SCRIPT.get_option_int(compacted_diagnostics, "stale_owner_count"), 0, "compact 后不应残留 stale owner。")
 
 
 ## 验证诊断统计会报告派发次数和嵌套深度。

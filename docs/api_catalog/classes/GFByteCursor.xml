@@ -1,0 +1,444 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFByteCursor" path="addons/gf/standard/foundation/binary/gf_byte_cursor.gd" module="standard" extends="RefCounted" classDigest="40a16662bbd448843018bcf723e0b0c65816032e8b78a75de202cac215a12b0c">
+	<description>GFByteCursor: PackedByteArray 读写游标。
+提供边界检查、显式字节序和 varuint 编码，适合网络包、存档片段、
+二进制配置或工具导入器复用。它只处理字节游标，不规定协议字段或消息语义。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">value_object</tag>
+		<tag name="since">7.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties>
+		<member kind="property" name="little_endian">
+			<signature>var little_endian: bool = false</signature>
+			<description>是否使用小端读写多字节整数。false 表示大端。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="max_read_byte_count">
+			<signature>var max_read_byte_count: int = _DEFAULT_MAX_READ_BYTE_COUNT</signature>
+			<description>单次读取允许的最大字节数。小于等于 0 表示不限制。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="_init">
+			<signature>func _init(source_bytes: PackedByteArray = PackedByteArray(), p_little_endian: bool = false) -&gt; void:</signature>
+			<description>构造字节游标。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">source_bytes: 初始字节。</tag>
+				<tag name="param">p_little_endian: 是否使用小端。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="from_bytes">
+			<signature>static func from_bytes(source_bytes: PackedByteArray, offset: int = 0, p_little_endian: bool = false) -&gt; GFByteCursor:</signature>
+			<description>从字节创建游标。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">source_bytes: 初始字节。</tag>
+				<tag name="param">offset: 初始位置。</tag>
+				<tag name="param">p_little_endian: 是否使用小端。</tag>
+				<tag name="return">新游标。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="reset">
+			<signature>func reset(source_bytes: PackedByteArray = PackedByteArray()) -&gt; void:</signature>
+			<description>替换内部字节并重置位置。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">source_bytes: 新字节。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_bytes">
+			<signature>func get_bytes() -&gt; PackedByteArray:</signature>
+			<description>获取字节副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">当前字节副本。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_position">
+			<signature>func get_position() -&gt; int:</signature>
+			<description>获取当前位置。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">当前位置。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="set_position">
+			<signature>func set_position(offset: int) -&gt; bool:</signature>
+			<description>设置当前位置。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">offset: 新位置。</tag>
+				<tag name="return">设置成功返回 true。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="size">
+			<signature>func size() -&gt; int:</signature>
+			<description>获取总字节数。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">总长度。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="remaining">
+			<signature>func remaining() -&gt; int:</signature>
+			<description>获取剩余可读字节数。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">剩余长度。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_eof">
+			<signature>func is_eof() -&gt; bool:</signature>
+			<description>是否已经到达末尾。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">到达末尾返回 true。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="has_bytes">
+			<signature>func has_bytes(byte_count: int) -&gt; bool:</signature>
+			<description>检查是否还能读取指定长度。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">byte_count: 字节数。</tag>
+				<tag name="return">可读取返回 true。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="read_u8">
+			<signature>func read_u8() -&gt; int:</signature>
+			<description>读取一个无符号 8 位整数。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">读取到的值；越界时返回 0。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="read_i8">
+			<signature>func read_i8() -&gt; int:</signature>
+			<description>读取一个有符号 8 位整数。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">读取到的值；越界时返回 0。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="try_read_u8">
+			<signature>func try_read_u8() -&gt; Dictionary:</signature>
+			<description>尝试读取一个无符号 8 位整数，并返回结构化报告。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">读取报告。</tag>
+				<tag name="schema">return: Dictionary with `ok: bool`, `value: int`, `error: int`, `position: int`, `next_position: int`.</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="try_read_i8">
+			<signature>func try_read_i8() -&gt; Dictionary:</signature>
+			<description>尝试读取一个有符号 8 位整数，并返回结构化报告。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">读取报告。</tag>
+				<tag name="schema">return: Dictionary with `ok: bool`, `value: int`, `error: int`, `position: int`, `next_position: int`.</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="read_u16">
+			<signature>func read_u16() -&gt; int:</signature>
+			<description>读取一个无符号 16 位整数。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">读取到的值；越界时返回 0。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="read_i16">
+			<signature>func read_i16() -&gt; int:</signature>
+			<description>读取一个有符号 16 位整数。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">读取到的值；越界时返回 0。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="try_read_u16">
+			<signature>func try_read_u16() -&gt; Dictionary:</signature>
+			<description>尝试读取一个无符号 16 位整数，并返回结构化报告。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">读取报告。</tag>
+				<tag name="schema">return: Dictionary with `ok: bool`, `value: int`, `error: int`, `position: int`, `next_position: int`.</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="try_read_i16">
+			<signature>func try_read_i16() -&gt; Dictionary:</signature>
+			<description>尝试读取一个有符号 16 位整数，并返回结构化报告。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">读取报告。</tag>
+				<tag name="schema">return: Dictionary with `ok: bool`, `value: int`, `error: int`, `position: int`, `next_position: int`.</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="read_u32">
+			<signature>func read_u32() -&gt; int:</signature>
+			<description>读取一个无符号 32 位整数。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">读取到的值；越界时返回 0。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="read_i32">
+			<signature>func read_i32() -&gt; int:</signature>
+			<description>读取一个有符号 32 位整数。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">读取到的值；越界时返回 0。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="try_read_u32">
+			<signature>func try_read_u32() -&gt; Dictionary:</signature>
+			<description>尝试读取一个无符号 32 位整数，并返回结构化报告。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">读取报告。</tag>
+				<tag name="schema">return: Dictionary with `ok: bool`, `value: int`, `error: int`, `position: int`, `next_position: int`.</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="try_read_i32">
+			<signature>func try_read_i32() -&gt; Dictionary:</signature>
+			<description>尝试读取一个有符号 32 位整数，并返回结构化报告。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">读取报告。</tag>
+				<tag name="schema">return: Dictionary with `ok: bool`, `value: int`, `error: int`, `position: int`, `next_position: int`.</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="read_var_uint">
+			<signature>func read_var_uint() -&gt; int:</signature>
+			<description>读取 Godot int 可表达范围内的 varuint，使用 7-bit continuation 编码。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">读取到的值；损坏或越界时返回 0。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="try_read_var_uint">
+			<signature>func try_read_var_uint() -&gt; Dictionary:</signature>
+			<description>尝试读取 Godot int 可表达范围内的 varuint，并返回结构化报告。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">读取报告。</tag>
+				<tag name="schema">return: Dictionary with `ok: bool`, `value: int`, `error: int`, `position: int`, `next_position: int`.</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="read_bytes">
+			<signature>func read_bytes(byte_count: int) -&gt; PackedByteArray:</signature>
+			<description>读取指定长度的字节。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">byte_count: 字节数。</tag>
+				<tag name="return">字节副本；越界时返回空数组。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="try_read_bytes">
+			<signature>func try_read_bytes(byte_count: int) -&gt; Dictionary:</signature>
+			<description>尝试读取指定长度的字节，并返回结构化报告。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">byte_count: 字节数。</tag>
+				<tag name="return">读取报告。</tag>
+				<tag name="schema">return: Dictionary with `ok: bool`, `value: PackedByteArray`, `error: int`, `position: int`, `next_position: int`.</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="read_utf8">
+			<signature>func read_utf8(byte_count: int) -&gt; String:</signature>
+			<description>读取 UTF-8 字符串。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">byte_count: 字节数。</tag>
+				<tag name="return">解码后的字符串。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="try_read_utf8">
+			<signature>func try_read_utf8(byte_count: int) -&gt; Dictionary:</signature>
+			<description>尝试读取 UTF-8 字符串，并返回结构化报告。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">byte_count: 字节数。</tag>
+				<tag name="return">读取报告。</tag>
+				<tag name="schema">return: Dictionary with `ok: bool`, `value: String`, `error: int`, `position: int`, `next_position: int`.</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="read_var_utf8">
+			<signature>func read_var_utf8() -&gt; String:</signature>
+			<description>读取 varuint 长度前缀的 UTF-8 字符串。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">解码后的字符串；长度或 UTF-8 校验失败时返回空字符串。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="try_read_var_utf8">
+			<signature>func try_read_var_utf8() -&gt; Dictionary:</signature>
+			<description>尝试读取 varuint 长度前缀的 UTF-8 字符串，并返回结构化报告。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">读取报告。</tag>
+				<tag name="schema">return: Dictionary with `ok: bool`, `value: String`, `error: int`, `position: int`, `next_position: int`.</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="write_u8">
+			<signature>func write_u8(value: int) -&gt; void:</signature>
+			<description>写入一个无符号 8 位整数。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">value: 要写入的值。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="write_i8">
+			<signature>func write_i8(value: int) -&gt; void:</signature>
+			<description>写入一个有符号 8 位整数。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">value: 要写入的值。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="write_u16">
+			<signature>func write_u16(value: int) -&gt; void:</signature>
+			<description>写入一个无符号 16 位整数。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">value: 要写入的值。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="write_i16">
+			<signature>func write_i16(value: int) -&gt; void:</signature>
+			<description>写入一个有符号 16 位整数。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">value: 要写入的值。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="write_u32">
+			<signature>func write_u32(value: int) -&gt; void:</signature>
+			<description>写入一个无符号 32 位整数。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">value: 要写入的值。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="write_i32">
+			<signature>func write_i32(value: int) -&gt; void:</signature>
+			<description>写入一个有符号 32 位整数。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">value: 要写入的值。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="write_var_uint">
+			<signature>func write_var_uint(value: int) -&gt; bool:</signature>
+			<description>写入 Godot int 可表达范围内的 varuint，使用 7-bit continuation 编码。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">value: 非负整数。</tag>
+				<tag name="return">写入成功返回 true。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="write_bytes">
+			<signature>func write_bytes(value: PackedByteArray) -&gt; void:</signature>
+			<description>写入字节数组。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">value: 要追加的字节。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="write_utf8">
+			<signature>func write_utf8(value: String) -&gt; void:</signature>
+			<description>写入 UTF-8 字符串。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">value: 要写入的字符串。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="write_var_utf8">
+			<signature>func write_var_utf8(value: String) -&gt; bool:</signature>
+			<description>写入 varuint 长度前缀的 UTF-8 字符串。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">value: 要写入的字符串。</tag>
+				<tag name="return">写入成功返回 true。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_last_error">
+			<signature>func get_last_error() -&gt; Error:</signature>
+			<description>获取最近错误码。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">最近错误码。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="clear_error">
+			<signature>func clear_error() -&gt; void:</signature>
+			<description>清除最近错误码。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_debug_snapshot">
+			<signature>func get_debug_snapshot() -&gt; Dictionary:</signature>
+			<description>获取调试快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">调试快照。</tag>
+				<tag name="schema">return: Dictionary，包含 size、position、remaining、little_endian 和 last_error。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFAsyncFlowTools" path="addons/gf/standard/common/gf_async_flow_tools.gd" module="standard" extends="RefCounted" classDigest="9d0dd4b9972c368d42694a510be27740d1f1bae5dad978b5761bc1631dc1b93b">
+	<description>GFAsyncFlowTools: 小型异步流程辅助。
+在现有 GFAsyncCompletion / GFAsyncWaitUtility 之上提供重试、顺序遍历和折叠。
+它不引入 Promise 类型，不调度后台线程，也不规定业务任务模型；调用方只需要
+提供 Callable，并接收稳定的结果字典。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_service</tag>
+		<tag name="since">6.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants>
+		<member kind="const" name="STATUS_SUCCEEDED">
+			<signature>const STATUS_SUCCEEDED: StringName = &amp;"succeeded"</signature>
+			<description>流程成功完成。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_FAILED">
+			<signature>const STATUS_FAILED: StringName = &amp;"failed"</signature>
+			<description>流程失败。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_CANCELLED">
+			<signature>const STATUS_CANCELLED: StringName = &amp;"cancelled"</signature>
+			<description>流程被取消。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties />
+	<methods>
+		<member kind="method" name="retry_async">
+			<signature>static func retry_async(operation: Callable, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>重试执行一个操作。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">operation: 要执行的操作。</tag>
+				<tag name="param">options: 重试选项。</tag>
+				<tag name="return">流程报告。</tag>
+				<tag name="schema">options: Dictionary，可包含 attempts、delay_seconds、tree、cancel_token、operation_options、pass_attempt 和 metadata。</tag>
+				<tag name="schema">return: Dictionary with ok, status, value, error, attempts, history, metadata, and optional cancel_reason.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="each_async">
+			<signature>static func each_async(items: Array, operation: Callable, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>顺序处理数组项。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">items: 要处理的项目列表。</tag>
+				<tag name="param">operation: 项目处理回调。</tag>
+				<tag name="param">options: 遍历选项。</tag>
+				<tag name="return">流程报告。</tag>
+				<tag name="schema">items: Array input items.</tag>
+				<tag name="schema">options: Dictionary，可包含 stop_on_failure、cancel_token、operation_options、pass_index 和 metadata。</tag>
+				<tag name="schema">return: Dictionary with ok, status, value, error, attempts, history, metadata, succeeded_count, and failed_count.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="fold_async">
+			<signature>static func fold_async(items: Array, reducer: Callable, initial_value: Variant, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>顺序折叠数组项。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">items: 要处理的项目列表。</tag>
+				<tag name="param">reducer: 折叠回调。</tag>
+				<tag name="param">initial_value: 初始累加值。</tag>
+				<tag name="param">options: 折叠选项。</tag>
+				<tag name="return">流程报告。</tag>
+				<tag name="schema">items: Array input items.</tag>
+				<tag name="schema">initial_value: Variant accumulator seed.</tag>
+				<tag name="schema">options: Dictionary，可包含 stop_on_failure、cancel_token、operation_options、pass_index 和 metadata。</tag>
+				<tag name="schema">return: Dictionary with ok, status, value, error, attempts, history, and metadata.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

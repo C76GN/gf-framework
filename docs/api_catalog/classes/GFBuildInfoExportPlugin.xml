@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFBuildInfoExportPlugin" path="addons/gf/standard/utilities/debug/editor/gf_build_info_export_plugin.gd" module="standard" extends="EditorExportPlugin" classDigest="027c375c6a80f983d5e02853782cdb784736fff5b02e9c9f4632a226cc5df96e">
+<class name="GFBuildInfoExportPlugin" path="addons/gf/standard/utilities/debug/editor/gf_build_info_export_plugin.gd" module="standard" extends="EditorExportPlugin" classDigest="e169d1e30f35326bedf32bc81c0abf8e6a6db6831892d0186b88e48bb265f838">
 	<description>GFBuildInfoExportPlugin: 导出时写入构建元数据的可选编辑器插件。
 只负责把外部构建流水线已提供的构建字段写入 ProjectSettings，项目仍可决定是否保存、
 是否恢复旧值以及如何展示这些字段。</description>
@@ -12,7 +12,7 @@
 	<enums />
 	<constants>
 		<member kind="const" name="ENABLED_SETTING">
-			<signature>const ENABLED_SETTING: String = "gf/build/export/write_metadata"</signature>
+			<signature>const ENABLED_SETTING: String = GFBuildInfo.EXPORT_ENABLED_SETTING</signature>
 			<description>是否在导出开始时写入构建元数据的 ProjectSettings 键。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -20,7 +20,7 @@
 			</tags>
 		</member>
 		<member kind="const" name="BUILD_METADATA_SETTING">
-			<signature>const BUILD_METADATA_SETTING: String = "gf/build/export/build_metadata"</signature>
+			<signature>const BUILD_METADATA_SETTING: String = GFBuildInfo.EXPORT_BUILD_METADATA_SETTING</signature>
 			<description>导出时写入 ProjectSettings 的构建元数据字典键。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -29,24 +29,27 @@
 			</tags>
 		</member>
 		<member kind="const" name="RESTORE_PREVIOUS_SETTING">
-			<signature>const RESTORE_PREVIOUS_SETTING: String = "gf/build/export/restore_previous_settings"</signature>
+			<signature>const RESTORE_PREVIOUS_SETTING: String = GFBuildInfo.EXPORT_RESTORE_PREVIOUS_SETTING</signature>
 			<description>导出结束后是否恢复旧构建元数据的 ProjectSettings 键。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="SAVE_PROJECT_SETTINGS_SETTING">
-			<signature>const SAVE_PROJECT_SETTINGS_SETTING: String = "gf/build/export/save_project_settings"</signature>
+			<signature>const SAVE_PROJECT_SETTINGS_SETTING: String = GFBuildInfo.EXPORT_SAVE_PROJECT_SETTINGS_SETTING</signature>
 			<description>写入或恢复后是否立即保存 ProjectSettings 的设置键。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="EXTRA_METADATA_SETTING">
-			<signature>const EXTRA_METADATA_SETTING: String = "gf/build/export/metadata"</signature>
+			<signature>const EXTRA_METADATA_SETTING: String = GFBuildInfo.EXPORT_EXTRA_METADATA_SETTING</signature>
 			<description>导出时附加到构建信息中的自定义元数据 ProjectSettings 键。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
 			</tags>
 		</member>
 	</constants>

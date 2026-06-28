@@ -146,6 +146,7 @@ func init() -> void:
 func dispose() -> void:
 	clear_queue(true)
 	if is_instance_valid(_http_request):
+		_http_request.cancel_request()
 		_http_request.queue_free()
 	_http_request = null
 	_results.clear()
@@ -235,13 +236,32 @@ func enqueue_download(
 		push_error("[GFDownloadUtility] enqueue_download 失败：url 或 target_path 为空。")
 		return 0
 
+	var safe_target_path: String = _normalize_direct_download_path(target_path)
+	if safe_target_path.is_empty():
+		push_error("[GFDownloadUtility] enqueue_download 失败：target_path 不在受控 res:// 或 user:// 根内：%s。" % target_path)
+		return 0
+
+	var default_temp_path: String = safe_target_path + default_temp_suffix
+	var temp_path: String = GFVariantData.get_option_string(options, "temp_path", default_temp_path)
+	var safe_temp_path: String = _normalize_direct_download_path(temp_path)
+	if safe_temp_path.is_empty() or not _download_paths_share_root(safe_target_path, safe_temp_path):
+		push_error("[GFDownloadUtility] enqueue_download 失败：temp_path 不在 target_path 同一受控根内：%s。" % temp_path)
+		return 0
+
+	var default_segment_path: String = safe_temp_path + default_segment_suffix
+	var segment_path: String = GFVariantData.get_option_string(options, "segment_path", default_segment_path)
+	var safe_segment_path: String = _normalize_direct_download_path(segment_path)
+	if safe_segment_path.is_empty() or not _download_paths_share_root(safe_target_path, safe_segment_path):
+		push_error("[GFDownloadUtility] enqueue_download 失败：segment_path 不在 target_path 同一受控根内：%s。" % segment_path)
+		return 0
+
 	var task: GFDownloadTask = GFDownloadTask.new()
 	task.task_id = _next_task_id
 	_next_task_id += 1
 	task.url = url
-	task.target_path = target_path
-	task.temp_path = GFVariantData.get_option_string(options, "temp_path", target_path + default_temp_suffix)
-	task.segment_path = GFVariantData.get_option_string(options, "segment_path", task.temp_path + default_segment_suffix)
+	task.target_path = safe_target_path
+	task.temp_path = safe_temp_path
+	task.segment_path = safe_segment_path
 	task.headers = _normalize_headers(GFVariantData.get_option_value(options, "headers", PackedStringArray()))
 	task.expected_sha256 = GFVariantData.get_option_string(options, "expected_sha256").to_lower()
 	task.resume = GFVariantData.get_option_bool(options, "resume", true)
@@ -343,8 +363,7 @@ func cancel(task_id: int, delete_temp: bool = false) -> bool:
 
 	if _active_task != null and _active_task.task_id == task_id:
 		var task: GFDownloadTask = _active_task
-		if is_instance_valid(_http_request):
-			_http_request.cancel_request()
+		_cancel_and_discard_http_request()
 		_active_task = null
 		_active_request_data.clear()
 		task.status = GFDownloadTask.Status.CANCELLED
@@ -937,6 +956,13 @@ func _ensure_http_request() -> HTTPRequest:
 	return _http_request
 
 
+func _cancel_and_discard_http_request() -> void:
+	if is_instance_valid(_http_request):
+		_http_request.cancel_request()
+		_http_request.queue_free()
+	_http_request = null
+
+
 func _commit_download_file(task: GFDownloadTask, request_data: Dictionary, response_code: int) -> Error:
 	var resume_offset: int = GFVariantData.get_option_int(request_data, "resume_offset")
 	if resume_offset > 0:
@@ -1038,8 +1064,7 @@ func _pause_active_task() -> void:
 
 	var task: GFDownloadTask = _active_task
 	task.status = GFDownloadTask.Status.PAUSED
-	if is_instance_valid(_http_request):
-		_http_request.cancel_request()
+	_cancel_and_discard_http_request()
 	_active_task = null
 	_active_request_data.clear()
 	_pending_tasks.push_front(task)
@@ -1091,6 +1116,28 @@ func _is_safe_relative_download_path(path: String) -> bool:
 	if path == "." or path.get_file().is_empty() or _has_parent_path_segment(path):
 		return false
 	return true
+
+
+func _normalize_direct_download_path(path: String) -> String:
+	var normalized: String = path.replace("\\", "/").strip_edges()
+	if not _is_supported_absolute_target_path(normalized):
+		return ""
+	var relative_path: String = normalized.trim_prefix("res://").trim_prefix("user://")
+	if relative_path.is_empty() or relative_path.get_file().is_empty() or _has_parent_path_segment(relative_path):
+		return ""
+	return normalized.simplify_path()
+
+
+func _download_paths_share_root(left_path: String, right_path: String) -> bool:
+	return _download_path_root(left_path) == _download_path_root(right_path)
+
+
+func _download_path_root(path: String) -> String:
+	if path.begins_with("res://"):
+		return "res://"
+	if path.begins_with("user://"):
+		return "user://"
+	return ""
 
 
 func _has_parent_path_segment(path: String) -> bool:

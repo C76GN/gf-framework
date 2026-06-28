@@ -45,6 +45,50 @@ func test_tag_utility_reads_object_protocol_and_dictionary_sources() -> void:
 	assert_eq(component.get_tags(), PackedStringArray(["state.burning"]), "对象标签协议应提供可枚举快照。")
 
 
+func test_tag_source_adapter_uses_object_has_tag_for_exact_minimum_count() -> void:
+	var source: HasTagOnlySource = HasTagOnlySource.new()
+
+	assert_true(GFTagSourceAdapter.source_has_tag(source, &"charged", 2), "对象只实现 has_tag 时，精确匹配仍应传入 minimum_count。")
+	assert_false(GFTagSourceAdapter.source_has_tag(source, &"charged", 3), "minimum_count 不满足时不应因为无法枚举而误判通过。")
+	assert_false(GFTagSourceAdapter.source_has_tag(source, &"charged", 2, true), "层级匹配需要可枚举标签源，不能用 has_tag 伪装。")
+
+
+func test_tag_set_hierarchical_count_refreshes_after_direct_tag_counts_mutation() -> void:
+	var tag_set: GFTagSet = GFTagSet.new()
+	var _burning_added: GFTagSet = tag_set.add_tag(&"state.burning", 2)
+	var first_count: int = tag_set.get_tag_count(&"state", true)
+
+	tag_set.tag_counts[&"state.frozen"] = 3
+	var second_count: int = tag_set.get_tag_count(&"state", true)
+
+	assert_eq(first_count, 2, "首次层级计数应包含子标签。")
+	assert_eq(second_count, 5, "直接修改 tag_counts 后层级计数缓存应刷新。")
+
+
+func test_tag_set_hierarchical_count_signature_escapes_delimiters() -> void:
+	var tag_set: GFTagSet = GFTagSet.new()
+	tag_set.tag_counts = {
+		&"a=1|b": 2,
+	}
+	var first_count: int = tag_set.get_tag_count(&"a=1|b", true)
+
+	tag_set.tag_counts = {
+		&"a": 1,
+		&"b": 2,
+	}
+	var second_count: int = tag_set.get_tag_count(&"a", true)
+
+	assert_eq(first_count, 2, "首次查询应建立层级计数缓存。")
+	assert_eq(second_count, 1, "包含分隔符的旧标签不应让不同 tag_counts 复用缓存。")
+
+
+func test_tag_source_adapter_supports_one_argument_has_tag_protocol() -> void:
+	var source: OneArgumentHasTagSource = OneArgumentHasTagSource.new()
+
+	assert_true(GFTagSourceAdapter.source_has_tag(source, &"ready"), "一参数 has_tag 协议应能用于精确匹配。")
+	assert_false(GFTagSourceAdapter.source_has_tag(source, &"missing"), "一参数 has_tag 协议仍应保留对象自身判断。")
+
+
 func test_tag_source_adapter_normalizes_sources_to_counts_and_sets() -> void:
 	var dictionary_source: Dictionary = {
 		"tag_counts": {
@@ -94,3 +138,17 @@ class SampleTagSource:
 
 	func get_tags() -> PackedStringArray:
 		return _tags.get_tags()
+
+
+class HasTagOnlySource:
+	extends RefCounted
+
+	func has_tag(tag: StringName, minimum_count: int = 1) -> bool:
+		return tag == &"charged" and minimum_count <= 2
+
+
+class OneArgumentHasTagSource:
+	extends RefCounted
+
+	func has_tag(tag: StringName) -> bool:
+		return tag == &"ready"

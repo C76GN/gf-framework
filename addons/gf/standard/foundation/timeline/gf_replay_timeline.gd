@@ -42,11 +42,13 @@ var timeline_id: StringName = &""
 ## @api public
 var duration_seconds: float = 0.0
 
-## 事件列表。每项包含 time_seconds、event_kind、payload 和 metadata。
+## 事件列表。每项包含 time_seconds、event_kind、sequence、payload 和 metadata。
 ## [br]
 ## @api public
 ## [br]
-## @schema events: Array[Dictionary]，包含 time_seconds: float、event_kind: StringName、payload: Variant 和 metadata: Dictionary。
+## @since 3.20.0
+## [br]
+## @schema events: Array[Dictionary]，包含 time_seconds: float、event_kind: StringName、sequence: int、payload: Variant 和 metadata: Dictionary。
 var events: Array[Dictionary] = []
 
 ## 项目自定义元数据。框架不解释该字段。
@@ -55,6 +57,11 @@ var events: Array[Dictionary] = []
 ## [br]
 ## @schema metadata: Dictionary，项目持有的录制、诊断或工具数据。
 var metadata: Dictionary = {}
+
+
+# --- 私有变量 ---
+
+var _next_event_sequence: int = 0
 
 
 # --- 公共方法 ---
@@ -84,17 +91,10 @@ func add_event(
 	payload: Variant = null,
 	event_metadata: Dictionary = {}
 ) -> Dictionary:
-	var clamped_time: float = maxf(time_seconds, 0.0)
-	var event: Dictionary = {
-		"time_seconds": clamped_time,
-		"event_kind": event_kind,
-		"payload": GFVariantData.duplicate_variant(payload),
-		"metadata": event_metadata.duplicate(true),
-	}
-	events.append(event)
-	duration_seconds = maxf(duration_seconds, clamped_time)
+	var event: Dictionary = _make_event(time_seconds, event_kind, payload, event_metadata)
+	_append_event_unsorted(event)
 	sort_events()
-	return event
+	return event.duplicate(true)
 
 
 ## 添加通用命令事件。
@@ -207,13 +207,16 @@ func append_timeline(
 		if not filter.is_empty() and not filter.has(event_kind):
 			continue
 		var event_metadata: Dictionary = GFVariantData.to_dictionary(GFVariantData.get_option_value(event, "metadata", {}))
-		var _appended_event: Dictionary = add_event(
+		var appended_event: Dictionary = _make_event(
 			_get_event_time(event) + time_offset,
 			event_kind,
 			GFVariantData.get_option_value(event, "payload"),
 			event_metadata
 		)
+		_append_event_unsorted(appended_event)
 		appended += 1
+	if appended > 0:
+		sort_events()
 	return appended
 
 
@@ -223,6 +226,7 @@ func append_timeline(
 func clear() -> void:
 	events.clear()
 	duration_seconds = 0.0
+	_next_event_sequence = 0
 
 
 ## 检查时间线是否为空。
@@ -247,11 +251,13 @@ func get_event_count() -> int:
 ## [br]
 ## @api public
 func sort_events() -> void:
+	for event: Dictionary in events:
+		_assign_restored_event_sequence(event)
 	events.sort_custom(func(left: Dictionary, right: Dictionary) -> bool:
 		var left_time: float = _get_event_time(left)
 		var right_time: float = _get_event_time(right)
 		if is_equal_approx(left_time, right_time):
-			return _get_event_kind_text(left) < _get_event_kind_text(right)
+			return _get_event_sequence(left) < _get_event_sequence(right)
 		return left_time < right_time
 	)
 
@@ -363,15 +369,21 @@ func apply_dictionary(data: Dictionary, json_compatible: bool = false) -> void:
 	timeline_id = GFVariantData.get_option_string_name(data, "timeline_id")
 	duration_seconds = maxf(GFVariantData.get_option_float(data, "duration_seconds"), 0.0)
 	events.clear()
+	_next_event_sequence = 0
+	var max_event_time: float = 0.0
 	var serialized_events: Array = GFVariantData.get_option_array(data, "events")
 	for event_value: Variant in serialized_events:
 		if event_value is Dictionary:
 			var event_dictionary: Dictionary = event_value
-			events.append(_event_from_dictionary(event_dictionary, json_compatible))
+			var restored_event: Dictionary = _event_from_dictionary(event_dictionary, json_compatible)
+			_assign_restored_event_sequence(restored_event)
+			max_event_time = maxf(max_event_time, _get_event_time(restored_event))
+			events.append(restored_event)
 
 	var metadata_value: Variant = GFVariantData.get_option_value(data, "metadata", {})
 	metadata_value = GFVariantJsonCodec.json_compatible_to_variant(metadata_value) if json_compatible else GFVariantData.duplicate_variant(metadata_value)
 	metadata = GFVariantData.to_dictionary(metadata_value)
+	duration_seconds = maxf(duration_seconds, max_event_time)
 	sort_events()
 
 
@@ -394,10 +406,32 @@ static func from_dictionary(data: Dictionary, json_compatible: bool = false) -> 
 
 # --- 私有/辅助方法 ---
 
+func _make_event(
+	time_seconds: float,
+	event_kind: StringName,
+	payload: Variant,
+	event_metadata: Dictionary
+) -> Dictionary:
+	var clamped_time: float = maxf(time_seconds, 0.0)
+	return {
+		"time_seconds": clamped_time,
+		"event_kind": event_kind,
+		"sequence": _take_event_sequence(),
+		"payload": GFVariantData.duplicate_variant(payload),
+		"metadata": event_metadata.duplicate(true),
+	}
+
+
+func _append_event_unsorted(event: Dictionary) -> void:
+	events.append(event)
+	duration_seconds = maxf(duration_seconds, _get_event_time(event))
+
+
 func _event_to_dictionary(event: Dictionary, json_compatible: bool) -> Dictionary:
 	return {
 		"time_seconds": _get_event_time(event),
 		"event_kind": _get_event_kind_text(event),
+		"sequence": _get_event_sequence(event),
 		"payload": GFVariantJsonCodec.variant_to_json_compatible(GFVariantData.get_option_value(event, "payload")) if json_compatible else GFVariantData.duplicate_variant(GFVariantData.get_option_value(event, "payload")),
 		"metadata": GFVariantJsonCodec.variant_to_json_compatible(GFVariantData.get_option_value(event, "metadata", {})) if json_compatible else GFVariantData.duplicate_variant(GFVariantData.get_option_value(event, "metadata", {})),
 	}
@@ -411,6 +445,7 @@ func _event_from_dictionary(event: Dictionary, json_compatible: bool) -> Diction
 	return {
 		"time_seconds": maxf(_get_event_time(event), 0.0),
 		"event_kind": _get_event_kind(event),
+		"sequence": GFVariantData.get_option_int(event, "sequence", -1),
 		"payload": payload,
 		"metadata": GFVariantData.to_dictionary(event_metadata),
 	}
@@ -434,6 +469,24 @@ func _get_event_kind(event: Dictionary) -> StringName:
 
 func _get_event_kind_text(event: Dictionary) -> String:
 	return GFVariantData.get_option_string(event, "event_kind")
+
+
+func _get_event_sequence(event: Dictionary) -> int:
+	return GFVariantData.get_option_int(event, "sequence", 0)
+
+
+func _take_event_sequence() -> int:
+	var event_sequence: int = _next_event_sequence
+	_next_event_sequence += 1
+	return event_sequence
+
+
+func _assign_restored_event_sequence(event: Dictionary) -> void:
+	var event_sequence: int = GFVariantData.get_option_int(event, "sequence", -1)
+	if event_sequence < 0:
+		event["sequence"] = _take_event_sequence()
+		return
+	_next_event_sequence = maxi(_next_event_sequence, event_sequence + 1)
 
 
 func _get_object_property(target: Object, property_name: String) -> Variant:

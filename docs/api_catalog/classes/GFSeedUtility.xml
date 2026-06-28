@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSeedUtility" path="addons/gf/standard/utilities/random/gf_seed_utility.gd" module="standard" extends="GFUtility" classDigest="4fefeacf6aceeaa745ff6a0149ed6a3a8a3272a681e01e2ebf52bd3acaeee521">
+<class name="GFSeedUtility" path="addons/gf/standard/utilities/random/gf_seed_utility.gd" module="standard" extends="GFUtility" classDigest="8b27f5accdfc7953a5f3b99c71c2ad23a7d3e77041518735548d3632aaf68a3f">
 	<description>GFSeedUtility: 全局随机数种子管理器。
 内部维护一个主 RandomNumberGenerator，并支持基于字符串标签派生
-出独立的 Godot RNG 或 GF 固定算法随机源。Godot RNG 分支适合
-同一 Godot 环境内的运行时复现；需要跨 GF 版本固定序列时使用
-deterministic 分支。</description>
+出独立的 Godot RNG 或 GF 固定算法随机源。Godot RNG 分支只承诺
+同一 Godot 运行时随机算法下的复现；需要长期、跨运行时强确定性时，
+使用 deterministic 分支。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">runtime_service</tag>
@@ -85,13 +85,27 @@ deterministic 分支。</description>
 		</member>
 		<member kind="method" name="get_branched_rng">
 			<signature>func get_branched_rng(string_seed: String) -&gt; RandomNumberGenerator:</signature>
-			<description>基于主 RNG 当前状态与字符串标签，派生出一个独立的子 RNG。
+			<description>基于主 RNG 当前状态与字符串标签，派生出一个独立的 Godot 子 RNG。
 每次调用只推进当前标签的分支计数，不推进主 RNG 的随机序列。
-同一主状态、同一标签和同一调用序号会产生确定的子随机序列。</description>
+同一主状态、同一标签和同一调用序号会在同一 Godot 随机算法下产生可复现的子随机序列。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="deprecated">5.2.0 Use get_branched_godot_rng() when a Godot RandomNumberGenerator stream is required; use get_branched_deterministic_random() for long-term deterministic simulation.</tag>
 				<tag name="param">string_seed: 用于标识子随机流用途的字符串（如 "loot_table"、"enemy_ai"）。</tag>
 				<tag name="return">一个已完成种子初始化的独立 RandomNumberGenerator 实例。</tag>
+				<tag name="since">3.17.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_branched_godot_rng">
+			<signature>func get_branched_godot_rng(string_seed: String) -&gt; RandomNumberGenerator:</signature>
+			<description>基于主 RNG 当前状态与字符串标签，派生出一个独立的 Godot 子 RNG。
+每次调用只推进当前标签的 Godot RNG 分支计数，不推进主 RNG 的随机序列。
+该入口返回 Godot `RandomNumberGenerator`，适合非锁步玩法、编辑器工具和同一 Godot 版本内复现；不作为跨 Godot 版本固定序列契约。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">string_seed: 用于标识子随机流用途的字符串。</tag>
+				<tag name="return">一个已完成种子初始化的独立 RandomNumberGenerator 实例。</tag>
+				<tag name="since">5.2.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_branched_deterministic_random">

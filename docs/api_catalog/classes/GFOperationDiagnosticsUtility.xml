@@ -1,0 +1,410 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFOperationDiagnosticsUtility" path="addons/gf/standard/utilities/debug/gf_operation_diagnostics_utility.gd" module="standard" extends="GFUtility" classDigest="3aa6d5a313af0340c438ed3c8eeff362d782389d6f4766083950a64414234618">
+	<description>GFOperationDiagnosticsUtility: 通用操作诊断时间线。
+记录开发工具、运行时服务或项目流程的操作、阶段耗时和异常事件，并提供有界历史、健康快照和可复制摘要。
+该工具只保存结构化诊断数据，不绑定编辑器 UI、远程服务、外部协议或业务语义。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_service</tag>
+		<tag name="since">7.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants>
+		<member kind="const" name="DEFAULT_MAX_OPERATIONS">
+			<signature>const DEFAULT_MAX_OPERATIONS: int = 100</signature>
+			<description>默认保留的操作数量。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="DEFAULT_MAX_INCIDENTS">
+			<signature>const DEFAULT_MAX_INCIDENTS: int = 200</signature>
+			<description>默认保留的异常事件数量。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="DEFAULT_MAX_STATE_TRACE_ENTRIES">
+			<signature>const DEFAULT_MAX_STATE_TRACE_ENTRIES: int = 64</signature>
+			<description>单个操作默认保留的状态轨迹数量。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="DEFAULT_SLOW_OPERATION_THRESHOLD_MS">
+			<signature>const DEFAULT_SLOW_OPERATION_THRESHOLD_MS: float = 1200.0</signature>
+			<description>默认慢操作阈值，单位毫秒。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="SEVERITY_INFO">
+			<signature>const SEVERITY_INFO: StringName = &amp;"info"</signature>
+			<description>信息级事件。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="SEVERITY_WARNING">
+			<signature>const SEVERITY_WARNING: StringName = &amp;"warning"</signature>
+			<description>警告级事件。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="SEVERITY_ERROR">
+			<signature>const SEVERITY_ERROR: StringName = &amp;"error"</signature>
+			<description>错误级事件。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="SEVERITY_CRITICAL">
+			<signature>const SEVERITY_CRITICAL: StringName = &amp;"critical"</signature>
+			<description>严重错误级事件。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATE_PENDING">
+			<signature>const STATE_PENDING: StringName = &amp;"pending"</signature>
+			<description>操作状态：等待开始或排队中。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATE_RUNNING">
+			<signature>const STATE_RUNNING: StringName = &amp;"running"</signature>
+			<description>操作状态：正在运行。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATE_WAITING_FOR_USER">
+			<signature>const STATE_WAITING_FOR_USER: StringName = &amp;"waiting_for_user"</signature>
+			<description>操作状态：等待用户或上层流程做出决策。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATE_RETRYING">
+			<signature>const STATE_RETRYING: StringName = &amp;"retrying"</signature>
+			<description>操作状态：正在重试。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATE_SUCCEEDED">
+			<signature>const STATE_SUCCEEDED: StringName = &amp;"succeeded"</signature>
+			<description>操作状态：已成功。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATE_FAILED">
+			<signature>const STATE_FAILED: StringName = &amp;"failed"</signature>
+			<description>操作状态：已失败。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATE_CANCELLED">
+			<signature>const STATE_CANCELLED: StringName = &amp;"cancelled"</signature>
+			<description>操作状态：已取消。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties>
+		<member kind="property" name="max_operations">
+			<signature>var max_operations: int = DEFAULT_MAX_OPERATIONS:</signature>
+			<description>最多保留的操作记录数量。设置为 0 时不保留操作历史。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="max_incidents">
+			<signature>var max_incidents: int = DEFAULT_MAX_INCIDENTS:</signature>
+			<description>最多保留的异常事件数量。设置为 0 时不保留异常历史。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="max_state_trace_entries">
+			<signature>var max_state_trace_entries: int = DEFAULT_MAX_STATE_TRACE_ENTRIES:</signature>
+			<description>单个操作最多保留的状态轨迹数量。设置为 0 时不保留状态轨迹。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="slow_operation_threshold_ms">
+			<signature>var slow_operation_threshold_ms: float = DEFAULT_SLOW_OPERATION_THRESHOLD_MS</signature>
+			<description>超过该耗时的完成操作会在健康快照中计入慢操作，单位毫秒。小于 0 时禁用慢操作统计。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="dispose">
+			<signature>func dispose() -&gt; void:</signature>
+			<description>清理所有已记录的诊断数据。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="clear">
+			<signature>func clear() -&gt; void:</signature>
+			<description>清空操作和异常历史，并重置序列。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="begin_operation">
+			<signature>func begin_operation(operation_type: StringName, options: Dictionary = {}) -&gt; StringName:</signature>
+			<description>开始记录一个操作。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">operation_type: 操作类型，建议使用稳定的命名空间标识。</tag>
+				<tag name="param">options: 可选参数，支持 operation_id、component、label、metadata 和 started_ticks_usec。</tag>
+				<tag name="return">操作 ID；operation_type 为空时返回空 StringName。</tag>
+				<tag name="schema">options: Dictionary，支持 operation_id、component、label、metadata 和 started_ticks_usec。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="record_completed_operation">
+			<signature>func record_completed_operation( operation_type: StringName, duration_ms: float, success: bool = true, options: Dictionary = {} ) -&gt; Dictionary:</signature>
+			<description>直接记录一个已完成操作。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">operation_type: 操作类型。</tag>
+				<tag name="param">duration_ms: 操作耗时，单位毫秒。</tag>
+				<tag name="param">success: 操作是否成功。</tag>
+				<tag name="param">options: 可选参数，支持 operation_id、component、label、metadata、anomaly_codes、started_ticks_usec 和 ended_ticks_usec。</tag>
+				<tag name="return">操作记录副本；operation_type 为空时返回空字典。</tag>
+				<tag name="schema">options: Dictionary，支持 operation_id、component、label、metadata、anomaly_codes、started_ticks_usec 和 ended_ticks_usec。</tag>
+				<tag name="schema">return: Dictionary，包含 operation_id、operation_type、component、state、duration_ms、phases、anomaly_codes 和 metadata 等字段。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="record_phase">
+			<signature>func record_phase( operation_id: StringName, phase_id: StringName, duration_ms: float, options: Dictionary = {} ) -&gt; Dictionary:</signature>
+			<description>为已有操作记录一个阶段耗时。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">operation_id: begin_operation() 返回的操作 ID。</tag>
+				<tag name="param">phase_id: 阶段标识。</tag>
+				<tag name="param">duration_ms: 阶段耗时，单位毫秒。</tag>
+				<tag name="param">options: 可选参数，支持 component、label、metadata、started_ticks_usec 和 ended_ticks_usec。</tag>
+				<tag name="return">阶段记录副本；操作或阶段不存在时返回空字典。</tag>
+				<tag name="schema">options: Dictionary，支持 component、label、metadata、started_ticks_usec 和 ended_ticks_usec。</tag>
+				<tag name="schema">return: Dictionary，包含 phase_id、component、label、duration_ms、started_ticks_usec、ended_ticks_usec 和 metadata。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="record_phase_from_ticks">
+			<signature>func record_phase_from_ticks( operation_id: StringName, phase_id: StringName, started_ticks_usec: int, options: Dictionary = {} ) -&gt; Dictionary:</signature>
+			<description>使用 Godot tick 起点记录一个阶段耗时。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">operation_id: begin_operation() 返回的操作 ID。</tag>
+				<tag name="param">phase_id: 阶段标识。</tag>
+				<tag name="param">started_ticks_usec: 阶段开始时的 Time.get_ticks_usec()。</tag>
+				<tag name="param">options: 可选参数，支持 component、label、metadata 和 ended_ticks_usec。</tag>
+				<tag name="return">阶段记录副本；操作或阶段不存在时返回空字典。</tag>
+				<tag name="schema">options: Dictionary，支持 component、label、metadata 和 ended_ticks_usec。</tag>
+				<tag name="schema">return: Dictionary，包含 phase_id、component、label、duration_ms、started_ticks_usec、ended_ticks_usec 和 metadata。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="record_state_snapshot">
+			<signature>func record_state_snapshot( operation_id: StringName, state_id: StringName, status: StringName = STATE_RUNNING, options: Dictionary = {} ) -&gt; Dictionary:</signature>
+			<description>为已有操作记录一个状态快照。
+状态快照用于表达长流程当前阶段、重试次数、进度、是否等待用户决策和错误信息。
+它只写入结构化诊断，不决定业务如何重试、下载、弹窗或恢复。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">operation_id: begin_operation() 返回的操作 ID。</tag>
+				<tag name="param">state_id: 调用方定义的稳定状态 ID。</tag>
+				<tag name="param">status: 状态，建议使用 STATE_* 常量。</tag>
+				<tag name="param">options: 可选参数，支持 component、label、attempt、max_attempts、progress、progress_current、progress_total、user_action_required、error、metadata、seen_ticks_usec。</tag>
+				<tag name="return">状态快照副本；操作或状态不存在时返回空字典。</tag>
+				<tag name="schema">options: Dictionary，支持 component、label、attempt、max_attempts、progress、progress_current、progress_total、user_action_required、error、metadata、seen_ticks_usec。</tag>
+				<tag name="schema">return: Dictionary，包含 state_id、status、attempt、max_attempts、progress、user_action_required、error 和 metadata。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="finish_operation">
+			<signature>func finish_operation(operation_id: StringName, success: bool = true, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>结束一个操作并写入最终状态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">operation_id: begin_operation() 返回的操作 ID。</tag>
+				<tag name="param">success: 操作是否成功。</tag>
+				<tag name="param">options: 可选参数，支持 metadata、anomaly_codes、ended_ticks_usec 和 duration_ms。</tag>
+				<tag name="return">完整操作记录副本；操作不存在时返回空字典。</tag>
+				<tag name="schema">options: Dictionary，支持 metadata、anomaly_codes、ended_ticks_usec 和 duration_ms。</tag>
+				<tag name="schema">return: Dictionary，包含 operation_id、operation_type、component、state、duration_ms、phases、anomaly_codes 和 metadata 等字段。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="record_incident">
+			<signature>func record_incident( severity: StringName, code: StringName, message: String = "", options: Dictionary = {} ) -&gt; Dictionary:</signature>
+			<description>记录一个异常事件；同类事件会聚合 occurrence_count 并更新时间。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">severity: 事件等级，建议使用 SEVERITY_INFO / WARNING / ERROR / CRITICAL。</tag>
+				<tag name="param">code: 稳定事件代码。</tag>
+				<tag name="param">message: 面向维护者的简短说明。</tag>
+				<tag name="param">options: 可选参数，支持 category、component、phase、recoverable、suggested_action 和 metadata。</tag>
+				<tag name="return">异常事件记录副本；code 为空时返回空字典。</tag>
+				<tag name="schema">options: Dictionary，支持 category、component、phase、recoverable、suggested_action 和 metadata。</tag>
+				<tag name="schema">return: Dictionary，包含 incident_id、severity、category、code、message、component、phase、occurrence_count、recoverable、suggested_action 和 metadata。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="record_async_snapshot">
+			<signature>func record_async_snapshot( operation_type: StringName, snapshot: Dictionary, options: Dictionary = {} ) -&gt; Dictionary:</signature>
+			<description>将异步对象的状态快照记录为操作诊断。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">operation_type: 操作类型，建议使用稳定的命名空间标识。</tag>
+				<tag name="param">snapshot: 异步对象提供的状态快照。</tag>
+				<tag name="param">options: 可选参数，支持 operation_id、component、label、metadata、duration_ms 和 incident_message。</tag>
+				<tag name="return">操作记录副本；operation_type 为空时返回空字典。</tag>
+				<tag name="schema">snapshot: Dictionary，可包含 completed、success、failed、cancelled、timed_out、status、status_name、duration_msec、duration_ms、error、reason、cancel_reason 和 metadata。</tag>
+				<tag name="schema">options: Dictionary，支持 operation_id、component、label、metadata、duration_ms 和 incident_message。</tag>
+				<tag name="schema">return: Dictionary，包含 operation_id、operation_type、component、state、duration_ms、phases、anomaly_codes 和 metadata 等字段。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="has_operation">
+			<signature>func has_operation(operation_id: StringName) -&gt; bool:</signature>
+			<description>检查操作是否仍在历史中。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">operation_id: 操作 ID。</tag>
+				<tag name="return">存在返回 true。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_operation">
+			<signature>func get_operation(operation_id: StringName) -&gt; Dictionary:</signature>
+			<description>获取单个操作记录副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">operation_id: 操作 ID。</tag>
+				<tag name="return">操作记录副本；不存在时返回空字典。</tag>
+				<tag name="schema">return: Dictionary，包含 operation_id、operation_type、component、state、duration_ms、phases、anomaly_codes 和 metadata 等字段。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_operation_state_trace">
+			<signature>func get_operation_state_trace(operation_id: StringName, limit: int = 0) -&gt; Array[Dictionary]:</signature>
+			<description>获取单个操作的状态轨迹。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">operation_id: 操作 ID。</tag>
+				<tag name="param">limit: 最大返回数量；小于等于 0 时返回全部状态。</tag>
+				<tag name="return">状态快照数组，按记录顺序返回。</tag>
+				<tag name="schema">return: Array[Dictionary] state snapshot records.</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_operations">
+			<signature>func get_operations(limit: int = 0, filters: Dictionary = {}) -&gt; Array[Dictionary]:</signature>
+			<description>获取操作历史。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">limit: 最大返回数量；小于等于 0 时返回全部匹配记录。</tag>
+				<tag name="param">filters: 过滤条件，支持 operation_type、component、state 和 success。</tag>
+				<tag name="return">操作记录数组，按最近更新倒序排列。</tag>
+				<tag name="schema">filters: Dictionary，支持 operation_type、component、state 和 success。</tag>
+				<tag name="schema">return: Array[Dictionary]，每个元素是操作记录副本。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_incidents">
+			<signature>func get_incidents(limit: int = 0, filters: Dictionary = {}) -&gt; Array[Dictionary]:</signature>
+			<description>获取异常事件历史。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">limit: 最大返回数量；小于等于 0 时返回全部匹配记录。</tag>
+				<tag name="param">filters: 过滤条件，支持 severity、category、component、phase 和 code。</tag>
+				<tag name="return">异常事件数组，按最近更新倒序排列。</tag>
+				<tag name="schema">filters: Dictionary，支持 severity、category、component、phase 和 code。</tag>
+				<tag name="schema">return: Array[Dictionary]，每个元素是异常事件记录副本。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_timeline">
+			<signature>func get_timeline(limit: int = 0, filters: Dictionary = {}) -&gt; Array[Dictionary]:</signature>
+			<description>获取合并后的操作和异常时间线。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">limit: 最大返回数量；小于等于 0 时返回全部匹配记录。</tag>
+				<tag name="param">filters: 过滤条件，支持 entry_type、operation_type、severity、category、component、phase、state、success 和 code。</tag>
+				<tag name="return">时间线记录数组，按最近更新倒序排列。</tag>
+				<tag name="schema">filters: Dictionary，支持 entry_type、operation_type、severity、category、component、phase、state、success 和 code。</tag>
+				<tag name="schema">return: Array[Dictionary]，每个元素是操作或异常事件记录副本。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_health_snapshot">
+			<signature>func get_health_snapshot(limit: int = 5) -&gt; Dictionary:</signature>
+			<description>生成健康快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">limit: recent_operations 与 recent_incidents 的最大数量。</tag>
+				<tag name="return">健康快照字典。</tag>
+				<tag name="schema">return: Dictionary，包含 status、operation_count、incident_count、open_operation_count、failed_operation_count、slow_operation_count、recent_operations、recent_incidents 和 slowest_operation。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_debug_snapshot">
+			<signature>func get_debug_snapshot() -&gt; Dictionary:</signature>
+			<description>获取调试快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">调试快照字典。</tag>
+				<tag name="schema">return: Dictionary，包含 history 上限、计数、健康快照和最近时间线。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="build_copy_text">
+			<signature>func build_copy_text(snapshot: Dictionary = {}) -&gt; String:</signature>
+			<description>构建适合复制到 issue、日志或支持报告的纯文本摘要。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">snapshot: 可选健康快照；为空时现场采集 get_health_snapshot()。</tag>
+				<tag name="return">纯文本摘要。</tag>
+				<tag name="schema">snapshot: Dictionary，get_health_snapshot() 返回结构。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

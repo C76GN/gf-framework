@@ -163,6 +163,7 @@ func rollback_committed(max_operations: int = -1) -> Dictionary:
 	var failed_count: int = 0
 	var skipped_count: int = 0
 	var errors: Array[Dictionary] = []
+	var failed_entries: Array[Dictionary] = []
 	while not _committed_operations.is_empty() and (max_operations < 0 or rolled_back_count + failed_count + skipped_count < max_operations):
 		var entry: Dictionary = _committed_operations.pop_back()
 		var rollback: Callable = _variant_to_callable(GFVariantData.get_option_value(entry, "rollback", Callable()))
@@ -176,10 +177,11 @@ func rollback_committed(max_operations: int = -1) -> Dictionary:
 		else:
 			failed_count += 1
 			errors.append(rollback_result)
+			failed_entries.append(entry)
 			if stop_on_error:
-				_committed_operations.append(entry)
 				break
 
+	_restore_failed_rollback_entries(failed_entries)
 	var summary: Dictionary = {
 		"ok": failed_count == 0,
 		"rolled_back_count": rolled_back_count,
@@ -278,6 +280,11 @@ func _get_pending_operation() -> Dictionary:
 		var entry: Dictionary = raw_entry
 		return entry
 	return {}
+
+
+func _restore_failed_rollback_entries(failed_entries: Array[Dictionary]) -> void:
+	for index: int in range(failed_entries.size() - 1, -1, -1):
+		_committed_operations.append(failed_entries[index])
 
 
 func _variant_to_callable(value: Variant) -> Callable:

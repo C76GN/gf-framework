@@ -4,7 +4,7 @@
   "kind": "standard",
   "version": "unreleased",
   "display_name": "GF Standard Diagnostics",
-  "description": "Runtime diagnostics, build info snapshots, and the lightweight developer console used by tools that only need observability hooks.",
+  "description": "Runtime diagnostics, build info snapshots, operation timelines, and the lightweight developer console used by tools that only need observability hooks.",
   "dependencies": [
     "gf.kernel",
     "gf.standard.base",
@@ -19,8 +19,12 @@
     "addons/gf/standard/utilities/debug/gf_console_command_definition.gd.uid",
     "addons/gf/standard/utilities/debug/gf_console_utility.gd",
     "addons/gf/standard/utilities/debug/gf_console_utility.gd.uid",
+    "addons/gf/standard/utilities/debug/gf_async_tracker_utility.gd",
+    "addons/gf/standard/utilities/debug/gf_async_tracker_utility.gd.uid",
     "addons/gf/standard/utilities/debug/gf_diagnostics_utility.gd",
-    "addons/gf/standard/utilities/debug/gf_diagnostics_utility.gd.uid"
+    "addons/gf/standard/utilities/debug/gf_diagnostics_utility.gd.uid",
+    "addons/gf/standard/utilities/debug/gf_operation_diagnostics_utility.gd",
+    "addons/gf/standard/utilities/debug/gf_operation_diagnostics_utility.gd.uid"
   ],
   "metadata": {
     "stage": "standard-split-v1"

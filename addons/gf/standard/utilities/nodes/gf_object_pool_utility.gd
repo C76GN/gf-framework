@@ -142,12 +142,15 @@ func acquire(scene: PackedScene, parent: Node) -> Node:
 	if not is_instance_valid(scene):
 		push_error("[GFObjectPoolUtility] 传入了无效的 PackedScene。")
 		return null
+	if not is_instance_valid(parent):
+		push_error("[GFObjectPoolUtility] acquire 失败：parent 无效。")
+		return null
 
 	if not _available_pools.has(scene):
 		_available_pools[scene] = []
 		_all_nodes[scene] = []
 
-	_prune_invalid_scene_nodes_if_needed(scene)
+	_prune_invalid_available_nodes_if_needed(scene)
 
 	var available_pool: Array = _get_available_pool(scene)
 
@@ -207,8 +210,6 @@ func release(node: Node, scene: PackedScene) -> void:
 		push_warning("[GFObjectPoolUtility] release 失败：节点未记录所属 PackedScene。")
 		return
 
-	_prune_invalid_scene_nodes_if_needed(owner_scene)
-
 	if not _all_nodes.has(owner_scene) or not _get_all_nodes_pool(owner_scene).has(node):
 		push_warning("[GFObjectPoolUtility] release 失败：节点不属于当前对象池。")
 		return
@@ -220,6 +221,7 @@ func release(node: Node, scene: PackedScene) -> void:
 	if not _available_pools.has(owner_scene):
 		_available_pools[owner_scene] = []
 
+	_prune_invalid_available_nodes_if_needed(owner_scene)
 	var available_pool: Array = _get_available_pool(owner_scene)
 	if max_available_per_scene > 0 and available_pool.size() >= max_available_per_scene:
 		_remove_node_from_scene_pool(node, owner_scene)
@@ -360,7 +362,7 @@ func get_available_count(scene: PackedScene) -> int:
 	if not _available_pools.has(scene):
 		return 0
 
-	_prune_invalid_scene_nodes_if_needed(scene)
+	_prune_invalid_available_nodes_if_needed(scene)
 
 	var count: int = 0
 	for item: Variant in _available_pools[scene]:
@@ -392,7 +394,6 @@ func get_active_nodes(scene: PackedScene) -> Array[Node]:
 	if not _all_nodes.has(scene):
 		return result
 
-	_prune_invalid_scene_nodes_if_needed(scene)
 	for item: Variant in _get_all_nodes_pool(scene):
 		var node: Node = _get_valid_pool_node(item)
 		if node != null and GFVariantData.to_bool(node.get_meta(_META_ACTIVE, false)):
@@ -451,7 +452,7 @@ func _ensure_scene_pool(scene: PackedScene) -> bool:
 		_available_pools[scene] = []
 		_all_nodes[scene] = []
 
-	_prune_invalid_scene_nodes_if_needed(scene)
+	_prune_invalid_available_nodes_if_needed(scene)
 	return true
 
 
@@ -632,9 +633,20 @@ func _prune_invalid_scene_nodes(scene: PackedScene) -> void:
 				available_pool.remove_at(i)
 
 
-func _prune_invalid_scene_nodes_if_needed(scene: PackedScene) -> void:
+func _prune_invalid_available_nodes(scene: PackedScene) -> void:
+	if not is_instance_valid(scene) or not _available_pools.has(scene):
+		return
+
+	var available_pool: Array = _get_available_pool(scene)
+	for i: int in range(available_pool.size() - 1, -1, -1):
+		var node_variant: Variant = available_pool[i]
+		if _get_valid_pool_node(node_variant) == null:
+			available_pool.remove_at(i)
+
+
+func _prune_invalid_available_nodes_if_needed(scene: PackedScene) -> void:
 	if prune_invalid_on_each_operation:
-		_prune_invalid_scene_nodes(scene)
+		_prune_invalid_available_nodes(scene)
 
 
 func _get_scene_debug_key(scene: PackedScene) -> String:

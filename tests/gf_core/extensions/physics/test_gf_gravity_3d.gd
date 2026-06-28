@@ -23,6 +23,7 @@ func test_gravity_field_linear_falloff_respects_radius() -> void:
 
 	assert_almost_eq(field.get_strength_at_distance(5.0), 5.0, 0.001, "线性衰减应按距离占比降低强度。")
 	assert_almost_eq(field.get_strength_at_distance(11.0), 0.0, 0.001, "半径外应无力场强度。")
+	assert_almost_eq(field.get_strength_at_distance(-5.0), 10.0, 0.001, "负距离应按零距离处理。")
 
 
 func test_gravity_field_exposes_sampling_priority() -> void:
@@ -48,6 +49,24 @@ func test_gravity_probe_sums_group_fields() -> void:
 
 	assert_almost_eq(acceleration.y, -4.0, 0.001, "采样器应汇总分组中的力场。")
 	assert_eq(probe.get_up_direction(), Vector3.UP, "向上方向应与加速度方向相反。")
+
+
+func test_gravity_probe_direction_resamples_after_movement() -> void:
+	var field: GFGravityField3D = GFGravityField3D.new()
+	var probe: GFGravityProbe3D = GFGravityProbe3D.new()
+	add_child_autofree(field)
+	add_child_autofree(probe)
+	field.global_position = Vector3.ZERO
+	field.acceleration = 10.0
+	probe.use_fallback_when_empty = false
+	probe.global_position = Vector3(1.0, 0.0, 0.0)
+	var first_direction: Vector3 = probe.get_down_direction()
+
+	probe.global_position = Vector3(-1.0, 0.0, 0.0)
+	var moved_direction: Vector3 = probe.get_down_direction()
+
+	assert_almost_eq(first_direction.x, -1.0, 0.001, "初始方向应朝向力场。")
+	assert_almost_eq(moved_direction.x, 1.0, 0.001, "移动后方向 helper 应重新采样当前位置。")
 
 
 func test_gravity_probe_strongest_mode_selects_largest_acceleration() -> void:
@@ -157,6 +176,51 @@ func test_gravity_probe_reuses_same_frame_sample_cache() -> void:
 	assert_almost_eq(first.y, -4.0, 0.001, "首次采样应读取当前力场。")
 	assert_almost_eq(cached.y, -4.0, 0.001, "同一帧重复采样应复用缓存。")
 	assert_almost_eq(uncached.y, -8.0, 0.001, "关闭缓存后应重新读取力场。")
+
+
+func test_gravity_probe_cache_accounts_for_same_frame_group_membership() -> void:
+	var probe: GFGravityProbe3D = GFGravityProbe3D.new()
+	add_child_autofree(probe)
+	probe.use_fallback_when_empty = false
+
+	var empty_sample: Vector3 = probe.sample()
+	var field: GFGravityField3D = GFGravityField3D.new()
+	_configure_constant_field(field, Vector3.DOWN, 6.0)
+	add_child_autofree(field)
+	var field_sample: Vector3 = probe.sample()
+
+	assert_eq(empty_sample, Vector3.ZERO, "首次采样没有力场时应返回零向量。")
+	assert_almost_eq(field_sample.y, -6.0, 0.001, "同帧新增力场应使缓存失效并参与采样。")
+
+
+func test_gravity_probe_sample_fields_ignores_freed_objects() -> void:
+	var field: GFGravityField3D = GFGravityField3D.new()
+	var probe: GFGravityProbe3D = GFGravityProbe3D.new()
+	add_child_autofree(probe)
+	field.free()
+	probe.use_fallback_when_empty = false
+
+	var acceleration: Vector3 = probe.sample_fields([field])
+
+	assert_eq(acceleration, Vector3.ZERO, "sample_fields 应跳过已释放对象引用。")
+
+
+func test_gravity_probe_cache_uses_private_sample_value() -> void:
+	var field: GFGravityField3D = GFGravityField3D.new()
+	var probe: GFGravityProbe3D = GFGravityProbe3D.new()
+	add_child_autofree(field)
+	add_child_autofree(probe)
+	field.direction_mode = GFGravityField3D.DirectionMode.CONSTANT_DIRECTION
+	field.constant_direction = Vector3.DOWN
+	field.acceleration = 4.0
+	probe.use_fallback_when_empty = false
+
+	var first: Vector3 = probe.sample()
+	probe.last_acceleration = Vector3.RIGHT * 99.0
+	var cached: Vector3 = probe.sample()
+
+	assert_almost_eq(first.y, -4.0, 0.001, "首次采样应读取当前力场。")
+	assert_almost_eq(cached.y, -4.0, 0.001, "外部写 last_acceleration 不应污染同帧缓存值。")
 
 
 func _configure_constant_field(

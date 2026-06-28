@@ -184,6 +184,21 @@ func test_acceptance_condition_can_block_accepting_quest() -> void:
 	assert_true(_quest.accept_quest(&"locked"), "清空条件后应可接取。")
 
 
+func test_available_quest_cannot_be_completed_before_acceptance() -> void:
+	watch_signals(_quest)
+	_quest.define_quest(&"locked", &"gate_event", 1)
+	_quest.add_acceptance_condition(&"locked", func(_quest_id: StringName, _report: Dictionary) -> Dictionary:
+		return {
+			"ok": false,
+			"reason": "missing_key",
+		}
+	)
+
+	assert_false(_quest.complete_quest(&"locked"), "available 任务未接取前不应被手动完成。")
+	assert_eq(_quest.get_quest_status(&"locked"), GFQuestUtility.STATUS_AVAILABLE, "手动完成失败后任务应保持 available。")
+	assert_signal_not_emitted(_quest, "quest_completed", "被接取条件保护的任务不应绕过生命周期完成。")
+
+
 func test_fail_quest_detaches_listener_and_records_reason() -> void:
 	watch_signals(_quest)
 	_quest.start_quest(&"timed", &"timer_done", 2)

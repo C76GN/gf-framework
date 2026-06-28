@@ -1,0 +1,211 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFPriorityQueue" path="addons/gf/standard/foundation/collections/gf_priority_queue.gd" module="standard" extends="RefCounted" classDigest="5be8ca0e8a7947b22aaf256c1ac57d777cef7a5bbb62f29fbc11192df393590e">
+	<description>GFPriorityQueue: 稳定优先队列。
+用二叉堆保存带整数优先级的值，支持高优先级优先或低优先级优先，
+并在相同优先级下保持稳定顺序。它只管理排序和弹出顺序，不解释任务、
+通知、AI 行为或项目业务语义。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">value_object</tag>
+		<tag name="since">7.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties>
+		<member kind="property" name="high_priority_first">
+			<signature>var high_priority_first: bool = true:</signature>
+			<description>是否优先弹出较大的 priority。设为 false 时较小的 priority 优先。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="_init">
+			<signature>func _init(p_high_priority_first: bool = true) -&gt; void:</signature>
+			<description>构造函数。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">p_high_priority_first: 为 true 时 priority 数值越大越先弹出。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="from_array">
+			<signature>static func from_array( values: Array, priority: int = 0, p_high_priority_first: bool = true ) -&gt; RefCounted:</signature>
+			<description>从值数组创建优先队列。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">values: 初始值数组。</tag>
+				<tag name="param">priority: 所有初始值使用的优先级。</tag>
+				<tag name="param">p_high_priority_first: 为 true 时 priority 数值越大越先弹出。</tag>
+				<tag name="return">新优先队列。</tag>
+				<tag name="schema">values: Array of queue values copied by reference.</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="push">
+			<signature>func push(value: Variant, priority: int = 0, front: bool = false) -&gt; void:</signature>
+			<description>推入一个值。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">value: 要入队的值。</tag>
+				<tag name="param">priority: 整数优先级。</tag>
+				<tag name="param">front: 为 true 时会排在相同 priority 的既有元素之前。</tag>
+				<tag name="schema">value: Variant queue value.</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="pop">
+			<signature>func pop(default_value: Variant = null) -&gt; Variant:</signature>
+			<description>弹出当前最高优先级值。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">default_value: 队列为空时返回的值。</tag>
+				<tag name="return">队列值或 default_value。</tag>
+				<tag name="schema">default_value: Variant fallback value.</tag>
+				<tag name="schema">return: Variant queue value or fallback value.</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="peek">
+			<signature>func peek(default_value: Variant = null) -&gt; Variant:</signature>
+			<description>读取当前最高优先级值但不移除。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">default_value: 队列为空时返回的值。</tag>
+				<tag name="return">队列值或 default_value。</tag>
+				<tag name="schema">default_value: Variant fallback value.</tag>
+				<tag name="schema">return: Variant queue value or fallback value.</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="peek_priority">
+			<signature>func peek_priority(default_value: int = 0) -&gt; int:</signature>
+			<description>读取当前最高优先级。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">default_value: 队列为空时返回的值。</tag>
+				<tag name="return">当前最高优先级或 default_value。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="remove_value">
+			<signature>func remove_value(value: Variant) -&gt; bool:</signature>
+			<description>移除第一个等于 value 的队列值。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">value: 要移除的值。</tag>
+				<tag name="return">找到并移除时返回 true。</tag>
+				<tag name="schema">value: Variant queue value.</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="remove_all">
+			<signature>func remove_all(value: Variant) -&gt; int:</signature>
+			<description>移除所有等于 value 的队列值。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">value: 要移除的值。</tag>
+				<tag name="return">移除数量。</tag>
+				<tag name="schema">value: Variant queue value.</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="has_value">
+			<signature>func has_value(value: Variant) -&gt; bool:</signature>
+			<description>检查队列是否包含指定值。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">value: 要查找的值。</tag>
+				<tag name="return">包含时返回 true。</tag>
+				<tag name="schema">value: Variant queue value.</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="set_priority">
+			<signature>func set_priority(value: Variant, priority: int, front: bool = false) -&gt; bool:</signature>
+			<description>更新第一个等于 value 的队列值优先级。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">value: 要更新的值。</tag>
+				<tag name="param">priority: 新优先级。</tag>
+				<tag name="param">front: 为 true 时排到相同 priority 的既有元素之前。</tag>
+				<tag name="return">找到并更新时返回 true。</tag>
+				<tag name="schema">value: Variant queue value.</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="clear">
+			<signature>func clear() -&gt; void:</signature>
+			<description>清空队列。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_empty">
+			<signature>func is_empty() -&gt; bool:</signature>
+			<description>队列是否为空。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">为空返回 true。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="size">
+			<signature>func size() -&gt; int:</signature>
+			<description>获取元素数量。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">元素数量。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="to_array">
+			<signature>func to_array(deep: bool = false) -&gt; Array:</signature>
+			<description>按弹出顺序导出值数组，不修改当前队列。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">deep: 为 true 时深拷贝元素中的 Array、Dictionary、Object Resource 等可复制值。</tag>
+				<tag name="return">队列值数组。</tag>
+				<tag name="schema">return: Array of queue values in pop order.</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="to_entry_array">
+			<signature>func to_entry_array(deep: bool = false) -&gt; Array[Dictionary]:</signature>
+			<description>按弹出顺序导出队列条目，不修改当前队列。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">deep: 为 true 时深拷贝条目中的 value。</tag>
+				<tag name="return">条目数组。</tag>
+				<tag name="schema">return: Array[Dictionary]，每项包含 value、priority 和 order。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="duplicate_priority_queue">
+			<signature>func duplicate_priority_queue(deep: bool = false) -&gt; RefCounted:</signature>
+			<description>复制优先队列。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">deep: 为 true 时深拷贝元素中的 Array、Dictionary、Object Resource 等可复制值。</tag>
+				<tag name="return">新优先队列；实际对象类型为 GFPriorityQueue。</tag>
+				<tag name="schema">return: RefCounted GFPriorityQueue instance.</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_debug_snapshot">
+			<signature>func get_debug_snapshot() -&gt; Dictionary:</signature>
+			<description>获取调试快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">调试信息字典。</tag>
+				<tag name="schema">return: Dictionary with size, high_priority_first, and entries.</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

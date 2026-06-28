@@ -1,7 +1,7 @@
 {
   "id": "gf.decision",
   "display_name": "GF Decision",
-  "version": "6.0.0",
+  "version": "7.0.0",
   "extension_version": "1.0.0",
   "kind": "extension",
   "description": "Blackboard, context, and utility-scored decision primitives for non-LLM game AI and runtime orchestration.",

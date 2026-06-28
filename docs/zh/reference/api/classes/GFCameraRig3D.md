@@ -28,7 +28,7 @@
 | 属性 | [`up_axis`](#member-gfcamerarig3d-properties-up_axis) | `var up_axis: Vector3 = Vector3.UP` |
 | 属性 | [`rotation_degrees_offset`](#member-gfcamerarig3d-properties-rotation_degrees_offset) | `var rotation_degrees_offset: Vector3 = Vector3.ZERO` |
 | 属性 | [`blend`](#member-gfcamerarig3d-properties-blend) | `var blend: GFCameraBlend = null` |
-| 属性 | [`group_name`](#member-gfcamerarig3d-properties-group_name) | `var group_name: StringName = &"gf_camera_rig_3d"` |
+| 属性 | [`group_name`](#member-gfcamerarig3d-properties-group_name) | `var group_name: StringName = &"gf_camera_rig_3d":` |
 | 属性 | [`metadata`](#member-gfcamerarig3d-properties-metadata) | `var metadata: Dictionary = {}` |
 | 方法 | [`get_target_node`](#member-gfcamerarig3d-methods-get_target_node) | `func get_target_node() -> Node3D:` |
 | 方法 | [`get_look_at_target_node`](#member-gfcamerarig3d-methods-get_look_at_target_node) | `func get_look_at_target_node() -> Node3D:` |
@@ -212,9 +212,10 @@ var blend: GFCameraBlend = null
 ### `group_name`
 
 - API：`public`
+- 首次版本：`6.0.0`
 
 ```gdscript
-var group_name: StringName = &"gf_camera_rig_3d"
+var group_name: StringName = &"gf_camera_rig_3d":
 ```
 
 自动加入的分组名。Director 可按该分组收集候选。

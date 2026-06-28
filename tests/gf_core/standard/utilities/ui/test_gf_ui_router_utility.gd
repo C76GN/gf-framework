@@ -192,6 +192,29 @@ func test_duplicate_pending_push_route_async_opens_once() -> void:
 	assert_eq(_router.get_route_history().size(), 1, "重复异步打开同一路由时历史只应记录一次。")
 
 
+func test_async_replace_failure_preserves_existing_route_history() -> void:
+	_arch = GFArchitecture.new()
+	var asset_util: ManualAssetUtility = ManualAssetUtility.new()
+	await _arch.register_utility_instance(asset_util)
+	await Gf.set_architecture(_arch)
+	var _register_first_result: bool = _router.register_route(_make_route(&"first", GFUIUtility.Layer.POPUP))
+	var second_route: GFUIRoute = _make_route(&"second", GFUIUtility.Layer.POPUP)
+	second_route.scene_path = "res://tests/missing_async_replace_panel.tscn"
+	var _register_second_result: bool = _router.register_route(second_route)
+	var first_panel: Node = _router.push_route(&"first")
+	watch_signals(_router)
+
+	_router.replace_route_async(&"second")
+	asset_util.resolve("res://tests/missing_async_replace_panel.tscn", null)
+	await get_tree().process_frame
+	await get_tree().process_frame
+
+	assert_eq(_router.get_current_route_id(), &"first", "异步 replace 失败后应保留旧路由历史。")
+	assert_true(_ui_utility.is_panel_open(first_panel, GFUIUtility.Layer.POPUP), "异步 replace 失败后旧面板应仍在 UI 栈中。")
+	assert_signal_emitted(_router, "route_open_failed", "异步 replace 失败应发出路由失败信号。")
+	assert_push_error("[GFUIUtility] 无法实例化面板场景：res://tests/missing_async_replace_panel.tscn")
+
+
 # --- 私有/辅助方法 ---
 
 func _make_route(route_id: StringName, layer: int) -> GFUIRoute:

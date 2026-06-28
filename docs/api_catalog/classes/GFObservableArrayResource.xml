@@ -1,0 +1,237 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFObservableArrayResource" path="addons/gf/standard/foundation/collections/gf_observable_array_resource.gd" module="standard" extends="Resource" classDigest="4272574ead47d1ac66056d9275aa3caf38ae4922eb43e81066757ab51cd1b9f8">
+	<description>GFObservableArrayResource: 可观察数组资源。
+保存一份 Array 数据，并通过显式方法发出单项变更和批量变更信号。
+它不是 Array 的替身，不拦截直接字段修改；调用方应通过方法提交变更，
+以便 UI、编辑器工具、状态同步或诊断面板接收稳定的变更报告。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">resource_definition</tag>
+		<tag name="since">6.0.0</tag>
+	</tags>
+	<signals>
+		<member kind="signal" name="item_changed">
+			<signature>signal item_changed(operation: StringName, index: int, old_value: Variant, new_value: Variant, metadata: Dictionary)</signature>
+			<description>单项变更后发出。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">operation: 操作类型。</tag>
+				<tag name="param">index: 变更索引。</tag>
+				<tag name="param">old_value: 旧值。</tag>
+				<tag name="param">new_value: 新值。</tag>
+				<tag name="param">metadata: 调用方元数据。</tag>
+				<tag name="schema">old_value: Variant copied from the array before mutation.</tag>
+				<tag name="schema">new_value: Variant copied into the array after mutation.</tag>
+				<tag name="schema">metadata: Dictionary copied from the mutation call.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="signal" name="items_changed">
+			<signature>signal items_changed(changes: Array[Dictionary], metadata: Dictionary)</signature>
+			<description>一批变更完成后发出。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">changes: 变更报告列表。</tag>
+				<tag name="param">metadata: 批量元数据。</tag>
+				<tag name="schema">changes: Array[Dictionary] mutation reports.</tag>
+				<tag name="schema">metadata: Dictionary copied from begin_batch()/end_batch().</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+	</signals>
+	<enums />
+	<constants>
+		<member kind="const" name="OPERATION_APPEND">
+			<signature>const OPERATION_APPEND: StringName = &amp;"append"</signature>
+			<description>追加元素。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="OPERATION_SET">
+			<signature>const OPERATION_SET: StringName = &amp;"set"</signature>
+			<description>设置元素。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="OPERATION_ERASE">
+			<signature>const OPERATION_ERASE: StringName = &amp;"erase"</signature>
+			<description>移除元素。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="OPERATION_CLEAR">
+			<signature>const OPERATION_CLEAR: StringName = &amp;"clear"</signature>
+			<description>清空数组。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="OPERATION_REPLACE">
+			<signature>const OPERATION_REPLACE: StringName = &amp;"replace"</signature>
+			<description>替换全部数组内容。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties>
+		<member kind="property" name="items" decorators="@export">
+			<signature>var items: Array = []</signature>
+			<description>当前数组数据。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">items: Array caller-owned values; mutate through methods to emit reports.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="metadata" decorators="@export">
+			<signature>var metadata: Dictionary = {}</signature>
+			<description>调用方元数据。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">metadata: Dictionary caller-defined resource metadata.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="set_items">
+			<signature>func set_items(values: Array, emit_change: bool = true, change_metadata: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>替换全部数组内容。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">values: 新数组数据。</tag>
+				<tag name="param">emit_change: 是否发出变更信号。</tag>
+				<tag name="param">change_metadata: 调用方元数据。</tag>
+				<tag name="return">变更报告。</tag>
+				<tag name="schema">values: Array copied into items.</tag>
+				<tag name="schema">change_metadata: Dictionary copied into the change report.</tag>
+				<tag name="schema">return: Dictionary with ok, operation, index, old_value, new_value, metadata, and count.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_items">
+			<signature>func get_items() -&gt; Array:</signature>
+			<description>获取数组副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">数组副本。</tag>
+				<tag name="schema">return: Array duplicated from items.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="append_item">
+			<signature>func append_item(value: Variant, change_metadata: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>追加元素。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">value: 新元素。</tag>
+				<tag name="param">change_metadata: 调用方元数据。</tag>
+				<tag name="return">变更报告。</tag>
+				<tag name="schema">value: Variant copied into the array.</tag>
+				<tag name="schema">change_metadata: Dictionary copied into the change report.</tag>
+				<tag name="schema">return: Dictionary with ok, operation, index, old_value, new_value, and metadata.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="set_item">
+			<signature>func set_item(index: int, value: Variant, change_metadata: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>设置指定索引的元素。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">index: 目标索引。</tag>
+				<tag name="param">value: 新元素。</tag>
+				<tag name="param">change_metadata: 调用方元数据。</tag>
+				<tag name="return">变更报告。</tag>
+				<tag name="schema">value: Variant copied into the array.</tag>
+				<tag name="schema">change_metadata: Dictionary copied into the change report.</tag>
+				<tag name="schema">return: Dictionary with ok, operation, index, old_value, new_value, metadata, and optional error.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="erase_item_at">
+			<signature>func erase_item_at(index: int, change_metadata: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>移除指定索引的元素。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">index: 目标索引。</tag>
+				<tag name="param">change_metadata: 调用方元数据。</tag>
+				<tag name="return">变更报告。</tag>
+				<tag name="schema">change_metadata: Dictionary copied into the change report.</tag>
+				<tag name="schema">return: Dictionary with ok, operation, index, old_value, new_value, metadata, and optional error.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="clear_items">
+			<signature>func clear_items(change_metadata: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>清空数组。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">change_metadata: 调用方元数据。</tag>
+				<tag name="return">变更报告。</tag>
+				<tag name="schema">change_metadata: Dictionary copied into the change report.</tag>
+				<tag name="schema">return: Dictionary with ok, operation, index, old_value, new_value, metadata, and count.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="begin_batch">
+			<signature>func begin_batch(change_metadata: Dictionary = {}) -&gt; void:</signature>
+			<description>开始批量变更。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">change_metadata: 批量元数据。</tag>
+				<tag name="schema">change_metadata: Dictionary merged into the batch report.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="end_batch">
+			<signature>func end_batch(change_metadata: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>结束批量变更。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">change_metadata: 批量元数据。</tag>
+				<tag name="return">批量报告。</tag>
+				<tag name="schema">change_metadata: Dictionary merged into the batch report.</tag>
+				<tag name="schema">return: Dictionary with ok, change_count, changes, and metadata.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_count">
+			<signature>func get_count() -&gt; int:</signature>
+			<description>获取元素数量。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">元素数量。</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_empty">
+			<signature>func is_empty() -&gt; bool:</signature>
+			<description>判断数组是否为空。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">为空时返回 true。</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_debug_snapshot">
+			<signature>func get_debug_snapshot() -&gt; Dictionary:</signature>
+			<description>获取调试快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">调试快照。</tag>
+				<tag name="schema">return: Dictionary with count, batch_depth, pending_change_count, metadata, and items.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

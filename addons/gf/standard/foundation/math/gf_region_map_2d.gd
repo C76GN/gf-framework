@@ -77,7 +77,7 @@ func get_cell(cell: Vector2i, default_value: Variant = null) -> Variant:
 	var region_key: Vector2i = get_region_key_for_cell(cell)
 	var region: Dictionary = _get_region(region_key)
 	if region.is_empty() or not region.has(cell):
-		return default_value
+		return _copy_value(default_value)
 	return _copy_value(region[cell])
 
 
@@ -138,7 +138,7 @@ func get_region_cells(region_key: Vector2i) -> Array[Vector2i]:
 ## @schema return: Dictionary mapping Vector2i cells to stored cell values.
 func get_region_snapshot(region_key: Vector2i) -> Dictionary:
 	var region: Dictionary = _get_region(region_key)
-	return region.duplicate(true)
+	return region.duplicate(true) if duplicate_values else region.duplicate(false)
 
 
 ## 获取已存在的区域键。
@@ -183,8 +183,13 @@ func clear_dirty(region_key: Variant = null) -> void:
 ## [br]
 ## @api public
 func clear() -> void:
+	var removed_region_keys: Array = _regions.keys()
 	_regions.clear()
 	_dirty_regions.clear()
+	for region_key_variant: Variant in removed_region_keys:
+		if region_key_variant is Vector2i:
+			var region_key: Vector2i = region_key_variant
+			_mark_dirty(region_key)
 
 
 ## 获取调试快照。

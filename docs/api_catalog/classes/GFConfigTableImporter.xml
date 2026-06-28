@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFConfigTableImporter" path="addons/gf/standard/utilities/config/gf_config_table_importer.gd" module="standard" extends="RefCounted" classDigest="f90966bc4fea08614d0b1e70c36d3c2eeb3e278bda4b084c9e72f270ba592f5d">
+<class name="GFConfigTableImporter" path="addons/gf/standard/utilities/config/gf_config_table_importer.gd" module="standard" extends="RefCounted" classDigest="87f21fdf140e1485683a186b907f843a92a95715d36bf6703ded4efcaa939b29">
 	<description>GFConfigTableImporter: 通用导表文本解析与 schema 校验入口。
-提供 JSON 与 CSV 的轻量解析，适合编辑器工具或 CI 在进入项目 Provider 前做结构检查。</description>
+提供 JSON、CSV 与 ConfigFile 的轻量解析，适合编辑器工具或 CI 在进入项目 Provider 前做结构检查。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">runtime_service</tag>
@@ -35,6 +35,19 @@
 				<tag name="schema">options: Dictionary，可包含 delimiter、trim_cells、skip_empty_lines、reject_duplicate_headers 和 source。</tag>
 				<tag name="schema">return: Dictionary，包含 success、data、header、row_locations、error、error_line、error_column 和 source。</tag>
 				<tag name="since">3.17.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="parse_config_file_table">
+			<signature>static func parse_config_file_table(text: String, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>解析 Godot ConfigFile 表文本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">text: ConfigFile 文本。</tag>
+				<tag name="param">options: 可选参数，支持 source、section_field、include_empty_sections。</tag>
+				<tag name="return">结果字典，包含 success、data、sections、row_locations 与 error。</tag>
+				<tag name="schema">options: Dictionary，可包含 source、section_field、include_empty_sections 字段；section_field 为空 StringName 时不写入 section 名字段。</tag>
+				<tag name="schema">return: Dictionary，包含 success、data、sections、row_locations、error、error_line、error_column 和 source。</tag>
+				<tag name="since">7.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="validate_json_table">
@@ -77,6 +90,20 @@
 				<tag name="return">校验报告；解析失败时返回失败报告。</tag>
 				<tag name="schema">options: Dictionary，可包含 delimiter、trim_cells、skip_empty_lines、reject_duplicate_headers 和 source。</tag>
 				<tag name="schema">return: GFConfigValidationReport 兼容 Dictionary。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="validate_config_file_table">
+			<signature>static func validate_config_file_table(text: String, schema: GFConfigTableSchema, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>解析并校验 Godot ConfigFile 表文本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">text: ConfigFile 文本。</tag>
+				<tag name="param">schema: 表结构声明。</tag>
+				<tag name="param">options: 可选参数，支持 source、section_field、include_empty_sections。</tag>
+				<tag name="return">校验报告；解析失败时返回失败报告。</tag>
+				<tag name="schema">options: Dictionary，可包含 source、section_field 和 include_empty_sections 字段。</tag>
+				<tag name="schema">return: GFConfigValidationReport 兼容 Dictionary。</tag>
+				<tag name="since">7.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="export_csv_table">

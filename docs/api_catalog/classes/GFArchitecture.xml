@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFArchitecture" path="addons/gf/kernel/core/gf_architecture.gd" module="kernel" extends="Object" classDigest="10b58f883db87eba7a3dfec519a4ff62c0ec588fe8ee254bf5b114df027cc6f1">
+<class name="GFArchitecture" path="addons/gf/kernel/core/gf_architecture.gd" module="kernel" extends="Object" classDigest="984119e6fd8da925cc963ff171c33812d5d9d4036062c0b5a749e1ee6cea13de">
 	<description>GFArchitecture: 管理 Model、System 和 Utility 的注册与生命周期的容器。
 生命周期遵循三阶段初始化协议：
 阶段一 (init)       ：所有模块执行自身内部变量初始化。
@@ -477,6 +477,27 @@ query 缺少 execute() 方法时会输出 warning 并返回 null。</description
 				<tag name="schema">return: Dictionary produced by GFTypeEventSystem.get_debug_stats().</tag>
 			</tags>
 		</member>
+		<member kind="method" name="get_event_listener_diagnostics">
+			<signature>func get_event_listener_diagnostics(options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>获取事件监听器诊断明细。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">options: 诊断选项，支持 include_entries。</tag>
+				<tag name="return">监听器诊断报告。</tag>
+				<tag name="schema">options: Dictionary，可包含 include_entries。</tag>
+				<tag name="schema">return: Dictionary produced by GFTypeEventSystem.get_listener_diagnostics().</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="compact_event_listeners">
+			<signature>func compact_event_listeners() -&gt; int:</signature>
+			<description>清理 owner 已释放的事件监听器。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">本次立即移除或排队清理的监听器数量。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
 		<member kind="method" name="configure_event_debugging">
 			<signature>func configure_event_debugging( max_dispatch_depth: int = GFTypeEventSystem.DEFAULT_MAX_DISPATCH_DEPTH, trace_enabled: bool = false, max_trace_entries: int = 64 ) -&gt; void:</signature>
 			<description>配置事件系统调试与保护选项。</description>
@@ -930,6 +951,19 @@ Model 状态会按 options.max_models_per_frame 分帧恢复；命令历史仍�
 				<tag name="api">public</tag>
 				<tag name="return">包含 Model、System、Utility、Factory、Alias 与 Tick 缓存状态的字典。</tag>
 				<tag name="schema">return: Dictionary containing lifecycle flags, registered module summaries, factory summaries, alias counts, and tick cache counts.</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_binding_diagnostics">
+			<signature>func get_binding_diagnostics(options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>获取架构绑定图诊断。
+该报告只读取当前注册表、别名、工厂和父级链摘要，不触发依赖解析或生命周期推进。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">options: 可选参数，支持 include_entries、include_parent_chain 与 max_parent_depth。</tag>
+				<tag name="return">绑定图诊断报告。</tag>
+				<tag name="schema">options: Dictionary with optional bool keys include_entries/include_parent_chain and int key max_parent_depth.</tag>
+				<tag name="schema">return: Dictionary containing ok, registry counts, registry entries, factory bindings, parent chain, lifecycle flags, and issues.</tag>
+				<tag name="since">7.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_dependency_diagnostics">

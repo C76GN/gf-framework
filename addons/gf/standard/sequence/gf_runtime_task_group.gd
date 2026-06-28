@@ -109,6 +109,9 @@ func _init(p_tasks: Array[GFRuntimeTask] = [], p_mode: Mode = Mode.SEQUENCE) -> 
 ## [br]
 ## @return 当前任务组。
 func add_task(task: GFRuntimeTask) -> GFRuntimeTaskGroup:
+	if is_scheduled():
+		push_warning("[GFRuntimeTaskGroup] 已调度任务组不能修改子任务。")
+		return self
 	if task == null:
 		return self
 	if tasks.has(task):
@@ -132,6 +135,9 @@ func add_task(task: GFRuntimeTask) -> GFRuntimeTaskGroup:
 ## [br]
 ## @return 成功移除时返回 true。
 func remove_task(task: GFRuntimeTask) -> bool:
+	if is_scheduled():
+		push_warning("[GFRuntimeTaskGroup] 已调度任务组不能修改子任务。")
+		return false
 	if task == null or not tasks.has(task):
 		return false
 	tasks.erase(task)
@@ -148,6 +154,9 @@ func remove_task(task: GFRuntimeTask) -> bool:
 ## [br]
 ## @since 6.0.0
 func rebuild_requirements() -> void:
+	if is_scheduled():
+		push_warning("[GFRuntimeTaskGroup] 已调度任务组不能重建 requirements。")
+		return
 	requirements.clear()
 	for task: GFRuntimeTask in tasks:
 		if task == null:
@@ -262,8 +271,8 @@ func is_finished() -> bool:
 func end(interrupted: bool) -> void:
 	if interrupted:
 		_cancel_open_children(true)
-	elif mode == Mode.PARALLEL_RACE and cancel_remaining_on_finish:
-		_cancel_open_children(true)
+	elif mode == Mode.PARALLEL_RACE:
+		_cancel_open_children(cancel_remaining_on_finish)
 	_scheduler_ref = null
 
 
@@ -299,8 +308,8 @@ func _tick_parallel(delta: float, use_physics: bool) -> void:
 			task.tick(delta)
 		if task.is_finished():
 			_finish_child(task, false)
-			if mode == Mode.PARALLEL_RACE and cancel_remaining_on_finish:
-				_cancel_open_children(true)
+			if mode == Mode.PARALLEL_RACE:
+				_cancel_open_children(cancel_remaining_on_finish)
 				return
 
 

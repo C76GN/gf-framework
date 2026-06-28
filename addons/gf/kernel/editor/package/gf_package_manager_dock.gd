@@ -16,6 +16,8 @@ const _BUSY_PROGRESS_MIN_WIDTH: float = 180.0
 const _BUSY_PROGRESS_START: float = 8.0
 const _BUSY_PROGRESS_STATUS_DONE: float = 88.0
 const _BUSY_PROGRESS_OPERATION_DONE: float = 86.0
+const _THREAD_EXIT_POLL_MSEC: int = 10
+const _THREAD_EXIT_SOFT_TIMEOUT_MSEC: int = 250
 const _PACKAGE_STATUS_AVAILABLE: String = "+ 可安装"
 const _PACKAGE_STATUS_INSTALLED: String = "✓ 已安装"
 const _PACKAGE_STATUS_UPDATE_AVAILABLE: String = "↑ 可更新"
@@ -123,6 +125,7 @@ var _confirm_dialog: ConfirmationDialog
 var _confirm_operation: String = ""
 var _busy: bool = false
 var _busy_started_msec: int = 0
+var _is_exiting_tree: bool = false
 var _active_thread: Thread
 var _active_worker: RefCounted
 var _packages: Array[Dictionary] = []
@@ -140,6 +143,7 @@ func _init() -> void:
 
 
 func _exit_tree() -> void:
+	_is_exiting_tree = true
 	_wait_for_active_thread()
 
 
@@ -539,6 +543,7 @@ func _format_package_details(package_entry: Dictionary) -> String:
 	_append_line_array(lines, "  install_order", _GF_VARIANT_ACCESS_SCRIPT.get_option_string_array(install_preview, "install_order"))
 	_append_line_array(lines, "  to_install", _GF_VARIANT_ACCESS_SCRIPT.get_option_string_array(install_preview, "to_install"))
 	_append_line_array(lines, "  to_update", _GF_VARIANT_ACCESS_SCRIPT.get_option_string_array(install_preview, "to_update"))
+	_append_plan_entry_lines(lines, "  plan_entries", _GF_VARIANT_ACCESS_SCRIPT.get_option_array(install_preview, "plan_entries"))
 	if not uninstall_preview.is_empty():
 		var _added_uninstall_preview: bool = lines.append("")
 		var _added_uninstall_header: bool = lines.append("uninstall preview:")
@@ -546,7 +551,24 @@ func _format_package_details(package_entry: Dictionary) -> String:
 		var blocked_entries: Array = _GF_VARIANT_ACCESS_SCRIPT.get_option_array(uninstall_preview, "blocked")
 		var _added_blockers: bool = lines.append("  blockers: %d" % blocked_entries.size())
 		_append_uninstall_blocker_lines(lines, blocked_entries)
+		_append_plan_entry_lines(lines, "  plan_entries", _GF_VARIANT_ACCESS_SCRIPT.get_option_array(uninstall_preview, "plan_entries"))
 	return "\n".join(lines)
+
+
+func _append_plan_entry_lines(lines: PackedStringArray, label: String, entries: Array) -> void:
+	if entries.is_empty():
+		return
+	var _added_header: bool = lines.append("%s:" % label)
+	var max_entries: int = mini(entries.size(), 12)
+	for index: int in range(max_entries):
+		var entry: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.as_dictionary(entries[index])
+		var package_id: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(entry, "package_id")
+		var action: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(entry, "action", "unknown")
+		var reasons: Array[String] = _GF_VARIANT_ACCESS_SCRIPT.get_option_string_array(entry, "decision_reasons")
+		var suffix: String = "" if reasons.is_empty() else " [%s]" % _join_string_array(reasons)
+		var _added_entry: bool = lines.append("    %s: %s%s" % [package_id, action, suffix])
+	if entries.size() > max_entries:
+		var _added_more: bool = lines.append("    ... +%d more" % (entries.size() - max_entries))
 
 
 func _append_package_risk_summary(
@@ -1002,14 +1024,25 @@ func _run_backend_request_async(
 		)
 
 	while thread.is_alive():
+		if _is_exiting_tree:
+			_request_active_worker_cancel()
+			break
 		_set_busy_stage(stage_message, _estimate_busy_progress(start_progress, finish_progress))
 		await get_tree().process_frame
+
+	if thread.is_alive() and _is_exiting_tree:
+		_wait_for_active_thread()
+		return _make_backend_error_result(
+			_GF_VARIANT_ACCESS_SCRIPT.get_option_string(request, "operation"),
+			"Package manager request was cancelled while the dock exited."
+		)
 
 	var result_value: Variant = thread.wait_to_finish()
 	if _active_thread == thread:
 		_active_thread = null
 		_active_worker = null
-	_set_busy_stage(stage_message, finish_progress)
+	if not _is_exiting_tree:
+		_set_busy_stage(stage_message, finish_progress)
 	if result_value is Dictionary:
 		var result: Dictionary = result_value
 		return result
@@ -1200,10 +1233,25 @@ func _estimate_busy_progress(start_progress: float, finish_progress: float) -> f
 func _wait_for_active_thread() -> void:
 	if _active_thread == null:
 		return
+	_request_active_worker_cancel()
 	if _active_thread.is_started():
+		var deadline_msec: int = Time.get_ticks_msec() + _THREAD_EXIT_SOFT_TIMEOUT_MSEC
+		while _active_thread.is_alive() and Time.get_ticks_msec() < deadline_msec:
+			OS.delay_msec(_THREAD_EXIT_POLL_MSEC)
+		if _active_thread.is_alive():
+			push_warning("[GFPackageManagerDock] Package backend thread is still running while the dock exits; cancellation was requested and the dock will not block indefinitely.")
+			return
 		var _thread_result: Variant = _active_thread.wait_to_finish()
 	_active_thread = null
 	_active_worker = null
+
+
+func _request_active_worker_cancel() -> void:
+	if _active_worker == null:
+		return
+	if not _active_worker.has_method("cancel"):
+		return
+	var _cancel_result: Variant = _active_worker.call("cancel")
 
 
 func _set_status(message: String, color: Color = GFEditorWorkspaceUI.INFO_TEXT_COLOR) -> void:

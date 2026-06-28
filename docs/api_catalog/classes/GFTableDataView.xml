@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFTableDataView" path="addons/gf/standard/utilities/ui/gf_table_data_view.gd" module="standard" extends="RefCounted" classDigest="b53cc9cd47747bfb285fe154aebc1c4be711ee0234a4e01c1a20d8cc31dad501">
+<class name="GFTableDataView" path="addons/gf/standard/utilities/ui/gf_table_data_view.gd" module="standard" extends="RefCounted" classDigest="76c200643b4da0c9715ad084ba95e8a03e6dbbaef295500feff635f47629950d">
 	<description>GFTableDataView: 通用表格数据视图模型。
 维护行数据、列定义、可见行索引、排序、过滤和单元格提交，
 供运行时 UI、编辑器 Dock、资源表或配置表工具自行选择渲染方式。
@@ -415,6 +415,33 @@
 				<tag name="return">可见行摘要。</tag>
 				<tag name="schema">return: Dictionary，包含 ok、row_index、visible_row_index、row_id、selected 和 values。</tag>
 				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="describe_row">
+			<signature>func describe_row(row_index: int, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>描述源行。
+返回结构面向调试、导出、编辑器表格或虚拟列表渲染，不附带具体 Control 或文件格式语义。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">row_index: 源行索引。</tag>
+				<tag name="param">options: 描述选项。</tag>
+				<tag name="return">行摘要。</tag>
+				<tag name="schema">options: Dictionary，可包含 include_values: bool、include_hidden_columns: bool、include_row_data: bool、copy_values: bool。</tag>
+				<tag name="schema">return: Dictionary，包含 ok、row_index、visible_row_index、row_id、selected、values 和可选 row_data。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="describe_view">
+			<signature>func describe_view(options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>描述当前表格视图。
+默认只导出当前可见行和可见列；调用方可以通过 options 请求源行、隐藏列或原始行数据。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">options: 描述选项。</tag>
+				<tag name="return">视图摘要。</tag>
+				<tag name="schema">options: Dictionary，可包含 visible_only: bool、include_values: bool、include_columns: bool、include_hidden_columns: bool、include_row_data: bool、copy_values: bool。</tag>
+				<tag name="schema">return: Dictionary，包含 row_count、visible_count、column_count、filter_query、sort_column_id、sort_ascending、visible_only、columns 和 rows。</tag>
+				<tag name="since">7.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="prune_selection">

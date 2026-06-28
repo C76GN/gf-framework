@@ -1,6 +1,6 @@
 ## GFConfigTableImporter: 通用导表文本解析与 schema 校验入口。
 ##
-## 提供 JSON 与 CSV 的轻量解析，适合编辑器工具或 CI 在进入项目 Provider 前做结构检查。
+## 提供 JSON、CSV 与 ConfigFile 的轻量解析，适合编辑器工具或 CI 在进入项目 Provider 前做结构检查。
 ## [br]
 ## @api public
 ## [br]
@@ -118,6 +118,17 @@ static func parse_csv_table(text: String, options: Dictionary = {}) -> Dictionar
 		var row: PackedStringArray = rows[row_index]
 		if skip_empty_lines and _csv_row_is_empty(row):
 			continue
+		if row.size() > header.size():
+			return {
+				"success": false,
+				"data": null,
+				"header": header,
+				"row_locations": [],
+				"error": "CSV parse failed: row_has_extra_cells",
+				"error_line": row_index + 1,
+				"error_column": header.size() + 1,
+				"source": source,
+			}
 
 		var record: Dictionary = {}
 		var row_location: Dictionary = _make_csv_row_location(source, row_index + 1, header)
@@ -133,6 +144,76 @@ static func parse_csv_table(text: String, options: Dictionary = {}) -> Dictionar
 		"success": true,
 		"data": records,
 		"header": header,
+		"row_locations": row_locations,
+		"error": "",
+		"error_line": 0,
+		"error_column": 0,
+		"source": source,
+	}
+
+
+## 解析 Godot ConfigFile 表文本。
+## [br]
+## @api public
+## [br]
+## @since 7.0.0
+## [br]
+## @param text: ConfigFile 文本。
+## [br]
+## @param options: 可选参数，支持 source、section_field、include_empty_sections。
+## [br]
+## @schema options: Dictionary，可包含 source、section_field、include_empty_sections 字段；section_field 为空 StringName 时不写入 section 名字段。
+## [br]
+## @return 结果字典，包含 success、data、sections、row_locations 与 error。
+## [br]
+## @schema return: Dictionary，包含 success、data、sections、row_locations、error、error_line、error_column 和 source。
+static func parse_config_file_table(text: String, options: Dictionary = {}) -> Dictionary:
+	var source: String = GFVariantData.get_option_string(options, "source")
+	var config_file: ConfigFile = ConfigFile.new()
+	var parse_error: Error = config_file.parse(_normalize_config_file_text(text))
+	if parse_error != OK:
+		return {
+			"success": false,
+			"data": null,
+			"sections": PackedStringArray(),
+			"row_locations": [],
+			"error": "ConfigFile parse failed: %s" % error_string(parse_error),
+			"error_line": 0,
+			"error_column": 0,
+			"source": source,
+		}
+
+	var section_field: StringName = GFVariantData.get_option_string_name(options, "section_field", &"entry_name")
+	var include_empty_sections: bool = GFVariantData.get_option_bool(options, "include_empty_sections", true)
+	var sections: PackedStringArray = config_file.get_sections()
+	sections.sort()
+	var records: Array[Dictionary] = []
+	var row_locations: Array[Dictionary] = []
+	for section: String in sections:
+		var keys: PackedStringArray = config_file.get_section_keys(section)
+		keys.sort()
+		if keys.is_empty() and not include_empty_sections:
+			continue
+
+		var record: Dictionary = {}
+		var row_location: Dictionary = _make_config_file_row_location(
+			source,
+			records.size(),
+			section,
+			section_field,
+			keys
+		)
+		if section_field != &"":
+			record[section_field] = section
+		for key: String in keys:
+			record[StringName(key)] = config_file.get_value(section, key)
+		records.append(record)
+		row_locations.append(row_location)
+
+	return {
+		"success": true,
+		"data": records,
+		"sections": sections,
 		"row_locations": row_locations,
 		"error": "",
 		"error_line": 0,
@@ -252,6 +333,37 @@ static func validate_csv_table(text: String, schema: GFConfigTableSchema, option
 	return schema.validate_table(_get_parse_data(parsed), _make_validation_options(options, parsed))
 
 
+## 解析并校验 Godot ConfigFile 表文本。
+## [br]
+## @api public
+## [br]
+## @since 7.0.0
+## [br]
+## @param text: ConfigFile 文本。
+## [br]
+## @param schema: 表结构声明。
+## [br]
+## @param options: 可选参数，支持 source、section_field、include_empty_sections。
+## [br]
+## @schema options: Dictionary，可包含 source、section_field 和 include_empty_sections 字段。
+## [br]
+## @return 校验报告；解析失败时返回失败报告。
+## [br]
+## @schema return: GFConfigValidationReport 兼容 Dictionary。
+static func validate_config_file_table(text: String, schema: GFConfigTableSchema, options: Dictionary = {}) -> Dictionary:
+	if schema == null:
+		return _make_error_report(&"", "missing_schema", "schema 为空。")
+
+	var parsed: Dictionary = parse_config_file_table(text, options)
+	if not GFVariantData.get_option_bool(parsed, "success"):
+		return _make_error_report(schema.get_table_key(), "parse_failed", _get_parse_error(parsed), {
+			"source": _get_parse_source(parsed),
+			"line": _get_parse_error_line(parsed),
+			"column": _get_parse_error_column(parsed),
+		})
+	return schema.validate_table(_get_parse_data(parsed), _make_validation_options(options, parsed))
+
+
 ## 导出 CSV 表文本。
 ## [br]
 ## @api public
@@ -341,6 +453,7 @@ static func _parse_csv_rows(text: String, delimiter: String, trim_cells: bool) -
 	var row: PackedStringArray = PackedStringArray()
 	var cell: String = ""
 	var in_quotes: bool = false
+	var quote_closed: bool = false
 	var quote_start_line: int = 1
 	var quote_start_column: int = 1
 	var index: int = 0
@@ -356,24 +469,59 @@ static func _parse_csv_rows(text: String, delimiter: String, trim_cells: bool) -
 					index += 1
 				else:
 					in_quotes = false
+					quote_closed = true
 			else:
 				cell += ch
 				if ch == "\n":
 					line += 1
 					column = 0
 		else:
-			if ch == "\"":
+			if quote_closed:
+				if ch == delimiter:
+					var _closed_delimiter_cell_appended: bool = row.append(cell.strip_edges() if trim_cells else cell)
+					cell = ""
+					quote_closed = false
+				elif ch == "\n":
+					var _closed_newline_cell_appended: bool = row.append(cell.strip_edges() if trim_cells else cell)
+					rows.append(row)
+					row = PackedStringArray()
+					cell = ""
+					quote_closed = false
+					line += 1
+					column = 0
+				elif ch == "\r" or (trim_cells and (ch == " " or ch == "\t")):
+					pass
+				else:
+					return {
+						"success": false,
+						"rows": rows,
+						"error": "CSV parse failed: malformed_quote",
+						"error_line": line,
+						"error_column": column,
+					}
+			elif ch == "\"":
+				if not cell.is_empty() and (not trim_cells or not cell.strip_edges().is_empty()):
+					return {
+						"success": false,
+						"rows": rows,
+						"error": "CSV parse failed: malformed_quote",
+						"error_line": line,
+						"error_column": column,
+					}
+				cell = ""
 				in_quotes = true
 				quote_start_line = line
 				quote_start_column = column
 			elif ch == delimiter:
 				var _delimiter_cell_appended: bool = row.append(cell.strip_edges() if trim_cells else cell)
 				cell = ""
+				quote_closed = false
 			elif ch == "\n":
 				var _newline_cell_appended: bool = row.append(cell.strip_edges() if trim_cells else cell)
 				rows.append(row)
 				row = PackedStringArray()
 				cell = ""
+				quote_closed = false
 				line += 1
 				column = 0
 			elif ch != "\r":
@@ -403,6 +551,10 @@ static func _parse_csv_rows(text: String, delimiter: String, trim_cells: bool) -
 
 
 static func _normalize_csv_text(text: String) -> String:
+	return text.trim_prefix("\ufeff")
+
+
+static func _normalize_config_file_text(text: String) -> String:
 	return text.trim_prefix("\ufeff")
 
 
@@ -474,6 +626,44 @@ static func _make_csv_row_location(source: String, line_number: int, header: Pac
 	if not source.is_empty():
 		row_location["source"] = source
 	return row_location
+
+
+static func _make_config_file_row_location(
+	source: String,
+	row_index: int,
+	section: String,
+	section_field: StringName,
+	keys: PackedStringArray
+) -> Dictionary:
+	var fields: Dictionary = {}
+	if section_field != &"":
+		var section_location: Dictionary = _make_config_file_field_location(source, row_index, section)
+		fields[section_field] = section_location
+		fields[String(section_field)] = section_location
+	for key: String in keys:
+		var field_name: StringName = StringName(key)
+		var field_location: Dictionary = _make_config_file_field_location(source, row_index, section)
+		fields[field_name] = field_location
+		fields[key] = field_location
+
+	var row_location: Dictionary = {
+		"row_index": row_index,
+		"section": section,
+		"fields": fields,
+	}
+	if not source.is_empty():
+		row_location["source"] = source
+	return row_location
+
+
+static func _make_config_file_field_location(source: String, row_index: int, section: String) -> Dictionary:
+	var location: Dictionary = {
+		"row_index": row_index,
+		"section": section,
+	}
+	if not source.is_empty():
+		location["source"] = source
+	return location
 
 
 static func _make_error_report(

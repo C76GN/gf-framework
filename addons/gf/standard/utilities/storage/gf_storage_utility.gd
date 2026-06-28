@@ -268,12 +268,33 @@ func tick(_delta: float = 0.0) -> void:
 ## [br]
 ## @return Godot 的 `Error` 结果码。
 func save_resource(file_name: String, resource: Resource) -> Error:
+	if not _validate_public_file_name(file_name, "save_resource"):
+		return ERR_INVALID_PARAMETER
+	if resource == null:
+		push_error("[GFStorageUtility] save_resource 失败：resource 为空。")
+		return ERR_INVALID_PARAMETER
+
 	init()
-	var path: String = _get_full_path(file_name)
-	var dir_error: Error = _ensure_parent_directory(path)
+	_wait_for_async_tasks_for_file(file_name)
+	_recover_transaction_files([file_name])
+
+	var temp_path: String = _get_full_path(_get_temp_filename(file_name))
+	var resource_temp_path: String = _get_full_path(_get_resource_temp_filename(file_name))
+	_remove_file_if_exists(resource_temp_path)
+	var dir_error: Error = _ensure_parent_directory(temp_path)
 	if dir_error != OK:
 		return dir_error
-	return ResourceSaver.save(resource, path)
+	var save_error: Error = ResourceSaver.save(resource, resource_temp_path)
+	if save_error != OK:
+		_remove_file_if_exists(resource_temp_path)
+		_cleanup_transaction_files([file_name])
+		return save_error
+	var copy_error: Error = _copy_file_bytes(resource_temp_path, temp_path)
+	_remove_file_if_exists(resource_temp_path)
+	if copy_error != OK:
+		_cleanup_transaction_files([file_name])
+		return copy_error
+	return _commit_transaction([file_name])
 
 
 ## 读取一个 `Resource` 文件。
@@ -290,9 +311,15 @@ func save_resource(file_name: String, resource: Resource) -> Error:
 ## [br]
 ## 该方法会调用 Godot `ResourceLoader`，默认关闭。调用方必须先启用 `allow_resource_loads`，并通过类型提示、扩展名 allowlist 与存储路径策略收窄加载边界。
 func load_resource(file_name: String, type_hint: String = "") -> Resource:
+	if not _validate_public_file_name(file_name, "load_resource"):
+		return null
 	if not allow_resource_loads:
 		push_error("[GFStorageUtility] load_resource 已被默认安全策略拒绝：请先显式启用 allow_resource_loads。")
 		return null
+
+	init()
+	_wait_for_async_tasks_for_file(file_name)
+	_recover_transaction_files([file_name])
 
 	var path: String = _get_full_path(file_name)
 	if not FileAccess.file_exists(path):
@@ -309,7 +336,7 @@ func load_resource(file_name: String, type_hint: String = "") -> Resource:
 		push_error("[GFStorageUtility] load_resource 拒绝未允许的 type_hint：%s。" % normalized_type_hint)
 		return null
 
-	return ResourceLoader.load(path, normalized_type_hint)
+	return ResourceLoader.load(path, normalized_type_hint, ResourceLoader.CACHE_MODE_IGNORE)
 
 
 # --- 公共方法（文件管理） ---
@@ -611,6 +638,7 @@ func save_data(file_name: String, data: Dictionary) -> Error:
 		return ERR_INVALID_PARAMETER
 
 	init()
+	_wait_for_async_tasks_for_file(file_name)
 	_recover_transaction_files([file_name])
 
 	var temp_file_name: String = _get_temp_filename(file_name)
@@ -636,6 +664,9 @@ func load_data(file_name: String) -> Dictionary:
 		last_load_result = _make_load_result(false, {}, "file_name is empty", true)
 		return {}
 
+	init()
+	_wait_for_async_tasks_for_file(file_name)
+	_recover_transaction_files([file_name])
 	return _read_json(file_name)
 
 
@@ -819,6 +850,23 @@ func get_registered_migrations() -> Array[Dictionary]:
 
 
 # --- 私有/辅助方法 ---
+
+func _wait_for_async_tasks_for_file(file_name: String) -> void:
+	if not _has_pending_async_task_for_file(file_name):
+		return
+	wait_for_async_tasks()
+
+
+func _has_pending_async_task_for_file(file_name: String) -> bool:
+	var file_key: String = _get_async_file_key(file_name)
+	if _async_file_locks.has(file_key):
+		return true
+	for task_value: Variant in _async_queue:
+		var task: Dictionary = GFVariantData.as_dictionary(task_value)
+		if _get_task_file_key(task) == file_key:
+			return true
+	return false
+
 
 func _ensure_storage_helpers() -> void:
 	if _path_policy == null:
@@ -1166,6 +1214,19 @@ func _write_buffer_absolute(path: String, bytes: PackedByteArray) -> Error:
 	return _file_ops._write_buffer_absolute(path, bytes)
 
 
+func _copy_file_bytes(source_path: String, target_path: String) -> Error:
+	var source_file: FileAccess = FileAccess.open(source_path, FileAccess.READ)
+	if source_file == null:
+		return FileAccess.get_open_error()
+
+	var bytes: PackedByteArray = source_file.get_buffer(source_file.get_length())
+	var read_error: Error = source_file.get_error()
+	source_file.close()
+	if read_error != OK:
+		return read_error
+	return _write_buffer_absolute(target_path, bytes)
+
+
 func _write_plain_json_absolute(path: String, data: Dictionary) -> Error:
 	_ensure_storage_helpers()
 	return _file_ops._write_plain_json_absolute(path, data)
@@ -1208,6 +1269,14 @@ func _get_save_base_path() -> String:
 func _get_full_path(file_name: String) -> String:
 	_ensure_storage_helpers()
 	return _path_policy._get_full_path(file_name)
+
+
+func _get_resource_temp_filename(file_name: String) -> String:
+	var extension: String = file_name.get_extension()
+	if extension.is_empty():
+		return _get_temp_filename(file_name)
+	var suffix: String = ".%s" % extension
+	return "%s%s%s" % [file_name.trim_suffix(suffix), _TEMP_SUFFIX, suffix]
 
 
 func _is_resource_load_extension_allowed(path: String) -> bool:

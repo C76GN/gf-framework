@@ -120,6 +120,31 @@ func test_replay_rejects_concurrent_replay_while_transport_is_waiting() -> void:
 	assert_eq(_outbox.get_queue_size(), 0, "第一轮成功完成后队列应清空。")
 
 
+func test_dispose_during_async_replay_invalidates_late_transport_result() -> void:
+	var transport: ManualTransport = ManualTransport.new()
+	var completed_count: Array[int] = [0]
+	_outbox.transport_callback = Callable(transport, "send")
+	var _enqueued: GFRequestEnvelope = _outbox.enqueue_request(HTTPClient.METHOD_POST, "https://example.test/events")
+	var _connect_result: Error = _outbox.request_completed.connect(func(_envelope: GFRequestEnvelope, _result: Dictionary) -> void:
+		completed_count[0] += 1
+	) as Error
+	var replay_state: ReplayState = ReplayState.new()
+
+	@warning_ignore("missing_await")
+	_await_outbox_replay(replay_state)
+	await get_tree().process_frame
+
+	_outbox.dispose()
+	transport.emit_success()
+	await get_tree().process_frame
+	await get_tree().process_frame
+
+	assert_true(replay_state.done, "dispose 后迟到 transport 应让 replay 结束。")
+	assert_false(GFVariantData.get_option_bool(replay_state.report, "ok"), "dispose 后 replay 应返回失败报告。")
+	assert_eq(GFVariantData.get_option_string(replay_state.report, "reason"), "disposed", "dispose 中断应给出稳定原因。")
+	assert_eq(completed_count[0], 0, "dispose 后迟到成功不应再发 request_completed。")
+
+
 func test_replay_failure_retries_until_success() -> void:
 	var attempts: AttemptState = AttemptState.new()
 	_outbox.transport_callback = func(_envelope: GFRequestEnvelope) -> Dictionary:

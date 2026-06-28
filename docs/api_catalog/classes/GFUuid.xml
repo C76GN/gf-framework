@@ -1,8 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFUuid" path="addons/gf/standard/foundation/identity/gf_uuid.gd" module="standard" extends="RefCounted" classDigest="22a73b9bbe102c4ce0bcd4c430e7e9c5b977d5c18df1314dc25baec5bf899b19">
+<class name="GFUuid" path="addons/gf/standard/foundation/identity/gf_uuid.gd" module="standard" extends="RefCounted" classDigest="012903490adbb5fe0bd6e98661fad2b8ac94db22553a757e92f75e1d3f6e5c2c">
 	<description>GFUuid: 通用 UUID 生成与校验工具。
 只处理 RFC 4122 形态的字符串标识，不绑定存档、分析、网络请求或编辑器资源语义。
-v4 适合匿名随机标识，v7 适合需要大致按生成时间排序的标识。</description>
+v4 适合匿名随机标识，v7 适合需要大致按生成时间排序的标识；同一进程、同一毫秒内的 v7
+会写入递增序列以保证 canonical 字符串严格递增。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">value_object</tag>

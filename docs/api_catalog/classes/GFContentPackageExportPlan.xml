@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFContentPackageExportPlan" path="addons/gf/extensions/content_package/runtime/gf_content_package_export_plan.gd" module="extensions/content_package" extends="RefCounted" classDigest="9dfb5fce3c3e0ad78ff463ad32925c27b7e763797b3004b345ae6cb71684ed3a">
+<class name="GFContentPackageExportPlan" path="addons/gf/extensions/content_package/runtime/gf_content_package_export_plan.gd" module="extensions/content_package" extends="RefCounted" classDigest="be3449df5df8887a8164ff506b2e3ebd15a89b59bd6075aa99d8e4f34587f539">
 	<description>GFContentPackageExportPlan: 内容包导出计划。
 从 GFContentPackageManifest 或 GFContentPackageCatalog 构建可审计的资源条目列表，
 供编辑器工具、构建脚本或项目安装器决定后续打包方式。本类只生成计划和诊断，不写 zip、不改 remap、
@@ -120,6 +120,33 @@
 				<tag name="return">GFValidationReportDictionary 兼容报告。</tag>
 				<tag name="schema">return: Dictionary with ok, healthy, entries, entry_count, issues, summary, and next_action.</tag>
 				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_artifact_report">
+			<signature>func get_artifact_report(options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>获取导出条目的本地 artifact 完整性报告。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">options: 报告选项。</tag>
+				<tag name="return">GFValidationReportDictionary 兼容报告。</tag>
+				<tag name="schema">options: Dictionary，可包含 include_sha256、include_modified_time、include_entry_metadata 和 verify_expected_metadata。</tag>
+				<tag name="schema">return: Dictionary with ok, healthy, artifacts, artifact_count, existing_count, missing_count, unreadable_count, total_size_bytes, issues, summary, and next_action.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_preflight_report">
+			<signature>func get_preflight_report( profile: GFCompatibilityProfile = null, options: Dictionary = {} ) -&gt; Dictionary:</signature>
+			<description>获取内容包导出预检报告。
+该报告会合并导出计划校验、可选 artifact 完整性校验，以及调用方显式传入的兼容性 Profile 约束。
+GF 不在这里决定下载、启用、远程发布或业务内容策略。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">profile: 可选兼容性 Profile。</tag>
+				<tag name="param">options: 预检选项。</tag>
+				<tag name="return">GFValidationReportDictionary 兼容报告。</tag>
+				<tag name="schema">options: Dictionary，可包含 include_artifacts、artifact_options、required_features、required_platforms、minimum_godot_version、minimum_framework_version 和 metadata。</tag>
+				<tag name="schema">return: Dictionary with ok, healthy, profile, checks, issues, summary, and next_action.</tag>
+				<tag name="since">7.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="to_dictionary">

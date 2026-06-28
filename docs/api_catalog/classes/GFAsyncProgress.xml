@@ -1,0 +1,152 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFAsyncProgress" path="addons/gf/standard/common/gf_async_progress.gd" module="standard" extends="RefCounted" classDigest="90ca031bef95bee05948967152ca7d226cece55f77fabd2796d5b74b29a58f9c">
+	<description>GFAsyncProgress: 可节流的通用异步进度句柄。
+用于把下载、预热、导入、后台任务或项目流程的进度更新统一为 0 到 1 的值、
+可选消息和元数据。它不决定 UI 样式，也不绑定具体任务类型。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_handle</tag>
+		<tag name="since">7.0.0</tag>
+	</tags>
+	<signals>
+		<member kind="signal" name="progressed">
+			<signature>signal progressed(value: float, message: String, metadata: Dictionary)</signature>
+			<description>进度通过节流条件并对外发布时发出。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">value: 当前进度，范围 0 到 1。</tag>
+				<tag name="param">message: 当前进度消息。</tag>
+				<tag name="param">metadata: 当前进度元数据。</tag>
+				<tag name="schema">metadata: Dictionary，调用方定义的进度上下文。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+	</signals>
+	<enums />
+	<constants />
+	<properties>
+		<member kind="property" name="min_delta">
+			<signature>var min_delta: float = 0.0:</signature>
+			<description>触发进度信号的最小数值变化。设为 0 时任意数值变化都会触发。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="min_interval_msec">
+			<signature>var min_interval_msec: int = 0:</signature>
+			<description>触发进度信号的最小时间间隔，单位毫秒。设为 0 时不按时间节流。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="emit_on_message_change">
+			<signature>var emit_on_message_change: bool = true</signature>
+			<description>消息变化时是否允许触发信号，即使数值变化小于 min_delta。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="_init">
+			<signature>func _init(initial_value: float = 0.0, initial_message: String = "", initial_metadata: Dictionary = {}) -&gt; void:</signature>
+			<description>创建进度句柄。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">initial_value: 初始进度，范围会被夹到 0 到 1。</tag>
+				<tag name="param">initial_message: 初始消息。</tag>
+				<tag name="param">initial_metadata: 初始元数据。</tag>
+				<tag name="schema">initial_metadata: Dictionary，调用方定义的进度上下文。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="update">
+			<signature>func update(value: float, message: String = "", metadata: Dictionary = {}) -&gt; bool:</signature>
+			<description>更新进度，并在满足节流条件时发出 progressed。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">value: 新进度值，范围会被夹到 0 到 1。</tag>
+				<tag name="param">message: 进度消息。</tag>
+				<tag name="param">metadata: 进度元数据。</tag>
+				<tag name="return">本次更新是否发出了 progressed。</tag>
+				<tag name="schema">metadata: Dictionary，调用方定义的进度上下文。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="force_emit">
+			<signature>func force_emit() -&gt; bool:</signature>
+			<description>强制发布当前进度。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">是否成功发出 progressed。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="complete">
+			<signature>func complete(message: String = "", metadata: Dictionary = {}) -&gt; bool:</signature>
+			<description>将进度更新为 1.0 并强制发布。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">message: 完成消息。</tag>
+				<tag name="param">metadata: 完成元数据。</tag>
+				<tag name="return">是否成功发出 progressed。</tag>
+				<tag name="schema">metadata: Dictionary，调用方定义的进度上下文。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="reset">
+			<signature>func reset(value: float = 0.0, message: String = "", metadata: Dictionary = {}) -&gt; void:</signature>
+			<description>重置进度状态，不发出信号。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">value: 新进度值。</tag>
+				<tag name="param">message: 新消息。</tag>
+				<tag name="param">metadata: 新元数据。</tag>
+				<tag name="schema">metadata: Dictionary，调用方定义的进度上下文。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_value">
+			<signature>func get_value() -&gt; float:</signature>
+			<description>获取当前进度值。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">当前进度值。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_message">
+			<signature>func get_message() -&gt; String:</signature>
+			<description>获取当前消息。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">当前消息。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_metadata">
+			<signature>func get_metadata() -&gt; Dictionary:</signature>
+			<description>获取当前元数据副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">当前元数据副本。</tag>
+				<tag name="schema">return: Dictionary，调用方定义的进度上下文。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_debug_snapshot">
+			<signature>func get_debug_snapshot() -&gt; Dictionary:</signature>
+			<description>获取进度状态快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">进度状态快照。</tag>
+				<tag name="schema">return: Dictionary，包含 value、message、metadata、min_delta、min_interval_msec、has_emitted 和 last_emitted_value。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

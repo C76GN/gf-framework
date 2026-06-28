@@ -54,6 +54,15 @@ var include_metric_series_panel: bool = true
 ## @api public
 var metric_series_width: int = 32
 
+## Overlay 最多维护的指标序列数量。设为 0 表示不限制。
+## [br]
+## @api public
+## [br]
+## @since 6.0.0
+var max_metric_series: int = 256:
+	set(value):
+		max_metric_series = maxi(value, 0)
+
 ## 是否只在 debug 构建中创建 Overlay GUI。发布构建需要显式关闭此项才会创建 GUI。
 ## [br]
 ## @api public
@@ -89,7 +98,7 @@ func init() -> void:
 	
 	var tree: SceneTree = _get_main_scene_tree()
 	if tree != null:
-		tree.root.call_deferred("add_child", _overlay_gui)
+		call_deferred("_add_overlay_gui_if_current", tree.root, _overlay_gui)
 
 
 ## 释放调试覆盖层 GUI 和所有 watch / panel 注册。
@@ -438,6 +447,9 @@ func get_or_create_metric_series(metric_id: StringName, options: Dictionary = {}
 
 	var series: GFMetricSeries = _get_metric_series_or_null(metric_id)
 	if series == null:
+		if not _has_metric_series_capacity(metric_id):
+			push_warning("[GFDebugOverlayUtility] 指标序列数量已达到上限，已拒绝创建：%s" % String(metric_id))
+			return null
 		series = GFMetricSeries.new()
 		_metric_series[metric_id] = series
 	series = series.configure(metric_id, options)
@@ -453,6 +465,9 @@ func get_or_create_metric_series(metric_id: StringName, options: Dictionary = {}
 ## @return 注册成功返回 true。
 func register_metric_series(series: GFMetricSeries) -> bool:
 	if series == null or series.id == &"":
+		return false
+	if not _has_metric_series_capacity(series.id):
+		push_warning("[GFDebugOverlayUtility] 指标序列数量已达到上限，已拒绝注册：%s" % String(series.id))
 		return false
 	if series.label.is_empty():
 		series.label = String(series.id)
@@ -505,8 +520,7 @@ func get_metric_series_snapshot(include_hidden: bool = false) -> Array[Dictionar
 		if not include_hidden and not series.visible:
 			continue
 
-		var entry: Dictionary = series.to_dict(false)
-		entry["sparkline"] = series.make_sparkline(metric_series_width)
+		var entry: Dictionary = series.to_dict(false, metric_series_width)
 		snapshot.append(entry)
 
 	snapshot.sort_custom(_sort_metric_series_entries)
@@ -557,6 +571,17 @@ func _get_main_scene_tree() -> SceneTree:
 	return null
 
 
+func _add_overlay_gui_if_current(root: Node, overlay_gui: Node) -> void:
+	if not is_instance_valid(root) or not is_instance_valid(overlay_gui):
+		return
+	if overlay_gui != _overlay_gui:
+		return
+	if overlay_gui.is_queued_for_deletion():
+		return
+	if overlay_gui.get_parent() == null:
+		root.add_child(overlay_gui)
+
+
 func _get_log_utility() -> GFLogUtility:
 	var utility: Variant = get_utility(GFLogUtility)
 	if utility is GFLogUtility:
@@ -579,6 +604,14 @@ func _get_metric_series_or_null(metric_id: StringName) -> GFMetricSeries:
 		var series: GFMetricSeries = value
 		return series
 	return null
+
+
+func _has_metric_series_capacity(metric_id: StringName) -> bool:
+	if _metric_series.has(metric_id):
+		return true
+	if max_metric_series <= 0:
+		return true
+	return _metric_series.size() < max_metric_series
 
 
 func _get_dictionary_callable(source: Dictionary, key: Variant) -> Callable:

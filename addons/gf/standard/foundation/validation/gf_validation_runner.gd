@@ -223,6 +223,10 @@ func _validate_path_into(
 	path: String,
 	base_context: Dictionary
 ) -> void:
+	if path.strip_edges().is_empty() or not ResourceLoader.exists(path):
+		var _missing_issue: RefCounted = report.add_error(&"resource_missing", "Resource path does not exist.", null, path)
+		return
+
 	var resource: Resource = load(path)
 	if resource == null:
 		var _load_issue: RefCounted = report.add_error(&"resource_load_failed", "Resource could not be loaded.", null, path)

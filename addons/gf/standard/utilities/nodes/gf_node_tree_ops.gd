@@ -35,10 +35,14 @@ static func add_child_with_owner(
 ) -> bool:
 	if parent == null or child == null:
 		return false
+	if parent == child or child.is_ancestor_of(parent):
+		return false
 	if child.get_parent() != null:
 		return false
 
 	parent.add_child(child, force_readable_name)
+	if child.get_parent() != parent:
+		return false
 	_apply_owner(child, _resolve_child_owner(parent, owner))
 	return true
 
@@ -178,19 +182,29 @@ static func find_first_child_of_type(
 	if include_parent and _matches_type(parent, child_type):
 		return parent
 
-	for child: Node in parent.get_children(include_internal):
-		if _matches_type(child, child_type):
-			return child
+	var node_stack: Array[Node] = _get_children_snapshot(parent, include_internal)
+	node_stack.reverse()
+	while not node_stack.is_empty():
+		var stack_index: int = node_stack.size() - 1
+		var current: Node = node_stack[stack_index]
+		node_stack.remove_at(stack_index)
+		if _matches_type(current, child_type):
+			return current
 		if recursive:
-			var nested: Node = find_first_child_of_type(child, child_type, true, include_internal, false)
-			if nested != null:
-				return nested
+			var children: Array[Node] = _get_children_snapshot(current, include_internal)
+			for child_index: int in range(children.size() - 1, -1, -1):
+				node_stack.append(children[child_index])
+
+		if not recursive:
+			continue
 	return null
 
 
 ## 收集节点树中的节点。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @param root: 节点树根节点。
 ## [br]
@@ -202,19 +216,239 @@ static func find_first_child_of_type(
 ## [br]
 ## @param include_internal: 是否包含内部子节点。
 ## [br]
+## @param max_depth: 最大遍历深度；0 只允许 root，负数表示不限深度。
+## [br]
+## @param limit: 最多返回多少个匹配节点；负数表示不限数量，0 表示返回空数组。
+## [br]
 ## @return 匹配节点列表。
 static func collect_node_tree(
 	root: Node,
 	type_filter: Variant = null,
 	include_root: bool = true,
-	include_internal: bool = false
+	include_internal: bool = false,
+	max_depth: int = -1,
+	limit: int = -1
+) -> Array[Node]:
+	return collect_descendants(root, type_filter, include_root, include_internal, max_depth, limit)
+
+
+## 收集直接子节点，可选包含起点自身。
+## [br]
+## @api public
+## [br]
+## @since 7.0.0
+## [br]
+## @param parent: 查询起点。
+## [br]
+## @param type_filter: 可选类型过滤器，可为脚本类型、原生类或类名字符串。
+## [br]
+## @schema type_filter: Variant type filter accepted by is_instance_of(), native class name, GDScript class_name, script resource path, or null for all nodes.
+## [br]
+## @param include_self: 是否把 parent 自身作为第一个候选。
+## [br]
+## @param include_internal: 是否包含内部子节点。
+## [br]
+## @param limit: 最多返回多少个匹配节点；负数表示不限数量，0 表示返回空数组。
+## [br]
+## @return 匹配节点列表。
+static func collect_children(
+	parent: Node,
+	type_filter: Variant = null,
+	include_self: bool = false,
+	include_internal: bool = false,
+	limit: int = -1
 ) -> Array[Node]:
 	var result: Array[Node] = []
-	if root == null:
+	if parent == null or limit == 0:
 		return result
-	if include_root and _matches_type(root, type_filter):
-		result.append(root)
-	_collect_node_tree_recursive(root, type_filter, include_internal, result)
+	if include_self and not _append_if_matches(result, parent, type_filter, limit):
+		return result
+
+	for child: Node in parent.get_children(include_internal):
+		if not _append_if_matches(result, child, type_filter, limit):
+			return result
+	return result
+
+
+## 按场景树顺序收集后代节点，可选包含 root 自身。
+## [br]
+## @api public
+## [br]
+## @since 7.0.0
+## [br]
+## @param root: 查询起点。
+## [br]
+## @param type_filter: 可选类型过滤器，可为脚本类型、原生类或类名字符串。
+## [br]
+## @schema type_filter: Variant type filter accepted by is_instance_of(), native class name, GDScript class_name, script resource path, or null for all nodes.
+## [br]
+## @param include_root: 是否把 root 自身作为第一个候选。
+## [br]
+## @param include_internal: 是否包含内部子节点。
+## [br]
+## @param max_depth: 最大遍历深度；0 只允许 root，负数表示不限深度。
+## [br]
+## @param limit: 最多返回多少个匹配节点；负数表示不限数量，0 表示返回空数组。
+## [br]
+## @return 匹配节点列表。
+static func collect_descendants(
+	root: Node,
+	type_filter: Variant = null,
+	include_root: bool = false,
+	include_internal: bool = false,
+	max_depth: int = -1,
+	limit: int = -1
+) -> Array[Node]:
+	var result: Array[Node] = []
+	if root == null or limit == 0:
+		return result
+
+	var node_stack: Array[Node] = [root]
+	var depth_stack: Array[int] = [0]
+	while not node_stack.is_empty():
+		var stack_index: int = node_stack.size() - 1
+		var current: Node = node_stack[stack_index]
+		node_stack.remove_at(stack_index)
+
+		var current_depth: int = depth_stack[depth_stack.size() - 1]
+		depth_stack.remove_at(depth_stack.size() - 1)
+
+		if (current_depth > 0 or include_root) and not _append_if_matches(result, current, type_filter, limit):
+			return result
+		if max_depth >= 0 and current_depth >= max_depth:
+			continue
+
+		var children: Array[Node] = _get_children_snapshot(current, include_internal)
+		for child_index: int in range(children.size() - 1, -1, -1):
+			node_stack.append(children[child_index])
+			depth_stack.append(current_depth + 1)
+	return result
+
+
+## 从节点向上收集祖先节点，可选包含起点自身。
+## [br]
+## @api public
+## [br]
+## @since 7.0.0
+## [br]
+## @param node: 查询起点。
+## [br]
+## @param type_filter: 可选类型过滤器，可为脚本类型、原生类或类名字符串。
+## [br]
+## @schema type_filter: Variant type filter accepted by is_instance_of(), native class name, GDScript class_name, script resource path, or null for all nodes.
+## [br]
+## @param include_self: 是否把 node 自身作为第一个候选。
+## [br]
+## @param limit: 最多返回多少个匹配节点；负数表示不限数量，0 表示返回空数组。
+## [br]
+## @return 匹配节点列表。
+static func collect_ancestors(
+	node: Node,
+	type_filter: Variant = null,
+	include_self: bool = false,
+	limit: int = -1
+) -> Array[Node]:
+	var result: Array[Node] = []
+	if node == null or limit == 0:
+		return result
+
+	var current: Node = node if include_self else node.get_parent()
+	while current != null:
+		if not _append_if_matches(result, current, type_filter, limit):
+			return result
+		current = current.get_parent()
+	return result
+
+
+## 按场景树顺序收集位于节点之前的同级节点，可选包含起点自身。
+## [br]
+## @api public
+## [br]
+## @since 7.0.0
+## [br]
+## @param node: 查询起点。
+## [br]
+## @param type_filter: 可选类型过滤器，可为脚本类型、原生类或类名字符串。
+## [br]
+## @schema type_filter: Variant type filter accepted by is_instance_of(), native class name, GDScript class_name, script resource path, or null for all nodes.
+## [br]
+## @param include_self: 是否把 node 自身作为最后一个候选。
+## [br]
+## @param include_internal: 是否包含内部同级节点。
+## [br]
+## @param limit: 最多返回多少个匹配节点；负数表示不限数量，0 表示返回空数组。
+## [br]
+## @return 匹配节点列表。
+static func collect_previous_siblings(
+	node: Node,
+	type_filter: Variant = null,
+	include_self: bool = false,
+	include_internal: bool = false,
+	limit: int = -1
+) -> Array[Node]:
+	var result: Array[Node] = []
+	if node == null or limit == 0:
+		return result
+
+	var parent: Node = node.get_parent()
+	if parent == null:
+		return result
+
+	var siblings: Array[Node] = _get_children_snapshot(parent, include_internal)
+	var own_index: int = _find_node_index(siblings, node)
+	if own_index < 0:
+		return result
+
+	var end_index: int = own_index + 1 if include_self else own_index
+	for sibling_index: int in range(0, end_index):
+		if not _append_if_matches(result, siblings[sibling_index], type_filter, limit):
+			return result
+	return result
+
+
+## 按场景树顺序收集位于节点之后的同级节点，可选包含起点自身。
+## [br]
+## @api public
+## [br]
+## @since 7.0.0
+## [br]
+## @param node: 查询起点。
+## [br]
+## @param type_filter: 可选类型过滤器，可为脚本类型、原生类或类名字符串。
+## [br]
+## @schema type_filter: Variant type filter accepted by is_instance_of(), native class name, GDScript class_name, script resource path, or null for all nodes.
+## [br]
+## @param include_self: 是否把 node 自身作为第一个候选。
+## [br]
+## @param include_internal: 是否包含内部同级节点。
+## [br]
+## @param limit: 最多返回多少个匹配节点；负数表示不限数量，0 表示返回空数组。
+## [br]
+## @return 匹配节点列表。
+static func collect_next_siblings(
+	node: Node,
+	type_filter: Variant = null,
+	include_self: bool = false,
+	include_internal: bool = false,
+	limit: int = -1
+) -> Array[Node]:
+	var result: Array[Node] = []
+	if node == null or limit == 0:
+		return result
+
+	var parent: Node = node.get_parent()
+	if parent == null:
+		return result
+
+	var siblings: Array[Node] = _get_children_snapshot(parent, include_internal)
+	var own_index: int = _find_node_index(siblings, node)
+	if own_index < 0:
+		return result
+
+	var start_index: int = own_index if include_self else own_index + 1
+	for sibling_index: int in range(start_index, siblings.size()):
+		if not _append_if_matches(result, siblings[sibling_index], type_filter, limit):
+			return result
 	return result
 
 
@@ -229,9 +463,16 @@ static func set_owner_recursive(node: Node, owner: Node) -> void:
 	if node == null or owner == null:
 		return
 
-	_apply_owner(node, owner)
-	for child: Node in node.get_children(true):
-		set_owner_recursive(child, owner)
+	var node_stack: Array[Node] = [node]
+	while not node_stack.is_empty():
+		var stack_index: int = node_stack.size() - 1
+		var current: Node = node_stack[stack_index]
+		node_stack.remove_at(stack_index)
+		_apply_owner(current, owner)
+
+		var children: Array[Node] = _get_children_snapshot(current, true)
+		for child_index: int in range(children.size() - 1, -1, -1):
+			node_stack.append(children[child_index])
 
 
 ## 从父节点移除并 queue_free() 父节点下的全部子节点。
@@ -259,16 +500,37 @@ static func free_children(parent: Node, include_internal: bool = false) -> int:
 
 # --- 私有/辅助方法 ---
 
-static func _collect_node_tree_recursive(
+static func _get_children_snapshot(parent: Node, include_internal: bool) -> Array[Node]:
+	var result: Array[Node] = []
+	if parent == null:
+		return result
+	for child: Node in parent.get_children(include_internal):
+		result.append(child)
+	return result
+
+
+static func _append_if_matches(
+	result: Array[Node],
 	node: Node,
 	type_filter: Variant,
-	include_internal: bool,
-	result: Array[Node]
-) -> void:
-	for child: Node in node.get_children(include_internal):
-		if _matches_type(child, type_filter):
-			result.append(child)
-		_collect_node_tree_recursive(child, type_filter, include_internal, result)
+	limit: int
+) -> bool:
+	if _is_result_limit_reached(result, limit):
+		return false
+	if _matches_type(node, type_filter):
+		result.append(node)
+	return not _is_result_limit_reached(result, limit)
+
+
+static func _is_result_limit_reached(result: Array[Node], limit: int) -> bool:
+	return limit >= 0 and result.size() >= limit
+
+
+static func _find_node_index(nodes: Array[Node], target: Node) -> int:
+	for node_index: int in range(nodes.size()):
+		if nodes[node_index] == target:
+			return node_index
+	return -1
 
 
 static func _matches_type(node: Node, type_filter: Variant) -> bool:

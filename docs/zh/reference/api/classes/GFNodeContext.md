@@ -29,6 +29,8 @@
 | 方法 | [`install_bindings`](#member-gfnodecontext-methods-install_bindings) | `func install_bindings(_binder: Variant) -> void:` |
 | 方法 | [`get_architecture`](#member-gfnodecontext-methods-get_architecture) | `func get_architecture() -> GFArchitecture:` |
 | 方法 | [`is_context_ready`](#member-gfnodecontext-methods-is_context_ready) | `func is_context_ready() -> bool:` |
+| 方法 | [`is_context_failed`](#member-gfnodecontext-methods-is_context_failed) | `func is_context_failed() -> bool:` |
+| 方法 | [`get_context_failure_reason`](#member-gfnodecontext-methods-get_context_failure_reason) | `func get_context_failure_reason() -> String:` |
 | 方法 | [`initialize_context`](#member-gfnodecontext-methods-initialize_context) | `func initialize_context() -> GFArchitecture:` |
 | 方法 | [`wait_until_ready`](#member-gfnodecontext-methods-wait_until_ready) | `func wait_until_ready() -> GFArchitecture:` |
 | 方法 | [`get_model`](#member-gfnodecontext-methods-get_model) | `func get_model(model_type: Script, require_ready: bool = false) -> Object:` |
@@ -252,6 +254,36 @@ func is_context_ready() -> bool:
 检查上下文是否已经完成初始化。
 
 返回：已完成初始化返回 true。
+
+<a id="member-gfnodecontext-methods-is_context_failed"></a>
+
+### `is_context_failed`
+
+- API：`public`
+- 首次版本：`6.0.0`
+
+```gdscript
+func is_context_failed() -> bool:
+```
+
+检查上下文是否已经进入失败终态。
+
+返回：失败后返回 true。
+
+<a id="member-gfnodecontext-methods-get_context_failure_reason"></a>
+
+### `get_context_failure_reason`
+
+- API：`public`
+- 首次版本：`6.0.0`
+
+```gdscript
+func get_context_failure_reason() -> String:
+```
+
+获取上下文失败原因。
+
+返回：context_failed 发出的失败原因；未失败时为空字符串。
 
 <a id="member-gfnodecontext-methods-initialize_context"></a>
 

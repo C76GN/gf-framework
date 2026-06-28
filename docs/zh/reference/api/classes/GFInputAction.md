@@ -156,6 +156,7 @@ func get_display_name() -> String:
 ### `get_action_id`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func get_action_id() -> StringName:
@@ -163,4 +164,4 @@ func get_action_id() -> StringName:
 
 获取稳定动作标识。
 
-返回：动作标识；未显式设置时尝试使用资源路径。
+返回：显式动作标识；未设置时返回空标识。

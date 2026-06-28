@@ -17,7 +17,7 @@
 |---|---|---|
 | 信号 | [`fetch_completed`](#member-gfremotecacheutility-signals-fetch_completed) | `signal fetch_completed(url: String, result: Dictionary)` |
 | 信号 | [`fetch_failed`](#member-gfremotecacheutility-signals-fetch_failed) | `signal fetch_failed(url: String, result: Dictionary)` |
-| 属性 | [`cache_dir_name`](#member-gfremotecacheutility-properties-cache_dir_name) | `var cache_dir_name: String = "gf_remote_cache"` |
+| 属性 | [`cache_dir_name`](#member-gfremotecacheutility-properties-cache_dir_name) | `var cache_dir_name: String = _DEFAULT_CACHE_DIR_NAME:` |
 | 属性 | [`default_ttl_seconds`](#member-gfremotecacheutility-properties-default_ttl_seconds) | `var default_ttl_seconds: int = 86400` |
 | 属性 | [`timeout_seconds`](#member-gfremotecacheutility-properties-timeout_seconds) | `var timeout_seconds: float = 20.0` |
 | 属性 | [`max_cache_entries`](#member-gfremotecacheutility-properties-max_cache_entries) | `var max_cache_entries: int = 128` |
@@ -92,9 +92,10 @@ signal fetch_failed(url: String, result: Dictionary)
 ### `cache_dir_name`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-var cache_dir_name: String = "gf_remote_cache"
+var cache_dir_name: String = _DEFAULT_CACHE_DIR_NAME:
 ```
 
 user:// 下的缓存子目录名。

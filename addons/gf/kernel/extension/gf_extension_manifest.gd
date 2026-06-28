@@ -32,6 +32,7 @@ const KIND_EXTENSION: String = "extension"
 
 const _GF_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
 const _GF_PATH_TOOLS = preload("res://addons/gf/kernel/core/gf_path_tools.gd")
+const _EXTENSION_ID_PATTERN: String = "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)+$"
 const _SUPPORTED_FIELDS: Array[String] = [
 	"access_generator_extension_paths",
 	"dependencies",
@@ -260,21 +261,103 @@ static func from_dictionary(
 ## [br]
 ## @return 读取成功时返回 manifest；失败时返回 null。
 static func from_json_file(path: String) -> GFExtensionManifest:
-	if path.is_empty():
-		return null
+	var report: Dictionary = from_json_file_report(path)
+	var manifest_value: Variant = _GF_VARIANT_ACCESS_SCRIPT.get_option_value(report, "manifest")
+	if manifest_value is GFExtensionManifest:
+		var manifest: GFExtensionManifest = manifest_value
+		return manifest
+	return null
 
-	var file: FileAccess = FileAccess.open(path, FileAccess.READ)
+
+## 从 JSON 文件读取扩展 manifest 并返回诊断报告。
+## [br]
+## @api public
+## [br]
+## @since 6.0.0
+## [br]
+## @param path: `gf_extension.json` 文件路径。
+## [br]
+## @return 读取诊断，包含 ok、source_path、manifest 和 errors。
+## [br]
+## @schema return: Dictionary { ok: bool, source_path: String, manifest: GFExtensionManifest, errors: Array[String] }.
+static func from_json_file_report(path: String) -> Dictionary:
+	var normalized_path: String = _GF_PATH_TOOLS.normalize_resource_path(path)
+	var errors: Array[String] = []
+	if normalized_path.is_empty():
+		errors.append("manifest path is empty")
+		return _make_json_file_report(false, normalized_path, null, errors)
+
+	var file: FileAccess = FileAccess.open(normalized_path, FileAccess.READ)
 	if file == null:
-		return null
+		errors.append("could not open manifest: %s" % error_string(FileAccess.get_open_error()))
+		return _make_json_file_report(false, normalized_path, null, errors)
 
 	var text: String = file.get_as_text()
+	var read_error: Error = file.get_error()
 	file.close()
-	var parsed: Variant = JSON.parse_string(text)
+	if read_error != OK:
+		errors.append("could not read manifest: %s" % error_string(read_error))
+		return _make_json_file_report(false, normalized_path, null, errors)
+
+	var parser: JSON = JSON.new()
+	var parse_error: Error = parser.parse(text)
+	if parse_error != OK:
+		errors.append("could not parse JSON manifest at line %d: %s" % [
+			parser.get_error_line(),
+			parser.get_error_message(),
+		])
+		return _make_json_file_report(false, normalized_path, null, errors)
+
+	var parsed: Variant = parser.data
 	if not (parsed is Dictionary):
-		return null
+		errors.append("manifest JSON root must be an object")
+		return _make_json_file_report(false, normalized_path, null, errors)
 
 	var parsed_dictionary: Dictionary = parsed
-	return from_dictionary(parsed_dictionary, path.get_base_dir(), path)
+	var manifest: GFExtensionManifest = from_dictionary(parsed_dictionary, normalized_path.get_base_dir(), normalized_path)
+	errors.append_array(manifest.get_validation_errors())
+	return _make_json_file_report(errors.is_empty(), normalized_path, manifest, errors)
+
+
+## 判断文本是否是合法 GF 扩展 ID。
+##
+## 合法 ID 使用小写 dotted identifier segments，例如 `vendor.feature` 或
+## `author.feature_name`。它是机器稳定 ID，不承载显示名、路径或加载顺序。
+## [br]
+## @api public
+## [br]
+## @since 6.0.0
+## [br]
+## @param extension_id: 要检查的扩展 ID。
+## [br]
+## @return 满足扩展 ID 语法时返回 true。
+static func is_valid_extension_id(extension_id: String) -> bool:
+	return get_extension_id_validation_error(extension_id).is_empty()
+
+
+## 获取扩展 ID 语法错误。
+## [br]
+## @api public
+## [br]
+## @since 6.0.0
+## [br]
+## @param extension_id: 要检查的扩展 ID。
+## [br]
+## @param field_name: 报错中使用的字段名。
+## [br]
+## @return ID 合法时返回空字符串，否则返回错误说明。
+static func get_extension_id_validation_error(extension_id: String, field_name: String = "id") -> String:
+	var normalized_id: String = extension_id.strip_edges()
+	if normalized_id.is_empty():
+		return "%s is required" % field_name
+
+	var regex: RegEx = RegEx.new()
+	var compile_error: Error = regex.compile(_EXTENSION_ID_PATTERN)
+	if compile_error != OK:
+		return "%s validator failed to compile" % field_name
+	if regex.search(normalized_id) == null:
+		return "%s must use lowercase dotted identifier segments: %s" % [field_name, normalized_id]
+	return ""
 
 
 ## 转换为字典。
@@ -327,8 +410,9 @@ func is_valid() -> bool:
 func get_validation_errors() -> Array[String]:
 	var errors: Array[String] = []
 	_append_unsupported_field_errors(errors)
-	if id.strip_edges().is_empty():
-		errors.append("id is required")
+	var id_error: String = get_extension_id_validation_error(id)
+	if not id_error.is_empty():
+		errors.append(id_error)
 	if display_name.strip_edges().is_empty():
 		errors.append("display_name is required")
 	if version.strip_edges().is_empty():
@@ -337,6 +421,7 @@ func get_validation_errors() -> Array[String]:
 		errors.append("kind must be standard or extension")
 	if root_path.strip_edges().is_empty():
 		errors.append("root_path is required")
+	_append_identifier_errors(errors, "dependencies", dependencies)
 	_append_resource_path_errors(errors, "installer_paths", installer_paths)
 	_append_resource_path_errors(errors, "editor_action_paths", editor_action_paths)
 	_append_resource_path_errors(errors, "editor_dock_paths", editor_dock_paths)
@@ -389,6 +474,20 @@ func _append_unsupported_field_errors(errors: Array[String]) -> void:
 			errors.append("unsupported manifest field: %s" % field_name)
 
 
+static func _make_json_file_report(
+	ok: bool,
+	report_source_path: String,
+	manifest: GFExtensionManifest,
+	errors: Array[String]
+) -> Dictionary:
+	return {
+		"ok": ok,
+		"source_path": report_source_path,
+		"manifest": manifest,
+		"errors": errors.duplicate(),
+	}
+
+
 func _append_resource_path_errors(
 	errors: Array[String],
 	property_name: String,
@@ -404,6 +503,17 @@ func _append_resource_path_errors(
 			continue
 		if not _path_is_under_root(normalized_path):
 			errors.append("%s path must stay under root_path: %s" % [property_name, normalized_path])
+
+
+func _append_identifier_errors(
+	errors: Array[String],
+	property_name: String,
+	values: Array[String]
+) -> void:
+	for value: String in values:
+		var id_error: String = get_extension_id_validation_error(value, property_name)
+		if not id_error.is_empty():
+			errors.append(id_error)
 
 
 func _path_is_under_root(path: String) -> bool:

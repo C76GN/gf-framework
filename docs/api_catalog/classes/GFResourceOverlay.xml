@@ -1,0 +1,161 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFResourceOverlay" path="addons/gf/standard/utilities/assets/gf_resource_overlay.gd" module="standard" extends="Resource" classDigest="64905d23c4f3ab755e5bc1c2321642d866064909b130e5f1e0ca10c4e6f6d197">
+	<description>GFResourceOverlay: 通用资源覆盖链。
+通过 base Resource 与一组 GFResourcePropertyPatch 构建资源变体。
+覆盖链只关心属性差异和应用顺序，不绑定主题、材质、皮肤或项目目录策略。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">resource_definition</tag>
+		<tag name="since">7.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties>
+		<member kind="property" name="base_resource" decorators="@export">
+			<signature>var base_resource: Resource = null</signature>
+			<description>覆盖链的来源资源。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="patches" decorators="@export">
+			<signature>var patches: Array = []</signature>
+			<description>按顺序应用的属性补丁列表。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">patches: Array[GFResourcePropertyPatch]，越靠后的补丁优先级越高。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="metadata" decorators="@export">
+			<signature>var metadata: Dictionary = {}</signature>
+			<description>调用方自定义元数据。GF 不解释该字段。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">metadata: Dictionary[String, Variant]，项目工具或编辑器 UI 自行读取的补充信息。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="duplicate_base_on_resolve">
+			<signature>var duplicate_base_on_resolve: bool = true</signature>
+			<description>resolve() 时是否默认复制 base Resource 后再应用覆盖链。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="require_existing_property">
+			<signature>var require_existing_property: bool = true</signature>
+			<description>应用覆盖链时是否默认要求目标对象已经声明对应属性。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="copy_values">
+			<signature>var copy_values: bool = true</signature>
+			<description>写入目标前是否默认复制 Array、Dictionary 与 Resource 值。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="duplicate_resources">
+			<signature>var duplicate_resources: bool = false</signature>
+			<description>复制值时是否默认复制 Resource 实例。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="skip_unchanged">
+			<signature>var skip_unchanged: bool = false</signature>
+			<description>是否默认跳过和目标当前值相同的覆盖值。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="configure">
+			<signature>func configure( p_base_resource: Resource, p_patches: Array = [], p_metadata: Dictionary = {} ) -&gt; GFResourceOverlay:</signature>
+			<description>配置覆盖链。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">p_base_resource: 来源资源。</tag>
+				<tag name="param">p_patches: 覆盖补丁列表。</tag>
+				<tag name="param">p_metadata: 调用方元数据。</tag>
+				<tag name="return">当前覆盖链实例。</tag>
+				<tag name="schema">p_patches: Array[GFResourcePropertyPatch] copied into patches.</tag>
+				<tag name="schema">p_metadata: Dictionary copied into metadata.</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="add_patch">
+			<signature>func add_patch(patch: GFResourcePropertyPatch) -&gt; bool:</signature>
+			<description>追加一个属性补丁。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">patch: 要追加的补丁。</tag>
+				<tag name="return">追加成功返回 true。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="clear_patches">
+			<signature>func clear_patches() -&gt; void:</signature>
+			<description>清空覆盖补丁。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="resolve">
+			<signature>func resolve(options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>解析覆盖链并返回资源构建报告。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">options: 解析选项。</tag>
+				<tag name="return">覆盖链构建报告，成功或部分成功时 resource 字段为结果资源。</tag>
+				<tag name="schema">options: Dictionary，支持 duplicate_base、require_existing_property、copy_values、duplicate_resources、skip_unchanged、include_patch_reports、stop_on_failure 与 metadata。</tag>
+				<tag name="schema">return: Dictionary，包含 ok、resource、patch_count、计数、路径、errors、patch_reports 和 metadata。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="apply_to">
+			<signature>func apply_to(target: Object, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>把覆盖链直接应用到现有对象。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">target: 目标对象。</tag>
+				<tag name="param">options: 应用选项。</tag>
+				<tag name="return">覆盖链应用报告。</tag>
+				<tag name="schema">options: Dictionary，支持 require_existing_property、copy_values、duplicate_resources、skip_unchanged、include_patch_reports、stop_on_failure 与 metadata。</tag>
+				<tag name="schema">return: Dictionary，包含 ok、patch_count、计数、路径、errors、patch_reports 和 metadata。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_patch_count">
+			<signature>func get_patch_count() -&gt; int:</signature>
+			<description>获取补丁数量。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">补丁数量。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_debug_snapshot">
+			<signature>func get_debug_snapshot() -&gt; Dictionary:</signature>
+			<description>获取调试快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">覆盖链调试快照。</tag>
+				<tag name="schema">return: Dictionary，包含 base_resource、base_resource_path、patch_count、patch_metadata、options 和 metadata。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

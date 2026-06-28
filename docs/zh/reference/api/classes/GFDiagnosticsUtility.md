@@ -31,6 +31,7 @@
 | 属性 | [`max_command_tier`](#member-gfdiagnosticsutility-properties-max_command_tier) | `var max_command_tier: CommandTier = CommandTier.OBSERVE` |
 | 属性 | [`require_auth_token`](#member-gfdiagnosticsutility-properties-require_auth_token) | `var require_auth_token: bool = false` |
 | 属性 | [`auth_token`](#member-gfdiagnosticsutility-properties-auth_token) | `var auth_token: String = ""` |
+| 属性 | [`allow_debugger_command_execution`](#member-gfdiagnosticsutility-properties-allow_debugger_command_execution) | `var allow_debugger_command_execution: bool = false` |
 | 属性 | [`allow_danger_commands`](#member-gfdiagnosticsutility-properties-allow_danger_commands) | `var allow_danger_commands: bool = false` |
 | 属性 | [`encode_command_results_for_json`](#member-gfdiagnosticsutility-properties-encode_command_results_for_json) | `var encode_command_results_for_json: bool = false` |
 | 属性 | [`default_scene_tree_max_depth`](#member-gfdiagnosticsutility-properties-default_scene_tree_max_depth) | `var default_scene_tree_max_depth: int = 4` |
@@ -323,6 +324,19 @@ var auth_token: String = ""
 ```
 
 诊断命令认证 token。为空时无法通过认证。
+
+<a id="member-gfdiagnosticsutility-properties-allow_debugger_command_execution"></a>
+
+### `allow_debugger_command_execution`
+
+- API：`public`
+- 首次版本：`6.0.0`
+
+```gdscript
+var allow_debugger_command_execution: bool = false
+```
+
+是否允许 EditorDebugger 桥执行诊断命令。
 
 <a id="member-gfdiagnosticsutility-properties-allow_danger_commands"></a>
 
@@ -1074,6 +1088,7 @@ func command_result_to_json_compatible(result: Dictionary, options: Dictionary =
 ### `collect_snapshot`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func collect_snapshot(options: Dictionary = {}) -> Dictionary:
@@ -1092,7 +1107,7 @@ func collect_snapshot(options: Dictionary = {}) -> Dictionary:
 结构：
 
 - `options`: Dictionary，支持 recent_log_count、include_recent_logs、include_scene_tree、scene_tree_options、include_signal_graph、signal_graph_options、include_monitors、monitor_preset、monitor_ids、include_hidden_monitors。
-- `return`: Dictionary，包含 timestamp_unix、engine、build、architecture、event_system、performance、logs、network、tools，可选 scene_tree、signal_graph、monitors 和注册分区。
+- `return`: Dictionary，包含 timestamp_unix、engine、build、architecture、event_system、performance、logs、tools，可选 scene_tree、signal_graph、monitors 和注册分区。
 
 <a id="member-gfdiagnosticsutility-methods-get_debugger_bridge_state"></a>
 
@@ -1111,7 +1126,7 @@ func get_debugger_bridge_state() -> Dictionary:
 
 结构：
 
-- `return`: Dictionary with capture_name, registered, debugger_active, editor_feature, and editor_hint.
+- `return`: Dictionary with capture_name, registered, debugger_active, editor_feature, editor_hint, and allow_command_execution.
 
 <a id="member-gfdiagnosticsutility-methods-collect_performance_snapshot"></a>
 
@@ -1161,6 +1176,7 @@ func collect_log_snapshot(recent_log_count: int = 20, include_recent_logs: bool 
 ### `collect_scene_tree_snapshot`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func collect_scene_tree_snapshot(root: Node = null, options: Dictionary = {}) -> Dictionary:
@@ -1173,13 +1189,13 @@ func collect_scene_tree_snapshot(root: Node = null, options: Dictionary = {}) ->
 | 名称 | 说明 |
 |---|---|
 | `root` | 可选根节点；为空时优先使用当前场景，再回退到 Viewport root。 |
-| `options` | 可选参数，支持 max_depth、max_nodes、include_groups、include_owner_path、include_script_path、include_internal。 |
+| `options` | 可选参数，支持 max_depth、max_nodes、include_groups、include_owner_path、include_script_path、include_internal、redact_paths。 |
 
 返回：场景树快照字典。
 
 结构：
 
-- `options`: Dictionary，支持 max_depth、max_nodes、include_groups、include_owner_path、include_script_path、include_internal、root_path、prefer_current_scene。
+- `options`: Dictionary，支持 max_depth、max_nodes、include_groups、include_owner_path、include_script_path、include_internal、redact_paths、root_path、prefer_current_scene。
 - `return`: Dictionary，包含 available、node_count、truncated、root_path、root。
 
 <a id="member-gfdiagnosticsutility-methods-collect_signal_graph_snapshot"></a>
@@ -1187,6 +1203,7 @@ func collect_scene_tree_snapshot(root: Node = null, options: Dictionary = {}) ->
 ### `collect_signal_graph_snapshot`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func collect_signal_graph_snapshot(root: Node = null, options: Dictionary = {}) -> Dictionary:
@@ -1199,11 +1216,11 @@ func collect_signal_graph_snapshot(root: Node = null, options: Dictionary = {}) 
 | 名称 | 说明 |
 |---|---|
 | `root` | 可选根节点；为空时优先使用当前场景，再回退到 Viewport root。 |
-| `options` | 可选参数，支持 include_internal、persistent_only、include_empty_signals、include_external_targets、include_index。 |
+| `options` | 可选参数，支持 include_internal、persistent_only、include_empty_signals、include_external_targets、include_index、redact_paths。 |
 
 返回：信号图快照字典。
 
 结构：
 
-- `options`: Dictionary，支持 include_internal、persistent_only、include_empty_signals、include_external_targets、include_index、root_path、prefer_current_scene。
+- `options`: Dictionary，支持 include_internal、persistent_only、include_empty_signals、include_external_targets、include_index、redact_paths、root_path、prefer_current_scene。
 - `return`: Dictionary，包含 ok、root_path、node_count、signal_count、connection_count、nodes、signals、connections，可选 index。

@@ -163,16 +163,22 @@ static func find_path_a_star(
 	if not _call_cell_bool(is_walkable, goal):
 		return []
 
-	var open_set: Array[Vector3i] = [start]
-	var open_lookup: Dictionary = { start: true }
+	var open_heap: Array[Dictionary] = []
+	var open_orders: Dictionary = {}
+	var next_open_order: int = 0
 	var closed: Dictionary = {}
 	var came_from: Dictionary = {}
 	var g_score: Dictionary = { start: 0.0 }
 	var f_score: Dictionary = { start: _heuristic_distance(start, goal, heuristic, allow_diagonal) }
+	open_orders[start] = next_open_order
+	_push_scored_cell(open_heap, start, _get_score(f_score, start), next_open_order)
+	next_open_order += 1
 
-	while not open_set.is_empty():
-		var current: Vector3i = _take_lowest_score_cell(open_set, f_score)
-		_erase_dictionary_key(open_lookup, current)
+	while not open_heap.is_empty():
+		var current_entry: Dictionary = _pop_scored_cell(open_heap)
+		var current: Vector3i = _get_scored_cell(current_entry)
+		if closed.has(current) or not is_equal_approx(_get_scored_entry_score(current_entry), _get_score(f_score, current)):
+			continue
 		if current == goal:
 			return _reconstruct_path(start, goal, came_from)
 
@@ -192,9 +198,12 @@ static func find_path_a_star(
 			came_from[next_cell] = current
 			g_score[next_cell] = tentative_score
 			f_score[next_cell] = tentative_score + _heuristic_distance(next_cell, goal, heuristic, allow_diagonal)
-			if not open_lookup.has(next_cell):
-				open_set.append(next_cell)
-				open_lookup[next_cell] = true
+			var order: int = _get_cell_order(open_orders, next_cell)
+			if order < 0:
+				order = next_open_order
+				open_orders[next_cell] = order
+				next_open_order += 1
+			_push_scored_cell(open_heap, next_cell, _get_score(f_score, next_cell), order)
 
 	return []
 
@@ -231,9 +240,15 @@ static func find_reachable(
 		return costs
 
 	costs[start] = 0.0
-	var frontier: Array[Vector3i] = [start]
+	var frontier: Array[Dictionary] = []
+	var frontier_orders: Dictionary = { start: 0 }
+	var next_frontier_order: int = 1
+	_push_scored_cell(frontier, start, 0.0, 0)
 	while not frontier.is_empty():
-		var current: Vector3i = _take_lowest_score_cell(frontier, costs)
+		var current_entry: Dictionary = _pop_scored_cell(frontier)
+		var current: Vector3i = _get_scored_cell(current_entry)
+		if not is_equal_approx(_get_scored_entry_score(current_entry), _get_score(costs, current)):
+			continue
 		for next_cell: Vector3i in get_neighbors(current, grid_size, allow_diagonal):
 			if not _call_cell_bool(is_walkable, next_cell):
 				continue
@@ -247,8 +262,12 @@ static func find_reachable(
 				continue
 
 			costs[next_cell] = next_cost
-			if not frontier.has(next_cell):
-				frontier.append(next_cell)
+			var order: int = _get_cell_order(frontier_orders, next_cell)
+			if order < 0:
+				order = next_frontier_order
+				frontier_orders[next_cell] = order
+				next_frontier_order += 1
+			_push_scored_cell(frontier, next_cell, next_cost, order)
 
 	return costs
 
@@ -295,16 +314,22 @@ static func find_surface_path_a_star(
 	if start == goal:
 		return [start]
 
-	var open_set: Array[Vector3i] = [start]
-	var open_lookup: Dictionary = { start: true }
+	var open_heap: Array[Dictionary] = []
+	var open_orders: Dictionary = {}
+	var next_open_order: int = 0
 	var closed: Dictionary = {}
 	var came_from: Dictionary = {}
 	var g_score: Dictionary = { start: 0.0 }
 	var f_score: Dictionary = { start: _heuristic_distance(start, goal, heuristic, false) }
+	open_orders[start] = next_open_order
+	_push_scored_cell(open_heap, start, _get_score(f_score, start), next_open_order)
+	next_open_order += 1
 
-	while not open_set.is_empty():
-		var current: Vector3i = _take_lowest_score_cell(open_set, f_score)
-		_erase_dictionary_key(open_lookup, current)
+	while not open_heap.is_empty():
+		var current_entry: Dictionary = _pop_scored_cell(open_heap)
+		var current: Vector3i = _get_scored_cell(current_entry)
+		if closed.has(current) or not is_equal_approx(_get_scored_entry_score(current_entry), _get_score(f_score, current)):
+			continue
 		if current == goal:
 			return _reconstruct_path(start, goal, came_from)
 
@@ -330,9 +355,12 @@ static func find_surface_path_a_star(
 			came_from[next_cell] = current
 			g_score[next_cell] = tentative_score
 			f_score[next_cell] = tentative_score + _heuristic_distance(next_cell, goal, heuristic, false)
-			if not open_lookup.has(next_cell):
-				open_set.append(next_cell)
-				open_lookup[next_cell] = true
+			var order: int = _get_cell_order(open_orders, next_cell)
+			if order < 0:
+				order = next_open_order
+				open_orders[next_cell] = order
+				next_open_order += 1
+			_push_scored_cell(open_heap, next_cell, _get_score(f_score, next_cell), order)
 
 	return []
 
@@ -369,18 +397,83 @@ static func _reconstruct_path(start: Vector3i, goal: Vector3i, came_from: Dictio
 	return path
 
 
-static func _take_lowest_score_cell(cells: Array[Vector3i], scores: Dictionary) -> Vector3i:
-	var best_index: int = 0
-	var best_score: float = _get_score(scores, cells[0])
-	for index: int in range(1, cells.size()):
-		var score: float = _get_score(scores, cells[index])
-		if score < best_score:
-			best_index = index
-			best_score = score
+static func _push_scored_cell(heap: Array[Dictionary], cell: Vector3i, score: float, order: int) -> void:
+	heap.append({
+		"cell": cell,
+		"score": score,
+		"order": order,
+	})
+	_sift_scored_cell_up(heap, heap.size() - 1)
 
-	var cell: Vector3i = cells[best_index]
-	cells.remove_at(best_index)
-	return cell
+
+static func _pop_scored_cell(heap: Array[Dictionary]) -> Dictionary:
+	if heap.is_empty():
+		return {}
+	var entry: Dictionary = heap[0]
+	var last_index: int = heap.size() - 1
+	if last_index == 0:
+		heap.remove_at(0)
+		return entry
+	heap[0] = heap[last_index]
+	heap.remove_at(last_index)
+	_sift_scored_cell_down(heap, 0)
+	return entry
+
+
+static func _sift_scored_cell_up(heap: Array[Dictionary], index: int) -> void:
+	var current_index: int = index
+	while current_index > 0:
+		var parent_index: int = floori(float(current_index - 1) / 2.0)
+		if not _scored_entry_is_before(heap[current_index], heap[parent_index]):
+			return
+		_swap_scored_entries(heap, current_index, parent_index)
+		current_index = parent_index
+
+
+static func _sift_scored_cell_down(heap: Array[Dictionary], index: int) -> void:
+	var current_index: int = index
+	while true:
+		var left_index: int = current_index * 2 + 1
+		var right_index: int = left_index + 1
+		var best_index: int = current_index
+		if left_index < heap.size() and _scored_entry_is_before(heap[left_index], heap[best_index]):
+			best_index = left_index
+		if right_index < heap.size() and _scored_entry_is_before(heap[right_index], heap[best_index]):
+			best_index = right_index
+		if best_index == current_index:
+			return
+		_swap_scored_entries(heap, current_index, best_index)
+		current_index = best_index
+
+
+static func _scored_entry_is_before(left: Dictionary, right: Dictionary) -> bool:
+	var left_score: float = _get_scored_entry_score(left)
+	var right_score: float = _get_scored_entry_score(right)
+	if not is_equal_approx(left_score, right_score):
+		return left_score < right_score
+	return GFVariantData.get_option_int(left, "order", 0) < GFVariantData.get_option_int(right, "order", 0)
+
+
+static func _swap_scored_entries(heap: Array[Dictionary], left_index: int, right_index: int) -> void:
+	var temporary: Dictionary = heap[left_index]
+	heap[left_index] = heap[right_index]
+	heap[right_index] = temporary
+
+
+static func _get_scored_cell(entry: Dictionary) -> Vector3i:
+	var value: Variant = GFVariantData.get_option_value(entry, "cell", Vector3i.ZERO)
+	if value is Vector3i:
+		var cell: Vector3i = value
+		return cell
+	return Vector3i.ZERO
+
+
+static func _get_scored_entry_score(entry: Dictionary) -> float:
+	return GFVariantData.get_option_float(entry, "score", INF)
+
+
+static func _get_cell_order(orders: Dictionary, cell: Vector3i) -> int:
+	return GFVariantData.get_option_int(orders, cell, -1)
 
 
 static func _heuristic_distance(
@@ -399,12 +492,6 @@ static func _heuristic_distance(
 			return sqrt(float(dx * dx + dy * dy + dz * dz))
 		_:
 			return float(maxi(dx, maxi(dy, dz))) if allow_diagonal and heuristic == &"auto" else float(dx + dy + dz)
-
-
-static func _erase_dictionary_key(target: Dictionary, key: Variant) -> void:
-	var erased: bool = target.erase(key)
-	if erased:
-		return
 
 
 static func _call_cell_bool(callback: Callable, cell: Vector3i) -> bool:

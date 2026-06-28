@@ -405,6 +405,30 @@ func test_enqueue_manifest_rejects_unsafe_relative_targets() -> void:
 	assert_eq(_read_text(target), "ok", "安全条目仍应正常写入。")
 
 
+func test_enqueue_download_rejects_unsafe_direct_paths() -> void:
+	var safe_target: String = _track_path("user://gf_download_direct_safe_%d.txt" % Time.get_ticks_usec())
+
+	var unsafe_target_id: int = _utility.enqueue_download("https://example.test/target", "../escape.txt")
+	var native_target_id: int = _utility.enqueue_download("https://example.test/native", "C:/gf_escape.txt")
+	var unsafe_temp_id: int = _utility.enqueue_download("https://example.test/temp", safe_target, Callable(), {
+		"temp_path": "../escape.tmp",
+	})
+	var unsafe_segment_id: int = _utility.enqueue_download("https://example.test/segment", safe_target, Callable(), {
+		"segment_path": "res://gf_download_other_root.segment",
+	})
+	await get_tree().process_frame
+
+	assert_eq(unsafe_target_id, 0, "direct target 不应允许 parent traversal。")
+	assert_eq(native_target_id, 0, "direct target 不应默认允许原生绝对路径。")
+	assert_eq(unsafe_temp_id, 0, "temp_path 不应越过受控根。")
+	assert_eq(unsafe_segment_id, 0, "segment_path 应与 target 位于同一受控根。")
+	assert_eq(_utility.request_log.size(), 0, "无效直接路径不应启动 HTTP 请求。")
+	assert_push_error("[GFDownloadUtility] enqueue_download 失败：target_path 不在受控 res:// 或 user:// 根内：../escape.txt。")
+	assert_push_error("[GFDownloadUtility] enqueue_download 失败：target_path 不在受控 res:// 或 user:// 根内：C:/gf_escape.txt。")
+	assert_push_error("[GFDownloadUtility] enqueue_download 失败：temp_path 不在 target_path 同一受控根内：../escape.tmp。")
+	assert_push_error("[GFDownloadUtility] enqueue_download 失败：segment_path 不在 target_path 同一受控根内：res://gf_download_other_root.segment。")
+
+
 # --- 私有/辅助方法 ---
 
 func _track_path(path: String) -> String:

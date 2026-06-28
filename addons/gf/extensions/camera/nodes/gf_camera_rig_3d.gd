@@ -99,7 +99,13 @@ signal priority_changed(priority: int)
 ## 自动加入的分组名。Director 可按该分组收集候选。
 ## [br]
 ## @api public
-@export var group_name: StringName = &"gf_camera_rig_3d"
+## [br]
+## @since 6.0.0
+@export var group_name: StringName = &"gf_camera_rig_3d":
+	get:
+		return _group_name
+	set(value):
+		_set_group_name(value)
 
 ## 项目自定义元数据。框架不解释该字段。
 ## [br]
@@ -109,16 +115,20 @@ signal priority_changed(priority: int)
 @export var metadata: Dictionary = {}
 
 
+# --- 私有变量 ---
+
+var _group_name: StringName = &"gf_camera_rig_3d"
+var _registered_group_name: StringName = &""
+
+
 # --- Godot 生命周期方法 ---
 
 func _enter_tree() -> void:
-	if group_name != &"":
-		add_to_group(group_name)
+	_update_group_registration()
 
 
 func _exit_tree() -> void:
-	if group_name != &"":
-		remove_from_group(group_name)
+	_unregister_group()
 
 
 # --- 公共方法 ---
@@ -156,18 +166,21 @@ func get_camera_transform() -> Transform3D:
 	if target != null:
 		camera_transform.origin = target.global_transform.origin
 		if use_target_rotation:
-			camera_transform.basis = target.global_transform.basis
+			camera_transform.basis = target.global_transform.basis.orthonormalized()
+	camera_transform.basis = camera_transform.basis.orthonormalized()
 
 	var effective_offset: Vector3 = camera_transform.basis * offset if offset_follows_rotation else offset
 	camera_transform.origin += effective_offset
 	if look_at_enabled:
 		var look_at_target: Node3D = get_look_at_target_node()
 		if look_at_target != null and not camera_transform.origin.is_equal_approx(look_at_target.global_position):
-			camera_transform = camera_transform.looking_at(look_at_target.global_position, _get_safe_up_axis())
+			var look_direction: Vector3 = look_at_target.global_position - camera_transform.origin
+			camera_transform = camera_transform.looking_at(look_at_target.global_position, _get_safe_up_axis_for_direction(look_direction))
 	if rotation_degrees_offset != Vector3.ZERO:
 		camera_transform.basis = camera_transform.basis.rotated(camera_transform.basis.x.normalized(), deg_to_rad(rotation_degrees_offset.x))
 		camera_transform.basis = camera_transform.basis.rotated(camera_transform.basis.y.normalized(), deg_to_rad(rotation_degrees_offset.y))
 		camera_transform.basis = camera_transform.basis.rotated(camera_transform.basis.z.normalized(), deg_to_rad(rotation_degrees_offset.z))
+	camera_transform.basis = camera_transform.basis.orthonormalized()
 	return camera_transform
 
 
@@ -177,15 +190,57 @@ func get_camera_transform() -> Transform3D:
 ## [br]
 ## @return 可用时返回 true。
 func is_available() -> bool:
-	return active and is_inside_tree()
+	return (
+		active
+		and is_inside_tree()
+		and (target_path.is_empty() or get_target_node() != null)
+		and (not look_at_enabled or get_look_at_target_node() != null)
+	)
 
 
 # --- 私有/辅助方法 ---
+
+func _set_group_name(value: StringName) -> void:
+	if _group_name == value:
+		return
+	_group_name = value
+	_update_group_registration()
+
+
+func _update_group_registration() -> void:
+	if not is_inside_tree():
+		return
+	if _registered_group_name != &"" and _registered_group_name != _group_name:
+		remove_from_group(_registered_group_name)
+		_registered_group_name = &""
+	if _group_name != &"" and _registered_group_name != _group_name:
+		add_to_group(_group_name)
+		_registered_group_name = _group_name
+
+
+func _unregister_group() -> void:
+	if _registered_group_name == &"":
+		return
+	remove_from_group(_registered_group_name)
+	_registered_group_name = &""
+
 
 func _get_safe_up_axis() -> Vector3:
 	if up_axis.length_squared() <= 0.000001:
 		return Vector3.UP
 	return up_axis.normalized()
+
+
+func _get_safe_up_axis_for_direction(direction: Vector3) -> Vector3:
+	var safe_up: Vector3 = _get_safe_up_axis()
+	if direction.length_squared() <= 0.000001:
+		return safe_up
+	var normalized_direction: Vector3 = direction.normalized()
+	if absf(normalized_direction.dot(safe_up)) < 0.999:
+		return safe_up
+	if absf(normalized_direction.dot(Vector3.UP)) < 0.999:
+		return Vector3.UP
+	return Vector3.RIGHT
 
 
 func _get_node_3d_value(value: Variant) -> Node3D:

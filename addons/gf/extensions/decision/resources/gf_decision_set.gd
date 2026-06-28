@@ -54,7 +54,9 @@ extends Resource
 ## [br]
 ## @return: 添加成功返回 true。
 func add_decision(decision: GFDecisionOption) -> bool:
-	if decision == null:
+	if decision == null or decision.decision_id == &"":
+		return false
+	if has_decision(decision.decision_id):
 		return false
 	decisions.append(decision)
 	return true
@@ -93,7 +95,7 @@ func has_decision(decision_id: StringName) -> bool:
 ## [br]
 ## @return: 移除成功返回 true。
 func remove_decision(decision_id: StringName) -> bool:
-	for index: int in range(decisions.size() - 1, -1, -1):
+	for index: int in range(decisions.size()):
 		var decision: GFDecisionOption = decisions[index]
 		if decision != null and decision.decision_id == decision_id:
 			decisions.remove_at(index)
@@ -119,12 +121,15 @@ func clear_decisions() -> void:
 ## @schema return: Array[GFDecisionScore]，每个候选的评分结果。
 func score_all(context: GFDecisionContext) -> Array[GFDecisionScore]:
 	var scores: Array[GFDecisionScore] = []
-	for decision: GFDecisionOption in decisions:
+	for index: int in range(decisions.size()):
+		var decision: GFDecisionOption = decisions[index]
 		if decision == null:
 			continue
 		if not decision.enabled and not include_disabled_in_reports:
 			continue
-		scores.append(decision.score(context))
+		var candidate_score: GFDecisionScore = decision.score(context)
+		candidate_score.decision_order = index
+		scores.append(candidate_score)
 	scores.sort_custom(_sort_score_desc)
 	return scores
 
@@ -148,14 +153,23 @@ func select_best(context: GFDecisionContext) -> GFDecisionScore:
 ## [br]
 ## @api public
 ## [br]
-## @param context: 决策上下文。
+## @since 7.0.0
+## [br]
+## @param context: 决策上下文；scores 为空时用于现场评分。
+## [br]
+## @param scores: 已计算的评分快照；传入时不会重新评分。
 ## [br]
 ## @return: 调试快照字典。
 ## [br]
 ## @schema return: 包含 decision_set_id、decision_count、minimum_score、scores 和 metadata 字段的 Dictionary。
-func get_debug_snapshot(context: GFDecisionContext) -> Dictionary:
+## [br]
+## @schema scores: Array[GFDecisionScore]，可复用 score_all() 的结果以避免调试快照二次评分。
+func get_debug_snapshot(context: GFDecisionContext = null, scores: Array[GFDecisionScore] = []) -> Dictionary:
+	var resolved_scores: Array[GFDecisionScore] = scores.duplicate()
+	if resolved_scores.is_empty() and context != null:
+		resolved_scores = score_all(context)
 	var score_dictionaries: Array[Dictionary] = []
-	for candidate_score: GFDecisionScore in score_all(context):
+	for candidate_score: GFDecisionScore in resolved_scores:
 		if candidate_score != null:
 			score_dictionaries.append(candidate_score.to_dictionary())
 	return {
@@ -176,13 +190,10 @@ func _sort_score_desc(left: GFDecisionScore, right: GFDecisionScore) -> bool:
 		return true
 	if not is_equal_approx(left.score, right.score):
 		return left.score > right.score
-	return _decision_index(left.decision) < _decision_index(right.decision)
+	return _normalized_order(left.decision_order) < _normalized_order(right.decision_order)
 
 
-func _decision_index(decision: GFDecisionOption) -> int:
-	if decision == null:
+func _normalized_order(order: int) -> int:
+	if order < 0:
 		return 999999
-	for index: int in range(decisions.size()):
-		if decisions[index] == decision:
-			return index
-	return 999999
+	return order

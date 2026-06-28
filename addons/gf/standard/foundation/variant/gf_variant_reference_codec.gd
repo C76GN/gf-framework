@@ -297,9 +297,17 @@ static func _decode_node_marker(marker: Dictionary, root_node: Node) -> Dictiona
 	if node_path_text.is_empty():
 		return _make_decode_result(false, null, "NodePath is empty.", REFERENCE_KIND_NODE)
 
-	var node: Node = root_node.get_node_or_null(NodePath(node_path_text))
+	var node_path: NodePath = NodePath(node_path_text)
+	if node_path.is_absolute():
+		return _make_decode_result(false, null, "NodePath must be relative to the reference root: %s" % node_path_text, REFERENCE_KIND_NODE)
+	if _node_path_has_parent_segment(node_path):
+		return _make_decode_result(false, null, "NodePath must not escape the reference root: %s" % node_path_text, REFERENCE_KIND_NODE)
+
+	var node: Node = root_node.get_node_or_null(node_path)
 	if node == null:
 		return _make_decode_result(false, null, "Node could not be resolved: %s" % node_path_text, REFERENCE_KIND_NODE)
+	if node != root_node and not root_node.is_ancestor_of(node):
+		return _make_decode_result(false, null, "Node is outside the reference root: %s" % node_path_text, REFERENCE_KIND_NODE)
 	return _make_decode_result(true, node, "", REFERENCE_KIND_NODE)
 
 
@@ -330,6 +338,13 @@ static func _get_resource_candidate_paths(marker: Dictionary) -> Array[String]:
 	if not fallback_path.is_empty() and fallback_path != uid_path:
 		result.append(fallback_path)
 	return result
+
+
+static func _node_path_has_parent_segment(node_path: NodePath) -> bool:
+	for index: int in range(node_path.get_name_count()):
+		if String(node_path.get_name(index)) == "..":
+			return true
+	return false
 
 
 static func _resource_path_allowed(resource_path: String, options: Dictionary) -> bool:

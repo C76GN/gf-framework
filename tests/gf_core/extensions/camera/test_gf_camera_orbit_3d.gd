@@ -106,6 +106,41 @@ func test_orbit_input_is_inert_by_default() -> void:
 	await get_tree().process_frame
 
 
+func test_orbit_input_requires_local_mouse_capture_before_motion() -> void:
+	var rig: Node3D = _new_node3d(ORBIT_RIG_SCRIPT_PATH)
+	assert_not_null(rig, "应能创建环绕 Rig。")
+	if rig == null:
+		return
+	add_child(rig)
+	_call_set_orbit(rig, 0.0, 0.0, 8.0)
+
+	var input: Node = _new_node(ORBIT_INPUT_SCRIPT_PATH)
+	assert_not_null(input, "应能创建环绕输入节点。")
+	if input == null:
+		rig.queue_free()
+		await get_tree().process_frame
+		return
+	input.set(&"update_mode", UPDATE_MODE_MANUAL)
+	input.set(&"mouse_orbit_enabled", true)
+	input.set(&"mouse_degrees_per_pixel", 1.0)
+	rig.add_child(input)
+	await get_tree().process_frame
+
+	_call_unhandled_input(input, _make_mouse_motion(Vector2(5.0, 0.0), 12))
+	assert_almost_eq(_get_float_property(rig, &"yaw_degrees"), 0.0, 0.001, "未捕获鼠标按键时 motion 不应驱动环绕。")
+
+	_call_unhandled_input(input, _make_mouse_button(MOUSE_BUTTON_RIGHT, true, 12))
+	_call_unhandled_input(input, _make_mouse_motion(Vector2(5.0, 0.0), 12))
+	assert_almost_eq(_get_float_property(rig, &"yaw_degrees"), 5.0, 0.001, "捕获鼠标按键后 motion 应驱动环绕。")
+
+	_call_unhandled_input(input, _make_mouse_button(MOUSE_BUTTON_RIGHT, false, 12))
+	_call_unhandled_input(input, _make_mouse_motion(Vector2(5.0, 0.0), 12))
+	assert_almost_eq(_get_float_property(rig, &"yaw_degrees"), 5.0, 0.001, "释放捕获按键后 motion 不应继续驱动环绕。")
+
+	rig.queue_free()
+	await get_tree().process_frame
+
+
 # --- 私有/辅助方法 ---
 
 func _new_node(script_path: String) -> Node:
@@ -151,3 +186,22 @@ func _get_bool_property(target: Object, property_name: StringName) -> bool:
 
 func _call_bool(target: Object, method_name: StringName, arguments: Array) -> bool:
 	return GFVariantData.to_bool(target.callv(method_name, arguments))
+
+
+func _call_unhandled_input(target: Object, event: InputEvent) -> void:
+	var _call_result: Variant = target.call(&"_unhandled_input", event)
+
+
+func _make_mouse_button(button_index: MouseButton, pressed: bool, device: int) -> InputEventMouseButton:
+	var event: InputEventMouseButton = InputEventMouseButton.new()
+	event.button_index = button_index
+	event.pressed = pressed
+	event.device = device
+	return event
+
+
+func _make_mouse_motion(relative: Vector2, device: int) -> InputEventMouseMotion:
+	var event: InputEventMouseMotion = InputEventMouseMotion.new()
+	event.relative = relative
+	event.device = device
+	return event

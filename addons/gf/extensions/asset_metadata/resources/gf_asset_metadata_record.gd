@@ -59,7 +59,7 @@ func configure(
 	p_subject_kind: StringName = &"",
 	p_metadata: Dictionary = {}
 ) -> GFAssetMetadataRecord:
-	source_path = p_source_path
+	source_path = _normalize_source_path(p_source_path)
 	subject_path = p_subject_path
 	subject_kind = p_subject_kind
 	metadata = p_metadata.duplicate(true)
@@ -133,10 +133,10 @@ func to_dict() -> Dictionary:
 ## [br]
 ## @schema data: Dictionary，可包含 source_path、subject_path、subject_kind 与 metadata 字段。
 func apply_dict(data: Dictionary) -> void:
-	source_path = GFVariantData.get_option_string(data, "source_path", source_path)
-	subject_path = NodePath(GFVariantData.get_option_string(data, "subject_path", String(subject_path)))
-	subject_kind = GFVariantData.get_option_string_name(data, "subject_kind", subject_kind)
-	metadata = GFVariantData.get_option_dictionary(data, "metadata", metadata)
+	source_path = _normalize_source_path(GFVariantData.get_option_string(data, "source_path"))
+	subject_path = NodePath(GFVariantData.get_option_string(data, "subject_path", "."))
+	subject_kind = GFVariantData.get_option_string_name(data, "subject_kind", &"")
+	metadata = GFVariantData.get_option_dictionary(data, "metadata")
 
 
 ## 创建记录深拷贝。
@@ -182,3 +182,7 @@ func _get_script_value(value: Variant) -> Script:
 		var script: Script = value
 		return script
 	return null
+
+
+func _normalize_source_path(path: String) -> String:
+	return GFPathTools.normalize_resource_path(path)

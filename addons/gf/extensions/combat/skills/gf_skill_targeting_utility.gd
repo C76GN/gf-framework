@@ -130,7 +130,13 @@ func _sort_targets(p_targets: Array[Object], p_center: Vector2, p_rule: GFSkillT
 				return _get_entity_attribute_value(a, p_rule.sort_attribute_name) > _get_entity_attribute_value(b, p_rule.sort_attribute_name)
 			)
 		GFSkillTargetingRule.SortRule.RANDOM:
-			p_targets.shuffle()
+			p_targets.sort_custom(func(a: Object, b: Object) -> bool:
+				var left_key: int = _get_random_sort_key(a, p_rule.random_seed)
+				var right_key: int = _get_random_sort_key(b, p_rule.random_seed)
+				if left_key != right_key:
+					return left_key < right_key
+				return a.get_instance_id() < b.get_instance_id()
+			)
 
 
 # 获取实体坐标位置。
@@ -154,6 +160,12 @@ func _get_entity_attribute_value(p_entity: Object, p_attr_name: StringName) -> f
 		return GFVariantData.to_float(value)
 
 	return 0.0
+
+
+func _get_random_sort_key(entity: Object, random_seed: int) -> int:
+	if not is_instance_valid(entity):
+		return 0
+	return ("%d:%d" % [random_seed, entity.get_instance_id()]).hash()
 
 
 func _get_tag_component_value(value: Variant) -> GFTagComponent:

@@ -1,0 +1,262 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFCompatibilityProfile" path="addons/gf/standard/foundation/policy/gf_compatibility_profile.gd" module="standard" extends="Resource" classDigest="ebfd3669febf0b89d17340d720ad67b0b33172a1fae814d09d3754f28fef6e22">
+	<description>GFCompatibilityProfile: 通用兼容性与能力 Profile。
+用纯数据描述当前运行环境、目标构建、包集合、平台和功能能力。它只承载
+预检所需的声明式信息，不执行安装、下载、动态代码启用或项目业务策略。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">resource_definition</tag>
+		<tag name="since">7.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties>
+		<member kind="property" name="profile_id" decorators="@export">
+			<signature>var profile_id: StringName = &amp;""</signature>
+			<description>Profile 稳定标识。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="godot_version" decorators="@export">
+			<signature>var godot_version: String = ""</signature>
+			<description>Godot 版本字符串。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="framework_version" decorators="@export">
+			<signature>var framework_version: String = ""</signature>
+			<description>GF 框架版本字符串。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="platforms" decorators="@export">
+			<signature>var platforms: PackedStringArray = PackedStringArray()</signature>
+			<description>当前或目标平台标识列表。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="features" decorators="@export">
+			<signature>var features: PackedStringArray = PackedStringArray()</signature>
+			<description>当前或目标功能能力标识列表。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="packages" decorators="@export">
+			<signature>var packages: Array[Dictionary] = []</signature>
+			<description>已知包条目列表。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">packages: Array[Dictionary]，每项至少包含 id 或 package_id，可选 version、kind 和 metadata。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="artifacts" decorators="@export">
+			<signature>var artifacts: Array[Dictionary] = []</signature>
+			<description>已知 artifact 条目列表。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">artifacts: Array[Dictionary]，每项至少包含 id 或 artifact_id，可选 path、sha256、size_bytes、kind 和 metadata。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="metadata" decorators="@export">
+			<signature>var metadata: Dictionary = {}</signature>
+			<description>调用方自定义元数据。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">metadata: Dictionary caller-defined profile metadata.</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="configure">
+			<signature>func configure( p_profile_id: StringName, p_godot_version: String = "", p_framework_version: String = "", p_platforms: PackedStringArray = PackedStringArray(), p_features: PackedStringArray = PackedStringArray(), p_metadata: Dictionary = {} ) -&gt; GFCompatibilityProfile:</signature>
+			<description>配置 Profile。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">p_profile_id: Profile 稳定标识。</tag>
+				<tag name="param">p_godot_version: Godot 版本字符串。</tag>
+				<tag name="param">p_framework_version: GF 框架版本字符串。</tag>
+				<tag name="param">p_platforms: 平台标识列表。</tag>
+				<tag name="param">p_features: 功能能力标识列表。</tag>
+				<tag name="param">p_metadata: 调用方元数据。</tag>
+				<tag name="return">当前 Profile。</tag>
+				<tag name="schema">p_metadata: Dictionary caller-defined profile metadata.</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="clear">
+			<signature>func clear() -&gt; void:</signature>
+			<description>清空 Profile。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="add_platform">
+			<signature>func add_platform(platform_id: String) -&gt; bool:</signature>
+			<description>添加平台标识。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">platform_id: 平台标识。</tag>
+				<tag name="return">成功添加或已存在时返回 true。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="has_platform">
+			<signature>func has_platform(platform_id: String) -&gt; bool:</signature>
+			<description>检查平台是否存在。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">platform_id: 平台标识。</tag>
+				<tag name="return">存在返回 true。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="add_feature">
+			<signature>func add_feature(feature_id: StringName) -&gt; bool:</signature>
+			<description>添加功能能力标识。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">feature_id: 功能能力标识。</tag>
+				<tag name="return">成功添加或已存在时返回 true。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="has_feature">
+			<signature>func has_feature(feature_id: StringName) -&gt; bool:</signature>
+			<description>检查功能能力是否存在。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">feature_id: 功能能力标识。</tag>
+				<tag name="return">存在返回 true。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="add_package">
+			<signature>func add_package(package_id: StringName, version: String = "", options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>添加包条目。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">package_id: 包 ID。</tag>
+				<tag name="param">version: 包版本。</tag>
+				<tag name="param">options: 附加字段，支持 kind 和 metadata，也允许调用方自定义字段。</tag>
+				<tag name="return">添加后的包条目副本。</tag>
+				<tag name="schema">options: Dictionary package entry fields.</tag>
+				<tag name="schema">return: Dictionary package entry.</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_package">
+			<signature>func get_package(package_id: StringName) -&gt; Dictionary:</signature>
+			<description>获取包条目。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">package_id: 包 ID。</tag>
+				<tag name="return">包条目副本；不存在时为空字典。</tag>
+				<tag name="schema">return: Dictionary package entry.</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="has_package">
+			<signature>func has_package(package_id: StringName) -&gt; bool:</signature>
+			<description>检查包是否存在。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">package_id: 包 ID。</tag>
+				<tag name="return">存在返回 true。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="add_artifact">
+			<signature>func add_artifact(artifact_id: StringName, path: String = "", options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>添加 artifact 条目。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">artifact_id: artifact ID。</tag>
+				<tag name="param">path: artifact 路径。</tag>
+				<tag name="param">options: 附加字段，支持 kind、sha256、size_bytes 和 metadata，也允许调用方自定义字段。</tag>
+				<tag name="return">添加后的 artifact 条目副本。</tag>
+				<tag name="schema">options: Dictionary artifact entry fields.</tag>
+				<tag name="schema">return: Dictionary artifact entry.</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_artifact">
+			<signature>func get_artifact(artifact_id: StringName) -&gt; Dictionary:</signature>
+			<description>获取 artifact 条目。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">artifact_id: artifact ID。</tag>
+				<tag name="return">artifact 条目副本；不存在时为空字典。</tag>
+				<tag name="schema">return: Dictionary artifact entry.</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="to_dict">
+			<signature>func to_dict() -&gt; Dictionary:</signature>
+			<description>转换为可序列化字典。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">Profile 字典。</tag>
+				<tag name="schema">return: Dictionary with profile_id, godot_version, framework_version, platforms, features, packages, artifacts, and metadata.</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="apply_dict">
+			<signature>func apply_dict(data: Dictionary) -&gt; void:</signature>
+			<description>从字典应用 Profile 字段。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">data: Profile 字典。</tag>
+				<tag name="schema">data: Dictionary with profile_id, godot_version, framework_version, platforms, features, packages, artifacts, and metadata.</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="duplicate_profile">
+			<signature>func duplicate_profile() -&gt; GFCompatibilityProfile:</signature>
+			<description>创建 Profile 深拷贝。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">新 Profile。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="from_current_environment">
+			<signature>static func from_current_environment(options: Dictionary = {}) -&gt; GFCompatibilityProfile:</signature>
+			<description>创建当前运行环境 Profile。
+features、framework_version、packages 和 artifacts 由调用方显式传入；GF 不猜测项目能力或包闭包。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">options: Profile 选项。</tag>
+				<tag name="return">新 Profile。</tag>
+				<tag name="schema">options: Dictionary，可包含 profile_id、framework_version、platforms、features、packages、artifacts 和 metadata。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="from_dict">
+			<signature>static func from_dict(data: Dictionary) -&gt; GFCompatibilityProfile:</signature>
+			<description>从字典创建 Profile。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">data: Profile 字典。</tag>
+				<tag name="return">新 Profile。</tag>
+				<tag name="schema">data: Dictionary with profile_id, godot_version, framework_version, platforms, features, packages, artifacts, and metadata.</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

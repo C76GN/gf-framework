@@ -45,6 +45,25 @@ func test_diagnostics_collects_read_only_scene_tree_snapshot() -> void:
 	assert_true(GFVariantData.get_option_bool(snapshot, "truncated"), "达到深度限制时顶层快照应标记截断。")
 
 
+func test_diagnostics_scene_tree_snapshot_can_redact_paths() -> void:
+	var root: SignalEmitter = SignalEmitter.new()
+	root.name = "RedactedRoot"
+	add_child_autofree(root)
+
+	var diagnostics: GFDiagnosticsUtility = GFDiagnosticsUtility.new()
+	var snapshot: Dictionary = diagnostics.collect_scene_tree_snapshot(root, {
+		"redact_paths": true,
+		"include_script_path": true,
+		"include_owner_path": true,
+	})
+	var root_data: Dictionary = GFVariantData.as_dictionary(snapshot["root"])
+
+	assert_eq(GFVariantData.get_option_string(snapshot, "root_path"), "<redacted>", "共享快照可隐藏 root_path。")
+	assert_eq(GFVariantData.get_option_string(root_data, "path"), "<redacted>", "共享快照可隐藏节点 path。")
+	if not GFVariantData.get_option_string(root_data, "script_path").is_empty():
+		assert_eq(GFVariantData.get_option_string(root_data, "script_path"), "<redacted>", "共享快照可隐藏脚本路径。")
+
+
 ## 验证诊断命令等级默认只允许观察类命令。
 func test_diagnostics_command_tier_denies_control_by_default() -> void:
 	var diagnostics: GFDiagnosticsUtility = GFDiagnosticsUtility.new()
@@ -235,6 +254,7 @@ func test_diagnostics_debugger_bridge_state_and_catalog_are_available() -> void:
 	var monitors: Dictionary = GFVariantData.get_option_dictionary(catalog, "monitors")
 
 	assert_eq(GFVariantData.get_option_string_name(bridge_state, "capture_name"), GFDiagnosticsUtility.DEBUGGER_CAPTURE_NAME, "Debugger bridge 应暴露稳定 capture 名称。")
+	assert_false(GFVariantData.get_option_bool(bridge_state, "allow_command_execution"), "Debugger bridge 默认不应允许执行诊断命令。")
 	assert_true(commands.has(&"diagnostics.snapshot"), "Debugger catalog 应包含内置快照命令。")
 	assert_true(monitors.has(&"performance.fps"), "Debugger catalog 应包含内置性能监控。")
 
@@ -267,6 +287,30 @@ func test_diagnostics_collects_external_snapshot_providers() -> void:
 	assert_eq(GFVariantData.get_option_int(runtime, "enemy_count"), 3, "外部快照分区应进入 collect_snapshot 顶层字段。")
 	assert_eq(GFVariantData.get_option_int(runtime_tool, "pending"), 2, "外部工具快照应进入 tools 字段。")
 	assert_true(tool_monitors.has(&"runtime.pending"), "追加到 tools 预设的外部监控项应可采样。")
+
+
+func test_diagnostics_rejects_external_providers_for_reserved_snapshot_keys() -> void:
+	var diagnostics: GFDiagnosticsUtility = GFDiagnosticsUtility.new()
+	diagnostics.init()
+
+	var section_registered: bool = diagnostics.register_snapshot_section_provider(&"build", func() -> Dictionary:
+		return { "fake": true }
+	)
+	var tool_registered: bool = diagnostics.register_tool_snapshot_provider(&"timer", func() -> Dictionary:
+		return { "fake": true }
+	)
+	var snapshot: Dictionary = diagnostics.collect_snapshot({
+		"include_recent_logs": false,
+	})
+	var build: Dictionary = GFVariantData.get_option_dictionary(snapshot, "build")
+	var tools: Dictionary = GFVariantData.get_option_dictionary(snapshot, "tools")
+
+	assert_false(section_registered, "外部分区不应覆盖内置 build 字段。")
+	assert_false(tool_registered, "外部工具快照不应覆盖内置 timer 字段。")
+	assert_false(GFVariantData.get_option_bool(build, "fake"), "拒绝后的外部分区不应进入 build。")
+	if tools.has(&"timer"):
+		var timer_snapshot: Dictionary = GFVariantData.get_option_dictionary(tools, &"timer")
+		assert_false(GFVariantData.get_option_bool(timer_snapshot, "fake"), "拒绝后的外部工具不应覆盖 timer。")
 
 
 ## 验证内置工具监控预设可采样。
@@ -308,14 +352,14 @@ func test_diagnostics_collects_signal_graph_snapshot() -> void:
 		if connection.is_empty():
 			continue
 		if (
-			GFVariantData.get_option_string(connection, "source_node_path") == "Emitter"
-			and GFVariantData.get_option_string(connection, "signal_name") == "ping"
+			GFVariantData.get_option_string(connection, "source_path").ends_with("Emitter")
+			and GFVariantData.get_option_string(connection, "signal") == "ping"
 		):
 			ping_connection_count += 1
 
 	assert_true(GFVariantData.get_option_bool(graph, "ok"), "传入根节点时信号图应可用。")
 	assert_eq(ping_connection_count, 1, "运行时连接应进入信号图。")
-	assert_true(index.has("outgoing"), "include_index 应附加按节点索引。")
+	assert_true(index.has("by_source"), "include_index 应附加按来源节点索引。")
 
 
 # --- 内部类 ---

@@ -21,6 +21,7 @@
 | 属性 | [`auto_cache_size`](#member-gfsurfaceutility-properties-auto_cache_size) | `var auto_cache_size: int = DEFAULT_AUTO_CACHE_SIZE` |
 | 方法 | [`dispose`](#member-gfsurfaceutility-methods-dispose) | `func dispose() -> void:` |
 | 方法 | [`get_active_material`](#member-gfsurfaceutility-methods-get_active_material) | `func get_active_material(source: Object, face_index: int) -> Material:` |
+| 方法 | [`describe_surface_hit`](#member-gfsurfaceutility-methods-describe_surface_hit) | `func describe_surface_hit(source: Object, face_index: int) -> Dictionary:` |
 | 方法 | [`get_surface_override_material`](#member-gfsurfaceutility-methods-get_surface_override_material) | `func get_surface_override_material(source: Object, face_index: int) -> Material:` |
 | 方法 | [`get_base_material`](#member-gfsurfaceutility-methods-get_base_material) | `func get_base_material(source: Object, face_index: int) -> Material:` |
 | 方法 | [`get_surface_index`](#member-gfsurfaceutility-methods-get_surface_index) | `func get_surface_index(source: Object, face_index: int) -> int:` |
@@ -125,6 +126,32 @@ func get_active_material(source: Object, face_index: int) -> Material:
 | `face_index` | RayCast3D.get_collision_face_index() 返回的面索引。 |
 
 返回：命中材质；无法解析时返回 null。
+
+<a id="member-gfsurfaceutility-methods-describe_surface_hit"></a>
+
+### `describe_surface_hit`
+
+- API：`public`
+- 首次版本：`7.0.0`
+
+```gdscript
+func describe_surface_hit(source: Object, face_index: int) -> Dictionary:
+```
+
+描述命中表面的结构化报告。 返回值面向运行时分发、调试面板和日志摘要；GF 只暴露 surface/material 数据， 不解释脚步声、弹孔、地形标签或其它业务语义。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `source` | MeshInstance3D、CollisionObject3D 或其相邻节点。 |
+| `face_index` | RayCast3D.get_collision_face_index() 返回的面索引。 |
+
+返回：表面命中报告；无法解析时 ok 为 false，并保留 reason。
+
+结构：
+
+- `return`: Dictionary，包含 ok、reason、face_index、surface_index、base_material、override_material、active_material、has_*_material 以及对应 *_material_name、*_material_path、*_material_type 字段。
 
 <a id="member-gfsurfaceutility-methods-get_surface_override_material"></a>
 

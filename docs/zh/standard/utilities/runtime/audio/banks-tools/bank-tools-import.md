@@ -29,6 +29,19 @@ var bank := GFAudioBankTools.create_bank_from_paths(paths, {
 
 `metadata` 会复制到每个生成的 `GFAudioClip`，`metadata_by_path` 可按资源路径补充或覆盖片段元数据。该字典适合承载导入批次、来源库、标签、预览信息或项目工具需要的附加字段；播放层不会解释这些字段，具体命名和导表约定仍由项目层或独立工具包定义。
 
+需要从已有音频文件或 `AudioStream` 提取常见标题、艺人、专辑、时长和 ID3v2 文本帧时，可先用 `GFAudioMetadataTools` 生成纯字典报告，再把结果写入 `metadata_by_path` 或项目自己的导表数据。该工具只做规范化与摘要，不接管导入器、封面资源生成或播放策略。
+
+```gdscript
+var report := GFAudioMetadataTools.read_path_metadata("res://audio/ui/click.mp3")
+var metadata := GFVariantData.get_option_dictionary(report, "metadata")
+
+var bank := GFAudioBankTools.create_bank_from_paths(["res://audio/ui/click.mp3"], {
+	"metadata_by_path": {
+		"res://audio/ui/click.mp3": metadata,
+	},
+})
+```
+
 ## 校验与同步
 
 ```gdscript

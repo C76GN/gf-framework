@@ -1,6 +1,6 @@
 ## GFConfigPipeline: 配置导表工具的资源构建入口。
 ##
-## 负责把 CSV / JSON / XLSX 文件来源构建为 GFConfigTableResource 与 GFConfigDatabaseResource。
+## 负责把 CSV / JSON / ConfigFile / XLSX 文件来源构建为 GFConfigTableResource 与 GFConfigDatabaseResource。
 ## 该工具只处理通用导入、校验、索引重建和 Resource 保存，不绑定任何项目业务表或发布流程。
 ## [br]
 ## @api public
@@ -17,6 +17,7 @@ extends RefCounted
 const _FORMAT_AUTO: StringName = &"auto"
 const _FORMAT_CSV: StringName = &"csv"
 const _FORMAT_JSON: StringName = &"json"
+const _FORMAT_CONFIG_FILE: StringName = &"config_file"
 const _FORMAT_XLSX: StringName = &"xlsx"
 const _OUTPUT_FORMAT_AUTO: StringName = &"auto"
 const _OUTPUT_FORMAT_JSON: StringName = &"json"
@@ -26,6 +27,10 @@ const _JSON_EXPORT_VERSION: int = 1
 const _JSON_VARIANT_TYPE_KEY: String = "__gf_variant_type"
 const _JSON_VARIANT_VALUE_KEY: String = "value"
 const _DEFAULT_JSON_INDENT: String = "\t"
+const _DEFAULT_MAX_XLSX_ENTRY_BYTES: int = 8 * 1024 * 1024
+const _DEFAULT_MAX_XLSX_SHARED_STRINGS: int = 100000
+const _DEFAULT_MAX_XLSX_ROWS: int = 100000
+const _DEFAULT_MAX_XLSX_COLUMNS: int = 512
 const _GENERATED_ARTIFACT_REPORT_SCRIPT = preload("res://addons/gf/kernel/editor/gf_generated_artifact_report.gd")
 
 
@@ -68,7 +73,7 @@ func build_table(source: GFConfigPipelineTableSource, options: Dictionary = {}) 
 ## [br]
 ## @param source: 单表来源声明。
 ## [br]
-## @param text: CSV 或 JSON 文本。
+## @param text: CSV、JSON 或 ConfigFile 文本。
 ## [br]
 ## @param options: 可选构建选项，支持 parse_options、rebuild_indexes。
 ## [br]
@@ -98,7 +103,7 @@ func build_table_from_text(
 			{
 				"source": source.source_path,
 				"actual_value": resolved_format,
-				"supported_formats": [String(_FORMAT_CSV), String(_FORMAT_JSON)],
+				"supported_formats": [String(_FORMAT_CSV), String(_FORMAT_JSON), String(_FORMAT_CONFIG_FILE)],
 			}
 		)
 
@@ -147,6 +152,7 @@ func build_database(
 	var report_builder: GFConfigValidationReport = GFConfigValidationReport.new()
 	var report: Dictionary = report_builder.make_report(database.database_id)
 	var table_results: Array[Dictionary] = []
+	var registered_table_keys: Dictionary = {}
 	var all_tables_succeeded: bool = true
 	if sources.is_empty():
 		report_builder.add_issue(
@@ -187,7 +193,35 @@ func build_database(
 		if GFVariantData.get_option_bool(table_result, "success"):
 			var table: GFConfigTableResource = _get_table_from_result(table_result)
 			if table != null:
-				var _registered: bool = database.register_table(table)
+				var table_key: StringName = table.get_table_key()
+				if registered_table_keys.has(table_key):
+					report_builder.add_issue(
+						report,
+						"error",
+						"duplicate_table_source",
+						database.database_id,
+						null,
+						&"sources",
+						"配置数据库有重复表来源：%s。" % String(table_key),
+						{ "table_name": table_key }
+					)
+					all_tables_succeeded = false
+					continue
+
+				registered_table_keys[table_key] = true
+				var registered: bool = database.register_table(table)
+				if not registered:
+					report_builder.add_issue(
+						report,
+						"error",
+						"table_registration_failed",
+						database.database_id,
+						null,
+						&"sources",
+						"配置表注册失败：%s。" % String(table_key),
+						{ "table_name": table_key }
+					)
+					all_tables_succeeded = false
 		else:
 			all_tables_succeeded = false
 
@@ -274,18 +308,67 @@ func export_profile(profile: GFConfigPipelineProfile, options: Dictionary = {}) 
 
 	var database: GFConfigDatabaseResource = _get_database_from_result(build_result)
 	var save_options: Dictionary = profile.make_save_options(options) if profile != null else {}
-	var save_result: Dictionary = save_database(database, output_path, save_options)
+	var access_output_path: String = profile.resolve_access_output_path(options) if profile != null else ""
+	var access_options: Dictionary = profile.make_access_options(options) if profile != null else {}
+	if GFVariantData.get_option_bool(options, "dry_run"):
+		save_options["dry_run"] = true
+		access_options["dry_run"] = true
+	var save_preflight_result: Dictionary = save_database(database, output_path, _make_dry_run_options(save_options))
+	if not GFVariantData.get_option_bool(save_preflight_result, "success"):
+		return _make_profile_export_result(
+			false,
+			build_result,
+			save_preflight_result,
+			{},
+			profile_id,
+			output_path,
+			GFVariantData.get_option_string(save_preflight_result, "error")
+		)
+
 	var access_result: Dictionary = _make_access_result(true, "", "", OK, "", true, 0)
-	if GFVariantData.get_option_bool(save_result, "success") and profile != null:
-		var access_output_path: String = profile.resolve_access_output_path(options)
-		if not access_output_path.is_empty():
-			access_result = generate_access(
-				database,
-				access_output_path,
-				profile.resolve_access_class_name(options),
-				profile.resolve_access_provider_accessor(options),
-				profile.make_access_options(options)
+	if not access_output_path.is_empty() and profile != null:
+		var access_preflight_result: Dictionary = generate_access(
+			database,
+			access_output_path,
+			profile.resolve_access_class_name(options),
+			profile.resolve_access_provider_accessor(options),
+			_make_dry_run_options(access_options)
+		)
+		if not GFVariantData.get_option_bool(access_preflight_result, "success", true):
+			return _make_profile_export_result(
+				false,
+				build_result,
+				save_preflight_result,
+				access_preflight_result,
+				profile_id,
+				output_path,
+				GFVariantData.get_option_string(access_preflight_result, "error")
 			)
+		access_result = access_preflight_result
+
+	if (
+		GFVariantData.get_option_bool(save_options, "dry_run")
+		or GFVariantData.get_option_bool(access_options, "dry_run")
+	):
+		return _make_profile_export_result(
+			true,
+			build_result,
+			save_preflight_result,
+			access_result,
+			profile_id,
+			output_path,
+			""
+		)
+
+	var save_result: Dictionary = save_database(database, output_path, save_options)
+	if GFVariantData.get_option_bool(save_result, "success") and not access_output_path.is_empty() and profile != null:
+		access_result = generate_access(
+			database,
+			access_output_path,
+			profile.resolve_access_class_name(options),
+			profile.resolve_access_provider_accessor(options),
+			access_options
+		)
 
 	var export_success: bool = (
 		GFVariantData.get_option_bool(save_result, "success")
@@ -355,6 +438,19 @@ func save_database(
 		return _make_save_result(false, output_path, _OUTPUT_FORMAT_AUTO, ERR_INVALID_PARAMETER, "输出路径为空。")
 
 	var output_format: StringName = _resolve_output_format(output_path, options)
+	var output_path_error: String = _validate_output_path_policy(output_path, options, "配置数据库")
+	if not output_path_error.is_empty():
+		var output_path_artifact_report: Dictionary = _make_resource_artifact_report(
+			output_path,
+			output_format,
+			_GENERATED_ARTIFACT_REPORT_SCRIPT.STATUS_FAILED,
+			ERR_INVALID_PARAMETER,
+			output_path_error,
+			options,
+			false,
+			false
+		)
+		return _make_save_result(false, output_path, output_format, ERR_INVALID_PARAMETER, output_path_error, output_path_artifact_report)
 	if output_format == _OUTPUT_FORMAT_JSON:
 		return _save_database_json(database, output_path, options)
 	if output_format != _OUTPUT_FORMAT_RESOURCE:
@@ -439,6 +535,19 @@ func generate_access(
 		return _make_access_result(false, output_path, class_name_value, ERR_INVALID_PARAMETER, "配置数据库资源为空。", false, 0)
 	if output_path.is_empty():
 		return _make_access_result(false, output_path, class_name_value, ERR_INVALID_PARAMETER, "访问器输出路径为空。", false, 0)
+	var output_path_error: String = _validate_output_path_policy(output_path, options, "配置访问器")
+	if not output_path_error.is_empty():
+		var failure_artifact_report: Dictionary = _make_resource_artifact_report(
+			output_path,
+			&"gdscript",
+			_GENERATED_ARTIFACT_REPORT_SCRIPT.STATUS_FAILED,
+			ERR_INVALID_PARAMETER,
+			output_path_error,
+			options,
+			false,
+			false
+		)
+		return _make_access_result(false, output_path, class_name_value, ERR_INVALID_PARAMETER, output_path_error, false, 0, failure_artifact_report)
 
 	var schemas: Array = _collect_access_schemas(database)
 	if schemas.is_empty():
@@ -519,6 +628,8 @@ func _parse_table_text(
 		return GFConfigTableImporter.parse_csv_table(text, parse_options)
 	if resolved_format == _FORMAT_JSON:
 		return GFConfigTableImporter.parse_json_table(text, parse_options)
+	if resolved_format == _FORMAT_CONFIG_FILE:
+		return GFConfigTableImporter.parse_config_file_table(text, parse_options)
 	return {
 		"success": false,
 		"data": null,
@@ -623,7 +734,11 @@ func _parse_xlsx_file(path: String, options: Dictionary) -> Dictionary:
 		return _make_xlsx_parse_failure("XLSX open failed: %s" % error_string(open_error), path)
 
 	var files: PackedStringArray = reader.get_files()
-	var shared_strings: PackedStringArray = _read_xlsx_shared_strings(reader, files)
+	var shared_strings_result: Dictionary = _read_xlsx_shared_strings(reader, files, options)
+	if not GFVariantData.get_option_bool(shared_strings_result, "success"):
+		_close_zip_reader(reader)
+		return _make_xlsx_parse_failure(GFVariantData.get_option_string(shared_strings_result, "error"), path)
+	var shared_strings: PackedStringArray = _get_packed_string_array_value(GFVariantData.get_option_value(shared_strings_result, "strings"))
 	var workbook_sheets: Array[Dictionary] = _read_xlsx_workbook_sheets(reader, files)
 	var worksheet_path: String = _resolve_xlsx_worksheet_path(files, workbook_sheets, options)
 	if worksheet_path.is_empty():
@@ -634,20 +749,25 @@ func _parse_xlsx_file(path: String, options: Dictionary) -> Dictionary:
 	_close_zip_reader(reader)
 	if worksheet_bytes.size() == 0:
 		return _make_xlsx_parse_failure("XLSX worksheet is empty: %s" % worksheet_path, path)
+	if _is_xlsx_limit_exceeded(worksheet_bytes.size(), _get_xlsx_limit(options, "max_xlsx_entry_bytes", _DEFAULT_MAX_XLSX_ENTRY_BYTES)):
+		return _make_xlsx_parse_failure("XLSX worksheet exceeds max_xlsx_entry_bytes: %s." % worksheet_path, path)
 	return _parse_xlsx_sheet(worksheet_bytes, shared_strings, options)
 
 
-func _read_xlsx_shared_strings(reader: ZIPReader, files: PackedStringArray) -> PackedStringArray:
+func _read_xlsx_shared_strings(reader: ZIPReader, files: PackedStringArray, options: Dictionary) -> Dictionary:
 	var result: PackedStringArray = PackedStringArray()
 	var bytes: PackedByteArray = _zip_read_bytes(reader, files, "xl/sharedStrings.xml")
 	if bytes.size() == 0:
-		return result
+		return _make_xlsx_shared_strings_result(true, result)
+	if _is_xlsx_limit_exceeded(bytes.size(), _get_xlsx_limit(options, "max_xlsx_entry_bytes", _DEFAULT_MAX_XLSX_ENTRY_BYTES)):
+		return _make_xlsx_shared_strings_result(false, result, "XLSX sharedStrings.xml exceeds max_xlsx_entry_bytes.")
 
 	var parser: XMLParser = XMLParser.new()
 	var open_error: Error = parser.open_buffer(bytes)
 	if open_error != OK:
-		return result
+		return _make_xlsx_shared_strings_result(false, result, "XLSX sharedStrings.xml parse failed: %s" % error_string(open_error))
 
+	var max_shared_strings: int = _get_xlsx_limit(options, "max_xlsx_shared_strings", _DEFAULT_MAX_XLSX_SHARED_STRINGS)
 	var current_text: String = ""
 	var in_shared_string: bool = false
 	var in_text: bool = false
@@ -668,11 +788,25 @@ func _read_xlsx_shared_strings(reader: ZIPReader, files: PackedStringArray) -> P
 			if end_name == "t":
 				in_text = false
 			elif end_name == "si":
+				if _is_xlsx_limit_exceeded(result.size() + 1, max_shared_strings):
+					return _make_xlsx_shared_strings_result(false, result, "XLSX shared string count exceeds max_xlsx_shared_strings.")
 				var _text_appended: bool = result.append(current_text)
 				in_shared_string = false
 				in_text = false
 				current_text = ""
-	return result
+	return _make_xlsx_shared_strings_result(true, result)
+
+
+func _make_xlsx_shared_strings_result(
+	success: bool,
+	strings: PackedStringArray,
+	error: String = ""
+) -> Dictionary:
+	return {
+		"success": success,
+		"strings": strings.duplicate(),
+		"error": error,
+	}
 
 
 func _read_xlsx_workbook_sheets(reader: ZIPReader, files: PackedStringArray) -> Array[Dictionary]:
@@ -772,6 +906,8 @@ func _parse_xlsx_sheet(
 		return _make_xlsx_parse_failure("XLSX worksheet parse failed: %s" % error_string(open_error), GFVariantData.get_option_string(options, "source"))
 
 	var rows: Array[Dictionary] = []
+	var max_rows: int = _get_xlsx_limit(options, "max_xlsx_rows", _DEFAULT_MAX_XLSX_ROWS)
+	var max_columns: int = _get_xlsx_limit(options, "max_xlsx_columns", _DEFAULT_MAX_XLSX_COLUMNS)
 	var current_cells: Dictionary = {}
 	var current_row_number: int = 0
 	var row_fallback_number: int = 0
@@ -811,11 +947,25 @@ func _parse_xlsx_sheet(
 			elif end_name == "c":
 				var column_index: int = _xlsx_column_index_from_cell_ref(current_cell_ref)
 				if column_index >= 0:
+					if _is_xlsx_limit_exceeded(column_index + 1, max_columns):
+						return _make_xlsx_parse_failure(
+							"XLSX column count exceeds max_xlsx_columns.",
+							GFVariantData.get_option_string(options, "source"),
+							current_row_number,
+							column_index + 1
+						)
 					current_cells[column_index] = _resolve_xlsx_cell_value(current_cell_value, current_cell_type, shared_strings)
 				in_cell = false
 				in_value = false
 				in_inline_text = false
 			elif end_name == "row":
+				if _is_xlsx_limit_exceeded(rows.size() + 1, max_rows):
+					return _make_xlsx_parse_failure(
+						"XLSX row count exceeds max_xlsx_rows.",
+						GFVariantData.get_option_string(options, "source"),
+						current_row_number,
+						1
+					)
 				rows.append({
 					"row_number": current_row_number,
 					"cells": current_cells.duplicate(true),
@@ -835,11 +985,13 @@ func _xlsx_rows_to_parse_result(rows: Array[Dictionary], options: Dictionary) ->
 	var records: Array[Dictionary] = []
 	var row_locations: Array[Dictionary] = []
 	var data_row_index: int = 0
+	var header_found: bool = false
 
 	for row_info: Dictionary in rows:
 		var row_number: int = GFVariantData.get_option_int(row_info, "row_number")
 		var cells: Dictionary = GFVariantData.get_option_dictionary(row_info, "cells")
 		if row_number == header_row_number:
+			header_found = true
 			header = _xlsx_cells_to_row(cells, trim_cells)
 			var header_error: String = _validate_xlsx_header(header, reject_duplicate_headers)
 			if not header_error.is_empty():
@@ -861,6 +1013,9 @@ func _xlsx_rows_to_parse_result(rows: Array[Dictionary], options: Dictionary) ->
 		records.append(record)
 		row_locations.append(_make_xlsx_row_location(source, row_number, data_row_index, header))
 		data_row_index += 1
+
+	if not header_found:
+		return _make_xlsx_parse_failure("XLSX header row is missing.", source, header_row_number, 1)
 
 	return {
 		"success": true,
@@ -906,16 +1061,18 @@ func _resolve_xlsx_cell_value(
 
 
 func _validate_xlsx_header(header: PackedStringArray, reject_duplicate_headers: bool) -> String:
-	if not reject_duplicate_headers:
-		return ""
-
+	var has_named_column: bool = false
 	var seen: Dictionary = {}
 	for column_name: String in header:
 		if column_name.is_empty():
 			continue
+		has_named_column = true
 		if seen.has(column_name):
 			return "XLSX header has duplicate column: %s" % column_name
-		seen[column_name] = true
+		if reject_duplicate_headers:
+			seen[column_name] = true
+	if not has_named_column:
+		return "XLSX header row is empty."
 	return ""
 
 
@@ -1010,8 +1167,9 @@ func _normalize_zip_path(path: String) -> String:
 		if part.is_empty() or part == ".":
 			continue
 		if part == "..":
-			if not stack.is_empty():
-				stack.remove_at(stack.size() - 1)
+			if stack.is_empty():
+				return ""
+			stack.remove_at(stack.size() - 1)
 			continue
 		var _part_appended: bool = stack.append(part)
 	return "/".join(stack)
@@ -1047,6 +1205,23 @@ func _make_xlsx_parse_failure(
 		"error_column": column,
 		"source": source,
 	}
+
+
+func _get_xlsx_limit(options: Dictionary, key: String, default_value: int) -> int:
+	if not options.has(key):
+		return default_value
+	return maxi(GFVariantData.get_option_int(options, key, default_value), 0)
+
+
+func _is_xlsx_limit_exceeded(value: int, limit: int) -> bool:
+	return limit > 0 and value > limit
+
+
+func _get_packed_string_array_value(value: Variant) -> PackedStringArray:
+	if value is PackedStringArray:
+		var array_value: PackedStringArray = value
+		return array_value
+	return PackedStringArray()
 
 
 func _normalize_records(table_data: Variant) -> Dictionary:
@@ -1506,6 +1681,7 @@ func _is_supported_format(resolved_format: StringName) -> bool:
 	return (
 		resolved_format == _FORMAT_CSV
 		or resolved_format == _FORMAT_JSON
+		or resolved_format == _FORMAT_CONFIG_FILE
 	)
 
 
@@ -1761,6 +1937,60 @@ func _make_artifact_metadata(options: Dictionary, output_format: StringName) -> 
 	var metadata: Dictionary = GFVariantData.get_option_dictionary(options, "artifact_metadata").duplicate(true)
 	metadata["format"] = output_format
 	return metadata
+
+
+func _make_dry_run_options(options: Dictionary) -> Dictionary:
+	var result: Dictionary = options.duplicate(true)
+	result["dry_run"] = true
+	return result
+
+
+func _validate_output_path_policy(output_path: String, options: Dictionary, artifact_label: String) -> String:
+	var normalized_path: String = output_path.replace("\\", "/").strip_edges()
+	if normalized_path.is_empty():
+		return "%s输出路径为空。" % artifact_label
+	if _has_unsupported_output_scheme(normalized_path):
+		return "%s输出路径使用了不支持的 URI scheme：%s。" % [artifact_label, output_path]
+	if _path_has_parent_segment(normalized_path) and not GFVariantData.get_option_bool(options, "allow_parent_output_path", false):
+		return "%s输出路径不能包含父级越界片段：%s。" % [artifact_label, output_path]
+	if _is_filesystem_absolute_path(normalized_path) and not GFVariantData.get_option_bool(options, "allow_absolute_output_path", false):
+		return "%s输出路径不能是绝对文件系统路径：%s。" % [artifact_label, output_path]
+	if _is_gf_source_output_path(normalized_path) and not GFVariantData.get_option_bool(options, "allow_gf_source_output", false):
+		return "%s输出路径不能写入 GF 框架源码目录：%s。" % [artifact_label, output_path]
+	return ""
+
+
+func _path_has_parent_segment(path: String) -> bool:
+	var body: String = path
+	if path.contains("://"):
+		body = path.get_slice("://", 1)
+	var parts: PackedStringArray = body.split("/", false)
+	for part: String in parts:
+		if part == "..":
+			return true
+	return false
+
+
+func _is_filesystem_absolute_path(path: String) -> bool:
+	var lower_path: String = path.to_lower()
+	if lower_path.begins_with("res://") or lower_path.begins_with("user://"):
+		return false
+	if path.is_absolute_path():
+		return true
+	return path.length() >= 3 and path.substr(1, 2) == ":/"
+
+
+func _has_unsupported_output_scheme(path: String) -> bool:
+	var lower_path: String = path.to_lower()
+	if not lower_path.contains("://"):
+		return false
+	return not (lower_path.begins_with("res://") or lower_path.begins_with("user://"))
+
+
+func _is_gf_source_output_path(path: String) -> bool:
+	var lower_path: String = path.to_lower()
+	var gf_source_root: String = "res://addons".path_join("gf")
+	return lower_path == gf_source_root or lower_path.begins_with(gf_source_root.path_join(""))
 
 
 func _save_database_json(

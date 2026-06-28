@@ -324,6 +324,33 @@ func test_current_action_controls_delegate_to_running_action() -> void:
 	assert_null(_get_current_action(_system), "完成后不应保留当前动作。")
 
 
+func test_pause_current_action_freezes_wait_action_and_queue_progress() -> void:
+	var order: Array = []
+	var wait_action: GFWaitAction = GFAction.wait(0.02, self)
+	_enqueue(_system, wait_action)
+	_enqueue(_system, OrderAction.new(order, "AFTER_WAIT"))
+
+	await get_tree().process_frame
+	assert_true(_pause_current_action(_system), "等待动作进入当前动作后应可暂停。")
+	await get_tree().create_timer(0.05).timeout
+	await get_tree().process_frame
+
+	assert_true(order.is_empty(), "队列暂停期间等待动作不应到期推进后续动作。")
+	assert_true(_is_queue_processing(_system), "暂停期间队列应保持处理中。")
+
+	assert_true(_resume_current_action(_system), "暂停后应可恢复当前动作。")
+	await wait_until(
+		func() -> bool:
+			return not _is_queue_processing(_system),
+		1.0,
+		0.01,
+		"恢复后等待动作应完成并排空队列。"
+	)
+	await get_tree().process_frame
+
+	assert_eq(order, ["AFTER_WAIT"], "恢复后队列应继续执行后续动作。")
+
+
 # --- 测试：并行队列与组合 ---
 
 ## 验证 enqueue_parallel 的子动作被一并执行。
@@ -553,7 +580,7 @@ func test_no_deadlock_on_freed_non_node_emitter() -> void:
 func test_signal_timeout_allows_queue_to_continue() -> void:
 	var order: Array = []
 	var emitter: ObjectSignalEmitter = ObjectSignalEmitter.new()
-	var action: GFVisualAction = NonNodeDeadlockSignalAction.new(emitter).with_signal_timeout(0.001, false)
+	var action: GFVisualAction = NonNodeDeadlockSignalAction.new(emitter).with_signal_timeout(0.25, false)
 	_enqueue(_system, action)
 	_enqueue(_system, OrderAction.new(order, "AFTER_TIMEOUT"))
 
@@ -607,6 +634,35 @@ func test_signal_timeout_respects_time_utility_pause() -> void:
 	assert_false(_is_queue_processing(queue), "恢复时间并超时后队列应排空。")
 
 	arch.dispose()
+
+
+func test_signal_timeout_is_frozen_while_current_action_is_paused() -> void:
+	var order: Array = []
+	var emitter: ObjectSignalEmitter = ObjectSignalEmitter.new()
+	var action: GFVisualAction = NonNodeDeadlockSignalAction.new(emitter).with_signal_timeout(0.25, false)
+	_enqueue(_system, action)
+	_enqueue(_system, OrderAction.new(order, "AFTER_TIMEOUT"))
+
+	await get_tree().process_frame
+	assert_true(_pause_current_action(_system), "当前 Signal 动作应可暂停。")
+	await get_tree().create_timer(0.03).timeout
+	await get_tree().process_frame
+
+	assert_true(_is_queue_processing(_system), "当前动作暂停时 Signal timeout 不应推进队列。")
+	assert_true(order.is_empty(), "暂停期间不应因 timeout 执行后续动作。")
+
+	assert_true(_resume_current_action(_system), "恢复后 timeout 应继续计时。")
+	await wait_until(
+		func() -> bool:
+			return not _is_queue_processing(_system),
+		1.0,
+		0.01,
+		"恢复后队列应允许 Signal timeout 排空。"
+	)
+	await get_tree().process_frame
+
+	assert_push_warning("[GFActionQueueSystem] 等待动作 Signal 超时，队列将继续执行后续动作。")
+	assert_eq(order, ["AFTER_TIMEOUT"], "恢复后 Signal timeout 应继续执行后续动作。")
 
 
 func test_no_deadlock_on_freed_node() -> void:
@@ -690,6 +746,25 @@ func test_linked_queue_clears_when_node_is_released() -> void:
 	assert_false(_is_queue_processing(queue), "绑定节点释放后队列应停止处理。")
 
 
+func test_linked_queue_clears_on_node_tree_exit_without_parent_tick() -> void:
+	var node: Node = Node.new()
+	add_child(node)
+	var queue: Object = _get_linked_queue(_system, &"linked_direct", node)
+	var order: Array = []
+	var waiting_action: ManualSignalAction = ManualSignalAction.new(order, "WAIT")
+	_enqueue(queue, waiting_action)
+
+	await get_tree().process_frame
+	assert_true(_is_queue_processing(queue), "绑定队列应进入等待状态。")
+
+	node.free()
+	await get_tree().process_frame
+	await get_tree().process_frame
+
+	assert_true(waiting_action.cancelled, "绑定节点离树后队列应主动取消当前动作。")
+	assert_false(_is_queue_processing(queue), "绑定节点离树后不应依赖父队列 tick 才停止。")
+
+
 func test_dispose_releases_named_queue_dependency_scope() -> void:
 	var arch: GFArchitecture = GFArchitecture.new()
 	var parent_queue: Object = _new_action_queue(false)
@@ -709,9 +784,10 @@ func test_dispose_releases_named_queue_dependency_scope() -> void:
 
 	var injected_action: InjectedAction = InjectedAction.new()
 	_enqueue(named_queue, injected_action)
+	await get_tree().process_frame
 
 	assert_null(injected_action.injected_architecture, "已被父队列销毁的命名子队列不应继续持有旧架构。")
-	assert_push_error("[GFSystem] 依赖作用域已释放，无法继续访问架构。")
+	assert_false(injected_action.executed, "已被父队列销毁的命名子队列不应继续执行新动作。")
 
 
 func test_skip_current_action_continues_with_next_action() -> void:

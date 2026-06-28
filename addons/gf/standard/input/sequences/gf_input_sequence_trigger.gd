@@ -153,6 +153,7 @@ func _advance_branch(
 	player_index: int
 ) -> void:
 	if _is_branch_completed(branch_state):
+		_advance_completed_branch_gap(branch_state, branch, delta)
 		return
 
 	var sequence_index: int = _get_branch_sequence_index(branch_state)
@@ -259,6 +260,26 @@ func _should_reset_for_gap(
 func _resolve_gap_seconds(step: GFInputSequenceStep, branch: GFInputSequenceBranch) -> float:
 	if step != null and step.max_gap_seconds >= 0.0:
 		return step.max_gap_seconds
+	if branch != null and branch.max_gap_seconds >= 0.0:
+		return branch.max_gap_seconds
+	return max_gap_seconds
+
+
+func _advance_completed_branch_gap(
+	branch_state: Dictionary,
+	branch: GFInputSequenceBranch,
+	delta: float
+) -> void:
+	var gap_seconds: float = _resolve_completed_gap_seconds(branch)
+	if gap_seconds <= 0.0:
+		return
+	var gap_elapsed: float = _get_gap_elapsed(branch_state) + maxf(delta, 0.0)
+	branch_state["gap_elapsed"] = gap_elapsed
+	if gap_elapsed > gap_seconds:
+		_reset_branch_progress(branch_state)
+
+
+func _resolve_completed_gap_seconds(branch: GFInputSequenceBranch) -> float:
 	if branch != null and branch.max_gap_seconds >= 0.0:
 		return branch.max_gap_seconds
 	return max_gap_seconds

@@ -58,6 +58,9 @@ var switches: Dictionary = {}
 func set_entry(catalog_id: StringName, entry_id: StringName, metadata: Dictionary = {}) -> void:
 	if entry_id == &"":
 		return
+	if not _is_known_catalog_id(catalog_id):
+		push_warning("[GFAudioCatalogProvider] 未知音频目录：%s。" % String(catalog_id))
+		return
 	_get_catalog(catalog_id)[entry_id] = metadata.duplicate(true)
 
 
@@ -69,6 +72,9 @@ func set_entry(catalog_id: StringName, entry_id: StringName, metadata: Dictionar
 ## [br]
 ## @param entry_id: 条目标识。
 func remove_entry(catalog_id: StringName, entry_id: StringName) -> void:
+	if not _is_known_catalog_id(catalog_id):
+		push_warning("[GFAudioCatalogProvider] 未知音频目录：%s。" % String(catalog_id))
+		return
 	var _erase_result_72: Variant = _get_catalog(catalog_id).erase(entry_id)
 
 
@@ -131,4 +137,8 @@ func _get_catalog(catalog_id: StringName) -> Dictionary:
 		&"switches":
 			return switches
 		_:
-			return events
+			return {}
+
+
+func _is_known_catalog_id(catalog_id: StringName) -> bool:
+	return catalog_id == &"events" or catalog_id == &"parameters" or catalog_id == &"states" or catalog_id == &"switches"

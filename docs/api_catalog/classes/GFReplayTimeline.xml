@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFReplayTimeline" path="addons/gf/standard/foundation/timeline/gf_replay_timeline.gd" module="standard" extends="RefCounted" classDigest="d7163aaf00fc6bb30b2bb9eed01c066b92e55ef12c5122cc1970b0f73b4c75de">
+<class name="GFReplayTimeline" path="addons/gf/standard/foundation/timeline/gf_replay_timeline.gd" module="standard" extends="RefCounted" classDigest="2ff46fe97c4a254c983c5572850c6d6806988841b5557991c62bc20852fa318d">
 	<description>GFReplayTimeline: 通用回放时间线。
 按时间保存命令、输入、快照或项目自定义事件的纯数据记录，便于测试、
 诊断、重放和工具链串联。它只负责排序、查询、合并和序列化，不执行事件。</description>
@@ -50,10 +50,11 @@
 		</member>
 		<member kind="property" name="events">
 			<signature>var events: Array[Dictionary] = []</signature>
-			<description>事件列表。每项包含 time_seconds、event_kind、payload 和 metadata。</description>
+			<description>事件列表。每项包含 time_seconds、event_kind、sequence、payload 和 metadata。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="schema">events: Array[Dictionary]，包含 time_seconds: float、event_kind: StringName、payload: Variant 和 metadata: Dictionary。</tag>
+				<tag name="schema">events: Array[Dictionary]，包含 time_seconds: float、event_kind: StringName、sequence: int、payload: Variant 和 metadata: Dictionary。</tag>
+				<tag name="since">3.20.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="metadata">

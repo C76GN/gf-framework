@@ -49,6 +49,11 @@ const JSON_SAFE_INTEGER_MAX: int = 9_007_199_254_740_991
 ## @api framework_internal
 const JSON_SAFE_INTEGER_MIN: int = -9_007_199_254_740_991
 
+const _FLOAT_TYPE_NAME: String = "Float"
+const _FLOAT_NAN_TEXT: String = "NaN"
+const _FLOAT_POSITIVE_INF_TEXT: String = "Infinity"
+const _FLOAT_NEGATIVE_INF_TEXT: String = "-Infinity"
+
 
 # --- 公共方法 ---
 
@@ -173,15 +178,19 @@ static func compact_json_text(text: String, sort_keys: bool = false, fallback: S
 	return JSON.stringify(json.data, "", sort_keys)
 
 
-## 将 Vector2 转成 JSON 友好的数组。
+## 将 Vector2 转成 JSON 友好的数组，非有限分量使用 Float typed marker。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @param value: 待转换的 Vector2。
 ## [br]
 ## @return [x, y] 数组。
-static func vector2_to_array(value: Vector2) -> Array[float]:
-	return [value.x, value.y]
+## [br]
+## @schema return: Array with two JSON-compatible float values; non-finite components use Float typed markers.
+static func vector2_to_array(value: Vector2) -> Array:
+	return _float_array_to_json_compatible([value.x, value.y])
 
 
 ## 从数组读取 Vector2，失败时返回 fallback。
@@ -205,15 +214,19 @@ static func array_to_vector2(value: Variant, fallback: Vector2 = Vector2.ZERO) -
 	return Vector2(_float_at(array, 0), _float_at(array, 1))
 
 
-## 将 Vector3 转成 JSON 友好的数组。
+## 将 Vector3 转成 JSON 友好的数组，非有限分量使用 Float typed marker。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @param value: 待转换的 Vector3。
 ## [br]
 ## @return [x, y, z] 数组。
-static func vector3_to_array(value: Vector3) -> Array[float]:
-	return [value.x, value.y, value.z]
+## [br]
+## @schema return: Array with three JSON-compatible float values; non-finite components use Float typed markers.
+static func vector3_to_array(value: Vector3) -> Array:
+	return _float_array_to_json_compatible([value.x, value.y, value.z])
 
 
 ## 从数组读取 Vector3，失败时返回 fallback。
@@ -237,15 +250,19 @@ static func array_to_vector3(value: Variant, fallback: Vector3 = Vector3.ZERO) -
 	return Vector3(_float_at(array, 0), _float_at(array, 1), _float_at(array, 2))
 
 
-## 将 Color 转成 JSON 友好的数组。
+## 将 Color 转成 JSON 友好的数组，非有限通道使用 Float typed marker。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @param value: 待转换的 Color。
 ## [br]
 ## @return [r, g, b, a] 数组。
-static func color_to_array(value: Color) -> Array[float]:
-	return [value.r, value.g, value.b, value.a]
+## [br]
+## @schema return: Array with four JSON-compatible float values; non-finite components use Float typed markers.
+static func color_to_array(value: Color) -> Array:
+	return _float_array_to_json_compatible([value.r, value.g, value.b, value.a])
 
 
 ## 从数组读取 Color，失败时返回 fallback。
@@ -281,6 +298,9 @@ static func _number_to_float(value: Variant, fallback: float = 0.0) -> float:
 	if value is bool:
 		var bool_value: bool = value
 		return float(bool_value)
+	if value is Dictionary:
+		var dictionary_value: Dictionary = value
+		return _json_float_marker_to_float(dictionary_value, fallback)
 	return fallback
 
 
@@ -476,8 +496,11 @@ static func _variant_to_packed_vector4_array(value: Variant) -> PackedVector4Arr
 
 static func _variant_to_json_compatible(value: Variant, options: Dictionary, visited: Array) -> Variant:
 	match typeof(value):
-		TYPE_NIL, TYPE_BOOL, TYPE_FLOAT, TYPE_STRING:
+		TYPE_NIL, TYPE_BOOL, TYPE_STRING:
 			return value
+		TYPE_FLOAT:
+			var float_value: float = value
+			return _float_to_json_compatible(float_value)
 		TYPE_INT:
 			var int_value: int = _number_to_int(value)
 			if GFVariantData.get_option_bool(options, "encode_unsafe_ints", true) and _is_unsafe_json_integer(int_value):
@@ -489,40 +512,40 @@ static func _variant_to_json_compatible(value: Variant, options: Dictionary, vis
 			return _make_json_typed_value("NodePath", str(value))
 		TYPE_VECTOR2:
 			var vector_2: Vector2 = _variant_to_vector2(value)
-			return _make_json_typed_value("Vector2", [vector_2.x, vector_2.y])
+			return _make_json_typed_value("Vector2", vector2_to_array(vector_2))
 		TYPE_VECTOR2I:
 			var vector_2i: Vector2i = _variant_to_vector2i(value)
 			return _make_json_typed_value("Vector2i", [vector_2i.x, vector_2i.y])
 		TYPE_VECTOR3:
 			var vector_3: Vector3 = _variant_to_vector3(value)
-			return _make_json_typed_value("Vector3", [vector_3.x, vector_3.y, vector_3.z])
+			return _make_json_typed_value("Vector3", vector3_to_array(vector_3))
 		TYPE_VECTOR3I:
 			var vector_3i: Vector3i = _variant_to_vector3i(value)
 			return _make_json_typed_value("Vector3i", [vector_3i.x, vector_3i.y, vector_3i.z])
 		TYPE_VECTOR4:
 			var vector_4: Vector4 = _variant_to_vector4(value)
-			return _make_json_typed_value("Vector4", [vector_4.x, vector_4.y, vector_4.z, vector_4.w])
+			return _make_json_typed_value("Vector4", _float_array_to_json_compatible([vector_4.x, vector_4.y, vector_4.z, vector_4.w]))
 		TYPE_VECTOR4I:
 			var vector_4i: Vector4i = _variant_to_vector4i(value)
 			return _make_json_typed_value("Vector4i", [vector_4i.x, vector_4i.y, vector_4i.z, vector_4i.w])
 		TYPE_RECT2:
 			var rect_2: Rect2 = _variant_to_rect2(value)
-			return _make_json_typed_value("Rect2", [rect_2.position.x, rect_2.position.y, rect_2.size.x, rect_2.size.y])
+			return _make_json_typed_value("Rect2", _float_array_to_json_compatible([rect_2.position.x, rect_2.position.y, rect_2.size.x, rect_2.size.y]))
 		TYPE_RECT2I:
 			var rect_2i: Rect2i = _variant_to_rect2i(value)
 			return _make_json_typed_value("Rect2i", [rect_2i.position.x, rect_2i.position.y, rect_2i.size.x, rect_2i.size.y])
 		TYPE_COLOR:
 			var color: Color = _variant_to_color(value)
-			return _make_json_typed_value("Color", [color.r, color.g, color.b, color.a])
+			return _make_json_typed_value("Color", color_to_array(color))
 		TYPE_PLANE:
 			var plane: Plane = _variant_to_plane(value)
-			return _make_json_typed_value("Plane", [plane.normal.x, plane.normal.y, plane.normal.z, plane.d])
+			return _make_json_typed_value("Plane", _float_array_to_json_compatible([plane.normal.x, plane.normal.y, plane.normal.z, plane.d]))
 		TYPE_QUATERNION:
 			var quaternion: Quaternion = _variant_to_quaternion(value)
-			return _make_json_typed_value("Quaternion", [quaternion.x, quaternion.y, quaternion.z, quaternion.w])
+			return _make_json_typed_value("Quaternion", _float_array_to_json_compatible([quaternion.x, quaternion.y, quaternion.z, quaternion.w]))
 		TYPE_AABB:
 			var aabb: AABB = _variant_to_aabb(value)
-			return _make_json_typed_value("AABB", [aabb.position.x, aabb.position.y, aabb.position.z, aabb.size.x, aabb.size.y, aabb.size.z])
+			return _make_json_typed_value("AABB", _float_array_to_json_compatible([aabb.position.x, aabb.position.y, aabb.position.z, aabb.size.x, aabb.size.y, aabb.size.z]))
 		TYPE_BASIS:
 			return _make_json_typed_value("Basis", _basis_to_array(_variant_to_basis(value)))
 		TYPE_TRANSFORM2D:
@@ -531,7 +554,7 @@ static func _variant_to_json_compatible(value: Variant, options: Dictionary, vis
 			var transform_3d: Transform3D = _variant_to_transform_3d(value)
 			return _make_json_typed_value("Transform3D", {
 				"basis": _basis_to_array(transform_3d.basis),
-				"origin": [transform_3d.origin.x, transform_3d.origin.y, transform_3d.origin.z],
+				"origin": vector3_to_array(transform_3d.origin),
 			})
 		TYPE_ARRAY:
 			if _visited_contains_reference(visited, value):
@@ -596,18 +619,33 @@ static func _is_json_typed_value(value: Dictionary) -> bool:
 
 static func _dictionary_to_json_compatible(value: Dictionary, options: Dictionary, visited: Array) -> Variant:
 	if GFVariantData.get_option_bool(options, "encode_dictionary_keys", false):
-		var entries: Array[Dictionary] = []
-		for key: Variant in value.keys():
-			entries.append({
-				"key": _variant_to_json_compatible(key, options, visited),
-				"value": _variant_to_json_compatible(value[key], options, visited),
-			})
-		return _make_json_typed_value("Dictionary", entries)
+		return _make_json_typed_value("Dictionary", _dictionary_entries_to_json_compatible(value, options, visited))
 
 	var result: Dictionary = {}
+	var seen_json_keys: Dictionary = {}
 	for key: Variant in value.keys():
-		result[_json_key_to_string(key)] = _variant_to_json_compatible(value[key], options, visited)
+		var json_key: String = _json_key_to_string(key)
+		if seen_json_keys.has(json_key):
+			return _make_json_typed_value("Dictionary", _dictionary_entries_to_json_compatible(value, options, visited))
+		seen_json_keys[json_key] = true
+		result[json_key] = _variant_to_json_compatible(value[key], options, visited)
 	return result
+
+
+static func _dictionary_entries_to_json_compatible(value: Dictionary, options: Dictionary, visited: Array) -> Array[Dictionary]:
+	var entries: Array[Dictionary] = []
+	for key: Variant in value.keys():
+		entries.append({
+			"key": _dictionary_key_to_json_compatible(key, options, visited),
+			"value": _variant_to_json_compatible(value[key], options, visited),
+		})
+	return entries
+
+
+static func _dictionary_key_to_json_compatible(key: Variant, options: Dictionary, visited: Array) -> Variant:
+	if typeof(key) == TYPE_INT:
+		return _make_json_typed_value("Int64", str(_number_to_int(key)))
+	return _variant_to_json_compatible(key, options, visited)
 
 
 static func _make_circular_reference_value(options: Dictionary) -> Variant:
@@ -634,6 +672,8 @@ static func _json_typed_value_to_variant(value: Dictionary, options: Dictionary)
 	match type_name:
 		"Int64":
 			return int(str(raw_value))
+		_FLOAT_TYPE_NAME:
+			return _json_float_value_to_float(raw_value)
 		"StringName":
 			return StringName(str(raw_value))
 		"NodePath":
@@ -718,6 +758,49 @@ static func _is_unsafe_json_integer(value: int) -> bool:
 	return value < JSON_SAFE_INTEGER_MIN or value > JSON_SAFE_INTEGER_MAX
 
 
+static func _float_to_json_compatible(value: float) -> Variant:
+	if is_nan(value):
+		return _make_json_typed_value(_FLOAT_TYPE_NAME, _FLOAT_NAN_TEXT)
+	if is_inf(value):
+		return _make_json_typed_value(_FLOAT_TYPE_NAME, _FLOAT_POSITIVE_INF_TEXT if value > 0.0 else _FLOAT_NEGATIVE_INF_TEXT)
+	return value
+
+
+static func _float_array_to_json_compatible(values: Array[float]) -> Array:
+	var result: Array = []
+	for value: float in values:
+		result.append(_float_to_json_compatible(value))
+	return result
+
+
+static func _json_float_marker_to_float(value: Dictionary, fallback: float = 0.0) -> float:
+	if not _is_json_typed_value(value):
+		return fallback
+	var marker: Dictionary = GFVariantData.as_dictionary(GFVariantData.get_option_value(value, JSON_MARKER_KEY))
+	if GFVariantData.get_option_string(marker, JSON_TYPE_KEY) != _FLOAT_TYPE_NAME:
+		return fallback
+	return _json_float_value_to_float(GFVariantData.get_option_value(marker, JSON_VALUE_KEY), fallback)
+
+
+static func _json_float_value_to_float(value: Variant, fallback: float = 0.0) -> float:
+	if value is float:
+		var float_value: float = value
+		return float_value
+	if value is int:
+		var int_value: int = value
+		return float(int_value)
+
+	var text: String = GFVariantData.to_text(value).strip_edges().to_lower()
+	match text:
+		"nan":
+			return NAN
+		"inf", "+inf", "infinity", "+infinity":
+			return INF
+		"-inf", "-infinity":
+			return -INF
+	return fallback
+
+
 static func _float_at(array: Array, index: int, fallback: float = 0.0) -> float:
 	if index < 0 or index >= array.size():
 		return fallback
@@ -730,8 +813,8 @@ static func _int_at(array: Array, index: int, fallback: int = 0) -> int:
 	return _number_to_int(array[index], fallback)
 
 
-static func _basis_to_array(value: Basis) -> Array[float]:
-	return [
+static func _basis_to_array(value: Basis) -> Array:
+	return _float_array_to_json_compatible([
 		value.x.x,
 		value.x.y,
 		value.x.z,
@@ -741,7 +824,7 @@ static func _basis_to_array(value: Basis) -> Array[float]:
 		value.z.x,
 		value.z.y,
 		value.z.z,
-	]
+	])
 
 
 static func _array_to_basis(value: Array) -> Basis:
@@ -752,15 +835,15 @@ static func _array_to_basis(value: Array) -> Basis:
 	)
 
 
-static func _transform_2d_to_array(value: Transform2D) -> Array[float]:
-	return [
+static func _transform_2d_to_array(value: Transform2D) -> Array:
+	return _float_array_to_json_compatible([
 		value.x.x,
 		value.x.y,
 		value.y.x,
 		value.y.y,
 		value.origin.x,
 		value.origin.y,
-	]
+	])
 
 
 static func _array_to_transform_2d(value: Array) -> Transform2D:
@@ -835,10 +918,10 @@ static func _array_to_packed_int64_array(value: Array) -> PackedInt64Array:
 	return result
 
 
-static func _packed_float32_array_to_array(value: PackedFloat32Array) -> Array[float]:
-	var result: Array[float] = []
+static func _packed_float32_array_to_array(value: PackedFloat32Array) -> Array:
+	var result: Array = []
 	for item: float in value:
-		result.append(item)
+		result.append(_float_to_json_compatible(item))
 	return result
 
 
@@ -849,10 +932,10 @@ static func _array_to_packed_float32_array(value: Array) -> PackedFloat32Array:
 	return result
 
 
-static func _packed_float64_array_to_array(value: PackedFloat64Array) -> Array[float]:
-	var result: Array[float] = []
+static func _packed_float64_array_to_array(value: PackedFloat64Array) -> Array:
+	var result: Array = []
 	for item: float in value:
-		result.append(item)
+		result.append(_float_to_json_compatible(item))
 	return result
 
 
@@ -880,7 +963,7 @@ static func _array_to_packed_string_array(value: Array) -> PackedStringArray:
 static func _packed_vector2_array_to_array(value: PackedVector2Array) -> Array:
 	var result: Array = []
 	for item: Vector2 in value:
-		result.append([item.x, item.y])
+		result.append(vector2_to_array(item))
 	return result
 
 
@@ -895,7 +978,7 @@ static func _array_to_packed_vector2_array(value: Array) -> PackedVector2Array:
 static func _packed_vector3_array_to_array(value: PackedVector3Array) -> Array:
 	var result: Array = []
 	for item: Vector3 in value:
-		result.append([item.x, item.y, item.z])
+		result.append(vector3_to_array(item))
 	return result
 
 
@@ -910,7 +993,7 @@ static func _array_to_packed_vector3_array(value: Array) -> PackedVector3Array:
 static func _packed_color_array_to_array(value: PackedColorArray) -> Array:
 	var result: Array = []
 	for item: Color in value:
-		result.append([item.r, item.g, item.b, item.a])
+		result.append(color_to_array(item))
 	return result
 
 
@@ -925,7 +1008,7 @@ static func _array_to_packed_color_array(value: Array) -> PackedColorArray:
 static func _packed_vector4_array_to_array(value: PackedVector4Array) -> Array:
 	var result: Array = []
 	for item: Vector4 in value:
-		result.append([item.x, item.y, item.z, item.w])
+		result.append(_float_array_to_json_compatible([item.x, item.y, item.z, item.w]))
 	return result
 
 

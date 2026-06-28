@@ -1,7 +1,7 @@
 ## GFAsyncBatch: 通用异步结果批处理器。
 ##
-## 用于等待一组 GFHttpResponse 或手动标记的异步任务完成，并统一汇总结果。
-## 它不负责调度具体任务，只观察任务何时完成。
+## 用于等待一组 [GFHttpResponse] 或手动标记的异步条目，并统一汇总成功、失败、
+## 取消、超时和首个完成项。它不负责调度具体任务，只观察任务何时进入终态。
 ## [br]
 ## @api public
 ## [br]
@@ -14,9 +14,11 @@ extends RefCounted
 
 # --- 信号 ---
 
-## 单个条目完成后发出。
+## 单个条目成功完成后发出。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @param key: 条目标识。
 ## [br]
@@ -27,14 +29,114 @@ extends RefCounted
 ## @schema result: Variant，已完成条目的结果。
 signal item_completed(key: Variant, result: Variant)
 
-## 全部条目完成后发出。
+## 单个条目进入任意终态后发出。
 ## [br]
 ## @api public
+## [br]
+## @since 7.0.0
+## [br]
+## @param key: 条目标识。
+## [br]
+## @param result: 条目结果。
+## [br]
+## @param state: 条目终态。
+## [br]
+## @schema key: Variant，调用方持有的条目标识。
+## [br]
+## @schema result: Variant，调用方定义的条目结果。
+signal item_settled(key: Variant, result: Variant, state: StringName)
+
+## 全部或策略要求的条目完成后发出旧式结果字典。
+## [br]
+## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @param results: 批处理结果字典。
 ## [br]
 ## @schema results: Dictionary，将每个被等待的 key 映射到对应完成结果。
 signal completed(results: Dictionary)
+
+## 批处理进入终态后发出结构化报告。
+## [br]
+## @api public
+## [br]
+## @since 7.0.0
+## [br]
+## @param report: 批处理终态报告。
+## [br]
+## @schema report: Dictionary，包含 policy、success、cancelled、timed_out、counts、items、results、completion_order 和 first_completed_key。
+signal settled(report: Dictionary)
+
+## 批处理被外部取消时发出。
+## [br]
+## @api public
+## [br]
+## @since 7.0.0
+## [br]
+## @param reason: 取消原因。
+## [br]
+## @param metadata: 取消上下文。
+## [br]
+## @schema metadata: Dictionary，调用方定义的取消上下文。
+signal cancelled(reason: StringName, metadata: Dictionary)
+
+
+# --- 枚举 ---
+
+## 批处理完成策略。
+## [br]
+## @api public
+## [br]
+## @since 7.0.0
+enum CompletionPolicy {
+	## 所有条目都成功时批处理成功；失败或取消可按 fail_fast 提前结束。
+	ALL,
+	## 任一条目成功时批处理成功；所有条目都失败或取消时批处理失败。
+	ANY,
+	## 等待每个条目进入任意终态，适合 all-settled 汇总。
+	EACH,
+}
+
+## 条目状态。
+## [br]
+## @api public
+## [br]
+## @since 7.0.0
+enum ItemState {
+	## 条目仍在等待。
+	PENDING,
+	## 条目成功完成。
+	SUCCEEDED,
+	## 条目失败。
+	FAILED,
+	## 条目被取消。
+	CANCELLED,
+}
+
+
+# --- 公共变量 ---
+
+## 批处理完成策略。
+## [br]
+## @api public
+## [br]
+## @since 7.0.0
+var completion_policy: CompletionPolicy = CompletionPolicy.ALL
+
+## ALL / ANY 策略遇到失败或取消时是否提前结束。
+## [br]
+## @api public
+## [br]
+## @since 7.0.0
+var fail_fast: bool = true
+
+## 批处理终态确定后是否取消仍在等待的条目。
+## [br]
+## @api public
+## [br]
+## @since 7.0.0
+var cancel_remaining_on_finish: bool = false
 
 
 # --- 私有变量 ---
@@ -42,6 +144,16 @@ signal completed(results: Dictionary)
 var _items: Dictionary = {}
 var _completed: bool = false
 var _watched_responses: Dictionary = {}
+var _completion_order: Array = []
+var _first_completed_key: Variant = null
+var _first_success_key: Variant = null
+var _cancel_token_callbacks: Dictionary = {}
+var _timeout_source: GFCancelSource = null
+var _cancelled: bool = false
+var _timed_out: bool = false
+var _cancel_reason: StringName = &""
+var _cancel_metadata: Dictionary = {}
+var _finalizing: bool = false
 
 
 # --- 公共方法 ---
@@ -49,6 +161,8 @@ var _watched_responses: Dictionary = {}
 ## 添加一个等待条目。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @param key: 条目标识。
 ## [br]
@@ -66,10 +180,36 @@ func add_item(key: Variant, metadata: Dictionary = {}) -> bool:
 		return false
 
 	_items[key] = {
+		"state": ItemState.PENDING,
 		"done": false,
 		"result": null,
+		"error": "",
+		"cancel_reason": &"",
 		"metadata": metadata.duplicate(true),
+		"cancel_callback": Callable(),
 	}
+	return true
+
+
+## 为条目设置取消回调。
+## [br]
+## @api public
+## [br]
+## @since 7.0.0
+## [br]
+## @param key: 条目标识。
+## [br]
+## @param callback: 取消回调，签名推荐为 func(key: Variant, reason: StringName)。
+## [br]
+## @return 设置成功时返回 true。
+## [br]
+## @schema key: Variant，调用方持有的条目标识。
+func set_item_cancel_callback(key: Variant, callback: Callable) -> bool:
+	if not _items.has(key) or _completed:
+		return false
+	var item: Dictionary = _get_item(key)
+	item["cancel_callback"] = callback
+	_items[key] = item
 	return true
 
 
@@ -94,8 +234,16 @@ func watch_response(response: GFHttpResponse, key: Variant = null) -> bool:
 	if not add_item(item_key, response.metadata):
 		return false
 
+	var _cancel_callback_result: bool = set_item_cancel_callback(
+		item_key,
+		func(cancel_key: Variant, reason: StringName) -> void:
+			var _unused_key: Variant = cancel_key
+			if response.is_pending():
+				response.cancel(String(reason))
+	)
+
 	if response.is_finished():
-		var _mark_completed_result_98: Variant = mark_completed(item_key, response)
+		_mark_response_completed(response, item_key)
 	else:
 		var callback: Callable = _on_response_completed.bind(item_key)
 		_watched_responses[item_key] = {
@@ -109,9 +257,11 @@ func watch_response(response: GFHttpResponse, key: Variant = null) -> bool:
 	return true
 
 
-## 手动标记条目完成。
+## 手动标记条目成功完成。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @param key: 条目标识。
 ## [br]
@@ -123,29 +273,172 @@ func watch_response(response: GFHttpResponse, key: Variant = null) -> bool:
 ## [br]
 ## @schema result: Variant，已完成条目的结果。
 func mark_completed(key: Variant, result: Variant = null) -> bool:
-	if not _items.has(key):
-		return false
-
-	var item: Dictionary = _get_item(key)
-	if _is_item_done(item):
-		return false
-
-	item["done"] = true
-	item["result"] = result
-	_items[key] = item
-	_disconnect_watched_response(key)
-	item_completed.emit(key, result)
-	_emit_completed_if_ready()
-	return true
+	return _mark_item_terminal(key, ItemState.SUCCEEDED, result, "", &"")
 
 
-## 是否所有条目都已完成。
+## 手动标记条目失败。
 ## [br]
 ## @api public
 ## [br]
-## @return 所有条目完成时返回 true。
+## @since 7.0.0
+## [br]
+## @param key: 条目标识。
+## [br]
+## @param error: 失败说明。
+## [br]
+## @param result: 可选失败结果。
+## [br]
+## @return 是否成功标记。
+## [br]
+## @schema key: Variant，调用方持有的条目标识。
+## [br]
+## @schema result: Variant，调用方定义的失败载荷。
+func mark_failed(key: Variant, error: String = "", result: Variant = null) -> bool:
+	return _mark_item_terminal(key, ItemState.FAILED, result, error, &"")
+
+
+## 手动标记条目取消。
+## [br]
+## @api public
+## [br]
+## @since 7.0.0
+## [br]
+## @param key: 条目标识。
+## [br]
+## @param reason: 取消原因。
+## [br]
+## @param result: 可选取消结果。
+## [br]
+## @return 是否成功标记。
+## [br]
+## @schema key: Variant，调用方持有的条目标识。
+## [br]
+## @schema result: Variant，调用方定义的取消载荷。
+func mark_cancelled(key: Variant, reason: StringName = &"cancelled", result: Variant = null) -> bool:
+	return _mark_item_terminal(key, ItemState.CANCELLED, result, "", reason)
+
+
+## 取消整个批处理，并取消仍在等待的条目。
+## [br]
+## @api public
+## [br]
+## @since 7.0.0
+## [br]
+## @param reason: 取消原因。
+## [br]
+## @param metadata: 取消上下文。
+## [br]
+## @return 首次取消批处理时返回 true。
+## [br]
+## @schema metadata: Dictionary，调用方定义的取消上下文。
+func cancel(reason: StringName = &"cancelled", metadata: Dictionary = {}) -> bool:
+	if _completed:
+		return false
+
+	_cancelled = true
+	_timed_out = reason == &"timeout"
+	_cancel_reason = reason if reason != &"" else &"cancelled"
+	_cancel_metadata = metadata.duplicate(true)
+	_finalizing = true
+	_cancel_pending_items(_cancel_reason)
+	_finalizing = false
+	_completed = true
+	_disconnect_all_watched_responses()
+	_disconnect_cancel_token()
+	_dispose_timeout_source()
+	cancelled.emit(_cancel_reason, _cancel_metadata.duplicate(true))
+	settled.emit(get_report())
+	completed.emit(get_results())
+	return true
+
+
+## 绑定取消 token；token 取消时取消整个批处理。
+## [br]
+## @api public
+## [br]
+## @since 7.0.0
+## [br]
+## @param token: 取消 token。
+## [br]
+## @return 成功绑定或 token 已触发取消时返回 true。
+func bind_cancel_token(token: GFCancelToken) -> bool:
+	if token == null or _completed:
+		return false
+	var token_key: int = token.get_instance_id()
+	if _cancel_token_callbacks.has(token_key):
+		return true
+	if token.is_cancelled():
+		var _cancelled_now: bool = cancel(token.get_reason(), token.get_metadata())
+		return true
+
+	var callback: Callable = func(reason: StringName, metadata: Dictionary) -> void:
+		var _cancelled_from_token: bool = cancel(reason, metadata)
+	var connect_error: Error = token.cancelled.connect(
+		callback,
+		CONNECT_ONE_SHOT as Object.ConnectFlags
+	) as Error
+	if connect_error != OK:
+		return false
+	_cancel_token_callbacks[token_key] = {
+		"token": token,
+		"callback": callback,
+	}
+	return true
+
+
+## 设置批处理超时。
+## [br]
+## @api public
+## [br]
+## @since 7.0.0
+## [br]
+## @param seconds: 超时时间；小于等于 0 时立即取消。
+## [br]
+## @param tree: 可选 SceneTree；为空时使用当前主循环。
+## [br]
+## @param reason: 超时取消原因。
+## [br]
+## @param metadata: 取消上下文。
+## [br]
+## @return 成功安排或立即触发取消时返回 true。
+## [br]
+## @schema metadata: Dictionary，调用方定义的取消上下文。
+func set_timeout(
+	seconds: float,
+	tree: SceneTree = null,
+	reason: StringName = &"timeout",
+	metadata: Dictionary = {}
+) -> bool:
+	if _completed:
+		return false
+	_dispose_timeout_source()
+	_timeout_source = GFCancelSource.new()
+	if not bind_cancel_token(_timeout_source.get_token()):
+		_timeout_source = null
+		return false
+	return _timeout_source.cancel_after_seconds(seconds, tree, reason, metadata)
+
+
+## 是否批处理已经进入终态。
+## [br]
+## @api public
+## [br]
+## @since 3.17.0
+## [br]
+## @return 批处理完成、失败或取消时返回 true。
 func is_completed() -> bool:
 	return _completed
+
+
+## 批处理是否以成功状态结束。
+## [br]
+## @api public
+## [br]
+## @since 7.0.0
+## [br]
+## @return 成功结束时返回 true。
+func is_successful() -> bool:
+	return _completed and _compute_success()
 
 
 ## 获取条目数量。
@@ -157,11 +450,13 @@ func get_count() -> int:
 	return _items.size()
 
 
-## 获取已完成条目数量。
+## 获取已进入终态的条目数量。
 ## [br]
 ## @api public
 ## [br]
-## @return 已完成条目的数量。
+## @since 3.17.0
+## [br]
+## @return 已进入终态的条目数量。
 func get_completed_count() -> int:
 	var count: int = 0
 	for item_variant: Variant in _items.values():
@@ -169,6 +464,39 @@ func get_completed_count() -> int:
 		if _is_item_done(item):
 			count += 1
 	return count
+
+
+## 获取等待中的条目数量。
+## [br]
+## @api public
+## [br]
+## @since 7.0.0
+## [br]
+## @return 等待中的条目数量。
+func get_pending_count() -> int:
+	return get_count() - get_completed_count()
+
+
+## 获取失败条目数量。
+## [br]
+## @api public
+## [br]
+## @since 7.0.0
+## [br]
+## @return 失败条目数量。
+func get_failed_count() -> int:
+	return _count_items_with_state(ItemState.FAILED)
+
+
+## 获取取消条目数量。
+## [br]
+## @api public
+## [br]
+## @since 7.0.0
+## [br]
+## @return 取消条目数量。
+func get_cancelled_count() -> int:
+	return _count_items_with_state(ItemState.CANCELLED)
 
 
 ## 获取结果字典。
@@ -186,48 +514,225 @@ func get_results() -> Dictionary:
 	return result
 
 
+## 获取结构化批处理报告。
+## [br]
+## @api public
+## [br]
+## @since 7.0.0
+## [br]
+## @return 批处理报告。
+## [br]
+## @schema return: Dictionary，包含 policy、completed、success、cancelled、timed_out、counts、items、results、completion_order、first_completed_key、first_success_key、cancel_reason 和 cancel_metadata。
+func get_report() -> Dictionary:
+	return {
+		"policy": completion_policy,
+		"policy_name": CompletionPolicy.keys()[completion_policy],
+		"completed": _completed,
+		"success": _completed and _compute_success(),
+		"cancelled": _cancelled,
+		"timed_out": _timed_out,
+		"count": get_count(),
+		"completed_count": get_completed_count(),
+		"pending_count": get_pending_count(),
+		"succeeded_count": _count_items_with_state(ItemState.SUCCEEDED),
+		"failed_count": get_failed_count(),
+		"cancelled_count": get_cancelled_count(),
+		"results": get_results(),
+		"items": _get_items_report(),
+		"completion_order": _completion_order.duplicate(true),
+		"first_completed_key": GFVariantData.duplicate_variant(_first_completed_key),
+		"first_success_key": GFVariantData.duplicate_variant(_first_success_key),
+		"cancel_reason": _cancel_reason,
+		"cancel_metadata": _cancel_metadata.duplicate(true),
+	}
+
+
 ## 清空批处理。
 ## [br]
 ## @api public
 func clear() -> void:
 	_disconnect_all_watched_responses()
+	_disconnect_cancel_token()
+	_dispose_timeout_source()
 	_items.clear()
+	_completion_order.clear()
+	_first_completed_key = null
+	_first_success_key = null
 	_completed = false
+	_cancelled = false
+	_timed_out = false
+	_cancel_reason = &""
+	_cancel_metadata.clear()
+	_finalizing = false
 
 
 ## 获取调试快照。
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @return 调试信息字典。
 ## [br]
-## @schema return: Dictionary，包含 count、completed_count、completed 和 keys。
+## @schema return: Dictionary，包含 count、completed_count、completed、success、policy_name、keys 和 counts。
 func get_debug_snapshot() -> Dictionary:
 	return {
 		"count": get_count(),
 		"completed_count": get_completed_count(),
+		"pending_count": get_pending_count(),
+		"failed_count": get_failed_count(),
+		"cancelled_count": get_cancelled_count(),
 		"completed": _completed,
+		"success": _completed and _compute_success(),
+		"policy": completion_policy,
+		"policy_name": CompletionPolicy.keys()[completion_policy],
+		"cancelled": _cancelled,
+		"timed_out": _timed_out,
 		"keys": _items.keys(),
 	}
 
 
 # --- 私有/辅助方法 ---
 
+func _mark_item_terminal(
+	key: Variant,
+	state: ItemState,
+	result: Variant,
+	error: String,
+	cancel_reason: StringName
+) -> bool:
+	if not _items.has(key):
+		return false
+
+	var item: Dictionary = _get_item(key)
+	if _is_item_done(item):
+		return false
+
+	item["state"] = state
+	item["done"] = true
+	item["result"] = GFVariantData.duplicate_variant(result)
+	item["error"] = error
+	item["cancel_reason"] = cancel_reason
+	_items[key] = item
+	_disconnect_watched_response(key)
+	if _first_completed_key == null:
+		_first_completed_key = GFVariantData.duplicate_variant(key)
+	if state == ItemState.SUCCEEDED and _first_success_key == null:
+		_first_success_key = GFVariantData.duplicate_variant(key)
+	_completion_order.append(GFVariantData.duplicate_variant(key))
+
+	if state == ItemState.CANCELLED:
+		_call_item_cancel_callback(key, cancel_reason)
+	if state == ItemState.SUCCEEDED:
+		item_completed.emit(key, result)
+	item_settled.emit(key, result, _state_to_name(state))
+	_emit_completed_if_ready()
+	return true
+
+
 func _emit_completed_if_ready() -> void:
-	if _completed:
+	if _completed or _finalizing:
 		return
 	if _items.is_empty():
 		return
-	if get_completed_count() != _items.size():
-		return
 
+	match completion_policy:
+		CompletionPolicy.ANY:
+			if _first_success_key != null:
+				_finalize_batch()
+				return
+			if fail_fast and _has_failed_or_cancelled_item():
+				_finalize_batch()
+				return
+			if get_completed_count() == get_count():
+				_finalize_batch()
+		CompletionPolicy.EACH:
+			if get_completed_count() == get_count():
+				_finalize_batch()
+		_:
+			if fail_fast and _has_failed_or_cancelled_item():
+				_finalize_batch()
+				return
+			if get_completed_count() == get_count():
+				_finalize_batch()
+
+
+func _finalize_batch() -> void:
+	if _completed:
+		return
+	_finalizing = true
+	if cancel_remaining_on_finish:
+		_cancel_pending_items(&"batch_completed")
+	_finalizing = false
 	_completed = true
+	_disconnect_cancel_token()
+	_dispose_timeout_source()
+	settled.emit(get_report())
 	completed.emit(get_results())
+
+
+func _cancel_pending_items(reason: StringName) -> void:
+	for key: Variant in _items.keys():
+		var item: Dictionary = _get_item(key)
+		if _is_item_done(item):
+			continue
+		var _cancelled_item: bool = mark_cancelled(key, reason)
+
+
+func _mark_response_completed(response: GFHttpResponse, key: Variant) -> void:
+	if response.state == GFHttpResponse.State.CANCELLED:
+		var _cancelled_item: bool = mark_cancelled(key, StringName(response.error), response)
+		return
+	if response.state == GFHttpResponse.State.FAILED or not response.is_successful():
+		var _failed_item: bool = mark_failed(key, response.error, response)
+		return
+	var _completed_item: bool = mark_completed(key, response)
+
+
+func _compute_success() -> bool:
+	if _cancelled:
+		return false
+	match completion_policy:
+		CompletionPolicy.ANY:
+			return _first_success_key != null
+		_:
+			return get_count() > 0 and get_completed_count() == get_count() and not _has_failed_or_cancelled_item()
+
+
+func _has_failed_or_cancelled_item() -> bool:
+	return get_failed_count() > 0 or get_cancelled_count() > 0
+
+
+func _count_items_with_state(state: ItemState) -> int:
+	var count: int = 0
+	for item_variant: Variant in _items.values():
+		var item: Dictionary = GFVariantData.as_dictionary(item_variant)
+		if _get_item_state(item) == state:
+			count += 1
+	return count
+
+
+func _get_items_report() -> Dictionary:
+	var result: Dictionary = {}
+	for key: Variant in _items.keys():
+		var item: Dictionary = _get_item(key)
+		var state: ItemState = _get_item_state(item)
+		result[key] = {
+			"state": state,
+			"state_name": _state_to_name(state),
+			"done": _is_item_done(item),
+			"success": state == ItemState.SUCCEEDED,
+			"result": GFVariantData.duplicate_variant(_get_item_result(item)),
+			"error": GFVariantData.get_option_string(item, "error"),
+			"cancel_reason": GFVariantData.get_option_string_name(item, "cancel_reason"),
+			"metadata": GFVariantData.get_option_dictionary(item, "metadata"),
+		}
+	return result
 
 
 func _disconnect_watched_response(key: Variant) -> void:
 	var entry: Dictionary = _get_watched_response_entry(key)
-	var _erase_result_230: Variant = _watched_responses.erase(key)
+	var _erase_result: bool = _watched_responses.erase(key)
 	if entry.is_empty():
 		return
 
@@ -243,6 +748,29 @@ func _disconnect_all_watched_responses() -> void:
 	_watched_responses.clear()
 
 
+func _disconnect_cancel_token() -> void:
+	for entry_value: Variant in _cancel_token_callbacks.values():
+		var entry: Dictionary = GFVariantData.as_dictionary(entry_value)
+		var token: GFCancelToken = _variant_to_cancel_token(GFVariantData.get_option_value(entry, "token"))
+		var callback: Callable = _variant_to_callable(GFVariantData.get_option_value(entry, "callback", Callable()))
+		if token != null and callback.is_valid() and token.cancelled.is_connected(callback):
+			token.cancelled.disconnect(callback)
+	_cancel_token_callbacks.clear()
+
+
+func _dispose_timeout_source() -> void:
+	if _timeout_source != null:
+		_timeout_source.dispose()
+	_timeout_source = null
+
+
+func _call_item_cancel_callback(key: Variant, reason: StringName) -> void:
+	var item: Dictionary = _get_item(key)
+	var callback: Callable = _get_item_cancel_callback(item)
+	if callback.is_valid():
+		callback.call(key, reason)
+
+
 func _get_item(key: Variant) -> Dictionary:
 	return GFVariantData.as_dictionary(GFVariantData.get_option_value(_items, key, {}))
 
@@ -251,8 +779,25 @@ func _is_item_done(item: Dictionary) -> bool:
 	return GFVariantData.get_option_bool(item, "done", false)
 
 
+func _get_item_state(item: Dictionary) -> ItemState:
+	var state_value: int = GFVariantData.get_option_int(item, "state", ItemState.PENDING)
+	match state_value:
+		ItemState.SUCCEEDED:
+			return ItemState.SUCCEEDED
+		ItemState.FAILED:
+			return ItemState.FAILED
+		ItemState.CANCELLED:
+			return ItemState.CANCELLED
+		_:
+			return ItemState.PENDING
+
+
 func _get_item_result(item: Dictionary) -> Variant:
 	return GFVariantData.get_option_value(item, "result")
+
+
+func _get_item_cancel_callback(item: Dictionary) -> Callable:
+	return _variant_to_callable(GFVariantData.get_option_value(item, "cancel_callback", Callable()))
 
 
 func _get_watched_response_entry(key: Variant) -> Dictionary:
@@ -264,11 +809,7 @@ func _get_entry_response(entry: Dictionary) -> GFHttpResponse:
 
 
 func _get_entry_callback(entry: Dictionary) -> Callable:
-	var value: Variant = GFVariantData.get_option_value(entry, "callback", Callable())
-	if value is Callable:
-		var callback: Callable = value
-		return callback
-	return Callable()
+	return _variant_to_callable(GFVariantData.get_option_value(entry, "callback", Callable()))
 
 
 func _variant_to_http_response(value: Variant) -> GFHttpResponse:
@@ -278,8 +819,34 @@ func _variant_to_http_response(value: Variant) -> GFHttpResponse:
 	return null
 
 
+func _variant_to_cancel_token(value: Variant) -> GFCancelToken:
+	if value is GFCancelToken:
+		var token: GFCancelToken = value
+		return token
+	return null
+
+
+func _variant_to_callable(value: Variant) -> Callable:
+	if value is Callable:
+		var callback: Callable = value
+		return callback
+	return Callable()
+
+
+func _state_to_name(state: ItemState) -> StringName:
+	match state:
+		ItemState.SUCCEEDED:
+			return &"succeeded"
+		ItemState.FAILED:
+			return &"failed"
+		ItemState.CANCELLED:
+			return &"cancelled"
+		_:
+			return &"pending"
+
+
 # --- 信号处理函数 ---
 
 func _on_response_completed(response: GFHttpResponse, key: Variant) -> void:
 	_disconnect_watched_response(key)
-	var _mark_completed_result_285: Variant = mark_completed(key, response)
+	_mark_response_completed(response, key)

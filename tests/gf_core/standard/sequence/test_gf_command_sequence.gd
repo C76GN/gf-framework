@@ -76,6 +76,15 @@ class UndoableRecordingStep extends RecordingStep:
 		order.append("undo_" + label)
 
 
+class FailingUndoStep extends RecordingStep:
+	func undo() -> Dictionary:
+		order.append("undo_" + label)
+		return {
+			"ok": false,
+			"error": "undo_broken",
+		}
+
+
 class NodeUndoStep extends Node:
 	var order: Array[String] = []
 	var label: String = ""
@@ -298,6 +307,10 @@ func test_sequence_signal_timeout_continues() -> void:
 
 	assert_push_warning("[GFCommandSequence] 等待 Signal 超时，序列将继续执行后续步骤。")
 	assert_eq(order, ["wait", "after"], "Signal 超时后应继续执行后续步骤。")
+	var results: Array = GFVariantData.get_option_array(sequence.last_run_report, "results")
+	var wait_report: Dictionary = GFVariantData.as_dictionary(results[0])
+	assert_eq(GFVariantData.get_option_string_name(wait_report, "wait_status"), GFAsyncWaitUtility.STATUS_TIMEOUT, "步骤报告应保留等待状态。")
+	assert_false(GFVariantData.get_option_bool(wait_report, "wait_completed", true), "步骤报告应标记等待未完成。")
 
 
 func test_sequence_stop_on_error_reports_failure() -> void:
@@ -359,6 +372,24 @@ func test_sequence_rollback_on_failure_undoes_completed_steps_reverse_order() ->
 	assert_true(GFVariantData.get_option_bool(sequence.last_run_report, "rolled_back", false), "运行报告应标记已回滚。")
 
 
+func test_sequence_rollback_reports_undo_failure() -> void:
+	var order: Array[String] = []
+	var sequence: GFCommandSequence = GFCommandSequence.new([
+		FailingUndoStep.new(order, "first"),
+		FailingStep.new(order, "fail"),
+	]).with_failure_policy(true, true)
+
+	await sequence.run()
+
+	var rollback_errors: Array = GFVariantData.get_option_array(sequence.last_run_report, "rollback_errors")
+	var rollback_error: Dictionary = GFVariantData.as_dictionary(rollback_errors[0])
+	assert_eq(order, ["first", "fail", "undo_first"], "失败回滚仍应尝试 undo 已完成步骤。")
+	assert_true(GFVariantData.get_option_bool(sequence.last_run_report, "rolled_back", false), "运行报告应标记已回滚。")
+	assert_true(GFVariantData.get_option_bool(sequence.last_run_report, "rollback_failed", false), "undo 失败应写入运行报告。")
+	assert_eq(rollback_errors.size(), 1, "运行报告应记录每个 undo 失败。")
+	assert_eq(GFVariantData.get_option_string(rollback_error, "error"), "undo_broken", "undo 失败原因应保留。")
+
+
 func test_sequence_rollback_skips_freed_completed_step_without_cast_error() -> void:
 	var order: Array[String] = []
 	var freed_step: NodeUndoStep = NodeUndoStep.new(order, "first")
@@ -383,3 +414,21 @@ func test_sequence_success_false_uses_default_error() -> void:
 
 	assert_true(GFVariantData.get_option_bool(sequence.last_run_report, "failed", false), "success=false 应被识别为失败。")
 	assert_eq(GFVariantData.get_option_string(sequence.last_run_report, "error", ""), "Step failed.", "缺少错误字段时应提供稳定默认错误。")
+
+
+func test_sequence_rejects_unsupported_non_null_step() -> void:
+	var order: Array[String] = []
+	var unsupported_step: RefCounted = RefCounted.new()
+	var sequence: GFCommandSequence = GFCommandSequence.new([
+		unsupported_step,
+		RecordingStep.new(order, "after"),
+	]).with_failure_policy(true, false)
+	watch_signals(sequence)
+
+	await sequence.run()
+
+	assert_true(GFVariantData.get_option_bool(sequence.last_run_report, "failed", false), "非空但不支持的 step 不应静默成功。")
+	assert_eq(GFVariantData.get_option_int(sequence.last_run_report, "failed_index", -1), 0, "不支持的 step 应定位到当前索引。")
+	assert_eq(GFVariantData.get_option_string(sequence.last_run_report, "error", ""), "unsupported_step", "失败原因应稳定。")
+	assert_true(order.is_empty(), "stop_on_error 时不应继续执行后续步骤。")
+	assert_signal_emitted(sequence, "sequence_failed", "不支持 step 应触发失败信号。")

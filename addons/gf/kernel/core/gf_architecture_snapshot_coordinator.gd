@@ -76,7 +76,7 @@ func get_all_models_state() -> Dictionary:
 		if model == null:
 			continue
 		var class_name_key: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(entry, "key")
-		state[class_name_key] = model.to_dict()
+		state[class_name_key] = _GF_VARIANT_ACCESS_SCRIPT.duplicate_variant(model.to_dict(), true)
 	return state
 
 
@@ -108,7 +108,7 @@ func get_all_models_state_async(options: Dictionary = {}) -> Dictionary:
 		if model == null:
 			continue
 		var class_name_key: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(entry, "key")
-		state[class_name_key] = model.to_dict()
+		state[class_name_key] = _GF_VARIANT_ACCESS_SCRIPT.duplicate_variant(model.to_dict(), true)
 		processed_since_yield += 1
 		var yielded: bool = await _wait_snapshot_frame_if_needed(processed_since_yield, max_models_per_frame)
 		if yielded:
@@ -194,7 +194,7 @@ func get_global_snapshot() -> Dictionary:
 	snapshot["models"] = get_all_models_state()
 	var history_util: Object = _get_command_history_store()
 	if history_util != null:
-		snapshot["command_history"] = history_util.call("serialize_full_history")
+		snapshot["command_history"] = _GF_VARIANT_ACCESS_SCRIPT.duplicate_variant(history_util.call("serialize_full_history"), true)
 	return snapshot
 
 
@@ -216,7 +216,7 @@ func get_global_snapshot_async(options: Dictionary = {}) -> Dictionary:
 	snapshot["models"] = await get_all_models_state_async(options)
 	var history_util: Object = _get_command_history_store()
 	if history_util != null:
-		snapshot["command_history"] = history_util.call("serialize_full_history")
+		snapshot["command_history"] = _GF_VARIANT_ACCESS_SCRIPT.duplicate_variant(history_util.call("serialize_full_history"), true)
 	return snapshot
 
 
@@ -348,6 +348,7 @@ func _collect_model_snapshot_entries() -> Dictionary:
 		used_keys[class_name_key] = true
 		entries.append({
 			"key": class_name_key,
+			"script": script_cls,
 			"model": model,
 		})
 
@@ -366,10 +367,17 @@ func _collect_model_snapshot_entries() -> Dictionary:
 
 func _get_model_from_snapshot_entry(entry: Dictionary) -> GFModel:
 	var model_value: Variant = _GF_VARIANT_ACCESS_SCRIPT.get_option_value(entry, "model")
-	if model_value is GFModel:
-		var model: GFModel = model_value
-		return model
-	return null
+	var script_value: Variant = _GF_VARIANT_ACCESS_SCRIPT.get_option_value(entry, "script")
+	if not (model_value is GFModel) or not (script_value is Script):
+		return null
+	var script_cls: Script = script_value
+	var model: GFModel = model_value
+	if not is_instance_valid(model):
+		return null
+	var current_model: Object = _get_dictionary_object(_models, script_cls)
+	if current_model != model:
+		return null
+	return model
 
 
 func _get_dictionary_object(source: Dictionary, field_name: Variant) -> Object:

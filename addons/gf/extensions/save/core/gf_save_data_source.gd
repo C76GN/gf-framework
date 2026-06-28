@@ -50,7 +50,7 @@ extends GFSaveSource
 ## @return 数据对象；无法解析时返回 null。
 func get_data_provider() -> Object:
 	if data != null:
-		return data
+		return data if is_instance_valid(data) else null
 
 	var target: Node = get_target_node()
 	if target == null:
@@ -61,10 +61,7 @@ func get_data_provider() -> Object:
 		return null
 
 	var value: Variant = GFObjectPropertyTools.read_property(target, NodePath(String(provider_property)))
-	if value is Object:
-		var object_value: Object = value
-		return object_value
-	return null
+	return _variant_to_valid_object(value)
 
 
 ## 构造数据对象诊断描述。
@@ -76,12 +73,19 @@ func get_data_provider() -> Object:
 ## @schema return: Dictionary，包含 valid、reason、source_key、provider_location、provider_property、provider_class、provider_script、gather_method、apply_method、has_gather_method、has_apply_method 等字段。
 func describe_data_provider() -> Dictionary:
 	var provider_location: String = "direct_data" if data != null else "target"
-	var provider: Object = data
+	var provider: Object = null
 	var reason: String = ""
+	if data != null:
+		if is_instance_valid(data):
+			provider = data
+		else:
+			reason = "invalid_direct_data"
 
 	if provider == null:
 		var target: Node = get_target_node()
-		if target == null:
+		if not reason.is_empty():
+			pass
+		elif target == null:
 			reason = "missing_target"
 		elif provider_property == &"":
 			provider = target
@@ -90,10 +94,12 @@ func describe_data_provider() -> Dictionary:
 		else:
 			provider_location = "target_property"
 			var value: Variant = GFObjectPropertyTools.read_property(target, NodePath(String(provider_property)))
-			if value == null:
+			if typeof(value) == TYPE_NIL:
 				reason = "null_property"
-			elif value is Object:
-				provider = _variant_to_object(value)
+			elif typeof(value) == TYPE_OBJECT:
+				provider = _variant_to_valid_object(value)
+				if provider == null:
+					reason = "invalid_property_object"
 			else:
 				reason = "property_not_object"
 
@@ -267,8 +273,8 @@ func _get_object_script_path(object: Object) -> String:
 	return script.resource_path
 
 
-func _variant_to_object(value: Variant) -> Object:
-	if value is Object:
+func _variant_to_valid_object(value: Variant) -> Object:
+	if typeof(value) == TYPE_OBJECT and is_instance_valid(value):
 		var object_value: Object = value
 		return object_value
 	return null

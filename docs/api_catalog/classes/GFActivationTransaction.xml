@@ -1,0 +1,188 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFActivationTransaction" path="addons/gf/standard/foundation/policy/gf_activation_transaction.gd" module="standard" extends="RefCounted" classDigest="84465ae82b1625363879632056ff290bb2e6f01ae858707d051a7e1eff06e353">
+	<description>GFActivationTransaction: 非代码动态内容的激活事务。
+将“验证、应用、失败回滚、报告”收敛为通用事务流程。它只调度调用方显式传入的
+Callable，不加载脚本、不执行远端载荷，也不规定内容包、配置或资源注册表的业务语义。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_service</tag>
+		<tag name="since">7.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants>
+		<member kind="const" name="STATE_PENDING">
+			<signature>const STATE_PENDING: StringName = &amp;"pending"</signature>
+			<description>事务尚未准备。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATE_PREPARED">
+			<signature>const STATE_PREPARED: StringName = &amp;"prepared"</signature>
+			<description>事务已通过验证。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATE_COMMITTED">
+			<signature>const STATE_COMMITTED: StringName = &amp;"committed"</signature>
+			<description>事务已提交。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATE_ROLLED_BACK">
+			<signature>const STATE_ROLLED_BACK: StringName = &amp;"rolled_back"</signature>
+			<description>事务失败后已执行回滚。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATE_FAILED">
+			<signature>const STATE_FAILED: StringName = &amp;"failed"</signature>
+			<description>事务失败且未完成回滚。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties>
+		<member kind="property" name="transaction_id">
+			<signature>var transaction_id: StringName = &amp;""</signature>
+			<description>事务 ID。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="subject">
+			<signature>var subject: String = _DEFAULT_SUBJECT</signature>
+			<description>报告主题。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="state">
+			<signature>var state: StringName = STATE_PENDING</signature>
+			<description>当前事务状态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="metadata">
+			<signature>var metadata: Dictionary = {}</signature>
+			<description>调用方自定义元数据。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">metadata: Dictionary caller-defined transaction metadata.</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="configure">
+			<signature>func configure( p_transaction_id: StringName, p_subject: String = _DEFAULT_SUBJECT, p_metadata: Dictionary = {} ) -&gt; GFActivationTransaction:</signature>
+			<description>配置事务。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">p_transaction_id: 事务 ID。</tag>
+				<tag name="param">p_subject: 报告主题。</tag>
+				<tag name="param">p_metadata: 调用方元数据。</tag>
+				<tag name="return">当前事务。</tag>
+				<tag name="schema">p_metadata: Dictionary caller-defined transaction metadata.</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="clear">
+			<signature>func clear() -&gt; void:</signature>
+			<description>清空事务。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="add_step">
+			<signature>func add_step( step_id: StringName, apply_callback: Callable, rollback_callback: Callable = Callable(), options: Dictionary = {} ) -&gt; bool:</signature>
+			<description>添加事务步骤。
+apply_callback 与 rollback_callback 的推荐签名为 `func(context: Dictionary) -&gt; Variant`。
+validate_callback 可通过 options 传入，签名相同。返回 false、非 OK Error、或 `{ "ok": false }` 会进入失败报告。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">step_id: 步骤 ID。</tag>
+				<tag name="param">apply_callback: 应用回调。</tag>
+				<tag name="param">rollback_callback: 回滚回调。</tag>
+				<tag name="param">options: 步骤选项，支持 label、metadata、validate_callback 和 rollback_required。</tag>
+				<tag name="return">添加成功返回 true。</tag>
+				<tag name="schema">options: Dictionary step metadata.</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="prepare">
+			<signature>func prepare(context: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>验证事务步骤。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">context: 调用方上下文。</tag>
+				<tag name="return">GFValidationReportDictionary 兼容报告。</tag>
+				<tag name="schema">context: Dictionary caller-defined activation context.</tag>
+				<tag name="schema">return: Dictionary with ok, healthy, transaction_id, state, steps, issues, summary, and next_action.</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="commit">
+			<signature>func commit(context: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>提交事务，失败时自动回滚已应用步骤。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">context: 调用方上下文。</tag>
+				<tag name="return">GFValidationReportDictionary 兼容报告。</tag>
+				<tag name="schema">context: Dictionary caller-defined activation context.</tag>
+				<tag name="schema">return: Dictionary with ok, healthy, transaction_id, state, steps, issues, summary, and next_action.</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="rollback">
+			<signature>func rollback(context: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>显式回滚已应用步骤。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">context: 调用方上下文。</tag>
+				<tag name="return">GFValidationReportDictionary 兼容报告。</tag>
+				<tag name="schema">context: Dictionary caller-defined activation context.</tag>
+				<tag name="schema">return: Dictionary with ok, healthy, transaction_id, state, steps, issues, summary, and next_action.</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_report">
+			<signature>func get_report(options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>获取事务报告。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">options: 报告选项，支持 fallback_action、no_action 和 warnings_as_errors。</tag>
+				<tag name="return">GFValidationReportDictionary 兼容报告。</tag>
+				<tag name="schema">options: Dictionary report options.</tag>
+				<tag name="schema">return: Dictionary with ok, healthy, transaction_id, state, steps, issues, summary, and next_action.</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_step_applied">
+			<signature>func is_step_applied(step_id: StringName) -&gt; bool:</signature>
+			<description>检查步骤是否已应用。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">step_id: 步骤 ID。</tag>
+				<tag name="return">已应用返回 true。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

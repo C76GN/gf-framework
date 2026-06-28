@@ -77,6 +77,7 @@ const _META_CAPABILITY_DEPENDENCIES: StringName = &"_gf_capability_dependencies"
 const _META_CAPABILITY_DEPENDENCY_OF: StringName = &"_gf_capability_dependency_of"
 const _META_CAPABILITY_TOP_LEVEL_TYPES: StringName = &"_gf_capability_top_level_types"
 const _META_CAPABILITY_OWNED_TYPES: StringName = &"_gf_capability_owned_types"
+const _META_CAPABILITY_IGNORED_SCENE_TYPES: StringName = &"_gf_capability_ignored_scene_types"
 const _META_ORIGINAL_PROCESS_MODE: StringName = &"_gf_capability_original_process_mode"
 
 ## 能力对象可选实现：返回运行时依赖的能力类型列表。
@@ -684,8 +685,21 @@ func clear_capabilities(receiver: Object) -> void:
 		return
 
 	var capability_types: Array[Script] = get_capability_types(receiver)
-	for capability_type: Script in capability_types:
-		remove_capability(receiver, capability_type)
+	while not capability_types.is_empty():
+		var removed_any: bool = false
+		for capability_type: Script in capability_types.duplicate():
+			if capability_type == null:
+				capability_types.erase(capability_type)
+				continue
+			if not _get_dependency_owner_types(receiver, capability_type).is_empty():
+				continue
+			remove_capability(receiver, capability_type)
+			capability_types.erase(capability_type)
+			removed_any = true
+		if removed_any:
+			continue
+		push_error("[GFCapabilityUtility] clear_capabilities 失败：能力依赖图存在无法移除的循环或残留。")
+		return
 
 
 ## 清空 receiver 所属的所有能力查询分组。
@@ -1083,14 +1097,26 @@ func _remove_capability(receiver: Object, capability_type: Script, free_instance
 
 	var registered_type: Script = _get_script_value(GFVariantData.get_option_value(record, "type"))
 	var capability: Object = _get_object_value(GFVariantData.get_option_value(record, "instance"))
+	var dependency_owners: Array[Script] = _get_dependency_owner_types(receiver, registered_type)
+	if not dependency_owners.is_empty():
+		push_error(
+			"[GFCapabilityUtility] remove_capability 失败：能力 %s 仍被其他能力依赖。"
+			% _get_script_key(registered_type)
+		)
+		return
+
 	var dependency_types: Array[Script] = _get_dependency_types(receiver, registered_type)
 	var dependency_removal_policy: int = _get_dependency_removal_policy(capability)
+	var owns_instance: bool = _owns_capability_instance(receiver, registered_type)
+	var should_ignore_scene_capability: bool = _should_ignore_removed_scene_capability(receiver, capability, owns_instance)
 	_call_removed_hook(receiver, capability)
 	_set_capability_receiver(capability, null)
 	_remove_capability_record(receiver, registered_type)
+	if should_ignore_scene_capability:
+		_mark_scene_capability_ignored(receiver, registered_type, true)
 	_remove_dependency_links(receiver, registered_type)
 	capability_removed.emit(receiver, registered_type, capability)
-	if free_instance:
+	if free_instance and owns_instance:
 		_free_registered_capability(capability)
 	if dependency_removal_policy == DependencyRemovalPolicy.REMOVE_AUTO_DEPENDENCIES:
 		_remove_unused_auto_dependencies(receiver, dependency_types)
@@ -1340,9 +1366,23 @@ func _ensure_required_capabilities(receiver: Object, capability: Object) -> Dict
 	for required_type: Script in required_types:
 		if required_type == null:
 			continue
-		if get_capability(receiver, required_type) != null:
-			resolved_types.append(required_type)
+		_sync_scene_capability_containers(receiver)
+		var matching_records: Array[Dictionary] = _get_matching_capability_records(receiver, required_type)
+		if matching_records.size() == 1:
+			var resolved_type: Script = _get_script_value(GFVariantData.get_option_value(matching_records[0], "type"))
+			if resolved_type != null:
+				resolved_types.append(resolved_type)
 			continue
+		if matching_records.size() > 1:
+			push_error(
+				"[GFCapabilityUtility] 能力依赖匹配到多个实现：%s，请使用更具体的依赖类型。"
+				% _get_script_key(required_type)
+			)
+			return {
+				"ok": false,
+				"types": resolved_types,
+				"created_types": created_types,
+			}
 
 		var before_types: Array[Script] = _get_capability_type_list(receiver).duplicate()
 		var required_capability: Object = add_required_capability(receiver, required_type)
@@ -1353,7 +1393,9 @@ func _ensure_required_capabilities(receiver: Object, capability: Object) -> Dict
 				"created_types": created_types,
 			}
 		_append_unique_scripts(created_types, _get_created_capability_types(before_types, _get_capability_type_list(receiver)))
-		resolved_types.append(required_type)
+		var required_record: Dictionary = _find_capability_record(receiver, required_type)
+		var registered_required_type: Script = _get_script_value(GFVariantData.get_option_value(required_record, "type", required_type))
+		resolved_types.append(registered_required_type if registered_required_type != null else required_type)
 	return {
 		"ok": true,
 		"types": resolved_types,
@@ -1414,6 +1456,7 @@ func _register_capability(
 	types.append(capability_type)
 	_mark_capability_top_level(receiver, capability_type, is_top_level)
 	_mark_capability_owned(receiver, capability_type, owns_instance)
+	_mark_scene_capability_ignored(receiver, capability_type, false)
 	_set_capability_instance(receiver, capability_type, capability)
 	_track_capability_index(receiver, capability_type)
 	_set_capability_receiver(capability, receiver)
@@ -1496,10 +1539,52 @@ func _owns_capability_instance(receiver: Object, capability_type: Script) -> boo
 	return GFVariantData.get_option_bool(owned_types, capability_type, false)
 
 
+func _should_ignore_removed_scene_capability(receiver: Object, capability: Object, owns_instance: bool) -> bool:
+	if owns_instance:
+		return false
+	if not (receiver is Node) or not (capability is Node):
+		return false
+
+	var receiver_node: Node = receiver
+	var capability_node: Node = capability
+	return _is_existing_receiver_container(receiver_node, capability_node.get_parent())
+
+
 func _get_owned_type_map(receiver: Object) -> Dictionary:
 	if not receiver.has_meta(_META_CAPABILITY_OWNED_TYPES):
 		receiver.set_meta(_META_CAPABILITY_OWNED_TYPES, {})
 	return GFVariantData.as_dictionary(receiver.get_meta(_META_CAPABILITY_OWNED_TYPES))
+
+
+func _mark_scene_capability_ignored(
+	receiver: Object,
+	capability_type: Script,
+	ignored: bool
+) -> void:
+	if not is_instance_valid(receiver) or capability_type == null:
+		return
+
+	var ignored_types: Dictionary = _get_ignored_scene_type_map(receiver)
+	if ignored:
+		ignored_types[capability_type] = true
+	else:
+		_erase_dictionary_key(ignored_types, capability_type)
+
+
+func _is_scene_capability_ignored(receiver: Object, capability_type: Script) -> bool:
+	if not is_instance_valid(receiver) or capability_type == null:
+		return false
+	if not receiver.has_meta(_META_CAPABILITY_IGNORED_SCENE_TYPES):
+		return false
+
+	var ignored_types: Dictionary = GFVariantData.as_dictionary(receiver.get_meta(_META_CAPABILITY_IGNORED_SCENE_TYPES))
+	return GFVariantData.get_option_bool(ignored_types, capability_type, false)
+
+
+func _get_ignored_scene_type_map(receiver: Object) -> Dictionary:
+	if not receiver.has_meta(_META_CAPABILITY_IGNORED_SCENE_TYPES):
+		receiver.set_meta(_META_CAPABILITY_IGNORED_SCENE_TYPES, {})
+	return GFVariantData.as_dictionary(receiver.get_meta(_META_CAPABILITY_IGNORED_SCENE_TYPES))
 
 
 func _clear_empty_capability_metadata(receiver: Object) -> void:
@@ -1512,6 +1597,8 @@ func _clear_empty_capability_metadata(receiver: Object) -> void:
 		receiver.remove_meta(_META_CAPABILITY_TOP_LEVEL_TYPES)
 	if receiver.has_meta(_META_CAPABILITY_OWNED_TYPES) and GFVariantData.as_dictionary(receiver.get_meta(_META_CAPABILITY_OWNED_TYPES)).is_empty():
 		receiver.remove_meta(_META_CAPABILITY_OWNED_TYPES)
+	if receiver.has_meta(_META_CAPABILITY_IGNORED_SCENE_TYPES) and GFVariantData.as_dictionary(receiver.get_meta(_META_CAPABILITY_IGNORED_SCENE_TYPES)).is_empty():
+		receiver.remove_meta(_META_CAPABILITY_IGNORED_SCENE_TYPES)
 	if receiver.has_meta(_META_CAPABILITY_DEPENDENCIES) and GFVariantData.as_dictionary(receiver.get_meta(_META_CAPABILITY_DEPENDENCIES)).is_empty():
 		receiver.remove_meta(_META_CAPABILITY_DEPENDENCIES)
 	if receiver.has_meta(_META_CAPABILITY_DEPENDENCY_OF) and GFVariantData.as_dictionary(receiver.get_meta(_META_CAPABILITY_DEPENDENCY_OF)).is_empty():
@@ -1648,29 +1735,39 @@ func _find_capability_record(receiver: Object, capability_type: Script, sync_sce
 	if sync_scene_containers:
 		_sync_scene_capability_containers(receiver)
 
-	var exact_instance: Object = _get_capability_instance(receiver, capability_type)
-	if exact_instance != null:
-		return {
-			"type": capability_type,
-			"instance": exact_instance,
-	}
-
-	var matches: Array[Dictionary] = []
-	for registered_type: Script in _get_capability_type_list(receiver):
-		if _script_extends_or_equals(registered_type, capability_type):
-			var instance: Object = _get_capability_instance(receiver, registered_type)
-			if instance != null:
-				matches.append({
-					"type": registered_type,
-					"instance": instance,
-				})
-
+	var matches: Array[Dictionary] = _get_matching_capability_records(receiver, capability_type)
 	if matches.size() == 1:
 		return matches[0]
 	if matches.size() > 1:
 		push_warning("[GFCapabilityUtility] get_capability(%s) 匹配到多个能力，请使用更具体类型查询。" % _get_script_key(capability_type))
 
 	return {}
+
+
+func _get_matching_capability_records(receiver: Object, capability_type: Script) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	if not is_instance_valid(receiver) or capability_type == null:
+		return result
+
+	var exact_instance: Object = _get_capability_instance(receiver, capability_type)
+	if exact_instance != null:
+		result.append({
+			"type": capability_type,
+			"instance": exact_instance,
+		})
+		return result
+
+	for registered_type: Script in _get_capability_type_list(receiver):
+		if registered_type == capability_type:
+			continue
+		if _script_extends_or_equals(registered_type, capability_type):
+			var instance: Object = _get_capability_instance(receiver, registered_type)
+			if instance != null:
+				result.append({
+					"type": registered_type,
+					"instance": instance,
+				})
+	return result
 
 
 func _set_capability_instance(receiver: Object, capability_type: Script, capability: Object) -> void:
@@ -1689,9 +1786,9 @@ func _get_capability_instance(receiver: Object, capability_type: Script) -> Obje
 	if capability != null:
 		return capability
 
-	receiver.remove_meta(meta_name)
-	_remove_capability_type_from_meta(receiver, capability_type)
-	_remove_capability_index(receiver.get_instance_id(), capability_type)
+	_remove_capability_record(receiver, capability_type)
+	_remove_dependency_links(receiver, capability_type)
+	_clear_empty_capability_metadata(receiver)
 	return null
 
 
@@ -1760,6 +1857,8 @@ func _register_container_child_capabilities(receiver: Node, container: Node) -> 
 
 		var child_script: Script = _get_script_value(child.get_script())
 		if child_script == null:
+			continue
+		if _is_scene_capability_ignored(receiver, child_script):
 			continue
 
 		var registered: Object = add_capability_instance(receiver, child, child_script)

@@ -61,7 +61,7 @@ func _init(
 	p_sort_value: float = 0.0
 ) -> void:
 	actor = p_actor
-	targets = p_targets.duplicate()
+	targets = _sanitize_targets(p_targets)
 	payload = p_payload
 	priority = p_priority
 	sort_value = p_sort_value
@@ -89,3 +89,14 @@ func cancel() -> void:
 ## @schema return: Variant that is null or a Signal awaited before action resolution completes.
 func _resolve(_context: GFTurnContext) -> Variant:
 	return null
+
+
+# --- 私有/辅助方法 ---
+
+func _sanitize_targets(source_targets: Array[Object]) -> Array[Object]:
+	var result: Array[Object] = []
+	for target: Object in source_targets:
+		if target == null or not is_instance_valid(target) or result.has(target):
+			continue
+		result.append(target)
+	return result

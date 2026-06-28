@@ -7,6 +7,7 @@
 - [静态导表数据适配器与表校验](config-provider/index.md)：`GFConfigProvider`、表 schema、导入校验、引用、合并、构建 profile 和访问器生成。
 - [通用分析事件](analytics-events.md)：`GFAnalyticsUtility`、事件队列、dry-run、批量 flush 和自定义传输 hook。
 - [远程文本与 JSON 缓存](remote-cache.md)：`GFRemoteCacheUtility`、TTL 缓存、失败回退、队列合并和调试快照。
+- [源码文本加载器](source-text-loader.md)：`GFSourceTextLoader` 的逻辑 key 解析、root 限制、内存文本和内容 hash。
 - [HTTP 请求构建与异步批处理](http-async-batch.md)：`GFHttpRequestBuilder`、`GFHttpResponse` 和 `GFAsyncBatch`。
 - [通用请求 Outbox](request-outbox.md)：`GFRequestEnvelope`、`GFRequestOutboxUtility`、持久化请求、重试和重放。
 

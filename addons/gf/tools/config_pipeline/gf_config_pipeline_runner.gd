@@ -39,6 +39,13 @@ const _OPERATION_LOAD: StringName = &"load"
 func load_profile(profile_path: String, options: Dictionary = {}) -> Dictionary:
 	if profile_path.is_empty():
 		return _make_load_failure(profile_path, "missing_profile_path", "导表 Profile 路径为空。", ERR_INVALID_PARAMETER)
+	if not _is_godot_resource_path(profile_path):
+		return _make_load_failure(
+			profile_path,
+			"invalid_profile_path",
+			"导表 Profile 路径必须使用 res:// 或 user://：%s。" % profile_path,
+			ERR_INVALID_PARAMETER
+		)
 	if not _resource_path_exists(profile_path):
 		return _make_load_failure(
 			profile_path,
@@ -236,9 +243,11 @@ func _get_database_from_result(result: Dictionary) -> GFConfigDatabaseResource:
 func _resource_path_exists(profile_path: String) -> bool:
 	if ResourceLoader.exists(profile_path):
 		return true
-	if profile_path.begins_with("res://") or profile_path.begins_with("user://"):
-		return FileAccess.file_exists(ProjectSettings.globalize_path(profile_path))
-	return FileAccess.file_exists(profile_path)
+	return FileAccess.file_exists(ProjectSettings.globalize_path(profile_path))
+
+
+func _is_godot_resource_path(profile_path: String) -> bool:
+	return profile_path.begins_with("res://") or profile_path.begins_with("user://")
 
 
 func _duplicate_load_result(load_result: Dictionary) -> Dictionary:

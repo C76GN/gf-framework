@@ -95,3 +95,70 @@ func test_get_debug_snapshot_reports_bucket_statistics() -> void:
 	assert_eq(entity_count, 2, "快照应包含实体数量。")
 	assert_gt(bucket_count, 0, "快照应包含桶数量。")
 	assert_gt(max_bucket_size, 0, "快照应包含最大桶大小。")
+
+
+## 验证正好贴到格子边界的 AABB 使用半开区间映射，不额外占用下一格。
+func test_aabb_cell_mapping_uses_half_open_max_corner() -> void:
+	var spatial_hash: GFSpatialHash3D = GFSpatialHash3D.new(4.0)
+	var _inserted: bool = spatial_hash.insert("exact", AABB(Vector3.ZERO, Vector3(4.0, 4.0, 4.0)))
+
+	assert_true(spatial_hash.query_cell(Vector3i(0, 0, 0)).has("exact"), "实体应占据自身范围所在格。")
+	assert_false(spatial_hash.query_cell(Vector3i(1, 0, 0)).has("exact"), "最大边界正好贴格线时不应额外占据下一格。")
+	assert_false(spatial_hash.query_cell(Vector3i(0, 1, 0)).has("exact"), "Y 最大边界也应使用半开区间。")
+	assert_false(spatial_hash.query_cell(Vector3i(0, 0, 1)).has("exact"), "Z 最大边界也应使用半开区间。")
+
+
+## 验证不稳定的复合 Variant 不会被接受为实体 key。
+func test_insert_rejects_unstable_composite_entity_keys() -> void:
+	var spatial_hash: GFSpatialHash3D = GFSpatialHash3D.new(4.0)
+
+	assert_false(spatial_hash.insert(["unit"], AABB(Vector3.ZERO, Vector3.ONE)), "Array 不能作为稳定实体 key。")
+	assert_false(spatial_hash.insert({ "id": "unit" }, AABB(Vector3.ZERO, Vector3.ONE)), "Dictionary 不能作为稳定实体 key。")
+	assert_eq(spatial_hash.get_entity_count(), 0, "被拒绝的实体不应进入索引。")
+
+
+## 验证超出覆盖格子上限的更新不会先删除旧实体。
+func test_insert_over_covered_cell_limit_preserves_existing_record() -> void:
+	var spatial_hash: GFSpatialHash3D = GFSpatialHash3D.new(1.0)
+	spatial_hash.max_covered_cells = 8
+	var _inserted: bool = spatial_hash.insert("unit", AABB(Vector3.ZERO, Vector3.ONE))
+
+	var updated: bool = spatial_hash.update("unit", AABB(Vector3.ZERO, Vector3(10.0, 10.0, 10.0)))
+
+	assert_false(updated, "超出覆盖格子上限的更新应失败。")
+	assert_true(spatial_hash.has_entity("unit"), "失败更新不应删除已有实体。")
+	assert_true(spatial_hash.query_aabb(AABB(Vector3.ZERO, Vector3.ONE)).has("unit"), "旧索引仍应可查询。")
+
+
+## 验证超出覆盖格子上限的范围查询会直接返回空结果。
+func test_query_aabb_over_covered_cell_limit_returns_empty() -> void:
+	var spatial_hash: GFSpatialHash3D = GFSpatialHash3D.new(1.0)
+	spatial_hash.max_covered_cells = 4
+	var _inserted: bool = spatial_hash.insert("unit", AABB(Vector3.ZERO, Vector3.ONE))
+
+	var result: Array[Variant] = spatial_hash.query_aabb(AABB(Vector3.ZERO, Vector3(3.0, 3.0, 3.0)))
+
+	assert_true(result.is_empty(), "超出覆盖格子上限的 AABB 查询应短路为空。")
+
+
+## 验证格子范围查询同样受覆盖格子上限保护。
+func test_query_cell_range_over_covered_cell_limit_returns_empty() -> void:
+	var spatial_hash: GFSpatialHash3D = GFSpatialHash3D.new(1.0)
+	spatial_hash.max_covered_cells = 4
+	var _inserted: bool = spatial_hash.insert("unit", AABB(Vector3.ZERO, Vector3.ONE))
+
+	var result: Array[Variant] = spatial_hash.query_cell_range(Vector3i.ZERO, Vector3i(2, 0, 0))
+
+	assert_true(result.is_empty(), "超出覆盖格子上限的格子范围查询应短路为空。")
+
+
+## 验证零半径查询按点查询语义返回包含该点的实体。
+func test_query_radius_zero_returns_entities_containing_point() -> void:
+	var spatial_hash: GFSpatialHash3D = GFSpatialHash3D.new(4.0)
+	var _inside: bool = spatial_hash.insert("inside", AABB(Vector3(-1.0, -1.0, -1.0), Vector3(2.0, 2.0, 2.0)))
+	var _outside: bool = spatial_hash.insert("outside", AABB(Vector3(2.0, 0.0, 0.0), Vector3.ONE))
+
+	var result: Array[Variant] = spatial_hash.query_radius(Vector3.ZERO, 0.0)
+
+	assert_true(result.has("inside"), "零半径查询应返回包含点的实体。")
+	assert_false(result.has("outside"), "零半径查询不应返回同格但不包含点的实体。")

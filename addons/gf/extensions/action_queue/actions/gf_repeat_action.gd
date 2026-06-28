@@ -155,6 +155,7 @@ func _run_repeat_async(current_serial: int) -> void:
 				action,
 				result,
 				_is_execution_serial_current.bind(current_serial),
+				_is_timeout_paused.bind(current_serial),
 				_get_architecture_or_null()
 			)
 
@@ -177,6 +178,10 @@ func _run_repeat_async(current_serial: int) -> void:
 
 func _is_execution_serial_current(serial: int) -> bool:
 	return serial == _execution_serial
+
+
+func _is_timeout_paused(serial: int) -> bool:
+	return serial == _execution_serial and _paused
 
 
 func _get_scene_tree_value(value: Variant) -> SceneTree:

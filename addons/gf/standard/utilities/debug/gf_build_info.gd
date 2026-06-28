@@ -54,6 +54,43 @@ const TIME_UTC_SETTING: String = "gf/build/time_utc"
 ## @api public
 const METADATA_SETTING: String = "gf/build/metadata"
 
+## 是否在导出开始时写入构建元数据的 ProjectSettings 键。
+## [br]
+## @api public
+## [br]
+## @since 6.0.0
+const EXPORT_ENABLED_SETTING: String = "gf/build/export/write_metadata"
+
+## 导出时写入 ProjectSettings 的构建元数据字典键。
+## [br]
+## @api public
+## [br]
+## @since 6.0.0
+## [br]
+## @schema value: Dictionary，可包含 GFBuildInfo.write_metadata_to_project_settings() 支持的构建字段。
+const EXPORT_BUILD_METADATA_SETTING: String = "gf/build/export/build_metadata"
+
+## 导出结束后是否恢复旧构建元数据的 ProjectSettings 键。
+## [br]
+## @api public
+## [br]
+## @since 6.0.0
+const EXPORT_RESTORE_PREVIOUS_SETTING: String = "gf/build/export/restore_previous_settings"
+
+## 写入或恢复后是否立即保存 ProjectSettings 的设置键。
+## [br]
+## @api public
+## [br]
+## @since 6.0.0
+const EXPORT_SAVE_PROJECT_SETTINGS_SETTING: String = "gf/build/export/save_project_settings"
+
+## 导出时附加到构建信息中的自定义元数据 ProjectSettings 键。
+## [br]
+## @api public
+## [br]
+## @since 6.0.0
+const EXPORT_EXTRA_METADATA_SETTING: String = "gf/build/export/metadata"
+
 ## 项目名称 ProjectSettings 键。
 ## [br]
 ## @api public
@@ -191,7 +228,8 @@ func apply_dict(data: Dictionary) -> void:
 	engine_version = GFVariantData.get_option_string(data, "engine_version", engine_version)
 	platform_name = GFVariantData.get_option_string(data, "platform_name", platform_name)
 	is_debug_build = GFVariantData.get_option_bool(data, "is_debug_build", is_debug_build)
-	metadata = GFVariantData.get_option_dictionary(data, "metadata")
+	if data.has("metadata") or data.has(&"metadata"):
+		metadata = GFVariantData.get_option_dictionary(data, "metadata")
 
 
 ## 创建当前运行环境的构建信息。
@@ -252,7 +290,7 @@ static func from_dict(data: Dictionary) -> GFBuildInfo:
 ## [br]
 ## @schema extra_metadata: Dictionary，保存项目自定义构建元数据。
 ## [br]
-## @schema return: Dictionary，包含已写入的构建元数据。
+## @schema return: Dictionary，包含已写入的构建元数据和可选 save_error。
 static func write_metadata_to_project_settings(
 	build_data: Dictionary = {},
 	extra_metadata: Dictionary = {},
@@ -278,7 +316,8 @@ static func write_metadata_to_project_settings(
 	written_data["metadata"] = metadata_value.duplicate(true)
 
 	if save_settings:
-		var _save_result: int = ProjectSettings.save()
+		var save_result: int = ProjectSettings.save()
+		written_data["save_error"] = save_result
 	return written_data
 
 

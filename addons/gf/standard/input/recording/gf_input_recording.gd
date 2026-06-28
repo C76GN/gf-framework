@@ -12,6 +12,11 @@ class_name GFInputRecording
 extends RefCounted
 
 
+# --- 常量 ---
+
+const _ORDER_INDEX_KEY: String = "_order_index"
+
+
 # --- 公共变量 ---
 
 ## 录制标识。
@@ -37,6 +42,11 @@ var events: Array[Dictionary] = []
 ## [br]
 ## @schema metadata: Dictionary，项目持有的录制标签、工具或存档数据。
 var metadata: Dictionary = {}
+
+
+# --- 私有变量 ---
+
+var _next_event_order_index: int = 0
 
 
 # --- 公共方法 ---
@@ -79,7 +89,9 @@ func add_event(
 		"player_index": player_index,
 		"source_id": source_id,
 		"metadata": event_metadata.duplicate(true),
+		_ORDER_INDEX_KEY: _next_event_order_index,
 	}
+	_next_event_order_index += 1
 	events.append(event)
 	duration_seconds = maxf(duration_seconds, _get_event_time_seconds(event))
 	sort_events()
@@ -92,6 +104,7 @@ func add_event(
 func clear() -> void:
 	events.clear()
 	duration_seconds = 0.0
+	_next_event_order_index = 0
 
 
 ## 检查录制是否为空。
@@ -116,9 +129,7 @@ func get_event_count() -> int:
 ## [br]
 ## @api public
 func sort_events() -> void:
-	events.sort_custom(func(left: Dictionary, right: Dictionary) -> bool:
-		return _get_event_time_seconds(left) < _get_event_time_seconds(right)
-	)
+	events.sort_custom(_sort_recording_events)
 
 
 ## 获取事件副本。
@@ -131,7 +142,7 @@ func sort_events() -> void:
 func get_events() -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	for event: Dictionary in events:
-		result.append(GFVariantData.to_dictionary(event))
+		result.append(_event_to_dict(event, false))
 	return result
 
 
@@ -181,10 +192,14 @@ func apply_dict(data: Dictionary, json_compatible: bool = false) -> void:
 	recording_id = GFVariantData.get_option_string_name(data, "recording_id")
 	duration_seconds = maxf(GFVariantData.get_option_float(data, "duration_seconds"), 0.0)
 	events.clear()
+	_next_event_order_index = 0
 	for event_value: Variant in GFVariantData.get_option_array(data, "events"):
 		if event_value is Dictionary:
 			var event_data: Dictionary = event_value
-			events.append(_event_from_dict(event_data, json_compatible))
+			var event: Dictionary = _event_from_dict(event_data, json_compatible)
+			event[_ORDER_INDEX_KEY] = _next_event_order_index
+			_next_event_order_index += 1
+			events.append(event)
 
 	var metadata_value: Variant = GFVariantData.get_option_value(data, "metadata", {})
 	metadata_value = GFVariantJsonCodec.json_compatible_to_variant(metadata_value) if json_compatible else GFVariantData.duplicate_variant(metadata_value)
@@ -276,6 +291,16 @@ func _event_from_dict(event: Dictionary, json_compatible: bool) -> Dictionary:
 	}
 
 
+func _sort_recording_events(left: Dictionary, right: Dictionary) -> bool:
+	var left_time: float = _get_event_time_seconds(left)
+	var right_time: float = _get_event_time_seconds(right)
+	if left_time < right_time:
+		return true
+	if left_time > right_time:
+		return false
+	return _get_event_order_index(left) < _get_event_order_index(right)
+
+
 func _get_event_time_seconds(event: Dictionary) -> float:
 	return GFVariantData.get_option_float(event, "time_seconds")
 
@@ -298,3 +323,7 @@ func _get_event_source_id(event: Dictionary) -> StringName:
 
 func _get_event_metadata(event: Dictionary) -> Dictionary:
 	return GFVariantData.get_option_dictionary(event, "metadata")
+
+
+func _get_event_order_index(event: Dictionary) -> int:
+	return GFVariantData.get_option_int(event, _ORDER_INDEX_KEY)

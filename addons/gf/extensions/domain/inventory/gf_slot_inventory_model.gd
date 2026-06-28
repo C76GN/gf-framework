@@ -162,7 +162,7 @@ func set_slot_count(count: int, preserve_existing: bool = true) -> void:
 	if not _begin_inventory_mutation("set_slot_count"):
 		return
 	var next_count: int = maxi(count, 0)
-	var before_slots: Array[Dictionary] = _snapshot_slots(mini(_slots.size(), next_count))
+	var before_slots: Array[Dictionary] = _snapshot_slots(maxi(_slots.size(), next_count))
 	var next_slots: Array = []
 	for index: int in range(next_count):
 		if preserve_existing and index < _slots.size():
@@ -972,7 +972,7 @@ func from_dict(data: Dictionary) -> void:
 	allow_growth = GFVariantData.get_option_bool(data, "allow_growth", allow_growth)
 	var slot_count: int = GFVariantData.get_option_int(data, "slot_count")
 	var raw_slots: Array = GFVariantData.get_option_array(data, "slots")
-	var count: int = maxi(slot_count, raw_slots.size())
+	var count: int = maxi(slot_count, 0)
 	var before_slots: Array[Dictionary] = _snapshot_slots(maxi(_slots.size(), count))
 	_slots.clear()
 	for index: int in range(count):
@@ -985,7 +985,7 @@ func from_dict(data: Dictionary) -> void:
 			var stack: GFInventoryStack = GFInventoryStack.from_dict(stack_data)
 			_slots.append(stack if not stack.is_empty() else null)
 	_resize_slot_definitions(count)
-	for index: int in range(mini(before_slots.size(), _slots.size())):
+	for index: int in range(before_slots.size()):
 		_record_slot_change(index, before_slots[index], _snapshot_slot_data(index))
 	_mark_inventory_changed()
 	_end_inventory_mutation()

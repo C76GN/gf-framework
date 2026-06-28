@@ -53,8 +53,30 @@ func test_format_full_groups_negative_decimal_integer_part_only() -> void:
 	assert_eq(text, "-1,234,567.5", "千分位分组应保留负号，并且只作用于整数部分。")
 
 
+func test_format_full_returns_stable_fallback_for_non_finite_floats() -> void:
+	assert_eq(GFNumberFormatter.format_full(INF, 2), "0", "INF 不应泄漏为引擎相关格式文本。")
+	assert_push_error("[GFDecimalStringFormatter] 只能格式化有限浮点值。")
+
+	assert_eq(GFNumberFormatter.format_full(NAN, 2), "0", "NAN 不应泄漏为引擎相关格式文本。")
+	assert_push_error("[GFDecimalStringFormatter] 只能格式化有限浮点值。")
+
+
 func test_format_auto_falls_back_to_scientific_for_huge_values() -> void:
 	var huge: GFBigNumber = GFBigNumber.from_string("1e60")
 	var text: String = GFNumberFormatter.format_auto(huge, 0)
 
 	assert_eq(text, "1e60", "超出紧凑后缀表的超大数应自动回退到科学计数法。")
+
+
+func test_format_compact_default_suffixes_are_stable() -> void:
+	var original_suffixes: PackedStringArray = GFNumberFormatter.DEFAULT_COMPACT_SUFFIXES
+	GFNumberFormatter.DEFAULT_COMPACT_SUFFIXES = PackedStringArray(["", "bad"])
+	var text: String = GFNumberFormatter.format_compact(1_000, 0)
+	GFNumberFormatter.DEFAULT_COMPACT_SUFFIXES = original_suffixes
+
+	assert_eq(text, "1k", "默认紧凑后缀不应被运行时全局状态污染。")
+
+
+func test_trim_trailing_zeroes_returns_stable_zero_for_empty_result() -> void:
+	assert_eq(GFDecimalStringFormatter.trim_trailing_zeroes("000"), "0", "裁剪后为空的数字文本应收敛为 0。")
+	assert_eq(GFDecimalStringFormatter.trim_trailing_zeroes("-000"), "0", "裁剪后只剩负号的数字文本应收敛为 0。")

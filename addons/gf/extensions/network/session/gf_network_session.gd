@@ -184,7 +184,7 @@ func close(reason: String = "closed") -> void:
 ## [br]
 ## @schema return: Dictionary，包含 mode、mode_name、endpoint、local_peer_id、max_peers、is_active、has_connection、started_at_unix、metadata。
 func get_debug_snapshot() -> Dictionary:
-	return {
+	return GFNetworkDebugTools.sanitize_debug_dictionary({
 		"mode": mode,
 		"mode_name": _get_mode_name(mode),
 		"endpoint": endpoint,
@@ -194,7 +194,7 @@ func get_debug_snapshot() -> Dictionary:
 		"has_connection": has_connection,
 		"started_at_unix": started_at_unix,
 		"metadata": metadata.duplicate(true),
-	}
+	})
 
 
 # --- 私有/辅助方法 ---

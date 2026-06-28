@@ -209,7 +209,7 @@ func get_records_by_id(duplicate_records: bool = true) -> Dictionary:
 |---|---|
 | `duplicate_records` | 为 true 时返回记录深拷贝，避免调用方修改资源内数据。 |
 
-返回：ID 索引副本；records_by_id 为空时按 records 临时构建。
+返回：按当前 records 构建的 ID 索引副本。
 
 结构：
 

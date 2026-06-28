@@ -5,10 +5,13 @@ Feedback 扩展提供通用反馈采样和可选场景接收器。它只输出 `
 ## 阅读入口
 
 - [反馈采样](shake-sampling.md)：`GFShakePreset`、`GFShakeUtility`、命名 channel、单波形和多轨道采样。
+- [手柄震动反馈](haptic-feedback.md)：`GFHapticPreset`、`GFHapticUtility`、玩家/设备目标、channel 强度和输出回调。
 
 ## 使用边界
 
 Feedback 不定义事件来源、视觉对象、音效、动画、表现队列或命中结果。项目可以直接读取采样值并应用到相机、UI、角色、shader 参数或自定义表现系统。
+
+手柄震动只处理弱/强马达的采样、合成与设备路由。命中类型、技能来源、冷却、无障碍选项、平台差异和表现优先级仍应由项目侧决定。
 
 ## 接收器与表现队列
 

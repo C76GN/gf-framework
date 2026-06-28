@@ -104,6 +104,53 @@ func test_scan_resource_paths_normalizes_excluded_path_list() -> void:
 	assert_false(paths.has(skip_path), "排除目录中的资源不应被扫描。")
 
 
+func test_scan_resource_paths_filters_include_and_exclude_patterns() -> void:
+	var root_path: String = "user://gf_resource_registry_tools_patterns"
+	var ui_dir: String = root_path.path_join("ui")
+	var icon_dir: String = ui_dir.path_join("icons")
+	var temp_dir: String = root_path.path_join("temp")
+	var audio_dir: String = root_path.path_join("audio")
+	var menu_path: String = ui_dir.path_join("menu.tscn")
+	var draft_path: String = ui_dir.path_join("draft_menu.tscn")
+	var icon_path: String = icon_dir.path_join("icon.png")
+	var temp_path: String = temp_dir.path_join("menu.tscn")
+	var audio_path: String = audio_dir.path_join("click.ogg")
+	var make_icon_error: Error = DirAccess.make_dir_recursive_absolute(icon_dir)
+	var make_temp_error: Error = DirAccess.make_dir_recursive_absolute(temp_dir)
+	var make_audio_error: Error = DirAccess.make_dir_recursive_absolute(audio_dir)
+	assert_true(make_icon_error == OK or make_icon_error == ERR_ALREADY_EXISTS, "测试应能创建图标目录。")
+	assert_true(make_temp_error == OK or make_temp_error == ERR_ALREADY_EXISTS, "测试应能创建临时目录。")
+	assert_true(make_audio_error == OK or make_audio_error == ERR_ALREADY_EXISTS, "测试应能创建音频目录。")
+	_write_empty_user_file(menu_path)
+	_write_empty_user_file(draft_path)
+	_write_empty_user_file(icon_path)
+	_write_empty_user_file(temp_path)
+	_write_empty_user_file(audio_path)
+
+	var paths: PackedStringArray = GFResourceRegistryTools.scan_resource_paths(root_path, {
+		"extensions": PackedStringArray(["tscn", "png", "ogg"]),
+		"include_patterns": PackedStringArray(["**/*.tscn", "*.png"]),
+		"exclude_patterns": PackedStringArray(["temp/**", "**/draft_*"]),
+	})
+
+	_remove_user_file(menu_path)
+	_remove_user_file(draft_path)
+	_remove_user_file(icon_path)
+	_remove_user_file(temp_path)
+	_remove_user_file(audio_path)
+	_remove_user_dir(icon_dir)
+	_remove_user_dir(ui_dir)
+	_remove_user_dir(temp_dir)
+	_remove_user_dir(audio_dir)
+	_remove_user_dir(root_path)
+
+	assert_true(paths.has(menu_path), "include_patterns 应匹配相对路径中的场景资源。")
+	assert_true(paths.has(icon_path), "无路径分隔符的模式应可匹配文件名。")
+	assert_false(paths.has(draft_path), "exclude_patterns 应能排除命中的资源路径。")
+	assert_false(paths.has(temp_path), "exclude_patterns 应能按相对目录排除资源。")
+	assert_false(paths.has(audio_path), "未命中 include_patterns 的资源不应被收集。")
+
+
 func test_collect_dependency_paths_reads_direct_external_resource_dependencies() -> void:
 	var dependency_path: String = "user://gf_resource_registry_tools_dependency_entry.tres"
 	var root_path: String = "user://gf_resource_registry_tools_dependency_registry.tres"

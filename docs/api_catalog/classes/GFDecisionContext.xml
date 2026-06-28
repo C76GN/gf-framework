@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFDecisionContext" path="addons/gf/extensions/decision/runtime/gf_decision_context.gd" module="extensions/decision" extends="RefCounted" classDigest="b884d359bc35d4da2b2a25188abab99f0eefa6b6a19e6b85adb196b7d42033ad">
+<class name="GFDecisionContext" path="addons/gf/extensions/decision/runtime/gf_decision_context.gd" module="extensions/decision" extends="RefCounted" classDigest="51f1126e5ed02ad3698ccd6f9a8f57950cad73022375e8c12610175428b761f6">
 	<description>GFDecisionContext: 通用决策上下文。
-组合黑板、主体、目标和元数据，供决策候选与考虑项读取状态。
-该类型不持久化对象引用，也不定义任何具体游戏字段。</description>
+组合黑板、主体/目标快照和元数据，供决策候选与考虑项读取状态。
+该类型只用弱引用暴露当前对象，不通过上下文延长对象生命周期。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">domain_model</tag>
@@ -20,17 +20,37 @@
 			</tags>
 		</member>
 		<member kind="property" name="subject">
-			<signature>var subject: Object = null</signature>
+			<signature>var subject: Object:</signature>
 			<description>决策主体，例如当前 agent、系统或导演对象。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="target">
-			<signature>var target: Object = null</signature>
+			<signature>var target: Object:</signature>
 			<description>可选决策目标。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="subject_values">
+			<signature>var subject_values: Dictionary = {}</signature>
+			<description>主体决策值快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">subject_values: Dictionary[StringName, Variant] captured from the subject at assignment time.</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="target_values">
+			<signature>var target_values: Dictionary = {}</signature>
+			<description>目标决策值快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">target_values: Dictionary[StringName, Variant] captured from the target at assignment time.</tag>
+				<tag name="since">7.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="metadata">
@@ -98,8 +118,7 @@
 		</member>
 		<member kind="method" name="get_subject_value">
 			<signature>func get_subject_value(key: StringName, fallback: Variant = null) -&gt; Variant:</signature>
-			<description>从主体读取决策值。
-优先调用主体的 `get_decision_value(key, fallback)`，否则读取同名属性。</description>
+			<description>从主体快照读取决策值。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">key: 值键或属性名。</tag>
@@ -107,12 +126,12 @@
 				<tag name="return">主体值或兜底值。</tag>
 				<tag name="schema">fallback: 读取失败时返回的任意项目值。</tag>
 				<tag name="schema">return: 从主体读取的项目值，或传入的 fallback。</tag>
+				<tag name="since">7.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_target_value">
 			<signature>func get_target_value(key: StringName, fallback: Variant = null) -&gt; Variant:</signature>
-			<description>从目标读取决策值。
-优先调用目标的 `get_decision_value(key, fallback)`，否则读取同名属性。</description>
+			<description>从目标快照读取决策值。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">key: 值键或属性名。</tag>
@@ -120,15 +139,35 @@
 				<tag name="return">目标值或兜底值。</tag>
 				<tag name="schema">fallback: 读取失败时返回的任意项目值。</tag>
 				<tag name="schema">return: 从目标读取的项目值，或传入的 fallback。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_subject_or_null">
+			<signature>func get_subject_or_null() -&gt; Object:</signature>
+			<description>获取当前主体对象；对象已释放时返回 null。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">当前主体对象或 null。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_target_or_null">
+			<signature>func get_target_or_null() -&gt; Object:</signature>
+			<description>获取当前目标对象；对象已释放时返回 null。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">当前目标对象或 null。</tag>
+				<tag name="since">7.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="duplicate_context">
 			<signature>func duplicate_context() -&gt; GFDecisionContext:</signature>
 			<description>创建上下文副本。
-默认复用 subject 与 target 对象引用，只复制黑板值和元数据。</description>
+默认复用 subject 与 target 弱引用，只复制黑板值、对象快照和元数据。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">新上下文实例。</tag>
+				<tag name="since">7.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_debug_snapshot">

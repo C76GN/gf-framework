@@ -12,6 +12,18 @@ class_name GFSpatialHash3D
 extends RefCounted
 
 
+# --- 常量 ---
+
+## 单次插入或查询允许覆盖的默认最大哈希格子数。
+## [br]
+## @api public
+## [br]
+## @since 7.0.0
+const DEFAULT_MAX_COVERED_CELLS: int = 262144
+
+const _CELL_BOUNDARY_EPSILON_RATIO: float = 0.000001
+
+
 # --- 公共变量 ---
 
 ## 单个哈希格子的世界尺寸。
@@ -25,9 +37,26 @@ var cell_size: float:
 		_rebuild()
 
 
+## 单个 AABB 或格子范围允许覆盖的最大哈希格子数。
+##
+## 超过上限的插入会返回 false；超过上限的查询会返回空结果，避免误用超大范围导致
+## 一帧内分配海量中间数组。
+## [br]
+## @api public
+## [br]
+## @since 7.0.0
+var max_covered_cells: int:
+	get:
+		return _max_covered_cells
+	set(value):
+		_max_covered_cells = maxi(value, 1)
+		_rebuild()
+
+
 # --- 私有变量 ---
 
 var _cell_size: float = 4.0
+var _max_covered_cells: int = DEFAULT_MAX_COVERED_CELLS
 var _entity_records: Dictionary = {}
 var _bucket_entities: Dictionary = {}
 
@@ -67,9 +96,11 @@ func get_cell_for_position(position: Vector3) -> Vector3i:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param entity: 实体标识或 Object。
 ## [br]
-## @schema entity: Variant entity identity stored by value or weak Object reference.
+## @schema entity: Object, StringName, String, or int identity stored by value or weak Object reference.
 ## [br]
 ## @param bounds: 实体 AABB。
 ## [br]
@@ -79,9 +110,13 @@ func insert(entity: Variant, bounds: AABB) -> bool:
 	if entity_key.is_empty():
 		return false
 
-	remove(entity)
 	var normalized_bounds: AABB = _normalize_aabb(bounds)
-	var cells: Array[Vector3i] = _get_cells_for_aabb(normalized_bounds)
+	var span: Array[Vector3i] = _get_cell_span_for_aabb(normalized_bounds)
+	if not _is_cell_span_within_limit(span):
+		return false
+
+	remove(entity)
+	var cells: Array[Vector3i] = _get_cells_for_span(span)
 	_entity_records[entity_key] = _make_entity_record(entity, normalized_bounds, cells)
 	for cell_key: Vector3i in cells:
 		var bucket: Array = _get_or_create_bucket(cell_key)
@@ -94,9 +129,11 @@ func insert(entity: Variant, bounds: AABB) -> bool:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param entity: 实体标识或 Object。
 ## [br]
-## @schema entity: Variant entity identity stored by value or weak Object reference.
+## @schema entity: Object, StringName, String, or int identity stored by value or weak Object reference.
 func remove(entity: Variant) -> void:
 	var entity_key: String = _make_entity_key(entity)
 	if entity_key.is_empty() or not _entity_records.has(entity_key):
@@ -108,9 +145,11 @@ func remove(entity: Variant) -> void:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param entity: 实体标识或 Object。
 ## [br]
-## @schema entity: Variant entity identity stored by value or weak Object reference.
+## @schema entity: Object, StringName, String, or int identity stored by value or weak Object reference.
 ## [br]
 ## @param bounds: 新 AABB。
 ## [br]
@@ -123,9 +162,11 @@ func update(entity: Variant, bounds: AABB) -> bool:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param entity: 实体标识或 Object。
 ## [br]
-## @schema entity: Variant entity identity stored by value or weak Object reference.
+## @schema entity: Object, StringName, String, or int identity stored by value or weak Object reference.
 ## [br]
 ## @return 存在时返回 true。
 func has_entity(entity: Variant) -> bool:
@@ -160,7 +201,7 @@ func get_entity_count() -> int:
 ## [br]
 ## @return 调试快照。
 ## [br]
-## @schema return: Dictionary with cell_size, entity_count, bucket_count, max_bucket_size, and average_bucket_size.
+## @schema return: Dictionary with cell_size, max_covered_cells, entity_count, bucket_count, max_bucket_size, and average_bucket_size.
 func get_debug_snapshot() -> Dictionary:
 	prune_invalid_entities()
 	var bucket_count: int = _bucket_entities.size()
@@ -177,6 +218,7 @@ func get_debug_snapshot() -> Dictionary:
 
 	return {
 		"cell_size": _cell_size,
+		"max_covered_cells": _max_covered_cells,
 		"entity_count": _entity_records.size(),
 		"bucket_count": bucket_count,
 		"max_bucket_size": max_bucket_size,
@@ -221,11 +263,15 @@ func query_aabb(area: AABB) -> Array[Variant]:
 ## @schema return: Array entity values restored from spatial hash records.
 func query_radius(center: Vector3, radius: float) -> Array[Variant]:
 	var safe_radius: float = maxf(radius, 0.0)
-	var query_bounds: AABB = AABB(
-		center - Vector3.ONE * safe_radius,
-		Vector3.ONE * safe_radius * 2.0
-	)
-	var candidates: Array[Variant] = query_aabb(query_bounds)
+	var candidates: Array[Variant] = []
+	if safe_radius == 0.0:
+		candidates = query_cell(_world_to_cell(center))
+	else:
+		var query_bounds: AABB = AABB(
+			center - Vector3.ONE * safe_radius,
+			Vector3.ONE * safe_radius * 2.0
+		)
+		candidates = query_aabb(query_bounds)
 	var result: Array[Variant] = []
 	var radius_sq: float = safe_radius * safe_radius
 	for entity: Variant in candidates:
@@ -284,6 +330,9 @@ func query_cell_range(center_cell: Vector3i, radius: Vector3i = Vector3i.ZERO) -
 	prune_invalid_entities()
 	var safe_radius: Vector3i = Vector3i(absi(radius.x), absi(radius.y), absi(radius.z))
 	var result: Array[Variant] = []
+	if _get_cell_range_count(safe_radius) > _max_covered_cells:
+		return result
+
 	var seen: Dictionary = {}
 	for x: int in range(center_cell.x - safe_radius.x, center_cell.x + safe_radius.x + 1):
 		for y: int in range(center_cell.y - safe_radius.y, center_cell.y + safe_radius.y + 1):
@@ -376,8 +425,12 @@ func _variant_to_weak_ref(value: Variant) -> WeakRef:
 
 func _query_candidate_keys(area: AABB) -> Array[String]:
 	var result: Array[String] = []
+	var span: Array[Vector3i] = _get_cell_span_for_aabb(area)
+	if not _is_cell_span_within_limit(span):
+		return result
+
 	var seen: Dictionary = {}
-	for cell_key: Vector3i in _get_cells_for_aabb(area):
+	for cell_key: Vector3i in _get_cells_for_span(span):
 		var bucket: Array = _get_bucket(cell_key)
 		for entity_key: String in bucket:
 			if seen.has(entity_key):
@@ -400,15 +453,54 @@ func _append_cell_entities(cell_key: Vector3i, result: Array[Variant], seen: Dic
 
 
 func _get_cells_for_aabb(bounds: AABB) -> Array[Vector3i]:
+	var span: Array[Vector3i] = _get_cell_span_for_aabb(bounds)
+	if not _is_cell_span_within_limit(span):
+		return []
+	return _get_cells_for_span(span)
+
+
+func _get_cells_for_span(span: Array[Vector3i]) -> Array[Vector3i]:
 	var cells: Array[Vector3i] = []
-	var min_cell: Vector3i = _world_to_cell(bounds.position)
-	var max_corner: Vector3 = bounds.position + bounds.size
-	var max_cell: Vector3i = _world_to_cell(max_corner)
+	if span.size() < 2:
+		return cells
+	var min_cell: Vector3i = span[0]
+	var max_cell: Vector3i = span[1]
 	for x: int in range(min_cell.x, max_cell.x + 1):
 		for y: int in range(min_cell.y, max_cell.y + 1):
 			for z: int in range(min_cell.z, max_cell.z + 1):
 				cells.append(Vector3i(x, y, z))
 	return cells
+
+
+func _get_cell_span_for_aabb(bounds: AABB) -> Array[Vector3i]:
+	var min_cell: Vector3i = _world_to_cell(bounds.position)
+	var max_corner: Vector3 = _get_half_open_max_corner(bounds)
+	var max_cell: Vector3i = _world_to_cell(max_corner)
+	return [min_cell, max_cell]
+
+
+func _is_cell_span_within_limit(span: Array[Vector3i]) -> bool:
+	return _get_cell_span_count(span) <= _max_covered_cells
+
+
+func _get_cell_span_count(span: Array[Vector3i]) -> int:
+	if span.size() < 2:
+		return 0
+	var min_cell: Vector3i = span[0]
+	var max_cell: Vector3i = span[1]
+	var x_count: int = max_cell.x - min_cell.x + 1
+	var y_count: int = max_cell.y - min_cell.y + 1
+	var z_count: int = max_cell.z - min_cell.z + 1
+	if x_count <= 0 or y_count <= 0 or z_count <= 0:
+		return 0
+	return x_count * y_count * z_count
+
+
+func _get_cell_range_count(radius: Vector3i) -> int:
+	var x_count: int = radius.x * 2 + 1
+	var y_count: int = radius.y * 2 + 1
+	var z_count: int = radius.z * 2 + 1
+	return x_count * y_count * z_count
 
 
 func _world_to_cell(position: Vector3) -> Vector3i:
@@ -425,7 +517,20 @@ func _make_entity_key(entity: Variant) -> String:
 	if entity is Object:
 		var object: Object = _variant_to_object(entity)
 		return "object:%d" % object.get_instance_id()
-	return "%d:%s" % [typeof(entity), str(entity)]
+	if entity is StringName:
+		var string_name_value: StringName = entity
+		if string_name_value == &"":
+			return ""
+		return "string_name:%s" % String(string_name_value)
+	if entity is String:
+		var string_value: String = entity
+		if string_value.is_empty():
+			return ""
+		return "string:%s" % string_value
+	if entity is int:
+		var int_value: int = entity
+		return "int:%d" % int_value
+	return ""
 
 
 func _make_entity_record(entity: Variant, bounds: AABB, cells: Array[Vector3i]) -> Dictionary:
@@ -501,6 +606,23 @@ func _normalize_aabb(bounds: AABB) -> AABB:
 		position.z += size.z
 		size.z = -size.z
 	return AABB(position, size)
+
+
+func _get_half_open_max_corner(bounds: AABB) -> Vector3:
+	var max_corner: Vector3 = bounds.position + bounds.size
+	if bounds.size.x > 0.0:
+		max_corner.x = _get_half_open_axis_max(bounds.position.x, bounds.size.x)
+	if bounds.size.y > 0.0:
+		max_corner.y = _get_half_open_axis_max(bounds.position.y, bounds.size.y)
+	if bounds.size.z > 0.0:
+		max_corner.z = _get_half_open_axis_max(bounds.position.z, bounds.size.z)
+	return max_corner
+
+
+func _get_half_open_axis_max(axis_min: float, axis_size: float) -> float:
+	var axis_max: float = axis_min + axis_size
+	var epsilon: float = minf(axis_size * 0.5, _cell_size * _CELL_BOUNDARY_EPSILON_RATIO)
+	return maxf(axis_min, axis_max - maxf(epsilon, 0.000000001))
 
 
 func _rebuild() -> void:

@@ -102,6 +102,30 @@ func test_dictionary_report_finalize_normalizes_legacy_issue_fields() -> void:
 	assert_eq(GFVariantData.get_option_int(counts, "unknown"), 1, "统计应使用标准 kind。")
 
 
+func test_dictionary_report_finalize_drops_invalid_issue_entries_from_counts() -> void:
+	var report: Dictionary = {
+		"issues": [
+			{
+				"severity": "warning",
+				"kind": "valid_warning",
+				"message": "Valid issue.",
+			},
+			{},
+			"invalid",
+			42,
+		],
+	}
+
+	var _finalized_report: Dictionary = GFValidationReportDictionary.finalize_report(report, "Mixed report")
+	var issues: Array = GFVariantData.get_option_array(report, "issues")
+	var counts: Dictionary = GFVariantData.get_option_dictionary(report, "issue_counts_by_kind")
+
+	assert_eq(issues.size(), 1, "无效 issue 条目应在 finalize 后移除。")
+	assert_eq(GFVariantData.get_option_int(report, "issue_count"), 1, "issue_count 应只统计有效问题。")
+	assert_eq(GFVariantData.get_option_int(report, "warning_count"), 1, "有效警告仍应计数。")
+	assert_eq(GFVariantData.get_option_int(counts, "valid_warning"), 1, "kind 统计不应包含无效条目。")
+
+
 func test_dictionary_report_can_treat_warnings_as_errors() -> void:
 	var report: Dictionary = {
 		"issues": [

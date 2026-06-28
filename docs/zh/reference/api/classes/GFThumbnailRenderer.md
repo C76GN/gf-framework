@@ -21,6 +21,10 @@
 | 方法 | [`render_mesh`](#member-gfthumbnailrenderer-methods-render_mesh) | `func render_mesh(mesh: Mesh, size: Vector2i = Vector2i(256, 256), transparent: bool = true) -> Image:` |
 | 方法 | [`render_mesh_texture`](#member-gfthumbnailrenderer-methods-render_mesh_texture) | `func render_mesh_texture( mesh: Mesh, size: Vector2i = Vector2i(256, 256), transparent: bool = true ) -> ImageTexture:` |
 | 方法 | [`render_mesh_library_previews`](#member-gfthumbnailrenderer-methods-render_mesh_library_previews) | `func render_mesh_library_previews( mesh_library: MeshLibrary, size: Vector2i = Vector2i(128, 128), overwrite_existing: bool = true ) -> int:` |
+| 方法 | [`build_mesh_library_preview_plan`](#member-gfthumbnailrenderer-methods-build_mesh_library_preview_plan) | `func build_mesh_library_preview_plan( mesh_library: MeshLibrary, size: Vector2i = Vector2i(128, 128), overwrite_existing: bool = true ) -> Dictionary:` |
+| 方法 | [`apply_mesh_library_preview_plan`](#member-gfthumbnailrenderer-methods-apply_mesh_library_preview_plan) | `func apply_mesh_library_preview_plan(mesh_library: MeshLibrary, plan: Dictionary) -> int:` |
+| 方法 | [`revert_mesh_library_preview_plan`](#member-gfthumbnailrenderer-methods-revert_mesh_library_preview_plan) | `func revert_mesh_library_preview_plan(mesh_library: MeshLibrary, plan: Dictionary) -> int:` |
+| 方法 | [`add_mesh_library_preview_plan_to_undo_manager`](#member-gfthumbnailrenderer-methods-add_mesh_library_preview_plan_to_undo_manager) | `func add_mesh_library_preview_plan_to_undo_manager( mesh_library: MeshLibrary, plan: Dictionary, undo_manager: Object, action_name: String = "Generate MeshLibrary Previews" ) -> Error:` |
 
 ## 属性
 
@@ -147,3 +151,110 @@ func render_mesh_library_previews( mesh_library: MeshLibrary, size: Vector2i = V
 | `overwrite_existing` | 是否覆盖已有预览。 |
 
 返回：成功生成的预览数量。
+
+<a id="member-gfthumbnailrenderer-methods-build_mesh_library_preview_plan"></a>
+
+### `build_mesh_library_preview_plan`
+
+- API：`public`
+- 首次版本：`6.0.0`
+
+```gdscript
+func build_mesh_library_preview_plan( mesh_library: MeshLibrary, size: Vector2i = Vector2i(128, 128), overwrite_existing: bool = true ) -> Dictionary:
+```
+
+为 MeshLibrary 批量生成预览修改计划，不直接修改资源。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `mesh_library` | 目标 MeshLibrary。 |
+| `size` | 预览尺寸。 |
+| `overwrite_existing` | 是否覆盖已有预览。 |
+
+返回：包含 changes、generated_count 和 cancelled 的修改计划。
+
+结构：
+
+- `return`: Dictionary { ok: bool, generated_count: int, cancelled: bool, changes: Array[Dictionary] }.
+
+<a id="member-gfthumbnailrenderer-methods-apply_mesh_library_preview_plan"></a>
+
+### `apply_mesh_library_preview_plan`
+
+- API：`public`
+- 首次版本：`6.0.0`
+
+```gdscript
+func apply_mesh_library_preview_plan(mesh_library: MeshLibrary, plan: Dictionary) -> int:
+```
+
+应用 MeshLibrary 预览修改计划。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `mesh_library` | 目标 MeshLibrary。 |
+| `plan` | build_mesh_library_preview_plan() 返回的计划。 |
+
+返回：实际应用的变更数量。
+
+结构：
+
+- `plan`: Dictionary { ok: bool, generated_count: int, cancelled: bool, changes: Array[Dictionary] }.
+
+<a id="member-gfthumbnailrenderer-methods-revert_mesh_library_preview_plan"></a>
+
+### `revert_mesh_library_preview_plan`
+
+- API：`public`
+- 首次版本：`6.0.0`
+
+```gdscript
+func revert_mesh_library_preview_plan(mesh_library: MeshLibrary, plan: Dictionary) -> int:
+```
+
+撤销 MeshLibrary 预览修改计划。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `mesh_library` | 目标 MeshLibrary。 |
+| `plan` | build_mesh_library_preview_plan() 返回的计划。 |
+
+返回：实际还原的变更数量。
+
+结构：
+
+- `plan`: Dictionary { ok: bool, generated_count: int, cancelled: bool, changes: Array[Dictionary] }.
+
+<a id="member-gfthumbnailrenderer-methods-add_mesh_library_preview_plan_to_undo_manager"></a>
+
+### `add_mesh_library_preview_plan_to_undo_manager`
+
+- API：`public`
+- 首次版本：`6.0.0`
+
+```gdscript
+func add_mesh_library_preview_plan_to_undo_manager( mesh_library: MeshLibrary, plan: Dictionary, undo_manager: Object, action_name: String = "Generate MeshLibrary Previews" ) -> Error:
+```
+
+将 MeshLibrary 预览修改计划注册到 UndoRedo 管理器。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `mesh_library` | 目标 MeshLibrary。 |
+| `plan` | build_mesh_library_preview_plan() 返回的计划。 |
+| `undo_manager` | EditorUndoRedoManager 或兼容对象。 |
+| `action_name` | UndoRedo 动作名。 |
+
+返回：Godot 错误码。
+
+结构：
+
+- `plan`: Dictionary { ok: bool, generated_count: int, cancelled: bool, changes: Array[Dictionary] }.

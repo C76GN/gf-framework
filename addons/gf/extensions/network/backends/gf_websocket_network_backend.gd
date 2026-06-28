@@ -185,7 +185,7 @@ func poll(_delta: float) -> void:
 ## [br]
 ## @schema return: Dictionary，包含 backend、available、mode、mode_name、endpoint、peer_count、open_peer_count、client_state、max_accepts_per_poll、max_packets_per_peer_per_poll。
 func get_debug_snapshot() -> Dictionary:
-	return {
+	return GFNetworkDebugTools.sanitize_debug_dictionary({
 		"backend": "GFWebSocketNetworkBackend",
 		"available": _mode != Mode.DISCONNECTED,
 		"mode": _mode,
@@ -196,7 +196,7 @@ func get_debug_snapshot() -> Dictionary:
 		"client_state": _client.get_ready_state() if _client != null else WebSocketPeer.STATE_CLOSED,
 		"max_accepts_per_poll": max_accepts_per_poll,
 		"max_packets_per_peer_per_poll": max_packets_per_peer_per_poll,
-	}
+	})
 
 
 # --- 私有/辅助方法 ---

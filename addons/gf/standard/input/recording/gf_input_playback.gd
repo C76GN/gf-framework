@@ -111,6 +111,7 @@ func start(
 	if restart:
 		elapsed_seconds = 0.0
 		_next_event_index = 0
+		source.clear_all()
 	else:
 		_next_event_index = _find_next_event_index(elapsed_seconds)
 	playback_started.emit(recording)
@@ -135,6 +136,8 @@ func stop(clear_source: bool = false) -> void:
 func reset() -> void:
 	elapsed_seconds = 0.0
 	_next_event_index = 0
+	if source != null:
+		source.clear_all()
 
 
 ## 推进回放并应用到期事件。
@@ -162,7 +165,7 @@ func tick(delta: float) -> int:
 ## @param time_seconds: 目标时间，单位秒。
 func seek(time_seconds: float) -> void:
 	elapsed_seconds = maxf(time_seconds, 0.0)
-	_next_event_index = _find_next_event_index(elapsed_seconds)
+	_rebuild_source_state_at_elapsed_time()
 
 
 ## 检查是否已到达末尾。
@@ -208,7 +211,7 @@ func _apply_due_events() -> int:
 	return applied
 
 
-func _apply_event(event: Dictionary) -> bool:
+func _apply_event(event: Dictionary, emit_event_signal: bool = true) -> bool:
 	var action_id: StringName = _get_event_action_id(event)
 	if action_id == &"":
 		return false
@@ -220,7 +223,7 @@ func _apply_event(event: Dictionary) -> bool:
 		applied = source.set_action_value_for_player(action_id, value, player_index)
 	else:
 		applied = source.set_action_value(action_id, value)
-	if applied:
+	if applied and emit_event_signal:
 		event_applied.emit(GFVariantData.to_dictionary(event))
 	return applied
 
@@ -229,6 +232,8 @@ func _handle_end_reached() -> void:
 	if loop and recording.duration_seconds > 0.0:
 		elapsed_seconds = fmod(elapsed_seconds, recording.duration_seconds)
 		_next_event_index = 0
+		if source != null:
+			source.clear_all()
 		var _apply_due_events_result_232: Variant = _apply_due_events()
 		return
 	is_playing = false
@@ -242,6 +247,22 @@ func _find_next_event_index(time_seconds: float) -> int:
 		if _get_event_time_seconds(recording.events[index]) > time_seconds:
 			return index
 	return recording.events.size()
+
+
+func _rebuild_source_state_at_elapsed_time() -> void:
+	_next_event_index = 0
+	if recording == null:
+		return
+	if source == null:
+		_next_event_index = _find_next_event_index(elapsed_seconds)
+		return
+	source.clear_all()
+	while _next_event_index < recording.events.size():
+		var event: Dictionary = recording.events[_next_event_index]
+		if _get_event_time_seconds(event) > elapsed_seconds + 0.0001:
+			break
+		var _applied: bool = _apply_event(event, false)
+		_next_event_index += 1
 
 
 func _get_event_time_seconds(event: Dictionary) -> float:

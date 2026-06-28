@@ -146,7 +146,6 @@ signal scene_cache_added(path: String, fixed: bool)
 ## @param fixed: 是否来自固定缓存。
 signal scene_cache_removed(path: String, fixed: bool)
 
-
 # --- 枚举 ---
 
 ## 场景资源在 GFSceneUtility 内部的缓存状态。
@@ -166,6 +165,7 @@ enum SceneResourceState {
 
 # --- 常量 ---
 
+const _THREADED_RESOURCE_LOAD_ADAPTER = preload("res://addons/gf/standard/utilities/assets/gf_threaded_resource_load_adapter.gd")
 const _SCENE_CHANGE_NONE: int = 0
 const _SCENE_CHANGE_LOADING: int = 1
 const _SCENE_CHANGE_TARGET: int = 2
@@ -312,6 +312,8 @@ func tick(_delta: float) -> void:
 ## @api public
 func dispose() -> void:
 	_cancel_pending_scene_change()
+	_cancel_active_scene_load_for_dispose()
+	_cancel_preload_requests_for_dispose()
 	_reset_loading_state()
 	_preload_requests.clear()
 	_background_scene_params.clear()
@@ -370,7 +372,7 @@ func load_scene_async(
 		_load_active_scene_synchronously(_target_path)
 		return
 
-	var error: Error = ResourceLoader.load_threaded_request(_target_path, "PackedScene")
+	var error: Error = _THREADED_RESOURCE_LOAD_ADAPTER.request(_target_path, "PackedScene")
 	if error != OK:
 		_fail_loading(path, "[GFSceneUtility] 无法发起场景异步加载：%s (错误码：%d)" % [_target_path, error])
 		return
@@ -430,7 +432,7 @@ func preload_scene(path: String, fixed: bool = false) -> Error:
 	if is_scene_preloading(path):
 		return OK
 
-	var error: Error = ResourceLoader.load_threaded_request(path, "PackedScene")
+	var error: Error = _THREADED_RESOURCE_LOAD_ADAPTER.request(path, "PackedScene")
 	if error != OK:
 		push_error("[GFSceneUtility] 无法发起场景预加载：%s (错误码：%d)" % [path, error])
 		scene_preload_failed.emit(path)
@@ -1309,17 +1311,17 @@ func _poll_active_scene_load() -> void:
 		_poll_active_preload_scene()
 		return
 
-	var progress: Array = []
-	var status: ResourceLoader.ThreadLoadStatus = ResourceLoader.load_threaded_get_status(_target_path, progress)
+	var active_load_result: Dictionary = _THREADED_RESOURCE_LOAD_ADAPTER.poll(_target_path, _active_loading_progress)
+	var status: StringName = GFVariantData.get_option_string_name(active_load_result, "status", _THREADED_RESOURCE_LOAD_ADAPTER.STATUS_INVALID)
 
 	match status:
-		ResourceLoader.THREAD_LOAD_IN_PROGRESS:
-			var ratio: float = progress[0] if progress.size() > 0 else 0.0
+		_THREADED_RESOURCE_LOAD_ADAPTER.STATUS_IN_PROGRESS:
+			var ratio: float = GFVariantData.get_option_float(active_load_result, "progress", 0.0)
 			_emit_scene_load_progress(_target_path, ratio)
 
-		ResourceLoader.THREAD_LOAD_LOADED:
+		_THREADED_RESOURCE_LOAD_ADAPTER.STATUS_LOADED:
 			var loaded_path: String = _target_path
-			var scene: PackedScene = _get_packed_scene_value(ResourceLoader.load_threaded_get(loaded_path))
+			var scene: PackedScene = _get_packed_scene_value(GFVariantData.get_option_value(active_load_result, "resource"))
 			if scene == null:
 				_fail_loading(loaded_path, "[GFSceneUtility] 异步加载完成，但目标资源不是 PackedScene：%s" % loaded_path)
 				return
@@ -1328,7 +1330,7 @@ func _poll_active_scene_load() -> void:
 				put_preloaded_scene(loaded_path, scene)
 			_schedule_complete_loading(loaded_path, scene)
 
-		ResourceLoader.THREAD_LOAD_FAILED, ResourceLoader.THREAD_LOAD_INVALID_RESOURCE:
+		_THREADED_RESOURCE_LOAD_ADAPTER.STATUS_FAILED, _THREADED_RESOURCE_LOAD_ADAPTER.STATUS_INVALID:
 			_fail_loading(_target_path, "[GFSceneUtility] 场景异步加载失败：%s" % _target_path)
 
 
@@ -1360,20 +1362,20 @@ func _poll_preload_requests() -> void:
 			continue
 
 		var request: Dictionary = _get_preload_request(path)
-		var progress: Array = []
-		var status: ResourceLoader.ThreadLoadStatus = ResourceLoader.load_threaded_get_status(path, progress)
-		var ratio: float = GFVariantData.to_float(progress[0]) if progress.size() > 0 else _get_preload_request_progress(request)
+		var preload_result: Dictionary = _THREADED_RESOURCE_LOAD_ADAPTER.poll(path, _get_preload_request_progress(request))
+		var status: StringName = GFVariantData.get_option_string_name(preload_result, "status", _THREADED_RESOURCE_LOAD_ADAPTER.STATUS_INVALID)
+		var ratio: float = GFVariantData.get_option_float(preload_result, "progress", _get_preload_request_progress(request))
 		request["progress"] = ratio
 
 		if not _is_preload_request_cancelled(request):
 			scene_preload_progress.emit(path, ratio)
 
 		match status:
-			ResourceLoader.THREAD_LOAD_IN_PROGRESS:
+			_THREADED_RESOURCE_LOAD_ADAPTER.STATUS_IN_PROGRESS:
 				pass
 
-			ResourceLoader.THREAD_LOAD_LOADED:
-				var scene: PackedScene = _get_packed_scene_value(ResourceLoader.load_threaded_get(path))
+			_THREADED_RESOURCE_LOAD_ADAPTER.STATUS_LOADED:
+				var scene: PackedScene = _get_packed_scene_value(GFVariantData.get_option_value(preload_result, "resource"))
 				_erase_dictionary_key(_preload_requests, path)
 				if _is_preload_request_cancelled(request):
 					continue
@@ -1383,7 +1385,7 @@ func _poll_preload_requests() -> void:
 				put_preloaded_scene(path, scene, _is_preload_request_fixed(request))
 				scene_preload_completed.emit(path, scene)
 
-			ResourceLoader.THREAD_LOAD_FAILED, ResourceLoader.THREAD_LOAD_INVALID_RESOURCE:
+			_THREADED_RESOURCE_LOAD_ADAPTER.STATUS_FAILED, _THREADED_RESOURCE_LOAD_ADAPTER.STATUS_INVALID:
 				_erase_dictionary_key(_preload_requests, path)
 				if not _is_preload_request_cancelled(request):
 					scene_preload_failed.emit(path)
@@ -1733,6 +1735,24 @@ func _reset_loading_state() -> void:
 	_pending_previous_history_path = ""
 	_pending_loaded_path = ""
 	_pending_loaded_scene = null
+
+
+func _cancel_active_scene_load_for_dispose() -> void:
+	if not _is_loading or _target_path.is_empty():
+		return
+	var path: String = _target_path
+	var previous_path: String = _previous_scene_path
+	scene_load_failed.emit(path)
+	scene_switch_failed.emit(path, previous_path, "[GFSceneUtility] 场景加载因工具释放而取消：%s" % path)
+
+
+func _cancel_preload_requests_for_dispose() -> void:
+	for path: String in _preload_requests.keys():
+		var request: Dictionary = _get_preload_request(path)
+		if _is_preload_request_cancelled(request):
+			continue
+		request["cancelled"] = true
+		scene_preload_cancelled.emit(path)
 
 
 func _touch_preloaded_scene(path: String) -> void:

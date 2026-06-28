@@ -16,6 +16,13 @@ class PlainExecuteCommand extends RefCounted:
 		return 99
 
 
+class PropertyOnlyCommand extends RefCounted:
+	var interaction_context: Variant = null
+
+	func execute() -> String:
+		return "property"
+
+
 class SpyArchitecture extends GFArchitecture:
 	var sent_command: Object = null
 
@@ -38,6 +45,18 @@ func test_interaction_context_chain_sets_fields() -> void:
 	assert_same(ctx.target, target)
 	assert_eq(GFVariantData.to_int(ctx.payload), 42)
 	assert_eq(ctx.group_name, &"g")
+
+
+func test_interaction_context_keeps_snapshots_without_strong_references() -> void:
+	var ctx: GFInteractionContext = GFInteractionContext.new()
+	var target: Node = Node.new()
+	var _with_target_result: GFInteractionContext = ctx.with_target(target)
+	var target_instance_id: int = target.get_instance_id()
+
+	target.free()
+
+	assert_null(ctx.target, "目标释放后上下文不应继续返回强引用。")
+	assert_eq(ctx.target_instance_id, target_instance_id, "目标 instance_id 快照应保留用于诊断和回放。")
 
 
 func test_interaction_flow_chaining_updates_context() -> void:
@@ -72,6 +91,17 @@ func test_interaction_flow_execute_without_architecture_falls_back_to_command() 
 	var flow: GFInteractionFlow = GFInteractionFlow.new()
 	var cmd: PlainExecuteCommand = PlainExecuteCommand.new()
 	assert_eq(GFVariantData.to_int(flow.execute(cmd)), 99)
+
+
+func test_interaction_flow_injects_property_only_context() -> void:
+	var ctx: GFInteractionContext = GFInteractionContext.new()
+	var flow: GFInteractionFlow = GFInteractionFlow.new(ctx)
+	var cmd: PropertyOnlyCommand = PropertyOnlyCommand.new()
+
+	var result: Variant = flow.execute(cmd)
+
+	assert_eq(GFVariantData.to_text(result), "property")
+	assert_same(_interaction_context(cmd.interaction_context), ctx)
 
 
 func test_interaction_flow_send_event_null_is_no_op() -> void:

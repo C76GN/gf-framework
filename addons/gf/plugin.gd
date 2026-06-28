@@ -21,6 +21,13 @@ const GFPluginAutoload = preload("res://addons/gf/kernel/editor/gf_plugin_autolo
 ## @layer plugin
 const GFPluginProjectSettings = preload("res://addons/gf/kernel/editor/gf_plugin_project_settings.gd")
 
+## Extension Settings 注册辅助脚本。
+## [br]
+## @api framework_internal
+## [br]
+## @layer plugin
+const GFExtensionSettingsBase = preload("res://addons/gf/kernel/extension/gf_extension_settings.gd")
+
 ## Inspector 与导出插件管理辅助脚本。
 ## [br]
 ## @api framework_internal
@@ -200,6 +207,7 @@ func _refresh_editor_contributions() -> void:
 		return
 
 	_scan_editor_filesystem()
+	GFExtensionSettingsBase.clear_manifest_cache()
 	_standard_editor_extension_records = _collect_standard_editor_extension_records()
 	GFPluginProjectSettings.ensure_all(_get_record_array(_standard_editor_extension_records, "project_setting_records"))
 
@@ -212,6 +220,14 @@ func _refresh_editor_contributions() -> void:
 	if _debugger_tools != null:
 		_debugger_tools.cleanup(self)
 		_debugger_tools.setup(self, _standard_editor_extension_records)
+
+	if _import_tools != null:
+		_import_tools.cleanup(self)
+		_import_tools.setup(self)
+
+	if _gltf_document_tools != null:
+		_gltf_document_tools.cleanup()
+		_gltf_document_tools.setup()
 
 	if _dock_tools != null:
 		var dock_records: Array[Dictionary] = []

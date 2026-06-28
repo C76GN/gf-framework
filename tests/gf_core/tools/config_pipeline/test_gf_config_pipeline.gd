@@ -139,6 +139,28 @@ func test_pipeline_loads_json_source_with_auto_format() -> void:
 	assert_eq(GFVariantData.get_option_int(table.records[0], "id"), 1, "Dictionary 形式 JSON 表应按键排序保持确定性。")
 
 
+func test_pipeline_loads_config_file_source_with_auto_format() -> void:
+	var cfg_path: String = _write_text("user://gf_config_pipeline_items_%d.cfg" % Time.get_ticks_usec(), "[1]\nname=\"Potion\"\npower=2.5\n\n[2]\nname=\"Ether\"\npower=3\n")
+	var source: GFConfigPipelineTableSource = GFConfigPipelineTableSource.new()
+	source.source_path = cfg_path
+	source.source_format = GFConfigPipelineTableSource.FORMAT_AUTO
+	source.schema = _make_item_schema()
+	source.parse_options = {
+		"section_field": &"id",
+	}
+
+	var table_result: Dictionary = _call_pipeline(&"build_table", [source])
+	var table: GFConfigTableResource = _get_table_from_result(table_result)
+	var first_record: Dictionary = table.records[0] if table != null and not table.records.is_empty() else {}
+
+	assert_eq(source.get_resolved_format(), GFConfigPipelineTableSource.FORMAT_CONFIG_FILE, "cfg 扩展名应被自动识别为 ConfigFile。")
+	assert_true(GFVariantData.get_option_bool(table_result, "success"), "ConfigFile 来源应能构建表资源。")
+	assert_not_null(table, "ConfigFile 来源应返回表资源。")
+	assert_eq(GFVariantData.get_option_string_name(table.metadata, "source_format"), GFConfigPipelineTableSource.FORMAT_CONFIG_FILE, "表 metadata 应记录 ConfigFile 来源格式。")
+	assert_eq(GFVariantData.get_option_int(first_record, "id"), 1, "section 名应按 schema 转为 id。")
+	assert_eq(GFVariantData.get_option_float(first_record, "power"), 2.5, "ConfigFile 数值应按 schema 保留或转换。")
+
+
 func test_pipeline_loads_xlsx_source_with_auto_format() -> void:
 	var xlsx_path: String = _write_xlsx("user://gf_config_pipeline_items_%d.xlsx" % Time.get_ticks_usec(), "Items", [
 		PackedStringArray(["id", "name", "power"]),
@@ -163,6 +185,68 @@ func test_pipeline_loads_xlsx_source_with_auto_format() -> void:
 	assert_eq(GFVariantData.get_option_string_name(table.metadata, "source_format"), GFConfigPipelineTableSource.FORMAT_XLSX, "表 metadata 应记录 xlsx 来源格式。")
 	assert_eq(GFVariantData.get_option_int(first_record, "id"), 1, "XLSX 字符串 ID 应按 schema 转为 int。")
 	assert_eq(GFVariantData.get_option_float(first_record, "power"), 2.5, "XLSX 字符串数值应按 schema 转为 float。")
+
+
+func test_pipeline_reports_xlsx_row_limit_exceeded() -> void:
+	var xlsx_path: String = _write_xlsx("user://gf_config_pipeline_row_limit_%d.xlsx" % Time.get_ticks_usec(), "Items", [
+		PackedStringArray(["id", "name", "power"]),
+		PackedStringArray(["1", "Potion", "2.5"]),
+	])
+	var source: GFConfigPipelineTableSource = GFConfigPipelineTableSource.new()
+	source.source_path = xlsx_path
+	source.source_format = GFConfigPipelineTableSource.FORMAT_XLSX
+	source.schema = _make_item_schema()
+	source.parse_options = {
+		"sheet_name": "Items",
+		"max_xlsx_rows": 1,
+	}
+
+	var table_result: Dictionary = _call_pipeline(&"build_table", [source])
+	var report: Dictionary = GFVariantData.get_option_dictionary(table_result, "report")
+
+	assert_false(GFVariantData.get_option_bool(table_result, "success"), "超过 XLSX 行数上限时不应构建表资源。")
+	assert_true(_has_issue_kind(GFVariantData.get_option_array(report, "issues"), "parse_failed"), "错误报告应包含 XLSX parse_failed。")
+	assert_true(GFVariantData.get_option_string(table_result, "error").contains("max_xlsx_rows"), "错误应说明行数上限。")
+
+
+func test_pipeline_reports_xlsx_missing_header_row() -> void:
+	var xlsx_path: String = _write_xlsx("user://gf_config_pipeline_missing_header_%d.xlsx" % Time.get_ticks_usec(), "Items", [
+		PackedStringArray(["1", "Potion", "2.5"]),
+	])
+	var source: GFConfigPipelineTableSource = GFConfigPipelineTableSource.new()
+	source.source_path = xlsx_path
+	source.source_format = GFConfigPipelineTableSource.FORMAT_XLSX
+	source.schema = _make_item_schema()
+	source.parse_options = {
+		"sheet_name": "Items",
+		"header_row": 3,
+	}
+
+	var table_result: Dictionary = _call_pipeline(&"build_table", [source])
+	var report: Dictionary = GFVariantData.get_option_dictionary(table_result, "report")
+
+	assert_false(GFVariantData.get_option_bool(table_result, "success"), "缺失指定 header row 的 XLSX 不应被当作空表成功导入。")
+	assert_true(_has_issue_kind(GFVariantData.get_option_array(report, "issues"), "parse_failed"), "错误报告应包含 XLSX parse_failed。")
+	assert_true(GFVariantData.get_option_string(table_result, "error").contains("header row is missing"), "错误应说明 header row 缺失。")
+
+
+func test_pipeline_reports_xlsx_empty_header_row() -> void:
+	var xlsx_path: String = _write_xlsx("user://gf_config_pipeline_empty_header_%d.xlsx" % Time.get_ticks_usec(), "Items", [
+		PackedStringArray(["", ""]),
+		PackedStringArray(["1", "Potion"]),
+	])
+	var source: GFConfigPipelineTableSource = GFConfigPipelineTableSource.new()
+	source.source_path = xlsx_path
+	source.source_format = GFConfigPipelineTableSource.FORMAT_XLSX
+	source.schema = _make_item_schema()
+	source.parse_options = { "sheet_name": "Items" }
+
+	var table_result: Dictionary = _call_pipeline(&"build_table", [source])
+	var report: Dictionary = GFVariantData.get_option_dictionary(table_result, "report")
+
+	assert_false(GFVariantData.get_option_bool(table_result, "success"), "空 header row 的 XLSX 不应生成无字段记录。")
+	assert_true(_has_issue_kind(GFVariantData.get_option_array(report, "issues"), "parse_failed"), "错误报告应包含 XLSX parse_failed。")
+	assert_true(GFVariantData.get_option_string(table_result, "error").contains("header row is empty"), "错误应说明 header row 为空。")
 
 
 func test_pipeline_builds_schema_from_typed_csv_headers() -> void:
@@ -476,6 +560,69 @@ func test_pipeline_database_reports_empty_sources() -> void:
 	assert_true(_has_issue_kind(GFVariantData.get_option_array(report, "issues"), "empty_table_sources"), "空来源数据库应返回明确问题类型。")
 
 
+func test_pipeline_database_rejects_duplicate_table_sources() -> void:
+	var first_path: String = _write_text("user://gf_config_pipeline_dupe_a_%d.csv" % Time.get_ticks_usec(), "id,name,power\n1,Potion,2.5\n")
+	var second_path: String = _write_text("user://gf_config_pipeline_dupe_b_%d.csv" % Time.get_ticks_usec(), "id,name,power\n2,Ether,3\n")
+	var first_source: GFConfigPipelineTableSource = GFConfigPipelineTableSource.new()
+	first_source.table_name = &"items"
+	first_source.source_path = first_path
+	first_source.schema = _make_item_schema()
+	var second_source: GFConfigPipelineTableSource = GFConfigPipelineTableSource.new()
+	second_source.table_name = &"items"
+	second_source.source_path = second_path
+	second_source.schema = _make_item_schema()
+
+	var build_result: Dictionary = _call_pipeline(&"build_database", [[first_source, second_source], { "database_id": &"main" }])
+	var report: Dictionary = GFVariantData.get_option_dictionary(build_result, "report")
+	var database: GFConfigDatabaseResource = _get_database_from_result(build_result)
+
+	assert_false(GFVariantData.get_option_bool(build_result, "success"), "重复 table key 的来源不应静默覆盖前一个表。")
+	assert_true(_has_issue_kind(GFVariantData.get_option_array(report, "issues"), "duplicate_table_source"), "报告应包含重复来源错误。")
+	assert_eq(database.get_table_ids().size(), 1, "重复来源失败时数据库只应保留首个成功注册表，避免覆盖。")
+
+
+func test_pipeline_save_database_rejects_gf_source_output_path_by_default() -> void:
+	var database: GFConfigDatabaseResource = _build_items_database_from_csv("gf_source_output")
+	var output_path: String = "res://addons/gf/tools/config_pipeline/should_not_write_config_pipeline_test.tres"
+
+	var save_result: Dictionary = _call_pipeline(&"save_database", [database, output_path])
+
+	assert_false(GFVariantData.get_option_bool(save_result, "success"), "默认不应允许导表输出写入 GF 框架源码目录。")
+	assert_eq(GFVariantData.get_option_int(save_result, "error_code"), ERR_INVALID_PARAMETER, "路径策略失败应报告参数错误。")
+	assert_false(FileAccess.file_exists(output_path), "被路径策略拒绝的产物不应落盘。")
+
+
+func test_pipeline_export_profile_preflights_access_before_writing_database() -> void:
+	var csv_path: String = _write_text("user://gf_config_pipeline_atomic_items_%d.csv" % Time.get_ticks_usec(), "id,name,power\n1,Potion,2.5\n")
+	var output_path: String = _track_path("user://gf_config_pipeline_atomic_database_%d.tres" % Time.get_ticks_usec())
+	var access_path: String = _write_text("user://gf_config_pipeline_atomic_access_%d.gd" % Time.get_ticks_usec(), "# existing\n")
+	var source: GFConfigPipelineTableSource = GFConfigPipelineTableSource.new()
+	source.table_name = &"items"
+	source.source_path = csv_path
+	source.schema = _make_item_schema()
+	var profile: GFConfigPipelineProfile = GFConfigPipelineProfile.new()
+	profile.profile_id = &"atomic"
+	profile.database_id = &"main"
+	profile.output_path = output_path
+	profile.access_output_path = access_path
+	profile.access_class_name = "AtomicConfigAccess"
+	profile.access_options = {
+		"overwrite_existing": false,
+	}
+	profile.sources = [source]
+
+	var export_result: Dictionary = _call_pipeline(&"export_profile", [profile])
+	var save_result: Dictionary = GFVariantData.get_option_dictionary(export_result, "save_result")
+	var access_result: Dictionary = GFVariantData.get_option_dictionary(export_result, "access_result")
+
+	assert_push_warning("[GFConfigAccessGenerator] 目标文件已存在，已跳过：%s" % access_path)
+	assert_false(GFVariantData.get_option_bool(export_result, "success"), "访问器预检失败应让 Profile 导出整体失败。")
+	assert_true(GFVariantData.get_option_bool(save_result, "dry_run"), "导出失败时 save_result 应保留预检结果而非实际写入结果。")
+	assert_false(FileAccess.file_exists(output_path), "访问器预检失败时数据库不应提前写入。")
+	assert_false(GFVariantData.get_option_bool(access_result, "success"), "access_result 应报告预检失败。")
+	assert_eq(_read_text(access_path), "# existing\n", "访问器预检失败不应改写已有文件。")
+
+
 func test_pipeline_runner_exports_profile_from_resource_path() -> void:
 	var csv_path: String = _write_text("user://gf_config_pipeline_runner_items_%d.csv" % Time.get_ticks_usec(), "id,name,power\n1,Potion,2.5\n")
 	var profile_path: String = _track_path("user://gf_config_pipeline_runner_profile_%d.tres" % Time.get_ticks_usec())
@@ -516,6 +663,17 @@ func test_pipeline_runner_reports_missing_profile_path() -> void:
 	assert_false(GFVariantData.get_option_bool(run_result, "success"), "空 Profile 路径不应导出成功。")
 	assert_eq(GFVariantData.get_option_string_name(run_result, "operation"), &"export", "Runner 失败结果也应保留目标操作。")
 	assert_true(_has_issue_kind(GFVariantData.get_option_array(report, "issues"), "missing_profile_path"), "空 Profile 路径应返回明确问题类型。")
+
+
+func test_pipeline_runner_rejects_plain_filesystem_profile_path() -> void:
+	var resource_path: String = _write_text("user://gf_config_pipeline_plain_profile_path_%d.tres" % Time.get_ticks_usec(), "")
+	var plain_path: String = ProjectSettings.globalize_path(resource_path)
+
+	var run_result: Dictionary = _call_runner(&"build_profile_path", [plain_path])
+	var report: Dictionary = GFVariantData.get_option_dictionary(run_result, "report")
+
+	assert_false(GFVariantData.get_option_bool(run_result, "success"), "Runner 不应接受普通文件系统 Profile 路径。")
+	assert_true(_has_issue_kind(GFVariantData.get_option_array(report, "issues"), "invalid_profile_path"), "普通文件系统路径应返回明确问题类型。")
 
 
 func test_pipeline_runner_rejects_non_profile_resource() -> void:

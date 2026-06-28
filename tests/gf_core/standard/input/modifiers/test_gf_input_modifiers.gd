@@ -79,6 +79,41 @@ func test_virtual_cursor_duplicate_resets_runtime_state() -> void:
 	assert_eq(duplicated_modifier.modify(Vector2.ZERO), Vector2(0.25, 0.25), "副本应从初始位置开始。")
 
 
+## 验证虚拟光标可用手动 delta 做确定性积分。
+func test_virtual_cursor_modifier_uses_manual_delta_for_deterministic_replay() -> void:
+	var modifier: GFInputVirtualCursorModifier = GFInputVirtualCursorModifier.new()
+	modifier.initial_position = Vector2.ZERO
+	modifier.speed = Vector2(2.0, 1.0)
+	modifier.clamp_to_rect = false
+	var _manual_delta: GFInputVirtualCursorModifier = modifier.set_manual_delta_seconds(0.25)
+
+	var first_position: Vector2 = modifier.modify(Vector2(1.0, 0.0))
+	var second_position: Vector2 = modifier.modify(Vector2(1.0, 0.0))
+
+	assert_eq(first_position, Vector2(0.5, 0.0), "手动 delta 应驱动第一步积分。")
+	assert_eq(second_position, Vector2(1.0, 0.0), "相同手动 delta 应稳定驱动后续积分。")
+
+
+## 验证虚拟光标运行时状态可恢复后继续确定性回放。
+func test_virtual_cursor_runtime_state_roundtrips_for_replay() -> void:
+	var modifier: GFInputVirtualCursorModifier = GFInputVirtualCursorModifier.new()
+	modifier.initial_position = Vector2.ZERO
+	modifier.speed = Vector2(4.0, 2.0)
+	modifier.clamp_to_rect = false
+	var _manual_delta: GFInputVirtualCursorModifier = modifier.set_manual_delta_seconds(0.125)
+	var _first_step: Vector2 = modifier.modify(Vector2(1.0, -1.0))
+	var runtime_state: Dictionary = modifier.get_runtime_state()
+
+	var replay_modifier: GFInputVirtualCursorModifier = GFInputVirtualCursorModifier.new()
+	replay_modifier.initial_position = Vector2.ZERO
+	replay_modifier.speed = Vector2(4.0, 2.0)
+	replay_modifier.clamp_to_rect = false
+	var _replay_manual_delta: GFInputVirtualCursorModifier = replay_modifier.set_manual_delta_seconds(0.125)
+	var _restored: GFInputVirtualCursorModifier = replay_modifier.restore_runtime_state(runtime_state)
+
+	assert_eq(replay_modifier.modify(Vector2(0.0, 1.0)), modifier.modify(Vector2(0.0, 1.0)), "恢复状态后同一输入应得到同一位置。")
+
+
 # --- 私有/辅助方法 ---
 
 func _virtual_cursor_modifier(modifier: GFInputModifier) -> GFInputVirtualCursorModifier:

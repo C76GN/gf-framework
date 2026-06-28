@@ -1,0 +1,255 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFTextGenerationContext" path="addons/gf/standard/foundation/text/gf_text_generation_context.gd" module="standard" extends="RefCounted" classDigest="def9d7ee88dc01ec27fddfd9d189e4b8dadedb6ba9f819f671c92ac67310e6dd">
+	<description>GFTextGenerationContext: 安全的纯数据文本生成上下文。
+提供显式数据 scope、严格缺失检查、简单 token 替换、输出缓冲和预算诊断。
+token 只解析数据路径，不执行表达式、脚本或宿主对象方法。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_handle</tag>
+		<tag name="since">7.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties>
+		<member kind="property" name="strict_variables">
+			<signature>var strict_variables: bool = false</signature>
+			<description>缺失变量是否记录为错误。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="max_output_length">
+			<signature>var max_output_length: int = 0</signature>
+			<description>最大输出长度；小于等于 0 表示不限制。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="indent_text">
+			<signature>var indent_text: String = "\t"</signature>
+			<description>每级缩进使用的文本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="budget">
+			<signature>var budget: GFExecutionBudget = null</signature>
+			<description>可选执行预算。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="metadata">
+			<signature>var metadata: Dictionary = {}</signature>
+			<description>调用方附加元数据。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">metadata: Dictionary，包含调用方定义的上下文。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="_init">
+			<signature>func _init(root_values: Dictionary = {}, options: Dictionary = {}) -&gt; void:</signature>
+			<description>创建文本生成上下文。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">root_values: 根数据 scope。</tag>
+				<tag name="param">options: 可选配置，支持 strict_variables、max_output_length、indent_text、budget、subject 和 metadata。</tag>
+				<tag name="schema">root_values: Dictionary，根数据。</tag>
+				<tag name="schema">options: Dictionary，上下文配置。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="configure">
+			<signature>func configure(root_values: Dictionary = {}, options: Dictionary = {}) -&gt; GFTextGenerationContext:</signature>
+			<description>配置上下文并清空输出。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">root_values: 根数据 scope。</tag>
+				<tag name="param">options: 可选配置，支持 strict_variables、max_output_length、indent_text、budget、subject 和 metadata。</tag>
+				<tag name="return">当前上下文。</tag>
+				<tag name="schema">root_values: Dictionary，根数据。</tag>
+				<tag name="schema">options: Dictionary，上下文配置。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="clear">
+			<signature>func clear() -&gt; void:</signature>
+			<description>清空 scope、输出和诊断。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="push_scope">
+			<signature>func push_scope(values: Dictionary, label: String = "") -&gt; int:</signature>
+			<description>推入一个数据 scope。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">values: scope 数据。</tag>
+				<tag name="param">label: scope 标签，仅用于诊断。</tag>
+				<tag name="return">当前 scope 数量。</tag>
+				<tag name="schema">values: Dictionary，scope 数据。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="pop_scope">
+			<signature>func pop_scope() -&gt; Dictionary:</signature>
+			<description>弹出顶层 scope。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">被移除的 scope；没有 scope 时返回空字典。</tag>
+				<tag name="schema">return: Dictionary，被移除的 scope 数据。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="set_value">
+			<signature>func set_value(key: StringName, value: Variant) -&gt; void:</signature>
+			<description>设置顶层 scope 的值。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">key: 字段名。</tag>
+				<tag name="param">value: 字段值。</tag>
+				<tag name="schema">value: Variant，调用方数据。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="has_value">
+			<signature>func has_value(data_path: String) -&gt; bool:</signature>
+			<description>检查路径是否可解析。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">data_path: 点号分隔的数据路径。</tag>
+				<tag name="return">可解析时返回 true。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_value">
+			<signature>func get_value(data_path: String, default_value: Variant = null, source_span: Variant = null) -&gt; Variant:</signature>
+			<description>读取路径值。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">data_path: 点号分隔的数据路径。</tag>
+				<tag name="param">default_value: 缺失时返回的默认值。</tag>
+				<tag name="param">source_span: 可选源码定位。</tag>
+				<tag name="return">读取到的值或默认值。</tag>
+				<tag name="schema">default_value: Variant，缺失时的默认值。</tag>
+				<tag name="schema">source_span: Variant，可传 GFSourceSpan 或兼容字典。</tag>
+				<tag name="schema">return: Variant，读取到的数据。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="replace_tokens">
+			<signature>func replace_tokens(text: String, options: Dictionary = {}) -&gt; String:</signature>
+			<description>替换文本中的 token。
+token 默认使用 `{{name}}` 形式，name 只能是数据路径；不会执行表达式。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">text: 输入文本。</tag>
+				<tag name="param">options: 可选配置，支持 start_token、end_token、missing_text、max_replacements 和 source_span。</tag>
+				<tag name="return">替换后的文本。</tag>
+				<tag name="schema">options: Dictionary，token 替换配置。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="append_text">
+			<signature>func append_text(text: String, source_span: Variant = null) -&gt; bool:</signature>
+			<description>追加文本到输出缓冲。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">text: 要追加的文本。</tag>
+				<tag name="param">source_span: 可选源码定位。</tag>
+				<tag name="return">追加成功时返回 true。</tag>
+				<tag name="schema">source_span: Variant，可传 GFSourceSpan 或兼容字典。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="append_line">
+			<signature>func append_line(text: String = "", source_span: Variant = null) -&gt; bool:</signature>
+			<description>追加一行文本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">text: 行文本。</tag>
+				<tag name="param">source_span: 可选源码定位。</tag>
+				<tag name="return">追加成功时返回 true。</tag>
+				<tag name="schema">source_span: Variant，可传 GFSourceSpan 或兼容字典。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="append_indented_line">
+			<signature>func append_indented_line(text: String = "", source_span: Variant = null) -&gt; bool:</signature>
+			<description>追加带当前缩进的一行文本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">text: 行文本。</tag>
+				<tag name="param">source_span: 可选源码定位。</tag>
+				<tag name="return">追加成功时返回 true。</tag>
+				<tag name="schema">source_span: Variant，可传 GFSourceSpan 或兼容字典。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="push_indent">
+			<signature>func push_indent() -&gt; int:</signature>
+			<description>增加缩进级别。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">当前缩进级别。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="pop_indent">
+			<signature>func pop_indent() -&gt; int:</signature>
+			<description>减少缩进级别。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">当前缩进级别。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_text">
+			<signature>func get_text() -&gt; String:</signature>
+			<description>获取当前输出文本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">输出文本。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_report">
+			<signature>func get_report() -&gt; GFValidationReport:</signature>
+			<description>获取当前报告。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">校验报告。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="duplicate_report">
+			<signature>func duplicate_report() -&gt; GFValidationReport:</signature>
+			<description>创建报告副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">校验报告副本。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_debug_snapshot">
+			<signature>func get_debug_snapshot() -&gt; Dictionary:</signature>
+			<description>获取调试快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">上下文状态字典。</tag>
+				<tag name="schema">return: Dictionary，包含 scope、输出和诊断状态。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

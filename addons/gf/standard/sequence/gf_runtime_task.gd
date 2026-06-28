@@ -88,6 +88,8 @@ func _init(p_requirements: Array[Object] = [], p_interruptible: bool = true) -> 
 ## [br]
 ## @return 当前任务。
 func set_requirements(next_requirements: Array[Object]) -> GFRuntimeTask:
+	if not _can_mutate_requirements():
+		return self
 	requirements.clear()
 	for requirement: Object in next_requirements:
 		var _add_requirement_result: GFRuntimeTask = add_requirement(requirement)
@@ -107,6 +109,8 @@ func set_requirements(next_requirements: Array[Object]) -> GFRuntimeTask:
 ## [br]
 ## @return 当前任务。
 func add_requirement(requirement: Object) -> GFRuntimeTask:
+	if not _can_mutate_requirements():
+		return self
 	if requirement == null or not is_instance_valid(requirement):
 		return self
 	if requirements.has(requirement):
@@ -128,6 +132,8 @@ func add_requirement(requirement: Object) -> GFRuntimeTask:
 ## [br]
 ## @return 成功移除时返回 true。
 func remove_requirement(requirement: Object) -> bool:
+	if not _can_mutate_requirements():
+		return false
 	if requirement == null:
 		return false
 	if not requirements.has(requirement):
@@ -145,6 +151,8 @@ func remove_requirement(requirement: Object) -> bool:
 ## [br]
 ## @since 6.0.0
 func clear_requirements() -> void:
+	if not _can_mutate_requirements():
+		return
 	requirements.clear()
 
 
@@ -380,3 +388,12 @@ func mark_unscheduled() -> void:
 ## @since 6.0.0
 func mark_initialized() -> void:
 	_initialized = true
+
+
+# --- 私有/辅助方法 ---
+
+func _can_mutate_requirements() -> bool:
+	if not is_scheduled():
+		return true
+	push_warning("[GFRuntimeTask] 已调度任务不能修改 requirements；请取消并重新调度。")
+	return false

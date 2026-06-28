@@ -10,7 +10,19 @@
     "gf.standard.base"
   ],
   "paths": [
-    "addons/gf/standard/input/**"
+    "addons/gf/standard/input/common/**",
+    "addons/gf/standard/input/drag_drop/**",
+    "addons/gf/standard/input/formatting/**",
+    "addons/gf/standard/input/history/**",
+    "addons/gf/standard/input/mapping/**",
+    "addons/gf/standard/input/modifiers/**",
+    "addons/gf/standard/input/rebinding/**",
+    "addons/gf/standard/input/recording/**",
+    "addons/gf/standard/input/runtime/**",
+    "addons/gf/standard/input/sequences/**",
+    "addons/gf/standard/input/sources/**",
+    "addons/gf/standard/input/touch/**",
+    "addons/gf/standard/input/triggers/**"
   ],
   "metadata": {
     "stage": "standard-split-v1"

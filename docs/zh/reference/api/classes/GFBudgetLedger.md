@@ -18,6 +18,7 @@
 | 信号 | [`budget_changed`](#member-gfbudgetledger-signals-budget_changed) | `signal budget_changed(budget_id: StringName, available: float, capacity: float)` |
 | 信号 | [`budget_consumed`](#member-gfbudgetledger-signals-budget_consumed) | `signal budget_consumed(budget_id: StringName, amount: float)` |
 | 信号 | [`budget_rejected`](#member-gfbudgetledger-signals-budget_rejected) | `signal budget_rejected(budget_id: StringName, amount: float, reason: String)` |
+| 信号 | [`budgets_cleared`](#member-gfbudgetledger-signals-budgets_cleared) | `signal budgets_cleared(budget_ids: PackedStringArray)` |
 | 方法 | [`set_capacity`](#member-gfbudgetledger-methods-set_capacity) | `func set_capacity(budget_id: StringName, capacity: float, reset_available: bool = true) -> void:` |
 | 方法 | [`set_available`](#member-gfbudgetledger-methods-set_available) | `func set_available(budget_id: StringName, available: float) -> void:` |
 | 方法 | [`get_capacity`](#member-gfbudgetledger-methods-get_capacity) | `func get_capacity(budget_id: StringName) -> float:` |
@@ -89,6 +90,25 @@ signal budget_rejected(budget_id: StringName, amount: float, reason: String)
 | `budget_id` | 预算标识。 |
 | `amount` | 请求数量。 |
 | `reason` | 拒绝原因。 |
+
+<a id="member-gfbudgetledger-signals-budgets_cleared"></a>
+
+### `budgets_cleared`
+
+- API：`public`
+- 首次版本：`7.0.0`
+
+```gdscript
+signal budgets_cleared(budget_ids: PackedStringArray)
+```
+
+所有预算清空后发出。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `budget_ids` | 被清空的预算标识列表。 |
 
 ## 方法
 

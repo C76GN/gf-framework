@@ -45,6 +45,15 @@ signal budget_consumed(budget_id: StringName, amount: float)
 ## @param reason: 拒绝原因。
 signal budget_rejected(budget_id: StringName, amount: float, reason: String)
 
+## 所有预算清空后发出。
+## [br]
+## @api public
+## [br]
+## @since 7.0.0
+## [br]
+## @param budget_ids: 被清空的预算标识列表。
+signal budgets_cleared(budget_ids: PackedStringArray)
+
 
 # --- 私有变量 ---
 
@@ -66,7 +75,7 @@ func set_capacity(budget_id: StringName, capacity: float, reset_available: bool 
 	if budget_id == &"":
 		return
 
-	var normalized_capacity: float = maxf(0.0, capacity)
+	var normalized_capacity: float = _normalize_non_negative_amount(capacity)
 	var entry: Dictionary = _get_or_make_entry(budget_id)
 	entry["capacity"] = normalized_capacity
 	if reset_available:
@@ -90,7 +99,7 @@ func set_available(budget_id: StringName, available: float) -> void:
 
 	var entry: Dictionary = _get_or_make_entry(budget_id)
 	var capacity: float = _get_entry_capacity(entry)
-	entry["available"] = clampf(available, 0.0, capacity)
+	entry["available"] = clampf(_normalize_non_negative_amount(available), 0.0, capacity)
 	_budgets[budget_id] = entry
 	budget_changed.emit(budget_id, _get_entry_available(entry), capacity)
 
@@ -127,7 +136,7 @@ func get_available(budget_id: StringName) -> float:
 ## [br]
 ## @return 预算足够时返回 true。
 func can_consume(budget_id: StringName, amount: float) -> bool:
-	if amount < 0.0:
+	if budget_id == &"" or not _is_finite_amount(amount) or amount < 0.0:
 		return false
 	return get_available(budget_id) >= amount
 
@@ -149,7 +158,11 @@ func can_consume(budget_id: StringName, amount: float) -> bool:
 ## @schema return: Dictionary with ok, budget_id, amount, reason, available, capacity, and metadata.
 func consume(budget_id: StringName, amount: float, metadata: Dictionary = {}) -> Dictionary:
 	if budget_id == &"":
+		budget_rejected.emit(budget_id, amount, "empty_budget_id")
 		return _make_result(false, budget_id, amount, "empty_budget_id", metadata)
+	if not _is_finite_amount(amount):
+		budget_rejected.emit(budget_id, amount, "invalid_amount")
+		return _make_result(false, budget_id, amount, "invalid_amount", metadata)
 	if amount < 0.0:
 		budget_rejected.emit(budget_id, amount, "negative_amount")
 		return _make_result(false, budget_id, amount, "negative_amount", metadata)
@@ -176,10 +189,12 @@ func consume(budget_id: StringName, amount: float, metadata: Dictionary = {}) ->
 ## [br]
 ## @param amount: 释放数量。
 func release(budget_id: StringName, amount: float) -> void:
-	if budget_id == &"" or amount <= 0.0:
+	if budget_id == &"" or not _is_finite_amount(amount) or amount <= 0.0:
+		return
+	if not _budgets.has(budget_id):
 		return
 
-	var entry: Dictionary = _get_or_make_entry(budget_id)
+	var entry: Dictionary = _get_entry_copy(budget_id)
 	var capacity: float = _get_entry_capacity(entry)
 	entry["available"] = clampf(_get_entry_available(entry) + amount, 0.0, capacity)
 	_budgets[budget_id] = entry
@@ -209,7 +224,15 @@ func reset(budget_id: StringName = &"") -> void:
 ## [br]
 ## @api public
 func clear() -> void:
+	if _budgets.is_empty():
+		return
+
+	var budget_ids: PackedStringArray = PackedStringArray()
+	for budget_id: StringName in _budgets.keys():
+		var _append_result: bool = budget_ids.append(String(budget_id))
+	budget_ids.sort()
 	_budgets.clear()
+	budgets_cleared.emit(budget_ids)
 
 
 ## 获取预算快照。
@@ -265,3 +288,13 @@ func _make_result(
 		"capacity": get_capacity(budget_id),
 		"metadata": metadata.duplicate(true),
 	}
+
+
+func _normalize_non_negative_amount(value: float) -> float:
+	if not _is_finite_amount(value):
+		return 0.0
+	return maxf(0.0, value)
+
+
+func _is_finite_amount(value: float) -> bool:
+	return not is_nan(value) and not is_inf(value)

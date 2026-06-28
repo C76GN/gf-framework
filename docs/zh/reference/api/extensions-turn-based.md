@@ -8,7 +8,7 @@
 |---|---:|---:|---:|
 | [运行时服务](#category-runtime_service) | 1 | 19 | 7 |
 | [协议与扩展点](#category-protocol) | 2 | 18 | 7 |
-| [领域模型](#category-domain_model) | 1 | 10 | 4 |
+| [领域模型](#category-domain_model) | 1 | 9 | 4 |
 
 ## 类
 

@@ -34,6 +34,15 @@ func test_make_relative_path_returns_path_under_base() -> void:
 	assert_eq(relative_path, "assets/icon.tres", "位于 base_path 下的路径应转换为相对路径。")
 
 
+func test_make_relative_path_rejects_parent_escape_after_simplify() -> void:
+	var relative_path: String = GFPathTools.make_relative_path(
+		"res://content/packs/base/../escape.tres",
+		"res://content/packs/base"
+	)
+
+	assert_eq(relative_path, "res://content/packs/escape.tres", "简化后越过 base_path 的路径不应伪装成相对路径。")
+
+
 func test_is_path_under_root_rejects_parent_escape() -> void:
 	var under_root: bool = GFPathTools.is_path_under_root(
 		"res://content/packs/base/../escape.tres",
@@ -41,6 +50,16 @@ func test_is_path_under_root_rejects_parent_escape() -> void:
 	)
 
 	assert_false(under_root, "包含 .. 的路径简化后越过 root 时应被拒绝。")
+
+
+func test_is_path_excluded_rejects_parent_escape_after_simplify() -> void:
+	var excluded_paths: PackedStringArray = PackedStringArray(["res://addons/gf"])
+	var is_excluded: bool = GFPathTools.is_path_excluded(
+		"res://addons/gf/../project/file.gd",
+		excluded_paths
+	)
+
+	assert_false(is_excluded, "排除匹配前应先简化路径，避免 .. 伪造命中。")
 
 
 func test_is_path_excluded_matches_child_directories() -> void:

@@ -15,12 +15,12 @@
 
 | 类型 | 名称 | 签名 |
 |---|---|---|
-| 信号 | [`level_started`](#member-gflevelutility-signals-level_started) | `signal level_started(level_id: Variant, level_data: Dictionary)` |
-| 信号 | [`level_restarted`](#member-gflevelutility-signals-level_restarted) | `signal level_restarted(level_id: Variant, level_data: Dictionary)` |
-| 信号 | [`level_won`](#member-gflevelutility-signals-level_won) | `signal level_won(level_id: Variant)` |
-| 信号 | [`level_lost`](#member-gflevelutility-signals-level_lost) | `signal level_lost(level_id: Variant)` |
+| 信号 | [`level_started`](#member-gflevelutility-signals-level_started) | `signal level_started(level_id: StringName, level_data: Dictionary)` |
+| 信号 | [`level_restarted`](#member-gflevelutility-signals-level_restarted) | `signal level_restarted(level_id: StringName, level_data: Dictionary)` |
+| 信号 | [`level_won`](#member-gflevelutility-signals-level_won) | `signal level_won(level_id: StringName)` |
+| 信号 | [`level_lost`](#member-gflevelutility-signals-level_lost) | `signal level_lost(level_id: StringName)` |
 | 属性 | [`level_table_name`](#member-gflevelutility-properties-level_table_name) | `var level_table_name: StringName = &"levels"` |
-| 属性 | [`current_level_id`](#member-gflevelutility-properties-current_level_id) | `var current_level_id: Variant = null` |
+| 属性 | [`current_level_id`](#member-gflevelutility-properties-current_level_id) | `var current_level_id: StringName = &""` |
 | 属性 | [`current_level_data`](#member-gflevelutility-properties-current_level_data) | `var current_level_data: Dictionary = {}` |
 | 属性 | [`catalog`](#member-gflevelutility-properties-catalog) | `var catalog: GFLevelCatalog = null` |
 | 属性 | [`fail_on_missing_level_data`](#member-gflevelutility-properties-fail_on_missing_level_data) | `var fail_on_missing_level_data: bool = false` |
@@ -52,9 +52,10 @@
 ### `level_started`
 
 - API：`public`
+- 首次版本：`7.0.0`
 
 ```gdscript
-signal level_started(level_id: Variant, level_data: Dictionary)
+signal level_started(level_id: StringName, level_data: Dictionary)
 ```
 
 当关卡开始时发出。
@@ -68,7 +69,7 @@ signal level_started(level_id: Variant, level_data: Dictionary)
 
 结构：
 
-- `level_id`: Variant，项目传入的关卡 ID，通常为 StringName 或 String。
+- `level_id`: StringName，入口规范化后的关卡 ID。
 - `level_data`: Dictionary，当前关卡数据副本。
 
 <a id="member-gflevelutility-signals-level_restarted"></a>
@@ -76,9 +77,10 @@ signal level_started(level_id: Variant, level_data: Dictionary)
 ### `level_restarted`
 
 - API：`public`
+- 首次版本：`7.0.0`
 
 ```gdscript
-signal level_restarted(level_id: Variant, level_data: Dictionary)
+signal level_restarted(level_id: StringName, level_data: Dictionary)
 ```
 
 当关卡重开时发出。
@@ -92,7 +94,7 @@ signal level_restarted(level_id: Variant, level_data: Dictionary)
 
 结构：
 
-- `level_id`: Variant，项目传入的关卡 ID，通常为 StringName 或 String。
+- `level_id`: StringName，入口规范化后的关卡 ID。
 - `level_data`: Dictionary，当前关卡数据副本。
 
 <a id="member-gflevelutility-signals-level_won"></a>
@@ -100,9 +102,10 @@ signal level_restarted(level_id: Variant, level_data: Dictionary)
 ### `level_won`
 
 - API：`public`
+- 首次版本：`7.0.0`
 
 ```gdscript
-signal level_won(level_id: Variant)
+signal level_won(level_id: StringName)
 ```
 
 当关卡胜利时发出。
@@ -115,16 +118,17 @@ signal level_won(level_id: Variant)
 
 结构：
 
-- `level_id`: Variant，项目传入的关卡 ID，通常为 StringName 或 String。
+- `level_id`: StringName，入口规范化后的关卡 ID。
 
 <a id="member-gflevelutility-signals-level_lost"></a>
 
 ### `level_lost`
 
 - API：`public`
+- 首次版本：`7.0.0`
 
 ```gdscript
-signal level_lost(level_id: Variant)
+signal level_lost(level_id: StringName)
 ```
 
 当关卡失败时发出。
@@ -137,7 +141,7 @@ signal level_lost(level_id: Variant)
 
 结构：
 
-- `level_id`: Variant，项目传入的关卡 ID，通常为 StringName 或 String。
+- `level_id`: StringName，入口规范化后的关卡 ID。
 
 ## 属性
 
@@ -158,16 +162,17 @@ var level_table_name: StringName = &"levels"
 ### `current_level_id`
 
 - API：`public`
+- 首次版本：`7.0.0`
 
 ```gdscript
-var current_level_id: Variant = null
+var current_level_id: StringName = &""
 ```
 
 当前关卡 ID。
 
 结构：
 
-- `current_level_id`: Variant，项目传入的当前关卡 ID；未启动关卡时为 null。
+- `current_level_id`: StringName，入口规范化后的当前关卡 ID；未启动关卡时为空。
 
 <a id="member-gflevelutility-properties-current_level_data"></a>
 

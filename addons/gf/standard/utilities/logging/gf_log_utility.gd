@@ -831,8 +831,11 @@ static func _sanitize_log_value(value: Variant, depth: int = 0, visited: Array =
 		return "<max_depth>"
 
 	match typeof(value):
-		TYPE_NIL, TYPE_BOOL, TYPE_INT, TYPE_FLOAT:
+		TYPE_NIL, TYPE_BOOL, TYPE_INT:
 			return value
+		TYPE_FLOAT:
+			var float_value: float = value
+			return _sanitize_log_float(float_value)
 		TYPE_STRING:
 			return _truncate_log_string(_variant_to_log_string(value))
 		TYPE_STRING_NAME, TYPE_NODE_PATH:
@@ -969,6 +972,14 @@ static func _variant_to_log_string(value: Variant) -> String:
 		var path_value: NodePath = value
 		return String(path_value)
 	return str(value)
+
+
+static func _sanitize_log_float(value: float) -> Variant:
+	if is_nan(value):
+		return "NaN"
+	if is_inf(value):
+		return "Infinity" if value > 0.0 else "-Infinity"
+	return value
 
 
 static func _visited_contains_reference(visited: Array, value: Variant) -> bool:

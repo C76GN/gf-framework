@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFCameraRig2D" path="addons/gf/extensions/camera/nodes/gf_camera_rig_2d.gd" module="extensions/camera" extends="Node2D" classDigest="5875e1c46db5ffc233f38e3c4447da88376b94d92afde20e8304fd27e6fb0979">
+<class name="GFCameraRig2D" path="addons/gf/extensions/camera/nodes/gf_camera_rig_2d.gd" module="extensions/camera" extends="Node2D" classDigest="edd6d05ceb6772a41929d2e41b823532bb73dbdbb0569d670440dba1ea748c8e">
 	<description>GFCameraRig2D: 通用 2D 相机姿态提供节点。
 Rig 只计算期望相机位置、旋转和缩放，不直接控制 Camera2D。
 项目可用多个 Rig 表达不同视角，再交给 GFCameraDirector2D 按优先级选择。</description>
@@ -93,10 +93,11 @@ Rig 只计算期望相机位置、旋转和缩放，不直接控制 Camera2D。
 			</tags>
 		</member>
 		<member kind="property" name="group_name" decorators="@export">
-			<signature>var group_name: StringName = &amp;"gf_camera_rig_2d"</signature>
+			<signature>var group_name: StringName = &amp;"gf_camera_rig_2d":</signature>
 			<description>自动加入的分组名。Director 可按该分组收集候选。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="metadata" decorators="@export">

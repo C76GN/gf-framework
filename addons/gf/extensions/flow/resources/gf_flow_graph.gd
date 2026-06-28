@@ -131,6 +131,7 @@ func remove_node(node_id: StringName) -> void:
 		if nodes[index] != null and nodes[index].node_id == node_id:
 			nodes.remove_at(index)
 	remove_connections_for_node(node_id)
+	_remove_node_id_from_next_node_ids(node_id)
 
 
 ## 添加节点连接。
@@ -321,6 +322,8 @@ func check_connection_compatibility(
 		return _make_connection_compatibility_report(false, "missing_from_node", "Connection source node does not exist.")
 	if to_node == null:
 		return _make_connection_compatibility_report(false, "missing_to_node", "Connection target node does not exist.")
+	if _has_mixed_connection_ports(from_port_id, to_port_id):
+		return _make_connection_compatibility_report(false, "invalid_mixed_connection_ports", "Connection must use either two node-level endpoints or two explicit ports.")
 	if from_port_id == &"" or to_port_id == &"":
 		return _make_connection_compatibility_report(true, "", "")
 
@@ -915,6 +918,7 @@ func _get_validation_next_actions() -> Dictionary:
 		"missing_start_node": "Set start_node_id to an existing node or leave it empty for manual runner selection.",
 		"missing_next_node": "Create the referenced next node or remove it from next_node_ids.",
 		"invalid_connection": "Fill both from_node_id and to_node_id for every flow connection.",
+		"invalid_mixed_connection_ports": "Use either a node-level connection with both port ids empty, or a port-level connection with both port ids set.",
 		"duplicate_connection": "Remove the duplicated flow connection.",
 		"missing_connection_from_node": "Create the connection source node or remove the connection.",
 		"missing_connection_to_node": "Create the connection target node or remove the connection.",
@@ -983,6 +987,9 @@ func _validate_connections(report: Dictionary, node_ids: Dictionary) -> void:
 		if from_node_id == &"" or to_node_id == &"":
 			_append_validation_issue(report, "error", "invalid_connection", str(index), "Flow connection requires from_node_id and to_node_id.")
 			continue
+		if _has_mixed_connection_ports(from_port_id, to_port_id):
+			_append_validation_issue(report, "error", "invalid_mixed_connection_ports", String(from_node_id), "Flow connection must use either two node-level endpoints or two explicit ports.")
+			continue
 		if connection_keys.has(connection_key):
 			_append_validation_issue(report, "error", "duplicate_connection", String(from_node_id), "Duplicate flow connection.")
 		connection_keys[connection_key] = true
@@ -1030,32 +1037,47 @@ func _validate_cycles(report: Dictionary, node_ids: Dictionary) -> void:
 	var reported_cycles: Dictionary = {}
 	for node_id: StringName in _get_sorted_node_ids(node_ids):
 		if GFVariantData.get_option_int(states, node_id, 0) == 0:
-			_visit_node_for_cycles(node_id, node_ids, states, [], reported_cycles, report)
+			_visit_node_for_cycles_iterative(node_id, node_ids, states, reported_cycles, report)
 
 
-func _visit_node_for_cycles(
-	node_id: StringName,
+func _visit_node_for_cycles_iterative(
+	p_start_node_id: StringName,
 	node_ids: Dictionary,
 	states: Dictionary,
-	stack: Array[StringName],
 	reported_cycles: Dictionary,
 	report: Dictionary
 ) -> void:
-	states[node_id] = 1
-	stack.append(node_id)
-	for successor_id: StringName in _get_successor_node_ids(node_id, node_ids):
+	var node_stack: Array[StringName] = [p_start_node_id]
+	var successor_stack: Array = [_get_successor_node_ids(p_start_node_id, node_ids)]
+	var index_stack: Array[int] = [0]
+	states[p_start_node_id] = 1
+
+	while not node_stack.is_empty():
+		var stack_index: int = node_stack.size() - 1
+		var current_node_id: StringName = node_stack[stack_index]
+		var successors: Array = GFVariantData.as_array(successor_stack[stack_index])
+		var successor_index: int = index_stack[stack_index]
+		if successor_index >= successors.size():
+			states[current_node_id] = 2
+			node_stack.pop_back()
+			successor_stack.pop_back()
+			index_stack.pop_back()
+			continue
+
+		var successor_id: StringName = GFVariantData.to_string_name(successors[successor_index])
+		index_stack[stack_index] = successor_index + 1
 		var successor_state: int = GFVariantData.get_option_int(states, successor_id, 0)
 		if successor_state == 1:
-			var cycle_key: String = _make_cycle_key(successor_id, stack)
+			var cycle_key: String = _make_cycle_key(successor_id, node_stack)
 			if not reported_cycles.has(cycle_key):
 				reported_cycles[cycle_key] = true
 				_append_validation_issue(report, "warning", "cycle_detected", cycle_key, "Flow graph contains a cycle: %s" % cycle_key)
 			continue
 		if successor_state == 0:
-			_visit_node_for_cycles(successor_id, node_ids, states, stack, reported_cycles, report)
-
-	stack.remove_at(stack.size() - 1)
-	states[node_id] = 2
+			states[successor_id] = 1
+			node_stack.append(successor_id)
+			successor_stack.append(_get_successor_node_ids(successor_id, node_ids))
+			index_stack.append(0)
 
 
 func _validate_terminal_nodes(report: Dictionary, node_ids: Dictionary) -> void:
@@ -1207,7 +1229,9 @@ func _can_append_connection(
 	var from_node: GFFlowNode = _find_node_by_id(from_node_id)
 	var to_node: GFFlowNode = _find_node_by_id(to_node_id)
 	if from_node == null or to_node == null:
-		return true
+		return false
+	if _has_mixed_connection_ports(from_port_id, to_port_id):
+		return false
 
 	var output_port: GFFlowPort = _find_output_port(from_node, from_port_id) if from_port_id != &"" else null
 	var input_port: GFFlowPort = _find_input_port(to_node, to_port_id) if to_port_id != &"" else null
@@ -1238,6 +1262,24 @@ func _make_connection(
 		"to_port_id": to_port_id,
 		"metadata": metadata.duplicate(true),
 	}
+
+
+func _remove_node_id_from_next_node_ids(node_id: StringName) -> void:
+	if node_id == &"":
+		return
+	for node: GFFlowNode in nodes:
+		if node == null:
+			continue
+		var next_node_ids: PackedStringArray = PackedStringArray()
+		for next_id_text: String in node.next_node_ids:
+			if StringName(next_id_text) == node_id:
+				continue
+			_append_packed_string(next_node_ids, next_id_text)
+		node.next_node_ids = next_node_ids
+
+
+func _has_mixed_connection_ports(from_port_id: StringName, to_port_id: StringName) -> bool:
+	return (from_port_id == &"" and to_port_id != &"") or (from_port_id != &"" and to_port_id == &"")
 
 
 func _connection_matches(

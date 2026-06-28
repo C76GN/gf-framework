@@ -18,11 +18,18 @@ extends RefCounted
 const _GF_PATH_TOOLS = preload("res://addons/gf/kernel/core/gf_path_tools.gd")
 
 const _REPORT_SUBJECT: String = "Content package export plan"
+const _ARTIFACT_REPORT_SUBJECT: String = "Content package artifact report"
+const _PREFLIGHT_REPORT_SUBJECT: String = "Content package preflight"
 const _KIND_INVALID_MANIFEST: String = "invalid_manifest"
 const _KIND_MISSING_RESOURCE: String = "missing_resource"
 const _KIND_RESOURCE_OUTSIDE_ROOT: String = "resource_outside_root"
+const _KIND_INVALID_ARCHIVE_PATH: String = "invalid_archive_path"
 const _KIND_DUPLICATE_ARCHIVE_PATH: String = "duplicate_archive_path"
 const _KIND_DEPENDENCY_REPORT_ISSUE: String = "dependency_report_issue"
+const _KIND_ARTIFACT_MISSING: String = "artifact_missing"
+const _KIND_ARTIFACT_UNREADABLE: String = "artifact_unreadable"
+const _KIND_ARTIFACT_SIZE_MISMATCH: String = "artifact_size_mismatch"
+const _KIND_ARTIFACT_SHA256_MISMATCH: String = "artifact_sha256_mismatch"
 
 
 # --- 公共变量 ---
@@ -122,6 +129,10 @@ func add_entry(
 		archive_path if not archive_path.strip_edges().is_empty() else _make_archive_path(normalized_source)
 	)
 	if normalized_archive.is_empty():
+		_append_issue("error", _KIND_INVALID_ARCHIVE_PATH, "archive path is invalid", {
+			"source_path": normalized_source,
+			"archive_path": archive_path,
+		})
 		return false
 	entries.append({
 		"source_path": normalized_source,
@@ -207,6 +218,14 @@ func build_from_catalog(
 
 	metadata = GFVariantData.get_option_dictionary(options, "metadata")
 	metadata["archive_root"] = GFVariantData.get_option_string(options, "archive_root")
+	var graph_report: Dictionary = catalog.get_graph_report({
+		"check_resource_exists": GFVariantData.get_option_bool(options, "check_files", false),
+	})
+	for issue_value: Variant in GFVariantData.get_option_array(graph_report, "issues"):
+		issues.append(GFValidationReportDictionary.issue_to_dict(issue_value))
+	if not GFVariantData.get_option_bool(graph_report, "ok"):
+		return self
+
 	var selected_ids: PackedStringArray = GFVariantData.get_option_packed_string_array(options, "package_ids")
 	var ids: PackedStringArray = catalog.get_ordered_package_ids()
 	for package_id_text: String in ids:
@@ -251,6 +270,148 @@ func get_validation_report() -> Dictionary:
 	return GFValidationReportDictionary.finalize_report(report, _REPORT_SUBJECT, {
 		"fallback_action": "Review the first content package export plan issue.",
 		"no_action": "Content package export plan is valid.",
+	})
+
+
+## 获取导出条目的本地 artifact 完整性报告。
+## [br]
+## @api public
+## [br]
+## @since 6.0.0
+## [br]
+## @param options: 报告选项。
+## [br]
+## @return GFValidationReportDictionary 兼容报告。
+## [br]
+## @schema options: Dictionary，可包含 include_sha256、include_modified_time、include_entry_metadata 和 verify_expected_metadata。
+## [br]
+## @schema return: Dictionary with ok, healthy, artifacts, artifact_count, existing_count, missing_count, unreadable_count, total_size_bytes, issues, summary, and next_action.
+func get_artifact_report(options: Dictionary = {}) -> Dictionary:
+	var artifacts: Array[Dictionary] = []
+	var report: Dictionary = {
+		"subject": _ARTIFACT_REPORT_SUBJECT,
+		"package_id": package_id,
+		"version": version,
+		"root_path": root_path,
+		"entry_count": entries.size(),
+		"artifact_count": 0,
+		"existing_count": 0,
+		"missing_count": 0,
+		"unreadable_count": 0,
+		"total_size_bytes": 0,
+		"artifacts": artifacts,
+		"issues": _copy_issues(),
+	}
+	for index: int in range(entries.size()):
+		var artifact: Dictionary = _make_artifact_entry(entries[index], index, options, report)
+		artifacts.append(artifact)
+		if GFVariantData.get_option_bool(artifact, "exists"):
+			report["existing_count"] = GFVariantData.get_option_int(report, "existing_count") + 1
+			report["total_size_bytes"] = (
+				GFVariantData.get_option_int(report, "total_size_bytes")
+				+ GFVariantData.get_option_int(artifact, "size_bytes")
+			)
+		elif GFVariantData.get_option_bool(artifact, "unreadable"):
+			report["unreadable_count"] = GFVariantData.get_option_int(report, "unreadable_count") + 1
+		else:
+			report["missing_count"] = GFVariantData.get_option_int(report, "missing_count") + 1
+	report["artifact_count"] = artifacts.size()
+	report["artifacts"] = artifacts
+	return GFValidationReportDictionary.finalize_report(report, _ARTIFACT_REPORT_SUBJECT, {
+		"fallback_action": "Review the first content package artifact issue.",
+		"no_action": "Content package artifacts are readable and match expected metadata.",
+	})
+
+
+## 获取内容包导出预检报告。
+## [br]
+## 该报告会合并导出计划校验、可选 artifact 完整性校验，以及调用方显式传入的兼容性 Profile 约束。
+## GF 不在这里决定下载、启用、远程发布或业务内容策略。
+## [br]
+## @api public
+## [br]
+## @since 7.0.0
+## [br]
+## @param profile: 可选兼容性 Profile。
+## [br]
+## @param options: 预检选项。
+## [br]
+## @return GFValidationReportDictionary 兼容报告。
+## [br]
+## @schema options: Dictionary，可包含 include_artifacts、artifact_options、required_features、required_platforms、minimum_godot_version、minimum_framework_version 和 metadata。
+## [br]
+## @schema return: Dictionary with ok, healthy, profile, checks, issues, summary, and next_action.
+func get_preflight_report(
+	profile: GFCompatibilityProfile = null,
+	options: Dictionary = {}
+) -> Dictionary:
+	var preflight: GFCompatibilityPreflight = GFCompatibilityPreflight.new()
+	var _configured: GFCompatibilityPreflight = preflight.configure(
+		_PREFLIGHT_REPORT_SUBJECT,
+		profile,
+		GFVariantData.get_option_dictionary(options, "metadata")
+	)
+	preflight.target_id = package_id
+	preflight.target_version = version
+	var _plan_report: GFCompatibilityPreflight = preflight.merge_report(get_validation_report(), {
+		"check_id": &"content_package.export_plan",
+		"component": &"content_package",
+		"phase": &"plan",
+	})
+
+	if GFVariantData.get_option_bool(options, "include_artifacts", true):
+		var artifact_options: Dictionary = GFVariantData.get_option_dictionary(options, "artifact_options")
+		var _artifact_report: GFCompatibilityPreflight = preflight.merge_report(get_artifact_report(artifact_options), {
+			"check_id": &"content_package.artifacts",
+			"component": &"content_package",
+			"phase": &"artifacts",
+		})
+
+	var minimum_godot_version: String = GFVariantData.get_option_string(options, "minimum_godot_version")
+	var maximum_godot_version: String = GFVariantData.get_option_string(options, "maximum_godot_version_exclusive")
+	if not minimum_godot_version.is_empty() or not maximum_godot_version.is_empty():
+		var _godot_check: Dictionary = preflight.require_godot_version(minimum_godot_version, maximum_godot_version, {
+			"check_id": &"content_package.godot_version",
+			"metadata": {
+				"package_id": package_id,
+			},
+		})
+
+	var minimum_framework_version: String = GFVariantData.get_option_string(options, "minimum_framework_version")
+	var maximum_framework_version: String = GFVariantData.get_option_string(options, "maximum_framework_version_exclusive")
+	if not minimum_framework_version.is_empty() or not maximum_framework_version.is_empty():
+		var _framework_check: Dictionary = preflight.require_framework_version(minimum_framework_version, maximum_framework_version, {
+			"check_id": &"content_package.framework_version",
+			"metadata": {
+				"package_id": package_id,
+			},
+		})
+
+	var required_platforms: PackedStringArray = GFVariantData.get_option_packed_string_array(options, "required_platforms")
+	if not required_platforms.is_empty():
+		var _platform_check: Dictionary = preflight.require_platforms(
+			required_platforms,
+			GFVariantData.get_option_string_name(options, "platform_match_mode", GFCompatibilityPreflight.MATCH_ANY),
+			{
+				"check_id": &"content_package.platforms",
+			}
+		)
+
+	var required_features: PackedStringArray = GFVariantData.get_option_packed_string_array(options, "required_features")
+	if not required_features.is_empty():
+		var _feature_check: Dictionary = preflight.require_features(
+			required_features,
+			GFVariantData.get_option_string_name(options, "feature_match_mode", GFCompatibilityPreflight.MATCH_ALL),
+			{
+				"check_id": &"content_package.features",
+			}
+		)
+
+	return preflight.get_report({
+		"subject": _PREFLIGHT_REPORT_SUBJECT,
+		"fallback_action": "Review the first content package preflight issue.",
+		"no_action": "Content package preflight is healthy.",
+		"warnings_as_errors": GFVariantData.get_option_bool(options, "warnings_as_errors", false),
 	})
 
 
@@ -399,6 +560,108 @@ func _validate_archive_path_uniqueness() -> void:
 		seen[archive_path] = true
 
 
+func _make_artifact_entry(
+	entry: Dictionary,
+	entry_index: int,
+	options: Dictionary,
+	report: Dictionary
+) -> Dictionary:
+	var source_path: String = GFVariantData.get_option_string(entry, "source_path")
+	var artifact: Dictionary = {
+		"entry_index": entry_index,
+		"source_path": source_path,
+		"archive_path": GFVariantData.get_option_string(entry, "archive_path"),
+		"role": GFVariantData.get_option_string_name(entry, "role"),
+		"resource_key": GFVariantData.get_option_string_name(entry, "resource_key"),
+		"package_id": GFVariantData.get_option_string_name(entry, "package_id", package_id),
+		"type_hint": GFVariantData.get_option_string(entry, "type_hint"),
+		"exists": false,
+		"unreadable": false,
+		"size_bytes": -1,
+	}
+	if GFVariantData.get_option_bool(options, "include_entry_metadata", false):
+		artifact["metadata"] = GFVariantData.get_option_dictionary(entry, "metadata")
+	if source_path.is_empty() or not FileAccess.file_exists(source_path):
+		_append_report_issue(report, "error", _KIND_ARTIFACT_MISSING, "artifact source file is missing", entry, entry_index, {
+			"actual_value": source_path,
+		})
+		return artifact
+
+	var size_bytes: int = _get_file_size(source_path)
+	if size_bytes < 0:
+		artifact["unreadable"] = true
+		_append_report_issue(report, "error", _KIND_ARTIFACT_UNREADABLE, "artifact source file cannot be read", entry, entry_index, {
+			"actual_value": source_path,
+			"open_error": FileAccess.get_open_error(),
+		})
+		return artifact
+
+	artifact["exists"] = true
+	artifact["size_bytes"] = size_bytes
+	if GFVariantData.get_option_bool(options, "include_modified_time", false):
+		artifact["modified_time"] = int(FileAccess.get_modified_time(source_path))
+	if GFVariantData.get_option_bool(options, "include_sha256", true):
+		artifact["sha256"] = FileAccess.get_sha256(source_path).to_lower()
+	if GFVariantData.get_option_bool(options, "verify_expected_metadata", true):
+		_verify_artifact_expected_metadata(artifact, entry, entry_index, report)
+	return artifact
+
+
+func _verify_artifact_expected_metadata(
+	artifact: Dictionary,
+	entry: Dictionary,
+	entry_index: int,
+	report: Dictionary
+) -> void:
+	var expected_size: int = _get_entry_expected_size(entry)
+	if (
+		expected_size >= 0
+		and expected_size != GFVariantData.get_option_int(artifact, "size_bytes", -1)
+	):
+		_append_report_issue(report, "error", _KIND_ARTIFACT_SIZE_MISMATCH, "artifact size does not match expected metadata", entry, entry_index, {
+			"expected_size_bytes": expected_size,
+			"actual_size_bytes": GFVariantData.get_option_int(artifact, "size_bytes", -1),
+		})
+
+	var expected_sha256: String = _get_entry_expected_sha256(entry)
+	if expected_sha256.is_empty() or not artifact.has("sha256"):
+		return
+	var actual_sha256: String = GFVariantData.get_option_string(artifact, "sha256")
+	if actual_sha256 != expected_sha256:
+		_append_report_issue(report, "error", _KIND_ARTIFACT_SHA256_MISMATCH, "artifact sha256 does not match expected metadata", entry, entry_index, {
+			"expected_sha256": expected_sha256,
+			"actual_sha256": actual_sha256,
+		})
+
+
+func _append_report_issue(
+	report: Dictionary,
+	severity: String,
+	kind: String,
+	message: String,
+	entry: Dictionary,
+	entry_index: int,
+	fields: Dictionary
+) -> void:
+	var issue_fields: Dictionary = {
+		"entry_index": entry_index,
+		"source_path": GFVariantData.get_option_string(entry, "source_path"),
+		"source": GFVariantData.get_option_string(entry, "source_path"),
+		"archive_path": GFVariantData.get_option_string(entry, "archive_path"),
+		"role": GFVariantData.get_option_string_name(entry, "role"),
+		"resource_key": GFVariantData.get_option_string_name(entry, "resource_key"),
+		"package_id": GFVariantData.get_option_string_name(entry, "package_id", package_id),
+	}
+	var merged_fields: Dictionary = GFVariantData.merge_dictionary(issue_fields, fields, true)
+	var _issue: Dictionary = GFValidationReportDictionary.append_issue(
+		report,
+		severity,
+		StringName(kind),
+		message,
+		merged_fields
+	)
+
+
 func _source_is_inside_root(source_path: String) -> bool:
 	if root_path.is_empty():
 		return true
@@ -443,13 +706,96 @@ func _copy_issues() -> Array[Dictionary]:
 	return result
 
 
+static func _get_file_size(path: String) -> int:
+	var file: FileAccess = FileAccess.open(path, FileAccess.READ)
+	if file == null:
+		return -1
+	var size_bytes: int = int(file.get_length())
+	file.close()
+	return size_bytes
+
+
+static func _get_entry_expected_size(entry: Dictionary) -> int:
+	var expected_size: int = _first_entry_int(entry, [
+		"expected_size_bytes",
+		"expected_size",
+		"size_bytes",
+		"size",
+		"bytes",
+	], -1)
+	if expected_size >= 0:
+		return expected_size
+	return _first_entry_int(GFVariantData.get_option_dictionary(entry, "metadata"), [
+		"expected_size_bytes",
+		"expected_size",
+		"size_bytes",
+		"size",
+		"bytes",
+	], -1)
+
+
+static func _get_entry_expected_sha256(entry: Dictionary) -> String:
+	var expected_sha256: String = _normalize_sha256(_first_entry_string(entry, [
+		"expected_sha256",
+		"sha256",
+	]))
+	if not expected_sha256.is_empty():
+		return expected_sha256
+	var generic_hash: String = _normalize_sha256(_first_entry_string(entry, ["hash"]))
+	if not generic_hash.is_empty():
+		return generic_hash
+	var entry_metadata: Dictionary = GFVariantData.get_option_dictionary(entry, "metadata")
+	expected_sha256 = _normalize_sha256(_first_entry_string(entry_metadata, [
+		"expected_sha256",
+		"sha256",
+	]))
+	if not expected_sha256.is_empty():
+		return expected_sha256
+	return _normalize_sha256(_first_entry_string(entry_metadata, ["hash"]))
+
+
+static func _first_entry_string(entry: Dictionary, keys: Array, default_value: String = "") -> String:
+	for key: Variant in keys:
+		if _has_dictionary_key(entry, key):
+			return GFVariantData.to_text(GFVariantData.get_option_value(entry, key, default_value)).strip_edges()
+	return default_value
+
+
+static func _first_entry_int(entry: Dictionary, keys: Array, default_value: int = 0) -> int:
+	for key: Variant in keys:
+		if _has_dictionary_key(entry, key):
+			return GFVariantData.get_option_int(entry, key, default_value)
+	return default_value
+
+
+static func _has_dictionary_key(source: Dictionary, key: Variant) -> bool:
+	if source.has(key):
+		return true
+	if key is String:
+		var string_key: String = key
+		return source.has(StringName(string_key))
+	if key is StringName:
+		var string_name_key: StringName = key
+		return source.has(String(string_name_key))
+	return false
+
+
+static func _normalize_sha256(value: String) -> String:
+	var normalized: String = value.strip_edges().to_lower()
+	return normalized if normalized.length() == 64 else ""
+
+
 static func _normalize_archive_path(path: String) -> String:
-	var normalized: String = path.strip_edges().replace("\\", "/").simplify_path()
-	while normalized.begins_with("/"):
-		normalized = normalized.substr(1)
-	if normalized.begins_with("../") or normalized == "..":
+	var normalized: String = path.strip_edges().replace("\\", "/")
+	if normalized.is_empty():
 		return ""
-	return normalized
+	if normalized.begins_with("/") or normalized.contains(":") or normalized.contains("//"):
+		return ""
+	var parts: PackedStringArray = normalized.split("/", true)
+	for part: String in parts:
+		if part.is_empty() or part == "." or part == "..":
+			return ""
+	return "/".join(parts)
 
 
 static func _normalize_resource_path(path: String) -> String:

@@ -328,7 +328,7 @@ func _record_signal(source_id: int, source_path: String, signal_name: StringName
 		"source_node_path": _get_node_path_text(source) if source != null else source_path,
 		"signal_name": String(signal_name),
 		"argument_count": arguments.size(),
-		"arguments": arguments.duplicate(false),
+		"arguments": _snapshot_signal_arguments(arguments),
 		"connections": _describe_signal_connections(source, signal_name),
 	}
 	if max_events > 0:
@@ -336,6 +336,67 @@ func _record_signal(source_id: int, source_path: String, signal_name: StringName
 		while _events.size() > max_events:
 			_events.pop_front()
 	signal_emitted.emit(event.duplicate(true))
+
+
+func _snapshot_signal_arguments(arguments: Array) -> Array:
+	var result: Array = []
+	for argument: Variant in arguments:
+		result.append(_snapshot_signal_argument(argument, 0))
+	return result
+
+
+func _snapshot_signal_argument(value: Variant, depth: int) -> Variant:
+	if depth > 8:
+		return {
+			"type": "truncated",
+		}
+	if value is Object:
+		var object_value: Object = value
+		return _snapshot_object_argument(object_value)
+	if value is Array:
+		var source_array: Array = value
+		var array_result: Array = []
+		for item: Variant in source_array:
+			array_result.append(_snapshot_signal_argument(item, depth + 1))
+		return array_result
+	if value is Dictionary:
+		var source_dictionary: Dictionary = value
+		var dictionary_result: Dictionary = {}
+		for raw_key: Variant in source_dictionary.keys():
+			var key: Variant = _snapshot_dictionary_key(raw_key, depth + 1)
+			dictionary_result[key] = _snapshot_signal_argument(source_dictionary[raw_key], depth + 1)
+		return dictionary_result
+	if typeof(value) == TYPE_CALLABLE or typeof(value) == TYPE_SIGNAL or typeof(value) == TYPE_RID:
+		return {
+			"type": type_string(typeof(value)),
+			"value": str(value),
+		}
+	return GFVariantData.duplicate_variant(value, true, true)
+
+
+func _snapshot_dictionary_key(value: Variant, depth: int) -> Variant:
+	var snapshot: Variant = _snapshot_signal_argument(value, depth)
+	if snapshot is Array or snapshot is Dictionary:
+		return str(snapshot)
+	return snapshot
+
+
+func _snapshot_object_argument(object_value: Object) -> Dictionary:
+	var result: Dictionary = {
+		"type": "Object",
+		"class": object_value.get_class(),
+		"instance_id": object_value.get_instance_id(),
+		"text": str(object_value),
+	}
+	if object_value is Resource:
+		var resource: Resource = object_value
+		result["type"] = "Resource"
+		result["resource_path"] = resource.resource_path
+	var script_value: Variant = object_value.get_script()
+	if script_value is Resource:
+		var script_resource: Resource = script_value
+		result["script_path"] = script_resource.resource_path
+	return result
 
 
 func _describe_signal_connections(source: Node, signal_name: StringName) -> Array[Dictionary]:

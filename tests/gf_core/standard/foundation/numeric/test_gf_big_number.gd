@@ -15,6 +15,21 @@ func test_from_string_rejects_malformed_decimal_text() -> void:
 	assert_true(value.is_zero(), "非法字符串应被收敛为零值。")
 
 
+func test_from_string_rejects_exponents_outside_supported_range() -> void:
+	var value: GFBigNumber = GFBigNumber.from_string("1e1000001")
+
+	assert_push_error("[GFBigNumber] 指数超出支持范围。")
+	assert_true(value.is_zero(), "超出支持范围的科学计数法指数应被拒绝。")
+
+
+func test_init_rejects_non_finite_mantissa() -> void:
+	var value: GFBigNumber = GFBigNumber.new(INF, 5)
+
+	assert_push_error("[GFBigNumber] mantissa 必须是有限浮点值。")
+	assert_true(value.is_zero(), "非有限尾数应被收敛为零值。")
+	assert_eq(value.exponent, 0)
+
+
 func test_from_string_accepts_sign_grouping_and_scientific_offset() -> void:
 	var value: GFBigNumber = GFBigNumber.from_string(" +001,234.500e-2 ")
 
@@ -49,6 +64,16 @@ func test_multiply_and_divide_keep_normalized_form() -> void:
 	assert_eq(divided.exponent, 3, "1e6 / 2e2 应得到 5e3。")
 
 
+func test_multiply_and_divide_reject_exponent_overflow() -> void:
+	var multiplied: GFBigNumber = GFBigNumber.new(1.0, 600_000).multiply(GFBigNumber.new(1.0, 500_001))
+	var divided: GFBigNumber = GFBigNumber.new(1.0, 600_000).divide(GFBigNumber.new(1.0, -500_001))
+
+	assert_push_error("[GFBigNumber] 指数超出支持范围。")
+	assert_push_error("[GFBigNumber] 指数超出支持范围。")
+	assert_true(multiplied.is_zero(), "乘法指数超界应返回稳定零值。")
+	assert_true(divided.is_zero(), "除法指数超界应返回稳定零值。")
+
+
 func test_compare_handles_sign_and_magnitude() -> void:
 	var positive: GFBigNumber = GFBigNumber.from_string("3e9")
 	var smaller_positive: GFBigNumber = GFBigNumber.from_string("2e9")
@@ -72,6 +97,13 @@ func test_powf_supports_fractional_exponents() -> void:
 	assert_almost_eq(value.to_float(), 7.0710678, 0.000001, "50 的平方根应约为 7.0710678。")
 
 
+func test_pow_rejects_exponent_outside_supported_range() -> void:
+	var value: GFBigNumber = GFBigNumber.new(1.0, 600_000).powi(2)
+
+	assert_push_error("[GFBigNumber] 指数超出支持范围。")
+	assert_true(value.is_zero(), "幂运算指数超界应返回稳定零值。")
+
+
 func test_divide_by_zero_returns_zero_and_reports_error() -> void:
 	var value: GFBigNumber = GFBigNumber.from_int(10).divide(GFBigNumber.zero())
 
@@ -90,3 +122,10 @@ func test_scientific_string_carries_when_rounded_mantissa_overflows() -> void:
 	var value: GFBigNumber = GFBigNumber.new(9.999, 5)
 
 	assert_eq(value.to_scientific_string(2), "1e6", "尾数四舍五入到 10 时应向指数进位。")
+
+
+func test_scientific_string_rejects_carry_past_supported_exponent() -> void:
+	var value: GFBigNumber = GFBigNumber.new(9.999, 1_000_000)
+
+	assert_eq(value.to_scientific_string(2), "0", "科学计数法进位超过支持范围时应返回稳定文本。")
+	assert_push_error("[GFBigNumber] 指数超出支持范围。")

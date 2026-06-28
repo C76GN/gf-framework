@@ -1,0 +1,139 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFSafeResourceCodec" path="addons/gf/standard/utilities/storage/gf_safe_resource_codec.gd" module="standard" extends="RefCounted" classDigest="59753a6e46065528baaf648794e1da48804de738e26981ea5d8ef019ca5ce07b">
+	<description>GFSafeResourceCodec: 安全资源图编解码工具。
+把 Variant、Array、Dictionary 和 allowlist 内的 Resource/Object 属性图
+编码为纯 Dictionary，并在解码时按策略限制类、脚本、外部资源路径、深度和数量。
+该类不注册 ResourceFormatLoader/Saver，不加载未授权资源，也不执行脚本表达式。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_service</tag>
+		<tag name="since">6.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants>
+		<member kind="const" name="KEY_KIND">
+			<signature>const KEY_KIND: String = "kind"</signature>
+			<description>编码节点类型字段。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="KEY_VARIANT_TYPE">
+			<signature>const KEY_VARIANT_TYPE: String = "variant_type"</signature>
+			<description>Variant 类型编号字段。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="KEY_VALUE">
+			<signature>const KEY_VALUE: String = "value"</signature>
+			<description>简单值字段。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="KEY_ITEMS">
+			<signature>const KEY_ITEMS: String = "items"</signature>
+			<description>集合项字段。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="KEY_ENTRIES">
+			<signature>const KEY_ENTRIES: String = "entries"</signature>
+			<description>字典条目字段。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="KEY_OBJECT_ID">
+			<signature>const KEY_OBJECT_ID: String = "object_id"</signature>
+			<description>对象编号字段。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="KEY_CLASS">
+			<signature>const KEY_CLASS: String = "class"</signature>
+			<description>对象类字段。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="KEY_SCRIPT_PATH">
+			<signature>const KEY_SCRIPT_PATH: String = "script_path"</signature>
+			<description>对象脚本路径字段。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="KEY_RESOURCE_PATH">
+			<signature>const KEY_RESOURCE_PATH: String = "resource_path"</signature>
+			<description>外部资源路径字段。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="KEY_PROPERTIES">
+			<signature>const KEY_PROPERTIES: String = "properties"</signature>
+			<description>对象属性字段。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties />
+	<methods>
+		<member kind="method" name="encode">
+			<signature>static func encode(value: Variant, policy: GFSafeResourceCodecPolicy = null, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>编码值。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">value: 要编码的值。</tag>
+				<tag name="param">policy: 安全策略；为 null 时使用空 allowlist。</tag>
+				<tag name="param">options: 编码选项。</tag>
+				<tag name="return">编码报告。</tag>
+				<tag name="schema">value: Variant value, Array, Dictionary, Resource, or Object graph.</tag>
+				<tag name="schema">options: Dictionary with encode_external_resources, max_depth, and max_items overrides.</tag>
+				<tag name="schema">return: Dictionary with ok, data, issues, issue_count, and error.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="decode">
+			<signature>static func decode(data: Dictionary, policy: GFSafeResourceCodecPolicy = null, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>解码值。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">data: encode() 返回的 data 字典。</tag>
+				<tag name="param">policy: 安全策略；为 null 时使用空 allowlist。</tag>
+				<tag name="param">options: 解码选项。</tag>
+				<tag name="return">解码报告。</tag>
+				<tag name="schema">data: Dictionary produced by encode().</tag>
+				<tag name="schema">options: Dictionary with load_external_resources, max_depth, and max_items overrides.</tag>
+				<tag name="schema">return: Dictionary with ok, value, issues, issue_count, and error.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="make_resource_policy">
+			<signature>static func make_resource_policy() -&gt; GFSafeResourceCodecPolicy:</signature>
+			<description>创建允许 Resource 基类的策略。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">新策略。</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

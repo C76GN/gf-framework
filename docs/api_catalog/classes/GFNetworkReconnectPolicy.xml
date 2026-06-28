@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFNetworkReconnectPolicy" path="addons/gf/extensions/network/session/gf_network_reconnect_policy.gd" module="extensions/network" extends="RefCounted" classDigest="a421e2b4c5f2b7e19081f9525b5841e1316f24009ac6b2dbde14f330fa4224d0">
+<class name="GFNetworkReconnectPolicy" path="addons/gf/extensions/network/session/gf_network_reconnect_policy.gd" module="extensions/network" extends="RefCounted" classDigest="44b974432553041811cb938d07afbd820a4bf504044008377b793d47903b9f90">
 	<description>GFNetworkReconnectPolicy: 通用重连退避策略。
 记录重连尝试次数，并按预设延迟序列返回下一次等待时间。它不依赖具体网络后端。</description>
 	<tags>
@@ -63,6 +63,15 @@
 			<description>记录一次成功并清空尝试计数。</description>
 			<tags>
 				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="method" name="set_jitter_seed">
+			<signature>func set_jitter_seed(seed_value: int) -&gt; void:</signature>
+			<description>设置 jitter 使用的确定性随机种子。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">seed_value: 初始种子；0 会映射到 GFDeterministicRandom 的稳定默认种子。</tag>
+				<tag name="since">6.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_attempt_count">

@@ -85,6 +85,10 @@ var plan := GFContentPackageExportPlan.from_manifest(manifest, {
 var report := plan.get_validation_report()
 ```
 
+需要构建、安装或缓存预检查时，可以额外调用 `get_artifact_report()`。该报告会按导出条目读取本地源文件，输出 `size_bytes`、可选 `sha256`、总大小、缺失/不可读计数，并可校验条目 metadata 中的 `expected_sha256`、`expected_size` 或 `expected_size_bytes`。它仍然只生成报告，不联网、不下载、不签名，也不决定内容启用策略。
+
+需要把导出计划、artifact 报告和目标环境要求合成一份预检结果时，可以调用 `get_preflight_report()`。调用方传入 `GFCompatibilityProfile`，再通过 `minimum_godot_version`、`minimum_framework_version`、`required_platforms` 或 `required_features` 声明显式约束；GF 只合并报告，不决定内容包是否应该下载、安装或启用。
+
 项目可以把这份计划交给自己的构建脚本、编辑器面板或 CI 流程继续处理。需要下载、签名、平台上传或工作坊发布时，应在项目工具或独立插件中完成。
 
 ## 使用边界

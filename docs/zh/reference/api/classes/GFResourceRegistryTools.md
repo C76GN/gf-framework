@@ -209,6 +209,7 @@ static func is_resource_path(path: String, extensions: PackedStringArray = RESOU
 ### `scan_resource_paths`
 
 - API：`public`
+- 首次版本：`3.23.0`
 
 ```gdscript
 static func scan_resource_paths(root_path: String = "res://", options: Dictionary = {}) -> PackedStringArray:
@@ -221,13 +222,13 @@ static func scan_resource_paths(root_path: String = "res://", options: Dictionar
 | 名称 | 说明 |
 |---|---|
 | `root_path` | 扫描起点，通常是 res:// 下的目录。 |
-| `options` | 可选项，支持 recursive、include_addons、excluded_paths、extensions、include_hidden、include_import_sidecars、max_scan_depth 与 max_resource_paths。 |
+| `options` | 可选项，支持 recursive、include_addons、excluded_paths、extensions、include_patterns、exclude_patterns、pattern_base_path、include_hidden、include_import_sidecars、max_scan_depth 与 max_resource_paths。 |
 
 返回：按字典序排序的资源路径。
 
 结构：
 
-- `options`: Dictionary，可包含 recursive、include_addons、excluded_paths、extensions、include_hidden、include_import_sidecars、max_scan_depth 和 max_resource_paths 字段。
+- `options`: Dictionary，可包含 recursive、include_addons、excluded_paths、extensions、include_patterns、exclude_patterns、pattern_base_path、include_hidden、include_import_sidecars、max_scan_depth 和 max_resource_paths 字段。
 
 <a id="member-gfresourceregistrytools-methods-create_registry_from_paths"></a>
 

@@ -132,6 +132,7 @@ var last_run_report: Dictionary = {}
 var _cancel_requested: bool = false
 var _architecture_ref: WeakRef = null
 var _current_step: Variant = null
+var _last_wait_result: Dictionary = {}
 
 
 # --- Godot 生命周期方法 ---
@@ -186,6 +187,7 @@ func run(p_steps: Array = []) -> void:
 	sequence_started.emit()
 
 	for index: int in range(run_steps.size()):
+		_last_wait_result.clear()
 		if _cancel_requested:
 			break
 
@@ -222,8 +224,9 @@ func run(p_steps: Array = []) -> void:
 
 	_current_step = null
 	var rolled_back: bool = false
+	var rollback_errors: Array[Dictionary] = []
 	if failed and stop_on_error and rollback_on_failure:
-		await _rollback_steps(completed_steps)
+		rollback_errors = await _rollback_steps(completed_steps)
 		rolled_back = true
 	is_running = false
 
@@ -234,6 +237,8 @@ func run(p_steps: Array = []) -> void:
 		"error": failed_error,
 		"succeeded": completed_steps.size(),
 		"rolled_back": rolled_back,
+		"rollback_failed": not rollback_errors.is_empty(),
+		"rollback_errors": rollback_errors,
 		"results": results,
 	}
 	if _cancel_requested:
@@ -304,7 +309,7 @@ func _execute_step(step: Variant) -> Variant:
 		var callable: Callable = step
 		if callable.is_valid():
 			return callable.call()
-	return null
+	return _make_unsupported_step_result(step)
 
 
 func _cancel_current_step() -> void:
@@ -359,15 +364,31 @@ func _get_step_error(result: Variant) -> String:
 
 
 func _make_step_report(index: int, ok: bool, error: String, result: Variant) -> Dictionary:
-	return {
+	var report: Dictionary = {
 		"index": index,
 		"ok": ok,
 		"error": error,
 		"result": result,
 	}
+	if not _last_wait_result.is_empty():
+		report["wait_result"] = _last_wait_result.duplicate(true)
+		report["wait_status"] = _get_last_wait_status()
+		report["wait_completed"] = GFVariantData.get_option_bool(_last_wait_result, "completed")
+	return report
 
 
-func _rollback_steps(completed_steps: Array) -> void:
+func _make_unsupported_step_result(step: Variant) -> Dictionary:
+	return {
+		"ok": false,
+		"status": "failed",
+		"error": "unsupported_step",
+		"type": type_string(typeof(step)),
+	}
+
+
+func _rollback_steps(completed_steps: Array) -> Array[Dictionary]:
+	var rollback_errors: Array[Dictionary] = []
+	var previous_wait_result: Dictionary = _last_wait_result.duplicate(true)
 	for index: int in range(completed_steps.size() - 1, -1, -1):
 		var step: Object = _get_valid_step_object(completed_steps[index])
 		if step == null or not step.has_method("undo"):
@@ -376,7 +397,20 @@ func _rollback_steps(completed_steps: Array) -> void:
 		var result: Variant = step.call("undo")
 		if result is Signal:
 			var result_signal: Signal = result
-			await _await_signal_safely(result_signal)
+			result = await _await_signal_result_safely(result_signal)
+		var step_error: String = _get_step_error(result)
+		if not step_error.is_empty():
+			var rollback_report: Dictionary = {
+				"index": index,
+				"error": step_error,
+				"result": result,
+			}
+			if not _last_wait_result.is_empty():
+				rollback_report["wait_result"] = _last_wait_result.duplicate(true)
+				rollback_report["wait_status"] = _get_last_wait_status()
+			rollback_errors.append(rollback_report)
+	_last_wait_result = previous_wait_result
+	return rollback_errors
 
 
 func _inject_step(step: Object) -> void:
@@ -403,17 +437,6 @@ func _get_valid_step_object(step: Variant) -> Object:
 	return _INSTANCE_GUARD._get_live_object(step)
 
 
-func _await_signal_safely(result_signal: Signal) -> void:
-	await _GF_ASYNC_WAIT_SUPPORT.await_signal_safely(
-		result_signal,
-		_should_continue_waiting,
-		_get_time_utility(),
-		signal_timeout_seconds,
-		signal_timeout_respects_time_scale,
-		"[GFCommandSequence] 等待 Signal 超时，序列将继续执行后续步骤。"
-	)
-
-
 func _await_signal_result_safely(result_signal: Signal) -> Variant:
 	var wait_result: Dictionary = await _GF_ASYNC_WAIT_SUPPORT.await_signal_payload_safely(
 		result_signal,
@@ -423,9 +446,21 @@ func _await_signal_result_safely(result_signal: Signal) -> Variant:
 		signal_timeout_respects_time_scale,
 		"[GFCommandSequence] 等待 Signal 超时，序列将继续执行后续步骤。"
 	)
+	_last_wait_result = wait_result.duplicate(true)
 	if not GFVariantData.get_option_bool(wait_result, "completed"):
 		return null
 	return _normalize_signal_result(GFVariantData.get_option_array(wait_result, "args"))
+
+
+func _get_last_wait_status() -> StringName:
+	var status: StringName = GFVariantData.get_option_string_name(_last_wait_result, "status")
+	if status != &"":
+		return status
+	if GFVariantData.get_option_bool(_last_wait_result, "completed"):
+		return GFAsyncWaitUtility.STATUS_COMPLETED
+	if _cancel_requested:
+		return GFAsyncWaitUtility.STATUS_CANCELLED
+	return GFAsyncWaitUtility.STATUS_TIMEOUT
 
 
 func _normalize_signal_result(args: Variant) -> Variant:

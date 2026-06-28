@@ -25,6 +25,7 @@
 | 方法 | [`get_entries`](#member-gfimportplan-methods-get_entries) | `func get_entries() -> Array[Dictionary]:` |
 | 方法 | [`get_source_traces`](#member-gfimportplan-methods-get_source_traces) | `func get_source_traces() -> Array[Dictionary]:` |
 | 方法 | [`get_validation_report`](#member-gfimportplan-methods-get_validation_report) | `func get_validation_report(options: Dictionary = {}) -> Dictionary:` |
+| 方法 | [`get_operation_summary`](#member-gfimportplan-methods-get_operation_summary) | `func get_operation_summary(options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`get_repair_report`](#member-gfimportplan-methods-get_repair_report) | `func get_repair_report() -> Dictionary:` |
 | 方法 | [`to_dict`](#member-gfimportplan-methods-to_dict) | `func to_dict() -> Dictionary:` |
 | 方法 | [`apply_dict`](#member-gfimportplan-methods-apply_dict) | `func apply_dict(data: Dictionary) -> void:` |
@@ -211,8 +212,34 @@ func get_validation_report(options: Dictionary = {}) -> Dictionary:
 
 结构：
 
-- `options`: Dictionary，可包含 check_source_exists、target_root 和 allow_empty_target。
-- `return`: GFValidationReportDictionary.finalize_report() output with entry_count and source_traces.
+- `options`: Dictionary，可包含 check_source_exists、target_root、allow_empty_target、check_duplicate_targets 和 include_skip_targets。
+- `return`: GFValidationReportDictionary.finalize_report() output with entry_count, source_traces, and operation_summary.
+
+<a id="member-gfimportplan-methods-get_operation_summary"></a>
+
+### `get_operation_summary`
+
+- API：`public`
+- 首次版本：`6.0.0`
+
+```gdscript
+func get_operation_summary(options: Dictionary = {}) -> Dictionary:
+```
+
+生成导入计划摘要。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `options` | 摘要选项，include_skip_targets=true 时把 skip 条目纳入重复目标统计。 |
+
+返回：摘要字典。
+
+结构：
+
+- `options`: Dictionary import plan summary options.
+- `return`: Dictionary with entry_count, actionable_entry_count, skipped_entry_count, counts_by_operation, counts_by_source_format, counts_by_target_format, missing_target_count, duplicate_targets, and metadata.
 
 <a id="member-gfimportplan-methods-get_repair_report"></a>
 

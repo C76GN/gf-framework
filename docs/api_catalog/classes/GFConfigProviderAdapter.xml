@@ -1,0 +1,178 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFConfigProviderAdapter" path="addons/gf/standard/utilities/config/gf_config_provider_adapter.gd" module="standard" extends="GFConfigProvider" classDigest="6b2bac7cc94eea65c4cd90841a5f67e97a5ee29411eedaa034eac74fc08688e1">
+	<description>GFConfigProviderAdapter: 通用配置表 Provider 适配器。
+用于把项目自己的生成表对象、字典表、数组表或懒加载 Callable 接入 GFConfigProvider。
+适配器只负责统一查询协议、懒加载缓存和诊断报告，不绑定具体导表工具、文件格式或业务字段。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_service</tag>
+		<tag name="since">7.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants>
+		<member kind="const" name="STATUS_REGISTERED">
+			<signature>const STATUS_REGISTERED: StringName = &amp;"registered"</signature>
+			<description>表源已经注册。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_LOADED">
+			<signature>const STATUS_LOADED: StringName = &amp;"loaded"</signature>
+			<description>表源已经加载。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_MISSING">
+			<signature>const STATUS_MISSING: StringName = &amp;"missing"</signature>
+			<description>表源不存在。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_FAILED">
+			<signature>const STATUS_FAILED: StringName = &amp;"failed"</signature>
+			<description>表源加载失败。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties />
+	<methods>
+		<member kind="method" name="register_table_source">
+			<signature>func register_table_source(table_name: StringName, source: Variant, options: Dictionary = {}) -&gt; bool:</signature>
+			<description>注册一个配置表源。
+source 可以是 Array、Dictionary、自定义 Object 或 Callable。Callable 会在首次查询时以
+`(table_name: StringName, metadata: Dictionary)` 调用，并返回实际表数据。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">table_name: 表名。</tag>
+				<tag name="param">source: 表源。</tag>
+				<tag name="param">options: 注册选项。</tag>
+				<tag name="return">注册成功返回 true。</tag>
+				<tag name="schema">source: Variant，支持 Array、Dictionary、Object 或 Callable；Object 可通过 table_method/record_method 适配。</tag>
+				<tag name="schema">options: Dictionary，可包含 schema: GFConfigTableSchema、id_field: StringName/String、table_method: StringName/String、record_method: StringName/String、cache: bool、duplicate_values: bool 和 metadata: Dictionary。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="unregister_table_source">
+			<signature>func unregister_table_source(table_name: StringName) -&gt; bool:</signature>
+			<description>注销一个配置表源。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">table_name: 表名。</tag>
+				<tag name="return">找到并注销时返回 true。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="clear_table_sources">
+			<signature>func clear_table_sources() -&gt; void:</signature>
+			<description>清空所有表源、缓存和 schema。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="has_table_source">
+			<signature>func has_table_source(table_name: StringName) -&gt; bool:</signature>
+			<description>检查是否注册了表源。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">table_name: 表名。</tag>
+				<tag name="return">已注册返回 true。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_table_ids">
+			<signature>func get_table_ids() -&gt; PackedStringArray:</signature>
+			<description>获取已注册表名。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">排序后的表名列表。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="preload_table">
+			<signature>func preload_table(table_name: StringName) -&gt; Dictionary:</signature>
+			<description>预加载指定表源并返回加载报告。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">table_name: 表名。</tag>
+				<tag name="return">加载报告。</tag>
+				<tag name="schema">return: Dictionary，包含 ok、status、table_name、loaded、record_count、cached 和 error。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="clear_table_cache">
+			<signature>func clear_table_cache(table_name: StringName) -&gt; bool:</signature>
+			<description>清理指定表的懒加载缓存。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">table_name: 表名。</tag>
+				<tag name="return">找到并清理缓存时返回 true。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="clear_cache">
+			<signature>func clear_cache() -&gt; void:</signature>
+			<description>清理全部懒加载缓存。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_record">
+			<signature>func get_record(table_name: StringName, record_id: Variant) -&gt; Variant:</signature>
+			<description>根据表名和 ID 获取单条记录。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">table_name: 表名。</tag>
+				<tag name="param">record_id: 记录 ID。</tag>
+				<tag name="return">记录数据；未命中时返回 null。</tag>
+				<tag name="schema">record_id: Variant，项目配置表使用的记录键。</tag>
+				<tag name="schema">return: Variant，通常为 Dictionary 或项目自定义记录对象。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_table">
+			<signature>func get_table(table_name: StringName) -&gt; Variant:</signature>
+			<description>根据表名获取整张表数据。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">table_name: 表名。</tag>
+				<tag name="return">表数据；未命中时返回 null。</tag>
+				<tag name="schema">return: Variant，通常为 Array、Dictionary 或项目自定义表对象。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_load_report">
+			<signature>func get_load_report(table_name: StringName) -&gt; Dictionary:</signature>
+			<description>获取指定表的最近加载报告。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">table_name: 表名。</tag>
+				<tag name="return">加载报告。</tag>
+				<tag name="schema">return: Dictionary，包含 ok、status、table_name、loaded、record_count、cached 和 error。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_debug_snapshot">
+			<signature>func get_debug_snapshot() -&gt; Dictionary:</signature>
+			<description>获取适配器调试快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">调试快照。</tag>
+				<tag name="schema">return: Dictionary，包含 table_count、loaded_count、table_ids、loaded_table_ids 和 load_reports。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

@@ -1,6 +1,6 @@
 # 逻辑空间查询与相关扩展
 
-标准库提供纯逻辑四叉树用于轻量空间查询，也提供少量不绑定玩法语义的物理查询辅助；流程、任务和行为树能力位于对应 GF 内置扩展页面。
+标准库提供纯逻辑空间查询工具用于轻量范围检索，也提供少量不绑定玩法语义的物理查询辅助；流程、任务和行为树能力位于对应 GF 内置扩展页面。
 
 ## 物理多命中射线 (`GFPhysicsQueryUtility`)
 
@@ -50,6 +50,32 @@ quad_tree.remove(1001)
 `query_rect()` 返回与查询矩形相交的实体 ID，`query_radius()` 会先按圆的外接矩形找候选，再按矩形到圆心的最近点做二次过滤。`query_point()` 适合点击、悬停或逻辑拾取；默认先用实体 AABB 粗筛，再执行项目通过 `set_entity_hit_test()` 或 `insert_with_hit_test()` 注册的精确命中测试。命中测试只接收 `(entity_id, point, rect)`，GF 不规定形状类型、节点来源或业务含义。需要只看 AABB 粗筛结果时，可传入 `query_point(point, false)`。
 
 四叉树会归一化负尺寸矩形、限制无效深度和容量，并在缺少根节点时惰性重建；负半径查询直接返回空数组。重复 `insert()` 同一个 `entity_id` 会替换旧矩形，`update()` 会保留已注册的命中测试，`compact()` 可在大量移动或删除后显式重建节点结构。它不会替代 Godot 物理检测，也不会自动跟踪节点移动；实体离开世界边界、跨多个象限或需要精确形状判定时，项目层需要继续维护实体表和命中测试。
+
+## 查询策略 facade
+
+当项目想先写稳定查询 API，再按实体数量切换具体索引时，可以使用 `GFSpatialQueryIndex2D` 或 `GFSpatialQueryIndex3D`。2D facade 在 `linear` 与 `quadtree` 之间切换；3D facade 在 `linear` 与 `spatial_hash` 之间切换：
+
+```gdscript
+var index_2d := GFSpatialQueryIndex2D.new()
+index_2d.configure(Rect2(Vector2.ZERO, Vector2(4096, 4096)), GFSpatialQueryIndex2D.STRATEGY_AUTO)
+index_2d.upsert(1001, Rect2(Vector2(128, 256), Vector2(32, 32)), {
+	"team": "blue",
+})
+
+var hits := index_2d.query_records_radius(Vector2(160, 260), 96.0)
+```
+
+```gdscript
+var index_3d := GFSpatialQueryIndex3D.new()
+index_3d.configure(GFSpatialQueryIndex3D.STRATEGY_AUTO, { "cell_size": 4.0 })
+index_3d.upsert(enemy_id, AABB(Vector3(0, 0, 0), Vector3.ONE * 2.0))
+
+var nearby := index_3d.query_records_radius(Vector3.ZERO, 8.0)
+```
+
+facade 只输出实体 ID、实体值和调用方 metadata。阵营过滤、可见性、伤害、交互派发和节点生命周期仍由项目或对应扩展处理。小集合可以强制 `STRATEGY_LINEAR`，需要稳定调试索引时可读取 `get_debug_snapshot()` 查看当前实际策略。
+
+3D facade 和底层 `GFSpatialHash3D` 的实体键只接受 `Object`、非空 `StringName`、非空 `String` 或 `int`。`Array`、`Dictionary` 等可变复合值会被拒绝，避免索引键在插入后被调用方修改而导致删除、更新和查询结果不可预测。AABB 覆盖格子时使用半开最大边界，恰好落在格子边界的盒子不会额外占用相邻格。
 
 ---
 

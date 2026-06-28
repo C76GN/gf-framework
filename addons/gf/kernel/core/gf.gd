@@ -612,6 +612,53 @@ func configure_event_debugging(
 	if arch != null:
 		arch.configure_event_debugging(max_dispatch_depth, trace_enabled, max_trace_entries)
 
+## 获取事件系统诊断统计。
+## [br]
+## @api public
+## [br]
+## @since 7.0.0
+## [br]
+## @return 事件系统诊断统计。
+## [br]
+## @schema return: Dictionary produced by GFTypeEventSystem.get_debug_stats().
+func get_event_debug_stats() -> Dictionary:
+	var arch: GFArchitecture = _get_architecture_or_null("get_event_debug_stats")
+	if arch == null:
+		return {}
+	return arch.get_event_debug_stats()
+
+## 获取事件监听器诊断明细。
+## [br]
+## @api public
+## [br]
+## @since 7.0.0
+## [br]
+## @param options: 诊断选项，支持 include_entries。
+## [br]
+## @schema options: Dictionary，可包含 include_entries。
+## [br]
+## @return 监听器诊断报告。
+## [br]
+## @schema return: Dictionary produced by GFTypeEventSystem.get_listener_diagnostics().
+func get_event_listener_diagnostics(options: Dictionary = {}) -> Dictionary:
+	var arch: GFArchitecture = _get_architecture_or_null("get_event_listener_diagnostics")
+	if arch == null:
+		return {}
+	return arch.get_event_listener_diagnostics(options)
+
+## 清理 owner 已释放的事件监听器。
+## [br]
+## @api public
+## [br]
+## @since 7.0.0
+## [br]
+## @return 本次立即移除或排队清理的监听器数量。
+func compact_event_listeners() -> int:
+	var arch: GFArchitecture = _get_architecture_or_null("compact_event_listeners")
+	if arch == null:
+		return 0
+	return arch.compact_event_listeners()
+
 ## 获取最近事件派发追踪条目。
 ## [br]
 ## @api public

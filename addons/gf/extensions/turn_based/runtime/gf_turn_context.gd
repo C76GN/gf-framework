@@ -28,11 +28,6 @@ var actions: Array[GFTurnAction] = []
 ## @api public
 var current_actor: Object = null
 
-## 当前回合索引。
-## [br]
-## @api public
-var turn_index: int = 0
-
 ## 当前轮次索引。
 ## [br]
 ## @api public
@@ -54,7 +49,7 @@ var metadata: Dictionary = {}
 ## [br]
 ## @param actor: 参与者对象。
 func add_actor(actor: Object) -> void:
-	if actor == null or actors.has(actor):
+	if actor == null or not is_instance_valid(actor) or actors.has(actor):
 		return
 	actors.append(actor)
 
@@ -95,7 +90,7 @@ func clear_actions() -> void:
 ## [br]
 ## @schema return: Variant read from get_turn_value(), object property access, or fallback.
 func get_actor_value(actor: Object, key: StringName, fallback: Variant = null) -> Variant:
-	if actor == null:
+	if actor == null or not is_instance_valid(actor):
 		return fallback
 	if actor.has_method("get_turn_value"):
 		return actor.call("get_turn_value", key, fallback)

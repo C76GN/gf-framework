@@ -62,6 +62,7 @@ var value: Variant:
 var _value: Variant
 var _node_bindings: Array[Dictionary] = []
 var _owned_value_connections: Array[Callable] = []
+var _subscription_bindings: Array[Dictionary] = []
 
 
 # --- Godot 生命周期方法 ---
@@ -111,7 +112,7 @@ func set_value(new_value: Variant) -> void:
 		return
 	var old_value: Variant = _value
 	_value = new_value
-	value_changed.emit(old_value, new_value)
+	_emit_value_changed(old_value, new_value)
 
 
 ## 订阅属性变化，并返回取消订阅函数。
@@ -129,11 +130,19 @@ func subscribe(callback: Callable, emit_current: bool = false) -> Callable:
 	if not callback.is_valid():
 		push_error("[GFBindableProperty] subscribe 失败：callback 无效。")
 		return Callable()
-	if not value_changed.is_connected(callback):
-		var _connect_result_133: Variant = value_changed.connect(callback)
+	var signal_callback: Callable = _find_subscription_signal_callable(callback)
+	if not signal_callback.is_valid():
+		signal_callback = func(old_value: Variant, new_value: Variant) -> void:
+			if callback.is_valid():
+				callback.call(_copy_signal_payload(old_value), _copy_signal_payload(new_value))
+		var _connect_result_133: Variant = value_changed.connect(signal_callback)
+		_subscription_bindings.append({
+			"callback": callback,
+			"signal_callable": signal_callback,
+		})
 	if emit_current:
-		callback.call(_value, _value)
-	return _make_unsubscribe_callable(callback)
+		callback.call(_copy_signal_payload(_value), _copy_signal_payload(_value))
+	return _make_unsubscribe_callable(signal_callback)
 
 
 ## 强制发出 value_changed 信号。
@@ -141,7 +150,7 @@ func subscribe(callback: Callable, emit_current: bool = false) -> Callable:
 ## [br]
 ## @api public
 func force_emit() -> void:
-	value_changed.emit(_value, _value)
+	_emit_value_changed(_value, _value)
 
 
 ## 通过回调修改当前值并强制广播。
@@ -365,6 +374,7 @@ func disconnect_all_subscribers() -> void:
 
 	_node_bindings.clear()
 	_owned_value_connections.clear()
+	_subscription_bindings.clear()
 
 
 ## 绑定信号到一个 Node 的 Callable。当该 Node 退出场景树时，自动断开连接。
@@ -407,6 +417,14 @@ func bind_to(node: Node, callable: Callable) -> void:
 # --- 私有/辅助方法 ---
 
 
+func _emit_value_changed(old_value: Variant, new_value: Variant) -> void:
+	value_changed.emit(_copy_signal_payload(old_value), _copy_signal_payload(new_value))
+
+
+func _copy_signal_payload(source_value: Variant) -> Variant:
+	return _GF_VARIANT_ACCESS_SCRIPT.duplicate_collection(source_value, true)
+
+
 func _on_node_exited(node: Node, callable: Callable) -> void:
 	_disconnect_node_binding(node, callable)
 	_release_value_connection_if_unbound(callable)
@@ -445,6 +463,21 @@ func _make_unsubscribe_callable(callback: Callable) -> Callable:
 		var property: GFBindableProperty = raw_property
 		if property.value_changed.is_connected(callback):
 			property.value_changed.disconnect(callback)
+		property._remove_subscription_binding_by_signal_callable(callback)
+
+
+func _find_subscription_signal_callable(callback: Callable) -> Callable:
+	for binding: Dictionary in _subscription_bindings:
+		if _get_binding_callable(binding, "callback") == callback:
+			return _get_binding_callable(binding, "signal_callable")
+	return Callable()
+
+
+func _remove_subscription_binding_by_signal_callable(signal_callable: Callable) -> void:
+	for i: int in range(_subscription_bindings.size() - 1, -1, -1):
+		if _get_binding_callable(_subscription_bindings[i], "signal_callable") == signal_callable:
+			_subscription_bindings.remove_at(i)
+			return
 
 
 func _find_node_binding_index(node: Node, callable: Callable) -> int:

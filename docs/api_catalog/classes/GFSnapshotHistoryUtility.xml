@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSnapshotHistoryUtility" path="addons/gf/standard/utilities/history/gf_snapshot_history_utility.gd" module="standard" extends="GFUtility" classDigest="840dc85d3726f7dbce4dab219f9610e6d55371a84b1a12432b73a2024fd79e61">
+<class name="GFSnapshotHistoryUtility" path="addons/gf/standard/utilities/history/gf_snapshot_history_utility.gd" module="standard" extends="GFUtility" classDigest="37a06845537f36a75dfba23473f03faf26f4c8bdbe63eb6387fa10cd5e9b3e93">
 	<description>GFSnapshotHistoryUtility: 通用快照历史与回滚工具。
 管理一组有序快照，支持捕获、前后跳转、按 ID 恢复和调试快照。
 默认会使用注入架构的 `get_global_snapshot()` / `restore_global_snapshot()`，
@@ -101,8 +101,9 @@
 				<tag name="param">data: 快照数据。</tag>
 				<tag name="param">metadata: 快照元数据。</tag>
 				<tag name="return">快照 ID。</tag>
-				<tag name="schema">data: Variant snapshot payload; Array and Dictionary values are deep-copied.</tag>
+				<tag name="schema">data: Pure Variant snapshot payload; Object and Resource references are rejected.</tag>
 				<tag name="schema">metadata: Dictionary[String, Variant] copied into the snapshot record.</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="step">

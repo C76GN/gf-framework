@@ -27,7 +27,7 @@
 | 方法 | [`clear_decisions`](#member-gfdecisionset-methods-clear_decisions) | `func clear_decisions() -> void:` |
 | 方法 | [`score_all`](#member-gfdecisionset-methods-score_all) | `func score_all(context: GFDecisionContext) -> Array[GFDecisionScore]:` |
 | 方法 | [`select_best`](#member-gfdecisionset-methods-select_best) | `func select_best(context: GFDecisionContext) -> GFDecisionScore:` |
-| 方法 | [`get_debug_snapshot`](#member-gfdecisionset-methods-get_debug_snapshot) | `func get_debug_snapshot(context: GFDecisionContext) -> Dictionary:` |
+| 方法 | [`get_debug_snapshot`](#member-gfdecisionset-methods-get_debug_snapshot) | `func get_debug_snapshot(context: GFDecisionContext = null, scores: Array[GFDecisionScore] = []) -> Dictionary:` |
 
 ## 属性
 
@@ -242,9 +242,10 @@ func select_best(context: GFDecisionContext) -> GFDecisionScore:
 ### `get_debug_snapshot`
 
 - API：`public`
+- 首次版本：`7.0.0`
 
 ```gdscript
-func get_debug_snapshot(context: GFDecisionContext) -> Dictionary:
+func get_debug_snapshot(context: GFDecisionContext = null, scores: Array[GFDecisionScore] = []) -> Dictionary:
 ```
 
 获取集合调试快照。
@@ -253,10 +254,12 @@ func get_debug_snapshot(context: GFDecisionContext) -> Dictionary:
 
 | 名称 | 说明 |
 |---|---|
-| `context` | 决策上下文。 |
+| `context` | 决策上下文；scores 为空时用于现场评分。 |
+| `scores` | 已计算的评分快照；传入时不会重新评分。 |
 
 返回：调试快照字典。
 
 结构：
 
 - `return`: 包含 decision_set_id、decision_count、minimum_score、scores 和 metadata 字段的 Dictionary。
+- `scores`: Array[GFDecisionScore]，可复用 score_all() 的结果以避免调试快照二次评分。

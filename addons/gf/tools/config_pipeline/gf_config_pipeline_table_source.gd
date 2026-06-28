@@ -35,6 +35,13 @@ const FORMAT_CSV: StringName = &"csv"
 ## @since 5.2.0
 const FORMAT_JSON: StringName = &"json"
 
+## Godot ConfigFile 输入格式。
+## [br]
+## @api public
+## [br]
+## @since 7.0.0
+const FORMAT_CONFIG_FILE: StringName = &"config_file"
+
 ## XLSX 输入格式。
 ## [br]
 ## @api public
@@ -87,13 +94,13 @@ const FORMAT_XLSX: StringName = &"xlsx"
 ## @since 5.2.0
 @export var coerce_records: bool = true
 
-## 传给解析器的选项，例如 CSV delimiter、trim_cells、skip_empty_lines，或 XLSX sheet_name、sheet_index、header_row。
+## 传给解析器的选项，例如 CSV delimiter、trim_cells、skip_empty_lines，ConfigFile section_field、include_empty_sections，或 XLSX sheet_name、sheet_index、header_row。
 ## [br]
 ## @api public
 ## [br]
 ## @since 5.2.0
 ## [br]
-## @schema parse_options: Dictionary，可包含 GFConfigTableImporter 支持的 CSV / JSON 解析选项，以及 XLSX sheet_name、sheet_index、header_row、trim_cells、skip_empty_lines 和 reject_duplicate_headers。
+## @schema parse_options: Dictionary，可包含 GFConfigTableImporter 支持的 CSV / JSON / ConfigFile 解析选项，以及 XLSX sheet_name、sheet_index、header_row、trim_cells、skip_empty_lines 和 reject_duplicate_headers。
 @export var parse_options: Dictionary = {}
 
 ## schema 推导与表头声明选项，例如 id_field、allow_extra_fields、required_if_present_in_all_rows、typed_headers 或 typed_header_type_row。
@@ -138,7 +145,7 @@ func get_table_key() -> StringName:
 ## [br]
 ## @since 5.2.0
 ## [br]
-## @return: FORMAT_CSV、FORMAT_JSON、FORMAT_AUTO 或调用方设置的自定义格式名。
+## @return: FORMAT_CSV、FORMAT_JSON、FORMAT_CONFIG_FILE、FORMAT_AUTO 或调用方设置的自定义格式名。
 func get_resolved_format() -> StringName:
 	if source_format != &"" and source_format != FORMAT_AUTO:
 		return source_format
@@ -205,6 +212,8 @@ func _format_from_path(path: String) -> StringName:
 		return FORMAT_CSV
 	if extension == "json":
 		return FORMAT_JSON
+	if extension == "cfg" or extension == "ini":
+		return FORMAT_CONFIG_FILE
 	if extension == "xlsx":
 		return FORMAT_XLSX
 	return FORMAT_AUTO

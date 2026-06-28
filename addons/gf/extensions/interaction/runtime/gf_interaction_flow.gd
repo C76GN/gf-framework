@@ -124,7 +124,7 @@ func _apply_context(instance: Object) -> void:
 
 	if instance.has_method("set_interaction_context"):
 		instance.call("set_interaction_context", context)
-	elif "interaction_context" in instance:
+	elif _has_property(instance, &"interaction_context"):
 		instance.set("interaction_context", context)
 
 
@@ -141,3 +141,10 @@ func _get_architecture_value(value: Variant) -> GFArchitecture:
 		var architecture: GFArchitecture = value
 		return architecture
 	return null
+
+
+func _has_property(instance: Object, property_name: StringName) -> bool:
+	for property_info: Dictionary in instance.get_property_list():
+		if StringName(GFVariantData.get_option_string(property_info, "name")) == property_name:
+			return true
+	return false

@@ -98,7 +98,11 @@ var signal_timeout_respects_time_scale: bool = true
 # --- 私有变量 ---
 
 var _flow_serial: int = 0
+var _is_advancing_phase: bool = false
 var _is_resolving_actions: bool = false
+var _next_action_order: int = 0
+var _action_order_by_instance_id: Dictionary = {}
+var _restore_pending_actions_on_cancel: bool = false
 
 
 # --- 公共方法 ---
@@ -118,7 +122,12 @@ func set_context(p_context: GFTurnContext) -> void:
 ## [br]
 ## @param p_phases: 新阶段列表。
 func set_phases(p_phases: Array[GFTurnPhase]) -> void:
-	phases = p_phases.duplicate()
+	phases.clear()
+	for phase: GFTurnPhase in p_phases:
+		if phase == null:
+			push_warning("[GFTurnFlowSystem] set_phases 跳过空阶段。")
+			continue
+		phases.append(phase)
 
 
 ## 开始流程。
@@ -129,9 +138,9 @@ func set_phases(p_phases: Array[GFTurnPhase]) -> void:
 func start(reset_indices: bool = true) -> void:
 	if reset_indices:
 		current_phase_index = -1
-		context.turn_index = 0
 		context.round_index = 0
 	_flow_serial += 1
+	_restore_pending_actions_on_cancel = false
 	is_running = true
 	flow_started.emit(context)
 
@@ -143,6 +152,7 @@ func start(reset_indices: bool = true) -> void:
 ## @param clear_actions: 是否清空待处理行动。
 func stop(clear_actions: bool = true) -> void:
 	_flow_serial += 1
+	_restore_pending_actions_on_cancel = not clear_actions
 	if clear_actions:
 		context.clear_actions()
 	is_running = false
@@ -153,24 +163,37 @@ func stop(clear_actions: bool = true) -> void:
 ## [br]
 ## @api public
 func advance_phase() -> void:
+	if _is_advancing_phase:
+		push_warning("[GFTurnFlowSystem] advance_phase 失败：阶段正在推进中。")
+		return
 	if not is_running:
 		start(false)
 	if phases.is_empty():
 		return
+	_is_advancing_phase = true
 	var flow_serial: int = _flow_serial
 
-	current_phase_index = (current_phase_index + 1) % phases.size()
-	if current_phase_index == 0:
+	var next_phase: Dictionary = _next_valid_phase()
+	if next_phase.is_empty():
+		_is_advancing_phase = false
+		return
+	current_phase_index = GFVariantData.get_option_int(next_phase, "index")
+	if GFVariantData.get_option_bool(next_phase, "wrapped"):
 		context.round_index += 1
 
 	var phase: GFTurnPhase = phases[current_phase_index]
 	if phase == null:
+		_is_advancing_phase = false
 		return
 
 	phase.reset()
 	phase_changed.emit(phase, current_phase_index)
+	if not _is_active_flow_serial(flow_serial):
+		_is_advancing_phase = false
+		return
 	phase._enter(context)
 	if not _is_active_flow_serial(flow_serial):
+		_is_advancing_phase = false
 		return
 
 	var result: Variant = phase._execute(context)
@@ -182,10 +205,12 @@ func advance_phase() -> void:
 			"[GFTurnFlowSystem] 等待阶段 Signal 超时，阶段推进已中止。"
 		)
 		if not completed or not _is_active_flow_serial(flow_serial):
+			_is_advancing_phase = false
 			return
 	if phase.auto_finish:
 		phase.finish()
 	if not _is_active_flow_serial(flow_serial):
+		_is_advancing_phase = false
 		return
 	if not phase.is_finished:
 		var completed: bool = await _await_signal_safely(
@@ -194,8 +219,10 @@ func advance_phase() -> void:
 			"[GFTurnFlowSystem] 等待阶段完成超时，阶段推进已中止。"
 		)
 		if not completed or not _is_active_flow_serial(flow_serial):
+			_is_advancing_phase = false
 			return
 	phase._exit(context)
+	_is_advancing_phase = false
 
 
 ## 加入一个行动。
@@ -206,6 +233,7 @@ func advance_phase() -> void:
 func enqueue_action(action: GFTurnAction) -> void:
 	if action == null:
 		return
+	_ensure_action_order(action)
 	context.actions.append(action)
 	action_enqueued.emit(action)
 
@@ -224,6 +252,8 @@ func resolve_actions(order_resolver: Callable = Callable()) -> void:
 	var pending_actions: Array[GFTurnAction] = context.actions.duplicate()
 	context.actions.clear()
 	_is_resolving_actions = true
+	for action: GFTurnAction in pending_actions:
+		_ensure_action_order(action)
 
 	if sort_actions_before_resolve:
 		if order_resolver.is_valid():
@@ -231,13 +261,19 @@ func resolve_actions(order_resolver: Callable = Callable()) -> void:
 		else:
 			pending_actions.sort_custom(_sort_action_desc)
 
-	for action: GFTurnAction in pending_actions:
+	var action_index: int = 0
+	while action_index < pending_actions.size():
+		var action: GFTurnAction = pending_actions[action_index]
 		if not _is_flow_serial_current(flow_serial):
+			_restore_unresolved_actions(pending_actions, action_index)
 			break
-		if action == null or action.is_cancelled:
+		if action == null or action.is_cancelled or _action_has_invalid_actor(action):
+			_forget_action_order(action)
+			action_index += 1
 			continue
 		_inject_action(action)
-		context.current_actor = action.actor
+		_sanitize_action_targets(action)
+		context.current_actor = _variant_to_valid_object(action.actor)
 		var result: Variant = action._resolve(context)
 		if result is Signal:
 			var result_signal: Signal = result
@@ -247,13 +283,22 @@ func resolve_actions(order_resolver: Callable = Callable()) -> void:
 				"[GFTurnFlowSystem] 等待行动 Signal 超时，当前行动已跳过。"
 			)
 			if not _is_flow_serial_current(flow_serial):
+				_restore_unresolved_actions(pending_actions, action_index + 1)
 				break
 			if not completed:
+				_forget_action_order(action)
+				action_index += 1
 				continue
+		if not _is_flow_serial_current(flow_serial):
+			_restore_unresolved_actions(pending_actions, action_index + 1)
+			break
 		action_resolved.emit(action)
+		_forget_action_order(action)
+		action_index += 1
 
 	context.current_actor = null
 	_is_resolving_actions = false
+	_restore_pending_actions_on_cancel = false
 
 
 # --- 私有/辅助方法 ---
@@ -261,7 +306,91 @@ func resolve_actions(order_resolver: Callable = Callable()) -> void:
 func _sort_action_desc(a: GFTurnAction, b: GFTurnAction) -> bool:
 	if a.priority != b.priority:
 		return a.priority > b.priority
-	return a.sort_value > b.sort_value
+	if a.sort_value != b.sort_value:
+		return a.sort_value > b.sort_value
+	return _get_action_order(a) < _get_action_order(b)
+
+
+func _next_valid_phase() -> Dictionary:
+	var next_index: int = current_phase_index
+	var wrapped: bool = false
+	for _step: int in range(phases.size()):
+		next_index = (next_index + 1) % phases.size()
+		if next_index == 0:
+			wrapped = true
+		var phase: GFTurnPhase = phases[next_index]
+		if phase == null:
+			push_warning("[GFTurnFlowSystem] advance_phase 跳过空阶段。")
+			continue
+		return {
+			"index": next_index,
+			"wrapped": wrapped,
+		}
+	return {}
+
+
+func _ensure_action_order(action: GFTurnAction) -> void:
+	if action == null:
+		return
+	var instance_key: int = action.get_instance_id()
+	if _action_order_by_instance_id.has(instance_key):
+		return
+	_action_order_by_instance_id[instance_key] = _next_action_order
+	_next_action_order += 1
+
+
+func _get_action_order(action: GFTurnAction) -> int:
+	if action == null:
+		return 0
+	return GFVariantData.get_option_int(_action_order_by_instance_id, action.get_instance_id(), 0)
+
+
+func _forget_action_order(action: GFTurnAction) -> void:
+	if action == null:
+		return
+	var _erased_order: bool = _action_order_by_instance_id.erase(action.get_instance_id())
+
+
+func _restore_unresolved_actions(pending_actions: Array[GFTurnAction], start_index: int) -> void:
+	if not _restore_pending_actions_on_cancel:
+		return
+	var restored: Array[GFTurnAction] = []
+	for index: int in range(start_index, pending_actions.size()):
+		var action: GFTurnAction = pending_actions[index]
+		if action == null or action.is_cancelled:
+			_forget_action_order(action)
+			continue
+		if context.actions.has(action):
+			continue
+		restored.append(action)
+	for index: int in range(restored.size() - 1, -1, -1):
+		context.actions.push_front(restored[index])
+
+
+func _action_has_invalid_actor(action: GFTurnAction) -> bool:
+	if action == null:
+		return true
+	return action.actor != null and not is_instance_valid(action.actor)
+
+
+func _sanitize_action_targets(action: GFTurnAction) -> void:
+	if action == null:
+		return
+	var valid_targets: Array[Object] = []
+	for target_value: Variant in action.targets:
+		var target: Object = _variant_to_valid_object(target_value)
+		if target == null:
+			continue
+		if not valid_targets.has(target):
+			valid_targets.append(target)
+	action.targets = valid_targets
+
+
+func _variant_to_valid_object(value: Variant) -> Object:
+	if typeof(value) != TYPE_OBJECT or not is_instance_valid(value):
+		return null
+	var object_value: Object = value
+	return object_value
 
 
 func _inject_action(action: GFTurnAction) -> void:

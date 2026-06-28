@@ -141,9 +141,11 @@ func capture(metadata: Dictionary = {}) -> int:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param data: 快照数据。
 ## [br]
-## @schema data: Variant snapshot payload; Array and Dictionary values are deep-copied.
+## @schema data: Pure Variant snapshot payload; Object and Resource references are rejected.
 ## [br]
 ## @param metadata: 快照元数据。
 ## [br]
@@ -151,6 +153,13 @@ func capture(metadata: Dictionary = {}) -> int:
 ## [br]
 ## @return 快照 ID。
 func push_snapshot(data: Variant, metadata: Dictionary = {}) -> int:
+	if not _is_snapshot_payload_allowed(data, 0):
+		push_error("[GFSnapshotHistoryUtility] push_snapshot 失败：快照数据不能包含 Object 或 Resource 引用。")
+		return 0
+	if not _is_snapshot_payload_allowed(metadata, 0):
+		push_error("[GFSnapshotHistoryUtility] push_snapshot 失败：快照元数据不能包含 Object 或 Resource 引用。")
+		return 0
+
 	if _current_index < _snapshots.size() - 1:
 		_snapshots = _snapshots.slice(0, _current_index + 1)
 
@@ -327,7 +336,7 @@ func _get_callable_option(options: Dictionary, key: String) -> Callable:
 
 func _restore_data(data: Variant) -> bool:
 	if _restore_callback.is_valid():
-		var result: Variant = _restore_callback.call(GFVariantData.duplicate_variant(data))
+		var result: Variant = _restore_callback.call(_duplicate_snapshot_payload(data))
 		return result != false
 
 	var architecture: GFArchitecture = _get_architecture_or_null()
@@ -344,8 +353,8 @@ func _make_record(snapshot_id: int, data: Variant, metadata: Dictionary) -> Dict
 	return {
 		"id": snapshot_id,
 		"created_at_unix": int(Time.get_unix_time_from_system()),
-		"metadata": metadata.duplicate(true),
-		"data": GFVariantData.duplicate_variant(data),
+		"metadata": _duplicate_snapshot_payload(metadata),
+		"data": _duplicate_snapshot_payload(data),
 	}
 
 
@@ -353,9 +362,36 @@ func _duplicate_record(record: Dictionary) -> Dictionary:
 	return {
 		"id": _get_record_id(record),
 		"created_at_unix": _get_record_created_at_unix(record),
-		"metadata": GFVariantData.duplicate_variant(_get_record_metadata(record)),
-		"data": GFVariantData.duplicate_variant(_get_record_data(record)),
+		"metadata": _duplicate_snapshot_payload(_get_record_metadata(record)),
+		"data": _duplicate_snapshot_payload(_get_record_data(record)),
 	}
+
+
+func _duplicate_snapshot_payload(value: Variant) -> Variant:
+	return GFVariantData.duplicate_variant(value, true, true)
+
+
+func _is_snapshot_payload_allowed(value: Variant, depth: int) -> bool:
+	if depth > 64:
+		return false
+	if value is Object:
+		return false
+	if typeof(value) == TYPE_CALLABLE or typeof(value) == TYPE_SIGNAL or typeof(value) == TYPE_RID:
+		return false
+	if value is Array:
+		var source_array: Array = value
+		for item: Variant in source_array:
+			if not _is_snapshot_payload_allowed(item, depth + 1):
+				return false
+		return true
+	if value is Dictionary:
+		var source_dictionary: Dictionary = value
+		for key: Variant in source_dictionary.keys():
+			if not _is_snapshot_payload_allowed(key, depth + 1):
+				return false
+			if not _is_snapshot_payload_allowed(source_dictionary[key], depth + 1):
+				return false
+	return true
 
 
 func _trim_history() -> bool:

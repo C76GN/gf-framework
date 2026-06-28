@@ -301,6 +301,19 @@ func test_diff_variant_matches_string_and_string_name_keys_by_default() -> void:
 	assert_false(_as_bool(report["changed"]), "默认应复用 GF 的 String/StringName 等价 key 语义。")
 
 
+func test_diff_variant_reports_circular_dictionary_pairs() -> void:
+	var before: Dictionary = {}
+	before["self"] = before
+	var after: Dictionary = {}
+	after["self"] = after
+
+	var report: Dictionary = GFVariantData.diff_variant(before, after, { "copy_values": false })
+	var circular_change: Dictionary = _find_change(report, "self")
+
+	assert_true(_as_bool(report["changed"]), "循环引用比较应报告诊断项而不是无限递归。")
+	assert_eq(_as_string(circular_change["kind"]), "circular_reference", "循环引用应有稳定差异类型。")
+
+
 func test_merge_metadata_is_recursive_and_copies_values() -> void:
 	var base: Dictionary = {
 		"tags": ["base"],
@@ -443,6 +456,36 @@ func test_json_compatible_codec_preserves_unsafe_int64_values() -> void:
 	assert_eq(_as_packed_int64_array(decoded["packed"]), PackedInt64Array([large_positive, large_negative]), "PackedInt64Array 中的大整数应精确往返。")
 
 
+func test_json_compatible_codec_encodes_nonfinite_float_values() -> void:
+	var source: Dictionary = {
+		"nan": NAN,
+		"positive_inf": INF,
+		"negative_inf": -INF,
+		"vector": Vector2(NAN, INF),
+		"packed": PackedFloat32Array([NAN, INF, -INF]),
+	}
+
+	var encoded: Dictionary = _as_dictionary(GFVariantJsonCodec.variant_to_json_compatible(source))
+	var json_text: String = JSON.stringify(encoded)
+	var decoded: Dictionary = _as_dictionary(GFVariantJsonCodec.json_compatible_to_variant(JSON.parse_string(json_text)))
+	var decoded_nan: float = _as_float(decoded["nan"])
+	var decoded_positive_inf: float = _as_float(decoded["positive_inf"])
+	var decoded_negative_inf: float = _as_float(decoded["negative_inf"])
+	var decoded_vector: Vector2 = _as_vector2(decoded["vector"])
+	var decoded_packed: PackedFloat32Array = _as_packed_float32_array(decoded["packed"])
+
+	assert_true(json_text.contains("\"Float\""), "非有限 float 应使用 typed marker，避免 JSON.stringify 将其替换成 null。")
+	assert_true(json_text.contains("\"NaN\""), "NaN 标记应可读且可往返。")
+	assert_true(is_nan(decoded_nan), "NaN 应可经 JSON 兼容编码往返。")
+	assert_true(is_inf(decoded_positive_inf) and decoded_positive_inf > 0.0, "正无穷应可经 JSON 兼容编码往返。")
+	assert_true(is_inf(decoded_negative_inf) and decoded_negative_inf < 0.0, "负无穷应可经 JSON 兼容编码往返。")
+	assert_true(is_nan(decoded_vector.x), "Vector2 非有限 x 分量应可往返。")
+	assert_true(is_inf(decoded_vector.y) and decoded_vector.y > 0.0, "Vector2 非有限 y 分量应可往返。")
+	assert_true(is_nan(decoded_packed[0]), "PackedFloat32Array 中的 NaN 应可往返。")
+	assert_true(is_inf(decoded_packed[1]) and decoded_packed[1] > 0.0, "PackedFloat32Array 中的正无穷应可往返。")
+	assert_true(is_inf(decoded_packed[2]) and decoded_packed[2] < 0.0, "PackedFloat32Array 中的负无穷应可往返。")
+
+
 func test_json_compatible_codec_decodes_malformed_typed_marker_values_safely() -> void:
 	var marker: Dictionary = {
 		GFVariantJsonCodec.JSON_MARKER_KEY: {
@@ -468,6 +511,20 @@ func test_json_compatible_codec_can_preserve_dictionary_keys() -> void:
 
 	assert_eq(_as_string(decoded[Vector2i(1, 2)]), "cell", "启用字典键编码时应保留非字符串键。")
 	assert_eq(_as_string(decoded[&"tag"]), "value", "StringName 字典键应恢复。")
+
+
+func test_json_compatible_codec_preserves_dictionary_keys_when_stringified_keys_collide() -> void:
+	var source: Dictionary = {
+		1: "numeric",
+		"1": "text",
+	}
+
+	var encoded: Dictionary = _as_dictionary(GFVariantJsonCodec.variant_to_json_compatible(source))
+	var decoded: Dictionary = _as_dictionary(GFVariantJsonCodec.json_compatible_to_variant(JSON.parse_string(JSON.stringify(encoded))))
+
+	assert_true(encoded.has(GFVariantJsonCodec.JSON_MARKER_KEY), "默认字典编码发现 key 字符串碰撞时应自动切换 typed entries。")
+	assert_eq(_as_string(decoded[1]), "numeric", "数字 key 应在碰撞场景下保留。")
+	assert_eq(_as_string(decoded["1"]), "text", "字符串 key 应在碰撞场景下保留。")
 
 
 func test_json_compatible_codec_marks_circular_references() -> void:
@@ -521,12 +578,12 @@ func test_json_compatible_codec_only_decodes_dedicated_variant_marker() -> void:
 
 
 func test_reference_codec_roundtrips_resource_reference() -> void:
-	var directory_path: String = "user://gf_variant_reference_codec"
+	var directory_path: String = "res://gf_variant_reference_codec.tmp"
 	var resource_path: String = directory_path.path_join("resource.tres")
 	var make_dir_error: Error = DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(directory_path))
 	assert_true(make_dir_error == OK or make_dir_error == ERR_ALREADY_EXISTS, "测试应能创建 user:// 引用目录。")
 
-	var resource: Resource = Resource.new()
+	var resource: Resource = StyleBoxFlat.new()
 	resource.resource_name = "ReferenceCodecResource"
 	assert_eq(ResourceSaver.save(resource, resource_path), OK, "测试 Resource 应能保存。")
 	var loaded_resource: Resource = ResourceLoader.load(resource_path, "", ResourceLoader.CACHE_MODE_IGNORE)
@@ -555,12 +612,12 @@ func test_reference_codec_roundtrips_resource_reference() -> void:
 
 
 func test_reference_codec_can_restrict_resource_decode_paths() -> void:
-	var directory_path: String = "user://gf_variant_reference_policy"
+	var directory_path: String = "res://gf_variant_reference_policy.tmp"
 	var resource_path: String = directory_path.path_join("resource.tres")
 	var make_dir_error: Error = DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(directory_path))
 	assert_true(make_dir_error == OK or make_dir_error == ERR_ALREADY_EXISTS, "测试应能创建 user:// 策略目录。")
 
-	var resource: Resource = Resource.new()
+	var resource: Resource = StyleBoxFlat.new()
 	resource.resource_name = "PolicyResource"
 	assert_eq(ResourceSaver.save(resource, resource_path), OK, "测试 Resource 应能保存到策略目录。")
 	var loaded_resource: Resource = ResourceLoader.load(resource_path, "", ResourceLoader.CACHE_MODE_IGNORE)
@@ -612,6 +669,42 @@ func test_reference_codec_roundtrips_node_reference_with_explicit_root() -> void
 	assert_true(GFVariantData.get_option_bool(result, "ok"), "提供 root 时应能恢复 Node 引用。")
 	assert_same(_as_node(GFVariantData.get_option_value(result, "value")), child, "Node 引用恢复结果应为同一节点。")
 	assert_false(GFVariantData.get_option_bool(missing_root_result, "ok"), "没有 root 时不应从场景树全局解析 Node。")
+
+
+func test_reference_codec_rejects_node_paths_outside_reference_root() -> void:
+	var root: Node = Node.new()
+	root.name = "ReferenceRoot"
+	add_child_autofree(root)
+	var other_root: Node = Node.new()
+	other_root.name = "OtherReferenceRoot"
+	add_child_autofree(other_root)
+	var outside_child: Node = Node.new()
+	outside_child.name = "Outside"
+	other_root.add_child(outside_child)
+
+	var parent_escape_marker: Dictionary = {
+		GFVariantReferenceCodec.REFERENCE_MARKER_KEY: {
+			GFVariantReferenceCodec.REFERENCE_VERSION_KEY: 1,
+			GFVariantReferenceCodec.REFERENCE_KIND_KEY: GFVariantReferenceCodec.REFERENCE_KIND_NODE,
+			GFVariantReferenceCodec.REFERENCE_NODE_PATH_KEY: "../OtherReferenceRoot/Outside",
+		},
+	}
+	var absolute_escape_marker: Dictionary = {
+		GFVariantReferenceCodec.REFERENCE_MARKER_KEY: {
+			GFVariantReferenceCodec.REFERENCE_VERSION_KEY: 1,
+			GFVariantReferenceCodec.REFERENCE_KIND_KEY: GFVariantReferenceCodec.REFERENCE_KIND_NODE,
+			GFVariantReferenceCodec.REFERENCE_NODE_PATH_KEY: String(outside_child.get_path()),
+		},
+	}
+	var parent_escape_result: Dictionary = GFVariantReferenceCodec.decode_reference(parent_escape_marker, {
+		GFVariantReferenceCodec.OPTION_ROOT_NODE: root,
+	})
+	var absolute_escape_result: Dictionary = GFVariantReferenceCodec.decode_reference(absolute_escape_marker, {
+		GFVariantReferenceCodec.OPTION_ROOT_NODE: root,
+	})
+
+	assert_false(GFVariantData.get_option_bool(parent_escape_result, "ok", true), "Node 引用不应允许 .. 越过 reference root。")
+	assert_false(GFVariantData.get_option_bool(absolute_escape_result, "ok", true), "Node 引用不应允许绝对路径绕过 reference root。")
 
 
 func test_reference_codec_marks_node_outside_root_as_unsupported() -> void:
@@ -774,6 +867,14 @@ func _as_packed_int64_array(value: Variant) -> PackedInt64Array:
 		var array: PackedInt64Array = value
 		return array
 	return PackedInt64Array()
+
+
+func _as_packed_float32_array(value: Variant) -> PackedFloat32Array:
+	assert_true(value is PackedFloat32Array, "测试观察值应为 PackedFloat32Array。")
+	if value is PackedFloat32Array:
+		var array: PackedFloat32Array = value
+		return array
+	return PackedFloat32Array()
 
 
 func _as_resource(value: Variant) -> Resource:

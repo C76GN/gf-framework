@@ -24,6 +24,7 @@
 ### `sort_dependency_first`
 
 - API：`public`
+- 首次版本：`4.4.0`
 
 ```gdscript
 static func sort_dependency_first(node_ids: PackedStringArray, dependency_map: Dictionary) -> Dictionary:
@@ -43,4 +44,4 @@ static func sort_dependency_first(node_ids: PackedStringArray, dependency_map: D
 结构：
 
 - `dependency_map`: Dictionary keyed by String or StringName node id, with Array or PackedStringArray dependency id values.
-- `return`: Dictionary with ok, ordered_ids, missing_dependencies, dependency_cycles, node_count, missing_dependency_count, and cycle_count.
+- `return`: Dictionary with ok, ordered_ids, missing_root_ids, missing_dependencies, dependency_cycles, node_count, missing_root_count, missing_dependency_count, and cycle_count.

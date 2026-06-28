@@ -1,0 +1,257 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFRequestHandlerRegistry" path="addons/gf/standard/common/gf_request_handler_registry.gd" module="standard" extends="RefCounted" classDigest="e0adec5dfcfe94609d2d0b23cd8427311913d539cd1b072bbd93ddbd1c29ba92">
+	<description>GFRequestHandlerRegistry: 单处理器请求调用注册表。
+用于表达 “Invoke / TryInvoke” 语义：每个 request_type 至多有一个处理器。
+多订阅广播仍应使用 GFTypeEventSystem；本注册表只负责明确的一对一请求调用契约，
+不规定请求载荷结构，也不执行业务路由策略。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_service</tag>
+		<tag name="since">7.0.0</tag>
+	</tags>
+	<signals>
+		<member kind="signal" name="handler_registered">
+			<signature>signal handler_registered(request_type: StringName, replaced: bool, metadata: Dictionary)</signature>
+			<description>handler 注册或替换时发出。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">request_type: 请求类型。</tag>
+				<tag name="param">replaced: 是否替换了旧 handler。</tag>
+				<tag name="param">metadata: 注册元数据。</tag>
+				<tag name="schema">metadata: Dictionary，调用方定义的 handler 上下文。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="signal" name="handler_unregistered">
+			<signature>signal handler_unregistered(request_type: StringName, metadata: Dictionary)</signature>
+			<description>handler 注销时发出。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">request_type: 请求类型。</tag>
+				<tag name="param">metadata: 注销元数据。</tag>
+				<tag name="schema">metadata: Dictionary，调用方定义的 handler 上下文。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="signal" name="request_invoked">
+			<signature>signal request_invoked(request_type: StringName, result: Variant, metadata: Dictionary)</signature>
+			<description>请求成功调用时发出。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">request_type: 请求类型。</tag>
+				<tag name="param">result: handler 返回值副本。</tag>
+				<tag name="param">metadata: 调用元数据。</tag>
+				<tag name="schema">result: Variant，handler 返回值。</tag>
+				<tag name="schema">metadata: Dictionary，包含 request_type、sequence、context 和 handler metadata。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+	</signals>
+	<enums />
+	<constants>
+		<member kind="const" name="STATUS_REGISTERED">
+			<signature>const STATUS_REGISTERED: StringName = &amp;"registered"</signature>
+			<description>handler 已注册。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_REPLACED">
+			<signature>const STATUS_REPLACED: StringName = &amp;"replaced"</signature>
+			<description>handler 已替换。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_UNREGISTERED">
+			<signature>const STATUS_UNREGISTERED: StringName = &amp;"unregistered"</signature>
+			<description>handler 已注销。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_DUPLICATE">
+			<signature>const STATUS_DUPLICATE: StringName = &amp;"duplicate"</signature>
+			<description>handler 已存在且不允许替换。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_MISSING">
+			<signature>const STATUS_MISSING: StringName = &amp;"missing"</signature>
+			<description>未找到 handler。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_INVOKED">
+			<signature>const STATUS_INVOKED: StringName = &amp;"invoked"</signature>
+			<description>请求已调用。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_INVALID">
+			<signature>const STATUS_INVALID: StringName = &amp;"invalid"</signature>
+			<description>请求或 handler 无效。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_MISMATCH">
+			<signature>const STATUS_MISMATCH: StringName = &amp;"mismatch"</signature>
+			<description>handler 不匹配。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="DEFAULT_MAX_RECENT_EVENTS">
+			<signature>const DEFAULT_MAX_RECENT_EVENTS: int = 64</signature>
+			<description>默认保留的最近调用事件数量。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties>
+		<member kind="property" name="max_recent_events">
+			<signature>var max_recent_events: int = DEFAULT_MAX_RECENT_EVENTS:</signature>
+			<description>最近注册/调用事件历史上限。设置为 0 时不保留历史。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="register_handler">
+			<signature>func register_handler(request_type: StringName, handler: Callable, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>注册单处理器请求 handler。
+handler 会收到一个 Dictionary 参数，包含 request_type、payload、context、sequence 和 handler_metadata。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">request_type: 稳定请求类型。</tag>
+				<tag name="param">handler: 处理请求的 Callable，签名为 Callable(request: Dictionary) -&gt; Variant。</tag>
+				<tag name="param">options: 注册选项，支持 replace、owner_id 和 metadata。</tag>
+				<tag name="return">注册结果。</tag>
+				<tag name="schema">options: Dictionary，包含 replace: bool、owner_id: StringName 和 metadata: Dictionary。</tag>
+				<tag name="schema">return: Dictionary，包含 ok、status、request_type、replaced 和 metadata。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="unregister_handler">
+			<signature>func unregister_handler( request_type: StringName, handler: Callable = Callable(), metadata: Dictionary = {} ) -&gt; Dictionary:</signature>
+			<description>注销请求 handler。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">request_type: 稳定请求类型。</tag>
+				<tag name="param">handler: 可选 handler；有效时只有完全匹配才注销。</tag>
+				<tag name="param">metadata: 注销元数据。</tag>
+				<tag name="return">注销结果。</tag>
+				<tag name="schema">metadata: Dictionary，调用方定义的注销上下文。</tag>
+				<tag name="schema">return: Dictionary with ok, status, request_type, result, error, handler_count, and metadata.</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="invoke">
+			<signature>func invoke(request_type: StringName, payload: Variant = null, context: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>调用请求 handler。
+缺少 handler 会返回 missing 状态；handler 运行时错误由 Godot 按普通 Callable 调用规则报告。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">request_type: 稳定请求类型。</tag>
+				<tag name="param">payload: 请求载荷。</tag>
+				<tag name="param">context: 调用上下文。</tag>
+				<tag name="return">调用结果。</tag>
+				<tag name="schema">payload: Variant，调用方定义的请求载荷。</tag>
+				<tag name="schema">context: Dictionary，调用方定义的调用上下文。</tag>
+				<tag name="schema">return: Dictionary，包含 ok、status、request_type、result、context 和 metadata。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="try_invoke">
+			<signature>func try_invoke(request_type: StringName, payload: Variant = null, context: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>尝试调用请求 handler。
+与 invoke() 相同，但缺少 handler 被视为可预期结果，并在返回值中标记 missing_allowed。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">request_type: 稳定请求类型。</tag>
+				<tag name="param">payload: 请求载荷。</tag>
+				<tag name="param">context: 调用上下文。</tag>
+				<tag name="return">调用结果。</tag>
+				<tag name="schema">payload: Variant，调用方定义的请求载荷。</tag>
+				<tag name="schema">context: Dictionary，调用方定义的调用上下文。</tag>
+				<tag name="schema">return: Dictionary，包含 ok、status、request_type、result、context、metadata 和 missing_allowed。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="has_handler">
+			<signature>func has_handler(request_type: StringName) -&gt; bool:</signature>
+			<description>判断请求类型是否已注册 handler。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">request_type: 稳定请求类型。</tag>
+				<tag name="return">已注册且 handler 有效时返回 true。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_handler_ids">
+			<signature>func get_handler_ids() -&gt; Array[StringName]:</signature>
+			<description>获取已注册请求类型。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">请求类型数组。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_handler_snapshot">
+			<signature>func get_handler_snapshot(request_type: StringName) -&gt; Dictionary:</signature>
+			<description>获取某个 handler 的快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">request_type: 稳定请求类型。</tag>
+				<tag name="return">handler 快照；未注册时为空字典。</tag>
+				<tag name="schema">return: Dictionary，包含 request_type、owner_id、metadata、registered_msec、invocation_count、last_invoked_msec 和 has_valid_handler。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_recent_events">
+			<signature>func get_recent_events() -&gt; Array[Dictionary]:</signature>
+			<description>获取最近注册/调用事件。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">最近事件数组。</tag>
+				<tag name="schema">return: Array[Dictionary]，每个元素包含 sequence、event_type、request_type、status 和 metadata。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="clear">
+			<signature>func clear() -&gt; void:</signature>
+			<description>清空全部 handler 和历史事件。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_debug_snapshot">
+			<signature>func get_debug_snapshot() -&gt; Dictionary:</signature>
+			<description>获取注册表调试快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">注册表状态快照。</tag>
+				<tag name="schema">return: Dictionary，包含 handler_count、统计计数、handlers 和 recent_events。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

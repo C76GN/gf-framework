@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFTouchJoystick" path="addons/gf/standard/input/touch/gf_touch_joystick.gd" module="standard" extends="Node2D" classDigest="6255deea61d506f3d9b3ea6114fe86b91536058b7ab421e09cc588ee2f1387f5">
+<class name="GFTouchJoystick" path="addons/gf/standard/input/touch/gf_touch_joystick.gd" module="standard" extends="Node2D" classDigest="d409f06d450555c48992af5ec4e5ee758fb5d81f9430dbe53d12cad6ba8cb6fb">
 	<description>GFTouchJoystick: 通用触屏虚拟摇杆节点。
 可直接发出摇杆向量信号，也可选择映射到 Godot InputMap 动作。</description>
 	<tags>
@@ -46,6 +46,21 @@
 				<tag name="api">public</tag>
 			</tags>
 		</member>
+		<member kind="enum" name="OutputMode">
+			<signature>enum OutputMode {
+	## 输出连续模拟向量。
+	ANALOG,
+	## 输出四方向离散向量。
+	DPAD_4,
+	## 输出八方向离散向量。
+	DPAD_8,
+}</signature>
+			<description>摇杆输出模式。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
 	</enums>
 	<constants />
 	<properties>
@@ -84,6 +99,14 @@
 				<tag name="api">public</tag>
 			</tags>
 		</member>
+		<member kind="property" name="output_mode" decorators="@export">
+			<signature>var output_mode: OutputMode = OutputMode.ANALOG</signature>
+			<description>输出模式。ANALOG 保留模拟强度，DPAD_4 / DPAD_8 输出离散方向。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
 		<member kind="property" name="position_mode" decorators="@export">
 			<signature>var position_mode: PositionMode = PositionMode.FIXED:</signature>
 			<description>摇杆定位模式。</description>
@@ -96,6 +119,30 @@
 			<description>相对模式下允许开始触控的交互半径。</description>
 			<tags>
 				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="property" name="use_active_region" decorators="@export">
+			<signature>var use_active_region: bool = false</signature>
+			<description>是否限制触摸起点必须位于 active_region 内。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="active_region" decorators="@export">
+			<signature>var active_region: Rect2 = Rect2()</signature>
+			<description>允许开始触控的屏幕区域，使用 viewport 像素坐标。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="release_outside_active_region" decorators="@export">
+			<signature>var release_outside_active_region: bool = true</signature>
+			<description>拖动离开 active_region 时是否自动释放。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="action_left" decorators="@export">

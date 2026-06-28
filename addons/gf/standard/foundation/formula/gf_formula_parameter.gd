@@ -48,7 +48,7 @@ func _init(
 	source = p_source
 	target = p_target
 	context = p_context
-	values = p_values.duplicate(true)
+	values = GFVariantData.duplicate_variant(p_values)
 
 
 # --- 公共方法 ---
@@ -65,7 +65,7 @@ func _init(
 ## [br]
 ## @return 当前参数容器，便于链式构造。
 func set_value(key: StringName, value: Variant) -> GFFormulaParameter:
-	values[key] = value
+	values[key] = GFVariantData.duplicate_variant(value)
 	return self
 
 
@@ -83,7 +83,7 @@ func set_value(key: StringName, value: Variant) -> GFFormulaParameter:
 ## [br]
 ## @schema return: Variant formula value or fallback.
 func get_value(key: StringName, default_value: Variant = null) -> Variant:
-	return GFVariantData.get_option_value(values, key, default_value)
+	return GFVariantData.duplicate_variant(GFVariantData.get_option_value(values, key, default_value))
 
 
 ## 检查是否存在指定参数。

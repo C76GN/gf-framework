@@ -208,6 +208,42 @@ static func get_mouse_motion_event(value: Variant) -> InputEventMouseMotion:
 	return null
 
 
+## 将 Variant 收窄为 InputEventMagnifyGesture。
+## [br]
+## @api framework_internal
+## [br]
+## @layer standard/input
+## [br]
+## @param value: 待收窄值。
+## [br]
+## @schema value: InputEventMagnifyGesture 对象。
+## [br]
+## @return 输入事件或 null。
+static func get_magnify_gesture_event(value: Variant) -> InputEventMagnifyGesture:
+	if value is InputEventMagnifyGesture:
+		var event: InputEventMagnifyGesture = value
+		return event
+	return null
+
+
+## 将 Variant 收窄为 InputEventPanGesture。
+## [br]
+## @api framework_internal
+## [br]
+## @layer standard/input
+## [br]
+## @param value: 待收窄值。
+## [br]
+## @schema value: InputEventPanGesture 对象。
+## [br]
+## @return 输入事件或 null。
+static func get_pan_gesture_event(value: Variant) -> InputEventPanGesture:
+	if value is InputEventPanGesture:
+		var event: InputEventPanGesture = value
+		return event
+	return null
+
+
 ## 将 Variant 收窄为 InputEventJoypadButton。
 ## [br]
 ## @api framework_internal

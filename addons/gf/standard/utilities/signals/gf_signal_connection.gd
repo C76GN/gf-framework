@@ -251,14 +251,24 @@ func start() -> GFSignalConnection:
 	if _source_signal.is_null():
 		push_error("[GFSignalConnection] start 失败：Signal 为空。")
 		return self
+	var source_object: Object = _source_signal.get_object()
+	if not is_instance_valid(source_object):
+		push_error("[GFSignalConnection] start 失败：Signal 来源无效。")
+		return self
 	if not _callback.is_valid():
 		push_error("[GFSignalConnection] start 失败：callback 无效。")
 		return self
+	if _source_signal.is_connected(_on_signal_emitted):
+		push_error("[GFSignalConnection] start 失败：Signal 已连接。")
+		return self
 
-	var _connected_error: Error = _source_signal.connect(
+	var connect_error: Error = _source_signal.connect(
 		_on_signal_emitted,
 		_connect_flags as Object.ConnectFlags
 	) as Error
+	if connect_error != OK:
+		push_error("[GFSignalConnection] start 失败：Signal connect 返回 %d。" % int(connect_error))
+		return self
 	_is_connected = true
 	return self
 

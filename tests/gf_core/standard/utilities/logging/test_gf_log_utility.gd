@@ -203,6 +203,20 @@ func test_sanitize_log_value_marks_circular_references() -> void:
 	assert_eq(GFVariantData.get_option_string(sanitized, "self"), "<circular_reference>", "日志上下文循环引用应被稳定标记。")
 
 
+func test_sanitize_log_value_converts_nonfinite_floats_to_json_safe_text() -> void:
+	var sanitized: Dictionary = GFVariantData.as_dictionary(GFLogUtility.sanitize_log_value({
+		"nan": NAN,
+		"positive_inf": INF,
+		"negative_inf": -INF,
+	}))
+	var json_text: String = JSON.stringify(sanitized)
+
+	assert_false(json_text.contains(":null"), "日志清洗不应让非有限 float 被 JSON.stringify 替换成 null。")
+	assert_eq(GFVariantData.get_option_string(sanitized, "nan"), "NaN", "日志中的 NaN 应使用稳定文本。")
+	assert_eq(GFVariantData.get_option_string(sanitized, "positive_inf"), "Infinity", "日志中的正无穷应使用稳定文本。")
+	assert_eq(GFVariantData.get_option_string(sanitized, "negative_inf"), "-Infinity", "日志中的负无穷应使用稳定文本。")
+
+
 func test_previous_crash_marker_is_reported_on_init() -> void:
 	_log_util.dispose()
 	_log_util = null

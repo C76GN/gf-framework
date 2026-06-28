@@ -1,0 +1,348 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFResourcePropertyPatch" path="addons/gf/standard/utilities/assets/gf_resource_property_patch.gd" module="standard" extends="Resource" classDigest="0d70054084838c394c2167f079fb44a0ea12c4fd55e76fd616d2867d4cd8e211">
+	<description>GFResourcePropertyPatch: 通用资源属性差异补丁。
+用声明式属性列表和覆盖值描述一份 Resource 或 Object 的小范围差异。
+它只会写入声明过的属性路径，不规定资源类型、主题语义或项目业务规则。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">resource_definition</tag>
+		<tag name="since">7.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants>
+		<member kind="const" name="KEY_PROPERTY_PATH">
+			<signature>const KEY_PROPERTY_PATH: String = "property_path"</signature>
+			<description>定义字段：属性路径。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="KEY_TYPE">
+			<signature>const KEY_TYPE: String = "type"</signature>
+			<description>定义字段：Godot Variant 类型。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="KEY_HINT">
+			<signature>const KEY_HINT: String = "hint"</signature>
+			<description>定义字段：Inspector hint。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="KEY_HINT_STRING">
+			<signature>const KEY_HINT_STRING: String = "hint_string"</signature>
+			<description>定义字段：Inspector hint_string。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="KEY_GROUP">
+			<signature>const KEY_GROUP: String = "group"</signature>
+			<description>定义字段：Inspector 分组名。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="KEY_DEFAULT_VALUE">
+			<signature>const KEY_DEFAULT_VALUE: String = "default_value"</signature>
+			<description>定义字段：属性默认值。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="KEY_ALLOW_NULL">
+			<signature>const KEY_ALLOW_NULL: String = "allow_null"</signature>
+			<description>定义字段：是否允许补丁值为 null。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties>
+		<member kind="property" name="definitions" decorators="@export">
+			<signature>var definitions: Array = []</signature>
+			<description>可被补丁写入的属性定义列表。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">definitions: Array[Dictionary]，每项可由 make_definition() 创建，包含 property_path、type、hint、hint_string、group、default_value 与 allow_null。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="values" decorators="@export">
+			<signature>var values: Dictionary = {}</signature>
+			<description>当前启用的覆盖值。键为属性路径，值为要写入目标的 Variant。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">values: Dictionary[StringName, Variant]，只会应用 definitions 声明过的属性路径。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="metadata" decorators="@export">
+			<signature>var metadata: Dictionary = {}</signature>
+			<description>项目自定义元数据。GF 不解释该字段。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">metadata: Dictionary[String, Variant]，项目工具或编辑器 UI 自行读取的补充信息。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="duplicate_base_on_build">
+			<signature>var duplicate_base_on_build: bool = true</signature>
+			<description>build() 时是否默认复制 base Resource 后再应用补丁。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="require_existing_property">
+			<signature>var require_existing_property: bool = true</signature>
+			<description>应用补丁时是否默认要求目标对象已经声明对应属性。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="copy_values">
+			<signature>var copy_values: bool = true</signature>
+			<description>写入目标前是否默认复制 Array、Dictionary 与 Resource 值。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="duplicate_resources">
+			<signature>var duplicate_resources: bool = false</signature>
+			<description>复制值时是否默认复制 Resource 实例。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="set_patch_value">
+			<signature>func set_patch_value(property_path: StringName, value: Variant) -&gt; bool:</signature>
+			<description>设置一个补丁值。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">property_path: 已声明的属性路径。</tag>
+				<tag name="param">value: 要保存的补丁值。</tag>
+				<tag name="return">设置成功返回 true。</tag>
+				<tag name="schema">value: Variant，必须符合对应 definition 的类型与 allow_null 约束。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="has_patch_value">
+			<signature>func has_patch_value(property_path: StringName) -&gt; bool:</signature>
+			<description>检查当前补丁是否包含指定属性值。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">property_path: 属性路径。</tag>
+				<tag name="return">已设置补丁值时返回 true。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_patch_value">
+			<signature>func get_patch_value(property_path: StringName, default_value: Variant = null) -&gt; Variant:</signature>
+			<description>获取一个补丁值。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">property_path: 属性路径。</tag>
+				<tag name="param">default_value: 未设置时返回的默认值。</tag>
+				<tag name="return">补丁值副本或默认值。</tag>
+				<tag name="schema">default_value: Variant fallback value returned unchanged when no patch value exists.</tag>
+				<tag name="schema">return: Variant patch value copy or default value.</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="clear_patch_value">
+			<signature>func clear_patch_value(property_path: StringName) -&gt; bool:</signature>
+			<description>移除一个补丁值。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">property_path: 属性路径。</tag>
+				<tag name="return">实际移除时返回 true。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="has_definition">
+			<signature>func has_definition(property_path: StringName) -&gt; bool:</signature>
+			<description>检查属性路径是否已被 definitions 声明。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">property_path: 属性路径。</tag>
+				<tag name="return">已声明时返回 true。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="apply">
+			<signature>func apply(target: Object, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>应用当前补丁到目标对象。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">target: 目标对象。</tag>
+				<tag name="param">options: 应用选项。</tag>
+				<tag name="return">应用报告。</tag>
+				<tag name="schema">options: Dictionary，支持 require_existing_property、copy_values、duplicate_resources、skip_unchanged。</tag>
+				<tag name="schema">return: Dictionary，包含 ok、applied_count、failed_count、skipped_count、unchanged_count、applied_paths、skipped_paths 与 errors。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="build">
+			<signature>func build(base_resource: Resource, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>复制或修改 base Resource，并应用当前补丁。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">base_resource: 来源资源。</tag>
+				<tag name="param">options: 构建选项。</tag>
+				<tag name="return">构建报告，成功或部分成功时 resource 字段为结果资源。</tag>
+				<tag name="schema">options: Dictionary，支持 duplicate_base、require_existing_property、copy_values、duplicate_resources、skip_unchanged。</tag>
+				<tag name="schema">return: Dictionary，包含 apply_values() 报告字段和 resource。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="collect_from">
+			<signature>func collect_from(target: Object, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>收集目标对象上的当前属性值，替换当前补丁值。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">target: 目标对象。</tag>
+				<tag name="param">options: 收集选项。</tag>
+				<tag name="return">收集到的补丁值。</tag>
+				<tag name="schema">options: Dictionary，支持 require_existing_property、include_null、copy_values、duplicate_resources。</tag>
+				<tag name="schema">return: Dictionary[StringName, Variant]，以声明属性路径为键的值字典。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_patch_values">
+			<signature>func get_patch_values() -&gt; Dictionary:</signature>
+			<description>获取当前补丁值副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">补丁值字典副本。</tag>
+				<tag name="schema">return: Dictionary[StringName, Variant]，当前 patch values 的副本。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="make_definition">
+			<signature>static func make_definition( property_path: StringName, property_type: int = TYPE_NIL, options: Dictionary = {} ) -&gt; Dictionary:</signature>
+			<description>创建一个属性定义。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">property_path: 属性路径。</tag>
+				<tag name="param">property_type: Godot Variant 类型；TYPE_NIL 表示不做类型约束。</tag>
+				<tag name="param">options: 定义选项。</tag>
+				<tag name="return">属性定义字典。</tag>
+				<tag name="schema">options: Dictionary，支持 hint、hint_string、group、default_value、allow_null。</tag>
+				<tag name="schema">return: Dictionary resource property patch definition.</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="make_property_list">
+			<signature>static func make_property_list( patch_definitions: Array, patch_values: Dictionary = {}, options: Dictionary = {} ) -&gt; Array[Dictionary]:</signature>
+			<description>构建通用 Inspector 属性列表。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">patch_definitions: 属性定义列表。</tag>
+				<tag name="param">patch_values: 当前启用的覆盖值。</tag>
+				<tag name="param">options: 属性列表选项。</tag>
+				<tag name="return">Godot _get_property_list() 可返回的属性列表。</tag>
+				<tag name="schema">patch_definitions: Array[Dictionary] created by make_definition() or compatible dictionaries.</tag>
+				<tag name="schema">patch_values: Dictionary[StringName, Variant] patch values used to mark storage usage.</tag>
+				<tag name="schema">options: Dictionary，支持 group_prefix、usage。</tag>
+				<tag name="schema">return: Array[Dictionary] property list entries.</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="collect_values">
+			<signature>static func collect_values(target: Object, patch_definitions: Array, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>收集目标对象上的属性值。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">target: 目标对象。</tag>
+				<tag name="param">patch_definitions: 属性定义列表。</tag>
+				<tag name="param">options: 收集选项。</tag>
+				<tag name="return">以声明属性路径为键的值字典。</tag>
+				<tag name="schema">patch_definitions: Array[Dictionary] created by make_definition() or compatible dictionaries.</tag>
+				<tag name="schema">options: Dictionary，支持 require_existing_property、include_null、copy_values、duplicate_resources。</tag>
+				<tag name="schema">return: Dictionary[StringName, Variant] collected values.</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="apply_values">
+			<signature>static func apply_values( target: Object, patch_definitions: Array, patch_values: Dictionary, options: Dictionary = {} ) -&gt; Dictionary:</signature>
+			<description>应用属性值到目标对象。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">target: 目标对象。</tag>
+				<tag name="param">patch_definitions: 属性定义列表。</tag>
+				<tag name="param">patch_values: 要应用的补丁值。</tag>
+				<tag name="param">options: 应用选项。</tag>
+				<tag name="return">应用报告。</tag>
+				<tag name="schema">patch_definitions: Array[Dictionary] created by make_definition() or compatible dictionaries.</tag>
+				<tag name="schema">patch_values: Dictionary[StringName, Variant] patch values.</tag>
+				<tag name="schema">options: Dictionary，支持 require_existing_property、copy_values、duplicate_resources、skip_unchanged。</tag>
+				<tag name="schema">return: Dictionary，包含 ok、applied_count、failed_count、skipped_count、unchanged_count、applied_paths、skipped_paths 与 errors。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="build_resource">
+			<signature>static func build_resource( base_resource: Resource, patch_definitions: Array, patch_values: Dictionary, options: Dictionary = {} ) -&gt; Dictionary:</signature>
+			<description>复制或修改 base Resource，并应用补丁值。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">base_resource: 来源资源。</tag>
+				<tag name="param">patch_definitions: 属性定义列表。</tag>
+				<tag name="param">patch_values: 要应用的补丁值。</tag>
+				<tag name="param">options: 构建选项。</tag>
+				<tag name="return">构建报告，成功或部分成功时 resource 字段为结果资源。</tag>
+				<tag name="schema">patch_definitions: Array[Dictionary] created by make_definition() or compatible dictionaries.</tag>
+				<tag name="schema">patch_values: Dictionary[StringName, Variant] patch values.</tag>
+				<tag name="schema">options: Dictionary，支持 duplicate_base、require_existing_property、copy_values、duplicate_resources、skip_unchanged。</tag>
+				<tag name="schema">return: Dictionary，包含 apply_values() 报告字段和 resource。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="apply_patch_chain">
+			<signature>static func apply_patch_chain(target: Object, patch_chain: Array, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>按顺序把一组补丁应用到目标对象。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">target: 目标对象。</tag>
+				<tag name="param">patch_chain: 补丁链。</tag>
+				<tag name="param">options: 应用选项。</tag>
+				<tag name="return">覆盖链应用报告。</tag>
+				<tag name="schema">patch_chain: Array[GFResourcePropertyPatch]，按数组顺序应用，越靠后的补丁优先级越高。</tag>
+				<tag name="schema">options: Dictionary，支持 require_existing_property、copy_values、duplicate_resources、skip_unchanged、include_patch_reports、stop_on_failure 和 metadata。</tag>
+				<tag name="schema">return: Dictionary，包含 ok、patch_count、计数、路径、errors、patch_reports 和 metadata。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="build_resource_chain">
+			<signature>static func build_resource_chain(base_resource: Resource, patch_chain: Array, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>复制或修改 base Resource，并按顺序应用一组补丁。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">base_resource: 来源资源。</tag>
+				<tag name="param">patch_chain: 补丁链。</tag>
+				<tag name="param">options: 构建选项。</tag>
+				<tag name="return">覆盖链构建报告，成功或部分成功时 resource 字段为结果资源。</tag>
+				<tag name="schema">patch_chain: Array[GFResourcePropertyPatch]，按数组顺序应用，越靠后的补丁优先级越高。</tag>
+				<tag name="schema">options: Dictionary，支持 duplicate_base、require_existing_property、copy_values、duplicate_resources、skip_unchanged、include_patch_reports、stop_on_failure 和 metadata。</tag>
+				<tag name="schema">return: Dictionary，包含 apply_patch_chain() 报告字段和 resource。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

@@ -103,3 +103,33 @@ func test_mutation_batch_stops_on_failure() -> void:
 	assert_false(GFVariantData.get_option_bool(report, "ok", true), "操作失败时提交报告应失败。")
 	assert_eq(GFVariantData.get_option_int(report, "failed_count", 0), 1, "提交报告应统计失败数量。")
 	assert_eq(batch.get_pending_count(), 1, "默认停止失败时应保留待处理操作。")
+
+
+func test_mutation_batch_keeps_failed_rollback_entries_committed() -> void:
+	var batch: GFMutationBatchBase = GFMutationBatchBase.new()
+	batch.stop_on_error = false
+	var values: Array[String] = []
+
+	var _add_success_result: Variant = batch.add_operation(
+		func() -> void:
+			values.append("commit_one"),
+		func() -> void:
+			values.append("rollback_one")
+	)
+	var _add_failed_result: Variant = batch.add_operation(
+		func() -> void:
+			values.append("commit_two"),
+		func() -> Dictionary:
+			values.append("rollback_two_failed")
+			return { "ok": false, "error": "rollback_failed" }
+	)
+
+	var commit_report: Dictionary = batch.commit()
+	var rollback_report: Dictionary = batch.rollback_committed()
+
+	assert_true(GFVariantData.get_option_bool(commit_report, "ok", false), "测试提交阶段应成功。")
+	assert_false(GFVariantData.get_option_bool(rollback_report, "ok", true), "失败回滚应让回滚报告失败。")
+	assert_eq(GFVariantData.get_option_int(rollback_report, "rolled_back_count"), 1, "可回滚项仍应继续回滚。")
+	assert_eq(GFVariantData.get_option_int(rollback_report, "failed_count"), 1, "失败回滚项应计数。")
+	assert_eq(batch.get_committed_count(), 1, "失败回滚项应保留在 committed 栈，避免状态丢失。")
+	assert_eq(values, ["commit_one", "commit_two", "rollback_two_failed", "rollback_one"], "stop_on_error=false 时应继续回滚后续项。")

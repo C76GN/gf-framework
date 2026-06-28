@@ -32,6 +32,8 @@
 | 方法 | [`send_simple`](#member-gftypeeventsystem-methods-send_simple) | `func send_simple(event_id: StringName, payload: Variant = null) -> void:` |
 | 方法 | [`unregister_owner`](#member-gftypeeventsystem-methods-unregister_owner) | `func unregister_owner(owner: Object) -> void:` |
 | 方法 | [`get_debug_stats`](#member-gftypeeventsystem-methods-get_debug_stats) | `func get_debug_stats() -> Dictionary:` |
+| 方法 | [`get_listener_diagnostics`](#member-gftypeeventsystem-methods-get_listener_diagnostics) | `func get_listener_diagnostics(options: Dictionary = {}) -> Dictionary:` |
+| 方法 | [`compact_released_owner_listeners`](#member-gftypeeventsystem-methods-compact_released_owner_listeners) | `func compact_released_owner_listeners() -> int:` |
 | 方法 | [`get_dispatch_trace`](#member-gftypeeventsystem-methods-get_dispatch_trace) | `func get_dispatch_trace() -> Array[Dictionary]:` |
 | 方法 | [`clear_dispatch_trace`](#member-gftypeeventsystem-methods-clear_dispatch_trace) | `func clear_dispatch_trace() -> void:` |
 | 方法 | [`clear`](#member-gftypeeventsystem-methods-clear) | `func clear() -> void:` |
@@ -348,6 +350,47 @@ func get_debug_stats() -> Dictionary:
 结构：
 
 - `return`: Dictionary containing listener counts, pending operation counts, dispatch counters, depth limits, and trace counters.
+
+<a id="member-gftypeeventsystem-methods-get_listener_diagnostics"></a>
+
+### `get_listener_diagnostics`
+
+- API：`public`
+- 首次版本：`7.0.0`
+
+```gdscript
+func get_listener_diagnostics(options: Dictionary = {}) -> Dictionary:
+```
+
+获取事件监听器诊断明细。 默认只返回每条轨道的数量统计；传入 `{ "include_entries": true }` 时会附带每个监听器的事件 key、owner 状态、优先级和 Callable 状态。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `options` | 诊断选项。 |
+
+返回：监听器诊断报告。
+
+结构：
+
+- `options`: Dictionary，可包含 include_entries。
+- `return`: Dictionary containing listener counts, stale owner counts, track summaries, and optional entry rows.
+
+<a id="member-gftypeeventsystem-methods-compact_released_owner_listeners"></a>
+
+### `compact_released_owner_listeners`
+
+- API：`public`
+- 首次版本：`7.0.0`
+
+```gdscript
+func compact_released_owner_listeners() -> int:
+```
+
+清理 owner 已释放的监听器并返回清理数量。 派发期间调用时只会把清理动作加入 pending 队列，并在最外层派发结束后合并。
+
+返回：本次立即移除或排队清理的监听器数量。
 
 <a id="member-gftypeeventsystem-methods-get_dispatch_trace"></a>
 

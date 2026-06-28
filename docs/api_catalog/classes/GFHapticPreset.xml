@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFHapticPreset" path="addons/gf/extensions/feedback/resources/gf_haptic_preset.gd" module="extensions/feedback" extends="Resource" classDigest="a8b22fd8b98aee51c6999950f1c7926d69cf2d77fee62daae13ecd9f48a162d1">
+	<description>GFHapticPreset: 通用手柄震动采样预设。
+描述一段弱/强马达强度曲线，不绑定命中、相机、角色、UI 或具体玩法事件。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">resource_definition</tag>
+		<tag name="since">7.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties>
+		<member kind="property" name="duration_seconds" decorators="@export_range(0.0, 60.0, 0.001, &quot;or_greater&quot;)">
+			<signature>var duration_seconds: float = 0.25</signature>
+			<description>持续时间，单位秒。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="weak_magnitude" decorators="@export_range(0.0, 1.0, 0.001)">
+			<signature>var weak_magnitude: float = 0.5</signature>
+			<description>低频马达基础强度，范围 0 到 1。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="strong_magnitude" decorators="@export_range(0.0, 1.0, 0.001)">
+			<signature>var strong_magnitude: float = 0.5</signature>
+			<description>高频马达基础强度，范围 0 到 1。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="intensity" decorators="@export_range(0.0, 4.0, 0.001, &quot;or_greater&quot;)">
+			<signature>var intensity: float = 1.0</signature>
+			<description>预设整体强度倍率。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="weak_curve" decorators="@export">
+			<signature>var weak_curve: Curve = null</signature>
+			<description>低频马达强度曲线。为空时使用恒定 1.0。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="strong_curve" decorators="@export">
+			<signature>var strong_curve: Curve = null</signature>
+			<description>高频马达强度曲线。为空时使用恒定 1.0。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="get_duration_seconds">
+			<signature>func get_duration_seconds() -&gt; float:</signature>
+			<description>获取有效持续时间。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">持续时间，最小为 0。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="sample">
+			<signature>func sample(elapsed_seconds: float, strength: float = 1.0) -&gt; Dictionary:</signature>
+			<description>按时间采样震动强度。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">elapsed_seconds: 已经过的秒数。</tag>
+				<tag name="param">strength: 本次播放强度倍率。</tag>
+				<tag name="return">震动采样结果。</tag>
+				<tag name="schema">return: Dictionary，包含 weak_magnitude、strong_magnitude、intensity 与 progress。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="sample_at_progress">
+			<signature>func sample_at_progress(progress: float, strength: float = 1.0) -&gt; Dictionary:</signature>
+			<description>按归一化进度采样震动强度。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">progress: 归一化进度，范围 0 到 1。</tag>
+				<tag name="param">strength: 本次播放强度倍率。</tag>
+				<tag name="return">震动采样结果。</tag>
+				<tag name="schema">return: Dictionary，包含 weak_magnitude、strong_magnitude、intensity 与 progress。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="zero_sample">
+			<signature>static func zero_sample() -&gt; Dictionary:</signature>
+			<description>创建空震动采样结果。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">空震动采样结果。</tag>
+				<tag name="schema">return: Dictionary，包含零值 weak_magnitude、strong_magnitude、intensity 与 progress。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="combine_samples">
+			<signature>static func combine_samples(samples: Array[Dictionary]) -&gt; Dictionary:</signature>
+			<description>合并多个震动采样。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">samples: 震动采样数组。</tag>
+				<tag name="return">合并后的震动采样。</tag>
+				<tag name="schema">samples: Array[Dictionary]，每项包含 weak_magnitude、strong_magnitude、intensity 与 progress。</tag>
+				<tag name="schema">return: Dictionary，包含合并后的 weak_magnitude、strong_magnitude、intensity 与 progress。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

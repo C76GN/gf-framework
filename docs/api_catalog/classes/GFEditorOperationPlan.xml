@@ -1,0 +1,187 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFEditorOperationPlan" path="addons/gf/kernel/editor/gf_editor_operation_plan.gd" module="kernel" extends="RefCounted" classDigest="da97d5ffe3e5dbc750e07155ac792dba3496bd61c9d61fa431b184a8ddcb3af5">
+	<description>GFEditorOperationPlan: 编辑器工具操作计划报告。
+用于把预览、dry-run、执行步骤和产物报告统一成可展示、可测试的结构化结果。
+它只描述编辑器操作计划和结果，不直接修改节点、资源或文件。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">editor_api</tag>
+		<tag name="layer">kernel/editor</tag>
+		<tag name="since">7.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants>
+		<member kind="const" name="STATUS_PLANNED">
+			<signature>const STATUS_PLANNED: StringName = &amp;"planned"</signature>
+			<description>步骤已计划但尚未执行。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_PREVIEWED">
+			<signature>const STATUS_PREVIEWED: StringName = &amp;"previewed"</signature>
+			<description>步骤已预览。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_APPLIED">
+			<signature>const STATUS_APPLIED: StringName = &amp;"applied"</signature>
+			<description>步骤已应用。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_SKIPPED">
+			<signature>const STATUS_SKIPPED: StringName = &amp;"skipped"</signature>
+			<description>步骤已跳过。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_FAILED">
+			<signature>const STATUS_FAILED: StringName = &amp;"failed"</signature>
+			<description>步骤失败。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties>
+		<member kind="property" name="operation_id">
+			<signature>var operation_id: StringName = &amp;""</signature>
+			<description>操作稳定标识。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="label">
+			<signature>var label: String = ""</signature>
+			<description>操作显示名称。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="dry_run">
+			<signature>var dry_run: bool = false</signature>
+			<description>是否为 dry-run 预览。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="metadata">
+			<signature>var metadata: Dictionary = {}</signature>
+			<description>调用方元数据。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">metadata: Dictionary for caller-defined editor operation metadata.</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="configure">
+			<signature>func configure( p_operation_id: StringName, p_label: String = "", p_dry_run: bool = false, p_metadata: Dictionary = {} ) -&gt; GFEditorOperationPlan:</signature>
+			<description>配置操作计划。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">p_operation_id: 操作稳定标识。</tag>
+				<tag name="param">p_label: 操作显示名称。</tag>
+				<tag name="param">p_dry_run: 是否为 dry-run。</tag>
+				<tag name="param">p_metadata: 调用方元数据。</tag>
+				<tag name="return">当前计划。</tag>
+				<tag name="schema">p_metadata: Dictionary copied into metadata.</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="add_step">
+			<signature>func add_step(step_id: StringName, step_label: String = "", options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>添加一个操作步骤。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">step_id: 步骤稳定标识。</tag>
+				<tag name="param">step_label: 步骤显示名称。</tag>
+				<tag name="param">options: 步骤选项。</tag>
+				<tag name="return">步骤记录副本。</tag>
+				<tag name="schema">options: Dictionary，可包含 status、target、kind、metadata、error_code 和 error。</tag>
+				<tag name="schema">return: Dictionary，包含 step_id、label、status、target、kind、error_code、error 和 metadata。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="mark_step">
+			<signature>func mark_step( step_id: StringName, status: StringName, error_code: Error = OK, error: String = "", extra_metadata: Dictionary = {} ) -&gt; bool:</signature>
+			<description>标记一个步骤状态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">step_id: 步骤稳定标识。</tag>
+				<tag name="param">status: 新状态。</tag>
+				<tag name="param">error_code: Godot Error 错误码。</tag>
+				<tag name="param">error: 错误说明。</tag>
+				<tag name="param">extra_metadata: 要合并到步骤 metadata 的额外元数据。</tag>
+				<tag name="return">找到并更新时返回 true。</tag>
+				<tag name="schema">extra_metadata: Dictionary merged into step metadata.</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="add_artifact_report">
+			<signature>func add_artifact_report(report: Dictionary) -&gt; void:</signature>
+			<description>添加生成产物报告。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">report: GFGeneratedArtifactReport 兼容报告。</tag>
+				<tag name="schema">report: Dictionary，包含 status、path、error_code、dry_run 等字段。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_steps">
+			<signature>func get_steps() -&gt; Array[Dictionary]:</signature>
+			<description>获取步骤记录副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">步骤数组。</tag>
+				<tag name="schema">return: Array[Dictionary]，每个元素是 add_step() 返回结构。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_artifact_reports">
+			<signature>func get_artifact_reports() -&gt; Array[Dictionary]:</signature>
+			<description>获取产物报告副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">产物报告数组。</tag>
+				<tag name="schema">return: Array[Dictionary]，每个元素是 GFGeneratedArtifactReport 兼容报告。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="clear">
+			<signature>func clear() -&gt; void:</signature>
+			<description>清空步骤和产物报告。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="summarize">
+			<signature>func summarize(options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>汇总操作计划。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">options: 汇总选项，支持 include_steps、include_artifacts 和 metadata。</tag>
+				<tag name="return">操作摘要。</tag>
+				<tag name="schema">options: Dictionary，可包含 include_steps、include_artifacts 和 metadata。</tag>
+				<tag name="schema">return: Dictionary，包含 success、operation_id、label、dry_run、step_count、status_counts、failed_count、skipped_count、artifact_summary 和 metadata。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

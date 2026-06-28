@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFScriptStructureTools" path="addons/gf/standard/utilities/assets/gf_script_structure_tools.gd" module="standard" extends="RefCounted" classDigest="778a161c413f3f048041d7c3c726865c9198483049d6b346d3f16ea389756cb0">
+	<description>GFScriptStructureTools: 脚本结构扫描和契约检查工具。
+面向编辑器工具、导入器、测试和构建脚本复用；它只描述脚本公开的
+常量、方法、属性、信号和继承关系，不实例化对象，也不规定组件架构、数据库或业务层模型。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_service</tag>
+		<tag name="since">6.1.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants>
+		<member kind="const" name="SCRIPT_EXTENSIONS">
+			<signature>const SCRIPT_EXTENSIONS: PackedStringArray = ["gd"]</signature>
+			<description>GDScript 扩展名白名单，不包含点号。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.1.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="DEFAULT_MAX_BASE_CHAIN_DEPTH">
+			<signature>const DEFAULT_MAX_BASE_CHAIN_DEPTH: int = 32</signature>
+			<description>默认脚本继承链扫描深度上限。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.1.0</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties />
+	<methods>
+		<member kind="method" name="scan_script_paths">
+			<signature>static func scan_script_paths(root_path: String = "res://", options: Dictionary = {}) -&gt; PackedStringArray:</signature>
+			<description>扫描脚本路径，并按目录深度优先、同层字典序排序。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">root_path: 扫描起点，通常是 res:// 下的目录。</tag>
+				<tag name="param">options: 可选项，支持 GFResourceRegistryTools.scan_resource_paths() 的扫描选项，extensions 默认固定为 gd。</tag>
+				<tag name="return">排序后的脚本路径。</tag>
+				<tag name="schema">options: Dictionary，可包含 recursive、include_addons、excluded_paths、include_patterns、exclude_patterns、pattern_base_path、include_hidden、max_scan_depth、max_resource_paths 和 extensions 字段。</tag>
+				<tag name="since">6.1.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="describe_script">
+			<signature>static func describe_script(target_script: Script, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>描述脚本公开结构。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">target_script: 待描述脚本。</tag>
+				<tag name="param">options: 可选项，支持 include_private_members、include_constants、include_methods、include_properties、include_signals、include_base_chain、include_constant_values 和 max_base_chain_depth。</tag>
+				<tag name="return">脚本结构描述报告。</tag>
+				<tag name="schema">options: Dictionary，可控制成员、继承链和常量值是否写入描述报告。</tag>
+				<tag name="schema">return: Dictionary，包含 ok、script_path、global_name、instance_base_type、can_instantiate、constants、methods、properties、signals、base_chain、counts、issues 与 summary 字段。</tag>
+				<tag name="since">6.1.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="format_method_signature">
+			<signature>static func format_method_signature(method: Dictionary, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>将 Godot 方法元数据格式化为 GDScript 函数签名。
+method 通常来自 Script.get_script_method_list()、ClassDB.class_get_method_list()
+或 describe_script() 返回的 methods 条目。该方法只生成文本片段，不读取或修改脚本源码。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">method: 方法元数据。</tag>
+				<tag name="param">options: 可选项，支持 include_func_keyword、include_return_type、include_void_return 和 include_variant_type_for_untyped。</tag>
+				<tag name="return">方法签名格式化报告。</tag>
+				<tag name="schema">method: Dictionary，可包含 name、args、arguments、default_args、return、return_type、return_class_name、return_hint 和 return_hint_string 字段。</tag>
+				<tag name="schema">options: Dictionary，可控制是否输出 func 关键字、返回类型、void 返回类型和未标注参数的 Variant 类型。</tag>
+				<tag name="schema">return: Dictionary，包含 ok、name、signature、stub、argument_count、return_type、return_type_name、issues、counts 与 summary 字段。</tag>
+				<tag name="since">6.1.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="format_method_stub">
+			<signature>static func format_method_stub(method: Dictionary, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>将 Godot 方法元数据格式化为可插入生成器输出的 GDScript 方法桩。
+默认主体会为有返回值的方法生成安全默认返回值；无返回值或无法判断返回值时生成 pass。
+调用方可通过 body_lines 提供自定义主体行。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">method: 方法元数据。</tag>
+				<tag name="param">options: 可选项，支持 format_method_signature() 的选项，以及 indent、body_lines 和 include_trailing_newline。</tag>
+				<tag name="return">方法桩格式化报告。</tag>
+				<tag name="schema">method: Dictionary，可包含 name、args、arguments、default_args、return、return_type、return_class_name、return_hint 和 return_hint_string 字段。</tag>
+				<tag name="schema">options: Dictionary，可控制签名输出、缩进文本、自定义主体行和是否追加末尾换行；body_lines 可为 Array、PackedStringArray 或单行 String。</tag>
+				<tag name="schema">return: Dictionary，包含 ok、name、signature、stub、argument_count、return_type、return_type_name、issues、counts 与 summary 字段。</tag>
+				<tag name="since">6.1.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="check_script_structure">
+			<signature>static func check_script_structure( target_script: Script, structure: Dictionary = {}, options: Dictionary = {} ) -&gt; Dictionary:</signature>
+			<description>检查脚本是否满足结构声明。
+structure 可声明 base_script、base_class、can_instantiate、required_constants、
+required_methods、required_properties 与 required_signals。required_* 条目可使用名称字符串，
+也可使用包含 name、type、class_name、usage、argument_count 或 min_argument_count 的 Dictionary。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">target_script: 待检查脚本。</tag>
+				<tag name="param">structure: 结构声明。</tag>
+				<tag name="param">options: 传给 describe_script() 的可选项。</tag>
+				<tag name="return">结构检查报告。</tag>
+				<tag name="schema">structure: Dictionary，可包含 base_script、base_class、can_instantiate 和 required_* 成员声明。</tag>
+				<tag name="schema">options: Dictionary，可控制成员描述与检查细节。</tag>
+				<tag name="schema">return: Dictionary，包含 ok、script_path、description、issues、counts 与 summary 字段。</tag>
+				<tag name="since">6.1.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

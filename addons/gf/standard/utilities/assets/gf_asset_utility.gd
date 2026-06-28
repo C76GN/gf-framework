@@ -73,6 +73,7 @@ signal asset_load_queued(path: String, lane_id: StringName)
 ## [br]
 ## @since 6.0.0
 const DEFAULT_LOAD_LANE_ID: StringName = &"_default"
+const _THREADED_RESOURCE_LOAD_ADAPTER = preload("res://addons/gf/standard/utilities/assets/gf_threaded_resource_load_adapter.gd")
 
 
 # --- 公共变量 ---
@@ -159,6 +160,8 @@ func init() -> void:
 ## [br]
 ## @api public
 func dispose() -> void:
+	_cancel_pending_requests_for_dispose()
+	_release_all_handles()
 	_pending.clear()
 	_queued_requests.clear()
 	_queued_by_path.clear()
@@ -666,11 +669,13 @@ func put_cache(path: String, resource: Resource) -> void:
 func remove_cache(path: String) -> void:
 	if _cache.has(path):
 		_cache_diagnostics.record_invalidation(&"manual_remove", path)
+	_release_handles_for_path(path)
 	_erase_dictionary_key(_cache, path)
 	_erase_dictionary_key(_cache_access_order, path)
 	_erase_dictionary_key(_pinned_cache_paths, path)
 	_erase_dictionary_key(_reference_counts, path)
 	_erase_dictionary_key(_owner_reference_counts, path)
+	_remove_path_from_groups(path)
 
 
 ## 清空全部缓存。
@@ -1169,6 +1174,22 @@ func _dispatch_callbacks(callbacks: Array, resource: Resource) -> void:
 			callback.call(resource if resource == null or _is_resource_compatible(resource, type_hint) else null)
 
 
+func _cancel_pending_requests_for_dispose() -> void:
+	for pending_value: Variant in _pending.values():
+		var pending_request: Dictionary = GFVariantData.as_dictionary(pending_value)
+		if _is_pending_cancelled(pending_request):
+			continue
+		pending_request["cancelled"] = true
+		_dispatch_callbacks(_get_pending_callbacks(pending_request).duplicate(), null)
+
+	for queued_value: Variant in _queued_requests:
+		var queued_request: Dictionary = GFVariantData.as_dictionary(queued_value)
+		if _is_pending_cancelled(queued_request):
+			continue
+		queued_request["cancelled"] = true
+		_dispatch_callbacks(_get_pending_callbacks(queued_request).duplicate(), null)
+
+
 func _owner_instance_id(owner: Object) -> int:
 	return owner.get_instance_id() if owner != null else 0
 
@@ -1247,6 +1268,16 @@ func _release_all_handles() -> void:
 	_handle_refs.clear()
 
 
+func _release_handles_for_path(path: String) -> void:
+	for index: int in range(_handle_refs.size() - 1, -1, -1):
+		var handle: GFAssetHandle = _get_asset_handle_value(_handle_refs[index].get_ref())
+		if handle == null or handle.is_released():
+			_handle_refs.remove_at(index)
+		elif handle.path == path:
+			handle.release_local_reference()
+			_handle_refs.remove_at(index)
+
+
 func _release_owner_handles(owner_id: int) -> void:
 	for index: int in range(_handle_refs.size() - 1, -1, -1):
 		var handle: GFAssetHandle = _get_asset_handle_value(_handle_refs[index].get_ref())
@@ -1280,6 +1311,19 @@ func _release_owner_id(owner_id: int) -> int:
 	_erase_dictionary_key(_owner_refs, owner_id)
 	_erase_dictionary_key(_owner_release_connected, owner_id)
 	return released_count
+
+
+func _remove_path_from_groups(path: String) -> void:
+	for group_id: Variant in _group_paths.keys():
+		var paths: PackedStringArray = _get_packed_string_array_value(_group_paths[group_id])
+		if not paths.has(path):
+			continue
+		paths.remove_at(paths.find(path))
+		if paths.is_empty():
+			_erase_dictionary_key(_group_paths, group_id)
+			_erase_dictionary_key(_group_pin_counts, group_id)
+		else:
+			_group_paths[group_id] = paths
 
 
 func _normalize_group_entry(entry: Variant) -> Dictionary:
@@ -1383,15 +1427,12 @@ func _get_oldest_cached_path() -> String:
 
 
 func _request_threaded(path: String, type_hint: String) -> Error:
-	if type_hint.is_empty():
-		return ResourceLoader.load_threaded_request(path)
-
-	return ResourceLoader.load_threaded_request(path, type_hint)
+	return _THREADED_RESOURCE_LOAD_ADAPTER.request(path, type_hint)
 
 
 func _get_threaded_status_with_progress(path: String, progress: Array) -> ResourceLoader.ThreadLoadStatus:
-	return ResourceLoader.load_threaded_get_status(path, progress)
+	return _THREADED_RESOURCE_LOAD_ADAPTER.get_status_with_progress(path, progress)
 
 
 func _take_threaded_resource(path: String) -> Resource:
-	return _get_resource_value(ResourceLoader.load_threaded_get(path))
+	return _THREADED_RESOURCE_LOAD_ADAPTER.take_resource(path)

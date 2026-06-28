@@ -265,29 +265,11 @@ func write_value(target: Object, value: Variant) -> bool:
 ## [br]
 ## @schema return: Variant，归一化后的值，类型由 value_kind 决定。
 func normalize_value(value: Variant) -> Variant:
-	var normalized: Variant = value
-	match value_kind:
-		ValueKind.BOOL:
-			normalized = GFVariantData.to_bool(value)
-		ValueKind.INT:
-			normalized = _normalize_int(value)
-		ValueKind.FLOAT:
-			normalized = _normalize_float(value)
-		ValueKind.STRING:
-			normalized = GFVariantData.to_text(value)
-		ValueKind.STRING_NAME:
-			normalized = StringName(GFVariantData.to_text(value))
-		ValueKind.VECTOR2:
-			normalized = value if value is Vector2 else Vector2.ZERO
-		ValueKind.VECTOR3:
-			normalized = value if value is Vector3 else Vector3.ZERO
-		ValueKind.COLOR:
-			normalized = value if value is Color else Color.WHITE
-		_:
-			pass
-
-	if not options.is_empty() and not options.has(normalized):
-		return options[0]
+	var normalized: Variant = _normalize_value_by_kind(value)
+	if not options.is_empty():
+		var normalized_options: Array = _get_normalized_options()
+		if not normalized_options.has(normalized) and not normalized_options.is_empty():
+			return normalized_options[0]
 	return normalized
 
 
@@ -318,6 +300,35 @@ func to_schema() -> Dictionary:
 
 
 # --- 私有/辅助方法 ---
+
+func _normalize_value_by_kind(value: Variant) -> Variant:
+	match value_kind:
+		ValueKind.BOOL:
+			return GFVariantData.to_bool(value)
+		ValueKind.INT:
+			return _normalize_int(value)
+		ValueKind.FLOAT:
+			return _normalize_float(value)
+		ValueKind.STRING:
+			return GFVariantData.to_text(value)
+		ValueKind.STRING_NAME:
+			return StringName(GFVariantData.to_text(value))
+		ValueKind.VECTOR2:
+			return value if value is Vector2 else Vector2.ZERO
+		ValueKind.VECTOR3:
+			return value if value is Vector3 else Vector3.ZERO
+		ValueKind.COLOR:
+			return value if value is Color else Color.WHITE
+		_:
+			return value
+
+
+func _get_normalized_options() -> Array:
+	var result: Array = []
+	for option_value: Variant in options:
+		result.append(_normalize_value_by_kind(option_value))
+	return result
+
 
 func _normalize_int(value: Variant) -> int:
 	var number: int = GFVariantData.to_int(value)

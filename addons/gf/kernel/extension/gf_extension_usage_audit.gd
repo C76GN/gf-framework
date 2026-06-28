@@ -80,20 +80,61 @@ static func audit_disabled_extensions(
 	manifests: Array[GFExtensionManifest],
 	options: Dictionary = {}
 ) -> Dictionary:
-	var extension_reports: Dictionary = {}
-	var all_references: Array[Dictionary] = []
+	var audited_manifests: Array[GFExtensionManifest] = []
+	var root_paths: Array[String] = []
+	var class_names_by_root: Array[Array] = []
+	var references_by_root: Array[Array] = []
 	for manifest: GFExtensionManifest in manifests:
 		if manifest == null or manifest.root_path.is_empty():
 			continue
+		var normalized_root: String = _GF_PATH_TOOLS.normalize_root_path(manifest.root_path)
+		if normalized_root.is_empty():
+			continue
+		audited_manifests.append(manifest)
+		root_paths.append(normalized_root)
+		class_names_by_root.append(_collect_extension_class_names(normalized_root))
+		references_by_root.append([])
 
-		var references: Array[Dictionary] = find_references_to_root(manifest.root_path, options)
+	var extension_reports: Dictionary = {}
+	var all_references: Array[Dictionary] = []
+	if audited_manifests.is_empty():
+		return {
+			"ok": true,
+			"extension_count": 0,
+			"reference_count": 0,
+			"extensions": extension_reports,
+			"references": all_references,
+		}
+
+	var files: Array[String] = _collect_reference_scan_files(options, PackedStringArray())
+	var max_references: int = maxi(_GF_VARIANT_ACCESS_SCRIPT.get_option_int(options, "max_references_per_extension", 50), 1)
+	for path: String in files:
+		for index: int in range(audited_manifests.size()):
+			var references: Array = references_by_root[index]
+			if references.size() >= max_references:
+				continue
+			var root_path: String = root_paths[index]
+			if _is_path_ignored(path, PackedStringArray([root_path])):
+				continue
+			references.append_array(_collect_file_references(
+				path,
+				root_path,
+				class_names_by_root[index],
+				max_references - references.size()
+			))
+			references_by_root[index] = references
+
+	for index: int in range(audited_manifests.size()):
+		var manifest: GFExtensionManifest = audited_manifests[index]
+		var root_path: String = root_paths[index]
+		var references: Array = references_by_root[index]
 		if references.is_empty():
 			continue
 
 		extension_reports[manifest.id] = {
 			"id": manifest.id,
 			"display_name": manifest.display_name,
-			"root_path": manifest.root_path,
+			"root_path": root_path,
 			"references": references,
 			"reference_count": references.size(),
 		}
@@ -126,14 +167,35 @@ static func find_references_to_root(root_path: String, options: Dictionary = {})
 	if normalized_root.is_empty():
 		return []
 
+	var files: Array[String] = _collect_reference_scan_files(options, PackedStringArray([normalized_root]))
+	var extension_class_names: Array[String] = _collect_extension_class_names(normalized_root)
+	var max_references: int = maxi(_GF_VARIANT_ACCESS_SCRIPT.get_option_int(options, "max_references_per_extension", 50), 1)
+	var references: Array[Dictionary] = []
+	for path: String in files:
+		references.append_array(_collect_file_references(
+			path,
+			normalized_root,
+			extension_class_names,
+			max_references - references.size()
+		))
+		if references.size() >= max_references:
+			break
+	return references
+
+
+# --- 私有/辅助方法 ---
+
+static func _collect_reference_scan_files(options: Dictionary, additional_ignored_roots: PackedStringArray) -> Array[String]:
 	var scan_roots: PackedStringArray = _GF_PATH_TOOLS.normalize_root_paths(PackedStringArray(
 		_GF_VARIANT_ACCESS_SCRIPT.get_option_string_array(options, "scan_roots", DEFAULT_SCAN_ROOTS)
 	))
 	var ignored_roots: PackedStringArray = _GF_PATH_TOOLS.normalize_root_paths(PackedStringArray(
 		_GF_VARIANT_ACCESS_SCRIPT.get_option_string_array(options, "ignored_roots", DEFAULT_IGNORED_ROOTS)
 	))
-	if not ignored_roots.has(normalized_root):
-		var _ignored_root_appended: bool = ignored_roots.append(normalized_root)
+	for ignored_root: String in additional_ignored_roots:
+		if ignored_root.is_empty() or ignored_roots.has(ignored_root):
+			continue
+		var _append_ignored_root: bool = ignored_roots.append(ignored_root)
 	var max_scan_depth: int = maxi(_GF_VARIANT_ACCESS_SCRIPT.get_option_int(options, "max_scan_depth", DEFAULT_MAX_SCAN_DEPTH), 0)
 	var max_scanned_files: int = maxi(_GF_VARIANT_ACCESS_SCRIPT.get_option_int(options, "max_scanned_files", DEFAULT_MAX_SCANNED_FILES), 0)
 	var scan_state: Dictionary = _make_scan_state()
@@ -152,23 +214,8 @@ static func find_references_to_root(root_path: String, options: Dictionary = {})
 		if not _can_collect_more_files(files, max_scanned_files):
 			_warn_scanned_file_limit(max_scanned_files, scan_state)
 			break
+	return files
 
-	var extension_class_names: Array[String] = _collect_extension_class_names(normalized_root)
-	var max_references: int = maxi(_GF_VARIANT_ACCESS_SCRIPT.get_option_int(options, "max_references_per_extension", 50), 1)
-	var references: Array[Dictionary] = []
-	for path: String in files:
-		references.append_array(_collect_file_references(
-			path,
-			normalized_root,
-			extension_class_names,
-			max_references - references.size()
-		))
-		if references.size() >= max_references:
-			break
-	return references
-
-
-# --- 私有/辅助方法 ---
 
 static func _collect_text_files(
 	root_path: String,
@@ -218,7 +265,7 @@ static func _collect_text_files(
 static func _collect_file_references(
 	path: String,
 	root_path: String,
-	class_names: Array[String],
+	class_names: Array,
 	remaining: int
 ) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
@@ -268,6 +315,30 @@ static func _make_reference(
 
 
 static func _line_references_root(line: String, root_path: String) -> bool:
+	var normalized_line: String = _normalize_source_line_path_separators(line)
+	var normalized_root: String = _GF_PATH_TOOLS.normalize_root_path(root_path)
+	if _line_references_root_variant(normalized_line, normalized_root):
+		return true
+
+	for root_variant: String in _root_reference_variants(root_path):
+		if _line_references_root_variant(line, root_variant):
+			return true
+	return false
+
+
+static func _normalize_source_line_path_separators(line: String) -> String:
+	var normalized_line: String = line.replace("\\\\", "/").replace("\\", "/")
+	normalized_line = normalized_line.replace("res:/", "res://").replace("user:/", "user://")
+	while normalized_line.contains("res:///"):
+		normalized_line = normalized_line.replace("res:///", "res://")
+	while normalized_line.contains("user:///"):
+		normalized_line = normalized_line.replace("user:///", "user://")
+	return normalized_line
+
+
+static func _line_references_root_variant(line: String, root_path: String) -> bool:
+	if root_path.is_empty():
+		return false
 	var start: int = line.find(root_path)
 	while start >= 0:
 		var next_index: int = start + root_path.length()
@@ -279,6 +350,21 @@ static func _line_references_root(line: String, root_path: String) -> bool:
 			return true
 		start = line.find(root_path, start + 1)
 	return false
+
+
+static func _root_reference_variants(root_path: String) -> PackedStringArray:
+	var normalized_root: String = _GF_PATH_TOOLS.normalize_root_path(root_path)
+	var variants: PackedStringArray = PackedStringArray()
+	_append_unique_variant(variants, normalized_root)
+	_append_unique_variant(variants, normalized_root.replace("/", "\\"))
+	_append_unique_variant(variants, normalized_root.replace("/", "\\\\"))
+	return variants
+
+
+static func _append_unique_variant(values: PackedStringArray, value: String) -> void:
+	if value.is_empty() or values.has(value):
+		return
+	var _append_value: bool = values.append(value)
 
 
 static func _line_references_identifier(line: String, identifier: String) -> bool:
@@ -309,7 +395,7 @@ static func _is_identifier_character(character: String) -> bool:
 
 
 static func _is_reference_boundary(character: String) -> bool:
-	return ["/", "\"", "'", ")", "]", "}", ",", " ", "\t"].has(character)
+	return ["/", "\\", "\"", "'", ")", "]", "}", ",", " ", "\t"].has(character)
 
 
 static func _is_text_resource_file(path: String) -> bool:

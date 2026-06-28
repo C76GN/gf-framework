@@ -20,7 +20,12 @@
 | 方法 | [`replace_child`](#member-gfnodetreeops-methods-replace_child) | `static func replace_child( parent: Node, old_child: Node, new_child: Node, keep_global_transform: bool = true, free_old_child: bool = false, owner: Node = null ) -> bool:` |
 | 方法 | [`find_first_parent_of_type`](#member-gfnodetreeops-methods-find_first_parent_of_type) | `static func find_first_parent_of_type( node: Node, parent_type: Variant, include_self: bool = false ) -> Node:` |
 | 方法 | [`find_first_child_of_type`](#member-gfnodetreeops-methods-find_first_child_of_type) | `static func find_first_child_of_type( parent: Node, child_type: Variant, recursive: bool = false, include_internal: bool = false, include_parent: bool = false ) -> Node:` |
-| 方法 | [`collect_node_tree`](#member-gfnodetreeops-methods-collect_node_tree) | `static func collect_node_tree( root: Node, type_filter: Variant = null, include_root: bool = true, include_internal: bool = false ) -> Array[Node]:` |
+| 方法 | [`collect_node_tree`](#member-gfnodetreeops-methods-collect_node_tree) | `static func collect_node_tree( root: Node, type_filter: Variant = null, include_root: bool = true, include_internal: bool = false, max_depth: int = -1, limit: int = -1 ) -> Array[Node]:` |
+| 方法 | [`collect_children`](#member-gfnodetreeops-methods-collect_children) | `static func collect_children( parent: Node, type_filter: Variant = null, include_self: bool = false, include_internal: bool = false, limit: int = -1 ) -> Array[Node]:` |
+| 方法 | [`collect_descendants`](#member-gfnodetreeops-methods-collect_descendants) | `static func collect_descendants( root: Node, type_filter: Variant = null, include_root: bool = false, include_internal: bool = false, max_depth: int = -1, limit: int = -1 ) -> Array[Node]:` |
+| 方法 | [`collect_ancestors`](#member-gfnodetreeops-methods-collect_ancestors) | `static func collect_ancestors( node: Node, type_filter: Variant = null, include_self: bool = false, limit: int = -1 ) -> Array[Node]:` |
+| 方法 | [`collect_previous_siblings`](#member-gfnodetreeops-methods-collect_previous_siblings) | `static func collect_previous_siblings( node: Node, type_filter: Variant = null, include_self: bool = false, include_internal: bool = false, limit: int = -1 ) -> Array[Node]:` |
+| 方法 | [`collect_next_siblings`](#member-gfnodetreeops-methods-collect_next_siblings) | `static func collect_next_siblings( node: Node, type_filter: Variant = null, include_self: bool = false, include_internal: bool = false, limit: int = -1 ) -> Array[Node]:` |
 | 方法 | [`set_owner_recursive`](#member-gfnodetreeops-methods-set_owner_recursive) | `static func set_owner_recursive(node: Node, owner: Node) -> void:` |
 | 方法 | [`free_children`](#member-gfnodetreeops-methods-free_children) | `static func free_children(parent: Node, include_internal: bool = false) -> int:` |
 
@@ -156,9 +161,10 @@ static func find_first_child_of_type( parent: Node, child_type: Variant, recursi
 ### `collect_node_tree`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-static func collect_node_tree( root: Node, type_filter: Variant = null, include_root: bool = true, include_internal: bool = false ) -> Array[Node]:
+static func collect_node_tree( root: Node, type_filter: Variant = null, include_root: bool = true, include_internal: bool = false, max_depth: int = -1, limit: int = -1 ) -> Array[Node]:
 ```
 
 收集节点树中的节点。
@@ -171,6 +177,153 @@ static func collect_node_tree( root: Node, type_filter: Variant = null, include_
 | `type_filter` | 可选类型过滤器，可为脚本类型、原生类或类名字符串。 |
 | `include_root` | 是否包含 root 自身。 |
 | `include_internal` | 是否包含内部子节点。 |
+| `max_depth` | 最大遍历深度；0 只允许 root，负数表示不限深度。 |
+| `limit` | 最多返回多少个匹配节点；负数表示不限数量，0 表示返回空数组。 |
+
+返回：匹配节点列表。
+
+结构：
+
+- `type_filter`: Variant type filter accepted by is_instance_of(), native class name, GDScript class_name, script resource path, or null for all nodes.
+
+<a id="member-gfnodetreeops-methods-collect_children"></a>
+
+### `collect_children`
+
+- API：`public`
+- 首次版本：`7.0.0`
+
+```gdscript
+static func collect_children( parent: Node, type_filter: Variant = null, include_self: bool = false, include_internal: bool = false, limit: int = -1 ) -> Array[Node]:
+```
+
+收集直接子节点，可选包含起点自身。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `parent` | 查询起点。 |
+| `type_filter` | 可选类型过滤器，可为脚本类型、原生类或类名字符串。 |
+| `include_self` | 是否把 parent 自身作为第一个候选。 |
+| `include_internal` | 是否包含内部子节点。 |
+| `limit` | 最多返回多少个匹配节点；负数表示不限数量，0 表示返回空数组。 |
+
+返回：匹配节点列表。
+
+结构：
+
+- `type_filter`: Variant type filter accepted by is_instance_of(), native class name, GDScript class_name, script resource path, or null for all nodes.
+
+<a id="member-gfnodetreeops-methods-collect_descendants"></a>
+
+### `collect_descendants`
+
+- API：`public`
+- 首次版本：`7.0.0`
+
+```gdscript
+static func collect_descendants( root: Node, type_filter: Variant = null, include_root: bool = false, include_internal: bool = false, max_depth: int = -1, limit: int = -1 ) -> Array[Node]:
+```
+
+按场景树顺序收集后代节点，可选包含 root 自身。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `root` | 查询起点。 |
+| `type_filter` | 可选类型过滤器，可为脚本类型、原生类或类名字符串。 |
+| `include_root` | 是否把 root 自身作为第一个候选。 |
+| `include_internal` | 是否包含内部子节点。 |
+| `max_depth` | 最大遍历深度；0 只允许 root，负数表示不限深度。 |
+| `limit` | 最多返回多少个匹配节点；负数表示不限数量，0 表示返回空数组。 |
+
+返回：匹配节点列表。
+
+结构：
+
+- `type_filter`: Variant type filter accepted by is_instance_of(), native class name, GDScript class_name, script resource path, or null for all nodes.
+
+<a id="member-gfnodetreeops-methods-collect_ancestors"></a>
+
+### `collect_ancestors`
+
+- API：`public`
+- 首次版本：`7.0.0`
+
+```gdscript
+static func collect_ancestors( node: Node, type_filter: Variant = null, include_self: bool = false, limit: int = -1 ) -> Array[Node]:
+```
+
+从节点向上收集祖先节点，可选包含起点自身。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `node` | 查询起点。 |
+| `type_filter` | 可选类型过滤器，可为脚本类型、原生类或类名字符串。 |
+| `include_self` | 是否把 node 自身作为第一个候选。 |
+| `limit` | 最多返回多少个匹配节点；负数表示不限数量，0 表示返回空数组。 |
+
+返回：匹配节点列表。
+
+结构：
+
+- `type_filter`: Variant type filter accepted by is_instance_of(), native class name, GDScript class_name, script resource path, or null for all nodes.
+
+<a id="member-gfnodetreeops-methods-collect_previous_siblings"></a>
+
+### `collect_previous_siblings`
+
+- API：`public`
+- 首次版本：`7.0.0`
+
+```gdscript
+static func collect_previous_siblings( node: Node, type_filter: Variant = null, include_self: bool = false, include_internal: bool = false, limit: int = -1 ) -> Array[Node]:
+```
+
+按场景树顺序收集位于节点之前的同级节点，可选包含起点自身。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `node` | 查询起点。 |
+| `type_filter` | 可选类型过滤器，可为脚本类型、原生类或类名字符串。 |
+| `include_self` | 是否把 node 自身作为最后一个候选。 |
+| `include_internal` | 是否包含内部同级节点。 |
+| `limit` | 最多返回多少个匹配节点；负数表示不限数量，0 表示返回空数组。 |
+
+返回：匹配节点列表。
+
+结构：
+
+- `type_filter`: Variant type filter accepted by is_instance_of(), native class name, GDScript class_name, script resource path, or null for all nodes.
+
+<a id="member-gfnodetreeops-methods-collect_next_siblings"></a>
+
+### `collect_next_siblings`
+
+- API：`public`
+- 首次版本：`7.0.0`
+
+```gdscript
+static func collect_next_siblings( node: Node, type_filter: Variant = null, include_self: bool = false, include_internal: bool = false, limit: int = -1 ) -> Array[Node]:
+```
+
+按场景树顺序收集位于节点之后的同级节点，可选包含起点自身。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `node` | 查询起点。 |
+| `type_filter` | 可选类型过滤器，可为脚本类型、原生类或类名字符串。 |
+| `include_self` | 是否把 node 自身作为第一个候选。 |
+| `include_internal` | 是否包含内部同级节点。 |
+| `limit` | 最多返回多少个匹配节点；负数表示不限数量，0 表示返回空数组。 |
 
 返回：匹配节点列表。
 

@@ -47,10 +47,26 @@ enum PositionMode {
 	FOLLOW,
 }
 
+## 摇杆输出模式。
+## [br]
+## @api public
+## [br]
+## @since 7.0.0
+enum OutputMode {
+	## 输出连续模拟向量。
+	ANALOG,
+	## 输出四方向离散向量。
+	DPAD_4,
+	## 输出八方向离散向量。
+	DPAD_8,
+}
+
 
 # --- 常量 ---
 
 const _INPUT_EVENT_TOOLS = preload("res://addons/gf/standard/input/common/gf_input_event_tools.gd")
+const _DPAD_DIAGONAL_THRESHOLD: float = 0.38268343
+const _WARNING_EMPTY_ACTIVE_REGION: String = "[GFTouchJoystick] use_active_region 已启用，但 active_region 为空；触摸起点和拖动将被拒绝。"
 
 
 # --- 导出变量 ---
@@ -94,6 +110,13 @@ const _INPUT_EVENT_TOOLS = preload("res://addons/gf/standard/input/common/gf_inp
 ## @api public
 @export_range(0.0, 0.95, 0.01) var deadzone: float = 0.1
 
+## 输出模式。ANALOG 保留模拟强度，DPAD_4 / DPAD_8 输出离散方向。
+## [br]
+## @api public
+## [br]
+## @since 7.0.0
+@export var output_mode: OutputMode = OutputMode.ANALOG
+
 ## 摇杆定位模式。
 ## [br]
 ## @api public
@@ -109,6 +132,27 @@ const _INPUT_EVENT_TOOLS = preload("res://addons/gf/standard/input/common/gf_inp
 	set(value):
 		interaction_radius = maxf(value, radius)
 		queue_redraw()
+
+## 是否限制触摸起点必须位于 active_region 内。
+## [br]
+## @api public
+## [br]
+## @since 7.0.0
+@export var use_active_region: bool = false
+
+## 允许开始触控的屏幕区域，使用 viewport 像素坐标。
+## [br]
+## @api public
+## [br]
+## @since 7.0.0
+@export var active_region: Rect2 = Rect2()
+
+## 拖动离开 active_region 时是否自动释放。
+## [br]
+## @api public
+## [br]
+## @since 7.0.0
+@export var release_outside_active_region: bool = true
 
 ## 左方向动作名。为空则不映射。
 ## [br]
@@ -158,6 +202,7 @@ var _active_touch_index: int = -1
 var _knob_position: Vector2 = Vector2.ZERO
 var _direction: Vector2 = Vector2.ZERO
 var _rest_global_position: Vector2 = Vector2.ZERO
+var _empty_active_region_warning_emitted: bool = false
 
 
 # --- Godot 生命周期方法 ---
@@ -166,8 +211,24 @@ func _ready() -> void:
 	_rest_global_position = global_position
 
 
+func _notification(what: int) -> void:
+	if Engine.is_editor_hint():
+		return
+	if what == CanvasItem.NOTIFICATION_VISIBILITY_CHANGED and not is_visible_in_tree():
+		release()
+
+
+func _exit_tree() -> void:
+	if Engine.is_editor_hint():
+		return
+	release()
+
+
 func _input(event: InputEvent) -> void:
 	if Engine.is_editor_hint():
+		return
+	if not is_visible_in_tree():
+		release()
 		return
 
 	var screen_touch: InputEventScreenTouch = _INPUT_EVENT_TOOLS.get_screen_touch_event(event)
@@ -203,6 +264,13 @@ func get_direction() -> Vector2:
 ## [br]
 ## @api public
 func release() -> void:
+	var was_active: bool = (
+		_active_touch_index != -1
+		or _direction != Vector2.ZERO
+		or _knob_position != Vector2.ZERO
+	)
+	if not was_active:
+		return
 	_active_touch_index = -1
 	_set_direction(Vector2.ZERO, Vector2.ZERO)
 	if _uses_touch_origin():
@@ -216,7 +284,7 @@ func _handle_touch(event: InputEventScreenTouch) -> void:
 	var global_pos: Vector2 = _screen_to_global_position(event.position)
 	var local_pos: Vector2 = to_local(global_pos)
 	if event.pressed:
-		if _active_touch_index == -1 and _can_begin_at(local_pos):
+		if _active_touch_index == -1 and _can_begin_at(local_pos, event.position):
 			_begin_touch(event.index, global_pos, local_pos)
 	elif event.index == _active_touch_index:
 		release()
@@ -225,12 +293,16 @@ func _handle_touch(event: InputEventScreenTouch) -> void:
 func _handle_drag(event: InputEventScreenDrag) -> void:
 	if event.index != _active_touch_index:
 		return
+	if release_outside_active_region and use_active_region and not _is_screen_position_in_active_region(event.position):
+		release()
+		return
 	_update_from_local_position(to_local(_screen_to_global_position(event.position)))
 
 
 func _begin_touch(touch_index: int, global_pos: Vector2, local_pos: Vector2) -> void:
 	_active_touch_index = touch_index
 	if _uses_touch_origin():
+		_rest_global_position = global_position
 		global_position = global_pos
 		local_pos = Vector2.ZERO
 	_knob_position = Vector2.ZERO
@@ -238,7 +310,9 @@ func _begin_touch(touch_index: int, global_pos: Vector2, local_pos: Vector2) -> 
 	_update_from_local_position(local_pos)
 
 
-func _can_begin_at(local_pos: Vector2) -> bool:
+func _can_begin_at(local_pos: Vector2, screen_position: Vector2 = Vector2.ZERO) -> bool:
+	if use_active_region and not _is_screen_position_in_active_region(screen_position):
+		return false
 	if _uses_touch_origin():
 		return local_pos.length() <= interaction_radius
 	return local_pos.length() <= radius
@@ -248,7 +322,7 @@ func _update_from_local_position(local_pos: Vector2) -> void:
 	local_pos = _apply_follow_origin(local_pos)
 	var knob_pos: Vector2 = local_pos.limit_length(radius)
 	var raw_direction: Vector2 = knob_pos / radius
-	var next_direction: Vector2 = _apply_deadzone(raw_direction)
+	var next_direction: Vector2 = _calculate_output_direction(raw_direction)
 	_set_direction(next_direction, knob_pos)
 
 
@@ -317,6 +391,37 @@ func _apply_deadzone(raw_direction: Vector2) -> Vector2:
 	return raw_direction.normalized() * clampf(remapped_magnitude, 0.0, 1.0)
 
 
+func _calculate_output_direction(raw_direction: Vector2) -> Vector2:
+	if output_mode == OutputMode.ANALOG:
+		return _apply_deadzone(raw_direction)
+
+	var magnitude: float = raw_direction.length()
+	if magnitude <= clampf(deadzone, 0.0, 0.99):
+		return Vector2.ZERO
+
+	var direction: Vector2 = raw_direction / magnitude
+	if output_mode == OutputMode.DPAD_4:
+		if absf(direction.x) >= absf(direction.y):
+			return Vector2(signf(direction.x), 0.0)
+		return Vector2(0.0, signf(direction.y))
+
+	var result: Vector2 = Vector2.ZERO
+	if direction.x > _DPAD_DIAGONAL_THRESHOLD:
+		result.x = 1.0
+	elif direction.x < -_DPAD_DIAGONAL_THRESHOLD:
+		result.x = -1.0
+	if direction.y > _DPAD_DIAGONAL_THRESHOLD:
+		result.y = 1.0
+	elif direction.y < -_DPAD_DIAGONAL_THRESHOLD:
+		result.y = -1.0
+	if result == Vector2.ZERO:
+		if absf(direction.x) >= absf(direction.y):
+			result.x = signf(direction.x)
+		else:
+			result.y = signf(direction.y)
+	return result
+
+
 func _apply_follow_origin(local_pos: Vector2) -> Vector2:
 	if position_mode != PositionMode.FOLLOW or local_pos.length() <= radius:
 		return local_pos
@@ -335,3 +440,14 @@ func _screen_to_global_position(screen_position: Vector2) -> Vector2:
 	if viewport == null:
 		return screen_position
 	return viewport.get_canvas_transform().affine_inverse() * screen_position
+
+
+func _is_screen_position_in_active_region(screen_position: Vector2) -> bool:
+	var normalized_region: Rect2 = active_region.abs()
+	if normalized_region.size.x <= 0.0 or normalized_region.size.y <= 0.0:
+		if not _empty_active_region_warning_emitted:
+			push_warning(_WARNING_EMPTY_ACTIVE_REGION)
+			_empty_active_region_warning_emitted = true
+		return false
+	_empty_active_region_warning_emitted = false
+	return normalized_region.has_point(screen_position)

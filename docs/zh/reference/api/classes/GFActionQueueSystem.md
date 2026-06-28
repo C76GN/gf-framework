@@ -580,6 +580,7 @@ func get_current_action() -> Object:
 ### `get_debug_snapshot`
 
 - API：`public`
+- 首次版本：`6.0.0`
 
 ```gdscript
 func get_debug_snapshot() -> Dictionary:
@@ -591,7 +592,7 @@ func get_debug_snapshot() -> Dictionary:
 
 结构：
 
-- `return`: Dictionary，包含 is_processing、queued_count、has_current_action、processing_serial、named_queue_count、named_queues、linked_node_alive 和 interceptor_count。
+- `return`: Dictionary，包含 is_processing、is_paused、queued_count、has_current_action、processing_serial、named_queue_count、named_queues、linked_node_alive 和 interceptor_count。
 
 <a id="member-gfactionqueuesystem-methods-tick"></a>
 

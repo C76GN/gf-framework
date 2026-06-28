@@ -1610,16 +1610,20 @@ func _set_node_tree_active_state(node: Node, active: bool) -> void:
 
 
 func _set_node_active_state(node: Node, active: bool) -> void:
+	if active:
+		if node.has_meta(_META_ORIGINAL_PROCESS_MODE):
+			var original_process_mode: Node.ProcessMode = _get_process_mode_value(
+				node.get_meta(_META_ORIGINAL_PROCESS_MODE),
+				Node.PROCESS_MODE_INHERIT
+			)
+			if node.process_mode == Node.PROCESS_MODE_DISABLED:
+				node.process_mode = original_process_mode
+			node.remove_meta(_META_ORIGINAL_PROCESS_MODE)
+		return
+
 	if not node.has_meta(_META_ORIGINAL_PROCESS_MODE):
 		node.set_meta(_META_ORIGINAL_PROCESS_MODE, node.process_mode)
-
-	if active:
-		node.process_mode = _get_process_mode_value(
-			node.get_meta(_META_ORIGINAL_PROCESS_MODE),
-			Node.PROCESS_MODE_INHERIT
-		)
-	else:
-		node.process_mode = Node.PROCESS_MODE_DISABLED as Node.ProcessMode
+	node.process_mode = Node.PROCESS_MODE_DISABLED as Node.ProcessMode
 
 
 # --- 信号处理函数 ---

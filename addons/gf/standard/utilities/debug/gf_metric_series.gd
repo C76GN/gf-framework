@@ -252,12 +252,16 @@ func make_sparkline(width: int = 32) -> String:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.23.0
+## [br]
 ## @param include_samples: 是否包含采样明细。
+## [br]
+## @param sparkline_width: sparkline 输出宽度。
 ## [br]
 ## @return 指标序列快照。
 ## [br]
 ## @schema return: Dictionary，包含 id、label、group、visible、max_samples、sample_count、latest_value、min_value、max_value、average_value、sparkline、metadata，可选 samples。
-func to_dict(include_samples: bool = false) -> Dictionary:
+func to_dict(include_samples: bool = false, sparkline_width: int = 32) -> Dictionary:
 	var result: Dictionary = {
 		"id": id,
 		"label": label,
@@ -269,7 +273,7 @@ func to_dict(include_samples: bool = false) -> Dictionary:
 		"min_value": get_min_value(),
 		"max_value": get_max_value(),
 		"average_value": get_average_value(),
-		"sparkline": make_sparkline(),
+		"sparkline": make_sparkline(sparkline_width),
 		"metadata": metadata.duplicate(true),
 	}
 	if include_samples:

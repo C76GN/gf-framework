@@ -250,6 +250,21 @@ func test_async_saves_to_same_file_are_serialized() -> void:
 	assert_eq(GFVariantData.get_option_int(_storage.load_data("queued_async.json"), "value"), 3, "同文件异步保存应按入队顺序串行，最终保留最后一次数据。")
 
 
+func test_sync_save_waits_for_pending_same_file_async_tasks() -> void:
+	_storage.encrypt_key = 0
+	_storage.max_async_thread_count = 1
+
+	assert_eq(_storage.save_data_async("queued_async.json", { "value": 1 }), OK, "第一次异步保存应启动。")
+	assert_eq(_storage.save_data_async("queued_async.json", { "value": 2 }), OK, "同文件第二次异步保存应排队。")
+
+	var save_error: Error = _storage.save_data("queued_async.json", { "value": 3 })
+
+	assert_eq(save_error, OK, "同步保存应等待同文件异步任务收敛后再写入。")
+	assert_true(_storage._async_tasks.is_empty(), "同步保存后不应残留同文件运行中任务。")
+	assert_true(_storage._async_queue.is_empty(), "同步保存后不应残留同文件排队任务。")
+	assert_eq(GFVariantData.get_option_int(_storage.load_data("queued_async.json"), "value"), 3, "同步保存应成为最终文件内容。")
+
+
 func test_dispose_notifies_queued_async_tasks_as_failed() -> void:
 	_storage.encrypt_key = 0
 	_storage.max_async_thread_count = 1

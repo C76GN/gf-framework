@@ -23,6 +23,11 @@
 | 常量 | [`IS_DIRTY_SETTING`](#member-gfbuildinfo-constants-is_dirty_setting) | `const IS_DIRTY_SETTING: String = "gf/build/is_dirty"` |
 | 常量 | [`TIME_UTC_SETTING`](#member-gfbuildinfo-constants-time_utc_setting) | `const TIME_UTC_SETTING: String = "gf/build/time_utc"` |
 | 常量 | [`METADATA_SETTING`](#member-gfbuildinfo-constants-metadata_setting) | `const METADATA_SETTING: String = "gf/build/metadata"` |
+| 常量 | [`EXPORT_ENABLED_SETTING`](#member-gfbuildinfo-constants-export_enabled_setting) | `const EXPORT_ENABLED_SETTING: String = "gf/build/export/write_metadata"` |
+| 常量 | [`EXPORT_BUILD_METADATA_SETTING`](#member-gfbuildinfo-constants-export_build_metadata_setting) | `const EXPORT_BUILD_METADATA_SETTING: String = "gf/build/export/build_metadata"` |
+| 常量 | [`EXPORT_RESTORE_PREVIOUS_SETTING`](#member-gfbuildinfo-constants-export_restore_previous_setting) | `const EXPORT_RESTORE_PREVIOUS_SETTING: String = "gf/build/export/restore_previous_settings"` |
+| 常量 | [`EXPORT_SAVE_PROJECT_SETTINGS_SETTING`](#member-gfbuildinfo-constants-export_save_project_settings_setting) | `const EXPORT_SAVE_PROJECT_SETTINGS_SETTING: String = "gf/build/export/save_project_settings"` |
+| 常量 | [`EXPORT_EXTRA_METADATA_SETTING`](#member-gfbuildinfo-constants-export_extra_metadata_setting) | `const EXPORT_EXTRA_METADATA_SETTING: String = "gf/build/export/metadata"` |
 | 常量 | [`PROJECT_NAME_SETTING`](#member-gfbuildinfo-constants-project_name_setting) | `const PROJECT_NAME_SETTING: String = "application/config/name"` |
 | 常量 | [`PROJECT_VERSION_SETTING`](#member-gfbuildinfo-constants-project_version_setting) | `const PROJECT_VERSION_SETTING: String = "application/config/version"` |
 | 属性 | [`project_name`](#member-gfbuildinfo-properties-project_name) | `var project_name: String = ""` |
@@ -143,6 +148,75 @@ const METADATA_SETTING: String = "gf/build/metadata"
 ```
 
 项目自定义构建元数据 ProjectSettings 键。
+
+<a id="member-gfbuildinfo-constants-export_enabled_setting"></a>
+
+### `EXPORT_ENABLED_SETTING`
+
+- API：`public`
+- 首次版本：`6.0.0`
+
+```gdscript
+const EXPORT_ENABLED_SETTING: String = "gf/build/export/write_metadata"
+```
+
+是否在导出开始时写入构建元数据的 ProjectSettings 键。
+
+<a id="member-gfbuildinfo-constants-export_build_metadata_setting"></a>
+
+### `EXPORT_BUILD_METADATA_SETTING`
+
+- API：`public`
+- 首次版本：`6.0.0`
+
+```gdscript
+const EXPORT_BUILD_METADATA_SETTING: String = "gf/build/export/build_metadata"
+```
+
+导出时写入 ProjectSettings 的构建元数据字典键。
+
+结构：
+
+- `value`: Dictionary，可包含 GFBuildInfo.write_metadata_to_project_settings() 支持的构建字段。
+
+<a id="member-gfbuildinfo-constants-export_restore_previous_setting"></a>
+
+### `EXPORT_RESTORE_PREVIOUS_SETTING`
+
+- API：`public`
+- 首次版本：`6.0.0`
+
+```gdscript
+const EXPORT_RESTORE_PREVIOUS_SETTING: String = "gf/build/export/restore_previous_settings"
+```
+
+导出结束后是否恢复旧构建元数据的 ProjectSettings 键。
+
+<a id="member-gfbuildinfo-constants-export_save_project_settings_setting"></a>
+
+### `EXPORT_SAVE_PROJECT_SETTINGS_SETTING`
+
+- API：`public`
+- 首次版本：`6.0.0`
+
+```gdscript
+const EXPORT_SAVE_PROJECT_SETTINGS_SETTING: String = "gf/build/export/save_project_settings"
+```
+
+写入或恢复后是否立即保存 ProjectSettings 的设置键。
+
+<a id="member-gfbuildinfo-constants-export_extra_metadata_setting"></a>
+
+### `EXPORT_EXTRA_METADATA_SETTING`
+
+- API：`public`
+- 首次版本：`6.0.0`
+
+```gdscript
+const EXPORT_EXTRA_METADATA_SETTING: String = "gf/build/export/metadata"
+```
+
+导出时附加到构建信息中的自定义元数据 ProjectSettings 键。
 
 <a id="member-gfbuildinfo-constants-project_name_setting"></a>
 
@@ -449,7 +523,7 @@ static func write_metadata_to_project_settings( build_data: Dictionary = {}, ext
 
 - `build_data`: Dictionary，可包含 build_id、commit_hash、branch、tag、commit_count、is_dirty、build_time_utc 和 metadata 字段。
 - `extra_metadata`: Dictionary，保存项目自定义构建元数据。
-- `return`: Dictionary，包含已写入的构建元数据。
+- `return`: Dictionary，包含已写入的构建元数据和可选 save_error。
 
 <a id="member-gfbuildinfo-methods-duplicate_info"></a>
 

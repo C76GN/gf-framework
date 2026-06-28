@@ -9,7 +9,7 @@
 - 类别：运行时句柄 (`runtime_handle`)
 - 首次版本：`3.17.0`
 
-动作队列中的通用等待动作。 通过 SceneTreeTimer 表达一段时间等待，不携带业务含义。
+动作队列中的通用等待动作。 通过可暂停的帧循环表达一段时间等待，不携带业务含义。
 
 ## 成员概览
 
@@ -23,6 +23,8 @@
 | 属性 | [`ignore_time_scale`](#member-gfwaitaction-properties-ignore_time_scale) | `var ignore_time_scale: bool = false` |
 | 方法 | [`execute`](#member-gfwaitaction-methods-execute) | `func execute() -> Variant:` |
 | 方法 | [`cancel`](#member-gfwaitaction-methods-cancel) | `func cancel() -> void:` |
+| 方法 | [`pause`](#member-gfwaitaction-methods-pause) | `func pause() -> void:` |
+| 方法 | [`resume`](#member-gfwaitaction-methods-resume) | `func resume() -> void:` |
 | 方法 | [`finish`](#member-gfwaitaction-methods-finish) | `func finish() -> void:` |
 
 ## 信号
@@ -132,6 +134,32 @@ func cancel() -> void:
 ```
 
 取消当前等待。
+
+<a id="member-gfwaitaction-methods-pause"></a>
+
+### `pause`
+
+- API：`public`
+- 首次版本：`6.0.0`
+
+```gdscript
+func pause() -> void:
+```
+
+暂停当前等待。
+
+<a id="member-gfwaitaction-methods-resume"></a>
+
+### `resume`
+
+- API：`public`
+- 首次版本：`6.0.0`
+
+```gdscript
+func resume() -> void:
+```
+
+恢复当前等待。
 
 <a id="member-gfwaitaction-methods-finish"></a>
 

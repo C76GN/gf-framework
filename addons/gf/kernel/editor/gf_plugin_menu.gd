@@ -32,6 +32,7 @@ var _menu: PopupMenu
 func setup(plugin: EditorPlugin, handler: Callable, menu_entries: Array = []) -> void:
 	if plugin == null:
 		return
+	cleanup(plugin)
 	_menu = PopupMenu.new()
 	var _connected: int = _menu.id_pressed.connect(handler)
 	_populate_menu(menu_entries)

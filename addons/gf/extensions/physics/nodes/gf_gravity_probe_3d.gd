@@ -72,6 +72,8 @@ var _cached_field_group: StringName = &""
 var _cached_combination_mode: CombinationMode = CombinationMode.SUM
 var _cached_use_fallback_when_empty: bool = true
 var _cached_fallback_acceleration: Vector3 = Vector3.DOWN * 9.8
+var _cached_field_signature: String = ""
+var _cached_acceleration: Vector3 = Vector3.ZERO
 
 
 # --- 公共方法 ---
@@ -83,6 +85,7 @@ var _cached_fallback_acceleration: Vector3 = Vector3.DOWN * 9.8
 ## @return 按 combination_mode 组合后的加速度。
 func sample() -> Vector3:
 	if _can_use_cached_sample():
+		last_acceleration = _cached_acceleration
 		return last_acceleration
 
 	if get_tree() == null or field_group == &"":
@@ -127,9 +130,7 @@ func sample_fields(fields: Array) -> Vector3:
 ## [br]
 ## @return 向下方向。
 func get_down_direction() -> Vector3:
-	var acceleration: Vector3 = last_acceleration
-	if acceleration.is_zero_approx():
-		acceleration = sample()
+	var acceleration: Vector3 = sample()
 	if acceleration.is_zero_approx():
 		return Vector3.DOWN
 	return acceleration.normalized()
@@ -144,12 +145,26 @@ func get_up_direction() -> Vector3:
 	return -get_down_direction()
 
 
+## 清空当前帧采样缓存。
+## [br]
+## @api public
+## [br]
+## @since 7.0.0
+func invalidate_cache() -> void:
+	_cached_process_frame = -1
+	_cached_physics_frame = -1
+	_cached_field_signature = ""
+
+
 # --- 私有/辅助方法 ---
 
 func _collect_field_samples(fields: Array) -> Array[Dictionary]:
 	var samples: Array[Dictionary] = []
-	for field: Object in fields:
-		if field == null or not field.has_method("get_acceleration_at"):
+	for field_value: Variant in fields:
+		if field_value == null or not is_instance_valid(field_value) or not (field_value is Object):
+			continue
+		var field: Object = field_value
+		if not field.has_method("get_acceleration_at"):
 			continue
 		var value: Variant = field.call("get_acceleration_at", global_position)
 		if value is Vector3:
@@ -242,6 +257,7 @@ func _can_use_cached_sample() -> bool:
 		and _cached_use_fallback_when_empty == use_fallback_when_empty
 		and _cached_fallback_acceleration == fallback_acceleration
 		and _cached_position == global_position
+		and _cached_field_signature == _get_field_group_signature()
 	)
 
 
@@ -253,3 +269,15 @@ func _store_sample_cache() -> void:
 	_cached_use_fallback_when_empty = use_fallback_when_empty
 	_cached_fallback_acceleration = fallback_acceleration
 	_cached_position = global_position
+	_cached_field_signature = _get_field_group_signature()
+	_cached_acceleration = last_acceleration
+
+
+func _get_field_group_signature() -> String:
+	if get_tree() == null or field_group == &"":
+		return ""
+	var ids: PackedStringArray = PackedStringArray()
+	for node: Node in get_tree().get_nodes_in_group(String(field_group)):
+		var _append_result: bool = ids.append(str(node.get_instance_id()))
+	ids.sort()
+	return "|".join(ids)

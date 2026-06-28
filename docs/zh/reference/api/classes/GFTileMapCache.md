@@ -20,6 +20,9 @@
 | 方法 | [`apply_to_tile_map`](#member-gftilemapcache-methods-apply_to_tile_map) | `func apply_to_tile_map( layer: TileMapLayer, origin: Vector2i = Vector2i.ZERO, options: Dictionary = {} ) -> Dictionary:` |
 | 方法 | [`extract_region`](#member-gftilemapcache-methods-extract_region) | `func extract_region(region: Rect2i, normalize_origin: bool = true) -> GFTileMapCache:` |
 | 方法 | [`translated`](#member-gftilemapcache-methods-translated) | `func translated(offset: Vector2i) -> GFTileMapCache:` |
+| 方法 | [`transformed`](#member-gftilemapcache-methods-transformed) | `func transformed(transform: int, options: Dictionary = {}) -> GFTileMapCache:` |
+| 方法 | [`remapped_tiles`](#member-gftilemapcache-methods-remapped_tiles) | `func remapped_tiles(remaps: Dictionary, options: Dictionary = {}) -> GFTileMapCache:` |
+| 方法 | [`transformed_and_remapped`](#member-gftilemapcache-methods-transformed_and_remapped) | `func transformed_and_remapped(transform: int, remaps: Dictionary, options: Dictionary = {}) -> GFTileMapCache:` |
 | 方法 | [`get_used_rect`](#member-gftilemapcache-methods-get_used_rect) | `func get_used_rect() -> Rect2i:` |
 | 方法 | [`set_cell_data`](#member-gftilemapcache-methods-set_cell_data) | `func set_cell_data(cell: Vector2i, data: Dictionary) -> void:` |
 | 方法 | [`erase_cell`](#member-gftilemapcache-methods-erase_cell) | `func erase_cell(cell: Vector2i) -> void:` |
@@ -140,6 +143,87 @@ func translated(offset: Vector2i) -> GFTileMapCache:
 | `offset` | 坐标偏移。 |
 
 返回：新缓存。
+
+<a id="member-gftilemapcache-methods-transformed"></a>
+
+### `transformed`
+
+- API：`public`
+- 首次版本：`6.0.0`
+
+```gdscript
+func transformed(transform: int, options: Dictionary = {}) -> GFTileMapCache:
+```
+
+创建坐标变换后的缓存副本。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `transform` | GFGridTransform2D.Transform 枚举值。 |
+| `options` | 可选参数，支持 target_origin、normalize_origin。 |
+
+返回：新缓存。
+
+结构：
+
+- `options`: Dictionary with optional `target_origin: Vector2i` and `normalize_origin: bool`.
+
+<a id="member-gftilemapcache-methods-remapped_tiles"></a>
+
+### `remapped_tiles`
+
+- API：`public`
+- 首次版本：`6.0.0`
+
+```gdscript
+func remapped_tiles(remaps: Dictionary, options: Dictionary = {}) -> GFTileMapCache:
+```
+
+创建 tile identity 重映射后的缓存副本。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `remaps` | 重映射表。 |
+| `options` | 可选参数，支持 preserve_unknown。 |
+
+返回：新缓存。
+
+结构：
+
+- `remaps`: Dictionary mapping Vector4i(source_id, atlas_x, atlas_y, alternative_tile) or source_id int to Dictionary/Vector4i/int.
+- `options`: Dictionary with optional preserve_unknown: bool.
+
+<a id="member-gftilemapcache-methods-transformed_and_remapped"></a>
+
+### `transformed_and_remapped`
+
+- API：`public`
+- 首次版本：`6.0.0`
+
+```gdscript
+func transformed_and_remapped(transform: int, remaps: Dictionary, options: Dictionary = {}) -> GFTileMapCache:
+```
+
+创建坐标变换并重映射 tile identity 后的缓存副本。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `transform` | GFGridTransform2D.Transform 枚举值。 |
+| `remaps` | 重映射表。 |
+| `options` | 可选参数，支持 target_origin、normalize_origin、preserve_unknown。 |
+
+返回：新缓存。
+
+结构：
+
+- `remaps`: Dictionary mapping Vector4i(source_id, atlas_x, atlas_y, alternative_tile) or source_id int to Dictionary/Vector4i/int.
+- `options`: Dictionary transform and remap options.
 
 <a id="member-gftilemapcache-methods-get_used_rect"></a>
 

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFInputMappingUtility" path="addons/gf/standard/input/runtime/gf_input_mapping_utility.gd" module="standard" extends="GFUtility" classDigest="e1fd7f2333497bcaa9abafda1c9ce46f229334afca7b116a7ce845ffd8f4c6c1">
+<class name="GFInputMappingUtility" path="addons/gf/standard/input/runtime/gf_input_mapping_utility.gd" module="standard" extends="GFUtility" classDigest="6b15f48677ae02305a0a8d15556cb19a5d3297e30b686b40381ea84ebcce7e52">
 	<description>GFInputMappingUtility: 资源化输入上下文与动作映射运行时。
 负责把 Godot InputEvent 转换为项目定义的抽象动作状态，并支持上下文优先级、
 运行时重绑定、动作值查询和一次性触发消费。</description>
@@ -119,6 +119,14 @@
 			<description>初始化输入映射运行时状态并挂载输入路由节点。</description>
 			<tags>
 				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="method" name="ready">
+			<signature>func ready() -&gt; void:</signature>
+			<description>绑定可选的设备分配工具，用于在玩家设备变化时清理运行时输入状态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="dispose">

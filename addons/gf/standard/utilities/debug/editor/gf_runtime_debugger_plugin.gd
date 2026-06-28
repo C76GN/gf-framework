@@ -56,6 +56,11 @@ func _setup_session(session_id: int) -> void:
 		var _stopped_connected: Error = session.stopped.connect(_on_session_stopped.bind(session_id)) as Error
 
 
+func _exit_tree() -> void:
+	for session_id: int in _tabs_by_session_id.keys():
+		_remove_session_tab(session_id)
+
+
 # --- 公共方法 ---
 
 ## 获取插件调试快照。

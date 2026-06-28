@@ -19,6 +19,7 @@
 | 常量 | [`SCHEMA_VERSION`](#member-gfcontentpackagemanifest-constants-schema_version) | `const SCHEMA_VERSION: int = 1` |
 | 常量 | [`SAFETY_KIND_DATA_ONLY`](#member-gfcontentpackagemanifest-constants-safety_kind_data_only) | `const SAFETY_KIND_DATA_ONLY: StringName = &"data_only"` |
 | 常量 | [`SAFETY_KIND_TRUSTED_DEVELOPER`](#member-gfcontentpackagemanifest-constants-safety_kind_trusted_developer) | `const SAFETY_KIND_TRUSTED_DEVELOPER: StringName = &"trusted_developer"` |
+| 属性 | [`schema_version`](#member-gfcontentpackagemanifest-properties-schema_version) | `var schema_version: int = SCHEMA_VERSION` |
 | 属性 | [`package_id`](#member-gfcontentpackagemanifest-properties-package_id) | `var package_id: StringName = &""` |
 | 属性 | [`display_name`](#member-gfcontentpackagemanifest-properties-display_name) | `var display_name: String = ""` |
 | 属性 | [`version`](#member-gfcontentpackagemanifest-properties-version) | `var version: String = ""` |
@@ -95,6 +96,19 @@ const SAFETY_KIND_TRUSTED_DEVELOPER: StringName = &"trusted_developer"
 允许开发者代码资源的内容包安全分类。
 
 ## 属性
+
+<a id="member-gfcontentpackagemanifest-properties-schema_version"></a>
+
+### `schema_version`
+
+- API：`public`
+- 首次版本：`6.0.0`
+
+```gdscript
+var schema_version: int = SCHEMA_VERSION
+```
+
+manifest schema 版本。JSON manifest 必须显式声明当前支持的版本。
 
 <a id="member-gfcontentpackagemanifest-properties-package_id"></a>
 

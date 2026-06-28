@@ -1,0 +1,315 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFHeightfield3D" path="addons/gf/standard/foundation/math/gf_heightfield_3d.gd" module="standard" extends="RefCounted" classDigest="1c070fb8e3e8b995d35277ece0d8e17729cadaa7dc8ff569ad8744405425e694">
+	<description>GFHeightfield3D: 通用 X/Z 平面高度场采样数据。
+保存一组行优先高度样本，并提供世界坐标到网格坐标转换、双线性高度采样、
+法线估算和诊断快照。它只处理纯数据，不创建地形节点、碰撞体、材质或渲染资源。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_service</tag>
+		<tag name="since">7.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties />
+	<methods>
+		<member kind="method" name="from_samples">
+			<signature>static func from_samples( grid_size: Vector2i, height_samples: PackedFloat32Array, world_min: Vector2 = Vector2.ZERO, world_max: Vector2 = Vector2.ONE ) -&gt; GFHeightfield3D:</signature>
+			<description>从样本创建高度场。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">grid_size: 高度网格尺寸，x 为世界 X 轴样本数，y 为世界 Z 轴样本数。</tag>
+				<tag name="param">height_samples: 行优先高度样本，数量必须等于 grid_size.x * grid_size.y。</tag>
+				<tag name="param">world_min: 高度场覆盖的最小 X/Z 世界坐标。</tag>
+				<tag name="param">world_max: 高度场覆盖的最大 X/Z 世界坐标。</tag>
+				<tag name="return">新高度场实例；输入无效时返回未配置实例。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="from_terrain_rgb_image">
+			<signature>static func from_terrain_rgb_image( image: Image, world_min: Vector2 = Vector2.ZERO, world_max: Vector2 = Vector2.ONE, options: Dictionary = {} ) -&gt; GFHeightfield3D:</signature>
+			<description>从 Terrain-RGB 图像创建高度场。
+Terrain-RGB 使用 RGB 三通道编码米制高度：-10000 + (R * 65536 + G * 256 + B) * 0.1。
+该方法只读取 Image 像素并生成高度样本，不加载网络瓦片、创建网格或绑定地图服务。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">image: Terrain-RGB 图像。</tag>
+				<tag name="param">world_min: 高度场覆盖的最小 X/Z 世界坐标。</tag>
+				<tag name="param">world_max: 高度场覆盖的最大 X/Z 世界坐标。</tag>
+				<tag name="param">options: 可选项，支持 height_scale 和 height_offset。</tag>
+				<tag name="return">新高度场实例；输入无效时返回未配置实例。</tag>
+				<tag name="schema">options: Dictionary，可包含 height_scale 和 height_offset，用于在解码米制高度后进行线性变换。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="decode_terrain_rgb_height">
+			<signature>static func decode_terrain_rgb_height(color: Color) -&gt; float:</signature>
+			<description>解码 Terrain-RGB 像素高度。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">color: Terrain-RGB 像素颜色。</tag>
+				<tag name="return">解码后的米制高度。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="samples_from_terrain_rgb_image">
+			<signature>static func samples_from_terrain_rgb_image(image: Image, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>从 Terrain-RGB 图像生成行优先高度样本报告。
+报告中的 grid_size.x 对应图像宽度，grid_size.y 对应图像高度；samples 使用行优先顺序。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">image: Terrain-RGB 图像。</tag>
+				<tag name="param">options: 可选项，支持 height_scale 和 height_offset。</tag>
+				<tag name="return">样本生成报告。</tag>
+				<tag name="schema">options: Dictionary，可包含 height_scale 和 height_offset，用于在解码米制高度后进行线性变换。</tag>
+				<tag name="schema">return: Dictionary，包含 ok、grid_size、samples、sample_count、min_height、max_height、issues、counts 与 summary 字段。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="configure">
+			<signature>func configure( grid_size: Vector2i, height_samples: PackedFloat32Array, world_min: Vector2 = Vector2.ZERO, world_max: Vector2 = Vector2.ONE ) -&gt; bool:</signature>
+			<description>配置高度场数据。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">grid_size: 高度网格尺寸，x 为世界 X 轴样本数，y 为世界 Z 轴样本数。</tag>
+				<tag name="param">height_samples: 行优先高度样本，数量必须等于 grid_size.x * grid_size.y。</tag>
+				<tag name="param">world_min: 高度场覆盖的最小 X/Z 世界坐标。</tag>
+				<tag name="param">world_max: 高度场覆盖的最大 X/Z 世界坐标。</tag>
+				<tag name="return">输入有效并已应用时返回 true；无效输入不会覆盖现有数据。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="configure_from_terrain_rgb_image">
+			<signature>func configure_from_terrain_rgb_image( image: Image, world_min: Vector2 = Vector2.ZERO, world_max: Vector2 = Vector2.ONE, options: Dictionary = {} ) -&gt; bool:</signature>
+			<description>使用 Terrain-RGB 图像配置高度场。
+输入无效时不会覆盖现有数据。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">image: Terrain-RGB 图像。</tag>
+				<tag name="param">world_min: 高度场覆盖的最小 X/Z 世界坐标。</tag>
+				<tag name="param">world_max: 高度场覆盖的最大 X/Z 世界坐标。</tag>
+				<tag name="param">options: 可选项，支持 height_scale 和 height_offset。</tag>
+				<tag name="return">输入有效并已应用时返回 true；无效输入不会覆盖现有数据。</tag>
+				<tag name="schema">options: Dictionary，可包含 height_scale 和 height_offset，用于在解码米制高度后进行线性变换。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="clear">
+			<signature>func clear() -&gt; void:</signature>
+			<description>清空高度场数据。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_valid">
+			<signature>func is_valid() -&gt; bool:</signature>
+			<description>判断当前高度场是否可采样。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">高度场尺寸、范围和样本数量有效时返回 true。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_grid_size">
+			<signature>func get_grid_size() -&gt; Vector2i:</signature>
+			<description>获取高度网格尺寸。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">网格尺寸，x 对应世界 X，y 对应世界 Z。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_world_min">
+			<signature>func get_world_min() -&gt; Vector2:</signature>
+			<description>获取高度场最小 X/Z 世界坐标。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">最小 X/Z 世界坐标。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_world_max">
+			<signature>func get_world_max() -&gt; Vector2:</signature>
+			<description>获取高度场最大 X/Z 世界坐标。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">最大 X/Z 世界坐标。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_world_rect">
+			<signature>func get_world_rect() -&gt; Rect2:</signature>
+			<description>获取高度场覆盖的 X/Z 世界矩形。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">世界矩形。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_height_samples">
+			<signature>func get_height_samples() -&gt; PackedFloat32Array:</signature>
+			<description>获取高度样本副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">行优先高度样本副本。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_sample_count">
+			<signature>func get_sample_count() -&gt; int:</signature>
+			<description>获取样本数量。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">当前样本数量。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="contains_world_xz">
+			<signature>func contains_world_xz(world_x: float, world_z: float) -&gt; bool:</signature>
+			<description>判断 X/Z 世界坐标是否位于高度场范围内。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">world_x: 世界 X 坐标。</tag>
+				<tag name="param">world_z: 世界 Z 坐标。</tag>
+				<tag name="return">坐标位于高度场范围内时返回 true。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="contains_world_position">
+			<signature>func contains_world_position(position: Vector3) -&gt; bool:</signature>
+			<description>判断 3D 世界坐标的 X/Z 是否位于高度场范围内。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">position: 3D 世界坐标。</tag>
+				<tag name="return">坐标位于高度场范围内时返回 true。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="world_to_grid">
+			<signature>func world_to_grid(world_x: float, world_z: float) -&gt; Vector2:</signature>
+			<description>将 X/Z 世界坐标映射为连续网格坐标。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">world_x: 世界 X 坐标。</tag>
+				<tag name="param">world_z: 世界 Z 坐标。</tag>
+				<tag name="return">连续网格坐标；无效高度场返回 Vector2.ZERO。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="grid_to_world">
+			<signature>func grid_to_world(grid_position: Vector2, height: float = 0.0) -&gt; Vector3:</signature>
+			<description>将连续网格坐标映射为 3D 世界坐标。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">grid_position: 连续网格坐标。</tag>
+				<tag name="param">height: 返回坐标使用的 Y 值。</tag>
+				<tag name="return">3D 世界坐标；无效高度场返回 Vector3.ZERO。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="sample_cell">
+			<signature>func sample_cell(cell: Vector2i, fallback: Variant = null) -&gt; float:</signature>
+			<description>读取整数网格格点高度。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">cell: 网格格点坐标，x 对应世界 X，y 对应世界 Z。</tag>
+				<tag name="param">fallback: 坐标无效时返回的高度；为 null 时返回 NAN。</tag>
+				<tag name="return">格点高度或 fallback。</tag>
+				<tag name="schema">fallback: Variant，null 或数字高度。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="sample_grid_bilinear">
+			<signature>func sample_grid_bilinear(grid_position: Vector2, fallback: Variant = null) -&gt; float:</signature>
+			<description>按连续网格坐标双线性采样高度。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">grid_position: 连续网格坐标。</tag>
+				<tag name="param">fallback: 坐标无效时返回的高度；为 null 时返回 NAN。</tag>
+				<tag name="return">双线性高度或 fallback。</tag>
+				<tag name="schema">fallback: Variant，null 或数字高度。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="sample_world">
+			<signature>func sample_world(world_x: float, world_z: float, fallback: Variant = null) -&gt; float:</signature>
+			<description>按 X/Z 世界坐标采样高度。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">world_x: 世界 X 坐标。</tag>
+				<tag name="param">world_z: 世界 Z 坐标。</tag>
+				<tag name="param">fallback: 坐标无效时返回的高度；为 null 时返回 NAN。</tag>
+				<tag name="return">双线性高度或 fallback。</tag>
+				<tag name="schema">fallback: Variant，null 或数字高度。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="sample_world_position">
+			<signature>func sample_world_position(position: Vector3, fallback: Variant = null) -&gt; float:</signature>
+			<description>按 3D 世界坐标的 X/Z 采样高度。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">position: 3D 世界坐标。</tag>
+				<tag name="param">fallback: 坐标无效时返回的高度；为 null 时返回 NAN。</tag>
+				<tag name="return">双线性高度或 fallback。</tag>
+				<tag name="schema">fallback: Variant，null 或数字高度。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="sample_normal_grid">
+			<signature>func sample_normal_grid(grid_position: Vector2, vertical_scale: float = 1.0) -&gt; Vector3:</signature>
+			<description>按连续网格坐标估算表面法线。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">grid_position: 连续网格坐标。</tag>
+				<tag name="param">vertical_scale: 高度差缩放，用于匹配项目世界单位。</tag>
+				<tag name="return">归一化法线；无效高度场返回 Vector3.UP。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="sample_normal_world">
+			<signature>func sample_normal_world(world_x: float, world_z: float, vertical_scale: float = 1.0) -&gt; Vector3:</signature>
+			<description>按 X/Z 世界坐标估算表面法线。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">world_x: 世界 X 坐标。</tag>
+				<tag name="param">world_z: 世界 Z 坐标。</tag>
+				<tag name="param">vertical_scale: 高度差缩放，用于匹配项目世界单位。</tag>
+				<tag name="return">归一化法线；无效坐标返回 Vector3.UP。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_min_height">
+			<signature>func get_min_height(fallback: float = 0.0) -&gt; float:</signature>
+			<description>获取最小高度。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">fallback: 高度场无效时返回的值。</tag>
+				<tag name="return">最小高度或 fallback。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_max_height">
+			<signature>func get_max_height(fallback: float = 0.0) -&gt; float:</signature>
+			<description>获取最大高度。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">fallback: 高度场无效时返回的值。</tag>
+				<tag name="return">最大高度或 fallback。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_debug_snapshot">
+			<signature>func get_debug_snapshot() -&gt; Dictionary:</signature>
+			<description>获取高度场诊断快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">诊断快照。</tag>
+				<tag name="schema">return: Dictionary with valid, grid_size, world_min, world_max, sample_count, min_height, and max_height.</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

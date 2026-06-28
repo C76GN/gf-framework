@@ -73,3 +73,17 @@ func test_audio_bus_volume_uses_registered_setting_value() -> void:
 
 	assert_almost_eq(applied_volume, 0.5, 0.05, "音频总线音量设置应应用到 AudioServer。")
 	AudioServer.set_bus_volume_db(AudioServer.get_bus_index("Master"), linear_to_db(maxf(original_volume, 0.0001)))
+
+
+func test_missing_audio_bus_does_not_emit_applied_signal() -> void:
+	var display: GFDisplaySettingsUtility = GFDisplaySettingsUtility.new()
+	display.register_defaults_on_ready = false
+	display.apply_on_ready = false
+	display.init()
+	watch_signals(display)
+
+	display.set_audio_bus_volume("__gf_missing_bus__", 0.5)
+
+	assert_signal_not_emitted(display, "display_setting_applied", "缺失音频总线不应发出应用成功信号。")
+	assert_push_warning("[GFDisplaySettingsUtility] 无法应用音频总线音量，未找到总线或后端拒绝：__gf_missing_bus__。")
+	display.dispose()

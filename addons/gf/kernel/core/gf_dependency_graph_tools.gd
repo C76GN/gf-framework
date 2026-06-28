@@ -24,6 +24,8 @@ const _STATE_DONE: int = 2
 ## [br]
 ## @api public
 ## [br]
+## @since 4.4.0
+## [br]
 ## @param node_ids: 需要排序的根节点 ID。
 ## [br]
 ## @param dependency_map: 依赖表，key 为节点 ID，value 为该节点依赖的 ID 列表。
@@ -32,15 +34,17 @@ const _STATE_DONE: int = 2
 ## [br]
 ## @schema dependency_map: Dictionary keyed by String or StringName node id, with Array or PackedStringArray dependency id values.
 ## [br]
-## @schema return: Dictionary with ok, ordered_ids, missing_dependencies, dependency_cycles, node_count, missing_dependency_count, and cycle_count.
+## @schema return: Dictionary with ok, ordered_ids, missing_root_ids, missing_dependencies, dependency_cycles, node_count, missing_root_count, missing_dependency_count, and cycle_count.
 static func sort_dependency_first(node_ids: PackedStringArray, dependency_map: Dictionary) -> Dictionary:
 	var ordered_ids: PackedStringArray = PackedStringArray()
+	var missing_root_ids: PackedStringArray = PackedStringArray()
 	var missing_dependencies: Array[Dictionary] = []
 	var dependency_cycles: Array[PackedStringArray] = []
 	var states: Dictionary = {}
 	var roots: PackedStringArray = _copy_unique_ids(node_ids)
 	for node_id: String in roots:
 		if not _has_node(dependency_map, node_id):
+			var _missing_root_appended: bool = missing_root_ids.append(node_id)
 			continue
 		_visit_node(
 			node_id,
@@ -53,11 +57,13 @@ static func sort_dependency_first(node_ids: PackedStringArray, dependency_map: D
 		)
 
 	return {
-		"ok": missing_dependencies.is_empty() and dependency_cycles.is_empty(),
+		"ok": missing_root_ids.is_empty() and missing_dependencies.is_empty() and dependency_cycles.is_empty(),
 		"ordered_ids": ordered_ids,
+		"missing_root_ids": missing_root_ids,
 		"missing_dependencies": missing_dependencies,
 		"dependency_cycles": dependency_cycles,
 		"node_count": ordered_ids.size(),
+		"missing_root_count": missing_root_ids.size(),
 		"missing_dependency_count": missing_dependencies.size(),
 		"cycle_count": dependency_cycles.size(),
 	}

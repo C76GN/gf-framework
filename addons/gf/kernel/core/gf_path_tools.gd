@@ -96,8 +96,8 @@ static func normalize_root_paths(paths: PackedStringArray, simplify: bool = true
 ## [br]
 ## @return path 位于 base_path 下时返回相对路径，否则返回规范化后的 path。
 static func make_relative_path(path: String, base_path: String) -> String:
-	var normalized_path: String = normalize_resource_path(path, "", false)
-	var normalized_base: String = normalize_root_path(base_path, "", false)
+	var normalized_path: String = normalize_resource_path(path)
+	var normalized_base: String = normalize_root_path(base_path)
 	if normalized_path.is_empty() or normalized_base.is_empty():
 		return normalized_path
 	if normalized_path == normalized_base:
@@ -147,9 +147,9 @@ static func is_path_under_root(
 ## [br]
 ## @return 被排除时返回 true。
 static func is_path_excluded(path: String, excluded_paths: PackedStringArray) -> bool:
-	var normalized_path: String = normalize_root_path(path, "", false)
+	var normalized_path: String = normalize_root_path(path)
 	for excluded_path: String in excluded_paths:
-		var normalized_excluded: String = normalize_root_path(excluded_path, "", false)
+		var normalized_excluded: String = normalize_root_path(excluded_path)
 		if normalized_excluded.is_empty():
 			continue
 		if normalized_path == normalized_excluded or normalized_path.begins_with(normalized_excluded + "/"):

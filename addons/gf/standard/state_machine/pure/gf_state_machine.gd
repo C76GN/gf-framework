@@ -673,6 +673,7 @@ func _exit_active_path_to(
 		var exiting_state: GFState = _get_registered_state(exiting_state_name)
 		if exiting_state != null:
 			exiting_state.exit()
+			exiting_state.unregister_owner_events()
 		if _has_queued_exit_transition:
 			keep_count = index
 			break

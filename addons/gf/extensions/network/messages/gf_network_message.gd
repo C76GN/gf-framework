@@ -19,8 +19,12 @@ extends RefCounted
 var message_type: StringName = &""
 
 ## 发送端自增序号。
+##
+## 该字段只是项目层可序列化 metadata；GF Network 不基于它提供 ACK、重试或去重。
 ## [br]
 ## @api public
+## [br]
+## @since 7.0.0
 var sequence: int = 0
 
 ## 逻辑 tick 或帧号。

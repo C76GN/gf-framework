@@ -101,8 +101,7 @@ func add_buff(p_entity: Object, p_buff: GFBuff) -> void:
 	if not _entities.has(entity_id):
 		return
 
-	if p_buff.owner == null:
-		p_buff.owner = p_entity
+	p_buff.owner = p_entity
 	var apply_report: Dictionary = p_buff.get_apply_report({
 		"entity": p_entity,
 		"system": self,
@@ -117,6 +116,7 @@ func add_buff(p_entity: Object, p_buff: GFBuff) -> void:
 	for existing_value: Variant in buffs:
 		var existing: GFBuff = _variant_to_buff(existing_value)
 		if _should_refresh_existing_buff(existing, p_buff):
+			existing.owner = p_entity
 			existing.refresh_from(p_buff)
 			_send_combat_event(GFCombatPayloads.GFBuffRefreshedPayload.new(p_entity, existing))
 			return
@@ -143,8 +143,7 @@ func add_skill(p_entity: Object, p_skill: GFSkill) -> void:
 	if not _entities.has(entity_id):
 		return
 
-	if p_skill.owner == null:
-		p_skill.owner = p_entity
+	p_skill.owner = p_entity
 
 	var data: Dictionary = _get_entity_data(entity_id)
 	var skills: Array = _get_entity_skills(data)
@@ -501,7 +500,7 @@ func _cleanup_invalid_entities() -> void:
 	for entity_id: int in _entities.keys():
 		var entity: Object = instance_from_id(entity_id)
 		if not is_instance_valid(entity):
-			_remove_entity_record_by_id(entity_id, false)
+			_remove_entity_record_by_id(entity_id, true, GFBuff.REMOVAL_REASON_ENTITY_UNREGISTERED)
 
 	for entity_id: int in _active_entities.keys():
 		var entity: Object = instance_from_id(entity_id)

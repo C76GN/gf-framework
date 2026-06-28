@@ -18,6 +18,9 @@ extends GFSystem
 ## @api public
 signal queue_drained
 
+# 内部使用：暂停状态变化时唤醒队列处理协程。
+signal _pause_state_changed
+
 
 # --- 常量 ---
 
@@ -53,8 +56,17 @@ var _named_queues: Dictionary = {}
 # 当前队列绑定节点的弱引用。
 var _linked_node_ref: WeakRef = null
 
+# 当前队列绑定节点；用于主动断开 tree_exited。
+var _linked_node: Node = null
+
 # 动作执行拦截器。
 var _interceptors: Array[GFActionInterceptor] = []
+
+# 当前队列暂停状态。
+var _is_paused: bool = false
+
+# 当前队列是否已经释放。
+var _is_disposed: bool = false
 
 
 # --- GF 生命周期方法 ---
@@ -63,13 +75,16 @@ var _interceptors: Array[GFActionInterceptor] = []
 ## [br]
 ## @api public
 func init() -> void:
+	_is_disposed = false
 	_processing_serial += 1
 	_queue.clear()
 	_queue_head_index = 0
 	_current_action = null
 	_named_queues.clear()
+	_disconnect_linked_node()
 	_linked_node_ref = null
 	_interceptors.clear()
+	_set_paused(false)
 	is_processing = false
 
 
@@ -84,8 +99,13 @@ func ready() -> void:
 ## [br]
 ## @api public
 func dispose() -> void:
+	if _is_disposed:
+		return
+	_is_disposed = true
 	_unregister_diagnostics_contribution()
 	clear_queue(true)
+	_disconnect_linked_node()
+	_linked_node_ref = null
 	_dispose_all_named_queues()
 	_interceptors.clear()
 
@@ -109,6 +129,8 @@ func inject_dependencies(architecture: GFArchitecture) -> void:
 ## [br]
 ## @param action: 要处理的动作对象。
 func enqueue(action: Object) -> void:
+	if _is_disposed:
+		return
 	if not is_instance_valid(action):
 		return
 
@@ -122,6 +144,8 @@ func enqueue(action: Object) -> void:
 ## [br]
 ## @param action: 要处理的动作对象。
 func enqueue_fire_and_forget(action: Object) -> void:
+	if _is_disposed:
+		return
 	if not is_instance_valid(action):
 		return
 
@@ -137,6 +161,8 @@ func enqueue_fire_and_forget(action: Object) -> void:
 ## [br]
 ## @schema actions: Array，元素为 GFVisualAction 或实现 execute() 协议的动作对象。
 func enqueue_parallel(actions: Array) -> void:
+	if _is_disposed:
+		return
 	if actions.is_empty():
 		return
 
@@ -151,6 +177,8 @@ func enqueue_parallel(actions: Array) -> void:
 ## [br]
 ## @param action: 要处理的动作对象。
 func push_front(action: Object) -> void:
+	if _is_disposed:
+		return
 	if not is_instance_valid(action):
 		return
 
@@ -164,6 +192,8 @@ func push_front(action: Object) -> void:
 ## [br]
 ## @param action: 要处理的动作对象。
 func push_front_fire_and_forget(action: Object) -> void:
+	if _is_disposed:
+		return
 	if not is_instance_valid(action):
 		return
 
@@ -179,6 +209,8 @@ func push_front_fire_and_forget(action: Object) -> void:
 ## [br]
 ## @schema actions: Array，元素为 GFVisualAction 或实现 execute() 协议的动作对象。
 func push_front_parallel(actions: Array) -> void:
+	if _is_disposed:
+		return
 	if actions.is_empty():
 		return
 
@@ -198,6 +230,7 @@ func clear_queue(stop_current: bool = false) -> void:
 	_queue_head_index = 0
 	if stop_current:
 		_processing_serial += 1
+		_set_paused(false)
 		_cancel_current_action()
 		is_processing = false
 		if was_processing:
@@ -212,6 +245,8 @@ func clear_queue(stop_current: bool = false) -> void:
 ## [br]
 ## @return 命名队列；queue_name 为空时返回 null。
 func get_named_queue(queue_name: StringName) -> GFActionQueueSystem:
+	if _is_disposed:
+		return null
 	if queue_name == &"":
 		push_error("[GFActionQueueSystem] get_named_queue 失败：queue_name 为空。")
 		return null
@@ -250,7 +285,14 @@ func get_linked_queue(queue_name: StringName, linked_node: Node) -> GFActionQueu
 ## [br]
 ## @param linked_node: 与队列生命周期绑定的节点。
 func bind_to_node(linked_node: Node) -> void:
+	_disconnect_linked_node()
 	_linked_node_ref = weakref(linked_node) if linked_node != null else null
+	_linked_node = linked_node
+	if linked_node != null:
+		var _tree_exited_connected: Error = linked_node.tree_exited.connect(
+			_on_linked_node_tree_exited,
+			CONNECT_ONE_SHOT as Object.ConnectFlags
+		) as Error
 
 
 ## 添加动作执行拦截器。
@@ -399,7 +441,10 @@ func clear_all_named_queues(stop_current: bool = false) -> void:
 ## [br]
 ## @api public
 func skip_current_action() -> void:
+	if _is_disposed:
+		return
 	_processing_serial += 1
+	_set_paused(false)
 	_cancel_current_action()
 	is_processing = false
 	_try_start_processing()
@@ -413,6 +458,7 @@ func skip_current_action() -> void:
 func pause_current_action() -> bool:
 	if not is_instance_valid(_current_action):
 		return false
+	_set_paused(true)
 	_ACTION_PROTOCOL.pause(_current_action)
 	return true
 
@@ -426,6 +472,7 @@ func resume_current_action() -> bool:
 	if not is_instance_valid(_current_action):
 		return false
 	_ACTION_PROTOCOL.resume(_current_action)
+	_set_paused(false)
 	return true
 
 
@@ -434,6 +481,7 @@ func resume_current_action() -> bool:
 ## @api public
 func finish_current_action() -> void:
 	_processing_serial += 1
+	_set_paused(false)
 	if is_instance_valid(_current_action):
 		_ACTION_PROTOCOL.finish(_current_action)
 	_current_action = null
@@ -454,9 +502,11 @@ func get_current_action() -> Object:
 ## [br]
 ## @api public
 ## [br]
+## @since 6.0.0
+## [br]
 ## @return 诊断快照字典。
 ## [br]
-## @schema return: Dictionary，包含 is_processing、queued_count、has_current_action、processing_serial、named_queue_count、named_queues、linked_node_alive 和 interceptor_count。
+## @schema return: Dictionary，包含 is_processing、is_paused、queued_count、has_current_action、processing_serial、named_queue_count、named_queues、linked_node_alive 和 interceptor_count。
 func get_debug_snapshot() -> Dictionary:
 	var named_snapshots: Dictionary = {}
 	for queue_name: StringName in _named_queues.keys():
@@ -466,6 +516,7 @@ func get_debug_snapshot() -> Dictionary:
 
 	return {
 		"is_processing": is_processing,
+		"is_paused": _is_paused,
 		"queued_count": maxi(_queue.size() - _queue_head_index, 0),
 		"has_current_action": is_instance_valid(_current_action),
 		"processing_serial": _processing_serial,
@@ -495,18 +546,26 @@ func tick(_delta: float) -> void:
 # --- 私有/辅助方法 ---
 
 func _try_start_processing() -> void:
+	if _is_disposed:
+		return
 	if not is_processing:
 		_GF_ASYNC_CALL_SCRIPT.run_detached(Callable(self, &"_process_queue"))
 
 
 func _process_queue() -> void:
+	if _is_disposed:
+		return
 	if not _has_queued_actions():
 		return
 
 	is_processing = true
 	var current_serial: int = _processing_serial
 
-	while current_serial == _processing_serial and _has_queued_actions():
+	while not _is_disposed and current_serial == _processing_serial and _has_queued_actions():
+		await _wait_until_resumed(current_serial)
+		if _is_disposed or current_serial != _processing_serial:
+			return
+
 		var action: Object = _dequeue_action()
 		if not _ACTION_PROTOCOL.is_action_valid(action):
 			continue
@@ -535,10 +594,14 @@ func _process_queue() -> void:
 				action,
 				result,
 				_is_processing_serial_current.bind(current_serial),
+				_is_wait_timeout_paused.bind(current_serial),
 				_get_architecture_or_null()
 			)
 
-		if current_serial != _processing_serial:
+		if _is_disposed or current_serial != _processing_serial:
+			return
+		await _wait_until_resumed(current_serial)
+		if _is_disposed or current_serial != _processing_serial:
 			return
 		var after_result: GFActionInterceptionResult = _apply_after_interceptors(action, result)
 		if after_result.is_stop_queue():
@@ -548,6 +611,7 @@ func _process_queue() -> void:
 			_current_action = null
 
 	_current_action = null
+	_set_paused(false)
 	is_processing = false
 	queue_drained.emit()
 
@@ -642,6 +706,22 @@ func _is_processing_serial_current(serial: int) -> bool:
 	return serial == _processing_serial
 
 
+func _is_wait_timeout_paused(serial: int) -> bool:
+	return serial == _processing_serial and _is_paused
+
+
+func _wait_until_resumed(serial: int) -> void:
+	while serial == _processing_serial and _is_paused:
+		await _pause_state_changed
+
+
+func _set_paused(paused: bool) -> void:
+	if _is_paused == paused:
+		return
+	_is_paused = paused
+	_pause_state_changed.emit()
+
+
 func _cancel_current_action() -> void:
 	if is_instance_valid(_current_action):
 		_ACTION_PROTOCOL.cancel(_current_action)
@@ -713,6 +793,7 @@ func _stop_processing_from_interceptor(cancel_current: bool) -> void:
 	_processing_serial += 1
 	_queue.clear()
 	_queue_head_index = 0
+	_set_paused(false)
 	if cancel_current:
 		_cancel_current_action()
 	else:
@@ -720,3 +801,17 @@ func _stop_processing_from_interceptor(cancel_current: bool) -> void:
 	is_processing = false
 	if was_processing:
 		queue_drained.emit()
+
+
+func _disconnect_linked_node() -> void:
+	if is_instance_valid(_linked_node) and _linked_node.tree_exited.is_connected(_on_linked_node_tree_exited):
+		_linked_node.tree_exited.disconnect(_on_linked_node_tree_exited)
+	_linked_node = null
+
+
+# --- 信号处理函数 ---
+
+func _on_linked_node_tree_exited() -> void:
+	_linked_node_ref = null
+	_linked_node = null
+	clear_queue(true)

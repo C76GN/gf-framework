@@ -94,6 +94,18 @@ func test_selection_model_range_and_prune_use_stable_ids() -> void:
 	assert_true(selection.is_empty(), "切到禁用选择模式时应清空选择。")
 
 
+func test_set_rows_prunes_selection_to_existing_row_ids() -> void:
+	var view: GFTableDataView = _make_people_view()
+	var _select_result: bool = view.selection_model.set_selected("row-c", true)
+
+	view.set_rows([
+		{ "id": "row-a", "name": "Alice", "score": 10 },
+	])
+
+	assert_false(view.selection_model.is_selected("row-c"), "set_rows 后不存在的 row_id 选择应被修剪。")
+	assert_true(view.selection_model.is_empty(), "只剩不存在选择时 selection 应为空。")
+
+
 func test_custom_column_formatter_participates_in_filtering() -> void:
 	var view: GFTableDataView = _make_people_view()
 	var score_column: GFTableColumnDefinition = view.get_column(&"score")
@@ -102,6 +114,78 @@ func test_custom_column_formatter_participates_in_filtering() -> void:
 	view.set_filter_query("score:10")
 
 	assert_eq(view.get_visible_row_ids(), ["row-a"], "自定义 formatter 应参与过滤文本。")
+
+
+func test_describe_view_exports_current_visible_snapshot() -> void:
+	var view: GFTableDataView = _make_people_view()
+	var id_column: GFTableColumnDefinition = view.get_column(&"id")
+	id_column.visible = false
+	var _select_result: bool = view.selection_model.set_selected("row-c", true)
+	var _sort_result: bool = view.sort_by_column(&"score", false)
+
+	view.set_filter_query("a")
+
+	var snapshot: Dictionary = view.describe_view()
+	assert_eq(GFVariantData.get_option_int(snapshot, "row_count"), 3, "快照应记录源行数量。")
+	assert_eq(GFVariantData.get_option_int(snapshot, "visible_count"), 2, "快照应记录当前可见行数量。")
+	assert_eq(GFVariantData.get_option_int(snapshot, "column_count"), 3, "列数量应反映源列定义。")
+	assert_true(GFVariantData.get_option_bool(snapshot, "visible_only"), "默认只导出可见行。")
+
+	var columns: Array = GFVariantData.get_option_array(snapshot, "columns")
+	assert_eq(columns.size(), 2, "默认列描述不应包含隐藏列。")
+	var rows: Array = GFVariantData.get_option_array(snapshot, "rows")
+	assert_eq(rows.size(), 2, "默认行描述应只包含当前可见行。")
+
+	var first_row: Dictionary = GFVariantData.as_dictionary(rows[0])
+	var second_row: Dictionary = GFVariantData.as_dictionary(rows[1])
+	assert_eq(GFVariantData.get_option_string(first_row, "row_id"), "row-a", "快照应保持当前排序后的可见顺序。")
+	assert_eq(GFVariantData.get_option_string(second_row, "row_id"), "row-c", "快照应包含第二个可见行。")
+	assert_true(GFVariantData.get_option_bool(second_row, "selected"), "行描述应保留选择状态。")
+
+	var first_values: Dictionary = GFVariantData.get_option_dictionary(first_row, "values")
+	assert_false(first_values.has(&"id"), "默认值描述不应包含隐藏列。")
+	assert_eq(GFVariantData.get_option_string(first_values, "name"), "Alice", "值描述应包含可见列。")
+
+
+func test_describe_view_can_include_source_rows_and_copied_row_data() -> void:
+	var view: GFTableDataView = _make_people_view()
+	var id_column: GFTableColumnDefinition = view.get_column(&"id")
+	id_column.visible = false
+	view.set_filter_query("ali")
+
+	var snapshot: Dictionary = view.describe_view({
+		"visible_only": false,
+		"include_hidden_columns": true,
+		"include_row_data": true,
+	})
+
+	assert_false(GFVariantData.get_option_bool(snapshot, "visible_only"), "显式请求时应导出源行。")
+	var columns: Array = GFVariantData.get_option_array(snapshot, "columns")
+	assert_eq(columns.size(), 3, "包含隐藏列时应导出全部列描述。")
+	var rows: Array = GFVariantData.get_option_array(snapshot, "rows")
+	assert_eq(rows.size(), 3, "源行快照应包含所有行。")
+
+	var hidden_row: Dictionary = GFVariantData.as_dictionary(rows[1])
+	assert_eq(GFVariantData.get_option_string(hidden_row, "row_id"), "row-b", "第二个源行应保留原始顺序。")
+	assert_eq(GFVariantData.get_option_int(hidden_row, "visible_row_index"), -1, "被过滤行应标记为不可见。")
+	var hidden_values: Dictionary = GFVariantData.get_option_dictionary(hidden_row, "values")
+	assert_eq(GFVariantData.get_option_string(hidden_values, "id"), "row-b", "包含隐藏列时值描述应保留隐藏列。")
+
+	var copied_row_data: Dictionary = GFVariantData.get_option_dictionary(hidden_row, "row_data")
+	copied_row_data["score"] = 99
+	assert_eq(_get_row_score(view, 1), 18, "默认快照应复制行数据，避免外部修改源行。")
+
+
+func test_describe_visible_row_keeps_all_column_values() -> void:
+	var view: GFTableDataView = _make_people_view()
+	var id_column: GFTableColumnDefinition = view.get_column(&"id")
+	id_column.visible = false
+
+	var row: Dictionary = view.describe_visible_row(0)
+	var values: Dictionary = GFVariantData.get_option_dictionary(row, "values")
+
+	assert_true(values.has(&"id"), "单行兼容摘要应保留隐藏列值。")
+	assert_eq(GFVariantData.get_option_string(values, "id"), "row-a", "隐藏列值应可被旧入口读取。")
 
 
 func _make_people_view() -> GFTableDataView:

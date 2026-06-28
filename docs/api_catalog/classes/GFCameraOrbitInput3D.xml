@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFCameraOrbitInput3D" path="addons/gf/extensions/camera/nodes/gf_camera_orbit_input_3d.gd" module="extensions/camera" extends="Node" classDigest="bde2c05d8a7d4e96cbcf1dd99b65a4f53df41cef43067dd47924f48b04f3157a">
+<class name="GFCameraOrbitInput3D" path="addons/gf/extensions/camera/nodes/gf_camera_orbit_input_3d.gd" module="extensions/camera" extends="Node" classDigest="69c11d3f96b3da19137c900e1c8109389982a080c451bfbeae1a65c74300c3bd">
 	<description>GFCameraOrbitInput3D: 通用 3D 环绕相机输入桥接节点。
 将 GFInputMappingUtility 的可配置动作值或鼠标拖拽转换为 GFCameraOrbitRig3D 的角度和距离增量。
 它不创建输入上下文，也不定义项目动作绑定。</description>
@@ -28,10 +28,11 @@
 	<constants />
 	<properties>
 		<member kind="property" name="enabled" decorators="@export">
-			<signature>var enabled: bool = true</signature>
+			<signature>var enabled: bool = true:</signature>
 			<description>是否启用输入桥接。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="orbit_rig_path" decorators="@export_node_path(&quot;GFCameraOrbitRig3D&quot;)">
@@ -98,10 +99,11 @@
 			</tags>
 		</member>
 		<member kind="property" name="mouse_orbit_enabled" decorators="@export">
-			<signature>var mouse_orbit_enabled: bool = false</signature>
+			<signature>var mouse_orbit_enabled: bool = false:</signature>
 			<description>是否启用鼠标拖拽环绕。默认关闭，避免框架节点隐式接管项目输入。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="mouse_button" decorators="@export">

@@ -143,6 +143,19 @@ func test_execute_repeating_runs_expected_count() -> void:
 	assert_eq(GFVariantData.get_option_int(_timer_util.get_debug_snapshot(), "pending_count"), 0, "有限重复完成后不应继续保留待执行任务。")
 
 
+func test_execute_repeating_catches_up_with_long_delta() -> void:
+	var fired: TimerCountState = TimerCountState.new()
+
+	var handle: int = _timer_util.execute_repeating(0.5, func() -> void:
+		fired.count += 1
+	, 3, 0.25)
+	_arch.tick(1.25)
+
+	assert_gt(handle, 0, "重复定时器应返回有效句柄。")
+	assert_eq(fired.count, 3, "长 delta 应补齐当前 tick 内已到期的重复次数。")
+	assert_eq(GFVariantData.get_option_int(_timer_util.get_debug_snapshot(), "pending_count"), 0, "有限重复补齐后不应继续保留待执行任务。")
+
+
 func test_owner_bound_timer_is_dropped_when_owner_is_released() -> void:
 	var fired: TimerBoolState = TimerBoolState.new()
 	var timer_owner: RefCounted = RefCounted.new()
@@ -191,6 +204,18 @@ func test_cancel_repeating_timer_from_callback_stops_next_repeat() -> void:
 	assert_eq(fired.count, 1, "回调内取消重复任务后不应再次触发。")
 
 
+func test_repeating_timer_drops_invalid_callback_when_ready() -> void:
+	var receiver: TimerCallbackReceiver = TimerCallbackReceiver.new()
+	add_child(receiver)
+	var handle: int = _timer_util.execute_repeating(0.1, Callable(receiver, "mark"))
+	receiver.free()
+
+	_arch.tick(0.1)
+
+	assert_gt(handle, 0, "重复定时器应先接受原本有效的回调。")
+	assert_eq(GFVariantData.get_option_int(_timer_util.get_debug_snapshot(), "pending_count"), 0, "到期时回调已失效的重复定时器不应重新排队。")
+
+
 # --- 辅助类 ---
 
 class TimerBoolState:
@@ -210,3 +235,12 @@ class TimerCancelState:
 
 	var count: int = 0
 	var handle: int = 0
+
+
+class TimerCallbackReceiver:
+	extends Node
+
+	var count: int = 0
+
+	func mark() -> void:
+		count += 1

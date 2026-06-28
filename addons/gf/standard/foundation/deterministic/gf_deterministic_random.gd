@@ -198,7 +198,16 @@ func next_float_range(min_value: float, max_value: float) -> float:
 		lower = upper
 		upper = old_lower
 
-	return lower + next_float_unit() * (upper - lower)
+	var span: float = upper - lower
+	if is_nan(span) or is_inf(span):
+		push_error("[GFDeterministicRandom] next_float_range 只支持有限浮点范围。")
+		return 0.0
+
+	var result: float = lower + next_float_unit() * span
+	if is_nan(result) or is_inf(result):
+		push_error("[GFDeterministicRandom] next_float_range 结果超出有限浮点范围。")
+		return 0.0
+	return result
 
 
 ## 生成布尔值。

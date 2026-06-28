@@ -50,6 +50,29 @@ if report["ok"]:
 
 批量提交不是事务；部分失败不会回滚已成功的项。返回报告包含 `ok`、`requested_count`、`applied_count`、`unchanged_count`、`failed_count`、`committed` 和 `errors`，项目 UI 可以据此展示批量编辑结果。
 
+## 视图快照
+
+需要把当前表格交给自定义控件、调试面板、虚拟列表或导出层时，可以使用 `describe_view()`。默认快照只包含当前可见行和可见列，并保留排序、过滤、选择状态与列描述；这让调用方拿到的是“当前视图”，而不是混杂源数据和隐藏字段的结构。
+
+```gdscript
+var snapshot := table.describe_view()
+for row in snapshot["rows"]:
+	var values: Dictionary = row["values"]
+	print(row["visible_row_index"], row["row_id"], values)
+```
+
+如果需要完整源行，可以传入 `visible_only = false`；被过滤隐藏的行会保留在 `rows` 中，并以 `visible_row_index = -1` 标记。需要包含隐藏列或原始行数据时，显式启用 `include_hidden_columns` 或 `include_row_data`。
+
+```gdscript
+var full_snapshot := table.describe_view({
+	"visible_only": false,
+	"include_hidden_columns": true,
+	"include_row_data": true,
+})
+```
+
+`describe_row()` 可用于单独描述某个源行。快照中的值默认会复制 `Dictionary` / `Array`，避免调试、导出或渲染层意外修改源行；如果调用方明确需要引用原值，可以传入 `copy_values = false`。
+
 ## 选择状态
 
 `GFTableSelectionModel` 使用稳定 row id 维护选择集合，而不是使用当前可见行号。因此排序、过滤和可见行重建不会自动丢失选择。项目可以直接使用 `table.selection_model`，也可以把同一个选择模型共享给多个表格视图。

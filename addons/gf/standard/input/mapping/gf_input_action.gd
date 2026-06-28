@@ -87,10 +87,8 @@ func get_display_name() -> String:
 ## [br]
 ## @api public
 ## [br]
-## @return 动作标识；未显式设置时尝试使用资源路径。
+## @since 3.17.0
+## [br]
+## @return 显式动作标识；未设置时返回空标识。
 func get_action_id() -> StringName:
-	if action_id != &"":
-		return action_id
-	if not resource_path.is_empty():
-		return StringName(resource_path)
-	return &""
+	return action_id

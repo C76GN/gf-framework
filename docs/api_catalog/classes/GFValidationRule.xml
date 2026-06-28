@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFValidationRule" path="addons/gf/standard/foundation/validation/gf_validation_rule.gd" module="standard" extends="Resource" classDigest="c2a18b6d796675a38a3354915d3407f14818049acf1882e4a96f863be5dabf46">
+<class name="GFValidationRule" path="addons/gf/standard/foundation/validation/gf_validation_rule.gd" module="standard" extends="Resource" classDigest="1e906567b27ef7c38e029889f9de3f18f49990110ade9b230e76087a1c8f8fff">
 	<description>GFValidationRule: 通用校验规则资源。
 通过 Callable 或子类钩子校验任意对象、资源、节点或数据。规则只负责把问题写入
 GFValidationReport，不约定项目脚本方法名，也不内置业务字段语义。</description>
@@ -129,6 +129,16 @@ GFValidationReport，不约定项目脚本方法名，也不内置业务字段�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">新规则。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="describe">
+			<signature>func describe() -&gt; Dictionary:</signature>
+			<description>导出规则摘要。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">规则描述字典。</tag>
+				<tag name="schema">return: Dictionary validation rule descriptor.</tag>
+				<tag name="since">6.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="_validate">

@@ -25,6 +25,7 @@
 | 属性 | [`serializer`](#member-gfnetworkutility-properties-serializer) | `var serializer: GFNetworkSerializer = GFNetworkSerializer.new()` |
 | 属性 | [`validator`](#member-gfnetworkutility-properties-validator) | `var validator: GFNetworkMessageValidator = GFNetworkMessageValidator.new()` |
 | 属性 | [`session`](#member-gfnetworkutility-properties-session) | `var session: GFNetworkSession = GFNetworkSession.new()` |
+| 属性 | [`connect_timeout_msec`](#member-gfnetworkutility-properties-connect_timeout_msec) | `var connect_timeout_msec: int = 15000` |
 | 方法 | [`ready`](#member-gfnetworkutility-methods-ready) | `func ready() -> void:` |
 | 方法 | [`tick`](#member-gfnetworkutility-methods-tick) | `func tick(delta: float) -> void:` |
 | 方法 | [`dispose`](#member-gfnetworkutility-methods-dispose) | `func dispose() -> void:` |
@@ -201,6 +202,19 @@ var session: GFNetworkSession = GFNetworkSession.new()
 ```
 
 当前会话状态。
+
+<a id="member-gfnetworkutility-properties-connect_timeout_msec"></a>
+
+### `connect_timeout_msec`
+
+- API：`public`
+- 首次版本：`6.0.0`
+
+```gdscript
+var connect_timeout_msec: int = 15000
+```
+
+客户端连接超时时间，单位毫秒。小于等于 0 表示不主动超时。
 
 ## 方法
 

@@ -163,10 +163,13 @@ func rebuild_catalog(options: Dictionary = {}) -> Dictionary:
 			manifests.append(manifest)
 		else:
 			var _append_failed_result: bool = failed_manifest_paths.append(manifest_path)
-	var _catalog_updated: GFContentPackageCatalog = _catalog.set_manifests(manifests)
-	catalog_rebuilt.emit(_catalog)
-	var report: Dictionary = _catalog.get_graph_report(options)
-	return _add_manifest_load_failures(report, failed_manifest_paths)
+	var candidate_catalog: GFContentPackageCatalog = GFContentPackageCatalog.new()
+	var _candidate_updated: GFContentPackageCatalog = candidate_catalog.set_manifests(manifests)
+	var report: Dictionary = _add_manifest_load_failures(candidate_catalog.get_graph_report(options), failed_manifest_paths)
+	if _report_ok(report):
+		_catalog = candidate_catalog
+		catalog_rebuilt.emit(_catalog)
+	return report
 
 
 ## 手动替换内容包目录。
@@ -188,9 +191,13 @@ func set_manifests(
 	manifests: Array[GFContentPackageManifest],
 	options: Dictionary = {}
 ) -> Dictionary:
-	var _catalog_updated: GFContentPackageCatalog = _catalog.set_manifests(manifests)
-	catalog_rebuilt.emit(_catalog)
-	return _catalog.get_graph_report(options)
+	var candidate_catalog: GFContentPackageCatalog = GFContentPackageCatalog.new()
+	var _candidate_updated: GFContentPackageCatalog = candidate_catalog.set_manifests(manifests)
+	var report: Dictionary = candidate_catalog.get_graph_report(options)
+	if _report_ok(report):
+		_catalog = candidate_catalog
+		catalog_rebuilt.emit(_catalog)
+	return report
 
 
 ## 把当前内容包目录同步到资源解析器。
@@ -296,6 +303,10 @@ func _add_manifest_load_failures(report: Dictionary, failed_manifest_paths: Pack
 		"fallback_action": "Review the first content package catalog issue.",
 		"no_action": "Content package catalog is valid.",
 	})
+
+
+func _report_ok(report: Dictionary) -> bool:
+	return GFVariantData.get_option_bool(report, "ok", false)
 
 
 static func _normalize_root_path(path: String) -> String:

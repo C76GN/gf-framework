@@ -67,6 +67,20 @@ func test_duplicate_values_prevents_external_mutation() -> void:
 	assert_eq(GFVariantData.as_dictionary(region_map.get_cell(Vector3i.ZERO)), {"count": 1, "tags": ["a"]})
 
 
+func test_clear_marks_removed_regions_dirty() -> void:
+	var region_map: GFRegionMap3D = GFRegionMap3D.new()
+	region_map.region_size = Vector3i(4, 4, 4)
+	region_map.set_cell(Vector3i.ZERO, "a")
+	region_map.set_cell(Vector3i(5, 0, 0), "b")
+	region_map.clear_dirty()
+
+	region_map.clear()
+
+	assert_eq(region_map.get_region_keys().size(), 0)
+	assert_true(region_map.get_dirty_region_keys().has(Vector3i.ZERO), "清空已有区域应留下删除脏标记。")
+	assert_true(region_map.get_dirty_region_keys().has(Vector3i(1, 0, 0)), "清空多个已有区域应分别标脏。")
+
+
 func _append_tag(data: Dictionary, tag: String) -> void:
 	var tags_value: Variant = GFVariantData.get_option_value(data, "tags")
 	if tags_value is Array:

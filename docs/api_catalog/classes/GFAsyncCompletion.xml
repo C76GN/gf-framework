@@ -1,0 +1,241 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFAsyncCompletion" path="addons/gf/standard/common/gf_async_completion.gd" module="standard" extends="RefCounted" classDigest="26ca351863da4da2a737c6d73dc1aa4d140db766f478b100cd84e1431d06a275">
+	<description>GFAsyncCompletion: 一次性异步完成源。
+用于把回调、Signal、后台任务或项目侧异步流程归一为 succeeded / failed / cancelled 终态。
+它只保存结果状态，不调度任务，也不强制规定调用方如何重试或回滚。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_handle</tag>
+		<tag name="since">7.0.0</tag>
+	</tags>
+	<signals>
+		<member kind="signal" name="completed">
+			<signature>signal completed(completion: GFAsyncCompletion)</signature>
+			<description>完成源进入任意终态时发出。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">completion: 当前完成源。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="signal" name="succeeded">
+			<signature>signal succeeded(result: Variant, metadata: Dictionary)</signature>
+			<description>完成源成功时发出。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">result: 成功结果。</tag>
+				<tag name="param">metadata: 终态元数据。</tag>
+				<tag name="schema">result: Variant，调用方定义的成功结果。</tag>
+				<tag name="schema">metadata: Dictionary，调用方定义的终态元数据。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="signal" name="failed">
+			<signature>signal failed(error: String, metadata: Dictionary)</signature>
+			<description>完成源失败时发出。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">error: 失败说明。</tag>
+				<tag name="param">metadata: 终态元数据。</tag>
+				<tag name="schema">metadata: Dictionary，调用方定义的终态元数据。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="signal" name="cancelled">
+			<signature>signal cancelled(reason: StringName, metadata: Dictionary)</signature>
+			<description>完成源取消时发出。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">reason: 取消原因。</tag>
+				<tag name="param">metadata: 终态元数据。</tag>
+				<tag name="schema">metadata: Dictionary，调用方定义的终态元数据。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+	</signals>
+	<enums>
+		<member kind="enum" name="Status">
+			<signature>enum Status {
+	## 等待完成。
+	PENDING,
+	## 已成功完成。
+	SUCCEEDED,
+	## 已失败。
+	FAILED,
+	## 已取消。
+	CANCELLED,
+}</signature>
+			<description>完成源状态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+	</enums>
+	<constants />
+	<properties />
+	<methods>
+		<member kind="method" name="succeed">
+			<signature>func succeed(result: Variant = null, metadata: Dictionary = {}) -&gt; bool:</signature>
+			<description>标记成功完成。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">result: 成功结果。</tag>
+				<tag name="param">metadata: 终态元数据。</tag>
+				<tag name="return">首次进入终态时返回 true。</tag>
+				<tag name="schema">result: Variant，调用方定义的成功结果。</tag>
+				<tag name="schema">metadata: Dictionary，调用方定义的终态元数据。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="fail">
+			<signature>func fail(error: String = "", metadata: Dictionary = {}) -&gt; bool:</signature>
+			<description>标记失败完成。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">error: 失败说明。</tag>
+				<tag name="param">metadata: 终态元数据。</tag>
+				<tag name="return">首次进入终态时返回 true。</tag>
+				<tag name="schema">metadata: Dictionary，调用方定义的终态元数据。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="cancel">
+			<signature>func cancel(reason: StringName = &amp;"cancelled", metadata: Dictionary = {}) -&gt; bool:</signature>
+			<description>标记取消完成。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">reason: 取消原因。</tag>
+				<tag name="param">metadata: 终态元数据。</tag>
+				<tag name="return">首次进入终态时返回 true。</tag>
+				<tag name="schema">metadata: Dictionary，调用方定义的终态元数据。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="bind_cancel_token">
+			<signature>func bind_cancel_token(token: GFCancelToken) -&gt; bool:</signature>
+			<description>绑定取消 token；token 取消时完成源进入 cancelled 终态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">token: 取消 token。</tag>
+				<tag name="return">成功绑定或 token 已经触发取消时返回 true。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="wait_async">
+			<signature>func wait_async(options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>等待完成源进入终态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">options: 等待选项，支持 GFAsyncWaitUtility.await_signal() 的选项。</tag>
+				<tag name="return">完成源快照；等待超时、取消或失效时包含 wait_status 字段。</tag>
+				<tag name="schema">options: Dictionary，可包含 timeout_seconds、cancel_token、guard_node、time_utility、respect_time_scale 和 timeout_warning。</tag>
+				<tag name="schema">return: Dictionary，包含 status、status_name、completed、result、error、cancel_reason、metadata 和可选 wait_status。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_pending">
+			<signature>func is_pending() -&gt; bool:</signature>
+			<description>当前是否仍在等待。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">等待中返回 true。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_completed">
+			<signature>func is_completed() -&gt; bool:</signature>
+			<description>当前是否已经进入任意终态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">已完成、失败或取消时返回 true。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_successful">
+			<signature>func is_successful() -&gt; bool:</signature>
+			<description>当前是否成功。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">成功完成时返回 true。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_failed">
+			<signature>func is_failed() -&gt; bool:</signature>
+			<description>当前是否失败。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">失败时返回 true。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_cancelled">
+			<signature>func is_cancelled() -&gt; bool:</signature>
+			<description>当前是否取消。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">取消时返回 true。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_status">
+			<signature>func get_status() -&gt; Status:</signature>
+			<description>获取当前状态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">当前状态枚举值。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_result">
+			<signature>func get_result() -&gt; Variant:</signature>
+			<description>获取成功结果。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">成功结果；未成功时为 null。</tag>
+				<tag name="schema">return: Variant，调用方定义的成功结果。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_error">
+			<signature>func get_error() -&gt; String:</signature>
+			<description>获取失败说明。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">失败说明。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_cancel_reason">
+			<signature>func get_cancel_reason() -&gt; StringName:</signature>
+			<description>获取取消原因。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">取消原因。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_metadata">
+			<signature>func get_metadata() -&gt; Dictionary:</signature>
+			<description>获取终态元数据副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">元数据副本。</tag>
+				<tag name="schema">return: Dictionary，调用方定义的终态元数据。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_debug_snapshot">
+			<signature>func get_debug_snapshot() -&gt; Dictionary:</signature>
+			<description>获取完成源状态快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">状态快照。</tag>
+				<tag name="schema">return: Dictionary，包含 status、status_name、completed、successful、failed、cancelled、result、error、cancel_reason、metadata、created_msec、completed_msec 和 duration_msec。</tag>
+				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

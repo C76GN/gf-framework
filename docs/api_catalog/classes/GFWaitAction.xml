@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFWaitAction" path="addons/gf/extensions/action_queue/actions/gf_wait_action.gd" module="extensions/action_queue" extends="GFVisualAction" classDigest="8f93ec5eac946e45dcacae3c97fb21c4fcb3b3f71b817370c77637e2d13f6cb2">
+<class name="GFWaitAction" path="addons/gf/extensions/action_queue/actions/gf_wait_action.gd" module="extensions/action_queue" extends="GFVisualAction" classDigest="e6ba9c24ce3da5c26bafb587cd78b77f0ea769afda1cca99a04caebbf02aac98">
 	<description>GFWaitAction: 动作队列中的通用等待动作。
-通过 SceneTreeTimer 表达一段时间等待，不携带业务含义。</description>
+通过可暂停的帧循环表达一段时间等待，不携带业务含义。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">runtime_handle</tag>
@@ -70,6 +70,22 @@
 			<description>取消当前等待。</description>
 			<tags>
 				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="method" name="pause">
+			<signature>func pause() -&gt; void:</signature>
+			<description>暂停当前等待。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="resume">
+			<signature>func resume() -&gt; void:</signature>
+			<description>恢复当前等待。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">6.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="finish">

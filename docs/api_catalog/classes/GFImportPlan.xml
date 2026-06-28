@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFImportPlan" path="addons/gf/standard/utilities/assets/gf_import_plan.gd" module="standard" extends="Resource" classDigest="b511b7cc77918cd6f148edfcf55f79c9dc20e85c3f437b81927e2e1dcc3f3a34">
+<class name="GFImportPlan" path="addons/gf/standard/utilities/assets/gf_import_plan.gd" module="standard" extends="Resource" classDigest="9f2436584c61249086dc25c28db6e627387fb6a6c5a22d177ca598f22e3a1f68">
 	<description>GFImportPlan: 通用导入计划与预检报告。
 描述一组来源到目标的导入、复制或转换条目，并提供 source trace、预检和修复动作报告。
 该类不执行文件复制或格式转换，具体导入器可把它作为编辑器工具和 CI 的共享计划格式。</description>
@@ -106,8 +106,20 @@
 				<tag name="api">public</tag>
 				<tag name="param">options: 预检选项。</tag>
 				<tag name="return">GFValidationReportDictionary 兼容报告。</tag>
-				<tag name="schema">options: Dictionary，可包含 check_source_exists、target_root 和 allow_empty_target。</tag>
-				<tag name="schema">return: GFValidationReportDictionary.finalize_report() output with entry_count and source_traces.</tag>
+				<tag name="schema">options: Dictionary，可包含 check_source_exists、target_root、allow_empty_target、check_duplicate_targets 和 include_skip_targets。</tag>
+				<tag name="schema">return: GFValidationReportDictionary.finalize_report() output with entry_count, source_traces, and operation_summary.</tag>
+				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_operation_summary">
+			<signature>func get_operation_summary(options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>生成导入计划摘要。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">options: 摘要选项，include_skip_targets=true 时把 skip 条目纳入重复目标统计。</tag>
+				<tag name="return">摘要字典。</tag>
+				<tag name="schema">options: Dictionary import plan summary options.</tag>
+				<tag name="schema">return: Dictionary with entry_count, actionable_entry_count, skipped_entry_count, counts_by_operation, counts_by_source_format, counts_by_target_format, missing_target_count, duplicate_targets, and metadata.</tag>
 				<tag name="since">6.0.0</tag>
 			</tags>
 		</member>

@@ -70,6 +70,8 @@ func update(raw_active: bool, _value: Variant, delta: float, state: Dictionary) 
 		state["was_active"] = true
 		return TriggerState.ONGOING
 
+	if was_active:
+		elapsed += maxf(delta, 0.0)
 	state["was_active"] = false
 	state["elapsed"] = 0.0
 	if was_active and elapsed >= min_tap_seconds and elapsed <= max_tap_seconds:

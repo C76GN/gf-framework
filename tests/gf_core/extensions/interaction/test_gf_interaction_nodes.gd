@@ -93,6 +93,17 @@ class RecordingDispatchNode extends Node:
 		}
 
 
+class InvalidDispatchNode extends Node:
+	var called: bool = false
+
+	func send_to(_receiver: Object) -> Dictionary:
+		called = true
+		return {
+			"ok": false,
+			"metadata": {},
+		}
+
+
 # --- 测试方法 ---
 
 func test_sensor_send_to_receiver_builds_context_and_report() -> void:
@@ -247,6 +258,25 @@ func test_sensor_broadcast_to_group_sends_to_receivers() -> void:
 	assert_eq(receiver_a.validate_count + receiver_b.validate_count, 2, "每个接收器都应收到一次交互。")
 
 
+func test_sensor_broadcast_to_group_max_count_counts_accepted_receivers() -> void:
+	var sensor: GFInteractionSensor = GFInteractionSensor.new()
+	var rejected_receiver: GFInteractionReceiver = GFInteractionReceiver.new()
+	var accepted_receiver: RecordingReceiver = RecordingReceiver.new()
+	add_child_autofree(sensor)
+	add_child_autofree(rejected_receiver)
+	add_child_autofree(accepted_receiver)
+	sensor.group_name = &"targets"
+	rejected_receiver.enabled = false
+	rejected_receiver.add_to_group("targets")
+	accepted_receiver.add_to_group("targets")
+
+	var reports: Array[Dictionary] = sensor.broadcast_to_group(&"", 1)
+
+	assert_eq(accepted_receiver.validate_count, 1, "rejected 目标不应耗尽 max_count 的 accepted 配额。")
+	assert_true(reports.size() >= 1, "广播应返回可诊断报告。")
+	assert_true(GFVariantData.get_option_bool(reports[reports.size() - 1], "ok"), "最后一个报告应来自 accepted 目标。")
+
+
 func test_sensor_broadcast_to_group_uses_sender_send_to_override() -> void:
 	var root: Node = Node.new()
 	var sensor: GFInteractionSensor = GFInteractionSensor.new()
@@ -270,6 +300,27 @@ func test_sensor_broadcast_to_group_uses_sender_send_to_override() -> void:
 	assert_eq(sender.received_id, &"", "未覆盖交互 ID 时应透传空值，让业务发送者使用自身默认值。")
 	assert_signal_emitted(sensor, "interaction_sent", "业务发送者接管分组广播时 Sensor 仍应发出 interaction_sent。")
 	assert_signal_emitted(sensor, "interaction_accepted", "业务发送者返回成功报告时 Sensor 仍应发出 interaction_accepted。")
+
+
+func test_sensor_ignores_sender_send_to_override_with_invalid_signature() -> void:
+	var root: Node = Node.new()
+	var sensor: GFInteractionSensor = GFInteractionSensor.new()
+	var invalid_sender: InvalidDispatchNode = InvalidDispatchNode.new()
+	var receiver: RecordingReceiver = RecordingReceiver.new()
+	add_child_autofree(root)
+	root.add_child(sensor)
+	root.add_child(invalid_sender)
+	root.add_child(receiver)
+	invalid_sender.name = "InvalidSender"
+	sensor.group_name = &"targets"
+	sensor.sender_path = NodePath("../InvalidSender")
+	receiver.add_to_group("targets")
+
+	var reports: Array[Dictionary] = sensor.broadcast_to_group()
+
+	assert_eq(reports.size(), 1, "无效 sender override 应回退到 Sensor 标准发送。")
+	assert_false(invalid_sender.called, "签名不匹配的 send_to 不应被调用。")
+	assert_same(receiver.received_context.sender, invalid_sender, "上下文 sender 仍应来自 sender_path。")
 
 
 func test_sensor_collision_candidates_resolve_receiver_ancestors() -> void:
@@ -353,6 +404,9 @@ func test_pointer_interaction_3d_sends_click_context_to_receiver() -> void:
 	assert_eq(GFVariantData.get_option_string(received_payload, "kind"), "object", "基础 payload 应保留。")
 	assert_eq(GFVariantData.get_option_string_name(received_payload, "pointer_event"), &"clicked", "点击事件应写入 payload。")
 	assert_eq(GFVariantData.get_option_vector3(received_payload, "pointer_position"), Vector3(1.0, 2.0, 3.0), "点击位置应写入 payload。")
+	assert_false(received_payload.has("pointer_camera"), "pointer payload 不应携带 Camera3D 原始对象。")
+	assert_false(received_payload.has("pointer_input_event"), "pointer payload 不应携带 InputEvent 原始对象。")
+	assert_eq(GFVariantData.get_option_string(received_payload, "pointer_input_event_class"), "InputEventMouseButton", "pointer payload 应保留事件类型快照。")
 
 
 func test_pointer_interaction_3d_emits_hover_without_sending_by_default() -> void:
@@ -376,6 +430,59 @@ func test_pointer_interaction_3d_emits_hover_without_sending_by_default() -> voi
 
 	assert_eq(entered.size(), 1, "hover 进入应发出本地信号。")
 	assert_null(receiver.received_context, "默认不应把 hover 自动发送给接收器。")
+
+
+func test_pointer_interaction_3d_rebinding_resets_hover_press_state() -> void:
+	var first_body: StaticBody3D = StaticBody3D.new()
+	var second_body: StaticBody3D = StaticBody3D.new()
+	var pointer: GFPointerInteraction3D = GFPointerInteraction3D.new()
+	add_child_autofree(first_body)
+	add_child_autofree(second_body)
+	first_body.add_child(pointer)
+	pointer.bind_collision_object(first_body)
+	watch_signals(pointer)
+
+	pointer._on_collision_mouse_entered()
+	pointer._on_collision_input_event(null, _make_mouse_button(MOUSE_BUTTON_LEFT, true), Vector3.ZERO, Vector3.UP, 0)
+	pointer.bind_collision_object(second_body)
+	pointer._on_collision_input_event(null, _make_mouse_button(MOUSE_BUTTON_LEFT, false), Vector3.ZERO, Vector3.UP, 0)
+
+	assert_false(pointer._is_hovered, "重新绑定时应清理 hover 状态。")
+	assert_eq(pointer._pressed_button, 0, "重新绑定时应清理 pressed button。")
+	assert_signal_not_emitted(pointer, "pointer_clicked", "旧对象上的 press 不应在新对象 release 时形成点击。")
+
+
+func test_pointer_interaction_3d_restores_input_ray_pickable_on_unbind() -> void:
+	var body: StaticBody3D = StaticBody3D.new()
+	var pointer: GFPointerInteraction3D = GFPointerInteraction3D.new()
+	add_child_autofree(body)
+	body.add_child(pointer)
+	body.input_ray_pickable = false
+
+	pointer.bind_collision_object(body)
+	var pickable_during_bind: bool = body.input_ray_pickable
+	pointer.bind_collision_object(null)
+
+	assert_true(pickable_during_bind, "绑定期间应确保 input_ray_pickable。")
+	assert_false(body.input_ray_pickable, "解绑后应恢复外部 CollisionObject3D 原始 pickable 设置。")
+
+
+func test_pointer_interaction_3d_disabling_resets_active_state() -> void:
+	var body: StaticBody3D = StaticBody3D.new()
+	var pointer: GFPointerInteraction3D = GFPointerInteraction3D.new()
+	add_child_autofree(body)
+	body.add_child(pointer)
+	pointer.bind_collision_object(body)
+	watch_signals(pointer)
+
+	pointer._on_collision_mouse_entered()
+	pointer._on_collision_input_event(null, _make_mouse_button(MOUSE_BUTTON_LEFT, true), Vector3.ZERO, Vector3.UP, 0)
+	pointer.enabled = false
+	pointer._on_collision_input_event(null, _make_mouse_button(MOUSE_BUTTON_LEFT, false), Vector3.ZERO, Vector3.UP, 0)
+
+	assert_false(pointer._is_hovered, "禁用时应清理 hover 状态。")
+	assert_eq(pointer._pressed_button, 0, "禁用时应清理 pressed button。")
+	assert_signal_not_emitted(pointer, "pointer_clicked", "禁用后 release 不应继承旧 press 形成点击。")
 
 
 # --- 私有/辅助方法 ---

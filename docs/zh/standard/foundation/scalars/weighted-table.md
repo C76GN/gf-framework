@@ -2,7 +2,7 @@
 
 `GFWeightedTable` 是通用权重选择原语。它只管理候选值、权重、随机源和可选元数据，不解释这些值是奖励、AI 决策、音效变体还是关卡片段。
 
-需要接入项目运行时随机流时，显式传入随机源：普通 Godot 随机流使用 `RandomNumberGenerator`，例如来自 `GFSeedUtility.get_branched_rng()` 的分支 RNG；跨版本固定序列使用 `GFDeterministicRandom`，例如来自 `GFSeedUtility.get_branched_deterministic_random()` 的分支 RNG。需要不传 RNG 也得到 GF 固定算法序列时，设置表上的 `deterministic_seed`；这一路会使用 `GFDeterministicRandom` 作为后备随机源。
+需要接入项目运行时随机流时，显式传入随机源：普通 Godot 随机流使用 `RandomNumberGenerator`，例如来自 `GFSeedUtility.get_branched_godot_rng()` 的分支 RNG；长期固定序列使用 `GFDeterministicRandom`，例如来自 `GFSeedUtility.get_branched_deterministic_random()` 的分支 RNG。需要不传 RNG 也得到 GF 固定算法序列时，设置表上的 `deterministic_seed`；这一路会使用 `GFDeterministicRandom` 作为后备随机源。
 
 ```gdscript
 var table := GFWeightedTable.new()

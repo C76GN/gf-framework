@@ -78,12 +78,21 @@ enum UpdateMode {
 ## 默认过渡资源。Rig 没有设置 blend 时使用它。
 ## [br]
 ## @api public
-@export var default_blend: GFCameraBlend = GFCameraBlend.new()
+## [br]
+## @since 6.0.0
+@export var default_blend: GFCameraBlend = null
 
 ## 没有 Rig 时是否保持相机当前姿态。
 ## [br]
 ## @api public
 @export var keep_camera_when_no_rig: bool = true
+
+## 应用姿态时是否显式把 Camera2D 设为当前相机。
+## [br]
+## @api public
+## [br]
+## @since 7.0.0
+@export var make_current_on_apply: bool = false
 
 
 # --- 私有变量 ---
@@ -93,9 +102,14 @@ var _blend: GFCameraBlend = null
 var _blend_elapsed_seconds: float = 0.0
 var _blend_from_pose: Dictionary = {}
 var _is_blending: bool = false
+var _active_rig_is_manual_override: bool = false
 
 
 # --- Godot 生命周期方法 ---
+
+func _init() -> void:
+	default_blend = GFCameraBlend.new()
+
 
 func _process(delta: float) -> void:
 	if update_mode == UpdateMode.IDLE:
@@ -126,6 +140,7 @@ func get_camera() -> Camera2D:
 ## [br]
 ## @return 当前 Rig；没有时返回 null。
 func get_active_rig() -> GFCameraRig2D:
+	_prune_active_rig()
 	return _active_rig
 
 
@@ -158,18 +173,26 @@ func collect_candidate_rigs() -> Array[GFCameraRig2D]:
 ## [br]
 ## @return 当前 Rig。
 func refresh_active_rig(force_snap: bool = false) -> GFCameraRig2D:
+	_prune_active_rig()
+	if _active_rig_is_manual_override:
+		return _active_rig
+
 	var best_rig: GFCameraRig2D = null
 	for rig: GFCameraRig2D in collect_candidate_rigs():
 		if rig != null and rig.is_available():
 			best_rig = rig
 			break
-	var _set_active_rig_result_166: Variant = set_active_rig(best_rig, force_snap)
+	var _set_active_rig_result_166: Variant = _set_active_rig_internal(best_rig, force_snap, false)
 	return _active_rig
 
 
-## 显式设置当前 Rig。
+## 显式设置当前 Rig，并进入手动覆盖模式。
+## 手动覆盖模式下，refresh_active_rig() 不会自动切换到更高优先级 Rig；
+## 调用 clear_active_rig_override() 后才恢复自动选择。
 ## [br]
 ## @api public
+## [br]
+## @since 6.0.0
 ## [br]
 ## @param rig: 新 Rig；可为 null。
 ## [br]
@@ -177,15 +200,21 @@ func refresh_active_rig(force_snap: bool = false) -> GFCameraRig2D:
 ## [br]
 ## @return 设置成功返回 true。
 func set_active_rig(rig: GFCameraRig2D, force_snap: bool = false) -> bool:
-	if rig == _active_rig:
-		if force_snap:
-			_prepare_blend(true)
-		return true
-	var previous: GFCameraRig2D = _active_rig
-	_active_rig = rig
-	_prepare_blend(force_snap)
-	active_rig_changed.emit(previous, _active_rig)
-	return true
+	return _set_active_rig_internal(rig, force_snap, true)
+
+
+## 清除手动 Rig 覆盖，并立即恢复自动选择。
+## [br]
+## @api public
+## [br]
+## @since 6.0.0
+## [br]
+## @param force_snap: 为 true 时立即切换。
+## [br]
+## @return 自动选择后的当前 Rig。
+func clear_active_rig_override(force_snap: bool = false) -> GFCameraRig2D:
+	_active_rig_is_manual_override = false
+	return refresh_active_rig(force_snap)
 
 
 ## 推进并应用相机姿态。
@@ -200,7 +229,7 @@ func process_camera(delta: float) -> bool:
 	var camera: Camera2D = get_camera()
 	if camera == null:
 		return false
-	if _active_rig == null:
+	if _active_rig == null or not is_instance_valid(_active_rig) or not _active_rig.is_available():
 		return keep_camera_when_no_rig
 
 	var target_pose: Dictionary = _active_rig.get_camera_pose()
@@ -221,16 +250,45 @@ func process_camera(delta: float) -> bool:
 
 func _prepare_blend(force_snap: bool) -> void:
 	var camera: Camera2D = get_camera()
-	_blend = _active_rig.blend if _active_rig != null and _active_rig.blend != null else default_blend
+	_blend = _active_rig.blend if _active_rig != null and is_instance_valid(_active_rig) and _active_rig.blend != null else default_blend
 	_blend_elapsed_seconds = 0.0
 	_blend_from_pose = _get_camera_pose(camera)
 	_is_blending = (
 		not force_snap
 		and camera != null
 		and _active_rig != null
+		and is_instance_valid(_active_rig)
 		and _blend != null
 		and not _blend.is_instant()
 	)
+
+
+func _set_active_rig_internal(rig: GFCameraRig2D, force_snap: bool, manual_override: bool) -> bool:
+	if rig != null and (not is_instance_valid(rig) or not rig.is_available()):
+		return false
+	if manual_override:
+		_active_rig_is_manual_override = true
+	if rig == _active_rig:
+		if force_snap:
+			_prepare_blend(true)
+		return true
+	var previous: GFCameraRig2D = _active_rig if _active_rig != null and is_instance_valid(_active_rig) else null
+	_active_rig = rig
+	_prepare_blend(force_snap)
+	active_rig_changed.emit(previous, _active_rig)
+	return true
+
+
+func _prune_active_rig() -> void:
+	if _active_rig == null:
+		return
+	if is_instance_valid(_active_rig) and _active_rig.is_available():
+		return
+	var previous: GFCameraRig2D = _active_rig if is_instance_valid(_active_rig) else null
+	_active_rig = null
+	_active_rig_is_manual_override = false
+	_prepare_blend(true)
+	active_rig_changed.emit(previous, null)
 
 
 func _get_camera_pose(camera: Camera2D) -> Dictionary:
@@ -269,6 +327,17 @@ func _apply_pose(camera: Camera2D, pose: Dictionary) -> void:
 	camera.global_position = GFVariantData.get_option_vector2(pose, "position", camera.global_position)
 	camera.global_rotation = GFVariantData.get_option_float(pose, "rotation", camera.global_rotation)
 	camera.zoom = GFVariantData.get_option_vector2(pose, "zoom", camera.zoom)
+	if make_current_on_apply:
+		_make_camera_current(camera)
+
+
+func _make_camera_current(camera: Camera2D) -> void:
+	if camera == null:
+		return
+	if camera.has_method("make_current"):
+		camera.call("make_current")
+		return
+	camera.enabled = true
 
 
 func _append_unique_rig(result: Array[GFCameraRig2D], seen: Dictionary, rig: GFCameraRig2D) -> void:

@@ -29,7 +29,7 @@
 | 方法 | [`remove_consideration`](#member-gfdecisionoption-methods-remove_consideration) | `func remove_consideration(consideration_id: StringName) -> bool:` |
 | 方法 | [`clear_considerations`](#member-gfdecisionoption-methods-clear_considerations) | `func clear_considerations() -> void:` |
 | 方法 | [`score`](#member-gfdecisionoption-methods-score) | `func score(context: GFDecisionContext) -> GFDecisionScore:` |
-| 方法 | [`get_debug_snapshot`](#member-gfdecisionoption-methods-get_debug_snapshot) | `func get_debug_snapshot(context: GFDecisionContext) -> Dictionary:` |
+| 方法 | [`get_debug_snapshot`](#member-gfdecisionoption-methods-get_debug_snapshot) | `func get_debug_snapshot(score_snapshot: GFDecisionScore = null) -> Dictionary:` |
 
 ## 枚举
 
@@ -269,9 +269,10 @@ func score(context: GFDecisionContext) -> GFDecisionScore:
 ### `get_debug_snapshot`
 
 - API：`public`
+- 首次版本：`7.0.0`
 
 ```gdscript
-func get_debug_snapshot(context: GFDecisionContext) -> Dictionary:
+func get_debug_snapshot(score_snapshot: GFDecisionScore = null) -> Dictionary:
 ```
 
 获取候选决策调试快照。
@@ -280,7 +281,7 @@ func get_debug_snapshot(context: GFDecisionContext) -> Dictionary:
 
 | 名称 | 说明 |
 |---|---|
-| `context` | 决策上下文。 |
+| `score_snapshot` | 已计算的评分快照；为空时 score 字段返回空字典。 |
 
 返回：调试快照字典。
 

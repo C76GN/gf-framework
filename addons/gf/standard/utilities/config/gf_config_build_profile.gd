@@ -111,6 +111,8 @@ func filter_schema(schema: GFConfigTableSchema) -> GFConfigTableSchema:
 	result.columns = _filter_columns(result.columns)
 	result.indexes = _filter_indexes(result.indexes, result.get_column_names())
 	result.references = _filter_references(result.references, result.get_column_names())
+	result.record_validation_rules = _filter_validation_rules(result.record_validation_rules)
+	result.table_validation_rules = _filter_validation_rules(result.table_validation_rules)
 	return result
 
 
@@ -218,6 +220,17 @@ func _filter_references(
 			continue
 		if _all_fields_exist(reference_definition.source_fields, column_names):
 			result.append(reference_definition)
+	return result
+
+
+func _filter_validation_rules(rules: Array[GFConfigValidationRule]) -> Array[GFConfigValidationRule]:
+	var result: Array[GFConfigValidationRule] = []
+	for rule: GFConfigValidationRule in rules:
+		if rule == null:
+			continue
+		if not rule.metadata.is_empty() and not allows_metadata(rule.metadata):
+			continue
+		result.append(rule)
 	return result
 
 

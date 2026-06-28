@@ -444,14 +444,19 @@ func unregister_owner(owner: Object) -> void:
 ## [br]
 ## @schema return: Dictionary containing listener counts, pending operation counts, dispatch counters, depth limits, and trace counters.
 func get_debug_stats() -> Dictionary:
+	var listener_diagnostics: Dictionary = get_listener_diagnostics()
 	return {
 		"type_events": _collect_listener_stats(_event_listeners),
 		"assignable_type_events": _collect_listener_stats(_assignable_event_listeners),
 		"simple_events": _collect_simple_listener_stats(),
+		"listener_count": _GF_VARIANT_ACCESS_SCRIPT.get_option_int(listener_diagnostics, "listener_count", 0),
+		"stale_owner_count": _GF_VARIANT_ACCESS_SCRIPT.get_option_int(listener_diagnostics, "stale_owner_count", 0),
 		"pending_type_adds": _type_track.pending_adds.size() + _assignable_type_track.pending_adds.size(),
 		"pending_type_removes": _type_track.pending_removes.size() + _assignable_type_track.pending_removes.size(),
+		"pending_type_owner_removes": _type_track.pending_owner_removes.size() + _assignable_type_track.pending_owner_removes.size(),
 		"pending_simple_adds": _simple_track.pending_adds.size(),
 		"pending_simple_removes": _simple_track.pending_removes.size(),
+		"pending_simple_owner_removes": _simple_track.pending_owner_removes.size(),
 		"type_dispatch_count": _type_dispatch_count,
 		"simple_dispatch_count": _simple_dispatch_count,
 		"type_dispatch_depth": _type_dispatch_depth,
@@ -459,9 +464,73 @@ func get_debug_stats() -> Dictionary:
 		"max_type_dispatch_depth_observed": _max_type_dispatch_depth_observed,
 		"max_simple_dispatch_depth_observed": _max_simple_dispatch_depth_observed,
 		"max_dispatch_depth": max_dispatch_depth,
+		"type_dispatch_cache_size": _type_dispatch_cache.size(),
+		"script_ancestry_cache_size": _script_ancestry_cache.size(),
 		"trace_enabled": trace_enabled,
 		"trace_count": _dispatch_trace.size(),
+		"max_trace_entries": max_trace_entries,
 	}
+
+
+## 获取事件监听器诊断明细。
+## [br]
+## 默认只返回每条轨道的数量统计；传入 `{ "include_entries": true }` 时会附带每个监听器的事件 key、owner 状态、优先级和 Callable 状态。
+## [br]
+## @api public
+## [br]
+## @since 7.0.0
+## [br]
+## @param options: 诊断选项。
+## [br]
+## @schema options: Dictionary，可包含 include_entries。
+## [br]
+## @return 监听器诊断报告。
+## [br]
+## @schema return: Dictionary containing listener counts, stale owner counts, track summaries, and optional entry rows.
+func get_listener_diagnostics(options: Dictionary = {}) -> Dictionary:
+	var include_entries: bool = _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(options, "include_entries", false)
+	var type_track: Dictionary = _collect_track_diagnostics("type", _type_track, include_entries)
+	var assignable_track: Dictionary = _collect_track_diagnostics("assignable_type", _assignable_type_track, include_entries)
+	var simple_track: Dictionary = _collect_track_diagnostics("simple", _simple_track, include_entries)
+	var listener_count: int = (
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_int(type_track, "listener_count", 0)
+		+ _GF_VARIANT_ACCESS_SCRIPT.get_option_int(assignable_track, "listener_count", 0)
+		+ _GF_VARIANT_ACCESS_SCRIPT.get_option_int(simple_track, "listener_count", 0)
+	)
+	var stale_owner_count: int = (
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_int(type_track, "stale_owner_count", 0)
+		+ _GF_VARIANT_ACCESS_SCRIPT.get_option_int(assignable_track, "stale_owner_count", 0)
+		+ _GF_VARIANT_ACCESS_SCRIPT.get_option_int(simple_track, "stale_owner_count", 0)
+	)
+	return {
+		"ok": stale_owner_count == 0,
+		"listener_count": listener_count,
+		"stale_owner_count": stale_owner_count,
+		"type_dispatch_cache_size": _type_dispatch_cache.size(),
+		"script_ancestry_cache_size": _script_ancestry_cache.size(),
+		"tracks": {
+			"type": type_track,
+			"assignable_type": assignable_track,
+			"simple": simple_track,
+		},
+	}
+
+
+## 清理 owner 已释放的监听器并返回清理数量。
+## [br]
+## 派发期间调用时只会把清理动作加入 pending 队列，并在最外层派发结束后合并。
+## [br]
+## @api public
+## [br]
+## @since 7.0.0
+## [br]
+## @return 本次立即移除或排队清理的监听器数量。
+func compact_released_owner_listeners() -> int:
+	var compacted_count: int = 0
+	compacted_count += _compact_released_owner_entries(_type_track, false, _type_dispatch_depth > 0)
+	compacted_count += _compact_released_owner_entries(_assignable_type_track, true, _type_dispatch_depth > 0)
+	compacted_count += _compact_released_owner_entries(_simple_track, false, _simple_dispatch_depth > 0)
+	return compacted_count
 
 
 ## 获取最近事件派发追踪条目。
@@ -733,6 +802,71 @@ func _collect_simple_listener_stats() -> Dictionary:
 	return result
 
 
+func _collect_track_diagnostics(track_name: String, track: EventListenerTrack, include_entries: bool) -> Dictionary:
+	var key_count: int = 0
+	var listener_count: int = 0
+	var stale_owner_count: int = 0
+	var invalid_callable_count: int = 0
+	var entries: Array[Dictionary] = []
+	for key: Variant in track.listeners.keys():
+		key_count += 1
+		var listeners: Array = _get_registry_array(track.listeners, key)
+		for entry_variant: Variant in listeners:
+			var entry: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.as_dictionary(entry_variant)
+			listener_count += 1
+			var owner_released: bool = _entry_owner_is_released(entry)
+			if owner_released:
+				stale_owner_count += 1
+			if not _entry_callable_is_valid(entry):
+				invalid_callable_count += 1
+			if include_entries:
+				entries.append(_make_listener_diagnostic_entry(track_name, key, entry, owner_released))
+
+	var result: Dictionary = {
+		"key_count": key_count,
+		"listener_count": listener_count,
+		"stale_owner_count": stale_owner_count,
+		"invalid_callable_count": invalid_callable_count,
+		"pending_add_count": track.pending_adds.size(),
+		"pending_remove_count": track.pending_removes.size(),
+		"pending_owner_remove_count": track.pending_owner_removes.size(),
+	}
+	if include_entries:
+		result["entries"] = entries
+	return result
+
+
+func _make_listener_diagnostic_entry(
+	track_name: String,
+	key: Variant,
+	entry: Dictionary,
+	owner_released: bool
+) -> Dictionary:
+	var callback: Callable = _get_callable_option(entry, "callable")
+	var owner_id: int = _entry_owner_id(entry)
+	return {
+		"track": track_name,
+		"event": _track_key_debug_string(key),
+		"owner_id": owner_id,
+		"has_owner": owner_id != 0,
+		"owner_released": owner_released,
+		"callable_valid": _entry_callable_is_valid(entry),
+		"callable_method": String(callback.get_method()) if callback.is_valid() else "",
+		"priority": _GF_VARIANT_ACCESS_SCRIPT.get_option_int(entry, "priority", 0),
+		"order": _GF_VARIANT_ACCESS_SCRIPT.get_option_int(entry, "order", 0),
+	}
+
+
+func _track_key_debug_string(key: Variant) -> String:
+	if key is Script:
+		var script_cls: Script = key
+		return _script_debug_key(script_cls)
+	if key is StringName:
+		var event_id: StringName = key
+		return String(event_id)
+	return _GF_VARIANT_ACCESS_SCRIPT.to_text(key)
+
+
 func _script_debug_key(script_cls: Script) -> String:
 	if script_cls == null:
 		return ""
@@ -916,6 +1050,11 @@ func _entry_owner_is_released(entry: Dictionary) -> bool:
 	return owner_ref != null and _owner_from_ref(owner_ref) == null
 
 
+func _entry_callable_is_valid(entry: Dictionary) -> bool:
+	var callback: Callable = _get_callable_option(entry, "callable")
+	return callback.is_valid() and (callback.get_object() == null or is_instance_valid(callback.get_object()))
+
+
 func _entry_owner_id(entry: Dictionary) -> int:
 	var stored_owner_id: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(entry, "owner_id", 0)
 	if stored_owner_id != 0:
@@ -1043,6 +1182,28 @@ func _invalidate_type_dispatch_cache_for_event(event_type: Script, assignable: b
 
 func _invalidate_type_dispatch_cache() -> void:
 	_type_dispatch_cache.clear()
+
+
+func _compact_released_owner_entries(track: EventListenerTrack, assignable: bool, defer_remove: bool) -> int:
+	var compacted_count: int = 0
+	for key: Variant in track.listeners.keys():
+		var listeners: Array = _get_registry_array(track.listeners, key)
+		for index: int in range(listeners.size() - 1, -1, -1):
+			var entry: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.as_dictionary(listeners[index])
+			if not _entry_owner_is_released(entry):
+				continue
+			compacted_count += 1
+			var callback: Callable = _get_callable_option(entry, "callable")
+			if defer_remove:
+				track.queue_remove(key, callback, _entry_owner_id(entry), true)
+			else:
+				listeners.remove_at(index)
+				var event_type: Script = _event_type_from_key(key)
+				if event_type != null:
+					_invalidate_type_dispatch_cache_for_event(event_type, assignable)
+		if not defer_remove:
+			_erase_listener_key_if_empty(track.listeners, key)
+	return compacted_count
 
 
 # --- 内部类 ---

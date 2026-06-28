@@ -34,6 +34,11 @@ enum CacheMode {
 ## @api public
 const DEFAULT_AUTO_CACHE_SIZE: int = 8
 
+const _REASON_INVALID_FACE_INDEX: String = "invalid_face_index"
+const _REASON_MESH_INSTANCE_NOT_FOUND: String = "mesh_instance_not_found"
+const _REASON_MESH_NOT_FOUND: String = "mesh_not_found"
+const _REASON_SURFACE_NOT_FOUND: String = "surface_not_found"
+
 
 # --- 公共变量 ---
 
@@ -51,6 +56,7 @@ var auto_cache_size: int = DEFAULT_AUTO_CACHE_SIZE
 # --- 私有变量 ---
 
 var _surface_face_counts_by_mesh: Dictionary = {}
+var _surface_face_count_signatures_by_mesh: Dictionary = {}
 var _mesh_cache_order: Array[int] = []
 
 
@@ -80,6 +86,42 @@ func get_active_material(source: Object, face_index: int) -> Material:
 	if mesh_instance == null or surface_index < 0:
 		return null
 	return mesh_instance.get_active_material(surface_index)
+
+
+## 描述命中表面的结构化报告。
+##
+## 返回值面向运行时分发、调试面板和日志摘要；GF 只暴露 surface/material 数据，
+## 不解释脚步声、弹孔、地形标签或其它业务语义。
+## [br]
+## @api public
+## [br]
+## @since 7.0.0
+## [br]
+## @param source: MeshInstance3D、CollisionObject3D 或其相邻节点。
+## [br]
+## @param face_index: RayCast3D.get_collision_face_index() 返回的面索引。
+## [br]
+## @return 表面命中报告；无法解析时 ok 为 false，并保留 reason。
+## [br]
+## @schema return: Dictionary，包含 ok、reason、face_index、surface_index、base_material、override_material、active_material、has_*_material 以及对应 *_material_name、*_material_path、*_material_type 字段。
+func describe_surface_hit(source: Object, face_index: int) -> Dictionary:
+	if face_index < 0:
+		return _make_surface_hit_report(false, _REASON_INVALID_FACE_INDEX, face_index, -1)
+
+	var mesh_instance: MeshInstance3D = _resolve_mesh_instance(source)
+	if mesh_instance == null:
+		return _make_surface_hit_report(false, _REASON_MESH_INSTANCE_NOT_FOUND, face_index, -1)
+	if mesh_instance.mesh == null:
+		return _make_surface_hit_report(false, _REASON_MESH_NOT_FOUND, face_index, -1)
+
+	var surface_index: int = _get_surface_index_for_mesh(mesh_instance.mesh, face_index)
+	if surface_index < 0:
+		return _make_surface_hit_report(false, _REASON_SURFACE_NOT_FOUND, face_index, -1)
+
+	var base_material: Material = mesh_instance.mesh.surface_get_material(surface_index)
+	var override_material: Material = mesh_instance.get_surface_override_material(surface_index)
+	var active_material: Material = mesh_instance.get_active_material(surface_index)
+	return _make_surface_hit_report(true, "", face_index, surface_index, base_material, override_material, active_material)
 
 
 ## 获取 MeshInstance3D surface override 材质。
@@ -133,14 +175,7 @@ func get_surface_index(source: Object, face_index: int) -> int:
 	if mesh_instance == null or mesh_instance.mesh == null:
 		return -1
 
-	var face_counts: Array[int] = _get_surface_face_counts(mesh_instance.mesh)
-	var remaining_face_index: int = face_index
-	for surface_index: int in range(face_counts.size()):
-		var face_count: int = face_counts[surface_index]
-		if remaining_face_index < face_count:
-			return surface_index
-		remaining_face_index -= face_count
-	return -1
+	return _get_surface_index_for_mesh(mesh_instance.mesh, face_index)
 
 
 ## 清空 Mesh surface face count 缓存。
@@ -148,6 +183,7 @@ func get_surface_index(source: Object, face_index: int) -> int:
 ## @api public
 func clear_cache() -> void:
 	_surface_face_counts_by_mesh.clear()
+	_surface_face_count_signatures_by_mesh.clear()
 	_mesh_cache_order.clear()
 
 
@@ -167,7 +203,13 @@ func cache_mesh_surface(source: Object) -> bool:
 		return false
 
 	var cache_key: int = _get_mesh_cache_key(mesh)
-	_store_surface_face_counts(cache_key, _compute_surface_face_counts(mesh), true)
+	var face_count_data: Dictionary = _compute_surface_face_count_data(mesh)
+	_store_surface_face_counts(
+		cache_key,
+		GFVariantData.get_option_int_array(face_count_data, "face_counts"),
+		GFVariantData.get_option_int_array(face_count_data, "signature"),
+		true
+	)
 	return true
 
 
@@ -186,6 +228,7 @@ func erase_cached_mesh(source: Object) -> bool:
 	var cache_key: int = _get_mesh_cache_key(mesh)
 	var existed: bool = _surface_face_counts_by_mesh.has(cache_key)
 	var _face_counts_erased: bool = _surface_face_counts_by_mesh.erase(cache_key)
+	var _signature_erased: bool = _surface_face_count_signatures_by_mesh.erase(cache_key)
 	_mesh_cache_order.erase(cache_key)
 	return existed
 
@@ -256,26 +299,69 @@ func _resolve_mesh(source: Object) -> Mesh:
 	return null
 
 
+func _get_surface_index_for_mesh(mesh: Mesh, face_index: int) -> int:
+	if face_index < 0 or mesh == null:
+		return -1
+
+	var face_counts: Array[int] = _get_surface_face_counts(mesh)
+	return _get_surface_index_from_face_counts(face_counts, face_index)
+
+
+func _get_surface_index_from_face_counts(face_counts: Array[int], face_index: int) -> int:
+	var remaining_face_index: int = face_index
+	for surface_index: int in range(face_counts.size()):
+		var face_count: int = face_counts[surface_index]
+		if remaining_face_index < face_count:
+			return surface_index
+		remaining_face_index -= face_count
+	return -1
+
+
 func _get_surface_face_counts(mesh: Mesh) -> Array[int]:
 	var cache_key: int = _get_mesh_cache_key(mesh)
-	if _surface_face_counts_by_mesh.has(cache_key):
+	var signature: Array[int] = _compute_surface_face_count_signature(mesh)
+	if _surface_face_counts_by_mesh.has(cache_key) and _cached_surface_signature_matches(cache_key, signature):
 		_touch_mesh_cache_key(cache_key)
 		return GFVariantData.get_option_int_array(_surface_face_counts_by_mesh, cache_key)
 
 	var face_counts: Array[int] = _compute_surface_face_counts(mesh)
 	if cache_mode == CacheMode.AUTOMATIC:
-		_store_surface_face_counts(cache_key, face_counts, false)
+		_store_surface_face_counts(cache_key, face_counts, signature, false)
 	return face_counts
 
 
 func _compute_surface_face_counts(mesh: Mesh) -> Array[int]:
+	return GFVariantData.get_option_int_array(_compute_surface_face_count_data(mesh), "face_counts")
+
+
+func _compute_surface_face_count_signature(mesh: Mesh) -> Array[int]:
+	return GFVariantData.get_option_int_array(_compute_surface_face_count_data(mesh), "signature")
+
+
+func _compute_surface_face_count_data(mesh: Mesh) -> Dictionary:
 	var face_counts: Array[int] = []
+	var signature: Array[int] = [mesh.get_surface_count()]
 	for surface_index: int in range(mesh.get_surface_count()):
-		face_counts.append(_get_surface_face_count(mesh, surface_index))
-	return face_counts
+		var arrays: Array = mesh.surface_get_arrays(surface_index)
+		var primitive_type: int = _get_surface_primitive_type(mesh, surface_index)
+		var index_count: int = _get_surface_index_count(arrays)
+		var vertex_count: int = _get_surface_vertex_count(arrays)
+		signature.append(primitive_type)
+		signature.append(index_count)
+		signature.append(vertex_count)
+		face_counts.append(_get_surface_face_count(mesh, surface_index, index_count, vertex_count))
+	return {
+		"face_counts": face_counts,
+		"signature": signature,
+	}
 
 
-func _store_surface_face_counts(cache_key: int, face_counts: Array[int], keep_when_manual: bool) -> void:
+func _store_surface_face_counts(
+	cache_key: int,
+	face_counts: Array[int],
+	signature: Array[int],
+	keep_when_manual: bool
+) -> void:
 	if cache_key == 0:
 		return
 	if cache_mode == CacheMode.DISABLED:
@@ -284,6 +370,7 @@ func _store_surface_face_counts(cache_key: int, face_counts: Array[int], keep_wh
 		return
 
 	_surface_face_counts_by_mesh[cache_key] = face_counts.duplicate()
+	_surface_face_count_signatures_by_mesh[cache_key] = signature.duplicate()
 	_touch_mesh_cache_key(cache_key)
 	if cache_mode == CacheMode.AUTOMATIC:
 		_trim_auto_cache()
@@ -299,25 +386,57 @@ func _trim_auto_cache() -> void:
 	while cache_mode == CacheMode.AUTOMATIC and _mesh_cache_order.size() > auto_cache_size:
 		var oldest_key: int = GFVariantData.to_int(_mesh_cache_order.pop_front())
 		var _face_counts_erased: bool = _surface_face_counts_by_mesh.erase(oldest_key)
+		var _signature_erased: bool = _surface_face_count_signatures_by_mesh.erase(oldest_key)
 
 
-func _get_surface_face_count(mesh: Mesh, surface_index: int) -> int:
-	var arrays: Array = mesh.surface_get_arrays(surface_index)
-	if arrays.size() > Mesh.ARRAY_INDEX:
-		var index_data: Variant = arrays[Mesh.ARRAY_INDEX]
-		if index_data is PackedInt32Array:
-			var indices: PackedInt32Array = index_data
-			if not indices.is_empty():
-				return floori(float(indices.size()) / 3.0)
+func _cached_surface_signature_matches(cache_key: int, signature: Array[int]) -> bool:
+	var cached_signature: Array[int] = GFVariantData.get_option_int_array(
+		_surface_face_count_signatures_by_mesh,
+		cache_key
+	)
+	return cached_signature == signature
 
-	if arrays.size() > Mesh.ARRAY_VERTEX:
-		var vertex_data: Variant = arrays[Mesh.ARRAY_VERTEX]
-		if vertex_data is PackedVector3Array:
-			var vertices: PackedVector3Array = vertex_data
-			if not vertices.is_empty():
-				return floori(float(vertices.size()) / 3.0)
+
+func _get_surface_face_count(
+	mesh: Mesh,
+	surface_index: int,
+	index_count: int,
+	vertex_count: int
+) -> int:
+	if index_count > 0:
+		return floori(float(index_count) / 3.0)
+
+	if vertex_count > 0:
+		return floori(float(vertex_count) / 3.0)
 
 	return _get_surface_face_count_with_mesh_data_tool(mesh, surface_index)
+
+
+func _get_surface_primitive_type(mesh: Mesh, surface_index: int) -> int:
+	if mesh is ArrayMesh:
+		var array_mesh: ArrayMesh = mesh
+		return array_mesh.surface_get_primitive_type(surface_index)
+	return Mesh.PRIMITIVE_TRIANGLES
+
+
+func _get_surface_index_count(arrays: Array) -> int:
+	if arrays.size() <= Mesh.ARRAY_INDEX:
+		return 0
+	var index_data: Variant = arrays[Mesh.ARRAY_INDEX]
+	if index_data is PackedInt32Array:
+		var indices: PackedInt32Array = index_data
+		return indices.size()
+	return 0
+
+
+func _get_surface_vertex_count(arrays: Array) -> int:
+	if arrays.size() <= Mesh.ARRAY_VERTEX:
+		return 0
+	var vertex_data: Variant = arrays[Mesh.ARRAY_VERTEX]
+	if vertex_data is PackedVector3Array:
+		var vertices: PackedVector3Array = vertex_data
+		return vertices.size()
+	return 0
 
 
 func _get_surface_face_count_with_mesh_data_tool(mesh: Mesh, surface_index: int) -> int:
@@ -330,6 +449,56 @@ func _get_surface_face_count_with_mesh_data_tool(mesh: Mesh, surface_index: int)
 	if error != OK:
 		return 0
 	return mesh_data_tool.get_face_count()
+
+
+func _make_surface_hit_report(
+	ok: bool,
+	reason: String,
+	face_index: int,
+	surface_index: int,
+	base_material: Material = null,
+	override_material: Material = null,
+	active_material: Material = null
+) -> Dictionary:
+	return {
+		"ok": ok,
+		"reason": reason,
+		"face_index": face_index,
+		"surface_index": surface_index,
+		"base_material": base_material,
+		"base_material_name": _get_resource_name(base_material),
+		"base_material_path": _get_resource_path(base_material),
+		"base_material_type": _get_resource_type(base_material),
+		"has_base_material": base_material != null,
+		"override_material": override_material,
+		"override_material_name": _get_resource_name(override_material),
+		"override_material_path": _get_resource_path(override_material),
+		"override_material_type": _get_resource_type(override_material),
+		"has_override_material": override_material != null,
+		"active_material": active_material,
+		"active_material_name": _get_resource_name(active_material),
+		"active_material_path": _get_resource_path(active_material),
+		"active_material_type": _get_resource_type(active_material),
+		"has_active_material": active_material != null,
+	}
+
+
+func _get_resource_name(resource: Resource) -> String:
+	if resource == null:
+		return ""
+	return String(resource.resource_name)
+
+
+func _get_resource_path(resource: Resource) -> String:
+	if resource == null:
+		return ""
+	return resource.resource_path
+
+
+func _get_resource_type(resource: Resource) -> String:
+	if resource == null:
+		return ""
+	return resource.get_class()
 
 
 func _variant_to_node(value: Variant) -> Node:

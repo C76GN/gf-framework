@@ -15,9 +15,6 @@
     "addons/gf/README.md",
     "addons/gf/kernel/**"
   ],
-  "exclude_paths": [
-    "addons/gf/kernel/package_tools/**"
-  ],
   "metadata": {
     "stage": "core-only-bootstrap"
   }

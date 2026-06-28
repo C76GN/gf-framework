@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "id": "gf.standard.spatial.editor",
+  "kind": "standard",
+  "version": "unreleased",
+  "display_name": "GF Standard Spatial Editor",
+  "description": "Editor-only spatial/math inspectors, properties, and paint tooling.",
+  "dependencies": [
+    "gf.kernel",
+    "gf.standard.base",
+    "gf.standard.spatial"
+  ],
+  "paths": [
+    "addons/gf/standard/foundation/math/editor/**"
+  ],
+  "metadata": {
+    "stage": "standard-editor-split-v1"
+  }
+}

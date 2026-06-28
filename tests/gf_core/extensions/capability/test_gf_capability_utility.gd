@@ -186,6 +186,11 @@ class ConcreteCapabilityB extends BaseCapability:
 	pass
 
 
+class RequiresBaseCapability extends GFCapability:
+	func _init() -> void:
+		required_capabilities = [BaseCapability]
+
+
 # --- 私有变量 ---
 
 var _arch: GFArchitecture
@@ -324,6 +329,17 @@ func test_auto_dependency_cleanup_removes_unused_auto_dependency() -> void:
 	assert_false(_utility.has_capability(receiver, HealthCapability), "仅由主能力自动补齐的依赖应被清理。")
 
 
+func test_remove_required_dependency_is_rejected_while_owner_exists() -> void:
+	var receiver: RefCounted = RefCounted.new()
+
+	var _add_capability_result: Variant = _utility.add_capability(receiver, DamageCapability)
+	_utility.remove_capability(receiver, HealthCapability)
+
+	assert_true(_utility.has_capability(receiver, DamageCapability), "依赖能力移除失败不应影响 owner 能力。")
+	assert_true(_utility.has_capability(receiver, HealthCapability), "仍被依赖的能力不能被直接移除。")
+	assert_push_error("[GFCapabilityUtility] remove_capability 失败：能力")
+
+
 func test_auto_dependency_cleanup_keeps_explicit_dependency() -> void:
 	var receiver: RefCounted = RefCounted.new()
 	var _add_capability_result_303: Variant = _utility.add_capability(receiver, HealthCapability)
@@ -395,11 +411,16 @@ func test_get_capability_prunes_freed_meta_instance_without_cast_error() -> void
 	var capability_types: Array[Script] = _utility._get_capability_type_list(receiver)
 	capability_types.append(CapabilityNode)
 	receiver.set_meta(_utility._get_capability_meta_name(CapabilityNode), capability)
+	_utility._mark_capability_top_level(receiver, CapabilityNode, false)
+	_utility._mark_capability_owned(receiver, CapabilityNode, false)
+	_utility._record_dependency(receiver, DamageCapability, CapabilityNode)
 	capability.free()
 
 	assert_null(_utility.get_capability(receiver, CapabilityNode), "能力元数据里的已释放实例应被清理。")
 	assert_false(receiver.has_meta(_utility._get_capability_meta_name(CapabilityNode)), "清理后 receiver 不应保留失效能力元数据。")
 	assert_false(capability_types.has(CapabilityNode), "清理后能力类型列表不应保留失效能力类型。")
+	assert_false(receiver.has_meta(&"_gf_capability_dependencies"), "清理 stale 能力时应同步清理依赖正向索引。")
+	assert_false(receiver.has_meta(&"_gf_capability_dependency_of"), "清理 stale 能力时应同步清理依赖反向索引。")
 
 	receiver.queue_free()
 	await get_tree().process_frame
@@ -678,6 +699,31 @@ func test_scene_container_unregisters_children_when_removed() -> void:
 	await get_tree().process_frame
 
 
+func test_remove_existing_scene_capability_does_not_free_non_owned_node() -> void:
+	var receiver: Node = Node.new()
+	var container: Node = Node.new()
+	container.set_script(GFCapabilityContainer)
+	var child_capability: CapabilityNode = CapabilityNode.new()
+	container.add_child(child_capability)
+	receiver.add_child(container)
+	add_child(receiver)
+	await get_tree().process_frame
+	await get_tree().process_frame
+
+	assert_eq(_utility.get_capability(receiver, CapabilityNode), child_capability, "场景中已有能力应先被注册。")
+
+	_utility.remove_capability(receiver, CapabilityNode)
+	await get_tree().process_frame
+
+	assert_false(_utility.has_capability(receiver, CapabilityNode), "移除后 Utility 不应继续登记外部能力。")
+	assert_true(is_instance_valid(child_capability), "非 Utility 拥有的能力节点不应被 remove_capability 释放。")
+	assert_false(child_capability.is_queued_for_deletion(), "非拥有能力节点不应进入释放队列。")
+	assert_eq(child_capability.get_parent(), container, "非拥有能力节点应留在原场景结构中。")
+
+	receiver.queue_free()
+	await get_tree().process_frame
+
+
 func test_add_scene_capability_frees_ignored_duplicate_instance() -> void:
 	var receiver: Node = Node.new()
 	add_child(receiver)
@@ -781,6 +827,18 @@ func test_base_type_lookup_requires_unique_match() -> void:
 
 	assert_push_warning("[GFCapabilityUtility] get_capability(")
 	assert_true(ambiguous == null, "多个子类能力匹配同一基类时应返回 null。")
+
+
+func test_required_base_capability_rejects_ambiguous_existing_subclasses() -> void:
+	var receiver: RefCounted = RefCounted.new()
+	var _add_capability_a_result: Variant = _utility.add_capability(receiver, ConcreteCapabilityA)
+	var _add_capability_b_result: Variant = _utility.add_capability(receiver, ConcreteCapabilityB)
+
+	var capability: Object = _utility.add_capability(receiver, RequiresBaseCapability)
+
+	assert_null(capability, "基类依赖匹配到多个已存在实现时应拒绝挂载。")
+	assert_false(_utility.has_capability(receiver, RequiresBaseCapability), "依赖歧义失败后主能力不应残留。")
+	assert_push_error("[GFCapabilityUtility] 能力依赖匹配到多个实现：")
 
 
 func test_capability_active_state_updates_property_and_hook() -> void:
