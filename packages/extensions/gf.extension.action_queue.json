@@ -14,6 +14,6 @@
   "paths": [
     "addons/gf/extensions/action_queue/**"
   ],
-  "enable_extension": "gf.action_queue",
+  "gf_extension_id": "gf.action_queue",
   "metadata": {}
 }

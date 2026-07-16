@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFExtensionSelectionDiscovery" path="addons/gf/kernel/extension/gf_extension_selection_discovery.gd" module="kernel" extends="RefCounted" classDigest="802ab85607b42ca3066baf77106a61c84dd800b9b7b42e5df4c380e725b84b90">
+	<description>GFExtensionSelectionDiscovery: GF 扩展启用选择与贡献路径快照缓存。
+基于 manifest 集合、当前启用 ID 和扩展工具贡献文件，生成启用选择、依赖图、
+enabled/disabled manifest 与各类贡献路径的稳定 snapshot。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_service</tag>
+		<tag name="layer">kernel/extension</tag>
+		<tag name="since">8.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties />
+	<methods>
+		<member kind="method" name="get_snapshot">
+			<signature>static func get_snapshot( manifests: Array[GFExtensionManifest] = [], configured_ids: Array[String] = [], options: Dictionary = {} ) -&gt; Dictionary:</signature>
+			<description>获取当前扩展启用选择快照。
+默认会复用仍然有效的快照；当 manifest、启用 ID、manifest load errors
+或扩展工具贡献文件变化时，自动重新派生并替换缓存。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">manifests: 当前可发现的扩展 manifest 列表。</tag>
+				<tag name="param">configured_ids: 项目配置中的启用扩展 ID。</tag>
+				<tag name="param">options: 发现选项。</tag>
+				<tag name="return">扩展启用选择快照。</tag>
+				<tag name="schema">options: Dictionary，支持 force_refresh、builtin_extension_ids 和 manifest_load_errors。</tag>
+				<tag name="schema">return: Dictionary，包含 ok、configured_ids、resolved_ids、unknown_enabled_ids、enabled_manifests、disabled_manifests、graph_report、manifest_paths、contribution_paths、paths、tool_contribution_errors、signature、signature_hash 和 revision。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="clear_cache">
+			<signature>static func clear_cache() -&gt; void:</signature>
+			<description>清空启用选择快照缓存。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

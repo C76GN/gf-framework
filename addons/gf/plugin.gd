@@ -84,12 +84,20 @@ const GFPluginPreviewTools = preload("res://addons/gf/kernel/editor/gf_plugin_pr
 ## @layer plugin
 const GFPluginGltfDocumentTools = preload("res://addons/gf/kernel/editor/gf_plugin_gltf_document_tools.gd")
 
-## 标准库编辑器扩展记录脚本路径。
+## 编辑器贡献清单读取辅助脚本。
 ## [br]
 ## @api framework_internal
 ## [br]
 ## @layer plugin
-const STANDARD_EDITOR_EXTENSIONS_SCRIPT_PATH: String = "res://addons/gf/standard/editor/gf_standard_editor_extensions.gd"
+const GF_EDITOR_CONTRIBUTION_REGISTRY_SCRIPT = preload("res://addons/gf/kernel/editor/gf_editor_contribution_registry.gd")
+
+## 标准库编辑器贡献清单路径。
+## [br]
+## @api framework_internal
+## [br]
+## @layer plugin
+const STANDARD_EDITOR_CONTRIBUTIONS_MANIFEST_PATH: String = "res://addons/gf/standard/editor/gf_editor_contributions.json"
+const _GF_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
 
 
 # --- 私有变量 ---
@@ -113,11 +121,12 @@ func _enter_tree() -> void:
 	GFPluginAutoload.ensure(self)
 	_standard_editor_extension_records = _collect_standard_editor_extension_records()
 	GFPluginProjectSettings.ensure_all(_get_record_array(_standard_editor_extension_records, "project_setting_records"))
+	_setup_actions_and_menu()
+	var active_editor_records: Dictionary = _make_active_editor_records()
+	GFPluginProjectSettings.ensure_all(_get_record_array(active_editor_records, "project_setting_records"))
 
 	_inspector_tools = GFPluginInspectorTools.new()
-	_inspector_tools.setup(self, _standard_editor_extension_records)
-
-	_setup_actions_and_menu()
+	_inspector_tools.setup(self, active_editor_records)
 
 	_dock_tools = GFPluginDockTools.new()
 	_debugger_tools = GFPluginDebuggerTools.new()
@@ -213,9 +222,12 @@ func _refresh_editor_contributions() -> void:
 
 	if _inspector_tools != null:
 		_inspector_tools.cleanup(self)
-		_inspector_tools.setup(self, _standard_editor_extension_records)
 
 	_setup_actions_and_menu()
+	var active_editor_records: Dictionary = _make_active_editor_records()
+	GFPluginProjectSettings.ensure_all(_get_record_array(active_editor_records, "project_setting_records"))
+	if _inspector_tools != null:
+		_inspector_tools.setup(self, active_editor_records)
 
 	if _debugger_tools != null:
 		_debugger_tools.cleanup(self)
@@ -246,50 +258,47 @@ func _scan_editor_filesystem() -> void:
 
 
 func _collect_standard_editor_extension_records() -> Dictionary:
-	var standard_editor_script: Script = _load_optional_script(STANDARD_EDITOR_EXTENSIONS_SCRIPT_PATH)
-	if standard_editor_script == null:
-		return {
-			"inspector_plugin_records": [],
-			"export_plugin_records": [],
-			"debugger_plugin_records": [],
-			"dock_records": [],
-			"template_records": [],
-			"project_setting_records": [],
-		}
-	return {
-		"inspector_plugin_records": _call_record_array(standard_editor_script, &"get_inspector_plugin_records"),
-		"export_plugin_records": _call_record_array(standard_editor_script, &"get_export_plugin_records"),
-		"debugger_plugin_records": _call_record_array(standard_editor_script, &"get_debugger_plugin_records"),
-		"dock_records": _call_record_array(standard_editor_script, &"get_dock_records"),
-		"template_records": _call_record_array(standard_editor_script, &"get_template_records"),
-		"project_setting_records": _call_record_array(standard_editor_script, &"get_project_setting_records"),
-	}
+	return GF_EDITOR_CONTRIBUTION_REGISTRY_SCRIPT.load_manifest_records(STANDARD_EDITOR_CONTRIBUTIONS_MANIFEST_PATH)
 
 
-func _load_optional_script(script_path: String) -> Script:
-	if not ResourceLoader.exists(script_path, "Script"):
-		return null
-
-	var resource: Resource = ResourceLoader.load(script_path, "Script")
-	if resource is Script:
-		var script: Script = resource
-		return script
-	return null
-
-
-func _call_record_array(script: Script, method_name: StringName) -> Array[Dictionary]:
-	var records: Array[Dictionary] = []
-	if script == null or not script.has_method(method_name):
+func _make_active_editor_records() -> Dictionary:
+	var records: Dictionary = _standard_editor_extension_records.duplicate(true)
+	if _actions == null:
 		return records
-
-	var value: Variant = script.call(method_name)
-	if not value is Array:
-		return records
-	for record_variant: Variant in value:
-		if record_variant is Dictionary:
-			var record: Dictionary = record_variant
-			records.append(record.duplicate(true))
+	_append_unique_records(
+		records,
+		"project_setting_records",
+		_actions.get_project_setting_records(),
+		"name"
+	)
+	_append_unique_records(
+		records,
+		"project_setting_section_records",
+		_actions.get_project_setting_section_records(),
+		"path"
+	)
 	return records
+
+
+func _append_unique_records(
+	records: Dictionary,
+	record_key: String,
+	additional_records: Array[Dictionary],
+	identity_key: String
+) -> void:
+	var merged_records: Array[Dictionary] = _get_record_array(records, record_key)
+	var used_identities: Dictionary = {}
+	for record: Dictionary in merged_records:
+		var identity: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(record, identity_key).strip_edges()
+		if not identity.is_empty():
+			used_identities[identity] = true
+	for record: Dictionary in additional_records:
+		var identity: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(record, identity_key).strip_edges()
+		if identity.is_empty() or used_identities.has(identity):
+			continue
+		used_identities[identity] = true
+		merged_records.append(record.duplicate(true))
+	records[record_key] = merged_records
 
 
 func _get_record_array(records: Dictionary, key: String) -> Array[Dictionary]:

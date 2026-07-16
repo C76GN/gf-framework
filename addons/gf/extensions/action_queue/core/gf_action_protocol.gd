@@ -7,6 +7,7 @@ const _COMPLETION_MODE_FIRE_AND_FORGET: int = 2
 const _DEFAULT_SIGNAL_TIMEOUT_SECONDS: float = 30.0
 const _DEFAULT_SIGNAL_TIMEOUT_RESPECTS_TIME_SCALE: bool = true
 const _GF_ASYNC_WAIT_SUPPORT = preload("res://addons/gf/standard/common/gf_async_wait_support.gd")
+const _ACTION_TIME_POLICY = preload("res://addons/gf/extensions/action_queue/core/gf_action_time_policy.gd")
 
 
 # --- 层内方法 ---
@@ -223,9 +224,11 @@ static func _get_wait_guard_node(action: Object) -> Node:
 
 static func _get_signal_timeout_seconds(action: Object) -> float:
 	if _has_property(action, "signal_timeout_seconds"):
-		return maxf(
-			GFVariantData.to_float(GFObjectPropertyTools.read_property(action, ^"signal_timeout_seconds")),
-			0.0
+		return _ACTION_TIME_POLICY.sanitize_non_negative_seconds(
+			GFVariantData.to_float(
+				GFObjectPropertyTools.read_property(action, ^"signal_timeout_seconds")
+			),
+			_DEFAULT_SIGNAL_TIMEOUT_SECONDS
 		)
 	return _DEFAULT_SIGNAL_TIMEOUT_SECONDS
 

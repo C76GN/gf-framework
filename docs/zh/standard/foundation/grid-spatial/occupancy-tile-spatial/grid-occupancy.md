@@ -16,6 +16,16 @@ if occupancy.reserve_cell(player, Vector2i(2, 1)):
 var blocked := occupancy.is_cell_occupied(Vector2i(3, 1))
 ```
 
+批量查询入口可用于生成候选格、调试面板、保存运行时快照或构建可视化覆盖层。`get_occupied_cells()` 与 `get_reserved_cells()` 返回按 y/x 稳定排序的格子快照；`get_occupiable_cells(receiver)` 会按当前容量、边界和预约归属返回指定接收者可占用的格子。
+
+```gdscript
+var spawn_token := &"item_spawn"
+var candidates := occupancy.get_occupiable_cells(spawn_token)
+if not candidates.is_empty():
+	var cell := candidates[randi() % candidates.size()]
+	occupancy.reserve_cell(spawn_token, cell)
+```
+
 对象接收者使用弱引用记录，`prune_invalid_receivers()` 可清理已释放对象留下的占用或预约；失效对象释放占用时也会发出 `cell_released(null, cell)`，方便 UI 或棋盘缓存同步刷新。
 
 非 `Object` 接收者会以 `typeof + str(value)` 生成内部 key，推荐使用 `StringName`、`int`、稳定字符串或 `Object`，不要直接把 `Dictionary` / `Array` 当作长期唯一标识。

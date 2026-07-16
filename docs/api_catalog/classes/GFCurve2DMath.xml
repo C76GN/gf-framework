@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFCurve2DMath" path="addons/gf/standard/foundation/math/gf_curve_2d_math.gd" module="standard" extends="RefCounted" classDigest="85fa4ac2297d1d9d9ebd54a4153f3845db7db2c6f8f1842fd3b356242d8f960e">
+<class name="GFCurve2DMath" path="addons/gf/standard/foundation/math/gf_curve_2d_math.gd" module="standard" extends="RefCounted" classDigest="60fb11efe3317f463ee9665f059fdb059c901c18bf8d632dd9790a84ee08193c">
 	<description>GFCurve2DMath: Curve2D 与折线的纯算法辅助。
 提供路径长度、归一化采样、点距简化、虚线切分和基础闭合形状生成，
 不持有节点状态，也不解释碰撞、渲染或编辑器交互语义。</description>
@@ -41,6 +41,35 @@
 				<tag name="return">采样点；空折线返回 Vector2.ZERO。</tag>
 			</tags>
 		</member>
+		<member kind="method" name="sample_polyline_pose">
+			<signature>static func sample_polyline_pose( points: PackedVector2Array, ratio: float, closed: bool = false, total_length: float = -1.0 ) -&gt; Dictionary:</signature>
+			<description>按 0 到 1 的比例采样折线姿态。
+该方法返回采样点、路径 offset、当前线段、切线和正交法线，适合节点锚点、
+路径预览、编辑器手柄或轻量轨迹工具在项目层组合使用。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">points: 折线点序列。</tag>
+				<tag name="param">ratio: 归一化采样位置；会被限制在 0 到 1。</tag>
+				<tag name="param">closed: 是否把末点连回首点；少于三个点时不会追加闭合段。</tag>
+				<tag name="param">total_length: 可选预计算长度；小于 0 时内部计算。</tag>
+				<tag name="return">折线姿态报告。</tag>
+				<tag name="schema">return: Dictionary，包含 ok、point、offset、ratio、segment_index、segment_ratio、segment_from、segment_to、tangent、normal、total_length 和 closed。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="project_point_to_polyline">
+			<signature>static func project_point_to_polyline( points: PackedVector2Array, target: Vector2, closed: bool = false ) -&gt; Dictionary:</signature>
+			<description>计算目标点到折线的最近投影。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">points: 折线点序列。</tag>
+				<tag name="param">target: 要投影到折线上的点。</tag>
+				<tag name="param">closed: 是否把末点连回首点；少于三个点时不会追加闭合段。</tag>
+				<tag name="return">最近投影报告。</tag>
+				<tag name="schema">return: Dictionary，包含 ok、point、target、offset、ratio、segment_index、segment_ratio、segment_from、segment_to、distance、distance_squared、tangent、normal、total_length 和 closed。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
 		<member kind="method" name="sample_curve">
 			<signature>static func sample_curve(curve: Curve2D, ratio: float, cubic: bool = false) -&gt; Vector2:</signature>
 			<description>按 0 到 1 的比例采样 Curve2D 的 baked 路径。</description>
@@ -50,6 +79,65 @@
 				<tag name="param">ratio: 归一化采样位置；会被限制在 0 到 1。</tag>
 				<tag name="param">cubic: 是否使用 Curve2D.sample_baked() 的三次插值。</tag>
 				<tag name="return">采样点；曲线为空或无点时返回 Vector2.ZERO。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="create_smooth_polyline_curve">
+			<signature>static func create_smooth_polyline_curve( points: PackedVector2Array, tension: float = 1.0, closed: bool = false ) -&gt; Curve2D:</signature>
+			<description>创建平滑穿过折线点的 Curve2D。
+该方法使用 Catmull-Rom 风格的三次贝塞尔相对控制柄生成可编辑曲线，
+适合把手绘轨迹、导入轮廓或路径草图转换为 Godot Curve2D。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">points: 折线点序列。</tag>
+				<tag name="param">tension: 控制柄强度；1.0 为标准平滑，0.0 会生成无控制柄折线锚点。</tag>
+				<tag name="param">closed: 是否生成闭合曲线；少于三个点时按开放曲线处理。</tag>
+				<tag name="return">新建的 Curve2D。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="set_smooth_polyline_curve">
+			<signature>static func set_smooth_polyline_curve( curve: Curve2D, points: PackedVector2Array, tension: float = 1.0, closed: bool = false ) -&gt; Curve2D:</signature>
+			<description>将已有 Curve2D 改写为平滑穿过折线点的曲线。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">curve: 要写入的曲线；为空时会创建新曲线。</tag>
+				<tag name="param">points: 折线点序列。</tag>
+				<tag name="param">tension: 控制柄强度；1.0 为标准平滑，0.0 会生成无控制柄折线锚点。</tag>
+				<tag name="param">closed: 是否生成闭合曲线；少于三个点时按开放曲线处理。</tag>
+				<tag name="return">写入后的 Curve2D。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="create_meandered_polyline">
+			<signature>static func create_meandered_polyline(points: PackedVector2Array, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>为折线锚点生成带侧向摆动的插值点序列。
+该方法只处理几何数据：输入锚点保持原顺序，输出会保留每个原始锚点
+在新点列中的索引，便于调用方把 cell id、宽度、标签或其他业务数据
+按锚点重新关联到生成后的路径。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">points: 原始折线锚点。</tag>
+				<tag name="param">options: 生成选项。</tag>
+				<tag name="return">蜿蜒折线生成报告。</tag>
+				<tag name="schema">options: Dictionary，可包含 amplitude: float 侧向偏移量、points_per_segment: int 每段插入点数、start_step: int 起始交替步、side: int 初始侧向符号、alternate: bool 是否按插入点交替左右、clamp_to_segment: bool 是否把偏移限制到线段长度的一半、max_points: int 最大输出点数。</tag>
+				<tag name="schema">return: Dictionary，包含 ok、error、points、anchor_indices、source_count、point_count、interior_count、amplitude、points_per_segment、start_step、side、alternate、clamp_to_segment 和 max_points。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="subdivide_polyline_by_max_segment_length">
+			<signature>static func subdivide_polyline_by_max_segment_length( points: PackedVector2Array, max_segment_length: float, options: Dictionary = {} ) -&gt; Dictionary:</signature>
+			<description>按最大线段长度自适应细分折线。
+该方法只在线段过长时插入等距中间点，并返回原始锚点在输出点列中的索引。
+它适合路径导入预处理、手绘曲线稳定化、增长模拟前的链条细分或视觉连线采样。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">points: 原始折线锚点。</tag>
+				<tag name="param">max_segment_length: 输出中任一非退化线段的最大长度。</tag>
+				<tag name="param">options: 细分选项。</tag>
+				<tag name="return">细分报告。</tag>
+				<tag name="schema">options: Dictionary，可包含 closed: bool 是否把末点连回首点、max_points: int 最大输出点数。</tag>
+				<tag name="schema">return: Dictionary，包含 ok、error、points、anchor_indices、source_count、point_count、inserted_count、max_segment_length、closed 和 max_points。</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="simplify_polyline_by_distance">

@@ -29,6 +29,10 @@ const CONTEXT_FIELDS: Array[String] = [
 	"expected_value",
 	"actual_value",
 	"supported_values",
+	"supported_values_count",
+	"supported_values_sample",
+	"supported_values_hash",
+	"supported_values_truncated",
 	"supported_formats",
 	"supported_content_types",
 ]
@@ -196,7 +200,7 @@ func finalize_report(report: Dictionary) -> void:
 func _apply_issue_context(issue: Dictionary, context: Dictionary) -> void:
 	for field_name: String in CONTEXT_FIELDS:
 		if context.has(field_name):
-			issue[field_name] = GFVariantData.duplicate_variant(context[field_name])
+			issue[field_name] = _sanitize_context_value(context[field_name])
 
 
 func _get_context_row_key(context: Dictionary) -> Variant:
@@ -225,3 +229,18 @@ func _get_warning_count(report: Dictionary) -> int:
 
 func _is_report_ok(report: Dictionary) -> bool:
 	return GFVariantData.get_option_bool(report, "ok", true)
+
+
+func _sanitize_context_value(value: Variant) -> Variant:
+	match typeof(value):
+		TYPE_NIL, TYPE_BOOL, TYPE_STRING, TYPE_INT:
+			return value
+		TYPE_FLOAT:
+			var float_value: float = value
+			if is_nan(float_value) or is_inf(float_value):
+				return GFVariantJsonCodec.variant_to_json_compatible(float_value)
+			return float_value
+		TYPE_STRING_NAME, TYPE_NODE_PATH:
+			return str(value)
+		_:
+			return GFReportValueCodec.to_json_compatible(value)

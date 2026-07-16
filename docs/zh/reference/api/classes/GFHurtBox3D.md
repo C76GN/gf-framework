@@ -44,6 +44,7 @@
 ### `hit_validating`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 signal hit_validating(context: GFCombatHitContext, report: Dictionary)
@@ -60,13 +61,14 @@ signal hit_validating(context: GFCombatHitContext, report: Dictionary)
 
 结构：
 
-- `report`: Dictionary，当前命中接收报告，包含 ok、hit_id、receiver、reason、message 和 metadata。
+- `report`: Dictionary，当前命中接收报告，包含 ok、hit_id、receiver(JSON-safe 摘要)、reason、message 和 metadata。
 
 <a id="member-gfhurtbox3d-signals-hit_received"></a>
 
 ### `hit_received`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 signal hit_received(context: GFCombatHitContext, report: Dictionary)
@@ -83,13 +85,14 @@ signal hit_received(context: GFCombatHitContext, report: Dictionary)
 
 结构：
 
-- `report`: Dictionary，统一命中接收报告，包含 ok、hit_id、receiver、reason、message 和 metadata。
+- `report`: Dictionary，统一命中接收报告，包含 ok、hit_id、receiver(JSON-safe 摘要)、reason、message 和 metadata。
 
 <a id="member-gfhurtbox3d-signals-hit_rejected"></a>
 
 ### `hit_rejected`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 signal hit_rejected(context: GFCombatHitContext, report: Dictionary)
@@ -106,13 +109,14 @@ signal hit_rejected(context: GFCombatHitContext, report: Dictionary)
 
 结构：
 
-- `report`: Dictionary，统一命中接收报告，包含 ok、hit_id、receiver、reason、message 和 metadata。
+- `report`: Dictionary，统一命中接收报告，包含 ok、hit_id、receiver(JSON-safe 摘要)、reason、message 和 metadata。
 
 <a id="member-gfhurtbox3d-signals-enabled_changed"></a>
 
 ### `enabled_changed`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 signal enabled_changed(enabled: bool)
@@ -133,6 +137,7 @@ signal enabled_changed(enabled: bool)
 ### `enabled`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var enabled: bool = true:
@@ -145,6 +150,7 @@ var enabled: bool = true:
 ### `accepted_hit_ids`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var accepted_hit_ids: Array[StringName] = []
@@ -157,6 +163,7 @@ var accepted_hit_ids: Array[StringName] = []
 ### `rejected_hit_ids`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var rejected_hit_ids: Array[StringName] = []
@@ -169,6 +176,7 @@ var rejected_hit_ids: Array[StringName] = []
 ### `metadata`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var metadata: Dictionary = {}
@@ -185,6 +193,7 @@ var metadata: Dictionary = {}
 ### `receiver_path`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var receiver_path: NodePath = NodePath("")
@@ -197,6 +206,7 @@ var receiver_path: NodePath = NodePath("")
 ### `collision_shape_config`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var collision_shape_config: GFHitCollisionShapeConfig3D = null:
@@ -209,6 +219,7 @@ var collision_shape_config: GFHitCollisionShapeConfig3D = null:
 ### `collision_shape_configs`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var collision_shape_configs: Array[GFHitCollisionShapeConfig3D] = []:
@@ -221,6 +232,7 @@ var collision_shape_configs: Array[GFHitCollisionShapeConfig3D] = []:
 ### `auto_apply_collision_shape_config`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var auto_apply_collision_shape_config: bool = true
@@ -233,6 +245,7 @@ var auto_apply_collision_shape_config: bool = true
 ### `validation_callback`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var validation_callback: Callable = Callable()
@@ -247,6 +260,7 @@ var validation_callback: Callable = Callable()
 ### `apply_collision_shape_config`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func apply_collision_shape_config(config: GFHitCollisionShapeConfig3D = null) -> CollisionShape3D:
@@ -267,6 +281,7 @@ func apply_collision_shape_config(config: GFHitCollisionShapeConfig3D = null) ->
 ### `apply_collision_shape_configs`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func apply_collision_shape_configs(configs: Array[GFHitCollisionShapeConfig3D] = []) -> Array[CollisionShape3D]:
@@ -287,6 +302,7 @@ func apply_collision_shape_configs(configs: Array[GFHitCollisionShapeConfig3D] =
 ### `get_generated_collision_shape`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func get_generated_collision_shape() -> CollisionShape3D:
@@ -301,6 +317,7 @@ func get_generated_collision_shape() -> CollisionShape3D:
 ### `get_generated_collision_shapes`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func get_generated_collision_shapes() -> Array[CollisionShape3D]:
@@ -315,6 +332,7 @@ func get_generated_collision_shapes() -> Array[CollisionShape3D]:
 ### `clear_generated_collision_shape`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func clear_generated_collision_shape() -> void:
@@ -327,6 +345,7 @@ func clear_generated_collision_shape() -> void:
 ### `clear_generated_collision_shapes`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func clear_generated_collision_shapes() -> void:
@@ -339,6 +358,7 @@ func clear_generated_collision_shapes() -> void:
 ### `can_receive_hit`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func can_receive_hit(p_hit_id: StringName = &"") -> bool:
@@ -359,6 +379,7 @@ func can_receive_hit(p_hit_id: StringName = &"") -> bool:
 ### `receive_hit`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func receive_hit(context: GFCombatHitContext) -> Dictionary:
@@ -376,4 +397,4 @@ func receive_hit(context: GFCombatHitContext) -> Dictionary:
 
 结构：
 
-- `return`: Dictionary，统一命中接收报告，包含 ok、hit_id、receiver、reason、message 和 metadata。
+- `return`: Dictionary，统一命中接收报告，包含 ok、hit_id、receiver(JSON-safe 摘要)、reason、message 和 metadata。

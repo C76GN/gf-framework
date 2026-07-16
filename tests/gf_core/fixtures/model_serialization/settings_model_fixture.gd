@@ -14,6 +14,10 @@ var volume: float = 1.0
 
 # --- 公共方法 ---
 
+func get_save_key() -> StringName:
+	return &"test_settings_model_fixture"
+
+
 func to_dict() -> Dictionary:
 	return {
 		"volume": volume,

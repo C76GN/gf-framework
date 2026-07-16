@@ -21,12 +21,33 @@ func test_observable_array_batches_changes_until_end_batch() -> void:
 	resource.begin_batch({ "scope": "bulk" })
 	var _first_change: Dictionary = resource.append_item(1)
 	var _second_change: Dictionary = resource.append_item(2)
+	assert_signal_not_emitted(resource, "item_changed", "批量期间不应提前发出 item_changed。")
 	assert_signal_not_emitted(resource, "items_changed", "批量期间不应提前发出 items_changed。")
 
 	var report: Dictionary = resource.end_batch()
 
 	assert_eq(GFVariantData.get_option_int(report, "change_count"), 2, "end_batch 应报告批量变更数量。")
+	assert_signal_emit_count(resource, "item_changed", 0, "批量结束不应补发 item_changed。")
+	assert_signal_emit_count(resource, "items_changed", 1, "批量结束应只发出一次 aggregate 信号。")
 	assert_signal_emitted(resource, "items_changed", "批量结束后应发出一次 items_changed。")
+
+
+func test_observable_array_linearizes_reentrant_change_signals() -> void:
+	var resource: GFObservableArrayResource = GFObservableArrayResource.new()
+	var signal_order: Array[String] = []
+	var _item_connected: Error = resource.item_changed.connect(func(_operation: StringName, index: int, _old_value: Variant, _new_value: Variant, _metadata: Dictionary) -> void:
+		signal_order.append("item_%d" % index)
+		if index == 0:
+			var _nested_change: Dictionary = resource.append_item("nested")
+	) as Error
+	var _items_connected: Error = resource.items_changed.connect(func(changes: Array[Dictionary], _metadata: Dictionary) -> void:
+		signal_order.append("items_%d" % GFVariantData.get_option_int(changes[0], "index", -1))
+	) as Error
+
+	var _outer_change: Dictionary = resource.append_item("outer")
+
+	assert_eq(resource.get_items(), ["outer", "nested"], "重入 mutation 仍应立即更新集合。")
+	assert_eq(signal_order, ["item_0", "items_0", "item_1", "items_1"], "每条 mutation 的单项和汇总信号应连续、可重放。")
 
 
 func test_observable_dictionary_reports_set_and_erase() -> void:
@@ -41,6 +62,23 @@ func test_observable_dictionary_reports_set_and_erase() -> void:
 	assert_eq(GFVariantData.get_option_string_name(erase_change, "operation"), GFObservableDictionaryResource.OPERATION_ERASE, "erase 应报告操作类型。")
 	assert_signal_emit_count(resource, "entry_changed", 2)
 	assert_signal_emit_count(resource, "entries_changed", 2)
+
+
+func test_observable_dictionary_batches_changes_without_entry_level_replay() -> void:
+	var resource: GFObservableDictionaryResource = GFObservableDictionaryResource.new()
+	watch_signals(resource)
+
+	resource.begin_batch({ "scope": "bulk" })
+	var _first_change: Dictionary = resource.set_value(&"hp", 100)
+	var _second_change: Dictionary = resource.set_value(&"mp", 20)
+	assert_signal_not_emitted(resource, "entry_changed", "批量期间不应提前发出 entry_changed。")
+	assert_signal_not_emitted(resource, "entries_changed", "批量期间不应提前发出 entries_changed。")
+
+	var report: Dictionary = resource.end_batch()
+
+	assert_eq(GFVariantData.get_option_int(report, "change_count"), 2, "end_batch 应报告字典批量变更数量。")
+	assert_signal_emit_count(resource, "entry_changed", 0, "批量结束不应补发 entry_changed。")
+	assert_signal_emit_count(resource, "entries_changed", 1, "批量结束应只发出一次 aggregate 信号。")
 
 
 func test_observable_dictionary_change_reports_preserve_resource_key_identity() -> void:

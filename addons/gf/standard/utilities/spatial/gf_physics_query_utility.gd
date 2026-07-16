@@ -23,6 +23,7 @@ const DEFAULT_MAX_RAYCAST_RESULTS: int = 32
 ## [br]
 ## @api public
 const DEFAULT_RAYCAST_MARGIN: float = 0.01
+const _SPATIAL_BOUNDS_MATH = preload("res://addons/gf/standard/foundation/math/gf_spatial_bounds_math.gd")
 
 
 # --- 公共方法 ---
@@ -55,11 +56,11 @@ func raycast_all_3d(
 	to: Vector3,
 	options: Dictionary = {}
 ) -> Array[Dictionary]:
-	if world == null:
+	if world == null or not _SPATIAL_BOUNDS_MATH.is_finite_vector3(from) or not _SPATIAL_BOUNDS_MATH.is_finite_vector3(to):
 		return []
 
 	var total_length: float = from.distance_to(to)
-	if total_length <= 0.0:
+	if not _SPATIAL_BOUNDS_MATH.is_finite_float(total_length) or total_length <= 0.0:
 		return []
 
 	var max_results: int = maxi(GFVariantData.get_option_int(options, "max_results", DEFAULT_MAX_RAYCAST_RESULTS), 0)
@@ -67,7 +68,10 @@ func raycast_all_3d(
 		return []
 
 	var direction: Vector3 = (to - from).normalized()
-	var margin: float = maxf(GFVariantData.get_option_float(options, "margin", DEFAULT_RAYCAST_MARGIN), 0.0)
+	var requested_margin: float = GFVariantData.get_option_float(options, "margin", DEFAULT_RAYCAST_MARGIN)
+	if not _SPATIAL_BOUNDS_MATH.is_finite_float(requested_margin):
+		return []
+	var margin: float = maxf(requested_margin, 0.0)
 	var current_distance: float = 0.0
 	var current_from: Vector3 = from
 	var excludes: Array[RID] = _get_exclude_rids(options)
@@ -81,6 +85,8 @@ func raycast_all_3d(
 			break
 
 		var hit_position: Vector3 = GFVariantData.get_option_vector3(hit, "position", current_from)
+		if not _SPATIAL_BOUNDS_MATH.is_finite_vector3(hit_position):
+			break
 		var hit_distance: float = clampf((hit_position - from).dot(direction), 0.0, total_length)
 		var result: Dictionary = hit.duplicate(true)
 		result["index"] = index

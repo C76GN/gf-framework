@@ -15,6 +15,20 @@ extends RefCounted
 
 # --- 公共方法 ---
 
+## 获取该输出边界使用的报告脱敏 profile。
+## 未知 sink 默认采用 public；仅本地、受控的诊断 sink 应显式覆盖为 debug。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+## [br]
+## @return GFReportValueCodec REDACTION_PROFILE_* 常量之一。
+## [br]
+## @schema return: String naming one GFReportValueCodec redaction profile.
+func get_report_redaction_profile() -> String:
+	return GFReportValueCodec.REDACTION_PROFILE_PUBLIC
+
+
 ## 初始化 sink。
 ## [br]
 ## @api public

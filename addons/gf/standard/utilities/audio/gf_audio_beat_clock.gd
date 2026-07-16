@@ -148,9 +148,9 @@ func configure(
 	next_offset_seconds: float = 0.0,
 	should_reset: bool = true
 ) -> void:
-	bpm = maxf(next_bpm, _MIN_BPM)
+	bpm = _sanitize_bpm(next_bpm)
 	beats_per_measure = maxi(next_beats_per_measure, 1)
-	offset_seconds = next_offset_seconds
+	offset_seconds = _sanitize_finite(next_offset_seconds, 0.0)
 	if should_reset:
 		clear()
 
@@ -260,8 +260,9 @@ func update(position_seconds: float) -> Dictionary:
 ## [br]
 ## @schema return: Dictionary，包含 position_seconds、adjusted_seconds、bpm、seconds_per_beat、beats_per_measure、beat_float、beat_index、beat_in_measure、beat_progress、measure_index、measure_progress 和 measure_start_beat。
 func sample(position_seconds: float) -> Dictionary:
-	var safe_position: float = maxf(position_seconds, 0.0)
-	var adjusted_seconds: float = maxf(safe_position + offset_seconds, 0.0)
+	var safe_position: float = maxf(_sanitize_finite(position_seconds, 0.0), 0.0)
+	var safe_offset: float = _sanitize_finite(offset_seconds, 0.0)
+	var adjusted_seconds: float = maxf(safe_position + safe_offset, 0.0)
 	var seconds_per_beat: float = get_seconds_per_beat()
 	var safe_beats_per_measure: int = get_beats_per_measure()
 	var beat_float: float = adjusted_seconds / seconds_per_beat
@@ -293,7 +294,7 @@ func sample(position_seconds: float) -> Dictionary:
 ## [br]
 ## @return BPM。
 func get_bpm() -> float:
-	return maxf(bpm, _MIN_BPM)
+	return _sanitize_bpm(bpm)
 
 
 ## 获取经过安全收窄的每小节 beat 数。
@@ -331,7 +332,7 @@ func get_seconds_per_measure() -> float:
 ## [br]
 ## @return beat 数。
 func seconds_to_beats(duration_seconds: float) -> float:
-	return maxf(duration_seconds, 0.0) / get_seconds_per_beat()
+	return maxf(_sanitize_finite(duration_seconds, 0.0), 0.0) / get_seconds_per_beat()
 
 
 ## 将 beat 数转换为持续时间秒数，不应用 offset_seconds。
@@ -342,7 +343,7 @@ func seconds_to_beats(duration_seconds: float) -> float:
 ## [br]
 ## @return 持续时间秒数。
 func beats_to_seconds(beat_count: float) -> float:
-	return maxf(beat_count, 0.0) * get_seconds_per_beat()
+	return maxf(_sanitize_finite(beat_count, 0.0), 0.0) * get_seconds_per_beat()
 
 
 ## 将播放时间转换为 beat 数，会应用 offset_seconds。
@@ -353,7 +354,8 @@ func beats_to_seconds(beat_count: float) -> float:
 ## [br]
 ## @return beat 数。
 func position_to_beats(position_seconds: float) -> float:
-	return seconds_to_beats(maxf(position_seconds + offset_seconds, 0.0))
+	var adjusted_seconds: float = _sanitize_finite(position_seconds, 0.0) + _sanitize_finite(offset_seconds, 0.0)
+	return seconds_to_beats(maxf(adjusted_seconds, 0.0))
 
 
 ## 获取指定 beat 边界对应的播放时间，会反向应用 offset_seconds。
@@ -364,7 +366,7 @@ func position_to_beats(position_seconds: float) -> float:
 ## [br]
 ## @return 播放时间，单位秒。
 func beat_to_position_seconds(beat_index: int) -> float:
-	return maxf(beats_to_seconds(float(maxi(beat_index, 0))) - offset_seconds, 0.0)
+	return maxf(beats_to_seconds(float(maxi(beat_index, 0))) - _sanitize_finite(offset_seconds, 0.0), 0.0)
 
 
 ## 量化播放时间到 beat 网格。
@@ -394,7 +396,7 @@ func quantize_position(
 			quantized_steps = ceil(beat_value / step_beats)
 		_:
 			quantized_steps = round(beat_value / step_beats)
-	return maxf(beats_to_seconds(quantized_steps * step_beats) - offset_seconds, 0.0)
+	return maxf(beats_to_seconds(quantized_steps * step_beats) - _sanitize_finite(offset_seconds, 0.0), 0.0)
 
 
 ## 获取上一帧快照副本。
@@ -477,3 +479,13 @@ func _beat_to_position_seconds_for_timing(
 
 func _is_number(value: Variant) -> bool:
 	return value is int or value is float
+
+
+func _sanitize_bpm(value: float) -> float:
+	if is_nan(value) or is_inf(value):
+		return DEFAULT_BPM
+	return maxf(value, _MIN_BPM)
+
+
+func _sanitize_finite(value: float, default_value: float) -> float:
+	return default_value if is_nan(value) or is_inf(value) else value

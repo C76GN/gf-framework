@@ -29,7 +29,7 @@ func update(_delta: float) -> void:
 
 ```gdscript
 func enter(_msg: Dictionary = {}) -> void:
-	register_event(AnimFinishedPayload, _on_anim_finished)
+	register_event(AnimFinishedPayload, GFEventListener.from_method(self, &"_on_anim_finished", 1))
 
 
 func exit() -> void:

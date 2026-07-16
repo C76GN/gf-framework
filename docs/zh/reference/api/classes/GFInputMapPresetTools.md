@@ -18,6 +18,7 @@ Godot InputMap 预设转换工具。 用于把当前运行时 InputMap 捕获为
 | 常量 | [`PRESET_VERSION`](#member-gfinputmappresettools-constants-preset_version) | `const PRESET_VERSION: int = 1` |
 | 方法 | [`capture_input_map`](#member-gfinputmappresettools-methods-capture_input_map) | `static func capture_input_map(options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`apply_input_map_preset`](#member-gfinputmappresettools-methods-apply_input_map_preset) | `static func apply_input_map_preset(preset: Dictionary, options: Dictionary = {}) -> Dictionary:` |
+| 方法 | [`ensure_input_map_preset`](#member-gfinputmappresettools-methods-ensure_input_map_preset) | `static func ensure_input_map_preset(preset: Dictionary, options: Dictionary = {}) -> Dictionary:` |
 
 ## 常量
 
@@ -89,3 +90,31 @@ static func apply_input_map_preset(preset: Dictionary, options: Dictionary = {})
 - `preset`: Dictionary created by capture_input_map().
 - `options`: Dictionary with optional action_ids: Array[String] or PackedStringArray, include_ui_actions: bool, clear_existing_events: bool.
 - `return`: Dictionary { ok: bool, applied_count: int, event_count: int, skipped_count: int, issues: Array[Dictionary] }.
+
+<a id="member-gfinputmappresettools-methods-ensure_input_map_preset"></a>
+
+### `ensure_input_map_preset`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+static func ensure_input_map_preset(preset: Dictionary, options: Dictionary = {}) -> Dictionary:
+```
+
+确保预设中的动作存在，并只补齐缺失的事件。 该入口适合启动期或调试工具按项目声明补齐运行时 InputMap 默认动作； 它不会写入 ProjectSettings，也不会默认覆盖已有动作的 deadzone 或绑定。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `preset` | InputMap 预设字典。 |
+| `options` | 可选项，支持 action_ids、include_ui_actions、add_missing_events、update_existing_deadzone、dry_run。 |
+
+返回：确保报告。
+
+结构：
+
+- `preset`: Dictionary created by capture_input_map().
+- `options`: Dictionary with optional action_ids: Array[String] or PackedStringArray, include_ui_actions: bool, add_missing_events: bool, update_existing_deadzone: bool, dry_run: bool.
+- `return`: Dictionary { ok: bool, dry_run: bool, ensured_count: int, existing_count: int, missing_action_count: int, missing_event_count: int, created_count: int, added_event_count: int, updated_deadzone_count: int, skipped_count: int, actions: Array[Dictionary], issues: Array[Dictionary] }.

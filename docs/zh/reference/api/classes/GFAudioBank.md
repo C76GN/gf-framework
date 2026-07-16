@@ -27,6 +27,7 @@
 | 方法 | [`get_weighted_clip`](#member-gfaudiobank-methods-get_weighted_clip) | `func get_weighted_clip(clip_id: StringName, rng: RandomNumberGenerator = null) -> GFAudioClip:` |
 | 方法 | [`get_clip_with_fallback`](#member-gfaudiobank-methods-get_clip_with_fallback) | `func get_clip_with_fallback(clip_id: StringName, rng: RandomNumberGenerator = null) -> GFAudioClip:` |
 | 方法 | [`resolve_clip`](#member-gfaudiobank-methods-resolve_clip) | `func resolve_clip(clip_id: StringName, rng: RandomNumberGenerator = null) -> Dictionary:` |
+| 方法 | [`to_json_compatible_resolution_report`](#member-gfaudiobank-methods-to_json_compatible_resolution_report) | `func to_json_compatible_resolution_report(report: Dictionary, options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`has_clip`](#member-gfaudiobank-methods-has_clip) | `func has_clip(clip_id: StringName) -> bool:` |
 | 方法 | [`get_clip_ids`](#member-gfaudiobank-methods-get_clip_ids) | `func get_clip_ids() -> PackedStringArray:` |
 | 方法 | [`set_lifecycle_state`](#member-gfaudiobank-methods-set_lifecycle_state) | `func set_lifecycle_state(state: LifecycleState, reason: StringName = &"") -> void:` |
@@ -264,6 +265,34 @@ func resolve_clip(clip_id: StringName, rng: RandomNumberGenerator = null) -> Dic
 结构：
 
 - `return`: Dictionary，包含 ok、requested_id、resolved_id、fallback_used、attempted_ids 和 clip 字段。
+
+<a id="member-gfaudiobank-methods-to_json_compatible_resolution_report"></a>
+
+### `to_json_compatible_resolution_report`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func to_json_compatible_resolution_report(report: Dictionary, options: Dictionary = {}) -> Dictionary:
+```
+
+把 resolve_clip() 的原始报告转换为 JSON-safe 诊断报告。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `report` | resolve_clip() 返回的原始报告。 |
+| `options` | 传给 GFReportValueCodec 的编码选项。 |
+
+返回：JSON-safe 解析报告。
+
+结构：
+
+- `report`: Dictionary，包含 ok、requested_id、resolved_id、fallback_used、attempted_ids 和 clip 字段。
+- `options`: Dictionary with GFReportValueCodec options.
+- `return`: Dictionary，clip 会转换为脱敏 marker，不直接暴露 GFAudioClip 资源实例。
 
 <a id="member-gfaudiobank-methods-has_clip"></a>
 

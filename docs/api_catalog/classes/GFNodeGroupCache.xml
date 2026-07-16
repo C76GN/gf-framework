@@ -1,0 +1,162 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFNodeGroupCache" path="addons/gf/standard/utilities/nodes/gf_node_group_cache.gd" module="standard" extends="RefCounted" classDigest="927d75a1d97eac37195da37a05de841372204aa248b785910769ef3ab6d48adf">
+	<description>GFNodeGroupCache: SceneTree group 查询缓存。
+适合相机、交互、物理探针、运行时注册表或编辑器预览等需要频繁读取
+同一 group 节点快照的场景。它只缓存 Godot group 查询结果，不规定节点业务语义。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_service</tag>
+		<tag name="since">8.0.0</tag>
+	</tags>
+	<signals>
+		<member kind="signal" name="cache_invalidated">
+			<signature>signal cache_invalidated(reason: StringName)</signature>
+			<description>缓存被标记为脏时发出。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">reason: 失效原因。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</signals>
+	<enums />
+	<constants />
+	<properties>
+		<member kind="property" name="tree">
+			<signature>var tree: SceneTree:</signature>
+			<description>查询的 SceneTree。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="group_name">
+			<signature>var group_name: StringName:</signature>
+			<description>查询的 group 名。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="type_filter">
+			<signature>var type_filter: Variant:</signature>
+			<description>可选类型过滤器，可为脚本类型、原生类或类名字符串。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">type_filter: Variant type filter accepted by is_instance_of(), native class name, GDScript class_name, script resource path, or null.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="from_tree">
+			<signature>static func from_tree( p_tree: SceneTree, p_group_name: StringName, p_type_filter: Variant = null ) -&gt; GFNodeGroupCache:</signature>
+			<description>创建并配置 group 缓存。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">p_tree: 查询的 SceneTree。</tag>
+				<tag name="param">p_group_name: 查询的 group 名。</tag>
+				<tag name="param">p_type_filter: 可选类型过滤器。</tag>
+				<tag name="return">新 group 缓存。</tag>
+				<tag name="schema">p_type_filter: Variant type filter accepted by is_instance_of(), native class name, GDScript class_name, script resource path, or null.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="configure">
+			<signature>func configure( p_tree: SceneTree, p_group_name: StringName, p_type_filter: Variant = null ) -&gt; GFNodeGroupCache:</signature>
+			<description>重新配置缓存。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">p_tree: 查询的 SceneTree。</tag>
+				<tag name="param">p_group_name: 查询的 group 名。</tag>
+				<tag name="param">p_type_filter: 可选类型过滤器。</tag>
+				<tag name="return">当前缓存。</tag>
+				<tag name="schema">p_type_filter: Variant type filter accepted by is_instance_of(), native class name, GDScript class_name, script resource path, or null.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="invalidate">
+			<signature>func invalidate(reason: StringName = &amp;"manual") -&gt; void:</signature>
+			<description>手动标记缓存失效。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">reason: 失效原因。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="refresh">
+			<signature>func refresh() -&gt; Array[Node]:</signature>
+			<description>立即重建缓存并返回节点快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">当前 group 节点快照。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_nodes">
+			<signature>func get_nodes() -&gt; Array[Node]:</signature>
+			<description>获取 group 节点快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">当前 group 节点快照。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_first">
+			<signature>func get_first() -&gt; Node:</signature>
+			<description>获取第一项 group 节点。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">第一个匹配节点；没有匹配时返回 null。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="has_node">
+			<signature>func has_node(node: Node) -&gt; bool:</signature>
+			<description>检查节点是否在当前缓存快照中。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">node: 目标节点。</tag>
+				<tag name="return">在缓存快照中返回 true。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="size">
+			<signature>func size() -&gt; int:</signature>
+			<description>获取当前匹配节点数量。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">匹配节点数量。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_dirty">
+			<signature>func is_dirty() -&gt; bool:</signature>
+			<description>检查缓存是否已失效。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">缓存需要重建时返回 true。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="dispose">
+			<signature>func dispose() -&gt; void:</signature>
+			<description>断开 SceneTree 信号并清空缓存。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_debug_snapshot">
+			<signature>func get_debug_snapshot() -&gt; Dictionary:</signature>
+			<description>获取缓存诊断快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">诊断快照。</tag>
+				<tag name="schema">return: Dictionary，包含 group_name、dirty、node_count、has_tree、type_filter 和 diagnostics。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

@@ -157,6 +157,7 @@ static func _receive_with_delegate(
 	validating_emitter.call(context, report.duplicate(true))
 	if validation_callback.is_valid():
 		report = _apply_validation_result(report, validation_callback.call(context, report.duplicate(true)))
+	report = _normalize_report(report, effective_receiver)
 
 	if _report_is_ok(report) and delegate_enabled and delegate_receiver.has_method(delegate_method):
 		var delegated_value: Variant = delegate_receiver.callv(delegate_method, delegate_args)
@@ -176,6 +177,7 @@ static func _receive_with_delegate(
 				invalid_delegate_report_message,
 				metadata
 			)
+		report = _normalize_report(report, delegate_receiver)
 
 	if _report_is_ok(report):
 		received_emitter.call(context, report)
@@ -196,10 +198,10 @@ static func _make_report(
 	return {
 		"ok": ok,
 		id_key: id_value,
-		"receiver": receiver,
+		"receiver": _object_to_report_value(receiver),
 		"reason": reason,
 		"message": message,
-		"metadata": metadata.duplicate(true),
+		"metadata": _dictionary_to_report_value(metadata),
 	}
 
 
@@ -234,3 +236,27 @@ static func _get_object_property(target: Object, property_name: String) -> Varia
 	if target == null or property_name.is_empty():
 		return null
 	return target.get_indexed(NodePath(property_name))
+
+
+static func _normalize_report(report: Dictionary, default_receiver: Object) -> Dictionary:
+	var result: Dictionary = report.duplicate(true)
+	var receiver_value: Variant = GFVariantData.get_option_value(result, "receiver", default_receiver)
+	if receiver_value is Object:
+		result["receiver"] = _object_to_report_value(receiver_value)
+	elif not result.has("receiver"):
+		result["receiver"] = _object_to_report_value(default_receiver)
+	if result.has("metadata") and result["metadata"] is Dictionary:
+		result["metadata"] = _dictionary_to_report_value(GFVariantData.as_dictionary(result["metadata"]))
+	return result
+
+
+static func _object_to_report_value(value: Variant) -> Variant:
+	return GFReportValueCodec.to_json_compatible(value, {
+		"path_redaction": "basename",
+	})
+
+
+static func _dictionary_to_report_value(value: Dictionary) -> Dictionary:
+	return GFReportValueCodec.to_report_dictionary(value, {
+		"path_redaction": "basename",
+	})

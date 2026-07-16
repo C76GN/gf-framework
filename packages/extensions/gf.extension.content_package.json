@@ -13,6 +13,6 @@
   "paths": [
     "addons/gf/extensions/content_package/**"
   ],
-  "enable_extension": "gf.content_package",
+  "gf_extension_id": "gf.content_package",
   "metadata": {}
 }

@@ -24,6 +24,9 @@
 | 属性 | [`icon_textures`](#member-gfinputiconatlasprovider-properties-icon_textures) | `var icon_textures: Dictionary = {}` |
 | 属性 | [`rich_text_separator`](#member-gfinputiconatlasprovider-properties-rich_text_separator) | `var rich_text_separator: String = " "` |
 | 属性 | [`split_key_modifiers`](#member-gfinputiconatlasprovider-properties-split_key_modifiers) | `var split_key_modifiers: bool = true` |
+| 属性 | [`cache_missing_paths`](#member-gfinputiconatlasprovider-properties-cache_missing_paths) | `var cache_missing_paths: bool = true` |
+| 属性 | [`max_cached_textures`](#member-gfinputiconatlasprovider-properties-max_cached_textures) | `var max_cached_textures: int = 128` |
+| 属性 | [`max_cached_missing_paths`](#member-gfinputiconatlasprovider-properties-max_cached_missing_paths) | `var max_cached_missing_paths: int = 256` |
 | 方法 | [`set_icon_path`](#member-gfinputiconatlasprovider-methods-set_icon_path) | `func set_icon_path(icon_key: StringName, icon_resource_path: String) -> void:` |
 | 方法 | [`set_icon_texture`](#member-gfinputiconatlasprovider-methods-set_icon_texture) | `func set_icon_texture(icon_key: StringName, texture: Texture2D) -> void:` |
 | 方法 | [`clear_cache`](#member-gfinputiconatlasprovider-methods-clear_cache) | `func clear_cache() -> void:` |
@@ -151,6 +154,45 @@ var split_key_modifiers: bool = true
 ```
 
 是否为带修饰键的键盘事件输出多个图标。
+
+<a id="member-gfinputiconatlasprovider-properties-cache_missing_paths"></a>
+
+### `cache_missing_paths`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+var cache_missing_paths: bool = true
+```
+
+是否缓存缺失的图标路径。
+
+<a id="member-gfinputiconatlasprovider-properties-max_cached_textures"></a>
+
+### `max_cached_textures`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+var max_cached_textures: int = 128
+```
+
+成功加载纹理缓存容量；小于等于 0 表示不缓存新纹理。
+
+<a id="member-gfinputiconatlasprovider-properties-max_cached_missing_paths"></a>
+
+### `max_cached_missing_paths`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+var max_cached_missing_paths: int = 256
+```
+
+缺失路径缓存容量；小于等于 0 表示不缓存缺失路径。
 
 ## 方法
 

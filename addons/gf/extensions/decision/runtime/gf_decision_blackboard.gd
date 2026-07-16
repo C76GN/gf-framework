@@ -73,9 +73,11 @@ func set_value(key: StringName, value: Variant) -> void:
 		return
 
 	var old_value: Variant = get_value(key)
-	if values.has(key) and old_value == value:
+	if has_value(key) and old_value == value:
 		return
 
+	var _string_key_erased: bool = values.erase(String(key))
+	var _string_name_key_erased: bool = values.erase(key)
 	values[key] = value
 	value_changed.emit(key, old_value, value)
 
@@ -94,7 +96,12 @@ func set_value(key: StringName, value: Variant) -> void:
 ## [br]
 ## @schema return: 黑板中的项目值，或传入的 default_value。
 func get_value(key: StringName, default_value: Variant = null) -> Variant:
-	return GFVariantData.get_option_value(values, key, default_value)
+	if values.has(key):
+		return values[key]
+	var string_key: String = String(key)
+	if values.has(string_key):
+		return values[string_key]
+	return default_value
 
 
 ## 检查黑板值是否存在。
@@ -120,10 +127,8 @@ func erase_value(key: StringName) -> bool:
 		return false
 
 	var old_value: Variant = get_value(key)
-	if values.has(key):
-		var _erase_string_name_result: Variant = values.erase(key)
-	else:
-		var _erase_string_result: Variant = values.erase(String(key))
+	var _erase_string_name_result: bool = values.erase(key)
+	var _erase_string_result: bool = values.erase(String(key))
 	value_removed.emit(key, old_value)
 	return true
 
@@ -164,7 +169,13 @@ func merge(source_values: Dictionary, overwrite: bool = true) -> void:
 ## [br]
 ## @schema return: Dictionary[StringName, Variant] project-defined decision values.
 func to_dictionary() -> Dictionary:
-	return values.duplicate(true)
+	var result: Dictionary = {}
+	for key_variant: Variant in values.keys():
+		var key: StringName = GFVariantData.to_string_name(key_variant)
+		if key == &"":
+			continue
+		result[key] = GFVariantData.duplicate_variant(values[key_variant])
+	return result
 
 
 ## 创建黑板副本。

@@ -9,7 +9,7 @@
 - 类别：运行时服务 (`runtime_service`)
 - 首次版本：`3.17.0`
 
-对象能力组件管理器。 提供面向任意 Object / Node 的能力挂载、查询、移除、启停、索引查询与依赖补齐能力。 能力组合是可选扩展，不改变核心分层容器。
+对象能力组件管理器。 提供面向任意 Object / Node 的能力挂载、查询、移除、启停、索引查询与依赖补齐能力。 能力组合是可选扩展，不改变核心分层容器。 Utility 不接管 receiver 生命周期，也不会在项目直接释放 receiver 或借用能力实例时伪造 removed hook； 需要成对生命周期通知的调用方必须在外部释放前显式 remove_capability() 或 unregister_capability()。
 
 ## 成员概览
 
@@ -25,6 +25,7 @@
 | 常量 | [`HOOK_ON_REMOVED`](#member-gfcapabilityutility-constants-hook_on_removed) | `const HOOK_ON_REMOVED: StringName = &"on_gf_capability_removed"` |
 | 常量 | [`HOOK_ON_ACTIVE_CHANGED`](#member-gfcapabilityutility-constants-hook_on_active_changed) | `const HOOK_ON_ACTIVE_CHANGED: StringName = &"on_gf_capability_active_changed"` |
 | 属性 | [`prune_invalid_receivers_per_tick`](#member-gfcapabilityutility-properties-prune_invalid_receivers_per_tick) | `var prune_invalid_receivers_per_tick: int = 128:` |
+| 属性 | [`max_capability_tree_nodes`](#member-gfcapabilityutility-properties-max_capability_tree_nodes) | `var max_capability_tree_nodes: int = 65536:` |
 | 方法 | [`init`](#member-gfcapabilityutility-methods-init) | `func init() -> void:` |
 | 方法 | [`dispose`](#member-gfcapabilityutility-methods-dispose) | `func dispose() -> void:` |
 | 方法 | [`tick`](#member-gfcapabilityutility-methods-tick) | `func tick(delta: float) -> void:` |
@@ -42,9 +43,10 @@
 | 方法 | [`get_receiver_groups`](#member-gfcapabilityutility-methods-get_receiver_groups) | `func get_receiver_groups(receiver: Object) -> Array[StringName]:` |
 | 方法 | [`get_receivers_in_group`](#member-gfcapabilityutility-methods-get_receivers_in_group) | `func get_receivers_in_group(group_name: StringName) -> Array[Object]:` |
 | 方法 | [`get_receivers_in_group_with`](#member-gfcapabilityutility-methods-get_receivers_in_group_with) | `func get_receivers_in_group_with( group_name: StringName, capability_type: Script, include_subclasses: bool = true ) -> Array[Object]:` |
-| 方法 | [`add_capability`](#member-gfcapabilityutility-methods-add_capability) | `func add_capability(receiver: Object, capability_type: Script, provider: Variant = null) -> Object:` |
-| 方法 | [`add_required_capability`](#member-gfcapabilityutility-methods-add_required_capability) | `func add_required_capability(receiver: Object, capability_type: Script, provider: Variant = null) -> Object:` |
+| 方法 | [`add_capability`](#member-gfcapabilityutility-methods-add_capability) | `func add_capability(receiver: Object, capability_type: Script) -> Object:` |
+| 方法 | [`add_required_capability`](#member-gfcapabilityutility-methods-add_required_capability) | `func add_required_capability(receiver: Object, capability_type: Script) -> Object:` |
 | 方法 | [`add_capability_instance`](#member-gfcapabilityutility-methods-add_capability_instance) | `func add_capability_instance(receiver: Object, capability: Object, as_type: Script = null) -> Object:` |
+| 方法 | [`adopt_capability_instance`](#member-gfcapabilityutility-methods-adopt_capability_instance) | `func adopt_capability_instance( receiver: Object, capability: Object, as_type: Script = null ) -> Object:` |
 | 方法 | [`add_scene_capability`](#member-gfcapabilityutility-methods-add_scene_capability) | `func add_scene_capability(receiver: Node, scene: PackedScene, as_type: Script = null) -> Object:` |
 | 方法 | [`set_capability_active`](#member-gfcapabilityutility-methods-set_capability_active) | `func set_capability_active(receiver: Object, capability_type: Script, active: bool) -> void:` |
 | 方法 | [`is_capability_active`](#member-gfcapabilityutility-methods-is_capability_active) | `func is_capability_active(receiver: Object, capability_type: Script) -> bool:` |
@@ -84,12 +86,13 @@ signal capability_added(receiver: Object, capability_type: Script, capability: O
 ### `capability_removed`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 signal capability_removed(receiver: Object, capability_type: Script, capability: Object)
 ```
 
-当能力从对象移除前发出。
+当能力记录已从对象摘除、但 owned 实例尚未释放时发出。
 
 参数：
 
@@ -182,12 +185,13 @@ const HOOK_ON_ADDED: StringName = &"on_gf_capability_added"
 ### `HOOK_ON_REMOVED`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 const HOOK_ON_REMOVED: StringName = &"on_gf_capability_removed"
 ```
 
-能力对象可选实现：从 receiver 移除前调用。
+能力对象可选实现：能力记录摘除后、owned 实例释放前调用。 项目直接释放 receiver 或借用实例不会触发该 hook。
 
 <a id="member-gfcapabilityutility-constants-hook_on_active_changed"></a>
 
@@ -214,6 +218,19 @@ var prune_invalid_receivers_per_tick: int = 128:
 ```
 
 tick() 自动清理失效 receiver 时每次最多检查的数量，避免大型索引在单帧产生尖峰。 主动调用 prune_invalid_receivers() 仍会执行全量清理。
+
+<a id="member-gfcapabilityutility-properties-max_capability_tree_nodes"></a>
+
+### `max_capability_tree_nodes`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+var max_capability_tree_nodes: int = 65536:
+```
+
+单次能力节点树操作允许访问的最大节点数。 超出预算时整次树操作会被拒绝，避免部分应用状态。
 
 ## 方法
 
@@ -586,12 +603,13 @@ func get_receivers_in_group_with( group_name: StringName, capability_type: Scrip
 ### `add_capability`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func add_capability(receiver: Object, capability_type: Script, provider: Variant = null) -> Object:
+func add_capability(receiver: Object, capability_type: Script) -> Object:
 ```
 
-给对象挂载指定能力类型。 provider 可为 Callable、PackedScene、Object；为空时使用 capability_type.new()。provider 返回的实例脚本必须继承或等于 capability_type。
+创建并给对象挂载指定能力类型。 Utility 对成功注册的实例拥有独占生命周期所有权。
 
 参数：
 
@@ -599,22 +617,18 @@ func add_capability(receiver: Object, capability_type: Script, provider: Variant
 |---|---|
 | `receiver` | 能力接收对象。 |
 | `capability_type` | 要查询、添加或移除的能力脚本类型。 |
-| `provider` | 用于创建能力实例的 provider。 |
 
 返回：已挂载或复用的能力实例；失败时返回 null。
-
-结构：
-
-- `provider`: Variant，可为 null、Callable、PackedScene 或 Object 能力实例。
 
 <a id="member-gfcapabilityutility-methods-add_required_capability"></a>
 
 ### `add_required_capability`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func add_required_capability(receiver: Object, capability_type: Script, provider: Variant = null) -> Object:
+func add_required_capability(receiver: Object, capability_type: Script) -> Object:
 ```
 
 给对象挂载指定能力类型，并标记为自动依赖能力。
@@ -625,25 +639,21 @@ func add_required_capability(receiver: Object, capability_type: Script, provider
 |---|---|
 | `receiver` | 能力接收对象。 |
 | `capability_type` | 要查询、添加或移除的能力脚本类型。 |
-| `provider` | 用于创建能力实例的 provider。 |
 
 返回：已挂载或复用的能力实例；失败时返回 null。
-
-结构：
-
-- `provider`: Variant，可为 null、Callable、PackedScene 或 Object 能力实例。
 
 <a id="member-gfcapabilityutility-methods-add_capability_instance"></a>
 
 ### `add_capability_instance`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func add_capability_instance(receiver: Object, capability: Object, as_type: Script = null) -> Object:
 ```
 
-给对象挂载一个已经存在的能力实例。 该入口不会接管传入实例的所有权；架构销毁时只注销能力记录。需要由 Utility 创建并接管节点释放时，请使用 add_capability() 或 add_scene_capability()。
+给对象挂载一个已经存在的能力实例。 该入口不会接管传入实例的所有权；架构销毁时只注销能力记录。 调用方应在外部释放实例前显式注销；需要转移所有权时请使用 adopt_capability_instance()。
 
 参数：
 
@@ -652,6 +662,29 @@ func add_capability_instance(receiver: Object, capability: Object, as_type: Scri
 | `receiver` | 能力接收对象。 |
 | `capability` | 要挂载的能力实例。 |
 | `as_type` | 能力实例注册时使用的类型；为 null 时使用实例脚本类型。非空时实例脚本必须继承或等于该类型。 |
+
+返回：已挂载或复用的能力实例；失败时返回 null。
+
+<a id="member-gfcapabilityutility-methods-adopt_capability_instance"></a>
+
+### `adopt_capability_instance`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func adopt_capability_instance( receiver: Object, capability: Object, as_type: Script = null ) -> Object:
+```
+
+收养一个已经存在的能力实例并挂载到 receiver。 仅当返回值就是传入实例时所有权才完成转移；之后移除能力或销毁 Utility 会释放该实例。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `receiver` | 能力接收对象。 |
+| `capability` | 要转移所有权的能力实例。 |
+| `as_type` | 注册类型；为空时使用实例脚本类型。 |
 
 返回：已挂载或复用的能力实例；失败时返回 null。
 

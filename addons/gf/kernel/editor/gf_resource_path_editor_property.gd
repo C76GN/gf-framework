@@ -1,6 +1,6 @@
 @tool
 
-# GFResourcePathEditorProperty: 用 ResourcePicker 编辑 String 形式的资源路径。
+# GFResourcePathEditorProperty: 用窗口安全的路径控件编辑 String 形式的资源引用。
 extends EditorProperty
 
 
@@ -35,6 +35,8 @@ const _STATUS_UNSUPPORTED_SCHEME: String = "unsupported_scheme"
 const _INFO_TEXT_COLOR: Color = Color(0.62, 0.66, 0.72, 1.0)
 const _WARNING_TEXT_COLOR: Color = Color(1.0, 0.58, 0.30, 1.0)
 const _GF_RESOURCE_PATH_HINT_SCRIPT = preload("res://addons/gf/kernel/editor/gf_resource_path_hint.gd")
+const _GF_RESOURCE_PATH_PICKER_CONTROL_SCRIPT = preload("res://addons/gf/kernel/editor/gf_resource_path_picker_control.gd")
+const _GF_EDITOR_PROPERTY_PLAIN_TOOLTIP_SCRIPT = preload("res://addons/gf/kernel/editor/gf_editor_property_plain_tooltip.gd")
 const _RESOURCE_EXTENSIONS: Dictionary = {
 	"gd": "Script",
 	"gdshader": "Shader",
@@ -66,7 +68,7 @@ const _RESOURCE_EXTENSIONS: Dictionary = {
 # --- 私有变量 ---
 
 var _root: VBoxContainer
-var _picker: EditorResourcePicker
+var _picker: Control
 var _status_label: Label
 var _base_type: String = DEFAULT_BASE_TYPE
 var _prefer_uid: bool = true
@@ -80,10 +82,12 @@ func _init() -> void:
 	_root.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	add_child(_root)
 
-	_picker = _PathResourcePicker.new()
-	_picker.base_type = _base_type
+	var picker_value: Variant = _GF_RESOURCE_PATH_PICKER_CONTROL_SCRIPT.new()
+	if not picker_value is Control:
+		return
+	_picker = picker_value
 	_picker.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var _resource_changed_connected: Error = _picker.resource_changed.connect(_on_resource_changed) as Error
+	var _path_changed_connected: Error = _picker.connect(&"path_changed", _on_path_changed)
 	_root.add_child(_picker)
 
 	_status_label = Label.new()
@@ -104,8 +108,7 @@ func _update_property() -> void:
 	var property_name: String = get_edited_property()
 	var current_path: String = _to_path_string(edited_object.get(property_name))
 	_is_updating = true
-	_picker.base_type = _base_type
-	_picker.edited_resource = load_resource_from_path(current_path, _base_type)
+	_picker.call(&"set_path", current_path)
 	_apply_status(get_resource_path_status(current_path, _base_type))
 	_is_updating = false
 
@@ -125,7 +128,7 @@ func setup(base_type: String = DEFAULT_BASE_TYPE, prefer_uid: bool = true) -> vo
 	_base_type = base_type if not base_type.strip_edges().is_empty() else DEFAULT_BASE_TYPE
 	_prefer_uid = prefer_uid
 	if _picker != null:
-		_picker.base_type = _base_type
+		_picker.call(&"setup", get_resource_file_filters(_base_type))
 
 
 ## 判断属性是否适合用资源路径编辑器接管。
@@ -180,6 +183,39 @@ static func get_base_type_for_hint(hint_type: int, hint_string: String) -> Strin
 		elif base_type != mapped_type:
 			return DEFAULT_BASE_TYPE
 	return base_type
+
+
+## 获取资源类型对应的 EditorFileDialog 过滤器。
+## [br]
+## @api framework_internal
+## [br]
+## @layer kernel/editor
+## [br]
+## @param base_type: Resource 原生类型或 GDScript 全局资源类型。
+## [br]
+## @return 可直接赋给 FileDialog.filters 的过滤器列表。
+static func get_resource_file_filters(base_type: String) -> PackedStringArray:
+	var normalized_base_type: String = _normalize_base_type(base_type)
+	var native_base_type: String = _get_native_resource_base_type(normalized_base_type)
+	var extensions: PackedStringArray = ResourceLoader.get_recognized_extensions_for_type(
+		native_base_type
+	)
+	var normalized_extensions: PackedStringArray = PackedStringArray()
+	for extension: String in extensions:
+		var normalized_extension: String = extension.strip_edges().trim_prefix(".").to_lower()
+		if normalized_extension.is_empty() or normalized_extensions.has(normalized_extension):
+			continue
+		var _append_extension_result: bool = normalized_extensions.append(normalized_extension)
+	normalized_extensions.sort()
+	if normalized_extensions.is_empty():
+		return PackedStringArray()
+
+	var patterns: PackedStringArray = PackedStringArray()
+	for extension: String in normalized_extensions:
+		var _append_pattern_result: bool = patterns.append("*.%s" % extension)
+	return PackedStringArray([
+		"%s ; %s" % [", ".join(patterns), normalized_base_type],
+	])
 
 
 ## 把资源转换为可保存的稳定路径。
@@ -317,6 +353,10 @@ static func load_resource_from_path(path: String, base_type: String = DEFAULT_BA
 
 # --- 私有/辅助方法 ---
 
+func _make_custom_tooltip(_for_text: String) -> Object:
+	return _GF_EDITOR_PROPERTY_PLAIN_TOOLTIP_SCRIPT.make_tooltip(self)
+
+
 static func _normalize_base_type(base_type: String) -> String:
 	var normalized_base_type: String = base_type.strip_edges()
 	return normalized_base_type if not normalized_base_type.is_empty() else DEFAULT_BASE_TYPE
@@ -331,13 +371,48 @@ static func _is_resource_path_hint(hint_type: int) -> bool:
 
 
 static func _is_resource_class(type_name: String) -> bool:
+	return _is_resource_class_with_seen(type_name, {})
+
+
+static func _get_native_resource_base_type(type_name: String) -> String:
+	return _get_native_resource_base_type_with_seen(type_name, {})
+
+
+static func _get_native_resource_base_type_with_seen(
+	type_name: String,
+	seen_types: Dictionary
+) -> String:
+	if type_name.is_empty() or seen_types.has(type_name):
+		return DEFAULT_BASE_TYPE
+	seen_types[type_name] = true
+	if ClassDB.class_exists(type_name):
+		return type_name if ClassDB.is_parent_class(type_name, DEFAULT_BASE_TYPE) else DEFAULT_BASE_TYPE
+
+	for global_class_info: Dictionary in ProjectSettings.get_global_class_list():
+		if _get_string_option(global_class_info, "class") != type_name:
+			continue
+		var base_type: String = _get_string_option(global_class_info, "base").strip_edges()
+		return _get_native_resource_base_type_with_seen(base_type, seen_types)
+	return DEFAULT_BASE_TYPE
+
+
+static func _is_resource_class_with_seen(type_name: String, seen_types: Dictionary) -> bool:
 	if type_name.is_empty():
 		return false
 	if type_name == DEFAULT_BASE_TYPE:
 		return true
-	if not ClassDB.class_exists(type_name):
+	if ClassDB.class_exists(type_name):
+		return ClassDB.is_parent_class(type_name, DEFAULT_BASE_TYPE)
+	if seen_types.has(type_name):
 		return false
-	return ClassDB.is_parent_class(type_name, DEFAULT_BASE_TYPE)
+	seen_types[type_name] = true
+
+	for global_class_info: Dictionary in ProjectSettings.get_global_class_list():
+		if _get_string_option(global_class_info, "class") != type_name:
+			continue
+		var base_type: String = _get_string_option(global_class_info, "base").strip_edges()
+		return _is_resource_class_with_seen(base_type, seen_types)
+	return false
 
 
 static func _extract_extensions(hint_string: String) -> PackedStringArray:
@@ -413,21 +488,15 @@ func _apply_status(status: Dictionary) -> void:
 
 # --- 信号处理函数 ---
 
-func _on_resource_changed(resource: Resource) -> void:
+func _on_path_changed(path: String) -> void:
 	if _is_updating:
 		return
 
 	var property_name: String = get_edited_property()
-	var next_path: String = get_stable_resource_path(resource, _prefer_uid)
+	var next_path: String = path.strip_edges()
+	var resource: Resource = load_resource_from_path(next_path, _base_type)
+	if resource != null:
+		next_path = get_stable_resource_path(resource, _prefer_uid)
+	_picker.call(&"set_path", next_path)
 	_apply_status(get_resource_path_status(next_path, _base_type))
 	emit_changed(property_name, next_path)
-
-
-# --- 内部类 ---
-
-class _PathResourcePicker:
-	extends EditorResourcePicker
-
-	func _set_create_options(menu_node: Object) -> void:
-		if menu_node != null and menu_node.has_method(&"clear"):
-			var _clear_result: Variant = menu_node.call(&"clear")

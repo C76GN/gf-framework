@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFDragSession" path="addons/gf/standard/input/drag_drop/gf_drag_session.gd" module="standard" extends="RefCounted" classDigest="20f7454f236adce1535df0ad74a76b796f50a8541d5ab18fa7173032e0328222">
+<class name="GFDragSession" path="addons/gf/standard/input/drag_drop/gf_drag_session.gd" module="standard" extends="RefCounted" classDigest="ca6e0abd731600e7c497ef7fb3c2644e2c8cf699b31544bc1c47ac2bd211cc82">
 	<description>GFDragSession: 通用拖拽会话数据。
 描述一次拖拽从开始到释放的稳定上下文，不绑定具体 UI、背包、棋盘、
 关卡编辑器或任何业务对象。项目可把任意 payload 放入会话，再由落点规则解释。</description>
@@ -105,12 +105,14 @@
 			</tags>
 		</member>
 		<member kind="method" name="to_dictionary">
-			<signature>func to_dictionary() -&gt; Dictionary:</signature>
+			<signature>func to_dictionary(json_compatible: bool = true) -&gt; Dictionary:</signature>
 			<description>转换为调试字典。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="param">json_compatible: 为 true 时返回可直接 JSON.stringify() 的值。</tag>
 				<tag name="return">会话快照。</tag>
 				<tag name="schema">return: Dictionary，包含 session_id、drag_type、start_position、current_position、previous_position、delta、has_source 和 metadata。</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 	</methods>

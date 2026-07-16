@@ -5,12 +5,13 @@
 ##
 ## 用法：
 ##   1. 调用 setup(bounds, max_depth, max_entities) 初始化树的参数。
-##   2. 调用 insert(entity_id, rect) 将实体插入四叉树。
+##   2. 调用 insert(entity_id, rect) 将 bounds 内实体插入四叉树。
 ##   3. 调用 query_rect(rect)、query_radius(center, radius) 或 query_point(point) 查询。
 ##   4. 调用 update(entity_id, rect) 更新实体位置（内部先移除再插入）。
 ##   5. 调用 remove(entity_id) 移除实体。
 ##
-## 注意：entity_id 为 int，由调用方自行管理 ID 映射。
+## 注意：entity_id 为 int，由调用方自行管理 ID 映射。四叉树使用固定世界边界，
+## 不会自动扩容；不在 bounds 内的实体会被拒绝，避免出现已存储但不可查询的记录。
 ## [br]
 ## @api public
 ## [br]
@@ -33,13 +34,22 @@ const DEFAULT_MAX_DEPTH: int = 8
 ## @api public
 const DEFAULT_MAX_ENTITIES: int = 8
 
+const _GF_REPORT_VALUE_CODEC_SCRIPT = preload("res://addons/gf/kernel/core/gf_report_value_codec.gd")
+
 
 # --- 公共变量 ---
 
 ## 四叉树覆盖的世界边界。
 ## [br]
 ## @api public
-var bounds: Rect2 = Rect2()
+## [br]
+## @since 3.17.0
+var bounds: Rect2:
+	get:
+		return _bounds
+	set(value):
+		_bounds = _normalize_rect(value)
+		_rebuild_root_from_current_entities()
 
 ## 最大递归深度。
 ## [br]
@@ -53,6 +63,8 @@ var max_entities_per_node: int = DEFAULT_MAX_ENTITIES
 
 
 # --- 私有变量 ---
+
+var _bounds: Rect2 = Rect2()
 
 # 根节点。
 var _root: _QTNode
@@ -87,41 +99,64 @@ func init() -> void:
 ## [br]
 ## @param entities_per_node: 每节点最大实体数。
 func setup(world_bounds: Rect2, depth: int = DEFAULT_MAX_DEPTH, entities_per_node: int = DEFAULT_MAX_ENTITIES) -> void:
-	bounds = _normalize_rect(world_bounds)
 	max_depth = maxi(depth, 0)
 	max_entities_per_node = maxi(entities_per_node, 1)
+	bounds = world_bounds
 	clear()
+
+
+## 判断矩形是否能被当前四叉树索引。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+## [br]
+## @param rect: 待检测的轴对齐包围矩形。
+## [br]
+## @return: 矩形有限且完全位于 bounds 内时返回 true。
+func can_index_rect(rect: Rect2) -> bool:
+	return _is_indexable_rect(_normalize_rect(rect))
 
 
 ## 将实体插入四叉树。
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param entity_id: 实体唯一标识。
 ## [br]
 ## @param rect: 实体的轴对齐包围矩形。
-func insert(entity_id: int, rect: Rect2) -> void:
+## [br]
+## @return: 插入成功返回 true；rect 不可索引时返回 false 且不修改旧实体。
+func insert(entity_id: int, rect: Rect2) -> bool:
 	_ensure_root()
+	var normalized_rect: Rect2 = _normalize_rect(rect)
+	if not _is_indexable_rect(normalized_rect):
+		return false
 	if _entity_rects.has(entity_id):
 		_remove_entity(entity_id, true)
 
-	var normalized_rect: Rect2 = _normalize_rect(rect)
-	_entity_rects[entity_id] = normalized_rect
-	_root._insert(entity_id, normalized_rect)
+	return _insert_normalized_rect(entity_id, normalized_rect)
 
 
 ## 将带精确点命中测试的实体插入四叉树。
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param entity_id: 实体唯一标识。
 ## [br]
 ## @param rect: 实体的轴对齐包围矩形。
 ## [br]
 ## @param hit_test: 可选精确命中测试，签名为 `(entity_id, point, rect) -> bool`。
-func insert_with_hit_test(entity_id: int, rect: Rect2, hit_test: Callable) -> void:
-	insert(entity_id, rect)
-	var _set_entity_hit_test_result_124: Variant = set_entity_hit_test(entity_id, hit_test)
+## [br]
+## @return: 插入和命中测试注册都成功时返回 true。
+func insert_with_hit_test(entity_id: int, rect: Rect2, hit_test: Callable) -> bool:
+	if not insert(entity_id, rect):
+		return false
+	return set_entity_hit_test(entity_id, hit_test)
 
 
 ## 从四叉树中移除实体。
@@ -137,15 +172,24 @@ func remove(entity_id: int) -> void:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param entity_id: 实体标识。
 ## [br]
 ## @param new_rect: 新的包围矩形。
-func update(entity_id: int, new_rect: Rect2) -> void:
+## [br]
+## @return: 更新成功返回 true；new_rect 不可索引时返回 false 且旧实体保持不变。
+func update(entity_id: int, new_rect: Rect2) -> bool:
+	var normalized_rect: Rect2 = _normalize_rect(new_rect)
+	if not _is_indexable_rect(normalized_rect):
+		return false
+
 	var hit_test: Callable = _variant_to_callable(GFVariantData.get_option_value(_entity_hit_tests, entity_id, Callable()))
 	_remove_entity(entity_id, false)
-	insert(entity_id, new_rect)
+	var inserted: bool = _insert_normalized_rect(entity_id, normalized_rect)
 	if hit_test.is_valid():
 		_entity_hit_tests[entity_id] = hit_test
+	return inserted
 
 
 ## 设置实体的精确点命中测试。
@@ -281,11 +325,14 @@ func query_first_point(point: Vector2, use_exact_hit_tests: bool = true) -> int:
 ## @api public
 func compact() -> void:
 	var rects: Dictionary = _entity_rects.duplicate()
+	var hit_tests: Dictionary = _entity_hit_tests.duplicate()
+	_entity_rects.clear()
+	_entity_hit_tests.clear()
 	_rebuild_root()
 	for entity_id: int in rects.keys():
 		var rect: Rect2 = _variant_to_rect2(rects[entity_id])
-		_entity_rects[entity_id] = rect
-		_root._insert(entity_id, rect)
+		if _insert_normalized_rect(entity_id, rect) and hit_tests.has(entity_id):
+			_entity_hit_tests[entity_id] = _variant_to_callable(hit_tests[entity_id])
 
 
 ## 清空四叉树中的所有实体并重建根节点。
@@ -327,7 +374,7 @@ func has_entity(entity_id: int) -> bool:
 func get_debug_snapshot() -> Dictionary:
 	_ensure_root()
 	return {
-		"bounds": bounds,
+		"bounds": _bounds,
 		"entity_count": _entity_rects.size(),
 		"hit_test_count": _entity_hit_tests.size(),
 		"max_depth": max_depth,
@@ -336,18 +383,66 @@ func get_debug_snapshot() -> Dictionary:
 	}
 
 
+## 获取 JSON.stringify() 安全的调试快照。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+## [br]
+## @param options: 报告编码选项，透传给 GFReportValueCodec。
+## [br]
+## @return: JSON 兼容调试快照。
+## [br]
+## @schema options: Dictionary with GFReportValueCodec options.
+## [br]
+## @schema return: Dictionary safe for JSON.stringify().
+func get_json_compatible_debug_snapshot(options: Dictionary = {}) -> Dictionary:
+	return GFVariantData.as_dictionary(_GF_REPORT_VALUE_CODEC_SCRIPT.to_json_compatible(get_debug_snapshot(), options))
+
+
 # --- 私有/辅助方法 ---
 
 func _ensure_root() -> void:
+	var limits_changed: bool = _normalize_tree_limits()
 	if _root == null:
 		_rebuild_root()
+	elif limits_changed:
+		_rebuild_root_from_current_entities()
 
 
 func _rebuild_root() -> void:
-	max_depth = maxi(max_depth, 0)
-	max_entities_per_node = maxi(max_entities_per_node, 1)
-	bounds = _normalize_rect(bounds)
-	_root = _QTNode.new(bounds, 0, max_depth, max_entities_per_node)
+	var _limits_changed: bool = _normalize_tree_limits()
+	_bounds = _normalize_rect(_bounds)
+	_root = _QTNode.new(_bounds, 0, max_depth, max_entities_per_node)
+
+
+func _normalize_tree_limits() -> bool:
+	var normalized_depth: int = maxi(max_depth, 0)
+	var normalized_capacity: int = maxi(max_entities_per_node, 1)
+	var changed: bool = normalized_depth != max_depth or normalized_capacity != max_entities_per_node
+	max_depth = normalized_depth
+	max_entities_per_node = normalized_capacity
+	return changed
+
+
+func _rebuild_root_from_current_entities() -> void:
+	var rects: Dictionary = _entity_rects.duplicate()
+	var hit_tests: Dictionary = _entity_hit_tests.duplicate()
+	_entity_rects.clear()
+	_entity_hit_tests.clear()
+	_rebuild_root()
+	for entity_id: int in rects.keys():
+		var rect: Rect2 = _variant_to_rect2(rects[entity_id])
+		if _insert_normalized_rect(entity_id, rect) and hit_tests.has(entity_id):
+			_entity_hit_tests[entity_id] = _variant_to_callable(hit_tests[entity_id])
+
+
+func _insert_normalized_rect(entity_id: int, normalized_rect: Rect2) -> bool:
+	if not _is_indexable_rect(normalized_rect):
+		return false
+	_entity_rects[entity_id] = normalized_rect
+	_root._insert(entity_id, normalized_rect)
+	return true
 
 
 func _remove_entity(entity_id: int, erase_hit_test: bool) -> void:
@@ -382,6 +477,31 @@ func _normalize_rect(rect: Rect2) -> Rect2:
 		position.y += size.y
 		size.y = -size.y
 	return Rect2(position, size)
+
+
+func _is_indexable_rect(rect: Rect2) -> bool:
+	return _is_finite_rect(rect) and _rect_contains_rect(_bounds, rect)
+
+
+func _is_finite_rect(rect: Rect2) -> bool:
+	return (
+		_is_finite_float(rect.position.x)
+		and _is_finite_float(rect.position.y)
+		and _is_finite_float(rect.size.x)
+		and _is_finite_float(rect.size.y)
+	)
+
+
+func _is_finite_float(value: float) -> bool:
+	return not is_nan(value) and not is_inf(value)
+
+
+func _rect_contains_rect(container: Rect2, rect: Rect2) -> bool:
+	return (
+		_is_finite_rect(container)
+		and _rect_contains_point(container, rect.position)
+		and _rect_contains_point(container, rect.position + rect.size)
+	)
 
 
 func _rect_contains_point(rect: Rect2, point: Vector2) -> bool:

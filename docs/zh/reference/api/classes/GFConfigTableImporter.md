@@ -9,13 +9,14 @@
 - 类别：运行时服务 (`runtime_service`)
 - 首次版本：`3.17.0`
 
-通用导表文本解析与 schema 校验入口。 提供 JSON、CSV 与 ConfigFile 的轻量解析，适合编辑器工具或 CI 在进入项目 Provider 前做结构检查。
+通用导表文本解析与 schema 校验入口。 提供 JSON、CSV、ConfigFile 与二维文本行的轻量解析，适合编辑器工具或 CI 在进入项目 Provider 前做结构检查。
 
 ## 成员概览
 
 | 类型 | 名称 | 签名 |
 |---|---|---|
 | 方法 | [`parse_json_table`](#member-gfconfigtableimporter-methods-parse_json_table) | `static func parse_json_table(text: String, options: Dictionary = {}) -> Dictionary:` |
+| 方法 | [`parse_rows_table`](#member-gfconfigtableimporter-methods-parse_rows_table) | `static func parse_rows_table(rows: Array[PackedStringArray], options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`parse_csv_table`](#member-gfconfigtableimporter-methods-parse_csv_table) | `static func parse_csv_table(text: String, options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`parse_config_file_table`](#member-gfconfigtableimporter-methods-parse_config_file_table) | `static func parse_config_file_table(text: String, options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`validate_json_table`](#member-gfconfigtableimporter-methods-validate_json_table) | `static func validate_json_table(text: String, schema: GFConfigTableSchema, options: Dictionary = {}) -> Dictionary:` |
@@ -52,6 +53,34 @@ static func parse_json_table(text: String, options: Dictionary = {}) -> Dictiona
 - `options`: Dictionary，可包含 source。
 - `return`: Dictionary，包含 success、data、error、error_line 和 source。
 
+<a id="member-gfconfigtableimporter-methods-parse_rows_table"></a>
+
+### `parse_rows_table`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+static func parse_rows_table(rows: Array[PackedStringArray], options: Dictionary = {}) -> Dictionary:
+```
+
+把已解析的二维文本表转换为记录数组。 未显式传 header_row 时，传入 rows 的第一行作为表头；显式传 header_row 时按 1-based 源行号定位表头。可通过注释前缀与条件块过滤行列。 条件块只支持 `#if SYMBOL ...` 与 `#endif`，所有 SYMBOL 都在 condition_symbols 中时才保留块内数据行。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `rows` | 已解析的二维文本行。 |
+| `options` | 可选参数，支持 source、row_numbers、header_row、trim_cells、skip_empty_lines、reject_duplicate_headers、reject_empty_header、require_header、comment_prefixes、comment_row_prefixes、comment_column_prefixes、comment_prefix_case_sensitive、enable_condition_directives、condition_symbols、condition_directive_prefix 和 error_prefix。 |
+
+返回：结果字典，包含 success、data、header、row_locations 与 error。
+
+结构：
+
+- `rows`: Array[PackedStringArray]，每个条目是一行单元格文本。
+- `options`: Dictionary，可包含 source、row_numbers、header_row、trim_cells、skip_empty_lines、reject_duplicate_headers、reject_empty_header、require_header、comment_prefixes、comment_row_prefixes、comment_column_prefixes、comment_prefix_case_sensitive、enable_condition_directives、condition_symbols、condition_directive_prefix 和 error_prefix。
+- `return`: Dictionary，包含 success、data、header、row_locations、error、error_line、error_column 和 source。
+
 <a id="member-gfconfigtableimporter-methods-parse_csv_table"></a>
 
 ### `parse_csv_table`
@@ -70,13 +99,13 @@ static func parse_csv_table(text: String, options: Dictionary = {}) -> Dictionar
 | 名称 | 说明 |
 |---|---|
 | `text` | CSV 文本。 |
-| `options` | 可选参数，支持 delimiter、trim_cells、skip_empty_lines、reject_duplicate_headers、source。 |
+| `options` | 可选参数，支持 delimiter、trim_cells、skip_empty_lines、reject_duplicate_headers、header_row、comment_prefixes、comment_row_prefixes、comment_column_prefixes、comment_prefix_case_sensitive、enable_condition_directives、condition_symbols、condition_directive_prefix、source。 |
 
 返回：结果字典，包含 success、data、header、row_locations 与 error。
 
 结构：
 
-- `options`: Dictionary，可包含 delimiter、trim_cells、skip_empty_lines、reject_duplicate_headers 和 source。
+- `options`: Dictionary，可包含 delimiter、trim_cells、skip_empty_lines、reject_duplicate_headers、header_row、comment_prefixes、comment_row_prefixes、comment_column_prefixes、comment_prefix_case_sensitive、enable_condition_directives、condition_symbols、condition_directive_prefix 和 source。
 - `return`: Dictionary，包含 success、data、header、row_locations、error、error_line、error_column 和 source。
 
 <a id="member-gfconfigtableimporter-methods-parse_config_file_table"></a>
@@ -168,6 +197,7 @@ static func validate_json_record( text: String, schema: GFConfigTableSchema, row
 ### `validate_csv_table`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 static func validate_csv_table(text: String, schema: GFConfigTableSchema, options: Dictionary = {}) -> Dictionary:
@@ -181,13 +211,13 @@ static func validate_csv_table(text: String, schema: GFConfigTableSchema, option
 |---|---|
 | `text` | CSV 文本。 |
 | `schema` | 表结构声明。 |
-| `options` | 可选参数，支持 delimiter、trim_cells、skip_empty_lines、reject_duplicate_headers、source。 |
+| `options` | 可选参数，支持 delimiter、trim_cells、skip_empty_lines、reject_duplicate_headers、header_row、comment_prefixes、comment_row_prefixes、comment_column_prefixes、comment_prefix_case_sensitive、enable_condition_directives、condition_symbols、condition_directive_prefix 和 source。 |
 
 返回：校验报告；解析失败时返回失败报告。
 
 结构：
 
-- `options`: Dictionary，可包含 delimiter、trim_cells、skip_empty_lines、reject_duplicate_headers 和 source。
+- `options`: Dictionary，可包含 delimiter、trim_cells、skip_empty_lines、reject_duplicate_headers、header_row、comment_prefixes、comment_row_prefixes、comment_column_prefixes、comment_prefix_case_sensitive、enable_condition_directives、condition_symbols、condition_directive_prefix 和 source。
 - `return`: GFConfigValidationReport 兼容 Dictionary。
 
 <a id="member-gfconfigtableimporter-methods-validate_config_file_table"></a>

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFCombatAction" path="addons/gf/extensions/combat/actions/gf_combat_action.gd" module="extensions/combat" extends="Resource" classDigest="ac1c52bc59df55f4611dea7108a5f1b383f01691083db6592c49c31ff265c613">
+<class name="GFCombatAction" path="addons/gf/extensions/combat/actions/gf_combat_action.gd" module="extensions/combat" extends="Resource" classDigest="c008965a12a88c68b6fcedfd77ce1996dd2fe8aef0d0cf0a4219aa8588b1913e">
 	<description>GFCombatAction: 通用战斗动作数据。
 表达一次对目标系统可解释的数值动作。框架只保存动作类别、操作、数值、
 标签和元数据，不规定伤害、治疗、阵营或生命值语义。</description>
@@ -49,10 +49,11 @@
 			</tags>
 		</member>
 		<member kind="property" name="amount" decorators="@export">
-			<signature>var amount: float = 0.0</signature>
+			<signature>var amount: float:</signature>
 			<description>动作数值。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="tags" decorators="@export">
@@ -124,6 +125,15 @@
 				<tag name="return">当前动作。</tag>
 			</tags>
 		</member>
+		<member kind="method" name="is_numeric_state_valid">
+			<signature>func is_numeric_state_valid() -&gt; bool:</signature>
+			<description>检查动作数值是否可安全参与运算。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">最近一次 amount 写入有效且当前值有限时返回 true。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
 		<member kind="method" name="with_tags">
 			<signature>func with_tags(value: Array[StringName]) -&gt; GFCombatAction:</signature>
 			<description>设置动作标签并返回自身。</description>
@@ -160,6 +170,18 @@
 				<tag name="api">public</tag>
 				<tag name="return">字典快照。</tag>
 				<tag name="schema">return: Dictionary，包含 action_id、action_kind、operation、amount、tags、payload 和 metadata。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="to_report_dictionary">
+			<signature>func to_report_dictionary(options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>转为 JSON-safe 报告字典。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">options: 传给 GFReportValueCodec 的编码选项。</tag>
+				<tag name="return">报告字典快照。</tag>
+				<tag name="schema">options: Dictionary with GFReportValueCodec encoding options.</tag>
+				<tag name="schema">return: JSON-safe Dictionary based on to_dict().</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 	</methods>

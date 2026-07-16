@@ -1,0 +1,293 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFDragDropController" path="addons/gf/standard/input/drag_drop/gf_drag_drop_controller.gd" module="standard" extends="Node" classDigest="f2125aa6ae8e2b64069fc92e3274b98d98e72ad02b204f4efe391c99a80c96f1">
+	<description>GFDragDropController: 可选拖放 Node 控制器。
+在 `GFDragDropUtility` 的纯数据会话与落点规则之上，补充单指针捕获、source 生命周期、
+可选拖拽层 reparent、取消和落点剪枝。它不解释 payload，不规定背包、棋盘、
+卡牌或编辑器工具的业务语义。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_service</tag>
+		<tag name="since">8.0.0</tag>
+	</tags>
+	<signals>
+		<member kind="signal" name="drag_started">
+			<signature>signal drag_started(session_id: int, drag_type: StringName)</signature>
+			<description>拖拽开始时发出。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">session_id: 会话 ID。</tag>
+				<tag name="param">drag_type: 拖拽类型。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="signal" name="drag_moved">
+			<signature>signal drag_moved(session_id: int, position: Vector2, delta: Vector2, zone_id: StringName)</signature>
+			<description>拖拽位置更新时发出。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">session_id: 会话 ID。</tag>
+				<tag name="param">position: 当前位置。</tag>
+				<tag name="param">delta: 本次位移。</tag>
+				<tag name="param">zone_id: 当前最佳落点 ID；没有落点时为空。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="signal" name="drag_dropped">
+			<signature>signal drag_dropped(session_id: int, zone_id: StringName, result: Dictionary)</signature>
+			<description>拖拽成功释放到落点时发出。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">session_id: 会话 ID。</tag>
+				<tag name="param">zone_id: 落点 ID。</tag>
+				<tag name="param">result: 落点返回结果。</tag>
+				<tag name="schema">result: Dictionary，由 GFDragDropUtility.drop() 规范化，包含 ok、session_id、zone_id、reason 和可选 value。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="signal" name="drag_drop_rejected">
+			<signature>signal drag_drop_rejected(session_id: int, reason: StringName)</signature>
+			<description>拖拽释放被拒绝时发出。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">session_id: 会话 ID。</tag>
+				<tag name="param">reason: 拒绝原因。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="signal" name="drag_cancelled">
+			<signature>signal drag_cancelled(session_id: int, reason: StringName)</signature>
+			<description>拖拽取消时发出。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">session_id: 会话 ID。</tag>
+				<tag name="param">reason: 取消原因。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="signal" name="drop_zone_registered">
+			<signature>signal drop_zone_registered(zone_id: StringName)</signature>
+			<description>落点注册后发出。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">zone_id: 落点 ID。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="signal" name="drop_zone_unregistered">
+			<signature>signal drop_zone_unregistered(zone_id: StringName)</signature>
+			<description>落点注销后发出。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">zone_id: 落点 ID。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</signals>
+	<enums />
+	<constants />
+	<properties>
+		<member kind="property" name="cancel_when_source_exits_tree" decorators="@export">
+			<signature>var cancel_when_source_exits_tree: bool = true</signature>
+			<description>source 离开场景树时是否自动取消当前拖拽。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="cancel_when_source_freed" decorators="@export">
+			<signature>var cancel_when_source_freed: bool = true</signature>
+			<description>source 引用失效时是否自动取消当前拖拽。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="get_utility">
+			<signature>func get_utility() -&gt; GFDragDropUtility:</signature>
+			<description>获取底层拖放数据工具。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">当前控制器持有的拖放工具。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="register_zone">
+			<signature>func register_zone(zone: GFDropZone) -&gt; bool:</signature>
+			<description>注册落点。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">zone: 落点规则。</tag>
+				<tag name="return">注册成功返回 true。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="register_rect_zone">
+			<signature>func register_rect_zone( zone_id: StringName, rect: Rect2, accepted_types: PackedStringArray = PackedStringArray(), options: Dictionary = {} ) -&gt; GFDropZone:</signature>
+			<description>注册矩形落点。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">zone_id: 落点 ID。</tag>
+				<tag name="param">rect: 全局矩形区域。</tag>
+				<tag name="param">accepted_types: 可接收类型；为空表示不限制。</tag>
+				<tag name="param">options: 可选参数，支持 priority、enabled、metadata、can_accept、drop。</tag>
+				<tag name="return">注册成功时返回落点，否则返回 null。</tag>
+				<tag name="schema">options: Dictionary，透传给 GFDropZone.from_rect()。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="register_control_zone">
+			<signature>func register_control_zone( zone_id: StringName, control: Control, accepted_types: PackedStringArray = PackedStringArray(), options: Dictionary = {} ) -&gt; GFDropZone:</signature>
+			<description>注册 Control 全局矩形落点。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">zone_id: 落点 ID。</tag>
+				<tag name="param">control: 用于读取 get_global_rect() 的 Control。</tag>
+				<tag name="param">accepted_types: 可接收类型；为空表示不限制。</tag>
+				<tag name="param">options: 可选参数，支持 priority、enabled、metadata、can_accept、drop。</tag>
+				<tag name="return">注册成功时返回落点，否则返回 null。</tag>
+				<tag name="schema">options: Dictionary，透传给 GFDropZone.from_control()。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="unregister_zone">
+			<signature>func unregister_zone(zone_id: StringName) -&gt; bool:</signature>
+			<description>注销落点。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">zone_id: 落点 ID。</tag>
+				<tag name="return">找到并移除时返回 true。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="prune_stale_drop_zones">
+			<signature>func prune_stale_drop_zones() -&gt; int:</signature>
+			<description>主动剪枝已失效的落点。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">本次移除的落点数量。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="clear_zones">
+			<signature>func clear_zones() -&gt; void:</signature>
+			<description>清空落点。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="start_drag">
+			<signature>func start_drag( drag_type: StringName, payload: Variant, position: Vector2, source: Object = null, options: Dictionary = {} ) -&gt; int:</signature>
+			<description>开始由控制器管理的拖拽。
+控制器一次只管理一个活动会话。需要并行拖拽时可创建多个控制器；底层
+`GFDragDropUtility` 仍保留多会话能力。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">drag_type: 拖拽类型。</tag>
+				<tag name="param">payload: 项目自定义载荷。</tag>
+				<tag name="param">position: 起始位置。</tag>
+				<tag name="param">source: 可选来源对象。</tag>
+				<tag name="param">options: 控制器选项。</tag>
+				<tag name="return">会话 ID；失败时返回 -1。</tag>
+				<tag name="schema">payload: Variant，透传给 drop zone 的项目侧拖拽载荷。</tag>
+				<tag name="schema">options: Dictionary，可包含 metadata: Dictionary、pointer_id: int、capture_pointer: bool、drag_parent: Node、keep_global_transform: bool、restore_source_parent_on_cancel: bool、restore_source_parent_on_rejected_drop: bool、restore_source_parent_on_success: bool。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="update_pointer">
+			<signature>func update_pointer(position: Vector2, pointer_id: int = 0) -&gt; bool:</signature>
+			<description>更新活动拖拽的指针位置。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">position: 当前指针位置。</tag>
+				<tag name="param">pointer_id: 发起更新的指针 ID。</tag>
+				<tag name="return">更新成功返回 true。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_active_drop_candidates">
+			<signature>func get_active_drop_candidates(position: Vector2, only_accepting: bool = true) -&gt; Array[GFDropZone]:</signature>
+			<description>获取活动拖拽在当前位置命中的落点候选。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">position: 要检查的位置。</tag>
+				<tag name="param">only_accepting: 为 true 时只返回当前可接收会话的落点。</tag>
+				<tag name="return">按优先级排序的落点列表。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_active_best_drop_zone">
+			<signature>func get_active_best_drop_zone(position: Vector2) -&gt; GFDropZone:</signature>
+			<description>获取活动拖拽在当前位置的最佳落点。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">position: 要检查的位置。</tag>
+				<tag name="return">最佳落点；没有可用落点时返回 null。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="drop">
+			<signature>func drop(position: Vector2, pointer_id: int = 0) -&gt; Dictionary:</signature>
+			<description>将活动拖拽释放到指定位置。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">position: 释放位置。</tag>
+				<tag name="param">pointer_id: 发起释放的指针 ID。</tag>
+				<tag name="return">结构化结果字典。</tag>
+				<tag name="schema">return: Dictionary，包含 ok、session_id、zone_id、reason 和可选 value。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="cancel_drag">
+			<signature>func cancel_drag(reason: StringName = &amp;"cancelled") -&gt; bool:</signature>
+			<description>取消活动拖拽。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">reason: 取消原因。</tag>
+				<tag name="return">找到并取消时返回 true。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_active_session">
+			<signature>func get_active_session() -&gt; GFDragSession:</signature>
+			<description>获取活动会话。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">活动会话；没有活动拖拽时返回 null。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_active_session_id">
+			<signature>func get_active_session_id() -&gt; int:</signature>
+			<description>获取活动会话 ID。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">活动会话 ID；没有活动拖拽时返回 -1。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="has_active_drag">
+			<signature>func has_active_drag() -&gt; bool:</signature>
+			<description>检查控制器是否有活动拖拽。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">存在活动拖拽时返回 true。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_debug_snapshot">
+			<signature>func get_debug_snapshot(json_compatible: bool = true) -&gt; Dictionary:</signature>
+			<description>获取调试快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">json_compatible: 为 true 时返回可直接 JSON.stringify() 的值。</tag>
+				<tag name="return">当前控制器状态。</tag>
+				<tag name="schema">return: Dictionary，包含 active_session_id、pointer_capture、has_source、source_inside_tree 和 utility。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

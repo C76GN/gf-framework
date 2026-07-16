@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFGridOccupancy" path="addons/gf/standard/foundation/math/gf_grid_occupancy.gd" module="standard" extends="RefCounted" classDigest="989dc293631fd52ff6b14efe6852346f410eece988c8b311abf473f907e1d98e">
+<class name="GFGridOccupancy" path="addons/gf/standard/foundation/math/gf_grid_occupancy.gd" module="standard" extends="RefCounted" classDigest="3cc9e7beadd77b6773ba1023ee640250f989e391eba62e6b9cdb829fd4e4a626">
 	<description>GFGridOccupancy: 网格占用与预约数据结构。
 适合格子移动、战棋、推箱子和解谜类玩法在 System 中跟踪运行时占用。
 它不负责路径查找、碰撞或胜负规则。</description>
@@ -96,6 +96,35 @@
 				<tag name="param">cell: 格子坐标。</tag>
 				<tag name="return">可占用时返回 true。</tag>
 				<tag name="schema">receiver: Variant receiver identity stored by value or weak Object reference.</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_occupied_cells">
+			<signature>func get_occupied_cells() -&gt; Array[Vector2i]:</signature>
+			<description>获取当前被占用的格子快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">被至少一个接收者占用的格子数组，按 y/x 稳定顺序返回。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_reserved_cells">
+			<signature>func get_reserved_cells() -&gt; Array[Vector2i]:</signature>
+			<description>获取当前被预约的格子快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">被接收者预约的格子数组，按 y/x 稳定顺序返回。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_occupiable_cells">
+			<signature>func get_occupiable_cells(receiver: Variant) -&gt; Array[Vector2i]:</signature>
+			<description>获取指定接收者当前可占用的格子。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">receiver: 接收者。</tag>
+				<tag name="return">当前可被该接收者占用的格子数组，按 y/x 稳定顺序返回。</tag>
+				<tag name="schema">receiver: Variant receiver identity stored by value or weak Object reference.</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="occupy">

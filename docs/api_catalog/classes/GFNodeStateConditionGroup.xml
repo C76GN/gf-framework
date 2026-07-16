@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFNodeStateConditionGroup" path="addons/gf/standard/state_machine/node/gf_node_state_condition_group.gd" module="standard" extends="GFNodeStateCondition" classDigest="c31158d4c984ed543402e42bf572bfd2c2c201538a9506dd1ee5e80a49a72026">
+	<description>GFNodeStateConditionGroup: 节点状态条件组合资源。
+用于把多个 GFNodeStateCondition 或兼容 evaluate() 的 Resource 组合为 ALL / ANY / NONE 判断。
+条件组只返回布尔结果，不直接切换状态或修改状态机结构。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">resource_definition</tag>
+		<tag name="since">8.0.0</tag>
+	</tags>
+	<signals />
+	<enums>
+		<member kind="enum" name="MatchMode">
+			<signature>enum MatchMode {
+	## 所有有效条件都必须通过。
+	ALL,
+	## 任意有效条件通过即可。
+	ANY,
+	## 所有有效条件都不能通过。
+	NONE,
+}</signature>
+			<description>条件组合模式。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</enums>
+	<constants />
+	<properties>
+		<member kind="property" name="mode" decorators="@export">
+			<signature>var mode: MatchMode = MatchMode.ALL</signature>
+			<description>条件组合模式。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="conditions" decorators="@export">
+			<signature>var conditions: Array[Resource] = []</signature>
+			<description>子条件资源。null 或没有 evaluate() 方法的资源会被忽略。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">conditions: Array[Resource]，元素为 GFNodeStateCondition 或兼容 evaluate(state, phase, peer_state, args) 的 Resource。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="empty_result" decorators="@export">
+			<signature>var empty_result: bool = true</signature>
+			<description>没有有效子条件时返回的结果。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="_evaluate">
+			<signature>func _evaluate( state: GFNodeState, phase: StringName, peer_state: StringName = &amp;"", args: Dictionary = {} ) -&gt; bool:</signature>
+			<description>条件评估扩展点。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">state: 当前条件所属状态。</tag>
+				<tag name="param">phase: 条件阶段，通常为 enter 或 exit。</tag>
+				<tag name="param">peer_state: 进入时为来源状态名，退出时为目标状态名。</tag>
+				<tag name="param">args: 状态切换参数。</tag>
+				<tag name="return">条件组通过时返回 true。</tag>
+				<tag name="schema">args: 状态切换参数 Dictionary；键和值由调用方约定。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

@@ -16,7 +16,7 @@
 | 类型 | 名称 | 签名 |
 |---|---|---|
 | 枚举 | [`Priority`](#member-gfnetworkdirtystatetracker-enums-priority) | `enum Priority` |
-| 属性 | [`epsilon`](#member-gfnetworkdirtystatetracker-properties-epsilon) | `var epsilon: float = 0.001` |
+| 属性 | [`epsilon`](#member-gfnetworkdirtystatetracker-properties-epsilon) | `var epsilon: float = 0.001:` |
 | 属性 | [`default_priority`](#member-gfnetworkdirtystatetracker-properties-default_priority) | `var default_priority: Priority = Priority.NORMAL` |
 | 方法 | [`set_field_priority`](#member-gfnetworkdirtystatetracker-methods-set_field_priority) | `func set_field_priority(field_id: StringName, priority: Priority) -> void:` |
 | 方法 | [`get_field_priority`](#member-gfnetworkdirtystatetracker-methods-get_field_priority) | `func get_field_priority(field_id: StringName) -> Priority:` |
@@ -65,7 +65,7 @@ enum Priority {
 - 首次版本：`6.0.0`
 
 ```gdscript
-var epsilon: float = 0.001
+var epsilon: float = 0.001:
 ```
 
 浮点和向量近似比较阈值。

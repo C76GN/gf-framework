@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFControlCapability" path="addons/gf/extensions/capability/nodes/gf_control_capability.gd" module="extensions/capability" extends="Control" classDigest="f293f489c655cb376fc2a1319e4bc8735a74b33f4c12456bbdd4ab5daefed549">
+<class name="GFControlCapability" path="addons/gf/extensions/capability/nodes/gf_control_capability.gd" module="extensions/capability" extends="Control" classDigest="3f69c97b7be1c848c0774899b19f7e05596f088d00cf0a19efa9b4ce8facf163">
 	<description>GFControlCapability: 可直接作为 UI Control 节点使用的能力组件基类。
 适合承载需要 Control 布局、输入或子节点引用的局部能力。</description>
 	<tags>
@@ -20,10 +20,11 @@
 			</tags>
 		</member>
 		<member kind="property" name="receiver">
-			<signature>var receiver: Object = null</signature>
+			<signature>var receiver: Object:</signature>
 			<description>当前能力所属对象。由 GFCapabilityUtility 挂载时写入。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="active">

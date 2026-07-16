@@ -1,9 +1,9 @@
 # GFAsyncCompletion
 
-[API Reference](../index.md) / [Standard](../standard.md) / [类索引](index.md)
+[API Reference](../index.md) / [Kernel](../kernel.md) / [类索引](index.md)
 
-- 路径：`addons/gf/standard/common/gf_async_completion.gd`
-- 模块：`Standard`
+- 路径：`addons/gf/kernel/core/gf_async_completion.gd`
+- 模块：`Kernel`
 - 继承：`RefCounted`
 - API：`public`
 - 类别：运行时句柄 (`runtime_handle`)
@@ -22,9 +22,8 @@
 | 枚举 | [`Status`](#member-gfasynccompletion-enums-status) | `enum Status` |
 | 方法 | [`succeed`](#member-gfasynccompletion-methods-succeed) | `func succeed(result: Variant = null, metadata: Dictionary = {}) -> bool:` |
 | 方法 | [`fail`](#member-gfasynccompletion-methods-fail) | `func fail(error: String = "", metadata: Dictionary = {}) -> bool:` |
-| 方法 | [`cancel`](#member-gfasynccompletion-methods-cancel) | `func cancel(reason: StringName = &"cancelled", metadata: Dictionary = {}) -> bool:` |
-| 方法 | [`bind_cancel_token`](#member-gfasynccompletion-methods-bind_cancel_token) | `func bind_cancel_token(token: GFCancelToken) -> bool:` |
-| 方法 | [`wait_async`](#member-gfasynccompletion-methods-wait_async) | `func wait_async(options: Dictionary = {}) -> Dictionary:` |
+| 方法 | [`cancel`](#member-gfasynccompletion-methods-cancel) | `func cancel(reason: StringName = &"cancelled", metadata: Dictionary = {}, result: Variant = null) -> bool:` |
+| 方法 | [`bind_cancel_token`](#member-gfasynccompletion-methods-bind_cancel_token) | `func bind_cancel_token(token: GFCancellationToken) -> bool:` |
 | 方法 | [`is_pending`](#member-gfasynccompletion-methods-is_pending) | `func is_pending() -> bool:` |
 | 方法 | [`is_completed`](#member-gfasynccompletion-methods-is_completed) | `func is_completed() -> bool:` |
 | 方法 | [`is_successful`](#member-gfasynccompletion-methods-is_successful) | `func is_successful() -> bool:` |
@@ -218,7 +217,7 @@ func fail(error: String = "", metadata: Dictionary = {}) -> bool:
 - 首次版本：`7.0.0`
 
 ```gdscript
-func cancel(reason: StringName = &"cancelled", metadata: Dictionary = {}) -> bool:
+func cancel(reason: StringName = &"cancelled", metadata: Dictionary = {}, result: Variant = null) -> bool:
 ```
 
 标记取消完成。
@@ -229,12 +228,14 @@ func cancel(reason: StringName = &"cancelled", metadata: Dictionary = {}) -> boo
 |---|---|
 | `reason` | 取消原因。 |
 | `metadata` | 终态元数据。 |
+| `result` | 可选取消结果。 |
 
 返回：首次进入终态时返回 true。
 
 结构：
 
 - `metadata`: Dictionary，调用方定义的终态元数据。
+- `result`: Variant，调用方定义的取消结果。
 
 <a id="member-gfasynccompletion-methods-bind_cancel_token"></a>
 
@@ -244,7 +245,7 @@ func cancel(reason: StringName = &"cancelled", metadata: Dictionary = {}) -> boo
 - 首次版本：`7.0.0`
 
 ```gdscript
-func bind_cancel_token(token: GFCancelToken) -> bool:
+func bind_cancel_token(token: GFCancellationToken) -> bool:
 ```
 
 绑定取消 token；token 取消时完成源进入 cancelled 终态。
@@ -256,32 +257,6 @@ func bind_cancel_token(token: GFCancelToken) -> bool:
 | `token` | 取消 token。 |
 
 返回：成功绑定或 token 已经触发取消时返回 true。
-
-<a id="member-gfasynccompletion-methods-wait_async"></a>
-
-### `wait_async`
-
-- API：`public`
-- 首次版本：`7.0.0`
-
-```gdscript
-func wait_async(options: Dictionary = {}) -> Dictionary:
-```
-
-等待完成源进入终态。
-
-参数：
-
-| 名称 | 说明 |
-|---|---|
-| `options` | 等待选项，支持 GFAsyncWaitUtility.await_signal() 的选项。 |
-
-返回：完成源快照；等待超时、取消或失效时包含 wait_status 字段。
-
-结构：
-
-- `options`: Dictionary，可包含 timeout_seconds、cancel_token、guard_node、time_utility、respect_time_scale 和 timeout_warning。
-- `return`: Dictionary，包含 status、status_name、completed、result、error、cancel_reason、metadata 和可选 wait_status。
 
 <a id="member-gfasynccompletion-methods-is_pending"></a>
 

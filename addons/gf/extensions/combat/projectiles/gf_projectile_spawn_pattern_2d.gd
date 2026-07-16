@@ -34,6 +34,21 @@ func get_spawn_transforms(
 	return _get_spawn_transforms(emitter, projectile_context, emit_count)
 
 
+## 解析模式本次请求的最终数量，不生成变换。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+## [br]
+## @param emit_count: 调用方请求数量；小于等于 0 时使用模式默认值。
+## [br]
+## @return 至少为 1 的请求数量。
+func resolve_spawn_count(emit_count: int = -1) -> int:
+	if emit_count > 0:
+		return emit_count
+	return maxi(_get_default_spawn_count(), 1)
+
+
 # --- 可重写钩子 / 虚方法 ---
 
 ## 生成点计算扩展点。
@@ -59,9 +74,12 @@ func _get_spawn_transforms(
 	return [emitter.global_transform]
 
 
-# --- 私有/辅助方法 ---
-
-func _resolve_count(default_count: int, emit_count: int) -> int:
-	if emit_count > 0:
-		return emit_count
-	return maxi(default_count, 1)
+## 返回模式默认生成数量。
+## [br]
+## @api protected
+## [br]
+## @since 8.0.0
+## [br]
+## @return 默认生成数量。
+func _get_default_spawn_count() -> int:
+	return 1

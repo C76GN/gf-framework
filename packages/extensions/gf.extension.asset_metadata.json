@@ -7,11 +7,12 @@
   "description": "Package manifest for the bundled Asset Metadata extension.",
   "dependencies": [
     "gf.kernel",
-    "gf.standard.base"
+    "gf.standard.base",
+    "gf.standard.assets"
   ],
   "paths": [
     "addons/gf/extensions/asset_metadata/**"
   ],
-  "enable_extension": "gf.asset_metadata",
+  "gf_extension_id": "gf.asset_metadata",
   "metadata": {}
 }

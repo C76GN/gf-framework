@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFSaveSlotSyncBridge" path="addons/gf/extensions/save/slots/gf_save_slot_sync_bridge.gd" module="extensions/save" extends="RefCounted" classDigest="572e4daa5f19d8ea3a7eabbdd03776c528db53a3430227184b867e8fd9310a0b">
+	<description>GFSaveSlotSyncBridge: 槽位文件与通用存储同步的桥接器。
+根据 GFSaveSlotStorageAdapter 的文件模板解析槽位数据和元数据文件名，
+再交给 GFStorageSyncUtility 同步。该类不定义存档字段、冲突策略或远端协议。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_service</tag>
+		<tag name="since">8.0.0</tag>
+	</tags>
+	<signals>
+		<member kind="signal" name="slot_sync_completed">
+			<signature>signal slot_sync_completed(slot_index: int, result: Dictionary)</signature>
+			<description>单个槽位同步完成后发出。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">slot_index: 槽位索引。</tag>
+				<tag name="param">result: 同步结果。</tag>
+				<tag name="schema">result: Dictionary，sync_slot() 返回结构。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="signal" name="slot_sync_failed">
+			<signature>signal slot_sync_failed(slot_index: int, result: Dictionary)</signature>
+			<description>单个槽位同步失败后发出。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">slot_index: 槽位索引。</tag>
+				<tag name="param">result: 同步结果。</tag>
+				<tag name="schema">result: Dictionary，sync_slot() 返回结构。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</signals>
+	<enums />
+	<constants />
+	<properties>
+		<member kind="property" name="sync_utility">
+			<signature>var sync_utility: GFStorageSyncUtility = null</signature>
+			<description>底层同步工具。为空时 sync_slot() 会按需创建。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="setup">
+			<signature>func setup(utility: GFStorageSyncUtility) -&gt; GFSaveSlotSyncBridge:</signature>
+			<description>设置底层同步工具。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">utility: 存储同步工具。</tag>
+				<tag name="return">当前桥接器。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="sync_slot">
+			<signature>func sync_slot( slot_index: int, adapter: GFSaveSlotStorageAdapter, local_backend: GFStorageBackend, remote_backend: GFStorageBackend, options: Dictionary = {} ) -&gt; Dictionary:</signature>
+			<description>同步一个槽位的数据文件和元数据文件。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">slot_index: 槽位索引；必须大于等于 0。</tag>
+				<tag name="param">adapter: 槽位存储适配器。</tag>
+				<tag name="param">local_backend: 本地或主后端。</tag>
+				<tag name="param">remote_backend: 远端或副后端。</tag>
+				<tag name="param">options: 同步选项，除 GFStorageSyncUtility.sync_data() 选项外，还支持 sync_data_file、sync_metadata_file。</tag>
+				<tag name="return">槽位同步结果。</tag>
+				<tag name="schema">options: Dictionary，包含 GFStorageSyncUtility.sync_data() 选项，以及 sync_data_file、sync_metadata_file。</tag>
+				<tag name="schema">return: Dictionary，包含 ok、slot_index、file_names、sync_result、error。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="sync_slots">
+			<signature>func sync_slots( slot_indices: PackedInt32Array, adapter: GFSaveSlotStorageAdapter, local_backend: GFStorageBackend, remote_backend: GFStorageBackend, options: Dictionary = {} ) -&gt; Dictionary:</signature>
+			<description>批量同步多个槽位。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">slot_indices: 槽位索引列表。</tag>
+				<tag name="param">adapter: 槽位存储适配器。</tag>
+				<tag name="param">local_backend: 本地或主后端。</tag>
+				<tag name="param">remote_backend: 远端或副后端。</tag>
+				<tag name="param">options: 传给 sync_slot() 的选项。</tag>
+				<tag name="return">批量同步结果。</tag>
+				<tag name="schema">options: Dictionary，包含 sync_slot() 支持的选项。</tag>
+				<tag name="schema">return: Dictionary，包含 ok、slot_count、results、failed_count。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

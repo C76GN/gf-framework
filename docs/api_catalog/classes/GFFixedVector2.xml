@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFFixedVector2" path="addons/gf/standard/foundation/numeric/gf_fixed_vector2.gd" module="standard" extends="RefCounted" classDigest="b9d6c5b2e9166d2785a01c9ca68bd070096d2711a84a38d17022471e40834cb2">
+<class name="GFFixedVector2" path="addons/gf/standard/foundation/numeric/gf_fixed_vector2.gd" module="standard" extends="RefCounted" classDigest="0d2d4a488897811e7f219d241d5aefeb75b1c7445aee7a2756e41664f810c6c3">
 	<description>GFFixedVector2: 基于统一整数缩放的二维定点向量值对象。
 它适合锁步、回放、黄金测试和需要稳定序列化的二维坐标或方向值。
 该类型不替代 Vector2i 格子坐标，也不替代 Godot Vector2 在渲染和物理中的浮点表达。</description>
@@ -13,7 +13,7 @@
 	<constants />
 	<properties>
 		<member kind="property" name="raw_x">
-			<signature>var raw_x: int = 0</signature>
+			<signature>var raw_x: int = 0:</signature>
 			<description>X 分量的整数缩放值。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -21,7 +21,7 @@
 			</tags>
 		</member>
 		<member kind="property" name="raw_y">
-			<signature>var raw_y: int = 0</signature>
+			<signature>var raw_y: int = 0:</signature>
 			<description>Y 分量的整数缩放值。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -29,7 +29,7 @@
 			</tags>
 		</member>
 		<member kind="property" name="decimal_places">
-			<signature>var decimal_places: int = 2</signature>
+			<signature>var decimal_places: int = 2:</signature>
 			<description>两个分量共享的小数位数。</description>
 			<tags>
 				<tag name="api">public</tag>

@@ -57,7 +57,7 @@ func _get_spawn_transforms(
 	if emitter == null:
 		return []
 
-	var count: int = _resolve_count(projectile_count, emit_count)
+	var count: int = resolve_spawn_count(emit_count)
 	var result: Array[Transform3D] = []
 	var yaw_spread: float = deg_to_rad(yaw_spread_degrees)
 	var pitch: float = deg_to_rad(pitch_degrees)
@@ -71,3 +71,7 @@ func _get_spawn_transforms(
 		var position: Vector3 = emitter.global_position + direction * maxf(radius, 0.0)
 		result.append(Transform3D(basis, position))
 	return result
+
+
+func _get_default_spawn_count() -> int:
+	return projectile_count

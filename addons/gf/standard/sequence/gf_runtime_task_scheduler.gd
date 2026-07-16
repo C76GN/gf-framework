@@ -67,6 +67,17 @@ signal task_completed(task: GFRuntimeTask)
 signal task_cancelled(task: GFRuntimeTask)
 
 
+# --- 常量 ---
+
+## 调度器正在提交另一项任务所有权变更时的拒绝原因。
+##
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+const REJECTION_SCHEDULER_BUSY: StringName = &"scheduler_busy"
+
+
 # --- 公共变量 ---
 
 ## Requirement 空闲时是否自动调度已注册的默认任务。
@@ -85,6 +96,7 @@ var auto_schedule_default_tasks: bool = true
 var _active_tasks: Array[GFRuntimeTask] = []
 var _requirement_owners: Dictionary = {}
 var _default_tasks: Dictionary = {}
+var _schedule_resolution_active: bool = false
 
 
 # --- Godot 生命周期方法 ---
@@ -123,21 +135,37 @@ func schedule(task: GFRuntimeTask) -> bool:
 	if task == null:
 		task_rejected.emit(task, &"invalid_task")
 		return false
+	if _schedule_resolution_active:
+		task_rejected.emit(task, REJECTION_SCHEDULER_BUSY)
+		return false
 	if is_scheduled(task):
 		return true
 	if task.is_scheduled():
 		task_rejected.emit(task, &"already_scheduled")
 		return false
-	var conflicts: Array[GFRuntimeTask] = _get_conflicting_tasks(task)
+	var rejection_reason: StringName = task.get_schedule_rejection_reason()
+	if rejection_reason != &"":
+		task_rejected.emit(task, rejection_reason)
+		return false
+	var requirements: Array[Object] = task.get_requirements()
+	task.begin_schedule_resolution()
+	_schedule_resolution_active = true
+	var conflicts: Array[GFRuntimeTask] = _get_conflicting_tasks(requirements)
 	for conflict: GFRuntimeTask in conflicts:
 		if conflict != null and not conflict.is_interruptible():
+			_schedule_resolution_active = false
+			task.end_schedule_resolution()
 			task_rejected.emit(task, &"requirement_busy")
 			return false
+
 	for conflict: GFRuntimeTask in conflicts:
-		var _cancel_result: bool = cancel(conflict)
+		_detach_task(conflict)
 	_active_tasks.append(task)
-	_assign_requirements(task)
+	_assign_requirements(task, requirements)
 	task.mark_scheduled()
+	for conflict: GFRuntimeTask in conflicts:
+		_end_detached_task(conflict, true)
+	_schedule_resolution_active = false
 	task_scheduled.emit(task)
 	return true
 
@@ -423,19 +451,30 @@ func _ensure_initialized(task: GFRuntimeTask) -> bool:
 func _finish_task(task: GFRuntimeTask, interrupted: bool) -> void:
 	if task == null or not _active_tasks.has(task):
 		return
+	_detach_task(task)
+	_end_detached_task(task, interrupted)
+
+
+func _detach_task(task: GFRuntimeTask) -> void:
+	if task == null or not _active_tasks.has(task):
+		return
 	_active_tasks.erase(task)
 	_release_requirements(task)
-	if task.is_scheduled():
-		task.end(interrupted)
 	task.mark_unscheduled()
+
+
+func _end_detached_task(task: GFRuntimeTask, interrupted: bool) -> void:
+	if task == null:
+		return
+	task.end(interrupted)
 	if interrupted:
 		task_cancelled.emit(task)
 	else:
 		task_completed.emit(task)
 
 
-func _assign_requirements(task: GFRuntimeTask) -> void:
-	for requirement: Object in task.get_requirements():
+func _assign_requirements(task: GFRuntimeTask, requirements: Array[Object]) -> void:
+	for requirement: Object in requirements:
 		_requirement_owners[requirement.get_instance_id()] = task
 
 
@@ -450,11 +489,11 @@ func _release_requirements(task: GFRuntimeTask) -> void:
 		var _erase_result: bool = _requirement_owners.erase(key)
 
 
-func _get_conflicting_tasks(task: GFRuntimeTask) -> Array[GFRuntimeTask]:
+func _get_conflicting_tasks(requirements: Array[Object]) -> Array[GFRuntimeTask]:
 	var conflicts: Array[GFRuntimeTask] = []
-	for requirement: Object in task.get_requirements():
+	for requirement: Object in requirements:
 		var owner: GFRuntimeTask = get_task_for_requirement(requirement)
-		if owner != null and owner != task and not conflicts.has(owner):
+		if owner != null and not conflicts.has(owner):
 			conflicts.append(owner)
 	return conflicts
 

@@ -43,9 +43,11 @@ extends Resource
 ## [br]
 ## @api public
 ## [br]
-## @return 去除首尾空白后的场景路径。
+## @since 3.17.0
+## [br]
+## @return 规范化后的场景路径。
 func get_scene_path() -> String:
-	return scene_path.strip_edges()
+	return _normalize_scene_path(scene_path)
 
 
 ## 获取去重后的相邻场景路径。
@@ -55,10 +57,13 @@ func get_scene_path() -> String:
 ## @return 相邻场景路径列表。
 func get_adjacent_scene_paths() -> PackedStringArray:
 	var result: PackedStringArray = PackedStringArray()
-	var source_path: String = get_scene_path()
+	var source_cache_key: String = get_cache_key()
 	for raw_path: String in adjacent_scene_paths:
-		var path: String = raw_path.strip_edges()
-		if path.is_empty() or path == source_path or result.has(path):
+		var identity: GFResourceIdentity = _make_scene_identity(raw_path)
+		var path: String = _get_identity_scene_path(identity)
+		if path.is_empty() or identity.cache_key.is_empty() or identity.cache_key == source_cache_key:
+			continue
+		if _paths_have_cache_key(result, identity.cache_key):
 			continue
 		var _appended: bool = result.append(path)
 	return result
@@ -68,13 +73,69 @@ func get_adjacent_scene_paths() -> PackedStringArray:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @return 条目描述字典。
 ## [br]
-## @schema return: Dictionary，包含 scene_path、adjacent_scene_paths、fixed 和 metadata。
+## @schema return: Dictionary，包含 scene_path、cache_key、resource_identity、adjacent_scene_paths、fixed 和 metadata。
 func describe_entry() -> Dictionary:
+	var identity: GFResourceIdentity = get_resource_identity()
 	return {
 		"scene_path": get_scene_path(),
+		"cache_key": identity.cache_key,
+		"resource_identity": identity.to_dictionary(),
 		"adjacent_scene_paths": get_adjacent_scene_paths(),
 		"fixed": fixed,
 		"metadata": metadata.duplicate(true),
 	}
+
+
+## 获取当前场景资源身份。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+## [br]
+## @return 资源身份对象。
+func get_resource_identity() -> GFResourceIdentity:
+	return _make_scene_identity(scene_path)
+
+
+## 获取当前场景资源身份缓存键。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+## [br]
+## @return 资源身份 cache_key。
+func get_cache_key() -> String:
+	return get_resource_identity().cache_key
+
+
+# --- 私有/辅助方法 ---
+
+static func _normalize_scene_path(raw_path: String) -> String:
+	var identity: GFResourceIdentity = _make_scene_identity(raw_path)
+	return _get_identity_scene_path(identity)
+
+
+static func _make_scene_identity(raw_path: String) -> GFResourceIdentity:
+	return GFResourceIdentity.from_path(raw_path, &"", "PackedScene", { "check_exists": false })
+
+
+static func _get_identity_scene_path(identity: GFResourceIdentity) -> String:
+	if identity == null:
+		return ""
+	if not identity.canonical_path.is_empty():
+		return identity.canonical_path
+	return identity.raw_path
+
+
+static func _paths_have_cache_key(paths: PackedStringArray, cache_key: String) -> bool:
+	if cache_key.is_empty():
+		return false
+	for existing_path: String in paths:
+		var existing_identity: GFResourceIdentity = _make_scene_identity(existing_path)
+		if existing_identity.cache_key == cache_key:
+			return true
+	return false

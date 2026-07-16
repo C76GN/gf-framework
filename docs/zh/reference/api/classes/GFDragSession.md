@@ -26,7 +26,7 @@
 | 方法 | [`update_position`](#member-gfdragsession-methods-update_position) | `func update_position(position: Vector2) -> void:` |
 | 方法 | [`get_delta`](#member-gfdragsession-methods-get_delta) | `func get_delta() -> Vector2:` |
 | 方法 | [`get_source`](#member-gfdragsession-methods-get_source) | `func get_source() -> Object:` |
-| 方法 | [`to_dictionary`](#member-gfdragsession-methods-to_dictionary) | `func to_dictionary() -> Dictionary:` |
+| 方法 | [`to_dictionary`](#member-gfdragsession-methods-to_dictionary) | `func to_dictionary(json_compatible: bool = true) -> Dictionary:` |
 
 ## 属性
 
@@ -203,12 +203,19 @@ func get_source() -> Object:
 ### `to_dictionary`
 
 - API：`public`
+- 首次版本：`8.0.0`
 
 ```gdscript
-func to_dictionary() -> Dictionary:
+func to_dictionary(json_compatible: bool = true) -> Dictionary:
 ```
 
 转换为调试字典。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `json_compatible` | 为 true 时返回可直接 JSON.stringify() 的值。 |
 
 返回：会话快照。
 

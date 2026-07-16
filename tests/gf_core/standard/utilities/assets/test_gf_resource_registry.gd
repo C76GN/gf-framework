@@ -38,6 +38,44 @@ func test_registry_replaces_entries_by_stable_id() -> void:
 	assert_eq(registry.query(&"kind", "new"), PackedStringArray(["item"]))
 
 
+func test_registry_entry_uses_resource_identity_cache_key_for_uid_paths() -> void:
+	var script_path: String = "res://addons/gf/standard/utilities/assets/gf_resource_identity.gd"
+	var uid_path: String = _uid_path_for(script_path)
+	assert_false(uid_path.is_empty(), "测试资源应存在 Godot UID。")
+
+	var registry: GFResourceRegistry = GFResourceRegistry.new()
+	var entry: GFResourceRegistryEntry = _make_entry(&"identity_script", uid_path, {}, "Script")
+	_set_entry(registry, entry)
+
+	var entry_dict: Dictionary = entry.to_dict()
+	var identity: GFResourceIdentity = registry.get_entry_resource_identity(&"identity_script")
+	var identity_dict: Dictionary = GFVariantData.get_option_dictionary(entry_dict, "resource_identity")
+	var cache_key_query: PackedStringArray = registry.query(GFResourceRegistry.GROUP_SOURCE_CACHE_KEY, uid_path)
+	var cache_key_groups: Dictionary = registry.group_entry_ids(GFResourceRegistry.GROUP_SOURCE_CACHE_KEY)
+	var summary: Dictionary = registry.make_entry_summary(&"identity_script")
+	var candidates: Array[Dictionary] = registry.make_search_candidates(PackedStringArray(["identity_script"]))
+	assert_eq(candidates.size(), 1, "过滤后的搜索候选应只包含目标条目。")
+	if candidates.is_empty():
+		return
+	var candidate: Dictionary = candidates[0]
+	var asset_entries: Array = registry.make_asset_group_entries(PackedStringArray(["identity_script"]))
+	assert_eq(asset_entries.size(), 1, "过滤后的 AssetUtility 分组请求应只包含目标条目。")
+	if asset_entries.is_empty():
+		return
+	var asset_entry: Dictionary = GFVariantData.as_dictionary(asset_entries[0])
+
+	assert_eq(entry.path, script_path, "条目应保存 canonical path。")
+	assert_eq(entry.get_cache_key(), uid_path, "条目应按资源身份暴露 cache_key。")
+	assert_eq(GFVariantData.get_option_string(entry_dict, "cache_key"), uid_path, "序列化字典应包含 cache_key。")
+	assert_eq(GFVariantData.get_option_string(identity_dict, "canonical_path"), script_path, "序列化字典应包含资源身份快照。")
+	assert_eq(identity.cache_key, uid_path, "注册表应能直接读取资源身份。")
+	assert_eq(cache_key_query, PackedStringArray(["identity_script"]), "cache_key 应进入字段索引。")
+	assert_eq(GFVariantData.get_option_packed_string_array(cache_key_groups, uid_path), PackedStringArray(["identity_script"]), "注册表应支持按 cache_key 分组。")
+	assert_eq(GFVariantData.get_option_string(summary, "cache_key"), uid_path, "条目摘要应包含 cache_key。")
+	assert_eq(GFVariantData.get_option_string(candidate, "cache_key"), uid_path, "搜索候选应包含 cache_key。")
+	assert_eq(GFVariantData.get_option_string(asset_entry, "cache_key"), uid_path, "AssetUtility 分组请求应包含 cache_key。")
+
+
 func test_registry_set_entry_collapses_preexisting_duplicate_ids() -> void:
 	var registry: GFResourceRegistry = GFResourceRegistry.new()
 	registry.entries = [
@@ -376,6 +414,13 @@ func _registry_from_resource(resource: Resource) -> GFResourceRegistry:
 		var registry: GFResourceRegistry = resource
 		return registry
 	return null
+
+
+func _uid_path_for(path: String) -> String:
+	var uid: int = ResourceLoader.get_resource_uid(path)
+	if uid == ResourceUID.INVALID_ID:
+		return ""
+	return ResourceUID.id_to_text(uid)
 
 
 # --- 内部类 ---

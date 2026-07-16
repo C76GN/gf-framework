@@ -37,6 +37,19 @@ func test_pack_position_quantizes_with_origin_and_cell_size() -> void:
 	assert_eq(GFGridKey3D.unpack_orientation(key), 3)
 
 
+func test_pack_position_rejects_non_finite_quantization_inputs() -> void:
+	var invalid_position_key: int = GFGridKey3D.pack_position(Vector3(NAN, 0.0, 0.0))
+	var invalid_size_key: int = GFGridKey3D.pack_position(Vector3.ZERO, Vector3(INF, 1.0, 1.0))
+	var invalid_origin_key: int = GFGridKey3D.pack_position(Vector3.ZERO, Vector3.ONE, Vector3(0.0, -INF, 0.0))
+	var report: Dictionary = GFGridKey3D.try_position_to_cell(Vector3(NAN, 0.0, 0.0))
+
+	assert_eq(invalid_position_key, GFGridKey3D.INVALID_KEY, "非有限 position 不应进入 floori 或打包。")
+	assert_eq(invalid_size_key, GFGridKey3D.INVALID_KEY, "非有限 cell_size 不应被 abs/max 静默吞掉。")
+	assert_eq(invalid_origin_key, GFGridKey3D.INVALID_KEY, "非有限 origin 不应进入量化。")
+	assert_false(GFVariantData.get_option_bool(report, "ok", true), "try_position_to_cell 应以结构化报告拒绝非有限输入。")
+	assert_eq(_dictionary_vector3i(report, "cell"), Vector3i.ZERO, "失败报告应给出稳定默认 cell。")
+
+
 func test_packed_keys_are_unique_for_orientation() -> void:
 	var cell: Vector3i = Vector3i(4, 5, 6)
 

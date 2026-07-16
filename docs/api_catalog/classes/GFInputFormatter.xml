@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFInputFormatter" path="addons/gf/standard/input/formatting/gf_input_formatter.gd" module="standard" extends="RefCounted" classDigest="6a1eac2d7f48fddfb9863494c4b0f09ac6c42ddadb4814cb765dc4fe7359e907">
+<class name="GFInputFormatter" path="addons/gf/standard/input/formatting/gf_input_formatter.gd" module="standard" extends="RefCounted" classDigest="08ee837d488e28fb351697a28cb148220c82d123aee4ff1fa34fc74e3d436474">
 	<description>GFInputFormatter: 输入事件与绑定的轻量文本格式化工具。</description>
 	<tags>
 		<tag name="api">public</tag>
@@ -19,7 +19,8 @@
 				<tag name="param">input_event: 输入事件。</tag>
 				<tag name="param">options: 可选格式化参数。</tag>
 				<tag name="return">可显示文本。</tag>
-				<tag name="schema">options: Dictionary，可包含 unbound_text 和 provider 特定格式化字段。</tag>
+				<tag name="schema">options: Dictionary，可包含 unbound_text、formatter_registry 和 provider 特定格式化字段。</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="input_event_as_rich_text">
@@ -30,7 +31,8 @@
 				<tag name="param">input_event: 输入事件。</tag>
 				<tag name="param">options: 可选格式化参数。</tag>
 				<tag name="return">BBCode 文本。</tag>
-				<tag name="schema">options: Dictionary，可包含 unbound_text、icon_size 和 provider 特定富文本字段。</tag>
+				<tag name="schema">options: Dictionary，可包含 unbound_text、icon_size、formatter_registry 和 provider 特定富文本字段。</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="input_event_icon">
@@ -41,7 +43,8 @@
 				<tag name="param">input_event: 输入事件。</tag>
 				<tag name="param">options: 可选格式化参数。</tag>
 				<tag name="return">图标资源。</tag>
-				<tag name="schema">options: Dictionary，透传给已注册的图标 provider。</tag>
+				<tag name="schema">options: Dictionary，可包含 formatter_registry，并透传给已注册的图标 provider。</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="action_as_text">
@@ -52,7 +55,7 @@
 				<tag name="param">action_name: InputMap 动作名。</tag>
 				<tag name="param">options: 可选格式化参数。</tag>
 				<tag name="return">可显示文本。</tag>
-				<tag name="schema">options: Dictionary，可包含 unbound_text、preferred_device_type、preferred_event_index 和 provider 特定格式化字段。</tag>
+				<tag name="schema">options: Dictionary，可包含 unbound_text、preferred_device_type、preferred_event_index、formatter_registry 和 provider 特定格式化字段。</tag>
 				<tag name="since">6.0.0</tag>
 			</tags>
 		</member>
@@ -64,7 +67,7 @@
 				<tag name="param">action_name: InputMap 动作名。</tag>
 				<tag name="param">options: 可选格式化参数。</tag>
 				<tag name="return">BBCode 文本。</tag>
-				<tag name="schema">options: Dictionary，可包含 unbound_text、icon_size、preferred_device_type、preferred_event_index、prefer_action_icon 和 provider 特定富文本字段。</tag>
+				<tag name="schema">options: Dictionary，可包含 unbound_text、icon_size、preferred_device_type、preferred_event_index、prefer_action_icon、formatter_registry 和 provider 特定富文本字段。</tag>
 				<tag name="since">6.0.0</tag>
 			</tags>
 		</member>
@@ -76,7 +79,7 @@
 				<tag name="param">action_name: InputMap 动作名。</tag>
 				<tag name="param">options: 可选格式化参数。</tag>
 				<tag name="return">图标资源。</tag>
-				<tag name="schema">options: Dictionary，可包含 preferred_device_type、preferred_event_index、prefer_action_icon 和 provider 特定图标字段。</tag>
+				<tag name="schema">options: Dictionary，可包含 preferred_device_type、preferred_event_index、prefer_action_icon、formatter_registry 和 provider 特定图标字段。</tag>
 				<tag name="since">6.0.0</tag>
 			</tags>
 		</member>
@@ -88,7 +91,8 @@
 				<tag name="param">binding: 输入绑定。</tag>
 				<tag name="param">options: 可选格式化参数。</tag>
 				<tag name="return">可显示文本。</tag>
-				<tag name="schema">options: Dictionary，可包含 unbound_text 和 provider 特定格式化字段。</tag>
+				<tag name="schema">options: Dictionary，可包含 unbound_text、formatter_registry 和 provider 特定格式化字段。</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="binding_as_rich_text">
@@ -99,7 +103,8 @@
 				<tag name="param">binding: 输入绑定。</tag>
 				<tag name="param">options: 可选格式化参数。</tag>
 				<tag name="return">BBCode 文本。</tag>
-				<tag name="schema">options: Dictionary，可包含 unbound_text、icon_size 和 provider 特定富文本字段。</tag>
+				<tag name="schema">options: Dictionary，可包含 unbound_text、icon_size、formatter_registry 和 provider 特定富文本字段。</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="mapping_as_text">
@@ -112,7 +117,8 @@
 				<tag name="param">remap_config: 可选重映射配置。</tag>
 				<tag name="param">options: 可选格式化参数。</tag>
 				<tag name="return">可显示文本。</tag>
-				<tag name="schema">options: Dictionary，可包含 unbound_text 和 provider 特定格式化字段。</tag>
+				<tag name="schema">options: Dictionary，可包含 unbound_text、formatter_registry 和 provider 特定格式化字段。</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="mapping_as_rich_text">
@@ -125,15 +131,47 @@
 				<tag name="param">remap_config: 可选重映射配置。</tag>
 				<tag name="param">options: 可选格式化参数。</tag>
 				<tag name="return">BBCode 文本。</tag>
-				<tag name="schema">options: Dictionary，可包含 unbound_text、icon_size 和 provider 特定富文本字段。</tag>
+				<tag name="schema">options: Dictionary，可包含 unbound_text、icon_size、formatter_registry 和 provider 特定富文本字段。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_default_registry">
+			<signature>static func get_default_registry() -&gt; GFInputFormatterRegistry:</signature>
+			<description>获取默认 provider registry。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">默认 provider registry。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="set_default_registry">
+			<signature>static func set_default_registry(registry: GFInputFormatterRegistry) -&gt; void:</signature>
+			<description>设置默认 provider registry。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">registry: 新的默认 provider registry；传入 null 会重建空 registry。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="register_text_provider">
+			<signature>static func register_text_provider( provider: GFInputTextProvider, owner: Object = null ) -&gt; GFInputProviderRegistration:</signature>
+			<description>注册文本 provider 并返回释放句柄。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">provider: 文本 provider。</tag>
+				<tag name="param">owner: 可选拥有者；拥有者释放后注册会自动失效。</tag>
+				<tag name="return">注册句柄；provider 为空时返回非活动句柄。</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="add_text_provider">
-			<signature>static func add_text_provider(provider: GFInputTextProvider) -&gt; void:</signature>
+			<signature>static func add_text_provider(provider: GFInputTextProvider, owner: Object = null) -&gt; void:</signature>
 			<description>注册文本 provider。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">provider: 文本 provider。</tag>
+				<tag name="param">owner: 可选拥有者；拥有者释放后注册会自动失效。</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="remove_text_provider">
@@ -159,12 +197,25 @@
 				<tag name="return">provider 列表副本。</tag>
 			</tags>
 		</member>
+		<member kind="method" name="register_icon_provider">
+			<signature>static func register_icon_provider( provider: GFInputIconProvider, owner: Object = null ) -&gt; GFInputProviderRegistration:</signature>
+			<description>注册图标 provider 并返回释放句柄。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">provider: 图标 provider。</tag>
+				<tag name="param">owner: 可选拥有者；拥有者释放后注册会自动失效。</tag>
+				<tag name="return">注册句柄；provider 为空时返回非活动句柄。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
 		<member kind="method" name="add_icon_provider">
-			<signature>static func add_icon_provider(provider: GFInputIconProvider) -&gt; void:</signature>
+			<signature>static func add_icon_provider(provider: GFInputIconProvider, owner: Object = null) -&gt; void:</signature>
 			<description>注册图标 provider。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">provider: 图标 provider。</tag>
+				<tag name="param">owner: 可选拥有者；拥有者释放后注册会自动失效。</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="remove_icon_provider">

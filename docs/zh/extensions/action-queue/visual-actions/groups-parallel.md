@@ -38,6 +38,8 @@ q_sys.enqueue(GFAction.race([
 ], false))
 ```
 
+同一个 `GFVisualActionGroup` 或 `GFRepeatAction` 不应被当作可并发复用对象。再次执行时，GF 会先取消上一次尚未结束的分支并发出完成信号，再启动新的运行态，避免旧 Tween、Timer 或 Signal 等待悬挂在队列之外。
+
 ## 使用边界
 
 这个策略只定义动作组的等待边界，不解释“胜利者”或后续业务含义。需要保留结果、选择分支或写入项目状态时，应由具体动作或调用方在自己的层级完成。

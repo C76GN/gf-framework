@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFConsoleUtility" path="addons/gf/standard/utilities/debug/gf_console_utility.gd" module="standard" extends="GFUtility" classDigest="6ec825307c54ec391e4562fb144ba365b2e0b31ccf578d275a59c80e32edd06c">
+<class name="GFConsoleUtility" path="addons/gf/standard/utilities/debug/gf_console_utility.gd" module="standard" extends="GFUtility" classDigest="a2deac00a175c2153a5b8d5abd10eb7ae78fe92dc1924fe1c41db6dec2638b03">
 	<description>GFConsoleUtility: 运行时开发者控制台。
 提供命令注册、解析与执行能力，并在初始化时构建覆盖全屏的调试 GUI。
 默认通过快捷键呼出，同时会消费 `GFLogUtility` 的日志信号进行彩色输出。</description>
@@ -14,6 +14,8 @@
 			<signature>enum CommandTier {
 	## 只读观察类命令。
 	OBSERVE,
+	## 修改调试输入、过滤器或临时可视化状态的命令。
+	INPUT,
 	## 会改变运行时状态的控制类命令。
 	CONTROL,
 	## 删档、跳关、重连等高风险命令。
@@ -136,32 +138,30 @@
 			</tags>
 		</member>
 		<member kind="method" name="register_command">
-			<signature>func register_command(cmd_name: String, callback: Callable, description: String, metadata: Dictionary = {}) -&gt; void:</signature>
+			<signature>func register_command( owner: Object, cmd_name: String, callback: Callable, description: String, metadata: Dictionary = {} ) -&gt; GFLifetimeSubscription:</signature>
 			<description>注册控制台命令。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="param">owner: 命令生命周期 owner。</tag>
 				<tag name="param">cmd_name: 指令名称。</tag>
 				<tag name="param">callback: 指令回调，签名为 `func(args: PackedStringArray) -&gt; void`。</tag>
 				<tag name="param">description: 指令说明文本。</tag>
 				<tag name="param">metadata: 项目自定义元数据。</tag>
+				<tag name="return">owner-bound 注册句柄；注册失败时返回 inactive token。</tag>
 				<tag name="schema">metadata: Dictionary，支持 tier 等项目自定义命令元数据。</tag>
+				<tag name="since">3.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="register_command_definition">
-			<signature>func register_command_definition(definition: GFConsoleCommandDefinition, callback: Callable) -&gt; void:</signature>
+			<signature>func register_command_definition( owner: Object, definition: GFConsoleCommandDefinition, callback: Callable ) -&gt; GFLifetimeSubscription:</signature>
 			<description>注册资源化控制台命令。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="param">owner: 命令生命周期 owner。</tag>
 				<tag name="param">definition: 命令资源定义。</tag>
 				<tag name="param">callback: 指令回调，签名为 `func(args: PackedStringArray) -&gt; void`。</tag>
-			</tags>
-		</member>
-		<member kind="method" name="unregister_command">
-			<signature>func unregister_command(cmd_name: String) -&gt; void:</signature>
-			<description>注销控制台命令。</description>
-			<tags>
-				<tag name="api">public</tag>
-				<tag name="param">cmd_name: 指令名称。</tag>
+				<tag name="return">owner-bound 注册句柄；注册失败时返回 inactive token。</tag>
+				<tag name="since">3.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="has_command">
@@ -197,6 +197,19 @@
 				<tag name="api">public</tag>
 				<tag name="param">prefix: 命令名前缀。</tag>
 				<tag name="return">排序后的候选命令名数组。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="suggest_command_arguments">
+			<signature>func suggest_command_arguments(raw_input: String) -&gt; PackedStringArray:</signature>
+			<description>根据当前输入获取命令参数补全候选。
+命令通过 metadata.argument_suggester 或 GFConsoleCommandDefinition.argument_suggester
+提供候选。回调接收的上下文字典包含 command_name、args、argument_index、
+prefix 和 raw_input。GF 会按当前参数前缀做一次稳定过滤。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">raw_input: 控制台当前输入。</tag>
+				<tag name="return">排序后的参数候选。</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="suggest_similar_commands">

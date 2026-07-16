@@ -50,7 +50,7 @@ var _goal: Variant
 var _get_neighbors: Callable = Callable()
 var _get_step_cost: Callable = Callable()
 var _heuristic: Callable = Callable()
-var _open_heap: Array = []
+var _open_queue: GFPriorityQueue = GFPriorityQueue.new(false)
 var _closed: Dictionary = {}
 var _came_from: Dictionary = {}
 var _g_score: Dictionary = {}
@@ -146,8 +146,8 @@ func advance(max_iterations: int = 64) -> Dictionary:
 		_finish(STATUS_INVALID, &"invalid_neighbors")
 		return make_report(iterations)
 
-	while iterations < max_iterations and not _open_heap.is_empty():
-		var current_entry: Dictionary = _heap_pop_node()
+	while iterations < max_iterations and not _open_queue.is_empty():
+		var current_entry: Dictionary = _pop_node_priority()
 		var current: Variant = GFVariantData.get_option_value(current_entry, "node")
 		if _closed.has(current):
 			continue
@@ -179,9 +179,9 @@ func advance(max_iterations: int = 64) -> Dictionary:
 			_came_from[next_node] = current
 			_g_score[next_node] = tentative_score
 			_f_score[next_node] = tentative_score + _get_heuristic_for(next_node, _goal)
-			_heap_push_node(next_node, GFVariantData.get_option_float(_f_score, next_node, INF))
+			_push_node_priority(next_node, GFVariantData.get_option_float(_f_score, next_node, INF))
 
-	if _open_heap.is_empty():
+	if _open_queue.is_empty():
 		_finish(STATUS_UNREACHABLE, &"unreachable")
 
 	return make_report(iterations)
@@ -206,7 +206,7 @@ func make_report(iterations: int = 0) -> Dictionary:
 		"found": _status == STATUS_FOUND,
 		"reason": _reason,
 		"iterations": iterations,
-		"frontier_count": _open_heap.size(),
+		"frontier_count": _open_queue.size(),
 		"expanded_count": _expanded_count,
 		"path": _path.duplicate(),
 		"cost": _cost,
@@ -307,7 +307,7 @@ func _configure(
 		_finish(STATUS_FOUND, &"")
 		return
 
-	_heap_push_node(start, GFVariantData.get_option_float(_f_score, start, INF))
+	_push_node_priority(start, GFVariantData.get_option_float(_f_score, start, INF))
 
 
 func _finish(status: StringName, reason: StringName) -> void:
@@ -337,67 +337,18 @@ func _get_heuristic_for(node: Variant, goal: Variant) -> float:
 	return 0.0
 
 
-func _heap_push_node(node: Variant, priority: float) -> void:
+func _push_node_priority(node: Variant, priority: float) -> void:
 	var sequence: int = _sequence
 	_sequence += 1
-	_open_heap.append({
+	var _node_queued: bool = _open_queue.push_with_order({
 		"node": node,
 		"priority": priority,
 		"sequence": sequence,
-	})
-	var index: int = _open_heap.size() - 1
-	while index > 0:
-		var parent_index: int = (index - 1) >> 1
-		if _path_heap_entry_is_before_or_equal(
-			GFVariantData.as_dictionary(_open_heap[parent_index]),
-			GFVariantData.as_dictionary(_open_heap[index])
-		):
-			break
-		var parent_entry: Dictionary = GFVariantData.as_dictionary(_open_heap[parent_index])
-		_open_heap[parent_index] = _open_heap[index]
-		_open_heap[index] = parent_entry
-		index = parent_index
+	}, priority, sequence)
 
 
-func _heap_pop_node() -> Dictionary:
-	if _open_heap.is_empty():
-		return {}
-
-	var result: Dictionary = GFVariantData.as_dictionary(_open_heap[0])
-	var last_entry: Dictionary = GFVariantData.as_dictionary(_open_heap.pop_back())
-	if _open_heap.is_empty():
-		return result
-
-	_open_heap[0] = last_entry
-	var index: int = 0
-	while true:
-		var left_index: int = index * 2 + 1
-		var right_index: int = left_index + 1
-		var best_index: int = index
-		if (
-			left_index < _open_heap.size()
-			and _path_heap_entry_is_before(
-				GFVariantData.as_dictionary(_open_heap[left_index]),
-				GFVariantData.as_dictionary(_open_heap[best_index])
-			)
-		):
-			best_index = left_index
-		if (
-			right_index < _open_heap.size()
-			and _path_heap_entry_is_before(
-				GFVariantData.as_dictionary(_open_heap[right_index]),
-				GFVariantData.as_dictionary(_open_heap[best_index])
-			)
-		):
-			best_index = right_index
-		if best_index == index:
-			break
-
-		var best_entry: Dictionary = GFVariantData.as_dictionary(_open_heap[best_index])
-		_open_heap[best_index] = _open_heap[index]
-		_open_heap[index] = best_entry
-		index = best_index
-	return result
+func _pop_node_priority() -> Dictionary:
+	return GFVariantData.as_dictionary(_open_queue.pop({}))
 
 
 static func _reconstruct_path(start: Variant, goal: Variant, came_from: Dictionary) -> Array:
@@ -416,29 +367,3 @@ static func _reconstruct_path(start: Variant, goal: Variant, came_from: Dictiona
 
 static func _get_entry_priority(entry: Dictionary, fallback: float = INF) -> float:
 	return GFVariantData.get_option_float(entry, "priority", fallback)
-
-
-static func _path_heap_entry_is_before_or_equal(left_entry: Dictionary, right_entry: Dictionary) -> bool:
-	var left_priority: float = _get_entry_priority(left_entry)
-	var right_priority: float = _get_entry_priority(right_entry)
-	if left_priority < right_priority:
-		return true
-	if left_priority > right_priority:
-		return false
-	return (
-		GFVariantData.get_option_int(left_entry, "sequence")
-		<= GFVariantData.get_option_int(right_entry, "sequence")
-	)
-
-
-static func _path_heap_entry_is_before(left_entry: Dictionary, right_entry: Dictionary) -> bool:
-	var left_priority: float = _get_entry_priority(left_entry)
-	var right_priority: float = _get_entry_priority(right_entry)
-	if left_priority < right_priority:
-		return true
-	if left_priority > right_priority:
-		return false
-	return (
-		GFVariantData.get_option_int(left_entry, "sequence")
-		< GFVariantData.get_option_int(right_entry, "sequence")
-	)

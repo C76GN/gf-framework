@@ -86,6 +86,35 @@ func test_ref_counted_pool_prewarms_and_reports_snapshot() -> void:
 	assert_eq(GFVariantData.get_option_int(snapshot, "available_count"), 2, "调试快照应包含可用数量。")
 
 
+func test_ref_counted_pool_rejects_factory_returning_active_item() -> void:
+	var shared: PooledItem = PooledItem.new()
+	var pool: GFRefCountedPool = GFRefCountedPool.new(func() -> RefCounted:
+		return shared
+	)
+
+	var first: PooledItem = _to_pooled_item(pool.acquire())
+	var second: RefCounted = pool.acquire()
+
+	assert_same(first, shared, "首次借出应接受未追踪对象。")
+	assert_null(second, "factory 返回已借出对象时不应重复借出同一身份。")
+	assert_eq(pool.active_count, 1, "重复借出被拒绝后 active 计数应保持唯一。")
+	assert_push_error("[GFRefCountedPool] acquire 失败：factory 返回了已被当前池追踪的对象，已拒绝重复借出。")
+
+
+func test_ref_counted_pool_prewarm_rejects_duplicate_available_item() -> void:
+	var shared: PooledItem = PooledItem.new()
+	var pool: GFRefCountedPool = GFRefCountedPool.new(func() -> RefCounted:
+		return shared
+	)
+
+	var created: int = pool.prewarm(2)
+
+	assert_eq(created, 1, "prewarm 遇到重复可用对象时应停止继续加入。")
+	assert_eq(pool.available_count, 1, "重复对象不应以多个引用进入可用池。")
+	assert_eq(GFVariantData.get_option_int(pool.get_debug_snapshot(), "created_count"), 1, "被拒绝的重复对象不应计入已接受创建数。")
+	assert_push_error("[GFRefCountedPool] prewarm 失败：factory 返回了已被当前池追踪的对象，已停止预热。")
+
+
 func test_ref_counted_pool_rejects_invalid_factory() -> void:
 	var pool: GFRefCountedPool = GFRefCountedPool.new()
 

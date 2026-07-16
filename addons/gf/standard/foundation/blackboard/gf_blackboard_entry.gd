@@ -142,19 +142,24 @@ func is_value_valid(value: Variant) -> bool:
 			return true
 
 
-## 将输入值转换为字段要求的类型。
+## 将输入值转换为字段要求的类型；转换失败时返回输入值副本。
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param value: 输入值。
 ## [br]
-## @return 转换后的值。
+## @return 转换后的值；失败时为输入值副本。
 ## [br]
 ## @schema value: Variant value to coerce.
 ## [br]
 ## @schema return: Variant coerced value.
 func coerce_value(value: Variant) -> Variant:
-	return GFVariantData.get_option_value(try_coerce_value(value), "value")
+	var result: Dictionary = try_coerce_value(value)
+	if GFVariantData.get_option_bool(result, "ok", false):
+		return GFVariantData.get_option_value(result, "value")
+	return GFVariantData.duplicate_variant(value)
 
 
 ## 尝试转换输入值并返回转换报告。
@@ -298,7 +303,10 @@ func _try_coerce_bool(value: Variant) -> Dictionary:
 		var bool_value: bool = value
 		return _make_coerce_result(true, bool_value)
 	if value is int or value is float:
-		return _make_coerce_result(true, GFVariantData.to_float(value, 0.0) != 0.0)
+		var numeric_value: float = GFVariantData.to_float(value, 0.0)
+		if not is_finite(numeric_value):
+			return _make_coerce_result(false, false, "Value cannot be coerced to bool from a non-finite number.")
+		return _make_coerce_result(true, numeric_value != 0.0)
 	if value is String or value is StringName:
 		var text: String = GFVariantData.to_text(value, "").strip_edges().to_lower()
 		if text in ["true", "1", "yes", "on"]:
@@ -388,7 +396,7 @@ func _try_coerce_color(value: Variant) -> Dictionary:
 	if value is String or value is StringName:
 		var text: String = GFVariantData.to_text(value, "").strip_edges()
 		if not text.is_empty():
-			if Color.html_is_valid(text):
+			if text.begins_with("#") and Color.html_is_valid(text):
 				return _make_coerce_result(true, Color.html(text))
 			return _make_coerce_result(false, Color.WHITE, "无效颜色字符串：%s" % text)
 

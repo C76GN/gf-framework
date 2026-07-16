@@ -16,7 +16,7 @@
 | 类型 | 名称 | 签名 |
 |---|---|---|
 | 属性 | [`value`](#member-gfweightedentry-properties-value) | `var value: Variant = null` |
-| 属性 | [`weight`](#member-gfweightedentry-properties-weight) | `var weight: float = 1.0` |
+| 属性 | [`weight`](#member-gfweightedentry-properties-weight) | `var weight: float = 1.0:` |
 | 属性 | [`metadata`](#member-gfweightedentry-properties-metadata) | `var metadata: Dictionary = {}` |
 | 方法 | [`configure`](#member-gfweightedentry-methods-configure) | `func configure(p_value: Variant, p_weight: float = 1.0, p_metadata: Dictionary = {}) -> GFWeightedEntry:` |
 | 方法 | [`is_selectable`](#member-gfweightedentry-methods-is_selectable) | `func is_selectable() -> bool:` |
@@ -47,12 +47,13 @@ var value: Variant = null
 ### `weight`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-var weight: float = 1.0
+var weight: float = 1.0:
 ```
 
-权重；小于等于 0 的条目不会被选择。
+权重；必须是有限正数才会被选择。
 
 <a id="member-gfweightedentry-properties-metadata"></a>
 
@@ -77,6 +78,7 @@ var metadata: Dictionary = {}
 ### `configure`
 
 - API：`public`
+- 首次版本：`8.0.0`
 
 ```gdscript
 func configure(p_value: Variant, p_weight: float = 1.0, p_metadata: Dictionary = {}) -> GFWeightedEntry:
@@ -89,7 +91,7 @@ func configure(p_value: Variant, p_weight: float = 1.0, p_metadata: Dictionary =
 | 名称 | 说明 |
 |---|---|
 | `p_value` | 被选择后返回的值。 |
-| `p_weight` | 权重；小于等于 0 表示不可被选择。 |
+| `p_weight` | 权重；非有限数或小于等于 0 表示不可被选择。 |
 | `p_metadata` | 可选元数据。 |
 
 返回：当前条目。
@@ -104,6 +106,7 @@ func configure(p_value: Variant, p_weight: float = 1.0, p_metadata: Dictionary =
 ### `is_selectable`
 
 - API：`public`
+- 首次版本：`8.0.0`
 
 ```gdscript
 func is_selectable() -> bool:
@@ -111,7 +114,7 @@ func is_selectable() -> bool:
 
 判断该条目当前是否可被选择。
 
-返回：权重大于 0 时返回 true。
+返回：权重为有限正数时返回 true。
 
 <a id="member-gfweightedentry-methods-duplicate_entry"></a>
 

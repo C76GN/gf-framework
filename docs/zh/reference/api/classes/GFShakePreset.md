@@ -43,6 +43,7 @@
 ### `Waveform`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 enum Waveform {
@@ -66,6 +67,7 @@ enum Waveform {
 ### `duration_seconds`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var duration_seconds: float = 0.25
@@ -78,6 +80,7 @@ var duration_seconds: float = 0.25
 ### `amplitude`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var amplitude: float = 1.0
@@ -90,6 +93,7 @@ var amplitude: float = 1.0
 ### `frequency`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var frequency: float = 24.0
@@ -102,6 +106,7 @@ var frequency: float = 24.0
 ### `waveform`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var waveform: Waveform = Waveform.NOISE
@@ -114,6 +119,7 @@ var waveform: Waveform = Waveform.NOISE
 ### `position_axis`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var position_axis: Vector3 = Vector3.ONE
@@ -126,6 +132,7 @@ var position_axis: Vector3 = Vector3.ONE
 ### `rotation_axis_degrees`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var rotation_axis_degrees: Vector3 = Vector3.ZERO
@@ -138,6 +145,7 @@ var rotation_axis_degrees: Vector3 = Vector3.ZERO
 ### `scale_axis`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var scale_axis: Vector3 = Vector3.ZERO
@@ -150,6 +158,7 @@ var scale_axis: Vector3 = Vector3.ZERO
 ### `decay_curve`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var decay_curve: Curve = null
@@ -162,6 +171,7 @@ var decay_curve: Curve = null
 ### `wave_curve`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var wave_curve: Curve = null
@@ -174,6 +184,7 @@ var wave_curve: Curve = null
 ### `sample_seed`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var sample_seed: int = 1
@@ -186,6 +197,7 @@ var sample_seed: int = 1
 ### `tracks`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var tracks: Array[GFShakeTrack] = []
@@ -204,6 +216,7 @@ var tracks: Array[GFShakeTrack] = []
 ### `get_duration_seconds`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func get_duration_seconds() -> float:
@@ -218,6 +231,7 @@ func get_duration_seconds() -> float:
 ### `sample`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func sample(elapsed_seconds: float, strength: float = 1.0, phase_offset: float = 0.0) -> Dictionary:
@@ -244,6 +258,7 @@ func sample(elapsed_seconds: float, strength: float = 1.0, phase_offset: float =
 ### `sample_at_progress`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func sample_at_progress( progress: float, elapsed_seconds: float, strength: float = 1.0, phase_offset: float = 0.0 ) -> Dictionary:
@@ -271,6 +286,7 @@ func sample_at_progress( progress: float, elapsed_seconds: float, strength: floa
 ### `add_track`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func add_track(track: GFShakeTrack) -> bool:
@@ -291,6 +307,7 @@ func add_track(track: GFShakeTrack) -> bool:
 ### `clear_tracks`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func clear_tracks() -> void:
@@ -303,6 +320,7 @@ func clear_tracks() -> void:
 ### `has_tracks`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func has_tracks() -> bool:
@@ -317,6 +335,7 @@ func has_tracks() -> bool:
 ### `zero_sample`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 static func zero_sample() -> Dictionary:
@@ -335,6 +354,7 @@ static func zero_sample() -> Dictionary:
 ### `combine_samples`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 static func combine_samples(samples: Array[Dictionary]) -> Dictionary:

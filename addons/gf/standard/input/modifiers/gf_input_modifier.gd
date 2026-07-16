@@ -57,3 +57,84 @@ func duplicate_modifier() -> GFInputModifier:
 		var input_modifier: GFInputModifier = modifier
 		return input_modifier
 	return null
+
+
+## 当前修饰器是否维护运行时状态。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+## [br]
+## @return 有运行时状态时返回 true。
+func supports_runtime_state() -> bool:
+	return false
+
+
+## 获取运行时状态快照。
+## 无状态修饰器返回空字典。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+## [br]
+## @return 当前运行时状态。
+## [br]
+## @schema return: Dictionary，具体字段由修饰器实现定义。
+func get_modifier_runtime_state() -> Dictionary:
+	return {}
+
+
+## 从运行时状态快照恢复修饰器。
+## 无状态修饰器忽略该调用。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+## [br]
+## @param state: get_modifier_runtime_state() 生成的状态。
+## [br]
+## @schema state: Dictionary，具体字段由修饰器实现定义。
+## [br]
+## @return 当前修饰器。
+func restore_modifier_runtime_state(state: Dictionary) -> GFInputModifier:
+	var _unused_state: Dictionary = state
+	return self
+
+
+## 重置运行时状态。
+## 无状态修饰器忽略该调用。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+## [br]
+## @return 当前修饰器。
+func reset_modifier_runtime_state() -> GFInputModifier:
+	return self
+
+
+## 设置修饰器下一步使用的运行时 delta 秒数。
+## 不依赖 delta 的修饰器忽略该调用。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+## [br]
+## @param delta_seconds: 运行时 delta 秒数；小于 0 时实现应按 0 处理。
+## [br]
+## @return 当前修饰器。
+func set_runtime_delta_seconds(delta_seconds: float) -> GFInputModifier:
+	var _unused_delta_seconds: float = delta_seconds
+	return self
+
+
+## 清除手动运行时 delta，恢复修饰器默认时间源。
+## 不依赖 delta 的修饰器忽略该调用。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+## [br]
+## @return 当前修饰器。
+func clear_runtime_delta_seconds() -> GFInputModifier:
+	return self

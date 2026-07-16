@@ -296,12 +296,12 @@ static func summarize_manifests(manifests: Array[Dictionary], options: Dictionar
 | 名称 | 说明 |
 |---|---|
 | `manifests` | 清单数组。 |
-| `options` | 汇总选项，支持 include_manifests 和 metadata。 |
+| `options` | 汇总选项，支持 include_manifests 和 metadata；metadata 与可选 manifests 会在返回摘要中编码为 JSON-safe 值。 |
 
 返回：清单摘要。
 
 结构：
 
 - `manifests`: Array[Dictionary] template generation manifests.
-- `options`: Dictionary with include_manifests and metadata.
-- `return`: Dictionary containing valid, manifest_count, valid_count, invalid_count, template_ids, output_paths, errors, metadata, and optional manifests.
+- `options`: Dictionary with include_manifests and metadata; metadata may contain arbitrary Variant values and is encoded with GFReportValueCodec in the returned summary.
+- `return`: JSON-safe Dictionary containing valid, manifest_count, valid_count, invalid_count, template_ids, output_paths, errors, metadata, and optional manifests.

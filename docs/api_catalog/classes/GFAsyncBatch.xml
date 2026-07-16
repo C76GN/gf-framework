@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFAsyncBatch" path="addons/gf/standard/utilities/io/gf_async_batch.gd" module="standard" extends="RefCounted" classDigest="072a73a3cb0cba0755a473e70203b6b80538928e3ac56e668089b8cb11ac7f5f">
+<class name="GFAsyncBatch" path="addons/gf/standard/utilities/io/gf_async_batch.gd" module="standard" extends="RefCounted" classDigest="aade60d1a9bd833107f82188d5f4f47dabc89c8975a8856f7e374fb984e5027f">
 	<description>GFAsyncBatch: 通用异步结果批处理器。
 用于等待一组 [GFHttpResponse] 或手动标记的异步条目，并统一汇总成功、失败、
 取消、超时和首个完成项。它不负责调度具体任务，只观察任务何时进入终态。</description>
@@ -164,6 +164,20 @@
 				<tag name="schema">key: Variant，调用方持有的条目标识；为 null 时使用 response.url。</tag>
 			</tags>
 		</member>
+		<member kind="method" name="watch_completion">
+			<signature>func watch_completion(completion: GFAsyncCompletion, key: Variant = null, metadata: Dictionary = {}) -&gt; bool:</signature>
+			<description>监听 GFAsyncCompletion。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">completion: 完成源。</tag>
+				<tag name="param">key: 条目标识；为空时使用 completion 的 instance_id。</tag>
+				<tag name="param">metadata: 条目元数据。</tag>
+				<tag name="return">是否开始监听。</tag>
+				<tag name="schema">key: Variant，调用方持有的条目标识；为 null 时使用 completion.get_instance_id()。</tag>
+				<tag name="schema">metadata: Dictionary，调用方持有并关联到该条目的元数据。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
 		<member kind="method" name="mark_completed">
 			<signature>func mark_completed(key: Variant, result: Variant = null) -&gt; bool:</signature>
 			<description>手动标记条目成功完成。</description>
@@ -218,7 +232,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="bind_cancel_token">
-			<signature>func bind_cancel_token(token: GFCancelToken) -&gt; bool:</signature>
+			<signature>func bind_cancel_token(token: GFCancellationToken) -&gt; bool:</signature>
 			<description>绑定取消 token；token 取消时取消整个批处理。</description>
 			<tags>
 				<tag name="api">public</tag>

@@ -3,6 +3,7 @@
 ## GFStorageCodec: 通用存档字典编码与解码策略。
 ##
 ## 负责字典序列化、可选压缩、完整性校验和轻量混淆。
+## JSON 格式会通过 GFVariantJsonCodec 保留 Godot 值类型和非有限浮点数。
 ## 它不负责路径、槽位、事务提交或云同步。
 ## [br]
 ## @api public
@@ -64,10 +65,24 @@ const COMPRESSION_KEY: String = "compression"
 ## @api public
 const ENVELOPE_KEY: String = "__gf_storage_envelope"
 
+## 存储 envelope schema 版本字段名。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+const ENVELOPE_VERSION_KEY: String = "__gf_storage_envelope_version"
+
 ## 存储 envelope 内原始用户数据的字段名。
 ## [br]
 ## @api public
 const ENVELOPE_DATA_KEY: String = "data"
+
+## 当前存储 envelope schema 版本。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+const ENVELOPE_VERSION: int = 1
 
 const _COMPRESSION_MODE: int = FileAccess.COMPRESSION_DEFLATE
 
@@ -201,19 +216,27 @@ func decode(bytes: PackedByteArray, options: Dictionary = {}) -> Dictionary:
 	if payload_bytes.is_empty():
 		return _make_result(false, {}, "Payload is empty", true)
 
+	var deserialize_result: Dictionary = {}
 	if should_compress:
-		payload_bytes = payload_bytes.decompress_dynamic(
-			GFVariantData.get_option_int(options, "max_decompressed_bytes", max_decompressed_bytes),
-			_COMPRESSION_MODE
-		)
-		if payload_bytes.is_empty() and not bytes.is_empty():
-			return _make_result(false, {}, "Decompression failed", true)
+		if should_allow_legacy_plain_json:
+			deserialize_result = _try_legacy_plain_json(bytes, should_normalize_json_numbers)
+		if GFVariantData.get_option_bool(deserialize_result, "ok"):
+			payload_bytes = bytes
+		else:
+			deserialize_result.clear()
+			payload_bytes = payload_bytes.decompress_dynamic(
+				GFVariantData.get_option_int(options, "max_decompressed_bytes", max_decompressed_bytes),
+				_COMPRESSION_MODE
+			)
+			if payload_bytes.is_empty() and not bytes.is_empty():
+				return _make_result(false, {}, "Decompression failed", true)
 
-	var deserialize_result: Dictionary = _try_deserialize_dictionary(
-		payload_bytes,
-		active_format,
-		should_normalize_json_numbers
-	)
+	if deserialize_result.is_empty():
+		deserialize_result = _try_deserialize_dictionary(
+			payload_bytes,
+			active_format,
+			should_normalize_json_numbers
+		)
 	var data: Dictionary = GFVariantData.as_dictionary(GFVariantData.get_option_value(deserialize_result, "data", {}))
 	if (
 		should_allow_legacy_plain_json
@@ -242,9 +265,11 @@ func decode(bytes: PackedByteArray, options: Dictionary = {}) -> Dictionary:
 	return _make_result(true, _get_user_payload(data), "", integrity_valid, get_metadata(data))
 
 
-## 序列化字典。JSON 格式会递归排序字典键。
+## 序列化字典。JSON 格式会递归排序字典键，并把 Godot 值类型转为 JSON 安全标记。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @param data: 要序列化的数据。
 ## [br]
@@ -388,9 +413,14 @@ func _prepare_metadata(
 
 func _make_storage_payload(data: Dictionary, should_write_metadata: bool) -> Dictionary:
 	var payload: Dictionary = data.duplicate(true)
-	if should_write_metadata and payload.has(META_KEY):
+	if (
+		(should_write_metadata and payload.has(META_KEY))
+		or payload.has(ENVELOPE_KEY)
+		or payload.has(ENVELOPE_VERSION_KEY)
+	):
 		return {
 			ENVELOPE_KEY: true,
+			ENVELOPE_VERSION_KEY: ENVELOPE_VERSION,
 			ENVELOPE_DATA_KEY: payload,
 		}
 	return payload
@@ -403,10 +433,16 @@ func _get_user_payload(data: Dictionary) -> Dictionary:
 
 
 func _is_storage_envelope(data: Dictionary) -> bool:
-	return (
-		GFVariantData.get_option_bool(data, ENVELOPE_KEY)
-		and GFVariantData.get_option_value(data, ENVELOPE_DATA_KEY) is Dictionary
-	)
+	if not data.has(ENVELOPE_KEY) or not data[ENVELOPE_KEY] is bool or not data[ENVELOPE_KEY]:
+		return false
+	if GFVariantData.get_option_int(data, ENVELOPE_VERSION_KEY, -1) != ENVELOPE_VERSION:
+		return false
+	if not GFVariantData.get_option_value(data, ENVELOPE_DATA_KEY) is Dictionary:
+		return false
+	for key: Variant in data.keys():
+		if key != ENVELOPE_KEY and key != ENVELOPE_VERSION_KEY and key != ENVELOPE_DATA_KEY and key != META_KEY:
+			return false
+	return true
 
 
 func _serialize_dictionary(data: Dictionary, p_format: Format) -> PackedByteArray:
@@ -414,7 +450,8 @@ func _serialize_dictionary(data: Dictionary, p_format: Format) -> PackedByteArra
 		Format.BINARY:
 			return var_to_bytes(data)
 		_:
-			return JSON.stringify(_sort_value_recursive(data)).to_utf8_buffer()
+			var sorted_data: Dictionary = GFVariantData.as_dictionary(_sort_value_recursive(data))
+			return GFVariantJsonCodec.stringify_json_compatible(sorted_data, "", true).to_utf8_buffer()
 
 
 func _deserialize_dictionary(bytes: PackedByteArray, p_format: Format) -> Dictionary:
@@ -436,8 +473,9 @@ func _try_deserialize_dictionary(
 			return { "ok": false, "data": {} }
 		_:
 			var parsed: Variant = JSON.parse_string(bytes.get_string_from_utf8())
-			if parsed is Dictionary:
-				var data: Dictionary = parsed
+			var restored: Variant = GFVariantJsonCodec.json_compatible_to_variant(parsed)
+			if restored is Dictionary:
+				var data: Dictionary = restored
 				if should_normalize_json_numbers:
 					data = _normalize_dictionary_numbers(data)
 				return { "ok": true, "data": data }
@@ -450,7 +488,7 @@ func _sort_value_recursive(value: Variant) -> Variant:
 		var dictionary: Dictionary = value
 		var keys: Array = dictionary.keys()
 		keys.sort_custom(func(left: Variant, right: Variant) -> bool:
-			return str(left) < str(right)
+			return _make_dictionary_sort_key(left) < _make_dictionary_sort_key(right)
 		)
 		for key: Variant in keys:
 			result[key] = _sort_value_recursive(dictionary[key])
@@ -461,6 +499,18 @@ func _sort_value_recursive(value: Variant) -> Variant:
 			result.append(_sort_value_recursive(item))
 		return result
 	return value
+
+
+func _make_dictionary_sort_key(key: Variant) -> String:
+	var stable_token: String = GFVariantKeyCodec.make_key_token(key)
+	if not stable_token.is_empty():
+		return stable_token
+
+	var encoded: Variant = GFVariantJsonCodec.variant_to_json_compatible(key, {
+		"encode_dictionary_keys": true,
+		"encode_unsafe_ints": true,
+	})
+	return "gfv1:%s:%s" % [type_string(typeof(key)), JSON.stringify(encoded, "", true)]
 
 
 func _normalize_checksum_data(data: Dictionary, p_format: Format) -> Dictionary:
@@ -558,8 +608,9 @@ func _obfuscate_bytes(bytes: PackedByteArray, key: int) -> PackedByteArray:
 
 func _try_legacy_plain_json(bytes: PackedByteArray, should_normalize_json_numbers: bool) -> Dictionary:
 	var parsed: Variant = JSON.parse_string(bytes.get_string_from_utf8())
-	if parsed is Dictionary:
-		var data: Dictionary = parsed
+	var restored: Variant = GFVariantJsonCodec.json_compatible_to_variant(parsed)
+	if restored is Dictionary:
+		var data: Dictionary = restored
 		if should_normalize_json_numbers:
 			data = _normalize_dictionary_numbers(data)
 		return GFResultDictionary.make_success({

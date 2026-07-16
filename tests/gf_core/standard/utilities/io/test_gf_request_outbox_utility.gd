@@ -198,6 +198,37 @@ func test_queue_persistence_round_trips_typed_body_values() -> void:
 	loaded.dispose()
 
 
+func test_queue_persistence_parse_failure_preserves_live_state() -> void:
+	var live_request: GFRequestEnvelope = _outbox.enqueue_request(
+		HTTPClient.METHOD_POST,
+		"https://example.test/live"
+	)
+	var file: FileAccess = FileAccess.open(_storage_path, FileAccess.WRITE)
+	assert_not_null(file, "测试应能写入损坏的 outbox 文件。")
+	if file != null:
+		var _store_result: Variant = file.store_string("{not-json")
+		file.close()
+
+	var load_error: Error = _outbox.load_queue()
+	var pending_requests: Array[GFRequestEnvelope] = _outbox.get_pending_requests()
+
+	assert_eq(load_error, ERR_PARSE_ERROR, "损坏文件应报告解析失败。")
+	assert_eq(pending_requests.size(), 1, "解析失败不得清空当前内存队列。")
+	assert_eq(pending_requests[0].request_id, live_request.request_id, "解析失败后应保留原请求身份。")
+
+
+func test_queue_persistence_rejects_storage_paths_outside_user() -> void:
+	var _enqueued: GFRequestEnvelope = _outbox.enqueue_request(HTTPClient.METHOD_POST, "https://example.test/state")
+	_outbox.storage_path = "res://gf_request_outbox_forbidden.json"
+
+	var save_error: Error = _outbox.save_queue()
+	var load_error: Error = _outbox.load_queue()
+
+	assert_eq(save_error, ERR_UNAUTHORIZED, "请求队列不应保存到 user:// 之外。")
+	assert_eq(load_error, ERR_UNAUTHORIZED, "请求队列不应从 user:// 之外读取。")
+	assert_eq(_outbox.get_queue_size(), 1, "拒绝读取非法路径时不应清空当前队列。")
+
+
 func _await_outbox_replay(state: ReplayState, max_count: int = 0) -> void:
 	state.report = await _outbox.replay(max_count)
 	state.done = true

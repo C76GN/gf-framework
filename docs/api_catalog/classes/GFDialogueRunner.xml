@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFDialogueRunner" path="addons/gf/extensions/dialogue/runtime/gf_dialogue_runner.gd" module="extensions/dialogue" extends="RefCounted" classDigest="8e74d23b4fbc2347b311e7aab195316b8b5eb04eb146a369b4af5e1a253b07b4">
+<class name="GFDialogueRunner" path="addons/gf/extensions/dialogue/runtime/gf_dialogue_runner.gd" module="extensions/dialogue" extends="RefCounted" classDigest="c362fce775b158279d6110566f862e5af292b5aa073821b52455c72610e9720f">
 	<description>GFDialogueRunner: 通用对话资源执行器。
 Runner 只沿 GFDialogueResource 的行、响应、跳转、条件和 mutation 推进，
 并发出结构化事件。显示、输入、存档和业务状态由项目层决定。</description>
@@ -57,7 +57,7 @@ Runner 只沿 GFDialogueResource 的行、响应、跳转、条件和 mutation �
 	<enums />
 	<constants>
 		<member kind="const" name="SNAPSHOT_SCHEMA_VERSION">
-			<signature>const SNAPSHOT_SCHEMA_VERSION: int = 2</signature>
+			<signature>const SNAPSHOT_SCHEMA_VERSION: int = 4</signature>
 			<description>对话运行快照结构版本。</description>
 			<tags>
 				<tag name="api">public</tag>

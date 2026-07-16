@@ -11,7 +11,10 @@ Decision 扩展提供不依赖 LLM 的通用决策底座。它适合 NPC 行为�
 - `GFDecisionConsideration` 将一个输入值映射为 0 到 1 的分数，可使用 min/max、响应曲线、反转和权重。
 - `GFDecisionOption` 表示一个候选决策，按乘法、加权平均、求和、最低分或最高分聚合考虑项。
 - `GFDecisionSet` 对多个候选评分并选择分数最高且满足最低分的结果。
+- `GFDecisionEvaluation` 保存一次完整评估的候选分数、最佳结果和调试快照。
 - `GFDecisionUtility` 在 GF 架构中注册决策集合，便于 System 或项目 Installer 统一调用。
+
+评分边界统一收敛到有限的 0 到 1，权重必须有限且非负。加权平均会先按最大权重缩放再求和，极大但合法的权重不会形成 `INF / INF`；SUM 使用饱和贡献，非法或非有限输入不会进入排序器。候选分数只在数值完全相等时按原始顺序打破平局，近似相等但更高的分数仍然获胜。
 
 ## 最小流程
 
@@ -40,6 +43,16 @@ if best.accepted:
 	print(best.decision_id)
 ```
 
+需要同时拿到所有分数、最佳候选和调试快照时，使用 `evaluate()`，避免先 `score_all()` 再 `select_best()` 造成二次评分：
+
+```gdscript
+var evaluation: GFDecisionEvaluation = decision_set.evaluate(context)
+if evaluation.best_score.accepted:
+	print(evaluation.to_report_dictionary())
+```
+
+编辑器、CI 或资源导入流程应在运行前调用 `GFDecisionConsideration.get_validation_report()`、`GFDecisionOption.get_validation_report()` 或 `GFDecisionSet.get_validation_report()`。这些报告会捕获缺失/重复 ID、非法聚合模式和非有限数值配置；运行时归一化是最后防线，不应替代作者态校验。
+
 ## 与行为树和 Flow 的关系
 
 Decision 负责“选什么”，BehaviorTree 和 Flow 更适合“选中后怎么推进”。项目可以在行为树叶子、Flow 节点或 System tick 中调用 `GFDecisionSet.select_best()`，再由项目代码执行对应动作。
@@ -48,11 +61,17 @@ Decision 负责“选什么”，BehaviorTree 和 Flow 更适合“选中后怎�
 
 ## 输入契约
 
-`GFDecisionContext` 的主体和目标读取遵循轻量约定：如果对象实现 `get_decision_value(key, fallback)`，Decision 会优先调用它；当该方法返回传入的 fallback 时，继续尝试读取同名属性。这样项目可以只暴露需要参与评分的值，也可以直接复用简单脚本属性。
+`GFDecisionContext` 在分配主体和目标时先捕获 `get_decision_snapshot()`、`get_decision_values()` 或可存储属性，形成本次评价的快照视图。缺失 key 才会调用 `get_decision_value(key, fallback)` 并写入当前上下文的有界懒缓存；返回 `null` 表示显式输入值，返回传入 sentinel 才表示缺失。这样同一次评价不会因重复读取而反复触发 provider 副作用。
+
+默认主动快照最多 `DEFAULT_MAX_SNAPSHOT_ENTRIES` 条，反射捕获最多 `DEFAULT_MAX_REFLECTION_PROPERTIES` 条；构造 `GFDecisionContext` 时可通过第五个 `capture_options` 参数收紧预算。预算耗尽后不会继续调用懒 provider，`get_debug_snapshot().capture_diagnostics` 会报告来源、数量、限制和截断状态。上下文复制容器但保留嵌套 Object/Resource 身份，并只通过弱引用暴露主体和目标，因此它是稳定的评价视图，不是对象图序列化器。
 
 `GFDecisionBlackboard.values`、`GFDecisionContext.metadata`、`GFDecisionOption.considerations` 和 `GFDecisionSet.decisions` 是可编辑集合。直接修改这些集合不会触发黑板变更信号，也不会执行添加、移除方法中的空值检查；需要信号或校验语义时使用对应方法。
 
 `GFDecisionConsideration.default_input` 用于输入缺失或没有配置 `input_key` 的情况；`missing_score` 用于输入存在但不是数字的情况。项目要把“缺失就是低分”表达出来时，应把 `default_input` 设为对应低值。
+
+`GFDecisionSet.get_debug_snapshot(context, scores)` 把 `scores = null` 解释为“现场评分”，把显式空数组解释为“调用方已经提供完整且为空的预计算结果”。需要避免 provider 再次执行时，应传 `GFDecisionEvaluation.scores`，不要用空数组代替缺省参数。
+
+通过 `GFDecisionUtility.register_decision_set(decision_set_id, decision_set)` 注册集合时，外部 ID 必须和资源内 `decision_set.decision_set_id` 一致；如果资源内 ID 为空，则注册入口会写入该 ID。这条规则让资源文件、运行时注册表和报告中的集合身份保持一致。
 
 ## 使用边界
 
@@ -60,6 +79,7 @@ Decision 负责“选什么”，BehaviorTree 和 Flow 更适合“选中后怎�
 - 不要把候选选择和动作执行绑死；`GFDecisionScore` 只报告结果，动作执行应留在项目 System、行为树节点、Flow 节点或其他运行时服务中。
 - 不使用 LLM Agent、Prompt、向量数据库或外部记忆服务；需要生成式代理时应作为项目或独立插件能力，不写入 GF 内置扩展。
 - 长期规划、HTN 和复杂导演策略可以基于 Decision 的上下文与评分报告继续扩展，但不应破坏当前候选评分 API。
+- 报告、日志和调试面板应优先使用 `get_debug_snapshot()` 或 `GFDecisionEvaluation.to_report_dictionary()`；Decision 的公开调试快照会统一经过 `GFReportValueCodec`，而 `to_dictionary()` 仍是进程内原生数据通道。
 
 ## API Reference
 

@@ -130,27 +130,48 @@ def main() -> int:
 	temp_log_path: pathlib.Path | None = None
 	process: subprocess.Popen[str] | None = None
 	port = args.port
+	configured_port = args.port
 	spawned = False
+	connection_fallback_reason = ""
 	started_at = time.time()
 
 	try:
-		if args.spawn_lsp:
-			if port <= 0:
+		client: LspClient | None = None
+		should_spawn_lsp = args.spawn_lsp
+		if args.connect_or_spawn:
+			should_spawn_lsp = True
+			if port > 0 and _wait_for_port("127.0.0.1", port, min(args.startup_timeout, 1.0)):
+				try:
+					client = LspClient("127.0.0.1", port)
+					_initialize_lsp(client, project_root, args.request_timeout)
+					should_spawn_lsp = False
+				except Exception as error:
+					connection_fallback_reason = str(error)
+					if client is not None:
+						client.close()
+					client = None
+		if should_spawn_lsp:
+			if args.connect_or_spawn or port <= 0:
 				port = _reserve_local_port()
 			temp_log_path = _make_temp_log_path(args.log_file)
 			process = _start_godot_lsp(args.godot, project_root, port, temp_log_path)
 			spawned = True
 			if not _wait_for_port("127.0.0.1", port, args.startup_timeout):
 				return _print_tool_error("Godot LSP port did not open before timeout.", temp_log_path)
-		elif not _wait_for_port("127.0.0.1", port, min(args.startup_timeout, 3.0)):
+		elif client is None and not _wait_for_port("127.0.0.1", port, min(args.startup_timeout, 3.0)):
 			return _print_tool_error(
-				"Godot LSP port %d is not open. Open the editor or pass --spawn-lsp." % port,
+				"Godot LSP port %d is not open. Open the editor or pass --connect-or-spawn." % port,
 				None,
 			)
 
-		client = LspClient("127.0.0.1", port)
+		if client is None:
+			client = LspClient("127.0.0.1", port)
+			try:
+				_initialize_lsp(client, project_root, args.request_timeout)
+			except Exception:
+				client.close()
+				raise
 		try:
-			_initialize_lsp(client, project_root, args.request_timeout)
 			diagnostics, timed_out_files = _scan_files(
 				client,
 				project_root,
@@ -173,6 +194,11 @@ def main() -> int:
 			fail_severities,
 			time.time() - started_at,
 		)
+		report["transport"]["configured_port"] = configured_port
+		if connection_fallback_reason:
+			report["transport"]["fallback_reason"] = connection_fallback_reason
+		if not spawned and args.log_file:
+			_write_connection_audit_log(pathlib.Path(args.log_file), report)
 		if args.output_json:
 			_write_json(pathlib.Path(args.output_json), report)
 		if args.format == "json":
@@ -185,6 +211,22 @@ def main() -> int:
 		if not args.allow_diagnostics and report["summary"]["failing_diagnostic_count"] > 0:
 			return 1
 		return 0
+	except Exception as error:
+		audit_path: pathlib.Path | None = None
+		if not spawned and args.log_file:
+			audit_path = pathlib.Path(args.log_file)
+			_write_connection_audit_log(audit_path, {
+				"tool": "gdscript_lsp_diagnostics",
+				"transport": {
+					"host": "127.0.0.1",
+					"port": port,
+					"mode": "connected",
+					"spawned_godot_lsp": False,
+				},
+				"summary": {"ok": False},
+				"error": str(error),
+			})
+		return _print_tool_error(str(error), audit_path)
 	finally:
 		if process is not None:
 			_stop_process(process)
@@ -199,7 +241,13 @@ def _parse_args() -> argparse.Namespace:
 	parser.add_argument("--project-root", default=".", help="Godot project root. Defaults to cwd.")
 	parser.add_argument("--godot", default="godot", help="Godot executable used when spawning LSP.")
 	parser.add_argument("--port", type=int, default=6005, help="Existing Godot LSP port. Use 0 with --spawn-lsp for a free port.")
-	parser.add_argument("--spawn-lsp", action="store_true", help="Spawn a hidden headless Godot editor LSP process.")
+	lsp_mode = parser.add_mutually_exclusive_group()
+	lsp_mode.add_argument("--spawn-lsp", action="store_true", help="Always spawn a hidden headless Godot editor LSP process.")
+	lsp_mode.add_argument(
+		"--connect-or-spawn",
+		action="store_true",
+		help="Reuse the configured LSP port when available; otherwise spawn a hidden headless process.",
+	)
 	parser.add_argument("--startup-timeout", type=float, default=120.0, help="Seconds to wait for spawned LSP startup.")
 	parser.add_argument("--request-timeout", type=float, default=60.0, help="Seconds to wait for initialize response.")
 	parser.add_argument("--per-file-timeout", type=float, default=3.0, help="Base seconds to wait for each file diagnostics.")
@@ -411,18 +459,20 @@ def _scan_file_pass(
 				"text": _read_text(path),
 			},
 		})
-		file_timeout = _get_file_timeout(path, per_file_timeout, max_file_timeout, attempt_index)
-		file_diagnostics = _wait_for_file_diagnostics(client, path, version, file_timeout)
-		if file_diagnostics is None:
-			timed_out_paths.append(path)
-		else:
-			for diagnostic in file_diagnostics:
-				diagnostics.append(_normalize_diagnostic(project_root, path, diagnostic))
-		client.notify("textDocument/didClose", {
-			"textDocument": {
-				"uri": uri,
-			},
-		})
+		try:
+			file_timeout = _get_file_timeout(path, per_file_timeout, max_file_timeout, attempt_index)
+			file_diagnostics = _wait_for_file_diagnostics(client, path, version, file_timeout)
+			if file_diagnostics is None:
+				timed_out_paths.append(path)
+			else:
+				for diagnostic in file_diagnostics:
+					diagnostics.append(_normalize_diagnostic(project_root, path, diagnostic))
+		finally:
+			client.notify("textDocument/didClose", {
+				"textDocument": {
+					"uri": uri,
+				},
+			})
 	return diagnostics, timed_out_paths, next_version
 
 
@@ -536,6 +586,7 @@ def _make_report(
 		"transport": {
 			"host": "127.0.0.1",
 			"port": port,
+			"mode": "spawned" if spawned else "connected",
 			"spawned_godot_lsp": spawned,
 		},
 		"summary": summary,
@@ -546,7 +597,13 @@ def _make_report(
 
 def _print_text_report(report: dict[str, Any], limit: int) -> None:
 	summary = report["summary"]
+	transport = report["transport"]
 	print("GDScript LSP diagnostics")
+	print("transport=%s host=%s port=%d" % (
+		transport["mode"],
+		transport["host"],
+		transport["port"],
+	))
 	print("files_scanned=%d diagnostics=%d failing=%d timeouts=%d elapsed_seconds=%.3f" % (
 		summary["files_scanned"],
 		summary["diagnostic_count"],
@@ -582,6 +639,13 @@ def _print_tool_error(message: str, log_path: pathlib.Path | None) -> int:
 
 
 def _write_json(path: pathlib.Path, report: dict[str, Any]) -> None:
+	if not path.is_absolute():
+		path = pathlib.Path.cwd() / path
+	path.parent.mkdir(parents=True, exist_ok=True)
+	path.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+
+def _write_connection_audit_log(path: pathlib.Path, report: dict[str, Any]) -> None:
 	if not path.is_absolute():
 		path = pathlib.Path.cwd() / path
 	path.parent.mkdir(parents=True, exist_ok=True)

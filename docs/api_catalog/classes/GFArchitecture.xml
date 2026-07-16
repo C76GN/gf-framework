@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFArchitecture" path="addons/gf/kernel/core/gf_architecture.gd" module="kernel" extends="Object" classDigest="984119e6fd8da925cc963ff171c33812d5d9d4036062c0b5a749e1ee6cea13de">
+<class name="GFArchitecture" path="addons/gf/kernel/core/gf_architecture.gd" module="kernel" extends="Object" classDigest="50f9b48b84f1453f6cf765e53d0f1e490ebad2ee1059cd79a2866c0e26fb7a7d">
 	<description>GFArchitecture: 管理 Model、System 和 Utility 的注册与生命周期的容器。
 生命周期遵循三阶段初始化协议：
 阶段一 (init)       ：所有模块执行自身内部变量初始化。
@@ -37,6 +37,14 @@
 	</signals>
 	<enums />
 	<constants>
+		<member kind="const" name="SERVICE_COMMAND_HISTORY_STORE">
+			<signature>const SERVICE_COMMAND_HISTORY_STORE: StringName = &amp;"gf.kernel.command_history_store"</signature>
+			<description>命令历史服务 capability key。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
 		<member kind="const" name="HOOK_GET_REQUIRED_DEPENDENCIES">
 			<signature>const HOOK_GET_REQUIRED_DEPENDENCIES: StringName = &amp;"get_required_dependencies"</signature>
 			<description>声明式依赖聚合 Hook 名称。</description>
@@ -256,13 +264,15 @@
 			</tags>
 		</member>
 		<member kind="method" name="init">
-			<signature>func init() -&gt; void:</signature>
+			<signature>func init() -&gt; bool:</signature>
 			<description>初始化架构及所有注册的组件（三阶段）。
 阶段一：调用所有模块的 init()，用于初始化自身内部变量。
 阶段二：串行 await 所有模块的 async_init()，用于异步资源加载等操作。
 阶段三：调用所有模块的 ready()，此时跨模块依赖获取是安全的。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="return">初始化完成且架构处于 ready 状态时返回 true。</tag>
+				<tag name="since">5.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="dispose">
@@ -327,126 +337,135 @@ query 缺少 execute() 方法时会输出 warning 并返回 null。</description
 			</tags>
 		</member>
 		<member kind="method" name="register_event">
-			<signature>func register_event(event_type: Script, on_event: Callable, priority: int = 0) -&gt; void:</signature>
+			<signature>func register_event(event_type: Script, listener: GFEventListener, priority: int = 0) -&gt; void:</signature>
 			<description>为脚本类型注册事件监听器。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">event_type: 要监听的脚本类型。</tag>
-				<tag name="param">on_event: 回调函数。</tag>
+				<tag name="param">listener: 事件监听器契约。</tag>
 				<tag name="param">priority: 回调优先级，数值越大越先执行，默认为 0。</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="register_event_owned">
-			<signature>func register_event_owned(owner: Object, event_type: Script, on_event: Callable, priority: int = 0) -&gt; void:</signature>
+			<signature>func register_event_owned(owner: Object, event_type: Script, listener: GFEventListener, priority: int = 0) -&gt; void:</signature>
 			<description>为脚本类型注册带拥有者的事件监听器。
 拥有者注销或释放后，可通过 unregister_owner_events() 一次性清理相关监听。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">owner: 监听器拥有者。</tag>
 				<tag name="param">event_type: 要监听的脚本类型。</tag>
-				<tag name="param">on_event: 回调函数。</tag>
+				<tag name="param">listener: 事件监听器契约。</tag>
 				<tag name="param">priority: 回调优先级，数值越大越先执行，默认为 0。</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="register_assignable_event">
-			<signature>func register_assignable_event(base_event_type: Script, on_event: Callable, priority: int = 0) -&gt; void:</signature>
+			<signature>func register_assignable_event(base_event_type: Script, listener: GFEventListener, priority: int = 0) -&gt; void:</signature>
 			<description>为脚本类型注册可赋值事件监听器。
 监听基类事件时，也会收到继承自该脚本类型的事件实例。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">base_event_type: 要监听的基类脚本类型。</tag>
-				<tag name="param">on_event: 回调函数。</tag>
+				<tag name="param">listener: 事件监听器契约。</tag>
 				<tag name="param">priority: 回调优先级，数值越大越先执行，默认为 0。</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="register_assignable_event_owned">
-			<signature>func register_assignable_event_owned( owner: Object, base_event_type: Script, on_event: Callable, priority: int = 0 ) -&gt; void:</signature>
+			<signature>func register_assignable_event_owned( owner: Object, base_event_type: Script, listener: GFEventListener, priority: int = 0 ) -&gt; void:</signature>
 			<description>为脚本类型注册带拥有者的可赋值事件监听器。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">owner: 监听器拥有者。</tag>
 				<tag name="param">base_event_type: 要监听的基类脚本类型。</tag>
-				<tag name="param">on_event: 回调函数。</tag>
+				<tag name="param">listener: 事件监听器契约。</tag>
 				<tag name="param">priority: 回调优先级，数值越大越先执行，默认为 0。</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="unregister_event">
-			<signature>func unregister_event(event_type: Script, on_event: Callable) -&gt; void:</signature>
+			<signature>func unregister_event(event_type: Script, listener: GFEventListener) -&gt; void:</signature>
 			<description>为脚本类型注销事件监听器。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">event_type: 要注销的脚本类型。</tag>
-				<tag name="param">on_event: 要移除的回调函数。</tag>
+				<tag name="param">listener: 要移除的事件监听器契约。</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="unregister_event_owned">
-			<signature>func unregister_event_owned(owner: Object, event_type: Script, on_event: Callable) -&gt; void:</signature>
+			<signature>func unregister_event_owned(owner: Object, event_type: Script, listener: GFEventListener) -&gt; void:</signature>
 			<description>注销带拥有者的脚本类型事件监听器。
-只移除 owner 与回调都匹配的监听，不影响其它 owner 使用同一 Callable 注册的监听。</description>
+只移除 owner 与监听器回调都匹配的监听，不影响其它 owner 使用同一 Callable 注册的监听。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">owner: 注册监听时使用的拥有者。</tag>
 				<tag name="param">event_type: 要注销的脚本类型。</tag>
-				<tag name="param">on_event: 要移除的回调函数。</tag>
+				<tag name="param">listener: 要移除的事件监听器契约。</tag>
 				<tag name="since">5.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="unregister_assignable_event">
-			<signature>func unregister_assignable_event(base_event_type: Script, on_event: Callable) -&gt; void:</signature>
+			<signature>func unregister_assignable_event(base_event_type: Script, listener: GFEventListener) -&gt; void:</signature>
 			<description>注销可赋值类型事件监听器。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">base_event_type: 注册时使用的基类脚本类型。</tag>
-				<tag name="param">on_event: 要移除的回调函数。</tag>
+				<tag name="param">listener: 要移除的事件监听器契约。</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="unregister_assignable_event_owned">
-			<signature>func unregister_assignable_event_owned(owner: Object, base_event_type: Script, on_event: Callable) -&gt; void:</signature>
+			<signature>func unregister_assignable_event_owned(owner: Object, base_event_type: Script, listener: GFEventListener) -&gt; void:</signature>
 			<description>注销带拥有者的可赋值类型事件监听器。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">owner: 注册监听时使用的拥有者。</tag>
 				<tag name="param">base_event_type: 注册时使用的基类脚本类型。</tag>
-				<tag name="param">on_event: 要移除的回调函数。</tag>
+				<tag name="param">listener: 要移除的事件监听器契约。</tag>
 				<tag name="since">5.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="register_simple_event">
-			<signature>func register_simple_event(event_id: StringName, on_event: Callable) -&gt; void:</signature>
+			<signature>func register_simple_event(event_id: StringName, listener: GFEventListener) -&gt; void:</signature>
 			<description>注册轻量级 StringName 事件监听器。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">event_id: StringName 事件标识符。</tag>
-				<tag name="param">on_event: 回调函数，签名为 func(payload: Variant)。</tag>
+				<tag name="param">listener: 简单事件监听器契约。</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="register_simple_event_owned">
-			<signature>func register_simple_event_owned(owner: Object, event_id: StringName, on_event: Callable) -&gt; void:</signature>
+			<signature>func register_simple_event_owned(owner: Object, event_id: StringName, listener: GFEventListener) -&gt; void:</signature>
 			<description>注册带拥有者的轻量级 StringName 事件监听器。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">owner: 监听器拥有者。</tag>
 				<tag name="param">event_id: StringName 事件标识符。</tag>
-				<tag name="param">on_event: 回调函数，签名为 func(payload: Variant)。</tag>
+				<tag name="param">listener: 简单事件监听器契约。</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="unregister_simple_event">
-			<signature>func unregister_simple_event(event_id: StringName, on_event: Callable) -&gt; void:</signature>
+			<signature>func unregister_simple_event(event_id: StringName, listener: GFEventListener) -&gt; void:</signature>
 			<description>注销轻量级 StringName 事件监听器。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">event_id: StringName 事件标识符。</tag>
-				<tag name="param">on_event: 要移除的回调函数。</tag>
+				<tag name="param">listener: 要移除的简单事件监听器契约。</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="unregister_simple_event_owned">
-			<signature>func unregister_simple_event_owned(owner: Object, event_id: StringName, on_event: Callable) -&gt; void:</signature>
+			<signature>func unregister_simple_event_owned(owner: Object, event_id: StringName, listener: GFEventListener) -&gt; void:</signature>
 			<description>注销带拥有者的轻量级 StringName 事件监听器。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">owner: 注册监听时使用的拥有者。</tag>
 				<tag name="param">event_id: StringName 事件标识符。</tag>
-				<tag name="param">on_event: 要移除的回调函数。</tag>
+				<tag name="param">listener: 要移除的简单事件监听器契约。</tag>
 				<tag name="since">5.0.0</tag>
 			</tags>
 		</member>
@@ -525,108 +544,125 @@ query 缺少 execute() 方法时会输出 warning 并返回 null。</description
 			</tags>
 		</member>
 		<member kind="method" name="register_system">
-			<signature>func register_system(script_cls: Script, instance: Object) -&gt; void:</signature>
+			<signature>func register_system(script_cls: Script, instance: Object) -&gt; bool:</signature>
 			<description>注册 System 实例。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">script_cls: 系统的脚本类。</tag>
 				<tag name="param">instance: 系统实例。</tag>
+				<tag name="return">注册成功、且运行时热注册完成生命周期推进时返回 true。</tag>
 				<tag name="since">5.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="register_model">
-			<signature>func register_model(script_cls: Script, instance: Object) -&gt; void:</signature>
+			<signature>func register_model(script_cls: Script, instance: Object) -&gt; bool:</signature>
 			<description>注册 Model 实例。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">script_cls: 模型的脚本类。</tag>
 				<tag name="param">instance: 模型实例。</tag>
+				<tag name="return">注册成功、且运行时热注册完成生命周期推进时返回 true。</tag>
 				<tag name="since">5.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="register_utility">
-			<signature>func register_utility(script_cls: Script, instance: Object) -&gt; void:</signature>
+			<signature>func register_utility(script_cls: Script, instance: Object) -&gt; bool:</signature>
 			<description>注册 Utility 实例。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">script_cls: 工具的脚本类。</tag>
 				<tag name="param">instance: 工具实例。</tag>
+				<tag name="return">注册成功、且运行时热注册完成生命周期推进时返回 true。</tag>
+				<tag name="since">5.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="replace_system">
-			<signature>func replace_system(script_cls: Script, instance: Object) -&gt; void:</signature>
+			<signature>func replace_system(script_cls: Script, instance: Object) -&gt; bool:</signature>
 			<description>替换 System 实例。新实例成功完成当前生命周期阶段后才会提交替换。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">script_cls: 系统的脚本类。</tag>
 				<tag name="param">instance: 新系统实例。</tag>
+				<tag name="return">替换成功时返回 true。</tag>
 				<tag name="since">5.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="replace_model">
-			<signature>func replace_model(script_cls: Script, instance: Object) -&gt; void:</signature>
+			<signature>func replace_model(script_cls: Script, instance: Object) -&gt; bool:</signature>
 			<description>替换 Model 实例。新实例成功完成当前生命周期阶段后才会提交替换。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">script_cls: 模型的脚本类。</tag>
 				<tag name="param">instance: 新模型实例。</tag>
+				<tag name="return">替换成功时返回 true。</tag>
 				<tag name="since">5.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="replace_utility">
-			<signature>func replace_utility(script_cls: Script, instance: Object) -&gt; void:</signature>
+			<signature>func replace_utility(script_cls: Script, instance: Object) -&gt; bool:</signature>
 			<description>替换 Utility 实例。新实例成功完成当前生命周期阶段后才会提交替换。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">script_cls: 工具的脚本类。</tag>
 				<tag name="param">instance: 新工具实例。</tag>
+				<tag name="return">替换成功时返回 true。</tag>
 				<tag name="since">5.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="register_factory">
-			<signature>func register_factory( script_cls: Script, factory: Callable, lifetime: int = GFBindingLifetimesBase.Lifetime.TRANSIENT ) -&gt; void:</signature>
+			<signature>func register_factory( script_cls: Script, factory: Callable, lifetime: int = GFBindingLifetimesBase.Lifetime.TRANSIENT ) -&gt; bool:</signature>
 			<description>注册短生命周期对象工厂。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">script_cls: 要创建的脚本类型。</tag>
 				<tag name="param">factory: 返回对象实例的工厂回调。</tag>
 				<tag name="param">lifetime: 工厂生命周期，默认每次 create_instance() 都创建新对象。</tag>
+				<tag name="return">工厂注册成功时返回 true。</tag>
+				<tag name="since">5.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="register_factory_instance">
-			<signature>func register_factory_instance(script_cls: Script, instance: Object) -&gt; void:</signature>
+			<signature>func register_factory_instance(script_cls: Script, instance: Object) -&gt; bool:</signature>
 			<description>注册已有实例作为短生命周期工厂入口。该实例以单例方式返回。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">script_cls: 要创建的脚本类型。</tag>
 				<tag name="param">instance: 要暴露的实例。</tag>
+				<tag name="return">工厂入口注册成功时返回 true。</tag>
+				<tag name="since">5.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="replace_factory">
-			<signature>func replace_factory( script_cls: Script, factory: Callable, lifetime: int = GFBindingLifetimesBase.Lifetime.TRANSIENT ) -&gt; void:</signature>
+			<signature>func replace_factory( script_cls: Script, factory: Callable, lifetime: int = GFBindingLifetimesBase.Lifetime.TRANSIENT ) -&gt; bool:</signature>
 			<description>替换短生命周期对象工厂。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">script_cls: 要创建的脚本类型。</tag>
 				<tag name="param">factory: 新工厂回调。</tag>
 				<tag name="param">lifetime: 工厂生命周期。</tag>
+				<tag name="return">工厂替换成功时返回 true。</tag>
+				<tag name="since">5.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="replace_factory_instance">
-			<signature>func replace_factory_instance(script_cls: Script, instance: Object) -&gt; void:</signature>
+			<signature>func replace_factory_instance(script_cls: Script, instance: Object) -&gt; bool:</signature>
 			<description>替换已有实例工厂入口。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">script_cls: 要创建的脚本类型。</tag>
 				<tag name="param">instance: 要暴露的实例。</tag>
+				<tag name="return">工厂入口替换成功时返回 true。</tag>
+				<tag name="since">5.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="unregister_factory">
-			<signature>func unregister_factory(script_cls: Script) -&gt; void:</signature>
+			<signature>func unregister_factory(script_cls: Script) -&gt; bool:</signature>
 			<description>注销短生命周期对象工厂。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">script_cls: 要移除的脚本类型。</tag>
+				<tag name="return">存在并成功注销工厂时返回 true。</tag>
+				<tag name="since">5.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="has_factory">
@@ -636,6 +672,51 @@ query 缺少 execute() 方法时会输出 warning 并返回 null。</description
 				<tag name="api">public</tag>
 				<tag name="param">script_cls: 要查询的脚本类型。</tag>
 				<tag name="return">工厂存在时返回 true。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="register_service">
+			<signature>func register_service(service_key: StringName, provider: Object) -&gt; bool:</signature>
+			<description>注册运行时服务 capability。
+同一 service_key 在同一架构内只能有一个 provider；子架构可通过父级回退读取父级服务。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">service_key: 稳定服务键。</tag>
+				<tag name="param">provider: 服务提供对象。</tag>
+				<tag name="return">注册成功时返回 true。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="unregister_service">
+			<signature>func unregister_service(service_key: StringName, provider: Object = null) -&gt; bool:</signature>
+			<description>注销运行时服务 capability。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">service_key: 稳定服务键。</tag>
+				<tag name="param">provider: 可选的当前服务提供对象；传入时必须与已注册 provider 匹配。</tag>
+				<tag name="return">注销成功时返回 true。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_service">
+			<signature>func get_service(service_key: StringName, include_parent: bool = true) -&gt; Object:</signature>
+			<description>获取运行时服务 capability。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">service_key: 稳定服务键。</tag>
+				<tag name="param">include_parent: 为 true 时允许沿父级架构查找。</tag>
+				<tag name="return">服务提供对象；不存在时返回 null。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="has_service">
+			<signature>func has_service(service_key: StringName, include_parent: bool = true) -&gt; bool:</signature>
+			<description>检查运行时服务 capability 是否存在。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">service_key: 稳定服务键。</tag>
+				<tag name="param">include_parent: 为 true 时允许沿父级架构查找。</tag>
+				<tag name="return">服务存在时返回 true。</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="register_system_alias">
@@ -694,54 +775,66 @@ query 缺少 execute() 方法时会输出 warning 并返回 null。</description
 			</tags>
 		</member>
 		<member kind="method" name="register_system_instance">
-			<signature>func register_system_instance(instance: Object) -&gt; void:</signature>
+			<signature>func register_system_instance(instance: Object) -&gt; bool:</signature>
 			<description>便捷注册 System 实例，自动从实例获取脚本类作为注册键。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">instance: 系统实例，必须附加有 GDScript 脚本。</tag>
+				<tag name="return">注册成功时返回 true。</tag>
+				<tag name="since">5.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="register_model_instance">
-			<signature>func register_model_instance(instance: Object) -&gt; void:</signature>
+			<signature>func register_model_instance(instance: Object) -&gt; bool:</signature>
 			<description>便捷注册 Model 实例，自动从实例获取脚本类作为注册键。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">instance: 模型实例，必须附加有 GDScript 脚本。</tag>
+				<tag name="return">注册成功时返回 true。</tag>
+				<tag name="since">5.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="register_utility_instance">
-			<signature>func register_utility_instance(instance: Object) -&gt; void:</signature>
+			<signature>func register_utility_instance(instance: Object) -&gt; bool:</signature>
 			<description>便捷注册 Utility 实例，自动从实例获取脚本类作为注册键。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">instance: 工具实例，必须附加有 GDScript 脚本。</tag>
+				<tag name="return">注册成功时返回 true。</tag>
+				<tag name="since">5.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="register_system_instance_as">
-			<signature>func register_system_instance_as(instance: Object, alias_cls: Script) -&gt; void:</signature>
+			<signature>func register_system_instance_as(instance: Object, alias_cls: Script) -&gt; bool:</signature>
 			<description>便捷注册 System，并同时以 alias_cls 作为额外查询键。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">instance: System 实例。</tag>
 				<tag name="param">alias_cls: 额外查询脚本类。</tag>
+				<tag name="return">注册成功并写入 alias 时返回 true。</tag>
+				<tag name="since">5.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="register_model_instance_as">
-			<signature>func register_model_instance_as(instance: Object, alias_cls: Script) -&gt; void:</signature>
+			<signature>func register_model_instance_as(instance: Object, alias_cls: Script) -&gt; bool:</signature>
 			<description>便捷注册 Model，并同时以 alias_cls 作为额外查询键。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">instance: Model 实例。</tag>
 				<tag name="param">alias_cls: 额外查询脚本类。</tag>
+				<tag name="return">注册成功并写入 alias 时返回 true。</tag>
+				<tag name="since">5.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="register_utility_instance_as">
-			<signature>func register_utility_instance_as(instance: Object, alias_cls: Script) -&gt; void:</signature>
+			<signature>func register_utility_instance_as(instance: Object, alias_cls: Script) -&gt; bool:</signature>
 			<description>便捷注册 Utility，并同时以 alias_cls 作为额外查询键。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">instance: Utility 实例。</tag>
 				<tag name="param">alias_cls: 额外查询脚本类。</tag>
+				<tag name="return">注册成功并写入 alias 时返回 true。</tag>
+				<tag name="since">5.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="unregister_system">
@@ -886,12 +979,13 @@ query 缺少 execute() 方法时会输出 warning 并返回 null。</description
 			</tags>
 		</member>
 		<member kind="method" name="restore_all_models_state_async">
-			<signature>func restore_all_models_state_async(data: Dictionary, options: Dictionary = {}) -&gt; void:</signature>
+			<signature>func restore_all_models_state_async(data: Dictionary, options: Dictionary = {}) -&gt; bool:</signature>
 			<description>分帧恢复所有已注册 Model 的数据。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">data: 由 get_all_models_state() 或 get_all_models_state_async() 返回的状态字典。</tag>
 				<tag name="param">options: 可选参数，支持 max_models_per_frame；小于等于 0 时不主动让出帧。</tag>
+				<tag name="return">恢复流程被完整接受时返回 true。</tag>
 				<tag name="schema">data: Dictionary keyed by stable model save key, storing serialized model data.</tag>
 				<tag name="schema">options: Dictionary，可包含 max_models_per_frame: int。</tag>
 				<tag name="since">5.0.0</tag>
@@ -931,7 +1025,7 @@ Model 状态会按 options.max_models_per_frame 分帧收集；命令历史仍�
 			</tags>
 		</member>
 		<member kind="method" name="restore_global_snapshot_async">
-			<signature>func restore_global_snapshot_async( data: Dictionary, command_builder: Callable = Callable(), options: Dictionary = {} ) -&gt; void:</signature>
+			<signature>func restore_global_snapshot_async( data: Dictionary, command_builder: Callable = Callable(), options: Dictionary = {} ) -&gt; bool:</signature>
 			<description>分帧恢复整个框架的全局快照。
 Model 状态会按 options.max_models_per_frame 分帧恢复；命令历史仍在 Model 恢复完成后同步恢复。</description>
 			<tags>
@@ -939,6 +1033,7 @@ Model 状态会按 options.max_models_per_frame 分帧恢复；命令历史仍�
 				<tag name="param">data: 由 get_global_snapshot() 或 get_global_snapshot_async() 导出的全局快照字典数据。</tag>
 				<tag name="param">command_builder: 【可选】如果需要恢复历史记录，必须传入用于反序列化具体 Command 实例的 Callable。</tag>
 				<tag name="param">options: 可选参数，支持 max_models_per_frame；小于等于 0 时不主动让出帧。</tag>
+				<tag name="return">恢复流程被完整接受时返回 true。</tag>
 				<tag name="schema">data: Dictionary produced by get_global_snapshot() or get_global_snapshot_async().</tag>
 				<tag name="schema">options: Dictionary，可包含 max_models_per_frame: int。</tag>
 				<tag name="since">5.0.0</tag>
@@ -962,7 +1057,7 @@ Model 状态会按 options.max_models_per_frame 分帧恢复；命令历史仍�
 				<tag name="param">options: 可选参数，支持 include_entries、include_parent_chain 与 max_parent_depth。</tag>
 				<tag name="return">绑定图诊断报告。</tag>
 				<tag name="schema">options: Dictionary with optional bool keys include_entries/include_parent_chain and int key max_parent_depth.</tag>
-				<tag name="schema">return: Dictionary containing ok, registry counts, registry entries, factory bindings, parent chain, lifecycle flags, and issues.</tag>
+				<tag name="schema">return: Dictionary containing ok, registry counts, registry entries, factory bindings, parent_chain, parent_chain_cycle_detected, parent_chain_truncated, lifecycle flags, and issues.</tag>
 				<tag name="since">7.0.0</tag>
 			</tags>
 		</member>
@@ -975,7 +1070,8 @@ Model 状态会按 options.max_models_per_frame 分帧恢复；命令历史仍�
 				<tag name="param">options: 可选参数，支持 include_parent_lookup 与 include_factories。</tag>
 				<tag name="return">统一诊断报告字典。</tag>
 				<tag name="schema">options: Dictionary with optional bool keys include_parent_lookup and include_factories.</tag>
-				<tag name="schema">return: Dictionary dependency diagnostics report with modules, resolved_dependencies, missing_dependencies, issue counts, and next_action.</tag>
+				<tag name="schema">return: Dictionary dependency diagnostics report with modules, resolved_dependencies, missing_dependencies, parent-chain cycle issue records, issue counts, and next_action.</tag>
+				<tag name="since">7.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="_on_init">

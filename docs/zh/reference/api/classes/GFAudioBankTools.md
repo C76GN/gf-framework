@@ -6,7 +6,7 @@
 - 模块：`Standard`
 - 继承：`RefCounted`
 - API：`public`
-- 类别：运行时服务 (`runtime_service`)
+- 类别：工具 API (`tool_api`)
 - 首次版本：`3.17.0`
 
 音频集合扫描、导入和校验辅助。 面向编辑器工具和构建脚本复用；它只生成 `GFAudioBank` / `GFAudioClip` 配置，不接管运行时播放策略。

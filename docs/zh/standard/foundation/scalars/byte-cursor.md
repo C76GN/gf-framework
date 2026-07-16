@@ -20,6 +20,8 @@ var label := reader.read_utf8(2)
 
 需要区分“真实读到了默认值”和“读取失败”时，使用 `try_read_*()` 系列入口。报告包含 `ok`、`value`、`error`、`position` 和 `next_position`；失败读取会回滚到调用前位置，并保留稳定错误码。字符串字段可用 `write_var_utf8()` / `try_read_var_utf8()` 写入和读取 varuint 长度前缀的 UTF-8 文本。
 
+`try_read_bytes()` 的 `value` 会保留原始 `PackedByteArray`，方便协议层继续处理字节数据。需要把读取报告写入 JSON 日志、CI 结果或跨进程诊断时，先调用 `GFByteCursor.to_json_compatible_read_report(report)`，不要直接把包含 PackedArray 或非有限数值的报告交给 `JSON.stringify()`。
+
 ## 使用边界
 
 `GFByteCursor` 不定义包头、消息 ID、校验和、压缩、加密或版本迁移。项目应在自己的协议层声明字段顺序、兼容规则和安全策略，再用游标处理底层字节读写。

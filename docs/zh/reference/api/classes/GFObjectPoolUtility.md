@@ -22,11 +22,11 @@
 | 属性 | [`prune_invalid_on_each_operation`](#member-gfobjectpoolutility-properties-prune_invalid_on_each_operation) | `var prune_invalid_on_each_operation: bool = true` |
 | 方法 | [`init`](#member-gfobjectpoolutility-methods-init) | `func init() -> void:` |
 | 方法 | [`dispose`](#member-gfobjectpoolutility-methods-dispose) | `func dispose() -> void:` |
-| 方法 | [`acquire`](#member-gfobjectpoolutility-methods-acquire) | `func acquire(scene: PackedScene, parent: Node) -> Node:` |
+| 方法 | [`acquire`](#member-gfobjectpoolutility-methods-acquire) | `func acquire(scene: PackedScene, parent: Node, before_add: Callable = Callable()) -> Node:` |
 | 方法 | [`release`](#member-gfobjectpoolutility-methods-release) | `func release(node: Node, scene: PackedScene) -> void:` |
-| 方法 | [`prewarm`](#member-gfobjectpoolutility-methods-prewarm) | `func prewarm(scene: PackedScene, parent: Node, count: int) -> void:` |
-| 方法 | [`prewarm_async`](#member-gfobjectpoolutility-methods-prewarm_async) | `func prewarm_async(scene: PackedScene, parent: Node, count: int, batch_size: int = 32) -> void:` |
-| 方法 | [`prewarm_async_budget`](#member-gfobjectpoolutility-methods-prewarm_async_budget) | `func prewarm_async_budget( scene: PackedScene, parent: Node, count: int, msec_budget_per_frame: float = 8.0 ) -> void:` |
+| 方法 | [`prewarm`](#member-gfobjectpoolutility-methods-prewarm) | `func prewarm(scene: PackedScene, parent: Node, count: int, before_add: Callable = Callable()) -> void:` |
+| 方法 | [`prewarm_async`](#member-gfobjectpoolutility-methods-prewarm_async) | `func prewarm_async( scene: PackedScene, parent: Node, count: int, batch_size: int = 32, before_add: Callable = Callable() ) -> void:` |
+| 方法 | [`prewarm_async_budget`](#member-gfobjectpoolutility-methods-prewarm_async_budget) | `func prewarm_async_budget( scene: PackedScene, parent: Node, count: int, msec_budget_per_frame: float = 8.0, before_add: Callable = Callable() ) -> void:` |
 | 方法 | [`get_available_count`](#member-gfobjectpoolutility-methods-get_available_count) | `func get_available_count(scene: PackedScene) -> int:` |
 | 方法 | [`get_active_count`](#member-gfobjectpoolutility-methods-get_active_count) | `func get_active_count(scene: PackedScene) -> int:` |
 | 方法 | [`get_active_nodes`](#member-gfobjectpoolutility-methods-get_active_nodes) | `func get_active_nodes(scene: PackedScene) -> Array[Node]:` |
@@ -128,9 +128,10 @@ func dispose() -> void:
 ### `acquire`
 
 - API：`public`
+- 首次版本：`8.0.0`
 
 ```gdscript
-func acquire(scene: PackedScene, parent: Node) -> Node:
+func acquire(scene: PackedScene, parent: Node, before_add: Callable = Callable()) -> Node:
 ```
 
 从池中获取一个节点实例。若池为空则自动实例化并加入父节点。
@@ -141,6 +142,7 @@ func acquire(scene: PackedScene, parent: Node) -> Node:
 |---|---|
 | `scene` | 要实例化的 PackedScene 资源。 |
 | `parent` | 借出的节点将加入或移动到此父节点；释放时会移动到内部池根节点。 |
+| `before_add` | 可选入树前回调，签名为 `func(node: Node) -> void`。 |
 
 返回：可直接使用的节点实例。
 
@@ -168,9 +170,10 @@ func release(node: Node, scene: PackedScene) -> void:
 ### `prewarm`
 
 - API：`public`
+- 首次版本：`8.0.0`
 
 ```gdscript
-func prewarm(scene: PackedScene, parent: Node, count: int) -> void:
+func prewarm(scene: PackedScene, parent: Node, count: int, before_add: Callable = Callable()) -> void:
 ```
 
 预热对象池，预先实例化指定数量的节点以避免首次使用时的卡顿。
@@ -182,15 +185,17 @@ func prewarm(scene: PackedScene, parent: Node, count: int) -> void:
 | `scene` | 要预热的 PackedScene 资源。 |
 | `parent` | 预热节点将加入此父节点。 |
 | `count` | 预热的数量。 |
+| `before_add` | 可选入树前回调，签名为 `func(node: Node) -> void`。 |
 
 <a id="member-gfobjectpoolutility-methods-prewarm_async"></a>
 
 ### `prewarm_async`
 
 - API：`public`
+- 首次版本：`8.0.0`
 
 ```gdscript
-func prewarm_async(scene: PackedScene, parent: Node, count: int, batch_size: int = 32) -> void:
+func prewarm_async( scene: PackedScene, parent: Node, count: int, batch_size: int = 32, before_add: Callable = Callable() ) -> void:
 ```
 
 分批预热对象池，避免一次性实例化大量节点造成单帧卡顿。
@@ -203,15 +208,17 @@ func prewarm_async(scene: PackedScene, parent: Node, count: int, batch_size: int
 | `parent` | 预热节点将加入此父节点。 |
 | `count` | 预热的数量。 |
 | `batch_size` | 每帧最多实例化数量；小于等于 0 时退化为同步预热。 |
+| `before_add` | 可选入树前回调，签名为 `func(node: Node) -> void`。 |
 
 <a id="member-gfobjectpoolutility-methods-prewarm_async_budget"></a>
 
 ### `prewarm_async_budget`
 
 - API：`public`
+- 首次版本：`8.0.0`
 
 ```gdscript
-func prewarm_async_budget( scene: PackedScene, parent: Node, count: int, msec_budget_per_frame: float = 8.0 ) -> void:
+func prewarm_async_budget( scene: PackedScene, parent: Node, count: int, msec_budget_per_frame: float = 8.0, before_add: Callable = Callable() ) -> void:
 ```
 
 按单帧时间预算预热对象池，适合复杂度差异较大的 PackedScene。
@@ -224,6 +231,7 @@ func prewarm_async_budget( scene: PackedScene, parent: Node, count: int, msec_bu
 | `parent` | 预热节点将加入此父节点。 |
 | `count` | 预热的数量。 |
 | `msec_budget_per_frame` | 每帧实例化预算毫秒数；小于等于 0 时退化为同步预热。 |
+| `before_add` | 可选入树前回调，签名为 `func(node: Node) -> void`。 |
 
 <a id="member-gfobjectpoolutility-methods-get_available_count"></a>
 

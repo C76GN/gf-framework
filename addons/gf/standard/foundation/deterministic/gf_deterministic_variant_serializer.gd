@@ -22,6 +22,9 @@ const _SCHEMA_VERSION: int = 1
 const _TYPE_KEY: String = "type"
 const _VALUE_KEY: String = "value"
 const _VERSION_KEY: String = "version"
+const _DEFAULT_MAX_ITEMS: int = 100_000
+const _DEFAULT_MAX_STRING_LENGTH: int = 1_048_576
+const _DEFAULT_MAX_OUTPUT_BYTES: int = 16 * 1024 * 1024
 
 
 # --- 公共方法 ---
@@ -36,9 +39,9 @@ const _VERSION_KEY: String = "version"
 ## [br]
 ## @schema value: Variant value made from nil, bool, int, String, StringName, NodePath, integer vectors, arrays, dictionaries and packed scalar arrays. Float-based values require `options.allow_floats = true`.
 ## [br]
-## @param options: 可选项。`allow_floats` 默认为 false；`max_depth` 默认为 256。启用 `allow_floats` 只表示接受并规范化浮点值，不表示浮点计算具备强确定性。
+## @param options: 可选项。支持 allow_floats、max_depth、max_items、max_string_length 和 max_output_bytes。
 ## [br]
-## @schema options: Dictionary with optional `allow_floats: bool` and `max_depth: int`.
+## @schema options: Dictionary with optional allow_floats, max_depth, max_items, max_string_length, and max_output_bytes limits.
 ## [br]
 ## @return 规范化后的 JSON 兼容 Variant；失败时返回 null 并输出错误。
 ## [br]
@@ -63,14 +66,19 @@ static func to_canonical_value(value: Variant, options: Dictionary = {}) -> Vari
 ## [br]
 ## @param options: 可选项。
 ## [br]
-## @schema options: Dictionary with optional `allow_floats: bool` and `max_depth: int`.
+## @schema options: Dictionary with optional allow_floats, max_depth, max_items, max_string_length, and max_output_bytes limits.
 ## [br]
 ## @return 规范 JSON 文本；失败时返回空字符串。
 static func to_canonical_json(value: Variant, options: Dictionary = {}) -> String:
 	var canonical_value: Variant = to_canonical_value(value, options)
 	if canonical_value == null:
 		return ""
-	return JSON.stringify(canonical_value, "", true)
+	var canonical_json: String = JSON.stringify(canonical_value, "", true)
+	var max_output_bytes: int = maxi(GFVariantData.get_option_int(options, "max_output_bytes", _DEFAULT_MAX_OUTPUT_BYTES), 1)
+	if canonical_json.to_utf8_buffer().size() > max_output_bytes:
+		push_error("[GFDeterministicVariantSerializer] 规范输出超过 max_output_bytes。")
+		return ""
+	return canonical_json
 
 
 ## 将 Variant 编码为规范 UTF-8 字节。
@@ -85,7 +93,7 @@ static func to_canonical_json(value: Variant, options: Dictionary = {}) -> Strin
 ## [br]
 ## @param options: 可选项。
 ## [br]
-## @schema options: Dictionary with optional `allow_floats: bool` and `max_depth: int`.
+## @schema options: Dictionary with optional allow_floats, max_depth, max_items, max_string_length, and max_output_bytes limits.
 ## [br]
 ## @return 规范 JSON 文本的 UTF-8 bytes；失败时返回空数组。
 static func to_canonical_bytes(value: Variant, options: Dictionary = {}) -> PackedByteArray:
@@ -107,7 +115,7 @@ static func to_canonical_bytes(value: Variant, options: Dictionary = {}) -> Pack
 ## [br]
 ## @param options: 可选项。
 ## [br]
-## @schema options: Dictionary with optional `allow_floats: bool` and `max_depth: int`.
+## @schema options: Dictionary with optional allow_floats, max_depth, max_items, max_string_length, and max_output_bytes limits.
 ## [br]
 ## @return SHA-256 hex 字符串；失败时返回空字符串。
 static func sha256(value: Variant, options: Dictionary = {}) -> String:
@@ -129,14 +137,22 @@ static func _make_state(options: Dictionary) -> Dictionary:
 		"ok": true,
 		"allow_floats": GFVariantData.get_option_bool(options, "allow_floats", false),
 		"max_depth": maxi(max_depth, 1),
+		"max_items": maxi(GFVariantData.get_option_int(options, "max_items", _DEFAULT_MAX_ITEMS), 1),
+		"max_string_length": maxi(GFVariantData.get_option_int(options, "max_string_length", _DEFAULT_MAX_STRING_LENGTH), 1),
+		"item_count": 0,
 	}
 
 
 static func _canonicalize_value(value: Variant, state: Dictionary, visited: Array, depth: int) -> Variant:
 	if not GFVariantData.get_option_bool(state, "ok", true):
 		return null
+	if not _consume_items(state, 1):
+		return null
 	if depth > GFVariantData.get_option_int(state, "max_depth", 256):
 		return _fail(state, "输入结构超过 max_depth。")
+	var packed_item_count: int = _get_packed_item_count(value)
+	if packed_item_count > 0 and not _consume_items(state, packed_item_count):
+		return null
 
 	match typeof(value):
 		TYPE_NIL:
@@ -152,12 +168,18 @@ static func _canonicalize_value(value: Variant, state: Dictionary, visited: Arra
 			return _make_typed_value("Float", _canonicalize_float(float_value, state))
 		TYPE_STRING:
 			var string_value: String = value
+			if not _string_is_within_budget(string_value, state):
+				return null
 			return _make_typed_value("String", string_value)
 		TYPE_STRING_NAME:
 			var string_name_value: StringName = value
+			if not _string_is_within_budget(String(string_name_value), state):
+				return null
 			return _make_typed_value("StringName", String(string_name_value))
 		TYPE_NODE_PATH:
 			var node_path_value: NodePath = value
+			if not _string_is_within_budget(String(node_path_value), state):
+				return null
 			return _make_typed_value("NodePath", String(node_path_value))
 		TYPE_VECTOR2:
 			var vector_2: Vector2 = value
@@ -280,7 +302,7 @@ static func _canonicalize_value(value: Variant, state: Dictionary, visited: Arra
 			return _make_typed_value("PackedFloat64Array", _canonicalize_packed_float64_array(float_64_array, state))
 		TYPE_PACKED_STRING_ARRAY:
 			var string_array: PackedStringArray = value
-			return _make_typed_value("PackedStringArray", _canonicalize_packed_string_array(string_array))
+			return _make_typed_value("PackedStringArray", _canonicalize_packed_string_array(string_array, state))
 		TYPE_PACKED_VECTOR2_ARRAY:
 			var vector_2_array: PackedVector2Array = value
 			return _make_typed_value("PackedVector2Array", _canonicalize_packed_vector2_array(vector_2_array, state))
@@ -383,8 +405,14 @@ static func _canonicalize_float(value: float, state: Dictionary) -> String:
 		var _failed: Variant = _fail(state, "浮点值不能是 NaN 或 Inf。")
 		return ""
 	if value == 0.0:
-		return "0.0"
-	return JSON.stringify(value)
+		return "ieee754le:0000000000000000"
+	var bytes: PackedByteArray = PackedByteArray()
+	var resize_error: Error = bytes.resize(8) as Error
+	if resize_error != OK:
+		var _failed: Variant = _fail(state, "无法分配浮点规范编码缓冲区。")
+		return ""
+	bytes.encode_double(0, value)
+	return "ieee754le:%s" % bytes.hex_encode()
 
 
 static func _canonicalize_packed_byte_array(value: PackedByteArray) -> Array[String]:
@@ -422,9 +450,11 @@ static func _canonicalize_packed_float64_array(value: PackedFloat64Array, state:
 	return result
 
 
-static func _canonicalize_packed_string_array(value: PackedStringArray) -> Array[String]:
+static func _canonicalize_packed_string_array(value: PackedStringArray, state: Dictionary) -> Array[String]:
 	var result: Array[String] = []
 	for item: String in value:
+		if not _string_is_within_budget(item, state):
+			return []
 		result.append(item)
 	return result
 
@@ -462,6 +492,40 @@ static func _visited_contains_reference(visited: Array, value: Variant) -> bool:
 		if is_same(item, value):
 			return true
 	return false
+
+
+static func _consume_items(state: Dictionary, amount: int) -> bool:
+	var next_count: int = GFVariantData.get_option_int(state, "item_count") + maxi(amount, 0)
+	if next_count > GFVariantData.get_option_int(state, "max_items", _DEFAULT_MAX_ITEMS):
+		var _failed: Variant = _fail(state, "输入集合超过 max_items。")
+		return false
+	state["item_count"] = next_count
+	return true
+
+
+static func _string_is_within_budget(value: String, state: Dictionary) -> bool:
+	if value.length() <= GFVariantData.get_option_int(state, "max_string_length", _DEFAULT_MAX_STRING_LENGTH):
+		return true
+	var _failed: Variant = _fail(state, "字符串超过 max_string_length。")
+	return false
+
+
+static func _get_packed_item_count(value: Variant) -> int:
+	var value_type: Variant.Type = typeof(value) as Variant.Type
+	if value_type in [
+		TYPE_PACKED_BYTE_ARRAY,
+		TYPE_PACKED_INT32_ARRAY,
+		TYPE_PACKED_INT64_ARRAY,
+		TYPE_PACKED_FLOAT32_ARRAY,
+		TYPE_PACKED_FLOAT64_ARRAY,
+		TYPE_PACKED_STRING_ARRAY,
+		TYPE_PACKED_VECTOR2_ARRAY,
+		TYPE_PACKED_VECTOR3_ARRAY,
+		TYPE_PACKED_COLOR_ARRAY,
+		TYPE_PACKED_VECTOR4_ARRAY,
+	]:
+		return len(value)
+	return 0
 
 
 static func _fail(state: Dictionary, message: String) -> Variant:

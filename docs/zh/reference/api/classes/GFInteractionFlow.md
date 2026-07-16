@@ -29,6 +29,7 @@
 ### `context`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var context: GFInteractionContext
@@ -43,6 +44,7 @@ var context: GFInteractionContext
 ### `to`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func to(target: Object) -> GFInteractionFlow:
@@ -63,6 +65,7 @@ func to(target: Object) -> GFInteractionFlow:
 ### `with_payload`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func with_payload(payload: Variant) -> GFInteractionFlow:
@@ -87,6 +90,7 @@ func with_payload(payload: Variant) -> GFInteractionFlow:
 ### `in_group`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func in_group(group_name: StringName) -> GFInteractionFlow:
@@ -107,6 +111,7 @@ func in_group(group_name: StringName) -> GFInteractionFlow:
 ### `execute`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func execute(command: Object) -> Variant:
@@ -131,6 +136,7 @@ func execute(command: Object) -> Variant:
 ### `send_event`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func send_event(event_instance: Object) -> void:

@@ -43,6 +43,7 @@ signal activation_committed(skill: GFSkill, context: RefCounted)
 # --- 常量 ---
 
 const _GF_SKILL_ACTIVATION_CONTEXT = preload("res://addons/gf/extensions/combat/skills/gf_skill_activation_context.gd")
+const _GF_SKILL_TARGETING_UTILITY_2D_SCRIPT = preload("res://addons/gf/extensions/combat/skills/gf_skill_targeting_utility_2d.gd")
 
 
 # --- 公共变量 ---
@@ -77,10 +78,12 @@ var ignore_tags: Array[StringName] = []
 ## @api public
 var owner: Object = null
 
-## 技能索敌规则。
+## 2D 技能索敌规则。
 ## [br]
 ## @api public
-var targeting_rule: GFSkillTargetingRule = null
+## [br]
+## @since 3.17.0
+var targeting_rule: GFSkillTargetingRule2D = null
 
 ## 可选标签查询。为空时使用 require_tags / ignore_tags。
 ## [br]
@@ -94,14 +97,14 @@ var activation_query: GFTagQuery = null
 ## @schema activation_checks: Array[Callable]，用于项目自定义成本、状态或上下文检查。
 var activation_checks: Array[Callable] = []
 
-## 激活提交回调。执行成功后、进入冷却前调用。
+## 激活事务步骤。步骤按顺序验证和应用，失败时按逆序回滚已应用步骤。
 ## [br]
 ## @api public
 ## [br]
-## @since 6.0.0
+## @since 8.0.0
 ## [br]
-## @schema activation_commit_callbacks: Array[Callable]，用于项目自定义成功提交、资源结算或日志写入。
-var activation_commit_callbacks: Array[Callable] = []
+## @schema activation_steps: Array[GFSkillActivationStep]，用于项目自定义成本、预留或其他可补偿副作用。
+var activation_steps: Array[GFSkillActivationStep] = []
 
 
 # --- 私有变量 ---
@@ -189,7 +192,22 @@ func build_activation_context(
 ## @schema return: Dictionary，包含 ok、reason、skill_id、target_count 和 metadata。
 func get_activation_report(context: RefCounted = null) -> Dictionary:
 	var activation_context: RefCounted = context if context != null else build_activation_context()
-	return _validate_activation_context(activation_context, true)
+	var report: Dictionary = _validate_activation_context(activation_context, false)
+	if not _report_ok(report):
+		return report
+	if not _resolve_activation_targets(activation_context):
+		return _context_to_report(activation_context)
+	report = _run_activation_callbacks(activation_context, activation_checks, &"activation_check_failed")
+	if not _report_ok(report):
+		return report
+
+	var transaction: GFActivationTransaction = _build_activation_transaction(activation_context)
+	if transaction == null:
+		return _context_to_report(activation_context)
+	var transaction_report: Dictionary = transaction.prepare(_make_transaction_context(activation_context))
+	if not _report_ok(transaction_report):
+		return _fail_from_transaction(activation_context, transaction_report, &"activation_prepare_failed")
+	return _context_to_report(activation_context)
 
 
 ## 执行技能。
@@ -227,13 +245,26 @@ func execute(
 		activation_failed.emit(self, context)
 		return false
 
-	if not _try_activate(context):
-		var _execute_failed_report: Dictionary = _fail_activation_context(context, &"execute_failed")
+	var transaction: GFActivationTransaction = _build_activation_transaction(context)
+	if transaction == null:
+		activation_failed.emit(self, context)
+		return false
+	var transaction_context: Dictionary = _make_transaction_context(context)
+	var transaction_report: Dictionary = transaction.commit(transaction_context)
+	if not _report_ok(transaction_report):
+		var _transaction_failure_report: Dictionary = _fail_from_transaction(
+			context,
+			transaction_report,
+			&"activation_commit_failed"
+		)
 		activation_failed.emit(self, context)
 		return false
 
-	report = _run_activation_callbacks(context, activation_commit_callbacks, &"activation_commit_failed")
-	if not _report_ok(report):
+	if not _try_activate(context):
+		var rollback_report: Dictionary = transaction.rollback(transaction_context)
+		var _execute_failed_report: Dictionary = _fail_activation_context(context, &"execute_failed", {
+			"activation_transaction": rollback_report,
+		})
 		activation_failed.emit(self, context)
 		return false
 	cooldown_left = cooldown_max
@@ -355,9 +386,9 @@ func _resolve_activation_targets(context: RefCounted) -> bool:
 
 	if manual_target != null:
 		if targeting_rule != null:
-			var utility: GFSkillTargetingUtility = _get_targeting_utility()
+			var utility: _GF_SKILL_TARGETING_UTILITY_2D_SCRIPT = _get_targeting_utility_2d()
 			if utility == null:
-				push_error("[GFCombat] GFSkillTargetingUtility 尚未在架构中注册。")
+				push_error("[GFCombat] GFSkillTargetingUtility2D 尚未在架构中注册。")
 				var _missing_utility_report: Dictionary = _fail_activation_context(context, &"targeting_utility_missing")
 				return false
 
@@ -377,9 +408,9 @@ func _resolve_activation_targets(context: RefCounted) -> bool:
 		elif has_method(&"get_targeting_candidates"):
 			candidates = GFVariantData.as_array(call(&"get_targeting_candidates"))
 
-		var utility: GFSkillTargetingUtility = _get_targeting_utility()
+		var utility: _GF_SKILL_TARGETING_UTILITY_2D_SCRIPT = _get_targeting_utility_2d()
 		if utility == null:
-			push_error("[GFCombat] GFSkillTargetingUtility 尚未在架构中注册。")
+			push_error("[GFCombat] GFSkillTargetingUtility2D 尚未在架构中注册。")
 			var _missing_utility_report: Dictionary = _fail_activation_context(context, &"targeting_utility_missing")
 			return false
 
@@ -406,6 +437,114 @@ func _run_activation_callbacks(
 		if not _report_ok(report):
 			return report
 	return _context_to_report(context)
+
+
+func _build_activation_transaction(context: RefCounted) -> GFActivationTransaction:
+	var transaction: GFActivationTransaction = GFActivationTransaction.new()
+	var transaction_id: StringName = StringName("skill_activation:%s" % String(id))
+	var _configured_transaction: GFActivationTransaction = transaction.configure(
+		transaction_id,
+		"Skill activation",
+		{ "skill_id": id }
+	)
+	var used_step_ids: Dictionary = {}
+	for step: GFSkillActivationStep in activation_steps:
+		if step == null or step.step_id == &"" or used_step_ids.has(step.step_id):
+			var _invalid_step_report: Dictionary = _fail_activation_context(context, &"invalid_activation_step", {
+				"step_id": step.step_id if step != null else &"",
+			})
+			return null
+		used_step_ids[step.step_id] = true
+		var rollback_callback: Callable = Callable()
+		if step.rollback_required:
+			rollback_callback = _invoke_activation_step.bind(step, &"rollback")
+		var added: bool = transaction.add_step(
+			step.step_id,
+			_invoke_activation_step.bind(step, &"apply"),
+			rollback_callback,
+			{
+				"validate_callback": _invoke_activation_step.bind(step, &"validate"),
+				"rollback_required": step.rollback_required,
+			}
+		)
+		if not added:
+			var _step_add_failed_report: Dictionary = _fail_activation_context(context, &"invalid_activation_step", {
+				"step_id": step.step_id,
+			})
+			return null
+	return transaction
+
+
+func _invoke_activation_step(
+	transaction_context: Dictionary,
+	step: GFSkillActivationStep,
+	phase: StringName
+) -> Variant:
+	var context: GFSkillActivationContext = _get_transaction_activation_context(transaction_context)
+	if context == null or step == null:
+		return {
+			"ok": false,
+			"reason": &"invalid_activation_context",
+		}
+	var result: Variant = null
+	match phase:
+		&"validate":
+			result = step._validate_activation(context)
+		&"apply":
+			result = step._apply_activation(context)
+		&"rollback":
+			result = step._rollback_activation(context)
+		_:
+			return {
+				"ok": false,
+				"reason": &"invalid_activation_phase",
+			}
+	return _normalize_activation_step_result(context, result)
+
+
+func _normalize_activation_step_result(context: RefCounted, result: Variant) -> Variant:
+	if not (result is Dictionary):
+		return result
+	var result_dictionary: Dictionary = result
+	var normalized: Dictionary = result_dictionary.duplicate(true)
+	var metadata: Dictionary = GFVariantData.get_option_dictionary(normalized, "metadata")
+	if not metadata.is_empty():
+		_merge_activation_metadata(context, metadata)
+	if not GFVariantData.get_option_bool(normalized, "ok", true) and not normalized.has("kind"):
+		normalized["kind"] = GFVariantData.get_option_string_name(
+			normalized,
+			"reason",
+			&"activation_step_failed"
+		)
+	return normalized
+
+
+func _make_transaction_context(context: RefCounted) -> Dictionary:
+	return {
+		"activation_context": context,
+	}
+
+
+func _get_transaction_activation_context(transaction_context: Dictionary) -> GFSkillActivationContext:
+	var value: Variant = GFVariantData.get_option_value(transaction_context, "activation_context")
+	if value is GFSkillActivationContext:
+		return value
+	return null
+
+
+func _fail_from_transaction(
+	context: RefCounted,
+	transaction_report: Dictionary,
+	default_reason: StringName
+) -> Dictionary:
+	var reason: StringName = default_reason
+	var issues: Array = GFVariantData.get_option_array(transaction_report, "issues")
+	if not issues.is_empty():
+		var first_issue: Dictionary = GFVariantData.as_dictionary(issues[0])
+		reason = GFVariantData.get_option_string_name(first_issue, "kind", default_reason)
+	return _fail_activation_context(context, reason, {
+		"activation_transaction": transaction_report,
+	})
 
 
 func _apply_activation_callback_result(
@@ -477,12 +616,12 @@ func _get_valid_owner() -> Object:
 	return owner
 
 
-func _get_targeting_utility() -> GFSkillTargetingUtility:
+func _get_targeting_utility_2d() -> _GF_SKILL_TARGETING_UTILITY_2D_SCRIPT:
 	var architecture: GFArchitecture = _get_architecture_or_null()
 	if architecture == null:
 		return null
 
-	return _variant_to_targeting_utility(architecture.get_utility(GFSkillTargetingUtility))
+	return _variant_to_targeting_utility_2d(architecture.get_utility(_GF_SKILL_TARGETING_UTILITY_2D_SCRIPT))
 
 
 func _get_architecture_or_null() -> GFArchitecture:
@@ -536,7 +675,7 @@ func _variant_to_architecture(value: Variant) -> GFArchitecture:
 	return null
 
 
-func _variant_to_targeting_utility(value: Variant) -> GFSkillTargetingUtility:
-	if is_instance_valid(value) and value is GFSkillTargetingUtility:
+func _variant_to_targeting_utility_2d(value: Variant) -> _GF_SKILL_TARGETING_UTILITY_2D_SCRIPT:
+	if is_instance_valid(value) and value is _GF_SKILL_TARGETING_UTILITY_2D_SCRIPT:
 		return value
 	return null

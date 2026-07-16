@@ -54,6 +54,7 @@ enum ValueType {
 # --- 常量 ---
 
 const _GF_VALIDATION_REPORT_DICTIONARY = preload("res://addons/gf/standard/foundation/validation/gf_validation_report_dictionary.gd")
+const _TRANSPORT_VALUE_VALIDATOR = preload("res://addons/gf/extensions/network/runtime/gf_network_transport_value_validator.gd")
 
 
 # --- 导出变量 ---
@@ -166,6 +167,8 @@ func validate_definition() -> Dictionary:
 	var issues: Array[Dictionary] = []
 	if field_name == &"":
 		issues.append(_make_issue("error", "empty_field_name", "Network contract field name is empty."))
+	if value_type == ValueType.OBJECT:
+		issues.append(_make_issue("error", "object_value_type_not_transport_safe", "Network contract fields must not use Object values across the transport boundary."))
 	return _finalize_report(issues)
 
 
@@ -187,9 +190,19 @@ func validate_value(value: Variant) -> Dictionary:
 		return _finalize_report([])
 
 	var issue: Dictionary = _get_value_type_issue(value)
-	if issue.is_empty():
-		return _finalize_report([])
-	return _finalize_report([issue])
+	if not issue.is_empty():
+		return _finalize_report([issue])
+	var transport_report: Dictionary = _TRANSPORT_VALUE_VALIDATOR.validate(value)
+	if not GFVariantData.get_option_bool(transport_report, "ok"):
+		return _finalize_report([_make_issue(
+			"error",
+			"value_not_transport_safe",
+			"Network contract field contains a transport-unsafe value at %s (%s)." % [
+				GFVariantData.get_option_string(transport_report, "path", "$"),
+				GFVariantData.get_option_string(transport_report, "error", "invalid_value"),
+			]
+		)])
+	return _finalize_report([])
 
 
 ## 描述字段契约。
@@ -256,10 +269,7 @@ func _get_value_type_issue(value: Variant) -> Dictionary:
 			if not (value is NodePath):
 				return _make_type_issue("NodePath")
 		ValueType.OBJECT:
-			if not (value is Object):
-				return _make_type_issue("Object")
-			if class_name_hint != &"" and not _object_matches_class_hint(_get_object_value(value)):
-				return _make_issue("error", "class_name_mismatch", "Network contract field object class does not match.")
+			return _make_issue("error", "object_value_type_not_transport_safe", "Network contract fields must not use Object values across the transport boundary.")
 		_:
 			pass
 	return {}
@@ -315,6 +325,8 @@ func _get_validation_next_actions() -> Dictionary:
 		"null_not_allowed": "Provide a value or allow null for this network contract field.",
 		"type_mismatch": "Send a value matching the declared network contract field type.",
 		"class_name_mismatch": "Send an Object or Resource matching class_name_hint.",
+		"object_value_type_not_transport_safe": "Use a transport-safe identifier, Dictionary, Array, NodePath, StringName, or numeric value instead of Object.",
+		"value_not_transport_safe": "Remove nested Object, Callable, Signal, RID, circular containers, non-finite numbers, or over-budget values.",
 	}
 
 

@@ -53,6 +53,7 @@ const STATUS_LOAD_FAILED: StringName = &"load_failed"
 ## [br]
 ## @layer kernel/editor
 const GFGeneratedArtifactReportBase = preload("res://addons/gf/kernel/editor/gf_generated_artifact_report.gd")
+const _GF_REPORT_VALUE_CODEC_SCRIPT = preload("res://addons/gf/kernel/core/gf_report_value_codec.gd")
 const _GF_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
 
 
@@ -316,15 +317,15 @@ static func save_text_from_manifest(manifest: Dictionary, text: String, options:
 ## [br]
 ## @param manifests: 清单数组。
 ## [br]
-## @param options: 汇总选项，支持 include_manifests 和 metadata。
+## @param options: 汇总选项，支持 include_manifests 和 metadata；metadata 与可选 manifests 会在返回摘要中编码为 JSON-safe 值。
 ## [br]
 ## @schema manifests: Array[Dictionary] template generation manifests.
 ## [br]
-## @schema options: Dictionary with include_manifests and metadata.
+## @schema options: Dictionary with include_manifests and metadata; metadata may contain arbitrary Variant values and is encoded with GFReportValueCodec in the returned summary.
 ## [br]
 ## @return 清单摘要。
 ## [br]
-## @schema return: Dictionary containing valid, manifest_count, valid_count, invalid_count, template_ids, output_paths, errors, metadata, and optional manifests.
+## @schema return: JSON-safe Dictionary containing valid, manifest_count, valid_count, invalid_count, template_ids, output_paths, errors, metadata, and optional manifests.
 static func summarize_manifests(manifests: Array[Dictionary], options: Dictionary = {}) -> Dictionary:
 	var valid_count: int = 0
 	var invalid_count: int = 0
@@ -358,17 +359,68 @@ static func summarize_manifests(manifests: Array[Dictionary], options: Dictionar
 		"manifest_count": manifests.size(),
 		"valid_count": valid_count,
 		"invalid_count": invalid_count,
-		"template_ids": template_ids,
-		"output_paths": output_paths,
+		"template_ids": _packed_to_array(template_ids),
+		"output_paths": _packed_to_array(output_paths),
 		"errors": errors,
-		"metadata": _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(options, "metadata"),
+		"metadata": _to_report_dictionary(_GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(options, "metadata")),
 	}
 	if _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(options, "include_manifests", false):
-		summary["manifests"] = checked_manifests
+		summary["manifests"] = _to_manifest_report_array(checked_manifests)
 	return summary
 
 
 # --- 私有/辅助方法 ---
+
+static func _to_manifest_report_array(manifests: Array[Dictionary]) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	for manifest: Dictionary in manifests:
+		result.append(_to_manifest_report_dictionary(manifest))
+	return result
+
+
+static func _to_manifest_report_dictionary(manifest: Dictionary) -> Dictionary:
+	var status_text: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(manifest, "status")
+	if status_text.is_empty():
+		status_text = String(STATUS_INVALID)
+	var artifact_owner: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(manifest, "artifact_owner", "generated")
+	if artifact_owner.is_empty():
+		artifact_owner = "generated"
+	var result: Dictionary = {
+		"valid": _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(manifest, "valid", false),
+		"status": status_text,
+		"template_id": String(_GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(manifest, "template_id")),
+		"template_path": _GF_VARIANT_ACCESS_SCRIPT.get_option_string(manifest, "template_path"),
+		"output_path": _GF_VARIANT_ACCESS_SCRIPT.get_option_string(manifest, "output_path"),
+		"generator_id": String(_GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(manifest, "generator_id")),
+		"source_id": String(_GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(manifest, "source_id")),
+		"artifact_owner": artifact_owner,
+		"variables": _to_report_dictionary(_GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(manifest, "variables")),
+		"requirements": _to_report_dictionary(_GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(manifest, "requirements")),
+		"metadata": _to_report_dictionary(_GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(manifest, "metadata")),
+		"errors": _GF_VARIANT_ACCESS_SCRIPT.get_option_string_array(manifest, "errors"),
+	}
+	if manifest.has("sidecar_path"):
+		result["sidecar_path"] = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(manifest, "sidecar_path")
+	return result
+
+
+static func _to_report_dictionary(value: Dictionary) -> Dictionary:
+	return _GF_REPORT_VALUE_CODEC_SCRIPT.to_report_dictionary(value, _make_report_codec_options())
+
+
+static func _make_report_codec_options() -> Dictionary:
+	return _GF_REPORT_VALUE_CODEC_SCRIPT.make_redaction_options(
+		_GF_REPORT_VALUE_CODEC_SCRIPT.REDACTION_PROFILE_SUPPORT,
+		{ "path_redaction": "basename" }
+	)
+
+
+static func _packed_to_array(values: PackedStringArray) -> Array:
+	var result: Array = []
+	for value: String in values:
+		result.append(value)
+	return result
+
 
 static func _append_manifest_path_errors(field_name: String, path: String, errors: Array[String]) -> void:
 	var normalized: String = _normalize_manifest_path(path)

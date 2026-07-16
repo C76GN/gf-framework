@@ -26,6 +26,7 @@ signal changed(change_set: GFDirectoryChangeSet)
 # --- 常量 ---
 
 const _GF_PATH_TOOLS = preload("res://addons/gf/kernel/core/gf_path_tools.gd")
+const _GF_PATH_ENUMERATION_TOOLS = preload("res://addons/gf/standard/utilities/io/gf_path_enumeration_tools.gd")
 
 ## 默认递归扫描深度上限。
 ## [br]
@@ -194,9 +195,11 @@ func poll() -> GFDirectoryChangeSet:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.23.0
+## [br]
 ## @return 当前快照字典。
 ## [br]
-## @schema return: Dictionary keyed by file path with modified_time values.
+## @schema return: Dictionary keyed by file path with file metadata dictionaries containing modified_time, size_bytes, and content_sha256.
 func get_snapshot() -> Dictionary:
 	return _snapshot.duplicate(true)
 
@@ -228,46 +231,22 @@ func get_debug_snapshot() -> Dictionary:
 func _scan_watch_paths(scan_state: Dictionary) -> Dictionary:
 	var result: Dictionary = {}
 	for root_path: String in _watch_paths:
-		_scan_directory_recursive(root_path, result, 0, scan_state)
-	return result
-
-
-func _scan_directory_recursive(
-	dir_path: String,
-	result: Dictionary,
-	depth: int,
-	scan_state: Dictionary
-) -> void:
-	if _is_truncated(scan_state):
-		return
-	if _is_excluded_path(dir_path):
-		return
-
-	var dir: DirAccess = DirAccess.open(dir_path)
-	if dir == null:
-		return
-
-	var _list_dir_begin_result_248: Variant = dir.list_dir_begin()
-	var entry: String = dir.get_next()
-	while not entry.is_empty():
 		if _is_truncated(scan_state):
 			break
-
-		if not include_hidden and entry.begins_with("."):
-			entry = dir.get_next()
-			continue
-
-		var child_path: String = dir_path.path_join(entry)
-		if dir.current_is_dir():
-			if recursive and _can_scan_deeper(child_path, depth, scan_state):
-				_scan_directory_recursive(child_path, result, depth + 1, scan_state)
-		elif _can_include_file(entry):
-			result[child_path] = int(FileAccess.get_modified_time(child_path))
-			scan_state["scanned_count"] = GFVariantData.get_option_int(scan_state, "scanned_count") + 1
-			if max_file_count > 0 and GFVariantData.get_option_int(scan_state, "scanned_count") >= max_file_count:
-				scan_state["truncated"] = true
-		entry = dir.get_next()
-	dir.list_dir_end()
+		var scan_report: Dictionary = _GF_PATH_ENUMERATION_TOOLS.scan_files(
+			root_path,
+			_make_enumeration_options(scan_state)
+		)
+		var paths: PackedStringArray = GFVariantData.get_option_packed_string_array(scan_report, "paths")
+		for path: String in paths:
+			result[path] = _make_file_snapshot(path)
+		scan_state["scanned_count"] = (
+			GFVariantData.get_option_int(scan_state, "scanned_count")
+			+ GFVariantData.get_option_int(scan_report, "scanned_count")
+		)
+		if GFVariantData.get_option_bool(scan_report, "truncated"):
+			scan_state["truncated"] = true
+	return result
 
 
 func _make_change_set(next_snapshot: Dictionary, scan_state: Dictionary) -> GFDirectoryChangeSet:
@@ -278,7 +257,10 @@ func _make_change_set(next_snapshot: Dictionary, scan_state: Dictionary) -> GFDi
 	for path: String in next_snapshot.keys():
 		if not _snapshot.has(path):
 			var _appended: bool = created.append(path)
-		elif GFVariantData.to_int(_snapshot[path]) != GFVariantData.to_int(next_snapshot[path]):
+		elif not _snapshot_entries_equal(
+			GFVariantData.as_dictionary(_snapshot[path]),
+			GFVariantData.as_dictionary(next_snapshot[path])
+		):
 			var _appended: bool = modified.append(path)
 
 	for path: String in _snapshot.keys():
@@ -306,21 +288,72 @@ func _make_scan_state() -> Dictionary:
 	}
 
 
+func _make_enumeration_options(scan_state: Dictionary) -> Dictionary:
+	var remaining_file_count: int = 0
+	if max_file_count > 0:
+		remaining_file_count = maxi(max_file_count - GFVariantData.get_option_int(scan_state, "scanned_count"), 0)
+		if remaining_file_count <= 0:
+			scan_state["truncated"] = true
+	return {
+		"recursive": recursive,
+		"include_hidden": include_hidden,
+		"extensions": extensions,
+		"excluded_paths": excluded_paths,
+		"max_scan_depth": max_scan_depth,
+		"max_file_count": remaining_file_count,
+		"sort": true,
+	}
+
+
+func _make_file_snapshot(path: String) -> Dictionary:
+	return {
+		"modified_time": int(FileAccess.get_modified_time(path)),
+		"size_bytes": _get_file_size(path),
+		"content_sha256": _compute_file_sha256(path),
+	}
+
+
+func _snapshot_entries_equal(left: Dictionary, right: Dictionary) -> bool:
+	return (
+		GFVariantData.get_option_int(left, "modified_time", -1) == GFVariantData.get_option_int(right, "modified_time", -2)
+		and GFVariantData.get_option_int(left, "size_bytes", -1) == GFVariantData.get_option_int(right, "size_bytes", -2)
+		and GFVariantData.get_option_string(left, "content_sha256", "") == GFVariantData.get_option_string(right, "content_sha256", " ")
+	)
+
+
+func _get_file_size(path: String) -> int:
+	var file: FileAccess = FileAccess.open(path, FileAccess.READ)
+	if file == null:
+		return 0
+	var length: int = file.get_length()
+	file.close()
+	return length
+
+
+func _compute_file_sha256(path: String) -> String:
+	var file: FileAccess = FileAccess.open(path, FileAccess.READ)
+	if file == null:
+		return ""
+
+	var hashing: HashingContext = HashingContext.new()
+	var start_error: Error = hashing.start(HashingContext.HASH_SHA256)
+	if start_error != OK:
+		file.close()
+		return ""
+
+	while file.get_position() < file.get_length():
+		var remaining_bytes: int = file.get_length() - file.get_position()
+		var buffer_size: int = mini(65_536, remaining_bytes)
+		var update_error: Error = hashing.update(file.get_buffer(buffer_size))
+		if update_error != OK:
+			file.close()
+			return ""
+	file.close()
+	return hashing.finish().hex_encode()
+
+
 func _is_truncated(scan_state: Dictionary) -> bool:
 	return GFVariantData.get_option_bool(scan_state, "truncated")
-
-
-func _can_scan_deeper(_path: String, current_depth: int, scan_state: Dictionary) -> bool:
-	if max_scan_depth <= 0 or current_depth < max_scan_depth:
-		return true
-	scan_state["truncated"] = true
-	return false
-
-
-func _can_include_file(path: String) -> bool:
-	if extensions.is_empty():
-		return true
-	return extensions.has(path.get_extension().to_lower())
 
 
 func _normalize_extensions(values: PackedStringArray) -> PackedStringArray:
@@ -340,7 +373,3 @@ func _normalize_paths(values: PackedStringArray) -> PackedStringArray:
 
 func _normalize_dir_path(path: String) -> String:
 	return _GF_PATH_TOOLS.normalize_root_path(path, "", false)
-
-
-func _is_excluded_path(path: String) -> bool:
-	return _GF_PATH_TOOLS.is_path_excluded(path, excluded_paths)

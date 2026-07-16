@@ -30,6 +30,7 @@
 | 方法 | [`clear_considerations`](#member-gfdecisionoption-methods-clear_considerations) | `func clear_considerations() -> void:` |
 | 方法 | [`score`](#member-gfdecisionoption-methods-score) | `func score(context: GFDecisionContext) -> GFDecisionScore:` |
 | 方法 | [`get_debug_snapshot`](#member-gfdecisionoption-methods-get_debug_snapshot) | `func get_debug_snapshot(score_snapshot: GFDecisionScore = null) -> Dictionary:` |
+| 方法 | [`get_validation_report`](#member-gfdecisionoption-methods-get_validation_report) | `func get_validation_report() -> Dictionary:` |
 
 ## 枚举
 
@@ -288,3 +289,22 @@ func get_debug_snapshot(score_snapshot: GFDecisionScore = null) -> Dictionary:
 结构：
 
 - `return`: 包含 decision_id、display_name、enabled、aggregation、base_score 和 score 字段的 Dictionary。
+
+<a id="member-gfdecisionoption-methods-get_validation_report"></a>
+
+### `get_validation_report`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func get_validation_report() -> Dictionary:
+```
+
+获取候选资源的 authoring 校验报告。
+
+返回：GFValidationReportDictionary 兼容报告。
+
+结构：
+
+- `return`: Dictionary with ok, healthy, decision_id, issues, summary, and next_action.

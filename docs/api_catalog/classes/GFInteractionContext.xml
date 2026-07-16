@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFInteractionContext" path="addons/gf/extensions/interaction/runtime/gf_interaction_context.gd" module="extensions/interaction" extends="RefCounted" classDigest="821ad25db5f84c1b942fce965208703302fa547edeb5261e4e238440302bc77b">
+<class name="GFInteractionContext" path="addons/gf/extensions/interaction/runtime/gf_interaction_context.gd" module="extensions/interaction" extends="RefCounted" classDigest="315431fb5afaaf981e9ae6c94923d95af7af5251574b6ec47027802373dee0a5">
 	<description>GFInteractionContext: 一次交互流程的轻量上下文。
 用于在 Command、事件或项目自定义方法之间传递 sender、target、payload 与可选分组信息。</description>
 	<tags>
@@ -81,6 +81,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="schema">payload: 交互携带的任意项目载荷；框架只透传，不解释其中结构。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="group_name">
@@ -88,6 +89,7 @@
 			<description>交互所属的可选分组。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</properties>
@@ -99,6 +101,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">value: 要写入或修改的值。</tag>
 				<tag name="return">当前上下文。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="with_target">
@@ -108,6 +111,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">value: 要写入或修改的值。</tag>
 				<tag name="return">当前上下文。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="with_payload">
@@ -118,6 +122,7 @@
 				<tag name="param">value: 要写入或修改的值。</tag>
 				<tag name="return">当前上下文。</tag>
 				<tag name="schema">value: 要写入 payload 的任意项目载荷。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="with_group">
@@ -127,6 +132,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">value: 要写入或修改的值。</tag>
 				<tag name="return">当前上下文。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_sender_or_null">

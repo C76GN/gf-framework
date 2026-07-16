@@ -46,6 +46,8 @@ if diagram["ok"]:
 - `vertices`：Delaunay 三角形外心生成的 Voronoi 顶点。
 - `cells`：每个点对应一个字典，包含 `point_index`、`point`、`vertex_indices`、`polygon` 和 `is_open`。
 
+需要在 Delaunay / Voronoi 结果上继续派生邻接、边界、点到三角形或边到三角形索引时，可以把结果交给 `GFDualMeshTopology2D`。它只返回拓扑字典，不生成地图、河流、生态群系、Tile 或渲染数据。
+
 ## 选项
 
 两个入口都支持相同的 `options`：
@@ -56,5 +58,6 @@ if diagram["ok"]:
 ## 与其他模块的关系
 
 - `GFGraphMath` 可消费 Delaunay `edges`，把几何邻接转成项目层路径图。
+- `GFDualMeshTopology2D` 可消费 Delaunay 或 Voronoi 结果，生成双图拓扑和凸包边界信息。
 - `GFGraphLayoutUtility` 关注编辑器图节点布局；`GFVoronoi2D` 关注平面点集几何关系，二者不共享业务语义。
 - 地形、房间、资源分布、势力范围和可视化样式应留在项目或扩展侧，不写入 `GFVoronoi2D`。

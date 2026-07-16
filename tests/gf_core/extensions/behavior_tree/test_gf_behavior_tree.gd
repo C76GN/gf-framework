@@ -9,6 +9,13 @@ func test_condition_node() -> void:
 	assert_eq(is_false.tick({}), GFBehaviorTree.Status.FAILURE)
 
 
+func test_condition_node_rejects_non_bool_result() -> void:
+	var invalid_condition: GFBehaviorTree.Condition = GFBehaviorTree.Condition.new(func(_bb: Dictionary) -> String: return "yes")
+
+	assert_eq(invalid_condition.tick({}), GFBehaviorTree.Status.FAILURE)
+	assert_eq(invalid_condition.last_reason, &"invalid_condition_result", "非 bool 条件结果应被标记为非法结果。")
+
+
 func test_action_node() -> void:
 	var bb_test: Dictionary = {"val": 0}
 	var act: GFBehaviorTree.Action = GFBehaviorTree.Action.new(func(bb: Dictionary) -> int:
@@ -27,6 +34,22 @@ func test_action_node_rejects_invalid_integer_status() -> void:
 
 	assert_eq(act.tick({}), GFBehaviorTree.Status.FAILURE)
 	assert_eq(act.last_reason, &"invalid_status", "非法 int 状态应归一为 FAILURE 并记录原因。")
+
+
+func test_action_node_rejects_invalid_non_integer_status() -> void:
+	var act: GFBehaviorTree.Action = GFBehaviorTree.Action.new(func(_bb: Dictionary) -> String: return "success")
+
+	assert_eq(act.tick({}), GFBehaviorTree.Status.FAILURE)
+	assert_eq(act.last_reason, &"invalid_status", "非 int 状态应归一为 FAILURE 并记录非法状态原因。")
+
+
+func test_action_node_rejects_fresh_as_tick_result() -> void:
+	var action: GFBehaviorTree.Action = GFBehaviorTree.Action.new(func(_bb: Dictionary) -> int:
+		return GFBehaviorTree.Status.FRESH
+	)
+
+	assert_eq(action.tick({}), GFBehaviorTree.Status.FAILURE)
+	assert_eq(action.last_reason, &"invalid_status", "FRESH 只表示未执行状态，不能作为 tick 结果。")
 
 
 func test_sequence_success() -> void:
@@ -367,6 +390,28 @@ func test_until_success_and_until_fail() -> void:
 	assert_eq(until_fail.tick(fail_state), GFBehaviorTree.Status.SUCCESS)
 
 
+func test_until_decorators_reset_child_before_retrying_terminal_mismatch() -> void:
+	var success_child: StatusSequenceNode = StatusSequenceNode.new([
+		GFBehaviorTree.Status.FAILURE,
+		GFBehaviorTree.Status.SUCCESS,
+	])
+	var until_success: GFBehaviorTree.UntilSuccess = GFBehaviorTree.UntilSuccess.new(success_child)
+
+	assert_eq(until_success.tick({}), GFBehaviorTree.Status.RUNNING)
+	assert_eq(success_child.reset_count, 1, "UntilSuccess 子节点失败后重试前应 reset。")
+	assert_eq(until_success.tick({}), GFBehaviorTree.Status.SUCCESS)
+
+	var fail_child: StatusSequenceNode = StatusSequenceNode.new([
+		GFBehaviorTree.Status.SUCCESS,
+		GFBehaviorTree.Status.FAILURE,
+	])
+	var until_fail: GFBehaviorTree.UntilFail = GFBehaviorTree.UntilFail.new(fail_child)
+
+	assert_eq(until_fail.tick({}), GFBehaviorTree.Status.RUNNING)
+	assert_eq(fail_child.reset_count, 1, "UntilFail 子节点成功后重试前应 reset。")
+	assert_eq(until_fail.tick({}), GFBehaviorTree.Status.SUCCESS)
+
+
 func test_runner_debug_snapshot_records_status_and_blackboard_keys() -> void:
 	var action: GFBehaviorTree.Action = GFBehaviorTree.Action.new(func(_bb: Dictionary) -> int:
 		return GFBehaviorTree.Status.SUCCESS
@@ -409,7 +454,25 @@ func test_blackboard_scope_returns_deep_snapshots_for_nested_values() -> void:
 	assert_eq(GFVariantData.get_option_int(stored_target, "hp"), 10, "修改合并字典的嵌套值不应污染 scope。")
 
 
+func test_blackboard_scope_rejects_parent_cycles() -> void:
+	var parent: GFBehaviorTree.BlackboardScope = GFBehaviorTree.BlackboardScope.new({ &"mode": "base" })
+	var child: GFBehaviorTree.BlackboardScope = GFBehaviorTree.BlackboardScope.new({ &"speed": 5 }, parent)
+
+	parent.parent = child
+
+	assert_eq(parent.parent, null, "会形成二节点循环的 parent 应被拒绝。")
+	assert_eq(GFVariantData.to_text(child.get_value(&"mode")), "base", "拒绝循环后原有父链应保持可读。")
+	assert_push_error("[GFBehaviorTree] 拒绝设置会形成循环的 BlackboardScope parent。")
+
+	child.parent = child
+
+	assert_eq(child.parent, parent, "自环 parent 应被拒绝并保留原 parent。")
+	assert_push_error("[GFBehaviorTree] 拒绝设置会形成循环的 BlackboardScope parent。")
+
+
 func test_probability_cooldown_and_time_limit_decorators() -> void:
+	var clock_state: Dictionary = { "msec": 1000 }
+	var clock: Callable = _make_test_clock(clock_state)
 	var rng: RandomNumberGenerator = _make_rng(1)
 	var action_count: Dictionary = { "value": 0 }
 	var action: GFBehaviorTree.Action = GFBehaviorTree.Action.new(func(bb: Dictionary) -> int:
@@ -417,36 +480,134 @@ func test_probability_cooldown_and_time_limit_decorators() -> void:
 		return GFBehaviorTree.Status.SUCCESS
 	)
 	var probability: GFBehaviorTree.Probability = GFBehaviorTree.Probability.new(action, 1.0, rng)
-	var cooldown: GFBehaviorTree.Cooldown = GFBehaviorTree.Cooldown.new(probability, 1.0)
+	var cooldown: GFBehaviorTree.Cooldown = GFBehaviorTree.Cooldown.new(probability, 1.0, clock)
 
-	assert_eq(cooldown.tick({ "value": GFVariantData.get_option_int(action_count, "value"), "time_msec": 1000 }), GFBehaviorTree.Status.SUCCESS)
-	assert_eq(cooldown.tick({ "value": GFVariantData.get_option_int(action_count, "value"), "time_msec": 1200 }), GFBehaviorTree.Status.FAILURE)
+	assert_eq(cooldown.tick({ "value": GFVariantData.get_option_int(action_count, "value") }), GFBehaviorTree.Status.SUCCESS)
+	clock_state["msec"] = 1200
+	assert_eq(cooldown.tick({ "value": GFVariantData.get_option_int(action_count, "value") }), GFBehaviorTree.Status.FAILURE)
 
 	var running: GFBehaviorTree.Action = GFBehaviorTree.Action.new(func(_bb: Dictionary) -> int:
 		return GFBehaviorTree.Status.RUNNING
 	)
-	var limited: GFBehaviorTree.TimeLimit = GFBehaviorTree.TimeLimit.new(running, 0.5)
+	var limited_clock_state: Dictionary = { "msec": 1000 }
+	var limited: GFBehaviorTree.TimeLimit = GFBehaviorTree.TimeLimit.new(
+		running,
+		0.5,
+		_make_test_clock(limited_clock_state)
+	)
 
-	assert_eq(limited.tick({ "time_msec": 1000 }), GFBehaviorTree.Status.RUNNING)
-	assert_eq(limited.tick({ "time_msec": 1601 }), GFBehaviorTree.Status.FAILURE)
+	assert_eq(limited.tick({}), GFBehaviorTree.Status.RUNNING)
+	limited_clock_state["msec"] = 1601
+	assert_eq(limited.tick({}), GFBehaviorTree.Status.FAILURE)
+
+
+func test_time_limit_zero_fails_before_ticking_child() -> void:
+	var child: StatusSequenceNode = StatusSequenceNode.new([GFBehaviorTree.Status.SUCCESS])
+	var limited: GFBehaviorTree.TimeLimit = GFBehaviorTree.TimeLimit.new(
+		child,
+		0.0,
+		_make_test_clock({ "msec": 1000 })
+	)
+
+	assert_eq(limited.tick({}), GFBehaviorTree.Status.FAILURE)
+	assert_eq(child.tick_count_value, 0, "TimeLimit(0) 不应先执行一次子节点。")
+	assert_eq(child.reset_count, 1, "TimeLimit(0) 应重置子节点运行态。")
+
+
+func test_cooldown_starts_after_condition_false_terminal_result() -> void:
+	var clock_state: Dictionary = { "msec": 1000 }
+	var condition_count: Dictionary = { "value": 0 }
+	var condition: GFBehaviorTree.Condition = GFBehaviorTree.Condition.new(func(_bb: Dictionary) -> bool:
+		condition_count["value"] = GFVariantData.get_option_int(condition_count, "value") + 1
+		return false
+	)
+	var cooldown: GFBehaviorTree.Cooldown = GFBehaviorTree.Cooldown.new(
+		condition,
+		1.0,
+		_make_test_clock(clock_state)
+	)
+
+	assert_eq(cooldown.tick({}), GFBehaviorTree.Status.FAILURE)
+	clock_state["msec"] = 1200
+	assert_eq(cooldown.tick({}), GFBehaviorTree.Status.FAILURE)
+	assert_eq(cooldown.last_reason, &"cooldown_active", "普通失败终态后应进入冷却期。")
+	assert_eq(GFVariantData.get_option_int(condition_count, "value"), 1, "冷却期内不应重复 tick 子条件。")
 
 
 func test_cooldown_survives_parent_runtime_reset() -> void:
+	var clock_state: Dictionary = { "msec": 1000 }
 	var action_count: Dictionary = { "value": 0 }
 	var action: GFBehaviorTree.Action = GFBehaviorTree.Action.new(func(_bb: Dictionary) -> int:
 		action_count["value"] = GFVariantData.get_option_int(action_count, "value") + 1
 		return GFBehaviorTree.Status.SUCCESS
 	)
-	var cooldown: GFBehaviorTree.Cooldown = GFBehaviorTree.Cooldown.new(action, 1.0)
+	var cooldown: GFBehaviorTree.Cooldown = GFBehaviorTree.Cooldown.new(
+		action,
+		1.0,
+		_make_test_clock(clock_state)
+	)
 	var sequence: GFBehaviorTree.Sequence = GFBehaviorTree.Sequence.new(_nodes([cooldown]))
 
-	assert_eq(sequence.tick({ "time_msec": 1000 }), GFBehaviorTree.Status.SUCCESS)
-	assert_eq(sequence.tick({ "time_msec": 1200 }), GFBehaviorTree.Status.FAILURE)
+	assert_eq(sequence.tick({}), GFBehaviorTree.Status.SUCCESS)
+	clock_state["msec"] = 1200
+	assert_eq(sequence.tick({}), GFBehaviorTree.Status.FAILURE)
 	assert_eq(GFVariantData.get_option_int(action_count, "value"), 1, "父节点完成后的 reset 不应清空 Cooldown。")
 
 	cooldown.clear_cooldown()
 
-	assert_eq(sequence.tick({ "time_msec": 1200 }), GFBehaviorTree.Status.SUCCESS, "显式清空冷却后应允许下一轮执行。")
+	assert_eq(sequence.tick({}), GFBehaviorTree.Status.SUCCESS, "显式清空冷却后应允许下一轮执行。")
+
+
+func test_cooldown_resets_terminal_child_before_next_attempt() -> void:
+	var clock_state: Dictionary = { "msec": 1000 }
+	var child: ResettableAttemptNode = ResettableAttemptNode.new()
+	var cooldown: GFBehaviorTree.Cooldown = GFBehaviorTree.Cooldown.new(
+		child,
+		1.0,
+		_make_test_clock(clock_state)
+	)
+
+	assert_eq(cooldown.tick({}), GFBehaviorTree.Status.RUNNING)
+	clock_state["msec"] = 1001
+	assert_eq(cooldown.tick({}), GFBehaviorTree.Status.SUCCESS)
+	assert_eq(child.reset_count, 1, "子节点终态后必须结束本轮运行态。")
+	clock_state["msec"] = 2001
+	assert_eq(cooldown.tick({}), GFBehaviorTree.Status.RUNNING, "冷却后的下一次执行必须从新尝试开始。")
+
+
+func test_time_limit_clamps_injected_clock_rollback() -> void:
+	var clock_state: Dictionary = { "msec": 1000 }
+	var child: GFBehaviorTree.Action = GFBehaviorTree.Action.new(func(_bb: Dictionary) -> int:
+		return GFBehaviorTree.Status.RUNNING
+	)
+	var limited: GFBehaviorTree.TimeLimit = GFBehaviorTree.TimeLimit.new(
+		child,
+		0.5,
+		_make_test_clock(clock_state)
+	)
+
+	assert_eq(limited.tick({}), GFBehaviorTree.Status.RUNNING)
+	clock_state["msec"] = 900
+	assert_eq(limited.tick({}), GFBehaviorTree.Status.RUNNING, "时钟回拨不能倒退已观察时间。")
+	clock_state["msec"] = 1499
+	assert_eq(limited.tick({}), GFBehaviorTree.Status.RUNNING)
+	clock_state["msec"] = 1500
+	assert_eq(limited.tick({}), GFBehaviorTree.Status.FAILURE)
+
+
+func test_time_decorators_reject_non_finite_durations() -> void:
+	var child: GFBehaviorTree.Action = GFBehaviorTree.Action.new(func(_bb: Dictionary) -> int:
+		return GFBehaviorTree.Status.SUCCESS
+	)
+	var cooldown: GFBehaviorTree.Cooldown = GFBehaviorTree.Cooldown.new(child, NAN)
+	var limited: GFBehaviorTree.TimeLimit = GFBehaviorTree.TimeLimit.new(child, INF)
+
+	assert_eq(cooldown.cooldown_seconds, 0.0)
+	assert_eq(limited.limit_seconds, 1.0)
+	cooldown.cooldown_seconds = INF
+	limited.limit_seconds = NAN
+	assert_eq(cooldown.cooldown_seconds, 0.0, "非法赋值应保留最后一个有效冷却时长。")
+	assert_eq(limited.limit_seconds, 1.0, "非法赋值应保留最后一个有效时间限制。")
 
 
 func test_runner_duplicates_runtime_tree_by_default() -> void:
@@ -465,13 +626,37 @@ func test_runner_duplicates_runtime_tree_by_default() -> void:
 	assert_eq(GFVariantData.get_option_int(action_count, "value"), 3, "两个 Runner 和原始树应各自执行一次叶子动作。")
 
 
-func test_runner_preserves_custom_node_behavior_without_duplicate_override() -> void:
+func test_runner_normalizes_invalid_root_tick_results() -> void:
+	var invalid_root: RawStatusNode = RawStatusNode.new(999)
+	var fresh_root: RawStatusNode = RawStatusNode.new(GFBehaviorTree.Status.FRESH)
+
+	assert_eq(GFBehaviorTree.Runner.new(invalid_root, false).tick(), GFBehaviorTree.Status.FAILURE)
+	assert_eq(invalid_root.last_reason, &"invalid_status")
+	assert_eq(GFBehaviorTree.Runner.new(fresh_root, false).tick(), GFBehaviorTree.Status.FAILURE)
+	assert_eq(fresh_root.last_reason, &"invalid_status")
+
+
+func test_runner_rejects_custom_node_without_duplicate_override() -> void:
 	var custom_node: CustomCountingNode = CustomCountingNode.new()
 	var sequence: GFBehaviorTree.Sequence = GFBehaviorTree.Sequence.new(_nodes([custom_node]))
 	var runner: GFBehaviorTree.Runner = GFBehaviorTree.Runner.new(sequence)
 
-	assert_eq(runner.tick(), GFBehaviorTree.Status.SUCCESS, "Runner 默认复制运行树时仍应执行自定义节点逻辑。")
-	assert_eq(custom_node.tick_count_value, 1, "未重写 duplicate_runtime() 的自定义节点不应被降级为基础 BTNode。")
+	assert_eq(runner.tick(), GFBehaviorTree.Status.FAILURE, "未重写 duplicate_runtime() 的自定义节点不应在默认复制模式下静默共享运行态。")
+	assert_eq(custom_node.tick_count_value, 0, "无法复制的自定义节点不应污染原始定义节点。")
+	assert_push_error("[GFBehaviorTree] BTNode 子类必须重写 duplicate_runtime() 才能被 Runner 默认复制；请返回独立运行副本，或显式创建 Runner(root, false) 共享运行树。")
+
+
+func test_runner_isolates_custom_node_when_duplicate_runtime_is_implemented() -> void:
+	var custom_node: DuplicatingCountingNode = DuplicatingCountingNode.new()
+	var sequence: GFBehaviorTree.Sequence = GFBehaviorTree.Sequence.new(_nodes([custom_node]))
+	var first_runner: GFBehaviorTree.Runner = GFBehaviorTree.Runner.new(sequence)
+	var second_runner: GFBehaviorTree.Runner = GFBehaviorTree.Runner.new(sequence)
+
+	assert_eq(first_runner.tick(), GFBehaviorTree.Status.RUNNING)
+	assert_eq(second_runner.tick(), GFBehaviorTree.Status.RUNNING)
+	assert_eq(custom_node.tick_count_value, 0, "Runner 副本不应 tick 原始自定义定义节点。")
+	assert_eq(first_runner.tick(), GFBehaviorTree.Status.SUCCESS)
+	assert_eq(second_runner.tick(), GFBehaviorTree.Status.SUCCESS)
 
 
 func test_probability_keeps_decision_while_child_is_running() -> void:
@@ -509,6 +694,50 @@ func test_debug_snapshot_counts_each_tick_once_and_preserves_terminal_status() -
 	assert_eq(GFVariantData.get_option_string_name(root, "status_text"), &"fresh", "显式清空调试状态应恢复 FRESH。")
 
 
+func test_debug_snapshot_sanitizes_metadata_and_marks_debug_cycles() -> void:
+	var node: SelfDebugNode = SelfDebugNode.new()
+	var circular_metadata: Dictionary = {}
+	circular_metadata["self"] = circular_metadata
+	node.metadata = {
+		"position": Vector2(1.0, 2.0),
+		"bad_number": NAN,
+		"loop": circular_metadata,
+	}
+
+	var snapshot: Dictionary = node.get_debug_snapshot()
+	var metadata: Dictionary = GFVariantData.get_option_dictionary(snapshot, "metadata")
+	var encoded_position: Dictionary = GFVariantData.get_option_dictionary(metadata, "position")
+	var encoded_bad_number: Dictionary = GFVariantData.get_option_dictionary(metadata, "bad_number")
+	var encoded_loop: Dictionary = GFVariantData.get_option_dictionary(metadata, "loop")
+	var loop_reference: Dictionary = GFVariantData.get_option_dictionary(encoded_loop, "self")
+	var loop_marker: Dictionary = GFVariantData.get_option_dictionary(loop_reference, "__gf_report_value__")
+	var children: Array = GFVariantData.get_option_array(snapshot, "children")
+	var cycle_child: Dictionary = GFVariantData.as_dictionary(children[0])
+
+	assert_true(encoded_position.has(GFVariantJsonCodec.JSON_MARKER_KEY), "Vector2 metadata 应输出 JSON-safe typed marker。")
+	assert_true(encoded_bad_number.has(GFVariantJsonCodec.JSON_MARKER_KEY), "NaN metadata 应输出 JSON-safe typed marker。")
+	assert_eq(GFVariantData.get_option_string(loop_marker, "type"), "CircularReference", "循环 metadata 应输出报告 marker。")
+	assert_true(GFVariantData.get_option_bool(cycle_child, "cycle"), "debug child 自环应被标记而不是递归展开。")
+	assert_ne(JSON.stringify(snapshot), "", "调试快照应可直接进入 JSON.stringify。")
+
+
+func test_build_debug_snapshot_sanitizes_arbitrary_snapshot_owner() -> void:
+	var snapshot_source: UnsafeDebugOwner = UnsafeDebugOwner.new()
+	var snapshot: Dictionary = GFBehaviorTree.build_debug_snapshot(snapshot_source)
+	var resource_value: Dictionary = GFVariantData.get_option_dictionary(snapshot, "resource")
+	var resource_marker: Dictionary = GFVariantData.get_option_dictionary(
+		resource_value,
+		"__gf_report_value__"
+	)
+	var loop_value: Dictionary = GFVariantData.get_option_dictionary(snapshot, "loop")
+	var loop_reference: Dictionary = GFVariantData.get_option_dictionary(loop_value, "self")
+	var loop_marker: Dictionary = GFVariantData.get_option_dictionary(loop_reference, "__gf_report_value__")
+
+	assert_eq(GFVariantData.get_option_string(resource_marker, "type"), "Object")
+	assert_eq(GFVariantData.get_option_string(loop_marker, "type"), "CircularReference")
+	assert_false(JSON.stringify(snapshot).contains(":null"), "NaN 不应在调试报告中退化为 null。")
+
+
 func _run_random_sequence_with_seed(seed_value: int) -> Array:
 	var state: Dictionary = { "order": [] }
 	var random_sequence: GFBehaviorTree.RandomSequence = GFBehaviorTree.RandomSequence.new(_nodes([
@@ -539,6 +768,11 @@ func _make_rng(seed_value: int) -> RandomNumberGenerator:
 	return rng
 
 
+func _make_test_clock(state: Dictionary) -> Callable:
+	return func() -> int:
+		return GFVariantData.get_option_int(state, "msec")
+
+
 func _count_unique(values: Array) -> int:
 	var lookup: Dictionary = {}
 	for value: Variant in values:
@@ -558,6 +792,29 @@ class CustomCountingNode extends GFBehaviorTree.BTNode:
 		return _record_tick(GFBehaviorTree.Status.SUCCESS)
 
 
+class DuplicatingCountingNode extends GFBehaviorTree.BTNode:
+	var tick_count_value: int = 0
+
+	func tick(_blackboard: Dictionary) -> int:
+		tick_count_value += 1
+		return _record_tick(GFBehaviorTree.Status.RUNNING if tick_count_value == 1 else GFBehaviorTree.Status.SUCCESS)
+
+	func duplicate_runtime() -> GFBehaviorTree.BTNode:
+		var copy: DuplicatingCountingNode = DuplicatingCountingNode.new()
+		_copy_base_fields_to(copy)
+		return copy
+
+
+class SelfDebugNode extends GFBehaviorTree.BTNode:
+	func _get_debug_children() -> Array[GFBehaviorTree.BTNode]:
+		return [self]
+
+	func duplicate_runtime() -> GFBehaviorTree.BTNode:
+		var copy: SelfDebugNode = SelfDebugNode.new()
+		_copy_base_fields_to(copy)
+		return copy
+
+
 class ResetCountingNode extends GFBehaviorTree.BTNode:
 	var reset_count: int = 0
 
@@ -567,3 +824,57 @@ class ResetCountingNode extends GFBehaviorTree.BTNode:
 	func reset() -> void:
 		reset_count += 1
 		super.reset()
+
+
+class StatusSequenceNode extends GFBehaviorTree.BTNode:
+	var statuses: Array[int] = []
+	var tick_count_value: int = 0
+	var reset_count: int = 0
+
+	func _init(p_statuses: Array[int]) -> void:
+		statuses = p_statuses.duplicate()
+
+	func tick(_blackboard: Dictionary) -> int:
+		var status_index: int = mini(tick_count_value, statuses.size() - 1)
+		tick_count_value += 1
+		return _record_tick(statuses[status_index])
+
+	func reset() -> void:
+		reset_count += 1
+		super.reset()
+
+
+class ResettableAttemptNode extends GFBehaviorTree.BTNode:
+	var phase: int = 0
+	var reset_count: int = 0
+
+	func tick(_blackboard: Dictionary) -> int:
+		phase += 1
+		return _record_tick(
+			GFBehaviorTree.Status.RUNNING if phase == 1 else GFBehaviorTree.Status.SUCCESS
+		)
+
+	func reset() -> void:
+		phase = 0
+		reset_count += 1
+
+
+class RawStatusNode extends GFBehaviorTree.BTNode:
+	var raw_status: int = GFBehaviorTree.Status.FAILURE
+
+	func _init(p_raw_status: int) -> void:
+		raw_status = p_raw_status
+
+	func tick(_blackboard: Dictionary) -> int:
+		return raw_status
+
+
+class UnsafeDebugOwner extends RefCounted:
+	func get_debug_snapshot() -> Dictionary:
+		var loop: Dictionary = {}
+		loop["self"] = loop
+		return {
+			"bad_number": NAN,
+			"resource": Resource.new(),
+			"loop": loop,
+		}

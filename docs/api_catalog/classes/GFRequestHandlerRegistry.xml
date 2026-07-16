@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFRequestHandlerRegistry" path="addons/gf/standard/common/gf_request_handler_registry.gd" module="standard" extends="RefCounted" classDigest="e0adec5dfcfe94609d2d0b23cd8427311913d539cd1b072bbd93ddbd1c29ba92">
+<class name="GFRequestHandlerRegistry" path="addons/gf/standard/common/gf_request_handler_registry.gd" module="standard" extends="RefCounted" classDigest="44b801e4bbc5f599387e7fa48b4f54cebf624741a04483daabc17a1a60854ca2">
 	<description>GFRequestHandlerRegistry: 单处理器请求调用注册表。
 用于表达 “Invoke / TryInvoke” 语义：每个 request_type 至多有一个处理器。
 多订阅广播仍应使用 GFTypeEventSystem；本注册表只负责明确的一对一请求调用契约，
@@ -133,6 +133,21 @@
 		</member>
 	</properties>
 	<methods>
+		<member kind="method" name="make_bridge_contract_entries">
+			<signature>static func make_bridge_contract_entries( required_request_types: PackedStringArray, registry: GFRequestHandlerRegistry, options: Dictionary = {} ) -&gt; Dictionary:</signature>
+			<description>构建请求 handler 桥接契约条目。
+该方法只把请求类型和注册表快照转换为通用 bridge contract/adapters 条目，不生成最终验证报告。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">required_request_types: 必需请求类型列表。</tag>
+				<tag name="param">registry: 请求 handler 注册表。</tag>
+				<tag name="param">options: 构建选项，支持 kind、signature 和 adapter_kind。</tag>
+				<tag name="return">请求 handler bridge 条目数据。</tag>
+				<tag name="schema">options: Dictionary request-handler bridge entry options.</tag>
+				<tag name="schema">return: Dictionary with contract_entries and adapter_entries arrays.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
 		<member kind="method" name="register_handler">
 			<signature>func register_handler(request_type: StringName, handler: Callable, options: Dictionary = {}) -&gt; Dictionary:</signature>
 			<description>注册单处理器请求 handler。
@@ -194,6 +209,21 @@ handler 会收到一个 Dictionary 参数，包含 request_type、payload、cont
 				<tag name="since">7.0.0</tag>
 			</tags>
 		</member>
+		<member kind="method" name="to_json_compatible_result">
+			<signature>static func to_json_compatible_result(result: Dictionary, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>将请求调用结果转换为 JSON.stringify() 安全的诊断报告。
+功能型 invoke()/try_invoke() 返回值保持原始 Variant；日志、快照和跨进程诊断应使用该方法输出。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">result: invoke()/try_invoke() 返回的调用结果。</tag>
+				<tag name="param">options: 编码选项，透传给 GFReportValueCodec。</tag>
+				<tag name="return">JSON-safe 调用结果。</tag>
+				<tag name="schema">result: Dictionary raw request invocation result.</tag>
+				<tag name="schema">options: Dictionary report value codec options.</tag>
+				<tag name="schema">return: Dictionary safe for JSON.stringify().</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
 		<member kind="method" name="has_handler">
 			<signature>func has_handler(request_type: StringName) -&gt; bool:</signature>
 			<description>判断请求类型是否已注册 handler。</description>
@@ -234,6 +264,18 @@ handler 会收到一个 Dictionary 参数，包含 request_type、payload、cont
 				<tag name="since">7.0.0</tag>
 			</tags>
 		</member>
+		<member kind="method" name="get_json_compatible_recent_events">
+			<signature>func get_json_compatible_recent_events(options: Dictionary = {}) -&gt; Array[Dictionary]:</signature>
+			<description>获取 JSON.stringify() 安全的最近注册/调用事件。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">options: 编码选项，透传给 GFReportValueCodec。</tag>
+				<tag name="return">JSON-safe 最近事件数组。</tag>
+				<tag name="schema">options: Dictionary report value codec options.</tag>
+				<tag name="schema">return: Array[Dictionary]，每个元素均可安全传给 JSON.stringify()。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
 		<member kind="method" name="clear">
 			<signature>func clear() -&gt; void:</signature>
 			<description>清空全部 handler 和历史事件。</description>
@@ -250,6 +292,19 @@ handler 会收到一个 Dictionary 参数，包含 request_type、payload、cont
 				<tag name="return">注册表状态快照。</tag>
 				<tag name="schema">return: Dictionary，包含 handler_count、统计计数、handlers 和 recent_events。</tag>
 				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_json_compatible_debug_snapshot">
+			<signature>func get_json_compatible_debug_snapshot(options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>获取 JSON.stringify() 安全的注册表调试快照。
+功能型 get_debug_snapshot() 保留原始 Variant；日志、导出和跨进程诊断应使用该方法。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">options: 编码选项，透传给 GFReportValueCodec。</tag>
+				<tag name="return">JSON-safe 注册表状态快照。</tag>
+				<tag name="schema">options: Dictionary report value codec options.</tag>
+				<tag name="schema">return: Dictionary safe for JSON.stringify().</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 	</methods>

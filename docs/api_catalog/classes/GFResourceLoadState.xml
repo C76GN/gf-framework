@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFResourceLoadState" path="addons/gf/standard/utilities/assets/gf_resource_load_state.gd" module="standard" extends="RefCounted" classDigest="fafc48b4a2b7fee19c01890f732f3bac431fe3d7abfd75387235a9863016498f">
+<class name="GFResourceLoadState" path="addons/gf/standard/utilities/assets/gf_resource_load_state.gd" module="standard" extends="RefCounted" classDigest="fc72d409a8f2ecbb7b39f53f8454c37d637847f84c60b880b145bc25a3c64d44">
 	<description>GFResourceLoadState: 资源加载状态与引用快照。
 用于把资源键、路径、加载状态、进度、错误和弱/强引用模式收敛为统一状态对象。
 它不发起 ResourceLoader 请求，也不规定资源包、下载或缓存策略。</description>
@@ -298,13 +298,24 @@
 				<tag name="since">7.0.0</tag>
 			</tags>
 		</member>
+		<member kind="method" name="get_resource_identity">
+			<signature>func get_resource_identity(options: Dictionary = {}) -&gt; GFResourceIdentity:</signature>
+			<description>获取当前资源身份快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">options: 可选项，支持 check_exists。</tag>
+				<tag name="return">资源身份对象。</tag>
+				<tag name="schema">options: Dictionary with optional `check_exists: bool`.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
 		<member kind="method" name="to_dictionary">
 			<signature>func to_dictionary() -&gt; Dictionary:</signature>
 			<description>导出状态字典。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">状态字典。</tag>
-				<tag name="schema">return: Dictionary，包含 resource_key、resource_path、status、progress、error、reference_mode、has_resource、resource_instance_id 和 metadata。</tag>
+				<tag name="schema">return: Dictionary，包含 resource_key、resource_path、resource_identity、status、progress、error、reference_mode、has_resource、resource_instance_id 和 metadata。</tag>
 				<tag name="since">7.0.0</tag>
 			</tags>
 		</member>

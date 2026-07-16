@@ -122,6 +122,36 @@ func get_capabilities() -> Dictionary:
 	return _get_capabilities().duplicate(true)
 
 
+## 获取后端能力报告。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+## [br]
+## @param options: 报告选项，支持 label、metadata、include_data_count、include_data_names。
+## [br]
+## @return 能力报告字典。
+## [br]
+## @schema options: Dictionary，包含 label、metadata、include_data_count 和 include_data_names。
+## [br]
+## @schema return: Dictionary，包含 ok、backend_class、label、capabilities、data_count、data_names 和 metadata。
+func get_capability_report(options: Dictionary = {}) -> Dictionary:
+	var capabilities: Dictionary = get_capabilities()
+	var include_data_names: bool = GFVariantData.get_option_bool(options, "include_data_names", false)
+	var include_data_count: bool = GFVariantData.get_option_bool(options, "include_data_count", true)
+	var entries: Array[Dictionary] = list_data() if GFVariantData.get_option_bool(capabilities, "list") else []
+	var data_names: PackedStringArray = _get_data_names_from_list(entries) if include_data_names else PackedStringArray()
+	return {
+		"ok": true,
+		"backend_class": get_class(),
+		"label": GFVariantData.get_option_string(options, "label"),
+		"capabilities": capabilities,
+		"data_count": entries.size() if include_data_count else -1,
+		"data_names": data_names,
+		"metadata": GFVariantData.get_option_dictionary(options, "metadata"),
+	}
+
+
 # --- 可重写钩子 / 虚方法 ---
 
 ## 初始化具体后端。
@@ -234,3 +264,14 @@ func _make_result(ok: bool, data: Dictionary, metadata: Dictionary, error: Strin
 		GFResultDictionary.KEY_METADATA: metadata.duplicate(true),
 		GFResultDictionary.KEY_ERROR: error,
 	})
+
+
+func _get_data_names_from_list(entries: Array[Dictionary]) -> PackedStringArray:
+	var result: PackedStringArray = PackedStringArray()
+	for entry: Dictionary in entries:
+		var file_name: String = GFVariantData.get_option_string(entry, "file_name")
+		if file_name.is_empty():
+			continue
+		var _append_result: bool = result.append(file_name)
+	result.sort()
+	return result

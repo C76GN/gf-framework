@@ -34,6 +34,11 @@ signal item_removed(item_id: StringName)
 signal cleared
 
 
+# --- 常量 ---
+
+const _GF_VARIANT_KEY_CODEC_SCRIPT = preload("res://addons/gf/standard/foundation/variant/gf_variant_key_codec.gd")
+
+
 # --- 公共变量 ---
 
 ## 读取或写入值时是否复制 Dictionary / Array。
@@ -69,8 +74,11 @@ func set_item(item_id: StringName, value: Variant, fields: Dictionary = {}) -> b
 	if item_id == &"":
 		return false
 
+	var normalized_report: Dictionary = _try_normalize_fields(fields)
+	if not GFVariantData.get_option_bool(normalized_report, "ok", false):
+		return false
+	var normalized_fields: Dictionary = GFVariantData.get_option_dictionary(normalized_report, "fields")
 	var _removed_existing: bool = remove_item(item_id)
-	var normalized_fields: Dictionary = _normalize_fields(fields)
 	_items[item_id] = {
 		"value": _copy_value(value),
 		"fields": normalized_fields,
@@ -163,6 +171,8 @@ func query(field_id: StringName, field_value: Variant) -> PackedStringArray:
 	if field_index.is_empty():
 		return result
 
+	if not _is_stable_field_value(field_value):
+		return result
 	var value_key: String = _make_value_key(field_value)
 	var item_lookup: Dictionary = GFVariantData.as_dictionary(GFVariantData.get_option_value(field_index, value_key, {}))
 	if item_lookup.is_empty():
@@ -256,32 +266,58 @@ func _copy_value(value: Variant) -> Variant:
 	return value
 
 
-func _normalize_fields(fields: Dictionary) -> Dictionary:
+func _try_normalize_fields(fields: Dictionary) -> Dictionary:
 	var result: Dictionary = {}
 	for field_id_variant: Variant in fields.keys():
 		var field_id: StringName = GFVariantData.to_string_name(field_id_variant)
 		if field_id == &"":
 			continue
-		var values: Array = _normalize_field_values(fields[field_id_variant])
+		var value_report: Dictionary = _try_normalize_field_values(fields[field_id_variant])
+		if not GFVariantData.get_option_bool(value_report, "ok", false):
+			return {
+				"ok": false,
+				"fields": {},
+			}
+		var values: Array = GFVariantData.get_option_array(value_report, "values")
 		if not values.is_empty():
 			result[field_id] = values
-	return result
+	return {
+		"ok": true,
+		"fields": result,
+	}
 
 
-func _normalize_field_values(value: Variant) -> Array:
+func _try_normalize_field_values(value: Variant) -> Dictionary:
 	var result: Array = []
 	if value == null:
-		return result
+		return {
+			"ok": true,
+			"values": result,
+		}
 	if value is PackedStringArray:
 		for text: String in value:
 			result.append(text)
 	elif value is Array:
 		for item: Variant in value:
-			if item != null:
-				result.append(item)
+			if item == null:
+				continue
+			if not _is_stable_field_value(item):
+				return {
+					"ok": false,
+					"values": [],
+				}
+			result.append(item)
 	else:
+		if not _is_stable_field_value(value):
+			return {
+				"ok": false,
+				"values": [],
+			}
 		result.append(value)
-	return result
+	return {
+		"ok": true,
+		"values": result,
+	}
 
 
 func _index_fields(item_id: StringName, fields: Dictionary) -> void:
@@ -329,7 +365,11 @@ func _remove_index_value(field_id: StringName, field_value: Variant, item_id: St
 
 
 func _make_value_key(value: Variant) -> String:
-	return "%d:%s" % [typeof(value), var_to_str(value)]
+	return _GF_VARIANT_KEY_CODEC_SCRIPT.make_key_token(value)
+
+
+func _is_stable_field_value(value: Variant) -> bool:
+	return _GF_VARIANT_KEY_CODEC_SCRIPT.is_stable_key(value)
 
 
 func _intersect_lookup(left_lookup: Dictionary, right_ids: PackedStringArray) -> Dictionary:

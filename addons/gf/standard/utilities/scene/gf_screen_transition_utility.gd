@@ -77,7 +77,7 @@ func dispose() -> void:
 	_finished_callback = Callable()
 	if is_instance_valid(_overlay_layer):
 		var parent: Node = _overlay_layer.get_parent()
-		if parent != null:
+		if parent != null and not GFAutoload.is_tree_exit_in_progress():
 			parent.remove_child(_overlay_layer)
 		_overlay_layer.queue_free()
 	_overlay_layer = null

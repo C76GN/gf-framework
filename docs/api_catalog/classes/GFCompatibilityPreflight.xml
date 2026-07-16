@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFCompatibilityPreflight" path="addons/gf/standard/foundation/policy/gf_compatibility_preflight.gd" module="standard" extends="RefCounted" classDigest="23286a05608a200b31cf3c487e3152017b386193ebfad86ad85c30ba79af0145">
+<class name="GFCompatibilityPreflight" path="addons/gf/standard/foundation/policy/gf_compatibility_preflight.gd" module="standard" extends="RefCounted" classDigest="abef99bf0eea5105c192fcdc17133f567ced938938ba96a5f8b3ac36bbd8718c">
 	<description>GFCompatibilityPreflight: 通用兼容性预检报告构建器。
-将版本、平台、功能、包和外部报告合并为标准校验报告。它只做显式声明的
+将版本、平台、功能、包、artifact 和外部报告合并为标准校验报告。它只做显式声明的
 预检，不安装包、不下载资源、不执行代码，也不把项目发布策略写入框架。</description>
 	<tags>
 		<tag name="api">public</tag>
@@ -190,6 +190,19 @@
 				<tag name="schema">options: Dictionary check metadata.</tag>
 				<tag name="schema">return: Dictionary check record.</tag>
 				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="require_artifact">
+			<signature>func require_artifact(artifact_id: StringName, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>要求 artifact 条目存在，并可选检查声明路径。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">artifact_id: artifact ID。</tag>
+				<tag name="param">options: 检查选项，支持 check_id、severity、metadata、require_path、expected_path、expected_kind、require_file_exists、expected_sha256 和 expected_size_bytes。</tag>
+				<tag name="return">检查记录副本。</tag>
+				<tag name="schema">options: Dictionary check metadata; require_path checks that the profile entry has a non-empty path, expected_path checks exact declared path when provided, require_file_exists checks the declared file without downloading or installing anything.</tag>
+				<tag name="schema">return: Dictionary check record.</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="add_check">

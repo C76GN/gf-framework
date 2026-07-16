@@ -155,15 +155,15 @@ func export_profile(profile: GFConfigPipelineProfile, options: Dictionary = {}) 
 | 名称 | 说明 |
 |---|---|
 | `profile` | 导表 Profile 资源。 |
-| `options` | 本次导出覆盖选项，支持 output_path、build_options、save_options、access_output_path、access_options、access_class_name、access_provider_accessor 以及 build_database() 的直接选项。 |
+| `options` | 本次导出覆盖选项，支持 output_path、build_options、save_options、access_output_path、access_options、access_class_name、access_provider_accessor、changed_only、manifest_path、write_manifest、manifest_options、manifest_metadata 以及 build_database() 的直接选项。 |
 
 返回：导出结果。
 
 结构：
 
 - `profile`: GFConfigPipelineProfile resource。
-- `options`: Dictionary，可包含 output_path、build_options、save_options、access_output_path、access_options、access_class_name、access_provider_accessor、database_id、version、metadata、validate_database、validate_schema、parse_options 和 rebuild_indexes。
-- `return`: Dictionary，包含 success、database、report、table_results、build_result、save_result、access_result、profile_id、output_path 和 error。
+- `options`: Dictionary，可包含 output_path、build_options、save_options、access_output_path、access_options、access_class_name、access_provider_accessor、database_id、version、metadata、validate_database、validate_schema、parse_options、rebuild_indexes、changed_only、manifest_path、write_manifest、manifest_options、manifest_metadata、max_freshness_file_bytes、max_freshness_total_bytes 和 max_freshness_entries；save_options、access_options 与 manifest_options 可分别包含 allow_unowned_overwrite。
+- `return`: Dictionary，包含 success、database、report、table_results、build_result、save_result、access_result、manifest_path、manifest、manifest_result、profile_id、output_path 和 error。
 
 <a id="member-gfconfigpipeline-methods-make_database_export"></a>
 
@@ -211,13 +211,13 @@ func save_database( database: GFConfigDatabaseResource, output_path: String, opt
 |---|---|
 | `database` | 要保存的配置数据库资源。 |
 | `output_path` | 输出路径，通常为 .tres、.res 或 .json。 |
-| `options` | 保存选项，支持 output_format、include_schema、include_indexes、indent、sort_keys、overwrite_existing、dry_run 和 artifact_metadata。 |
+| `options` | 保存选项，支持 output_format、include_schema、include_indexes、indent、sort_keys、overwrite_existing、allow_unowned_overwrite、dry_run 和 artifact_metadata。 |
 
 返回：保存结果。
 
 结构：
 
-- `options`: Dictionary，可包含 output_format、include_schema、include_indexes、indent、sort_keys、overwrite_existing、dry_run 和 artifact_metadata。
+- `options`: Dictionary，可包含 output_format、include_schema、include_indexes、indent、sort_keys、overwrite_existing、allow_unowned_overwrite、dry_run 和 artifact_metadata；allow_unowned_overwrite 仅用于调用方已明确确认现有文件所有权的迁移场景。
 - `return`: Dictionary，包含 success、path、format、error_code、error、artifact_report、status、written、changed 和 dry_run。
 
 <a id="member-gfconfigpipeline-methods-generate_access"></a>
@@ -241,11 +241,11 @@ func generate_access( database: GFConfigDatabaseResource, output_path: String, a
 | `output_path` | 访问器脚本输出路径。 |
 | `access_class_name` | 生成脚本的 class_name。 |
 | `provider_accessor` | 无显式 provider 参数时用于获取 provider 的表达式。 |
-| `options` | 访问器生成选项，支持 GFConfigAccessGenerator 选项、overwrite_existing、dry_run、scan_filesystem 和 metadata。 |
+| `options` | 访问器生成选项，支持 GFConfigAccessGenerator 选项、overwrite_existing、allow_unowned_overwrite、dry_run、scan_filesystem 和 metadata。 |
 
 返回：访问器生成结果。
 
 结构：
 
-- `options`: Dictionary，可包含 method_name_style、constant_prefix、record_method_pattern、table_method_pattern、include_schema_comments、include_typed_records、typed_record_method_pattern、typed_record_class_suffix、overwrite_existing、dry_run、scan_filesystem 和 metadata。
+- `options`: Dictionary，可包含 method_name_style、constant_prefix、record_method_pattern、table_method_pattern、include_schema_comments、include_typed_records、typed_record_method_pattern、typed_record_class_suffix、overwrite_existing、allow_unowned_overwrite、dry_run、scan_filesystem 和 metadata；allow_unowned_overwrite 仅用于调用方已明确确认现有文件所有权的迁移场景。
 - `return`: Dictionary，包含 success、skipped、path、class_name、schema_count、error_code、error 和 artifact_report。

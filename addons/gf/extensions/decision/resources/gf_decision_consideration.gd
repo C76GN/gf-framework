@@ -29,6 +29,11 @@ enum InputSource {
 }
 
 
+# --- 常量 ---
+
+const _GF_DECISION_NUMERIC_POLICY = preload("res://addons/gf/extensions/decision/runtime/gf_decision_numeric_policy.gd")
+
+
 # --- 导出变量 ---
 
 ## 考虑项标识，用于调试报告。
@@ -101,12 +106,10 @@ func score(context: GFDecisionContext) -> float:
 		return 1.0
 
 	var raw_score: float = _score(context)
-	if is_nan(raw_score) or is_inf(raw_score):
-		raw_score = missing_score
-	raw_score = clampf(raw_score, 0.0, 1.0)
+	raw_score = _GF_DECISION_NUMERIC_POLICY.normalize_score(raw_score, missing_score)
 	if invert:
 		raw_score = 1.0 - raw_score
-	return clampf(raw_score, 0.0, 1.0)
+	return _GF_DECISION_NUMERIC_POLICY.normalize_score(raw_score)
 
 
 ## 获取考虑项调试快照。
@@ -119,14 +122,47 @@ func score(context: GFDecisionContext) -> float:
 ## [br]
 ## @schema return: 包含 consideration_id、enabled、score、weight、input_source 和 input_key 字段的 Dictionary。
 func get_debug_snapshot(context: GFDecisionContext) -> Dictionary:
-	return {
+	return GFReportValueCodec.to_report_dictionary({
 		"consideration_id": consideration_id,
 		"enabled": enabled,
 		"score": score(context),
-		"weight": weight,
+		"weight": _GF_DECISION_NUMERIC_POLICY.normalize_weight(weight),
 		"input_source": input_source,
 		"input_key": input_key,
+	})
+
+
+## 获取考虑项 authoring 校验报告。
+## [br]
+## @api public
+## [br]
+## @return GFValidationReportDictionary 兼容报告。
+## [br]
+## @since 8.0.0
+## [br]
+## @schema return: Dictionary with ok, healthy, consideration_id, issues, summary, and next_action.
+func get_validation_report() -> Dictionary:
+	var report: Dictionary = {
+		"subject": "Decision consideration",
+		"consideration_id": consideration_id,
+		"issues": [],
 	}
+	if consideration_id == &"":
+		_append_validation_issue(report, &"missing_consideration_id", "consideration_id is required", "consideration_id")
+	if not _GF_DECISION_NUMERIC_POLICY.is_valid_weight(weight):
+		_append_validation_issue(report, &"invalid_consideration_weight", "weight must be finite and non-negative", "weight")
+	if input_source < InputSource.BLACKBOARD or input_source > InputSource.TARGET:
+		_append_validation_issue(report, &"invalid_input_source", "input_source is not supported", "input_source")
+	if not is_finite(default_input):
+		_append_validation_issue(report, &"invalid_default_input", "default_input must be finite", "default_input")
+	if not is_finite(input_min) or not is_finite(input_max):
+		_append_validation_issue(report, &"invalid_input_range", "input range must be finite", "input_range")
+	if not _GF_DECISION_NUMERIC_POLICY.is_valid_score(missing_score):
+		_append_validation_issue(report, &"invalid_missing_score", "missing_score must be finite and within 0 to 1", "missing_score")
+	return GFValidationReportDictionary.finalize_report(report, "Decision consideration", {
+		"fallback_action": "Review the first decision consideration issue.",
+		"no_action": "Decision consideration is valid.",
+	})
 
 
 # --- 可重写钩子 / 虚方法 ---
@@ -172,11 +208,36 @@ func _resolve_input(context: GFDecisionContext) -> Variant:
 
 
 func _normalize_input(value: float) -> float:
-	if is_equal_approx(input_min, input_max):
-		return 1.0 if value >= input_max else 0.0
-	return clampf(inverse_lerp(input_min, input_max, value), 0.0, 1.0)
+	var safe_min: float = _finite_or_default(input_min, 0.0)
+	var safe_max: float = _finite_or_default(input_max, 1.0)
+	var safe_value: float = _finite_or_default(value, safe_min)
+	if is_equal_approx(safe_min, safe_max):
+		return 1.0 if safe_value >= safe_max else 0.0
+	return clampf(inverse_lerp(safe_min, safe_max, safe_value), 0.0, 1.0)
 
 
 func _is_numeric(value: Variant) -> bool:
 	var value_type: int = typeof(value)
 	return value_type == TYPE_INT or value_type == TYPE_FLOAT
+
+
+func _finite_or_default(value: float, default_value: float) -> float:
+	return value if not is_nan(value) and not is_inf(value) else default_value
+
+
+func _append_validation_issue(
+	report: Dictionary,
+	kind: StringName,
+	message: String,
+	path: String
+) -> void:
+	var _issue: Dictionary = GFValidationReportDictionary.append_issue(
+		report,
+		"error",
+		kind,
+		message,
+		{
+			"key": consideration_id,
+			"path": path,
+		}
+	)

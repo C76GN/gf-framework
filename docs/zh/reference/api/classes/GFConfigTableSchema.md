@@ -22,6 +22,7 @@
 | 属性 | [`coerce_values`](#member-gfconfigtableschema-properties-coerce_values) | `var coerce_values: bool = false` |
 | 属性 | [`fail_on_coerce_error`](#member-gfconfigtableschema-properties-fail_on_coerce_error) | `var fail_on_coerce_error: bool = true` |
 | 属性 | [`require_unique_id`](#member-gfconfigtableschema-properties-require_unique_id) | `var require_unique_id: bool = false` |
+| 属性 | [`max_resource_path_checks_per_validation`](#member-gfconfigtableschema-properties-max_resource_path_checks_per_validation) | `var max_resource_path_checks_per_validation: int = 1024` |
 | 属性 | [`indexes`](#member-gfconfigtableschema-properties-indexes) | `var indexes: Array[GFConfigTableIndexDefinition] = []` |
 | 属性 | [`references`](#member-gfconfigtableschema-properties-references) | `var references: Array[GFConfigTableReference] = []` |
 | 属性 | [`record_validation_rules`](#member-gfconfigtableschema-properties-record_validation_rules) | `var record_validation_rules: Array[GFConfigValidationRule] = []` |
@@ -133,6 +134,19 @@ var require_unique_id: bool = false
 ```
 
 校验整表时是否要求 id_field 唯一。
+
+<a id="member-gfconfigtableschema-properties-max_resource_path_checks_per_validation"></a>
+
+### `max_resource_path_checks_per_validation`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+var max_resource_path_checks_per_validation: int = 1024
+```
+
+单次记录或整表校验最多执行的唯一资源路径存在性探测数。 同一路径及同一探测策略在一次校验内共享结果，不重复消耗预算。
 
 <a id="member-gfconfigtableschema-properties-indexes"></a>
 
@@ -540,6 +554,7 @@ func duplicate_schema() -> GFConfigTableSchema:
 ### `describe`
 
 - API：`public`
+- 首次版本：`3.0.0`
 
 ```gdscript
 func describe() -> Dictionary:
@@ -551,4 +566,4 @@ func describe() -> Dictionary:
 
 结构：
 
-- `return`: Dictionary，包含 table_name、id_field、columns、allow_extra_fields、coerce_values、fail_on_coerce_error、require_unique_id、indexes、references、record_validation_rules、table_validation_rules 和 metadata。
+- `return`: Dictionary，包含 table_name、id_field、columns、allow_extra_fields、coerce_values、fail_on_coerce_error、require_unique_id、max_resource_path_checks_per_validation、indexes、references、record_validation_rules、table_validation_rules 和 metadata。

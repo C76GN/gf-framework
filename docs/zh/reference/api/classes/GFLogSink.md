@@ -15,12 +15,32 @@
 
 | 类型 | 名称 | 签名 |
 |---|---|---|
+| 方法 | [`get_report_redaction_profile`](#member-gflogsink-methods-get_report_redaction_profile) | `func get_report_redaction_profile() -> String:` |
 | 方法 | [`init`](#member-gflogsink-methods-init) | `func init(_owner: Object) -> void:` |
 | 方法 | [`write`](#member-gflogsink-methods-write) | `func write(_entry: Dictionary) -> void:` |
 | 方法 | [`flush`](#member-gflogsink-methods-flush) | `func flush() -> void:` |
 | 方法 | [`shutdown`](#member-gflogsink-methods-shutdown) | `func shutdown() -> void:` |
 
 ## 方法
+
+<a id="member-gflogsink-methods-get_report_redaction_profile"></a>
+
+### `get_report_redaction_profile`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func get_report_redaction_profile() -> String:
+```
+
+获取该输出边界使用的报告脱敏 profile。 未知 sink 默认采用 public；仅本地、受控的诊断 sink 应显式覆盖为 debug。
+
+返回：GFReportValueCodec REDACTION_PROFILE_* 常量之一。
+
+结构：
+
+- `return`: String naming one GFReportValueCodec redaction profile.
 
 <a id="member-gflogsink-methods-init"></a>
 

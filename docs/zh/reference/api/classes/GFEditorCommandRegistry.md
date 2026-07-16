@@ -348,15 +348,15 @@ func get_action_snapshots(context: Dictionary = {}, options: Dictionary = {}) ->
 
 | 名称 | 说明 |
 |---|---|
-| `context` | 用于可用性检查的调用上下文。 |
-| `options` | 可选参数，支持 group、source_id 和 include_availability。 |
+| `context` | 用于可用性或调用探针的调用上下文。 |
+| `options` | 可选参数，支持 group、source_id、include_availability 和 include_invocation。 |
 
 返回：动作快照数组。
 
 结构：
 
-- `context`: Dictionary passed to action availability checks.
-- `options`: Dictionary with group, source_id, and include_availability.
+- `context`: Dictionary passed to action availability and invocation checks.
+- `options`: Dictionary with group, source_id, include_availability, and include_invocation.
 - `return`: Array[Dictionary] action snapshots sorted for UI display.
 
 <a id="member-gfeditorcommandregistry-methods-resolve_layout"></a>
@@ -377,15 +377,15 @@ func resolve_layout( action_ids: PackedStringArray, context: Dictionary = {}, op
 | 名称 | 说明 |
 |---|---|
 | `action_ids` | 已保存的动作 ID 顺序。 |
-| `context` | 用于可用性检查的调用上下文。 |
-| `options` | 可选参数，支持 include_availability。 |
+| `context` | 用于可用性或调用探针的调用上下文。 |
+| `options` | 可选参数，支持 include_availability 和 include_invocation。 |
 
 返回：布局解析报告。
 
 结构：
 
-- `context`: Dictionary passed to action availability checks.
-- `options`: Dictionary with optional include_availability.
+- `context`: Dictionary passed to action availability and invocation checks.
+- `options`: Dictionary with optional include_availability and include_invocation.
 - `return`: Dictionary containing entries and missing_ids.
 
 <a id="member-gfeditorcommandregistry-methods-invoke_action"></a>

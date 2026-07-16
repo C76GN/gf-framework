@@ -14,6 +14,8 @@ extends Resource
 # --- 常量 ---
 
 const _CONFIG_VALIDATION_REPORT = preload("res://addons/gf/standard/utilities/config/gf_config_validation_report.gd")
+const _RESOURCE_PATH_VALIDATION_RULE = preload("res://addons/gf/standard/utilities/config/validation/gf_config_resource_path_validation_rule.gd")
+const _RESOURCE_PATH_VALIDATION_SESSION_KEY: StringName = &"__gf_config_resource_path_validation_session"
 
 
 # --- 导出变量 ---
@@ -54,6 +56,15 @@ const _CONFIG_VALIDATION_REPORT = preload("res://addons/gf/standard/utilities/co
 ## [br]
 ## @api public
 @export var require_unique_id: bool = false
+
+## 单次记录或整表校验最多执行的唯一资源路径存在性探测数。
+##
+## 同一路径及同一探测策略在一次校验内共享结果，不重复消耗预算。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+@export_range(1, 65536, 1) var max_resource_path_checks_per_validation: int = 1024
 
 ## 可选复合索引声明。唯一索引会参与表级校验。
 ## [br]
@@ -289,33 +300,34 @@ func validate_definition(options: Dictionary = {}) -> Dictionary:
 ## [br]
 ## @schema return: GFConfigValidationReport 兼容 Dictionary。
 func validate_record(record: Dictionary, row_key: Variant = null, options: Dictionary = {}) -> Dictionary:
+	var runtime_options: Dictionary = _with_resource_path_validation_session(options)
 	var report: Dictionary = _make_report(1)
-	var working_record: Dictionary = _coerce_record_for_validation(record, row_key, report, options) if coerce_values else record
+	var working_record: Dictionary = _coerce_record_for_validation(record, row_key, report, runtime_options) if coerce_values else record
 	var declared_fields: Dictionary = {}
 
 	for column: GFConfigTableColumn in columns:
 		if column == null:
-			_add_issue(report, "error", "null_column", row_key, &"", "字段声明为空。", _make_record_context(row_key, options))
+			_add_issue(report, "error", "null_column", row_key, &"", "字段声明为空。", _make_record_context(row_key, runtime_options))
 			continue
 
 		var field_key: StringName = column.get_field_key()
-		var field_context: Dictionary = _make_field_context(row_key, field_key, options)
+		var field_context: Dictionary = _make_field_context(row_key, field_key, runtime_options)
 		if field_key == &"":
 			_add_issue(report, "error", "empty_field", row_key, &"", "字段名为空。", field_context)
 			continue
 
 		declared_fields[field_key] = true
+		if column.required and not record.has(field_key):
+			_add_issue(
+				report,
+				"error",
+				"missing_required",
+				row_key,
+				field_key,
+				"缺少必填字段：%s。" % str(field_key),
+				_make_value_context(row_key, field_key, runtime_options, null, "present", "missing")
+			)
 		if not working_record.has(field_key):
-			if column.required:
-				_add_issue(
-					report,
-					"error",
-					"missing_required",
-					row_key,
-					field_key,
-					"缺少必填字段：%s。" % str(field_key),
-					_make_value_context(row_key, field_key, options, null, "present", "missing")
-				)
 			continue
 
 		var field_value: Variant = working_record[field_key]
@@ -327,7 +339,7 @@ func validate_record(record: Dictionary, row_key: Variant = null, options: Dicti
 				row_key,
 				field_key,
 				"字段不允许为空：%s。" % str(field_key),
-				_make_value_context(row_key, field_key, options, field_value, "non_null")
+				_make_value_context(row_key, field_key, runtime_options, field_value, "non_null")
 			)
 		elif not column.is_value_valid(field_value):
 			_add_issue(
@@ -337,10 +349,10 @@ func validate_record(record: Dictionary, row_key: Variant = null, options: Dicti
 				row_key,
 				field_key,
 				"字段类型不匹配：%s。" % str(field_key),
-				_make_value_context(row_key, field_key, options, field_value, _value_type_to_name(column.value_type))
+				_make_value_context(row_key, field_key, runtime_options, field_value, _value_type_to_name(column.value_type))
 			)
 		else:
-			_validate_column_rules(column, field_value, row_key, report, options)
+			_validate_column_rules(column, field_value, row_key, report, runtime_options)
 
 	if not allow_extra_fields:
 		for field_variant: Variant in working_record.keys():
@@ -356,13 +368,13 @@ func validate_record(record: Dictionary, row_key: Variant = null, options: Dicti
 					_make_value_context(
 						row_key,
 						field_name,
-						options,
+						runtime_options,
 						GFVariantData.get_option_value(working_record, field_name),
 						"declared_field"
 					)
 				)
 
-	_validate_record_rules(working_record, row_key, report, options)
+	_validate_record_rules(working_record, row_key, report, runtime_options)
 	_finalize_report(report)
 	return report
 
@@ -383,13 +395,14 @@ func validate_record(record: Dictionary, row_key: Variant = null, options: Dicti
 ## [br]
 ## @schema return: GFConfigValidationReport 兼容 Dictionary。
 func validate_table(table_data: Variant, options: Dictionary = {}) -> Dictionary:
+	var runtime_options: Dictionary = _with_resource_path_validation_session(options)
 	var report: Dictionary = _make_report(0)
 	if table_data is Array:
-		_validate_array_table(GFVariantData.as_array(table_data), report, options)
+		_validate_array_table(GFVariantData.as_array(table_data), report, runtime_options)
 	elif table_data is Dictionary:
-		_validate_dictionary_table(GFVariantData.as_dictionary(table_data), report, options)
+		_validate_dictionary_table(GFVariantData.as_dictionary(table_data), report, runtime_options)
 	else:
-		_add_issue(report, "error", "invalid_table", null, &"", "表数据必须是 Array 或 Dictionary。", _make_record_context(null, options))
+		_add_issue(report, "error", "invalid_table", null, &"", "表数据必须是 Array 或 Dictionary。", _make_record_context(null, runtime_options))
 
 	_finalize_report(report)
 	return report
@@ -452,6 +465,7 @@ func duplicate_schema() -> GFConfigTableSchema:
 	schema.coerce_values = coerce_values
 	schema.fail_on_coerce_error = fail_on_coerce_error
 	schema.require_unique_id = require_unique_id
+	schema.max_resource_path_checks_per_validation = max_resource_path_checks_per_validation
 	for index: GFConfigTableIndexDefinition in indexes:
 		schema.indexes.append(index.duplicate_index() if index != null else null)
 	for reference_definition: GFConfigTableReference in references:
@@ -470,9 +484,11 @@ func duplicate_schema() -> GFConfigTableSchema:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.0.0
+## [br]
 ## @return schema 字典。
 ## [br]
-## @schema return: Dictionary，包含 table_name、id_field、columns、allow_extra_fields、coerce_values、fail_on_coerce_error、require_unique_id、indexes、references、record_validation_rules、table_validation_rules 和 metadata。
+## @schema return: Dictionary，包含 table_name、id_field、columns、allow_extra_fields、coerce_values、fail_on_coerce_error、require_unique_id、max_resource_path_checks_per_validation、indexes、references、record_validation_rules、table_validation_rules 和 metadata。
 func describe() -> Dictionary:
 	var column_descriptions: Array[Dictionary] = []
 	for column: GFConfigTableColumn in columns:
@@ -496,6 +512,7 @@ func describe() -> Dictionary:
 		"coerce_values": coerce_values,
 		"fail_on_coerce_error": fail_on_coerce_error,
 		"require_unique_id": require_unique_id,
+		"max_resource_path_checks_per_validation": max_resource_path_checks_per_validation,
 		"indexes": index_descriptions,
 		"references": reference_descriptions,
 		"record_validation_rules": record_rule_descriptions,
@@ -533,10 +550,11 @@ func _validate_array_table(rows: Array, report: Dictionary, options: Dictionary)
 		var record: Dictionary = GFVariantData.as_dictionary(row)
 		var row_key: Variant = _get_record_row_key(record, index)
 		var row_options: Dictionary = _make_row_options(options, index)
+		var table_record: Dictionary = coerce_record(record) if coerce_values else record
 		valid_rows.append({
 			"row_key": row_key,
 			"row_index": index,
-			"record": record,
+			"record": table_record,
 		})
 		_merge_report(report, validate_record(record, row_key, row_options))
 		_validate_unique_id(record, row_key, seen_ids, report, row_options)
@@ -556,9 +574,10 @@ func _validate_dictionary_table(table: Dictionary, report: Dictionary, options: 
 
 		var record: Dictionary = GFVariantData.as_dictionary(row)
 		var row_key: Variant = _get_record_row_key(record, key)
+		var table_record: Dictionary = coerce_record(record) if coerce_values else record
 		valid_rows.append({
 			"row_key": row_key,
-			"record": record,
+			"record": table_record,
 		})
 		_merge_report(report, validate_record(record, row_key, options))
 		_validate_unique_id(record, row_key, seen_ids, report, options)
@@ -877,8 +896,20 @@ func _make_field_context(row_key: Variant, field_name: StringName, options: Dict
 		"field": field_name,
 	}
 	_copy_context_fields(context, options)
+	if options.has(_RESOURCE_PATH_VALIDATION_SESSION_KEY):
+		context[_RESOURCE_PATH_VALIDATION_SESSION_KEY] = options[_RESOURCE_PATH_VALIDATION_SESSION_KEY]
 	_apply_row_location(context, field_name, options)
 	return context
+
+
+func _with_resource_path_validation_session(options: Dictionary) -> Dictionary:
+	var result: Dictionary = options.duplicate(false)
+	var session_value: Variant = GFVariantData.get_option_value(result, _RESOURCE_PATH_VALIDATION_SESSION_KEY)
+	if not _RESOURCE_PATH_VALIDATION_RULE._is_validation_session(session_value):
+		result[_RESOURCE_PATH_VALIDATION_SESSION_KEY] = _RESOURCE_PATH_VALIDATION_RULE._make_validation_session(
+			max_resource_path_checks_per_validation
+		)
+	return result
 
 
 func _make_value_context(

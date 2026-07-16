@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFAssetCatalogSourceRegistry" path="addons/gf/standard/utilities/assets/gf_asset_catalog_source_registry.gd" module="standard" extends="RefCounted" classDigest="85a1ff63a44e06d13a9d540043aaf422d778bf0b7f9f9788217f0a5191493cc8">
+	<description>GFAssetCatalogSourceRegistry: 资产目录来源注册表。
+通过显式 provider 汇聚多个资产来源，生成可重建的 `GFAssetCatalog`。
+它只处理来源注册、优先级、合并和诊断，不规定项目目录结构或素材分类体系。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_service</tag>
+		<tag name="since">8.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties />
+	<methods>
+		<member kind="method" name="register_source">
+			<signature>func register_source(provider: GFAssetCatalogSourceProvider, options: Dictionary = {}) -&gt; bool:</signature>
+			<description>注册资产来源 provider。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">provider: 资产来源 provider。</tag>
+				<tag name="param">options: 可选项，支持 source_id 和 priority 覆盖。</tag>
+				<tag name="return">注册成功返回 true。</tag>
+				<tag name="schema">options: Dictionary with optional source_id: StringName/String and priority: int.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="unregister_source">
+			<signature>func unregister_source(provider: GFAssetCatalogSourceProvider) -&gt; bool:</signature>
+			<description>注销资产来源 provider。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">provider: 已注册的 provider。</tag>
+				<tag name="return">找到并移除时返回 true。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="clear_sources">
+			<signature>func clear_sources() -&gt; void:</signature>
+			<description>清空全部来源。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="has_source_id">
+			<signature>func has_source_id(source_id: StringName) -&gt; bool:</signature>
+			<description>检查来源 ID 是否已注册。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">source_id: 来源稳定 ID。</tag>
+				<tag name="return">存在返回 true。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_source_records">
+			<signature>func get_source_records() -&gt; Array[Dictionary]:</signature>
+			<description>获取来源摘要记录。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">来源摘要数组。</tag>
+				<tag name="schema">return: Array[Dictionary] where each item contains source_id, priority, provider_class, and index.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="build_catalog">
+			<signature>func build_catalog(options: Dictionary = {}) -&gt; GFAssetCatalog:</signature>
+			<description>构建合并后的资产目录。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">options: 可选项，支持 provider_options、overwrite 和 source_ids。</tag>
+				<tag name="return">合并后的资产目录。</tag>
+				<tag name="schema">options: Dictionary with optional provider_options: Dictionary, overwrite: bool, and source_ids: PackedStringArray.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="build_catalog_report">
+			<signature>func build_catalog_report(options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>构建 JSON-safe 资产目录诊断报告。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">options: 可选项，传给 build_catalog()。</tag>
+				<tag name="return">资产目录报告。</tag>
+				<tag name="schema">options: Dictionary build options.</tag>
+				<tag name="schema">return: Dictionary with ok, source_count, entry_count, sources, catalog_data, and issues.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

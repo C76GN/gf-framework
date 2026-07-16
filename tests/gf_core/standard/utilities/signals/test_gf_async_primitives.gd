@@ -1,32 +1,37 @@
 extends GutTest
 
 
+# --- 常量 ---
+
+const GF_ASYNC_PROGRESS_AGGREGATOR_SCRIPT = preload("res://addons/gf/standard/common/gf_async_progress_aggregator.gd")
+
+
 # --- 测试方法 ---
 
 func test_cancel_source_cancels_token_once_with_metadata() -> void:
-	var source: GFCancelSource = GFCancelSource.new()
+	var source: GFCancellationSource = GFCancellationSource.new()
 	var signal_state: Dictionary = {}
-	var connect_error: Error = source.get_token().cancelled.connect(func(reason: StringName, cancel_metadata: Dictionary) -> void:
+	var connect_error: Error = source.get_token().cancel_requested.connect(func(reason: StringName) -> void:
 		signal_state["reason"] = reason
-		signal_state["metadata"] = cancel_metadata.duplicate(true)
+		signal_state["metadata"] = source.get_token().get_cancel_metadata()
 	) as Error
 	assert_eq(connect_error, OK, "测试应能监听 token 取消信号。")
 
 	assert_true(source.cancel(&"user_cancelled", { "scope": "menu" }), "首次取消应成功。")
 	assert_false(source.cancel(&"late"), "重复取消不应覆盖第一次状态。")
 
-	var metadata: Dictionary = source.get_token().get_metadata()
+	var metadata: Dictionary = source.get_token().get_cancel_metadata()
 	var emitted_metadata: Dictionary = GFVariantData.get_option_dictionary(signal_state, "metadata")
-	assert_true(source.get_token().is_cancelled(), "token 应进入取消状态。")
-	assert_eq(source.get_token().get_reason(), &"user_cancelled", "token 应保留首次取消原因。")
+	assert_true(source.get_token().is_cancel_requested(), "token 应进入取消状态。")
+	assert_eq(source.get_token().get_cancel_reason(), &"user_cancelled", "token 应保留首次取消原因。")
 	assert_eq(GFVariantData.get_option_string(metadata, "scope"), "menu", "token 应保留取消元数据。")
 	assert_eq(GFVariantData.get_option_string_name(signal_state, "reason"), &"user_cancelled", "取消信号应发出原因。")
 	assert_eq(GFVariantData.get_option_string(emitted_metadata, "scope"), "menu", "取消信号应复制元数据。")
 
 
 func test_cancel_source_links_upstream_and_timeout() -> void:
-	var upstream: GFCancelSource = GFCancelSource.new()
-	var linked: GFCancelSource = GFCancelSource.create_linked(
+	var upstream: GFCancellationSource = GFCancellationSource.new()
+	var linked: GFCancellationSource = GFCancellationSource.create_linked(
 		[upstream.get_token()],
 		&"linked_cancelled",
 		{ "child": true }
@@ -34,31 +39,31 @@ func test_cancel_source_links_upstream_and_timeout() -> void:
 
 	assert_true(upstream.cancel(&"upstream_cancelled", { "origin": "test" }), "上游取消应成功。")
 
-	var linked_metadata: Dictionary = linked.get_token().get_metadata()
-	assert_true(linked.get_token().is_cancelled(), "linked source 应跟随上游取消。")
-	assert_eq(linked.get_token().get_reason(), &"linked_cancelled", "linked source 应可覆盖取消原因。")
+	var linked_metadata: Dictionary = linked.get_token().get_cancel_metadata()
+	assert_true(linked.get_token().is_cancel_requested(), "linked source 应跟随上游取消。")
+	assert_eq(linked.get_token().get_cancel_reason(), &"linked_cancelled", "linked source 应可覆盖取消原因。")
 	assert_eq(GFVariantData.get_option_string(linked_metadata, "origin"), "test", "linked source 应保留上游元数据。")
 	assert_true(GFVariantData.get_option_bool(linked_metadata, "child"), "linked source 应合并本地元数据。")
 
-	var timeout_source: GFCancelSource = GFCancelSource.new()
+	var timeout_source: GFCancellationSource = GFCancellationSource.new()
 	assert_true(timeout_source.cancel_after_seconds(0.01, get_tree()), "应能设置 SceneTree 超时取消。")
-	await timeout_source.get_token().cancelled
+	await timeout_source.get_token().cancel_requested
 
-	assert_true(timeout_source.get_token().is_cancelled(), "超时后 token 应取消。")
-	assert_eq(timeout_source.get_token().get_reason(), &"timeout", "默认超时原因应为 timeout。")
+	assert_true(timeout_source.get_token().is_cancel_requested(), "超时后 token 应取消。")
+	assert_eq(timeout_source.get_token().get_cancel_reason(), &"timeout", "默认超时原因应为 timeout。")
 
 
 func test_cancel_source_tracks_node_lifetime() -> void:
 	var node: Node = Node.new()
 	add_child(node)
-	var source: GFCancelSource = GFCancelSource.new()
+	var source: GFCancellationSource = GFCancellationSource.new()
 
 	assert_true(source.cancel_when_node_exits(node, &"owner_released"), "应能绑定节点离树取消。")
 	node.queue_free()
 	await get_tree().process_frame
 
-	assert_true(source.is_cancelled(), "节点离树后 source 应取消。")
-	assert_eq(source.get_token().get_reason(), &"owner_released", "节点生命周期取消应保留原因。")
+	assert_true(source.is_cancel_requested(), "节点离树后 source 应取消。")
+	assert_eq(source.get_token().get_cancel_reason(), &"owner_released", "节点生命周期取消应保留原因。")
 
 
 func test_async_completion_succeeds_once_and_binds_cancel_token() -> void:
@@ -80,7 +85,7 @@ func test_async_completion_succeeds_once_and_binds_cancel_token() -> void:
 	assert_eq(GFVariantData.get_option_string(emitted_metadata, "phase"), "load", "成功信号应携带元数据。")
 	assert_eq(completion.get_cancel_reason(), &"", "成功完成源不应带 cancelled 取消原因。")
 
-	var source: GFCancelSource = GFCancelSource.new()
+	var source: GFCancellationSource = GFCancellationSource.new()
 	var cancelled_completion: GFAsyncCompletion = GFAsyncCompletion.new()
 	assert_true(cancelled_completion.bind_cancel_token(source.get_token()), "完成源应能绑定取消 token。")
 	assert_true(source.cancel(&"timeout"), "source 取消应成功。")
@@ -98,10 +103,10 @@ func test_async_completion_failure_does_not_report_cancel_reason() -> void:
 	assert_eq(completion.get_cancel_reason(), &"", "失败完成源不应带 cancelled 取消原因。")
 
 
-func test_async_completion_wait_async_reports_timeout_without_completion() -> void:
+func test_async_wait_utility_wait_completion_reports_timeout_without_completion() -> void:
 	var completion: GFAsyncCompletion = GFAsyncCompletion.new()
 
-	var result: Dictionary = await completion.wait_async({
+	var result: Dictionary = await GFAsyncWaitUtility.wait_completion_async(completion, {
 		"tree": get_tree(),
 		"timeout_seconds": 0.01,
 	})
@@ -187,23 +192,23 @@ func test_timeout_controller_reuses_token_and_reports_timeout() -> void:
 	) as Error
 	assert_eq(connect_error, OK, "测试应能监听超时信号。")
 
-	var token: GFCancelToken = controller.start_seconds(0.01, get_tree(), &"operation_timeout", { "scope": "load" })
-	await token.cancelled
+	var token: GFCancellationToken = controller.start_seconds(0.01, get_tree(), &"operation_timeout", { "scope": "load" })
+	await token.cancel_requested
 
-	var metadata: Dictionary = token.get_metadata()
+	var metadata: Dictionary = token.get_cancel_metadata()
 	assert_true(controller.is_timeout(), "超时控制器应记录最近一次取消来自超时。")
 	assert_false(controller.is_active(), "超时触发后不应保持 active。")
-	assert_eq(token.get_reason(), &"operation_timeout", "超时 token 应保留原因。")
+	assert_eq(token.get_cancel_reason(), &"operation_timeout", "超时 token 应保留原因。")
 	assert_eq(GFVariantData.get_option_string(metadata, "scope"), "load", "超时 token 应保留元数据。")
 	assert_eq(timeout_events, [&"operation_timeout"], "超时信号应只发出一次。")
 
-	var reset_token: GFCancelToken = controller.reset()
-	assert_false(reset_token.is_cancelled(), "reset 后应换成未取消 token。")
+	var reset_token: GFCancellationToken = controller.reset()
+	assert_false(reset_token.is_cancel_requested(), "reset 后应换成未取消 token。")
 
-	var stopped_token: GFCancelToken = controller.start_seconds(0.01, get_tree())
+	var stopped_token: GFCancellationToken = controller.start_seconds(0.01, get_tree())
 	controller.stop()
 	await get_tree().create_timer(0.03).timeout
-	assert_false(stopped_token.is_cancelled(), "stop 应移除超时计划但不取消 token。")
+	assert_false(stopped_token.is_cancel_requested(), "stop 应移除超时计划但不取消 token。")
 	controller.dispose()
 
 
@@ -259,7 +264,7 @@ func test_async_wait_utility_detects_value_changes() -> void:
 
 
 func test_async_wait_utility_checks_cancel_before_immediate_delay() -> void:
-	var source: GFCancelSource = GFCancelSource.new()
+	var source: GFCancellationSource = GFCancellationSource.new()
 	var _cancelled: bool = source.cancel(&"already_cancelled")
 
 	var result: Dictionary = await GFAsyncWaitUtility.delay_seconds(0.0, {
@@ -272,7 +277,7 @@ func test_async_wait_utility_checks_cancel_before_immediate_delay() -> void:
 
 
 func test_async_wait_utility_checks_cancel_before_value_getter() -> void:
-	var source: GFCancelSource = GFCancelSource.new()
+	var source: GFCancellationSource = GFCancellationSource.new()
 	var getter_calls: Array[int] = []
 	var _cancelled: bool = source.cancel(&"already_cancelled")
 
@@ -334,6 +339,82 @@ func test_async_progress_emits_only_meaningful_changes() -> void:
 	assert_true(progress.complete("done"), "complete 应强制发出 1.0。")
 
 	assert_eq(values, [0.1, 0.2, 0.55, 1.0], "进度信号应只包含有意义的变化。")
+
+
+func test_async_progress_aggregator_combines_weighted_tasks() -> void:
+	var aggregator: GF_ASYNC_PROGRESS_AGGREGATOR_SCRIPT = GF_ASYNC_PROGRESS_AGGREGATOR_SCRIPT.new()
+	var emitted_values: Array[float] = []
+	var emitted_metadata: Array[Dictionary] = []
+	var connect_error: Error = aggregator.progressed.connect(func(value: float, _message: String, metadata: Dictionary) -> void:
+		emitted_values.append(value)
+		emitted_metadata.append(metadata.duplicate(true))
+	) as Error
+	assert_eq(connect_error, OK, "测试应能监听聚合进度信号。")
+
+	var bundle_index: int = aggregator.add_task(&"bundle", 1.0, { "kind": "bundle" })
+	var resources_index: int = aggregator.add_task(&"resources", 3.0)
+
+	assert_eq(aggregator.get_task_count(), 2, "聚合器应记录全部子任务。")
+	assert_almost_eq(aggregator.get_total_progress(), 0.0, 0.001, "两个未完成任务的总进度应为 0。")
+	assert_true(aggregator.set_task_progress(bundle_index, 1.0, "bundle"), "完成低权重任务应发布总进度。")
+	assert_almost_eq(aggregator.get_total_progress(), 0.25, 0.001, "总进度应按权重计算。")
+	assert_true(aggregator.set_task_fraction(resources_index, 1.0, 2.0, "resources"), "分数进度应发布总进度。")
+	assert_almost_eq(aggregator.get_total_progress(), 0.625, 0.001, "分数进度应折算为权重进度。")
+	assert_true(aggregator.complete_task_by_key(&"resources", "done"), "通过 key 完成任务应发布总进度。")
+	assert_almost_eq(aggregator.get_total_progress(), 1.0, 0.001, "全部任务完成后总进度应为 1。")
+	assert_true(aggregator.is_complete(), "总进度 1.0 时应视为完成。")
+	assert_true(emitted_values.size() >= 3, "任务更新应产生聚合进度事件。")
+	assert_almost_eq(emitted_values[emitted_values.size() - 1], 1.0, 0.001, "最后一次事件应报告完成。")
+	var last_metadata: Dictionary = emitted_metadata[emitted_metadata.size() - 1]
+	assert_eq(GFVariantData.get_option_int(last_metadata, "task_index"), resources_index, "事件元数据应包含最近任务索引。")
+
+
+func test_async_progress_aggregator_is_monotonic_by_default() -> void:
+	var aggregator: GF_ASYNC_PROGRESS_AGGREGATOR_SCRIPT = GF_ASYNC_PROGRESS_AGGREGATOR_SCRIPT.new()
+	var task_index: int = aggregator.add_task(&"load")
+
+	assert_true(aggregator.set_task_progress(task_index, 0.8), "首次任务进度应更新。")
+	assert_false(aggregator.set_task_progress(task_index, 0.3), "默认不应接受任务进度回退。")
+	assert_almost_eq(aggregator.get_total_progress(), 0.8, 0.001, "回退更新不应改变总进度。")
+
+	aggregator.allow_decrease = true
+	assert_true(aggregator.set_task_progress(task_index, 0.3), "显式允许后应接受任务进度回退。")
+	assert_almost_eq(aggregator.get_total_progress(), 0.3, 0.001, "允许回退时总进度应同步回退。")
+
+
+func test_async_progress_aggregator_reuses_keyed_task_and_reports_snapshot() -> void:
+	var aggregator: GF_ASYNC_PROGRESS_AGGREGATOR_SCRIPT = GF_ASYNC_PROGRESS_AGGREGATOR_SCRIPT.new()
+	var first_index: int = aggregator.add_task(&"same", 2.0, { "label": "first" })
+	var second_index: int = aggregator.add_task(&"same", 3.0)
+
+	assert_eq(second_index, first_index, "重复 key 应复用既有任务索引。")
+	assert_true(aggregator.has_task(&"same"), "聚合器应能查询 keyed 任务。")
+	assert_eq(aggregator.get_task_index(&"same"), first_index, "key 应映射到原任务索引。")
+
+	var snapshot: Dictionary = aggregator.get_task_snapshot(first_index)
+	var snapshot_metadata: Dictionary = GFVariantData.get_option_dictionary(snapshot, "metadata")
+	assert_eq(GFVariantData.get_option_string(snapshot_metadata, "label"), "first", "重复 add_task 不应覆盖既有元数据。")
+	assert_almost_eq(GFVariantData.get_option_float(snapshot, "weight"), 2.0, 0.001, "重复 add_task 不应覆盖既有权重。")
+
+	var debug_snapshot: Dictionary = aggregator.get_debug_snapshot()
+	assert_eq(GFVariantData.get_option_int(debug_snapshot, "task_count"), 1, "调试快照应包含任务数量。")
+	assert_almost_eq(GFVariantData.get_option_float(debug_snapshot, "total_weight"), 2.0, 0.001, "调试快照应包含总权重。")
+
+
+func test_async_progress_aggregator_rejects_unstable_keyed_tasks() -> void:
+	var aggregator: GF_ASYNC_PROGRESS_AGGREGATOR_SCRIPT = GF_ASYNC_PROGRESS_AGGREGATOR_SCRIPT.new()
+	var unstable_key: Dictionary = { "id": 1 }
+
+	var rejected_index: int = aggregator.add_task(unstable_key)
+	var vector_index: int = aggregator.add_task(Vector2i(1, 2), 1.0)
+	var snapshot: Dictionary = aggregator.get_task_snapshot(vector_index)
+	var json_text: String = JSON.stringify(snapshot)
+
+	assert_eq(rejected_index, -1, "可变 Dictionary key 不应创建任务。")
+	assert_eq(aggregator.get_task_count(), 1, "拒绝无效 key 后只应保留有效任务。")
+	assert_false(aggregator.has_task(unstable_key), "无效 key 不应可查询。")
+	assert_eq(aggregator.get_task_index(Vector2i(1, 2)), vector_index, "稳定数学 key 应可查询。")
+	assert_false(json_text.contains(":null"), "任务快照 key 应可安全 JSON.stringify。")
 
 
 # --- 私有/辅助方法 ---

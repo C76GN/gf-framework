@@ -1,12 +1,12 @@
 # GFConfigAccessGenerator
 
-[API Reference](../index.md) / [Kernel](../kernel.md) / [类索引](index.md)
+[API Reference](../index.md) / [Tool Packages](../tools.md) / [类索引](index.md)
 
-- 路径：`addons/gf/kernel/editor/gf_config_access_generator.gd`
-- 模块：`Kernel`
+- 路径：`addons/gf/tools/config_pipeline/gf_config_access_generator.gd`
+- 模块：`Tool Packages`
 - 继承：`RefCounted`
 - API：`public`
-- 类别：编辑器 API (`editor_api`)
+- 类别：工具 API (`tool_api`)
 - 首次版本：`3.17.0`
 
 生成静态导表访问器脚本。 默认生成结果只封装 provider 的 `get_record()` / `get_table()` 调用， 也可按 schema 字段声明生成可选记录包装类；生成器本身不规定项目表结构语义。
@@ -31,6 +31,7 @@
 ### `DEFAULT_OUTPUT_PATH`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 const DEFAULT_OUTPUT_PATH: String = "res://gf/generated/gf_config_access.gd"
@@ -43,6 +44,7 @@ const DEFAULT_OUTPUT_PATH: String = "res://gf/generated/gf_config_access.gd"
 ### `DEFAULT_CLASS_NAME`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 const DEFAULT_CLASS_NAME: String = "GFConfigAccess"
@@ -55,6 +57,7 @@ const DEFAULT_CLASS_NAME: String = "GFConfigAccess"
 ### `DEFAULT_PROVIDER_ACCESSOR`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 const DEFAULT_PROVIDER_ACCESSOR: String = "null"
@@ -160,6 +163,7 @@ func build_source( schemas: Array, access_class_name: String = DEFAULT_CLASS_NAM
 ### `save_source`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func save_source(output_path: String, source: String, overwrite_existing: bool = true) -> Error:

@@ -76,7 +76,7 @@ func get_all_models_state() -> Dictionary:
 		if model == null:
 			continue
 		var class_name_key: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(entry, "key")
-		state[class_name_key] = _GF_VARIANT_ACCESS_SCRIPT.duplicate_variant(model.to_dict(), true)
+		state[class_name_key] = _GF_VARIANT_ACCESS_SCRIPT.to_json_compatible(model.to_dict())
 	return state
 
 
@@ -108,7 +108,7 @@ func get_all_models_state_async(options: Dictionary = {}) -> Dictionary:
 		if model == null:
 			continue
 		var class_name_key: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(entry, "key")
-		state[class_name_key] = _GF_VARIANT_ACCESS_SCRIPT.duplicate_variant(model.to_dict(), true)
+		state[class_name_key] = _GF_VARIANT_ACCESS_SCRIPT.to_json_compatible(model.to_dict())
 		processed_since_yield += 1
 		var yielded: bool = await _wait_snapshot_frame_if_needed(processed_since_yield, max_models_per_frame)
 		if yielded:
@@ -156,13 +156,16 @@ func restore_all_models_state(data: Dictionary) -> void:
 ## @param options: 可选参数，支持 max_models_per_frame；小于等于 0 时不主动让出帧。
 ## [br]
 ## @schema options: Dictionary，可包含 max_models_per_frame: int。
-func restore_all_models_state_async(data: Dictionary, options: Dictionary = {}) -> void:
+## [br]
+## @return 恢复流程被完整接受时返回 true。
+func restore_all_models_state_async(data: Dictionary, options: Dictionary = {}) -> bool:
 	var entry_report: Dictionary = _collect_model_snapshot_entries()
 	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(entry_report, "ok", false):
-		return
+		return false
 
 	var max_models_per_frame: int = _get_snapshot_models_per_frame(options)
 	var processed_since_yield: int = 0
+	var accepted: bool = true
 	var entries: Array = _GF_VARIANT_ACCESS_SCRIPT.get_option_array(entry_report, "entries")
 	for entry_variant: Variant in entries:
 		var entry: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.as_dictionary(entry_variant)
@@ -174,10 +177,12 @@ func restore_all_models_state_async(data: Dictionary, options: Dictionary = {}) 
 			model.from_dict(_GF_VARIANT_ACCESS_SCRIPT.as_dictionary(data[class_name_key]))
 		elif data.has(class_name_key):
 			push_warning("[GFArchitecture] restore_all_models_state_async：Model 数据必须是 Dictionary，已跳过：%s。" % class_name_key)
+			accepted = false
 		processed_since_yield += 1
 		var yielded: bool = await _wait_snapshot_frame_if_needed(processed_since_yield, max_models_per_frame)
 		if yielded:
 			processed_since_yield = 0
+	return accepted
 
 
 ## 获取包含 Model 状态和可选命令历史的全局快照。
@@ -194,7 +199,7 @@ func get_global_snapshot() -> Dictionary:
 	snapshot["models"] = get_all_models_state()
 	var history_util: Object = _get_command_history_store()
 	if history_util != null:
-		snapshot["command_history"] = _GF_VARIANT_ACCESS_SCRIPT.duplicate_variant(history_util.call("serialize_full_history"), true)
+		snapshot["command_history"] = _GF_VARIANT_ACCESS_SCRIPT.to_json_compatible(history_util.call("serialize_full_history"))
 	return snapshot
 
 
@@ -216,7 +221,7 @@ func get_global_snapshot_async(options: Dictionary = {}) -> Dictionary:
 	snapshot["models"] = await get_all_models_state_async(options)
 	var history_util: Object = _get_command_history_store()
 	if history_util != null:
-		snapshot["command_history"] = _GF_VARIANT_ACCESS_SCRIPT.duplicate_variant(history_util.call("serialize_full_history"), true)
+		snapshot["command_history"] = _GF_VARIANT_ACCESS_SCRIPT.to_json_compatible(history_util.call("serialize_full_history"))
 	return snapshot
 
 
@@ -267,17 +272,23 @@ func restore_global_snapshot(data: Dictionary, command_builder: Callable = Calla
 ## @param options: 可选参数，支持 max_models_per_frame；小于等于 0 时不主动让出帧。
 ## [br]
 ## @schema options: Dictionary，可包含 max_models_per_frame: int。
+## [br]
+## @return 恢复流程被完整接受时返回 true。
 func restore_global_snapshot_async(
 	data: Dictionary,
 	command_builder: Callable = Callable(),
 	options: Dictionary = {}
-) -> void:
+) -> bool:
+	var accepted: bool = true
 	if data.has("models"):
 		var models_data: Variant = data["models"]
 		if typeof(models_data) == TYPE_DICTIONARY:
-			await restore_all_models_state_async(_GF_VARIANT_ACCESS_SCRIPT.as_dictionary(models_data), options)
+			var models_restored: bool = await restore_all_models_state_async(_GF_VARIANT_ACCESS_SCRIPT.as_dictionary(models_data), options)
+			if not models_restored:
+				accepted = false
 		else:
 			push_warning("[GFArchitecture] restore_global_snapshot_async：models 必须是 Dictionary，已跳过 Model 恢复。")
+			accepted = false
 
 	if data.has("command_history"):
 		var history_util: Object = _get_command_history_store()
@@ -288,8 +299,12 @@ func restore_global_snapshot_async(
 					history_util.call("deserialize_full_history", history_data, command_builder)
 				elif typeof(history_data) == TYPE_ARRAY and history_util.has_method("deserialize_history"):
 					history_util.call("deserialize_history", history_data, command_builder)
+				else:
+					accepted = false
 			else:
 				push_warning("[GFArchitecture] restore_global_snapshot_async：快照包含命令历史数据，但未提供有效的 command_builder，跳过历史恢复。")
+				accepted = false
+	return accepted
 
 
 # --- 私有/辅助方法 ---
@@ -397,7 +412,5 @@ func _get_model_key(script_cls: Script, model: GFModel = null) -> String:
 	var global_name: StringName = script_cls.get_global_name()
 	if global_name != &"":
 		return String(global_name)
-	if not script_cls.resource_path.is_empty():
-		return script_cls.resource_path
-	push_error("[GFArchitecture] 可序列化 Model 缺少稳定标识：请为脚本声明 class_name 或提供可用的资源路径。")
+	push_error("[GFArchitecture] 可序列化 Model 缺少稳定标识：请为脚本声明 class_name 或重写 get_save_key()。")
 	return ""

@@ -15,6 +15,11 @@ class_name GFSafeResourceCodecPolicy
 extends Resource
 
 
+# --- 常量 ---
+
+const _GF_PATH_TOOLS = preload("res://addons/gf/kernel/core/gf_path_tools.gd")
+
+
 # --- 导出变量 ---
 
 ## 允许编解码的原生类名或通配模式。
@@ -103,7 +108,7 @@ func allow_class(class_id: String) -> GFSafeResourceCodecPolicy:
 ## [br]
 ## @return 当前策略。
 func allow_script_path(script_path: String) -> GFSafeResourceCodecPolicy:
-	_append_unique(allowed_script_paths, script_path.strip_edges())
+	_append_unique(allowed_script_paths, _normalize_allowlist_path_pattern(script_path))
 	return self
 
 
@@ -117,7 +122,7 @@ func allow_script_path(script_path: String) -> GFSafeResourceCodecPolicy:
 ## [br]
 ## @return 当前策略。
 func allow_resource_path(path_pattern: String) -> GFSafeResourceCodecPolicy:
-	_append_unique(allowed_resource_paths, path_pattern.strip_edges())
+	_append_unique(allowed_resource_paths, _normalize_allowlist_path_pattern(path_pattern))
 	return self
 
 
@@ -155,7 +160,7 @@ func allows_class(class_id: String) -> bool:
 ## [br]
 ## @return 允许时返回 true。
 func allows_script_path(script_path: String) -> bool:
-	return _matches_any_pattern(script_path.strip_edges(), allowed_script_paths)
+	return _matches_any_path_pattern(script_path, allowed_script_paths)
 
 
 ## 检查资源路径是否允许。
@@ -168,7 +173,7 @@ func allows_script_path(script_path: String) -> bool:
 ## [br]
 ## @return 允许时返回 true。
 func allows_resource_path(path: String) -> bool:
-	return _matches_any_pattern(path.strip_edges(), allowed_resource_paths)
+	return _matches_any_path_pattern(path, allowed_resource_paths)
 
 
 ## 复制策略。
@@ -226,5 +231,39 @@ func _matches_any_pattern(value: String, patterns: PackedStringArray) -> bool:
 		if pattern.is_empty():
 			continue
 		if value == pattern or value.match(pattern):
+			return true
+	return false
+
+
+func _matches_any_path_pattern(value: String, patterns: PackedStringArray) -> bool:
+	var normalized_value: String = _normalize_candidate_path(value)
+	if normalized_value.is_empty():
+		return false
+	for raw_pattern: String in patterns:
+		var pattern: String = _normalize_allowlist_path_pattern(raw_pattern)
+		if pattern.is_empty():
+			continue
+		if normalized_value == pattern or normalized_value.match(pattern):
+			return true
+	return false
+
+
+func _normalize_candidate_path(path: String) -> String:
+	var normalized_path: String = _GF_PATH_TOOLS.normalize_resource_path(path, "", false)
+	if normalized_path.is_empty() or _path_has_parent_segment(normalized_path):
+		return ""
+	return _GF_PATH_TOOLS.normalize_resource_path(normalized_path)
+
+
+func _normalize_allowlist_path_pattern(path_pattern: String) -> String:
+	var normalized_pattern: String = _GF_PATH_TOOLS.normalize_resource_path(path_pattern, "", false)
+	if normalized_pattern.is_empty() or _path_has_parent_segment(normalized_pattern):
+		return ""
+	return _GF_PATH_TOOLS.normalize_resource_path(normalized_pattern)
+
+
+func _path_has_parent_segment(path: String) -> bool:
+	for segment: String in path.split("/", false):
+		if segment == "..":
 			return true
 	return false

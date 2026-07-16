@@ -46,6 +46,20 @@ signal async_handle_untracked(tracking_id: int, label: StringName)
 ## @since 7.0.0
 const DEFAULT_MAX_STACK_TRACE_CHARS: int = 4000
 
+## 单个 provider 快照默认最多保留的顶层条目数。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+const DEFAULT_MAX_SNAPSHOT_ENTRIES: int = 64
+
+## 单次批量刷新默认最多调用的 provider 数量。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+const DEFAULT_MAX_PROVIDER_CALLS: int = 32
+
 
 # --- 公共变量 ---
 
@@ -72,12 +86,22 @@ var max_stack_trace_chars: int = DEFAULT_MAX_STACK_TRACE_CHARS:
 	set(value):
 		max_stack_trace_chars = maxi(value, 0)
 
+## 单个 provider 快照最多保留的顶层条目数。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+var max_snapshot_entries: int = DEFAULT_MAX_SNAPSHOT_ENTRIES:
+	set(value):
+		max_snapshot_entries = maxi(value, 0)
+
 
 # --- 私有变量 ---
 
 var _records: Dictionary = {}
 var _next_tracking_id: int = 1
 var _dirty: bool = false
+var _refreshing_tracking_ids: Dictionary = {}
 
 
 # --- GF 生命周期方法 ---
@@ -129,7 +153,12 @@ func track_handle(
 		"handle_instance_id": handle.get_instance_id(),
 		"created_msec": Time.get_ticks_msec(),
 		"metadata": metadata.duplicate(true),
-		"snapshot_provider": snapshot_provider,
+		"snapshot_provider_ref": _make_snapshot_provider_ref(snapshot_provider),
+		"snapshot": {},
+		"snapshot_entry_count": 0,
+		"snapshot_truncated": false,
+		"snapshot_refreshed_msec": 0,
+		"snapshot_error": "",
 		"stack_trace": _capture_stack_trace() if stack_trace_enabled else "",
 	}
 	_dirty = true
@@ -207,6 +236,7 @@ func clear() -> void:
 		return
 	for tracking_id: int in _records.keys():
 		var _untracked: bool = untrack_id(tracking_id)
+	_refreshing_tracking_ids.clear()
 
 
 ## 判断是否存在未读取的追踪变更，并重置 dirty 标记。
@@ -220,6 +250,118 @@ func check_and_reset_dirty() -> bool:
 	var was_dirty: bool = _dirty
 	_dirty = false
 	return was_dirty
+
+
+## 显式刷新一条追踪记录的 provider 快照。
+## [br]
+## 读取 API 不会调用外部 provider；调用方应在可控调度点主动刷新。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+## [br]
+## @param tracking_id: 待刷新的追踪 ID。
+## [br]
+## @return 刷新报告。
+## [br]
+## @schema return: Dictionary，包含 ok、tracking_id、refreshed、error、entry_count 和 truncated。
+func refresh_snapshot(tracking_id: int) -> Dictionary:
+	var report: Dictionary = {
+		"ok": false,
+		"tracking_id": tracking_id,
+		"refreshed": false,
+		"error": "",
+		"entry_count": 0,
+		"truncated": false,
+	}
+	if not _records.has(tracking_id):
+		report["error"] = "tracking_record_not_found"
+		return report
+	if _refreshing_tracking_ids.has(tracking_id):
+		report["error"] = "snapshot_provider_reentrant"
+		return report
+
+	var record: Dictionary = GFVariantData.as_dictionary(_records[tracking_id])
+	if not _record_handle_is_valid(record):
+		report["error"] = "tracked_handle_invalid"
+		return report
+	var snapshot_provider: Callable = _resolve_snapshot_provider(record)
+	if not snapshot_provider.is_valid():
+		report["error"] = "snapshot_provider_unavailable"
+		return report
+
+	_refreshing_tracking_ids[tracking_id] = true
+	var snapshot_value: Variant = snapshot_provider.call()
+	var _refresh_guard_erased: bool = _refreshing_tracking_ids.erase(tracking_id)
+	if not _records.has(tracking_id):
+		report["error"] = "tracking_record_removed_during_refresh"
+		return report
+	var raw_snapshot: Dictionary = GFVariantData.to_dictionary(snapshot_value)
+	var bounded_snapshot: Dictionary = _make_bounded_snapshot(raw_snapshot)
+	var entry_count: int = raw_snapshot.size()
+	var truncated: bool = entry_count > bounded_snapshot.size()
+	record["snapshot"] = GFReportValueCodec.to_report_dictionary(
+		bounded_snapshot,
+		GFReportValueCodec.make_redaction_options(GFReportValueCodec.REDACTION_PROFILE_DEBUG, {
+			"max_depth": 8,
+			"max_string_length": 2048,
+		})
+	)
+	record["snapshot_entry_count"] = entry_count
+	record["snapshot_truncated"] = truncated
+	record["snapshot_refreshed_msec"] = Time.get_ticks_msec()
+	record["snapshot_error"] = ""
+	_records[tracking_id] = record
+	_dirty = true
+	report["ok"] = true
+	report["refreshed"] = true
+	report["entry_count"] = entry_count
+	report["truncated"] = truncated
+	return report
+
+
+## 按稳定 ID 顺序批量刷新 provider 快照。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+## [br]
+## @param max_provider_calls: 本次最多调用的 provider 数量；小于等于 0 时不调用。
+## [br]
+## @return 批量刷新报告。
+## [br]
+## @schema return: Dictionary，包含 ok、provider_call_count、refreshed_count、failed_count、pending_count、truncated 和 reports。
+func refresh_snapshots(max_provider_calls: int = DEFAULT_MAX_PROVIDER_CALLS) -> Dictionary:
+	var call_budget: int = maxi(max_provider_calls, 0)
+	var tracking_ids: Array = _records.keys()
+	tracking_ids.sort()
+	var reports: Array[Dictionary] = []
+	var provider_call_count: int = 0
+	var refreshed_count: int = 0
+	var failed_count: int = 0
+	for tracking_id: int in tracking_ids:
+		if provider_call_count >= call_budget:
+			break
+		var record: Dictionary = GFVariantData.as_dictionary(_records[tracking_id])
+		if not _resolve_snapshot_provider(record).is_valid():
+			continue
+		provider_call_count += 1
+		var refresh_report: Dictionary = refresh_snapshot(tracking_id)
+		reports.append(refresh_report)
+		if GFVariantData.get_option_bool(refresh_report, "ok"):
+			refreshed_count += 1
+		else:
+			failed_count += 1
+	var pending_count: int = _count_refreshable_records() - provider_call_count
+	return {
+		"ok": failed_count == 0,
+		"provider_call_count": provider_call_count,
+		"refreshed_count": refreshed_count,
+		"failed_count": failed_count,
+		"pending_count": maxi(pending_count, 0),
+		"truncated": pending_count > 0,
+		"reports": reports,
+	}
 
 
 ## 获取活动追踪记录快照。
@@ -286,13 +428,69 @@ func _record_to_snapshot(record: Dictionary, is_valid_record: bool) -> Dictionar
 	if not stack_trace.is_empty():
 		result["stack_trace"] = stack_trace
 
-	var snapshot_provider: Callable = _variant_to_callable(GFVariantData.get_option_value(record, "snapshot_provider", Callable()))
-	if is_valid_record and snapshot_provider.is_valid():
-		var snapshot_value: Variant = snapshot_provider.call()
-		var snapshot: Dictionary = GFVariantData.to_dictionary(snapshot_value)
-		if not snapshot.is_empty():
-			result["snapshot"] = snapshot
+	var snapshot: Dictionary = GFVariantData.get_option_dictionary(record, "snapshot")
+	if not snapshot.is_empty():
+		result["snapshot"] = snapshot
+	result["snapshot_entry_count"] = GFVariantData.get_option_int(record, "snapshot_entry_count")
+	result["snapshot_truncated"] = GFVariantData.get_option_bool(record, "snapshot_truncated")
+	result["snapshot_refreshed_msec"] = GFVariantData.get_option_int(record, "snapshot_refreshed_msec")
+	var snapshot_error: String = GFVariantData.get_option_string(record, "snapshot_error")
+	if not snapshot_error.is_empty():
+		result["snapshot_error"] = snapshot_error
 	return result
+
+
+func _make_bounded_snapshot(snapshot: Dictionary) -> Dictionary:
+	var result: Dictionary = {}
+	if max_snapshot_entries <= 0:
+		return result
+	var included_count: int = 0
+	for key: Variant in snapshot.keys():
+		if included_count >= max_snapshot_entries:
+			break
+		result[key] = snapshot[key]
+		included_count += 1
+	return result
+
+
+func _count_refreshable_records() -> int:
+	var count: int = 0
+	for record_value: Variant in _records.values():
+		var record: Dictionary = GFVariantData.as_dictionary(record_value)
+		if _record_handle_is_valid(record) and _resolve_snapshot_provider(record).is_valid():
+			count += 1
+	return count
+
+
+func _make_snapshot_provider_ref(snapshot_provider: Callable) -> Dictionary:
+	if not snapshot_provider.is_valid():
+		return {}
+	var target: Object = snapshot_provider.get_object()
+	if target == null:
+		return {
+			"callable": snapshot_provider,
+		}
+	return {
+		"target_ref": weakref(target),
+		"target_instance_id": target.get_instance_id(),
+		"method": snapshot_provider.get_method(),
+	}
+
+
+func _resolve_snapshot_provider(record: Dictionary) -> Callable:
+	var provider_ref: Dictionary = GFVariantData.get_option_dictionary(record, "snapshot_provider_ref")
+	if provider_ref.is_empty():
+		return Callable()
+	var static_callable: Callable = _variant_to_callable(GFVariantData.get_option_value(provider_ref, "callable", Callable()))
+	if static_callable.is_valid():
+		return static_callable
+	var target: Object = _weak_ref_to_object(_variant_to_weak_ref(GFVariantData.get_option_value(provider_ref, "target_ref")))
+	if target == null:
+		return Callable()
+	var method_name: StringName = GFVariantData.get_option_string_name(provider_ref, "method")
+	if method_name == &"":
+		return Callable()
+	return Callable(target, method_name)
 
 
 func _record_handle_is_valid(record: Dictionary) -> bool:

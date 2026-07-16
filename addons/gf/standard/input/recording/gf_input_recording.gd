@@ -29,12 +29,16 @@ var recording_id: StringName = &""
 ## @api public
 var duration_seconds: float = 0.0
 
-## 事件列表。每项包含 time_seconds、action_id、value、player_index、source_id 和 metadata。
+## 事件列表只读快照。每项包含 time_seconds、action_id、value、player_index、source_id 和 metadata。
 ## [br]
 ## @api public
 ## [br]
+## @since 8.0.0
+## [br]
 ## @schema events: Array，包含 time_seconds: float、action_id: StringName、value: Variant、player_index: int、source_id: StringName 和 metadata: Dictionary 的 Dictionary 条目。
-var events: Array[Dictionary] = []
+var events: Array[Dictionary]:
+	get:
+		return get_events()
 
 ## 项目自定义元数据。框架不解释该字段。
 ## [br]
@@ -47,6 +51,7 @@ var metadata: Dictionary = {}
 # --- 私有变量 ---
 
 var _next_event_order_index: int = 0
+var _events: Array[Dictionary] = []
 
 
 # --- 公共方法 ---
@@ -83,7 +88,7 @@ func add_event(
 	event_metadata: Dictionary = {}
 ) -> Dictionary:
 	var event: Dictionary = {
-		"time_seconds": maxf(time_seconds, 0.0),
+		"time_seconds": _normalize_time_seconds(time_seconds),
 		"action_id": action_id,
 		"value": GFVariantData.duplicate_variant(value),
 		"player_index": player_index,
@@ -92,17 +97,16 @@ func add_event(
 		_ORDER_INDEX_KEY: _next_event_order_index,
 	}
 	_next_event_order_index += 1
-	events.append(event)
+	_add_event_sorted(event)
 	duration_seconds = maxf(duration_seconds, _get_event_time_seconds(event))
-	sort_events()
-	return event
+	return _event_to_dict(event, false)
 
 
 ## 清空录制。
 ## [br]
 ## @api public
 func clear() -> void:
-	events.clear()
+	_events.clear()
 	duration_seconds = 0.0
 	_next_event_order_index = 0
 
@@ -113,7 +117,7 @@ func clear() -> void:
 ## [br]
 ## @return 为空时返回 true。
 func is_empty() -> bool:
-	return events.is_empty()
+	return _events.is_empty()
 
 
 ## 获取事件数量。
@@ -122,14 +126,19 @@ func is_empty() -> bool:
 ## [br]
 ## @return 事件数量。
 func get_event_count() -> int:
-	return events.size()
+	return _events.size()
 
 
 ## 按事件时间排序。
 ## [br]
 ## @api public
 func sort_events() -> void:
-	events.sort_custom(_sort_recording_events)
+	for index: int in range(_events.size()):
+		_events[index]["time_seconds"] = _normalize_time_seconds(_get_event_time_seconds(_events[index]))
+		_events[index][_ORDER_INDEX_KEY] = index
+	_events.sort_custom(_sort_recording_events)
+	_next_event_order_index = _events.size()
+	duration_seconds = maxf(_normalize_time_seconds(duration_seconds), _get_max_event_time_seconds())
 
 
 ## 获取事件副本。
@@ -141,7 +150,7 @@ func sort_events() -> void:
 ## @return 事件副本数组。
 func get_events() -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
-	for event: Dictionary in events:
+	for event: Dictionary in _events:
 		result.append(_event_to_dict(event, false))
 	return result
 
@@ -168,12 +177,12 @@ func duplicate_recording() -> GFInputRecording:
 ## @return 录制字典。
 func to_dict(json_compatible: bool = false) -> Dictionary:
 	var serialized_events: Array[Dictionary] = []
-	for event: Dictionary in events:
+	for event: Dictionary in _events:
 		serialized_events.append(_event_to_dict(event, json_compatible))
 
 	return {
 		"recording_id": String(recording_id),
-		"duration_seconds": duration_seconds,
+		"duration_seconds": _normalize_time_seconds(duration_seconds),
 		"events": serialized_events,
 		"metadata": GFVariantJsonCodec.variant_to_json_compatible(metadata) if json_compatible else metadata.duplicate(true),
 	}
@@ -190,8 +199,8 @@ func to_dict(json_compatible: bool = false) -> Dictionary:
 ## @schema data: Dictionary，包含 recording_id、duration_seconds、events 和 metadata。
 func apply_dict(data: Dictionary, json_compatible: bool = false) -> void:
 	recording_id = GFVariantData.get_option_string_name(data, "recording_id")
-	duration_seconds = maxf(GFVariantData.get_option_float(data, "duration_seconds"), 0.0)
-	events.clear()
+	var serialized_duration: float = _normalize_time_seconds(GFVariantData.get_option_float(data, "duration_seconds"))
+	_events.clear()
 	_next_event_order_index = 0
 	for event_value: Variant in GFVariantData.get_option_array(data, "events"):
 		if event_value is Dictionary:
@@ -199,12 +208,13 @@ func apply_dict(data: Dictionary, json_compatible: bool = false) -> void:
 			var event: Dictionary = _event_from_dict(event_data, json_compatible)
 			event[_ORDER_INDEX_KEY] = _next_event_order_index
 			_next_event_order_index += 1
-			events.append(event)
+			_events.append(event)
 
 	var metadata_value: Variant = GFVariantData.get_option_value(data, "metadata", {})
 	metadata_value = GFVariantJsonCodec.json_compatible_to_variant(metadata_value) if json_compatible else GFVariantData.duplicate_variant(metadata_value)
 	metadata = GFVariantData.as_dictionary(metadata_value)
 	sort_events()
+	duration_seconds = maxf(serialized_duration, _get_max_event_time_seconds())
 
 
 ## 从字典创建录制。
@@ -233,6 +243,33 @@ func _new_recording_instance() -> GFInputRecording:
 		if recording != null:
 			return recording
 	return GFInputRecording.new()
+
+
+func _add_event_sorted(event: Dictionary) -> void:
+	if _events.is_empty():
+		_events.append(event)
+		return
+
+	var last_event: Dictionary = _events[_events.size() - 1]
+	if not _sort_recording_events(event, last_event):
+		_events.append(event)
+		return
+
+	var insert_index: int = _find_event_insert_index(event)
+	var _insert_result: Variant = _events.insert(insert_index, event)
+
+
+func _find_event_insert_index(event: Dictionary) -> int:
+	var low: int = 0
+	var high: int = _events.size()
+	while low < high:
+		var middle: int = floori(float(low + high) * 0.5)
+		var current_event: Dictionary = _events[middle]
+		if _sort_recording_events(event, current_event):
+			high = middle
+		else:
+			low = middle + 1
+	return low
 
 
 func _variant_to_script(value: Variant) -> Script:
@@ -282,7 +319,7 @@ func _event_from_dict(event: Dictionary, json_compatible: bool) -> Dictionary:
 		else GFVariantData.duplicate_variant(event_metadata)
 	)
 	return {
-		"time_seconds": maxf(_get_event_time_seconds(event), 0.0),
+		"time_seconds": _normalize_time_seconds(_get_event_time_seconds(event)),
 		"action_id": _get_event_action_id(event),
 		"value": value,
 		"player_index": _get_event_player_index(event),
@@ -327,3 +364,16 @@ func _get_event_metadata(event: Dictionary) -> Dictionary:
 
 func _get_event_order_index(event: Dictionary) -> int:
 	return GFVariantData.get_option_int(event, _ORDER_INDEX_KEY)
+
+
+func _get_max_event_time_seconds() -> float:
+	var result: float = 0.0
+	for event: Dictionary in _events:
+		result = maxf(result, _get_event_time_seconds(event))
+	return result
+
+
+func _normalize_time_seconds(value: float) -> float:
+	if is_nan(value) or is_inf(value):
+		return 0.0
+	return maxf(value, 0.0)

@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFAsyncFlowTools" path="addons/gf/standard/common/gf_async_flow_tools.gd" module="standard" extends="RefCounted" classDigest="9d0dd4b9972c368d42694a510be27740d1f1bae5dad978b5761bc1631dc1b93b">
+<class name="GFAsyncFlowTools" path="addons/gf/standard/common/gf_async_flow_tools.gd" module="standard" extends="RefCounted" classDigest="892662d72ee7e1c87112c0573e62c58efb10f27011c24c150aee410b9df7d921">
 	<description>GFAsyncFlowTools: 小型异步流程辅助。
-在现有 GFAsyncCompletion / GFAsyncWaitUtility 之上提供重试、顺序遍历和折叠。
+在现有 GFAsyncCompletion / GFAsyncWaitUtility 之上提供重试、顺序遍历、折叠和 completion 组合。
 它不引入 Promise 类型，不调度后台线程，也不规定业务任务模型；调用方只需要
 提供 Callable，并接收稳定的结果字典。</description>
 	<tags>
@@ -82,6 +82,34 @@
 				<tag name="schema">options: Dictionary，可包含 stop_on_failure、cancel_token、operation_options、pass_index 和 metadata。</tag>
 				<tag name="schema">return: Dictionary with ok, status, value, error, attempts, history, and metadata.</tag>
 				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="wait_all_completions_async">
+			<signature>static func wait_all_completions_async(completions: Dictionary, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>等待所有完成源进入终态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">completions: key -&gt; GFAsyncCompletion 的字典。</tag>
+				<tag name="param">options: 组合等待选项。</tag>
+				<tag name="return">组合等待报告。</tag>
+				<tag name="schema">completions: Dictionary，key 为调用方定义的稳定标识，value 必须是 GFAsyncCompletion。</tag>
+				<tag name="schema">options: Dictionary，可包含 timeout_seconds、tree、cancel_token、guard_node、time_utility、respect_time_scale、process_in_physics、fail_fast、cancel_remaining_on_finish 和 metadata。</tag>
+				<tag name="schema">return: Dictionary，包含 ok、status、value、error、metadata、count、completed_count、pending_count、succeeded_count、failed_count、cancelled_count、items、results、completion_order、first_completed_key、first_success_key、cancel_reason、cancel_metadata 和 timed_out。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="wait_any_completion_async">
+			<signature>static func wait_any_completion_async(completions: Dictionary, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>等待任一完成源成功。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">completions: key -&gt; GFAsyncCompletion 的字典。</tag>
+				<tag name="param">options: 组合等待选项。</tag>
+				<tag name="return">组合等待报告。</tag>
+				<tag name="schema">completions: Dictionary，key 为调用方定义的稳定标识，value 必须是 GFAsyncCompletion。</tag>
+				<tag name="schema">options: Dictionary，可包含 timeout_seconds、tree、cancel_token、guard_node、time_utility、respect_time_scale、process_in_physics、fail_fast、cancel_remaining_on_finish 和 metadata。</tag>
+				<tag name="schema">return: Dictionary，包含 ok、status、value、error、metadata、count、completed_count、pending_count、succeeded_count、failed_count、cancelled_count、items、results、completion_order、first_completed_key、first_success_key、cancel_reason、cancel_metadata 和 timed_out。</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 	</methods>

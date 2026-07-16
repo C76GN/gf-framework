@@ -20,6 +20,7 @@
 | 常量 | [`STATE_COMMITTED`](#member-gfactivationtransaction-constants-state_committed) | `const STATE_COMMITTED: StringName = &"committed"` |
 | 常量 | [`STATE_ROLLED_BACK`](#member-gfactivationtransaction-constants-state_rolled_back) | `const STATE_ROLLED_BACK: StringName = &"rolled_back"` |
 | 常量 | [`STATE_FAILED`](#member-gfactivationtransaction-constants-state_failed) | `const STATE_FAILED: StringName = &"failed"` |
+| 常量 | [`KIND_ASYNC_CALLBACK_UNSUPPORTED`](#member-gfactivationtransaction-constants-kind_async_callback_unsupported) | `const KIND_ASYNC_CALLBACK_UNSUPPORTED: StringName = &"async_callback_unsupported"` |
 | 属性 | [`transaction_id`](#member-gfactivationtransaction-properties-transaction_id) | `var transaction_id: StringName = &""` |
 | 属性 | [`subject`](#member-gfactivationtransaction-properties-subject) | `var subject: String = _DEFAULT_SUBJECT` |
 | 属性 | [`state`](#member-gfactivationtransaction-properties-state) | `var state: StringName = STATE_PENDING` |
@@ -99,6 +100,19 @@ const STATE_FAILED: StringName = &"failed"
 ```
 
 事务失败且未完成回滚。
+
+<a id="member-gfactivationtransaction-constants-kind_async_callback_unsupported"></a>
+
+### `KIND_ASYNC_CALLBACK_UNSUPPORTED`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+const KIND_ASYNC_CALLBACK_UNSUPPORTED: StringName = &"async_callback_unsupported"
+```
+
+同步事务回调返回了异步状态或 Signal。
 
 ## 属性
 
@@ -211,7 +225,7 @@ func clear() -> void:
 func add_step( step_id: StringName, apply_callback: Callable, rollback_callback: Callable = Callable(), options: Dictionary = {} ) -> bool:
 ```
 
-添加事务步骤。 apply_callback 与 rollback_callback 的推荐签名为 `func(context: Dictionary) -> Variant`。 validate_callback 可通过 options 传入，签名相同。返回 false、非 OK Error、或 `{ "ok": false }` 会进入失败报告。
+添加事务步骤。 apply_callback 与 rollback_callback 的推荐签名为 `func(context: Dictionary) -> Variant`，且必须同步返回。 validate_callback 可通过 options 传入，签名相同。返回 false、非 OK Error、或 `{ "ok": false }` 会进入失败报告。
 
 参数：
 

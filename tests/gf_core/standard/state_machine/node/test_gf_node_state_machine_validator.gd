@@ -146,6 +146,32 @@ func test_validator_reads_group_name_without_calling_group_script_method() -> vo
 	machine.free()
 
 
+func test_validator_includes_runtime_registered_groups() -> void:
+	var machine: GFNodeStateMachine = GFNodeStateMachine.new()
+	var group: GFNodeStateGroup = GFNodeStateGroup.new()
+	var idle: GFNodeState = GFNodeState.new()
+	group.name = "Runtime"
+	group.group_name = &"runtime"
+	group.initial_state = &"missing"
+	group.auto_start = false
+	idle.name = "Idle"
+	idle.state_name = &"idle"
+	group.add_state(idle)
+	machine.add_state_group(group)
+
+	var report: GFValidationReport = GFNodeStateMachineValidator.validate_machine(machine)
+	var counts: Dictionary = report.get_issue_counts_by_kind()
+
+	assert_eq(GFVariantData.get_option_int(counts, "invalid_initial_state"), 1, "运行时注册但非子节点的状态组也应被 validate_machine 校验。")
+	assert_eq(GFVariantData.get_option_int(report.metadata, "group_count"), 1, "运行时注册组应计入状态机 group_count。")
+
+	var _removed: bool = machine.remove_state_group(group)
+	group.clear_states(false)
+	machine.free()
+	idle.free()
+	group.free()
+
+
 func test_validator_reports_invalid_initial_state_and_resource_slots() -> void:
 	var group: GFNodeStateGroup = GFNodeStateGroup.new()
 	group.name = "Movement"

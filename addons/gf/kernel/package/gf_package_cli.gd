@@ -9,6 +9,8 @@ extends SceneTree
 # --- 常量 ---
 
 const _GF_PACKAGE_MANAGER_BACKEND = preload("res://addons/gf/kernel/package/gf_package_manager_backend.gd")
+const _GF_PACKAGE_CACHE_POLICY = preload("res://addons/gf/kernel/package/gf_package_cache_policy.gd")
+const _GF_REPORT_VALUE_CODEC_SCRIPT = preload("res://addons/gf/kernel/core/gf_report_value_codec.gd")
 const _GF_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
 
 ## 默认包 lockfile 相对项目路径。
@@ -53,6 +55,20 @@ const COMMAND_UPDATE: String = "update"
 ## @layer kernel/package
 const COMMAND_VERIFY: String = "verify"
 
+## recover 命令名称。
+## [br]
+## @api framework_internal
+## [br]
+## @layer kernel/package
+const COMMAND_RECOVER: String = "recover"
+
+## cache-init 命令名称。
+## [br]
+## @api framework_internal
+## [br]
+## @layer kernel/package
+const COMMAND_CACHE_INIT: String = "cache-init"
+
 
 # --- Godot 生命周期方法 ---
 
@@ -60,7 +76,9 @@ func _init() -> void:
 	var raw_args: PackedStringArray = _get_cli_args()
 	var result: Dictionary = _run_cli(raw_args)
 	if _cli_wants_json(raw_args):
-		print(JSON.stringify(result, "", false))
+		print(_GF_REPORT_VALUE_CODEC_SCRIPT.stringify_json_compatible(result, "", false, {
+			"path_redaction": "none",
+		}))
 	else:
 		print(_format_human_result(result))
 	quit(0 if _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(result, "ok", false) else 1)
@@ -103,6 +121,10 @@ func _run_cli(raw_args: PackedStringArray) -> Dictionary:
 		return _make_usage_error(command, issues)
 	if _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(options, "help", false):
 		return _make_help_result()
+	if command == COMMAND_CACHE_INIT:
+		return _GF_PACKAGE_MANAGER_BACKEND.initialize_package_cache(
+			_GF_VARIANT_ACCESS_SCRIPT.get_option_string(options, "cache_dir")
+		)
 
 	var registry_path: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(options, "registry")
 	if command == COMMAND_STATUS:
@@ -114,6 +136,11 @@ func _run_cli(raw_args: PackedStringArray) -> Dictionary:
 		)
 	if command == COMMAND_VERIFY:
 		return _run_verify(registry_path, options)
+	if command == COMMAND_RECOVER:
+		return _GF_PACKAGE_MANAGER_BACKEND.recover_package_transaction(
+			_GF_VARIANT_ACCESS_SCRIPT.get_option_string(options, "project_root"),
+			_GF_VARIANT_ACCESS_SCRIPT.get_option_string(options, "lockfile")
+		)
 
 	var package_ids: PackedStringArray = _GF_VARIANT_ACCESS_SCRIPT.get_option_packed_string_array(options, "packages")
 	var all_installed: bool = _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(options, "all_installed", false)
@@ -167,6 +194,7 @@ func _parse_options(args: PackedStringArray) -> Dictionary:
 		"include_kinds": [],
 		"exclude_kinds": [],
 		"cache_dir": "",
+		"cache_mode": _GF_PACKAGE_CACHE_POLICY.MODE_PROJECT_LOCAL,
 		"channel": "",
 		"packages": [],
 	}
@@ -195,6 +223,10 @@ func _parse_options(args: PackedStringArray) -> Dictionary:
 			index = _read_option_value(args, index, "cache_dir", options, issues)
 		elif argument.begins_with("--cache-dir="):
 			options["cache_dir"] = argument.substr("--cache-dir=".length()).strip_edges()
+		elif argument == "--cache-mode":
+			index = _read_option_value(args, index, "cache_mode", options, issues)
+		elif argument.begins_with("--cache-mode="):
+			options["cache_mode"] = argument.substr("--cache-mode=".length()).strip_edges()
 		elif argument == "--channel":
 			index = _read_option_value(args, index, "channel", options, issues)
 		elif argument.begins_with("--channel="):
@@ -304,7 +336,13 @@ func _run_verify(registry_path: String, options: Dictionary) -> Dictionary:
 
 
 func _make_backend_options(options: Dictionary) -> Dictionary:
-	var result: Dictionary = {}
+	var result: Dictionary = {
+		"cache_mode": _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
+			options,
+			"cache_mode",
+			_GF_PACKAGE_CACHE_POLICY.MODE_PROJECT_LOCAL
+		),
+	}
 	var cache_dir: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(options, "cache_dir")
 	if not cache_dir.is_empty():
 		result["cache_dir"] = cache_dir
@@ -339,6 +377,7 @@ func _copy_registry_source_fields(target: Dictionary, source: Dictionary) -> voi
 		"registry_source_sha256",
 		"registry_source_size_bytes",
 		"registry_cache_dir",
+		"cache",
 	]:
 		if source.has(key):
 			target[key] = source[key]
@@ -358,6 +397,8 @@ func _is_valid_command(command: String) -> bool:
 		or command == COMMAND_UNINSTALL
 		or command == COMMAND_UPDATE
 		or command == COMMAND_VERIFY
+		or command == COMMAND_RECOVER
+		or command == COMMAND_CACHE_INIT
 	)
 
 
@@ -387,11 +428,14 @@ func _usage_text() -> String:
 	return "\n".join(PackedStringArray([
 		"GF Package CLI (Godot native)",
 		"Usage:",
-		"  godot --headless --path <project> --script res://addons/gf/kernel/package/gf_package_cli.gd -- status [--registry <index.json-or-url-or-source.json>] [--channel <name>] [--project-root <target>] [--lockfile <path>] [--json]",
-		"  godot --headless --path <project> --script res://addons/gf/kernel/package/gf_package_cli.gd -- install [<package-id>...] [--all-concrete] [--kind <kind[,kind...]>] [--exclude-kind <kind[,kind...]>] [--registry <index.json-or-url-or-source.json>] [--channel <name>] [--project-root <target>] [--lockfile <path>] [--reason manual|preset|bundled|dev] [--cache-dir <path>] [--dry-run] [--json]",
-		"  godot --headless --path <project> --script res://addons/gf/kernel/package/gf_package_cli.gd -- update [<package-id>...] [--all-installed] [--registry <index.json-or-url-or-source.json>] [--channel <name>] [--project-root <target>] [--lockfile <path>] [--cache-dir <path>] [--dry-run] [--json]",
-		"  godot --headless --path <project> --script res://addons/gf/kernel/package/gf_package_cli.gd -- uninstall <package-id>... [--registry <index.json-or-url-or-source.json>] [--channel <name>] [--project-root <target>] [--lockfile <path>] [--cache-dir <path>] [--dry-run] [--force] [--json]",
-		"  godot --headless --path <project> --script res://addons/gf/kernel/package/gf_package_cli.gd -- verify [--registry <index.json-or-url-or-source.json>] [--channel <name>] [--project-root <target>] [--lockfile <path>] [--json]",
+		"  godot --headless --path <project> --script res://addons/gf/kernel/package/gf_package_cli.gd -- status [--registry <index.json-or-url-or-source.json>] [--channel <name>] [--project-root <target>] [--lockfile <path>] [--cache-mode <mode>] [--cache-dir <path>] [--json]",
+		"  godot --headless --path <project> --script res://addons/gf/kernel/package/gf_package_cli.gd -- install [<package-id>...] [--all-concrete] [--kind <kind[,kind...]>] [--exclude-kind <kind[,kind...]>] [--registry <index.json-or-url-or-source.json>] [--channel <name>] [--project-root <target>] [--lockfile <path>] [--reason manual|preset|bundled|dev] [--cache-mode <mode>] [--cache-dir <path>] [--dry-run] [--json]",
+		"  godot --headless --path <project> --script res://addons/gf/kernel/package/gf_package_cli.gd -- update [<package-id>...] [--all-installed] [--registry <index.json-or-url-or-source.json>] [--channel <name>] [--project-root <target>] [--lockfile <path>] [--cache-mode <mode>] [--cache-dir <path>] [--dry-run] [--json]",
+		"  godot --headless --path <project> --script res://addons/gf/kernel/package/gf_package_cli.gd -- uninstall <package-id>... [--registry <index.json-or-url-or-source.json>] [--channel <name>] [--project-root <target>] [--lockfile <path>] [--cache-mode <mode>] [--cache-dir <path>] [--dry-run] [--force] [--json]",
+		"  godot --headless --path <project> --script res://addons/gf/kernel/package/gf_package_cli.gd -- verify [--registry <index.json-or-url-or-source.json>] [--channel <name>] [--project-root <target>] [--lockfile <path>] [--cache-mode <mode>] [--cache-dir <path>] [--json]",
+		"  godot --headless --path <project> --script res://addons/gf/kernel/package/gf_package_cli.gd -- recover [--project-root <target>] [--lockfile <path>] [--json]",
+		"  godot --headless --path <project> --script res://addons/gf/kernel/package/gf_package_cli.gd -- cache-init --cache-dir <absolute-path> [--json]",
+		"  cache modes: project_local, external_read_only, external_shared_rw.",
 		"  --registry is optional; omit it to use the default GF release registry source.",
 	]))
 
@@ -458,6 +502,11 @@ func _format_human_result(result: Dictionary) -> String:
 		_append_human_flag_line(lines, "Rolled back", _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(result, "rolled_back", false))
 	elif operation == COMMAND_VERIFY:
 		_append_human_lockfile_verify(lines, result)
+	elif operation == COMMAND_RECOVER:
+		_append_human_line(lines, "Transaction outcome: %s" % _GF_VARIANT_ACCESS_SCRIPT.get_option_string(result, "outcome", "none"))
+		_append_human_flag_line(lines, "Recovered", _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(result, "recovered", false))
+		_append_human_flag_line(lines, "Rolled back", _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(result, "rolled_back", false))
+		_append_human_flag_line(lines, "Recovery required", _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(result, "recovery_required", false))
 
 	_append_human_issues(lines, _GF_VARIANT_ACCESS_SCRIPT.get_option_array(result, "issues"))
 	if not ok and result.has("usage"):

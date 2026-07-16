@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFWeightedEntry" path="addons/gf/standard/foundation/math/gf_weighted_entry.gd" module="standard" extends="Resource" classDigest="edbeea5b3888d4d6a8ec250aa92e104658fa0d4c122a5e68fb875bebef6b185f">
+<class name="GFWeightedEntry" path="addons/gf/standard/foundation/math/gf_weighted_entry.gd" module="standard" extends="Resource" classDigest="2336cb3aab2d043e3ec092fab48af28d3644639202ca64bd0659c21c30611106">
 	<description>GFWeightedEntry: 权重表中的单个候选项。
 只保存值、权重和可选元数据，不约束 value 的业务类型。</description>
 	<tags>
@@ -20,10 +20,11 @@
 			</tags>
 		</member>
 		<member kind="property" name="weight" decorators="@export_range(0.0, 1000000000000.0, 0.001, &quot;or_greater&quot;)">
-			<signature>var weight: float = 1.0</signature>
-			<description>权重；小于等于 0 的条目不会被选择。</description>
+			<signature>var weight: float = 1.0:</signature>
+			<description>权重；必须是有限正数才会被选择。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="metadata" decorators="@export">
@@ -42,11 +43,12 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">p_value: 被选择后返回的值。</tag>
-				<tag name="param">p_weight: 权重；小于等于 0 表示不可被选择。</tag>
+				<tag name="param">p_weight: 权重；非有限数或小于等于 0 表示不可被选择。</tag>
 				<tag name="param">p_metadata: 可选元数据。</tag>
 				<tag name="return">当前条目。</tag>
 				<tag name="schema">p_value: Variant selected value owned by project code.</tag>
 				<tag name="schema">p_metadata: Dictionary extension metadata for the weighted entry.</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_selectable">
@@ -54,7 +56,8 @@
 			<description>判断该条目当前是否可被选择。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="return">权重大于 0 时返回 true。</tag>
+				<tag name="return">权重为有限正数时返回 true。</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="duplicate_entry">

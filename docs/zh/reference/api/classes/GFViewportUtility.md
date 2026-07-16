@@ -31,8 +31,11 @@
 | 方法 | [`screen_to_world_ray_3d`](#member-gfviewportutility-methods-screen_to_world_ray_3d) | `func screen_to_world_ray_3d( camera: Camera3D, screen_position: Vector2, length: float = 1000.0 ) -> Dictionary:` |
 | 方法 | [`raycast_from_screen_3d`](#member-gfviewportutility-methods-raycast_from_screen_3d) | `func raycast_from_screen_3d( camera: Camera3D, screen_position: Vector2, collision_mask: int = 0xffffffff, length: float = 1000.0, exclude: Array[RID] = [] ) -> Dictionary:` |
 | 方法 | [`world_to_screen_3d`](#member-gfviewportutility-methods-world_to_screen_3d) | `func world_to_screen_3d(camera: Camera3D, world_position: Vector3) -> Vector2:` |
+| 方法 | [`world_to_screen_3d_report`](#member-gfviewportutility-methods-world_to_screen_3d_report) | `func world_to_screen_3d_report(camera: Camera3D, world_position: Vector3) -> Dictionary:` |
 | 方法 | [`world_to_screen_2d`](#member-gfviewportutility-methods-world_to_screen_2d) | `func world_to_screen_2d(canvas_item: CanvasItem, world_position: Vector2) -> Vector2:` |
 | 方法 | [`screen_to_world_2d`](#member-gfviewportutility-methods-screen_to_world_2d) | `func screen_to_world_2d(canvas_item: CanvasItem, screen_position: Vector2) -> Vector2:` |
+| 方法 | [`calculate_control_window_rect`](#member-gfviewportutility-methods-calculate_control_window_rect) | `func calculate_control_window_rect( control_rect: Rect2, viewport_size: Vector2, window_size: Vector2i, options: Dictionary = {} ) -> Dictionary:` |
+| 方法 | [`get_control_window_rect`](#member-gfviewportutility-methods-get_control_window_rect) | `func get_control_window_rect(control: Control, viewport: Viewport = null) -> Dictionary:` |
 | 方法 | [`calculate_safe_area_margins`](#member-gfviewportutility-methods-calculate_safe_area_margins) | `func calculate_safe_area_margins( safe_area: Rect2i, window_size: Vector2i, viewport_size: Vector2, extra_margins: Dictionary = {} ) -> Dictionary:` |
 | 方法 | [`get_display_safe_area_margins`](#member-gfviewportutility-methods-get_display_safe_area_margins) | `func get_display_safe_area_margins(viewport: Viewport = null, extra_margins: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`apply_safe_area_margins`](#member-gfviewportutility-methods-apply_safe_area_margins) | `func apply_safe_area_margins(container: MarginContainer, margins: Dictionary) -> bool:` |
@@ -329,6 +332,7 @@ func raycast_from_screen_3d( camera: Camera3D, screen_position: Vector2, collisi
 ### `world_to_screen_3d`
 
 - API：`public`
+- 首次版本：`8.0.0`
 
 ```gdscript
 func world_to_screen_3d(camera: Camera3D, world_position: Vector3) -> Vector2:
@@ -343,7 +347,33 @@ func world_to_screen_3d(camera: Camera3D, world_position: Vector3) -> Vector2:
 | `camera` | 用于投影的 Camera3D。 |
 | `world_position` | 3D 世界坐标。 |
 
-返回：屏幕坐标；camera 无效时返回 INF 坐标。
+返回：屏幕坐标；camera 无效时返回 Vector2.ZERO。需要失败原因时使用 world_to_screen_3d_report()。
+
+<a id="member-gfviewportutility-methods-world_to_screen_3d_report"></a>
+
+### `world_to_screen_3d_report`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func world_to_screen_3d_report(camera: Camera3D, world_position: Vector3) -> Dictionary:
+```
+
+将 3D 世界坐标转换为结构化屏幕/Viewport 坐标报告。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `camera` | 用于投影的 Camera3D。 |
+| `world_position` | 3D 世界坐标。 |
+
+返回：投影报告。
+
+结构：
+
+- `return`: Dictionary，包含 ok、reason、screen_position 和 world_position；失败时 screen_position 为 Vector2.ZERO。
 
 <a id="member-gfviewportutility-methods-world_to_screen_2d"></a>
 
@@ -386,6 +416,61 @@ func screen_to_world_2d(canvas_item: CanvasItem, screen_position: Vector2) -> Ve
 | `screen_position` | 屏幕坐标。 |
 
 返回：2D 世界坐标。
+
+<a id="member-gfviewportutility-methods-calculate_control_window_rect"></a>
+
+### `calculate_control_window_rect`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func calculate_control_window_rect( control_rect: Rect2, viewport_size: Vector2, window_size: Vector2i, options: Dictionary = {} ) -> Dictionary:
+```
+
+将 Viewport 逻辑坐标中的 Control 矩形换算为物理窗口像素矩形。 适合需要把 Godot UI 区域同步给原生 overlay、平台控件或工具预览的桥接层。 该方法只做坐标换算，不创建或管理任何外部视图。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `control_rect` | Control 的全局矩形，单位为 Viewport 逻辑坐标。 |
+| `viewport_size` | Viewport 可见尺寸。 |
+| `window_size` | DisplayServer 物理窗口尺寸。 |
+| `options` | 可选项，支持 content_rect 与 viewport_offset，用于 letterbox、HiDPI 或嵌入窗口映射。 |
+
+返回：窗口矩形报告。
+
+结构：
+
+- `options`: Dictionary，可包含 content_rect: Rect2i 或 Rect2；未提供 content_rect 时可用 viewport_offset: Vector2i/Vector2 叠加窗口偏移。
+- `return`: Dictionary，包含 ok、rect、position、size、scale_x、scale_y、mapping_mode、content_rect、viewport_offset、control_rect、viewport_size 和 window_size。
+
+<a id="member-gfviewportutility-methods-get_control_window_rect"></a>
+
+### `get_control_window_rect`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func get_control_window_rect(control: Control, viewport: Viewport = null) -> Dictionary:
+```
+
+读取 Control 当前全局矩形并换算为物理窗口像素矩形。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `control` | 目标 Control。 |
+| `viewport` | 可选 Viewport；为空时使用 control 所在 Viewport。 |
+
+返回：窗口矩形报告。
+
+结构：
+
+- `return`: Dictionary，包含 ok、rect、position、size、scale_x、scale_y、mapping_mode、content_rect、viewport_offset、control_rect、viewport_size 和 window_size。
 
 <a id="member-gfviewportutility-methods-calculate_safe_area_margins"></a>
 

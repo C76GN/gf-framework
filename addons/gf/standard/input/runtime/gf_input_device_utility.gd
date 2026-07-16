@@ -260,6 +260,7 @@ func set_assignment(
 		push_warning("[GFInputDeviceUtility] 忽略越界玩家设备映射：%d" % assignment.player_index)
 		return
 
+	var active_player_before: int = active_player_index
 	var next_assignment: GFInputDeviceAssignment = assignment.duplicate_assignment()
 	next_assignment.device_id = _normalize_device_id(next_assignment.device_type, next_assignment.device_id)
 	var previous_assignment: GFInputDeviceAssignment = null
@@ -291,6 +292,8 @@ func set_assignment(
 		metadata["displaced_player_indices"] = displaced_players
 	_record_assignment_event(&"assignment_set", next_assignment, previous_assignment, reason, source_event, metadata)
 	_repair_active_player_after_assignments_changed(&"assignment_set")
+	if active_player_before == next_assignment.player_index and active_player_index == next_assignment.player_index:
+		_emit_active_device_changed(next_assignment, source_event, reason)
 
 
 ## 移除指定玩家的设备映射。
@@ -530,6 +533,8 @@ func set_active_player(player_index: int) -> void:
 func set_player_deadzone(player_index: int, deadzone: float) -> void:
 	if player_index < 0:
 		return
+	if is_nan(deadzone) or is_inf(deadzone):
+		return
 	if deadzone < 0.0:
 		var _deadzone_removed: bool = _player_deadzones.erase(player_index)
 	else:
@@ -700,16 +705,18 @@ func clear_assignments(reason: StringName = &"manual") -> void:
 ## [br]
 ## @param limit: 最大返回数量；小于等于 0 时返回全部事件。
 ## [br]
+## @param json_compatible: 为 true 时将 metadata 转为 JSON 兼容值。
+## [br]
 ## @return 设备分配事件数组。
 ## [br]
 ## @schema return: Array[Dictionary] assignment event records.
-func get_assignment_events(limit: int = 0) -> Array[Dictionary]:
+func get_assignment_events(limit: int = 0, json_compatible: bool = true) -> Array[Dictionary]:
 	if limit <= 0 or _assignment_events.size() <= limit:
-		return _assignment_events.duplicate(true)
+		return _assignment_events_to_array(_assignment_events, json_compatible)
 	var result: Array[Dictionary] = []
 	var start_index: int = maxi(_assignment_events.size() - limit, 0)
 	for index: int in range(start_index, _assignment_events.size()):
-		result.append(_assignment_events[index].duplicate(true))
+		result.append(_assignment_event_to_dictionary(_assignment_events[index], json_compatible))
 	return result
 
 
@@ -721,21 +728,23 @@ func get_assignment_events(limit: int = 0) -> Array[Dictionary]:
 ## [br]
 ## @param event_limit: 最近事件数量。
 ## [br]
+## @param json_compatible: 为 true 时将 metadata 转为 JSON 兼容值。
+## [br]
 ## @return 设备分配报告。
 ## [br]
 ## @schema return: Dictionary containing max_players, active_player_index, assignments, active_assignment, event_count, and recent_events.
-func get_assignment_report(event_limit: int = 10) -> Dictionary:
+func get_assignment_report(event_limit: int = 10, json_compatible: bool = true) -> Dictionary:
 	var assignments: Array[Dictionary] = []
 	for assignment: GFInputDeviceAssignment in _assignments:
-		assignments.append(_assignment_to_dictionary(assignment))
+		assignments.append(_assignment_to_dictionary(assignment, json_compatible))
 	return {
 		"max_players": max_players,
 		"active_player_index": active_player_index,
 		"assignment_count": _assignments.size(),
 		"assignments": assignments,
-		"active_assignment": _assignment_to_dictionary(get_assignment(active_player_index)),
+		"active_assignment": _assignment_to_dictionary(get_assignment(active_player_index), json_compatible),
 		"event_count": _assignment_events.size(),
-		"recent_events": get_assignment_events(event_limit),
+		"recent_events": get_assignment_events(event_limit, json_compatible),
 	}
 
 
@@ -821,7 +830,7 @@ func _trim_assignment_events() -> void:
 		_assignment_events.pop_front()
 
 
-func _assignment_to_dictionary(assignment: GFInputDeviceAssignment) -> Dictionary:
+func _assignment_to_dictionary(assignment: GFInputDeviceAssignment, json_compatible: bool = false) -> Dictionary:
 	if assignment == null:
 		return {}
 	return {
@@ -829,8 +838,47 @@ func _assignment_to_dictionary(assignment: GFInputDeviceAssignment) -> Dictionar
 		"device_type": assignment.device_type,
 		"device_type_name": _device_type_to_text(assignment.device_type),
 		"device_id": assignment.device_id,
-		"metadata": assignment.metadata.duplicate(true),
+		"metadata": _report_metadata(assignment.metadata, json_compatible),
 	}
+
+
+func _assignment_events_to_array(events: Array, json_compatible: bool) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	for event_value: Variant in events:
+		if event_value is Dictionary:
+			var event_record: Dictionary = event_value
+			result.append(_assignment_event_to_dictionary(event_record, json_compatible))
+	return result
+
+
+func _assignment_event_to_dictionary(record: Dictionary, json_compatible: bool) -> Dictionary:
+	var result: Dictionary = record.duplicate(true)
+	var assignment_value: Variant = GFVariantData.get_option_value(record, "assignment")
+	if assignment_value is Dictionary:
+		var assignment_data: Dictionary = assignment_value
+		result["assignment"] = _assignment_data_to_dictionary(assignment_data, json_compatible)
+	var previous_value: Variant = GFVariantData.get_option_value(record, "previous_assignment")
+	if previous_value is Dictionary:
+		var previous_data: Dictionary = previous_value
+		result["previous_assignment"] = _assignment_data_to_dictionary(previous_data, json_compatible)
+	result["metadata"] = _report_metadata(GFVariantData.get_option_dictionary(record, "metadata"), json_compatible)
+	if json_compatible:
+		result["input_event"] = GFVariantJsonCodec.variant_to_json_compatible(
+			GFVariantData.get_option_dictionary(record, "input_event")
+		)
+	return result
+
+
+func _assignment_data_to_dictionary(data: Dictionary, json_compatible: bool) -> Dictionary:
+	var result: Dictionary = data.duplicate(true)
+	result["metadata"] = _report_metadata(GFVariantData.get_option_dictionary(data, "metadata"), json_compatible)
+	return result
+
+
+func _report_metadata(metadata: Dictionary, json_compatible: bool) -> Variant:
+	if json_compatible:
+		return GFVariantJsonCodec.variant_to_json_compatible(metadata)
+	return metadata.duplicate(true)
 
 
 func _device_type_to_text(device_type: int) -> String:
@@ -959,6 +1007,14 @@ func _set_active_player(
 	active_player_index = player_index
 	active_player_changed.emit(active_player_index)
 	var assignment: GFInputDeviceAssignment = get_assignment(active_player_index)
+	_emit_active_device_changed(assignment, event, reason)
+
+
+func _emit_active_device_changed(
+	assignment: GFInputDeviceAssignment,
+	event: InputEvent,
+	reason: StringName
+) -> void:
 	var event_copy: InputEvent = null
 	if event != null:
 		event_copy = _INPUT_EVENT_TOOLS.duplicate_input_event(event)

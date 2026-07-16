@@ -63,6 +63,23 @@ func describe_entry() -> Dictionary:
 	}
 
 
+## 导出条目的 JSON-safe 报告快照。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+## [br]
+## @param options: 传给 GFReportValueCodec 的编码选项。
+## [br]
+## @return 条目报告字典。
+## [br]
+## @schema options: Dictionary with GFReportValueCodec encoding options.
+## [br]
+## @schema return: JSON-safe Dictionary based on describe_entry().
+func to_report_dictionary(options: Dictionary = {}) -> Dictionary:
+	return GFReportValueCodec.to_report_dictionary(describe_entry(), options)
+
+
 # --- 私有/辅助方法 ---
 
 func _get_script_key(script: Script) -> String:

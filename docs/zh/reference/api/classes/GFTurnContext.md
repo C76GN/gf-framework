@@ -15,50 +15,26 @@
 
 | 类型 | 名称 | 签名 |
 |---|---|---|
-| 属性 | [`actors`](#member-gfturncontext-properties-actors) | `var actors: Array[Object] = []` |
-| 属性 | [`actions`](#member-gfturncontext-properties-actions) | `var actions: Array[GFTurnAction] = []` |
-| 属性 | [`current_actor`](#member-gfturncontext-properties-current_actor) | `var current_actor: Object = null` |
-| 属性 | [`round_index`](#member-gfturncontext-properties-round_index) | `var round_index: int = 0` |
+| 属性 | [`current_actor`](#member-gfturncontext-properties-current_actor) | `var current_actor: Object:` |
+| 属性 | [`round_index`](#member-gfturncontext-properties-round_index) | `var round_index: int:` |
 | 属性 | [`metadata`](#member-gfturncontext-properties-metadata) | `var metadata: Dictionary = {}` |
 | 方法 | [`add_actor`](#member-gfturncontext-methods-add_actor) | `func add_actor(actor: Object) -> void:` |
 | 方法 | [`remove_actor`](#member-gfturncontext-methods-remove_actor) | `func remove_actor(actor: Object) -> void:` |
-| 方法 | [`clear_actions`](#member-gfturncontext-methods-clear_actions) | `func clear_actions() -> void:` |
+| 方法 | [`get_actors`](#member-gfturncontext-methods-get_actors) | `func get_actors() -> Array[Object]:` |
+| 方法 | [`cleanup_invalid_actors`](#member-gfturncontext-methods-cleanup_invalid_actors) | `func cleanup_invalid_actors() -> int:` |
 | 方法 | [`get_actor_value`](#member-gfturncontext-methods-get_actor_value) | `func get_actor_value(actor: Object, key: StringName, fallback: Variant = null) -> Variant:` |
 
 ## 属性
-
-<a id="member-gfturncontext-properties-actors"></a>
-
-### `actors`
-
-- API：`public`
-
-```gdscript
-var actors: Array[Object] = []
-```
-
-当前流程参与者。
-
-<a id="member-gfturncontext-properties-actions"></a>
-
-### `actions`
-
-- API：`public`
-
-```gdscript
-var actions: Array[GFTurnAction] = []
-```
-
-当前待处理行动。
 
 <a id="member-gfturncontext-properties-current_actor"></a>
 
 ### `current_actor`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-var current_actor: Object = null
+var current_actor: Object:
 ```
 
 当前行动主体。
@@ -68,9 +44,10 @@ var current_actor: Object = null
 ### `round_index`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-var round_index: int = 0
+var round_index: int:
 ```
 
 当前轮次索引。
@@ -129,23 +106,46 @@ func remove_actor(actor: Object) -> void:
 |---|---|
 | `actor` | 参与者对象。 |
 
-<a id="member-gfturncontext-methods-clear_actions"></a>
+<a id="member-gfturncontext-methods-get_actors"></a>
 
-### `clear_actions`
+### `get_actors`
 
 - API：`public`
+- 首次版本：`8.0.0`
 
 ```gdscript
-func clear_actions() -> void:
+func get_actors() -> Array[Object]:
 ```
 
-清空运行时行动。
+获取参与者只读快照。
+
+返回：当前有效性尚未重新校验的参与者数组快照。
+
+<a id="member-gfturncontext-methods-cleanup_invalid_actors"></a>
+
+### `cleanup_invalid_actors`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func cleanup_invalid_actors() -> int:
+```
+
+清理已经失效的参与者引用。
+
+返回：被移除的失效参与者数量。
+
+结构：
+
+- `return`: int removed invalid actor reference count.
 
 <a id="member-gfturncontext-methods-get_actor_value"></a>
 
 ### `get_actor_value`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func get_actor_value(actor: Object, key: StringName, fallback: Variant = null) -> Variant:

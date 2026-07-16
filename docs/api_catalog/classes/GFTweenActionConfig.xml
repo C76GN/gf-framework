@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFTweenActionConfig" path="addons/gf/extensions/action_queue/tween/gf_tween_action_config.gd" module="extensions/action_queue" extends="Resource" classDigest="d64d9a872106ef1d4a95284a5e3f31c4afd43378722433cf507f6c494ad7833d">
+<class name="GFTweenActionConfig" path="addons/gf/extensions/action_queue/tween/gf_tween_action_config.gd" module="extensions/action_queue" extends="Resource" classDigest="10b8188a8126981d074e1c29765d5e4d07481075d9b85df018f01394fdcfb049">
 	<description>GFTweenActionConfig: 配置化 Tween 动作资源。
 可复用地描述一组属性 Tween 步骤，并生成 GFVisualAction。</description>
 	<tags>
@@ -20,10 +20,11 @@
 			</tags>
 		</member>
 		<member kind="property" name="duration_scale" decorators="@export">
-			<signature>var duration_scale: float = 1.0</signature>
+			<signature>var duration_scale: float:</signature>
 			<description>全局时长缩放。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="loop_count" decorators="@export_range(0, 999, 1)">

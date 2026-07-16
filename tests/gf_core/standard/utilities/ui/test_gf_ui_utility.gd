@@ -79,6 +79,7 @@ func before_each() -> void:
 
 
 func after_each() -> void:
+	GFAutoload.reset_tree_exit_state()
 	if _ui_utility != null:
 		_ui_utility.dispose()
 		_ui_utility = null
@@ -112,6 +113,20 @@ func test_dispose_detaches_layer_roots_immediately() -> void:
 
 	await get_tree().process_frame
 	assert_false(is_instance_valid(popup_layer), "下一帧 UI 层级应完成释放。")
+
+
+func test_dispose_leaves_layer_roots_attached_during_autoload_tree_exit() -> void:
+	var popup_layer: CanvasLayer = _ui_utility.get_layer_root(GFUIUtility.Layer.POPUP)
+	GFAutoload.begin_tree_exit_scope()
+
+	_ui_utility.dispose()
+	_ui_utility = null
+
+	assert_not_null(popup_layer.get_parent(), "AutoLoad 退出时不应重入修改 UI 层级的父节点。")
+
+	GFAutoload.end_tree_exit_scope()
+	await get_tree().process_frame
+	assert_false(is_instance_valid(popup_layer), "退出阶段登记 queue_free 后仍应完成释放。")
 
 
 func test_push_and_pop_panel_instance() -> void:
@@ -400,11 +415,16 @@ func test_push_panel_instance_reparents_external_node() -> void:
 	add_child(external_parent)
 	var panel: Control = Control.new()
 	external_parent.add_child(panel)
+	watch_signals(_ui_utility)
 
 	_ui_utility.push_panel_instance(panel, GFUIUtility.Layer.POPUP)
 
 	assert_eq(panel.get_parent(), _ui_utility.get_layer_root(GFUIUtility.Layer.POPUP), "已挂载面板应迁移到目标 CanvasLayer。")
 	assert_false(external_parent.get_children().has(panel), "迁移后原父节点不应继续持有面板。")
+	assert_eq(_ui_utility.get_top_panel(GFUIUtility.Layer.POPUP), panel, "迁移入栈后面板仍应是栈顶。")
+	assert_true(_ui_utility.is_panel_open(panel, GFUIUtility.Layer.POPUP), "迁移入栈不应被 tree_exited 误判为关闭。")
+	assert_eq(_ui_utility.get_stack_count(GFUIUtility.Layer.POPUP), 1, "迁移入栈后 UI 栈应保留面板。")
+	assert_signal_not_emitted(_ui_utility, "panel_closed", "迁移父节点不应发出关闭信号。")
 
 	external_parent.queue_free()
 
@@ -645,6 +665,36 @@ func test_duplicate_pending_push_panel_async_is_coalesced() -> void:
 	await get_tree().process_frame
 
 	assert_eq(_ui_utility.get_stack_count(GFUIUtility.Layer.POPUP), 1, "同层同路径的重复异步 push 应只创建一个面板。")
+
+
+func test_later_async_push_cancels_older_replace_intent() -> void:
+	_arch = GFArchitecture.new()
+	var asset_util: ManualAssetUtility = ManualAssetUtility.new()
+	await _arch.register_utility_instance(asset_util)
+	await Gf.set_architecture(_arch)
+
+	var replace_path: String = "res://tests/older_replace_panel.tscn"
+	var push_path: String = "res://tests/newer_push_panel.tscn"
+	_ui_utility.replace_layer_async(replace_path, GFUIUtility.Layer.POPUP)
+	_ui_utility.push_panel_async(push_path, GFUIUtility.Layer.POPUP)
+
+	assert_false(
+		_ui_utility.has_pending_async_panel(GFUIUtility.Layer.POPUP, replace_path),
+		"后发 push 应立即终止同层旧 replace，避免迟到 replace 清空新状态。"
+	)
+	asset_util.resolve(push_path, _make_control_scene())
+	await get_tree().process_frame
+	var pushed_panel: Node = _ui_utility.get_top_panel(GFUIUtility.Layer.POPUP)
+	assert_not_null(pushed_panel, "后发 push 应正常打开。")
+
+	asset_util.resolve(replace_path, _make_control_scene())
+	await get_tree().process_frame
+
+	assert_eq(
+		_ui_utility.get_top_panel(GFUIUtility.Layer.POPUP),
+		pushed_panel,
+		"旧 replace 的迟到回调不得覆盖后发 push。"
+	)
 
 
 func _panel_stack(layer: int) -> Array:

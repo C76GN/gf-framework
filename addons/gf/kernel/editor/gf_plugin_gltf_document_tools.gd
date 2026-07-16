@@ -27,6 +27,7 @@ var _document_extensions: Array[GLTFDocumentExtension] = []
 ## [br]
 ## @layer kernel/editor
 func setup() -> void:
+	cleanup()
 	for extension_path: String in GFExtensionSettingsBase.get_enabled_gltf_document_extension_paths():
 		_register_document_extension(extension_path)
 

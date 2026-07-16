@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFCombatActionResult" path="addons/gf/extensions/combat/actions/gf_combat_action_result.gd" module="extensions/combat" extends="RefCounted" classDigest="9c5f446ea70b3e8ad574a220453e0959cb6c6196e49bb8eced51213d9fe129b7">
+<class name="GFCombatActionResult" path="addons/gf/extensions/combat/actions/gf_combat_action_result.gd" module="extensions/combat" extends="RefCounted" classDigest="b220064317a07303236a1e913f92b1ba722855356108ee7e4afb082196be76ea">
 	<description>GFCombatActionResult: 通用战斗动作应用结果。
 保存动作是否被接受、原始动作、最终动作、数值变化和元数据，
 方便项目统一记录日志、派发事件或驱动反馈。</description>
@@ -98,6 +98,18 @@
 				<tag name="api">public</tag>
 				<tag name="return">字典快照。</tag>
 				<tag name="schema">return: Dictionary，包含 ok、reason、original_action、action、previous_value、current_value、delta 和 metadata。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="to_report_dictionary">
+			<signature>func to_report_dictionary(options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>转为 JSON-safe 报告字典。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">options: 传给 GFReportValueCodec 的编码选项。</tag>
+				<tag name="return">报告字典快照。</tag>
+				<tag name="schema">options: Dictionary with GFReportValueCodec encoding options.</tag>
+				<tag name="schema">return: JSON-safe Dictionary based on to_dict().</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 	</methods>

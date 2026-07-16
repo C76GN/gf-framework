@@ -178,9 +178,9 @@ func set_state_parent(state_name: StringName, parent_state_name: StringName = &"
 	if normalized_parent != parent_state_name:
 		return false
 
-	_set_parent_state_name(state_name, normalized_parent)
 	if _active_path.has(state_name):
-		_active_path = _build_state_path(current_state_name)
+		stop()
+	_set_parent_state_name(state_name, normalized_parent)
 	return true
 
 
@@ -270,7 +270,7 @@ func dispatch_state_event(event_id: StringName, payload: Variant = null) -> bool
 ## [br]
 ## @api public
 func stop() -> void:
-	var _exit_finished: bool = _exit_active_path_to(0, false)
+	var _exit_finished: bool = _exit_active_path_to(0, false, false)
 	_active_path.clear()
 	_set_current_from_active_path()
 	_clear_queued_exit_transition()
@@ -396,6 +396,24 @@ func get_state_snapshot() -> Dictionary:
 	}
 
 
+## 获取 JSON-safe 状态机调试快照。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+## [br]
+## @param options: 传给 GFReportValueCodec 的编码选项。
+## [br]
+## @return 可安全 JSON.stringify() 的调试快照。
+## [br]
+## @schema options: Dictionary with GFReportValueCodec options.
+## [br]
+## @schema return: Dictionary with JSON-safe current_state, active_path, states, parents, and blackboard.
+func get_json_compatible_state_snapshot(options: Dictionary = {}) -> Dictionary:
+	var codec_options: Dictionary = options.duplicate(true)
+	return GFVariantData.as_dictionary(GFReportValueCodec.to_json_compatible(get_state_snapshot(), codec_options))
+
+
 ## 代理获取框架内的 Model 实例。
 ## [br]
 ## @api public
@@ -500,17 +518,19 @@ func send_simple_event(event_id: StringName, payload: Variant = null) -> void:
 ## [br]
 ## @api public
 ## [br]
+## @since 8.0.0
+## [br]
 ## @param owner: 监听器拥有者。
 ## [br]
 ## @param event_type: 要监听的脚本类型。
 ## [br]
-## @param callback: 回调函数。
+## @param listener: 事件监听器契约。
 ## [br]
 ## @param priority: 回调优先级，数值越大越先执行，默认为 0。
-func register_event_owned(owner: Object, event_type: Script, callback: Callable, priority: int = 0) -> void:
+func register_event_owned(owner: Object, event_type: Script, listener: GFEventListener, priority: int = 0) -> void:
 	var architecture: GFArchitecture = _get_available_architecture("Event")
 	if architecture != null:
-		architecture.register_event_owned(owner, event_type, callback, priority)
+		architecture.register_event_owned(owner, event_type, listener, priority)
 		_remember_event_architecture(architecture)
 
 
@@ -522,37 +542,39 @@ func register_event_owned(owner: Object, event_type: Script, callback: Callable,
 ## [br]
 ## @param event_type: 要注销的脚本类型。
 ## [br]
-## @param callback: 要移除的回调函数。
+## @param listener: 要移除的事件监听器契约。
 ## [br]
 ## @param owner: 注册监听时使用的拥有者；为空时只注销无 owner 监听。
-func unregister_event(event_type: Script, callback: Callable, owner: Object = null) -> void:
+func unregister_event(event_type: Script, listener: GFEventListener, owner: Object = null) -> void:
 	for architecture: GFArchitecture in _get_tracked_event_architectures():
 		if owner != null:
-			architecture.unregister_event_owned(owner, event_type, callback)
+			architecture.unregister_event_owned(owner, event_type, listener)
 		else:
-			architecture.unregister_event(event_type, callback)
+			architecture.unregister_event(event_type, listener)
 
 
 ## 注册带拥有者的可赋值类型事件监听器。
 ## [br]
 ## @api public
 ## [br]
+## @since 8.0.0
+## [br]
 ## @param owner: 监听器拥有者。
 ## [br]
 ## @param base_event_type: 要监听的基类脚本类型。
 ## [br]
-## @param callback: 回调函数。
+## @param listener: 事件监听器契约。
 ## [br]
 ## @param priority: 回调优先级，数值越大越先执行，默认为 0。
 func register_assignable_event_owned(
 	owner: Object,
 	base_event_type: Script,
-	callback: Callable,
+	listener: GFEventListener,
 	priority: int = 0
 ) -> void:
 	var architecture: GFArchitecture = _get_available_architecture("Event")
 	if architecture != null:
-		architecture.register_assignable_event_owned(owner, base_event_type, callback, priority)
+		architecture.register_assignable_event_owned(owner, base_event_type, listener, priority)
 		_remember_event_architecture(architecture)
 
 
@@ -564,30 +586,32 @@ func register_assignable_event_owned(
 ## [br]
 ## @param base_event_type: 注册时使用的基类脚本类型。
 ## [br]
-## @param callback: 要移除的回调函数。
+## @param listener: 要移除的事件监听器契约。
 ## [br]
 ## @param owner: 注册监听时使用的拥有者；为空时只注销无 owner 监听。
-func unregister_assignable_event(base_event_type: Script, callback: Callable, owner: Object = null) -> void:
+func unregister_assignable_event(base_event_type: Script, listener: GFEventListener, owner: Object = null) -> void:
 	for architecture: GFArchitecture in _get_tracked_event_architectures():
 		if owner != null:
-			architecture.unregister_assignable_event_owned(owner, base_event_type, callback)
+			architecture.unregister_assignable_event_owned(owner, base_event_type, listener)
 		else:
-			architecture.unregister_assignable_event(base_event_type, callback)
+			architecture.unregister_assignable_event(base_event_type, listener)
 
 
 ## 注册带拥有者的轻量级 StringName 事件监听器。
 ## [br]
 ## @api public
 ## [br]
+## @since 8.0.0
+## [br]
 ## @param owner: 监听器拥有者。
 ## [br]
 ## @param event_id: StringName 事件标识符。
 ## [br]
-## @param callback: 回调函数，签名为 func(payload: Variant)。
-func register_simple_event_owned(owner: Object, event_id: StringName, callback: Callable) -> void:
+## @param listener: 简单事件监听器契约。
+func register_simple_event_owned(owner: Object, event_id: StringName, listener: GFEventListener) -> void:
 	var architecture: GFArchitecture = _get_available_architecture("Event")
 	if architecture != null:
-		architecture.register_simple_event_owned(owner, event_id, callback)
+		architecture.register_simple_event_owned(owner, event_id, listener)
 		_remember_event_architecture(architecture)
 
 
@@ -599,15 +623,15 @@ func register_simple_event_owned(owner: Object, event_id: StringName, callback: 
 ## [br]
 ## @param event_id: StringName 事件标识符。
 ## [br]
-## @param callback: 要移除的回调函数。
+## @param listener: 要移除的简单事件监听器契约。
 ## [br]
 ## @param owner: 注册监听时使用的拥有者；为空时只注销无 owner 监听。
-func unregister_simple_event(event_id: StringName, callback: Callable, owner: Object = null) -> void:
+func unregister_simple_event(event_id: StringName, listener: GFEventListener, owner: Object = null) -> void:
 	for architecture: GFArchitecture in _get_tracked_event_architectures():
 		if owner != null:
-			architecture.unregister_simple_event_owned(owner, event_id, callback)
+			architecture.unregister_simple_event_owned(owner, event_id, listener)
 		else:
-			architecture.unregister_simple_event(event_id, callback)
+			architecture.unregister_simple_event(event_id, listener)
 
 
 ## 注销指定拥有者通过状态机事件代理注册过的全部监听器。
@@ -661,7 +685,8 @@ func _transition_to_state(state_name: StringName, msg: Dictionary, emit_changed:
 
 func _exit_active_path_to(
 	common_count: int,
-	process_queued_transition: bool = true
+	process_queued_transition: bool = true,
+	stop_on_queued_transition: bool = true
 ) -> bool:
 	if _active_path.size() <= common_count:
 		return true
@@ -674,7 +699,7 @@ func _exit_active_path_to(
 		if exiting_state != null:
 			exiting_state.exit()
 			exiting_state.unregister_owner_events()
-		if _has_queued_exit_transition:
+		if _has_queued_exit_transition and stop_on_queued_transition:
 			keep_count = index
 			break
 	_is_exiting_current_state = false

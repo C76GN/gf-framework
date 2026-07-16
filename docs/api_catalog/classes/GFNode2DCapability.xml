@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFNode2DCapability" path="addons/gf/extensions/capability/nodes/gf_node_2d_capability.gd" module="extensions/capability" extends="Node2D" classDigest="159d89fe85d497800b59f592ec2b80a193f476abe36f7ccb29235527dc94535f">
+<class name="GFNode2DCapability" path="addons/gf/extensions/capability/nodes/gf_node_2d_capability.gd" module="extensions/capability" extends="Node2D" classDigest="b3012bc6b959ce744b4154b567d92afb01e80765fee46fcb7b20967057d1090b">
 	<description>GFNode2DCapability: 可直接作为 2D 场景节点使用的能力组件基类。
 适合承载需要 2D 变换、碰撞、输入或子节点引用的局部能力。</description>
 	<tags>
@@ -20,10 +20,11 @@
 			</tags>
 		</member>
 		<member kind="property" name="receiver">
-			<signature>var receiver: Object = null</signature>
+			<signature>var receiver: Object:</signature>
 			<description>当前能力所属对象。由 GFCapabilityUtility 挂载时写入。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="active">

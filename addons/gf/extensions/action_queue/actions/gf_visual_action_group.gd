@@ -126,6 +126,10 @@ func execute() -> Variant:
 	if actions.is_empty():
 		return null
 
+	if _is_executing:
+		_cancel_active_actions()
+		_emit_active_completion()
+
 	_execution_serial += 1
 	var current_serial: int = _execution_serial
 	_is_executing = true

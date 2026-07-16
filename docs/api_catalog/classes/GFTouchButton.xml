@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFTouchButton" path="addons/gf/standard/input/touch/gf_touch_button.gd" module="standard" extends="Node2D" classDigest="245b65770050eec011699a1ced93000a6d8f0030335d59136e0543269c1b9859">
+<class name="GFTouchButton" path="addons/gf/standard/input/touch/gf_touch_button.gd" module="standard" extends="GFTouchControl2D" classDigest="13ba7856dcc2845ab603e331d0d5ceae16cccd35bb0a30d3dc4dcb73a2b18fd1">
 	<description>GFTouchButton: 通用触屏虚拟按钮节点。
 可直接发送按下/释放信号，也可映射到 Godot InputMap 动作或虚拟手柄按钮事件。</description>
 	<tags>

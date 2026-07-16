@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFContentPackageCatalog" path="addons/gf/extensions/content_package/runtime/gf_content_package_catalog.gd" module="extensions/content_package" extends="RefCounted" classDigest="0ff58cb64cfa08c155a597ffaec44ab25664a1b8deecb0947fd71c30681744aa">
+<class name="GFContentPackageCatalog" path="addons/gf/extensions/content_package/runtime/gf_content_package_catalog.gd" module="extensions/content_package" extends="RefCounted" classDigest="300e5ca5fe807a1c629424688bf496c19845504c455e6dec02c8a7173d81362f">
 	<description>GFContentPackageCatalog: 内容包集合与依赖图诊断。
 管理一组 GFContentPackageManifest，提供包查询、依赖顺序、重复/缺失/循环依赖报告，
 并可把内容包资源键映射注册到 GFResourceResolverUtility。</description>
@@ -63,7 +63,17 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">package_id: 内容包 ID。</tag>
-				<tag name="return">manifest；不存在时返回 null。</tag>
+				<tag name="return">manifest 深拷贝；不存在时返回 null。</tag>
+				<tag name="since">4.4.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="duplicate_catalog">
+			<signature>func duplicate_catalog() -&gt; GFContentPackageCatalog:</signature>
+			<description>创建目录深拷贝。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">与当前依赖图和重复 ID 状态一致的新目录。</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_package_ids">
@@ -89,8 +99,9 @@
 				<tag name="api">public</tag>
 				<tag name="param">options: 校验选项，透传给 GFContentPackageManifest。</tag>
 				<tag name="return">GFValidationReportDictionary 兼容报告。</tag>
-				<tag name="schema">options: Dictionary，可包含 check_resource_exists: bool。</tag>
+				<tag name="schema">options: Dictionary，可包含 check_resource_exists: bool、check_resource_dependencies: bool 和 dependency_options: Dictionary。</tag>
 				<tag name="schema">return: GFValidationReportDictionary.finalize_report() 生成的 Dictionary，并包含 package_count、package_ids、ordered_package_ids 和 duplicate_package_ids。</tag>
+				<tag name="since">4.4.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="register_resources">
@@ -99,10 +110,11 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">resolver: 标准资源解析器。</tag>
-				<tag name="param">options: 注册选项。`base_priority` 默认为 0；`check_resource_exists` 默认为 false。</tag>
+				<tag name="param">options: 注册选项。`base_priority` 默认为 0；校验选项透传给 manifest。</tag>
 				<tag name="return">GFValidationReportDictionary 兼容报告，并包含 registered_count。</tag>
-				<tag name="schema">options: Dictionary，可包含 base_priority: int 和 check_resource_exists: bool。</tag>
+				<tag name="schema">options: Dictionary，可包含 base_priority: int、check_resource_exists: bool、check_resource_dependencies: bool 和 dependency_options: Dictionary。</tag>
 				<tag name="schema">return: GFValidationReportDictionary.finalize_report() 生成的 Dictionary，并包含 registered_count。</tag>
+				<tag name="since">4.4.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_debug_snapshot">

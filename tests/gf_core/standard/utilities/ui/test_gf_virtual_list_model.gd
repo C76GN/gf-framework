@@ -77,3 +77,22 @@ func test_reset_item_extent_returns_item_to_estimate() -> void:
 	assert_true(reset, "合法索引应可重置。")
 	assert_eq(model.get_item_extent(0), 40.0, "重置后应回到估算尺寸。")
 	assert_false(model.is_item_measured(0), "重置后条目不应仍标记为实测。")
+
+
+func test_non_finite_layout_inputs_cannot_poison_offsets() -> void:
+	var model: GFVirtualListModel = GFVirtualListModel.new()
+	model.estimated_item_extent = 24.0
+	model.trailing_padding = 8.0
+	model.set_item_count(3)
+
+	model.estimated_item_extent = INF
+	model.trailing_padding = NAN
+	var report: Dictionary = model.set_item_extent(1, INF)
+
+	assert_eq(model.estimated_item_extent, 24.0, "非有限估算尺寸应被拒绝且不改变现有布局。")
+	assert_eq(model.trailing_padding, 8.0, "非有限尾部留白应被拒绝。")
+	assert_false(GFVariantData.get_option_bool(report, "ok"), "非有限实测尺寸应返回失败报告。")
+	assert_eq(GFVariantData.get_option_string(report, "error"), "non_finite_extent")
+	assert_true(is_finite(model.get_content_extent()), "累计内容尺寸必须保持有限。")
+	var visible_range: Vector2i = model.get_visible_range(INF, NAN)
+	assert_true(visible_range.x >= 0 and visible_range.y <= model.get_item_count(), "异常滚动输入不得产生越界范围。")

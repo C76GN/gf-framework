@@ -23,6 +23,10 @@ func make_observe_injected_replacement_interceptor() -> Object:
 	return ObserveInjectedReplacementInterceptor.new()
 
 
+func make_clear_queue_before_interceptor() -> Object:
+	return ClearQueueBeforeInterceptor.new()
+
+
 # --- 内部类 ---
 
 class RewriteInterceptor:
@@ -95,6 +99,14 @@ class ObserveInjectedReplacementInterceptor:
 
 	func _before_execute(action: Object, _queue: GFActionQueueSystem) -> GFActionInterceptionResult:
 		observed_architecture = FixtureReads.read_architecture(action)
+		return GFActionInterceptionResult.continue_action()
+
+
+class ClearQueueBeforeInterceptor:
+	extends GFActionInterceptor
+
+	func _before_execute(_action: Object, queue: GFActionQueueSystem) -> GFActionInterceptionResult:
+		queue.clear_queue(true)
 		return GFActionInterceptionResult.continue_action()
 
 

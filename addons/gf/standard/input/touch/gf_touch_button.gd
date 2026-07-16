@@ -10,7 +10,7 @@
 ## [br]
 ## @since 3.17.0
 class_name GFTouchButton
-extends Node2D
+extends GFTouchControl2D
 
 
 # --- 信号 ---
@@ -29,6 +29,7 @@ signal button_released
 # --- 常量 ---
 
 const _INPUT_EVENT_TOOLS = preload("res://addons/gf/standard/input/common/gf_input_event_tools.gd")
+const _VIRTUAL_INPUT_BRIDGE = preload("res://addons/gf/standard/input/common/gf_virtual_input_bridge.gd")
 
 
 # --- 导出变量 ---
@@ -88,25 +89,11 @@ const _INPUT_EVENT_TOOLS = preload("res://addons/gf/standard/input/common/gf_inp
 
 # --- 私有变量 ---
 
-var _active_touch_index: int = -1
 var _mouse_pressed_inside: bool = false
 var _pressed: bool = false
 
 
 # --- Godot 生命周期方法 ---
-
-func _notification(what: int) -> void:
-	if Engine.is_editor_hint():
-		return
-	if what == CanvasItem.NOTIFICATION_VISIBILITY_CHANGED and not is_visible_in_tree():
-		release()
-
-
-func _exit_tree() -> void:
-	if Engine.is_editor_hint():
-		return
-	release()
-
 
 func _input(event: InputEvent) -> void:
 	if Engine.is_editor_hint():
@@ -155,7 +142,7 @@ func is_pressed() -> bool:
 ## [br]
 ## @api public
 func release() -> void:
-	_active_touch_index = -1
+	var _released_touch: bool = _release_touch_capture()
 	_mouse_pressed_inside = false
 	_set_pressed(false)
 
@@ -165,23 +152,23 @@ func release() -> void:
 func _handle_touch(event: InputEventScreenTouch) -> void:
 	var local_pos: Vector2 = to_local(_screen_to_global_position(event.position))
 	if event.pressed:
-		if _active_touch_index == -1 and local_pos.length() <= radius:
-			_active_touch_index = event.index
+		if not is_touch_active() and local_pos.length() <= radius:
+			var _captured: bool = _try_capture_touch_index(event.index)
 			_set_pressed(true)
-			get_viewport().set_input_as_handled()
-	elif event.index == _active_touch_index:
+			_mark_input_as_handled()
+	elif _touch_matches(event.index):
 		release()
-		get_viewport().set_input_as_handled()
+		_mark_input_as_handled()
 
 
 func _handle_drag(event: InputEventScreenDrag) -> void:
-	if event.index != _active_touch_index:
+	if not _touch_matches(event.index):
 		return
 
 	var local_pos: Vector2 = to_local(_screen_to_global_position(event.position))
 	if local_pos.length() > radius:
 		release()
-	get_viewport().set_input_as_handled()
+	_mark_input_as_handled()
 
 
 func _handle_mouse_button(event: InputEventMouseButton) -> void:
@@ -193,11 +180,11 @@ func _handle_mouse_button(event: InputEventMouseButton) -> void:
 		_mouse_pressed_inside = local_pos.length() <= radius
 		if _mouse_pressed_inside:
 			_set_pressed(true)
-			get_viewport().set_input_as_handled()
+			_mark_input_as_handled()
 	else:
 		if _mouse_pressed_inside:
 			release()
-			get_viewport().set_input_as_handled()
+			_mark_input_as_handled()
 
 
 func _handle_mouse_motion(event: InputEventMouseMotion) -> void:
@@ -207,7 +194,7 @@ func _handle_mouse_motion(event: InputEventMouseMotion) -> void:
 	var local_pos: Vector2 = to_local(_screen_to_global_position(event.position))
 	if local_pos.length() > radius:
 		release()
-	get_viewport().set_input_as_handled()
+	_mark_input_as_handled()
 
 
 func _set_pressed(next_pressed: bool) -> void:
@@ -228,25 +215,13 @@ func _apply_input_action(pressed: bool) -> void:
 	if action_name == &"":
 		return
 	if pressed:
-		Input.action_press(action_name)
+		var _pressed_action: bool = _VIRTUAL_INPUT_BRIDGE.press_action(action_name, self, action_name)
 	else:
-		Input.action_release(action_name)
+		var _released_action: bool = _VIRTUAL_INPUT_BRIDGE.release_action(action_name, self, action_name)
 
 
 func _emit_joypad_button(pressed: bool) -> void:
 	if not emit_joypad_button:
 		return
 
-	var event: InputEventJoypadButton = InputEventJoypadButton.new()
-	event.device = joypad_device_id
-	event.button_index = joy_button
-	event.pressed = pressed
-	event.pressure = 1.0 if pressed else 0.0
-	Input.parse_input_event(event)
-
-
-func _screen_to_global_position(screen_position: Vector2) -> Vector2:
-	var viewport: Viewport = get_viewport()
-	if viewport == null:
-		return screen_position
-	return viewport.get_canvas_transform().affine_inverse() * screen_position
+	_VIRTUAL_INPUT_BRIDGE.emit_joypad_button(joypad_device_id, joy_button, pressed)

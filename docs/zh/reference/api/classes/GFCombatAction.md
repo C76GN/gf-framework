@@ -19,7 +19,7 @@
 | 属性 | [`action_id`](#member-gfcombataction-properties-action_id) | `var action_id: StringName = &""` |
 | 属性 | [`action_kind`](#member-gfcombataction-properties-action_kind) | `var action_kind: StringName = &""` |
 | 属性 | [`operation`](#member-gfcombataction-properties-operation) | `var operation: Operation = Operation.SUBTRACT` |
-| 属性 | [`amount`](#member-gfcombataction-properties-amount) | `var amount: float = 0.0` |
+| 属性 | [`amount`](#member-gfcombataction-properties-amount) | `var amount: float:` |
 | 属性 | [`tags`](#member-gfcombataction-properties-tags) | `var tags: Array[StringName] = []` |
 | 属性 | [`payload`](#member-gfcombataction-properties-payload) | `var payload: Variant = null` |
 | 属性 | [`metadata`](#member-gfcombataction-properties-metadata) | `var metadata: Dictionary = {}` |
@@ -28,10 +28,12 @@
 | 方法 | [`with_kind`](#member-gfcombataction-methods-with_kind) | `func with_kind(value: StringName) -> GFCombatAction:` |
 | 方法 | [`with_operation`](#member-gfcombataction-methods-with_operation) | `func with_operation(value: Operation) -> GFCombatAction:` |
 | 方法 | [`with_amount`](#member-gfcombataction-methods-with_amount) | `func with_amount(value: float) -> GFCombatAction:` |
+| 方法 | [`is_numeric_state_valid`](#member-gfcombataction-methods-is_numeric_state_valid) | `func is_numeric_state_valid() -> bool:` |
 | 方法 | [`with_tags`](#member-gfcombataction-methods-with_tags) | `func with_tags(value: Array[StringName]) -> GFCombatAction:` |
 | 方法 | [`with_payload`](#member-gfcombataction-methods-with_payload) | `func with_payload(value: Variant) -> GFCombatAction:` |
 | 方法 | [`with_metadata`](#member-gfcombataction-methods-with_metadata) | `func with_metadata(value: Dictionary) -> GFCombatAction:` |
 | 方法 | [`to_dict`](#member-gfcombataction-methods-to_dict) | `func to_dict() -> Dictionary:` |
+| 方法 | [`to_report_dictionary`](#member-gfcombataction-methods-to_report_dictionary) | `func to_report_dictionary(options: Dictionary = {}) -> Dictionary:` |
 
 ## 枚举
 
@@ -97,9 +99,10 @@ var operation: Operation = Operation.SUBTRACT
 ### `amount`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-var amount: float = 0.0
+var amount: float:
 ```
 
 动作数值。
@@ -244,6 +247,21 @@ func with_amount(value: float) -> GFCombatAction:
 
 返回：当前动作。
 
+<a id="member-gfcombataction-methods-is_numeric_state_valid"></a>
+
+### `is_numeric_state_valid`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func is_numeric_state_valid() -> bool:
+```
+
+检查动作数值是否可安全参与运算。
+
+返回：最近一次 amount 写入有效且当前值有限时返回 true。
+
 <a id="member-gfcombataction-methods-with_tags"></a>
 
 ### `with_tags`
@@ -329,3 +347,29 @@ func to_dict() -> Dictionary:
 结构：
 
 - `return`: Dictionary，包含 action_id、action_kind、operation、amount、tags、payload 和 metadata。
+
+<a id="member-gfcombataction-methods-to_report_dictionary"></a>
+
+### `to_report_dictionary`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func to_report_dictionary(options: Dictionary = {}) -> Dictionary:
+```
+
+转为 JSON-safe 报告字典。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `options` | 传给 GFReportValueCodec 的编码选项。 |
+
+返回：报告字典快照。
+
+结构：
+
+- `options`: Dictionary with GFReportValueCodec encoding options.
+- `return`: JSON-safe Dictionary based on to_dict().

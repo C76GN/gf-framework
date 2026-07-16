@@ -16,7 +16,6 @@
 | 类型 | 名称 | 签名 |
 |---|---|---|
 | 属性 | [`task_id`](#member-gfruntimetask-properties-task_id) | `var task_id: StringName = &""` |
-| 属性 | [`requirements`](#member-gfruntimetask-properties-requirements) | `var requirements: Array[Object] = []` |
 | 属性 | [`interruptible`](#member-gfruntimetask-properties-interruptible) | `var interruptible: bool = true` |
 | 方法 | [`_init`](#member-gfruntimetask-methods-_init) | `func _init(p_requirements: Array[Object] = [], p_interruptible: bool = true) -> void:` |
 | 方法 | [`set_requirements`](#member-gfruntimetask-methods-set_requirements) | `func set_requirements(next_requirements: Array[Object]) -> GFRuntimeTask:` |
@@ -24,7 +23,7 @@
 | 方法 | [`remove_requirement`](#member-gfruntimetask-methods-remove_requirement) | `func remove_requirement(requirement: Object) -> bool:` |
 | 方法 | [`clear_requirements`](#member-gfruntimetask-methods-clear_requirements) | `func clear_requirements() -> void:` |
 | 方法 | [`get_requirements`](#member-gfruntimetask-methods-get_requirements) | `func get_requirements() -> Array[Object]:` |
-| 方法 | [`has_requirement`](#member-gfruntimetask-methods-has_requirement) | `func has_requirement(requirement: Object) -> bool:` |
+| 方法 | [`has_requirement`](#member-gfruntimetask-methods-has_requirement) | `func has_requirement(requirement: Variant) -> bool:` |
 | 方法 | [`set_interruptible`](#member-gfruntimetask-methods-set_interruptible) | `func set_interruptible(value: bool) -> GFRuntimeTask:` |
 | 方法 | [`is_interruptible`](#member-gfruntimetask-methods-is_interruptible) | `func is_interruptible() -> bool:` |
 | 方法 | [`is_scheduled`](#member-gfruntimetask-methods-is_scheduled) | `func is_scheduled() -> bool:` |
@@ -50,19 +49,6 @@ var task_id: StringName = &""
 ```
 
 调试和诊断用任务标识。
-
-<a id="member-gfruntimetask-properties-requirements"></a>
-
-### `requirements`
-
-- API：`public`
-- 首次版本：`6.0.0`
-
-```gdscript
-var requirements: Array[Object] = []
-```
-
-此任务占用的运行时对象。 相同 requirement 同一时间只能被一个任务占用。调度器会忽略已经释放的对象。
 
 <a id="member-gfruntimetask-properties-interruptible"></a>
 
@@ -198,7 +184,7 @@ func get_requirements() -> Array[Object]:
 - 首次版本：`6.0.0`
 
 ```gdscript
-func has_requirement(requirement: Object) -> bool:
+func has_requirement(requirement: Variant) -> bool:
 ```
 
 判断任务是否占用指定对象。
@@ -210,6 +196,10 @@ func has_requirement(requirement: Object) -> bool:
 | `requirement` | 要检查的占用对象。 |
 
 返回：任务占用该对象时返回 true。
+
+结构：
+
+- `requirement`: Object requirement reference; released or non-Object values return false.
 
 <a id="member-gfruntimetask-methods-set_interruptible"></a>
 

@@ -182,8 +182,10 @@ static func find_first_child_of_type(
 	if include_parent and _matches_type(parent, child_type):
 		return parent
 
-	var node_stack: Array[Node] = _get_children_snapshot(parent, include_internal)
-	node_stack.reverse()
+	var node_stack: Array[Node] = []
+	for child_index: int in range(parent.get_child_count(include_internal) - 1, -1, -1):
+		var child: Node = parent.get_child(child_index, include_internal)
+		node_stack.append(child)
 	while not node_stack.is_empty():
 		var stack_index: int = node_stack.size() - 1
 		var current: Node = node_stack[stack_index]
@@ -191,9 +193,9 @@ static func find_first_child_of_type(
 		if _matches_type(current, child_type):
 			return current
 		if recursive:
-			var children: Array[Node] = _get_children_snapshot(current, include_internal)
-			for child_index: int in range(children.size() - 1, -1, -1):
-				node_stack.append(children[child_index])
+			for child_index: int in range(current.get_child_count(include_internal) - 1, -1, -1):
+				var child: Node = current.get_child(child_index, include_internal)
+				node_stack.append(child)
 
 		if not recursive:
 			continue
@@ -264,7 +266,8 @@ static func collect_children(
 	if include_self and not _append_if_matches(result, parent, type_filter, limit):
 		return result
 
-	for child: Node in parent.get_children(include_internal):
+	for child_index: int in range(parent.get_child_count(include_internal)):
+		var child: Node = parent.get_child(child_index, include_internal)
 		if not _append_if_matches(result, child, type_filter, limit):
 			return result
 	return result
@@ -318,9 +321,9 @@ static func collect_descendants(
 		if max_depth >= 0 and current_depth >= max_depth:
 			continue
 
-		var children: Array[Node] = _get_children_snapshot(current, include_internal)
-		for child_index: int in range(children.size() - 1, -1, -1):
-			node_stack.append(children[child_index])
+		for child_index: int in range(current.get_child_count(include_internal) - 1, -1, -1):
+			var child: Node = current.get_child(child_index, include_internal)
+			node_stack.append(child)
 			depth_stack.append(current_depth + 1)
 	return result
 
@@ -394,14 +397,14 @@ static func collect_previous_siblings(
 	if parent == null:
 		return result
 
-	var siblings: Array[Node] = _get_children_snapshot(parent, include_internal)
-	var own_index: int = _find_node_index(siblings, node)
+	var own_index: int = _find_child_index(parent, node, include_internal)
 	if own_index < 0:
 		return result
 
 	var end_index: int = own_index + 1 if include_self else own_index
 	for sibling_index: int in range(0, end_index):
-		if not _append_if_matches(result, siblings[sibling_index], type_filter, limit):
+		var sibling: Node = parent.get_child(sibling_index, include_internal)
+		if not _append_if_matches(result, sibling, type_filter, limit):
 			return result
 	return result
 
@@ -440,14 +443,14 @@ static func collect_next_siblings(
 	if parent == null:
 		return result
 
-	var siblings: Array[Node] = _get_children_snapshot(parent, include_internal)
-	var own_index: int = _find_node_index(siblings, node)
+	var own_index: int = _find_child_index(parent, node, include_internal)
 	if own_index < 0:
 		return result
 
 	var start_index: int = own_index if include_self else own_index + 1
-	for sibling_index: int in range(start_index, siblings.size()):
-		if not _append_if_matches(result, siblings[sibling_index], type_filter, limit):
+	for sibling_index: int in range(start_index, parent.get_child_count(include_internal)):
+		var sibling: Node = parent.get_child(sibling_index, include_internal)
+		if not _append_if_matches(result, sibling, type_filter, limit):
 			return result
 	return result
 
@@ -470,9 +473,9 @@ static func set_owner_recursive(node: Node, owner: Node) -> void:
 		node_stack.remove_at(stack_index)
 		_apply_owner(current, owner)
 
-		var children: Array[Node] = _get_children_snapshot(current, true)
-		for child_index: int in range(children.size() - 1, -1, -1):
-			node_stack.append(children[child_index])
+		for child_index: int in range(current.get_child_count(true) - 1, -1, -1):
+			var child: Node = current.get_child(child_index, true)
+			node_stack.append(child)
 
 
 ## 从父节点移除并 queue_free() 父节点下的全部子节点。
@@ -500,15 +503,6 @@ static func free_children(parent: Node, include_internal: bool = false) -> int:
 
 # --- 私有/辅助方法 ---
 
-static func _get_children_snapshot(parent: Node, include_internal: bool) -> Array[Node]:
-	var result: Array[Node] = []
-	if parent == null:
-		return result
-	for child: Node in parent.get_children(include_internal):
-		result.append(child)
-	return result
-
-
 static func _append_if_matches(
 	result: Array[Node],
 	node: Node,
@@ -526,10 +520,12 @@ static func _is_result_limit_reached(result: Array[Node], limit: int) -> bool:
 	return limit >= 0 and result.size() >= limit
 
 
-static func _find_node_index(nodes: Array[Node], target: Node) -> int:
-	for node_index: int in range(nodes.size()):
-		if nodes[node_index] == target:
-			return node_index
+static func _find_child_index(parent: Node, target: Node, include_internal: bool) -> int:
+	if parent == null or target == null:
+		return -1
+	for child_index: int in range(parent.get_child_count(include_internal)):
+		if parent.get_child(child_index, include_internal) == target:
+			return child_index
 	return -1
 
 

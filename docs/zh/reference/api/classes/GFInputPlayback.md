@@ -19,10 +19,14 @@
 | 信号 | [`playback_stopped`](#member-gfinputplayback-signals-playback_stopped) | `signal playback_stopped` |
 | 信号 | [`playback_finished`](#member-gfinputplayback-signals-playback_finished) | `signal playback_finished` |
 | 信号 | [`event_applied`](#member-gfinputplayback-signals-event_applied) | `signal event_applied(event: Dictionary)` |
+| 信号 | [`loop_catch_up_limited`](#member-gfinputplayback-signals-loop_catch_up_limited) | `signal loop_catch_up_limited(deferred_seconds: float, skipped_cycles: int)` |
+| 枚举 | [`LoopCatchUpPolicy`](#member-gfinputplayback-enums-loopcatchuppolicy) | `enum LoopCatchUpPolicy` |
 | 属性 | [`recording`](#member-gfinputplayback-properties-recording) | `var recording: GFInputRecording = null` |
 | 属性 | [`source`](#member-gfinputplayback-properties-source) | `var source: GFVirtualInputSource = null` |
 | 属性 | [`speed`](#member-gfinputplayback-properties-speed) | `var speed: float = 1.0` |
 | 属性 | [`loop`](#member-gfinputplayback-properties-loop) | `var loop: bool = false` |
+| 属性 | [`loop_catch_up_policy`](#member-gfinputplayback-properties-loop_catch_up_policy) | `var loop_catch_up_policy: LoopCatchUpPolicy = LoopCatchUpPolicy.DEFER_EXCESS` |
+| 属性 | [`max_loop_cycles_per_tick`](#member-gfinputplayback-properties-max_loop_cycles_per_tick) | `var max_loop_cycles_per_tick: int = 64:` |
 | 属性 | [`respect_recorded_player_index`](#member-gfinputplayback-properties-respect_recorded_player_index) | `var respect_recorded_player_index: bool = false` |
 | 属性 | [`is_playing`](#member-gfinputplayback-properties-is_playing) | `var is_playing: bool = false` |
 | 属性 | [`elapsed_seconds`](#member-gfinputplayback-properties-elapsed_seconds) | `var elapsed_seconds: float = 0.0` |
@@ -100,6 +104,46 @@ signal event_applied(event: Dictionary)
 
 - `event`: Dictionary，包含 time_seconds、action_id、value、player_index、source_id 和 metadata。
 
+<a id="member-gfinputplayback-signals-loop_catch_up_limited"></a>
+
+### `loop_catch_up_limited`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+signal loop_catch_up_limited(deferred_seconds: float, skipped_cycles: int)
+```
+
+单帧循环追赶达到预算时发出。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `deferred_seconds` | 留待后续 tick 无损处理的秒数。 |
+| `skipped_cycles` | 按策略显式跳过的完整周期数。 |
+
+## 枚举
+
+<a id="member-gfinputplayback-enums-loopcatchuppolicy"></a>
+
+### `LoopCatchUpPolicy`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+enum LoopCatchUpPolicy {
+	## 保留剩余时间，在后续 tick 继续逐事件处理。
+	DEFER_EXCESS,
+	## 跳过超预算的完整周期，只重建最终周期状态。
+	SKIP_EXCESS_CYCLES,
+}
+```
+
+循环回放超出单帧周期预算时的处理策略。
+
 ## 属性
 
 <a id="member-gfinputplayback-properties-recording"></a>
@@ -149,6 +193,32 @@ var loop: bool = false
 ```
 
 到达末尾后是否循环。
+
+<a id="member-gfinputplayback-properties-loop_catch_up_policy"></a>
+
+### `loop_catch_up_policy`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+var loop_catch_up_policy: LoopCatchUpPolicy = LoopCatchUpPolicy.DEFER_EXCESS
+```
+
+循环追赶策略。默认无损延后，不静默丢弃事件。
+
+<a id="member-gfinputplayback-properties-max_loop_cycles_per_tick"></a>
+
+### `max_loop_cycles_per_tick`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+var max_loop_cycles_per_tick: int = 64:
+```
+
+单次 tick 最多完整推进的循环周期数。
 
 <a id="member-gfinputplayback-properties-respect_recorded_player_index"></a>
 

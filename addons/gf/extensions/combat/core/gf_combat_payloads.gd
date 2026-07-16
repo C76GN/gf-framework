@@ -74,7 +74,30 @@ class GFBuffRemovedPayload extends GFPayload:
 	## [br]
 	## @api public
 	var buff_id: StringName
+
+	## 移除原因。
+	## [br]
+	## @api public
+	## [br]
+	## @since 8.0.0
+	var reason: StringName
+
+	## Buff 移除生命周期报告。
+	## [br]
+	## @api public
+	## [br]
+	## @since 8.0.0
+	## [br]
+	## @schema lifecycle_report: Dictionary，GFBuff.on_remove() 返回报告的深副本。
+	var lifecycle_report: Dictionary
 	
-	func _init(p_target: Object, p_buff_id: StringName) -> void:
+	func _init(
+		p_target: Object,
+		p_buff_id: StringName,
+		p_reason: StringName,
+		p_lifecycle_report: Dictionary
+	) -> void:
 		target = p_target
 		buff_id = p_buff_id
+		reason = p_reason
+		lifecycle_report = p_lifecycle_report.duplicate(true)

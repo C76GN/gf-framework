@@ -4,7 +4,11 @@
 
 `GFInputDetector` 可放进改键界面中检测下一次输入。它通过 `DetectionState` 区分空闲、倒计时、预清理、正式检测和检测后清理阶段，`wait_for_clear_before_detection` 可避免“打开改键界面的确认键”立刻被记录，`wait_for_clear_after_detection` 可让项目等候检测到的按键或轴释放后再提交结果。
 
-`GFInputFormatter` 提供轻量文本格式化，便于设置界面展示当前绑定。Joypad 默认会通过 `GFInputDeviceTextProvider` 输出抽象方位文本，例如 Button South、Left Stick X，也可通过 options 或注册自定义 `GFInputTextProvider` 替换为平台图标、图标字体或本地化文本。
+新项目应优先监听 `detection_finished(result)`，通过 `GFInputDetectionResult.reason` 区分 `SUCCESS`、`CANCELLED`、`TIMEOUT` 和 `REPLACED`。旧版 `input_detected(input_event)` 仍保留为兼容投影：成功时传回输入事件，非成功结束时传回 `null`。需要日志、诊断或跨 JSON 边界输出时，可调用 `GFInputDetectionResult.to_dictionary()`，其中输入事件会通过 `GFInputEventIdentity` 转成稳定身份字典。
+
+默认检测只接受适合作为绑定的离散输入，例如按键、鼠标按钮、手柄按钮和手柄轴阈值，不把鼠标移动、触摸拖动或普通指针位移当作可绑定动作。项目确实要记录连续值输入时，应显式配置 value type 过滤，并在 UI 中说明该绑定的运行时语义。
+
+`GFInputFormatter` 提供轻量文本格式化，便于设置界面展示当前绑定。Joypad 默认会通过 `GFInputDeviceTextProvider` 输出抽象方位文本，例如 Button South、Left Stick X，也可通过 options 或注册自定义 `GFInputTextProvider` 替换为平台图标、图标字体或本地化文本。默认静态入口使用 `GFInputFormatterRegistry` 的全局默认实例；设置页、测试或编辑器工具需要临时 provider 时，应优先创建局部 registry，并在调用 options 中传入 `formatter_registry`，避免污染其它场景。
 
 ## 图标 Provider
 
@@ -21,7 +25,20 @@ GFInputFormatter.add_icon_provider(icons)
 var rich_text := GFInputFormatter.input_event_as_rich_text(jump_binding.input_event)
 ```
 
-图标 provider 不附带任何图片资源，也不规定平台品牌、按钮文案或美术风格。项目可以用 `icon_paths` 精确映射少量按钮，也可以用路径模板批量组织素材；`split_key_modifiers` 会把 Ctrl/Shift/Alt/Meta 组合键拆成多个图标，便于设置界面显示。
+需要局部作用域时，`register_text_provider()` / `register_icon_provider()` 会返回 `GFInputProviderRegistration` 句柄，用于在面板关闭、插件卸载或测试清理时显式释放注册：
+
+```gdscript
+var registry := GFInputFormatterRegistry.new()
+var registration := registry.register_icon_provider(icons, settings_panel)
+var rich_text := GFInputFormatter.input_event_as_rich_text(jump_binding.input_event, {
+	"formatter_registry": registry,
+})
+registration.release()
+```
+
+图标 provider 不附带任何图片资源，也不规定平台品牌、按钮文案或美术风格。项目可以用 `icon_paths` 精确映射少量按钮，也可以用路径模板批量组织素材；`split_key_modifiers` 会把 Ctrl/Shift/Alt/Meta 组合键拆成多个图标，便于设置界面显示。`GFInputIconAtlasProvider` 会缓存成功加载的纹理，也会按 `cache_missing_paths` 和 `max_cached_missing_paths` 缓存缺失路径，避免设置 UI 重复探测同一个不存在的资源；项目热更新图标资源后可调用 `clear_cache()`。
+
+`GFInputEventIdentity` 是输入事件语义身份的公共值对象。需要自己写 provider、冲突 UI 或调试报告时，可以通过 `from_event()` 读取 `kind`、`conflict_key`、`icon_key` 和 `device_id`，或通过 `get_icon_candidates()` 复用框架的图标候选键规则。它只描述物理/语义输入身份，不读取项目 `InputMap`，也不把业务动作写死进框架。
 
 ## Action 显示
 

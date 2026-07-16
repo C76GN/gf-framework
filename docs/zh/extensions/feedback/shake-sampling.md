@@ -26,3 +26,7 @@ track.position_axis = Vector3(4.0, 0.0, 0.0)
 track.rotation_axis_degrees = Vector3.ZERO
 preset.add_track(track)
 ```
+
+## 查询与报告
+
+`sample_channel()` / `sample_channels()` 返回运行时采样结果，适合直接叠加到相机、节点或项目自定义表现对象。`get_shake_info()` 与 `get_debug_snapshot()` 返回 JSON-safe 报告，metadata 中的 Object / Resource 会被转换为脱敏 marker，可直接交给诊断、日志、CLI 或 `JSON.stringify()`。

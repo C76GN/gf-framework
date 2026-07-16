@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFDataProjection" path="addons/gf/standard/foundation/variant/gf_data_projection.gd" module="standard" extends="RefCounted" classDigest="2890cf1418c89e85835f5c083ecd3bfee0c92649916b38c862fe99ac89565b37">
+<class name="GFDataProjection" path="addons/gf/standard/foundation/variant/gf_data_projection.gd" module="standard" extends="RefCounted" classDigest="4fd73f95779a05492249e48074a509e7f87469f5da7c87ba1b8c73d442d87a2f">
 	<description>GFDataProjection: 显式安全数据投影辅助。
 用于把 Dictionary、Object 或 Resource 的少量字段转换成纯 Variant 数据模型，
 供生成器、编辑器工具、诊断面板或文本上下文使用。对象投影必须提供字段名单；
@@ -20,7 +20,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">values: 输入字典。</tag>
-				<tag name="param">options: 可选配置，支持 allowed_fields、rename_fields、schema、max_depth、unsupported、include_null 和 defaults。</tag>
+				<tag name="param">options: 可选配置，支持 allowed_fields、rename_fields、schema、max_depth、unsupported、include_null、defaults 和 json_safe。</tag>
 				<tag name="return">投影后的字典。</tag>
 				<tag name="schema">values: Dictionary，来源数据。</tag>
 				<tag name="schema">options: Dictionary，包含投影配置。</tag>
@@ -49,7 +49,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">value: 输入值。</tag>
-				<tag name="param">options: 可选配置，支持 max_depth、unsupported 和 include_null。</tag>
+				<tag name="param">options: 可选配置，支持 max_depth、unsupported、include_null 和 json_safe。</tag>
 				<tag name="return">投影后的值；无法投影且 unsupported 为 drop 时返回 null。</tag>
 				<tag name="schema">value: Variant，来源值。</tag>
 				<tag name="schema">options: Dictionary，包含投影配置。</tag>

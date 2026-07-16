@@ -34,6 +34,7 @@ var _peer: ENetMultiplayerPeer
 var _last_status: int = MultiplayerPeer.CONNECTION_DISCONNECTED
 var _endpoint: String = ""
 var _is_server: bool = false
+var _connected_peer_ids: Dictionary = {}
 
 
 # --- 公共方法 ---
@@ -215,11 +216,13 @@ func _disconnect_peer_signals() -> void:
 
 func _close_peer(should_emit_signal: bool) -> void:
 	if _peer == null:
+		_emit_tracked_peer_disconnections()
 		return
 
 	_disconnect_peer_signals()
 	_peer.close()
 	_peer = null
+	_emit_tracked_peer_disconnections()
 	_last_status = MultiplayerPeer.CONNECTION_DISCONNECTED
 	_endpoint = ""
 	_is_server = false
@@ -289,6 +292,7 @@ func _update_connection_status() -> void:
 		MultiplayerPeer.CONNECTION_CONNECTED:
 			_emit_connected()
 		MultiplayerPeer.CONNECTION_DISCONNECTED:
+			_close_peer(false)
 			_emit_disconnected("connection_status_disconnected")
 
 
@@ -305,8 +309,20 @@ func _get_status_name(status: int) -> String:
 
 
 func _on_peer_connected(peer_id: int) -> void:
+	_connected_peer_ids[peer_id] = true
 	_emit_peer_connected(peer_id)
 
 
 func _on_peer_disconnected(peer_id: int) -> void:
+	var _erased_peer: bool = _connected_peer_ids.erase(peer_id)
 	_emit_peer_disconnected(peer_id)
+
+
+func _emit_tracked_peer_disconnections() -> void:
+	var peer_ids: Array[int] = []
+	for peer_id_value: Variant in _connected_peer_ids.keys():
+		peer_ids.append(GFVariantData.to_int(peer_id_value))
+	peer_ids.sort()
+	_connected_peer_ids.clear()
+	for peer_id: int in peer_ids:
+		_emit_peer_disconnected(peer_id)

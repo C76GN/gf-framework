@@ -15,7 +15,9 @@ jsonl_sink.max_jsonl_files = 10
 log_util.add_sink(jsonl_sink)
 ```
 
-`GFJsonLineLogSink` 会把 `StringName`、`NodePath` 和非 JSON 原生值转换成稳定字符串，避免上下文里混入 Godot 对象后破坏 JSONL 文件。默认派生路径使用 `gf_log_*.jsonl`，并由 `max_jsonl_files` 单独控制保留数量；显式设置 `file_path` 时，文件命名和清理策略由项目层负责。
+`GFJsonLineLogSink` 会把 `StringName`、`NodePath` 和非 JSON 原生值转换成稳定字符串，避免上下文里混入 Godot 对象后破坏 JSONL 文件。默认派生路径使用 `gf_log_*.jsonl`，并由 `max_jsonl_files` 单独控制保留数量；显式设置 `file_path` 时，文件命名和清理策略由项目层负责。需要在诊断面板或测试里检查文件打开、写入或清理失败时，可读取 `get_debug_snapshot()`；快照只暴露路径、打开状态、最近错误和错误计数，不抛出额外错误。
+
+自定义 `file_path` 可以通过 `file_open_mode` 选择重复初始化时的文件策略：`TRUNCATE` 覆盖旧内容，`APPEND` 追加到旧文件末尾，`FAIL_IF_EXISTS` 在目标已存在时拒绝打开。需要保留多轮运行日志或防止测试覆盖上一轮产物时，应显式设置该策略，而不是依赖外部先删文件。
 
 ## 批量 Sink
 
@@ -30,4 +32,6 @@ batch_sink.sender_callback = func(payload: Dictionary) -> Dictionary:
 log_util.add_sink(batch_sink)
 ```
 
-线上上传、玩家隐私字段脱敏、失败重试、采样率、速率限制和服务端字段映射都应由项目层定义。框架 sink 只保证日志条目形态稳定，并提供可替换的转发点。
+`sender_callback` 只有一个确认契约：必须返回包含 `ok: bool` 的 `Dictionary`，可选返回 `accepted: int` 和 `error: String`。缺少 `ok`、类型错误或 `ok == false` 都会 fail-closed，并把当前批次放回队列；不再接受 `success` 作为别名。
+
+批量外发固定使用 privacy profile 清洗 `tag`、`message` 和 `context`，`text` 会从这些已清洗字段重新构建，避免格式化文本保留原始路径。框架提供这一通用报告边界；项目层仍负责用户同意、业务字段分类、采样率、速率限制、持久重试和服务端字段映射。

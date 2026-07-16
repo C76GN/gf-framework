@@ -16,6 +16,8 @@ extends RefCounted
 const _PATCH_FORMAT: StringName = &"gf_network_snapshot_patch"
 const _PATCH_VERSION: int = 1
 const _DEFAULT_PATCH_MAX_DEPTH: int = 8
+const _MAX_PATCH_OPERATIONS: int = 4096
+const _TRANSPORT_VALUE_VALIDATOR = preload("res://addons/gf/extensions/network/runtime/gf_network_transport_value_validator.gd")
 
 
 # --- 公共变量 ---
@@ -279,13 +281,12 @@ func make_patch_to(target: GFNetworkSnapshot, options: Dictionary = {}) -> Dicti
 ## @schema patch: Dictionary，make_patch_to() 返回的 patch 结构。
 func apply_patch(patch: Dictionary) -> GFNetworkSnapshot:
 	var next_snapshot: GFNetworkSnapshot = duplicate_snapshot()
+	if not _is_valid_patch(patch):
+		return next_snapshot
 	var erase_values: Variant = GFVariantData.get_option_value(patch, "erase", [])
 	if erase_values is Array:
 		for erase_op: Variant in erase_values:
 			_apply_erase_path(next_snapshot.state, _extract_patch_path(erase_op))
-	elif erase_values is PackedStringArray:
-		for key: String in erase_values:
-			_apply_erase_path(next_snapshot.state, [key])
 
 	var set_values: Variant = GFVariantData.get_option_value(patch, "set", [])
 	if set_values is Array:
@@ -298,10 +299,6 @@ func apply_patch(patch: Dictionary) -> GFNetworkSnapshot:
 				_extract_patch_path(GFVariantData.get_option_value(op, "path", [])),
 				GFVariantData.duplicate_variant(GFVariantData.get_option_value(op, "value"))
 			)
-	elif set_values is Dictionary:
-		var set_dictionary: Dictionary = GFVariantData.as_dictionary(set_values)
-		for key: Variant in set_dictionary.keys():
-			next_snapshot.state[key] = GFVariantData.duplicate_variant(set_dictionary[key])
 
 	next_snapshot.tick = GFVariantData.get_option_int(patch, "to_tick", next_snapshot.tick)
 	next_snapshot.peer_id = GFVariantData.get_option_int(patch, "peer_id", next_snapshot.peer_id)
@@ -327,6 +324,78 @@ func make_message(message_type: StringName = &"snapshot", channel_id: StringName
 
 
 # --- 私有/辅助方法 ---
+
+func _is_valid_patch(patch: Dictionary) -> bool:
+	if not (GFVariantData.get_option_value(patch, "ok") is bool):
+		return false
+	if not GFVariantData.get_option_bool(patch, "ok"):
+		return false
+	if GFVariantData.get_option_string_name(patch, "format") != _PATCH_FORMAT:
+		return false
+	if not _is_integer_value(GFVariantData.get_option_value(patch, "version")):
+		return false
+	if GFVariantData.get_option_int(patch, "version") != _PATCH_VERSION:
+		return false
+	if not _is_integer_value(GFVariantData.get_option_value(patch, "from_tick")):
+		return false
+	if GFVariantData.get_option_int(patch, "from_tick") != tick:
+		return false
+	if not _is_integer_value(GFVariantData.get_option_value(patch, "to_tick")):
+		return false
+	if patch.has("peer_id") and not _is_integer_value(patch["peer_id"]):
+		return false
+	if patch.has("metadata") and not (patch["metadata"] is Dictionary):
+		return false
+
+	var set_values: Variant = GFVariantData.get_option_value(patch, "set", [])
+	var erase_values: Variant = GFVariantData.get_option_value(patch, "erase", [])
+	if not (set_values is Array) or not (erase_values is Array):
+		return false
+	var set_operations: Array = set_values
+	var erase_operations: Array = erase_values
+	if set_operations.size() + erase_operations.size() > _MAX_PATCH_OPERATIONS:
+		return false
+
+	for set_item: Variant in set_operations:
+		if not (set_item is Dictionary):
+			return false
+		var set_operation: Dictionary = set_item
+		if not set_operation.has("path") or not set_operation.has("value"):
+			return false
+		var set_path: Array = _extract_patch_path(set_operation["path"])
+		if not _is_valid_patch_path(set_path):
+			return false
+		var value_report: Dictionary = _TRANSPORT_VALUE_VALIDATOR.validate(set_operation["value"])
+		if not GFVariantData.get_option_bool(value_report, "ok"):
+			return false
+
+	for erase_item: Variant in erase_operations:
+		var erase_path: Array = _extract_patch_path(erase_item)
+		if not _is_valid_patch_path(erase_path):
+			return false
+
+	var metadata_value: Variant = GFVariantData.get_option_value(patch, "metadata", {})
+	var metadata_report: Dictionary = _TRANSPORT_VALUE_VALIDATOR.validate(metadata_value)
+	return GFVariantData.get_option_bool(metadata_report, "ok")
+
+
+func _is_valid_patch_path(path: Array) -> bool:
+	if path.is_empty() or path.size() > _DEFAULT_PATCH_MAX_DEPTH:
+		return false
+	for key: Variant in path:
+		if not (key is String) and not (key is StringName) and typeof(key) != TYPE_INT:
+			return false
+	return true
+
+
+func _is_integer_value(value: Variant) -> bool:
+	if typeof(value) == TYPE_INT:
+		return true
+	if typeof(value) != TYPE_FLOAT:
+		return false
+	var number: float = GFVariantData.to_float(value)
+	return not is_nan(number) and not is_inf(number) and number == floor(number)
+
 
 func _diff_state_dictionaries(
 	source: Dictionary,

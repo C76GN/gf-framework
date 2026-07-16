@@ -157,6 +157,27 @@ func clear() -> void:
 	metadata.clear()
 
 
+## 构建经过报告边界脱敏的 JSON-safe 契约报告。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+## [br]
+## @param report_options: 传给 get_report() 的报告选项。
+## [br]
+## @param codec_options: 传给 GFReportValueCodec 的脱敏与编码选项。
+## [br]
+## @return 可直接交给 JSON.stringify() 的报告字典。
+## [br]
+## @schema report_options: Dictionary bridge contract report options.
+## [br]
+## @schema codec_options: Dictionary GFReportValueCodec options.
+## [br]
+## @schema return: JSON-compatible redacted bridge contract report Dictionary.
+func get_json_compatible_report(report_options: Dictionary = {}, codec_options: Dictionary = {}) -> Dictionary:
+	return GFReportValueCodec.to_report_dictionary(get_report(report_options), codec_options)
+
+
 ## 添加一个期望桥接契约。
 ## [br]
 ## @api public
@@ -298,6 +319,9 @@ static func from_entries(
 
 
 ## 为 GFRequestHandlerRegistry 生成请求 handler 覆盖报告。
+##
+## 该入口保留为通用报告便捷方法；请求 handler 专用的 contract/adapter 条目构建逻辑
+## 由 GFRequestHandlerRegistry.make_bridge_contract_entries() 负责。
 ## [br]
 ## @api public
 ## [br]
@@ -319,40 +343,129 @@ static func report_request_handlers(
 	registry: GFRequestHandlerRegistry,
 	options: Dictionary = {}
 ) -> Dictionary:
-	var contract_entries: Array[Dictionary] = []
-	var adapter_entries: Array[Dictionary] = []
-	var contract_kind: StringName = GFVariantData.get_option_string_name(options, "kind", &"request_handler")
-	for request_type_text: String in required_request_types:
-		var request_type: StringName = StringName(request_type_text.strip_edges())
-		if request_type == &"":
-			continue
-		contract_entries.append({
-			"contract_id": request_type,
-			"kind": contract_kind,
-			"signature": GFVariantData.get_option_string(options, "signature", "Dictionary(request) -> Variant"),
-			"allow_multiple": false,
-		})
-
-	if registry != null:
-		var adapter_kind: StringName = GFVariantData.get_option_string_name(options, "adapter_kind", &"request_handler")
-		for request_type: StringName in registry.get_handler_ids():
-			var snapshot: Dictionary = registry.get_handler_snapshot(request_type)
-			adapter_entries.append({
-				"adapter_id": StringName("handler:%s" % String(request_type)),
-				"contract_id": request_type,
-				"kind": adapter_kind,
-				"signature": GFVariantData.get_option_string(options, "signature", "Dictionary(request) -> Variant"),
-				"enabled": GFVariantData.get_option_bool(snapshot, "has_valid_handler"),
-				"metadata": snapshot,
-			})
+	var entries: Dictionary = GFRequestHandlerRegistry.make_bridge_contract_entries(
+		required_request_types,
+		registry,
+		options
+	)
 
 	return _build_report(
-		contract_entries,
-		adapter_entries,
+		_get_dictionary_array(entries, "contract_entries"),
+		_get_dictionary_array(entries, "adapter_entries"),
 		GFVariantData.get_option_string(options, "subject", "Request handler coverage"),
 		GFVariantData.get_option_dictionary(options, "metadata"),
 		options
 	)
+
+
+## 从 Godot Object 构建桥接适配器条目。
+##
+## 该方法只检查对象存在性、必需方法和必需信号，不调用对象方法，
+## 适合外部 SDK、GDExtension、编辑器工具或项目 adapter 的预检。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+## [br]
+## @param adapter_id: 稳定适配器 ID。
+## [br]
+## @param contract_ids: 适配器覆盖的契约 ID 列表。
+## [br]
+## @param target: 要审查的对象；为空或已释放时条目会标记为 disabled。
+## [br]
+## @param options: 适配器选项，支持 kind、signature、version、capabilities、metadata、required_methods 和 required_signals。
+## [br]
+## @schema options: Dictionary bridge adapter metadata and object surface requirements.
+## [br]
+## @return 适配器条目。
+## [br]
+## @schema return: Dictionary normalized bridge adapter source entry.
+static func make_object_adapter_entry(
+	adapter_id: StringName,
+	contract_ids: PackedStringArray,
+	target: Object,
+	options: Dictionary = {}
+) -> Dictionary:
+	var adapter_metadata: Dictionary = GFVariantData.get_option_dictionary(options, "metadata").duplicate(true)
+	var entry: Dictionary = {
+		"adapter_id": adapter_id,
+		"id": adapter_id,
+		"contract_ids": contract_ids.duplicate(),
+		"kind": GFVariantData.get_option_string_name(options, "kind", &"object_adapter"),
+		"signature": GFVariantData.get_option_string(options, "signature"),
+		"version": GFVariantData.get_option_string(options, "version"),
+		"enabled": is_instance_valid(target),
+		"capabilities": GFVariantData.get_option_packed_string_array(options, "capabilities"),
+		"metadata": adapter_metadata,
+	}
+
+	var missing_methods: PackedStringArray = PackedStringArray()
+	var missing_signals: PackedStringArray = PackedStringArray()
+	adapter_metadata["valid_target"] = is_instance_valid(target)
+	if is_instance_valid(target):
+		adapter_metadata["object_class"] = target.get_class()
+		var script_value: Variant = target.get_script()
+		if script_value is Script:
+			var script: Script = script_value
+			adapter_metadata["script_path"] = script.resource_path
+		missing_methods = _get_missing_object_methods(target, GFVariantData.get_option_packed_string_array(options, "required_methods"))
+		missing_signals = _get_missing_object_signals(target, GFVariantData.get_option_packed_string_array(options, "required_signals"))
+	else:
+		adapter_metadata["object_class"] = ""
+
+	adapter_metadata["missing_methods"] = missing_methods
+	adapter_metadata["missing_signals"] = missing_signals
+	if not missing_methods.is_empty() or not missing_signals.is_empty():
+		entry["enabled"] = false
+	entry["metadata"] = adapter_metadata
+	return entry
+
+
+## 从 Engine singleton 构建桥接适配器条目。
+##
+## 该方法用于审查平台或原生插件是否暴露了预期 singleton surface，
+## 不调用 singleton 方法，也不声明任何特定 SDK 语义。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+## [br]
+## @param singleton_name: Engine singleton 名称。
+## [br]
+## @param contract_ids: 适配器覆盖的契约 ID 列表。
+## [br]
+## @param options: 适配器选项，支持 adapter_id、kind、signature、version、capabilities、metadata、required_methods 和 required_signals。
+## [br]
+## @schema options: Dictionary bridge adapter metadata and singleton surface requirements.
+## [br]
+## @return 适配器条目。
+## [br]
+## @schema return: Dictionary normalized bridge adapter source entry.
+static func make_engine_singleton_adapter_entry(
+	singleton_name: StringName,
+	contract_ids: PackedStringArray,
+	options: Dictionary = {}
+) -> Dictionary:
+	var singleton_text: String = String(singleton_name)
+	var target: Object = null
+	if not singleton_text.is_empty() and Engine.has_singleton(singleton_text):
+		target = Engine.get_singleton(singleton_text)
+
+	var singleton_options: Dictionary = options.duplicate(true)
+	if not singleton_options.has("kind"):
+		singleton_options["kind"] = &"engine_singleton"
+	var singleton_metadata: Dictionary = GFVariantData.get_option_dictionary(singleton_options, "metadata").duplicate(true)
+	singleton_metadata["singleton_name"] = singleton_name
+	singleton_metadata["has_singleton"] = target != null
+	singleton_metadata["platform"] = OS.get_name()
+	singleton_options["metadata"] = singleton_metadata
+
+	var adapter_id: StringName = GFVariantData.get_option_string_name(
+		singleton_options,
+		"adapter_id",
+		StringName("engine_singleton:%s" % singleton_text)
+	)
+	return make_object_adapter_entry(adapter_id, contract_ids, target, singleton_options)
 
 
 # --- 私有/辅助方法 ---
@@ -787,6 +900,15 @@ static func _normalize_adapter(entry: Dictionary, entry_index: int) -> Dictionar
 	}
 
 
+static func _get_dictionary_array(source: Dictionary, key: String) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	for value: Variant in GFVariantData.get_option_array(source, key):
+		if value is Dictionary:
+			var entry: Dictionary = value
+			result.append(entry.duplicate(true))
+	return result
+
+
 static func _get_adapter_contract_ids(entry: Dictionary) -> PackedStringArray:
 	var result: PackedStringArray = PackedStringArray()
 	_append_string_name_value(result, GFVariantData.get_option_value(entry, "contract_id"))
@@ -888,3 +1010,27 @@ static func _entry_has_any(entry: Dictionary, keys: PackedStringArray) -> bool:
 		if entry.has(StringName(key)):
 			return true
 	return false
+
+
+static func _get_missing_object_methods(target: Object, required_methods: PackedStringArray) -> PackedStringArray:
+	var missing: PackedStringArray = PackedStringArray()
+	if not is_instance_valid(target):
+		return required_methods.duplicate()
+	for method_name: String in required_methods:
+		if method_name.is_empty() or target.has_method(method_name):
+			continue
+		var _appended: bool = missing.append(method_name)
+	missing.sort()
+	return missing
+
+
+static func _get_missing_object_signals(target: Object, required_signals: PackedStringArray) -> PackedStringArray:
+	var missing: PackedStringArray = PackedStringArray()
+	if not is_instance_valid(target):
+		return required_signals.duplicate()
+	for signal_name: String in required_signals:
+		if signal_name.is_empty() or target.has_signal(signal_name):
+			continue
+		var _appended: bool = missing.append(signal_name)
+	missing.sort()
+	return missing

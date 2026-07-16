@@ -110,8 +110,10 @@ func configure(metric_id: StringName, options: Dictionary = {}) -> GFMetricSerie
 ## [br]
 ## @schema sample_metadata: Dictionary[String, Variant]，单个采样的项目自定义元数据。
 func add_sample(value: float, timestamp_seconds: float = -1.0, sample_metadata: Dictionary = {}) -> void:
+	if not _is_finite_float(value):
+		return
 	var timestamp: float = timestamp_seconds
-	if timestamp < 0.0:
+	if not _is_finite_float(timestamp) or timestamp < 0.0:
 		timestamp = float(Time.get_ticks_msec()) / 1000.0
 
 	_samples.append({
@@ -169,12 +171,7 @@ func get_latest_value() -> float:
 ## [br]
 ## @return 最小采样值；没有采样时返回 0。
 func get_min_value() -> float:
-	if _samples.is_empty():
-		return 0.0
-	var result: float = _get_sample_value(_samples[0])
-	for sample: Dictionary in _samples:
-		result = minf(result, _get_sample_value(sample))
-	return result
+	return GFVariantData.get_option_float(_calculate_statistics(), "min_value")
 
 
 ## 获取最大采样值。
@@ -183,12 +180,7 @@ func get_min_value() -> float:
 ## [br]
 ## @return 最大采样值；没有采样时返回 0。
 func get_max_value() -> float:
-	if _samples.is_empty():
-		return 0.0
-	var result: float = _get_sample_value(_samples[0])
-	for sample: Dictionary in _samples:
-		result = maxf(result, _get_sample_value(sample))
-	return result
+	return GFVariantData.get_option_float(_calculate_statistics(), "max_value")
 
 
 ## 获取平均采样值。
@@ -197,12 +189,7 @@ func get_max_value() -> float:
 ## [br]
 ## @return 平均采样值；没有采样时返回 0。
 func get_average_value() -> float:
-	if _samples.is_empty():
-		return 0.0
-	var total: float = 0.0
-	for sample: Dictionary in _samples:
-		total += _get_sample_value(sample)
-	return total / float(_samples.size())
+	return GFVariantData.get_option_float(_calculate_statistics(), "average_value")
 
 
 ## 获取归一化后的采样值。
@@ -211,20 +198,13 @@ func get_average_value() -> float:
 ## [br]
 ## @return 归一化值数组。
 func get_normalized_values() -> PackedFloat32Array:
-	var values: PackedFloat32Array = PackedFloat32Array()
 	if _samples.is_empty():
-		return values
-
-	var min_value: float = get_min_value()
-	var max_value: float = get_max_value()
-	var span: float = max_value - min_value
-	for sample: Dictionary in _samples:
-		if is_zero_approx(span):
-			var _appended: bool = values.append(0.5)
-		else:
-			var normalized_value: float = clampf((_get_sample_value(sample) - min_value) / span, 0.0, 1.0)
-			var _appended: bool = values.append(normalized_value)
-	return values
+		return PackedFloat32Array()
+	var statistics: Dictionary = _calculate_statistics()
+	return _get_normalized_values_for_range(
+		GFVariantData.get_option_float(statistics, "min_value"),
+		GFVariantData.get_option_float(statistics, "max_value")
+	)
 
 
 ## 生成定宽 ASCII sparkline。
@@ -237,17 +217,12 @@ func get_normalized_values() -> PackedFloat32Array:
 func make_sparkline(width: int = 32) -> String:
 	if width <= 0 or _samples.is_empty():
 		return ""
-
-	var normalized: PackedFloat32Array = get_normalized_values()
-	var start_index: int = maxi(normalized.size() - width, 0)
-	var output: PackedStringArray = PackedStringArray()
-	for index: int in range(start_index, normalized.size()):
-		var value: float = normalized[index]
-		var char_index: int = clampi(roundi(value * float(SPARKLINE_CHARACTERS.length() - 1)), 0, SPARKLINE_CHARACTERS.length() - 1)
-		var _appended: bool = output.append(SPARKLINE_CHARACTERS.substr(char_index, 1))
-	return "".join(output)
-
-
+	var statistics: Dictionary = _calculate_statistics()
+	return _make_sparkline_for_range(
+		width,
+		GFVariantData.get_option_float(statistics, "min_value"),
+		GFVariantData.get_option_float(statistics, "max_value")
+	)
 ## 转换为 Dictionary。
 ## [br]
 ## @api public
@@ -262,6 +237,9 @@ func make_sparkline(width: int = 32) -> String:
 ## [br]
 ## @schema return: Dictionary，包含 id、label、group、visible、max_samples、sample_count、latest_value、min_value、max_value、average_value、sparkline、metadata，可选 samples。
 func to_dict(include_samples: bool = false, sparkline_width: int = 32) -> Dictionary:
+	var statistics: Dictionary = _calculate_statistics()
+	var min_value: float = GFVariantData.get_option_float(statistics, "min_value")
+	var max_value: float = GFVariantData.get_option_float(statistics, "max_value")
 	var result: Dictionary = {
 		"id": id,
 		"label": label,
@@ -270,10 +248,10 @@ func to_dict(include_samples: bool = false, sparkline_width: int = 32) -> Dictio
 		"max_samples": max_samples,
 		"sample_count": get_sample_count(),
 		"latest_value": get_latest_value(),
-		"min_value": get_min_value(),
-		"max_value": get_max_value(),
-		"average_value": get_average_value(),
-		"sparkline": make_sparkline(sparkline_width),
+		"min_value": min_value,
+		"max_value": max_value,
+		"average_value": GFVariantData.get_option_float(statistics, "average_value"),
+		"sparkline": _make_sparkline_for_range(sparkline_width, min_value, max_value) if sparkline_width > 0 and not _samples.is_empty() else "",
 		"metadata": metadata.duplicate(true),
 	}
 	if include_samples:
@@ -304,6 +282,16 @@ func duplicate_series(include_samples: bool = true) -> GFMetricSeries:
 
 # --- 私有/辅助方法 ---
 
+func _make_sparkline_for_range(width: int, min_value: float, max_value: float) -> String:
+	var normalized: PackedFloat32Array = _get_normalized_values_for_range(min_value, max_value)
+	var start_index: int = maxi(normalized.size() - width, 0)
+	var output: PackedStringArray = PackedStringArray()
+	for index: int in range(start_index, normalized.size()):
+		var value: float = normalized[index]
+		var char_index: int = clampi(roundi(value * float(SPARKLINE_CHARACTERS.length() - 1)), 0, SPARKLINE_CHARACTERS.length() - 1)
+		var _appended: bool = output.append(SPARKLINE_CHARACTERS.substr(char_index, 1))
+	return "".join(output)
+
 func _trim_samples() -> void:
 	while _samples.size() > max_samples:
 		_samples.pop_front()
@@ -311,3 +299,42 @@ func _trim_samples() -> void:
 
 func _get_sample_value(sample: Dictionary) -> float:
 	return GFVariantData.get_option_float(sample, "value", 0.0)
+
+
+func _calculate_statistics() -> Dictionary:
+	if _samples.is_empty():
+		return {
+			"min_value": 0.0,
+			"max_value": 0.0,
+			"average_value": 0.0,
+		}
+	var first_value: float = _get_sample_value(_samples[0])
+	var min_value: float = first_value
+	var max_value: float = first_value
+	var total: float = 0.0
+	for sample: Dictionary in _samples:
+		var value: float = _get_sample_value(sample)
+		min_value = minf(min_value, value)
+		max_value = maxf(max_value, value)
+		total += value
+	return {
+		"min_value": min_value,
+		"max_value": max_value,
+		"average_value": total / float(_samples.size()),
+	}
+
+
+func _get_normalized_values_for_range(min_value: float, max_value: float) -> PackedFloat32Array:
+	var values: PackedFloat32Array = PackedFloat32Array()
+	var span: float = max_value - min_value
+	for sample: Dictionary in _samples:
+		if is_zero_approx(span):
+			var _appended: bool = values.append(0.5)
+		else:
+			var normalized_value: float = clampf((_get_sample_value(sample) - min_value) / span, 0.0, 1.0)
+			var _appended: bool = values.append(normalized_value)
+	return values
+
+
+func _is_finite_float(value: float) -> bool:
+	return not is_nan(value) and not is_inf(value)

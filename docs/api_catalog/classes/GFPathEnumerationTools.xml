@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFPathEnumerationTools" path="addons/gf/standard/utilities/io/gf_path_enumeration_tools.gd" module="standard" extends="RefCounted" classDigest="85edd914f7f9a9d0790518e032a7b727963ea5245a2e06b12bf6dce1998f3b39">
+	<description>GFPathEnumerationTools: 只读文件路径枚举工具。
+统一处理目录递归、隐藏文件、扩展名白名单、排除路径、深度上限和数量上限。
+它只返回路径和扫描报告，不读取文件内容、不生成资源注册表，也不规定项目目录结构。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_service</tag>
+		<tag name="since">8.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants>
+		<member kind="const" name="DEFAULT_MAX_SCAN_DEPTH">
+			<signature>const DEFAULT_MAX_SCAN_DEPTH: int = 32</signature>
+			<description>默认递归扫描深度上限。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="DEFAULT_MAX_FILE_COUNT">
+			<signature>const DEFAULT_MAX_FILE_COUNT: int = 10000</signature>
+			<description>默认单次枚举文件数量上限。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="DEFAULT_MAX_ENTRY_COUNT">
+			<signature>const DEFAULT_MAX_ENTRY_COUNT: int = 10000</signature>
+			<description>默认单次枚举访问的目录项数量上限。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties />
+	<methods>
+		<member kind="method" name="enumerate_files">
+			<signature>static func enumerate_files(root_path: String = "res://", options: Dictionary = {}) -&gt; PackedStringArray:</signature>
+			<description>枚举目录中的文件路径。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">root_path: 扫描起点。</tag>
+				<tag name="param">options: 可选项，支持 recursive、include_hidden、extensions、excluded_paths、file_filter、max_scan_depth、max_file_count、max_entry_count 和 sort。</tag>
+				<tag name="return">按配置枚举出的文件路径。</tag>
+				<tag name="schema">options: Dictionary with optional recursive, include_hidden, extensions, excluded_paths, file_filter, max_scan_depth, max_file_count, max_entry_count, and sort fields. file_filter receives a normalized file path and returns bool.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="scan_files">
+			<signature>static func scan_files(root_path: String = "res://", options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>枚举目录中的文件路径并返回扫描报告。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">root_path: 扫描起点。</tag>
+				<tag name="param">options: 可选项，支持 recursive、include_hidden、extensions、excluded_paths、file_filter、max_scan_depth、max_file_count、max_entry_count 和 sort。</tag>
+				<tag name="return">扫描报告。</tag>
+				<tag name="schema">options: Dictionary with optional recursive, include_hidden, extensions, excluded_paths, file_filter, max_scan_depth, max_file_count, max_entry_count, and sort fields. file_filter receives a normalized file path and returns bool.</tag>
+				<tag name="schema">return: Dictionary with ok, root_path, paths, scanned_count, visited_entry_count, truncated, limit_kind, limit_path, and limit_value.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

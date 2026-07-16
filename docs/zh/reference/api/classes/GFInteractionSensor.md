@@ -28,6 +28,8 @@
 | 方法 | [`send_to`](#member-gfinteractionsensor-methods-send_to) | `func send_to( receiver: Object, payload_override: Variant = null, interaction_id_override: StringName = &"" ) -> Dictionary:` |
 | 方法 | [`send_to_path`](#member-gfinteractionsensor-methods-send_to_path) | `func send_to_path( receiver_path: NodePath, payload_override: Variant = null, interaction_id_override: StringName = &"" ) -> Dictionary:` |
 | 方法 | [`broadcast_to_group`](#member-gfinteractionsensor-methods-broadcast_to_group) | `func broadcast_to_group(target_group_name: StringName = &"", max_count: int = 0) -> Array[Dictionary]:` |
+| 方法 | [`send_to_best_candidate`](#member-gfinteractionsensor-methods-send_to_best_candidate) | `func send_to_best_candidate( candidate_provider: Object, options: Dictionary = {}, payload_override: Variant = null, interaction_id_override: StringName = &"" ) -> Dictionary:` |
+| 方法 | [`broadcast_to_candidates`](#member-gfinteractionsensor-methods-broadcast_to_candidates) | `func broadcast_to_candidates( candidate_provider: Object, options: Dictionary = {}, max_count: int = 0, payload_override: Variant = null, interaction_id_override: StringName = &"" ) -> Array[Dictionary]:` |
 | 方法 | [`send_to_raycast_2d`](#member-gfinteractionsensor-methods-send_to_raycast_2d) | `func send_to_raycast_2d( raycast: RayCast2D, payload_override: Variant = null, interaction_id_override: StringName = &"" ) -> Dictionary:` |
 | 方法 | [`send_to_raycast_3d`](#member-gfinteractionsensor-methods-send_to_raycast_3d) | `func send_to_raycast_3d( raycast: RayCast3D, payload_override: Variant = null, interaction_id_override: StringName = &"" ) -> Dictionary:` |
 | 方法 | [`broadcast_to_area_2d`](#member-gfinteractionsensor-methods-broadcast_to_area_2d) | `func broadcast_to_area_2d( area: Area2D, max_count: int = 0, payload_override: Variant = null, interaction_id_override: StringName = &"" ) -> Array[Dictionary]:` |
@@ -40,6 +42,7 @@
 ### `interaction_sent`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 signal interaction_sent(context: GFInteractionContext, receiver: Object, report: Dictionary)
@@ -57,13 +60,14 @@ signal interaction_sent(context: GFInteractionContext, receiver: Object, report:
 
 结构：
 
-- `report`: 交互结果报告 Dictionary，包含 ok、interaction_id、receiver、reason、message 和 metadata 等字段。
+- `report`: 交互结果报告 Dictionary，包含 ok、interaction_id、receiver(JSON-safe 摘要)、reason、message 和 metadata 等字段。
 
 <a id="member-gfinteractionsensor-signals-interaction_accepted"></a>
 
 ### `interaction_accepted`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 signal interaction_accepted(context: GFInteractionContext, receiver: Object, report: Dictionary)
@@ -81,13 +85,14 @@ signal interaction_accepted(context: GFInteractionContext, receiver: Object, rep
 
 结构：
 
-- `report`: 交互结果报告 Dictionary，包含 ok、interaction_id、receiver、reason、message 和 metadata 等字段。
+- `report`: 交互结果报告 Dictionary，包含 ok、interaction_id、receiver(JSON-safe 摘要)、reason、message 和 metadata 等字段。
 
 <a id="member-gfinteractionsensor-signals-interaction_rejected"></a>
 
 ### `interaction_rejected`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 signal interaction_rejected(context: GFInteractionContext, receiver: Object, report: Dictionary)
@@ -105,7 +110,7 @@ signal interaction_rejected(context: GFInteractionContext, receiver: Object, rep
 
 结构：
 
-- `report`: 交互结果报告 Dictionary，包含 ok、interaction_id、receiver、reason、message 和 metadata 等字段。
+- `report`: 交互结果报告 Dictionary，包含 ok、interaction_id、receiver(JSON-safe 摘要)、reason、message 和 metadata 等字段。
 
 ## 属性
 
@@ -114,6 +119,7 @@ signal interaction_rejected(context: GFInteractionContext, receiver: Object, rep
 ### `enabled`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var enabled: bool = true
@@ -126,6 +132,7 @@ var enabled: bool = true
 ### `interaction_id`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var interaction_id: StringName = &""
@@ -138,6 +145,7 @@ var interaction_id: StringName = &""
 ### `group_name`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var group_name: StringName = &""
@@ -150,6 +158,7 @@ var group_name: StringName = &""
 ### `payload`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var payload: Dictionary = {}
@@ -166,6 +175,7 @@ var payload: Dictionary = {}
 ### `metadata`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var metadata: Dictionary = {}
@@ -182,6 +192,7 @@ var metadata: Dictionary = {}
 ### `sender_path`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var sender_path: NodePath = NodePath("")
@@ -196,6 +207,7 @@ var sender_path: NodePath = NodePath("")
 ### `build_context`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func build_context( target: Object = null, payload_override: Variant = null, group_override: StringName = &"" ) -> GFInteractionContext:
@@ -222,6 +234,7 @@ func build_context( target: Object = null, payload_override: Variant = null, gro
 ### `send_to`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func send_to( receiver: Object, payload_override: Variant = null, interaction_id_override: StringName = &"" ) -> Dictionary:
@@ -242,13 +255,14 @@ func send_to( receiver: Object, payload_override: Variant = null, interaction_id
 结构：
 
 - `payload_override`: 覆盖默认 payload 的任意项目载荷；为 null 时复制节点默认 payload。
-- `return`: 交互结果报告 Dictionary，包含 ok、interaction_id、receiver、reason、message 和 metadata 等字段。
+- `return`: 交互结果报告 Dictionary，包含 ok、interaction_id、receiver(JSON-safe 摘要)、reason、message 和 metadata 等字段。
 
 <a id="member-gfinteractionsensor-methods-send_to_path"></a>
 
 ### `send_to_path`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func send_to_path( receiver_path: NodePath, payload_override: Variant = null, interaction_id_override: StringName = &"" ) -> Dictionary:
@@ -269,13 +283,14 @@ func send_to_path( receiver_path: NodePath, payload_override: Variant = null, in
 结构：
 
 - `payload_override`: 覆盖默认 payload 的任意项目载荷；为 null 时复制节点默认 payload。
-- `return`: 交互结果报告 Dictionary，包含 ok、interaction_id、receiver、reason、message 和 metadata 等字段。
+- `return`: 交互结果报告 Dictionary，包含 ok、interaction_id、receiver(JSON-safe 摘要)、reason、message 和 metadata 等字段。
 
 <a id="member-gfinteractionsensor-methods-broadcast_to_group"></a>
 
 ### `broadcast_to_group`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func broadcast_to_group(target_group_name: StringName = &"", max_count: int = 0) -> Array[Dictionary]:
@@ -294,13 +309,75 @@ func broadcast_to_group(target_group_name: StringName = &"", max_count: int = 0)
 
 结构：
 
-- `return`: 交互结果报告字典数组；每项包含 ok、interaction_id、receiver、reason、message 和 metadata 等字段。
+- `return`: 交互结果报告字典数组；每项包含 ok、interaction_id、receiver(JSON-safe 摘要)、reason、message 和 metadata 等字段。
+
+<a id="member-gfinteractionsensor-methods-send_to_best_candidate"></a>
+
+### `send_to_best_candidate`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func send_to_best_candidate( candidate_provider: Object, options: Dictionary = {}, payload_override: Variant = null, interaction_id_override: StringName = &"" ) -> Dictionary:
+```
+
+向候选 provider 返回的最佳接收对象发送交互。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `candidate_provider` | 暴露 get_candidate_objects(options) 的候选 provider。 |
+| `options` | 候选查询选项；未设置 method_name 时默认筛选 receive_interaction。 |
+| `payload_override` | 覆盖 payload；为 null 时使用节点默认 payload。 |
+| `interaction_id_override` | 覆盖交互 ID；为空时使用节点默认交互 ID。 |
+
+返回：统一结果报告。
+
+结构：
+
+- `options`: Dictionary passed to candidate_provider.get_candidate_objects(); method_name defaults to receive_interaction.
+- `payload_override`: 覆盖默认 payload 的任意项目载荷；为 null 时复制节点默认 payload。
+- `return`: 交互结果报告 Dictionary，包含 ok、interaction_id、receiver(JSON-safe 摘要)、reason、message 和 metadata 等字段。
+
+<a id="member-gfinteractionsensor-methods-broadcast_to_candidates"></a>
+
+### `broadcast_to_candidates`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func broadcast_to_candidates( candidate_provider: Object, options: Dictionary = {}, max_count: int = 0, payload_override: Variant = null, interaction_id_override: StringName = &"" ) -> Array[Dictionary]:
+```
+
+向候选 provider 返回的接收对象广播交互。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `candidate_provider` | 暴露 get_candidate_objects(options) 的候选 provider。 |
+| `options` | 候选查询选项；未设置 method_name 时默认筛选 receive_interaction。 |
+| `max_count` | 最多发送数量；小于等于 0 表示不限制。 |
+| `payload_override` | 覆盖 payload；为 null 时使用节点默认 payload。 |
+| `interaction_id_override` | 覆盖交互 ID；为空时使用节点默认交互 ID。 |
+
+返回：结果报告列表。
+
+结构：
+
+- `options`: Dictionary passed to candidate_provider.get_candidate_objects(); method_name defaults to receive_interaction.
+- `payload_override`: 覆盖默认 payload 的任意项目载荷；为 null 时复制节点默认 payload。
+- `return`: 交互结果报告字典数组；每项包含 ok、interaction_id、receiver(JSON-safe 摘要)、reason、message 和 metadata 等字段。
 
 <a id="member-gfinteractionsensor-methods-send_to_raycast_2d"></a>
 
 ### `send_to_raycast_2d`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func send_to_raycast_2d( raycast: RayCast2D, payload_override: Variant = null, interaction_id_override: StringName = &"" ) -> Dictionary:
@@ -321,13 +398,14 @@ func send_to_raycast_2d( raycast: RayCast2D, payload_override: Variant = null, i
 结构：
 
 - `payload_override`: 覆盖默认 payload 的任意项目载荷；为 null 时复制节点默认 payload。
-- `return`: 交互结果报告 Dictionary，包含 ok、interaction_id、receiver、reason、message 和 metadata 等字段。
+- `return`: 交互结果报告 Dictionary，包含 ok、interaction_id、receiver(JSON-safe 摘要)、reason、message 和 metadata 等字段。
 
 <a id="member-gfinteractionsensor-methods-send_to_raycast_3d"></a>
 
 ### `send_to_raycast_3d`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func send_to_raycast_3d( raycast: RayCast3D, payload_override: Variant = null, interaction_id_override: StringName = &"" ) -> Dictionary:
@@ -348,13 +426,14 @@ func send_to_raycast_3d( raycast: RayCast3D, payload_override: Variant = null, i
 结构：
 
 - `payload_override`: 覆盖默认 payload 的任意项目载荷；为 null 时复制节点默认 payload。
-- `return`: 交互结果报告 Dictionary，包含 ok、interaction_id、receiver、reason、message 和 metadata 等字段。
+- `return`: 交互结果报告 Dictionary，包含 ok、interaction_id、receiver(JSON-safe 摘要)、reason、message 和 metadata 等字段。
 
 <a id="member-gfinteractionsensor-methods-broadcast_to_area_2d"></a>
 
 ### `broadcast_to_area_2d`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func broadcast_to_area_2d( area: Area2D, max_count: int = 0, payload_override: Variant = null, interaction_id_override: StringName = &"" ) -> Array[Dictionary]:
@@ -376,13 +455,14 @@ func broadcast_to_area_2d( area: Area2D, max_count: int = 0, payload_override: V
 结构：
 
 - `payload_override`: 覆盖默认 payload 的任意项目载荷；为 null 时复制节点默认 payload。
-- `return`: 交互结果报告字典数组；每项包含 ok、interaction_id、receiver、reason、message 和 metadata 等字段。
+- `return`: 交互结果报告字典数组；每项包含 ok、interaction_id、receiver(JSON-safe 摘要)、reason、message 和 metadata 等字段。
 
 <a id="member-gfinteractionsensor-methods-broadcast_to_area_3d"></a>
 
 ### `broadcast_to_area_3d`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func broadcast_to_area_3d( area: Area3D, max_count: int = 0, payload_override: Variant = null, interaction_id_override: StringName = &"" ) -> Array[Dictionary]:
@@ -404,4 +484,4 @@ func broadcast_to_area_3d( area: Area3D, max_count: int = 0, payload_override: V
 结构：
 
 - `payload_override`: 覆盖默认 payload 的任意项目载荷；为 null 时复制节点默认 payload。
-- `return`: 交互结果报告字典数组；每项包含 ok、interaction_id、receiver、reason、message 和 metadata 等字段。
+- `return`: 交互结果报告字典数组；每项包含 ok、interaction_id、receiver(JSON-safe 摘要)、reason、message 和 metadata 等字段。

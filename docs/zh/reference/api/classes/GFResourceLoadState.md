@@ -45,6 +45,7 @@
 | 方法 | [`mark_stale`](#member-gfresourceloadstate-methods-mark_stale) | `func mark_stale(reason: String = "", p_metadata: Dictionary = {}) -> GFResourceLoadState:` |
 | 方法 | [`is_success`](#member-gfresourceloadstate-methods-is_success) | `func is_success() -> bool:` |
 | 方法 | [`is_terminal`](#member-gfresourceloadstate-methods-is_terminal) | `func is_terminal() -> bool:` |
+| 方法 | [`get_resource_identity`](#member-gfresourceloadstate-methods-get_resource_identity) | `func get_resource_identity(options: Dictionary = {}) -> GFResourceIdentity:` |
 | 方法 | [`to_dictionary`](#member-gfresourceloadstate-methods-to_dictionary) | `func to_dictionary() -> Dictionary:` |
 | 方法 | [`duplicate_state`](#member-gfresourceloadstate-methods-duplicate_state) | `func duplicate_state() -> GFResourceLoadState:` |
 | 方法 | [`from_dictionary`](#member-gfresourceloadstate-methods-from_dictionary) | `static func from_dictionary(data: Dictionary) -> GFResourceLoadState:` |
@@ -585,6 +586,31 @@ func is_terminal() -> bool:
 
 返回：loaded、failed 或 released 时返回 true。
 
+<a id="member-gfresourceloadstate-methods-get_resource_identity"></a>
+
+### `get_resource_identity`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func get_resource_identity(options: Dictionary = {}) -> GFResourceIdentity:
+```
+
+获取当前资源身份快照。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `options` | 可选项，支持 check_exists。 |
+
+返回：资源身份对象。
+
+结构：
+
+- `options`: Dictionary with optional `check_exists: bool`.
+
 <a id="member-gfresourceloadstate-methods-to_dictionary"></a>
 
 ### `to_dictionary`
@@ -602,7 +628,7 @@ func to_dictionary() -> Dictionary:
 
 结构：
 
-- `return`: Dictionary，包含 resource_key、resource_path、status、progress、error、reference_mode、has_resource、resource_instance_id 和 metadata。
+- `return`: Dictionary，包含 resource_key、resource_path、resource_identity、status、progress、error、reference_mode、has_resource、resource_instance_id 和 metadata。
 
 <a id="member-gfresourceloadstate-methods-duplicate_state"></a>
 

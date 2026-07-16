@@ -155,21 +155,21 @@ func run() -> Variant:
 ## [br]
 ## @api public
 func stop() -> void:
+	var has_lifecycle_owner: bool = _owner_ref != null
+	var connection_owner: Node = _get_owner()
 	for connection: Dictionary in _connections:
 		var source: GFBindableProperty = _get_connection_source(connection)
 		var callback: Callable = _get_connection_callable(connection)
-		var connection_owner: Node = _get_owner()
 		if source == null or not callback.is_valid():
 			continue
-		if connection_owner != null:
+		if has_lifecycle_owner:
 			source.unbind(connection_owner, callback)
 		elif source.value_changed.is_connected(callback):
 			source.value_changed.disconnect(callback)
 
-	var effect_owner: Node = _get_owner()
 	var stop_callback: Callable = Callable(self, "stop")
-	if effect_owner != null and effect_owner.tree_exited.is_connected(stop_callback):
-		effect_owner.tree_exited.disconnect(stop_callback)
+	if connection_owner != null and connection_owner.tree_exited.is_connected(stop_callback):
+		connection_owner.tree_exited.disconnect(stop_callback)
 
 	_connections.clear()
 	_sources.clear()

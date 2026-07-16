@@ -30,6 +30,7 @@ var heightfield: GFHeightfield3D = GFHeightfield3D.from_samples(
 
 var height: float = heightfield.sample_world(5.0, 5.0)
 var normal: Vector3 = heightfield.sample_normal_world(5.0, 5.0)
+var slope: float = heightfield.sample_slope_world(5.0, 5.0)
 ```
 
 如果输入来自 Terrain-RGB 高度图，可以先解码成行优先样本报告，也可以直接配置高度场。GF 只处理像素到高度样本的转换；图像加载、瓦片来源、区块生命周期、网格和材质仍由项目层负责。
@@ -58,6 +59,7 @@ if report["ok"]:
 - `sample_grid_bilinear()`：按连续网格坐标双线性采样。
 - `sample_world()` / `sample_world_position()`：按世界 X/Z 采样高度。
 - `sample_normal_grid()` / `sample_normal_world()`：按邻近高度估算上半球法线。
+- `normal_to_slope()` / `sample_slope_grid()` / `sample_slope_world()`：把表面法线或高度场坐标转换为 0 到 1 的归一化坡度；无效表面按 1.0 保守处理。
 - `get_debug_snapshot()`：导出尺寸、范围、样本数和高度范围诊断。
 
 采样入口的 `fallback` 可传入数字高度；省略或传入 `null` 时，无效坐标仍返回 `NAN`。公开签名不把 `NAN` 作为默认参数值暴露给编辑器和 LSP，避免 Godot 在序列化 API 信息时把非 JSON 数字写成 `null`。
@@ -78,6 +80,7 @@ var report: Dictionary = GFSurfaceScatterSampler3D.sample_heightfield(
 		"slope_max": 0.35,
 		"scale_min": 0.8,
 		"scale_max": 1.2,
+		"scale_axis_mode": "uniform",
 	}
 )
 
@@ -134,6 +137,8 @@ var custom: Dictionary = GFSurfaceScatterSampler3D.sample(
 - `exhausted_attempts`：候选耗尽或达到尝试上限但未满足目标数量。
 - `rejected_height_count` / `rejected_slope_count` / `rejected_invalid_count`：拒绝原因统计。
 
+报告中的 `Transform3D`、`Vector3`、`Rect2` 和 packed 数组适合项目内继续使用。需要把报告交给 `JSON.stringify()`、外部工具、日志管线或 CI 时，先调用 `GFSurfaceScatterSampler3D.to_json_compatible_report(report)`，避免 Godot Variant 或非有限浮点在 JSON 边界被隐式丢失。
+
 ## 选项
 
 - `seed`：固定随机源种子，默认 `0`。
@@ -141,9 +146,10 @@ var custom: Dictionary = GFSurfaceScatterSampler3D.sample(
 - `max_random_attempts`：区域随机采样的绝对尝试上限。
 - `max_points`：`sample_points()` 的最大接受数量；小于等于 0 时使用全部候选点。
 - `height_min` / `height_max`：接受的高度范围。
-- `slope_min` / `slope_max`：接受的坡度范围，0 表示平面，1 表示垂直或更陡。
+- `slope_min` / `slope_max`：接受的坡度范围，语义与 `GFHeightfield3D.sample_slope_*()` 一致；0 表示平面，1 表示垂直、倒置或无效表面。
 - `yaw_min` / `yaw_max`：绕上方向的随机 yaw 范围。
-- `scale_min` / `scale_max`：统一缩放范围。
+- `scale_min` / `scale_max`：缩放范围，可传数字表示统一缩放，也可传 `Vector3` 表示每轴范围。
+- `scale_axis_mode`：缩放随机权重的轴向锁定模式，支持 `uniform`、`free`、`lock_xy`、`lock_xz` 和 `lock_yz`；也可传 `GFTransform3DMath.ScaleAxisMode` 枚举值。
 - `y_offset`：写入 Transform 原点前叠加的 Y 偏移。
 - `align_to_normal`：是否把 Transform 的局部 Y 轴对齐到采样法线。
 - `vertical_scale`：传给法线提供者的高度缩放。

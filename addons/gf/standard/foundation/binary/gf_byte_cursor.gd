@@ -15,7 +15,9 @@ extends RefCounted
 # --- 常量 ---
 
 const _DEFAULT_MAX_READ_BYTE_COUNT: int = 16 * 1024 * 1024
+const _DEFAULT_MAX_WRITE_BYTE_COUNT: int = 16 * 1024 * 1024
 const _MAX_VAR_UINT_VALUE: int = 9223372036854775807
+const _GF_REPORT_VALUE_CODEC_SCRIPT = preload("res://addons/gf/kernel/core/gf_report_value_codec.gd")
 
 
 # --- 公共变量 ---
@@ -33,6 +35,13 @@ var little_endian: bool = false
 ## [br]
 ## @since 7.0.0
 var max_read_byte_count: int = _DEFAULT_MAX_READ_BYTE_COUNT
+
+## 单次写入允许的最大字节数。小于等于 0 表示不限制。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+var max_write_byte_count: int = _DEFAULT_MAX_WRITE_BYTE_COUNT
 
 
 # --- 私有变量 ---
@@ -177,7 +186,7 @@ func is_eof() -> bool:
 ## [br]
 ## @return 可读取返回 true。
 func has_bytes(byte_count: int) -> bool:
-	return byte_count >= 0 and byte_count <= remaining()
+	return byte_count >= 0 and _within_read_limit(byte_count) and byte_count <= remaining()
 
 
 ## 读取一个无符号 8 位整数。
@@ -362,6 +371,9 @@ func read_var_uint() -> int:
 	var result: int = 0
 	var read_position: int = _position
 	for index: int in range(10):
+		if not _within_read_limit(read_position - _position + 1):
+			_last_error = ERR_INVALID_PARAMETER
+			return 0
 		if read_position >= _bytes.size():
 			_last_error = ERR_FILE_EOF
 			return 0
@@ -373,6 +385,10 @@ func read_var_uint() -> int:
 				return 0
 		result = result | ((byte_value & 0x7f) << shift)
 		if (byte_value & 0x80) == 0:
+			var encoded_length: int = read_position - _position
+			if encoded_length != _get_var_uint_encoded_length(result):
+				_last_error = ERR_PARSE_ERROR
+				return 0
 			_position = read_position
 			_last_error = OK
 			return result
@@ -441,6 +457,29 @@ func try_read_bytes(byte_count: int) -> Dictionary:
 		_position = start_position
 		return _make_read_report(false, PackedByteArray(), _last_error, start_position, start_position)
 	return _make_read_report(true, value, OK, start_position, _position)
+
+
+## 将读取报告转换为 JSON.stringify() 安全的诊断报告。
+## [br]
+## try_read_bytes() 会保留 PackedByteArray 作为功能返回值；日志、导出和跨进程诊断应使用该方法。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+## [br]
+## @param report: try_read_*() 返回的读取报告。
+## [br]
+## @param options: 编码选项，透传给 GFReportValueCodec。
+## [br]
+## @return JSON-safe 读取报告。
+## [br]
+## @schema report: Dictionary raw byte cursor read report.
+## [br]
+## @schema options: Dictionary report value codec options.
+## [br]
+## @schema return: Dictionary safe for JSON.stringify().
+static func to_json_compatible_read_report(report: Dictionary, options: Dictionary = {}) -> Dictionary:
+	return GFVariantData.as_dictionary(_GF_REPORT_VALUE_CODEC_SCRIPT.to_json_compatible(report, options))
 
 
 ## 读取 UTF-8 字符串。
@@ -620,14 +659,13 @@ func write_var_uint(value: int) -> bool:
 	if value < 0 or value > _MAX_VAR_UINT_VALUE:
 		_last_error = ERR_INVALID_PARAMETER
 		return false
-	var remaining_value: int = value
-	while remaining_value >= 0x80:
-		if not _write_byte((remaining_value & 0x7f) | 0x80):
-			return false
-		remaining_value = remaining_value >> 7
-	if not _write_byte(remaining_value):
+	var encoded: PackedByteArray = _encode_var_uint(value)
+	if not _within_write_limit(encoded.size()):
+		_last_error = ERR_INVALID_PARAMETER
 		return false
-	_last_error = OK
+	write_bytes(encoded)
+	if _last_error != OK:
+		return false
 	return true
 
 
@@ -639,6 +677,9 @@ func write_var_uint(value: int) -> bool:
 ## [br]
 ## @param value: 要追加的字节。
 func write_bytes(value: PackedByteArray) -> void:
+	if not _within_write_limit(value.size()):
+		_last_error = ERR_INVALID_PARAMETER
+		return
 	var next_size: int = _position + value.size()
 	if not _ensure_size(next_size):
 		return
@@ -670,9 +711,13 @@ func write_utf8(value: String) -> void:
 ## @return 写入成功返回 true。
 func write_var_utf8(value: String) -> bool:
 	var bytes: PackedByteArray = value.to_utf8_buffer()
-	if not write_var_uint(bytes.size()):
+	var prefix: PackedByteArray = _encode_var_uint(bytes.size())
+	var combined: PackedByteArray = PackedByteArray(prefix)
+	combined.append_array(bytes)
+	if not _within_write_limit(combined.size()):
+		_last_error = ERR_INVALID_PARAMETER
 		return false
-	write_bytes(bytes)
+	write_bytes(combined)
 	return _last_error == OK
 
 
@@ -718,6 +763,9 @@ func get_debug_snapshot() -> Dictionary:
 # --- 私有/辅助方法 ---
 
 func _require(byte_count: int) -> bool:
+	if byte_count < 0 or not _within_read_limit(byte_count):
+		_last_error = ERR_INVALID_PARAMETER
+		return false
 	if has_bytes(byte_count):
 		return true
 	_last_error = ERR_FILE_EOF
@@ -761,11 +809,26 @@ func _read_report_is_ok(report: Dictionary) -> bool:
 	return raw_ok is bool and raw_ok
 
 
+static func _get_var_uint_encoded_length(value: int) -> int:
+	var length: int = 1
+	var remaining_value: int = value
+	while remaining_value >= 0x80:
+		length += 1
+		remaining_value = remaining_value >> 7
+	return length
+
+
 func _write_uint(value: int, byte_count: int) -> void:
+	if not _within_write_limit(byte_count):
+		_last_error = ERR_INVALID_PARAMETER
+		return
+	var next_size: int = _position + byte_count
+	if not _ensure_size(next_size):
+		return
 	for index: int in range(byte_count):
 		var byte_index: int = index if little_endian else byte_count - index - 1
-		if not _write_byte((value >> (byte_index * 8)) & 0xff):
-			return
+		_bytes[_position + index] = (value >> (byte_index * 8)) & 0xff
+	_position = next_size
 	_last_error = OK
 
 
@@ -787,15 +850,6 @@ func _write_checked_int(value: int, byte_count: int) -> void:
 	_write_uint(unsigned_value, byte_count)
 
 
-func _write_byte(value: int) -> bool:
-	if not _ensure_size(_position + 1):
-		return false
-	_bytes[_position] = value & 0xff
-	_position += 1
-	_last_error = OK
-	return true
-
-
 func _ensure_size(size_bytes: int) -> bool:
 	if size_bytes <= _bytes.size():
 		return true
@@ -808,6 +862,20 @@ func _ensure_size(size_bytes: int) -> bool:
 
 func _within_read_limit(byte_count: int) -> bool:
 	return max_read_byte_count <= 0 or byte_count <= max_read_byte_count
+
+
+func _within_write_limit(byte_count: int) -> bool:
+	return max_write_byte_count <= 0 or byte_count <= max_write_byte_count
+
+
+static func _encode_var_uint(value: int) -> PackedByteArray:
+	var result: PackedByteArray = PackedByteArray()
+	var remaining_value: int = value
+	while remaining_value >= 0x80:
+		var _continued_byte_appended: bool = result.append((remaining_value & 0x7f) | 0x80)
+		remaining_value = remaining_value >> 7
+	var _final_byte_appended: bool = result.append(remaining_value)
+	return result
 
 
 static func _max_unsigned_value(byte_count: int) -> int:

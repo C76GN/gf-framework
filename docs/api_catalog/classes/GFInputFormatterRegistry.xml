@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFInputFormatterRegistry" path="addons/gf/standard/input/formatting/gf_input_formatter_registry.gd" module="standard" extends="RefCounted" classDigest="22fac4ff4d2d4366ee40cedfc93578ea986a4f708fb8bb252256e832500267a6">
+	<description>GFInputFormatterRegistry: 输入格式化 provider 注册表。
+为文本和图标 provider 提供可排序、可 owner 绑定、可显式释放的注册生命周期。
+GFInputFormatter 的静态入口会使用默认 registry；测试、编辑器工具或局部 UI 可创建独立 registry 避免全局污染。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_service</tag>
+		<tag name="layer">standard/input</tag>
+		<tag name="since">8.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties />
+	<methods>
+		<member kind="method" name="register_text_provider">
+			<signature>func register_text_provider( provider: GFInputTextProvider, owner: Object = null ) -&gt; GFInputProviderRegistration:</signature>
+			<description>注册文本 provider 并返回释放句柄。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">provider: 文本 provider。</tag>
+				<tag name="param">owner: 可选拥有者；拥有者释放后该注册会在下一次查询或 prune 时失效。</tag>
+				<tag name="return">注册句柄；provider 为空时返回非活动句柄。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="register_icon_provider">
+			<signature>func register_icon_provider( provider: GFInputIconProvider, owner: Object = null ) -&gt; GFInputProviderRegistration:</signature>
+			<description>注册图标 provider 并返回释放句柄。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">provider: 图标 provider。</tag>
+				<tag name="param">owner: 可选拥有者；拥有者释放后该注册会在下一次查询或 prune 时失效。</tag>
+				<tag name="return">注册句柄；provider 为空时返回非活动句柄。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="add_text_provider">
+			<signature>func add_text_provider(provider: GFInputTextProvider, owner: Object = null) -&gt; void:</signature>
+			<description>注册文本 provider。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">provider: 文本 provider。</tag>
+				<tag name="param">owner: 可选拥有者；拥有者释放后该注册会在下一次查询或 prune 时失效。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="add_icon_provider">
+			<signature>func add_icon_provider(provider: GFInputIconProvider, owner: Object = null) -&gt; void:</signature>
+			<description>注册图标 provider。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">provider: 图标 provider。</tag>
+				<tag name="param">owner: 可选拥有者；拥有者释放后该注册会在下一次查询或 prune 时失效。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="remove_text_provider">
+			<signature>func remove_text_provider(provider: GFInputTextProvider) -&gt; bool:</signature>
+			<description>移除文本 provider。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">provider: 文本 provider。</tag>
+				<tag name="return">移除了至少一个注册时返回 true。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="remove_icon_provider">
+			<signature>func remove_icon_provider(provider: GFInputIconProvider) -&gt; bool:</signature>
+			<description>移除图标 provider。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">provider: 图标 provider。</tag>
+				<tag name="return">移除了至少一个注册时返回 true。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="clear_text_providers">
+			<signature>func clear_text_providers() -&gt; void:</signature>
+			<description>清空文本 provider。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="clear_icon_providers">
+			<signature>func clear_icon_providers() -&gt; void:</signature>
+			<description>清空图标 provider。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_text_providers">
+			<signature>func get_text_providers() -&gt; Array[GFInputTextProvider]:</signature>
+			<description>获取文本 provider 列表。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">provider 列表副本，按优先级从高到低排序。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_icon_providers">
+			<signature>func get_icon_providers() -&gt; Array[GFInputIconProvider]:</signature>
+			<description>获取图标 provider 列表。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">provider 列表副本，按优先级从高到低排序。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="prune_invalid_provider_owners">
+			<signature>func prune_invalid_provider_owners() -&gt; int:</signature>
+			<description>裁剪拥有者已经释放的 provider 注册。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">被裁剪的注册数量。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="dispose">
+			<signature>func dispose() -&gt; void:</signature>
+			<description>清理 registry 中的所有 provider 注册。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

@@ -40,6 +40,37 @@ signal playback_finished
 ## @schema event: Dictionary，包含 time_seconds、action_id、value、player_index、source_id 和 metadata。
 signal event_applied(event: Dictionary)
 
+## 单帧循环追赶达到预算时发出。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+## [br]
+## @param deferred_seconds: 留待后续 tick 无损处理的秒数。
+## [br]
+## @param skipped_cycles: 按策略显式跳过的完整周期数。
+signal loop_catch_up_limited(deferred_seconds: float, skipped_cycles: int)
+
+
+# --- 枚举 ---
+
+## 循环回放超出单帧周期预算时的处理策略。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+enum LoopCatchUpPolicy {
+	## 保留剩余时间，在后续 tick 继续逐事件处理。
+	DEFER_EXCESS,
+	## 跳过超预算的完整周期，只重建最终周期状态。
+	SKIP_EXCESS_CYCLES,
+}
+
+
+# --- 常量 ---
+
+const _MAX_REPORTED_SKIPPED_CYCLES: float = 9_007_199_254_740_991.0
+
 
 # --- 公共变量 ---
 
@@ -63,6 +94,22 @@ var speed: float = 1.0
 ## @api public
 var loop: bool = false
 
+## 循环追赶策略。默认无损延后，不静默丢弃事件。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+var loop_catch_up_policy: LoopCatchUpPolicy = LoopCatchUpPolicy.DEFER_EXCESS
+
+## 单次 tick 最多完整推进的循环周期数。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+var max_loop_cycles_per_tick: int = 64:
+	set(value):
+		max_loop_cycles_per_tick = maxi(value, 1)
+
 ## 为 true 时，事件带 player_index 时会写入对应玩家。
 ## [br]
 ## @api public
@@ -82,6 +129,9 @@ var elapsed_seconds: float = 0.0
 # --- 私有变量 ---
 
 var _next_event_index: int = 0
+var _event_snapshot: Array[Dictionary] = []
+var _duration_seconds: float = 0.0
+var _pending_advance_seconds: float = 0.0
 
 
 # --- 公共方法 ---
@@ -107,13 +157,19 @@ func start(
 
 	recording = next_recording
 	source = next_source
+	_event_snapshot = next_recording.get_events()
+	_duration_seconds = _normalize_non_negative_time(next_recording.duration_seconds)
+	_pending_advance_seconds = 0.0
 	is_playing = true
 	if restart:
 		elapsed_seconds = 0.0
 		_next_event_index = 0
 		source.clear_all()
 	else:
-		_next_event_index = _find_next_event_index(elapsed_seconds)
+		elapsed_seconds = _normalize_non_negative_time(elapsed_seconds)
+		if loop and _duration_seconds > 0.0:
+			elapsed_seconds = fmod(elapsed_seconds, _duration_seconds)
+		_rebuild_source_state_at_elapsed_time()
 	playback_started.emit(recording)
 	return true
 
@@ -136,6 +192,7 @@ func stop(clear_source: bool = false) -> void:
 func reset() -> void:
 	elapsed_seconds = 0.0
 	_next_event_index = 0
+	_pending_advance_seconds = 0.0
 	if source != null:
 		source.clear_all()
 
@@ -151,9 +208,16 @@ func tick(delta: float) -> int:
 	if not is_playing or recording == null or source == null:
 		return 0
 
-	elapsed_seconds += maxf(delta, 0.0) * maxf(speed, 0.0)
+	var advance_seconds: float = _safe_add_time(
+		_get_advance_seconds(delta),
+		_pending_advance_seconds
+	)
+	_pending_advance_seconds = 0.0
+	if loop and _duration_seconds > 0.0:
+		return _tick_looping(advance_seconds)
+	elapsed_seconds += advance_seconds
 	var applied: int = _apply_due_events()
-	if _next_event_index >= recording.events.size():
+	if _next_event_index >= _event_snapshot.size():
 		_handle_end_reached()
 	return applied
 
@@ -164,7 +228,10 @@ func tick(delta: float) -> int:
 ## [br]
 ## @param time_seconds: 目标时间，单位秒。
 func seek(time_seconds: float) -> void:
-	elapsed_seconds = maxf(time_seconds, 0.0)
+	elapsed_seconds = _normalize_non_negative_time(time_seconds)
+	if loop and _duration_seconds > 0.0:
+		elapsed_seconds = fmod(elapsed_seconds, _duration_seconds)
+	_pending_advance_seconds = 0.0
 	_rebuild_source_state_at_elapsed_time()
 
 
@@ -174,7 +241,7 @@ func seek(time_seconds: float) -> void:
 ## [br]
 ## @return 到达末尾时返回 true。
 func is_finished() -> bool:
-	return recording == null or _next_event_index >= recording.events.size()
+	return recording == null or _next_event_index >= _event_snapshot.size()
 
 
 ## 获取调试快照。
@@ -192,7 +259,11 @@ func get_debug_snapshot() -> Dictionary:
 		"loop": loop,
 		"respect_recorded_player_index": respect_recorded_player_index,
 		"next_event_index": _next_event_index,
-		"event_count": recording.get_event_count() if recording != null else 0,
+		"event_count": _event_snapshot.size(),
+		"duration_seconds": _duration_seconds,
+		"pending_advance_seconds": _pending_advance_seconds,
+		"loop_catch_up_policy": loop_catch_up_policy,
+		"max_loop_cycles_per_tick": max_loop_cycles_per_tick,
 		"source_id": source.source_id if source != null else &"",
 	}
 
@@ -201,8 +272,8 @@ func get_debug_snapshot() -> Dictionary:
 
 func _apply_due_events() -> int:
 	var applied: int = 0
-	while _next_event_index < recording.events.size():
-		var event: Dictionary = recording.events[_next_event_index]
+	while _next_event_index < _event_snapshot.size():
+		var event: Dictionary = _event_snapshot[_next_event_index]
 		if _get_event_time_seconds(event) > elapsed_seconds + 0.0001:
 			break
 		if _apply_event(event):
@@ -229,13 +300,6 @@ func _apply_event(event: Dictionary, emit_event_signal: bool = true) -> bool:
 
 
 func _handle_end_reached() -> void:
-	if loop and recording.duration_seconds > 0.0:
-		elapsed_seconds = fmod(elapsed_seconds, recording.duration_seconds)
-		_next_event_index = 0
-		if source != null:
-			source.clear_all()
-		var _apply_due_events_result_232: Variant = _apply_due_events()
-		return
 	is_playing = false
 	playback_finished.emit()
 
@@ -243,10 +307,10 @@ func _handle_end_reached() -> void:
 func _find_next_event_index(time_seconds: float) -> int:
 	if recording == null:
 		return 0
-	for index: int in range(recording.events.size()):
-		if _get_event_time_seconds(recording.events[index]) > time_seconds:
+	for index: int in range(_event_snapshot.size()):
+		if _get_event_time_seconds(_event_snapshot[index]) > time_seconds:
 			return index
-	return recording.events.size()
+	return _event_snapshot.size()
 
 
 func _rebuild_source_state_at_elapsed_time() -> void:
@@ -257,12 +321,74 @@ func _rebuild_source_state_at_elapsed_time() -> void:
 		_next_event_index = _find_next_event_index(elapsed_seconds)
 		return
 	source.clear_all()
-	while _next_event_index < recording.events.size():
-		var event: Dictionary = recording.events[_next_event_index]
+	while _next_event_index < _event_snapshot.size():
+		var event: Dictionary = _event_snapshot[_next_event_index]
 		if _get_event_time_seconds(event) > elapsed_seconds + 0.0001:
 			break
 		var _applied: bool = _apply_event(event, false)
 		_next_event_index += 1
+
+
+func _tick_looping(advance_seconds: float) -> int:
+	var applied: int = _apply_due_events()
+	var remaining: float = advance_seconds
+	var completed_cycles: int = 0
+	while remaining > 0.0:
+		var time_to_end: float = maxf(_duration_seconds - elapsed_seconds, 0.0)
+		if remaining < time_to_end:
+			elapsed_seconds += remaining
+			applied += _apply_due_events()
+			return applied
+
+		elapsed_seconds = _duration_seconds
+		applied += _apply_due_events()
+		remaining = maxf(remaining - time_to_end, 0.0)
+		completed_cycles += 1
+		_begin_loop_cycle()
+
+		if completed_cycles >= max_loop_cycles_per_tick and remaining >= _duration_seconds:
+			if loop_catch_up_policy == LoopCatchUpPolicy.DEFER_EXCESS:
+				_pending_advance_seconds = remaining
+				applied += _apply_due_events()
+				loop_catch_up_limited.emit(_pending_advance_seconds, 0)
+				return applied
+			var skipped_cycles_float: float = floor(remaining / _duration_seconds)
+			var skipped_cycles: int = int(minf(
+				skipped_cycles_float,
+				_MAX_REPORTED_SKIPPED_CYCLES
+			))
+			remaining = fmod(remaining, _duration_seconds)
+			loop_catch_up_limited.emit(0.0, skipped_cycles)
+
+		applied += _apply_due_events()
+	return applied
+
+
+func _begin_loop_cycle() -> void:
+	elapsed_seconds = 0.0
+	_next_event_index = 0
+	if source != null:
+		source.clear_all()
+
+
+func _get_advance_seconds(delta: float) -> float:
+	if is_nan(delta) or is_inf(delta) or is_nan(speed) or is_inf(speed):
+		return 0.0
+	var result: float = maxf(delta, 0.0) * maxf(speed, 0.0)
+	return result if not is_nan(result) and not is_inf(result) else 0.0
+
+
+func _normalize_non_negative_time(value: float) -> float:
+	if is_nan(value) or is_inf(value):
+		return 0.0
+	return maxf(value, 0.0)
+
+
+func _safe_add_time(left: float, right: float) -> float:
+	var result: float = left + right
+	if is_nan(result) or is_inf(result):
+		return maxf(left, right)
+	return maxf(result, 0.0)
 
 
 func _get_event_time_seconds(event: Dictionary) -> float:

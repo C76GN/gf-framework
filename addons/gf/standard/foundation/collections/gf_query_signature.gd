@@ -12,6 +12,11 @@ class_name GFQuerySignature
 extends RefCounted
 
 
+# --- 常量 ---
+
+const _GF_VARIANT_KEY_CODEC_SCRIPT = preload("res://addons/gf/standard/foundation/variant/gf_variant_key_codec.gd")
+
+
 # --- 私有变量 ---
 
 var _domains: Dictionary = {}
@@ -38,11 +43,11 @@ func clear() -> void:
 ## [br]
 ## @param value: 条件值。
 ## [br]
-## @schema value: Variant condition value encoded with typeof() and var_to_str().
+## @schema value: Variant condition value accepted by GFVariantKeyCodec.
 ## [br]
 ## @return 当前签名，便于链式调用。
 func add_value(domain: StringName, value: Variant) -> GFQuerySignature:
-	if domain == &"" or value == null:
+	if domain == &"" or not _GF_VARIANT_KEY_CODEC_SCRIPT.is_stable_key(value):
 		return self
 
 	var domain_key: String = String(domain)
@@ -142,15 +147,14 @@ func to_dictionary() -> Dictionary:
 ## [br]
 ## @return 可作为缓存 key 的签名文本。
 func to_text() -> String:
-	var parts: PackedStringArray = PackedStringArray()
-	for domain_key: String in _get_sorted_domain_keys():
+	var domain_keys: PackedStringArray = _get_sorted_domain_keys()
+	var result: String = "gfq1:%d:" % domain_keys.size()
+	for domain_key: String in domain_keys:
 		var values: PackedStringArray = get_domain_values(StringName(domain_key))
-		var _part_appended: bool = parts.append("%s(%d):%s" % [
-			domain_key,
-			values.size(),
-			",".join(values),
-		])
-	return "|".join(parts)
+		result += "%d:%s%d:" % [domain_key.length(), domain_key, values.size()]
+		for encoded_value: String in values:
+			result += "%d:%s" % [encoded_value.length(), encoded_value]
+	return result
 
 
 ## 获取签名 hash。
@@ -232,7 +236,7 @@ func _extract_values(values: Variant) -> Array:
 
 
 func _make_value_key(value: Variant) -> String:
-	return "%d:%s" % [typeof(value), var_to_str(value)]
+	return _GF_VARIANT_KEY_CODEC_SCRIPT.make_key_token(value)
 
 
 func _set_encoded_values(domain: StringName, values: Variant) -> GFQuerySignature:
@@ -276,18 +280,4 @@ static func _extract_encoded_value_keys(values: Variant) -> PackedStringArray:
 
 
 static func _is_encoded_value_key(value_key: String) -> bool:
-	var separator_index: int = value_key.find(":")
-	if separator_index <= 0:
-		return false
-
-	var type_text: String = value_key.substr(0, separator_index)
-	if not type_text.is_valid_int():
-		return false
-
-	var type_id: int = type_text.to_int()
-	if type_id < TYPE_NIL:
-		return false
-
-	var encoded_value: String = value_key.substr(separator_index + 1)
-	var decoded_value: Variant = str_to_var(encoded_value)
-	return typeof(decoded_value) == type_id
+	return value_key.begins_with("gfv1:") and value_key.length() > "gfv1:".length()

@@ -26,7 +26,8 @@
 | 方法 | [`contains`](#member-gfdropzone-methods-contains) | `func contains(position: Variant, session: GFDragSession) -> bool:` |
 | 方法 | [`can_accept`](#member-gfdropzone-methods-can_accept) | `func can_accept(session: GFDragSession) -> bool:` |
 | 方法 | [`drop`](#member-gfdropzone-methods-drop) | `func drop(session: GFDragSession, position: Variant) -> Variant:` |
-| 方法 | [`to_dictionary`](#member-gfdropzone-methods-to_dictionary) | `func to_dictionary() -> Dictionary:` |
+| 方法 | [`to_dictionary`](#member-gfdropzone-methods-to_dictionary) | `func to_dictionary(json_compatible: bool = true) -> Dictionary:` |
+| 方法 | [`is_stale`](#member-gfdropzone-methods-is_stale) | `func is_stale() -> bool:` |
 | 方法 | [`from_rect`](#member-gfdropzone-methods-from_rect) | `static func from_rect( new_zone_id: StringName, rect: Rect2, new_accepted_types: PackedStringArray = PackedStringArray(), options: Dictionary = {} ) -> GFDropZone:` |
 | 方法 | [`from_control`](#member-gfdropzone-methods-from_control) | `static func from_control( new_zone_id: StringName, control: Control, new_accepted_types: PackedStringArray = PackedStringArray(), options: Dictionary = {} ) -> GFDropZone:` |
 
@@ -210,18 +211,40 @@ func drop(session: GFDragSession, position: Variant) -> Variant:
 ### `to_dictionary`
 
 - API：`public`
+- 首次版本：`8.0.0`
 
 ```gdscript
-func to_dictionary() -> Dictionary:
+func to_dictionary(json_compatible: bool = true) -> Dictionary:
 ```
 
 转换为调试字典。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `json_compatible` | 为 true 时返回可直接 JSON.stringify() 的值。 |
 
 返回：落点快照。
 
 结构：
 
 - `return`: Dictionary，包含 zone_id、accepted_types、priority、enabled、回调标记和 metadata。
+
+<a id="member-gfdropzone-methods-is_stale"></a>
+
+### `is_stale`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func is_stale() -> bool:
+```
+
+检查落点是否引用了已经失效的对象。
+
+返回：引用对象失效时返回 true。
 
 <a id="member-gfdropzone-methods-from_rect"></a>
 

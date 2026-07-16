@@ -15,6 +15,8 @@ extends RefCounted
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param sender: 交互发起者。
 ## [br]
 ## @param architecture: 用于命令或事件派发的架构实例。
@@ -30,6 +32,8 @@ static func with_sender(sender: Object, architecture: GFArchitecture = null) -> 
 ## 创建一次 sender 到 target 的交互上下文。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @param sender: 交互发起者。
 ## [br]

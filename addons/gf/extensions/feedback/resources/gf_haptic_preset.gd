@@ -64,7 +64,7 @@ extends Resource
 ## [br]
 ## @since 7.0.0
 ## [br]
-## @return 持续时间，最小为 0。
+## @return: 持续时间，最小为 0。
 func get_duration_seconds() -> float:
 	return maxf(duration_seconds, 0.0)
 
@@ -79,7 +79,7 @@ func get_duration_seconds() -> float:
 ## [br]
 ## @param strength: 本次播放强度倍率。
 ## [br]
-## @return 震动采样结果。
+## @return: 震动采样结果。
 ## [br]
 ## @schema return: Dictionary，包含 weak_magnitude、strong_magnitude、intensity 与 progress。
 func sample(elapsed_seconds: float, strength: float = 1.0) -> Dictionary:
@@ -98,7 +98,7 @@ func sample(elapsed_seconds: float, strength: float = 1.0) -> Dictionary:
 ## [br]
 ## @param strength: 本次播放强度倍率。
 ## [br]
-## @return 震动采样结果。
+## @return: 震动采样结果。
 ## [br]
 ## @schema return: Dictionary，包含 weak_magnitude、strong_magnitude、intensity 与 progress。
 func sample_at_progress(progress: float, strength: float = 1.0) -> Dictionary:
@@ -120,7 +120,7 @@ func sample_at_progress(progress: float, strength: float = 1.0) -> Dictionary:
 ## [br]
 ## @since 7.0.0
 ## [br]
-## @return 空震动采样结果。
+## @return: 空震动采样结果。
 ## [br]
 ## @schema return: Dictionary，包含零值 weak_magnitude、strong_magnitude、intensity 与 progress。
 static func zero_sample() -> Dictionary:
@@ -142,7 +142,7 @@ static func zero_sample() -> Dictionary:
 ## [br]
 ## @schema samples: Array[Dictionary]，每项包含 weak_magnitude、strong_magnitude、intensity 与 progress。
 ## [br]
-## @return 合并后的震动采样。
+## @return: 合并后的震动采样。
 ## [br]
 ## @schema return: Dictionary，包含合并后的 weak_magnitude、strong_magnitude、intensity 与 progress。
 static func combine_samples(samples: Array[Dictionary]) -> Dictionary:

@@ -100,7 +100,10 @@ static func input_event_from_record(record: Dictionary) -> InputEvent:
 	if event_text.is_empty():
 		return null
 	var value: Variant = str_to_var(event_text)
-	return get_input_event(value)
+	var event: InputEvent = get_input_event(value)
+	if event == null or not _ALLOWED_INPUT_EVENT_CLASSES.has(event.get_class()):
+		return null
+	return event
 
 
 ## 判断事件记录是否表示显式解绑。

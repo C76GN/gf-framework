@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFStorageUtility" path="addons/gf/standard/utilities/storage/gf_storage_utility.gd" module="standard" extends="GFUtility" classDigest="f741693e8ac5377f004fe965df7f5ad90c70b395f5fd8f5745b7cca8feee4713">
+<class name="GFStorageUtility" path="addons/gf/standard/utilities/storage/gf_storage_utility.gd" module="standard" extends="GFUtility" classDigest="64bcce8f17b76af6d230a0eaac3968930a5c17c736c8e2266a4e1a4336511ab6">
 	<description>GFStorageUtility: 基于 `user://` 的轻量存档系统。
 支持槽位存档、元数据分离读取、`Resource` 存取，
 以及可配置 codec、完整性校验、版本迁移和简单混淆，适合通用本地持久化场景。
@@ -147,9 +147,10 @@
 		</member>
 		<member kind="property" name="allow_absolute_paths">
 			<signature>var allow_absolute_paths: bool = false</signature>
-			<description>是否允许传入绝对路径。关闭后绝对路径会被收敛到存档目录下的同名文件。</description>
+			<description>是否允许传入绝对路径。关闭后绝对路径会被拒绝。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">2.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="allow_resource_loads">
@@ -170,7 +171,7 @@
 		</member>
 		<member kind="property" name="allowed_resource_load_type_hints">
 			<signature>var allowed_resource_load_type_hints: PackedStringArray = PackedStringArray()</signature>
-			<description>`load_resource()` 允许的类型提示。为空时不限制类型提示值；启用时 `type_hint` 必须精确匹配其中之一。</description>
+			<description>`load_resource()` 允许的类型提示。空列表表示不允许任何 Resource 读取；启用时 `type_hint` 必须精确匹配其中之一。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="since">6.0.0</tag>
@@ -265,7 +266,7 @@
 		<member kind="method" name="load_resource">
 			<signature>func load_resource(file_name: String, type_hint: String = "") -&gt; Resource:</signature>
 			<description>读取一个 `Resource` 文件。
-该方法会调用 Godot `ResourceLoader`，默认关闭。调用方必须先启用 `allow_resource_loads`，并通过类型提示、扩展名 allowlist 与存储路径策略收窄加载边界。</description>
+该方法会调用 Godot `ResourceLoader`，默认关闭。调用方必须先启用 `allow_resource_loads`，并通过类型提示 allowlist、扩展名 allowlist 与存储路径策略收窄加载边界。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">file_name: 目标文件名。</tag>
@@ -308,90 +309,13 @@
 		</member>
 		<member kind="method" name="delete_file">
 			<signature>func delete_file(file_name: String) -&gt; Error:</signature>
-			<description>删除一个存储文件。</description>
+			<description>删除一个存储文件。
+同时清理同名事务临时文件、备份文件和事务标记，避免删除后被遗留事务恢复。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">file_name: 存储相对文件路径。</tag>
 				<tag name="return">Godot 的 `Error` 结果码；文件不存在时返回 `ERR_FILE_NOT_FOUND`。</tag>
-			</tags>
-		</member>
-		<member kind="method" name="save_slot">
-			<signature>func save_slot(slot_id: int, data: Dictionary, metadata: Dictionary = {}) -&gt; Error:</signature>
-			<description>保存一个槽位存档。</description>
-			<tags>
-				<tag name="api">public</tag>
-				<tag name="param">slot_id: 槽位 ID。</tag>
-				<tag name="param">data: 核心存档数据。</tag>
-				<tag name="param">metadata: 展示用元数据。</tag>
-				<tag name="return">Godot 的 `Error` 结果码。</tag>
-				<tag name="schema">data: Dictionary，作为存档槽主要数据保存的载荷。</tag>
-				<tag name="schema">metadata: Dictionary，作为存档槽展示元数据保存。</tag>
-			</tags>
-		</member>
-		<member kind="method" name="load_slot">
-			<signature>func load_slot(slot_id: int) -&gt; Dictionary:</signature>
-			<description>读取槽位核心数据。</description>
-			<tags>
-				<tag name="api">public</tag>
-				<tag name="param">slot_id: 槽位 ID。</tag>
-				<tag name="return">反序列化后的核心数据字典。</tag>
-				<tag name="schema">return: Dictionary，作为存档槽主要数据保存的载荷。</tag>
-			</tags>
-		</member>
-		<member kind="method" name="load_slot_result">
-			<signature>func load_slot_result(slot_id: int) -&gt; Dictionary:</signature>
-			<description>读取槽位核心数据并返回 codec 结果。</description>
-			<tags>
-				<tag name="api">public</tag>
-				<tag name="param">slot_id: 槽位 ID。</tag>
-				<tag name="return">结果字典，包含 ok、data、metadata、integrity_valid、error。</tag>
-				<tag name="schema">return: Dictionary，包含 ok: bool、data: Dictionary、metadata: Dictionary、integrity_valid: bool 和 error: String。</tag>
-			</tags>
-		</member>
-		<member kind="method" name="load_slot_meta">
-			<signature>func load_slot_meta(slot_id: int) -&gt; Dictionary:</signature>
-			<description>读取槽位元数据。</description>
-			<tags>
-				<tag name="api">public</tag>
-				<tag name="param">slot_id: 槽位 ID。</tag>
-				<tag name="return">反序列化后的元数据字典。</tag>
-				<tag name="schema">return: Dictionary，作为存档槽展示元数据保存。</tag>
-			</tags>
-		</member>
-		<member kind="method" name="load_slot_meta_result">
-			<signature>func load_slot_meta_result(slot_id: int) -&gt; Dictionary:</signature>
-			<description>读取槽位元数据并返回 codec 结果。</description>
-			<tags>
-				<tag name="api">public</tag>
-				<tag name="param">slot_id: 槽位 ID。</tag>
-				<tag name="return">结果字典，包含 ok、data、metadata、integrity_valid、error。</tag>
-				<tag name="schema">return: Dictionary，包含 ok: bool、data: Dictionary、metadata: Dictionary、integrity_valid: bool 和 error: String。</tag>
-			</tags>
-		</member>
-		<member kind="method" name="has_slot">
-			<signature>func has_slot(slot_id: int) -&gt; bool:</signature>
-			<description>检查槽位是否存在有效存档。</description>
-			<tags>
-				<tag name="api">public</tag>
-				<tag name="param">slot_id: 槽位 ID。</tag>
-				<tag name="return">核心数据与元数据文件都存在时返回 `true`。</tag>
-			</tags>
-		</member>
-		<member kind="method" name="list_slots">
-			<signature>func list_slots() -&gt; Array[Dictionary]:</signature>
-			<description>枚举所有有效槽位。</description>
-			<tags>
-				<tag name="api">public</tag>
-				<tag name="return">槽位信息数组，元素包含 `slot_id`、`metadata` 与 `modified_time`。</tag>
-				<tag name="schema">return: Array，包含 slot_id: int、metadata: Dictionary 和 modified_time: int 的 Dictionary 条目。</tag>
-			</tags>
-		</member>
-		<member kind="method" name="delete_slot">
-			<signature>func delete_slot(slot_id: int) -&gt; void:</signature>
-			<description>删除指定槽位的数据与元数据。</description>
-			<tags>
-				<tag name="api">public</tag>
-				<tag name="param">slot_id: 槽位 ID。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="save_data">
@@ -403,6 +327,17 @@
 				<tag name="param">data: 要保存的字典。</tag>
 				<tag name="return">Godot 的 `Error` 结果码。</tag>
 				<tag name="schema">data: Dictionary，要序列化并保存的数据载荷。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="save_data_group">
+			<signature>func save_data_group(files: Dictionary) -&gt; Error:</signature>
+			<description>以同一个事务保存多个纯字典文件。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">files: 文件名到字典载荷的映射。</tag>
+				<tag name="return">Godot 的 `Error` 结果码。</tag>
+				<tag name="schema">files: Dictionary，键为存储相对文件名，值为要序列化并保存的 Dictionary 载荷。</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="load_data">

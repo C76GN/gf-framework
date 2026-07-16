@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFPropertyBagCapability" path="addons/gf/extensions/capability/core/gf_property_bag_capability.gd" module="extensions/capability" extends="GFCapability" classDigest="5915fe29693ab9b0475b8c57ce18b453a84bdc7a2023e9fc45b8191bc7201604">
+<class name="GFPropertyBagCapability" path="addons/gf/extensions/capability/core/gf_property_bag_capability.gd" module="extensions/capability" extends="GFCapability" classDigest="f94502e0974a0ce75cf6b0de58afc8c4783bfff703345a28304b9a919b247075">
 	<description>GFPropertyBagCapability: 轻量动态属性扩展能力。
 适合为对象挂载少量运行时标签值、编辑器调试值或原型数据。
 长期核心状态仍应放入 GFModel 或配置资源。</description>
@@ -36,11 +36,12 @@
 	<constants />
 	<properties>
 		<member kind="property" name="values" decorators="@export">
-			<signature>var values: Dictionary = {}</signature>
+			<signature>var values: Dictionary:</signature>
 			<description>当前属性表。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="schema">values: 动态属性 Dictionary；键通常为 StringName，值由项目决定。</tag>
+				<tag name="schema">values: 动态属性 Dictionary；键严格为非空 StringName，集合值按副本读写。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</properties>

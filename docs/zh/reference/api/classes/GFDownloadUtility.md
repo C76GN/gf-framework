@@ -21,8 +21,6 @@
 | 信号 | [`download_failed`](#member-gfdownloadutility-signals-download_failed) | `signal download_failed(task_id: int, result: Dictionary)` |
 | 信号 | [`download_cancelled`](#member-gfdownloadutility-signals-download_cancelled) | `signal download_cancelled(task_id: int, result: Dictionary)` |
 | 属性 | [`timeout_seconds`](#member-gfdownloadutility-properties-timeout_seconds) | `var timeout_seconds: float = 30.0` |
-| 属性 | [`default_temp_suffix`](#member-gfdownloadutility-properties-default_temp_suffix) | `var default_temp_suffix: String = ".download"` |
-| 属性 | [`default_segment_suffix`](#member-gfdownloadutility-properties-default_segment_suffix) | `var default_segment_suffix: String = ".segment"` |
 | 属性 | [`overwrite_existing`](#member-gfdownloadutility-properties-overwrite_existing) | `var overwrite_existing: bool = true` |
 | 属性 | [`emit_progress_interval_seconds`](#member-gfdownloadutility-properties-emit_progress_interval_seconds) | `var emit_progress_interval_seconds: float = 0.1` |
 | 属性 | [`default_max_retries`](#member-gfdownloadutility-properties-default_max_retries) | `var default_max_retries: int = 0` |
@@ -173,30 +171,6 @@ var timeout_seconds: float = 30.0
 
 HTTP 请求超时时间，单位秒。
 
-<a id="member-gfdownloadutility-properties-default_temp_suffix"></a>
-
-### `default_temp_suffix`
-
-- API：`public`
-
-```gdscript
-var default_temp_suffix: String = ".download"
-```
-
-临时文件后缀。
-
-<a id="member-gfdownloadutility-properties-default_segment_suffix"></a>
-
-### `default_segment_suffix`
-
-- API：`public`
-
-```gdscript
-var default_segment_suffix: String = ".segment"
-```
-
-分段续传临时文件后缀。
-
 <a id="member-gfdownloadutility-properties-overwrite_existing"></a>
 
 ### `overwrite_existing`
@@ -322,6 +296,7 @@ static func parse_manifest_entries(data: Variant, options: Dictionary = {}) -> A
 ### `enqueue_download`
 
 - API：`public`
+- 首次版本：`3.0.0`
 
 ```gdscript
 func enqueue_download( url: String, target_path: String, callback: Callable = Callable(), options: Dictionary = {} ) -> int:
@@ -336,13 +311,13 @@ func enqueue_download( url: String, target_path: String, callback: Callable = Ca
 | `url` | 下载 URL。 |
 | `target_path` | 最终写入路径。 |
 | `callback` | 完成、失败或取消时执行的回调，签名为 func(result: Dictionary)。 |
-| `options` | 可选参数，支持 headers、resume、overwrite、expected_sha256、metadata、temp_path、segment_path、max_retries、retry_delay_seconds。 |
+| `options` | 可选参数，支持 headers、resume、overwrite、expected_sha256、metadata、max_retries、retry_delay_seconds。临时路径由 utility 从 target_path 独占派生。 |
 
 返回：任务句柄；输入无效时返回 0。
 
 结构：
 
-- `options`: Dictionary，可包含 headers、resume、overwrite、expected_sha256、metadata、temp_path、segment_path、max_retries 和 retry_delay_seconds。
+- `options`: Dictionary，可包含 headers、resume、overwrite、expected_sha256、metadata、max_retries 和 retry_delay_seconds。
 
 <a id="member-gfdownloadutility-methods-enqueue_manifest_entries"></a>
 

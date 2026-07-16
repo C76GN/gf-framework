@@ -7,7 +7,7 @@
 ## [br]
 ## @api public
 ## [br]
-## @category runtime_service
+## @category tool_api
 ## [br]
 ## @since 3.23.0
 class_name GFResourceRegistryTools
@@ -83,6 +83,13 @@ const DEFAULT_MAX_SCAN_DEPTH: int = 32
 ## [br]
 ## @api public
 const DEFAULT_MAX_RESOURCE_PATHS: int = 10000
+
+## 默认单次资源扫描访问的目录项数量上限。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+const DEFAULT_MAX_SCANNED_ENTRIES: int = 100000
 
 ## 默认路径字段：资源扩展名。
 ## [br]
@@ -166,11 +173,11 @@ static func is_resource_path(path: String, extensions: PackedStringArray = RESOU
 ## [br]
 ## @param root_path: 扫描起点，通常是 res:// 下的目录。
 ## [br]
-## @param options: 可选项，支持 recursive、include_addons、excluded_paths、extensions、include_patterns、exclude_patterns、pattern_base_path、include_hidden、include_import_sidecars、max_scan_depth 与 max_resource_paths。
+## @param options: 可选项，支持 recursive、include_addons、excluded_paths、extensions、include_patterns、exclude_patterns、pattern_base_path、include_hidden、include_import_sidecars、max_scan_depth、max_resource_paths 与 max_scanned_entries。
 ## [br]
 ## @return 按字典序排序的资源路径。
 ## [br]
-## @schema options: Dictionary，可包含 recursive、include_addons、excluded_paths、extensions、include_patterns、exclude_patterns、pattern_base_path、include_hidden、include_import_sidecars、max_scan_depth 和 max_resource_paths 字段。
+## @schema options: Dictionary，可包含 recursive、include_addons、excluded_paths、extensions、include_patterns、exclude_patterns、pattern_base_path、include_hidden、include_import_sidecars、max_scan_depth、max_resource_paths 和 max_scanned_entries 字段。
 static func scan_resource_paths(root_path: String = "res://", options: Dictionary = {}) -> PackedStringArray:
 	var result: PackedStringArray = PackedStringArray()
 	var normalized_root: String = _normalize_dir_path(root_path)
@@ -188,23 +195,46 @@ static func scan_resource_paths(root_path: String = "res://", options: Dictionar
 	var include_import_sidecars: bool = GFVariantData.get_option_bool(options, "include_import_sidecars", false)
 	var max_scan_depth: int = maxi(GFVariantData.get_option_int(options, "max_scan_depth", DEFAULT_MAX_SCAN_DEPTH), 0)
 	var max_resource_paths: int = maxi(GFVariantData.get_option_int(options, "max_resource_paths", DEFAULT_MAX_RESOURCE_PATHS), 0)
-	var scan_state: Dictionary = _make_scan_state()
-	_scan_resource_paths_recursive(
-		normalized_root,
-		recursive,
-		excluded_paths,
-		extensions,
-		pattern_base_path,
-		include_patterns,
-		exclude_patterns,
-		result,
-		0,
-		max_scan_depth,
-		max_resource_paths,
-		include_hidden,
-		include_import_sidecars,
-		scan_state
+	var max_scanned_entries: int = maxi(
+		GFVariantData.get_option_int(options, "max_scanned_entries", DEFAULT_MAX_SCANNED_ENTRIES),
+		0
 	)
+	var scan_state: Dictionary = _make_scan_state()
+	var enumeration_options: Dictionary = {
+		"recursive": recursive,
+		"include_hidden": include_hidden,
+		"extensions": extensions,
+		"excluded_paths": excluded_paths,
+		"file_filter": func(candidate_path: String) -> bool:
+			return _can_include_file_entry(
+				candidate_path.get_file(),
+				candidate_path,
+				extensions,
+				pattern_base_path,
+				include_patterns,
+				exclude_patterns,
+				include_import_sidecars
+			),
+		"max_scan_depth": max_scan_depth,
+		"max_file_count": max_resource_paths,
+		"max_entry_count": max_scanned_entries,
+		"sort": false,
+	}
+	var scan_report: Dictionary = GFPathEnumerationTools.scan_files(normalized_root, enumeration_options)
+	result = GFVariantData.get_option_packed_string_array(scan_report, "paths")
+
+	if GFVariantData.get_option_bool(scan_report, "truncated"):
+		var limit_kind: String = GFVariantData.get_option_string(scan_report, "limit_kind", "")
+		if limit_kind == "count":
+			_warn_resource_path_limit(max_resource_paths, scan_state)
+		elif limit_kind == "entry_count":
+			_warn_scanned_entry_limit(max_scanned_entries, scan_state)
+		elif limit_kind == "depth":
+			_warn_scan_depth_limit(
+				GFVariantData.get_option_string(scan_report, "limit_path", normalized_root),
+				max_scan_depth,
+				scan_state
+			)
 	result.sort()
 	return result
 
@@ -459,6 +489,8 @@ static func sync_registry_from_scan(
 ## [br]
 ## @api public
 ## [br]
+## @since 3.23.0
+## [br]
 ## @param path: 资源路径。
 ## [br]
 ## @param options: 可选项，支持 id_mode、base_path、path_separator、strip_extension。
@@ -468,7 +500,8 @@ static func sync_registry_from_scan(
 ## @schema options: Dictionary，可包含 id_mode、base_path、path_separator 和 strip_extension 字段。
 static func make_entry_id(path: String, options: Dictionary = {}) -> StringName:
 	var mode: EntryIdMode = _resolve_id_mode(GFVariantData.get_option_value(options, "id_mode", EntryIdMode.BASENAME))
-	var id_text: String = path.replace("\\", "/")
+	var identity: GFResourceIdentity = _make_resource_identity(path, "", &"")
+	var id_text: String = _get_identity_load_path(identity)
 	match mode:
 		EntryIdMode.BASENAME:
 			id_text = id_text.get_file()
@@ -504,7 +537,8 @@ static func make_type_hint(path: String, options: Dictionary = {}) -> String:
 		"type_hints_by_extension",
 		_DEFAULT_TYPE_HINTS_BY_EXTENSION
 	)
-	var extension: String = path.get_extension().to_lower()
+	var identity: GFResourceIdentity = _make_resource_identity(path, "", &"")
+	var extension: String = identity.extension
 	var type_hint: Variant = GFVariantData.get_option_value(type_hints, extension, "")
 	var type_hint_text: String = GFVariantData.to_text(type_hint)
 	if not type_hint_text.is_empty():
@@ -516,6 +550,8 @@ static func make_type_hint(path: String, options: Dictionary = {}) -> String:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.23.0
+## [br]
 ## @param path: 资源路径。
 ## [br]
 ## @param options: 可选项，支持 base_path、extra_fields、fields_by_path、fields_by_id、include_path_fields、include_tags、include_category、tag_field 和 category_field。
@@ -524,10 +560,11 @@ static func make_type_hint(path: String, options: Dictionary = {}) -> String:
 ## [br]
 ## @schema options: Dictionary，可包含路径字段、目录标签和调用方附加字段选项。
 ## [br]
-## @schema return: Dictionary keyed by field id with scalar, Array, or PackedStringArray values.
+## @schema return: Dictionary keyed by field id with scalar, Array, or PackedStringArray values. include_path_fields adds extension, basename, directory, relative_path, and cache_key.
 static func make_entry_fields(path: String, options: Dictionary = {}) -> Dictionary:
 	var fields: Dictionary = GFVariantData.get_option_dictionary(options, "extra_fields", {})
-	var normalized_path: String = path.replace("\\", "/")
+	var identity: GFResourceIdentity = _make_resource_identity(path, make_type_hint(path, options), make_entry_id(path, options))
+	var normalized_path: String = _get_identity_load_path(identity)
 	var relative_path: String = _make_relative_path(
 		normalized_path,
 		GFVariantData.get_option_string(options, "base_path", "res://")
@@ -539,6 +576,7 @@ static func make_entry_fields(path: String, options: Dictionary = {}) -> Diction
 		fields[FIELD_BASENAME] = normalized_path.get_file().get_basename()
 		fields[FIELD_DIRECTORY] = _get_relative_directory(relative_path)
 		fields[FIELD_RELATIVE_PATH] = relative_path
+		fields[&"cache_key"] = identity.cache_key
 
 	if GFVariantData.get_option_bool(options, "include_tags", true):
 		var tags: PackedStringArray = _make_path_tags(relative_path)
@@ -557,76 +595,20 @@ static func make_entry_fields(path: String, options: Dictionary = {}) -> Diction
 
 # --- 私有/辅助方法 ---
 
-static func _scan_resource_paths_recursive(
-	dir_path: String,
-	recursive: bool,
-	excluded_paths: PackedStringArray,
-	extensions: PackedStringArray,
-	pattern_base_path: String,
-	include_patterns: Array[RegEx],
-	exclude_patterns: Array[RegEx],
-	result: PackedStringArray,
-	depth: int,
-	max_scan_depth: int,
-	max_resource_paths: int,
-	include_hidden: bool,
-	include_import_sidecars: bool,
-	scan_state: Dictionary
-) -> void:
-	if not _can_collect_more_resource_paths(result, max_resource_paths):
-		_warn_resource_path_limit(max_resource_paths, scan_state)
-		return
-	if _is_excluded_path(dir_path, excluded_paths):
-		return
+static func _make_resource_identity(
+	path: String,
+	type_hint: String,
+	resource_key: StringName
+) -> GFResourceIdentity:
+	return GFResourceIdentity.from_path(path, resource_key, type_hint, { "check_exists": false })
 
-	var dir: DirAccess = DirAccess.open(dir_path)
-	if dir == null:
-		return
 
-	var list_error: int = dir.list_dir_begin()
-	if list_error != OK:
-		return
-	var entry: String = dir.get_next()
-	while not entry.is_empty():
-		if not _can_collect_more_resource_paths(result, max_resource_paths):
-			_warn_resource_path_limit(max_resource_paths, scan_state)
-			break
-
-		if not include_hidden and entry.begins_with("."):
-			entry = dir.get_next()
-			continue
-
-		var child_path: String = dir_path.path_join(entry)
-		if dir.current_is_dir():
-			if recursive and _can_scan_deeper(child_path, depth, max_scan_depth, scan_state):
-				_scan_resource_paths_recursive(
-					child_path,
-					recursive,
-					excluded_paths,
-					extensions,
-					pattern_base_path,
-					include_patterns,
-					exclude_patterns,
-					result,
-					depth + 1,
-					max_scan_depth,
-					max_resource_paths,
-					include_hidden,
-					include_import_sidecars,
-					scan_state
-				)
-		elif _can_include_file_entry(
-			entry,
-			child_path,
-			extensions,
-			pattern_base_path,
-			include_patterns,
-			exclude_patterns,
-			include_import_sidecars
-		):
-			var _path_appended: bool = result.append(child_path)
-		entry = dir.get_next()
-	dir.list_dir_end()
+static func _get_identity_load_path(identity: GFResourceIdentity) -> String:
+	if identity == null:
+		return ""
+	if not identity.canonical_path.is_empty():
+		return identity.canonical_path
+	return identity.raw_path
 
 
 static func _collect_dependency_paths_recursive(
@@ -778,13 +760,6 @@ static func _can_include_file_entry(
 	return _matches_scan_patterns(path, pattern_base_path, include_patterns, exclude_patterns)
 
 
-static func _can_scan_deeper(path: String, current_depth: int, max_scan_depth: int, scan_state: Dictionary) -> bool:
-	if max_scan_depth <= 0 or current_depth < max_scan_depth:
-		return true
-	_warn_scan_depth_limit(path, max_scan_depth, scan_state)
-	return false
-
-
 static func _can_scan_dependency_deeper(
 	path: String,
 	current_depth: int,
@@ -804,6 +779,7 @@ static func _can_collect_more_resource_paths(result: PackedStringArray, max_reso
 static func _make_scan_state() -> Dictionary:
 	return {
 		"count_warning_emitted": false,
+		"entry_warning_emitted": false,
 		"depth_warning_emitted": false,
 	}
 
@@ -848,6 +824,13 @@ static func _warn_resource_path_limit(max_resource_paths: int, scan_state: Dicti
 		return
 	scan_state["count_warning_emitted"] = true
 	push_warning("[GFResourceRegistryTools] scan_resource_paths 已达到 max_resource_paths=%d，后续资源已跳过。" % max_resource_paths)
+
+
+static func _warn_scanned_entry_limit(max_scanned_entries: int, scan_state: Dictionary) -> void:
+	if max_scanned_entries <= 0 or GFVariantData.get_option_bool(scan_state, "entry_warning_emitted"):
+		return
+	scan_state["entry_warning_emitted"] = true
+	push_warning("[GFResourceRegistryTools] scan_resource_paths 已达到 max_scanned_entries=%d，后续目录项已跳过。" % max_scanned_entries)
 
 
 static func _warn_scan_depth_limit(path: String, max_scan_depth: int, scan_state: Dictionary) -> void:
@@ -1037,7 +1020,8 @@ static func _make_path_category(relative_path: String) -> String:
 
 static func _get_path_override_fields(path: String, options: Dictionary) -> Dictionary:
 	var fields_by_path: Dictionary = GFVariantData.get_option_dictionary(options, "fields_by_path", {})
-	var normalized_path: String = path.replace("\\", "/")
+	var identity: GFResourceIdentity = _make_resource_identity(path, "", &"")
+	var normalized_path: String = _get_identity_load_path(identity)
 	var value: Variant = GFVariantData.get_option_value(
 		fields_by_path,
 		normalized_path,
@@ -1092,7 +1076,7 @@ static func _get_dependency_resource_path(dependency: String) -> String:
 
 
 static func _normalize_resource_path(path: String) -> String:
-	return _GF_PATH_TOOLS.normalize_resource_path(path, "", false)
+	return _get_identity_load_path(_make_resource_identity(path, "", &""))
 
 
 static func _get_id_override_fields(entry_id: StringName, options: Dictionary) -> Dictionary:

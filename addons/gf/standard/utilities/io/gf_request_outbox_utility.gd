@@ -384,6 +384,8 @@ func get_failed_requests() -> Array[GFRequestEnvelope]:
 func save_queue() -> Error:
 	if storage_path.is_empty():
 		return ERR_INVALID_PARAMETER
+	if not _is_allowed_storage_path(storage_path):
+		return ERR_UNAUTHORIZED
 
 	var base_dir: String = storage_path.get_base_dir()
 	if not base_dir.is_empty() and base_dir != "user://":
@@ -408,10 +410,12 @@ func save_queue() -> Error:
 ## [br]
 ## @return Godot 错误码。
 func load_queue() -> Error:
-	_invalidate_replay()
-	_queue.clear()
-	_failed_requests.clear()
-	if storage_path.is_empty() or not FileAccess.file_exists(storage_path):
+	if storage_path.is_empty():
+		return ERR_INVALID_PARAMETER
+	if not _is_allowed_storage_path(storage_path):
+		return ERR_UNAUTHORIZED
+	if not FileAccess.file_exists(storage_path):
+		_commit_loaded_state([], [])
 		queue_changed.emit(get_debug_snapshot())
 		return OK
 
@@ -425,13 +429,20 @@ func load_queue() -> Error:
 	if error != OK:
 		return error
 
-	var parsed: Variant = JSON.parse_string(text)
-	var data_value: Variant = GFVariantJsonCodec.json_compatible_to_variant(parsed)
+	var json: JSON = JSON.new()
+	if json.parse(text) != OK:
+		return ERR_PARSE_ERROR
+	var data_value: Variant = GFVariantJsonCodec.json_compatible_to_variant(json.data)
 	if not (data_value is Dictionary):
 		return ERR_PARSE_ERROR
 
 	var data: Dictionary = GFVariantData.as_dictionary(data_value)
-	_apply_storage_dict(data)
+	var parse_report: Dictionary = _parse_storage_dict(data)
+	if not GFVariantData.get_option_bool(parse_report, "ok"):
+		return ERR_PARSE_ERROR
+	var pending: Array[GFRequestEnvelope] = _get_parsed_envelopes(parse_report, "pending")
+	var failed: Array[GFRequestEnvelope] = _get_parsed_envelopes(parse_report, "failed")
+	_commit_loaded_state(pending, failed)
 	queue_changed.emit(get_debug_snapshot())
 	return OK
 
@@ -589,18 +600,56 @@ func _to_storage_dict() -> Dictionary:
 	}
 
 
-func _apply_storage_dict(data: Dictionary) -> void:
-	for entry_value: Variant in GFVariantData.get_option_array(data, "pending"):
-		if entry_value is Dictionary:
-			var envelope: GFRequestEnvelope = GFRequestEnvelope.from_dict(GFVariantData.as_dictionary(entry_value))
-			if envelope.is_valid():
-				_queue.append(envelope)
+func _parse_storage_dict(data: Dictionary) -> Dictionary:
+	if GFVariantData.get_option_int(data, "version", 0) != 1:
+		return { "ok": false }
+	var pending_report: Dictionary = _parse_envelope_array(GFVariantData.get_option_value(data, "pending"))
+	if not GFVariantData.get_option_bool(pending_report, "ok"):
+		return { "ok": false }
+	var failed_report: Dictionary = _parse_envelope_array(GFVariantData.get_option_value(data, "failed"))
+	if not GFVariantData.get_option_bool(failed_report, "ok"):
+		return { "ok": false }
+	return {
+		"ok": true,
+		"pending": GFVariantData.get_option_value(pending_report, "requests", []),
+		"failed": GFVariantData.get_option_value(failed_report, "requests", []),
+	}
 
-	for entry_value: Variant in GFVariantData.get_option_array(data, "failed"):
-		if entry_value is Dictionary:
-			var envelope: GFRequestEnvelope = GFRequestEnvelope.from_dict(GFVariantData.as_dictionary(entry_value))
-			if envelope.is_valid():
-				_failed_requests.append(envelope)
+
+func _parse_envelope_array(value: Variant) -> Dictionary:
+	if not (value is Array):
+		return { "ok": false }
+	var requests: Array[GFRequestEnvelope] = []
+	for entry_value: Variant in value:
+		if not (entry_value is Dictionary):
+			return { "ok": false }
+		var envelope: GFRequestEnvelope = GFRequestEnvelope.from_dict(GFVariantData.as_dictionary(entry_value))
+		if not envelope.is_valid():
+			return { "ok": false }
+		requests.append(envelope)
+	return { "ok": true, "requests": requests }
+
+
+func _get_parsed_envelopes(report: Dictionary, key: String) -> Array[GFRequestEnvelope]:
+	var result: Array[GFRequestEnvelope] = []
+	var values: Variant = GFVariantData.get_option_value(report, key, [])
+	if not (values is Array):
+		return result
+	for value: Variant in values:
+		if value is GFRequestEnvelope:
+			result.append(value)
+	return result
+
+
+func _commit_loaded_state(
+	pending: Array[GFRequestEnvelope],
+	failed: Array[GFRequestEnvelope]
+) -> void:
+	_invalidate_replay()
+	_queue.clear()
+	_failed_requests.clear()
+	_queue.append_array(pending)
+	_failed_requests.append_array(failed)
 
 
 func _get_request_ids(requests: Array[GFRequestEnvelope]) -> PackedStringArray:
@@ -612,6 +661,19 @@ func _get_request_ids(requests: Array[GFRequestEnvelope]) -> PackedStringArray:
 
 func _generate_request_id() -> String:
 	return "req_%d_%d" % [Time.get_unix_time_from_system(), randi()]
+
+
+func _is_allowed_storage_path(path: String) -> bool:
+	var normalized_path: String = path.replace("\\", "/").strip_edges()
+	if not normalized_path.begins_with("user://"):
+		return false
+	var relative_path: String = normalized_path.substr("user://".length())
+	if relative_path.is_empty():
+		return false
+	for segment: String in relative_path.split("/", false):
+		if segment == "..":
+			return false
+	return true
 
 
 func _store_string_checked(file: FileAccess, value: String) -> void:

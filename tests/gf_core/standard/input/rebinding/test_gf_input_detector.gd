@@ -6,19 +6,27 @@ extends GutTest
 
 var _detector: GFInputDetector
 var _received_event: InputEvent
+var _received_result: GFInputDetectionResult
 var _received_count: int
+var _received_result_count: int
 
 
 # --- Godot 生命周期方法 ---
 
 func before_each() -> void:
 	_received_event = null
+	_received_result = null
 	_received_count = 0
+	_received_result_count = 0
 	_detector = GFInputDetector.new()
 	get_tree().root.add_child(_detector)
 	var _connect_result_17: Variant = _detector.input_detected.connect(func(input_event: InputEvent) -> void:
 		_received_event = input_event
 		_received_count += 1
+	)
+	var _connect_result_21: Variant = _detector.detection_finished.connect(func(result: GFInputDetectionResult) -> void:
+		_received_result = result
+		_received_result_count += 1
 	)
 
 
@@ -41,6 +49,25 @@ func test_axis_detection_ignores_bool_events() -> void:
 	_detector._input(_make_joy_motion_event(JOY_AXIS_LEFT_X, 0.5))
 	assert_not_null(_received_event, "轴检测应接受超过阈值的手柄轴事件。")
 	assert_true(_received_event is InputEventJoypadMotion, "检测结果应保留原生轴事件类型。")
+	assert_not_null(_received_result, "检测器应发出结构化结果。")
+	assert_eq(_received_result.reason, GFInputDetectionResult.FinishReason.SUCCESS, "检测成功时应标记 success。")
+	assert_true(_received_result.is_success(), "成功结果应可直接判断。")
+
+
+## 验证默认检测只接收离散可绑定输入，避免鼠标移动或触屏拖拽误触发改键。
+func test_default_detection_ignores_motion_and_drag_events() -> void:
+	_detector.begin_detection()
+
+	_detector._input(_make_mouse_motion_event(Vector2(12.0, -4.0)))
+	_detector._input(_make_screen_drag_event(1, Vector2(8.0, 3.0)))
+
+	assert_null(_received_event, "默认检测不应接收鼠标移动或触屏拖拽。")
+	assert_true(_detector.is_detecting(), "忽略连续输入后检测应继续等待。")
+
+	_detector._input(_make_key_event(KEY_SPACE, true))
+
+	assert_not_null(_received_event, "后续离散输入仍应被接收。")
+	assert_true(_received_event is InputEventKey, "检测结果应保留离散输入事件类型。")
 
 
 ## 验证三维轴检测也接受手柄轴事件。
@@ -69,6 +96,23 @@ func test_countdown_delays_input_acceptance() -> void:
 	assert_not_null(_received_event, "倒计时结束后应接收输入。")
 
 
+func test_pre_clear_tracks_abort_touch_release_from_detection_start() -> void:
+	var abort_input_events: Array[InputEvent] = [_make_touch_event(7, true)]
+	_detector.abort_events = abort_input_events
+	_detector.wait_for_clear_before_detection = true
+
+	_detector.begin_detection([GFInputDetector.DeviceType.TOUCH])
+
+	assert_eq(_detector.get_detection_state(), GFInputDetector.DetectionState.PRE_CLEAR, "已按下取消触点应阻止检测立即接收输入。")
+	_detector._input(_make_touch_event(7, false))
+	assert_eq(_detector.get_detection_state(), GFInputDetector.DetectionState.DETECTING, "匹配 release 应结束前清理阶段。")
+
+	_detector._input(_make_touch_event(3, true))
+
+	assert_not_null(_received_event, "取消触点释放后应能检测新的触屏输入。")
+	assert_eq(_received_count, 1, "前清理 release 本身不应被误报为候选输入。")
+
+
 ## 验证无倒计时且无需清理时会立即进入接收状态。
 func test_detection_state_reports_accepting_phase() -> void:
 	_detector.countdown_seconds = 0.0
@@ -89,8 +133,12 @@ func test_timeout_covers_countdown_phase() -> void:
 	_detector._process(0.11)
 
 	assert_eq(_received_count, 1, "倒计时超时应发出一次检测结束信号。")
+	assert_eq(_received_result_count, 1, "倒计时超时应发出一次结构化结果。")
 	assert_null(_received_event, "超时结果应为空事件。")
+	assert_eq(_received_result.reason, GFInputDetectionResult.FinishReason.TIMEOUT, "超时结果应明确标记 timeout。")
+	assert_false(_received_result.is_success(), "超时结果不应视为成功。")
 	assert_eq(_detector.get_detection_state(), GFInputDetector.DetectionState.IDLE, "超时后检测器应回到空闲状态。")
+	assert_eq(_detector.get_last_detection_result(), _received_result, "检测器应保留最近一次结构化结果。")
 
 
 ## 验证触屏输入在等待释放时会由后续 release 事件完成检测。
@@ -106,7 +154,9 @@ func test_touch_detection_waits_for_matching_release_event() -> void:
 	_detector._input(_make_touch_event(3, false))
 
 	assert_eq(_received_count, 1, "匹配触点释放后应发出检测结果。")
+	assert_eq(_received_result_count, 1, "匹配触点释放后应发出结构化结果。")
 	assert_true(_received_event is InputEventScreenTouch, "检测结果应保留触屏事件类型。")
+	assert_eq(_received_result.reason, GFInputDetectionResult.FinishReason.SUCCESS, "触屏检测成功时应标记 success。")
 	if _received_event is InputEventScreenTouch:
 		var touch_event: InputEventScreenTouch = _received_event
 		assert_true(touch_event.pressed, "返回的检测结果应是最初捕获的按下事件。")
@@ -120,7 +170,46 @@ func test_begin_detection_cancels_previous_detection() -> void:
 
 	assert_eq(_received_count, 1, "重复 begin 应先结束上一轮检测。")
 	assert_null(_received_event, "被替换的检测应以空事件结束。")
+	assert_eq(_received_result.reason, GFInputDetectionResult.FinishReason.REPLACED, "被新检测替换时应明确标记 replaced。")
 	assert_true(_detector.is_detecting(), "新检测应继续进行。")
+
+
+## 验证显式取消会产生结构化取消结果。
+func test_cancel_detection_reports_cancelled_reason() -> void:
+	_detector.begin_detection()
+
+	_detector.cancel_detection()
+
+	assert_eq(_received_count, 1, "显式取消应发出旧版检测结束信号。")
+	assert_eq(_received_result_count, 1, "显式取消应发出结构化结果。")
+	assert_null(_received_event, "取消结果应为空事件。")
+	assert_eq(_received_result.reason, GFInputDetectionResult.FinishReason.CANCELLED, "显式取消应标记 cancelled。")
+	assert_false(_received_result.has_input_event(), "取消结果不应包含输入事件。")
+
+
+## 验证结构化结果可导出为 JSON 安全字典。
+func test_detection_result_dictionary_uses_input_identity() -> void:
+	var input_event: InputEventKey = _make_key_event(KEY_SPACE, true)
+
+	var result: GFInputDetectionResult = GFInputDetectionResult.create(
+		GFInputDetectionResult.FinishReason.SUCCESS,
+		input_event,
+		0.25,
+		int(GFInputAction.ValueType.BOOL),
+		[GFInputDetector.DeviceType.KEYBOARD]
+	)
+	var data: Dictionary = result.to_dictionary()
+	var reason_text: String = GFVariantData.get_option_string(data, &"reason")
+	var success: bool = GFVariantData.get_option_bool(data, &"success")
+	var raw_identity: Variant = data.get(&"input_identity", {})
+
+	assert_eq(reason_text, "success", "字典应包含稳定结束原因。")
+	assert_true(success, "字典应包含成功标记。")
+	assert_true(raw_identity is Dictionary, "字典应包含输入身份字典。")
+	if raw_identity is Dictionary:
+		var identity: Dictionary = raw_identity
+		var identity_kind: String = GFVariantData.get_option_string(identity, &"kind")
+		assert_eq(identity_kind, "key", "输入身份应复用统一事件身份。")
 
 
 # --- 私有/辅助方法 ---
@@ -140,8 +229,21 @@ func _make_joy_motion_event(axis: JoyAxis, axis_value: float) -> InputEventJoypa
 	return event
 
 
+func _make_mouse_motion_event(relative: Vector2) -> InputEventMouseMotion:
+	var event: InputEventMouseMotion = InputEventMouseMotion.new()
+	event.relative = relative
+	return event
+
+
 func _make_touch_event(index: int, pressed: bool) -> InputEventScreenTouch:
 	var event: InputEventScreenTouch = InputEventScreenTouch.new()
 	event.index = index
 	event.pressed = pressed
+	return event
+
+
+func _make_screen_drag_event(index: int, relative: Vector2) -> InputEventScreenDrag:
+	var event: InputEventScreenDrag = InputEventScreenDrag.new()
+	event.index = index
+	event.relative = relative
 	return event

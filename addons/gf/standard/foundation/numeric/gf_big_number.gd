@@ -100,13 +100,25 @@ static func from_float(value: float) -> GFBigNumber:
 ## [br]
 ## @api public
 ## [br]
+## @since 8.0.0
+## [br]
 ## @param value: 原始字符串，如 "12345"、"1.23e8"。
 ## [br]
+## @param max_input_length: 最大输入字符数；小于等于 0 时使用框架默认预算。
+## [br]
 ## @return 解析后的大数实例。
-static func from_string(value: String) -> GFBigNumber:
-	var trimmed: String = value.strip_edges().replace("_", "").replace(",", "")
-	if trimmed.is_empty():
+static func from_string(
+	value: String,
+	max_input_length: int = GFDecimalStringFormatter.DEFAULT_MAX_NUMERIC_TEXT_LENGTH
+) -> GFBigNumber:
+	var normalization: Dictionary = _DECIMAL_STRING_FORMATTER.normalize_numeric_text(value, max_input_length)
+	if not GFVariantData.get_option_bool(normalization, "ok"):
+		push_error("[GFBigNumber] 无法解析数字字符串（%s）：%s" % [
+			GFVariantData.get_option_string(normalization, "error", "invalid_input"),
+			value.left(128),
+		])
 		return GFBigNumber.zero()
+	var trimmed: String = GFVariantData.get_option_string(normalization, "text")
 
 	var exponent_offset: int = 0
 	var scientific_index: int = maxi(trimmed.find("e"), trimmed.find("E"))

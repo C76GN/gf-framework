@@ -79,8 +79,8 @@ func test_allow_floats_has_golden_json_and_hash() -> void:
 	}
 	var expected_json: String = (
 		"{\"__gf_deterministic_variant__\":{\"type\":\"Dictionary\",\"value\":["
-		+ "{\"key\":{\"__gf_deterministic_variant__\":{\"type\":\"String\",\"value\":\"vector\",\"version\":1}},\"value\":{\"__gf_deterministic_variant__\":{\"type\":\"Vector2\",\"value\":[\"1.5\",\"-2.25\"],\"version\":1}}},"
-		+ "{\"key\":{\"__gf_deterministic_variant__\":{\"type\":\"String\",\"value\":\"zero\",\"version\":1}},\"value\":{\"__gf_deterministic_variant__\":{\"type\":\"Float\",\"value\":\"0.0\",\"version\":1}}}"
+		+ "{\"key\":{\"__gf_deterministic_variant__\":{\"type\":\"String\",\"value\":\"vector\",\"version\":1}},\"value\":{\"__gf_deterministic_variant__\":{\"type\":\"Vector2\",\"value\":[\"ieee754le:000000000000f83f\",\"ieee754le:00000000000002c0\"],\"version\":1}}},"
+		+ "{\"key\":{\"__gf_deterministic_variant__\":{\"type\":\"String\",\"value\":\"zero\",\"version\":1}},\"value\":{\"__gf_deterministic_variant__\":{\"type\":\"Float\",\"value\":\"ieee754le:0000000000000000\",\"version\":1}}}"
 		+ "],\"version\":1}}"
 	)
 
@@ -91,7 +91,7 @@ func test_allow_floats_has_golden_json_and_hash() -> void:
 	)
 	assert_eq(
 		GF_DETERMINISTIC_VARIANT_SERIALIZER.sha256(source, options),
-		"80b7c121b743f50c826d2dc9d5d07cbd5f91ebfab5665966c05fb686f41d48e0",
+		"ff2ea02d71d2f893b464740387abc91b093cf9fd4bde3bec40a90d7a519e8c4c",
 		"显式允许浮点时 canonical hash 应固定。"
 	)
 
@@ -208,6 +208,30 @@ func test_finite_floats_can_be_enabled_and_negative_zero_is_normalized() -> void
 	assert_true(vector_text.contains("\"type\":\"Vector2\""), "浮点向量应保留类型标记。")
 
 
+func test_adjacent_float_values_have_distinct_canonical_encodings() -> void:
+	var options: Dictionary = {
+		"allow_floats": true,
+	}
+	var lower_json: String = GF_DETERMINISTIC_VARIANT_SERIALIZER.to_canonical_json(1.0, options)
+	var upper_json: String = GF_DETERMINISTIC_VARIANT_SERIALIZER.to_canonical_json(1.0000000000000002, options)
+	var lower_packed_json: String = GF_DETERMINISTIC_VARIANT_SERIALIZER.to_canonical_json(
+		PackedFloat64Array([1.0]),
+		options
+	)
+	var upper_packed_json: String = GF_DETERMINISTIC_VARIANT_SERIALIZER.to_canonical_json(
+		PackedFloat64Array([1.0000000000000002]),
+		options
+	)
+
+	assert_ne(lower_json, upper_json, "相邻可观察 float 不得碰撞到同一 canonical 文本。")
+	assert_ne(lower_packed_json, upper_packed_json, "PackedFloat64Array 也必须保留完整浮点位模式。")
+	assert_ne(
+		GF_DETERMINISTIC_VARIANT_SERIALIZER.sha256(1.0, options),
+		GF_DETERMINISTIC_VARIANT_SERIALIZER.sha256(1.0000000000000002, options),
+		"相邻 float 的 canonical hash 必须不同。"
+	)
+
+
 func test_nonfinite_float_is_rejected_even_when_float_option_is_enabled() -> void:
 	var text: String = GF_DETERMINISTIC_VARIANT_SERIALIZER.to_canonical_json(INF, {
 		"allow_floats": true,
@@ -230,6 +254,26 @@ func test_max_depth_rejects_too_deep_structures() -> void:
 
 	assert_eq(text, "", "超过 max_depth 的结构不应被编码。")
 	assert_push_error("[GFDeterministicVariantSerializer] 输入结构超过 max_depth。")
+
+
+func test_resource_budgets_reject_wide_long_and_oversized_output() -> void:
+	var wide_text: String = GF_DETERMINISTIC_VARIANT_SERIALIZER.to_canonical_json([1, 2], {
+		"max_items": 2,
+	})
+	assert_eq(wide_text, "", "超过 max_items 的宽结构应失败。")
+	assert_push_error("[GFDeterministicVariantSerializer] 输入集合超过 max_items。")
+
+	var long_text: String = GF_DETERMINISTIC_VARIANT_SERIALIZER.to_canonical_json("abcd", {
+		"max_string_length": 3,
+	})
+	assert_eq(long_text, "", "超过 max_string_length 的文本应失败。")
+	assert_push_error("[GFDeterministicVariantSerializer] 字符串超过 max_string_length。")
+
+	var oversized_output: String = GF_DETERMINISTIC_VARIANT_SERIALIZER.to_canonical_json(1, {
+		"max_output_bytes": 8,
+	})
+	assert_eq(oversized_output, "", "超过 max_output_bytes 的规范输出应失败。")
+	assert_push_error("[GFDeterministicVariantSerializer] 规范输出超过 max_output_bytes。")
 
 
 func test_objects_and_circular_references_are_rejected() -> void:

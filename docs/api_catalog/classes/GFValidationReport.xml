@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFValidationReport" path="addons/gf/standard/foundation/validation/gf_validation_report.gd" module="standard" extends="RefCounted" classDigest="e07767d7a09e03fe62f75577f03e0487f11e7f8d254e80cfb66f2777708622a9">
+<class name="GFValidationReport" path="addons/gf/standard/foundation/validation/gf_validation_report.gd" module="standard" extends="RefCounted" classDigest="3d5c0e1ee78262ac00ace2158fd89aa4a69dd4f59450434af4732f00607221ed">
 	<description>GFValidationReport: 通用校验报告数据结构。
 用于聚合 `GFValidationIssue`，提供错误/警告统计、健康状态、摘要、下一步建议
 和字典序列化。报告不绑定具体配置、存档、节点或编辑器业务语义。</description>
@@ -218,6 +218,20 @@
 				<tag name="schema">additional_fields: Dictionary of caller-defined serialized fields.</tag>
 				<tag name="schema">options: Dictionary controlling report serialization options.</tag>
 				<tag name="schema">return: Dictionary serialized report payload.</tag>
+			</tags>
+		</member>
+		<member kind="method" name="to_json_compatible_dict">
+			<signature>func to_json_compatible_dict(additional_fields: Dictionary = {}, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>转换为 JSON-safe 报告字典。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">additional_fields: 附加到输出中的调用方字段。</tag>
+				<tag name="param">options: 传给 to_dict() 的输出控制。</tag>
+				<tag name="return">JSON-safe 报告字典。</tag>
+				<tag name="schema">additional_fields: Dictionary of caller-defined serialized fields.</tag>
+				<tag name="schema">options: Dictionary controlling report serialization options.</tag>
+				<tag name="schema">return: Dictionary serialized report payload made safe for JSON.stringify().</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="duplicate_report">

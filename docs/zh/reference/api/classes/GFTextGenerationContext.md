@@ -9,7 +9,7 @@
 - 类别：运行时句柄 (`runtime_handle`)
 - 首次版本：`7.0.0`
 
-安全的纯数据文本生成上下文。 提供显式数据 scope、严格缺失检查、简单 token 替换、输出缓冲和预算诊断。 token 只解析数据路径，不执行表达式、脚本或宿主对象方法。
+安全的纯数据文本生成上下文。 提供显式数据 scope、严格缺失检查、简单 token 替换、可选输出格式化、输出缓冲和预算诊断。 token 只解析数据路径，不执行表达式、脚本或宿主对象方法。
 
 ## 成员概览
 
@@ -29,6 +29,7 @@
 | 方法 | [`has_value`](#member-gftextgenerationcontext-methods-has_value) | `func has_value(data_path: String) -> bool:` |
 | 方法 | [`get_value`](#member-gftextgenerationcontext-methods-get_value) | `func get_value(data_path: String, default_value: Variant = null, source_span: Variant = null) -> Variant:` |
 | 方法 | [`replace_tokens`](#member-gftextgenerationcontext-methods-replace_tokens) | `func replace_tokens(text: String, options: Dictionary = {}) -> String:` |
+| 方法 | [`render_template`](#member-gftextgenerationcontext-methods-render_template) | `func render_template(template_text: String, options: Dictionary = {}) -> String:` |
 | 方法 | [`append_text`](#member-gftextgenerationcontext-methods-append_text) | `func append_text(text: String, source_span: Variant = null) -> bool:` |
 | 方法 | [`append_line`](#member-gftextgenerationcontext-methods-append_line) | `func append_line(text: String = "", source_span: Variant = null) -> bool:` |
 | 方法 | [`append_indented_line`](#member-gftextgenerationcontext-methods-append_indented_line) | `func append_indented_line(text: String = "", source_span: Variant = null) -> bool:` |
@@ -314,13 +315,39 @@ func replace_tokens(text: String, options: Dictionary = {}) -> String:
 | 名称 | 说明 |
 |---|---|
 | `text` | 输入文本。 |
-| `options` | 可选配置，支持 start_token、end_token、missing_text、max_replacements 和 source_span。 |
+| `options` | 可选配置，支持 start_token、end_token、missing_text、max_replacements、source_span 和 value_formatter。 |
 
 返回：替换后的文本。
 
 结构：
 
-- `options`: Dictionary，token 替换配置。
+- `options`: Dictionary，token 替换配置；value_formatter 为 Callable(context: Dictionary) -> Variant，context 包含 path、value、fallback_text、source_span 和 metadata。
+
+<a id="member-gftextgenerationcontext-methods-render_template"></a>
+
+### `render_template`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func render_template(template_text: String, options: Dictionary = {}) -> String:
+```
+
+渲染安全模板文本。 支持普通 token 替换、`{{ for item in items }}` / `{{ end }}` 循环块， `{{ empty items }}` / `{{ end_empty }}` 空态块，以及 `{{ comment note }}` 注释。 模板块只读取纯数据路径， 不执行表达式、函数或对象方法。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `template_text` | 模板文本。 |
+| `options` | 渲染选项，支持 replace_tokens() 选项，以及 max_loop_items、max_template_depth 和 loop_key。 |
+
+返回：渲染后的文本。
+
+结构：
+
+- `options`: Dictionary，可包含 start_token、end_token、missing_text、max_replacements、source_span、value_formatter、max_loop_items、max_template_depth 和 loop_key。
 
 <a id="member-gftextgenerationcontext-methods-append_text"></a>
 

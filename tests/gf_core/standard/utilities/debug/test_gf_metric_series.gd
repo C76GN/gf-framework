@@ -19,6 +19,23 @@ func test_metric_series_keeps_bounded_samples_and_stats() -> void:
 	assert_almost_eq(series.get_max_value(), 40.0, 0.001, "最大值应来自保留采样。")
 	assert_almost_eq(series.get_average_value(), 30.0, 0.001, "平均值应来自保留采样。")
 	assert_eq(series.make_sparkline(3).length(), 3, "sparkline 应按宽度输出。")
+	var snapshot: Dictionary = series.to_dict(false, 3)
+	assert_almost_eq(GFVariantData.get_option_float(snapshot, "min_value"), 20.0, 0.001, "快照应复用同一轮统计的最小值。")
+	assert_almost_eq(GFVariantData.get_option_float(snapshot, "max_value"), 40.0, 0.001, "快照应复用同一轮统计的最大值。")
+	assert_almost_eq(GFVariantData.get_option_float(snapshot, "average_value"), 30.0, 0.001, "快照应复用同一轮统计的平均值。")
+
+
+func test_metric_series_rejects_non_finite_samples() -> void:
+	var series: GFMetricSeries = GFMetricSeries.new()
+	series.add_sample(NAN)
+	series.add_sample(INF)
+	series.add_sample(1.0, INF)
+
+	var samples: Array[Dictionary] = series.get_samples()
+
+	assert_eq(series.get_sample_count(), 1, "NaN 和 INF 采样不应进入序列。")
+	assert_almost_eq(GFVariantData.get_option_float(samples[0], "value"), 1.0, 0.001, "有效值应保留。")
+	assert_false(is_inf(GFVariantData.get_option_float(samples[0], "timestamp_seconds")), "非有限时间戳应回退到当前时间。")
 
 
 func test_debug_overlay_records_metric_series_panel() -> void:

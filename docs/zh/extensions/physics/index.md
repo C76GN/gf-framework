@@ -39,7 +39,10 @@ func _physics_process(delta: float) -> void:
 - Physics 只提供场采样和方向计算。
 - 角色移动、碰撞响应、朝向修正、相机控制、网络同步、性能分区和具体玩法规则由项目代码负责。
 - 项目可以继承 `GFGravityField3D` 重写方向计算，也可以把自定义对象加入同一分组，只要实现 `get_acceleration_at()`。
-- 同一帧重复采样默认会缓存结果；缓存键包含位置、分组、组合策略和 fallback 配置。如果项目在同一帧内移动 field 或需要强制重新采样，可以关闭 `cache_samples_per_frame`。
+- 项目也可以用 `GFObjectCandidateRegistry` 或自定义 provider 提供候选力场，再调用 `sample_field_provider(provider, options)` 采样。provider 适合把空间分区、可见性、LOD 或编辑器工具选集先收敛成候选对象；Probe 仍只读取 `get_acceleration_at()` 和可选 `get_gravity_priority()`。
+- Probe 只会采样同一 `World3D` 中的分组对象；自定义 field 的 `get_acceleration_at(world_position)` 必须能接收一个位置参数并返回有限 `Vector3`。
+- 同一帧重复采样默认会缓存结果；缓存键包含位置、分组、组合策略、fallback 配置和内置 field 的关键参数。如果项目在同一帧内移动自定义 field 或需要强制重新采样，可以关闭 `cache_samples_per_frame`。
+- `STRONGEST` 模式在加速度长度相同时使用稳定顺序打破平局，避免场景树分组枚举顺序影响结果。
 
 ## API Reference
 

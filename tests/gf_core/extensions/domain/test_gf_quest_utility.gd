@@ -65,6 +65,39 @@ func test_float_payload_amount_is_rounded() -> void:
 	assert_eq(GFVariantData.get_option_int(q_data, "current_count", -1), 2, "float 进度载荷应四舍五入为最接近的整数。")
 
 
+func test_non_finite_float_payload_amount_uses_safe_default() -> void:
+	_quest.start_quest(&"finite_progress", &"progress_event", 5)
+
+	Gf.send_simple_event(&"progress_event", NAN)
+	Gf.send_simple_event(&"progress_event", INF)
+
+	var q_data: Dictionary = _quest.get_quest_report(&"finite_progress")
+	assert_eq(GFVariantData.get_option_int(q_data, "current_count", -1), 2, "非有限 float 载荷应使用稳定默认增量。")
+	assert_push_error("[GFQuestUtility] payload.amount 必须是有限数，已回退为默认进度 1。")
+	assert_push_error("[GFQuestUtility] payload.amount 必须是有限数，已回退为默认进度 1。")
+
+
+func test_progress_addition_saturates_before_int64_overflow() -> void:
+	_quest.start_quest(&"overflow_safe", &"progress_event", 10)
+
+	Gf.send_simple_event(&"progress_event", 1)
+	Gf.send_simple_event(&"progress_event", 9223372036854775807)
+
+	var q_data: Dictionary = _quest.get_quest_report(&"overflow_safe")
+	assert_eq(GFVariantData.get_option_int(q_data, "current_count", -1), 10, "极大增量应在加法前判溢出并夹到目标值。")
+	assert_true(_quest.is_quest_completed(&"overflow_safe"), "溢出防护不得把正向进度翻转为负数。")
+
+
+func test_out_of_range_float_payload_uses_safe_default_before_rounding() -> void:
+	_quest.start_quest(&"float_range", &"progress_event", 5)
+
+	Gf.send_simple_event(&"progress_event", 1.0e30)
+
+	var q_data: Dictionary = _quest.get_quest_report(&"float_range")
+	assert_eq(GFVariantData.get_option_int(q_data, "current_count", -1), 1, "超出 int64 的 float 不得进入 roundi。")
+	assert_push_error("[GFQuestUtility] payload.amount 超出 int64 范围，已回退为默认进度 1。")
+
+
 func test_negative_payload_amount_is_ignored_by_default() -> void:
 	_quest.start_quest(&"hold_progress", &"progress_event", 3)
 
@@ -184,6 +217,30 @@ func test_acceptance_condition_can_block_accepting_quest() -> void:
 	assert_true(_quest.accept_quest(&"locked"), "清空条件后应可接取。")
 
 
+func test_defined_quest_rejects_empty_target_event_up_front() -> void:
+	watch_signals(_quest)
+
+	_quest.define_quest(&"broken", &"", 1)
+
+	assert_eq(_quest.get_quest_report(&"broken"), {}, "可接取任务定义阶段也应拒绝空 target_event。")
+	assert_signal_not_emitted(_quest, "quest_available", "无效任务定义不应进入 available。")
+	assert_push_error("[GFQuestUtility] quest_id 和 target_event 不能为空。")
+
+
+func test_condition_dictionary_must_declare_ok_field() -> void:
+	watch_signals(_quest)
+	_quest.define_quest(&"strict", &"gate_event", 1)
+	_quest.add_acceptance_condition(&"strict", func(_quest_id: StringName, _report: Dictionary) -> Dictionary:
+		return {
+			"reason": "ambiguous",
+		}
+	)
+
+	assert_false(_quest.accept_quest(&"strict"), "条件字典缺少 ok 字段时应按无效条件结果拒绝。")
+	assert_eq(_quest.get_quest_status(&"strict"), GFQuestUtility.STATUS_AVAILABLE, "无效条件结果不应推进任务生命周期。")
+	assert_signal_emitted(_quest, "quest_acceptance_blocked", "无效条件结果应通过阻塞信号显式暴露。")
+
+
 func test_available_quest_cannot_be_completed_before_acceptance() -> void:
 	watch_signals(_quest)
 	_quest.define_quest(&"locked", &"gate_event", 1)
@@ -229,6 +286,20 @@ func test_quest_parent_child_tree_report_aggregates_progress() -> void:
 	assert_eq(GFVariantData.get_option_int(report, "total_count"), 3, "树报告应统计根和所有子任务。")
 	assert_eq(GFVariantData.get_option_int(report, "completed_count"), 1, "树报告应统计已完成任务数量。")
 	assert_almost_eq(GFVariantData.get_option_float(report, "aggregate_progress"), 1.0 / 3.0, 0.001, "树报告应提供聚合进度。")
+
+
+func test_quest_tree_report_handles_deep_valid_chains_iteratively() -> void:
+	const QUEST_COUNT: int = 1024
+	for index: int in range(QUEST_COUNT):
+		var quest_id: StringName = StringName("quest_%04d" % index)
+		_quest.define_quest(quest_id, StringName("event_%04d" % index), 1)
+		if index > 0:
+			var parent_id: StringName = StringName("quest_%04d" % (index - 1))
+			assert_true(_quest.set_quest_parent(quest_id, parent_id), "合法深链应可建立父子关系。")
+
+	var report: Dictionary = _quest.get_quest_tree_report(&"quest_0000")
+
+	assert_eq(GFVariantData.get_option_int(report, "total_count"), QUEST_COUNT, "深任务树报告应稳定统计全部节点。")
 
 
 func test_dispose_unregisters_simple_event_listener() -> void:

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFHurtBox2D" path="addons/gf/extensions/combat/hit_detection/gf_hurt_box_2d.gd" module="extensions/combat" extends="Area2D" classDigest="31b8303585aafc30dbb46e613146fb7cd70448378ff1014d1029ac8835758a50">
+<class name="GFHurtBox2D" path="addons/gf/extensions/combat/hit_detection/gf_hurt_box_2d.gd" module="extensions/combat" extends="Area2D" classDigest="76502c23afc46e342c9b24d5874cfe5b346b555e1fca53405d176a6b6284d16a">
 	<description>GFHurtBox2D: 2D 通用命中接收区域。
 节点只过滤和接收 GFCombatHitContext，不直接修改生命、属性或 Buff。</description>
 	<tags>
@@ -15,7 +15,8 @@
 				<tag name="api">public</tag>
 				<tag name="param">context: 命中上下文。</tag>
 				<tag name="param">report: 当前结果报告副本。</tag>
-				<tag name="schema">report: Dictionary，当前命中接收报告，包含 ok、hit_id、receiver、reason、message 和 metadata。</tag>
+				<tag name="schema">report: Dictionary，当前命中接收报告，包含 ok、hit_id、receiver(JSON-safe 摘要)、reason、message 和 metadata。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="signal" name="hit_received">
@@ -25,7 +26,8 @@
 				<tag name="api">public</tag>
 				<tag name="param">context: 命中上下文。</tag>
 				<tag name="param">report: 结果报告。</tag>
-				<tag name="schema">report: Dictionary，统一命中接收报告，包含 ok、hit_id、receiver、reason、message 和 metadata。</tag>
+				<tag name="schema">report: Dictionary，统一命中接收报告，包含 ok、hit_id、receiver(JSON-safe 摘要)、reason、message 和 metadata。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="signal" name="hit_rejected">
@@ -35,7 +37,8 @@
 				<tag name="api">public</tag>
 				<tag name="param">context: 命中上下文。</tag>
 				<tag name="param">report: 结果报告。</tag>
-				<tag name="schema">report: Dictionary，统一命中接收报告，包含 ok、hit_id、receiver、reason、message 和 metadata。</tag>
+				<tag name="schema">report: Dictionary，统一命中接收报告，包含 ok、hit_id、receiver(JSON-safe 摘要)、reason、message 和 metadata。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="signal" name="enabled_changed">
@@ -44,6 +47,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">enabled: 当前是否允许接收命中。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</signals>
@@ -55,6 +59,7 @@
 			<description>是否允许接收命中。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="accepted_hit_ids" decorators="@export">
@@ -62,6 +67,7 @@
 			<description>非空时，只接受这些命中 ID。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="rejected_hit_ids" decorators="@export">
@@ -69,6 +75,7 @@
 			<description>始终拒绝的命中 ID。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="metadata" decorators="@export">
@@ -77,6 +84,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="schema">metadata: Dictionary，接收器自定义命中元数据；会进入命中接收报告。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="receiver_path" decorators="@export_node_path(&quot;Node&quot;)">
@@ -84,6 +92,7 @@
 			<description>可选业务接收节点路径；为空时由当前 HurtBox 直接接收。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="collision_shape_config" decorators="@export">
@@ -91,6 +100,7 @@
 			<description>可选碰撞形状配置。设置后可自动生成或更新 CollisionShape2D 子节点。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="collision_shape_configs" decorators="@export">
@@ -98,6 +108,7 @@
 			<description>可选碰撞形状配置列表。非空时可自动生成或更新多个 CollisionShape2D 子节点。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="auto_apply_collision_shape_config" decorators="@export">
@@ -105,6 +116,7 @@
 			<description>是否在进入场景树或配置变化时自动应用碰撞形状配置。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="validation_callback">
@@ -113,6 +125,7 @@
 返回 bool 可直接决定是否接受；返回 Dictionary 可覆盖 ok、reason、metadata 等报告字段。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</properties>
@@ -124,6 +137,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">config: 可选配置；为空时使用 collision_shape_config。</tag>
 				<tag name="return">创建或更新的 CollisionShape2D；配置无效时返回 null。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="apply_collision_shape_configs">
@@ -133,6 +147,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">configs: 可选配置列表；为空时使用 collision_shape_configs。</tag>
 				<tag name="return">创建或更新的 CollisionShape2D 列表。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_generated_collision_shape">
@@ -141,6 +156,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">存在则返回 CollisionShape2D，否则返回 null。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_generated_collision_shapes">
@@ -149,6 +165,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">已生成的 CollisionShape2D 列表。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="clear_generated_collision_shape">
@@ -156,6 +173,7 @@
 			<description>移除框架管理的 CollisionShape2D 子节点。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="clear_generated_collision_shapes">
@@ -163,6 +181,7 @@
 			<description>移除框架管理的全部 CollisionShape2D 子节点。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="can_receive_hit">
@@ -172,6 +191,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">p_hit_id: 命中 ID。</tag>
 				<tag name="return">可接受时返回 true。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="receive_hit">
@@ -181,7 +201,8 @@
 				<tag name="api">public</tag>
 				<tag name="param">context: 命中上下文。</tag>
 				<tag name="return">统一结果报告。</tag>
-				<tag name="schema">return: Dictionary，统一命中接收报告，包含 ok、hit_id、receiver、reason、message 和 metadata。</tag>
+				<tag name="schema">return: Dictionary，统一命中接收报告，包含 ok、hit_id、receiver(JSON-safe 摘要)、reason、message 和 metadata。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</methods>

@@ -93,7 +93,9 @@ func apply(node: Node, payload: Dictionary, _context: Dictionary = {}) -> Dictio
 	if control == null:
 		return make_result(false, "Node is not Control.")
 
-	_apply_property_specs(control, payload, _PROPERTY_SPECS)
+	var errors: Array[String] = _apply_property_specs(control, payload, _PROPERTY_SPECS)
+	if not errors.is_empty():
+		return make_result(false, "; ".join(errors))
 	return make_result(true)
 
 

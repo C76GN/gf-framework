@@ -168,6 +168,37 @@ func test_operation_diagnostics_records_async_snapshots() -> void:
 	assert_eq(GFVariantData.get_option_string(incidents[0], "message"), "network", "incident 应优先使用 snapshot error。")
 
 
+func test_operation_diagnostics_json_compatible_export_redacts_raw_metadata() -> void:
+	var diagnostics: GFOperationDiagnosticsUtility = GFOperationDiagnosticsUtility.new()
+	var operation: Dictionary = diagnostics.record_async_snapshot(&"async.load", {
+		"completed": false,
+		"owner": self,
+		"path": "res://private/debug.json",
+		"unstable": NAN,
+	}, {
+		"component": &"loader",
+		"metadata": {
+			"owner": self,
+			"path": "res://private/debug.json",
+		},
+	})
+
+	var exported: Dictionary = diagnostics.to_json_compatible_record(operation)
+	var metadata: Dictionary = GFVariantData.get_option_dictionary(exported, "metadata")
+	var async_snapshot: Dictionary = GFVariantData.get_option_dictionary(metadata, "async_snapshot")
+	var owner_marker: Dictionary = GFVariantData.get_option_dictionary(
+		GFVariantData.get_option_dictionary(async_snapshot, "owner"),
+		"__gf_report_value__"
+	)
+	var json_text: String = JSON.stringify(exported)
+
+	assert_true(GFVariantData.get_option_bool(owner_marker, "redacted"), "JSON-safe 导出应脱敏运行时对象。")
+	assert_eq(GFVariantData.get_option_string(metadata, "path"), "<redacted_path>", "metadata 路径默认应脱敏。")
+	assert_eq(GFVariantData.get_option_string(async_snapshot, "path"), "<redacted_path>", "async snapshot 路径默认应脱敏。")
+	assert_true(json_text.contains("\"Float\""), "非有限 float 应通过 typed marker 输出。")
+	assert_false(json_text.contains(":null"), "JSON-safe 导出不应触发 NaN -> null。")
+
+
 func test_operation_diagnostics_updates_existing_async_operation_id() -> void:
 	var diagnostics: GFOperationDiagnosticsUtility = GFOperationDiagnosticsUtility.new()
 
@@ -197,9 +228,127 @@ func test_operation_diagnostics_updates_existing_async_operation_id() -> void:
 	assert_eq(GFVariantData.get_option_int(health, "open_operation_count"), 0, "terminal 快照后不应残留 running 操作。")
 
 
+func test_operation_diagnostics_records_cancelled_async_snapshot_as_cancelled() -> void:
+	var diagnostics: GFOperationDiagnosticsUtility = GFOperationDiagnosticsUtility.new()
+
+	var _pending_operation: Dictionary = diagnostics.record_async_snapshot(&"async.load", {
+		"completed": false,
+		"status": &"pending",
+	}, {
+		"operation_id": &"asset_cancelled",
+		"component": &"loader",
+	})
+	var cancelled_operation: Dictionary = diagnostics.record_async_snapshot(&"async.load", {
+		"completed": true,
+		"cancelled": true,
+		"status": &"cancelled",
+		"cancel_reason": &"user",
+		"duration_msec": 8,
+	}, {
+		"operation_id": &"asset_cancelled",
+		"component": &"loader",
+	})
+	var health: Dictionary = diagnostics.get_health_snapshot()
+	var incidents: Array[Dictionary] = diagnostics.get_incidents(0, {
+		"category": &"async",
+		"code": &"async_cancelled",
+	})
+
+	assert_eq(GFVariantData.get_option_string_name(cancelled_operation, "state"), &"cancelled", "取消的 async 快照应记录为 cancelled 终态。")
+	assert_eq(GFVariantData.get_option_string_name(cancelled_operation, "current_state_status"), GFOperationDiagnosticsUtility.STATE_CANCELLED, "取消终态应保留 cancelled 状态语义。")
+	assert_false(GFVariantData.get_option_bool(cancelled_operation, "success"), "取消不应被记录为成功。")
+	assert_eq(GFVariantData.get_option_int(health, "failed_operation_count"), 0, "取消操作不应计入 failed operation。")
+	assert_eq(GFVariantData.get_option_int(health, "open_operation_count"), 0, "取消操作不应残留为 open operation。")
+	assert_eq(incidents.size(), 1, "取消异步快照应记录 async_cancelled incident。")
+	assert_eq(GFVariantData.get_option_string_name(incidents[0], "severity"), GFOperationDiagnosticsUtility.SEVERITY_WARNING, "取消 incident 应保持 warning 级别。")
+
+
+func test_operation_diagnostics_records_sample_stats_and_health() -> void:
+	var diagnostics: GFOperationDiagnosticsUtility = GFOperationDiagnosticsUtility.new()
+	diagnostics.slow_operation_threshold_ms = 10.0
+
+	var first_sample: Dictionary = diagnostics.record_sample(&"tools.parse", 4.0, {
+		"component": &"importer",
+		"metadata": {
+			"rows": 2,
+		},
+	})
+	var second_sample: Dictionary = diagnostics.record_sample(&"tools.parse", 12.0, {
+		"component": &"importer",
+		"metadata": {
+			"chunks": 3,
+		},
+	})
+	var health: Dictionary = diagnostics.get_health_snapshot()
+	var debug_snapshot: Dictionary = diagnostics.get_debug_snapshot()
+	var metadata: Dictionary = GFVariantData.get_option_dictionary(second_sample, "metadata")
+	var slowest_sample: Dictionary = GFVariantData.get_option_dictionary(health, "slowest_sample")
+
+	assert_eq(GFVariantData.get_option_int(first_sample, "sample_count"), 1, "首次采样应创建统计。")
+	assert_eq(GFVariantData.get_option_int(second_sample, "sample_count"), 2, "同一 sample_id 应聚合调用次数。")
+	assert_eq(GFVariantData.get_option_float(second_sample, "total_duration_ms"), 16.0, "采样统计应累计总耗时。")
+	assert_eq(GFVariantData.get_option_float(second_sample, "average_duration_ms"), 8.0, "采样统计应计算平均耗时。")
+	assert_eq(GFVariantData.get_option_float(second_sample, "min_duration_ms"), 4.0, "采样统计应保留最小耗时。")
+	assert_eq(GFVariantData.get_option_float(second_sample, "max_duration_ms"), 12.0, "采样统计应保留最大耗时。")
+	assert_eq(GFVariantData.get_option_int(second_sample, "slow_sample_count"), 1, "超过阈值的采样应计入慢采样。")
+	assert_eq(GFVariantData.get_option_int(metadata, "rows"), 2, "采样 metadata 应保留首次写入字段。")
+	assert_eq(GFVariantData.get_option_int(metadata, "chunks"), 3, "采样 metadata 应合并后续写入字段。")
+	assert_eq(GFVariantData.get_option_int(health, "sample_stat_count"), 1, "健康快照应包含采样统计数量。")
+	assert_eq(GFVariantData.get_option_int(health, "slow_sample_count"), 1, "健康快照应包含慢采样数量。")
+	assert_eq(GFVariantData.get_option_string_name(health, "status"), &"warning", "慢采样应把健康状态提升为 warning。")
+	assert_eq(GFVariantData.get_option_string_name(slowest_sample, "sample_id"), &"tools.parse", "健康快照应包含最慢采样统计。")
+	assert_eq(GFVariantData.get_option_int(debug_snapshot, "sample_stat_count"), 1, "调试快照应包含采样统计数量。")
+
+
+func test_operation_diagnostics_records_samples_from_ticks_and_filters() -> void:
+	var diagnostics: GFOperationDiagnosticsUtility = GFOperationDiagnosticsUtility.new()
+
+	var first_sample: Dictionary = diagnostics.record_sample_from_ticks(&"tools.read", 1000, {
+		"component": &"loader",
+		"ended_ticks_usec": 6000,
+	})
+	var _second_sample: Dictionary = diagnostics.record_sample(&"tools.write", 3.0, {
+		"component": &"writer",
+	})
+	var loader_stats: Array[Dictionary] = diagnostics.get_sample_stats(0, {
+		"component": &"loader",
+	})
+	var write_stats: Array[Dictionary] = diagnostics.get_sample_stats(0, {
+		"sample_id": &"tools.write",
+	})
+	var read_stat: Dictionary = diagnostics.get_sample_stat(&"tools.read")
+	var removed_count: int = diagnostics.clear_sample_stats(&"tools.read")
+
+	assert_eq(GFVariantData.get_option_float(first_sample, "last_duration_ms"), 5.0, "tick 采样应按微秒差换算毫秒。")
+	assert_eq(loader_stats.size(), 1, "采样统计应支持 component 过滤。")
+	assert_eq(write_stats.size(), 1, "采样统计应支持 sample_id 过滤。")
+	assert_eq(GFVariantData.get_option_string_name(read_stat, "sample_id"), &"tools.read", "单项读取应返回采样统计。")
+	assert_eq(removed_count, 1, "指定 sample_id 清理应返回移除数量。")
+	assert_true(diagnostics.get_sample_stat(&"tools.read").is_empty(), "指定采样统计清理后不应继续存在。")
+
+
+func test_operation_diagnostics_keeps_bounded_sample_stats() -> void:
+	var diagnostics: GFOperationDiagnosticsUtility = GFOperationDiagnosticsUtility.new()
+	diagnostics.max_sample_stats = 2
+
+	var _first_sample: Dictionary = diagnostics.record_sample(&"sample.first", 1.0)
+	var second_sample: Dictionary = diagnostics.record_sample(&"sample.second", 2.0)
+	var third_sample: Dictionary = diagnostics.record_sample(&"sample.third", 3.0)
+	var stats: Array[Dictionary] = diagnostics.get_sample_stats()
+	diagnostics.max_sample_stats = 0
+	var disabled_sample: Dictionary = diagnostics.record_sample(&"sample.disabled", 1.0)
+
+	assert_eq(stats.size(), 2, "采样统计应受 max_sample_stats 限制。")
+	assert_true(diagnostics.get_sample_stat(&"sample.first").is_empty(), "超出窗口的旧采样统计应被移除。")
+	assert_eq(GFVariantData.get_option_string_name(second_sample, "sample_id"), &"sample.second", "保留窗口内采样统计应仍可读取。")
+	assert_eq(GFVariantData.get_option_string_name(third_sample, "sample_id"), &"sample.third", "最新采样统计应保留。")
+	assert_true(disabled_sample.is_empty(), "禁用采样统计后 record_sample 应返回空字典。")
+	assert_true(diagnostics.get_sample_stats().is_empty(), "禁用采样统计应清空已记录统计。")
+
+
 func test_operation_diagnostics_keeps_bounded_history() -> void:
 	var diagnostics: GFOperationDiagnosticsUtility = GFOperationDiagnosticsUtility.new()
-	diagnostics.max_operations = 2
+	diagnostics.max_completed_operations = 2
 	diagnostics.max_incidents = 1
 
 	var _first_operation: Dictionary = diagnostics.record_completed_operation(&"first", 1.0)
@@ -210,7 +359,7 @@ func test_operation_diagnostics_keeps_bounded_history() -> void:
 	var operations: Array[Dictionary] = diagnostics.get_operations()
 	var incidents: Array[Dictionary] = diagnostics.get_incidents()
 
-	assert_eq(operations.size(), 2, "操作历史应受 max_operations 限制。")
+	assert_eq(operations.size(), 2, "完成操作历史应受 max_completed_operations 限制。")
 	assert_eq(incidents.size(), 1, "事件历史应受 max_incidents 限制。")
 	assert_true(diagnostics.has_operation(GFVariantData.get_option_string_name(second_operation, "operation_id")), "保留窗口内的操作仍应可查询。")
 	assert_true(diagnostics.has_operation(GFVariantData.get_option_string_name(third_operation, "operation_id")), "最新操作应保留。")
@@ -218,9 +367,42 @@ func test_operation_diagnostics_keeps_bounded_history() -> void:
 	assert_eq(GFVariantData.get_option_string_name(incidents[0], "incident_id"), GFVariantData.get_option_string_name(second_incident, "incident_id"), "事件历史应保留最新事件。")
 
 
+func test_operation_diagnostics_zero_completed_history_keeps_only_active_operations() -> void:
+	var diagnostics: GFOperationDiagnosticsUtility = GFOperationDiagnosticsUtility.new()
+	diagnostics.max_completed_operations = 0
+
+	var operation_id: StringName = diagnostics.begin_operation(&"active")
+	var completed: Dictionary = diagnostics.record_completed_operation(&"disabled.completed", 1.0)
+	var operations_before_finish: Array[Dictionary] = diagnostics.get_operations()
+	var finished: Dictionary = diagnostics.finish_operation(operation_id)
+
+	assert_ne(operation_id, &"", "关闭完成历史不应阻止活动操作追踪。")
+	assert_false(completed.is_empty(), "关闭完成历史时直接记录仍应返回本次完成结果。")
+	assert_eq(operations_before_finish.size(), 1, "关闭完成历史时只应保留仍活动的操作。")
+	assert_false(finished.is_empty(), "活动操作应仍可正常结束。")
+	assert_true(diagnostics.get_operations().is_empty(), "完成历史关闭后，终态操作不应继续驻留。")
+
+
+func test_operation_diagnostics_rejects_active_operations_over_capacity() -> void:
+	var diagnostics: GFOperationDiagnosticsUtility = GFOperationDiagnosticsUtility.new()
+	diagnostics.max_active_operations = 2
+
+	var first_id: StringName = diagnostics.begin_operation(&"first")
+	var second_id: StringName = diagnostics.begin_operation(&"second")
+	var rejected_id: StringName = diagnostics.begin_operation(&"third")
+	var health: Dictionary = diagnostics.get_health_snapshot()
+
+	assert_ne(first_id, &"", "活动容量内的第一条操作应被接受。")
+	assert_ne(second_id, &"", "活动容量内的第二条操作应被接受。")
+	assert_eq(rejected_id, &"", "超过活动容量的新操作应被拒绝。")
+	assert_eq(diagnostics.get_operations().size(), 2, "全部活动时也不能绕过容量上限。")
+	assert_eq(GFVariantData.get_option_int(health, "rejected_active_operation_count"), 1, "容量拒绝应可观察。")
+	assert_eq(GFVariantData.get_option_string_name(health, "status"), &"warning", "发生容量拒绝时健康状态应告警。")
+
+
 func test_operation_diagnostics_history_trim_preserves_running_operations() -> void:
 	var diagnostics: GFOperationDiagnosticsUtility = GFOperationDiagnosticsUtility.new()
-	diagnostics.max_operations = 2
+	diagnostics.max_completed_operations = 2
 
 	var running_id: StringName = diagnostics.begin_operation(&"install.package")
 	var _second_operation: Dictionary = diagnostics.record_completed_operation(&"short.a", 1.0)
@@ -230,6 +412,55 @@ func test_operation_diagnostics_history_trim_preserves_running_operations() -> v
 	assert_true(diagnostics.has_operation(running_id), "容量裁剪不应删除未完成操作。")
 	assert_false(finished_running.is_empty(), "被容量压力覆盖后 running operation 仍应可完成。")
 	assert_eq(GFVariantData.get_option_string_name(finished_running, "state"), &"completed", "完成后 running operation 应进入 completed。")
+
+
+func test_operation_diagnostics_rejects_non_finite_numeric_inputs_without_mutation() -> void:
+	var diagnostics: GFOperationDiagnosticsUtility = GFOperationDiagnosticsUtility.new()
+	var operation_id: StringName = diagnostics.begin_operation(&"finite.guard")
+	var rejected_phase: Dictionary = diagnostics.record_phase(operation_id, &"bad", INF)
+	var rejected_state: Dictionary = diagnostics.record_state_snapshot(operation_id, &"bad", GFOperationDiagnosticsUtility.STATE_RUNNING, {
+		"progress": NAN,
+	})
+	var rejected_finish: Dictionary = diagnostics.finish_operation(operation_id, true, {
+		"duration_ms": INF,
+	})
+	var rejected_sample: Dictionary = diagnostics.record_sample(&"bad.sample", NAN)
+	var rejected_completed: Dictionary = diagnostics.record_completed_operation(&"bad.completed", INF)
+	var operation: Dictionary = diagnostics.get_operation(operation_id)
+
+	assert_true(rejected_phase.is_empty(), "非有限阶段耗时应被拒绝。")
+	assert_true(rejected_state.is_empty(), "非有限进度应被拒绝。")
+	assert_true(rejected_finish.is_empty(), "非有限完成耗时应被拒绝。")
+	assert_true(rejected_sample.is_empty(), "非有限采样耗时应被拒绝。")
+	assert_true(rejected_completed.is_empty(), "非有限直接完成耗时应被拒绝。")
+	assert_eq(GFVariantData.get_option_string_name(operation, "state"), &"running", "被拒绝的完成输入不应改变操作状态。")
+	assert_true(GFVariantData.get_option_array(operation, "phases").is_empty(), "被拒绝的阶段不应进入操作记录。")
+	assert_true(diagnostics.get_sample_stats().is_empty(), "被拒绝的采样不应污染聚合统计。")
+
+
+func test_operation_diagnostics_bounds_metadata_unique_keys() -> void:
+	var diagnostics: GFOperationDiagnosticsUtility = GFOperationDiagnosticsUtility.new()
+	diagnostics.max_metadata_keys = 2
+	var operation_id: StringName = diagnostics.begin_operation(&"metadata.guard", {
+		"metadata": {
+			"a": 1,
+			"b": 2,
+			"c": 3,
+		},
+	})
+	var operation: Dictionary = diagnostics.finish_operation(operation_id, true, {
+		"metadata": {
+			"a": 10,
+			"d": 4,
+		},
+	})
+	var metadata: Dictionary = GFVariantData.get_option_dictionary(operation, "metadata")
+
+	assert_eq(GFVariantData.get_option_int(metadata, "a"), 10, "覆盖已有 metadata 键不应消耗新额度。")
+	assert_eq(GFVariantData.get_option_int(metadata, "b"), 2, "容量内的已有 metadata 键应保留。")
+	assert_false(metadata.has("c"), "超过 metadata 唯一键预算的初始键应被丢弃。")
+	assert_false(metadata.has("d"), "容量已满时新增 metadata 键应被丢弃。")
+	assert_eq(GFVariantData.get_option_int(metadata, "__gf_dropped_key_count"), 2, "metadata 应累计报告丢弃的唯一键数量。")
 
 
 func test_diagnostics_utility_collects_operation_diagnostics_tool_snapshot() -> void:

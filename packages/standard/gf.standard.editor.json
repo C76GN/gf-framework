@@ -4,10 +4,11 @@
   "kind": "standard",
   "version": "unreleased",
   "display_name": "GF Standard Editor Contributions",
-  "description": "Optional standard editor contribution aggregator loaded by the root plugin when installed.",
+  "description": "Optional data-only standard editor contribution manifest and templates read by the root plugin when installed.",
   "dependencies": [
     "gf.kernel",
     "gf.standard.base",
+    "gf.standard.config.editor",
     "gf.standard.diagnostics",
     "gf.standard.input.editor",
     "gf.standard.storage.editor",

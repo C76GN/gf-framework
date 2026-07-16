@@ -126,22 +126,57 @@ func is_in_bounds(cell: Vector2i) -> bool:
 ## [br]
 ## @return 可占用时返回 true。
 func can_occupy(receiver: Variant, cell: Vector2i) -> bool:
-	if not is_in_bounds(cell):
-		return false
-
 	prune_invalid_receivers()
-	var receiver_key: String = _make_receiver_key(receiver)
-	if receiver_key.is_empty():
-		return false
+	return _can_occupy_after_prune(receiver, cell)
 
-	var reserved_by: String = GFVariantData.get_option_string(_cell_reservations, cell, "")
-	if not reserved_by.is_empty() and reserved_by != receiver_key:
-		return false
 
-	var occupants: Array = _get_occupant_keys(cell)
-	if occupants.has(receiver_key):
-		return true
-	return occupants.size() < max_occupants_per_cell
+## 获取当前被占用的格子快照。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+## [br]
+## @return 被至少一个接收者占用的格子数组，按 y/x 稳定顺序返回。
+func get_occupied_cells() -> Array[Vector2i]:
+	prune_invalid_receivers()
+	return _collect_cells_with_keys(_cell_occupants)
+
+
+## 获取当前被预约的格子快照。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+## [br]
+## @return 被接收者预约的格子数组，按 y/x 稳定顺序返回。
+func get_reserved_cells() -> Array[Vector2i]:
+	prune_invalid_receivers()
+	return _collect_cells_with_keys(_cell_reservations)
+
+
+## 获取指定接收者当前可占用的格子。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+## [br]
+## @param receiver: 接收者。
+## [br]
+## @schema receiver: Variant receiver identity stored by value or weak Object reference.
+## [br]
+## @return 当前可被该接收者占用的格子数组，按 y/x 稳定顺序返回。
+func get_occupiable_cells(receiver: Variant) -> Array[Vector2i]:
+	prune_invalid_receivers()
+	var result: Array[Vector2i] = []
+	if grid_size.x <= 0 or grid_size.y <= 0:
+		return result
+
+	for y: int in range(grid_size.y):
+		for x: int in range(grid_size.x):
+			var cell: Vector2i = Vector2i(x, y)
+			if _can_occupy_after_prune(receiver, cell):
+				result.append(cell)
+	return result
 
 
 ## 占用格子。接收者若已占用其他格子，会先释放旧格子。
@@ -394,6 +429,37 @@ func _get_or_create_occupant_keys(cell: Vector2i) -> Array:
 	var new_occupants: Array = []
 	_cell_occupants[cell] = new_occupants
 	return new_occupants
+
+
+func _can_occupy_after_prune(receiver: Variant, cell: Vector2i) -> bool:
+	if not is_in_bounds(cell):
+		return false
+
+	var receiver_key: String = _make_receiver_key(receiver)
+	if receiver_key.is_empty():
+		return false
+
+	var reserved_by: String = GFVariantData.get_option_string(_cell_reservations, cell, "")
+	if not reserved_by.is_empty() and reserved_by != receiver_key:
+		return false
+
+	var occupants: Array = _get_occupant_keys(cell)
+	if occupants.has(receiver_key):
+		return true
+	return occupants.size() < max_occupants_per_cell
+
+
+func _collect_cells_with_keys(source: Dictionary) -> Array[Vector2i]:
+	var result: Array[Vector2i] = []
+	if grid_size.x <= 0 or grid_size.y <= 0:
+		return result
+
+	for y: int in range(grid_size.y):
+		for x: int in range(grid_size.x):
+			var cell: Vector2i = Vector2i(x, y)
+			if source.has(cell):
+				result.append(cell)
+	return result
 
 
 func _make_receiver_key(receiver: Variant) -> String:

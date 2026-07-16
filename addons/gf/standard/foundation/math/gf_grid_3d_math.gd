@@ -163,7 +163,7 @@ static func find_path_a_star(
 	if not _call_cell_bool(is_walkable, goal):
 		return []
 
-	var open_heap: Array[Dictionary] = []
+	var open_queue: GFPriorityQueue = GFPriorityQueue.new(false)
 	var open_orders: Dictionary = {}
 	var next_open_order: int = 0
 	var closed: Dictionary = {}
@@ -171,11 +171,11 @@ static func find_path_a_star(
 	var g_score: Dictionary = { start: 0.0 }
 	var f_score: Dictionary = { start: _heuristic_distance(start, goal, heuristic, allow_diagonal) }
 	open_orders[start] = next_open_order
-	_push_scored_cell(open_heap, start, _get_score(f_score, start), next_open_order)
+	_push_scored_cell(open_queue, start, _get_score(f_score, start), next_open_order)
 	next_open_order += 1
 
-	while not open_heap.is_empty():
-		var current_entry: Dictionary = _pop_scored_cell(open_heap)
+	while not open_queue.is_empty():
+		var current_entry: Dictionary = _pop_scored_cell(open_queue)
 		var current: Vector3i = _get_scored_cell(current_entry)
 		if closed.has(current) or not is_equal_approx(_get_scored_entry_score(current_entry), _get_score(f_score, current)):
 			continue
@@ -203,7 +203,7 @@ static func find_path_a_star(
 				order = next_open_order
 				open_orders[next_cell] = order
 				next_open_order += 1
-			_push_scored_cell(open_heap, next_cell, _get_score(f_score, next_cell), order)
+			_push_scored_cell(open_queue, next_cell, _get_score(f_score, next_cell), order)
 
 	return []
 
@@ -240,7 +240,7 @@ static func find_reachable(
 		return costs
 
 	costs[start] = 0.0
-	var frontier: Array[Dictionary] = []
+	var frontier: GFPriorityQueue = GFPriorityQueue.new(false)
 	var frontier_orders: Dictionary = { start: 0 }
 	var next_frontier_order: int = 1
 	_push_scored_cell(frontier, start, 0.0, 0)
@@ -314,7 +314,7 @@ static func find_surface_path_a_star(
 	if start == goal:
 		return [start]
 
-	var open_heap: Array[Dictionary] = []
+	var open_queue: GFPriorityQueue = GFPriorityQueue.new(false)
 	var open_orders: Dictionary = {}
 	var next_open_order: int = 0
 	var closed: Dictionary = {}
@@ -322,11 +322,11 @@ static func find_surface_path_a_star(
 	var g_score: Dictionary = { start: 0.0 }
 	var f_score: Dictionary = { start: _heuristic_distance(start, goal, heuristic, false) }
 	open_orders[start] = next_open_order
-	_push_scored_cell(open_heap, start, _get_score(f_score, start), next_open_order)
+	_push_scored_cell(open_queue, start, _get_score(f_score, start), next_open_order)
 	next_open_order += 1
 
-	while not open_heap.is_empty():
-		var current_entry: Dictionary = _pop_scored_cell(open_heap)
+	while not open_queue.is_empty():
+		var current_entry: Dictionary = _pop_scored_cell(open_queue)
 		var current: Vector3i = _get_scored_cell(current_entry)
 		if closed.has(current) or not is_equal_approx(_get_scored_entry_score(current_entry), _get_score(f_score, current)):
 			continue
@@ -360,7 +360,7 @@ static func find_surface_path_a_star(
 				order = next_open_order
 				open_orders[next_cell] = order
 				next_open_order += 1
-			_push_scored_cell(open_heap, next_cell, _get_score(f_score, next_cell), order)
+			_push_scored_cell(open_queue, next_cell, _get_score(f_score, next_cell), order)
 
 	return []
 
@@ -397,67 +397,16 @@ static func _reconstruct_path(start: Vector3i, goal: Vector3i, came_from: Dictio
 	return path
 
 
-static func _push_scored_cell(heap: Array[Dictionary], cell: Vector3i, score: float, order: int) -> void:
-	heap.append({
+static func _push_scored_cell(priority_queue: GFPriorityQueue, cell: Vector3i, score: float, order: int) -> void:
+	var _cell_queued: bool = priority_queue.push_with_order({
 		"cell": cell,
 		"score": score,
 		"order": order,
-	})
-	_sift_scored_cell_up(heap, heap.size() - 1)
+	}, score, order)
 
 
-static func _pop_scored_cell(heap: Array[Dictionary]) -> Dictionary:
-	if heap.is_empty():
-		return {}
-	var entry: Dictionary = heap[0]
-	var last_index: int = heap.size() - 1
-	if last_index == 0:
-		heap.remove_at(0)
-		return entry
-	heap[0] = heap[last_index]
-	heap.remove_at(last_index)
-	_sift_scored_cell_down(heap, 0)
-	return entry
-
-
-static func _sift_scored_cell_up(heap: Array[Dictionary], index: int) -> void:
-	var current_index: int = index
-	while current_index > 0:
-		var parent_index: int = floori(float(current_index - 1) / 2.0)
-		if not _scored_entry_is_before(heap[current_index], heap[parent_index]):
-			return
-		_swap_scored_entries(heap, current_index, parent_index)
-		current_index = parent_index
-
-
-static func _sift_scored_cell_down(heap: Array[Dictionary], index: int) -> void:
-	var current_index: int = index
-	while true:
-		var left_index: int = current_index * 2 + 1
-		var right_index: int = left_index + 1
-		var best_index: int = current_index
-		if left_index < heap.size() and _scored_entry_is_before(heap[left_index], heap[best_index]):
-			best_index = left_index
-		if right_index < heap.size() and _scored_entry_is_before(heap[right_index], heap[best_index]):
-			best_index = right_index
-		if best_index == current_index:
-			return
-		_swap_scored_entries(heap, current_index, best_index)
-		current_index = best_index
-
-
-static func _scored_entry_is_before(left: Dictionary, right: Dictionary) -> bool:
-	var left_score: float = _get_scored_entry_score(left)
-	var right_score: float = _get_scored_entry_score(right)
-	if not is_equal_approx(left_score, right_score):
-		return left_score < right_score
-	return GFVariantData.get_option_int(left, "order", 0) < GFVariantData.get_option_int(right, "order", 0)
-
-
-static func _swap_scored_entries(heap: Array[Dictionary], left_index: int, right_index: int) -> void:
-	var temporary: Dictionary = heap[left_index]
-	heap[left_index] = heap[right_index]
-	heap[right_index] = temporary
+static func _pop_scored_cell(priority_queue: GFPriorityQueue) -> Dictionary:
+	return GFVariantData.as_dictionary(priority_queue.pop({}))
 
 
 static func _get_scored_cell(entry: Dictionary) -> Vector3i:

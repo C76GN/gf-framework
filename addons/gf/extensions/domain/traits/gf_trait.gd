@@ -81,19 +81,31 @@ enum CombineMode {
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param current_value: 当前值。
 ## [br]
-## @return 应用后的值。
+## @return: 应用后的有限值；无效输入或溢出时保留最后一个有限值。
 func apply_number(current_value: float) -> float:
+	var safe_current: float = current_value if _is_finite_number(current_value) else 0.0
+	if not _is_finite_number(value):
+		return safe_current
+	var result: float = safe_current
 	match combine_mode:
 		CombineMode.ADD:
-			return current_value + value
+			result = safe_current + value
 		CombineMode.MULTIPLY:
-			return current_value * value
+			result = safe_current * value
 		CombineMode.SET:
-			return value
+			result = value
 		CombineMode.MAX:
-			return maxf(current_value, value)
+			result = maxf(safe_current, value)
 		CombineMode.MIN:
-			return minf(current_value, value)
-	return current_value
+			result = minf(safe_current, value)
+	return result if _is_finite_number(result) else safe_current
+
+
+# --- 私有/辅助方法 ---
+
+func _is_finite_number(number: float) -> bool:
+	return not is_nan(number) and not is_inf(number)

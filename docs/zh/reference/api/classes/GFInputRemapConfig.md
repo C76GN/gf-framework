@@ -24,9 +24,9 @@
 | 方法 | [`get_bound_event_or_null`](#member-gfinputremapconfig-methods-get_bound_event_or_null) | `func get_bound_event_or_null(context_id: StringName, action_id: StringName, binding_index: int) -> InputEvent:` |
 | 方法 | [`set_custom_data`](#member-gfinputremapconfig-methods-set_custom_data) | `func set_custom_data(key: Variant, value: Variant) -> void:` |
 | 方法 | [`get_custom_data`](#member-gfinputremapconfig-methods-get_custom_data) | `func get_custom_data(key: Variant, default_value: Variant = null) -> Variant:` |
-| 方法 | [`to_dict`](#member-gfinputremapconfig-methods-to_dict) | `func to_dict() -> Dictionary:` |
-| 方法 | [`apply_dict`](#member-gfinputremapconfig-methods-apply_dict) | `func apply_dict(data: Dictionary) -> void:` |
-| 方法 | [`from_dict`](#member-gfinputremapconfig-methods-from_dict) | `static func from_dict(data: Dictionary) -> GFInputRemapConfig:` |
+| 方法 | [`to_dict`](#member-gfinputremapconfig-methods-to_dict) | `func to_dict(json_compatible: bool = true) -> Dictionary:` |
+| 方法 | [`apply_dict`](#member-gfinputremapconfig-methods-apply_dict) | `func apply_dict(data: Dictionary, json_compatible: bool = true) -> Dictionary:` |
+| 方法 | [`from_dict`](#member-gfinputremapconfig-methods-from_dict) | `static func from_dict(data: Dictionary, json_compatible: bool = true) -> GFInputRemapConfig:` |
 | 方法 | [`duplicate_config`](#member-gfinputremapconfig-methods-duplicate_config) | `func duplicate_config() -> GFInputRemapConfig:` |
 
 ## 属性
@@ -226,12 +226,19 @@ func get_custom_data(key: Variant, default_value: Variant = null) -> Variant:
 ### `to_dict`
 
 - API：`public`
+- 首次版本：`8.0.0`
 
 ```gdscript
-func to_dict() -> Dictionary:
+func to_dict(json_compatible: bool = true) -> Dictionary:
 ```
 
 转换为可写入 JSON/存档的 Dictionary。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `json_compatible` | 为 true 时将 custom_data 转为 JSON 兼容值。 |
 
 返回：重映射配置字典。
 
@@ -244,9 +251,10 @@ func to_dict() -> Dictionary:
 ### `apply_dict`
 
 - API：`public`
+- 首次版本：`8.0.0`
 
 ```gdscript
-func apply_dict(data: Dictionary) -> void:
+func apply_dict(data: Dictionary, json_compatible: bool = true) -> Dictionary:
 ```
 
 应用由 to_dict() 生成的重映射配置。
@@ -256,19 +264,24 @@ func apply_dict(data: Dictionary) -> void:
 | 名称 | 说明 |
 |---|---|
 | `data` | 重映射配置字典。 |
+| `json_compatible` | 为 true 时会先恢复 custom_data 的 JSON 兼容值。 |
+
+返回：应用报告；任一记录无效时不修改当前配置。
 
 结构：
 
 - `data`: Dictionary，包含 remapped_events 和 custom_data。
+- `return`: Dictionary with ok, committed, binding_count, bound_count, unbound_count, and issues.
 
 <a id="member-gfinputremapconfig-methods-from_dict"></a>
 
 ### `from_dict`
 
 - API：`public`
+- 首次版本：`8.0.0`
 
 ```gdscript
-static func from_dict(data: Dictionary) -> GFInputRemapConfig:
+static func from_dict(data: Dictionary, json_compatible: bool = true) -> GFInputRemapConfig:
 ```
 
 从 Dictionary 创建重映射配置。
@@ -278,6 +291,7 @@ static func from_dict(data: Dictionary) -> GFInputRemapConfig:
 | 名称 | 说明 |
 |---|---|
 | `data` | 重映射配置字典。 |
+| `json_compatible` | 为 true 时会先恢复 custom_data 的 JSON 兼容值。 |
 
 返回：新重映射配置。
 

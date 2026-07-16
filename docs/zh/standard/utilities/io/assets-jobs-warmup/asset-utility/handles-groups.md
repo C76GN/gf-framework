@@ -54,3 +54,30 @@ assets.preload_group_async(
 ```
 
 未显式指定 `lane_id` 时，分组 ID 会作为通道名，因此同一组内部可以串行或限流加载，而不同组仍可独立调度。分组只表达资源集合和加载约束，不表达 UI 包、关卡包或主题包的业务含义。
+
+## 可保存的预热计划
+
+当预热清单需要放进 `.tres`、编辑器配置或项目级 manifest 时，用 `GFAssetPreloadPlan` 保存计划，再委托 `preload_plan_async()` 执行。计划会保留禁用条目并提供 `validate()` 报告；实际加载仍复用分组预热、缓存 pin 和 lane 限流机制。
+
+```gdscript
+var plan := GFAssetPreloadPlan.new()
+plan.configure(
+	&"battle_ui",
+	[
+		{ "path": "res://ui/battle_hud.tscn", "type_hint": "PackedScene" },
+		{ "path": "res://ui/skill_icon_atlas.tres", "type_hint": "Resource", "enabled": true },
+	],
+	{
+		"plan_id": &"boot.battle_ui",
+		"lane_id": &"ui",
+		"max_concurrent_loads": 2,
+	}
+)
+
+assets.preload_plan_async(plan, func(report: Dictionary) -> void:
+	if not report["ok"]:
+		push_warning("资源预热计划未完全成功。")
+)
+```
+
+如果项目只是临时传入路径数组，继续使用 `preload_group_async()` 更直接；不要为了使用计划对象而把一次性加载流程资源化。

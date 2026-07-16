@@ -1,0 +1,157 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFSaveSlotStorageAdapter" path="addons/gf/extensions/save/slots/gf_save_slot_storage_adapter.gd" module="extensions/save" extends="Resource" classDigest="cdf884da4dd8353d448e2ccfec3f853ff1da7495308367bb6740de9118a80e10">
+	<description>GFSaveSlotStorageAdapter: Save 扩展的通用槽位存储适配器。
+把逻辑槽位索引映射到可配置的数据/元数据文件名，并通过 GFStorageUtility
+的通用字典事务 API 完成持久化。该类不定义项目存档字段，也不绑定 UI。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_service</tag>
+		<tag name="since">8.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants>
+		<member kind="const" name="DEFAULT_DATA_FILE_TEMPLATE">
+			<signature>const DEFAULT_DATA_FILE_TEMPLATE: String = "slot_{index}_data.sav"</signature>
+			<description>默认槽位数据文件模板。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="DEFAULT_METADATA_FILE_TEMPLATE">
+			<signature>const DEFAULT_METADATA_FILE_TEMPLATE: String = "slot_{index}_meta.sav"</signature>
+			<description>默认槽位元数据文件模板。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties>
+		<member kind="property" name="data_file_template" decorators="@export">
+			<signature>var data_file_template: String = DEFAULT_DATA_FILE_TEMPLATE</signature>
+			<description>数据文件模板，支持 `{index}` 占位符。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="metadata_file_template" decorators="@export">
+			<signature>var metadata_file_template: String = DEFAULT_METADATA_FILE_TEMPLATE</signature>
+			<description>元数据文件模板，支持 `{index}` 占位符。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="setup">
+			<signature>func setup(storage: GFStorageUtility) -&gt; GFSaveSlotStorageAdapter:</signature>
+			<description>设置底层存储工具。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">storage: 底层 GFStorageUtility。</tag>
+				<tag name="return">当前适配器。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_storage">
+			<signature>func get_storage() -&gt; GFStorageUtility:</signature>
+			<description>获取底层存储工具。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">当前 GFStorageUtility；未配置时返回 null。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_data_file_name">
+			<signature>func get_data_file_name(slot_index: int) -&gt; String:</signature>
+			<description>生成槽位数据文件名。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">slot_index: 槽位索引。</tag>
+				<tag name="return">数据文件名。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_metadata_file_name">
+			<signature>func get_metadata_file_name(slot_index: int) -&gt; String:</signature>
+			<description>生成槽位元数据文件名。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">slot_index: 槽位索引。</tag>
+				<tag name="return">元数据文件名。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="save_slot">
+			<signature>func save_slot(slot_index: int, data: Dictionary, metadata: Dictionary = {}) -&gt; Error:</signature>
+			<description>保存槽位数据和元数据。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">slot_index: 槽位索引；必须大于等于 0。</tag>
+				<tag name="param">data: 项目聚合后的存档载荷。</tag>
+				<tag name="param">metadata: 槽位摘要元数据。</tag>
+				<tag name="return">Godot 的 `Error` 结果码。</tag>
+				<tag name="schema">data: Dictionary，项目自定义存档载荷。</tag>
+				<tag name="schema">metadata: Dictionary，通常来自 GFSaveSlotMetadata.to_dict()。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="load_slot">
+			<signature>func load_slot(slot_index: int) -&gt; Dictionary:</signature>
+			<description>读取槽位数据。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">slot_index: 槽位索引。</tag>
+				<tag name="return">存档载荷；读取失败时为空字典。</tag>
+				<tag name="schema">return: Dictionary，项目自定义存档载荷。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="load_slot_metadata">
+			<signature>func load_slot_metadata(slot_index: int) -&gt; Dictionary:</signature>
+			<description>读取槽位元数据。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">slot_index: 槽位索引。</tag>
+				<tag name="return">槽位元数据；读取失败时为空字典。</tag>
+				<tag name="schema">return: Dictionary，通常兼容 GFSaveSlotMetadata.to_dict()。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="has_slot">
+			<signature>func has_slot(slot_index: int) -&gt; bool:</signature>
+			<description>检查槽位是否同时具备数据和元数据文件。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">slot_index: 槽位索引。</tag>
+				<tag name="return">同时存在数据和元数据时返回 true。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="delete_slot">
+			<signature>func delete_slot(slot_index: int) -&gt; Error:</signature>
+			<description>删除槽位数据和元数据文件。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">slot_index: 槽位索引。</tag>
+				<tag name="return">两个文件都成功删除时返回 OK；任一文件缺失时返回 ERR_FILE_NOT_FOUND。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="list_slots">
+			<signature>func list_slots() -&gt; Array[Dictionary]:</signature>
+			<description>枚举现有槽位摘要。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">槽位摘要数组。</tag>
+				<tag name="schema">return: Array[Dictionary]，每项包含 slot_index、slot_id、metadata 和 modified_time。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

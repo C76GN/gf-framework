@@ -15,6 +15,10 @@ var level: int = 1
 
 # --- 公共方法 ---
 
+func get_save_key() -> StringName:
+	return &"test_score_model_fixture"
+
+
 func to_dict() -> Dictionary:
 	return {
 		"score": score,

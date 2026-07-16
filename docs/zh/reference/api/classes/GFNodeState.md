@@ -46,12 +46,12 @@
 | 方法 | [`send_query`](#member-gfnodestate-methods-send_query) | `func send_query(query: Object) -> Variant:` |
 | 方法 | [`send_event`](#member-gfnodestate-methods-send_event) | `func send_event(event_instance: Object) -> void:` |
 | 方法 | [`send_simple_event`](#member-gfnodestate-methods-send_simple_event) | `func send_simple_event(event_id: StringName, payload: Variant = null) -> void:` |
-| 方法 | [`register_event`](#member-gfnodestate-methods-register_event) | `func register_event(event_type: Script, callback: Callable, priority: int = 0) -> void:` |
-| 方法 | [`unregister_event`](#member-gfnodestate-methods-unregister_event) | `func unregister_event(event_type: Script, callback: Callable) -> void:` |
-| 方法 | [`register_assignable_event`](#member-gfnodestate-methods-register_assignable_event) | `func register_assignable_event(base_event_type: Script, callback: Callable, priority: int = 0) -> void:` |
-| 方法 | [`unregister_assignable_event`](#member-gfnodestate-methods-unregister_assignable_event) | `func unregister_assignable_event(base_event_type: Script, callback: Callable) -> void:` |
-| 方法 | [`register_simple_event`](#member-gfnodestate-methods-register_simple_event) | `func register_simple_event(event_id: StringName, callback: Callable) -> void:` |
-| 方法 | [`unregister_simple_event`](#member-gfnodestate-methods-unregister_simple_event) | `func unregister_simple_event(event_id: StringName, callback: Callable) -> void:` |
+| 方法 | [`register_event`](#member-gfnodestate-methods-register_event) | `func register_event(event_type: Script, listener: GFEventListener, priority: int = 0) -> void:` |
+| 方法 | [`unregister_event`](#member-gfnodestate-methods-unregister_event) | `func unregister_event(event_type: Script, listener: GFEventListener) -> void:` |
+| 方法 | [`register_assignable_event`](#member-gfnodestate-methods-register_assignable_event) | `func register_assignable_event(base_event_type: Script, listener: GFEventListener, priority: int = 0) -> void:` |
+| 方法 | [`unregister_assignable_event`](#member-gfnodestate-methods-unregister_assignable_event) | `func unregister_assignable_event(base_event_type: Script, listener: GFEventListener) -> void:` |
+| 方法 | [`register_simple_event`](#member-gfnodestate-methods-register_simple_event) | `func register_simple_event(event_id: StringName, listener: GFEventListener) -> void:` |
+| 方法 | [`unregister_simple_event`](#member-gfnodestate-methods-unregister_simple_event) | `func unregister_simple_event(event_id: StringName, listener: GFEventListener) -> void:` |
 | 方法 | [`unregister_owner_events`](#member-gfnodestate-methods-unregister_owner_events) | `func unregister_owner_events() -> void:` |
 | 方法 | [`_initialize`](#member-gfnodestate-methods-_initialize) | `func _initialize() -> void:` |
 | 方法 | [`_can_enter`](#member-gfnodestate-methods-_can_enter) | `func _can_enter(_previous_state: StringName = &"", _args: Dictionary = {}) -> bool:` |
@@ -674,9 +674,10 @@ func send_simple_event(event_id: StringName, payload: Variant = null) -> void:
 ### `register_event`
 
 - API：`public`
+- 首次版本：`8.0.0`
 
 ```gdscript
-func register_event(event_type: Script, callback: Callable, priority: int = 0) -> void:
+func register_event(event_type: Script, listener: GFEventListener, priority: int = 0) -> void:
 ```
 
 注册类型事件监听器，默认以当前状态作为 owner。
@@ -686,7 +687,7 @@ func register_event(event_type: Script, callback: Callable, priority: int = 0) -
 | 名称 | 说明 |
 |---|---|
 | `event_type` | 要监听的脚本类型。 |
-| `callback` | 回调函数。 |
+| `listener` | 事件监听器契约。 |
 | `priority` | 回调优先级，数值越大越先执行，默认为 0。 |
 
 <a id="member-gfnodestate-methods-unregister_event"></a>
@@ -694,9 +695,10 @@ func register_event(event_type: Script, callback: Callable, priority: int = 0) -
 ### `unregister_event`
 
 - API：`public`
+- 首次版本：`8.0.0`
 
 ```gdscript
-func unregister_event(event_type: Script, callback: Callable) -> void:
+func unregister_event(event_type: Script, listener: GFEventListener) -> void:
 ```
 
 注销类型事件监听器。
@@ -706,16 +708,17 @@ func unregister_event(event_type: Script, callback: Callable) -> void:
 | 名称 | 说明 |
 |---|---|
 | `event_type` | 要注销的脚本类型。 |
-| `callback` | 要移除的回调函数。 |
+| `listener` | 要移除的事件监听器契约。 |
 
 <a id="member-gfnodestate-methods-register_assignable_event"></a>
 
 ### `register_assignable_event`
 
 - API：`public`
+- 首次版本：`8.0.0`
 
 ```gdscript
-func register_assignable_event(base_event_type: Script, callback: Callable, priority: int = 0) -> void:
+func register_assignable_event(base_event_type: Script, listener: GFEventListener, priority: int = 0) -> void:
 ```
 
 注册可赋值类型事件监听器，默认以当前状态作为 owner。
@@ -725,7 +728,7 @@ func register_assignable_event(base_event_type: Script, callback: Callable, prio
 | 名称 | 说明 |
 |---|---|
 | `base_event_type` | 要监听的基类脚本类型。 |
-| `callback` | 回调函数。 |
+| `listener` | 事件监听器契约。 |
 | `priority` | 回调优先级，数值越大越先执行，默认为 0。 |
 
 <a id="member-gfnodestate-methods-unregister_assignable_event"></a>
@@ -733,9 +736,10 @@ func register_assignable_event(base_event_type: Script, callback: Callable, prio
 ### `unregister_assignable_event`
 
 - API：`public`
+- 首次版本：`8.0.0`
 
 ```gdscript
-func unregister_assignable_event(base_event_type: Script, callback: Callable) -> void:
+func unregister_assignable_event(base_event_type: Script, listener: GFEventListener) -> void:
 ```
 
 注销可赋值类型事件监听器。
@@ -745,16 +749,17 @@ func unregister_assignable_event(base_event_type: Script, callback: Callable) ->
 | 名称 | 说明 |
 |---|---|
 | `base_event_type` | 注册时使用的基类脚本类型。 |
-| `callback` | 要移除的回调函数。 |
+| `listener` | 要移除的事件监听器契约。 |
 
 <a id="member-gfnodestate-methods-register_simple_event"></a>
 
 ### `register_simple_event`
 
 - API：`public`
+- 首次版本：`8.0.0`
 
 ```gdscript
-func register_simple_event(event_id: StringName, callback: Callable) -> void:
+func register_simple_event(event_id: StringName, listener: GFEventListener) -> void:
 ```
 
 注册轻量级 StringName 事件监听器，默认以当前状态作为 owner。
@@ -764,16 +769,17 @@ func register_simple_event(event_id: StringName, callback: Callable) -> void:
 | 名称 | 说明 |
 |---|---|
 | `event_id` | StringName 事件标识符。 |
-| `callback` | 回调函数，签名为 func(payload: Variant)。 |
+| `listener` | 简单事件监听器契约。 |
 
 <a id="member-gfnodestate-methods-unregister_simple_event"></a>
 
 ### `unregister_simple_event`
 
 - API：`public`
+- 首次版本：`8.0.0`
 
 ```gdscript
-func unregister_simple_event(event_id: StringName, callback: Callable) -> void:
+func unregister_simple_event(event_id: StringName, listener: GFEventListener) -> void:
 ```
 
 注销轻量级 StringName 事件监听器。
@@ -783,7 +789,7 @@ func unregister_simple_event(event_id: StringName, callback: Callable) -> void:
 | 名称 | 说明 |
 |---|---|
 | `event_id` | StringName 事件标识符。 |
-| `callback` | 要移除的回调函数。 |
+| `listener` | 要移除的简单事件监听器契约。 |
 
 <a id="member-gfnodestate-methods-unregister_owner_events"></a>
 

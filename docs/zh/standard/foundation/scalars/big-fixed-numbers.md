@@ -36,6 +36,8 @@ print(total.to_decimal_string()) # 13.33
 
 定点数 raw 值使用对称安全范围 `[-9223372036854775807, 9223372036854775807]`，而不是完整 int64 最小值。这可以保证绝对值、符号 magnitude 字节格式和溢出钳制规则在所有定点类型之间一致。
 
+直接写入 `raw_value` 或 `decimal_places` 也会触发同一套规范化规则；超出范围的 raw 值会被钳制，小数位会被限制到合法区间。二进制读取会拒绝“负号 + 零 magnitude”的非规范负零编码，避免同一个数值出现两种字节形态。
+
 ## `GFFixedVector2` / `GFFixedVector3`
 
 `GFFixedVector2` 和 `GFFixedVector3` 用统一 `decimal_places` 管理多个 raw 分量，适合锁步、回放、路径 tie-break、稳定排序和 golden 测试中需要表达连续坐标的场景。它们不替代 `Vector2i` / `Vector3i` 格子坐标，也不替代 Godot `Vector2` / `Vector3` 在渲染、物理和编辑器里的浮点向量。

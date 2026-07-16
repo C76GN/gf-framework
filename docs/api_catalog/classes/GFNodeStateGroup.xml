@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFNodeStateGroup" path="addons/gf/standard/state_machine/node/gf_node_state_group.gd" module="standard" extends="Node" classDigest="975556da4219f035a741584b4b9c64c43636f79f2ec771847bdcb9e8ffde8822">
+<class name="GFNodeStateGroup" path="addons/gf/standard/state_machine/node/gf_node_state_group.gd" module="standard" extends="Node" classDigest="0ccd5ef42c13f46c74fa51c4741f939d1c2d7001f85fce121efc83d665e5bd39">
 	<description>GFNodeStateGroup: 管理一组互斥激活的节点状态。
 一个状态组内同一时间只有一个 GFNodeState 处于启用状态。</description>
 	<tags>
@@ -41,8 +41,9 @@
 				<tag name="param">from_state: 发起切换时的当前状态；没有当前状态时为 null。</tag>
 				<tag name="param">to_state_name: 被阻止的目标状态名。</tag>
 				<tag name="param">args: 状态切换参数。</tag>
-				<tag name="param">reason: 阻止原因，通常为 "exit_guard" 或 "enter_guard"。</tag>
+				<tag name="param">reason: 阻止原因，通常为 "exit_guard"、"enter_guard" 或 "stack_exit_guard"。</tag>
 				<tag name="schema">args: 状态切换参数 Dictionary；键和值由调用方约定。</tag>
+				<tag name="since">3.0.0</tag>
 			</tags>
 		</member>
 		<member kind="signal" name="requested_transition">
@@ -68,7 +69,21 @@
 			</tags>
 		</member>
 	</signals>
-	<enums />
+	<enums>
+		<member kind="enum" name="StackExitPolicy">
+			<signature>enum StackExitPolicy {
+	## 每个暂停状态都必须通过 can_exit()。
+	REQUIRE_GUARDS,
+	## 显式绕过暂停状态的 can_exit()，用于 teardown 等强制恢复场景。
+	FORCE,
+}</signature>
+			<description>普通切换折叠暂停栈时的退出策略。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</enums>
 	<constants />
 	<properties>
 		<member kind="property" name="group_name" decorators="@export">
@@ -140,13 +155,15 @@
 			</tags>
 		</member>
 		<member kind="method" name="transition_to">
-			<signature>func transition_to(next_state_name: StringName, args: Dictionary = {}) -&gt; void:</signature>
+			<signature>func transition_to( next_state_name: StringName, args: Dictionary = {}, stack_exit_policy: int = StackExitPolicy.REQUIRE_GUARDS ) -&gt; void:</signature>
 			<description>切换到指定状态。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">next_state_name: 要切换到的目标状态名称。</tag>
 				<tag name="param">args: 状态切换时传递的可选参数。</tag>
+				<tag name="param">stack_exit_policy: 折叠暂停栈时要求退出守卫，或显式强制退出。</tag>
 				<tag name="schema">args: 状态切换参数 Dictionary；键和值由调用方约定。</tag>
+				<tag name="since">3.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="push_state">
@@ -298,6 +315,18 @@
 				<tag name="api">public</tag>
 				<tag name="return">包含当前状态、暂停栈、历史、注册状态和黑板副本的字典。</tag>
 				<tag name="schema">return: 调试快照 Dictionary，包含 group_name、current_state、stack、history、states 和 blackboard 字段。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_json_compatible_state_snapshot">
+			<signature>func get_json_compatible_state_snapshot(options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>获取 JSON-safe 状态组调试快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">options: 传给 GFReportValueCodec 的编码选项。</tag>
+				<tag name="return">可安全 JSON.stringify() 的状态组调试快照。</tag>
+				<tag name="schema">options: Dictionary with GFReportValueCodec options.</tag>
+				<tag name="schema">return: Dictionary，包含 JSON-safe group_name、current_state、stack、history、states 和 blackboard 字段。</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="clear_states">

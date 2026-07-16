@@ -63,6 +63,33 @@ var max_metric_series: int = 256:
 	set(value):
 		max_metric_series = maxi(value, 0)
 
+## 单个推送值输出容器最多保留的元素数量。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+var max_value_collection_items: int = 32:
+	set(value):
+		max_value_collection_items = maxi(value, 0)
+
+## 单个推送值最多编码的值节点数量。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+var max_value_snapshot_nodes: int = 256:
+	set(value):
+		max_value_snapshot_nodes = maxi(value, 0)
+
+## 单个面板最终文本的最大字符数量。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+var max_panel_content_chars: int = 8192:
+	set(value):
+		max_panel_content_chars = maxi(value, 0)
+
 ## 是否只在 debug 构建中创建 Overlay GUI。发布构建需要显式关闭此项才会创建 GUI。
 ## [br]
 ## @api public
@@ -85,6 +112,14 @@ var _metric_series: Dictionary = {}
 ## [br]
 ## @api public
 func init() -> void:
+	if is_instance_valid(_overlay_gui):
+		_overlay_gui._toggle_key = toggle_key
+		_overlay_gui._refresh_interval_seconds = refresh_interval_seconds
+		_overlay_gui._architecture_provider = Callable(self, "_get_architecture_or_null")
+		_overlay_gui._watch_snapshot_provider = Callable(self, "get_watch_snapshot")
+		_overlay_gui._panel_snapshot_provider = Callable(self, "get_panel_snapshot")
+		return
+
 	if debug_only and not OS.is_debug_build():
 		return
 
@@ -113,9 +148,10 @@ func dispose() -> void:
 		_overlay_gui._watch_snapshot_provider = Callable()
 		_overlay_gui._panel_snapshot_provider = Callable()
 		var parent: Node = _overlay_gui.get_parent()
-		if parent != null:
+		if parent != null and not GFAutoload.is_tree_exit_in_progress():
 			parent.remove_child(_overlay_gui)
-		_overlay_gui.queue_free()
+		if not _overlay_gui.is_queued_for_deletion():
+			_overlay_gui.queue_free()
 	_overlay_gui = null
 	clear_watches()
 	clear_panels()
@@ -185,27 +221,6 @@ func refresh_overlay() -> void:
 		_overlay_gui._refresh_now()
 
 
-## 注册一个由回调即时读取的运行时观察值。
-## [br]
-## @api public
-## [br]
-## @param id: 观察值唯一标识。
-## [br]
-## @param provider: 无参数回调；Overlay 刷新时调用并显示返回值。
-## [br]
-## @param options: 可选显示参数，支持 label、group、visible。
-## [br]
-## @return 注册成功返回 true；id 为空或 provider 无效时返回 false。
-## [br]
-## @schema options: Dictionary，支持 label、group 和 visible。
-func watch_value(id: StringName, provider: Callable, options: Dictionary = {}) -> bool:
-	if id == &"" or not provider.is_valid():
-		return false
-
-	_upsert_watch_entry(id, &"provider", provider, options)
-	return true
-
-
 ## 推送一个由调用方主动更新的运行时观察值。
 ## [br]
 ## @api public
@@ -225,7 +240,7 @@ func push_watch_value(id: StringName, value: Variant, options: Dictionary = {}) 
 	if id == &"":
 		return false
 
-	_upsert_watch_entry(id, &"value", value, options)
+	_upsert_watch_entry(id, _bound_published_value(value), options)
 	return true
 
 
@@ -282,13 +297,13 @@ func get_watch_snapshot(include_hidden: bool = false) -> Array[Dictionary]:
 
 	var snapshot: Array[Dictionary] = []
 	for entry: Dictionary in entries:
-		var evaluated: Dictionary = _evaluate_watch_entry(entry)
 		snapshot.append({
 			"id": GFVariantData.get_option_string_name(entry, "id", &""),
 			"label": GFVariantData.get_option_string(entry, "label", GFVariantData.get_option_string(entry, "id", "")),
 			"group": GFVariantData.get_option_string(entry, "group", "Runtime"),
-			"value": GFVariantData.get_option_value(evaluated, "value", null),
-			"valid": GFVariantData.get_option_bool(evaluated, "valid", true),
+			"value": GFVariantData.get_option_value(entry, "value", null),
+			"valid": true,
+			"error": "",
 		})
 
 	if include_diagnostics_monitors:
@@ -296,24 +311,27 @@ func get_watch_snapshot(include_hidden: bool = false) -> Array[Dictionary]:
 	return snapshot
 
 
-## 注册一个由回调生成内容的 Overlay 面板。
+## 推送一个由调用方主动更新的 Overlay 面板值。
 ## [br]
 ## @api public
 ## [br]
+## @since 8.0.0
+## [br]
 ## @param panel_id: 面板唯一标识。
 ## [br]
-## @param provider: 无参数回调；返回 String、Dictionary、Array 或其他可转字符串值。
+## @param content: 面板内容；Dictionary 和 Array 会按报告边界编码后格式化。
 ## [br]
 ## @param options: 可选显示参数，支持 label、group、visible。
 ## [br]
 ## @return 注册成功返回 true。
 ## [br]
+## @schema content: 任意 Variant 报告值；写入前由 GFReportValueCodec 编码并受 Overlay 集合、节点、深度和文本长度预算约束。
+## [br]
 ## @schema options: Dictionary，支持 label、group 和 visible。
-func register_panel(panel_id: StringName, provider: Callable, options: Dictionary = {}) -> bool:
-	if panel_id == &"" or not provider.is_valid():
+func push_panel_content(panel_id: StringName, content: Variant, options: Dictionary = {}) -> bool:
+	if panel_id == &"":
 		return false
-
-	_upsert_panel_entry(panel_id, &"provider", provider, options)
+	_upsert_panel_entry(panel_id, _format_panel_content(_bound_published_value(content)), options)
 	return true
 
 
@@ -331,11 +349,7 @@ func register_panel(panel_id: StringName, provider: Callable, options: Dictionar
 ## [br]
 ## @schema options: Dictionary，支持 label、group 和 visible。
 func push_panel_text(panel_id: StringName, content: String, options: Dictionary = {}) -> bool:
-	if panel_id == &"":
-		return false
-
-	_upsert_panel_entry(panel_id, &"text", content, options)
-	return true
+	return push_panel_content(panel_id, content, options)
 
 
 ## 移除一个 Overlay 面板。
@@ -390,7 +404,7 @@ func get_panel_snapshot(include_hidden: bool = false) -> Array[Dictionary]:
 
 	var snapshot: Array[Dictionary] = []
 	for entry: Dictionary in entries:
-		snapshot.append(_evaluate_panel_entry(entry))
+		snapshot.append(_build_panel_snapshot_entry(entry))
 
 	if include_metric_series_panel:
 		_append_metric_series_panel(snapshot, include_hidden)
@@ -546,6 +560,9 @@ func get_debug_snapshot() -> Dictionary:
 		"include_metric_series_panel": include_metric_series_panel,
 		"recent_log_count": recent_log_count,
 		"metric_series_width": metric_series_width,
+		"max_value_collection_items": max_value_collection_items,
+		"max_value_snapshot_nodes": max_value_snapshot_nodes,
+		"max_panel_content_chars": max_panel_content_chars,
 		"diagnostics_monitor_preset": diagnostics_monitor_preset,
 		"gui": {
 			"created": gui_created,
@@ -614,13 +631,6 @@ func _has_metric_series_capacity(metric_id: StringName) -> bool:
 	return _metric_series.size() < max_metric_series
 
 
-func _get_dictionary_callable(source: Dictionary, key: Variant) -> Callable:
-	var value: Variant = GFVariantData.get_option_value(source, key, Callable())
-	if value is Callable:
-		return value
-	return Callable()
-
-
 func _erase_dictionary_key(source: Dictionary, key: Variant) -> void:
 	var erased: bool = source.erase(key)
 	if erased:
@@ -633,7 +643,7 @@ func _append_packed_string(target: PackedStringArray, value: String) -> void:
 		return
 
 
-func _upsert_watch_entry(id: StringName, mode: StringName, payload: Variant, options: Dictionary) -> void:
+func _upsert_watch_entry(id: StringName, value: Variant, options: Dictionary) -> void:
 	var entry: Dictionary = {}
 	if _watches.has(id):
 		entry = GFVariantData.get_option_dictionary(_watches, id).duplicate()
@@ -646,14 +656,7 @@ func _upsert_watch_entry(id: StringName, mode: StringName, payload: Variant, opt
 		}
 		_watch_order_counter += 1
 
-	entry["mode"] = mode
-	if mode == &"provider":
-		entry["provider"] = payload
-		_erase_dictionary_key(entry, "value")
-	else:
-		entry["value"] = payload
-		_erase_dictionary_key(entry, "provider")
-
+	entry["value"] = value
 	_apply_watch_options(entry, id, options)
 	_watches[id] = entry
 
@@ -680,26 +683,6 @@ func _apply_watch_options(entry: Dictionary, id: StringName, options: Dictionary
 			entry["visible"] = visible_value
 
 
-func _evaluate_watch_entry(entry: Dictionary) -> Dictionary:
-	var mode: StringName = GFVariantData.get_option_string_name(entry, "mode", &"value")
-	if mode == &"provider":
-		var provider: Callable = _get_dictionary_callable(entry, "provider")
-		if not provider.is_valid():
-			return {
-				"value": "<invalid watch provider>",
-				"valid": false,
-			}
-		return {
-			"value": provider.call(),
-			"valid": true,
-		}
-
-	return {
-		"value": GFVariantData.get_option_value(entry, "value", null),
-		"valid": true,
-	}
-
-
 func _sort_watch_entries(left: Dictionary, right: Dictionary) -> bool:
 	var left_order: int = GFVariantData.get_option_int(left, "order", 0)
 	var right_order: int = GFVariantData.get_option_int(right, "order", 0)
@@ -708,7 +691,7 @@ func _sort_watch_entries(left: Dictionary, right: Dictionary) -> bool:
 	return GFVariantData.get_option_string(left, "id", "") < GFVariantData.get_option_string(right, "id", "")
 
 
-func _upsert_panel_entry(panel_id: StringName, mode: StringName, payload: Variant, options: Dictionary) -> void:
+func _upsert_panel_entry(panel_id: StringName, content: String, options: Dictionary) -> void:
 	var entry: Dictionary = {}
 	if _panels.has(panel_id):
 		entry = GFVariantData.get_option_dictionary(_panels, panel_id).duplicate()
@@ -721,14 +704,7 @@ func _upsert_panel_entry(panel_id: StringName, mode: StringName, payload: Varian
 		}
 		_panel_order_counter += 1
 
-	entry["mode"] = mode
-	if mode == &"provider":
-		entry["provider"] = payload
-		_erase_dictionary_key(entry, "content")
-	else:
-		entry["content"] = str(payload)
-		_erase_dictionary_key(entry, "provider")
-
+	entry["content"] = content
 	_apply_panel_options(entry, panel_id, options)
 	_panels[panel_id] = entry
 
@@ -755,23 +731,14 @@ func _apply_panel_options(entry: Dictionary, panel_id: StringName, options: Dict
 			entry["visible"] = visible_value
 
 
-func _evaluate_panel_entry(entry: Dictionary) -> Dictionary:
-	var value: Variant = GFVariantData.get_option_value(entry, "content", "")
-	var valid: bool = true
-	if GFVariantData.get_option_string_name(entry, "mode", &"text") == &"provider":
-		var provider: Callable = _get_dictionary_callable(entry, "provider")
-		if provider.is_valid():
-			value = provider.call()
-		else:
-			value = "<invalid panel provider>"
-			valid = false
-
+func _build_panel_snapshot_entry(entry: Dictionary) -> Dictionary:
 	return {
 		"id": GFVariantData.get_option_string_name(entry, "id", &""),
 		"label": GFVariantData.get_option_string(entry, "label", GFVariantData.get_option_string(entry, "id", "")),
 		"group": GFVariantData.get_option_string(entry, "group", "Runtime"),
-		"content": _format_panel_content(value),
-		"valid": valid,
+		"content": GFVariantData.get_option_string(entry, "content"),
+		"valid": true,
+		"error": "",
 	}
 
 
@@ -796,9 +763,26 @@ func _sort_metric_series_entries(left: Dictionary, right: Dictionary) -> bool:
 
 
 func _format_panel_content(value: Variant) -> String:
+	var content: String = ""
 	if value is Dictionary or value is Array:
-		return JSON.stringify(value, "\t")
-	return str(value)
+		content = GFReportValueCodec.stringify_json_compatible(value, "\t")
+	else:
+		content = str(value)
+	if content.length() <= max_panel_content_chars:
+		return content
+	return "%s\n<truncated>" % content.substr(0, max_panel_content_chars)
+
+
+func _bound_published_value(value: Variant) -> Variant:
+	return GFReportValueCodec.to_json_compatible(
+		value,
+		GFReportValueCodec.make_redaction_options(GFReportValueCodec.REDACTION_PROFILE_DEBUG, {
+			"max_collection_items": max_value_collection_items,
+			"max_total_nodes": max_value_snapshot_nodes,
+			"max_depth": 8,
+			"max_string_length": max_panel_content_chars,
+		})
+	)
 
 
 func _append_metric_series_panel(snapshot: Array[Dictionary], include_hidden: bool) -> void:

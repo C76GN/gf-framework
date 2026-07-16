@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFTileMapCache" path="addons/gf/standard/foundation/math/gf_tile_map_cache.gd" module="standard" extends="Resource" classDigest="2832a8c72a05416b1f6a77cda444789e979c29d3ac1dc148e6656e64ee7f0fe5">
+<class name="GFTileMapCache" path="addons/gf/standard/foundation/math/gf_tile_map_cache.gd" module="standard" extends="Resource" classDigest="ef26fc37959cfc4378e03037facb3f8ab2c2acb27d6935004611b9982e9a8514">
 	<description>GFTileMapCache: 通用格子数据快照与差分缓存。
 用 Vector2i 管理格子字典数据，既可手动写入，也可从 TileMapLayer 采集基础
 source/atlas/alternative/terrain 信息。它不规定字段语义，项目可扩展记录内容。</description>
@@ -183,11 +183,12 @@ source/atlas/alternative/terrain 信息。它不规定字段语义，项目可�
 		</member>
 		<member kind="method" name="to_dict">
 			<signature>func to_dict() -&gt; Dictionary:</signature>
-			<description>序列化为字典。</description>
+			<description>序列化为 JSON 兼容字典。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="return">可保存的字典。</tag>
-				<tag name="schema">return: Dictionary mapping string cell keys to Dictionary cell records.</tag>
+				<tag name="return">可保存的 JSON 兼容字典。</tag>
+				<tag name="schema">return: Dictionary mapping string cell keys to JSON-compatible Dictionary cell records.</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="from_dict">
@@ -195,8 +196,9 @@ source/atlas/alternative/terrain 信息。它不规定字段语义，项目可�
 			<description>从字典恢复。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="param">data: to_dict() 生成的数据。</tag>
-				<tag name="schema">data: Dictionary mapping string cell keys to Dictionary cell records.</tag>
+				<tag name="param">data: to_dict() 生成的数据，或旧版原始 Variant 记录。</tag>
+				<tag name="schema">data: Dictionary mapping string cell keys to JSON-compatible Dictionary cell records.</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 	</methods>

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFCameraOrbitInput3D" path="addons/gf/extensions/camera/nodes/gf_camera_orbit_input_3d.gd" module="extensions/camera" extends="Node" classDigest="69c11d3f96b3da19137c900e1c8109389982a080c451bfbeae1a65c74300c3bd">
+<class name="GFCameraOrbitInput3D" path="addons/gf/extensions/camera/nodes/gf_camera_orbit_input_3d.gd" module="extensions/camera" extends="Node" classDigest="1d893402bdd0ce3401ee85606710c75f8aec5ad7151f761c7c2975b67f6b709b">
 	<description>GFCameraOrbitInput3D: 通用 3D 环绕相机输入桥接节点。
 将 GFInputMappingUtility 的可配置动作值或鼠标拖拽转换为 GFCameraOrbitRig3D 的角度和距离增量。
 它不创建输入上下文，也不定义项目动作绑定。</description>
@@ -201,7 +201,8 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">调试快照。</tag>
-				<tag name="schema">return: Dictionary，包含 enabled、update_mode、use_input_mapping、orbit_action_id、zoom_action_id、has_rig 和 has_input_mapping。</tag>
+				<tag name="schema">return: Report-safe Dictionary，包含输入就绪状态、缺失动作以及当前鼠标捕获代次。</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 	</methods>

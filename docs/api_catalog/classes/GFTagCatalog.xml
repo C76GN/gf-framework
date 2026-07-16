@@ -1,0 +1,214 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFTagCatalog" path="addons/gf/standard/foundation/tags/gf_tag_catalog.gd" module="standard" extends="Resource" classDigest="d89f5e3253ba98b9b3d11fb5f03ee8ccdc2b9e8644e28cfcf1777443a091e3f9">
+	<description>GFTagCatalog: 可选标签目录与重定向资源。
+用于声明项目可识别的标签、说明文本、迁移重定向和元数据。它只提供
+定义校验和标签源规范化，不强制所有 GFTagSet 或 GFTagQuery 必须依赖全局目录。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">resource_definition</tag>
+		<tag name="since">8.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties>
+		<member kind="property" name="catalog_id" decorators="@export">
+			<signature>var catalog_id: StringName = &amp;""</signature>
+			<description>目录标识。为空时调用方可自行决定报告主题。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="tag_definitions" decorators="@export">
+			<signature>var tag_definitions: Array[Dictionary] = []</signature>
+			<description>标签定义列表。
+每项是 Dictionary，至少包含 tag，可选 redirect_to、description 和 metadata。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">tag_definitions: Array[Dictionary]，每项包含 tag: StringName/String、redirect_to: StringName/String、description: String、metadata: Dictionary。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="allow_undefined_tags" decorators="@export">
+			<signature>var allow_undefined_tags: bool = true</signature>
+			<description>校验标签源时是否允许目录外标签。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="metadata" decorators="@export">
+			<signature>var metadata: Dictionary = {}</signature>
+			<description>目录元数据。GF 不解释其中业务字段。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">metadata: Dictionary caller-defined catalog metadata.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="configure">
+			<signature>func configure( p_catalog_id: StringName, p_definitions: Array[Dictionary] = [], options: Dictionary = {} ) -&gt; GFTagCatalog:</signature>
+			<description>配置标签目录。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">p_catalog_id: 目录标识。</tag>
+				<tag name="param">p_definitions: 标签定义列表。</tag>
+				<tag name="param">options: 可选配置，支持 allow_undefined_tags 和 metadata。</tag>
+				<tag name="return">当前目录。</tag>
+				<tag name="schema">p_definitions: Array[Dictionary] 标签定义列表。</tag>
+				<tag name="schema">options: Dictionary catalog options.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="add_tag">
+			<signature>func add_tag(tag: StringName, options: Dictionary = {}) -&gt; bool:</signature>
+			<description>添加标签定义。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">tag: 标签名。</tag>
+				<tag name="param">options: 定义选项，支持 redirect_to、description 和 metadata。</tag>
+				<tag name="return">添加成功返回 true。</tag>
+				<tag name="schema">options: Dictionary tag definition options.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="add_redirect">
+			<signature>func add_redirect(source_tag: StringName, target_tag: StringName, options: Dictionary = {}) -&gt; bool:</signature>
+			<description>添加标签重定向定义。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">source_tag: 旧标签名。</tag>
+				<tag name="param">target_tag: 目标标签名。</tag>
+				<tag name="param">options: 定义选项，支持 description 和 metadata。</tag>
+				<tag name="return">添加成功返回 true。</tag>
+				<tag name="schema">options: Dictionary redirect definition options.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="has_tag">
+			<signature>func has_tag(tag: StringName, include_redirects: bool = true) -&gt; bool:</signature>
+			<description>检查目录中是否声明了标签。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">tag: 标签名。</tag>
+				<tag name="param">include_redirects: 是否把重定向源也视作已声明。</tag>
+				<tag name="return">已声明返回 true。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_tag_definition">
+			<signature>func get_tag_definition(tag: StringName, include_redirects: bool = true) -&gt; Dictionary:</signature>
+			<description>获取标签定义。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">tag: 标签名。</tag>
+				<tag name="param">include_redirects: 是否允许返回重定向源定义。</tag>
+				<tag name="return">定义副本；未声明时返回空 Dictionary。</tag>
+				<tag name="schema">return: Dictionary tag definition.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_tags">
+			<signature>func get_tags() -&gt; PackedStringArray:</signature>
+			<description>获取所有正式标签名。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">排序后的标签名，不包含重定向源。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_redirect_tags">
+			<signature>func get_redirect_tags() -&gt; PackedStringArray:</signature>
+			<description>获取所有重定向源标签。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">排序后的重定向源标签。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="resolve_tag">
+			<signature>func resolve_tag(tag: StringName, max_depth: int = 16) -&gt; StringName:</signature>
+			<description>解析标签重定向。
+连续重定向会被追踪到最终目标；遇到循环或空标签时返回原始标签。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">tag: 原始标签。</tag>
+				<tag name="param">max_depth: 最大重定向层数。</tag>
+				<tag name="return">解析后的标签。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="normalize_tag_source">
+			<signature>func normalize_tag_source(source: Variant, options: Dictionary = {}) -&gt; GFTagSet:</signature>
+			<description>规范化标签源。
+会读取任意 GFTagSourceAdapter 支持的来源，解析重定向并合并重复标签层数。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">source: 标签源。</tag>
+				<tag name="param">options: 规范化选项，支持 drop_undefined 和 max_redirect_depth。</tag>
+				<tag name="return">新的标签集合。</tag>
+				<tag name="schema">source: Variant accepted by GFTagSourceAdapter.</tag>
+				<tag name="schema">options: Dictionary normalization options.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="validate_tag_source">
+			<signature>func validate_tag_source(source: Variant, options: Dictionary = {}) -&gt; GFValidationReport:</signature>
+			<description>校验标签源是否满足目录声明。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">source: 标签源。</tag>
+				<tag name="param">options: 校验选项，支持 subject、allow_undefined_tags 和 max_redirect_depth。</tag>
+				<tag name="return">校验报告。</tag>
+				<tag name="schema">source: Variant accepted by GFTagSourceAdapter.</tag>
+				<tag name="schema">options: Dictionary validation options.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="validate_definition">
+			<signature>func validate_definition(options: Dictionary = {}) -&gt; GFValidationReport:</signature>
+			<description>校验目录定义自身。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">options: 校验选项，支持 subject。</tag>
+				<tag name="return">校验报告。</tag>
+				<tag name="schema">options: Dictionary validation options.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="duplicate_catalog">
+			<signature>func duplicate_catalog() -&gt; GFTagCatalog:</signature>
+			<description>创建同内容拷贝。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">新标签目录。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="to_dictionary">
+			<signature>func to_dictionary() -&gt; Dictionary:</signature>
+			<description>导出为字典。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">标签目录字典。</tag>
+				<tag name="schema">return: Dictionary serialized tag catalog.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="from_dictionary">
+			<signature>static func from_dictionary(data: Dictionary) -&gt; GFTagCatalog:</signature>
+			<description>从字典创建标签目录。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">data: 标签目录字典。</tag>
+				<tag name="return">新标签目录。</tag>
+				<tag name="schema">data: Dictionary serialized tag catalog.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

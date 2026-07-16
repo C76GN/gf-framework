@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFSourceTextPatchTools" path="addons/gf/standard/foundation/text/gf_source_text_patch_tools.gd" module="standard" extends="RefCounted" classDigest="5f5bb3f5214edae706317329dd8322c1253df827c3638251138ccd1c39890147">
+	<description>GFSourceTextPatchTools: 源码文本范围补丁工具。
+用于把编辑器工具、生成器或迁移脚本产生的 line/character 范围 edit 应用到
+单个文本字符串。范围形状可与 LSP text edit 相同，但 character 使用 Godot String
+字符索引，不是 LSP UTF-16 code unit 坐标。该类只处理纯文本和结构化报告，
+不写文件、不调用 LSP、不扫描项目，也不解释重命名、符号或业务语义。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_service</tag>
+		<tag name="since">8.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants>
+		<member kind="const" name="ERROR_INVALID_EDIT">
+			<signature>const ERROR_INVALID_EDIT: StringName = &amp;"invalid_edit"</signature>
+			<description>edit 记录结构无效。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="ERROR_RANGE_OUT_OF_BOUNDS">
+			<signature>const ERROR_RANGE_OUT_OF_BOUNDS: StringName = &amp;"range_out_of_bounds"</signature>
+			<description>edit 范围越过文本行或列边界。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="ERROR_INVALID_RANGE">
+			<signature>const ERROR_INVALID_RANGE: StringName = &amp;"invalid_range"</signature>
+			<description>edit 起点在终点之后。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="ERROR_OVERLAPPING_EDITS">
+			<signature>const ERROR_OVERLAPPING_EDITS: StringName = &amp;"overlapping_edits"</signature>
+			<description>edit 范围互相重叠或同一位置存在顺序不明确的插入。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties />
+	<methods>
+		<member kind="method" name="make_range">
+			<signature>static func make_range( start_line: int, start_character: int, end_line: int, end_character: int ) -&gt; Dictionary:</signature>
+			<description>构建零基 line/character 范围字典。
+character 按 Godot String 字符索引计算，不是 UTF-8 字节偏移，也不是 LSP UTF-16 code unit。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">start_line: 起始行，零基。</tag>
+				<tag name="param">start_character: 起始列，零基。</tag>
+				<tag name="param">end_line: 结束行，零基。</tag>
+				<tag name="param">end_character: 结束列，零基。</tag>
+				<tag name="return">范围字典。</tag>
+				<tag name="schema">return: Dictionary，包含 start/end 位置字典。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="make_replacement_edit">
+			<signature>static func make_replacement_edit( start_line: int, start_character: int, end_line: int, end_character: int, text: String, metadata: Dictionary = {} ) -&gt; Dictionary:</signature>
+			<description>构建替换 edit 字典。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">start_line: 起始行，零基。</tag>
+				<tag name="param">start_character: 起始列，零基。</tag>
+				<tag name="param">end_line: 结束行，零基。</tag>
+				<tag name="param">end_character: 结束列，零基。</tag>
+				<tag name="param">text: 替换文本；空字符串表示删除。</tag>
+				<tag name="param">metadata: 调用方元数据。</tag>
+				<tag name="return">edit 字典。</tag>
+				<tag name="schema">metadata: Dictionary copied into the edit metadata field.</tag>
+				<tag name="schema">return: Dictionary，包含 range、text 和 metadata。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="validate_text_edits">
+			<signature>static func validate_text_edits(source_text: String, edits: Array, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>校验文本 edit 集合。
+支持 `range.start.line/character` + `range.end.line/character` 与扁平
+`start_line/start_character/end_line/end_character` 两种范围写法。该范围是 LSP-shaped，
+但 character 使用 Godot String 字符索引。替换文本可使用 `text`、`newText`、
+`new_text` 或 `replacement` 字段。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">source_text: 原始文本。</tag>
+				<tag name="param">edits: edit 字典数组。</tag>
+				<tag name="param">options: 校验选项，支持 include_edits 和 metadata。</tag>
+				<tag name="return">校验报告。</tag>
+				<tag name="schema">edits: Array of Dictionary text edits.</tag>
+				<tag name="schema">options: Dictionary，可包含 include_edits 和 metadata。</tag>
+				<tag name="schema">return: Dictionary，包含 ok、error、edit_count、valid_edit_count、line_count、issues、issue_count、source_sha256、metadata 和可选 edits。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="apply_text_edits">
+			<signature>static func apply_text_edits(source_text: String, edits: Array, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>应用文本 edit 集合。
+edit 会先按原始文本范围校验并按 offset 倒序应用，因此调用方不需要预先排序。
+范围字段可使用 LSP-shaped 字典，但 character 始终是 Godot String 字符索引。
+如果存在越界、重叠或结构错误，返回 ok=false，text 保持为原始文本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">source_text: 原始文本。</tag>
+				<tag name="param">edits: edit 字典数组。</tag>
+				<tag name="param">options: 应用选项，支持 include_edits 和 metadata。</tag>
+				<tag name="return">应用报告。</tag>
+				<tag name="schema">edits: Array of Dictionary text edits.</tag>
+				<tag name="schema">options: Dictionary，可包含 include_edits 和 metadata。</tag>
+				<tag name="schema">return: Dictionary，包含 ok、error、text、changed、edit_count、applied_count、line_count、issues、issue_count、source_sha256、result_sha256、metadata 和可选 edits。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

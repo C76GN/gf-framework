@@ -41,10 +41,10 @@
 | 属性 | [`removal_reason`](#member-gfbuff-properties-removal_reason) | `var removal_reason: StringName = &""` |
 | 方法 | [`setup`](#member-gfbuff-methods-setup) | `func setup(p_id: StringName, p_duration: float, p_owner: Object) -> void:` |
 | 方法 | [`get_apply_report`](#member-gfbuff-methods-get_apply_report) | `func get_apply_report(context: Dictionary = {}) -> Dictionary:` |
-| 方法 | [`on_apply`](#member-gfbuff-methods-on_apply) | `func on_apply() -> void:` |
-| 方法 | [`on_remove`](#member-gfbuff-methods-on_remove) | `func on_remove() -> void:` |
-| 方法 | [`on_refresh`](#member-gfbuff-methods-on_refresh) | `func on_refresh(p_new_duration: float) -> void:` |
-| 方法 | [`refresh_from`](#member-gfbuff-methods-refresh_from) | `func refresh_from(source_buff: GFBuff) -> void:` |
+| 方法 | [`on_apply`](#member-gfbuff-methods-on_apply) | `func on_apply() -> Dictionary:` |
+| 方法 | [`on_remove`](#member-gfbuff-methods-on_remove) | `func on_remove() -> Dictionary:` |
+| 方法 | [`on_refresh`](#member-gfbuff-methods-on_refresh) | `func on_refresh(p_new_duration: float) -> Dictionary:` |
+| 方法 | [`refresh_from`](#member-gfbuff-methods-refresh_from) | `func refresh_from(source_buff: GFBuff) -> Dictionary:` |
 | 方法 | [`on_tick`](#member-gfbuff-methods-on_tick) | `func on_tick(_p_delta: float) -> void:` |
 | 方法 | [`update`](#member-gfbuff-methods-update) | `func update(p_delta: float) -> bool:` |
 | 方法 | [`mark_removed`](#member-gfbuff-methods-mark_removed) | `func mark_removed(reason: StringName = REMOVAL_REASON_REMOVED) -> void:` |
@@ -427,33 +427,48 @@ func get_apply_report(context: Dictionary = {}) -> Dictionary:
 ### `on_apply`
 
 - API：`public`
+- 首次版本：`8.0.0`
 
 ```gdscript
-func on_apply() -> void:
+func on_apply() -> Dictionary:
 ```
 
 当 Buff 首次应用时触发。
+
+返回：生命周期报告；`ok=false` 时表示应用失败且内置效果已回滚。
+
+结构：
+
+- `return`: Dictionary with ok, reason, event, buff_id, changed, failed_effect_id, metadata, and effect_reports.
 
 <a id="member-gfbuff-methods-on_remove"></a>
 
 ### `on_remove`
 
 - API：`public`
+- 首次版本：`8.0.0`
 
 ```gdscript
-func on_remove() -> void:
+func on_remove() -> Dictionary:
 ```
 
 当 Buff 被移除时触发。
+
+返回：生命周期报告；移除会尽力清理内置效果，即使自定义效果报告失败。
+
+结构：
+
+- `return`: Dictionary with ok, reason, event, buff_id, changed, failed_effect_id, metadata, and effect_reports.
 
 <a id="member-gfbuff-methods-on_refresh"></a>
 
 ### `on_refresh`
 
 - API：`public`
+- 首次版本：`8.0.0`
 
 ```gdscript
-func on_refresh(p_new_duration: float) -> void:
+func on_refresh(p_new_duration: float) -> Dictionary:
 ```
 
 当 Buff 层数增加时触发（通常用于刷新持续时间）。
@@ -464,14 +479,21 @@ func on_refresh(p_new_duration: float) -> void:
 |---|---|
 | `p_new_duration` | 刷新后的持续时间（秒）。 |
 
+返回：生命周期报告；`changed=false` 表示本次刷新未改变运行状态。
+
+结构：
+
+- `return`: Dictionary with ok, reason, event, buff_id, changed, failed_effect_id, metadata, and effect_reports.
+
 <a id="member-gfbuff-methods-refresh_from"></a>
 
 ### `refresh_from`
 
 - API：`public`
+- 首次版本：`8.0.0`
 
 ```gdscript
-func refresh_from(source_buff: GFBuff) -> void:
+func refresh_from(source_buff: GFBuff) -> Dictionary:
 ```
 
 使用同 ID 的新 Buff 刷新当前运行中实例。
@@ -481,6 +503,12 @@ func refresh_from(source_buff: GFBuff) -> void:
 | 名称 | 说明 |
 |---|---|
 | `source_buff` | 本次尝试添加的新 Buff。 |
+
+返回：生命周期报告；`changed=false` 表示本次刷新被策略忽略。
+
+结构：
+
+- `return`: Dictionary with ok, reason, event, buff_id, changed, failed_effect_id, metadata, and effect_reports.
 
 <a id="member-gfbuff-methods-on_tick"></a>
 

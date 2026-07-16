@@ -19,16 +19,16 @@ func after_each() -> void:
 func test_state_save_and_restore() -> void:
 	_seed_util.set_global_seed(12345)
 
-	var _first_val: int = _seed_util.get_rng().randi()
+	var _first_val: int = _seed_util.next_uint32()
 	var state_to_save: int = _seed_util.get_state()
 
-	var next_val1: int = _seed_util.get_rng().randi()
-	var next_val2: int = _seed_util.get_rng().randi()
+	var next_val1: int = _seed_util.next_uint32()
+	var next_val2: int = _seed_util.next_uint32()
 
 	_seed_util.set_state(state_to_save)
 
-	var restored_val1: int = _seed_util.get_rng().randi()
-	var restored_val2: int = _seed_util.get_rng().randi()
+	var restored_val1: int = _seed_util.next_uint32()
+	var restored_val2: int = _seed_util.next_uint32()
 
 	assert_eq(restored_val1, next_val1, "恢复状态后，生成的第一个随机数应与之前一致。")
 	assert_eq(restored_val2, next_val2, "恢复状态后，生成的第二个随机数应与之前一致。")
@@ -120,6 +120,25 @@ func test_get_branched_deterministic_random_determinism() -> void:
 	assert_eq(val1, val2, "相同主状态和标签应派生相同 deterministic 序列。")
 
 
+func test_branched_deterministic_random_ignores_godot_rng_state() -> void:
+	var first_seed_util: GFSeedUtility = GFSeedUtility.new()
+	var second_seed_util: GFSeedUtility = GFSeedUtility.new()
+	first_seed_util.init()
+	second_seed_util.init()
+	first_seed_util.set_global_seed(12345)
+	second_seed_util.set_global_seed(12345)
+
+	var _advanced_rng_value: int = first_seed_util.next_uint32()
+	var first_rng: GF_DETERMINISTIC_RANDOM = first_seed_util.get_branched_deterministic_random("module_a")
+	var second_rng: GF_DETERMINISTIC_RANDOM = second_seed_util.get_branched_deterministic_random("module_a")
+
+	assert_eq(
+		first_rng.get_initial_seed(),
+		second_rng.get_initial_seed(),
+		"deterministic 分支不应依赖 Godot RNG 的内部状态。"
+	)
+
+
 func test_deterministic_branch_counter_is_separate_from_godot_branch_counter() -> void:
 	_seed_util.set_global_seed(24680)
 	var first_godot_rng: RandomNumberGenerator = _seed_util.get_branched_rng("loot")
@@ -188,6 +207,23 @@ func test_full_state_rejects_future_schema_version_without_mutating_state() -> v
 	assert_eq(_seed_util.get_state(), original_state, "未来 schema 不应覆盖当前 RNG 状态。")
 
 
+func test_full_state_rejects_old_schema_version_without_mutating_state() -> void:
+	_seed_util.set_global_seed(13579)
+	var snapshot: Dictionary = _seed_util.get_full_state()
+	var original_seed: int = _seed_util.get_global_seed()
+	var original_state: int = _seed_util.get_state()
+	snapshot[&"state_schema_version"] = 1
+	var _erase_counters_result: bool = snapshot.erase(&"deterministic_branch_counters")
+	snapshot[&"global_seed"] = "24680"
+	snapshot[&"rng_state"] = "123"
+
+	_seed_util.set_full_state(snapshot)
+
+	assert_push_error("[GFSeedUtility] 不支持的完整随机状态 schema 版本：1。")
+	assert_eq(_seed_util.get_global_seed(), original_seed, "旧 schema 不应覆盖当前主种子。")
+	assert_eq(_seed_util.get_state(), original_state, "旧 schema 不应覆盖当前 RNG 状态。")
+
+
 func test_full_state_rejects_malformed_rng_state_without_mutating_state() -> void:
 	_seed_util.set_global_seed(13579)
 	var _branched_rng_result: Variant = _seed_util.get_branched_rng("loot")
@@ -229,6 +265,61 @@ func test_full_state_rejects_malformed_branch_counter_without_mutating_state() -
 	assert_eq(restored_rng.seed, expected_seed, "非法分支计数不应改变下一次分支序列。")
 
 
+func test_make_stable_text_seed_is_repeatable() -> void:
+	var first_seed: int = GFSeedUtility.make_stable_text_seed("world:forest")
+	var second_seed: int = GFSeedUtility.make_stable_text_seed("world:forest")
+	var other_seed: int = GFSeedUtility.make_stable_text_seed("world:desert")
+
+	assert_eq(first_seed, second_seed, "相同文本应稳定映射到相同 seed。")
+	assert_ne(first_seed, other_seed, "不同文本应能派生不同 seed。")
+
+
+func test_make_stable_seed_uses_canonical_dictionary_order() -> void:
+	var seed_result: Dictionary = GFSeedUtility.try_make_stable_seed([{
+		"b": 2,
+		"a": 1,
+	}, Vector2i(3, 4)])
+	var first_seed: int = GFSeedUtility.make_stable_seed([{
+		"b": 2,
+		"a": 1,
+	}, Vector2i(3, 4)])
+	var second_seed: int = GFSeedUtility.make_stable_seed([{
+		"a": 1,
+		"b": 2,
+	}, Vector2i(3, 4)])
+
+	assert_true(GFVariantData.get_option_bool(seed_result, &"ok", false), "结构化 seed 派生报告应标记成功。")
+	assert_eq(GFVariantData.get_option_int(seed_result, &"seed"), first_seed, "结构化 seed 派生报告应返回同一 seed。")
+	assert_eq(GFVariantData.get_option_string(seed_result, &"error"), "", "成功报告不应携带错误码。")
+	assert_eq(first_seed, second_seed, "纯数据 seed 派生应忽略 Dictionary 插入顺序。")
+
+
+func test_make_stable_grid_seed_isolated_by_cell_seed_and_namespace() -> void:
+	var base_seed: int = GFSeedUtility.make_stable_grid_seed(Vector2i(4, 7), 123, "terrain")
+	var same_seed: int = GFSeedUtility.make_stable_grid_seed(Vector2i(4, 7), 123, "terrain")
+	var other_cell_seed: int = GFSeedUtility.make_stable_grid_seed(Vector2i(5, 7), 123, "terrain")
+	var other_namespace_seed: int = GFSeedUtility.make_stable_grid_seed(Vector2i(4, 7), 123, "decor")
+	var other_upstream_seed: int = GFSeedUtility.make_stable_grid_seed(Vector2i(4, 7), 456, "terrain")
+
+	assert_eq(base_seed, same_seed, "相同坐标、上游种子和命名空间应得到相同 seed。")
+	assert_ne(base_seed, other_cell_seed, "不同坐标应得到不同 seed。")
+	assert_ne(base_seed, other_namespace_seed, "不同命名空间应隔离 seed。")
+	assert_ne(base_seed, other_upstream_seed, "不同上游种子应隔离 seed。")
+
+
+func test_make_stable_seed_rejects_float_by_default() -> void:
+	var seed_result: Dictionary = GFSeedUtility.try_make_stable_seed([1.25])
+	assert_false(GFVariantData.get_option_bool(seed_result, &"ok", true), "结构化 seed 派生应报告编码失败。")
+	assert_eq(GFVariantData.get_option_int(seed_result, &"seed", -1), 0, "失败报告 seed 应固定为 0。")
+	assert_eq(GFVariantData.get_option_string(seed_result, &"error"), "canonical_encode_failed", "失败报告应提供稳定错误码。")
+	assert_push_error("[GFDeterministicVariantSerializer] 浮点值默认不参与确定性编码；请先使用定点数，或显式设置 allow_floats。")
+
+	var seed_value: int = GFSeedUtility.make_stable_seed([1.25])
+
+	assert_eq(seed_value, 0, "默认确定性 seed 派生应拒绝浮点输入并返回 0。")
+	assert_push_error("[GFDeterministicVariantSerializer] 浮点值默认不参与确定性编码；请先使用定点数，或显式设置 allow_floats。")
+
+
 func test_full_state_uses_json_safe_text_numbers() -> void:
 	_seed_util.set_global_seed(9_223_372_036_854_775_000)
 	var _get_branched_rng_result_99: Variant = _seed_util.get_branched_rng("loot")
@@ -250,13 +341,13 @@ func test_full_state_uses_json_safe_text_numbers() -> void:
 func test_full_state_roundtrips_through_json_with_large_64_bit_values() -> void:
 	var large_seed: int = 9_223_372_036_854_775_000
 	_seed_util.set_global_seed(large_seed)
-	var _randi_result_115: Variant = _seed_util.get_rng().randi()
+	var _randi_result_115: Variant = _seed_util.next_uint32()
 	var _get_branched_rng_result_116: Variant = _seed_util.get_branched_rng("loot")
 	var snapshot: Dictionary = _seed_util.get_full_state()
 	var expected_rng: RandomNumberGenerator = _seed_util.get_branched_rng("loot")
 	var expected_rng_seed: int = expected_rng.seed
 	var expected_rng_value: int = expected_rng.randi()
-	var expected_next_main: int = _seed_util.get_rng().randi()
+	var expected_next_main: int = _seed_util.next_uint32()
 	var parsed: Dictionary = GFVariantData.as_dictionary(JSON.parse_string(JSON.stringify(snapshot)))
 
 	_seed_util.set_global_seed(1)
@@ -267,7 +358,7 @@ func test_full_state_roundtrips_through_json_with_large_64_bit_values() -> void:
 	assert_eq(_seed_util.get_global_seed(), large_seed, "JSON 往返后应精确恢复 64 位主种子。")
 	assert_eq(restored_rng.seed, expected_rng_seed, "JSON 往返后应精确恢复分支计数与分支种子。")
 	assert_eq(restored_rng.randi(), expected_rng_value, "JSON 往返后分支 RNG 序列应保持一致。")
-	assert_eq(_seed_util.get_rng().randi(), expected_next_main, "JSON 往返后主 RNG 序列应保持一致。")
+	assert_eq(_seed_util.next_uint32(), expected_next_main, "JSON 往返后主 RNG 序列应保持一致。")
 
 
 func test_full_state_json_text_is_stable_for_equivalent_branch_counters() -> void:

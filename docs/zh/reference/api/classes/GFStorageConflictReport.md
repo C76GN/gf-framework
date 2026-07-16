@@ -25,6 +25,7 @@
 | 属性 | [`metadata`](#member-gfstorageconflictreport-properties-metadata) | `var metadata: Dictionary = {}` |
 | 方法 | [`apply_dict`](#member-gfstorageconflictreport-methods-apply_dict) | `func apply_dict(data: Dictionary) -> void:` |
 | 方法 | [`to_dict`](#member-gfstorageconflictreport-methods-to_dict) | `func to_dict() -> Dictionary:` |
+| 方法 | [`to_json_safe_dict`](#member-gfstorageconflictreport-methods-to_json_safe_dict) | `func to_json_safe_dict(options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`duplicate_report`](#member-gfstorageconflictreport-methods-duplicate_report) | `func duplicate_report() -> GFStorageConflictReport:` |
 | 方法 | [`is_resolved`](#member-gfstorageconflictreport-methods-is_resolved) | `func is_resolved() -> bool:` |
 | 方法 | [`from_dict`](#member-gfstorageconflictreport-methods-from_dict) | `static func from_dict(data: Dictionary) -> GFStorageConflictReport:` |
@@ -197,6 +198,32 @@ func to_dict() -> Dictionary:
 结构：
 
 - `return`: Dictionary，包含 file_name、key、local_value、remote_value、resolved_value、resolution 和 metadata。
+
+<a id="member-gfstorageconflictreport-methods-to_json_safe_dict"></a>
+
+### `to_json_safe_dict`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func to_json_safe_dict(options: Dictionary = {}) -> Dictionary:
+```
+
+转换为可安全 JSON.stringify() 的报告字典。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `options` | 传给 GFReportValueCodec 的编码选项。 |
+
+返回：JSON-safe 冲突报告。
+
+结构：
+
+- `options`: Dictionary with GFReportValueCodec options.
+- `return`: Dictionary，只包含 JSON-compatible values 和正式报告 marker。
 
 <a id="member-gfstorageconflictreport-methods-duplicate_report"></a>
 

@@ -9,11 +9,14 @@ import fnmatch
 import hashlib
 import json
 import os
+import secrets
 import sys
 import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+
+import gf_package_transaction
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -45,6 +48,38 @@ UNSUPPORTED_REGISTRY_SOURCE_SIGNATURE_FIELDS = {
 	"signing_keys",
 }
 UNSUPPORTED_REGISTRY_PACKAGE_SIGNATURE_FIELDS = UNSUPPORTED_REGISTRY_SOURCE_SIGNATURE_FIELDS
+PACKAGE_MANIFEST_ALLOWED_FIELDS = {
+	"schema_version",
+	"id",
+	"kind",
+	"version",
+	"display_name",
+	"description",
+	"dependencies",
+	"exclude_paths",
+	"paths",
+	"gf_extension_id",
+	"packages",
+	"metadata",
+}
+PACKAGE_MANIFEST_FORBIDDEN_FIELDS = {
+	"archive",
+	"checksum",
+	"download",
+	"download_url",
+	"download_urls",
+	"downloads",
+	"install_script",
+	"install_url",
+	"installer",
+	"installer_paths",
+	"installers",
+	"npm",
+	"registry",
+	"repository",
+	"sha256",
+	"size_bytes",
+} | UNSUPPORTED_REGISTRY_SOURCE_SIGNATURE_FIELDS
 
 
 def main() -> int:
@@ -133,137 +168,198 @@ def build_gf_packages(
 
 	resolved_output_dir = resolve_workspace_path(output_dir)
 	resolved_registry_path = resolve_workspace_path(registry_path)
-	resolved_output_dir.mkdir(parents=True, exist_ok=True)
-	resolved_registry_path.parent.mkdir(parents=True, exist_ok=True)
+	return build_and_publish_distribution(
+		records_by_id,
+		selected_ids,
+		selected_preset_ids,
+		version_override,
+		resolved_output_dir,
+		resolved_registry_path,
+		archive_base_url,
+		registry_source_path,
+		registry_source_channel,
+		registry_source_registry_url,
+		registry_source_mirrors or [],
+		offline_bundle_path,
+	)
 
+
+def build_and_publish_distribution(
+	records_by_id: dict[str, dict[str, Any]],
+	selected_ids: list[str],
+	selected_preset_ids: list[str],
+	version_override: str,
+	resolved_output_dir: Path,
+	resolved_registry_path: Path,
+	archive_base_url: str,
+	registry_source_path: str,
+	registry_source_channel: str,
+	registry_source_registry_url: str,
+	registry_source_mirrors: list[str],
+	offline_bundle_path: str,
+) -> dict[str, Any]:
+	transaction_id = f"{os.getpid()}-{secrets.token_hex(12)}"
+	staged_outputs: dict[Path, Path] = {}
 	package_results: list[dict[str, Any]] = []
 	framework_version = version_override.strip() or read_plugin_version()
 	framework_compatibility = make_framework_compatibility_fields(framework_version)
 	registry_packages: dict[str, Any] = {}
-	for package_id in selected_ids:
-		record = records_by_id[package_id]
-		package_version = version_override.strip() or record["version"]
-		archive_name = f"{package_id.replace('.', '-')}-{package_version}.zip"
-		archive_path = resolved_output_dir / archive_name
-		files = collect_package_files(record)
-		build_issues = validate_package_file_list(record, files)
-		if not build_issues:
-			write_package_archive(archive_path, files)
-		audit = audit_package_archive(record, archive_path, files)
-		all_issues = [*build_issues, *audit["issues"]]
-		archive_sha256 = sha256_file(archive_path) if archive_path.is_file() else ""
-		size_bytes = archive_path.stat().st_size if archive_path.is_file() else 0
-		archive_field = make_registry_archive_value(archive_path, resolved_registry_path, archive_base_url)
-		package_result = {
-			"ok": len(all_issues) == 0,
-			"id": package_id,
-			"kind": record["kind"],
-			"version": package_version,
-			"archive": relative_display_path(archive_path),
-			"sha256": archive_sha256,
-			"size_bytes": size_bytes,
-			"file_count": len(files),
-			"issues": all_issues,
-		}
-		package_results.append(package_result)
-		registry_packages[package_id] = {
-			"version": package_version,
-			"kind": record["kind"],
-			"display_name": record.get("display_name", ""),
-			"description": record.get("description", ""),
-			**framework_compatibility,
-			"dependencies": record["dependencies"],
-			"paths": record["paths"],
-			"archive": archive_field,
-			"sha256": archive_sha256,
-			"size_bytes": size_bytes,
-		}
-		if record.get("enable_extension"):
-			registry_packages[package_id]["enable_extension"] = record["enable_extension"]
+	resolved_registry_source_path = resolve_workspace_path(registry_source_path) if registry_source_path.strip() else None
+	resolved_offline_bundle_path = resolve_workspace_path(offline_bundle_path) if offline_bundle_path.strip() else None
+	try:
+		for package_id in selected_ids:
+			record = records_by_id[package_id]
+			package_version = version_override.strip() or record["version"]
+			archive_name = f"{package_id.replace('.', '-')}-{package_version}.zip"
+			archive_path = resolved_output_dir / archive_name
+			staged_archive_path = staged_output_path(archive_path, transaction_id)
+			staged_outputs[archive_path] = staged_archive_path
+			source_issues: list[str] = []
+			files = collect_package_files(record, source_issues)
+			build_issues = [*source_issues, *validate_package_file_list(record, files)]
+			if not build_issues:
+				try:
+					write_package_archive(staged_archive_path, files)
+				except (OSError, zipfile.BadZipFile) as error:
+					build_issues.append(f"{package_id}: could not stage package archive: {error}")
+			audit_issues = audit_package_archive(record, staged_archive_path, files)["issues"] if not build_issues else []
+			all_issues = [*build_issues, *audit_issues]
+			archive_sha256 = sha256_file(staged_archive_path) if staged_archive_path.is_file() and not all_issues else ""
+			size_bytes = staged_archive_path.stat().st_size if staged_archive_path.is_file() and not all_issues else 0
+			archive_field = make_registry_archive_value(archive_path, resolved_registry_path, archive_base_url)
+			package_result = {
+				"ok": not all_issues,
+				"id": package_id,
+				"kind": record["kind"],
+				"version": package_version,
+				"archive": relative_display_path(archive_path),
+				"sha256": archive_sha256,
+				"size_bytes": size_bytes,
+				"file_count": len(files),
+				"issues": all_issues,
+			}
+			package_results.append(package_result)
+			registry_packages[package_id] = {
+				"version": package_version,
+				"kind": record["kind"],
+				"display_name": record.get("display_name", ""),
+				"description": record.get("description", ""),
+				**framework_compatibility,
+				"dependencies": record["dependencies"],
+				"paths": record["paths"],
+				"archive": archive_field,
+				"sha256": archive_sha256,
+				"size_bytes": size_bytes,
+			}
+			if record.get("gf_extension_id"):
+				registry_packages[package_id]["gf_extension_id"] = record["gf_extension_id"]
 
-	for preset_id in selected_preset_ids:
-		record = records_by_id[preset_id]
-		package_version = version_override.strip() or record["version"]
-		package_result = {
-			"ok": True,
-			"id": preset_id,
-			"kind": record["kind"],
-			"version": package_version,
-			"archive": "",
-			"sha256": "",
-			"size_bytes": 0,
-			"file_count": 0,
-			"issues": [],
-		}
-		package_results.append(package_result)
-		registry_packages[preset_id] = {
-			"version": package_version,
-			"kind": record["kind"],
-			"display_name": record.get("display_name", ""),
-			"description": record.get("description", ""),
-			**framework_compatibility,
-			"dependencies": [],
-			"packages": record["packages"],
-			"paths": [],
-		}
+		for preset_id in selected_preset_ids:
+			record = records_by_id[preset_id]
+			package_version = version_override.strip() or record["version"]
+			package_results.append({
+				"ok": True,
+				"id": preset_id,
+				"kind": record["kind"],
+				"version": package_version,
+				"archive": "",
+				"sha256": "",
+				"size_bytes": 0,
+				"file_count": 0,
+				"issues": [],
+			})
+			registry_packages[preset_id] = {
+				"version": package_version,
+				"kind": record["kind"],
+				"display_name": record.get("display_name", ""),
+				"description": record.get("description", ""),
+				**framework_compatibility,
+				"dependencies": [],
+				"packages": record["packages"],
+				"paths": [],
+			}
 
-	registry = {
-		"schema_version": REGISTRY_SCHEMA_VERSION,
-		"framework_version": framework_version,
-		**framework_compatibility,
-		"generated_at": datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z"),
-		"packages": registry_packages,
-	}
-	resolved_registry_path.write_text(json.dumps(registry, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-	registry_issues = audit_registry(resolved_registry_path, package_results)
-	registry_source_issues: list[str] = []
-	resolved_registry_source_path: Path | None = None
-	if registry_source_path.strip():
-		resolved_registry_source_path = resolve_workspace_path(registry_source_path)
-		resolved_registry_source_path.parent.mkdir(parents=True, exist_ok=True)
-		source_manifest = make_registry_source_manifest(
+		if not all(item["ok"] for item in package_results):
+			return make_result(
+				False,
+				resolved_output_dir,
+				resolved_registry_path,
+				package_results,
+				["Package build staging failed; existing distribution outputs were preserved."],
+				resolved_registry_source_path or "",
+				resolved_offline_bundle_path or "",
+			)
+
+		registry = {
+			"schema_version": REGISTRY_SCHEMA_VERSION,
+			"framework_version": framework_version,
+			**framework_compatibility,
+			"generated_at": datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z"),
+			"packages": registry_packages,
+		}
+		staged_registry_path = staged_output_path(resolved_registry_path, transaction_id)
+		staged_outputs[resolved_registry_path] = staged_registry_path
+		write_json_file(staged_registry_path, registry)
+		registry_issues = audit_registry(staged_registry_path, package_results)
+
+		registry_source_issues: list[str] = []
+		if resolved_registry_source_path is not None:
+			staged_registry_source_path = staged_output_path(resolved_registry_source_path, transaction_id)
+			staged_outputs[resolved_registry_source_path] = staged_registry_source_path
+			source_manifest = make_registry_source_manifest(
+				resolved_registry_path,
+				resolved_registry_source_path,
+				registry_source_channel,
+				registry_source_registry_url,
+				registry_source_mirrors,
+				registry_content_path=staged_registry_path,
+			)
+			write_json_file(staged_registry_source_path, source_manifest)
+			registry_source_issues = audit_registry_source_manifest(
+				staged_registry_source_path,
+				source_manifest["default_channel"],
+				source_manifest["channels"][source_manifest["default_channel"]]["registry"],
+				sha256_file(staged_registry_path),
+				staged_registry_path.stat().st_size,
+			)
+
+		offline_bundle_issues: list[str] = []
+		if resolved_offline_bundle_path is not None:
+			staged_offline_bundle_path = staged_output_path(resolved_offline_bundle_path, transaction_id)
+			staged_outputs[resolved_offline_bundle_path] = staged_offline_bundle_path
+			offline_bundle_issues = write_offline_bundle(
+				staged_offline_bundle_path,
+				resolved_registry_path,
+				resolved_registry_source_path,
+				package_results,
+				staged_outputs,
+			)
+
+		issues = [*registry_issues, *registry_source_issues, *offline_bundle_issues]
+		if not issues:
+			issues.extend(publish_staged_outputs(staged_outputs, transaction_id))
+		return make_result(
+			not issues,
+			resolved_output_dir,
 			resolved_registry_path,
-			resolved_registry_source_path,
-			registry_source_channel,
-			registry_source_registry_url,
-			registry_source_mirrors or [],
-		)
-		resolved_registry_source_path.write_text(
-			json.dumps(source_manifest, ensure_ascii=False, indent=2) + "\n",
-			encoding="utf-8",
-		)
-		registry_source_issues = audit_registry_source_manifest(
-			resolved_registry_source_path,
-			source_manifest["default_channel"],
-			source_manifest["channels"][source_manifest["default_channel"]]["registry"],
-			sha256_file(resolved_registry_path),
-			resolved_registry_path.stat().st_size,
-		)
-	offline_bundle_issues: list[str] = []
-	resolved_offline_bundle_path: Path | None = None
-	if offline_bundle_path.strip():
-		resolved_offline_bundle_path = resolve_workspace_path(offline_bundle_path)
-		offline_bundle_issues = write_offline_bundle(
-			resolved_offline_bundle_path,
-			resolved_registry_path,
-			resolved_registry_source_path,
 			package_results,
+			issues,
+			resolved_registry_source_path or "",
+			resolved_offline_bundle_path or "",
 		)
-	ok = (
-		all(item["ok"] for item in package_results)
-		and not registry_issues
-		and not registry_source_issues
-		and not offline_bundle_issues
-	)
-	return make_result(
-		ok,
-		resolved_output_dir.as_posix(),
-		resolved_registry_path.as_posix(),
-		package_results,
-		[*registry_issues, *registry_source_issues, *offline_bundle_issues],
-		resolved_registry_source_path.as_posix() if resolved_registry_source_path is not None else "",
-		resolved_offline_bundle_path.as_posix() if resolved_offline_bundle_path is not None else "",
-	)
+	except (OSError, ValueError, zipfile.BadZipFile) as error:
+		return make_result(
+			False,
+			resolved_output_dir,
+			resolved_registry_path,
+			package_results,
+			[f"Distribution staging failed; existing outputs were preserved: {error}"],
+			resolved_registry_source_path or "",
+			resolved_offline_bundle_path or "",
+		)
+	finally:
+		for staged_path in staged_outputs.values():
+			try_unlink(staged_path)
 
 
 def make_result(
@@ -323,6 +419,9 @@ def load_package_manifests() -> dict[str, Any]:
 	records: list[dict[str, Any]] = []
 	issues: list[str] = []
 	for path in sorted(PACKAGE_ROOT.rglob("*.json")):
+		if gf_package_transaction.path_has_reparse_component(path):
+			issues.append(f"{relative_display_path(path)}: package manifest crosses a symlink, junction, or reparse point.")
+			continue
 		try:
 			data = json.loads(path.read_text(encoding="utf-8"))
 		except (OSError, UnicodeDecodeError, json.JSONDecodeError) as error:
@@ -331,21 +430,28 @@ def load_package_manifests() -> dict[str, Any]:
 		if not isinstance(data, dict):
 			issues.append(f"{path.relative_to(ROOT).as_posix()}: package manifest root must be an object.")
 			continue
+		relative_path = path.relative_to(ROOT).as_posix()
+		for field_name in sorted(data):
+			if field_name in PACKAGE_MANIFEST_FORBIDDEN_FIELDS:
+				issues.append(f"{relative_path}: forbidden package manifest field: {field_name}.")
+			elif field_name not in PACKAGE_MANIFEST_ALLOWED_FIELDS:
+				issues.append(f"{relative_path}: unsupported package manifest field: {field_name}.")
 		record = {
-			"path": path.relative_to(ROOT).as_posix(),
+			"path": relative_path,
 			"id": string_value(data.get("id", "")),
 			"kind": string_value(data.get("kind", "")),
 			"version": string_value(data.get("version", "unreleased")) or "unreleased",
 			"display_name": string_value(data.get("display_name", "")),
 			"description": string_value(data.get("description", "")),
-			"enable_extension": string_value(data.get("enable_extension", "")),
+			"gf_extension_id": string_value(data.get("gf_extension_id", "")),
 			"dependencies": string_array(data.get("dependencies", [])),
 			"packages": string_array(data.get("packages", [])),
 			"paths": string_array(data.get("paths", [])),
 			"exclude_paths": string_array(data.get("exclude_paths", [])),
 		}
-		if data.get("schema_version") != PACKAGE_SCHEMA_VERSION:
-			issues.append(f"{record['path']}: schema_version must be {PACKAGE_SCHEMA_VERSION}.")
+		schema_version = data.get("schema_version")
+		if type(schema_version) is not int or schema_version != PACKAGE_SCHEMA_VERSION:
+			issues.append(f"{record['path']}: schema_version must be the integer {PACKAGE_SCHEMA_VERSION}.")
 		if not record["id"]:
 			issues.append(f"{record['path']}: package id is required.")
 		records.append(record)
@@ -430,21 +536,49 @@ def expand_selected_dependency_closure(
 	return order
 
 
-def collect_package_files(record: dict[str, Any]) -> list[Path]:
+def collect_package_files(record: dict[str, Any], issues: list[str] | None = None) -> list[Path]:
+	result_issues = issues if issues is not None else []
 	files: list[Path] = []
+	seen_identities: dict[str, Path] = {}
 	exclude_patterns = record.get("exclude_paths", [])
 	for raw_pattern in record["paths"]:
 		pattern = normalize_manifest_path(raw_pattern)
 		if not pattern:
 			continue
 		for path in expand_manifest_path(pattern):
+			if gf_package_transaction.path_has_reparse_component(path):
+				result_issues.append(
+					f"{record['id']}: package source crosses a symlink, junction, or reparse point: "
+					f"{relative_display_path(path)}"
+				)
+				continue
 			if not path.is_file():
+				continue
+			try:
+				resolved_path = path.resolve(strict=True)
+				resolved_path.relative_to(ROOT.resolve(strict=True))
+			except (OSError, ValueError):
+				result_issues.append(f"{record['id']}: package source leaves the repository root: {path.as_posix()}")
 				continue
 			if is_blocked_path(path):
 				continue
 			relative_path = path.relative_to(ROOT).as_posix()
+			if not is_windows_portable_relative_path(relative_path):
+				result_issues.append(
+					f"{record['id']}: package source is not portable to Windows path rules: {relative_path}"
+				)
+				continue
 			if path_matches_any_manifest_path(relative_path, exclude_patterns):
 				continue
+			identity = portable_path_identity(relative_path)
+			previous = seen_identities.get(identity)
+			if previous is not None and previous != path:
+				result_issues.append(
+					f"{record['id']}: package sources collide under Windows path rules: "
+					f"{previous.relative_to(ROOT).as_posix()} and {relative_path}"
+				)
+				continue
+			seen_identities[identity] = path
 			if path not in files:
 				files.append(path)
 	return sorted(files, key=lambda item: item.relative_to(ROOT).as_posix())
@@ -481,15 +615,16 @@ def validate_package_file_list(record: dict[str, Any], files: list[Path]) -> lis
 
 
 def write_package_archive(output: Path, files: list[Path]) -> None:
-	output.parent.mkdir(parents=True, exist_ok=True)
-	if output.exists():
-		output.unlink()
-	with zipfile.ZipFile(output, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=9) as archive:
+	prepare_new_staged_output(output)
+	with zipfile.ZipFile(output, "x", compression=zipfile.ZIP_DEFLATED, compresslevel=9) as archive:
 		for path in files:
 			write_file(archive, path)
+	flush_and_sync_file(output)
 
 
 def write_file(archive: zipfile.ZipFile, path: Path) -> None:
+	if gf_package_transaction.path_has_reparse_component(path):
+		raise OSError(f"Package source became a symlink, junction, or reparse point: {path.as_posix()}")
 	archive_path = path.relative_to(ROOT).as_posix()
 	info = zipfile.ZipInfo(archive_path, ZIP_TIMESTAMP)
 	info.compress_type = zipfile.ZIP_DEFLATED
@@ -596,17 +731,20 @@ def make_registry_source_manifest(
 	channel: str,
 	registry_url: str,
 	mirrors: list[str],
+	*,
+	registry_content_path: Path | None = None,
 ) -> dict[str, Any]:
 	channel_name = channel.strip() or DEFAULT_REGISTRY_SOURCE_CHANNEL
 	registry_reference = registry_url.strip() or relative_path_between(registry_path, registry_source_path.parent)
+	content_path = registry_content_path or registry_path
 	return {
 		"schema_version": REGISTRY_SOURCE_SCHEMA_VERSION,
 		"default_channel": channel_name,
 		"channels": {
 			channel_name: {
 				"registry": registry_reference,
-				"registry_sha256": sha256_file(registry_path),
-				"registry_size_bytes": registry_path.stat().st_size,
+				"registry_sha256": sha256_file(content_path),
+				"registry_size_bytes": content_path.stat().st_size,
 				"mirrors": [mirror.strip() for mirror in mirrors if mirror.strip()],
 			},
 		},
@@ -678,11 +816,14 @@ def write_offline_bundle(
 	registry_path: Path,
 	registry_source_path: Path | None,
 	package_results: list[dict[str, Any]],
+	staged_paths: dict[Path, Path] | None = None,
 ) -> list[str]:
 	issues: list[str] = []
+	content_paths = staged_paths or {}
 	files = offline_bundle_files(registry_path, registry_source_path, package_results)
 	for path in files:
-		if not path.is_file():
+		content_path = content_paths.get(path, path)
+		if not content_path.is_file() or gf_package_transaction.path_has_reparse_component(content_path):
 			issues.append(f"Offline bundle input is missing: {path.as_posix()}")
 	if issues:
 		return issues
@@ -698,15 +839,14 @@ def write_offline_bundle(
 			issues.append(f"Offline bundle entry is duplicated: {entry_name}")
 			continue
 		seen_entries.add(entry_name)
-		entries.append((entry_name, path))
+		entries.append((entry_name, content_paths.get(path, path)))
 	if issues:
 		return issues
-	bundle_path.parent.mkdir(parents=True, exist_ok=True)
-	if bundle_path.exists():
-		bundle_path.unlink()
-	with zipfile.ZipFile(bundle_path, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=9) as archive:
+	prepare_new_staged_output(bundle_path)
+	with zipfile.ZipFile(bundle_path, "x", compression=zipfile.ZIP_DEFLATED, compresslevel=9) as archive:
 		for entry_name, path in entries:
 			write_bundle_file(archive, entry_name, path)
+	flush_and_sync_file(bundle_path)
 	return audit_offline_bundle(bundle_path, [entry_name for entry_name, _path in entries])
 
 
@@ -728,7 +868,7 @@ def offline_bundle_files(
 
 
 def offline_bundle_common_root(files: list[Path]) -> Path:
-	return Path(os.path.commonpath([str(path.resolve()) for path in files]))
+	return Path(os.path.commonpath([str(gf_package_transaction.absolute_lexical_path(path)) for path in files]))
 
 
 def is_safe_bundle_entry(entry_name: str) -> bool:
@@ -739,6 +879,8 @@ def is_safe_bundle_entry(entry_name: str) -> bool:
 
 
 def write_bundle_file(archive: zipfile.ZipFile, entry_name: str, path: Path) -> None:
+	if gf_package_transaction.path_has_reparse_component(path):
+		raise OSError(f"Offline bundle input became a symlink, junction, or reparse point: {path.as_posix()}")
 	info = zipfile.ZipInfo(entry_name, ZIP_TIMESTAMP)
 	info.compress_type = zipfile.ZIP_DEFLATED
 	info.external_attr = 0o644 << 16
@@ -764,9 +906,174 @@ def audit_offline_bundle(bundle_path: Path, expected_entries: list[str]) -> list
 	return issues
 
 
+def staged_output_path(final_path: Path, transaction_id: str) -> Path:
+	final = gf_package_transaction.absolute_lexical_path(final_path)
+	validate_distribution_output_path(final)
+	candidate = final.parent / f".{final.name}.gf-build-{transaction_id}.candidate"
+	validate_distribution_output_path(candidate)
+	if os.path.lexists(candidate):
+		raise OSError(f"Distribution staging path already exists: {candidate.as_posix()}")
+	return candidate
+
+
+def prepare_new_staged_output(path: Path) -> None:
+	validate_distribution_output_path(path)
+	path.parent.mkdir(parents=True, exist_ok=True)
+	validate_distribution_output_path(path)
+	if os.path.lexists(path):
+		raise OSError(f"Distribution staging path already exists: {path.as_posix()}")
+
+
+def write_json_file(path: Path, data: dict[str, Any]) -> None:
+	prepare_new_staged_output(path)
+	with path.open("x", encoding="utf-8", newline="\n") as handle:
+		json.dump(data, handle, ensure_ascii=False, indent=2)
+		handle.write("\n")
+		handle.flush()
+		os.fsync(handle.fileno())
+
+
+def flush_and_sync_file(path: Path) -> None:
+    # Windows requires a writable descriptor for FlushFileBuffers/os.fsync.
+    with path.open("r+b") as handle:
+        os.fsync(handle.fileno())
+
+
+def publish_staged_outputs(staged_outputs: dict[Path, Path], transaction_id: str) -> list[str]:
+	if not staged_outputs:
+		return ["Distribution publish has no staged outputs."]
+	issues: list[str] = []
+	prepared: list[tuple[Path, Path, Path | None]] = []
+	seen_targets: dict[str, Path] = {}
+	try:
+		for raw_final, raw_candidate in staged_outputs.items():
+			final_path = gf_package_transaction.absolute_lexical_path(raw_final)
+			candidate_path = gf_package_transaction.absolute_lexical_path(raw_candidate)
+			validate_distribution_output_path(final_path)
+			validate_distribution_output_path(candidate_path)
+			if final_path.parent != candidate_path.parent:
+				raise OSError(f"Staged output must be a sibling of its destination: {candidate_path.as_posix()}")
+			if not candidate_path.is_file():
+				raise OSError(f"Staged distribution output is missing: {candidate_path.as_posix()}")
+			identity = portable_path_identity(final_path.as_posix())
+			previous = seen_targets.get(identity)
+			if previous is not None:
+				raise OSError(
+					"Distribution outputs collide under Windows path rules: "
+					f"{previous.as_posix()} and {final_path.as_posix()}"
+				)
+			seen_targets[identity] = final_path
+			backup_path: Path | None = None
+			if os.path.lexists(final_path):
+				if not final_path.is_file():
+					raise OSError(f"Distribution destination is not a regular file: {final_path.as_posix()}")
+				backup_path = final_path.parent / f".{final_path.name}.gf-build-{transaction_id}.backup"
+				validate_distribution_output_path(backup_path)
+				if os.path.lexists(backup_path):
+					raise OSError(f"Distribution backup path already exists: {backup_path.as_posix()}")
+			prepared.append((final_path, candidate_path, backup_path))
+
+		for final_path, _candidate_path, backup_path in prepared:
+			if backup_path is not None:
+				os.replace(final_path, backup_path)
+				sync_directory(final_path.parent)
+
+		published: list[Path] = []
+		try:
+			for final_path, candidate_path, _backup_path in prepared:
+				validate_distribution_output_path(final_path)
+				validate_distribution_output_path(candidate_path)
+				os.replace(candidate_path, final_path)
+				published.append(final_path)
+				sync_directory(final_path.parent)
+		except OSError as error:
+			issues.append(f"Distribution publish failed: {error}")
+			issues.extend(rollback_distribution_publish(prepared, published))
+			return issues
+
+		for _final_path, _candidate_path, backup_path in prepared:
+			if backup_path is None:
+				continue
+			try:
+				backup_path.unlink()
+				sync_directory(backup_path.parent)
+			except OSError as error:
+				issues.append(f"Published distribution backup could not be removed: {backup_path.as_posix()}: {error}")
+		return issues
+	except OSError as error:
+		issues.append(f"Distribution publish preparation failed: {error}")
+		issues.extend(rollback_distribution_publish(prepared, []))
+		return issues
+
+
+def rollback_distribution_publish(
+	prepared: list[tuple[Path, Path, Path | None]],
+	published: list[Path],
+) -> list[str]:
+	issues: list[str] = []
+	published_set = set(published)
+	for final_path in reversed(published):
+		try:
+			if gf_package_transaction.path_has_reparse_component(final_path):
+				raise OSError("destination became a symlink, junction, or reparse point")
+			if final_path.is_file():
+				final_path.unlink()
+				sync_directory(final_path.parent)
+		except OSError as error:
+			issues.append(f"Distribution rollback could not remove staged destination {final_path.as_posix()}: {error}")
+	for final_path, _candidate_path, backup_path in reversed(prepared):
+		if backup_path is None or not os.path.lexists(backup_path):
+			continue
+		try:
+			if gf_package_transaction.path_has_reparse_component(backup_path):
+				raise OSError("backup became a symlink, junction, or reparse point")
+			if os.path.lexists(final_path):
+				if final_path not in published_set:
+					raise OSError("destination was concurrently recreated")
+				continue
+			os.replace(backup_path, final_path)
+			sync_directory(final_path.parent)
+		except OSError as error:
+			issues.append(f"Distribution rollback could not restore {final_path.as_posix()}: {error}")
+	return issues
+
+
+def validate_distribution_output_path(path: Path) -> None:
+	if not path.name or not is_windows_portable_relative_path(path.name):
+		raise OSError(f"Distribution output name is not portable to Windows: {path.as_posix()}")
+	if gf_package_transaction.path_has_reparse_component(path):
+		raise OSError(f"Distribution output crosses a symlink, junction, or reparse point: {path.as_posix()}")
+
+
+def try_unlink(path: Path) -> None:
+	try:
+		if gf_package_transaction.path_has_reparse_component(path):
+			return
+		if path.is_file():
+			path.unlink()
+	except OSError:
+		return
+
+
+def sync_directory(path: Path) -> None:
+	if os.name == "nt":
+		return
+	try:
+		fd = os.open(path, os.O_RDONLY)
+	except OSError:
+		return
+	try:
+		os.fsync(fd)
+	finally:
+		os.close(fd)
+
+
 def read_plugin_version() -> str:
+	plugin_config_path = ROOT / "addons/gf/plugin.cfg"
+	if gf_package_transaction.path_has_reparse_component(plugin_config_path):
+		raise OSError(f"Plugin config crosses a symlink, junction, or reparse point: {plugin_config_path.as_posix()}")
 	config = configparser.ConfigParser()
-	config.read(ROOT / "addons/gf/plugin.cfg", encoding="utf-8")
+	config.read(plugin_config_path, encoding="utf-8")
 	if not config.has_section("plugin"):
 		return ""
 	value = config.get("plugin", "version", fallback="").strip()
@@ -779,7 +1086,7 @@ def resolve_workspace_path(path: str) -> Path:
 	resolved = Path(path)
 	if not resolved.is_absolute():
 		resolved = ROOT / resolved
-	return resolved
+	return gf_package_transaction.absolute_lexical_path(resolved)
 
 
 def make_registry_archive_value(archive_path: Path, registry_path: Path, archive_base_url: str) -> str:
@@ -800,6 +1107,8 @@ def relative_display_path(path: Path) -> str:
 
 
 def sha256_file(path: Path) -> str:
+	if gf_package_transaction.path_has_reparse_component(path):
+		raise OSError(f"Hash input crosses a symlink, junction, or reparse point: {path.as_posix()}")
 	digest = hashlib.sha256()
 	with path.open("rb") as handle:
 		for chunk in iter(lambda: handle.read(1024 * 1024), b""):
@@ -814,6 +1123,22 @@ def normalize_manifest_path(path: str) -> str:
 	if normalized_path.startswith("./"):
 		normalized_path = normalized_path[2:]
 	return normalized_path.strip("/")
+
+
+def is_windows_portable_relative_path(path: str) -> bool:
+	normalized = path.replace("\\", "/")
+	if not normalized or normalized.startswith("/"):
+		return False
+	for part in normalized.split("/"):
+		if part in ("", ".", "..") or part != part.rstrip(" ."):
+			return False
+		if any(ord(character) < 32 for character in part):
+			return False
+	return True
+
+
+def portable_path_identity(path: str) -> str:
+	return "/".join(part.rstrip(" .").lower() for part in path.replace("\\", "/").split("/"))
 
 
 def path_matches_any_manifest_path(path: str, patterns: list[str]) -> bool:

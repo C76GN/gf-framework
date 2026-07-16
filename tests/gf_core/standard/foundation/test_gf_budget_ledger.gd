@@ -95,6 +95,24 @@ func test_budget_ledger_clear_emits_cleared_budget_ids() -> void:
 	assert_eq(capture.cleared_budget_ids, PackedStringArray(["energy", "mana"]), "clear 应报告被清空的预算 ID。")
 
 
+func test_budget_consumed_reentrancy_never_emits_stale_budget_changed_state() -> void:
+	var ledger: GFBudgetLedgerBase = GFBudgetLedgerBase.new()
+	ledger.set_capacity(&"energy", 10.0)
+	var observed_available: Array[float] = []
+	var _consumed_connected: Error = ledger.budget_consumed.connect(func(budget_id: StringName, _amount: float) -> void:
+		ledger.release(budget_id, 1.0)
+	) as Error
+	var _changed_connected: Error = ledger.budget_changed.connect(func(_budget_id: StringName, available: float, _capacity: float) -> void:
+		observed_available.append(available)
+	) as Error
+
+	var result: Dictionary = ledger.consume(&"energy", 3.0)
+
+	assert_true(GFVariantData.get_option_bool(result, "ok"), "测试消费应成功。")
+	assert_eq(ledger.get_available(&"energy"), 8.0, "重入 release 后账本真值应为 8。")
+	assert_eq(observed_available, [8.0, 8.0], "consume 的后续变化信号只能描述发射时的当前状态。")
+
+
 # --- 内部类 ---
 
 class BudgetSignalCapture:

@@ -6,7 +6,8 @@
 
 | 类别 | 类 | 成员 | 方法 |
 |---|---:|---:|---:|
-| [运行时服务](#category-runtime_service) | 2 | 57 | 34 |
+| [运行时服务](#category-runtime_service) | 2 | 58 | 34 |
+| [协议与扩展点](#category-protocol) | 1 | 4 | 4 |
 | [资源定义](#category-resource_definition) | 3 | 50 | 16 |
 | [运行时句柄](#category-runtime_handle) | 2 | 26 | 10 |
 
@@ -20,6 +21,14 @@
 |---|---|---|
 | [`GFHapticUtility`](classes/GFHapticUtility.md#gfhapticutility) | `GFUtility` | `addons/gf/extensions/feedback/runtime/gf_haptic_utility.gd` |
 | [`GFShakeUtility`](classes/GFShakeUtility.md#gfshakeutility) | `GFUtility` | `addons/gf/extensions/feedback/runtime/gf_shake_utility.gd` |
+
+<a id="category-protocol"></a>
+
+### 协议与扩展点
+
+| 类 | 继承 | 源文件 |
+|---|---|---|
+| [`GFHapticBackend`](classes/GFHapticBackend.md#gfhapticbackend) | `RefCounted` | `addons/gf/extensions/feedback/runtime/gf_haptic_backend.gd` |
 
 <a id="category-resource_definition"></a>
 

@@ -17,11 +17,11 @@
 |---|---|---|
 | 枚举 | [`RoundingMode`](#member-gffixeddecimal-enums-roundingmode) | `enum RoundingMode` |
 | 常量 | [`MAX_DECIMAL_PLACES`](#member-gffixeddecimal-constants-max_decimal_places) | `const MAX_DECIMAL_PLACES: int = 18` |
-| 属性 | [`raw_value`](#member-gffixeddecimal-properties-raw_value) | `var raw_value: int = 0` |
-| 属性 | [`decimal_places`](#member-gffixeddecimal-properties-decimal_places) | `var decimal_places: int = 2` |
+| 属性 | [`raw_value`](#member-gffixeddecimal-properties-raw_value) | `var raw_value: int = 0:` |
+| 属性 | [`decimal_places`](#member-gffixeddecimal-properties-decimal_places) | `var decimal_places: int = 2:` |
 | 方法 | [`from_int`](#member-gffixeddecimal-methods-from_int) | `static func from_int(value: int, p_decimal_places: int = 2) -> GFFixedDecimal:` |
 | 方法 | [`from_float`](#member-gffixeddecimal-methods-from_float) | `static func from_float( value: float, p_decimal_places: int = 2, rounding_mode: RoundingMode = RoundingMode.HALF_UP ) -> GFFixedDecimal:` |
-| 方法 | [`from_string`](#member-gffixeddecimal-methods-from_string) | `static func from_string( value: String, p_decimal_places: int = 2, rounding_mode: RoundingMode = RoundingMode.HALF_UP ) -> GFFixedDecimal:` |
+| 方法 | [`from_string`](#member-gffixeddecimal-methods-from_string) | `static func from_string( value: String, p_decimal_places: int = 2, rounding_mode: RoundingMode = RoundingMode.HALF_UP, max_input_length: int = GFDecimalStringFormatter.DEFAULT_MAX_NUMERIC_TEXT_LENGTH ) -> GFFixedDecimal:` |
 | 方法 | [`from_dict`](#member-gffixeddecimal-methods-from_dict) | `static func from_dict(data: Dictionary) -> GFFixedDecimal:` |
 | 方法 | [`from_bytes`](#member-gffixeddecimal-methods-from_bytes) | `static func from_bytes(data: PackedByteArray) -> GFFixedDecimal:` |
 | 方法 | [`clone`](#member-gffixeddecimal-methods-clone) | `func clone() -> GFFixedDecimal:` |
@@ -88,9 +88,10 @@ const MAX_DECIMAL_PLACES: int = 18
 ### `raw_value`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-var raw_value: int = 0
+var raw_value: int = 0:
 ```
 
 实际保存的整数值。
@@ -100,9 +101,10 @@ var raw_value: int = 0
 ### `decimal_places`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-var decimal_places: int = 2
+var decimal_places: int = 2:
 ```
 
 小数位数。
@@ -160,7 +162,7 @@ static func from_float( value: float, p_decimal_places: int = 2, rounding_mode: 
 - 首次版本：`3.17.0`
 
 ```gdscript
-static func from_string( value: String, p_decimal_places: int = 2, rounding_mode: RoundingMode = RoundingMode.HALF_UP ) -> GFFixedDecimal:
+static func from_string( value: String, p_decimal_places: int = 2, rounding_mode: RoundingMode = RoundingMode.HALF_UP, max_input_length: int = GFDecimalStringFormatter.DEFAULT_MAX_NUMERIC_TEXT_LENGTH ) -> GFFixedDecimal:
 ```
 
 从字符串构建定点数。
@@ -172,6 +174,7 @@ static func from_string( value: String, p_decimal_places: int = 2, rounding_mode
 | `value` | 普通十进制字符串；科学计数法会作为 float 兼容路径解析，不适合作为严格十进制导入源。 |
 | `p_decimal_places` | 目标小数位。 |
 | `rounding_mode` | 舍入策略。 |
+| `max_input_length` | 最大输入字符数；小于等于 0 时使用框架默认预算。 |
 
 返回：定点数实例。
 

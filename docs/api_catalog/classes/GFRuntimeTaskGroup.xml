@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFRuntimeTaskGroup" path="addons/gf/standard/sequence/gf_runtime_task_group.gd" module="standard" extends="GFRuntimeTask" classDigest="0c80b1f0d84652fb4e7a5a4b728d61cb476f2493734161670e06afa34b1c600e">
+<class name="GFRuntimeTaskGroup" path="addons/gf/standard/sequence/gf_runtime_task_group.gd" module="standard" extends="GFRuntimeTask" classDigest="80efb9cd6ef6bb10bda8ae8db88ed5ac659cc94ff1d068aca92f78772ff29b07">
 	<description>组合多个运行时任务的复合任务。
 任务组用于把多个 [GFRuntimeTask] 编排为顺序、等待全部或等待任一完成的流程。
 子任务在组内部推进，不会单独注册到外层调度器；外层调度器只看到一个占用聚合后的任务。</description>
@@ -27,29 +27,28 @@
 			</tags>
 		</member>
 	</enums>
-	<constants />
+	<constants>
+		<member kind="const" name="REJECTION_CHILD_SCHEDULED">
+			<signature>const REJECTION_CHILD_SCHEDULED: StringName = &amp;"group_child_scheduled"</signature>
+			<description>子任务已被其他调度器或任务组持有时的拒绝原因。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="REJECTION_PARALLEL_REQUIREMENT_CONFLICT">
+			<signature>const REJECTION_PARALLEL_REQUIREMENT_CONFLICT: StringName = &amp;"group_parallel_requirement_conflict"</signature>
+			<description>并行任务组存在组内 requirement 冲突时的拒绝原因。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</constants>
 	<properties>
-		<member kind="property" name="tasks">
-			<signature>var tasks: Array[GFRuntimeTask] = []</signature>
-			<description>子任务列表。</description>
-			<tags>
-				<tag name="api">public</tag>
-				<tag name="category">state</tag>
-				<tag name="since">6.0.0</tag>
-			</tags>
-		</member>
-		<member kind="property" name="mode">
-			<signature>var mode: Mode = Mode.SEQUENCE</signature>
-			<description>子任务推进模式。</description>
-			<tags>
-				<tag name="api">public</tag>
-				<tag name="category">config</tag>
-				<tag name="since">6.0.0</tag>
-			</tags>
-		</member>
 		<member kind="property" name="cancel_remaining_on_finish">
 			<signature>var cancel_remaining_on_finish: bool = true</signature>
-			<description>[member mode] 为 [enum Mode.PARALLEL_RACE] 时，首个子任务完成后是否中断其他子任务。</description>
+			<description>[method get_mode] 为 [enum Mode.PARALLEL_RACE] 时，首个子任务完成后是否中断其他子任务。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="category">config</tag>
@@ -67,6 +66,38 @@
 				<tag name="param">p_tasks: 初始子任务列表。</tag>
 				<tag name="param">p_mode: 子任务推进模式。</tag>
 				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="set_tasks">
+			<signature>func set_tasks(next_tasks: Array[GFRuntimeTask]) -&gt; bool:</signature>
+			<description>原子替换子任务列表，并重建任务组 requirement。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="category">config</tag>
+				<tag name="param">next_tasks: 新的子任务列表；不接受空值、重复实例或已调度任务。</tag>
+				<tag name="return">全部校验通过并完成替换时返回 true。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="set_mode">
+			<signature>func set_mode(next_mode: Mode) -&gt; bool:</signature>
+			<description>设置子任务推进模式。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="category">config</tag>
+				<tag name="param">next_mode: 新的推进模式。</tag>
+				<tag name="return">模式有效、任务组未锁定且现有子任务满足新模式约束时返回 true。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_mode">
+			<signature>func get_mode() -&gt; Mode:</signature>
+			<description>返回子任务推进模式。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="category">query</tag>
+				<tag name="return">当前推进模式。</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="add_task">
@@ -98,6 +129,16 @@
 				<tag name="api">public</tag>
 				<tag name="category">config</tag>
 				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_requirements">
+			<signature>func get_requirements() -&gt; Array[Object]:</signature>
+			<description>返回当前子任务聚合后的占用对象副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="category">query</tag>
+				<tag name="return">仍然有效的占用对象副本。</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_tasks">

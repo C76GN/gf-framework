@@ -69,7 +69,7 @@ func test_async_batch_timeout_uses_cancel_token_path() -> void:
 
 func test_async_batch_timeout_keeps_existing_cancel_token() -> void:
 	var batch: GFAsyncBatch = GFAsyncBatch.new()
-	var source: GFCancelSource = GFCancelSource.new()
+	var source: GFCancellationSource = GFCancellationSource.new()
 	assert_true(batch.add_item("slow"), "应能添加慢条目。")
 	assert_true(batch.bind_cancel_token(source.get_token()), "应能绑定外部取消 token。")
 	assert_true(batch.set_timeout(1.0, get_tree()), "设置超时不应移除外部取消 token。")
@@ -80,6 +80,55 @@ func test_async_batch_timeout_keeps_existing_cancel_token() -> void:
 	assert_true(batch.is_completed(), "外部 token 取消后批处理应完成。")
 	assert_eq(GFVariantData.get_option_string_name(report, "cancel_reason"), &"user_cancelled", "批处理应保留外部取消原因。")
 	assert_eq(GFVariantData.get_option_int(report, "cancelled_count"), 1, "外部取消应取消等待条目。")
+
+
+func test_async_batch_watch_completion_any_policy_cancels_remaining_completion() -> void:
+	var batch: GFAsyncBatch = GFAsyncBatch.new()
+	batch.completion_policy = GFAsyncBatch.CompletionPolicy.ANY
+	batch.cancel_remaining_on_finish = true
+	var fast: GFAsyncCompletion = GFAsyncCompletion.new()
+	var slow: GFAsyncCompletion = GFAsyncCompletion.new()
+
+	assert_true(batch.watch_completion(fast, &"fast"), "应能监听 fast completion。")
+	assert_true(batch.watch_completion(slow, &"slow"), "应能监听 slow completion。")
+
+	var _fast_completed: bool = fast.succeed("ok")
+	var report: Dictionary = batch.get_report()
+	var results: Dictionary = GFVariantData.get_option_dictionary(report, "results")
+
+	assert_true(batch.is_completed(), "ANY 策略应在首个成功 completion 后完成。")
+	assert_true(batch.is_successful(), "ANY 策略存在成功 completion 时应成功。")
+	assert_true(slow.is_cancelled(), "终态后应取消剩余 completion。")
+	assert_eq(GFVariantData.get_option_string_name(report, "first_success_key"), &"fast", "报告应记录首个成功 completion key。")
+	assert_eq(GFVariantData.get_option_string(results, &"fast"), "ok", "结果字典应保留 completion 成功值。")
+	assert_eq(GFVariantData.get_option_int(report, "cancelled_count"), 1, "报告应统计被取消 completion。")
+
+
+func test_async_batch_watch_completion_each_policy_preserves_terminal_metadata() -> void:
+	var batch: GFAsyncBatch = GFAsyncBatch.new()
+	batch.completion_policy = GFAsyncBatch.CompletionPolicy.EACH
+	var successful: GFAsyncCompletion = GFAsyncCompletion.new()
+	var failed: GFAsyncCompletion = GFAsyncCompletion.new()
+
+	assert_true(batch.watch_completion(successful, &"successful", { "slot": "a" }), "应能监听成功 completion。")
+	assert_true(batch.watch_completion(failed, &"failed"), "应能监听失败 completion。")
+
+	var _successful_completed: bool = successful.succeed("done", { "source": "completion" })
+	var _failed_completed: bool = failed.fail("network", { "code": 500 })
+	var report: Dictionary = batch.get_report()
+	var items: Dictionary = GFVariantData.get_option_dictionary(report, "items")
+	var successful_item: Dictionary = GFVariantData.get_option_dictionary(items, &"successful")
+	var failed_item: Dictionary = GFVariantData.get_option_dictionary(items, &"failed")
+	var successful_metadata: Dictionary = GFVariantData.get_option_dictionary(successful_item, "metadata")
+	var failed_metadata: Dictionary = GFVariantData.get_option_dictionary(failed_item, "metadata")
+
+	assert_true(batch.is_completed(), "EACH 策略应等待所有 completion 进入终态。")
+	assert_false(batch.is_successful(), "EACH 策略存在失败 completion 时不应成功。")
+	assert_eq(GFVariantData.get_option_string(successful_item, "result"), "done", "成功条目应保留 completion 结果。")
+	assert_eq(GFVariantData.get_option_string(failed_item, "error"), "network", "失败条目应保留 completion 错误。")
+	assert_eq(GFVariantData.get_option_string(successful_metadata, "slot"), "a", "条目 metadata 应保留调用方上下文。")
+	assert_eq(GFVariantData.get_option_string(successful_metadata, "source"), "completion", "条目 metadata 应合并终态 metadata。")
+	assert_eq(GFVariantData.get_option_int(failed_metadata, "code"), 500, "失败条目应合并 completion metadata。")
 
 
 func test_async_batch_watched_response_failure_marks_item_failed() -> void:

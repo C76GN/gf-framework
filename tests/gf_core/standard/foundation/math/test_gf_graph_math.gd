@@ -313,6 +313,142 @@ func test_topological_sort_reports_cycles_and_external_dependencies() -> void:
 	assert_eq(GFVariantData.get_option_string(first_external_dependency, "dependency"), "missing")
 
 
+func test_connected_components_groups_declared_nodes_and_reports_external_neighbors() -> void:
+	var graph: Dictionary = {
+		"a": ["b", "missing"],
+		"b": [],
+		"c": ["d"],
+		"d": [],
+		"e": [],
+	}
+
+	var report: Dictionary = GF_GRAPH_MATH.find_connected_components(
+		["a", "b", "c", "d", "e", "a"],
+		func(node: Variant) -> Array:
+			return GFVariantData.get_option_array(graph, node, [])
+	)
+	var components: Array = GFVariantData.get_option_array(report, "components")
+	var component_indices: Dictionary = GFVariantData.get_option_dictionary(report, "component_indices")
+	var external_neighbors: Array = GFVariantData.get_option_array(report, "external_neighbors")
+	var first_component: Array = GFVariantData.as_array(components[0]) if components.size() > 0 else []
+	var second_component: Array = GFVariantData.as_array(components[1]) if components.size() > 1 else []
+	var third_component: Array = GFVariantData.as_array(components[2]) if components.size() > 2 else []
+	var first_external_neighbor: Dictionary = {}
+	if not external_neighbors.is_empty():
+		first_external_neighbor = GFVariantData.as_dictionary(external_neighbors[0])
+
+	assert_true(GFVariantData.get_option_bool(report, "ok"), "有效邻居回调应返回成功报告。")
+	assert_eq(GFVariantData.get_option_int(report, "node_count"), 5, "重复节点应按首次出现去重。")
+	assert_eq(GFVariantData.get_option_int(report, "component_count"), 3, "应识别两个连接子图和一个孤立节点。")
+	assert_eq(first_component, ["a", "b"], "单向声明的边应按无向连通处理。")
+	assert_eq(second_component, ["c", "d"], "第二个子图应保留稳定遍历顺序。")
+	assert_eq(third_component, ["e"], "孤立节点应单独形成分量。")
+	assert_eq(GFVariantData.get_option_int(component_indices, "a", -1), 0, "索引应指向节点所在分量。")
+	assert_eq(GFVariantData.get_option_int(component_indices, "d", -1), 1, "索引应覆盖后续分量节点。")
+	assert_false(GFVariantData.get_option_bool(report, "all_connected"), "多分量图不应标记为全连通。")
+	assert_eq(GFVariantData.get_option_array(report, "isolated_nodes"), ["e"], "孤立节点应单独统计。")
+	assert_eq(GFVariantData.get_option_int(report, "external_neighbor_count"), 1, "外部邻居应记录但不进入分量。")
+	assert_eq(GFVariantData.get_option_string(first_external_neighbor, "node"), "a")
+	assert_eq(GFVariantData.get_option_string(first_external_neighbor, "neighbor"), "missing")
+
+
+func test_connected_components_rejects_invalid_neighbor_callback() -> void:
+	var report: Dictionary = GF_GRAPH_MATH.find_connected_components(["a"], Callable())
+
+	assert_false(GFVariantData.get_option_bool(report, "ok"), "缺少邻居回调时应失败。")
+	assert_eq(
+		GFVariantData.get_option_string_name(report, "reason"),
+		&"invalid_neighbor_callback",
+		"失败原因应稳定。"
+	)
+	assert_eq(GFVariantData.get_option_int(report, "component_count"), 0)
+
+
+func test_minimum_spanning_tree_selects_lowest_weight_edges() -> void:
+	var graph: Dictionary = {
+		"A": ["B", "C"],
+		"B": ["A", "C", "D"],
+		"C": ["A", "B", "D"],
+		"D": ["B", "C"],
+	}
+	var weights: Dictionary = {
+		"A:B": 1.0,
+		"A:C": 5.0,
+		"B:C": 2.0,
+		"B:D": 4.0,
+		"C:D": 1.0,
+	}
+
+	var report: Dictionary = GF_GRAPH_MATH.find_minimum_spanning_tree(
+		["A", "B", "C", "D"],
+		func(node: Variant) -> Array:
+			return GFVariantData.get_option_array(graph, node, []),
+		func(from_node: Variant, to_node: Variant) -> float:
+			return _edge_weight(weights, from_node, to_node)
+	)
+
+	assert_true(GFVariantData.get_option_bool(report, "ok"), "有效图应返回生成树报告。")
+	assert_true(GFVariantData.get_option_bool(report, "all_connected"), "连通图应形成单棵生成树。")
+	assert_eq(GFVariantData.get_option_int(report, "selected_edge_count"), 3, "N 个节点的生成树应有 N - 1 条边。")
+	assert_almost_eq(GFVariantData.get_option_float(report, "total_weight"), 4.0, 0.001)
+	assert_eq(
+		_edge_keys(GFVariantData.get_option_array(report, "selected_edges")),
+		PackedStringArray(["A-B", "B-C", "C-D"]),
+		"等权之外的选择应按最低累计边权稳定输出。"
+	)
+
+
+func test_minimum_spanning_tree_returns_forest_for_disconnected_graph() -> void:
+	var graph: Dictionary = {
+		"solo": [],
+		"x": ["y", "missing"],
+		"y": [],
+	}
+
+	var report: Dictionary = GF_GRAPH_MATH.find_minimum_spanning_tree(
+		["solo", "x", "y"],
+		func(node: Variant) -> Array:
+			return GFVariantData.get_option_array(graph, node, []),
+		func(_from_node: Variant, _to_node: Variant) -> float:
+			return 3.0
+	)
+	var components: Array = GFVariantData.get_option_array(report, "components")
+	var component_indices: Dictionary = GFVariantData.get_option_dictionary(report, "component_indices")
+	var first_component: Array = GFVariantData.as_array(components[0]) if components.size() > 0 else []
+	var second_component: Array = GFVariantData.as_array(components[1]) if components.size() > 1 else []
+	var external_neighbors: Array = GFVariantData.get_option_array(report, "external_neighbors")
+	var first_external_neighbor: Dictionary = {}
+	if not external_neighbors.is_empty():
+		first_external_neighbor = GFVariantData.as_dictionary(external_neighbors[0])
+
+	assert_true(GFVariantData.get_option_bool(report, "ok"), "断开图仍应返回最小生成森林报告。")
+	assert_false(GFVariantData.get_option_bool(report, "all_connected"), "断开图不应标记为单棵树。")
+	assert_eq(GFVariantData.get_option_int(report, "component_count"), 2)
+	assert_eq(first_component, ["solo"])
+	assert_eq(second_component, ["x", "y"], "单向邻居声明应按无向边生成森林。")
+	assert_eq(GFVariantData.get_option_int(component_indices, "x", -1), 1)
+	assert_eq(GFVariantData.get_option_array(report, "isolated_nodes"), ["solo"])
+	assert_eq(_edge_keys(GFVariantData.get_option_array(report, "selected_edges")), PackedStringArray(["x-y"]))
+	assert_eq(GFVariantData.get_option_string(first_external_neighbor, "neighbor"), "missing")
+
+
+func test_minimum_spanning_tree_rejects_invalid_inputs() -> void:
+	var invalid_callback: Dictionary = GF_GRAPH_MATH.find_minimum_spanning_tree(["a"], Callable())
+	var invalid_weight: Dictionary = GF_GRAPH_MATH.find_minimum_spanning_tree(
+		["a", "b"],
+		func(node: Variant) -> Array:
+			return ["b"] if node == "a" else [],
+		func(_from_node: Variant, _to_node: Variant) -> float:
+			return NAN
+	)
+
+	assert_false(GFVariantData.get_option_bool(invalid_callback, "ok"), "缺少邻居回调时应失败。")
+	assert_eq(GFVariantData.get_option_string_name(invalid_callback, "reason"), &"invalid_neighbor_callback")
+	assert_false(GFVariantData.get_option_bool(invalid_weight, "ok"), "非有限权重无法稳定排序。")
+	assert_eq(GFVariantData.get_option_string_name(invalid_weight, "reason"), &"invalid_edge_weight")
+	assert_eq(GFVariantData.get_option_int(invalid_weight, "invalid_edge_count"), 1)
+
+
 func _as_vector2i(value: Variant) -> Vector2i:
 	if value is Vector2i:
 		var cell: Vector2i = value
@@ -341,3 +477,23 @@ func _cycle_contains(cycles: Array, node: Variant) -> bool:
 		if cycle.has(node):
 			return true
 	return false
+
+
+func _edge_weight(weights: Dictionary, from_node: Variant, to_node: Variant) -> float:
+	var key: String = "%s:%s" % [from_node, to_node]
+	if weights.has(key):
+		return GFVariantData.get_option_float(weights, key, INF)
+
+	var reverse_key: String = "%s:%s" % [to_node, from_node]
+	return GFVariantData.get_option_float(weights, reverse_key, INF)
+
+
+func _edge_keys(edges: Array) -> PackedStringArray:
+	var keys: PackedStringArray = PackedStringArray()
+	for edge_variant: Variant in edges:
+		var edge: Dictionary = GFVariantData.as_dictionary(edge_variant)
+		var _key_appended: bool = keys.append("%s-%s" % [
+			GFVariantData.get_option_string(edge, "from"),
+			GFVariantData.get_option_string(edge, "to"),
+		])
+	return keys

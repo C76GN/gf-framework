@@ -29,10 +29,10 @@ var manifest := warmup.build_manifest_from_tree(get_tree().current_scene, {
 warmup.warmup_manifest_now(manifest)
 ```
 
-资源来自场景文件时，也可以用 `build_manifest_from_scene()` 或 `build_manifest_from_scene_path()` 创建清单；这只扫描实例化后的通用渲染资源，并在扫描完成后释放临时场景。预热执行支持 `max_seconds` 时间预算，队列和立即预热都会在预算耗尽时返回 `stopped_by_budget`。
+资源来自场景文件时，也可以用 `build_manifest_from_scene()` 或 `build_manifest_from_scene_path()` 创建清单。实例化 PackedScene 可能触发项目脚本生命周期，因此默认不会扫描场景资源；只有确认场景实例化没有副作用时，才显式传入 `"allow_scene_instantiation": true`。预热执行支持 `max_seconds` 时间预算，队列和立即预热都会在预算耗尽时返回 `stopped_by_budget`。
 
 ## 使用边界
 
 默认 `touch_mode` 只加载资源并触碰 RID。需要让材质或 Mesh 参与一次离屏渲染时，可传 `GFRenderWarmupUtility.TouchMode.TEMPORARY_RENDER_NODES`，并按需指定 `temporary_parent` 与 `temporary_viewport_size`；预热工具会创建 `SubViewport` 临时节点，下一次 `tick()` 或显式 `release_temporary_render_nodes()` 会清理它们。
 
-`keep_resources_cached` 默认会保留已加载资源引用，避免刚预热完就被释放；需要释放时调用 `release_cached_resources()`。`instantiate_packed_scenes` 默认关闭，因为实例化场景可能触发项目脚本副作用。预热工具不保证消除所有驱动层 shader 编译成本，它提供的是一个稳定、可诊断、可分批的资源准备边界。
+`keep_resources_cached` 默认关闭，预热完成后不长期持有资源引用。项目确实需要 pin 资源时，应在调用时传 `"keep_cached": true`，并按流程设置 `"cache_group"` 与 `"max_cached_resources"`；释放时可调用 `release_cached_resources()` 清空全部缓存，或传入分组只释放指定预热流程的引用。`instantiate_packed_scenes` 也需要配合 `"allow_scene_instantiation": true` 才会生效，避免无意执行场景脚本。预热工具不保证消除所有驱动层 shader 编译成本，它提供的是一个稳定、可诊断、可分批的资源准备边界。

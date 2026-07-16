@@ -18,12 +18,55 @@ extends RefCounted
 
 # --- 常量 ---
 
+## 调用探针通过，动作当前可创建并执行命令。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+const INVOCATION_STATUS_READY: StringName = &"ready"
+
+## 动作被显式禁用。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+const INVOCATION_STATUS_DISABLED: StringName = &"disabled"
+
+## 动作当前未通过可用性回调。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+const INVOCATION_STATUS_UNAVAILABLE: StringName = &"unavailable"
+
+## 动作缺少有效命令工厂。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+const INVOCATION_STATUS_FACTORY_MISSING: StringName = &"factory_missing"
+
+## 命令工厂没有返回有效 GFEditorCommand。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+const INVOCATION_STATUS_COMMAND_INVALID: StringName = &"command_invalid"
+
+## 命令已创建，但命令自身当前不可执行。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+const INVOCATION_STATUS_COMMAND_UNAVAILABLE: StringName = &"command_unavailable"
+
 ## 编辑器命令基类脚本。
 ## [br]
 ## @api framework_internal
 ## [br]
 ## @layer kernel/editor
 const GFEditorCommandBase = preload("res://addons/gf/kernel/editor/gf_editor_command.gd")
+const _GF_REPORT_VALUE_CODEC_SCRIPT = preload("res://addons/gf/kernel/core/gf_report_value_codec.gd")
 
 
 # --- 公共变量 ---
@@ -99,8 +142,12 @@ var metadata: Dictionary = {}
 # --- 公共方法 ---
 
 ## 根据上下文创建命令。
+##
+## 该方法会遵守 enabled、command_factory 和 availability_callback，但不会执行命令。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @param context: 调用方传入的编辑器上下文。
 ## [br]
@@ -112,17 +159,17 @@ func create_command(context: Dictionary = {}) -> GFEditorCommandBase:
 		return null
 	if not command_factory.is_valid():
 		return null
+	if availability_callback.is_valid() and not _call_availability_callback(context):
+		return null
 
-	var command_variant: Variant = command_factory.call(context)
-	if command_variant is GFEditorCommandBase:
-		var command: GFEditorCommandBase = command_variant
-		return command
-	return null
+	return _create_command_from_factory(context)
 
 
 ## 执行动作并可选接入 UndoRedo。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @param context: 调用方传入的编辑器上下文。
 ## [br]
@@ -134,8 +181,12 @@ func create_command(context: Dictionary = {}) -> GFEditorCommandBase:
 func invoke(context: Dictionary = {}, undo_manager: Object = null) -> Error:
 	if not enabled:
 		return ERR_UNAVAILABLE
+	if availability_callback.is_valid() and not _call_availability_callback(context):
+		return ERR_UNAVAILABLE
+	if not command_factory.is_valid():
+		return ERR_CANT_CREATE
 
-	var command: GFEditorCommandBase = create_command(context)
+	var command: GFEditorCommandBase = _create_command_from_factory(context)
 	if command == null:
 		return ERR_CANT_CREATE
 
@@ -144,15 +195,21 @@ func invoke(context: Dictionary = {}, undo_manager: Object = null) -> Error:
 	return command.execute()
 
 
-## 动作是否具备可调用命令工厂。
+## 动作是否应在当前 UI 上下文中展示为可用。
+##
+## 这是轻量、无命令创建的纯查询，只检查 enabled、command_factory 与
+## availability_callback。它不保证 invoke() 一定成功；需要严格执行前诊断时使用
+## can_invoke() 或 get_invocation_report()。
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param context: 调用方传入的编辑器上下文。
 ## [br]
-## @schema context: Dictionary editor context passed to create_command().
+## @schema context: Dictionary editor context passed to availability_callback.
 ## [br]
-## @return 可创建且可执行命令时返回 true。
+## @return UI 上下文中动作应标记为可用时返回 true。
 func is_available(context: Dictionary = {}) -> bool:
 	if not enabled:
 		return false
@@ -161,6 +218,61 @@ func is_available(context: Dictionary = {}) -> bool:
 	if availability_callback.is_valid():
 		return _call_availability_callback(context)
 	return true
+
+
+## 当前上下文下动作是否可调用。
+##
+## 与 is_available() 不同，该方法会创建一次临时命令并检查 command.can_execute()，
+## 但不会执行命令，也不会写入 UndoRedo。命令工厂必须把创建命令保持为无业务写入副作用。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+## [br]
+## @param context: 调用方传入的编辑器上下文。
+## [br]
+## @schema context: Dictionary editor context passed to command_factory.
+## [br]
+## @return 当前动作可调用时返回 true。
+func can_invoke(context: Dictionary = {}) -> bool:
+	var report: Dictionary = get_invocation_report(context)
+	if report.has("ok") and report["ok"] is bool:
+		var ok: bool = report["ok"]
+		return ok
+	return false
+
+
+## 获取当前上下文下的动作调用诊断报告。
+##
+## 该方法会创建一次临时命令并检查 command.can_execute()，但不会执行命令，也不会写入
+## UndoRedo。返回报告中的 metadata 会通过 GFReportValueCodec 编码为 JSON-safe 结构。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+## [br]
+## @param context: 调用方传入的编辑器上下文。
+## [br]
+## @schema context: Dictionary editor context passed to command_factory.
+## [br]
+## @return 调用诊断报告。
+## [br]
+## @schema return: JSON-safe Dictionary containing ok, status, action_id, error_code, message, available, enabled, has_command_factory, command_created, command_can_execute, command_name, and metadata.
+func get_invocation_report(context: Dictionary = {}) -> Dictionary:
+	if not enabled:
+		return _make_invocation_report(false, INVOCATION_STATUS_DISABLED, ERR_UNAVAILABLE, "动作已禁用。", false)
+	if not command_factory.is_valid():
+		return _make_invocation_report(false, INVOCATION_STATUS_FACTORY_MISSING, ERR_CANT_CREATE, "动作缺少有效命令工厂。", false)
+	if availability_callback.is_valid() and not _call_availability_callback(context):
+		return _make_invocation_report(false, INVOCATION_STATUS_UNAVAILABLE, ERR_UNAVAILABLE, "动作当前不可用。", false)
+
+	var command: GFEditorCommandBase = _create_command_from_factory(context)
+	if command == null:
+		return _make_invocation_report(false, INVOCATION_STATUS_COMMAND_INVALID, ERR_CANT_CREATE, "命令工厂没有返回有效 GFEditorCommand。", true)
+	var command_can_execute: bool = command.can_execute()
+	if not command_can_execute:
+		return _make_invocation_report(false, INVOCATION_STATUS_COMMAND_UNAVAILABLE, ERR_UNAVAILABLE, "命令当前不可执行。", true, command, false)
+	return _make_invocation_report(true, INVOCATION_STATUS_READY, OK, "", true, command, true)
 
 
 ## 获取动作快照。
@@ -189,6 +301,45 @@ func get_debug_snapshot() -> Dictionary:
 
 
 # --- 私有/辅助方法 ---
+
+func _create_command_from_factory(context: Dictionary) -> GFEditorCommandBase:
+	var command_variant: Variant = command_factory.call(context)
+	if command_variant is GFEditorCommandBase:
+		var command: GFEditorCommandBase = command_variant
+		return command
+	return null
+
+
+func _make_invocation_report(
+	ok: bool,
+	status: StringName,
+	error_code: Error,
+	message: String,
+	available: bool,
+	command: GFEditorCommandBase = null,
+	command_can_execute: bool = false
+) -> Dictionary:
+	return {
+		"ok": ok,
+		"status": String(status),
+		"action_id": String(action_id),
+		"error_code": error_code,
+		"message": message,
+		"available": available,
+		"enabled": enabled,
+		"has_command_factory": command_factory.is_valid(),
+		"command_created": command != null,
+		"command_can_execute": command_can_execute,
+		"command_name": command.command_name if command != null else "",
+		"metadata": _to_report_dictionary(metadata),
+	}
+
+
+func _to_report_dictionary(value: Dictionary) -> Dictionary:
+	return _GF_REPORT_VALUE_CODEC_SCRIPT.to_report_dictionary(value, {
+		"path_redaction": "basename",
+	})
+
 
 func _call_availability_callback(context: Dictionary) -> bool:
 	var result: Variant = availability_callback.call(context)

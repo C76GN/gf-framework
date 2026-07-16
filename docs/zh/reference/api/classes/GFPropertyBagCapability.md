@@ -17,7 +17,7 @@
 |---|---|---|
 | 信号 | [`property_changed`](#member-gfpropertybagcapability-signals-property_changed) | `signal property_changed(key: StringName, old_value: Variant, new_value: Variant)` |
 | 信号 | [`property_removed`](#member-gfpropertybagcapability-signals-property_removed) | `signal property_removed(key: StringName, old_value: Variant)` |
-| 属性 | [`values`](#member-gfpropertybagcapability-properties-values) | `var values: Dictionary = {}` |
+| 属性 | [`values`](#member-gfpropertybagcapability-properties-values) | `var values: Dictionary:` |
 | 方法 | [`set_property_value`](#member-gfpropertybagcapability-methods-set_property_value) | `func set_property_value(key: StringName, value: Variant) -> void:` |
 | 方法 | [`get_property_value`](#member-gfpropertybagcapability-methods-get_property_value) | `func get_property_value(key: StringName, default_value: Variant = null) -> Variant:` |
 | 方法 | [`has_property_value`](#member-gfpropertybagcapability-methods-has_property_value) | `func has_property_value(key: StringName) -> bool:` |
@@ -87,16 +87,17 @@ signal property_removed(key: StringName, old_value: Variant)
 ### `values`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-var values: Dictionary = {}
+var values: Dictionary:
 ```
 
 当前属性表。
 
 结构：
 
-- `values`: 动态属性 Dictionary；键通常为 StringName，值由项目决定。
+- `values`: 动态属性 Dictionary；键严格为非空 StringName，集合值按副本读写。
 
 ## 方法
 

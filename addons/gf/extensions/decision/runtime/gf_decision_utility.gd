@@ -87,6 +87,8 @@ func register_decision_set(decision_set_id: StringName, decision_set: GFDecision
 		return false
 	if _decision_sets.has(decision_set_id):
 		return false
+	if decision_set.decision_set_id != &"" and decision_set.decision_set_id != decision_set_id:
+		return false
 
 	if decision_set.decision_set_id == &"":
 		decision_set.decision_set_id = decision_set_id
@@ -181,6 +183,34 @@ func score_all(decision_set_id: StringName, context: GFDecisionContext) -> Array
 	return decision_set.score_all(context)
 
 
+## 一次性评价指定决策集合。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+## [br]
+## @param decision_set_id: 决策集合标识。
+## [br]
+## @param context: 决策上下文。
+## [br]
+## @return: 决策评价结果；集合不存在时返回空评价和 rejected best_score。
+func evaluate(decision_set_id: StringName, context: GFDecisionContext) -> GFDecisionEvaluation:
+	var decision_set: GFDecisionSet = get_decision_set(decision_set_id)
+	if decision_set == null:
+		var missing_evaluation: GFDecisionEvaluation = GFDecisionEvaluation.new()
+		return missing_evaluation.configure(
+			decision_set_id,
+			[],
+			GFDecisionScore.new(null, 0.0, [], false),
+			{
+				"decision_set_id": decision_set_id,
+				"missing_decision_set": true,
+				"scores": [],
+			}
+		)
+	return decision_set.evaluate(context)
+
+
 ## 选择指定决策集合中的最佳候选。
 ## [br]
 ## @api public
@@ -191,10 +221,10 @@ func score_all(decision_set_id: StringName, context: GFDecisionContext) -> Array
 ## [br]
 ## @return: 最佳评分结果；集合不存在时返回 rejected score。
 func select_best(decision_set_id: StringName, context: GFDecisionContext) -> GFDecisionScore:
-	var decision_set: GFDecisionSet = get_decision_set(decision_set_id)
-	if decision_set == null:
+	var evaluation: GFDecisionEvaluation = evaluate(decision_set_id, context)
+	if evaluation.best_score == null:
 		return GFDecisionScore.new(null, 0.0, [], false)
-	return decision_set.select_best(context)
+	return evaluation.best_score
 
 
 ## 获取决策服务调试快照。

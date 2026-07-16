@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFAssetAttributionTools" path="addons/gf/extensions/asset_metadata/runtime/gf_asset_attribution_tools.gd" module="extensions/asset_metadata" extends="RefCounted" classDigest="e6d69a7671ea352a5d125a6fc4fc6551d9921ef7140300eac1d0ef8373561bbb">
+	<description>GFAssetAttributionTools: 资产授权与署名元数据工具。
+提供纯数据归一、路径覆盖检查和通知文本格式化，便于项目导入管线、CI
+或 Credits 页面复用同一套资产归因字段约定。它不内置许可证模板、不下载外部数据，
+也不替项目做法律判断。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_service</tag>
+		<tag name="since">8.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties />
+	<methods>
+		<member kind="method" name="normalize_attribution">
+			<signature>static func normalize_attribution(data: Dictionary, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>将资产归因字典归一为稳定字段。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">data: 输入归因字典；也可传入 GFAssetMetadataRecord.to_dict() 形状的字典。</tag>
+				<tag name="param">options: 可选项，支持 attribution_key。</tag>
+				<tag name="return">归一化归因条目。</tag>
+				<tag name="schema">data: Dictionary，可包含 path/resource_path/source_path、license_id/license、title/name、creator/author、source_url/source、notice、copyright、metadata 或 metadata.attribution。</tag>
+				<tag name="schema">options: Dictionary，可包含 attribution_key 字段；默认为 attribution。</tag>
+				<tag name="schema">return: Dictionary，包含 path、license_id、title、creator、source_url、notice、copyright、metadata、subject_path 与 subject_kind 字段。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="resolve_attribution">
+			<signature>static func resolve_attribution(path: String, entries: Array, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>按资源路径解析最匹配的归因条目。
+精确路径优先；inherit_from_parent 为 true 时，父目录归因可覆盖其子资源。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">path: 要解析的资源路径。</tag>
+				<tag name="param">entries: 归因条目数组；每项可为 Dictionary 或 GFAssetMetadataRecord。</tag>
+				<tag name="param">options: 可选项，支持 inherit_from_parent 与 attribution_key。</tag>
+				<tag name="return">解析结果。</tag>
+				<tag name="schema">entries: Array，每项可为归因 Dictionary、GFAssetMetadataRecord 或 GFAssetMetadataRecord.to_dict() 形状字典。</tag>
+				<tag name="schema">options: Dictionary，可包含 inherit_from_parent 和 attribution_key。</tag>
+				<tag name="schema">return: Dictionary，包含 found、path、attribution_path、inherited、inherited_from 和 entry 字段。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="build_attribution_report">
+			<signature>static func build_attribution_report( entries: Array, resource_paths: PackedStringArray = PackedStringArray(), options: Dictionary = {} ) -&gt; Dictionary:</signature>
+			<description>构建资产归因覆盖报告。
+传入 resource_paths 时，报告会检查每个资源路径是否能命中归因条目。
+缺少 path、重复 path、缺少 license_id 或未覆盖资源路径都会作为错误报告。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">entries: 归因条目数组；每项可为 Dictionary 或 GFAssetMetadataRecord。</tag>
+				<tag name="param">resource_paths: 需要被归因覆盖的资源路径。</tag>
+				<tag name="param">options: 可选项，支持 require_license_id、inherit_from_parent 与 attribution_key。</tag>
+				<tag name="return">GFValidationReport 兼容字典，并附带 entries、covered_paths、uncovered_paths 和 license_ids。</tag>
+				<tag name="schema">entries: Array，每项可为归因 Dictionary、GFAssetMetadataRecord 或 GFAssetMetadataRecord.to_dict() 形状字典。</tag>
+				<tag name="schema">resource_paths: PackedStringArray，通常来自资源扫描或导入计划。</tag>
+				<tag name="schema">options: Dictionary，可包含 require_license_id、inherit_from_parent 和 attribution_key。</tag>
+				<tag name="schema">return: Dictionary，包含 ok、healthy、summary、entries、entry_count、resource_path_count、covered_paths、uncovered_paths、license_ids 等字段。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="format_notice_text">
+			<signature>static func format_notice_text(report: Dictionary, options: Dictionary = {}) -&gt; String:</signature>
+			<description>将归因报告格式化为稳定的通知文本。
+该方法只输出条目摘要，不注入许可证全文；项目应自行决定最终 Credits 或 NOTICE 格式。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">report: build_attribution_report() 返回的报告字典。</tag>
+				<tag name="param">options: 可选项，支持 title 与 include_paths。</tag>
+				<tag name="return">通知文本。</tag>
+				<tag name="schema">report: Dictionary，包含 entries 字段的归因报告。</tag>
+				<tag name="schema">options: Dictionary，可包含 title 和 include_paths。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

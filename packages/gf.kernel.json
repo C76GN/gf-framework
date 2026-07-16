@@ -13,6 +13,7 @@
     "addons/gf/icon.png",
     "addons/gf/LICENSE.md",
     "addons/gf/README.md",
+    "addons/gf/extensions/README.md",
     "addons/gf/kernel/**"
   ],
   "metadata": {

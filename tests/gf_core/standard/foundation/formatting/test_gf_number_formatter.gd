@@ -53,6 +53,12 @@ func test_format_full_groups_negative_decimal_integer_part_only() -> void:
 	assert_eq(text, "-1,234,567.5", "千分位分组应保留负号，并且只作用于整数部分。")
 
 
+func test_format_full_groups_positive_signed_text() -> void:
+	var text: String = GFNumberFormatter.format_full("+1234567.5", 1, true, true)
+
+	assert_eq(text, "+1,234,567.5", "千分位分组应保留显式正号。")
+
+
 func test_format_full_returns_stable_fallback_for_non_finite_floats() -> void:
 	assert_eq(GFNumberFormatter.format_full(INF, 2), "0", "INF 不应泄漏为引擎相关格式文本。")
 	assert_push_error("[GFDecimalStringFormatter] 只能格式化有限浮点值。")
@@ -68,15 +74,23 @@ func test_format_auto_falls_back_to_scientific_for_huge_values() -> void:
 	assert_eq(text, "1e60", "超出紧凑后缀表的超大数应自动回退到科学计数法。")
 
 
-func test_format_compact_default_suffixes_are_stable() -> void:
-	var original_suffixes: PackedStringArray = GFNumberFormatter.DEFAULT_COMPACT_SUFFIXES
-	GFNumberFormatter.DEFAULT_COMPACT_SUFFIXES = PackedStringArray(["", "bad"])
+func test_format_compact_default_suffixes_are_returned_as_copy() -> void:
+	var suffixes: PackedStringArray = GFNumberFormatter.get_default_compact_suffixes()
+	suffixes[1] = "bad"
 	var text: String = GFNumberFormatter.format_compact(1_000, 0)
-	GFNumberFormatter.DEFAULT_COMPACT_SUFFIXES = original_suffixes
 
-	assert_eq(text, "1k", "默认紧凑后缀不应被运行时全局状态污染。")
+	assert_eq(text, "1k", "修改默认后缀副本不应污染 compact 默认行为。")
+	assert_eq(GFNumberFormatter.get_default_compact_suffixes()[1], "k", "默认后缀 getter 应每次返回独立副本。")
 
 
-func test_trim_trailing_zeroes_returns_stable_zero_for_empty_result() -> void:
-	assert_eq(GFDecimalStringFormatter.trim_trailing_zeroes("000"), "0", "裁剪后为空的数字文本应收敛为 0。")
-	assert_eq(GFDecimalStringFormatter.trim_trailing_zeroes("-000"), "0", "裁剪后只剩负号的数字文本应收敛为 0。")
+func test_format_full_rejects_non_numeric_string_instead_of_grouping_it() -> void:
+	var text: String = GFNumberFormatter.format_full("NOT_AVAILABLE_1000", 2, true, true)
+
+	assert_eq(text, "0", "非数值文本应使用稳定 fallback，不能被改写成伪数值。")
+	assert_push_error("[GFNumberFormatter] format_full() 只接受合法数值文本。")
+
+
+func test_trim_trailing_zeroes_preserves_integer_text() -> void:
+	assert_eq(GFDecimalStringFormatter.trim_trailing_zeroes("000"), "000", "整数文本不得因尾零裁剪而改变位数。")
+	assert_eq(GFDecimalStringFormatter.trim_trailing_zeroes("-000"), "-000", "带符号整数文本也不得改变位数。")
+	assert_eq(GFDecimalStringFormatter.trim_trailing_zeroes("-0"), "0", "精确负零应规范化为零。")

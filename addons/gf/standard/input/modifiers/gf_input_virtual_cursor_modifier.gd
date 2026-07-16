@@ -93,16 +93,17 @@ var _last_ticks_msec: int = 0
 ## @return 更新后的虚拟光标位置。
 func modify(value: Vector2, _event: InputEvent = null, _action: GFInputAction = null) -> Vector2:
 	_ensure_initialized()
-	var input_value: Vector2 = value
-	if input_value.length() <= idle_threshold:
+	var input_value: Vector2 = value if _is_finite_vector2(value) else Vector2.ZERO
+	var safe_idle_threshold: float = _normalize_non_negative_scalar(idle_threshold)
+	if input_value.length() <= safe_idle_threshold:
 		if reset_when_idle:
 			var _reset_position_result_85: Variant = reset_position()
+		position = _normalize_position(position)
 		_update_ticks()
 		return position
 
-	position += input_value * speed * _get_step_delta()
-	if clamp_to_rect:
-		position = _clamp_position(position)
+	var safe_speed: Vector2 = speed if _is_finite_vector2(speed) else Vector2.ZERO
+	position = _normalize_position(position + input_value * safe_speed * _get_step_delta())
 	return position
 
 
@@ -128,7 +129,7 @@ func modify_3d(value: Vector3, event: InputEvent = null, action: GFInputAction =
 ## [br]
 ## @return 当前修饰器。
 func reset_position() -> GFInputVirtualCursorModifier:
-	position = initial_position
+	position = _normalize_position(initial_position)
 	_initialized = true
 	_update_ticks()
 	return self
@@ -144,7 +145,7 @@ func reset_position() -> GFInputVirtualCursorModifier:
 ## [br]
 ## @return 当前修饰器。
 func set_manual_delta_seconds(delta_seconds: float) -> GFInputVirtualCursorModifier:
-	manual_delta_seconds = maxf(delta_seconds, 0.0)
+	manual_delta_seconds = _normalize_non_negative_scalar(delta_seconds)
 	use_manual_delta_time = true
 	_last_ticks_msec = 0
 	return self
@@ -178,8 +179,84 @@ func get_runtime_state() -> Dictionary:
 ## [br]
 ## @schema state: Dictionary，可包含 position: Vector2 与 initialized: bool。
 func restore_runtime_state(state: Dictionary) -> GFInputVirtualCursorModifier:
-	position = GFVariantData.get_option_vector2(state, "position", initial_position)
+	position = _normalize_position(GFVariantData.get_option_vector2(state, "position", initial_position))
 	_initialized = GFVariantData.get_option_bool(state, "initialized", false)
+	_last_ticks_msec = 0
+	return self
+
+
+## 当前修饰器是否维护运行时状态。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+## [br]
+## @return 始终返回 true。
+func supports_runtime_state() -> bool:
+	return true
+
+
+## 获取运行时状态快照。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+## [br]
+## @return 当前运行时状态。
+## [br]
+## @schema return: Dictionary，包含 position 与 initialized。
+func get_modifier_runtime_state() -> Dictionary:
+	return get_runtime_state()
+
+
+## 从运行时状态快照恢复虚拟光标。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+## [br]
+## @param state: get_modifier_runtime_state() 生成的状态。
+## [br]
+## @schema state: Dictionary，可包含 position: Vector2 与 initialized: bool。
+## [br]
+## @return 当前修饰器。
+func restore_modifier_runtime_state(state: Dictionary) -> GFInputModifier:
+	return restore_runtime_state(state)
+
+
+## 重置运行时状态。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+## [br]
+## @return 当前修饰器。
+func reset_modifier_runtime_state() -> GFInputModifier:
+	return reset_position()
+
+
+## 设置下一步和后续步骤使用的运行时 delta 秒数。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+## [br]
+## @param delta_seconds: 运行时 delta 秒数；小于 0 时按 0 处理。
+## [br]
+## @return 当前修饰器。
+func set_runtime_delta_seconds(delta_seconds: float) -> GFInputModifier:
+	return set_manual_delta_seconds(delta_seconds)
+
+
+## 清除手动运行时 delta，恢复系统时间源。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+## [br]
+## @return 当前修饰器。
+func clear_runtime_delta_seconds() -> GFInputModifier:
+	use_manual_delta_time = false
 	_last_ticks_msec = 0
 	return self
 
@@ -204,7 +281,7 @@ func duplicate_modifier() -> GFInputModifier:
 func _ensure_initialized() -> void:
 	if _initialized:
 		return
-	position = initial_position
+	position = _normalize_position(initial_position)
 	_initialized = true
 	_update_ticks()
 
@@ -215,7 +292,7 @@ func _get_step_delta() -> float:
 		return 1.0
 	if use_manual_delta_time:
 		_last_ticks_msec = 0
-		return maxf(manual_delta_seconds, 0.0)
+		return _normalize_non_negative_scalar(manual_delta_seconds)
 
 	var now: int = Time.get_ticks_msec()
 	var delta: float = 0.0
@@ -238,6 +315,32 @@ func _clamp_position(value: Vector2) -> Vector2:
 		clampf(value.x, rect.position.x, rect.end.x),
 		clampf(value.y, rect.position.y, rect.end.y)
 	)
+
+
+func _normalize_position(value: Vector2) -> Vector2:
+	var fallback: Vector2 = initial_position if _is_finite_vector2(initial_position) else Vector2.ZERO
+	var result: Vector2 = value if _is_finite_vector2(value) else fallback
+	if clamp_to_rect and _is_finite_rect(clamp_rect):
+		result = _clamp_position(result)
+	return result
+
+
+func _is_finite_rect(rect: Rect2) -> bool:
+	return (
+		_is_finite_vector2(rect.position)
+		and _is_finite_vector2(rect.size)
+		and _is_finite_vector2(rect.position + rect.size)
+	)
+
+
+func _is_finite_vector2(value: Vector2) -> bool:
+	return not is_nan(value.x) and not is_inf(value.x) and not is_nan(value.y) and not is_inf(value.y)
+
+
+func _normalize_non_negative_scalar(value: float) -> float:
+	if is_nan(value) or is_inf(value):
+		return 0.0
+	return maxf(value, 0.0)
 
 
 func _duplicate_virtual_cursor_modifier() -> GFInputVirtualCursorModifier:

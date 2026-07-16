@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFStorageCodec" path="addons/gf/standard/utilities/storage/gf_storage_codec.gd" module="standard" extends="Resource" classDigest="8d9bc54a60bf02d3c447be1afcac15ba4b00fb9ebce9d0e247c2f2202a920dea">
+<class name="GFStorageCodec" path="addons/gf/standard/utilities/storage/gf_storage_codec.gd" module="standard" extends="Resource" classDigest="7599f07e46faf43dc6f2669f3e60ee79a7779af0e76b90a22bc904c32b803a72">
 	<description>GFStorageCodec: 通用存档字典编码与解码策略。
 负责字典序列化、可选压缩、完整性校验和轻量混淆。
+JSON 格式会通过 GFVariantJsonCodec 保留 Godot 值类型和非有限浮点数。
 它不负责路径、槽位、事务提交或云同步。</description>
 	<tags>
 		<tag name="api">public</tag>
@@ -73,11 +74,27 @@
 				<tag name="api">public</tag>
 			</tags>
 		</member>
+		<member kind="const" name="ENVELOPE_VERSION_KEY">
+			<signature>const ENVELOPE_VERSION_KEY: String = "__gf_storage_envelope_version"</signature>
+			<description>存储 envelope schema 版本字段名。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
 		<member kind="const" name="ENVELOPE_DATA_KEY">
 			<signature>const ENVELOPE_DATA_KEY: String = "data"</signature>
 			<description>存储 envelope 内原始用户数据的字段名。</description>
 			<tags>
 				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="const" name="ENVELOPE_VERSION">
+			<signature>const ENVELOPE_VERSION: int = 1</signature>
+			<description>当前存储 envelope schema 版本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 	</constants>
@@ -187,13 +204,14 @@
 		</member>
 		<member kind="method" name="serialize_dictionary">
 			<signature>func serialize_dictionary(data: Dictionary, p_format: Format = Format.JSON) -&gt; PackedByteArray:</signature>
-			<description>序列化字典。JSON 格式会递归排序字典键。</description>
+			<description>序列化字典。JSON 格式会递归排序字典键，并把 Godot 值类型转为 JSON 安全标记。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">data: 要序列化的数据。</tag>
 				<tag name="param">p_format: 目标格式。</tag>
 				<tag name="return">字节数组。</tag>
 				<tag name="schema">data: Dictionary，要序列化的数据载荷。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="deserialize_dictionary">

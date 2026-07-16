@@ -70,6 +70,8 @@ signal download_cancelled(task_id: int, result: Dictionary)
 # --- 常量 ---
 
 const _APPEND_BUFFER_SIZE_BYTES: int = 64 * 1024
+const _TEMP_FILE_SUFFIX: String = ".download"
+const _SEGMENT_FILE_SUFFIX: String = ".segment"
 
 
 # --- 公共变量 ---
@@ -78,16 +80,6 @@ const _APPEND_BUFFER_SIZE_BYTES: int = 64 * 1024
 ## [br]
 ## @api public
 var timeout_seconds: float = 30.0
-
-## 临时文件后缀。
-## [br]
-## @api public
-var default_temp_suffix: String = ".download"
-
-## 分段续传临时文件后缀。
-## [br]
-## @api public
-var default_segment_suffix: String = ".segment"
 
 ## 目标文件已存在时默认是否覆盖。
 ## [br]
@@ -215,17 +207,19 @@ static func parse_manifest_entries(data: Variant, options: Dictionary = {}) -> A
 ## [br]
 ## @api public
 ## [br]
+## @since 3.0.0
+## [br]
 ## @param url: 下载 URL。
 ## [br]
 ## @param target_path: 最终写入路径。
 ## [br]
 ## @param callback: 完成、失败或取消时执行的回调，签名为 func(result: Dictionary)。
 ## [br]
-## @param options: 可选参数，支持 headers、resume、overwrite、expected_sha256、metadata、temp_path、segment_path、max_retries、retry_delay_seconds。
+## @param options: 可选参数，支持 headers、resume、overwrite、expected_sha256、metadata、max_retries、retry_delay_seconds。临时路径由 utility 从 target_path 独占派生。
 ## [br]
 ## @return 任务句柄；输入无效时返回 0。
 ## [br]
-## @schema options: Dictionary，可包含 headers、resume、overwrite、expected_sha256、metadata、temp_path、segment_path、max_retries 和 retry_delay_seconds。
+## @schema options: Dictionary，可包含 headers、resume、overwrite、expected_sha256、metadata、max_retries 和 retry_delay_seconds。
 func enqueue_download(
 	url: String,
 	target_path: String,
@@ -241,19 +235,14 @@ func enqueue_download(
 		push_error("[GFDownloadUtility] enqueue_download 失败：target_path 不在受控 res:// 或 user:// 根内：%s。" % target_path)
 		return 0
 
-	var default_temp_path: String = safe_target_path + default_temp_suffix
-	var temp_path: String = GFVariantData.get_option_string(options, "temp_path", default_temp_path)
-	var safe_temp_path: String = _normalize_direct_download_path(temp_path)
-	if safe_temp_path.is_empty() or not _download_paths_share_root(safe_target_path, safe_temp_path):
-		push_error("[GFDownloadUtility] enqueue_download 失败：temp_path 不在 target_path 同一受控根内：%s。" % temp_path)
+	if _has_dictionary_key(options, "temp_path"):
+		push_error("[GFDownloadUtility] enqueue_download 失败：temp_path 由 utility 独占管理，不接受调用方覆盖。")
 		return 0
-
-	var default_segment_path: String = safe_temp_path + default_segment_suffix
-	var segment_path: String = GFVariantData.get_option_string(options, "segment_path", default_segment_path)
-	var safe_segment_path: String = _normalize_direct_download_path(segment_path)
-	if safe_segment_path.is_empty() or not _download_paths_share_root(safe_target_path, safe_segment_path):
-		push_error("[GFDownloadUtility] enqueue_download 失败：segment_path 不在 target_path 同一受控根内：%s。" % segment_path)
+	if _has_dictionary_key(options, "segment_path"):
+		push_error("[GFDownloadUtility] enqueue_download 失败：segment_path 由 utility 独占管理，不接受调用方覆盖。")
 		return 0
+	var safe_temp_path: String = safe_target_path + _TEMP_FILE_SUFFIX
+	var safe_segment_path: String = safe_temp_path + _SEGMENT_FILE_SUFFIX
 
 	var task: GFDownloadTask = GFDownloadTask.new()
 	task.task_id = _next_task_id
@@ -1128,18 +1117,6 @@ func _normalize_direct_download_path(path: String) -> String:
 	return normalized.simplify_path()
 
 
-func _download_paths_share_root(left_path: String, right_path: String) -> bool:
-	return _download_path_root(left_path) == _download_path_root(right_path)
-
-
-func _download_path_root(path: String) -> String:
-	if path.begins_with("res://"):
-		return "res://"
-	if path.begins_with("user://"):
-		return "user://"
-	return ""
-
-
 func _has_parent_path_segment(path: String) -> bool:
 	for segment: String in path.split("/", false):
 		if segment == "..":
@@ -1165,7 +1142,7 @@ func _build_manifest_download_options(entry: Dictionary, options: Dictionary, in
 		_normalize_headers(GFVariantData.get_option_value(entry, "headers", PackedStringArray()))
 	)
 
-	for key: String in ["expected_sha256", "resume", "overwrite", "temp_path", "segment_path", "max_retries", "retry_delay_seconds"]:
+	for key: String in ["expected_sha256", "resume", "overwrite", "max_retries", "retry_delay_seconds"]:
 		if _has_dictionary_key(entry, key):
 			result[key] = GFVariantData.duplicate_variant(GFVariantData.get_option_value(entry, key))
 	return result

@@ -74,6 +74,8 @@ signal asset_load_queued(path: String, lane_id: StringName)
 ## @since 6.0.0
 const DEFAULT_LOAD_LANE_ID: StringName = &"_default"
 const _THREADED_RESOURCE_LOAD_ADAPTER = preload("res://addons/gf/standard/utilities/assets/gf_threaded_resource_load_adapter.gd")
+const _THREADED_RESOURCE_COORDINATOR_SCRIPT = preload("res://addons/gf/standard/utilities/assets/gf_threaded_resource_coordinator.gd")
+const _THREADED_RESOURCE_OPERATION_SCRIPT = preload("res://addons/gf/standard/utilities/assets/gf_threaded_resource_operation.gd")
 
 
 # --- 公共变量 ---
@@ -105,7 +107,7 @@ var default_max_concurrent_loads: int = 0
 
 var _max_cache_size: int = 64
 
-# 正在加载中的请求：`path -> { type_hint: String, callbacks: Array[Callable], cancelled: bool }`。
+# 正在加载中的请求：`cache_key -> { path: String, identity: Dictionary, type_hint: String, callbacks: Array[Callable], cancelled: bool }`。
 var _pending: Dictionary = {}
 
 # 等待开始的请求。
@@ -113,12 +115,13 @@ var _queued_requests: Array = []
 var _queued_by_path: Dictionary = {}
 var _lane_active_counts: Dictionary = {}
 
-# 资源缓存：`path -> Resource`。
+# 资源缓存：`GFResourceIdentity.cache_key -> Resource`。
 var _cache: Dictionary = {}
 
 # LRU 访问序号，数值越大表示越新。
 var _cache_access_order: Dictionary = {}
 var _cache_access_serial: int = 0
+var _resource_identities: Dictionary = {}
 var _pinned_cache_paths: Dictionary = {}
 var _reference_counts: Dictionary = {}
 var _owner_reference_counts: Dictionary = {}
@@ -128,6 +131,7 @@ var _handle_refs: Array[WeakRef] = []
 var _group_paths: Dictionary = {}
 var _group_pin_counts: Dictionary = {}
 var _cache_diagnostics: GFCacheDiagnostics = GFCacheDiagnostics.new()
+var _threaded_resource_coordinator: _THREADED_RESOURCE_COORDINATOR_SCRIPT = _THREADED_RESOURCE_COORDINATOR_SCRIPT.new()
 
 
 # --- GF 生命周期方法 ---
@@ -137,12 +141,17 @@ var _cache_diagnostics: GFCacheDiagnostics = GFCacheDiagnostics.new()
 ## @api public
 func init() -> void:
 	ignore_pause = true
+	_threaded_resource_coordinator.configure(
+		Callable(self, "_request_threaded"),
+		Callable(self, "_poll_threaded_resource")
+	)
 	_pending = {}
 	_queued_requests.clear()
 	_queued_by_path.clear()
 	_lane_active_counts.clear()
 	_cache.clear()
 	_cache_access_order.clear()
+	_resource_identities.clear()
 	_pinned_cache_paths.clear()
 	_reference_counts.clear()
 	_owner_reference_counts.clear()
@@ -161,6 +170,7 @@ func init() -> void:
 ## @api public
 func dispose() -> void:
 	_cancel_pending_requests_for_dispose()
+	_threaded_resource_coordinator.cancel_all(&"disposed")
 	_release_all_handles()
 	_pending.clear()
 	_queued_requests.clear()
@@ -168,6 +178,7 @@ func dispose() -> void:
 	_lane_active_counts.clear()
 	_cache.clear()
 	_cache_access_order.clear()
+	_resource_identities.clear()
 	_pinned_cache_paths.clear()
 	_reference_counts.clear()
 	_owner_reference_counts.clear()
@@ -201,21 +212,30 @@ func load_async(path: String, on_loaded: Callable, type_hint: String = "", optio
 		push_error("[GFAssetUtility] 无效的路径或回调。")
 		return
 
-	var cached: Resource = get_cached(path)
+	var identity: GFResourceIdentity = _make_resource_identity(path, type_hint)
+	if not identity.has_identity():
+		push_error("[GFAssetUtility] 无效的资源身份：%s" % path)
+		on_loaded.call(null)
+		return
+	_remember_resource_identity(identity)
+	var cache_key: String = identity.cache_key
+	var load_path: String = _get_identity_load_path(identity)
+
+	var cached: Resource = _get_cached_by_key(cache_key)
 	if cached != null:
 		if not _is_resource_compatible(cached, type_hint):
-			push_warning("[GFAssetUtility] 缓存资源类型与请求 type_hint 不匹配：%s (%s)" % [path, type_hint])
+			push_warning("[GFAssetUtility] 缓存资源类型与请求 type_hint 不匹配：%s (%s)" % [load_path, type_hint])
 			on_loaded.call(null)
 			return
 
 		on_loaded.call(cached)
 		return
 
-	if _pending.has(path):
-		var pending_request: Dictionary = _get_pending_request(path)
+	if _pending.has(cache_key):
+		var pending_request: Dictionary = _get_pending_request(cache_key)
 		var pending_type_hint: String = _get_pending_type_hint(pending_request)
 		if not _pending_type_hints_are_compatible(pending_type_hint, type_hint):
-			push_warning("[GFAssetUtility] 已存在相同路径但 type_hint 不同的加载请求，已拒绝新请求：%s (%s -> %s)" % [path, pending_type_hint, type_hint])
+			push_warning("[GFAssetUtility] 已存在相同资源身份但 type_hint 不同的加载请求，已拒绝新请求：%s (%s -> %s)" % [load_path, pending_type_hint, type_hint])
 			on_loaded.call(null)
 			return
 
@@ -223,15 +243,16 @@ func load_async(path: String, on_loaded: Callable, type_hint: String = "", optio
 		if _is_pending_cancelled(pending_request):
 			callbacks.clear()
 			pending_request["cancelled"] = false
+			_retain_threaded_operation(_get_pending_operation(pending_request))
 		if not _callback_entries_have_callable(callbacks, on_loaded):
 			_append_array_value(callbacks, _make_callback_entry(on_loaded, type_hint))
 		return
 
-	if _queued_by_path.has(path):
-		var queued_request: Dictionary = _get_queued_request(path)
+	if _queued_by_path.has(cache_key):
+		var queued_request: Dictionary = _get_queued_request(cache_key)
 		var queued_type_hint: String = _get_pending_type_hint(queued_request)
 		if not _pending_type_hints_are_compatible(queued_type_hint, type_hint):
-			push_warning("[GFAssetUtility] 已存在相同路径但 type_hint 不同的排队加载请求，已拒绝新请求：%s (%s -> %s)" % [path, queued_type_hint, type_hint])
+			push_warning("[GFAssetUtility] 已存在相同资源身份但 type_hint 不同的排队加载请求，已拒绝新请求：%s (%s -> %s)" % [load_path, queued_type_hint, type_hint])
 			on_loaded.call(null)
 			return
 
@@ -244,6 +265,9 @@ func load_async(path: String, on_loaded: Callable, type_hint: String = "", optio
 		return
 
 	var request: Dictionary = {
+		"path": load_path,
+		"cache_key": cache_key,
+		"identity": identity.to_dictionary(),
 		"type_hint": type_hint,
 		"callbacks": [_make_callback_entry(on_loaded, type_hint)],
 		"cancelled": false,
@@ -251,7 +275,7 @@ func load_async(path: String, on_loaded: Callable, type_hint: String = "", optio
 		"lane_id": _resolve_load_lane_id(options),
 		"max_concurrent_loads": _resolve_load_lane_limit(options),
 	}
-	_start_or_queue_request(path, request)
+	_start_or_queue_request(cache_key, request)
 
 
 ## 异步加载资源并在成功后返回所有权句柄。
@@ -386,7 +410,8 @@ func release_owner(owner: Object) -> int:
 ## [br]
 ## @return 引用数量。
 func get_asset_reference_count(path: String) -> int:
-	return _get_count_value(_reference_counts, path)
+	var cache_key: String = _get_cache_key_for_path(path)
+	return _get_count_value(_reference_counts, cache_key)
 
 
 ## 注册资源路径到分组。
@@ -401,14 +426,19 @@ func get_asset_reference_count(path: String) -> int:
 func register_group_path(group_id: StringName, path: String, pin: bool = false) -> void:
 	if group_id == &"" or path.is_empty():
 		return
+	var identity: GFResourceIdentity = _make_resource_identity(path)
+	if not identity.has_identity():
+		return
+	_remember_resource_identity(identity)
+	var cache_key: String = identity.cache_key
 	if not _group_paths.has(group_id):
 		_group_paths[group_id] = {}
-	_group_paths[group_id][path] = true
+	_group_paths[group_id][cache_key] = true
 	if pin:
 		if not _group_pin_counts.has(group_id):
 			_group_pin_counts[group_id] = {}
 		var pin_counts: Dictionary = GFVariantData.as_dictionary(_group_pin_counts[group_id])
-		pin_counts[path] = _get_count_value(pin_counts, path) + 1
+		pin_counts[cache_key] = _get_count_value(pin_counts, cache_key) + 1
 		pin_cache(path)
 
 
@@ -421,11 +451,60 @@ func register_group_path(group_id: StringName, path: String, pin: bool = false) 
 ## @return 路径列表。
 func get_group_paths(group_id: StringName) -> PackedStringArray:
 	var result: PackedStringArray = PackedStringArray()
-	var paths: Dictionary = _get_group_path_map(group_id)
-	for path: String in paths.keys():
-		_append_packed_string(result, path)
+	var cache_keys: Dictionary = _get_group_path_map(group_id)
+	for cache_key: String in cache_keys.keys():
+		_append_packed_string(result, _get_public_path_for_cache_key(cache_key))
 	result.sort()
 	return result
+
+
+## 按预加载计划异步预热资源分组。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+## [br]
+## @param asset_plan: 资源预加载计划。
+## [br]
+## @param on_completed: 完成回调，签名为 func(report: Dictionary)。
+## [br]
+## @param options: 调用方覆盖选项，会合并到计划默认选项。
+## [br]
+## @schema options: Dictionary with optional `pin_cache: bool`, `serial_lane_id: StringName`, `lane_id: StringName`, and `max_concurrent_loads: int`.
+func preload_plan_async(
+	asset_plan: GFAssetPreloadPlan,
+	on_completed: Callable = Callable(),
+	options: Dictionary = {}
+) -> void:
+	if asset_plan == null:
+		var null_validation: Dictionary = _make_preload_plan_validation(&"", &"", 0, "plan is required.")
+		var null_message: String = "[GFAssetUtility] preload_plan_async 失败：asset_plan 为空。"
+		push_error(null_message)
+		_finish_preload_plan_report(
+			_make_preload_plan_error_report(null, &"", null_message, null_validation),
+			on_completed
+		)
+		return
+
+	var validation: Dictionary = asset_plan.validate()
+	if asset_plan.group_id == &"":
+		var message: String = "[GFAssetUtility] preload_plan_async 失败：group_id 为空。"
+		push_error(message)
+		_finish_preload_plan_report(
+			_make_preload_plan_error_report(asset_plan, asset_plan.group_id, message, validation),
+			on_completed
+		)
+		return
+
+	var plan_entries: Array[Dictionary] = asset_plan.get_entries()
+	var preload_options: Dictionary = asset_plan.to_preload_options(options)
+	preload_group_async(asset_plan.group_id, plan_entries, func(report: Dictionary) -> void:
+		var final_report: Dictionary = _with_preload_plan_metadata(report, asset_plan, validation)
+		if not GFVariantData.get_option_bool(validation, "ok", false):
+			final_report["ok"] = false
+		if on_completed.is_valid():
+			on_completed.call(final_report.duplicate(true))
+	, preload_options)
 
 
 ## 异步预加载资源分组。
@@ -509,10 +588,11 @@ func preload_group_async(
 ## [br]
 ## @param remove_unreferenced_cache: 是否移除没有句柄引用的缓存项。
 func unload_group(group_id: StringName, remove_unreferenced_cache: bool = false) -> void:
-	var paths: Dictionary = _get_group_path_map(group_id)
+	var cache_keys: Dictionary = _get_group_path_map(group_id)
 	var pin_counts: Dictionary = _get_group_pin_map(group_id)
-	for path: String in paths.keys():
-		var pin_count: int = _get_count_value(pin_counts, path)
+	for cache_key: String in cache_keys.keys():
+		var path: String = _get_public_path_for_cache_key(cache_key)
+		var pin_count: int = _get_count_value(pin_counts, cache_key)
 		for _i: int in range(pin_count):
 			unpin_cache(path)
 		if remove_unreferenced_cache and get_asset_reference_count(path) <= 0:
@@ -529,6 +609,7 @@ func unload_group(group_id: StringName, remove_unreferenced_cache: bool = false)
 ## @param _delta: 为兼容统一 tick 签名而保留的参数。
 func tick(_delta: float = 0.0) -> void:
 	_poll_pending()
+	_drain_cancelled_threaded_operations()
 
 
 ## 获取缓存中的资源。
@@ -539,14 +620,8 @@ func tick(_delta: float = 0.0) -> void:
 ## [br]
 ## @return 命中缓存时返回资源，否则返回 `null`。
 func get_cached(path: String) -> Resource:
-	if _cache.has(path):
-		_cache_diagnostics.record_hit(path)
-		_touch_cache(path)
-		return _cache[path]
-
-	if not path.is_empty():
-		_cache_diagnostics.record_miss(path)
-	return null
+	var cache_key: String = _get_cache_key_for_path(path)
+	return _get_cached_by_key(cache_key)
 
 
 ## 检查指定路径是否正在加载中。
@@ -559,17 +634,20 @@ func get_cached(path: String) -> Resource:
 ## [br]
 ## @return 正在加载时返回 `true`。
 func is_loading(path: String, type_hint: String = "") -> bool:
-	if not _pending.has(path):
-		if not _queued_by_path.has(path):
+	var cache_key: String = _get_cache_key_for_path(path, type_hint)
+	if cache_key.is_empty():
+		return false
+	if not _pending.has(cache_key):
+		if not _queued_by_path.has(cache_key):
 			return false
-		var queued_request: Dictionary = _get_queued_request(path)
+		var queued_request: Dictionary = _get_queued_request(cache_key)
 		if _is_pending_cancelled(queued_request):
 			return false
 		if type_hint.is_empty():
 			return true
 		return _get_pending_type_hint(queued_request) == type_hint
 
-	var pending_request: Dictionary = _get_pending_request(path)
+	var pending_request: Dictionary = _get_pending_request(cache_key)
 	if _is_pending_cancelled(pending_request):
 		return false
 	if type_hint.is_empty():
@@ -592,13 +670,16 @@ func get_load_progress(path: String) -> float:
 		return 0.0
 	if is_cached(path):
 		return 1.0
-	if _queued_by_path.has(path):
-		var queued_request: Dictionary = _get_queued_request(path)
+	var cache_key: String = _get_cache_key_for_path(path)
+	if cache_key.is_empty():
+		return 0.0
+	if _queued_by_path.has(cache_key):
+		var queued_request: Dictionary = _get_queued_request(cache_key)
 		return 0.0 if not _is_pending_cancelled(queued_request) else 0.0
-	if not _pending.has(path):
+	if not _pending.has(cache_key):
 		return 0.0
 
-	var pending_request: Dictionary = _get_pending_request(path)
+	var pending_request: Dictionary = _get_pending_request(cache_key)
 	if _is_pending_cancelled(pending_request):
 		return 0.0
 	return clampf(_get_pending_progress(pending_request), 0.0, 1.0)
@@ -612,7 +693,8 @@ func get_load_progress(path: String) -> float:
 ## [br]
 ## @return 已缓存时返回 `true`。
 func is_cached(path: String) -> bool:
-	return _cache.has(path)
+	var cache_key: String = _get_cache_key_for_path(path)
+	return not cache_key.is_empty() and _cache.has(cache_key)
 
 
 ## 取消指定路径的异步加载请求。
@@ -623,18 +705,21 @@ func is_cached(path: String) -> bool:
 ## [br]
 ## @param type_hint: 可选资源类型提示；为空时取消该路径的当前请求。
 func cancel(path: String, type_hint: String = "") -> void:
-	if _queued_by_path.has(path):
-		var queued_request: Dictionary = _get_queued_request(path)
+	var cache_key: String = _get_cache_key_for_path(path, type_hint)
+	if cache_key.is_empty():
+		return
+	if _queued_by_path.has(cache_key):
+		var queued_request: Dictionary = _get_queued_request(cache_key)
 		var queued_type_hint: String = _get_pending_type_hint(queued_request)
 		if type_hint.is_empty() or queued_type_hint == type_hint:
 			_get_pending_callbacks(queued_request).clear()
 			queued_request["cancelled"] = true
 		return
 
-	if not _pending.has(path):
+	if not _pending.has(cache_key):
 		return
 
-	var pending_request: Dictionary = _get_pending_request(path)
+	var pending_request: Dictionary = _get_pending_request(cache_key)
 	var pending_type_hint: String = _get_pending_type_hint(pending_request)
 	if not type_hint.is_empty() and pending_type_hint != type_hint:
 		return
@@ -642,6 +727,7 @@ func cancel(path: String, type_hint: String = "") -> void:
 	var callbacks: Array = _get_pending_callbacks(pending_request)
 	callbacks.clear()
 	pending_request["cancelled"] = true
+	_cancel_threaded_operation(_get_pending_operation(pending_request), &"asset_load_cancelled")
 
 
 ## 手动写入缓存。
@@ -655,9 +741,14 @@ func put_cache(path: String, resource: Resource) -> void:
 	if path.is_empty() or resource == null or max_cache_size <= 0:
 		return
 
-	_cache[path] = resource
-	_cache_diagnostics.record_write(path)
-	_touch_cache(path)
+	var identity: GFResourceIdentity = _make_resource_identity(path)
+	if not identity.has_identity():
+		return
+	_remember_resource_identity(identity)
+	var cache_key: String = identity.cache_key
+	_cache[cache_key] = resource
+	_cache_diagnostics.record_write(cache_key)
+	_touch_cache(cache_key)
 	_evict_lru()
 
 
@@ -667,15 +758,19 @@ func put_cache(path: String, resource: Resource) -> void:
 ## [br]
 ## @param path: 资源路径。
 func remove_cache(path: String) -> void:
-	if _cache.has(path):
-		_cache_diagnostics.record_invalidation(&"manual_remove", path)
+	var cache_key: String = _get_cache_key_for_path(path)
+	if cache_key.is_empty():
+		return
+	if _cache.has(cache_key):
+		_cache_diagnostics.record_invalidation(&"manual_remove", cache_key)
 	_release_handles_for_path(path)
-	_erase_dictionary_key(_cache, path)
-	_erase_dictionary_key(_cache_access_order, path)
-	_erase_dictionary_key(_pinned_cache_paths, path)
-	_erase_dictionary_key(_reference_counts, path)
-	_erase_dictionary_key(_owner_reference_counts, path)
+	_erase_dictionary_key(_cache, cache_key)
+	_erase_dictionary_key(_cache_access_order, cache_key)
+	_erase_dictionary_key(_pinned_cache_paths, cache_key)
+	_erase_dictionary_key(_reference_counts, cache_key)
+	_erase_dictionary_key(_owner_reference_counts, cache_key)
 	_remove_path_from_groups(path)
+	_erase_dictionary_key(_resource_identities, cache_key)
 
 
 ## 清空全部缓存。
@@ -686,6 +781,7 @@ func clear_cache() -> void:
 		_cache_diagnostics.record_invalidation(&"clear", "", _cache.size())
 	_cache.clear()
 	_cache_access_order.clear()
+	_resource_identities.clear()
 	_pinned_cache_paths.clear()
 	_reference_counts.clear()
 	_owner_reference_counts.clear()
@@ -713,7 +809,10 @@ func get_cache_count() -> int:
 func pin_cache(path: String) -> void:
 	if path.is_empty():
 		return
-	_pinned_cache_paths[path] = _get_count_value(_pinned_cache_paths, path) + 1
+	var cache_key: String = _get_cache_key_for_path(path)
+	if cache_key.is_empty():
+		return
+	_pinned_cache_paths[cache_key] = _get_count_value(_pinned_cache_paths, cache_key) + 1
 
 
 ## 解除指定缓存路径的 LRU 锁定。
@@ -722,14 +821,15 @@ func pin_cache(path: String) -> void:
 ## [br]
 ## @param path: 资源路径。
 func unpin_cache(path: String) -> void:
-	if not _pinned_cache_paths.has(path):
+	var cache_key: String = _get_cache_key_for_path(path)
+	if cache_key.is_empty() or not _pinned_cache_paths.has(cache_key):
 		return
 
-	var count: int = _get_count_value(_pinned_cache_paths, path) - 1
+	var count: int = _get_count_value(_pinned_cache_paths, cache_key) - 1
 	if count > 0:
-		_pinned_cache_paths[path] = count
+		_pinned_cache_paths[cache_key] = count
 	else:
-		_erase_dictionary_key(_pinned_cache_paths, path)
+		_erase_dictionary_key(_pinned_cache_paths, cache_key)
 	_evict_lru()
 
 
@@ -741,7 +841,8 @@ func unpin_cache(path: String) -> void:
 ## [br]
 ## @return 已锁定返回 true。
 func is_cache_pinned(path: String) -> bool:
-	return _get_count_value(_pinned_cache_paths, path) > 0
+	var cache_key: String = _get_cache_key_for_path(path)
+	return not cache_key.is_empty() and _get_count_value(_pinned_cache_paths, cache_key) > 0
 
 
 ## 获取资源加载工具诊断快照。
@@ -752,46 +853,62 @@ func is_cache_pinned(path: String) -> bool:
 ## [br]
 ## @return 诊断快照字典。
 ## [br]
-## @schema return: Dictionary with cache, pending, pending_progress, pinned, reference count, and group count diagnostic fields.
+## @schema return: Dictionary with max_cache_size, cache_count, cached_paths, cache_keys, pending_count, pending_paths, pending_cache_keys, pending_progress, pinned_count, pinned_paths, pinned_cache_keys, reference_counts, cache_key_reference_counts, resource_identities, group_count, queued_count, queued_paths, lane_active_counts, cache_diagnostics, and threaded_resource_operations diagnostic fields.
 func get_debug_snapshot() -> Dictionary:
 	var cached_paths: PackedStringArray = PackedStringArray()
-	for path: String in _cache.keys():
-		_append_packed_string(cached_paths, path)
+	var cache_keys: PackedStringArray = PackedStringArray()
+	for cache_key: String in _cache.keys():
+		_append_packed_string(cache_keys, cache_key)
+		_append_packed_string(cached_paths, _get_public_path_for_cache_key(cache_key))
 	cached_paths.sort()
+	cache_keys.sort()
 
 	var pending_paths: PackedStringArray = PackedStringArray()
-	for path: String in _pending.keys():
-		var pending_request: Dictionary = _get_pending_request(path)
+	var pending_cache_keys: PackedStringArray = PackedStringArray()
+	for cache_key: String in _pending.keys():
+		var pending_request: Dictionary = _get_pending_request(cache_key)
 		if not _is_pending_cancelled(pending_request):
-			_append_packed_string(pending_paths, path)
+			_append_packed_string(pending_cache_keys, cache_key)
+			_append_packed_string(pending_paths, _get_pending_path(pending_request))
 	pending_paths.sort()
+	pending_cache_keys.sort()
 
 	var pending_progress: Dictionary = {}
-	for path: String in pending_paths:
-		var pending_request: Dictionary = _get_pending_request(path)
-		pending_progress[path] = clampf(_get_pending_progress(pending_request), 0.0, 1.0)
+	for cache_key: String in pending_cache_keys:
+		var pending_request: Dictionary = _get_pending_request(cache_key)
+		var pending_path: String = _get_pending_path(pending_request)
+		pending_progress[pending_path] = clampf(_get_pending_progress(pending_request), 0.0, 1.0)
 
 	var pinned_paths: PackedStringArray = PackedStringArray()
-	for path: String in _pinned_cache_paths.keys():
-		if _get_count_value(_pinned_cache_paths, path) > 0:
-			_append_packed_string(pinned_paths, path)
+	var pinned_cache_keys: PackedStringArray = PackedStringArray()
+	for cache_key: String in _pinned_cache_paths.keys():
+		if _get_count_value(_pinned_cache_paths, cache_key) > 0:
+			_append_packed_string(pinned_cache_keys, cache_key)
+			_append_packed_string(pinned_paths, _get_public_path_for_cache_key(cache_key))
 	pinned_paths.sort()
+	pinned_cache_keys.sort()
 
 	return {
 		"max_cache_size": max_cache_size,
 		"cache_count": _cache.size(),
 		"cached_paths": cached_paths,
+		"cache_keys": cache_keys,
 		"pending_count": pending_paths.size(),
 		"pending_paths": pending_paths,
+		"pending_cache_keys": pending_cache_keys,
 		"pending_progress": pending_progress,
 		"pinned_count": pinned_paths.size(),
 		"pinned_paths": pinned_paths,
-		"reference_counts": _reference_counts.duplicate(),
+		"pinned_cache_keys": pinned_cache_keys,
+		"reference_counts": _make_public_reference_counts(),
+		"cache_key_reference_counts": _reference_counts.duplicate(),
+		"resource_identities": _make_identity_snapshot(),
 		"group_count": _group_paths.size(),
 		"queued_count": _queued_requests.size(),
 		"queued_paths": _get_queued_paths(),
 		"lane_active_counts": _lane_active_counts.duplicate(),
 		"cache_diagnostics": _cache_diagnostics.get_debug_snapshot(),
+		"threaded_resource_operations": _threaded_resource_coordinator.get_debug_snapshot(),
 	}
 
 
@@ -825,6 +942,91 @@ func _get_queued_request(path: String) -> Dictionary:
 	return _get_dictionary_reference(_queued_by_path, path)
 
 
+func _make_resource_identity(path: String, type_hint: String = "", resource_key: StringName = &"") -> GFResourceIdentity:
+	return GFResourceIdentity.from_path(path, resource_key, type_hint, { "check_exists": false })
+
+
+func _get_cache_key_for_path(path: String, type_hint: String = "") -> String:
+	var identity: GFResourceIdentity = _make_resource_identity(path, type_hint)
+	if not identity.has_identity():
+		return ""
+	_remember_resource_identity(identity)
+	return identity.cache_key
+
+
+func _remember_resource_identity(identity: GFResourceIdentity) -> void:
+	if identity == null or not identity.has_identity():
+		return
+	_resource_identities[identity.cache_key] = identity.to_dictionary()
+
+
+func _get_identity_load_path(identity: GFResourceIdentity) -> String:
+	if identity == null:
+		return ""
+	if not identity.canonical_path.is_empty():
+		return identity.canonical_path
+	return identity.raw_path
+
+
+func _get_public_path_for_cache_key(cache_key: String) -> String:
+	var identity_data: Dictionary = GFVariantData.get_option_dictionary(_resource_identities, cache_key)
+	var canonical_path: String = GFVariantData.get_option_string(identity_data, "canonical_path")
+	if not canonical_path.is_empty():
+		return canonical_path
+	var raw_path: String = GFVariantData.get_option_string(identity_data, "raw_path")
+	if not raw_path.is_empty():
+		return raw_path
+	return cache_key
+
+
+func _get_pending_path(pending_request: Dictionary) -> String:
+	return GFVariantData.get_option_string(pending_request, "path")
+
+
+func _get_pending_cache_key(pending_request: Dictionary) -> String:
+	return GFVariantData.get_option_string(pending_request, "cache_key")
+
+
+func _make_identity_snapshot() -> Dictionary:
+	var result: Dictionary = {}
+	for cache_key: String in _resource_identities.keys():
+		result[cache_key] = GFVariantData.get_option_dictionary(_resource_identities, cache_key).duplicate(true)
+	return result
+
+
+func _make_public_reference_counts() -> Dictionary:
+	var result: Dictionary = {}
+	for cache_key: String in _reference_counts.keys():
+		result[_get_public_path_for_cache_key(cache_key)] = _get_count_value(_reference_counts, cache_key)
+	return result
+
+
+func _get_cached_by_key(cache_key: String) -> Resource:
+	if cache_key.is_empty() or not _cache.has(cache_key):
+		if not cache_key.is_empty():
+			_cache_diagnostics.record_miss(cache_key)
+		return null
+	_cache_diagnostics.record_hit(cache_key)
+	_touch_cache(cache_key)
+	var resource_value: Variant = _cache[cache_key]
+	if resource_value is Resource:
+		var resource: Resource = resource_value
+		return resource
+	return null
+
+
+func _put_cache_by_key(cache_key: String, path: String, resource: Resource) -> void:
+	if cache_key.is_empty() or resource == null or max_cache_size <= 0:
+		return
+	var identity: GFResourceIdentity = _make_resource_identity(path)
+	if identity.has_identity() and identity.cache_key == cache_key:
+		_remember_resource_identity(identity)
+	_cache[cache_key] = resource
+	_cache_diagnostics.record_write(cache_key)
+	_touch_cache(cache_key)
+	_evict_lru()
+
+
 func _get_pending_type_hint(pending_request: Dictionary) -> String:
 	return GFVariantData.get_option_string(pending_request, "type_hint", "")
 
@@ -847,6 +1049,40 @@ func _get_pending_lane_limit(pending_request: Dictionary) -> int:
 
 func _is_pending_cancelled(pending_request: Dictionary) -> bool:
 	return GFVariantData.get_option_bool(pending_request, "cancelled", false)
+
+
+func _get_pending_operation(pending_request: Dictionary) -> _THREADED_RESOURCE_OPERATION_SCRIPT:
+	var value: Variant = GFVariantData.get_option_value(pending_request, "operation")
+	if value is _THREADED_RESOURCE_OPERATION_SCRIPT:
+		var operation: _THREADED_RESOURCE_OPERATION_SCRIPT = value
+		return operation
+	return null
+
+
+func _request_threaded_operation(path: String, type_hint: String) -> _THREADED_RESOURCE_OPERATION_SCRIPT:
+	return _threaded_resource_coordinator.request(path, type_hint)
+
+
+func _retain_threaded_operation(operation: _THREADED_RESOURCE_OPERATION_SCRIPT) -> void:
+	if operation == null:
+		return
+	var _ref_count: int = _threaded_resource_coordinator.retain_operation(operation)
+
+
+func _cancel_threaded_operation(operation: _THREADED_RESOURCE_OPERATION_SCRIPT, reason: StringName) -> void:
+	_threaded_resource_coordinator.cancel_operation(operation, reason, true)
+
+
+func _poll_threaded_operation(operation: _THREADED_RESOURCE_OPERATION_SCRIPT) -> Dictionary:
+	return _threaded_resource_coordinator.poll_operation(operation)
+
+
+func _forget_threaded_operation(operation: _THREADED_RESOURCE_OPERATION_SCRIPT) -> void:
+	_threaded_resource_coordinator.forget_operation(operation)
+
+
+func _drain_cancelled_threaded_operations() -> void:
+	var _drained_count: int = _threaded_resource_coordinator.drain_cancelled_operations()
 
 
 func _get_group_path_map(group_id: StringName) -> Dictionary:
@@ -883,6 +1119,74 @@ func _get_group_entry_path(request: Dictionary) -> String:
 
 func _get_group_entry_type_hint(request: Dictionary) -> String:
 	return GFVariantData.get_option_string(request, "type_hint", "")
+
+
+func _make_preload_plan_validation(
+	plan_id: StringName,
+	group_id: StringName,
+	entry_count: int,
+	message: String
+) -> Dictionary:
+	return {
+		"ok": false,
+		"plan_id": plan_id,
+		"group_id": group_id,
+		"entry_count": entry_count,
+		"enabled_count": 0,
+		"disabled_count": 0,
+		"invalid_count": 1,
+		"duplicate_paths": [],
+		"issues": [{
+			"index": 0,
+			"kind": &"invalid_preload_plan",
+			"message": message,
+			"field": &"asset_plan",
+		}],
+		"metadata": {},
+	}
+
+
+func _make_preload_plan_error_report(
+	asset_plan: GFAssetPreloadPlan,
+	group_id: StringName,
+	message: String,
+	validation: Dictionary
+) -> Dictionary:
+	var total: int = asset_plan.get_entry_count() if asset_plan != null else 0
+	var report: Dictionary = {
+		"ok": false,
+		"group_id": group_id,
+		"paths": PackedStringArray(),
+		"failed_paths": PackedStringArray(),
+		"total": total,
+		"completed": 0,
+		"metadata": {
+			"error": message,
+		},
+	}
+	return _with_preload_plan_metadata(report, asset_plan, validation)
+
+
+func _with_preload_plan_metadata(
+	report: Dictionary,
+	asset_plan: GFAssetPreloadPlan,
+	validation: Dictionary
+) -> Dictionary:
+	var result: Dictionary = report.duplicate(true)
+	var existing_metadata: Dictionary = GFVariantData.get_option_dictionary(result, "metadata").duplicate(true)
+	var plan_metadata: Dictionary = {
+		"preload_plan": validation.duplicate(true),
+	}
+	if asset_plan != null:
+		plan_metadata["plan_id"] = asset_plan.plan_id
+		plan_metadata["plan_metadata"] = asset_plan.metadata.duplicate(true)
+	result["metadata"] = GFVariantData.merge_dictionary(existing_metadata, plan_metadata, true, true)
+	return result
+
+
+func _finish_preload_plan_report(report: Dictionary, on_completed: Callable) -> void:
+	if on_completed.is_valid():
+		on_completed.call(report.duplicate(true))
 
 
 func _get_report_paths(report: Dictionary, key: String) -> PackedStringArray:
@@ -938,35 +1242,40 @@ func _get_callable_value(value: Variant) -> Callable:
 	return Callable()
 
 
-func _start_or_queue_request(path: String, request: Dictionary) -> void:
+func _start_or_queue_request(cache_key: String, request: Dictionary) -> void:
 	var lane_id: StringName = _get_pending_lane_id(request)
 	var lane_limit: int = _get_pending_lane_limit(request)
+	var path: String = _get_pending_path(request)
 	if _should_queue_request(lane_id, lane_limit):
 		_queued_requests.append(request)
-		_queued_by_path[path] = request
-		request["path"] = path
+		_queued_by_path[cache_key] = request
+		request["cache_key"] = cache_key
 		asset_load_queued.emit(path, lane_id)
 		asset_load_progress.emit(path, 0.0)
 		return
 
-	var error: Error = _activate_load_request(path, request, true)
+	var error: Error = _activate_load_request(cache_key, request, true)
 	if error != OK:
 		return
 
 
-func _activate_load_request(path: String, request: Dictionary, emit_initial_progress: bool) -> Error:
+func _activate_load_request(cache_key: String, request: Dictionary, emit_initial_progress: bool) -> Error:
 	var lane_id: StringName = _get_pending_lane_id(request)
 	_begin_lane_request(lane_id)
 
+	var path: String = _get_pending_path(request)
 	var type_hint: String = _get_pending_type_hint(request)
-	var error: Error = _request_threaded(path, type_hint)
+	var operation: _THREADED_RESOURCE_OPERATION_SCRIPT = _request_threaded_operation(path, type_hint)
+	var error: Error = operation.get_request_error() if operation != null else ERR_CANT_CREATE
 	if error != OK:
 		_end_lane_request(lane_id)
 		push_error("[GFAssetUtility] 无法发起异步加载请求：%s (错误码：%d)" % [path, error])
 		_dispatch_callbacks(_get_pending_callbacks(request), null)
 		return error
 
-	_pending[path] = request
+	request["operation"] = operation
+	request["cache_key"] = cache_key
+	_pending[cache_key] = request
 	if emit_initial_progress:
 		asset_load_progress.emit(path, 0.0)
 	return OK
@@ -998,10 +1307,11 @@ func _drain_load_queue() -> void:
 	var index: int = 0
 	while index < _queued_requests.size():
 		var request: Dictionary = GFVariantData.as_dictionary(_queued_requests[index])
+		var cache_key: String = _get_pending_cache_key(request)
 		var path: String = GFVariantData.get_option_string(request, "path", "")
-		if path.is_empty() or _is_pending_cancelled(request):
+		if cache_key.is_empty() or path.is_empty() or _is_pending_cancelled(request):
 			_queued_requests.remove_at(index)
-			_erase_dictionary_key(_queued_by_path, path)
+			_erase_dictionary_key(_queued_by_path, cache_key)
 			continue
 
 		var lane_id: StringName = _get_pending_lane_id(request)
@@ -1011,8 +1321,8 @@ func _drain_load_queue() -> void:
 			continue
 
 		_queued_requests.remove_at(index)
-		_erase_dictionary_key(_queued_by_path, path)
-		var _error: Error = _activate_load_request(path, request, false)
+		_erase_dictionary_key(_queued_by_path, cache_key)
+		var _error: Error = _activate_load_request(cache_key, request, false)
 
 
 func _resolve_load_lane_id(options: Dictionary) -> StringName:
@@ -1092,44 +1402,61 @@ func _poll_pending() -> void:
 	if _pending.is_empty():
 		return
 
-	var pending_paths: Array = _pending.keys()
-	for path: String in pending_paths:
-		if not _pending.has(path):
+	var pending_cache_keys: Array = _pending.keys()
+	for cache_key: String in pending_cache_keys:
+		if not _pending.has(cache_key):
 			continue
 
-		var pending_request: Dictionary = _get_pending_request(path)
+		var pending_request: Dictionary = _get_pending_request(cache_key)
+		var path: String = _get_pending_path(pending_request)
 		var callbacks: Array = _get_pending_callbacks(pending_request)
 		var cancelled: bool = _is_pending_cancelled(pending_request)
-		var progress_result: Array = []
-		var status: ResourceLoader.ThreadLoadStatus = _get_threaded_status_with_progress(path, progress_result)
+		var operation: _THREADED_RESOURCE_OPERATION_SCRIPT = _get_pending_operation(pending_request)
+		var load_result: Dictionary = _poll_threaded_operation(operation)
+		var status: StringName = GFVariantData.get_option_string_name(
+			load_result,
+			"status",
+			_THREADED_RESOURCE_OPERATION_SCRIPT.STATUS_INVALID
+		)
 		if not cancelled:
-			var progress: float = _get_threaded_progress(pending_request, progress_result, status)
+			var progress: float = GFVariantData.get_option_float(load_result, "progress", _get_pending_progress(pending_request))
 			_update_pending_progress(path, pending_request, progress)
 
 		match status:
-			ResourceLoader.THREAD_LOAD_LOADED:
-				var resource: Resource = _take_threaded_resource(path)
+			_THREADED_RESOURCE_OPERATION_SCRIPT.STATUS_IN_PROGRESS, _THREADED_RESOURCE_OPERATION_SCRIPT.STATUS_DRAINING:
+				pass
+
+			_THREADED_RESOURCE_OPERATION_SCRIPT.STATUS_COMPLETED:
+				var resource: Resource = _get_load_result_resource(load_result)
 				if resource != null and not cancelled:
 					_update_pending_progress(path, pending_request, 1.0)
-				_erase_dictionary_key(_pending, path)
+				_erase_dictionary_key(_pending, cache_key)
 				if resource != null and not cancelled:
-					put_cache(path, resource)
+					_put_cache_by_key(cache_key, path, resource)
 				if not cancelled:
 					_dispatch_callbacks(callbacks, resource)
+				_forget_threaded_operation(operation)
 				_complete_pending_lane(pending_request)
 
-			ResourceLoader.THREAD_LOAD_FAILED:
-				_erase_dictionary_key(_pending, path)
+			_THREADED_RESOURCE_OPERATION_SCRIPT.STATUS_FAILED:
+				_erase_dictionary_key(_pending, cache_key)
 				if not cancelled:
 					push_error("[GFAssetUtility] 异步加载失败：%s" % path)
 					_dispatch_callbacks(callbacks, null)
+				_forget_threaded_operation(operation)
 				_complete_pending_lane(pending_request)
 
-			ResourceLoader.THREAD_LOAD_INVALID_RESOURCE:
-				_erase_dictionary_key(_pending, path)
+			_THREADED_RESOURCE_OPERATION_SCRIPT.STATUS_INVALID:
+				_erase_dictionary_key(_pending, cache_key)
 				if not cancelled:
 					push_error("[GFAssetUtility] 无效资源：%s" % path)
 					_dispatch_callbacks(callbacks, null)
+				_forget_threaded_operation(operation)
+				_complete_pending_lane(pending_request)
+
+			_THREADED_RESOURCE_OPERATION_SCRIPT.STATUS_SUPPRESSED:
+				_erase_dictionary_key(_pending, cache_key)
+				_forget_threaded_operation(operation)
 				_complete_pending_lane(pending_request)
 
 
@@ -1180,6 +1507,7 @@ func _cancel_pending_requests_for_dispose() -> void:
 		if _is_pending_cancelled(pending_request):
 			continue
 		pending_request["cancelled"] = true
+		_cancel_threaded_operation(_get_pending_operation(pending_request), &"asset_utility_disposed")
 		_dispatch_callbacks(_get_pending_callbacks(pending_request).duplicate(), null)
 
 	for queued_value: Variant in _queued_requests:
@@ -1195,7 +1523,10 @@ func _owner_instance_id(owner: Object) -> int:
 
 
 func _increment_reference(path: String, owner: Object, group_id: StringName) -> void:
-	_reference_counts[path] = _get_count_value(_reference_counts, path) + 1
+	var cache_key: String = _get_cache_key_for_path(path)
+	if cache_key.is_empty():
+		return
+	_reference_counts[cache_key] = _get_count_value(_reference_counts, cache_key) + 1
 	pin_cache(path)
 	if group_id != &"":
 		register_group_path(group_id, path)
@@ -1204,34 +1535,37 @@ func _increment_reference(path: String, owner: Object, group_id: StringName) -> 
 	if owner_id == 0:
 		return
 
-	if not _owner_reference_counts.has(path):
-		_owner_reference_counts[path] = {}
-	var owner_counts: Dictionary = GFVariantData.as_dictionary(_owner_reference_counts[path])
+	if not _owner_reference_counts.has(cache_key):
+		_owner_reference_counts[cache_key] = {}
+	var owner_counts: Dictionary = GFVariantData.as_dictionary(_owner_reference_counts[cache_key])
 	owner_counts[owner_id] = _get_count_value(owner_counts, owner_id) + 1
 	_track_owner(owner)
 
 
 func _decrement_reference(path: String, owner_id: int, release_count: int = 1) -> int:
+	var cache_key: String = _get_cache_key_for_path(path)
+	if cache_key.is_empty():
+		return 0
 	var count_to_release: int = maxi(release_count, 1)
-	var current_count: int = _get_count_value(_reference_counts, path)
+	var current_count: int = _get_count_value(_reference_counts, cache_key)
 	var next_count: int = maxi(current_count - count_to_release, 0)
 	if next_count > 0:
-		_reference_counts[path] = next_count
+		_reference_counts[cache_key] = next_count
 	else:
-		_erase_dictionary_key(_reference_counts, path)
+		_erase_dictionary_key(_reference_counts, cache_key)
 
 	for _i: int in range(current_count - next_count):
 		unpin_cache(path)
 
-	if owner_id != 0 and _owner_reference_counts.has(path):
-		var owner_counts: Dictionary = GFVariantData.as_dictionary(_owner_reference_counts[path])
+	if owner_id != 0 and _owner_reference_counts.has(cache_key):
+		var owner_counts: Dictionary = GFVariantData.as_dictionary(_owner_reference_counts[cache_key])
 		var owner_count: int = _get_count_value(owner_counts, owner_id) - count_to_release
 		if owner_count > 0:
 			owner_counts[owner_id] = owner_count
 		else:
 			_erase_dictionary_key(owner_counts, owner_id)
 		if owner_counts.is_empty():
-			_erase_dictionary_key(_owner_reference_counts, path)
+			_erase_dictionary_key(_owner_reference_counts, cache_key)
 
 	return next_count
 
@@ -1269,11 +1603,12 @@ func _release_all_handles() -> void:
 
 
 func _release_handles_for_path(path: String) -> void:
+	var cache_key: String = _get_cache_key_for_path(path)
 	for index: int in range(_handle_refs.size() - 1, -1, -1):
 		var handle: GFAssetHandle = _get_asset_handle_value(_handle_refs[index].get_ref())
 		if handle == null or handle.is_released():
 			_handle_refs.remove_at(index)
-		elif handle.path == path:
+		elif _get_cache_key_for_path(handle.path) == cache_key:
 			handle.release_local_reference()
 			_handle_refs.remove_at(index)
 
@@ -1293,16 +1628,17 @@ func _release_owner_id(owner_id: int) -> int:
 		return 0
 
 	var released_count: int = 0
-	var paths: Array = _owner_reference_counts.keys()
-	for path: String in paths:
-		if not _owner_reference_counts.has(path):
+	var cache_keys: Array = _owner_reference_counts.keys()
+	for cache_key: String in cache_keys:
+		if not _owner_reference_counts.has(cache_key):
 			continue
 
-		var owner_counts: Dictionary = GFVariantData.as_dictionary(_owner_reference_counts[path])
+		var owner_counts: Dictionary = GFVariantData.as_dictionary(_owner_reference_counts[cache_key])
 		if not owner_counts.has(owner_id):
 			continue
 
 		var count: int = _get_count_value(owner_counts, owner_id)
+		var path: String = _get_public_path_for_cache_key(cache_key)
 		released_count += count
 		var remaining: int = _decrement_reference(path, owner_id, count)
 		asset_handle_released.emit(path, remaining)
@@ -1314,16 +1650,22 @@ func _release_owner_id(owner_id: int) -> int:
 
 
 func _remove_path_from_groups(path: String) -> void:
+	var cache_key: String = _get_cache_key_for_path(path)
+	if cache_key.is_empty():
+		return
 	for group_id: Variant in _group_paths.keys():
-		var paths: PackedStringArray = _get_packed_string_array_value(_group_paths[group_id])
-		if not paths.has(path):
+		var cache_keys: Dictionary = GFVariantData.as_dictionary(_group_paths[group_id])
+		if not cache_keys.has(cache_key):
 			continue
-		paths.remove_at(paths.find(path))
-		if paths.is_empty():
+		_erase_dictionary_key(cache_keys, cache_key)
+		if _group_pin_counts.has(group_id):
+			var pin_counts: Dictionary = GFVariantData.as_dictionary(_group_pin_counts[group_id])
+			_erase_dictionary_key(pin_counts, cache_key)
+			if pin_counts.is_empty():
+				_erase_dictionary_key(_group_pin_counts, group_id)
+		if cache_keys.is_empty():
 			_erase_dictionary_key(_group_paths, group_id)
 			_erase_dictionary_key(_group_pin_counts, group_id)
-		else:
-			_group_paths[group_id] = paths
 
 
 func _normalize_group_entry(entry: Variant) -> Dictionary:
@@ -1408,6 +1750,7 @@ func _evict_lru() -> void:
 		_cache_diagnostics.record_eviction(&"lru_capacity", oldest_path)
 		_erase_dictionary_key(_cache, oldest_path)
 		_erase_dictionary_key(_cache_access_order, oldest_path)
+		_erase_dictionary_key(_resource_identities, oldest_path)
 
 
 func _get_oldest_cached_path() -> String:
@@ -1430,9 +1773,60 @@ func _request_threaded(path: String, type_hint: String) -> Error:
 	return _THREADED_RESOURCE_LOAD_ADAPTER.request(path, type_hint)
 
 
+func _poll_threaded_resource(path: String, previous_progress: float) -> Dictionary:
+	var progress_result: Array = []
+	var status: ResourceLoader.ThreadLoadStatus = _get_threaded_status_with_progress(path, progress_result)
+	var progress: float = _get_threaded_progress_value(previous_progress, progress_result, status)
+	var resource: Resource = null
+	var result_status: StringName = _THREADED_RESOURCE_LOAD_ADAPTER.STATUS_IN_PROGRESS
+	var error: String = ""
+
+	match status:
+		ResourceLoader.THREAD_LOAD_IN_PROGRESS:
+			result_status = _THREADED_RESOURCE_LOAD_ADAPTER.STATUS_IN_PROGRESS
+
+		ResourceLoader.THREAD_LOAD_LOADED:
+			resource = _take_threaded_resource(path)
+			progress = 1.0
+			result_status = _THREADED_RESOURCE_LOAD_ADAPTER.STATUS_LOADED
+
+		ResourceLoader.THREAD_LOAD_FAILED:
+			result_status = _THREADED_RESOURCE_LOAD_ADAPTER.STATUS_FAILED
+			error = "thread_load_failed"
+
+		ResourceLoader.THREAD_LOAD_INVALID_RESOURCE:
+			result_status = _THREADED_RESOURCE_LOAD_ADAPTER.STATUS_INVALID
+			error = "invalid_resource"
+
+	return {
+		"status": result_status,
+		"thread_status": status,
+		"progress": clampf(progress, 0.0, 1.0),
+		"resource": resource,
+		"has_resource": resource != null,
+		"error": error,
+	}
+
+
 func _get_threaded_status_with_progress(path: String, progress: Array) -> ResourceLoader.ThreadLoadStatus:
 	return _THREADED_RESOURCE_LOAD_ADAPTER.get_status_with_progress(path, progress)
 
 
 func _take_threaded_resource(path: String) -> Resource:
 	return _THREADED_RESOURCE_LOAD_ADAPTER.take_resource(path)
+
+
+func _get_threaded_progress_value(
+	previous_progress: float,
+	progress_result: Array,
+	status: ResourceLoader.ThreadLoadStatus
+) -> float:
+	if status == ResourceLoader.THREAD_LOAD_LOADED:
+		return 1.0
+	if progress_result.size() > 0:
+		return clampf(GFVariantData.to_float(progress_result[0], previous_progress), 0.0, 1.0)
+	return previous_progress
+
+
+func _get_load_result_resource(load_result: Dictionary) -> Resource:
+	return _get_resource_value(GFVariantData.get_option_value(load_result, "resource"))

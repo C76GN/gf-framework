@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFVirtualListModel" path="addons/gf/standard/utilities/ui/gf_virtual_list_model.gd" module="standard" extends="RefCounted" classDigest="7cc6d0a1e5e177b85f7de4e2e5a7227d65e078a21ae3c10f67b6cb0c11fa4419">
+<class name="GFVirtualListModel" path="addons/gf/standard/utilities/ui/gf_virtual_list_model.gd" module="standard" extends="RefCounted" classDigest="b2ae80471a5d7f9f642d6dc2b4200e5730a4969c3071420550e782146faeb443">
 	<description>GFVirtualListModel: 可变尺寸虚拟列表布局模型。
 维护条目数量、估算尺寸、实测尺寸、累计偏移和可见范围，供聊天流、
 日志面板、资源列表或编辑器 Dock 自行渲染可见 Control。它不创建 UI 节点，
@@ -31,6 +31,14 @@
 			<description>条目尺寸下限，避免零尺寸条目破坏二分搜索和滚动范围。</description>
 			<tags>
 				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="const" name="MAX_ITEM_EXTENT">
+			<signature>const MAX_ITEM_EXTENT: float = 1_000_000_000_000.0</signature>
+			<description>单条目尺寸上限，避免异常输入放大累计布局范围。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 	</constants>
@@ -104,7 +112,8 @@ scroll_offset 之前时，调用方可把当前滚动偏移加上该值。</desc
 				<tag name="param">measured: 是否把该尺寸视为实测尺寸。</tag>
 				<tag name="param">scroll_offset: 可选当前滚动偏移；小于 0 时不计算锚点修正。</tag>
 				<tag name="return">尺寸更新报告。</tag>
-				<tag name="schema">return: Dictionary，包含 ok、changed、index、previous_extent、extent、delta 与 scroll_adjustment 字段。</tag>
+				<tag name="schema">return: Dictionary，包含 ok、changed、index、previous_extent、extent、delta、scroll_adjustment 与 error 字段。</tag>
+				<tag name="since">4.4.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="reset_item_extent">

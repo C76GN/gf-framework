@@ -56,8 +56,8 @@
 | 方法 | [`stop_vibration_for_player`](#member-gfinputdeviceutility-methods-stop_vibration_for_player) | `func stop_vibration_for_player(player_index: int) -> bool:` |
 | 方法 | [`get_assignments`](#member-gfinputdeviceutility-methods-get_assignments) | `func get_assignments() -> Array[GFInputDeviceAssignment]:` |
 | 方法 | [`clear_assignments`](#member-gfinputdeviceutility-methods-clear_assignments) | `func clear_assignments(reason: StringName = &"manual") -> void:` |
-| 方法 | [`get_assignment_events`](#member-gfinputdeviceutility-methods-get_assignment_events) | `func get_assignment_events(limit: int = 0) -> Array[Dictionary]:` |
-| 方法 | [`get_assignment_report`](#member-gfinputdeviceutility-methods-get_assignment_report) | `func get_assignment_report(event_limit: int = 10) -> Dictionary:` |
+| 方法 | [`get_assignment_events`](#member-gfinputdeviceutility-methods-get_assignment_events) | `func get_assignment_events(limit: int = 0, json_compatible: bool = true) -> Array[Dictionary]:` |
+| 方法 | [`get_assignment_report`](#member-gfinputdeviceutility-methods-get_assignment_report) | `func get_assignment_report(event_limit: int = 10, json_compatible: bool = true) -> Dictionary:` |
 
 ## 信号
 
@@ -770,7 +770,7 @@ func clear_assignments(reason: StringName = &"manual") -> void:
 - 首次版本：`7.0.0`
 
 ```gdscript
-func get_assignment_events(limit: int = 0) -> Array[Dictionary]:
+func get_assignment_events(limit: int = 0, json_compatible: bool = true) -> Array[Dictionary]:
 ```
 
 获取设备分配诊断事件。
@@ -780,6 +780,7 @@ func get_assignment_events(limit: int = 0) -> Array[Dictionary]:
 | 名称 | 说明 |
 |---|---|
 | `limit` | 最大返回数量；小于等于 0 时返回全部事件。 |
+| `json_compatible` | 为 true 时将 metadata 转为 JSON 兼容值。 |
 
 返回：设备分配事件数组。
 
@@ -795,7 +796,7 @@ func get_assignment_events(limit: int = 0) -> Array[Dictionary]:
 - 首次版本：`7.0.0`
 
 ```gdscript
-func get_assignment_report(event_limit: int = 10) -> Dictionary:
+func get_assignment_report(event_limit: int = 10, json_compatible: bool = true) -> Dictionary:
 ```
 
 获取当前设备分配诊断报告。
@@ -805,6 +806,7 @@ func get_assignment_report(event_limit: int = 10) -> Dictionary:
 | 名称 | 说明 |
 |---|---|
 | `event_limit` | 最近事件数量。 |
+| `json_compatible` | 为 true 时将 metadata 转为 JSON 兼容值。 |
 
 返回：设备分配报告。
 

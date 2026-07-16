@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFInputModifier" path="addons/gf/standard/input/modifiers/gf_input_modifier.gd" module="standard" extends="Resource" classDigest="bd54fc24a6968ef6b01a96c33c6cf628fce93da4f874bb1aaf31bdc085dffd7c">
+<class name="GFInputModifier" path="addons/gf/standard/input/modifiers/gf_input_modifier.gd" module="standard" extends="Resource" classDigest="af35c59a0858fd0861216bc503fe9d1f21e247059f3d745534f4ae96b2d4759b">
 	<description>GFInputModifier: 输入值修饰器基类。
 修饰器只处理输入值转换，不决定动作是否触发。可挂在 GFInputBinding 或
 GFInputMapping 上，用于死区、缩放、归一化、范围映射等通用处理。</description>
@@ -42,6 +42,69 @@ GFInputMapping 上，用于死区、缩放、归一化、范围映射等通用�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">修饰器副本。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="supports_runtime_state">
+			<signature>func supports_runtime_state() -&gt; bool:</signature>
+			<description>当前修饰器是否维护运行时状态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">有运行时状态时返回 true。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_modifier_runtime_state">
+			<signature>func get_modifier_runtime_state() -&gt; Dictionary:</signature>
+			<description>获取运行时状态快照。
+无状态修饰器返回空字典。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">当前运行时状态。</tag>
+				<tag name="schema">return: Dictionary，具体字段由修饰器实现定义。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="restore_modifier_runtime_state">
+			<signature>func restore_modifier_runtime_state(state: Dictionary) -&gt; GFInputModifier:</signature>
+			<description>从运行时状态快照恢复修饰器。
+无状态修饰器忽略该调用。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">state: get_modifier_runtime_state() 生成的状态。</tag>
+				<tag name="return">当前修饰器。</tag>
+				<tag name="schema">state: Dictionary，具体字段由修饰器实现定义。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="reset_modifier_runtime_state">
+			<signature>func reset_modifier_runtime_state() -&gt; GFInputModifier:</signature>
+			<description>重置运行时状态。
+无状态修饰器忽略该调用。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">当前修饰器。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="set_runtime_delta_seconds">
+			<signature>func set_runtime_delta_seconds(delta_seconds: float) -&gt; GFInputModifier:</signature>
+			<description>设置修饰器下一步使用的运行时 delta 秒数。
+不依赖 delta 的修饰器忽略该调用。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">delta_seconds: 运行时 delta 秒数；小于 0 时实现应按 0 处理。</tag>
+				<tag name="return">当前修饰器。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="clear_runtime_delta_seconds">
+			<signature>func clear_runtime_delta_seconds() -&gt; GFInputModifier:</signature>
+			<description>清除手动运行时 delta，恢复修饰器默认时间源。
+不依赖 delta 的修饰器忽略该调用。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">当前修饰器。</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 	</methods>

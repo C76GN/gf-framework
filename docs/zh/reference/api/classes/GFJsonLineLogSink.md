@@ -15,16 +15,42 @@
 
 | 类型 | 名称 | 签名 |
 |---|---|---|
+| 枚举 | [`FileOpenMode`](#member-gfjsonlinelogsink-enums-fileopenmode) | `enum FileOpenMode` |
 | 属性 | [`file_path`](#member-gfjsonlinelogsink-properties-file_path) | `var file_path: String = ""` |
 | 属性 | [`omit_formatted_text`](#member-gfjsonlinelogsink-properties-omit_formatted_text) | `var omit_formatted_text: bool = false` |
 | 属性 | [`flush_interval_msec`](#member-gfjsonlinelogsink-properties-flush_interval_msec) | `var flush_interval_msec: int = 250` |
 | 属性 | [`flush_immediately`](#member-gfjsonlinelogsink-properties-flush_immediately) | `var flush_immediately: bool = false` |
 | 属性 | [`max_jsonl_files`](#member-gfjsonlinelogsink-properties-max_jsonl_files) | `var max_jsonl_files: int = 10:` |
+| 属性 | [`file_open_mode`](#member-gfjsonlinelogsink-properties-file_open_mode) | `var file_open_mode: FileOpenMode = FileOpenMode.TRUNCATE` |
+| 方法 | [`get_report_redaction_profile`](#member-gfjsonlinelogsink-methods-get_report_redaction_profile) | `func get_report_redaction_profile() -> String:` |
 | 方法 | [`init`](#member-gfjsonlinelogsink-methods-init) | `func init(owner: Object) -> void:` |
 | 方法 | [`write`](#member-gfjsonlinelogsink-methods-write) | `func write(entry: Dictionary) -> void:` |
 | 方法 | [`flush`](#member-gfjsonlinelogsink-methods-flush) | `func flush() -> void:` |
 | 方法 | [`shutdown`](#member-gfjsonlinelogsink-methods-shutdown) | `func shutdown() -> void:` |
 | 方法 | [`get_file_path`](#member-gfjsonlinelogsink-methods-get_file_path) | `func get_file_path() -> String:` |
+| 方法 | [`get_debug_snapshot`](#member-gfjsonlinelogsink-methods-get_debug_snapshot) | `func get_debug_snapshot() -> Dictionary:` |
+
+## 枚举
+
+<a id="member-gfjsonlinelogsink-enums-fileopenmode"></a>
+
+### `FileOpenMode`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+enum FileOpenMode {
+	## 每次 init() 截断已有文件。
+	TRUNCATE,
+	## 每次 init() 追加到已有文件末尾。
+	APPEND,
+	## 目标文件已存在时拒绝打开。
+	FAIL_IF_EXISTS,
+}
+```
+
+JSONL 文件打开策略。
 
 ## 属性
 
@@ -88,7 +114,39 @@ var max_jsonl_files: int = 10:
 
 使用默认派生路径时最多保留的 JSONL 文件数量。
 
+<a id="member-gfjsonlinelogsink-properties-file_open_mode"></a>
+
+### `file_open_mode`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+var file_open_mode: FileOpenMode = FileOpenMode.TRUNCATE
+```
+
+自定义 file_path 重复初始化时的打开策略。
+
 ## 方法
+
+<a id="member-gfjsonlinelogsink-methods-get_report_redaction_profile"></a>
+
+### `get_report_redaction_profile`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func get_report_redaction_profile() -> String:
+```
+
+使用本地 JSONL 诊断所需的 debug 脱敏 profile。
+
+返回：debug profile 名称。
+
+结构：
+
+- `return`: String naming GFReportValueCodec.REDACTION_PROFILE_DEBUG.
 
 <a id="member-gfjsonlinelogsink-methods-init"></a>
 
@@ -167,3 +225,22 @@ func get_file_path() -> String:
 获取当前实际输出路径。
 
 返回：JSONL 文件路径。
+
+<a id="member-gfjsonlinelogsink-methods-get_debug_snapshot"></a>
+
+### `get_debug_snapshot`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func get_debug_snapshot() -> Dictionary:
+```
+
+获取 JSONL sink 的调试快照。
+
+返回：当前文件、打开状态和最近错误信息。
+
+结构：
+
+- `return`: Dictionary，包含 file_path、is_open、last_error、last_error_message、write_error_count、cleanup_error_count 和 uses_default_file_path。

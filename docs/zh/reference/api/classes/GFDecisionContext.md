@@ -9,18 +9,21 @@
 - 类别：领域模型 (`domain_model`)
 - 首次版本：`4.3.0`
 
-通用决策上下文。 组合黑板、主体/目标快照和元数据，供决策候选与考虑项读取状态。 该类型只用弱引用暴露当前对象，不通过上下文延长对象生命周期。
+通用决策上下文。 组合黑板、主体/目标快照视图和元数据，供决策候选与考虑项读取状态。 赋值时先主动捕获可见值；缺失 key 可由对象的 `get_decision_value()` 按需提供并写入当前上下文缓存。 该类型只用弱引用暴露当前对象，不通过上下文延长对象生命周期。
 
 ## 成员概览
 
 | 类型 | 名称 | 签名 |
 |---|---|---|
+| 常量 | [`DEFAULT_MAX_SNAPSHOT_ENTRIES`](#member-gfdecisioncontext-constants-default_max_snapshot_entries) | `const DEFAULT_MAX_SNAPSHOT_ENTRIES: int = 1024` |
+| 常量 | [`DEFAULT_MAX_REFLECTION_PROPERTIES`](#member-gfdecisioncontext-constants-default_max_reflection_properties) | `const DEFAULT_MAX_REFLECTION_PROPERTIES: int = 256` |
 | 属性 | [`blackboard`](#member-gfdecisioncontext-properties-blackboard) | `var blackboard: GFDecisionBlackboard = null` |
 | 属性 | [`subject`](#member-gfdecisioncontext-properties-subject) | `var subject: Object:` |
 | 属性 | [`target`](#member-gfdecisioncontext-properties-target) | `var target: Object:` |
 | 属性 | [`subject_values`](#member-gfdecisioncontext-properties-subject_values) | `var subject_values: Dictionary = {}` |
 | 属性 | [`target_values`](#member-gfdecisioncontext-properties-target_values) | `var target_values: Dictionary = {}` |
 | 属性 | [`metadata`](#member-gfdecisioncontext-properties-metadata) | `var metadata: Dictionary = {}` |
+| 属性 | [`capture_options`](#member-gfdecisioncontext-properties-capture_options) | `var capture_options: Dictionary = {}` |
 | 方法 | [`set_value`](#member-gfdecisioncontext-methods-set_value) | `func set_value(key: StringName, value: Variant) -> void:` |
 | 方法 | [`get_value`](#member-gfdecisioncontext-methods-get_value) | `func get_value(key: StringName, default_value: Variant = null) -> Variant:` |
 | 方法 | [`has_value`](#member-gfdecisioncontext-methods-has_value) | `func has_value(key: StringName) -> bool:` |
@@ -32,6 +35,34 @@
 | 方法 | [`get_target_or_null`](#member-gfdecisioncontext-methods-get_target_or_null) | `func get_target_or_null() -> Object:` |
 | 方法 | [`duplicate_context`](#member-gfdecisioncontext-methods-duplicate_context) | `func duplicate_context() -> GFDecisionContext:` |
 | 方法 | [`get_debug_snapshot`](#member-gfdecisioncontext-methods-get_debug_snapshot) | `func get_debug_snapshot() -> Dictionary:` |
+
+## 常量
+
+<a id="member-gfdecisioncontext-constants-default_max_snapshot_entries"></a>
+
+### `DEFAULT_MAX_SNAPSHOT_ENTRIES`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+const DEFAULT_MAX_SNAPSHOT_ENTRIES: int = 1024
+```
+
+主体或目标主动捕获的默认最大条目数。
+
+<a id="member-gfdecisioncontext-constants-default_max_reflection_properties"></a>
+
+### `DEFAULT_MAX_REFLECTION_PROPERTIES`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+const DEFAULT_MAX_REFLECTION_PROPERTIES: int = 256
+```
+
+反射属性捕获的默认最大条目数。
 
 ## 属性
 
@@ -84,11 +115,11 @@ var target: Object:
 var subject_values: Dictionary = {}
 ```
 
-主体决策值快照。
+主体决策值快照视图。容器会复制，但其中的 Object/Resource 身份保持共享；缺失 key 可被懒缓存补充。
 
 结构：
 
-- `subject_values`: Dictionary[StringName, Variant] captured from the subject at assignment time.
+- `subject_values`: Dictionary[StringName, Variant] eagerly captured at assignment and optionally extended by bounded lazy reads.
 
 <a id="member-gfdecisioncontext-properties-target_values"></a>
 
@@ -101,11 +132,11 @@ var subject_values: Dictionary = {}
 var target_values: Dictionary = {}
 ```
 
-目标决策值快照。
+目标决策值快照视图。容器会复制，但其中的 Object/Resource 身份保持共享；缺失 key 可被懒缓存补充。
 
 结构：
 
-- `target_values`: Dictionary[StringName, Variant] captured from the target at assignment time.
+- `target_values`: Dictionary[StringName, Variant] eagerly captured at assignment and optionally extended by bounded lazy reads.
 
 <a id="member-gfdecisioncontext-properties-metadata"></a>
 
@@ -122,6 +153,23 @@ var metadata: Dictionary = {}
 结构：
 
 - `metadata`: Dictionary[StringName, Variant] project-defined decision metadata.
+
+<a id="member-gfdecisioncontext-properties-capture_options"></a>
+
+### `capture_options`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+var capture_options: Dictionary = {}
+```
+
+捕获预算选项。
+
+结构：
+
+- `capture_options`: Dictionary with optional max_snapshot_entries and max_reflection_properties integer fields.
 
 ## 方法
 
@@ -254,7 +302,7 @@ func get_metadata_value(key: StringName, default_value: Variant = null) -> Varia
 func get_subject_value(key: StringName, fallback: Variant = null) -> Variant:
 ```
 
-从主体快照读取决策值。
+从主体快照视图读取决策值；缺失 key 可触发一次受预算约束的 provider 懒读取并缓存。
 
 参数：
 
@@ -281,7 +329,7 @@ func get_subject_value(key: StringName, fallback: Variant = null) -> Variant:
 func get_target_value(key: StringName, fallback: Variant = null) -> Variant:
 ```
 
-从目标快照读取决策值。
+从目标快照视图读取决策值；缺失 key 可触发一次受预算约束的 provider 懒读取并缓存。
 
 参数：
 
@@ -338,7 +386,7 @@ func get_target_or_null() -> Object:
 func duplicate_context() -> GFDecisionContext:
 ```
 
-创建上下文副本。 默认复用 subject 与 target 弱引用，只复制黑板值、对象快照和元数据。
+创建上下文副本。 默认复用 subject 与 target 弱引用；复制黑板、快照容器、捕获诊断和元数据，嵌套 Object/Resource 身份保持共享。
 
 返回：新上下文实例。
 
@@ -347,6 +395,7 @@ func duplicate_context() -> GFDecisionContext:
 ### `get_debug_snapshot`
 
 - API：`public`
+- 首次版本：`4.3.0`
 
 ```gdscript
 func get_debug_snapshot() -> Dictionary:
@@ -358,4 +407,4 @@ func get_debug_snapshot() -> Dictionary:
 
 结构：
 
-- `return`: 包含 blackboard、metadata、subject_class 和 target_class 字段的 Dictionary。
+- `return`: JSON-safe Dictionary，包含 blackboard、metadata、subject_class、target_class、subject_values、target_values 和 capture_diagnostics 字段。

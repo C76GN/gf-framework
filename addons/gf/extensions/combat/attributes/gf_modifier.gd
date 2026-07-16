@@ -28,6 +28,11 @@ enum Type {
 }
 
 
+# --- 常量 ---
+
+const _GF_COMBAT_FINITE_MATH = preload("res://addons/gf/extensions/combat/core/gf_combat_finite_math.gd")
+
+
 # --- 公共变量 ---
 
 ## 修饰器类型。
@@ -38,7 +43,15 @@ var type: Type = Type.BASE_ADD
 ## 修饰器的数值。
 ## [br]
 ## @api public
-var value: float = 0.0
+## [br]
+## @since 3.17.0
+var value: float:
+	get:
+		return _value
+	set(p_value):
+		_value_is_valid = _GF_COMBAT_FINITE_MATH.is_finite_float(p_value)
+		if _value_is_valid:
+			_value = p_value
 
 ## 目标属性标识，例如 &"ATK"、&"HP"。
 ## [br]
@@ -49,6 +62,12 @@ var attribute_id: StringName = &""
 ## [br]
 ## @api public
 var source_id: StringName = &""
+
+
+# --- 私有变量 ---
+
+var _value: float = 0.0
+var _value_is_valid: bool = true
 
 
 # --- Godot 生命周期方法 ---
@@ -132,7 +151,20 @@ static func create_final_add(
 ## [br]
 ## @return 新修饰器。
 func duplicate_modifier() -> GFModifier:
-	return GFModifier.new(type, value, attribute_id, source_id)
+	var modifier: GFModifier = GFModifier.new(type, value, attribute_id, source_id)
+	modifier._value_is_valid = _value_is_valid
+	return modifier
+
+
+## 检查修正器数值是否有限。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+## [br]
+## @return 最近一次 value 写入有效且当前值有限时返回 true。
+func is_numeric_state_valid() -> bool:
+	return _value_is_valid and _GF_COMBAT_FINITE_MATH.is_finite_float(_value)
 
 
 ## 转换为可序列化字典。

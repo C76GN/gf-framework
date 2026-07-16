@@ -2,6 +2,8 @@
 
 Domain 扩展提供两层背包模型：轻量的 `GFInventoryModel` 适合按物品 ID 记录数量和元数据；`GFSlotInventoryModel` 适合固定槽位、堆叠、容量查询、格子 UI 和实例数据兼容规则。槽位中的单个堆叠由 `GFInventoryStack` 表示，它只保存物品 ID、数量和实例数据，不解释具体物品业务含义。
 
+`GFInventoryItemRegistry` 维护物品 ID 到通用堆叠、分类和实例数据定义的映射，槽位模型只通过该注册表读取约束，不把项目物品配置写死在运行逻辑中。
+
 ## 轻量背包
 
 ```gdscript

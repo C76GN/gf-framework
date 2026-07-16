@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFNetworkDirtyStateTracker" path="addons/gf/extensions/network/session/gf_network_dirty_state_tracker.gd" module="extensions/network" extends="RefCounted" classDigest="ea5c177498f344a4d67bd94d007594347b908f5586a71ccd59b7e37e9f05d421">
+<class name="GFNetworkDirtyStateTracker" path="addons/gf/extensions/network/session/gf_network_dirty_state_tracker.gd" module="extensions/network" extends="RefCounted" classDigest="90d30255b0771caa8e660d5690e7836c3f5c107937278a0365fc9b573b93e00c">
 	<description>GFNetworkDirtyStateTracker: 通用网络状态 dirty 字段追踪器。
 维护字段基线、优先级和近似比较规则，帮助项目或扩展决定哪些状态需要同步。
 它不扫描节点、不规定 authority，也不发送消息。</description>
@@ -35,7 +35,7 @@
 	<constants />
 	<properties>
 		<member kind="property" name="epsilon">
-			<signature>var epsilon: float = 0.001</signature>
+			<signature>var epsilon: float = 0.001:</signature>
 			<description>浮点和向量近似比较阈值。</description>
 			<tags>
 				<tag name="api">public</tag>

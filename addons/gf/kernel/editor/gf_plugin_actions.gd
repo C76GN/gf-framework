@@ -24,6 +24,7 @@ signal editor_contributions_refresh_requested
 # --- 常量 ---
 
 const _GF_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
+const _GF_PLUGIN_ACTION_DEPENDENCIES_SCRIPT = preload("res://addons/gf/kernel/editor/gf_plugin_action_dependencies.gd")
 
 ## 菜单 ID：生成 System。
 ## [br]
@@ -95,13 +96,6 @@ const TEMPLATE_MENU_ID_START: int = 100
 ## @layer kernel/editor
 const EXTENSION_MENU_ID_START: int = 1000
 
-## 强类型访问器生成器脚本路径。
-## [br]
-## @api framework_internal
-## [br]
-## @layer kernel/editor
-const ACCESS_GENERATOR_SCRIPT_PATH: String = "res://addons/gf/kernel/editor/gf_access_generator.gd"
-
 ## 诊断对话框最小尺寸。
 ## [br]
 ## @api framework_internal
@@ -137,33 +131,21 @@ const SECTION_CODE_GENERATION: String = "代码生成"
 ## @layer kernel/editor
 const SECTION_EXTENSION_TOOLS: String = "扩展工具"
 
-## GF ProjectSettings 注册辅助脚本。
-## [br]
-## @api framework_internal
-## [br]
-## @layer kernel/editor
-const GFPluginProjectSettings = preload("res://addons/gf/kernel/editor/gf_plugin_project_settings.gd")
-
-## 扩展启用设置脚本。
-## [br]
-## @api framework_internal
-## [br]
-## @layer kernel/editor
-const GFExtensionSettingsBase = preload("res://addons/gf/kernel/extension/gf_extension_settings.gd")
-
-
 # --- 私有变量 ---
 
 var _file_dialog: FileDialog
-var _current_template_type: String = ""
+var _current_template_id: String = ""
 var _diagnostic_dialog: AcceptDialog
 var _diagnostic_output: TextEdit
 var _extension_action_records: Array[Dictionary] = []
+var _extension_project_setting_records: Array[Dictionary] = []
+var _extension_project_setting_section_records: Array[Dictionary] = []
 var _menu_action_handlers: Dictionary = {}
 var _menu_entries: Array[Dictionary] = []
 var _template_records: Dictionary = {}
 var _next_template_menu_id: int = TEMPLATE_MENU_ID_START
 var _next_extension_menu_id: int = EXTENSION_MENU_ID_START
+var _dependencies: RefCounted
 
 
 # --- 公共方法 ---
@@ -177,8 +159,11 @@ var _next_extension_menu_id: int = EXTENSION_MENU_ID_START
 ## @param template_records: 根插件或上层组合入口注入的模板记录。
 ## [br]
 ## @schema template_records: Array of Dictionary template records.
-func setup(template_records: Array = []) -> void:
+## [br]
+## @param dependencies: 可选依赖 provider；为空时使用默认 GFPluginActionDependencies。
+func setup(template_records: Array = [], dependencies: RefCounted = null) -> void:
 	cleanup()
+	_set_dependencies(dependencies)
 	_file_dialog = FileDialog.new()
 	_file_dialog.file_mode = FileDialog.FILE_MODE_SAVE_FILE
 	_file_dialog.access = FileDialog.ACCESS_RESOURCES
@@ -203,6 +188,7 @@ func cleanup() -> void:
 	if is_instance_valid(_file_dialog):
 		_queue_free_detached(_file_dialog)
 	_file_dialog = null
+	_dependencies = null
 
 
 ## 获取 GF 工具菜单项。
@@ -216,6 +202,32 @@ func cleanup() -> void:
 ## @schema return: Array of Dictionary menu entries with id, label, and section.
 func get_menu_entries() -> Array[Dictionary]:
 	return _menu_entries.duplicate(true)
+
+
+## 获取已加载扩展编辑器动作贡献的项目设置记录。
+## [br]
+## @api framework_internal
+## [br]
+## @layer kernel/editor
+## [br]
+## @return 项目设置记录副本。
+## [br]
+## @schema return: Array[Dictionary]，每项包含稳定 name、默认值、类型与可选展示映射。
+func get_project_setting_records() -> Array[Dictionary]:
+	return _extension_project_setting_records.duplicate(true)
+
+
+## 获取已加载扩展编辑器动作贡献的项目设置分区记录。
+## [br]
+## @api framework_internal
+## [br]
+## @layer kernel/editor
+## [br]
+## @return 项目设置分区记录副本。
+## [br]
+## @schema return: Array[Dictionary]，每项包含稳定 path 与多语言展示映射。
+func get_project_setting_section_records() -> Array[Dictionary]:
+	return _extension_project_setting_section_records.duplicate(true)
 
 
 ## 执行 GF 工具菜单对应动作。
@@ -232,7 +244,7 @@ func handle_menu_id(id: int) -> void:
 
 	match _GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(handler, "kind", &""):
 		&"template":
-			_show_dialog(_GF_VARIANT_ACCESS_SCRIPT.get_option_string(handler, "template_type", ""))
+			_show_dialog(_GF_VARIANT_ACCESS_SCRIPT.get_option_string(handler, "template_id", ""))
 		&"generate_accessors":
 			_generate_accessors()
 		&"generate_project_accessors":
@@ -291,6 +303,7 @@ func _reset_menu_actions() -> void:
 func _get_core_template_records() -> Array[Dictionary]:
 	return [
 		{
+			"source_id": "gf.kernel.editor:template.system",
 			"menu_id": MENU_GENERATE_SYSTEM,
 			"type": "System",
 			"label": "生成 System",
@@ -298,6 +311,7 @@ func _get_core_template_records() -> Array[Dictionary]:
 			"base_class": "GFSystem",
 		},
 		{
+			"source_id": "gf.kernel.editor:template.model",
 			"menu_id": MENU_GENERATE_MODEL,
 			"type": "Model",
 			"label": "生成 Model",
@@ -305,6 +319,7 @@ func _get_core_template_records() -> Array[Dictionary]:
 			"base_class": "GFModel",
 		},
 		{
+			"source_id": "gf.kernel.editor:template.utility",
 			"menu_id": MENU_GENERATE_UTILITY,
 			"type": "Utility",
 			"label": "生成 Utility",
@@ -312,6 +327,7 @@ func _get_core_template_records() -> Array[Dictionary]:
 			"base_class": "GFUtility",
 		},
 		{
+			"source_id": "gf.kernel.editor:template.command",
 			"menu_id": MENU_GENERATE_COMMAND,
 			"type": "Command",
 			"label": "生成 Command",
@@ -328,6 +344,14 @@ func _register_template_records(records: Array) -> void:
 
 
 func _register_template_record(source_record: Dictionary) -> void:
+	var template_id: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
+		source_record,
+		"source_id",
+		""
+	).strip_edges()
+	if template_id.is_empty():
+		push_error("[GF Framework] 模板 source_id 为空，已跳过。")
+		return
 	var template_type: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(source_record, "type", "").strip_edges()
 	if template_type.is_empty():
 		return
@@ -336,8 +360,8 @@ func _register_template_record(source_record: Dictionary) -> void:
 	record["type"] = template_type
 	if not record.has("base_class"):
 		record["base_class"] = "GF" + template_type
-	if _template_records.has(template_type):
-		push_error("[GF Framework] 模板 type 重复，已跳过: %s" % template_type)
+	if _template_records.has(template_id):
+		push_error("[GF Framework] 模板 source_id 重复，已跳过: %s" % template_id)
 		return
 
 	var menu_id: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(record, "menu_id", -1)
@@ -354,10 +378,11 @@ func _register_template_record(source_record: Dictionary) -> void:
 	if section.is_empty():
 		section = SECTION_EXTENSION_TEMPLATES
 
-	_template_records[template_type] = record
+	record["source_id"] = template_id
+	_template_records[template_id] = record
 	_menu_action_handlers[menu_id] = {
 		"kind": &"template",
-		"template_type": template_type,
+		"template_id": template_id,
 	}
 	_append_menu_entry(menu_id, label, section)
 
@@ -394,12 +419,19 @@ func _append_menu_entry(menu_id: int, label: String, section: String) -> void:
 	})
 
 
-func _show_dialog(type: String) -> void:
-	if type.is_empty():
+func _show_dialog(template_id: String) -> void:
+	if template_id.is_empty():
 		return
-	_current_template_type = type
-	_file_dialog.title = "生成 GF " + type
-	_file_dialog.current_file = "new_" + type.to_lower() + ".gd"
+	var record: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(
+		_template_records,
+		template_id
+	)
+	if record.is_empty():
+		return
+	var template_type: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(record, "type")
+	_current_template_id = template_id
+	_file_dialog.title = "生成 GF " + template_type
+	_file_dialog.current_file = "new_" + template_type.to_lower() + ".gd"
 	_file_dialog.popup_centered_ratio(0.5)
 
 
@@ -410,10 +442,10 @@ func _on_file_selected(path: String) -> void:
 
 	var file_name: String = path.get_file().get_basename()
 	var class_name_str: String = file_name.to_pascal_case()
-	var template: String = _get_template(_current_template_type)
+	var template: String = _get_template(_current_template_id)
 	template = template.replace("{ClassName}", class_name_str)
 	template = template.replace("{FileName}", file_name + ".gd")
-	template = template.replace("{BaseClass}", _get_base_class(_current_template_type))
+	template = template.replace("{BaseClass}", _get_base_class(_current_template_id))
 
 	var dir_error: Error = DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(path.get_base_dir()))
 	if dir_error != OK:
@@ -431,9 +463,8 @@ func _on_file_selected(path: String) -> void:
 
 
 func _generate_accessors() -> void:
-	var output_path: String = GFPluginProjectSettings.get_access_output_path()
-	var generator: GFAccessGenerator = GFAccessGenerator.new()
-	var error: Error = generator.generate(output_path)
+	var output_path: String = _call_dependency_string(&"get_access_output_path")
+	var error: Error = _call_dependency_error(&"generate_accessors", [output_path])
 	if error == OK:
 		print("[GF Framework] 成功生成强类型访问器: ", output_path)
 	else:
@@ -441,9 +472,8 @@ func _generate_accessors() -> void:
 
 
 func _generate_project_accessors() -> void:
-	var output_path: String = GFPluginProjectSettings.get_project_access_output_path()
-	var generator: GFAccessGenerator = GFAccessGenerator.new()
-	var error: Error = generator.generate_project_access(output_path)
+	var output_path: String = _call_dependency_string(&"get_project_access_output_path")
+	var error: Error = _call_dependency_error(&"generate_project_accessors", [output_path])
 	if error == OK:
 		print("[GF Framework] 成功生成项目常量访问器: ", output_path)
 	else:
@@ -476,7 +506,7 @@ func _show_diagnostic_dialog(title: String, text: String) -> void:
 
 func _load_extension_editor_actions() -> void:
 	_cleanup_extension_editor_actions()
-	for script_path: String in GFExtensionSettings.get_enabled_editor_action_paths():
+	for script_path: String in _call_dependency_string_array(&"get_enabled_editor_action_paths"):
 		var action: RefCounted = _create_extension_editor_action(script_path)
 		if action == null:
 			continue
@@ -487,6 +517,8 @@ func _load_extension_editor_actions() -> void:
 		if action.has_method("setup"):
 			var _setup_result: Variant = action.call("setup")
 		_register_extension_template_records(action, script_path)
+		_register_extension_project_setting_records(action, script_path)
+		_register_extension_project_setting_section_records(action, script_path)
 
 
 func _create_extension_editor_action(script_path: String) -> RefCounted:
@@ -516,6 +548,68 @@ func _register_extension_template_records(action: RefCounted, script_path: Strin
 		if record_variant is Dictionary:
 			records.append(_GF_VARIANT_ACCESS_SCRIPT.to_dictionary(record_variant))
 	_register_template_records(records)
+
+
+func _register_extension_project_setting_records(action: RefCounted, script_path: String) -> void:
+	if not action.has_method("get_project_setting_records"):
+		return
+
+	var records_variant: Variant = action.call("get_project_setting_records")
+	if not records_variant is Array:
+		push_error("[GF Framework] 扩展项目设置声明无效: %s" % script_path)
+		return
+	var records: Array = records_variant
+	for record_variant: Variant in records:
+		if not record_variant is Dictionary:
+			continue
+		var record: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.to_dictionary(record_variant)
+		var setting_name: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
+			record,
+			"name"
+		).strip_edges()
+		if setting_name.is_empty() or _has_project_setting_record(setting_name):
+			continue
+		_extension_project_setting_records.append(record.duplicate(true))
+
+
+func _register_extension_project_setting_section_records(
+	action: RefCounted,
+	script_path: String
+) -> void:
+	if not action.has_method("get_project_setting_section_records"):
+		return
+
+	var records_variant: Variant = action.call("get_project_setting_section_records")
+	if not records_variant is Array:
+		push_error("[GF Framework] 扩展项目设置分区声明无效: %s" % script_path)
+		return
+	var records: Array = records_variant
+	for record_variant: Variant in records:
+		if not record_variant is Dictionary:
+			continue
+		var record: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.to_dictionary(record_variant)
+		var section_path: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
+			record,
+			"path"
+		).strip_edges().trim_suffix("/")
+		if section_path.is_empty() or _has_project_setting_section_record(section_path):
+			continue
+		record["path"] = section_path
+		_extension_project_setting_section_records.append(record.duplicate(true))
+
+
+func _has_project_setting_record(setting_name: String) -> bool:
+	for record: Dictionary in _extension_project_setting_records:
+		if _GF_VARIANT_ACCESS_SCRIPT.get_option_string(record, "name") == setting_name:
+			return true
+	return false
+
+
+func _has_project_setting_section_record(section_path: String) -> bool:
+	for record: Dictionary in _extension_project_setting_section_records:
+		if _GF_VARIANT_ACCESS_SCRIPT.get_option_string(record, "path") == section_path:
+			return true
+	return false
 
 
 func _register_loaded_extension_action_entries() -> void:
@@ -573,6 +667,8 @@ func _cleanup_extension_editor_actions() -> void:
 		if action != null and action.has_method("cleanup"):
 			var _cleanup_result: Variant = action.call("cleanup")
 	_extension_action_records.clear()
+	_extension_project_setting_records.clear()
+	_extension_project_setting_section_records.clear()
 
 
 func _cleanup_diagnostic_dialog() -> void:
@@ -598,6 +694,59 @@ func _get_editor_base_control() -> Control:
 	return EditorInterface.get_base_control()
 
 
+func _set_dependencies(dependencies: RefCounted = null) -> void:
+	if dependencies == null:
+		_dependencies = _GF_PLUGIN_ACTION_DEPENDENCIES_SCRIPT.new()
+		return
+	_dependencies = dependencies
+
+
+func _get_dependencies() -> RefCounted:
+	if _dependencies == null:
+		_dependencies = _GF_PLUGIN_ACTION_DEPENDENCIES_SCRIPT.new()
+	return _dependencies
+
+
+func _call_dependency_value(method_name: StringName, args: Array = []) -> Variant:
+	var dependencies: RefCounted = _get_dependencies()
+	if dependencies == null or not dependencies.has_method(method_name):
+		push_error("[GF Framework] 插件动作依赖缺少方法: %s" % method_name)
+		return null
+	return dependencies.callv(method_name, args)
+
+
+func _call_dependency_string(method_name: StringName) -> String:
+	return _GF_VARIANT_ACCESS_SCRIPT.to_text(_call_dependency_value(method_name)).strip_edges()
+
+
+func _call_dependency_string_array(method_name: StringName) -> Array[String]:
+	var value: Variant = _call_dependency_value(method_name)
+	var result: Array[String] = []
+	if value is PackedStringArray:
+		var packed_values: PackedStringArray = value
+		for item: String in packed_values:
+			var packed_path: String = item.strip_edges()
+			if not packed_path.is_empty():
+				result.append(packed_path)
+		return result
+	if value is Array:
+		var raw_values: Array = value
+		for item: Variant in raw_values:
+			var path: String = _GF_VARIANT_ACCESS_SCRIPT.to_text(item).strip_edges()
+			if not path.is_empty():
+				result.append(path)
+	return result
+
+
+func _call_dependency_error(method_name: StringName, args: Array = []) -> Error:
+	var value: Variant = _call_dependency_value(method_name, args)
+	if value is int:
+		var error_code: int = value
+		return error_code as Error
+	push_error("[GF Framework] 插件动作依赖返回值不是 Error: %s" % method_name)
+	return FAILED
+
+
 func _load_script(path: String) -> Script:
 	var resource: Resource = load(path)
 	if resource is Script:
@@ -621,10 +770,14 @@ func _get_dictionary_ref_counted(source: Dictionary, key: Variant) -> RefCounted
 	return null
 
 
-func _get_template(type: String) -> String:
-	var record: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(_template_records, type)
+func _get_template(template_id: String) -> String:
+	var record: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(
+		_template_records,
+		template_id
+	)
 	if not record.is_empty() and record.has("template"):
 		return _GF_VARIANT_ACCESS_SCRIPT.get_option_string(record, "template", "")
+	var template_type: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(record, "type")
 
 	var base_template: String = """## {ClassName}: TODO。
 class_name {ClassName}
@@ -651,7 +804,8 @@ func init() -> void:
 	pass
 
 
-func async_init() -> void:
+## @param _scope: 异步初始化作用域。
+func async_init(_scope: GFAsyncScope) -> void:
 	pass
 
 
@@ -690,7 +844,7 @@ func dispose() -> void:
 
 """
 
-	if type == "Command":
+	if template_type == "Command":
 		return base_template + """# --- 公共变量 ---
 
 
@@ -706,16 +860,19 @@ func execute() -> Variant:
 # --- 私有/辅助方法 ---
 
 """
-	elif type == "System":
+	elif template_type == "System":
 		return base_template + methods_template + lifecycle_template + tick_template
 	else:
 		return base_template + methods_template + lifecycle_template
 
 
-func _get_base_class(type: String) -> String:
-	var record: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(_template_records, type)
+func _get_base_class(template_id: String) -> String:
+	var record: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(
+		_template_records,
+		template_id
+	)
 	if not record.is_empty():
 		var base_class: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(record, "base_class", "").strip_edges()
 		if not base_class.is_empty():
 			return base_class
-	return "GF" + type
+	return ""

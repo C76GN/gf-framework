@@ -19,6 +19,7 @@
 | 信号 | [`task_rejected`](#member-gfruntimetaskscheduler-signals-task_rejected) | `signal task_rejected(task: GFRuntimeTask, reason: StringName)` |
 | 信号 | [`task_completed`](#member-gfruntimetaskscheduler-signals-task_completed) | `signal task_completed(task: GFRuntimeTask)` |
 | 信号 | [`task_cancelled`](#member-gfruntimetaskscheduler-signals-task_cancelled) | `signal task_cancelled(task: GFRuntimeTask)` |
+| 常量 | [`REJECTION_SCHEDULER_BUSY`](#member-gfruntimetaskscheduler-constants-rejection_scheduler_busy) | `const REJECTION_SCHEDULER_BUSY: StringName = &"scheduler_busy"` |
 | 属性 | [`auto_schedule_default_tasks`](#member-gfruntimetaskscheduler-properties-auto_schedule_default_tasks) | `var auto_schedule_default_tasks: bool = true` |
 | 方法 | [`_init`](#member-gfruntimetaskscheduler-methods-_init) | `func _init() -> void:` |
 | 方法 | [`schedule`](#member-gfruntimetaskscheduler-methods-schedule) | `func schedule(task: GFRuntimeTask) -> bool:` |
@@ -114,6 +115,21 @@ signal task_cancelled(task: GFRuntimeTask)
 | 名称 | 说明 |
 |---|---|
 | `task` | 被取消或中断的任务。 |
+
+## 常量
+
+<a id="member-gfruntimetaskscheduler-constants-rejection_scheduler_busy"></a>
+
+### `REJECTION_SCHEDULER_BUSY`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+const REJECTION_SCHEDULER_BUSY: StringName = &"scheduler_busy"
+```
+
+调度器正在提交另一项任务所有权变更时的拒绝原因。
 
 ## 属性
 

@@ -16,7 +16,7 @@
 | 类型 | 名称 | 签名 |
 |---|---|---|
 | 信号 | [`active_changed`](#member-gfhitboxstate3d-signals-active_changed) | `signal active_changed(active: bool)` |
-| 属性 | [`active`](#member-gfhitboxstate3d-properties-active) | `var active: bool = true:` |
+| 属性 | [`active`](#member-gfhitboxstate3d-properties-active) | `var active: bool:` |
 | 属性 | [`apply_on_ready`](#member-gfhitboxstate3d-properties-apply_on_ready) | `var apply_on_ready: bool = true` |
 | 属性 | [`recursive`](#member-gfhitboxstate3d-properties-recursive) | `var recursive: bool = true` |
 | 属性 | [`manage_enabled`](#member-gfhitboxstate3d-properties-manage_enabled) | `var manage_enabled: bool = true` |
@@ -55,9 +55,10 @@ signal active_changed(active: bool)
 ### `active`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-var active: bool = true:
+var active: bool:
 ```
 
 当前状态是否激活。

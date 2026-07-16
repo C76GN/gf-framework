@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFScriptPatchUtility" path="addons/gf/kernel/editor/gf_script_patch_utility.gd" module="kernel" extends="RefCounted" classDigest="446fb72e022bd62c045b90cff8e27ed9562a5b26d9ac682edf845a2810aba0cb">
+	<description>GFScriptPatchUtility: 通用 GDScript 头部补丁工具。
+用于编辑器工具安全插入或替换脚本头部注解，保持 @tool、其他注解、文档注释、
+class_name 与 extends 的顺序。它不绑定任何具体注解语义或项目目录约定。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">editor_api</tag>
+		<tag name="layer">kernel/editor</tag>
+		<tag name="since">8.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties />
+	<methods>
+		<member kind="method" name="get_annotation_insert_index">
+			<signature>static func get_annotation_insert_index(source_code: String, options: Dictionary = {}) -&gt; int:</signature>
+			<description>计算注解插入位置。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">source_code: GDScript 源码。</tag>
+				<tag name="param">options: 位置选项，支持 after_existing_annotations。</tag>
+				<tag name="return">以行为单位的插入位置。</tag>
+				<tag name="schema">options: Dictionary，包含 after_existing_annotations。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="make_annotation_patch">
+			<signature>static func make_annotation_patch( source_code: String, annotation_line: String, options: Dictionary = {} ) -&gt; Dictionary:</signature>
+			<description>生成注解补丁结果。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">source_code: GDScript 源码。</tag>
+				<tag name="param">annotation_line: 要插入的完整注解行。</tag>
+				<tag name="param">options: 补丁选项，支持 replacement_prefix、allow_duplicate、after_existing_annotations。</tag>
+				<tag name="return">补丁结果。</tag>
+				<tag name="schema">options: Dictionary，包含 replacement_prefix、allow_duplicate、after_existing_annotations。</tag>
+				<tag name="schema">return: Dictionary，包含 ok、changed、source_code、insert_index、removed_count、status 和 error。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="patch_script_path_annotation">
+			<signature>static func patch_script_path_annotation( script_path: String, annotation_line: String, options: Dictionary = {} ) -&gt; Dictionary:</signature>
+			<description>读取脚本文件、生成注解补丁并写回。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">script_path: res:// 或 user:// 脚本路径。</tag>
+				<tag name="param">annotation_line: 要插入的完整注解行。</tag>
+				<tag name="param">options: 补丁和保存选项，支持 make_annotation_patch() 与 GFGeneratedArtifactReport.save_text() 的选项。</tag>
+				<tag name="return">补丁与产物报告。</tag>
+				<tag name="schema">options: Dictionary，包含补丁选项和保存选项。</tag>
+				<tag name="schema">return: Dictionary，包含 ok、changed、patch、artifact_report 和 error。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

@@ -133,12 +133,16 @@ func get_source() -> Object:
 ## [br]
 ## @api public
 ## [br]
+## @since 8.0.0
+## [br]
+## @param json_compatible: 为 true 时返回可直接 JSON.stringify() 的值。
+## [br]
 ## @return 会话快照。
 ## [br]
 ## @schema return: Dictionary，包含 session_id、drag_type、start_position、current_position、previous_position、delta、has_source 和 metadata。
-func to_dictionary() -> Dictionary:
+func to_dictionary(json_compatible: bool = true) -> Dictionary:
 	var source: Object = get_source()
-	return {
+	var result: Dictionary = {
 		"session_id": session_id,
 		"drag_type": drag_type,
 		"start_position": start_position,
@@ -148,6 +152,12 @@ func to_dictionary() -> Dictionary:
 		"has_source": source != null,
 		"metadata": metadata.duplicate(true),
 	}
+	if json_compatible:
+		var encoded: Variant = GFVariantJsonCodec.variant_to_json_compatible(result)
+		if encoded is Dictionary:
+			var encoded_dictionary: Dictionary = encoded
+			return encoded_dictionary
+	return result
 
 
 # --- 私有/辅助方法 ---

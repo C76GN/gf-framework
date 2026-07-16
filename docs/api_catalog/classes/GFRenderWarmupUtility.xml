@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFRenderWarmupUtility" path="addons/gf/standard/utilities/display/gf_render_warmup_utility.gd" module="standard" extends="GFUtility" classDigest="a6e0f4bd68d3847ca5f5da36037b7fd072f6af96fd62308aada9968abe6ddebe">
+<class name="GFRenderWarmupUtility" path="addons/gf/standard/utilities/display/gf_render_warmup_utility.gd" module="standard" extends="GFUtility" classDigest="1d20f7385b9533fa1ef68e5c31aa37dd3f96e16059797512d62bf507c6cae987">
 	<description>GFRenderWarmupUtility: 通用渲染资源预热工具。
 通过清单或节点树收集 Mesh、Material、Texture 等渲染资源，并按帧预算提前加载和触碰 RID。
 它不决定项目何时预热、预热哪些场景或如何展示加载进度。</description>
@@ -79,17 +79,35 @@
 			</tags>
 		</member>
 		<member kind="property" name="keep_resources_cached">
-			<signature>var keep_resources_cached: bool = true</signature>
-			<description>是否保留已加载资源引用，避免预热后立刻被释放。</description>
+			<signature>var keep_resources_cached: bool = false</signature>
+			<description>是否保留已加载资源引用，避免预热后立刻被释放。默认关闭，项目应在明确需要资源 pinning 时显式启用。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="default_cache_group">
+			<signature>var default_cache_group: StringName = &amp;"default"</signature>
+			<description>默认缓存分组。按组释放可避免不同预热流程互相持有资源。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="max_cached_resources">
+			<signature>var max_cached_resources: int = 128:</signature>
+			<description>最多保留的预热缓存资源数量。小于 1 时按 1 处理。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="instantiate_packed_scenes">
 			<signature>var instantiate_packed_scenes: bool = false</signature>
-			<description>从 PackedScene 条目预热时是否实例化场景并扫描其渲染资源。默认关闭以避免触发项目脚本副作用。</description>
+			<description>从 PackedScene 条目预热时是否允许实例化场景并扫描其渲染资源。该行为仍需要 options.allow_scene_instantiation 为 true，避免无意触发项目脚本副作用。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 	</properties>
@@ -115,9 +133,10 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">manifest: 预热清单。</tag>
-				<tag name="param">options: 可选参数，支持 entries_per_tick、max_seconds、touch_mode、keep_cached、instantiate_packed_scenes。</tag>
+				<tag name="param">options: 可选参数，支持 entries_per_tick、max_seconds、touch_mode、keep_cached、cache_group、max_cached_resources、instantiate_packed_scenes、allow_scene_instantiation。</tag>
 				<tag name="return">队列标识；失败返回 -1。</tag>
-				<tag name="schema">options: Dictionary，包含 entries_per_tick、max_seconds、touch_mode、keep_cached、instantiate_packed_scenes、temporary_parent 和 temporary_viewport_size。</tag>
+				<tag name="schema">options: Dictionary，包含 entries_per_tick、max_seconds、touch_mode、keep_cached、cache_group、max_cached_resources、instantiate_packed_scenes、allow_scene_instantiation、temporary_parent 和 temporary_viewport_size。</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="warmup_manifest_now">
@@ -126,10 +145,11 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">manifest: 预热清单。</tag>
-				<tag name="param">options: 可选参数，支持 max_seconds、touch_mode、keep_cached、instantiate_packed_scenes。</tag>
+				<tag name="param">options: 可选参数，支持 max_seconds、touch_mode、keep_cached、cache_group、max_cached_resources、instantiate_packed_scenes、allow_scene_instantiation。</tag>
 				<tag name="return">预热摘要。</tag>
-				<tag name="schema">options: Dictionary，包含 max_seconds、touch_mode、keep_cached、instantiate_packed_scenes、temporary_parent 和 temporary_viewport_size。</tag>
+				<tag name="schema">options: Dictionary，包含 max_seconds、touch_mode、keep_cached、cache_group、max_cached_resources、instantiate_packed_scenes、allow_scene_instantiation、temporary_parent 和 temporary_viewport_size。</tag>
 				<tag name="schema">return: Dictionary，包含 queue_id、manifest_id、total_count、processed_count、failed_count、ok、elapsed_seconds、stopped_by_budget、completed_at_unix 和 results。</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="process_queue">
@@ -158,9 +178,10 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">scene: 场景资源。</tag>
-				<tag name="param">options: 可选参数，支持 manifest_id、include_materials、include_meshes、include_textures。</tag>
+				<tag name="param">options: 可选参数，支持 manifest_id、include_materials、include_meshes、include_textures、allow_scene_instantiation。</tag>
 				<tag name="return">预热清单。</tag>
-				<tag name="schema">options: Dictionary，包含 manifest_id、include_materials、include_meshes 和 include_textures。</tag>
+				<tag name="schema">options: Dictionary，包含 manifest_id、include_materials、include_meshes、include_textures 和 allow_scene_instantiation。</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="build_manifest_from_scene_path">
@@ -169,9 +190,10 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">scene_path: 场景资源路径。</tag>
-				<tag name="param">options: 可选参数，支持 manifest_id、include_materials、include_meshes、include_textures。</tag>
+				<tag name="param">options: 可选参数，支持 manifest_id、include_materials、include_meshes、include_textures、allow_scene_instantiation。</tag>
 				<tag name="return">预热清单。</tag>
-				<tag name="schema">options: Dictionary，包含 manifest_id、include_materials、include_meshes 和 include_textures。</tag>
+				<tag name="schema">options: Dictionary，包含 manifest_id、include_materials、include_meshes、include_textures 和 allow_scene_instantiation。</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="clear_queue">
@@ -182,10 +204,12 @@
 			</tags>
 		</member>
 		<member kind="method" name="release_cached_resources">
-			<signature>func release_cached_resources() -&gt; void:</signature>
+			<signature>func release_cached_resources(cache_group: StringName = &amp;"") -&gt; void:</signature>
 			<description>释放预热缓存的资源引用。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="param">cache_group: 为空时释放全部缓存；非空时只释放指定分组。</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="release_temporary_render_nodes">
@@ -196,11 +220,13 @@
 			</tags>
 		</member>
 		<member kind="method" name="get_cached_resource_count">
-			<signature>func get_cached_resource_count() -&gt; int:</signature>
+			<signature>func get_cached_resource_count(cache_group: StringName = &amp;"") -&gt; int:</signature>
 			<description>获取预热缓存资源数量。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="param">cache_group: 为空时返回全部缓存数量；非空时只统计指定分组。</tag>
 				<tag name="return">缓存资源数量。</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_queue_size">
@@ -217,7 +243,8 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">调试信息字典。</tag>
-				<tag name="schema">return: Dictionary，包含 queue_size、cached_resource_count、processed_entry_count、failed_entry_count、default_entries_per_tick、default_max_seconds、default_touch_mode、keep_resources_cached、instantiate_packed_scenes 和 temporary_render_node_count。</tag>
+				<tag name="schema">return: Dictionary，包含 queue_size、cached_resource_count、processed_entry_count、failed_entry_count、default_entries_per_tick、default_max_seconds、default_touch_mode、keep_resources_cached、default_cache_group、max_cached_resources、instantiate_packed_scenes 和 temporary_render_node_count。</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 	</methods>

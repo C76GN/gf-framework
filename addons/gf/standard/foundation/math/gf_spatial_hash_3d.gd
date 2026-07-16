@@ -22,6 +22,10 @@ extends RefCounted
 const DEFAULT_MAX_COVERED_CELLS: int = 262144
 
 const _CELL_BOUNDARY_EPSILON_RATIO: float = 0.000001
+const _DEFAULT_CELL_SIZE: float = 4.0
+const _MIN_CELL_SIZE: float = 0.0001
+const _MAX_SAFE_CELL_COORDINATE: float = 9.0e18
+const _SPATIAL_BOUNDS_MATH = preload("res://addons/gf/standard/foundation/math/gf_spatial_bounds_math.gd")
 
 
 # --- 公共变量 ---
@@ -33,7 +37,10 @@ var cell_size: float:
 	get:
 		return _cell_size
 	set(value):
-		_cell_size = maxf(value, 0.0001)
+		if not _SPATIAL_BOUNDS_MATH.is_finite_float(value):
+			push_error("[GFSpatialHash3D] cell_size 必须是有限浮点值。")
+			return
+		_cell_size = maxf(value, _MIN_CELL_SIZE)
 		_rebuild()
 
 
@@ -55,7 +62,7 @@ var max_covered_cells: int:
 
 # --- 私有变量 ---
 
-var _cell_size: float = 4.0
+var _cell_size: float = _DEFAULT_CELL_SIZE
 var _max_covered_cells: int = DEFAULT_MAX_COVERED_CELLS
 var _entity_records: Dictionary = {}
 var _bucket_entities: Dictionary = {}
@@ -63,8 +70,12 @@ var _bucket_entities: Dictionary = {}
 
 # --- Godot 生命周期方法 ---
 
-func _init(p_cell_size: float = 4.0) -> void:
-	_cell_size = maxf(p_cell_size, 0.0001)
+func _init(p_cell_size: float = _DEFAULT_CELL_SIZE) -> void:
+	if not _SPATIAL_BOUNDS_MATH.is_finite_float(p_cell_size):
+		push_error("[GFSpatialHash3D] cell_size 必须是有限浮点值。")
+		_cell_size = _DEFAULT_CELL_SIZE
+		return
+	_cell_size = maxf(p_cell_size, _MIN_CELL_SIZE)
 
 
 # --- 公共方法 ---
@@ -75,7 +86,10 @@ func _init(p_cell_size: float = 4.0) -> void:
 ## [br]
 ## @param p_cell_size: 单格世界尺寸。
 func configure(p_cell_size: float) -> void:
-	_cell_size = maxf(p_cell_size, 0.0001)
+	if not _SPATIAL_BOUNDS_MATH.is_finite_float(p_cell_size):
+		push_error("[GFSpatialHash3D] cell_size 必须是有限浮点值。")
+		return
+	_cell_size = maxf(p_cell_size, _MIN_CELL_SIZE)
 	clear()
 
 
@@ -89,6 +103,8 @@ func configure(p_cell_size: float) -> void:
 ## [br]
 ## @return 哈希格子坐标。
 func get_cell_for_position(position: Vector3) -> Vector3i:
+	if not _position_can_map_to_cell(position):
+		return Vector3i.ZERO
 	return _world_to_cell(position)
 
 
@@ -106,11 +122,15 @@ func get_cell_for_position(position: Vector3) -> Vector3i:
 ## [br]
 ## @return 成功时返回 true。
 func insert(entity: Variant, bounds: AABB) -> bool:
+	if not _SPATIAL_BOUNDS_MATH.is_finite_aabb(bounds):
+		return false
 	var entity_key: String = _make_entity_key(entity)
 	if entity_key.is_empty():
 		return false
 
 	var normalized_bounds: AABB = _normalize_aabb(bounds)
+	if not _aabb_can_map_to_cells(normalized_bounds):
+		return false
 	var span: Array[Vector3i] = _get_cell_span_for_aabb(normalized_bounds)
 	if not _is_cell_span_within_limit(span):
 		return false
@@ -237,7 +257,11 @@ func get_debug_snapshot() -> Dictionary:
 ## @schema return: Array entity values restored from spatial hash records.
 func query_aabb(area: AABB) -> Array[Variant]:
 	prune_invalid_entities()
+	if not _SPATIAL_BOUNDS_MATH.is_finite_aabb(area):
+		return []
 	var normalized_area: AABB = _normalize_aabb(area)
+	if not _aabb_can_map_to_cells(normalized_area):
+		return []
 	var candidate_keys: Array[String] = _query_candidate_keys(normalized_area)
 	var result: Array[Variant] = []
 	for entity_key: String in candidate_keys:
@@ -262,7 +286,13 @@ func query_aabb(area: AABB) -> Array[Variant]:
 ## [br]
 ## @schema return: Array entity values restored from spatial hash records.
 func query_radius(center: Vector3, radius: float) -> Array[Variant]:
+	if not _SPATIAL_BOUNDS_MATH.is_finite_vector3(center) or not _SPATIAL_BOUNDS_MATH.is_finite_float(radius):
+		return []
 	var safe_radius: float = maxf(radius, 0.0)
+	if not _SPATIAL_BOUNDS_MATH.is_finite_vector3(center - Vector3.ONE * safe_radius):
+		return []
+	if not _SPATIAL_BOUNDS_MATH.is_finite_vector3(center + Vector3.ONE * safe_radius):
+		return []
 	var candidates: Array[Variant] = []
 	if safe_radius == 0.0:
 		candidates = query_cell(_world_to_cell(center))
@@ -480,20 +510,19 @@ func _get_cell_span_for_aabb(bounds: AABB) -> Array[Vector3i]:
 
 
 func _is_cell_span_within_limit(span: Array[Vector3i]) -> bool:
-	return _get_cell_span_count(span) <= _max_covered_cells
-
-
-func _get_cell_span_count(span: Array[Vector3i]) -> int:
 	if span.size() < 2:
-		return 0
+		return false
 	var min_cell: Vector3i = span[0]
 	var max_cell: Vector3i = span[1]
-	var x_count: int = max_cell.x - min_cell.x + 1
-	var y_count: int = max_cell.y - min_cell.y + 1
-	var z_count: int = max_cell.z - min_cell.z + 1
+	var x_count: int = _get_limited_axis_cell_count(min_cell.x, max_cell.x)
+	var y_count: int = _get_limited_axis_cell_count(min_cell.y, max_cell.y)
+	var z_count: int = _get_limited_axis_cell_count(min_cell.z, max_cell.z)
 	if x_count <= 0 or y_count <= 0 or z_count <= 0:
-		return 0
-	return x_count * y_count * z_count
+		return false
+	if x_count > _divide_truncated(_max_covered_cells, y_count):
+		return false
+	var xy_count: int = x_count * y_count
+	return z_count <= _divide_truncated(_max_covered_cells, xy_count)
 
 
 func _get_cell_range_count(radius: Vector3i) -> int:
@@ -511,32 +540,48 @@ func _world_to_cell(position: Vector3) -> Vector3i:
 	)
 
 
+func _get_limited_axis_cell_count(minimum: int, maximum: int) -> int:
+	var count: float = float(maximum) - float(minimum) + 1.0
+	if not _SPATIAL_BOUNDS_MATH.is_finite_float(count) or count <= 0.0 or count > float(_max_covered_cells):
+		return -1
+	return int(count)
+
+
+func _divide_truncated(numerator: int, denominator: int) -> int:
+	@warning_ignore("integer_division")
+	return numerator / denominator
+
+
+func _aabb_can_map_to_cells(bounds: AABB) -> bool:
+	return _position_can_map_to_cell(bounds.position) and _position_can_map_to_cell(_get_half_open_max_corner(bounds))
+
+
+func _position_can_map_to_cell(position: Vector3) -> bool:
+	if not _SPATIAL_BOUNDS_MATH.is_finite_vector3(position):
+		return false
+	var scaled: Vector3 = position / _cell_size
+	return (
+		_SPATIAL_BOUNDS_MATH.is_finite_vector3(scaled)
+		and absf(scaled.x) <= _MAX_SAFE_CELL_COORDINATE
+		and absf(scaled.y) <= _MAX_SAFE_CELL_COORDINATE
+		and absf(scaled.z) <= _MAX_SAFE_CELL_COORDINATE
+	)
+
+
 func _make_entity_key(entity: Variant) -> String:
-	if entity == null:
-		return ""
-	if entity is Object:
-		var object: Object = _variant_to_object(entity)
-		return "object:%d" % object.get_instance_id()
-	if entity is StringName:
-		var string_name_value: StringName = entity
-		if string_name_value == &"":
-			return ""
-		return "string_name:%s" % String(string_name_value)
-	if entity is String:
-		var string_value: String = entity
-		if string_value.is_empty():
-			return ""
-		return "string:%s" % string_value
-	if entity is int:
-		var int_value: int = entity
-		return "int:%d" % int_value
-	return ""
+	return GFSpatialQueryIdentity.make_key(entity)
 
 
 func _make_entity_record(entity: Variant, bounds: AABB, cells: Array[Vector3i]) -> Dictionary:
-	if entity is Object:
-		var object: Object = _variant_to_object(entity)
+	var identity: GFSpatialQueryIdentity = GFSpatialQueryIdentity.from_value(entity)
+	if identity.key.is_empty():
+		return {}
+	if identity.kind == GFSpatialQueryIdentity.KIND_OBJECT:
+		var object: Object = identity.get_object()
+		if object == null:
+			return {}
 		return {
+			"identity": identity.to_dictionary(),
 			"entity_ref": weakref(object),
 			"entity": null,
 			"bounds": bounds,
@@ -544,8 +589,9 @@ func _make_entity_record(entity: Variant, bounds: AABB, cells: Array[Vector3i]) 
 		}
 
 	return {
+		"identity": identity.to_dictionary(),
 		"entity_ref": null,
-		"entity": entity,
+		"entity": identity.get_value(),
 		"bounds": bounds,
 		"cells": cells,
 	}
@@ -594,18 +640,7 @@ func _remove_by_key(entity_key: String) -> void:
 
 
 func _normalize_aabb(bounds: AABB) -> AABB:
-	var position: Vector3 = bounds.position
-	var size: Vector3 = bounds.size
-	if size.x < 0.0:
-		position.x += size.x
-		size.x = -size.x
-	if size.y < 0.0:
-		position.y += size.y
-		size.y = -size.y
-	if size.z < 0.0:
-		position.z += size.z
-		size.z = -size.z
-	return AABB(position, size)
+	return _SPATIAL_BOUNDS_MATH.normalize_aabb(bounds)
 
 
 func _get_half_open_max_corner(bounds: AABB) -> Vector3:

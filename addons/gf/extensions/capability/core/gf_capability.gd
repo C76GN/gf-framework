@@ -30,7 +30,13 @@ const _CAPABILITY_UTILITY_SCRIPT = preload("res://addons/gf/extensions/capabilit
 ## 当前能力所属对象。由 GFCapabilityUtility 挂载时写入。
 ## [br]
 ## @api public
-var receiver: Object = null
+## [br]
+## @since 8.0.0
+var receiver: Object:
+	get:
+		return _get_receiver_or_null()
+	set(value):
+		_receiver_ref = weakref(value) if value != null else null
 
 ## 当前能力是否启用。请优先通过 GFCapabilityUtility.set_capability_active() 修改。
 ## [br]
@@ -41,6 +47,7 @@ var active: bool = true
 # --- 私有变量 ---
 
 var _architecture_ref: WeakRef = null
+var _receiver_ref: WeakRef = null
 
 
 # --- 公共方法 ---
@@ -172,6 +179,16 @@ func _get_architecture_or_null() -> GFArchitecture:
 			var architecture: GFArchitecture = architecture_value
 			return architecture
 	return GFAutoload.get_architecture_or_null()
+
+
+func _get_receiver_or_null() -> Object:
+	if _receiver_ref == null:
+		return null
+	var value: Variant = _receiver_ref.get_ref()
+	if value is Object and is_instance_valid(value):
+		var receiver_object: Object = value
+		return receiver_object
+	return null
 
 
 func _get_capability_utility() -> GFCapabilityUtility:

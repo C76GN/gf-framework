@@ -273,6 +273,38 @@ func test_dictionary_report_filter_issues_supports_baseline_fingerprints_and_glo
 	assert_false(GFVariantData.get_option_bool(filtered, "ok"), "剩余错误应继续让报告失败。")
 
 
+func test_issue_fingerprint_is_independent_of_dictionary_insertion_order() -> void:
+	var key_a: Dictionary = {}
+	key_a["id"] = "entry"
+	key_a["locale"] = "zh"
+	var key_b: Dictionary = {}
+	key_b["locale"] = "zh"
+	key_b["id"] = "entry"
+	var issue_a: Dictionary = { "kind": "invalid_entry", "key": key_a }
+	var issue_b: Dictionary = { "kind": "invalid_entry", "key": key_b }
+
+	assert_eq(
+		GFValidationReportDictionary.make_issue_fingerprint(issue_a),
+		GFValidationReportDictionary.make_issue_fingerprint(issue_b),
+		"语义相同的结构化 issue key 应产生稳定指纹。"
+	)
+
+
+func test_validation_report_exports_json_compatible_dict() -> void:
+	var report: GFValidationReport = GFValidationReport.new("Runtime report")
+	var _error: RefCounted = report.add_error(&"bad_runtime_value", "Runtime value is unsafe.", Vector2i(1, 2), "", {
+		"owner": self,
+		"value": NAN,
+	})
+
+	var data: Dictionary = report.to_json_compatible_dict()
+	var json_text: String = JSON.stringify(data)
+
+	assert_false(json_text.contains(":null"), "JSON-safe 报告不应把 NaN 直接交给 JSON.stringify。")
+	assert_true(json_text.contains("__gf_report_value__"), "JSON-safe 报告应脱敏运行时对象。")
+	assert_false(data.is_empty(), "JSON-safe 报告应保留标准报告字段。")
+
+
 # --- 私有/辅助方法 ---
 
 func _issue_from_ref(value: RefCounted) -> GFValidationIssue:

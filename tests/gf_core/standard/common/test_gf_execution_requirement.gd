@@ -30,6 +30,25 @@ func test_execution_requirement_combines_all_any_and_none_conditions() -> void:
 	assert_true(GFVariantData.get_option_bool(report, "any_satisfied"), "any 条件应至少命中一个。")
 	assert_true(GFVariantData.get_option_bool(report, "none_clear"), "none 条件命中 false 时应保持 clear。")
 	assert_eq(GFVariantData.get_option_array(report, "conditions").size(), 5, "报告应包含每条条件。")
+	assert_eq(GFVariantData.get_option_int(report, "failed_count"), 2, "failed_count 保留原始谓词 false 计数。")
+	assert_eq(GFVariantData.get_option_int(report, "raw_failed_count"), 2, "raw_failed_count 应明确镜像原始失败计数。")
+	assert_eq(GFVariantData.get_option_int(report, "blocking_count"), 0, "通过的 any/none 组合不应产生阻塞计数。")
+	assert_eq(GFVariantData.get_option_int(report, "none_matched_count"), 0, "none 未命中时不应计入 none_matched_count。")
+
+
+func test_execution_requirement_reports_none_matches_as_blocking_count() -> void:
+	var requirement: GF_EXECUTION_REQUIREMENT_SCRIPT = GF_EXECUTION_REQUIREMENT_SCRIPT.new()
+	var _blocked_condition: Dictionary = requirement.add_value(&"blocked", "blocked", true, {
+		"mode": GF_EXECUTION_REQUIREMENT_SCRIPT.MODE_NONE,
+	})
+
+	var report: Dictionary = requirement.evaluate({ "blocked": true })
+
+	assert_false(GFVariantData.get_option_bool(report, "ok"), "none 条件命中 true 时 requirement 应失败。")
+	assert_false(GFVariantData.get_option_bool(report, "none_clear"), "none 条件命中 true 时 none_clear 应为 false。")
+	assert_eq(GFVariantData.get_option_int(report, "failed_count"), 0, "MODE_NONE 命中 true 不是原始谓词失败。")
+	assert_eq(GFVariantData.get_option_int(report, "blocking_count"), 1, "MODE_NONE 命中 true 应明确计入阻塞。")
+	assert_eq(GFVariantData.get_option_int(report, "none_matched_count"), 1, "MODE_NONE 命中 true 应计入 none_matched_count。")
 
 
 func test_execution_requirement_reports_predicate_failure() -> void:

@@ -23,6 +23,110 @@ func test_json_encoding_sorts_non_string_dictionary_keys() -> void:
 	assert_false(left.is_empty(), "非字符串键不应导致 JSON 编码失败。")
 
 
+func test_json_encoding_sorts_keys_by_type_aware_tokens() -> void:
+	var codec: GFStorageCodec = GFStorageCodec.new()
+
+	var left: PackedByteArray = codec.encode({ 1: "int", "1": "string" }, { "obfuscation_key": 0 })
+	var right: PackedByteArray = codec.encode({ "1": "string", 1: "int" }, { "obfuscation_key": 0 })
+	var result: Dictionary = codec.decode(left, { "obfuscation_key": 0 })
+	var data: Dictionary = GFVariantData.get_option_dictionary(result, "data")
+
+	assert_eq(left, right, "str(key) 相同但类型不同的键也应有稳定全序。")
+	assert_true(GFVariantData.get_option_bool(result, "ok"), "类型不同的键应能正常往返。")
+	assert_eq(GFVariantData.get_option_string(data, 1), "int", "int key 不应与 string key 混淆。")
+	assert_eq(GFVariantData.get_option_string(data, "1"), "string", "string key 不应与 int key 混淆。")
+
+
+func test_json_encoding_preserves_godot_variants_and_nonfinite_values() -> void:
+	var codec: GFStorageCodec = GFStorageCodec.new()
+	var packed_values: PackedFloat32Array = PackedFloat32Array()
+	var _nan_appended: bool = packed_values.append(NAN)
+	var _value_appended: bool = packed_values.append(3.5)
+
+	var bytes: PackedByteArray = codec.encode({
+		"position": Vector2(1.5, -2.0),
+		"tint": Color(0.25, 0.5, 0.75, 1.0),
+		"nan_value": NAN,
+		"inf_value": INF,
+		"packed": packed_values,
+	}, {
+		"obfuscation_key": 0,
+	})
+	var json_text: String = bytes.get_string_from_utf8()
+	var result: Dictionary = codec.decode(bytes, {
+		"obfuscation_key": 0,
+	})
+	var data: Dictionary = GFVariantData.get_option_dictionary(result, "data")
+	var position_value: Variant = GFVariantData.get_option_value(data, "position")
+	var tint_value: Variant = GFVariantData.get_option_value(data, "tint")
+	var nan_value: Variant = GFVariantData.get_option_value(data, "nan_value")
+	var inf_value: Variant = GFVariantData.get_option_value(data, "inf_value")
+	var packed_value: Variant = GFVariantData.get_option_value(data, "packed")
+	var nan_preserved: bool = false
+	if nan_value is float:
+		var nan_float: float = nan_value
+		nan_preserved = is_nan(nan_float)
+	var inf_preserved: bool = false
+	if inf_value is float:
+		var inf_float: float = inf_value
+		inf_preserved = is_inf(inf_float) and inf_float > 0.0
+
+	assert_true(GFVariantData.get_option_bool(result, "ok"), "包含 Godot 值类型的 JSON 存档应可读取。")
+	assert_false(json_text.contains(":null"), "JSON 存储不应把 NaN/Inf 交给 JSON.stringify 替换成 null。")
+	assert_true(json_text.contains("\"Vector2\""), "Vector2 应写入类型标记。")
+	assert_true(json_text.contains("\"Float\""), "非有限 float 应写入类型标记。")
+	assert_true(position_value is Vector2, "Vector2 应恢复为 Godot 值类型。")
+	assert_true(tint_value is Color, "Color 应恢复为 Godot 值类型。")
+	assert_true(nan_preserved, "NaN 应保持语义。")
+	assert_true(inf_preserved, "正无穷应保持语义。")
+	assert_true(packed_value is PackedFloat32Array, "PackedFloat32Array 应恢复为 Godot 值类型。")
+	if position_value is Vector2:
+		var position: Vector2 = position_value
+		assert_eq(position, Vector2(1.5, -2.0), "Vector2 值应完整往返。")
+	if tint_value is Color:
+		var tint: Color = tint_value
+		assert_eq(tint, Color(0.25, 0.5, 0.75, 1.0), "Color 值应完整往返。")
+	if packed_value is PackedFloat32Array:
+		var decoded_packed: PackedFloat32Array = packed_value
+		assert_eq(decoded_packed.size(), 2, "PackedFloat32Array 长度应保持。")
+		assert_true(is_nan(decoded_packed[0]), "PackedFloat32Array 内的 NaN 应保持语义。")
+		assert_eq(decoded_packed[1], 3.5, "PackedFloat32Array 普通 float 应保持。")
+
+
+func test_json_checksum_accepts_nonfinite_values() -> void:
+	var codec: GFStorageCodec = GFStorageCodec.new()
+	var bytes: PackedByteArray = codec.encode({
+		"unstable_value": NAN,
+		"position": Vector3(1.0, INF, -INF),
+	}, {
+		"include_metadata": true,
+		"use_integrity_checksum": true,
+		"obfuscation_key": 0,
+	})
+
+	var result: Dictionary = codec.decode(bytes, {
+		"use_integrity_checksum": true,
+		"strict_integrity": true,
+		"obfuscation_key": 0,
+	})
+	var data: Dictionary = GFVariantData.get_option_dictionary(result, "data")
+	var unstable_value: Variant = GFVariantData.get_option_value(data, "unstable_value")
+	var position_value: Variant = GFVariantData.get_option_value(data, "position")
+	var unstable_preserved: bool = false
+	if unstable_value is float:
+		var unstable_float: float = unstable_value
+		unstable_preserved = is_nan(unstable_float)
+
+	assert_true(GFVariantData.get_option_bool(result, "ok"), "checksum 不应把非有限 float 存档误判为损坏。")
+	assert_true(GFVariantData.get_option_bool(result, "integrity_valid"), "非有限 float 经类型标记编码后 checksum 应稳定。")
+	assert_true(unstable_preserved, "NaN 应在 checksum 往返后保持。")
+	assert_true(position_value is Vector3, "Vector3 应在 checksum 往返后保持。")
+	if position_value is Vector3:
+		var position: Vector3 = position_value
+		assert_true(is_inf(position.y) and position.y > 0.0, "Vector3 中的 INF 应保持。")
+		assert_true(is_inf(position.z) and position.z < 0.0, "Vector3 中的 -INF 应保持。")
+
+
 func test_checksum_rejects_tampered_payload_in_strict_mode() -> void:
 	var codec: GFStorageCodec = GFStorageCodec.new()
 	var bytes: PackedByteArray = codec.encode({
@@ -164,6 +268,33 @@ func test_empty_dictionary_is_valid_payload() -> void:
 	assert_true(data.is_empty(), "空字典载荷应保持为空字典。")
 
 
+func test_user_envelope_like_dictionary_roundtrips_without_field_loss() -> void:
+	var codec: GFStorageCodec = GFStorageCodec.new()
+	var user_data: Dictionary = {
+		GFStorageCodec.ENVELOPE_KEY: true,
+		GFStorageCodec.ENVELOPE_VERSION_KEY: GFStorageCodec.ENVELOPE_VERSION,
+		GFStorageCodec.ENVELOPE_DATA_KEY: { "nested": 1 },
+		"sibling": "must-survive",
+	}
+
+	var result: Dictionary = codec.decode(codec.encode(user_data), {})
+	var decoded: Dictionary = GFVariantData.get_option_dictionary(result, "data")
+
+	assert_true(GFVariantData.get_option_bool(result, "ok"), "包含保留字段的用户字典应可往返。")
+	assert_true(GFVariantData.get_option_bool(decoded, GFStorageCodec.ENVELOPE_KEY), "用户 marker 字段应保留。")
+	assert_eq(
+		GFVariantData.get_option_int(decoded, GFStorageCodec.ENVELOPE_VERSION_KEY),
+		GFStorageCodec.ENVELOPE_VERSION,
+		"用户 envelope version 字段应保留。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(GFVariantData.get_option_dictionary(decoded, GFStorageCodec.ENVELOPE_DATA_KEY), "nested"),
+		1,
+		"用户 data 字段应保留。"
+	)
+	assert_eq(GFVariantData.get_option_string(decoded, "sibling"), "must-survive", "codec 不得丢弃 envelope-like 字典的兄弟字段。")
+
+
 func test_empty_bytes_are_invalid_payload() -> void:
 	var codec: GFStorageCodec = GFStorageCodec.new()
 
@@ -216,6 +347,23 @@ func test_legacy_plain_json_fallback_can_be_enabled_for_migration() -> void:
 
 	assert_true(GFVariantData.get_option_bool(result, "ok"), "迁移旧存档时可显式允许旧版纯 JSON 回退。")
 	assert_eq(GFVariantData.get_option_int(data, "coins"), 10, "旧版纯 JSON 数据应保持可读。")
+
+
+func test_compression_legacy_fallback_accepts_uncompressed_plain_json() -> void:
+	var codec: GFStorageCodec = GFStorageCodec.new()
+	var bytes: PackedByteArray = "{\"coins\": 10}".to_utf8_buffer()
+
+	var result: Dictionary = codec.decode(bytes, {
+		"use_compression": true,
+		"allow_legacy_plain_json_fallback": true,
+	})
+
+	assert_true(GFVariantData.get_option_bool(result, "ok"), "启用迁移回退时，压缩配置应能读取旧版未压缩 JSON。")
+	assert_eq(
+		GFVariantData.get_option_int(GFVariantData.get_option_dictionary(result, "data"), "coins"),
+		10,
+		"解压失败后的 legacy fallback 应保留旧数据。"
+	)
 
 
 func test_compression_and_obfuscation_roundtrip() -> void:

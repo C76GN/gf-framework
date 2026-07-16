@@ -1,19 +1,20 @@
 # 异步取消、等待与进度
 
-`GFCancelToken`、`GFCancelSource`、`GFTimeoutController`、`GFAsyncCompletion`、`GFAsyncWaitUtility`、`GFAsyncChannel`、`GFAsyncProgress`、`GFAsyncFlowTools`、`GFMainThreadDispatchQueue`、`GFDeferredMutationQueue`、`GFExecutionRequirement`、`GFAsyncKeyedGate`、`GFAsyncGateLease`、`GFRequestHandlerRegistry` 和 `GFExecutionLaneDiagnostics` 提供标准层的轻量异步协作原语。它们不绑定 HTTP、不决定业务重试策略，只负责表达取消、超时、一次性终态、等待、事件通道、可节流进度、显式 flow helper、主线程应用回调、延迟状态变更、执行条件、按 key 并发仲裁、单处理器请求调用和通道诊断。
+`GFCancellationToken`、`GFCancellationSource` 与 `GFAsyncCompletion` 是 Kernel 级异步边界契约；`GFTimeoutController`、`GFAsyncWaitUtility`、`GFAsyncChannel`、`GFAsyncProgress`、`GFAsyncProgressAggregator`、`GFAsyncFlowTools`、`GFMainThreadDispatchQueue`、`GFDeferredMutationQueue`、`GFExecutionRequirement`、`GFAsyncKeyedGate`、`GFAsyncGateLease`、`GFRequestHandlerRegistry` 和 `GFExecutionLaneDiagnostics` 在标准层提供轻量组合工具。它们不绑定 HTTP、不决定业务重试策略，只负责表达取消、超时、一次性终态、等待、事件通道、可节流进度、加权总进度、显式 flow helper、主线程应用回调、延迟状态变更、执行条件、按 key 并发仲裁、单处理器请求调用和通道诊断。
 
 ## 定位
 
 当一个流程会跨越多帧、后台任务、下载、编辑器工具或项目自定义 SDK 回调时，项目通常需要同一套取消和终态语义。GF 把这些机制拆成几个小对象：
 
-- `GFCancelSource` 持有取消权，可由用户操作、上游 token、节点离树或超时触发。
-- `GFCancelToken` 只读暴露 `is_cancelled()`、原因、metadata 和 `cancelled` 信号。
+- `GFCancellationSource` 持有取消权，可由用户操作、上游 token、节点离树或超时触发；它位于 Kernel，可被生命周期、编辑器任务和标准层工具复用。
+- `GFCancellationToken` 只读暴露 `is_cancel_requested()`、原因、metadata、取消时间和 `cancel_requested` 信号。
 - `GFTimeoutController` 把可复用超时计划建模为取消 token，可 `start_seconds()`、`stop()` 或 `reset()`。
-- `GFAsyncCompletion` 把任意回调流程收敛到 succeeded、failed 或 cancelled 一次性终态。
+- `GFAsyncCompletion` 把任意回调流程收敛到 succeeded、failed 或 cancelled 一次性终态；等待它时使用 `GFAsyncWaitUtility.wait_completion_async()`。
 - `GFAsyncWaitUtility` 以字典结果等待 Godot Signal、帧、延迟、条件或值变化，并支持超时、取消 token、保护节点和 payload 捕获。
 - `GFAsyncChannel` 提供多生产者、单消费者的轻量事件通道，可写入、异步读取、关闭和导出调试快照。
 - `GFAsyncProgress` 统一 0 到 1 的进度值、消息和 metadata，并可按数值变化或时间间隔节流。
-- `GFAsyncFlowTools` 在这些原语之上提供 `retry_async()`、`each_async()` 和 `fold_async()`，返回普通结果字典，不引入新的 Promise 类型。
+- `GFAsyncProgressAggregator` 把多个带权重的子任务进度聚合成一个总进度，并复用 `GFAsyncProgress` 的节流信号。
+- `GFAsyncFlowTools` 在这些原语之上提供 `retry_async()`、`each_async()`、`fold_async()`、`wait_all_completions_async()` 和 `wait_any_completion_async()`，返回普通结果字典，不引入新的 Promise 类型；需要 HTTP、手动条目或 all-settled 报告时，`GFAsyncBatch.watch_completion()` 可复用 ALL / ANY / EACH 批处理策略。
 - `GFMainThreadDispatchQueue` 把后台线程、资源加载或外部回调的最终应用逻辑排回显式派发点，并提供 owner 失效跳过、取消和派发预算。
 - `GFDeferredMutationQueue` 收集延迟变更，并在显式 `playback()` 点按 phase、sort key 和记录顺序稳定应用。
 - `GFExecutionRequirement` 把执行前置条件归一成 all / any / none 报告，可用于任务、工具按钮、资源流程或项目自定义系统。
@@ -24,7 +25,7 @@
 ## 典型流程
 
 ```gdscript
-var source := GFCancelSource.new()
+var source := GFCancellationSource.new()
 source.cancel_after_seconds(5.0, get_tree())
 source.cancel_when_node_exits(self)
 
@@ -107,6 +108,23 @@ progress.update(0.25, "download")
 progress.complete("ready")
 ```
 
+需要把多个子任务合成为一个总进度时，用 `GFAsyncProgressAggregator` 只记录权重和进度来源：
+
+```gdscript
+var total_progress := GFAsyncProgressAggregator.new()
+total_progress.progressed.connect(func(value: float, message: String, metadata: Dictionary) -> void:
+	print("%d%% %s" % [roundi(value * 100.0), message])
+)
+
+var bundle_task := total_progress.add_task(&"bundle", 1.0)
+var resources_task := total_progress.add_task(&"resources", 3.0)
+
+total_progress.complete_task(bundle_task, "bundle")
+total_progress.set_task_fraction(resources_task, loaded_count, total_count, "resources")
+```
+
+聚合器默认不接受单个子任务进度回退，适合后台回调乱序的场景；确实需要可回退流程时，可显式设置 `allow_decrease = true`。
+
 需要把一小段流程串起来时，可以用 `GFAsyncFlowTools` 保持结果字典协议一致：
 
 ```gdscript
@@ -121,9 +139,29 @@ var retry_result := await GFAsyncFlowTools.retry_async(func() -> Dictionary:
 var import_result := await GFAsyncFlowTools.each_async(files, func(path: String) -> Dictionary:
 	return import_one_file(path)
 )
+
+var combined := await GFAsyncFlowTools.wait_all_completions_async({
+	&"profile": profile_completion,
+	&"inventory": inventory_completion,
+}, {
+	"cancel_token": source.get_token(),
+	"timeout_seconds": 5.0,
+	"tree": get_tree(),
+})
 ```
 
-这些 helper 只负责编排调用、等待 `GFAsyncCompletion` 和归一化 `{ "ok": bool, "value": ..., "error": ... }`。具体是否幂等、失败后是否回滚、延迟是否指数退避、错误是否展示给用户，仍由调用方决定。
+这些 helper 只负责编排调用、等待 `GFAsyncCompletion` 和归一化 `{ "ok": bool, "value": ..., "error": ... }`。`wait_all_completions_async()` 要求全部成功，`wait_any_completion_async()` 要求至少一个成功；两者只观察调用方传入的完成源，不启动任务。具体是否幂等、失败后是否回滚、延迟是否指数退避、错误是否展示给用户，仍由调用方决定。
+
+需要等待多个已经由回调或系统包装成 `GFAsyncCompletion` 的流程，并且还要混合 HTTP 响应、手动条目或 all-settled 明细时，使用 `GFAsyncBatch` 聚合终态：
+
+```gdscript
+var batch := GFAsyncBatch.new()
+batch.completion_policy = GFAsyncBatch.CompletionPolicy.EACH
+batch.watch_completion(profile_completion, &"profile")
+batch.watch_completion(inventory_completion, &"inventory")
+
+var report := await GFAsyncWaitUtility.await_signal_payload(batch.settled)
+```
 
 后台任务完成后需要回到主线程应用结果时，可以把应用回调交给派发队列，再由系统或工具的 `tick()` 显式派发：
 
@@ -182,6 +220,8 @@ var report := requirement.evaluate({
 
 条件集合只读取传入的 `context`。需要更复杂的判断时可以添加谓词，但谓词应保持无副作用，让“能不能执行”和“执行时改变什么”分开。
 
+报告中的 `failed_count` / `raw_failed_count` 表示原始条件谓词返回 false 的数量；它不是最终失败原因计数。`MODE_NONE` 条件命中 true 时会让 `none_clear=false`，并进入 `none_matched_count` 与 `blocking_count`。UI、日志或工具按钮展示最终阻塞原因时，应优先读取 `blocking_count` 和每条 condition 的 `mode` / `ok`。
+
 按 key 限制并发时，gate 只发放租约，不执行任务本身：
 
 ```gdscript
@@ -214,6 +254,8 @@ if GFVariantData.get_option_bool(resolved, "ok"):
 	print(GFVariantData.get_option_value(resolved, "result"))
 ```
 
+`invoke()` / `try_invoke()` 保留 handler 返回的原始 Godot Variant，适合运行时内部继续使用。需要写日志、导出 JSON 或把注册表状态交给外部工具时，使用 `GFRequestHandlerRegistry.to_json_compatible_result()`、`get_json_compatible_recent_events()` 或 `get_json_compatible_debug_snapshot()`，避免 `Resource`、`Callable`、`Signal`、`NaN` 或 PackedArray 直接进入 `JSON.stringify()`。
+
 通道诊断可以从任何队列或批处理流程喂入，不要求这些流程使用同一个调度器：
 
 ```gdscript
@@ -227,6 +269,6 @@ var health := lanes.get_health_snapshot()
 
 ## 使用边界
 
-这些对象是协议、状态句柄和诊断容器，不是完整任务系统。需要按 requirement 仲裁多任务时使用 `GFRuntimeTaskScheduler`；需要批量聚合 HTTP 或手动异步条目时使用 `GFAsyncBatch`；需要真正的后台线程或 ResourceLoader 加载时使用 `GFBackgroundWorkUtility` 或 `GFAssetUtility`。`GFAsyncFlowTools` 适合局部 retry/each/fold，不替代项目任务队列；`GFMainThreadDispatchQueue` 适合做最终主线程应用点，不替代后台执行器；`GFDeferredMutationQueue` 适合做确定性状态应用点，不替代命令历史或存档事务。需要观察未完成异步句柄时，可在 diagnostics 包中注册并启用 `GFAsyncTrackerUtility`。
+这些对象是协议、状态句柄和诊断容器，不是完整任务系统。需要按 requirement 仲裁多任务时使用 `GFRuntimeTaskScheduler`；需要批量聚合 HTTP 或手动异步条目时使用 `GFAsyncBatch`；需要真正的后台线程或 ResourceLoader 加载时使用 `GFBackgroundWorkUtility` 或 `GFAssetUtility`。`GFAsyncProgressAggregator` 只合并调用方喂入的进度，不执行子任务，也不做显示值缓动或最小前进速度；表现层平滑应放在 UI 或项目侧。`GFAsyncFlowTools` 适合局部 retry/each/fold 和少量 completion 组合，不替代项目任务队列；`GFMainThreadDispatchQueue` 适合做最终主线程应用点，不替代后台执行器；`GFDeferredMutationQueue` 适合做确定性状态应用点，不替代命令历史或存档事务。需要观察未完成异步句柄时，可在 diagnostics 包中注册并启用 `GFAsyncTrackerUtility`。
 
 `metadata` 始终由调用方定义。GF 会复制字典边界，但不会解释字段，也不会把取消自动变成重试、回滚或 UI 提示。

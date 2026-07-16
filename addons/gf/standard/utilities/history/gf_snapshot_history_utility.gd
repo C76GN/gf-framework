@@ -47,16 +47,16 @@ signal history_changed(snapshot: Dictionary)
 
 # --- 公共变量 ---
 
-## 最多保留的快照数量；为 0 时不限制。
+## 最多保留的快照数量；为 0 时不限制。裁剪当前快照时会恢复到新的当前快照。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 var max_history_size: int:
 	get:
 		return _max_history_size
 	set(value):
-		_max_history_size = maxi(value, 0)
-		if _trim_history():
-			_emit_history_changed()
+		_set_max_history_size(value)
 
 ## 当前快照索引；没有快照时为 -1。
 ## [br]
@@ -315,6 +315,15 @@ func get_debug_snapshot() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+func _set_max_history_size(value: int) -> void:
+	_max_history_size = maxi(value, 0)
+	var previous_snapshot_id: int = _get_current_snapshot_id()
+	if _trim_history():
+		if previous_snapshot_id != 0 and _get_current_snapshot_id() != previous_snapshot_id:
+			_restore_current_snapshot_after_trim()
+		_emit_history_changed()
+
+
 func _capture_data() -> Variant:
 	if _capture_callback.is_valid():
 		return _capture_callback.call()
@@ -410,6 +419,27 @@ func _trim_history() -> bool:
 	else:
 		_current_index = clampi(_current_index, 0, _snapshots.size() - 1)
 	return changed or previous_index != _current_index
+
+
+func _restore_current_snapshot_after_trim() -> void:
+	if _current_index < 0 or _current_index >= _snapshots.size():
+		return
+
+	var record: Dictionary = _snapshots[_current_index]
+	var data: Variant = _get_record_data(record)
+	if not _has_restore_target(data):
+		return
+	if not _restore_data(data):
+		_current_index = -1
+		return
+	snapshot_restored.emit(_get_record_id(record), _current_index)
+
+
+func _has_restore_target(data: Variant) -> bool:
+	if _restore_callback.is_valid():
+		return true
+	var architecture: GFArchitecture = _get_architecture_or_null()
+	return architecture != null and architecture.has_method("restore_global_snapshot") and data is Dictionary
 
 
 func _find_snapshot_index(snapshot_id: int) -> int:

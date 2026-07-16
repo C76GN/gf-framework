@@ -9,7 +9,7 @@
 - 类别：资源定义 (`resource_definition`)
 - 首次版本：`3.17.0`
 
-通用存档字典编码与解码策略。 负责字典序列化、可选压缩、完整性校验和轻量混淆。 它不负责路径、槽位、事务提交或云同步。
+通用存档字典编码与解码策略。 负责字典序列化、可选压缩、完整性校验和轻量混淆。 JSON 格式会通过 GFVariantJsonCodec 保留 Godot 值类型和非有限浮点数。 它不负责路径、槽位、事务提交或云同步。
 
 ## 成员概览
 
@@ -23,7 +23,9 @@
 | 常量 | [`FORMAT_KEY`](#member-gfstoragecodec-constants-format_key) | `const FORMAT_KEY: String = "format"` |
 | 常量 | [`COMPRESSION_KEY`](#member-gfstoragecodec-constants-compression_key) | `const COMPRESSION_KEY: String = "compression"` |
 | 常量 | [`ENVELOPE_KEY`](#member-gfstoragecodec-constants-envelope_key) | `const ENVELOPE_KEY: String = "__gf_storage_envelope"` |
+| 常量 | [`ENVELOPE_VERSION_KEY`](#member-gfstoragecodec-constants-envelope_version_key) | `const ENVELOPE_VERSION_KEY: String = "__gf_storage_envelope_version"` |
 | 常量 | [`ENVELOPE_DATA_KEY`](#member-gfstoragecodec-constants-envelope_data_key) | `const ENVELOPE_DATA_KEY: String = "data"` |
+| 常量 | [`ENVELOPE_VERSION`](#member-gfstoragecodec-constants-envelope_version) | `const ENVELOPE_VERSION: int = 1` |
 | 属性 | [`format`](#member-gfstoragecodec-properties-format) | `var format: Format = Format.JSON` |
 | 属性 | [`use_compression`](#member-gfstoragecodec-properties-use_compression) | `var use_compression: bool = false` |
 | 属性 | [`use_integrity_checksum`](#member-gfstoragecodec-properties-use_integrity_checksum) | `var use_integrity_checksum: bool = false` |
@@ -149,6 +151,19 @@ const ENVELOPE_KEY: String = "__gf_storage_envelope"
 
 当用户数据自身包含 `_meta` 时，外层包裹使用的标记字段名。
 
+<a id="member-gfstoragecodec-constants-envelope_version_key"></a>
+
+### `ENVELOPE_VERSION_KEY`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+const ENVELOPE_VERSION_KEY: String = "__gf_storage_envelope_version"
+```
+
+存储 envelope schema 版本字段名。
+
 <a id="member-gfstoragecodec-constants-envelope_data_key"></a>
 
 ### `ENVELOPE_DATA_KEY`
@@ -160,6 +175,19 @@ const ENVELOPE_DATA_KEY: String = "data"
 ```
 
 存储 envelope 内原始用户数据的字段名。
+
+<a id="member-gfstoragecodec-constants-envelope_version"></a>
+
+### `ENVELOPE_VERSION`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+const ENVELOPE_VERSION: int = 1
+```
+
+当前存储 envelope schema 版本。
 
 ## 属性
 
@@ -354,12 +382,13 @@ func decode(bytes: PackedByteArray, options: Dictionary = {}) -> Dictionary:
 ### `serialize_dictionary`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func serialize_dictionary(data: Dictionary, p_format: Format = Format.JSON) -> PackedByteArray:
 ```
 
-序列化字典。JSON 格式会递归排序字典键。
+序列化字典。JSON 格式会递归排序字典键，并把 Godot 值类型转为 JSON 安全标记。
 
 参数：
 

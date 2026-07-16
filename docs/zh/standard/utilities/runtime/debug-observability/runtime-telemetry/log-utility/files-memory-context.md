@@ -20,6 +20,20 @@ print(log_util.get_log_file_path())
 
 内存缓存由 `max_memory_entries` 控制，超出后按环形缓冲覆盖最旧条目。项目可通过 `get_recent_entries()` 读取最近日志，并通过 `get_dropped_memory_entry_count()` 观察已丢弃条目数量。
 
+需要诊断面板、编辑器窗口或远端采集器定期轮询时，优先使用 `get_memory_sequence()` 保存当前游标，再用 `get_entries_since()` 读取新增条目：
+
+```gdscript
+var cursor := log_util.get_memory_sequence()
+
+# 后续某一帧或某次刷新
+var result := log_util.get_entries_since(cursor, 100)
+cursor = result["next_sequence"]
+for entry in result["entries"]:
+	print(entry["text"])
+```
+
+返回报告会包含 `oldest_sequence`、`current_sequence`、`next_sequence`、`truncated`、`has_more` 和 `missed_count`。如果调用方太久没有读取，旧日志可能已经被环形缓存覆盖，此时 `truncated = true`，应把 UI 标记为“部分日志已丢失”，而不是假设日志流完整。`clear_memory_entries()` 只清空缓存和丢弃计数，不重置序列游标，便于轮询方继续从清空之后的新增日志读起。
+
 ## 全局上下文
 
 `trace_id` 是每次运行的轻量关联字段。项目可以显式设置，也可以使用默认生成值；全局上下文会合并到后续结构化日志条目中。

@@ -15,12 +15,14 @@ func _init() -> void:
 	scope_mode = GFNodeContext.ScopeMode.SCOPED
 
 
-func install(architecture: GFArchitecture) -> void:
+func install(architecture: GFArchitecture, scope: GFAsyncScope) -> void:
 	await architecture.register_system_instance(BattleSystem.new())
+	if scope.is_cancel_requested():
+		return
 	await architecture.register_utility_instance(BattleHudUtility.new())
 
 
-func install_bindings(binder: Variant) -> void:
+func install_bindings(binder: Variant, _scope: GFAsyncScope) -> void:
 	binder.bind_factory(ResolveBattleCommand).as_transient()
 ```
 
@@ -32,6 +34,8 @@ func install_bindings(binder: Variant) -> void:
 4. 在节点退出树时自动 `dispose()` 局部模块。
 
 如果把 `auto_init` 设为 `false`，Context 仍会创建局部架构并执行 `install()` / `install_bindings()`，但不会自动进入三阶段生命周期。需要在合适的业务时机调用 `await context.initialize_context()`；该方法会等待安装完成、统一触发初始化，并在成功或失败时沿用 `context_ready` / `context_failed` 语义。
+
+`install()` 与 `install_bindings()` 收到的 `GFAsyncScope` 是该局部上下文安装过程的取消边界。`SCOPED` 节点退出树、父级架构失败或上下文失败时，框架会取消 scope 并执行登记的清理回调；安装逻辑中每次 `await` 后都应检查 `scope.is_cancel_requested()`，避免已离树的上下文继续写入外部副作用。
 
 如果把 `process_scoped_ticks` 设为 `false`，该 Context 只负责创建和生命周期管理，不再驱动局部架构的 `tick()` / `physics_tick()`。这种模式适合由外部调度器统一驱动局部架构；否则局部 `GFSystem.tick()` 和 `GFUtility.tick()` 不会自动执行。
 

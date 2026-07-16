@@ -43,6 +43,29 @@ func test_query_signature_dictionary_round_trip_keeps_encoded_values() -> void:
 	assert_eq(restored.to_text(), signature.to_text(), "签名文本应在字典往返后保持稳定。")
 
 
+func test_query_signature_uses_strict_stable_key_codec() -> void:
+	var signature: GFQuerySignature = GFQuerySignature.new()
+	var _vector_value: GFQuerySignature = signature.add_value(&"cells", Vector2i(1, 2))
+	var _unstable_value: GFQuerySignature = signature.add_value(&"cells", { "id": 1 })
+	var values: PackedStringArray = signature.get_domain_values(&"cells")
+
+	assert_eq(values.size(), 1, "不稳定查询值不应进入签名。")
+	assert_true(values[0].begins_with("gfv1:"), "签名值应使用统一稳定 key token。")
+
+
+func test_query_signature_length_prefixes_adversarial_domains() -> void:
+	var separated: GFQuerySignature = GFQuerySignature.new()
+	var _separated_a: GFQuerySignature = separated.add_value(&"a", "x")
+	var _separated_b: GFQuerySignature = separated.add_value(&"b", "y")
+	var a_token: String = separated.get_domain_values(&"a")[0]
+	var injected_domain: StringName = StringName("a(1):%s|b" % a_token)
+	var injected: GFQuerySignature = GFQuerySignature.new()
+	var _injected_value: GFQuerySignature = injected.add_value(injected_domain, "y")
+
+	assert_ne(separated.to_text(), injected.to_text(), "domain 中的旧格式分隔符不应伪造另一组签名。")
+	assert_true(separated.to_text().begins_with("gfq1:"), "查询签名应使用版本化长度前缀格式。")
+
+
 func test_cache_diagnostics_tracks_hits_misses_and_reasons() -> void:
 	var diagnostics: GFCacheDiagnostics = GFCacheDiagnostics.new()
 	diagnostics.cache_id = &"asset"
@@ -66,3 +89,23 @@ func test_cache_diagnostics_tracks_hits_misses_and_reasons() -> void:
 
 	diagnostics.reset()
 	assert_eq(GFVariantData.get_option_int(diagnostics.get_debug_snapshot(), "hit_count"), 0, "reset 后统计应清零。")
+
+
+func test_cache_diagnostics_records_stable_key_text() -> void:
+	var diagnostics: GFCacheDiagnostics = GFCacheDiagnostics.new()
+
+	diagnostics.record_hit(Vector2i(3, 4))
+	var snapshot: Dictionary = diagnostics.get_debug_snapshot()
+	var last_event: Dictionary = GFVariantData.get_option_dictionary(snapshot, "last_event")
+
+	assert_true(GFVariantData.get_option_string(last_event, "key").begins_with("gfv1:"), "缓存诊断应复用稳定 key token。")
+
+
+func test_cache_diagnostics_ignores_non_positive_invalidation_amounts() -> void:
+	var diagnostics: GFCacheDiagnostics = GFCacheDiagnostics.new()
+	diagnostics.record_invalidation(&"empty_scan", null, 0)
+	diagnostics.record_invalidation(&"invalid_scan", null, -2)
+
+	var snapshot: Dictionary = diagnostics.get_debug_snapshot()
+	assert_eq(GFVariantData.get_option_int(snapshot, "invalidation_count"), 0, "非正数量不应伪造缓存失效事件。")
+	assert_true(GFVariantData.get_option_dictionary(snapshot, "invalidation_reasons").is_empty(), "非正数量不应写入原因统计。")

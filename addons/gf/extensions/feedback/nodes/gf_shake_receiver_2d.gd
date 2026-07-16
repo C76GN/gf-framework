@@ -34,31 +34,43 @@ const _INSTANCE_GUARD = preload("res://addons/gf/kernel/core/gf_instance_guard.g
 ## 采样 channel。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 @export var channel: StringName = &"default"
 
 ## 是否应用 position 偏移。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 @export var apply_position: bool = true
 
 ## 是否应用 rotation_degrees 偏移。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 @export var apply_rotation: bool = true
 
 ## 是否应用 scale 偏移。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 @export var apply_scale: bool = false
 
 ## ready 时是否记录基础变换。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 @export var capture_on_ready: bool = true
 
 ## 退出树时是否恢复基础变换。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 @export var restore_on_exit: bool = true
 
 
@@ -67,6 +79,8 @@ const _INSTANCE_GUARD = preload("res://addons/gf/kernel/core/gf_instance_guard.g
 ## 可选反馈工具实例；为空时从全局架构查询。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 var utility: GFShakeUtility = null
 
 
@@ -76,6 +90,7 @@ var _target_ref: WeakRef = null
 var _base_position: Vector2 = Vector2.ZERO
 var _base_rotation_degrees: float = 0.0
 var _base_scale: Vector2 = Vector2.ONE
+var _has_captured_base: bool = false
 var _last_position_offset: Vector2 = Vector2.ZERO
 var _last_rotation_offset: float = 0.0
 var _last_scale_offset: Vector2 = Vector2.ZERO
@@ -102,6 +117,8 @@ func _exit_tree() -> void:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param shake_utility: 反馈工具实例。
 func set_utility(shake_utility: GFShakeUtility) -> void:
 	utility = shake_utility
@@ -111,7 +128,9 @@ func set_utility(shake_utility: GFShakeUtility) -> void:
 ## [br]
 ## @api public
 ## [br]
-## @return 目标 Node2D；不存在时返回 null。
+## @since 3.17.0
+## [br]
+## @return: 目标 Node2D；不存在时返回 null。
 func get_target() -> Node2D:
 	if _target_ref == null:
 		return null
@@ -123,17 +142,18 @@ func get_target() -> Node2D:
 ## [br]
 ## @api public
 ## [br]
-## @return 记录成功返回 true。
+## @since 3.17.0
+## [br]
+## @return: 记录成功返回 true。
 func capture_base_transform() -> bool:
 	var target: Node2D = get_target()
-	if target == null:
+	if target == null or not _transform_is_finite(target.position, target.rotation_degrees, target.scale):
 		return false
 	_base_position = target.position
 	_base_rotation_degrees = target.rotation_degrees
 	_base_scale = target.scale
-	_last_position_offset = Vector2.ZERO
-	_last_rotation_offset = 0.0
-	_last_scale_offset = Vector2.ZERO
+	_has_captured_base = true
+	_clear_last_offsets()
 	return true
 
 
@@ -141,7 +161,9 @@ func capture_base_transform() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @return 应用成功返回 true。
+## @since 3.17.0
+## [br]
+## @return: 应用成功返回 true。
 func apply_current_sample() -> bool:
 	var target: Node2D = get_target()
 	var shake_utility: GFShakeUtility = _get_utility()
@@ -152,26 +174,39 @@ func apply_current_sample() -> bool:
 	var position: Vector3 = GFVariantData.get_option_vector3(sample, "position")
 	var rotation_degrees: Vector3 = GFVariantData.get_option_vector3(sample, "rotation_degrees")
 	var scale: Vector3 = GFVariantData.get_option_vector3(sample, "scale")
+	if not _vector3_is_finite(position) or not _vector3_is_finite(rotation_degrees) or not _vector3_is_finite(scale):
+		return false
+
+	var next_position: Vector2 = target.position
+	var next_rotation_degrees: float = target.rotation_degrees
+	var next_scale: Vector2 = target.scale
+	var next_position_offset: Vector2 = Vector2.ZERO
+	var next_rotation_offset: float = 0.0
+	var next_scale_offset: Vector2 = Vector2.ZERO
 	if apply_position:
-		var position_offset: Vector2 = Vector2(position.x, position.y)
-		target.position = target.position - _last_position_offset + position_offset
-		_last_position_offset = position_offset
+		next_position_offset = Vector2(position.x, position.y)
+		next_position = target.position - _last_position_offset + next_position_offset
 	elif _last_position_offset != Vector2.ZERO:
-		target.position -= _last_position_offset
-		_last_position_offset = Vector2.ZERO
+		next_position = target.position - _last_position_offset
 	if apply_rotation:
-		target.rotation_degrees = target.rotation_degrees - _last_rotation_offset + rotation_degrees.z
-		_last_rotation_offset = rotation_degrees.z
+		next_rotation_offset = rotation_degrees.z
+		next_rotation_degrees = target.rotation_degrees - _last_rotation_offset + next_rotation_offset
 	elif not is_zero_approx(_last_rotation_offset):
-		target.rotation_degrees -= _last_rotation_offset
-		_last_rotation_offset = 0.0
+		next_rotation_degrees = target.rotation_degrees - _last_rotation_offset
 	if apply_scale:
-		var scale_offset: Vector2 = Vector2(scale.x, scale.y)
-		target.scale = target.scale - _last_scale_offset + scale_offset
-		_last_scale_offset = scale_offset
+		next_scale_offset = Vector2(scale.x, scale.y)
+		next_scale = target.scale - _last_scale_offset + next_scale_offset
 	elif _last_scale_offset != Vector2.ZERO:
-		target.scale -= _last_scale_offset
-		_last_scale_offset = Vector2.ZERO
+		next_scale = target.scale - _last_scale_offset
+	if not _transform_is_finite(next_position, next_rotation_degrees, next_scale):
+		return false
+
+	target.position = next_position
+	target.rotation_degrees = next_rotation_degrees
+	target.scale = next_scale
+	_last_position_offset = next_position_offset
+	_last_rotation_offset = next_rotation_offset
+	_last_scale_offset = next_scale_offset
 	return true
 
 
@@ -179,20 +214,25 @@ func apply_current_sample() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @return 恢复成功返回 true。
+## @since 3.17.0
+## [br]
+## @return: 恢复成功返回 true。
 func reset_to_base() -> bool:
 	var target: Node2D = get_target()
 	if target == null:
+		_clear_last_offsets()
 		return false
-	target.position -= _last_position_offset
-	target.rotation_degrees -= _last_rotation_offset
-	target.scale -= _last_scale_offset
-	_base_position = target.position
-	_base_rotation_degrees = target.rotation_degrees
-	_base_scale = target.scale
-	_last_position_offset = Vector2.ZERO
-	_last_rotation_offset = 0.0
-	_last_scale_offset = Vector2.ZERO
+	var next_position: Vector2 = _base_position if _has_captured_base else target.position - _last_position_offset
+	var next_rotation_degrees: float = (
+		_base_rotation_degrees if _has_captured_base else target.rotation_degrees - _last_rotation_offset
+	)
+	var next_scale: Vector2 = _base_scale if _has_captured_base else target.scale - _last_scale_offset
+	if not _transform_is_finite(next_position, next_rotation_degrees, next_scale):
+		return false
+	target.position = next_position
+	target.rotation_degrees = next_rotation_degrees
+	target.scale = next_scale
+	_clear_last_offsets()
 	return true
 
 
@@ -217,6 +257,8 @@ func _resolve_target() -> Node2D:
 
 
 func _rebind_target(should_capture_base: bool) -> void:
+	_clear_last_offsets()
+	_has_captured_base = false
 	var target: Node2D = _resolve_target()
 	_target_ref = weakref(target) if target != null else null
 	if should_capture_base:
@@ -235,3 +277,21 @@ func _get_shake_utility_value(value: Variant) -> GFShakeUtility:
 		var shake_utility: GFShakeUtility = value
 		return shake_utility
 	return null
+
+
+func _clear_last_offsets() -> void:
+	_last_position_offset = Vector2.ZERO
+	_last_rotation_offset = 0.0
+	_last_scale_offset = Vector2.ZERO
+
+
+func _transform_is_finite(position: Vector2, rotation_degrees: float, scale: Vector2) -> bool:
+	return _vector2_is_finite(position) and is_finite(rotation_degrees) and _vector2_is_finite(scale)
+
+
+func _vector2_is_finite(value: Vector2) -> bool:
+	return is_finite(value.x) and is_finite(value.y)
+
+
+func _vector3_is_finite(value: Vector3) -> bool:
+	return is_finite(value.x) and is_finite(value.y) and is_finite(value.z)

@@ -41,6 +41,7 @@
 ### `Direction`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 enum Direction {
@@ -58,6 +59,7 @@ enum Direction {
 ### `ValueType`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 enum ValueType {
@@ -91,6 +93,7 @@ enum ValueType {
 ### `port_id`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var port_id: StringName = &""
@@ -103,6 +106,7 @@ var port_id: StringName = &""
 ### `display_name`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var display_name: String = ""
@@ -115,6 +119,7 @@ var display_name: String = ""
 ### `direction`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var direction: Direction = Direction.OUTPUT
@@ -127,6 +132,7 @@ var direction: Direction = Direction.OUTPUT
 ### `value_type`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var value_type: ValueType = ValueType.ANY
@@ -139,6 +145,7 @@ var value_type: ValueType = ValueType.ANY
 ### `allow_multiple`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var allow_multiple: bool = false
@@ -151,6 +158,7 @@ var allow_multiple: bool = false
 ### `editor_color`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var editor_color: Color = Color.TRANSPARENT
@@ -163,6 +171,7 @@ var editor_color: Color = Color.TRANSPARENT
 ### `type_hint`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var type_hint: StringName = &""
@@ -175,6 +184,7 @@ var type_hint: StringName = &""
 ### `class_name_hint`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var class_name_hint: StringName = &""
@@ -187,6 +197,7 @@ Object / Resource 端口的类名提示。仅在项目或校验器显式使用�
 ### `semantic_tags`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var semantic_tags: PackedStringArray = PackedStringArray()
@@ -199,6 +210,7 @@ var semantic_tags: PackedStringArray = PackedStringArray()
 ### `metadata`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var metadata: Dictionary = {}
@@ -217,6 +229,7 @@ var metadata: Dictionary = {}
 ### `get_port_id`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func get_port_id() -> StringName:
@@ -231,6 +244,7 @@ func get_port_id() -> StringName:
 ### `get_display_name`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func get_display_name() -> String:
@@ -245,6 +259,7 @@ func get_display_name() -> String:
 ### `has_semantic_tag`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func has_semantic_tag(tag: StringName) -> bool:
@@ -265,6 +280,7 @@ func has_semantic_tag(tag: StringName) -> bool:
 ### `is_compatible_with`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func is_compatible_with(target_port: GFFlowPort) -> bool:
@@ -285,6 +301,7 @@ func is_compatible_with(target_port: GFFlowPort) -> bool:
 ### `get_compatibility_report`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func get_compatibility_report(target_port: GFFlowPort) -> Dictionary:
@@ -309,6 +326,7 @@ func get_compatibility_report(target_port: GFFlowPort) -> Dictionary:
 ### `describe`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func describe() -> Dictionary:

@@ -1,0 +1,135 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFPlatformBridgeRequest" path="addons/gf/standard/foundation/platform/gf_platform_bridge_request.gd" module="standard" extends="Resource" classDigest="260ca193f0e7545ce0dc4e32e71819f91a2b0d054e590d186e2a682e99248308">
+	<description>GFPlatformBridgeRequest: 平台桥接请求。
+用纯数据描述从 GF 或项目侧发往外部平台 adapter 的一次调用。它不执行调用，
+只为 JS bridge、native SDK bridge 或进程桥接提供统一请求载体。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">resource_definition</tag>
+		<tag name="since">8.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties>
+		<member kind="property" name="request_id" decorators="@export">
+			<signature>var request_id: StringName = &amp;""</signature>
+			<description>请求 ID。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="contract_id" decorators="@export">
+			<signature>var contract_id: StringName = &amp;""</signature>
+			<description>桥接契约 ID。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="method_id" decorators="@export">
+			<signature>var method_id: StringName = &amp;""</signature>
+			<description>方法 ID。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="payload" decorators="@export">
+			<signature>var payload: Dictionary = {}</signature>
+			<description>请求载荷。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">payload: Dictionary adapter-defined request payload.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="timeout_msec" decorators="@export">
+			<signature>var timeout_msec: int = 0</signature>
+			<description>超时时间，单位毫秒；小于等于 0 表示由调用方决定。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="metadata" decorators="@export">
+			<signature>var metadata: Dictionary = {}</signature>
+			<description>调用方元数据。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">metadata: Dictionary caller-defined request metadata.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="configure">
+			<signature>func configure( p_request_id: StringName, p_contract_id: StringName, p_method_id: StringName, p_payload: Dictionary = {}, p_timeout_msec: int = 0, p_metadata: Dictionary = {} ) -&gt; GFPlatformBridgeRequest:</signature>
+			<description>配置桥接请求。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">p_request_id: 请求 ID。</tag>
+				<tag name="param">p_contract_id: 桥接契约 ID。</tag>
+				<tag name="param">p_method_id: 方法 ID。</tag>
+				<tag name="param">p_payload: 请求载荷。</tag>
+				<tag name="param">p_timeout_msec: 超时时间，单位毫秒。</tag>
+				<tag name="param">p_metadata: 调用方元数据。</tag>
+				<tag name="return">当前请求。</tag>
+				<tag name="schema">p_payload: Dictionary adapter-defined request payload.</tag>
+				<tag name="schema">p_metadata: Dictionary caller-defined request metadata.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_empty">
+			<signature>func is_empty() -&gt; bool:</signature>
+			<description>检查请求是否缺少最小契约字段。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">缺少 request_id、contract_id 或 method_id 时返回 true。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="to_dict">
+			<signature>func to_dict() -&gt; Dictionary:</signature>
+			<description>转换为字典。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">桥接请求字典。</tag>
+				<tag name="schema">return: Dictionary platform bridge request.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="apply_dict">
+			<signature>func apply_dict(data: Dictionary) -&gt; void:</signature>
+			<description>从字典应用桥接请求字段。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">data: 桥接请求字典。</tag>
+				<tag name="schema">data: Dictionary platform bridge request.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="duplicate_request">
+			<signature>func duplicate_request() -&gt; GFPlatformBridgeRequest:</signature>
+			<description>创建桥接请求深拷贝。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">新桥接请求。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="from_dict">
+			<signature>static func from_dict(data: Dictionary) -&gt; GFPlatformBridgeRequest:</signature>
+			<description>从字典创建桥接请求。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">data: 桥接请求字典。</tag>
+				<tag name="return">新桥接请求。</tag>
+				<tag name="schema">data: Dictionary platform bridge request.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

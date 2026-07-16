@@ -101,36 +101,45 @@ func with_alias(alias_cls: Script) -> GFBindBuilder:
 ## 以单例语义完成绑定。
 ## [br]
 ## @api public
-func as_singleton() -> void:
+## [br]
+## @since 5.0.0
+## [br]
+## @return 绑定成功时返回 true。
+func as_singleton() -> bool:
 	if _architecture == null:
 		push_error("[GFBindBuilder] 架构为空，无法完成绑定。")
-		return
+		return false
 
 	if _target_kind == TargetKind.FACTORY:
-		_bind_factory(GFBindingLifetimesBase.Lifetime.SINGLETON)
-		return
+		return _bind_factory(GFBindingLifetimesBase.Lifetime.SINGLETON)
 
 	var instance: Object = _create_instance_from_source()
 	if instance == null:
-		return
+		return false
 
-	await _register_lifecycle_instance(instance)
-	_register_alias_if_needed(instance)
+	var registered: bool = await _register_lifecycle_instance(instance)
+	if not registered:
+		return false
+	return _register_alias_if_needed(instance)
 
 
 ## 以瞬态语义完成绑定。仅短生命周期工厂支持 transient。
 ## [br]
 ## @api public
-func as_transient() -> void:
+## [br]
+## @since 5.0.0
+## [br]
+## @return 绑定成功时返回 true。
+func as_transient() -> bool:
 	if _architecture == null:
 		push_error("[GFBindBuilder] 架构为空，无法完成绑定。")
-		return
+		return false
 
 	if _target_kind != TargetKind.FACTORY:
 		push_error("[GFBindBuilder] Model/System/Utility 是生命周期模块，不支持 as_transient()；请改用 bind_factory()。")
-		return
+		return false
 
-	_bind_factory(GFBindingLifetimesBase.Lifetime.TRANSIENT)
+	return _bind_factory(GFBindingLifetimesBase.Lifetime.TRANSIENT)
 
 
 # --- 私有/辅助方法 ---
@@ -164,55 +173,61 @@ func _create_instance_from_source() -> Object:
 			return null
 
 
-func _register_lifecycle_instance(instance: Object) -> void:
+func _register_lifecycle_instance(instance: Object) -> bool:
 	match _target_kind:
 		TargetKind.MODEL:
-			await _architecture.register_model_instance(instance)
+			return await _architecture.register_model_instance(instance)
 
 		TargetKind.SYSTEM:
-			await _architecture.register_system_instance(instance)
+			return await _architecture.register_system_instance(instance)
 
 		TargetKind.UTILITY:
-			await _architecture.register_utility_instance(instance)
+			return await _architecture.register_utility_instance(instance)
+	return false
 
 
-func _register_alias_if_needed(instance: Object) -> void:
+func _register_alias_if_needed(instance: Object) -> bool:
 	if _alias_cls == null or instance == null:
-		return
+		return true
 
 	var script: Script = _get_instance_script(instance)
 	if script == null:
-		return
+		return false
 
 	match _target_kind:
 		TargetKind.MODEL:
 			_architecture.register_model_alias(_alias_cls, script)
+			return true
 
 		TargetKind.SYSTEM:
 			_architecture.register_system_alias(_alias_cls, script)
+			return true
 
 		TargetKind.UTILITY:
 			_architecture.register_utility_alias(_alias_cls, script)
+			return true
+	return false
 
 
-func _bind_factory(lifetime: int) -> void:
+func _bind_factory(lifetime: int) -> bool:
 	match _source_kind:
 		SourceKind.SELF:
 			if _script_cls == null or not _script_cls.can_instantiate():
 				push_error("[GFBindBuilder] bind_factory() 需要可实例化的脚本类型。")
-				return
+				return false
 			var self_factory: Callable = func() -> Object:
 				return _instantiate_script_as_object(_script_cls)
-			_architecture.register_factory(_script_cls, self_factory, lifetime)
+			return _architecture.register_factory(_script_cls, self_factory, lifetime)
 
 		SourceKind.FACTORY:
-			_architecture.register_factory(_script_cls, _factory, lifetime)
+			return _architecture.register_factory(_script_cls, _factory, lifetime)
 
 		SourceKind.INSTANCE:
 			if lifetime == GFBindingLifetimesBase.Lifetime.TRANSIENT:
 				push_error("[GFBindBuilder] from_instance() 不支持 as_transient()；请改用 from_factory()。")
-				return
-			_architecture.register_factory_instance(_script_cls, _instance)
+				return false
+			return _architecture.register_factory_instance(_script_cls, _instance)
+	return false
 
 
 func _get_instance_script(instance: Object) -> Script:

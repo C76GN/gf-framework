@@ -22,6 +22,7 @@
 | 方法 | [`dispose`](#member-gfsurfaceutility-methods-dispose) | `func dispose() -> void:` |
 | 方法 | [`get_active_material`](#member-gfsurfaceutility-methods-get_active_material) | `func get_active_material(source: Object, face_index: int) -> Material:` |
 | 方法 | [`describe_surface_hit`](#member-gfsurfaceutility-methods-describe_surface_hit) | `func describe_surface_hit(source: Object, face_index: int) -> Dictionary:` |
+| 方法 | [`describe_mesh`](#member-gfsurfaceutility-methods-describe_mesh) | `func describe_mesh(source: Object) -> Dictionary:` |
 | 方法 | [`get_surface_override_material`](#member-gfsurfaceutility-methods-get_surface_override_material) | `func get_surface_override_material(source: Object, face_index: int) -> Material:` |
 | 方法 | [`get_base_material`](#member-gfsurfaceutility-methods-get_base_material) | `func get_base_material(source: Object, face_index: int) -> Material:` |
 | 方法 | [`get_surface_index`](#member-gfsurfaceutility-methods-get_surface_index) | `func get_surface_index(source: Object, face_index: int) -> int:` |
@@ -151,7 +152,32 @@ func describe_surface_hit(source: Object, face_index: int) -> Dictionary:
 
 结构：
 
-- `return`: Dictionary，包含 ok、reason、face_index、surface_index、base_material、override_material、active_material、has_*_material 以及对应 *_material_name、*_material_path、*_material_type 字段。
+- `return`: Dictionary，包含 ok、reason、face_index、surface_index、base_material、override_material、active_material、has_*_material 以及对应 *_material_name、*_material_path、*_material_type 字段；material 字段为 JSON-safe 资源摘要，不包含运行时 Object 引用。
+
+<a id="member-gfsurfaceutility-methods-describe_mesh"></a>
+
+### `describe_mesh`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func describe_mesh(source: Object) -> Dictionary:
+```
+
+描述 Mesh 的 surface 布局。 返回值只包含 Mesh、surface、primitive、顶点/索引/面数和材质摘要，适合编辑器工具、 导入预检、调试面板或日志检查 Mesh 结构；不会修改 Mesh、创建碰撞体或生成节点。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `source` | Mesh、MeshInstance3D、CollisionObject3D 或其相邻节点。 |
+
+返回：Mesh surface 布局报告；无法解析时 ok 为 false，并保留 reason。
+
+结构：
+
+- `return`: Dictionary，包含 ok、reason、mesh、mesh_name、mesh_path、mesh_type、surface_count、vertex_count、index_count、face_count、aabb_position、aabb_size 和 surfaces；mesh 与 material 字段为 JSON-safe 资源摘要，不包含运行时 Object 引用。
 
 <a id="member-gfsurfaceutility-methods-get_surface_override_material"></a>
 

@@ -81,7 +81,11 @@ signal tick_budget_exhausted(available_steps: int, processed_steps: int, remaini
 ## 每秒 tick 数。
 ## [br]
 ## @api public
-var tick_rate: float = 30.0
+## [br]
+## @since 3.17.0
+var tick_rate: float = 30.0:
+	set(value):
+		tick_rate = _normalize_positive_finite(value, 30.0)
 
 ## 当前 tick。
 ## [br]
@@ -91,7 +95,11 @@ var current_tick: int = 0
 ## 累积但尚未消费的时间。
 ## [br]
 ## @api public
-var accumulator_seconds: float = 0.0
+## [br]
+## @since 3.17.0
+var accumulator_seconds: float = 0.0:
+	set(value):
+		accumulator_seconds = value if value >= 0.0 and not is_nan(value) and not is_inf(value) else 0.0
 
 ## 单次 advance() 最多推进的 tick 数；小于等于 0 表示不限制。
 ## [br]
@@ -107,7 +115,7 @@ var drop_excess_time_on_budget_hit: bool = true
 # --- Godot 生命周期方法 ---
 
 func _init(p_tick_rate: float = 30.0, p_start_tick: int = 0) -> void:
-	tick_rate = maxf(p_tick_rate, 0.001)
+	tick_rate = _normalize_positive_finite(p_tick_rate, 30.0)
 	current_tick = p_start_tick
 
 
@@ -121,7 +129,7 @@ func _init(p_tick_rate: float = 30.0, p_start_tick: int = 0) -> void:
 ## [br]
 ## @param p_max_steps_per_update: 单次 advance() 最大步数；小于 0 表示保留原值。
 func configure(p_tick_rate: float, p_max_steps_per_update: int = -1) -> void:
-	tick_rate = maxf(p_tick_rate, 0.001)
+	tick_rate = _normalize_positive_finite(p_tick_rate, tick_rate)
 	if p_max_steps_per_update >= 0:
 		max_steps_per_update = p_max_steps_per_update
 
@@ -144,7 +152,7 @@ func reset(start_tick: int = 0) -> void:
 ## [br]
 ## @return 应执行的固定 tick 数。
 func advance(delta_seconds: float) -> int:
-	if delta_seconds <= 0.0:
+	if delta_seconds <= 0.0 or is_nan(delta_seconds) or is_inf(delta_seconds):
 		return 0
 
 	accumulator_seconds += delta_seconds
@@ -191,7 +199,7 @@ func step_once() -> int:
 ## [br]
 ## @return tick 秒数。
 func get_tick_seconds() -> float:
-	return 1.0 / maxf(tick_rate, 0.001)
+	return 1.0 / _normalize_positive_finite(tick_rate, 30.0)
 
 
 ## 获取插值 alpha。
@@ -246,11 +254,14 @@ func to_dict() -> Dictionary:
 ## [br]
 ## @schema data: Dictionary，包含 tick_rate、current_tick、accumulator_seconds、max_steps_per_update、drop_excess_time_on_budget_hit。
 func from_dict(data: Dictionary) -> void:
-	tick_rate = maxf(GFVariantData.get_option_float(data, "tick_rate", tick_rate), 0.001)
+	tick_rate = _normalize_positive_finite(
+		GFVariantData.get_option_float(data, "tick_rate", tick_rate),
+		tick_rate
+	)
 	current_tick = GFVariantData.get_option_int(data, "current_tick", current_tick)
-	accumulator_seconds = maxf(
+	accumulator_seconds = _normalize_non_negative_finite(
 		GFVariantData.get_option_float(data, "accumulator_seconds", accumulator_seconds),
-		0.0
+		accumulator_seconds
 	)
 	max_steps_per_update = GFVariantData.get_option_int(
 		data,
@@ -295,3 +306,19 @@ func _advance_steps(step_count: int, tick_seconds: float) -> void:
 		current_tick = next_tick
 		tick_finished.emit(current_tick, tick_seconds)
 	tick_loop_finished.emit(previous_tick, current_tick, step_count)
+
+
+func _normalize_positive_finite(value: float, fallback: float) -> float:
+	if value > 0.0 and not is_nan(value) and not is_inf(value):
+		return value
+	if fallback > 0.0 and not is_nan(fallback) and not is_inf(fallback):
+		return fallback
+	return 30.0
+
+
+func _normalize_non_negative_finite(value: float, fallback: float) -> float:
+	if value >= 0.0 and not is_nan(value) and not is_inf(value):
+		return value
+	if fallback >= 0.0 and not is_nan(fallback) and not is_inf(fallback):
+		return fallback
+	return 0.0

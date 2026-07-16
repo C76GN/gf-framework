@@ -9,7 +9,7 @@
 - 类别：运行时服务 (`runtime_service`)
 - 首次版本：`3.17.0`
 
-运行时诊断聚合工具。 提供架构生命周期、事件系统、性能、日志和外部贡献诊断的统一快照。 诊断命令、监控项和快照分区通过 Callable 注册，框架只负责调度和包装结果，不解释项目业务数据。
+运行时诊断聚合工具。 提供架构生命周期、事件系统、性能、日志和外部贡献诊断的统一快照。 外部监控和快照贡献采用 owner-bound 发布模型；采集路径只读取已验证缓存，不执行项目回调。
 
 ## 成员概览
 
@@ -36,11 +36,15 @@
 | 属性 | [`encode_command_results_for_json`](#member-gfdiagnosticsutility-properties-encode_command_results_for_json) | `var encode_command_results_for_json: bool = false` |
 | 属性 | [`default_scene_tree_max_depth`](#member-gfdiagnosticsutility-properties-default_scene_tree_max_depth) | `var default_scene_tree_max_depth: int = 4` |
 | 属性 | [`default_scene_tree_max_nodes`](#member-gfdiagnosticsutility-properties-default_scene_tree_max_nodes) | `var default_scene_tree_max_nodes: int = 128` |
+| 属性 | [`max_contribution_collection_items`](#member-gfdiagnosticsutility-properties-max_contribution_collection_items) | `var max_contribution_collection_items: int = 64:` |
+| 属性 | [`max_contribution_nodes`](#member-gfdiagnosticsutility-properties-max_contribution_nodes) | `var max_contribution_nodes: int = 2048:` |
+| 属性 | [`max_contribution_depth`](#member-gfdiagnosticsutility-properties-max_contribution_depth) | `var max_contribution_depth: int = 16:` |
+| 属性 | [`max_contribution_bytes`](#member-gfdiagnosticsutility-properties-max_contribution_bytes) | `var max_contribution_bytes: int = 262_144:` |
 | 方法 | [`init`](#member-gfdiagnosticsutility-methods-init) | `func init() -> void:` |
 | 方法 | [`ready`](#member-gfdiagnosticsutility-methods-ready) | `func ready() -> void:` |
 | 方法 | [`dispose`](#member-gfdiagnosticsutility-methods-dispose) | `func dispose() -> void:` |
-| 方法 | [`register_command`](#member-gfdiagnosticsutility-methods-register_command) | `func register_command( command_name: StringName, callback: Callable, description: String = "", tier: CommandTier = CommandTier.OBSERVE, options: Dictionary = {} ) -> void:` |
-| 方法 | [`unregister_command`](#member-gfdiagnosticsutility-methods-unregister_command) | `func unregister_command(command_name: StringName) -> void:` |
+| 方法 | [`register_command`](#member-gfdiagnosticsutility-methods-register_command) | `func register_command( owner: Object, command_name: StringName, callback: Callable, description: String = "", tier: CommandTier = CommandTier.OBSERVE, options: Dictionary = {} ) -> bool:` |
+| 方法 | [`unregister_command`](#member-gfdiagnosticsutility-methods-unregister_command) | `func unregister_command(owner: Object, command_name: StringName) -> bool:` |
 | 方法 | [`has_command`](#member-gfdiagnosticsutility-methods-has_command) | `func has_command(command_name: StringName) -> bool:` |
 | 方法 | [`set_command_parameter_schema`](#member-gfdiagnosticsutility-methods-set_command_parameter_schema) | `func set_command_parameter_schema(command_name: StringName, parameters: Variant) -> bool:` |
 | 方法 | [`set_command_enabled`](#member-gfdiagnosticsutility-methods-set_command_enabled) | `func set_command_enabled(command_name: StringName, enabled: bool) -> bool:` |
@@ -48,8 +52,9 @@
 | 方法 | [`is_command_enabled`](#member-gfdiagnosticsutility-methods-is_command_enabled) | `func is_command_enabled(command_name: StringName) -> bool:` |
 | 方法 | [`get_command_descriptions`](#member-gfdiagnosticsutility-methods-get_command_descriptions) | `func get_command_descriptions() -> Dictionary:` |
 | 方法 | [`get_command_catalog`](#member-gfdiagnosticsutility-methods-get_command_catalog) | `func get_command_catalog() -> Dictionary:` |
-| 方法 | [`register_monitor`](#member-gfdiagnosticsutility-methods-register_monitor) | `func register_monitor(monitor_id: StringName, provider: Callable, options: Dictionary = {}) -> bool:` |
-| 方法 | [`unregister_monitor`](#member-gfdiagnosticsutility-methods-unregister_monitor) | `func unregister_monitor(monitor_id: StringName) -> void:` |
+| 方法 | [`register_monitor`](#member-gfdiagnosticsutility-methods-register_monitor) | `func register_monitor(owner: Object, monitor_id: StringName, options: Dictionary = {}) -> bool:` |
+| 方法 | [`publish_monitor_sample`](#member-gfdiagnosticsutility-methods-publish_monitor_sample) | `func publish_monitor_sample( owner: Object, monitor_id: StringName, value: Variant, sample_metadata: Dictionary = {} ) -> bool:` |
+| 方法 | [`unregister_monitor`](#member-gfdiagnosticsutility-methods-unregister_monitor) | `func unregister_monitor(owner: Object, monitor_id: StringName) -> bool:` |
 | 方法 | [`has_monitor`](#member-gfdiagnosticsutility-methods-has_monitor) | `func has_monitor(monitor_id: StringName) -> bool:` |
 | 方法 | [`get_monitor_catalog`](#member-gfdiagnosticsutility-methods-get_monitor_catalog) | `func get_monitor_catalog() -> Dictionary:` |
 | 方法 | [`register_monitor_preset`](#member-gfdiagnosticsutility-methods-register_monitor_preset) | `func register_monitor_preset( preset_id: StringName, monitor_ids: PackedStringArray, options: Dictionary = {} ) -> bool:` |
@@ -57,12 +62,12 @@
 | 方法 | [`unregister_monitor_preset`](#member-gfdiagnosticsutility-methods-unregister_monitor_preset) | `func unregister_monitor_preset(preset_id: StringName) -> void:` |
 | 方法 | [`has_monitor_preset`](#member-gfdiagnosticsutility-methods-has_monitor_preset) | `func has_monitor_preset(preset_id: StringName) -> bool:` |
 | 方法 | [`get_monitor_preset_ids`](#member-gfdiagnosticsutility-methods-get_monitor_preset_ids) | `func get_monitor_preset_ids() -> PackedStringArray:` |
-| 方法 | [`register_snapshot_section_provider`](#member-gfdiagnosticsutility-methods-register_snapshot_section_provider) | `func register_snapshot_section_provider(section_id: StringName, provider: Callable) -> bool:` |
-| 方法 | [`unregister_snapshot_section_provider`](#member-gfdiagnosticsutility-methods-unregister_snapshot_section_provider) | `func unregister_snapshot_section_provider(section_id: StringName) -> void:` |
-| 方法 | [`has_snapshot_section_provider`](#member-gfdiagnosticsutility-methods-has_snapshot_section_provider) | `func has_snapshot_section_provider(section_id: StringName) -> bool:` |
-| 方法 | [`register_tool_snapshot_provider`](#member-gfdiagnosticsutility-methods-register_tool_snapshot_provider) | `func register_tool_snapshot_provider(tool_id: StringName, provider: Callable) -> bool:` |
-| 方法 | [`unregister_tool_snapshot_provider`](#member-gfdiagnosticsutility-methods-unregister_tool_snapshot_provider) | `func unregister_tool_snapshot_provider(tool_id: StringName) -> void:` |
-| 方法 | [`has_tool_snapshot_provider`](#member-gfdiagnosticsutility-methods-has_tool_snapshot_provider) | `func has_tool_snapshot_provider(tool_id: StringName) -> bool:` |
+| 方法 | [`publish_snapshot_section`](#member-gfdiagnosticsutility-methods-publish_snapshot_section) | `func publish_snapshot_section(owner: Object, section_id: StringName, section: Dictionary) -> bool:` |
+| 方法 | [`remove_snapshot_section`](#member-gfdiagnosticsutility-methods-remove_snapshot_section) | `func remove_snapshot_section(owner: Object, section_id: StringName) -> bool:` |
+| 方法 | [`has_snapshot_section`](#member-gfdiagnosticsutility-methods-has_snapshot_section) | `func has_snapshot_section(section_id: StringName) -> bool:` |
+| 方法 | [`publish_tool_snapshot`](#member-gfdiagnosticsutility-methods-publish_tool_snapshot) | `func publish_tool_snapshot(owner: Object, tool_id: StringName, snapshot: Dictionary) -> bool:` |
+| 方法 | [`remove_tool_snapshot`](#member-gfdiagnosticsutility-methods-remove_tool_snapshot) | `func remove_tool_snapshot(owner: Object, tool_id: StringName) -> bool:` |
+| 方法 | [`has_tool_snapshot`](#member-gfdiagnosticsutility-methods-has_tool_snapshot) | `func has_tool_snapshot(tool_id: StringName) -> bool:` |
 | 方法 | [`collect_monitor_snapshot`](#member-gfdiagnosticsutility-methods-collect_monitor_snapshot) | `func collect_monitor_snapshot( monitor_ids: PackedStringArray = PackedStringArray(), include_hidden: bool = false ) -> Dictionary:` |
 | 方法 | [`collect_monitor_preset`](#member-gfdiagnosticsutility-methods-collect_monitor_preset) | `func collect_monitor_preset(preset_id: StringName, include_hidden: bool = false) -> Dictionary:` |
 | 方法 | [`export_monitor_snapshot`](#member-gfdiagnosticsutility-methods-export_monitor_snapshot) | `func export_monitor_snapshot(snapshot: Dictionary, format: StringName = &"json") -> String:` |
@@ -386,6 +391,58 @@ var default_scene_tree_max_nodes: int = 128
 
 场景树快照默认最多采集节点数。
 
+<a id="member-gfdiagnosticsutility-properties-max_contribution_collection_items"></a>
+
+### `max_contribution_collection_items`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+var max_contribution_collection_items: int = 64:
+```
+
+外部诊断贡献的单个容器最多包含的元素数量。
+
+<a id="member-gfdiagnosticsutility-properties-max_contribution_nodes"></a>
+
+### `max_contribution_nodes`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+var max_contribution_nodes: int = 2048:
+```
+
+外部诊断贡献最多包含的 Variant 节点数量。
+
+<a id="member-gfdiagnosticsutility-properties-max_contribution_depth"></a>
+
+### `max_contribution_depth`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+var max_contribution_depth: int = 16:
+```
+
+外部诊断贡献允许的最大集合嵌套深度。
+
+<a id="member-gfdiagnosticsutility-properties-max_contribution_bytes"></a>
+
+### `max_contribution_bytes`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+var max_contribution_bytes: int = 262_144:
+```
+
+外部诊断贡献允许保留的估算字节数。 该预算用于阻止诊断系统长期保留异常大的字符串、PackedArray 或集合，不代表精确内存占用。
+
 ## 方法
 
 <a id="member-gfdiagnosticsutility-methods-init"></a>
@@ -429,9 +486,10 @@ func dispose() -> void:
 ### `register_command`
 
 - API：`public`
+- 首次版本：`3.0.0`
 
 ```gdscript
-func register_command( command_name: StringName, callback: Callable, description: String = "", tier: CommandTier = CommandTier.OBSERVE, options: Dictionary = {} ) -> void:
+func register_command( owner: Object, command_name: StringName, callback: Callable, description: String = "", tier: CommandTier = CommandTier.OBSERVE, options: Dictionary = {} ) -> bool:
 ```
 
 注册诊断命令。
@@ -440,11 +498,14 @@ func register_command( command_name: StringName, callback: Callable, description
 
 | 名称 | 说明 |
 |---|---|
+| `owner` | 命令注册所有者；同名命令只允许同一 owner 更新。 |
 | `command_name` | 命令名。 |
 | `callback` | 回调，签名建议为 func(args: Dictionary) -> Variant。 |
 | `description` | 描述文本。 |
 | `tier` | 命令风险等级。 |
 | `options` | 可选元数据，支持 parameters、metadata、enabled。 |
+
+返回：注册成功返回 true；同名命令属于其他 owner 时返回 false。
 
 结构：
 
@@ -455,9 +516,10 @@ func register_command( command_name: StringName, callback: Callable, description
 ### `unregister_command`
 
 - API：`public`
+- 首次版本：`3.0.0`
 
 ```gdscript
-func unregister_command(command_name: StringName) -> void:
+func unregister_command(owner: Object, command_name: StringName) -> bool:
 ```
 
 注销诊断命令。
@@ -466,7 +528,10 @@ func unregister_command(command_name: StringName) -> void:
 
 | 名称 | 说明 |
 |---|---|
+| `owner` | 当前命令注册所有者。 |
 | `command_name` | 命令名。 |
+
+返回：owner 匹配且成功注销时返回 true。
 
 <a id="member-gfdiagnosticsutility-methods-has_command"></a>
 
@@ -616,35 +681,66 @@ func get_command_catalog() -> Dictionary:
 ### `register_monitor`
 
 - API：`public`
+- 首次版本：`3.0.0`
 
 ```gdscript
-func register_monitor(monitor_id: StringName, provider: Callable, options: Dictionary = {}) -> bool:
+func register_monitor(owner: Object, monitor_id: StringName, options: Dictionary = {}) -> bool:
 ```
 
-注册诊断监控项。
+注册一个由 owner 主动发布采样值的诊断监控项。
 
 参数：
 
 | 名称 | 说明 |
 |---|---|
+| `owner` | 监控项注册所有者；同名监控项只允许同一 owner 更新。 |
 | `monitor_id` | 监控项唯一标识。 |
-| `provider` | 无参数采样回调。 |
-| `options` | 可选元数据，支持 label、group、visible、metadata、min_interval_seconds。 |
+| `options` | 可选元数据，支持 label、group、visible 和 metadata。 |
 
 返回：注册成功返回 true。
 
 结构：
 
-- `options`: Dictionary，支持 label、group、visible、metadata 和 min_interval_seconds。
+- `options`: Dictionary，支持 label、group、visible 和 metadata。
+
+<a id="member-gfdiagnosticsutility-methods-publish_monitor_sample"></a>
+
+### `publish_monitor_sample`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func publish_monitor_sample( owner: Object, monitor_id: StringName, value: Variant, sample_metadata: Dictionary = {} ) -> bool:
+```
+
+发布一个监控采样值。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `owner` | 当前监控项注册所有者。 |
+| `monitor_id` | 监控项唯一标识。 |
+| `value` | 要缓存的采样值；采集阶段不会执行该值中的 Callable。 |
+| `sample_metadata` | 本次采样元数据。 |
+
+返回：owner 匹配且值通过贡献预算时返回 true；失败时保留上一份有效采样。
+
+结构：
+
+- `value`: 任意 Variant 报告值；写入前由 GFReportValueCodec 编码，循环引用或超出诊断贡献预算时拒绝。
+- `sample_metadata`: JSON 兼容 Dictionary。
 
 <a id="member-gfdiagnosticsutility-methods-unregister_monitor"></a>
 
 ### `unregister_monitor`
 
 - API：`public`
+- 首次版本：`3.0.0`
 
 ```gdscript
-func unregister_monitor(monitor_id: StringName) -> void:
+func unregister_monitor(owner: Object, monitor_id: StringName) -> bool:
 ```
 
 注销诊断监控项。
@@ -653,7 +749,10 @@ func unregister_monitor(monitor_id: StringName) -> void:
 
 | 名称 | 说明 |
 |---|---|
+| `owner` | 当前监控项注册所有者。 |
 | `monitor_id` | 监控项唯一标识。 |
+
+返回：owner 匹配且成功注销时返回 true。
 
 <a id="member-gfdiagnosticsutility-methods-has_monitor"></a>
 
@@ -680,6 +779,7 @@ func has_monitor(monitor_id: StringName) -> bool:
 ### `get_monitor_catalog`
 
 - API：`public`
+- 首次版本：`3.0.0`
 
 ```gdscript
 func get_monitor_catalog() -> Dictionary:
@@ -691,7 +791,7 @@ func get_monitor_catalog() -> Dictionary:
 
 结构：
 
-- `return`: Dictionary[StringName, Dictionary]，每个值包含 label、group、visible、metadata 和 min_interval_seconds。
+- `return`: Dictionary[StringName, Dictionary]，每个值包含 label、group、visible、metadata 和 has_published_value。
 
 <a id="member-gfdiagnosticsutility-methods-register_monitor_preset"></a>
 
@@ -792,56 +892,67 @@ func get_monitor_preset_ids() -> PackedStringArray:
 
 返回：预设标识列表。
 
-<a id="member-gfdiagnosticsutility-methods-register_snapshot_section_provider"></a>
+<a id="member-gfdiagnosticsutility-methods-publish_snapshot_section"></a>
 
-### `register_snapshot_section_provider`
+### `publish_snapshot_section`
 
 - API：`public`
+- 首次版本：`8.0.0`
 
 ```gdscript
-func register_snapshot_section_provider(section_id: StringName, provider: Callable) -> bool:
+func publish_snapshot_section(owner: Object, section_id: StringName, section: Dictionary) -> bool:
 ```
 
-注册快照分区 provider。用于扩展或项目把自己的诊断数据贡献到 collect_snapshot() 顶层字段。
+发布快照分区。用于扩展或项目把自己的诊断数据贡献到 collect_snapshot() 顶层字段。
 
 参数：
 
 | 名称 | 说明 |
 |---|---|
+| `owner` | 分区所有者；同名分区只允许同一 owner 更新。 |
 | `section_id` | 快照顶层字段名。 |
-| `provider` | 无参数采样回调，建议返回 Dictionary。 |
+| `section` | 要缓存的分区快照，必须满足诊断贡献预算。 |
 
 返回：注册成功返回 true。
 
-<a id="member-gfdiagnosticsutility-methods-unregister_snapshot_section_provider"></a>
+结构：
 
-### `unregister_snapshot_section_provider`
+- `section`: Dictionary 报告快照；写入前由 GFReportValueCodec 编码，循环引用或超出诊断贡献预算时拒绝。
+
+<a id="member-gfdiagnosticsutility-methods-remove_snapshot_section"></a>
+
+### `remove_snapshot_section`
 
 - API：`public`
+- 首次版本：`8.0.0`
 
 ```gdscript
-func unregister_snapshot_section_provider(section_id: StringName) -> void:
+func remove_snapshot_section(owner: Object, section_id: StringName) -> bool:
 ```
 
-注销快照分区 provider。
+移除快照分区。
 
 参数：
 
 | 名称 | 说明 |
 |---|---|
+| `owner` | 当前分区所有者。 |
 | `section_id` | 快照顶层字段名。 |
 
-<a id="member-gfdiagnosticsutility-methods-has_snapshot_section_provider"></a>
+返回：owner 匹配且成功注销时返回 true。
 
-### `has_snapshot_section_provider`
+<a id="member-gfdiagnosticsutility-methods-has_snapshot_section"></a>
+
+### `has_snapshot_section`
 
 - API：`public`
+- 首次版本：`8.0.0`
 
 ```gdscript
-func has_snapshot_section_provider(section_id: StringName) -> bool:
+func has_snapshot_section(section_id: StringName) -> bool:
 ```
 
-检查快照分区 provider 是否存在。
+检查快照分区是否存在。
 
 参数：
 
@@ -851,56 +962,67 @@ func has_snapshot_section_provider(section_id: StringName) -> bool:
 
 返回：存在返回 true。
 
-<a id="member-gfdiagnosticsutility-methods-register_tool_snapshot_provider"></a>
+<a id="member-gfdiagnosticsutility-methods-publish_tool_snapshot"></a>
 
-### `register_tool_snapshot_provider`
+### `publish_tool_snapshot`
 
 - API：`public`
+- 首次版本：`8.0.0`
 
 ```gdscript
-func register_tool_snapshot_provider(tool_id: StringName, provider: Callable) -> bool:
+func publish_tool_snapshot(owner: Object, tool_id: StringName, snapshot: Dictionary) -> bool:
 ```
 
-注册工具快照 provider。用于扩展或项目把 get_debug_snapshot() 风格数据贡献到 tools 字段。
+发布工具快照。用于扩展或项目把 get_debug_snapshot() 风格数据贡献到 tools 字段。
 
 参数：
 
 | 名称 | 说明 |
 |---|---|
+| `owner` | 快照所有者；同名工具只允许同一 owner 更新。 |
 | `tool_id` | tools 内部字段名。 |
-| `provider` | 无参数采样回调，建议返回 Dictionary。 |
+| `snapshot` | 要缓存的工具快照，必须满足诊断贡献预算。 |
 
 返回：注册成功返回 true。
 
-<a id="member-gfdiagnosticsutility-methods-unregister_tool_snapshot_provider"></a>
+结构：
 
-### `unregister_tool_snapshot_provider`
+- `snapshot`: Dictionary 报告快照；写入前由 GFReportValueCodec 编码，循环引用或超出诊断贡献预算时拒绝。
+
+<a id="member-gfdiagnosticsutility-methods-remove_tool_snapshot"></a>
+
+### `remove_tool_snapshot`
 
 - API：`public`
+- 首次版本：`8.0.0`
 
 ```gdscript
-func unregister_tool_snapshot_provider(tool_id: StringName) -> void:
+func remove_tool_snapshot(owner: Object, tool_id: StringName) -> bool:
 ```
 
-注销工具快照 provider。
+移除工具快照。
 
 参数：
 
 | 名称 | 说明 |
 |---|---|
+| `owner` | 当前快照所有者。 |
 | `tool_id` | tools 内部字段名。 |
 
-<a id="member-gfdiagnosticsutility-methods-has_tool_snapshot_provider"></a>
+返回：owner 匹配且成功注销时返回 true。
 
-### `has_tool_snapshot_provider`
+<a id="member-gfdiagnosticsutility-methods-has_tool_snapshot"></a>
+
+### `has_tool_snapshot`
 
 - API：`public`
+- 首次版本：`8.0.0`
 
 ```gdscript
-func has_tool_snapshot_provider(tool_id: StringName) -> bool:
+func has_tool_snapshot(tool_id: StringName) -> bool:
 ```
 
-检查工具快照 provider 是否存在。
+检查工具快照是否存在。
 
 参数：
 
@@ -1107,7 +1229,7 @@ func collect_snapshot(options: Dictionary = {}) -> Dictionary:
 结构：
 
 - `options`: Dictionary，支持 recent_log_count、include_recent_logs、include_scene_tree、scene_tree_options、include_signal_graph、signal_graph_options、include_monitors、monitor_preset、monitor_ids、include_hidden_monitors。
-- `return`: Dictionary，包含 timestamp_unix、engine、build、architecture、event_system、performance、logs、tools，可选 scene_tree、signal_graph、monitors 和注册分区。
+- `return`: Dictionary，包含 timestamp_unix、engine、build、architecture、event_system、performance、logs、tools，可选 scene_tree、signal_graph、monitors 和已发布分区。
 
 <a id="member-gfdiagnosticsutility-methods-get_debugger_bridge_state"></a>
 

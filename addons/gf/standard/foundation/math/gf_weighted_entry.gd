@@ -20,10 +20,14 @@ extends Resource
 ## @schema value: Variant selected value owned by project code.
 @export var value: Variant = null
 
-## 权重；小于等于 0 的条目不会被选择。
+## 权重；必须是有限正数才会被选择。
 ## [br]
 ## @api public
-@export_range(0.0, 1000000000000.0, 0.001, "or_greater") var weight: float = 1.0
+## [br]
+## @since 3.17.0
+@export_range(0.0, 1000000000000.0, 0.001, "or_greater") var weight: float = 1.0:
+	set(raw_weight):
+		weight = _normalize_weight(raw_weight)
 
 ## 项目层可选元数据，框架不解释其含义。
 ## [br]
@@ -39,11 +43,13 @@ extends Resource
 ## [br]
 ## @api public
 ## [br]
+## @since 8.0.0
+## [br]
 ## @param p_value: 被选择后返回的值。
 ## [br]
 ## @schema p_value: Variant selected value owned by project code.
 ## [br]
-## @param p_weight: 权重；小于等于 0 表示不可被选择。
+## @param p_weight: 权重；非有限数或小于等于 0 表示不可被选择。
 ## [br]
 ## @param p_metadata: 可选元数据。
 ## [br]
@@ -61,9 +67,11 @@ func configure(p_value: Variant, p_weight: float = 1.0, p_metadata: Dictionary =
 ## [br]
 ## @api public
 ## [br]
-## @return 权重大于 0 时返回 true。
+## @since 8.0.0
+## [br]
+## @return 权重为有限正数时返回 true。
 func is_selectable() -> bool:
-	return weight > 0.0
+	return weight > 0.0 and not is_nan(weight) and not is_inf(weight)
 
 
 ## 复制当前条目。
@@ -112,3 +120,12 @@ static func from_dict(data: Dictionary) -> GFWeightedEntry:
 	var raw_metadata: Variant = GFVariantData.get_option_value(data, "metadata", {})
 	entry.metadata = GFVariantData.as_dictionary(raw_metadata)
 	return entry
+
+
+# --- 私有/辅助方法 ---
+
+static func _normalize_weight(raw_weight: float) -> float:
+	if is_nan(raw_weight) or is_inf(raw_weight):
+		push_error("[GFWeightedEntry] weight 必须是有限数字，已重置为 0。")
+		return 0.0
+	return raw_weight

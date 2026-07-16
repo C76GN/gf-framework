@@ -7,7 +7,7 @@
 | 类别 | 类 | 成员 | 方法 |
 |---|---:|---:|---:|
 | [运行时服务](#category-runtime_service) | 1 | 2 | 2 |
-| [运行时句柄](#category-runtime_handle) | 5 | 78 | 25 |
+| [运行时句柄](#category-runtime_handle) | 5 | 80 | 27 |
 
 ## 类
 

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSavePipelineEvent" path="addons/gf/extensions/save/pipeline/gf_save_pipeline_event.gd" module="extensions/save" extends="RefCounted" classDigest="d5678da51926c8a036a48024e9f404be926704f6100df06d9c7af417dd8841db">
+<class name="GFSavePipelineEvent" path="addons/gf/extensions/save/pipeline/gf_save_pipeline_event.gd" module="extensions/save" extends="RefCounted" classDigest="6f19d709245d1f24225a674b58ca99c167678473d8e00ea1d7279ceaa6dda623">
 	<description>GFSavePipelineEvent: 存档图流程事件。
 用于描述 GFSaveGraphUtility 在采集/应用过程中的通用阶段、Scope、Source
 与诊断信息。事件本身不携带业务字段，项目层可通过 payload 扩展。</description>
@@ -17,6 +17,7 @@
 			<description>流程阶段标识。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="severity">
@@ -24,6 +25,7 @@
 			<description>事件严重级别，建议使用 info/warning/error。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="scope_key">
@@ -31,6 +33,7 @@
 			<description>事件关联的作用域键。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="source_key">
@@ -38,6 +41,7 @@
 			<description>事件关联的来源键。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="node_path">
@@ -45,6 +49,7 @@
 			<description>事件关联节点路径。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="message">
@@ -52,6 +57,7 @@
 			<description>面向调试的短消息。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="payload">
@@ -60,6 +66,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="schema">payload: Dictionary，项目或流程步骤附加的诊断字段。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="timestamp_msec">
@@ -67,6 +74,7 @@
 			<description>事件创建时间。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</properties>
@@ -84,6 +92,7 @@
 				<tag name="param">p_severity: 严重级别。</tag>
 				<tag name="return">当前事件。</tag>
 				<tag name="schema">p_payload: Dictionary，项目或流程步骤附加的诊断字段。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="to_dict">
@@ -92,7 +101,8 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">事件字典。</tag>
-				<tag name="schema">return: Dictionary，包含 stage、severity、scope_key、source_key、node_path、message、payload 与 timestamp_msec。</tag>
+				<tag name="schema">return: Dictionary，包含 stage、severity、scope_key、source_key、node_path、message、JSON-safe payload 与 timestamp_msec。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="from_dict">
@@ -103,6 +113,7 @@
 				<tag name="param">data: 事件字典。</tag>
 				<tag name="return">新事件。</tag>
 				<tag name="schema">data: Dictionary，可包含 stage、severity、scope_key、source_key、node_path、message、payload 与 timestamp_msec。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</methods>

@@ -6,6 +6,7 @@
       "res://tests/gf_core/extensions/action_queue/test_gf_visual_actions.gd"
     ],
     "gf.extension.asset_metadata": [
+      "res://tests/gf_core/extensions/asset_metadata/test_gf_asset_attribution_tools.gd",
       "res://tests/gf_core/extensions/asset_metadata/test_gf_asset_metadata_record.gd",
       "res://tests/gf_core/extensions/asset_metadata/test_gf_asset_metadata_gltf_document_extension.gd",
       "res://tests/gf_core/extensions/asset_metadata/test_gf_asset_metadata_utility.gd"
@@ -65,6 +66,7 @@
       "res://tests/gf_core/extensions/turn_based/test_gf_turn_flow_system.gd"
     ],
     "gf.kernel": [
+      "res://tests/gf_core/kernel/core/test_gf_report_value_codec.gd",
       "res://tests/gf_core/kernel/core/test_gf_singleton.gd",
       "res://tests/gf_core/kernel/editor/test_gf_bake_dependency_report.gd",
       "res://tests/gf_core/kernel/editor/test_gf_editor_command_tools.gd",
@@ -76,6 +78,7 @@
     ],
     "gf.standard.assets": [
       "res://tests/gf_core/standard/utilities/assets/test_gf_asset_utility.gd",
+      "res://tests/gf_core/standard/utilities/assets/test_gf_threaded_resource_coordinator.gd",
       "res://tests/gf_core/standard/utilities/assets/test_gf_import_plan.gd",
       "res://tests/gf_core/standard/utilities/assets/test_gf_resource_load_state.gd",
       "res://tests/gf_core/standard/utilities/assets/test_gf_resource_property_patch.gd",
@@ -83,33 +86,44 @@
       "res://tests/gf_core/standard/utilities/assets/test_gf_script_structure_tools.gd",
       "res://tests/gf_core/standard/utilities/assets/test_gf_texture_set_classifier.gd",
       "res://tests/gf_core/standard/utilities/assets/test_gf_resource_registry.gd",
+      "res://tests/gf_core/standard/utilities/assets/test_gf_resource_registry_tools.gd",
+      "res://tests/gf_core/standard/utilities/assets/test_gf_resource_resolver_utility.gd",
       "res://tests/gf_core/standard/utilities/io/test_gf_remote_cache_utility.gd",
       "res://tests/gf_core/standard/utilities/io/test_gf_async_batch.gd",
+      "res://tests/gf_core/standard/utilities/io/test_gf_path_enumeration_tools.gd",
+      "res://tests/gf_core/standard/utilities/io/test_gf_directory_watch_utility.gd",
       "res://tests/gf_core/standard/utilities/io/test_gf_protocol_ack_ledger.gd",
       "res://tests/gf_core/standard/utilities/io/test_gf_source_text_loader.gd",
       "res://tests/gf_core/standard/utilities/jobs/test_gf_background_work_utility.gd",
+      "res://tests/gf_core/standard/utilities/scene/test_gf_scene_contract_tools.gd",
+      "res://tests/gf_core/standard/utilities/scene/test_gf_scene_preload_map.gd",
       "res://tests/gf_core/standard/utilities/scene/test_gf_scene_utility.gd"
     ],
     "gf.standard.audio": [
-      "res://tests/gf_core/standard/utilities/audio/test_gf_audio_bank_tools.gd",
       "res://tests/gf_core/standard/utilities/audio/test_gf_audio_pitch_analysis_tools.gd",
       "res://tests/gf_core/standard/utilities/audio/test_gf_audio_metadata_tools.gd",
       "res://tests/gf_core/standard/utilities/audio/test_gf_audio_utility.gd"
     ],
     "gf.standard.audio.editor": [
+      "res://tests/gf_core/standard/utilities/audio/test_gf_audio_bank_tools.gd",
       "res://tests/gf_core/standard/utilities/audio/editor/test_gf_audio_editor_package.gd"
     ],
     "gf.standard.base": [
       "res://tests/gf_core/standard/foundation/schema/test_gf_dictionary_schema.gd",
+      "res://tests/gf_core/standard/foundation/tags/test_gf_tag_catalog.gd",
       "res://tests/gf_core/standard/common/test_gf_async_keyed_gate_and_requests.gd",
       "res://tests/gf_core/standard/foundation/test_gf_observable_resources.gd",
+      "res://tests/gf_core/standard/foundation/test_gf_priority_queue.gd",
       "res://tests/gf_core/standard/common/test_gf_deferred_mutation_queue.gd",
       "res://tests/gf_core/standard/common/test_gf_execution_budget.gd",
       "res://tests/gf_core/standard/common/test_gf_execution_requirement.gd",
       "res://tests/gf_core/standard/common/test_gf_main_thread_dispatch_queue.gd",
+      "res://tests/gf_core/standard/common/test_gf_object_candidate_registry.gd",
       "res://tests/gf_core/standard/foundation/binary/test_gf_byte_cursor.gd",
+      "res://tests/gf_core/standard/foundation/text/test_gf_source_text_patch_tools.gd",
       "res://tests/gf_core/standard/foundation/text/test_gf_text_generation_context.gd",
       "res://tests/gf_core/standard/foundation/test_gf_value_index_and_mutation_batch.gd",
+      "res://tests/gf_core/standard/foundation/platform/test_gf_platform_runtime_context.gd",
       "res://tests/gf_core/standard/foundation/policy/test_gf_compatibility_policy_tools.gd",
       "res://tests/gf_core/standard/foundation/policy/test_gf_policy_registry.gd",
       "res://tests/gf_core/standard/foundation/validation/test_gf_bridge_contract_report.gd",
@@ -130,6 +144,9 @@
       "res://tests/gf_core/standard/utilities/config/test_gf_config_provider_adapter.gd",
       "res://tests/gf_core/standard/utilities/config/test_gf_config_provider.gd",
       "res://tests/gf_core/standard/utilities/config/test_gf_config_table_schema.gd"
+    ],
+    "gf.standard.config.editor": [
+      "res://tests/gf_core/standard/utilities/config/test_gf_config_table_editor_tools.gd"
     ],
     "gf.standard.debug": [
       "res://tests/gf_core/standard/utilities/debug/test_gf_debug_draw_utility.gd",
@@ -160,11 +177,18 @@
       "res://tests/gf_core/kernel/editor/test_gf_plugin_helpers.gd"
     ],
     "gf.standard.input": [
+      "res://tests/gf_core/standard/input/common/test_gf_input_event_identity.gd",
+      "res://tests/gf_core/standard/input/drag_drop/test_gf_drag_drop_utility.gd",
+      "res://tests/gf_core/standard/input/formatting/test_gf_input_formatter.gd",
+      "res://tests/gf_core/standard/input/formatting/test_gf_input_icon_atlas_provider.gd",
       "res://tests/gf_core/standard/input/mapping/test_gf_input_binding.gd",
+      "res://tests/gf_core/standard/input/modifiers/test_gf_input_modifiers.gd",
+      "res://tests/gf_core/standard/input/rebinding/test_gf_input_detector.gd",
       "res://tests/gf_core/standard/input/runtime/test_gf_input_device_utility.gd",
       "res://tests/gf_core/standard/input/runtime/test_gf_input_mapping_utility.gd",
       "res://tests/gf_core/standard/input/runtime/test_gf_pointer_activity_utility.gd",
-      "res://tests/gf_core/standard/input/runtime/test_gf_pointer_gesture_utility.gd"
+      "res://tests/gf_core/standard/input/runtime/test_gf_pointer_gesture_utility.gd",
+      "res://tests/gf_core/standard/input/touch/test_gf_touch_controls.gd"
     ],
     "gf.standard.input.editor": [
       "res://tests/gf_core/standard/input/editor/test_gf_input_mapping_dock.gd"
@@ -172,9 +196,13 @@
     "gf.standard.spatial": [
       "res://tests/gf_core/standard/foundation/math/test_gf_collision_broadphase_2d.gd",
       "res://tests/gf_core/standard/foundation/math/test_gf_collision_broadphase_3d.gd",
+      "res://tests/gf_core/standard/foundation/math/test_gf_curve_2d_math.gd",
+      "res://tests/gf_core/standard/foundation/math/test_gf_curve_3d_math.gd",
       "res://tests/gf_core/standard/foundation/math/test_gf_graph_math.gd",
       "res://tests/gf_core/standard/foundation/math/test_gf_grid_math.gd",
       "res://tests/gf_core/standard/foundation/math/test_gf_heightfield_and_surface_scatter.gd",
+      "res://tests/gf_core/standard/foundation/math/test_gf_noise_field_tools.gd",
+      "res://tests/gf_core/standard/foundation/math/test_gf_wave_function_collapse_2d.gd",
       "res://tests/gf_core/standard/foundation/math/test_gf_tile_utilities.gd",
       "res://tests/gf_core/standard/utilities/spatial/test_gf_physics_query_utility.gd",
       "res://tests/gf_core/standard/utilities/spatial/test_gf_spatial_query_index.gd"
@@ -202,14 +230,36 @@
     "gf.standard.storage.editor": [
       "res://tests/gf_core/standard/utilities/storage/editor/test_gf_storage_editor_package.gd"
     ],
+    "gf.standard.display": [
+      "res://tests/gf_core/standard/utilities/display/test_gf_shader_parameter_profile.gd",
+      "res://tests/gf_core/standard/utilities/display/test_gf_viewport_utility.gd"
+    ],
+    "gf.standard.display.settings": [
+      "res://tests/gf_core/standard/utilities/display/test_gf_display_settings_utility.gd"
+    ],
+    "gf.standard.settings": [
+      "res://tests/gf_core/standard/utilities/settings/test_gf_settings_utility.gd"
+    ],
     "gf.standard.ui": [
-      "res://tests/gf_core/standard/utilities/display/test_gf_viewport_utility.gd",
-      "res://tests/gf_core/standard/utilities/settings/test_gf_settings_utility.gd",
-      "res://tests/gf_core/standard/utilities/ui/test_gf_text_fitter.gd",
+      "res://tests/gf_core/standard/utilities/ui/test_gf_text_fitter.gd"
+    ],
+    "gf.standard.ui.navigation": [
       "res://tests/gf_core/standard/utilities/ui/test_gf_ui_utility.gd"
     ],
+    "gf.standard.ui.state": [
+      "res://tests/gf_core/standard/utilities/ui/test_gf_item_list_binder.gd",
+      "res://tests/gf_core/standard/utilities/ui/test_gf_reactive_state_control_binder.gd",
+      "res://tests/gf_core/standard/utilities/ui/test_gf_repeater_binder.gd"
+    ],
     "gf.tool.config_pipeline": [
-      "res://tests/gf_core/tools/config_pipeline/test_gf_config_pipeline.gd"
+      "res://tests/gf_core/tools/config_pipeline/test_gf_config_pipeline.gd",
+      "res://tests/gf_core/tools/config_pipeline/test_gf_config_access_generator.gd"
+    ],
+    "gf.tool.network.editor": [
+      "res://tests/gf_core/tools/network.editor/test_gf_network_editor_tool_package.gd"
+    ],
+    "gf.tool.project_layout": [
+      "res://tests/gf_core/tools/project_layout/test_gf_project_layout_tool_package.gd"
     ]
   }
 }

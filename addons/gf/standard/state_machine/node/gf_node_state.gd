@@ -79,7 +79,7 @@ var host: Node:
 
 var _machine_ref: WeakRef = null
 var _group_ref: WeakRef = null
-var _event_architectures: Array[GFArchitecture] = []
+var _event_architectures: Array[WeakRef] = []
 var _original_process_mode: int = Node.PROCESS_MODE_INHERIT
 
 
@@ -471,15 +471,17 @@ func send_simple_event(event_id: StringName, payload: Variant = null) -> void:
 ## [br]
 ## @api public
 ## [br]
+## @since 8.0.0
+## [br]
 ## @param event_type: 要监听的脚本类型。
 ## [br]
-## @param callback: 回调函数。
+## @param listener: 事件监听器契约。
 ## [br]
 ## @param priority: 回调优先级，数值越大越先执行，默认为 0。
-func register_event(event_type: Script, callback: Callable, priority: int = 0) -> void:
+func register_event(event_type: Script, listener: GFEventListener, priority: int = 0) -> void:
 	var architecture: GFArchitecture = _get_architecture_or_null()
 	if architecture != null:
-		architecture.register_event_owned(self, event_type, callback, priority)
+		architecture.register_event_owned(self, event_type, listener, priority)
 		_remember_event_architecture(architecture)
 
 
@@ -487,27 +489,31 @@ func register_event(event_type: Script, callback: Callable, priority: int = 0) -
 ## [br]
 ## @api public
 ## [br]
+## @since 8.0.0
+## [br]
 ## @param event_type: 要注销的脚本类型。
 ## [br]
-## @param callback: 要移除的回调函数。
-func unregister_event(event_type: Script, callback: Callable) -> void:
+## @param listener: 要移除的事件监听器契约。
+func unregister_event(event_type: Script, listener: GFEventListener) -> void:
 	for architecture: GFArchitecture in _get_tracked_event_architectures():
-		architecture.unregister_event_owned(self, event_type, callback)
+		architecture.unregister_event_owned(self, event_type, listener)
 
 
 ## 注册可赋值类型事件监听器，默认以当前状态作为 owner。
 ## [br]
 ## @api public
 ## [br]
+## @since 8.0.0
+## [br]
 ## @param base_event_type: 要监听的基类脚本类型。
 ## [br]
-## @param callback: 回调函数。
+## @param listener: 事件监听器契约。
 ## [br]
 ## @param priority: 回调优先级，数值越大越先执行，默认为 0。
-func register_assignable_event(base_event_type: Script, callback: Callable, priority: int = 0) -> void:
+func register_assignable_event(base_event_type: Script, listener: GFEventListener, priority: int = 0) -> void:
 	var architecture: GFArchitecture = _get_architecture_or_null()
 	if architecture != null:
-		architecture.register_assignable_event_owned(self, base_event_type, callback, priority)
+		architecture.register_assignable_event_owned(self, base_event_type, listener, priority)
 		_remember_event_architecture(architecture)
 
 
@@ -515,25 +521,29 @@ func register_assignable_event(base_event_type: Script, callback: Callable, prio
 ## [br]
 ## @api public
 ## [br]
+## @since 8.0.0
+## [br]
 ## @param base_event_type: 注册时使用的基类脚本类型。
 ## [br]
-## @param callback: 要移除的回调函数。
-func unregister_assignable_event(base_event_type: Script, callback: Callable) -> void:
+## @param listener: 要移除的事件监听器契约。
+func unregister_assignable_event(base_event_type: Script, listener: GFEventListener) -> void:
 	for architecture: GFArchitecture in _get_tracked_event_architectures():
-		architecture.unregister_assignable_event_owned(self, base_event_type, callback)
+		architecture.unregister_assignable_event_owned(self, base_event_type, listener)
 
 
 ## 注册轻量级 StringName 事件监听器，默认以当前状态作为 owner。
 ## [br]
 ## @api public
 ## [br]
+## @since 8.0.0
+## [br]
 ## @param event_id: StringName 事件标识符。
 ## [br]
-## @param callback: 回调函数，签名为 func(payload: Variant)。
-func register_simple_event(event_id: StringName, callback: Callable) -> void:
+## @param listener: 简单事件监听器契约。
+func register_simple_event(event_id: StringName, listener: GFEventListener) -> void:
 	var architecture: GFArchitecture = _get_architecture_or_null()
 	if architecture != null:
-		architecture.register_simple_event_owned(self, event_id, callback)
+		architecture.register_simple_event_owned(self, event_id, listener)
 		_remember_event_architecture(architecture)
 
 
@@ -541,12 +551,14 @@ func register_simple_event(event_id: StringName, callback: Callable) -> void:
 ## [br]
 ## @api public
 ## [br]
+## @since 8.0.0
+## [br]
 ## @param event_id: StringName 事件标识符。
 ## [br]
-## @param callback: 要移除的回调函数。
-func unregister_simple_event(event_id: StringName, callback: Callable) -> void:
+## @param listener: 要移除的简单事件监听器契约。
+func unregister_simple_event(event_id: StringName, listener: GFEventListener) -> void:
 	for architecture: GFArchitecture in _get_tracked_event_architectures():
-		architecture.unregister_simple_event_owned(self, event_id, callback)
+		architecture.unregister_simple_event_owned(self, event_id, listener)
 
 
 ## 注销当前状态通过事件代理注册过的全部监听器。
@@ -785,17 +797,20 @@ func _to_process_mode(value: int) -> ProcessMode:
 func _remember_event_architecture(architecture: GFArchitecture) -> void:
 	if architecture == null or not is_instance_valid(architecture):
 		return
-	if not _event_architectures.has(architecture):
-		_event_architectures.append(architecture)
+	for architecture_ref: WeakRef in _event_architectures:
+		if architecture_ref.get_ref() == architecture:
+			return
+	_event_architectures.append(weakref(architecture))
 
 
 func _get_tracked_event_architectures() -> Array[GFArchitecture]:
 	var result: Array[GFArchitecture] = []
-	var live_architectures: Array[GFArchitecture] = []
-	for architecture: GFArchitecture in _event_architectures:
+	var live_architectures: Array[WeakRef] = []
+	for architecture_ref: WeakRef in _event_architectures:
+		var architecture: GFArchitecture = _variant_to_architecture(architecture_ref.get_ref())
 		if architecture != null and is_instance_valid(architecture):
 			result.append(architecture)
-			live_architectures.append(architecture)
+			live_architectures.append(architecture_ref)
 	_event_architectures = live_architectures
 	return result
 

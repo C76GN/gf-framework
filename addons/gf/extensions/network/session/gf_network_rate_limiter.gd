@@ -18,7 +18,7 @@ extends RefCounted
 ## @api public
 var capacity: float = 10.0:
 	set(value):
-		capacity = maxf(value, 0.0)
+		capacity = _normalize_non_negative_finite(value)
 		_tokens = minf(_tokens, capacity)
 
 ## 每秒恢复令牌数。
@@ -26,7 +26,7 @@ var capacity: float = 10.0:
 ## @api public
 var refill_per_second: float = 10.0:
 	set(value):
-		refill_per_second = maxf(value, 0.0)
+		refill_per_second = _normalize_non_negative_finite(value)
 
 
 # --- 私有变量 ---
@@ -50,7 +50,9 @@ func _init(p_capacity: float = 10.0, p_refill_per_second: float = 10.0) -> void:
 ## [br]
 ## @param delta: 秒数。
 func tick(delta: float) -> void:
-	_tokens = minf(capacity, _tokens + maxf(delta, 0.0) * refill_per_second)
+	if delta <= 0.0 or is_nan(delta) or is_inf(delta):
+		return
+	_tokens = minf(capacity, _tokens + delta * refill_per_second)
 
 
 ## 尝试消费令牌。
@@ -61,6 +63,8 @@ func tick(delta: float) -> void:
 ## [br]
 ## @return 成功消费返回 true。
 func consume(amount: float = 1.0) -> bool:
+	if is_nan(amount) or is_inf(amount):
+		return false
 	var safe_amount: float = maxf(amount, 0.0)
 	if _tokens < safe_amount:
 		return false
@@ -82,3 +86,11 @@ func get_tokens() -> float:
 ## @api public
 func reset() -> void:
 	_tokens = capacity
+
+
+# --- 私有/辅助方法 ---
+
+func _normalize_non_negative_finite(value: float) -> float:
+	if value < 0.0 or is_nan(value) or is_inf(value):
+		return 0.0
+	return value

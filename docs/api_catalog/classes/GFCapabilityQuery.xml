@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFCapabilityQuery" path="addons/gf/extensions/capability/core/gf_capability_query.gd" module="extensions/capability" extends="Resource" classDigest="c24097bfd4711bed95e2d3fae459bade90f78638bc1ad473c37bd00912c3e6f9">
+<class name="GFCapabilityQuery" path="addons/gf/extensions/capability/core/gf_capability_query.gd" module="extensions/capability" extends="Resource" classDigest="c26ff353e6b8bd6e815a6e3979a35c6dbe17d922b7969c6a6eb9a191bb94a25b">
 	<description>GFCapabilityQuery: 可资源化的能力接收者查询条件。
 用于把 required / rejected 能力类型、分组和子类匹配策略保存为 Resource，
 便于编辑器工具、配置资源或项目脚本复用同一套查询声明。</description>
@@ -96,6 +96,18 @@
 				<tag name="return">查询声明字典。</tag>
 				<tag name="schema">return: Dictionary，包含 required_capability_types、rejected_capability_types、include_subclasses、group_name 和 metadata。</tag>
 				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="to_report_dictionary">
+			<signature>func to_report_dictionary(options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>导出查询声明的 JSON-safe 报告快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">options: 传给 GFReportValueCodec 的编码选项。</tag>
+				<tag name="return">查询报告字典。</tag>
+				<tag name="schema">options: Dictionary with GFReportValueCodec encoding options.</tag>
+				<tag name="schema">return: JSON-safe Dictionary based on describe_query().</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 	</methods>

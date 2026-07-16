@@ -14,7 +14,7 @@ console.debug_only = true
 
 ```gdscript
 console.max_command_tier = GFConsoleUtility.CommandTier.DANGER
-console.register_command("wipe_save", Callable(self, "_wipe_save"), "删除测试存档。", {
+var _wipe_save_command: GFLifetimeSubscription = console.register_command(self, "wipe_save", Callable(self, "_wipe_save"), "删除测试存档。", {
 	"tier": GFConsoleUtility.CommandTier.DANGER,
 })
 console.execute_command("wipe_save --confirm")

@@ -151,3 +151,23 @@ func test_behavior_receives_pause_and_resume_callbacks() -> void:
 
 	assert_has(behavior.calls, "pause:Idle:Menu", "push_state 应触发行为资源的 pause。")
 	assert_has(behavior.calls, "resume:Idle:Menu", "pop_state 应触发行为资源的 resume。")
+
+
+func test_group_remove_stacked_state_exits_removed_state() -> void:
+	var group: GFNodeStateGroup = GFNodeStateGroup.new()
+	var idle: TrackingNodeState = TrackingNodeState.new()
+	var menu: TrackingNodeState = TrackingNodeState.new()
+	idle.name = "Idle"
+	menu.name = "Menu"
+	add_child_autofree(group)
+	group.add_child(idle)
+	group.add_child(menu)
+	group.add_state(idle)
+	group.add_state(menu)
+	group.transition_to(&"Idle")
+	group.push_state(&"Menu")
+
+	assert_true(group.remove_state(idle), "移除暂停栈中的状态应成功。")
+
+	assert_eq(idle.exit_count, 1, "暂停栈中的状态被移除时也应执行 exit。")
+	assert_eq(group.get_stack_depth(), 0, "移除暂停栈状态后栈中不应残留该状态。")

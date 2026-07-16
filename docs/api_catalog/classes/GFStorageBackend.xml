@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFStorageBackend" path="addons/gf/standard/utilities/storage/gf_storage_backend.gd" module="standard" extends="RefCounted" classDigest="e7291c42822180a6422fd1f7438eae0b2ae5157dc29255d0c6ae64f3cf2b2697">
+<class name="GFStorageBackend" path="addons/gf/standard/utilities/storage/gf_storage_backend.gd" module="standard" extends="RefCounted" classDigest="dc02237079f9c9fa4abe3aafa2a484342c341e9b7ba94a1d45529706c2a6f311">
 	<description>GFStorageBackend: 存储后端扩展接口。
 该类只定义通用后端协议，不绑定本地、云、平台 SDK 或同步策略。
 默认实现返回不可用结果；项目可继承它并由自定义 Utility 或派生的
@@ -88,6 +88,18 @@ GFStorageUtility 组合使用。</description>
 				<tag name="api">public</tag>
 				<tag name="return">能力字典副本。</tag>
 				<tag name="schema">return: Dictionary，包含 read、write、delete、list 和 sync 布尔能力标记。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_capability_report">
+			<signature>func get_capability_report(options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>获取后端能力报告。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">options: 报告选项，支持 label、metadata、include_data_count、include_data_names。</tag>
+				<tag name="return">能力报告字典。</tag>
+				<tag name="schema">options: Dictionary，包含 label、metadata、include_data_count 和 include_data_names。</tag>
+				<tag name="schema">return: Dictionary，包含 ok、backend_class、label、capabilities、data_count、data_names 和 metadata。</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="_initialize">

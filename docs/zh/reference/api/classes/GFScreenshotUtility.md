@@ -29,6 +29,8 @@
 | 属性 | [`default_format`](#member-gfscreenshotutility-properties-default_format) | `var default_format: String = FORMAT_PNG:` |
 | 属性 | [`default_unique_paths`](#member-gfscreenshotutility-properties-default_unique_paths) | `var default_unique_paths: bool = true` |
 | 属性 | [`default_quality`](#member-gfscreenshotutility-properties-default_quality) | `var default_quality: float = 0.9:` |
+| 方法 | [`dispose`](#member-gfscreenshotutility-methods-dispose) | `func dispose() -> void:` |
+| 方法 | [`cancel_burst`](#member-gfscreenshotutility-methods-cancel_burst) | `func cancel_burst(reason: String = "cancelled") -> bool:` |
 | 方法 | [`capture_viewport_image`](#member-gfscreenshotutility-methods-capture_viewport_image) | `func capture_viewport_image(viewport: Viewport = null) -> Image:` |
 | 方法 | [`capture_viewport_png_buffer`](#member-gfscreenshotutility-methods-capture_viewport_png_buffer) | `func capture_viewport_png_buffer(viewport: Viewport = null) -> PackedByteArray:` |
 | 方法 | [`save_viewport_screenshot`](#member-gfscreenshotutility-methods-save_viewport_screenshot) | `func save_viewport_screenshot(file_path: String = "", options: Dictionary = {}) -> Dictionary:` |
@@ -256,6 +258,40 @@ JPEG/WebP 有损保存质量，范围 0.0 到 1.0。
 
 ## 方法
 
+<a id="member-gfscreenshotutility-methods-dispose"></a>
+
+### `dispose`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func dispose() -> void:
+```
+
+取消仍在执行的批量截图并恢复环境。
+
+<a id="member-gfscreenshotutility-methods-cancel_burst"></a>
+
+### `cancel_burst`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func cancel_burst(reason: String = "cancelled") -> bool:
+```
+
+取消当前批量截图并立即执行环境恢复。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `reason` | 取消原因。 |
+
+返回：当前存在活动批次且首次取消时返回 true。
+
 <a id="member-gfscreenshotutility-methods-capture_viewport_image"></a>
 
 ### `capture_viewport_image`
@@ -395,11 +431,11 @@ func capture_burst(options: Dictionary = {}) -> Dictionary:
 
 | 名称 | 说明 |
 |---|---|
-| `options` | 批量截图选项，支持 viewport、locales、resolutions、formats、max_captures、pause_tree、frame_delay_seconds、directory、prefix、quality、unique 与 use_subdirectories。 |
+| `options` | 批量截图选项，支持 viewport、locales、resolutions、formats、max_captures、pause_tree、frame_delay_seconds、cancellation_token、directory、prefix、quality、unique 与 use_subdirectories。 |
 
 返回：批量截图报告。
 
 结构：
 
-- `options`: Dictionary，支持 viewport、locales、resolutions、formats、max_captures、pause_tree、frame_delay_seconds、directory、prefix、quality、unique 与 use_subdirectories。
+- `options`: Dictionary，支持 viewport、locales、resolutions、formats、max_captures、pause_tree、frame_delay_seconds、cancellation_token、directory、prefix、quality、unique 与 use_subdirectories。
 - `return`: Dictionary，包含 ok、records、saved_count、error_count、locale_count、resolution_count、format_count、planned_count、max_captures 与 error 字段。

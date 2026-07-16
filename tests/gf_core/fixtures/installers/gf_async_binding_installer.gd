@@ -9,7 +9,7 @@ const AsyncInstallerUtilityFixture = preload("res://tests/gf_core/fixtures/insta
 
 # --- 公共方法 ---
 
-func install_bindings(binder: Variant) -> void:
+func install_bindings(binder: Variant, _scope: GFAsyncScope) -> void:
 	var scene_tree: SceneTree = _get_scene_tree()
 	if scene_tree != null:
 		await scene_tree.process_frame

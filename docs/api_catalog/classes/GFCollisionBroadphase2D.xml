@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFCollisionBroadphase2D" path="addons/gf/standard/foundation/math/gf_collision_broadphase_2d.gd" module="standard" extends="RefCounted" classDigest="dffd062865966283fc0d14bd7388c0783ecd62c08219a0c8ec8cccd3ab34c6da">
+<class name="GFCollisionBroadphase2D" path="addons/gf/standard/foundation/math/gf_collision_broadphase_2d.gd" module="standard" extends="RefCounted" classDigest="3f6da6c9b48d71b0557019b06e9770e8578e270d30ab112057f26a0f3735603d">
 	<description>GFCollisionBroadphase2D: 纯 2D AABB broadphase 候选对生成工具。
 使用 `Rect2` body 记录生成可能相交的候选对，提供暴力枚举、Sweep and Prune、
 Quadtree 和自动组合入口。它只做 AABB 粗筛，不执行 SAT、接触点计算、
@@ -150,6 +150,20 @@ body 不落入当前分割范围时会退回局部暴力枚举，避免静默丢
 				<tag name="schema">options: Dictionary with optional `algorithm: StringName` plus bruteforce, SAP, or quadtree options.</tag>
 				<tag name="schema">return: Dictionary with `algorithm: StringName`, `body_count: int`, `pair_count: int`, and `pairs: Array[Dictionary]`.</tag>
 				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="to_json_compatible_report">
+			<signature>static func to_json_compatible_report(report: Dictionary, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>将 broadphase 报告编码为 JSON.stringify() 安全字典。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">report: build_pair_report() 返回的原生报告。</tag>
+				<tag name="param">options: GFReportValueCodec 编码选项。</tag>
+				<tag name="return">JSON 兼容报告。</tag>
+				<tag name="schema">report: Dictionary returned by build_pair_report().</tag>
+				<tag name="schema">options: Dictionary with GFReportValueCodec options.</tag>
+				<tag name="schema">return: Dictionary safe for JSON.stringify().</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 	</methods>

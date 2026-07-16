@@ -16,7 +16,7 @@ extends GLTFDocumentExtension
 # --- 常量 ---
 
 const _GLTF_NODE_EXTRAS_SOURCE: String = "gltf_node_extras"
-const _GF_PROVENANCE_KEY: StringName = &"_gf_provenance"
+const _GLTF_OWNED_PAYLOAD_HASH_KEY: StringName = &"gf_asset_metadata_gltf_owned_payload_hash"
 
 
 # --- 可重写钩子 / 虚方法 ---
@@ -56,9 +56,9 @@ func _import_node(
 		_clear_gltf_metadata_if_owned(node)
 		return OK
 
-	metadata[_GF_PROVENANCE_KEY] = _make_provenance(metadata)
 	node.set_meta(GFAssetMetadataUtility.META_ASSET_METADATA, metadata)
 	node.set_meta(GFAssetMetadataUtility.META_ASSET_METADATA_SOURCE, _GLTF_NODE_EXTRAS_SOURCE)
+	node.set_meta(_GLTF_OWNED_PAYLOAD_HASH_KEY, _make_payload_hash(metadata))
 	return OK
 
 
@@ -66,30 +66,36 @@ func _import_node(
 
 func _clear_gltf_metadata_if_owned(node: Node) -> void:
 	if not node.has_meta(GFAssetMetadataUtility.META_ASSET_METADATA_SOURCE):
+		_clear_ownership_marker(node)
 		return
 	if GFVariantData.to_text(node.get_meta(GFAssetMetadataUtility.META_ASSET_METADATA_SOURCE)) != _GLTF_NODE_EXTRAS_SOURCE:
+		_clear_ownership_marker(node)
+		return
+	if not _has_unchanged_owned_payload(node):
+		node.remove_meta(GFAssetMetadataUtility.META_ASSET_METADATA_SOURCE)
+		_clear_ownership_marker(node)
 		return
 	if node.has_meta(GFAssetMetadataUtility.META_ASSET_METADATA):
 		node.remove_meta(GFAssetMetadataUtility.META_ASSET_METADATA)
 	node.remove_meta(GFAssetMetadataUtility.META_ASSET_METADATA_SOURCE)
+	_clear_ownership_marker(node)
 
 
-func _make_provenance(metadata: Dictionary) -> Dictionary:
-	var provenance: Dictionary = {
-		"source": _GLTF_NODE_EXTRAS_SOURCE,
-		"bridge": "GFAssetMetadataGltfDocumentExtension",
-	}
-	_copy_optional_provenance_field(metadata, provenance, "asset_uid")
-	_copy_optional_provenance_field(metadata, provenance, "import_preset")
-	_copy_optional_provenance_field(metadata, provenance, "schema_id")
-	_copy_optional_provenance_field(metadata, provenance, "schema_version")
-	return provenance
+func _has_unchanged_owned_payload(node: Node) -> bool:
+	if not node.has_meta(_GLTF_OWNED_PAYLOAD_HASH_KEY):
+		return false
+	if not node.has_meta(GFAssetMetadataUtility.META_ASSET_METADATA):
+		return false
+	var metadata: Dictionary = GFAssetMetadataUtility.normalize_metadata(
+		node.get_meta(GFAssetMetadataUtility.META_ASSET_METADATA)
+	)
+	return GFVariantData.to_text(node.get_meta(_GLTF_OWNED_PAYLOAD_HASH_KEY)) == _make_payload_hash(metadata)
 
 
-func _copy_optional_provenance_field(metadata: Dictionary, provenance: Dictionary, field_name: String) -> void:
-	if not metadata.has(field_name):
-		return
-	var value: Variant = metadata[field_name]
-	if value == null:
-		return
-	provenance[field_name] = GFVariantData.duplicate_variant(value)
+func _make_payload_hash(metadata: Dictionary) -> String:
+	return JSON.stringify(metadata, "", true).sha256_text()
+
+
+func _clear_ownership_marker(node: Node) -> void:
+	if node.has_meta(_GLTF_OWNED_PAYLOAD_HASH_KEY):
+		node.remove_meta(_GLTF_OWNED_PAYLOAD_HASH_KEY)

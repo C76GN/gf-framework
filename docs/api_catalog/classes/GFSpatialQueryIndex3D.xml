@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSpatialQueryIndex3D" path="addons/gf/standard/utilities/spatial/gf_spatial_query_index_3d.gd" module="standard" extends="RefCounted" classDigest="bfb914890cf54f804b3a285b1fac2cb2ccf77ad23f5e60ad276436a86a076296">
+<class name="GFSpatialQueryIndex3D" path="addons/gf/standard/utilities/spatial/gf_spatial_query_index_3d.gd" module="standard" extends="RefCounted" classDigest="a5a122836465fff648303c4a71a7a156cf23de9173ccf82c8452a3c7ee8e68cd">
 	<description>GFSpatialQueryIndex3D: 3D 空间查询策略 facade。
 在统一 API 后面封装线性扫描与空间哈希索引，让项目可按数据规模切换策略。
 它只维护调用方提供的 AABB 和 metadata，不解释实体身份或玩法过滤规则。</description>
@@ -260,6 +260,18 @@
 				<tag name="return">调试快照。</tag>
 				<tag name="schema">return: Dictionary，包含 strategy、active_strategy、cell_size、entity_count 和 index_dirty。</tag>
 				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_json_compatible_debug_snapshot">
+			<signature>func get_json_compatible_debug_snapshot(options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>获取 JSON.stringify() 安全的调试快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">options: 报告编码选项，透传给 GFReportValueCodec。</tag>
+				<tag name="return">JSON 兼容调试快照。</tag>
+				<tag name="schema">options: Dictionary with GFReportValueCodec options.</tag>
+				<tag name="schema">return: Dictionary safe for JSON.stringify().</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 	</methods>

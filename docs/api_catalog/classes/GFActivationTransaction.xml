@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFActivationTransaction" path="addons/gf/standard/foundation/policy/gf_activation_transaction.gd" module="standard" extends="RefCounted" classDigest="84465ae82b1625363879632056ff290bb2e6f01ae858707d051a7e1eff06e353">
+<class name="GFActivationTransaction" path="addons/gf/standard/foundation/policy/gf_activation_transaction.gd" module="standard" extends="RefCounted" classDigest="df50a25925277bcac628de66131bc82288779e443563ecb0029b4ffbea3c8e58">
 	<description>GFActivationTransaction: 非代码动态内容的激活事务。
 将“验证、应用、失败回滚、报告”收敛为通用事务流程。它只调度调用方显式传入的
 Callable，不加载脚本、不执行远端载荷，也不规定内容包、配置或资源注册表的业务语义。</description>
@@ -49,6 +49,14 @@ Callable，不加载脚本、不执行远端载荷，也不规定内容包、配
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="KIND_ASYNC_CALLBACK_UNSUPPORTED">
+			<signature>const KIND_ASYNC_CALLBACK_UNSUPPORTED: StringName = &amp;"async_callback_unsupported"</signature>
+			<description>同步事务回调返回了异步状态或 Signal。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 	</constants>
@@ -112,7 +120,7 @@ Callable，不加载脚本、不执行远端载荷，也不规定内容包、配
 		<member kind="method" name="add_step">
 			<signature>func add_step( step_id: StringName, apply_callback: Callable, rollback_callback: Callable = Callable(), options: Dictionary = {} ) -&gt; bool:</signature>
 			<description>添加事务步骤。
-apply_callback 与 rollback_callback 的推荐签名为 `func(context: Dictionary) -&gt; Variant`。
+apply_callback 与 rollback_callback 的推荐签名为 `func(context: Dictionary) -&gt; Variant`，且必须同步返回。
 validate_callback 可通过 options 传入，签名相同。返回 false、非 OK Error、或 `{ "ok": false }` 会进入失败报告。</description>
 			<tags>
 				<tag name="api">public</tag>

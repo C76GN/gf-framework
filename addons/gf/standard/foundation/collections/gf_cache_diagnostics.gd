@@ -12,6 +12,12 @@ class_name GFCacheDiagnostics
 extends RefCounted
 
 
+# --- 常量 ---
+
+const _GF_REPORT_VALUE_CODEC_SCRIPT = preload("res://addons/gf/kernel/core/gf_report_value_codec.gd")
+const _GF_VARIANT_KEY_CODEC_SCRIPT = preload("res://addons/gf/standard/foundation/variant/gf_variant_key_codec.gd")
+
+
 # --- 公共变量 ---
 
 ## 诊断对象标识。
@@ -109,7 +115,9 @@ func record_eviction(reason: StringName = &"evicted", key: Variant = null) -> vo
 ## [br]
 ## @param amount: 失效数量。
 func record_invalidation(reason: StringName = &"invalidated", key: Variant = null, amount: int = 1) -> void:
-	var count: int = maxi(amount, 1)
+	if amount <= 0:
+		return
+	var count: int = amount
 	_invalidation_count += count
 	_record_invalidation_reason(reason, count)
 	_last_event = _make_event(reason, key, count)
@@ -170,14 +178,25 @@ func get_debug_snapshot() -> Dictionary:
 # --- 私有/辅助方法 ---
 
 func _record_invalidation_reason(reason: StringName, amount: int = 1) -> void:
+	if amount <= 0:
+		return
 	var reason_key: String = String(reason) if reason != &"" else "invalidated"
-	_invalidation_reasons[reason_key] = GFVariantData.get_option_int(_invalidation_reasons, reason_key, 0) + maxi(amount, 1)
+	_invalidation_reasons[reason_key] = GFVariantData.get_option_int(_invalidation_reasons, reason_key, 0) + amount
 
 
 func _make_event(event_type: StringName, key: Variant, amount: int = 1) -> Dictionary:
 	return {
 		"type": event_type,
-		"key": "" if key == null else str(key),
+		"key": _make_key_text(key),
 		"amount": amount,
 		"timestamp_msec": Time.get_ticks_msec(),
 	}
+
+
+func _make_key_text(key: Variant) -> String:
+	if key == null:
+		return ""
+	var key_token: String = _GF_VARIANT_KEY_CODEC_SCRIPT.make_key_token(key)
+	if not key_token.is_empty():
+		return key_token
+	return _GF_REPORT_VALUE_CODEC_SCRIPT.stringify_json_compatible(key, "", true)

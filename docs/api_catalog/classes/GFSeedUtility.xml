@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSeedUtility" path="addons/gf/standard/utilities/random/gf_seed_utility.gd" module="standard" extends="GFUtility" classDigest="8b27f5accdfc7953a5f3b99c71c2ad23a7d3e77041518735548d3632aaf68a3f">
+<class name="GFSeedUtility" path="addons/gf/standard/utilities/random/gf_seed_utility.gd" module="standard" extends="GFUtility" classDigest="8486bc6b12c9de2493bae525942ea4969cfe4b2c54d35b07f46086d5cda970b2">
 	<description>GFSeedUtility: 全局随机数种子管理器。
 内部维护一个主 RandomNumberGenerator，并支持基于字符串标签派生
 出独立的 Godot RNG 或 GF 固定算法随机源。Godot RNG 分支只承诺
@@ -38,13 +38,44 @@
 				<tag name="return">当前全局主种子。</tag>
 			</tags>
 		</member>
-		<member kind="method" name="get_rng">
-			<signature>func get_rng() -&gt; RandomNumberGenerator:</signature>
-			<description>获取主随机数生成器。
-调用方可以直接使用该实例生成随机数；生成行为会推进主 RNG 状态。</description>
+		<member kind="method" name="next_uint32">
+			<signature>func next_uint32() -&gt; int:</signature>
+			<description>推进主随机流并返回无符号 32 位随机值。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="return">主随机数生成器实例。</tag>
+				<tag name="return">0 到 4294967295 范围内的随机值。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="next_float">
+			<signature>func next_float() -&gt; float:</signature>
+			<description>推进主随机流并返回 [0, 1) 浮点值。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">[0, 1) 范围内的随机值。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="next_int_range">
+			<signature>func next_int_range(from: int, to: int) -&gt; int:</signature>
+			<description>推进主随机流并返回闭区间整数值。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">from: 最小值。</tag>
+				<tag name="param">to: 最大值。</tag>
+				<tag name="return">闭区间随机整数。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="next_float_range">
+			<signature>func next_float_range(from: float, to: float) -&gt; float:</signature>
+			<description>推进主随机流并返回指定浮点区间值。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">from: 最小值。</tag>
+				<tag name="param">to: 最大值。</tag>
+				<tag name="return">指定区间内的随机浮点值。</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_state">
@@ -83,6 +114,60 @@
 				<tag name="schema">state: Dictionary produced by get_full_state().</tag>
 			</tags>
 		</member>
+		<member kind="method" name="make_stable_text_seed">
+			<signature>static func make_stable_text_seed(text: String) -&gt; int:</signature>
+			<description>将文本稳定映射为 32-bit seed。
+该入口使用 GF 固定 FNV-32 哈希，适合把关卡名、规则 ID 或生成命名空间映射到可复现随机种子；不适合作为安全随机或防作弊来源。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">text: 参与 seed 派生的文本。</tag>
+				<tag name="return">0 到 4294967295 范围内的稳定整数 seed。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="try_make_stable_seed">
+			<signature>static func try_make_stable_seed(parts: Array, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>将纯 Variant 部件稳定映射为 32-bit seed。
+输入会先经过 GFDeterministicVariantSerializer 的规范编码，因此 Dictionary key 顺序不会影响结果。默认拒绝 float、Object、Resource、Callable 和循环引用。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">parts: 参与 seed 派生的纯数据部件。</tag>
+				<tag name="param">options: 确定性编码选项。</tag>
+				<tag name="return">seed 派生结果。</tag>
+				<tag name="schema">parts: Array of deterministic Variant values accepted by GFDeterministicVariantSerializer.to_canonical_value().</tag>
+				<tag name="schema">options: Dictionary with optional `allow_floats: bool` and `max_depth: int`.</tag>
+				<tag name="schema">return: Dictionary with `ok: bool`, `seed: int`, and `error: String`. ok 为 false 时 seed 为 0，error 为稳定错误码。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="make_stable_seed">
+			<signature>static func make_stable_seed(parts: Array, options: Dictionary = {}) -&gt; int:</signature>
+			<description>将纯 Variant 部件稳定映射为 32-bit seed。
+输入会先经过 GFDeterministicVariantSerializer 的规范编码，因此 Dictionary key 顺序不会影响结果。默认拒绝 float、Object、Resource、Callable 和循环引用。
+需要区分编码失败与合法 0 seed 时使用 try_make_stable_seed()。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">parts: 参与 seed 派生的纯数据部件。</tag>
+				<tag name="param">options: 确定性编码选项。</tag>
+				<tag name="return">派生 seed；输入无法规范编码时返回 0。</tag>
+				<tag name="schema">parts: Array of deterministic Variant values accepted by GFDeterministicVariantSerializer.to_canonical_value().</tag>
+				<tag name="schema">options: Dictionary with optional `allow_floats: bool` and `max_depth: int`.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="make_stable_grid_seed">
+			<signature>static func make_stable_grid_seed(cell: Vector2i, seed_value: int = 0, namespace_id: String = "") -&gt; int:</signature>
+			<description>将 2D 网格坐标稳定映射为 32-bit seed。
+适合 tile 变体、程序化摆放、刷点或规则 tie-break。namespace_id 用于隔离不同系统，seed_value 用于接入项目主种子或配置种子。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">cell: 参与派生的网格坐标。</tag>
+				<tag name="param">seed_value: 上游种子；相同坐标和 namespace 下不同 seed_value 会得到不同结果。</tag>
+				<tag name="param">namespace_id: 可选命名空间，用于隔离不同用途。</tag>
+				<tag name="return">0 到 4294967295 范围内的稳定整数 seed。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
 		<member kind="method" name="get_branched_rng">
 			<signature>func get_branched_rng(string_seed: String) -&gt; RandomNumberGenerator:</signature>
 			<description>基于主 RNG 当前状态与字符串标签，派生出一个独立的 Godot 子 RNG。
@@ -110,7 +195,7 @@
 		</member>
 		<member kind="method" name="get_branched_deterministic_random">
 			<signature>func get_branched_deterministic_random(string_seed: String) -&gt; GFDeterministicRandom:</signature>
-			<description>基于主 RNG 当前状态与字符串标签，派生 GF 固定算法随机源。
+			<description>基于主种子与字符串标签，派生 GF 固定算法随机源。
 每次调用只推进 deterministic 分支计数，不推进主 RNG 的随机序列，
 也不影响 `get_branched_rng()` 的 Godot RNG 分支计数。</description>
 			<tags>

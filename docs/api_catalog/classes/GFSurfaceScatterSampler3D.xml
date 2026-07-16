@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSurfaceScatterSampler3D" path="addons/gf/standard/foundation/math/gf_surface_scatter_sampler_3d.gd" module="standard" extends="RefCounted" classDigest="0a0d0b4fb4f925081d55775fbc87fc6905ee0b69e99ae42ec748a59543677126">
+<class name="GFSurfaceScatterSampler3D" path="addons/gf/standard/foundation/math/gf_surface_scatter_sampler_3d.gd" module="standard" extends="RefCounted" classDigest="b09bd2f09112bab451becb0333c31a51bdf9fd017db4dd8958fc26a9a408c3c9">
 	<description>GFSurfaceScatterSampler3D: 通用 3D 表面散布 Transform 采样器。
 在 X/Z 区域或候选点集上调用高度/法线提供者，按高度、坡度、旋转和缩放约束
 输出纯 Transform3D 与诊断报告。它不创建 Node、MultiMesh、碰撞体或项目对象。</description>
@@ -40,7 +40,7 @@
 				<tag name="param">count: 目标 Transform 数量。</tag>
 				<tag name="param">options: 采样选项。</tag>
 				<tag name="return">散布报告。</tag>
-				<tag name="schema">options: Dictionary supports seed, max_attempt_multiplier, max_random_attempts, height_min, height_max, slope_min, slope_max, yaw_min, yaw_max, scale_min, scale_max, y_offset, align_to_normal, and vertical_scale.</tag>
+				<tag name="schema">options: Dictionary supports seed, max_attempt_multiplier, max_random_attempts, height_min, height_max, slope_min, slope_max, yaw_min, yaw_max, scale_min, scale_max, scale_axis_mode, y_offset, align_to_normal, and vertical_scale. scale_min/scale_max may be number or Vector3; scale_axis_mode accepts GFTransform3DMath.ScaleAxisMode or uniform/free/lock_xy/lock_xz/lock_yz.</tag>
 				<tag name="schema">return: Dictionary with ok, error, area, target_count, accepted_count, attempt_count, max_attempts, seed, transforms, points, normals, exhausted_attempts, rejected_height_count, rejected_slope_count, and rejected_invalid_count.</tag>
 				<tag name="since">7.0.0</tag>
 			</tags>
@@ -54,7 +54,7 @@
 				<tag name="param">points: 候选 X/Z 点集。</tag>
 				<tag name="param">options: 采样选项。</tag>
 				<tag name="return">散布报告。</tag>
-				<tag name="schema">options: Dictionary supports seed, max_points, height_min, height_max, slope_min, slope_max, yaw_min, yaw_max, scale_min, scale_max, y_offset, align_to_normal, and vertical_scale.</tag>
+				<tag name="schema">options: Dictionary supports seed, max_points, height_min, height_max, slope_min, slope_max, yaw_min, yaw_max, scale_min, scale_max, scale_axis_mode, y_offset, align_to_normal, and vertical_scale. scale_min/scale_max may be number or Vector3; scale_axis_mode accepts GFTransform3DMath.ScaleAxisMode or uniform/free/lock_xy/lock_xz/lock_yz.</tag>
 				<tag name="schema">return: Dictionary with ok, error, area, target_count, accepted_count, attempt_count, max_attempts, seed, transforms, points, normals, exhausted_attempts, rejected_height_count, rejected_slope_count, and rejected_invalid_count.</tag>
 				<tag name="since">7.0.0</tag>
 			</tags>
@@ -70,7 +70,7 @@
 				<tag name="param">normal_provider: 法线回调，签名为 func(world_x: float, world_z: float, vertical_scale: float) -&gt; Vector3；无效时使用 Vector3.UP。</tag>
 				<tag name="param">options: 采样选项。</tag>
 				<tag name="return">散布报告。</tag>
-				<tag name="schema">options: Dictionary supports seed, max_attempt_multiplier, max_random_attempts, height_min, height_max, slope_min, slope_max, yaw_min, yaw_max, scale_min, scale_max, y_offset, align_to_normal, and vertical_scale.</tag>
+				<tag name="schema">options: Dictionary supports seed, max_attempt_multiplier, max_random_attempts, height_min, height_max, slope_min, slope_max, yaw_min, yaw_max, scale_min, scale_max, scale_axis_mode, y_offset, align_to_normal, and vertical_scale. scale_min/scale_max may be number or Vector3; scale_axis_mode accepts GFTransform3DMath.ScaleAxisMode or uniform/free/lock_xy/lock_xz/lock_yz.</tag>
 				<tag name="schema">return: Dictionary with ok, error, area, target_count, accepted_count, attempt_count, max_attempts, seed, transforms, points, normals, exhausted_attempts, rejected_height_count, rejected_slope_count, and rejected_invalid_count.</tag>
 				<tag name="since">7.0.0</tag>
 			</tags>
@@ -85,9 +85,23 @@
 				<tag name="param">normal_provider: 法线回调，签名为 func(world_x: float, world_z: float, vertical_scale: float) -&gt; Vector3；无效时使用 Vector3.UP。</tag>
 				<tag name="param">options: 采样选项。</tag>
 				<tag name="return">散布报告。</tag>
-				<tag name="schema">options: Dictionary supports seed, max_points, height_min, height_max, slope_min, slope_max, yaw_min, yaw_max, scale_min, scale_max, y_offset, align_to_normal, and vertical_scale.</tag>
+				<tag name="schema">options: Dictionary supports seed, max_points, height_min, height_max, slope_min, slope_max, yaw_min, yaw_max, scale_min, scale_max, scale_axis_mode, y_offset, align_to_normal, and vertical_scale. scale_min/scale_max may be number or Vector3; scale_axis_mode accepts GFTransform3DMath.ScaleAxisMode or uniform/free/lock_xy/lock_xz/lock_yz.</tag>
 				<tag name="schema">return: Dictionary with ok, error, area, target_count, accepted_count, attempt_count, max_attempts, seed, transforms, points, normals, exhausted_attempts, rejected_height_count, rejected_slope_count, and rejected_invalid_count.</tag>
 				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="to_json_compatible_report">
+			<signature>static func to_json_compatible_report(report: Dictionary, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>将表面散布报告转换为 JSON.stringify() 安全的结构。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">report: sample_heightfield()、sample_heightfield_points()、sample_points() 或 sample() 返回的报告。</tag>
+				<tag name="param">options: 报告编码选项，透传给 GFReportValueCodec。</tag>
+				<tag name="return">JSON 兼容报告。</tag>
+				<tag name="schema">report: GFSurfaceScatterSampler3D 返回的表面散布报告。</tag>
+				<tag name="schema">options: GFReportValueCodec 编码选项字典。</tag>
+				<tag name="schema">return: 可安全交给 JSON.stringify() 的 Dictionary。</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 	</methods>

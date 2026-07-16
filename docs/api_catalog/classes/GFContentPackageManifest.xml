@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFContentPackageManifest" path="addons/gf/extensions/content_package/resources/gf_content_package_manifest.gd" module="extensions/content_package" extends="Resource" classDigest="77bbc0b0ca867acbbaf6e32263900070d85a133684e31978400bbef517bc68cf">
+<class name="GFContentPackageManifest" path="addons/gf/extensions/content_package/resources/gf_content_package_manifest.gd" module="extensions/content_package" extends="Resource" classDigest="38b1bf4d81581cdb62044ee6926aee6b56bb40b5cc6de456d90f58c53d85114a">
 	<description>GFContentPackageManifest: 通用内容包 manifest。
 描述一个内容包的稳定包 ID、版本、依赖和资源键映射。GF 只校验结构、路径安全和依赖关系，
 不解释内容类型的业务语义，也不负责下载、启用策略或具体玩法规则。</description>
@@ -165,7 +165,8 @@
 				<tag name="param">data: manifest 字典。</tag>
 				<tag name="param">p_root_path: 内容包根目录。</tag>
 				<tag name="param">p_source_path: manifest 文件路径。</tag>
-				<tag name="schema">data: Dictionary，支持 package_id/id、display_name/name、version、content_types、dependencies、resources 和 metadata。</tag>
+				<tag name="schema">data: Dictionary，支持 package_id/id、display_name/name、version、content_types、dependencies、safety_kind、forbidden_resource_extensions、resources 和 metadata；字段类型必须与 manifest schema 一致，不执行字符串、数组或字典宽松转换。</tag>
+				<tag name="since">4.4.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="to_dictionary">
@@ -175,6 +176,18 @@
 				<tag name="api">public</tag>
 				<tag name="return">manifest 字典副本。</tag>
 				<tag name="schema">return: Dictionary，包含 schema_version、package_id、display_name、version、content_types、dependencies、resources 和 metadata。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="to_report_dictionary">
+			<signature>func to_report_dictionary(options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>转换为 JSON-safe 报告字典。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">options: 传给 GFReportValueCodec 的编码选项。</tag>
+				<tag name="return">manifest 报告字典。</tag>
+				<tag name="schema">options: Dictionary with GFReportValueCodec encoding options.</tag>
+				<tag name="schema">return: JSON-safe Dictionary based on to_dictionary().</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="duplicate_manifest">
@@ -190,9 +203,10 @@
 			<description>检查 manifest 是否有效。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="param">options: 校验选项。`check_resource_exists` 默认为 false。</tag>
+				<tag name="param">options: 校验选项。可启用文件存在性与传递依赖安全扫描。</tag>
 				<tag name="return">无 error issue 时返回 true。</tag>
-				<tag name="schema">options: Dictionary，可包含 check_resource_exists: bool。</tag>
+				<tag name="schema">options: Dictionary，可包含 check_resource_exists: bool、check_resource_dependencies: bool 和 dependency_options: Dictionary。</tag>
+				<tag name="since">4.4.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_validation_report">
@@ -200,10 +214,11 @@
 			<description>获取 manifest 校验报告。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="param">options: 校验选项。`check_resource_exists` 默认为 false。</tag>
+				<tag name="param">options: 校验选项。可启用文件存在性与传递依赖安全扫描。</tag>
 				<tag name="return">GFValidationReportDictionary 兼容报告。</tag>
-				<tag name="schema">options: Dictionary，可包含 check_resource_exists: bool。</tag>
+				<tag name="schema">options: Dictionary，可包含 check_resource_exists: bool、check_resource_dependencies: bool 和 dependency_options: Dictionary。</tag>
 				<tag name="schema">return: GFValidationReportDictionary.finalize_report() 生成的 Dictionary，包含 ok、healthy、summary、issues、next_action、error_count、warning_count、issue_count、package_id、source_path 和 resource_count。</tag>
+				<tag name="since">4.4.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_validation_errors">
@@ -211,9 +226,10 @@
 			<description>获取校验错误文本列表。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="param">options: 校验选项。`check_resource_exists` 默认为 false。</tag>
+				<tag name="param">options: 校验选项。可启用文件存在性与传递依赖安全扫描。</tag>
 				<tag name="return">错误文本列表。</tag>
-				<tag name="schema">options: Dictionary，可包含 check_resource_exists: bool。</tag>
+				<tag name="schema">options: Dictionary，可包含 check_resource_exists: bool、check_resource_dependencies: bool 和 dependency_options: Dictionary。</tag>
+				<tag name="since">4.4.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_normalized_resources">
@@ -242,7 +258,8 @@
 				<tag name="param">p_root_path: 内容包根目录。</tag>
 				<tag name="param">p_source_path: manifest 文件路径。</tag>
 				<tag name="return">新 manifest。</tag>
-				<tag name="schema">data: Dictionary，支持 package_id/id、display_name/name、version、content_types、dependencies、resources 和 metadata。</tag>
+				<tag name="schema">data: Dictionary，支持 package_id/id、display_name/name、version、content_types、dependencies、safety_kind、forbidden_resource_extensions、resources 和 metadata；字段类型必须与 manifest schema 一致。</tag>
+				<tag name="since">4.4.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="load_from_path">

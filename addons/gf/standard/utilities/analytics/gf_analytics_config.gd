@@ -45,6 +45,60 @@ extends Resource
 	set(value):
 		max_queue_size = maxi(value, 1)
 
+## 单个事件名允许的最大字符数。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+@export_range(1, 4096, 1) var max_event_name_length: int = 128:
+	set(value):
+		max_event_name_length = clampi(value, 1, 4096)
+
+## 单个事件允许的顶层属性数量。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+@export_range(1, 4096, 1) var max_property_count: int = 128:
+	set(value):
+		max_property_count = clampi(value, 1, 4096)
+
+## 单个报告字符串允许的最大字符数。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+@export_range(1, 65536, 1) var max_string_length: int = 4096:
+	set(value):
+		max_string_length = clampi(value, 1, 65536)
+
+## 单个报告集合允许编码的最大元素数。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+@export_range(1, 4096, 1) var max_collection_items: int = 256:
+	set(value):
+		max_collection_items = clampi(value, 1, 4096)
+
+## 单次报告编码允许遍历的最大节点数。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+@export_range(1, 1000000, 1) var max_total_nodes: int = 8192:
+	set(value):
+		max_total_nodes = clampi(value, 1, 1000000)
+
+## transport 接收的单批 JSON 最大字节数。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+@export_range(1024, 16777216, 1024) var max_payload_bytes: int = 256 * 1024:
+	set(value):
+		max_payload_bytes = clampi(value, 1024, 16 * 1024 * 1024)
+
 ## 是否自动附加运行环境上下文。
 ## [br]
 ## @api public
@@ -99,6 +153,9 @@ func build_headers() -> PackedStringArray:
 		var header_value: String = GFVariantData.to_text(headers[key])
 		if not _is_valid_header(header_name, header_value):
 			push_warning("[GFAnalyticsConfig] 忽略非法 HTTP Header：%s" % _escape_header_for_log(header_name))
+			continue
+		if _is_same_header_name(header_name, "Content-Type"):
+			push_warning("[GFAnalyticsConfig] 忽略自定义 Content-Type；analytics payload 固定为 application/json。")
 			continue
 		if compress_payload and _is_same_header_name(header_name, "Content-Encoding"):
 			push_warning("[GFAnalyticsConfig] compress_payload 已启用，忽略自定义 Content-Encoding。")

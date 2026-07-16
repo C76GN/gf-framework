@@ -1,6 +1,6 @@
 # 3D 空间哈希
 
-`GFSpatialHash3D` 是面向 3D 实体的纯逻辑空间哈希。它只维护调用方传入的 `AABB` 索引，适合在 `System` 中做大量动态实体的粗筛查询，例如感知范围、区域触发、编辑器预览或轻量服务器模拟。
+`GFSpatialHash3D` 是面向 3D 实体的纯逻辑空间哈希。它只维护调用方传入的 `AABB` 索引和 `GFSpatialQueryIdentity`，适合在 `System` 中做大量动态实体的粗筛查询，例如感知范围、区域触发、编辑器预览或轻量服务器模拟。
 
 ```gdscript
 var spatial_hash := GFSpatialHash3D.new(4.0)
@@ -22,6 +22,8 @@ for entity in spatial_hash.query_cell_range(center_cell, Vector3i(2, 0, 2)):
 ```
 
 `query_cell()` 与 `query_cell_range()` 返回的是桶内粗筛候选，适合快速定位一批可能相关的实体；它们不替代 `query_aabb()` / `query_radius()` 的几何过滤，也不规定 chunk 生命周期、网络可见性或存档策略。需要观察索引规模时，可读取 `get_debug_snapshot()` 获取 `entity_count`、`bucket_count` 和桶大小统计。
+
+实体身份接受 `Object`、非空 `StringName`、非空 `String` 或 `int`。`Object` 以 weakref 保存，索引会在查询或统计前清理已释放对象；可变 `Array`、`Dictionary` 不会被接受为 key。
 
 它不依赖物理节点，也不负责碰撞、阵营、视线或目标选择规则；这些语义仍应留在项目自己的 `System` 或规则对象中。
 

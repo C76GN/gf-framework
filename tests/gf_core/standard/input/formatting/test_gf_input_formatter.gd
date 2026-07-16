@@ -8,9 +8,40 @@ const _INPUT_MAP_ACTION: StringName = &"gf_test_formatter_jump"
 const _PROJECT_SETTINGS_ACTION: StringName = &"gf_test_formatter_project_jump"
 
 
+# --- 辅助类 ---
+
+class CustomFormatterTextProvider extends GFInputTextProvider:
+	var text: String = ""
+
+	func _init(p_text: String) -> void:
+		text = p_text
+		priority = 100
+
+	func supports_event(input_event: InputEvent, _options: Dictionary = {}) -> bool:
+		if not (input_event is InputEventKey):
+			return false
+		var key_event: InputEventKey = input_event
+		return key_event.keycode == KEY_K
+
+	func get_event_text(_input_event: InputEvent, _options: Dictionary = {}) -> String:
+		return text
+
+
+class CustomFormatterIconProvider extends GFInputIconProvider:
+	func supports_event(input_event: InputEvent, _options: Dictionary = {}) -> bool:
+		if not (input_event is InputEventKey):
+			return false
+		var key_event: InputEventKey = input_event
+		return key_event.keycode == KEY_K
+
+	func get_event_rich_text(_input_event: InputEvent, _options: Dictionary = {}) -> String:
+		return "[color=lime]K[/color]"
+
+
 # --- 测试方法 ---
 
 func before_each() -> void:
+	GFInputFormatter.clear_text_providers()
 	GFInputFormatter.clear_icon_providers()
 	_clear_input_action(_INPUT_MAP_ACTION)
 	_clear_input_action(_PROJECT_SETTINGS_ACTION)
@@ -19,6 +50,7 @@ func before_each() -> void:
 
 
 func after_each() -> void:
+	GFInputFormatter.clear_text_providers()
 	GFInputFormatter.clear_icon_providers()
 	_clear_input_action(_INPUT_MAP_ACTION)
 	_clear_input_action(_PROJECT_SETTINGS_ACTION)
@@ -114,6 +146,61 @@ func test_rich_text_escapes_bbcode_brackets_without_reescaping_replacements() ->
 		"[lb]none[rb]",
 		"解绑文本中的 BBCode 括号也应被转义一次。"
 	)
+
+
+func test_scoped_formatter_registry_does_not_pollute_default_registry() -> void:
+	var registry: GFInputFormatterRegistry = GFInputFormatterRegistry.new()
+	var provider: CustomFormatterTextProvider = CustomFormatterTextProvider.new("Scoped K")
+	var registration: GFInputProviderRegistration = registry.register_text_provider(provider)
+	var event: InputEventKey = _make_key_event(KEY_K)
+
+	assert_true(registration.is_active(), "局部 registry 注册应返回活动句柄。")
+	assert_eq(GFInputFormatter.input_event_as_text(event), "K", "默认 registry 不应被局部 registry 污染。")
+	assert_eq(
+		GFInputFormatter.input_event_as_text(event, { "formatter_registry": registry }),
+		"Scoped K",
+		"调用 options 可指定局部 registry。"
+	)
+
+	var released: bool = registration.release()
+
+	assert_true(released, "注册句柄应可显式释放。")
+	assert_eq(
+		GFInputFormatter.input_event_as_text(event, { "formatter_registry": registry }),
+		"K",
+		"释放后局部 registry 应回退默认格式化。"
+	)
+
+
+func test_formatter_registry_prunes_provider_when_owner_is_freed() -> void:
+	var registry: GFInputFormatterRegistry = GFInputFormatterRegistry.new()
+	var registration_owner: Node = Node.new()
+	var provider: CustomFormatterTextProvider = CustomFormatterTextProvider.new("Owned K")
+	var registration: GFInputProviderRegistration = registry.register_text_provider(provider, registration_owner)
+
+	assert_true(registration.is_active(), "owner 存活时注册应有效。")
+
+	registration_owner.free()
+	var pruned_count: int = registry.prune_invalid_provider_owners()
+
+	assert_eq(pruned_count, 1, "owner 释放后 registry 应裁剪对应 provider。")
+	assert_false(registration.is_active(), "被裁剪的注册句柄应失效。")
+
+
+func test_default_icon_provider_registration_token_releases_provider() -> void:
+	var registration: GFInputProviderRegistration = GFInputFormatter.register_icon_provider(CustomFormatterIconProvider.new())
+	var event: InputEventKey = _make_key_event(KEY_K)
+
+	assert_eq(
+		GFInputFormatter.input_event_as_rich_text(event),
+		"[color=lime]K[/color]",
+		"默认 registry 的注册句柄应立即生效。"
+	)
+
+	var released: bool = registration.release()
+
+	assert_true(released, "默认 registry 注册句柄应可释放。")
+	assert_eq(GFInputFormatter.input_event_as_rich_text(event), "K", "释放后应回退文本格式化。")
 
 
 # --- 私有/辅助方法 ---

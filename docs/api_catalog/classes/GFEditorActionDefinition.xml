@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFEditorActionDefinition" path="addons/gf/kernel/editor/gf_editor_action_definition.gd" module="kernel" extends="RefCounted" classDigest="588e93e7437fdcb76ab4c38e5d332a3066058d36eea17b5438195015eee5570b">
+<class name="GFEditorActionDefinition" path="addons/gf/kernel/editor/gf_editor_action_definition.gd" module="kernel" extends="RefCounted" classDigest="243d6b18ac7b9410f8c6d2756c4297ebbbe66ab98de82fb91185eb1479321a6c">
 	<description>GFEditorActionDefinition: 编辑器动作声明。
 把菜单、按钮、快捷键或面板入口与命令工厂解耦。动作只负责描述入口和创建命令，
 具体执行、撤销和业务含义由调用方或命令实现决定。</description>
@@ -11,7 +11,56 @@
 	</tags>
 	<signals />
 	<enums />
-	<constants />
+	<constants>
+		<member kind="const" name="INVOCATION_STATUS_READY">
+			<signature>const INVOCATION_STATUS_READY: StringName = &amp;"ready"</signature>
+			<description>调用探针通过，动作当前可创建并执行命令。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="INVOCATION_STATUS_DISABLED">
+			<signature>const INVOCATION_STATUS_DISABLED: StringName = &amp;"disabled"</signature>
+			<description>动作被显式禁用。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="INVOCATION_STATUS_UNAVAILABLE">
+			<signature>const INVOCATION_STATUS_UNAVAILABLE: StringName = &amp;"unavailable"</signature>
+			<description>动作当前未通过可用性回调。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="INVOCATION_STATUS_FACTORY_MISSING">
+			<signature>const INVOCATION_STATUS_FACTORY_MISSING: StringName = &amp;"factory_missing"</signature>
+			<description>动作缺少有效命令工厂。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="INVOCATION_STATUS_COMMAND_INVALID">
+			<signature>const INVOCATION_STATUS_COMMAND_INVALID: StringName = &amp;"command_invalid"</signature>
+			<description>命令工厂没有返回有效 GFEditorCommand。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="INVOCATION_STATUS_COMMAND_UNAVAILABLE">
+			<signature>const INVOCATION_STATUS_COMMAND_UNAVAILABLE: StringName = &amp;"command_unavailable"</signature>
+			<description>命令已创建，但命令自身当前不可执行。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</constants>
 	<properties>
 		<member kind="property" name="action_id">
 			<signature>var action_id: StringName = &amp;""</signature>
@@ -100,12 +149,14 @@
 	<methods>
 		<member kind="method" name="create_command">
 			<signature>func create_command(context: Dictionary = {}) -&gt; GFEditorCommandBase:</signature>
-			<description>根据上下文创建命令。</description>
+			<description>根据上下文创建命令。
+该方法会遵守 enabled、command_factory 和 availability_callback，但不会执行命令。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">context: 调用方传入的编辑器上下文。</tag>
 				<tag name="return">命令对象，工厂无效或返回类型不匹配时为 null。</tag>
 				<tag name="schema">context: Dictionary editor context passed to command_factory.</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="invoke">
@@ -117,16 +168,48 @@
 				<tag name="param">undo_manager: EditorUndoRedoManager 或兼容对象；为空时直接执行命令。</tag>
 				<tag name="return">Godot 错误码。</tag>
 				<tag name="schema">context: Dictionary editor context passed to create_command().</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_available">
 			<signature>func is_available(context: Dictionary = {}) -&gt; bool:</signature>
-			<description>动作是否具备可调用命令工厂。</description>
+			<description>动作是否应在当前 UI 上下文中展示为可用。
+这是轻量、无命令创建的纯查询，只检查 enabled、command_factory 与
+availability_callback。它不保证 invoke() 一定成功；需要严格执行前诊断时使用
+can_invoke() 或 get_invocation_report()。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">context: 调用方传入的编辑器上下文。</tag>
-				<tag name="return">可创建且可执行命令时返回 true。</tag>
-				<tag name="schema">context: Dictionary editor context passed to create_command().</tag>
+				<tag name="return">UI 上下文中动作应标记为可用时返回 true。</tag>
+				<tag name="schema">context: Dictionary editor context passed to availability_callback.</tag>
+				<tag name="since">3.17.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="can_invoke">
+			<signature>func can_invoke(context: Dictionary = {}) -&gt; bool:</signature>
+			<description>当前上下文下动作是否可调用。
+与 is_available() 不同，该方法会创建一次临时命令并检查 command.can_execute()，
+但不会执行命令，也不会写入 UndoRedo。命令工厂必须把创建命令保持为无业务写入副作用。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">context: 调用方传入的编辑器上下文。</tag>
+				<tag name="return">当前动作可调用时返回 true。</tag>
+				<tag name="schema">context: Dictionary editor context passed to command_factory.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_invocation_report">
+			<signature>func get_invocation_report(context: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>获取当前上下文下的动作调用诊断报告。
+该方法会创建一次临时命令并检查 command.can_execute()，但不会执行命令，也不会写入
+UndoRedo。返回报告中的 metadata 会通过 GFReportValueCodec 编码为 JSON-safe 结构。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">context: 调用方传入的编辑器上下文。</tag>
+				<tag name="return">调用诊断报告。</tag>
+				<tag name="schema">context: Dictionary editor context passed to command_factory.</tag>
+				<tag name="schema">return: JSON-safe Dictionary containing ok, status, action_id, error_code, message, available, enabled, has_command_factory, command_created, command_can_execute, command_name, and metadata.</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_debug_snapshot">

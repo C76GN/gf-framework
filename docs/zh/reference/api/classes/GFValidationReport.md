@@ -32,6 +32,7 @@
 | 方法 | [`merge`](#member-gfvalidationreport-methods-merge) | `func merge(source: Variant, include_metadata: bool = true) -> RefCounted:` |
 | 方法 | [`apply_dict`](#member-gfvalidationreport-methods-apply_dict) | `func apply_dict(data: Dictionary) -> void:` |
 | 方法 | [`to_dict`](#member-gfvalidationreport-methods-to_dict) | `func to_dict(additional_fields: Dictionary = {}, options: Dictionary = {}) -> Dictionary:` |
+| 方法 | [`to_json_compatible_dict`](#member-gfvalidationreport-methods-to_json_compatible_dict) | `func to_json_compatible_dict(additional_fields: Dictionary = {}, options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`duplicate_report`](#member-gfvalidationreport-methods-duplicate_report) | `func duplicate_report() -> RefCounted:` |
 | 方法 | [`get_error_count`](#member-gfvalidationreport-methods-get_error_count) | `func get_error_count() -> int:` |
 | 方法 | [`get_warning_count`](#member-gfvalidationreport-methods-get_warning_count) | `func get_warning_count() -> int:` |
@@ -451,6 +452,34 @@ func to_dict(additional_fields: Dictionary = {}, options: Dictionary = {}) -> Di
 - `additional_fields`: Dictionary of caller-defined serialized fields.
 - `options`: Dictionary controlling report serialization options.
 - `return`: Dictionary serialized report payload.
+
+<a id="member-gfvalidationreport-methods-to_json_compatible_dict"></a>
+
+### `to_json_compatible_dict`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func to_json_compatible_dict(additional_fields: Dictionary = {}, options: Dictionary = {}) -> Dictionary:
+```
+
+转换为 JSON-safe 报告字典。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `additional_fields` | 附加到输出中的调用方字段。 |
+| `options` | 传给 to_dict() 的输出控制。 |
+
+返回：JSON-safe 报告字典。
+
+结构：
+
+- `additional_fields`: Dictionary of caller-defined serialized fields.
+- `options`: Dictionary controlling report serialization options.
+- `return`: Dictionary serialized report payload made safe for JSON.stringify().
 
 <a id="member-gfvalidationreport-methods-duplicate_report"></a>
 

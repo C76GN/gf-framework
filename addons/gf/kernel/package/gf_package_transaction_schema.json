@@ -1,0 +1,75 @@
+{
+  "schema_version": 1,
+  "report_schema_version": 1,
+  "operations": [
+    "install",
+    "update",
+    "uninstall",
+    "lockfile_only"
+  ],
+  "phases": [
+    "preparing",
+    "prepared",
+    "applying_payload",
+    "payload_applied",
+    "committing_lockfile",
+    "committed",
+    "rolling_back",
+    "recovery_failed"
+  ],
+  "outcomes": [
+    "none",
+    "committed",
+    "rolled_back",
+    "pending_recovery",
+    "recovered_commit",
+    "recovered_rollback",
+    "recovered_abandoned",
+    "blocked",
+    "recovery_failed"
+  ],
+  "request_required_fields": [
+    "schema_version",
+    "operation",
+    "project_root",
+    "lockfile_path",
+    "planned_lockfile",
+    "writes",
+    "deletes",
+    "cleanup_paths"
+  ],
+  "journal_required_fields": [
+    "schema_version",
+    "sequence",
+    "transaction_id",
+    "operation",
+    "phase",
+    "owner_pid",
+    "project_root",
+    "lockfile_path",
+    "lockfile_had_original",
+    "lockfile_original_sha256",
+    "lockfile_planned_sha256",
+    "writes",
+    "deletes",
+    "cleanup_paths"
+  ],
+  "report_fields": [
+    "schema_version",
+    "ok",
+    "transaction_id",
+    "operation",
+    "phase",
+    "outcome",
+    "write_count",
+    "delete_count",
+    "lockfile_written",
+    "rolled_back",
+    "recovered",
+    "recovery_required",
+    "issue_count",
+    "issues",
+    "warning_count",
+    "warnings"
+  ]
+}

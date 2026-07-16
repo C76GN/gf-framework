@@ -18,7 +18,7 @@ func test_step_limit_records_report_issue() -> void:
 
 
 func test_cancel_token_stops_budget_check() -> void:
-	var source: GFCancelSource = GFCancelSource.new()
+	var source: GFCancellationSource = GFCancellationSource.new()
 	var budget: GFExecutionBudget = GFExecutionBudget.new({
 		"cancel_token": source.get_token(),
 	})

@@ -8,6 +8,7 @@
 diagnostics.set_auth_token("dev-token")
 diagnostics.max_command_tier = GFDiagnosticsUtility.CommandTier.CONTROL
 diagnostics.register_command(
+	self,
 	&"runtime.pause",
 	Callable(self, "_diagnostics_pause"),
 	"暂停运行时。",

@@ -12,6 +12,11 @@ class_name GFCombatActionModifier
 extends Resource
 
 
+# --- 常量 ---
+
+const _GF_COMBAT_FINITE_MATH = preload("res://addons/gf/extensions/combat/core/gf_combat_finite_math.gd")
+
+
 # --- 导出变量 ---
 
 ## 修正器标识。
@@ -37,12 +42,28 @@ extends Resource
 ## 数值加成。
 ## [br]
 ## @api public
-@export var amount_add: float = 0.0
+## [br]
+## @since 3.17.0
+@export var amount_add: float:
+	get:
+		return _amount_add
+	set(value):
+		_amount_add_is_valid = _GF_COMBAT_FINITE_MATH.is_finite_float(value)
+		if _amount_add_is_valid:
+			_amount_add = value
 
 ## 数值乘区。
 ## [br]
 ## @api public
-@export var amount_multiplier: float = 1.0
+## [br]
+## @since 3.17.0
+@export var amount_multiplier: float:
+	get:
+		return _amount_multiplier
+	set(value):
+		_amount_multiplier_is_valid = _GF_COMBAT_FINITE_MATH.is_finite_float(value)
+		if _amount_multiplier_is_valid:
+			_amount_multiplier = value
 
 ## 是否覆盖动作操作。
 ## [br]
@@ -72,6 +93,14 @@ extends Resource
 @export var metadata: Dictionary = {}
 
 
+# --- 私有变量 ---
+
+var _amount_add: float = 0.0
+var _amount_add_is_valid: bool = true
+var _amount_multiplier: float = 1.0
+var _amount_multiplier_is_valid: bool = true
+
+
 # --- 公共方法 ---
 
 ## 检查修正器是否匹配动作。
@@ -94,6 +123,22 @@ func matches(action: GFCombatAction) -> bool:
 	return true
 
 
+## 检查修正器数值是否可安全参与运算。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+## [br]
+## @return 所有数值字段有限时返回 true。
+func is_numeric_state_valid() -> bool:
+	return (
+		_amount_add_is_valid
+		and _amount_multiplier_is_valid
+		and _GF_COMBAT_FINITE_MATH.is_finite_float(_amount_add)
+		and _GF_COMBAT_FINITE_MATH.is_finite_float(_amount_multiplier)
+	)
+
+
 ## 应用修正器。
 ## [br]
 ## @api public
@@ -107,6 +152,9 @@ func apply(action: GFCombatAction) -> GFCombatAction:
 
 	var result: GFCombatAction = action.duplicate_action()
 	if not matches(action):
+		return result
+	if not action.is_numeric_state_valid() or not is_numeric_state_valid():
+		result.amount = NAN
 		return result
 
 	result.amount = (result.amount + amount_add) * amount_multiplier
@@ -139,6 +187,8 @@ func duplicate_modifier() -> GFCombatActionModifier:
 	modifier.required_tags = required_tags.duplicate()
 	modifier.amount_add = amount_add
 	modifier.amount_multiplier = amount_multiplier
+	modifier._amount_add_is_valid = _amount_add_is_valid
+	modifier._amount_multiplier_is_valid = _amount_multiplier_is_valid
 	modifier.override_operation = override_operation
 	modifier.operation = operation
 	modifier.override_action_kind = override_action_kind

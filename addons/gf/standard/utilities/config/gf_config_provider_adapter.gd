@@ -128,8 +128,8 @@ func unregister_table_source(table_name: StringName) -> bool:
 ## [br]
 ## @since 7.0.0
 func clear_table_sources() -> void:
-	for table_name: StringName in get_table_ids():
-		unregister_schema(table_name)
+	for table_name: String in get_schema_ids():
+		unregister_schema(StringName(table_name))
 	_sources.clear()
 	_loaded_tables.clear()
 	_load_reports.clear()
@@ -323,7 +323,9 @@ func _resolve_source_value(table_name: StringName, source_record: Dictionary, so
 		var loader: Callable = source
 		return loader.call(table_name, GFVariantData.get_option_dictionary(source_record, "metadata"))
 
-	if source is Object:
+	if typeof(source) == TYPE_OBJECT:
+		if not is_instance_valid(source):
+			return null
 		var source_object: Object = source
 		var table_method: StringName = GFVariantData.get_option_string_name(source_record, "table_method")
 		if table_method != &"" and source_object.has_method(String(table_method)):
@@ -343,7 +345,9 @@ func _read_record_from_table(table_data: Variant, record_id: Variant, source_rec
 		var id_field: StringName = GFVariantData.get_option_string_name(source_record, "id_field", &"id")
 		return _read_record_from_array(table_array, record_id, id_field)
 
-	if table_data is Object:
+	if typeof(table_data) == TYPE_OBJECT:
+		if not is_instance_valid(table_data):
+			return null
 		var table_object: Object = table_data
 		var record_method: StringName = GFVariantData.get_option_string_name(source_record, "record_method")
 		if record_method != &"" and table_object.has_method(String(record_method)):
@@ -417,7 +421,9 @@ func _estimate_record_count(table_data: Variant) -> int:
 	if table_data is Array:
 		var table_array: Array = table_data
 		return table_array.size()
-	if table_data is Object:
+	if typeof(table_data) == TYPE_OBJECT:
+		if not is_instance_valid(table_data):
+			return 0
 		var table_object: Object = table_data
 		if table_object.has_method("get_record_count"):
 			return GFVariantData.to_int(table_object.call("get_record_count"), 0)
@@ -432,7 +438,12 @@ func _copy_reports() -> Dictionary:
 
 
 func _is_supported_source(source: Variant) -> bool:
-	return source is Callable or source is Array or source is Dictionary or source is Object
+	if source is Callable:
+		var callable: Callable = source
+		return callable.is_valid()
+	if typeof(source) == TYPE_OBJECT:
+		return is_instance_valid(source)
+	return source is Array or source is Dictionary
 
 
 func _variant_to_schema(value: Variant) -> GFConfigTableSchema:

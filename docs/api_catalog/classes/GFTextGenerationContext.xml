@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFTextGenerationContext" path="addons/gf/standard/foundation/text/gf_text_generation_context.gd" module="standard" extends="RefCounted" classDigest="def9d7ee88dc01ec27fddfd9d189e4b8dadedb6ba9f819f671c92ac67310e6dd">
+<class name="GFTextGenerationContext" path="addons/gf/standard/foundation/text/gf_text_generation_context.gd" module="standard" extends="RefCounted" classDigest="bbc708501f242e6b757a652ab3ab9bfbce22e6a4a0970c153711af71f397314e">
 	<description>GFTextGenerationContext: 安全的纯数据文本生成上下文。
-提供显式数据 scope、严格缺失检查、简单 token 替换、输出缓冲和预算诊断。
+提供显式数据 scope、严格缺失检查、简单 token 替换、可选输出格式化、输出缓冲和预算诊断。
 token 只解析数据路径，不执行表达式、脚本或宿主对象方法。</description>
 	<tags>
 		<tag name="api">public</tag>
@@ -153,10 +153,26 @@ token 默认使用 `{{name}}` 形式，name 只能是数据路径；不会执行
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">text: 输入文本。</tag>
-				<tag name="param">options: 可选配置，支持 start_token、end_token、missing_text、max_replacements 和 source_span。</tag>
+				<tag name="param">options: 可选配置，支持 start_token、end_token、missing_text、max_replacements、source_span 和 value_formatter。</tag>
 				<tag name="return">替换后的文本。</tag>
-				<tag name="schema">options: Dictionary，token 替换配置。</tag>
+				<tag name="schema">options: Dictionary，token 替换配置；value_formatter 为 Callable(context: Dictionary) -&gt; Variant，context 包含 path、value、fallback_text、source_span 和 metadata。</tag>
 				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="render_template">
+			<signature>func render_template(template_text: String, options: Dictionary = {}) -&gt; String:</signature>
+			<description>渲染安全模板文本。
+支持普通 token 替换、`{{ for item in items }}` / `{{ end }}` 循环块，
+`{{ empty items }}` / `{{ end_empty }}` 空态块，以及 `{{ comment note }}` 注释。
+模板块只读取纯数据路径，
+不执行表达式、函数或对象方法。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">template_text: 模板文本。</tag>
+				<tag name="param">options: 渲染选项，支持 replace_tokens() 选项，以及 max_loop_items、max_template_depth 和 loop_key。</tag>
+				<tag name="return">渲染后的文本。</tag>
+				<tag name="schema">options: Dictionary，可包含 start_token、end_token、missing_text、max_replacements、source_span、value_formatter、max_loop_items、max_template_depth 和 loop_key。</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="append_text">

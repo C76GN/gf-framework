@@ -21,6 +21,7 @@
 | 方法 | [`sample_heightfield_points`](#member-gfsurfacescattersampler3d-methods-sample_heightfield_points) | `static func sample_heightfield_points( heightfield: GFHeightfield3D, points: PackedVector2Array, options: Dictionary = {} ) -> Dictionary:` |
 | 方法 | [`sample`](#member-gfsurfacescattersampler3d-methods-sample) | `static func sample( area: Rect2, count: int, height_provider: Callable, normal_provider: Callable = Callable(), options: Dictionary = {} ) -> Dictionary:` |
 | 方法 | [`sample_points`](#member-gfsurfacescattersampler3d-methods-sample_points) | `static func sample_points( points: PackedVector2Array, height_provider: Callable, normal_provider: Callable = Callable(), options: Dictionary = {} ) -> Dictionary:` |
+| 方法 | [`to_json_compatible_report`](#member-gfsurfacescattersampler3d-methods-to_json_compatible_report) | `static func to_json_compatible_report(report: Dictionary, options: Dictionary = {}) -> Dictionary:` |
 
 ## 常量
 
@@ -78,7 +79,7 @@ static func sample_heightfield( heightfield: GFHeightfield3D, area: Rect2, count
 
 结构：
 
-- `options`: Dictionary supports seed, max_attempt_multiplier, max_random_attempts, height_min, height_max, slope_min, slope_max, yaw_min, yaw_max, scale_min, scale_max, y_offset, align_to_normal, and vertical_scale.
+- `options`: Dictionary supports seed, max_attempt_multiplier, max_random_attempts, height_min, height_max, slope_min, slope_max, yaw_min, yaw_max, scale_min, scale_max, scale_axis_mode, y_offset, align_to_normal, and vertical_scale. scale_min/scale_max may be number or Vector3; scale_axis_mode accepts GFTransform3DMath.ScaleAxisMode or uniform/free/lock_xy/lock_xz/lock_yz.
 - `return`: Dictionary with ok, error, area, target_count, accepted_count, attempt_count, max_attempts, seed, transforms, points, normals, exhausted_attempts, rejected_height_count, rejected_slope_count, and rejected_invalid_count.
 
 <a id="member-gfsurfacescattersampler3d-methods-sample_heightfield_points"></a>
@@ -106,7 +107,7 @@ static func sample_heightfield_points( heightfield: GFHeightfield3D, points: Pac
 
 结构：
 
-- `options`: Dictionary supports seed, max_points, height_min, height_max, slope_min, slope_max, yaw_min, yaw_max, scale_min, scale_max, y_offset, align_to_normal, and vertical_scale.
+- `options`: Dictionary supports seed, max_points, height_min, height_max, slope_min, slope_max, yaw_min, yaw_max, scale_min, scale_max, scale_axis_mode, y_offset, align_to_normal, and vertical_scale. scale_min/scale_max may be number or Vector3; scale_axis_mode accepts GFTransform3DMath.ScaleAxisMode or uniform/free/lock_xy/lock_xz/lock_yz.
 - `return`: Dictionary with ok, error, area, target_count, accepted_count, attempt_count, max_attempts, seed, transforms, points, normals, exhausted_attempts, rejected_height_count, rejected_slope_count, and rejected_invalid_count.
 
 <a id="member-gfsurfacescattersampler3d-methods-sample"></a>
@@ -136,7 +137,7 @@ static func sample( area: Rect2, count: int, height_provider: Callable, normal_p
 
 结构：
 
-- `options`: Dictionary supports seed, max_attempt_multiplier, max_random_attempts, height_min, height_max, slope_min, slope_max, yaw_min, yaw_max, scale_min, scale_max, y_offset, align_to_normal, and vertical_scale.
+- `options`: Dictionary supports seed, max_attempt_multiplier, max_random_attempts, height_min, height_max, slope_min, slope_max, yaw_min, yaw_max, scale_min, scale_max, scale_axis_mode, y_offset, align_to_normal, and vertical_scale. scale_min/scale_max may be number or Vector3; scale_axis_mode accepts GFTransform3DMath.ScaleAxisMode or uniform/free/lock_xy/lock_xz/lock_yz.
 - `return`: Dictionary with ok, error, area, target_count, accepted_count, attempt_count, max_attempts, seed, transforms, points, normals, exhausted_attempts, rejected_height_count, rejected_slope_count, and rejected_invalid_count.
 
 <a id="member-gfsurfacescattersampler3d-methods-sample_points"></a>
@@ -165,5 +166,33 @@ static func sample_points( points: PackedVector2Array, height_provider: Callable
 
 结构：
 
-- `options`: Dictionary supports seed, max_points, height_min, height_max, slope_min, slope_max, yaw_min, yaw_max, scale_min, scale_max, y_offset, align_to_normal, and vertical_scale.
+- `options`: Dictionary supports seed, max_points, height_min, height_max, slope_min, slope_max, yaw_min, yaw_max, scale_min, scale_max, scale_axis_mode, y_offset, align_to_normal, and vertical_scale. scale_min/scale_max may be number or Vector3; scale_axis_mode accepts GFTransform3DMath.ScaleAxisMode or uniform/free/lock_xy/lock_xz/lock_yz.
 - `return`: Dictionary with ok, error, area, target_count, accepted_count, attempt_count, max_attempts, seed, transforms, points, normals, exhausted_attempts, rejected_height_count, rejected_slope_count, and rejected_invalid_count.
+
+<a id="member-gfsurfacescattersampler3d-methods-to_json_compatible_report"></a>
+
+### `to_json_compatible_report`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+static func to_json_compatible_report(report: Dictionary, options: Dictionary = {}) -> Dictionary:
+```
+
+将表面散布报告转换为 JSON.stringify() 安全的结构。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `report` | sample_heightfield()、sample_heightfield_points()、sample_points() 或 sample() 返回的报告。 |
+| `options` | 报告编码选项，透传给 GFReportValueCodec。 |
+
+返回：JSON 兼容报告。
+
+结构：
+
+- `report`: GFSurfaceScatterSampler3D 返回的表面散布报告。
+- `options`: GFReportValueCodec 编码选项字典。
+- `return`: 可安全交给 JSON.stringify() 的 Dictionary。

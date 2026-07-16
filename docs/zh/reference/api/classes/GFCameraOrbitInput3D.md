@@ -370,6 +370,7 @@ func apply_zoom_value(value: float, scale: float = 1.0) -> bool:
 ### `get_debug_snapshot`
 
 - API：`public`
+- 首次版本：`8.0.0`
 
 ```gdscript
 func get_debug_snapshot() -> Dictionary:
@@ -381,4 +382,4 @@ func get_debug_snapshot() -> Dictionary:
 
 结构：
 
-- `return`: Dictionary，包含 enabled、update_mode、use_input_mapping、orbit_action_id、zoom_action_id、has_rig 和 has_input_mapping。
+- `return`: Report-safe Dictionary，包含输入就绪状态、缺失动作以及当前鼠标捕获代次。

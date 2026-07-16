@@ -21,9 +21,9 @@
 | 信号 | [`tick_finished`](#member-gffixedtickclock-signals-tick_finished) | `signal tick_finished(tick: int, tick_seconds: float)` |
 | 信号 | [`tick_loop_finished`](#member-gffixedtickclock-signals-tick_loop_finished) | `signal tick_loop_finished(previous_tick: int, current_tick: int, step_count: int)` |
 | 信号 | [`tick_budget_exhausted`](#member-gffixedtickclock-signals-tick_budget_exhausted) | `signal tick_budget_exhausted(available_steps: int, processed_steps: int, remaining_seconds: float)` |
-| 属性 | [`tick_rate`](#member-gffixedtickclock-properties-tick_rate) | `var tick_rate: float = 30.0` |
+| 属性 | [`tick_rate`](#member-gffixedtickclock-properties-tick_rate) | `var tick_rate: float = 30.0:` |
 | 属性 | [`current_tick`](#member-gffixedtickclock-properties-current_tick) | `var current_tick: int = 0` |
-| 属性 | [`accumulator_seconds`](#member-gffixedtickclock-properties-accumulator_seconds) | `var accumulator_seconds: float = 0.0` |
+| 属性 | [`accumulator_seconds`](#member-gffixedtickclock-properties-accumulator_seconds) | `var accumulator_seconds: float = 0.0:` |
 | 属性 | [`max_steps_per_update`](#member-gffixedtickclock-properties-max_steps_per_update) | `var max_steps_per_update: int = 8` |
 | 属性 | [`drop_excess_time_on_budget_hit`](#member-gffixedtickclock-properties-drop_excess_time_on_budget_hit) | `var drop_excess_time_on_budget_hit: bool = true` |
 | 方法 | [`configure`](#member-gffixedtickclock-methods-configure) | `func configure(p_tick_rate: float, p_max_steps_per_update: int = -1) -> void:` |
@@ -165,9 +165,10 @@ signal tick_budget_exhausted(available_steps: int, processed_steps: int, remaini
 ### `tick_rate`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-var tick_rate: float = 30.0
+var tick_rate: float = 30.0:
 ```
 
 每秒 tick 数。
@@ -189,9 +190,10 @@ var current_tick: int = 0
 ### `accumulator_seconds`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-var accumulator_seconds: float = 0.0
+var accumulator_seconds: float = 0.0:
 ```
 
 累积但尚未消费的时间。

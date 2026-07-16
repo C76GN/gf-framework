@@ -34,6 +34,7 @@
 | 方法 | [`configure`](#member-gfcontentpackagemanifest-methods-configure) | `func configure( p_package_id: StringName, p_version: String, p_resources: Array[Dictionary] = [], p_display_name: String = "", p_content_types: PackedStringArray = PackedStringArray(), p_dependencies: PackedStringArray = PackedStringArray(), p_metadata: Dictionary = {}, p_root_path: String = "", p_source_path: String = "", p_safety_kind: StringName = SAFETY_KIND_DATA_ONLY, p_forbidden_resource_extensions: PackedStringArray = PackedStringArray() ) -> GFContentPackageManifest:` |
 | 方法 | [`apply_dictionary`](#member-gfcontentpackagemanifest-methods-apply_dictionary) | `func apply_dictionary(data: Dictionary, p_root_path: String = "", p_source_path: String = "") -> void:` |
 | 方法 | [`to_dictionary`](#member-gfcontentpackagemanifest-methods-to_dictionary) | `func to_dictionary() -> Dictionary:` |
+| 方法 | [`to_report_dictionary`](#member-gfcontentpackagemanifest-methods-to_report_dictionary) | `func to_report_dictionary(options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`duplicate_manifest`](#member-gfcontentpackagemanifest-methods-duplicate_manifest) | `func duplicate_manifest() -> GFContentPackageManifest:` |
 | 方法 | [`is_valid`](#member-gfcontentpackagemanifest-methods-is_valid) | `func is_valid(options: Dictionary = {}) -> bool:` |
 | 方法 | [`get_validation_report`](#member-gfcontentpackagemanifest-methods-get_validation_report) | `func get_validation_report(options: Dictionary = {}) -> Dictionary:` |
@@ -296,6 +297,7 @@ func configure( p_package_id: StringName, p_version: String, p_resources: Array[
 ### `apply_dictionary`
 
 - API：`public`
+- 首次版本：`4.4.0`
 
 ```gdscript
 func apply_dictionary(data: Dictionary, p_root_path: String = "", p_source_path: String = "") -> void:
@@ -313,7 +315,7 @@ func apply_dictionary(data: Dictionary, p_root_path: String = "", p_source_path:
 
 结构：
 
-- `data`: Dictionary，支持 package_id/id、display_name/name、version、content_types、dependencies、resources 和 metadata。
+- `data`: Dictionary，支持 package_id/id、display_name/name、version、content_types、dependencies、safety_kind、forbidden_resource_extensions、resources 和 metadata；字段类型必须与 manifest schema 一致，不执行字符串、数组或字典宽松转换。
 
 <a id="member-gfcontentpackagemanifest-methods-to_dictionary"></a>
 
@@ -332,6 +334,32 @@ func to_dictionary() -> Dictionary:
 结构：
 
 - `return`: Dictionary，包含 schema_version、package_id、display_name、version、content_types、dependencies、resources 和 metadata。
+
+<a id="member-gfcontentpackagemanifest-methods-to_report_dictionary"></a>
+
+### `to_report_dictionary`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func to_report_dictionary(options: Dictionary = {}) -> Dictionary:
+```
+
+转换为 JSON-safe 报告字典。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `options` | 传给 GFReportValueCodec 的编码选项。 |
+
+返回：manifest 报告字典。
+
+结构：
+
+- `options`: Dictionary with GFReportValueCodec encoding options.
+- `return`: JSON-safe Dictionary based on to_dictionary().
 
 <a id="member-gfcontentpackagemanifest-methods-duplicate_manifest"></a>
 
@@ -352,6 +380,7 @@ func duplicate_manifest() -> GFContentPackageManifest:
 ### `is_valid`
 
 - API：`public`
+- 首次版本：`4.4.0`
 
 ```gdscript
 func is_valid(options: Dictionary = {}) -> bool:
@@ -363,19 +392,20 @@ func is_valid(options: Dictionary = {}) -> bool:
 
 | 名称 | 说明 |
 |---|---|
-| `options` | 校验选项。`check_resource_exists` 默认为 false。 |
+| `options` | 校验选项。可启用文件存在性与传递依赖安全扫描。 |
 
 返回：无 error issue 时返回 true。
 
 结构：
 
-- `options`: Dictionary，可包含 check_resource_exists: bool。
+- `options`: Dictionary，可包含 check_resource_exists: bool、check_resource_dependencies: bool 和 dependency_options: Dictionary。
 
 <a id="member-gfcontentpackagemanifest-methods-get_validation_report"></a>
 
 ### `get_validation_report`
 
 - API：`public`
+- 首次版本：`4.4.0`
 
 ```gdscript
 func get_validation_report(options: Dictionary = {}) -> Dictionary:
@@ -387,13 +417,13 @@ func get_validation_report(options: Dictionary = {}) -> Dictionary:
 
 | 名称 | 说明 |
 |---|---|
-| `options` | 校验选项。`check_resource_exists` 默认为 false。 |
+| `options` | 校验选项。可启用文件存在性与传递依赖安全扫描。 |
 
 返回：GFValidationReportDictionary 兼容报告。
 
 结构：
 
-- `options`: Dictionary，可包含 check_resource_exists: bool。
+- `options`: Dictionary，可包含 check_resource_exists: bool、check_resource_dependencies: bool 和 dependency_options: Dictionary。
 - `return`: GFValidationReportDictionary.finalize_report() 生成的 Dictionary，包含 ok、healthy、summary、issues、next_action、error_count、warning_count、issue_count、package_id、source_path 和 resource_count。
 
 <a id="member-gfcontentpackagemanifest-methods-get_validation_errors"></a>
@@ -401,6 +431,7 @@ func get_validation_report(options: Dictionary = {}) -> Dictionary:
 ### `get_validation_errors`
 
 - API：`public`
+- 首次版本：`4.4.0`
 
 ```gdscript
 func get_validation_errors(options: Dictionary = {}) -> Array[String]:
@@ -412,13 +443,13 @@ func get_validation_errors(options: Dictionary = {}) -> Array[String]:
 
 | 名称 | 说明 |
 |---|---|
-| `options` | 校验选项。`check_resource_exists` 默认为 false。 |
+| `options` | 校验选项。可启用文件存在性与传递依赖安全扫描。 |
 
 返回：错误文本列表。
 
 结构：
 
-- `options`: Dictionary，可包含 check_resource_exists: bool。
+- `options`: Dictionary，可包含 check_resource_exists: bool、check_resource_dependencies: bool 和 dependency_options: Dictionary。
 
 <a id="member-gfcontentpackagemanifest-methods-get_normalized_resources"></a>
 
@@ -457,6 +488,7 @@ func get_resource_keys() -> PackedStringArray:
 ### `from_dictionary`
 
 - API：`public`
+- 首次版本：`4.4.0`
 
 ```gdscript
 static func from_dictionary( data: Dictionary, p_root_path: String = "", p_source_path: String = "" ) -> GFContentPackageManifest:
@@ -476,7 +508,7 @@ static func from_dictionary( data: Dictionary, p_root_path: String = "", p_sourc
 
 结构：
 
-- `data`: Dictionary，支持 package_id/id、display_name/name、version、content_types、dependencies、resources 和 metadata。
+- `data`: Dictionary，支持 package_id/id、display_name/name、version、content_types、dependencies、safety_kind、forbidden_resource_extensions、resources 和 metadata；字段类型必须与 manifest schema 一致。
 
 <a id="member-gfcontentpackagemanifest-methods-load_from_path"></a>
 

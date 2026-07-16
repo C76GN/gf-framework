@@ -22,6 +22,12 @@
 | 信号 | [`sequence_completed`](#member-gfcommandsequence-signals-sequence_completed) | `signal sequence_completed` |
 | 信号 | [`sequence_failed`](#member-gfcommandsequence-signals-sequence_failed) | `signal sequence_failed(report: Dictionary)` |
 | 信号 | [`sequence_cancelled`](#member-gfcommandsequence-signals-sequence_cancelled) | `signal sequence_cancelled` |
+| 常量 | [`FAILED_STEP_ROLLBACK_REQUEST_KEY`](#member-gfcommandsequence-constants-failed_step_rollback_request_key) | `const FAILED_STEP_ROLLBACK_REQUEST_KEY: StringName = &"rollback_required"` |
+| 常量 | [`ROLLBACK_STATUS_NOT_RUN`](#member-gfcommandsequence-constants-rollback_status_not_run) | `const ROLLBACK_STATUS_NOT_RUN: StringName = &"not_run"` |
+| 常量 | [`ROLLBACK_STATUS_COMPLETED`](#member-gfcommandsequence-constants-rollback_status_completed) | `const ROLLBACK_STATUS_COMPLETED: StringName = &"completed"` |
+| 常量 | [`ROLLBACK_STATUS_FAILED`](#member-gfcommandsequence-constants-rollback_status_failed) | `const ROLLBACK_STATUS_FAILED: StringName = &"failed"` |
+| 常量 | [`ROLLBACK_STATUS_CANCELLED`](#member-gfcommandsequence-constants-rollback_status_cancelled) | `const ROLLBACK_STATUS_CANCELLED: StringName = &"cancelled"` |
+| 常量 | [`ROLLBACK_STATUS_TIMEOUT`](#member-gfcommandsequence-constants-rollback_status_timeout) | `const ROLLBACK_STATUS_TIMEOUT: StringName = &"timeout"` |
 | 属性 | [`steps`](#member-gfcommandsequence-properties-steps) | `var steps: Array = []` |
 | 属性 | [`context`](#member-gfcommandsequence-properties-context) | `var context: GFSequenceContext` |
 | 属性 | [`is_running`](#member-gfcommandsequence-properties-is_running) | `var is_running: bool = false` |
@@ -165,6 +171,86 @@ signal sequence_cancelled
 ```
 
 序列被取消时发出。
+
+## 常量
+
+<a id="member-gfcommandsequence-constants-failed_step_rollback_request_key"></a>
+
+### `FAILED_STEP_ROLLBACK_REQUEST_KEY`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+const FAILED_STEP_ROLLBACK_REQUEST_KEY: StringName = &"rollback_required"
+```
+
+失败步骤要求序列在整体回滚时补偿自身所用的结果字段。 只有返回失败结果、实现 undo()，并显式返回 [code]{ "rollback_required": true }[/code] 的步骤才会加入失败回滚队列。
+
+<a id="member-gfcommandsequence-constants-rollback_status_not_run"></a>
+
+### `ROLLBACK_STATUS_NOT_RUN`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+const ROLLBACK_STATUS_NOT_RUN: StringName = &"not_run"
+```
+
+本次运行未进入 rollback。
+
+<a id="member-gfcommandsequence-constants-rollback_status_completed"></a>
+
+### `ROLLBACK_STATUS_COMPLETED`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+const ROLLBACK_STATUS_COMPLETED: StringName = &"completed"
+```
+
+rollback 已完成。
+
+<a id="member-gfcommandsequence-constants-rollback_status_failed"></a>
+
+### `ROLLBACK_STATUS_FAILED`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+const ROLLBACK_STATUS_FAILED: StringName = &"failed"
+```
+
+rollback 中至少一个 undo() 报告失败。
+
+<a id="member-gfcommandsequence-constants-rollback_status_cancelled"></a>
+
+### `ROLLBACK_STATUS_CANCELLED`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+const ROLLBACK_STATUS_CANCELLED: StringName = &"cancelled"
+```
+
+rollback 等待异步 undo() 时被取消。
+
+<a id="member-gfcommandsequence-constants-rollback_status_timeout"></a>
+
+### `ROLLBACK_STATUS_TIMEOUT`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+const ROLLBACK_STATUS_TIMEOUT: StringName = &"timeout"
+```
+
+rollback 等待异步 undo() 时超时。
 
 ## 属性
 

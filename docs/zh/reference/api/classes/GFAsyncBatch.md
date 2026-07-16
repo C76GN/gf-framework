@@ -28,11 +28,12 @@
 | 方法 | [`add_item`](#member-gfasyncbatch-methods-add_item) | `func add_item(key: Variant, metadata: Dictionary = {}) -> bool:` |
 | 方法 | [`set_item_cancel_callback`](#member-gfasyncbatch-methods-set_item_cancel_callback) | `func set_item_cancel_callback(key: Variant, callback: Callable) -> bool:` |
 | 方法 | [`watch_response`](#member-gfasyncbatch-methods-watch_response) | `func watch_response(response: GFHttpResponse, key: Variant = null) -> bool:` |
+| 方法 | [`watch_completion`](#member-gfasyncbatch-methods-watch_completion) | `func watch_completion(completion: GFAsyncCompletion, key: Variant = null, metadata: Dictionary = {}) -> bool:` |
 | 方法 | [`mark_completed`](#member-gfasyncbatch-methods-mark_completed) | `func mark_completed(key: Variant, result: Variant = null) -> bool:` |
 | 方法 | [`mark_failed`](#member-gfasyncbatch-methods-mark_failed) | `func mark_failed(key: Variant, error: String = "", result: Variant = null) -> bool:` |
 | 方法 | [`mark_cancelled`](#member-gfasyncbatch-methods-mark_cancelled) | `func mark_cancelled(key: Variant, reason: StringName = &"cancelled", result: Variant = null) -> bool:` |
 | 方法 | [`cancel`](#member-gfasyncbatch-methods-cancel) | `func cancel(reason: StringName = &"cancelled", metadata: Dictionary = {}) -> bool:` |
-| 方法 | [`bind_cancel_token`](#member-gfasyncbatch-methods-bind_cancel_token) | `func bind_cancel_token(token: GFCancelToken) -> bool:` |
+| 方法 | [`bind_cancel_token`](#member-gfasyncbatch-methods-bind_cancel_token) | `func bind_cancel_token(token: GFCancellationToken) -> bool:` |
 | 方法 | [`set_timeout`](#member-gfasyncbatch-methods-set_timeout) | `func set_timeout( seconds: float, tree: SceneTree = null, reason: StringName = &"timeout", metadata: Dictionary = {} ) -> bool:` |
 | 方法 | [`is_completed`](#member-gfasyncbatch-methods-is_completed) | `func is_completed() -> bool:` |
 | 方法 | [`is_successful`](#member-gfasyncbatch-methods-is_successful) | `func is_successful() -> bool:` |
@@ -334,6 +335,34 @@ func watch_response(response: GFHttpResponse, key: Variant = null) -> bool:
 
 - `key`: Variant，调用方持有的条目标识；为 null 时使用 response.url。
 
+<a id="member-gfasyncbatch-methods-watch_completion"></a>
+
+### `watch_completion`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func watch_completion(completion: GFAsyncCompletion, key: Variant = null, metadata: Dictionary = {}) -> bool:
+```
+
+监听 GFAsyncCompletion。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `completion` | 完成源。 |
+| `key` | 条目标识；为空时使用 completion 的 instance_id。 |
+| `metadata` | 条目元数据。 |
+
+返回：是否开始监听。
+
+结构：
+
+- `key`: Variant，调用方持有的条目标识；为 null 时使用 completion.get_instance_id()。
+- `metadata`: Dictionary，调用方持有并关联到该条目的元数据。
+
 <a id="member-gfasyncbatch-methods-mark_completed"></a>
 
 ### `mark_completed`
@@ -451,7 +480,7 @@ func cancel(reason: StringName = &"cancelled", metadata: Dictionary = {}) -> boo
 - 首次版本：`7.0.0`
 
 ```gdscript
-func bind_cancel_token(token: GFCancelToken) -> bool:
+func bind_cancel_token(token: GFCancellationToken) -> bool:
 ```
 
 绑定取消 token；token 取消时取消整个批处理。

@@ -24,6 +24,7 @@
 | 方法 | [`transform_local_cell`](#member-gfgridtransform2d-methods-transform_local_cell) | `static func transform_local_cell(cell: Vector2i, source_size: Vector2i, transform: int) -> Vector2i:` |
 | 方法 | [`transform_cell`](#member-gfgridtransform2d-methods-transform_cell) | `static func transform_cell( cell: Vector2i, source_rect: Rect2i, transform: int, target_origin: Vector2i = Vector2i.ZERO ) -> Vector2i:` |
 | 方法 | [`transform_cells`](#member-gfgridtransform2d-methods-transform_cells) | `static func transform_cells( cells: Array[Vector2i], source_rect: Rect2i, transform: int, target_origin: Vector2i = Vector2i.ZERO ) -> Array[Vector2i]:` |
+| 方法 | [`transform_cardinal_direction`](#member-gfgridtransform2d-methods-transform_cardinal_direction) | `static func transform_cardinal_direction(direction: Vector2i, transform: int) -> Vector2i:` |
 | 方法 | [`transform_local_point`](#member-gfgridtransform2d-methods-transform_local_point) | `static func transform_local_point(point: Vector2, source_size: Vector2, transform: int) -> Vector2:` |
 | 方法 | [`transform_point`](#member-gfgridtransform2d-methods-transform_point) | `static func transform_point( point: Vector2, source_rect: Rect2, transform: int, target_origin: Vector2 = Vector2.ZERO ) -> Vector2:` |
 
@@ -222,6 +223,28 @@ static func transform_cells( cells: Array[Vector2i], source_rect: Rect2i, transf
 | `target_origin` | 变换后矩形的目标起点。 |
 
 返回：变换后的格坐标列表，顺序与输入一致。
+
+<a id="member-gfgridtransform2d-methods-transform_cardinal_direction"></a>
+
+### `transform_cardinal_direction`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+static func transform_cardinal_direction(direction: Vector2i, transform: int) -> Vector2i:
+```
+
+变换四向单位方向。 该方法只接受 `Vector2i.RIGHT`、`LEFT`、`DOWN`、`UP`。无效方向或无效变换返回 `Vector2i.ZERO`，便于调用方把它作为非方向哨兵处理。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `direction` | 原始四向单位方向。 |
+| `transform` | Transform 枚举值。 |
+
+返回：变换后的四向单位方向；无效输入返回 Vector2i.ZERO。
 
 <a id="member-gfgridtransform2d-methods-transform_local_point"></a>
 

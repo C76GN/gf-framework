@@ -56,11 +56,7 @@ extends Resource
 ## [br]
 ## @return: 关卡 ID。
 func get_level_id() -> StringName:
-	if level_id != &"":
-		return level_id
-	if not resource_path.is_empty():
-		return StringName(resource_path)
-	return &""
+	return level_id
 
 
 ## 创建条目拷贝。

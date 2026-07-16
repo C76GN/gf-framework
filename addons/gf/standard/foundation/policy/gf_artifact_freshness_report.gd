@@ -268,8 +268,15 @@ func _validate_size(entry: Dictionary, entry_index: int, artifact: Dictionary, r
 
 
 func _validate_sha256(entry: Dictionary, entry_index: int, artifact: Dictionary, report: Dictionary) -> void:
+	var sha_was_provided: bool = entry.has("expected_sha256") or entry.has("sha256")
+	if not sha_was_provided:
+		return
 	var expected_sha: String = _normalize_sha256(_first_string(entry, PackedStringArray(["expected_sha256", "sha256"])))
 	if expected_sha.is_empty():
+		artifact["stale"] = true
+		_append_issue(report, "error", &"artifact_sha256_invalid", "artifact expected sha256 metadata is invalid", artifact, {
+			"entry_index": entry_index,
+		})
 		return
 	if not artifact.has("sha256"):
 		return
@@ -388,4 +395,9 @@ static func _first_int(entry: Dictionary, keys: PackedStringArray, default_value
 
 static func _normalize_sha256(value: String) -> String:
 	var normalized: String = value.strip_edges().to_lower()
-	return normalized if normalized.length() == 64 else ""
+	if normalized.length() != 64:
+		return ""
+	for index: int in range(normalized.length()):
+		if not "0123456789abcdef".contains(normalized.substr(index, 1)):
+			return ""
+	return normalized

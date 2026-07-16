@@ -22,6 +22,15 @@ pool.prewarm(bullet_scene, get_tree().root, 64)
 await pool.prewarm_async_budget(explosion_scene, get_tree().root, 40, 4.0)
 ```
 
+`acquire()` 与 `prewarm()` / `prewarm_async*()` 都支持可选 `before_add` 回调。这个回调会在节点加入业务父节点、触发 `_ready()` 之前运行，适合关闭 `auto_launch_on_ready`、写入必要 meta、设置一次性上下文或配置必须先于入树完成的节点属性：
+
+```gdscript
+var projectile = pool.acquire(projectile_scene, projectile_parent, func(node: Node) -> void:
+	if "auto_launch_on_ready" in node:
+		node.set("auto_launch_on_ready", false)
+)
+```
+
 `prewarm_async_budget()` 会按帧预算让出执行权，因此调用方如果还要等待宿主节点的 `ready` 信号，应先等待 `ready`，或在等待前用 `is_node_ready()` 判断宿主是否已经就绪。
 
 Godot 的 `ready` 是一次性信号；长时间预热跨过宿主就绪帧后再 `await host.ready`，后续初始化代码会停在调用方自己的等待语句上，这不是对象池预热卡死。
@@ -40,7 +49,7 @@ func on_gf_pool_acquire() -> void:
 	pass
 ```
 
-归还时节点会被移动到内部 `GFObjectPoolRoot`，并恢复/关闭 `process_mode`、`CanvasItem.visible` 和常见 `disabled` 属性；超过 `max_available_per_scene` 或对象池 `dispose()` 时，节点会先从当前父节点移除，再进入释放队列，避免同一帧在业务父节点下残留。
+归还时节点会被移动到内部 `GFObjectPoolRoot`，并恢复/关闭 `process_mode`、`CanvasItem.visible` 和常见 `disabled` 属性；正常运行中超过 `max_available_per_scene` 或对象池 `dispose()` 时，节点会先从当前父节点移除，再进入释放队列，避免同一帧在业务父节点下残留。Gf AutoLoad 正在执行 `_exit_tree()` 的同步释放作用域时不主动脱树，只登记释放并让当前拆树流程收束节点。
 
 `manage_descendant_active_state` 控制是否递归处理子节点。对象池不会猜测项目在借出期间动态添加的子节点、Timer、AnimationPlayer 或其他业务状态该如何复原，这些清理应放进 `on_gf_pool_release()` / `on_gf_pool_acquire()`，或由项目把这类一次性对象放在池化根节点外管理。
 

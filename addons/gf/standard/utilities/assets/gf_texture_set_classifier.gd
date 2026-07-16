@@ -42,6 +42,13 @@ const ROLE_ROUGHNESS: StringName = &"roughness"
 ## @since 6.0.0
 const ROLE_METALLIC: StringName = &"metallic"
 
+## Packed Occlusion/Roughness/Metallic 贴图角色。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+const ROLE_ORM: StringName = &"orm"
+
 ## Ambient Occlusion 贴图角色。
 ## [br]
 ## @api public
@@ -68,6 +75,7 @@ const _DEFAULT_SUFFIX_RULES: Dictionary = {
 	&"normal": ["normal", "normalgl", "normaldx", "nrm", "nor"],
 	&"roughness": ["roughness", "rough", "rgh"],
 	&"metallic": ["metallic", "metalness", "metal", "mtl"],
+	&"orm": ["orm", "rma", "mra", "arm", "mro"],
 	&"ao": ["ao", "ambientocclusion", "ambient_occlusion", "occlusion"],
 	&"height": ["height", "displacement", "disp"],
 	&"emission": ["emission", "emissive", "emit"],

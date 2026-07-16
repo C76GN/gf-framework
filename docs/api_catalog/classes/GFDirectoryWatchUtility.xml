@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFDirectoryWatchUtility" path="addons/gf/standard/utilities/io/gf_directory_watch_utility.gd" module="standard" extends="RefCounted" classDigest="8d6103c5e476879a194805d1a23e6579d3ec48b3b1d4ed5aeb6dc8a41c601235">
+<class name="GFDirectoryWatchUtility" path="addons/gf/standard/utilities/io/gf_directory_watch_utility.gd" module="standard" extends="RefCounted" classDigest="11162d756f7613a7c36ffe699fd06cc11e0d9c7b428f321bb3acf246e319238f">
 	<description>GFDirectoryWatchUtility: 调用方驱动的目录变化检测工具。
 通过显式 poll() 对目录快照做差异比较，适合编辑器工具、资产索引器、
 构建脚本或项目安装器按自己的节奏刷新资源。它不创建 Autoload，
@@ -151,7 +151,8 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">当前快照字典。</tag>
-				<tag name="schema">return: Dictionary keyed by file path with modified_time values.</tag>
+				<tag name="schema">return: Dictionary keyed by file path with file metadata dictionaries containing modified_time, size_bytes, and content_sha256.</tag>
+				<tag name="since">3.23.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_debug_snapshot">

@@ -29,7 +29,13 @@ var target_position: Variant
 ## Tween 持续时间。
 ## [br]
 ## @api public
-var duration: float = 0.2
+## [br]
+## @since 3.17.0
+var duration: float:
+	get:
+		return _duration
+	set(value):
+		_duration = _ACTION_TIME_POLICY.sanitize_non_negative_seconds(value)
 
 ## 要缓动的属性名。
 ## [br]
@@ -50,6 +56,7 @@ var ease_type: Tween.EaseType = Tween.EASE_OUT
 # --- 私有变量 ---
 
 var _active_tween: Tween = null
+var _duration: float = 0.2
 
 
 # --- Godot 生命周期方法 ---
@@ -62,7 +69,7 @@ func _init(
 ) -> void:
 	target = p_target
 	target_position = p_target_position
-	duration = maxf(p_duration, 0.0)
+	duration = p_duration
 	property_name = p_property_name
 
 
@@ -86,6 +93,9 @@ func execute() -> Variant:
 
 	if duration <= 0.0:
 		target.set_indexed(property_name, target_position)
+		return null
+	if not target.is_inside_tree():
+		push_warning("[GFMoveTweenAction] 目标节点未进入场景树，无法创建 Tween。")
 		return null
 
 	_active_tween = target.create_tween()
@@ -126,7 +136,11 @@ func resume() -> void:
 ## @api public
 func finish() -> void:
 	if is_instance_valid(_active_tween):
-		var _custom_step_result_129: Variant = _active_tween.custom_step(INF)
+		_clear_active_tween()
+		if is_instance_valid(target):
+			target.set_indexed(property_name, target_position)
+		_emit_completed_once()
+		return
 	_clear_active_tween()
 	_emit_completed_once()
 

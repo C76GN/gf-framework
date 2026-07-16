@@ -27,9 +27,9 @@
 | 方法 | [`clear_profiles`](#member-gfinputprofilebank-methods-clear_profiles) | `func clear_profiles() -> void:` |
 | 方法 | [`set_active_profile`](#member-gfinputprofilebank-methods-set_active_profile) | `func set_active_profile(profile_id: StringName) -> bool:` |
 | 方法 | [`get_active_profile`](#member-gfinputprofilebank-methods-get_active_profile) | `func get_active_profile(duplicate_result: bool = false) -> GFInputRemapConfig:` |
-| 方法 | [`to_dict`](#member-gfinputprofilebank-methods-to_dict) | `func to_dict() -> Dictionary:` |
-| 方法 | [`apply_dict`](#member-gfinputprofilebank-methods-apply_dict) | `func apply_dict(data: Dictionary) -> void:` |
-| 方法 | [`from_dict`](#member-gfinputprofilebank-methods-from_dict) | `static func from_dict(data: Dictionary) -> GFInputProfileBank:` |
+| 方法 | [`to_dict`](#member-gfinputprofilebank-methods-to_dict) | `func to_dict(json_compatible: bool = true) -> Dictionary:` |
+| 方法 | [`apply_dict`](#member-gfinputprofilebank-methods-apply_dict) | `func apply_dict(data: Dictionary, json_compatible: bool = true) -> void:` |
+| 方法 | [`from_dict`](#member-gfinputprofilebank-methods-from_dict) | `static func from_dict(data: Dictionary, json_compatible: bool = true) -> GFInputProfileBank:` |
 | 方法 | [`duplicate_bank`](#member-gfinputprofilebank-methods-duplicate_bank) | `func duplicate_bank() -> GFInputProfileBank:` |
 
 ## 属性
@@ -255,10 +255,16 @@ func get_active_profile(duplicate_result: bool = false) -> GFInputRemapConfig:
 - 首次版本：`6.0.0`
 
 ```gdscript
-func to_dict() -> Dictionary:
+func to_dict(json_compatible: bool = true) -> Dictionary:
 ```
 
 转换为可写入配置或存档的 Dictionary。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `json_compatible` | 为 true 时将 custom_data 转为 JSON 兼容值。 |
 
 返回：Profile bank 字典。
 
@@ -274,7 +280,7 @@ func to_dict() -> Dictionary:
 - 首次版本：`6.0.0`
 
 ```gdscript
-func apply_dict(data: Dictionary) -> void:
+func apply_dict(data: Dictionary, json_compatible: bool = true) -> void:
 ```
 
 应用由 to_dict() 生成的 Profile bank 字典。
@@ -284,6 +290,7 @@ func apply_dict(data: Dictionary) -> void:
 | 名称 | 说明 |
 |---|---|
 | `data` | Profile bank 字典。 |
+| `json_compatible` | 为 true 时会先恢复 JSON 兼容值。 |
 
 结构：
 
@@ -297,7 +304,7 @@ func apply_dict(data: Dictionary) -> void:
 - 首次版本：`6.0.0`
 
 ```gdscript
-static func from_dict(data: Dictionary) -> GFInputProfileBank:
+static func from_dict(data: Dictionary, json_compatible: bool = true) -> GFInputProfileBank:
 ```
 
 从 Dictionary 创建 Profile bank。
@@ -307,6 +314,7 @@ static func from_dict(data: Dictionary) -> GFInputProfileBank:
 | 名称 | 说明 |
 |---|---|
 | `data` | Profile bank 字典。 |
+| `json_compatible` | 为 true 时会先恢复 JSON 兼容值。 |
 
 返回：新的配置集合。
 

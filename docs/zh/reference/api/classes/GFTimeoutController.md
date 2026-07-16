@@ -21,10 +21,10 @@
 | 属性 | [`process_in_physics`](#member-gftimeoutcontroller-properties-process_in_physics) | `var process_in_physics: bool = false` |
 | 属性 | [`ignore_time_scale`](#member-gftimeoutcontroller-properties-ignore_time_scale) | `var ignore_time_scale: bool = false` |
 | 方法 | [`_init`](#member-gftimeoutcontroller-methods-_init) | `func _init() -> void:` |
-| 方法 | [`get_token`](#member-gftimeoutcontroller-methods-get_token) | `func get_token() -> GFCancelToken:` |
-| 方法 | [`start_seconds`](#member-gftimeoutcontroller-methods-start_seconds) | `func start_seconds( seconds: float, tree: SceneTree = null, reason: StringName = DEFAULT_TIMEOUT_REASON, metadata: Dictionary = {} ) -> GFCancelToken:` |
+| 方法 | [`get_token`](#member-gftimeoutcontroller-methods-get_token) | `func get_token() -> GFCancellationToken:` |
+| 方法 | [`start_seconds`](#member-gftimeoutcontroller-methods-start_seconds) | `func start_seconds( seconds: float, tree: SceneTree = null, reason: StringName = DEFAULT_TIMEOUT_REASON, metadata: Dictionary = {} ) -> GFCancellationToken:` |
 | 方法 | [`stop`](#member-gftimeoutcontroller-methods-stop) | `func stop() -> void:` |
-| 方法 | [`reset`](#member-gftimeoutcontroller-methods-reset) | `func reset() -> GFCancelToken:` |
+| 方法 | [`reset`](#member-gftimeoutcontroller-methods-reset) | `func reset() -> GFCancellationToken:` |
 | 方法 | [`cancel`](#member-gftimeoutcontroller-methods-cancel) | `func cancel(reason: StringName = &"cancelled", metadata: Dictionary = {}) -> bool:` |
 | 方法 | [`is_cancelled`](#member-gftimeoutcontroller-methods-is_cancelled) | `func is_cancelled() -> bool:` |
 | 方法 | [`is_active`](#member-gftimeoutcontroller-methods-is_active) | `func is_active() -> bool:` |
@@ -138,7 +138,7 @@ func _init() -> void:
 - 首次版本：`7.0.0`
 
 ```gdscript
-func get_token() -> GFCancelToken:
+func get_token() -> GFCancellationToken:
 ```
 
 获取当前取消 token。
@@ -153,7 +153,7 @@ func get_token() -> GFCancelToken:
 - 首次版本：`7.0.0`
 
 ```gdscript
-func start_seconds( seconds: float, tree: SceneTree = null, reason: StringName = DEFAULT_TIMEOUT_REASON, metadata: Dictionary = {} ) -> GFCancelToken:
+func start_seconds( seconds: float, tree: SceneTree = null, reason: StringName = DEFAULT_TIMEOUT_REASON, metadata: Dictionary = {} ) -> GFCancellationToken:
 ```
 
 启动一个新的超时计划。
@@ -194,7 +194,7 @@ func stop() -> void:
 - 首次版本：`7.0.0`
 
 ```gdscript
-func reset() -> GFCancelToken:
+func reset() -> GFCancellationToken:
 ```
 
 重置为一个未取消 token，并清除超时状态。

@@ -5,7 +5,7 @@
 ## 核心类
 
 - `GFCompatibilityProfile` 是资源化的能力描述，记录 Godot 版本、GF 版本、平台、功能标识、包条目、artifact 条目和自定义 metadata。
-- `GFCompatibilityPreflight` 把版本、平台、功能、包和外部报告合并为 `GFValidationReportDictionary` 兼容报告。
+- `GFCompatibilityPreflight` 把版本、平台、功能、包、artifact 声明和外部报告合并为 `GFValidationReportDictionary` 兼容报告。
 - `GFArtifactFreshnessReport` 检查本地文件是否存在、可读、大小和 `sha256` 是否匹配，以及记录的 source digest 是否仍等于当前 source digest。
 - `GFActivationTransaction` 用显式步骤表达 prepare、commit 和 rollback，失败时会把已应用步骤按逆序回滚并返回事务报告。
 
@@ -19,16 +19,27 @@ var profile: GFCompatibilityProfile = GFCompatibilityProfile.from_current_enviro
 	"features": PackedStringArray(["content_package", "offline_bundle"]),
 })
 profile.add_package(&"gf.standard.base", "6.0.0")
+profile.add_artifact(&"native_bridge", "res://native/bridge.gdip")
 
 var preflight: GFCompatibilityPreflight = GFCompatibilityPreflight.new()
 preflight.configure("Install preflight", profile)
 preflight.require_godot_version("4.7.0")
 preflight.require_features(PackedStringArray(["content_package"]))
+preflight.require_artifact(&"native_bridge", {
+	"require_path": true,
+})
+
+preflight.require_artifact(&"native_bridge", {
+	"expected_kind": &"native_library",
+	"require_file_exists": true,
+	"expected_sha256": expected_sha256,
+	"expected_size_bytes": expected_size,
+})
 
 var report: Dictionary = preflight.get_report()
 ```
 
-预检报告的 `checks` 保留每一项显式检查，`issues` 使用稳定 `kind`，例如 `godot_version_below_minimum`、`feature_missing` 或 `package_missing`。外部模块已经有自己的校验报告时，可以通过 `merge_report()` 合入同一份结果。
+预检报告的 `checks` 保留每一项显式检查，`issues` 使用稳定 `kind`，例如 `godot_version_below_minimum`、`feature_missing`、`package_missing`、`artifact_path_mismatch`、`artifact_file_missing`、`artifact_sha256_mismatch` 或 `artifact_size_mismatch`。`require_artifact()` 默认只检查 Profile 中的声明和可选路径；只有调用方显式传入 `require_file_exists`、`expected_sha256` 或 `expected_size_bytes` 时，才读取该 artifact 路径的本地文件 metadata。需要批量检查生成产物新鲜度、source digest 或缓存状态时，继续使用 `GFArtifactFreshnessReport`。外部模块已经有自己的校验报告时，可以通过 `merge_report()` 合入同一份结果。
 
 ## 产物新鲜度
 
@@ -66,11 +77,11 @@ transaction.add_step(
 var report: Dictionary = transaction.commit({ "catalog": catalog })
 ```
 
-回调返回 `false`、非 `OK` 的 `Error`，或 `{ "ok": false }` 时，该步骤会进入失败报告。`commit()` 在应用阶段失败后会自动回滚已经应用的步骤；默认情况下，已应用步骤缺少 rollback 回调会让事务保持失败。确实不需要回滚的步骤应在 `options` 中显式传入 `rollback_required = false`。`rollback()` 也可由调用方显式触发。
+回调返回 `false`、非 `OK` 的 `Error`，或 `{ "ok": false }` 时，该步骤会进入失败报告。同步事务不会隐式等待回调返回的 `Signal` 或 Godot async 状态对象；这类返回值会被报告为 `async_callback_unsupported`。`commit()` 在应用阶段失败后会自动回滚已经应用的步骤；默认情况下，已应用步骤缺少 rollback 回调会让事务保持失败。确实不需要回滚的步骤应在 `options` 中显式传入 `rollback_required = false`。`rollback()` 也可由调用方显式触发。
 
 ## 使用边界
 
 - 这些类型不执行远程载荷，也不让普通数据包绕过项目的安全策略。
 - Profile 中的平台、功能、包和 artifact 标识都由调用方定义；GF 不为某个项目写死能力名称。
-- 事务回调必须是调用方已经持有并信任的 `Callable`，不要把字符串、资源文件或外部数据解释成可执行逻辑。
+- 事务回调必须是调用方已经持有并信任的同步 `Callable`，不要把字符串、资源文件或外部数据解释成可执行逻辑；需要异步 prepare/commit/rollback 时，应在项目层显式编排或等待未来独立 async API。
 - 需要具体下载、解压、签名、版本求解或平台服务接入时，应在项目工具或独立插件中组合这些报告结果。

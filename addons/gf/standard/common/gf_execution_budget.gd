@@ -47,7 +47,7 @@ var max_elapsed_msec: int = 0
 ## @api public
 ## [br]
 ## @since 7.0.0
-var cancel_token: GFCancelToken = null
+var cancel_token: GFCancellationToken = null
 
 ## 调用方附加元数据。
 ## [br]
@@ -135,7 +135,7 @@ func reset() -> void:
 ## @param token: 取消 token。
 ## [br]
 ## @return 当前预算。
-func bind_cancel_token(token: GFCancelToken) -> GFExecutionBudget:
+func bind_cancel_token(token: GFCancellationToken) -> GFExecutionBudget:
 	cancel_token = token
 	return self
 
@@ -229,7 +229,7 @@ func check_output_length(output_length: int, source_span: Variant = null) -> boo
 func check(source_span: Variant = null) -> bool:
 	if _violated:
 		return false
-	if cancel_token != null and cancel_token.is_cancelled():
+	if cancel_token != null and cancel_token.is_cancel_requested():
 		_mark_violation(&"cancelled", "Execution was cancelled.", source_span)
 		return false
 	if max_elapsed_msec > 0 and get_elapsed_msec() > max_elapsed_msec:
@@ -352,7 +352,7 @@ func get_debug_snapshot() -> Dictionary:
 		"depth": _depth,
 		"elapsed_msec": get_elapsed_msec(),
 		"has_cancel_token": cancel_token != null,
-		"cancelled": cancel_token != null and cancel_token.is_cancelled(),
+		"cancelled": cancel_token != null and cancel_token.is_cancel_requested(),
 		"exceeded": _violated,
 		"violation_reason": _violation_reason,
 		"violation_message": _violation_message,
@@ -371,9 +371,9 @@ func _mark_violation(reason: StringName, message: String, source_span: Variant) 
 	_violation_span = GFVariantData.duplicate_variant(source_span)
 
 
-static func _variant_to_cancel_token(value: Variant) -> GFCancelToken:
-	if value is GFCancelToken:
-		var token: GFCancelToken = value
+static func _variant_to_cancel_token(value: Variant) -> GFCancellationToken:
+	if value is GFCancellationToken:
+		var token: GFCancellationToken = value
 		return token
 	return null
 

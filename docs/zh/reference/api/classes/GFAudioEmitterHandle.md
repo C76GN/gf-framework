@@ -26,6 +26,7 @@
 | 方法 | [`get_player`](#member-gfaudioemitterhandle-methods-get_player) | `func get_player() -> Node:` |
 | 方法 | [`is_valid`](#member-gfaudioemitterhandle-methods-is_valid) | `func is_valid() -> bool:` |
 | 方法 | [`is_stop_requested`](#member-gfaudioemitterhandle-methods-is_stop_requested) | `func is_stop_requested() -> bool:` |
+| 方法 | [`is_terminal`](#member-gfaudioemitterhandle-methods-is_terminal) | `func is_terminal() -> bool:` |
 | 方法 | [`is_playing`](#member-gfaudioemitterhandle-methods-is_playing) | `func is_playing() -> bool:` |
 | 方法 | [`stop`](#member-gfaudioemitterhandle-methods-stop) | `func stop(fade_seconds: float = 0.0) -> void:` |
 | 方法 | [`fade_to`](#member-gfaudioemitterhandle-methods-fade_to) | `func fade_to(volume_db: float, fade_seconds: float) -> void:` |
@@ -215,6 +216,21 @@ func is_stop_requested() -> bool:
 
 返回：已请求停止时返回 true。
 
+<a id="member-gfaudioemitterhandle-methods-is_terminal"></a>
+
+### `is_terminal`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func is_terminal() -> bool:
+```
+
+检查播放会话是否已经进入终态。
+
+返回：已自然完成、失败或停止时返回 true。
+
 <a id="member-gfaudioemitterhandle-methods-is_playing"></a>
 
 ### `is_playing`
@@ -335,6 +351,7 @@ func get_pitch_scale() -> float:
 ### `get_debug_snapshot`
 
 - API：`public`
+- 首次版本：`3.0.0`
 
 ```gdscript
 func get_debug_snapshot() -> Dictionary:
@@ -346,4 +363,4 @@ func get_debug_snapshot() -> Dictionary:
 
 结构：
 
-- `return`: 调试快照 Dictionary，包含 valid、playing、channel、volume_db、pitch_scale、owner_valid 和 metadata 字段。
+- `return`: 调试快照 Dictionary，包含 valid、terminal、playing、channel、volume_db、pitch_scale、owner_valid 和 metadata 字段。

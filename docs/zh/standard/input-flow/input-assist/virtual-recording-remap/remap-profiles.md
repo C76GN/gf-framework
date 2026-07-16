@@ -48,4 +48,17 @@ var report := GFInputMapPresetTools.apply_input_map_preset(preset, {
 })
 ```
 
+如果项目只想在启动期或调试入口确保默认动作存在，而不覆盖已有项目绑定或玩家改键，可以使用同一份预设执行增量确保：
+
+```gdscript
+var ensure_report := GFInputMapPresetTools.ensure_input_map_preset(preset, {
+	"dry_run": true,
+})
+
+if ensure_report.ok:
+	GFInputMapPresetTools.ensure_input_map_preset(preset)
+```
+
+`ensure_input_map_preset()` 默认只创建缺失动作并补齐缺失事件；已有动作的事件不会被清空，已有 deadzone 也不会被覆盖。确实需要同步已有动作 deadzone 时，显式传入 `update_existing_deadzone: true`。
+
 这个预设工具只操作运行时 `InputMap`，不写 `ProjectSettings`，也不决定预设文件放在哪里。需要保存、同步到云端、做平台差异或接入设置界面时，由项目侧把预设字典接到自己的配置、存档或 UI 流程中。

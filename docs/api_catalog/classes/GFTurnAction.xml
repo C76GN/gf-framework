@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFTurnAction" path="addons/gf/extensions/turn_based/runtime/gf_turn_action.gd" module="extensions/turn_based" extends="RefCounted" classDigest="21a63a7885b790acc411ef98599cee758252c773f9b30aa014b7f0143624747b">
+<class name="GFTurnAction" path="addons/gf/extensions/turn_based/runtime/gf_turn_action.gd" module="extensions/turn_based" extends="RefCounted" classDigest="33b3ced8b4ee3259bcb5c9397f8a184280bf70fcae7f508e97b65eb4a1508e07">
 	<description>GFTurnAction: 通用回合行动基类。
 行动只描述“谁执行、对谁执行、排序值与载荷”，具体效果由子类重写 `_resolve()`。</description>
 	<tags>
@@ -12,53 +12,60 @@
 	<constants />
 	<properties>
 		<member kind="property" name="action_id">
-			<signature>var action_id: StringName = &amp;""</signature>
+			<signature>var action_id: StringName:</signature>
 			<description>行动标识。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="actor">
-			<signature>var actor: Object = null</signature>
+			<signature>var actor: Object:</signature>
 			<description>行动发起者。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="targets">
-			<signature>var targets: Array[Object] = []</signature>
+			<signature>var targets: Array[Object]:</signature>
 			<description>行动目标列表。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="payload">
-			<signature>var payload: Variant = null</signature>
+			<signature>var payload: Variant:</signature>
 			<description>行动载荷，框架只存储并传递，不解释其结构。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="schema">payload: Variant payload consumed by project-specific action resolvers.</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="priority">
-			<signature>var priority: int = 0</signature>
+			<signature>var priority: int:</signature>
 			<description>主排序优先级，值越大越先处理。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="sort_value">
-			<signature>var sort_value: float = 0.0</signature>
+			<signature>var sort_value: float:</signature>
 			<description>次排序值，值越大越先处理。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="is_cancelled">
-			<signature>var is_cancelled: bool = false</signature>
+			<signature>var is_cancelled: bool:</signature>
 			<description>是否已取消。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</properties>
@@ -70,6 +77,15 @@
 				<tag name="api">public</tag>
 			</tags>
 		</member>
+		<member kind="method" name="is_sealed">
+			<signature>func is_sealed() -&gt; bool:</signature>
+			<description>查询行动是否已完成或被丢弃。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">已离开所属队列且不可再次使用时返回 true。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
 		<member kind="method" name="_resolve">
 			<signature>func _resolve(_context: GFTurnContext) -&gt; Variant:</signature>
 			<description>解析行动时由 GFTurnFlowSystem 调用。</description>
@@ -78,6 +94,16 @@
 				<tag name="param">_context: 回合上下文。</tag>
 				<tag name="return">可等待结果。</tag>
 				<tag name="schema">return: Variant that is null or a Signal awaited before action resolution completes.</tag>
+				<tag name="since">3.17.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_inject_dependencies">
+			<signature>func _inject_dependencies(_architecture: GFArchitecture) -&gt; void:</signature>
+			<description>注入当前 Flow 所属架构。子类只应缓存实际需要的依赖。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">_architecture: 当前架构。</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 	</methods>

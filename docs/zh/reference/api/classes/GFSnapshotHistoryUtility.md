@@ -110,12 +110,13 @@ signal history_changed(snapshot: Dictionary)
 ### `max_history_size`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var max_history_size: int:
 ```
 
-最多保留的快照数量；为 0 时不限制。
+最多保留的快照数量；为 0 时不限制。裁剪当前快照时会恢复到新的当前快照。
 
 <a id="member-gfsnapshothistoryutility-properties-current_index"></a>
 

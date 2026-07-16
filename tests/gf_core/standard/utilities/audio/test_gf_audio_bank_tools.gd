@@ -329,6 +329,35 @@ func test_audio_library_import_plan_skips_existing_and_duplicate_targets() -> vo
 	assert_eq(GFVariantData.get_option_string(flat_plan[1], "reason"), "duplicate_target", "扁平导入时重复目标应被跳过。")
 
 
+func test_audio_library_import_plan_falls_back_from_parent_relative_path() -> void:
+	var root_path: String = "user://gf_audio_library_parent_source"
+	var target_root: String = "user://gf_audio_library_parent_target"
+	var source_dir: String = root_path.path_join("ui")
+	var source_path: String = source_dir.path_join("escape.ogg")
+	var expected_target_path: String = target_root.path_join("escape.ogg")
+	var _make_source_dir_result: Variant = DirAccess.make_dir_recursive_absolute(source_dir)
+	_write_user_file(source_path, "audio")
+	var entries: Array[Dictionary] = [
+		{
+			"source_path": source_path,
+			"relative_path": "nested/..",
+			"file_name": "escape.ogg",
+			"clip_id": &"escape",
+		},
+	]
+
+	var plan: Array[Dictionary] = GFAudioLibraryToolsScript.make_import_plan(entries, target_root)
+	var plan_entry: Dictionary = plan[0] if not plan.is_empty() else {}
+
+	_remove_user_file(source_path)
+	_remove_user_dir(source_dir)
+	_remove_user_dir(root_path)
+	_remove_user_dir(target_root)
+
+	assert_eq(GFVariantData.get_option_string(plan_entry, "target_path"), expected_target_path, "父目录片段不应把导入目标折叠到目标根。")
+	assert_true(GFVariantData.get_option_bool(plan_entry, "will_copy"), "安全降级到文件名后导入计划仍应可执行。")
+
+
 func test_audio_library_copy_import_plan_feeds_audio_bank_tools() -> void:
 	var root_path: String = "user://gf_audio_library_copy_source"
 	var target_root: String = "user://gf_audio_library_copy_target"
@@ -358,6 +387,39 @@ func test_audio_library_copy_import_plan_feeds_audio_bank_tools() -> void:
 	assert_eq(GFVariantData.get_option_int(report.metadata, "copied_count"), 1, "导入计划复制应报告复制数量。")
 	assert_true(copied_paths.has(target_path), "复制报告应返回可继续导入 Bank 的目标路径。")
 	assert_true(bank.has_clip(&"ui/click"), "复制后的路径应能复用现有 GFAudioBankTools 生成 Bank。")
+
+
+func test_audio_library_copy_import_plan_rejects_parent_segments() -> void:
+	var root_path: String = "user://gf_audio_library_copy_parent_source"
+	var target_root: String = "user://gf_audio_library_copy_parent_target"
+	var source_dir: String = root_path.path_join("ui")
+	var source_path: String = source_dir.path_join("click.ogg")
+	var escaped_target_path: String = target_root.path_join("../gf_audio_library_copy_parent_escape.ogg")
+	var escaped_canonical_path: String = "user://gf_audio_library_copy_parent_escape.ogg"
+	var _make_source_dir_result: Variant = DirAccess.make_dir_recursive_absolute(source_dir)
+	_write_user_file(source_path, "audio")
+	var plan: Array[Dictionary] = [
+		{
+			"source_path": source_path,
+			"target_path": escaped_target_path,
+			"will_copy": true,
+			"reason": "",
+		},
+	]
+
+	var report: GFValidationReport = GFAudioLibraryToolsScript.copy_import_plan(plan)
+	var counts: Dictionary = report.get_issue_counts_by_kind()
+	var escaped_target_exists: bool = FileAccess.file_exists(escaped_canonical_path)
+
+	_remove_user_file(source_path)
+	_remove_user_file(escaped_canonical_path)
+	_remove_user_dir(source_dir)
+	_remove_user_dir(root_path)
+	_remove_user_dir(target_root)
+
+	assert_false(report.is_ok(), "含父目录片段的导入计划不应执行复制。")
+	assert_eq(GFVariantData.get_option_int(counts, "unsafe_import_path"), 1, "报告应标记不安全导入路径。")
+	assert_false(escaped_target_exists, "不安全导入计划不应写出根外目标。")
 
 
 func test_audio_library_copy_import_plan_handles_large_binary_files() -> void:

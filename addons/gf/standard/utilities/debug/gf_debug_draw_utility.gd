@@ -564,7 +564,13 @@ func get_items(channel: StringName = &"", include_disabled: bool = false) -> Arr
 ## [br]
 ## @return 数量。
 func get_item_count(channel: StringName = &"") -> int:
-	return get_items(channel, true).size()
+	if channel == &"":
+		return _items.size()
+	var count: int = 0
+	for item: Dictionary in _items:
+		if _get_item_channel(item) == channel:
+			count += 1
+	return count
 
 
 ## 获取调试快照。
@@ -685,8 +691,16 @@ func _expire_items(delta: float) -> void:
 func _trim_to_max_items() -> void:
 	if max_items <= 0:
 		return
-	while _items.size() > max_items:
-		_items.remove_at(0)
+	var overflow: int = _items.size() - max_items
+	if overflow <= 0:
+		return
+	var retained_items: Array[Dictionary] = []
+	var resize_error: Error = retained_items.resize(max_items) as Error
+	if resize_error != OK:
+		return
+	for index: int in range(max_items):
+		retained_items[index] = _items[index + overflow]
+	_items = retained_items
 
 
 func _get_item_channel(item: Dictionary) -> StringName:

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFHitBoxState3D" path="addons/gf/extensions/combat/hit_detection/gf_hit_box_state_3d.gd" module="extensions/combat" extends="Node3D" classDigest="3f883868e610c583e23cd9d63bcab4fdef4078911158a86bb03b4436ba5cb173">
+<class name="GFHitBoxState3D" path="addons/gf/extensions/combat/hit_detection/gf_hit_box_state_3d.gd" module="extensions/combat" extends="Node3D" classDigest="92c6727fb9dfddccb29422e43cd3f49177b0dbde90b37fce73a5d8aa6f50b6e0">
 	<description>GFHitBoxState3D: 3D 命中区域状态组。
 统一启停子树内的 GFHitBox3D、GFHurtBox3D 与 Area3D，不处理伤害、阵营或技能规则。</description>
 	<tags>
@@ -21,10 +21,11 @@
 	<constants />
 	<properties>
 		<member kind="property" name="active" decorators="@export">
-			<signature>var active: bool = true:</signature>
+			<signature>var active: bool:</signature>
 			<description>当前状态是否激活。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="apply_on_ready" decorators="@export">

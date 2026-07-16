@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFFlowGraphDock" path="addons/gf/extensions/flow/editor/gf_flow_graph_dock.gd" module="extensions/flow" extends="Control" classDigest="5c1e972dfbeba9aad888ef0a1232cf499a06686b45bcb42eb8fde8a3f42e2022">
+<class name="GFFlowGraphDock" path="addons/gf/extensions/flow/editor/gf_flow_graph_dock.gd" module="extensions/flow" extends="Control" classDigest="0a63bc5504398b69c7460fab8870346415cef45a544c51e0ea96060d5e5c542b">
 	<description>GFFlowGraphDock: FlowGraph 图形化编辑与结构检查工作区页面。
 为资源化流程图提供路径加载、GraphEdit 预览/连线、校验摘要、节点/连接清单
 和通用自动布局，不提供业务节点库，也不解释项目自定义元数据。</description>
@@ -20,6 +20,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">graph: 流程图资源。</tag>
 				<tag name="param">path: 可选资源路径。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="set_graph_path">
@@ -28,6 +29,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">path: `res://` 资源路径。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="refresh">
@@ -35,6 +37,7 @@
 			<description>刷新当前 FlowGraph 视图。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_last_view_model">
@@ -44,6 +47,7 @@
 				<tag name="api">public</tag>
 				<tag name="return">视图模型字典副本。</tag>
 				<tag name="schema">return: Dictionary，由 GFFlowGraphEditorModel.build_view_model() 生成的视图模型副本。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</methods>

@@ -17,6 +17,7 @@
 |---|---|---|
 | 枚举 | [`Notation`](#member-gfnumberformatter-enums-notation) | `enum Notation` |
 | 枚举 | [`ScientificStyle`](#member-gfnumberformatter-enums-scientificstyle) | `enum ScientificStyle` |
+| 方法 | [`get_default_compact_suffixes`](#member-gfnumberformatter-methods-get_default_compact_suffixes) | `static func get_default_compact_suffixes() -> PackedStringArray:` |
 | 方法 | [`format_number`](#member-gfnumberformatter-methods-format_number) | `static func format_number( value: Variant, notation: Notation = Notation.AUTO, decimal_places: int = 2, trim_zeroes: bool = true, use_truncation: bool = false, scientific_style: ScientificStyle = ScientificStyle.E_LOWER ) -> String:` |
 | 方法 | [`format_full`](#member-gfnumberformatter-methods-format_full) | `static func format_full( value: Variant, decimal_places: int = 2, trim_zeroes: bool = true, use_grouping: bool = false, use_truncation: bool = false ) -> String:` |
 | 方法 | [`format_compact`](#member-gfnumberformatter-methods-format_compact) | `static func format_compact( value: Variant, decimal_places: int = 2, trim_zeroes: bool = true, use_truncation: bool = false, suffixes: PackedStringArray = PackedStringArray() ) -> String:` |
@@ -68,6 +69,21 @@ enum ScientificStyle {
 科学计数法输出风格。
 
 ## 方法
+
+<a id="member-gfnumberformatter-methods-get_default_compact_suffixes"></a>
+
+### `get_default_compact_suffixes`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+static func get_default_compact_suffixes() -> PackedStringArray:
+```
+
+获取默认紧凑缩写后缀表副本。 返回值是新建副本，修改它不会改变框架默认 compact 格式化行为；项目需要自定义后缀时应通过 format_compact() 的 suffixes 参数传入。
+
+返回：默认紧凑缩写后缀表副本。
 
 <a id="member-gfnumberformatter-methods-format_number"></a>
 

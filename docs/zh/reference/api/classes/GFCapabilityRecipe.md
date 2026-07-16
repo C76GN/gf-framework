@@ -22,6 +22,7 @@
 | 属性 | [`metadata`](#member-gfcapabilityrecipe-properties-metadata) | `var metadata: Dictionary = {}` |
 | 方法 | [`get_display_name`](#member-gfcapabilityrecipe-methods-get_display_name) | `func get_display_name() -> String:` |
 | 方法 | [`describe_recipe`](#member-gfcapabilityrecipe-methods-describe_recipe) | `func describe_recipe() -> Dictionary:` |
+| 方法 | [`to_report_dictionary`](#member-gfcapabilityrecipe-methods-to_report_dictionary) | `func to_report_dictionary(options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`validate_recipe_report`](#member-gfcapabilityrecipe-methods-validate_recipe_report) | `func validate_recipe_report() -> GFValidationReport:` |
 | 方法 | [`validate_recipe`](#member-gfcapabilityrecipe-methods-validate_recipe) | `func validate_recipe() -> Dictionary:` |
 
@@ -124,6 +125,32 @@ func describe_recipe() -> Dictionary:
 结构：
 
 - `return`: 包含 recipe_id、display_name、entry_count、entries、groups 和 metadata 字段的 Dictionary；entries 为各条目的 describe_entry() 快照数组。
+
+<a id="member-gfcapabilityrecipe-methods-to_report_dictionary"></a>
+
+### `to_report_dictionary`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func to_report_dictionary(options: Dictionary = {}) -> Dictionary:
+```
+
+导出 Recipe 的 JSON-safe 报告快照。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `options` | 传给 GFReportValueCodec 的编码选项。 |
+
+返回：Recipe 报告字典。
+
+结构：
+
+- `options`: Dictionary with GFReportValueCodec encoding options.
+- `return`: JSON-safe Dictionary based on describe_recipe().
 
 <a id="member-gfcapabilityrecipe-methods-validate_recipe_report"></a>
 

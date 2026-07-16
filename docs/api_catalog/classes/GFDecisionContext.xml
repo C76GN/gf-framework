@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFDecisionContext" path="addons/gf/extensions/decision/runtime/gf_decision_context.gd" module="extensions/decision" extends="RefCounted" classDigest="51f1126e5ed02ad3698ccd6f9a8f57950cad73022375e8c12610175428b761f6">
+<class name="GFDecisionContext" path="addons/gf/extensions/decision/runtime/gf_decision_context.gd" module="extensions/decision" extends="RefCounted" classDigest="20f34d4a611ed4563d0f66f32c451bc94ae70c3166d3a130cbb1e2b74722b11e">
 	<description>GFDecisionContext: 通用决策上下文。
-组合黑板、主体/目标快照和元数据，供决策候选与考虑项读取状态。
+组合黑板、主体/目标快照视图和元数据，供决策候选与考虑项读取状态。
+赋值时先主动捕获可见值；缺失 key 可由对象的 `get_decision_value()` 按需提供并写入当前上下文缓存。
 该类型只用弱引用暴露当前对象，不通过上下文延长对象生命周期。</description>
 	<tags>
 		<tag name="api">public</tag>
@@ -10,7 +11,24 @@
 	</tags>
 	<signals />
 	<enums />
-	<constants />
+	<constants>
+		<member kind="const" name="DEFAULT_MAX_SNAPSHOT_ENTRIES">
+			<signature>const DEFAULT_MAX_SNAPSHOT_ENTRIES: int = 1024</signature>
+			<description>主体或目标主动捕获的默认最大条目数。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="DEFAULT_MAX_REFLECTION_PROPERTIES">
+			<signature>const DEFAULT_MAX_REFLECTION_PROPERTIES: int = 256</signature>
+			<description>反射属性捕获的默认最大条目数。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</constants>
 	<properties>
 		<member kind="property" name="blackboard">
 			<signature>var blackboard: GFDecisionBlackboard = null</signature>
@@ -37,19 +55,19 @@
 		</member>
 		<member kind="property" name="subject_values">
 			<signature>var subject_values: Dictionary = {}</signature>
-			<description>主体决策值快照。</description>
+			<description>主体决策值快照视图。容器会复制，但其中的 Object/Resource 身份保持共享；缺失 key 可被懒缓存补充。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="schema">subject_values: Dictionary[StringName, Variant] captured from the subject at assignment time.</tag>
+				<tag name="schema">subject_values: Dictionary[StringName, Variant] eagerly captured at assignment and optionally extended by bounded lazy reads.</tag>
 				<tag name="since">7.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="target_values">
 			<signature>var target_values: Dictionary = {}</signature>
-			<description>目标决策值快照。</description>
+			<description>目标决策值快照视图。容器会复制，但其中的 Object/Resource 身份保持共享；缺失 key 可被懒缓存补充。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="schema">target_values: Dictionary[StringName, Variant] captured from the target at assignment time.</tag>
+				<tag name="schema">target_values: Dictionary[StringName, Variant] eagerly captured at assignment and optionally extended by bounded lazy reads.</tag>
 				<tag name="since">7.0.0</tag>
 			</tags>
 		</member>
@@ -59,6 +77,15 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="schema">metadata: Dictionary[StringName, Variant] project-defined decision metadata.</tag>
+			</tags>
+		</member>
+		<member kind="property" name="capture_options">
+			<signature>var capture_options: Dictionary = {}</signature>
+			<description>捕获预算选项。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">capture_options: Dictionary with optional max_snapshot_entries and max_reflection_properties integer fields.</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 	</properties>
@@ -118,7 +145,7 @@
 		</member>
 		<member kind="method" name="get_subject_value">
 			<signature>func get_subject_value(key: StringName, fallback: Variant = null) -&gt; Variant:</signature>
-			<description>从主体快照读取决策值。</description>
+			<description>从主体快照视图读取决策值；缺失 key 可触发一次受预算约束的 provider 懒读取并缓存。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">key: 值键或属性名。</tag>
@@ -131,7 +158,7 @@
 		</member>
 		<member kind="method" name="get_target_value">
 			<signature>func get_target_value(key: StringName, fallback: Variant = null) -&gt; Variant:</signature>
-			<description>从目标快照读取决策值。</description>
+			<description>从目标快照视图读取决策值；缺失 key 可触发一次受预算约束的 provider 懒读取并缓存。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">key: 值键或属性名。</tag>
@@ -163,7 +190,7 @@
 		<member kind="method" name="duplicate_context">
 			<signature>func duplicate_context() -&gt; GFDecisionContext:</signature>
 			<description>创建上下文副本。
-默认复用 subject 与 target 弱引用，只复制黑板值、对象快照和元数据。</description>
+默认复用 subject 与 target 弱引用；复制黑板、快照容器、捕获诊断和元数据，嵌套 Object/Resource 身份保持共享。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">新上下文实例。</tag>
@@ -176,7 +203,8 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">调试快照字典。</tag>
-				<tag name="schema">return: 包含 blackboard、metadata、subject_class 和 target_class 字段的 Dictionary。</tag>
+				<tag name="schema">return: JSON-safe Dictionary，包含 blackboard、metadata、subject_class、target_class、subject_values、target_values 和 capture_diagnostics 字段。</tag>
+				<tag name="since">4.3.0</tag>
 			</tags>
 		</member>
 	</methods>

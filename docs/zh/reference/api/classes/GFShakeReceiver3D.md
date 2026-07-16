@@ -49,6 +49,7 @@ var target_path: NodePath = NodePath(""):
 ### `channel`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var channel: StringName = &"default"
@@ -61,6 +62,7 @@ var channel: StringName = &"default"
 ### `apply_position`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var apply_position: bool = true
@@ -73,6 +75,7 @@ var apply_position: bool = true
 ### `apply_rotation`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var apply_rotation: bool = true
@@ -85,6 +88,7 @@ var apply_rotation: bool = true
 ### `apply_scale`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var apply_scale: bool = false
@@ -97,6 +101,7 @@ var apply_scale: bool = false
 ### `capture_on_ready`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var capture_on_ready: bool = true
@@ -109,6 +114,7 @@ ready 时是否记录基础变换。
 ### `restore_on_exit`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var restore_on_exit: bool = true
@@ -121,6 +127,7 @@ var restore_on_exit: bool = true
 ### `utility`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var utility: GFShakeUtility = null
@@ -135,6 +142,7 @@ var utility: GFShakeUtility = null
 ### `set_utility`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func set_utility(shake_utility: GFShakeUtility) -> void:
@@ -153,6 +161,7 @@ func set_utility(shake_utility: GFShakeUtility) -> void:
 ### `get_target`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func get_target() -> Node3D:
@@ -167,6 +176,7 @@ func get_target() -> Node3D:
 ### `capture_base_transform`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func capture_base_transform() -> bool:
@@ -181,6 +191,7 @@ func capture_base_transform() -> bool:
 ### `apply_current_sample`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func apply_current_sample() -> bool:
@@ -195,6 +206,7 @@ func apply_current_sample() -> bool:
 ### `reset_to_base`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func reset_to_base() -> bool:

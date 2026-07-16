@@ -13,6 +13,6 @@
   "paths": [
     "addons/gf/extensions/feedback/**"
   ],
-  "enable_extension": "gf.feedback",
+  "gf_extension_id": "gf.feedback",
   "metadata": {}
 }

@@ -20,6 +20,13 @@ const EXTENSION_EXPORT_PLUGIN_SCRIPT_PATH: String = "res://addons/gf/kernel/edit
 ## @layer kernel/editor
 const RESOURCE_PATH_INSPECTOR_PLUGIN_SCRIPT_PATH: String = "res://addons/gf/kernel/editor/gf_resource_path_inspector_plugin.gd"
 
+## GF ProjectSettings 本地化 Inspector 脚本路径。
+## [br]
+## @api framework_internal
+## [br]
+## @layer kernel/editor
+const PROJECT_SETTINGS_INSPECTOR_PLUGIN_SCRIPT_PATH: String = "res://addons/gf/kernel/editor/gf_project_settings_inspector_plugin.gd"
+
 ## 扩展启用设置脚本。
 ## [br]
 ## @api framework_internal
@@ -27,6 +34,7 @@ const RESOURCE_PATH_INSPECTOR_PLUGIN_SCRIPT_PATH: String = "res://addons/gf/kern
 ## @layer kernel/editor
 const GFExtensionSettingsBase = preload("res://addons/gf/kernel/extension/gf_extension_settings.gd")
 const _GF_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
+const _GF_PROJECT_SETTINGS_SECTION_PRESENTER_SCRIPT = preload("res://addons/gf/kernel/editor/gf_project_settings_section_presenter.gd")
 
 
 # --- 私有变量 ---
@@ -37,6 +45,10 @@ var _extension_export_plugin: EditorExportPlugin
 var _extension_export_plugins: Array[EditorExportPlugin] = []
 var _standard_inspector_records: Array[Dictionary] = []
 var _standard_export_records: Array[Dictionary] = []
+var _project_setting_records: Array[Dictionary] = []
+var _project_setting_section_records: Array[Dictionary] = []
+var _project_settings_section_presenter: RefCounted = null
+var _presentation_locale: String = ""
 
 
 # --- 公共方法 ---
@@ -49,18 +61,36 @@ var _standard_export_records: Array[Dictionary] = []
 ## [br]
 ## @param plugin: 当前 EditorPlugin 实例。
 ## [br]
-## @param standard_records: 组合入口传入的标准库 Inspector 与导出插件记录。
+## @param editor_records: 组合入口传入的 Inspector、导出插件与项目设置记录。
 ## [br]
-## @schema standard_records: Dictionary containing inspector_plugin_records and export_plugin_records arrays.
-func setup(plugin: EditorPlugin, standard_records: Dictionary = {}) -> void:
+## @schema editor_records: Dictionary containing inspector_plugin_records, export_plugin_records, project_setting_records, and project_setting_section_records arrays.
+## [br]
+## @param presentation_locale: 展示语言覆盖；留空时跟随 Godot 当前工具语言。
+func setup(
+	plugin: EditorPlugin,
+	editor_records: Dictionary = {},
+	presentation_locale: String = ""
+) -> void:
 	if plugin == null:
 		return
+	cleanup(plugin)
 	_standard_inspector_records = _to_record_array(
-		_GF_VARIANT_ACCESS_SCRIPT.get_option_value(standard_records, "inspector_plugin_records", [])
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_value(editor_records, "inspector_plugin_records", [])
 	)
 	_standard_export_records = _to_record_array(
-		_GF_VARIANT_ACCESS_SCRIPT.get_option_value(standard_records, "export_plugin_records", [])
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_value(editor_records, "export_plugin_records", [])
 	)
+	_project_setting_records = _to_record_array(
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_value(editor_records, "project_setting_records", [])
+	)
+	_project_setting_section_records = _to_record_array(
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_value(
+			editor_records,
+			"project_setting_section_records",
+			[]
+		)
+	)
+	_presentation_locale = presentation_locale.strip_edges()
 	_setup_inspector_tools(plugin)
 	_setup_standard_export_plugins(plugin)
 	_setup_extension_export_plugin(plugin)
@@ -77,10 +107,12 @@ func setup(plugin: EditorPlugin, standard_records: Dictionary = {}) -> void:
 func cleanup(plugin: EditorPlugin) -> void:
 	if plugin == null:
 		return
+	_cleanup_project_settings_section_presenter()
 	_cleanup_enabled_extension_export_plugins(plugin)
 	_cleanup_extension_export_plugin(plugin)
 	_cleanup_standard_export_plugins(plugin)
 	_cleanup_inspector_tools(plugin)
+	_presentation_locale = ""
 
 
 # --- 私有/辅助方法 ---
@@ -103,6 +135,49 @@ func _setup_inspector_tools(plugin: EditorPlugin) -> void:
 			_GF_VARIANT_ACCESS_SCRIPT.get_option_string(record, "path"),
 			_GF_VARIANT_ACCESS_SCRIPT.get_option_string(record, "label")
 		)
+	_add_project_settings_inspector_plugin(plugin)
+	_setup_project_settings_section_presenter()
+
+
+func _add_project_settings_inspector_plugin(plugin: EditorPlugin) -> void:
+	var inspector_plugin: EditorInspectorPlugin = _load_inspector_plugin(
+		PROJECT_SETTINGS_INSPECTOR_PLUGIN_SCRIPT_PATH,
+		"GF ProjectSettings Inspector"
+	)
+	if inspector_plugin == null:
+		return
+	if not inspector_plugin.has_method(&"configure"):
+		push_error("[GF Framework] ProjectSettings Inspector 缺少 configure()。")
+		return
+
+	var _configure_result: Variant = inspector_plugin.call(
+		&"configure",
+		_project_setting_records,
+		_project_setting_section_records,
+		_presentation_locale
+	)
+	plugin.add_inspector_plugin(inspector_plugin)
+	_inspector_plugins.append(inspector_plugin)
+
+
+func _setup_project_settings_section_presenter() -> void:
+	var presenter_value: Variant = _GF_PROJECT_SETTINGS_SECTION_PRESENTER_SCRIPT.new()
+	if not presenter_value is RefCounted:
+		push_error("[GF Framework] ProjectSettings 分区展示器实例化失败。")
+		return
+	_project_settings_section_presenter = presenter_value
+	var _setup_result: Variant = _project_settings_section_presenter.call(
+		&"setup",
+		_project_setting_records,
+		_project_setting_section_records,
+		_presentation_locale
+	)
+
+
+func _cleanup_project_settings_section_presenter() -> void:
+	if _project_settings_section_presenter != null:
+		var _cleanup_result: Variant = _project_settings_section_presenter.call(&"cleanup")
+	_project_settings_section_presenter = null
 
 
 func _setup_standard_export_plugins(plugin: EditorPlugin) -> void:

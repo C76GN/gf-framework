@@ -1,10 +1,10 @@
 {
   "id": "gf.asset_metadata",
   "display_name": "GF Asset Metadata",
-  "version": "7.0.0",
-  "extension_version": "1.0.0",
+  "version": "8.0.0",
+  "extension_version": "2.0.0",
   "kind": "extension",
-  "description": "Generic imported asset metadata records, node-tree collection, and glTF extras bridging.",
+  "description": "Generic imported asset metadata records, attribution reports, node-tree collection, and glTF extras bridging.",
   "dependencies": ["gf.kernel", "gf.standard"],
   "installer_paths": [
     "res://addons/gf/extensions/asset_metadata/extension.gd"
@@ -13,5 +13,5 @@
     "res://addons/gf/extensions/asset_metadata/editor/gf_asset_metadata_gltf_document_extension.gd"
   ],
   "enabled_by_default": false,
-  "tags": ["asset", "metadata", "import"]
+  "tags": ["asset", "metadata", "import", "attribution"]
 }

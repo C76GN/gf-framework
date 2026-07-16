@@ -17,7 +17,7 @@
 |---|---|---|
 | 属性 | [`recording_id`](#member-gfinputrecording-properties-recording_id) | `var recording_id: StringName = &""` |
 | 属性 | [`duration_seconds`](#member-gfinputrecording-properties-duration_seconds) | `var duration_seconds: float = 0.0` |
-| 属性 | [`events`](#member-gfinputrecording-properties-events) | `var events: Array[Dictionary] = []` |
+| 属性 | [`events`](#member-gfinputrecording-properties-events) | `var events: Array[Dictionary]:` |
 | 属性 | [`metadata`](#member-gfinputrecording-properties-metadata) | `var metadata: Dictionary = {}` |
 | 方法 | [`add_event`](#member-gfinputrecording-methods-add_event) | `func add_event( action_id: StringName, value: Variant, time_seconds: float, player_index: int = -1, source_id: StringName = &"", event_metadata: Dictionary = {} ) -> Dictionary:` |
 | 方法 | [`clear`](#member-gfinputrecording-methods-clear) | `func clear() -> void:` |
@@ -61,12 +61,13 @@ var duration_seconds: float = 0.0
 ### `events`
 
 - API：`public`
+- 首次版本：`8.0.0`
 
 ```gdscript
-var events: Array[Dictionary] = []
+var events: Array[Dictionary]:
 ```
 
-事件列表。每项包含 time_seconds、action_id、value、player_index、source_id 和 metadata。
+事件列表只读快照。每项包含 time_seconds、action_id、value、player_index、source_id 和 metadata。
 
 结构：
 

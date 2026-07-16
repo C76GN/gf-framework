@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFTouchControl2D" path="addons/gf/standard/input/touch/gf_touch_control_2d.gd" module="standard" extends="Node2D" classDigest="ecfc15cc199dfa8dc5fd459717915c4bdf9c592417db038317ad81afe0414904">
+	<description>GFTouchControl2D: 触屏 Node2D 控件共享底座。
+提供触点捕获、隐藏/离树释放、屏幕坐标到画布坐标转换和输入 handled 标记。
+具体按钮、摇杆、滑条或项目自定义触屏控件仍负责自己的形状、输出和业务无关配置。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_handle</tag>
+		<tag name="since">8.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties />
+	<methods>
+		<member kind="method" name="release">
+			<signature>func release() -&gt; void:</signature>
+			<description>手动释放触屏控件。
+子类应重写该方法并清理自己的输出状态；底座默认只释放触点捕获。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_touch_active">
+			<signature>func is_touch_active() -&gt; bool:</signature>
+			<description>检查当前是否捕获了触点。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">有活动触点捕获时返回 true。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_active_touch_index">
+			<signature>func get_active_touch_index() -&gt; int:</signature>
+			<description>获取当前活动触点 index。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">当前活动触点 index；没有捕获时返回 -1。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

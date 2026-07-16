@@ -1,0 +1,196 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFSpatialQueryIdentity" path="addons/gf/standard/foundation/math/gf_spatial_query_identity.gd" module="standard" extends="RefCounted" classDigest="13fd1b98a5c2cb3813d8dc692295c9c27715963c4a4a1154a7cfc3f0aa1c93f2">
+	<description>GFSpatialQueryIdentity: 空间查询实体身份值对象。
+将 Object、StringName、String 与 int 统一成稳定 key。Object 使用 weakref
+保存，避免空间索引因为查询身份持有场景对象生命周期；值类型会复制保存。
+Array、Dictionary 等可变复合值不会被接受为稳定空间查询身份。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">value_object</tag>
+		<tag name="since">8.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants>
+		<member kind="const" name="KIND_OBJECT">
+			<signature>const KIND_OBJECT: StringName = &amp;"object"</signature>
+			<description>Object 身份类型。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="KIND_STRING_NAME">
+			<signature>const KIND_STRING_NAME: StringName = &amp;"string_name"</signature>
+			<description>StringName 身份类型。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="KIND_STRING">
+			<signature>const KIND_STRING: StringName = &amp;"string"</signature>
+			<description>String 身份类型。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="KIND_INT">
+			<signature>const KIND_INT: StringName = &amp;"int"</signature>
+			<description>int 身份类型。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties>
+		<member kind="property" name="key">
+			<signature>var key: String = ""</signature>
+			<description>稳定查询 key，格式为 `kind:value`。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="kind">
+			<signature>var kind: StringName = &amp;""</signature>
+			<description>身份类型。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="entity_id">
+			<signature>var entity_id: int = 0</signature>
+			<description>int 身份值；非 int 身份时为 0。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="object_instance_id">
+			<signature>var object_instance_id: int = 0</signature>
+			<description>Object 实例 ID；非 Object 身份时为 0。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="string_value">
+			<signature>var string_value: String = ""</signature>
+			<description>String 或 StringName 身份文本；其他身份时为空字符串。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="from_value">
+			<signature>static func from_value(entity: Variant) -&gt; GFSpatialQueryIdentity:</signature>
+			<description>从实体值创建空间查询身份。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">entity: Object、StringName、String 或 int 实体身份。</tag>
+				<tag name="return">空间查询身份；不支持的实体值会返回空 key 身份。</tag>
+				<tag name="schema">entity: Object, StringName, String, or int identity.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="make_key">
+			<signature>static func make_key(entity: Variant) -&gt; String:</signature>
+			<description>直接获取实体值对应的稳定 key。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">entity: Object、StringName、String 或 int 实体身份。</tag>
+				<tag name="return">支持的实体值返回稳定 key；不支持时返回空字符串。</tag>
+				<tag name="schema">entity: Object, StringName, String, or int identity.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="supports_value">
+			<signature>static func supports_value(entity: Variant) -&gt; bool:</signature>
+			<description>判断实体值是否可作为稳定空间查询身份。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">entity: 待检测实体身份。</tag>
+				<tag name="return">支持时返回 true。</tag>
+				<tag name="schema">entity: Object, StringName, String, or int identity candidate.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="sort_keys">
+			<signature>static func sort_keys(left_key: String, right_key: String) -&gt; bool:</signature>
+			<description>按空间身份 key 稳定排序。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">left_key: 左侧 key。</tag>
+				<tag name="param">right_key: 右侧 key。</tag>
+				<tag name="return">left_key 应排在 right_key 前方时返回 true。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_key_kind">
+			<signature>static func get_key_kind(identity_key: String) -&gt; String:</signature>
+			<description>从稳定 key 中取出类型前缀。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">identity_key: 稳定空间身份 key。</tag>
+				<tag name="return">key 类型；格式无效时返回空字符串。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_int_key_value">
+			<signature>static func get_int_key_value(identity_key: String) -&gt; int:</signature>
+			<description>从 int 类型稳定 key 中取出数值。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">identity_key: 稳定空间身份 key。</tag>
+				<tag name="return">int key 的数值；非 int key 返回 0。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_valid">
+			<signature>func is_valid() -&gt; bool:</signature>
+			<description>当前身份是否有效。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">key 非空且 Object 身份未释放时返回 true。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_value">
+			<signature>func get_value() -&gt; Variant:</signature>
+			<description>取回原始实体值。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">Object 身份返回 live Object；值身份返回保存的值；无效身份返回 null。</tag>
+				<tag name="schema">return: Object, StringName, String, int, or null entity value.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_object">
+			<signature>func get_object() -&gt; Object:</signature>
+			<description>取回 Object 身份引用。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">Object 身份未释放时返回 Object；否则返回 null。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="to_dictionary">
+			<signature>func to_dictionary(include_value: bool = false) -&gt; Dictionary:</signature>
+			<description>转换为可序列化快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">include_value: 为 true 时为非 Object 身份附带原始值。</tag>
+				<tag name="return">身份快照。</tag>
+				<tag name="schema">return: Dictionary with key, kind, entity_id, object_instance_id, string_value, valid, and optional value.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

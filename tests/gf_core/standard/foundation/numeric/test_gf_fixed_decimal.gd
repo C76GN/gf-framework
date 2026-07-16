@@ -19,8 +19,25 @@ func test_from_string_accepts_scientific_notation_as_float_compatibility_path() 
 func test_from_string_scientific_notation_rejects_malformed_text() -> void:
 	var value: GFFixedDecimal = GFFixedDecimal.from_string("1e--2", 2)
 
-	assert_push_error("[GFFixedDecimal] 无法解析数字字符串：1e--2")
+	assert_push_error("[GFFixedDecimal] 无法解析数字字符串（invalid_exponent）：1e--2")
 	assert_eq(value.to_decimal_string(), "0.00", "非法科学计数法文本应收敛为当前精度下的零。")
+
+
+func test_from_string_rejects_malformed_separators() -> void:
+	var malformed_group: GFFixedDecimal = GFFixedDecimal.from_string("1,2", 2)
+	var malformed_underscore: GFFixedDecimal = GFFixedDecimal.from_string("1__2", 2)
+
+	assert_push_error("[GFFixedDecimal] 无法解析数字字符串（invalid_separator）：1,2")
+	assert_push_error("[GFFixedDecimal] 无法解析数字字符串（invalid_separator）：1__2")
+	assert_eq(malformed_group.to_decimal_string(), "0.00", "错误千分位不能被静默改写成另一个值。")
+	assert_eq(malformed_underscore.to_decimal_string(), "0.00", "错误下划线不能被静默移除。")
+
+
+func test_from_string_enforces_input_length_budget() -> void:
+	var value: GFFixedDecimal = GFFixedDecimal.from_string("12345", 2, GFFixedDecimal.RoundingMode.HALF_UP, 4)
+
+	assert_push_error("[GFFixedDecimal] 无法解析数字字符串（input_too_long）：12345")
+	assert_eq(value.to_decimal_string(), "0.00", "超出输入预算时应快速返回当前精度的零值。")
 
 
 func test_from_string_scientific_notation_uses_from_float_overflow_boundary() -> void:
@@ -97,9 +114,20 @@ func test_serialization_normalizes_mutated_decimal_places() -> void:
 	var bytes: PackedByteArray = value.to_bytes()
 
 	assert_push_error("[GFFixedDecimal] decimal_places 超出上限 18，已自动钳制。")
-	assert_push_error("[GFFixedDecimal] decimal_places 超出上限 18，已自动钳制。")
 	assert_eq(GFVariantData.get_option_int(data, "decimal_places"), GFFixedDecimal.MAX_DECIMAL_PLACES, "状态字典应序列化归一化后的小数位。")
 	assert_eq(bytes[5], GFFixedDecimal.MAX_DECIMAL_PLACES, "字节格式应序列化归一化后的小数位。")
+
+
+func test_public_field_setters_normalize_mutated_state() -> void:
+	var value: GFFixedDecimal = GFFixedDecimal.new(123, 2)
+
+	value.raw_value = -9_223_372_036_854_775_807 - 1
+	value.decimal_places = 30
+
+	assert_push_error("[GFFixedDecimal] raw_value 超出可表示范围，已钳制。")
+	assert_push_error("[GFFixedDecimal] decimal_places 超出上限 18，已自动钳制。")
+	assert_eq(value.raw_value, -9_223_372_036_854_775_807, "公开 raw 写入应立即归一化，避免坏状态泄漏。")
+	assert_eq(value.decimal_places, GFFixedDecimal.MAX_DECIMAL_PLACES, "公开小数位写入应立即归一化。")
 
 
 func test_dict_roundtrips_through_json() -> void:
@@ -204,10 +232,19 @@ func test_apply_bytes_rejects_bad_sign_and_magnitude_overflow() -> void:
 		0,
 		128, 0, 0, 0, 0, 0, 0, 0,
 	]))
+	var negative_zero_applied: bool = value.apply_bytes(PackedByteArray([
+		71, 70, 70, 68,
+		1,
+		2,
+		1,
+		0, 0, 0, 0, 0, 0, 0, 0,
+	]))
 
 	assert_false(bad_sign_applied)
 	assert_push_error("[GFFixedDecimal] 不支持的字节序列格式。")
 	assert_false(overflow_applied)
+	assert_push_error("[GFFixedDecimal] 不支持的字节序列格式。")
+	assert_false(negative_zero_applied)
 	assert_push_error("[GFFixedDecimal] 不支持的字节序列格式。")
 	assert_eq(value.raw_value, 0)
 	assert_eq(value.decimal_places, 2)
@@ -230,7 +267,7 @@ func test_decimal_places_are_clamped_to_safe_limit() -> void:
 func test_from_string_rejects_malformed_decimal_text() -> void:
 	var value: GFFixedDecimal = GFFixedDecimal.from_string("1.2.3", 2)
 
-	assert_push_error("[GFFixedDecimal] 无法解析数字字符串：1.2.3")
+	assert_push_error("[GFFixedDecimal] 无法解析数字字符串（invalid_mantissa）：1.2.3")
 	assert_eq(value.to_decimal_string(), "0.00", "非法字符串应被收敛为当前精度下的零。")
 
 

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFCombatHitContext" path="addons/gf/extensions/combat/hit_detection/gf_combat_hit_context.gd" module="extensions/combat" extends="RefCounted" classDigest="bad6f1cf5dcb61386f69987bc61174cc4bddc3eb85589a8a570ef7619b319db0">
+<class name="GFCombatHitContext" path="addons/gf/extensions/combat/hit_detection/gf_combat_hit_context.gd" module="extensions/combat" extends="RefCounted" classDigest="0633e0d8f463303e457317dc24f9baea5039a615e1d97b7099b89a255394137d">
 	<description>GFCombatHitContext: 一次通用命中交互的上下文。
 只保存 source、target、hit_id、payload、位置和元数据。
 它不解释伤害、阵营、生命值、命中结果或任何业务语义。</description>
@@ -34,61 +34,69 @@
 			</tags>
 		</member>
 		<member kind="property" name="payload">
-			<signature>var payload: Variant = null</signature>
+			<signature>var payload: Variant:</signature>
 			<description>命中携带的数据。框架不解释该字段。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="schema">payload: Variant，项目自定义命中载荷；框架只复制并透传。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="magnitude">
-			<signature>var magnitude: float = 0.0</signature>
+			<signature>var magnitude: float:</signature>
 			<description>通用强度值。框架不解释该字段。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="tags">
-			<signature>var tags: Array[StringName] = []</signature>
+			<signature>var tags: Array[StringName]:</signature>
 			<description>命中标签。框架不解释该字段。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="position_2d">
-			<signature>var position_2d: Vector2 = Vector2.ZERO</signature>
+			<signature>var position_2d: Vector2:</signature>
 			<description>2D 命中位置。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="normal_2d">
-			<signature>var normal_2d: Vector2 = Vector2.ZERO</signature>
+			<signature>var normal_2d: Vector2:</signature>
 			<description>2D 命中法线。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="position_3d">
-			<signature>var position_3d: Vector3 = Vector3.ZERO</signature>
+			<signature>var position_3d: Vector3:</signature>
 			<description>3D 命中位置。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="normal_3d">
-			<signature>var normal_3d: Vector3 = Vector3.ZERO</signature>
+			<signature>var normal_3d: Vector3:</signature>
 			<description>3D 命中法线。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="metadata">
-			<signature>var metadata: Dictionary = {}</signature>
+			<signature>var metadata: Dictionary:</signature>
 			<description>项目自定义元数据。框架不解释该字段。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="schema">metadata: Dictionary，项目自定义命中元数据；框架只复制并透传。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</properties>
@@ -165,6 +173,18 @@
 				<tag name="api">public</tag>
 				<tag name="return">字典快照。</tag>
 				<tag name="schema">return: Dictionary，包含 source、target、hit_id、payload、magnitude、tags、position_2d、normal_2d、position_3d、normal_3d 和 metadata。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="to_report_dictionary">
+			<signature>func to_report_dictionary(options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>转换为 JSON-safe 报告字典。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">options: 传给 GFReportValueCodec 的编码选项。</tag>
+				<tag name="return">报告字典快照。</tag>
+				<tag name="schema">options: Dictionary with GFReportValueCodec encoding options.</tag>
+				<tag name="schema">return: JSON-safe Dictionary based on to_dict().</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 	</methods>

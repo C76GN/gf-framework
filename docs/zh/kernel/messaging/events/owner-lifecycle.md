@@ -14,8 +14,8 @@ extends GFController
 
 
 func _ready() -> void:
-	register_simple_event(&"EVENT_QUEST_UPDATED", _on_quest_updated)
-	register_event(QuestCompletedPayload, _on_quest_completed, 100)
+	register_simple_event(&"EVENT_QUEST_UPDATED", GFEventListener.from_method(self, &"_on_quest_updated", 1))
+	register_event(QuestCompletedPayload, GFEventListener.from_method(self, &"_on_quest_completed", 1), 100)
 
 
 func _on_quest_updated(_payload: Variant) -> void:
@@ -33,8 +33,8 @@ func _on_quest_completed(payload: GFPayload) -> void:
 
 ```gdscript
 func _ready() -> void:
-	Gf.listen_simple_owned(self, &"EVENT_PLAYER_JUMPED", _on_player_jumped)
-	Gf.listen_owned(self, DamagePayload, _on_damage_taken, 100)
+	Gf.listen_simple_owned(self, &"EVENT_PLAYER_JUMPED", GFEventListener.from_method(self, &"_on_player_jumped", 1))
+	Gf.listen_owned(self, DamagePayload, GFEventListener.from_method(self, &"_on_damage_taken", 1), 100)
 
 
 func _exit_tree() -> void:

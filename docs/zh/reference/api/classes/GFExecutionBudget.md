@@ -19,12 +19,12 @@
 | 属性 | [`max_depth`](#member-gfexecutionbudget-properties-max_depth) | `var max_depth: int = 0` |
 | 属性 | [`max_output_length`](#member-gfexecutionbudget-properties-max_output_length) | `var max_output_length: int = 0` |
 | 属性 | [`max_elapsed_msec`](#member-gfexecutionbudget-properties-max_elapsed_msec) | `var max_elapsed_msec: int = 0` |
-| 属性 | [`cancel_token`](#member-gfexecutionbudget-properties-cancel_token) | `var cancel_token: GFCancelToken = null` |
+| 属性 | [`cancel_token`](#member-gfexecutionbudget-properties-cancel_token) | `var cancel_token: GFCancellationToken = null` |
 | 属性 | [`metadata`](#member-gfexecutionbudget-properties-metadata) | `var metadata: Dictionary = {}` |
 | 方法 | [`_init`](#member-gfexecutionbudget-methods-_init) | `func _init(options: Dictionary = {}) -> void:` |
 | 方法 | [`configure`](#member-gfexecutionbudget-methods-configure) | `func configure(options: Dictionary = {}) -> GFExecutionBudget:` |
 | 方法 | [`reset`](#member-gfexecutionbudget-methods-reset) | `func reset() -> void:` |
-| 方法 | [`bind_cancel_token`](#member-gfexecutionbudget-methods-bind_cancel_token) | `func bind_cancel_token(token: GFCancelToken) -> GFExecutionBudget:` |
+| 方法 | [`bind_cancel_token`](#member-gfexecutionbudget-methods-bind_cancel_token) | `func bind_cancel_token(token: GFCancellationToken) -> GFExecutionBudget:` |
 | 方法 | [`consume_steps`](#member-gfexecutionbudget-methods-consume_steps) | `func consume_steps(amount: int = 1, source_span: Variant = null) -> bool:` |
 | 方法 | [`enter_depth`](#member-gfexecutionbudget-methods-enter_depth) | `func enter_depth(source_span: Variant = null) -> bool:` |
 | 方法 | [`exit_depth`](#member-gfexecutionbudget-methods-exit_depth) | `func exit_depth() -> void:` |
@@ -101,7 +101,7 @@ var max_elapsed_msec: int = 0
 - 首次版本：`7.0.0`
 
 ```gdscript
-var cancel_token: GFCancelToken = null
+var cancel_token: GFCancellationToken = null
 ```
 
 关联的取消 token；为空时不检查取消状态。
@@ -194,7 +194,7 @@ func reset() -> void:
 - 首次版本：`7.0.0`
 
 ```gdscript
-func bind_cancel_token(token: GFCancelToken) -> GFExecutionBudget:
+func bind_cancel_token(token: GFCancellationToken) -> GFExecutionBudget:
 ```
 
 绑定取消 token。

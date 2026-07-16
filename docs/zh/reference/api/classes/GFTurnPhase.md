@@ -18,9 +18,8 @@
 | 信号 | [`finished`](#member-gfturnphase-signals-finished) | `signal finished` |
 | 属性 | [`phase_id`](#member-gfturnphase-properties-phase_id) | `var phase_id: StringName = &""` |
 | 属性 | [`auto_finish`](#member-gfturnphase-properties-auto_finish) | `var auto_finish: bool = true` |
-| 属性 | [`is_finished`](#member-gfturnphase-properties-is_finished) | `var is_finished: bool = false` |
-| 方法 | [`finish`](#member-gfturnphase-methods-finish) | `func finish() -> void:` |
-| 方法 | [`reset`](#member-gfturnphase-methods-reset) | `func reset() -> void:` |
+| 方法 | [`finish`](#member-gfturnphase-methods-finish) | `func finish(context: GFTurnContext = null) -> void:` |
+| 方法 | [`is_finished_for`](#member-gfturnphase-methods-is_finished_for) | `func is_finished_for(context: GFTurnContext) -> bool:` |
 | 方法 | [`_enter`](#member-gfturnphase-methods-_enter) | `func _enter(_context: GFTurnContext) -> void:` |
 | 方法 | [`_execute`](#member-gfturnphase-methods-_execute) | `func _execute(_context: GFTurnContext) -> Variant:` |
 | 方法 | [`_exit`](#member-gfturnphase-methods-_exit) | `func _exit(_context: GFTurnContext) -> void:` |
@@ -65,18 +64,6 @@ var auto_finish: bool = true
 
 `_execute()` 返回后是否自动完成阶段。
 
-<a id="member-gfturnphase-properties-is_finished"></a>
-
-### `is_finished`
-
-- API：`public`
-
-```gdscript
-var is_finished: bool = false
-```
-
-当前阶段是否已经完成。
-
 ## 方法
 
 <a id="member-gfturnphase-methods-finish"></a>
@@ -84,24 +71,40 @@ var is_finished: bool = false
 ### `finish`
 
 - API：`public`
+- 首次版本：`8.0.0`
 
 ```gdscript
-func finish() -> void:
+func finish(context: GFTurnContext = null) -> void:
 ```
 
-标记阶段完成。
+标记指定上下文的阶段运行完成。
 
-<a id="member-gfturnphase-methods-reset"></a>
+参数：
 
-### `reset`
+| 名称 | 说明 |
+|---|---|
+| `context` | 活动 Flow 的上下文；只有一个运行态时可省略。 |
+
+<a id="member-gfturnphase-methods-is_finished_for"></a>
+
+### `is_finished_for`
 
 - API：`public`
+- 首次版本：`8.0.0`
 
 ```gdscript
-func reset() -> void:
+func is_finished_for(context: GFTurnContext) -> bool:
 ```
 
-重置阶段运行状态。
+查询指定上下文的阶段是否完成。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `context` | 活动 Flow 的上下文。 |
+
+返回：对应运行态存在且已经完成时返回 true。
 
 <a id="member-gfturnphase-methods-_enter"></a>
 
@@ -126,6 +129,7 @@ func _enter(_context: GFTurnContext) -> void:
 ### `_execute`
 
 - API：`protected`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func _execute(_context: GFTurnContext) -> Variant:

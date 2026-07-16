@@ -38,6 +38,7 @@
 | 方法 | [`query_records_radius`](#member-gfspatialqueryindex3d-methods-query_records_radius) | `func query_records_radius(center: Vector3, radius: float) -> Array[Dictionary]:` |
 | 方法 | [`query_records_radius_into`](#member-gfspatialqueryindex3d-methods-query_records_radius_into) | `func query_records_radius_into( center: Vector3, radius: float, out_records: Array[Dictionary], clear_output: bool = true ) -> Array[Dictionary]:` |
 | 方法 | [`get_debug_snapshot`](#member-gfspatialqueryindex3d-methods-get_debug_snapshot) | `func get_debug_snapshot() -> Dictionary:` |
+| 方法 | [`get_json_compatible_debug_snapshot`](#member-gfspatialqueryindex3d-methods-get_json_compatible_debug_snapshot) | `func get_json_compatible_debug_snapshot(options: Dictionary = {}) -> Dictionary:` |
 
 ## 常量
 
@@ -528,3 +529,29 @@ func get_debug_snapshot() -> Dictionary:
 结构：
 
 - `return`: Dictionary，包含 strategy、active_strategy、cell_size、entity_count 和 index_dirty。
+
+<a id="member-gfspatialqueryindex3d-methods-get_json_compatible_debug_snapshot"></a>
+
+### `get_json_compatible_debug_snapshot`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func get_json_compatible_debug_snapshot(options: Dictionary = {}) -> Dictionary:
+```
+
+获取 JSON.stringify() 安全的调试快照。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `options` | 报告编码选项，透传给 GFReportValueCodec。 |
+
+返回：JSON 兼容调试快照。
+
+结构：
+
+- `options`: Dictionary with GFReportValueCodec options.
+- `return`: Dictionary safe for JSON.stringify().

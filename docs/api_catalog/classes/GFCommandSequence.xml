@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFCommandSequence" path="addons/gf/standard/sequence/gf_command_sequence.gd" module="standard" extends="RefCounted" classDigest="7677a2feb303a720115459c07313c3f95f28fe34296d740757639f2429d652d9">
+<class name="GFCommandSequence" path="addons/gf/standard/sequence/gf_command_sequence.gd" module="standard" extends="RefCounted" classDigest="24b12cf69040456d34d5059f17f7b2f0042a7d206cb1e2d38508381ba1d5072a">
 	<description>GFCommandSequence: 通用顺序指令执行器。
 可运行 `GFSequenceStep`、`GFCommand` 或任何实现 `execute()` / `resolve()`
 的对象。它只负责顺序、等待和架构注入，不规定具体业务语义。</description>
@@ -72,7 +72,58 @@
 		</member>
 	</signals>
 	<enums />
-	<constants />
+	<constants>
+		<member kind="const" name="FAILED_STEP_ROLLBACK_REQUEST_KEY">
+			<signature>const FAILED_STEP_ROLLBACK_REQUEST_KEY: StringName = &amp;"rollback_required"</signature>
+			<description>失败步骤要求序列在整体回滚时补偿自身所用的结果字段。
+只有返回失败结果、实现 undo()，并显式返回
+[code]{ "rollback_required": true }[/code] 的步骤才会加入失败回滚队列。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="ROLLBACK_STATUS_NOT_RUN">
+			<signature>const ROLLBACK_STATUS_NOT_RUN: StringName = &amp;"not_run"</signature>
+			<description>本次运行未进入 rollback。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="ROLLBACK_STATUS_COMPLETED">
+			<signature>const ROLLBACK_STATUS_COMPLETED: StringName = &amp;"completed"</signature>
+			<description>rollback 已完成。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="ROLLBACK_STATUS_FAILED">
+			<signature>const ROLLBACK_STATUS_FAILED: StringName = &amp;"failed"</signature>
+			<description>rollback 中至少一个 undo() 报告失败。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="ROLLBACK_STATUS_CANCELLED">
+			<signature>const ROLLBACK_STATUS_CANCELLED: StringName = &amp;"cancelled"</signature>
+			<description>rollback 等待异步 undo() 时被取消。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="ROLLBACK_STATUS_TIMEOUT">
+			<signature>const ROLLBACK_STATUS_TIMEOUT: StringName = &amp;"timeout"</signature>
+			<description>rollback 等待异步 undo() 时超时。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</constants>
 	<properties>
 		<member kind="property" name="steps">
 			<signature>var steps: Array = []</signature>

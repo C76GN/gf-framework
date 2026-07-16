@@ -177,7 +177,9 @@ func consume(budget_id: StringName, amount: float, metadata: Dictionary = {}) ->
 	entry["available"] = _get_entry_available(entry) - amount
 	_budgets[budget_id] = entry
 	budget_consumed.emit(budget_id, amount)
-	budget_changed.emit(budget_id, _get_entry_available(entry), _get_entry_capacity(entry))
+	if _budgets.has(budget_id):
+		var current_entry: Dictionary = _get_entry_copy(budget_id)
+		budget_changed.emit(budget_id, _get_entry_available(current_entry), _get_entry_capacity(current_entry))
 	return _make_result(true, budget_id, amount, "", metadata)
 
 

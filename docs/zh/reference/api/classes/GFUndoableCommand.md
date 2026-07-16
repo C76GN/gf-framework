@@ -19,7 +19,7 @@
 | 方法 | [`execute`](#member-gfundoablecommand-methods-execute) | `func execute() -> Variant:` |
 | 方法 | [`undo`](#member-gfundoablecommand-methods-undo) | `func undo() -> Variant:` |
 | 方法 | [`should_record`](#member-gfundoablecommand-methods-should_record) | `func should_record(_execute_result: Variant) -> bool:` |
-| 方法 | [`set_snapshot`](#member-gfundoablecommand-methods-set_snapshot) | `func set_snapshot(data: Variant) -> void:` |
+| 方法 | [`set_snapshot`](#member-gfundoablecommand-methods-set_snapshot) | `func set_snapshot(data: Variant) -> bool:` |
 | 方法 | [`get_snapshot`](#member-gfundoablecommand-methods-get_snapshot) | `func get_snapshot() -> Variant:` |
 
 ## 属性
@@ -103,12 +103,13 @@ func should_record(_execute_result: Variant) -> bool:
 ### `set_snapshot`
 
 - API：`public`
+- 首次版本：`8.0.0`
 
 ```gdscript
-func set_snapshot(data: Variant) -> void:
+func set_snapshot(data: Variant) -> bool:
 ```
 
-保存执行前的状态快照。应在 execute() 内部、修改数据之前调用。
+保存执行前的状态快照。应在 execute() 内部、修改数据之前调用。 快照只接受不含 Object、Callable、Signal 或 RID 的纯 Variant 值；复杂运行时对象应先投影为数据。 校验失败时保留原快照，不产生半更新状态。
 
 参数：
 
@@ -116,9 +117,11 @@ func set_snapshot(data: Variant) -> void:
 |---|---|
 | `data` | 任意可序列化的快照数据（如字典、数值、数组）。 |
 
+返回：快照通过校验并保存时返回 true。
+
 结构：
 
-- `data`: Variant snapshot value; Array and Dictionary values are deep-copied.
+- `data`: Pure Variant snapshot value without Object, Callable, Signal, or RID references.
 
 <a id="member-gfundoablecommand-methods-get_snapshot"></a>
 

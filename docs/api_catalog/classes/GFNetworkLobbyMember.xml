@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFNetworkLobbyMember" path="addons/gf/extensions/network/session/gf_network_lobby_member.gd" module="extensions/network" extends="Resource" classDigest="8244eb0b9c9a0704d81aa0f97a7ff5e862d43099f51e29ec502e4e01dd21388d">
+	<description>GFNetworkLobbyMember: 平台中立的 lobby 成员描述。
+成员只描述 peer 身份、owner/local 标记和 metadata，不承载玩家业务状态、
+准备状态、角色选择或 UI 信息。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">value_object</tag>
+		<tag name="since">8.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties>
+		<member kind="property" name="peer_id" decorators="@export">
+			<signature>var peer_id: int = -1</signature>
+			<description>成员传输 peer 标识。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="identity" decorators="@export">
+			<signature>var identity: GFNetworkPeerIdentity = null</signature>
+			<description>成员身份描述。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="is_owner" decorators="@export">
+			<signature>var is_owner: bool = false</signature>
+			<description>是否为 lobby owner。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="is_local" decorators="@export">
+			<signature>var is_local: bool = false</signature>
+			<description>是否为本地成员。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="metadata" decorators="@export">
+			<signature>var metadata: Dictionary = {}</signature>
+			<description>调用方自定义成员元数据。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">metadata: Dictionary caller-defined member metadata.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="configure">
+			<signature>func configure( p_peer_id: int = -1, p_identity: GFNetworkPeerIdentity = null, p_metadata: Dictionary = {}, options: Dictionary = {} ) -&gt; GFNetworkLobbyMember:</signature>
+			<description>配置成员。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">p_peer_id: 成员传输 peer 标识。</tag>
+				<tag name="param">p_identity: 成员身份。</tag>
+				<tag name="param">p_metadata: 成员元数据。</tag>
+				<tag name="param">options: 可选项，支持 is_owner 和 is_local。</tag>
+				<tag name="return">当前成员。</tag>
+				<tag name="schema">p_metadata: Dictionary caller-defined member metadata.</tag>
+				<tag name="schema">options: Dictionary member flags.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_display_name">
+			<signature>func get_display_name() -&gt; String:</signature>
+			<description>获取展示名称。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">展示名称。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="to_dict">
+			<signature>func to_dict() -&gt; Dictionary:</signature>
+			<description>转换为字典。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">成员字典。</tag>
+				<tag name="schema">return: Dictionary with peer_id, identity, is_owner, is_local, and metadata.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="apply_dict">
+			<signature>func apply_dict(data: Dictionary) -&gt; void:</signature>
+			<description>从字典应用成员字段。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">data: 成员字典。</tag>
+				<tag name="schema">data: Dictionary with peer_id, identity, is_owner, is_local, and metadata.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="duplicate_member">
+			<signature>func duplicate_member() -&gt; GFNetworkLobbyMember:</signature>
+			<description>创建成员深拷贝。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">新成员。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="from_dict">
+			<signature>static func from_dict(data: Dictionary) -&gt; GFNetworkLobbyMember:</signature>
+			<description>从字典创建成员。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">data: 成员字典。</tag>
+				<tag name="return">新成员。</tag>
+				<tag name="schema">data: Dictionary with peer_id, identity, is_owner, is_local, and metadata.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

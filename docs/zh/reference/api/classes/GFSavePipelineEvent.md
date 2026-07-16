@@ -34,6 +34,7 @@
 ### `stage`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var stage: StringName = &""
@@ -46,6 +47,7 @@ var stage: StringName = &""
 ### `severity`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var severity: StringName = &"info"
@@ -58,6 +60,7 @@ var severity: StringName = &"info"
 ### `scope_key`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var scope_key: StringName = &""
@@ -70,6 +73,7 @@ var scope_key: StringName = &""
 ### `source_key`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var source_key: StringName = &""
@@ -82,6 +86,7 @@ var source_key: StringName = &""
 ### `node_path`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var node_path: String = ""
@@ -94,6 +99,7 @@ var node_path: String = ""
 ### `message`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var message: String = ""
@@ -106,6 +112,7 @@ var message: String = ""
 ### `payload`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var payload: Dictionary = {}
@@ -122,6 +129,7 @@ var payload: Dictionary = {}
 ### `timestamp_msec`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var timestamp_msec: int = 0
@@ -136,6 +144,7 @@ var timestamp_msec: int = 0
 ### `configure`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func configure( p_stage: StringName, scope: Object = null, source: Object = null, p_message: String = "", p_payload: Dictionary = {}, p_severity: StringName = &"info" ) -> GFSavePipelineEvent:
@@ -165,6 +174,7 @@ func configure( p_stage: StringName, scope: Object = null, source: Object = null
 ### `to_dict`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func to_dict() -> Dictionary:
@@ -176,13 +186,14 @@ func to_dict() -> Dictionary:
 
 结构：
 
-- `return`: Dictionary，包含 stage、severity、scope_key、source_key、node_path、message、payload 与 timestamp_msec。
+- `return`: Dictionary，包含 stage、severity、scope_key、source_key、node_path、message、JSON-safe payload 与 timestamp_msec。
 
 <a id="member-gfsavepipelineevent-methods-from_dict"></a>
 
 ### `from_dict`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 static func from_dict(data: Dictionary) -> GFSavePipelineEvent:

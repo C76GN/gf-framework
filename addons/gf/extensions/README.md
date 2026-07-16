@@ -1,6 +1,6 @@
 # GF Extensions
 
-GF extensions are optional capability bundles built on the GF kernel and standard library. Bundled GF extensions are disabled by default; projects enable only the extensions they need through `gf/extensions/enabled`, `GF Workspace`, a preset, or project code.
+GF extensions are optional capability bundles built on the GF kernel and standard library. Bundled GF extensions are disabled by default; projects enable only the extensions they need through `GF Workspace`, a preset, project code, or explicit `gf/extensions/enabled` selection.
 
 Each bundled extension lives directly under this directory:
 
@@ -16,4 +16,4 @@ For bundled GF extensions, manifest `version` must match the current GF release 
 
 Extension roots should only contain metadata, optional installer entry points, and extension docs. Runtime code belongs in stable slots such as `runtime`, `resources`, `nodes`, `editor`, `foundation`, or extension-specific domains.
 
-The GF editor plugin opens the standalone `GF Workspace` with a `GF Extensions` page. It writes `gf/extensions/enabled`, can auto-run enabled extension installers before project installers, can exclude disabled extensions during export when `gf/extensions/export_exclude_disabled` is enabled, and can report disabled-extension references as export errors with `gf/extensions/export_fail_on_disabled_references`.
+The GF editor plugin opens the standalone `GF Workspace` with a `GF Extensions` page. It writes `gf/extensions/selection_mode` and the explicit `gf/extensions/enabled` list, can auto-run enabled extension installers before project installers, can exclude disabled extensions during export when `gf/extensions/export_exclude_disabled` is enabled, and can report disabled-extension references as export errors with `gf/extensions/export_fail_on_disabled_references`.

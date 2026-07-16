@@ -79,7 +79,7 @@ func to_dict() -> Dictionary:
 	var state: Dictionary = arch.get_all_models_state()
 
 	assert_eq(state.size(), 0, "缺少稳定标识的运行时 Model 不应进入快照。")
-	assert_push_error("[GFArchitecture] 可序列化 Model 缺少稳定标识：请为脚本声明 class_name 或提供可用的资源路径。")
+	assert_push_error("[GFArchitecture] 可序列化 Model 缺少稳定标识：请为脚本声明 class_name 或重写 get_save_key()。")
 
 
 func test_architecture_prefers_model_save_key_for_serialization() -> void:
@@ -196,8 +196,9 @@ func test_architecture_restore_all_models_state_async() -> void:
 	score_model.set("score", 0)
 	score_model.set("level", 0)
 	settings_model.set("volume", 1.0)
-	await arch.restore_all_models_state_async(state, { "max_models_per_frame": 1 })
+	var restored: bool = await arch.restore_all_models_state_async(state, { "max_models_per_frame": 1 })
 
+	assert_true(restored, "restore_all_models_state_async() 完整恢复时应返回 true。")
 	assert_eq(_object_int(score_model, "score"), 33, "score 应通过分帧恢复。")
 	assert_eq(_object_int(score_model, "level"), 4, "level 应通过分帧恢复。")
 	assert_almost_eq(_object_float(settings_model, "volume"), 0.6, 0.001, "volume 应通过分帧恢复。")
@@ -268,7 +269,7 @@ func test_architecture_global_snapshot() -> void:
 	# 设置一个不做任何事的 builder 以防止报错，并验证历史恢复是否被触达
 	var mock_builder: Callable = func(data: Dictionary) -> GFUndoableCommand:
 		var cmd: GFUndoableCommand = GFUndoableCommand.new()
-		cmd.set_snapshot(GF_VARIANT_ACCESS.get_option_value(data, "snapshot"))
+		var _snapshot_saved: bool = cmd.set_snapshot(GF_VARIANT_ACCESS.get_option_value(data, "snapshot"))
 		return cmd
 		
 	# 由于历史重做会在 restore 时调用 clear，我们要改写一下
@@ -289,8 +290,9 @@ func test_architecture_global_snapshot_async() -> void:
 
 	var snapshot: Dictionary = await arch.get_global_snapshot_async({ "max_models_per_frame": 1 })
 	score_model.set("score", 0)
-	await arch.restore_global_snapshot_async(snapshot, Callable(), { "max_models_per_frame": 1 })
+	var restored: bool = await arch.restore_global_snapshot_async(snapshot, Callable(), { "max_models_per_frame": 1 })
 
+	assert_true(restored, "restore_global_snapshot_async() 完整恢复时应返回 true。")
 	assert_eq(_object_int(score_model, "score"), 88, "分帧全局快照应恢复 Model 数据。")
 
 
@@ -304,7 +306,7 @@ func test_global_snapshot_ignores_incomplete_command_history_contract() -> void:
 	assert_false(snapshot.has("command_history"), "命令历史快照应要求完整序列化/反序列化契约。")
 
 
-func test_global_snapshot_rejects_multiple_command_history_stores() -> void:
+func test_register_service_rejects_multiple_command_history_stores() -> void:
 	var arch: GFArchitecture = GFArchitecture.new()
 	var first_history: CompleteHistoryUtilityA = CompleteHistoryUtilityA.new()
 	var second_history: CompleteHistoryUtilityB = CompleteHistoryUtilityB.new()
@@ -313,8 +315,8 @@ func test_global_snapshot_rejects_multiple_command_history_stores() -> void:
 
 	var snapshot: Dictionary = arch.get_global_snapshot()
 
-	assert_false(snapshot.has("command_history"), "多个命令历史工具匹配时不应按注册顺序选择。")
-	assert_push_error("[GFArchitecture] 命令历史快照工具匹配到多个 Utility，请使用唯一的历史工具实例。")
+	assert_true(snapshot.has("command_history"), "第二个服务 provider 被拒绝后，应继续使用第一个命令历史服务。")
+	assert_push_error("[GFArchitecture] register_service 失败：service_key 已注册：gf.kernel.command_history_store。")
 
 
 # --- 私有/辅助方法 ---
@@ -441,6 +443,13 @@ class IncompleteHistoryUtility:
 class CompleteHistoryUtilityA:
 	extends GFUtility
 
+	func inject_dependencies(architecture: GFArchitecture) -> void:
+		super.inject_dependencies(architecture)
+		var _registered_service: bool = architecture.register_service(
+			GFArchitecture.SERVICE_COMMAND_HISTORY_STORE,
+			self
+		)
+
 	func serialize_full_history() -> Dictionary:
 		return { "complete": true }
 
@@ -453,6 +462,13 @@ class CompleteHistoryUtilityA:
 
 class CompleteHistoryUtilityB:
 	extends GFUtility
+
+	func inject_dependencies(architecture: GFArchitecture) -> void:
+		super.inject_dependencies(architecture)
+		var _registered_service: bool = architecture.register_service(
+			GFArchitecture.SERVICE_COMMAND_HISTORY_STORE,
+			self
+		)
 
 	func serialize_full_history() -> Dictionary:
 		return { "complete": true }

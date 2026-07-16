@@ -115,6 +115,23 @@ func to_dict() -> Dictionary:
 	}
 
 
+## 转换为可安全 JSON.stringify() 的报告字典。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+## [br]
+## @param options: 传给 GFReportValueCodec 的编码选项。
+## [br]
+## @return JSON-safe 冲突报告。
+## [br]
+## @schema options: Dictionary with GFReportValueCodec options.
+## [br]
+## @schema return: Dictionary，只包含 JSON-compatible values 和正式报告 marker。
+func to_json_safe_dict(options: Dictionary = {}) -> Dictionary:
+	return GFReportValueCodec.to_report_dictionary(to_dict(), options)
+
+
 ## 复制冲突报告。
 ## [br]
 ## @api public

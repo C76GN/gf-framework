@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFConfigTableImporter" path="addons/gf/standard/utilities/config/gf_config_table_importer.gd" module="standard" extends="RefCounted" classDigest="87f21fdf140e1485683a186b907f843a92a95715d36bf6703ded4efcaa939b29">
+<class name="GFConfigTableImporter" path="addons/gf/standard/utilities/config/gf_config_table_importer.gd" module="standard" extends="RefCounted" classDigest="e3cece000d371d3c14a0eff72d2b5aaa9d49225888b62217ee32b20664d499ca">
 	<description>GFConfigTableImporter: 通用导表文本解析与 schema 校验入口。
-提供 JSON、CSV 与 ConfigFile 的轻量解析，适合编辑器工具或 CI 在进入项目 Provider 前做结构检查。</description>
+提供 JSON、CSV、ConfigFile 与二维文本行的轻量解析，适合编辑器工具或 CI 在进入项目 Provider 前做结构检查。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">runtime_service</tag>
@@ -24,15 +24,31 @@
 				<tag name="schema">return: Dictionary，包含 success、data、error、error_line 和 source。</tag>
 			</tags>
 		</member>
+		<member kind="method" name="parse_rows_table">
+			<signature>static func parse_rows_table(rows: Array[PackedStringArray], options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>把已解析的二维文本表转换为记录数组。
+未显式传 header_row 时，传入 rows 的第一行作为表头；显式传 header_row 时按 1-based 源行号定位表头。可通过注释前缀与条件块过滤行列。
+条件块只支持 `#if SYMBOL ...` 与 `#endif`，所有 SYMBOL 都在 condition_symbols 中时才保留块内数据行。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">rows: 已解析的二维文本行。</tag>
+				<tag name="param">options: 可选参数，支持 source、row_numbers、header_row、trim_cells、skip_empty_lines、reject_duplicate_headers、reject_empty_header、require_header、comment_prefixes、comment_row_prefixes、comment_column_prefixes、comment_prefix_case_sensitive、enable_condition_directives、condition_symbols、condition_directive_prefix 和 error_prefix。</tag>
+				<tag name="return">结果字典，包含 success、data、header、row_locations 与 error。</tag>
+				<tag name="schema">rows: Array[PackedStringArray]，每个条目是一行单元格文本。</tag>
+				<tag name="schema">options: Dictionary，可包含 source、row_numbers、header_row、trim_cells、skip_empty_lines、reject_duplicate_headers、reject_empty_header、require_header、comment_prefixes、comment_row_prefixes、comment_column_prefixes、comment_prefix_case_sensitive、enable_condition_directives、condition_symbols、condition_directive_prefix 和 error_prefix。</tag>
+				<tag name="schema">return: Dictionary，包含 success、data、header、row_locations、error、error_line、error_column 和 source。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
 		<member kind="method" name="parse_csv_table">
 			<signature>static func parse_csv_table(text: String, options: Dictionary = {}) -&gt; Dictionary:</signature>
 			<description>解析 CSV 表文本。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">text: CSV 文本。</tag>
-				<tag name="param">options: 可选参数，支持 delimiter、trim_cells、skip_empty_lines、reject_duplicate_headers、source。</tag>
+				<tag name="param">options: 可选参数，支持 delimiter、trim_cells、skip_empty_lines、reject_duplicate_headers、header_row、comment_prefixes、comment_row_prefixes、comment_column_prefixes、comment_prefix_case_sensitive、enable_condition_directives、condition_symbols、condition_directive_prefix、source。</tag>
 				<tag name="return">结果字典，包含 success、data、header、row_locations 与 error。</tag>
-				<tag name="schema">options: Dictionary，可包含 delimiter、trim_cells、skip_empty_lines、reject_duplicate_headers 和 source。</tag>
+				<tag name="schema">options: Dictionary，可包含 delimiter、trim_cells、skip_empty_lines、reject_duplicate_headers、header_row、comment_prefixes、comment_row_prefixes、comment_column_prefixes、comment_prefix_case_sensitive、enable_condition_directives、condition_symbols、condition_directive_prefix 和 source。</tag>
 				<tag name="schema">return: Dictionary，包含 success、data、header、row_locations、error、error_line、error_column 和 source。</tag>
 				<tag name="since">3.17.0</tag>
 			</tags>
@@ -86,10 +102,11 @@
 				<tag name="api">public</tag>
 				<tag name="param">text: CSV 文本。</tag>
 				<tag name="param">schema: 表结构声明。</tag>
-				<tag name="param">options: 可选参数，支持 delimiter、trim_cells、skip_empty_lines、reject_duplicate_headers、source。</tag>
+				<tag name="param">options: 可选参数，支持 delimiter、trim_cells、skip_empty_lines、reject_duplicate_headers、header_row、comment_prefixes、comment_row_prefixes、comment_column_prefixes、comment_prefix_case_sensitive、enable_condition_directives、condition_symbols、condition_directive_prefix 和 source。</tag>
 				<tag name="return">校验报告；解析失败时返回失败报告。</tag>
-				<tag name="schema">options: Dictionary，可包含 delimiter、trim_cells、skip_empty_lines、reject_duplicate_headers 和 source。</tag>
+				<tag name="schema">options: Dictionary，可包含 delimiter、trim_cells、skip_empty_lines、reject_duplicate_headers、header_row、comment_prefixes、comment_row_prefixes、comment_column_prefixes、comment_prefix_case_sensitive、enable_condition_directives、condition_symbols、condition_directive_prefix 和 source。</tag>
 				<tag name="schema">return: GFConfigValidationReport 兼容 Dictionary。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="validate_config_file_table">

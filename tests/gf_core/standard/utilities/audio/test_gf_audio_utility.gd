@@ -457,6 +457,25 @@ func test_sfx_handle_can_stop_and_release_player() -> void:
 	assert_eq(_pool.get_available_count(_audio._sfx_scene), 1, "停止句柄应把播放器归还对象池。")
 
 
+func test_naturally_finished_sfx_handle_cannot_control_reused_pool_player() -> void:
+	var clip: GFAudioClip = GFAudioClip.new()
+	clip.stream = AudioStreamGenerator.new()
+	clip.bus_name = "Master"
+	var old_handle: GFAudioEmitterHandle = _audio.play_sfx_clip_handle(clip)
+	var old_player: AudioStreamPlayer = old_handle.get_player() as AudioStreamPlayer
+
+	old_player.finished.emit()
+	var new_handle: GFAudioEmitterHandle = _audio.play_sfx_clip_handle(clip)
+	var reused_player: AudioStreamPlayer = new_handle.get_player() as AudioStreamPlayer
+
+	assert_false(old_handle.is_valid(), "自然结束必须立即终结旧播放句柄。")
+	assert_same(reused_player, old_player, "测试应确认对象池复用了同一个播放器节点。")
+	old_handle.stop()
+	assert_true(new_handle.is_valid(), "旧句柄不得停止复用节点上的新播放 session。")
+	assert_eq(_audio._active_sfx_players.size(), 1, "旧句柄操作后新 session 仍应保持活跃。")
+	new_handle.stop()
+
+
 func test_sfx_handle_can_bind_to_owner_exit() -> void:
 	var owner_node: Node = Node.new()
 	add_child(owner_node)
@@ -529,6 +548,30 @@ func test_audio_bank_resolution_reports_fallback_and_validation() -> void:
 	assert_eq(GFVariantData.get_option_string_name(resolution, "resolved_id"), &"ui+select", "解析报告应记录最终命中的 ID。")
 	assert_eq(bank.get_clip_ids(), PackedStringArray(["missing", "ui+select"]), "音频集合应能列出全部片段 ID。")
 	assert_eq(report.get_warning_count(), 1, "缺少 stream/path 的片段应进入校验警告。")
+
+
+func test_audio_bank_resolution_report_has_json_safe_export() -> void:
+	var clip: GFAudioClip = GFAudioClip.new()
+	clip.stream = AudioStreamGenerator.new()
+	clip.path = "res://private/click.ogg"
+	var bank: GFAudioBank = GFAudioBank.new()
+	bank.set_clip(&"ui+select", clip)
+
+	var resolution: Dictionary = bank.resolve_clip(&"ui+select")
+	var exported: Dictionary = bank.to_json_compatible_resolution_report(resolution)
+	var clip_marker: Dictionary = GFVariantData.get_option_dictionary(
+		GFVariantData.get_option_dictionary(exported, "clip"),
+		"__gf_report_value__"
+	)
+	var json_text: String = JSON.stringify(exported)
+	var raw_clip_value: Variant = GFVariantData.get_option_value(resolution, "clip")
+	var raw_clip: GFAudioClip = null
+	if raw_clip_value is GFAudioClip:
+		raw_clip = raw_clip_value
+
+	assert_same(raw_clip, clip, "raw 解析报告应保留运行时 clip。")
+	assert_true(GFVariantData.get_option_bool(clip_marker, "redacted"), "JSON-safe 解析报告应脱敏 clip 资源。")
+	assert_false(json_text.contains("private/click.ogg"), "JSON-safe 解析报告默认不应泄漏 clip 路径。")
 
 
 func test_audio_clip_resolve_pitch_without_rng_uses_base_pitch() -> void:
@@ -770,6 +813,21 @@ func test_post_audio_event_spatial_sfx_uses_default_spatial_player() -> void:
 	handle.stop()
 
 
+func test_spatial_sfx_handle_becomes_terminal_on_natural_finish() -> void:
+	var source: Node2D = Node2D.new()
+	add_child_autofree(source)
+	var clip: GFAudioClip = GFAudioClip.new()
+	clip.stream = AudioStreamGenerator.new()
+	var handle: GFAudioEmitterHandle = _audio.play_sfx_clip_2d_handle(clip, source)
+	var player: AudioStreamPlayer2D = handle.get_player() as AudioStreamPlayer2D
+
+	player.finished.emit()
+
+	assert_false(handle.is_valid(), "空间播放自然结束时句柄应同步进入终态。")
+	assert_eq(_audio._active_spatial_sfx_players.size(), 0, "自然结束应同步解除空间播放器跟踪。")
+	assert_true(player.is_queued_for_deletion(), "自然结束的空间播放器应排队释放。")
+
+
 func test_play_sfx_clip_3d_preserves_default_area_mask_without_spatial_settings() -> void:
 	var source: Node3D = Node3D.new()
 	add_child_autofree(source)
@@ -978,6 +1036,22 @@ func test_play_bgm_ignores_stale_async_load() -> void:
 	await get_tree().process_frame
 
 
+func test_stop_bgm_cancels_pending_async_load() -> void:
+	var mock_asset: MockAssetUtility = MockAssetUtility.new()
+	var audio: AssetBackedAudioUtility = AssetBackedAudioUtility.new(mock_asset)
+	audio.init()
+	await get_tree().process_frame
+
+	audio.play_bgm("res://audio/late.ogg")
+	audio.stop_bgm()
+	mock_asset.finish("res://audio/late.ogg", AudioStreamGenerator.new())
+
+	assert_null(audio._bgm_player.stream, "stop_bgm 后迟到 BGM 异步加载不应恢复播放。")
+	assert_false(audio._bgm_player.playing, "stop_bgm 后迟到 BGM 异步加载不应恢复播放。")
+	audio.dispose()
+	await get_tree().process_frame
+
+
 func test_play_sfx_ignores_async_load_after_dispose() -> void:
 	var mock_asset: MockAssetUtility = MockAssetUtility.new()
 	var audio: RecordingAudioUtility = RecordingAudioUtility.new(mock_asset)
@@ -1150,6 +1224,48 @@ func test_audio_backend_can_handle_mix_controls() -> void:
 	assert_true(backend.external_muted, "静音状态应传给后端。")
 	assert_eq(backend.effect_property_requests.size(), 1, "效果属性请求应传给后端。")
 	assert_almost_eq(backend.handled_mix_transition, 0.3, 0.001, "快照过渡时间应传给后端。")
+
+
+func test_mix_controls_reject_non_finite_values_before_backend_or_engine_write() -> void:
+	var backend: MockAudioBackend = MockAudioBackend.new()
+	_audio.set_audio_backend(backend)
+
+	var volume_ok: bool = _audio.set_bus_volume_db("External", NAN)
+	var effect_ok: bool = _audio.set_bus_effect_property("External", 0, &"cutoff_hz", INF, 0.1)
+	var report: Dictionary = _audio.apply_mix_snapshot({ "backend_only": true }, NAN)
+
+	assert_false(volume_ok, "NaN 总线音量必须在后端调用前被拒绝。")
+	assert_false(effect_ok, "Infinity 效果数值必须在后端调用前被拒绝。")
+	assert_eq(backend.effect_property_requests.size(), 0, "无效效果值不得触发后端副作用。")
+	assert_true(backend.handled_mix_snapshot.is_empty(), "无效过渡时间不得交给后端。")
+	assert_false(GFVariantData.get_option_bool(report, "ok"), "无效快照过渡应返回失败报告。")
+
+
+func test_bgm_requests_sanitize_non_finite_values_before_backend_calls() -> void:
+	var backend: MockAudioBackend = MockAudioBackend.new()
+	backend.handle_bgm_paths = true
+	_audio.set_audio_backend(backend)
+
+	_audio.play_bgm_with_options("event://music", {
+		"crossfade_seconds": INF,
+		"volume_db": NAN,
+		"pitch_scale": INF,
+	})
+	var pause_ok: bool = _audio.pause_bgm(INF)
+	var resume_ok: bool = _audio.resume_bgm(NAN, INF)
+	var seek_ok: bool = _audio.seek_bgm(INF)
+
+	assert_eq(GFVariantData.get_option_float(backend.last_bgm_options, "volume_db"), 0.0, "后端不得接收 NaN BGM 音量。")
+	assert_eq(GFVariantData.get_option_float(backend.last_bgm_options, "pitch_scale"), 1.0, "后端不得接收 Infinity BGM pitch。")
+	var backend_crossfade: float = GFVariantData.get_option_float(backend.last_bgm_options, "crossfade_seconds")
+	assert_true(not is_nan(backend_crossfade) and not is_inf(backend_crossfade), "后端 crossfade 必须有限。")
+	assert_true(pause_ok, "后端应能处理归一化后的暂停请求。")
+	assert_eq(backend.pause_bgm_fade, 0.0, "非有限暂停淡出应归一化为 0。")
+	assert_true(resume_ok, "后端应能处理归一化后的恢复请求。")
+	assert_eq(backend.resume_bgm_position, -1.0, "非有限恢复位置应回退为继续当前位置语义。")
+	assert_eq(backend.resume_bgm_fade, 0.0, "非有限恢复淡入应归一化为 0。")
+	assert_false(seek_ok, "非有限 seek 应在调用后端前被拒绝。")
+	assert_eq(backend.seek_bgm_position, -1.0, "被拒绝的 seek 不得触发后端副作用。")
 
 
 func test_bus_volume() -> void:

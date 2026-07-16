@@ -111,6 +111,7 @@ static func build_rebind_report( contexts: Array[GFInputContext], remap_config: 
 ### `collect_binding_items`
 
 - API：`public`
+- 首次版本：`8.0.0`
 
 ```gdscript
 static func collect_binding_items( contexts: Array[GFInputContext], remap_config: GFInputRemapConfig = null, include_non_remappable: bool = true ) -> Array[Dictionary]:
@@ -131,7 +132,7 @@ static func collect_binding_items( contexts: Array[GFInputContext], remap_config
 结构：
 
 - `contexts`: Array[GFInputContext] of contexts to inspect.
-- `return`: Array，包含 item Dictionary 记录，字段包括 context/action/binding id、event、event_text、event_key、signature、device_scope 和 match_device。
+- `return`: Array，包含 item Dictionary 记录，字段包括 context/action/binding id、event_record、event_text、event_key、signature、device_scope 和 match_device。
 
 <a id="member-gfinputconflictanalyzer-methods-get_event_signature"></a>
 

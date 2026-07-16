@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFCommandHistoryUtility" path="addons/gf/standard/utilities/history/gf_command_history_utility.gd" module="standard" extends="GFUtility" classDigest="562c9cac423503010c3b8e5444e153f681541945492c138cbe644ead897a561f">
+<class name="GFCommandHistoryUtility" path="addons/gf/standard/utilities/history/gf_command_history_utility.gd" module="standard" extends="GFUtility" classDigest="1c3760648441f785923cda5fef895615c5709f59fc5bcfe5d4c7555c9e8a479f">
 	<description>GFCommandHistoryUtility: 可撤销命令历史管理器。
 负责维护 `GFUndoableCommand` 的撤销栈与重做栈，
 并提供同步/异步重放与历史序列化能力。</description>
@@ -14,9 +14,10 @@
 	<properties>
 		<member kind="property" name="max_history_size">
 			<signature>var max_history_size: int:</signature>
-			<description>撤销栈的最大容量；为 0 时表示不限制。</description>
+			<description>命令历史栈的最大容量；为 0 时表示不限制。该上限分别约束撤销栈和重做栈。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="undo_count">
@@ -33,11 +34,12 @@
 				<tag name="api">public</tag>
 			</tags>
 		</member>
-		<member kind="property" name="async_timeout_seconds">
-			<signature>var async_timeout_seconds: float = 30.0</signature>
-			<description>异步命令等待超时时间（秒）。小于等于 0 时表示不启用超时。</description>
+		<member kind="property" name="async_stall_warning_seconds">
+			<signature>var async_stall_warning_seconds: float = 30.0:</signature>
+			<description>异步命令等待告警阈值（秒）。超过阈值只告警并继续持有历史锁，直到命令进入真实终态。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="is_processing_async">

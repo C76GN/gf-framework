@@ -251,12 +251,11 @@ func get_event_count() -> int:
 ## [br]
 ## @api public
 func sort_events() -> void:
-	for event: Dictionary in events:
-		_assign_restored_event_sequence(event)
+	_normalize_event_sequences()
 	events.sort_custom(func(left: Dictionary, right: Dictionary) -> bool:
 		var left_time: float = _get_event_time(left)
 		var right_time: float = _get_event_time(right)
-		if is_equal_approx(left_time, right_time):
+		if left_time == right_time:
 			return _get_event_sequence(left) < _get_event_sequence(right)
 		return left_time < right_time
 	)
@@ -350,7 +349,7 @@ func to_dictionary(json_compatible: bool = false) -> Dictionary:
 		serialized_events.append(_event_to_dictionary(event, json_compatible))
 	return {
 		"timeline_id": String(timeline_id),
-		"duration_seconds": duration_seconds,
+		"duration_seconds": _normalize_time_seconds(duration_seconds),
 		"events": serialized_events,
 		"metadata": GFVariantJsonCodec.variant_to_json_compatible(metadata) if json_compatible else metadata.duplicate(true),
 	}
@@ -367,7 +366,7 @@ func to_dictionary(json_compatible: bool = false) -> Dictionary:
 ## @schema data: Dictionary，包含 timeline_id、duration_seconds、events 和 metadata。
 func apply_dictionary(data: Dictionary, json_compatible: bool = false) -> void:
 	timeline_id = GFVariantData.get_option_string_name(data, "timeline_id")
-	duration_seconds = maxf(GFVariantData.get_option_float(data, "duration_seconds"), 0.0)
+	duration_seconds = _normalize_time_seconds(GFVariantData.get_option_float(data, "duration_seconds"))
 	events.clear()
 	_next_event_sequence = 0
 	var max_event_time: float = 0.0
@@ -376,7 +375,6 @@ func apply_dictionary(data: Dictionary, json_compatible: bool = false) -> void:
 		if event_value is Dictionary:
 			var event_dictionary: Dictionary = event_value
 			var restored_event: Dictionary = _event_from_dictionary(event_dictionary, json_compatible)
-			_assign_restored_event_sequence(restored_event)
 			max_event_time = maxf(max_event_time, _get_event_time(restored_event))
 			events.append(restored_event)
 
@@ -412,7 +410,7 @@ func _make_event(
 	payload: Variant,
 	event_metadata: Dictionary
 ) -> Dictionary:
-	var clamped_time: float = maxf(time_seconds, 0.0)
+	var clamped_time: float = _normalize_time_seconds(time_seconds)
 	return {
 		"time_seconds": clamped_time,
 		"event_kind": event_kind,
@@ -443,7 +441,7 @@ func _event_from_dictionary(event: Dictionary, json_compatible: bool) -> Diction
 	var event_metadata: Variant = GFVariantData.get_option_value(event, "metadata", {})
 	event_metadata = GFVariantJsonCodec.json_compatible_to_variant(event_metadata) if json_compatible else GFVariantData.duplicate_variant(event_metadata)
 	return {
-		"time_seconds": maxf(_get_event_time(event), 0.0),
+		"time_seconds": _normalize_time_seconds(_get_event_time(event)),
 		"event_kind": _get_event_kind(event),
 		"sequence": GFVariantData.get_option_int(event, "sequence", -1),
 		"payload": payload,
@@ -460,7 +458,13 @@ func _get_timeline_events(timeline: RefCounted) -> Array:
 
 
 func _get_event_time(event: Dictionary) -> float:
-	return GFVariantData.get_option_float(event, "time_seconds")
+	return _normalize_time_seconds(GFVariantData.get_option_float(event, "time_seconds"))
+
+
+static func _normalize_time_seconds(value: float) -> float:
+	if is_nan(value) or is_inf(value):
+		return 0.0
+	return maxf(value, 0.0)
 
 
 func _get_event_kind(event: Dictionary) -> StringName:
@@ -481,12 +485,18 @@ func _take_event_sequence() -> int:
 	return event_sequence
 
 
-func _assign_restored_event_sequence(event: Dictionary) -> void:
-	var event_sequence: int = GFVariantData.get_option_int(event, "sequence", -1)
-	if event_sequence < 0:
-		event["sequence"] = _take_event_sequence()
-		return
-	_next_event_sequence = maxi(_next_event_sequence, event_sequence + 1)
+func _normalize_event_sequences() -> void:
+	var used_sequences: Dictionary = {}
+	_next_event_sequence = 0
+	for event: Dictionary in events:
+		var event_sequence: int = GFVariantData.get_option_int(event, "sequence", -1)
+		if event_sequence < 0 or used_sequences.has(event_sequence):
+			while used_sequences.has(_next_event_sequence):
+				_next_event_sequence += 1
+			event_sequence = _next_event_sequence
+			event["sequence"] = event_sequence
+		used_sequences[event_sequence] = true
+		_next_event_sequence = maxi(_next_event_sequence, event_sequence + 1)
 
 
 func _get_object_property(target: Object, property_name: String) -> Variant:

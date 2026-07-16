@@ -289,18 +289,20 @@ func send_query(query: Object) -> Variant:
 ## [br]
 ## @api public
 ## [br]
+## @since 8.0.0
+## [br]
 ## @param event_type: 要监听的脚本类型。
 ## [br]
-## @param callback: 回调函数。
+## @param listener: 事件监听器契约。
 ## [br]
 ## @param priority: 回调优先级，数值越大越先执行，默认为 0。
-func register_event(event_type: Script, callback: Callable, priority: int = 0) -> void:
-	_remember_event_binding(_EVENT_BINDING_KIND_TYPE, event_type, callback, priority)
+func register_event(event_type: Script, listener: GFEventListener, priority: int = 0) -> void:
+	_remember_event_binding(_EVENT_BINDING_KIND_TYPE, event_type, listener, priority)
 	if _events_paused_by_pool:
 		return
 	var architecture: GFArchitecture = _get_architecture_or_null()
 	if architecture != null:
-		architecture.register_event_owned(self, event_type, callback, priority)
+		architecture.register_event_owned(self, event_type, listener, priority)
 		_remember_event_architecture(architecture)
 
 
@@ -308,33 +310,37 @@ func register_event(event_type: Script, callback: Callable, priority: int = 0) -
 ## [br]
 ## @api public
 ## [br]
+## @since 8.0.0
+## [br]
 ## @param event_type: 要注销的脚本类型。
 ## [br]
-## @param callback: 要移除的回调函数。
-func unregister_event(event_type: Script, callback: Callable) -> void:
-	_forget_event_binding(_EVENT_BINDING_KIND_TYPE, event_type, callback)
-	if not _unregister_event_from_tracked_architectures(event_type, callback):
+## @param listener: 要移除的事件监听器契约。
+func unregister_event(event_type: Script, listener: GFEventListener) -> void:
+	_forget_event_binding(_EVENT_BINDING_KIND_TYPE, event_type, listener)
+	if not _unregister_event_from_tracked_architectures(event_type, listener):
 		var architecture: GFArchitecture = _get_architecture_or_null()
 		if architecture != null:
-			architecture.unregister_event_owned(self, event_type, callback)
+			architecture.unregister_event_owned(self, event_type, listener)
 
 
 ## 注册可赋值类型事件监听器。
 ## [br]
 ## @api public
 ## [br]
+## @since 8.0.0
+## [br]
 ## @param base_event_type: 要监听的基类脚本类型。
 ## [br]
-## @param callback: 回调函数。
+## @param listener: 事件监听器契约。
 ## [br]
 ## @param priority: 回调优先级，数值越大越先执行，默认为 0。
-func register_assignable_event(base_event_type: Script, callback: Callable, priority: int = 0) -> void:
-	_remember_event_binding(_EVENT_BINDING_KIND_ASSIGNABLE, base_event_type, callback, priority)
+func register_assignable_event(base_event_type: Script, listener: GFEventListener, priority: int = 0) -> void:
+	_remember_event_binding(_EVENT_BINDING_KIND_ASSIGNABLE, base_event_type, listener, priority)
 	if _events_paused_by_pool:
 		return
 	var architecture: GFArchitecture = _get_architecture_or_null()
 	if architecture != null:
-		architecture.register_assignable_event_owned(self, base_event_type, callback, priority)
+		architecture.register_assignable_event_owned(self, base_event_type, listener, priority)
 		_remember_event_architecture(architecture)
 
 
@@ -342,15 +348,17 @@ func register_assignable_event(base_event_type: Script, callback: Callable, prio
 ## [br]
 ## @api public
 ## [br]
+## @since 8.0.0
+## [br]
 ## @param base_event_type: 注册时使用的基类脚本类型。
 ## [br]
-## @param callback: 要移除的回调函数。
-func unregister_assignable_event(base_event_type: Script, callback: Callable) -> void:
-	_forget_event_binding(_EVENT_BINDING_KIND_ASSIGNABLE, base_event_type, callback)
-	if not _unregister_assignable_event_from_tracked_architectures(base_event_type, callback):
+## @param listener: 要移除的事件监听器契约。
+func unregister_assignable_event(base_event_type: Script, listener: GFEventListener) -> void:
+	_forget_event_binding(_EVENT_BINDING_KIND_ASSIGNABLE, base_event_type, listener)
+	if not _unregister_assignable_event_from_tracked_architectures(base_event_type, listener):
 		var architecture: GFArchitecture = _get_architecture_or_null()
 		if architecture != null:
-			architecture.unregister_assignable_event_owned(self, base_event_type, callback)
+			architecture.unregister_assignable_event_owned(self, base_event_type, listener)
 
 
 ## 通过事件系统发送类型事件。
@@ -368,16 +376,18 @@ func send_event(event_instance: Object) -> void:
 ## [br]
 ## @api public
 ## [br]
+## @since 8.0.0
+## [br]
 ## @param event_id: StringName 事件标识符。
 ## [br]
-## @param callback: 回调函数，签名为 func(payload: Variant)。
-func register_simple_event(event_id: StringName, callback: Callable) -> void:
-	_remember_event_binding(_EVENT_BINDING_KIND_SIMPLE, event_id, callback, 0)
+## @param listener: 简单事件监听器契约。
+func register_simple_event(event_id: StringName, listener: GFEventListener) -> void:
+	_remember_event_binding(_EVENT_BINDING_KIND_SIMPLE, event_id, listener, 0)
 	if _events_paused_by_pool:
 		return
 	var architecture: GFArchitecture = _get_architecture_or_null()
 	if architecture != null:
-		architecture.register_simple_event_owned(self, event_id, callback)
+		architecture.register_simple_event_owned(self, event_id, listener)
 		_remember_event_architecture(architecture)
 
 
@@ -385,15 +395,17 @@ func register_simple_event(event_id: StringName, callback: Callable) -> void:
 ## [br]
 ## @api public
 ## [br]
+## @since 8.0.0
+## [br]
 ## @param event_id: StringName 事件标识符。
 ## [br]
-## @param callback: 要移除的回调函数。
-func unregister_simple_event(event_id: StringName, callback: Callable) -> void:
-	_forget_event_binding(_EVENT_BINDING_KIND_SIMPLE, event_id, callback)
-	if not _unregister_simple_event_from_tracked_architectures(event_id, callback):
+## @param listener: 要移除的简单事件监听器契约。
+func unregister_simple_event(event_id: StringName, listener: GFEventListener) -> void:
+	_forget_event_binding(_EVENT_BINDING_KIND_SIMPLE, event_id, listener)
+	if not _unregister_simple_event_from_tracked_architectures(event_id, listener):
 		var architecture: GFArchitecture = _get_architecture_or_null()
 		if architecture != null:
-			architecture.unregister_simple_event_owned(self, event_id, callback)
+			architecture.unregister_simple_event_owned(self, event_id, listener)
 
 
 ## 发送轻量级 StringName 事件，避免高频 new() 带来的 GC 压力。
@@ -454,30 +466,30 @@ func _remember_event_architecture(architecture: GFArchitecture) -> void:
 		_event_architectures.append(architecture)
 
 
-func _remember_event_binding(kind: StringName, event_key: Variant, callback: Callable, priority: int) -> void:
+func _remember_event_binding(kind: StringName, event_key: Variant, listener: GFEventListener, priority: int) -> void:
 	for binding: Dictionary in _event_bindings:
 		if (
 			_GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(binding, "kind") == kind
 			and _GF_VARIANT_ACCESS_SCRIPT.get_option_value(binding, "event_key") == event_key
-			and _read_binding_callable(binding, "callback") == callback
+			and _listeners_match(_read_binding_listener(binding, "listener"), listener)
 		):
 			return
 
 	_event_bindings.append({
 		"kind": kind,
 		"event_key": event_key,
-		"callback": callback,
+		"listener": listener,
 		"priority": priority,
 	})
 
 
-func _forget_event_binding(kind: StringName, event_key: Variant, callback: Callable) -> void:
+func _forget_event_binding(kind: StringName, event_key: Variant, listener: GFEventListener) -> void:
 	for i: int in range(_event_bindings.size() - 1, -1, -1):
 		var binding: Dictionary = _event_bindings[i]
 		if (
 			_GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(binding, "kind") == kind
 			and _GF_VARIANT_ACCESS_SCRIPT.get_option_value(binding, "event_key") == event_key
-			and _read_binding_callable(binding, "callback") == callback
+			and _listeners_match(_read_binding_listener(binding, "listener"), listener)
 		):
 			_event_bindings.remove_at(i)
 
@@ -488,21 +500,21 @@ func _register_event_binding(architecture: GFArchitecture, binding: Dictionary) 
 
 	var kind: StringName = _GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(binding, "kind")
 	var event_key: Variant = _GF_VARIANT_ACCESS_SCRIPT.get_option_value(binding, "event_key")
-	var callback: Callable = _read_binding_callable(binding, "callback")
+	var listener: GFEventListener = _read_binding_listener(binding, "listener")
 	var priority: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(binding, "priority")
 
 	if kind == _EVENT_BINDING_KIND_TYPE:
 		if event_key is Script:
 			var event_type: Script = event_key
-			architecture.register_event_owned(self, event_type, callback, priority)
+			architecture.register_event_owned(self, event_type, listener, priority)
 	elif kind == _EVENT_BINDING_KIND_ASSIGNABLE:
 		if event_key is Script:
 			var base_event_type: Script = event_key
-			architecture.register_assignable_event_owned(self, base_event_type, callback, priority)
+			architecture.register_assignable_event_owned(self, base_event_type, listener, priority)
 	elif kind == _EVENT_BINDING_KIND_SIMPLE:
 		if event_key is StringName:
 			var event_id: StringName = event_key
-			architecture.register_simple_event_owned(self, event_id, callback)
+			architecture.register_simple_event_owned(self, event_id, listener)
 
 
 func _unregister_all_tracked_owner_events() -> void:
@@ -512,39 +524,48 @@ func _unregister_all_tracked_owner_events() -> void:
 	_event_architectures.clear()
 
 
-func _read_binding_callable(binding: Dictionary, key: String) -> Callable:
-	var raw_value: Variant = _GF_VARIANT_ACCESS_SCRIPT.get_option_value(binding, key, Callable())
-	if raw_value is Callable:
-		return raw_value
-	return Callable()
+func _read_binding_listener(binding: Dictionary, key: String) -> GFEventListener:
+	var raw_value: Variant = _GF_VARIANT_ACCESS_SCRIPT.get_option_value(binding, key)
+	if raw_value is GFEventListener:
+		var listener: GFEventListener = raw_value
+		return listener
+	return null
 
 
-func _unregister_event_from_tracked_architectures(event_type: Script, callback: Callable) -> bool:
+func _listeners_match(left_listener: GFEventListener, right_listener: GFEventListener) -> bool:
+	if left_listener == right_listener:
+		return true
+	if left_listener == null or right_listener == null:
+		return false
+	return left_listener.get_callback() == right_listener.get_callback()
+
+
+func _unregister_event_from_tracked_architectures(event_type: Script, listener: GFEventListener) -> bool:
 	var handled: bool = false
 	for architecture: GFArchitecture in _event_architectures:
 		if architecture != null and is_instance_valid(architecture):
-			architecture.unregister_event_owned(self, event_type, callback)
+			architecture.unregister_event_owned(self, event_type, listener)
 			handled = true
 	return handled
 
 
 func _unregister_assignable_event_from_tracked_architectures(
 	base_event_type: Script,
-	callback: Callable
+	listener: GFEventListener
 ) -> bool:
 	var handled: bool = false
 	for architecture: GFArchitecture in _event_architectures:
 		if architecture != null and is_instance_valid(architecture):
-			architecture.unregister_assignable_event_owned(self, base_event_type, callback)
+			architecture.unregister_assignable_event_owned(self, base_event_type, listener)
 			handled = true
 	return handled
 
 
-func _unregister_simple_event_from_tracked_architectures(event_id: StringName, callback: Callable) -> bool:
+func _unregister_simple_event_from_tracked_architectures(event_id: StringName, listener: GFEventListener) -> bool:
 	var handled: bool = false
 	for architecture: GFArchitecture in _event_architectures:
 		if architecture != null and is_instance_valid(architecture):
-			architecture.unregister_simple_event_owned(self, event_id, callback)
+			architecture.unregister_simple_event_owned(self, event_id, listener)
 			handled = true
 	return handled
 

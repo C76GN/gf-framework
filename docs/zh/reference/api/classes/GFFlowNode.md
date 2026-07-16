@@ -26,7 +26,7 @@
 | 属性 | [`editor_position`](#member-gfflownode-properties-editor_position) | `var editor_position: Vector2 = Vector2.ZERO` |
 | 属性 | [`editor_size`](#member-gfflownode-properties-editor_size) | `var editor_size: Vector2 = Vector2.ZERO` |
 | 属性 | [`editor_collapsed`](#member-gfflownode-properties-editor_collapsed) | `var editor_collapsed: bool = false` |
-| 属性 | [`runtime_state`](#member-gfflownode-properties-runtime_state) | `var runtime_state: Dictionary = {}` |
+| 属性 | [`runtime_state`](#member-gfflownode-properties-runtime_state) | `var runtime_state: Dictionary:` |
 | 方法 | [`execute`](#member-gfflownode-methods-execute) | `func execute(_context: GFFlowContext) -> Variant:` |
 | 方法 | [`get_next_nodes`](#member-gfflownode-methods-get_next_nodes) | `func get_next_nodes(context: GFFlowContext) -> PackedStringArray:` |
 | 方法 | [`get_display_name`](#member-gfflownode-methods-get_display_name) | `func get_display_name() -> String:` |
@@ -40,7 +40,7 @@
 | 方法 | [`set_runtime_value`](#member-gfflownode-methods-set_runtime_value) | `func set_runtime_value(key: StringName, value: Variant) -> void:` |
 | 方法 | [`get_runtime_value`](#member-gfflownode-methods-get_runtime_value) | `func get_runtime_value(key: StringName, default_value: Variant = null) -> Variant:` |
 | 方法 | [`clear_runtime_state`](#member-gfflownode-methods-clear_runtime_state) | `func clear_runtime_state() -> void:` |
-| 方法 | [`serialize_runtime_state`](#member-gfflownode-methods-serialize_runtime_state) | `func serialize_runtime_state() -> Dictionary:` |
+| 方法 | [`serialize_runtime_state`](#member-gfflownode-methods-serialize_runtime_state) | `func serialize_runtime_state(json_compatible: bool = false) -> Dictionary:` |
 | 方法 | [`deserialize_runtime_state`](#member-gfflownode-methods-deserialize_runtime_state) | `func deserialize_runtime_state(data: Dictionary) -> void:` |
 
 ## 属性
@@ -50,6 +50,7 @@
 ### `node_id`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var node_id: StringName = &""
@@ -62,6 +63,7 @@ var node_id: StringName = &""
 ### `display_name`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var display_name: String = ""
@@ -74,6 +76,7 @@ var display_name: String = ""
 ### `category`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var category: StringName = &""
@@ -86,6 +89,7 @@ var category: StringName = &""
 ### `next_node_ids`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var next_node_ids: PackedStringArray = PackedStringArray()
@@ -98,6 +102,7 @@ var next_node_ids: PackedStringArray = PackedStringArray()
 ### `wait_for_result`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var wait_for_result: bool = true
@@ -110,6 +115,7 @@ var wait_for_result: bool = true
 ### `input_ports`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var input_ports: Array[GFFlowPort] = []
@@ -122,6 +128,7 @@ var input_ports: Array[GFFlowPort] = []
 ### `output_ports`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var output_ports: Array[GFFlowPort] = []
@@ -134,6 +141,7 @@ var output_ports: Array[GFFlowPort] = []
 ### `metadata`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var metadata: Dictionary = {}
@@ -150,6 +158,7 @@ var metadata: Dictionary = {}
 ### `editor_position`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var editor_position: Vector2 = Vector2.ZERO
@@ -162,6 +171,7 @@ var editor_position: Vector2 = Vector2.ZERO
 ### `editor_size`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var editor_size: Vector2 = Vector2.ZERO
@@ -174,6 +184,7 @@ var editor_size: Vector2 = Vector2.ZERO
 ### `editor_collapsed`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var editor_collapsed: bool = false
@@ -186,12 +197,13 @@ var editor_collapsed: bool = false
 ### `runtime_state`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-var runtime_state: Dictionary = {}
+var runtime_state: Dictionary:
 ```
 
-节点运行态数据。默认不导出，项目可通过序列化接口自行存档或迁移。
+节点运行态数据的只读副本。项目应通过 set_runtime_value() 等方法修改， 以便执行器在异步隔离期间拒绝写入共享 Resource。
 
 结构：
 
@@ -204,6 +216,7 @@ var runtime_state: Dictionary = {}
 ### `execute`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func execute(_context: GFFlowContext) -> Variant:
@@ -228,6 +241,7 @@ func execute(_context: GFFlowContext) -> Variant:
 ### `get_next_nodes`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func get_next_nodes(context: GFFlowContext) -> PackedStringArray:
@@ -248,6 +262,7 @@ func get_next_nodes(context: GFFlowContext) -> PackedStringArray:
 ### `get_display_name`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func get_display_name() -> String:
@@ -262,6 +277,7 @@ func get_display_name() -> String:
 ### `get_input_ports`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func get_input_ports() -> Array[GFFlowPort]:
@@ -276,6 +292,7 @@ func get_input_ports() -> Array[GFFlowPort]:
 ### `get_output_ports`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func get_output_ports() -> Array[GFFlowPort]:
@@ -290,6 +307,7 @@ func get_output_ports() -> Array[GFFlowPort]:
 ### `get_input_port`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func get_input_port(port_id: StringName) -> GFFlowPort:
@@ -310,6 +328,7 @@ func get_input_port(port_id: StringName) -> GFFlowPort:
 ### `get_output_port`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func get_output_port(port_id: StringName) -> GFFlowPort:
@@ -330,6 +349,7 @@ func get_output_port(port_id: StringName) -> GFFlowPort:
 ### `describe_ports`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func describe_ports() -> Dictionary:
@@ -348,6 +368,7 @@ func describe_ports() -> Dictionary:
 ### `describe_editor`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func describe_editor() -> Dictionary:
@@ -366,6 +387,7 @@ func describe_editor() -> Dictionary:
 ### `describe_node`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func describe_node() -> Dictionary:
@@ -384,6 +406,7 @@ func describe_node() -> Dictionary:
 ### `set_runtime_value`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func set_runtime_value(key: StringName, value: Variant) -> void:
@@ -407,6 +430,7 @@ func set_runtime_value(key: StringName, value: Variant) -> void:
 ### `get_runtime_value`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func get_runtime_value(key: StringName, default_value: Variant = null) -> Variant:
@@ -433,6 +457,7 @@ func get_runtime_value(key: StringName, default_value: Variant = null) -> Varian
 ### `clear_runtime_state`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func clear_runtime_state() -> void:
@@ -445,12 +470,19 @@ func clear_runtime_state() -> void:
 ### `serialize_runtime_state`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func serialize_runtime_state() -> Dictionary:
+func serialize_runtime_state(json_compatible: bool = false) -> Dictionary:
 ```
 
 序列化节点运行态数据。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `json_compatible` | 为 true 时输出 JSON-safe 报告值；默认为 false，保留运行时原始 Variant。 |
 
 返回：运行态数据副本。
 
@@ -463,6 +495,7 @@ func serialize_runtime_state() -> Dictionary:
 ### `deserialize_runtime_state`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func deserialize_runtime_state(data: Dictionary) -> void:

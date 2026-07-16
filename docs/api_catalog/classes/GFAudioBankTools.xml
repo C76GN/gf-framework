@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFAudioBankTools" path="addons/gf/standard/utilities/audio/gf_audio_bank_tools.gd" module="standard" extends="RefCounted" classDigest="41165ed086f596fc9333230b3d2c9bfa2d3fb845b47e9a7078e8e87762d0aa43">
+<class name="GFAudioBankTools" path="addons/gf/standard/utilities/audio/gf_audio_bank_tools.gd" module="standard" extends="RefCounted" classDigest="75f48cc71fee19f81eb7df55e691bd5e8bb75204ef4b3ceb31c29bfa40eb40ff">
 	<description>GFAudioBankTools: 音频集合扫描、导入和校验辅助。
 面向编辑器工具和构建脚本复用；它只生成 `GFAudioBank` / `GFAudioClip`
 配置，不接管运行时播放策略。</description>
 	<tags>
 		<tag name="api">public</tag>
-		<tag name="category">runtime_service</tag>
+		<tag name="category">tool_api</tag>
 		<tag name="since">3.17.0</tag>
 	</tags>
 	<signals />

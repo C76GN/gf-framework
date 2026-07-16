@@ -29,6 +29,7 @@
 | 属性 | [`invert`](#member-gfdecisionconsideration-properties-invert) | `var invert: bool = false` |
 | 方法 | [`score`](#member-gfdecisionconsideration-methods-score) | `func score(context: GFDecisionContext) -> float:` |
 | 方法 | [`get_debug_snapshot`](#member-gfdecisionconsideration-methods-get_debug_snapshot) | `func get_debug_snapshot(context: GFDecisionContext) -> Dictionary:` |
+| 方法 | [`get_validation_report`](#member-gfdecisionconsideration-methods-get_validation_report) | `func get_validation_report() -> Dictionary:` |
 | 方法 | [`_score`](#member-gfdecisionconsideration-methods-_score) | `func _score(context: GFDecisionContext) -> float:` |
 
 ## 枚举
@@ -233,6 +234,25 @@ func get_debug_snapshot(context: GFDecisionContext) -> Dictionary:
 结构：
 
 - `return`: 包含 consideration_id、enabled、score、weight、input_source 和 input_key 字段的 Dictionary。
+
+<a id="member-gfdecisionconsideration-methods-get_validation_report"></a>
+
+### `get_validation_report`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func get_validation_report() -> Dictionary:
+```
+
+获取考虑项 authoring 校验报告。
+
+返回：GFValidationReportDictionary 兼容报告。
+
+结构：
+
+- `return`: Dictionary with ok, healthy, consideration_id, issues, summary, and next_action.
 
 <a id="member-gfdecisionconsideration-methods-_score"></a>
 

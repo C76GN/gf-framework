@@ -2,6 +2,8 @@
 
 `GFCommandSequence` 用于把一组步骤、命令对象或 callable 串行执行。它只处理顺序、等待和架构注入，不绑定任何项目规则。步骤可以继承 `GFSequenceStep`，也可以是实现了 `execute()` / `resolve()` 的普通对象。
 
+`GFSequenceContext` 为一次序列执行保存开放但受控的共享值；`GFWaitSequenceStep` 是内置的纯等待步骤，用于在不引入项目节点或业务状态的情况下表达时间间隔。
+
 ## 自定义步骤
 
 ```gdscript

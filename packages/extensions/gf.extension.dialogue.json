@@ -12,6 +12,6 @@
   "paths": [
     "addons/gf/extensions/dialogue/**"
   ],
-  "enable_extension": "gf.dialogue",
+  "gf_extension_id": "gf.dialogue",
   "metadata": {}
 }

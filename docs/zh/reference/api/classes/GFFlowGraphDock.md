@@ -27,6 +27,7 @@ FlowGraph 图形化编辑与结构检查工作区页面。 为资源化流程图
 ### `set_graph`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func set_graph(graph: GFFlowGraph, path: String = "") -> void:
@@ -46,6 +47,7 @@ func set_graph(graph: GFFlowGraph, path: String = "") -> void:
 ### `set_graph_path`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func set_graph_path(path: String) -> void:
@@ -64,6 +66,7 @@ func set_graph_path(path: String) -> void:
 ### `refresh`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func refresh() -> void:
@@ -76,6 +79,7 @@ func refresh() -> void:
 ### `get_last_view_model`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func get_last_view_model() -> Dictionary:

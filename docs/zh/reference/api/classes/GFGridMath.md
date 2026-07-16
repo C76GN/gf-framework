@@ -9,22 +9,35 @@
 - 类别：运行时服务 (`runtime_service`)
 - 首次版本：`3.17.0`
 
-网格类小游戏的纯算法工具。 提供一维索引与二维格坐标转换、邻居枚举、范围、外环、直线、视线、 泛洪搜索、BFS / A* 路径查找、Flow Field 生成以及连连看类“两折连线”判断。 它不依赖 GFArchitecture，可直接在 Model、System、Controller 或测试中静态调用。
+2D 网格算法聚合 facade。 该类只保留历史稳定入口和常用聚合调用；具体实现归属到 GFGridCoordinateMath2D、GFGridPathMath2D、GFGridGenerationMath2D 与 GFGridConnectionMath2D。新代码优先直接依赖对应专门类，以保持坐标、 路径、生成和连接规则的职责边界清晰。
 
 ## 成员概览
 
 | 类型 | 名称 | 签名 |
 |---|---|---|
+| 常量 | [`DEFAULT_MAX_MAZE_CELLS`](#member-gfgridmath-constants-default_max_maze_cells) | `const DEFAULT_MAX_MAZE_CELLS: int = GFGridGenerationMath2D.DEFAULT_MAX_MAZE_CELLS` |
+| 常量 | [`DEFAULT_MAX_CELLULAR_AUTOMATA_CELLS`](#member-gfgridmath-constants-default_max_cellular_automata_cells) | `const DEFAULT_MAX_CELLULAR_AUTOMATA_CELLS: int = GFGridGenerationMath2D.DEFAULT_MAX_CELLULAR_AUTOMATA_CELLS` |
+| 常量 | [`DEFAULT_MAX_CELL_REGION_CELLS`](#member-gfgridmath-constants-default_max_cell_region_cells) | `const DEFAULT_MAX_CELL_REGION_CELLS: int = GFGridGenerationMath2D.DEFAULT_MAX_CELL_REGION_CELLS` |
+| 方法 | [`to_json_compatible_report`](#member-gfgridmath-methods-to_json_compatible_report) | `static func to_json_compatible_report(report: Dictionary, options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`cell_to_index`](#member-gfgridmath-methods-cell_to_index) | `static func cell_to_index(cell: Vector2i, width: int) -> int:` |
 | 方法 | [`index_to_cell`](#member-gfgridmath-methods-index_to_cell) | `static func index_to_cell(index: int, width: int) -> Vector2i:` |
+| 方法 | [`world_to_chunk_cell`](#member-gfgridmath-methods-world_to_chunk_cell) | `static func world_to_chunk_cell(world_position: Vector2, chunk_size: Vector2i) -> Vector2i:` |
+| 方法 | [`chunk_cell_to_world_origin`](#member-gfgridmath-methods-chunk_cell_to_world_origin) | `static func chunk_cell_to_world_origin(chunk_cell: Vector2i, chunk_size: Vector2i) -> Vector2:` |
+| 方法 | [`chunk_cell_to_world_center`](#member-gfgridmath-methods-chunk_cell_to_world_center) | `static func chunk_cell_to_world_center(chunk_cell: Vector2i, chunk_size: Vector2i) -> Vector2:` |
 | 方法 | [`is_in_bounds`](#member-gfgridmath-methods-is_in_bounds) | `static func is_in_bounds(cell: Vector2i, grid_size: Vector2i) -> bool:` |
 | 方法 | [`get_neighbors`](#member-gfgridmath-methods-get_neighbors) | `static func get_neighbors( cell: Vector2i, grid_size: Vector2i, include_diagonal: bool = false ) -> Array[Vector2i]:` |
 | 方法 | [`get_rectangle_cells`](#member-gfgridmath-methods-get_rectangle_cells) | `static func get_rectangle_cells( from_cell: Vector2i, to_cell: Vector2i, grid_size: Vector2i = Vector2i(-1, -1) ) -> Array[Vector2i]:` |
 | 方法 | [`get_range`](#member-gfgridmath-methods-get_range) | `static func get_range( center: Vector2i, radius: int, grid_size: Vector2i = Vector2i(-1, -1), include_diagonal: bool = false ) -> Array[Vector2i]:` |
 | 方法 | [`get_ring`](#member-gfgridmath-methods-get_ring) | `static func get_ring( center: Vector2i, radius: int, grid_size: Vector2i = Vector2i(-1, -1), include_diagonal: bool = false ) -> Array[Vector2i]:` |
+| 方法 | [`get_chunk_window`](#member-gfgridmath-methods-get_chunk_window) | `static func get_chunk_window( center_chunk: Vector2i, radius: int, shape: StringName = &"circle" ) -> Array[Vector2i]:` |
+| 方法 | [`diff_cells`](#member-gfgridmath-methods-diff_cells) | `static func diff_cells(previous_cells: Array[Vector2i], next_cells: Array[Vector2i]) -> Dictionary:` |
 | 方法 | [`get_line`](#member-gfgridmath-methods-get_line) | `static func get_line(from_cell: Vector2i, to_cell: Vector2i) -> Array[Vector2i]:` |
 | 方法 | [`has_line_of_sight`](#member-gfgridmath-methods-has_line_of_sight) | `static func has_line_of_sight( from_cell: Vector2i, to_cell: Vector2i, is_blocking: Callable, include_endpoints: bool = false ) -> bool:` |
 | 方法 | [`flood_fill`](#member-gfgridmath-methods-flood_fill) | `static func flood_fill( grid_size: Vector2i, start: Vector2i, is_match: Callable, include_diagonal: bool = false ) -> Array[Vector2i]:` |
+| 方法 | [`generate_rect_maze_backtracker`](#member-gfgridmath-methods-generate_rect_maze_backtracker) | `static func generate_rect_maze_backtracker( grid_size: Vector2i, start_cell: Vector2i = Vector2i.ZERO, is_cell_enabled: Callable = Callable(), options: Dictionary = {} ) -> Dictionary:` |
+| 方法 | [`generate_cellular_automata_map`](#member-gfgridmath-methods-generate_cellular_automata_map) | `static func generate_cellular_automata_map( grid_size: Vector2i, is_initial_alive: Callable = Callable(), options: Dictionary = {} ) -> Dictionary:` |
+| 方法 | [`find_cell_regions`](#member-gfgridmath-methods-find_cell_regions) | `static func find_cell_regions(cells: Array[Vector2i], options: Dictionary = {}) -> Dictionary:` |
+| 方法 | [`filter_cell_regions_by_size`](#member-gfgridmath-methods-filter_cell_regions_by_size) | `static func filter_cell_regions_by_size( cells: Array[Vector2i], minimum_region_size: int, options: Dictionary = {} ) -> Dictionary:` |
 | 方法 | [`find_path_bfs`](#member-gfgridmath-methods-find_path_bfs) | `static func find_path_bfs( grid_size: Vector2i, start: Vector2i, goal: Vector2i, is_walkable: Callable, allow_diagonal: bool = false ) -> Array[Vector2i]:` |
 | 方法 | [`find_path_a_star`](#member-gfgridmath-methods-find_path_a_star) | `static func find_path_a_star( grid_size: Vector2i, start: Vector2i, goal: Vector2i, is_walkable: Callable, allow_diagonal: bool = false, step_cost: Callable = Callable(), heuristic: StringName = &"manhattan" ) -> Array[Vector2i]:` |
 | 方法 | [`begin_path_a_star_search`](#member-gfgridmath-methods-begin_path_a_star_search) | `static func begin_path_a_star_search( grid_size: Vector2i, start: Vector2i, goal: Vector2i, is_walkable: Callable, allow_diagonal: bool = false, step_cost: Callable = Callable(), heuristic: StringName = &"manhattan" ) -> GFGraphPathSearchState:` |
@@ -32,7 +45,76 @@
 | 方法 | [`build_flow_field`](#member-gfgridmath-methods-build_flow_field) | `static func build_flow_field( grid_size: Vector2i, goals: Array[Vector2i], is_walkable: Callable, allow_diagonal: bool = false, step_cost: Callable = Callable() ) -> Dictionary:` |
 | 方法 | [`can_connect_with_max_turns`](#member-gfgridmath-methods-can_connect_with_max_turns) | `static func can_connect_with_max_turns( grid_size: Vector2i, start: Vector2i, goal: Vector2i, is_walkable: Callable, max_turns: int = 2, allow_outer_border: bool = true ) -> bool:` |
 
+## 常量
+
+<a id="member-gfgridmath-constants-default_max_maze_cells"></a>
+
+### `DEFAULT_MAX_MAZE_CELLS`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+const DEFAULT_MAX_MAZE_CELLS: int = GFGridGenerationMath2D.DEFAULT_MAX_MAZE_CELLS
+```
+
+默认矩形迷宫最大格子数，避免误把超大生成任务交给单帧纯 GDScript。
+
+<a id="member-gfgridmath-constants-default_max_cellular_automata_cells"></a>
+
+### `DEFAULT_MAX_CELLULAR_AUTOMATA_CELLS`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+const DEFAULT_MAX_CELLULAR_AUTOMATA_CELLS: int = GFGridGenerationMath2D.DEFAULT_MAX_CELLULAR_AUTOMATA_CELLS
+```
+
+默认细胞自动机最大格子数，避免误把超大生成任务交给单帧纯 GDScript。
+
+<a id="member-gfgridmath-constants-default_max_cell_region_cells"></a>
+
+### `DEFAULT_MAX_CELL_REGION_CELLS`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+const DEFAULT_MAX_CELL_REGION_CELLS: int = GFGridGenerationMath2D.DEFAULT_MAX_CELL_REGION_CELLS
+```
+
+默认连通区域分析最大格子数，避免误把超大生成后处理交给单帧纯 GDScript。
+
 ## 方法
+
+<a id="member-gfgridmath-methods-to_json_compatible_report"></a>
+
+### `to_json_compatible_report`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+static func to_json_compatible_report(report: Dictionary, options: Dictionary = {}) -> Dictionary:
+```
+
+将 2D 网格报告转换为 JSON.stringify() 安全的结构。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `report` | 2D 网格工具返回的报告或快照字典。 |
+| `options` | 报告编码选项，透传给 GFReportValueCodec。 |
+
+返回：JSON 兼容报告。
+
+结构：
+
+- `report`: 2D 网格工具返回的报告或快照字典。
+- `options`: GFReportValueCodec 编码选项字典。
+- `return`: 可安全交给 JSON.stringify() 的 Dictionary。
 
 <a id="member-gfgridmath-methods-cell_to_index"></a>
 
@@ -75,6 +157,72 @@ static func index_to_cell(index: int, width: int) -> Vector2i:
 | `width` | 网格宽度。 |
 
 返回：成功时返回二维格坐标；参数无效时返回 Vector2i(-1, -1)。
+
+<a id="member-gfgridmath-methods-world_to_chunk_cell"></a>
+
+### `world_to_chunk_cell`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+static func world_to_chunk_cell(world_position: Vector2, chunk_size: Vector2i) -> Vector2i:
+```
+
+将世界坐标转换为二维 chunk 坐标。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `world_position` | 世界坐标。 |
+| `chunk_size` | 单个 chunk 的世界尺寸；任一轴小于等于 0 时返回 Vector2i.ZERO。 |
+
+返回：chunk 坐标。负世界坐标使用 floor 语义，因此 -0.1 会落入 -1 号 chunk。
+
+<a id="member-gfgridmath-methods-chunk_cell_to_world_origin"></a>
+
+### `chunk_cell_to_world_origin`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+static func chunk_cell_to_world_origin(chunk_cell: Vector2i, chunk_size: Vector2i) -> Vector2:
+```
+
+将二维 chunk 坐标转换为世界原点坐标。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `chunk_cell` | chunk 坐标。 |
+| `chunk_size` | 单个 chunk 的世界尺寸；任一轴小于等于 0 时返回 Vector2.ZERO。 |
+
+返回：chunk 左上/局部原点对应的世界坐标。
+
+<a id="member-gfgridmath-methods-chunk_cell_to_world_center"></a>
+
+### `chunk_cell_to_world_center`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+static func chunk_cell_to_world_center(chunk_cell: Vector2i, chunk_size: Vector2i) -> Vector2:
+```
+
+将二维 chunk 坐标转换为世界中心坐标。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `chunk_cell` | chunk 坐标。 |
+| `chunk_size` | 单个 chunk 的世界尺寸；任一轴小于等于 0 时返回 Vector2.ZERO。 |
+
+返回：chunk 中心对应的世界坐标。
 
 <a id="member-gfgridmath-methods-is_in_bounds"></a>
 
@@ -190,6 +338,61 @@ static func get_ring( center: Vector2i, radius: int, grid_size: Vector2i = Vecto
 
 返回：外环坐标列表，按 y/x 稳定顺序返回。
 
+<a id="member-gfgridmath-methods-get_chunk_window"></a>
+
+### `get_chunk_window`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+static func get_chunk_window( center_chunk: Vector2i, radius: int, shape: StringName = &"circle" ) -> Array[Vector2i]:
+```
+
+获取中心 chunk 周围的候选窗口。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `center_chunk` | 中心 chunk 坐标。 |
+| `radius` | chunk 半径；小于 0 时返回空数组。 |
+| `shape` | 窗口形状。支持 "circle"/"euclidean"、"square"/"chebyshev"、"diamond"/"manhattan"；未知值按 circle 处理。 |
+
+返回：候选 chunk 坐标数组，按 y/x 稳定顺序返回。
+
+结构：
+
+- `return`: Array[Vector2i]，中心 chunk 周围的候选 chunk 坐标。
+
+<a id="member-gfgridmath-methods-diff_cells"></a>
+
+### `diff_cells`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+static func diff_cells(previous_cells: Array[Vector2i], next_cells: Array[Vector2i]) -> Dictionary:
+```
+
+计算两个格子集合的稳定差分。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `previous_cells` | 旧集合。重复项会被去重，removed 按首次出现顺序返回。 |
+| `next_cells` | 新集合。重复项会被去重，added/kept 按首次出现顺序返回。 |
+
+返回：差分报告。
+
+结构：
+
+- `previous_cells`: Array[Vector2i]，旧格子集合。
+- `next_cells`: Array[Vector2i]，新格子集合。
+- `return`: Dictionary，包含 added: Array[Vector2i]、removed: Array[Vector2i]、kept: Array[Vector2i]、changed: bool、previous_count: int、next_count: int。
+
 <a id="member-gfgridmath-methods-get_line"></a>
 
 ### `get_line`
@@ -258,6 +461,120 @@ static func flood_fill( grid_size: Vector2i, start: Vector2i, is_match: Callable
 | `include_diagonal` | 是否允许斜向连通。 |
 
 返回：连通格子列表。
+
+<a id="member-gfgridmath-methods-generate_rect_maze_backtracker"></a>
+
+### `generate_rect_maze_backtracker`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+static func generate_rect_maze_backtracker( grid_size: Vector2i, start_cell: Vector2i = Vector2i.ZERO, is_cell_enabled: Callable = Callable(), options: Dictionary = {} ) -> Dictionary:
+```
+
+使用回溯生成矩形网格迷宫拓扑。 该方法只输出开放边与邻接表，不创建 TileMap、墙体节点、房间资源或碰撞体。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `grid_size` | 网格尺寸。 |
+| `start_cell` | 起始格子。 |
+| `is_cell_enabled` | 可用格回调，签名为 `func(cell: Vector2i) -> bool`；无效时全部格子可用。 |
+| `options` | 生成选项。 |
+
+返回：迷宫拓扑报告。
+
+结构：
+
+- `options`: Dictionary supports seed, include_diagonal, and max_cells.
+- `return`: Dictionary with ok, error, algorithm, grid_size, start_cell, seed, include_diagonal, cell_count, max_cells, available_count, blocked_count, visited_count, edge_count, complete, edges, and connections.
+
+<a id="member-gfgridmath-methods-generate_cellular_automata_map"></a>
+
+### `generate_cellular_automata_map`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+static func generate_cellular_automata_map( grid_size: Vector2i, is_initial_alive: Callable = Callable(), options: Dictionary = {} ) -> Dictionary:
+```
+
+生成二值细胞自动机网格报告。 该方法只输出布尔格子状态、存活格列表和统计信息，不创建 TileMap、节点、地形、 房间、碰撞体或项目资源。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `grid_size` | 网格尺寸。 |
+| `is_initial_alive` | 可选初始状态回调，签名为 `func(cell: Vector2i) -> bool`；无效时使用 seed 和 alive_chance 随机初始化。 |
+| `options` | 生成选项。 |
+
+返回：细胞自动机报告。
+
+结构：
+
+- `options`: Dictionary supports seed, alive_chance, iterations, include_diagonal, outside_alive, survive_min, survive_max, birth_min, birth_max, and max_cells.
+- `return`: Dictionary with ok, error, algorithm, grid_size, seed, alive_chance, iterations, include_diagonal, outside_alive, survive_min, survive_max, birth_min, birth_max, cell_count, max_cells, alive_count, dead_count, cells, and alive_cells.
+
+<a id="member-gfgridmath-methods-find_cell_regions"></a>
+
+### `find_cell_regions`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+static func find_cell_regions(cells: Array[Vector2i], options: Dictionary = {}) -> Dictionary:
+```
+
+查找一组二维格子的连通区域。 该方法只根据格子集合和四/八邻域连通关系输出区域报告，不解释格子的地形、房间、 墙体、实体或可通行语义。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `cells` | 待分析格子集合；重复项会被去重。 |
+| `options` | 分析选项。 |
+
+返回：连通区域报告。
+
+结构：
+
+- `cells`: Array[Vector2i]，待分析格子集合。
+- `options`: Dictionary supports include_diagonal and max_cells.
+- `return`: Dictionary with ok, error, algorithm, include_diagonal, input_count, cell_count, max_cells, region_count, all_connected, largest_region_index, largest_region_size, regions, and region_indices.
+
+<a id="member-gfgridmath-methods-filter_cell_regions_by_size"></a>
+
+### `filter_cell_regions_by_size`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+static func filter_cell_regions_by_size( cells: Array[Vector2i], minimum_region_size: int, options: Dictionary = {} ) -> Dictionary:
+```
+
+按连通区域尺寸过滤二维格子集合。 该方法只输出保留/移除的格子与区域报告，不创建或修改 TileMap、节点和项目资源。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `cells` | 待过滤格子集合；重复项会被去重。 |
+| `minimum_region_size` | 保留区域的最小格子数；0 表示保留全部区域。 |
+| `options` | 分析选项。 |
+
+返回：区域过滤报告。
+
+结构：
+
+- `cells`: Array[Vector2i]，待过滤格子集合。
+- `options`: Dictionary supports include_diagonal and max_cells.
+- `return`: Dictionary with ok, error, algorithm, include_diagonal, minimum_region_size, input_count, cell_count, max_cells, region_count, kept_region_count, removed_region_count, kept_count, removed_count, kept_cells, removed_cells, kept_regions, removed_regions, and region_report.
 
 <a id="member-gfgridmath-methods-find_path_bfs"></a>
 

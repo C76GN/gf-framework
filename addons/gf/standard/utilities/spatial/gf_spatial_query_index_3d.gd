@@ -35,6 +35,9 @@ const STRATEGY_LINEAR: StringName = &"linear"
 ## @since 7.0.0
 const STRATEGY_SPATIAL_HASH: StringName = &"spatial_hash"
 
+const _GF_REPORT_VALUE_CODEC_SCRIPT = preload("res://addons/gf/kernel/core/gf_report_value_codec.gd")
+const _SPATIAL_BOUNDS_MATH = preload("res://addons/gf/standard/foundation/math/gf_spatial_bounds_math.gd")
+
 
 # --- 公共变量 ---
 
@@ -55,6 +58,9 @@ var strategy: StringName = STRATEGY_AUTO:
 ## @since 7.0.0
 var cell_size: float = 4.0:
 	set(value):
+		if not _SPATIAL_BOUNDS_MATH.is_finite_float(value):
+			push_error("[GFSpatialQueryIndex3D] cell_size 必须是有限浮点值。")
+			return
 		cell_size = maxf(value, 0.0001)
 		_mark_index_dirty()
 
@@ -74,6 +80,7 @@ var auto_spatial_hash_threshold: int = 64:
 var _records: Dictionary = {}
 var _spatial_hash: GFSpatialHash3D
 var _index_dirty: bool = true
+var _backend_build_failed: bool = false
 
 
 # --- 公共方法 ---
@@ -117,6 +124,8 @@ func configure(p_strategy: StringName = STRATEGY_AUTO, options: Dictionary = {})
 ## [br]
 ## @return 成功时返回 true。
 func upsert(entity: Variant, entity_bounds: AABB, p_metadata: Dictionary = {}) -> bool:
+	if not _SPATIAL_BOUNDS_MATH.is_finite_aabb(entity_bounds):
+		return false
 	var entity_key: String = _make_entity_key(entity)
 	if entity_key.is_empty():
 		return false
@@ -356,9 +365,11 @@ func query_records_aabb_into(
 	prune_invalid_entities()
 	if clear_output:
 		out_records.clear()
+	if not _SPATIAL_BOUNDS_MATH.is_finite_aabb(area):
+		return out_records
 	var normalized_area: AABB = _normalize_aabb(area)
 	var candidate_keys: Array[String] = []
-	if _get_active_strategy() == STRATEGY_SPATIAL_HASH and _ensure_spatial_hash():
+	if _get_active_strategy() == STRATEGY_SPATIAL_HASH:
 		for entity: Variant in _spatial_hash.query_aabb(normalized_area):
 			var entity_key: String = _make_entity_key(entity)
 			if not entity_key.is_empty():
@@ -414,7 +425,13 @@ func query_records_radius_into(
 ) -> Array[Dictionary]:
 	if clear_output:
 		out_records.clear()
+	if not _SPATIAL_BOUNDS_MATH.is_finite_vector3(center) or not _SPATIAL_BOUNDS_MATH.is_finite_float(radius):
+		return out_records
 	var safe_radius: float = maxf(radius, 0.0)
+	if not _SPATIAL_BOUNDS_MATH.is_finite_vector3(center - Vector3.ONE * safe_radius):
+		return out_records
+	if not _SPATIAL_BOUNDS_MATH.is_finite_vector3(center + Vector3.ONE * safe_radius):
+		return out_records
 	if safe_radius == 0.0:
 		_append_point_records(center, out_records)
 		return out_records
@@ -452,8 +469,26 @@ func get_debug_snapshot() -> Dictionary:
 		"cell_size": cell_size,
 		"entity_count": _records.size(),
 		"index_dirty": _index_dirty,
+		"backend_build_failed": _backend_build_failed,
 		"auto_spatial_hash_threshold": auto_spatial_hash_threshold,
 	}
+
+
+## 获取 JSON.stringify() 安全的调试快照。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+## [br]
+## @param options: 报告编码选项，透传给 GFReportValueCodec。
+## [br]
+## @return JSON 兼容调试快照。
+## [br]
+## @schema options: Dictionary with GFReportValueCodec options.
+## [br]
+## @schema return: Dictionary safe for JSON.stringify().
+func get_json_compatible_debug_snapshot(options: Dictionary = {}) -> Dictionary:
+	return GFVariantData.as_dictionary(_GF_REPORT_VALUE_CODEC_SCRIPT.to_json_compatible(get_debug_snapshot(), options))
 
 
 # --- 私有/辅助方法 ---
@@ -486,8 +521,10 @@ func _append_records_for_keys(
 
 func _append_point_records(point: Vector3, out_records: Array[Dictionary]) -> void:
 	prune_invalid_entities()
+	if not _SPATIAL_BOUNDS_MATH.is_finite_vector3(point):
+		return
 	var candidate_keys: Array[String] = []
-	if _get_active_strategy() == STRATEGY_SPATIAL_HASH and _ensure_spatial_hash():
+	if _get_active_strategy() == STRATEGY_SPATIAL_HASH:
 		for entity: Variant in _spatial_hash.query_cell(_spatial_hash.get_cell_for_position(point)):
 			var entity_key: String = _make_entity_key(entity)
 			if not entity_key.is_empty():
@@ -527,43 +564,38 @@ func _aabb_contains_point(bounds: AABB, point: Vector3) -> bool:
 
 
 func _sort_entity_keys(left_key: String, right_key: String) -> bool:
-	var left_kind: String = _get_entity_key_kind(left_key)
-	var right_kind: String = _get_entity_key_kind(right_key)
-	if left_kind == right_kind and left_kind == "int":
-		return _get_int_entity_key_value(left_key) < _get_int_entity_key_value(right_key)
-	return left_key < right_key
-
-
-func _get_entity_key_kind(entity_key: String) -> String:
-	var separator_index: int = entity_key.find(":")
-	if separator_index < 0:
-		return ""
-	return entity_key.substr(0, separator_index)
-
-
-func _get_int_entity_key_value(entity_key: String) -> int:
-	var prefix: String = "int:"
-	if not entity_key.begins_with(prefix):
-		return 0
-	return int(entity_key.substr(prefix.length()))
+	return GFSpatialQueryIdentity.sort_keys(left_key, right_key)
 
 
 func _ensure_spatial_hash() -> bool:
-	if _spatial_hash != null and not _index_dirty:
-		return true
+	if not _index_dirty:
+		return _spatial_hash != null and not _backend_build_failed
 
-	_spatial_hash = GFSpatialHash3D.new(cell_size)
+	var candidate_hash: GFSpatialHash3D = GFSpatialHash3D.new(cell_size)
 	for entity_key: String in _records.keys():
 		var entity_record: Dictionary = GFVariantData.as_dictionary(_records[entity_key])
 		var entity: Variant = _record_to_entity(entity_record)
 		if entity == null:
 			continue
-		var _inserted: bool = _spatial_hash.insert(entity, _get_record_bounds(entity_record))
+		if not candidate_hash.insert(entity, _get_record_bounds(entity_record)):
+			_spatial_hash = null
+			_index_dirty = false
+			_backend_build_failed = true
+			return false
+	_spatial_hash = candidate_hash
 	_index_dirty = false
+	_backend_build_failed = false
 	return true
 
 
 func _get_active_strategy() -> StringName:
+	var preferred_strategy: StringName = _get_preferred_strategy()
+	if preferred_strategy == STRATEGY_SPATIAL_HASH and _ensure_spatial_hash():
+		return STRATEGY_SPATIAL_HASH
+	return STRATEGY_LINEAR
+
+
+func _get_preferred_strategy() -> StringName:
 	if strategy == STRATEGY_LINEAR:
 		return STRATEGY_LINEAR
 	if strategy == STRATEGY_SPATIAL_HASH:
@@ -574,9 +606,15 @@ func _get_active_strategy() -> StringName:
 
 
 func _make_record(entity: Variant, entity_bounds: AABB, p_metadata: Dictionary) -> Dictionary:
-	if entity is Object:
-		var object: Object = _variant_to_object(entity)
+	var identity: GFSpatialQueryIdentity = GFSpatialQueryIdentity.from_value(entity)
+	if identity.key.is_empty():
+		return {}
+	if identity.kind == GFSpatialQueryIdentity.KIND_OBJECT:
+		var object: Object = identity.get_object()
+		if object == null:
+			return {}
 		return {
+			"identity": identity.to_dictionary(),
 			"entity_ref": weakref(object),
 			"entity": null,
 			"bounds": entity_bounds,
@@ -584,8 +622,9 @@ func _make_record(entity: Variant, entity_bounds: AABB, p_metadata: Dictionary) 
 		}
 
 	return {
+		"identity": identity.to_dictionary(),
 		"entity_ref": null,
-		"entity": GFVariantData.duplicate_variant(entity, true),
+		"entity": identity.get_value(),
 		"bounds": entity_bounds,
 		"metadata": p_metadata.duplicate(true),
 	}
@@ -593,6 +632,7 @@ func _make_record(entity: Variant, entity_bounds: AABB, p_metadata: Dictionary) 
 
 func _record_to_snapshot(entity_record: Dictionary) -> Dictionary:
 	return {
+		"identity": GFVariantData.get_option_dictionary(entity_record, "identity").duplicate(true),
 		"entity": _record_to_entity(entity_record),
 		"bounds": _get_record_bounds(entity_record),
 		"metadata": GFVariantData.get_option_dictionary(entity_record, "metadata").duplicate(true),
@@ -626,29 +666,12 @@ func _get_record_bounds(entity_record: Dictionary) -> AABB:
 
 
 func _make_entity_key(entity: Variant) -> String:
-	if entity == null:
-		return ""
-	if entity is Object:
-		var object: Object = _variant_to_object(entity)
-		return "object:%d" % object.get_instance_id()
-	if entity is StringName:
-		var string_name_value: StringName = entity
-		if string_name_value == &"":
-			return ""
-		return "string_name:%s" % String(string_name_value)
-	if entity is String:
-		var string_value: String = entity
-		if string_value.is_empty():
-			return ""
-		return "string:%s" % string_value
-	if entity is int:
-		var int_value: int = entity
-		return "int:%d" % int_value
-	return ""
+	return GFSpatialQueryIdentity.make_key(entity)
 
 
 func _mark_index_dirty() -> void:
 	_index_dirty = true
+	_backend_build_failed = false
 
 
 func _normalize_strategy(value: StringName) -> StringName:
@@ -660,25 +683,7 @@ func _normalize_strategy(value: StringName) -> StringName:
 
 
 func _normalize_aabb(entity_bounds: AABB) -> AABB:
-	var position: Vector3 = entity_bounds.position
-	var size: Vector3 = entity_bounds.size
-	if size.x < 0.0:
-		position.x += size.x
-		size.x = -size.x
-	if size.y < 0.0:
-		position.y += size.y
-		size.y = -size.y
-	if size.z < 0.0:
-		position.z += size.z
-		size.z = -size.z
-	return AABB(position, size)
-
-
-func _variant_to_object(value: Variant) -> Object:
-	if value is Object:
-		var object: Object = value
-		return object
-	return null
+	return _SPATIAL_BOUNDS_MATH.normalize_aabb(entity_bounds)
 
 
 func _variant_to_weak_ref(value: Variant) -> WeakRef:

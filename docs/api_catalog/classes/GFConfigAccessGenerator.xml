@@ -1,12 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFConfigAccessGenerator" path="addons/gf/kernel/editor/gf_config_access_generator.gd" module="kernel" extends="RefCounted" classDigest="c320550e494d9e9545e0e2c02fc49fabc8990b9665ab49ba8ecb80a67093ea07">
+<class name="GFConfigAccessGenerator" path="addons/gf/tools/config_pipeline/gf_config_access_generator.gd" module="tools" extends="RefCounted" classDigest="af40911533fbca24134d5a99d4a90d82e7646f37f7c25bf98a032707850e1af0">
 	<description>GFConfigAccessGenerator: 生成静态导表访问器脚本。
 默认生成结果只封装 provider 的 `get_record()` / `get_table()` 调用，
 也可按 schema 字段声明生成可选记录包装类；生成器本身不规定项目表结构语义。</description>
 	<tags>
 		<tag name="api">public</tag>
-		<tag name="category">editor_api</tag>
-		<tag name="layer">kernel/editor</tag>
+		<tag name="category">tool_api</tag>
 		<tag name="since">3.17.0</tag>
 	</tags>
 	<signals />
@@ -17,6 +16,7 @@
 			<description>默认生成输出路径。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="DEFAULT_CLASS_NAME">
@@ -24,6 +24,7 @@
 			<description>默认生成 class_name。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="DEFAULT_PROVIDER_ACCESSOR">
@@ -31,6 +32,7 @@
 			<description>默认 provider 获取表达式。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</constants>
@@ -94,6 +96,7 @@
 				<tag name="param">source: GDScript 源码。</tag>
 				<tag name="param">overwrite_existing: 为 false 时目标已存在会返回 ERR_ALREADY_EXISTS。</tag>
 				<tag name="return">写入结果错误码。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="save_source_with_report">

@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFGridConnectionMath2D" path="addons/gf/standard/foundation/math/gf_grid_connection_math_2d.gd" module="standard" extends="RefCounted" classDigest="b2284bf38d5c1be3e73f6c4b782507c393f96cf147bd03f08da409f45bc0f5d4">
+	<description>GFGridConnectionMath2D: 2D 网格连接判定工具。
+提供最大转折次数连接判断，适合连连看类规则或需要限制折线转向次数的
+纯逻辑检测。它不负责寻路移动、动画、碰撞响应或实体状态变更。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_service</tag>
+		<tag name="since">8.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties />
+	<methods>
+		<member kind="method" name="can_connect_with_max_turns">
+			<signature>static func can_connect_with_max_turns( grid_size: Vector2i, start: Vector2i, goal: Vector2i, is_walkable: Callable, max_turns: int = 2, allow_outer_border: bool = true ) -&gt; bool:</signature>
+			<description>判断两个格子是否能在指定转折次数内连通。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">grid_size: 网格尺寸。</tag>
+				<tag name="param">start: 起点格子。</tag>
+				<tag name="param">goal: 终点格子。</tag>
+				<tag name="param">is_walkable: 可通行回调，签名为 `func(cell: Vector2i) -&gt; bool`；起点与终点可不通行。</tag>
+				<tag name="param">max_turns: 最大转折次数，连连看常用值为 2。</tag>
+				<tag name="param">allow_outer_border: 是否允许路径经过网格外一圈虚拟空格。</tag>
+				<tag name="return">可连通时返回 true。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

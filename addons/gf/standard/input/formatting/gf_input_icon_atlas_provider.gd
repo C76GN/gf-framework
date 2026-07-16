@@ -15,6 +15,7 @@ extends GFInputIconProvider
 # --- 常量 ---
 
 const _INPUT_EVENT_TOOLS = preload("res://addons/gf/standard/input/common/gf_input_event_tools.gd")
+const _INPUT_EVENT_IDENTITY = preload("res://addons/gf/standard/input/common/gf_input_event_identity.gd")
 
 
 # --- 导出变量 ---
@@ -68,10 +69,34 @@ const _INPUT_EVENT_TOOLS = preload("res://addons/gf/standard/input/common/gf_inp
 ## @api public
 @export var split_key_modifiers: bool = true
 
+## 是否缓存缺失的图标路径。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+@export var cache_missing_paths: bool = true
+
+## 成功加载纹理缓存容量；小于等于 0 表示不缓存新纹理。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+@export var max_cached_textures: int = 128
+
+## 缺失路径缓存容量；小于等于 0 表示不缓存缺失路径。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+@export var max_cached_missing_paths: int = 256
+
 
 # --- 私有变量 ---
 
 var _texture_cache: Dictionary = {}
+var _missing_path_cache: Dictionary = {}
+var _texture_cache_order: PackedStringArray = PackedStringArray()
+var _missing_path_cache_order: PackedStringArray = PackedStringArray()
 
 
 # --- 公共方法 ---
@@ -90,7 +115,8 @@ func set_icon_path(icon_key: StringName, icon_resource_path: String) -> void:
 		_erase_dictionary_key(icon_paths, icon_key)
 	else:
 		icon_paths[icon_key] = icon_resource_path
-	_erase_dictionary_key(_texture_cache, icon_resource_path)
+	_erase_cache_entry(_texture_cache, _texture_cache_order, icon_resource_path)
+	_erase_cache_entry(_missing_path_cache, _missing_path_cache_order, icon_resource_path)
 
 
 ## 设置图标纹理映射。
@@ -114,6 +140,9 @@ func set_icon_texture(icon_key: StringName, texture: Texture2D) -> void:
 ## @api public
 func clear_cache() -> void:
 	_texture_cache.clear()
+	_missing_path_cache.clear()
+	_texture_cache_order.clear()
+	_missing_path_cache_order.clear()
 
 
 ## 判断是否支持指定输入事件。
@@ -161,12 +190,17 @@ func get_event_icon(input_event: InputEvent, options: Dictionary = {}) -> Textur
 	if _texture_cache.has(icon_path):
 		var cached_texture: Variant = _texture_cache[icon_path]
 		return cached_texture if cached_texture is Texture2D else null
+	if _path_is_known_missing(icon_path, options):
+		return null
 	if not ResourceLoader.exists(icon_path, "Texture2D"):
+		_remember_missing_path(icon_path, options)
 		return null
 
 	var texture: Texture2D = _load_texture(icon_path)
 	if texture != null:
-		_texture_cache[icon_path] = texture
+		_remember_texture(icon_path, texture)
+	else:
+		_remember_missing_path(icon_path, options)
 	return texture
 
 
@@ -192,10 +226,7 @@ func get_event_rich_text(input_event: InputEvent, options: Dictionary = {}) -> S
 	var parts: PackedStringArray = PackedStringArray()
 	var size: int = GFVariantData.get_option_int(options, "icon_size", icon_size)
 	for icon_path: String in paths:
-		if size > 0:
-			_append_packed_string(parts, "[img=%d]%s[/img]" % [size, icon_path])
-		else:
-			_append_packed_string(parts, "[img]%s[/img]" % icon_path)
+		_append_packed_string(parts, _make_image_tag(icon_path, size))
 	return GFVariantData.get_option_string(options, "rich_text_separator", rich_text_separator).join(parts)
 
 
@@ -244,38 +275,7 @@ func resolve_event_icon_key(input_event: InputEvent, options: Dictionary = {}) -
 ## [br]
 ## @return 图标键列表，按优先级排序。
 func get_event_icon_candidates(input_event: InputEvent, options: Dictionary = {}) -> PackedStringArray:
-	var candidates: PackedStringArray = PackedStringArray()
-	if input_event == null:
-		return candidates
-
-	var action_event: InputEventAction = _INPUT_EVENT_TOOLS.get_action_event(input_event)
-	if action_event != null:
-		_append_packed_string(candidates, "action:%s" % _sanitize_icon_name(str(action_event.action)))
-		return candidates
-
-	var key_event: InputEventKey = _INPUT_EVENT_TOOLS.get_key_event(input_event)
-	if key_event != null:
-		_append_key_candidates(candidates, key_event, options)
-		return candidates
-
-	var mouse_button_event: InputEventMouseButton = _INPUT_EVENT_TOOLS.get_mouse_button_event(input_event)
-	if mouse_button_event != null:
-		_append_mouse_button_candidates(candidates, mouse_button_event.button_index)
-		return candidates
-
-	var joypad_button_event: InputEventJoypadButton = _INPUT_EVENT_TOOLS.get_joypad_button_event(input_event)
-	if joypad_button_event != null:
-		_append_joy_button_candidates(candidates, joypad_button_event.button_index)
-		return candidates
-
-	var joypad_motion_event: InputEventJoypadMotion = _INPUT_EVENT_TOOLS.get_joypad_motion_event(input_event)
-	if joypad_motion_event != null:
-		_append_joy_axis_candidates(candidates, joypad_motion_event)
-		return candidates
-
-	if input_event is InputEventScreenTouch:
-		_append_packed_string(candidates, "touch")
-	return candidates
+	return _INPUT_EVENT_IDENTITY.get_icon_candidates(input_event, options)
 
 
 # --- 私有/辅助方法 ---
@@ -321,88 +321,6 @@ func _get_rich_text_icon_paths(input_event: InputEvent, options: Dictionary) -> 
 	return PackedStringArray([icon_path])
 
 
-func _append_key_candidates(candidates: PackedStringArray, event: InputEventKey, options: Dictionary) -> void:
-	var keycode: Key = event.physical_keycode
-	if keycode == KEY_NONE:
-		keycode = event.keycode
-
-	var key_name: String = _sanitize_icon_name(OS.get_keycode_string(keycode))
-	var modifiers: PackedStringArray = _get_key_modifier_names(event)
-	if GFVariantData.get_option_bool(options, "include_key_modifier_combo", true) and not modifiers.is_empty():
-		var combo_parts: PackedStringArray = modifiers.duplicate()
-		_append_packed_string(combo_parts, key_name)
-		_append_packed_string(candidates, "key:%s" % "+".join(combo_parts))
-	if not key_name.is_empty():
-		_append_packed_string(candidates, "key:%s" % key_name)
-	_append_packed_string(candidates, "key:%d" % int(keycode))
-
-
-func _append_mouse_button_candidates(candidates: PackedStringArray, button: MouseButton) -> void:
-	match button:
-		MOUSE_BUTTON_LEFT:
-			_append_packed_string(candidates, "mouse:left")
-		MOUSE_BUTTON_RIGHT:
-			_append_packed_string(candidates, "mouse:right")
-		MOUSE_BUTTON_MIDDLE:
-			_append_packed_string(candidates, "mouse:middle")
-		MOUSE_BUTTON_WHEEL_UP:
-			_append_packed_string(candidates, "mouse:wheel_up")
-		MOUSE_BUTTON_WHEEL_DOWN:
-			_append_packed_string(candidates, "mouse:wheel_down")
-	_append_packed_string(candidates, "mouse:%d" % int(button))
-
-
-func _append_joy_button_candidates(candidates: PackedStringArray, button: JoyButton) -> void:
-	match button:
-		JOY_BUTTON_A:
-			_append_packed_string(candidates, "joy_button:south")
-		JOY_BUTTON_B:
-			_append_packed_string(candidates, "joy_button:east")
-		JOY_BUTTON_X:
-			_append_packed_string(candidates, "joy_button:west")
-		JOY_BUTTON_Y:
-			_append_packed_string(candidates, "joy_button:north")
-		JOY_BUTTON_LEFT_SHOULDER:
-			_append_packed_string(candidates, "joy_button:left_shoulder")
-		JOY_BUTTON_RIGHT_SHOULDER:
-			_append_packed_string(candidates, "joy_button:right_shoulder")
-		JOY_BUTTON_LEFT_STICK:
-			_append_packed_string(candidates, "joy_button:left_stick")
-		JOY_BUTTON_RIGHT_STICK:
-			_append_packed_string(candidates, "joy_button:right_stick")
-		JOY_BUTTON_BACK:
-			_append_packed_string(candidates, "joy_button:back")
-		JOY_BUTTON_START:
-			_append_packed_string(candidates, "joy_button:start")
-		JOY_BUTTON_DPAD_UP:
-			_append_packed_string(candidates, "joy_button:dpad_up")
-		JOY_BUTTON_DPAD_DOWN:
-			_append_packed_string(candidates, "joy_button:dpad_down")
-		JOY_BUTTON_DPAD_LEFT:
-			_append_packed_string(candidates, "joy_button:dpad_left")
-		JOY_BUTTON_DPAD_RIGHT:
-			_append_packed_string(candidates, "joy_button:dpad_right")
-	_append_packed_string(candidates, "joy_button:%d" % int(button))
-
-
-func _append_joy_axis_candidates(candidates: PackedStringArray, event: InputEventJoypadMotion) -> void:
-	var suffix: String = "positive" if event.axis_value >= 0.0 else "negative"
-	match event.axis:
-		JOY_AXIS_LEFT_X:
-			_append_packed_string(candidates, "joy_axis:left_x_%s" % suffix)
-		JOY_AXIS_LEFT_Y:
-			_append_packed_string(candidates, "joy_axis:left_y_%s" % suffix)
-		JOY_AXIS_RIGHT_X:
-			_append_packed_string(candidates, "joy_axis:right_x_%s" % suffix)
-		JOY_AXIS_RIGHT_Y:
-			_append_packed_string(candidates, "joy_axis:right_y_%s" % suffix)
-		JOY_AXIS_TRIGGER_LEFT:
-			_append_packed_string(candidates, "joy_axis:left_trigger")
-		JOY_AXIS_TRIGGER_RIGHT:
-			_append_packed_string(candidates, "joy_axis:right_trigger")
-	_append_packed_string(candidates, "joy_axis:%d:%s" % [int(event.axis), suffix])
-
-
 func _resolve_texture_for_candidates(candidates: PackedStringArray) -> Texture2D:
 	for candidate: String in candidates:
 		var texture: Variant = _get_mapping_value(icon_textures, candidate)
@@ -442,9 +360,89 @@ func _build_icon_path(icon_key: String, options: Dictionary) -> String:
 func _path_is_allowed(icon_resource_path: String, options: Dictionary) -> bool:
 	if icon_resource_path.is_empty():
 		return false
+	if not _path_has_allowed_scheme(icon_resource_path):
+		return false
 	if GFVariantData.get_option_bool(options, "allow_missing_paths", false):
 		return true
-	return ResourceLoader.exists(icon_resource_path, "Texture2D")
+	if _path_is_known_missing(icon_resource_path, options):
+		return false
+	if ResourceLoader.exists(icon_resource_path, "Texture2D"):
+		return true
+	_remember_missing_path(icon_resource_path, options)
+	return false
+
+
+func _path_is_known_missing(icon_resource_path: String, options: Dictionary) -> bool:
+	if not GFVariantData.get_option_bool(options, "cache_missing_paths", cache_missing_paths):
+		return false
+	return _missing_path_cache.has(icon_resource_path)
+
+
+func _remember_texture(icon_resource_path: String, texture: Texture2D) -> void:
+	if icon_resource_path.is_empty() or texture == null or max_cached_textures <= 0:
+		return
+	_texture_cache[icon_resource_path] = texture
+	_append_cache_key(_texture_cache_order, icon_resource_path)
+	_prune_cache_to_capacity(_texture_cache, _texture_cache_order, max_cached_textures)
+	_erase_cache_entry(_missing_path_cache, _missing_path_cache_order, icon_resource_path)
+
+
+func _remember_missing_path(icon_resource_path: String, options: Dictionary) -> void:
+	if icon_resource_path.is_empty() or max_cached_missing_paths <= 0:
+		return
+	if not GFVariantData.get_option_bool(options, "cache_missing_paths", cache_missing_paths):
+		return
+	_missing_path_cache[icon_resource_path] = true
+	_append_cache_key(_missing_path_cache_order, icon_resource_path)
+	_prune_cache_to_capacity(_missing_path_cache, _missing_path_cache_order, max_cached_missing_paths)
+
+
+func _append_cache_key(order: PackedStringArray, icon_resource_path: String) -> void:
+	if order.has(icon_resource_path):
+		return
+	var _append_result: bool = order.append(icon_resource_path)
+
+
+func _erase_cache_entry(cache: Dictionary, order: PackedStringArray, icon_resource_path: String) -> void:
+	_erase_dictionary_key(cache, icon_resource_path)
+	var index: int = order.find(icon_resource_path)
+	if index >= 0:
+		order.remove_at(index)
+
+
+func _prune_cache_to_capacity(cache: Dictionary, order: PackedStringArray, capacity: int) -> void:
+	while order.size() > capacity:
+		var oldest_key: String = order[0]
+		order.remove_at(0)
+		_erase_dictionary_key(cache, oldest_key)
+
+
+func _path_has_allowed_scheme(icon_resource_path: String) -> bool:
+	return (
+		icon_resource_path.begins_with("res://")
+		or icon_resource_path.begins_with("uid://")
+		or icon_resource_path.begins_with("user://")
+	)
+
+
+func _make_image_tag(icon_resource_path: String, size: int) -> String:
+	var escaped_path: String = _escape_bbcode(icon_resource_path)
+	if size > 0:
+		return "[img=%d]%s[/img]" % [size, escaped_path]
+	return "[img]%s[/img]" % escaped_path
+
+
+func _escape_bbcode(text: String) -> String:
+	var result: String = ""
+	for index: int in range(text.length()):
+		var character: String = text[index]
+		if character == "[":
+			result += "[lb]"
+		elif character == "]":
+			result += "[rb]"
+		else:
+			result += character
+	return result
 
 
 func _get_mapping_value(mapping: Dictionary, key: String) -> Variant:

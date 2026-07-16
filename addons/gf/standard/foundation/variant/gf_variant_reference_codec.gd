@@ -109,7 +109,10 @@ static func is_reference_marker(value: Variant) -> bool:
 	if dictionary.size() != 1 or not dictionary.has(REFERENCE_MARKER_KEY):
 		return false
 	var marker: Dictionary = GFVariantData.as_dictionary(GFVariantData.get_option_value(dictionary, REFERENCE_MARKER_KEY))
-	return marker.has(REFERENCE_KIND_KEY)
+	return (
+		GFVariantData.get_option_int(marker, REFERENCE_VERSION_KEY, 0) == _REFERENCE_MARKER_VERSION
+		and marker.has(REFERENCE_KIND_KEY)
+	)
 
 
 ## 判断 value 是否为不支持对象标记。

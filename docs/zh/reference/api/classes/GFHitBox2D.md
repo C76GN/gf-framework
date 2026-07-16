@@ -47,6 +47,7 @@
 ### `hit_sent`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 signal hit_sent(context: GFCombatHitContext, receiver: Object, report: Dictionary)
@@ -64,13 +65,14 @@ signal hit_sent(context: GFCombatHitContext, receiver: Object, report: Dictionar
 
 结构：
 
-- `report`: Dictionary，统一命中发送结果，包含 ok、hit_id、receiver、reason、message 和 metadata。
+- `report`: Dictionary，统一命中发送结果，包含 ok、hit_id、receiver(JSON-safe 摘要)、reason、message 和 metadata。
 
 <a id="member-gfhitbox2d-signals-hit_accepted"></a>
 
 ### `hit_accepted`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 signal hit_accepted(context: GFCombatHitContext, receiver: Object, report: Dictionary)
@@ -88,13 +90,14 @@ signal hit_accepted(context: GFCombatHitContext, receiver: Object, report: Dicti
 
 结构：
 
-- `report`: Dictionary，统一命中发送结果，包含 ok、hit_id、receiver、reason、message 和 metadata。
+- `report`: Dictionary，统一命中发送结果，包含 ok、hit_id、receiver(JSON-safe 摘要)、reason、message 和 metadata。
 
 <a id="member-gfhitbox2d-signals-hit_rejected"></a>
 
 ### `hit_rejected`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 signal hit_rejected(context: GFCombatHitContext, receiver: Object, report: Dictionary)
@@ -112,13 +115,14 @@ signal hit_rejected(context: GFCombatHitContext, receiver: Object, report: Dicti
 
 结构：
 
-- `report`: Dictionary，统一命中发送结果，包含 ok、hit_id、receiver、reason、message 和 metadata。
+- `report`: Dictionary，统一命中发送结果，包含 ok、hit_id、receiver(JSON-safe 摘要)、reason、message 和 metadata。
 
 <a id="member-gfhitbox2d-signals-enabled_changed"></a>
 
 ### `enabled_changed`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 signal enabled_changed(enabled: bool)
@@ -139,6 +143,7 @@ signal enabled_changed(enabled: bool)
 ### `enabled`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var enabled: bool = true:
@@ -151,6 +156,7 @@ var enabled: bool = true:
 ### `hit_id`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var hit_id: StringName = &""
@@ -163,6 +169,7 @@ var hit_id: StringName = &""
 ### `payload`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var payload: Dictionary = {}
@@ -179,6 +186,7 @@ var payload: Dictionary = {}
 ### `magnitude`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var magnitude: float = 0.0
@@ -191,6 +199,7 @@ var magnitude: float = 0.0
 ### `tags`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var tags: Array[StringName] = []
@@ -203,6 +212,7 @@ var tags: Array[StringName] = []
 ### `metadata`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var metadata: Dictionary = {}
@@ -219,6 +229,7 @@ var metadata: Dictionary = {}
 ### `sender_path`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var sender_path: NodePath = NodePath("")
@@ -231,6 +242,7 @@ var sender_path: NodePath = NodePath("")
 ### `collision_shape_config`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var collision_shape_config: GFHitCollisionShapeConfig2D = null:
@@ -243,6 +255,7 @@ var collision_shape_config: GFHitCollisionShapeConfig2D = null:
 ### `collision_shape_configs`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var collision_shape_configs: Array[GFHitCollisionShapeConfig2D] = []:
@@ -255,6 +268,7 @@ var collision_shape_configs: Array[GFHitCollisionShapeConfig2D] = []:
 ### `auto_apply_collision_shape_config`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var auto_apply_collision_shape_config: bool = true
@@ -269,6 +283,7 @@ var auto_apply_collision_shape_config: bool = true
 ### `apply_collision_shape_config`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func apply_collision_shape_config(config: GFHitCollisionShapeConfig2D = null) -> CollisionShape2D:
@@ -289,6 +304,7 @@ func apply_collision_shape_config(config: GFHitCollisionShapeConfig2D = null) ->
 ### `apply_collision_shape_configs`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func apply_collision_shape_configs(configs: Array[GFHitCollisionShapeConfig2D] = []) -> Array[CollisionShape2D]:
@@ -309,6 +325,7 @@ func apply_collision_shape_configs(configs: Array[GFHitCollisionShapeConfig2D] =
 ### `get_generated_collision_shape`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func get_generated_collision_shape() -> CollisionShape2D:
@@ -323,6 +340,7 @@ func get_generated_collision_shape() -> CollisionShape2D:
 ### `get_generated_collision_shapes`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func get_generated_collision_shapes() -> Array[CollisionShape2D]:
@@ -337,6 +355,7 @@ func get_generated_collision_shapes() -> Array[CollisionShape2D]:
 ### `clear_generated_collision_shape`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func clear_generated_collision_shape() -> void:
@@ -349,6 +368,7 @@ func clear_generated_collision_shape() -> void:
 ### `clear_generated_collision_shapes`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func clear_generated_collision_shapes() -> void:
@@ -361,6 +381,7 @@ func clear_generated_collision_shapes() -> void:
 ### `build_hit_context`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func build_hit_context( target: Object = null, payload_override: Variant = null, hit_id_override: StringName = &"" ) -> GFCombatHitContext:
@@ -387,6 +408,7 @@ func build_hit_context( target: Object = null, payload_override: Variant = null,
 ### `send_to`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func send_to( receiver: Object, payload_override: Variant = null, hit_id_override: StringName = &"" ) -> Dictionary:
@@ -407,13 +429,14 @@ func send_to( receiver: Object, payload_override: Variant = null, hit_id_overrid
 结构：
 
 - `payload_override`: Variant，可为 null、Dictionary 或项目自定义命中载荷；为 null 时使用节点默认 payload。
-- `return`: Dictionary，统一命中发送结果，包含 ok、hit_id、receiver、reason、message 和 metadata。
+- `return`: Dictionary，统一命中发送结果，包含 ok、hit_id、receiver(JSON-safe 摘要)、reason、message 和 metadata。
 
 <a id="member-gfhitbox2d-methods-send_to_path"></a>
 
 ### `send_to_path`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func send_to_path( receiver_path: NodePath, payload_override: Variant = null, hit_id_override: StringName = &"" ) -> Dictionary:
@@ -434,13 +457,14 @@ func send_to_path( receiver_path: NodePath, payload_override: Variant = null, hi
 结构：
 
 - `payload_override`: Variant，可为 null、Dictionary 或项目自定义命中载荷；为 null 时使用节点默认 payload。
-- `return`: Dictionary，统一命中发送结果，包含 ok、hit_id、receiver、reason、message 和 metadata。
+- `return`: Dictionary，统一命中发送结果，包含 ok、hit_id、receiver(JSON-safe 摘要)、reason、message 和 metadata。
 
 <a id="member-gfhitbox2d-methods-broadcast_overlaps"></a>
 
 ### `broadcast_overlaps`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func broadcast_overlaps( max_count: int = 0, payload_override: Variant = null, hit_id_override: StringName = &"" ) -> Array[Dictionary]:
@@ -461,4 +485,4 @@ func broadcast_overlaps( max_count: int = 0, payload_override: Variant = null, h
 结构：
 
 - `payload_override`: Variant，可为 null、Dictionary 或项目自定义命中载荷；为 null 时使用节点默认 payload。
-- `return`: Array[Dictionary]，每项为统一命中发送结果，包含 ok、hit_id、receiver、reason、message 和 metadata。
+- `return`: Array[Dictionary]，每项为统一命中发送结果，包含 ok、hit_id、receiver(JSON-safe 摘要)、reason、message 和 metadata。

@@ -17,16 +17,22 @@ extends RefCounted
 ## 当前操作类型，如 gather 或 apply。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 var operation: StringName = &""
 
 ## 根作用域键。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 var root_scope_key: StringName = &""
 
 ## 流程共享数据。项目层可写入自己的临时状态。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @schema shared: Dictionary，一次流程中的临时共享字段，不会自动写入存档载荷。
 var shared: Dictionary = {}
@@ -34,26 +40,43 @@ var shared: Dictionary = {}
 ## 流程事件列表。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 var events: Array[GFSavePipelineEvent] = []
 
 ## 通用警告信息。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 var warnings: PackedStringArray = PackedStringArray()
 
 ## 通用错误信息。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 var errors: PackedStringArray = PackedStringArray()
+
+## 本次 apply 事务参与者列表。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+var transaction_participants: Array[GFSaveTransactionParticipant] = []
 
 ## 开始时间。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 var started_at_msec: int = 0
 
 ## 结束时间。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 var finished_at_msec: int = 0
 
 
@@ -72,6 +95,8 @@ func _init(
 ## 开始一次流程操作。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @param p_operation: 操作类型。
 ## [br]
@@ -93,6 +118,7 @@ func begin_operation(
 	events.clear()
 	warnings.clear()
 	errors.clear()
+	transaction_participants.clear()
 	started_at_msec = Time.get_ticks_msec()
 	finished_at_msec = 0
 	return self
@@ -101,6 +127,8 @@ func begin_operation(
 ## 记录流程事件。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @param stage: 阶段标识。
 ## [br]
@@ -134,6 +162,8 @@ func record_event(
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param message: 警告内容。
 ## [br]
 ## @param payload: 附加载荷。
@@ -148,6 +178,8 @@ func add_warning(message: String, payload: Dictionary = {}) -> void:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param message: 错误内容。
 ## [br]
 ## @param payload: 附加载荷。
@@ -158,9 +190,61 @@ func add_error(message: String, payload: Dictionary = {}) -> void:
 	var _record_event_result_158: Variant = record_event(&"pipeline_error", null, null, message, payload, &"error")
 
 
+## 登记本次 apply 事务参与者。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+## [br]
+## @param participant: 参与 prepare / commit / rollback 的事务对象。
+func register_transaction_participant(participant: GFSaveTransactionParticipant) -> void:
+	if participant == null or transaction_participants.has(participant):
+		return
+	transaction_participants.append(participant)
+
+
+## 注销本次 apply 事务参与者。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+## [br]
+## @param participant: 要注销的事务对象。
+func unregister_transaction_participant(participant: GFSaveTransactionParticipant) -> void:
+	var index: int = transaction_participants.find(participant)
+	if index >= 0:
+		transaction_participants.remove_at(index)
+
+
+## 获取本次 apply 事务参与者副本。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+## [br]
+## @return 事务参与者数组。
+func get_transaction_participants() -> Array[GFSaveTransactionParticipant]:
+	var result: Array[GFSaveTransactionParticipant] = []
+	for participant: GFSaveTransactionParticipant in transaction_participants:
+		if participant != null:
+			result.append(participant)
+	return result
+
+
+## 清空本次 apply 事务参与者。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+func clear_transaction_participants() -> void:
+	transaction_participants.clear()
+
+
 ## 标记流程结束。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 func finish() -> void:
 	finished_at_msec = Time.get_ticks_msec()
 
@@ -168,6 +252,8 @@ func finish() -> void:
 ## 当前流程是否已结束。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @return 已结束返回 true。
 func is_finished() -> bool:
@@ -177,6 +263,8 @@ func is_finished() -> bool:
 ## 获取耗时毫秒。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @return 耗时。
 func get_elapsed_msec() -> int:
@@ -188,18 +276,23 @@ func get_elapsed_msec() -> int:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param include_events: 是否包含事件列表。
 ## [br]
 ## @return 上下文字典。
 ## [br]
-## @schema return: Dictionary，包含 operation、root_scope_key、shared、warnings、errors、started_at_msec、finished_at_msec、elapsed_msec、event_count；include_events 为 true 时包含 events: Array[Dictionary]。
+## @schema return: Dictionary，包含 operation、root_scope_key、JSON-safe shared、warnings、errors、started_at_msec、finished_at_msec、elapsed_msec、event_count；include_events 为 true 时包含 events: Array[Dictionary]。
 func to_dict(include_events: bool = true) -> Dictionary:
 	var result: Dictionary = {
 		"operation": operation,
 		"root_scope_key": root_scope_key,
-		"shared": shared.duplicate(true),
+		"shared": GFReportValueCodec.to_report_dictionary(shared, {
+			"path_redaction": "basename",
+		}),
 		"warnings": warnings,
 		"errors": errors,
+		"transaction_participant_count": transaction_participants.size(),
 		"started_at_msec": started_at_msec,
 		"finished_at_msec": finished_at_msec,
 		"elapsed_msec": get_elapsed_msec(),

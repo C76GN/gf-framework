@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFQuerySignature" path="addons/gf/standard/foundation/collections/gf_query_signature.gd" module="standard" extends="RefCounted" classDigest="0ad17d6140da94e4f8e4acd7fa97730d153942f330b11a13820b5dbb69276d73">
+<class name="GFQuerySignature" path="addons/gf/standard/foundation/collections/gf_query_signature.gd" module="standard" extends="RefCounted" classDigest="5eca9bb0709396e514ecefc7d62c0c8a0a0fc1f0b43a4d6a8bad6ef883e786b6">
 	<description>GFQuerySignature: 域分离的通用查询签名。
 用稳定的 domain/value 结构生成可缓存的查询 key，避免把不同语义域的条件简单合并后产生歧义。
 它只负责签名构建，不规定查询含义或匹配规则。</description>
@@ -29,7 +29,7 @@
 				<tag name="param">domain: 条件域，例如 all、any、none、group。</tag>
 				<tag name="param">value: 条件值。</tag>
 				<tag name="return">当前签名，便于链式调用。</tag>
-				<tag name="schema">value: Variant condition value encoded with typeof() and var_to_str().</tag>
+				<tag name="schema">value: Variant condition value accepted by GFVariantKeyCodec.</tag>
 				<tag name="since">6.0.0</tag>
 			</tags>
 		</member>

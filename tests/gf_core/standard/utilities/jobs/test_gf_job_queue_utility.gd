@@ -2,6 +2,9 @@
 extends GutTest
 
 
+const _GF_ASYNC_CALL_SCRIPT = preload("res://addons/gf/kernel/core/gf_async_call.gd")
+
+
 func test_job_queue_lifecycle_progress_and_snapshot() -> void:
 	var utility: GFJobQueueUtility = GFJobQueueUtility.new()
 	utility.init()
@@ -141,8 +144,107 @@ func test_job_worker_times_out_stuck_async_processor() -> void:
 
 	assert_same(processed_job, job, "Worker 超时后仍应返回当前任务。")
 	assert_eq(job.status, GFJob.Status.FAILED, "处理器 Signal 超时应把任务标记失败，避免队列永久卡住。")
-	assert_eq(job.error_message, "processor_signal_cancelled_or_timeout", "超时失败原因应稳定可诊断。")
+	assert_eq(job.error_message, "processor_signal_timeout", "超时失败原因应稳定可诊断。")
 	assert_push_warning("[GFJobWorker] 等待任务处理器 Signal 超时，任务将标记为失败。")
+	worker.free()
+	utility.dispose()
+
+
+func test_job_worker_stop_cancels_unbounded_processor_wait() -> void:
+	var utility: GFJobQueueUtility = GFJobQueueUtility.new()
+	utility.init()
+	var job: GFJob = utility.enqueue(&"main", { "value": 1 })
+	var processor: NeverFinishingProcessor = NeverFinishingProcessor.new()
+
+	var worker: GFJobWorker = GFJobWorker.new()
+	worker.auto_start = false
+	worker.queue_name = &"main"
+	worker.signal_timeout_seconds = 0.0
+	worker.set_queue_utility(utility)
+	worker.set_processor(Callable(processor, "process"))
+	add_child(worker)
+	worker.start()
+	worker.call_deferred("stop")
+
+	var processed_count: int = await worker.process_batch()
+
+	assert_eq(processed_count, 1, "停止时应结束当前等待并返回已取出的任务数量。")
+	assert_eq(job.status, GFJob.Status.CANCELLED, "停止 worker 应取消仍在等待处理器 Signal 的任务。")
+	assert_false(GFVariantData.get_option_bool(worker.get_debug_snapshot(), "processing", true), "停止后不得残留 processing 状态。")
+	remove_child(worker)
+	worker.free()
+	utility.dispose()
+
+
+func test_job_worker_rejects_concurrent_process_next_job_without_losing_wait_owner() -> void:
+	var utility: GFJobQueueUtility = GFJobQueueUtility.new()
+	utility.init()
+	var first_job: GFJob = utility.enqueue(&"main", { "value": 1 })
+	var second_job: GFJob = utility.enqueue(&"main", { "value": 2 })
+	var processor: NeverFinishingProcessor = NeverFinishingProcessor.new()
+
+	var worker: GFJobWorker = GFJobWorker.new()
+	worker.auto_start = false
+	worker.queue_name = &"main"
+	worker.signal_timeout_seconds = 0.0
+	worker.set_queue_utility(utility)
+	worker.set_processor(Callable(processor, "process"))
+	add_child(worker)
+	worker.start()
+	_GF_ASYNC_CALL_SCRIPT.run_detached(Callable(worker, "process_next_job"))
+
+	for _active_frame_index: int in range(10):
+		if GFVariantData.get_option_bool(worker.get_debug_snapshot(), "processing_next_job"):
+			break
+		await get_tree().process_frame
+	var concurrent_result: GFJob = await worker.process_next_job()
+	worker.stop()
+	for _completion_frame_index: int in range(10):
+		if not GFVariantData.get_option_bool(worker.get_debug_snapshot(), "processing_next_job"):
+			break
+		await get_tree().process_frame
+
+	assert_null(concurrent_result, "同一个 worker 的并发 process_next_job 应被 single-flight guard 拒绝。")
+	assert_eq(first_job.status, GFJob.Status.CANCELLED, "stop 应取消唯一在途等待。")
+	assert_eq(second_job.status, GFJob.Status.WAITING as GFJob.Status, "被拒绝的并发调用不得领取第二个任务。")
+	assert_false(GFVariantData.get_option_bool(worker.get_debug_snapshot(), "processing_next_job", true), "取消完成后不得残留在途标记。")
+	remove_child(worker)
+	worker.free()
+	utility.dispose()
+
+
+func test_job_worker_does_not_emit_processed_for_cancelled_async_job() -> void:
+	var utility: GFJobQueueUtility = GFJobQueueUtility.new()
+	utility.init()
+	var job: GFJob = utility.enqueue(&"main", { "value": 1 })
+	var processor: ManualAsyncProcessor = ManualAsyncProcessor.new()
+
+	var worker: GFJobWorker = GFJobWorker.new()
+	worker.auto_start = false
+	worker.queue_name = &"main"
+	worker.set_queue_utility(utility)
+	worker.set_processor(Callable(processor, "process"))
+	watch_signals(worker)
+	add_child(worker)
+	worker.start()
+
+	for _active_frame_index: int in range(10):
+		if job.status == GFJob.Status.ACTIVE:
+			break
+		await get_tree().process_frame
+	assert_eq(job.status, GFJob.Status.ACTIVE, "异步处理器等待期间任务应处于 active。")
+
+	assert_true(utility.cancel_job(job.job_id), "active 异步任务应可取消。")
+	processor.complete({ "ok": true })
+	for _completion_frame_index: int in range(10):
+		if not GFVariantData.get_option_bool(worker.get_debug_snapshot(), "processing", false):
+			break
+		await get_tree().process_frame
+
+	assert_eq(job.status, GFJob.Status.CANCELLED, "迟到 signal 不应覆盖 cancelled 终态。")
+	assert_signal_emit_count(worker, "job_processed", 0, "取消任务不应再发 job_processed。")
+	worker.stop()
+	remove_child(worker)
 	worker.free()
 	utility.dispose()
 
@@ -169,3 +271,15 @@ class NeverFinishingProcessor:
 
 	func process(_job: GFJob) -> Signal:
 		return finished
+
+
+class ManualAsyncProcessor:
+	extends RefCounted
+
+	signal finished(result: Dictionary)
+
+	func process(_job: GFJob) -> Signal:
+		return finished
+
+	func complete(result: Dictionary) -> void:
+		finished.emit(result)

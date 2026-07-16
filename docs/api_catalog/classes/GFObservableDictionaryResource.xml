@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFObservableDictionaryResource" path="addons/gf/standard/foundation/collections/gf_observable_dictionary_resource.gd" module="standard" extends="Resource" classDigest="1c40228c48b341e10ecb07a50b89c599d8362ea25c8902c1c4af8c3eb15bc152">
+<class name="GFObservableDictionaryResource" path="addons/gf/standard/foundation/collections/gf_observable_dictionary_resource.gd" module="standard" extends="Resource" classDigest="e6e61e94cb4301cb28de1183ba4df4a60065a31f259c0314eef1233ee7c2dea4">
 	<description>GFObservableDictionaryResource: 可观察字典资源。
 保存一份 Dictionary 数据，并通过显式方法发出键值变更和批量变更信号。
 它不尝试模拟 Dictionary 的全部接口，避免把业务状态模型写死到框架层。</description>
@@ -11,7 +11,7 @@
 	<signals>
 		<member kind="signal" name="entry_changed">
 			<signature>signal entry_changed(operation: StringName, entry_key: Variant, old_value: Variant, new_value: Variant, metadata: Dictionary)</signature>
-			<description>单个键值变更后发出。</description>
+			<description>非 batch 模式下单个键值变更后发出。batch 内变更只在 end_batch() 时汇总到 entries_changed。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">operation: 操作类型。</tag>
@@ -28,7 +28,7 @@
 		</member>
 		<member kind="signal" name="entries_changed">
 			<signature>signal entries_changed(changes: Array[Dictionary], metadata: Dictionary)</signature>
-			<description>一批键值变更完成后发出。</description>
+			<description>一批键值变更完成后发出；非 batch 单项变更也会作为单元素 changes 发出。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">changes: 变更报告列表。</tag>

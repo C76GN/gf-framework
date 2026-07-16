@@ -29,6 +29,13 @@ const GROUP_SOURCE_ID: StringName = &"id"
 ## @since 6.0.0
 const GROUP_SOURCE_PATH: StringName = &"path"
 
+## 按资源身份缓存键分组。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+const GROUP_SOURCE_CACHE_KEY: StringName = &"cache_key"
+
 ## 按资源路径文件名去扩展名分组。
 ## [br]
 ## @api public
@@ -161,7 +168,11 @@ func rebuild_index() -> void:
 		var stored_entry: GFResourceRegistryEntry = _duplicate_registry_entry(entry)
 		var entry_id: StringName = _get_entry_id(stored_entry)
 		_entry_lookup[entry_id] = stored_entry
-		var _indexed: bool = _index.set_item(entry_id, _get_entry_path(stored_entry), _get_entry_fields(stored_entry))
+		var _indexed: bool = _index.set_item(
+			entry_id,
+			_get_entry_path(stored_entry),
+			_get_entry_index_fields(stored_entry)
+		)
 	_index_dirty = false
 
 
@@ -220,6 +231,40 @@ func get_entry_type_hint(entry_id: StringName) -> String:
 	if entry == null:
 		return ""
 	return _get_entry_type_hint(entry)
+
+
+## 获取条目资源身份缓存键。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+## [br]
+## @param entry_id: 条目稳定 ID。
+## [br]
+## @return 资源身份 cache_key；不存在时返回空字符串。
+func get_entry_cache_key(entry_id: StringName) -> String:
+	_ensure_index()
+	var entry: GFResourceRegistryEntry = _get_registry_entry_value(GFVariantData.get_option_value(_entry_lookup, entry_id))
+	if entry == null:
+		return ""
+	return _get_entry_cache_key(entry)
+
+
+## 获取条目资源身份。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+## [br]
+## @param entry_id: 条目稳定 ID。
+## [br]
+## @return 资源身份；不存在时返回 null。
+func get_entry_resource_identity(entry_id: StringName) -> GFResourceIdentity:
+	_ensure_index()
+	var entry: GFResourceRegistryEntry = _get_registry_entry_value(GFVariantData.get_option_value(_entry_lookup, entry_id))
+	if entry == null:
+		return null
+	return _get_entry_resource_identity(entry)
 
 
 ## 获取条目字段副本。
@@ -320,7 +365,7 @@ func query_many(criteria: Dictionary, match_all: bool = true) -> PackedStringArr
 ## [br]
 ## @schema entry_ids: PackedStringArray selected entry ids.
 ## [br]
-## @schema return: Array[Dictionary] where each candidate contains id, entry_id, title, name, path, type_hint, keywords, and fields.
+## @schema return: Array[Dictionary] where each candidate contains id, entry_id, title, name, path, cache_key, resource_identity, type_hint, keywords, and fields.
 func make_search_candidates(entry_ids: PackedStringArray = PackedStringArray()) -> Array[Dictionary]:
 	_ensure_index()
 	var include_all: bool = entry_ids.is_empty()
@@ -386,7 +431,7 @@ func search(query_text: String, options: Dictionary = {}) -> Array[Dictionary]:
 ## [br]
 ## @return 条目摘要；条目不存在时返回空字典。
 ## [br]
-## @schema return: Dictionary with id, entry_id, title, path, path_basename, type_hint, description, preview_path, tags, category, and optional fields.
+## @schema return: Dictionary with id, entry_id, title, path, cache_key, resource_identity, path_basename, type_hint, description, preview_path, tags, category, and optional fields.
 func make_entry_summary(entry_id: StringName, options: Dictionary = {}) -> Dictionary:
 	_ensure_index()
 	var entry: GFResourceRegistryEntry = _get_registry_entry_value(GFVariantData.get_option_value(_entry_lookup, entry_id))
@@ -395,6 +440,7 @@ func make_entry_summary(entry_id: StringName, options: Dictionary = {}) -> Dicti
 
 	var fields: Dictionary = _get_entry_fields(entry)
 	var entry_path: String = _get_entry_path(entry)
+	var identity: GFResourceIdentity = _get_entry_resource_identity(entry)
 	var id_text: String = String(_get_entry_id(entry))
 	var title: String = _get_first_entry_field_text(
 		fields,
@@ -410,6 +456,8 @@ func make_entry_summary(entry_id: StringName, options: Dictionary = {}) -> Dicti
 		"entry_id": id_text,
 		"title": title,
 		"path": entry_path,
+		"cache_key": identity.cache_key,
+		"resource_identity": identity.to_dictionary(),
 		"path_basename": entry_path.get_file().get_basename(),
 		"type_hint": _get_entry_type_hint(entry),
 		"description": _get_first_entry_field_text(
@@ -554,7 +602,7 @@ func search_page(
 ## [br]
 ## @param options: 可选项，支持 entry_ids、field_id、include_empty 和 empty_key。
 ## [br]
-## @schema options: Dictionary with optional entry_ids, field_id, include_empty, and empty_key.
+## @schema options: Dictionary with optional entry_ids, field_id, include_empty, and empty_key. group_source may be id, path, cache_key, path_basename, type_hint, or field.
 ## [br]
 ## @return 分组字典，key 为分组文本，value 为排序后的条目 ID 列表。
 ## [br]
@@ -698,13 +746,15 @@ func request_entry_handle_async(
 ## [br]
 ## @api public
 ## [br]
+## @since 3.21.0
+## [br]
 ## @param entry_ids: 要导出的条目 ID；为空时导出全部有效条目。
 ## [br]
 ## @return 资源请求列表。
 ## [br]
 ## @schema entry_ids: PackedStringArray selected entry ids.
 ## [br]
-## @schema return: Array[Dictionary] where each item contains path and type_hint.
+## @schema return: Array[Dictionary] where each item contains path, type_hint, cache_key, and resource_identity.
 func make_asset_group_entries(entry_ids: PackedStringArray = PackedStringArray()) -> Array:
 	_ensure_index()
 	var include_all: bool = entry_ids.is_empty()
@@ -713,9 +763,12 @@ func make_asset_group_entries(entry_ids: PackedStringArray = PackedStringArray()
 		if not include_all and not entry_ids.has(entry_id):
 			continue
 		var typed_id: StringName = StringName(entry_id)
+		var identity: GFResourceIdentity = get_entry_resource_identity(typed_id)
 		result.append({
 			"path": get_entry_path(typed_id),
 			"type_hint": get_entry_type_hint(typed_id),
+			"cache_key": identity.cache_key if identity != null else "",
+			"resource_identity": identity.to_dictionary() if identity != null else {},
 		})
 	return result
 
@@ -829,10 +882,29 @@ func _get_entry_type_hint(entry: GFResourceRegistryEntry) -> String:
 	return entry.type_hint
 
 
+func _get_entry_resource_identity(entry: GFResourceRegistryEntry) -> GFResourceIdentity:
+	if entry == null:
+		return null
+	return entry.get_resource_identity()
+
+
+func _get_entry_cache_key(entry: GFResourceRegistryEntry) -> String:
+	var identity: GFResourceIdentity = _get_entry_resource_identity(entry)
+	return identity.cache_key if identity != null else ""
+
+
 func _get_entry_fields(entry: GFResourceRegistryEntry) -> Dictionary:
 	if entry == null:
 		return {}
 	return entry.fields.duplicate(true)
+
+
+func _get_entry_index_fields(entry: GFResourceRegistryEntry) -> Dictionary:
+	var fields: Dictionary = _get_entry_fields(entry)
+	var identity: GFResourceIdentity = _get_entry_resource_identity(entry)
+	if identity != null:
+		fields[GROUP_SOURCE_CACHE_KEY] = identity.cache_key
+	return fields
 
 
 func _get_registry_entry_value(value: Variant) -> GFResourceRegistryEntry:
@@ -856,6 +928,8 @@ func _get_entry_group_keys(
 			_append_entry_group_key(result, lookup, _get_entry_id(entry), include_empty, empty_key)
 		GROUP_SOURCE_PATH:
 			_append_entry_group_key(result, lookup, _get_entry_path(entry), include_empty, empty_key)
+		GROUP_SOURCE_CACHE_KEY:
+			_append_entry_group_key(result, lookup, _get_entry_cache_key(entry), include_empty, empty_key)
 		GROUP_SOURCE_PATH_BASENAME:
 			_append_entry_group_key(result, lookup, _get_entry_path(entry).get_file().get_basename(), include_empty, empty_key)
 		GROUP_SOURCE_TYPE_HINT:
@@ -1031,6 +1105,8 @@ func _make_search_candidate(entry: GFResourceRegistryEntry) -> Dictionary:
 		"title": entry_id,
 		"name": entry_id,
 		"path": _get_entry_path(entry),
+		"cache_key": _get_entry_cache_key(entry),
+		"resource_identity": _get_entry_resource_identity(entry).to_dictionary(),
 		"type_hint": _get_entry_type_hint(entry),
 		"keywords": _make_entry_search_keywords(entry, fields),
 		"fields": fields,

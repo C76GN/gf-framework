@@ -1,0 +1,7 @@
+{
+  "schema_version": 1,
+  "extension_id": "gf.network",
+  "editor_action_paths": [
+    "res://addons/gf/extensions/network/editor/gf_network_editor_actions.gd"
+  ]
+}

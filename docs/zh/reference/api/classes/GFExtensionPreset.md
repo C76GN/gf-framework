@@ -9,7 +9,7 @@
 - 类别：资源定义 (`resource_definition`)
 - 首次版本：`5.0.0`
 
-GF 扩展启用组合描述。 Preset 只描述一组要写入 `gf/extensions/enabled` 的扩展 ID，不改变 manifest 依赖、 不表示扩展之间存在硬依赖，也不承载下载、安装包或跨扩展编排逻辑。
+GF 扩展启用组合描述。 Preset 只描述一组显式启用扩展 ID，不改变 manifest 依赖、 不表示扩展之间存在硬依赖，也不承载下载、安装包或跨扩展编排逻辑。
 
 ## 成员概览
 
@@ -176,11 +176,11 @@ static func from_json_file_report(path: String) -> Dictionary:
 |---|---|
 | `path` | preset JSON 文件路径。 |
 
-返回：读取诊断，包含 ok、source_path、preset 和 errors。
+返回：读取诊断，包含 ok、source_path、preset_data 和 errors。
 
 结构：
 
-- `return`: Dictionary { ok: bool, source_path: String, preset: GFExtensionPreset, errors: Array[String] }.
+- `return`: Dictionary { ok: bool, source_path: String, preset_data: Dictionary, errors: Array[String] }.
 
 <a id="member-gfextensionpreset-methods-to_dictionary"></a>
 

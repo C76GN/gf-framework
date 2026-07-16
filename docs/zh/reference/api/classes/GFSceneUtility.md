@@ -47,7 +47,7 @@
 | 方法 | [`init`](#member-gfsceneutility-methods-init) | `func init() -> void:` |
 | 方法 | [`tick`](#member-gfsceneutility-methods-tick) | `func tick(_delta: float) -> void:` |
 | 方法 | [`dispose`](#member-gfsceneutility-methods-dispose) | `func dispose() -> void:` |
-| 方法 | [`load_scene_async`](#member-gfsceneutility-methods-load_scene_async) | `func load_scene_async( path: String, loading_scene_path: String = "", params: Dictionary = {}, minimum_duration_seconds: float = -1.0 ) -> void:` |
+| 方法 | [`load_scene_async`](#member-gfsceneutility-methods-load_scene_async) | `func load_scene_async( path: String, loading_scene_path: String = "", params: Dictionary = {}, minimum_duration_seconds: float = -1.0 ) -> Error:` |
 | 方法 | [`load_scene_with_transition`](#member-gfsceneutility-methods-load_scene_with_transition) | `func load_scene_with_transition(config: GFSceneTransitionConfig) -> Error:` |
 | 方法 | [`preload_scene`](#member-gfsceneutility-methods-preload_scene) | `func preload_scene(path: String, fixed: bool = false) -> Error:` |
 | 方法 | [`begin_background_scene_load`](#member-gfsceneutility-methods-begin_background_scene_load) | `func begin_background_scene_load(path: String, params: Dictionary = {}, fixed: bool = false) -> Error:` |
@@ -607,9 +607,10 @@ func dispose() -> void:
 ### `load_scene_async`
 
 - API：`public`
+- 首次版本：`3.0.0`
 
 ```gdscript
-func load_scene_async( path: String, loading_scene_path: String = "", params: Dictionary = {}, minimum_duration_seconds: float = -1.0 ) -> void:
+func load_scene_async( path: String, loading_scene_path: String = "", params: Dictionary = {}, minimum_duration_seconds: float = -1.0 ) -> Error:
 ```
 
 异步切换场景。
@@ -622,6 +623,8 @@ func load_scene_async( path: String, loading_scene_path: String = "", params: Di
 | `loading_scene_path` | 可选的过渡场景路径。 |
 | `params` | 本次切换参数；完成后可通过 get_current_scene_params() 读取。 |
 | `minimum_duration_seconds` | loading scene 最短保留秒数；小于 0 时使用默认值。 |
+
+返回：发起加载的 Godot Error；异步终态继续通过信号报告。
 
 结构：
 
@@ -790,6 +793,7 @@ func configure_scene_preload_map( preload_map: GFScenePreloadMap, radius: int = 
 ### `get_scene_preload_map_plan`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func get_scene_preload_map_plan(path: String, radius: int = -1, include_fixed: bool = true) -> Dictionary:
@@ -809,7 +813,7 @@ func get_scene_preload_map_plan(path: String, radius: int = -1, include_fixed: b
 
 结构：
 
-- `return`: Dictionary，包含 ok、source_path、radius、include_fixed、fixed_paths、temporary_paths 和 errors。
+- `return`: Dictionary，包含 ok、source_path、source_cache_key、radius、include_fixed、fixed_paths、temporary_paths、paths、fixed_cache_keys、temporary_cache_keys、cache_keys、resource_identities 和 errors。
 
 <a id="member-gfsceneutility-methods-preload_scene_map_for"></a>
 
@@ -1087,6 +1091,7 @@ func get_preloading_scene_paths() -> PackedStringArray:
 ### `get_scene_cache_debug_snapshot`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func get_scene_cache_debug_snapshot() -> Dictionary:
@@ -1098,7 +1103,7 @@ func get_scene_cache_debug_snapshot() -> Dictionary:
 
 结构：
 
-- `return`: Dictionary，包含 is_loading、target_path、loading_scene_path、current_scene、loading_progress、transition、preload_cache、scene_preload_map、preloading 和 background。
+- `return`: Dictionary，包含 is_loading、target_path、loading_scene_path、current_scene、loading_progress、transition、preload_cache、scene_preload_map、preloading、background 和 threaded_resource_operations。
 
 <a id="member-gfsceneutility-methods-get_scene_resource_state"></a>
 

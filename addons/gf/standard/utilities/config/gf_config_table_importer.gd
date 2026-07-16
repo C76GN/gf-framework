@@ -1,6 +1,6 @@
 ## GFConfigTableImporter: 通用导表文本解析与 schema 校验入口。
 ##
-## 提供 JSON、CSV 与 ConfigFile 的轻量解析，适合编辑器工具或 CI 在进入项目 Provider 前做结构检查。
+## 提供 JSON、CSV、ConfigFile 与二维文本行的轻量解析，适合编辑器工具或 CI 在进入项目 Provider 前做结构检查。
 ## [br]
 ## @api public
 ## [br]
@@ -49,6 +49,135 @@ static func parse_json_table(text: String, options: Dictionary = {}) -> Dictiona
 	}
 
 
+## 把已解析的二维文本表转换为记录数组。
+## [br]
+## 未显式传 header_row 时，传入 rows 的第一行作为表头；显式传 header_row 时按 1-based 源行号定位表头。可通过注释前缀与条件块过滤行列。
+## [br]
+## 条件块只支持 `#if SYMBOL ...` 与 `#endif`，所有 SYMBOL 都在 condition_symbols 中时才保留块内数据行。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+## [br]
+## @param rows: 已解析的二维文本行。
+## [br]
+## @schema rows: Array[PackedStringArray]，每个条目是一行单元格文本。
+## [br]
+## @param options: 可选参数，支持 source、row_numbers、header_row、trim_cells、skip_empty_lines、reject_duplicate_headers、reject_empty_header、require_header、comment_prefixes、comment_row_prefixes、comment_column_prefixes、comment_prefix_case_sensitive、enable_condition_directives、condition_symbols、condition_directive_prefix 和 error_prefix。
+## [br]
+## @schema options: Dictionary，可包含 source、row_numbers、header_row、trim_cells、skip_empty_lines、reject_duplicate_headers、reject_empty_header、require_header、comment_prefixes、comment_row_prefixes、comment_column_prefixes、comment_prefix_case_sensitive、enable_condition_directives、condition_symbols、condition_directive_prefix 和 error_prefix。
+## [br]
+## @return 结果字典，包含 success、data、header、row_locations 与 error。
+## [br]
+## @schema return: Dictionary，包含 success、data、header、row_locations、error、error_line、error_column 和 source。
+static func parse_rows_table(rows: Array[PackedStringArray], options: Dictionary = {}) -> Dictionary:
+	var source: String = GFVariantData.get_option_string(options, "source")
+	var trim_cells: bool = GFVariantData.get_option_bool(options, "trim_cells", true)
+	var skip_empty_lines: bool = GFVariantData.get_option_bool(options, "skip_empty_lines", true)
+	var reject_duplicate_headers: bool = GFVariantData.get_option_bool(options, "reject_duplicate_headers", true)
+	var reject_empty_header: bool = GFVariantData.get_option_bool(options, "reject_empty_header", false)
+	var require_header: bool = GFVariantData.get_option_bool(options, "require_header", false)
+	var error_prefix: String = GFVariantData.get_option_string(options, "error_prefix", "Table rows")
+	var row_numbers: PackedInt32Array = _get_tabular_row_numbers(rows.size(), options)
+	var default_header_row_number: int = _get_tabular_row_number(row_numbers, 0)
+	var header_row_number: int = maxi(GFVariantData.get_option_int(options, "header_row", default_header_row_number), 1)
+
+	if rows.is_empty():
+		if require_header:
+			return _make_tabular_parse_failure("%s header row is missing." % error_prefix, source, header_row_number, 1)
+		var empty_records: Array[Dictionary] = []
+		var empty_locations: Array[Dictionary] = []
+		return _make_tabular_parse_success(empty_records, PackedStringArray(), empty_locations, source)
+
+	var base_comment_prefixes: PackedStringArray = _get_string_prefixes(options, "comment_prefixes")
+	var comment_row_prefixes: PackedStringArray = _get_string_prefixes(options, "comment_row_prefixes", base_comment_prefixes)
+	var comment_column_prefixes: PackedStringArray = _get_string_prefixes(options, "comment_column_prefixes", base_comment_prefixes)
+	var comment_prefix_case_sensitive: bool = GFVariantData.get_option_bool(options, "comment_prefix_case_sensitive", false)
+	var condition_prefix: String = GFVariantData.get_option_string(options, "condition_directive_prefix", "#")
+	if condition_prefix.is_empty():
+		condition_prefix = "#"
+	var condition_symbols: PackedStringArray = _get_string_prefixes(options, "condition_symbols")
+	var enable_condition_directives: bool = GFVariantData.get_option_bool(
+		options,
+		"enable_condition_directives",
+		options.has("condition_symbols")
+	)
+
+	var header: PackedStringArray = PackedStringArray()
+	var selected_column_indices: PackedInt32Array = PackedInt32Array()
+	var records: Array[Dictionary] = []
+	var row_locations: Array[Dictionary] = []
+	var condition_stack: Array[Dictionary] = []
+	var header_found: bool = false
+	var source_header_width: int = 0
+
+	for row_array_index: int in range(rows.size()):
+		var row_number: int = _get_tabular_row_number(row_numbers, row_array_index)
+		var row: PackedStringArray = _prepare_tabular_row(rows[row_array_index], trim_cells)
+		if row_number == header_row_number:
+			header_found = true
+			source_header_width = row.size()
+			selected_column_indices = _select_tabular_column_indices(row, comment_column_prefixes, comment_prefix_case_sensitive)
+			header = _filter_tabular_row(row, selected_column_indices)
+			var header_error: String = _validate_tabular_header(header, reject_duplicate_headers, reject_empty_header, error_prefix)
+			if not header_error.is_empty():
+				return _make_tabular_parse_failure(header_error, source, row_number, 1)
+			continue
+		if row_number <= header_row_number:
+			continue
+
+		var first_cell: String = row[0] if not row.is_empty() else ""
+		if enable_condition_directives:
+			var directive: Dictionary = _parse_condition_directive(first_cell, condition_prefix)
+			var directive_kind: StringName = GFVariantData.get_option_string_name(directive, "kind")
+			if directive_kind == &"if":
+				condition_stack.append({
+					"active": _condition_symbols_match(
+						GFVariantData.get_option_packed_string_array(directive, "symbols"),
+						condition_symbols
+					),
+					"line": row_number,
+				})
+				continue
+			if directive_kind == &"endif":
+				if condition_stack.is_empty():
+					return _make_tabular_parse_failure("%s parse failed: unexpected_condition_end" % error_prefix, source, row_number, 1)
+				condition_stack.pop_back()
+				continue
+
+		if not _condition_stack_is_active(condition_stack):
+			continue
+		if skip_empty_lines and _tabular_row_is_empty(row):
+			continue
+		if _text_has_prefix(first_cell, comment_row_prefixes, comment_prefix_case_sensitive):
+			continue
+		if row.size() > source_header_width:
+			return _make_tabular_parse_failure("%s parse failed: row_has_extra_cells" % error_prefix, source, row_number, source_header_width + 1)
+
+		var record: Dictionary = {}
+		for column_index: int in range(header.size()):
+			var key: StringName = StringName(header[column_index])
+			if key == &"":
+				continue
+			var source_column_index: int = selected_column_indices[column_index]
+			record[key] = row[source_column_index] if source_column_index < row.size() else ""
+		records.append(record)
+		row_locations.append(_make_tabular_row_location(source, row_number, records.size() - 1, header, selected_column_indices))
+
+	if not header_found and require_header:
+		return _make_tabular_parse_failure("%s header row is missing." % error_prefix, source, header_row_number, 1)
+	if not condition_stack.is_empty():
+		var condition_info: Dictionary = condition_stack[condition_stack.size() - 1]
+		return _make_tabular_parse_failure(
+			"%s parse failed: missing_condition_end" % error_prefix,
+			source,
+			GFVariantData.get_option_int(condition_info, "line", rows.size()),
+			1
+		)
+
+	return _make_tabular_parse_success(records, header, row_locations, source)
+
+
 ## 解析 CSV 表文本。
 ## [br]
 ## @api public
@@ -57,9 +186,9 @@ static func parse_json_table(text: String, options: Dictionary = {}) -> Dictiona
 ## [br]
 ## @param text: CSV 文本。
 ## [br]
-## @param options: 可选参数，支持 delimiter、trim_cells、skip_empty_lines、reject_duplicate_headers、source。
+## @param options: 可选参数，支持 delimiter、trim_cells、skip_empty_lines、reject_duplicate_headers、header_row、comment_prefixes、comment_row_prefixes、comment_column_prefixes、comment_prefix_case_sensitive、enable_condition_directives、condition_symbols、condition_directive_prefix、source。
 ## [br]
-## @schema options: Dictionary，可包含 delimiter、trim_cells、skip_empty_lines、reject_duplicate_headers 和 source。
+## @schema options: Dictionary，可包含 delimiter、trim_cells、skip_empty_lines、reject_duplicate_headers、header_row、comment_prefixes、comment_row_prefixes、comment_column_prefixes、comment_prefix_case_sensitive、enable_condition_directives、condition_symbols、condition_directive_prefix 和 source。
 ## [br]
 ## @return 结果字典，包含 success、data、header、row_locations 与 error。
 ## [br]
@@ -69,8 +198,6 @@ static func parse_csv_table(text: String, options: Dictionary = {}) -> Dictionar
 	if delimiter.is_empty():
 		delimiter = ","
 	var trim_cells: bool = GFVariantData.get_option_bool(options, "trim_cells", true)
-	var skip_empty_lines: bool = GFVariantData.get_option_bool(options, "skip_empty_lines", true)
-	var reject_duplicate_headers: bool = GFVariantData.get_option_bool(options, "reject_duplicate_headers", true)
 	var source: String = GFVariantData.get_option_string(options, "source")
 	var parse_result: Dictionary = _parse_csv_rows(_normalize_csv_text(text), delimiter.substr(0, 1), trim_cells)
 	if not GFVariantData.get_option_bool(parse_result, "success"):
@@ -86,70 +213,10 @@ static func parse_csv_table(text: String, options: Dictionary = {}) -> Dictionar
 		}
 
 	var rows: Array[PackedStringArray] = _get_parse_rows(parse_result)
-	if rows.is_empty():
-		return {
-			"success": true,
-			"data": [],
-			"header": PackedStringArray(),
-			"row_locations": [],
-			"error": "",
-			"error_line": 0,
-			"error_column": 0,
-			"source": source,
-	}
-
-	var header: PackedStringArray = rows[0]
-	var header_error: String = _validate_csv_header(header, reject_duplicate_headers)
-	if not header_error.is_empty():
-		return {
-			"success": false,
-			"data": null,
-			"header": header,
-			"row_locations": [],
-			"error": header_error,
-			"error_line": 1,
-			"error_column": 1,
-			"source": source,
-		}
-
-	var records: Array[Dictionary] = []
-	var row_locations: Array[Dictionary] = []
-	for row_index: int in range(1, rows.size()):
-		var row: PackedStringArray = rows[row_index]
-		if skip_empty_lines and _csv_row_is_empty(row):
-			continue
-		if row.size() > header.size():
-			return {
-				"success": false,
-				"data": null,
-				"header": header,
-				"row_locations": [],
-				"error": "CSV parse failed: row_has_extra_cells",
-				"error_line": row_index + 1,
-				"error_column": header.size() + 1,
-				"source": source,
-			}
-
-		var record: Dictionary = {}
-		var row_location: Dictionary = _make_csv_row_location(source, row_index + 1, header)
-		for column_index: int in range(header.size()):
-			var key: StringName = StringName(header[column_index])
-			if key == &"":
-				continue
-			record[key] = row[column_index] if column_index < row.size() else ""
-		records.append(record)
-		row_locations.append(row_location)
-
-	return {
-		"success": true,
-		"data": records,
-		"header": header,
-		"row_locations": row_locations,
-		"error": "",
-		"error_line": 0,
-		"error_column": 0,
-		"source": source,
-	}
+	var row_options: Dictionary = options.duplicate(true)
+	row_options["source"] = source
+	row_options["error_prefix"] = "CSV"
+	return parse_rows_table(rows, row_options)
 
 
 ## 解析 Godot ConfigFile 表文本。
@@ -308,13 +375,15 @@ static func validate_json_record(
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param text: CSV 文本。
 ## [br]
 ## @param schema: 表结构声明。
 ## [br]
-## @param options: 可选参数，支持 delimiter、trim_cells、skip_empty_lines、reject_duplicate_headers、source。
+## @param options: 可选参数，支持 delimiter、trim_cells、skip_empty_lines、reject_duplicate_headers、header_row、comment_prefixes、comment_row_prefixes、comment_column_prefixes、comment_prefix_case_sensitive、enable_condition_directives、condition_symbols、condition_directive_prefix 和 source。
 ## [br]
-## @schema options: Dictionary，可包含 delimiter、trim_cells、skip_empty_lines、reject_duplicate_headers 和 source。
+## @schema options: Dictionary，可包含 delimiter、trim_cells、skip_empty_lines、reject_duplicate_headers、header_row、comment_prefixes、comment_row_prefixes、comment_column_prefixes、comment_prefix_case_sensitive、enable_condition_directives、condition_symbols、condition_directive_prefix 和 source。
 ## [br]
 ## @return 校验报告；解析失败时返回失败报告。
 ## [br]
@@ -570,6 +639,220 @@ static func _get_parse_rows(parse_result: Dictionary) -> Array[PackedStringArray
 	return result
 
 
+static func _get_tabular_row_numbers(row_count: int, options: Dictionary) -> PackedInt32Array:
+	var value: Variant = GFVariantData.get_option_value(options, "row_numbers")
+	if value is PackedInt32Array:
+		var packed: PackedInt32Array = value
+		return packed if packed.size() == row_count else PackedInt32Array()
+	if not value is Array:
+		return PackedInt32Array()
+
+	var rows: Array = value
+	if rows.size() != row_count:
+		return PackedInt32Array()
+
+	var result: PackedInt32Array = PackedInt32Array()
+	for row_value: Variant in rows:
+		var _row_number_appended: bool = result.append(GFVariantData.to_int(row_value, result.size() + 1))
+	return result
+
+
+static func _get_tabular_row_number(row_numbers: PackedInt32Array, row_array_index: int) -> int:
+	if row_array_index >= 0 and row_array_index < row_numbers.size():
+		return row_numbers[row_array_index]
+	return row_array_index + 1
+
+
+static func _get_string_prefixes(
+	options: Dictionary,
+	key: String,
+	default_value: PackedStringArray = PackedStringArray()
+) -> PackedStringArray:
+	return GFVariantData.get_option_packed_string_array(options, key, default_value)
+
+
+static func _prepare_tabular_row(row: PackedStringArray, trim_cells: bool) -> PackedStringArray:
+	if not trim_cells:
+		return row
+
+	var result: PackedStringArray = PackedStringArray()
+	for cell: String in row:
+		var _cell_appended: bool = result.append(cell.strip_edges())
+	return result
+
+
+static func _select_tabular_column_indices(
+	header: PackedStringArray,
+	comment_column_prefixes: PackedStringArray,
+	case_sensitive: bool
+) -> PackedInt32Array:
+	var result: PackedInt32Array = PackedInt32Array()
+	for column_index: int in range(header.size()):
+		if _text_has_prefix(header[column_index], comment_column_prefixes, case_sensitive):
+			continue
+		var _column_appended: bool = result.append(column_index)
+	return result
+
+
+static func _filter_tabular_row(row: PackedStringArray, column_indices: PackedInt32Array) -> PackedStringArray:
+	var result: PackedStringArray = PackedStringArray()
+	for column_index: int in column_indices:
+		var _cell_appended: bool = result.append(row[column_index] if column_index < row.size() else "")
+	return result
+
+
+static func _validate_tabular_header(
+	header: PackedStringArray,
+	reject_duplicate_headers: bool,
+	reject_empty_header: bool,
+	error_prefix: String
+) -> String:
+	var has_named_column: bool = false
+	var seen: Dictionary = {}
+	for column_name: String in header:
+		if column_name.is_empty():
+			continue
+		has_named_column = true
+		if reject_duplicate_headers and seen.has(column_name):
+			return "%s header has duplicate column: %s" % [error_prefix, column_name]
+		seen[column_name] = true
+	if reject_empty_header and not has_named_column:
+		return "%s header row is empty." % error_prefix
+	return ""
+
+
+static func _make_tabular_parse_success(
+	records: Array[Dictionary],
+	header: PackedStringArray,
+	row_locations: Array[Dictionary],
+	source: String
+) -> Dictionary:
+	return {
+		"success": true,
+		"data": records,
+		"header": header,
+		"row_locations": row_locations,
+		"error": "",
+		"error_line": 0,
+		"error_column": 0,
+		"source": source,
+	}
+
+
+static func _make_tabular_parse_failure(
+	error: String,
+	source: String,
+	line_number: int,
+	column_number: int
+) -> Dictionary:
+	return {
+		"success": false,
+		"data": null,
+		"header": PackedStringArray(),
+		"row_locations": [],
+		"error": error,
+		"error_line": line_number,
+		"error_column": column_number,
+		"source": source,
+	}
+
+
+static func _parse_condition_directive(first_cell: String, directive_prefix: String) -> Dictionary:
+	var text: String = first_cell.strip_edges()
+	if directive_prefix.is_empty() or not text.begins_with(directive_prefix):
+		return { "kind": &"none" }
+
+	var payload: String = text.substr(directive_prefix.length()).strip_edges()
+	if payload == "endif":
+		return { "kind": &"endif" }
+	if payload == "if":
+		return {
+			"kind": &"if",
+			"symbols": PackedStringArray(),
+		}
+	if not payload.begins_with("if "):
+		return { "kind": &"none" }
+
+	var symbols: PackedStringArray = PackedStringArray()
+	for token: String in payload.substr(3).split(" ", false):
+		var symbol: String = token.strip_edges()
+		if symbol.is_empty():
+			continue
+		var _symbol_appended: bool = symbols.append(symbol)
+	return {
+		"kind": &"if",
+		"symbols": symbols,
+	}
+
+
+static func _condition_symbols_match(required_symbols: PackedStringArray, active_symbols: PackedStringArray) -> bool:
+	for symbol: String in required_symbols:
+		if not active_symbols.has(symbol):
+			return false
+	return true
+
+
+static func _condition_stack_is_active(condition_stack: Array[Dictionary]) -> bool:
+	for condition_info: Dictionary in condition_stack:
+		if not GFVariantData.get_option_bool(condition_info, "active"):
+			return false
+	return true
+
+
+static func _tabular_row_is_empty(row: PackedStringArray) -> bool:
+	for cell: String in row:
+		if not cell.strip_edges().is_empty():
+			return false
+	return true
+
+
+static func _text_has_prefix(text: String, prefixes: PackedStringArray, case_sensitive: bool) -> bool:
+	if prefixes.is_empty():
+		return false
+
+	var checked_text: String = text if case_sensitive else text.to_lower()
+	for prefix: String in prefixes:
+		if prefix.is_empty():
+			continue
+		var checked_prefix: String = prefix if case_sensitive else prefix.to_lower()
+		if checked_text.begins_with(checked_prefix):
+			return true
+	return false
+
+
+static func _make_tabular_row_location(
+	source: String,
+	line_number: int,
+	row_index: int,
+	header: PackedStringArray,
+	column_indices: PackedInt32Array
+) -> Dictionary:
+	var fields: Dictionary = {}
+	for column_index: int in range(header.size()):
+		var key: StringName = StringName(header[column_index])
+		if key == &"":
+			continue
+		var source_column_index: int = column_indices[column_index]
+		var field_location: Dictionary = {
+			"line": line_number,
+			"column": source_column_index + 1,
+			"column_index": source_column_index,
+		}
+		if not source.is_empty():
+			field_location["source"] = source
+		fields[key] = field_location
+		fields[String(key)] = field_location
+
+	var row_location: Dictionary = {
+		"line": line_number,
+		"row_index": row_index,
+		"fields": fields,
+	}
+	if not source.is_empty():
+		row_location["source"] = source
+	return row_location
+
+
 static func _copy_dictionary_rows(value: Variant) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	if not value is Array:
@@ -581,51 +864,11 @@ static func _copy_dictionary_rows(value: Variant) -> Array[Dictionary]:
 	return result
 
 
-static func _validate_csv_header(header: PackedStringArray, reject_duplicate_headers: bool) -> String:
-	if not reject_duplicate_headers:
-		return ""
-
-	var seen: Dictionary = {}
-	for column_name: String in header:
-		if column_name.is_empty():
-			continue
-		if seen.has(column_name):
-			return "CSV header has duplicate column: %s" % column_name
-		seen[column_name] = true
-	return ""
-
-
 static func _csv_row_is_empty(row: PackedStringArray) -> bool:
 	for cell: String in row:
 		if not cell.strip_edges().is_empty():
 			return false
 	return true
-
-
-static func _make_csv_row_location(source: String, line_number: int, header: PackedStringArray) -> Dictionary:
-	var fields: Dictionary = {}
-	for column_index: int in range(header.size()):
-		var key: StringName = StringName(header[column_index])
-		if key == &"":
-			continue
-		var field_location: Dictionary = {
-			"line": line_number,
-			"column": column_index + 1,
-			"column_index": column_index,
-		}
-		if not source.is_empty():
-			field_location["source"] = source
-		fields[key] = field_location
-		fields[String(key)] = field_location
-
-	var row_location: Dictionary = {
-		"line": line_number,
-		"row_index": line_number - 2,
-		"fields": fields,
-	}
-	if not source.is_empty():
-		row_location["source"] = source
-	return row_location
 
 
 static func _make_config_file_row_location(

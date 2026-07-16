@@ -17,6 +17,8 @@
 |---|---|---|
 | 信号 | [`queue_drained`](#member-gfactionqueuesystem-signals-queue_drained) | `signal queue_drained` |
 | 属性 | [`is_processing`](#member-gfactionqueuesystem-properties-is_processing) | `var is_processing: bool = false` |
+| 属性 | [`max_immediate_actions_per_slice`](#member-gfactionqueuesystem-properties-max_immediate_actions_per_slice) | `var max_immediate_actions_per_slice: int:` |
+| 属性 | [`max_debug_named_queue_entries`](#member-gfactionqueuesystem-properties-max_debug_named_queue_entries) | `var max_debug_named_queue_entries: int:` |
 | 方法 | [`init`](#member-gfactionqueuesystem-methods-init) | `func init() -> void:` |
 | 方法 | [`ready`](#member-gfactionqueuesystem-methods-ready) | `func ready() -> void:` |
 | 方法 | [`dispose`](#member-gfactionqueuesystem-methods-dispose) | `func dispose() -> void:` |
@@ -76,6 +78,32 @@ var is_processing: bool = false
 ```
 
 是否正在处理队列。
+
+<a id="member-gfactionqueuesystem-properties-max_immediate_actions_per_slice"></a>
+
+### `max_immediate_actions_per_slice`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+var max_immediate_actions_per_slice: int:
+```
+
+单个处理切片最多消费的即时动作数；达到上限后让出到下一 process frame。
+
+<a id="member-gfactionqueuesystem-properties-max_debug_named_queue_entries"></a>
+
+### `max_debug_named_queue_entries`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+var max_debug_named_queue_entries: int:
+```
+
+调试快照最多展开的直接命名队列数量。
 
 ## 方法
 
@@ -496,6 +524,7 @@ func clear_named_queue(queue_name: StringName, stop_current: bool = false) -> vo
 ### `clear_all_named_queues`
 
 - API：`public`
+- 首次版本：`8.0.0`
 
 ```gdscript
 func clear_all_named_queues(stop_current: bool = false) -> void:
@@ -507,7 +536,7 @@ func clear_all_named_queues(stop_current: bool = false) -> void:
 
 | 名称 | 说明 |
 |---|---|
-| `stop_current` | 是否停止当前正在执行的动作。 |
+| `stop_current` | 兼容参数；命名队列由父队列拥有，清理时总会释放子队列并停止其当前动作。 |
 
 <a id="member-gfactionqueuesystem-methods-skip_current_action"></a>
 
@@ -592,7 +621,7 @@ func get_debug_snapshot() -> Dictionary:
 
 结构：
 
-- `return`: Dictionary，包含 is_processing、is_paused、queued_count、has_current_action、processing_serial、named_queue_count、named_queues、linked_node_alive 和 interceptor_count。
+- `return`: Dictionary，包含 is_processing、is_paused、queued_count、has_current_action、processing_serial、max_immediate_actions_per_slice、named_queue_count、named_queue_snapshot_count、named_queues_truncated、named_queues、linked_node_alive 和 interceptor_count。
 
 <a id="member-gfactionqueuesystem-methods-tick"></a>
 

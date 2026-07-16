@@ -13,6 +13,6 @@
   "paths": [
     "addons/gf/extensions/camera/**"
   ],
-  "enable_extension": "gf.camera",
+  "gf_extension_id": "gf.camera",
   "metadata": {}
 }

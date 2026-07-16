@@ -36,7 +36,7 @@
 | 属性 | [`send_on_released`](#member-gfpointerinteraction3d-properties-send_on_released) | `var send_on_released: bool = false` |
 | 属性 | [`send_on_wheel`](#member-gfpointerinteraction3d-properties-send_on_wheel) | `var send_on_wheel: bool = false` |
 | 属性 | [`send_on_hover`](#member-gfpointerinteraction3d-properties-send_on_hover) | `var send_on_hover: bool = false` |
-| 属性 | [`ensure_input_ray_pickable`](#member-gfpointerinteraction3d-properties-ensure_input_ray_pickable) | `var ensure_input_ray_pickable: bool = true` |
+| 属性 | [`ensure_input_ray_pickable`](#member-gfpointerinteraction3d-properties-ensure_input_ray_pickable) | `var ensure_input_ray_pickable: bool = true:` |
 | 属性 | [`change_cursor_on_hover`](#member-gfpointerinteraction3d-properties-change_cursor_on_hover) | `var change_cursor_on_hover: bool = false` |
 | 属性 | [`cursor_shape`](#member-gfpointerinteraction3d-properties-cursor_shape) | `var cursor_shape: Input.CursorShape = Input.CURSOR_ARROW` |
 | 方法 | [`bind_collision_object`](#member-gfpointerinteraction3d-methods-bind_collision_object) | `func bind_collision_object(collision_object: CollisionObject3D) -> void:` |
@@ -51,6 +51,7 @@
 ### `pointer_entered`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 signal pointer_entered(context: GFInteractionContext)
@@ -69,6 +70,7 @@ signal pointer_entered(context: GFInteractionContext)
 ### `pointer_exited`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 signal pointer_exited(context: GFInteractionContext)
@@ -87,6 +89,7 @@ signal pointer_exited(context: GFInteractionContext)
 ### `pointer_pressed`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 signal pointer_pressed(context: GFInteractionContext, event: InputEventMouseButton)
@@ -106,6 +109,7 @@ signal pointer_pressed(context: GFInteractionContext, event: InputEventMouseButt
 ### `pointer_released`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 signal pointer_released(context: GFInteractionContext, event: InputEventMouseButton)
@@ -125,6 +129,7 @@ signal pointer_released(context: GFInteractionContext, event: InputEventMouseBut
 ### `pointer_clicked`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 signal pointer_clicked(context: GFInteractionContext, event: InputEventMouseButton)
@@ -144,6 +149,7 @@ signal pointer_clicked(context: GFInteractionContext, event: InputEventMouseButt
 ### `pointer_wheel`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 signal pointer_wheel(context: GFInteractionContext, event: InputEventMouseButton)
@@ -163,6 +169,7 @@ signal pointer_wheel(context: GFInteractionContext, event: InputEventMouseButton
 ### `pointer_interaction_sent`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 signal pointer_interaction_sent(context: GFInteractionContext, receiver: Object, report: Dictionary)
@@ -180,7 +187,7 @@ signal pointer_interaction_sent(context: GFInteractionContext, receiver: Object,
 
 结构：
 
-- `report`: 交互结果报告 Dictionary，包含 ok、interaction_id、receiver、reason、message 和 metadata 等字段。
+- `report`: 交互结果报告 Dictionary，包含 ok、interaction_id、receiver(JSON-safe 摘要)、reason、message 和 metadata 等字段。
 
 ## 属性
 
@@ -202,6 +209,7 @@ var enabled: bool = true:
 ### `interaction_id`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var interaction_id: StringName = &""
@@ -214,6 +222,7 @@ var interaction_id: StringName = &""
 ### `group_name`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var group_name: StringName = &""
@@ -226,6 +235,7 @@ var group_name: StringName = &""
 ### `payload`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var payload: Dictionary = {}
@@ -242,6 +252,7 @@ var payload: Dictionary = {}
 ### `tags`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var tags: PackedStringArray = PackedStringArray()
@@ -254,6 +265,7 @@ var tags: PackedStringArray = PackedStringArray()
 ### `metadata`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var metadata: Dictionary = {}
@@ -270,6 +282,7 @@ var metadata: Dictionary = {}
 ### `collision_object_path`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var collision_object_path: NodePath = NodePath("")
@@ -282,6 +295,7 @@ var collision_object_path: NodePath = NodePath("")
 ### `receiver_path`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var receiver_path: NodePath = NodePath("")
@@ -294,6 +308,7 @@ var receiver_path: NodePath = NodePath("")
 ### `sender_path`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var sender_path: NodePath = NodePath("")
@@ -306,6 +321,7 @@ var sender_path: NodePath = NodePath("")
 ### `send_on_clicked`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var send_on_clicked: bool = true
@@ -318,6 +334,7 @@ var send_on_clicked: bool = true
 ### `send_on_pressed`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var send_on_pressed: bool = false
@@ -330,6 +347,7 @@ var send_on_pressed: bool = false
 ### `send_on_released`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var send_on_released: bool = false
@@ -342,6 +360,7 @@ var send_on_released: bool = false
 ### `send_on_wheel`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var send_on_wheel: bool = false
@@ -354,6 +373,7 @@ var send_on_wheel: bool = false
 ### `send_on_hover`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var send_on_hover: bool = false
@@ -366,9 +386,10 @@ var send_on_hover: bool = false
 ### `ensure_input_ray_pickable`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-var ensure_input_ray_pickable: bool = true
+var ensure_input_ray_pickable: bool = true:
 ```
 
 绑定碰撞对象时是否确保 input_ray_pickable 为 true。
@@ -378,6 +399,7 @@ var ensure_input_ray_pickable: bool = true
 ### `change_cursor_on_hover`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var change_cursor_on_hover: bool = false
@@ -390,6 +412,7 @@ hover 时是否临时切换鼠标光标。
 ### `cursor_shape`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var cursor_shape: Input.CursorShape = Input.CURSOR_ARROW
@@ -404,6 +427,7 @@ hover 时使用的鼠标光标。
 ### `bind_collision_object`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func bind_collision_object(collision_object: CollisionObject3D) -> void:
@@ -422,6 +446,7 @@ func bind_collision_object(collision_object: CollisionObject3D) -> void:
 ### `get_collision_object`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func get_collision_object() -> CollisionObject3D:
@@ -484,4 +509,4 @@ func send_pointer_interaction( pointer_event: StringName, pointer_data: Dictiona
 结构：
 
 - `pointer_data`: 指针事件数据 Dictionary；常见字段包括 pointer_position、pointer_normal、pointer_shape_idx、pointer_camera_path 和 pointer_input_event_class。
-- `return`: 交互结果报告 Dictionary，包含 ok、interaction_id、receiver、reason、message 和 metadata 等字段。
+- `return`: 交互结果报告 Dictionary，包含 ok、interaction_id、receiver(JSON-safe 摘要)、reason、message 和 metadata 等字段。

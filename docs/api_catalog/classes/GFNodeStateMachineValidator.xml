@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFNodeStateMachineValidator" path="addons/gf/standard/state_machine/node/gf_node_state_machine_validator.gd" module="standard" extends="RefCounted" classDigest="50865b13108502e483acd9e64f6696d3c9810a542e8cd701b9ed40df35f41ad7">
+<class name="GFNodeStateMachineValidator" path="addons/gf/standard/state_machine/node/gf_node_state_machine_validator.gd" module="standard" extends="RefCounted" classDigest="304f98dffa8f737c001ed1e8564755ecf2b07bd2c4a95f7db2471d9132713596">
 	<description>GFNodeStateMachineValidator: 节点状态机结构校验工具。
 只检查状态机、状态组和状态资源挂接是否自洽，不执行状态切换，
 也不推断项目业务中的转移规则。</description>
@@ -15,13 +15,14 @@
 	<methods>
 		<member kind="method" name="validate_machine">
 			<signature>static func validate_machine(machine: GFNodeStateMachine, options: Dictionary = {}) -&gt; GFValidationReport:</signature>
-			<description>校验一个节点状态机的直接子状态和显式状态组。</description>
+			<description>校验一个节点状态机的直接子状态、场景状态组和运行时注册状态组。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">machine: 要校验的节点状态机。</tag>
 				<tag name="param">options: 可选校验选项，支持 check_state_resources、require_initial_state。</tag>
 				<tag name="return">校验报告。</tag>
 				<tag name="schema">options: 校验选项 Dictionary；支持 check_state_resources: bool 和 require_initial_state: bool。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="validate_group">

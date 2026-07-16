@@ -7,7 +7,7 @@
 ## [br]
 ## @api public
 ## [br]
-## @category runtime_service
+## @category tool_api
 ## [br]
 ## @since 5.0.0
 class_name GFAudioLibraryTools
@@ -340,6 +340,15 @@ static func _copy_plan_entry(
 	if source_path.is_empty() or target_path.is_empty():
 		_add_report_error(report, &"invalid_import_path", "Audio import path is empty.", source_path, target_path)
 		return ERR_INVALID_PARAMETER
+	if _has_parent_path_segment(source_path) or _has_parent_path_segment(target_path):
+		_add_report_error(
+			report,
+			&"unsafe_import_path",
+			"Audio import paths must not contain parent directory segments.",
+			source_path,
+			target_path
+		)
+		return ERR_UNAUTHORIZED
 	if source_path == target_path:
 		_add_report_warning(report, &"same_path", "Audio import source and target are the same path.", source_path, target_path)
 		return ERR_SKIP
@@ -549,13 +558,16 @@ static func _remove_file_if_exists(path: String) -> void:
 
 
 static func _make_target_relative_path(entry: Dictionary, options: Dictionary) -> String:
+	var file_name: String = GFVariantData.get_option_string(entry, "file_name").get_file()
+	if file_name.is_empty() or not _is_safe_relative_path(file_name):
+		return ""
 	if not GFVariantData.get_option_bool(options, "preserve_structure", true):
-		return GFVariantData.get_option_string(entry, "file_name")
+		return file_name
 
 	var relative_path: String = _get_entry_relative_path(entry)
 	if _is_safe_relative_path(relative_path):
 		return relative_path
-	return GFVariantData.get_option_string(entry, "file_name")
+	return file_name
 
 
 static func _get_entry_relative_path(entry: Dictionary) -> String:
@@ -576,13 +588,21 @@ static func _is_safe_relative_path(path: String) -> bool:
 	var normalized_path: String = path.replace("\\", "/").strip_edges()
 	if normalized_path.is_empty():
 		return false
-	if normalized_path.begins_with("/") or normalized_path.begins_with("../"):
-		return false
-	if normalized_path.contains("/../"):
+	if normalized_path.begins_with("/"):
 		return false
 	if normalized_path.contains("://"):
 		return false
+	for path_part: String in normalized_path.split("/", false):
+		if path_part == "." or path_part == "..":
+			return false
 	return true
+
+
+static func _has_parent_path_segment(path: String) -> bool:
+	for path_part: String in path.replace("\\", "/").strip_edges().split("/", false):
+		if path_part == "..":
+			return true
+	return false
 
 
 static func _get_relative_directory(relative_path: String) -> String:
@@ -641,7 +661,26 @@ static func _normalize_dir_path(path: String) -> String:
 static func _join_path(root_path: String, relative_path: String) -> String:
 	if root_path.is_empty() or relative_path.is_empty():
 		return ""
-	return root_path.path_join(relative_path)
+	if not _is_safe_relative_path(relative_path):
+		return ""
+
+	var normalized_root: String = root_path.replace("\\", "/").strip_edges().simplify_path()
+	var normalized_relative: String = relative_path.replace("\\", "/").strip_edges()
+	var target_path: String = normalized_root.path_join(normalized_relative).replace("\\", "/").simplify_path()
+	if not _is_path_under_root(target_path, normalized_root):
+		return ""
+	return target_path
+
+
+static func _is_path_under_root(path: String, root_path: String) -> bool:
+	var normalized_path: String = path.replace("\\", "/").strip_edges().simplify_path()
+	var normalized_root: String = root_path.replace("\\", "/").strip_edges().simplify_path()
+	if normalized_path == normalized_root:
+		return true
+	var root_prefix: String = normalized_root
+	if not root_prefix.ends_with("/"):
+		root_prefix += "/"
+	return normalized_path.begins_with(root_prefix)
 
 
 static func _file_exists(path: String) -> bool:

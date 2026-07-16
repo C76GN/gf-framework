@@ -166,9 +166,10 @@ var plan := GFTextureSetClassifier.build_material_import_plan(
 		"res://textures/stone_albedo.png",
 		"res://textures/stone_normal.png",
 		"res://textures/stone_roughness.png",
+		"res://textures/stone_orm.png",
 	]),
 	"res://generated/materials"
 )
 ```
 
-分类器只输出 `textures` 角色字典、source trace 和修复建议，不创建 `StandardMaterial3D`，也不假设目标项目的材质目录、压缩策略、导入 preset 或 shader 参数。项目导入器可以读取计划中的 metadata，再决定实际材质类型和写入流程。
+分类器只输出 `textures` 角色字典、source trace 和修复建议，不创建 `StandardMaterial3D`，也不假设目标项目的材质目录、压缩策略、导入 preset 或 shader 参数。默认角色覆盖 albedo、normal、roughness、metallic、packed ORM、AO、height 和 emission；项目导入器可以读取计划中的 metadata，再决定实际材质类型和写入流程。

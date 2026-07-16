@@ -434,6 +434,80 @@ func test_sequence_trigger_supports_branch_alternatives() -> void:
 	assert_true(_utility.is_action_active(&"special"), "任一序列分支完成后当前动作应可触发。")
 
 
+func test_sequence_trigger_required_action_cache_updates_when_ids_change() -> void:
+	var sequence_trigger: GFInputSequenceTrigger = GFInputSequenceTrigger.new()
+	var left_ids: Array[StringName] = [&"left"]
+	sequence_trigger.required_action_ids = left_ids
+	var special_mapping: GFInputMapping = _make_mapping(_make_action(&"special"), [
+		_make_key_binding(KEY_P),
+	])
+	special_mapping.triggers = [sequence_trigger]
+	var context: GFInputContext = _make_context(&"gameplay", [
+		_make_mapping(_make_action(&"left"), [
+			_make_key_binding(KEY_A),
+		]),
+		_make_mapping(_make_action(&"down"), [
+			_make_key_binding(KEY_S),
+		]),
+		special_mapping,
+	])
+	_utility.enable_context(context)
+
+	_utility.handle_input_event(_make_key_event(KEY_A, true))
+	_utility.handle_input_event(_make_key_event(KEY_P, true))
+
+	assert_true(_utility.is_action_active(&"special"), "旧 required_action_ids 应按 left 触发。")
+
+	_utility.clear_input_state()
+	var down_ids: Array[StringName] = [&"down"]
+	sequence_trigger.required_action_ids = down_ids
+	_utility.handle_input_event(_make_key_event(KEY_A, true))
+	_utility.handle_input_event(_make_key_event(KEY_P, true))
+
+	assert_false(_utility.is_action_active(&"special"), "修改 required_action_ids 后不应继续使用旧分支缓存。")
+
+	_utility.clear_input_state()
+	_utility.handle_input_event(_make_key_event(KEY_S, true))
+	_utility.handle_input_event(_make_key_event(KEY_P, true))
+
+	assert_true(_utility.is_action_active(&"special"), "新 required_action_ids 应按 down 触发。")
+
+
+func test_sequence_trigger_resets_progress_when_same_count_branch_configuration_changes() -> void:
+	var sequence_trigger: GFInputSequenceTrigger = GFInputSequenceTrigger.new()
+	var left_ids: Array[StringName] = [&"left"]
+	var initial_branches: Array[GFInputSequenceBranch] = [
+		GFInputSequenceBranch.from_action_ids(left_ids, 0.3),
+	]
+	sequence_trigger.branches = initial_branches
+	var special_mapping: GFInputMapping = _make_mapping(_make_action(&"special"), [
+		_make_key_binding(KEY_P),
+	])
+	special_mapping.triggers = [sequence_trigger]
+	var context: GFInputContext = _make_context(&"gameplay", [
+		_make_mapping(_make_action(&"left"), [_make_key_binding(KEY_A)]),
+		_make_mapping(_make_action(&"down"), [_make_key_binding(KEY_S)]),
+		special_mapping,
+	])
+	_utility.enable_context(context)
+
+	_utility.handle_input_event(_make_key_event(KEY_A, true))
+	var down_ids: Array[StringName] = [&"down"]
+	var replacement_branches: Array[GFInputSequenceBranch] = [
+		GFInputSequenceBranch.from_action_ids(down_ids, 0.3),
+	]
+	sequence_trigger.branches = replacement_branches
+	_utility.handle_input_event(_make_key_event(KEY_P, true))
+
+	assert_false(_utility.is_action_active(&"special"), "同分支数量的热变更也必须清除旧配置进度。")
+
+	_utility.clear_input_state()
+	_utility.handle_input_event(_make_key_event(KEY_S, true))
+	_utility.handle_input_event(_make_key_event(KEY_P, true))
+
+	assert_true(_utility.is_action_active(&"special"), "热变更后应按新分支重新完成序列。")
+
+
 ## 验证序列步骤支持按住后释放作为完成条件。
 func test_sequence_trigger_supports_hold_then_release_step() -> void:
 	var step: GFInputSequenceStep = GFInputSequenceStep.new()
@@ -500,6 +574,19 @@ func test_get_remappable_items_returns_effective_event() -> void:
 	assert_eq(GFVariantData.get_option_string_name(items[0], "context_id"), &"gameplay", "条目应包含上下文标识。")
 	assert_eq(GFVariantData.get_option_string_name(items[0], "action_id"), &"jump", "条目应包含动作标识。")
 	assert_eq(GFInputFormatter.input_event_as_text(item_event), "Enter", "条目应使用重映射后的事件。")
+
+
+func test_player_queries_do_not_allocate_runtime_metadata_for_unknown_actions() -> void:
+	for player_index: int in range(100):
+		var action_id: StringName = StringName("missing_action_%d" % player_index)
+		var _value: Variant = _utility.get_action_value_for_player(player_index, action_id)
+		var _active: bool = _utility.is_action_active_for_player(player_index, action_id)
+		var _just_started: bool = _utility.was_action_just_started_for_player(player_index, action_id)
+		var _just_completed: bool = _utility.was_action_just_completed_for_player(player_index, action_id)
+		var _duration: float = _utility.get_last_completed_duration_for_player(player_index, action_id)
+
+	var metadata: Dictionary = GFVariantData.as_dictionary(_utility.get("_player_action_metadata"))
+	assert_true(metadata.is_empty(), "纯查询不得为不存在的玩家动作累积元数据。")
 
 
 ## 验证格式化工具可以输出组合键文本。
@@ -583,6 +670,50 @@ func test_input_remap_config_uses_structured_event_records() -> void:
 	assert_eq(restored_event.keycode, KEY_SPACE, "恢复后的按键事件应保留 keycode。")
 
 
+func test_input_remap_config_apply_dict_is_transactional_and_reports_commit() -> void:
+	var remap_config: GFInputRemapConfig = GFInputRemapConfig.new()
+	remap_config.set_binding(&"gameplay", &"jump", 0, _make_key_event(KEY_SPACE, true))
+	remap_config.custom_data = { "profile": "stable" }
+	var invalid_data: Dictionary = {
+		"remapped_events": {
+			"gameplay": {
+				"jump": {
+					"0": {
+						"event_class": "NotInputEvent",
+						"properties": {},
+					},
+				},
+			},
+		},
+		"custom_data": { "profile": "replacement" },
+	}
+
+	var invalid_report: Dictionary = remap_config.apply_dict(invalid_data)
+	var preserved_event_value: InputEvent = remap_config.get_bound_event_or_null(&"gameplay", &"jump", 0)
+
+	assert_false(GFVariantData.get_option_bool(invalid_report, "ok"), "非法候选配置应返回失败。")
+	assert_false(GFVariantData.get_option_bool(invalid_report, "committed"), "非法候选配置不得提交。")
+	assert_true(preserved_event_value is InputEventKey, "失败后原绑定类型应保留。")
+	if preserved_event_value is InputEventKey:
+		var preserved_event: InputEventKey = preserved_event_value
+		assert_eq(preserved_event.keycode, KEY_SPACE, "失败后原绑定内容应保留。")
+	assert_eq(GFVariantData.get_option_string(remap_config.custom_data, "profile"), "stable", "失败后自定义数据也应保持原值。")
+
+	var replacement: GFInputRemapConfig = GFInputRemapConfig.new()
+	replacement.set_binding(&"gameplay", &"jump", 0, _make_key_event(KEY_ENTER, true))
+	replacement.custom_data = { "profile": "replacement" }
+	var success_report: Dictionary = remap_config.apply_dict(replacement.to_dict())
+	var committed_event_value: InputEvent = remap_config.get_bound_event_or_null(&"gameplay", &"jump", 0)
+
+	assert_true(GFVariantData.get_option_bool(success_report, "ok"), "有效候选配置应成功。")
+	assert_true(GFVariantData.get_option_bool(success_report, "committed"), "有效候选配置应显式报告已提交。")
+	assert_eq(GFVariantData.get_option_int(success_report, "binding_count"), 1)
+	assert_true(committed_event_value is InputEventKey, "提交后应恢复有效按键事件。")
+	if committed_event_value is InputEventKey:
+		var committed_event: InputEventKey = committed_event_value
+		assert_eq(committed_event.keycode, KEY_ENTER, "提交后应切换到候选绑定。")
+
+
 ## 验证输入冲突分析器可构建完整重绑定报告。
 func test_input_conflict_analyzer_builds_rebind_report() -> void:
 	var context: GFInputContext = _make_context(&"gameplay", [
@@ -600,6 +731,23 @@ func test_input_conflict_analyzer_builds_rebind_report() -> void:
 	assert_eq(GFVariantData.get_option_int(report, "context_count"), 1, "报告应包含上下文数量。")
 	assert_eq(GFVariantData.get_option_int(report, "item_count"), 2, "报告应包含绑定条目数量。")
 	assert_eq(GFVariantData.get_option_int(report, "conflict_count"), 1, "报告应包含冲突数量。")
+
+
+func test_input_conflict_analyzer_reports_event_records_without_raw_events() -> void:
+	var context: GFInputContext = _make_context(&"gameplay", [
+		_make_mapping(_make_action(&"jump"), [
+			_make_key_binding(KEY_SPACE),
+		]),
+	])
+
+	var report: Dictionary = GFInputConflictAnalyzer.build_rebind_report([context])
+	var items: Array = GFVariantData.get_option_array(report, "items")
+	var item: Dictionary = GFVariantData.as_dictionary(items[0])
+	var event_record: Dictionary = GFVariantData.get_option_dictionary(item, "event_record")
+
+	assert_false(item.has("event"), "重绑定报告不应暴露原始 InputEvent。")
+	assert_eq(GFVariantData.get_option_string(event_record, "event_class"), "InputEventKey")
+	assert_false(JSON.stringify(report).is_empty(), "重绑定报告应可直接 JSON 序列化。")
 
 
 ## 验证延迟挂载在 Utility 销毁后不会留下输入路由节点。
@@ -639,6 +787,29 @@ func test_player_action_state_is_scoped_by_device_assignment() -> void:
 	_utility = null
 	await get_tree().process_frame
 	await get_tree().create_timer(0.0).timeout
+
+
+func test_unassigned_physical_input_does_not_drive_global_action_when_device_utility_is_bound() -> void:
+	var arch: GFArchitecture = GFArchitecture.new()
+	var devices: GFInputDeviceUtility = GFInputDeviceUtility.new()
+	devices.include_keyboard_mouse = false
+	devices.include_touch = false
+	devices.max_players = 1
+	await arch.register_utility_instance(devices)
+	await arch.register_utility_instance(_utility)
+	var context: GFInputContext = _make_context(&"gameplay", [
+		_make_mapping(_make_action(&"jump"), [
+			_make_key_binding(KEY_SPACE),
+		]),
+	])
+
+	_utility.enable_context(context)
+	_utility.handle_input_event(_make_key_event(KEY_SPACE, true))
+
+	assert_false(_utility.is_action_active(&"jump"), "绑定设备工具后，未归属物理输入不应污染全局动作状态。")
+	arch.dispose()
+	_utility = null
+	await get_tree().process_frame
 
 
 func test_player_action_state_keeps_multiple_sources_for_same_player_binding() -> void:
@@ -722,6 +893,25 @@ func test_clear_player_input_state_removes_player_global_contributions() -> void
 	assert_false(_utility.is_action_active_for_player(1, &"move"), "玩家级动作应结束。")
 
 
+func test_virtual_source_ids_with_delimiters_do_not_clear_each_other() -> void:
+	var bindings: Array[GFInputBinding] = []
+	var context: GFInputContext = _make_context(&"gameplay", [
+		_make_mapping(_make_action(&"boost"), bindings),
+	])
+	_utility.enable_context(context)
+	var nested_source: GFVirtualInputSource = _utility.create_virtual_source(&"pad/one")
+	var parent_source: GFVirtualInputSource = _utility.create_virtual_source(&"pad")
+
+	assert_true(nested_source.press(&"boost"), "带分隔符的虚拟源应能写入动作。")
+	assert_true(parent_source.press(&"boost"), "普通虚拟源应能写入同一动作。")
+
+	parent_source.clear_all()
+
+	assert_true(_utility.is_action_active(&"boost"), "清理 pad 不应误伤 pad/one 的虚拟贡献。")
+	assert_true(nested_source.release(&"boost"), "剩余虚拟源仍应能独立释放动作。")
+	assert_false(_utility.is_action_active(&"boost"), "释放剩余贡献后动作才应结束。")
+
+
 func test_input_recording_playback_drives_virtual_source() -> void:
 	var bindings: Array[GFInputBinding] = []
 	var context: GFInputContext = _make_context(&"gameplay", [
@@ -742,6 +932,63 @@ func test_input_recording_playback_drives_virtual_source() -> void:
 
 	assert_false(_utility.is_action_active(&"jump"), "回放释放事件应结束动作。")
 	assert_false(playback.is_playing, "非循环回放到末尾后应停止。")
+
+
+func test_input_playback_defers_excess_loop_cycles_without_losing_events() -> void:
+	var bindings: Array[GFInputBinding] = []
+	var context: GFInputContext = _make_context(&"gameplay", [
+		_make_mapping(_make_action(&"jump"), bindings),
+	])
+	_utility.enable_context(context)
+	var source: GFVirtualInputSource = _utility.create_virtual_source(&"loop_recording")
+	var recording: GFInputRecording = GFInputRecording.new()
+	var _press: Dictionary = recording.add_event(&"jump", true, 0.0)
+	var _release: Dictionary = recording.add_event(&"jump", false, 0.5)
+	recording.duration_seconds = 1.0
+	var playback: GFInputPlayback = GFInputPlayback.new()
+	playback.loop = true
+	playback.max_loop_cycles_per_tick = 1
+	watch_signals(playback)
+	assert_true(playback.start(recording, source))
+
+	var first_applied: int = playback.tick(2.25)
+	var deferred_snapshot: Dictionary = playback.get_debug_snapshot()
+	var second_applied: int = playback.tick(0.0)
+	var completed_snapshot: Dictionary = playback.get_debug_snapshot()
+
+	assert_eq(first_applied + second_applied, 5, "延后策略应跨后续 tick 应用全部到期事件。")
+	assert_almost_eq(GFVariantData.get_option_float(deferred_snapshot, "pending_advance_seconds"), 1.25, 0.001, "超预算时间应显式进入待处理队列。")
+	assert_almost_eq(GFVariantData.get_option_float(completed_snapshot, "pending_advance_seconds"), 0.0, 0.001, "后续 tick 应清空待处理时间。")
+	assert_true(_utility.is_action_active(&"jump"), "最终周期 0.25 秒处应保持按下状态。")
+	assert_signal_emitted(playback, "loop_catch_up_limited", "达到循环预算时应暴露背压诊断。")
+
+
+func test_input_playback_skips_cycles_only_under_explicit_policy() -> void:
+	var bindings: Array[GFInputBinding] = []
+	var context: GFInputContext = _make_context(&"gameplay", [
+		_make_mapping(_make_action(&"jump"), bindings),
+	])
+	_utility.enable_context(context)
+	var source: GFVirtualInputSource = _utility.create_virtual_source(&"skip_recording")
+	var recording: GFInputRecording = GFInputRecording.new()
+	var _press: Dictionary = recording.add_event(&"jump", true, 0.0)
+	var _release: Dictionary = recording.add_event(&"jump", false, 0.5)
+	recording.duration_seconds = 1.0
+	var playback: GFInputPlayback = GFInputPlayback.new()
+	playback.loop = true
+	playback.max_loop_cycles_per_tick = 1
+	playback.loop_catch_up_policy = GFInputPlayback.LoopCatchUpPolicy.SKIP_EXCESS_CYCLES
+	watch_signals(playback)
+	assert_true(playback.start(recording, source))
+
+	var applied: int = playback.tick(3.25)
+	var snapshot: Dictionary = playback.get_debug_snapshot()
+
+	assert_eq(applied, 3, "显式跳过策略只应应用预算周期和最终周期状态事件。")
+	assert_almost_eq(playback.elapsed_seconds, 0.25, 0.001, "跳过完整周期后应保留最终周期内时间。")
+	assert_almost_eq(GFVariantData.get_option_float(snapshot, "pending_advance_seconds"), 0.0, 0.001, "跳过策略不应留下待处理时间。")
+	assert_true(_utility.is_action_active(&"jump"), "跳过后仍应重建最终周期状态。")
+	assert_signal_emitted(playback, "loop_catch_up_limited", "显式跳过周期也应发出诊断信号。")
 
 
 func test_input_recording_json_roundtrip_preserves_values() -> void:
@@ -834,6 +1081,25 @@ func test_input_playback_seek_rebuilds_virtual_source_state() -> void:
 	assert_eq(playback.tick(0.0), 0, "seek 已应用到期事件后，同时间 tick 不应重复应用。")
 
 
+func test_input_playback_resume_rebuilds_virtual_source_state() -> void:
+	var bindings: Array[GFInputBinding] = []
+	var context: GFInputContext = _make_context(&"gameplay", [
+		_make_mapping(_make_action(&"jump"), bindings),
+	])
+	_utility.enable_context(context)
+	var source: GFVirtualInputSource = _utility.create_virtual_source(&"recording")
+	var recording: GFInputRecording = GFInputRecording.new()
+	var _press: Dictionary = recording.add_event(&"jump", true, 0.0)
+	var _release: Dictionary = recording.add_event(&"jump", false, 1.0)
+	var playback: GFInputPlayback = GFInputPlayback.new()
+	playback.elapsed_seconds = 0.5
+
+	assert_true(playback.start(recording, source, false), "中途继续回放应能启动。")
+
+	assert_true(_utility.is_action_active(&"jump"), "中途继续时应先把虚拟源重建到当前时间。")
+	assert_eq(playback.tick(0.0), 0, "重建已应用的历史事件不应在同时间 tick 重复发出。")
+
+
 func test_input_recording_preserves_same_time_event_order() -> void:
 	var recording: GFInputRecording = GFInputRecording.new()
 	var _press: Dictionary = recording.add_event(&"jump", true, 0.0)
@@ -843,6 +1109,73 @@ func test_input_recording_preserves_same_time_event_order() -> void:
 
 	assert_true(GFVariantData.to_bool(GFVariantData.get_option_value(events[0], "value")), "同时间事件应保留原始插入顺序。")
 	assert_false(GFVariantData.to_bool(GFVariantData.get_option_value(events[1], "value")), "同时间事件恢复后顺序仍应稳定。")
+
+
+func test_input_recording_events_property_returns_deep_read_only_snapshot() -> void:
+	var recording: GFInputRecording = GFInputRecording.new()
+	var _event: Dictionary = recording.add_event(&"jump", true, 0.0, -1, &"test", {
+		"profile": "original",
+	})
+	var exposed_events: Array[Dictionary] = recording.events
+	var exposed_metadata: Dictionary = GFVariantData.get_option_dictionary(exposed_events[0], "metadata")
+	exposed_metadata["profile"] = "mutated"
+	exposed_events.clear()
+
+	var internal_events: Array[Dictionary] = recording.events
+	var metadata: Dictionary = GFVariantData.get_option_dictionary(internal_events[0], "metadata")
+
+	assert_eq(internal_events.size(), 1, "清空公开快照不得清空录制内部事件。")
+	assert_eq(GFVariantData.get_option_string(metadata, "profile"), "original", "修改嵌套快照不得污染内部元数据。")
+
+
+func test_input_recording_normalizes_nonfinite_event_times() -> void:
+	var recording: GFInputRecording = GFInputRecording.new()
+	var added_event: Dictionary = recording.add_event(&"jump", true, NAN)
+	var restored: GFInputRecording = GFInputRecording.from_dict({
+		"duration_seconds": INF,
+		"events": [{
+			"time_seconds": INF,
+			"action_id": "jump",
+			"value": false,
+		}],
+	})
+
+	assert_almost_eq(GFVariantData.get_option_float(added_event, "time_seconds"), 0.0, 0.001, "新增事件不得保留 NaN 时间。")
+	assert_almost_eq(GFVariantData.get_option_float(restored.events[0], "time_seconds"), 0.0, 0.001, "恢复事件不得保留 Infinity 时间。")
+	assert_almost_eq(restored.duration_seconds, 0.0, 0.001, "录制总时长也必须保持有限。")
+	assert_false(JSON.stringify(restored.to_dict(true)).contains(":null"), "录制报告不得把非有限时间退化为 null。")
+
+
+func test_input_recording_inserts_out_of_order_events_by_time() -> void:
+	var recording: GFInputRecording = GFInputRecording.new()
+	var _late: Dictionary = recording.add_event(&"jump", true, 1.0)
+	var _early: Dictionary = recording.add_event(&"jump", false, 0.25)
+	var _middle: Dictionary = recording.add_event(&"move", true, 0.5)
+	var events: Array[Dictionary] = recording.get_events()
+
+	assert_almost_eq(GFVariantData.get_option_float(events[0], "time_seconds"), 0.25, 0.001, "较早事件应插入到前面。")
+	assert_almost_eq(GFVariantData.get_option_float(events[1], "time_seconds"), 0.5, 0.001, "中间事件应保持时间顺序。")
+	assert_almost_eq(GFVariantData.get_option_float(events[2], "time_seconds"), 1.0, 0.001, "较晚事件应留在末尾。")
+
+
+func test_input_recording_apply_dict_extends_duration_to_last_event() -> void:
+	var restored: GFInputRecording = GFInputRecording.from_dict({
+		"recording_id": "sample",
+		"duration_seconds": 0.1,
+		"events": [
+			{
+				"time_seconds": 0.5,
+				"action_id": "jump",
+				"value": true,
+				"player_index": -1,
+				"source_id": "",
+				"metadata": {},
+			},
+		],
+		"metadata": {},
+	})
+
+	assert_almost_eq(restored.duration_seconds, 0.5, 0.001, "恢复录制时总时长不应短于最后一个事件。")
 
 
 func test_tap_trigger_counts_release_delta_for_min_tap_window() -> void:
@@ -857,6 +1190,15 @@ func test_tap_trigger_counts_release_delta_for_min_tap_window() -> void:
 	var released: int = trigger.update(false, false, 0.02, state)
 
 	assert_eq(released, GFInputTrigger.TriggerState.TRIGGERED, "释放帧 delta 应计入短按时长。")
+
+
+func test_tap_trigger_min_setter_keeps_window_valid() -> void:
+	var trigger: GFInputTapTrigger = GFInputTapTrigger.new()
+	trigger.max_tap_seconds = 0.1
+
+	trigger.min_tap_seconds = 0.25
+
+	assert_eq(trigger.max_tap_seconds, 0.25, "提高最短按住时间时最长时间应同步保持合法窗口。")
 
 
 func test_sequence_trigger_completed_branch_expires_after_gap() -> void:

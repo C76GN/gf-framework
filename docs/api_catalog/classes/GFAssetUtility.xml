@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFAssetUtility" path="addons/gf/standard/utilities/assets/gf_asset_utility.gd" module="standard" extends="GFUtility" classDigest="b60528798a96d31c26808c864ad83dc0bd6323fe7b857dacd32408b5a8b83792">
+<class name="GFAssetUtility" path="addons/gf/standard/utilities/assets/gf_asset_utility.gd" module="standard" extends="GFUtility" classDigest="6acc8e47da4a454c22d0b943fe1513b2e2fa286e81eaaece251608ba30c12a84">
 	<description>GFAssetUtility: 异步资源加载管理器，带 LRU 缓存。
 封装 Godot 的 threaded `ResourceLoader` 请求，
 用于避免大资源同步加载阻塞主线程，并在完成后统一分发回调与维护缓存。</description>
@@ -187,6 +187,18 @@
 				<tag name="return">路径列表。</tag>
 			</tags>
 		</member>
+		<member kind="method" name="preload_plan_async">
+			<signature>func preload_plan_async( asset_plan: GFAssetPreloadPlan, on_completed: Callable = Callable(), options: Dictionary = {} ) -&gt; void:</signature>
+			<description>按预加载计划异步预热资源分组。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">asset_plan: 资源预加载计划。</tag>
+				<tag name="param">on_completed: 完成回调，签名为 func(report: Dictionary)。</tag>
+				<tag name="param">options: 调用方覆盖选项，会合并到计划默认选项。</tag>
+				<tag name="schema">options: Dictionary with optional `pin_cache: bool`, `serial_lane_id: StringName`, `lane_id: StringName`, and `max_concurrent_loads: int`.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
 		<member kind="method" name="preload_group_async">
 			<signature>func preload_group_async( group_id: StringName, entries: Array, on_completed: Callable = Callable(), options: Dictionary = {} ) -&gt; void:</signature>
 			<description>异步预加载资源分组。</description>
@@ -328,7 +340,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">诊断快照字典。</tag>
-				<tag name="schema">return: Dictionary with cache, pending, pending_progress, pinned, reference count, and group count diagnostic fields.</tag>
+				<tag name="schema">return: Dictionary with max_cache_size, cache_count, cached_paths, cache_keys, pending_count, pending_paths, pending_cache_keys, pending_progress, pinned_count, pinned_paths, pinned_cache_keys, reference_counts, cache_key_reference_counts, resource_identities, group_count, queued_count, queued_paths, lane_active_counts, cache_diagnostics, and threaded_resource_operations diagnostic fields.</tag>
 				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>

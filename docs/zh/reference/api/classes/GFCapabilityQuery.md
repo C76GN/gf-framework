@@ -24,6 +24,7 @@
 | 方法 | [`matches_receiver`](#member-gfcapabilityquery-methods-matches_receiver) | `func matches_receiver(capability_utility: GFCapabilityUtility, receiver: Object) -> bool:` |
 | 方法 | [`duplicate_query`](#member-gfcapabilityquery-methods-duplicate_query) | `func duplicate_query() -> GFCapabilityQuery:` |
 | 方法 | [`describe_query`](#member-gfcapabilityquery-methods-describe_query) | `func describe_query() -> Dictionary:` |
+| 方法 | [`to_report_dictionary`](#member-gfcapabilityquery-methods-to_report_dictionary) | `func to_report_dictionary(options: Dictionary = {}) -> Dictionary:` |
 
 ## 属性
 
@@ -186,3 +187,29 @@ func describe_query() -> Dictionary:
 结构：
 
 - `return`: Dictionary，包含 required_capability_types、rejected_capability_types、include_subclasses、group_name 和 metadata。
+
+<a id="member-gfcapabilityquery-methods-to_report_dictionary"></a>
+
+### `to_report_dictionary`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func to_report_dictionary(options: Dictionary = {}) -> Dictionary:
+```
+
+导出查询声明的 JSON-safe 报告快照。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `options` | 传给 GFReportValueCodec 的编码选项。 |
+
+返回：查询报告字典。
+
+结构：
+
+- `options`: Dictionary with GFReportValueCodec encoding options.
+- `return`: JSON-safe Dictionary based on describe_query().

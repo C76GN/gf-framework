@@ -6,7 +6,7 @@
 - 模块：`Physics`
 - 继承：`Node3D`
 - API：`public`
-- 类别：运行时句柄 (`runtime_handle`)
+- 类别：运行时服务 (`runtime_service`)
 - 首次版本：`3.17.0`
 
 通用 3D 重力采样器。 从场景树分组中采样 GFGravityField3D 或任何暴露 get_acceleration_at() 方法的对象，并按组合策略计算当前位置处的加速度、上下方向。
@@ -24,6 +24,7 @@
 | 属性 | [`last_acceleration`](#member-gfgravityprobe3d-properties-last_acceleration) | `var last_acceleration: Vector3 = Vector3.ZERO` |
 | 方法 | [`sample`](#member-gfgravityprobe3d-methods-sample) | `func sample() -> Vector3:` |
 | 方法 | [`sample_fields`](#member-gfgravityprobe3d-methods-sample_fields) | `func sample_fields(fields: Array) -> Vector3:` |
+| 方法 | [`sample_field_provider`](#member-gfgravityprobe3d-methods-sample_field_provider) | `func sample_field_provider(candidate_provider: Object, options: Dictionary = {}) -> Vector3:` |
 | 方法 | [`get_down_direction`](#member-gfgravityprobe3d-methods-get_down_direction) | `func get_down_direction() -> Vector3:` |
 | 方法 | [`get_up_direction`](#member-gfgravityprobe3d-methods-get_up_direction) | `func get_up_direction() -> Vector3:` |
 | 方法 | [`invalidate_cache`](#member-gfgravityprobe3d-methods-invalidate_cache) | `func invalidate_cache() -> void:` |
@@ -35,6 +36,7 @@
 ### `CombinationMode`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 enum CombinationMode {
@@ -56,6 +58,7 @@ enum CombinationMode {
 ### `field_group`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var field_group: StringName = &"gf_gravity_field_3d"
@@ -68,6 +71,7 @@ var field_group: StringName = &"gf_gravity_field_3d"
 ### `combination_mode`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var combination_mode: CombinationMode = CombinationMode.SUM
@@ -80,6 +84,7 @@ var combination_mode: CombinationMode = CombinationMode.SUM
 ### `use_fallback_when_empty`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var use_fallback_when_empty: bool = true
@@ -92,6 +97,7 @@ var use_fallback_when_empty: bool = true
 ### `fallback_acceleration`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var fallback_acceleration: Vector3 = Vector3.DOWN * 9.8
@@ -104,6 +110,7 @@ var fallback_acceleration: Vector3 = Vector3.DOWN * 9.8
 ### `cache_samples_per_frame`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var cache_samples_per_frame: bool = true
@@ -116,6 +123,7 @@ var cache_samples_per_frame: bool = true
 ### `last_acceleration`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var last_acceleration: Vector3 = Vector3.ZERO
@@ -130,6 +138,7 @@ var last_acceleration: Vector3 = Vector3.ZERO
 ### `sample`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func sample() -> Vector3:
@@ -144,6 +153,7 @@ func sample() -> Vector3:
 ### `sample_fields`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func sample_fields(fields: Array) -> Vector3:
@@ -163,11 +173,38 @@ func sample_fields(fields: Array) -> Vector3:
 
 - `fields`: Array，包含 GFGravityField3D 或任何暴露 get_acceleration_at(Vector3) 的 Object。
 
+<a id="member-gfgravityprobe3d-methods-sample_field_provider"></a>
+
+### `sample_field_provider`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func sample_field_provider(candidate_provider: Object, options: Dictionary = {}) -> Vector3:
+```
+
+从候选 provider 采样力场。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `candidate_provider` | 暴露 get_candidate_objects(options) 的候选 provider。 |
+| `options` | 候选查询选项；未设置 method_name 时默认筛选 get_acceleration_at。 |
+
+返回：按 combination_mode 组合后的加速度。
+
+结构：
+
+- `options`: Dictionary passed to candidate_provider.get_candidate_objects(); method_name defaults to get_acceleration_at.
+
 <a id="member-gfgravityprobe3d-methods-get_down_direction"></a>
 
 ### `get_down_direction`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func get_down_direction() -> Vector3:
@@ -182,6 +219,7 @@ func get_down_direction() -> Vector3:
 ### `get_up_direction`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func get_up_direction() -> Vector3:

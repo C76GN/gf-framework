@@ -66,6 +66,8 @@ func dispose() -> void:
 ## [br]
 ## @param delta: 帧间隔时间（秒）。
 func tick(delta: float) -> void:
+	if is_nan(delta) or is_inf(delta):
+		return
 	_tick_timers(_action_buffers, delta)
 	_tick_grace_windows(delta)
 
@@ -80,7 +82,7 @@ func tick(delta: float) -> void:
 ## [br]
 ## @param player_index: 玩家索引；小于 0 时使用全局缓冲。
 func buffer_action(action_id: StringName, duration: float, player_index: int = -1) -> void:
-	if action_id == &"" or duration <= 0.0:
+	if action_id == &"" or is_nan(duration) or is_inf(duration) or duration <= 0.0:
 		return
 
 	var key: String = _make_scoped_key(action_id, player_index)
@@ -141,7 +143,7 @@ func clear_buffered_action(action_id: StringName, player_index: int = -1) -> voi
 ## @param player_index: 玩家索引；小于 0 时使用全局窗口。
 func start_grace_window(window_id: StringName, duration: float, player_index: int = -1) -> void:
 	var key: String = _make_scoped_key(window_id, player_index)
-	if window_id == &"" or duration <= 0.0:
+	if window_id == &"" or is_nan(duration) or is_inf(duration) or duration <= 0.0:
 		_erase_grace_window_key(key)
 		return
 	_grace_windows[key] = duration
@@ -220,7 +222,11 @@ func _tick_timers(timers: Dictionary, delta: float) -> void:
 	var expired: Array[String] = []
 
 	for key: String in timers:
-		timers[key] = GFVariantData.to_float(timers[key]) - delta
+		var current: float = GFVariantData.to_float(timers[key])
+		if is_nan(current) or is_inf(current):
+			expired.append(key)
+			continue
+		timers[key] = current - delta
 		if GFVariantData.to_float(timers[key]) <= 0.0:
 			expired.append(key)
 
@@ -235,7 +241,12 @@ func _tick_grace_windows(delta: float) -> void:
 	var expired: Array[String] = []
 
 	for key: String in _grace_windows:
-		_grace_windows[key] = GFVariantData.to_float(_grace_windows[key]) - delta
+		var current: float = GFVariantData.to_float(_grace_windows[key])
+		if is_nan(current) or is_inf(current):
+			_grace_windows[key] = 0.0
+			expired.append(key)
+			continue
+		_grace_windows[key] = current - delta
 		if GFVariantData.to_float(_grace_windows[key]) <= 0.0:
 			expired.append(key)
 

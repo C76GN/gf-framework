@@ -9,6 +9,9 @@ import copy
 import fnmatch
 import hashlib
 import json
+import os
+import posixpath
+import secrets
 import shutil
 import sys
 import tempfile
@@ -20,6 +23,8 @@ from pathlib import Path
 from typing import Any
 
 import gf_package_resolver
+import gf_package_cache
+import gf_package_transaction
 
 
 def find_workspace_root(start: Path, fallback: Path) -> Path:
@@ -53,7 +58,15 @@ RUNTIME_PACKAGE_FORBIDDEN_EXTERNAL_TOOL_FILES = {
 REMOTE_ARCHIVE_PREFIXES = ("http://", "https://")
 MAX_REGISTRY_DOWNLOAD_BYTES = 16 * 1024 * 1024
 MAX_ARCHIVE_DOWNLOAD_BYTES = 1024 * 1024 * 1024
+MAX_ARCHIVE_ENTRY_COUNT = 20000
+MAX_ARCHIVE_ENTRY_UNCOMPRESSED_BYTES = 64 * 1024 * 1024
+MAX_ARCHIVE_TOTAL_UNCOMPRESSED_BYTES = 512 * 1024 * 1024
+MAX_ARCHIVE_COMPRESSION_RATIO = 100
+MAX_ARCHIVE_ENTRY_PATH_LENGTH = 512
+MAX_ARCHIVE_ENTRY_PATH_DEPTH = 32
 UNSUPPORTED_REGISTRY_SOURCE_SIGNATURE_FIELDS = {
+	"public_key",
+	"public_keys",
 	"registry_signature",
 	"registry_signature_algorithm",
 	"registry_signature_sha256",
@@ -62,9 +75,12 @@ UNSUPPORTED_REGISTRY_SOURCE_SIGNATURE_FIELDS = {
 	"registry_signing_key_id",
 	"signature",
 	"signature_algorithm",
+	"signature_public_key",
 	"signature_sha256",
 	"signature_url",
+	"signing_key",
 	"signing_key_id",
+	"signing_keys",
 }
 
 
@@ -84,6 +100,7 @@ def main() -> int:
 	install_parser.add_argument("--project-root", required=True, help="Target Godot project root.")
 	install_parser.add_argument("--lockfile", default=".gf/packages.lock.json", help="Lockfile path, relative to --project-root unless absolute.")
 	install_parser.add_argument("--cache-dir", default="", help="Package download cache directory. Defaults to <project-root>/.gf/package_cache.")
+	install_parser.add_argument("--cache-mode", choices=gf_package_cache.CACHE_MODES, default=gf_package_cache.DEFAULT_MODE)
 	install_parser.add_argument("--reason", choices=sorted(gf_package_resolver.VALID_REASONS - {"dependency"}), default="manual")
 	install_parser.add_argument("--all-concrete", action="store_true", help="Install every non-preset package selected by the registry.")
 	install_parser.add_argument("--kind", action="append", default=[], help="Install packages matching one or more comma-separated package kinds.")
@@ -91,6 +108,8 @@ def main() -> int:
 	install_parser.add_argument("--dry-run", action="store_true", help="Resolve and validate archives without copying files or writing the lockfile.")
 	install_parser.add_argument("--json", action="store_true", help="Print JSON instead of text.")
 	install_parser.add_argument("--simulate-copy-failure-after", type=int, default=0, help=argparse.SUPPRESS)
+	install_parser.add_argument("--simulate-transaction-failure-at", default="", help=argparse.SUPPRESS)
+	install_parser.add_argument("--simulate-transaction-crash-at", default="", help=argparse.SUPPRESS)
 
 	update_parser = subparsers.add_parser("update", help="Update packages that are already present in the project lockfile.")
 	update_parser.add_argument("packages", nargs="*", help="Installed package ids to update.")
@@ -100,9 +119,12 @@ def main() -> int:
 	update_parser.add_argument("--project-root", required=True, help="Target Godot project root.")
 	update_parser.add_argument("--lockfile", default=".gf/packages.lock.json", help="Lockfile path, relative to --project-root unless absolute.")
 	update_parser.add_argument("--cache-dir", default="", help="Package download cache directory. Defaults to <project-root>/.gf/package_cache.")
+	update_parser.add_argument("--cache-mode", choices=gf_package_cache.CACHE_MODES, default=gf_package_cache.DEFAULT_MODE)
 	update_parser.add_argument("--dry-run", action="store_true", help="Resolve and validate updates without copying files or writing the lockfile.")
 	update_parser.add_argument("--json", action="store_true", help="Print JSON instead of text.")
 	update_parser.add_argument("--simulate-copy-failure-after", type=int, default=0, help=argparse.SUPPRESS)
+	update_parser.add_argument("--simulate-transaction-failure-at", default="", help=argparse.SUPPRESS)
+	update_parser.add_argument("--simulate-transaction-crash-at", default="", help=argparse.SUPPRESS)
 
 	uninstall_parser = subparsers.add_parser("uninstall", help="Uninstall packages using the project lockfile.")
 	uninstall_parser.add_argument("packages", nargs="+", help="Package ids to uninstall.")
@@ -111,10 +133,13 @@ def main() -> int:
 	uninstall_parser.add_argument("--project-root", required=True, help="Target Godot project root.")
 	uninstall_parser.add_argument("--lockfile", default=".gf/packages.lock.json", help="Lockfile path, relative to --project-root unless absolute.")
 	uninstall_parser.add_argument("--cache-dir", default="", help="Package download cache directory. Defaults to <project-root>/.gf/package_cache.")
+	uninstall_parser.add_argument("--cache-mode", choices=gf_package_cache.CACHE_MODES, default=gf_package_cache.DEFAULT_MODE)
 	uninstall_parser.add_argument("--force", action="store_true", help="Ignore resolver blockers such as project references.")
 	uninstall_parser.add_argument("--dry-run", action="store_true", help="Resolve and validate removal without deleting files or writing the lockfile.")
 	uninstall_parser.add_argument("--json", action="store_true", help="Print JSON instead of text.")
 	uninstall_parser.add_argument("--simulate-delete-failure-after", type=int, default=0, help=argparse.SUPPRESS)
+	uninstall_parser.add_argument("--simulate-transaction-failure-at", default="", help=argparse.SUPPRESS)
+	uninstall_parser.add_argument("--simulate-transaction-crash-at", default="", help=argparse.SUPPRESS)
 
 	status_parser = subparsers.add_parser("status", help="List registry packages, lockfile state, and package install/uninstall previews.")
 	status_parser.add_argument("--registry", required=True, help="Registry index JSON path.")
@@ -122,7 +147,17 @@ def main() -> int:
 	status_parser.add_argument("--project-root", required=True, help="Target Godot project root.")
 	status_parser.add_argument("--lockfile", default=".gf/packages.lock.json", help="Lockfile path, relative to --project-root unless absolute.")
 	status_parser.add_argument("--cache-dir", default="", help="Package download cache directory. Defaults to <project-root>/.gf/package_cache.")
+	status_parser.add_argument("--cache-mode", choices=gf_package_cache.CACHE_MODES, default=gf_package_cache.DEFAULT_MODE)
 	status_parser.add_argument("--json", action="store_true", help="Print JSON instead of text.")
+
+	recover_parser = subparsers.add_parser("recover", help="Recover or finalize an interrupted package transaction.")
+	recover_parser.add_argument("--project-root", required=True, help="Target Godot project root.")
+	recover_parser.add_argument("--lockfile", default=".gf/packages.lock.json", help="Lockfile path, relative to --project-root unless absolute.")
+	recover_parser.add_argument("--json", action="store_true", help="Print JSON instead of text.")
+
+	cache_init_parser = subparsers.add_parser("cache-init", help="Initialize an explicitly owned external package cache directory.")
+	cache_init_parser.add_argument("--cache-dir", required=True, help="Absolute external cache directory to initialize.")
+	cache_init_parser.add_argument("--json", action="store_true", help="Print JSON instead of text.")
 
 	args = parser.parse_args()
 	if args.command == "install":
@@ -133,12 +168,15 @@ def main() -> int:
 			project_root=args.project_root,
 			lockfile_path=args.lockfile,
 			cache_dir=args.cache_dir,
+			cache_mode=args.cache_mode,
 			reason=args.reason,
 			all_concrete=args.all_concrete,
 			include_kinds=gf_package_resolver.split_selector_values(args.kind),
 			exclude_kinds=gf_package_resolver.split_selector_values(args.exclude_kind),
 			dry_run=args.dry_run,
 			simulate_copy_failure_after=args.simulate_copy_failure_after,
+			simulate_transaction_failure_at=args.simulate_transaction_failure_at,
+			simulate_transaction_crash_at=args.simulate_transaction_crash_at,
 		)
 	elif args.command == "update":
 		result = update_packages(
@@ -149,8 +187,11 @@ def main() -> int:
 			project_root=args.project_root,
 			lockfile_path=args.lockfile,
 			cache_dir=args.cache_dir,
+			cache_mode=args.cache_mode,
 			dry_run=args.dry_run,
 			simulate_copy_failure_after=args.simulate_copy_failure_after,
+			simulate_transaction_failure_at=args.simulate_transaction_failure_at,
+			simulate_transaction_crash_at=args.simulate_transaction_crash_at,
 		)
 	elif args.command == "uninstall":
 		result = uninstall_packages(
@@ -160,18 +201,29 @@ def main() -> int:
 			project_root=args.project_root,
 			lockfile_path=args.lockfile,
 			cache_dir=args.cache_dir,
+			cache_mode=args.cache_mode,
 			force=args.force,
 			dry_run=args.dry_run,
 			simulate_delete_failure_after=args.simulate_delete_failure_after,
+			simulate_transaction_failure_at=args.simulate_transaction_failure_at,
+			simulate_transaction_crash_at=args.simulate_transaction_crash_at,
 		)
-	else:
+	elif args.command == "status":
 		result = package_status(
 			registry_path=args.registry,
 			channel=args.channel,
 			project_root=args.project_root,
 			lockfile_path=args.lockfile,
 			cache_dir=args.cache_dir,
+			cache_mode=args.cache_mode,
 		)
+	elif args.command == "recover":
+		result = recover_package_transaction(
+			project_root=args.project_root,
+			lockfile_path=args.lockfile,
+		)
+	else:
+		result = initialize_package_cache(args.cache_dir)
 	print_result(result, args.json)
 	return 0 if result["ok"] else 1
 
@@ -189,19 +241,31 @@ def install_packages(
 	project_root: str,
 	lockfile_path: str,
 	cache_dir: str,
+	cache_mode: str,
 	reason: str,
 	all_concrete: bool = False,
 	include_kinds: list[str] | None = None,
 	exclude_kinds: list[str] | None = None,
 	dry_run: bool = False,
 	simulate_copy_failure_after: int = 0,
+	simulate_transaction_failure_at: str = "",
+	simulate_transaction_crash_at: str = "",
 ) -> dict[str, Any]:
-	resolved_project_root = resolve_tool_path(project_root)
+	resolved_project_root = resolve_project_path(project_root)
 	resolved_lockfile_path = resolve_project_lockfile_path(resolved_project_root, lockfile_path)
 	issues: list[str] = []
-	registry_source = prepare_registry_source(registry_path, channel, resolved_project_root, cache_dir, issues)
+	append_lockfile_path_issues(resolved_project_root, resolved_lockfile_path, lockfile_path, issues)
+	transaction_recovery = gf_package_transaction.empty_report("recover")
+	if not issues:
+		transaction_recovery = gf_package_transaction.recover_pending(resolved_project_root)
+		if not transaction_recovery["ok"]:
+			issues.extend(string_list(transaction_recovery.get("issues", [])))
+	registry_source = make_pending_registry_source(registry_path, resolved_project_root, cache_mode, transaction_recovery)
+	if not issues:
+		registry_source = prepare_registry_source(registry_path, channel, resolved_project_root, cache_dir, cache_mode, issues)
+		registry_source["_transaction_recovery"] = transaction_recovery
 	resolved_registry_path = registry_source["path"]
-	resolved_cache_dir = registry_source["cache_dir"]
+	cache_context = registry_source["_cache_context"]
 	if issues:
 		return make_install_result(
 			False,
@@ -225,7 +289,6 @@ def install_packages(
 		all_concrete=all_concrete,
 		include_kinds=include_kinds or [],
 		exclude_kinds=exclude_kinds or [],
-		write_lock=False,
 		current_framework_version=read_project_framework_version(resolved_project_root),
 	)
 	plan = plan_with_registry_source(plan, registry_source)
@@ -247,8 +310,11 @@ def install_packages(
 		)
 
 	registry = gf_package_resolver.load_registry(resolved_registry_path)
+	lockfile = gf_package_resolver.load_lockfile(resolved_lockfile_path)
 	if registry["issues"]:
 		issues.extend(string_list(registry["issues"]))
+	issues.extend(string_list(lockfile.get("issues", [])))
+	issues.extend(installed_file_list_issues(installed_entries(lockfile.get("data", {})), registry.get("packages", {})))
 	to_change = set(string_list(plan.get("to_install", [])) + string_list(plan.get("to_update", [])))
 	packages_to_change = [package_id for package_id in string_list(plan.get("install_order", [])) if package_id in to_change]
 	packages_to_stage = [
@@ -256,6 +322,10 @@ def install_packages(
 		for package_id in packages_to_change
 		if package_requires_archive(registry["packages"].get(package_id, {}))
 	]
+	current_lockfile_data = lockfile.get("data", {}) if isinstance(lockfile.get("data", {}), dict) else {}
+	planned_lockfile = plan.get("planned_lockfile", {}) if isinstance(plan.get("planned_lockfile", {}), dict) else {}
+	planned_lockfile = lockfile_with_installed_files(planned_lockfile, [], current_lockfile_data)
+	lockfile_changed = lockfile_data_changed(lockfile.get("data", {}), planned_lockfile)
 	if issues:
 		return make_install_result(
 			False,
@@ -272,6 +342,49 @@ def install_packages(
 			registry_source,
 		)
 	if not packages_to_change:
+		if dry_run or not lockfile_changed:
+			return make_install_result(
+				True,
+				resolved_registry_path,
+				resolved_project_root,
+				resolved_lockfile_path,
+				resolved_package_ids,
+				plan,
+				[],
+				0,
+				dry_run,
+				False,
+				[],
+				registry_source,
+			)
+		transaction = execute_package_transaction(
+			"install",
+			[],
+			[],
+			resolved_project_root,
+			resolved_lockfile_path,
+			planned_lockfile,
+			simulate_copy_failure_after=simulate_copy_failure_after,
+			simulate_transaction_failure_at=simulate_transaction_failure_at,
+			simulate_transaction_crash_at=simulate_transaction_crash_at,
+		)
+		registry_source["_transaction"] = transaction
+		if not transaction["ok"]:
+			issues.extend(string_list(transaction.get("issues", [])))
+			return make_install_result(
+				False,
+				resolved_registry_path,
+				resolved_project_root,
+				resolved_lockfile_path,
+				resolved_package_ids,
+				plan,
+				[],
+				0,
+				False,
+				bool(transaction.get("rolled_back", False)),
+				issues,
+				registry_source,
+			)
 		return make_install_result(
 			True,
 			resolved_registry_path,
@@ -285,17 +398,39 @@ def install_packages(
 			False,
 			[],
 			registry_source,
+			True,
+		)
+	if dry_run:
+		audit_package_archives(
+			packages_to_stage,
+			registry["packages"],
+			resolved_registry_path,
+			cache_context,
+			issues,
+		)
+		return make_install_result(
+			len(issues) == 0,
+			resolved_registry_path,
+			resolved_project_root,
+			resolved_lockfile_path,
+			resolved_package_ids,
+			plan,
+			packages_to_change,
+			0,
+			True,
+			False,
+			issues,
+			registry_source,
 		)
 
 	with tempfile.TemporaryDirectory(prefix="gf-package-install-") as temp_dir:
 		temp_root = Path(temp_dir)
 		staging_root = temp_root / "staging"
-		backup_root = temp_root / "backup"
 		staged_files = stage_package_archives(
 			packages_to_stage,
 			registry["packages"],
 			resolved_registry_path,
-			resolved_cache_dir,
+			cache_context,
 			staging_root,
 			issues,
 		)
@@ -314,9 +449,25 @@ def install_packages(
 				issues,
 				registry_source,
 			)
-		if dry_run:
+		planned_lockfile = lockfile_with_installed_files(plan["planned_lockfile"], staged_files, current_lockfile_data)
+		packages_to_update = string_list(plan.get("to_update", []))
+		append_modified_existing_update_file_issues(
+			packages_to_update,
+			current_lockfile_data,
+			planned_lockfile,
+			resolved_project_root,
+			issues,
+		)
+		append_existing_target_ownership_issues(
+			staged_files,
+			resolved_project_root,
+			current_lockfile_data,
+			issues,
+			allow_extracted_kernel_bootstrap=True,
+		)
+		if issues:
 			return make_install_result(
-				True,
+				False,
 				resolved_registry_path,
 				resolved_project_root,
 				resolved_lockfile_path,
@@ -324,23 +475,19 @@ def install_packages(
 				plan,
 				packages_to_change,
 				0,
-				True,
 				False,
-				[],
+				False,
+				issues,
 				registry_source,
 			)
-		planned_lockfile = lockfile_with_installed_files(plan["planned_lockfile"], staged_files)
-		try:
-			installed_file_count = copy_staged_files_to_project(
-				staged_files,
-				resolved_project_root,
-				resolved_lockfile_path,
-				planned_lockfile,
-				backup_root,
-				simulate_copy_failure_after,
-			)
-		except InstallFailure as error:
-			issues.append(str(error))
+		obsolete_targets = collect_update_obsolete_targets(
+			packages_to_update,
+			current_lockfile_data,
+			planned_lockfile,
+			resolved_project_root,
+			issues,
+		)
+		if issues:
 			return make_install_result(
 				False,
 				resolved_registry_path,
@@ -351,7 +498,36 @@ def install_packages(
 				packages_to_change,
 				0,
 				False,
-				True,
+				False,
+				issues,
+				registry_source,
+			)
+		transaction = execute_package_transaction(
+			"install",
+			staged_files,
+			obsolete_targets,
+			resolved_project_root,
+			resolved_lockfile_path,
+			planned_lockfile,
+			simulate_copy_failure_after=simulate_copy_failure_after,
+			simulate_transaction_failure_at=simulate_transaction_failure_at,
+			simulate_transaction_crash_at=simulate_transaction_crash_at,
+		)
+		registry_source["_transaction"] = transaction
+		installed_file_count = int_value(transaction.get("write_count", 0))
+		if not transaction["ok"]:
+			issues.extend(string_list(transaction.get("issues", [])))
+			return make_install_result(
+				False,
+				resolved_registry_path,
+				resolved_project_root,
+				resolved_lockfile_path,
+				resolved_package_ids,
+				plan,
+				packages_to_change,
+				0,
+				False,
+				bool(transaction.get("rolled_back", False)),
 				issues,
 				registry_source,
 			)
@@ -379,15 +555,27 @@ def update_packages(
 	project_root: str,
 	lockfile_path: str,
 	cache_dir: str,
+	cache_mode: str,
 	dry_run: bool,
 	simulate_copy_failure_after: int = 0,
+	simulate_transaction_failure_at: str = "",
+	simulate_transaction_crash_at: str = "",
 ) -> dict[str, Any]:
-	resolved_project_root = resolve_tool_path(project_root)
+	resolved_project_root = resolve_project_path(project_root)
 	resolved_lockfile_path = resolve_project_lockfile_path(resolved_project_root, lockfile_path)
 	issues: list[str] = []
-	registry_source = prepare_registry_source(registry_path, channel, resolved_project_root, cache_dir, issues)
+	append_lockfile_path_issues(resolved_project_root, resolved_lockfile_path, lockfile_path, issues)
+	transaction_recovery = gf_package_transaction.empty_report("recover")
+	if not issues:
+		transaction_recovery = gf_package_transaction.recover_pending(resolved_project_root)
+		if not transaction_recovery["ok"]:
+			issues.extend(string_list(transaction_recovery.get("issues", [])))
+	registry_source = make_pending_registry_source(registry_path, resolved_project_root, cache_mode, transaction_recovery)
+	if not issues:
+		registry_source = prepare_registry_source(registry_path, channel, resolved_project_root, cache_dir, cache_mode, issues)
+		registry_source["_transaction_recovery"] = transaction_recovery
 	resolved_registry_path = registry_source["path"]
-	resolved_cache_dir = registry_source["cache_dir"]
+	cache_context = registry_source["_cache_context"]
 	if issues:
 		return make_update_result(
 			False,
@@ -411,7 +599,6 @@ def update_packages(
 		lockfile_path=str(resolved_lockfile_path),
 		package_ids=package_ids,
 		all_installed=all_installed,
-		write_lock=False,
 		current_framework_version=read_project_framework_version(resolved_project_root),
 	)
 	plan = plan_with_registry_source(plan, registry_source)
@@ -437,6 +624,7 @@ def update_packages(
 	lockfile = gf_package_resolver.load_lockfile(resolved_lockfile_path)
 	issues.extend(string_list(registry.get("issues", [])))
 	issues.extend(string_list(lockfile.get("issues", [])))
+	issues.extend(installed_file_list_issues(installed_entries(lockfile.get("data", {})), registry.get("packages", {})))
 	to_change = set(string_list(plan.get("to_install", [])) + string_list(plan.get("to_update", [])))
 	packages_to_change = [package_id for package_id in string_list(plan.get("install_order", [])) if package_id in to_change]
 	packages_to_stage = [
@@ -444,7 +632,9 @@ def update_packages(
 		for package_id in packages_to_change
 		if package_requires_archive(registry["packages"].get(package_id, {}))
 	]
+	current_lockfile_data = lockfile.get("data", {}) if isinstance(lockfile.get("data", {}), dict) else {}
 	planned_lockfile = plan.get("planned_lockfile", {}) if isinstance(plan.get("planned_lockfile", {}), dict) else {}
+	planned_lockfile = lockfile_with_installed_files(planned_lockfile, [], current_lockfile_data)
 	lockfile_changed = lockfile_data_changed(lockfile.get("data", {}), planned_lockfile)
 	if issues:
 		return make_update_result(
@@ -481,10 +671,20 @@ def update_packages(
 				[],
 				registry_source,
 			)
-		try:
-			write_lockfile_last(resolved_lockfile_path, planned_lockfile)
-		except Exception as error:
-			issues.append(f"Could not write package lockfile: {error}")
+		transaction = execute_package_transaction(
+			"update",
+			[],
+			[],
+			resolved_project_root,
+			resolved_lockfile_path,
+			planned_lockfile,
+			simulate_copy_failure_after=simulate_copy_failure_after,
+			simulate_transaction_failure_at=simulate_transaction_failure_at,
+			simulate_transaction_crash_at=simulate_transaction_crash_at,
+		)
+		registry_source["_transaction"] = transaction
+		if not transaction["ok"]:
+			issues.extend(string_list(transaction.get("issues", [])))
 			return make_update_result(
 				False,
 				resolved_registry_path,
@@ -496,7 +696,7 @@ def update_packages(
 				[],
 				0,
 				False,
-				False,
+				bool(transaction.get("rolled_back", False)),
 				False,
 				issues,
 				registry_source,
@@ -517,16 +717,39 @@ def update_packages(
 			[],
 			registry_source,
 		)
+	if dry_run:
+		audit_package_archives(
+			packages_to_stage,
+			registry["packages"],
+			resolved_registry_path,
+			cache_context,
+			issues,
+		)
+		return make_update_result(
+			len(issues) == 0,
+			resolved_registry_path,
+			resolved_project_root,
+			resolved_lockfile_path,
+			package_ids,
+			all_installed,
+			plan,
+			packages_to_change,
+			0,
+			True,
+			False,
+			False,
+			issues,
+			registry_source,
+		)
 
 	with tempfile.TemporaryDirectory(prefix="gf-package-update-") as temp_dir:
 		temp_root = Path(temp_dir)
 		staging_root = temp_root / "staging"
-		backup_root = temp_root / "backup"
 		staged_files = stage_package_archives(
 			packages_to_stage,
 			registry["packages"],
 			resolved_registry_path,
-			resolved_cache_dir,
+			cache_context,
 			staging_root,
 			issues,
 		)
@@ -547,9 +770,23 @@ def update_packages(
 				issues,
 				registry_source,
 			)
-		if dry_run:
+		planned_lockfile = lockfile_with_installed_files(planned_lockfile, staged_files, current_lockfile_data)
+		append_modified_existing_update_file_issues(
+			packages_to_change,
+			current_lockfile_data,
+			planned_lockfile,
+			resolved_project_root,
+			issues,
+		)
+		append_existing_target_ownership_issues(
+			staged_files,
+			resolved_project_root,
+			current_lockfile_data,
+			issues,
+		)
+		if issues:
 			return make_update_result(
-				True,
+				False,
 				resolved_registry_path,
 				resolved_project_root,
 				resolved_lockfile_path,
@@ -558,24 +795,20 @@ def update_packages(
 				plan,
 				packages_to_change,
 				0,
-				True,
 				False,
 				False,
-				[],
+				False,
+				issues,
 				registry_source,
 			)
-		planned_lockfile = lockfile_with_installed_files(planned_lockfile, staged_files)
-		try:
-			updated_file_count = copy_staged_files_to_project(
-				staged_files,
-				resolved_project_root,
-				resolved_lockfile_path,
-				planned_lockfile,
-				backup_root,
-				simulate_copy_failure_after,
-			)
-		except InstallFailure as error:
-			issues.append(str(error))
+		obsolete_targets = collect_update_obsolete_targets(
+			packages_to_change,
+			current_lockfile_data,
+			planned_lockfile,
+			resolved_project_root,
+			issues,
+		)
+		if issues:
 			return make_update_result(
 				False,
 				resolved_registry_path,
@@ -587,7 +820,38 @@ def update_packages(
 				packages_to_change,
 				0,
 				False,
-				True,
+				False,
+				False,
+				issues,
+				registry_source,
+			)
+		transaction = execute_package_transaction(
+			"update",
+			staged_files,
+			obsolete_targets,
+			resolved_project_root,
+			resolved_lockfile_path,
+			planned_lockfile,
+			simulate_copy_failure_after=simulate_copy_failure_after,
+			simulate_transaction_failure_at=simulate_transaction_failure_at,
+			simulate_transaction_crash_at=simulate_transaction_crash_at,
+		)
+		registry_source["_transaction"] = transaction
+		updated_file_count = int_value(transaction.get("write_count", 0))
+		if not transaction["ok"]:
+			issues.extend(string_list(transaction.get("issues", [])))
+			return make_update_result(
+				False,
+				resolved_registry_path,
+				resolved_project_root,
+				resolved_lockfile_path,
+				package_ids,
+				all_installed,
+				plan,
+				packages_to_change,
+				0,
+				False,
+				bool(transaction.get("rolled_back", False)),
 				False,
 				issues,
 				registry_source,
@@ -617,16 +881,27 @@ def uninstall_packages(
 	project_root: str,
 	lockfile_path: str,
 	cache_dir: str,
+	cache_mode: str,
 	force: bool,
 	dry_run: bool,
 	simulate_delete_failure_after: int = 0,
+	simulate_transaction_failure_at: str = "",
+	simulate_transaction_crash_at: str = "",
 ) -> dict[str, Any]:
-	resolved_project_root = resolve_tool_path(project_root)
+	resolved_project_root = resolve_project_path(project_root)
 	resolved_lockfile_path = resolve_project_lockfile_path(resolved_project_root, lockfile_path)
 	issues: list[str] = []
-	registry_source = prepare_registry_source(registry_path, channel, resolved_project_root, cache_dir, issues)
+	append_lockfile_path_issues(resolved_project_root, resolved_lockfile_path, lockfile_path, issues)
+	transaction_recovery = gf_package_transaction.empty_report("recover")
+	if not issues:
+		transaction_recovery = gf_package_transaction.recover_pending(resolved_project_root)
+		if not transaction_recovery["ok"]:
+			issues.extend(string_list(transaction_recovery.get("issues", [])))
+	registry_source = make_pending_registry_source(registry_path, resolved_project_root, cache_mode, transaction_recovery)
+	if not issues:
+		registry_source = prepare_registry_source(registry_path, channel, resolved_project_root, cache_dir, cache_mode, issues)
+		registry_source["_transaction_recovery"] = transaction_recovery
 	resolved_registry_path = registry_source["path"]
-	resolved_cache_dir = registry_source["cache_dir"]
 	if issues:
 		return make_uninstall_result(
 			False,
@@ -650,7 +925,6 @@ def uninstall_packages(
 		package_ids=package_ids,
 		project_root=str(resolved_project_root),
 		force=force,
-		write_lock=False,
 	)
 	if not plan.get("ok"):
 		return make_uninstall_result(
@@ -752,37 +1026,23 @@ def uninstall_packages(
 			registry_source,
 		)
 
-	with tempfile.TemporaryDirectory(prefix="gf-package-uninstall-") as temp_dir:
-		backup_root = Path(temp_dir) / "backup"
-		try:
-			removed_file_count = delete_package_files_from_project(
-				targets,
-				resolved_project_root,
-				resolved_lockfile_path,
-				plan["planned_lockfile"],
-				backup_root,
-				simulate_delete_failure_after,
-			)
-		except InstallFailure as error:
-			issues.append(str(error))
-			return make_uninstall_result(
-				False,
-				resolved_registry_path,
-				resolved_project_root,
-				resolved_lockfile_path,
-				package_ids,
-				plan,
-				to_remove,
-				len(targets),
-				0,
-				False,
-				force,
-				True,
-				issues,
-				registry_source,
-			)
+	transaction = execute_package_transaction(
+		"uninstall",
+		[],
+		targets,
+		resolved_project_root,
+		resolved_lockfile_path,
+		plan["planned_lockfile"],
+		simulate_delete_failure_after=simulate_delete_failure_after,
+		simulate_transaction_failure_at=simulate_transaction_failure_at,
+		simulate_transaction_crash_at=simulate_transaction_crash_at,
+	)
+	registry_source["_transaction"] = transaction
+	removed_file_count = int_value(transaction.get("delete_count", 0))
+	if not transaction["ok"]:
+		issues.extend(string_list(transaction.get("issues", [])))
 		return make_uninstall_result(
-			True,
+			False,
 			resolved_registry_path,
 			resolved_project_root,
 			resolved_lockfile_path,
@@ -790,13 +1050,60 @@ def uninstall_packages(
 			plan,
 			to_remove,
 			len(targets),
-			removed_file_count,
+			0,
 			False,
 			force,
-			False,
-			[],
+			bool(transaction.get("rolled_back", False)),
+			issues,
 			registry_source,
 		)
+	return make_uninstall_result(
+		True,
+		resolved_registry_path,
+		resolved_project_root,
+		resolved_lockfile_path,
+		package_ids,
+		plan,
+		to_remove,
+		len(targets),
+		removed_file_count,
+		False,
+		force,
+		False,
+		[],
+		registry_source,
+	)
+
+
+def recover_package_transaction(
+	project_root: str,
+	lockfile_path: str = ".gf/packages.lock.json",
+) -> dict[str, Any]:
+	resolved_project_root = resolve_project_path(project_root)
+	resolved_lockfile_path = resolve_project_lockfile_path(resolved_project_root, lockfile_path)
+	issues: list[str] = []
+	append_lockfile_path_issues(resolved_project_root, resolved_lockfile_path, lockfile_path, issues)
+	if issues:
+		result = gf_package_transaction.empty_report("recover")
+		result.update({
+			"ok": False,
+			"outcome": "blocked",
+			"recovery_required": True,
+			"issue_count": len(issues),
+			"issues": issues,
+		})
+	else:
+		result = gf_package_transaction.recover_pending(resolved_project_root)
+	result["backend"] = "python_maintenance"
+	result["project_root"] = display_path(resolved_project_root)
+	result["lockfile"] = display_path(resolved_lockfile_path)
+	return result
+
+
+def initialize_package_cache(cache_dir: str) -> dict[str, Any]:
+	result = gf_package_cache.initialize_external_cache(cache_dir)
+	result["backend"] = "python_maintenance"
+	return result
 
 
 def package_status(
@@ -805,11 +1112,21 @@ def package_status(
 	project_root: str,
 	lockfile_path: str,
 	cache_dir: str,
+	cache_mode: str,
 ) -> dict[str, Any]:
-	resolved_project_root = resolve_tool_path(project_root)
+	resolved_project_root = resolve_project_path(project_root)
 	resolved_lockfile_path = resolve_project_lockfile_path(resolved_project_root, lockfile_path)
 	issues: list[str] = []
-	registry_source = prepare_registry_source(registry_path, channel, resolved_project_root, cache_dir, issues)
+	append_lockfile_path_issues(resolved_project_root, resolved_lockfile_path, lockfile_path, issues)
+	transaction_recovery = gf_package_transaction.empty_report("recover")
+	if not issues:
+		transaction_recovery = gf_package_transaction.recover_pending(resolved_project_root)
+		if not transaction_recovery["ok"]:
+			issues.extend(string_list(transaction_recovery.get("issues", [])))
+	registry_source = make_pending_registry_source(registry_path, resolved_project_root, cache_mode, transaction_recovery)
+	if not issues:
+		registry_source = prepare_registry_source(registry_path, channel, resolved_project_root, cache_dir, cache_mode, issues)
+		registry_source["_transaction_recovery"] = transaction_recovery
 	resolved_registry_path = registry_source["path"]
 	if issues:
 		return make_status_result(
@@ -899,8 +1216,42 @@ def installed_file_list_issues(installed: dict[str, Any], registry_packages: dic
 			continue
 		if str(registry_entry.get("kind", "")) == "preset":
 			continue
-		if not string_list(lock_entry.get("files", [])):
+		raw_files = lock_entry.get("files", [])
+		if not isinstance(raw_files, list) or any(not isinstance(item, str) or not item.strip() for item in raw_files):
+			issues.append(f"Installed package lockfile entry files must be an array of non-empty strings: {package_id}")
+			continue
+		files = string_list(raw_files)
+		if not files:
 			issues.append(f"Installed package lockfile entry is missing files list: {package_id}")
+			continue
+		file_identities = [portable_path_identity(path) for path in files]
+		if any(not identity for identity in file_identities) or len(file_identities) != len(set(file_identities)):
+			issues.append(f"Installed package lockfile entry files must not contain duplicates: {package_id}")
+		metadata = lock_entry.get("file_metadata", {})
+		if not isinstance(metadata, dict):
+			issues.append(f"Installed package lockfile entry file_metadata must be an object: {package_id}")
+			continue
+		file_set = set(files)
+		metadata_set = {str(relative_path) for relative_path in metadata}
+		metadata_identities = [portable_path_identity(path) for path in metadata_set]
+		if any(not identity for identity in metadata_identities) or len(metadata_identities) != len(set(metadata_identities)):
+			issues.append(f"Installed package file_metadata contains unsafe or aliased paths: {package_id}")
+		for relative_path in sorted(file_set - metadata_set):
+			issues.append(f"Installed package file_metadata is missing file: {package_id}: {relative_path}")
+		for relative_path in sorted(metadata_set - file_set):
+			issues.append(f"Installed package file_metadata contains an unlisted file: {package_id}: {relative_path}")
+		for relative_path in sorted(file_set.intersection(metadata_set)):
+			if normalize_archive_name(relative_path) != relative_path or not relative_path.startswith("addons/gf/"):
+				issues.append(f"Installed package files entry is unsafe: {package_id}: {relative_path}")
+				continue
+			file_state = metadata.get(relative_path)
+			if not isinstance(file_state, dict):
+				issues.append(f"Installed package file_metadata entry must be an object: {package_id}: {relative_path}")
+				continue
+			sha256 = str(file_state.get("sha256", "")).strip().lower()
+			size_bytes = file_state.get("size_bytes")
+			if not is_sha256_hex(sha256) or type(size_bytes) is not int or size_bytes < 0:
+				issues.append(f"Installed package file_metadata entry is invalid: {package_id}: {relative_path}")
 	return issues
 
 
@@ -919,7 +1270,6 @@ def make_status_package_entry(
 		lockfile_path=str(lockfile_path),
 		package_ids=[package_id],
 		reason="manual",
-		write_lock=False,
 		current_framework_version=current_framework_version,
 	)
 	uninstall_preview: dict[str, Any] = {}
@@ -930,7 +1280,6 @@ def make_status_package_entry(
 			package_ids=[package_id],
 			project_root=str(project_root),
 			force=False,
-			write_lock=False,
 		)
 	return {
 		"id": package_id,
@@ -941,7 +1290,7 @@ def make_status_package_entry(
 		"dependencies": string_list(registry_entry.get("dependencies", [])),
 		"packages": string_list(registry_entry.get("packages", [])),
 		"paths": string_list(registry_entry.get("paths", [])),
-		"enable_extension": str(registry_entry.get("enable_extension", "")),
+		"gf_extension_id": str(registry_entry.get("gf_extension_id", "")),
 		"installed": installed,
 		"reason": string_list(lock_entry.get("reason", [])),
 		"required_by": string_list(lock_entry.get("required_by", [])),
@@ -984,32 +1333,274 @@ def plan_with_registry_source(plan: dict[str, Any], registry_source: dict[str, A
 	return result
 
 
-def lockfile_with_installed_files(planned_lockfile: dict[str, Any], staged_files: list[dict[str, Any]]) -> dict[str, Any]:
+def lockfile_with_installed_files(
+	planned_lockfile: dict[str, Any],
+	staged_files: list[dict[str, Any]],
+	current_lockfile: dict[str, Any] | None = None,
+) -> dict[str, Any]:
 	lockfile = copy.deepcopy(planned_lockfile)
 	installed = lockfile.get("installed", {})
 	if not isinstance(installed, dict):
 		return lockfile
+	current_installed = current_lockfile.get("installed", {}) if isinstance(current_lockfile, dict) else {}
+	if not isinstance(current_installed, dict):
+		current_installed = {}
+	for package_id, entry in installed.items():
+		current_entry = current_installed.get(package_id)
+		if not isinstance(entry, dict) or not isinstance(current_entry, dict):
+			continue
+		current_files = string_array(current_entry.get("files", []))
+		current_metadata = current_entry.get("file_metadata", {})
+		if current_files:
+			entry["files"] = sorted(current_files)
+		if isinstance(current_metadata, dict) and current_metadata:
+			entry["file_metadata"] = {
+				str(relative_path): copy.deepcopy(current_metadata[relative_path])
+				for relative_path in sorted(current_metadata, key=str)
+			}
 	files_by_package: dict[str, list[str]] = {}
+	metadata_by_package: dict[str, dict[str, dict[str, Any]]] = {}
 	for item in staged_files:
 		package_id = str(item.get("package_id", ""))
 		relative_path = str(item.get("relative_path", ""))
 		if not package_id or not relative_path:
 			continue
 		files_by_package.setdefault(package_id, [])
+		metadata_by_package.setdefault(package_id, {})
 		if relative_path not in files_by_package[package_id]:
 			files_by_package[package_id].append(relative_path)
+		sha256 = str(item.get("sha256", "")).strip().lower()
+		size_bytes = item.get("size_bytes", -1)
+		staged_path = item.get("staged_path")
+		if (not is_sha256_hex(sha256) or not is_non_negative_int_value(size_bytes)) and isinstance(staged_path, Path):
+			sha256 = sha256_file(staged_path)
+			size_bytes = staged_path.stat().st_size
+		metadata_by_package[package_id][relative_path] = {
+			"sha256": sha256,
+			"size_bytes": int(size_bytes),
+		}
 	for package_id, files in files_by_package.items():
 		entry = installed.get(package_id)
 		if isinstance(entry, dict):
 			entry["files"] = sorted(files)
+			entry["file_metadata"] = {
+				relative_path: metadata_by_package[package_id][relative_path]
+				for relative_path in sorted(metadata_by_package[package_id])
+			}
+	lockfile["installed"] = installed
 	return lockfile
+
+
+def append_modified_existing_update_file_issues(
+	package_ids: list[str],
+	current_lockfile: dict[str, Any],
+	planned_lockfile: dict[str, Any],
+	project_root: Path,
+	issues: list[str],
+) -> None:
+	current_installed = installed_entries(current_lockfile)
+	planned_installed = installed_entries(planned_lockfile)
+	for package_id in package_ids:
+		current_entry = current_installed.get(package_id)
+		planned_entry = planned_installed.get(package_id)
+		if not isinstance(current_entry, dict) or not isinstance(planned_entry, dict):
+			continue
+		planned_files = set(string_array(planned_entry.get("files", [])))
+		current_metadata = current_entry.get("file_metadata", {})
+		if not isinstance(current_metadata, dict):
+			current_metadata = {}
+		for relative_path in string_array(current_entry.get("files", [])):
+			if relative_path not in planned_files:
+				continue
+			target_path = checked_project_target_path(project_root, relative_path, package_id, issues)
+			if target_path is None or not target_path.exists():
+				continue
+			metadata = current_metadata.get(relative_path)
+			if not valid_file_metadata(metadata):
+				issues.append(
+					f"{package_id}: installed file is missing lockfile metadata; "
+					f"reinstall before updating: {relative_path}"
+				)
+				continue
+			if not file_matches_metadata(target_path, metadata):
+				issues.append(
+					f"{package_id}: installed file was modified; "
+					f"refusing to overwrite it during update: {relative_path}"
+				)
+
+
+def append_existing_target_ownership_issues(
+	staged_files: list[dict[str, Any]],
+	project_root: Path,
+	current_lockfile: dict[str, Any],
+	issues: list[str],
+	allow_extracted_kernel_bootstrap: bool = False,
+) -> None:
+	installed = installed_entries(current_lockfile)
+	adopt_extracted_kernel = allow_extracted_kernel_bootstrap and extracted_kernel_matches_staged_files(
+		staged_files,
+		project_root,
+		current_lockfile,
+	)
+	for item in staged_files:
+		package_id = str(item.get("package_id", ""))
+		relative_path = normalize_archive_name(str(item.get("relative_path", "")))
+		if not package_id or not relative_path:
+			continue
+		target_path = checked_project_target_path(project_root, relative_path, package_id, issues)
+		if target_path is None or not target_path.exists():
+			continue
+		owner = installed_file_owner(relative_path, installed)
+		if not owner:
+			if adopt_extracted_kernel and package_id == "gf.kernel":
+				continue
+			issues.append(f"{package_id}: package target already exists but is not owned by the lockfile: {relative_path}")
+			continue
+		if owner != package_id:
+			issues.append(f"{package_id}: package target is owned by installed package {owner}: {relative_path}")
+
+
+def extracted_kernel_matches_staged_files(
+	staged_files: list[dict[str, Any]],
+	project_root: Path,
+	current_lockfile: dict[str, Any],
+) -> bool:
+	if installed_entries(current_lockfile):
+		return False
+	kernel_files = [item for item in staged_files if str(item.get("package_id", "")) == "gf.kernel"]
+	if not kernel_files:
+		return False
+	for item in kernel_files:
+		relative_path = normalize_archive_name(str(item.get("relative_path", "")))
+		if not relative_path:
+			return False
+		path_issues: list[str] = []
+		target_path = checked_project_target_path(project_root, relative_path, "gf.kernel", path_issues)
+		if path_issues or target_path is None or not target_matches_staged_file(target_path, item):
+			return False
+	return True
+
+
+def collect_update_obsolete_targets(
+	package_ids: list[str],
+	current_lockfile: dict[str, Any],
+	planned_lockfile: dict[str, Any],
+	project_root: Path,
+	issues: list[str],
+) -> list[dict[str, Any]]:
+	targets_by_path: dict[str, dict[str, Any]] = {}
+	current_installed = installed_entries(current_lockfile)
+	planned_installed = installed_entries(planned_lockfile)
+	for package_id in package_ids:
+		current_entry = current_installed.get(package_id)
+		planned_entry = planned_installed.get(package_id)
+		if not isinstance(current_entry, dict) or not isinstance(planned_entry, dict):
+			continue
+		planned_files = set(string_array(planned_entry.get("files", [])))
+		current_metadata = current_entry.get("file_metadata", {})
+		if not isinstance(current_metadata, dict):
+			current_metadata = {}
+		for raw_path in string_array(current_entry.get("files", [])):
+			relative_path = normalize_archive_name(raw_path)
+			if not relative_path or relative_path in planned_files or relative_path in targets_by_path:
+				continue
+			if remaining_installed_file_owner(relative_path, current_installed, package_id):
+				continue
+			target_path = checked_project_target_path(project_root, relative_path, package_id, issues)
+			if target_path is None or not target_path.exists():
+				continue
+			metadata = current_metadata.get(relative_path)
+			if not valid_file_metadata(metadata):
+				issues.append(
+					f"{package_id}: obsolete installed file is missing lockfile metadata; "
+					f"reinstall before updating: {relative_path}"
+				)
+				continue
+			if not file_matches_metadata(target_path, metadata):
+				issues.append(
+					f"{package_id}: obsolete installed file was modified; "
+					f"refusing to delete it during update: {relative_path}"
+				)
+				continue
+			targets_by_path[relative_path] = {
+				"package_id": package_id,
+				"relative_path": relative_path,
+				"target_path": target_path,
+			}
+	return [targets_by_path[relative_path] for relative_path in sorted(targets_by_path)]
+
+
+def installed_entries(lockfile: dict[str, Any]) -> dict[str, Any]:
+	installed = lockfile.get("installed", {}) if isinstance(lockfile, dict) else {}
+	return installed if isinstance(installed, dict) else {}
+
+
+def installed_file_owner(relative_path: str, installed: dict[str, Any]) -> str:
+	path_identity = portable_path_identity(relative_path)
+	for package_id in sorted(installed):
+		entry = installed.get(package_id)
+		if not isinstance(entry, dict):
+			continue
+		if any(portable_path_identity(path) == path_identity for path in string_array(entry.get("files", []))):
+			return str(package_id)
+	return ""
+
+
+def remaining_installed_file_owner(relative_path: str, installed: dict[str, Any], current_package_id: str) -> str:
+	path_identity = portable_path_identity(relative_path)
+	for package_id in sorted(installed):
+		if package_id == current_package_id:
+			continue
+		entry = installed.get(package_id)
+		if not isinstance(entry, dict):
+			continue
+		if any(portable_path_identity(path) == path_identity for path in string_array(entry.get("files", []))):
+			return str(package_id)
+	return ""
+
+
+def checked_project_target_path(
+	project_root: Path,
+	relative_path: str,
+	package_id: str,
+	issues: list[str],
+) -> Path | None:
+	try:
+		return project_target_path(project_root, relative_path)
+	except InstallFailure as error:
+		issues.append(f"{package_id}: {error}")
+		return None
+
+
+def valid_file_metadata(value: Any) -> bool:
+	if not isinstance(value, dict):
+		return False
+	if set(value) != {"sha256", "size_bytes"}:
+		return False
+	sha256 = str(value.get("sha256", "")).strip().lower()
+	size_bytes = value.get("size_bytes")
+	return is_sha256_hex(sha256) and type(size_bytes) is int and size_bytes >= 0
+
+
+def file_matches_metadata(path: Path, metadata: Any) -> bool:
+	if gf_package_transaction.path_has_reparse_component(path) or not path.is_file() or not valid_file_metadata(metadata):
+		return False
+	return path.stat().st_size == int(metadata["size_bytes"]) and sha256_file(path) == str(metadata["sha256"]).lower()
+
+
+def target_matches_staged_file(target_path: Path, staged_file: dict[str, Any]) -> bool:
+	metadata = {
+		"sha256": staged_file.get("sha256", ""),
+		"size_bytes": staged_file.get("size_bytes", -1),
+	}
+	return file_matches_metadata(target_path, metadata)
 
 
 def stage_package_archives(
 	package_ids: list[str],
 	registry_packages: dict[str, dict[str, Any]],
 	registry_path: Path,
-	cache_root: Path,
+	cache_context: dict[str, Any],
 	staging_root: Path,
 	issues: list[str],
 ) -> list[dict[str, Any]]:
@@ -1019,7 +1610,7 @@ def stage_package_archives(
 		if not isinstance(entry, dict):
 			issues.append(f"{package_id}: missing registry package entry.")
 			continue
-		archive_path = resolve_archive_path(str(entry.get("archive", "")), registry_path, cache_root, package_id, entry, issues)
+		archive_path = resolve_archive_path(str(entry.get("archive", "")), registry_path, cache_context, package_id, entry, issues)
 		if archive_path is None:
 			continue
 		package_issues = audit_package_archive(package_id, entry, archive_path)
@@ -1028,15 +1619,43 @@ def stage_package_archives(
 			continue
 		with zipfile.ZipFile(archive_path, "r") as archive:
 			for name in sorted(name for name in archive.namelist() if name and not name.endswith("/")):
-				staged_path = staging_root / package_id / Path(*name.split("/"))
+				normalized = normalize_archive_name(name)
+				if not normalized:
+					issues.append(f"{package_id}: unsafe archive entry path during staging: {name}")
+					continue
+				staged_path = staging_root / package_id / Path(*normalized.split("/"))
+				if gf_package_transaction.path_has_reparse_component(staged_path):
+					issues.append(f"{package_id}: archive staging path crosses a filesystem link: {normalized}")
+					continue
 				staged_path.parent.mkdir(parents=True, exist_ok=True)
-				staged_path.write_bytes(archive.read(name))
+				payload = archive.read(name)
+				staged_path.write_bytes(payload)
 				staged_files.append({
 					"package_id": package_id,
-					"relative_path": name,
+					"relative_path": normalized,
 					"staged_path": staged_path,
+					"sha256": hashlib.sha256(payload).hexdigest(),
+					"size_bytes": len(payload),
 				})
 	return staged_files
+
+
+def audit_package_archives(
+	package_ids: list[str],
+	registry_packages: dict[str, dict[str, Any]],
+	registry_path: Path,
+	cache_context: dict[str, Any],
+	issues: list[str],
+) -> None:
+	for package_id in package_ids:
+		entry = registry_packages.get(package_id)
+		if not isinstance(entry, dict):
+			issues.append(f"{package_id}: missing registry package entry.")
+			continue
+		archive_path = resolve_archive_path(str(entry.get("archive", "")), registry_path, cache_context, package_id, entry, issues)
+		if archive_path is None:
+			continue
+		issues.extend(audit_package_archive(package_id, entry, archive_path))
 
 
 def package_requires_archive(entry: Any) -> bool:
@@ -1063,19 +1682,37 @@ def audit_package_archive(package_id: str, entry: dict[str, Any], archive_path: 
 		return issues
 	try:
 		with zipfile.ZipFile(archive_path, "r") as archive:
-			names = [name for name in archive.namelist() if name and not name.endswith("/")]
+			entries = [info for info in archive.infolist() if info.filename and not info.filename.endswith("/")]
 	except zipfile.BadZipFile as error:
 		return [f"{package_id}: invalid zip archive: {error}"]
+	if len(entries) > MAX_ARCHIVE_ENTRY_COUNT:
+		issues.append(f"{package_id}: archive contains too many file entries: {len(entries)} > {MAX_ARCHIVE_ENTRY_COUNT}")
 	seen: set[str] = set()
-	for name in names:
+	total_uncompressed_size = 0
+	for entry_info in entries:
+		name = entry_info.filename
 		normalized = normalize_archive_name(name)
 		if not normalized:
 			issues.append(f"{package_id}: unsafe archive entry path: {name}")
 			continue
-		if normalized in seen:
+		total_uncompressed_size += entry_info.file_size
+		if len(normalized) > MAX_ARCHIVE_ENTRY_PATH_LENGTH:
+			issues.append(f"{package_id}: archive entry path is too long: {normalized}")
+		if len(normalized.split("/")) > MAX_ARCHIVE_ENTRY_PATH_DEPTH:
+			issues.append(f"{package_id}: archive entry path is too deep: {normalized}")
+		if entry_info.file_size > MAX_ARCHIVE_ENTRY_UNCOMPRESSED_BYTES:
+			issues.append(f"{package_id}: archive entry is too large after decompression: {normalized}")
+		if entry_info.compress_size <= 0 and entry_info.file_size > 0:
+			issues.append(f"{package_id}: archive entry has invalid compressed size: {normalized}")
+		elif entry_info.compress_size > 0 and entry_info.file_size > entry_info.compress_size * MAX_ARCHIVE_COMPRESSION_RATIO:
+			issues.append(f"{package_id}: archive entry compression ratio exceeds limit: {normalized}")
+		if zip_info_uses_zip64(entry_info):
+			issues.append(f"{package_id}: archive entry uses unsupported ZIP64 metadata: {normalized}")
+		path_identity = portable_path_identity(normalized)
+		if path_identity in seen:
 			issues.append(f"{package_id}: duplicate archive entry path: {normalized}")
 			continue
-		seen.add(normalized)
+		seen.add(path_identity)
 		if not normalized.startswith("addons/gf/"):
 			issues.append(f"{package_id}: archive entry is outside addons/gf: {normalized}")
 		if not path_matches_any_manifest_path(normalized, string_array(entry.get("paths", []))):
@@ -1087,7 +1724,21 @@ def audit_package_archive(package_id: str, entry: dict[str, Any], archive_path: 
 			issues.append(f"{package_id}: archive entry contains blocked generated file: {normalized}")
 		if runtime_package_has_external_tool_payload(package_id, entry, normalized):
 			issues.append(f"{package_id}: runtime package archive contains external tool payload: {normalized}")
+	if total_uncompressed_size > MAX_ARCHIVE_TOTAL_UNCOMPRESSED_BYTES:
+		issues.append(f"{package_id}: archive decompressed size exceeds limit: {total_uncompressed_size} > {MAX_ARCHIVE_TOTAL_UNCOMPRESSED_BYTES}")
 	return issues
+
+
+def zip_info_uses_zip64(entry_info: zipfile.ZipInfo) -> bool:
+	extra = entry_info.extra
+	index = 0
+	while index + 4 <= len(extra):
+		header_id = int.from_bytes(extra[index:index + 2], "little")
+		data_size = int.from_bytes(extra[index + 2:index + 4], "little")
+		if header_id == 0x0001:
+			return True
+		index += 4 + data_size
+	return False
 
 
 def runtime_package_has_external_tool_payload(package_id: str, entry: dict[str, Any], relative_path: str) -> bool:
@@ -1123,9 +1774,30 @@ def collect_uninstall_targets(
 		if package_is_preset(lock_entry) or (isinstance(registry_entry, dict) and package_is_preset(registry_entry)):
 			continue
 		patterns = string_array(lock_entry.get("paths", [])) or string_array(registry_entry.get("paths", []))
-		file_paths = string_array(lock_entry.get("files", []))
+		raw_file_paths = lock_entry.get("files", [])
+		file_paths = string_array(raw_file_paths)
+		file_metadata = lock_entry.get("file_metadata", {})
+		if not isinstance(raw_file_paths, list) or any(not isinstance(item, str) or not item.strip() for item in raw_file_paths):
+			issues.append(f"{package_id}: lockfile entry files must be an array of non-empty strings.")
+			continue
 		if not file_paths:
 			issues.append(f"{package_id}: lockfile entry is missing the installed files list; reinstall or repair the package before uninstalling.")
+			continue
+		file_identities = [portable_path_identity(path) for path in file_paths]
+		if any(not identity for identity in file_identities) or len(file_identities) != len(set(file_identities)):
+			issues.append(f"{package_id}: lockfile entry files must not contain duplicates.")
+			continue
+		if not isinstance(file_metadata, dict):
+			issues.append(f"{package_id}: lockfile entry file_metadata must be an object; reinstall or repair the package before uninstalling.")
+			continue
+		metadata_paths = [str(relative_path) for relative_path in file_metadata]
+		metadata_identities = [portable_path_identity(path) for path in metadata_paths]
+		if (
+			any(not identity for identity in metadata_identities)
+			or len(metadata_identities) != len(set(metadata_identities))
+			or set(metadata_identities) != set(file_identities)
+		):
+			issues.append(f"{package_id}: lockfile entry file_metadata must exactly cover the installed files list.")
 			continue
 		for relative_path in file_paths:
 			normalized = normalize_archive_name(relative_path)
@@ -1142,13 +1814,25 @@ def collect_uninstall_targets(
 			if remaining_owner:
 				issues.append(f"{package_id}: uninstall target is still owned by installed package {remaining_owner}: {normalized}")
 				continue
-			if normalized in seen_paths:
+			path_identity = portable_path_identity(normalized)
+			if path_identity in seen_paths:
 				continue
-			seen_paths.add(normalized)
+			target_path = checked_project_target_path(project_root, normalized, package_id, issues)
+			if target_path is None:
+				continue
+			metadata = file_metadata.get(normalized)
+			if not valid_file_metadata(metadata):
+				issues.append(f"{package_id}: installed file is missing lockfile metadata; refusing to uninstall: {normalized}")
+				continue
+			if target_path.exists():
+				if not file_matches_metadata(target_path, metadata):
+					issues.append(f"{package_id}: installed file was modified; refusing to delete it during uninstall: {normalized}")
+					continue
+			seen_paths.add(path_identity)
 			targets.append({
 				"package_id": package_id,
 				"relative_path": normalized,
-				"target_path": project_target_path(project_root, normalized),
+				"target_path": target_path,
 			})
 	return sorted(targets, key=lambda item: str(item["relative_path"]))
 
@@ -1164,164 +1848,74 @@ def remaining_package_owner(
 			continue
 		registry_entry = registry_packages.get(package_id, {})
 		patterns = string_array(lock_entry.get("paths", [])) or string_array(registry_entry.get("paths", []))
-		if path_matches_any_manifest_path(relative_path, patterns):
+		if any(
+			portable_path_identity(relative_path) == portable_path_identity(path)
+			for path in string_array(lock_entry.get("files", []))
+		) or path_matches_any_manifest_path(relative_path, patterns):
 			return str(package_id)
 	return ""
 
 
-def copy_staged_files_to_project(
+def execute_package_transaction(
+	operation: str,
 	staged_files: list[dict[str, Any]],
+	delete_targets: list[dict[str, Any]],
 	project_root: Path,
 	lockfile_path: Path,
 	planned_lockfile: dict[str, Any],
-	backup_root: Path,
-	simulate_copy_failure_after: int,
-) -> int:
-	project_root.mkdir(parents=True, exist_ok=True)
-	created_files: list[Path] = []
-	created_dirs: list[Path] = []
-	backups: list[dict[str, Path]] = []
-	copied_count = 0
-	try:
-		for item in staged_files:
-			relative_path = str(item["relative_path"])
-			target_path = project_target_path(project_root, relative_path)
-			make_parent_dirs(target_path.parent, project_root, created_dirs)
-			if target_path.exists():
-				if target_path.is_dir():
-					raise InstallFailure(f"Cannot overwrite directory with package file: {target_path.as_posix()}")
-				backup_path = backup_root / Path(*relative_path.split("/"))
-				backup_path.parent.mkdir(parents=True, exist_ok=True)
-				shutil.copy2(target_path, backup_path)
-				backups.append({"target": target_path, "backup": backup_path})
-			else:
-				created_files.append(target_path)
-			shutil.copy2(item["staged_path"], target_path)
-			copied_count += 1
-			if simulate_copy_failure_after > 0 and copied_count >= simulate_copy_failure_after:
-				raise InstallFailure("Simulated package install copy failure.")
-		write_lockfile_last(lockfile_path, planned_lockfile)
-		return copied_count
-	except Exception as error:
-		rollback_files(created_files, backups, created_dirs)
-		if isinstance(error, InstallFailure):
-			raise
-		raise InstallFailure(f"Package install failed and was rolled back: {error}") from error
+	*,
+	simulate_copy_failure_after: int = 0,
+	simulate_delete_failure_after: int = 0,
+	simulate_transaction_failure_at: str = "",
+	simulate_transaction_crash_at: str = "",
+) -> dict[str, Any]:
+	writes = [
+		{
+			"relative_path": str(item.get("relative_path", "")),
+			"source_path": str(item.get("staged_path", "")),
+		}
+		for item in staged_files
+	]
+	deletes = [
+		{"relative_path": str(item.get("relative_path", ""))}
+		for item in delete_targets
+	]
+	request = gf_package_transaction.make_request(
+		operation,
+		project_root,
+		lockfile_path,
+		planned_lockfile,
+		writes,
+		deletes,
+	)
+	return gf_package_transaction.execute(
+		request,
+		simulate_copy_failure_after=simulate_copy_failure_after,
+		simulate_delete_failure_after=simulate_delete_failure_after,
+		simulate_transaction_failure_at=simulate_transaction_failure_at,
+		simulate_transaction_crash_at=simulate_transaction_crash_at,
+	)
 
 
-def delete_package_files_from_project(
-	targets: list[dict[str, Any]],
+def make_pending_registry_source(
+	registry_value: str,
 	project_root: Path,
-	lockfile_path: Path,
-	planned_lockfile: dict[str, Any],
-	backup_root: Path,
-	simulate_delete_failure_after: int,
-) -> int:
-	backups: list[dict[str, Path]] = []
-	touched_dirs: list[Path] = []
-	deleted_count = 0
-	try:
-		for item in targets:
-			relative_path = str(item["relative_path"])
-			target_path = item["target_path"]
-			if not isinstance(target_path, Path):
-				raise InstallFailure(f"Invalid uninstall target path: {relative_path}")
-			if not target_path.exists():
-				continue
-			if target_path.is_dir():
-				raise InstallFailure(f"Refusing to delete directory as a package file: {target_path.as_posix()}")
-			backup_path = backup_root / Path(*relative_path.split("/"))
-			backup_path.parent.mkdir(parents=True, exist_ok=True)
-			shutil.copy2(target_path, backup_path)
-			backups.append({"target": target_path, "backup": backup_path})
-			target_path.unlink()
-			deleted_count += 1
-			append_unique_path(touched_dirs, target_path.parent)
-			if simulate_delete_failure_after > 0 and deleted_count >= simulate_delete_failure_after:
-				raise InstallFailure("Simulated package uninstall delete failure.")
-		remove_empty_project_dirs(touched_dirs, project_root)
-		write_lockfile_last(lockfile_path, planned_lockfile)
-		return deleted_count
-	except Exception as error:
-		restore_deleted_files(backups)
-		if isinstance(error, InstallFailure):
-			raise
-		raise InstallFailure(f"Package uninstall failed and was rolled back: {error}") from error
-
-
-def write_lockfile_last(lockfile_path: Path, planned_lockfile: dict[str, Any]) -> None:
-	lockfile_path.parent.mkdir(parents=True, exist_ok=True)
-	temp_path = lockfile_path.with_name(lockfile_path.name + ".tmp")
-	temp_path.write_text(json.dumps(planned_lockfile, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-	temp_path.replace(lockfile_path)
-
-
-def rollback_files(created_files: list[Path], backups: list[dict[str, Path]], created_dirs: list[Path]) -> None:
-	for path in reversed(created_files):
-		if path.is_file():
-			path.unlink()
-	for item in reversed(backups):
-		target = item["target"]
-		backup = item["backup"]
-		if backup.is_file():
-			target.parent.mkdir(parents=True, exist_ok=True)
-			shutil.copy2(backup, target)
-	for directory in reversed(created_dirs):
-		try:
-			directory.rmdir()
-		except OSError:
-			pass
-
-
-def restore_deleted_files(backups: list[dict[str, Path]]) -> None:
-	for item in reversed(backups):
-		target = item["target"]
-		backup = item["backup"]
-		if backup.is_file():
-			target.parent.mkdir(parents=True, exist_ok=True)
-			shutil.copy2(backup, target)
-
-
-def remove_empty_project_dirs(directories: list[Path], project_root: Path) -> None:
-	project_root_resolved = project_root.resolve()
-	stop_dir = (project_root / "addons").resolve(strict=False)
-	for directory in sorted(directories, key=lambda path: len(path.parts), reverse=True):
-		current = directory
-		while current != current.parent:
-			resolved = current.resolve(strict=False)
-			if not resolved.is_relative_to(project_root_resolved):
-				break
-			if resolved == project_root_resolved or resolved == stop_dir.parent.resolve(strict=False):
-				break
-			try:
-				current.rmdir()
-			except OSError:
-				break
-			if resolved == stop_dir:
-				break
-			current = current.parent
-
-
-def append_unique_path(items: list[Path], path: Path) -> None:
-	if path not in items:
-		items.append(path)
-
-
-def make_parent_dirs(parent: Path, project_root: Path, created_dirs: list[Path]) -> None:
-	missing: list[Path] = []
-	current = parent
-	project_root_resolved = project_root.resolve()
-	while not current.exists():
-		resolved = current.resolve(strict=False)
-		if not resolved.is_relative_to(project_root_resolved):
-			raise InstallFailure(f"Refusing to create directory outside project root: {current.as_posix()}")
-		missing.append(current)
-		if current == current.parent:
-			break
-		current = current.parent
-	for directory in reversed(missing):
-		directory.mkdir()
-		created_dirs.append(directory)
+	cache_mode: str,
+	transaction_recovery: dict[str, Any],
+) -> dict[str, Any]:
+	local_root = gf_package_transaction.absolute_lexical_path(project_root / gf_package_cache.LOCAL_CACHE_RELATIVE_PATH)
+	workspace_root = gf_package_transaction.absolute_lexical_path(project_root / gf_package_cache.WORKSPACE_RELATIVE_PATH)
+	cache_context = gf_package_cache.make_context(cache_mode, local_root, workspace_root, project_root)
+	gf_package_cache.configure_project_local_context(cache_context, local_root)
+	registry = registry_value.strip()
+	path = (
+		workspace_root / "registries" / f"{sha256_text(registry)}.json"
+		if is_remote_url(registry)
+		else resolve_tool_path(registry_value)
+	)
+	result = make_registry_candidate_result(path, cache_context, is_remote_url(registry), registry_value)
+	result["_transaction_recovery"] = transaction_recovery
+	return result
 
 
 def prepare_registry_source(
@@ -1329,43 +1923,94 @@ def prepare_registry_source(
 	channel: str,
 	project_root: Path,
 	cache_dir: str,
+	cache_mode: str,
 	issues: list[str],
 ) -> dict[str, Any]:
-	cache_root = resolve_cache_dir(project_root, cache_dir)
+	cache_context = gf_package_cache.resolve_context(project_root, cache_dir, cache_mode, issues)
 	registry = registry_value.strip()
+	if issues:
+		return make_registry_candidate_result(
+			Path(registry) if not is_remote_url(registry) else Path(cache_context["workspace_root"]) / "registries" / f"{sha256_text(registry)}.json",
+			cache_context,
+			is_remote_url(registry),
+			registry,
+		)
 	source_issues: list[str] = []
-	source = prepare_registry_candidate(registry, project_root, cache_root, source_issues)
+	source = prepare_registry_candidate(registry, project_root, cache_context, source_issues)
 	if source_issues:
 		issues.extend(source_issues)
 		return source
 	if registry_file_is_source_manifest(source["path"]):
-		return prepare_registry_source_channel(source, channel, project_root, cache_root, issues)
+		return prepare_registry_source_channel(source, channel, project_root, cache_context, issues)
 	return source
 
 
 def prepare_registry_candidate(
 	registry_value: str,
 	project_root: Path,
-	cache_root: Path,
+	cache_context: dict[str, Any],
 	issues: list[str],
 	expected_sha: str = "",
 	expected_size: int = 0,
 ) -> dict[str, Any]:
 	registry = registry_value.strip()
 	if is_remote_url(registry):
-		cache_path = cache_root / "registries" / f"{sha256_text(registry)}.json"
-		raw_path = cache_path.with_name(cache_path.name + ".raw")
-		if not download_url_to_file(registry, raw_path, "registry", issues, MAX_REGISTRY_DOWNLOAD_BYTES):
-			return {"path": cache_path, "cache_dir": cache_root, "remote": True, "source": registry}
-		if not registry_file_matches_metadata(raw_path, expected_sha, expected_size, issues):
-			try_unlink(raw_path)
-			return {"path": cache_path, "cache_dir": cache_root, "remote": True, "source": registry}
+		try:
+			cache_path = gf_package_cache.make_workspace_temp_path(cache_context, "registries", ".json")
+		except ValueError as error:
+			issues.append(str(error))
+			return make_registry_candidate_result(Path(""), cache_context, True, registry)
+		raw_path = None
+		downloaded_path = None
+		if expected_sha and expected_size > 0:
+			raw_path = gf_package_cache.find_artifact(cache_context, expected_sha, expected_size, ".json")
+		if raw_path is None:
+			try:
+				downloaded_path = gf_package_cache.make_workspace_temp_path(cache_context, "registry_downloads", ".json")
+			except ValueError as error:
+				issues.append(str(error))
+				return make_registry_candidate_result(cache_path, cache_context, True, registry)
+			raw_path = downloaded_path
+			if not download_url_to_file(registry, raw_path, "registry", issues, MAX_REGISTRY_DOWNLOAD_BYTES):
+				return make_registry_candidate_result(cache_path, cache_context, True, registry)
+			if not registry_file_matches_metadata(raw_path, expected_sha, expected_size, issues):
+				try_unlink(downloaded_path)
+				return make_registry_candidate_result(cache_path, cache_context, True, registry)
+			if expected_sha and expected_size > 0:
+				committed_path = gf_package_cache.commit_artifact(
+					cache_context,
+					raw_path,
+					expected_sha,
+					expected_size,
+					".json",
+					issues,
+				)
+				if committed_path is None:
+					try_unlink(downloaded_path)
+					return make_registry_candidate_result(cache_path, cache_context, True, registry)
+				raw_path = committed_path
 		rewrite_remote_registry(raw_path, cache_path, registry, issues)
-		try_unlink(raw_path)
-		return {"path": cache_path.resolve(), "cache_dir": cache_root, "remote": True, "source": registry}
+		if downloaded_path is not None:
+			try_unlink(downloaded_path)
+		return make_registry_candidate_result(cache_path.resolve(), cache_context, True, registry)
 	registry_path = resolve_tool_path(registry_value)
 	registry_file_matches_metadata(registry_path, expected_sha, expected_size, issues)
-	return {"path": registry_path, "cache_dir": cache_root, "remote": False, "source": registry_value}
+	return make_registry_candidate_result(registry_path, cache_context, False, registry_value)
+
+
+def make_registry_candidate_result(
+	path: Path,
+	cache_context: dict[str, Any],
+	remote: bool,
+	source: str,
+) -> dict[str, Any]:
+	return {
+		"path": path,
+		"cache_dir": cache_context.get("artifact_write_root"),
+		"remote": remote,
+		"source": source,
+		"_cache_context": cache_context,
+	}
 
 
 def registry_file_is_source_manifest(path: Path) -> bool:
@@ -1380,7 +2025,7 @@ def prepare_registry_source_channel(
 	source: dict[str, Any],
 	channel: str,
 	project_root: Path,
-	cache_root: Path,
+	cache_context: dict[str, Any],
 	issues: list[str],
 ) -> dict[str, Any]:
 	source_path = Path(source["path"])
@@ -1409,7 +2054,7 @@ def prepare_registry_source_channel(
 		result = prepare_registry_candidate(
 			resolved_candidate,
 			project_root,
-			cache_root,
+			cache_context,
 			candidate_issues,
 			expected_sha,
 			expected_size,
@@ -1520,29 +2165,79 @@ def rewrite_remote_registry(raw_path: Path, cache_path: Path, registry_url: str,
 		return
 	packages = data.get("packages", {})
 	if isinstance(packages, dict):
-		for entry in packages.values():
+		for package_id, entry in packages.items():
 			if not isinstance(entry, dict):
 				continue
 			archive = str(entry.get("archive", "")).strip()
-			if archive and not is_remote_url(archive) and not Path(archive).is_absolute():
-				entry["archive"] = urllib.parse.urljoin(registry_url, archive)
-	cache_path.parent.mkdir(parents=True, exist_ok=True)
-	cache_path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+			if archive:
+				resolved_archive = resolve_remote_archive_reference(str(package_id), archive, registry_url, issues)
+				if resolved_archive:
+					entry["archive"] = resolved_archive
+	text = json.dumps(data, ensure_ascii=False, indent=2) + "\n"
+	temp_path = cache_path.with_name(f"{cache_path.name}.tmp-{secrets.token_hex(8)}")
+	try:
+		cache_path.parent.mkdir(parents=True, exist_ok=True)
+		temp_path.write_text(text, encoding="utf-8", newline="\n")
+		os.replace(temp_path, cache_path)
+	except OSError as error:
+		try_unlink(temp_path)
+		issues.append(f"Could not write cached registry: {error}")
 
 
-def resolve_cache_dir(project_root: Path, cache_dir: str) -> Path:
-	if cache_dir.strip():
-		path = Path(cache_dir)
-		if not path.is_absolute():
-			path = ROOT / path
-		return path.resolve()
-	return (project_root / ".gf/package_cache").resolve()
+def resolve_remote_archive_reference(
+	package_id: str,
+	archive: str,
+	registry_url: str,
+	issues: list[str],
+) -> str:
+	text = archive.strip()
+	if not text:
+		return ""
+	if is_remote_url(text):
+		return text
+	if text.startswith(("res://", "user://", "//")) or ":" in text:
+		issues.append(f"{package_id}: remote registry archive reference is not allowed: {text}")
+		return ""
+
+	parsed = urllib.parse.urlsplit(registry_url)
+	if not parsed.scheme or not parsed.netloc:
+		issues.append(f"{package_id}: remote registry archive base URL is invalid: {registry_url}")
+		return ""
+	registry_path = parsed.path or "/"
+	if text.startswith("/"):
+		joined_path = text
+	else:
+		base_dir = posixpath.dirname(registry_path)
+		if not base_dir.startswith("/"):
+			base_dir = "/" + base_dir
+		if not base_dir.endswith("/"):
+			base_dir += "/"
+		joined_path = base_dir + text
+	normalized_path = normalize_remote_url_path(joined_path)
+	if not normalized_path:
+		issues.append(f"{package_id}: remote registry archive path escapes the URL root: {text}")
+		return ""
+	return urllib.parse.urlunsplit((parsed.scheme, parsed.netloc, normalized_path, "", ""))
+
+
+def normalize_remote_url_path(path: str) -> str:
+	segments: list[str] = []
+	for segment in path.split("/"):
+		if not segment or segment == ".":
+			continue
+		if segment == "..":
+			if not segments:
+				return ""
+			segments.pop()
+		else:
+			segments.append(segment)
+	return "/" + "/".join(segments)
 
 
 def resolve_archive_path(
 	archive_value: str,
 	registry_path: Path,
-	cache_root: Path,
+	cache_context: dict[str, Any],
 	package_id: str,
 	entry: dict[str, Any],
 	issues: list[str],
@@ -1551,18 +2246,34 @@ def resolve_archive_path(
 	if not archive:
 		return registry_path.parent / ""
 	if is_remote_url(archive):
-		return cache_remote_archive(package_id, archive, entry, cache_root, issues)
-	path = Path(archive)
-	if path.is_absolute():
-		return path
-	return (registry_path.parent / path).resolve()
+		return cache_remote_archive(package_id, archive, entry, cache_context, issues)
+	normalized = archive.replace("\\", "/")
+	path = Path(normalized)
+	if (
+		normalized.startswith(("res://", "user://", "//"))
+		or ":" in normalized
+		or path.is_absolute()
+	):
+		issues.append(f"{package_id}: local archive must stay inside the trusted bundle: {archive}")
+		return None
+	resolved_path = (registry_path.parent / path).resolve()
+	registry_root = registry_path.parent.resolve()
+	sibling_packages_root = (registry_root.parent / "packages").resolve()
+	if not any(resolved_path.is_relative_to(root) for root in (registry_root, sibling_packages_root)):
+		issues.append(f"{package_id}: local archive must stay inside the trusted bundle: {archive}")
+		return None
+	lexical_path = gf_package_transaction.absolute_lexical_path(registry_path.parent / path)
+	if gf_package_transaction.path_has_reparse_component(lexical_path):
+		issues.append(f"{package_id}: local archive crosses a filesystem link inside the trusted bundle: {archive}")
+		return None
+	return resolved_path
 
 
 def cache_remote_archive(
 	package_id: str,
 	archive_url: str,
 	entry: dict[str, Any],
-	cache_root: Path,
+	cache_context: dict[str, Any],
 	issues: list[str],
 ) -> Path | None:
 	expected_sha = str(entry.get("sha256", "")).strip()
@@ -1573,17 +2284,35 @@ def cache_remote_archive(
 	if expected_size <= 0:
 		issues.append(f"{package_id}: remote archive requires positive size_bytes in the registry.")
 		return None
-	archive_path = cache_root / "archives" / f"{safe_cache_name(package_id)}-{expected_sha[:16]}.zip"
-	if archive_path.is_file() and archive_file_matches_metadata(archive_path, expected_sha, expected_size):
+	archive_path = gf_package_cache.find_artifact(cache_context, expected_sha, expected_size, ".zip")
+	if archive_path is not None:
 		return archive_path
+	try:
+		downloaded_path = gf_package_cache.make_workspace_temp_path(cache_context, "archive_downloads", ".zip")
+	except ValueError as error:
+		issues.append(f"{package_id}: {error}")
+		return None
 	if not download_url_to_file(
 		archive_url,
-		archive_path,
+		downloaded_path,
 		f"{package_id} archive",
 		issues,
 		min(MAX_ARCHIVE_DOWNLOAD_BYTES, expected_size + 1),
 	):
 		return None
+	if not archive_file_matches_metadata(downloaded_path, expected_sha, expected_size):
+		try_unlink(downloaded_path)
+		issues.append(f"{package_id}: downloaded archive does not match registry sha256 and size.")
+		return None
+	archive_path = gf_package_cache.commit_artifact(
+		cache_context,
+		downloaded_path,
+		expected_sha,
+		expected_size,
+		".zip",
+		issues,
+	)
+	try_unlink(downloaded_path)
 	return archive_path
 
 
@@ -1609,8 +2338,11 @@ def registry_file_matches_metadata(path: Path, expected_sha: str, expected_size:
 
 
 def download_url_to_file(url: str, target_path: Path, label: str, issues: list[str], max_bytes: int) -> bool:
+	if gf_package_transaction.path_has_reparse_component(target_path):
+		issues.append(f"{label}: download target crosses a filesystem link.")
+		return False
 	target_path.parent.mkdir(parents=True, exist_ok=True)
-	temp_path = target_path.with_name(target_path.name + ".download")
+	temp_path = target_path.with_name(f"{target_path.name}.download-{secrets.token_hex(8)}")
 	request = urllib.request.Request(url, headers={"User-Agent": "GF-Package-Installer/1"})
 	bytes_written = 0
 	try:
@@ -1676,21 +2408,37 @@ def project_target_path(project_root: Path, relative_path: str) -> Path:
 	if not normalized:
 		raise InstallFailure(f"Unsafe package target path: {relative_path}")
 	target_path = project_root / Path(*normalized.split("/"))
-	project_root_resolved = project_root.resolve()
-	target_resolved = target_path.resolve(strict=False)
-	if not target_resolved.is_relative_to(project_root_resolved):
+	project_root_absolute = gf_package_transaction.absolute_lexical_path(project_root)
+	target_absolute = gf_package_transaction.absolute_lexical_path(target_path)
+	if not gf_package_transaction.path_is_inside_lexical(project_root_absolute, target_absolute):
 		raise InstallFailure(f"Refusing to write outside project root: {relative_path}")
-	return target_path
+	if gf_package_transaction.path_has_reparse_component(project_root_absolute):
+		raise InstallFailure(f"Project root crosses a filesystem link: {project_root_absolute.as_posix()}")
+	if gf_package_transaction.path_has_reparse_component(target_absolute):
+		raise InstallFailure(f"Package target crosses a filesystem link: {relative_path}")
+	return target_absolute
 
 
 def normalize_archive_name(name: str) -> str:
-	normalized = name.strip().replace("\\", "/")
+	if name != name.strip():
+		return ""
+	normalized = name.replace("\\", "/")
 	if not normalized or normalized.startswith("/") or ":" in normalized:
 		return ""
 	parts = normalized.split("/")
-	if any(part in {"", ".", ".."} for part in parts):
+	if any(
+		part in {"", ".", ".."}
+		or part != part.rstrip(" .")
+		or any(ord(character) < 32 for character in part)
+		for part in parts
+	):
 		return ""
 	return "/".join(parts)
+
+
+def portable_path_identity(path: str) -> str:
+	normalized = normalize_archive_name(path)
+	return normalized.lower() if normalized else ""
 
 
 def path_matches_any_manifest_path(path: str, patterns: list[str]) -> bool:
@@ -1733,6 +2481,7 @@ def make_install_result(
 	rolled_back: bool,
 	issues: list[str],
 	registry_source: dict[str, Any] | None = None,
+	lockfile_written: bool = False,
 ) -> dict[str, Any]:
 	result = {
 		"ok": ok,
@@ -1746,7 +2495,7 @@ def make_install_result(
 		"to_update": string_list(plan.get("to_update", [])),
 		"installed_packages": installed_packages,
 		"installed_file_count": installed_file_count,
-		"lockfile_written": ok and not dry_run and bool(installed_packages),
+		"lockfile_written": ok and not dry_run and (lockfile_written or bool(installed_packages)),
 		"dry_run": dry_run,
 		"rolled_back": rolled_back,
 		"issue_count": len(issues),
@@ -1876,6 +2625,15 @@ def make_status_result(
 
 
 def append_registry_source_fields(result: dict[str, Any], registry_source: dict[str, Any]) -> None:
+	operation = str(result.get("operation", ""))
+	transaction = registry_source.get("_transaction", {})
+	result["transaction"] = transaction if isinstance(transaction, dict) and transaction else gf_package_transaction.empty_report(operation)
+	transaction_recovery = registry_source.get("_transaction_recovery", {})
+	result["transaction_recovery"] = (
+		transaction_recovery
+		if isinstance(transaction_recovery, dict) and transaction_recovery
+		else gf_package_transaction.empty_report("recover")
+	)
 	if not registry_source:
 		return
 	result["registry_remote"] = bool(registry_source.get("remote", False))
@@ -1896,9 +2654,13 @@ def append_registry_source_fields(result: dict[str, Any], registry_source: dict[
 	registry_size = int_value(registry_source.get("registry_size_bytes", 0))
 	if registry_size > 0:
 		result["registry_source_size_bytes"] = registry_size
-	cache_dir = registry_source.get("cache_dir")
-	if isinstance(cache_dir, Path):
-		result["registry_cache_dir"] = display_path(cache_dir)
+	cache_context = registry_source.get("_cache_context")
+	if isinstance(cache_context, dict) and cache_context:
+		cache_report = gf_package_cache.make_report(cache_context)
+		result["cache"] = cache_report
+		artifact_write_root = cache_context.get("artifact_write_root")
+		if isinstance(artifact_write_root, Path):
+			result["registry_cache_dir"] = display_path(artifact_write_root)
 
 
 def resolve_tool_path(path: str) -> Path:
@@ -1908,11 +2670,34 @@ def resolve_tool_path(path: str) -> Path:
 	return resolved.resolve()
 
 
+def resolve_project_path(path: str) -> Path:
+	resolved = Path(path)
+	if not resolved.is_absolute():
+		resolved = ROOT / resolved
+	return gf_package_transaction.absolute_lexical_path(resolved)
+
+
 def resolve_project_lockfile_path(project_root: Path, lockfile_path: str) -> Path:
 	path = Path(lockfile_path)
 	if path.is_absolute():
-		return path.resolve()
-	return (project_root / path).resolve()
+		return gf_package_transaction.absolute_lexical_path(path)
+	return gf_package_transaction.absolute_lexical_path(project_root / path)
+
+
+def append_lockfile_path_issues(project_root: Path, resolved_lockfile_path: Path, raw_lockfile_path: str, issues: list[str]) -> None:
+	if not raw_lockfile_path.strip():
+		issues.append("Lockfile path is required.")
+		return
+	if gf_package_transaction.path_has_reparse_component(project_root):
+		issues.append(f"Project root crosses a filesystem link: {project_root.as_posix()}")
+		return
+	if project_root.exists() and not project_root.is_dir():
+		issues.append(f"Project root is not a directory: {project_root.as_posix()}")
+		return
+	if not gf_package_transaction.path_is_inside_lexical(project_root, resolved_lockfile_path):
+		issues.append(f"Lockfile path must stay inside project root: {resolved_lockfile_path.as_posix()}")
+	elif gf_package_transaction.path_has_reparse_component(resolved_lockfile_path):
+		issues.append(f"Lockfile path crosses a filesystem link: {resolved_lockfile_path.as_posix()}")
 
 
 def read_project_framework_version(project_root: Path) -> str:
@@ -1983,6 +2768,17 @@ def print_result(result: dict[str, Any], as_json: bool) -> None:
 			print(f"- {item.get('id', '')}: {item.get('kind', '')} {state}")
 		if result["orphan_packages"]:
 			print("orphan_packages: " + ", ".join(result["orphan_packages"]))
+		if result["issues"]:
+			print("issues:")
+			for issue in result["issues"]:
+				print(f"- {issue}")
+		return
+	if result.get("operation") == "recover":
+		print(
+			f"recover: ok={result['ok']} "
+			f"outcome={result.get('outcome', 'none')} "
+			f"recovery_required={result.get('recovery_required', False)}"
+		)
 		if result["issues"]:
 			print("issues:")
 			for issue in result["issues"]:

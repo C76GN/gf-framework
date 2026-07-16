@@ -1,6 +1,6 @@
 # Inspector、工作区页面与导出插件
 
-标准库自带编辑器增强集中声明在 `addons/gf/standard/editor/gf_standard_editor_extensions.gd`，再由根插件 `addons/gf/plugin.gd` 作为组合入口传给 `kernel/editor` 辅助脚本。
+标准库自带编辑器增强集中声明在 `addons/gf/standard/editor/gf_editor_contributions.json` data-only manifest 中，脚本模板正文放在同目录的 `templates/` 下。根插件 `addons/gf/plugin.gd` 只通过 `GFEditorContributionRegistry` 收集这些记录，再传给 `kernel/editor` 辅助脚本；清单目标脚本缺失时会跳过对应记录，避免标准库部分安装或残留文件拖垮核心插件启动。
 
 ## 标准库页面
 
@@ -16,7 +16,9 @@ Inspector 与导出插件仍按对应类型装载，例如 Node State Machine In
 
 ## 资源预览与路径字段
 
-GF 会注册一个通用 Resource 预览生成器。资源可以通过 `get_gf_preview_texture()` 或 `get_gf_icon_texture()` 返回 `Texture2D`；没有显式方法时，生成器会尝试读取 `preview_texture` 或 `icon` 字段。预览生成器只把已有纹理等比适配到编辑器请求尺寸，不解释资源业务含义，也不要求项目资源继承某个 GF 基类。
+GF 会注册一个通用 Resource 预览生成器。底层预览来源由 `GFResourcePreviewSourceRegistry` 管理，默认 provider 会先尝试 `get_gf_preview_texture()` / `get_gf_icon_texture()`，再尝试 `preview_texture` / `icon` 字段。项目或扩展后续需要接入自定义素材预览时，应提供只负责“从 Resource 解析源 Texture2D”的 provider，再交给统一预算管线生成编辑器缩略图。
+
+预览生成器只把已有纹理等比适配到编辑器请求尺寸，不解释资源业务含义，也不要求项目资源继承某个 GF 基类。未知资源没有可用 provider 时会被视为正常的 `no_source`，不会报错；源纹理或目标预览尺寸超过预算时会 fail-closed，不继续解码或缩放超大图片。
 
 GF 也会为 `String` 类型且带有可识别 `@export_file()` 资源 hint 的字段提供 ResourcePicker。例如 `@export_file("*.tscn") var scene_path: String` 会显示场景资源选择器，保存时优先写入 `uid://`，资源没有 UID 时回退到 `res://`。当字段当前值是 `uid://` 时，Inspector 会显示解析后的 `res://` 路径；路径缺失、UID 无效或类型不匹配时会在字段下方显示状态提示。普通文本文件路径、未识别扩展名和非 String 字段不会被接管。
 

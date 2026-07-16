@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFInputConflictAnalyzer" path="addons/gf/standard/input/rebinding/gf_input_conflict_analyzer.gd" module="standard" extends="RefCounted" classDigest="bf78c7924297f585ce35726265cb219256f410dde4b1911ad4247f5dc4b0639c">
+<class name="GFInputConflictAnalyzer" path="addons/gf/standard/input/rebinding/gf_input_conflict_analyzer.gd" module="standard" extends="RefCounted" classDigest="20ca3ac59940a9d9ad0e75138cb9331b064e1726d6e7bee5e439e30afaca0902">
 	<description>GFInputConflictAnalyzer: 输入上下文冲突分析工具。
 只读取输入资源与可选重映射配置，不参与运行时输入分发。适合设置界面、
 编辑器工具或测试在应用重绑定前检查同一输入是否被多个抽象动作占用。</description>
@@ -63,7 +63,8 @@
 				<tag name="param">include_non_remappable: 是否包含不可重绑动作或绑定。</tag>
 				<tag name="return">绑定条目列表。</tag>
 				<tag name="schema">contexts: Array[GFInputContext] of contexts to inspect.</tag>
-				<tag name="schema">return: Array，包含 item Dictionary 记录，字段包括 context/action/binding id、event、event_text、event_key、signature、device_scope 和 match_device。</tag>
+				<tag name="schema">return: Array，包含 item Dictionary 记录，字段包括 context/action/binding id、event_record、event_text、event_key、signature、device_scope 和 match_device。</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_event_signature">

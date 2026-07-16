@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFTimeoutController" path="addons/gf/standard/common/gf_timeout_controller.gd" module="standard" extends="RefCounted" classDigest="ac78ff4be7514257483aa0e04e0130afa1f7c8d50bbcbdb2b958ec1047c8d61e">
+<class name="GFTimeoutController" path="addons/gf/standard/common/gf_timeout_controller.gd" module="standard" extends="RefCounted" classDigest="163c5ba12e87611a51f03be4d8e818f5a7bb7942959ecadb9b1e390ab31cce6c">
 	<description>GFTimeoutController: 可复用的超时取消控制器。
 将“超时”建模为取消 token 的一种原因，并提供 start / reset / stop 的可复用生命周期。
 它只负责产生超时信号和 token，不执行重试、回滚或业务流程。</description>
@@ -68,7 +68,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="get_token">
-			<signature>func get_token() -&gt; GFCancelToken:</signature>
+			<signature>func get_token() -&gt; GFCancellationToken:</signature>
 			<description>获取当前取消 token。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -77,7 +77,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="start_seconds">
-			<signature>func start_seconds( seconds: float, tree: SceneTree = null, reason: StringName = DEFAULT_TIMEOUT_REASON, metadata: Dictionary = {} ) -&gt; GFCancelToken:</signature>
+			<signature>func start_seconds( seconds: float, tree: SceneTree = null, reason: StringName = DEFAULT_TIMEOUT_REASON, metadata: Dictionary = {} ) -&gt; GFCancellationToken:</signature>
 			<description>启动一个新的超时计划。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -99,7 +99,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="reset">
-			<signature>func reset() -&gt; GFCancelToken:</signature>
+			<signature>func reset() -&gt; GFCancellationToken:</signature>
 			<description>重置为一个未取消 token，并清除超时状态。</description>
 			<tags>
 				<tag name="api">public</tag>

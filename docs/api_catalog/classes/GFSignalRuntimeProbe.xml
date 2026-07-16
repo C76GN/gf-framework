@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSignalRuntimeProbe" path="addons/gf/standard/utilities/debug/gf_signal_runtime_probe.gd" module="standard" extends="RefCounted" classDigest="f9a088dbda21cf0737053edf223389492b2f626c450ba703d67c0231cce4ab12">
+<class name="GFSignalRuntimeProbe" path="addons/gf/standard/utilities/debug/gf_signal_runtime_probe.gd" module="standard" extends="RefCounted" classDigest="f93fd05930fb74f05a530d5f9554e2dca85cfcb972241c451da61f8371832716">
 	<description>GFSignalRuntimeProbe: 运行时信号发射追踪器。
 以显式 watch 的方式连接节点信号，并把实际发射记录为只读事件快照。
 它不修改被观察节点，不解释业务语义，也不应默认用于生产环境全局采样。</description>
@@ -67,6 +67,38 @@
 				<tag name="api">public</tag>
 			</tags>
 		</member>
+		<member kind="const" name="DEFAULT_MAX_CONTAINER_ITEMS">
+			<signature>const DEFAULT_MAX_CONTAINER_ITEMS: int = 64</signature>
+			<description>单个容器参数默认最多保留的元素数量。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="DEFAULT_MAX_SNAPSHOT_NODES">
+			<signature>const DEFAULT_MAX_SNAPSHOT_NODES: int = 512</signature>
+			<description>单次信号事件参数快照默认最多访问的值节点数量。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="DEFAULT_MAX_SNAPSHOT_BYTES">
+			<signature>const DEFAULT_MAX_SNAPSHOT_BYTES: int = 64 * 1024</signature>
+			<description>单次信号事件参数快照默认最多保留的估算 UTF-8 字节数。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="DEFAULT_MAX_SNAPSHOT_DEPTH">
+			<signature>const DEFAULT_MAX_SNAPSHOT_DEPTH: int = 8</signature>
+			<description>单次信号事件参数快照默认最大递归深度。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
 	</constants>
 	<properties>
 		<member kind="property" name="max_events">
@@ -81,6 +113,38 @@
 			<description>单个信号最多支持追踪的参数数量。</description>
 			<tags>
 				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="property" name="max_container_items">
+			<signature>var max_container_items: int = DEFAULT_MAX_CONTAINER_ITEMS:</signature>
+			<description>单个 Array、Dictionary 或 PackedArray 最多保留的元素数量。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="max_snapshot_nodes">
+			<signature>var max_snapshot_nodes: int = DEFAULT_MAX_SNAPSHOT_NODES:</signature>
+			<description>单次事件参数快照最多访问的值节点数量。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="max_snapshot_bytes">
+			<signature>var max_snapshot_bytes: int = DEFAULT_MAX_SNAPSHOT_BYTES:</signature>
+			<description>单次事件参数快照最多保留的估算 UTF-8 字节数。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="max_snapshot_depth">
+			<signature>var max_snapshot_depth: int = DEFAULT_MAX_SNAPSHOT_DEPTH:</signature>
+			<description>单次事件参数快照最大递归深度。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 	</properties>
@@ -142,6 +206,18 @@
 				<tag name="schema">return: Array[Dictionary]，每个元素包含 timestamp_msec、process_frame、physics_frame、source_instance_id、source_node_path、signal_name、argument_count、arguments 和 connections。</tag>
 			</tags>
 		</member>
+		<member kind="method" name="get_json_compatible_events">
+			<signature>func get_json_compatible_events(options: Dictionary = {}) -&gt; Array[Dictionary]:</signature>
+			<description>获取 JSON-safe 最近事件副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">options: 传给 GFReportValueCodec 的编码选项；路径字段默认脱敏。</tag>
+				<tag name="return">JSON-safe 事件快照数组。</tag>
+				<tag name="schema">options: Dictionary with GFReportValueCodec options.</tag>
+				<tag name="schema">return: Array[Dictionary]，每个元素为已脱敏且可 JSON.stringify() 的信号事件。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
 		<member kind="method" name="get_watch_count">
 			<signature>func get_watch_count() -&gt; int:</signature>
 			<description>获取被监听的信号数量。</description>
@@ -157,6 +233,18 @@
 				<tag name="api">public</tag>
 				<tag name="return">调试信息字典。</tag>
 				<tag name="schema">return: Dictionary，包含 watch_count、event_count、max_events、max_argument_count 和 watches。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_json_compatible_debug_snapshot">
+			<signature>func get_json_compatible_debug_snapshot(options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>获取 JSON-safe 调试快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">options: 传给 GFReportValueCodec 的编码选项；路径字段默认脱敏。</tag>
+				<tag name="return">JSON-safe 调试快照。</tag>
+				<tag name="schema">options: Dictionary with GFReportValueCodec options.</tag>
+				<tag name="schema">return: Dictionary，包含已脱敏且可 JSON.stringify() 的 watch_count、event_count、max_events、max_argument_count 和 watches。</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 	</methods>

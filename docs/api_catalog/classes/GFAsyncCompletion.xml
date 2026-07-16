@@ -1,11 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFAsyncCompletion" path="addons/gf/standard/common/gf_async_completion.gd" module="standard" extends="RefCounted" classDigest="26ca351863da4da2a737c6d73dc1aa4d140db766f478b100cd84e1431d06a275">
+<class name="GFAsyncCompletion" path="addons/gf/kernel/core/gf_async_completion.gd" module="kernel" extends="RefCounted" classDigest="4bd1c85a494a73b00b45f8ba812241e2e59a653f8d7d9f307edf69fa62e99ea6">
 	<description>GFAsyncCompletion: 一次性异步完成源。
 用于把回调、Signal、后台任务或项目侧异步流程归一为 succeeded / failed / cancelled 终态。
 它只保存结果状态，不调度任务，也不强制规定调用方如何重试或回滚。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">runtime_handle</tag>
+		<tag name="layer">kernel/core</tag>
 		<tag name="since">7.0.0</tag>
 	</tags>
 	<signals>
@@ -101,36 +102,26 @@
 			</tags>
 		</member>
 		<member kind="method" name="cancel">
-			<signature>func cancel(reason: StringName = &amp;"cancelled", metadata: Dictionary = {}) -&gt; bool:</signature>
+			<signature>func cancel(reason: StringName = &amp;"cancelled", metadata: Dictionary = {}, result: Variant = null) -&gt; bool:</signature>
 			<description>标记取消完成。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">reason: 取消原因。</tag>
 				<tag name="param">metadata: 终态元数据。</tag>
+				<tag name="param">result: 可选取消结果。</tag>
 				<tag name="return">首次进入终态时返回 true。</tag>
 				<tag name="schema">metadata: Dictionary，调用方定义的终态元数据。</tag>
+				<tag name="schema">result: Variant，调用方定义的取消结果。</tag>
 				<tag name="since">7.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="bind_cancel_token">
-			<signature>func bind_cancel_token(token: GFCancelToken) -&gt; bool:</signature>
+			<signature>func bind_cancel_token(token: GFCancellationToken) -&gt; bool:</signature>
 			<description>绑定取消 token；token 取消时完成源进入 cancelled 终态。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">token: 取消 token。</tag>
 				<tag name="return">成功绑定或 token 已经触发取消时返回 true。</tag>
-				<tag name="since">7.0.0</tag>
-			</tags>
-		</member>
-		<member kind="method" name="wait_async">
-			<signature>func wait_async(options: Dictionary = {}) -&gt; Dictionary:</signature>
-			<description>等待完成源进入终态。</description>
-			<tags>
-				<tag name="api">public</tag>
-				<tag name="param">options: 等待选项，支持 GFAsyncWaitUtility.await_signal() 的选项。</tag>
-				<tag name="return">完成源快照；等待超时、取消或失效时包含 wait_status 字段。</tag>
-				<tag name="schema">options: Dictionary，可包含 timeout_seconds、cancel_token、guard_node、time_utility、respect_time_scale 和 timeout_warning。</tag>
-				<tag name="schema">return: Dictionary，包含 status、status_name、completed、result、error、cancel_reason、metadata 和可选 wait_status。</tag>
 				<tag name="since">7.0.0</tag>
 			</tags>
 		</member>

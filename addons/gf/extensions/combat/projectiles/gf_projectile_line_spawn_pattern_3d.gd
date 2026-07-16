@@ -57,7 +57,7 @@ func _get_spawn_transforms(
 	if emitter == null:
 		return []
 
-	var count: int = _resolve_count(point_count, emit_count)
+	var count: int = resolve_spawn_count(emit_count)
 	var result: Array[Transform3D] = []
 	var basis: Basis = emitter.global_basis
 	var local_direction: Vector3 = local_end - local_start
@@ -71,3 +71,7 @@ func _get_spawn_transforms(
 		var local_position: Vector3 = local_start.lerp(local_end, factor)
 		result.append(Transform3D(basis, emitter.to_global(local_position)))
 	return result
+
+
+func _get_default_spawn_count() -> int:
+	return point_count

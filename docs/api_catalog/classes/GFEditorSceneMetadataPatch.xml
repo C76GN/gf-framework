@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFEditorSceneMetadataPatch" path="addons/gf/kernel/editor/gf_editor_scene_metadata_patch.gd" module="kernel" extends="GFEditorCommand" classDigest="4dffa76df7daf596ffc43f09479d382eb2ca87b4341fcc452c58381fb8711803">
+<class name="GFEditorSceneMetadataPatch" path="addons/gf/kernel/editor/gf_editor_scene_metadata_patch.gd" module="kernel" extends="GFEditorCommand" classDigest="cd52d2ceef90c5b05d3e64f3e3b17561b8915d355d7e47fd937f340d8da0806f">
 	<description>GFEditorSceneMetadataPatch: 可撤销的场景节点 metadata 修改命令。
 用于把编辑器工具对场景根节点或普通节点 metadata 的读写收敛成 GFEditorCommand。
 该命令只处理 Object metadata，不规定具体工具面板、场景分组或业务含义。</description>
@@ -14,7 +14,7 @@
 	<constants />
 	<properties>
 		<member kind="property" name="target_node">
-			<signature>var target_node: Node = null</signature>
+			<signature>var target_node: Node:</signature>
 			<description>要修改的节点。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -22,7 +22,7 @@
 			</tags>
 		</member>
 		<member kind="property" name="metadata_key">
-			<signature>var metadata_key: StringName = &amp;""</signature>
+			<signature>var metadata_key: StringName:</signature>
 			<description>要修改的 metadata key。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -30,7 +30,7 @@
 			</tags>
 		</member>
 		<member kind="property" name="value">
-			<signature>var value: Variant = null</signature>
+			<signature>var value: Variant:</signature>
 			<description>执行时写入的新值。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -39,7 +39,7 @@
 			</tags>
 		</member>
 		<member kind="property" name="remove_on_execute">
-			<signature>var remove_on_execute: bool = false</signature>
+			<signature>var remove_on_execute: bool:</signature>
 			<description>执行时是否移除 metadata key，而不是写入 value。</description>
 			<tags>
 				<tag name="api">public</tag>

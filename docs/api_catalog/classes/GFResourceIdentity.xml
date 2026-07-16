@@ -1,0 +1,200 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFResourceIdentity" path="addons/gf/standard/utilities/assets/gf_resource_identity.gd" module="standard" extends="RefCounted" classDigest="37d04dc489f855d7e0cffcd657055cf605f5667fc18c00c5f434dfa3b4e746e7">
+	<description>GFResourceIdentity: 资源键、路径和 UID 的规范化身份快照。
+该对象只描述资源身份，不加载资源、不拥有缓存，也不规定项目目录策略。
+它适合用于资源解析、加载状态、诊断报告和后续缓存键迁移的统一数据边界。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">value_object</tag>
+		<tag name="since">8.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants>
+		<member kind="const" name="SCHEME_RES">
+			<signature>const SCHEME_RES: StringName = &amp;"res"</signature>
+			<description>普通项目资源路径 scheme。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="SCHEME_UID">
+			<signature>const SCHEME_UID: StringName = &amp;"uid"</signature>
+			<description>Godot UID 资源路径 scheme。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="SCHEME_USER">
+			<signature>const SCHEME_USER: StringName = &amp;"user"</signature>
+			<description>用户数据路径 scheme。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="SCHEME_NONE">
+			<signature>const SCHEME_NONE: StringName = &amp;""</signature>
+			<description>没有可识别 scheme。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties>
+		<member kind="property" name="resource_key">
+			<signature>var resource_key: StringName = &amp;""</signature>
+			<description>稳定资源键；可为空。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="raw_path">
+			<signature>var raw_path: String = ""</signature>
+			<description>调用方传入的原始路径文本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="canonical_path">
+			<signature>var canonical_path: String = ""</signature>
+			<description>规范化路径。`uid://` 可解析时会回解为 Godot 当前记录的资源路径。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="uid_path">
+			<signature>var uid_path: String = ""</signature>
+			<description>Godot UID 路径；无法取得 UID 时为空。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="type_hint">
+			<signature>var type_hint: String = ""</signature>
+			<description>ResourceLoader 类型提示；可为空。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="scheme">
+			<signature>var scheme: StringName = SCHEME_NONE</signature>
+			<description>路径 scheme，例如 `res`、`uid` 或 `user`。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="extension">
+			<signature>var extension: String = ""</signature>
+			<description>规范化路径扩展名，不含点号。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="cache_key">
+			<signature>var cache_key: String = ""</signature>
+			<description>推荐缓存键。优先使用 UID，其次使用规范化路径，最后使用资源键。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="exists">
+			<signature>var exists: bool = false</signature>
+			<description>当前工程中是否能确认该资源存在。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="metadata">
+			<signature>var metadata: Dictionary = {}</signature>
+			<description>调用方元数据。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">metadata: Dictionary with caller-defined identity metadata.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="configure">
+			<signature>func configure( p_resource_key: StringName, p_path: String, p_type_hint: String = "", options: Dictionary = {} ) -&gt; GFResourceIdentity:</signature>
+			<description>配置资源身份。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">p_resource_key: 稳定资源键；可为空。</tag>
+				<tag name="param">p_path: 原始资源路径，支持 `res://`、`uid://` 和 `user://`。</tag>
+				<tag name="param">p_type_hint: 可选 ResourceLoader 类型提示。</tag>
+				<tag name="param">options: 可选项，支持 check_exists 和 metadata。</tag>
+				<tag name="return">当前身份对象。</tag>
+				<tag name="schema">options: Dictionary with optional `check_exists: bool` and `metadata: Dictionary`.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="has_identity">
+			<signature>func has_identity() -&gt; bool:</signature>
+			<description>检查身份是否有路径或资源键。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">有路径或资源键时返回 true。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="to_dictionary">
+			<signature>func to_dictionary() -&gt; Dictionary:</signature>
+			<description>导出可序列化字典。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">资源身份字典。</tag>
+				<tag name="schema">return: Dictionary with resource_key, raw_path, canonical_path, uid_path, type_hint, scheme, extension, cache_key, exists, and metadata.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="duplicate_identity">
+			<signature>func duplicate_identity() -&gt; GFResourceIdentity:</signature>
+			<description>创建资源身份副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">身份副本。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="from_path">
+			<signature>static func from_path( path: String, p_resource_key: StringName = &amp;"", p_type_hint: String = "", options: Dictionary = {} ) -&gt; GFResourceIdentity:</signature>
+			<description>由路径创建资源身份。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">path: 原始资源路径。</tag>
+				<tag name="param">p_resource_key: 可选稳定资源键。</tag>
+				<tag name="param">p_type_hint: 可选 ResourceLoader 类型提示。</tag>
+				<tag name="param">options: 可选项，支持 check_exists 和 metadata。</tag>
+				<tag name="return">新身份对象。</tag>
+				<tag name="schema">options: Dictionary with optional `check_exists: bool` and `metadata: Dictionary`.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="from_dictionary">
+			<signature>static func from_dictionary(data: Dictionary) -&gt; GFResourceIdentity:</signature>
+			<description>从字典恢复资源身份快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">data: to_dictionary() 兼容字典。</tag>
+				<tag name="return">身份对象。</tag>
+				<tag name="schema">data: Dictionary with resource_key, raw_path, canonical_path, uid_path, type_hint, scheme, extension, cache_key, exists, and metadata.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

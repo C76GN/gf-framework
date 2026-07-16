@@ -122,11 +122,18 @@ func acquire() -> RefCounted:
 	var item: RefCounted = null
 	while not _available.is_empty() and item == null:
 		item = _available.pop_back()
+		if _is_active_item(item):
+			push_error("[GFRefCountedPool] acquire 失败：可用池中存在已借出对象，已丢弃该重复引用。")
+			item = null
 
 	if item == null:
 		item = _create_item()
 		if item == null:
 			return null
+		if _is_active_item(item) or _available_has_item(item):
+			push_error("[GFRefCountedPool] acquire 失败：factory 返回了已被当前池追踪的对象，已拒绝重复借出。")
+			return null
+		_created_count += 1
 
 	_active_ids[item.get_instance_id()] = true
 	_call_optional_hook(item, HOOK_ON_ACQUIRE)
@@ -173,6 +180,10 @@ func prewarm(count: int) -> int:
 		var item: RefCounted = _create_item()
 		if item == null:
 			break
+		if _is_active_item(item) or _available_has_item(item):
+			push_error("[GFRefCountedPool] prewarm 失败：factory 返回了已被当前池追踪的对象，已停止预热。")
+			break
+		_created_count += 1
 		_prepare_item_for_reuse(item)
 		_available.push_back(item)
 		created += 1
@@ -232,12 +243,25 @@ func _create_item() -> RefCounted:
 
 	var value: Variant = factory.call()
 	if value is RefCounted:
-		_created_count += 1
 		var item: RefCounted = value
 		return item
 
 	push_error("[GFRefCountedPool] factory 必须返回 RefCounted。")
 	return null
+
+
+func _is_active_item(item: RefCounted) -> bool:
+	return item != null and _active_ids.has(item.get_instance_id())
+
+
+func _available_has_item(item: RefCounted) -> bool:
+	if item == null:
+		return false
+	var item_id: int = item.get_instance_id()
+	for available_item: RefCounted in _available:
+		if available_item != null and available_item.get_instance_id() == item_id:
+			return true
+	return false
 
 
 func _prepare_item_for_reuse(item: RefCounted) -> void:

@@ -32,7 +32,7 @@ var _combat_model: CombatModel
 
 func _enter(_previous_state: StringName = &"", _args: Dictionary = {}) -> void:
 	_combat_model = get_model(CombatModel) as CombatModel
-	register_event(AnimFinishedPayload, _on_anim_finished)
+	register_event(AnimFinishedPayload, GFEventListener.from_method(self, &"_on_anim_finished", 1))
 
 
 func _exit(_next_state: StringName = &"", _args: Dictionary = {}) -> void:

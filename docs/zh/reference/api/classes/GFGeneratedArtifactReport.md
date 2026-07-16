@@ -157,14 +157,14 @@ static func make_report( output_path: String, status: StringName, error_code: Er
 | `status` | 产物状态。 |
 | `error_code` | Godot Error 错误码。 |
 | `message` | 错误或跳过说明。 |
-| `options` | 报告选项，支持 written、changed、dry_run、size_bytes、metadata、artifact_owner、generator_id、source_id、content_sha256、previous_sha256 和 encoding。 |
+| `options` | 报告选项，支持 written、changed、dry_run、size_bytes、metadata、artifact_owner、generator_id、source_id、content_sha256、previous_sha256 和 encoding；metadata 会在返回报告中编码为 JSON-safe Dictionary。 |
 
-返回：生成产物报告。
+返回：生成产物报告。success 只表示产物状态不是 failed；skipped 可保留非 OK error_code 供调用方决定是否阻断。
 
 结构：
 
-- `options`: Dictionary，可包含 written、changed、dry_run、size_bytes、metadata、artifact_owner、generator_id、source_id、content_sha256、previous_sha256 和 encoding。
-- `return`: Dictionary，包含 success、path、status、error_code、error、written、changed、dry_run、size_bytes、artifact_owner、generator_id、source_id、content_sha256、previous_sha256、encoding 和 metadata。
+- `options`: Dictionary，可包含 written、changed、dry_run、size_bytes、metadata、artifact_owner、generator_id、source_id、content_sha256、previous_sha256 和 encoding；metadata 允许任意 Variant，返回时会通过 GFReportValueCodec 收束。
+- `return`: JSON-safe Dictionary，包含 success、path、status、error_code、error、written、changed、dry_run、size_bytes、artifact_owner、generator_id、source_id、content_sha256、previous_sha256、encoding 和 metadata。
 
 <a id="member-gfgeneratedartifactreport-methods-summarize_reports"></a>
 
@@ -185,15 +185,15 @@ static func summarize_reports( reports: Array[Dictionary], subject: String = "",
 |---|---|
 | `reports` | make_report() 或 save_text() 返回的报告数组。 |
 | `subject` | 汇总主题。 |
-| `options` | 汇总选项，支持 include_reports 和 metadata。 |
+| `options` | 汇总选项，支持 include_reports 和 metadata；metadata 与可选 reports 会在返回摘要中编码为 JSON-safe 值。 |
 
 返回：批量产物报告摘要。
 
 结构：
 
 - `reports`: Array of Dictionary artifact reports.
-- `options`: Dictionary，可包含 include_reports 和 metadata。
-- `return`: Dictionary，包含 success、subject、artifact_count、status_counts、owner_counts、written_count、changed_count、dry_run_count、failed_count、skipped_count、paths、errors、metadata 和可选 reports。
+- `options`: Dictionary，可包含 include_reports 和 metadata；metadata 允许任意 Variant，返回时会通过 GFReportValueCodec 收束。
+- `return`: JSON-safe Dictionary，包含 success、subject、artifact_count、status_counts、owner_counts、written_count、changed_count、dry_run_count、failed_count、skipped_count、paths、errors、metadata 和可选 reports。
 
 <a id="member-gfgeneratedartifactreport-methods-save_text"></a>
 
@@ -214,14 +214,14 @@ static func save_text(output_path: String, text: String, options: Dictionary = {
 |---|---|
 | `output_path` | 产物输出路径。 |
 | `text` | 要写入的文本内容。 |
-| `options` | 保存选项，支持 overwrite_existing、dry_run、scan_filesystem、label、metadata、artifact_owner、generator_id 和 source_id。 |
+| `options` | 保存选项，支持 overwrite_existing、dry_run、scan_filesystem、label、metadata、artifact_owner、generator_id、source_id 和 allowed_roots。 |
 
 返回：生成产物保存报告。
 
 结构：
 
-- `options`: Dictionary，可包含 overwrite_existing、dry_run、scan_filesystem、label、metadata、artifact_owner、generator_id 和 source_id。
-- `return`: Dictionary，包含 success、path、status、error_code、error、written、changed、dry_run、size_bytes、artifact_owner、generator_id、source_id、content_sha256、previous_sha256、encoding 和 metadata。
+- `options`: Dictionary，可包含 overwrite_existing、dry_run、scan_filesystem、label、metadata、artifact_owner、generator_id、source_id 和 allowed_roots；allowed_roots 为可选 res:// / user:// 根目录数组。
+- `return`: JSON-safe Dictionary，包含 success、path、status、error_code、error、written、changed、dry_run、size_bytes、artifact_owner、generator_id、source_id、content_sha256、previous_sha256、encoding 和 metadata。
 
 <a id="member-gfgeneratedartifactreport-methods-get_error_code"></a>
 

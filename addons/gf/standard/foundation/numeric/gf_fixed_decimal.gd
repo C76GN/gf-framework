@@ -39,7 +39,7 @@ enum RoundingMode {
 const MAX_DECIMAL_PLACES: int = 18
 
 const _BIG_NUMBER_SCRIPT: Script = preload("res://addons/gf/standard/foundation/numeric/gf_big_number.gd")
-const _DECIMAL_STRING_FORMATTER: Script = preload("res://addons/gf/standard/foundation/formatting/gf_decimal_string_formatter.gd")
+const _DECIMAL_STRING_FORMATTER = preload("res://addons/gf/standard/foundation/formatting/gf_decimal_string_formatter.gd")
 const _SERIALIZATION_SUPPORT: Script = preload("res://addons/gf/standard/foundation/numeric/gf_fixed_numeric_serialization_support.gd")
 const _BYTE_FORMAT_SIZE: int = 15
 const _BYTE_MAGIC_0: int = 71
@@ -58,12 +58,20 @@ const _INVALID_SIGNED_MAGNITUDE: int = -9_223_372_036_854_775_807 - 1
 ## 实际保存的整数值。
 ## [br]
 ## @api public
-var raw_value: int = 0
+## [br]
+## @since 3.17.0
+var raw_value: int = 0:
+	set(value):
+		raw_value = _normalize_raw_value(value, "raw_value")
 
 ## 小数位数。
 ## [br]
 ## @api public
-var decimal_places: int = 2
+## [br]
+## @since 3.17.0
+var decimal_places: int = 2:
+	set(value):
+		decimal_places = _normalize_decimal_places(value)
 
 
 # --- Godot 生命周期方法 ---
@@ -134,16 +142,24 @@ static func from_float(
 ## [br]
 ## @param rounding_mode: 舍入策略。
 ## [br]
+## @param max_input_length: 最大输入字符数；小于等于 0 时使用框架默认预算。
+## [br]
 ## @return 定点数实例。
 static func from_string(
 	value: String,
 	p_decimal_places: int = 2,
-	rounding_mode: RoundingMode = RoundingMode.HALF_UP
+	rounding_mode: RoundingMode = RoundingMode.HALF_UP,
+	max_input_length: int = GFDecimalStringFormatter.DEFAULT_MAX_NUMERIC_TEXT_LENGTH
 ) -> GFFixedDecimal:
 	var places: int = _normalize_decimal_places(p_decimal_places)
-	var trimmed: String = value.strip_edges().replace("_", "").replace(",", "")
-	if trimmed.is_empty():
+	var normalization: Dictionary = _DECIMAL_STRING_FORMATTER.normalize_numeric_text(value, max_input_length)
+	if not GFVariantData.get_option_bool(normalization, "ok"):
+		push_error("[GFFixedDecimal] 无法解析数字字符串（%s）：%s" % [
+			GFVariantData.get_option_string(normalization, "error", "invalid_input"),
+			value.left(128),
+		])
 		return GFFixedDecimal.new(0, places)
+	var trimmed: String = GFVariantData.get_option_string(normalization, "text")
 
 	if trimmed.find("e") != -1 or trimmed.find("E") != -1:
 		if not trimmed.is_valid_float():
@@ -607,15 +623,11 @@ static func _decimal_parts_are_valid(
 	fractional_part: String,
 	has_decimal_point: bool
 ) -> bool:
-	var result: Variant = _DECIMAL_STRING_FORMATTER.call(
-		&"is_valid_decimal_parts",
+	return _DECIMAL_STRING_FORMATTER.is_valid_decimal_parts(
 		integer_part,
 		fractional_part,
 		has_decimal_point
 	)
-	if result is bool:
-		return result
-	return false
 
 
 static func _append_packed_string(target: PackedStringArray, value: String) -> void:

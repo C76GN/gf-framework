@@ -12,6 +12,11 @@ class_name GFDialogueResponse
 extends Resource
 
 
+# --- 常量 ---
+
+const _SNAPSHOT_COPY = preload("res://addons/gf/extensions/dialogue/resources/gf_dialogue_snapshot_copy.gd")
+
+
 # --- 导出变量 ---
 
 ## 响应 ID。
@@ -101,16 +106,31 @@ func duplicate_response() -> GFDialogueResponse:
 ## [br]
 ## @schema return: 包含 response_id、text、next_line_id、condition_id、condition_payload、mutation_id、mutation_payload、tags 和 metadata 字段的 Dictionary。
 func to_dictionary() -> Dictionary:
+	return _SNAPSHOT_COPY.copy_snapshot_dictionary(create_serialization_source())
+
+
+## 创建对话序列化操作的原始结构。
+##
+## 返回值只供资源级复制器在同一次共享预算操作中消费；调用方不得将其视为隔离快照。
+## [br]
+## @api framework_internal
+## [br]
+## @since 8.0.0
+## [br]
+## @return: 包含响应全部身份字段的原始结构。
+## [br]
+## @schema return: 包含 response_id、text、next_line_id、condition_id、condition_payload、mutation_id、mutation_payload、tags 和 metadata 字段的 Dictionary。
+func create_serialization_source() -> Dictionary:
 	return {
 		"response_id": response_id,
 		"text": text,
 		"next_line_id": next_line_id,
 		"condition_id": condition_id,
-		"condition_payload": _duplicate_snapshot_value(condition_payload),
+		"condition_payload": condition_payload,
 		"mutation_id": mutation_id,
-		"mutation_payload": _duplicate_snapshot_value(mutation_payload),
-		"tags": tags.duplicate(),
-		"metadata": metadata.duplicate(true),
+		"mutation_payload": mutation_payload,
+		"tags": tags,
+		"metadata": metadata,
 	}
 
 
@@ -121,40 +141,3 @@ func _get_dialogue_response_value(value: Variant) -> GFDialogueResponse:
 		var response: GFDialogueResponse = value
 		return response
 	return null
-
-
-func _duplicate_snapshot_value(value: Variant) -> Variant:
-	if value is Dictionary:
-		var dictionary: Dictionary = value
-		return dictionary.duplicate(true)
-	if value is Array:
-		var array: Array = value
-		return array.duplicate(true)
-	if value is PackedStringArray:
-		var string_array: PackedStringArray = value
-		return string_array.duplicate()
-	if value is PackedByteArray:
-		var byte_array: PackedByteArray = value
-		return byte_array.duplicate()
-	if value is PackedInt32Array:
-		var int32_array: PackedInt32Array = value
-		return int32_array.duplicate()
-	if value is PackedInt64Array:
-		var int64_array: PackedInt64Array = value
-		return int64_array.duplicate()
-	if value is PackedFloat32Array:
-		var float32_array: PackedFloat32Array = value
-		return float32_array.duplicate()
-	if value is PackedFloat64Array:
-		var float64_array: PackedFloat64Array = value
-		return float64_array.duplicate()
-	if value is PackedVector2Array:
-		var vector2_array: PackedVector2Array = value
-		return vector2_array.duplicate()
-	if value is PackedVector3Array:
-		var vector3_array: PackedVector3Array = value
-		return vector3_array.duplicate()
-	if value is PackedColorArray:
-		var color_array: PackedColorArray = value
-		return color_array.duplicate()
-	return value

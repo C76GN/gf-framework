@@ -33,6 +33,24 @@ func test_debug_draw_filters_disabled_channels() -> void:
 	assert_eq(utility.get_item_count(), 0, "按频道清理应只移除对应命令。")
 
 
+func test_debug_draw_counts_channels_without_copying_and_trims_oldest_items() -> void:
+	var utility: GFDebugDrawUtility = GFDebugDrawUtility.new()
+	utility.max_items = 2
+	utility.init()
+
+	var first_id: int = utility.draw_circle_2d(Vector2.ZERO, 1.0, Color.WHITE, -1.0, &"first")
+	var second_id: int = utility.draw_circle_2d(Vector2.ONE, 1.0, Color.WHITE, -1.0, &"second")
+	var third_id: int = utility.draw_circle_2d(Vector2(2.0, 2.0), 1.0, Color.WHITE, -1.0, &"second")
+	var retained: Array[Dictionary] = utility.get_items(&"", true)
+
+	assert_eq(utility.get_item_count(), 2, "达到容量时应只保留最新命令。")
+	assert_eq(utility.get_item_count(&"first"), 0, "频道计数应反映已裁剪的旧命令。")
+	assert_eq(utility.get_item_count(&"second"), 2, "频道计数应直接统计当前缓冲。")
+	assert_ne(first_id, second_id, "测试命令 id 应唯一。")
+	assert_eq(GFVariantData.get_option_int(retained[0], "id"), second_id, "批量裁剪后应保留第二条命令。")
+	assert_eq(GFVariantData.get_option_int(retained[1], "id"), third_id, "批量裁剪后应保留最新命令。")
+
+
 func test_debug_draw_vector_2d_emits_line_commands_with_components() -> void:
 	var utility: GFDebugDrawUtility = GFDebugDrawUtility.new()
 	utility.init()

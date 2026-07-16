@@ -58,8 +58,10 @@ func test_probe_records_wide_signal_payload() -> void:
 
 func test_probe_snapshots_object_arguments_without_live_references() -> void:
 	var source: SignalSource = SignalSource.new()
+	autofree(source)
 	var payload: Resource = Resource.new()
 	payload.resource_name = "Payload"
+	payload.take_over_path("res://private/payload.tres")
 	var probe: GFSignalRuntimeProbe = GFSignalRuntimeProbe.new()
 
 	var report: Dictionary = probe.watch_node(source, {
@@ -71,10 +73,57 @@ func test_probe_snapshots_object_arguments_without_live_references() -> void:
 	var event: Dictionary = events[0]
 	var arguments: Array = GFVariantData.as_array(GFVariantData.get_option_value(event, "arguments"))
 	var argument_snapshot: Dictionary = GFVariantData.as_dictionary(arguments[0])
+	var exported_events: Array[Dictionary] = probe.get_json_compatible_events()
+	var exported_event: Dictionary = exported_events[0]
+	var exported_arguments: Array = GFVariantData.get_option_array(exported_event, "arguments")
+	var exported_argument_snapshot: Dictionary = GFVariantData.as_dictionary(exported_arguments[0])
 
 	assert_true(GFVariantData.get_option_bool(report, "ok"), "对象参数信号应能被监听。")
 	assert_eq(GFVariantData.get_option_string(argument_snapshot, "type"), "Resource", "对象参数应转换为诊断快照。")
 	assert_false(arguments[0] is Resource, "事件历史不应保留 live Resource 引用。")
+	assert_eq(GFVariantData.get_option_string(argument_snapshot, "resource_path"), "res://private/payload.tres", "raw 事件应保留调试用资源路径。")
+	assert_eq(GFVariantData.get_option_string(exported_event, "source_node_path"), "<redacted_path>", "JSON-safe 事件应默认脱敏节点路径。")
+	assert_eq(GFVariantData.get_option_string(exported_argument_snapshot, "resource_path"), "<redacted_path>", "JSON-safe 事件应默认脱敏资源路径。")
+
+	var _unwatch_all_result: Variant = probe.unwatch_all()
+
+
+func test_probe_bounds_wide_and_large_signal_payloads() -> void:
+	var source: SignalSource = SignalSource.new()
+	var probe: GFSignalRuntimeProbe = GFSignalRuntimeProbe.new()
+	probe.max_container_items = 4
+	probe.max_snapshot_nodes = 64
+	probe.max_snapshot_bytes = 32
+	var _report: Dictionary = probe.watch_node(source, {
+		"include_signals": [&"object_payload"],
+	})
+	var wide_array: Array[int] = []
+	var packed_bytes: PackedByteArray = PackedByteArray()
+	for index: int in range(1000):
+		wide_array.append(index)
+		var _packed_appended: bool = packed_bytes.append(index % 256)
+
+	source.object_payload.emit(wide_array)
+	source.object_payload.emit("x".repeat(10_000))
+	source.object_payload.emit(packed_bytes)
+	var events: Array[Dictionary] = probe.get_events()
+	var wide_arguments: Array = GFVariantData.get_option_array(events[0], "arguments")
+	var wide_snapshot: Array = GFVariantData.as_array(wide_arguments[0])
+	var wide_budget: Dictionary = GFVariantData.get_option_dictionary(events[0], "snapshot_budget")
+	var text_arguments: Array = GFVariantData.get_option_array(events[1], "arguments")
+	var text_snapshot: Dictionary = GFVariantData.as_dictionary(text_arguments[0])
+	var text_budget: Dictionary = GFVariantData.get_option_dictionary(events[1], "snapshot_budget")
+	var packed_arguments: Array = GFVariantData.get_option_array(events[2], "arguments")
+	var packed_snapshot: Dictionary = GFVariantData.as_dictionary(packed_arguments[0])
+
+	assert_eq(wide_snapshot.size(), 5, "宽 Array 应只保留预算内元素和一个截断 marker。")
+	assert_true(GFVariantData.get_option_bool(wide_budget, "truncated"), "宽 Array 截断应可观察。")
+	assert_lte(GFVariantData.get_option_int(wide_budget, "node_count"), 64, "参数快照不应超过节点预算。")
+	assert_true(GFVariantData.get_option_bool(text_snapshot, "truncated"), "超长字符串应转换为截断快照。")
+	assert_lte(GFVariantData.get_option_int(text_budget, "estimated_bytes"), 32, "参数快照不应超过字节预算。")
+	assert_eq(GFVariantData.get_option_int(packed_snapshot, "count"), 1000, "PackedArray 快照应保留原始计数。")
+	assert_eq(GFVariantData.get_option_array(packed_snapshot, "sample").size(), 4, "PackedArray 只应复制预算内样本。")
+	assert_true(GFVariantData.get_option_bool(packed_snapshot, "truncated"), "PackedArray 截断应可观察。")
 
 	var _unwatch_all_result: Variant = probe.unwatch_all()
 	source.free()
@@ -153,14 +202,26 @@ func test_signal_graph_dock_tracks_saved_connection_signals_without_unconnected_
 	dock.set_graph_source(source)
 
 	dock.set_live_tracking_enabled(true)
+	var before_rendering: Dictionary = GFVariantData.get_option_dictionary(dock.get_debug_snapshot(), "rendering")
 	source.value_changed.emit(7)
 	source.no_args.emit()
 
 	var events: Array[Dictionary] = dock.get_recent_events()
+	var after_rendering: Dictionary = GFVariantData.get_option_dictionary(dock.get_debug_snapshot(), "rendering")
 
 	assert_eq(events.size(), 1, "追踪发射默认应只记录保存连接中的信号，避免 draw 等未连接噪音。")
 	var saved_event: Dictionary = events[0]
 	assert_eq(GFVariantData.get_option_string(saved_event, "signal_name"), "no_args", "保存连接里的信号应被记录。")
+	assert_eq(
+		GFVariantData.get_option_int(after_rendering, "graph_revision"),
+		GFVariantData.get_option_int(before_rendering, "graph_revision"),
+		"新增发射记录不应重建静态连接图。"
+	)
+	assert_gt(
+		GFVariantData.get_option_int(after_rendering, "event_revision"),
+		GFVariantData.get_option_int(before_rendering, "event_revision"),
+		"新增发射记录应只刷新事件视图。"
+	)
 
 	dock.queue_free()
 	source.queue_free()

@@ -1,0 +1,166 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFInputDirectionTools" path="addons/gf/standard/input/common/gf_input_direction_tools.gd" module="standard" extends="RefCounted" classDigest="20a6b91769744f25cc3ba918a66cfd91b1b72e3bb846e0a3f847930d23ab14f1">
+	<description>GFInputDirectionTools: 二维输入方向处理工具。
+提供径向 deadzone、2/4/8 向离散化、方向名称和反向方向映射。
+它只处理纯 Vector2 数据，不读取 InputMap，也不规定动作命名。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_service</tag>
+		<tag name="layer">standard/input</tag>
+		<tag name="since">8.0.0</tag>
+	</tags>
+	<signals />
+	<enums>
+		<member kind="enum" name="SnapMode">
+			<signature>enum SnapMode {
+	## 保留连续模拟向量。
+	ANALOG,
+	## 只输出左右方向。
+	HORIZONTAL_2,
+	## 只输出上下方向。
+	VERTICAL_2,
+	## 输出上下左右四方向。
+	CARDINAL_4,
+	## 输出上下左右和四个对角方向。
+	EIGHT_WAY,
+}</signature>
+			<description>方向吸附模式。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="enum" name="Direction2D">
+			<signature>enum Direction2D {
+	## 无方向。
+	NONE,
+	## 上方向。
+	UP,
+	## 右方向。
+	RIGHT,
+	## 下方向。
+	DOWN,
+	## 左方向。
+	LEFT,
+	## 右上方向。
+	UP_RIGHT,
+	## 左上方向。
+	UP_LEFT,
+	## 右下方向。
+	DOWN_RIGHT,
+	## 左下方向。
+	DOWN_LEFT,
+}</signature>
+			<description>二维离散方向。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</enums>
+	<constants />
+	<properties />
+	<methods>
+		<member kind="method" name="apply_radial_deadzone">
+			<signature>static func apply_radial_deadzone( raw_direction: Vector2, deadzone: float, rescale_after_deadzone: bool = true ) -&gt; Vector2:</signature>
+			<description>对二维输入应用径向 deadzone。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">raw_direction: 原始二维输入。</tag>
+				<tag name="param">deadzone: 死区阈值，自动钳制到 0.0 到 0.99。</tag>
+				<tag name="param">rescale_after_deadzone: 是否把死区外剩余行程重映射到 0.0 到 1.0。</tag>
+				<tag name="return">处理后的二维输入。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="snap_vector">
+			<signature>static func snap_vector( raw_direction: Vector2, mode: SnapMode = SnapMode.CARDINAL_4, deadzone: float = 0.0, rescale_analog_after_deadzone: bool = false ) -&gt; Vector2:</signature>
+			<description>按指定模式把二维输入吸附到连续或离散方向。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">raw_direction: 原始二维输入。</tag>
+				<tag name="param">mode: 吸附模式。</tag>
+				<tag name="param">deadzone: 死区阈值，自动钳制到 0.0 到 0.99。</tag>
+				<tag name="param">rescale_analog_after_deadzone: ANALOG 模式下是否把死区外剩余行程重映射到 0.0 到 1.0。</tag>
+				<tag name="return">处理后的方向；离散模式下每个轴只会是 -1.0、0.0 或 1.0。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_direction_name">
+			<signature>static func get_direction_name(direction: Direction2D) -&gt; StringName:</signature>
+			<description>按枚举获取方向名称。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">direction: 方向枚举。</tag>
+				<tag name="return">方向名称；NONE 返回空 StringName。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_direction_from_name">
+			<signature>static func get_direction_from_name( direction_name: StringName, default_direction: Direction2D = Direction2D.NONE ) -&gt; Direction2D:</signature>
+			<description>按名称获取方向枚举。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">direction_name: 方向名称。</tag>
+				<tag name="param">default_direction: 未找到名称时返回的默认方向。</tag>
+				<tag name="return">方向枚举。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_direction_vector">
+			<signature>static func get_direction_vector(direction: Direction2D) -&gt; Vector2:</signature>
+			<description>按枚举获取方向向量。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">direction: 方向枚举。</tag>
+				<tag name="return">方向向量；对角方向保留 -1/1 分量而不归一化。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_closest_direction">
+			<signature>static func get_closest_direction( raw_direction: Vector2, include_diagonal: bool = true, default_direction: Direction2D = Direction2D.NONE ) -&gt; Direction2D:</signature>
+			<description>获取最接近二维输入的离散方向。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">raw_direction: 原始二维输入。</tag>
+				<tag name="param">include_diagonal: 是否允许返回对角方向。</tag>
+				<tag name="param">default_direction: 输入为零时返回的默认方向。</tag>
+				<tag name="return">最接近的离散方向。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_direction_from_vector">
+			<signature>static func get_direction_from_vector( direction_vector: Vector2, include_diagonal: bool = true, default_direction: Direction2D = Direction2D.NONE ) -&gt; Direction2D:</signature>
+			<description>按离散向量获取方向枚举。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">direction_vector: 离散方向向量。</tag>
+				<tag name="param">include_diagonal: 是否允许匹配对角方向。</tag>
+				<tag name="param">default_direction: 未匹配时返回的默认方向。</tag>
+				<tag name="return">方向枚举。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_opposite_direction">
+			<signature>static func get_opposite_direction(direction: Direction2D) -&gt; Direction2D:</signature>
+			<description>获取反向方向。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">direction: 方向枚举。</tag>
+				<tag name="return">反向方向。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_opposite_vector">
+			<signature>static func get_opposite_vector(direction_vector: Vector2) -&gt; Vector2:</signature>
+			<description>获取反向方向向量。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">direction_vector: 方向向量。</tag>
+				<tag name="return">反向方向向量。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

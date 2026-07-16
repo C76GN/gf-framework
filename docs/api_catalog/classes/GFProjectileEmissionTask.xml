@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFProjectileEmissionTask" path="addons/gf/extensions/combat/projectiles/gf_projectile_emission_task.gd" module="extensions/combat" extends="RefCounted" classDigest="07f18094c64556f91f511c8605eb7cbd2db18951416aa0820b1657a7dcaccca2">
+	<description>GFProjectileEmissionTask: 单次发射请求事务。
+在任何生成点或节点分配前统一执行策略门控、硬预算和时间快照，随后只允许
+提交一次实际生成数量。任务不解释 2D/3D 变换、伤害、弹药或对象池规则。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_handle</tag>
+		<tag name="since">8.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants>
+		<member kind="const" name="STATE_PENDING">
+			<signature>const STATE_PENDING: StringName = &amp;"pending"</signature>
+			<description>等待准备。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATE_PREPARED">
+			<signature>const STATE_PREPARED: StringName = &amp;"prepared"</signature>
+			<description>已通过门控，可进入生成阶段。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATE_COMMITTED">
+			<signature>const STATE_COMMITTED: StringName = &amp;"committed"</signature>
+			<description>已提交策略状态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATE_ROLLED_BACK">
+			<signature>const STATE_ROLLED_BACK: StringName = &amp;"rolled_back"</signature>
+			<description>生成失败或调用方取消后已回滚。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATE_FAILED">
+			<signature>const STATE_FAILED: StringName = &amp;"failed"</signature>
+			<description>门控或提交失败。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties>
+		<member kind="property" name="state">
+			<signature>var state: StringName = STATE_PENDING</signature>
+			<description>当前任务状态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="configure">
+			<signature>func configure( emitter: Node, policy: GFProjectileEmissionPolicy, projectile_id: StringName, projectile_context: Dictionary, requested_count: int, hard_limit: int, now_msec: int ) -&gt; GFProjectileEmissionTask:</signature>
+			<description>配置新任务。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">emitter: 发射器节点。</tag>
+				<tag name="param">policy: 可选发射策略。</tag>
+				<tag name="param">projectile_id: 发射体目录 ID。</tag>
+				<tag name="param">projectile_context: 调用方上下文。</tag>
+				<tag name="param">requested_count: 模式解析后的请求数量。</tag>
+				<tag name="param">hard_limit: 分配前不可绕过的硬上限。</tag>
+				<tag name="param">now_msec: 本次事务统一使用的单调时钟毫秒值。</tag>
+				<tag name="return">当前任务。</tag>
+				<tag name="schema">projectile_context: Dictionary，任务会深复制，不修改调用方字典。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="prepare">
+			<signature>func prepare() -&gt; Dictionary:</signature>
+			<description>执行分配前门控。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">准备报告。</tag>
+				<tag name="schema">return: Dictionary，包含 ok、reason、state、requested_count、emit_count、hard_limit、now_msec 和 projectile_context。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="commit">
+			<signature>func commit(emitted_count: int) -&gt; Dictionary:</signature>
+			<description>提交实际生成数量。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">emitted_count: 实际成功创建的节点数量。</tag>
+				<tag name="return">提交报告。</tag>
+				<tag name="schema">return: Dictionary，包含 ok、committed、state、emitted_count、emit_count、hard_limit 和 now_msec。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="rollback">
+			<signature>func rollback(reason: StringName = &amp;"emission_rolled_back") -&gt; Dictionary:</signature>
+			<description>回滚尚未提交的任务。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">reason: 回滚原因。</tag>
+				<tag name="return">回滚报告。</tag>
+				<tag name="schema">return: Dictionary，包含 ok、rolled_back、reason、state、emit_count、hard_limit 和 now_msec。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_allowed_count">
+			<signature>func get_allowed_count() -&gt; int:</signature>
+			<description>获取策略允许的生成数量。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">准备成功后返回允许数量，否则返回 0。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_projectile_context">
+			<signature>func get_projectile_context() -&gt; Dictionary:</signature>
+			<description>获取准备阶段合并后的发射上下文。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">发射上下文副本。</tag>
+				<tag name="schema">return: Dictionary，策略返回的 projectile_context 深副本。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

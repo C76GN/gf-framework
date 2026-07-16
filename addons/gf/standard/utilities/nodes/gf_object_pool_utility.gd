@@ -134,8 +134,12 @@ func dispose() -> void:
 ## [br]
 ## @param parent: 借出的节点将加入或移动到此父节点；释放时会移动到内部池根节点。
 ## [br]
+## @param before_add: 可选入树前回调，签名为 `func(node: Node) -> void`。
+## [br]
 ## @return 可直接使用的节点实例。
-func acquire(scene: PackedScene, parent: Node) -> Node:
+## [br]
+## @since 8.0.0
+func acquire(scene: PackedScene, parent: Node, before_add: Callable = Callable()) -> Node:
 	if _is_disposed:
 		push_warning("[GFObjectPoolUtility] 对象池已销毁，忽略 acquire。")
 		return null
@@ -160,6 +164,7 @@ func acquire(scene: PackedScene, parent: Node) -> Node:
 		if node != null:
 			node.set_meta(_META_ACTIVE, true)
 			node.set_meta(_META_SOURCE_SCENE, scene)
+			_call_before_add(before_add, node)
 			_set_node_tree_active_state(node, true)
 			
 			if is_instance_valid(parent) and node.get_parent() != parent:
@@ -179,6 +184,7 @@ func acquire(scene: PackedScene, parent: Node) -> Node:
 	new_node.set_meta(_META_SOURCE_SCENE, scene)
 	_prepare_node_tree(new_node)
 	_set_node_tree_active_state(new_node, true)
+	_call_before_add(before_add, new_node)
 	if is_instance_valid(parent):
 		parent.add_child(new_node)
 
@@ -241,7 +247,11 @@ func release(node: Node, scene: PackedScene) -> void:
 ## @param parent: 预热节点将加入此父节点。
 ## [br]
 ## @param count: 预热的数量。
-func prewarm(scene: PackedScene, parent: Node, count: int) -> void:
+## [br]
+## @param before_add: 可选入树前回调，签名为 `func(node: Node) -> void`。
+## [br]
+## @since 8.0.0
+func prewarm(scene: PackedScene, parent: Node, count: int, before_add: Callable = Callable()) -> void:
 	if _is_disposed:
 		push_warning("[GFObjectPoolUtility] 对象池已销毁，忽略 prewarm。")
 		return
@@ -252,7 +262,7 @@ func prewarm(scene: PackedScene, parent: Node, count: int) -> void:
 
 	var create_count: int = _get_limited_prewarm_count(scene, count)
 	for _i: int in range(create_count):
-		_prewarm_node(scene, parent)
+		_prewarm_node(scene, parent, before_add)
 
 
 ## 分批预热对象池，避免一次性实例化大量节点造成单帧卡顿。
@@ -266,7 +276,17 @@ func prewarm(scene: PackedScene, parent: Node, count: int) -> void:
 ## @param count: 预热的数量。
 ## [br]
 ## @param batch_size: 每帧最多实例化数量；小于等于 0 时退化为同步预热。
-func prewarm_async(scene: PackedScene, parent: Node, count: int, batch_size: int = 32) -> void:
+## [br]
+## @param before_add: 可选入树前回调，签名为 `func(node: Node) -> void`。
+## [br]
+## @since 8.0.0
+func prewarm_async(
+	scene: PackedScene,
+	parent: Node,
+	count: int,
+	batch_size: int = 32,
+	before_add: Callable = Callable()
+) -> void:
 	if _is_disposed:
 		push_warning("[GFObjectPoolUtility] 对象池已销毁，忽略 prewarm_async。")
 		return
@@ -275,7 +295,7 @@ func prewarm_async(scene: PackedScene, parent: Node, count: int, batch_size: int
 	if count <= 0:
 		return
 	if batch_size <= 0:
-		prewarm(scene, parent, count)
+		prewarm(scene, parent, count, before_add)
 		return
 
 	var current_serial: int = _lifecycle_serial
@@ -286,7 +306,7 @@ func prewarm_async(scene: PackedScene, parent: Node, count: int, batch_size: int
 			return
 		if parent != null and not is_instance_valid(parent):
 			return
-		_prewarm_node(scene, parent)
+		_prewarm_node(scene, parent, before_add)
 		if scene_tree != null and (i + 1) % batch_size == 0:
 			await scene_tree.process_frame
 			if current_serial != _lifecycle_serial:
@@ -306,11 +326,16 @@ func prewarm_async(scene: PackedScene, parent: Node, count: int, batch_size: int
 ## @param count: 预热的数量。
 ## [br]
 ## @param msec_budget_per_frame: 每帧实例化预算毫秒数；小于等于 0 时退化为同步预热。
+## [br]
+## @param before_add: 可选入树前回调，签名为 `func(node: Node) -> void`。
+## [br]
+## @since 8.0.0
 func prewarm_async_budget(
 	scene: PackedScene,
 	parent: Node,
 	count: int,
-	msec_budget_per_frame: float = 8.0
+	msec_budget_per_frame: float = 8.0,
+	before_add: Callable = Callable()
 ) -> void:
 	if _is_disposed:
 		push_warning("[GFObjectPoolUtility] 对象池已销毁，忽略 prewarm_async_budget。")
@@ -320,7 +345,7 @@ func prewarm_async_budget(
 	if count <= 0:
 		return
 	if msec_budget_per_frame <= 0.0:
-		prewarm(scene, parent, count)
+		prewarm(scene, parent, count, before_add)
 		return
 
 	var current_serial: int = _lifecycle_serial
@@ -335,7 +360,7 @@ func prewarm_async_budget(
 				return
 			if parent != null and not is_instance_valid(parent):
 				return
-			_prewarm_node(scene, parent)
+			_prewarm_node(scene, parent, before_add)
 			created_count += 1
 			created_this_frame += 1
 
@@ -439,7 +464,7 @@ func get_debug_snapshot() -> Dictionary:
 
 func _prepare_node_tree(node: Node) -> void:
 	_prepare_node_for_pool(node)
-	for child: Node in node.get_children():
+	for child: Node in node.get_children(true):
 		_prepare_node_tree(child)
 
 
@@ -456,7 +481,7 @@ func _ensure_scene_pool(scene: PackedScene) -> bool:
 	return true
 
 
-func _prewarm_node(scene: PackedScene, parent: Node) -> void:
+func _prewarm_node(scene: PackedScene, parent: Node, before_add: Callable = Callable()) -> void:
 	if not _ensure_scene_pool(scene):
 		return
 	if parent != null and not is_instance_valid(parent):
@@ -470,6 +495,7 @@ func _prewarm_node(scene: PackedScene, parent: Node) -> void:
 	node.set_meta(_META_SOURCE_SCENE, scene)
 	_prepare_node_tree(node)
 	_set_node_tree_active_state(node, false)
+	_call_before_add(before_add, node)
 	if is_instance_valid(parent):
 		parent.add_child(node)
 
@@ -489,11 +515,17 @@ func _move_to_pool_root(node: Node) -> void:
 		pool_root.add_child(node)
 
 
+func _call_before_add(before_add: Callable, node: Node) -> void:
+	if not before_add.is_valid() or node == null:
+		return
+	var _before_add_result: Variant = before_add.call(node)
+
+
 func _queue_free_detached(node: Node) -> void:
 	if not is_instance_valid(node):
 		return
 	var parent: Node = node.get_parent()
-	if parent != null:
+	if parent != null and not GFAutoload.is_tree_exit_in_progress():
 		parent.remove_child(node)
 	if not node.is_queued_for_deletion():
 		node.queue_free()
@@ -536,7 +568,7 @@ func _set_node_tree_active_state(node: Node, active: bool) -> void:
 	_set_node_active_state(node, active)
 	if not manage_descendant_active_state:
 		return
-	for child: Node in node.get_children():
+	for child: Node in node.get_children(true):
 		_set_node_tree_active_state(child, active)
 
 
@@ -565,7 +597,7 @@ func _set_node_active_state(node: Node, active: bool) -> void:
 
 func _call_node_tree_hook(node: Node, hook_name: StringName) -> void:
 	_call_node_hook(node, hook_name)
-	for child: Node in node.get_children():
+	for child: Node in node.get_children(true):
 		_call_node_tree_hook(child, hook_name)
 
 
@@ -581,7 +613,7 @@ func _call_node_hook(node: Node, hook_name: StringName) -> void:
 func _call_node_tree_internal_hook(node: Node, hook_name: StringName) -> void:
 	if node.has_method(hook_name):
 		var _hook_result: Variant = node.call(hook_name)
-	for child: Node in node.get_children():
+	for child: Node in node.get_children(true):
 		_call_node_tree_internal_hook(child, hook_name)
 
 

@@ -15,6 +15,7 @@
 
 | 类型 | 名称 | 签名 |
 |---|---|---|
+| 信号 | [`buff_removal_reported`](#member-gfcombatsystem-signals-buff_removal_reported) | `signal buff_removal_reported(` |
 | 方法 | [`tick`](#member-gfcombatsystem-methods-tick) | `func tick(p_delta: float) -> void:` |
 | 方法 | [`dispose`](#member-gfcombatsystem-methods-dispose) | `func dispose() -> void:` |
 | 方法 | [`register_entity`](#member-gfcombatsystem-methods-register_entity) | `func register_entity(p_entity: Object) -> void:` |
@@ -30,6 +31,34 @@
 | 方法 | [`clear_buffs`](#member-gfcombatsystem-methods-clear_buffs) | `func clear_buffs(p_entity: Object, predicate: Callable = Callable()) -> int:` |
 | 方法 | [`clear_buffs_with_reason`](#member-gfcombatsystem-methods-clear_buffs_with_reason) | `func clear_buffs_with_reason( p_entity: Object, predicate: Callable = Callable(), reason: StringName = GFBuff.REMOVAL_REASON_CLEARED ) -> int:` |
 | 方法 | [`remove_skill`](#member-gfcombatsystem-methods-remove_skill) | `func remove_skill(p_entity: Object, p_skill: GFSkill) -> bool:` |
+
+## 信号
+
+<a id="member-gfcombatsystem-signals-buff_removal_reported"></a>
+
+### `buff_removal_reported`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+signal buff_removal_reported(
+```
+
+Buff 已从系统索引移除并完成 best-effort 清理。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `entity` | 原所属实体；实体已释放时可能为 null。 |
+| `buff_id` | 被移除 Buff ID。 |
+| `reason` | 移除原因。 |
+| `lifecycle_report` | GFBuff.on_remove() 生命周期报告。 |
+
+结构：
+
+- `lifecycle_report`: Dictionary，移除生命周期报告的深副本。
 
 ## 方法
 

@@ -24,6 +24,7 @@
 | 属性 | [`apply_on_ready`](#member-gfdisplaysettingsutility-properties-apply_on_ready) | `var apply_on_ready: bool = true` |
 | 属性 | [`auto_apply_setting_changes`](#member-gfdisplaysettingsutility-properties-auto_apply_setting_changes) | `var auto_apply_setting_changes: bool = true` |
 | 属性 | [`persist_changes`](#member-gfdisplaysettingsutility-properties-persist_changes) | `var persist_changes: bool = true` |
+| 属性 | [`default_windowed_size`](#member-gfdisplaysettingsutility-properties-default_windowed_size) | `var default_windowed_size: Vector2i = Vector2i.ZERO` |
 | 属性 | [`audio_setting_prefix`](#member-gfdisplaysettingsutility-properties-audio_setting_prefix) | `var audio_setting_prefix: StringName = &"audio"` |
 | 方法 | [`init`](#member-gfdisplaysettingsutility-methods-init) | `func init() -> void:` |
 | 方法 | [`ready`](#member-gfdisplaysettingsutility-methods-ready) | `func ready() -> void:` |
@@ -174,6 +175,19 @@ var persist_changes: bool = true
 ```
 
 设置变化时是否写入 GFSettingsUtility。
+
+<a id="member-gfdisplaysettingsutility-properties-default_windowed_size"></a>
+
+### `default_windowed_size`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+var default_windowed_size: Vector2i = Vector2i.ZERO
+```
+
+非窗口模式启动且尚无持久化尺寸时使用的窗口尺寸。 任一分量小于等于 0 时，从项目窗口 override 或 viewport 尺寸推导。
 
 <a id="member-gfdisplaysettingsutility-properties-audio_setting_prefix"></a>
 

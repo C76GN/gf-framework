@@ -6,7 +6,7 @@
 
 | 类别 | 类 | 成员 | 方法 |
 |---|---:|---:|---:|
-| [运行时服务](#category-runtime_service) | 1 | 12 | 10 |
+| [运行时服务](#category-runtime_service) | 2 | 20 | 15 |
 | [资源定义](#category-resource_definition) | 1 | 12 | 8 |
 | [编辑器 API](#category-editor_api) | 1 | 1 | 1 |
 
@@ -18,6 +18,7 @@
 
 | 类 | 继承 | 源文件 |
 |---|---|---|
+| [`GFAssetAttributionTools`](classes/GFAssetAttributionTools.md#gfassetattributiontools) | `RefCounted` | `addons/gf/extensions/asset_metadata/runtime/gf_asset_attribution_tools.gd` |
 | [`GFAssetMetadataUtility`](classes/GFAssetMetadataUtility.md#gfassetmetadatautility) | `GFUtility` | `addons/gf/extensions/asset_metadata/runtime/gf_asset_metadata_utility.gd` |
 
 <a id="category-resource_definition"></a>

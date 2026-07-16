@@ -49,7 +49,7 @@
 signal item_changed(operation: StringName, index: int, old_value: Variant, new_value: Variant, metadata: Dictionary)
 ```
 
-单项变更后发出。
+非 batch 模式下单项变更后发出。batch 内变更只在 end_batch() 时汇总到 items_changed。
 
 参数：
 
@@ -78,7 +78,7 @@ signal item_changed(operation: StringName, index: int, old_value: Variant, new_v
 signal items_changed(changes: Array[Dictionary], metadata: Dictionary)
 ```
 
-一批变更完成后发出。
+一批变更完成后发出；非 batch 单项变更也会作为单元素 changes 发出。
 
 参数：
 

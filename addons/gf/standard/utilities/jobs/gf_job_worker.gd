@@ -98,6 +98,8 @@ var processor: Callable = Callable()
 
 var _running: bool = false
 var _processing: bool = false
+var _next_job_in_flight: bool = false
+var _active_wait_source: GFCancellationSource = null
 
 
 # --- Godot 生命周期方法 ---
@@ -120,6 +122,10 @@ func _process(_delta: float) -> void:
 func _physics_process(_delta: float) -> void:
 	if process_in_physics:
 		_GF_ASYNC_CALL_SCRIPT.run_detached(Callable(self, &"process_batch"))
+
+
+func _exit_tree() -> void:
+	_cancel_active_wait(&"worker_exited_tree")
 
 
 # --- 公共方法 ---
@@ -156,10 +162,11 @@ func start() -> void:
 ## [br]
 ## @api public
 func stop() -> void:
-	if not _running:
-		return
+	var was_running: bool = _running
 	_running = false
-	worker_stopped.emit()
+	_cancel_active_wait(&"worker_stopped")
+	if was_running:
+		worker_stopped.emit()
 
 
 ## 检查 Worker 是否正在运行。
@@ -177,28 +184,12 @@ func is_running() -> bool:
 ## [br]
 ## @return 被处理的任务；没有任务或不可处理时返回 null。
 func process_next_job() -> GFJob:
-	var utility: GFJobQueueUtility = _get_queue_utility()
-	if utility == null or not processor.is_valid():
-		return null
-	var job: GFJob = utility.start_next_job(queue_name)
-	if job == null:
+	if _next_job_in_flight:
 		return null
 
-	var result: Variant = processor.call(job)
-	if result is Signal:
-		var result_signal: Signal = _variant_to_signal(result)
-		var wait_result: Dictionary = await _await_processor_signal_result(result_signal)
-		if not GFVariantData.get_option_bool(wait_result, "completed", false):
-			if not job.is_finished():
-				var _fail_job_result_189: Variant = utility.fail_job(job.job_id, "processor_signal_cancelled_or_timeout", wait_result)
-			job_processed.emit(job)
-			return job
-		if job.is_finished():
-			job_processed.emit(job)
-			return job
-		result = GFVariantData.get_option_value(wait_result, "result")
-	_apply_processor_result(utility, job, result)
-	job_processed.emit(job)
+	_next_job_in_flight = true
+	var job: GFJob = await _process_next_job_once()
+	_next_job_in_flight = false
 	return job
 
 
@@ -208,7 +199,7 @@ func process_next_job() -> GFJob:
 ## [br]
 ## @return 实际处理数量。
 func process_batch() -> int:
-	if not _running or _processing:
+	if not _running or _processing or _next_job_in_flight:
 		return 0
 	if is_inside_tree() and get_tree().paused and not process_while_paused:
 		return 0
@@ -216,6 +207,8 @@ func process_batch() -> int:
 	_processing = true
 	var processed_count: int = 0
 	for _index: int in range(maxi(batch_size, 1)):
+		if not _running:
+			break
 		var job: GFJob = await process_next_job()
 		if job == null:
 			break
@@ -230,13 +223,17 @@ func process_batch() -> int:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.0.0
+## [br]
 ## @return 调试快照。
 ## [br]
-## @schema return: Dictionary，包含 running、processing、queue_name、batch_size、has_processor 和 has_queue_utility。
+## @schema return: Dictionary，包含 running、processing、processing_next_job、waiting_for_processor、queue_name、batch_size、has_processor 和 has_queue_utility。
 func get_debug_snapshot() -> Dictionary:
 	return {
 		"running": _running,
 		"processing": _processing,
+		"processing_next_job": _next_job_in_flight,
+		"waiting_for_processor": _active_wait_source != null,
 		"queue_name": String(queue_name),
 		"batch_size": batch_size,
 		"has_processor": processor.is_valid(),
@@ -245,6 +242,36 @@ func get_debug_snapshot() -> Dictionary:
 
 
 # --- 私有/辅助方法 ---
+
+func _process_next_job_once() -> GFJob:
+	var utility: GFJobQueueUtility = _get_queue_utility()
+	if utility == null or not processor.is_valid():
+		return null
+	var job: GFJob = utility.start_next_job(queue_name)
+	if job == null:
+		return null
+
+	var result: Variant = processor.call(job)
+	if result is Signal:
+		var result_signal: Signal = _variant_to_signal(result)
+		var wait_result: Dictionary = await _await_processor_signal_result(result_signal, job)
+		if not GFVariantData.get_option_bool(wait_result, "completed", false):
+			if not job.is_finished():
+				var wait_status: StringName = GFVariantData.get_option_string_name(wait_result, "status", &"invalid")
+				if wait_status == _GF_ASYNC_WAIT_SUPPORT.STATUS_CANCELLED:
+					var _cancel_job_result: Variant = utility.cancel_job(job.job_id)
+				else:
+					var failure_reason: String = _get_processor_wait_failure_reason(wait_status)
+					var _fail_job_result: Variant = utility.fail_job(job.job_id, failure_reason, wait_result)
+			_emit_job_processed_if_not_cancelled(job)
+			return job
+		if job.is_finished():
+			_emit_job_processed_if_not_cancelled(job)
+			return job
+		result = GFVariantData.get_option_value(wait_result, "result")
+	_apply_processor_result(utility, job, result)
+	_emit_job_processed_if_not_cancelled(job)
+	return job
 
 func _get_queue_utility() -> GFJobQueueUtility:
 	if queue_utility != null:
@@ -255,23 +282,47 @@ func _get_queue_utility() -> GFJobQueueUtility:
 	return _variant_to_job_queue_utility(architecture.get_utility(GFJobQueueUtility))
 
 
-func _await_processor_signal_result(result_signal: Signal) -> Dictionary:
+func _await_processor_signal_result(result_signal: Signal, job: GFJob) -> Dictionary:
 	var guard_node: Node = self if is_inside_tree() else null
-	var wait_result: Dictionary = await _GF_ASYNC_WAIT_SUPPORT.await_signal_payload_safely(
-		result_signal,
-		_should_continue_waiting,
-		_get_time_utility(),
-		signal_timeout_seconds,
-		signal_timeout_respects_time_scale,
-		"[GFJobWorker] 等待任务处理器 Signal 超时，任务将标记为失败。",
-		guard_node
-	)
+	var wait_source: GFCancellationSource = GFCancellationSource.new()
+	_active_wait_source = wait_source
+	var wait_result: Dictionary = await _GF_ASYNC_WAIT_SUPPORT.await_signal_state(result_signal, {
+		"should_continue": _should_continue_waiting.bind(job),
+		"time_utility": _get_time_utility(),
+		"timeout_seconds": signal_timeout_seconds,
+		"respect_time_scale": signal_timeout_respects_time_scale,
+		"timeout_warning": "[GFJobWorker] 等待任务处理器 Signal 超时，任务将标记为失败。",
+		"guard_node": guard_node,
+		"cancel_token": wait_source.get_token(),
+		"capture_payload": true,
+	})
+	if _active_wait_source == wait_source:
+		_active_wait_source = null
+	wait_source.dispose()
 	var completed: bool = GFVariantData.get_option_bool(wait_result, "completed", false)
 	return {
 		"completed": completed,
+		"status": GFVariantData.get_option_string_name(wait_result, "status", &"invalid"),
 		"result": _normalize_signal_result(GFVariantData.get_option_value(wait_result, "args", [])) if completed else null,
-		"reason": "completed" if completed else "cancelled_or_timeout",
+		"reason": GFVariantData.get_option_string_name(wait_result, "reason", &""),
+		"metadata": GFVariantData.get_option_dictionary(wait_result, "metadata"),
 	}
+
+
+func _cancel_active_wait(reason: StringName) -> void:
+	if _active_wait_source == null:
+		return
+	var _cancelled: bool = _active_wait_source.cancel(reason)
+
+
+func _get_processor_wait_failure_reason(status: StringName) -> String:
+	match status:
+		_GF_ASYNC_WAIT_SUPPORT.STATUS_TIMEOUT:
+			return "processor_signal_timeout"
+		_GF_ASYNC_WAIT_SUPPORT.STATUS_INVALID:
+			return "processor_signal_invalid"
+		_:
+			return "processor_signal_failed"
 
 
 func _apply_processor_result(utility: GFJobQueueUtility, job: GFJob, result: Variant) -> void:
@@ -287,6 +338,12 @@ func _apply_processor_result(utility: GFJobQueueUtility, job: GFJob, result: Var
 		var _fail_job_result_283: Variant = utility.fail_job(job.job_id, "", result)
 	else:
 		var _complete_job_result_285: Variant = utility.complete_job(job.job_id, result)
+
+
+func _emit_job_processed_if_not_cancelled(job: GFJob) -> void:
+	if job == null or job.status == GFJob.Status.CANCELLED:
+		return
+	job_processed.emit(job)
 
 
 func _normalize_signal_result(result: Variant) -> Variant:
@@ -314,8 +371,8 @@ func _get_time_utility() -> GFTimeUtility:
 	return _variant_to_time_utility(architecture.get_utility(GFTimeUtility))
 
 
-func _should_continue_waiting() -> bool:
-	return _running or _processing or not is_inside_tree()
+func _should_continue_waiting(job: GFJob) -> bool:
+	return job != null and not job.is_finished()
 
 
 static func _variant_to_signal(value: Variant) -> Signal:

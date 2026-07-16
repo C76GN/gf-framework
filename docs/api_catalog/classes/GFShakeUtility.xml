@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFShakeUtility" path="addons/gf/extensions/feedback/runtime/gf_shake_utility.gd" module="extensions/feedback" extends="GFUtility" classDigest="33ee6b4e887e6e5bfe5045255bb0067c54c8b1a10f6a14ea1d593758b93b26d3">
+<class name="GFShakeUtility" path="addons/gf/extensions/feedback/runtime/gf_shake_utility.gd" module="extensions/feedback" extends="GFUtility" classDigest="8b8c8dd9f0ce732c1ba452e21308b7e45e4662e5704a856c2e3a765694c68fc1">
 	<description>GFShakeUtility: 通用反馈播放与采样工具。
 管理命名 channel 上的 `GFShakePreset` 播放状态，项目可按需把采样结果应用到
 Camera、Node2D、Node3D、Control 或任意自定义表现对象。</description>
@@ -16,6 +16,7 @@ Camera、Node2D、Node3D、Control 或任意自定义表现对象。</descriptio
 				<tag name="api">public</tag>
 				<tag name="param">shake_id: 播放实例 ID。</tag>
 				<tag name="param">channel: 反馈 channel。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="signal" name="shake_finished">
@@ -25,6 +26,7 @@ Camera、Node2D、Node3D、Control 或任意自定义表现对象。</descriptio
 				<tag name="api">public</tag>
 				<tag name="param">shake_id: 播放实例 ID。</tag>
 				<tag name="param">channel: 反馈 channel。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="signal" name="shake_stopped">
@@ -34,6 +36,7 @@ Camera、Node2D、Node3D、Control 或任意自定义表现对象。</descriptio
 				<tag name="api">public</tag>
 				<tag name="param">shake_id: 播放实例 ID。</tag>
 				<tag name="param">channel: 反馈 channel。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</signals>
@@ -48,6 +51,7 @@ Camera、Node2D、Node3D、Control 或任意自定义表现对象。</descriptio
 			<description>活跃反馈达到上限时的处理方式。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</enums>
@@ -58,6 +62,7 @@ Camera、Node2D、Node3D、Control 或任意自定义表现对象。</descriptio
 			<description>默认 channel。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="max_active_shakes">
@@ -65,6 +70,7 @@ Camera、Node2D、Node3D、Control 或任意自定义表现对象。</descriptio
 			<description>最大活跃反馈数量；小于等于 0 表示不限制。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="overflow_policy">
@@ -72,6 +78,7 @@ Camera、Node2D、Node3D、Control 或任意自定义表现对象。</descriptio
 			<description>达到上限时的处理方式。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="randomize_phase">
@@ -79,6 +86,7 @@ Camera、Node2D、Node3D、Control 或任意自定义表现对象。</descriptio
 			<description>是否为每次播放随机化相位。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</properties>
@@ -88,6 +96,7 @@ Camera、Node2D、Node3D、Control 或任意自定义表现对象。</descriptio
 			<description>初始化反馈运行时状态和随机源。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="dispose">
@@ -95,6 +104,7 @@ Camera、Node2D、Node3D、Control 或任意自定义表现对象。</descriptio
 			<description>释放全部反馈播放状态。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="tick">
@@ -103,6 +113,7 @@ Camera、Node2D、Node3D、Control 或任意自定义表现对象。</descriptio
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">delta: 本帧时间增量。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="play_shake">
@@ -115,7 +126,8 @@ Camera、Node2D、Node3D、Control 或任意自定义表现对象。</descriptio
 				<tag name="param">strength: 播放强度倍率。</tag>
 				<tag name="param">metadata: 项目自定义元数据。</tag>
 				<tag name="return">播放实例 ID；无法播放时返回 -1。</tag>
-				<tag name="schema">metadata: Dictionary，播放实例自定义元数据，会在 get_shake_info() 快照中复制返回。</tag>
+				<tag name="schema">metadata: Dictionary，播放实例自定义元数据，会在 get_shake_info() JSON-safe 快照中复制返回。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="stop_shake">
@@ -126,6 +138,7 @@ Camera、Node2D、Node3D、Control 或任意自定义表现对象。</descriptio
 				<tag name="param">shake_id: 播放实例 ID。</tag>
 				<tag name="param">emit_stopped: 是否发出停止信号。</tag>
 				<tag name="return">成功停止返回 true。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="stop_channel">
@@ -135,6 +148,7 @@ Camera、Node2D、Node3D、Control 或任意自定义表现对象。</descriptio
 				<tag name="api">public</tag>
 				<tag name="param">channel: 反馈 channel；为空时使用 default_channel。</tag>
 				<tag name="return">停止数量。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="clear">
@@ -142,6 +156,7 @@ Camera、Node2D、Node3D、Control 或任意自定义表现对象。</descriptio
 			<description>清空全部反馈实例。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_shake_active">
@@ -151,6 +166,7 @@ Camera、Node2D、Node3D、Control 或任意自定义表现对象。</descriptio
 				<tag name="api">public</tag>
 				<tag name="param">shake_id: 播放实例 ID。</tag>
 				<tag name="return">正在播放返回 true。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_active_shake_count">
@@ -160,6 +176,7 @@ Camera、Node2D、Node3D、Control 或任意自定义表现对象。</descriptio
 				<tag name="api">public</tag>
 				<tag name="param">channel: 可选 channel；为空时统计全部。</tag>
 				<tag name="return">活跃反馈数量。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="sample_channel">
@@ -170,6 +187,7 @@ Camera、Node2D、Node3D、Control 或任意自定义表现对象。</descriptio
 				<tag name="param">channel: 反馈 channel；为空时使用 default_channel。</tag>
 				<tag name="return">合成采样结果。</tag>
 				<tag name="schema">return: Dictionary，包含 position: Vector3、rotation_degrees: Vector3、scale: Vector3、intensity: float 与 progress: float。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="sample_channels">
@@ -180,6 +198,7 @@ Camera、Node2D、Node3D、Control 或任意自定义表现对象。</descriptio
 				<tag name="param">channels: 反馈 channel 列表。</tag>
 				<tag name="return">合成采样结果。</tag>
 				<tag name="schema">return: Dictionary，包含 position: Vector3、rotation_degrees: Vector3、scale: Vector3、intensity: float 与 progress: float。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_shake_info">
@@ -189,7 +208,8 @@ Camera、Node2D、Node3D、Control 或任意自定义表现对象。</descriptio
 				<tag name="api">public</tag>
 				<tag name="param">shake_id: 播放实例 ID。</tag>
 				<tag name="return">播放实例快照。</tag>
-				<tag name="schema">return: Dictionary，包含 id、channel、elapsed_seconds、duration_seconds、strength 与 metadata；实例不存在时为空。</tag>
+				<tag name="schema">return: JSON-safe Dictionary，包含 id、channel、elapsed_seconds、duration_seconds、strength 与 metadata；实例不存在时为空。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_debug_snapshot">
@@ -198,7 +218,8 @@ Camera、Node2D、Node3D、Control 或任意自定义表现对象。</descriptio
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">调试快照。</tag>
-				<tag name="schema">return: Dictionary，包含 active_count、max_active_shakes、channels 与 play_order。</tag>
+				<tag name="schema">return: JSON-safe Dictionary，包含 active_count、max_active_shakes、channels 与 play_order。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</methods>

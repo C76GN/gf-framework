@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFLifetimeSubscription" path="addons/gf/kernel/core/gf_lifetime_subscription.gd" module="kernel" extends="GFSubscriptionToken" classDigest="c0d599fefed338528ba902d297422021b3303b44b444bae26ad37e5e2536b3a8">
+	<description>GFLifetimeSubscription: 绑定 owner 生命周期的订阅句柄。
+owner 为 Node 时，节点退出场景树会自动取消订阅；owner 为普通 Object 时，
+使用方或订阅源可通过 owner_is_released() 检查弱引用是否已经失效并执行清理。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_handle</tag>
+		<tag name="layer">kernel/core</tag>
+		<tag name="since">8.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties />
+	<methods>
+		<member kind="method" name="_init">
+			<signature>func _init(owner: Object = null, cancel_callback: Callable = Callable(), debug_label: String = "") -&gt; void:</signature>
+			<description>构造函数。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">owner: 订阅生命周期 owner。</tag>
+				<tag name="param">cancel_callback: 首次取消时执行的无参清理回调。</tag>
+				<tag name="param">debug_label: 可选诊断标签。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="cancel">
+			<signature>func cancel() -&gt; bool:</signature>
+			<description>取消订阅并解除 owner 自动取消监听。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">本次调用是否首次取消了活动订阅。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_active">
+			<signature>func is_active() -&gt; bool:</signature>
+			<description>返回订阅是否仍处于活动状态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">token 未取消且 owner 未释放时返回 true。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_owner">
+			<signature>func get_owner() -&gt; Object:</signature>
+			<description>返回生命周期 owner；未设置或已释放时返回 null。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">当前 owner 或 null。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_owner_id">
+			<signature>func get_owner_id() -&gt; int:</signature>
+			<description>返回 owner 的实例 ID；未设置时为 0。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">owner 实例 ID。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="owner_is_released">
+			<signature>func owner_is_released() -&gt; bool:</signature>
+			<description>返回 owner 是否已经释放。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">owner 曾经设置且当前已无法解析时返回 true。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

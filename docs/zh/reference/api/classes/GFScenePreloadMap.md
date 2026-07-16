@@ -133,6 +133,7 @@ func get_fixed_scene_paths() -> PackedStringArray:
 ### `get_neighbor_scene_paths`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func get_neighbor_scene_paths( scene_path: String, radius: int = -1, include_source: bool = false ) -> PackedStringArray:
@@ -155,6 +156,7 @@ func get_neighbor_scene_paths( scene_path: String, radius: int = -1, include_sou
 ### `get_preload_plan`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func get_preload_plan( scene_path: String, radius: int = -1, include_fixed: bool = true ) -> Dictionary:
@@ -174,7 +176,7 @@ func get_preload_plan( scene_path: String, radius: int = -1, include_fixed: bool
 
 结构：
 
-- `return`: Dictionary，包含 source_path、radius、include_fixed、fixed_paths、temporary_paths、paths 和 metadata。
+- `return`: Dictionary，包含 source_path、source_cache_key、radius、include_fixed、fixed_paths、temporary_paths、paths、fixed_cache_keys、temporary_cache_keys、cache_keys、resource_identities 和 metadata。
 
 <a id="member-gfscenepreloadmap-methods-validate_map"></a>
 

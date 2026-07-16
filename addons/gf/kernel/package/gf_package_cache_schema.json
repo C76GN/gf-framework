@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "marker_file": ".gf-package-cache.json",
+  "marker_kind": "gf_package_cache",
+  "layout_version": 1,
+  "default_mode": "project_local",
+  "modes": [
+    "project_local",
+    "external_read_only",
+    "external_shared_rw"
+  ],
+  "marker_required_fields": [
+    "schema_version",
+    "kind",
+    "layout_version",
+    "cache_id",
+    "created_by"
+  ],
+  "context_report_fields": [
+    "schema_version",
+    "mode",
+    "external",
+    "read_only",
+    "artifact_read_roots",
+    "artifact_write_root",
+    "workspace_root",
+    "marker_path",
+    "marker_valid"
+  ]
+}

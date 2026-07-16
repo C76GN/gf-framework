@@ -28,6 +28,8 @@
 | 方法 | [`unpack_cell`](#member-gfgridkey3d-methods-unpack_cell) | `static func unpack_cell(key: int) -> Vector3i:` |
 | 方法 | [`unpack_orientation`](#member-gfgridkey3d-methods-unpack_orientation) | `static func unpack_orientation(key: int) -> int:` |
 | 方法 | [`unpack_key`](#member-gfgridkey3d-methods-unpack_key) | `static func unpack_key(key: int) -> Dictionary:` |
+| 方法 | [`can_quantize_position`](#member-gfgridkey3d-methods-can_quantize_position) | `static func can_quantize_position( position: Vector3, cell_size: Vector3 = Vector3.ONE, origin: Vector3 = Vector3.ZERO ) -> bool:` |
+| 方法 | [`try_position_to_cell`](#member-gfgridkey3d-methods-try_position_to_cell) | `static func try_position_to_cell( position: Vector3, cell_size: Vector3 = Vector3.ONE, origin: Vector3 = Vector3.ZERO ) -> Dictionary:` |
 | 方法 | [`position_to_cell`](#member-gfgridkey3d-methods-position_to_cell) | `static func position_to_cell( position: Vector3, cell_size: Vector3 = Vector3.ONE, origin: Vector3 = Vector3.ZERO ) -> Vector3i:` |
 | 方法 | [`pack_position`](#member-gfgridkey3d-methods-pack_position) | `static func pack_position( position: Vector3, cell_size: Vector3 = Vector3.ONE, origin: Vector3 = Vector3.ZERO, orientation: int = 0 ) -> int:` |
 
@@ -245,11 +247,62 @@ static func unpack_key(key: int) -> Dictionary:
 
 - `return`: Dictionary with valid: bool, cell: Vector3i, and orientation: int.
 
+<a id="member-gfgridkey3d-methods-can_quantize_position"></a>
+
+### `can_quantize_position`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+static func can_quantize_position( position: Vector3, cell_size: Vector3 = Vector3.ONE, origin: Vector3 = Vector3.ZERO ) -> bool:
+```
+
+判断世界位置、单格尺寸和原点是否可被安全量化。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `position` | 世界或局部位置。 |
+| `cell_size` | 单格尺寸。 |
+| `origin` | 量化原点。 |
+
+返回：所有输入都为有限数时返回 true。
+
+<a id="member-gfgridkey3d-methods-try_position_to_cell"></a>
+
+### `try_position_to_cell`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+static func try_position_to_cell( position: Vector3, cell_size: Vector3 = Vector3.ONE, origin: Vector3 = Vector3.ZERO ) -> Dictionary:
+```
+
+尝试将世界位置量化为格坐标。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `position` | 世界或局部位置。 |
+| `cell_size` | 单格尺寸，各轴会被限制为正数。 |
+| `origin` | 量化原点。 |
+
+返回：量化报告。
+
+结构：
+
+- `return`: Dictionary with ok: bool, error: String, and cell: Vector3i.
+
 <a id="member-gfgridkey3d-methods-position_to_cell"></a>
 
 ### `position_to_cell`
 
 - API：`public`
+- 首次版本：`3.18.0`
 
 ```gdscript
 static func position_to_cell( position: Vector3, cell_size: Vector3 = Vector3.ONE, origin: Vector3 = Vector3.ZERO ) -> Vector3i:
@@ -265,13 +318,14 @@ static func position_to_cell( position: Vector3, cell_size: Vector3 = Vector3.ON
 | `cell_size` | 单格尺寸，各轴会被限制为正数。 |
 | `origin` | 量化原点。 |
 
-返回：量化后的格坐标。
+返回：量化后的格坐标；输入包含非有限数时返回 Vector3i.ZERO。
 
 <a id="member-gfgridkey3d-methods-pack_position"></a>
 
 ### `pack_position`
 
 - API：`public`
+- 首次版本：`3.18.0`
 
 ```gdscript
 static func pack_position( position: Vector3, cell_size: Vector3 = Vector3.ONE, origin: Vector3 = Vector3.ZERO, orientation: int = 0 ) -> int:
@@ -288,4 +342,4 @@ static func pack_position( position: Vector3, cell_size: Vector3 = Vector3.ONE, 
 | `origin` | 量化原点。 |
 | `orientation` | 方向编号，范围为 0..63。 |
 
-返回：打包后的 key；量化坐标或方向编号超出范围时返回 INVALID_KEY。
+返回：打包后的 key；输入非有限、量化坐标或方向编号超出范围时返回 INVALID_KEY。

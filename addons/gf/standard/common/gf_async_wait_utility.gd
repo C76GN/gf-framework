@@ -86,6 +86,48 @@ static func await_signal_payload(result_signal: Signal, options: Dictionary = {}
 	return await _await_signal_state(result_signal, options, true)
 
 
+## 等待完成源进入终态。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+## [br]
+## @param completion: 要等待的完成源。
+## [br]
+## @param options: 等待选项。
+## [br]
+## @return 完成源快照；等待超时、取消或失效时包含 wait_status 字段。
+## [br]
+## @schema options: Dictionary，可包含 timeout_seconds、cancel_token、guard_node、time_utility、respect_time_scale 和 timeout_warning。
+## [br]
+## @schema return: Dictionary，包含 status、status_name、completed、result、error、cancel_reason、metadata 和可选 wait_status。
+static func wait_completion_async(completion: GFAsyncCompletion, options: Dictionary = {}) -> Dictionary:
+	if completion == null:
+		return {
+			"status": GFAsyncCompletion.Status.CANCELLED,
+			"status_name": "CANCELLED",
+			"completed": true,
+			"successful": false,
+			"failed": false,
+			"cancelled": true,
+			"result": null,
+			"error": "completion is null.",
+			"cancel_reason": STATUS_INVALID,
+			"metadata": {},
+			"wait_status": STATUS_INVALID,
+		}
+	if completion.is_completed():
+		return completion.get_debug_snapshot()
+
+	var wait_result: Dictionary = await await_signal(completion.completed, options)
+	var snapshot: Dictionary = completion.get_debug_snapshot()
+	var wait_status: StringName = GFVariantData.get_option_string_name(wait_result, "status")
+	if wait_status != STATUS_COMPLETED:
+		snapshot["wait_status"] = wait_status
+		snapshot["wait_result"] = wait_result
+	return snapshot
+
+
 ## 等待下一帧 process_frame。
 ## [br]
 ## @api public
@@ -314,8 +356,8 @@ static func _get_common_wait_status(state: Dictionary) -> StringName:
 	if tree == null:
 		return STATUS_INVALID
 
-	var cancel_token: GFCancelToken = _state_to_cancel_token(state)
-	if cancel_token != null and cancel_token.is_cancelled():
+	var cancel_token: GFCancellationToken = _state_to_cancel_token(state)
+	if cancel_token != null and cancel_token.is_cancel_requested():
 		return STATUS_CANCELLED
 
 	var guard_node: Node = _state_to_guard_node(state)
@@ -343,9 +385,9 @@ static func _get_common_wait_status(state: Dictionary) -> StringName:
 
 
 static func _make_status_result(status: StringName, state: Dictionary, extra: Dictionary = {}) -> Dictionary:
-	var cancel_token: GFCancelToken = _state_to_cancel_token(state)
+	var cancel_token: GFCancellationToken = _state_to_cancel_token(state)
 	if status == STATUS_CANCELLED and cancel_token != null:
-		return _make_result(status, [], cancel_token.get_reason(), cancel_token.get_metadata(), extra)
+		return _make_result(status, [], cancel_token.get_cancel_reason(), cancel_token.get_cancel_metadata(), extra)
 	return _make_result(status, [], &"", {}, extra)
 
 
@@ -382,10 +424,10 @@ static func _make_result(
 	)
 
 
-static func _get_cancel_token(options: Dictionary) -> GFCancelToken:
+static func _get_cancel_token(options: Dictionary) -> GFCancellationToken:
 	var value: Variant = GFVariantData.get_option_value(options, "cancel_token")
-	if value is GFCancelToken:
-		var token: GFCancelToken = value
+	if value is GFCancellationToken:
+		var token: GFCancellationToken = value
 		return token
 	return null
 
@@ -433,10 +475,10 @@ static func _state_to_scene_tree(state: Dictionary) -> SceneTree:
 	return null
 
 
-static func _state_to_cancel_token(state: Dictionary) -> GFCancelToken:
+static func _state_to_cancel_token(state: Dictionary) -> GFCancellationToken:
 	var value: Variant = GFVariantData.get_option_value(state, "cancel_token")
-	if value is GFCancelToken:
-		var token: GFCancelToken = value
+	if value is GFCancellationToken:
+		var token: GFCancellationToken = value
 		return token
 	return null
 

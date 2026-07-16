@@ -8,7 +8,7 @@ extends GFConfigProvider
 
 var _configs: Dictionary = {}
 
-func async_init() -> void:
+func async_init(_scope: GFAsyncScope) -> void:
 	# 异步加载你的表...
 	pass
 

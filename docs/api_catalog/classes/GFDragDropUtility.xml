@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFDragDropUtility" path="addons/gf/standard/input/drag_drop/gf_drag_drop_utility.gd" module="standard" extends="GFUtility" classDigest="d04af961be158314cd2f1d29b737336dfd0ef006bbe335e85578148611c63a45">
+<class name="GFDragDropUtility" path="addons/gf/standard/input/drag_drop/gf_drag_drop_utility.gd" module="standard" extends="GFUtility" classDigest="fa5684e242064271ed49e2710fe4099839e64a9c1e2a34d1db5fba79c4bec4ac">
 	<description>GFDragDropUtility: 通用拖拽会话与落点匹配工具。
 该工具只管理拖拽生命周期、落点注册、命中排序和结果包装。
 它不读取输入、不移动节点、不保存业务历史，也不规定具体 UI 或玩法语义。</description>
@@ -144,6 +144,15 @@
 				<tag name="api">public</tag>
 			</tags>
 		</member>
+		<member kind="method" name="prune_stale_zones">
+			<signature>func prune_stale_zones() -&gt; int:</signature>
+			<description>主动剪枝已失效的落点。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">本次移除的落点数量。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
 		<member kind="method" name="start_drag">
 			<signature>func start_drag( drag_type: StringName, payload: Variant, position: Vector2, source: Object = null, metadata: Dictionary = {} ) -&gt; int:</signature>
 			<description>开始拖拽。</description>
@@ -236,12 +245,14 @@
 			</tags>
 		</member>
 		<member kind="method" name="get_debug_snapshot">
-			<signature>func get_debug_snapshot() -&gt; Dictionary:</signature>
+			<signature>func get_debug_snapshot(json_compatible: bool = true) -&gt; Dictionary:</signature>
 			<description>获取调试快照。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="param">json_compatible: 为 true 时返回可直接 JSON.stringify() 的值。</tag>
 				<tag name="return">当前拖拽与落点状态。</tag>
 				<tag name="schema">return: Dictionary，包含 active_session_count、zone_count、sessions: Array[Dictionary] 和 zones: Array[Dictionary]。</tag>
+				<tag name="since">3.9.0</tag>
 			</tags>
 		</member>
 	</methods>

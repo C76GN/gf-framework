@@ -12,6 +12,11 @@ class_name GFCombatHitContext
 extends RefCounted
 
 
+# --- 常量 ---
+
+const _GF_COMBAT_FINITE_MATH = preload("res://addons/gf/extensions/combat/core/gf_combat_finite_math.gd")
+
+
 # --- 公共变量 ---
 
 ## 命中发起者。
@@ -33,45 +38,110 @@ var hit_id: StringName = &""
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @schema payload: Variant，项目自定义命中载荷；框架只复制并透传。
-var payload: Variant = null
+var payload: Variant:
+	get:
+		return GFVariantData.duplicate_variant(_payload)
+	set(value):
+		_payload = GFVariantData.duplicate_variant(value)
 
 ## 通用强度值。框架不解释该字段。
 ## [br]
 ## @api public
-var magnitude: float = 0.0
+## [br]
+## @since 3.17.0
+var magnitude: float:
+	get:
+		return _magnitude
+	set(value):
+		if _GF_COMBAT_FINITE_MATH.is_finite_float(value):
+			_magnitude = value
 
 ## 命中标签。框架不解释该字段。
 ## [br]
 ## @api public
-var tags: Array[StringName] = []
+## [br]
+## @since 3.17.0
+var tags: Array[StringName]:
+	get:
+		return _tags.duplicate()
+	set(value):
+		_tags = value.duplicate()
 
 ## 2D 命中位置。
 ## [br]
 ## @api public
-var position_2d: Vector2 = Vector2.ZERO
+## [br]
+## @since 3.17.0
+var position_2d: Vector2:
+	get:
+		return _position_2d
+	set(value):
+		if _GF_COMBAT_FINITE_MATH.is_finite_vector2(value):
+			_position_2d = value
 
 ## 2D 命中法线。
 ## [br]
 ## @api public
-var normal_2d: Vector2 = Vector2.ZERO
+## [br]
+## @since 3.17.0
+var normal_2d: Vector2:
+	get:
+		return _normal_2d
+	set(value):
+		if _GF_COMBAT_FINITE_MATH.is_finite_vector2(value):
+			_normal_2d = value
 
 ## 3D 命中位置。
 ## [br]
 ## @api public
-var position_3d: Vector3 = Vector3.ZERO
+## [br]
+## @since 3.17.0
+var position_3d: Vector3:
+	get:
+		return _position_3d
+	set(value):
+		if _GF_COMBAT_FINITE_MATH.is_finite_vector3(value):
+			_position_3d = value
 
 ## 3D 命中法线。
 ## [br]
 ## @api public
-var normal_3d: Vector3 = Vector3.ZERO
+## [br]
+## @since 3.17.0
+var normal_3d: Vector3:
+	get:
+		return _normal_3d
+	set(value):
+		if _GF_COMBAT_FINITE_MATH.is_finite_vector3(value):
+			_normal_3d = value
 
 ## 项目自定义元数据。框架不解释该字段。
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @schema metadata: Dictionary，项目自定义命中元数据；框架只复制并透传。
-var metadata: Dictionary = {}
+var metadata: Dictionary:
+	get:
+		return _metadata.duplicate(true)
+	set(value):
+		_metadata = value.duplicate(true)
+
+
+# --- 私有变量 ---
+
+var _payload: Variant = null
+var _magnitude: float = 0.0
+var _tags: Array[StringName] = []
+var _position_2d: Vector2 = Vector2.ZERO
+var _normal_2d: Vector2 = Vector2.ZERO
+var _position_3d: Vector3 = Vector3.ZERO
+var _normal_3d: Vector3 = Vector3.ZERO
+var _metadata: Dictionary = {}
 
 
 # --- Godot 生命周期方法 ---
@@ -199,3 +269,20 @@ func to_dict() -> Dictionary:
 		"normal_3d": normal_3d,
 		"metadata": metadata.duplicate(true),
 	}
+
+
+## 转换为 JSON-safe 报告字典。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+## [br]
+## @param options: 传给 GFReportValueCodec 的编码选项。
+## [br]
+## @return 报告字典快照。
+## [br]
+## @schema options: Dictionary with GFReportValueCodec encoding options.
+## [br]
+## @schema return: JSON-safe Dictionary based on to_dict().
+func to_report_dictionary(options: Dictionary = {}) -> Dictionary:
+	return GFReportValueCodec.to_report_dictionary(to_dict(), options)

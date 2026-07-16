@@ -101,6 +101,21 @@ func test_generate_points_reports_invalid_input() -> void:
 	assert_eq(_get_points(invalid_area), PackedVector2Array(), "失败结果不应携带采样点。")
 
 
+func test_generate_points_report_has_json_compatible_export() -> void:
+	var report: Dictionary = GFPoissonDisc2DBase.generate_points(
+		Rect2(Vector2.ZERO, Vector2(4.0, 4.0)),
+		1.0,
+		{ "seed": 7, "max_points": 4 }
+	)
+	var safe_report: Dictionary = GFPoissonDisc2DBase.to_json_compatible_report(report)
+	var json_text: String = JSON.stringify(safe_report)
+
+	assert_false(json_text.is_empty())
+	assert_false(json_text.contains(":null"), "JSON-safe Poisson 报告不得依赖 Rect2/PackedVector2Array 降级。")
+	assert_false(json_text.contains("NaN"))
+	assert_false(json_text.contains("Infinity"))
+
+
 # --- 私有/辅助方法 ---
 
 func _get_points(result: Dictionary) -> PackedVector2Array:

@@ -528,6 +528,7 @@ func clear_history() -> void:
 ### `get_debug_snapshot`
 
 - API：`public`
+- 首次版本：`3.0.0`
 
 ```gdscript
 func get_debug_snapshot() -> Dictionary:
@@ -539,4 +540,4 @@ func get_debug_snapshot() -> Dictionary:
 
 结构：
 
-- `return`: Dictionary，包含 route_count、history_count、current_route_id 和 has_ui_utility。
+- `return`: Dictionary，包含 route_count、history_count、pending_async_route_count、current_route_id 和 has_ui_utility。

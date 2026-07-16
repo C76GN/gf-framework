@@ -22,7 +22,9 @@
 | 属性 | [`default_entries_per_tick`](#member-gfrenderwarmuputility-properties-default_entries_per_tick) | `var default_entries_per_tick: int = 4` |
 | 属性 | [`default_max_seconds`](#member-gfrenderwarmuputility-properties-default_max_seconds) | `var default_max_seconds: float = 0.0` |
 | 属性 | [`default_touch_mode`](#member-gfrenderwarmuputility-properties-default_touch_mode) | `var default_touch_mode: TouchMode = TouchMode.RID_ONLY` |
-| 属性 | [`keep_resources_cached`](#member-gfrenderwarmuputility-properties-keep_resources_cached) | `var keep_resources_cached: bool = true` |
+| 属性 | [`keep_resources_cached`](#member-gfrenderwarmuputility-properties-keep_resources_cached) | `var keep_resources_cached: bool = false` |
+| 属性 | [`default_cache_group`](#member-gfrenderwarmuputility-properties-default_cache_group) | `var default_cache_group: StringName = &"default"` |
+| 属性 | [`max_cached_resources`](#member-gfrenderwarmuputility-properties-max_cached_resources) | `var max_cached_resources: int = 128:` |
 | 属性 | [`instantiate_packed_scenes`](#member-gfrenderwarmuputility-properties-instantiate_packed_scenes) | `var instantiate_packed_scenes: bool = false` |
 | 方法 | [`tick`](#member-gfrenderwarmuputility-methods-tick) | `func tick(_delta: float) -> void:` |
 | 方法 | [`dispose`](#member-gfrenderwarmuputility-methods-dispose) | `func dispose() -> void:` |
@@ -33,9 +35,9 @@
 | 方法 | [`build_manifest_from_scene`](#member-gfrenderwarmuputility-methods-build_manifest_from_scene) | `func build_manifest_from_scene(scene: PackedScene, options: Dictionary = {}) -> GFRenderWarmupManifest:` |
 | 方法 | [`build_manifest_from_scene_path`](#member-gfrenderwarmuputility-methods-build_manifest_from_scene_path) | `func build_manifest_from_scene_path(scene_path: String, options: Dictionary = {}) -> GFRenderWarmupManifest:` |
 | 方法 | [`clear_queue`](#member-gfrenderwarmuputility-methods-clear_queue) | `func clear_queue() -> void:` |
-| 方法 | [`release_cached_resources`](#member-gfrenderwarmuputility-methods-release_cached_resources) | `func release_cached_resources() -> void:` |
+| 方法 | [`release_cached_resources`](#member-gfrenderwarmuputility-methods-release_cached_resources) | `func release_cached_resources(cache_group: StringName = &"") -> void:` |
 | 方法 | [`release_temporary_render_nodes`](#member-gfrenderwarmuputility-methods-release_temporary_render_nodes) | `func release_temporary_render_nodes() -> void:` |
-| 方法 | [`get_cached_resource_count`](#member-gfrenderwarmuputility-methods-get_cached_resource_count) | `func get_cached_resource_count() -> int:` |
+| 方法 | [`get_cached_resource_count`](#member-gfrenderwarmuputility-methods-get_cached_resource_count) | `func get_cached_resource_count(cache_group: StringName = &"") -> int:` |
 | 方法 | [`get_queue_size`](#member-gfrenderwarmuputility-methods-get_queue_size) | `func get_queue_size() -> int:` |
 | 方法 | [`get_debug_snapshot`](#member-gfrenderwarmuputility-methods-get_debug_snapshot) | `func get_debug_snapshot() -> Dictionary:` |
 
@@ -170,24 +172,52 @@ var default_touch_mode: TouchMode = TouchMode.RID_ONLY
 ### `keep_resources_cached`
 
 - API：`public`
+- 首次版本：`8.0.0`
 
 ```gdscript
-var keep_resources_cached: bool = true
+var keep_resources_cached: bool = false
 ```
 
-是否保留已加载资源引用，避免预热后立刻被释放。
+是否保留已加载资源引用，避免预热后立刻被释放。默认关闭，项目应在明确需要资源 pinning 时显式启用。
+
+<a id="member-gfrenderwarmuputility-properties-default_cache_group"></a>
+
+### `default_cache_group`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+var default_cache_group: StringName = &"default"
+```
+
+默认缓存分组。按组释放可避免不同预热流程互相持有资源。
+
+<a id="member-gfrenderwarmuputility-properties-max_cached_resources"></a>
+
+### `max_cached_resources`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+var max_cached_resources: int = 128:
+```
+
+最多保留的预热缓存资源数量。小于 1 时按 1 处理。
 
 <a id="member-gfrenderwarmuputility-properties-instantiate_packed_scenes"></a>
 
 ### `instantiate_packed_scenes`
 
 - API：`public`
+- 首次版本：`8.0.0`
 
 ```gdscript
 var instantiate_packed_scenes: bool = false
 ```
 
-从 PackedScene 条目预热时是否实例化场景并扫描其渲染资源。默认关闭以避免触发项目脚本副作用。
+从 PackedScene 条目预热时是否允许实例化场景并扫描其渲染资源。该行为仍需要 options.allow_scene_instantiation 为 true，避免无意触发项目脚本副作用。
 
 ## 方法
 
@@ -226,6 +256,7 @@ func dispose() -> void:
 ### `queue_manifest`
 
 - API：`public`
+- 首次版本：`8.0.0`
 
 ```gdscript
 func queue_manifest(manifest: GFRenderWarmupManifest, options: Dictionary = {}) -> int:
@@ -238,19 +269,20 @@ func queue_manifest(manifest: GFRenderWarmupManifest, options: Dictionary = {}) 
 | 名称 | 说明 |
 |---|---|
 | `manifest` | 预热清单。 |
-| `options` | 可选参数，支持 entries_per_tick、max_seconds、touch_mode、keep_cached、instantiate_packed_scenes。 |
+| `options` | 可选参数，支持 entries_per_tick、max_seconds、touch_mode、keep_cached、cache_group、max_cached_resources、instantiate_packed_scenes、allow_scene_instantiation。 |
 
 返回：队列标识；失败返回 -1。
 
 结构：
 
-- `options`: Dictionary，包含 entries_per_tick、max_seconds、touch_mode、keep_cached、instantiate_packed_scenes、temporary_parent 和 temporary_viewport_size。
+- `options`: Dictionary，包含 entries_per_tick、max_seconds、touch_mode、keep_cached、cache_group、max_cached_resources、instantiate_packed_scenes、allow_scene_instantiation、temporary_parent 和 temporary_viewport_size。
 
 <a id="member-gfrenderwarmuputility-methods-warmup_manifest_now"></a>
 
 ### `warmup_manifest_now`
 
 - API：`public`
+- 首次版本：`8.0.0`
 
 ```gdscript
 func warmup_manifest_now(manifest: GFRenderWarmupManifest, options: Dictionary = {}) -> Dictionary:
@@ -263,13 +295,13 @@ func warmup_manifest_now(manifest: GFRenderWarmupManifest, options: Dictionary =
 | 名称 | 说明 |
 |---|---|
 | `manifest` | 预热清单。 |
-| `options` | 可选参数，支持 max_seconds、touch_mode、keep_cached、instantiate_packed_scenes。 |
+| `options` | 可选参数，支持 max_seconds、touch_mode、keep_cached、cache_group、max_cached_resources、instantiate_packed_scenes、allow_scene_instantiation。 |
 
 返回：预热摘要。
 
 结构：
 
-- `options`: Dictionary，包含 max_seconds、touch_mode、keep_cached、instantiate_packed_scenes、temporary_parent 和 temporary_viewport_size。
+- `options`: Dictionary，包含 max_seconds、touch_mode、keep_cached、cache_group、max_cached_resources、instantiate_packed_scenes、allow_scene_instantiation、temporary_parent 和 temporary_viewport_size。
 - `return`: Dictionary，包含 queue_id、manifest_id、total_count、processed_count、failed_count、ok、elapsed_seconds、stopped_by_budget、completed_at_unix 和 results。
 
 <a id="member-gfrenderwarmuputility-methods-process_queue"></a>
@@ -322,6 +354,7 @@ func build_manifest_from_tree(root: Node, options: Dictionary = {}) -> GFRenderW
 ### `build_manifest_from_scene`
 
 - API：`public`
+- 首次版本：`8.0.0`
 
 ```gdscript
 func build_manifest_from_scene(scene: PackedScene, options: Dictionary = {}) -> GFRenderWarmupManifest:
@@ -334,19 +367,20 @@ func build_manifest_from_scene(scene: PackedScene, options: Dictionary = {}) -> 
 | 名称 | 说明 |
 |---|---|
 | `scene` | 场景资源。 |
-| `options` | 可选参数，支持 manifest_id、include_materials、include_meshes、include_textures。 |
+| `options` | 可选参数，支持 manifest_id、include_materials、include_meshes、include_textures、allow_scene_instantiation。 |
 
 返回：预热清单。
 
 结构：
 
-- `options`: Dictionary，包含 manifest_id、include_materials、include_meshes 和 include_textures。
+- `options`: Dictionary，包含 manifest_id、include_materials、include_meshes、include_textures 和 allow_scene_instantiation。
 
 <a id="member-gfrenderwarmuputility-methods-build_manifest_from_scene_path"></a>
 
 ### `build_manifest_from_scene_path`
 
 - API：`public`
+- 首次版本：`8.0.0`
 
 ```gdscript
 func build_manifest_from_scene_path(scene_path: String, options: Dictionary = {}) -> GFRenderWarmupManifest:
@@ -359,13 +393,13 @@ func build_manifest_from_scene_path(scene_path: String, options: Dictionary = {}
 | 名称 | 说明 |
 |---|---|
 | `scene_path` | 场景资源路径。 |
-| `options` | 可选参数，支持 manifest_id、include_materials、include_meshes、include_textures。 |
+| `options` | 可选参数，支持 manifest_id、include_materials、include_meshes、include_textures、allow_scene_instantiation。 |
 
 返回：预热清单。
 
 结构：
 
-- `options`: Dictionary，包含 manifest_id、include_materials、include_meshes 和 include_textures。
+- `options`: Dictionary，包含 manifest_id、include_materials、include_meshes、include_textures 和 allow_scene_instantiation。
 
 <a id="member-gfrenderwarmuputility-methods-clear_queue"></a>
 
@@ -384,12 +418,19 @@ func clear_queue() -> void:
 ### `release_cached_resources`
 
 - API：`public`
+- 首次版本：`8.0.0`
 
 ```gdscript
-func release_cached_resources() -> void:
+func release_cached_resources(cache_group: StringName = &"") -> void:
 ```
 
 释放预热缓存的资源引用。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `cache_group` | 为空时释放全部缓存；非空时只释放指定分组。 |
 
 <a id="member-gfrenderwarmuputility-methods-release_temporary_render_nodes"></a>
 
@@ -408,12 +449,19 @@ func release_temporary_render_nodes() -> void:
 ### `get_cached_resource_count`
 
 - API：`public`
+- 首次版本：`8.0.0`
 
 ```gdscript
-func get_cached_resource_count() -> int:
+func get_cached_resource_count(cache_group: StringName = &"") -> int:
 ```
 
 获取预热缓存资源数量。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `cache_group` | 为空时返回全部缓存数量；非空时只统计指定分组。 |
 
 返回：缓存资源数量。
 
@@ -436,6 +484,7 @@ func get_queue_size() -> int:
 ### `get_debug_snapshot`
 
 - API：`public`
+- 首次版本：`8.0.0`
 
 ```gdscript
 func get_debug_snapshot() -> Dictionary:
@@ -447,4 +496,4 @@ func get_debug_snapshot() -> Dictionary:
 
 结构：
 
-- `return`: Dictionary，包含 queue_size、cached_resource_count、processed_entry_count、failed_entry_count、default_entries_per_tick、default_max_seconds、default_touch_mode、keep_resources_cached、instantiate_packed_scenes 和 temporary_render_node_count。
+- `return`: Dictionary，包含 queue_size、cached_resource_count、processed_entry_count、failed_entry_count、default_entries_per_tick、default_max_seconds、default_touch_mode、keep_resources_cached、default_cache_group、max_cached_resources、instantiate_packed_scenes 和 temporary_render_node_count。

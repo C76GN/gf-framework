@@ -63,7 +63,23 @@ func test_manual_overlay_alpha_and_hide() -> void:
 	assert_false(GFVariantData.get_option_bool(snapshot, "overlay_visible"), "hide_overlay 应隐藏覆盖层。")
 
 
+func test_dispose_leaves_overlay_attached_during_autoload_tree_exit() -> void:
+	var overlay_layer: CanvasLayer = get_tree().root.get_node_or_null("GFScreenTransition") as CanvasLayer
+	assert_not_null(overlay_layer, "初始化后应创建屏幕转场覆盖层。")
+	GFAutoload.begin_tree_exit_scope()
+
+	_transition.dispose()
+	_transition = null
+
+	assert_not_null(overlay_layer.get_parent(), "AutoLoad 退出时不应重入修改转场覆盖层的父节点。")
+
+	GFAutoload.end_tree_exit_scope()
+	await get_tree().process_frame
+	assert_false(is_instance_valid(overlay_layer), "退出阶段登记 queue_free 后仍应完成释放。")
+
+
 func after_each() -> void:
+	GFAutoload.reset_tree_exit_state()
 	if _transition != null:
 		_transition.dispose()
 	await get_tree().process_frame

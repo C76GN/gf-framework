@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFAudioLibraryTools" path="addons/gf/standard/utilities/audio/gf_audio_library_tools.gd" module="standard" extends="RefCounted" classDigest="aeeddda24643c59262bc06476a890464e5d99c254fe0d683c95bd5a1cf3cd8d7">
+<class name="GFAudioLibraryTools" path="addons/gf/standard/utilities/audio/gf_audio_library_tools.gd" module="standard" extends="RefCounted" classDigest="70da9f8ad2d9c34e868586d95cad3720e8a8aa7ef56fcb468ff537af164618d5">
 	<description>GFAudioLibraryTools: 音频素材库扫描、搜索和导入计划工具。
 面向编辑器 Workspace、Inspector 和构建脚本复用；它只处理音频候选
 文件、目标路径规划和文件复制，不接管运行时播放、事件命名或混音策略。</description>
 	<tags>
 		<tag name="api">public</tag>
-		<tag name="category">runtime_service</tag>
+		<tag name="category">tool_api</tag>
 		<tag name="since">5.0.0</tag>
 	</tags>
 	<signals />

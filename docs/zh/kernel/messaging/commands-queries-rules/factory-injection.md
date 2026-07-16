@@ -7,7 +7,7 @@
 ## 注册工厂
 
 ```gdscript
-func install_bindings(binder: Variant) -> void:
+func install_bindings(binder: Variant, _scope: GFAsyncScope) -> void:
 	binder.bind_factory(TakeDamageCommand).as_transient()
 	binder.bind_factory(GetPlayerTotalAttackPowerQuery).as_transient()
 ```

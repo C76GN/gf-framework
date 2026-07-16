@@ -1,0 +1,223 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFInputEventIdentity" path="addons/gf/standard/input/common/gf_input_event_identity.gd" module="standard" extends="RefCounted" classDigest="a157baaff08d50785b0d99b6d1304df97ae297243570da915bc307ede9498347">
+	<description>GFInputEventIdentity: 输入事件的稳定语义身份。
+将 Godot InputEvent 归一为框架可复用的显示键、冲突键与图标候选键。
+它不读取 InputMap，不规定项目 action 命名，也不绑定具体图标资源。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">value_object</tag>
+		<tag name="layer">standard/input</tag>
+		<tag name="since">8.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants>
+		<member kind="const" name="KIND_NONE">
+			<signature>const KIND_NONE: StringName = &amp;""</signature>
+			<description>未识别或空输入事件。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="KIND_ACTION">
+			<signature>const KIND_ACTION: StringName = &amp;"action"</signature>
+			<description>Godot InputEventAction。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="KIND_KEY">
+			<signature>const KIND_KEY: StringName = &amp;"key"</signature>
+			<description>键盘按键事件。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="KIND_MOUSE_BUTTON">
+			<signature>const KIND_MOUSE_BUTTON: StringName = &amp;"mouse_button"</signature>
+			<description>鼠标按钮事件。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="KIND_JOY_BUTTON">
+			<signature>const KIND_JOY_BUTTON: StringName = &amp;"joy_button"</signature>
+			<description>手柄按钮事件。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="KIND_JOY_AXIS">
+			<signature>const KIND_JOY_AXIS: StringName = &amp;"joy_axis"</signature>
+			<description>手柄轴事件。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="KIND_TOUCH">
+			<signature>const KIND_TOUCH: StringName = &amp;"touch"</signature>
+			<description>触屏按下事件。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="KIND_SCREEN_DRAG">
+			<signature>const KIND_SCREEN_DRAG: StringName = &amp;"screen_drag"</signature>
+			<description>触屏拖动事件。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="KIND_UNKNOWN">
+			<signature>const KIND_UNKNOWN: StringName = &amp;"unknown"</signature>
+			<description>未专门建模的其他 InputEvent。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties>
+		<member kind="property" name="kind">
+			<signature>var kind: StringName = KIND_NONE</signature>
+			<description>输入事件类别。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="primary_key">
+			<signature>var primary_key: String = ""</signature>
+			<description>主身份键。用于日志、报告和调试展示中的稳定归类。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="display_key">
+			<signature>var display_key: String = ""</signature>
+			<description>显示键。用于 UI 或文档层决定如何进一步本地化。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="conflict_key">
+			<signature>var conflict_key: String = ""</signature>
+			<description>冲突键。默认不包含设备 ID，设备匹配应使用 get_signature()。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="icon_key">
+			<signature>var icon_key: StringName = &amp;""</signature>
+			<description>首选图标键。没有稳定图标语义时为空。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="device_id">
+			<signature>var device_id: int = -1</signature>
+			<description>输入事件携带的 Godot device ID。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="axis_sign">
+			<signature>var axis_sign: int = 0</signature>
+			<description>轴方向。正向为 1，负向为 -1，未知或不适用为 0。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="metadata">
+			<signature>var metadata: Dictionary = {}</signature>
+			<description>附加元数据。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">metadata: Dictionary，包含事件类型相关的纯数据字段。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="from_event">
+			<signature>static func from_event(input_event: InputEvent, options: Dictionary = {}) -&gt; GFInputEventIdentity:</signature>
+			<description>从输入事件构建稳定身份。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">input_event: 输入事件。</tag>
+				<tag name="param">options: 归一化选项。</tag>
+				<tag name="return">输入事件身份；空事件返回 kind 为空的身份。</tag>
+				<tag name="schema">options: Dictionary，可包含 include_key_modifiers、include_key_modifier_combo、match_touch_index 和 joy_axis_sign。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_icon_candidates">
+			<signature>static func get_icon_candidates(input_event: InputEvent, options: Dictionary = {}) -&gt; PackedStringArray:</signature>
+			<description>获取输入事件可能使用的图标键。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">input_event: 输入事件。</tag>
+				<tag name="param">options: 归一化选项。</tag>
+				<tag name="return">图标键列表，按优先级排序。</tag>
+				<tag name="schema">options: Dictionary，可包含 include_key_modifier_combo、match_touch_index 和 joy_axis_sign。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_empty">
+			<signature>func is_empty() -&gt; bool:</signature>
+			<description>判断身份是否为空。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">空身份返回 true。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_signature">
+			<signature>func get_signature(include_device: bool = false) -&gt; String:</signature>
+			<description>获取冲突签名。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">include_device: 是否把 device_id 纳入签名。</tag>
+				<tag name="return">稳定冲突签名；空身份返回空字符串。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="to_dictionary">
+			<signature>func to_dictionary(json_compatible: bool = true) -&gt; Dictionary:</signature>
+			<description>转换为字典。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">json_compatible: 是否把 metadata 转换为 JSON 兼容值。</tag>
+				<tag name="return">身份字典。</tag>
+				<tag name="schema">return: Dictionary with kind, primary_key, display_key, conflict_key, icon_key, device_id, axis_sign, and metadata fields.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="from_dictionary">
+			<signature>static func from_dictionary(data: Dictionary) -&gt; GFInputEventIdentity:</signature>
+			<description>从字典恢复输入事件身份。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">data: 身份字典。</tag>
+				<tag name="return">输入事件身份。</tag>
+				<tag name="schema">data: Dictionary produced by to_dictionary(), or a compatible dictionary with the same fields.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

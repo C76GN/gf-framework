@@ -19,13 +19,13 @@ Gf.send_simple_event(&"EVENT_SCORE_CHANGED", { "score": 1200 })
 ```gdscript
 func ready() -> void:
 	# 注册监听，并绑定到自身的回调函数
-	register_simple_event(&"EVENT_PLAYER_JUMPED", _on_player_jumped)
+	register_simple_event(&"EVENT_PLAYER_JUMPED", GFEventListener.from_method(self, &"_on_player_jumped", 1))
 
 func _on_player_jumped(_payload: Variant) -> void:
 	print("UI 显示：成功跳跃！")
 
 func dispose() -> void:
-	unregister_simple_event(&"EVENT_PLAYER_JUMPED", _on_player_jumped)
+	unregister_simple_event(&"EVENT_PLAYER_JUMPED", GFEventListener.from_method(self, &"_on_player_jumped", 1))
 ```
 
 ## 命名约束

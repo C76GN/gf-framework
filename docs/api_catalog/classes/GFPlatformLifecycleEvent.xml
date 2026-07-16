@@ -1,0 +1,201 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFPlatformLifecycleEvent" path="addons/gf/standard/foundation/platform/gf_platform_lifecycle_event.gd" module="standard" extends="Resource" classDigest="71fc5b36649f6409c0957b0cd620824d422c34e209a1b0a0f017673f0c3067c6">
+	<description>GFPlatformLifecycleEvent: 平台生命周期事件。
+用纯数据表达平台 adapter 观察到的前后台、窗口、网络、输入法或资源压力等事件。
+它不订阅任何平台回调，也不持有场景树状态。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">resource_definition</tag>
+		<tag name="since">8.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants>
+		<member kind="const" name="TYPE_FOREGROUND">
+			<signature>const TYPE_FOREGROUND: StringName = &amp;"foreground"</signature>
+			<description>平台进入前台或恢复可交互。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="TYPE_BACKGROUND">
+			<signature>const TYPE_BACKGROUND: StringName = &amp;"background"</signature>
+			<description>平台进入后台、挂起或不可交互。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="TYPE_WINDOW_RESIZED">
+			<signature>const TYPE_WINDOW_RESIZED: StringName = &amp;"window_resized"</signature>
+			<description>窗口尺寸或显示区域变化。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="TYPE_SAFE_AREA_CHANGED">
+			<signature>const TYPE_SAFE_AREA_CHANGED: StringName = &amp;"safe_area_changed"</signature>
+			<description>安全区域变化。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="TYPE_NETWORK_CHANGED">
+			<signature>const TYPE_NETWORK_CHANGED: StringName = &amp;"network_changed"</signature>
+			<description>网络状态变化。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="TYPE_KEYBOARD_SHOWN">
+			<signature>const TYPE_KEYBOARD_SHOWN: StringName = &amp;"keyboard_shown"</signature>
+			<description>输入法或软键盘显示。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="TYPE_KEYBOARD_HIDDEN">
+			<signature>const TYPE_KEYBOARD_HIDDEN: StringName = &amp;"keyboard_hidden"</signature>
+			<description>输入法或软键盘隐藏。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="TYPE_MEMORY_WARNING">
+			<signature>const TYPE_MEMORY_WARNING: StringName = &amp;"memory_warning"</signature>
+			<description>平台发出内存压力警告。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties>
+		<member kind="property" name="event_type" decorators="@export">
+			<signature>var event_type: StringName = &amp;""</signature>
+			<description>事件类型。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="platform_id" decorators="@export">
+			<signature>var platform_id: StringName = &amp;""</signature>
+			<description>平台标识。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="sequence" decorators="@export">
+			<signature>var sequence: int = 0</signature>
+			<description>单调递增序号。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="timestamp_msec" decorators="@export">
+			<signature>var timestamp_msec: int = 0</signature>
+			<description>事件时间戳，单位毫秒。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="payload" decorators="@export">
+			<signature>var payload: Dictionary = {}</signature>
+			<description>事件载荷。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">payload: Dictionary adapter-defined event payload.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="metadata" decorators="@export">
+			<signature>var metadata: Dictionary = {}</signature>
+			<description>调用方元数据。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">metadata: Dictionary caller-defined metadata.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="configure">
+			<signature>func configure( p_event_type: StringName, p_platform_id: StringName = &amp;"", p_payload: Dictionary = {}, p_sequence: int = 0, p_timestamp_msec: int = 0, p_metadata: Dictionary = {} ) -&gt; GFPlatformLifecycleEvent:</signature>
+			<description>配置生命周期事件。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">p_event_type: 事件类型。</tag>
+				<tag name="param">p_platform_id: 平台标识。</tag>
+				<tag name="param">p_payload: 事件载荷。</tag>
+				<tag name="param">p_sequence: 单调递增序号。</tag>
+				<tag name="param">p_timestamp_msec: 时间戳；小于等于 0 时使用 Time.get_ticks_msec()。</tag>
+				<tag name="param">p_metadata: 调用方元数据。</tag>
+				<tag name="return">当前事件。</tag>
+				<tag name="schema">p_payload: Dictionary adapter-defined event payload.</tag>
+				<tag name="schema">p_metadata: Dictionary caller-defined metadata.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_type">
+			<signature>func is_type(expected_type: StringName) -&gt; bool:</signature>
+			<description>检查事件类型。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">expected_type: 期望事件类型。</tag>
+				<tag name="return">类型一致返回 true。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="to_dict">
+			<signature>func to_dict() -&gt; Dictionary:</signature>
+			<description>转换为字典。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">生命周期事件字典。</tag>
+				<tag name="schema">return: Dictionary with event_type, platform_id, sequence, timestamp_msec, payload, and metadata.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="apply_dict">
+			<signature>func apply_dict(data: Dictionary) -&gt; void:</signature>
+			<description>从字典应用生命周期事件字段。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">data: 生命周期事件字典。</tag>
+				<tag name="schema">data: Dictionary with event_type, platform_id, sequence, timestamp_msec, payload, and metadata.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="duplicate_event">
+			<signature>func duplicate_event() -&gt; GFPlatformLifecycleEvent:</signature>
+			<description>创建生命周期事件深拷贝。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">新生命周期事件。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="from_dict">
+			<signature>static func from_dict(data: Dictionary) -&gt; GFPlatformLifecycleEvent:</signature>
+			<description>从字典创建生命周期事件。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">data: 生命周期事件字典。</tag>
+				<tag name="return">新生命周期事件。</tag>
+				<tag name="schema">data: Dictionary with event_type, platform_id, sequence, timestamp_msec, payload, and metadata.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

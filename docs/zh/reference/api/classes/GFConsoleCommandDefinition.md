@@ -19,6 +19,7 @@
 | 属性 | [`aliases`](#member-gfconsolecommanddefinition-properties-aliases) | `var aliases: PackedStringArray = PackedStringArray()` |
 | 属性 | [`description`](#member-gfconsolecommanddefinition-properties-description) | `var description: String = ""` |
 | 属性 | [`metadata`](#member-gfconsolecommanddefinition-properties-metadata) | `var metadata: Dictionary = {}` |
+| 属性 | [`argument_suggester`](#member-gfconsolecommanddefinition-properties-argument_suggester) | `var argument_suggester: Callable = Callable()` |
 | 方法 | [`get_all_names`](#member-gfconsolecommanddefinition-methods-get_all_names) | `func get_all_names() -> PackedStringArray:` |
 
 ## 属性
@@ -74,6 +75,23 @@ var metadata: Dictionary = {}
 结构：
 
 - `metadata`: Dictionary，保存项目自定义命令元数据。
+
+<a id="member-gfconsolecommanddefinition-properties-argument_suggester"></a>
+
+### `argument_suggester`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+var argument_suggester: Callable = Callable()
+```
+
+参数补全回调。 回调接收一个上下文字典，返回 PackedStringArray 或 Array。 上下文字段包含 command_name、args、argument_index、prefix 和 raw_input。
+
+结构：
+
+- `argument_suggester`: Callable context -> PackedStringArray 或 Array。
 
 ## 方法
 

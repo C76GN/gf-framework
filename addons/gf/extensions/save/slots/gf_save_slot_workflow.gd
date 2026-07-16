@@ -14,10 +14,6 @@ extends Resource
 
 # --- 常量 ---
 
-const _GF_SAVE_SLOT_CARD_SCRIPT = preload("res://addons/gf/extensions/save/slots/gf_save_slot_card.gd")
-const _GF_SAVE_SLOT_METADATA_SCRIPT = preload("res://addons/gf/extensions/save/slots/gf_save_slot_metadata.gd")
-
-
 # --- 导出变量 ---
 
 ## 当前选中槽位索引。仅用于构建摘要时标记 active。
@@ -38,12 +34,16 @@ const _GF_SAVE_SLOT_METADATA_SCRIPT = preload("res://addons/gf/extensions/save/s
 ## 可替换的元数据资源脚本，项目层可继承 GFSaveSlotMetadata 扩展。
 ## [br]
 ## @api public
-@export var metadata_script: Script = _GF_SAVE_SLOT_METADATA_SCRIPT
+## [br]
+## @since 8.0.0
+@export var metadata_script: Script = GFSaveSlotMetadata
 
 ## 可替换的卡片资源脚本，项目层可继承 GFSaveSlotCard 扩展。
 ## [br]
 ## @api public
-@export var card_script: Script = _GF_SAVE_SLOT_CARD_SCRIPT
+## [br]
+## @since 8.0.0
+@export var card_script: Script = GFSaveSlotCard
 
 ## 槽位角色。用于区分 autosave/manual/cloud 等抽象类别。
 ## [br]
@@ -78,6 +78,9 @@ func select_slot_index(index: int) -> StringName:
 ## [br]
 ## @param slot_id: 逻辑标识。
 func set_slot_id_override(index: int, slot_id: StringName) -> void:
+	if index < 0:
+		push_error("[GFSaveSlotWorkflow] set_slot_id_override 失败：index 必须大于等于 0。")
+		return
 	if slot_id == &"":
 		var _erased: bool = _slot_id_overrides.erase(index)
 		return
@@ -238,6 +241,8 @@ func build_card_for_index(
 ## [br]
 ## @api public
 ## [br]
+## @since 3.6.0
+## [br]
 ## @param indices: 槽位索引列表。
 ## [br]
 ## @param summaries: 槽位摘要列表。
@@ -246,7 +251,7 @@ func build_card_for_index(
 ## [br]
 ## @schema indices: Array，元素为可转换为 int 的槽位索引。
 ## [br]
-## @schema summaries: Array，每项为 GFStorageUtility.list_slots() 风格的 Dictionary 摘要。
+## @schema summaries: Array，每项为槽位存储适配器产出的 Dictionary 摘要。
 func build_cards_for_indices(indices: Array, summaries: Array = []) -> Array[GFSaveSlotCard]:
 	var summary_index: Dictionary = _index_summaries(summaries)
 	var result: Array[GFSaveSlotCard] = []
@@ -259,22 +264,24 @@ func build_cards_for_indices(indices: Array, summaries: Array = []) -> Array[GFS
 	return result
 
 
-## 从 GFStorageUtility 读取摘要并构建卡片。
+## 从 GFSaveSlotStorageAdapter 读取摘要并构建卡片。
 ## [br]
 ## @api public
 ## [br]
-## @param storage: 存储工具。
+## @since 8.0.0
+## [br]
+## @param slot_store: 槽位存储适配器。
 ## [br]
 ## @param indices: 需要展示的槽位索引；为空时使用已有槽位。
 ## [br]
 ## @return 卡片列表。
 ## [br]
 ## @schema indices: Array，元素为可转换为 int 的槽位索引。
-func build_cards_from_storage(storage: GFStorageUtility, indices: Array = []) -> Array[GFSaveSlotCard]:
-	if storage == null:
+func build_cards_from_slot_store(slot_store: GFSaveSlotStorageAdapter, indices: Array = []) -> Array[GFSaveSlotCard]:
+	if slot_store == null:
 		return []
 
-	var summaries: Array = storage.list_slots()
+	var summaries: Array = slot_store.list_slots()
 	var target_indices: Array = indices.duplicate()
 	if target_indices.is_empty():
 		for summary: Dictionary in summaries:
@@ -287,7 +294,10 @@ func build_cards_from_storage(storage: GFStorageUtility, indices: Array = []) ->
 # --- 私有/辅助方法 ---
 
 func _new_metadata() -> GFSaveSlotMetadata:
-	var metadata: Variant = metadata_script.call("new") if metadata_script != null else GFSaveSlotMetadata.new()
+	if not _is_instantiable_subclass(metadata_script, GFSaveSlotMetadata):
+		push_error("[GFSaveSlotWorkflow] metadata_script 必须继承 GFSaveSlotMetadata 且可实例化。")
+		return GFSaveSlotMetadata.new()
+	var metadata: Variant = metadata_script.call("new")
 	if metadata is GFSaveSlotMetadata:
 		var typed_metadata: GFSaveSlotMetadata = metadata
 		return typed_metadata
@@ -295,11 +305,27 @@ func _new_metadata() -> GFSaveSlotMetadata:
 
 
 func _new_card() -> GFSaveSlotCard:
-	var card: Variant = card_script.call("new") if card_script != null else GFSaveSlotCard.new()
+	if not _is_instantiable_subclass(card_script, GFSaveSlotCard):
+		push_error("[GFSaveSlotWorkflow] card_script 必须继承 GFSaveSlotCard 且可实例化。")
+		return GFSaveSlotCard.new()
+	var card: Variant = card_script.call("new")
 	if card is GFSaveSlotCard:
 		var typed_card: GFSaveSlotCard = card
 		return typed_card
 	return GFSaveSlotCard.new()
+
+
+func _is_instantiable_subclass(candidate: Script, expected_base: Script) -> bool:
+	if candidate == null or expected_base == null or not candidate.can_instantiate():
+		return false
+	var current: Script = candidate
+	var visited: Array[Script] = []
+	while current != null and not visited.has(current):
+		if current == expected_base:
+			return true
+		visited.append(current)
+		current = current.get_base_script()
+	return false
 
 
 func _index_summaries(summaries: Array) -> Dictionary:

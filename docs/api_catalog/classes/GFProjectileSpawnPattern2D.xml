@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFProjectileSpawnPattern2D" path="addons/gf/extensions/combat/projectiles/gf_projectile_spawn_pattern_2d.gd" module="extensions/combat" extends="Resource" classDigest="f1da77f4548da5031b83297cb79883e30fa92099f455dfeeaeed6c575f735c2a">
+<class name="GFProjectileSpawnPattern2D" path="addons/gf/extensions/combat/projectiles/gf_projectile_spawn_pattern_2d.gd" module="extensions/combat" extends="Resource" classDigest="f051c1cff67bbf0086b64fa14e37acef70c9cf845f0c5cd78f1ab1d770bc17e4">
 	<description>GFProjectileSpawnPattern2D: 2D 发射体生成点模式基类。
 模式只返回全局 Transform2D 列表，不实例化节点，也不解释伤害、弹药或阵营。</description>
 	<tags>
@@ -24,6 +24,16 @@
 				<tag name="schema">projectile_context: Dictionary，本次发射上下文；模式只读取调用方约定的数据。</tag>
 			</tags>
 		</member>
+		<member kind="method" name="resolve_spawn_count">
+			<signature>func resolve_spawn_count(emit_count: int = -1) -&gt; int:</signature>
+			<description>解析模式本次请求的最终数量，不生成变换。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">emit_count: 调用方请求数量；小于等于 0 时使用模式默认值。</tag>
+				<tag name="return">至少为 1 的请求数量。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
 		<member kind="method" name="_get_spawn_transforms">
 			<signature>func _get_spawn_transforms( emitter: Node2D, _projectile_context: Dictionary = {}, _emit_count: int = -1 ) -&gt; Array[Transform2D]:</signature>
 			<description>生成点计算扩展点。</description>
@@ -34,6 +44,15 @@
 				<tag name="param">_emit_count: 调用方请求的数量；小于等于 0 时由模式自行决定。</tag>
 				<tag name="return">全局 Transform2D 列表。</tag>
 				<tag name="schema">_projectile_context: Dictionary，本次发射上下文；模式只读取调用方约定的数据。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_get_default_spawn_count">
+			<signature>func _get_default_spawn_count() -&gt; int:</signature>
+			<description>返回模式默认生成数量。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="return">默认生成数量。</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 	</methods>

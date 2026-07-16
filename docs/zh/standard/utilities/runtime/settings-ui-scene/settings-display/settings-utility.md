@@ -18,7 +18,11 @@ settings.save_settings()
 
 `GFSettingDefinition` 可以资源化描述稳定键、默认值、值类型、是否持久化和 UI 元数据。`set_value()` 会按定义做类型转换，`to_dict(true)` 只导出持久化设置；未注册定义的临时值也能读写，但不会获得默认值、类型钳制或元数据。
 
-持久化设置会保留 `Vector2`、`Vector2i`、`Color`、`StringName` 等常见 Godot 值；其他需要 JSON 类型标记的值会复用 `GFVariantJsonCodec`，因此超出 JSON 安全范围的 64 位整数也能精确往返。
+持久化设置会保留 `Vector2`、`Vector2i`、`Color`、`StringName` 等常见 Godot 值；其他需要 JSON 类型标记的值会复用 `GFVariantJsonCodec`，因此超出 JSON 安全范围的 64 位整数也能精确往返。字典 key 也会使用稳定编码，避免 `1` 与 `"1"` 等跨类型 key 在 JSON 对象中互相覆盖；循环引用会让保存返回 `ERR_INVALID_DATA`，调用方应先清理设置值。
+
+未接入存储后端时，fallback 文件名必须是简单 basename，不能包含路径分隔符、`..`、盘符或绝对路径。需要把设置写到项目自定义目录时，应实现明确的存储后端，而不是把外部路径塞进 fallback 文件名。
+
+从持久化数据恢复时使用 `replace_from_dict()`：输入中缺失的已定义键恢复默认值，缺失的未定义旧键被移除；`load_settings()` 固定采用这一语义。只有明确把输入当作覆盖层时才使用 `merge_from_dict()`，它会保留输入中未出现的当前值。两种入口分离后，切换 profile 或读取空文件不会静默继承上一份 profile 的残留字段。
 
 自动保存默认会按 `save_debounce_seconds` 做防抖，避免设置页拖动滑块时每次变化都落盘。需要一次性应用多个字段时，可用 `begin_batch()` / `end_batch()` 包裹，或手动 `queue_save()` 后在合适时机 `flush_pending_save()`。
 

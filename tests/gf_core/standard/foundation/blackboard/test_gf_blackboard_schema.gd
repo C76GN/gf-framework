@@ -35,6 +35,55 @@ func test_blackboard_schema_reports_missing_type_and_extra_keys() -> void:
 	assert_true(_has_issue(report, "extra_key"), "报告应包含额外字段。")
 
 
+func test_blackboard_schema_coerce_dictionary_preserves_invalid_values() -> void:
+	var schema: GFBlackboardSchema = _make_agent_schema()
+
+	var values: Dictionary = schema.coerce_dictionary({
+		"hp": "bad",
+		"target": "enemy",
+	}, false)
+
+	assert_eq(GFVariantData.get_option_string(values, &"hp"), "bad", "无报告 coercion 入口不应把非法 int 静默替换为 0。")
+	assert_eq(GFVariantData.get_option_string_name(values, &"target"), &"enemy", "合法值仍应按字段声明转换。")
+
+
+func test_blackboard_entry_coerce_value_preserves_invalid_source_value() -> void:
+	var int_entry: GFBlackboardEntry = GFBlackboardEntry.new()
+	int_entry.value_type = GFBlackboardEntry.ValueType.INT
+	var color_entry: GFBlackboardEntry = GFBlackboardEntry.new()
+	color_entry.value_type = GFBlackboardEntry.ValueType.COLOR
+	var vector_entry: GFBlackboardEntry = GFBlackboardEntry.new()
+	vector_entry.value_type = GFBlackboardEntry.ValueType.VECTOR2
+
+	assert_eq(GFVariantData.get_option_string({ "value": int_entry.coerce_value("bad") }, "value"), "bad", "失败的 int coercion 不应返回 0。")
+	assert_eq(GFVariantData.get_option_string({ "value": color_entry.coerce_value("bad") }, "value"), "bad", "失败的 color coercion 不应返回白色。")
+	assert_eq(GFVariantData.get_option_string({ "value": vector_entry.coerce_value("bad") }, "value"), "bad", "失败的 vector coercion 不应返回零向量。")
+
+
+func test_blackboard_bool_coercion_rejects_non_finite_numbers() -> void:
+	var entry: GFBlackboardEntry = GFBlackboardEntry.new()
+	entry.value_type = GFBlackboardEntry.ValueType.BOOL
+
+	var nan_result: Dictionary = entry.try_coerce_value(NAN)
+	var inf_result: Dictionary = entry.try_coerce_value(INF)
+
+	assert_false(GFVariantData.get_option_bool(nan_result, "ok"), "NaN 不应被转换为 true。")
+	assert_false(GFVariantData.get_option_bool(inf_result, "ok"), "Infinity 不应被转换为 true。")
+
+
+func test_blackboard_schema_defaults_preserve_invalid_default_values() -> void:
+	var schema: GFBlackboardSchema = GFBlackboardSchema.new()
+	var invalid_default_entry: GFBlackboardEntry = GFBlackboardEntry.new()
+	invalid_default_entry.key = &"hp"
+	invalid_default_entry.value_type = GFBlackboardEntry.ValueType.INT
+	invalid_default_entry.default_value = "bad"
+	schema.entries = [invalid_default_entry]
+
+	var defaults: Dictionary = schema.build_defaults()
+
+	assert_eq(GFVariantData.get_option_string(defaults, &"hp"), "bad", "非法默认值不应被静默替换为 0。")
+
+
 func test_blackboard_schema_validation_does_not_apply_defaults() -> void:
 	var schema: GFBlackboardSchema = _make_agent_schema()
 	schema.coerce_values = true

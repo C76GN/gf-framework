@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFActionQueueSystem" path="addons/gf/extensions/action_queue/core/gf_action_queue_system.gd" module="extensions/action_queue" extends="GFSystem" classDigest="1b06c3060af25dfc30f209d900f4a36842177a6c42ac0426c7ad6bfa9dfedeb8">
+<class name="GFActionQueueSystem" path="addons/gf/extensions/action_queue/core/gf_action_queue_system.gd" module="extensions/action_queue" extends="GFSystem" classDigest="e83207a165c1d56d41942986f88f4f1e60671c45c5878776510f62a4bb663b83">
 	<description>GFActionQueueSystem: 逻辑与表现解耦的动作队列系统。
 负责串行或并行消费动作对象，并在等待 Signal 时对发射源失效做防死锁保护。
 动作可继承 `GFVisualAction`，也可直接实现 execute()/can_execute()/cancel() 等同名协议方法。</description>
@@ -25,6 +25,22 @@
 			<description>是否正在处理队列。</description>
 			<tags>
 				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="property" name="max_immediate_actions_per_slice">
+			<signature>var max_immediate_actions_per_slice: int:</signature>
+			<description>单个处理切片最多消费的即时动作数；达到上限后让出到下一 process frame。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="max_debug_named_queue_entries">
+			<signature>var max_debug_named_queue_entries: int:</signature>
+			<description>调试快照最多展开的直接命名队列数量。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 	</properties>
@@ -227,7 +243,8 @@
 			<description>清理所有命名队列。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="param">stop_current: 是否停止当前正在执行的动作。</tag>
+				<tag name="param">stop_current: 兼容参数；命名队列由父队列拥有，清理时总会释放子队列并停止其当前动作。</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="skip_current_action">
@@ -274,7 +291,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">诊断快照字典。</tag>
-				<tag name="schema">return: Dictionary，包含 is_processing、is_paused、queued_count、has_current_action、processing_serial、named_queue_count、named_queues、linked_node_alive 和 interceptor_count。</tag>
+				<tag name="schema">return: Dictionary，包含 is_processing、is_paused、queued_count、has_current_action、processing_serial、max_immediate_actions_per_slice、named_queue_count、named_queue_snapshot_count、named_queues_truncated、named_queues、linked_node_alive 和 interceptor_count。</tag>
 				<tag name="since">6.0.0</tag>
 			</tags>
 		</member>

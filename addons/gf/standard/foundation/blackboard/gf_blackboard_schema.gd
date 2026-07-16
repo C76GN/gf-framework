@@ -139,10 +139,10 @@ func apply_defaults(values: Dictionary, include_optional: bool = true, should_co
 		var entry_key: StringName = entry.get_key()
 		if result.has(entry_key):
 			if should_coerce:
-				result[entry_key] = entry.coerce_value(result[entry_key])
+				result[entry_key] = _coerce_value_or_original(entry, result[entry_key])
 			continue
 		if entry.required or include_optional:
-			result[entry_key] = entry.coerce_value(entry.default_value) if should_coerce else GFVariantData.duplicate_variant(entry.default_value)
+			result[entry_key] = _coerce_value_or_original(entry, entry.default_value) if should_coerce else GFVariantData.duplicate_variant(entry.default_value)
 	return result
 
 
@@ -164,7 +164,7 @@ func coerce_dictionary(values: Dictionary, include_defaults: bool = true) -> Dic
 	for entry: GFBlackboardEntry in entries:
 		if entry == null or entry.get_key() == &"" or not result.has(entry.get_key()):
 			continue
-		result[entry.get_key()] = entry.coerce_value(result[entry.get_key()])
+		result[entry.get_key()] = _coerce_value_or_original(entry, result[entry.get_key()])
 	return result
 
 
@@ -304,6 +304,13 @@ func _coerce_values_for_validation(values: Dictionary, report: Dictionary) -> Di
 			GFVariantData.get_option_string(coerce_result, "message", "字段类型转换失败：%s。" % String(entry_key))
 		)
 	return result
+
+
+func _coerce_value_or_original(entry: GFBlackboardEntry, source_value: Variant) -> Variant:
+	var coerce_result: Dictionary = entry.try_coerce_value(source_value)
+	if GFVariantData.get_option_bool(coerce_result, "ok", false):
+		return GFVariantData.get_option_value(coerce_result, "value")
+	return GFVariantData.duplicate_variant(source_value)
 
 
 func _normalize_keys(values: Dictionary) -> Dictionary:

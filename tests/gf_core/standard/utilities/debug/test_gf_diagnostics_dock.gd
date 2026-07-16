@@ -57,3 +57,24 @@ func test_runtime_debugger_tab_renders_debugger_payloads() -> void:
 	assert_true(GFVariantData.get_option_string(ui, "details").contains("diagnostics.performance"), "详情 JSON 应包含最近命令。")
 
 	tab.free()
+
+
+func test_debug_editor_panels_share_report_safe_json_codec() -> void:
+	var panels: Array[Control] = [
+		GFDiagnosticsDock.new(),
+		GFRuntimeDebuggerTab.new(),
+		GFSignalGraphDock.new(),
+	]
+	var payload: Dictionary = {
+		"value": NAN,
+		"color": Color.RED,
+		"owner": self,
+	}
+
+	for panel: Control in panels:
+		var json_text: String = GFVariantData.to_text(panel.call("_safe_json", payload))
+		assert_true(json_text.contains("\"Float\""), "Editor JSON 应通过 typed marker 编码 NaN。")
+		assert_true(json_text.contains("\"Color\""), "Editor JSON 应通过 typed marker 编码 Color。")
+		assert_true(json_text.contains("__gf_report_value__"), "Editor JSON 应脱敏运行时 Object。")
+		assert_false(json_text.contains("\"value\":null"), "Editor JSON 不应把 NaN 退化为 null。")
+		panel.free()

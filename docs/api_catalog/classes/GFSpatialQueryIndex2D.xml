@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSpatialQueryIndex2D" path="addons/gf/standard/utilities/spatial/gf_spatial_query_index_2d.gd" module="standard" extends="RefCounted" classDigest="7cd7efd386ea5f2b5f26d27ab15ca3a0921d906ee74e2ca9eeecaa4c686b1b0a">
+<class name="GFSpatialQueryIndex2D" path="addons/gf/standard/utilities/spatial/gf_spatial_query_index_2d.gd" module="standard" extends="RefCounted" classDigest="7f3ac1e509e263a2eb446df3a9e94821647c171d1c5c4979519eaf7ecf426471">
 	<description>GFSpatialQueryIndex2D: 2D 空间查询策略 facade。
 在统一 API 后面封装线性扫描与四叉树索引，让项目可按数据规模切换策略。
-它只维护调用方提供的 Rect2 和 metadata，不解释实体身份或玩法过滤规则。</description>
+它只维护调用方提供的 Rect2、metadata 和 GFSpatialQueryIdentity，不解释玩法过滤规则。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">runtime_service</tag>
@@ -93,39 +93,42 @@
 			</tags>
 		</member>
 		<member kind="method" name="upsert">
-			<signature>func upsert(entity_id: int, rect: Rect2, p_metadata: Dictionary = {}) -&gt; bool:</signature>
+			<signature>func upsert(entity: Variant, rect: Rect2, p_metadata: Dictionary = {}) -&gt; bool:</signature>
 			<description>插入或更新实体 Rect2。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="param">entity_id: 实体标识。</tag>
+				<tag name="param">entity: 实体标识或 Object。</tag>
 				<tag name="param">rect: 实体包围矩形。</tag>
 				<tag name="param">p_metadata: 调用方元数据。</tag>
 				<tag name="return">成功时返回 true。</tag>
+				<tag name="schema">entity: Object, StringName, String, or int identity stored by value or weak Object reference.</tag>
 				<tag name="schema">p_metadata: Dictionary copied into entity record metadata.</tag>
 				<tag name="since">7.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="upsert_point">
-			<signature>func upsert_point( entity_id: int, position: Vector2, radius: float = 0.0, p_metadata: Dictionary = {} ) -&gt; bool:</signature>
+			<signature>func upsert_point( entity: Variant, position: Vector2, radius: float = 0.0, p_metadata: Dictionary = {} ) -&gt; bool:</signature>
 			<description>插入或更新以点和半径表示的实体。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="param">entity_id: 实体标识。</tag>
+				<tag name="param">entity: 实体标识或 Object。</tag>
 				<tag name="param">position: 实体位置。</tag>
 				<tag name="param">radius: 包围半径。</tag>
 				<tag name="param">p_metadata: 调用方元数据。</tag>
 				<tag name="return">成功时返回 true。</tag>
+				<tag name="schema">entity: Object, StringName, String, or int identity stored by value or weak Object reference.</tag>
 				<tag name="schema">p_metadata: Dictionary copied into entity record metadata.</tag>
 				<tag name="since">7.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="remove">
-			<signature>func remove(entity_id: int) -&gt; bool:</signature>
+			<signature>func remove(entity: Variant) -&gt; bool:</signature>
 			<description>移除实体。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="param">entity_id: 实体标识。</tag>
+				<tag name="param">entity: 实体标识或 Object。</tag>
 				<tag name="return">找到并移除时返回 true。</tag>
+				<tag name="schema">entity: Object, StringName, String, or int identity stored by value or weak Object reference.</tag>
 				<tag name="since">7.0.0</tag>
 			</tags>
 		</member>
@@ -138,12 +141,13 @@
 			</tags>
 		</member>
 		<member kind="method" name="has_entity">
-			<signature>func has_entity(entity_id: int) -&gt; bool:</signature>
+			<signature>func has_entity(entity: Variant) -&gt; bool:</signature>
 			<description>检查实体是否存在。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="param">entity_id: 实体标识。</tag>
+				<tag name="param">entity: 实体标识或 Object。</tag>
 				<tag name="return">存在时返回 true。</tag>
+				<tag name="schema">entity: Object, StringName, String, or int identity stored by value or weak Object reference.</tag>
 				<tag name="since">7.0.0</tag>
 			</tags>
 		</member>
@@ -156,82 +160,100 @@
 				<tag name="since">7.0.0</tag>
 			</tags>
 		</member>
+		<member kind="method" name="prune_invalid_entities">
+			<signature>func prune_invalid_entities() -&gt; void:</signature>
+			<description>清理已释放 Object 实体。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
 		<member kind="method" name="get_entity_record">
-			<signature>func get_entity_record(entity_id: int) -&gt; Dictionary:</signature>
+			<signature>func get_entity_record(entity: Variant) -&gt; Dictionary:</signature>
 			<description>获取实体记录副本。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="param">entity_id: 实体标识。</tag>
+				<tag name="param">entity: 实体标识或 Object。</tag>
 				<tag name="return">实体记录；不存在时为空字典。</tag>
-				<tag name="schema">return: Dictionary，包含 entity_id、bounds 和 metadata。</tag>
+				<tag name="schema">entity: Object, StringName, String, or int identity stored by value or weak Object reference.</tag>
+				<tag name="schema">return: Dictionary，包含 identity、entity、bounds 和 metadata；int 身份会额外包含 entity_id。</tag>
 				<tag name="since">7.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="query_rect">
-			<signature>func query_rect(area: Rect2) -&gt; Array[int]:</signature>
-			<description>查询与 Rect2 相交的实体 ID。</description>
+			<signature>func query_rect(area: Rect2) -&gt; Array[Variant]:</signature>
+			<description>查询与 Rect2 相交的实体。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">area: 查询矩形。</tag>
-				<tag name="return">匹配实体 ID 数组。</tag>
+				<tag name="return">匹配实体数组。</tag>
+				<tag name="schema">return: Array[Variant]，实体值来自调用方传入的 entity。</tag>
 				<tag name="since">7.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="query_rect_into">
-			<signature>func query_rect_into(area: Rect2, out_entity_ids: Array[int], clear_output: bool = true) -&gt; Array[int]:</signature>
-			<description>查询与 Rect2 相交的实体 ID，并写入调用方提供的数组。</description>
+			<signature>func query_rect_into(area: Rect2, out_entities: Array, clear_output: bool = true) -&gt; Array:</signature>
+			<description>查询与 Rect2 相交的实体，并写入调用方提供的数组。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">area: 查询矩形。</tag>
-				<tag name="param">out_entity_ids: 接收匹配实体 ID 的数组。</tag>
-				<tag name="param">clear_output: 为 true 时先清空 out_entity_ids。</tag>
-				<tag name="return">同一个 out_entity_ids 数组。</tag>
+				<tag name="param">out_entities: 接收匹配实体的数组。</tag>
+				<tag name="param">clear_output: 为 true 时先清空 out_entities。</tag>
+				<tag name="return">同一个 out_entities 数组。</tag>
+				<tag name="schema">out_entities: Array[Variant]，实体值来自调用方传入的 entity。</tag>
+				<tag name="schema">return: Array[Variant]，同一个 out_entities 数组。</tag>
 				<tag name="since">7.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="query_radius">
-			<signature>func query_radius(center: Vector2, radius: float) -&gt; Array[int]:</signature>
-			<description>查询与圆相交的实体 ID。</description>
+			<signature>func query_radius(center: Vector2, radius: float) -&gt; Array[Variant]:</signature>
+			<description>查询与圆相交的实体。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">center: 圆心。</tag>
 				<tag name="param">radius: 半径。</tag>
-				<tag name="return">匹配实体 ID 数组。</tag>
+				<tag name="return">匹配实体数组。</tag>
+				<tag name="schema">return: Array[Variant]，实体值来自调用方传入的 entity。</tag>
 				<tag name="since">7.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="query_radius_into">
-			<signature>func query_radius_into(center: Vector2, radius: float, out_entity_ids: Array[int], clear_output: bool = true) -&gt; Array[int]:</signature>
-			<description>查询与圆相交的实体 ID，并写入调用方提供的数组。</description>
+			<signature>func query_radius_into(center: Vector2, radius: float, out_entities: Array, clear_output: bool = true) -&gt; Array:</signature>
+			<description>查询与圆相交的实体，并写入调用方提供的数组。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">center: 圆心。</tag>
 				<tag name="param">radius: 半径。</tag>
-				<tag name="param">out_entity_ids: 接收匹配实体 ID 的数组。</tag>
-				<tag name="param">clear_output: 为 true 时先清空 out_entity_ids。</tag>
-				<tag name="return">同一个 out_entity_ids 数组。</tag>
+				<tag name="param">out_entities: 接收匹配实体的数组。</tag>
+				<tag name="param">clear_output: 为 true 时先清空 out_entities。</tag>
+				<tag name="return">同一个 out_entities 数组。</tag>
+				<tag name="schema">out_entities: Array[Variant]，实体值来自调用方传入的 entity。</tag>
+				<tag name="schema">return: Array[Variant]，同一个 out_entities 数组。</tag>
 				<tag name="since">7.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="query_point">
-			<signature>func query_point(point: Vector2) -&gt; Array[int]:</signature>
-			<description>查询包含点的实体 ID。</description>
+			<signature>func query_point(point: Vector2) -&gt; Array[Variant]:</signature>
+			<description>查询包含点的实体。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">point: 查询点。</tag>
-				<tag name="return">匹配实体 ID 数组。</tag>
+				<tag name="return">匹配实体数组。</tag>
+				<tag name="schema">return: Array[Variant]，实体值来自调用方传入的 entity。</tag>
 				<tag name="since">7.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="query_point_into">
-			<signature>func query_point_into(point: Vector2, out_entity_ids: Array[int], clear_output: bool = true) -&gt; Array[int]:</signature>
-			<description>查询包含点的实体 ID，并写入调用方提供的数组。</description>
+			<signature>func query_point_into(point: Vector2, out_entities: Array, clear_output: bool = true) -&gt; Array:</signature>
+			<description>查询包含点的实体，并写入调用方提供的数组。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">point: 查询点。</tag>
-				<tag name="param">out_entity_ids: 接收匹配实体 ID 的数组。</tag>
-				<tag name="param">clear_output: 为 true 时先清空 out_entity_ids。</tag>
-				<tag name="return">同一个 out_entity_ids 数组。</tag>
+				<tag name="param">out_entities: 接收匹配实体的数组。</tag>
+				<tag name="param">clear_output: 为 true 时先清空 out_entities。</tag>
+				<tag name="return">同一个 out_entities 数组。</tag>
+				<tag name="schema">out_entities: Array[Variant]，实体值来自调用方传入的 entity。</tag>
+				<tag name="schema">return: Array[Variant]，同一个 out_entities 数组。</tag>
 				<tag name="since">7.0.0</tag>
 			</tags>
 		</member>
@@ -242,7 +264,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">area: 查询矩形。</tag>
 				<tag name="return">匹配实体记录数组。</tag>
-				<tag name="schema">return: Array[Dictionary]，每个元素包含 entity_id、bounds 和 metadata。</tag>
+				<tag name="schema">return: Array[Dictionary]，每个元素包含 identity、entity、bounds 和 metadata；int 身份会额外包含 entity_id。</tag>
 				<tag name="since">7.0.0</tag>
 			</tags>
 		</member>
@@ -255,8 +277,8 @@
 				<tag name="param">out_records: 接收匹配实体记录的数组。</tag>
 				<tag name="param">clear_output: 为 true 时先清空 out_records。</tag>
 				<tag name="return">同一个 out_records 数组。</tag>
-				<tag name="schema">return: Array[Dictionary]，同一个 out_records 数组；每个元素包含 entity_id、bounds 和 metadata。</tag>
-				<tag name="schema">out_records: Array[Dictionary]，每个元素包含 entity_id、bounds 和 metadata。</tag>
+				<tag name="schema">return: Array[Dictionary]，同一个 out_records 数组；每个元素包含 identity、entity、bounds 和 metadata。</tag>
+				<tag name="schema">out_records: Array[Dictionary]，每个元素包含 identity、entity、bounds 和 metadata。</tag>
 				<tag name="since">7.0.0</tag>
 			</tags>
 		</member>
@@ -268,7 +290,7 @@
 				<tag name="param">center: 圆心。</tag>
 				<tag name="param">radius: 半径。</tag>
 				<tag name="return">匹配实体记录数组。</tag>
-				<tag name="schema">return: Array[Dictionary]，每个元素包含 entity_id、bounds 和 metadata。</tag>
+				<tag name="schema">return: Array[Dictionary]，每个元素包含 identity、entity、bounds 和 metadata；int 身份会额外包含 entity_id。</tag>
 				<tag name="since">7.0.0</tag>
 			</tags>
 		</member>
@@ -282,8 +304,8 @@
 				<tag name="param">out_records: 接收匹配实体记录的数组。</tag>
 				<tag name="param">clear_output: 为 true 时先清空 out_records。</tag>
 				<tag name="return">同一个 out_records 数组。</tag>
-				<tag name="schema">return: Array[Dictionary]，同一个 out_records 数组；每个元素包含 entity_id、bounds 和 metadata。</tag>
-				<tag name="schema">out_records: Array[Dictionary]，每个元素包含 entity_id、bounds 和 metadata。</tag>
+				<tag name="schema">return: Array[Dictionary]，同一个 out_records 数组；每个元素包含 identity、entity、bounds 和 metadata。</tag>
+				<tag name="schema">out_records: Array[Dictionary]，每个元素包含 identity、entity、bounds 和 metadata。</tag>
 				<tag name="since">7.0.0</tag>
 			</tags>
 		</member>
@@ -295,6 +317,18 @@
 				<tag name="return">调试快照。</tag>
 				<tag name="schema">return: Dictionary，包含 strategy、active_strategy、bounds、entity_count 和 index_dirty。</tag>
 				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_json_compatible_debug_snapshot">
+			<signature>func get_json_compatible_debug_snapshot(options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>获取 JSON.stringify() 安全的调试快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">options: 报告编码选项，透传给 GFReportValueCodec。</tag>
+				<tag name="return">JSON 兼容调试快照。</tag>
+				<tag name="schema">options: Dictionary with GFReportValueCodec options.</tag>
+				<tag name="schema">return: Dictionary safe for JSON.stringify().</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 	</methods>

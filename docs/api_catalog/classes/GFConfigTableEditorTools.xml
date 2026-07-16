@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFConfigTableEditorTools" path="addons/gf/standard/utilities/config/gf_config_table_editor_tools.gd" module="standard" extends="RefCounted" classDigest="2aa50aea52f0913227ce47af449df131dcbfc64d04714e79b1d04d8f480375c2">
+<class name="GFConfigTableEditorTools" path="addons/gf/standard/utilities/config/gf_config_table_editor_tools.gd" module="standard" extends="RefCounted" classDigest="2d53199b57d84cf1f0de5b01d20a27d4537a498f83226f6854f6e45035c458bd">
 	<description>GFConfigTableEditorTools: 配置表 schema 的编辑器描述辅助。
 该工具只把 `GFConfigTableSchema`、列声明和跨表引用转换为通用描述字典，
 供 Inspector、表格编辑器、CI 预览或项目侧工具自由消费；不会创建 UI 控件，
 也不规定具体业务字段语义。</description>
 	<tags>
 		<tag name="api">public</tag>
-		<tag name="category">runtime_service</tag>
+		<tag name="category">editor_api</tag>
 		<tag name="since">6.0.0</tag>
 	</tags>
 	<signals />

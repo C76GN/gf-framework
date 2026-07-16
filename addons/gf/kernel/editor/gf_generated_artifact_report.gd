@@ -74,6 +74,8 @@ const OWNER_USER: StringName = &"user"
 ## @since 6.0.0
 const OWNER_EXTERNAL: StringName = &"external"
 
+const _GF_PATH_TOOLS = preload("res://addons/gf/kernel/core/gf_path_tools.gd")
+const _GF_REPORT_VALUE_CODEC_SCRIPT = preload("res://addons/gf/kernel/core/gf_report_value_codec.gd")
 const _GF_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
 
 
@@ -93,13 +95,13 @@ const _GF_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_varian
 ## [br]
 ## @param message: 错误或跳过说明。
 ## [br]
-## @param options: 报告选项，支持 written、changed、dry_run、size_bytes、metadata、artifact_owner、generator_id、source_id、content_sha256、previous_sha256 和 encoding。
+## @param options: 报告选项，支持 written、changed、dry_run、size_bytes、metadata、artifact_owner、generator_id、source_id、content_sha256、previous_sha256 和 encoding；metadata 会在返回报告中编码为 JSON-safe Dictionary。
 ## [br]
-## @schema options: Dictionary，可包含 written、changed、dry_run、size_bytes、metadata、artifact_owner、generator_id、source_id、content_sha256、previous_sha256 和 encoding。
+## @schema options: Dictionary，可包含 written、changed、dry_run、size_bytes、metadata、artifact_owner、generator_id、source_id、content_sha256、previous_sha256 和 encoding；metadata 允许任意 Variant，返回时会通过 GFReportValueCodec 收束。
 ## [br]
-## @return: 生成产物报告。
+## @return: 生成产物报告。success 只表示产物状态不是 failed；skipped 可保留非 OK error_code 供调用方决定是否阻断。
 ## [br]
-## @schema return: Dictionary，包含 success、path、status、error_code、error、written、changed、dry_run、size_bytes、artifact_owner、generator_id、source_id、content_sha256、previous_sha256、encoding 和 metadata。
+## @schema return: JSON-safe Dictionary，包含 success、path、status、error_code、error、written、changed、dry_run、size_bytes、artifact_owner、generator_id、source_id、content_sha256、previous_sha256、encoding 和 metadata。
 static func make_report(
 	output_path: String,
 	status: StringName,
@@ -107,8 +109,8 @@ static func make_report(
 	message: String = "",
 	options: Dictionary = {}
 ) -> Dictionary:
-	return {
-		"success": error_code == OK and status != STATUS_FAILED,
+	var report: Dictionary = {
+		"success": status != STATUS_FAILED and (error_code == OK or status == STATUS_SKIPPED),
 		"path": output_path,
 		"status": status,
 		"error_code": error_code,
@@ -125,6 +127,7 @@ static func make_report(
 		"encoding": _GF_VARIANT_ACCESS_SCRIPT.get_option_string(options, "encoding", "utf-8"),
 		"metadata": _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(options, "metadata", {}).duplicate(true),
 	}
+	return _to_artifact_report_boundary(report)
 
 
 ## 汇总多份生成产物报告。
@@ -142,13 +145,13 @@ static func make_report(
 ## [br]
 ## @param subject: 汇总主题。
 ## [br]
-## @param options: 汇总选项，支持 include_reports 和 metadata。
+## @param options: 汇总选项，支持 include_reports 和 metadata；metadata 与可选 reports 会在返回摘要中编码为 JSON-safe 值。
 ## [br]
-## @schema options: Dictionary，可包含 include_reports 和 metadata。
+## @schema options: Dictionary，可包含 include_reports 和 metadata；metadata 允许任意 Variant，返回时会通过 GFReportValueCodec 收束。
 ## [br]
 ## @return: 批量产物报告摘要。
 ## [br]
-## @schema return: Dictionary，包含 success、subject、artifact_count、status_counts、owner_counts、written_count、changed_count、dry_run_count、failed_count、skipped_count、paths、errors、metadata 和可选 reports。
+## @schema return: JSON-safe Dictionary，包含 success、subject、artifact_count、status_counts、owner_counts、written_count、changed_count、dry_run_count、failed_count、skipped_count、paths、errors、metadata 和可选 reports。
 static func summarize_reports(
 	reports: Array[Dictionary],
 	subject: String = "",
@@ -194,7 +197,7 @@ static func summarize_reports(
 		if not error_text.is_empty() or error_code != OK:
 			errors.append({
 				"path": output_path,
-				"status": status,
+				"status": status_key,
 				"error_code": error_code,
 				"error": error_text,
 			})
@@ -212,10 +215,10 @@ static func summarize_reports(
 		"skipped_count": skipped_count,
 		"paths": _packed_to_array(paths),
 		"errors": errors,
-		"metadata": _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(options, "metadata", {}).duplicate(true),
+		"metadata": _to_report_dictionary(_GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(options, "metadata", {})),
 	}
 	if _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(options, "include_reports", false):
-		result["reports"] = reports.duplicate(true)
+		result["reports"] = _to_artifact_report_array(reports)
 	return result
 
 
@@ -232,19 +235,33 @@ static func summarize_reports(
 ## [br]
 ## @param text: 要写入的文本内容。
 ## [br]
-## @param options: 保存选项，支持 overwrite_existing、dry_run、scan_filesystem、label、metadata、artifact_owner、generator_id 和 source_id。
+## @param options: 保存选项，支持 overwrite_existing、dry_run、scan_filesystem、label、metadata、artifact_owner、generator_id、source_id 和 allowed_roots。
 ## [br]
-## @schema options: Dictionary，可包含 overwrite_existing、dry_run、scan_filesystem、label、metadata、artifact_owner、generator_id 和 source_id。
+## @schema options: Dictionary，可包含 overwrite_existing、dry_run、scan_filesystem、label、metadata、artifact_owner、generator_id、source_id 和 allowed_roots；allowed_roots 为可选 res:// / user:// 根目录数组。
 ## [br]
 ## @return: 生成产物保存报告。
 ## [br]
-## @schema return: Dictionary，包含 success、path、status、error_code、error、written、changed、dry_run、size_bytes、artifact_owner、generator_id、source_id、content_sha256、previous_sha256、encoding 和 metadata。
+## @schema return: JSON-safe Dictionary，包含 success、path、status、error_code、error、written、changed、dry_run、size_bytes、artifact_owner、generator_id、source_id、content_sha256、previous_sha256、encoding 和 metadata。
 static func save_text(output_path: String, text: String, options: Dictionary = {}) -> Dictionary:
 	var label: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(options, "label", "GFGeneratedArtifactReport")
+	output_path = _GF_PATH_TOOLS.normalize_resource_path(output_path)
 	if output_path.is_empty():
 		var empty_message: String = "输出路径为空。"
 		push_error("[%s] %s" % [label, empty_message])
 		return make_report(output_path, STATUS_FAILED, ERR_INVALID_PARAMETER, empty_message, {
+			"metadata": _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(options, "metadata"),
+		})
+
+	var path_validation: Dictionary = _validate_output_path(output_path, options)
+	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(path_validation, "ok", false):
+		var path_error: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(path_validation, "error")
+		push_error("[%s] %s" % [label, path_error])
+		return make_report(output_path, STATUS_FAILED, ERR_INVALID_PARAMETER, path_error, {
+			"artifact_owner": _read_artifact_owner(options),
+			"generator_id": _GF_VARIANT_ACCESS_SCRIPT.get_option_string(options, "generator_id", label),
+			"source_id": _GF_VARIANT_ACCESS_SCRIPT.get_option_string(options, "source_id"),
+			"content_sha256": _sha256_text(text),
+			"encoding": "utf-8",
 			"metadata": _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(options, "metadata"),
 		})
 
@@ -304,15 +321,32 @@ static func save_text(output_path: String, text: String, options: Dictionary = {
 		push_error("[%s] %s" % [label, dir_message])
 		return make_report(output_path, STATUS_FAILED, dir_error, dir_message, report_options)
 
-	var file: FileAccess = FileAccess.open(output_path, FileAccess.WRITE)
+	var temp_path: String = _make_temp_output_path(output_path)
+	var file: FileAccess = FileAccess.open(temp_path, FileAccess.WRITE)
 	if file == null:
 		var open_error: Error = FileAccess.get_open_error()
-		var open_message: String = "无法写入文本产物：%s (%s)" % [output_path, error_string(open_error)]
+		var open_message: String = "无法写入文本产物临时文件：%s (%s)" % [temp_path, error_string(open_error)]
 		push_error("[%s] %s" % [label, open_message])
 		return make_report(output_path, STATUS_FAILED, open_error, open_message, report_options)
 
-	var _stored: bool = file.store_string(text)
+	var _stored: Variant = file.store_string(text)
+	var write_error: Error = file.get_error()
 	file.close()
+	if write_error != OK:
+		_remove_file_if_exists(temp_path)
+		var write_message: String = "无法写入文本产物临时文件：%s (%s)" % [temp_path, error_string(write_error)]
+		push_error("[%s] %s" % [label, write_message])
+		return make_report(output_path, STATUS_FAILED, write_error, write_message, report_options)
+	if _file_size(temp_path) != size_bytes:
+		_remove_file_if_exists(temp_path)
+		var size_message: String = "文本产物临时文件写入大小不匹配：%s" % temp_path
+		push_error("[%s] %s" % [label, size_message])
+		return make_report(output_path, STATUS_FAILED, ERR_FILE_CORRUPT, size_message, report_options)
+	var replace_error: Error = _replace_output_with_temp(output_path, temp_path, exists)
+	if replace_error != OK:
+		var replace_message: String = "无法替换文本产物：%s (%s)" % [output_path, error_string(replace_error)]
+		push_error("[%s] %s" % [label, replace_message])
+		return make_report(output_path, STATUS_FAILED, replace_error, replace_message, report_options)
 	report_options["written"] = true
 	_scan_filesystem_if_needed(_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(options, "scan_filesystem", true))
 	return make_report(output_path, status, OK, "", report_options)
@@ -335,6 +369,51 @@ static func get_error_code(report: Dictionary) -> Error:
 
 
 # --- 私有/辅助方法 ---
+
+static func _to_artifact_report_boundary(report: Dictionary) -> Dictionary:
+	var status_text: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(report, "status")
+	if status_text.is_empty():
+		status_text = "unknown"
+	var artifact_owner: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(report, "artifact_owner", String(OWNER_GENERATED))
+	if artifact_owner.is_empty():
+		artifact_owner = String(OWNER_GENERATED)
+	return {
+		"success": _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(report, "success", false),
+		"path": _GF_VARIANT_ACCESS_SCRIPT.get_option_string(report, "path"),
+		"status": status_text,
+		"error_code": _GF_VARIANT_ACCESS_SCRIPT.get_option_int(report, "error_code", OK),
+		"error": _GF_VARIANT_ACCESS_SCRIPT.get_option_string(report, "error"),
+		"written": _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(report, "written", false),
+		"changed": _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(report, "changed", false),
+		"dry_run": _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(report, "dry_run", false),
+		"size_bytes": _GF_VARIANT_ACCESS_SCRIPT.get_option_int(report, "size_bytes", 0),
+		"artifact_owner": artifact_owner,
+		"generator_id": _GF_VARIANT_ACCESS_SCRIPT.get_option_string(report, "generator_id"),
+		"source_id": _GF_VARIANT_ACCESS_SCRIPT.get_option_string(report, "source_id"),
+		"content_sha256": _GF_VARIANT_ACCESS_SCRIPT.get_option_string(report, "content_sha256"),
+		"previous_sha256": _GF_VARIANT_ACCESS_SCRIPT.get_option_string(report, "previous_sha256"),
+		"encoding": _GF_VARIANT_ACCESS_SCRIPT.get_option_string(report, "encoding", "utf-8"),
+		"metadata": _to_report_dictionary(_GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(report, "metadata", {})),
+	}
+
+
+static func _to_artifact_report_array(reports: Array[Dictionary]) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	for report: Dictionary in reports:
+		result.append(_to_artifact_report_boundary(report))
+	return result
+
+
+static func _to_report_dictionary(value: Dictionary) -> Dictionary:
+	return _GF_REPORT_VALUE_CODEC_SCRIPT.to_report_dictionary(value, _make_report_codec_options())
+
+
+static func _make_report_codec_options() -> Dictionary:
+	return _GF_REPORT_VALUE_CODEC_SCRIPT.make_redaction_options(
+		_GF_REPORT_VALUE_CODEC_SCRIPT.REDACTION_PROFILE_SUPPORT,
+		{ "path_redaction": "basename" }
+	)
+
 
 static func _resolve_text_status(exists: bool, existing_text: String, text: String) -> StringName:
 	if not exists:
@@ -372,11 +451,98 @@ static func _read_text_if_exists(output_path: String) -> Dictionary:
 	}
 
 
+static func _validate_output_path(output_path: String, options: Dictionary) -> Dictionary:
+	if not (output_path.begins_with("res://") or output_path.begins_with("user://")):
+		return {
+			"ok": false,
+			"error": "输出路径必须使用 res:// 或 user://：%s" % output_path,
+		}
+
+	var allowed_roots: PackedStringArray = _read_allowed_roots(options)
+	if allowed_roots.is_empty():
+		return {
+			"ok": true,
+			"error": "",
+		}
+
+	for root_path: String in allowed_roots:
+		if _GF_PATH_TOOLS.is_path_under_root(output_path, root_path, true, false):
+			return {
+				"ok": true,
+				"error": "",
+			}
+	return {
+		"ok": false,
+		"error": "输出路径不在允许的生成根目录内：%s" % output_path,
+	}
+
+
+static func _read_allowed_roots(options: Dictionary) -> PackedStringArray:
+	var raw_roots: PackedStringArray = _GF_VARIANT_ACCESS_SCRIPT.get_option_packed_string_array(options, "allowed_roots")
+	var roots: PackedStringArray = PackedStringArray()
+	for raw_root: String in raw_roots:
+		var root_path: String = _GF_PATH_TOOLS.normalize_root_path(raw_root)
+		if root_path.is_empty() or roots.has(root_path):
+			continue
+		if not (root_path.begins_with("res://") or root_path.begins_with("user://")):
+			continue
+		var _append_root: bool = roots.append(root_path)
+	return roots
+
+
+static func _file_size(path: String) -> int:
+	var file: FileAccess = FileAccess.open(path, FileAccess.READ)
+	if file == null:
+		return -1
+	var size: int = file.get_length()
+	file.close()
+	return size
+
+
 static func _ensure_output_directory(output_path: String) -> Error:
 	var base_dir: String = output_path.get_base_dir()
 	if base_dir.is_empty():
 		return OK
 	return DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(base_dir))
+
+
+static func _make_temp_output_path(output_path: String) -> String:
+	var base_dir: String = output_path.get_base_dir()
+	var file_name: String = output_path.get_file()
+	var suffix: String = ".tmp.%d" % Time.get_ticks_usec()
+	return base_dir.path_join("%s%s" % [file_name, suffix])
+
+
+static func _replace_output_with_temp(output_path: String, temp_path: String, output_exists: bool) -> Error:
+	var output_absolute: String = ProjectSettings.globalize_path(output_path)
+	var temp_absolute: String = ProjectSettings.globalize_path(temp_path)
+	var backup_path: String = _make_temp_output_path("%s.backup" % output_path)
+	var backup_absolute: String = ProjectSettings.globalize_path(backup_path)
+	var moved_existing: bool = false
+
+	if output_exists:
+		var backup_error: Error = DirAccess.rename_absolute(output_absolute, backup_absolute)
+		if backup_error != OK:
+			_remove_file_if_exists(temp_path)
+			return backup_error
+		moved_existing = true
+
+	var replace_error: Error = DirAccess.rename_absolute(temp_absolute, output_absolute)
+	if replace_error == OK:
+		if moved_existing:
+			_remove_file_if_exists(backup_path)
+		return OK
+
+	_remove_file_if_exists(temp_path)
+	if moved_existing:
+		var _rollback_error: Error = DirAccess.rename_absolute(backup_absolute, output_absolute)
+	return replace_error
+
+
+static func _remove_file_if_exists(path: String) -> void:
+	if path.is_empty() or not FileAccess.file_exists(path):
+		return
+	var _remove_error: Error = DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
 
 
 static func _scan_filesystem_if_needed(scan_filesystem: bool) -> void:

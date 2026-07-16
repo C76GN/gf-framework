@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFJobWorker" path="addons/gf/standard/utilities/jobs/gf_job_worker.gd" module="standard" extends="Node" classDigest="40a3f689d509706e002d15425435963ab58db00d1974997d787bf9be077945b0">
+<class name="GFJobWorker" path="addons/gf/standard/utilities/jobs/gf_job_worker.gd" module="standard" extends="Node" classDigest="0d67e1a854be5efef24d65bd9f676da6c65b77dca1f1e95a208ea8da0775d58e">
 	<description>GFJobWorker: 通用任务队列消费节点。
 从 `GFJobQueueUtility` 中按批次取出等待任务，并交给项目提供的 Callable 处理。
 Worker 只管理执行节奏和完成/失败写回，不规定任务数据结构或业务语义。</description>
@@ -167,7 +167,8 @@ Worker 只管理执行节奏和完成/失败写回，不规定任务数据结构
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">调试快照。</tag>
-				<tag name="schema">return: Dictionary，包含 running、processing、queue_name、batch_size、has_processor 和 has_queue_utility。</tag>
+				<tag name="schema">return: Dictionary，包含 running、processing、processing_next_job、waiting_for_processor、queue_name、batch_size、has_processor 和 has_queue_utility。</tag>
+				<tag name="since">3.0.0</tag>
 			</tags>
 		</member>
 	</methods>

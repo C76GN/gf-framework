@@ -11,6 +11,11 @@ class_name GFTweenActionConfig
 extends Resource
 
 
+# --- 常量 ---
+
+const _ACTION_TIME_POLICY = preload("res://addons/gf/extensions/action_queue/core/gf_action_time_policy.gd")
+
+
 # --- 导出变量 ---
 
 ## Tween 步骤列表。
@@ -23,7 +28,13 @@ extends Resource
 ## 全局时长缩放。
 ## [br]
 ## @api public
-@export var duration_scale: float = 1.0
+## [br]
+## @since 3.17.0
+@export var duration_scale: float:
+	get:
+		return _duration_scale
+	set(value):
+		_duration_scale = _ACTION_TIME_POLICY.sanitize_non_negative_seconds(value)
 
 ## 播放次数。1 表示播放一次，0 表示无限循环。
 ## [br]
@@ -54,6 +65,11 @@ extends Resource
 ## [br]
 ## @api public
 @export var restore_initial_values_on_finish: bool = false
+
+
+# --- 私有变量 ---
+
+var _duration_scale: float = 1.0
 
 
 # --- 公共方法 ---
@@ -115,7 +131,7 @@ func is_empty() -> bool:
 ## [br]
 ## @return 包含耗时步骤返回 true。
 func has_timed_steps() -> bool:
-	var effective_scale: float = maxf(duration_scale, 0.0)
+	var effective_scale: float = _ACTION_TIME_POLICY.sanitize_non_negative_seconds(duration_scale)
 	for step: GFTweenActionStep in steps:
 		if step != null and (step.duration * effective_scale > 0.0 or step.delay * effective_scale > 0.0):
 			return true

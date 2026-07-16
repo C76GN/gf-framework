@@ -16,9 +16,11 @@ extends RefCounted
 
 # --- 公共方法 ---
 
-## 校验一个节点状态机的直接子状态和显式状态组。
+## 校验一个节点状态机的直接子状态、场景状态组和运行时注册状态组。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @param machine: 要校验的节点状态机。
 ## [br]
@@ -35,15 +37,31 @@ static func validate_machine(machine: GFNodeStateMachine, options: Dictionary = 
 
 	var internal_states: Array[GFNodeState] = []
 	var groups: Array[GFNodeStateGroup] = []
+	var seen_group_instance_ids: Dictionary = {}
+	var scene_group_count: int = 0
 	for child: Node in machine.get_children():
 		if GFVariantData.to_bool(child.get_meta(GFNodeStateMachine.META_INTERNAL_GROUP, false)):
 			continue
 		if child is GFNodeStateGroup:
 			var group_child: GFNodeStateGroup = child
 			groups.append(group_child)
+			seen_group_instance_ids[group_child.get_instance_id()] = true
+			scene_group_count += 1
 		elif child is GFNodeState:
 			var state_child: GFNodeState = child
 			internal_states.append(state_child)
+
+	var registered_group_count: int = 0
+	for registered_group: GFNodeStateGroup in machine.get_state_groups():
+		registered_group_count += 1
+		if registered_group == null:
+			continue
+		if seen_group_instance_ids.has(registered_group.get_instance_id()):
+			continue
+		if _get_group_name(registered_group) == GFNodeStateMachine.INTERNAL_GROUP_NAME and not internal_states.is_empty():
+			continue
+		groups.append(registered_group)
+		seen_group_instance_ids[registered_group.get_instance_id()] = true
 
 	var group_names: Dictionary = {}
 	if not internal_states.is_empty():
@@ -84,6 +102,8 @@ static func validate_machine(machine: GFNodeStateMachine, options: Dictionary = 
 		)
 
 	report.metadata["group_count"] = group_names.size()
+	report.metadata["scene_group_count"] = scene_group_count
+	report.metadata["registered_group_count"] = registered_group_count
 	report.metadata["direct_state_count"] = internal_states.size()
 	return report
 
@@ -105,7 +125,7 @@ static func validate_group(group: GFNodeStateGroup, options: Dictionary = {}) ->
 		_add_error(report, &"missing_state_group", "State group is null.")
 		return report
 
-	var states: Array[GFNodeState] = _collect_direct_states(group)
+	var states: Array[GFNodeState] = _collect_group_states(group)
 	_validate_group_shape(
 		report,
 		_get_group_name(group),
@@ -502,6 +522,22 @@ static func _collect_direct_states(parent: Node) -> Array[GFNodeState]:
 		if child is GFNodeState:
 			var state: GFNodeState = child
 			result.append(state)
+	return result
+
+
+static func _collect_group_states(group: GFNodeStateGroup) -> Array[GFNodeState]:
+	var result: Array[GFNodeState] = []
+	var seen_state_instance_ids: Dictionary = {}
+	for state: GFNodeState in _collect_direct_states(group):
+		result.append(state)
+		seen_state_instance_ids[state.get_instance_id()] = true
+	for registered_state: GFNodeState in group.get_states():
+		if registered_state == null:
+			continue
+		if seen_state_instance_ids.has(registered_state.get_instance_id()):
+			continue
+		result.append(registered_state)
+		seen_state_instance_ids[registered_state.get_instance_id()] = true
 	return result
 
 

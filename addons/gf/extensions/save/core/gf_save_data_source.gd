@@ -247,6 +247,10 @@ func _normalize_apply_result(result: Variant) -> Dictionary:
 			return make_result(false, GFVariantData.get_option_string(dictionary, "error", "Data provider apply failed."))
 	if result is bool and not GFVariantData.to_bool(result, false):
 		return make_result(false, "Data provider apply failed.")
+	if result is int:
+		var error_code: int = result
+		if error_code != OK:
+			return make_result(false, "Data provider apply failed with Error %d." % error_code)
 	return make_result(true)
 
 

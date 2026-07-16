@@ -53,29 +53,31 @@ quad_tree.remove(1001)
 
 ## 查询策略 facade
 
-当项目想先写稳定查询 API，再按实体数量切换具体索引时，可以使用 `GFSpatialQueryIndex2D` 或 `GFSpatialQueryIndex3D`。2D facade 在 `linear` 与 `quadtree` 之间切换；3D facade 在 `linear` 与 `spatial_hash` 之间切换：
+当项目想先写稳定查询 API，再按实体数量切换具体索引时，可以使用 `GFSpatialQueryIndex2D` 或 `GFSpatialQueryIndex3D`。2D facade 在 `linear` 与 `quadtree` 之间切换，3D facade 在 `linear` 与 `spatial_hash` 之间切换；两者都使用 `GFSpatialQueryIdentity` 规范化实体身份。
 
 ```gdscript
 var index_2d := GFSpatialQueryIndex2D.new()
 index_2d.configure(Rect2(Vector2.ZERO, Vector2(4096, 4096)), GFSpatialQueryIndex2D.STRATEGY_AUTO)
-index_2d.upsert(1001, Rect2(Vector2(128, 256), Vector2(32, 32)), {
+index_2d.upsert(&"enemy:1001", Rect2(Vector2(128, 256), Vector2(32, 32)), {
 	"team": "blue",
 })
 
 var hits := index_2d.query_records_radius(Vector2(160, 260), 96.0)
+var entity := hits[0]["entity"]
+var identity := hits[0]["identity"]
 ```
 
 ```gdscript
 var index_3d := GFSpatialQueryIndex3D.new()
 index_3d.configure(GFSpatialQueryIndex3D.STRATEGY_AUTO, { "cell_size": 4.0 })
-index_3d.upsert(enemy_id, AABB(Vector3(0, 0, 0), Vector3.ONE * 2.0))
+index_3d.upsert(&"enemy:1001", AABB(Vector3(0, 0, 0), Vector3.ONE * 2.0))
 
 var nearby := index_3d.query_records_radius(Vector3.ZERO, 8.0)
 ```
 
-facade 只输出实体 ID、实体值和调用方 metadata。阵营过滤、可见性、伤害、交互派发和节点生命周期仍由项目或对应扩展处理。小集合可以强制 `STRATEGY_LINEAR`，需要稳定调试索引时可读取 `get_debug_snapshot()` 查看当前实际策略。
+facade 只输出实体值、统一 `identity` 快照和调用方 metadata。阵营过滤、可见性、伤害、交互派发和节点生命周期仍由项目或对应扩展处理。小集合可以强制 `STRATEGY_LINEAR`，需要稳定调试索引时可读取 `get_debug_snapshot()` 查看当前实际策略。
 
-3D facade 和底层 `GFSpatialHash3D` 的实体键只接受 `Object`、非空 `StringName`、非空 `String` 或 `int`。`Array`、`Dictionary` 等可变复合值会被拒绝，避免索引键在插入后被调用方修改而导致删除、更新和查询结果不可预测。AABB 覆盖格子时使用半开最大边界，恰好落在格子边界的盒子不会额外占用相邻格。
+`GFSpatialQueryIdentity` 只接受 `Object`、非空 `StringName`、非空 `String` 或 `int`。`Object` 以 weakref 方式保存，不会因为进入空间索引而被强持有；`Array`、`Dictionary` 等可变复合值会被拒绝，避免索引键在插入后被调用方修改而导致删除、更新和查询结果不可预测。2D facade 会把稳定身份映射为四叉树内部 surrogate int，因此底层 `GFQuadTreeUtility` 的 `int entity_id` 限制不会泄漏到 facade API。AABB 覆盖格子时使用半开最大边界，恰好落在格子边界的盒子不会额外占用相邻格。
 
 ---
 

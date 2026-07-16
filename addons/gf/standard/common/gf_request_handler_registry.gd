@@ -64,6 +64,7 @@ signal request_invoked(request_type: StringName, result: Variant, metadata: Dict
 # --- 常量 ---
 
 const _GF_ASYNC_RESULT_SUPPORT = preload("res://addons/gf/standard/common/gf_async_result_support.gd")
+const _GF_REPORT_VALUE_CODEC_SCRIPT = preload("res://addons/gf/kernel/core/gf_report_value_codec.gd")
 
 ## handler 已注册。
 ## [br]
@@ -157,6 +158,64 @@ var _invalid_count: int = 0
 
 
 # --- 公共方法 ---
+
+## 构建请求 handler 桥接契约条目。
+## [br]
+## 该方法只把请求类型和注册表快照转换为通用 bridge contract/adapters 条目，不生成最终验证报告。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+## [br]
+## @param required_request_types: 必需请求类型列表。
+## [br]
+## @param registry: 请求 handler 注册表。
+## [br]
+## @param options: 构建选项，支持 kind、signature 和 adapter_kind。
+## [br]
+## @schema options: Dictionary request-handler bridge entry options.
+## [br]
+## @return 请求 handler bridge 条目数据。
+## [br]
+## @schema return: Dictionary with contract_entries and adapter_entries arrays.
+static func make_bridge_contract_entries(
+	required_request_types: PackedStringArray,
+	registry: GFRequestHandlerRegistry,
+	options: Dictionary = {}
+) -> Dictionary:
+	var contract_entries: Array[Dictionary] = []
+	var adapter_entries: Array[Dictionary] = []
+	var contract_kind: StringName = GFVariantData.get_option_string_name(options, "kind", &"request_handler")
+	var signature: String = GFVariantData.get_option_string(options, "signature", "Dictionary(request) -> Variant")
+	for request_type_text: String in required_request_types:
+		var request_type: StringName = StringName(request_type_text.strip_edges())
+		if request_type == &"":
+			continue
+		contract_entries.append({
+			"contract_id": request_type,
+			"kind": contract_kind,
+			"signature": signature,
+			"allow_multiple": false,
+		})
+
+	if registry != null:
+		var adapter_kind: StringName = GFVariantData.get_option_string_name(options, "adapter_kind", &"request_handler")
+		for request_type: StringName in registry.get_handler_ids():
+			var snapshot: Dictionary = registry.get_handler_snapshot(request_type)
+			adapter_entries.append({
+				"adapter_id": StringName("handler:%s" % String(request_type)),
+				"contract_id": request_type,
+				"kind": adapter_kind,
+				"signature": signature,
+				"enabled": GFVariantData.get_option_bool(snapshot, "has_valid_handler"),
+				"metadata": snapshot,
+			})
+
+	return {
+		"contract_entries": contract_entries,
+		"adapter_entries": adapter_entries,
+	}
+
 
 ## 注册单处理器请求 handler。
 ## [br]
@@ -317,6 +376,29 @@ func try_invoke(request_type: StringName, payload: Variant = null, context: Dict
 	return _invoke_handler(request_type, payload, context, true)
 
 
+## 将请求调用结果转换为 JSON.stringify() 安全的诊断报告。
+## [br]
+## 功能型 invoke()/try_invoke() 返回值保持原始 Variant；日志、快照和跨进程诊断应使用该方法输出。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+## [br]
+## @param result: invoke()/try_invoke() 返回的调用结果。
+## [br]
+## @param options: 编码选项，透传给 GFReportValueCodec。
+## [br]
+## @schema result: Dictionary raw request invocation result.
+## [br]
+## @schema options: Dictionary report value codec options.
+## [br]
+## @return JSON-safe 调用结果。
+## [br]
+## @schema return: Dictionary safe for JSON.stringify().
+static func to_json_compatible_result(result: Dictionary, options: Dictionary = {}) -> Dictionary:
+	return GFVariantData.as_dictionary(_GF_REPORT_VALUE_CODEC_SCRIPT.to_json_compatible(result, options))
+
+
 ## 判断请求类型是否已注册 handler。
 ## [br]
 ## @api public
@@ -381,6 +463,31 @@ func get_recent_events() -> Array[Dictionary]:
 	return result
 
 
+## 获取 JSON.stringify() 安全的最近注册/调用事件。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+## [br]
+## @param options: 编码选项，透传给 GFReportValueCodec。
+## [br]
+## @return JSON-safe 最近事件数组。
+## [br]
+## @schema options: Dictionary report value codec options.
+## [br]
+## @schema return: Array[Dictionary]，每个元素均可安全传给 JSON.stringify()。
+func get_json_compatible_recent_events(options: Dictionary = {}) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	var raw_events: Variant = _GF_REPORT_VALUE_CODEC_SCRIPT.to_json_compatible(get_recent_events(), options)
+	if raw_events is Array:
+		var events: Array = raw_events
+		for event_value: Variant in events:
+			if event_value is Dictionary:
+				var event: Dictionary = event_value
+				result.append(event.duplicate(true))
+	return result
+
+
 ## 清空全部 handler 和历史事件。
 ## [br]
 ## @api public
@@ -424,6 +531,25 @@ func get_debug_snapshot() -> Dictionary:
 		"handlers": handlers,
 		"recent_events": get_recent_events(),
 	}
+
+
+## 获取 JSON.stringify() 安全的注册表调试快照。
+## [br]
+## 功能型 get_debug_snapshot() 保留原始 Variant；日志、导出和跨进程诊断应使用该方法。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+## [br]
+## @param options: 编码选项，透传给 GFReportValueCodec。
+## [br]
+## @return JSON-safe 注册表状态快照。
+## [br]
+## @schema options: Dictionary report value codec options.
+## [br]
+## @schema return: Dictionary safe for JSON.stringify().
+func get_json_compatible_debug_snapshot(options: Dictionary = {}) -> Dictionary:
+	return GFVariantData.as_dictionary(_GF_REPORT_VALUE_CODEC_SCRIPT.to_json_compatible(get_debug_snapshot(), options))
 
 
 # --- 私有/辅助方法 ---

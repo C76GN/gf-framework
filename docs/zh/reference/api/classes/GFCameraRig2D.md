@@ -27,9 +27,13 @@
 | 属性 | [`zoom`](#member-gfcamerarig2d-properties-zoom) | `var zoom: Vector2 = Vector2.ONE` |
 | 属性 | [`blend`](#member-gfcamerarig2d-properties-blend) | `var blend: GFCameraBlend = null` |
 | 属性 | [`group_name`](#member-gfcamerarig2d-properties-group_name) | `var group_name: StringName = &"gf_camera_rig_2d":` |
+| 属性 | [`camera_scope_path`](#member-gfcamerarig2d-properties-camera_scope_path) | `var camera_scope_path: NodePath = NodePath("")` |
+| 属性 | [`camera_channel`](#member-gfcamerarig2d-properties-camera_channel) | `var camera_channel: StringName = &""` |
 | 属性 | [`metadata`](#member-gfcamerarig2d-properties-metadata) | `var metadata: Dictionary = {}` |
 | 方法 | [`get_target_node`](#member-gfcamerarig2d-methods-get_target_node) | `func get_target_node() -> Node2D:` |
 | 方法 | [`get_camera_pose`](#member-gfcamerarig2d-methods-get_camera_pose) | `func get_camera_pose() -> Dictionary:` |
+| 方法 | [`get_camera_pose_data`](#member-gfcamerarig2d-methods-get_camera_pose_data) | `func get_camera_pose_data() -> Dictionary:` |
+| 方法 | [`get_camera_scope_node`](#member-gfcamerarig2d-methods-get_camera_scope_node) | `func get_camera_scope_node() -> Node:` |
 | 方法 | [`is_available`](#member-gfcamerarig2d-methods-is_available) | `func is_available() -> bool:` |
 
 ## 信号
@@ -193,6 +197,32 @@ var group_name: StringName = &"gf_camera_rig_2d":
 
 自动加入的分组名。Director 可按该分组收集候选。
 
+<a id="member-gfcamerarig2d-properties-camera_scope_path"></a>
+
+### `camera_scope_path`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+var camera_scope_path: NodePath = NodePath("")
+```
+
+相机选择作用域。为空时使用 Rig 父节点；Director 只会从相同作用域收集分组 Rig。
+
+<a id="member-gfcamerarig2d-properties-camera_channel"></a>
+
+### `camera_channel`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+var camera_channel: StringName = &""
+```
+
+相机选择频道。为空表示默认频道；Director 配置非空频道时只收集同频道 Rig。
+
 <a id="member-gfcamerarig2d-properties-metadata"></a>
 
 ### `metadata`
@@ -242,6 +272,40 @@ func get_camera_pose() -> Dictionary:
 结构：
 
 - `return`: Dictionary，包含 position: Vector2、rotation: float、zoom: Vector2 与 rig: GFCameraRig2D。
+
+<a id="member-gfcamerarig2d-methods-get_camera_pose_data"></a>
+
+### `get_camera_pose_data`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func get_camera_pose_data() -> Dictionary:
+```
+
+获取 JSON-safe 的当前期望相机姿态数据。
+
+返回：不包含 Object 引用的姿态数据。
+
+结构：
+
+- `return`: Dictionary，包含 position、rotation、zoom、rig_path 和 rig_instance_id；Vector2 字段使用 GFVariantJsonCodec typed marker。
+
+<a id="member-gfcamerarig2d-methods-get_camera_scope_node"></a>
+
+### `get_camera_scope_node`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func get_camera_scope_node() -> Node:
+```
+
+获取相机选择作用域节点。
+
+返回：作用域节点；显式路径为空时返回父节点。
 
 <a id="member-gfcamerarig2d-methods-is_available"></a>
 

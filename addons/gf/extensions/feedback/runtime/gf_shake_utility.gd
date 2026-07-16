@@ -18,6 +18,8 @@ extends GFUtility
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param shake_id: 播放实例 ID。
 ## [br]
 ## @param channel: 反馈 channel。
@@ -27,6 +29,8 @@ signal shake_started(shake_id: int, channel: StringName)
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param shake_id: 播放实例 ID。
 ## [br]
 ## @param channel: 反馈 channel。
@@ -35,6 +39,8 @@ signal shake_finished(shake_id: int, channel: StringName)
 ## 反馈播放被停止时发出。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @param shake_id: 播放实例 ID。
 ## [br]
@@ -47,6 +53,8 @@ signal shake_stopped(shake_id: int, channel: StringName)
 ## 活跃反馈达到上限时的处理方式。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 enum OverflowPolicy {
 	## 跳过新的播放请求。
 	SKIP_NEW,
@@ -60,21 +68,29 @@ enum OverflowPolicy {
 ## 默认 channel。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 var default_channel: StringName = &"default"
 
 ## 最大活跃反馈数量；小于等于 0 表示不限制。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 var max_active_shakes: int = 64
 
 ## 达到上限时的处理方式。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 var overflow_policy: OverflowPolicy = OverflowPolicy.STOP_OLDEST
 
 ## 是否为每次播放随机化相位。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 var randomize_phase: bool = true
 
 
@@ -91,6 +107,8 @@ var _rng: RandomNumberGenerator = RandomNumberGenerator.new()
 ## 初始化反馈运行时状态和随机源。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 func init() -> void:
 	clear()
 	_rng.randomize()
@@ -99,6 +117,8 @@ func init() -> void:
 ## 释放全部反馈播放状态。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 func dispose() -> void:
 	clear()
 
@@ -107,10 +127,13 @@ func dispose() -> void:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param delta: 本帧时间增量。
 func tick(delta: float) -> void:
 	if _active_shakes.is_empty():
 		return
+	var safe_delta: float = maxf(delta, 0.0) if is_finite(delta) else 0.0
 
 	var finished_ids: PackedInt32Array = PackedInt32Array()
 	for shake_id: int in _active_shakes.keys():
@@ -119,14 +142,16 @@ func tick(delta: float) -> void:
 			var _invalid_state_id_appended: bool = finished_ids.append(shake_id)
 			continue
 		var previous_elapsed: float = _get_state_float(state, "elapsed_seconds", 0.0)
-		var next_elapsed: float = previous_elapsed + maxf(delta, 0.0)
+		var next_elapsed: float = previous_elapsed + safe_delta
+		if not is_finite(next_elapsed):
+			next_elapsed = previous_elapsed
 		var preset: GFShakePreset = _get_state_preset(state)
 		if preset == null:
 			var _finished_id_appended: bool = finished_ids.append(shake_id)
 			continue
 		var duration: float = preset.get_duration_seconds()
 		if next_elapsed >= duration:
-			if previous_elapsed <= 0.0 and delta > 0.0:
+			if previous_elapsed <= 0.0 and safe_delta > 0.0:
 				state["elapsed_seconds"] = duration * 0.25
 				continue
 			var _finished_id_appended: bool = finished_ids.append(shake_id)
@@ -143,6 +168,8 @@ func tick(delta: float) -> void:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param channel: 反馈 channel；为空时使用 default_channel。
 ## [br]
 ## @param preset: 反馈预设。
@@ -151,9 +178,9 @@ func tick(delta: float) -> void:
 ## [br]
 ## @param metadata: 项目自定义元数据。
 ## [br]
-## @schema metadata: Dictionary，播放实例自定义元数据，会在 get_shake_info() 快照中复制返回。
+## @schema metadata: Dictionary，播放实例自定义元数据，会在 get_shake_info() JSON-safe 快照中复制返回。
 ## [br]
-## @return 播放实例 ID；无法播放时返回 -1。
+## @return: 播放实例 ID；无法播放时返回 -1。
 func play_shake(
 	channel: StringName,
 	preset: GFShakePreset,
@@ -172,7 +199,7 @@ func play_shake(
 		"id": shake_id,
 		"channel": effective_channel,
 		"preset": preset,
-		"strength": maxf(strength, 0.0),
+		"strength": maxf(strength, 0.0) if is_finite(strength) else 0.0,
 		"elapsed_seconds": 0.0,
 		"phase_offset": _rng.randf() if randomize_phase else 0.0,
 		"metadata": metadata.duplicate(true),
@@ -186,11 +213,13 @@ func play_shake(
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param shake_id: 播放实例 ID。
 ## [br]
 ## @param emit_stopped: 是否发出停止信号。
 ## [br]
-## @return 成功停止返回 true。
+## @return: 成功停止返回 true。
 func stop_shake(shake_id: int, emit_stopped: bool = true) -> bool:
 	if not _active_shakes.has(shake_id):
 		return false
@@ -210,9 +239,11 @@ func stop_shake(shake_id: int, emit_stopped: bool = true) -> bool:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param channel: 反馈 channel；为空时使用 default_channel。
 ## [br]
-## @return 停止数量。
+## @return: 停止数量。
 func stop_channel(channel: StringName) -> int:
 	var effective_channel: StringName = _resolve_channel(channel)
 	var stopped_count: int = 0
@@ -227,6 +258,8 @@ func stop_channel(channel: StringName) -> int:
 ## 清空全部反馈实例。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 func clear() -> void:
 	_active_shakes.clear()
 	_play_order = PackedInt32Array()
@@ -236,9 +269,11 @@ func clear() -> void:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param shake_id: 播放实例 ID。
 ## [br]
-## @return 正在播放返回 true。
+## @return: 正在播放返回 true。
 func is_shake_active(shake_id: int) -> bool:
 	return _active_shakes.has(shake_id)
 
@@ -247,9 +282,11 @@ func is_shake_active(shake_id: int) -> bool:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param channel: 可选 channel；为空时统计全部。
 ## [br]
-## @return 活跃反馈数量。
+## @return: 活跃反馈数量。
 func get_active_shake_count(channel: StringName = &"") -> int:
 	if channel == &"":
 		return _active_shakes.size()
@@ -266,9 +303,11 @@ func get_active_shake_count(channel: StringName = &"") -> int:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param channel: 反馈 channel；为空时使用 default_channel。
 ## [br]
-## @return 合成采样结果。
+## @return: 合成采样结果。
 ## [br]
 ## @schema return: Dictionary，包含 position: Vector3、rotation_degrees: Vector3、scale: Vector3、intensity: float 与 progress: float。
 func sample_channel(channel: StringName = &"") -> Dictionary:
@@ -293,9 +332,11 @@ func sample_channel(channel: StringName = &"") -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param channels: 反馈 channel 列表。
 ## [br]
-## @return 合成采样结果。
+## @return: 合成采样结果。
 ## [br]
 ## @schema return: Dictionary，包含 position: Vector3、rotation_degrees: Vector3、scale: Vector3、intensity: float 与 progress: float。
 func sample_channels(channels: PackedStringArray) -> Dictionary:
@@ -309,33 +350,37 @@ func sample_channels(channels: PackedStringArray) -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param shake_id: 播放实例 ID。
 ## [br]
-## @return 播放实例快照。
+## @return: 播放实例快照。
 ## [br]
-## @schema return: Dictionary，包含 id、channel、elapsed_seconds、duration_seconds、strength 与 metadata；实例不存在时为空。
+## @schema return: JSON-safe Dictionary，包含 id、channel、elapsed_seconds、duration_seconds、strength 与 metadata；实例不存在时为空。
 func get_shake_info(shake_id: int) -> Dictionary:
 	var state: Dictionary = _get_shake_state(shake_id)
 	if state.is_empty():
 		return {}
 	var preset: GFShakePreset = _get_state_preset(state)
-	return {
+	return _to_report_dictionary({
 		"id": shake_id,
 		"channel": _get_state_channel(state),
 		"elapsed_seconds": _get_state_float(state, "elapsed_seconds", 0.0),
 		"duration_seconds": preset.get_duration_seconds() if preset != null else 0.0,
 		"strength": _get_state_float(state, "strength", 1.0),
 		"metadata": _get_state_metadata_copy(state),
-	}
+	})
 
 
 ## 获取反馈系统调试快照。
 ## [br]
 ## @api public
 ## [br]
-## @return 调试快照。
+## @since 3.17.0
 ## [br]
-## @schema return: Dictionary，包含 active_count、max_active_shakes、channels 与 play_order。
+## @return: 调试快照。
+## [br]
+## @schema return: JSON-safe Dictionary，包含 active_count、max_active_shakes、channels 与 play_order。
 func get_debug_snapshot() -> Dictionary:
 	var channels: Dictionary = {}
 	for state_variant: Variant in _active_shakes.values():
@@ -344,12 +389,12 @@ func get_debug_snapshot() -> Dictionary:
 			continue
 		var channel: String = String(_get_state_channel(state))
 		channels[channel] = _get_channel_count(channels, channel) + 1
-	return {
+	return _to_report_dictionary({
 		"active_count": _active_shakes.size(),
 		"max_active_shakes": max_active_shakes,
 		"channels": channels,
 		"play_order": _play_order,
-	}
+	})
 
 
 # --- 私有/辅助方法 ---
@@ -408,11 +453,18 @@ func _get_state_channel(state: Dictionary) -> StringName:
 
 
 func _get_state_float(state: Dictionary, key: String, default_value: float) -> float:
-	return GFVariantData.get_option_float(state, key, default_value)
+	var value: float = GFVariantData.get_option_float(state, key, default_value)
+	return value if is_finite(value) else default_value
 
 
 func _get_state_metadata_copy(state: Dictionary) -> Dictionary:
 	return GFVariantData.get_option_dictionary(state, "metadata")
+
+
+func _to_report_dictionary(value: Dictionary) -> Dictionary:
+	return GFReportValueCodec.to_report_dictionary(value, {
+		"path_redaction": "basename",
+	})
 
 
 func _get_channel_count(channels: Dictionary, channel: String) -> int:

@@ -6,8 +6,8 @@
 
 | 类别 | 类 | 成员 | 方法 |
 |---|---:|---:|---:|
-| [运行时服务](#category-runtime_service) | 3 | 39 | 32 |
-| [资源定义](#category-resource_definition) | 1 | 27 | 11 |
+| [运行时服务](#category-runtime_service) | 3 | 41 | 34 |
+| [资源定义](#category-resource_definition) | 1 | 28 | 12 |
 
 ## 类
 

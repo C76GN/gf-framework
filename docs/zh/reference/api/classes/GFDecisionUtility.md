@@ -25,6 +25,7 @@
 | 方法 | [`get_decision_set_ids`](#member-gfdecisionutility-methods-get_decision_set_ids) | `func get_decision_set_ids() -> PackedStringArray:` |
 | 方法 | [`clear_decision_sets`](#member-gfdecisionutility-methods-clear_decision_sets) | `func clear_decision_sets() -> void:` |
 | 方法 | [`score_all`](#member-gfdecisionutility-methods-score_all) | `func score_all(decision_set_id: StringName, context: GFDecisionContext) -> Array[GFDecisionScore]:` |
+| 方法 | [`evaluate`](#member-gfdecisionutility-methods-evaluate) | `func evaluate(decision_set_id: StringName, context: GFDecisionContext) -> GFDecisionEvaluation:` |
 | 方法 | [`select_best`](#member-gfdecisionutility-methods-select_best) | `func select_best(decision_set_id: StringName, context: GFDecisionContext) -> GFDecisionScore:` |
 | 方法 | [`get_debug_snapshot`](#member-gfdecisionutility-methods-get_debug_snapshot) | `func get_debug_snapshot() -> Dictionary:` |
 
@@ -228,6 +229,28 @@ func score_all(decision_set_id: StringName, context: GFDecisionContext) -> Array
 结构：
 
 - `return`: Array[GFDecisionScore]，每个候选的评分结果；集合不存在时为空数组。
+
+<a id="member-gfdecisionutility-methods-evaluate"></a>
+
+### `evaluate`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func evaluate(decision_set_id: StringName, context: GFDecisionContext) -> GFDecisionEvaluation:
+```
+
+一次性评价指定决策集合。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `decision_set_id` | 决策集合标识。 |
+| `context` | 决策上下文。 |
+
+返回：决策评价结果；集合不存在时返回空评价和 rejected best_score。
 
 <a id="member-gfdecisionutility-methods-select_best"></a>
 

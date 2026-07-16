@@ -12,6 +12,6 @@
   "paths": [
     "addons/gf/extensions/capability/**"
   ],
-  "enable_extension": "gf.capability",
+  "gf_extension_id": "gf.capability",
   "metadata": {}
 }

@@ -4,6 +4,7 @@ extends GutTest
 # --- 常量 ---
 
 const GF_PACKAGE_MANAGER_DOCK = preload("res://addons/gf/kernel/editor/package/gf_package_manager_dock.gd")
+const GF_EDITOR_BACKGROUND_REQUEST_TASK = preload("res://addons/gf/kernel/editor/gf_editor_background_request_task.gd")
 const GF_VARIANT_ACCESS = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
 
 
@@ -32,6 +33,58 @@ func test_uses_default_source_for_empty_registry() -> void:
 	assert_true(install_button.disabled, "没有选中包时安装按钮应禁用。")
 	assert_true(uninstall_button.disabled, "没有选中包时卸载按钮应禁用。")
 
+	dock.free()
+
+
+func test_background_request_task_waits_and_returns_worker_result_with_fake_thread() -> void:
+	var worker: FakePackageWorker = FakePackageWorker.new()
+	var thread: FakeBackgroundThread = FakeBackgroundThread.new()
+	var task: GFEditorBackgroundRequestTask = _make_background_task(worker, thread, {
+		"operation": "status",
+	})
+
+	assert_eq(task.start(), OK, "后台任务应能启动注入的 thread。")
+	var result_value: Variant = task.wait_to_finish()
+	var result: Dictionary = GF_VARIANT_ACCESS.as_dictionary(result_value)
+
+	assert_true(thread.start_called, "任务启动应委托给 thread handle。")
+	assert_true(thread.wait_called, "任务 wait 应委托给 thread handle。")
+	assert_eq(worker.run_request_count, 1, "thread wait 时应执行绑定的 worker 请求。")
+	assert_eq(GF_VARIANT_ACCESS.get_option_string(worker.last_request, "operation"), "status", "任务应向 worker 传递请求副本。")
+	assert_true(GF_VARIANT_ACCESS.get_option_bool(result, "ok"), "任务应归属 worker 返回结果。")
+	assert_true(task.is_finished(), "wait 后任务应进入完成状态。")
+
+
+func test_background_request_task_cancel_delegates_to_worker() -> void:
+	var worker: FakePackageWorker = FakePackageWorker.new()
+	var thread: FakeBackgroundThread = FakeBackgroundThread.new()
+	var task: GFEditorBackgroundRequestTask = _make_background_task(worker, thread, {
+		"operation": "install",
+	})
+
+	assert_eq(task.start(), OK, "后台任务应能启动。")
+	task.request_cancel()
+
+	assert_true(task.is_cancel_requested(), "任务应记录取消请求。")
+	assert_eq(worker.cancel_count, 1, "任务取消应委托给 worker。")
+
+
+func test_package_manager_dock_waits_for_active_background_task_handle() -> void:
+	var dock: VBoxContainer = _new_vbox_container(GF_PACKAGE_MANAGER_DOCK)
+	var worker: FakePackageWorker = FakePackageWorker.new()
+	var thread: FakeBackgroundThread = FakeBackgroundThread.new()
+	var task: GFEditorBackgroundRequestTask = _make_background_task(worker, thread, {
+		"operation": "status",
+	})
+
+	assert_eq(task.start(), OK, "测试任务应先进入已启动状态。")
+	dock.set(&"_active_background_task", task)
+	_call_void(dock, &"_wait_for_active_background_task")
+	var active_task_after_wait: Variant = dock.get(&"_active_background_task")
+
+	assert_eq(worker.cancel_count, 1, "Dock 退出等待前应先请求取消 active task。")
+	assert_true(thread.wait_called, "Dock 应等待 active task 完成并归属结果。")
+	assert_true(active_task_after_wait == null, "Dock 等待完成后应清空 active task 引用。")
 	dock.free()
 
 
@@ -461,6 +514,21 @@ func _make_package_manager_entry(package_id: String, kind: String) -> Dictionary
 	}
 
 
+func _make_background_task(
+	worker: RefCounted,
+	thread: Object,
+	request: Dictionary
+) -> GFEditorBackgroundRequestTask:
+	var task_value: Variant = GF_EDITOR_BACKGROUND_REQUEST_TASK.new()
+	assert_true(task_value is GFEditorBackgroundRequestTask, "测试 helper 应能创建后台任务句柄。")
+	if task_value is GFEditorBackgroundRequestTask:
+		var task: GFEditorBackgroundRequestTask = task_value
+		return task.configure(worker, request, {
+			"thread": thread,
+		})
+	return null
+
+
 func _get_button(target: Object, property_name: StringName) -> Button:
 	return _as_button(target.get(property_name))
 
@@ -515,3 +583,58 @@ func _as_progress_bar(value: Variant) -> ProgressBar:
 		var progress_bar: ProgressBar = value
 		return progress_bar
 	return null
+
+
+# --- 内部类 ---
+
+class FakePackageWorker extends RefCounted:
+	var cancel_count: int = 0
+	var run_request_count: int = 0
+	var last_request: Dictionary = {}
+	var result: Dictionary = {
+		"ok": true,
+		"operation": "status",
+		"backend": "fake",
+	}
+
+
+	func run_request(request: Dictionary) -> Dictionary:
+		run_request_count += 1
+		last_request = request.duplicate(true)
+		return result.duplicate(true)
+
+
+	func cancel() -> void:
+		cancel_count += 1
+
+
+class FakeBackgroundThread extends RefCounted:
+	var start_called: bool = false
+	var wait_called: bool = false
+	var started: bool = false
+	var alive: bool = false
+	var start_error: Error = OK
+	var call_worker_on_wait: bool = true
+	var received_callable: Callable = Callable()
+	var result_value: Variant = null
+
+
+	func start(work_callable: Callable) -> Error:
+		start_called = true
+		received_callable = work_callable
+		if start_error != OK:
+			return start_error
+		started = true
+		return OK
+
+
+	func is_alive() -> bool:
+		return alive
+
+
+	func wait_to_finish() -> Variant:
+		wait_called = true
+		alive = false
+		if call_worker_on_wait and received_callable.is_valid():
+			result_value = received_callable.call()
+		return result_value

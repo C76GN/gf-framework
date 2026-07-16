@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFBehaviorTree" path="addons/gf/extensions/behavior_tree/runtime/gf_behavior_tree.gd" module="extensions/behavior_tree" extends="Object" classDigest="622ac6438ae3ab0ab3c370cd289e205d110cdf1b4023e7a69e27c274f80cdaab">
+<class name="GFBehaviorTree" path="addons/gf/extensions/behavior_tree/runtime/gf_behavior_tree.gd" module="extensions/behavior_tree" extends="Object" classDigest="191eaf617b955e2f3271a5113355d4ce02987a739782ddbe62cdb7f9c5f316a8">
 	<description>GFBehaviorTree: 轻量级、纯代码的行为树实现。
 提供无需编辑器的、以代码方式构建 AI 或通用决策逻辑的轻量方案。
 可以在任何 System 中通过 Runner 来驱动 tick()。核心节点包含
@@ -249,11 +249,12 @@ Sequence、Selector、Parallel、Action、Condition 以及常用装饰节点。<
 				<member kind="method" name="duplicate_runtime">
 					<signature>func duplicate_runtime() -&gt; BTNode:</signature>
 					<description>创建一份可独立运行的节点副本，不复制调试计数和正在运行的内部状态。
-自定义节点若持有运行态，应重写此方法并复制自身类型；默认返回自身，
-以避免未知子类被错误降级为基础 BTNode。</description>
+自定义节点必须重写此方法并复制自身类型；默认实现会返回一个失败节点，
+避免 Runner 在默认复制模式下静默共享未知节点运行态。</description>
 					<tags>
 						<tag name="api">public</tag>
 						<tag name="return">运行时副本。</tag>
+						<tag name="since">3.8.0</tag>
 					</tags>
 				</member>
 				<member kind="method" name="clear_debug_state">
@@ -281,7 +282,8 @@ Sequence、Selector、Parallel、Action、Condition 以及常用装饰节点。<
 					<tags>
 						<tag name="api">public</tag>
 						<tag name="return">调试快照字典。</tag>
-						<tag name="schema">return: 包含 node_id、name、status、status_text、reason、tick_count、last_tick_usec、child_count、children 和 metadata 字段的 Dictionary；children 为子节点快照数组。</tag>
+						<tag name="schema">return: 包含 node_id、name、status、status_text、reason、tick_count、last_tick_usec、child_count、children 和 metadata 字段的 Dictionary；children 为子节点快照数组；metadata 为 JSON-safe 投影。</tag>
+						<tag name="since">3.6.0</tag>
 					</tags>
 				</member>
 			</methods>
@@ -307,10 +309,11 @@ Sequence、Selector、Parallel、Action、Condition 以及常用装饰节点。<
 					</tags>
 				</member>
 				<member kind="property" name="parent">
-					<signature>var parent: BlackboardScope = null</signature>
+					<signature>var parent: BlackboardScope:</signature>
 					<description>可选父级作用域。</description>
 					<tags>
 						<tag name="api">public</tag>
+						<tag name="since">3.6.0</tag>
 					</tags>
 				</member>
 			</properties>
@@ -323,6 +326,16 @@ Sequence、Selector、Parallel、Action、Condition 以及常用装饰节点。<
 						<tag name="param">key: 值标识。</tag>
 						<tag name="param">value: 值。</tag>
 						<tag name="schema">value: 任意可存入黑板的项目值。</tag>
+					</tags>
+				</member>
+				<member kind="method" name="set_parent">
+					<signature>func set_parent(parent_scope: BlackboardScope) -&gt; bool:</signature>
+					<description>设置父级作用域。</description>
+					<tags>
+						<tag name="api">public</tag>
+						<tag name="param">parent_scope: 新父级作用域；传入 null 表示清空父级。</tag>
+						<tag name="return">设置成功返回 true；会形成循环时返回 false。</tag>
+						<tag name="since">8.0.0</tag>
 					</tags>
 				</member>
 				<member kind="method" name="get_value">
@@ -403,10 +416,19 @@ Sequence、Selector、Parallel、Action、Condition 以及常用装饰节点。<
 			<constants />
 			<properties>
 				<member kind="property" name="cooldown_seconds">
-					<signature>var cooldown_seconds: float = 0.0</signature>
+					<signature>var cooldown_seconds: float:</signature>
 					<description>冷却秒数。</description>
 					<tags>
 						<tag name="api">public</tag>
+						<tag name="since">3.17.0</tag>
+					</tags>
+				</member>
+				<member kind="property" name="clock_msec">
+					<signature>var clock_msec: Callable = Callable()</signature>
+					<description>可选单调毫秒时钟；为空时使用 Time.get_ticks_msec()。</description>
+					<tags>
+						<tag name="api">public</tag>
+						<tag name="since">8.0.0</tag>
 					</tags>
 				</member>
 			</properties>
@@ -418,7 +440,8 @@ Sequence、Selector、Parallel、Action、Condition 以及常用装饰节点。<
 						<tag name="api">public</tag>
 						<tag name="param">blackboard: 行为树本次 tick 使用的黑板数据。</tag>
 						<tag name="return">返回 Status 枚举。</tag>
-						<tag name="schema">blackboard: Dictionary 形式黑板；可提供 time_msec: int，其余字段由项目自定义。</tag>
+						<tag name="schema">blackboard: Dictionary 形式黑板；字段由项目自定义。</tag>
+						<tag name="since">3.17.0</tag>
 					</tags>
 				</member>
 				<member kind="method" name="reset">
@@ -966,10 +989,19 @@ Sequence、Selector、Parallel、Action、Condition 以及常用装饰节点。<
 			<constants />
 			<properties>
 				<member kind="property" name="limit_seconds">
-					<signature>var limit_seconds: float = 1.0</signature>
+					<signature>var limit_seconds: float:</signature>
 					<description>最大运行秒数。</description>
 					<tags>
 						<tag name="api">public</tag>
+						<tag name="since">3.17.0</tag>
+					</tags>
+				</member>
+				<member kind="property" name="clock_msec">
+					<signature>var clock_msec: Callable = Callable()</signature>
+					<description>可选单调毫秒时钟；为空时使用 Time.get_ticks_msec()。</description>
+					<tags>
+						<tag name="api">public</tag>
+						<tag name="since">8.0.0</tag>
 					</tags>
 				</member>
 			</properties>
@@ -981,7 +1013,8 @@ Sequence、Selector、Parallel、Action、Condition 以及常用装饰节点。<
 						<tag name="api">public</tag>
 						<tag name="param">blackboard: 行为树本次 tick 使用的黑板数据。</tag>
 						<tag name="return">返回 Status 枚举。</tag>
-						<tag name="schema">blackboard: Dictionary 形式黑板；可提供 time_msec: int，其余字段由项目自定义。</tag>
+						<tag name="schema">blackboard: Dictionary 形式黑板；字段由项目自定义。</tag>
+						<tag name="since">3.17.0</tag>
 					</tags>
 				</member>
 				<member kind="method" name="reset">

@@ -31,6 +31,12 @@
 | 方法 | [`set_manual_delta_seconds`](#member-gfinputvirtualcursormodifier-methods-set_manual_delta_seconds) | `func set_manual_delta_seconds(delta_seconds: float) -> GFInputVirtualCursorModifier:` |
 | 方法 | [`get_runtime_state`](#member-gfinputvirtualcursormodifier-methods-get_runtime_state) | `func get_runtime_state() -> Dictionary:` |
 | 方法 | [`restore_runtime_state`](#member-gfinputvirtualcursormodifier-methods-restore_runtime_state) | `func restore_runtime_state(state: Dictionary) -> GFInputVirtualCursorModifier:` |
+| 方法 | [`supports_runtime_state`](#member-gfinputvirtualcursormodifier-methods-supports_runtime_state) | `func supports_runtime_state() -> bool:` |
+| 方法 | [`get_modifier_runtime_state`](#member-gfinputvirtualcursormodifier-methods-get_modifier_runtime_state) | `func get_modifier_runtime_state() -> Dictionary:` |
+| 方法 | [`restore_modifier_runtime_state`](#member-gfinputvirtualcursormodifier-methods-restore_modifier_runtime_state) | `func restore_modifier_runtime_state(state: Dictionary) -> GFInputModifier:` |
+| 方法 | [`reset_modifier_runtime_state`](#member-gfinputvirtualcursormodifier-methods-reset_modifier_runtime_state) | `func reset_modifier_runtime_state() -> GFInputModifier:` |
+| 方法 | [`set_runtime_delta_seconds`](#member-gfinputvirtualcursormodifier-methods-set_runtime_delta_seconds) | `func set_runtime_delta_seconds(delta_seconds: float) -> GFInputModifier:` |
+| 方法 | [`clear_runtime_delta_seconds`](#member-gfinputvirtualcursormodifier-methods-clear_runtime_delta_seconds) | `func clear_runtime_delta_seconds() -> GFInputModifier:` |
 | 方法 | [`duplicate_modifier`](#member-gfinputvirtualcursormodifier-methods-duplicate_modifier) | `func duplicate_modifier() -> GFInputModifier:` |
 
 ## 属性
@@ -281,6 +287,116 @@ func restore_runtime_state(state: Dictionary) -> GFInputVirtualCursorModifier:
 结构：
 
 - `state`: Dictionary，可包含 position: Vector2 与 initialized: bool。
+
+<a id="member-gfinputvirtualcursormodifier-methods-supports_runtime_state"></a>
+
+### `supports_runtime_state`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func supports_runtime_state() -> bool:
+```
+
+当前修饰器是否维护运行时状态。
+
+返回：始终返回 true。
+
+<a id="member-gfinputvirtualcursormodifier-methods-get_modifier_runtime_state"></a>
+
+### `get_modifier_runtime_state`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func get_modifier_runtime_state() -> Dictionary:
+```
+
+获取运行时状态快照。
+
+返回：当前运行时状态。
+
+结构：
+
+- `return`: Dictionary，包含 position 与 initialized。
+
+<a id="member-gfinputvirtualcursormodifier-methods-restore_modifier_runtime_state"></a>
+
+### `restore_modifier_runtime_state`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func restore_modifier_runtime_state(state: Dictionary) -> GFInputModifier:
+```
+
+从运行时状态快照恢复虚拟光标。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `state` | get_modifier_runtime_state() 生成的状态。 |
+
+返回：当前修饰器。
+
+结构：
+
+- `state`: Dictionary，可包含 position: Vector2 与 initialized: bool。
+
+<a id="member-gfinputvirtualcursormodifier-methods-reset_modifier_runtime_state"></a>
+
+### `reset_modifier_runtime_state`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func reset_modifier_runtime_state() -> GFInputModifier:
+```
+
+重置运行时状态。
+
+返回：当前修饰器。
+
+<a id="member-gfinputvirtualcursormodifier-methods-set_runtime_delta_seconds"></a>
+
+### `set_runtime_delta_seconds`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func set_runtime_delta_seconds(delta_seconds: float) -> GFInputModifier:
+```
+
+设置下一步和后续步骤使用的运行时 delta 秒数。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `delta_seconds` | 运行时 delta 秒数；小于 0 时按 0 处理。 |
+
+返回：当前修饰器。
+
+<a id="member-gfinputvirtualcursormodifier-methods-clear_runtime_delta_seconds"></a>
+
+### `clear_runtime_delta_seconds`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func clear_runtime_delta_seconds() -> GFInputModifier:
+```
+
+清除手动运行时 delta，恢复系统时间源。
+
+返回：当前修饰器。
 
 <a id="member-gfinputvirtualcursormodifier-methods-duplicate_modifier"></a>
 

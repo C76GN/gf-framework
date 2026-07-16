@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFRemoteCacheUtility" path="addons/gf/standard/utilities/io/gf_remote_cache_utility.gd" module="standard" extends="GFUtility" classDigest="588b83749e0a92f882d5d06b71512901313e53154d8a2126aa805ace62fe3567">
+<class name="GFRemoteCacheUtility" path="addons/gf/standard/utilities/io/gf_remote_cache_utility.gd" module="standard" extends="GFUtility" classDigest="7dbecf4feaf32644e8905ed67f16c26f480c8b39adb140a44136622cb01d9408">
 	<description>GFRemoteCacheUtility: 通用远程文本与 JSON 缓存工具。
 提供 URL 请求、本地 TTL 缓存、失败时陈旧缓存回退和队列化 HTTP 访问。
 具体内容类型、字段结构和业务策略由项目层自行决定。</description>
@@ -67,6 +67,14 @@
 			<description>最大等待队列长度。小于等于 0 表示不限制。</description>
 			<tags>
 				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="property" name="max_response_bytes">
+			<signature>var max_response_bytes: int = _DEFAULT_MAX_RESPONSE_BYTES:</signature>
+			<description>单个远程响应及缓存条目的最大 UTF-8 字节数。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="cache_key_builder">
@@ -182,7 +190,8 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">诊断快照字典。</tag>
-				<tag name="schema">return: Dictionary，包含缓存设置、pending_count、active_url、active_cache_key 和 has_active_request。</tag>
+				<tag name="schema">return: Dictionary，包含缓存设置、响应预算、pending_count、active_url、active_cache_key 和 has_active_request。</tag>
+				<tag name="since">3.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="_start_http_request">

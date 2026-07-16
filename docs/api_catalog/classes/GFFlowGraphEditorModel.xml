@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFFlowGraphEditorModel" path="addons/gf/extensions/flow/editor/gf_flow_graph_editor_model.gd" module="extensions/flow" extends="RefCounted" classDigest="37521a36e9cead98f897037bc67f732c790a8fb74ee69af4ff2de5d691a16684">
+<class name="GFFlowGraphEditorModel" path="addons/gf/extensions/flow/editor/gf_flow_graph_editor_model.gd" module="extensions/flow" extends="RefCounted" classDigest="87c568a31f3847bbebc9e0c8e7badaccb56fe3c0abcd4fe9b8fbb8e5b27be274">
 	<description>GFFlowGraphEditorModel: FlowGraph 编辑器视图模型构建器。
 将 GFFlowGraph 转换为 GraphEdit、自定义编辑器或项目工具可直接消费的
 节点、端口、连接和校验结构。它只整理数据，不绑定具体 UI 实现。</description>
@@ -17,6 +17,7 @@
 			<description>节点未显式设置尺寸时使用的默认编辑器尺寸。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="include_invalid_connections">
@@ -24,6 +25,7 @@
 			<description>是否把校验失败的连接也写入视图模型。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</properties>
@@ -36,6 +38,7 @@
 				<tag name="param">graph: 流程图资源。</tag>
 				<tag name="return">视图模型字典。</tag>
 				<tag name="schema">return: Dictionary，包含 ok、start_node_id、node_count、connection_count、nodes、node_lookup、connections、groups、metadata、validation。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="build_editor_report">
@@ -46,6 +49,7 @@
 				<tag name="param">graph: 流程图资源。</tag>
 				<tag name="return">编辑器诊断、目录和元数据报告。</tag>
 				<tag name="schema">return: Dictionary，包含 ok、healthy、summary、next_action、validation、catalog 和 editor。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="build_editor_catalog">
@@ -56,6 +60,7 @@
 				<tag name="param">graph: 流程图资源。</tag>
 				<tag name="return">节点目录字典。</tag>
 				<tag name="schema">return: Dictionary，包含 node_count、nodes 和 categories；nodes 为节点目录记录数组。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="validate_graph_for_editor">
@@ -66,6 +71,7 @@
 				<tag name="param">graph: 流程图资源。</tag>
 				<tag name="return">校验报告。</tag>
 				<tag name="schema">return: GFValidationReportDictionary.finalize_report() 生成的 Dictionary，包含 ok、healthy、summary、issues、next_action 和计数字段。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="validate_metadata_for_editor">
@@ -79,6 +85,7 @@
 				<tag name="schema">target_metadata: Dictionary，待校验的编辑器或项目工具元数据。</tag>
 				<tag name="schema">schema: Dictionary，键为元数据 key，值为包含 required、allow_null、type、class_name、allowed_values 等字段的规则字典。</tag>
 				<tag name="schema">return: GFValidationReportDictionary.finalize_report() 生成的 Dictionary，包含 ok、healthy、summary、issues、next_action 和计数字段。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="apply_node_layout">
@@ -92,6 +99,7 @@
 				<tag name="param">size: 编辑器尺寸；Vector2.ZERO 表示使用默认尺寸。</tag>
 				<tag name="param">collapsed: 是否折叠。</tag>
 				<tag name="return">应用成功返回 true。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="apply_node_positions">
@@ -103,6 +111,7 @@
 				<tag name="param">positions: node_id 到 Vector2 的映射。</tag>
 				<tag name="return">成功更新的节点数量。</tag>
 				<tag name="schema">positions: Dictionary，键为节点标识，值为 Vector2 编辑器坐标。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="auto_layout">
@@ -115,6 +124,7 @@
 				<tag name="return">布局报告，包含 positions 与 changed_count。</tag>
 				<tag name="schema">options: Dictionary，传给 GFGraphLayoutUtility.make_layered_layout() 的布局选项。</tag>
 				<tag name="schema">return: Dictionary，包含 ok、positions、changed_count，失败时包含 error。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="build_selection_package">
@@ -126,6 +136,7 @@
 				<tag name="param">node_ids: 选中的节点标识列表。</tag>
 				<tag name="return">选择包字典。</tag>
 				<tag name="schema">return: Dictionary，包含 ok、node_count、connection_count、nodes、connections 和 node_ids。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="paste_selection_package">
@@ -141,6 +152,7 @@
 				<tag name="schema">selection_package: Dictionary，由 build_selection_package() 返回，包含 nodes、connections 和 node_ids。</tag>
 				<tag name="schema">options: Dictionary，可包含 keep_original_ids。</tag>
 				<tag name="schema">return: Dictionary，包含 ok、added_node_ids、added_node_count、added_connection_count、failed_connection_count 和 id_map。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="remove_nodes">
@@ -152,6 +164,7 @@
 				<tag name="param">node_ids: 节点标识列表。</tag>
 				<tag name="return">移除报告。</tag>
 				<tag name="schema">return: Dictionary，包含 ok、removed_node_ids、removed_node_count 和 connection_count。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</methods>

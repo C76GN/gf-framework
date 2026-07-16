@@ -28,6 +28,7 @@
 | 属性 | [`auto_apply_on_tick`](#member-gfhapticutility-properties-auto_apply_on_tick) | `var auto_apply_on_tick: bool = true` |
 | 属性 | [`output_refresh_seconds`](#member-gfhapticutility-properties-output_refresh_seconds) | `var output_refresh_seconds: float = 0.05:` |
 | 属性 | [`input_device_utility`](#member-gfhapticutility-properties-input_device_utility) | `var input_device_utility: GFInputDeviceUtility = null` |
+| 属性 | [`haptic_backend`](#member-gfhapticutility-properties-haptic_backend) | `var haptic_backend: Object = null` |
 | 属性 | [`output_handler`](#member-gfhapticutility-properties-output_handler) | `var output_handler: Callable = Callable()` |
 | 属性 | [`stop_handler`](#member-gfhapticutility-properties-stop_handler) | `var stop_handler: Callable = Callable()` |
 | 方法 | [`init`](#member-gfhapticutility-methods-init) | `func init() -> void:` |
@@ -236,7 +237,7 @@ var overflow_policy: OverflowPolicy = OverflowPolicy.STOP_OLDEST
 var auto_apply_on_tick: bool = true
 ```
 
-tick() 后是否自动把当前采样输出到设备。
+tick() 后是否自动把当前采样输出到设备。关闭时，调用方必须在 tick()、stop_haptic() 或 clear() 等状态变化后自行调用 apply_current_outputs()，以刷新输出和停止已结束目标。
 
 <a id="member-gfhapticutility-properties-output_refresh_seconds"></a>
 
@@ -263,6 +264,19 @@ var input_device_utility: GFInputDeviceUtility = null
 ```
 
 可选输入设备工具。为空时 ready() 会尝试从架构中获取。
+
+<a id="member-gfhapticutility-properties-haptic_backend"></a>
+
+### `haptic_backend`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+var haptic_backend: Object = null
+```
+
+可选震动输出后端。有效时优先于 output_handler 和默认 Input 路由。
 
 <a id="member-gfhapticutility-properties-output_handler"></a>
 
@@ -385,7 +399,7 @@ func play_haptic( channel: StringName, preset: GFHapticPreset, player_index: int
 
 结构：
 
-- `metadata`: Dictionary，播放实例自定义元数据，会在 get_haptic_info() 快照中复制返回。
+- `metadata`: Dictionary，播放实例自定义元数据，会在 get_haptic_info() JSON-safe 快照中复制返回。
 
 <a id="member-gfhapticutility-methods-play_haptic_for_device"></a>
 
@@ -414,7 +428,7 @@ func play_haptic_for_device( channel: StringName, preset: GFHapticPreset, device
 
 结构：
 
-- `metadata`: Dictionary，播放实例自定义元数据，会在 get_haptic_info() 快照中复制返回。
+- `metadata`: Dictionary，播放实例自定义元数据，会在 get_haptic_info() JSON-safe 快照中复制返回。
 
 <a id="member-gfhapticutility-methods-stop_haptic"></a>
 
@@ -621,7 +635,7 @@ func clear_channel_strengths() -> void:
 func sample_player(player_index: int, channel: StringName = &"") -> Dictionary:
 ```
 
-采样指定玩家当前的合成震动。
+采样指定玩家当前的合成震动。 返回玩家最终路由到的物理输出视图；映射到设备后会与该设备的直接震动合并。
 
 参数：
 
@@ -647,7 +661,7 @@ func sample_player(player_index: int, channel: StringName = &"") -> Dictionary:
 func sample_device(device_id: int, channel: StringName = &"") -> Dictionary:
 ```
 
-采样指定设备当前的合成震动。
+采样指定设备当前的合成震动。 返回设备最终物理输出视图，包含映射到该设备的玩家震动。
 
 参数：
 
@@ -685,7 +699,7 @@ func apply_current_outputs(duration_seconds: float = -1.0) -> Dictionary:
 
 结构：
 
-- `return`: Dictionary，包含 applied_count、stopped_count、applied 与 stopped。
+- `return`: JSON-safe Dictionary，包含 applied_count、stopped_count、failed_stop_count、applied、stopped 与 failed_stops。
 
 <a id="member-gfhapticutility-methods-get_haptic_info"></a>
 
@@ -710,7 +724,7 @@ func get_haptic_info(haptic_id: int) -> Dictionary:
 
 结构：
 
-- `return`: Dictionary，包含 id、channel、target_type、target_id、elapsed_seconds、duration_seconds、strength 与 metadata；实例不存在时为空。
+- `return`: JSON-safe Dictionary，包含 id、channel、target_type、target_id、elapsed_seconds、duration_seconds、strength 与 metadata；实例不存在时为空。
 
 <a id="member-gfhapticutility-methods-get_debug_snapshot"></a>
 
@@ -729,4 +743,4 @@ func get_debug_snapshot() -> Dictionary:
 
 结构：
 
-- `return`: Dictionary，包含 active_count、max_active_haptics、channels、targets 与 play_order。
+- `return`: JSON-safe Dictionary，包含 active_count、max_active_haptics、channels、targets、play_order 与 last_output_targets。

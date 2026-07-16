@@ -14,7 +14,7 @@
 
 `free_children()` 会先把直接子节点从父节点移除，再调用 `queue_free()`，因此调用后父节点同帧就不再持有旧子节点。
 
-节点收集 API 返回的是当次调用的快照数组，不会创建查询对象或持有场景树引用。`collect_descendants()` 和 `collect_node_tree()` 支持 `max_depth` 与 `limit`，适合编辑器工具或运行时装配代码在大场景里收窄遍历范围。
+节点收集 API 返回的是当次调用的快照数组，不会创建查询对象或持有场景树引用。`collect_descendants()` 和 `collect_node_tree()` 支持 `max_depth` 与 `limit`，适合编辑器工具或运行时装配代码在大场景里收窄遍历范围。需要频繁读取同一 `SceneTree` group 时，可改用 `GFNodeGroupCache` 缓存 group 快照。
 
 ```gdscript
 var capability := HitboxCapability.new()

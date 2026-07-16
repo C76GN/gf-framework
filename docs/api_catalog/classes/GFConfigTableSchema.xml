@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFConfigTableSchema" path="addons/gf/standard/utilities/config/gf_config_table_schema.gd" module="standard" extends="Resource" classDigest="3bee1c9cd42ef490781f782e4081124d54db65d7593a75ac1530043ec3971cdd">
+<class name="GFConfigTableSchema" path="addons/gf/standard/utilities/config/gf_config_table_schema.gd" module="standard" extends="Resource" classDigest="9bc2b67fb47daf1300d744e1052f62e1fbf3f4f82522b0c38293305130b871c3">
 	<description>GFConfigTableSchema: 通用导表结构声明与校验器。
 用于在导入期或运行时校验表数据结构，保持数据工具链可替换且不绑定业务表。</description>
 	<tags>
@@ -59,6 +59,15 @@
 			<description>校验整表时是否要求 id_field 唯一。</description>
 			<tags>
 				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="property" name="max_resource_path_checks_per_validation" decorators="@export_range(1, 65536, 1)">
+			<signature>var max_resource_path_checks_per_validation: int = 1024</signature>
+			<description>单次记录或整表校验最多执行的唯一资源路径存在性探测数。
+同一路径及同一探测策略在一次校验内共享结果，不重复消耗预算。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="indexes" decorators="@export">
@@ -260,7 +269,8 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">schema 字典。</tag>
-				<tag name="schema">return: Dictionary，包含 table_name、id_field、columns、allow_extra_fields、coerce_values、fail_on_coerce_error、require_unique_id、indexes、references、record_validation_rules、table_validation_rules 和 metadata。</tag>
+				<tag name="schema">return: Dictionary，包含 table_name、id_field、columns、allow_extra_fields、coerce_values、fail_on_coerce_error、require_unique_id、max_resource_path_checks_per_validation、indexes、references、record_validation_rules、table_validation_rules 和 metadata。</tag>
+				<tag name="since">3.0.0</tag>
 			</tags>
 		</member>
 	</methods>

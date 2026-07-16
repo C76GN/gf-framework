@@ -1,15 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFQuadTreeUtility" path="addons/gf/standard/utilities/spatial/gf_quad_tree_utility.gd" module="standard" extends="GFUtility" classDigest="814e96e8663d689b49ed428927929c14cfb10488be4bcae64b5b73137f73744e">
+<class name="GFQuadTreeUtility" path="addons/gf/standard/utilities/spatial/gf_quad_tree_utility.gd" module="standard" extends="GFUtility" classDigest="fb48d989c7d63d8826a431711ad9f84c613f7f870d21ec108c0b67d9b230ddb7">
 	<description>GFQuadTreeUtility: 纯逻辑 2D 四叉树空间划分工具。
 继承自 GFUtility，提供不依赖引擎物理节点的 2D 空间划分和范围查询能力。
 适用于模拟经营、RTS 等需要对海量实体进行高效范围检索的场景。
 用法：
 1. 调用 setup(bounds, max_depth, max_entities) 初始化树的参数。
-2. 调用 insert(entity_id, rect) 将实体插入四叉树。
+2. 调用 insert(entity_id, rect) 将 bounds 内实体插入四叉树。
 3. 调用 query_rect(rect)、query_radius(center, radius) 或 query_point(point) 查询。
 4. 调用 update(entity_id, rect) 更新实体位置（内部先移除再插入）。
 5. 调用 remove(entity_id) 移除实体。
-注意：entity_id 为 int，由调用方自行管理 ID 映射。</description>
+注意：entity_id 为 int，由调用方自行管理 ID 映射。四叉树使用固定世界边界，
+不会自动扩容；不在 bounds 内的实体会被拒绝，避免出现已存储但不可查询的记录。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">runtime_service</tag>
@@ -35,10 +36,11 @@
 	</constants>
 	<properties>
 		<member kind="property" name="bounds">
-			<signature>var bounds: Rect2 = Rect2()</signature>
+			<signature>var bounds: Rect2:</signature>
 			<description>四叉树覆盖的世界边界。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="max_depth">
@@ -74,23 +76,37 @@
 				<tag name="param">entities_per_node: 每节点最大实体数。</tag>
 			</tags>
 		</member>
+		<member kind="method" name="can_index_rect">
+			<signature>func can_index_rect(rect: Rect2) -&gt; bool:</signature>
+			<description>判断矩形是否能被当前四叉树索引。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">rect: 待检测的轴对齐包围矩形。</tag>
+				<tag name="return">矩形有限且完全位于 bounds 内时返回 true。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
 		<member kind="method" name="insert">
-			<signature>func insert(entity_id: int, rect: Rect2) -&gt; void:</signature>
+			<signature>func insert(entity_id: int, rect: Rect2) -&gt; bool:</signature>
 			<description>将实体插入四叉树。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">entity_id: 实体唯一标识。</tag>
 				<tag name="param">rect: 实体的轴对齐包围矩形。</tag>
+				<tag name="return">插入成功返回 true；rect 不可索引时返回 false 且不修改旧实体。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="insert_with_hit_test">
-			<signature>func insert_with_hit_test(entity_id: int, rect: Rect2, hit_test: Callable) -&gt; void:</signature>
+			<signature>func insert_with_hit_test(entity_id: int, rect: Rect2, hit_test: Callable) -&gt; bool:</signature>
 			<description>将带精确点命中测试的实体插入四叉树。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">entity_id: 实体唯一标识。</tag>
 				<tag name="param">rect: 实体的轴对齐包围矩形。</tag>
 				<tag name="param">hit_test: 可选精确命中测试，签名为 `(entity_id, point, rect) -&gt; bool`。</tag>
+				<tag name="return">插入和命中测试注册都成功时返回 true。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="remove">
@@ -102,12 +118,14 @@
 			</tags>
 		</member>
 		<member kind="method" name="update">
-			<signature>func update(entity_id: int, new_rect: Rect2) -&gt; void:</signature>
+			<signature>func update(entity_id: int, new_rect: Rect2) -&gt; bool:</signature>
 			<description>更新实体的位置（先移除再插入）。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">entity_id: 实体标识。</tag>
 				<tag name="param">new_rect: 新的包围矩形。</tag>
+				<tag name="return">更新成功返回 true；new_rect 不可索引时返回 false 且旧实体保持不变。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="set_entity_hit_test">
@@ -215,6 +233,18 @@
 				<tag name="api">public</tag>
 				<tag name="return">四叉树状态。</tag>
 				<tag name="schema">return: Dictionary with `bounds: Rect2`, `entity_count: int`, `hit_test_count: int`, `max_depth: int`, `max_entities_per_node: int`, and `node_count: int`.</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_json_compatible_debug_snapshot">
+			<signature>func get_json_compatible_debug_snapshot(options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>获取 JSON.stringify() 安全的调试快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">options: 报告编码选项，透传给 GFReportValueCodec。</tag>
+				<tag name="return">JSON 兼容调试快照。</tag>
+				<tag name="schema">options: Dictionary with GFReportValueCodec options.</tag>
+				<tag name="schema">return: Dictionary safe for JSON.stringify().</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 	</methods>

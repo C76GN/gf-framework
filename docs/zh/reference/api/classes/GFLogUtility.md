@@ -56,6 +56,8 @@
 | 方法 | [`flush_sinks`](#member-gflogutility-methods-flush_sinks) | `func flush_sinks() -> void:` |
 | 方法 | [`get_recent_entries`](#member-gflogutility-methods-get_recent_entries) | `func get_recent_entries(count: int = -1) -> Array[Dictionary]:` |
 | 方法 | [`get_entries`](#member-gflogutility-methods-get_entries) | `func get_entries(offset: int = 0, count: int = -1) -> Array[Dictionary]:` |
+| 方法 | [`get_memory_sequence`](#member-gflogutility-methods-get_memory_sequence) | `func get_memory_sequence() -> int:` |
+| 方法 | [`get_entries_since`](#member-gflogutility-methods-get_entries_since) | `func get_entries_since(since_sequence: int, limit: int = -1) -> Dictionary:` |
 | 方法 | [`get_memory_entry_count`](#member-gflogutility-methods-get_memory_entry_count) | `func get_memory_entry_count() -> int:` |
 | 方法 | [`get_dropped_memory_entry_count`](#member-gflogutility-methods-get_dropped_memory_entry_count) | `func get_dropped_memory_entry_count() -> int:` |
 | 方法 | [`get_log_file_path`](#member-gflogutility-methods-get_log_file_path) | `func get_log_file_path() -> String:` |
@@ -813,6 +815,47 @@ func get_entries(offset: int = 0, count: int = -1) -> Array[Dictionary]:
 
 - `return`: Array[Dictionary] of log entries from oldest to newest.
 
+<a id="member-gflogutility-methods-get_memory_sequence"></a>
+
+### `get_memory_sequence`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func get_memory_sequence() -> int:
+```
+
+获取内存日志的下一个序列游标。 该值随每条通过过滤的日志递增，可作为 get_entries_since() 的 since_sequence。
+
+返回：下一条日志将使用的序列号。
+
+<a id="member-gflogutility-methods-get_entries_since"></a>
+
+### `get_entries_since`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func get_entries_since(since_sequence: int, limit: int = -1) -> Dictionary:
+```
+
+按序列游标读取新增内存日志。 适合诊断 UI、远端采集器或支持报告面板轮询日志缓存，而不需要每次重新读取全部最近日志。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `since_sequence` | 调用方上次保存的 next_sequence；表示下一条想读取的日志序列。 |
+| `limit` | 最多返回的条目数量；小于 0 表示读取所有可用条目。 |
+
+返回：增量读取报告。
+
+结构：
+
+- `return`: Dictionary with requested_sequence, oldest_sequence, next_sequence, current_sequence, entries, truncated, has_more, missed_count, and dropped_count fields.
+
 <a id="member-gflogutility-methods-get_memory_entry_count"></a>
 
 ### `get_memory_entry_count`
@@ -860,12 +903,13 @@ func get_log_file_path() -> String:
 ### `clear_memory_entries`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func clear_memory_entries() -> void:
 ```
 
-清空内存日志缓存。
+清空内存日志缓存。 已分配的序列游标不会重置；调用方仍可用 get_memory_sequence() 继续进行增量读取。
 
 <a id="member-gflogutility-methods-sanitize_log_value"></a>
 

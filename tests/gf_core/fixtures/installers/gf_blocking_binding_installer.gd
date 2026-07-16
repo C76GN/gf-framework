@@ -7,12 +7,16 @@ extends GFInstaller
 const AsyncInstallerUtilityFixture = preload("res://tests/gf_core/fixtures/installers/async_installer_utility_fixture.gd")
 const STARTED_SETTING: String = "gf/test/blocking_installer_started"
 const RELEASE_SETTING: String = "gf/test/release_blocking_installer"
+const CANCELLED_SETTING: String = "gf/test/blocking_installer_cancelled"
+const CLEANUP_SETTING: String = "gf/test/blocking_installer_cleanup"
 
 
 # --- 公共方法 ---
 
-func install_bindings(binder: Variant) -> void:
+func install_bindings(binder: Variant, scope: GFAsyncScope) -> void:
 	ProjectSettings.set_setting(STARTED_SETTING, true)
+	var _registered_cleanup: bool = scope.register_cleanup(Callable(self, &"_mark_cleanup"))
+	var _connected_cancelled: Error = scope.cancel_requested.connect(_on_scope_cancel_requested) as Error
 	while not _project_setting_bool(RELEASE_SETTING):
 		var scene_tree: SceneTree = _get_scene_tree()
 		if scene_tree == null:
@@ -28,6 +32,10 @@ func install_bindings(binder: Variant) -> void:
 
 func _bind_utility(binder: GFBinder) -> void:
 	await binder.bind_utility(AsyncInstallerUtilityFixture).as_singleton()
+
+
+func _mark_cleanup() -> void:
+	ProjectSettings.set_setting(CLEANUP_SETTING, true)
 
 
 func _get_scene_tree() -> SceneTree:
@@ -49,3 +57,7 @@ func _project_setting_bool(setting_name: String) -> bool:
 		var float_value: float = value
 		return not is_zero_approx(float_value)
 	return false
+
+
+func _on_scope_cancel_requested(_reason: StringName) -> void:
+	ProjectSettings.set_setting(CANCELLED_SETTING, true)

@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFProjectLayoutValidator" path="addons/gf/tools/project_layout/gf_project_layout_validator.gd" module="tools" extends="RefCounted" classDigest="2426bc6c2d50ae717a4c8b9ed82ad64e056657ccc10f7dadb91d0e79b5f1dc3b">
+	<description>GFProjectLayoutValidator: Profile 驱动的项目结构校验工具。
+按项目结构 profile 检查目录分区、Feature 模块契约、命名、生成物边界和大桶目录增长。
+该工具只实现可选制作期校验，不把任意业务项目结构写入 GF 运行时包。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">tool_api</tag>
+		<tag name="since">8.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants>
+		<member kind="const" name="DEFAULT_FEATURE_COHESIVE_PROFILE_PATH">
+			<signature>const DEFAULT_FEATURE_COHESIVE_PROFILE_PATH: String = "res://addons/gf/tools/project_layout/profiles/feature_cohesive_v1.json"</signature>
+			<description>内置 Feature 内聚式项目结构 profile 路径。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties />
+	<methods>
+		<member kind="method" name="validate_default_profile">
+			<signature>func validate_default_profile(options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>按内置 Feature 内聚式模板校验项目结构。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">options: 校验选项。</tag>
+				<tag name="return">校验报告。</tag>
+				<tag name="schema">options: Dictionary，可包含 root_path、include_hidden、max_scanned_files、max_scanned_directories、max_scan_depth、allow_missing_root 和 allow_absolute_root。</tag>
+				<tag name="schema">return: Dictionary，包含 success、profile_id、root_path、file_count、directory_count、issues、error_count、warning_count、info_count 和 rule_results。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="validate_profile_path">
+			<signature>func validate_profile_path(profile_path: String, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>从项目结构 profile 文件校验项目结构。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">profile_path: JSON profile 路径。</tag>
+				<tag name="param">options: 校验选项。</tag>
+				<tag name="return">校验报告。</tag>
+				<tag name="schema">options: Dictionary，可包含 root_path、include_hidden、max_scanned_files、max_scanned_directories、max_scan_depth、allow_missing_root 和 allow_absolute_root。</tag>
+				<tag name="schema">return: Dictionary，包含 success、profile_id、root_path、file_count、directory_count、issues、error_count、warning_count、info_count 和 rule_results。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="validate_profile">
+			<signature>func validate_profile(profile: Dictionary, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>按已解析的项目结构 profile 校验项目结构。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">profile: 项目结构 profile 字典。</tag>
+				<tag name="param">options: 校验选项。</tag>
+				<tag name="return">校验报告。</tag>
+				<tag name="schema">profile: Dictionary，包含 schema_version、id、zones 和 rules。</tag>
+				<tag name="schema">options: Dictionary，可包含 root_path、include_hidden、max_scanned_files、max_scanned_directories、max_scan_depth、allow_missing_root 和 allow_absolute_root。</tag>
+				<tag name="schema">return: Dictionary，包含 success、profile_id、root_path、file_count、directory_count、issues、error_count、warning_count、info_count 和 rule_results。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

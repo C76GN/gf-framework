@@ -18,6 +18,7 @@
 | 信号 | [`initialization_finished`](#member-gfarchitecture-signals-initialization_finished) | `signal initialization_finished` |
 | 信号 | [`initialization_failed`](#member-gfarchitecture-signals-initialization_failed) | `signal initialization_failed(reason: String)` |
 | 信号 | [`project_installers_finished`](#member-gfarchitecture-signals-project_installers_finished) | `signal project_installers_finished` |
+| 常量 | [`SERVICE_COMMAND_HISTORY_STORE`](#member-gfarchitecture-constants-service_command_history_store) | `const SERVICE_COMMAND_HISTORY_STORE: StringName = &"gf.kernel.command_history_store"` |
 | 常量 | [`HOOK_GET_REQUIRED_DEPENDENCIES`](#member-gfarchitecture-constants-hook_get_required_dependencies) | `const HOOK_GET_REQUIRED_DEPENDENCIES: StringName = &"get_required_dependencies"` |
 | 常量 | [`HOOK_GET_REQUIRED_MODELS`](#member-gfarchitecture-constants-hook_get_required_models) | `const HOOK_GET_REQUIRED_MODELS: StringName = &"get_required_models"` |
 | 常量 | [`HOOK_GET_REQUIRED_SYSTEMS`](#member-gfarchitecture-constants-hook_get_required_systems) | `const HOOK_GET_REQUIRED_SYSTEMS: StringName = &"get_required_systems"` |
@@ -45,25 +46,25 @@
 | 方法 | [`mark_project_installers_applied`](#member-gfarchitecture-methods-mark_project_installers_applied) | `func mark_project_installers_applied() -> void:` |
 | 方法 | [`finish_project_installers`](#member-gfarchitecture-methods-finish_project_installers) | `func finish_project_installers() -> void:` |
 | 方法 | [`create_binder`](#member-gfarchitecture-methods-create_binder) | `func create_binder() -> GFBinder:` |
-| 方法 | [`init`](#member-gfarchitecture-methods-init) | `func init() -> void:` |
+| 方法 | [`init`](#member-gfarchitecture-methods-init) | `func init() -> bool:` |
 | 方法 | [`dispose`](#member-gfarchitecture-methods-dispose) | `func dispose() -> void:` |
 | 方法 | [`tick`](#member-gfarchitecture-methods-tick) | `func tick(delta: float) -> void:` |
 | 方法 | [`physics_tick`](#member-gfarchitecture-methods-physics_tick) | `func physics_tick(delta: float) -> void:` |
 | 方法 | [`send_command`](#member-gfarchitecture-methods-send_command) | `func send_command(command: Object) -> Variant:` |
 | 方法 | [`send_query`](#member-gfarchitecture-methods-send_query) | `func send_query(query: Object) -> Variant:` |
 | 方法 | [`send_event`](#member-gfarchitecture-methods-send_event) | `func send_event(event_instance: Object) -> void:` |
-| 方法 | [`register_event`](#member-gfarchitecture-methods-register_event) | `func register_event(event_type: Script, on_event: Callable, priority: int = 0) -> void:` |
-| 方法 | [`register_event_owned`](#member-gfarchitecture-methods-register_event_owned) | `func register_event_owned(owner: Object, event_type: Script, on_event: Callable, priority: int = 0) -> void:` |
-| 方法 | [`register_assignable_event`](#member-gfarchitecture-methods-register_assignable_event) | `func register_assignable_event(base_event_type: Script, on_event: Callable, priority: int = 0) -> void:` |
-| 方法 | [`register_assignable_event_owned`](#member-gfarchitecture-methods-register_assignable_event_owned) | `func register_assignable_event_owned( owner: Object, base_event_type: Script, on_event: Callable, priority: int = 0 ) -> void:` |
-| 方法 | [`unregister_event`](#member-gfarchitecture-methods-unregister_event) | `func unregister_event(event_type: Script, on_event: Callable) -> void:` |
-| 方法 | [`unregister_event_owned`](#member-gfarchitecture-methods-unregister_event_owned) | `func unregister_event_owned(owner: Object, event_type: Script, on_event: Callable) -> void:` |
-| 方法 | [`unregister_assignable_event`](#member-gfarchitecture-methods-unregister_assignable_event) | `func unregister_assignable_event(base_event_type: Script, on_event: Callable) -> void:` |
-| 方法 | [`unregister_assignable_event_owned`](#member-gfarchitecture-methods-unregister_assignable_event_owned) | `func unregister_assignable_event_owned(owner: Object, base_event_type: Script, on_event: Callable) -> void:` |
-| 方法 | [`register_simple_event`](#member-gfarchitecture-methods-register_simple_event) | `func register_simple_event(event_id: StringName, on_event: Callable) -> void:` |
-| 方法 | [`register_simple_event_owned`](#member-gfarchitecture-methods-register_simple_event_owned) | `func register_simple_event_owned(owner: Object, event_id: StringName, on_event: Callable) -> void:` |
-| 方法 | [`unregister_simple_event`](#member-gfarchitecture-methods-unregister_simple_event) | `func unregister_simple_event(event_id: StringName, on_event: Callable) -> void:` |
-| 方法 | [`unregister_simple_event_owned`](#member-gfarchitecture-methods-unregister_simple_event_owned) | `func unregister_simple_event_owned(owner: Object, event_id: StringName, on_event: Callable) -> void:` |
+| 方法 | [`register_event`](#member-gfarchitecture-methods-register_event) | `func register_event(event_type: Script, listener: GFEventListener, priority: int = 0) -> void:` |
+| 方法 | [`register_event_owned`](#member-gfarchitecture-methods-register_event_owned) | `func register_event_owned(owner: Object, event_type: Script, listener: GFEventListener, priority: int = 0) -> void:` |
+| 方法 | [`register_assignable_event`](#member-gfarchitecture-methods-register_assignable_event) | `func register_assignable_event(base_event_type: Script, listener: GFEventListener, priority: int = 0) -> void:` |
+| 方法 | [`register_assignable_event_owned`](#member-gfarchitecture-methods-register_assignable_event_owned) | `func register_assignable_event_owned( owner: Object, base_event_type: Script, listener: GFEventListener, priority: int = 0 ) -> void:` |
+| 方法 | [`unregister_event`](#member-gfarchitecture-methods-unregister_event) | `func unregister_event(event_type: Script, listener: GFEventListener) -> void:` |
+| 方法 | [`unregister_event_owned`](#member-gfarchitecture-methods-unregister_event_owned) | `func unregister_event_owned(owner: Object, event_type: Script, listener: GFEventListener) -> void:` |
+| 方法 | [`unregister_assignable_event`](#member-gfarchitecture-methods-unregister_assignable_event) | `func unregister_assignable_event(base_event_type: Script, listener: GFEventListener) -> void:` |
+| 方法 | [`unregister_assignable_event_owned`](#member-gfarchitecture-methods-unregister_assignable_event_owned) | `func unregister_assignable_event_owned(owner: Object, base_event_type: Script, listener: GFEventListener) -> void:` |
+| 方法 | [`register_simple_event`](#member-gfarchitecture-methods-register_simple_event) | `func register_simple_event(event_id: StringName, listener: GFEventListener) -> void:` |
+| 方法 | [`register_simple_event_owned`](#member-gfarchitecture-methods-register_simple_event_owned) | `func register_simple_event_owned(owner: Object, event_id: StringName, listener: GFEventListener) -> void:` |
+| 方法 | [`unregister_simple_event`](#member-gfarchitecture-methods-unregister_simple_event) | `func unregister_simple_event(event_id: StringName, listener: GFEventListener) -> void:` |
+| 方法 | [`unregister_simple_event_owned`](#member-gfarchitecture-methods-unregister_simple_event_owned) | `func unregister_simple_event_owned(owner: Object, event_id: StringName, listener: GFEventListener) -> void:` |
 | 方法 | [`unregister_owner_events`](#member-gfarchitecture-methods-unregister_owner_events) | `func unregister_owner_events(owner: Object) -> void:` |
 | 方法 | [`send_simple_event`](#member-gfarchitecture-methods-send_simple_event) | `func send_simple_event(event_id: StringName, payload: Variant = null) -> void:` |
 | 方法 | [`get_event_debug_stats`](#member-gfarchitecture-methods-get_event_debug_stats) | `func get_event_debug_stats() -> Dictionary:` |
@@ -72,30 +73,34 @@
 | 方法 | [`configure_event_debugging`](#member-gfarchitecture-methods-configure_event_debugging) | `func configure_event_debugging( max_dispatch_depth: int = GFTypeEventSystem.DEFAULT_MAX_DISPATCH_DEPTH, trace_enabled: bool = false, max_trace_entries: int = 64 ) -> void:` |
 | 方法 | [`get_event_dispatch_trace`](#member-gfarchitecture-methods-get_event_dispatch_trace) | `func get_event_dispatch_trace() -> Array[Dictionary]:` |
 | 方法 | [`clear_event_dispatch_trace`](#member-gfarchitecture-methods-clear_event_dispatch_trace) | `func clear_event_dispatch_trace() -> void:` |
-| 方法 | [`register_system`](#member-gfarchitecture-methods-register_system) | `func register_system(script_cls: Script, instance: Object) -> void:` |
-| 方法 | [`register_model`](#member-gfarchitecture-methods-register_model) | `func register_model(script_cls: Script, instance: Object) -> void:` |
-| 方法 | [`register_utility`](#member-gfarchitecture-methods-register_utility) | `func register_utility(script_cls: Script, instance: Object) -> void:` |
-| 方法 | [`replace_system`](#member-gfarchitecture-methods-replace_system) | `func replace_system(script_cls: Script, instance: Object) -> void:` |
-| 方法 | [`replace_model`](#member-gfarchitecture-methods-replace_model) | `func replace_model(script_cls: Script, instance: Object) -> void:` |
-| 方法 | [`replace_utility`](#member-gfarchitecture-methods-replace_utility) | `func replace_utility(script_cls: Script, instance: Object) -> void:` |
-| 方法 | [`register_factory`](#member-gfarchitecture-methods-register_factory) | `func register_factory( script_cls: Script, factory: Callable, lifetime: int = GFBindingLifetimesBase.Lifetime.TRANSIENT ) -> void:` |
-| 方法 | [`register_factory_instance`](#member-gfarchitecture-methods-register_factory_instance) | `func register_factory_instance(script_cls: Script, instance: Object) -> void:` |
-| 方法 | [`replace_factory`](#member-gfarchitecture-methods-replace_factory) | `func replace_factory( script_cls: Script, factory: Callable, lifetime: int = GFBindingLifetimesBase.Lifetime.TRANSIENT ) -> void:` |
-| 方法 | [`replace_factory_instance`](#member-gfarchitecture-methods-replace_factory_instance) | `func replace_factory_instance(script_cls: Script, instance: Object) -> void:` |
-| 方法 | [`unregister_factory`](#member-gfarchitecture-methods-unregister_factory) | `func unregister_factory(script_cls: Script) -> void:` |
+| 方法 | [`register_system`](#member-gfarchitecture-methods-register_system) | `func register_system(script_cls: Script, instance: Object) -> bool:` |
+| 方法 | [`register_model`](#member-gfarchitecture-methods-register_model) | `func register_model(script_cls: Script, instance: Object) -> bool:` |
+| 方法 | [`register_utility`](#member-gfarchitecture-methods-register_utility) | `func register_utility(script_cls: Script, instance: Object) -> bool:` |
+| 方法 | [`replace_system`](#member-gfarchitecture-methods-replace_system) | `func replace_system(script_cls: Script, instance: Object) -> bool:` |
+| 方法 | [`replace_model`](#member-gfarchitecture-methods-replace_model) | `func replace_model(script_cls: Script, instance: Object) -> bool:` |
+| 方法 | [`replace_utility`](#member-gfarchitecture-methods-replace_utility) | `func replace_utility(script_cls: Script, instance: Object) -> bool:` |
+| 方法 | [`register_factory`](#member-gfarchitecture-methods-register_factory) | `func register_factory( script_cls: Script, factory: Callable, lifetime: int = GFBindingLifetimesBase.Lifetime.TRANSIENT ) -> bool:` |
+| 方法 | [`register_factory_instance`](#member-gfarchitecture-methods-register_factory_instance) | `func register_factory_instance(script_cls: Script, instance: Object) -> bool:` |
+| 方法 | [`replace_factory`](#member-gfarchitecture-methods-replace_factory) | `func replace_factory( script_cls: Script, factory: Callable, lifetime: int = GFBindingLifetimesBase.Lifetime.TRANSIENT ) -> bool:` |
+| 方法 | [`replace_factory_instance`](#member-gfarchitecture-methods-replace_factory_instance) | `func replace_factory_instance(script_cls: Script, instance: Object) -> bool:` |
+| 方法 | [`unregister_factory`](#member-gfarchitecture-methods-unregister_factory) | `func unregister_factory(script_cls: Script) -> bool:` |
 | 方法 | [`has_factory`](#member-gfarchitecture-methods-has_factory) | `func has_factory(script_cls: Script) -> bool:` |
+| 方法 | [`register_service`](#member-gfarchitecture-methods-register_service) | `func register_service(service_key: StringName, provider: Object) -> bool:` |
+| 方法 | [`unregister_service`](#member-gfarchitecture-methods-unregister_service) | `func unregister_service(service_key: StringName, provider: Object = null) -> bool:` |
+| 方法 | [`get_service`](#member-gfarchitecture-methods-get_service) | `func get_service(service_key: StringName, include_parent: bool = true) -> Object:` |
+| 方法 | [`has_service`](#member-gfarchitecture-methods-has_service) | `func has_service(service_key: StringName, include_parent: bool = true) -> bool:` |
 | 方法 | [`register_system_alias`](#member-gfarchitecture-methods-register_system_alias) | `func register_system_alias(alias_cls: Script, target_cls: Script) -> void:` |
 | 方法 | [`register_model_alias`](#member-gfarchitecture-methods-register_model_alias) | `func register_model_alias(alias_cls: Script, target_cls: Script) -> void:` |
 | 方法 | [`register_utility_alias`](#member-gfarchitecture-methods-register_utility_alias) | `func register_utility_alias(alias_cls: Script, target_cls: Script) -> void:` |
 | 方法 | [`unregister_system_alias`](#member-gfarchitecture-methods-unregister_system_alias) | `func unregister_system_alias(alias_cls: Script) -> void:` |
 | 方法 | [`unregister_model_alias`](#member-gfarchitecture-methods-unregister_model_alias) | `func unregister_model_alias(alias_cls: Script) -> void:` |
 | 方法 | [`unregister_utility_alias`](#member-gfarchitecture-methods-unregister_utility_alias) | `func unregister_utility_alias(alias_cls: Script) -> void:` |
-| 方法 | [`register_system_instance`](#member-gfarchitecture-methods-register_system_instance) | `func register_system_instance(instance: Object) -> void:` |
-| 方法 | [`register_model_instance`](#member-gfarchitecture-methods-register_model_instance) | `func register_model_instance(instance: Object) -> void:` |
-| 方法 | [`register_utility_instance`](#member-gfarchitecture-methods-register_utility_instance) | `func register_utility_instance(instance: Object) -> void:` |
-| 方法 | [`register_system_instance_as`](#member-gfarchitecture-methods-register_system_instance_as) | `func register_system_instance_as(instance: Object, alias_cls: Script) -> void:` |
-| 方法 | [`register_model_instance_as`](#member-gfarchitecture-methods-register_model_instance_as) | `func register_model_instance_as(instance: Object, alias_cls: Script) -> void:` |
-| 方法 | [`register_utility_instance_as`](#member-gfarchitecture-methods-register_utility_instance_as) | `func register_utility_instance_as(instance: Object, alias_cls: Script) -> void:` |
+| 方法 | [`register_system_instance`](#member-gfarchitecture-methods-register_system_instance) | `func register_system_instance(instance: Object) -> bool:` |
+| 方法 | [`register_model_instance`](#member-gfarchitecture-methods-register_model_instance) | `func register_model_instance(instance: Object) -> bool:` |
+| 方法 | [`register_utility_instance`](#member-gfarchitecture-methods-register_utility_instance) | `func register_utility_instance(instance: Object) -> bool:` |
+| 方法 | [`register_system_instance_as`](#member-gfarchitecture-methods-register_system_instance_as) | `func register_system_instance_as(instance: Object, alias_cls: Script) -> bool:` |
+| 方法 | [`register_model_instance_as`](#member-gfarchitecture-methods-register_model_instance_as) | `func register_model_instance_as(instance: Object, alias_cls: Script) -> bool:` |
+| 方法 | [`register_utility_instance_as`](#member-gfarchitecture-methods-register_utility_instance_as) | `func register_utility_instance_as(instance: Object, alias_cls: Script) -> bool:` |
 | 方法 | [`unregister_system`](#member-gfarchitecture-methods-unregister_system) | `func unregister_system(script_cls: Script) -> void:` |
 | 方法 | [`unregister_model`](#member-gfarchitecture-methods-unregister_model) | `func unregister_model(script_cls: Script) -> void:` |
 | 方法 | [`unregister_utility`](#member-gfarchitecture-methods-unregister_utility) | `func unregister_utility(script_cls: Script) -> void:` |
@@ -111,11 +116,11 @@
 | 方法 | [`get_all_models_state`](#member-gfarchitecture-methods-get_all_models_state) | `func get_all_models_state() -> Dictionary:` |
 | 方法 | [`get_all_models_state_async`](#member-gfarchitecture-methods-get_all_models_state_async) | `func get_all_models_state_async(options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`restore_all_models_state`](#member-gfarchitecture-methods-restore_all_models_state) | `func restore_all_models_state(data: Dictionary) -> void:` |
-| 方法 | [`restore_all_models_state_async`](#member-gfarchitecture-methods-restore_all_models_state_async) | `func restore_all_models_state_async(data: Dictionary, options: Dictionary = {}) -> void:` |
+| 方法 | [`restore_all_models_state_async`](#member-gfarchitecture-methods-restore_all_models_state_async) | `func restore_all_models_state_async(data: Dictionary, options: Dictionary = {}) -> bool:` |
 | 方法 | [`get_global_snapshot`](#member-gfarchitecture-methods-get_global_snapshot) | `func get_global_snapshot() -> Dictionary:` |
 | 方法 | [`get_global_snapshot_async`](#member-gfarchitecture-methods-get_global_snapshot_async) | `func get_global_snapshot_async(options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`restore_global_snapshot`](#member-gfarchitecture-methods-restore_global_snapshot) | `func restore_global_snapshot(data: Dictionary, command_builder: Callable = Callable()) -> void:` |
-| 方法 | [`restore_global_snapshot_async`](#member-gfarchitecture-methods-restore_global_snapshot_async) | `func restore_global_snapshot_async( data: Dictionary, command_builder: Callable = Callable(), options: Dictionary = {} ) -> void:` |
+| 方法 | [`restore_global_snapshot_async`](#member-gfarchitecture-methods-restore_global_snapshot_async) | `func restore_global_snapshot_async( data: Dictionary, command_builder: Callable = Callable(), options: Dictionary = {} ) -> bool:` |
 | 方法 | [`get_debug_lifecycle_state`](#member-gfarchitecture-methods-get_debug_lifecycle_state) | `func get_debug_lifecycle_state() -> Dictionary:` |
 | 方法 | [`get_binding_diagnostics`](#member-gfarchitecture-methods-get_binding_diagnostics) | `func get_binding_diagnostics(options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`get_dependency_diagnostics`](#member-gfarchitecture-methods-get_dependency_diagnostics) | `func get_dependency_diagnostics(options: Dictionary = {}) -> Dictionary:` |
@@ -167,6 +172,19 @@ signal project_installers_finished
 当项目级 Installer 应用完成或被 dispose() 中断后发出。
 
 ## 常量
+
+<a id="member-gfarchitecture-constants-service_command_history_store"></a>
+
+### `SERVICE_COMMAND_HISTORY_STORE`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+const SERVICE_COMMAND_HISTORY_STORE: StringName = &"gf.kernel.command_history_store"
+```
+
+命令历史服务 capability key。
 
 <a id="member-gfarchitecture-constants-hook_get_required_dependencies"></a>
 
@@ -561,12 +579,15 @@ func create_binder() -> GFBinder:
 ### `init`
 
 - API：`public`
+- 首次版本：`5.0.0`
 
 ```gdscript
-func init() -> void:
+func init() -> bool:
 ```
 
 初始化架构及所有注册的组件（三阶段）。 阶段一：调用所有模块的 init()，用于初始化自身内部变量。 阶段二：串行 await 所有模块的 async_init()，用于异步资源加载等操作。 阶段三：调用所有模块的 ready()，此时跨模块依赖获取是安全的。
+
+返回：初始化完成且架构处于 ready 状态时返回 true。
 
 <a id="member-gfarchitecture-methods-dispose"></a>
 
@@ -687,9 +708,10 @@ func send_event(event_instance: Object) -> void:
 ### `register_event`
 
 - API：`public`
+- 首次版本：`8.0.0`
 
 ```gdscript
-func register_event(event_type: Script, on_event: Callable, priority: int = 0) -> void:
+func register_event(event_type: Script, listener: GFEventListener, priority: int = 0) -> void:
 ```
 
 为脚本类型注册事件监听器。
@@ -699,7 +721,7 @@ func register_event(event_type: Script, on_event: Callable, priority: int = 0) -
 | 名称 | 说明 |
 |---|---|
 | `event_type` | 要监听的脚本类型。 |
-| `on_event` | 回调函数。 |
+| `listener` | 事件监听器契约。 |
 | `priority` | 回调优先级，数值越大越先执行，默认为 0。 |
 
 <a id="member-gfarchitecture-methods-register_event_owned"></a>
@@ -707,9 +729,10 @@ func register_event(event_type: Script, on_event: Callable, priority: int = 0) -
 ### `register_event_owned`
 
 - API：`public`
+- 首次版本：`8.0.0`
 
 ```gdscript
-func register_event_owned(owner: Object, event_type: Script, on_event: Callable, priority: int = 0) -> void:
+func register_event_owned(owner: Object, event_type: Script, listener: GFEventListener, priority: int = 0) -> void:
 ```
 
 为脚本类型注册带拥有者的事件监听器。 拥有者注销或释放后，可通过 unregister_owner_events() 一次性清理相关监听。
@@ -720,7 +743,7 @@ func register_event_owned(owner: Object, event_type: Script, on_event: Callable,
 |---|---|
 | `owner` | 监听器拥有者。 |
 | `event_type` | 要监听的脚本类型。 |
-| `on_event` | 回调函数。 |
+| `listener` | 事件监听器契约。 |
 | `priority` | 回调优先级，数值越大越先执行，默认为 0。 |
 
 <a id="member-gfarchitecture-methods-register_assignable_event"></a>
@@ -728,9 +751,10 @@ func register_event_owned(owner: Object, event_type: Script, on_event: Callable,
 ### `register_assignable_event`
 
 - API：`public`
+- 首次版本：`8.0.0`
 
 ```gdscript
-func register_assignable_event(base_event_type: Script, on_event: Callable, priority: int = 0) -> void:
+func register_assignable_event(base_event_type: Script, listener: GFEventListener, priority: int = 0) -> void:
 ```
 
 为脚本类型注册可赋值事件监听器。 监听基类事件时，也会收到继承自该脚本类型的事件实例。
@@ -740,7 +764,7 @@ func register_assignable_event(base_event_type: Script, on_event: Callable, prio
 | 名称 | 说明 |
 |---|---|
 | `base_event_type` | 要监听的基类脚本类型。 |
-| `on_event` | 回调函数。 |
+| `listener` | 事件监听器契约。 |
 | `priority` | 回调优先级，数值越大越先执行，默认为 0。 |
 
 <a id="member-gfarchitecture-methods-register_assignable_event_owned"></a>
@@ -748,9 +772,10 @@ func register_assignable_event(base_event_type: Script, on_event: Callable, prio
 ### `register_assignable_event_owned`
 
 - API：`public`
+- 首次版本：`8.0.0`
 
 ```gdscript
-func register_assignable_event_owned( owner: Object, base_event_type: Script, on_event: Callable, priority: int = 0 ) -> void:
+func register_assignable_event_owned( owner: Object, base_event_type: Script, listener: GFEventListener, priority: int = 0 ) -> void:
 ```
 
 为脚本类型注册带拥有者的可赋值事件监听器。
@@ -761,7 +786,7 @@ func register_assignable_event_owned( owner: Object, base_event_type: Script, on
 |---|---|
 | `owner` | 监听器拥有者。 |
 | `base_event_type` | 要监听的基类脚本类型。 |
-| `on_event` | 回调函数。 |
+| `listener` | 事件监听器契约。 |
 | `priority` | 回调优先级，数值越大越先执行，默认为 0。 |
 
 <a id="member-gfarchitecture-methods-unregister_event"></a>
@@ -769,9 +794,10 @@ func register_assignable_event_owned( owner: Object, base_event_type: Script, on
 ### `unregister_event`
 
 - API：`public`
+- 首次版本：`8.0.0`
 
 ```gdscript
-func unregister_event(event_type: Script, on_event: Callable) -> void:
+func unregister_event(event_type: Script, listener: GFEventListener) -> void:
 ```
 
 为脚本类型注销事件监听器。
@@ -781,7 +807,7 @@ func unregister_event(event_type: Script, on_event: Callable) -> void:
 | 名称 | 说明 |
 |---|---|
 | `event_type` | 要注销的脚本类型。 |
-| `on_event` | 要移除的回调函数。 |
+| `listener` | 要移除的事件监听器契约。 |
 
 <a id="member-gfarchitecture-methods-unregister_event_owned"></a>
 
@@ -791,10 +817,10 @@ func unregister_event(event_type: Script, on_event: Callable) -> void:
 - 首次版本：`5.0.0`
 
 ```gdscript
-func unregister_event_owned(owner: Object, event_type: Script, on_event: Callable) -> void:
+func unregister_event_owned(owner: Object, event_type: Script, listener: GFEventListener) -> void:
 ```
 
-注销带拥有者的脚本类型事件监听器。 只移除 owner 与回调都匹配的监听，不影响其它 owner 使用同一 Callable 注册的监听。
+注销带拥有者的脚本类型事件监听器。 只移除 owner 与监听器回调都匹配的监听，不影响其它 owner 使用同一 Callable 注册的监听。
 
 参数：
 
@@ -802,16 +828,17 @@ func unregister_event_owned(owner: Object, event_type: Script, on_event: Callabl
 |---|---|
 | `owner` | 注册监听时使用的拥有者。 |
 | `event_type` | 要注销的脚本类型。 |
-| `on_event` | 要移除的回调函数。 |
+| `listener` | 要移除的事件监听器契约。 |
 
 <a id="member-gfarchitecture-methods-unregister_assignable_event"></a>
 
 ### `unregister_assignable_event`
 
 - API：`public`
+- 首次版本：`8.0.0`
 
 ```gdscript
-func unregister_assignable_event(base_event_type: Script, on_event: Callable) -> void:
+func unregister_assignable_event(base_event_type: Script, listener: GFEventListener) -> void:
 ```
 
 注销可赋值类型事件监听器。
@@ -821,7 +848,7 @@ func unregister_assignable_event(base_event_type: Script, on_event: Callable) ->
 | 名称 | 说明 |
 |---|---|
 | `base_event_type` | 注册时使用的基类脚本类型。 |
-| `on_event` | 要移除的回调函数。 |
+| `listener` | 要移除的事件监听器契约。 |
 
 <a id="member-gfarchitecture-methods-unregister_assignable_event_owned"></a>
 
@@ -831,7 +858,7 @@ func unregister_assignable_event(base_event_type: Script, on_event: Callable) ->
 - 首次版本：`5.0.0`
 
 ```gdscript
-func unregister_assignable_event_owned(owner: Object, base_event_type: Script, on_event: Callable) -> void:
+func unregister_assignable_event_owned(owner: Object, base_event_type: Script, listener: GFEventListener) -> void:
 ```
 
 注销带拥有者的可赋值类型事件监听器。
@@ -842,16 +869,17 @@ func unregister_assignable_event_owned(owner: Object, base_event_type: Script, o
 |---|---|
 | `owner` | 注册监听时使用的拥有者。 |
 | `base_event_type` | 注册时使用的基类脚本类型。 |
-| `on_event` | 要移除的回调函数。 |
+| `listener` | 要移除的事件监听器契约。 |
 
 <a id="member-gfarchitecture-methods-register_simple_event"></a>
 
 ### `register_simple_event`
 
 - API：`public`
+- 首次版本：`8.0.0`
 
 ```gdscript
-func register_simple_event(event_id: StringName, on_event: Callable) -> void:
+func register_simple_event(event_id: StringName, listener: GFEventListener) -> void:
 ```
 
 注册轻量级 StringName 事件监听器。
@@ -861,16 +889,17 @@ func register_simple_event(event_id: StringName, on_event: Callable) -> void:
 | 名称 | 说明 |
 |---|---|
 | `event_id` | StringName 事件标识符。 |
-| `on_event` | 回调函数，签名为 func(payload: Variant)。 |
+| `listener` | 简单事件监听器契约。 |
 
 <a id="member-gfarchitecture-methods-register_simple_event_owned"></a>
 
 ### `register_simple_event_owned`
 
 - API：`public`
+- 首次版本：`8.0.0`
 
 ```gdscript
-func register_simple_event_owned(owner: Object, event_id: StringName, on_event: Callable) -> void:
+func register_simple_event_owned(owner: Object, event_id: StringName, listener: GFEventListener) -> void:
 ```
 
 注册带拥有者的轻量级 StringName 事件监听器。
@@ -881,16 +910,17 @@ func register_simple_event_owned(owner: Object, event_id: StringName, on_event: 
 |---|---|
 | `owner` | 监听器拥有者。 |
 | `event_id` | StringName 事件标识符。 |
-| `on_event` | 回调函数，签名为 func(payload: Variant)。 |
+| `listener` | 简单事件监听器契约。 |
 
 <a id="member-gfarchitecture-methods-unregister_simple_event"></a>
 
 ### `unregister_simple_event`
 
 - API：`public`
+- 首次版本：`8.0.0`
 
 ```gdscript
-func unregister_simple_event(event_id: StringName, on_event: Callable) -> void:
+func unregister_simple_event(event_id: StringName, listener: GFEventListener) -> void:
 ```
 
 注销轻量级 StringName 事件监听器。
@@ -900,7 +930,7 @@ func unregister_simple_event(event_id: StringName, on_event: Callable) -> void:
 | 名称 | 说明 |
 |---|---|
 | `event_id` | StringName 事件标识符。 |
-| `on_event` | 要移除的回调函数。 |
+| `listener` | 要移除的简单事件监听器契约。 |
 
 <a id="member-gfarchitecture-methods-unregister_simple_event_owned"></a>
 
@@ -910,7 +940,7 @@ func unregister_simple_event(event_id: StringName, on_event: Callable) -> void:
 - 首次版本：`5.0.0`
 
 ```gdscript
-func unregister_simple_event_owned(owner: Object, event_id: StringName, on_event: Callable) -> void:
+func unregister_simple_event_owned(owner: Object, event_id: StringName, listener: GFEventListener) -> void:
 ```
 
 注销带拥有者的轻量级 StringName 事件监听器。
@@ -921,7 +951,7 @@ func unregister_simple_event_owned(owner: Object, event_id: StringName, on_event
 |---|---|
 | `owner` | 注册监听时使用的拥有者。 |
 | `event_id` | StringName 事件标识符。 |
-| `on_event` | 要移除的回调函数。 |
+| `listener` | 要移除的简单事件监听器契约。 |
 
 <a id="member-gfarchitecture-methods-unregister_owner_events"></a>
 
@@ -1081,7 +1111,7 @@ func clear_event_dispatch_trace() -> void:
 - 首次版本：`5.0.0`
 
 ```gdscript
-func register_system(script_cls: Script, instance: Object) -> void:
+func register_system(script_cls: Script, instance: Object) -> bool:
 ```
 
 注册 System 实例。
@@ -1093,6 +1123,8 @@ func register_system(script_cls: Script, instance: Object) -> void:
 | `script_cls` | 系统的脚本类。 |
 | `instance` | 系统实例。 |
 
+返回：注册成功、且运行时热注册完成生命周期推进时返回 true。
+
 <a id="member-gfarchitecture-methods-register_model"></a>
 
 ### `register_model`
@@ -1101,7 +1133,7 @@ func register_system(script_cls: Script, instance: Object) -> void:
 - 首次版本：`5.0.0`
 
 ```gdscript
-func register_model(script_cls: Script, instance: Object) -> void:
+func register_model(script_cls: Script, instance: Object) -> bool:
 ```
 
 注册 Model 实例。
@@ -1113,14 +1145,17 @@ func register_model(script_cls: Script, instance: Object) -> void:
 | `script_cls` | 模型的脚本类。 |
 | `instance` | 模型实例。 |
 
+返回：注册成功、且运行时热注册完成生命周期推进时返回 true。
+
 <a id="member-gfarchitecture-methods-register_utility"></a>
 
 ### `register_utility`
 
 - API：`public`
+- 首次版本：`5.0.0`
 
 ```gdscript
-func register_utility(script_cls: Script, instance: Object) -> void:
+func register_utility(script_cls: Script, instance: Object) -> bool:
 ```
 
 注册 Utility 实例。
@@ -1132,6 +1167,8 @@ func register_utility(script_cls: Script, instance: Object) -> void:
 | `script_cls` | 工具的脚本类。 |
 | `instance` | 工具实例。 |
 
+返回：注册成功、且运行时热注册完成生命周期推进时返回 true。
+
 <a id="member-gfarchitecture-methods-replace_system"></a>
 
 ### `replace_system`
@@ -1140,7 +1177,7 @@ func register_utility(script_cls: Script, instance: Object) -> void:
 - 首次版本：`5.0.0`
 
 ```gdscript
-func replace_system(script_cls: Script, instance: Object) -> void:
+func replace_system(script_cls: Script, instance: Object) -> bool:
 ```
 
 替换 System 实例。新实例成功完成当前生命周期阶段后才会提交替换。
@@ -1152,6 +1189,8 @@ func replace_system(script_cls: Script, instance: Object) -> void:
 | `script_cls` | 系统的脚本类。 |
 | `instance` | 新系统实例。 |
 
+返回：替换成功时返回 true。
+
 <a id="member-gfarchitecture-methods-replace_model"></a>
 
 ### `replace_model`
@@ -1160,7 +1199,7 @@ func replace_system(script_cls: Script, instance: Object) -> void:
 - 首次版本：`5.0.0`
 
 ```gdscript
-func replace_model(script_cls: Script, instance: Object) -> void:
+func replace_model(script_cls: Script, instance: Object) -> bool:
 ```
 
 替换 Model 实例。新实例成功完成当前生命周期阶段后才会提交替换。
@@ -1172,6 +1211,8 @@ func replace_model(script_cls: Script, instance: Object) -> void:
 | `script_cls` | 模型的脚本类。 |
 | `instance` | 新模型实例。 |
 
+返回：替换成功时返回 true。
+
 <a id="member-gfarchitecture-methods-replace_utility"></a>
 
 ### `replace_utility`
@@ -1180,7 +1221,7 @@ func replace_model(script_cls: Script, instance: Object) -> void:
 - 首次版本：`5.0.0`
 
 ```gdscript
-func replace_utility(script_cls: Script, instance: Object) -> void:
+func replace_utility(script_cls: Script, instance: Object) -> bool:
 ```
 
 替换 Utility 实例。新实例成功完成当前生命周期阶段后才会提交替换。
@@ -1192,14 +1233,17 @@ func replace_utility(script_cls: Script, instance: Object) -> void:
 | `script_cls` | 工具的脚本类。 |
 | `instance` | 新工具实例。 |
 
+返回：替换成功时返回 true。
+
 <a id="member-gfarchitecture-methods-register_factory"></a>
 
 ### `register_factory`
 
 - API：`public`
+- 首次版本：`5.0.0`
 
 ```gdscript
-func register_factory( script_cls: Script, factory: Callable, lifetime: int = GFBindingLifetimesBase.Lifetime.TRANSIENT ) -> void:
+func register_factory( script_cls: Script, factory: Callable, lifetime: int = GFBindingLifetimesBase.Lifetime.TRANSIENT ) -> bool:
 ```
 
 注册短生命周期对象工厂。
@@ -1212,14 +1256,17 @@ func register_factory( script_cls: Script, factory: Callable, lifetime: int = GF
 | `factory` | 返回对象实例的工厂回调。 |
 | `lifetime` | 工厂生命周期，默认每次 create_instance() 都创建新对象。 |
 
+返回：工厂注册成功时返回 true。
+
 <a id="member-gfarchitecture-methods-register_factory_instance"></a>
 
 ### `register_factory_instance`
 
 - API：`public`
+- 首次版本：`5.0.0`
 
 ```gdscript
-func register_factory_instance(script_cls: Script, instance: Object) -> void:
+func register_factory_instance(script_cls: Script, instance: Object) -> bool:
 ```
 
 注册已有实例作为短生命周期工厂入口。该实例以单例方式返回。
@@ -1231,14 +1278,17 @@ func register_factory_instance(script_cls: Script, instance: Object) -> void:
 | `script_cls` | 要创建的脚本类型。 |
 | `instance` | 要暴露的实例。 |
 
+返回：工厂入口注册成功时返回 true。
+
 <a id="member-gfarchitecture-methods-replace_factory"></a>
 
 ### `replace_factory`
 
 - API：`public`
+- 首次版本：`5.0.0`
 
 ```gdscript
-func replace_factory( script_cls: Script, factory: Callable, lifetime: int = GFBindingLifetimesBase.Lifetime.TRANSIENT ) -> void:
+func replace_factory( script_cls: Script, factory: Callable, lifetime: int = GFBindingLifetimesBase.Lifetime.TRANSIENT ) -> bool:
 ```
 
 替换短生命周期对象工厂。
@@ -1251,14 +1301,17 @@ func replace_factory( script_cls: Script, factory: Callable, lifetime: int = GFB
 | `factory` | 新工厂回调。 |
 | `lifetime` | 工厂生命周期。 |
 
+返回：工厂替换成功时返回 true。
+
 <a id="member-gfarchitecture-methods-replace_factory_instance"></a>
 
 ### `replace_factory_instance`
 
 - API：`public`
+- 首次版本：`5.0.0`
 
 ```gdscript
-func replace_factory_instance(script_cls: Script, instance: Object) -> void:
+func replace_factory_instance(script_cls: Script, instance: Object) -> bool:
 ```
 
 替换已有实例工厂入口。
@@ -1270,14 +1323,17 @@ func replace_factory_instance(script_cls: Script, instance: Object) -> void:
 | `script_cls` | 要创建的脚本类型。 |
 | `instance` | 要暴露的实例。 |
 
+返回：工厂入口替换成功时返回 true。
+
 <a id="member-gfarchitecture-methods-unregister_factory"></a>
 
 ### `unregister_factory`
 
 - API：`public`
+- 首次版本：`5.0.0`
 
 ```gdscript
-func unregister_factory(script_cls: Script) -> void:
+func unregister_factory(script_cls: Script) -> bool:
 ```
 
 注销短生命周期对象工厂。
@@ -1287,6 +1343,8 @@ func unregister_factory(script_cls: Script) -> void:
 | 名称 | 说明 |
 |---|---|
 | `script_cls` | 要移除的脚本类型。 |
+
+返回：存在并成功注销工厂时返回 true。
 
 <a id="member-gfarchitecture-methods-has_factory"></a>
 
@@ -1307,6 +1365,94 @@ func has_factory(script_cls: Script) -> bool:
 | `script_cls` | 要查询的脚本类型。 |
 
 返回：工厂存在时返回 true。
+
+<a id="member-gfarchitecture-methods-register_service"></a>
+
+### `register_service`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func register_service(service_key: StringName, provider: Object) -> bool:
+```
+
+注册运行时服务 capability。 同一 service_key 在同一架构内只能有一个 provider；子架构可通过父级回退读取父级服务。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `service_key` | 稳定服务键。 |
+| `provider` | 服务提供对象。 |
+
+返回：注册成功时返回 true。
+
+<a id="member-gfarchitecture-methods-unregister_service"></a>
+
+### `unregister_service`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func unregister_service(service_key: StringName, provider: Object = null) -> bool:
+```
+
+注销运行时服务 capability。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `service_key` | 稳定服务键。 |
+| `provider` | 可选的当前服务提供对象；传入时必须与已注册 provider 匹配。 |
+
+返回：注销成功时返回 true。
+
+<a id="member-gfarchitecture-methods-get_service"></a>
+
+### `get_service`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func get_service(service_key: StringName, include_parent: bool = true) -> Object:
+```
+
+获取运行时服务 capability。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `service_key` | 稳定服务键。 |
+| `include_parent` | 为 true 时允许沿父级架构查找。 |
+
+返回：服务提供对象；不存在时返回 null。
+
+<a id="member-gfarchitecture-methods-has_service"></a>
+
+### `has_service`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func has_service(service_key: StringName, include_parent: bool = true) -> bool:
+```
+
+检查运行时服务 capability 是否存在。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `service_key` | 稳定服务键。 |
+| `include_parent` | 为 true 时允许沿父级架构查找。 |
+
+返回：服务存在时返回 true。
 
 <a id="member-gfarchitecture-methods-register_system_alias"></a>
 
@@ -1427,9 +1573,10 @@ func unregister_utility_alias(alias_cls: Script) -> void:
 ### `register_system_instance`
 
 - API：`public`
+- 首次版本：`5.0.0`
 
 ```gdscript
-func register_system_instance(instance: Object) -> void:
+func register_system_instance(instance: Object) -> bool:
 ```
 
 便捷注册 System 实例，自动从实例获取脚本类作为注册键。
@@ -1440,14 +1587,17 @@ func register_system_instance(instance: Object) -> void:
 |---|---|
 | `instance` | 系统实例，必须附加有 GDScript 脚本。 |
 
+返回：注册成功时返回 true。
+
 <a id="member-gfarchitecture-methods-register_model_instance"></a>
 
 ### `register_model_instance`
 
 - API：`public`
+- 首次版本：`5.0.0`
 
 ```gdscript
-func register_model_instance(instance: Object) -> void:
+func register_model_instance(instance: Object) -> bool:
 ```
 
 便捷注册 Model 实例，自动从实例获取脚本类作为注册键。
@@ -1458,14 +1608,17 @@ func register_model_instance(instance: Object) -> void:
 |---|---|
 | `instance` | 模型实例，必须附加有 GDScript 脚本。 |
 
+返回：注册成功时返回 true。
+
 <a id="member-gfarchitecture-methods-register_utility_instance"></a>
 
 ### `register_utility_instance`
 
 - API：`public`
+- 首次版本：`5.0.0`
 
 ```gdscript
-func register_utility_instance(instance: Object) -> void:
+func register_utility_instance(instance: Object) -> bool:
 ```
 
 便捷注册 Utility 实例，自动从实例获取脚本类作为注册键。
@@ -1476,14 +1629,17 @@ func register_utility_instance(instance: Object) -> void:
 |---|---|
 | `instance` | 工具实例，必须附加有 GDScript 脚本。 |
 
+返回：注册成功时返回 true。
+
 <a id="member-gfarchitecture-methods-register_system_instance_as"></a>
 
 ### `register_system_instance_as`
 
 - API：`public`
+- 首次版本：`5.0.0`
 
 ```gdscript
-func register_system_instance_as(instance: Object, alias_cls: Script) -> void:
+func register_system_instance_as(instance: Object, alias_cls: Script) -> bool:
 ```
 
 便捷注册 System，并同时以 alias_cls 作为额外查询键。
@@ -1495,14 +1651,17 @@ func register_system_instance_as(instance: Object, alias_cls: Script) -> void:
 | `instance` | System 实例。 |
 | `alias_cls` | 额外查询脚本类。 |
 
+返回：注册成功并写入 alias 时返回 true。
+
 <a id="member-gfarchitecture-methods-register_model_instance_as"></a>
 
 ### `register_model_instance_as`
 
 - API：`public`
+- 首次版本：`5.0.0`
 
 ```gdscript
-func register_model_instance_as(instance: Object, alias_cls: Script) -> void:
+func register_model_instance_as(instance: Object, alias_cls: Script) -> bool:
 ```
 
 便捷注册 Model，并同时以 alias_cls 作为额外查询键。
@@ -1514,14 +1673,17 @@ func register_model_instance_as(instance: Object, alias_cls: Script) -> void:
 | `instance` | Model 实例。 |
 | `alias_cls` | 额外查询脚本类。 |
 
+返回：注册成功并写入 alias 时返回 true。
+
 <a id="member-gfarchitecture-methods-register_utility_instance_as"></a>
 
 ### `register_utility_instance_as`
 
 - API：`public`
+- 首次版本：`5.0.0`
 
 ```gdscript
-func register_utility_instance_as(instance: Object, alias_cls: Script) -> void:
+func register_utility_instance_as(instance: Object, alias_cls: Script) -> bool:
 ```
 
 便捷注册 Utility，并同时以 alias_cls 作为额外查询键。
@@ -1532,6 +1694,8 @@ func register_utility_instance_as(instance: Object, alias_cls: Script) -> void:
 |---|---|
 | `instance` | Utility 实例。 |
 | `alias_cls` | 额外查询脚本类。 |
+
+返回：注册成功并写入 alias 时返回 true。
 
 <a id="member-gfarchitecture-methods-unregister_system"></a>
 
@@ -1843,7 +2007,7 @@ func restore_all_models_state(data: Dictionary) -> void:
 - 首次版本：`5.0.0`
 
 ```gdscript
-func restore_all_models_state_async(data: Dictionary, options: Dictionary = {}) -> void:
+func restore_all_models_state_async(data: Dictionary, options: Dictionary = {}) -> bool:
 ```
 
 分帧恢复所有已注册 Model 的数据。
@@ -1854,6 +2018,8 @@ func restore_all_models_state_async(data: Dictionary, options: Dictionary = {}) 
 |---|---|
 | `data` | 由 get_all_models_state() 或 get_all_models_state_async() 返回的状态字典。 |
 | `options` | 可选参数，支持 max_models_per_frame；小于等于 0 时不主动让出帧。 |
+
+返回：恢复流程被完整接受时返回 true。
 
 结构：
 
@@ -1935,7 +2101,7 @@ func restore_global_snapshot(data: Dictionary, command_builder: Callable = Calla
 - 首次版本：`5.0.0`
 
 ```gdscript
-func restore_global_snapshot_async( data: Dictionary, command_builder: Callable = Callable(), options: Dictionary = {} ) -> void:
+func restore_global_snapshot_async( data: Dictionary, command_builder: Callable = Callable(), options: Dictionary = {} ) -> bool:
 ```
 
 分帧恢复整个框架的全局快照。 Model 状态会按 options.max_models_per_frame 分帧恢复；命令历史仍在 Model 恢复完成后同步恢复。
@@ -1947,6 +2113,8 @@ func restore_global_snapshot_async( data: Dictionary, command_builder: Callable 
 | `data` | 由 get_global_snapshot() 或 get_global_snapshot_async() 导出的全局快照字典数据。 |
 | `command_builder` | 【可选】如果需要恢复历史记录，必须传入用于反序列化具体 Command 实例的 Callable。 |
 | `options` | 可选参数，支持 max_models_per_frame；小于等于 0 时不主动让出帧。 |
+
+返回：恢复流程被完整接受时返回 true。
 
 结构：
 
@@ -1995,13 +2163,14 @@ func get_binding_diagnostics(options: Dictionary = {}) -> Dictionary:
 结构：
 
 - `options`: Dictionary with optional bool keys include_entries/include_parent_chain and int key max_parent_depth.
-- `return`: Dictionary containing ok, registry counts, registry entries, factory bindings, parent chain, lifecycle flags, and issues.
+- `return`: Dictionary containing ok, registry counts, registry entries, factory bindings, parent_chain, parent_chain_cycle_detected, parent_chain_truncated, lifecycle flags, and issues.
 
 <a id="member-gfarchitecture-methods-get_dependency_diagnostics"></a>
 
 ### `get_dependency_diagnostics`
 
 - API：`public`
+- 首次版本：`7.0.0`
 
 ```gdscript
 func get_dependency_diagnostics(options: Dictionary = {}) -> Dictionary:
@@ -2020,7 +2189,7 @@ func get_dependency_diagnostics(options: Dictionary = {}) -> Dictionary:
 结构：
 
 - `options`: Dictionary with optional bool keys include_parent_lookup and include_factories.
-- `return`: Dictionary dependency diagnostics report with modules, resolved_dependencies, missing_dependencies, issue counts, and next_action.
+- `return`: Dictionary dependency diagnostics report with modules, resolved_dependencies, missing_dependencies, parent-chain cycle issue records, issue counts, and next_action.
 
 <a id="member-gfarchitecture-methods-_on_init"></a>
 

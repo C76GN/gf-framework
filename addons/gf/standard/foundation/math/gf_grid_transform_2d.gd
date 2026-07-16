@@ -205,6 +205,44 @@ static func transform_cells(
 	return result
 
 
+## 变换四向单位方向。
+## [br]
+## 该方法只接受 `Vector2i.RIGHT`、`LEFT`、`DOWN`、`UP`。无效方向或无效变换返回
+## `Vector2i.ZERO`，便于调用方把它作为非方向哨兵处理。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+## [br]
+## @param direction: 原始四向单位方向。
+## [br]
+## @param transform: Transform 枚举值。
+## [br]
+## @return 变换后的四向单位方向；无效输入返回 Vector2i.ZERO。
+static func transform_cardinal_direction(direction: Vector2i, transform: int) -> Vector2i:
+	if not _is_cardinal_direction(direction) or not is_transform_valid(transform):
+		return Vector2i.ZERO
+
+	match transform:
+		Transform.IDENTITY:
+			return direction
+		Transform.ROTATE_90:
+			return Vector2i(-direction.y, direction.x)
+		Transform.ROTATE_180:
+			return -direction
+		Transform.ROTATE_270:
+			return Vector2i(direction.y, -direction.x)
+		Transform.MIRROR_X:
+			return Vector2i(-direction.x, direction.y)
+		Transform.MIRROR_Y:
+			return Vector2i(direction.x, -direction.y)
+		Transform.DIAGONAL_MAIN:
+			return Vector2i(direction.y, direction.x)
+		Transform.DIAGONAL_ANTI:
+			return Vector2i(-direction.y, -direction.x)
+	return Vector2i.ZERO
+
+
 ## 变换局部连续坐标。
 ## [br]
 ## @api public
@@ -269,6 +307,15 @@ static func transform_point(
 
 static func _is_size_positive(size: Vector2i) -> bool:
 	return size.x > 0 and size.y > 0
+
+
+static func _is_cardinal_direction(direction: Vector2i) -> bool:
+	return (
+		direction == Vector2i.RIGHT
+		or direction == Vector2i.LEFT
+		or direction == Vector2i.DOWN
+		or direction == Vector2i.UP
+	)
 
 
 static func _is_vector_size_positive(size: Vector2) -> bool:

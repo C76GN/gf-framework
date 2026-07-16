@@ -1,0 +1,353 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFConfigTableQuery" path="addons/gf/standard/utilities/config/gf_config_table_query.gd" module="standard" extends="RefCounted" classDigest="9b7650f15b0687fdebdcd0ce7f1b3f82be560cbf381d794dda2e0508e9c67f05">
+	<description>GFConfigTableQuery: 配置表记录的通用查询器。
+面向 GFConfigTableResource、导表记录数组和编辑器工具提供纯数据筛选、排序与分页。
+它不改变配置表存储模型，也不绑定任何业务表语义。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_handle</tag>
+		<tag name="since">8.0.0</tag>
+	</tags>
+	<signals />
+	<enums>
+		<member kind="enum" name="Operator">
+			<signature>enum Operator {
+	## 字段值等于目标值。
+	EQ,
+	## 字段值不等于目标值。
+	NE,
+	## 字段值大于目标值。
+	GT,
+	## 字段值大于等于目标值。
+	GTE,
+	## 字段值小于目标值。
+	LT,
+	## 字段值小于等于目标值。
+	LTE,
+	## 字段值包含在目标集合中。
+	IN,
+	## 字段值包含目标值。
+	CONTAINS,
+	## 字段路径是否存在。
+	EXISTS,
+	## 使用 Callable 判断整条记录。
+	PREDICATE,
+	## 任一子条件匹配。
+	ANY,
+	## 所有子条件都不匹配。
+	NONE,
+}</signature>
+			<description>过滤条件操作符。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</enums>
+	<constants />
+	<properties />
+	<methods>
+		<member kind="method" name="from_table">
+			<signature>static func from_table(table: GFConfigTableResource, duplicate_records: bool = true) -&gt; GFConfigTableQuery:</signature>
+			<description>从配置表资源创建查询器。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">table: 配置表资源。</tag>
+				<tag name="param">duplicate_records: 是否复制表记录，避免查询器持有资源内可变记录引用。</tag>
+				<tag name="return">新查询器。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="from_records">
+			<signature>static func from_records(records: Array[Dictionary], duplicate_records: bool = true) -&gt; GFConfigTableQuery:</signature>
+			<description>从记录数组创建查询器。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">records: 配置记录数组。</tag>
+				<tag name="param">duplicate_records: 是否复制 Dictionary 记录。</tag>
+				<tag name="return">新查询器。</tag>
+				<tag name="schema">records: Array[Dictionary]，每个 Dictionary 是一条配置记录。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="set_records">
+			<signature>func set_records(records: Array[Dictionary], duplicate_records: bool = true) -&gt; GFConfigTableQuery:</signature>
+			<description>设置查询源记录。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">records: 配置记录数组。</tag>
+				<tag name="param">duplicate_records: 是否复制 Dictionary 记录。</tag>
+				<tag name="return">当前查询器。</tag>
+				<tag name="schema">records: Array[Dictionary]，每个 Dictionary 是一条配置记录。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="clear_query">
+			<signature>func clear_query() -&gt; GFConfigTableQuery:</signature>
+			<description>清空所有过滤条件、排序和分页。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">当前查询器。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="where_eq">
+			<signature>func where_eq(path: String, value: Variant) -&gt; GFConfigTableQuery:</signature>
+			<description>添加等值过滤。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">path: 字段路径，支持用 "." 访问嵌套 Dictionary、Array 下标或 Object 属性。</tag>
+				<tag name="param">value: 目标值。</tag>
+				<tag name="return">当前查询器。</tag>
+				<tag name="schema">value: Variant，筛选目标值。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="where_ne">
+			<signature>func where_ne(path: String, value: Variant) -&gt; GFConfigTableQuery:</signature>
+			<description>添加不等值过滤。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">path: 字段路径，支持用 "." 访问嵌套 Dictionary、Array 下标或 Object 属性。</tag>
+				<tag name="param">value: 目标值。</tag>
+				<tag name="return">当前查询器。</tag>
+				<tag name="schema">value: Variant，筛选目标值。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="where_gt">
+			<signature>func where_gt(path: String, value: Variant) -&gt; GFConfigTableQuery:</signature>
+			<description>添加大于过滤。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">path: 字段路径，支持用 "." 访问嵌套 Dictionary、Array 下标或 Object 属性。</tag>
+				<tag name="param">value: 目标值。</tag>
+				<tag name="return">当前查询器。</tag>
+				<tag name="schema">value: Variant，筛选目标值。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="where_gte">
+			<signature>func where_gte(path: String, value: Variant) -&gt; GFConfigTableQuery:</signature>
+			<description>添加大于等于过滤。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">path: 字段路径，支持用 "." 访问嵌套 Dictionary、Array 下标或 Object 属性。</tag>
+				<tag name="param">value: 目标值。</tag>
+				<tag name="return">当前查询器。</tag>
+				<tag name="schema">value: Variant，筛选目标值。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="where_lt">
+			<signature>func where_lt(path: String, value: Variant) -&gt; GFConfigTableQuery:</signature>
+			<description>添加小于过滤。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">path: 字段路径，支持用 "." 访问嵌套 Dictionary、Array 下标或 Object 属性。</tag>
+				<tag name="param">value: 目标值。</tag>
+				<tag name="return">当前查询器。</tag>
+				<tag name="schema">value: Variant，筛选目标值。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="where_lte">
+			<signature>func where_lte(path: String, value: Variant) -&gt; GFConfigTableQuery:</signature>
+			<description>添加小于等于过滤。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">path: 字段路径，支持用 "." 访问嵌套 Dictionary、Array 下标或 Object 属性。</tag>
+				<tag name="param">value: 目标值。</tag>
+				<tag name="return">当前查询器。</tag>
+				<tag name="schema">value: Variant，筛选目标值。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="where_in">
+			<signature>func where_in(path: String, candidate_values: Array) -&gt; GFConfigTableQuery:</signature>
+			<description>添加集合包含过滤。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">path: 字段路径，支持用 "." 访问嵌套 Dictionary、Array 下标或 Object 属性。</tag>
+				<tag name="param">candidate_values: 目标值集合。</tag>
+				<tag name="return">当前查询器。</tag>
+				<tag name="schema">candidate_values: Array，筛选候选值。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="where_contains">
+			<signature>func where_contains(path: String, value: Variant) -&gt; GFConfigTableQuery:</signature>
+			<description>添加字段包含过滤。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">path: 字段路径，支持用 "." 访问嵌套 Dictionary、Array 下标或 Object 属性。</tag>
+				<tag name="param">value: 目标值。</tag>
+				<tag name="return">当前查询器。</tag>
+				<tag name="schema">value: Variant，筛选目标值。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="where_exists">
+			<signature>func where_exists(path: String, exists: bool = true) -&gt; GFConfigTableQuery:</signature>
+			<description>添加字段存在性过滤。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">path: 字段路径，支持用 "." 访问嵌套 Dictionary、Array 下标或 Object 属性。</tag>
+				<tag name="param">exists: 为 true 时要求路径存在，为 false 时要求路径不存在。</tag>
+				<tag name="return">当前查询器。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="where_predicate">
+			<signature>func where_predicate(predicate: Callable, description: StringName = &amp;"") -&gt; GFConfigTableQuery:</signature>
+			<description>添加自定义记录过滤。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">predicate: 判断回调，签名为 Callable(record: Dictionary) -&gt; bool。</tag>
+				<tag name="param">description: 可选描述 ID，进入 describe_query() 便于调试。</tag>
+				<tag name="return">当前查询器。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="condition">
+			<signature>static func condition( operator: Operator, path: String = "", value: Variant = null, description: StringName = &amp;"" ) -&gt; Dictionary:</signature>
+			<description>创建可传给 where_filter()、where_any() 或 where_none() 的条件字典。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">operator: 过滤操作符。</tag>
+				<tag name="param">path: 字段路径；PREDICATE、ANY 和 NONE 可为空。</tag>
+				<tag name="param">value: 目标值、Callable，或条件组数组。</tag>
+				<tag name="param">description: 可选描述 ID，进入 describe_query() 便于调试。</tag>
+				<tag name="return">条件字典。</tag>
+				<tag name="schema">value: Variant 目标值、Callable 谓词、Array[Dictionary] 条件组或 null。</tag>
+				<tag name="schema">return: Dictionary，可直接传给 where_filter()、where_any() 或 where_none()。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="where_filter">
+			<signature>func where_filter(condition_data: Dictionary) -&gt; GFConfigTableQuery:</signature>
+			<description>添加一个声明式条件。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">condition_data: 条件字典，通常由 condition() 创建。</tag>
+				<tag name="return">当前查询器。</tag>
+				<tag name="schema">condition_data: Dictionary，包含 operator、path、value、description 或嵌套 filters/conditions。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="where_any">
+			<signature>func where_any(conditions: Array[Dictionary], description: StringName = &amp;"") -&gt; GFConfigTableQuery:</signature>
+			<description>添加任一条件匹配过滤。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">conditions: 条件字典数组，任一条件匹配即通过。</tag>
+				<tag name="param">description: 可选描述 ID，进入 describe_query() 便于调试。</tag>
+				<tag name="return">当前查询器。</tag>
+				<tag name="schema">conditions: Array[Dictionary]，每个元素通常由 condition() 创建。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="where_none">
+			<signature>func where_none(conditions: Array[Dictionary], description: StringName = &amp;"") -&gt; GFConfigTableQuery:</signature>
+			<description>添加所有条件都不匹配过滤。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">conditions: 条件字典数组，只要其中任一条件匹配即拒绝记录。</tag>
+				<tag name="param">description: 可选描述 ID，进入 describe_query() 便于调试。</tag>
+				<tag name="return">当前查询器。</tag>
+				<tag name="schema">conditions: Array[Dictionary]，每个元素通常由 condition() 创建。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="order_by">
+			<signature>func order_by(path: String, ascending: bool = true) -&gt; GFConfigTableQuery:</signature>
+			<description>设置排序字段。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">path: 字段路径，支持用 "." 访问嵌套 Dictionary、Array 下标或 Object 属性。</tag>
+				<tag name="param">ascending: 是否升序。</tag>
+				<tag name="return">当前查询器。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="page">
+			<signature>func page(offset: int = 0, limit: int = -1) -&gt; GFConfigTableQuery:</signature>
+			<description>设置分页。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">offset: 跳过记录数量。</tag>
+				<tag name="param">limit: 最多返回记录数量；小于 0 表示不限制。</tag>
+				<tag name="return">当前查询器。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="to_array">
+			<signature>func to_array(duplicate_records: bool = true) -&gt; Array[Dictionary]:</signature>
+			<description>返回匹配记录数组。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">duplicate_records: 是否复制返回记录。</tag>
+				<tag name="return">匹配记录数组。</tag>
+				<tag name="schema">return: Array[Dictionary]，每个 Dictionary 是一条匹配记录。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="first">
+			<signature>func first(duplicate_record: bool = true) -&gt; Variant:</signature>
+			<description>返回第一条匹配记录。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">duplicate_record: 是否复制返回记录。</tag>
+				<tag name="return">匹配记录；没有匹配时返回 null。</tag>
+				<tag name="schema">return: Variant，找到时为 Dictionary，未命中时为 null。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="count">
+			<signature>func count() -&gt; int:</signature>
+			<description>返回匹配记录数量，不应用分页。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">匹配记录数量。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="values">
+			<signature>func values(path: String = "") -&gt; Array:</signature>
+			<description>返回匹配记录中的字段值。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">path: 字段路径。为空时使用整条记录。</tag>
+				<tag name="return">字段值数组。</tag>
+				<tag name="schema">return: Array，字段值列表。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="read_path">
+			<signature>static func read_path(source: Variant, path: String, default_value: Variant = null) -&gt; Variant:</signature>
+			<description>读取任意源对象的路径值。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">source: 源数据。</tag>
+				<tag name="param">path: 字段路径，支持用 "." 访问嵌套 Dictionary、Array 下标或 Object 属性。</tag>
+				<tag name="param">default_value: 路径不存在时返回的默认值。</tag>
+				<tag name="return">读取到的值或默认值。</tag>
+				<tag name="schema">source: Variant，Dictionary、Array、Object 或标量数据。</tag>
+				<tag name="schema">default_value: Variant，路径不存在时返回的默认值。</tag>
+				<tag name="schema">return: Variant，读取到的值或默认值。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="describe_query">
+			<signature>func describe_query() -&gt; Dictionary:</signature>
+			<description>描述当前查询。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">查询描述。</tag>
+				<tag name="schema">return: Dictionary，包含 source_count、filter_count、filters、sort_path、sort_ascending、offset 和 limit。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

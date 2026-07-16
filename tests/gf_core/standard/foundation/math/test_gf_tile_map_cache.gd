@@ -57,3 +57,43 @@ func test_tile_map_cache_from_dict_ignores_non_dictionary_records() -> void:
 	cache.from_dict({ "1,2": "invalid" })
 
 	assert_false(cache.has_cell(Vector2i(1, 2)), "非 Dictionary 记录不应被静默转换成空格子。")
+
+
+func test_tile_map_cache_to_dict_roundtrips_through_json() -> void:
+	var cache: GFTileMapCache = GFTileMapCache.new()
+	cache.set_cell_data(Vector2i(3, 4), {
+		"source_id": 2,
+		"atlas_coords": Vector2i(7, 8),
+		"alternative_tile": 1,
+		"tags": PackedStringArray(["a", "b"]),
+	})
+	var encoded: Dictionary = cache.to_dict()
+	var encoded_record: Dictionary = GFVariantData.as_dictionary(GFVariantData.get_option_value(encoded, "3,4"))
+
+	assert_eq(typeof(GFVariantData.get_option_value(encoded_record, "atlas_coords")), TYPE_DICTIONARY, "Vector2i 字段应被编码为 JSON-safe typed marker。")
+
+	var parsed: Dictionary = GFVariantData.as_dictionary(JSON.parse_string(JSON.stringify(encoded)))
+	var restored: GFTileMapCache = GFTileMapCache.new()
+	restored.from_dict(parsed)
+	var restored_record: Dictionary = restored.get_cell_data(Vector2i(3, 4))
+
+	assert_eq(GFVariantData.get_option_int(restored_record, "source_id"), 2)
+	assert_eq(_record_atlas_coords(restored_record), Vector2i(7, 8))
+	assert_eq(GFVariantData.get_option_int(restored_record, "alternative_tile"), 1)
+	assert_eq(_record_tags(restored_record), PackedStringArray(["a", "b"]))
+
+
+func _record_atlas_coords(record: Dictionary) -> Vector2i:
+	var value: Variant = GFVariantData.get_option_value(record, "atlas_coords")
+	if value is Vector2i:
+		var atlas_coords: Vector2i = value
+		return atlas_coords
+	return Vector2i.ZERO
+
+
+func _record_tags(record: Dictionary) -> PackedStringArray:
+	var value: Variant = GFVariantData.get_option_value(record, "tags")
+	if value is PackedStringArray:
+		var tags: PackedStringArray = value
+		return tags
+	return PackedStringArray()

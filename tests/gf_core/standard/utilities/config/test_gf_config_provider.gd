@@ -224,6 +224,20 @@ func test_resource_config_provider_rebuild_table_registry_refreshes_mutated_tabl
 	assert_true(provider.has_schema(&"owners"), "重建后新 schema 应进入 Provider。")
 
 
+func test_resource_config_provider_refreshes_mutated_table_identity_on_lookup() -> void:
+	var provider: GFResourceConfigProvider = GFResourceConfigProvider.new()
+	assert_true(provider.register_table(_make_item_table_resource()), "有效表资源应注册成功。")
+	var table: GFConfigTableResource = provider.get_table_resource(&"items", false)
+	table.table_name = &"owners"
+	table.schema = _make_owner_table_resource(1).schema
+	table.records = [{"id": 1, "item_id": 1}]
+
+	assert_false(provider.has_table(&"items"), "资源身份变化后旧缓存键不得继续返回该表。")
+	assert_true(provider.has_table(&"owners"), "lookup 应同步刷新资源当前身份，无需调用方手动重建。")
+	assert_false(provider.has_schema(&"items"), "身份刷新应同步移除旧 schema。")
+	assert_true(provider.has_schema(&"owners"), "身份刷新应同步注册新 schema。")
+
+
 func test_config_table_resource_can_round_trip_as_tres() -> void:
 	var table: GFConfigTableResource = _make_item_table_resource()
 	table.schema.indexes.append(_make_name_index())

@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFLevelUtility" path="addons/gf/extensions/domain/level/gf_level_utility.gd" module="extensions/domain" extends="GFUtility" classDigest="48d3a24a8a45dc7c73789dc101c4a2ca3eb51b52e2b30b683d259292c73c993b">
+<class name="GFLevelUtility" path="addons/gf/extensions/domain/level/gf_level_utility.gd" module="extensions/domain" extends="GFUtility" classDigest="e676513609c2e5ca93fc8d9b8d830c960a646bcf11f5510cf5e7e16088617236">
 	<description>GFLevelUtility: 关卡流程管理工具。
 负责统一关卡数据读取、开始、重开、胜利和失败信号派发。
-默认通过 GFConfigProvider 读取静态关卡表，并可在重开关卡时清理
-命令历史与外部显式注册的运行时残留。</description>
+默认通过 GFConfigProvider 读取静态关卡表，并可在重开关卡时执行
+外部显式注册的运行时清理回调。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">runtime_service</tag>
@@ -167,12 +167,13 @@
 		</member>
 		<member kind="method" name="restart_level">
 			<signature>func restart_level(clear_runtime: bool = true) -&gt; Dictionary:</signature>
-			<description>重开当前关卡，并清理常见运行时队列。</description>
+			<description>重开当前关卡，并清理已注册的关卡运行时残留。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="param">clear_runtime: 是否清理命令历史与表现队列。</tag>
+				<tag name="param">clear_runtime: 是否执行已注册的运行时清理回调。</tag>
 				<tag name="return">当前关卡数据副本。</tag>
 				<tag name="schema">return: Dictionary，重开后的当前关卡数据副本；失败时为空字典。</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="win_current_level">
@@ -202,27 +203,34 @@
 		</member>
 		<member kind="method" name="clear_level_runtime">
 			<signature>func clear_level_runtime() -&gt; void:</signature>
-			<description>清理常见关卡运行时残留。</description>
+			<description>清理已注册的关卡运行时残留。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="register_runtime_cleanup">
-			<signature>func register_runtime_cleanup(cleanup_id: StringName, callback: Callable) -&gt; bool:</signature>
+			<signature>func register_runtime_cleanup( cleanup_id: StringName, callback: Callable, priority: int = 0, metadata: Dictionary = {} ) -&gt; bool:</signature>
 			<description>注册关卡运行时清理回调。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">cleanup_id: 清理项唯一标识。</tag>
 				<tag name="param">callback: 无参数清理回调。</tag>
+				<tag name="param">priority: 执行优先级，数值越大越先执行。</tag>
+				<tag name="param">metadata: 调用方自定义元数据。</tag>
 				<tag name="return">注册成功返回 true。</tag>
+				<tag name="schema">metadata: Dictionary project-defined cleanup metadata.</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="unregister_runtime_cleanup">
-			<signature>func unregister_runtime_cleanup(cleanup_id: StringName) -&gt; void:</signature>
+			<signature>func unregister_runtime_cleanup(cleanup_id: StringName) -&gt; bool:</signature>
 			<description>注销关卡运行时清理回调。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">cleanup_id: 清理项唯一标识。</tag>
+				<tag name="return">成功移除返回 true。</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="has_runtime_cleanup">

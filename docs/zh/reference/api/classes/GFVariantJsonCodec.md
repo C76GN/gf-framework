@@ -17,6 +17,8 @@ Godot Variant 的 JSON 兼容编码器。 负责在 JSON.stringify() 可编码�
 |---|---|---|
 | 方法 | [`variant_to_json_compatible`](#member-gfvariantjsoncodec-methods-variant_to_json_compatible) | `static func variant_to_json_compatible(value: Variant, options: Dictionary = {}) -> Variant:` |
 | 方法 | [`json_compatible_to_variant`](#member-gfvariantjsoncodec-methods-json_compatible_to_variant) | `static func json_compatible_to_variant(value: Variant, options: Dictionary = {}) -> Variant:` |
+| 方法 | [`stringify_json_compatible`](#member-gfvariantjsoncodec-methods-stringify_json_compatible) | `static func stringify_json_compatible( value: Variant, indent: String = "", sort_keys: bool = false, options: Dictionary = {} ) -> String:` |
+| 方法 | [`parse_json_compatible_text`](#member-gfvariantjsoncodec-methods-parse_json_compatible_text) | `static func parse_json_compatible_text( text: String, fallback: Variant = null, options: Dictionary = {} ) -> Variant:` |
 | 方法 | [`parse_json_text`](#member-gfvariantjsoncodec-methods-parse_json_text) | `static func parse_json_text(text: String, fallback: Variant = null) -> Variant:` |
 | 方法 | [`format_json_text`](#member-gfvariantjsoncodec-methods-format_json_text) | `static func format_json_text( text: String, indent: String = "\t", sort_keys: bool = false, fallback: String = "" ) -> String:` |
 | 方法 | [`compact_json_text`](#member-gfvariantjsoncodec-methods-compact_json_text) | `static func compact_json_text(text: String, sort_keys: bool = false, fallback: String = "") -> String:` |
@@ -82,6 +84,64 @@ static func json_compatible_to_variant(value: Variant, options: Dictionary = {})
 - `value`: Variant parsed from JSON-compatible data.
 - `options`: Dictionary with decode_typed_markers and key decoding options.
 - `return`: Variant restored from JSON-compatible data.
+
+<a id="member-gfvariantjsoncodec-methods-stringify_json_compatible"></a>
+
+### `stringify_json_compatible`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+static func stringify_json_compatible( value: Variant, indent: String = "", sort_keys: bool = false, options: Dictionary = {} ) -> String:
+```
+
+将任意 Variant 转为 JSON 兼容值后序列化为文本。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `value` | 待序列化的 Variant。 |
+| `indent` | 缩进字符串；空字符串表示压缩输出。 |
+| `sort_keys` | 是否按键名排序 Dictionary。 |
+| `options` | 传给 variant_to_json_compatible() 的编码选项。 |
+
+返回：JSON 文本。
+
+结构：
+
+- `value`: Variant value to encode before JSON.stringify().
+- `options`: Dictionary with encode_dictionary_keys, encode_unsafe_ints, unsupported, and circular_reference options.
+
+<a id="member-gfvariantjsoncodec-methods-parse_json_compatible_text"></a>
+
+### `parse_json_compatible_text`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+static func parse_json_compatible_text( text: String, fallback: Variant = null, options: Dictionary = {} ) -> Variant:
+```
+
+解析 JSON 文本并把 GF Variant 类型标记恢复为 Godot Variant。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `text` | JSON 文本。 |
+| `fallback` | 解析失败时返回的值。 |
+| `options` | 传给 json_compatible_to_variant() 的解码选项。 |
+
+返回：恢复后的 Variant，或 fallback。
+
+结构：
+
+- `fallback`: Variant returned unchanged when JSON parsing fails.
+- `options`: Dictionary with decode_typed_markers and key decoding options.
+- `return`: Variant restored from GF JSON-compatible data, or fallback on parse error.
 
 <a id="member-gfvariantjsoncodec-methods-parse_json_text"></a>
 

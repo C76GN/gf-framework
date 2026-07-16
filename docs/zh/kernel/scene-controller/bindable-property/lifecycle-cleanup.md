@@ -19,4 +19,6 @@ func _ready() -> void:
 
 `subscribe(callback, emit_current)` 适合无 Node 生命周期的对象。它直接连接 `value_changed` 并返回一个取消订阅函数；持有方应保存这个 Callable，并在释放、重建或测试结束时调用它。`emit_current` 为 `true` 时会立即用当前值调用回调，避免单独写一次初始刷新逻辑。
 
+需要把取消动作作为显式运行时句柄传递时，使用 `subscribe_token()` 返回 `GFSubscriptionToken`。需要把订阅绑定到 owner 生命周期时，使用 `subscribe_owned(owner, callback)` 返回 `GFLifetimeSubscription`；如果回调是 owner 上的方法，优先使用 `subscribe_method(owner, method_name)`，它只弱引用 owner，避免为了订阅回调而延长 owner 生命周期。对非绑定属性的普通 Godot Signal，使用 `GFSignalSubscriptionToken` 把连接建模成可取消句柄；需要随 Node owner 自动清理时，用 `GFSignalSubscriptionToken.connect_owned(...)`。
+
 确实要清空 `value_changed` 上所有订阅者时，使用语义更明确的 `disconnect_all_subscribers()`。

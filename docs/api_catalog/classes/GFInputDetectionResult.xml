@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFInputDetectionResult" path="addons/gf/standard/input/rebinding/gf_input_detection_result.gd" module="standard" extends="RefCounted" classDigest="98b13421fae464b794fe07c2ea8cc4cbdbfb5aa072ba9765b63f3a6fbdcee096">
+	<description>GFInputDetectionResult: 输入检测结束结果。
+表达 GFInputDetector 一轮检测为什么结束，以及成功时捕获到的输入事件。
+它不处理冲突、不修改 InputMap，也不绑定具体改键 UI 流程。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">value_object</tag>
+		<tag name="layer">standard/input</tag>
+		<tag name="since">8.0.0</tag>
+	</tags>
+	<signals />
+	<enums>
+		<member kind="enum" name="FinishReason">
+			<signature>enum FinishReason {
+	## 已检测到可接受输入。
+	SUCCESS,
+	## 调用方或取消输入结束了检测。
+	CANCELLED,
+	## 检测超时结束。
+	TIMEOUT,
+	## 新一轮检测替换了上一轮检测。
+	REPLACED,
+}</signature>
+			<description>检测结束原因。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</enums>
+	<constants />
+	<properties>
+		<member kind="property" name="reason">
+			<signature>var reason: FinishReason = FinishReason.CANCELLED</signature>
+			<description>检测结束原因。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="input_event">
+			<signature>var input_event: InputEvent = null</signature>
+			<description>捕获到的输入事件。只有 reason 为 SUCCESS 时应非空。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="elapsed_seconds">
+			<signature>var elapsed_seconds: float = 0.0</signature>
+			<description>本轮检测经过的秒数。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="value_type">
+			<signature>var value_type: int = -1</signature>
+			<description>本轮检测使用的动作值类型；-1 表示未限制。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="allowed_device_types">
+			<signature>var allowed_device_types: Array[int] = []</signature>
+			<description>本轮检测允许的设备类型。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">allowed_device_types: Array[int]，包含 GFInputDetector.DeviceType 枚举值；为空表示未限制。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="create">
+			<signature>static func create( finish_reason: FinishReason, detected_event: InputEvent = null, detection_elapsed_seconds: float = 0.0, detection_value_type: int = -1, detection_allowed_device_types: Array[int] = [] ) -&gt; GFInputDetectionResult:</signature>
+			<description>创建检测结束结果。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">finish_reason: 检测结束原因。</tag>
+				<tag name="param">detected_event: 捕获到的输入事件；非成功结果应传 null。</tag>
+				<tag name="param">detection_elapsed_seconds: 本轮检测经过的秒数。</tag>
+				<tag name="param">detection_value_type: 本轮检测使用的动作值类型；-1 表示未限制。</tag>
+				<tag name="param">detection_allowed_device_types: 本轮检测允许的设备类型。</tag>
+				<tag name="return">检测结果。</tag>
+				<tag name="schema">detection_allowed_device_types: Array[int]，包含 GFInputDetector.DeviceType 枚举值；为空表示未限制。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_success">
+			<signature>func is_success() -&gt; bool:</signature>
+			<description>检测是否成功捕获输入事件。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">成功捕获输入事件时返回 true。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="has_input_event">
+			<signature>func has_input_event() -&gt; bool:</signature>
+			<description>检测结果是否包含输入事件。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">包含输入事件时返回 true。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="to_dictionary">
+			<signature>func to_dictionary() -&gt; Dictionary:</signature>
+			<description>转换为 JSON 安全字典。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">检测结果字典。</tag>
+				<tag name="schema">return: Dictionary with reason, success, elapsed_seconds, value_type, allowed_device_types, and input_identity fields.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="reason_to_string">
+			<signature>static func reason_to_string(finish_reason: FinishReason) -&gt; StringName:</signature>
+			<description>获取结束原因的稳定字符串。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">finish_reason: 检测结束原因。</tag>
+				<tag name="return">结束原因字符串。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

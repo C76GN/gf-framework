@@ -69,6 +69,9 @@ func before_each() -> void:
 	await _arch.register_utility_instance(_history)
 	await _arch.register_system_instance(_actions)
 	await _arch.register_utility_instance(_level)
+	var history_cleanup: Callable = func() -> void:
+		_history.clear()
+	var _register_history_cleanup_result: bool = _level.register_runtime_cleanup(&"command_history", history_cleanup, 100)
 	var _register_runtime_cleanup_result_72: Variant = _level.register_runtime_cleanup(&"action_queue", func() -> void:
 		_actions.clear_queue(true)
 		_actions.clear_all_named_queues(true)
@@ -109,6 +112,24 @@ func test_start_level_emits_signal() -> void:
 	var _start_level_result_109: Variant = _level.start_level(1)
 
 	assert_signal_emitted(_level, "level_started", "开始关卡时应发出 level_started。")
+
+
+func test_start_level_rejects_empty_id_without_emitting_started() -> void:
+	watch_signals(_level)
+
+	var data: Dictionary = _level.start_level("")
+
+	assert_true(data.is_empty(), "空关卡 ID 应被拒绝。")
+	assert_eq(_level.current_level_id, &"", "空 ID 不应创建不可操作的当前关卡状态。")
+	assert_signal_not_emitted(_level, "level_started", "空 ID 不应发出 level_started。")
+	assert_push_error("[GFLevelUtility] start_level 失败：关卡 ID 为空。")
+
+
+func test_load_level_data_rejects_empty_id_before_provider_lookup() -> void:
+	var data: Dictionary = _level.load_level_data("")
+
+	assert_true(data.is_empty(), "空关卡 ID 不应进入配置或目录查询。")
+	assert_push_error("[GFLevelUtility] load_level_data 失败：关卡 ID 为空。")
 
 
 func test_start_level_signal_data_cannot_mutate_current_state() -> void:

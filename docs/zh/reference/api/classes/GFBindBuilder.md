@@ -18,8 +18,8 @@
 | 方法 | [`from_factory`](#member-gfbindbuilder-methods-from_factory) | `func from_factory(factory: Callable) -> GFBindBuilder:` |
 | 方法 | [`from_instance`](#member-gfbindbuilder-methods-from_instance) | `func from_instance(instance: Object) -> GFBindBuilder:` |
 | 方法 | [`with_alias`](#member-gfbindbuilder-methods-with_alias) | `func with_alias(alias_cls: Script) -> GFBindBuilder:` |
-| 方法 | [`as_singleton`](#member-gfbindbuilder-methods-as_singleton) | `func as_singleton() -> void:` |
-| 方法 | [`as_transient`](#member-gfbindbuilder-methods-as_transient) | `func as_transient() -> void:` |
+| 方法 | [`as_singleton`](#member-gfbindbuilder-methods-as_singleton) | `func as_singleton() -> bool:` |
+| 方法 | [`as_transient`](#member-gfbindbuilder-methods-as_transient) | `func as_transient() -> bool:` |
 
 ## 方法
 
@@ -88,21 +88,27 @@ func with_alias(alias_cls: Script) -> GFBindBuilder:
 ### `as_singleton`
 
 - API：`public`
+- 首次版本：`5.0.0`
 
 ```gdscript
-func as_singleton() -> void:
+func as_singleton() -> bool:
 ```
 
 以单例语义完成绑定。
+
+返回：绑定成功时返回 true。
 
 <a id="member-gfbindbuilder-methods-as_transient"></a>
 
 ### `as_transient`
 
 - API：`public`
+- 首次版本：`5.0.0`
 
 ```gdscript
-func as_transient() -> void:
+func as_transient() -> bool:
 ```
 
 以瞬态语义完成绑定。仅短生命周期工厂支持 transient。
+
+返回：绑定成功时返回 true。

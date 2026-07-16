@@ -34,11 +34,11 @@
 | 属性 | [`setter`](#member-gfruntimetunableproperty-properties-setter) | `var setter: Callable` |
 | 属性 | [`validator`](#member-gfruntimetunableproperty-properties-validator) | `var validator: Callable` |
 | 方法 | [`setup`](#member-gfruntimetunableproperty-methods-setup) | `func setup( p_property_id: StringName, p_property_name: NodePath = NodePath(""), p_value_kind: ValueKind = ValueKind.ANY ) -> GFRuntimeTunableProperty:` |
-| 方法 | [`with_range`](#member-gfruntimetunableproperty-methods-with_range) | `func with_range(p_min_value: float, p_max_value: float, p_step: float = 1.0) -> GFRuntimeTunableProperty:` |
+| 方法 | [`configure_range`](#member-gfruntimetunableproperty-methods-configure_range) | `func configure_range(p_min_value: float, p_max_value: float, p_step: float = 1.0) -> bool:` |
 | 方法 | [`with_options`](#member-gfruntimetunableproperty-methods-with_options) | `func with_options(p_options: Array) -> GFRuntimeTunableProperty:` |
 | 方法 | [`read_value`](#member-gfruntimetunableproperty-methods-read_value) | `func read_value(target: Object) -> Variant:` |
 | 方法 | [`write_value`](#member-gfruntimetunableproperty-methods-write_value) | `func write_value(target: Object, value: Variant) -> bool:` |
-| 方法 | [`normalize_value`](#member-gfruntimetunableproperty-methods-normalize_value) | `func normalize_value(value: Variant) -> Variant:` |
+| 方法 | [`try_normalize_value`](#member-gfruntimetunableproperty-methods-try_normalize_value) | `func try_normalize_value(value: Variant) -> Dictionary:` |
 | 方法 | [`to_schema`](#member-gfruntimetunableproperty-methods-to_schema) | `func to_schema() -> Dictionary:` |
 
 ## 枚举
@@ -312,17 +312,18 @@ func setup( p_property_id: StringName, p_property_name: NodePath = NodePath(""),
 
 返回：当前属性声明。
 
-<a id="member-gfruntimetunableproperty-methods-with_range"></a>
+<a id="member-gfruntimetunableproperty-methods-configure_range"></a>
 
-### `with_range`
+### `configure_range`
 
 - API：`public`
+- 首次版本：`8.0.0`
 
 ```gdscript
-func with_range(p_min_value: float, p_max_value: float, p_step: float = 1.0) -> GFRuntimeTunableProperty:
+func configure_range(p_min_value: float, p_max_value: float, p_step: float = 1.0) -> bool:
 ```
 
-设置数值范围并返回自身。
+配置数值范围。
 
 参数：
 
@@ -332,7 +333,7 @@ func with_range(p_min_value: float, p_max_value: float, p_step: float = 1.0) -> 
 | `p_max_value` | 最大值。 |
 | `p_step` | 建议步长。 |
 
-返回：当前属性声明。
+返回：schema 有效并完成配置时返回 true；失败时保持原配置。
 
 <a id="member-gfruntimetunableproperty-methods-with_options"></a>
 
@@ -407,17 +408,18 @@ func write_value(target: Object, value: Variant) -> bool:
 
 - `value`: Variant，请求写入的原始值，会按 value_kind 和范围配置归一化。
 
-<a id="member-gfruntimetunableproperty-methods-normalize_value"></a>
+<a id="member-gfruntimetunableproperty-methods-try_normalize_value"></a>
 
-### `normalize_value`
+### `try_normalize_value`
 
 - API：`public`
+- 首次版本：`8.0.0`
 
 ```gdscript
-func normalize_value(value: Variant) -> Variant:
+func try_normalize_value(value: Variant) -> Dictionary:
 ```
 
-根据 schema 归一化写入值。
+尝试根据 schema 解析并归一化写入值。
 
 参数：
 
@@ -425,12 +427,12 @@ func normalize_value(value: Variant) -> Variant:
 |---|---|
 | `value` | 输入值。 |
 
-返回：归一化后的值。
+返回：解析报告。
 
 结构：
 
 - `value`: Variant，输入值。
-- `return`: Variant，归一化后的值，类型由 value_kind 决定。
+- `return`: Dictionary，包含 ok、value 和 error；失败时 value 为 null。
 
 <a id="member-gfruntimetunableproperty-methods-to_schema"></a>
 

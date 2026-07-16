@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFHapticUtility" path="addons/gf/extensions/feedback/runtime/gf_haptic_utility.gd" module="extensions/feedback" extends="GFUtility" classDigest="210ab39d2a10742b959c8c4545b19d3b08d008de3db423cfc6ee000ef34c9468">
+<class name="GFHapticUtility" path="addons/gf/extensions/feedback/runtime/gf_haptic_utility.gd" module="extensions/feedback" extends="GFUtility" classDigest="47c9d6b85f29a1ca96b1228dcda755b1fd9735553429fdeef629184ac0fb52e0">
 	<description>GFHapticUtility: 通用手柄震动播放工具。
 管理命名 channel 上的 `GFHapticPreset` 播放状态，并把合成后的弱/强马达强度
 路由到玩家席位或手柄设备。项目仍然决定何时播放、如何分组以及玩法语义。</description>
@@ -118,7 +118,8 @@
 		</member>
 		<member kind="property" name="auto_apply_on_tick">
 			<signature>var auto_apply_on_tick: bool = true</signature>
-			<description>tick() 后是否自动把当前采样输出到设备。</description>
+			<description>tick() 后是否自动把当前采样输出到设备。关闭时，调用方必须在 tick()、stop_haptic()
+或 clear() 等状态变化后自行调用 apply_current_outputs()，以刷新输出和停止已结束目标。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="since">7.0.0</tag>
@@ -138,6 +139,14 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="haptic_backend">
+			<signature>var haptic_backend: Object = null</signature>
+			<description>可选震动输出后端。有效时优先于 output_handler 和默认 Input 路由。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="output_handler">
@@ -204,7 +213,7 @@
 				<tag name="param">strength: 播放强度倍率。</tag>
 				<tag name="param">metadata: 项目自定义元数据。</tag>
 				<tag name="return">播放实例 ID；无法播放时返回 -1。</tag>
-				<tag name="schema">metadata: Dictionary，播放实例自定义元数据，会在 get_haptic_info() 快照中复制返回。</tag>
+				<tag name="schema">metadata: Dictionary，播放实例自定义元数据，会在 get_haptic_info() JSON-safe 快照中复制返回。</tag>
 				<tag name="since">7.0.0</tag>
 			</tags>
 		</member>
@@ -219,7 +228,7 @@
 				<tag name="param">strength: 播放强度倍率。</tag>
 				<tag name="param">metadata: 项目自定义元数据。</tag>
 				<tag name="return">播放实例 ID；无法播放时返回 -1。</tag>
-				<tag name="schema">metadata: Dictionary，播放实例自定义元数据，会在 get_haptic_info() 快照中复制返回。</tag>
+				<tag name="schema">metadata: Dictionary，播放实例自定义元数据，会在 get_haptic_info() JSON-safe 快照中复制返回。</tag>
 				<tag name="since">7.0.0</tag>
 			</tags>
 		</member>
@@ -322,7 +331,8 @@
 		</member>
 		<member kind="method" name="sample_player">
 			<signature>func sample_player(player_index: int, channel: StringName = &amp;"") -&gt; Dictionary:</signature>
-			<description>采样指定玩家当前的合成震动。</description>
+			<description>采样指定玩家当前的合成震动。
+返回玩家最终路由到的物理输出视图；映射到设备后会与该设备的直接震动合并。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">player_index: 玩家索引。</tag>
@@ -334,7 +344,8 @@
 		</member>
 		<member kind="method" name="sample_device">
 			<signature>func sample_device(device_id: int, channel: StringName = &amp;"") -&gt; Dictionary:</signature>
-			<description>采样指定设备当前的合成震动。</description>
+			<description>采样指定设备当前的合成震动。
+返回设备最终物理输出视图，包含映射到该设备的玩家震动。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">device_id: Godot 手柄设备 ID。</tag>
@@ -351,7 +362,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">duration_seconds: 输出请求持续时间；小于 0 时使用 output_refresh_seconds。</tag>
 				<tag name="return">输出报告。</tag>
-				<tag name="schema">return: Dictionary，包含 applied_count、stopped_count、applied 与 stopped。</tag>
+				<tag name="schema">return: JSON-safe Dictionary，包含 applied_count、stopped_count、failed_stop_count、applied、stopped 与 failed_stops。</tag>
 				<tag name="since">7.0.0</tag>
 			</tags>
 		</member>
@@ -362,7 +373,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">haptic_id: 播放实例 ID。</tag>
 				<tag name="return">播放实例快照。</tag>
-				<tag name="schema">return: Dictionary，包含 id、channel、target_type、target_id、elapsed_seconds、duration_seconds、strength 与 metadata；实例不存在时为空。</tag>
+				<tag name="schema">return: JSON-safe Dictionary，包含 id、channel、target_type、target_id、elapsed_seconds、duration_seconds、strength 与 metadata；实例不存在时为空。</tag>
 				<tag name="since">7.0.0</tag>
 			</tags>
 		</member>
@@ -372,7 +383,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">调试快照。</tag>
-				<tag name="schema">return: Dictionary，包含 active_count、max_active_haptics、channels、targets 与 play_order。</tag>
+				<tag name="schema">return: JSON-safe Dictionary，包含 active_count、max_active_haptics、channels、targets、play_order 与 last_output_targets。</tag>
 				<tag name="since">7.0.0</tag>
 			</tags>
 		</member>

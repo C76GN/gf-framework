@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFExecutionRequirement" path="addons/gf/standard/common/gf_execution_requirement.gd" module="standard" extends="RefCounted" classDigest="0f79a6f89d1b7c2ea07d817b3d971560ce9c2d918c9569d6a76ba105103f85ca">
+<class name="GFExecutionRequirement" path="addons/gf/standard/common/gf_execution_requirement.gd" module="standard" extends="RefCounted" classDigest="0cabfa591104a967fdec3326a3c54c9e6b6a6c6357d9ebd0af608ce99da45748">
 	<description>GFExecutionRequirement: 通用执行条件集合。
 用于在任务、系统、工具按钮或资源流程执行前统一评估一组声明式条件。
 它只读取调用方传入的 context 字典和可选谓词，不绑定具体调度器或业务系统。</description>
@@ -155,7 +155,7 @@
 				<tag name="param">context: 调用方上下文字典。</tag>
 				<tag name="return">条件评估报告。</tag>
 				<tag name="schema">context: Dictionary read by value and predicate conditions.</tag>
-				<tag name="schema">return: Dictionary，包含 ok、requirement_id、label、all_satisfied、any_satisfied、none_clear、satisfied_count、failed_count、conditions 和 metadata。</tag>
+				<tag name="schema">return: Dictionary，包含 ok、requirement_id、label、all_satisfied、any_satisfied、none_clear、satisfied_count、failed_count、raw_failed_count、blocking_count、none_matched_count、conditions 和 metadata。failed_count/raw_failed_count 记录原始谓词 false 数；blocking_count 记录导致 requirement 不通过的聚合阻塞数。</tag>
 				<tag name="since">7.0.0</tag>
 			</tags>
 		</member>

@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFProjectLayoutScaffolder" path="addons/gf/tools/project_layout/gf_project_layout_scaffolder.gd" module="tools" extends="RefCounted" classDigest="b6394df97fa71c22328a6418c6f9a9bf636085af2acb68949db58fab2718566c">
+	<description>GFProjectLayoutScaffolder: Profile 驱动的项目目录脚手架工具。
+按项目结构 profile 创建必需目录和可选 Feature 模块目录，并返回可审查报告。
+该工具只实现目录创建机制，不要求所有项目采用同一业务结构，也不把参考项目约定
+写入 GF 运行时包。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">tool_api</tag>
+		<tag name="since">8.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants>
+		<member kind="const" name="DEFAULT_FEATURE_COHESIVE_PROFILE_PATH">
+			<signature>const DEFAULT_FEATURE_COHESIVE_PROFILE_PATH: String = "res://addons/gf/tools/project_layout/profiles/feature_cohesive_v1.json"</signature>
+			<description>内置 Feature 内聚式项目结构 profile 路径。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties />
+	<methods>
+		<member kind="method" name="scaffold_default_profile">
+			<signature>func scaffold_default_profile(options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>按内置 Feature 内聚式模板创建目录。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">options: 脚手架选项。</tag>
+				<tag name="return">脚手架报告。</tag>
+				<tag name="schema">options: Dictionary，可包含 root_path、feature_ids、dry_run、include_optional_zones、include_optional_feature_subdirs 和 allow_absolute_root。</tag>
+				<tag name="schema">return: Dictionary，包含 success、profile_id、root_path、dry_run、planned_paths、created_paths、existing_paths、rolled_back_paths、rollback_failed_paths、operations、issues、error_count 和 warning_count。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="scaffold_profile_path">
+			<signature>func scaffold_profile_path(profile_path: String, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>从项目结构 profile 文件创建目录。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">profile_path: JSON profile 路径。</tag>
+				<tag name="param">options: 脚手架选项。</tag>
+				<tag name="return">脚手架报告。</tag>
+				<tag name="schema">options: Dictionary，可包含 root_path、feature_ids、dry_run、include_optional_zones、include_optional_feature_subdirs 和 allow_absolute_root。</tag>
+				<tag name="schema">return: Dictionary，包含 success、profile_id、root_path、dry_run、planned_paths、created_paths、existing_paths、rolled_back_paths、rollback_failed_paths、operations、issues、error_count 和 warning_count。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="scaffold_profile">
+			<signature>func scaffold_profile(profile: Dictionary, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>按已解析的项目结构 profile 创建目录。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">profile: 项目结构 profile 字典。</tag>
+				<tag name="param">options: 脚手架选项。</tag>
+				<tag name="return">脚手架报告。</tag>
+				<tag name="schema">profile: Dictionary，包含 schema_version、id、zones 和 rules。</tag>
+				<tag name="schema">options: Dictionary，可包含 root_path、feature_ids、dry_run、include_optional_zones、include_optional_feature_subdirs 和 allow_absolute_root。</tag>
+				<tag name="schema">return: Dictionary，包含 success、profile_id、root_path、dry_run、planned_paths、created_paths、existing_paths、rolled_back_paths、rollback_failed_paths、operations、issues、error_count 和 warning_count。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="make_feature_module_paths">
+			<signature>func make_feature_module_paths(profile: Dictionary, feature_id: String, options: Dictionary = {}) -&gt; PackedStringArray:</signature>
+			<description>根据 Feature 模块契约计算某个 Feature 应创建的相对目录。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">profile: 项目结构 profile 字典。</tag>
+				<tag name="param">feature_id: Feature 模块 ID。</tag>
+				<tag name="param">options: 计算选项。</tag>
+				<tag name="return">相对目录列表，例如 features/inventory/scripts。</tag>
+				<tag name="schema">profile: Dictionary，包含 feature_module_contract 规则。</tag>
+				<tag name="schema">options: Dictionary，可包含 include_optional_feature_subdirs。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

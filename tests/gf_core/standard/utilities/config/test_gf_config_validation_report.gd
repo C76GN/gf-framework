@@ -55,3 +55,19 @@ func test_report_helper_merges_reports_with_optional_row_count() -> void:
 	assert_eq(GFVariantData.get_option_int(target, "row_count"), 5, "开启 include_row_count 时应累加行数。")
 	assert_eq(GFVariantData.get_option_int(target, "error_count"), 1, "错误数量应累加。")
 	assert_eq((GFVariantData.get_option_array(target, "issues")).size(), 1, "问题列表应合并。")
+
+
+func test_report_helper_sanitizes_context_for_json() -> void:
+	var helper: GFConfigValidationReport = GFConfigValidationReport.new()
+	var report: Dictionary = helper.make_report(&"items", 1)
+
+	helper.add_issue(report, "error", "unsafe_context", &"items", 1, &"value", "示例错误。", {
+		"value": RefCounted.new(),
+		"actual_value": NAN,
+		"expected_value": Vector2(1.0, 2.0),
+	})
+	var text: String = JSON.stringify(report)
+
+	assert_true(text.contains("__gf_report_value__"), "Object 上下文应被报告 codec 脱敏。")
+	assert_true(text.contains(GFVariantJsonCodec.JSON_MARKER_KEY), "NaN 和 Vector2 应被编码为 JSON-safe typed marker。")
+	assert_false(text.contains("\"actual_value\":null"), "NaN 不应在 JSON.stringify 边界退化为 null。")

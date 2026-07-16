@@ -18,7 +18,7 @@ func init() -> void:
 ## 异步等待
 
 ```gdscript
-func async_init() -> void:
+func async_init(scope: GFAsyncScope) -> void:
 	var asset_utility := Gf.get_utility(GFAssetUtility) as GFAssetUtility
 	var load_state := { "done": false, "resource": null }
 	asset_utility.load_async("res://data/tables.json", func(resource: Resource) -> void:
@@ -26,16 +26,20 @@ func async_init() -> void:
 		load_state.done = true
 	)
 	while not load_state.done:
+		if scope.is_cancel_requested():
+			return
 		await Engine.get_main_loop().process_frame
 ```
 
-`async_init()` 会在所有 `init()` 执行完毕后串行运行。它返回 `void`，但 Godot 4 支持在 `void` 函数内部使用 `await`；框架的 `Gf.init()` 会自动等待每个模块的 `async_init()` 完成，避免模块在异步资源未就绪前进入 `ready()` 或 tick。
+`async_init(scope)` 会在所有 `init()` 执行完毕后串行运行。它返回 `void`，但 Godot 4 支持在 `void` 函数内部使用 `await`；框架的 `Gf.init()` 会自动等待每个模块的 `async_init(scope)` 完成，避免模块在异步资源未就绪前进入 `ready()` 或 tick。`scope` 是本轮异步生命周期的协作取消边界，超时、初始化失败或架构释放后会进入取消状态。
+
+`async_init(scope)` 仍是主线程 coroutine。函数开始到首个 `await` 之前是同步执行段，框架无法在这段中主动让帧或触发超时；不要把大批量扫描、重型解析或阻塞 IO 放在首个 `await` 之前。长任务应拆成可让帧的步骤，并在每个 `await` 或外部回调返回后检查 `scope.is_cancel_requested()`。
 
 ## 就绪完成
 
 ```gdscript
 func ready() -> void:
-	register_simple_event(&"GAME_STARTED", _on_game_started)
+	register_simple_event(&"GAME_STARTED", GFEventListener.from_method(self, &"_on_game_started", 1))
 ```
 
 `ready()` 会在所有模块的 `async_init()` 结束后触发。此时整个架构已经完成挂载，模块可以安全获取其他 Model、System 或 Utility，并注册事件监听。

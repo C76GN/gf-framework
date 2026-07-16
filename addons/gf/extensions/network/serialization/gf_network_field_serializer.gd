@@ -165,6 +165,8 @@ func duplicate_serializer() -> GFNetworkFieldSerializer:
 # --- 私有/辅助方法 ---
 
 func _apply_number_policy(value: float) -> float:
+	if is_nan(value) or is_inf(value):
+		return 0.0
 	var result: float = value
 	if clamp_enabled:
 		result = clampf(result, minf(min_value, max_value), maxf(min_value, max_value))

@@ -27,7 +27,9 @@
     "addons/gf/standard/utilities/debug/gf_signal_runtime_probe.gd",
     "addons/gf/standard/utilities/debug/gf_signal_runtime_probe.gd.uid",
     "addons/gf/standard/utilities/debug/gf_support_report_utility.gd",
-    "addons/gf/standard/utilities/debug/gf_support_report_utility.gd.uid"
+    "addons/gf/standard/utilities/debug/gf_support_report_utility.gd.uid",
+    "addons/gf/standard/utilities/debug/gf_support_report_workflow.gd",
+    "addons/gf/standard/utilities/debug/gf_support_report_workflow.gd.uid"
   ],
   "metadata": {
     "stage": "standard-split-v1"

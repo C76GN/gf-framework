@@ -11,11 +11,13 @@
 - 不要修改 vendored `addons/gut/**`，除非任务明确要求处理 GUT。
 - 不要提交临时分析、任务草稿、本地生成的临时上下文文件、调试报告或 AI 会话记录。
 - 不要把 `ai_analysis/`、`AI_MAINTENANCE.md`、Codex/MCP、本地 Godot 日志、外部框架研究笔记或未来路线名称写入公开 README、Asset Store 文案、Wiki 入口或正式 `docs/zh` 正文。
-- 在大规模理解源码、补正式文档或检查 API 覆盖前，优先生成并阅读 AI 专用 API 文档。
+- 在大规模理解源码、补正式文档或检查 API 覆盖前，优先生成并阅读 AI 专用 API 文档。日常开工先用轻量 `python tools\gf_maintenance.py summary --json` 和 `workspace-status --json` 定位；长期脏工作区中优先用 `workspace-status --path <file> --json` 为本轮改动生成局部检查计划，避免历史脏改把验证范围放大。
 - PR / push CI 必须运行 `python tools\gf_maintenance.py check --suite full` 等价检查；tag release workflow 必须先运行 `release-status --version <tag>`，再运行 `check --suite release` 等价检查。除非维护者明确批准并记录原因，不要削弱 CI 或 release 行为测试、Godot reload warning、路径卫生、API 和文档闸门。
 - `tools/gf_maintenance.py path-hygiene` 必须同时扫描 tracked 文件和未跟踪但未忽略的文件，避免新增文件绕过大小写冲突、缓存目录和路径卫生检查；GitHub workflow 使用本地 `./.github/actions/...` 时，也必须确认对应 `action.yml` 存在。
+- 维护自测需要真实文件系统 link / reparse-point 夹具时，不得把 Windows 符号链接特权或管理员权限当作默认前提；Windows 使用普通账户可创建的目录 junction，POSIX 使用 symlink，并继续验证词法路径、真实路径和中间组件穿越都被 fail-closed 拒绝。
+- `tools/gf_maintenance.py summary` 默认必须保持轻量，不执行 release 级 API baseline 或打包诊断；需要发布上下文时显式使用 `summary --release` 或 `release-status`。
 - GUT 进程退出码只能在无 `SCRIPT ERROR`、无 Parse Error、无 GDScript reload warning 且 GUT 明确报告全部通过时被维护工具降级；脚本错误或 reload warning 不能被测试汇总覆盖。
-- AI 生成或修改 GDScript 时必须主动避免 Godot reload warning：不要让局部变量、参数或测试常量遮蔽成员/全局类名；不要从 `Variant` 直接 `as GFType`；不要对 `Variant` 直接调用 `strip_edges()`、`StringName()` 等强类型 API；不要把 `get_script()` 声明成 `Script` 后直接 `.new()`；不要丢弃 `merge_dictionary()`、`store_string()`、`connect()` 等有返回值 API。改完相关 `.gd` 后必须运行 focused GUT 和 `python tools\gf_maintenance.py check --check gdscript_warnings --json`；如果用户报告编辑器中仍有 warning、Godot 面板能看到但命令行日志没捕获，或改动集中在容易触发类型/await/返回值/遮蔽 warning 的文件，再运行 `python tools\gf_maintenance.py check --check gdscript_lsp_diagnostics --json` 或用 `python tools\gdscript_lsp_diagnostics.py --spawn-lsp --file <path> --format json` 扫描相关文件。若改动涉及这些模式，还必须运行 `tests/gf_core/maintenance/test_gdscript_parse_validation.gd`，把可静态判断的问题拦在提交前。
+- AI 生成或修改 GDScript 时必须主动避免 Godot reload warning：不要让局部变量、参数或测试常量遮蔽成员/全局类名；不要从 `Variant` 直接 `as GFType`；不要对 `Variant` 直接调用 `strip_edges()`、`StringName()` 等强类型 API；不要把 `get_script()` 声明成 `Script` 后直接 `.new()`；不要丢弃 `merge_dictionary()`、`store_string()`、`connect()` 等有返回值 API。改完相关 `.gd` 后必须运行 focused GUT 和 `python tools\gf_maintenance.py check --check gdscript_warnings --json`；如果用户报告编辑器中仍有 warning、Godot 面板能看到但命令行日志没捕获，或改动集中在容易触发类型/await/返回值/遮蔽 warning 的文件，再运行 `python tools\gf_maintenance.py check --check gdscript_lsp_diagnostics --json`。手工聚焦扫描优先连接当前编辑器的 LSP：`python tools\gdscript_lsp_diagnostics.py --file <path> --format json`；需要兼顾无编辑器的 CI 时使用 `--connect-or-spawn`。只有确认没有用户编辑器进程时才允许显式 `--spawn-lsp`，不得通过结束同项目 Godot 进程来清理 LSP。若改动涉及这些模式，还必须运行 `tests/gf_core/maintenance/test_gdscript_parse_validation.gd`，把可静态判断的问题拦在提交前。
 - 修改公开、protected 或被测试 mock/子类重写的方法签名后，必须用 `rg "func <method_name>" addons/gf tests/gf_core` 搜索同名实现，更新所有 override、测试替身和反射调用；GDScript 的 override 签名不匹配会直接变成 parse error，不能等到完整套件才发现。
 - Headless GUT 不应直接实例化需要真实编辑器 owner 的 Godot 编辑器专属类，例如 `EditorDebuggerPlugin` 派生类。此类能力优先测试贡献记录、脚本元数据、继承契约和 helper 装配路径；确实需要实例化时必须走真实 editor-context smoke 或插件生命周期。
 - `.codex/skills/` 可以提交 GF 项目专用 Codex skill，用于沉淀维护流程、检查矩阵、发布流程和多子代理审查分工；它只描述“怎么做”，不能替代本文件、`CODING_STYLE.md`、`API_SURFACE.md` 的硬规则。评估 `ai_analysis/skills/` 中的外部候选时只能吸收可验证的工作流和检查点，不要直接复制玩法模板、示例脚本、强人格化话术或单个游戏项目业务规则。
@@ -46,7 +48,7 @@ addons/gf/kernel <- addons/gf/standard <- addons/gf/extensions
 - GF 内置扩展 manifest 使用字段白名单，不能新增 `optional_dependencies`、`peer_dependencies`、`extension_pack`、`preset`、`suggests`、`recommends`、`load_after` 等软依赖、组合包、推荐或加载顺序字段。需要表达组合时，用项目侧 `GFExtensionPreset` JSON、安装向导或 `addons/gf` 外的独立插件。
 - `GFExtensionPreset` JSON 也使用字段白名单，只描述 `id`、`display_name`、`description`、`extension_ids` 和 `tags`。Preset 不能声明 `dependencies`、`optional_dependencies`、`load_after` 等软关系字段，也不能声明 `download_url`、`packages`、`registry`、`installer_paths` 等下载包或装配覆盖字段；这些能力应放在项目安装向导或 `addons/gf` 外的独立插件中。`maintenance-self-test` 必须校验 Python 维护规则和 `gf_extension_preset.gd` 运行时常量不漂移。
 - GF 内置扩展之间不能通过其他内置扩展的路径、扩展 ID、`class_name`、动态脚本加载、动态扩展探测或隐藏协议形成软协作。跨扩展组合属于项目 Installer、项目 preset JSON 或 `addons/gf` 外的独立插件，不能写回 GF 内置扩展。
-- `kernel/editor` 可以承载通用菜单、文件对话框和模板生成器，但不能硬编码 `standard` 或可选扩展的具体模板类型、基类或扩展 ID；标准库模板由 `gf_standard_editor_extensions.gd` 注入，可选扩展模板由扩展自己的 `editor_action_paths` 注入。
+- `kernel/editor` 可以承载通用菜单、文件对话框和模板生成器，但不能硬编码 `standard` 或可选扩展的具体模板类型、基类或扩展 ID；标准库模板由 `addons/gf/standard/editor/gf_editor_contributions.json` data-only manifest 和模板文本注入，可选扩展模板由扩展自己的 `editor_action_paths` 注入。
 - `GFEditorWorkspace` 未来可以承载更多原子化扩展工具，但内核只负责工作区外壳、导航、通用 UI、工具记录和生命周期；具体页面必须由 kernel、standard 或扩展按归属主动贡献。不要把单个扩展、项目业务或跨扩展组合流程硬编码进 workspace。
 - 根插件 `addons/gf/plugin.gd` 是组合入口，可以收集标准库编辑器增强并传给 `kernel/editor` 辅助脚本；这个例外不允许扩散到 `addons/gf/kernel/**`。
 - 移动层级边界时，同步更新源码路径、测试、正式文档、`docs/zh/changelog.md`、API Catalog 和 API Reference；不要留下重复路径副本造成重复 `class_name` 或 UID 冲突。
@@ -63,15 +65,16 @@ addons/gf/kernel <- addons/gf/standard <- addons/gf/extensions
 - `python tools\gf_maintenance.py resource-boundary --json` 用于统计直接资源加载字面量。默认 `issues` 只保留需要行动的资源加载问题；脚本依赖 preload/load 与编辑器 metadata 加载会进入 `observations` 汇总，并按 `source_kind` 区分 runtime、editor、tool、test 等来源，按 package manifest 归属汇总到 `source_package` / `target_package` 和 source-to-target package 矩阵，需要完整明细时显式传 `--include-observations --json`。维护检查套件使用 `--fail-on-issues`，让真实资源加载问题成为硬闸门，同时保留脚本依赖观测项。
 - `python tools\gf_maintenance.py content-package-boundary --json` 是内容包 manifest 硬 gate；它扫描 tracked 和未忽略的 untracked `gf_content_package.json`，拒绝无效 JSON、非白名单字段、缺失或重复包 ID、缺失或循环依赖、资源路径越过包根，以及把下载地址、安装器、包管理策略写进 manifest 的做法。
 - `python tools\gf_maintenance.py asset-lifecycle-boundary --json` 当前是 report-only 生命周期基线检查；它扫描运行时代码中的 `acquire_handle()`、`load_handle_async()` 和 `request_entry_handle_async()`，报告同时缺少 owner 与 group 的句柄获取，因为这类资源只能依赖手动 release，容易形成长期 cache pin。
-- `python tools\gf_maintenance.py project-profile-boundary --json` 是可选项目结构 profile 检查；默认查找 `gf_project_profile.json`、`.gf/project_profile.json` 或 `project_profile.json`，没有 profile 时通过。Profile 只表达项目自有目录约定、zone、glob、扩展名和路径存在规则，不能反向变成 GF 对所有项目的固定目录要求。
+- `python tools\gf_maintenance.py project-profile-boundary --json` 是可选项目结构 profile 检查；默认查找 `gf_project_profile.json`、`.gf/project_profile.json` 或 `project_profile.json`，没有 profile 时通过。Profile 只表达项目自有目录约定、zone、glob、扩展名、路径存在、命名、Feature 模块契约、生成物边界和大桶目录增长规则，不能反向变成 GF 对所有项目的固定目录要求。
 - `python tools\gf_maintenance.py package-boundary --json` 是 GF 模块化发行包 manifest 硬 gate；它扫描 `packages/**/*.json`，拒绝无效 schema、非白名单字段、把下载地址/checksum/installer 策略写进本地 manifest、缺失或循环依赖、违反 `kernel <- standard <- extensions` 与 tool 单向挂载规则的包依赖方向，以及多个包声明重叠源码路径。
 - `python tools\gf_maintenance.py package-closure-audit --json` 是 GF 模块化安装闭包 report-only gate；它从 `packages/**/*.json` 计算每个 package/preset 的真实安装闭包和 standard fan-in，warning 记录过大的 extension 闭包、直接依赖完整 debug 包、debug 闭包拉入 UI 等边界债务，并 hard fail runtime extension 闭包包含 `gf.standard.editor` 的情况。
-- `python tools\gf_maintenance.py package-source-boundary --json` 是 GF 模块化发行包源码引用硬 gate；它扫描 `addons/gf` 中由包 manifest 归属的源码/配置文件，拒绝引用未被本包或直接依赖包拥有的 `addons/gf` 路径或 `class_name`。根插件可用受限字符串发现 standard 编辑器贡献，内核扩展基础设施可知道扩展根目录，但这些例外不能扩散成具体包内部引用。
+- `python tools\gf_maintenance.py package-source-boundary --json` 是 GF 模块化发行包文件归属与源码引用硬 gate；它要求所有可发行的 `addons/gf` 文件由且仅由一个非 preset package manifest 拥有，显式忽略 Godot 生成的 `.import` sidecar，并扫描源码/配置文件，拒绝引用未被本包或直接依赖包拥有的 `addons/gf` 路径或 `class_name`。根插件可用受限字符串发现 standard 编辑器贡献，内核扩展基础设施可知道扩展根目录，但这些例外不能扩散成具体包内部引用。
 - `python tools\gf_maintenance.py package-build-boundary --json` 是 GF 模块化发行包构建硬 gate；它用 `tools/build_gf_package.py --all` 在临时目录构建所有非 preset 包 zip、registry index、registry source manifest 和离线 bundle zip，确认 package zip 根目录只包含 `addons/`、条目都在 `addons/gf/` 内、没有生成物/缓存文件，校验 registry schema、根节点与每个 package entry 的 GF 框架版本兼容范围、archive、sha256 和 size 与实际 zip 一致，校验 registry source channel 的 `registry_sha256` / `registry_size_bytes` 绑定到生成的 registry index，校验离线 bundle 只包含生成的 registry/source/package zip 且 registry 内相对 archive 可解析到 bundle 内文件，拒绝在 Godot 原生验签实现前写入 registry package entry 或 registry source 签名字段，拒绝非 `gf.tool.*` 运行时包夹带 Python/npm/Node/shell 工程载荷，并确认 `gf.kernel` archive 不携带历史 `addons/gf/kernel/package_tools/` Python 包管理工具。
 - `python tools\gf_maintenance.py package-user-dependency-boundary --json` 是 GF 用户侧包管理依赖硬 gate；它扫描 `addons/gf/plugin.gd`、`addons/gf/kernel/package/**` 和 `addons/gf/kernel/editor/package/**`，拒绝外部进程 API、Python/npm/Git/shell 等外部命令字面量，以及对 Python package tool 路径的引用。维护侧 Python 包工具只允许位于仓库根 `tools/` 下；普通用户安装路径不能调用它们，最小 `gf.kernel` 发行 archive 也不能携带历史 `addons/gf/kernel/package_tools/`。
 - `python tools\gf_maintenance.py package-external-command-audit --json` 是 GF 包源码外部命令依赖检查；它扫描 package manifest 归属的 `.gd` 文件，按包 ID、API 和命令字面量报告 `OS.execute`、`OS.create_process`、`OS.shell_open`。直接运行默认输出报告；维护检查套件使用 `--fail-on-warnings`，仅允许维护工具中显式 allowlist 的编辑器跳转，禁止新增未声明的 package 内外部命令调用。
 - `python tools\gf_maintenance.py core-only-smoke --json` 是最小 `gf-core` 入口 smoke；它验证根插件 `addons/gf/plugin.gd` 不在解析期 `preload()` 标准库、不直接引用 standard `class_name`，允许通过存在性检查按需发现 standard/editor 贡献。
 - `python tools\gf_maintenance.py package-install-smoke --json` 是 GF 本地 archive 安装与更新事务 smoke；它用临时 registry 和临时项目验证 resolver 闭包、已安装包 `update --all-installed` 会对齐当前 registry 且不污染依赖 reason、旧 GF 项目遇到更高 `minimum_framework_version` 时在 staging 前拒绝且不写入、本地 zip checksum/size、archive 路径归属、运行时包外部工具载荷拒绝、staging 安装、dry-run 不写入、lockfile verify、写入精确安装文件清单，以及复制失败时回滚已写文件且不写 lockfile。
+- `tools/gf_package_resolver.py` 的 `install-plan`、`update-plan`、`uninstall-plan` 必须保持纯计划语义，只返回 `planned_lockfile`，不得直接写入 installed-state lockfile。真实安装、更新、卸载和 metadata-only 变更必须通过 `tools/gf_package_installer.py` 或 Godot 原生 Package Transaction Engine 提交；维护 smoke 若要串联多个 resolver 计划，只能显式写入标记清楚的临时测试 fixture，不能把该 fixture 当作物理安装状态执行 verify。
 - `python tools\gf_maintenance.py network-install-smoke --json` 是 GF HTTP registry / archive 下载 smoke；它用本地 HTTP fixture 验证 registry URL 下载、registry source channel 的 mirror fallback、source channel registry sha256/size 校验、相对 archive URL 规范化、archive 下载缓存、sha256/size 校验、registry package 签名字段拒绝、远程运行时包外部工具载荷拒绝、dry-run 不写项目、checksum/download 失败不写项目，以及复制失败回滚。
 - `python tools\gf_maintenance.py preset-smoke --json` 是 GF preset 元包 smoke；它验证生成 registry 中的 preset 不拥有 archive、sha、size 或源码路径，安装 preset 会写入无文件 preset lock entry 并通过 `required_by` 保护具体包，卸载 preset 会剪枝不再需要的包并保留手动 pin。
 - `python tools\gf_maintenance.py package-manager-status-smoke --json` 是 GF 编辑器安装向导前置状态 smoke；它验证 `tools/gf_package_installer.py status` 能从本地和 HTTP registry 输出包列表、preset 安装闭包、lockfile 安装状态、manual/dependency/required_by 信息、registry/package 框架版本兼容性状态和卸载风险，并验证 registry source 或 registry package entry 出现未支持签名字段时会失败且不写项目文件。
@@ -79,6 +82,7 @@ addons/gf/kernel <- addons/gf/standard <- addons/gf/extensions
 - `python tools\gf_maintenance.py package-editor-wizard-smoke --json` 是 GF 编辑器安装向导 smoke；它验证包管理 Dock 的默认在线源、registry source channel 转发、source/channel/mirror/offline bundle 诊断展示、registry source 与 registry package 未支持签名字段拒绝展示、preset-first 视图、extension/standard/raw package 视图切换、安装依赖闭包摘要和卸载 blocker 风险摘要，并用只含 `gf.kernel` 的临时项目实例化 Dock 通过本地 registry 安装再卸载扩展闭包和 preset 闭包、从 offline bundle zip 直接解析 registry 并安装再卸载 preset 闭包、通过 HTTP registry 分别安装再卸载 standard 包、扩展闭包和 preset 闭包，确认不再需要的 standard 被剪枝且 kernel 保留，失败于 Godot 脚本错误或 GDScript reload warning。
 - `python tools\gf_maintenance.py package-focused-gut-mapping --json` 是 GF 模块化包到 focused GUT 覆盖关系硬 gate；它验证每个非 preset package 都在 `tests/gf_core/package_focused_gut_mapping.json` 中声明维护侧最小测试集合，测试路径存在且位于对应 kernel/standard/extension 测试范围内。该映射属于维护策略，不写入发行 package manifest。
 - `python tools\gf_maintenance.py package-godot-cli-smoke --json` 是 GF Godot 原生命令行安装 smoke；它验证 `addons/gf/kernel/package/gf_package_cli.gd` 不依赖 Python 即可通过 Godot headless 读取本地、HTTP(S) registry 和 offline bundle zip、最小 `gf.kernel` 项目可用自身 CLI 通过本地 registry 安装/update-all/verify/卸载扩展闭包和 preset 闭包、从 offline bundle zip 直接解析 registry 并安装/verify/卸载 preset 闭包、联网安装/verify/卸载扩展闭包并再次校验、安装/verify/卸载 standard 包和 preset 闭包并再次校验、使用按当前 GF 版本固定的默认 release registry source、跟随 HTTP redirect、使用 registry source channel 的 mirror fallback、输出 source/channel/mirror/registry integrity/offline bundle 诊断、缓存远程 archive、对临时 HTTP 失败执行 retry/backoff、默认输出人读摘要、`--json` 输出机器 JSON、dry-run 安装、普通项目真实安装/verify/uninstall、远程运行时包外部工具载荷拒绝，以及远程下载失败不写入项目。Godot 原生验签完成前，registry package entry 或 registry source 中出现签名字段必须失败，不能被用户侧安装器静默忽略。
+- `check` 套件默认采用检查级超时策略：普通子检查为 600 秒，编辑器安装向导 smoke 为 1200 秒，包含 24 组隔离 Godot 场景的 `package_godot_cli_smoke` 为 2400 秒；每次 Godot 子命令仍保留独立 120 秒上限，`--timeout` 是精确的全局覆盖值。新增长检查时必须按实测场景总量评估专项预算并由 `maintenance-self-test` 固化，不能依靠无限放宽统一超时掩盖卡死。
 - `python tools\gf_maintenance.py package-godot-smoke --json` 是 GF 包级 Godot 解析 smoke；它在临时 Godot 项目中安装代表性 kernel、standard、extension 和 preset 闭包，生成 preload 脚本并用 headless editor 检查 parse error、script load error、GDScript reload warning 和退出期泄漏警告。拆分或调整少量 package 时可用 `--package <id>` 定向覆盖相关包；`--all-packages` 默认使用受控并行 `--jobs 4` 覆盖生成 registry 中的全部 package；`python tools\gf_maintenance.py check --check package_godot_matrix_smoke --json` 使用同一实现作为 release suite 的包级 Godot 解析矩阵。
 - `python tools\gf_maintenance.py uninstall-smoke --json` 是 GF 模块化包 resolver / lockfile / 物理卸载安全 smoke；它用临时 registry 验证安装闭包、lockfile verify、共享依赖保留、手动 pin 保留、`.gf/` lockfile 不参与项目引用扫描、项目脚本引用包内 `class_name` 时阻止卸载，以及真实删除 package 文件、保留共享依赖文件、dry-run 不写入和删除失败回滚。
 
@@ -110,6 +114,8 @@ addons/gf/kernel <- addons/gf/standard <- addons/gf/extensions
 - 修改 package-owned `.gd` 中的 `OS.execute`、`OS.create_process`、`OS.shell_open` 或新增依赖外部命令的调试/编辑器/运行期能力后，运行 `python tools\gf_maintenance.py package-external-command-audit --json`。
 - 修改 `addons/gf/plugin.gd`、最小 core 入口、standard/editor 贡献发现逻辑或 core-only 安装行为后，运行 `python tools\gf_maintenance.py core-only-smoke --json`。
 - 修改 `tools/gf_package_installer.py`、本地 archive 安装、目标项目 GF 版本读取、registry/package 兼容性拒绝、staging 解压、checksum/size 校验、路径归属审计、运行时包外部工具载荷审计、复制覆盖、安装文件清单、备份或安装失败回滚逻辑后，运行 `python tools\gf_maintenance.py package-install-smoke --json`。
+- 修改 Package Transaction Engine、共享 transaction schema、journal/recovery、lockfile 提交、Godot/Python transaction adapter 或 `recover` 命令后，同时运行 `tests/gf_core/maintenance/test_package_transaction_boundary_validation.gd`、`tests/gf_core/kernel/package/test_gf_package_manager_backend.gd`、`python tools\gf_maintenance.py package-install-smoke --json` 和 `python tools\gf_maintenance.py package-native-parity-smoke --json`；Backend / installer 不得重新维护第二套 payload 回滚或 `write_lockfile_last` 实现。
+- 修改 Package Cache Policy、共享 cache schema、marker/layout、artifact store、workspace、`cache-init` / `cache-mode` 或 Godot/Python cache adapter 后，同时运行 `tests/gf_core/maintenance/test_package_cache_boundary_validation.gd`、`tests/gf_core/kernel/package/test_gf_package_manager_backend.gd`、`python tools\gf_maintenance.py network-install-smoke --json`、`python tools\gf_maintenance.py package-native-parity-smoke --json` 和 `python tools\gf_maintenance.py package-godot-cli-smoke --json`；Backend / installer 不得重新解释裸 `cache_dir`，外部共享根不得保存可变 workspace。
 - 修改 `tools/gf_package_installer.py`、registry URL 获取、archive URL 解析、下载缓存、HTTP 错误处理、下载大小限制、远程 checksum/size 校验、远程运行时包外部工具载荷审计、mirror/retry 策略或网络安装失败回滚逻辑后，运行 `python tools\gf_maintenance.py network-install-smoke --json`。
 - 修改 `packages/presets/**/*.json`、preset registry 输出、resolver 的 preset 展开、无文件 preset lock entry、preset `required_by` pin 或 preset 卸载剪枝规则后，运行 `python tools\gf_maintenance.py preset-smoke --json`。
 - 修改 `tools/gf_package_installer.py status`、`tools/gf_package_resolver.py verify-lock`、包管理状态 JSON、编辑器安装向导前置状态、registry/lockfile 状态展示、registry source channel UI 转发、registry source mirror fallback 诊断、registry source signature rejection 状态、registry package signature rejection 状态、preset 安装预览、install/uninstall dry-run JSON、checksum/install failure JSON、registry source integrity failure JSON、Godot CLI verify JSON 或卸载风险摘要后，运行 `python tools\gf_maintenance.py package-manager-status-smoke --json` 和 `python tools\gf_maintenance.py package-native-parity-smoke --json`；涉及 Dock UI 字段、preset-first 视图、source/channel/mirror 诊断、source/package 签名拒绝展示或安装向导交互时，同时运行 `python tools\gf_maintenance.py package-editor-wizard-smoke --json`。修改 Godot 原生后端安装/卸载行为时，再跑 `tests/gf_core/kernel/package/test_gf_package_manager_backend.gd` 的 focused GUT 覆盖。
@@ -182,7 +188,9 @@ addons/gf/kernel <- addons/gf/standard <- addons/gf/extensions
 - GF 内置扩展 manifest 的 `version` 表示 GF 发行版本，发布时所有 `addons/gf/extensions/*/gf_extension.json` 必须同步为当前 GF 版本。内置扩展 manifest 的 `extension_version` 表示单个扩展自身版本，只有该扩展的公开 API、配置、行为或兼容性契约发生变化时才按 SemVer 递增；本轮未改变的内置扩展只同步 `version`，不递增 `extension_version`。
 - GF 内置可选扩展默认关闭，`enabled_by_default` 应显式为 `false`。`kernel` 与 `standard` 是基础能力，不通过内置扩展 manifest 自动启停。扩展 preset 指一组可复用的扩展 ID 组合，例如 “2D 工具”“RPG/存档”“联网”；安装向导指编辑器中的项目初始化/配置流程，用 preset 写入 `gf/extensions/enabled` 并提示相关 Installer、导出过滤和禁用引用审计。preset/向导只能改变项目设置，不能让可选扩展变成 kernel/standard 的硬依赖。
 - 正式 `docs/zh/changelog.md` 只保留当前最新发布版本。发布新版本时必须删除上一个正式版本条目，旧版本历史以 Git 历史和 GitHub Releases 为准，不要让旧日志长期堆积在正式文档中。
+- `release-status` 会结构化解析 changelog：目标版本必须恰好有一个非空区块，发布时不得残留 `[未发布]` / `[Unreleased]`，也不得同时保留其他正式 SemVer 区块；不要用普通正文里的版本子串绕过发布检查。
 - GF 版本 tag 统一使用不带 `v` 的 SemVer 格式，例如 `3.5.0`。推送这类 tag 后，`.github/workflows/release.yml` 会校验 `plugin.cfg`、内置扩展 manifest、`ASSET_LIBRARY.md`、`ASSET_STORE.md` 与 changelog 版本一致，构建文档，并用对应 changelog 段落创建 GitHub Release。
+- CI 下载固定 Godot archive 时必须同时固定并校验官方 archive 的 SHA-256；更新 `.github/actions/setup-godot/action.yml` 的版本时必须在同一改动中更新对应 digest，校验失败时不得解压或执行二进制。
 - Godot Asset Store 下载包必须使用 `tools/build_asset_store_package.py` 生成的专用 ZIP，不使用 GitHub 自动生成的 `Source code (zip)`。专用 ZIP 的根目录必须直接是 `addons/`，插件内容位于 `addons/gf/**`，不能多包一层仓库名或版本目录。
 - Asset Store 专用 ZIP 默认输出到被 Git 忽略的 `build/gf-framework-<version>.zip`。打包脚本只写入可安装插件载荷，排除 `.import`、`.godot`、`.import/`、临时日志和本地缓存文件；Godot 会在用户项目中从源资源重新生成导入缓存。
 - 发布前运行 `python tools\build_asset_store_package.py --version <version>` 并确认输出中 `top=['addons']`；再运行 `python tools\gf_maintenance.py release-status --version <version>`，该检查会拒绝脏工作区、扫描是否存在非 SemVer 或高于发布版本的 `@since` 标注、拒绝 Asset Library 预览字段遗留 `TODO`，并临时生成校验 Asset Store ZIP 结构、release 风格模块化 package registry、registry source manifest 和版本化离线 bundle。Registry 校验会用 `tools/build_gf_package.py --all --version <version>` 生成 `gf-registry-<version>.json`、`gf-registry-source.json` 与 package zip，并要求 registry 中的 schema、`framework_version`、`minimum_framework_version`、`maximum_framework_version_exclusive`、package entry 版本范围和 archive URL 与发布版本一致，archive URL 指向 `https://github.com/C76GN/gf-framework/releases/download/<version>/...`，source manifest 的 `stable` channel 指向同一版本的 registry，且 `registry_sha256` / `registry_size_bytes` 与该 registry 文件一致。离线 bundle 校验会单独生成本地相对 registry/source/package zip 布局，拒绝 bundle 内 registry 或 source 指向远程 URL。`--allow-dirty` 只能用于本地诊断，不能用于正式发布或 tag 前检查。
@@ -240,13 +248,16 @@ python tools\gf_maintenance.py uninstall-smoke --json
 python tools\gf_maintenance.py api-baseline-diff --json
 python tools\gf_maintenance.py check --check gdscript_warnings --json
 python tools\gf_maintenance.py check --check gdscript_lsp_diagnostics --json
+python tools\gf_maintenance.py log-hygiene --dry-run --json
 ```
 
-该测试集包含静态维护检查，例如 API 注释同步和 GDScript 布局约束。`gdscript_warnings` 会用 headless editor 捕获普通 GUT 可能漏掉的 GDScript reload warning。`gdscript_lsp_diagnostics` 会启动 Godot editor LSP，通过 `textDocument/publishDiagnostics` 读取编辑器诊断，用来补充捕获日志中没有稳定输出、但 Godot 面板能显示的 GDScript warning；该检查当前作为显式按需命令使用，等 CI 基线稳定后再考虑加入默认套件。Godot 退出期 ObjectDB、resource still in use 与 RID allocation leak warning 先由维护工具结构化记录为 cleanup debt，不立即作为 CI 失败条件；清理完成并建立稳定零基线后，再改成 hard fail。能用机器稳定判断的维护规则，应优先补到测试或工具中，而不是只写在文字说明里。
+该测试集包含静态维护检查，例如 API 注释同步和 GDScript 布局约束。`gdscript_warnings` 会用 headless editor 捕获普通 GUT 可能漏掉的 GDScript reload warning。`gdscript_lsp_diagnostics` 优先连接已有 Godot editor LSP，通过 `textDocument/publishDiagnostics` 读取编辑器诊断；CI 没有可连接的 LSP 时才由 `--connect-or-spawn` 启动临时进程。该检查用于补充日志中没有稳定输出、但 Godot 面板能显示的 GDScript warning；当前作为显式按需命令使用，等 CI 基线稳定后再考虑加入默认套件。Godot 退出期 ObjectDB、resource still in use 与 RID allocation leak warning 先由维护工具结构化记录为 cleanup debt，不立即作为 CI 失败条件；清理完成并建立稳定零基线后，再改成 hard fail。能用机器稳定判断的维护规则，应优先补到测试或工具中，而不是只写在文字说明里。
 
-排查退出期泄漏时，先用 `--verbose` 生成 stdout/stderr 日志，再运行 `python tools\gf_maintenance.py godot-exit-leak-report --log <stdout.log> --log <stderr.log> --json` 聚合 ObjectDB、RID、resource path prefix 和 leaked instance type。该命令默认只诊断不失败；只有准备把基线接入闸门时才显式使用 `--fail-on-leaks`。
+排查退出期泄漏时，先用 `--verbose` 生成 stdout/stderr 日志，再运行 `python tools\gf_maintenance.py godot-exit-leak-report --log <stdout.log> --log <stderr.log> --json` 聚合 ObjectDB、RID、resource path prefix 和 leaked instance type。维护命令成功后会自动删除本次生成或改写的托管日志；需要在后续命令中读取日志时，给产生日志的命令添加 `--keep-logs`，也可临时设置 `GF_MAINTENANCE_KEEP_LOGS=1`。该报告命令默认只诊断不失败；只有准备把基线接入闸门时才显式使用 `--fail-on-leaks`。
 
-在 Windows Steam / GUI Godot 构建或受限沙箱中，普通 PowerShell 直接调用 `godot` 可能拿不到 stdout/stderr，且 Godot 默认写入 `user://logs` 可能因权限受限导致 headless 启动崩溃。`tools/gf_maintenance.py` 的 Godot 检查会显式使用 `--log-file` 写入被忽略的 `ai_analysis/godot_logs/*.log`；手工排查时也应使用绝对 workspace 日志路径和 stdout/stderr 重定向，不要把无输出的 GUI 进程退出码当作有效 GUT 证据。
+在 Windows Steam / GUI Godot 构建或受限沙箱中，普通 PowerShell 直接调用 `godot` 可能拿不到 stdout/stderr，且 Godot 默认写入 `user://logs` 可能因权限受限导致 headless 启动崩溃。`tools/gf_maintenance.py` 的 Godot 检查会在运行前清理本次配置的旧 `--log-file`，运行后把新日志合并进判定；日志缺失、不可读、出现脚本错误/reload warning，或 GUT 没有非空通过摘要都必须失败。成功命令在完成判定后清理本次托管日志，失败或中断命令保留本次证据；历史证据自动受 7 天、32 个文件和 16 MiB 上限约束。手工排查也应使用绝对 workspace 日志路径和 stdout/stderr 重定向，不要把无输出的 GUI 进程退出码当作有效 GUT 证据。
+
+如果 GUT、headless editor 或插件测试后 `project.godot` 变脏，先运行 `python tools\gf_maintenance.py project-settings-drift --json` 查看 staged/unstaged 漂移，再修复泄漏的 `ProjectSettings` 写入或测试恢复逻辑；不要把一次性测试状态提交成项目配置。
 
 层级边界变更后至少额外运行：
 
@@ -298,7 +309,7 @@ python tools\generate_api_reference.py
 python tools\generate_api_reference.py --check
 ```
 
-该检查同时确认 XML Catalog 与源码一致、Markdown Reference 与生成器一致，并验证 Catalog 中的公开类和成员都出现在对应 Reference 页面中。
+该检查同时确认 XML Catalog 与源码一致、Markdown Reference 与生成器一致，并验证 Catalog 中的公开类和成员都出现在对应 Reference 页面中。正式生成会先在临时目录构建并校验 Catalog 与 Reference 两棵输出树，再作为一个事务整体替换；任一阶段失败必须保留原有完整生成物，不允许逐文件破坏性更新。
 
 校验手写文档页面长度、段落长度、H1 数量、代码块语言标注、页面粒度、顶层扩展入口模板和公开正文中的维护流程泄漏：
 
@@ -357,6 +368,7 @@ python tools\generate_ai_api.py --source addons\gf --output ai_analysis\generate
 使用规则：
 
 - 生成结果默认放在 `ai_analysis/generated_api/`，该目录被 Git 忽略，不提交。
+- `generate_ai_api.py` 默认只允许写入 `ai_analysis/generated_api/`；确有维护需要写入其他根时必须显式传 `--allow-unsafe-output-root`，并先确认目标目录没有人工维护文件。非 `--check` 生成同样使用 staging + replace 事务，失败时保留旧快照。
 - 生成脚本 `tools/generate_ai_api.py` 与共享解析器 `tools/gdscript_api_parser.py` 是维护工具，可以提交。
 - 如果 `--check` 失败，先重新生成，再继续文档维护。
 - `--check-wiki-coverage` 会递归扫描 `docs/zh/**/*.md` 并排除 `changelog.md`，要求每个公开 `class_name` 至少在正式功能页中出现一次；它只证明有入口，不证明描述已经足够准确。正式 API Reference 的类和成员覆盖以 `tools/generate_api_reference.py --check` 为准。
@@ -406,13 +418,16 @@ python tools\gf_mcp_server.py
 
 ```powershell
 python tools\gf_maintenance.py summary
+python tools\gf_maintenance.py summary --release
 python tools\gf_maintenance.py workspace-status
+python tools\gf_maintenance.py workspace-status --path addons/gf/kernel/core/gf_architecture.gd
 python tools\gf_maintenance.py api-search GFUuid
 python tools\gf_maintenance.py api-class GFAudioClip
 python tools\gf_maintenance.py api-module extensions/domain
 python tools\gf_maintenance.py check --suite quick
 python tools\gf_maintenance.py check --suite package
 python tools\gf_maintenance.py check --suite full
+python tools\gf_maintenance.py project-settings-drift
 python tools\build_asset_store_package.py --version 3.19.0
 python tools\gf_maintenance.py release-status --version 3.19.0
 ```
@@ -441,6 +456,7 @@ python tools\gf_maintenance.py release-status --version 3.19.0
 
 - 内容要事实化、简洁，只记录恢复上下文所需的信息。
 - 不让 `ai_analysis/` 无限堆积。每次新增分析、报告或生成物前，先判断是否已有同类文件可覆盖、合并或删除；任务结束时清理一次性草稿、过期快照和已被正式文档或最新报告替代的内容。
+- `ai_analysis/godot_logs/` 是仓库内唯一允许保存诊断日志的临时目录。不要把手工 Godot `--log-file`、stdout 或 stderr 写到 `.gf/`、项目根目录或源码目录；历史 `.gf/*.log` 被视为旁路临时日志，成功维护命令会直接删除，且不会触碰 `.gf/package_cache/`、`.gf/package_temp/` 或其他包状态。维护 CLI 成功时会自动清理本次日志并裁剪历史日志；所有失败都已解决后，AI 在最终汇报前必须运行 `python tools\gf_maintenance.py log-hygiene --all --json`。仍有未解决失败时运行 `python tools\gf_maintenance.py log-hygiene --json`，只保留有界的近期证据并在汇报中说明。手工 stdout/stderr 重定向产生的日志也必须纳入这一步，不得因不是 CLI 自动生成就长期遗留。
 - 不确定某个文件是否仍有价值时，优先保留用户提供的素材源码、当前任务进度、最新生成索引和仍被维护命令引用的输出；只删除能确认已经过时、重复或临时的文件。
 - 不把它当作面向用户的正式文档。
 - 不在公开文档中把它写成必需项目文件。

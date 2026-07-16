@@ -105,7 +105,7 @@ func get_provider(provider_id: StringName) -> GFPolicyProvider:
 ## @return Provider 列表。
 func get_providers_for_artifact(artifact: Dictionary) -> Array[GFPolicyProvider]:
 	var result: Array[GFPolicyProvider] = []
-	for provider: GFPolicyProvider in providers:
+	for provider: GFPolicyProvider in _get_sorted_provider_snapshot():
 		if provider != null and provider.supports_artifact(artifact):
 			result.append(provider)
 	return result
@@ -174,11 +174,26 @@ func get_debug_snapshot() -> Dictionary:
 
 func _sort_providers() -> void:
 	providers.sort_custom(func(left: GFPolicyProvider, right: GFPolicyProvider) -> bool:
-		var left_priority: int = left.priority if left != null else 0
-		var right_priority: int = right.priority if right != null else 0
-		if left_priority == right_priority:
-			var left_id: String = String(left.provider_id) if left != null else ""
-			var right_id: String = String(right.provider_id) if right != null else ""
-			return left_id < right_id
-		return left_priority < right_priority
+		return _compare_providers(left, right)
 	)
+
+
+func _get_sorted_provider_snapshot() -> Array[GFPolicyProvider]:
+	var snapshot: Array[GFPolicyProvider] = []
+	for provider: GFPolicyProvider in providers:
+		if provider != null:
+			snapshot.append(provider)
+	snapshot.sort_custom(func(left: GFPolicyProvider, right: GFPolicyProvider) -> bool:
+		return _compare_providers(left, right)
+	)
+	return snapshot
+
+
+func _compare_providers(left: GFPolicyProvider, right: GFPolicyProvider) -> bool:
+	var left_priority: int = left.priority if left != null else 0
+	var right_priority: int = right.priority if right != null else 0
+	if left_priority == right_priority:
+		var left_id: String = String(left.provider_id) if left != null else ""
+		var right_id: String = String(right.provider_id) if right != null else ""
+		return left_id < right_id
+	return left_priority < right_priority

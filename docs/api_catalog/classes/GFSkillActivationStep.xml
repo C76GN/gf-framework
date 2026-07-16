@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFSkillActivationStep" path="addons/gf/extensions/combat/skills/gf_skill_activation_step.gd" module="extensions/combat" extends="RefCounted" classDigest="19147df49d5190a59eed42a3e99e860f352d71d00d868e8f947057b30c771c86">
+	<description>GFSkillActivationStep: 技能激活事务步骤协议。
+项目侧通过继承实现验证、应用与回滚；步骤不保存单次施放状态，所有运行时数据
+应写入 GFSkillActivationContext 或项目自己的事务对象。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">protocol</tag>
+		<tag name="since">8.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties>
+		<member kind="property" name="step_id">
+			<signature>var step_id: StringName = &amp;""</signature>
+			<description>步骤 ID；同一技能中的步骤 ID 必须唯一且非空。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="rollback_required">
+			<signature>var rollback_required: bool = true</signature>
+			<description>应用成功后是否必须支持回滚。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="configure">
+			<signature>func configure( p_step_id: StringName, p_rollback_required: bool = true ) -&gt; GFSkillActivationStep:</signature>
+			<description>配置步骤并返回自身。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">p_step_id: 步骤 ID。</tag>
+				<tag name="param">p_rollback_required: 应用成功后是否必须支持回滚。</tag>
+				<tag name="return">当前步骤。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_validate_activation">
+			<signature>func _validate_activation(_context: GFSkillActivationContext) -&gt; Variant:</signature>
+			<description>无副作用地验证当前步骤。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">_context: 本次技能激活上下文。</tag>
+				<tag name="return">`bool`、`Error` 或包含 `ok`、`reason`、`metadata` 的 Dictionary。</tag>
+				<tag name="schema">return: Variant，可为 bool、Error 或 Dictionary；回调必须同步返回。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_apply_activation">
+			<signature>func _apply_activation(_context: GFSkillActivationContext) -&gt; Variant:</signature>
+			<description>应用步骤副作用。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">_context: 本次技能激活上下文。</tag>
+				<tag name="return">`bool`、`Error` 或包含 `ok`、`reason`、`metadata` 的 Dictionary。</tag>
+				<tag name="schema">return: Variant，可为 bool、Error 或 Dictionary；回调必须同步返回。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_rollback_activation">
+			<signature>func _rollback_activation(_context: GFSkillActivationContext) -&gt; Variant:</signature>
+			<description>回滚已经成功应用的步骤。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">_context: 本次技能激活上下文。</tag>
+				<tag name="return">`bool`、`Error` 或包含 `ok`、`reason`、`metadata` 的 Dictionary。</tag>
+				<tag name="schema">return: Variant，可为 bool、Error 或 Dictionary；回调必须同步返回。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

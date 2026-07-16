@@ -1,6 +1,6 @@
 # 关卡流程
 
-Domain 扩展中的 `GFLevelUtility` 面向有固定关卡概念的项目，用于统一处理开始、重开、胜利、失败，并在重开时清理命令历史与项目显式注册的运行时残留。
+Domain 扩展中的 `GFLevelUtility` 面向有固定关卡概念的项目，用于统一处理开始、重开、胜利、失败，并在重开时执行项目显式注册的运行时清理回调。
 
 ## 基础流程
 
@@ -21,15 +21,17 @@ level.win_current_level()
 
 它只处理通用关卡流程边界，不负责生成地图、刷怪或胜负条件判断；这些具体玩法规则仍应放在项目自己的 `System` 中。
 
-重开关卡时，它会重新读取配置或启动时传入的 override 数据副本，并清理命令历史。其他运行时残留应通过 `register_runtime_cleanup()` 显式接入，避免 Domain 扩展按扩展 ID 主动探测 ActionQueue 等其他可选扩展：
+重开关卡时，它会重新读取配置或启动时传入的 override 数据副本，并执行 `register_runtime_cleanup()` 注册的清理回调。Domain 扩展不会主动探测命令历史、ActionQueue 或其他可选扩展；项目需要清理哪些运行时残留，就显式注册哪些回调：
 
 ```gdscript
 var actions := Gf.get_system(GFActionQueueSystem) as GFActionQueueSystem
 level.register_runtime_cleanup(&"action_queue", func() -> void:
 	actions.clear_queue(true)
 	actions.clear_all_named_queues(true)
-)
+}, 100)
 ```
+
+清理回调由 `GFRuntimeCleanupScope` 按 `priority` 从高到低执行。同一个 `cleanup_id` 重新注册会替换旧回调，`unregister_runtime_cleanup()` 返回是否实际移除了对应项。项目如果使用命令历史，也应像其他系统一样注册自己的清理回调，而不是依赖 Domain 默认认识某个具体工具。
 
 ## 关卡目录
 

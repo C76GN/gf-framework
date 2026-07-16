@@ -56,12 +56,12 @@ extends Resource
 ## [br]
 ## @return 对应条目；未找到时返回 null。
 func get_entry(scene_path: String) -> GFScenePreloadEntry:
-	var normalized_path: String = scene_path.strip_edges()
-	if normalized_path.is_empty():
+	var source_cache_key: String = _get_scene_cache_key(scene_path)
+	if source_cache_key.is_empty():
 		return null
 
 	for entry: GFScenePreloadEntry in entries:
-		if entry != null and entry.get_scene_path() == normalized_path:
+		if entry != null and entry.get_cache_key() == source_cache_key:
 			return entry
 	return null
 
@@ -85,6 +85,8 @@ func get_fixed_scene_paths() -> PackedStringArray:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param scene_path: 当前场景资源路径。
 ## [br]
 ## @param radius: 搜索半径；小于 0 时使用 default_radius。
@@ -97,9 +99,11 @@ func get_neighbor_scene_paths(
 	radius: int = -1,
 	include_source: bool = false
 ) -> PackedStringArray:
-	var source_path: String = scene_path.strip_edges()
+	var source_identity: GFResourceIdentity = _make_scene_identity(scene_path)
+	var source_path: String = _get_identity_scene_path(source_identity)
+	var source_cache_key: String = source_identity.cache_key
 	var result: PackedStringArray = PackedStringArray()
-	if source_path.is_empty():
+	if source_path.is_empty() or source_cache_key.is_empty():
 		return result
 
 	var effective_radius: int = _get_effective_radius(radius)
@@ -109,11 +113,12 @@ func get_neighbor_scene_paths(
 		return result
 
 	var visited: Dictionary = {
-		source_path: true,
+		source_cache_key: true,
 	}
 	var queue: Array[Dictionary] = [
 		{
 			"path": source_path,
+			"cache_key": source_cache_key,
 			"depth": 0,
 		},
 	]
@@ -128,14 +133,16 @@ func get_neighbor_scene_paths(
 		if entry == null:
 			continue
 		for adjacent_path: String in entry.get_adjacent_scene_paths():
-			if visited.has(adjacent_path):
+			var adjacent_cache_key: String = _get_scene_cache_key(adjacent_path)
+			if adjacent_cache_key.is_empty() or visited.has(adjacent_cache_key):
 				continue
-			visited[adjacent_path] = true
+			visited[adjacent_cache_key] = true
 			_append_unique_path(result, adjacent_path)
 			if _is_schedule_limit_reached(result):
 				return result
 			queue.append({
 				"path": adjacent_path,
+				"cache_key": adjacent_cache_key,
 				"depth": depth + 1,
 			})
 	return result
@@ -145,6 +152,8 @@ func get_neighbor_scene_paths(
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param scene_path: 当前场景资源路径。
 ## [br]
 ## @param radius: 搜索半径；小于 0 时使用 default_radius。
@@ -153,13 +162,14 @@ func get_neighbor_scene_paths(
 ## [br]
 ## @return 预加载计划字典。
 ## [br]
-## @schema return: Dictionary，包含 source_path、radius、include_fixed、fixed_paths、temporary_paths、paths 和 metadata。
+## @schema return: Dictionary，包含 source_path、source_cache_key、radius、include_fixed、fixed_paths、temporary_paths、paths、fixed_cache_keys、temporary_cache_keys、cache_keys、resource_identities 和 metadata。
 func get_preload_plan(
 	scene_path: String,
 	radius: int = -1,
 	include_fixed: bool = true
 ) -> Dictionary:
-	var source_path: String = scene_path.strip_edges()
+	var source_identity: GFResourceIdentity = _make_scene_identity(scene_path)
+	var source_path: String = _get_identity_scene_path(source_identity)
 	var effective_radius: int = _get_effective_radius(radius)
 	var fixed_paths: PackedStringArray = PackedStringArray()
 	if include_fixed:
@@ -167,7 +177,7 @@ func get_preload_plan(
 
 	var temporary_paths: PackedStringArray = PackedStringArray()
 	for neighbor_path: String in get_neighbor_scene_paths(source_path, effective_radius):
-		if fixed_paths.has(neighbor_path):
+		if _paths_have_cache_key(fixed_paths, _get_scene_cache_key(neighbor_path)):
 			continue
 		var entry: GFScenePreloadEntry = get_entry(neighbor_path)
 		if entry != null and entry.fixed:
@@ -183,11 +193,16 @@ func get_preload_plan(
 
 	return {
 		"source_path": source_path,
+		"source_cache_key": source_identity.cache_key,
 		"radius": effective_radius,
 		"include_fixed": include_fixed,
 		"fixed_paths": fixed_paths,
 		"temporary_paths": temporary_paths,
 		"paths": paths,
+		"fixed_cache_keys": _make_cache_key_list(fixed_paths),
+		"temporary_cache_keys": _make_cache_key_list(temporary_paths),
+		"cache_keys": _make_cache_key_list(paths),
+		"resource_identities": _make_resource_identity_snapshot(paths),
 		"metadata": metadata.duplicate(true),
 	}
 
@@ -217,20 +232,22 @@ func validate_map(options: Dictionary = {}) -> Dictionary:
 			continue
 
 		var entry_path: String = entry.get_scene_path()
+		var entry_cache_key: String = entry.get_cache_key()
 		if entry_path.is_empty():
 			var _add_error_result_221: Variant = report.add_error(&"empty_scene_path", "Scene preload entry requires scene_path.", str(index))
 			continue
 		_validate_scene_path(report, entry_path, str(index), check_exists)
-		if seen_paths.has(entry_path):
+		if seen_paths.has(entry_cache_key):
 			var _add_warning_result_225: Variant = report.add_warning(&"duplicate_scene_path", "Scene preload map contains duplicate scene_path entries.", entry_path)
-		seen_paths[entry_path] = true
+		seen_paths[entry_cache_key] = true
 
 		for adjacent_path: String in entry.adjacent_scene_paths:
-			var normalized_adjacent_path: String = adjacent_path.strip_edges()
+			var adjacent_identity: GFResourceIdentity = _make_scene_identity(adjacent_path)
+			var normalized_adjacent_path: String = _get_identity_scene_path(adjacent_identity)
 			if normalized_adjacent_path.is_empty():
 				var _add_warning_result_231: Variant = report.add_warning(&"empty_adjacent_path", "Scene preload entry contains an empty adjacent path.", entry_path)
 				continue
-			if normalized_adjacent_path == entry_path:
+			if adjacent_identity.cache_key == entry_cache_key:
 				var _add_warning_result_234: Variant = report.add_warning(&"self_adjacent_path", "Scene preload entry references itself.", entry_path)
 				continue
 			_validate_scene_path(report, normalized_adjacent_path, entry_path, check_exists)
@@ -288,7 +305,58 @@ func _get_next_actions() -> Dictionary:
 
 
 static func _append_unique_path(paths: PackedStringArray, raw_path: String) -> void:
-	var path: String = raw_path.strip_edges()
-	if path.is_empty() or paths.has(path):
+	var identity: GFResourceIdentity = _make_scene_identity(raw_path)
+	var path: String = _get_identity_scene_path(identity)
+	if path.is_empty() or identity.cache_key.is_empty() or _paths_have_cache_key(paths, identity.cache_key):
 		return
 	var _appended: bool = paths.append(path)
+
+
+static func _normalize_scene_path(raw_path: String) -> String:
+	var identity: GFResourceIdentity = _make_scene_identity(raw_path)
+	return _get_identity_scene_path(identity)
+
+
+static func _make_scene_identity(raw_path: String) -> GFResourceIdentity:
+	return GFResourceIdentity.from_path(raw_path, &"", "PackedScene", { "check_exists": false })
+
+
+static func _get_identity_scene_path(identity: GFResourceIdentity) -> String:
+	if identity == null:
+		return ""
+	if not identity.canonical_path.is_empty():
+		return identity.canonical_path
+	return identity.raw_path
+
+
+static func _get_scene_cache_key(raw_path: String) -> String:
+	return _make_scene_identity(raw_path).cache_key
+
+
+static func _paths_have_cache_key(paths: PackedStringArray, cache_key: String) -> bool:
+	if cache_key.is_empty():
+		return false
+	for existing_path: String in paths:
+		if _get_scene_cache_key(existing_path) == cache_key:
+			return true
+	return false
+
+
+static func _make_cache_key_list(paths: PackedStringArray) -> PackedStringArray:
+	var result: PackedStringArray = PackedStringArray()
+	for path: String in paths:
+		var cache_key: String = _get_scene_cache_key(path)
+		if cache_key.is_empty() or result.has(cache_key):
+			continue
+		var _appended: bool = result.append(cache_key)
+	return result
+
+
+static func _make_resource_identity_snapshot(paths: PackedStringArray) -> Dictionary:
+	var result: Dictionary = {}
+	for path: String in paths:
+		var identity: GFResourceIdentity = _make_scene_identity(path)
+		if identity.cache_key.is_empty():
+			continue
+		result[identity.cache_key] = identity.to_dictionary()
+	return result

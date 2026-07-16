@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFPriorityQueue" path="addons/gf/standard/foundation/collections/gf_priority_queue.gd" module="standard" extends="RefCounted" classDigest="5be8ca0e8a7947b22aaf256c1ac57d777cef7a5bbb62f29fbc11192df393590e">
+<class name="GFPriorityQueue" path="addons/gf/standard/foundation/collections/gf_priority_queue.gd" module="standard" extends="RefCounted" classDigest="4a9091743706623187d7af16a25c49f54bb9d556a16a9f80a39c36a4000fdeaf">
 	<description>GFPriorityQueue: 稳定优先队列。
-用二叉堆保存带整数优先级的值，支持高优先级优先或低优先级优先，
+用二叉堆保存带数值优先级的值，支持高优先级优先或低优先级优先，
 并在相同优先级下保持稳定顺序。它只管理排序和弹出顺序，不解释任务、
 通知、AI 行为或项目业务语义。</description>
 	<tags>
@@ -33,7 +33,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="from_array">
-			<signature>static func from_array( values: Array, priority: int = 0, p_high_priority_first: bool = true ) -&gt; RefCounted:</signature>
+			<signature>static func from_array( values: Array, priority: float = 0.0, p_high_priority_first: bool = true ) -&gt; RefCounted:</signature>
 			<description>从值数组创建优先队列。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -46,15 +46,29 @@
 			</tags>
 		</member>
 		<member kind="method" name="push">
-			<signature>func push(value: Variant, priority: int = 0, front: bool = false) -&gt; void:</signature>
+			<signature>func push(value: Variant, priority: float = 0.0, front: bool = false) -&gt; bool:</signature>
 			<description>推入一个值。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">value: 要入队的值。</tag>
-				<tag name="param">priority: 整数优先级。</tag>
+				<tag name="param">priority: 数值优先级。</tag>
 				<tag name="param">front: 为 true 时会排在相同 priority 的既有元素之前。</tag>
+				<tag name="return">priority 有限并成功入队时返回 true。</tag>
 				<tag name="schema">value: Variant queue value.</tag>
 				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="push_with_order">
+			<signature>func push_with_order(value: Variant, priority: float = 0.0, order: int = 0) -&gt; bool:</signature>
+			<description>按显式稳定顺序推入一个值。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">value: 要入队的值。</tag>
+				<tag name="param">priority: 数值优先级。</tag>
+				<tag name="param">order: 相同 priority 下的稳定排序值，数值越小越先弹出。</tag>
+				<tag name="return">priority 有限并成功入队时返回 true。</tag>
+				<tag name="schema">value: Variant queue value.</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="pop">
@@ -82,7 +96,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="peek_priority">
-			<signature>func peek_priority(default_value: int = 0) -&gt; int:</signature>
+			<signature>func peek_priority(default_value: float = 0.0) -&gt; float:</signature>
 			<description>读取当前最高优先级。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -125,7 +139,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="set_priority">
-			<signature>func set_priority(value: Variant, priority: int, front: bool = false) -&gt; bool:</signature>
+			<signature>func set_priority(value: Variant, priority: float, front: bool = false) -&gt; bool:</signature>
 			<description>更新第一个等于 value 的队列值优先级。</description>
 			<tags>
 				<tag name="api">public</tag>

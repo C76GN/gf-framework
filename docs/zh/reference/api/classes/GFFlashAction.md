@@ -17,7 +17,7 @@
 |---|---|---|
 | 属性 | [`target`](#member-gfflashaction-properties-target) | `var target: CanvasItem` |
 | 属性 | [`flash_color`](#member-gfflashaction-properties-flash_color) | `var flash_color: Color = Color.WHITE` |
-| 属性 | [`duration`](#member-gfflashaction-properties-duration) | `var duration: float = 0.12` |
+| 属性 | [`duration`](#member-gfflashaction-properties-duration) | `var duration: float:` |
 | 属性 | [`property_name`](#member-gfflashaction-properties-property_name) | `var property_name: NodePath = ^"modulate"` |
 | 方法 | [`execute`](#member-gfflashaction-methods-execute) | `func execute() -> Variant:` |
 | 方法 | [`cancel`](#member-gfflashaction-methods-cancel) | `func cancel() -> void:` |
@@ -57,9 +57,10 @@ var flash_color: Color = Color.WHITE
 ### `duration`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-var duration: float = 0.12
+var duration: float:
 ```
 
 闪色总时长。

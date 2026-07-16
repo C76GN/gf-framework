@@ -21,6 +21,7 @@
 | 属性 | [`metadata`](#member-gfcapabilityrecipeentry-properties-metadata) | `var metadata: Dictionary = {}` |
 | 方法 | [`is_valid_entry`](#member-gfcapabilityrecipeentry-methods-is_valid_entry) | `func is_valid_entry() -> bool:` |
 | 方法 | [`describe_entry`](#member-gfcapabilityrecipeentry-methods-describe_entry) | `func describe_entry() -> Dictionary:` |
+| 方法 | [`to_report_dictionary`](#member-gfcapabilityrecipeentry-methods-to_report_dictionary) | `func to_report_dictionary(options: Dictionary = {}) -> Dictionary:` |
 
 ## 属性
 
@@ -109,3 +110,29 @@ func describe_entry() -> Dictionary:
 结构：
 
 - `return`: 包含 capability_type、scene_path、active 和 metadata 字段的 Dictionary。
+
+<a id="member-gfcapabilityrecipeentry-methods-to_report_dictionary"></a>
+
+### `to_report_dictionary`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func to_report_dictionary(options: Dictionary = {}) -> Dictionary:
+```
+
+导出条目的 JSON-safe 报告快照。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `options` | 传给 GFReportValueCodec 的编码选项。 |
+
+返回：条目报告字典。
+
+结构：
+
+- `options`: Dictionary with GFReportValueCodec encoding options.
+- `return`: JSON-safe Dictionary based on describe_entry().

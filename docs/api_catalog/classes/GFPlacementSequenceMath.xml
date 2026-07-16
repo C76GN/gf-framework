@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFPlacementSequenceMath" path="addons/gf/standard/foundation/math/gf_placement_sequence_math.gd" module="standard" extends="RefCounted" classDigest="3729ceefe88640cfe0a7afb28d95204b1ea0b07203c6d7d9b82654c822af3b89">
+	<description>GFPlacementSequenceMath: 连续放置序列的纯数学预测工具。
+根据已经确认的放置点或格子，预测下一次放置候选位置。它只处理纯数据，
+不创建节点、不读取场景、不绑定编辑器选择、UndoRedo、碰撞或重叠规则。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_service</tag>
+		<tag name="since">8.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants>
+		<member kind="const" name="MODE_FALLBACK">
+			<signature>const MODE_FALLBACK: StringName = &amp;"fallback"</signature>
+			<description>没有可用历史时使用调用方提供的 fallback。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="MODE_REPEAT_LAST">
+			<signature>const MODE_REPEAT_LAST: StringName = &amp;"repeat_last"</signature>
+			<description>只有一个可用历史点时复用最后一次放置位置。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="MODE_EXTRAPOLATED">
+			<signature>const MODE_EXTRAPOLATED: StringName = &amp;"extrapolated"</signature>
+			<description>至少有两个可用历史点时按 `last + (last - previous)` 推断下一次位置。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties />
+	<methods>
+		<member kind="method" name="predict_next_position_2d">
+			<signature>static func predict_next_position_2d( positions: Array[Vector2], fallback_position: Vector2 = Vector2.ZERO, options: Dictionary = {} ) -&gt; Dictionary:</signature>
+			<description>预测下一次 2D 连续位置。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">positions: 已确认的放置位置，按时间顺序排列。</tag>
+				<tag name="param">fallback_position: 没有历史位置时使用的候选位置。</tag>
+				<tag name="param">options: 可选项，支持 max_step_length 限制外推步长；小于等于 0 时不限制。</tag>
+				<tag name="return">预测报告。</tag>
+				<tag name="schema">options: Dictionary，可包含 max_step_length: float。</tag>
+				<tag name="schema">return: Dictionary，包含 ok、mode、position、step、source_count、valid_count、ignored_invalid_count、clamped、max_step_length 和 error。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="predict_next_position_3d">
+			<signature>static func predict_next_position_3d( positions: Array[Vector3], fallback_position: Vector3 = Vector3.ZERO, options: Dictionary = {} ) -&gt; Dictionary:</signature>
+			<description>预测下一次 3D 连续位置。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">positions: 已确认的放置位置，按时间顺序排列。</tag>
+				<tag name="param">fallback_position: 没有历史位置时使用的候选位置。</tag>
+				<tag name="param">options: 可选项，支持 max_step_length 限制外推步长；小于等于 0 时不限制。</tag>
+				<tag name="return">预测报告。</tag>
+				<tag name="schema">options: Dictionary，可包含 max_step_length: float。</tag>
+				<tag name="schema">return: Dictionary，包含 ok、mode、position、step、source_count、valid_count、ignored_invalid_count、clamped、max_step_length 和 error。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="predict_next_cell_2d">
+			<signature>static func predict_next_cell_2d( cells: Array[Vector2i], fallback_cell: Vector2i = Vector2i.ZERO ) -&gt; Dictionary:</signature>
+			<description>预测下一次 2D 离散格子。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">cells: 已确认的放置格子，按时间顺序排列。</tag>
+				<tag name="param">fallback_cell: 没有历史格子时使用的候选格子。</tag>
+				<tag name="return">预测报告。</tag>
+				<tag name="schema">return: Dictionary，包含 ok、mode、cell、step、source_count、valid_count、ignored_invalid_count 和 error。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="predict_next_cell_3d">
+			<signature>static func predict_next_cell_3d( cells: Array[Vector3i], fallback_cell: Vector3i = Vector3i.ZERO ) -&gt; Dictionary:</signature>
+			<description>预测下一次 3D 离散格子。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">cells: 已确认的放置格子，按时间顺序排列。</tag>
+				<tag name="param">fallback_cell: 没有历史格子时使用的候选格子。</tag>
+				<tag name="return">预测报告。</tag>
+				<tag name="schema">return: Dictionary，包含 ok、mode、cell、step、source_count、valid_count、ignored_invalid_count 和 error。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

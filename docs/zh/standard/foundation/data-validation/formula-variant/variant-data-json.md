@@ -1,6 +1,6 @@
 # Variant 深拷贝与 JSON 转换
 
-通用 Variant 基础件分为三个明确职责：`GFVariantData` 负责深拷贝、字典 / metadata 合并、options 读取、基础类型收窄、默认值合并、差异报告和 Resource 可选复制；`GFVariantJsonCodec` 负责 JSON 友好的 Godot 值类型转换；`GFVariantReferenceCodec` 负责显式 Resource / Node 引用标记。
+通用 Variant 基础件分为几个明确职责：`GFVariantData` 负责深拷贝、字典 / metadata 合并、options 读取、基础类型收窄、默认值合并、差异报告和 Resource 可选复制；`GFVariantJsonCodec` 负责 JSON 友好的 Godot 值类型转换；`GFVariantKeyCodec` 负责把稳定 Variant 转成可比较 key token；`GFVariantReferenceCodec` 负责显式 Resource / Node 引用标记。`GFReportValueCodec` 属于 kernel 层统一报告边界，负责公开报告和诊断快照的 JSON-safe 脱敏输出，standard 与 extensions 都应复用它而不是各自写 sanitizer。
 
 它们都不依赖 `GFArchitecture`，适合存档、配置、校验报告、网络消息、命中上下文等需要复制集合但保留标量语义，或把 Godot 值转成纯数据的地方。
 
@@ -87,6 +87,8 @@ var route_id := GFVariantData.to_string_name(record.get("route_id", &""))
 
 集合有两组入口：`as_dictionary()` / `as_array()` 返回原引用，适合继续修改运行时状态；`to_dictionary()` / `to_array()` 返回副本，适合公开快照、metadata、options 和持久化数据。对象、Resource、节点、Callable 等领域类型仍应由具体模块本地收窄，不放进通用 Variant 工具。
 
+`GFDataProjection.project_with_report()` 在配置 `GFDictionarySchema` 时会使用 report-aware 字段规范化：可转换值会按 schema 输出，转换失败会写入返回报告并保留原始输入，不会把坏值降级成字段类型 fallback 后继续投影。
+
 ## JSON 兼容转换
 
 ```gdscript
@@ -101,11 +103,19 @@ var restored := GFVariantJsonCodec.json_compatible_to_variant(
 	JSON.parse_string(JSON.stringify(json_payload))
 ) as Dictionary
 
+var json_text := GFVariantJsonCodec.stringify_json_compatible({
+	"score": 10,
+	"position": Vector3(1.0, INF, NAN),
+}, "  ", true)
+var restored_text := GFVariantJsonCodec.parse_json_compatible_text(json_text, {}) as Dictionary
+
 var pretty_json := GFVariantJsonCodec.format_json_text("{\"b\":2,\"a\":1}", "  ", true)
 var compact_json := GFVariantJsonCodec.compact_json_text(pretty_json)
 ```
 
-`GFVariantJsonCodec.variant_to_json_compatible()` 会为 `Vector2/3/4`、整数向量、`Color`、`Rect2`、`Transform2D/3D`、`Basis`、`Quaternion`、`AABB`、`Plane`、`NodePath`、`StringName` 和常见 PackedArray 写入专用 `__gf_variant__` 类型标记，再由 `json_compatible_to_variant()` 恢复。`NaN`、`Infinity` 和 `-Infinity` 不能由 JSON number 表达，因此会写成 `Float` 类型标记，而不是交给 Godot `JSON.stringify()` 替换成 `null`。
+`GFVariantJsonCodec.variant_to_json_compatible()` 会为 `Vector2/3/4`、整数向量、`Color`、`Rect2`、`Transform2D/3D`、`Basis`、`Quaternion`、`AABB`、`Plane`、`NodePath`、`StringName` 和常见 PackedArray 写入专用 `__gf_variant__` 类型标记，再由 `json_compatible_to_variant()` 恢复。`NaN`、`INF` 和 `-INF` 不能由 JSON number 表达，因此会写成 `Float` 类型标记，而不是交给 Godot `JSON.stringify()` 替换成 `null`。
+
+如果调用方最终就是要得到 JSON 文本，优先使用 `stringify_json_compatible()`，它会先执行 `variant_to_json_compatible()` 再调用 Godot `JSON.stringify()`，避免把 `NaN`、`Infinity`、`Vector3`、`Color`、PackedArray 等值直接送进 JSON 边界。读取这类文本时用 `parse_json_compatible_text()`，它会在解析成功后自动恢复 GF typed marker；解析失败时返回调用方提供的 fallback。
 
 `parse_json_text()`、`format_json_text()` 和 `compact_json_text()` 面向已经是 JSON 文本的输入：它们先通过 Godot JSON 解析器确认文本有效，再返回解析值、格式化文本或去除非必要空白后的文本。解析失败时返回调用方提供的 fallback，不会把无效输入静默改写成空集合。
 
@@ -143,6 +153,35 @@ var decoded_resource := GFVariantReferenceCodec.decode_reference(encoded_resourc
 普通整数在 JSON 安全范围内仍保持数字；超出 JSON 安全范围的 64 位整数会自动写成 `Int64` 类型标记，避免 Godot JSON 往返后丢失精度。只有 `__gf_variant__` 标记是字典唯一字段时才会被解码为 Godot 类型，因此普通业务字典里的 `type`、`value`、`_gf_type` 等字段会按普通数据保留。
 
 默认普通 Dictionary 仍使用字符串键；如果确实需要保留非字符串键，可传 `{ "encode_dictionary_keys": true }`。JSON codec 遇到不支持的对象默认写成 `null`；需要持久化对象时，应在项目层先转换成资源路径、ID 或纯数据字典。
+
+## 报告值与稳定 Key
+
+公开报告、调试快照、事件历史或 CI 输出不应直接包含运行时 `Object`、`Resource`、`Callable`、`Signal`、`RID` 或非有限浮点。需要把任意报告值交给 `JSON.stringify()` 前，先使用 `GFReportValueCodec`：
+
+```gdscript
+var safe_report := GFReportValueCodec.to_json_compatible({
+	"target": some_node,
+	"value": NAN,
+	"position": Vector3(1.0, 2.0, 3.0),
+})
+var json_text := JSON.stringify(safe_report, "\t")
+```
+
+`GFReportValueCodec` 会使用同一套 GF typed marker 形态处理 Vector、Color、PackedArray、`NaN` / `INF` / `-INF` 等 Godot 值，并把运行时对象写成 `__gf_report_value__` 脱敏 marker。路径字符串和 Resource 路径默认会被脱敏；开发态确实需要完整路径时，显式传入 `{ "path_redaction": "none" }`。它适合报告和日志边界，不用于保存可恢复对象图；需要恢复 Resource 或 Node 引用时仍使用 `GFVariantReferenceCodec`。
+
+公开对象如果需要标准报告形态，可以实现 `to_report_dictionary(options)` 并在内部调用 `GFReportValueCodec.to_report_dictionary()`。这个入口会把任意值包成 `{ "ok": true, "value": ... }` 或错误报告字典，适合导出命令、诊断面板和测试统一断言 JSON-safe 边界。
+
+大型集合不应完整塞进错误报告或支持报告。`GFReportValueCodec.make_collection_summary()` 会输出 `count`、固定数量 `sample`、`truncated` 和完整内容 `hash`，适合配置校验、导入器和诊断面板展示“足够定位问题但不膨胀报告”的上下文。
+
+缓存、索引、查询签名和 keyed 异步 gate 需要“同一输入稳定得到同一 token”，应使用 `GFVariantKeyCodec`。默认允许 `bool`、`int`、`String`、`StringName`、`NodePath`、有限 `float`、有限 Vector/Rect/Color 这类稳定值；拒绝 `Array`、`Dictionary`、Object/Resource、Callable、RID、Signal 和 `NaN` / `Infinity`。
+
+```gdscript
+var token := GFVariantKeyCodec.make_key_token(Vector2i(4, 8))
+if token.is_empty():
+	push_error("Key must be a stable scalar or math value.")
+```
+
+`GFValueIndex`、`GFQuerySignature`、`GFCacheDiagnostics`、`GFAsyncKeyedGate` 和 `GFAsyncProgressAggregator` 都复用这套 key 合同。项目如果需要用复杂业务对象作为 key，应先在业务层提取稳定 ID、资源路径、坐标或枚举值，不要把可变集合或运行时对象交给框架底层。
 
 ## 与确定性序列化的关系
 

@@ -17,6 +17,7 @@ PackedByteArray 读写游标。 提供边界检查、显式字节序和 varuint 
 |---|---|---|
 | 属性 | [`little_endian`](#member-gfbytecursor-properties-little_endian) | `var little_endian: bool = false` |
 | 属性 | [`max_read_byte_count`](#member-gfbytecursor-properties-max_read_byte_count) | `var max_read_byte_count: int = _DEFAULT_MAX_READ_BYTE_COUNT` |
+| 属性 | [`max_write_byte_count`](#member-gfbytecursor-properties-max_write_byte_count) | `var max_write_byte_count: int = _DEFAULT_MAX_WRITE_BYTE_COUNT` |
 | 方法 | [`_init`](#member-gfbytecursor-methods-_init) | `func _init(source_bytes: PackedByteArray = PackedByteArray(), p_little_endian: bool = false) -> void:` |
 | 方法 | [`from_bytes`](#member-gfbytecursor-methods-from_bytes) | `static func from_bytes(source_bytes: PackedByteArray, offset: int = 0, p_little_endian: bool = false) -> GFByteCursor:` |
 | 方法 | [`reset`](#member-gfbytecursor-methods-reset) | `func reset(source_bytes: PackedByteArray = PackedByteArray()) -> void:` |
@@ -43,6 +44,7 @@ PackedByteArray 读写游标。 提供边界检查、显式字节序和 varuint 
 | 方法 | [`try_read_var_uint`](#member-gfbytecursor-methods-try_read_var_uint) | `func try_read_var_uint() -> Dictionary:` |
 | 方法 | [`read_bytes`](#member-gfbytecursor-methods-read_bytes) | `func read_bytes(byte_count: int) -> PackedByteArray:` |
 | 方法 | [`try_read_bytes`](#member-gfbytecursor-methods-try_read_bytes) | `func try_read_bytes(byte_count: int) -> Dictionary:` |
+| 方法 | [`to_json_compatible_read_report`](#member-gfbytecursor-methods-to_json_compatible_read_report) | `static func to_json_compatible_read_report(report: Dictionary, options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`read_utf8`](#member-gfbytecursor-methods-read_utf8) | `func read_utf8(byte_count: int) -> String:` |
 | 方法 | [`try_read_utf8`](#member-gfbytecursor-methods-try_read_utf8) | `func try_read_utf8(byte_count: int) -> Dictionary:` |
 | 方法 | [`read_var_utf8`](#member-gfbytecursor-methods-read_var_utf8) | `func read_var_utf8() -> String:` |
@@ -88,6 +90,19 @@ var max_read_byte_count: int = _DEFAULT_MAX_READ_BYTE_COUNT
 ```
 
 单次读取允许的最大字节数。小于等于 0 表示不限制。
+
+<a id="member-gfbytecursor-properties-max_write_byte_count"></a>
+
+### `max_write_byte_count`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+var max_write_byte_count: int = _DEFAULT_MAX_WRITE_BYTE_COUNT
+```
+
+单次写入允许的最大字节数。小于等于 0 表示不限制。
 
 ## 方法
 
@@ -553,6 +568,34 @@ func try_read_bytes(byte_count: int) -> Dictionary:
 结构：
 
 - `return`: Dictionary with `ok: bool`, `value: PackedByteArray`, `error: int`, `position: int`, `next_position: int`.
+
+<a id="member-gfbytecursor-methods-to_json_compatible_read_report"></a>
+
+### `to_json_compatible_read_report`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+static func to_json_compatible_read_report(report: Dictionary, options: Dictionary = {}) -> Dictionary:
+```
+
+将读取报告转换为 JSON.stringify() 安全的诊断报告。 try_read_bytes() 会保留 PackedByteArray 作为功能返回值；日志、导出和跨进程诊断应使用该方法。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `report` | try_read_*() 返回的读取报告。 |
+| `options` | 编码选项，透传给 GFReportValueCodec。 |
+
+返回：JSON-safe 读取报告。
+
+结构：
+
+- `report`: Dictionary raw byte cursor read report.
+- `options`: Dictionary report value codec options.
+- `return`: Dictionary safe for JSON.stringify().
 
 <a id="member-gfbytecursor-methods-read_utf8"></a>
 

@@ -91,6 +91,9 @@ signal request_timed_out(request_id: int, key: Variant, metadata: Dictionary)
 
 # --- 常量 ---
 
+const _GF_REPORT_VALUE_CODEC_SCRIPT = preload("res://addons/gf/kernel/core/gf_report_value_codec.gd")
+const _GF_VARIANT_KEY_CODEC_SCRIPT = preload("res://addons/gf/standard/foundation/variant/gf_variant_key_codec.gd")
+
 ## 请求已获得租约。
 ## [br]
 ## @api public
@@ -201,13 +204,13 @@ var _released_count: int = 0
 ## [br]
 ## @param key: 并发仲裁 key。
 ## [br]
-## @param options: 请求选项，支持 metadata、max_concurrency、timeout_msec、lease_timeout_msec 和 cancel_token。
+## @param options: 请求选项，支持 metadata、max_concurrency、timeout_msec、lease_timeout_msec 和 cancel_token。max_concurrency 只约束当前请求，不会写入持久 key 配置。
 ## [br]
 ## @return 请求结果字典。
 ## [br]
-## @schema key: Variant，建议使用 String、StringName、int 或可稳定 var_to_str() 的纯数据值。
+## @schema key: Variant，必须是 GFVariantKeyCodec 接受的稳定 key。
 ## [br]
-## @schema options: Dictionary，可包含 metadata: Dictionary、max_concurrency: int、timeout_msec: int、lease_timeout_msec: int、cancel_token: GFCancelToken。
+## @schema options: Dictionary，可包含 metadata: Dictionary、max_concurrency: int、timeout_msec: int、lease_timeout_msec: int、cancel_token: GFCancellationToken。
 ## [br]
 ## @schema return: Dictionary，包含 ok、status、queued、acquired、request_id、key、lease、completion、metadata 和 reason。
 func request_lease(key: Variant, options: Dictionary = {}) -> Dictionary:
@@ -215,16 +218,19 @@ func request_lease(key: Variant, options: Dictionary = {}) -> Dictionary:
 	var _expired_waiting: int = expire_waiting_requests(now_msec)
 	var _expired_active: int = expire_active_leases(now_msec)
 
-	var key_token: String = _make_key_token(key)
+	var key_report: Dictionary = _GF_VARIANT_KEY_CODEC_SCRIPT.try_make_key_token(key)
+	if not GFVariantData.get_option_bool(key_report, "ok"):
+		return _make_invalid_key_result(key, key_report)
+	var key_token: String = GFVariantData.get_option_string(key_report, "key_token")
 	_remember_key(key_token, key)
-	_apply_request_limit(key_token, options)
 
 	var request_id: int = _take_request_id()
 	var completion: GFAsyncCompletion = GFAsyncCompletion.new()
 	var metadata: Dictionary = GFVariantData.get_option_dictionary(options, "metadata")
 	var timeout_msec: int = maxi(GFVariantData.get_option_int(options, "timeout_msec", 0), 0)
 	var lease_timeout_msec: int = maxi(GFVariantData.get_option_int(options, "lease_timeout_msec", 0), 0)
-	var token: GFCancelToken = _variant_to_cancel_token(GFVariantData.get_option_value(options, "cancel_token"))
+	var request_max_concurrency: int = _get_request_max_concurrency(options)
+	var token: GFCancellationToken = _variant_to_cancel_token(GFVariantData.get_option_value(options, "cancel_token"))
 	var request: Dictionary = {
 		"request_id": request_id,
 		"key_token": key_token,
@@ -234,21 +240,22 @@ func request_lease(key: Variant, options: Dictionary = {}) -> Dictionary:
 		"requested_msec": now_msec,
 		"expires_at_msec": now_msec + timeout_msec if timeout_msec > 0 else 0,
 		"lease_timeout_msec": lease_timeout_msec,
+		"max_concurrency": request_max_concurrency,
 		"cancel_token": token,
 		"cancel_callback": Callable(),
 	}
 
-	if token != null and token.is_cancelled():
+	if token != null and token.is_cancel_requested():
 		return _complete_waiting_request(
 			request,
 			STATUS_CANCELLED,
-			token.get_reason(),
-			token.get_metadata(),
+			token.get_cancel_reason(),
+			token.get_cancel_metadata(),
 			false,
 			false
 		)
 
-	if _can_activate_key(key_token):
+	if _get_queue(key_token).is_empty() and _can_activate_request(key_token, request):
 		return _activate_request(request, now_msec, true)
 
 	_bind_request_cancel_token(request)
@@ -267,11 +274,11 @@ func request_lease(key: Variant, options: Dictionary = {}) -> Dictionary:
 ## [br]
 ## @param key: 并发仲裁 key。
 ## [br]
-## @param options: 请求选项；wait_options 会传给 GFAsyncCompletion.wait_async()。
+## @param options: 请求选项；wait_options 会传给 GFAsyncWaitUtility.wait_completion_async()。
 ## [br]
 ## @return 获得的租约；取消、超时或失效时返回 null。
 ## [br]
-## @schema key: Variant，建议使用 String、StringName、int 或可稳定 var_to_str() 的纯数据值。
+## @schema key: Variant，必须是 GFVariantKeyCodec 接受的稳定 key。
 ## [br]
 ## @schema options: Dictionary，支持 request_lease() 选项，并可包含 wait_options: Dictionary。
 func wait_for_lease_async(key: Variant, options: Dictionary = {}) -> GFAsyncGateLease:
@@ -285,7 +292,7 @@ func wait_for_lease_async(key: Variant, options: Dictionary = {}) -> GFAsyncGate
 		return null
 
 	var wait_options: Dictionary = GFVariantData.get_option_dictionary(options, "wait_options")
-	var snapshot: Dictionary = await completion.wait_async(wait_options)
+	var snapshot: Dictionary = await GFAsyncWaitUtility.wait_completion_async(completion, wait_options)
 	var wait_status: StringName = GFVariantData.get_option_string_name(snapshot, "wait_status")
 	if wait_status != &"" and wait_status != GFAsyncWaitUtility.STATUS_COMPLETED:
 		var _cancelled_wait: bool = cancel_request(
@@ -399,6 +406,7 @@ func clear(reason: StringName = &"cleared", metadata: Dictionary = {}) -> int:
 	for lease: GFAsyncGateLease in leases:
 		if _release_lease_from_handle(lease, reason):
 			affected += 1
+	_prune_transient_key_data()
 	return affected
 
 
@@ -417,11 +425,54 @@ func clear(reason: StringName = &"cleared", metadata: Dictionary = {}) -> int:
 ## @schema key: Variant，调用方传入的 key。
 func set_key_max_concurrency(key: Variant, max_concurrency: int) -> int:
 	var key_token: String = _make_key_token(key)
+	if key_token.is_empty():
+		return 0
 	_remember_key(key_token, key)
 	var safe_limit: int = maxi(max_concurrency, 1)
 	_key_limits[key_token] = safe_limit
 	var _pumped_count: int = _pump_key(key_token)
 	return safe_limit
+
+
+## 清理某个 key 的显式最大并发槽位配置。
+## [br]
+## 清理后该 key 会回到 default_max_concurrency；如果该 key 没有队列或活跃租约，会被从快照中裁剪。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+## [br]
+## @param key: 并发仲裁 key。
+## [br]
+## @return 找到并清理显式配置时返回 true。
+## [br]
+## @schema key: Variant，调用方传入的 key。
+func clear_key_max_concurrency(key: Variant) -> bool:
+	var key_token: String = _make_key_token(key)
+	if key_token.is_empty() or not _key_limits.has(key_token):
+		return false
+	var _erased: bool = _key_limits.erase(key_token)
+	var _pumped_count: int = _pump_key(key_token)
+	_prune_transient_key_data()
+	return true
+
+
+## 清理全部显式 key 最大并发槽位配置。
+## [br]
+## 清理后空闲 key 会从快照中裁剪，有等待队列的 key 会按 default_max_concurrency 继续推进。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+## [br]
+## @return 被清理的显式配置数量。
+func clear_all_key_max_concurrency() -> int:
+	var key_tokens: Array = _key_limits.keys()
+	_key_limits.clear()
+	for key_token_value: Variant in key_tokens:
+		var _pumped_count: int = _pump_key(GFVariantData.to_text(key_token_value))
+	_prune_transient_key_data()
+	return key_tokens.size()
 
 
 ## 获取某个 key 的最大并发槽位数。
@@ -436,7 +487,10 @@ func set_key_max_concurrency(key: Variant, max_concurrency: int) -> int:
 ## [br]
 ## @schema key: Variant，调用方传入的 key。
 func get_key_max_concurrency(key: Variant) -> int:
-	return _get_key_limit(_make_key_token(key))
+	var key_token: String = _make_key_token(key)
+	if key_token.is_empty():
+		return 0
+	return _get_key_limit(key_token)
 
 
 ## 过期等待队列中已取消或超时的请求。
@@ -459,13 +513,13 @@ func expire_waiting_requests(now_msec: int = -1) -> int:
 		var kept: Array = []
 		for request_value: Variant in queue:
 			var request: Dictionary = GFVariantData.as_dictionary(request_value)
-			var token: GFCancelToken = _variant_to_cancel_token(GFVariantData.get_option_value(request, "cancel_token"))
-			if token != null and token.is_cancelled():
+			var token: GFCancellationToken = _variant_to_cancel_token(GFVariantData.get_option_value(request, "cancel_token"))
+			if token != null and token.is_cancel_requested():
 				var _cancel_result: Dictionary = _complete_waiting_request(
 					request,
 					STATUS_CANCELLED,
-					token.get_reason(),
-					token.get_metadata(),
+					token.get_cancel_reason(),
+					token.get_cancel_metadata(),
 					false,
 					false
 				)
@@ -538,6 +592,8 @@ func expire_active_leases(now_msec: int = -1) -> int:
 ## @schema key: Variant，调用方传入的 key。
 func has_key_activity(key: Variant) -> bool:
 	var key_token: String = _make_key_token(key)
+	if key_token.is_empty():
+		return false
 	return _get_queue(key_token).size() > 0 or _get_active_leases(key_token).size() > 0
 
 
@@ -556,6 +612,8 @@ func has_key_activity(key: Variant) -> bool:
 ## @schema return: Dictionary，包含 key、queued_count、active_count、max_concurrency、waiting_request_ids、active_lease_ids 和 metadata。
 func get_key_snapshot(key: Variant) -> Dictionary:
 	var key_token: String = _make_key_token(key)
+	if key_token.is_empty():
+		return _make_invalid_key_snapshot(key)
 	return _get_key_snapshot_by_token(key_token)
 
 
@@ -634,6 +692,7 @@ func _activate_request(request: Dictionary, now_msec: int, include_completion: b
 		"metadata": metadata.duplicate(true),
 		"acquired_msec": now_msec,
 		"expires_at_msec": expires_at_msec,
+		"max_concurrency": GFVariantData.get_option_int(request, "max_concurrency", 0),
 	}
 	_acquired_count += 1
 
@@ -665,6 +724,7 @@ func _release_lease_from_handle(lease: GFAsyncGateLease, reason: StringName = &"
 	lease_released.emit(lease, safe_reason)
 	_record_event(&"lease_released", record, lease, safe_reason)
 	var _pumped_count: int = _pump_key(key_token)
+	_prune_transient_key_data()
 	return true
 
 
@@ -679,16 +739,19 @@ func _pump_key(key_token: String) -> int:
 	var now_msec: int = Time.get_ticks_msec()
 	var activated_count: int = 0
 	var queue: Array = _get_queue(key_token)
-	while not queue.is_empty() and _can_activate_key(key_token):
-		var request_value: Variant = queue.pop_front()
+	while not queue.is_empty():
+		var request_value: Variant = queue[0]
 		var request: Dictionary = GFVariantData.as_dictionary(request_value)
-		var token: GFCancelToken = _variant_to_cancel_token(GFVariantData.get_option_value(request, "cancel_token"))
-		if token != null and token.is_cancelled():
+		if not _can_activate_request(key_token, request):
+			break
+		var _removed_request: Variant = queue.pop_front()
+		var token: GFCancellationToken = _variant_to_cancel_token(GFVariantData.get_option_value(request, "cancel_token"))
+		if token != null and token.is_cancel_requested():
 			var _cancel_result: Dictionary = _complete_waiting_request(
 				request,
 				STATUS_CANCELLED,
-				token.get_reason(),
-				token.get_metadata(),
+				token.get_cancel_reason(),
+				token.get_cancel_metadata(),
 				false,
 				false
 			)
@@ -784,41 +847,76 @@ func _make_request_result(
 	return result
 
 
+func _make_invalid_key_result(key: Variant, key_report: Dictionary) -> Dictionary:
+	return {
+		"ok": false,
+		"status": STATUS_INVALID,
+		"queued": false,
+		"acquired": false,
+		"request_id": 0,
+		"key": _GF_REPORT_VALUE_CODEC_SCRIPT.to_json_compatible(key),
+		"metadata": {},
+		"reason": GFVariantData.get_option_string_name(key_report, "reason", STATUS_INVALID),
+	}
+
+
 func _bind_request_cancel_token(request: Dictionary) -> void:
-	var token: GFCancelToken = _variant_to_cancel_token(GFVariantData.get_option_value(request, "cancel_token"))
+	var token: GFCancellationToken = _variant_to_cancel_token(GFVariantData.get_option_value(request, "cancel_token"))
 	if token == null:
 		return
 	var request_id: int = GFVariantData.get_option_int(request, "request_id")
-	var callback: Callable = func(reason: StringName, metadata: Dictionary) -> void:
-		var _cancelled: bool = cancel_request(request_id, reason, metadata)
+	var callback: Callable = func(reason: StringName) -> void:
+		var _cancelled: bool = cancel_request(request_id, reason, token.get_cancel_metadata())
 	request["cancel_callback"] = callback
-	var connect_error: Error = token.cancelled.connect(callback, CONNECT_ONE_SHOT as Object.ConnectFlags) as Error
+	var connect_error: Error = token.cancel_requested.connect(callback, CONNECT_ONE_SHOT as Object.ConnectFlags) as Error
 	if connect_error != OK:
 		request["cancel_callback"] = Callable()
 
 
 func _disconnect_request_cancel_token(request: Dictionary) -> void:
-	var token: GFCancelToken = _variant_to_cancel_token(GFVariantData.get_option_value(request, "cancel_token"))
+	var token: GFCancellationToken = _variant_to_cancel_token(GFVariantData.get_option_value(request, "cancel_token"))
 	var callback: Callable = _variant_to_callable(GFVariantData.get_option_value(request, "cancel_callback"))
-	if token != null and callback.is_valid() and token.cancelled.is_connected(callback):
-		token.cancelled.disconnect(callback)
+	if token != null and callback.is_valid() and token.cancel_requested.is_connected(callback):
+		token.cancel_requested.disconnect(callback)
 	request["cancel_callback"] = Callable()
 
 
-func _apply_request_limit(key_token: String, options: Dictionary) -> void:
-	var limit: int = GFVariantData.get_option_int(options, "max_concurrency", 0)
-	if limit > 0:
-		_key_limits[key_token] = maxi(limit, 1)
-
-
-func _can_activate_key(key_token: String) -> bool:
-	return _get_active_leases(key_token).size() < _get_key_limit(key_token)
+func _can_activate_request(key_token: String, request: Dictionary) -> bool:
+	return _get_active_leases(key_token).size() < _get_effective_request_limit(key_token, request)
 
 
 func _get_key_limit(key_token: String) -> int:
 	if _key_limits.has(key_token):
 		return maxi(GFVariantData.to_int(_key_limits[key_token], default_max_concurrency), 1)
 	return default_max_concurrency
+
+
+func _get_effective_request_limit(key_token: String, request: Dictionary) -> int:
+	var configured_limit: int = _get_current_active_limit(key_token)
+	var request_limit: int = GFVariantData.get_option_int(request, "max_concurrency", 0)
+	if request_limit > 0:
+		return mini(configured_limit, maxi(request_limit, 1))
+	return configured_limit
+
+
+func _get_current_active_limit(key_token: String) -> int:
+	var limit: int = _get_key_limit(key_token)
+	for lease_value: Variant in _get_active_leases(key_token):
+		var lease: GFAsyncGateLease = _variant_to_lease(lease_value)
+		if lease == null:
+			continue
+		var lease_record: Dictionary = GFVariantData.as_dictionary(_lease_records.get(lease.get_lease_id(), {}))
+		var lease_limit: int = GFVariantData.get_option_int(lease_record, "max_concurrency", 0)
+		if lease_limit > 0:
+			limit = mini(limit, lease_limit)
+	return limit
+
+
+func _get_request_max_concurrency(options: Dictionary) -> int:
+	var limit: int = GFVariantData.get_option_int(options, "max_concurrency", 0)
+	if limit <= 0:
+		return 0
+	return maxi(limit, 1)
 
 
 func _remember_key(key_token: String, key: Variant) -> void:
@@ -903,12 +1001,27 @@ func _get_key_snapshot_by_token(key_token: String) -> Dictionary:
 			active_lease_ids.append(lease.get_lease_id())
 	return {
 		"key_token": key_token,
-		"key": GFVariantData.duplicate_variant(key),
+		"key": _GF_REPORT_VALUE_CODEC_SCRIPT.to_json_compatible(key),
 		"queued_count": queue.size(),
 		"active_count": active.size(),
 		"max_concurrency": _get_key_limit(key_token),
 		"waiting_request_ids": waiting_request_ids,
 		"active_lease_ids": active_lease_ids,
+	}
+
+
+func _make_invalid_key_snapshot(key: Variant) -> Dictionary:
+	return {
+		"ok": false,
+		"status": STATUS_INVALID,
+		"key_token": "",
+		"key": _GF_REPORT_VALUE_CODEC_SCRIPT.to_json_compatible(key),
+		"queued_count": 0,
+		"active_count": 0,
+		"max_concurrency": 0,
+		"waiting_request_ids": [],
+		"active_lease_ids": [],
+		"reason": "unstable_key",
 	}
 
 
@@ -919,6 +1032,14 @@ func _collect_key_tokens() -> Array:
 			if not result.has(key_token):
 				result.append(key_token)
 	return result
+
+
+func _prune_transient_key_data() -> void:
+	for key_token_value: Variant in _key_data.keys():
+		var key_token: String = GFVariantData.to_text(key_token_value)
+		if _queues_by_key.has(key_token) or _active_by_key.has(key_token):
+			continue
+		var _erased_key_data: bool = _key_data.erase(key_token_value)
 
 
 func _get_total_queued_count() -> int:
@@ -944,7 +1065,7 @@ func _record_event(event_type: StringName, source: Dictionary, lease: GFAsyncGat
 		"event_type": event_type,
 		"request_id": GFVariantData.get_option_int(source, "request_id"),
 		"lease_id": lease.get_lease_id() if lease != null else GFVariantData.get_option_int(source, "lease_id"),
-		"key": GFVariantData.duplicate_variant(key),
+		"key": _GF_REPORT_VALUE_CODEC_SCRIPT.to_json_compatible(key),
 		"key_token": GFVariantData.get_option_string(source, "key_token", _make_key_token(key)),
 		"reason": reason,
 		"timestamp_msec": Time.get_ticks_msec(),
@@ -972,12 +1093,12 @@ func _take_lease_id() -> int:
 
 
 func _make_key_token(key: Variant) -> String:
-	return "%s:%s" % [type_string(typeof(key)), var_to_str(key)]
+	return _GF_VARIANT_KEY_CODEC_SCRIPT.make_key_token(key)
 
 
-func _variant_to_cancel_token(value: Variant) -> GFCancelToken:
-	if value is GFCancelToken:
-		var token: GFCancelToken = value
+func _variant_to_cancel_token(value: Variant) -> GFCancellationToken:
+	if value is GFCancellationToken:
+		var token: GFCancellationToken = value
 		return token
 	return null
 

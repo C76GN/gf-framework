@@ -6,13 +6,13 @@
 
 | 类别 | 类 | 成员 | 方法 |
 |---|---:|---:|---:|
-| [运行时句柄](#category-runtime_handle) | 2 | 28 | 9 |
+| [运行时服务](#category-runtime_service) | 2 | 29 | 10 |
 
 ## 类
 
-<a id="category-runtime_handle"></a>
+<a id="category-runtime_service"></a>
 
-### 运行时句柄
+### 运行时服务
 
 | 类 | 继承 | 源文件 |
 |---|---|---|

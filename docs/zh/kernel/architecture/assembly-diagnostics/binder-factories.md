@@ -5,17 +5,17 @@
 ## 典型流程
 
 ```gdscript
-func install_bindings(binder: Variant) -> void:
+func install_bindings(binder: Variant, _scope: GFAsyncScope) -> void:
 	if not binder is GFBinder:
 		return
 
-	_register_project_bindings(binder)
+	await _register_project_bindings(binder)
 
 
 func _register_project_bindings(binder: GFBinder) -> void:
-	binder.bind_model(PlayerModel).as_singleton()
-	binder.bind_utility(JSONConfigProvider).with_alias(GFConfigProvider).as_singleton()
-	binder.bind_factory(DealDamageCommand).from_factory(func() -> Object:
+	var _registered_player_model: bool = await binder.bind_model(PlayerModel).as_singleton()
+	var _registered_config_provider: bool = await binder.bind_utility(JSONConfigProvider).with_alias(GFConfigProvider).as_singleton()
+	var _registered_damage_factory: bool = binder.bind_factory(DealDamageCommand).from_factory(func() -> Object:
 		return DealDamageCommand.new()
 	).as_transient()
 ```
@@ -24,9 +24,9 @@ func _register_project_bindings(binder: GFBinder) -> void:
 
 ## 核心类
 
-声明式装配器由 `GFBinder` 和 `GFBindBuilder` 提供：`GFBinder` 是传给 Installer 的入口对象，负责创建 `bind_model()`、`bind_system()`、`bind_utility()`、`bind_factory()` 这些绑定链；这些入口会返回明确的 `GFBindBuilder`，由 Builder 承接 `.from_factory()`、`.from_instance()`、`.with_alias()`、`.as_singleton()`、`.as_transient()` 等声明。
+声明式装配器由 `GFBinder` 和 `GFBindBuilder` 提供：`GFBinder` 是传给 Installer 的入口对象，负责创建 `bind_model()`、`bind_system()`、`bind_utility()`、`bind_factory()` 这些绑定链；这些入口会返回明确的 `GFBindBuilder`，由 Builder 承接 `.from_factory()`、`.from_instance()`、`.with_alias()`、`.as_singleton()`、`.as_transient()` 等声明。完成入口返回 `bool`，调用方可以在 Installer 或测试中直接判断绑定是否成功。
 
-`GFInstaller.install_bindings()` 的协议参数仍是 `Variant`，因为它是框架生命周期钩子；项目代码进入声明式链之前应先收窄为 `GFBinder`，之后就可以保持完整的类型提示和补全。
+`GFInstaller.install_bindings()` 的 binder 参数仍是 `Variant`，因为它是框架生命周期钩子；第二个参数 `GFAsyncScope` 表示本轮安装的协作取消边界。项目代码进入声明式链之前应先把 binder 收窄为 `GFBinder`，之后就可以保持完整的类型提示和补全。
 
 ## 使用边界
 

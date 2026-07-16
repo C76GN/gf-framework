@@ -1,0 +1,212 @@
+{
+  "schema_version": 4,
+  "package_id": "gf.standard.editor",
+  "inspector_plugin_records": [
+    {
+      "owner_package_id": "gf.standard.state_machine.editor",
+      "source_id": "state_machine.inspector.node_state_machine",
+      "path": "res://addons/gf/standard/state_machine/node/editor/gf_node_state_machine_inspector_plugin.gd",
+      "label": "节点状态机 Inspector"
+    },
+    {
+      "owner_package_id": "gf.standard.spatial.editor",
+      "source_id": "spatial.inspector.pattern_2d",
+      "path": "res://addons/gf/standard/foundation/math/editor/gf_pattern_2d_inspector_plugin.gd",
+      "label": "Pattern2D Inspector"
+    },
+    {
+      "owner_package_id": "gf.standard.audio.editor",
+      "source_id": "audio.inspector.audio_bank",
+      "path": "res://addons/gf/standard/utilities/audio/editor/gf_audio_bank_inspector_plugin.gd",
+      "label": "AudioBank Inspector"
+    }
+  ],
+  "export_plugin_records": [
+    {
+      "owner_package_id": "gf.standard.debug.editor",
+      "source_id": "debug.export.build_info",
+      "path": "res://addons/gf/standard/utilities/debug/editor/gf_build_info_export_plugin.gd",
+      "label": "构建信息导出插件"
+    }
+  ],
+  "debugger_plugin_records": [
+    {
+      "owner_package_id": "gf.standard.debug.editor",
+      "source_id": "debug.debugger.runtime",
+      "path": "res://addons/gf/standard/utilities/debug/editor/gf_runtime_debugger_plugin.gd",
+      "label": "GF Runtime Debugger"
+    }
+  ],
+  "dock_records": [
+    {
+      "owner_package_id": "gf.standard.state_machine.editor",
+      "source_id": "state_machine.dock.state_tools",
+      "path": "res://addons/gf/standard/state_machine/node/editor/gf_node_state_machine_dock.gd",
+      "label": "GF State Tools",
+      "short_label": "状态",
+      "order": 110
+    },
+    {
+      "owner_package_id": "gf.standard.input.editor",
+      "source_id": "input.dock.input_mapping",
+      "path": "res://addons/gf/standard/input/editor/gf_input_mapping_dock.gd",
+      "label": "GF Input Mapping",
+      "short_label": "输入",
+      "order": 120
+    },
+    {
+      "owner_package_id": "gf.standard.storage.editor",
+      "source_id": "storage.dock.storage_viewer",
+      "path": "res://addons/gf/standard/utilities/storage/editor/gf_storage_viewer_dock.gd",
+      "label": "GF Storage Viewer",
+      "short_label": "存储",
+      "order": 150
+    },
+    {
+      "owner_package_id": "gf.standard.debug.editor",
+      "source_id": "debug.dock.signal_diagnostics",
+      "path": "res://addons/gf/standard/utilities/debug/editor/gf_signal_graph_dock.gd",
+      "label": "GF Signal Diagnostics",
+      "short_label": "信号诊断",
+      "order": 160
+    },
+    {
+      "owner_package_id": "gf.standard.debug.editor",
+      "source_id": "debug.dock.diagnostics",
+      "path": "res://addons/gf/standard/utilities/debug/editor/gf_diagnostics_dock.gd",
+      "label": "GF Diagnostics",
+      "short_label": "诊断",
+      "order": 170
+    }
+  ],
+  "template_records": [
+    {
+      "owner_package_id": "gf.standard.state_machine.editor",
+      "source_id": "state_machine.template.node_state",
+      "type": "NodeState",
+      "label": "生成 NodeState",
+      "section": "扩展模板",
+      "base_class": "GFNodeState",
+      "template_path": "res://addons/gf/standard/editor/templates/node_state.gdtemplate"
+    },
+    {
+      "owner_package_id": "gf.standard.state_machine.editor",
+      "source_id": "state_machine.template.node_state_machine",
+      "type": "NodeStateMachine",
+      "label": "生成 NodeStateMachine",
+      "section": "扩展模板",
+      "base_class": "GFNodeStateMachine",
+      "template_path": "res://addons/gf/standard/editor/templates/node_state_machine.gdtemplate"
+    }
+  ],
+  "project_setting_section_records": [
+    {
+      "owner_package_id": "gf.standard.debug.editor",
+      "source_id": "debug.project_setting_section.build",
+      "path": "gf/build",
+      "editor_labels": {
+        "en": "Build",
+        "zh_CN": "构建"
+      },
+      "editor_descriptions": {
+        "en": "Build information generated or consumed by GF tooling.",
+        "zh_CN": "由 GF 工具生成或读取的构建信息。"
+      }
+    },
+    {
+      "owner_package_id": "gf.standard.debug.editor",
+      "source_id": "debug.project_setting_section.build_export",
+      "path": "gf/build/export",
+      "editor_labels": {
+        "en": "Export",
+        "zh_CN": "导出"
+      },
+      "editor_descriptions": {
+        "en": "Controls how GF build metadata is produced during export.",
+        "zh_CN": "控制导出期间如何生成 GF 构建元数据。"
+      }
+    }
+  ],
+  "project_setting_records": [
+    {
+      "owner_package_id": "gf.standard.debug.editor",
+      "source_id": "debug.project_setting.export_enabled",
+      "name": "gf/build/export/write_metadata",
+      "default_value": false,
+      "type_name": "bool",
+      "basic": true,
+      "editor_labels": {
+        "en": "Write Build Metadata",
+        "zh_CN": "写入构建元数据"
+      },
+      "editor_descriptions": {
+        "en": "Writes the GF build information settings while an export is being prepared.",
+        "zh_CN": "准备导出时写入 GF 构建信息项目设置。"
+      }
+    },
+    {
+      "owner_package_id": "gf.standard.debug.editor",
+      "source_id": "debug.project_setting.export_restore_previous",
+      "name": "gf/build/export/restore_previous_settings",
+      "default_value": true,
+      "type_name": "bool",
+      "basic": true,
+      "editor_labels": {
+        "en": "Restore Previous Build Settings",
+        "zh_CN": "恢复原有构建设置"
+      },
+      "editor_descriptions": {
+        "en": "Restores project-owned build information values after the export completes.",
+        "zh_CN": "导出完成后恢复项目原有的构建信息设置值。"
+      }
+    },
+    {
+      "owner_package_id": "gf.standard.debug.editor",
+      "source_id": "debug.project_setting.export_save_project_settings",
+      "name": "gf/build/export/save_project_settings",
+      "default_value": false,
+      "type_name": "bool",
+      "basic": true,
+      "editor_labels": {
+        "en": "Save Generated Build Settings",
+        "zh_CN": "保存生成的构建设置"
+      },
+      "editor_descriptions": {
+        "en": "Persists generated build information to project.godot during export instead of keeping it transient.",
+        "zh_CN": "导出时把生成的构建信息持久化到 project.godot，而不是仅在本次导出中临时使用。"
+      }
+    },
+    {
+      "owner_package_id": "gf.standard.debug.editor",
+      "source_id": "debug.project_setting.export_build_metadata",
+      "name": "gf/build/export/build_metadata",
+      "default_value": {},
+      "type_name": "dictionary",
+      "basic": true,
+      "editor_labels": {
+        "en": "Build Metadata",
+        "zh_CN": "构建元数据"
+      },
+      "editor_descriptions": {
+        "en": "Structured metadata merged into the generated GF build information for each export.",
+        "zh_CN": "每次导出时合并到 GF 构建信息中的结构化元数据。"
+      }
+    },
+    {
+      "owner_package_id": "gf.standard.debug.editor",
+      "source_id": "debug.project_setting.export_extra_metadata",
+      "name": "gf/build/export/metadata",
+      "default_value": {},
+      "type_name": "dictionary",
+      "basic": true,
+      "editor_labels": {
+        "en": "Additional Export Metadata",
+        "zh_CN": "附加导出元数据"
+      },
+      "editor_descriptions": {
+        "en": "Project-owned metadata appended to the exported GF build information.",
+        "zh_CN": "追加到导出 GF 构建信息中的项目侧自定义元数据。"
+      }
+    }
+  ]
+}

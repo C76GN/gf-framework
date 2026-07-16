@@ -140,6 +140,69 @@ func test_subscribe_rejects_invalid_callback() -> void:
 	assert_push_error("[GFBindableProperty] subscribe 失败：callback 无效。")
 
 
+func test_subscribe_token_cancels_subscription() -> void:
+	var state: CounterState = CounterState.new()
+	var subscription_token: GFSubscriptionToken = _prop.subscribe_token(func(_old_value: Variant, _new_value: Variant) -> void:
+		state.count += 1
+	)
+
+	_prop.value = 1
+	assert_true(subscription_token.cancel(), "首次 cancel 应返回 true。")
+	_prop.value = 2
+
+	assert_false(subscription_token.is_active(), "cancel 后 token 应进入非活动状态。")
+	assert_false(subscription_token.cancel(), "重复 cancel 应返回 false。")
+	assert_eq(state.count, 1, "token 取消后回调不应继续触发。")
+
+
+func test_subscribe_owned_auto_cancels_when_owner_exits_tree() -> void:
+	var owner_node: Node = Node.new()
+	var state: CounterState = CounterState.new()
+	add_child_autofree(owner_node)
+
+	var subscription_token: GFLifetimeSubscription = _prop.subscribe_owned(owner_node, func(_old_value: Variant, _new_value: Variant) -> void:
+		state.count += 1
+	)
+
+	_prop.value = 1
+	remove_child(owner_node)
+	owner_node.tree_exited.emit()
+	_prop.value = 2
+
+	assert_eq(state.count, 1, "owner 退出树后 owned 订阅不应继续触发。")
+	assert_false(subscription_token.is_active(), "owner 退出树后 lifetime token 应进入非活动状态。")
+	assert_eq(_prop.value_changed.get_connections().size(), 0, "owner 自动取消后不应残留托管信号连接。")
+	owner_node.free()
+
+
+func test_subscribe_owned_prunes_released_non_node_owner() -> void:
+	var state: CounterState = CounterState.new()
+	var owner_refcounted: RefCounted = RefCounted.new()
+	var subscription_token: GFLifetimeSubscription = _prop.subscribe_owned(owner_refcounted, func(_old_value: Variant, _new_value: Variant) -> void:
+		state.count += 1
+	)
+
+	owner_refcounted = null
+	_prop.value = 1
+
+	assert_eq(state.count, 0, "普通 Object owner 释放后应在下一次发射前剪枝订阅。")
+	assert_false(subscription_token.is_active(), "owner 释放后 lifetime token 应失活。")
+	assert_eq(_prop.value_changed.get_connections().size(), 0, "释放 owner 的订阅剪枝后不应残留托管信号连接。")
+
+
+func test_subscribe_method_uses_weak_owner_method() -> void:
+	var owner_node: SubscriptionMethodOwner = SubscriptionMethodOwner.new()
+	add_child_autofree(owner_node)
+
+	var subscription_token: GFLifetimeSubscription = _prop.subscribe_method(owner_node, &"record_value_change", true)
+	_prop.value = 4
+	var _cancel_result: bool = subscription_token.cancel()
+	_prop.value = 5
+
+	assert_eq(owner_node.values, [0, 4], "method 订阅应支持 emit_current 和后续变化。")
+	assert_false(subscription_token.is_active(), "手动 cancel 后 method 订阅应失活。")
+
+
 ## 验证 force_emit 可在引用类型原地变更后主动广播。
 func test_force_emit_broadcasts_current_value() -> void:
 	var prop: GFBindableProperty = GFBindableProperty.new({ "hp": 10 })
@@ -462,6 +525,22 @@ func test_reactive_effect_stops_with_owner_node() -> void:
 	owner_node.free()
 
 
+func test_reactive_effect_stop_prunes_source_binding_when_owner_is_already_freed() -> void:
+	var prop: GFBindableProperty = GFBindableProperty.new(1)
+	var owner_node: Node = Node.new()
+	var count: CounterState = CounterState.new()
+	var effect: GFReactiveEffect = GFReactiveEffect.new([prop], func() -> void:
+		count.value += 1
+	, owner_node, false)
+
+	owner_node.free()
+	effect.stop()
+	prop.value = 2
+
+	assert_eq(count.value, 0, "owner 已失效后 stop 仍应断开 effect 回调。")
+	assert_eq(prop.value_changed.get_connections().size(), 0, "owner 已失效后 source 侧 bind_to 账本也应被清理。")
+
+
 func test_reactive_effect_dispose_stops_sources() -> void:
 	var prop: GFBindableProperty = GFBindableProperty.new(1)
 	var count: CounterState = CounterState.new()
@@ -626,3 +705,17 @@ class CounterState:
 	var count: int = 0
 	var total: int = 0
 	var value: int = 0
+
+
+class SubscriptionMethodOwner:
+	extends Node
+
+	var values: Array[int] = []
+
+	func record_value_change(_old_value: Variant, new_value: Variant) -> void:
+		if new_value is int:
+			var int_value: int = new_value
+			values.append(int_value)
+		elif new_value is float:
+			var float_value: float = new_value
+			values.append(int(float_value))

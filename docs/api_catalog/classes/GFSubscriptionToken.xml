@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFSubscriptionToken" path="addons/gf/kernel/core/gf_subscription_token.gd" module="kernel" extends="RefCounted" classDigest="7a4a8a01c3617056045dd2b3d6ec39d1a450354501a00cf9587763a120b4ad92">
+	<description>GFSubscriptionToken: 可取消订阅的通用运行时句柄。
+订阅创建方应返回该句柄，由调用方在不再需要监听时调用 cancel()。
+cancel() 是幂等的，首次取消会执行注册的清理回调，后续调用只返回 false。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_handle</tag>
+		<tag name="layer">kernel/core</tag>
+		<tag name="since">8.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties />
+	<methods>
+		<member kind="method" name="_init">
+			<signature>func _init(cancel_callback: Callable = Callable(), debug_label: String = "") -&gt; void:</signature>
+			<description>构造函数。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">cancel_callback: 首次取消时执行的无参清理回调。</tag>
+				<tag name="param">debug_label: 可选诊断标签。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="cancel">
+			<signature>func cancel() -&gt; bool:</signature>
+			<description>取消订阅并执行清理回调。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">本次调用是否首次取消了活动订阅。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_active">
+			<signature>func is_active() -&gt; bool:</signature>
+			<description>返回订阅是否仍处于活动状态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">活动时返回 true。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_debug_label">
+			<signature>func get_debug_label() -&gt; String:</signature>
+			<description>返回诊断标签。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">创建订阅时传入的诊断标签。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

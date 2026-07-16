@@ -43,7 +43,7 @@
 | 方法 | [`get_editor_catalog`](#member-gfflowgraph-methods-get_editor_catalog) | `func get_editor_catalog() -> Dictionary:` |
 | 方法 | [`describe_graph`](#member-gfflowgraph-methods-describe_graph) | `func describe_graph() -> Dictionary:` |
 | 方法 | [`instantiate_graph`](#member-gfflowgraph-methods-instantiate_graph) | `func instantiate_graph(options: Dictionary = {}) -> GFFlowGraph:` |
-| 方法 | [`serialize_runtime_state`](#member-gfflowgraph-methods-serialize_runtime_state) | `func serialize_runtime_state() -> Dictionary:` |
+| 方法 | [`serialize_runtime_state`](#member-gfflowgraph-methods-serialize_runtime_state) | `func serialize_runtime_state(json_compatible: bool = false) -> Dictionary:` |
 | 方法 | [`deserialize_runtime_state`](#member-gfflowgraph-methods-deserialize_runtime_state) | `func deserialize_runtime_state(data: Dictionary) -> void:` |
 | 方法 | [`clear_runtime_state`](#member-gfflowgraph-methods-clear_runtime_state) | `func clear_runtime_state() -> void:` |
 | 方法 | [`validate_metadata`](#member-gfflowgraph-methods-validate_metadata) | `func validate_metadata(target_metadata: Dictionary, schema: Dictionary = {}) -> Dictionary:` |
@@ -58,6 +58,7 @@
 ### `start_node_id`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var start_node_id: StringName = &""
@@ -70,6 +71,7 @@ var start_node_id: StringName = &""
 ### `nodes`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var nodes: Array[GFFlowNode] = []
@@ -82,6 +84,7 @@ var nodes: Array[GFFlowNode] = []
 ### `connections`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var connections: Array[Dictionary] = []
@@ -98,6 +101,7 @@ var connections: Array[Dictionary] = []
 ### `validate_port_compatibility`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var validate_port_compatibility: bool = true
@@ -110,6 +114,7 @@ var validate_port_compatibility: bool = true
 ### `warn_unreachable_nodes`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var warn_unreachable_nodes: bool = true
@@ -122,6 +127,7 @@ var warn_unreachable_nodes: bool = true
 ### `warn_cycles`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var warn_cycles: bool = true
@@ -134,6 +140,7 @@ var warn_cycles: bool = true
 ### `warn_terminal_nodes`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var warn_terminal_nodes: bool = false
@@ -146,6 +153,7 @@ var warn_terminal_nodes: bool = false
 ### `editor_groups`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var editor_groups: Array[Dictionary] = []
@@ -162,6 +170,7 @@ var editor_groups: Array[Dictionary] = []
 ### `editor_metadata`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var editor_metadata: Dictionary = {}
@@ -178,6 +187,7 @@ var editor_metadata: Dictionary = {}
 ### `metadata_schema`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var metadata_schema: Dictionary = {}
@@ -196,6 +206,7 @@ var metadata_schema: Dictionary = {}
 ### `set_node`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func set_node(node: GFFlowNode) -> void:
@@ -214,6 +225,7 @@ func set_node(node: GFFlowNode) -> void:
 ### `get_node`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func get_node(node_id: StringName) -> GFFlowNode:
@@ -234,6 +246,7 @@ func get_node(node_id: StringName) -> GFFlowNode:
 ### `has_node`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func has_node(node_id: StringName) -> bool:
@@ -254,6 +267,7 @@ func has_node(node_id: StringName) -> bool:
 ### `remove_node`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func remove_node(node_id: StringName) -> void:
@@ -272,6 +286,7 @@ func remove_node(node_id: StringName) -> void:
 ### `add_connection`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func add_connection( from_node_id: StringName, from_port_id: StringName, to_node_id: StringName, to_port_id: StringName, metadata: Dictionary = {} ) -> bool:
@@ -300,6 +315,7 @@ func add_connection( from_node_id: StringName, from_port_id: StringName, to_node
 ### `remove_connection`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func remove_connection( from_node_id: StringName, from_port_id: StringName, to_node_id: StringName, to_port_id: StringName ) -> bool:
@@ -323,6 +339,7 @@ func remove_connection( from_node_id: StringName, from_port_id: StringName, to_n
 ### `remove_connections_for_node`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func remove_connections_for_node(node_id: StringName) -> void:
@@ -341,6 +358,7 @@ func remove_connections_for_node(node_id: StringName) -> void:
 ### `has_connection`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func has_connection( from_node_id: StringName, from_port_id: StringName, to_node_id: StringName, to_port_id: StringName ) -> bool:
@@ -364,6 +382,7 @@ func has_connection( from_node_id: StringName, from_port_id: StringName, to_node
 ### `get_connections_from`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func get_connections_from(node_id: StringName, port_id: StringName = &"") -> Array[Dictionary]:
@@ -389,6 +408,7 @@ func get_connections_from(node_id: StringName, port_id: StringName = &"") -> Arr
 ### `get_connections_to`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func get_connections_to(node_id: StringName, port_id: StringName = &"") -> Array[Dictionary]:
@@ -414,6 +434,7 @@ func get_connections_to(node_id: StringName, port_id: StringName = &"") -> Array
 ### `get_connected_node_ids_from`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func get_connected_node_ids_from(node_id: StringName, port_id: StringName = &"") -> PackedStringArray:
@@ -435,6 +456,7 @@ func get_connected_node_ids_from(node_id: StringName, port_id: StringName = &"")
 ### `check_connection_compatibility`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func check_connection_compatibility( from_node_id: StringName, from_port_id: StringName, to_node_id: StringName, to_port_id: StringName ) -> Dictionary:
@@ -462,6 +484,7 @@ func check_connection_compatibility( from_node_id: StringName, from_port_id: Str
 ### `get_connection_compatibility_report`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func get_connection_compatibility_report() -> Array[Dictionary]:
@@ -480,6 +503,7 @@ func get_connection_compatibility_report() -> Array[Dictionary]:
 ### `set_node_editor_position`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func set_node_editor_position(node_id: StringName, position: Vector2) -> bool:
@@ -501,6 +525,7 @@ func set_node_editor_position(node_id: StringName, position: Vector2) -> bool:
 ### `set_node_editor_layout`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func set_node_editor_layout( node_id: StringName, position: Vector2, size: Vector2 = Vector2.ZERO, collapsed: bool = false ) -> bool:
@@ -524,6 +549,7 @@ func set_node_editor_layout( node_id: StringName, position: Vector2, size: Vecto
 ### `get_editor_catalog`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func get_editor_catalog() -> Dictionary:
@@ -542,6 +568,7 @@ func get_editor_catalog() -> Dictionary:
 ### `describe_graph`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func describe_graph() -> Dictionary:
@@ -560,6 +587,7 @@ func describe_graph() -> Dictionary:
 ### `instantiate_graph`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func instantiate_graph(options: Dictionary = {}) -> GFFlowGraph:
@@ -584,12 +612,19 @@ func instantiate_graph(options: Dictionary = {}) -> GFFlowGraph:
 ### `serialize_runtime_state`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func serialize_runtime_state() -> Dictionary:
+func serialize_runtime_state(json_compatible: bool = false) -> Dictionary:
 ```
 
 序列化图内节点运行态。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `json_compatible` | 为 true 时输出 JSON-safe 报告值；默认为 false，保留运行时原始 Variant。 |
 
 返回：运行态快照。
 
@@ -602,6 +637,7 @@ func serialize_runtime_state() -> Dictionary:
 ### `deserialize_runtime_state`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func deserialize_runtime_state(data: Dictionary) -> void:
@@ -624,6 +660,7 @@ func deserialize_runtime_state(data: Dictionary) -> void:
 ### `clear_runtime_state`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func clear_runtime_state() -> void:
@@ -636,6 +673,7 @@ func clear_runtime_state() -> void:
 ### `validate_metadata`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func validate_metadata(target_metadata: Dictionary, schema: Dictionary = {}) -> Dictionary:
@@ -663,6 +701,7 @@ func validate_metadata(target_metadata: Dictionary, schema: Dictionary = {}) -> 
 ### `validate_graph_metadata`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func validate_graph_metadata() -> Dictionary:
@@ -681,6 +720,7 @@ func validate_graph_metadata() -> Dictionary:
 ### `validate_graph`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func validate_graph() -> Dictionary:
@@ -699,6 +739,7 @@ func validate_graph() -> Dictionary:
 ### `build_editor_report`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func build_editor_report() -> Dictionary:

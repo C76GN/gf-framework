@@ -6,7 +6,7 @@
 - 模块：`Standard`
 - 继承：`RefCounted`
 - API：`public`
-- 类别：运行时服务 (`runtime_service`)
+- 类别：工具 API (`tool_api`)
 - 首次版本：`5.0.0`
 
 音频素材库扫描、搜索和导入计划工具。 面向编辑器 Workspace、Inspector 和构建脚本复用；它只处理音频候选 文件、目标路径规划和文件复制，不接管运行时播放、事件命名或混音策略。

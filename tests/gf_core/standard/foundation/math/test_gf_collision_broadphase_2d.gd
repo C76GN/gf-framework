@@ -125,6 +125,31 @@ func test_combined_report_can_force_algorithm_and_limits_pairs() -> void:
 	assert_eq(pairs.size(), 1, "max_pairs 应限制报告中的候选对数量。")
 
 
+func test_non_finite_bodies_are_rejected_before_sorting() -> void:
+	var invalid_body: Dictionary = GF_COLLISION_BROADPHASE_2D.make_body(
+		"invalid",
+		Rect2(Vector2(NAN, 0.0), Vector2.ONE)
+	)
+	var bodies: Array = [
+		{ "entity": "manual-invalid", "bounds": Rect2(Vector2.ZERO, Vector2(INF, 1.0)) },
+		GF_COLLISION_BROADPHASE_2D.make_body("valid", Rect2(Vector2.ZERO, Vector2.ONE)),
+	]
+
+	assert_true(invalid_body.is_empty(), "make_body 应显式拒绝非有限 bounds。")
+	assert_true(GF_COLLISION_BROADPHASE_2D.find_pairs_sap(bodies).is_empty(), "手工构造的非法 body 也应在排序前被过滤。")
+
+
+func test_pair_report_has_json_compatible_export() -> void:
+	var report: Dictionary = GF_COLLISION_BROADPHASE_2D.build_pair_report(_make_overlap_fixture_2d())
+	var safe_report: Dictionary = GF_COLLISION_BROADPHASE_2D.to_json_compatible_report(report)
+	var json_text: String = JSON.stringify(safe_report)
+
+	assert_false(json_text.is_empty())
+	assert_false(json_text.contains(":null"), "JSON-safe broadphase 报告不得依赖 Rect2 降级。")
+	assert_false(json_text.contains("NaN"))
+	assert_false(json_text.contains("Infinity"))
+
+
 func _make_overlap_fixture_2d() -> Array:
 	return [
 		GF_COLLISION_BROADPHASE_2D.make_body("c", Rect2(10, 0, 2, 2)),

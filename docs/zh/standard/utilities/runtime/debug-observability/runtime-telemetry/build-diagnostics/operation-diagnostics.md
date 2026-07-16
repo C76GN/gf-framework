@@ -36,6 +36,27 @@ operation_diagnostics.finish_operation(operation_id, true, {
 
 如果调用方已经有耗时结果，可直接使用 `record_completed_operation()`。异常事件使用 `record_incident()`，相同 `severity`、`category`、`code`、`component`、`phase` 和 `message` 的事件会合并，递增 `occurrence_count` 并刷新 `last_seen_*`。
 
+## 命名采样统计
+
+完整操作适合记录“开始、阶段、状态、结束”的长流程；高频短诊断点更适合使用命名采样统计。`record_sample()` 会按 `sample_id` 聚合调用次数、累计耗时、平均耗时、最近耗时、最大/最小耗时、慢采样次数和 metadata，不会把每次采样都写入时间线：
+
+```gdscript
+var started := Time.get_ticks_usec()
+# 执行一次需要观察的短逻辑。
+operation_diagnostics.record_sample_from_ticks(&"tools.parse_row", started, {
+	"component": &"config",
+	"metadata": {
+		"table": "items",
+	},
+})
+
+var samples := operation_diagnostics.get_sample_stats(5, {
+	"component": &"config",
+})
+```
+
+`max_sample_stats` 控制采样统计数量上限，设置为 `0` 时会清空并禁用采样统计。健康快照会额外包含 `sample_stat_count`、`slow_sample_count`、`recent_sample_stats` 和 `slowest_sample`，用于快速判断某类短操作是否持续变慢。采样统计仍是调试数据，不替代真正的运行时 profiler，也不负责采样频率、权限或上传策略。
+
 ## 状态轨迹
 
 长流程除了阶段耗时，通常还需要说明“当前在哪一步、重试到第几次、进度是多少、是否等待用户决策”。`record_state_snapshot()` 把这些信息追加到操作的 `state_trace`，并同步更新 `current_state_id`、`current_state_status`、`progress`、`attempt`、`max_attempts`、`user_action_required` 和 `last_error`。
@@ -51,7 +72,7 @@ operation_diagnostics.record_state_snapshot(operation_id, &"confirm_overwrite", 
 
 ## 异步句柄追踪
 
-`GFAsyncTrackerUtility` 默认关闭，适合在开发构建、编辑器工具或项目调试模式中显式启用。它只保存弱引用、标签、metadata、可选堆栈和可选快照回调，不会替代任务调度，也不会阻止被追踪对象释放。
+`GFAsyncTrackerUtility` 默认关闭，适合在开发构建、编辑器工具或项目调试模式中显式启用。它只保存弱引用、标签、metadata、可选堆栈，以及快照方法的弱目标与方法名，不会替代任务调度，也不会阻止被追踪对象释放。读取 tracker 快照不会执行外部回调；只有显式调用 `refresh_snapshot()` / `refresh_snapshots()` 时才会刷新缓存。
 
 ```gdscript
 var tracker := Gf.get_utility(GFAsyncTrackerUtility) as GFAsyncTrackerUtility
@@ -65,6 +86,9 @@ var tracking_id := tracker.track_handle(
 	Callable(completion, "get_debug_snapshot")
 )
 
+# 在项目自己的受控诊断刷新点更新缓存；普通快照采集不会调用 provider。
+tracker.refresh_snapshot(tracking_id)
+
 # 流程结束后移除追踪。
 tracker.untrack_id(tracking_id)
 ```
@@ -76,14 +100,18 @@ tracker.untrack_id(tracking_id)
 - `record_state_snapshot()` / `get_operation_state_trace()`：为长流程追加状态、进度、重试和用户决策点记录。
 - `finish_operation(operation_id, success, options)`：写入成功或失败状态、最终耗时和 metadata。
 - `record_incident(severity, code, message, options)`：记录可聚合异常事件。
-- `record_async_snapshot(operation_type, snapshot, options)`：把异步对象的普通字典快照记录为 running、completed 或 failed 操作，并把失败、取消或超时转为 `async` 分类 incident。
+- `record_async_snapshot(operation_type, snapshot, options)`：把异步对象的普通字典快照记录为 running、completed、cancelled 或 failed 操作，并把失败、取消或超时转为 `async` 分类 incident；取消会保留 `STATE_CANCELLED` 语义，不计入 failed operation。
+- `record_sample()` / `record_sample_from_ticks()`：记录命名耗时采样，并按 `sample_id` 聚合调用次数、耗时和慢采样数量。
+- `get_sample_stat()` / `get_sample_stats()` / `clear_sample_stats()`：读取或清理命名采样统计。
 - `get_operations()` / `get_incidents()` / `get_timeline()`：按最近更新倒序读取历史，并支持基础过滤。
 - `get_health_snapshot()`：返回 `status`、失败操作数、慢操作数、最近操作和最近异常。
 - `build_copy_text()`：生成适合复制到 issue、日志或支持报告的简短文本。
-- `GFAsyncTrackerUtility.track_handle()` / `untrack_id()` / `get_debug_snapshot()`：可选追踪活动异步句柄，并接入 `GFDiagnosticsUtility` 工具快照。
+- `GFAsyncTrackerUtility.track_handle()` / `refresh_snapshot()` / `refresh_snapshots()` / `untrack_id()` / `get_debug_snapshot()`：可选追踪活动异步句柄，在显式刷新点更新有界缓存，并接入 `GFDiagnosticsUtility` 工具快照。
 
 ## 注意事项
 
-`max_operations`、`max_incidents` 与 `max_state_trace_entries` 控制内存上限，默认只保留近期记录。`slow_operation_threshold_ms` 只影响健康快照中的慢操作统计，不会自动把慢操作写成错误事件；项目可以按自身策略决定是否调用 `record_incident()`。
+活动操作与终态历史使用独立容量：`max_active_operations` 限制仍在 pending/running 的记录，达到上限时 `begin_operation()` 拒绝新操作；`max_completed_operations` 只裁剪成功、失败或取消后的历史，不会为了腾出历史空间隐式删除仍在运行的操作。`max_incidents`、`max_state_trace_entries` 与 `max_sample_stats` 分别限制其他时间线数据。
+
+耗时和采样入口只接受有限数值。`max_metadata_keys` 限制单份 metadata 的唯一业务键数，超额键会被丢弃并计入 `__gf_dropped_key_count`，避免长期采样通过不断制造新键绕过历史容量。`slow_operation_threshold_ms` 只影响健康快照中的慢操作和慢采样统计，不会自动把慢记录写成错误事件。
 
 记录中的 `metadata` 是项目自定义字典，GF 不解释其中字段。面向玩家、线上调试或远程工具暴露这些数据前，应在项目层做权限、脱敏和字段白名单。异步追踪同样应保持默认关闭，只在明确需要诊断活动句柄时启用。

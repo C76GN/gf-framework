@@ -1,8 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFCapabilityUtility" path="addons/gf/extensions/capability/core/gf_capability_utility.gd" module="extensions/capability" extends="GFUtility" classDigest="89cc2aa1166aab402672a0a03ae6c88dfe8e195008b2a273b1c6e90f92fe9c63">
+<class name="GFCapabilityUtility" path="addons/gf/extensions/capability/core/gf_capability_utility.gd" module="extensions/capability" extends="GFUtility" classDigest="c40bfd15b3046940a85df789e6e54f330730d51f4390609f1589116dfe2e2186">
 	<description>GFCapabilityUtility: 对象能力组件管理器。
 提供面向任意 Object / Node 的能力挂载、查询、移除、启停、索引查询与依赖补齐能力。
-能力组合是可选扩展，不改变核心分层容器。</description>
+能力组合是可选扩展，不改变核心分层容器。
+Utility 不接管 receiver 生命周期，也不会在项目直接释放 receiver 或借用能力实例时伪造 removed hook；
+需要成对生命周期通知的调用方必须在外部释放前显式 remove_capability() 或 unregister_capability()。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">runtime_service</tag>
@@ -21,12 +23,13 @@
 		</member>
 		<member kind="signal" name="capability_removed">
 			<signature>signal capability_removed(receiver: Object, capability_type: Script, capability: Object)</signature>
-			<description>当能力从对象移除前发出。</description>
+			<description>当能力记录已从对象摘除、但 owned 实例尚未释放时发出。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">receiver: 能力接收对象。</tag>
 				<tag name="param">capability_type: 实际注册的能力脚本类型。</tag>
 				<tag name="param">capability: 将被移除的能力实例。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="signal" name="capability_active_changed">
@@ -79,9 +82,11 @@
 		</member>
 		<member kind="const" name="HOOK_ON_REMOVED">
 			<signature>const HOOK_ON_REMOVED: StringName = &amp;"on_gf_capability_removed"</signature>
-			<description>能力对象可选实现：从 receiver 移除前调用。</description>
+			<description>能力对象可选实现：能力记录摘除后、owned 实例释放前调用。
+项目直接释放 receiver 或借用实例不会触发该 hook。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="HOOK_ON_ACTIVE_CHANGED">
@@ -99,6 +104,15 @@
 主动调用 prune_invalid_receivers() 仍会执行全量清理。</description>
 			<tags>
 				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="property" name="max_capability_tree_nodes">
+			<signature>var max_capability_tree_nodes: int = 65536:</signature>
+			<description>单次能力节点树操作允许访问的最大节点数。
+超出预算时整次树操作会被拒绝，避免部分应用状态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 	</properties>
@@ -280,40 +294,53 @@ required_capability_types 为空时，会从当前已索引 receiver 或指定�
 			</tags>
 		</member>
 		<member kind="method" name="add_capability">
-			<signature>func add_capability(receiver: Object, capability_type: Script, provider: Variant = null) -&gt; Object:</signature>
-			<description>给对象挂载指定能力类型。
-provider 可为 Callable、PackedScene、Object；为空时使用 capability_type.new()。provider 返回的实例脚本必须继承或等于 capability_type。</description>
+			<signature>func add_capability(receiver: Object, capability_type: Script) -&gt; Object:</signature>
+			<description>创建并给对象挂载指定能力类型。
+Utility 对成功注册的实例拥有独占生命周期所有权。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">receiver: 能力接收对象。</tag>
 				<tag name="param">capability_type: 要查询、添加或移除的能力脚本类型。</tag>
-				<tag name="param">provider: 用于创建能力实例的 provider。</tag>
 				<tag name="return">已挂载或复用的能力实例；失败时返回 null。</tag>
-				<tag name="schema">provider: Variant，可为 null、Callable、PackedScene 或 Object 能力实例。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="add_required_capability">
-			<signature>func add_required_capability(receiver: Object, capability_type: Script, provider: Variant = null) -&gt; Object:</signature>
+			<signature>func add_required_capability(receiver: Object, capability_type: Script) -&gt; Object:</signature>
 			<description>给对象挂载指定能力类型，并标记为自动依赖能力。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">receiver: 能力接收对象。</tag>
 				<tag name="param">capability_type: 要查询、添加或移除的能力脚本类型。</tag>
-				<tag name="param">provider: 用于创建能力实例的 provider。</tag>
 				<tag name="return">已挂载或复用的能力实例；失败时返回 null。</tag>
-				<tag name="schema">provider: Variant，可为 null、Callable、PackedScene 或 Object 能力实例。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="add_capability_instance">
 			<signature>func add_capability_instance(receiver: Object, capability: Object, as_type: Script = null) -&gt; Object:</signature>
 			<description>给对象挂载一个已经存在的能力实例。
-该入口不会接管传入实例的所有权；架构销毁时只注销能力记录。需要由 Utility 创建并接管节点释放时，请使用 add_capability() 或 add_scene_capability()。</description>
+该入口不会接管传入实例的所有权；架构销毁时只注销能力记录。
+调用方应在外部释放实例前显式注销；需要转移所有权时请使用 adopt_capability_instance()。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">receiver: 能力接收对象。</tag>
 				<tag name="param">capability: 要挂载的能力实例。</tag>
 				<tag name="param">as_type: 能力实例注册时使用的类型；为 null 时使用实例脚本类型。非空时实例脚本必须继承或等于该类型。</tag>
 				<tag name="return">已挂载或复用的能力实例；失败时返回 null。</tag>
+				<tag name="since">3.17.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="adopt_capability_instance">
+			<signature>func adopt_capability_instance( receiver: Object, capability: Object, as_type: Script = null ) -&gt; Object:</signature>
+			<description>收养一个已经存在的能力实例并挂载到 receiver。
+仅当返回值就是传入实例时所有权才完成转移；之后移除能力或销毁 Utility 会释放该实例。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">receiver: 能力接收对象。</tag>
+				<tag name="param">capability: 要转移所有权的能力实例。</tag>
+				<tag name="param">as_type: 注册类型；为空时使用实例脚本类型。</tag>
+				<tag name="return">已挂载或复用的能力实例；失败时返回 null。</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="add_scene_capability">

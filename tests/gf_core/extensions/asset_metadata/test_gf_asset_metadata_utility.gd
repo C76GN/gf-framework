@@ -106,10 +106,13 @@ func test_object_metadata_can_use_dictionary_schema() -> void:
 
 	var normalized: Dictionary = utility.read_object_metadata_with_schema(node, schema)
 	var report: Dictionary = utility.validate_object_metadata(node, schema)
+	var issues: Array = GFVariantData.get_option_array(report, "issues")
+	var first_issue: Dictionary = GFVariantData.as_dictionary(issues[0])
 
 	assert_eq(GFVariantData.get_option_string(normalized, "kind"), "asset", "schema 默认值应补齐 metadata。")
 	assert_eq(GFVariantData.get_option_int(normalized, "priority"), 4, "schema 应按字段声明转换 metadata。")
-	assert_true(GFVariantData.get_option_bool(report, "ok"), "按 schema 补默认值和转换后应通过校验。")
+	assert_false(GFVariantData.get_option_bool(report, "ok"), "严格校验应基于 raw metadata，required 字段缺失不能被默认值掩盖。")
+	assert_eq(GFVariantData.get_option_string(first_issue, "kind"), "missing_required")
 
 	node.free()
 
@@ -163,6 +166,23 @@ func test_metadata_source_is_scoped_per_metadata_key() -> void:
 	node.free()
 
 
+func test_write_without_source_clears_stale_source_marker() -> void:
+	var utility: GFAssetMetadataUtility = GFAssetMetadataUtility.new()
+	var node: Node = Node.new()
+	var _first_record: GFAssetMetadataRecord = utility.write_object_metadata(node, { "kind": "imported" }, {
+		"metadata_source": "importer",
+	})
+	var _replacement_record: GFAssetMetadataRecord = utility.write_object_metadata(node, { "kind": "manual" })
+
+	assert_true(node.has_meta(GFAssetMetadataUtility.META_ASSET_METADATA))
+	assert_false(
+		node.has_meta(GFAssetMetadataUtility.META_ASSET_METADATA_SOURCE),
+		"没有显式来源的新写入必须清理旧来源，避免错误归属。"
+	)
+
+	node.free()
+
+
 func test_empty_singular_metadata_key_falls_back_to_default_key() -> void:
 	var utility: GFAssetMetadataUtility = GFAssetMetadataUtility.new()
 	var node: Node = Node.new()
@@ -175,6 +195,54 @@ func test_empty_singular_metadata_key_falls_back_to_default_key() -> void:
 	assert_false(node.get_meta_list().has(&""), "空 metadata_key 不应创建空 Object metadata。")
 
 	node.free()
+
+
+func test_empty_metadata_clears_marker_unless_explicitly_marked_scanned_empty() -> void:
+	var utility: GFAssetMetadataUtility = GFAssetMetadataUtility.new()
+	var node: Node = Node.new()
+
+	var _record: GFAssetMetadataRecord = utility.write_object_metadata(node, { "kind": "asset" }, {
+		"metadata_source": "scan",
+	})
+	var _empty_record: GFAssetMetadataRecord = utility.write_object_metadata(node, {})
+
+	assert_false(node.has_meta(GFAssetMetadataUtility.META_ASSET_METADATA), "默认写入空 metadata 应删除旧 marker。")
+	assert_false(node.has_meta(GFAssetMetadataUtility.META_ASSET_METADATA_SOURCE), "默认写入空 metadata 应删除旧 source marker。")
+	assert_eq(
+		utility.get_object_metadata_state(node),
+		GFAssetMetadataUtility.METADATA_STATE_ABSENT,
+		"默认空 metadata 应表达为 absent。"
+	)
+	assert_false(utility.has_object_metadata(node), "默认空 metadata 不应被 has_object_metadata 视为存在。")
+
+	var _marked_record: GFAssetMetadataRecord = utility.write_object_metadata(node, {}, {
+		"mark_scanned_empty": true,
+	})
+
+	assert_true(node.has_meta(GFAssetMetadataUtility.META_ASSET_METADATA), "显式 opt-in 时应保留空扫描 marker。")
+	assert_eq(
+		utility.get_object_metadata_state(node),
+		GFAssetMetadataUtility.METADATA_STATE_EMPTY,
+		"显式空扫描 marker 应表达为 empty。"
+	)
+	assert_true(utility.has_object_metadata(node), "显式空扫描 marker 应被视为存在状态。")
+
+	node.free()
+
+
+func test_collect_node_tree_preserves_explicit_scanned_empty_record() -> void:
+	var utility: GFAssetMetadataUtility = GFAssetMetadataUtility.new()
+	var root: Node = Node.new()
+	var _record: GFAssetMetadataRecord = utility.write_object_metadata(root, {}, {
+		"mark_scanned_empty": true,
+	})
+
+	var records: Array[GFAssetMetadataRecord] = utility.collect_node_tree(root)
+
+	assert_eq(records.size(), 1, "显式空扫描结果不能在收集阶段退化为 absent。")
+	assert_true(records[0].metadata.is_empty())
+
+	root.free()
 
 
 func test_validate_object_metadata_reports_unknown_fields_after_schema_normalization() -> void:
@@ -198,10 +266,13 @@ func test_validate_object_metadata_reports_unknown_fields_after_schema_normaliza
 
 	var report: Dictionary = utility.validate_object_metadata(node, schema)
 	var issues: Array = GFVariantData.get_option_array(report, "issues")
-	var first_issue: Dictionary = GFVariantData.as_dictionary(issues[0])
+	var issue_kinds: Array[String] = []
+	for issue_value: Variant in issues:
+		var issue: Dictionary = GFVariantData.as_dictionary(issue_value)
+		issue_kinds.append(GFVariantData.get_option_string(issue, "kind"))
 
 	assert_false(GFVariantData.get_option_bool(report, "ok"), "未知字段应被 schema 校验报告。")
-	assert_eq(GFVariantData.get_option_string(first_issue, "kind"), "extra_field")
+	assert_true(issue_kinds.has("extra_field"), "未知字段应被 schema 校验报告。")
 
 	node.free()
 
@@ -217,6 +288,65 @@ func test_build_node_tree_report_reports_missing_root() -> void:
 	assert_eq(GFVariantData.get_option_string(first_issue, "kind"), "missing_root")
 
 
+func test_build_node_tree_report_defaults_to_json_safe_entries() -> void:
+	var utility: GFAssetMetadataUtility = GFAssetMetadataUtility.new()
+	var root: Node = Node.new()
+	var texture: Resource = Resource.new()
+	var _record: GFAssetMetadataRecord = utility.write_object_metadata(root, {
+		"position": Vector2(1.0, 2.0),
+		"bad_number": NAN,
+		"preview": texture,
+	})
+
+	var report: Dictionary = utility.build_node_tree_report(root)
+	var entries: Array = GFVariantData.get_option_array(report, "entries")
+	var first_entry: Dictionary = GFVariantData.as_dictionary(entries[0])
+	var metadata: Dictionary = GFVariantData.get_option_dictionary(first_entry, "metadata")
+	var encoded_position: Dictionary = GFVariantData.get_option_dictionary(metadata, "position")
+	var encoded_bad_number: Dictionary = GFVariantData.get_option_dictionary(metadata, "bad_number")
+	var encoded_preview: Dictionary = GFVariantData.get_option_dictionary(metadata, "preview")
+	var preview_marker: Dictionary = GFVariantData.get_option_dictionary(
+		encoded_preview,
+		"__gf_report_value__"
+	)
+
+	assert_true(encoded_position.has(GFVariantJsonCodec.JSON_MARKER_KEY), "Vector2 元数据应编码为 JSON-safe typed marker。")
+	assert_true(encoded_bad_number.has(GFVariantJsonCodec.JSON_MARKER_KEY), "NaN 元数据应编码为 JSON-safe typed marker。")
+	assert_true(metadata.has("preview"), "Resource 字段应保留字段名。")
+	assert_eq(
+		GFVariantData.get_option_string(preview_marker, "type"),
+		"Object",
+		"Resource 应由统一报告编码器保留为脱敏 marker。"
+	)
+
+	root.free()
+
+
+func test_build_node_tree_report_reports_max_nodes_truncation() -> void:
+	var utility: GFAssetMetadataUtility = GFAssetMetadataUtility.new()
+	var root: Node = Node.new()
+	root.name = "Root"
+	var first_child: Node = Node.new()
+	first_child.name = "First"
+	var second_child: Node = Node.new()
+	second_child.name = "Second"
+	root.add_child(first_child)
+	root.add_child(second_child)
+	var _root_record: GFAssetMetadataRecord = utility.write_object_metadata(root, { "kind": "root" })
+	var _first_record: GFAssetMetadataRecord = utility.write_object_metadata(first_child, { "kind": "first" })
+	var _second_record: GFAssetMetadataRecord = utility.write_object_metadata(second_child, { "kind": "second" })
+
+	var report: Dictionary = utility.build_node_tree_report(root, { "max_nodes": 2 })
+
+	assert_true(GFVariantData.get_option_bool(report, "ok"), "截断不是数据错误，应通过报告字段表达。")
+	assert_true(GFVariantData.get_option_bool(report, "truncated"), "达到 max_nodes 时报告应标记 truncated。")
+	assert_eq(GFVariantData.get_option_int(report, "visited_node_count"), 2, "visited_node_count 应反映扫描预算。")
+	assert_eq(GFVariantData.get_option_int(report, "max_nodes"), 2, "报告应保留 max_nodes。")
+	assert_eq(GFVariantData.get_option_int(report, "entry_count"), 2, "entry_count 应只统计已访问节点。")
+
+	root.free()
+
+
 func test_extension_installer_registers_asset_metadata_utility() -> void:
 	var architecture: GFArchitecture = GFArchitecture.new()
 	var installer_script: Script = load("res://addons/gf/extensions/asset_metadata/extension.gd")
@@ -224,7 +354,7 @@ func test_extension_installer_registers_asset_metadata_utility() -> void:
 	assert_true(installer_value is GFInstaller, "Asset Metadata installer 脚本应创建 GFInstaller。")
 	var installer: GFInstaller = installer_value
 
-	installer.install(architecture)
+	installer.install(architecture, GFAsyncScope.new())
 
 	assert_not_null(
 		architecture.get_local_utility(GFAssetMetadataUtility),

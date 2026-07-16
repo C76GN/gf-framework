@@ -57,7 +57,9 @@ extends Resource
 ## [br]
 ## @api public
 ## [br]
-## @schema metadata: Dictionary，通常来自 GFSaveSlotMetadata.to_dict() 或 GFStorageUtility.list_slots() 的 metadata 字段。
+## @since 3.6.0
+## [br]
+## @schema metadata: Dictionary，通常来自 GFSaveSlotMetadata.to_dict() 或槽位存储摘要的 metadata 字段。
 @export var metadata: Dictionary = {}
 
 ## 兼容性问题列表。
@@ -68,9 +70,11 @@ extends Resource
 
 # --- 公共方法 ---
 
-## 从 GFStorageUtility.list_slots() 风格的摘要配置卡片。
+## 从槽位存储适配器的通用摘要配置卡片。
 ## [br]
 ## @api public
+## [br]
+## @since 3.6.0
 ## [br]
 ## @param summary: 槽位摘要。
 ## [br]

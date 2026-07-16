@@ -17,6 +17,7 @@
 |---|---|---|
 | 常量 | [`GROUP_SOURCE_ID`](#member-gfresourceregistry-constants-group_source_id) | `const GROUP_SOURCE_ID: StringName = &"id"` |
 | 常量 | [`GROUP_SOURCE_PATH`](#member-gfresourceregistry-constants-group_source_path) | `const GROUP_SOURCE_PATH: StringName = &"path"` |
+| 常量 | [`GROUP_SOURCE_CACHE_KEY`](#member-gfresourceregistry-constants-group_source_cache_key) | `const GROUP_SOURCE_CACHE_KEY: StringName = &"cache_key"` |
 | 常量 | [`GROUP_SOURCE_PATH_BASENAME`](#member-gfresourceregistry-constants-group_source_path_basename) | `const GROUP_SOURCE_PATH_BASENAME: StringName = &"path_basename"` |
 | 常量 | [`GROUP_SOURCE_TYPE_HINT`](#member-gfresourceregistry-constants-group_source_type_hint) | `const GROUP_SOURCE_TYPE_HINT: StringName = &"type_hint"` |
 | 常量 | [`GROUP_SOURCE_FIELD`](#member-gfresourceregistry-constants-group_source_field) | `const GROUP_SOURCE_FIELD: StringName = &"field"` |
@@ -30,6 +31,8 @@
 | 方法 | [`get_entry`](#member-gfresourceregistry-methods-get_entry) | `func get_entry(entry_id: StringName) -> Resource:` |
 | 方法 | [`get_entry_path`](#member-gfresourceregistry-methods-get_entry_path) | `func get_entry_path(entry_id: StringName) -> String:` |
 | 方法 | [`get_entry_type_hint`](#member-gfresourceregistry-methods-get_entry_type_hint) | `func get_entry_type_hint(entry_id: StringName) -> String:` |
+| 方法 | [`get_entry_cache_key`](#member-gfresourceregistry-methods-get_entry_cache_key) | `func get_entry_cache_key(entry_id: StringName) -> String:` |
+| 方法 | [`get_entry_resource_identity`](#member-gfresourceregistry-methods-get_entry_resource_identity) | `func get_entry_resource_identity(entry_id: StringName) -> GFResourceIdentity:` |
 | 方法 | [`get_entry_fields`](#member-gfresourceregistry-methods-get_entry_fields) | `func get_entry_fields(entry_id: StringName) -> Dictionary:` |
 | 方法 | [`get_all_ids`](#member-gfresourceregistry-methods-get_all_ids) | `func get_all_ids() -> PackedStringArray:` |
 | 方法 | [`get_all_paths`](#member-gfresourceregistry-methods-get_all_paths) | `func get_all_paths() -> PackedStringArray:` |
@@ -77,6 +80,19 @@ const GROUP_SOURCE_PATH: StringName = &"path"
 ```
 
 按完整资源路径分组。
+
+<a id="member-gfresourceregistry-constants-group_source_cache_key"></a>
+
+### `GROUP_SOURCE_CACHE_KEY`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+const GROUP_SOURCE_CACHE_KEY: StringName = &"cache_key"
+```
+
+按资源身份缓存键分组。
 
 <a id="member-gfresourceregistry-constants-group_source_path_basename"></a>
 
@@ -293,6 +309,48 @@ func get_entry_type_hint(entry_id: StringName) -> String:
 
 返回：类型提示；不存在时返回空字符串。
 
+<a id="member-gfresourceregistry-methods-get_entry_cache_key"></a>
+
+### `get_entry_cache_key`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func get_entry_cache_key(entry_id: StringName) -> String:
+```
+
+获取条目资源身份缓存键。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `entry_id` | 条目稳定 ID。 |
+
+返回：资源身份 cache_key；不存在时返回空字符串。
+
+<a id="member-gfresourceregistry-methods-get_entry_resource_identity"></a>
+
+### `get_entry_resource_identity`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func get_entry_resource_identity(entry_id: StringName) -> GFResourceIdentity:
+```
+
+获取条目资源身份。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `entry_id` | 条目稳定 ID。 |
+
+返回：资源身份；不存在时返回 null。
+
 <a id="member-gfresourceregistry-methods-get_entry_fields"></a>
 
 ### `get_entry_fields`
@@ -419,7 +477,7 @@ func make_search_candidates(entry_ids: PackedStringArray = PackedStringArray()) 
 结构：
 
 - `entry_ids`: PackedStringArray selected entry ids.
-- `return`: Array[Dictionary] where each candidate contains id, entry_id, title, name, path, type_hint, keywords, and fields.
+- `return`: Array[Dictionary] where each candidate contains id, entry_id, title, name, path, cache_key, resource_identity, type_hint, keywords, and fields.
 
 <a id="member-gfresourceregistry-methods-search"></a>
 
@@ -473,7 +531,7 @@ func make_entry_summary(entry_id: StringName, options: Dictionary = {}) -> Dicti
 结构：
 
 - `options`: Dictionary where field list options are PackedStringArray or Array[String], and include_fields controls whether fields is copied into the summary.
-- `return`: Dictionary with id, entry_id, title, path, path_basename, type_hint, description, preview_path, tags, category, and optional fields.
+- `return`: Dictionary with id, entry_id, title, path, cache_key, resource_identity, path_basename, type_hint, description, preview_path, tags, category, and optional fields.
 
 <a id="member-gfresourceregistry-methods-make_entry_summaries"></a>
 
@@ -556,7 +614,7 @@ func group_entry_ids(group_source: StringName = GROUP_SOURCE_ID, options: Dictio
 
 结构：
 
-- `options`: Dictionary with optional entry_ids, field_id, include_empty, and empty_key.
+- `options`: Dictionary with optional entry_ids, field_id, include_empty, and empty_key. group_source may be id, path, cache_key, path_basename, type_hint, or field.
 - `return`: Dictionary[String, PackedStringArray] grouped entry ids.
 
 <a id="member-gfresourceregistry-methods-load_entry"></a>
@@ -630,6 +688,7 @@ func request_entry_handle_async( asset_utility: GFAssetUtility, entry_id: String
 ### `make_asset_group_entries`
 
 - API：`public`
+- 首次版本：`3.21.0`
 
 ```gdscript
 func make_asset_group_entries(entry_ids: PackedStringArray = PackedStringArray()) -> Array:
@@ -648,7 +707,7 @@ func make_asset_group_entries(entry_ids: PackedStringArray = PackedStringArray()
 结构：
 
 - `entry_ids`: PackedStringArray selected entry ids.
-- `return`: Array[Dictionary] where each item contains path and type_hint.
+- `return`: Array[Dictionary] where each item contains path, type_hint, cache_key, and resource_identity.
 
 <a id="member-gfresourceregistry-methods-get_debug_snapshot"></a>
 

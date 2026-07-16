@@ -8,7 +8,7 @@
 |---|---:|---:|---:|
 | [运行时服务](#category-runtime_service) | 1 | 13 | 3 |
 | [资源定义](#category-resource_definition) | 3 | 80 | 46 |
-| [运行时句柄](#category-runtime_handle) | 1 | 20 | 17 |
+| [运行时句柄](#category-runtime_handle) | 1 | 22 | 19 |
 | [编辑器 API](#category-editor_api) | 2 | 17 | 15 |
 
 ## 类

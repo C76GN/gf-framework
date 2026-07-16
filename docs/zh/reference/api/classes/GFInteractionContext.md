@@ -143,6 +143,7 @@ var target_class: String = ""
 ### `payload`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var payload: Variant = null
@@ -159,6 +160,7 @@ var payload: Variant = null
 ### `group_name`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var group_name: StringName = &""
@@ -173,6 +175,7 @@ var group_name: StringName = &""
 ### `with_sender`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func with_sender(value: Object) -> GFInteractionContext:
@@ -193,6 +196,7 @@ func with_sender(value: Object) -> GFInteractionContext:
 ### `with_target`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func with_target(value: Object) -> GFInteractionContext:
@@ -213,6 +217,7 @@ func with_target(value: Object) -> GFInteractionContext:
 ### `with_payload`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func with_payload(value: Variant) -> GFInteractionContext:
@@ -237,6 +242,7 @@ func with_payload(value: Variant) -> GFInteractionContext:
 ### `with_group`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func with_group(value: StringName) -> GFInteractionContext:

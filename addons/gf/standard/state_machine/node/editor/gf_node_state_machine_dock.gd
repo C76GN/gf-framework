@@ -287,7 +287,12 @@ func _get_node_path_text(node: Node) -> String:
 
 
 func _safe_json(value: Variant) -> String:
-	return JSON.stringify(value, "\t")
+	return GFReportValueCodec.stringify_json_compatible(
+		value,
+		"\t",
+		false,
+		GFReportValueCodec.make_redaction_options(GFReportValueCodec.REDACTION_PROFILE_DEBUG)
+	)
 
 
 # --- 信号处理函数 ---

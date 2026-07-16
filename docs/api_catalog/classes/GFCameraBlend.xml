@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFCameraBlend" path="addons/gf/extensions/camera/resources/gf_camera_blend.gd" module="extensions/camera" extends="Resource" classDigest="0656206c0dda9b874313dcb1e611c5ca7855aa1018d991fd68eedd69b701550f">
+<class name="GFCameraBlend" path="addons/gf/extensions/camera/resources/gf_camera_blend.gd" module="extensions/camera" extends="Resource" classDigest="0336bd62b121e2005b988f3e87a7454e149086c161d134e038ca6310eaf6fb39">
 	<description>GFCameraBlend: 通用相机过渡资源。
 描述两个相机姿态之间的时间和缓动方式，不绑定具体相机节点、
 目标选择规则、反馈效果或场景业务。</description>
@@ -13,24 +13,27 @@
 	<constants />
 	<properties>
 		<member kind="property" name="duration_seconds" decorators="@export_range(0.0, 60.0, 0.001, &quot;or_greater&quot;)">
-			<signature>var duration_seconds: float = 0.35</signature>
+			<signature>var duration_seconds: float:</signature>
 			<description>过渡持续时间，单位秒。小于等于 0 时表示立即切换。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="transition_type" decorators="@export">
-			<signature>var transition_type: Tween.TransitionType = Tween.TRANS_SINE</signature>
+			<signature>var transition_type: Tween.TransitionType:</signature>
 			<description>Tween 过渡类型。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="ease_type" decorators="@export">
-			<signature>var ease_type: Tween.EaseType = Tween.EASE_IN_OUT</signature>
+			<signature>var ease_type: Tween.EaseType:</signature>
 			<description>Tween 缓动类型。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</properties>

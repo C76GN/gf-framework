@@ -22,6 +22,8 @@
 | 方法 | [`configure`](#member-gfresourceregistryentry-methods-configure) | `func configure( entry_id: StringName, entry_path: String, hint: String = "", indexed_fields: Dictionary = {} ) -> Resource:` |
 | 方法 | [`is_valid_entry`](#member-gfresourceregistryentry-methods-is_valid_entry) | `func is_valid_entry() -> bool:` |
 | 方法 | [`duplicate_entry`](#member-gfresourceregistryentry-methods-duplicate_entry) | `func duplicate_entry() -> Resource:` |
+| 方法 | [`get_resource_identity`](#member-gfresourceregistryentry-methods-get_resource_identity) | `func get_resource_identity() -> GFResourceIdentity:` |
+| 方法 | [`get_cache_key`](#member-gfresourceregistryentry-methods-get_cache_key) | `func get_cache_key() -> String:` |
 | 方法 | [`to_dict`](#member-gfresourceregistryentry-methods-to_dict) | `func to_dict() -> Dictionary:` |
 | 方法 | [`from_dict`](#member-gfresourceregistryentry-methods-from_dict) | `static func from_dict(data: Dictionary) -> Resource:` |
 
@@ -136,11 +138,42 @@ func duplicate_entry() -> Resource:
 
 返回：条目副本。
 
+<a id="member-gfresourceregistryentry-methods-get_resource_identity"></a>
+
+### `get_resource_identity`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func get_resource_identity() -> GFResourceIdentity:
+```
+
+获取条目的规范资源身份。
+
+返回：资源身份对象。
+
+<a id="member-gfresourceregistryentry-methods-get_cache_key"></a>
+
+### `get_cache_key`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func get_cache_key() -> String:
+```
+
+获取条目的推荐缓存键。
+
+返回：资源身份 cache_key。
+
 <a id="member-gfresourceregistryentry-methods-to_dict"></a>
 
 ### `to_dict`
 
 - API：`public`
+- 首次版本：`3.21.0`
 
 ```gdscript
 func to_dict() -> Dictionary:
@@ -152,13 +185,14 @@ func to_dict() -> Dictionary:
 
 结构：
 
-- `return`: Dictionary with id, resource_path, type_hint, and fields.
+- `return`: Dictionary with id, resource_path, type_hint, cache_key, resource_identity, and fields.
 
 <a id="member-gfresourceregistryentry-methods-from_dict"></a>
 
 ### `from_dict`
 
 - API：`public`
+- 首次版本：`3.21.0`
 
 ```gdscript
 static func from_dict(data: Dictionary) -> Resource:
@@ -176,4 +210,4 @@ static func from_dict(data: Dictionary) -> Resource:
 
 结构：
 
-- `data`: Dictionary with optional id, resource_path, type_hint, and fields.
+- `data`: Dictionary with optional id, resource_path, type_hint, cache_key, resource_identity, and fields.

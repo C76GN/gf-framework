@@ -24,11 +24,15 @@ const _GF_VALIDATION_REPORT_DICTIONARY_SCRIPT: Script = preload("res://addons/gf
 ## 节点未显式设置尺寸时使用的默认编辑器尺寸。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 var default_node_size: Vector2 = Vector2(220.0, 120.0)
 
 ## 是否把校验失败的连接也写入视图模型。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 var include_invalid_connections: bool = true
 
 
@@ -38,9 +42,11 @@ var include_invalid_connections: bool = true
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param graph: 流程图资源。
 ## [br]
-## @return 视图模型字典。
+## @return: 视图模型字典。
 ## [br]
 ## @schema return: Dictionary，包含 ok、start_node_id、node_count、connection_count、nodes、node_lookup、connections、groups、metadata、validation。
 func build_view_model(graph: Resource) -> Dictionary:
@@ -80,9 +86,11 @@ func build_view_model(graph: Resource) -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param graph: 流程图资源。
 ## [br]
-## @return 编辑器诊断、目录和元数据报告。
+## @return: 编辑器诊断、目录和元数据报告。
 ## [br]
 ## @schema return: Dictionary，包含 ok、healthy、summary、next_action、validation、catalog 和 editor。
 func build_editor_report(graph: Resource) -> Dictionary:
@@ -126,9 +134,11 @@ func build_editor_report(graph: Resource) -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param graph: 流程图资源。
 ## [br]
-## @return 节点目录字典。
+## @return: 节点目录字典。
 ## [br]
 ## @schema return: Dictionary，包含 node_count、nodes 和 categories；nodes 为节点目录记录数组。
 func build_editor_catalog(graph: Resource) -> Dictionary:
@@ -184,9 +194,11 @@ func build_editor_catalog(graph: Resource) -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param graph: 流程图资源。
 ## [br]
-## @return 校验报告。
+## @return: 校验报告。
 ## [br]
 ## @schema return: GFValidationReportDictionary.finalize_report() 生成的 Dictionary，包含 ok、healthy、summary、issues、next_action 和计数字段。
 func validate_graph_for_editor(graph: Resource) -> Dictionary:
@@ -255,11 +267,13 @@ func validate_graph_for_editor(graph: Resource) -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param target_metadata: 待校验元数据。
 ## [br]
 ## @param schema: 轻量 Schema。
 ## [br]
-## @return 校验报告。
+## @return: 校验报告。
 ## [br]
 ## @schema target_metadata: Dictionary，待校验的编辑器或项目工具元数据。
 ## [br]
@@ -288,6 +302,8 @@ func validate_metadata_for_editor(target_metadata: Dictionary, schema: Dictionar
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param graph: 流程图资源。
 ## [br]
 ## @param node_id: 节点标识。
@@ -298,7 +314,7 @@ func validate_metadata_for_editor(target_metadata: Dictionary, schema: Dictionar
 ## [br]
 ## @param collapsed: 是否折叠。
 ## [br]
-## @return 应用成功返回 true。
+## @return: 应用成功返回 true。
 func apply_node_layout(
 	graph: GFFlowGraph,
 	node_id: StringName,
@@ -315,11 +331,13 @@ func apply_node_layout(
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param graph: 流程图资源。
 ## [br]
 ## @param positions: node_id 到 Vector2 的映射。
 ## [br]
-## @return 成功更新的节点数量。
+## @return: 成功更新的节点数量。
 ## [br]
 ## @schema positions: Dictionary，键为节点标识，值为 Vector2 编辑器坐标。
 func apply_node_positions(graph: GFFlowGraph, positions: Dictionary) -> int:
@@ -341,11 +359,13 @@ func apply_node_positions(graph: GFFlowGraph, positions: Dictionary) -> int:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param graph: 流程图资源。
 ## [br]
 ## @param options: 布局选项，透传给 GFGraphLayoutUtility.make_layered_layout()。
 ## [br]
-## @return 布局报告，包含 positions 与 changed_count。
+## @return: 布局报告，包含 positions 与 changed_count。
 ## [br]
 ## @schema options: Dictionary，传给 GFGraphLayoutUtility.make_layered_layout() 的布局选项。
 ## [br]
@@ -377,11 +397,13 @@ func auto_layout(graph: GFFlowGraph, options: Dictionary = {}) -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param graph: 流程图资源。
 ## [br]
 ## @param node_ids: 选中的节点标识列表。
 ## [br]
-## @return 选择包字典。
+## @return: 选择包字典。
 ## [br]
 ## @schema return: Dictionary，包含 ok、node_count、connection_count、nodes、connections 和 node_ids。
 func build_selection_package(graph: GFFlowGraph, node_ids: PackedStringArray) -> Dictionary:
@@ -416,6 +438,8 @@ func build_selection_package(graph: GFFlowGraph, node_ids: PackedStringArray) ->
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param graph: 流程图资源。
 ## [br]
 ## @param selection_package: build_selection_package() 返回的选择包。
@@ -424,7 +448,7 @@ func build_selection_package(graph: GFFlowGraph, node_ids: PackedStringArray) ->
 ## [br]
 ## @param options: 可选参数，支持 keep_original_ids。
 ## [br]
-## @return 粘贴报告。
+## @return: 粘贴报告。
 ## [br]
 ## @schema selection_package: Dictionary，由 build_selection_package() 返回，包含 nodes、connections 和 node_ids。
 ## [br]
@@ -444,6 +468,14 @@ func paste_selection_package(
 	var source_nodes: Array = GFVariantData.as_array(source_nodes_value)
 	if not (source_nodes_value is Array):
 		return _make_edit_report(false, "invalid_selection_package")
+	var source_node_ids: Dictionary = {}
+	for source_node_variant: Variant in source_nodes:
+		var source_node: GFFlowNode = _get_flow_node_value(source_node_variant)
+		if source_node == null:
+			return _make_edit_report(false, "invalid_selection_node")
+		if source_node.node_id == &"" or source_node_ids.has(source_node.node_id):
+			return _make_edit_report(false, "invalid_selection_node_id")
+		source_node_ids[source_node.node_id] = true
 
 	var id_map: Dictionary = {}
 	var reserved_ids: Dictionary = {}
@@ -509,11 +541,13 @@ func paste_selection_package(
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param graph: 流程图资源。
 ## [br]
 ## @param node_ids: 节点标识列表。
 ## [br]
-## @return 移除报告。
+## @return: 移除报告。
 ## [br]
 ## @schema return: Dictionary，包含 ok、removed_node_ids、removed_node_count 和 connection_count。
 func remove_nodes(graph: GFFlowGraph, node_ids: PackedStringArray) -> Dictionary:
@@ -811,8 +845,6 @@ func _get_port_id_for_editor(port: Resource) -> StringName:
 	var port_id: StringName = _get_string_name_property(port, &"port_id")
 	if port_id != &"":
 		return port_id
-	if port != null and not port.resource_path.is_empty():
-		return StringName(port.resource_path)
 	return &""
 
 
@@ -1101,6 +1133,8 @@ func _get_successor_node_ids_for_editor(
 	for connection: Dictionary in _dictionary_array_property(graph, &"connections"):
 		if _get_connection_from_node_id(connection) != node_id:
 			continue
+		if _get_connection_from_port_id(connection) != &"" or _get_connection_to_port_id(connection) != &"":
+			continue
 		_append_successor_id_for_editor(result, _get_connection_to_node_id(connection), node_ids)
 	return result
 
@@ -1157,6 +1191,9 @@ func _validate_metadata_against_schema(
 			continue
 
 		var value: Variant = _metadata_get_value(target_metadata, key)
+		if typeof(value) == TYPE_OBJECT and not is_instance_valid(value):
+			_append_validation_issue(report, "error", "metadata_invalid_object", String(key), "%s metadata references a freed object: %s" % [label, String(key)])
+			continue
 		if value == null:
 			if not GFVariantData.get_option_bool(rule, "allow_null", true):
 				_append_validation_issue(report, "error", "metadata_null_not_allowed", String(key), "%s metadata does not allow null: %s" % [label, String(key)])
@@ -1168,8 +1205,8 @@ func _validate_metadata_against_schema(
 				_append_validation_issue(report, "error", "metadata_type_mismatch", String(key), "%s metadata type does not match schema: %s" % [label, String(key)])
 
 		var expected_class: String = GFVariantData.get_option_string(rule, "class_name", "")
-		var object_value: Object = value if value is Object else null
-		if not expected_class.is_empty() and not (object_value != null and object_value.is_class(expected_class)):
+		var object_value: Object = _get_valid_object_value(value)
+		if not expected_class.is_empty() and not _object_matches_class(object_value, expected_class):
 			_append_validation_issue(report, "error", "metadata_class_mismatch", String(key), "%s metadata class does not match schema: %s" % [label, String(key)])
 
 		var allowed_values: Array = GFVariantData.get_option_array(rule, "allowed_values")
@@ -1185,6 +1222,29 @@ func _metadata_get_value(target_metadata: Dictionary, key: StringName) -> Varian
 	if target_metadata.has(key):
 		return target_metadata[key]
 	return GFVariantData.get_option_value(target_metadata, String(key), null)
+
+
+func _object_matches_class(value: Object, expected_class: String) -> bool:
+	if value == null or not is_instance_valid(value):
+		return false
+	if value.is_class(expected_class):
+		return true
+	var script_value: Variant = value.get_script()
+	while script_value is Script:
+		var script: Script = script_value
+		if script.get_global_name() == expected_class:
+			return true
+		script_value = script.get_base_script()
+	return false
+
+
+func _get_valid_object_value(value: Variant) -> Object:
+	if typeof(value) != TYPE_OBJECT or not is_instance_valid(value):
+		return null
+	if value is Object:
+		var object_value: Object = value
+		return object_value
+	return null
 
 
 func _append_validation_issue(report: Dictionary, severity: String, kind: String, key: String, message: String) -> void:
@@ -1215,6 +1275,7 @@ func _get_validation_next_actions() -> Dictionary:
 		"terminal_node": "Connect a successor, disable warn_terminal_nodes, or keep the node intentionally terminal.",
 		"metadata_missing_required": "Add the required metadata key or relax the metadata schema.",
 		"metadata_null_not_allowed": "Provide a non-null metadata value or allow null in the schema.",
+		"metadata_invalid_object": "Remove the freed object reference or provide a live object value.",
 		"metadata_type_mismatch": "Update the metadata value type or the schema type hint.",
 		"metadata_class_mismatch": "Update the metadata object class or the schema class_name hint.",
 		"metadata_value_not_allowed": "Use one of the schema allowed_values or remove the restriction.",
@@ -1226,6 +1287,7 @@ func _get_metadata_validation_next_actions() -> Dictionary:
 	return {
 		"metadata_missing_required": "Add the required metadata key or relax the metadata schema.",
 		"metadata_null_not_allowed": "Provide a non-null metadata value or allow null in the schema.",
+		"metadata_invalid_object": "Remove the freed object reference or provide a live object value.",
 		"metadata_type_mismatch": "Update the metadata value type or the schema type hint.",
 		"metadata_class_mismatch": "Update the metadata object class or the schema class_name hint.",
 		"metadata_value_not_allowed": "Use one of the schema allowed_values or remove the restriction.",
@@ -1389,10 +1451,11 @@ func _make_unique_node_id(
 	var base: String = String(preferred_id)
 	if base.is_empty():
 		base = "node"
-	if keep_original_id and not graph.has_node(preferred_id) and not reserved_ids.has(preferred_id):
-		return preferred_id
-	if not graph.has_node(preferred_id) and not reserved_ids.has(preferred_id):
-		return preferred_id
+	var base_id: StringName = StringName(base)
+	if keep_original_id and not graph.has_node(base_id) and not reserved_ids.has(base_id):
+		return base_id
+	if not graph.has_node(base_id) and not reserved_ids.has(base_id):
+		return base_id
 
 	var index: int = 2
 	while true:

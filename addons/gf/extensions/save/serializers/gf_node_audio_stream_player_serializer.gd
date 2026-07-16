@@ -22,6 +22,17 @@ const _OPTIONAL_PROPERTIES: PackedStringArray = [
 	"attenuation",
 ]
 
+const _APPLY_PROPERTY_SPECS: Array[Dictionary] = [
+	{ "key": "playing", "kind": &"bool" },
+	{ "key": "playback_position", "kind": &"float" },
+	{ "key": "stream_paused", "kind": &"bool" },
+	{ "key": "volume_db", "kind": &"float" },
+	{ "key": "pitch_scale", "kind": &"float" },
+	{ "key": "bus", "kind": &"string_name" },
+	{ "key": "max_distance", "kind": &"float" },
+	{ "key": "attenuation", "kind": &"float" },
+]
+
 
 # --- Godot 生命周期方法 ---
 
@@ -88,6 +99,10 @@ func gather(node: Node, _context: Dictionary = {}) -> Dictionary:
 func apply(node: Node, payload: Dictionary, _context: Dictionary = {}) -> Dictionary:
 	if not supports_node(node):
 		return make_result(false, "Node is not AudioStreamPlayer.")
+
+	var errors: Array[String] = _validate_property_specs_payload(payload, _APPLY_PROPERTY_SPECS)
+	if not errors.is_empty():
+		return make_result(false, "; ".join(errors))
 
 	_apply_properties_from_payload(node, payload, PackedStringArray([
 		"volume_db",

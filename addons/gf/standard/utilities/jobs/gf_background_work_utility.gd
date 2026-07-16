@@ -73,6 +73,8 @@ signal work_applied(task: GFBackgroundWorkTask)
 const _MAX_PAYLOAD_DEPTH: int = 64
 const _GF_PRIORITY_QUEUE_SCRIPT = preload("res://addons/gf/standard/foundation/collections/gf_priority_queue.gd")
 const _THREADED_RESOURCE_LOAD_ADAPTER = preload("res://addons/gf/standard/utilities/assets/gf_threaded_resource_load_adapter.gd")
+const _THREADED_RESOURCE_COORDINATOR_SCRIPT = preload("res://addons/gf/standard/utilities/assets/gf_threaded_resource_coordinator.gd")
+const _THREADED_RESOURCE_OPERATION_SCRIPT = preload("res://addons/gf/standard/utilities/assets/gf_threaded_resource_operation.gd")
 
 
 # --- 公共变量 ---
@@ -124,6 +126,7 @@ var _resource_requests: Dictionary = {}
 var _apply_queue: Array = []
 var _finished_tasks: Array = []
 var _paused: bool = false
+var _threaded_resource_coordinator: _THREADED_RESOURCE_COORDINATOR_SCRIPT = _THREADED_RESOURCE_COORDINATOR_SCRIPT.new()
 
 
 # --- GF 生命周期方法 ---
@@ -133,6 +136,10 @@ var _paused: bool = false
 ## @api public
 func init() -> void:
 	ignore_pause = true
+	_threaded_resource_coordinator.configure(
+		Callable(self, "_request_threaded_resource"),
+		Callable(self, "_poll_threaded_resource")
+	)
 	clear_all()
 
 
@@ -144,6 +151,7 @@ func init() -> void:
 func tick(_delta: float = 0.0) -> void:
 	_poll_thread_tasks()
 	_poll_resource_requests()
+	_drain_cancelled_threaded_operations()
 	_process_apply_queue()
 	_start_queued_thread_tasks()
 
@@ -262,6 +270,9 @@ func cancel_work(work_id: StringName) -> bool:
 		return false
 
 	task.cancel_requested = true
+	if task.kind == GFBackgroundWorkTask.Kind.RESOURCE and task.status == GFBackgroundWorkTask.Status.RUNNING:
+		_release_resource_operation_for_task(task, &"resource_work_cancelled")
+		return true
 	if task.status == GFBackgroundWorkTask.Status.QUEUED:
 		var _removed_queued_task: bool = _queued_thread_tasks.remove_value(task)
 		_cancel_task(task)
@@ -363,12 +374,15 @@ func clear_all() -> void:
 		var task: GFBackgroundWorkTask = _as_task(task_variant)
 		if task != null and not task.is_finished():
 			task.cancel_requested = true
+			if task.kind == GFBackgroundWorkTask.Kind.RESOURCE:
+				_release_resource_operation_for_task(task, &"background_work_clear_all")
 			_cancel_task(task)
 	_work_serial = 0
 	_tasks.clear()
 	_queued_thread_tasks.clear()
 	_active_thread_tasks.clear()
 	_resource_requests.clear()
+	_threaded_resource_coordinator.cancel_all(&"background_work_clear_all")
 	_apply_queue.clear()
 	_finished_tasks.clear()
 	_paused = false
@@ -378,21 +392,29 @@ func clear_all() -> void:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @return 调试快照字典。
 ## [br]
-## @schema return: Dictionary，包含任务计数、queued_ids、running_thread_ids、resource_paths、apply_ids、finished_ids、暂停状态和 apply 时间预算。
+## @schema return: Dictionary，包含任务计数、queued_ids、running_thread_ids、resource_paths、resource_draining_count、threaded_resource_operations、apply_ids、finished_ids、暂停状态和 apply 时间预算。
 func get_debug_snapshot() -> Dictionary:
 	return {
 		"task_count": _tasks.size(),
 		"queued_count": _queued_thread_tasks.size(),
 		"running_thread_count": _active_thread_tasks.size(),
 		"resource_request_count": _resource_requests.size(),
+		"resource_draining_count": GFVariantData.get_option_int(
+			_threaded_resource_coordinator.get_debug_snapshot(),
+			"draining_count",
+			0
+		),
 		"apply_count": _apply_queue.size(),
 		"finished_count": _finished_tasks.size(),
 		"is_paused": _paused,
 		"queued_ids": _task_ids(_queued_thread_tasks.to_array(false)),
 		"running_thread_ids": _active_thread_task_ids(),
 		"resource_paths": PackedStringArray(_resource_requests.keys()),
+		"threaded_resource_operations": _threaded_resource_coordinator.get_debug_snapshot(),
 		"apply_ids": _task_ids(_apply_queue),
 		"finished_ids": _task_ids(_finished_tasks),
 		"max_apply_seconds_per_tick": max_apply_seconds_per_tick,
@@ -470,7 +492,7 @@ func _start_queued_thread_tasks() -> void:
 
 
 func _insert_queued_thread_task(task: GFBackgroundWorkTask, front: bool) -> void:
-	_queued_thread_tasks.push(task, task.priority, front)
+	var _task_queued: bool = _queued_thread_tasks.push(task, task.priority, front)
 
 
 func _start_thread_task(task: GFBackgroundWorkTask) -> void:
@@ -556,10 +578,12 @@ func _start_resource_task(task: GFBackgroundWorkTask) -> void:
 
 		var tasks: Array = _get_resource_request_tasks(request)
 		tasks.append(task)
+		_retain_resource_operation(request)
 		_start_task_without_thread(task)
 		return
 
-	var error: Error = _request_threaded_resource(path, task.resource_type_hint)
+	var operation: _THREADED_RESOURCE_OPERATION_SCRIPT = _threaded_resource_coordinator.request(path, task.resource_type_hint)
+	var error: Error = operation.get_request_error() if operation != null else ERR_CANT_CREATE
 	if error != OK:
 		_fail_task(task, "[GFBackgroundWorkUtility] 发起资源线程加载失败：%s (%d)。" % [path, error])
 		return
@@ -568,6 +592,8 @@ func _start_resource_task(task: GFBackgroundWorkTask) -> void:
 		"type_hint": task.resource_type_hint,
 		"progress": 0.0,
 		"tasks": [task],
+		"operation": operation,
+		"released_task_ids": {},
 	}
 	_start_task_without_thread(task)
 
@@ -585,11 +611,13 @@ func _poll_resource_requests() -> void:
 			continue
 
 		var request: Dictionary = _get_resource_request(path)
-		var load_result: Dictionary = _THREADED_RESOURCE_LOAD_ADAPTER.poll(
-			path,
-			GFVariantData.get_option_float(request, "progress", 0.0)
+		var operation: _THREADED_RESOURCE_OPERATION_SCRIPT = _get_resource_request_operation(request)
+		var load_result: Dictionary = _threaded_resource_coordinator.poll_operation(operation)
+		var status: StringName = GFVariantData.get_option_string_name(
+			load_result,
+			"status",
+			_THREADED_RESOURCE_OPERATION_SCRIPT.STATUS_INVALID
 		)
-		var status: StringName = GFVariantData.get_option_string_name(load_result, "status", _THREADED_RESOURCE_LOAD_ADAPTER.STATUS_INVALID)
 		var ratio: float = GFVariantData.get_option_float(load_result, "progress", 0.0)
 		request["progress"] = ratio
 		var tasks: Array = _get_resource_request_tasks(request)
@@ -599,17 +627,18 @@ func _poll_resource_requests() -> void:
 				var _progress_updated: bool = update_work_progress(task.work_id, ratio)
 
 		match status:
-			_THREADED_RESOURCE_LOAD_ADAPTER.STATUS_IN_PROGRESS:
+			_THREADED_RESOURCE_OPERATION_SCRIPT.STATUS_IN_PROGRESS, _THREADED_RESOURCE_OPERATION_SCRIPT.STATUS_DRAINING:
 				pass
 
-			_THREADED_RESOURCE_LOAD_ADAPTER.STATUS_LOADED:
+			_THREADED_RESOURCE_OPERATION_SCRIPT.STATUS_COMPLETED:
 				var resource: Resource = _get_load_result_resource(load_result)
 				var _removed_loaded_request: bool = _resource_requests.erase(path)
 				for task_variant: Variant in tasks:
 					var task: GFBackgroundWorkTask = _as_task(task_variant)
 					_finish_resource_task(task, resource)
+				_threaded_resource_coordinator.forget_operation(operation)
 
-			_THREADED_RESOURCE_LOAD_ADAPTER.STATUS_FAILED, _THREADED_RESOURCE_LOAD_ADAPTER.STATUS_INVALID:
+			_THREADED_RESOURCE_OPERATION_SCRIPT.STATUS_FAILED, _THREADED_RESOURCE_OPERATION_SCRIPT.STATUS_INVALID:
 				var _removed_failed_request: bool = _resource_requests.erase(path)
 				for task_variant: Variant in tasks:
 					var task: GFBackgroundWorkTask = _as_task(task_variant)
@@ -617,6 +646,15 @@ func _poll_resource_requests() -> void:
 						_cancel_task(task)
 					else:
 						_fail_task(task, "[GFBackgroundWorkUtility] 资源线程加载失败：%s。" % path)
+				_threaded_resource_coordinator.forget_operation(operation)
+
+			_THREADED_RESOURCE_OPERATION_SCRIPT.STATUS_SUPPRESSED:
+				var _removed_suppressed_request: bool = _resource_requests.erase(path)
+				for task_variant: Variant in tasks:
+					var task: GFBackgroundWorkTask = _as_task(task_variant)
+					if task != null and not task.is_finished():
+						_cancel_task(task)
+				_threaded_resource_coordinator.forget_operation(operation)
 
 
 func _finish_resource_task(task: GFBackgroundWorkTask, resource: Resource) -> void:
@@ -802,6 +840,51 @@ func _request_threaded_resource(path: String, type_hint: String) -> Error:
 	return _THREADED_RESOURCE_LOAD_ADAPTER.request(path, type_hint)
 
 
+func _poll_threaded_resource(path: String, previous_progress: float) -> Dictionary:
+	return _THREADED_RESOURCE_LOAD_ADAPTER.poll(path, previous_progress)
+
+
+func _retain_resource_operation(request: Dictionary) -> void:
+	var operation: _THREADED_RESOURCE_OPERATION_SCRIPT = _get_resource_request_operation(request)
+	if operation == null:
+		return
+	var _ref_count: int = _threaded_resource_coordinator.retain_operation(operation)
+
+
+func _release_resource_operation_for_task(task: GFBackgroundWorkTask, reason: StringName) -> void:
+	if task == null or task.resource_path.is_empty():
+		return
+	var request: Dictionary = _get_resource_request(task.resource_path)
+	if request.is_empty():
+		return
+
+	var released_task_ids: Dictionary = GFVariantData.get_option_dictionary(request, "released_task_ids")
+	if released_task_ids.has(task.work_id):
+		return
+	released_task_ids[task.work_id] = true
+	request["released_task_ids"] = released_task_ids
+
+	var operation: _THREADED_RESOURCE_OPERATION_SCRIPT = _get_resource_request_operation(request)
+	if operation == null:
+		return
+	var _ref_count: int = _threaded_resource_coordinator.release_operation(operation)
+	if not _resource_request_has_live_consumers(request):
+		_threaded_resource_coordinator.cancel_operation(operation, reason, false)
+
+
+func _resource_request_has_live_consumers(request: Dictionary) -> bool:
+	var tasks: Array = _get_resource_request_tasks(request)
+	for task_variant: Variant in tasks:
+		var task: GFBackgroundWorkTask = _as_task(task_variant)
+		if task != null and not task.cancel_requested and not task.is_finished():
+			return true
+	return false
+
+
+func _drain_cancelled_threaded_operations() -> void:
+	var _drained_count: int = _threaded_resource_coordinator.drain_cancelled_operations()
+
+
 func _type_hints_are_compatible(left: String, right: String) -> bool:
 	return left.is_empty() or right.is_empty() or left == right
 
@@ -824,6 +907,14 @@ func _get_resource_request(path: String) -> Dictionary:
 
 func _get_resource_request_tasks(request: Dictionary) -> Array:
 	return GFVariantData.as_array(GFVariantData.get_option_value(request, "tasks", []))
+
+
+func _get_resource_request_operation(request: Dictionary) -> _THREADED_RESOURCE_OPERATION_SCRIPT:
+	var value: Variant = GFVariantData.get_option_value(request, "operation")
+	if value is _THREADED_RESOURCE_OPERATION_SCRIPT:
+		var operation: _THREADED_RESOURCE_OPERATION_SCRIPT = value
+		return operation
+	return null
 
 
 func _get_result_payload(result: Dictionary) -> Variant:

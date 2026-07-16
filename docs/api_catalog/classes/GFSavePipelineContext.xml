@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSavePipelineContext" path="addons/gf/extensions/save/pipeline/gf_save_pipeline_context.gd" module="extensions/save" extends="RefCounted" classDigest="fd76d3e416a734fa80c2c3d95e0911c87172bfd1c7476a2730876eb2bf17f3b3">
+<class name="GFSavePipelineContext" path="addons/gf/extensions/save/pipeline/gf_save_pipeline_context.gd" module="extensions/save" extends="RefCounted" classDigest="338f2458585ff43442e140ad498d890829f5b3427c1ef6a1c054da67fca9997a">
 	<description>GFSavePipelineContext: 存档图流程上下文。
 在一次 gather/apply 操作中收集通用事件、警告、错误与共享数据。
 上下文通过调用者传入的 context 字典传播，不要求存档载荷写死任何字段。</description>
@@ -17,6 +17,7 @@
 			<description>当前操作类型，如 gather 或 apply。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="root_scope_key">
@@ -24,6 +25,7 @@
 			<description>根作用域键。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="shared">
@@ -32,6 +34,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="schema">shared: Dictionary，一次流程中的临时共享字段，不会自动写入存档载荷。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="events">
@@ -39,6 +42,7 @@
 			<description>流程事件列表。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="warnings">
@@ -46,6 +50,7 @@
 			<description>通用警告信息。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="errors">
@@ -53,6 +58,15 @@
 			<description>通用错误信息。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="transaction_participants">
+			<signature>var transaction_participants: Array[GFSaveTransactionParticipant] = []</signature>
+			<description>本次 apply 事务参与者列表。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="started_at_msec">
@@ -60,6 +74,7 @@
 			<description>开始时间。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="finished_at_msec">
@@ -67,6 +82,7 @@
 			<description>结束时间。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</properties>
@@ -81,6 +97,7 @@
 				<tag name="param">p_shared: 初始共享数据。</tag>
 				<tag name="return">当前上下文。</tag>
 				<tag name="schema">p_shared: Dictionary，一次流程中的临时共享字段，不会自动写入存档载荷。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="record_event">
@@ -96,6 +113,7 @@
 				<tag name="param">severity: 严重级别。</tag>
 				<tag name="return">新事件。</tag>
 				<tag name="schema">payload: Dictionary，项目或流程步骤附加的诊断字段。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="add_warning">
@@ -106,6 +124,7 @@
 				<tag name="param">message: 警告内容。</tag>
 				<tag name="param">payload: 附加载荷。</tag>
 				<tag name="schema">payload: Dictionary，项目或流程步骤附加的诊断字段。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="add_error">
@@ -116,6 +135,42 @@
 				<tag name="param">message: 错误内容。</tag>
 				<tag name="param">payload: 附加载荷。</tag>
 				<tag name="schema">payload: Dictionary，项目或流程步骤附加的诊断字段。</tag>
+				<tag name="since">3.17.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="register_transaction_participant">
+			<signature>func register_transaction_participant(participant: GFSaveTransactionParticipant) -&gt; void:</signature>
+			<description>登记本次 apply 事务参与者。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">participant: 参与 prepare / commit / rollback 的事务对象。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="unregister_transaction_participant">
+			<signature>func unregister_transaction_participant(participant: GFSaveTransactionParticipant) -&gt; void:</signature>
+			<description>注销本次 apply 事务参与者。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">participant: 要注销的事务对象。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_transaction_participants">
+			<signature>func get_transaction_participants() -&gt; Array[GFSaveTransactionParticipant]:</signature>
+			<description>获取本次 apply 事务参与者副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">事务参与者数组。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="clear_transaction_participants">
+			<signature>func clear_transaction_participants() -&gt; void:</signature>
+			<description>清空本次 apply 事务参与者。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="finish">
@@ -123,6 +178,7 @@
 			<description>标记流程结束。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_finished">
@@ -131,6 +187,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">已结束返回 true。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_elapsed_msec">
@@ -139,6 +196,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">耗时。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="to_dict">
@@ -148,7 +206,8 @@
 				<tag name="api">public</tag>
 				<tag name="param">include_events: 是否包含事件列表。</tag>
 				<tag name="return">上下文字典。</tag>
-				<tag name="schema">return: Dictionary，包含 operation、root_scope_key、shared、warnings、errors、started_at_msec、finished_at_msec、elapsed_msec、event_count；include_events 为 true 时包含 events: Array[Dictionary]。</tag>
+				<tag name="schema">return: Dictionary，包含 operation、root_scope_key、JSON-safe shared、warnings、errors、started_at_msec、finished_at_msec、elapsed_msec、event_count；include_events 为 true 时包含 events: Array[Dictionary]。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</methods>

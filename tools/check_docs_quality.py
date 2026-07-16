@@ -11,6 +11,7 @@ from urllib.parse import unquote
 
 
 DEFAULT_MAX_LINES = 300
+DEFAULT_MAX_CHANGELOG_LINES = 800
 DEFAULT_MAX_PARAGRAPH_CHARS = 1800
 DEFAULT_MIN_BODY_LINES = 12
 DEFAULT_MIN_STRUCTURED_BODY_LINES = 34
@@ -18,8 +19,11 @@ DEFAULT_FRAGMENT_REPORT_LIMIT = 200
 
 
 LIST_ITEM_PATTERN = re.compile(r"^(\s*[-*+]\s+|\s*\d+\.\s+)")
-MARKDOWN_LINK_PATTERN = re.compile(r"(?<!!)\[[^\]\n]+\]\(([^)\n]+)\)")
-EXTERNAL_LINK_PATTERN = re.compile(r"^[a-z][a-z0-9+.-]*:", re.IGNORECASE)
+MARKDOWN_LINK_PATTERN = re.compile(r"!?\[[^\]\n]*\]\(([^)\n]+)\)")
+APPROVED_EXTERNAL_LINK_PATTERN = re.compile(r"^(?:https?://|mailto:)", re.IGNORECASE)
+WINDOWS_DRIVE_PATH_PATTERN = re.compile(r"^[A-Za-z]:[\\/]")
+HEADING_PATTERN = re.compile(r"^(#{1,6})\s+(.+?)\s*#*\s*$")
+FENCE_PATTERN = re.compile(r"^\s*(`{3,}|~{3,})")
 MERMAID_START_PATTERN = re.compile(
     r"^(graph\s+(?:TB|TD|BT|RL|LR)\b|flowchart\s+(?:TB|TD|BT|RL|LR)\b|"
     r"sequenceDiagram\b|classDiagram\b|stateDiagram(?:-v2)?\b|erDiagram\b|"
@@ -83,6 +87,15 @@ def parse_args() -> argparse.Namespace:
         type=int,
         default=DEFAULT_MAX_LINES,
         help=f"Maximum lines per hand-authored page. Defaults to {DEFAULT_MAX_LINES}.",
+    )
+    parser.add_argument(
+        "--max-changelog-lines",
+        type=int,
+        default=DEFAULT_MAX_CHANGELOG_LINES,
+        help=(
+            "Maximum lines for docs/zh/changelog.md. "
+            f"Defaults to {DEFAULT_MAX_CHANGELOG_LINES}."
+        ),
     )
     parser.add_argument(
         "--max-paragraph-chars",
@@ -165,6 +178,16 @@ def parse_args() -> argparse.Namespace:
         help="Fail when local Markdown links point to missing files.",
     )
     parser.add_argument(
+        "--report-link-anchors",
+        action="store_true",
+        help="Report local Markdown links whose #fragment does not match a target heading anchor.",
+    )
+    parser.add_argument(
+        "--fail-link-anchors",
+        action="store_true",
+        help="Fail when local Markdown links point to missing heading anchors.",
+    )
+    parser.add_argument(
         "--report-render-syntax",
         action="store_true",
         help="Report rendering-sensitive Markdown syntax issues, such as Mermaid fences.",
@@ -212,15 +235,29 @@ def is_paragraph_boundary(stripped: str) -> bool:
     return LIST_ITEM_PATTERN.match(stripped) is not None
 
 
-def check_file(path: Path, root: Path, max_lines: int, max_paragraph_chars: int) -> list[str]:
+def max_lines_for_file(path: Path, root: Path, max_lines: int, max_changelog_lines: int) -> int:
+    relative = path.relative_to(root).as_posix()
+    if relative == "changelog.md":
+        return max_changelog_lines
+    return max_lines
+
+
+def check_file(
+    path: Path,
+    root: Path,
+    max_lines: int,
+    max_changelog_lines: int,
+    max_paragraph_chars: int,
+) -> list[str]:
     relative_path = path.relative_to(root.parent).as_posix()
     text = path.read_text(encoding="utf-8")
     lines = text.splitlines()
     errors: list[str] = []
+    file_max_lines = max_lines_for_file(path, root, max_lines, max_changelog_lines)
 
-    if len(lines) > max_lines:
+    if len(lines) > file_max_lines:
         errors.append(
-            f"{relative_path}: page has {len(lines)} lines, limit is {max_lines}"
+            f"{relative_path}: page has {len(lines)} lines, limit is {file_max_lines}"
         )
 
     h1_lines: list[int] = []
@@ -347,7 +384,7 @@ def split_link_target(raw_target: str) -> str:
 
 
 def is_external_link(target: str) -> bool:
-    return target.startswith("//") or EXTERNAL_LINK_PATTERN.match(target) is not None
+    return APPROVED_EXTERNAL_LINK_PATTERN.match(target) is not None
 
 
 def check_local_links(path: Path, root: Path) -> list[str]:
@@ -355,13 +392,18 @@ def check_local_links(path: Path, root: Path) -> list[str]:
     relative_path = path.relative_to(root.parent).as_posix()
     text = path.read_text(encoding="utf-8")
     errors: list[str] = []
-    in_fence = False
+    fence_marker = ""
 
     for line_number, line in enumerate(text.splitlines(), start=1):
-        if line.strip().startswith("```"):
-            in_fence = not in_fence
+        fence_match = FENCE_PATTERN.match(line)
+        if fence_match is not None:
+            marker = fence_match.group(1)[0]
+            if not fence_marker:
+                fence_marker = marker
+            elif marker == fence_marker:
+                fence_marker = ""
             continue
-        if in_fence:
+        if fence_marker:
             continue
 
         for match in MARKDOWN_LINK_PATTERN.finditer(line):
@@ -373,18 +415,127 @@ def check_local_links(path: Path, root: Path) -> list[str]:
             if not path_part:
                 continue
 
-            if path_part.startswith("/"):
-                target_path = root / path_part.lstrip("/")
-            else:
-                target_path = path.parent / path_part
-
-            if not target_path.exists():
+            target_path = resolve_local_link_path(path, root, path_part)
+            if target_path is None:
+                errors.append(
+                    f"{relative_path}:{line_number}: local link escapes documentation root: "
+                    f"{target}"
+                )
+            elif not target_path.exists():
                 errors.append(
                     f"{relative_path}:{line_number}: local link target does not exist: "
                     f"{target}"
                 )
 
     return errors
+
+
+def check_local_link_anchors(path: Path, root: Path) -> list[str]:
+    """Validate local Markdown link fragments against target page headings."""
+    relative_path = path.relative_to(root.parent).as_posix()
+    text = path.read_text(encoding="utf-8")
+    errors: list[str] = []
+    fence_marker = ""
+    anchor_cache: dict[Path, set[str]] = {}
+
+    for line_number, line in enumerate(text.splitlines(), start=1):
+        fence_match = FENCE_PATTERN.match(line)
+        if fence_match is not None:
+            marker = fence_match.group(1)[0]
+            if not fence_marker:
+                fence_marker = marker
+            elif marker == fence_marker:
+                fence_marker = ""
+            continue
+        if fence_marker:
+            continue
+
+        for match in MARKDOWN_LINK_PATTERN.finditer(line):
+            target = unquote(split_link_target(match.group(1)))
+            if not target or is_external_link(target):
+                continue
+
+            path_part, fragment = split_target_fragment(target)
+            if not fragment:
+                continue
+            target_path = resolve_local_link_path(path, root, path_part)
+            if target_path is None or not target_path.exists() or target_path.suffix.lower() != ".md":
+                continue
+
+            if target_path not in anchor_cache:
+                anchor_cache[target_path] = collect_markdown_heading_anchors(target_path)
+            if fragment not in anchor_cache[target_path]:
+                errors.append(
+                    f"{relative_path}:{line_number}: local link anchor does not exist: "
+                    f"{target}"
+                )
+
+    return errors
+
+
+def split_target_fragment(target: str) -> tuple[str, str]:
+    without_query = target.split("?", 1)[0]
+    if "#" not in without_query:
+        return without_query, ""
+    path_part, fragment = without_query.split("#", 1)
+    return path_part, fragment.strip()
+
+
+def resolve_local_link_path(source_path: Path, root: Path, path_part: str) -> Path | None:
+    normalized_path_part = path_part.replace("\\", "/")
+    if WINDOWS_DRIVE_PATH_PATTERN.match(path_part) or normalized_path_part.lower().startswith("file:"):
+        return None
+    if not normalized_path_part:
+        candidate = source_path.resolve()
+    elif normalized_path_part.startswith("/"):
+        candidate = (root / normalized_path_part.lstrip("/")).resolve()
+    else:
+        candidate = (source_path.parent / normalized_path_part).resolve()
+    try:
+        candidate.relative_to(root.resolve())
+    except ValueError:
+        return None
+    return candidate
+
+
+def collect_markdown_heading_anchors(path: Path) -> set[str]:
+    text = path.read_text(encoding="utf-8")
+    anchors: set[str] = set()
+    counts: dict[str, int] = {}
+    in_fence = False
+    for line in text.splitlines():
+        if line.strip().startswith("```"):
+            in_fence = not in_fence
+            continue
+        if in_fence:
+            continue
+        match = HEADING_PATTERN.match(line)
+        if match is None:
+            continue
+        base_slug = slugify_heading(match.group(2))
+        if not base_slug:
+            continue
+        count = counts.get(base_slug, 0)
+        counts[base_slug] = count + 1
+        anchors.add(base_slug if count == 0 else f"{base_slug}_{count}")
+    return anchors
+
+
+def slugify_heading(text: str) -> str:
+    stripped = re.sub(r"<[^>]+>", "", text)
+    stripped = re.sub(r"`([^`]+)`", r"\1", stripped)
+    stripped = re.sub(r"\[([^\]]+)\]\([^)]+\)", r"\1", stripped)
+    stripped = stripped.replace("*", "").replace("_", "").strip().lower()
+    chars: list[str] = []
+    previous_dash = False
+    for char in stripped:
+        if char.isalnum():
+            chars.append(char)
+            previous_dash = False
+        elif not previous_dash:
+            chars.append("-")
+            previous_dash = True
+    return "".join(chars).strip("-")
 
 
 def mermaid_first_content_line(lines: list[str]) -> str:
@@ -607,6 +758,7 @@ def main() -> int:
         args.fail_fragments = True
         args.fail_entry_templates = True
         args.fail_local_links = True
+        args.fail_link_anchors = True
         args.fail_render_syntax = True
         args.fail_public_maintenance_leaks = True
         args.fail_unstructured_body_pages = True
@@ -621,6 +773,7 @@ def main() -> int:
     fragment_candidates: list[str] = []
     unstructured_body_pages: list[str] = []
     local_link_errors: list[str] = []
+    local_link_anchor_errors: list[str] = []
     render_syntax_errors: list[str] = []
     public_maintenance_errors: list[str] = []
     has_mermaid_diagrams = False
@@ -634,6 +787,7 @@ def main() -> int:
                 path,
                 root,
                 args.max_lines,
+                args.max_changelog_lines,
                 args.max_paragraph_chars,
             )
         )
@@ -655,6 +809,8 @@ def main() -> int:
             )
         if args.report_local_links or args.fail_local_links:
             local_link_errors.extend(check_local_links(path, root))
+        if args.report_link_anchors or args.fail_link_anchors:
+            local_link_anchor_errors.extend(check_local_link_anchors(path, root))
         if args.report_render_syntax or args.fail_render_syntax:
             file_render_errors, file_has_mermaid = check_rendering_syntax(path, root)
             render_syntax_errors.extend(file_render_errors)
@@ -728,6 +884,19 @@ def main() -> int:
             print(message, file=sys.stderr)
             return 1
         if args.report_local_links:
+            print(message)
+
+    if local_link_anchor_errors:
+        for error in local_link_anchor_errors:
+            print(error, file=sys.stderr)
+        message = (
+            "Docs local link anchor check found "
+            f"{len(local_link_anchor_errors)} issue(s)."
+        )
+        if args.fail_link_anchors:
+            print(message, file=sys.stderr)
+            return 1
+        if args.report_link_anchors:
             print(message)
 
     if has_mermaid_diagrams:

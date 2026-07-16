@@ -184,6 +184,23 @@ func test_connect_any_and_disconnect_connections() -> void:
 	assert_eq(received, [1, "two"], "disconnect_connections 应断开批量连接。")
 
 
+func test_direct_connection_disconnect_untracks_from_utility() -> void:
+	var emitter: SampleEmitter = SampleEmitter.new()
+	var received: Array[Variant] = []
+	var callback: Callable = func(value: int) -> void:
+		received.append(value)
+
+	var connection: GFSignalConnection = _utility.connect_signal(emitter.changed, callback)
+	assert_eq(_utility.get_connection_count(), 1, "连接启动后工具应追踪句柄。")
+
+	connection.disconnect_signal()
+	emitter.emit_changed(3)
+	await get_tree().process_frame
+
+	assert_true(received.is_empty(), "直接断开连接后回调不应再触发。")
+	assert_eq(_utility.get_connection_count(), 0, "直接断开连接后工具追踪计数应归零。")
+
+
 func test_connect_once_disconnects_after_first_emit() -> void:
 	var emitter: SampleEmitter = SampleEmitter.new()
 	var count: Array[Variant] = []
@@ -230,6 +247,25 @@ func test_connect_signal_distinguishes_default_args() -> void:
 	await get_tree().process_frame
 
 	assert_eq(received, ["a:5", "b:5"], "相同 Signal/回调但默认参数不同应保留为两个连接。")
+
+
+func test_connect_signal_does_not_reuse_chain_mutated_connection() -> void:
+	var emitter: SampleEmitter = SampleEmitter.new()
+	var received: Array[Variant] = []
+	var callback: Callable = func(value: int) -> void:
+		received.append(value)
+
+	var _delayed_result: Variant = _utility.connect_signal(emitter.changed, callback).delay(0.03)
+	var _direct_result: GFSignalConnection = _utility.connect_signal(emitter.changed, callback)
+	emitter.emit_changed(8)
+
+	await get_tree().process_frame
+	assert_eq(received, [8], "已链式配置的连接不应阻止同配置普通连接立即触发。")
+
+	await get_tree().create_timer(0.06).timeout
+	await get_tree().process_frame
+
+	assert_eq(received, [8, 8], "链式连接和普通连接应各自保留独立语义。")
 
 
 func test_disconnect_owner_removes_owned_connections() -> void:

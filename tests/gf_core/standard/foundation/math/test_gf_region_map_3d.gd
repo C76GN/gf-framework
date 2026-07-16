@@ -81,6 +81,31 @@ func test_clear_marks_removed_regions_dirty() -> void:
 	assert_true(region_map.get_dirty_region_keys().has(Vector3i(1, 0, 0)), "清空多个已有区域应分别标脏。")
 
 
+func test_region_size_change_reindexes_cells() -> void:
+	var region_map: GFRegionMap3D = GFRegionMap3D.new()
+	region_map.region_size = Vector3i(4, 4, 4)
+	region_map.set_cell(Vector3i.ZERO, "a")
+	region_map.set_cell(Vector3i(5, 0, 0), "b")
+	region_map.clear_dirty()
+
+	region_map.region_size = Vector3i(8, 8, 8)
+
+	assert_true(region_map.has_cell(Vector3i.ZERO), "调整 region_size 不应丢失已有格子。")
+	assert_eq(GFVariantData.to_text(region_map.get_cell(Vector3i(5, 0, 0))), "b")
+	assert_eq(region_map.get_region_keys(), [Vector3i.ZERO], "已有格子应按新的 region_size 重新索引。")
+	assert_true(region_map.get_dirty_region_keys().has(Vector3i(1, 0, 0)), "旧区域删除也应被标脏。")
+
+
+func test_region_size_is_clamped_before_indexing() -> void:
+	var region_map: GFRegionMap3D = GFRegionMap3D.new()
+
+	region_map.region_size = Vector3i(0, -5, 0)
+	region_map.set_cell(Vector3i(2, 3, 4), "a")
+
+	assert_eq(region_map.region_size, Vector3i.ONE)
+	assert_eq(region_map.get_region_key_for_cell(Vector3i(2, 3, 4)), Vector3i(2, 3, 4))
+
+
 func _append_tag(data: Dictionary, tag: String) -> void:
 	var tags_value: Variant = GFVariantData.get_option_value(data, "tags")
 	if tags_value is Array:

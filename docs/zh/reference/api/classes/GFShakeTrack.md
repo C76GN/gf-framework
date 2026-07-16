@@ -42,6 +42,7 @@
 ### `Waveform`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 enum Waveform {
@@ -63,6 +64,7 @@ enum Waveform {
 ### `BlendMode`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 enum BlendMode {
@@ -92,6 +94,7 @@ enum BlendMode {
 ### `enabled`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var enabled: bool = true
@@ -104,6 +107,7 @@ var enabled: bool = true
 ### `blend_mode`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var blend_mode: BlendMode = BlendMode.ADD
@@ -116,6 +120,7 @@ var blend_mode: BlendMode = BlendMode.ADD
 ### `waveform`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var waveform: Waveform = Waveform.NOISE
@@ -128,6 +133,7 @@ var waveform: Waveform = Waveform.NOISE
 ### `start_progress`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var start_progress: float = 0.0
@@ -140,6 +146,7 @@ var start_progress: float = 0.0
 ### `end_progress`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var end_progress: float = 1.0
@@ -152,6 +159,7 @@ var end_progress: float = 1.0
 ### `amplitude`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var amplitude: float = 1.0
@@ -164,6 +172,7 @@ var amplitude: float = 1.0
 ### `frequency`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var frequency: float = 24.0
@@ -176,6 +185,7 @@ var frequency: float = 24.0
 ### `position_axis`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var position_axis: Vector3 = Vector3.ONE
@@ -188,6 +198,7 @@ var position_axis: Vector3 = Vector3.ONE
 ### `rotation_axis_degrees`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var rotation_axis_degrees: Vector3 = Vector3.ZERO
@@ -200,6 +211,7 @@ var rotation_axis_degrees: Vector3 = Vector3.ZERO
 ### `scale_axis`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var scale_axis: Vector3 = Vector3.ZERO
@@ -212,6 +224,7 @@ var scale_axis: Vector3 = Vector3.ZERO
 ### `envelope_curve`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var envelope_curve: Curve = null
@@ -224,6 +237,7 @@ var envelope_curve: Curve = null
 ### `wave_curve`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var wave_curve: Curve = null
@@ -236,6 +250,7 @@ var wave_curve: Curve = null
 ### `sample_seed`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var sample_seed: int = 1
@@ -248,6 +263,7 @@ var sample_seed: int = 1
 ### `metadata`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var metadata: Dictionary = {}
@@ -266,6 +282,7 @@ var metadata: Dictionary = {}
 ### `sample`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func sample( preset_progress: float, elapsed_seconds: float, strength: float = 1.0, phase_offset: float = 0.0 ) -> Dictionary:
@@ -293,6 +310,7 @@ func sample( preset_progress: float, elapsed_seconds: float, strength: float = 1
 ### `zero_sample`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 static func zero_sample() -> Dictionary:
@@ -311,6 +329,7 @@ static func zero_sample() -> Dictionary:
 ### `blend_sample`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 static func blend_sample(base_sample: Dictionary, track_sample: Dictionary, mode: BlendMode) -> Dictionary:

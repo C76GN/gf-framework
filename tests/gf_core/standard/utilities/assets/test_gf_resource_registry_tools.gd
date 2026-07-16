@@ -151,6 +151,47 @@ func test_scan_resource_paths_filters_include_and_exclude_patterns() -> void:
 	assert_false(paths.has(audio_path), "未命中 include_patterns 的资源不应被收集。")
 
 
+func test_scan_resource_paths_uses_shared_enumeration_for_hidden_and_import_sidecars() -> void:
+	var root_path: String = "user://gf_resource_registry_tools_shared_enumeration"
+	var hidden_dir: String = root_path.path_join(".hidden")
+	var visible_path: String = root_path.path_join("visible.png")
+	var sidecar_path: String = root_path.path_join("visible.png.import")
+	var hidden_path: String = hidden_dir.path_join("hidden.tscn")
+	var make_root_error: Error = DirAccess.make_dir_recursive_absolute(root_path)
+	var make_hidden_error: Error = DirAccess.make_dir_recursive_absolute(hidden_dir)
+	assert_true(make_root_error == OK or make_root_error == ERR_ALREADY_EXISTS, "测试应能创建扫描根目录。")
+	assert_true(make_hidden_error == OK or make_hidden_error == ERR_ALREADY_EXISTS, "测试应能创建隐藏目录。")
+	_write_empty_user_file(visible_path)
+	_write_empty_user_file(sidecar_path)
+	_write_empty_user_file(hidden_path)
+
+	var default_paths: PackedStringArray = GFResourceRegistryTools.scan_resource_paths(root_path, {
+		"extensions": PackedStringArray(["png", "import", "tscn"]),
+	})
+	var hidden_paths: PackedStringArray = GFResourceRegistryTools.scan_resource_paths(root_path, {
+		"extensions": PackedStringArray(["png", "import", "tscn"]),
+		"include_hidden": true,
+	})
+	var sidecar_paths: PackedStringArray = GFResourceRegistryTools.scan_resource_paths(root_path, {
+		"extensions": PackedStringArray(["png", "import", "tscn"]),
+		"include_hidden": true,
+		"include_import_sidecars": true,
+	})
+
+	_remove_user_file(visible_path)
+	_remove_user_file(sidecar_path)
+	_remove_user_file(hidden_path)
+	_remove_user_dir(hidden_dir)
+	_remove_user_dir(root_path)
+
+	assert_true(default_paths.has(visible_path), "普通资源应被扫描。")
+	assert_false(default_paths.has(hidden_path), "默认应沿用共享枚举规则排除隐藏路径。")
+	assert_false(default_paths.has(sidecar_path), "默认应排除 Godot .import sidecar。")
+	assert_true(hidden_paths.has(hidden_path), "include_hidden 应通过共享枚举规则放行隐藏路径。")
+	assert_false(hidden_paths.has(sidecar_path), "include_hidden 不应隐式放行 .import sidecar。")
+	assert_true(sidecar_paths.has(sidecar_path), "include_import_sidecars 应显式放行 .import sidecar。")
+
+
 func test_collect_dependency_paths_reads_direct_external_resource_dependencies() -> void:
 	var dependency_path: String = "user://gf_resource_registry_tools_dependency_entry.tres"
 	var root_path: String = "user://gf_resource_registry_tools_dependency_registry.tres"

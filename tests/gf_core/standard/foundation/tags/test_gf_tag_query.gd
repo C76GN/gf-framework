@@ -89,6 +89,14 @@ func test_tag_source_adapter_supports_one_argument_has_tag_protocol() -> void:
 	assert_false(GFTagSourceAdapter.source_has_tag(source, &"missing"), "一参数 has_tag 协议仍应保留对象自身判断。")
 
 
+func test_tag_source_adapter_passes_include_child_tags_to_two_argument_count_protocol() -> void:
+	var source: TwoArgumentTagCountSource = TwoArgumentTagCountSource.new()
+
+	assert_eq(GFTagSourceAdapter.get_tag_count(source, &"state", false), 0, "未启用层级时应请求精确计数。")
+	assert_eq(GFTagSourceAdapter.get_tag_count(source, &"state", true), 3, "二参数 get_tag_count 应接收 include_child_tags。")
+	assert_true(GFTagSourceAdapter.source_has_tag(source, &"state", 3, true), "层级查询应使用对象协议的完整计数。")
+
+
 func test_tag_source_adapter_normalizes_sources_to_counts_and_sets() -> void:
 	var dictionary_source: Dictionary = {
 		"tag_counts": {
@@ -152,3 +160,15 @@ class OneArgumentHasTagSource:
 
 	func has_tag(tag: StringName) -> bool:
 		return tag == &"ready"
+
+
+class TwoArgumentTagCountSource:
+	extends RefCounted
+
+	func get_tag_count(tag: StringName, include_child_tags: bool) -> int:
+		if tag == &"state" and include_child_tags:
+			return 3
+		return 0
+
+	func get_tags() -> PackedStringArray:
+		return PackedStringArray(["state.burning"])

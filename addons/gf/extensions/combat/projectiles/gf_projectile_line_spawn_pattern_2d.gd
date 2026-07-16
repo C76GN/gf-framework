@@ -57,7 +57,7 @@ func _get_spawn_transforms(
 	if emitter == null:
 		return []
 
-	var count: int = _resolve_count(point_count, emit_count)
+	var count: int = resolve_spawn_count(emit_count)
 	var result: Array[Transform2D] = []
 	var local_direction: Vector2 = local_end - local_start
 	var rotation: float = emitter.global_rotation
@@ -70,3 +70,7 @@ func _get_spawn_transforms(
 		var local_position: Vector2 = local_start.lerp(local_end, factor)
 		result.append(Transform2D(rotation, emitter.to_global(local_position)))
 	return result
+
+
+func _get_default_spawn_count() -> int:
+	return point_count

@@ -19,14 +19,15 @@
 | 属性 | [`accepted_action_kinds`](#member-gfcombatactionmodifier-properties-accepted_action_kinds) | `var accepted_action_kinds: Array[StringName] = []` |
 | 属性 | [`rejected_action_kinds`](#member-gfcombatactionmodifier-properties-rejected_action_kinds) | `var rejected_action_kinds: Array[StringName] = []` |
 | 属性 | [`required_tags`](#member-gfcombatactionmodifier-properties-required_tags) | `var required_tags: Array[StringName] = []` |
-| 属性 | [`amount_add`](#member-gfcombatactionmodifier-properties-amount_add) | `var amount_add: float = 0.0` |
-| 属性 | [`amount_multiplier`](#member-gfcombatactionmodifier-properties-amount_multiplier) | `var amount_multiplier: float = 1.0` |
+| 属性 | [`amount_add`](#member-gfcombatactionmodifier-properties-amount_add) | `var amount_add: float:` |
+| 属性 | [`amount_multiplier`](#member-gfcombatactionmodifier-properties-amount_multiplier) | `var amount_multiplier: float:` |
 | 属性 | [`override_operation`](#member-gfcombatactionmodifier-properties-override_operation) | `var override_operation: bool = false` |
 | 属性 | [`operation`](#member-gfcombatactionmodifier-properties-operation) | `var operation: GFCombatAction.Operation = GFCombatAction.Operation.SUBTRACT` |
 | 属性 | [`override_action_kind`](#member-gfcombatactionmodifier-properties-override_action_kind) | `var override_action_kind: bool = false` |
 | 属性 | [`action_kind`](#member-gfcombatactionmodifier-properties-action_kind) | `var action_kind: StringName = &""` |
 | 属性 | [`metadata`](#member-gfcombatactionmodifier-properties-metadata) | `var metadata: Dictionary = {}` |
 | 方法 | [`matches`](#member-gfcombatactionmodifier-methods-matches) | `func matches(action: GFCombatAction) -> bool:` |
+| 方法 | [`is_numeric_state_valid`](#member-gfcombatactionmodifier-methods-is_numeric_state_valid) | `func is_numeric_state_valid() -> bool:` |
 | 方法 | [`apply`](#member-gfcombatactionmodifier-methods-apply) | `func apply(action: GFCombatAction) -> GFCombatAction:` |
 | 方法 | [`duplicate_modifier`](#member-gfcombatactionmodifier-methods-duplicate_modifier) | `func duplicate_modifier() -> GFCombatActionModifier:` |
 
@@ -85,9 +86,10 @@ var required_tags: Array[StringName] = []
 ### `amount_add`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-var amount_add: float = 0.0
+var amount_add: float:
 ```
 
 数值加成。
@@ -97,9 +99,10 @@ var amount_add: float = 0.0
 ### `amount_multiplier`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-var amount_multiplier: float = 1.0
+var amount_multiplier: float:
 ```
 
 数值乘区。
@@ -189,6 +192,21 @@ func matches(action: GFCombatAction) -> bool:
 | `action` | 原始动作。 |
 
 返回：匹配时返回 true。
+
+<a id="member-gfcombatactionmodifier-methods-is_numeric_state_valid"></a>
+
+### `is_numeric_state_valid`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func is_numeric_state_valid() -> bool:
+```
+
+检查修正器数值是否可安全参与运算。
+
+返回：所有数值字段有限时返回 true。
 
 <a id="member-gfcombatactionmodifier-methods-apply"></a>
 

@@ -10,7 +10,7 @@
 ## [br]
 ## @since 3.17.0
 class_name GFTouchJoystick
-extends Node2D
+extends GFTouchControl2D
 
 
 # --- 信号 ---
@@ -65,7 +65,7 @@ enum OutputMode {
 # --- 常量 ---
 
 const _INPUT_EVENT_TOOLS = preload("res://addons/gf/standard/input/common/gf_input_event_tools.gd")
-const _DPAD_DIAGONAL_THRESHOLD: float = 0.38268343
+const _VIRTUAL_INPUT_BRIDGE = preload("res://addons/gf/standard/input/common/gf_virtual_input_bridge.gd")
 const _WARNING_EMPTY_ACTIVE_REGION: String = "[GFTouchJoystick] use_active_region 已启用，但 active_region 为空；触摸起点和拖动将被拒绝。"
 
 
@@ -198,7 +198,6 @@ const _WARNING_EMPTY_ACTIVE_REGION: String = "[GFTouchJoystick] use_active_regio
 
 # --- 私有变量 ---
 
-var _active_touch_index: int = -1
 var _knob_position: Vector2 = Vector2.ZERO
 var _direction: Vector2 = Vector2.ZERO
 var _rest_global_position: Vector2 = Vector2.ZERO
@@ -209,19 +208,6 @@ var _empty_active_region_warning_emitted: bool = false
 
 func _ready() -> void:
 	_rest_global_position = global_position
-
-
-func _notification(what: int) -> void:
-	if Engine.is_editor_hint():
-		return
-	if what == CanvasItem.NOTIFICATION_VISIBILITY_CHANGED and not is_visible_in_tree():
-		release()
-
-
-func _exit_tree() -> void:
-	if Engine.is_editor_hint():
-		return
-	release()
 
 
 func _input(event: InputEvent) -> void:
@@ -265,13 +251,13 @@ func get_direction() -> Vector2:
 ## @api public
 func release() -> void:
 	var was_active: bool = (
-		_active_touch_index != -1
+		is_touch_active()
 		or _direction != Vector2.ZERO
 		or _knob_position != Vector2.ZERO
 	)
 	if not was_active:
 		return
-	_active_touch_index = -1
+	var _released_touch: bool = _release_touch_capture()
 	_set_direction(Vector2.ZERO, Vector2.ZERO)
 	if _uses_touch_origin():
 		global_position = _rest_global_position
@@ -284,23 +270,27 @@ func _handle_touch(event: InputEventScreenTouch) -> void:
 	var global_pos: Vector2 = _screen_to_global_position(event.position)
 	var local_pos: Vector2 = to_local(global_pos)
 	if event.pressed:
-		if _active_touch_index == -1 and _can_begin_at(local_pos, event.position):
+		if not is_touch_active() and _can_begin_at(local_pos, event.position):
 			_begin_touch(event.index, global_pos, local_pos)
-	elif event.index == _active_touch_index:
+			_mark_input_as_handled()
+	elif _touch_matches(event.index):
 		release()
+		_mark_input_as_handled()
 
 
 func _handle_drag(event: InputEventScreenDrag) -> void:
-	if event.index != _active_touch_index:
+	if not _touch_matches(event.index):
 		return
 	if release_outside_active_region and use_active_region and not _is_screen_position_in_active_region(event.position):
 		release()
+		_mark_input_as_handled()
 		return
 	_update_from_local_position(to_local(_screen_to_global_position(event.position)))
+	_mark_input_as_handled()
 
 
 func _begin_touch(touch_index: int, global_pos: Vector2, local_pos: Vector2) -> void:
-	_active_touch_index = touch_index
+	var _captured: bool = _try_capture_touch_index(touch_index)
 	if _uses_touch_origin():
 		_rest_global_position = global_position
 		global_position = global_pos
@@ -327,12 +317,15 @@ func _update_from_local_position(local_pos: Vector2) -> void:
 
 
 func _set_direction(next_direction: Vector2, knob_position: Vector2) -> void:
-	if _direction == next_direction and _knob_position == knob_position:
+	var direction_changed_value: bool = _direction != next_direction
+	var knob_changed: bool = _knob_position != knob_position
+	if not direction_changed_value and not knob_changed:
 		return
 	_direction = next_direction
 	_knob_position = knob_position
-	_apply_input_actions(next_direction)
-	direction_changed.emit(next_direction)
+	if direction_changed_value:
+		_apply_input_actions(next_direction)
+		direction_changed.emit(next_direction)
 	queue_redraw()
 
 
@@ -357,13 +350,13 @@ func _apply_axis_actions(value: float, negative_action: StringName, positive_act
 func _press_action(action: StringName, strength: float) -> void:
 	if action == &"":
 		return
-	Input.action_press(action, strength)
+	var _pressed_action: bool = _VIRTUAL_INPUT_BRIDGE.press_action(action, self, action, strength)
 
 
 func _release_action(action: StringName) -> void:
 	if action == &"":
 		return
-	Input.action_release(action)
+	var _released_action: bool = _VIRTUAL_INPUT_BRIDGE.release_action(action, self, action)
 
 
 func _emit_joypad_motion(direction: Vector2) -> void:
@@ -375,51 +368,27 @@ func _emit_joypad_motion(direction: Vector2) -> void:
 
 
 func _emit_joypad_axis(axis: JoyAxis, value: float) -> void:
-	var event: InputEventJoypadMotion = InputEventJoypadMotion.new()
-	event.device = joypad_device_id
-	event.axis = axis
-	event.axis_value = clampf(value, -1.0, 1.0)
-	Input.parse_input_event(event)
+	_VIRTUAL_INPUT_BRIDGE.emit_joypad_axis(joypad_device_id, axis, value)
 
 
 func _apply_deadzone(raw_direction: Vector2) -> Vector2:
-	var magnitude: float = raw_direction.length()
-	var threshold: float = clampf(deadzone, 0.0, 0.99)
-	if magnitude <= threshold:
-		return Vector2.ZERO
-	var remapped_magnitude: float = (magnitude - threshold) / (1.0 - threshold)
-	return raw_direction.normalized() * clampf(remapped_magnitude, 0.0, 1.0)
+	return GFInputDirectionTools.apply_radial_deadzone(raw_direction, deadzone)
 
 
 func _calculate_output_direction(raw_direction: Vector2) -> Vector2:
 	if output_mode == OutputMode.ANALOG:
 		return _apply_deadzone(raw_direction)
-
-	var magnitude: float = raw_direction.length()
-	if magnitude <= clampf(deadzone, 0.0, 0.99):
-		return Vector2.ZERO
-
-	var direction: Vector2 = raw_direction / magnitude
 	if output_mode == OutputMode.DPAD_4:
-		if absf(direction.x) >= absf(direction.y):
-			return Vector2(signf(direction.x), 0.0)
-		return Vector2(0.0, signf(direction.y))
-
-	var result: Vector2 = Vector2.ZERO
-	if direction.x > _DPAD_DIAGONAL_THRESHOLD:
-		result.x = 1.0
-	elif direction.x < -_DPAD_DIAGONAL_THRESHOLD:
-		result.x = -1.0
-	if direction.y > _DPAD_DIAGONAL_THRESHOLD:
-		result.y = 1.0
-	elif direction.y < -_DPAD_DIAGONAL_THRESHOLD:
-		result.y = -1.0
-	if result == Vector2.ZERO:
-		if absf(direction.x) >= absf(direction.y):
-			result.x = signf(direction.x)
-		else:
-			result.y = signf(direction.y)
-	return result
+		return GFInputDirectionTools.snap_vector(
+			raw_direction,
+			GFInputDirectionTools.SnapMode.CARDINAL_4,
+			deadzone
+		)
+	return GFInputDirectionTools.snap_vector(
+		raw_direction,
+		GFInputDirectionTools.SnapMode.EIGHT_WAY,
+		deadzone
+	)
 
 
 func _apply_follow_origin(local_pos: Vector2) -> Vector2:
@@ -433,13 +402,6 @@ func _apply_follow_origin(local_pos: Vector2) -> Vector2:
 
 func _uses_touch_origin() -> bool:
 	return position_mode == PositionMode.RELATIVE or position_mode == PositionMode.FOLLOW
-
-
-func _screen_to_global_position(screen_position: Vector2) -> Vector2:
-	var viewport: Viewport = get_viewport()
-	if viewport == null:
-		return screen_position
-	return viewport.get_canvas_transform().affine_inverse() * screen_position
 
 
 func _is_screen_position_in_active_region(screen_position: Vector2) -> bool:

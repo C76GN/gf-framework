@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFBigNumber" path="addons/gf/standard/foundation/numeric/gf_big_number.gd" module="standard" extends="RefCounted" classDigest="40e7d8015cfeb9ae9009a547ff13840b0cbe6a1f49e18019081cf685059a13c8">
+<class name="GFBigNumber" path="addons/gf/standard/foundation/numeric/gf_big_number.gd" module="standard" extends="RefCounted" classDigest="5305313abc82db9d334cb454fd07d9b1b1d6960fcf988d4aec1bda09bd8b0b62">
 	<description>GFBigNumber: 面向挂机/放置场景的近似大数值对象。
 使用科学计数法的尾数 + 指数表示任意量级的数值，
 适合做超出原生 int/float 直观显示范围后的比较、加减乘除与格式化输入。</description>
@@ -63,12 +63,14 @@
 			</tags>
 		</member>
 		<member kind="method" name="from_string">
-			<signature>static func from_string(value: String) -&gt; GFBigNumber:</signature>
+			<signature>static func from_string( value: String, max_input_length: int = GFDecimalStringFormatter.DEFAULT_MAX_NUMERIC_TEXT_LENGTH ) -&gt; GFBigNumber:</signature>
 			<description>从字符串构建大数，支持普通写法与科学计数法。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">value: 原始字符串，如 "12345"、"1.23e8"。</tag>
+				<tag name="param">max_input_length: 最大输入字符数；小于等于 0 时使用框架默认预算。</tag>
 				<tag name="return">解析后的大数实例。</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="from_variant">

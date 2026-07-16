@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFNodeStateActiveCondition" path="addons/gf/standard/state_machine/node/gf_node_state_active_condition.gd" module="standard" extends="GFNodeStateCondition" classDigest="e961e75fbcdc781a9cf7484ef356ea8670fae4a5addd5739f4f93d91d0b49656">
+	<description>GFNodeStateActiveCondition: 按状态机当前状态判断的节点状态条件。
+用于让状态进入或退出守卫依赖同组、跨组或暂停栈中的状态是否处于激活状态。
+它只读取状态机运行态，不解释具体业务状态含义。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">resource_definition</tag>
+		<tag name="since">8.0.0</tag>
+	</tags>
+	<signals />
+	<enums>
+		<member kind="enum" name="MatchMode">
+			<signature>enum MatchMode {
+	## 任意状态路径处于激活状态即可。
+	ANY,
+	## 所有状态路径都必须处于激活状态。
+	ALL,
+	## 所有状态路径都不能处于激活状态。
+	NONE,
+}</signature>
+			<description>状态匹配模式。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</enums>
+	<constants />
+	<properties>
+		<member kind="property" name="state_paths" decorators="@export">
+			<signature>var state_paths: PackedStringArray = PackedStringArray()</signature>
+			<description>要检查的状态路径。可使用 "State" 指向同组状态，或 "Group/State" 指向指定状态组。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="mode" decorators="@export">
+			<signature>var mode: MatchMode = MatchMode.ANY</signature>
+			<description>状态匹配模式。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="empty_result" decorators="@export">
+			<signature>var empty_result: bool = false</signature>
+			<description>没有有效状态路径时返回的结果。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="_evaluate">
+			<signature>func _evaluate( state: GFNodeState, _phase: StringName, _peer_state: StringName = &amp;"", _args: Dictionary = {} ) -&gt; bool:</signature>
+			<description>条件评估扩展点。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">state: 当前条件所属状态。</tag>
+				<tag name="param">_phase: 条件阶段，通常为 enter 或 exit。</tag>
+				<tag name="param">_peer_state: 进入时为来源状态名，退出时为目标状态名。</tag>
+				<tag name="param">_args: 状态切换参数。</tag>
+				<tag name="return">状态匹配通过时返回 true。</tag>
+				<tag name="schema">_args: 状态切换参数 Dictionary；键和值由调用方约定。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

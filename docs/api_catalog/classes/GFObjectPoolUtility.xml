@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFObjectPoolUtility" path="addons/gf/standard/utilities/nodes/gf_object_pool_utility.gd" module="standard" extends="GFUtility" classDigest="570ce784e4a5dbf61614766c05e51b59594096bf56fb5234863208bebb25ab78">
+<class name="GFObjectPoolUtility" path="addons/gf/standard/utilities/nodes/gf_object_pool_utility.gd" module="standard" extends="GFUtility" classDigest="f1d7f541ad362b31ea8add4cac2f870a712f5d1cc24c9ccde91e179e359252e3">
 	<description>GFObjectPoolUtility: 节点对象池管理器。
 继承自 GFUtility，管理 Node 对象的实例化与回收，
 避免高频 instance/free 操作带来的内存碎片和性能抖动。
@@ -72,13 +72,15 @@
 			</tags>
 		</member>
 		<member kind="method" name="acquire">
-			<signature>func acquire(scene: PackedScene, parent: Node) -&gt; Node:</signature>
+			<signature>func acquire(scene: PackedScene, parent: Node, before_add: Callable = Callable()) -&gt; Node:</signature>
 			<description>从池中获取一个节点实例。若池为空则自动实例化并加入父节点。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">scene: 要实例化的 PackedScene 资源。</tag>
 				<tag name="param">parent: 借出的节点将加入或移动到此父节点；释放时会移动到内部池根节点。</tag>
+				<tag name="param">before_add: 可选入树前回调，签名为 `func(node: Node) -&gt; void`。</tag>
 				<tag name="return">可直接使用的节点实例。</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="release">
@@ -91,17 +93,19 @@
 			</tags>
 		</member>
 		<member kind="method" name="prewarm">
-			<signature>func prewarm(scene: PackedScene, parent: Node, count: int) -&gt; void:</signature>
+			<signature>func prewarm(scene: PackedScene, parent: Node, count: int, before_add: Callable = Callable()) -&gt; void:</signature>
 			<description>预热对象池，预先实例化指定数量的节点以避免首次使用时的卡顿。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">scene: 要预热的 PackedScene 资源。</tag>
 				<tag name="param">parent: 预热节点将加入此父节点。</tag>
 				<tag name="param">count: 预热的数量。</tag>
+				<tag name="param">before_add: 可选入树前回调，签名为 `func(node: Node) -&gt; void`。</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="prewarm_async">
-			<signature>func prewarm_async(scene: PackedScene, parent: Node, count: int, batch_size: int = 32) -&gt; void:</signature>
+			<signature>func prewarm_async( scene: PackedScene, parent: Node, count: int, batch_size: int = 32, before_add: Callable = Callable() ) -&gt; void:</signature>
 			<description>分批预热对象池，避免一次性实例化大量节点造成单帧卡顿。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -109,10 +113,12 @@
 				<tag name="param">parent: 预热节点将加入此父节点。</tag>
 				<tag name="param">count: 预热的数量。</tag>
 				<tag name="param">batch_size: 每帧最多实例化数量；小于等于 0 时退化为同步预热。</tag>
+				<tag name="param">before_add: 可选入树前回调，签名为 `func(node: Node) -&gt; void`。</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="prewarm_async_budget">
-			<signature>func prewarm_async_budget( scene: PackedScene, parent: Node, count: int, msec_budget_per_frame: float = 8.0 ) -&gt; void:</signature>
+			<signature>func prewarm_async_budget( scene: PackedScene, parent: Node, count: int, msec_budget_per_frame: float = 8.0, before_add: Callable = Callable() ) -&gt; void:</signature>
 			<description>按单帧时间预算预热对象池，适合复杂度差异较大的 PackedScene。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -120,6 +126,8 @@
 				<tag name="param">parent: 预热节点将加入此父节点。</tag>
 				<tag name="param">count: 预热的数量。</tag>
 				<tag name="param">msec_budget_per_frame: 每帧实例化预算毫秒数；小于等于 0 时退化为同步预热。</tag>
+				<tag name="param">before_add: 可选入树前回调，签名为 `func(node: Node) -&gt; void`。</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_available_count">

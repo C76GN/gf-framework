@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFGridPathMath2D" path="addons/gf/standard/foundation/math/gf_grid_path_math_2d.gd" module="standard" extends="RefCounted" classDigest="f297997d8de0c181a5c1220ea9ac1b21bb17f6f8874abb40674a8f6ce46093fa">
+	<description>GFGridPathMath2D: 2D 网格路径搜索与 Flow Field 工具。
+负责 BFS、A*、分步路径搜索、视线抽稀和 Flow Field 生成。坐标、
+邻居和视线基础能力由 GFGridCoordinateMath2D 提供。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_service</tag>
+		<tag name="since">8.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties />
+	<methods>
+		<member kind="method" name="find_path_bfs">
+			<signature>static func find_path_bfs( grid_size: Vector2i, start: Vector2i, goal: Vector2i, is_walkable: Callable, allow_diagonal: bool = false ) -&gt; Array[Vector2i]:</signature>
+			<description>使用 BFS 查找一条最短路径。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">grid_size: 网格尺寸。</tag>
+				<tag name="param">start: 起点格子。</tag>
+				<tag name="param">goal: 终点格子。</tag>
+				<tag name="param">is_walkable: 可通行回调，签名为 `func(cell: Vector2i) -&gt; bool`。</tag>
+				<tag name="param">allow_diagonal: 是否允许斜向移动。</tag>
+				<tag name="return">包含起点与终点的路径；无法到达时返回空数组。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="find_path_a_star">
+			<signature>static func find_path_a_star( grid_size: Vector2i, start: Vector2i, goal: Vector2i, is_walkable: Callable, allow_diagonal: bool = false, step_cost: Callable = Callable(), heuristic: StringName = &amp;"manhattan" ) -&gt; Array[Vector2i]:</signature>
+			<description>使用 A* 查找一条低代价路径。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">grid_size: 网格尺寸。</tag>
+				<tag name="param">start: 起点格子。</tag>
+				<tag name="param">goal: 终点格子。</tag>
+				<tag name="param">is_walkable: 可通行回调，签名为 `func(cell: Vector2i) -&gt; bool`。</tag>
+				<tag name="param">allow_diagonal: 是否允许斜向移动。</tag>
+				<tag name="param">step_cost: 可选代价回调，签名为 `func(from: Vector2i, to: Vector2i) -&gt; float`；返回负数表示不可通行。</tag>
+				<tag name="param">heuristic: 启发函数名称，支持 `manhattan`、`chebyshev`、`octile`、`euclidean`。</tag>
+				<tag name="return">包含起点与终点的路径；无法到达时返回空数组。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="begin_path_a_star_search">
+			<signature>static func begin_path_a_star_search( grid_size: Vector2i, start: Vector2i, goal: Vector2i, is_walkable: Callable, allow_diagonal: bool = false, step_cost: Callable = Callable(), heuristic: StringName = &amp;"manhattan" ) -&gt; GFGraphPathSearchState:</signature>
+			<description>创建可分步推进的 2D 网格 A* 搜索状态。
+状态由 `GFGraphMath.advance_path_search()` 推进；本方法只负责把网格边界、
+邻居、通行、代价和启发函数适配成通用图搜索回调。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">grid_size: 网格尺寸。</tag>
+				<tag name="param">start: 起点格子。</tag>
+				<tag name="param">goal: 终点格子。</tag>
+				<tag name="param">is_walkable: 可通行回调，签名为 `func(cell: Vector2i) -&gt; bool`。</tag>
+				<tag name="param">allow_diagonal: 是否允许斜向移动。</tag>
+				<tag name="param">step_cost: 可选代价回调，签名为 `func(from: Vector2i, to: Vector2i) -&gt; float`；返回负数表示不可通行。</tag>
+				<tag name="param">heuristic: 启发函数名称，支持 `manhattan`、`chebyshev`、`octile`、`euclidean`。</tag>
+				<tag name="return">`GFGraphMath` 分步路径搜索状态句柄。</tag>
+				<tag name="schema">return: GFGraphPathSearchState returned by `GFGraphMath.begin_path_search()`.</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="simplify_path_line_of_sight">
+			<signature>static func simplify_path_line_of_sight( path: Array[Vector2i], is_blocking: Callable, include_endpoints: bool = false ) -&gt; Array[Vector2i]:</signature>
+			<description>使用视线检测抽稀 2D 网格路径。
+该方法只移除可由直线视线覆盖的中间格子，保留起点与终点；它不执行单位移动、
+转向动画或碰撞响应。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">path: 包含起点与终点的格子路径。</tag>
+				<tag name="param">is_blocking: 阻挡回调，签名为 `func(cell: Vector2i) -&gt; bool`。</tag>
+				<tag name="param">include_endpoints: 是否检查每段抽稀直线的端点是否阻挡。</tag>
+				<tag name="return">抽稀后的路径；空路径仍返回空数组。</tag>
+				<tag name="schema">path: Array[Vector2i] path cells.</tag>
+				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="build_flow_field">
+			<signature>static func build_flow_field( grid_size: Vector2i, goals: Array[Vector2i], is_walkable: Callable, allow_diagonal: bool = false, step_cost: Callable = Callable() ) -&gt; Dictionary:</signature>
+			<description>从一个或多个目标格生成 Flow Field。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">grid_size: 网格尺寸。</tag>
+				<tag name="param">goals: 目标格列表。</tag>
+				<tag name="param">is_walkable: 可通行回调，签名为 `func(cell: Vector2i) -&gt; bool`。</tag>
+				<tag name="param">allow_diagonal: 是否允许斜向移动。</tag>
+				<tag name="param">step_cost: 可选代价回调，签名为 `func(from: Vector2i, to: Vector2i) -&gt; float`；返回负数表示不可通行。</tag>
+				<tag name="return">包含 `costs`、`directions` 和 `goals` 的字典；`directions[cell]` 是下一步方向。</tag>
+				<tag name="schema">return: Dictionary with `costs: Dictionary[Vector2i, float]`, `directions: Dictionary[Vector2i, Vector2i]`, and `goals: Array[Vector2i]`.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

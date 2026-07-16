@@ -125,6 +125,24 @@ class InjectedAction:
 		return null
 
 
+## 同步执行后继续追加同类动作，用于验证单帧预算。
+class RecursiveEnqueueAction:
+	extends GFVisualAction
+
+	var queue: Object
+	var executions: Array[int]
+
+	func _init(p_queue: Object, p_executions: Array[int]) -> void:
+		queue = p_queue
+		executions = p_executions
+
+	func execute() -> Variant:
+		executions.append(executions.size())
+		var next_action: RecursiveEnqueueAction = RecursiveEnqueueAction.new(queue, executions)
+		var _enqueue_result: Variant = queue.call(&"enqueue", next_action)
+		return null
+
+
 # --- 私有变量 ---
 
 class ObjectSignalEmitter extends Object:
@@ -492,6 +510,32 @@ func test_action_interceptor_can_skip_and_replace_actions() -> void:
 	assert_eq(order, ["before:SKIP", "before:OLD", "NEW", "after:NEW"], "拦截器应能跳过和替换动作。")
 
 
+func test_before_interceptor_clear_invalidates_dequeued_action() -> void:
+	var order: Array = []
+	var interceptor: Object = _get_object_value(
+		_call_object(_interceptor_fixtures, &"make_clear_queue_before_interceptor")
+	)
+	_add_interceptor(_system, interceptor)
+	_enqueue(_system, OrderAction.new(order, "STALE"))
+
+	await get_tree().process_frame
+
+	assert_true(order.is_empty(), "before interceptor 清空队列后，已出队但未执行的动作也必须失效。")
+	assert_false(_is_queue_processing(_system), "失效处理链应回到空闲状态。")
+
+
+func test_immediate_action_budget_yields_between_processing_slices() -> void:
+	var executions: Array[int] = []
+	_system.set(&"max_immediate_actions_per_slice", 2)
+	_enqueue(_system, RecursiveEnqueueAction.new(_system, executions))
+
+	assert_lte(executions.size(), 2, "enqueue 调用栈内最多执行一个即时动作切片。")
+	await get_tree().process_frame
+	assert_lte(executions.size(), 4, "每帧恢复后仍应受即时动作切片预算约束。")
+
+	_clear_queue(_system, true)
+
+
 func test_replaced_action_is_injected_before_following_interceptors() -> void:
 	var arch: GFArchitecture = GFArchitecture.new()
 	_inject_dependencies(_system, arch)
@@ -790,6 +834,47 @@ func test_dispose_releases_named_queue_dependency_scope() -> void:
 	assert_false(injected_action.executed, "已被父队列销毁的命名子队列不应继续执行新动作。")
 
 
+func test_clear_all_named_queues_disposes_owned_named_queues() -> void:
+	var named_queue: Object = _get_named_queue(_system, &"scene")
+	var order: Array = []
+	var waiting_action: ManualSignalAction = ManualSignalAction.new(order, "WAIT")
+	_enqueue(named_queue, waiting_action)
+
+	await get_tree().process_frame
+	assert_true(_is_queue_processing(named_queue), "命名子队列应进入等待状态。")
+
+	_clear_all_named_queues(_system, true)
+	await get_tree().process_frame
+
+	assert_true(waiting_action.cancelled, "clear_all_named_queues 应取消命名子队列当前动作。")
+	assert_false(_is_queue_processing(named_queue), "clear_all_named_queues 后旧命名子队列不应继续处理。")
+	var next_action: OrderAction = OrderAction.new(order, "NEXT")
+	_enqueue(named_queue, next_action)
+	await get_tree().process_frame
+	assert_eq(order, ["WAIT"], "已被清理的旧命名子队列不应再执行新动作。")
+
+
+func test_reinit_cancels_current_action_and_disposes_named_queues() -> void:
+	var order: Array = []
+	var waiting_action: ManualSignalAction = ManualSignalAction.new(order, "WAIT")
+	_enqueue(_system, waiting_action)
+	var named_queue: Object = _get_named_queue(_system, &"scene")
+	var named_waiting_action: ManualSignalAction = ManualSignalAction.new(order, "NAMED")
+	_enqueue(named_queue, named_waiting_action)
+
+	await get_tree().process_frame
+	assert_true(_is_queue_processing(_system), "主队列应进入等待状态。")
+	assert_true(_is_queue_processing(named_queue), "命名队列应进入等待状态。")
+
+	_call_object(_system, &"init")
+	await get_tree().process_frame
+
+	assert_true(waiting_action.cancelled, "重复 init 应取消主队列当前动作。")
+	assert_true(named_waiting_action.cancelled, "重复 init 应释放命名子队列。")
+	assert_false(_is_queue_processing(_system), "重复 init 后主队列不应保持 processing。")
+	assert_false(_is_queue_processing(named_queue), "重复 init 后旧命名队列不应继续 processing。")
+
+
 func test_skip_current_action_continues_with_next_action() -> void:
 	var order: Array = []
 	var waiting_action: ManualSignalAction = ManualSignalAction.new(order, "WAIT")
@@ -819,6 +904,20 @@ func test_debug_snapshot_reports_queue_and_named_queue_state() -> void:
 	assert_eq(GFVariantData.get_option_int(snapshot, "queued_count"), 1, "快照应报告主队列待执行数量。")
 	assert_eq(GFVariantData.get_option_int(snapshot, "named_queue_count"), 1, "快照应报告命名队列数量。")
 	assert_eq(GFVariantData.get_option_int(named_snapshot, "queued_count"), 1, "命名队列快照应报告自身待执行数量。")
+
+
+func test_debug_snapshot_bounds_named_queue_expansion() -> void:
+	_system.set(&"max_debug_named_queue_entries", 1)
+	var _first_queue: Object = _get_named_queue(_system, &"first")
+	var _second_queue: Object = _get_named_queue(_system, &"second")
+
+	var snapshot: Dictionary = _get_debug_snapshot(_system)
+	var named_snapshots: Dictionary = GFVariantData.get_option_dictionary(snapshot, "named_queues")
+
+	assert_eq(GFVariantData.get_option_int(snapshot, "named_queue_count"), 2, "总数应保留真实命名队列数量。")
+	assert_eq(GFVariantData.get_option_int(snapshot, "named_queue_snapshot_count"), 1, "快照展开数应受预算约束。")
+	assert_true(GFVariantData.get_option_bool(snapshot, "named_queues_truncated"), "截断时应显式标记。")
+	assert_eq(named_snapshots.size(), 1, "诊断预算不能只在编码后截断。")
 
 
 func test_tween_action_step_reports_invalid_property() -> void:
@@ -907,6 +1006,10 @@ func _push_front_parallel(queue: Object, actions: Array) -> void:
 
 func _clear_queue(queue: Object, stop_current: bool = false) -> void:
 	var _result: Variant = _call_object(queue, &"clear_queue", [stop_current])
+
+
+func _clear_all_named_queues(queue: Object, stop_current: bool = false) -> void:
+	var _result: Variant = _call_object(queue, &"clear_all_named_queues", [stop_current])
 
 
 func _dispose_queue(queue: Object) -> void:

@@ -27,4 +27,8 @@ playback.start(recording, input_map.create_virtual_source(&"replay", 0))
 playback.tick(delta)
 ```
 
+`add_event()` 会按 `time_seconds` 保持事件顺序，同一时间点保留插入顺序；工具或导入器可以追加乱序事件而不必每次手动调用 `sort_events()`。如果项目直接改写公开 `events` 数组，应在回放或序列化前显式调用 `sort_events()`。
+
 录制回放只处理 GF 抽象动作值，不模拟真实按键、鼠标或手柄事件；因此它适合自动化测试、教程演示、复现 bug、AI 接管或项目自定义输入桥接。`respect_recorded_player_index` 可让事件自带的玩家索引生效；是否保存到文件、如何压缩、是否作为回放录像公开给玩家，仍由项目层决定。
+
+恢复暂停的回放时，`start(recording, source, false)` 会按当前 `elapsed_time` 重建虚拟源状态：已经发生但尚未释放的动作会保持按下或轴值状态，避免 resume 后出现“录制中仍按住、运行时却已释放”的短暂漂移。需要从头重播时使用默认的重新开始语义。

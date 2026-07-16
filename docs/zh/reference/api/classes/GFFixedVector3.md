@@ -15,10 +15,10 @@
 
 | 类型 | 名称 | 签名 |
 |---|---|---|
-| 属性 | [`raw_x`](#member-gffixedvector3-properties-raw_x) | `var raw_x: int = 0` |
-| 属性 | [`raw_y`](#member-gffixedvector3-properties-raw_y) | `var raw_y: int = 0` |
-| 属性 | [`raw_z`](#member-gffixedvector3-properties-raw_z) | `var raw_z: int = 0` |
-| 属性 | [`decimal_places`](#member-gffixedvector3-properties-decimal_places) | `var decimal_places: int = 2` |
+| 属性 | [`raw_x`](#member-gffixedvector3-properties-raw_x) | `var raw_x: int = 0:` |
+| 属性 | [`raw_y`](#member-gffixedvector3-properties-raw_y) | `var raw_y: int = 0:` |
+| 属性 | [`raw_z`](#member-gffixedvector3-properties-raw_z) | `var raw_z: int = 0:` |
+| 属性 | [`decimal_places`](#member-gffixedvector3-properties-decimal_places) | `var decimal_places: int = 2:` |
 | 方法 | [`from_raw`](#member-gffixedvector3-methods-from_raw) | `static func from_raw( p_raw_x: int, p_raw_y: int, p_raw_z: int, p_decimal_places: int = 2 ) -> GFFixedVector3:` |
 | 方法 | [`from_decimal_strings`](#member-gffixedvector3-methods-from_decimal_strings) | `static func from_decimal_strings( x_text: String, y_text: String, z_text: String, p_decimal_places: int = 2, rounding_mode: int = GFFixedDecimal.RoundingMode.HALF_UP ) -> GFFixedVector3:` |
 | 方法 | [`from_vector3`](#member-gffixedvector3-methods-from_vector3) | `static func from_vector3( value: Vector3, p_decimal_places: int = 2, rounding_mode: int = GFFixedDecimal.RoundingMode.HALF_UP ) -> GFFixedVector3:` |
@@ -53,7 +53,7 @@
 - 首次版本：`5.0.0`
 
 ```gdscript
-var raw_x: int = 0
+var raw_x: int = 0:
 ```
 
 X 分量的整数缩放值。
@@ -66,7 +66,7 @@ X 分量的整数缩放值。
 - 首次版本：`5.0.0`
 
 ```gdscript
-var raw_y: int = 0
+var raw_y: int = 0:
 ```
 
 Y 分量的整数缩放值。
@@ -79,7 +79,7 @@ Y 分量的整数缩放值。
 - 首次版本：`5.0.0`
 
 ```gdscript
-var raw_z: int = 0
+var raw_z: int = 0:
 ```
 
 Z 分量的整数缩放值。
@@ -92,7 +92,7 @@ Z 分量的整数缩放值。
 - 首次版本：`5.0.0`
 
 ```gdscript
-var decimal_places: int = 2
+var decimal_places: int = 2:
 ```
 
 三个分量共享的小数位数。

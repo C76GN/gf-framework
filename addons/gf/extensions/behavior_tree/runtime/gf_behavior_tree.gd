@@ -41,6 +41,12 @@ enum ParallelPolicy {
 }
 
 
+# --- 常量 ---
+
+const _MAX_DURATION_MSEC: int = 9_223_372_036_854_775_807
+const _MAX_DURATION_SECONDS: float = 9_223_372_036_854_775.0
+
+
 # --- 公共方法 ---
 
 ## 将状态枚举转换为稳定文本。
@@ -78,9 +84,15 @@ static func status_to_string(status: int) -> StringName:
 ## [br]
 ## @schema return: 包含节点调试状态的 Dictionary；null 节点返回空字典。
 static func build_debug_snapshot(node: Variant) -> Dictionary:
+	if node is BTNode:
+		var tree_node: BTNode = node
+		return _encode_debug_snapshot(tree_node._get_debug_snapshot_internal({}))
+	if node is Runner:
+		var runner: Runner = node
+		return _encode_debug_snapshot(runner._get_debug_snapshot_raw())
 	if node is Object:
 		var snapshot_owner: Object = node
-		return _call_debug_snapshot(snapshot_owner)
+		return _encode_debug_snapshot(_call_debug_snapshot(snapshot_owner))
 	return {}
 
 
@@ -97,15 +109,14 @@ static func _call_debug_snapshot(snapshot_owner: Object) -> Dictionary:
 static func _variant_to_status(value: Variant, fallback_status: int = Status.FAILURE) -> int:
 	if value is int:
 		var status: int = value
-		if _is_valid_status(status):
+		if _is_valid_tick_status(status):
 			return status
 	return fallback_status
 
 
-static func _is_valid_status(status: int) -> bool:
+static func _is_valid_tick_status(status: int) -> bool:
 	return (
-		status == Status.FRESH
-		or status == Status.SUCCESS
+		status == Status.SUCCESS
 		or status == Status.FAILURE
 		or status == Status.RUNNING
 		or status == Status.ABORTED
@@ -129,9 +140,11 @@ static func _is_aborted(status: int) -> bool:
 
 
 static func _status_reason_from_value(value: Variant, normalized_status: int) -> StringName:
+	if not value is int:
+		return &"invalid_status"
 	if value is int:
 		var status: int = value
-		if not _is_valid_status(status):
+		if not _is_valid_tick_status(status):
 			return &"invalid_status"
 	if normalized_status == Status.ABORTED:
 		return &"aborted"
@@ -142,6 +155,25 @@ static func _condition_result_to_bool(value: Variant) -> bool:
 	if value is bool:
 		return value
 	return false
+
+
+static func _condition_reason_from_value(value: Variant) -> StringName:
+	if value is bool:
+		return &""
+	return &"invalid_condition_result"
+
+
+static func _is_error_reason(reason: StringName) -> bool:
+	return (
+		reason == &"invalid_status"
+		or reason == &"invalid_condition_result"
+		or reason == &"runtime_duplicate_missing_override"
+		or reason == &"missing_tick_override"
+	)
+
+
+static func _should_propagate_child_reason(reason: StringName) -> bool:
+	return reason == &"aborted" or _is_error_reason(reason)
 
 
 static func _resolve_rng_from_blackboard(
@@ -165,6 +197,38 @@ static func _duplicate_rng(source: RandomNumberGenerator) -> RandomNumberGenerat
 	copy.seed = source.seed
 	copy.state = source.state
 	return copy
+
+
+static func _sanitize_non_negative_seconds(value: float, fallback: float) -> float:
+	var safe_fallback: float = fallback if is_finite(fallback) and fallback >= 0.0 else 0.0
+	return value if is_finite(value) and value >= 0.0 else safe_fallback
+
+
+static func _seconds_to_msec(seconds: float) -> int:
+	if seconds >= _MAX_DURATION_SECONDS:
+		return _MAX_DURATION_MSEC
+	return roundi(seconds * 1000.0)
+
+
+static func _resolve_monotonic_time_msec(clock_msec: Callable, previous_msec: int) -> int:
+	var current_msec: int = Time.get_ticks_msec()
+	if clock_msec.is_valid():
+		var clock_value: Variant = clock_msec.call()
+		if clock_value is int:
+			var injected_msec: int = clock_value
+			if injected_msec >= 0:
+				current_msec = injected_msec
+	return maxi(current_msec, previous_msec)
+
+
+static func _encode_debug_snapshot(snapshot: Dictionary) -> Dictionary:
+	return GFReportValueCodec.to_report_dictionary(
+		snapshot,
+		GFReportValueCodec.make_redaction_options(
+			GFReportValueCodec.REDACTION_PROFILE_DEBUG,
+			{ "path_redaction": "none" }
+		)
+	)
 
 
 # --- 内部类 ---
@@ -224,7 +288,8 @@ class BTNode extends RefCounted:
 	## [br]
 	## @schema _blackboard: Dictionary 形式黑板；字段由项目自定义。
 	func tick(_blackboard: Dictionary) -> int:
-		return _record_tick(Status.SUCCESS)
+		var reason: StringName = _get_missing_tick_reason()
+		return _record_tick(Status.FAILURE, reason)
 
 
 	## 重置节点内部运行状态。
@@ -236,14 +301,20 @@ class BTNode extends RefCounted:
 
 	## 创建一份可独立运行的节点副本，不复制调试计数和正在运行的内部状态。
 	##
-	## 自定义节点若持有运行态，应重写此方法并复制自身类型；默认返回自身，
-	## 以避免未知子类被错误降级为基础 BTNode。
+	## 自定义节点必须重写此方法并复制自身类型；默认实现会返回一个失败节点，
+	## 避免 Runner 在默认复制模式下静默共享未知节点运行态。
 	## [br]
 	## @api public
 	## [br]
+	## @since 3.8.0
+	## [br]
 	## @return: 运行时副本。
 	func duplicate_runtime() -> BTNode:
-		return self
+		push_error("[GFBehaviorTree] BTNode 子类必须重写 duplicate_runtime() 才能被 Runner 默认复制；请返回独立运行副本，或显式创建 Runner(root, false) 共享运行树。")
+		var copy: BTNode = BTNode.new()
+		_copy_base_fields_to(copy)
+		copy.metadata["_gf_runtime_duplicate_error"] = &"runtime_duplicate_missing_override"
+		return copy
 
 
 	## 清空节点调试状态。
@@ -252,14 +323,7 @@ class BTNode extends RefCounted:
 	## [br]
 	## @param recursive: 是否同时清空子节点调试状态。
 	func clear_debug_state(recursive: bool = true) -> void:
-		last_status = Status.FRESH
-		last_reason = &""
-		tick_count = 0
-		last_tick_usec = 0
-		if recursive:
-			for child: BTNode in _get_debug_children():
-				if child != null:
-					child.clear_debug_state(true)
+		_clear_debug_state_internal(recursive, {})
 
 
 	## 记录节点状态。
@@ -274,36 +338,80 @@ class BTNode extends RefCounted:
 	## [br]
 	## @return: 原状态值，便于子类直接 return。
 	func record_status(status: int, reason: StringName = &"", elapsed_usec: int = 0) -> int:
-		last_status = status
-		last_reason = reason
+		var normalized_status: int = GFBehaviorTree._variant_to_status(status)
+		var normalized_reason: StringName = GFBehaviorTree._status_reason_from_value(
+			status,
+			normalized_status
+		)
+		last_status = normalized_status
+		last_reason = normalized_reason if normalized_reason != &"" else reason
 		last_tick_usec = maxi(elapsed_usec, 0)
 		tick_count += 1
-		return status
+		return normalized_status
 
 
 	## 获取调试快照。
 	## [br]
 	## @api public
 	## [br]
+	## @since 3.6.0
+	## [br]
 	## @return: 调试快照字典。
 	## [br]
-	## @schema return: 包含 node_id、name、status、status_text、reason、tick_count、last_tick_usec、child_count、children 和 metadata 字段的 Dictionary；children 为子节点快照数组。
+	## @schema return: 包含 node_id、name、status、status_text、reason、tick_count、last_tick_usec、child_count、children 和 metadata 字段的 Dictionary；children 为子节点快照数组；metadata 为 JSON-safe 投影。
 	func get_debug_snapshot() -> Dictionary:
+		return GFBehaviorTree._encode_debug_snapshot(_get_debug_snapshot_internal({}))
+
+
+	func _clear_debug_state_internal(recursive: bool, visited: Dictionary) -> void:
+		var instance_id: int = get_instance_id()
+		if visited.has(instance_id):
+			return
+		visited[instance_id] = true
+
+		last_status = Status.FRESH
+		last_reason = &""
+		tick_count = 0
+		last_tick_usec = 0
+		if recursive:
+			for child: BTNode in _get_debug_children():
+				if child != null:
+					child._clear_debug_state_internal(true, visited)
+
+
+	func _get_debug_snapshot_internal(visited: Dictionary) -> Dictionary:
+		var instance_id: int = get_instance_id()
+		if visited.has(instance_id):
+			return {
+				"node_id": String(node_id),
+				"name": name,
+				"status": last_status,
+				"status_text": String(GFBehaviorTree.status_to_string(last_status)),
+				"reason": "debug_cycle",
+				"tick_count": tick_count,
+				"last_tick_usec": last_tick_usec,
+				"child_count": 0,
+				"children": [],
+				"metadata": {},
+				"cycle": true,
+			}
+		visited[instance_id] = true
+
 		var children: Array[Dictionary] = []
 		for child: BTNode in _get_debug_children():
 			if child != null:
-				children.append(child.get_debug_snapshot())
+				children.append(child._get_debug_snapshot_internal(visited))
 		return {
-			"node_id": node_id,
+			"node_id": String(node_id),
 			"name": name,
 			"status": last_status,
-			"status_text": GFBehaviorTree.status_to_string(last_status),
-			"reason": last_reason,
+			"status_text": String(GFBehaviorTree.status_to_string(last_status)),
+			"reason": String(last_reason),
 			"tick_count": tick_count,
 			"last_tick_usec": last_tick_usec,
 			"child_count": children.size(),
 			"children": children,
-			"metadata": metadata.duplicate(true),
+			"metadata": metadata,
 		}
 
 
@@ -357,9 +465,19 @@ class BTNode extends RefCounted:
 		var reason: StringName = GFBehaviorTree._status_reason_from_value(value, normalized_status)
 		if reason != &"":
 			return reason
-		if child != null and (child.last_reason == &"invalid_status" or child.last_reason == &"aborted"):
+		if child != null and GFBehaviorTree._should_propagate_child_reason(child.last_reason):
 			return child.last_reason
 		return &""
+
+
+	func _get_missing_tick_reason() -> StringName:
+		var duplicate_error: Variant = metadata.get("_gf_runtime_duplicate_error", &"")
+		if duplicate_error is StringName:
+			return duplicate_error
+		if duplicate_error is String:
+			var duplicate_error_text: String = duplicate_error
+			return StringName(duplicate_error_text)
+		return &"missing_tick_override"
 
 
 	func _get_debug_children() -> Array[BTNode]:
@@ -386,11 +504,19 @@ class BlackboardScope extends RefCounted:
 	## 可选父级作用域。
 	## [br]
 	## @api public
-	var parent: BlackboardScope = null
+	## [br]
+	## @since 3.6.0
+	var parent: BlackboardScope:
+		get:
+			return _parent
+		set(value):
+			var _set_parent_result: bool = set_parent(value)
+
+	var _parent: BlackboardScope = null
 
 	func _init(initial_values: Dictionary = {}, parent_scope: BlackboardScope = null) -> void:
 		values = initial_values.duplicate(true)
-		parent = parent_scope
+		var _set_parent_result: bool = set_parent(parent_scope)
 
 
 	## 设置作用域值。
@@ -404,6 +530,23 @@ class BlackboardScope extends RefCounted:
 	## @schema value: 任意可存入黑板的项目值。
 	func set_value(key: StringName, value: Variant) -> void:
 		values[key] = GFVariantData.duplicate_variant(value)
+
+
+	## 设置父级作用域。
+	## [br]
+	## @api public
+	## [br]
+	## @since 8.0.0
+	## [br]
+	## @param parent_scope: 新父级作用域；传入 null 表示清空父级。
+	## [br]
+	## @return: 设置成功返回 true；会形成循环时返回 false。
+	func set_parent(parent_scope: BlackboardScope) -> bool:
+		if _would_create_parent_cycle(parent_scope):
+			push_error("[GFBehaviorTree] 拒绝设置会形成循环的 BlackboardScope parent。")
+			return false
+		_parent = parent_scope
+		return true
 
 
 	## 获取作用域值。
@@ -420,10 +563,19 @@ class BlackboardScope extends RefCounted:
 	## [br]
 	## @schema return: 找到的黑板值，或传入的 default_value。
 	func get_value(key: StringName, default_value: Variant = null) -> Variant:
+		return _get_value_internal(key, default_value, {})
+
+
+	func _get_value_internal(key: StringName, default_value: Variant, visited: Dictionary) -> Variant:
+		var instance_id: int = get_instance_id()
+		if visited.has(instance_id):
+			return GFVariantData.duplicate_variant(default_value)
+		visited[instance_id] = true
+
 		if values.has(key):
 			return GFVariantData.duplicate_variant(values[key])
-		if parent != null:
-			return parent.get_value(key, default_value)
+		if _parent != null:
+			return _parent._get_value_internal(key, default_value, visited)
 		return GFVariantData.duplicate_variant(default_value)
 
 
@@ -435,7 +587,15 @@ class BlackboardScope extends RefCounted:
 	## [br]
 	## @return: 存在返回 true。
 	func has_value(key: StringName) -> bool:
-		return values.has(key) or (parent != null and parent.has_value(key))
+		return _has_value_internal(key, {})
+
+
+	func _has_value_internal(key: StringName, visited: Dictionary) -> bool:
+		var instance_id: int = get_instance_id()
+		if visited.has(instance_id):
+			return false
+		visited[instance_id] = true
+		return values.has(key) or (_parent != null and _parent._has_value_internal(key, visited))
 
 
 	## 转换为合并后的字典。
@@ -446,10 +606,39 @@ class BlackboardScope extends RefCounted:
 	## [br]
 	## @schema return: 父级与当前作用域合并后的 Dictionary；当前作用域同名键覆盖父级键。
 	func to_dictionary() -> Dictionary:
-		var result: Dictionary = parent.to_dictionary() if parent != null else {}
+		return _to_dictionary_internal({})
+
+
+	func _to_dictionary_internal(visited: Dictionary) -> Dictionary:
+		var instance_id: int = get_instance_id()
+		if visited.has(instance_id):
+			return {}
+		visited[instance_id] = true
+
+		var result: Dictionary = _parent._to_dictionary_internal(visited) if _parent != null else {}
 		for key: Variant in values.keys():
 			result[key] = GFVariantData.duplicate_variant(values[key])
 		return result
+
+
+	func _would_create_parent_cycle(parent_scope: BlackboardScope) -> bool:
+		if parent_scope == null:
+			return false
+		if parent_scope == self:
+			return true
+		return _parent_chain_contains(parent_scope, self, {})
+
+
+	func _parent_chain_contains(candidate: BlackboardScope, target: BlackboardScope, visited: Dictionary) -> bool:
+		if candidate == null:
+			return false
+		if candidate == target:
+			return true
+		var instance_id: int = candidate.get_instance_id()
+		if visited.has(instance_id):
+			return false
+		visited[instance_id] = true
+		return _parent_chain_contains(candidate.parent, target, visited)
 
 
 ## 顺序节点 (AND 逻辑)。
@@ -1043,6 +1232,9 @@ class Condition extends BTNode:
 			return _record_tick(Status.FAILURE, &"condition_false", started)
 
 		var condition_value: Variant = _condition_func.call(blackboard)
+		var reason: StringName = GFBehaviorTree._condition_reason_from_value(condition_value)
+		if reason != &"":
+			return _record_tick(Status.FAILURE, reason, started)
 		if GFBehaviorTree._condition_result_to_bool(condition_value):
 			return _record_tick(Status.SUCCESS, &"", started)
 		return _record_tick(Status.FAILURE, &"condition_false", started)
@@ -1379,35 +1571,59 @@ class Cooldown extends Decorator:
 	## 冷却秒数。
 	## [br]
 	## @api public
-	var cooldown_seconds: float = 0.0
-	var _last_finish_msec: int = -1
+	## [br]
+	## @since 3.17.0
+	var cooldown_seconds: float:
+		get:
+			return _cooldown_seconds
+		set(value):
+			_cooldown_seconds = GFBehaviorTree._sanitize_non_negative_seconds(value, _cooldown_seconds)
 
-	func _init(child_node: BTNode, seconds: float = 0.0) -> void:
+	## 可选单调毫秒时钟；为空时使用 Time.get_ticks_msec()。
+	## [br]
+	## @api public
+	## [br]
+	## @since 8.0.0
+	var clock_msec: Callable = Callable()
+
+	var _cooldown_seconds: float = 0.0
+	var _last_finish_msec: int = -1
+	var _last_observed_msec: int = -1
+
+	func _init(child_node: BTNode, seconds: float = 0.0, p_clock_msec: Callable = Callable()) -> void:
 		super(child_node)
 		name = "Cooldown"
-		cooldown_seconds = maxf(seconds, 0.0)
+		cooldown_seconds = seconds
+		clock_msec = p_clock_msec
 
 
 	## 推进运行时逻辑。
 	## [br]
 	## @api public
 	## [br]
+	## @since 3.17.0
+	## [br]
 	## @param blackboard: 行为树本次 tick 使用的黑板数据。
 	## [br]
 	## @return: 返回 Status 枚举。
 	## [br]
-	## @schema blackboard: Dictionary 形式黑板；可提供 time_msec: int，其余字段由项目自定义。
+	## @schema blackboard: Dictionary 形式黑板；字段由项目自定义。
 	func tick(blackboard: Dictionary) -> int:
 		var started: int = Time.get_ticks_usec()
 		if _child == null:
 			return _record_tick(Status.FAILURE, &"missing_child", started)
-		var now: int = _resolve_time_msec(blackboard)
-		if _last_finish_msec >= 0 and now - _last_finish_msec < roundi(cooldown_seconds * 1000.0):
+		var now: int = _resolve_time_msec()
+		if _last_finish_msec >= 0 and now - _last_finish_msec < GFBehaviorTree._seconds_to_msec(cooldown_seconds):
 			return _record_tick(Status.FAILURE, &"cooldown_active", started)
 		var status_value: int = _child.tick(blackboard)
 		var status: int = GFBehaviorTree._variant_to_status(status_value)
 		var reason: StringName = _get_child_status_reason(_child, status_value, status)
-		if reason == &"" and (GFBehaviorTree._is_success(status) or GFBehaviorTree._is_failure(status)):
+		if not GFBehaviorTree._is_running(status):
+			_child.reset()
+		if (
+			(GFBehaviorTree._is_success(status) or GFBehaviorTree._is_failure(status))
+			and not GFBehaviorTree._is_error_reason(reason)
+		):
 			_last_finish_msec = now
 		return _record_tick(status, reason, started)
 
@@ -1432,13 +1648,17 @@ class Cooldown extends Decorator:
 	## [br]
 	## @return: 复制后的运行时节点。
 	func duplicate_runtime() -> BTNode:
-		var copy: Cooldown = Cooldown.new(_duplicate_child(), cooldown_seconds)
+		var copy: Cooldown = Cooldown.new(_duplicate_child(), cooldown_seconds, clock_msec)
 		_copy_base_fields_to(copy)
 		return copy
 
 
-	func _resolve_time_msec(blackboard: Dictionary) -> int:
-		return GFVariantData.get_option_int(blackboard, "time_msec", Time.get_ticks_msec())
+	func _resolve_time_msec() -> int:
+		_last_observed_msec = GFBehaviorTree._resolve_monotonic_time_msec(
+			clock_msec,
+			_last_observed_msec
+		)
+		return _last_observed_msec
 
 
 ## 时间限制装饰节点。
@@ -1454,32 +1674,51 @@ class TimeLimit extends Decorator:
 	## 最大运行秒数。
 	## [br]
 	## @api public
-	var limit_seconds: float = 1.0
-	var _started_msec: int = -1
+	## [br]
+	## @since 3.17.0
+	var limit_seconds: float:
+		get:
+			return _limit_seconds
+		set(value):
+			_limit_seconds = GFBehaviorTree._sanitize_non_negative_seconds(value, _limit_seconds)
 
-	func _init(child_node: BTNode, seconds: float = 1.0) -> void:
+	## 可选单调毫秒时钟；为空时使用 Time.get_ticks_msec()。
+	## [br]
+	## @api public
+	## [br]
+	## @since 8.0.0
+	var clock_msec: Callable = Callable()
+
+	var _limit_seconds: float = 1.0
+	var _started_msec: int = -1
+	var _last_observed_msec: int = -1
+
+	func _init(child_node: BTNode, seconds: float = 1.0, p_clock_msec: Callable = Callable()) -> void:
 		super(child_node)
 		name = "TimeLimit"
-		limit_seconds = maxf(seconds, 0.0)
+		limit_seconds = seconds
+		clock_msec = p_clock_msec
 
 
 	## 推进运行时逻辑。
 	## [br]
 	## @api public
 	## [br]
+	## @since 3.17.0
+	## [br]
 	## @param blackboard: 行为树本次 tick 使用的黑板数据。
 	## [br]
 	## @return: 返回 Status 枚举。
 	## [br]
-	## @schema blackboard: Dictionary 形式黑板；可提供 time_msec: int，其余字段由项目自定义。
+	## @schema blackboard: Dictionary 形式黑板；字段由项目自定义。
 	func tick(blackboard: Dictionary) -> int:
 		var started: int = Time.get_ticks_usec()
 		if _child == null:
 			return _record_tick(Status.FAILURE, &"missing_child", started)
-		var now: int = GFVariantData.get_option_int(blackboard, "time_msec", Time.get_ticks_msec())
+		var now: int = _resolve_time_msec()
 		if _started_msec < 0:
 			_started_msec = now
-		if now - _started_msec > roundi(limit_seconds * 1000.0):
+		if limit_seconds <= 0.0 or now - _started_msec >= GFBehaviorTree._seconds_to_msec(limit_seconds):
 			reset()
 			return _record_tick(Status.FAILURE, &"time_limit_exceeded", started)
 		var status_value: int = _child.tick(blackboard)
@@ -1504,9 +1743,17 @@ class TimeLimit extends Decorator:
 	## [br]
 	## @return: 复制后的运行时节点。
 	func duplicate_runtime() -> BTNode:
-		var copy: TimeLimit = TimeLimit.new(_duplicate_child(), limit_seconds)
+		var copy: TimeLimit = TimeLimit.new(_duplicate_child(), limit_seconds, clock_msec)
 		_copy_base_fields_to(copy)
 		return copy
+
+
+	func _resolve_time_msec() -> int:
+		_last_observed_msec = GFBehaviorTree._resolve_monotonic_time_msec(
+			clock_msec,
+			_last_observed_msec
+		)
+		return _last_observed_msec
 
 
 ## 次数限制装饰节点。
@@ -1686,6 +1933,8 @@ class UntilSuccess extends Decorator:
 		if GFBehaviorTree._is_success(status):
 			reset()
 			return _record_tick(Status.SUCCESS, &"", started)
+		if GFBehaviorTree._is_failure(status):
+			_child.reset()
 		return _record_tick(Status.RUNNING, &"", started)
 
 
@@ -1737,6 +1986,8 @@ class UntilFail extends Decorator:
 		if GFBehaviorTree._is_failure(status):
 			reset()
 			return _record_tick(Status.SUCCESS, &"", started)
+		if GFBehaviorTree._is_success(status):
+			_child.reset()
 		return _record_tick(Status.RUNNING, &"", started)
 
 
@@ -1787,7 +2038,12 @@ class Runner extends RefCounted:
 	func tick() -> int:
 		if _root_node == null:
 			return Status.FAILURE
-		return _root_node.tick(blackboard)
+		var status_value: Variant = _root_node.tick(blackboard)
+		var status: int = GFBehaviorTree._variant_to_status(status_value)
+		var reason: StringName = GFBehaviorTree._status_reason_from_value(status_value, status)
+		if reason == &"invalid_status":
+			return _root_node.record_status(Status.FAILURE, reason)
+		return status
 
 
 	## 重置整棵行为树的运行状态。
@@ -1814,16 +2070,20 @@ class Runner extends RefCounted:
 	## [br]
 	## @schema return: 包含 root 和 blackboard_keys 字段的 Dictionary；root 为根节点调试快照，blackboard_keys 为排序后的黑板键列表。
 	func get_debug_snapshot() -> Dictionary:
+		return GFBehaviorTree._encode_debug_snapshot(_get_debug_snapshot_raw())
+
+
+	func _get_debug_snapshot_raw() -> Dictionary:
 		return {
-			"root": _root_node.get_debug_snapshot() if _root_node != null else {},
+			"root": _root_node._get_debug_snapshot_internal({}) if _root_node != null else {},
 			"blackboard_keys": _get_blackboard_keys(),
 		}
 
 
-	func _get_blackboard_keys() -> PackedStringArray:
-		var result: PackedStringArray = PackedStringArray()
+	func _get_blackboard_keys() -> Array[String]:
+		var result: Array[String] = []
 		for key: Variant in blackboard.keys():
 			var key_text: String = GFVariantData.to_text(key)
-			var _key_appended: bool = result.append(key_text)
+			result.append(key_text)
 		result.sort()
 		return result

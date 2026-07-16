@@ -18,6 +18,7 @@
 | 方法 | [`from_samples`](#member-gfheightfield3d-methods-from_samples) | `static func from_samples( grid_size: Vector2i, height_samples: PackedFloat32Array, world_min: Vector2 = Vector2.ZERO, world_max: Vector2 = Vector2.ONE ) -> GFHeightfield3D:` |
 | 方法 | [`from_terrain_rgb_image`](#member-gfheightfield3d-methods-from_terrain_rgb_image) | `static func from_terrain_rgb_image( image: Image, world_min: Vector2 = Vector2.ZERO, world_max: Vector2 = Vector2.ONE, options: Dictionary = {} ) -> GFHeightfield3D:` |
 | 方法 | [`decode_terrain_rgb_height`](#member-gfheightfield3d-methods-decode_terrain_rgb_height) | `static func decode_terrain_rgb_height(color: Color) -> float:` |
+| 方法 | [`normal_to_slope`](#member-gfheightfield3d-methods-normal_to_slope) | `static func normal_to_slope(normal: Vector3) -> float:` |
 | 方法 | [`samples_from_terrain_rgb_image`](#member-gfheightfield3d-methods-samples_from_terrain_rgb_image) | `static func samples_from_terrain_rgb_image(image: Image, options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`configure`](#member-gfheightfield3d-methods-configure) | `func configure( grid_size: Vector2i, height_samples: PackedFloat32Array, world_min: Vector2 = Vector2.ZERO, world_max: Vector2 = Vector2.ONE ) -> bool:` |
 | 方法 | [`configure_from_terrain_rgb_image`](#member-gfheightfield3d-methods-configure_from_terrain_rgb_image) | `func configure_from_terrain_rgb_image( image: Image, world_min: Vector2 = Vector2.ZERO, world_max: Vector2 = Vector2.ONE, options: Dictionary = {} ) -> bool:` |
@@ -38,7 +39,9 @@
 | 方法 | [`sample_world`](#member-gfheightfield3d-methods-sample_world) | `func sample_world(world_x: float, world_z: float, fallback: Variant = null) -> float:` |
 | 方法 | [`sample_world_position`](#member-gfheightfield3d-methods-sample_world_position) | `func sample_world_position(position: Vector3, fallback: Variant = null) -> float:` |
 | 方法 | [`sample_normal_grid`](#member-gfheightfield3d-methods-sample_normal_grid) | `func sample_normal_grid(grid_position: Vector2, vertical_scale: float = 1.0) -> Vector3:` |
+| 方法 | [`sample_slope_grid`](#member-gfheightfield3d-methods-sample_slope_grid) | `func sample_slope_grid(grid_position: Vector2, vertical_scale: float = 1.0) -> float:` |
 | 方法 | [`sample_normal_world`](#member-gfheightfield3d-methods-sample_normal_world) | `func sample_normal_world(world_x: float, world_z: float, vertical_scale: float = 1.0) -> Vector3:` |
+| 方法 | [`sample_slope_world`](#member-gfheightfield3d-methods-sample_slope_world) | `func sample_slope_world(world_x: float, world_z: float, vertical_scale: float = 1.0) -> float:` |
 | 方法 | [`get_min_height`](#member-gfheightfield3d-methods-get_min_height) | `func get_min_height(fallback: float = 0.0) -> float:` |
 | 方法 | [`get_max_height`](#member-gfheightfield3d-methods-get_max_height) | `func get_max_height(fallback: float = 0.0) -> float:` |
 | 方法 | [`get_debug_snapshot`](#member-gfheightfield3d-methods-get_debug_snapshot) | `func get_debug_snapshot() -> Dictionary:` |
@@ -117,6 +120,27 @@ static func decode_terrain_rgb_height(color: Color) -> float:
 | `color` | Terrain-RGB 像素颜色。 |
 
 返回：解码后的米制高度。
+
+<a id="member-gfheightfield3d-methods-normal_to_slope"></a>
+
+### `normal_to_slope`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+static func normal_to_slope(normal: Vector3) -> float:
+```
+
+将表面法线转换为归一化坡度。 返回值范围为 0.0 到 1.0；0.0 表示朝上的平面，1.0 表示垂直、倒置或无效法线。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `normal` | 表面法线。 |
+
+返回：归一化坡度。
 
 <a id="member-gfheightfield3d-methods-samples_from_terrain_rgb_image"></a>
 
@@ -529,6 +553,28 @@ func sample_normal_grid(grid_position: Vector2, vertical_scale: float = 1.0) -> 
 
 返回：归一化法线；无效高度场返回 Vector3.UP。
 
+<a id="member-gfheightfield3d-methods-sample_slope_grid"></a>
+
+### `sample_slope_grid`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func sample_slope_grid(grid_position: Vector2, vertical_scale: float = 1.0) -> float:
+```
+
+按连续网格坐标估算归一化坡度。 返回值范围为 0.0 到 1.0；无效高度场或坐标返回 1.0，便于调用方按保守策略拒绝无效表面。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `grid_position` | 连续网格坐标。 |
+| `vertical_scale` | 高度差缩放，用于匹配项目世界单位。 |
+
+返回：归一化坡度。
+
 <a id="member-gfheightfield3d-methods-sample_normal_world"></a>
 
 ### `sample_normal_world`
@@ -551,6 +597,29 @@ func sample_normal_world(world_x: float, world_z: float, vertical_scale: float =
 | `vertical_scale` | 高度差缩放，用于匹配项目世界单位。 |
 
 返回：归一化法线；无效坐标返回 Vector3.UP。
+
+<a id="member-gfheightfield3d-methods-sample_slope_world"></a>
+
+### `sample_slope_world`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func sample_slope_world(world_x: float, world_z: float, vertical_scale: float = 1.0) -> float:
+```
+
+按 X/Z 世界坐标估算归一化坡度。 返回值范围为 0.0 到 1.0；无效高度场或坐标返回 1.0，便于调用方按保守策略拒绝无效表面。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `world_x` | 世界 X 坐标。 |
+| `world_z` | 世界 Z 坐标。 |
+| `vertical_scale` | 高度差缩放，用于匹配项目世界单位。 |
+
+返回：归一化坡度。
 
 <a id="member-gfheightfield3d-methods-get_min_height"></a>
 

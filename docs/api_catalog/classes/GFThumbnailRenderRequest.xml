@@ -1,0 +1,172 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFThumbnailRenderRequest" path="addons/gf/kernel/editor/gf_thumbnail_render_request.gd" module="kernel" extends="RefCounted" classDigest="c9ab0a30d5f54d727967972328a4f28044150cea6564f706646fd6fe798a5d92">
+	<description>GFThumbnailRenderRequest: 缩略图渲染请求描述。
+请求只描述一次缩略图渲染的输入，不持有执行状态；执行状态由 GFThumbnailRenderTask 承载。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">editor_api</tag>
+		<tag name="layer">kernel/editor</tag>
+		<tag name="since">8.0.0</tag>
+	</tags>
+	<signals />
+	<enums>
+		<member kind="enum" name="Kind">
+			<signature>enum Kind {
+	## 空请求。
+	NONE,
+	## 将 Node3D 渲染为 Image。
+	NODE3D_IMAGE,
+	## 将 Node3D 渲染为 ImageTexture。
+	NODE3D_TEXTURE,
+	## 将 Mesh 渲染为 Image。
+	MESH_IMAGE,
+	## 将 Mesh 渲染为 ImageTexture。
+	MESH_TEXTURE,
+	## 为 MeshLibrary 构建预览修改计划。
+	MESH_LIBRARY_PREVIEW_PLAN,
+}</signature>
+			<description>缩略图渲染请求类型。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</enums>
+	<constants />
+	<properties />
+	<methods>
+		<member kind="method" name="for_node3d_image">
+			<signature>static func for_node3d_image( source: Node3D, size: Vector2i = Vector2i(256, 256), transparent: bool = true ) -&gt; GFThumbnailRenderRequest:</signature>
+			<description>创建 Node3D Image 渲染请求。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">source: 要渲染的 3D 节点。</tag>
+				<tag name="param">size: 输出尺寸。</tag>
+				<tag name="param">transparent: 是否透明背景。</tag>
+				<tag name="return">Node3D Image 渲染请求。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="for_node3d_texture">
+			<signature>static func for_node3d_texture( source: Node3D, size: Vector2i = Vector2i(256, 256), transparent: bool = true ) -&gt; GFThumbnailRenderRequest:</signature>
+			<description>创建 Node3D ImageTexture 渲染请求。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">source: 要渲染的 3D 节点。</tag>
+				<tag name="param">size: 输出尺寸。</tag>
+				<tag name="param">transparent: 是否透明背景。</tag>
+				<tag name="return">Node3D ImageTexture 渲染请求。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="for_mesh_image">
+			<signature>static func for_mesh_image( mesh: Mesh, size: Vector2i = Vector2i(256, 256), transparent: bool = true ) -&gt; GFThumbnailRenderRequest:</signature>
+			<description>创建 Mesh Image 渲染请求。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">mesh: 要渲染的 Mesh。</tag>
+				<tag name="param">size: 输出尺寸。</tag>
+				<tag name="param">transparent: 是否透明背景。</tag>
+				<tag name="return">Mesh Image 渲染请求。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="for_mesh_texture">
+			<signature>static func for_mesh_texture( mesh: Mesh, size: Vector2i = Vector2i(256, 256), transparent: bool = true ) -&gt; GFThumbnailRenderRequest:</signature>
+			<description>创建 Mesh ImageTexture 渲染请求。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">mesh: 要渲染的 Mesh。</tag>
+				<tag name="param">size: 输出尺寸。</tag>
+				<tag name="param">transparent: 是否透明背景。</tag>
+				<tag name="return">Mesh ImageTexture 渲染请求。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="for_mesh_library_preview_plan">
+			<signature>static func for_mesh_library_preview_plan( mesh_library: MeshLibrary, size: Vector2i = Vector2i(128, 128), overwrite_existing: bool = true ) -&gt; GFThumbnailRenderRequest:</signature>
+			<description>创建 MeshLibrary 预览计划请求。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">mesh_library: 目标 MeshLibrary。</tag>
+				<tag name="param">size: 预览尺寸。</tag>
+				<tag name="param">overwrite_existing: 是否覆盖已有预览。</tag>
+				<tag name="return">MeshLibrary 预览计划请求。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_kind">
+			<signature>func get_kind() -&gt; Kind:</signature>
+			<description>返回请求类型。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">请求类型。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_source_node3d">
+			<signature>func get_source_node3d() -&gt; Node3D:</signature>
+			<description>返回 Node3D 来源。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">Node3D 来源；非 Node3D 请求时返回 null。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_mesh">
+			<signature>func get_mesh() -&gt; Mesh:</signature>
+			<description>返回 Mesh 来源。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">Mesh 来源；非 Mesh 请求时返回 null。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_mesh_library">
+			<signature>func get_mesh_library() -&gt; MeshLibrary:</signature>
+			<description>返回 MeshLibrary 来源。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">MeshLibrary 来源；非 MeshLibrary 请求时返回 null。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_size">
+			<signature>func get_size() -&gt; Vector2i:</signature>
+			<description>返回请求尺寸。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">请求尺寸。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_transparent">
+			<signature>func is_transparent() -&gt; bool:</signature>
+			<description>返回是否使用透明背景。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">透明背景时返回 true。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="should_overwrite_existing">
+			<signature>func should_overwrite_existing() -&gt; bool:</signature>
+			<description>返回 MeshLibrary 预览计划是否覆盖已有预览。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">覆盖已有预览时返回 true。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_valid">
+			<signature>func is_valid() -&gt; bool:</signature>
+			<description>返回请求输入是否完整。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">请求可执行时返回 true。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

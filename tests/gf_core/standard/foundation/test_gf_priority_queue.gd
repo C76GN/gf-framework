@@ -12,11 +12,11 @@ const GF_PRIORITY_QUEUE_SCRIPT = preload("res://addons/gf/standard/foundation/co
 func test_priority_queue_pops_high_priority_first_with_stable_ties() -> void:
 	var priority_queue: GF_PRIORITY_QUEUE_SCRIPT = GF_PRIORITY_QUEUE_SCRIPT.new()
 
-	priority_queue.push("first", 0)
-	priority_queue.push("low", -1)
-	priority_queue.push("last", 0)
-	priority_queue.push("high", 10)
-	priority_queue.push("front", 0, true)
+	assert_true(priority_queue.push("first", 0))
+	assert_true(priority_queue.push("low", -1))
+	assert_true(priority_queue.push("last", 0))
+	assert_true(priority_queue.push("high", 10))
+	assert_true(priority_queue.push("front", 0, true))
 
 	assert_eq(priority_queue.to_array(), ["high", "front", "first", "last", "low"], "队列应按 priority 和稳定同级顺序导出。")
 	assert_eq(GFVariantData.to_text(priority_queue.pop()), "high", "pop 应先返回最高 priority 元素。")
@@ -28,20 +28,30 @@ func test_priority_queue_pops_high_priority_first_with_stable_ties() -> void:
 func test_priority_queue_can_pop_low_priority_first() -> void:
 	var priority_queue: GF_PRIORITY_QUEUE_SCRIPT = GF_PRIORITY_QUEUE_SCRIPT.new(false)
 
-	priority_queue.push("high", 10)
-	priority_queue.push("low", -5)
-	priority_queue.push("normal", 0)
+	assert_true(priority_queue.push("high", 10.5))
+	assert_true(priority_queue.push("low", -5.25))
+	assert_true(priority_queue.push("normal", 0.0))
 
 	assert_eq(priority_queue.to_array(), ["low", "normal", "high"], "低优先模式应先弹出较小 priority。")
-	assert_eq(priority_queue.peek_priority(), -5, "peek_priority 应返回当前顶部优先级。")
+	assert_almost_eq(priority_queue.peek_priority(), -5.25, 0.001, "peek_priority 应返回当前顶部优先级。")
+
+
+func test_priority_queue_can_use_explicit_stable_order() -> void:
+	var priority_queue: GF_PRIORITY_QUEUE_SCRIPT = GF_PRIORITY_QUEUE_SCRIPT.new(false)
+
+	assert_true(priority_queue.push_with_order("second", 1.5, 20))
+	assert_true(priority_queue.push_with_order("first", 1.5, 10))
+	assert_true(priority_queue.push_with_order("lowest", 0.5, 30))
+
+	assert_eq(priority_queue.to_array(), ["lowest", "first", "second"], "显式 order 应在相同 priority 下稳定排序。")
 
 
 func test_priority_queue_removes_and_updates_values() -> void:
 	var priority_queue: GF_PRIORITY_QUEUE_SCRIPT = GF_PRIORITY_QUEUE_SCRIPT.new()
 
-	priority_queue.push("a", 1)
-	priority_queue.push("b", 2)
-	priority_queue.push("c", 3)
+	assert_true(priority_queue.push("a", 1))
+	assert_true(priority_queue.push("b", 2))
+	assert_true(priority_queue.push("c", 3))
 
 	assert_true(priority_queue.remove_value("b"), "remove_value 应移除匹配值。")
 	assert_false(priority_queue.has_value("b"), "移除后不应继续包含该值。")
@@ -55,7 +65,7 @@ func test_priority_queue_duplicates_entries_without_sharing_nested_values_when_d
 	var payload: Dictionary = {
 		"items": [1],
 	}
-	priority_queue.push(payload, 1)
+	assert_true(priority_queue.push(payload, 1))
 
 	var shallow_copy: GF_PRIORITY_QUEUE_SCRIPT = priority_queue.duplicate_priority_queue(false)
 	var deep_copy: GF_PRIORITY_QUEUE_SCRIPT = priority_queue.duplicate_priority_queue(true)
@@ -72,10 +82,10 @@ func test_priority_queue_duplicates_entries_without_sharing_nested_values_when_d
 func test_priority_queue_resets_order_after_becoming_empty() -> void:
 	var priority_queue: GF_PRIORITY_QUEUE_SCRIPT = GF_PRIORITY_QUEUE_SCRIPT.new()
 
-	priority_queue.push("old", 0)
+	assert_true(priority_queue.push("old", 0))
 	assert_eq(GFVariantData.to_text(priority_queue.pop()), "old", "测试队列应先被清空一次。")
-	priority_queue.push("new", 0)
-	priority_queue.push("front", 0, true)
+	assert_true(priority_queue.push("new", 0))
+	assert_true(priority_queue.push("front", 0, true))
 	var entries: Array[Dictionary] = priority_queue.to_entry_array()
 	var front_entry: Dictionary = entries[0]
 	var new_entry: Dictionary = entries[1]
@@ -83,3 +93,15 @@ func test_priority_queue_resets_order_after_becoming_empty() -> void:
 	assert_eq(GFVariantData.get_option_int(front_entry, "order"), -1, "清空后 front order 应从 -1 重新开始。")
 	assert_eq(GFVariantData.get_option_int(new_entry, "order"), 0, "清空后普通 order 应从 0 重新开始。")
 	assert_eq(priority_queue.to_array(), ["front", "new"], "清空后的稳定顺序应保持可预测。")
+
+
+func test_priority_queue_rejects_non_finite_priorities_and_uses_strict_order() -> void:
+	var priority_queue: GF_PRIORITY_QUEUE_SCRIPT = GF_PRIORITY_QUEUE_SCRIPT.new()
+
+	assert_false(priority_queue.push("nan", NAN), "NaN priority 应被拒绝。")
+	assert_false(priority_queue.push_with_order("inf", INF, 0), "Infinity priority 应被拒绝。")
+	assert_true(priority_queue.push("lower", 1.0), "有限 priority 应入队。")
+	assert_true(priority_queue.push("higher", 1.0000001), "相近但不同的有限 priority 应入队。")
+	assert_false(priority_queue.set_priority("lower", -INF), "set_priority 不应写入非有限值。")
+
+	assert_eq(priority_queue.to_array(), ["higher", "lower"], "priority 排序应使用严格数值全序，而不是近似相等。")

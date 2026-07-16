@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFResourceRegistryTools" path="addons/gf/standard/utilities/assets/gf_resource_registry_tools.gd" module="standard" extends="RefCounted" classDigest="ddd6c8f519bb8ebd2ee74035ae7e4b1b1063398e43e3267dba85293a19dccc1a">
+<class name="GFResourceRegistryTools" path="addons/gf/standard/utilities/assets/gf_resource_registry_tools.gd" module="standard" extends="RefCounted" classDigest="8999e6bbd0547be60a3dca5b2a242c74b00bb76bd1e9fcc328dd7d81e7d8234c">
 	<description>GFResourceRegistryTools: 通用资源注册表扫描和生成工具。
 面向编辑器工具、构建脚本和项目安装器复用；它只从路径生成
 `GFResourceRegistry` / `GFResourceRegistryEntry`，不解释业务字段。</description>
 	<tags>
 		<tag name="api">public</tag>
-		<tag name="category">runtime_service</tag>
+		<tag name="category">tool_api</tag>
 		<tag name="since">3.23.0</tag>
 	</tags>
 	<signals />
@@ -52,6 +52,14 @@
 			<description>默认单次扫描收集的资源路径数量上限。</description>
 			<tags>
 				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="const" name="DEFAULT_MAX_SCANNED_ENTRIES">
+			<signature>const DEFAULT_MAX_SCANNED_ENTRIES: int = 100000</signature>
+			<description>默认单次资源扫描访问的目录项数量上限。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="FIELD_EXTENSION">
@@ -115,9 +123,9 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">root_path: 扫描起点，通常是 res:// 下的目录。</tag>
-				<tag name="param">options: 可选项，支持 recursive、include_addons、excluded_paths、extensions、include_patterns、exclude_patterns、pattern_base_path、include_hidden、include_import_sidecars、max_scan_depth 与 max_resource_paths。</tag>
+				<tag name="param">options: 可选项，支持 recursive、include_addons、excluded_paths、extensions、include_patterns、exclude_patterns、pattern_base_path、include_hidden、include_import_sidecars、max_scan_depth、max_resource_paths 与 max_scanned_entries。</tag>
 				<tag name="return">按字典序排序的资源路径。</tag>
-				<tag name="schema">options: Dictionary，可包含 recursive、include_addons、excluded_paths、extensions、include_patterns、exclude_patterns、pattern_base_path、include_hidden、include_import_sidecars、max_scan_depth 和 max_resource_paths 字段。</tag>
+				<tag name="schema">options: Dictionary，可包含 recursive、include_addons、excluded_paths、extensions、include_patterns、exclude_patterns、pattern_base_path、include_hidden、include_import_sidecars、max_scan_depth、max_resource_paths 和 max_scanned_entries 字段。</tag>
 				<tag name="since">3.23.0</tag>
 			</tags>
 		</member>
@@ -204,6 +212,7 @@
 				<tag name="param">options: 可选项，支持 id_mode、base_path、path_separator、strip_extension。</tag>
 				<tag name="return">条目 ID。</tag>
 				<tag name="schema">options: Dictionary，可包含 id_mode、base_path、path_separator 和 strip_extension 字段。</tag>
+				<tag name="since">3.23.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="make_type_hint">
@@ -226,7 +235,8 @@
 				<tag name="param">options: 可选项，支持 base_path、extra_fields、fields_by_path、fields_by_id、include_path_fields、include_tags、include_category、tag_field 和 category_field。</tag>
 				<tag name="return">字段字典。</tag>
 				<tag name="schema">options: Dictionary，可包含路径字段、目录标签和调用方附加字段选项。</tag>
-				<tag name="schema">return: Dictionary keyed by field id with scalar, Array, or PackedStringArray values.</tag>
+				<tag name="schema">return: Dictionary keyed by field id with scalar, Array, or PackedStringArray values. include_path_fields adds extension, basename, directory, relative_path, and cache_key.</tag>
+				<tag name="since">3.23.0</tag>
 			</tags>
 		</member>
 	</methods>

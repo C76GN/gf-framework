@@ -124,6 +124,13 @@ signal player_action_triggered(player_index: int, action_id: StringName, value: 
 ## @schema value: Variant，根据动作值类型使用 bool、float、Vector2 或 Vector3。
 signal player_action_completed(player_index: int, action_id: StringName, value: Variant)
 
+
+# --- 常量 ---
+
+const _GF_VARIANT_KEY_CODEC_SCRIPT = preload("res://addons/gf/standard/foundation/variant/gf_variant_key_codec.gd")
+const _INPUT_KEY_SCHEMA_PREFIX: String = "gf_input_key_v1"
+
+
 # --- 私有变量 ---
 
 var _active_contexts: Dictionary = {}
@@ -133,6 +140,7 @@ var _binding_to_action: Dictionary = {}
 var _binding_player_indices: Dictionary = {}
 var _player_binding_values: Dictionary = {}
 var _player_binding_to_action: Dictionary = {}
+var _player_binding_metadata: Dictionary = {}
 var _actions: Dictionary = {}
 var _action_modifiers: Dictionary = {}
 var _action_triggers: Dictionary = {}
@@ -147,6 +155,7 @@ var _last_completed_duration: Dictionary = {}
 var _player_action_values: Dictionary = {}
 var _player_action_active: Dictionary = {}
 var _player_raw_action_active: Dictionary = {}
+var _player_action_metadata: Dictionary = {}
 var _player_trigger_states: Dictionary = {}
 var _player_just_started: Dictionary = {}
 var _player_just_completed: Dictionary = {}
@@ -327,6 +336,8 @@ func handle_input_event(event: InputEvent) -> void:
 		return
 
 	var player_index: int = _resolve_player_index(event)
+	if player_index < 0 and _input_event_requires_device_assignment(event):
+		return
 	var event_blocked: bool = false
 	for entry: Dictionary in _effective_entries:
 		if event_blocked:
@@ -404,6 +415,7 @@ func set_virtual_action_value(
 
 	if player_index >= 0:
 		var player_binding_key: String = _make_player_binding_key(player_index, binding_key)
+		_register_player_binding_metadata(player_binding_key, player_index, binding_key)
 		_player_binding_values[player_binding_key] = contribution
 		_player_binding_to_action[player_binding_key] = action_id
 		_refresh_player_action_state(player_index, action_id, action)
@@ -444,6 +456,7 @@ func clear_virtual_action(
 		changed = _player_binding_values.has(player_binding_key) or changed
 		_erase_dictionary_key(_player_binding_values, player_binding_key)
 		_erase_dictionary_key(_player_binding_to_action, player_binding_key)
+		_erase_dictionary_key(_player_binding_metadata, player_binding_key)
 		_refresh_player_action_state(player_index, action_id, action)
 
 	return changed
@@ -456,12 +469,11 @@ func clear_virtual_action(
 ## @param source_id: 虚拟输入源标识。
 func clear_virtual_source(source_id: StringName = &"virtual") -> void:
 	var source_key: StringName = source_id if source_id != &"" else &"virtual"
-	var prefix: String = _make_virtual_source_prefix(source_key)
 	var affected_actions: Dictionary = {}
 	var affected_player_actions: Dictionary = {}
 
 	for key: String in _binding_to_action.keys():
-		if not key.begins_with(prefix):
+		if not _is_virtual_binding_key_for_source(key, source_key):
 			continue
 		var action_id: StringName = GFVariantData.to_string_name(_binding_to_action[key])
 		affected_actions[action_id] = true
@@ -471,7 +483,7 @@ func clear_virtual_source(source_id: StringName = &"virtual") -> void:
 
 	for key: String in _player_binding_to_action.keys():
 		var source_part: String = _get_player_source_binding_key(key)
-		if not source_part.begins_with(prefix):
+		if not _is_virtual_binding_key_for_source(source_part, source_key):
 			continue
 		var action_id: StringName = GFVariantData.to_string_name(_player_binding_to_action[key])
 		var player_index: int = _get_player_index_from_binding_key(key)
@@ -481,6 +493,7 @@ func clear_virtual_source(source_id: StringName = &"virtual") -> void:
 		}
 		_erase_dictionary_key(_player_binding_values, key)
 		_erase_dictionary_key(_player_binding_to_action, key)
+		_erase_dictionary_key(_player_binding_metadata, key)
 
 	for action_id: StringName in affected_actions.keys():
 		var action: GFInputAction = _get_registered_action(action_id)
@@ -505,10 +518,9 @@ func clear_virtual_source(source_id: StringName = &"virtual") -> void:
 ## @schema return: Dictionary，包含 source_id 和 actions: Array[Dictionary]，action 条目包含 action_id 与 value。
 func get_virtual_source_snapshot(source_id: StringName = &"virtual") -> Dictionary:
 	var source_key: StringName = source_id if source_id != &"" else &"virtual"
-	var prefix: String = _make_virtual_source_prefix(source_key)
 	var actions: Array[Dictionary] = []
 	for key: String in _binding_to_action.keys():
-		if key.begins_with(prefix):
+		if _is_virtual_binding_key_for_source(key, source_key):
 			_append_array_value(actions, {
 				"action_id": _binding_to_action[key],
 				"value": _get_binding_vector_value(key),
@@ -1158,6 +1170,7 @@ func _apply_entry_event(entry: Dictionary, event: InputEvent, player_index: int)
 		if player_index >= 0:
 			_binding_player_indices[key] = player_index
 			var player_binding_key: String = _make_player_binding_key(player_index, key)
+			_register_player_binding_metadata(player_binding_key, player_index, key)
 			_player_binding_values[player_binding_key] = contribution
 			_player_binding_to_action[player_binding_key] = action_id
 		else:
@@ -1213,9 +1226,8 @@ func _calculate_action_vector3(action_id: StringName) -> Vector3:
 
 func _calculate_player_action_vector3(player_index: int, action_id: StringName) -> Vector3:
 	var total: Vector3 = Vector3.ZERO
-	var prefix: String = "%d/" % player_index
 	for key: String in _player_binding_values.keys():
-		if not key.begins_with(prefix):
+		if _get_player_index_from_binding_key(key) != player_index:
 			continue
 		if _get_player_binding_action_id(key) == action_id:
 			total += GFVariantData.to_vector3(_player_binding_values[key])
@@ -1305,12 +1317,16 @@ func _mark_action_just_completed(action_id: StringName) -> void:
 
 
 func _mark_player_action_just_started(player_index: int, action_id: StringName) -> void:
-	_player_just_started[_make_player_action_key(player_index, action_id)] = true
+	var key: String = _make_player_action_key(player_index, action_id)
+	_register_player_action_metadata(key, player_index, action_id)
+	_player_just_started[key] = true
 	_queue_clear_transient_input_state()
 
 
 func _mark_player_action_just_completed(player_index: int, action_id: StringName) -> void:
-	_player_just_completed[_make_player_action_key(player_index, action_id)] = true
+	var key: String = _make_player_action_key(player_index, action_id)
+	_register_player_action_metadata(key, player_index, action_id)
+	_player_just_completed[key] = true
 	_queue_clear_transient_input_state()
 
 
@@ -1343,11 +1359,10 @@ func _clear_runtime_state(emit_completed: bool = false) -> void:
 		for player_action_key: String in _player_action_active.keys():
 			if not _get_player_action_active_by_key(player_action_key):
 				continue
-			var parts: PackedStringArray = player_action_key.split("/", false, 1)
-			if parts.size() != 2:
+			var player_index: int = _get_player_index_from_action_key(player_action_key)
+			var action_id: StringName = _get_player_action_id_from_key(player_action_key)
+			if player_index < 0 or action_id == &"":
 				continue
-			var player_index: int = int(parts[0])
-			var action_id: StringName = StringName(parts[1])
 			var action: GFInputAction = _get_registered_action(action_id)
 			if action != null:
 				player_action_completed.emit(player_index, action_id, _default_value_for_type(action.value_type))
@@ -1357,6 +1372,7 @@ func _clear_runtime_state(emit_completed: bool = false) -> void:
 	_binding_player_indices.clear()
 	_player_binding_values.clear()
 	_player_binding_to_action.clear()
+	_player_binding_metadata.clear()
 	_action_values.clear()
 	_action_active.clear()
 	_raw_action_active.clear()
@@ -1367,6 +1383,7 @@ func _clear_runtime_state(emit_completed: bool = false) -> void:
 	_player_action_values.clear()
 	_player_action_active.clear()
 	_player_raw_action_active.clear()
+	_player_action_metadata.clear()
 	_player_just_started.clear()
 	_player_just_completed.clear()
 	_player_action_active_elapsed.clear()
@@ -1377,15 +1394,14 @@ func _clear_runtime_state(emit_completed: bool = false) -> void:
 
 
 func _clear_player_runtime_state(player_index: int, emit_completed: bool = false) -> void:
-	var prefix: String = "%d/" % player_index
 	var affected_actions: Dictionary = {}
 	if emit_completed:
 		for player_action_key: String in _player_action_active.keys():
-			if not player_action_key.begins_with(prefix):
+			if _get_player_index_from_action_key(player_action_key) != player_index:
 				continue
 			if not _get_player_action_active_by_key(player_action_key):
 				continue
-			var action_id: StringName = StringName(player_action_key.trim_prefix(prefix))
+			var action_id: StringName = _get_player_action_id_from_key(player_action_key)
 			var action: GFInputAction = _get_registered_action(action_id)
 			if action != null:
 				player_action_completed.emit(player_index, action_id, _default_value_for_type(action.value_type))
@@ -1401,19 +1417,23 @@ func _clear_player_runtime_state(player_index: int, emit_completed: bool = false
 		_erase_dictionary_key(_binding_player_indices, key)
 
 	for key: String in _player_binding_values.keys():
-		if key.begins_with(prefix):
-			_erase_dictionary_key(_player_binding_values, key)
-			_erase_dictionary_key(_player_binding_to_action, key)
+		if _get_player_index_from_binding_key(key) != player_index:
+			continue
+		_erase_dictionary_key(_player_binding_values, key)
+		_erase_dictionary_key(_player_binding_to_action, key)
+		_erase_dictionary_key(_player_binding_metadata, key)
 	for key: String in _player_action_values.keys():
-		if key.begins_with(prefix):
-			_erase_dictionary_key(_player_action_values, key)
-			_erase_dictionary_key(_player_action_active, key)
-			_erase_dictionary_key(_player_raw_action_active, key)
-			_erase_dictionary_key(_player_trigger_states, key)
-			_erase_dictionary_key(_player_just_started, key)
-			_erase_dictionary_key(_player_just_completed, key)
-			_erase_dictionary_key(_player_action_active_elapsed, key)
-			_erase_dictionary_key(_player_last_completed_duration, key)
+		if _get_player_index_from_action_key(key) != player_index:
+			continue
+		_erase_dictionary_key(_player_action_values, key)
+		_erase_dictionary_key(_player_action_active, key)
+		_erase_dictionary_key(_player_raw_action_active, key)
+		_erase_dictionary_key(_player_action_metadata, key)
+		_erase_dictionary_key(_player_trigger_states, key)
+		_erase_dictionary_key(_player_just_started, key)
+		_erase_dictionary_key(_player_just_completed, key)
+		_erase_dictionary_key(_player_action_active_elapsed, key)
+		_erase_dictionary_key(_player_last_completed_duration, key)
 
 	for action_id: StringName in affected_actions.keys():
 		var action: GFInputAction = _get_registered_action(action_id)
@@ -1433,38 +1453,121 @@ func _get_effective_event(
 
 
 func _make_binding_key(context_id: StringName, action_id: StringName, binding_index: int) -> String:
-	return "%s/%s/%d" % [String(context_id), String(action_id), binding_index]
+	return _make_compound_key(["binding", context_id, action_id, binding_index])
 
 
 func _make_player_binding_key(player_index: int, binding_key: String) -> String:
-	return "%d/%s" % [player_index, binding_key]
+	return _make_compound_key(["player_binding", player_index, binding_key])
 
 
-func _make_virtual_source_prefix(source_id: StringName) -> String:
-	return "virtual:%s/" % String(source_id)
+func _register_player_binding_metadata(key: String, player_index: int, binding_key: String) -> void:
+	_player_binding_metadata[key] = {
+		"player_index": player_index,
+		"binding_key": binding_key,
+	}
 
 
 func _make_virtual_binding_key(source_id: StringName, action_id: StringName, player_index: int = -1) -> String:
-	var scope: String = "player:%d" % player_index if player_index >= 0 else "global"
-	return "%s%s/%s" % [_make_virtual_source_prefix(source_id), scope, String(action_id)]
+	return _make_compound_key(["virtual", source_id, player_index, action_id])
 
 
 func _make_source_binding_key(binding_key: String, event: InputEvent) -> String:
-	return "%s@%s" % [binding_key, _make_event_source_key(event)]
+	return _make_compound_key(["source_binding", binding_key, _make_event_source_key(event)])
 
 
 func _make_player_action_key(player_index: int, action_id: StringName) -> String:
-	return "%d/%s" % [player_index, String(action_id)]
+	return _make_compound_key(["player_action", player_index, action_id])
+
+
+func _register_player_action_metadata(key: String, player_index: int, action_id: StringName) -> void:
+	_player_action_metadata[key] = {
+		"player_index": player_index,
+		"action_id": action_id,
+	}
 
 
 func _get_player_source_binding_key(player_binding_key: String) -> String:
-	var parts: PackedStringArray = player_binding_key.split("/", false, 1)
-	return parts[1] if parts.size() == 2 else ""
+	return GFVariantData.get_option_string(_get_player_binding_metadata(player_binding_key), "binding_key")
 
 
 func _get_player_index_from_binding_key(player_binding_key: String) -> int:
-	var parts: PackedStringArray = player_binding_key.split("/", false, 1)
-	return int(parts[0]) if parts.size() == 2 else -1
+	return GFVariantData.get_option_int(_get_player_binding_metadata(player_binding_key), "player_index", -1)
+
+
+func _get_player_index_from_action_key(player_action_key: String) -> int:
+	return GFVariantData.get_option_int(_get_player_action_metadata(player_action_key), "player_index", -1)
+
+
+func _get_player_action_id_from_key(player_action_key: String) -> StringName:
+	return GFVariantData.get_option_string_name(_get_player_action_metadata(player_action_key), "action_id")
+
+
+func _get_player_binding_metadata(player_binding_key: String) -> Dictionary:
+	return GFVariantData.get_option_dictionary(_player_binding_metadata, player_binding_key)
+
+
+func _get_player_action_metadata(player_action_key: String) -> Dictionary:
+	return GFVariantData.get_option_dictionary(_player_action_metadata, player_action_key)
+
+
+func _is_virtual_binding_key_for_source(binding_key: String, source_id: StringName) -> bool:
+	var parts: PackedStringArray = _decode_compound_key(binding_key)
+	return (
+		parts.size() == 4
+		and _compound_key_part_equals(parts, 0, "virtual")
+		and _compound_key_part_equals(parts, 1, source_id)
+	)
+
+
+func _make_compound_key(parts: Array) -> String:
+	var segments: PackedStringArray = PackedStringArray()
+	var _prefix_appended: bool = segments.append(_INPUT_KEY_SCHEMA_PREFIX)
+	for part: Variant in parts:
+		var token: String = _make_key_part_token(part)
+		if token.is_empty():
+			return ""
+		var _segment_appended: bool = segments.append("%d:%s" % [token.length(), token])
+	return "|".join(segments)
+
+
+func _decode_compound_key(key: String) -> PackedStringArray:
+	var prefix: String = "%s|" % _INPUT_KEY_SCHEMA_PREFIX
+	if not key.begins_with(prefix):
+		return PackedStringArray()
+
+	var parts: PackedStringArray = PackedStringArray()
+	var cursor: int = prefix.length()
+	while cursor < key.length():
+		var separator_index: int = key.find(":", cursor)
+		if separator_index < 0:
+			return PackedStringArray()
+		var length_text: String = key.substr(cursor, separator_index - cursor)
+		if length_text.is_empty() or not length_text.is_valid_int():
+			return PackedStringArray()
+		var token_length: int = int(length_text)
+		var token_start: int = separator_index + 1
+		var token_end: int = token_start + token_length
+		if token_length < 0 or token_end > key.length():
+			return PackedStringArray()
+		var _part_appended: bool = parts.append(key.substr(token_start, token_length))
+		cursor = token_end
+		if cursor == key.length():
+			break
+		if key.substr(cursor, 1) != "|":
+			return PackedStringArray()
+		cursor += 1
+	return parts
+
+
+func _compound_key_part_equals(parts: PackedStringArray, index: int, value: Variant) -> bool:
+	if index < 0 or index >= parts.size():
+		return false
+	var token: String = _make_key_part_token(value)
+	return not token.is_empty() and parts[index] == token
+
+
+func _make_key_part_token(value: Variant) -> String:
+	return _GF_VARIANT_KEY_CODEC_SCRIPT.make_key_token(value)
 
 
 func _coerce_virtual_value_to_vector(value: Variant, value_type: GFInputAction.ValueType) -> Vector3:
@@ -1543,6 +1646,7 @@ func _refresh_player_action_state(
 	action: GFInputAction
 ) -> void:
 	var key: String = _make_player_action_key(player_index, action_id)
+	_register_player_action_metadata(key, player_index, action_id)
 	var previous_value: Variant = _get_player_action_value_or_default(key, action.value_type)
 	var previous_active: bool = _get_player_action_active_by_key(key)
 	var next_value: Variant = _calculate_player_action_value(player_index, action_id, action.value_type)
@@ -1574,6 +1678,19 @@ func _resolve_player_index(event: InputEvent) -> int:
 	return devices.handle_input_event(event)
 
 
+func _input_event_requires_device_assignment(event: InputEvent) -> bool:
+	if _get_input_device_utility() == null:
+		return false
+	return (
+		event is InputEventKey
+		or event is InputEventMouse
+		or event is InputEventScreenTouch
+		or event is InputEventScreenDrag
+		or event is InputEventJoypadButton
+		or event is InputEventJoypadMotion
+	)
+
+
 func _get_player_deadzone(player_index: int) -> float:
 	if player_index < 0:
 		return -1.0
@@ -1602,11 +1719,10 @@ func _refresh_triggered_action_states(delta: float) -> void:
 
 	for player_key_variant: Variant in _player_raw_action_active.keys():
 		var player_key: String = GFVariantData.to_text(player_key_variant)
-		var parts: PackedStringArray = player_key.split("/", false, 1)
-		if parts.size() != 2:
+		var player_index: int = _get_player_index_from_action_key(player_key)
+		var action_id: StringName = _get_player_action_id_from_key(player_key)
+		if player_index < 0 or action_id == &"":
 			continue
-		var player_index: int = int(parts[0])
-		var action_id: StringName = StringName(parts[1])
 		var action: GFInputAction = _get_registered_action(action_id)
 		if action == null:
 			continue
@@ -1645,6 +1761,7 @@ func _set_player_action_active_from_triggers(
 	delta: float
 ) -> void:
 	var key: String = _make_player_action_key(player_index, action_id)
+	_register_player_action_metadata(key, player_index, action_id)
 	var previous_active: bool = _get_player_action_active_by_key(key)
 	var next_active: bool = _evaluate_player_action_triggers(player_index, action_id, raw_active, value, delta)
 	_player_action_active[key] = next_active
@@ -1684,6 +1801,7 @@ func _evaluate_player_action_triggers(
 	delta: float
 ) -> bool:
 	var key: String = _make_player_action_key(player_index, action_id)
+	_register_player_action_metadata(key, player_index, action_id)
 	return _evaluate_triggers(
 		action_id,
 		player_index,
@@ -1774,9 +1892,7 @@ func _duplicate_triggers(triggers: Array[GFInputTrigger]) -> Array[GFInputTrigge
 	for trigger: GFInputTrigger in triggers:
 		if trigger == null:
 			continue
-		var duplicate_trigger: GFInputTrigger = trigger.duplicate_trigger()
-		if duplicate_trigger != null:
-			_append_array_value(result, duplicate_trigger)
+		_append_array_value(result, trigger)
 	return result
 
 

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFTurnPhase" path="addons/gf/extensions/turn_based/resources/gf_turn_phase.gd" module="extensions/turn_based" extends="Resource" classDigest="065720044d81f992fb3d404b64b1ea9c7271f76911bbbf444c400eab4e6833d4">
+<class name="GFTurnPhase" path="addons/gf/extensions/turn_based/resources/gf_turn_phase.gd" module="extensions/turn_based" extends="Resource" classDigest="cf58c6e176290faab3347845946ea4fca9aaf65bca2ccf403856f81c1d6b42ca">
 	<description>GFTurnPhase: 通用回合阶段基类。
 阶段只提供 _enter/_execute/_exit 生命周期和完成信号，
 不绑定任何具体游戏流程。</description>
@@ -34,27 +34,25 @@
 				<tag name="api">public</tag>
 			</tags>
 		</member>
-		<member kind="property" name="is_finished">
-			<signature>var is_finished: bool = false</signature>
-			<description>当前阶段是否已经完成。</description>
-			<tags>
-				<tag name="api">public</tag>
-			</tags>
-		</member>
 	</properties>
 	<methods>
 		<member kind="method" name="finish">
-			<signature>func finish() -&gt; void:</signature>
-			<description>标记阶段完成。</description>
+			<signature>func finish(context: GFTurnContext = null) -&gt; void:</signature>
+			<description>标记指定上下文的阶段运行完成。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="param">context: 活动 Flow 的上下文；只有一个运行态时可省略。</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
-		<member kind="method" name="reset">
-			<signature>func reset() -&gt; void:</signature>
-			<description>重置阶段运行状态。</description>
+		<member kind="method" name="is_finished_for">
+			<signature>func is_finished_for(context: GFTurnContext) -&gt; bool:</signature>
+			<description>查询指定上下文的阶段是否完成。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="param">context: 活动 Flow 的上下文。</tag>
+				<tag name="return">对应运行态存在且已经完成时返回 true。</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="_enter">
@@ -73,6 +71,7 @@
 				<tag name="param">_context: 回合上下文。</tag>
 				<tag name="return">可等待结果。</tag>
 				<tag name="schema">return: Variant that is null or a Signal awaited before phase completion.</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="_exit">

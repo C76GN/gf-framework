@@ -2,7 +2,63 @@
 extends GutTest
 
 
+# --- 常量 ---
+
+const GF_PATH_ENUMERATION_TOOLS_SCRIPT = preload("res://addons/gf/standard/utilities/io/gf_path_enumeration_tools.gd")
+
+
 # --- 测试方法 ---
+
+func test_path_enumeration_tools_apply_extension_depth_exclusion_and_limit() -> void:
+	var root_path: String = "user://gf_path_enumeration_tools_scan"
+	var keep_dir: String = root_path.path_join("keep")
+	var deep_dir: String = keep_dir.path_join("deep")
+	var skip_dir: String = root_path.path_join("skip")
+	var root_file: String = root_path.path_join("root.txt")
+	var keep_file: String = keep_dir.path_join("keep.txt")
+	var deep_file: String = deep_dir.path_join("deep.txt")
+	var skip_file: String = skip_dir.path_join("skip.txt")
+	var other_file: String = root_path.path_join("other.json")
+	var make_deep_error: Error = DirAccess.make_dir_recursive_absolute(deep_dir)
+	var make_skip_error: Error = DirAccess.make_dir_recursive_absolute(skip_dir)
+	assert_true(make_deep_error == OK or make_deep_error == ERR_ALREADY_EXISTS, "测试应能创建深层目录。")
+	assert_true(make_skip_error == OK or make_skip_error == ERR_ALREADY_EXISTS, "测试应能创建排除目录。")
+	_write_text_file(root_file, "root")
+	_write_text_file(keep_file, "keep")
+	_write_text_file(deep_file, "deep")
+	_write_text_file(skip_file, "skip")
+	_write_text_file(other_file, "other")
+
+	var report: Dictionary = GF_PATH_ENUMERATION_TOOLS_SCRIPT.scan_files(root_path, {
+		"extensions": PackedStringArray(["txt"]),
+		"excluded_paths": PackedStringArray([skip_dir]),
+		"max_scan_depth": 1,
+	})
+	var paths: PackedStringArray = GFVariantData.get_option_packed_string_array(report, "paths")
+	var limited_report: Dictionary = GF_PATH_ENUMERATION_TOOLS_SCRIPT.scan_files(root_path, {
+		"extensions": PackedStringArray(["txt"]),
+		"max_file_count": 1,
+	})
+	var limited_paths: PackedStringArray = GFVariantData.get_option_packed_string_array(limited_report, "paths")
+
+	_remove_user_file(root_file)
+	_remove_user_file(keep_file)
+	_remove_user_file(deep_file)
+	_remove_user_file(skip_file)
+	_remove_user_file(other_file)
+	_remove_user_dir(deep_dir)
+	_remove_user_dir(keep_dir)
+	_remove_user_dir(skip_dir)
+	_remove_user_dir(root_path)
+
+	assert_true(paths.has(root_file), "根目录匹配扩展名文件应被枚举。")
+	assert_true(paths.has(keep_file), "max_scan_depth=1 应允许一层子目录文件。")
+	assert_false(paths.has(deep_file), "超过 max_scan_depth 的文件应被跳过。")
+	assert_false(paths.has(skip_file), "排除目录内文件应被跳过。")
+	assert_false(paths.has(other_file), "扩展名不匹配文件应被跳过。")
+	assert_eq(limited_paths.size(), 1, "max_file_count 应限制返回文件数量。")
+	assert_true(GFVariantData.get_option_bool(limited_report, "truncated"), "达到数量上限应报告 truncated。")
+
 
 func test_poll_builds_baseline_then_reports_created_and_deleted_paths() -> void:
 	var root_path: String = "user://gf_directory_watch_utility_scan"
@@ -54,6 +110,26 @@ func test_poll_can_report_existing_files_on_first_scan() -> void:
 	_remove_user_dir(root_path)
 
 	assert_true(change_set.created.has(first_path), "开启 report_existing_on_first_scan 后首次扫描应报告已有文件。")
+
+
+func test_poll_reports_content_change_without_size_change() -> void:
+	var root_path: String = "user://gf_directory_watch_utility_content"
+	var file_path: String = root_path.path_join("same_size.txt")
+	var make_error: Error = DirAccess.make_dir_recursive_absolute(root_path)
+	assert_true(make_error == OK or make_error == ERR_ALREADY_EXISTS, "测试应能创建 user:// 临时目录。")
+	_write_text_file(file_path, "aaaa")
+
+	var watcher: GFDirectoryWatchUtility = GFDirectoryWatchUtility.new()
+	var _configure_result: Variant = watcher.configure({ "extensions": PackedStringArray(["txt"]) })
+	watcher.watch_path(root_path)
+	var _baseline: GFDirectoryChangeSet = watcher.poll()
+	_write_text_file(file_path, "bbbb")
+	var changed: GFDirectoryChangeSet = watcher.poll()
+
+	_remove_user_file(file_path)
+	_remove_user_dir(root_path)
+
+	assert_true(changed.modified.has(file_path), "同大小内容变化也应进入 modified 列表。")
 
 
 func test_path_normalization_and_excluded_paths_match_child_directories() -> void:

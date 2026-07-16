@@ -9,6 +9,8 @@ extends VBoxContainer
 # --- 常量 ---
 
 const _GF_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
+const _GF_REPORT_VALUE_CODEC_SCRIPT = preload("res://addons/gf/kernel/core/gf_report_value_codec.gd")
+const _GF_EDITOR_BACKGROUND_REQUEST_TASK = preload("res://addons/gf/kernel/editor/gf_editor_background_request_task.gd")
 const _GF_PACKAGE_MANAGER_BACKEND = preload("res://addons/gf/kernel/package/gf_package_manager_backend.gd")
 const _GF_PACKAGE_MANAGER_WORKER = preload("res://addons/gf/kernel/editor/package/gf_package_manager_worker.gd")
 const _MAX_UNINSTALL_BLOCKER_DETAIL_LINES: int = 5
@@ -16,8 +18,6 @@ const _BUSY_PROGRESS_MIN_WIDTH: float = 180.0
 const _BUSY_PROGRESS_START: float = 8.0
 const _BUSY_PROGRESS_STATUS_DONE: float = 88.0
 const _BUSY_PROGRESS_OPERATION_DONE: float = 86.0
-const _THREAD_EXIT_POLL_MSEC: int = 10
-const _THREAD_EXIT_SOFT_TIMEOUT_MSEC: int = 250
 const _PACKAGE_STATUS_AVAILABLE: String = "+ 可安装"
 const _PACKAGE_STATUS_INSTALLED: String = "✓ 已安装"
 const _PACKAGE_STATUS_UPDATE_AVAILABLE: String = "↑ 可更新"
@@ -126,8 +126,8 @@ var _confirm_operation: String = ""
 var _busy: bool = false
 var _busy_started_msec: int = 0
 var _is_exiting_tree: bool = false
-var _active_thread: Thread
-var _active_worker: RefCounted
+var _active_background_task: RefCounted = null
+var _background_request_task_factory: Callable = Callable()
 var _packages: Array[Dictionary] = []
 var _selected_package_id: String = ""
 var _last_status: Dictionary = {}
@@ -144,7 +144,20 @@ func _init() -> void:
 
 func _exit_tree() -> void:
 	_is_exiting_tree = true
-	_wait_for_active_thread()
+	_wait_for_active_background_task()
+
+
+# --- 层内方法 ---
+
+## 设置后台请求任务工厂。
+## [br]
+## @api layer_internal
+## [br]
+## @layer kernel/editor
+## [br]
+## @param factory: 接收请求 Dictionary 并返回后台任务句柄的 Callable。
+func set_background_request_task_factory(factory: Callable) -> void:
+	_background_request_task_factory = factory
 
 
 # --- 私有/辅助方法 ---
@@ -401,7 +414,7 @@ func _status_is_source_development_project(status_data: Dictionary) -> bool:
 		return false
 	if not FileAccess.file_exists(ProjectSettings.globalize_path("res://packages/gf.kernel.json")):
 		return false
-	return FileAccess.file_exists(ProjectSettings.globalize_path("res://tools/build_gf_package.py"))
+	return FileAccess.file_exists(ProjectSettings.globalize_path("res://AI_MAINTENANCE.md"))
 
 
 func _read_package_entries(status_data: Dictionary) -> Array[Dictionary]:
@@ -1003,44 +1016,39 @@ func _run_backend_request_async(
 		return _run_backend_request_sync(request)
 
 	await get_tree().process_frame
-	var thread: Thread = Thread.new()
-	var worker_value: Variant = _GF_PACKAGE_MANAGER_WORKER.new()
-	if not worker_value is RefCounted:
+	var task: RefCounted = _create_background_request_task(request)
+	if task == null:
 		return _make_backend_error_result(
 			_GF_VARIANT_ACCESS_SCRIPT.get_option_string(request, "operation"),
-			"Package manager worker could not be created."
+			"Package manager background task could not be created."
 		)
 
-	var worker: RefCounted = worker_value
-	_active_thread = thread
-	_active_worker = worker
-	var start_error: Error = thread.start(Callable(worker, "run_request").bind(request.duplicate(true)))
+	_active_background_task = task
+	var start_error: Error = _background_task_start(task)
 	if start_error != OK:
-		_active_thread = null
-		_active_worker = null
+		_active_background_task = null
 		return _make_backend_error_result(
 			_GF_VARIANT_ACCESS_SCRIPT.get_option_string(request, "operation"),
 			"Package manager worker start failed: %s" % error_string(start_error)
 		)
 
-	while thread.is_alive():
+	while _background_task_is_running(task):
 		if _is_exiting_tree:
-			_request_active_worker_cancel()
+			_request_active_background_task_cancel()
 			break
 		_set_busy_stage(stage_message, _estimate_busy_progress(start_progress, finish_progress))
 		await get_tree().process_frame
 
-	if thread.is_alive() and _is_exiting_tree:
-		_wait_for_active_thread()
+	if _background_task_is_running(task) and _is_exiting_tree:
+		_wait_for_active_background_task()
 		return _make_backend_error_result(
 			_GF_VARIANT_ACCESS_SCRIPT.get_option_string(request, "operation"),
 			"Package manager request was cancelled while the dock exited."
 		)
 
-	var result_value: Variant = thread.wait_to_finish()
-	if _active_thread == thread:
-		_active_thread = null
-		_active_worker = null
+	var result_value: Variant = task.call("wait_to_finish")
+	if _active_background_task == task:
+		_active_background_task = null
 	if not _is_exiting_tree:
 		_set_busy_stage(stage_message, finish_progress)
 	if result_value is Dictionary:
@@ -1053,14 +1061,13 @@ func _run_backend_request_async(
 
 
 func _run_backend_request_sync(request: Dictionary) -> Dictionary:
-	var worker_value: Variant = _GF_PACKAGE_MANAGER_WORKER.new()
-	if not worker_value is RefCounted:
+	var worker: RefCounted = _create_package_manager_worker()
+	if worker == null:
 		return _make_backend_error_result(
 			_GF_VARIANT_ACCESS_SCRIPT.get_option_string(request, "operation"),
 			"Package manager worker could not be created."
 		)
 
-	var worker: RefCounted = worker_value
 	var result_value: Variant = worker.call("run_request", request.duplicate(true))
 	if result_value is Dictionary:
 		var result: Dictionary = result_value
@@ -1069,6 +1076,36 @@ func _run_backend_request_sync(request: Dictionary) -> Dictionary:
 		_GF_VARIANT_ACCESS_SCRIPT.get_option_string(request, "operation"),
 		"Package manager worker returned an unsupported result."
 	)
+
+
+func _create_background_request_task(request: Dictionary) -> RefCounted:
+	if _background_request_task_factory.is_valid():
+		var factory_result: Variant = _background_request_task_factory.call(request.duplicate(true))
+		if _is_background_request_task(factory_result):
+			var injected_task: RefCounted = factory_result
+			return injected_task
+		return null
+
+	var worker: RefCounted = _create_package_manager_worker()
+	if worker == null:
+		return null
+	var task_value: Variant = _GF_EDITOR_BACKGROUND_REQUEST_TASK.new()
+	if not _is_background_request_task(task_value):
+		return null
+	var task: RefCounted = task_value
+	var configured_value: Variant = task.call("configure", worker, request)
+	if _is_background_request_task(configured_value):
+		var configured_task: RefCounted = configured_value
+		return configured_task
+	return task
+
+
+func _create_package_manager_worker() -> RefCounted:
+	var worker_value: Variant = _GF_PACKAGE_MANAGER_WORKER.new()
+	if worker_value is RefCounted:
+		var worker: RefCounted = worker_value
+		return worker
+	return null
 
 
 func _make_backend_error_result(operation: String, issue: String) -> Dictionary:
@@ -1140,7 +1177,9 @@ func _get_operation_label(operation: String) -> String:
 
 
 func _format_command_result(result: Dictionary) -> String:
-	return JSON.stringify(result, "\t", false)
+	return _GF_REPORT_VALUE_CODEC_SCRIPT.stringify_json_compatible(result, "\t", false, {
+		"path_redaction": "none",
+	})
 
 
 func _update_action_buttons() -> void:
@@ -1230,28 +1269,67 @@ func _estimate_busy_progress(start_progress: float, finish_progress: float) -> f
 	return clampf(lerpf(start_progress, finish_progress, ratio), start_progress, finish_progress)
 
 
-func _wait_for_active_thread() -> void:
-	if _active_thread == null:
+func _wait_for_active_background_task() -> void:
+	if _active_background_task == null:
 		return
-	_request_active_worker_cancel()
-	if _active_thread.is_started():
-		var deadline_msec: int = Time.get_ticks_msec() + _THREAD_EXIT_SOFT_TIMEOUT_MSEC
-		while _active_thread.is_alive() and Time.get_ticks_msec() < deadline_msec:
-			OS.delay_msec(_THREAD_EXIT_POLL_MSEC)
-		if _active_thread.is_alive():
-			push_warning("[GFPackageManagerDock] Package backend thread is still running while the dock exits; cancellation was requested and the dock will not block indefinitely.")
-			return
-		var _thread_result: Variant = _active_thread.wait_to_finish()
-	_active_thread = null
-	_active_worker = null
+	_request_active_background_task_cancel()
+	if _background_task_is_started(_active_background_task):
+		var _task_result: Variant = _active_background_task.call("wait_to_finish")
+	_active_background_task = null
 
 
-func _request_active_worker_cancel() -> void:
-	if _active_worker == null:
+func _request_active_background_task_cancel() -> void:
+	if _active_background_task == null:
 		return
-	if not _active_worker.has_method("cancel"):
-		return
-	var _cancel_result: Variant = _active_worker.call("cancel")
+	_active_background_task.call("request_cancel")
+
+
+func _is_background_request_task(value: Variant) -> bool:
+	if not (value is RefCounted):
+		return false
+	var task: RefCounted = value
+	return (
+		task.has_method(&"configure")
+		and task.has_method(&"start")
+		and task.has_method(&"is_started")
+		and task.has_method(&"is_running")
+		and task.has_method(&"wait_to_finish")
+		and task.has_method(&"request_cancel")
+	)
+
+
+func _background_task_start(task: RefCounted) -> Error:
+	if task == null or not task.has_method(&"start"):
+		return ERR_INVALID_PARAMETER
+	var start_value: Variant = task.call("start")
+	return _variant_to_error(start_value, ERR_INVALID_PARAMETER)
+
+
+func _background_task_is_started(task: RefCounted) -> bool:
+	if task == null or not task.has_method(&"is_started"):
+		return false
+	var started_value: Variant = task.call("is_started")
+	if started_value is bool:
+		var started: bool = started_value
+		return started
+	return false
+
+
+func _background_task_is_running(task: RefCounted) -> bool:
+	if task == null or not task.has_method(&"is_running"):
+		return false
+	var running_value: Variant = task.call("is_running")
+	if running_value is bool:
+		var running: bool = running_value
+		return running
+	return false
+
+
+func _variant_to_error(value: Variant, fallback: Error) -> Error:
+	if value is int:
+		var error_code: int = value
+		return error_code as Error
+	return fallback
 
 
 func _set_status(message: String, color: Color = GFEditorWorkspaceUI.INFO_TEXT_COLOR) -> void:

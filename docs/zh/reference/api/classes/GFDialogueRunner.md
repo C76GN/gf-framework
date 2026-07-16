@@ -20,7 +20,7 @@
 | 信号 | [`mutation_requested`](#member-gfdialoguerunner-signals-mutation_requested) | `signal mutation_requested(mutation_id: StringName, payload: Variant, line: GFDialogueLine)` |
 | 信号 | [`dialogue_ended`](#member-gfdialoguerunner-signals-dialogue_ended) | `signal dialogue_ended(resource: GFDialogueResource)` |
 | 信号 | [`line_blocked`](#member-gfdialoguerunner-signals-line_blocked) | `signal line_blocked(line_id: StringName, reason: StringName)` |
-| 常量 | [`SNAPSHOT_SCHEMA_VERSION`](#member-gfdialoguerunner-constants-snapshot_schema_version) | `const SNAPSHOT_SCHEMA_VERSION: int = 2` |
+| 常量 | [`SNAPSHOT_SCHEMA_VERSION`](#member-gfdialoguerunner-constants-snapshot_schema_version) | `const SNAPSHOT_SCHEMA_VERSION: int = 4` |
 | 属性 | [`max_steps_per_advance`](#member-gfdialoguerunner-properties-max_steps_per_advance) | `var max_steps_per_advance: int = 1024` |
 | 属性 | [`skip_blocked_lines`](#member-gfdialoguerunner-properties-skip_blocked_lines) | `var skip_blocked_lines: bool = true` |
 | 方法 | [`start`](#member-gfdialoguerunner-methods-start) | `func start( resource: GFDialogueResource, start_line_id: StringName = &"", context: GFDialogueContext = null ) -> GFDialogueLine:` |
@@ -143,7 +143,7 @@ signal line_blocked(line_id: StringName, reason: StringName)
 - 首次版本：`5.0.0`
 
 ```gdscript
-const SNAPSHOT_SCHEMA_VERSION: int = 2
+const SNAPSHOT_SCHEMA_VERSION: int = 4
 ```
 
 对话运行快照结构版本。

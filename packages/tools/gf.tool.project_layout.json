@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "id": "gf.tool.project_layout",
+  "kind": "tool",
+  "version": "unreleased",
+  "display_name": "GF Project Layout Tool",
+  "description": "Optional project structure profile templates and validation support for GF projects.",
+  "dependencies": ["gf.kernel"],
+  "paths": [
+    "addons/gf/tools/project_layout/**"
+  ],
+  "metadata": {
+    "stage": "tool-split-v1"
+  }
+}

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFRuntimeTaskScheduler" path="addons/gf/standard/sequence/gf_runtime_task_scheduler.gd" module="standard" extends="GFUtility" classDigest="62b1a685284148fc8a1ed3614487558739098eddcc28c6967c73795d520fbdbc">
+<class name="GFRuntimeTaskScheduler" path="addons/gf/standard/sequence/gf_runtime_task_scheduler.gd" module="standard" extends="GFUtility" classDigest="b2ea30adc1fb153f669afc86d4fbe9d31d881fa420e8636baca96dd67cd36bab">
 	<description>按 requirement 仲裁运行时任务的调度器。
 调度器负责维护正在运行的 [GFRuntimeTask]、处理 requirement 冲突、执行可中断任务、
 并在 requirement 空闲时恢复默认任务。它只提供通用生命周期与资源占用语义，不绑定输入、
@@ -53,7 +53,16 @@
 		</member>
 	</signals>
 	<enums />
-	<constants />
+	<constants>
+		<member kind="const" name="REJECTION_SCHEDULER_BUSY">
+			<signature>const REJECTION_SCHEDULER_BUSY: StringName = &amp;"scheduler_busy"</signature>
+			<description>调度器正在提交另一项任务所有权变更时的拒绝原因。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</constants>
 	<properties>
 		<member kind="property" name="auto_schedule_default_tasks">
 			<signature>var auto_schedule_default_tasks: bool = true</signature>

@@ -18,18 +18,22 @@ extends RayCast2D
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param context: 命中上下文。
 ## [br]
 ## @param receiver: 接收对象。
 ## [br]
 ## @param report: 结果报告。
 ## [br]
-## @schema report: Dictionary，统一扫描命中结果，包含 ok、hit_id、receiver、reason、message 和 metadata。
+## @schema report: Dictionary，统一扫描命中结果，包含 ok、hit_id、receiver(JSON-safe 摘要)、reason、message 和 metadata。
 signal scan_hit(context: GFCombatHitContext, receiver: Object, report: Dictionary)
 
 ## 扫描没有命中可发送对象时发出。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @param report: 结果报告。
 ## [br]
@@ -40,26 +44,30 @@ signal scan_missed(report: Dictionary)
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param context: 命中上下文。
 ## [br]
 ## @param receiver: 接收对象。
 ## [br]
 ## @param report: 结果报告。
 ## [br]
-## @schema report: Dictionary，统一扫描命中结果，包含 ok、hit_id、receiver、reason、message 和 metadata。
+## @schema report: Dictionary，统一扫描命中结果，包含 ok、hit_id、receiver(JSON-safe 摘要)、reason、message 和 metadata。
 signal hit_accepted(context: GFCombatHitContext, receiver: Object, report: Dictionary)
 
 ## 命中被接收对象拒绝或发送失败。
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param context: 命中上下文。
 ## [br]
 ## @param receiver: 接收对象。
 ## [br]
 ## @param report: 结果报告。
 ## [br]
-## @schema report: Dictionary，统一扫描命中结果，包含 ok、hit_id、receiver、reason、message 和 metadata。
+## @schema report: Dictionary，统一扫描命中结果，包含 ok、hit_id、receiver(JSON-safe 摘要)、reason、message 和 metadata。
 signal hit_rejected(context: GFCombatHitContext, receiver: Object, report: Dictionary)
 
 
@@ -73,21 +81,29 @@ const _MESSAGE_DISPATCH_SUPPORT = preload("res://addons/gf/standard/common/gf_me
 ## 是否允许发送命中。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 @export var hit_enabled: bool = true
 
 ## 扫描前是否强制刷新射线。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 @export var force_update_before_scan: bool = true
 
 ## 默认命中 ID。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 @export var hit_id: StringName = &""
 
 ## 默认 payload；发送时会深拷贝。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @schema payload: Dictionary，默认命中载荷；框架只复制并透传。
 @export var payload: Dictionary = {}
@@ -95,16 +111,22 @@ const _MESSAGE_DISPATCH_SUPPORT = preload("res://addons/gf/standard/common/gf_me
 ## 通用强度值。框架不解释该字段。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 @export var magnitude: float = 0.0
 
 ## 命中标签。框架不解释该字段。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 @export var tags: Array[StringName] = []
 
 ## 发送器自定义元数据。框架不解释该字段。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @schema metadata: Dictionary，发送器自定义扫描命中元数据；会进入命中上下文和结果报告。
 @export var metadata: Dictionary = {}
@@ -112,6 +134,8 @@ const _MESSAGE_DISPATCH_SUPPORT = preload("res://addons/gf/standard/common/gf_me
 ## 可选发送者路径；为空时使用当前节点。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 @export_node_path("Node") var sender_path: NodePath = NodePath("")
 
 
@@ -120,6 +144,8 @@ const _MESSAGE_DISPATCH_SUPPORT = preload("res://addons/gf/standard/common/gf_me
 ## 构建命中上下文。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @param target: 命中目标。
 ## [br]
@@ -150,6 +176,8 @@ func build_hit_context(
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param payload_override: 覆盖 payload；为 null 时使用节点默认 payload。
 ## [br]
 ## @param hit_id_override: 覆盖命中 ID；为空时使用节点默认命中 ID。
@@ -158,7 +186,7 @@ func build_hit_context(
 ## [br]
 ## @schema payload_override: Variant，可为 null、Dictionary 或项目自定义命中载荷；为 null 时使用节点默认 payload。
 ## [br]
-## @schema return: Dictionary，统一扫描命中或未命中结果，包含 ok、reason、metadata，并在命中时包含 hit_id、receiver 和 message。
+## @schema return: Dictionary，统一扫描命中或未命中结果，包含 ok、reason、metadata，并在命中时包含 hit_id、receiver(JSON-safe 摘要) 和 message。
 func scan(payload_override: Variant = null, hit_id_override: StringName = &"") -> Dictionary:
 	if force_update_before_scan:
 		force_raycast_update()
@@ -167,7 +195,7 @@ func scan(payload_override: Variant = null, hit_id_override: StringName = &"") -
 	if not is_colliding():
 		return _emit_missed(&"no_collision")
 
-	var receiver: Object = get_collider()
+	var receiver: Object = _resolve_hit_receiver(get_collider())
 	var context: GFCombatHitContext = build_hit_context(receiver, payload_override, hit_id_override)
 	var report_value: Variant = _MESSAGE_DISPATCH_SUPPORT._dispatch_to_receiver(
 		hit_enabled,
@@ -213,3 +241,7 @@ func _resolve_sender() -> Object:
 		if sender != null:
 			return sender
 	return self
+
+
+func _resolve_hit_receiver(candidate: Object) -> Object:
+	return _MESSAGE_DISPATCH_SUPPORT._resolve_receiver(candidate, &"receive_hit")

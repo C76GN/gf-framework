@@ -131,6 +131,12 @@ func _set_status(message: String, is_error: bool) -> void:
 		push_warning("[GF Storage Viewer] " + message)
 
 
+func _format_decoded_data_for_display(data: Dictionary) -> String:
+	return GFVariantJsonCodec.stringify_json_compatible(data, "\t", true, {
+		"unsupported": "string",
+	})
+
+
 # --- 信号处理函数 ---
 
 func _on_browse_pressed() -> void:
@@ -186,7 +192,7 @@ func _on_load_pressed() -> void:
 		return
 
 	var data: Dictionary = GFVariantData.as_dictionary(data_value)
-	_output.text = JSON.stringify(data, "\t")
+	_output.text = _format_decoded_data_for_display(data)
 	_set_status(
 		"已加载：%d bytes，%d 个顶层键，完整性=%s" % [
 			bytes.size(),

@@ -53,6 +53,67 @@ func test_external_settings_change_auto_applies_locale() -> void:
 	assert_eq(TranslationServer.get_locale(), "en", "外部设置变化应自动应用到引擎层。")
 
 
+func test_external_window_mode_change_to_windowed_applies_saved_size() -> void:
+	_arch = GFArchitecture.new()
+	var settings: GFSettingsUtility = GFSettingsUtility.new()
+	settings.auto_load_on_init = false
+	settings.auto_save_on_change = false
+	var display: GFDisplaySettingsUtility = GFDisplaySettingsUtility.new()
+	display.register_defaults_on_ready = false
+	display.apply_on_ready = false
+	var original_mode: DisplayServer.WindowMode = DisplayServer.window_get_mode()
+	var original_size: Vector2i = DisplayServer.window_get_size()
+
+	await _arch.register_utility_instance(settings)
+	await _arch.register_utility_instance(display)
+	await Gf.set_architecture(_arch)
+	var target_size: Vector2i = Vector2i(maxi(original_size.x - 8, 320), maxi(original_size.y - 8, 240))
+	settings.set_value(GFDisplaySettingsUtility.WINDOW_SIZE_KEY, target_size, false)
+	watch_signals(display)
+
+	settings.set_value(GFDisplaySettingsUtility.WINDOW_MODE_KEY, DisplayServer.WINDOW_MODE_WINDOWED, false)
+	var applied_parameters: Array = GFVariantData.as_array(get_signal_parameters(display, "display_setting_applied"))
+
+	assert_eq(
+		applied_parameters,
+		[GFDisplaySettingsUtility.WINDOW_SIZE_KEY, target_size],
+		"切回窗口模式后最近一次应用信号应恢复保存的窗口尺寸。"
+	)
+	DisplayServer.window_set_mode(original_mode)
+	DisplayServer.window_set_size(original_size)
+
+
+func test_fullscreen_start_uses_explicit_windowed_fallback() -> void:
+	var display: FakeWindowDisplaySettingsUtility = FakeWindowDisplaySettingsUtility.new()
+	display.register_defaults_on_ready = false
+	display.apply_on_ready = false
+	display.default_windowed_size = Vector2i(960, 540)
+	display.engine_mode = DisplayServer.WINDOW_MODE_FULLSCREEN
+	display.engine_size = Vector2i(1920, 1080)
+	display.init()
+
+	var fallback_size: Vector2i = display.get_window_size()
+
+	assert_eq(fallback_size, Vector2i(960, 540), "非窗口模式启动时不应把全屏尺寸误作窗口尺寸。")
+	display.dispose()
+
+
+func test_leaving_windowed_mode_captures_current_window_size() -> void:
+	var display: FakeWindowDisplaySettingsUtility = FakeWindowDisplaySettingsUtility.new()
+	display.register_defaults_on_ready = false
+	display.apply_on_ready = false
+	display.persist_changes = false
+	display.init()
+	var target_size: Vector2i = Vector2i(960, 540)
+	display.engine_mode = DisplayServer.WINDOW_MODE_WINDOWED
+	display.engine_size = target_size
+	display.set_window_mode(DisplayServer.WINDOW_MODE_FULLSCREEN)
+
+	assert_eq(display.get_window_size(), target_size, "离开窗口模式前应保存最后一次有效窗口尺寸。")
+	assert_eq(display.engine_mode, DisplayServer.WINDOW_MODE_FULLSCREEN, "捕获尺寸后仍应应用目标窗口模式。")
+	display.dispose()
+
+
 func test_audio_bus_volume_uses_registered_setting_value() -> void:
 	_arch = GFArchitecture.new()
 	var settings: GFSettingsUtility = GFSettingsUtility.new()
@@ -87,3 +148,24 @@ func test_missing_audio_bus_does_not_emit_applied_signal() -> void:
 	assert_signal_not_emitted(display, "display_setting_applied", "缺失音频总线不应发出应用成功信号。")
 	assert_push_warning("[GFDisplaySettingsUtility] 无法应用音频总线音量，未找到总线或后端拒绝：__gf_missing_bus__。")
 	display.dispose()
+
+
+# --- 测试替身 ---
+
+class FakeWindowDisplaySettingsUtility:
+	extends GFDisplaySettingsUtility
+
+	var engine_mode: DisplayServer.WindowMode = DisplayServer.WINDOW_MODE_WINDOWED
+	var engine_size: Vector2i = Vector2i(1152, 648)
+
+	func _window_get_mode() -> DisplayServer.WindowMode:
+		return engine_mode
+
+	func _window_set_mode(mode: DisplayServer.WindowMode) -> void:
+		engine_mode = mode
+
+	func _window_get_size() -> Vector2i:
+		return engine_size
+
+	func _window_set_size(size: Vector2i) -> void:
+		engine_size = size

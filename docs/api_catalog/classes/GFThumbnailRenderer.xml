@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFThumbnailRenderer" path="addons/gf/kernel/editor/gf_thumbnail_renderer.gd" module="kernel" extends="Node" classDigest="4e4e33c57759833447e656cdba17d37eec8b6b706d5db206eb1c1c52ff8dd59f">
+<class name="GFThumbnailRenderer" path="addons/gf/kernel/editor/gf_thumbnail_renderer.gd" module="kernel" extends="Node" classDigest="d424a78554498d03c088c3c0db8e2824a969143e2011468d9ff8b40b8a8fdbd8">
 	<description>GFThumbnailRenderer: 编辑器缩略图渲染辅助节点。
 使用独立 SubViewport 渲染 Node3D 或 Mesh，供项目自定义编辑器工具复用。</description>
 	<tags>
@@ -11,15 +11,7 @@
 	<signals />
 	<enums />
 	<constants />
-	<properties>
-		<member kind="property" name="cancel_preview_generation">
-			<signature>var cancel_preview_generation: bool = false</signature>
-			<description>请求取消正在进行的 MeshLibrary 批量预览生成。</description>
-			<tags>
-				<tag name="api">public</tag>
-			</tags>
-		</member>
-	</properties>
+	<properties />
 	<methods>
 		<member kind="method" name="render_node3d">
 			<signature>func render_node3d(source: Node3D, size: Vector2i = Vector2i(256, 256), transparent: bool = true) -&gt; Image:</signature>
@@ -63,6 +55,27 @@
 				<tag name="param">size: 输出尺寸。</tag>
 				<tag name="param">transparent: 是否透明背景。</tag>
 				<tag name="return">渲染出的 ImageTexture；失败时返回 null。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="submit_render_request">
+			<signature>func submit_render_request(request: GFThumbnailRenderRequest) -&gt; GFThumbnailRenderTask:</signature>
+			<description>提交一个缩略图渲染请求。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">request: 缩略图渲染请求。</tag>
+				<tag name="return">可取消、可等待的渲染任务。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="cancel_render_task">
+			<signature>func cancel_render_task(task: GFThumbnailRenderTask, reason: StringName = &amp;"cancelled") -&gt; bool:</signature>
+			<description>取消一个渲染任务。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">task: 要取消的任务。</tag>
+				<tag name="param">reason: 取消原因。</tag>
+				<tag name="return">本次调用是否发出新的取消请求。</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="render_mesh_library_previews">

@@ -207,6 +207,8 @@ func is_valid_slot(slot_index: int) -> bool:
 ## [br]
 ## @return: 成功返回 true。
 func set_slot_definition(slot_index: int, definition: GFInventorySlotDefinition) -> bool:
+	if _reject_reentrant_mutation("set_slot_definition"):
+		return false
 	if not is_valid_slot(slot_index):
 		return false
 	_resize_slot_definitions(_slots.size())
@@ -621,6 +623,9 @@ func sort_slots(order_resolver: Callable = Callable()) -> bool:
 func move_between_slots(source_slot: int, target_slot: int, amount: int = 0) -> GFInventoryOperationResult:
 	if not _begin_inventory_mutation("move_between_slots"):
 		return GFInventoryOperationResult.partial(&"", amount, 0, &"reentrant_mutation", source_slot, target_slot)
+	if source_slot == target_slot:
+		_end_inventory_mutation()
+		return GFInventoryOperationResult.partial(&"", amount, 0, &"same_slot", source_slot, target_slot)
 	var source_stack: GFInventoryStack = _get_stack_ref(source_slot)
 	if source_stack == null or not is_valid_slot(target_slot):
 		_end_inventory_mutation()
@@ -967,6 +972,16 @@ func to_dict() -> Dictionary:
 ## [br]
 ## @schema data: Dictionary，包含 slot_count、allow_growth 与 slots；slots 每项为 GFInventoryStack.to_dict() 形状或空字典。
 func from_dict(data: Dictionary) -> void:
+	var slot_count_value: Variant = GFVariantData.get_option_value(data, "slot_count", null)
+	var slots_value: Variant = GFVariantData.get_option_value(data, "slots", null)
+	if (
+		typeof(slot_count_value) != TYPE_INT
+		or GFVariantData.to_int(slot_count_value, -1) < 0
+		or not (slots_value is Array)
+		or GFVariantData.as_array(slots_value).size() != GFVariantData.to_int(slot_count_value, -1)
+	):
+		push_error("[GFSlotInventoryModel] from_dict 失败：快照必须包含非负整数 slot_count，且 slots 数量必须与其一致。")
+		return
 	if not _begin_inventory_mutation("from_dict"):
 		return
 	allow_growth = GFVariantData.get_option_bool(data, "allow_growth", allow_growth)
@@ -1082,6 +1097,9 @@ func _begin_inventory_mutation(method_name: String) -> bool:
 	if _is_emitting_inventory_events:
 		push_error("[GFSlotInventoryModel] %s 失败：库存变更通知派发中不允许同步修改库存。请使用 call_deferred() 或在当前通知结束后再修改。" % method_name)
 		return false
+	if _mutation_depth > 0:
+		push_error("[GFSlotInventoryModel] %s 失败：库存变更处理中不允许同步修改库存。请在当前操作结束后再修改。" % method_name)
+		return false
 	_mutation_depth += 1
 	return true
 
@@ -1093,10 +1111,13 @@ func _end_inventory_mutation() -> void:
 
 
 func _reject_reentrant_mutation(method_name: String) -> bool:
-	if not _is_emitting_inventory_events:
-		return false
-	push_error("[GFSlotInventoryModel] %s 失败：库存变更通知派发中不允许同步修改库存。请使用 call_deferred() 或在当前通知结束后再修改。" % method_name)
-	return true
+	if _is_emitting_inventory_events:
+		push_error("[GFSlotInventoryModel] %s 失败：库存变更通知派发中不允许同步修改库存。请使用 call_deferred() 或在当前通知结束后再修改。" % method_name)
+		return true
+	if _mutation_depth > 0:
+		push_error("[GFSlotInventoryModel] %s 失败：库存变更处理中不允许同步修改库存。请在当前操作结束后再修改。" % method_name)
+		return true
+	return false
 
 
 func _get_stack_ref(slot_index: int) -> GFInventoryStack:

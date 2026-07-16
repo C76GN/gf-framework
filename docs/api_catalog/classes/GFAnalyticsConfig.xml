@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFAnalyticsConfig" path="addons/gf/standard/utilities/analytics/gf_analytics_config.gd" module="standard" extends="Resource" classDigest="578b0c4e8c97151c7f87ce8de8815492e82b88964c54b46c85e13a964eab8613">
+<class name="GFAnalyticsConfig" path="addons/gf/standard/utilities/analytics/gf_analytics_config.gd" module="standard" extends="Resource" classDigest="dadb668ace859bc479e6b14840f52c9f41d1f418ac78596ed47adb1689c34287">
 	<description>GFAnalyticsConfig: 通用事件分析配置。
 默认不开启网络依赖；若未配置 endpoint，flush 会以 dry-run 成功完成，
 便于项目在本地或测试环境中保持同一套调用路径。</description>
@@ -45,6 +45,54 @@
 			<description>本地队列最大事件数。</description>
 			<tags>
 				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="property" name="max_event_name_length" decorators="@export_range(1, 4096, 1)">
+			<signature>var max_event_name_length: int = 128:</signature>
+			<description>单个事件名允许的最大字符数。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="max_property_count" decorators="@export_range(1, 4096, 1)">
+			<signature>var max_property_count: int = 128:</signature>
+			<description>单个事件允许的顶层属性数量。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="max_string_length" decorators="@export_range(1, 65536, 1)">
+			<signature>var max_string_length: int = 4096:</signature>
+			<description>单个报告字符串允许的最大字符数。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="max_collection_items" decorators="@export_range(1, 4096, 1)">
+			<signature>var max_collection_items: int = 256:</signature>
+			<description>单个报告集合允许编码的最大元素数。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="max_total_nodes" decorators="@export_range(1, 1000000, 1)">
+			<signature>var max_total_nodes: int = 8192:</signature>
+			<description>单次报告编码允许遍历的最大节点数。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="max_payload_bytes" decorators="@export_range(1024, 16777216, 1024)">
+			<signature>var max_payload_bytes: int = 256 * 1024:</signature>
+			<description>transport 接收的单批 JSON 最大字节数。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="auto_capture_context" decorators="@export">

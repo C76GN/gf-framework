@@ -80,14 +80,35 @@ var default_max_seconds: float = 0.0
 ## @api public
 var default_touch_mode: TouchMode = TouchMode.RID_ONLY
 
-## 是否保留已加载资源引用，避免预热后立刻被释放。
+## 是否保留已加载资源引用，避免预热后立刻被释放。默认关闭，项目应在明确需要资源 pinning 时显式启用。
 ## [br]
 ## @api public
-var keep_resources_cached: bool = true
+## [br]
+## @since 8.0.0
+var keep_resources_cached: bool = false
 
-## 从 PackedScene 条目预热时是否实例化场景并扫描其渲染资源。默认关闭以避免触发项目脚本副作用。
+## 默认缓存分组。按组释放可避免不同预热流程互相持有资源。
 ## [br]
 ## @api public
+## [br]
+## @since 8.0.0
+var default_cache_group: StringName = &"default"
+
+## 最多保留的预热缓存资源数量。小于 1 时按 1 处理。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+var max_cached_resources: int = 128:
+	set(value):
+		max_cached_resources = maxi(value, 1)
+		_trim_cached_resources()
+
+## 从 PackedScene 条目预热时是否允许实例化场景并扫描其渲染资源。该行为仍需要 options.allow_scene_instantiation 为 true，避免无意触发项目脚本副作用。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
 var instantiate_packed_scenes: bool = false
 
 
@@ -95,6 +116,7 @@ var instantiate_packed_scenes: bool = false
 
 var _queue: Array[Dictionary] = []
 var _cached_resources: Dictionary = {}
+var _cached_resource_order: Array[String] = []
 var _next_queue_id: int = 1
 var _processed_entry_count: int = 0
 var _failed_entry_count: int = 0
@@ -130,13 +152,15 @@ func dispose() -> void:
 ## [br]
 ## @api public
 ## [br]
+## @since 8.0.0
+## [br]
 ## @param manifest: 预热清单。
 ## [br]
-## @param options: 可选参数，支持 entries_per_tick、max_seconds、touch_mode、keep_cached、instantiate_packed_scenes。
+## @param options: 可选参数，支持 entries_per_tick、max_seconds、touch_mode、keep_cached、cache_group、max_cached_resources、instantiate_packed_scenes、allow_scene_instantiation。
 ## [br]
 ## @return 队列标识；失败返回 -1。
 ## [br]
-## @schema options: Dictionary，包含 entries_per_tick、max_seconds、touch_mode、keep_cached、instantiate_packed_scenes、temporary_parent 和 temporary_viewport_size。
+## @schema options: Dictionary，包含 entries_per_tick、max_seconds、touch_mode、keep_cached、cache_group、max_cached_resources、instantiate_packed_scenes、allow_scene_instantiation、temporary_parent 和 temporary_viewport_size。
 func queue_manifest(manifest: GFRenderWarmupManifest, options: Dictionary = {}) -> int:
 	if manifest == null or manifest.is_empty():
 		return -1
@@ -163,13 +187,15 @@ func queue_manifest(manifest: GFRenderWarmupManifest, options: Dictionary = {}) 
 ## [br]
 ## @api public
 ## [br]
+## @since 8.0.0
+## [br]
 ## @param manifest: 预热清单。
 ## [br]
-## @param options: 可选参数，支持 max_seconds、touch_mode、keep_cached、instantiate_packed_scenes。
+## @param options: 可选参数，支持 max_seconds、touch_mode、keep_cached、cache_group、max_cached_resources、instantiate_packed_scenes、allow_scene_instantiation。
 ## [br]
 ## @return 预热摘要。
 ## [br]
-## @schema options: Dictionary，包含 max_seconds、touch_mode、keep_cached、instantiate_packed_scenes、temporary_parent 和 temporary_viewport_size。
+## @schema options: Dictionary，包含 max_seconds、touch_mode、keep_cached、cache_group、max_cached_resources、instantiate_packed_scenes、allow_scene_instantiation、temporary_parent 和 temporary_viewport_size。
 ## [br]
 ## @schema return: Dictionary，包含 queue_id、manifest_id、total_count、processed_count、failed_count、ok、elapsed_seconds、stopped_by_budget、completed_at_unix 和 results。
 func warmup_manifest_now(manifest: GFRenderWarmupManifest, options: Dictionary = {}) -> Dictionary:
@@ -278,17 +304,21 @@ func build_manifest_from_tree(root: Node, options: Dictionary = {}) -> GFRenderW
 ## [br]
 ## @api public
 ## [br]
+## @since 8.0.0
+## [br]
 ## @param scene: 场景资源。
 ## [br]
-## @param options: 可选参数，支持 manifest_id、include_materials、include_meshes、include_textures。
+## @param options: 可选参数，支持 manifest_id、include_materials、include_meshes、include_textures、allow_scene_instantiation。
 ## [br]
 ## @return 预热清单。
 ## [br]
-## @schema options: Dictionary，包含 manifest_id、include_materials、include_meshes 和 include_textures。
+## @schema options: Dictionary，包含 manifest_id、include_materials、include_meshes、include_textures 和 allow_scene_instantiation。
 func build_manifest_from_scene(scene: PackedScene, options: Dictionary = {}) -> GFRenderWarmupManifest:
 	var manifest: GFRenderWarmupManifest = GFRenderWarmupManifest.new()
 	manifest.manifest_id = GFVariantData.get_option_string_name(options, "manifest_id")
 	if scene == null:
+		return manifest
+	if not GFVariantData.get_option_bool(options, "allow_scene_instantiation", false):
 		return manifest
 
 	var root: Node = scene.instantiate()
@@ -304,13 +334,15 @@ func build_manifest_from_scene(scene: PackedScene, options: Dictionary = {}) -> 
 ## [br]
 ## @api public
 ## [br]
+## @since 8.0.0
+## [br]
 ## @param scene_path: 场景资源路径。
 ## [br]
-## @param options: 可选参数，支持 manifest_id、include_materials、include_meshes、include_textures。
+## @param options: 可选参数，支持 manifest_id、include_materials、include_meshes、include_textures、allow_scene_instantiation。
 ## [br]
 ## @return 预热清单。
 ## [br]
-## @schema options: Dictionary，包含 manifest_id、include_materials、include_meshes 和 include_textures。
+## @schema options: Dictionary，包含 manifest_id、include_materials、include_meshes、include_textures 和 allow_scene_instantiation。
 func build_manifest_from_scene_path(scene_path: String, options: Dictionary = {}) -> GFRenderWarmupManifest:
 	var manifest: GFRenderWarmupManifest = GFRenderWarmupManifest.new()
 	manifest.manifest_id = GFVariantData.get_option_string_name(options, "manifest_id")
@@ -331,8 +363,25 @@ func clear_queue() -> void:
 ## 释放预热缓存的资源引用。
 ## [br]
 ## @api public
-func release_cached_resources() -> void:
-	_cached_resources.clear()
+## [br]
+## @since 8.0.0
+## [br]
+## @param cache_group: 为空时释放全部缓存；非空时只释放指定分组。
+func release_cached_resources(cache_group: StringName = &"") -> void:
+	if cache_group == &"":
+		_cached_resources.clear()
+		_cached_resource_order.clear()
+		return
+
+	var keys_to_remove: PackedStringArray = PackedStringArray()
+	for raw_key: Variant in _cached_resources.keys():
+		var key: String = GFVariantData.to_text(raw_key)
+		var entry: Dictionary = GFVariantData.as_dictionary(_cached_resources[raw_key])
+		if GFVariantData.get_option_string_name(entry, "cache_group") == cache_group:
+			var _append_result: bool = keys_to_remove.append(key)
+	for key: String in keys_to_remove:
+		var _erased: bool = _cached_resources.erase(key)
+		_cached_resource_order.erase(key)
 
 
 ## 释放尚未清理的离屏临时渲染节点。
@@ -349,9 +398,20 @@ func release_temporary_render_nodes() -> void:
 ## [br]
 ## @api public
 ## [br]
+## @since 8.0.0
+## [br]
+## @param cache_group: 为空时返回全部缓存数量；非空时只统计指定分组。
+## [br]
 ## @return 缓存资源数量。
-func get_cached_resource_count() -> int:
-	return _cached_resources.size()
+func get_cached_resource_count(cache_group: StringName = &"") -> int:
+	if cache_group == &"":
+		return _cached_resources.size()
+	var count: int = 0
+	for raw_entry: Variant in _cached_resources.values():
+		var entry: Dictionary = GFVariantData.as_dictionary(raw_entry)
+		if GFVariantData.get_option_string_name(entry, "cache_group") == cache_group:
+			count += 1
+	return count
 
 
 ## 获取待处理队列数量。
@@ -367,9 +427,11 @@ func get_queue_size() -> int:
 ## [br]
 ## @api public
 ## [br]
+## @since 8.0.0
+## [br]
 ## @return 调试信息字典。
 ## [br]
-## @schema return: Dictionary，包含 queue_size、cached_resource_count、processed_entry_count、failed_entry_count、default_entries_per_tick、default_max_seconds、default_touch_mode、keep_resources_cached、instantiate_packed_scenes 和 temporary_render_node_count。
+## @schema return: Dictionary，包含 queue_size、cached_resource_count、processed_entry_count、failed_entry_count、default_entries_per_tick、default_max_seconds、default_touch_mode、keep_resources_cached、default_cache_group、max_cached_resources、instantiate_packed_scenes 和 temporary_render_node_count。
 func get_debug_snapshot() -> Dictionary:
 	return {
 		"queue_size": _queue.size(),
@@ -380,6 +442,8 @@ func get_debug_snapshot() -> Dictionary:
 		"default_max_seconds": default_max_seconds,
 		"default_touch_mode": default_touch_mode,
 		"keep_resources_cached": keep_resources_cached,
+		"default_cache_group": default_cache_group,
+		"max_cached_resources": max_cached_resources,
 		"instantiate_packed_scenes": instantiate_packed_scenes,
 		"temporary_render_node_count": _temporary_render_nodes.size(),
 	}
@@ -400,6 +464,8 @@ func _process_entry(entry: Dictionary, options: Dictionary) -> Dictionary:
 		"kind": GFVariantData.get_option_string_name(normalized, "kind"),
 		"resource_class": resource.get_class() if resource != null else "",
 		"touched_count": 0,
+		"cache_retained": false,
+		"cache_group": _get_cache_group(options),
 		"error": "",
 		"metadata": GFVariantData.get_option_dictionary(normalized, "metadata"),
 	}
@@ -410,7 +476,8 @@ func _process_entry(entry: Dictionary, options: Dictionary) -> Dictionary:
 
 	result["touched_count"] = _touch_resource(resource, normalized, options)
 	if GFVariantData.get_option_bool(options, "keep_cached", keep_resources_cached):
-		_cache_resource(resource, GFVariantData.get_option_string(result, "resource_path"))
+		_cache_resource(resource, GFVariantData.get_option_string(result, "resource_path"), options)
+		result["cache_retained"] = true
 	_processed_entry_count += 1
 	return result
 
@@ -445,7 +512,7 @@ func _touch_resource(resource: Resource, entry: Dictionary, options: Dictionary)
 		touched_count += _touch_mesh(mesh)
 		if _uses_temporary_render_nodes(options):
 			touched_count += _touch_mesh_with_temporary_node(mesh, options)
-	elif resource is PackedScene and GFVariantData.get_option_bool(options, "instantiate_packed_scenes", instantiate_packed_scenes):
+	elif resource is PackedScene and _can_instantiate_packed_scene(options):
 		var packed_scene: PackedScene = resource
 		touched_count += _touch_packed_scene(packed_scene, options)
 	return touched_count
@@ -564,11 +631,20 @@ func _resolve_temporary_parent(options: Dictionary) -> Node:
 	return tree.root
 
 
-func _cache_resource(resource: Resource, resource_path: String) -> void:
+func _cache_resource(resource: Resource, resource_path: String, options: Dictionary) -> void:
 	var key: String = resource_path
 	if key.is_empty():
 		key = "instance:%d" % resource.get_instance_id()
-	_cached_resources[key] = resource
+	var cache_group: StringName = _get_cache_group(options)
+	_cached_resources[key] = {
+		"resource": resource,
+		"resource_path": resource_path,
+		"cache_group": cache_group,
+		"cached_at_msec": Time.get_ticks_msec(),
+	}
+	_cached_resource_order.erase(key)
+	_cached_resource_order.append(key)
+	_trim_cached_resources(GFVariantData.get_option_int(options, "max_cached_resources", max_cached_resources))
 
 
 func _finish_queue_item(item: Dictionary, stopped_by_budget: bool) -> void:
@@ -719,6 +795,25 @@ func _add_resource_once(
 
 func _uses_temporary_render_nodes(options: Dictionary) -> bool:
 	return GFVariantData.get_option_int(options, "touch_mode", default_touch_mode) == TouchMode.TEMPORARY_RENDER_NODES
+
+
+func _can_instantiate_packed_scene(options: Dictionary) -> bool:
+	return (
+		GFVariantData.get_option_bool(options, "allow_scene_instantiation", false)
+		and GFVariantData.get_option_bool(options, "instantiate_packed_scenes", instantiate_packed_scenes)
+	)
+
+
+func _get_cache_group(options: Dictionary) -> StringName:
+	var cache_group: StringName = GFVariantData.get_option_string_name(options, "cache_group", default_cache_group)
+	return default_cache_group if cache_group == &"" else cache_group
+
+
+func _trim_cached_resources(limit: int = -1) -> void:
+	var safe_limit: int = maxi(max_cached_resources if limit < 0 else limit, 1)
+	while _cached_resource_order.size() > safe_limit:
+		var oldest_key: String = GFVariantData.to_text(_cached_resource_order.pop_front())
+		var _erased: bool = _cached_resources.erase(oldest_key)
 
 
 func _is_queue_item_budget_exhausted(item: Dictionary) -> bool:

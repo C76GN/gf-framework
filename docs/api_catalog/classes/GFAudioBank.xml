@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFAudioBank" path="addons/gf/standard/utilities/audio/gf_audio_bank.gd" module="standard" extends="Resource" classDigest="3a42e7a053050c4a0fba937266fb07295e60105b07eda4a866d850a732dd6066">
+<class name="GFAudioBank" path="addons/gf/standard/utilities/audio/gf_audio_bank.gd" module="standard" extends="Resource" classDigest="06d6bb12e610be03d398663c6594b1c38529cc7c2101c5340db90f2aaefe06aa">
 	<description>GFAudioBank: 音频片段配置集合。
 用 StringName 管理一组 `GFAudioClip`，便于 UI、表现动作或项目配置
 通过稳定 ID 播放音频。单个 ID 可保存一个片段或多个候选片段。</description>
@@ -127,6 +127,20 @@
 				<tag name="param">rng: 可选随机数生成器。</tag>
 				<tag name="return">解析报告。</tag>
 				<tag name="schema">return: Dictionary，包含 ok、requested_id、resolved_id、fallback_used、attempted_ids 和 clip 字段。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="to_json_compatible_resolution_report">
+			<signature>func to_json_compatible_resolution_report(report: Dictionary, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>把 resolve_clip() 的原始报告转换为 JSON-safe 诊断报告。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">report: resolve_clip() 返回的原始报告。</tag>
+				<tag name="param">options: 传给 GFReportValueCodec 的编码选项。</tag>
+				<tag name="return">JSON-safe 解析报告。</tag>
+				<tag name="schema">report: Dictionary，包含 ok、requested_id、resolved_id、fallback_used、attempted_ids 和 clip 字段。</tag>
+				<tag name="schema">options: Dictionary with GFReportValueCodec options.</tag>
+				<tag name="schema">return: Dictionary，clip 会转换为脱敏 marker，不直接暴露 GFAudioClip 资源实例。</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="has_clip">

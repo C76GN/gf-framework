@@ -7,7 +7,7 @@
 ## [br]
 ## @api public
 ## [br]
-## @category runtime_service
+## @category tool_api
 ## [br]
 ## @since 3.17.0
 class_name GFAudioBankTools

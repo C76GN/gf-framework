@@ -15,9 +15,9 @@
 
 | 类型 | 名称 | 签名 |
 |---|---|---|
-| 属性 | [`raw_x`](#member-gffixedvector2-properties-raw_x) | `var raw_x: int = 0` |
-| 属性 | [`raw_y`](#member-gffixedvector2-properties-raw_y) | `var raw_y: int = 0` |
-| 属性 | [`decimal_places`](#member-gffixedvector2-properties-decimal_places) | `var decimal_places: int = 2` |
+| 属性 | [`raw_x`](#member-gffixedvector2-properties-raw_x) | `var raw_x: int = 0:` |
+| 属性 | [`raw_y`](#member-gffixedvector2-properties-raw_y) | `var raw_y: int = 0:` |
+| 属性 | [`decimal_places`](#member-gffixedvector2-properties-decimal_places) | `var decimal_places: int = 2:` |
 | 方法 | [`from_raw`](#member-gffixedvector2-methods-from_raw) | `static func from_raw(p_raw_x: int, p_raw_y: int, p_decimal_places: int = 2) -> GFFixedVector2:` |
 | 方法 | [`from_decimal_strings`](#member-gffixedvector2-methods-from_decimal_strings) | `static func from_decimal_strings( x_text: String, y_text: String, p_decimal_places: int = 2, rounding_mode: int = GFFixedDecimal.RoundingMode.HALF_UP ) -> GFFixedVector2:` |
 | 方法 | [`from_vector2`](#member-gffixedvector2-methods-from_vector2) | `static func from_vector2( value: Vector2, p_decimal_places: int = 2, rounding_mode: int = GFFixedDecimal.RoundingMode.HALF_UP ) -> GFFixedVector2:` |
@@ -51,7 +51,7 @@
 - 首次版本：`5.0.0`
 
 ```gdscript
-var raw_x: int = 0
+var raw_x: int = 0:
 ```
 
 X 分量的整数缩放值。
@@ -64,7 +64,7 @@ X 分量的整数缩放值。
 - 首次版本：`5.0.0`
 
 ```gdscript
-var raw_y: int = 0
+var raw_y: int = 0:
 ```
 
 Y 分量的整数缩放值。
@@ -77,7 +77,7 @@ Y 分量的整数缩放值。
 - 首次版本：`5.0.0`
 
 ```gdscript
-var decimal_places: int = 2
+var decimal_places: int = 2:
 ```
 
 两个分量共享的小数位数。

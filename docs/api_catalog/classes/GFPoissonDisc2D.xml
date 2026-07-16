@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFPoissonDisc2D" path="addons/gf/standard/foundation/math/gf_poisson_disc_2d.gd" module="standard" extends="RefCounted" classDigest="16a50cdeb034bc3911061a09cb5a758f43666481e212050865cc3b6790012f6f">
+<class name="GFPoissonDisc2D" path="addons/gf/standard/foundation/math/gf_poisson_disc_2d.gd" module="standard" extends="RefCounted" classDigest="7ecd5820c0f3cb21ad1b5e7d6d2e6642d2886aa6ba261f74b55a2797ae4f5572">
 	<description>GFPoissonDisc2D: 通用二维 Poisson-disc 采样工具。
 在矩形区域中生成最小间距受限的点集，适合程序化摆放、刷点候选、
 空间采样和编辑器工具。它只返回纯数据，不创建 Node、地形、碰撞或渲染资源。
@@ -51,6 +51,20 @@
 				<tag name="schema">options: Dictionary，seed 为确定性随机种子，candidate_attempts 为每个活动点的候选尝试次数，max_points 为最大输出点数，max_grid_cells 为内部空间网格单元上限，start_point 为可选起始 Vector2。</tag>
 				<tag name="schema">return: Dictionary，包含 ok、error、area、minimum_distance、seed、candidate_attempts、max_points、max_grid_cells、points、point_count 与 truncated 字段。</tag>
 				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="to_json_compatible_report">
+			<signature>static func to_json_compatible_report(report: Dictionary, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>将采样报告编码为 JSON.stringify() 安全字典。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">report: generate_points() 返回的原生报告。</tag>
+				<tag name="param">options: GFReportValueCodec 编码选项。</tag>
+				<tag name="return">JSON 兼容报告。</tag>
+				<tag name="schema">report: Dictionary returned by generate_points().</tag>
+				<tag name="schema">options: Dictionary with GFReportValueCodec options.</tag>
+				<tag name="schema">return: Dictionary safe for JSON.stringify().</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 	</methods>

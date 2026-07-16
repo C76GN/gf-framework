@@ -33,7 +33,9 @@
 | 方法 | [`set_node_runtime_value`](#member-gfflowcontext-methods-set_node_runtime_value) | `func set_node_runtime_value(node_id: StringName, key: StringName, value: Variant) -> void:` |
 | 方法 | [`get_node_runtime_value`](#member-gfflowcontext-methods-get_node_runtime_value) | `func get_node_runtime_value(node_id: StringName, key: StringName, default_value: Variant = null) -> Variant:` |
 | 方法 | [`clear_node_runtime_state`](#member-gfflowcontext-methods-clear_node_runtime_state) | `func clear_node_runtime_state(node_id: StringName = &"") -> void:` |
-| 方法 | [`serialize_runtime_state`](#member-gfflowcontext-methods-serialize_runtime_state) | `func serialize_runtime_state() -> Dictionary:` |
+| 方法 | [`create_runtime_snapshot`](#member-gfflowcontext-methods-create_runtime_snapshot) | `func create_runtime_snapshot(options: Dictionary = {}) -> Dictionary:` |
+| 方法 | [`restore_runtime_snapshot`](#member-gfflowcontext-methods-restore_runtime_snapshot) | `func restore_runtime_snapshot(snapshot: Dictionary) -> bool:` |
+| 方法 | [`serialize_runtime_state`](#member-gfflowcontext-methods-serialize_runtime_state) | `func serialize_runtime_state(json_compatible: bool = false) -> Dictionary:` |
 | 方法 | [`deserialize_runtime_state`](#member-gfflowcontext-methods-deserialize_runtime_state) | `func deserialize_runtime_state(data: Dictionary) -> void:` |
 
 ## 属性
@@ -43,6 +45,7 @@
 ### `values`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var values: Dictionary = {}
@@ -59,6 +62,7 @@ var values: Dictionary = {}
 ### `next_node_ids`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var next_node_ids: PackedStringArray = PackedStringArray()
@@ -71,6 +75,7 @@ var next_node_ids: PackedStringArray = PackedStringArray()
 ### `has_next_node_override`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var has_next_node_override: bool = false
@@ -85,6 +90,7 @@ var has_next_node_override: bool = false
 ### `set_architecture`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func set_architecture(architecture: GFArchitecture) -> void:
@@ -103,6 +109,7 @@ func set_architecture(architecture: GFArchitecture) -> void:
 ### `get_architecture`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func get_architecture() -> GFArchitecture:
@@ -117,6 +124,7 @@ func get_architecture() -> GFArchitecture:
 ### `set_value`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func set_value(key: StringName, value: Variant) -> GFFlowContext:
@@ -142,6 +150,7 @@ func set_value(key: StringName, value: Variant) -> GFFlowContext:
 ### `get_value`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func get_value(key: StringName, default_value: Variant = null) -> Variant:
@@ -168,6 +177,7 @@ func get_value(key: StringName, default_value: Variant = null) -> Variant:
 ### `set_next_nodes`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func set_next_nodes(node_ids: PackedStringArray) -> void:
@@ -186,6 +196,7 @@ func set_next_nodes(node_ids: PackedStringArray) -> void:
 ### `has_next_nodes_override`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func has_next_nodes_override() -> bool:
@@ -200,6 +211,7 @@ func has_next_nodes_override() -> bool:
 ### `clear_next_nodes`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func clear_next_nodes() -> void:
@@ -212,6 +224,7 @@ func clear_next_nodes() -> void:
 ### `register_condition_handler`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func register_condition_handler(condition_id: StringName, handler: Callable) -> bool:
@@ -233,6 +246,7 @@ func register_condition_handler(condition_id: StringName, handler: Callable) -> 
 ### `unregister_condition_handler`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func unregister_condition_handler(condition_id: StringName) -> void:
@@ -251,6 +265,7 @@ func unregister_condition_handler(condition_id: StringName) -> void:
 ### `has_condition_handler`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func has_condition_handler(condition_id: StringName) -> bool:
@@ -271,6 +286,7 @@ func has_condition_handler(condition_id: StringName) -> bool:
 ### `clear_condition_handlers`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func clear_condition_handlers() -> void:
@@ -283,6 +299,7 @@ func clear_condition_handlers() -> void:
 ### `query_condition`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func query_condition( condition_id: StringName, payload: Variant = null, default_value: Variant = false ) -> Dictionary:
@@ -311,6 +328,7 @@ func query_condition( condition_id: StringName, payload: Variant = null, default
 ### `set_node_runtime_value`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func set_node_runtime_value(node_id: StringName, key: StringName, value: Variant) -> void:
@@ -335,6 +353,7 @@ func set_node_runtime_value(node_id: StringName, key: StringName, value: Variant
 ### `get_node_runtime_value`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func get_node_runtime_value(node_id: StringName, key: StringName, default_value: Variant = null) -> Variant:
@@ -362,6 +381,7 @@ func get_node_runtime_value(node_id: StringName, key: StringName, default_value:
 ### `clear_node_runtime_state`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func clear_node_runtime_state(node_id: StringName = &"") -> void:
@@ -375,17 +395,75 @@ func clear_node_runtime_state(node_id: StringName = &"") -> void:
 |---|---|
 | `node_id` | 节点标识。 |
 
+<a id="member-gfflowcontext-methods-create_runtime_snapshot"></a>
+
+### `create_runtime_snapshot`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func create_runtime_snapshot(options: Dictionary = {}) -> Dictionary:
+```
+
+创建 Flow 上下文运行快照。 快照包含共享 values、下一个节点覆盖和节点运行态。条件处理器是运行时 Callable， 不会被序列化；恢复快照时也不会修改当前已注册的条件处理器。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `options` | 快照选项，支持 metadata、include_condition_handler_ids 和 json_compatible。 |
+
+返回：运行快照。
+
+结构：
+
+- `options`: Dictionary，包含 metadata: Dictionary、include_condition_handler_ids: bool 与 json_compatible: bool。
+- `return`: Dictionary，包含 values、next_node_ids、has_next_node_override、runtime_state、condition_handler_ids 和 metadata。
+
+<a id="member-gfflowcontext-methods-restore_runtime_snapshot"></a>
+
+### `restore_runtime_snapshot`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func restore_runtime_snapshot(snapshot: Dictionary) -> bool:
+```
+
+恢复 Flow 上下文运行快照。 只恢复可序列化运行数据，不覆盖 architecture 或条件处理器。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `snapshot` | create_runtime_snapshot() 生成的快照。 |
+
+返回：快照有效并完成恢复时返回 true。
+
+结构：
+
+- `snapshot`: Dictionary，包含 values、next_node_ids、has_next_node_override 和 runtime_state。
+
 <a id="member-gfflowcontext-methods-serialize_runtime_state"></a>
 
 ### `serialize_runtime_state`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func serialize_runtime_state() -> Dictionary:
+func serialize_runtime_state(json_compatible: bool = false) -> Dictionary:
 ```
 
 序列化上下文持有的节点运行态。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `json_compatible` | 为 true 时输出 JSON-safe 报告值；默认为 false，保留运行时原始 Variant。 |
 
 返回：运行态快照。
 
@@ -398,6 +476,7 @@ func serialize_runtime_state() -> Dictionary:
 ### `deserialize_runtime_state`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func deserialize_runtime_state(data: Dictionary) -> void:

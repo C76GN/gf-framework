@@ -43,6 +43,7 @@ enum CompletionMode {
 # --- 常量 ---
 
 const _GF_ASYNC_WAIT_SUPPORT = preload("res://addons/gf/standard/common/gf_async_wait_support.gd")
+const _ACTION_TIME_POLICY = preload("res://addons/gf/extensions/action_queue/core/gf_action_time_policy.gd")
 
 
 # --- 公共变量 ---
@@ -55,7 +56,16 @@ var completion_mode: CompletionMode = CompletionMode.AUTO
 ## 等待 Signal 的超时时间（秒）。小于等于 0 时表示不启用超时。
 ## [br]
 ## @api public
-var signal_timeout_seconds: float = 30.0
+## [br]
+## @since 3.17.0
+var signal_timeout_seconds: float:
+	get:
+		return _signal_timeout_seconds
+	set(value):
+		_signal_timeout_seconds = _ACTION_TIME_POLICY.sanitize_non_negative_seconds(
+			value,
+			_signal_timeout_seconds
+		)
 
 ## Signal 超时计时是否跟随 GFTimeUtility 的暂停与 time_scale。
 ## [br]
@@ -67,6 +77,7 @@ var signal_timeout_respects_time_scale: bool = true
 
 var _architecture_ref: WeakRef = null
 var _completion_emitted: bool = false
+var _signal_timeout_seconds: float = 30.0
 
 
 # --- 公共方法 ---
@@ -178,7 +189,7 @@ func get_wait_guard_node() -> Node:
 ## [br]
 ## @return 当前动作实例。
 func with_signal_timeout(seconds: float, respect_time_scale: bool = true) -> GFVisualAction:
-	signal_timeout_seconds = maxf(seconds, 0.0)
+	signal_timeout_seconds = seconds
 	signal_timeout_respects_time_scale = respect_time_scale
 	return self
 

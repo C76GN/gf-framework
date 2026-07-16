@@ -11,6 +11,10 @@
     "gf.standard.audio"
   ],
   "paths": [
+    "addons/gf/standard/utilities/audio/gf_audio_bank_tools.gd",
+    "addons/gf/standard/utilities/audio/gf_audio_bank_tools.gd.uid",
+    "addons/gf/standard/utilities/audio/gf_audio_library_tools.gd",
+    "addons/gf/standard/utilities/audio/gf_audio_library_tools.gd.uid",
     "addons/gf/standard/utilities/audio/editor/**"
   ],
   "metadata": {

@@ -60,8 +60,14 @@ func configure(
 	hint: String = "",
 	indexed_fields: Dictionary = {}
 ) -> Resource:
+	var identity: GFResourceIdentity = GFResourceIdentity.from_path(
+		entry_path,
+		entry_id,
+		hint,
+		{ "check_exists": false }
+	)
 	id = entry_id
-	path = entry_path
+	path = identity.canonical_path if not identity.canonical_path.is_empty() else entry_path.strip_edges()
 	type_hint = hint
 	fields = indexed_fields.duplicate(true)
 	return self
@@ -90,18 +96,45 @@ func duplicate_entry() -> Resource:
 	return entry
 
 
+## 获取条目的规范资源身份。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+## [br]
+## @return 资源身份对象。
+func get_resource_identity() -> GFResourceIdentity:
+	return GFResourceIdentity.from_path(path, id, type_hint, { "check_exists": false })
+
+
+## 获取条目的推荐缓存键。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+## [br]
+## @return 资源身份 cache_key。
+func get_cache_key() -> String:
+	return get_resource_identity().cache_key
+
+
 ## 转换为可序列化字典。
 ## [br]
 ## @api public
 ## [br]
+## @since 3.21.0
+## [br]
 ## @return 条目字典。
 ## [br]
-## @schema return: Dictionary with id, resource_path, type_hint, and fields.
+## @schema return: Dictionary with id, resource_path, type_hint, cache_key, resource_identity, and fields.
 func to_dict() -> Dictionary:
+	var identity: GFResourceIdentity = get_resource_identity()
 	return {
 		"id": String(id),
-		"path": path,
+		"resource_path": path,
 		"type_hint": type_hint,
+		"cache_key": identity.cache_key,
+		"resource_identity": identity.to_dictionary(),
 		"fields": fields.duplicate(true),
 	}
 
@@ -110,9 +143,11 @@ func to_dict() -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.21.0
+## [br]
 ## @param data: 条目字典。
 ## [br]
-## @schema data: Dictionary with optional id, resource_path, type_hint, and fields.
+## @schema data: Dictionary with optional id, resource_path, type_hint, cache_key, resource_identity, and fields.
 ## [br]
 ## @return 新条目。
 static func from_dict(data: Dictionary) -> Resource:

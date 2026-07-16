@@ -27,7 +27,7 @@ func test_await_signal_payload_safely_keeps_nine_signal_arguments() -> void:
 
 func test_await_signal_state_reports_cancelled_token() -> void:
 	var emitter: WideSignalEmitter = WideSignalEmitter.new()
-	var source: GFCancelSource = GFCancelSource.new()
+	var source: GFCancellationSource = GFCancellationSource.new()
 	add_child_autofree(emitter)
 	var _cancelled: bool = source.cancel(&"already_cancelled", { "scope": "test" })
 

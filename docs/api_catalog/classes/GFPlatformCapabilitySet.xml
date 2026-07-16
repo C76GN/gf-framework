@@ -1,0 +1,224 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFPlatformCapabilitySet" path="addons/gf/standard/foundation/platform/gf_platform_capability_set.gd" module="standard" extends="Resource" classDigest="8fadd90e9ce7883671546639eb6beacd26191015b37363222e9e0b79bc81d36d">
+	<description>GFPlatformCapabilitySet: 平台能力集合。
+用纯数据描述某个运行平台或外部 adapter 暴露的能力及其限制。GF 不内置
+具体平台表，调用方应使用稳定的业务无关能力 ID。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">resource_definition</tag>
+		<tag name="since">8.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties>
+		<member kind="property" name="platform_id" decorators="@export">
+			<signature>var platform_id: StringName = &amp;""</signature>
+			<description>平台标识。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="adapter_id" decorators="@export">
+			<signature>var adapter_id: StringName = &amp;""</signature>
+			<description>Adapter 标识。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="capabilities" decorators="@export">
+			<signature>var capabilities: PackedStringArray = PackedStringArray()</signature>
+			<description>能力 ID 列表。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="limits" decorators="@export">
+			<signature>var limits: Dictionary = {}</signature>
+			<description>能力限制表。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">limits: Dictionary[String, Dictionary]，key 为 capability_id。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="metadata" decorators="@export">
+			<signature>var metadata: Dictionary = {}</signature>
+			<description>调用方元数据。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">metadata: Dictionary caller-defined metadata.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="configure">
+			<signature>func configure( p_platform_id: StringName, p_capabilities: PackedStringArray = PackedStringArray(), p_metadata: Dictionary = {}, p_adapter_id: StringName = &amp;"" ) -&gt; GFPlatformCapabilitySet:</signature>
+			<description>配置能力集合。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">p_platform_id: 平台标识。</tag>
+				<tag name="param">p_capabilities: 能力 ID 列表。</tag>
+				<tag name="param">p_metadata: 调用方元数据。</tag>
+				<tag name="param">p_adapter_id: Adapter 标识。</tag>
+				<tag name="return">当前能力集合。</tag>
+				<tag name="schema">p_metadata: Dictionary caller-defined metadata.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="clear">
+			<signature>func clear() -&gt; void:</signature>
+			<description>清空能力集合。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="add_capability">
+			<signature>func add_capability(capability_id: StringName, capability_limits: Dictionary = {}) -&gt; bool:</signature>
+			<description>添加能力。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">capability_id: 能力 ID。</tag>
+				<tag name="param">capability_limits: 能力限制字段。</tag>
+				<tag name="return">成功添加或已存在时返回 true。</tag>
+				<tag name="schema">capability_limits: Dictionary capability limits.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="remove_capability">
+			<signature>func remove_capability(capability_id: StringName) -&gt; bool:</signature>
+			<description>移除能力。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">capability_id: 能力 ID。</tag>
+				<tag name="return">找到并移除时返回 true。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="has_capability">
+			<signature>func has_capability(capability_id: StringName) -&gt; bool:</signature>
+			<description>检查能力是否存在。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">capability_id: 能力 ID。</tag>
+				<tag name="return">存在返回 true。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="has_all">
+			<signature>func has_all(required_capabilities: PackedStringArray) -&gt; bool:</signature>
+			<description>检查是否包含全部能力。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">required_capabilities: 需要的能力 ID 列表。</tag>
+				<tag name="return">全部存在返回 true；空列表返回 true。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="has_any">
+			<signature>func has_any(candidate_capabilities: PackedStringArray) -&gt; bool:</signature>
+			<description>检查是否包含任一能力。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">candidate_capabilities: 候选能力 ID 列表。</tag>
+				<tag name="return">任一存在返回 true；空列表返回 false。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="set_limit">
+			<signature>func set_limit(capability_id: StringName, key: StringName, value: Variant) -&gt; bool:</signature>
+			<description>设置能力限制字段。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">capability_id: 能力 ID。</tag>
+				<tag name="param">key: 限制字段名。</tag>
+				<tag name="param">value: 限制字段值。</tag>
+				<tag name="return">写入成功返回 true。</tag>
+				<tag name="schema">value: Caller-defined limit value.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_limit">
+			<signature>func get_limit(capability_id: StringName, key: StringName, default_value: Variant = null) -&gt; Variant:</signature>
+			<description>读取能力限制字段。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">capability_id: 能力 ID。</tag>
+				<tag name="param">key: 限制字段名。</tag>
+				<tag name="param">default_value: 缺失时返回的默认值。</tag>
+				<tag name="return">限制字段值。</tag>
+				<tag name="schema">default_value: Caller-defined default value.</tag>
+				<tag name="schema">return: Caller-defined limit value.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_capability_limits">
+			<signature>func get_capability_limits(capability_id: StringName) -&gt; Dictionary:</signature>
+			<description>读取能力限制字典。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">capability_id: 能力 ID。</tag>
+				<tag name="return">能力限制字典副本。</tag>
+				<tag name="schema">return: Dictionary capability limits.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="merge_from">
+			<signature>func merge_from(other: GFPlatformCapabilitySet, overwrite_existing: bool = true) -&gt; GFPlatformCapabilitySet:</signature>
+			<description>合并另一个能力集合。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">other: 另一个能力集合。</tag>
+				<tag name="param">overwrite_existing: 是否覆盖已有限制和元数据字段。</tag>
+				<tag name="return">当前能力集合。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="to_dict">
+			<signature>func to_dict() -&gt; Dictionary:</signature>
+			<description>转换为字典。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">能力集合字典。</tag>
+				<tag name="schema">return: Dictionary with platform_id, adapter_id, capabilities, limits, and metadata.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="apply_dict">
+			<signature>func apply_dict(data: Dictionary) -&gt; void:</signature>
+			<description>从字典应用能力集合字段。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">data: 能力集合字典。</tag>
+				<tag name="schema">data: Dictionary with platform_id, adapter_id, capabilities, limits, and metadata.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="duplicate_set">
+			<signature>func duplicate_set() -&gt; GFPlatformCapabilitySet:</signature>
+			<description>创建能力集合深拷贝。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">新能力集合。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="from_dict">
+			<signature>static func from_dict(data: Dictionary) -&gt; GFPlatformCapabilitySet:</signature>
+			<description>从字典创建能力集合。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">data: 能力集合字典。</tag>
+				<tag name="return">新能力集合。</tag>
+				<tag name="schema">data: Dictionary with platform_id, adapter_id, capabilities, limits, and metadata.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

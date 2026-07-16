@@ -12,6 +12,10 @@
 
 `GFConfigPipelineRunner` 从 Profile 资源路径加载 `.tres/.res`，再调用 Pipeline 构建或导出，并返回统一 Dictionary 报告。它适合作为 CI、编辑器按钮或项目脚本的 Godot 原生入口。
 
+`GFConfigPipelineCommand` 是 Runner 之上的命令参数适配器。项目可以用 Godot headless 直接运行它，获得 exit code、JSON 报告和 dry-run 产物预检，而不需要在项目侧重复解析命令行参数。
+
+`GFConfigPipelineArtifactManifest` 负责为 Profile 导出记录输入、输出和选项摘要。Runner 的 changed-only 模式会读取它判断产物是否仍然 fresh；项目侧也可以直接读取 manifest 报告做 CI 审查或编辑器提示。
+
 ## 典型流程
 
 ```gdscript
@@ -46,6 +50,20 @@ pipeline.save_database(database, "res://generated/config/main_config.json", {
 JSON 导出包含稳定格式标识、数据库 ID、版本、元数据、表名、记录和可选 schema 摘要；默认不写入可由运行时重建的索引缓存，避免把导出文件变成冗余快照。`make_database_export()` 可在不写文件时返回同结构字典，供 CI 检查或项目侧打包器继续处理。
 
 `save_database()` 和访问器生成结果会返回 `artifact_report`，记录本次产物是 `new`、`changed`、`unchanged`、`skipped` 还是 `failed`，以及 `written`、`changed`、`dry_run` 和错误码。需要在 CI、编辑器预览或提交前审查中只看差异而不落盘时，可以传入 `dry_run: true`；需要防止覆盖已有产物时，可以传入 `overwrite_existing: false`。
+
+数据库输出、访问器输出和 manifest 输出都应使用 `res://`、`user://` 或项目相对路径。导表工具会拒绝绝对文件系统路径、未知 URI scheme，以及默认情况下写入 `res://addons/gf` 框架源码目录的输出；包含 `..` 的父级路径也需要显式 opt-in，避免 Profile 把生成物写到项目边界之外。Profile 里的普通构建选项只会保留导表自身识别的键；Runner 的 `dry_run`、`changed_only`、`manifest_path` 等执行期选项不会混入数据库构建配置。
+
+需要做增量导表时，可以让 Runner 为导出结果写入 artifact manifest。manifest 会记录 Profile 摘要、来源文件摘要、输出文件摘要、影响产物内容的导表选项和本次运行摘要。manifest 输出会先经过 JSON-safe 转换，非有限浮点、PackedArray、Object、Resource 或循环结构不会直接进入 `JSON.stringify()`。下一次用同一 Profile 导出时，`changed_only` 会先比对 manifest；输入、Profile、输出文件和关键选项都未变化时直接返回 `skipped: true`，避免重复写产物。
+
+```gdscript
+var runner: GFConfigPipelineRunner = GFConfigPipelineRunner.new()
+var run_result: Dictionary = runner.export_profile_path("res://config/build/dev_profile.tres", {
+	"changed_only": true,
+	"manifest_path": "res://generated/config/main_config.tres.manifest.json",
+})
+```
+
+未显式传 `manifest_path` 时，默认路径为 `output_path + ".manifest.json"`。`write_manifest: true` 可在不启用 changed-only 的情况下只写 manifest，适合首次建立 CI 基线。manifest 不表达热更新版本、远端发布、签名或业务环境；这些策略应由项目流水线读取报告后自行组合。
 
 批量导表可以把来源和输出保存进 Profile：
 
@@ -84,7 +102,39 @@ var runner: GFConfigPipelineRunner = GFConfigPipelineRunner.new()
 var run_result: Dictionary = runner.export_profile_path("res://config/build/dev_profile.tres")
 ```
 
+需要在 CI 或本地批处理里直接执行同一份 Profile 时，可以使用工具包自带的 Godot 原生命令入口：
+
+```powershell
+godot --headless --path . -s res://addons/gf/tools/config_pipeline/gf_config_pipeline_cli.gd -- --profile res://config/build/dev_profile.tres --operation export --json --strict
+```
+
+常用参数包括：
+
+- `--operation export|build|load`：默认 `export`，分别对应导出保存、仅构建数据库、仅加载 Profile。
+- `--output <path>`：覆盖 Profile 的 `output_path`。
+- `--access-output <path>`、`--class-name <name>`、`--provider-accessor <expr>`：覆盖访问器生成配置。
+- `--dry-run`：执行构建和产物预检，但不写入数据库或访问器文件。
+- `--changed-only`：manifest fresh 时跳过导出；manifest 不存在或输入变化时正常导出。
+- `--manifest <path>`：覆盖 artifact manifest 输出和读取路径。
+- `--write-manifest`：即使没有启用 `--changed-only`，成功导出后也写入 manifest。
+- `--strict`：把校验 warning 也视为命令失败，适合 CI。
+- `--json` / `--compact`：输出结构化 JSON 报告，便于外部流水线解析。
+
+命令成功返回 `exit_code = 0`；Profile 加载、构建、保存或严格校验失败返回 `1`；参数错误返回 `2`。同一能力也可以在编辑器工具或项目脚本中直接调用：
+
+```gdscript
+var command: GFConfigPipelineCommand = GFConfigPipelineCommand.new()
+var command_result: Dictionary = command.run(PackedStringArray([
+	"--profile",
+	"res://config/build/dev_profile.tres",
+	"--dry-run",
+	"--json",
+]))
+```
+
 生成的 `GFConfigDatabaseResource` 只作为表资源聚合产物保存；运行时读取 Godot Resource 时使用 `GFResourceConfigProvider.from_database(database)` 接入 `GFConfigProvider` 的整表、按 ID 和命名索引查询入口。访问器脚本只是制作期生成的轻量 GDScript 封装，可以提交到项目版本库，也可以由项目 CI 生成后参与校验。JSON 导出是通用数据产物，适合交给项目侧热更新、签名、压缩或远端发布流水线继续处理。
+
+运行时或工具侧需要对配置记录做临时筛选、排序、分页或字段路径读取时，可以用 `GFConfigTableQuery` 包装 `GFConfigTableResource` 或记录数组。它只提供通用记录查询，不替代 `GFConfigProvider` 的整表、按 ID 和命名索引入口，也不写入具体表的业务访问规则。
 
 ## 表结构声明
 
@@ -121,8 +171,10 @@ int!,string,float
 
 当前工具包只沉淀稳定通用机制：来源声明、Profile 路径执行、CSV / JSON / XLSX 解析、schema 校验、跨表引用校验、记录转换、索引重建、`.tres/.res` 保存和 JSON 导出。
 
-XLSX 支持定位为通用表格输入适配：默认读取 workbook 中的第一个 sheet，也可以通过 `parse_options.sheet_name` 或 `parse_options.sheet_index` 选择工作表，通过 `parse_options.header_row` 指定表头行。解析结果按表头映射为记录字典，再复用现有 schema 校验和类型转换。公式计算、样式日期语义、合并单元格、多表业务拆分、策划提交流程和分端发布策略不属于这一层。
+CSV 与 XLSX 会复用同一套表格预处理选项：`parse_options.comment_prefixes` 可过滤本地备注行和备注列，`comment_row_prefixes` / `comment_column_prefixes` 可分开控制；`condition_symbols` 配合 `enable_condition_directives` 可保留简单 `#if SYMBOL ...` / `#endif` 块内命中的数据行。这些选项只处理通用表格结构，不表达业务分端规则，复杂表达式或发布矩阵仍应放在项目流水线层。
+
+XLSX 支持定位为通用表格输入适配：默认读取 workbook 中的第一个 sheet，也可以通过 `parse_options.sheet_name` 或 `parse_options.sheet_index` 选择工作表，通过 `parse_options.header_row` 指定表头行。解析结果按表头映射为记录字典，再复用现有 schema 校验和类型转换。解析器会限制 workbook entry 数量、行数、列数和单元格数量，避免把异常或过大的表格文件拖进编辑器或 CI。公式计算、样式日期语义、合并单元格、多表业务拆分、策划提交流程和分端发布策略不属于这一层。
 
 `GFConfigPipelineProfile` 只表达导表任务 manifest。`GFConfigBuildProfile` 仍负责按 groups / tags 裁剪 schema 或记录，两者可以组合使用，但职责不同。
 
-`GFConfigPipelineRunner` 不解释命令行参数，不创建编辑器 UI，也不调用外部进程。复杂 Excel、多 sheet、远程拉取、策划提交流程、分端裁剪、热更新打包、加密压缩和导出菜单属于项目流水线或独立工具插件策略。项目可以在这些策略层调用 `GFConfigPipeline` 或 `GFConfigPipelineRunner`，但不应把具体业务规则写回框架工具包。
+`GFConfigPipelineRunner` 不解释命令行参数，不创建编辑器 UI，也不调用外部进程；`GFConfigPipelineCommand` 只负责 Godot 原生命令参数到 Runner 的适配。复杂 Excel、多 sheet、远程拉取、策划提交流程、分端裁剪、热更新打包、加密压缩和导出菜单属于项目流水线或独立工具插件策略。项目可以在这些策略层调用 `GFConfigPipeline`、`GFConfigPipelineRunner` 或 `GFConfigPipelineCommand`，但不应把具体业务规则写回框架工具包。

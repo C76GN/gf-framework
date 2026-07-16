@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFModifier" path="addons/gf/extensions/combat/attributes/gf_modifier.gd" module="extensions/combat" extends="RefCounted" classDigest="24221116149c8a2b9bb6d2d42b8abc72f422ff161941e1fbdc207b32a5f9bdf0">
+<class name="GFModifier" path="addons/gf/extensions/combat/attributes/gf_modifier.gd" module="extensions/combat" extends="RefCounted" classDigest="379d9719a039423f22def0fde2f16e96cd939fc1a72832721d2d97b1512f6690">
 	<description>GFModifier: 属性修饰器数据类。
 定义了如何修改一个通用属性（如加值、乘值）。
 `attribute_id` 表示目标属性，`source_id` 表示来源，避免把“改谁”和“从哪来”混在一起。
@@ -36,10 +36,11 @@
 			</tags>
 		</member>
 		<member kind="property" name="value">
-			<signature>var value: float = 0.0</signature>
+			<signature>var value: float:</signature>
 			<description>修饰器的数值。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="attribute_id">
@@ -98,6 +99,15 @@
 				<tag name="api">public</tag>
 				<tag name="return">新修饰器。</tag>
 				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_numeric_state_valid">
+			<signature>func is_numeric_state_valid() -&gt; bool:</signature>
+			<description>检查修正器数值是否有限。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">最近一次 value 写入有效且当前值有限时返回 true。</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="to_dictionary">

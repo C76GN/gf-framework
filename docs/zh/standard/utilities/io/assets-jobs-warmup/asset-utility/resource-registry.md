@@ -6,7 +6,7 @@
 
 注册表只回答三个问题：某个 ID 是否存在、它指向哪个资源、它有哪些可查询字段。它不解释字段含义，也不规定物品、技能、关卡或 UI 的业务规则。需要从目录生成注册表时，使用 `GFResourceRegistryTools` 在编辑器工具、构建脚本或项目 Installer 中扫描路径并写入 `GFResourceRegistry`。
 
-`GFResourceRegistryEntry` 是单条映射，包含 `id`、`path`、`type_hint` 和 `fields`。`fields` 可放单值、`Array` 或 `PackedStringArray`，注册表会用 `GFValueIndex` 建立运行时索引。
+`GFResourceRegistryEntry` 是单条映射，包含 `id`、`path`、`type_hint` 和 `fields`。配置条目时路径会通过 `GFResourceIdentity` 规范化；`to_dict()`、搜索候选、摘要和预加载请求都会带上 `cache_key` 与 `resource_identity`。`fields` 可放单值、`Array` 或 `PackedStringArray`，注册表会用 `GFValueIndex` 建立运行时索引。
 
 ## 典型流程
 
@@ -76,9 +76,10 @@ var by_tag := registry.group_entry_ids(GFResourceRegistry.GROUP_SOURCE_FIELD, {
 })
 
 var by_file := registry.group_entry_ids(GFResourceRegistry.GROUP_SOURCE_PATH_BASENAME)
+var by_identity := registry.group_entry_ids(GFResourceRegistry.GROUP_SOURCE_CACHE_KEY)
 ```
 
-`group_entry_ids()` 支持按 ID、完整路径、路径 basename、类型提示或 `fields` 中的字段值分组。字段值可以是单值、`Array` 或 `PackedStringArray`；数组值会让同一个条目进入多个分组。需要只处理部分条目时传入 `entry_ids`，需要保留空 key 时传入 `include_empty` 与 `empty_key`。
+`group_entry_ids()` 支持按 ID、完整路径、资源身份 `cache_key`、路径 basename、类型提示或 `fields` 中的字段值分组。字段值可以是单值、`Array` 或 `PackedStringArray`；数组值会让同一个条目进入多个分组。需要只处理部分条目时传入 `entry_ids`，需要保留空 key 时传入 `include_empty` 与 `empty_key`。
 
 需要异步加载时，把 `GFAssetUtility` 显式传入注册表。这样注册表仍然是纯资源描述，缓存、并发合并和句柄所有权继续由 `GFAssetUtility` 负责。
 
@@ -92,7 +93,7 @@ registry.request_entry_async(assets, &"inventory_panel", func(resource: Resource
 )
 ```
 
-成组预热时，用 `make_asset_group_entries()` 转成 `GFAssetUtility.preload_group_async()` 接受的请求列表。
+成组预热时，用 `make_asset_group_entries()` 转成 `GFAssetUtility.preload_group_async()` 接受的请求列表。每个请求包含 `path`、`type_hint`、`cache_key` 和 `resource_identity`，便于预加载报告、诊断 UI 或项目层校验和缓存身份对齐。
 
 ```gdscript
 assets.preload_group_async(
@@ -103,7 +104,7 @@ assets.preload_group_async(
 )
 ```
 
-如果项目资源目录有稳定结构，可以用 `GFResourceRegistryTools` 生成注册表。工具默认会推导路径字段、目录标签和常见资源类型提示；项目仍可通过 `extra_fields`、`fields_by_path` 或 `fields_by_id` 合并自己的字段。
+如果项目资源目录有稳定结构，可以用 `GFResourceRegistryTools` 生成注册表。工具默认会推导路径字段、目录标签、`cache_key` 和常见资源类型提示；项目仍可通过 `extra_fields`、`fields_by_path` 或 `fields_by_id` 合并自己的字段。
 
 ```gdscript
 var registry := GFResourceRegistryTools.create_registry_from_scan("res://assets", {
@@ -166,10 +167,11 @@ else:
 ## 注意事项
 
 - 推荐把 `id` 当作项目稳定逻辑 ID，不要直接复用资源路径。
-- `path` 可使用 `res://` 或 Godot `uid://`。
+- `path` 可使用 `res://` 或 Godot `uid://`；注册表会保存 canonical 路径，并通过 `cache_key` 保留 UID 优先的资源身份。
 - 如果运行时直接修改 `entries` 数组或条目字段，调用 `mark_index_dirty()` 后再查询。
 - 字段索引只基于条目 `fields`，不会为了查询而加载实际资源。
 - 自动扫描应作为项目工具、编辑器按钮、构建步骤或 Installer 的一部分运行；运行时加载仍交给 `GFAssetUtility`。
+- `scan_resource_paths()` 的目录遍历复用 `GFPathEnumerationTools`，统一隐藏文件、扩展名、排除路径和深度上限；glob 模式、`.import` sidecar 和 `max_resource_paths` 仍属于资源注册表扫描语义。
 - `scan_resource_paths()`、`collect_dependency_paths()` 和 `build_dependency_report()` 的 `excluded_paths` 会按 `GFPathTools` 规范化并去重，命中排除目录自身或其子路径都会被跳过。
 - `scan_resource_paths()` 的 `include_patterns` / `exclude_patterns` 只筛选扫描结果，不定义业务分组、导出包或热更策略；这些策略应在项目工具中组合注册表、内容包或安装流程。
 - 依赖收集只返回路径闭包，不决定导出、热更新、DLC 或分包策略；这些策略应留在项目构建流程里。

@@ -8,7 +8,7 @@
 
 ## 异步请求保护
 
-`push_panel_async()` 和 `replace_layer_async()` 会优先使用 `GFAssetUtility`，未注册时回退同步加载。每个 UI 层都有请求序号保护：`pop_panel()`、`clear_layer()`、替换层或释放工具后，迟到的异步加载回调会被忽略，不会把旧面板重新压回已经取消或清空的栈。同一层级同一路径的重复异步压栈请求会在资源返回前合并，避免按钮连点时叠出多层相同面板。
+`push_panel_async()` 和 `replace_layer_async()` 会优先使用 `GFAssetUtility`，未注册时回退同步加载。同步 fallback 与真正异步路径共享同一 terminal 流程，都会清理 pending 请求并发出 finished。每个 UI 层都有单调 operation intent：`pop_panel()`、`clear_layer()`、push、replace 或释放工具后，较旧回调都会被忽略，旧 replace 不会在新 push 已完成后清掉新面板。同一层级同一路径的重复异步压栈请求会在资源返回前合并，避免按钮连点时叠出多层相同面板。
 
 ## 加载状态信号
 

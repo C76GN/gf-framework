@@ -5,7 +5,7 @@
 ## 注册与创建
 
 ```gdscript
-architecture.register_factory(DealDamageCommand, func() -> Object:
+var registered := architecture.register_factory(DealDamageCommand, func() -> Object:
 	return DealDamageCommand.new()
 )
 
@@ -14,20 +14,23 @@ command.execute()
 ```
 
 工厂默认是 `GFBindingLifetimes.Lifetime.TRANSIENT`。每次 `create_instance()` 都会调用 provider，并把返回对象注入发起解析的架构。通常 provider 会创建新对象，但框架不会强制校验对象唯一性；如果 provider 自己返回缓存对象，transient 也会返回该对象。
+`register_factory()`、`replace_factory()`、`register_factory_instance()`、`replace_factory_instance()` 和 `unregister_factory()` 都返回 `bool`；重复注册、无效生命周期或 dispose 后写入会返回 `false`。
+
+`GFBinding` 是架构内部保存 provider、生命周期、singleton 缓存和解析回滚状态的记录类型。项目代码不应直接构造、缓存或修改它；通过上述工厂注册 API 表达所有权，才能让循环检测、失败链回滚和架构释放保持完整。
 
 ## 生命周期策略
 
 如果希望明确复用同一个对象，可以显式注册为 `GFBindingLifetimes.Lifetime.SINGLETON`，或使用 `register_factory_instance()` 暴露已有实例。
 
 ```gdscript
-architecture.register_factory(
+var registered_command_factory := architecture.register_factory(
 	DealDamageCommand,
 	func() -> Object:
 		return DealDamageCommand.new(),
 	GFBindingLifetimes.Lifetime.TRANSIENT
 )
 
-architecture.register_factory_instance(BattleRuleSet, BattleRuleSet.new())
+var registered_rule_set := architecture.register_factory_instance(BattleRuleSet, BattleRuleSet.new())
 ```
 
 当子架构回退到父级工厂时，transient 工厂会把发起请求的子架构注入新对象，适合局部关卡命令继续访问本地模块。singleton 工厂始终由拥有该绑定的架构持有和注入。

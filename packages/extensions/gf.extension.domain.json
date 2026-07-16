@@ -8,12 +8,11 @@
   "dependencies": [
     "gf.kernel",
     "gf.standard.base",
-    "gf.standard.config",
-    "gf.standard.storage"
+    "gf.standard.config"
   ],
   "paths": [
     "addons/gf/extensions/domain/**"
   ],
-  "enable_extension": "gf.domain",
+  "gf_extension_id": "gf.domain",
   "metadata": {}
 }

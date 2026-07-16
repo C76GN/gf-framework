@@ -32,7 +32,8 @@ const KIND_EXTENSION: String = "extension"
 
 const _GF_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
 const _GF_PATH_TOOLS = preload("res://addons/gf/kernel/core/gf_path_tools.gd")
-const _EXTENSION_ID_PATTERN: String = "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)+$"
+const _GF_EXTENSION_ID_VALIDATOR_SCRIPT = preload("res://addons/gf/kernel/extension/gf_extension_id_validator.gd")
+const _GF_EXTENSION_JSON_FILE_READER_SCRIPT = preload("res://addons/gf/kernel/extension/gf_extension_json_file_reader.gd")
 const _SUPPORTED_FIELDS: Array[String] = [
 	"access_generator_extension_paths",
 	"dependencies",
@@ -261,7 +262,9 @@ static func from_dictionary(
 ## [br]
 ## @return 读取成功时返回 manifest；失败时返回 null。
 static func from_json_file(path: String) -> GFExtensionManifest:
-	var report: Dictionary = from_json_file_report(path)
+	var report: Dictionary = _from_json_file_object_report(path)
+	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(report, "ok", false):
+		return null
 	var manifest_value: Variant = _GF_VARIANT_ACCESS_SCRIPT.get_option_value(report, "manifest")
 	if manifest_value is GFExtensionManifest:
 		var manifest: GFExtensionManifest = manifest_value
@@ -277,46 +280,22 @@ static func from_json_file(path: String) -> GFExtensionManifest:
 ## [br]
 ## @param path: `gf_extension.json` 文件路径。
 ## [br]
-## @return 读取诊断，包含 ok、source_path、manifest 和 errors。
+## @return 读取诊断，包含 ok、source_path、manifest_data 和 errors。
 ## [br]
-## @schema return: Dictionary { ok: bool, source_path: String, manifest: GFExtensionManifest, errors: Array[String] }.
+## @schema return: Dictionary { ok: bool, source_path: String, manifest_data: Dictionary, errors: Array[String] }.
 static func from_json_file_report(path: String) -> Dictionary:
-	var normalized_path: String = _GF_PATH_TOOLS.normalize_resource_path(path)
-	var errors: Array[String] = []
-	if normalized_path.is_empty():
-		errors.append("manifest path is empty")
-		return _make_json_file_report(false, normalized_path, null, errors)
-
-	var file: FileAccess = FileAccess.open(normalized_path, FileAccess.READ)
-	if file == null:
-		errors.append("could not open manifest: %s" % error_string(FileAccess.get_open_error()))
-		return _make_json_file_report(false, normalized_path, null, errors)
-
-	var text: String = file.get_as_text()
-	var read_error: Error = file.get_error()
-	file.close()
-	if read_error != OK:
-		errors.append("could not read manifest: %s" % error_string(read_error))
-		return _make_json_file_report(false, normalized_path, null, errors)
-
-	var parser: JSON = JSON.new()
-	var parse_error: Error = parser.parse(text)
-	if parse_error != OK:
-		errors.append("could not parse JSON manifest at line %d: %s" % [
-			parser.get_error_line(),
-			parser.get_error_message(),
-		])
-		return _make_json_file_report(false, normalized_path, null, errors)
-
-	var parsed: Variant = parser.data
-	if not (parsed is Dictionary):
-		errors.append("manifest JSON root must be an object")
-		return _make_json_file_report(false, normalized_path, null, errors)
-
-	var parsed_dictionary: Dictionary = parsed
-	var manifest: GFExtensionManifest = from_dictionary(parsed_dictionary, normalized_path.get_base_dir(), normalized_path)
-	errors.append_array(manifest.get_validation_errors())
-	return _make_json_file_report(errors.is_empty(), normalized_path, manifest, errors)
+	var report: Dictionary = _from_json_file_object_report(path)
+	var manifest_value: Variant = _GF_VARIANT_ACCESS_SCRIPT.get_option_value(report, "manifest")
+	var manifest_data: Dictionary = {}
+	if manifest_value is GFExtensionManifest:
+		var manifest: GFExtensionManifest = manifest_value
+		manifest_data = manifest.to_dictionary()
+	return {
+		"ok": _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(report, "ok", false),
+		"source_path": _GF_VARIANT_ACCESS_SCRIPT.get_option_string(report, "source_path"),
+		"manifest_data": manifest_data,
+		"errors": _GF_VARIANT_ACCESS_SCRIPT.get_option_array(report, "errors").duplicate(true),
+	}
 
 
 ## 判断文本是否是合法 GF 扩展 ID。
@@ -332,7 +311,7 @@ static func from_json_file_report(path: String) -> Dictionary:
 ## [br]
 ## @return 满足扩展 ID 语法时返回 true。
 static func is_valid_extension_id(extension_id: String) -> bool:
-	return get_extension_id_validation_error(extension_id).is_empty()
+	return _GF_EXTENSION_ID_VALIDATOR_SCRIPT.is_valid_extension_id(extension_id)
 
 
 ## 获取扩展 ID 语法错误。
@@ -347,17 +326,7 @@ static func is_valid_extension_id(extension_id: String) -> bool:
 ## [br]
 ## @return ID 合法时返回空字符串，否则返回错误说明。
 static func get_extension_id_validation_error(extension_id: String, field_name: String = "id") -> String:
-	var normalized_id: String = extension_id.strip_edges()
-	if normalized_id.is_empty():
-		return "%s is required" % field_name
-
-	var regex: RegEx = RegEx.new()
-	var compile_error: Error = regex.compile(_EXTENSION_ID_PATTERN)
-	if compile_error != OK:
-		return "%s validator failed to compile" % field_name
-	if regex.search(normalized_id) == null:
-		return "%s must use lowercase dotted identifier segments: %s" % [field_name, normalized_id]
-	return ""
+	return _GF_EXTENSION_ID_VALIDATOR_SCRIPT.get_extension_id_validation_error(extension_id, field_name)
 
 
 ## 转换为字典。
@@ -374,7 +343,6 @@ func to_dictionary() -> Dictionary:
 		"version": version,
 		"extension_version": extension_version,
 		"kind": kind,
-		"root_path": root_path,
 		"description": description,
 		"dependencies": dependencies.duplicate(),
 		"installer_paths": installer_paths.duplicate(),
@@ -389,8 +357,41 @@ func to_dictionary() -> Dictionary:
 		"access_generator_extension_paths": access_generator_extension_paths.duplicate(),
 		"tags": tags.duplicate(),
 		"enabled_by_default": enabled_by_default,
-		"source_path": source_path,
 	}
+
+
+## 创建 manifest 副本。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+## [br]
+## @return 与当前 manifest 内容一致的新实例。
+func duplicate_manifest() -> GFExtensionManifest:
+	var manifest: GFExtensionManifest = GFExtensionManifest.new()
+	manifest.id = id
+	manifest.display_name = display_name
+	manifest.version = version
+	manifest.extension_version = extension_version
+	manifest.kind = kind
+	manifest.root_path = root_path
+	manifest.description = description
+	manifest.dependencies = dependencies.duplicate()
+	manifest.installer_paths = installer_paths.duplicate()
+	manifest.editor_action_paths = editor_action_paths.duplicate()
+	manifest.editor_dock_paths = editor_dock_paths.duplicate()
+	manifest.editor_dock_order = editor_dock_order
+	manifest.editor_dock_short_label = editor_dock_short_label
+	manifest.editor_inspector_paths = editor_inspector_paths.duplicate()
+	manifest.import_plugin_paths = import_plugin_paths.duplicate()
+	manifest.export_plugin_paths = export_plugin_paths.duplicate()
+	manifest.gltf_document_extension_paths = gltf_document_extension_paths.duplicate()
+	manifest.access_generator_extension_paths = access_generator_extension_paths.duplicate()
+	manifest.tags = tags.duplicate()
+	manifest.enabled_by_default = enabled_by_default
+	manifest.source_path = source_path
+	manifest._source_field_names = _source_field_names.duplicate()
+	return manifest
 
 
 ## 检查 manifest 是否满足基本规范。
@@ -422,18 +423,37 @@ func get_validation_errors() -> Array[String]:
 	if root_path.strip_edges().is_empty():
 		errors.append("root_path is required")
 	_append_identifier_errors(errors, "dependencies", dependencies)
-	_append_resource_path_errors(errors, "installer_paths", installer_paths)
-	_append_resource_path_errors(errors, "editor_action_paths", editor_action_paths)
-	_append_resource_path_errors(errors, "editor_dock_paths", editor_dock_paths)
-	_append_resource_path_errors(errors, "editor_inspector_paths", editor_inspector_paths)
-	_append_resource_path_errors(errors, "import_plugin_paths", import_plugin_paths)
-	_append_resource_path_errors(errors, "export_plugin_paths", export_plugin_paths)
-	_append_resource_path_errors(errors, "gltf_document_extension_paths", gltf_document_extension_paths)
-	_append_resource_path_errors(errors, "access_generator_extension_paths", access_generator_extension_paths)
+	_append_script_resource_path_errors(errors, "installer_paths", installer_paths)
+	_append_script_resource_path_errors(errors, "editor_action_paths", editor_action_paths)
+	_append_script_resource_path_errors(errors, "editor_dock_paths", editor_dock_paths)
+	_append_script_resource_path_errors(errors, "editor_inspector_paths", editor_inspector_paths)
+	_append_script_resource_path_errors(errors, "import_plugin_paths", import_plugin_paths)
+	_append_script_resource_path_errors(errors, "export_plugin_paths", export_plugin_paths)
+	_append_script_resource_path_errors(errors, "gltf_document_extension_paths", gltf_document_extension_paths)
+	_append_script_resource_path_errors(errors, "access_generator_extension_paths", access_generator_extension_paths)
 	return errors
 
 
 # --- 私有/辅助方法 ---
+
+static func _from_json_file_object_report(path: String) -> Dictionary:
+	var json_report: Dictionary = _GF_EXTENSION_JSON_FILE_READER_SCRIPT.read_object_report(path, {
+		"empty_path_error": "manifest path is empty",
+		"open_error_prefix": "could not open manifest",
+		"read_error_prefix": "could not read manifest",
+		"parse_error_prefix": "could not parse JSON manifest",
+		"root_type_error": "manifest JSON root must be an object",
+	})
+	var normalized_path: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(json_report, "source_path")
+	var errors: Array[String] = _GF_VARIANT_ACCESS_SCRIPT.get_option_string_array(json_report, "errors")
+	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(json_report, "ok", false):
+		return _make_json_file_report(false, normalized_path, null, errors)
+
+	var parsed_dictionary: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(json_report, "data")
+	var manifest: GFExtensionManifest = from_dictionary(parsed_dictionary, normalized_path.get_base_dir(), normalized_path)
+	errors.append_array(manifest.get_validation_errors())
+	return _make_json_file_report(errors.is_empty(), normalized_path, manifest, errors)
+
 
 static func _normalize_manifest_text(value: String) -> String:
 	return value.strip_edges()
@@ -488,7 +508,7 @@ static func _make_json_file_report(
 	}
 
 
-func _append_resource_path_errors(
+func _append_script_resource_path_errors(
 	errors: Array[String],
 	property_name: String,
 	paths: Array[String]
@@ -503,6 +523,12 @@ func _append_resource_path_errors(
 			continue
 		if not _path_is_under_root(normalized_path):
 			errors.append("%s path must stay under root_path: %s" % [property_name, normalized_path])
+			continue
+		if normalized_path.get_extension().to_lower() != "gd":
+			errors.append("%s path must point to a GDScript resource: %s" % [property_name, normalized_path])
+			continue
+		if not source_path.is_empty() and not ResourceLoader.exists(normalized_path, "Script"):
+			errors.append("%s path must point to an existing script resource: %s" % [property_name, normalized_path])
 
 
 func _append_identifier_errors(

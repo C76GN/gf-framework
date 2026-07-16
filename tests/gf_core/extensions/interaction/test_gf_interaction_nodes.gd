@@ -5,6 +5,7 @@ extends GutTest
 # --- 常量 ---
 
 const GF_MESSAGE_DISPATCH_SUPPORT = preload("res://addons/gf/standard/common/gf_message_dispatch_support.gd")
+const GF_OBJECT_CANDIDATE_REGISTRY_SCRIPT = preload("res://addons/gf/standard/common/gf_object_candidate_registry.gd")
 
 
 # --- 辅助类 ---
@@ -104,6 +105,41 @@ class InvalidDispatchNode extends Node:
 		}
 
 
+class ExcessRequiredArgsDispatchNode extends Node:
+	var called: bool = false
+
+	func send_to(
+		_receiver: Object,
+		_payload_override: Variant,
+		_id_override: StringName,
+		_required_argument: Variant
+	) -> Dictionary:
+		called = true
+		return {
+			"ok": false,
+			"metadata": {},
+		}
+
+
+class UnsafeReportDispatchNode extends Node:
+	func send_to(receiver: Object, _payload_override: Variant = null, id_override: StringName = &"") -> Dictionary:
+		return {
+			"ok": true,
+			"receiver": receiver,
+			"interaction_id": id_override,
+			"leaked_object": receiver,
+			"nested_values": [receiver],
+			"metadata": {
+				"object": receiver,
+			},
+		}
+
+
+class EmptyReportDispatchNode extends Node:
+	func send_to(_receiver: Object, _payload_override: Variant = null, _id_override: StringName = &"") -> Dictionary:
+		return {}
+
+
 # --- 测试方法 ---
 
 func test_sensor_send_to_receiver_builds_context_and_report() -> void:
@@ -125,6 +161,21 @@ func test_sensor_send_to_receiver_builds_context_and_report() -> void:
 	assert_eq(GFVariantData.get_option_int(received_payload, "amount"), 2, "payload 应写入上下文。")
 	assert_eq(receiver.received_context.group_name, &"nearby", "group_name 应写入上下文。")
 	assert_true(GFVariantData.get_option_bool(report_metadata, "validated"), "接收器校验结果应合并 metadata。")
+
+
+func test_sensor_report_uses_receiver_summary_instead_of_live_object() -> void:
+	var sensor: GFInteractionSensor = GFInteractionSensor.new()
+	var receiver: RecordingReceiver = RecordingReceiver.new()
+	add_child_autofree(sensor)
+	add_child_autofree(receiver)
+
+	var report: Dictionary = sensor.send_to(receiver)
+	var receiver_report: Variant = GFVariantData.get_option_value(report, "receiver")
+	var receiver_summary: Dictionary = GFVariantData.get_option_dictionary(report, "receiver")
+
+	assert_false(receiver_report is Object, "交互报告不应携带 live receiver Object。")
+	assert_eq(_receiver_instance_id(report), receiver.get_instance_id(), "receiver 摘要应保留实例 ID 便于诊断关联。")
+	assert_true(receiver_summary.has("__gf_report_value__"), "receiver 应使用 GFReportValueCodec marker。")
 
 
 func test_receiver_filters_interaction_ids() -> void:
@@ -161,7 +212,7 @@ func test_receiver_path_forwards_interaction_to_business_receiver() -> void:
 	assert_same(business_receiver.received_context, context, "业务接收器应收到同一个交互上下文。")
 	assert_same(context.target, business_receiver, "转发时上下文 target 应更新为业务接收器。")
 	assert_eq(business_receiver.received_id, &"use", "交互 ID 应透传给业务接收器。")
-	assert_same(_object_option(report, "receiver"), business_receiver, "最终报告应来自业务接收器。")
+	assert_eq(_receiver_instance_id(report), business_receiver.get_instance_id(), "最终报告摘要应来自业务接收器。")
 	assert_true(GFVariantData.get_option_bool(report_metadata, "business"), "业务接收器返回的报告应成为最终报告。")
 	assert_signal_emitted(bridge, "interaction_received", "业务接收成功后桥接节点应发出接收信号。")
 
@@ -185,7 +236,7 @@ func test_receiver_path_accepts_side_effect_business_receiver() -> void:
 	assert_same(business_receiver.received_context, context, "业务接收器应收到同一个交互上下文。")
 	assert_same(context.target, business_receiver, "转发时上下文 target 应更新为业务接收器。")
 	assert_eq(business_receiver.received_id, &"use", "交互 ID 应透传给业务接收器。")
-	assert_same(_object_option(report, "receiver"), business_receiver, "默认接收报告应指向业务接收器。")
+	assert_eq(_receiver_instance_id(report), business_receiver.get_instance_id(), "默认接收报告摘要应指向业务接收器。")
 	assert_signal_emitted(bridge, "interaction_received", "业务接收器处理后桥接节点应发出接收信号。")
 
 
@@ -207,7 +258,7 @@ func test_receiver_path_can_only_retarget_context() -> void:
 	assert_true(bridge.can_receive_interaction(&"use"), "receiver_path 指向普通业务节点时仍应允许 Receiver 接收交互。")
 	assert_true(GFVariantData.get_option_bool(report, "ok"), "普通业务节点可只作为交互 target，不必实现 receive_interaction()。")
 	assert_same(context.target, business_target, "转发时上下文 target 应更新为业务 target。")
-	assert_same(_object_option(report, "receiver"), business_target, "默认接收报告应指向业务 target。")
+	assert_eq(_receiver_instance_id(report), business_target.get_instance_id(), "默认接收报告摘要应指向业务 target。")
 	assert_signal_emitted(bridge, "interaction_received", "Receiver retarget 后仍应发出接收信号。")
 
 
@@ -256,6 +307,198 @@ func test_sensor_broadcast_to_group_sends_to_receivers() -> void:
 
 	assert_eq(reports.size(), 2, "广播应发送给分组中的所有接收器。")
 	assert_eq(receiver_a.validate_count + receiver_b.validate_count, 2, "每个接收器都应收到一次交互。")
+
+
+func test_sensor_send_to_best_candidate_uses_candidate_provider_priority() -> void:
+	var registry: RefCounted = GF_OBJECT_CANDIDATE_REGISTRY_SCRIPT.new()
+	var sensor: GFInteractionSensor = GFInteractionSensor.new()
+	var low_receiver: RecordingReceiver = RecordingReceiver.new()
+	var high_receiver: RecordingReceiver = RecordingReceiver.new()
+	add_child_autofree(sensor)
+	add_child_autofree(low_receiver)
+	add_child_autofree(high_receiver)
+
+	assert_true(GFVariantData.to_bool(registry.call("register_candidate", low_receiver, {
+		"group": &"usable",
+		"priority": 1,
+	})))
+	assert_true(GFVariantData.to_bool(registry.call("register_candidate", high_receiver, {
+		"group": &"usable",
+		"priority": 10,
+	})))
+
+	var report: Dictionary = sensor.send_to_best_candidate(registry, { "group": &"usable" })
+
+	assert_true(GFVariantData.get_option_bool(report, "ok"), "最佳候选应收到交互。")
+	assert_eq(high_receiver.validate_count, 1, "高优先级候选应被选中。")
+	assert_eq(low_receiver.validate_count, 0, "低优先级候选不应被 send_to_best_candidate 调用。")
+
+
+func test_sensor_broadcast_to_candidates_uses_candidate_provider() -> void:
+	var registry: RefCounted = GF_OBJECT_CANDIDATE_REGISTRY_SCRIPT.new()
+	var sensor: GFInteractionSensor = GFInteractionSensor.new()
+	var receiver_a: RecordingReceiver = RecordingReceiver.new()
+	var receiver_b: RecordingReceiver = RecordingReceiver.new()
+	add_child_autofree(sensor)
+	add_child_autofree(receiver_a)
+	add_child_autofree(receiver_b)
+
+	assert_true(GFVariantData.to_bool(registry.call("register_candidate", receiver_a, { "group": &"usable" })))
+	assert_true(GFVariantData.to_bool(registry.call("register_candidate", receiver_b, { "group": &"usable" })))
+
+	var reports: Array[Dictionary] = sensor.broadcast_to_candidates(registry, { "group": &"usable" })
+
+	assert_eq(reports.size(), 2, "候选 provider 广播应发送给全部匹配候选。")
+	assert_eq(receiver_a.validate_count + receiver_b.validate_count, 2, "每个候选接收器都应收到一次交互。")
+
+
+func test_sensor_broadcast_to_candidates_max_count_counts_accepted_receivers() -> void:
+	var registry: RefCounted = GF_OBJECT_CANDIDATE_REGISTRY_SCRIPT.new()
+	var sensor: GFInteractionSensor = GFInteractionSensor.new()
+	var rejected_receiver: GFInteractionReceiver = GFInteractionReceiver.new()
+	var accepted_receiver: RecordingReceiver = RecordingReceiver.new()
+	add_child_autofree(sensor)
+	add_child_autofree(rejected_receiver)
+	add_child_autofree(accepted_receiver)
+	rejected_receiver.enabled = false
+
+	assert_true(GFVariantData.to_bool(registry.call("register_candidate", rejected_receiver, {
+		"group": &"usable",
+		"priority": 10,
+	})))
+	assert_true(GFVariantData.to_bool(registry.call("register_candidate", accepted_receiver, {
+		"group": &"usable",
+		"priority": 1,
+	})))
+
+	var reports: Array[Dictionary] = sensor.broadcast_to_candidates(registry, { "group": &"usable" }, 1)
+
+	assert_eq(accepted_receiver.validate_count, 1, "rejected 候选不应耗尽 accepted 配额。")
+	assert_eq(reports.size(), 2, "配额达成前的 rejected 报告仍应保留用于诊断。")
+	if reports.size() >= 2:
+		assert_true(GFVariantData.get_option_bool(reports[1], "ok"), "最后一个报告应来自 accepted 候选。")
+
+
+func test_sensor_broadcast_reports_empty_dispatch_override_result() -> void:
+	var root: Node = Node.new()
+	var sensor: GFInteractionSensor = GFInteractionSensor.new()
+	var dispatch: EmptyReportDispatchNode = EmptyReportDispatchNode.new()
+	var receiver: RecordingReceiver = RecordingReceiver.new()
+	add_child_autofree(root)
+	root.add_child(sensor)
+	root.add_child(dispatch)
+	root.add_child(receiver)
+	dispatch.name = "Dispatch"
+	sensor.sender_path = NodePath("../Dispatch")
+	sensor.group_name = &"targets"
+	receiver.add_to_group("targets")
+
+	var reports: Array[Dictionary] = sensor.broadcast_to_group()
+
+	assert_eq(reports.size(), 1, "空报告不应在广播路径中被吞掉。")
+	assert_false(GFVariantData.get_option_bool(reports[0], "ok"), "空报告应被转成失败报告。")
+	assert_eq(GFVariantData.get_option_string(reports[0], "reason"), "invalid_report", "失败原因应明确为 invalid_report。")
+
+
+func test_pointer_context_does_not_allow_pointer_reserved_payload_override() -> void:
+	var pointer: GFPointerInteraction3D = GFPointerInteraction3D.new()
+	add_child_autofree(pointer)
+
+	var context: GFInteractionContext = pointer.build_context(&"entered", {
+		"pointer_event": &"forged",
+		"pointer_metadata": { "forged": true },
+		"custom": 2,
+	})
+	var context_payload: Dictionary = GFVariantData.as_dictionary(context.payload)
+
+	assert_eq(GFVariantData.get_option_string_name(context_payload, "pointer_event"), &"entered", "pointer_event 应由桥接节点控制。")
+	assert_false(GFVariantData.get_option_dictionary(context_payload, "pointer_metadata").has("forged"), "pointer_metadata 不应被 pointer_data 覆盖。")
+	assert_eq(GFVariantData.get_option_int(context_payload, "custom"), 2, "非保留业务字段仍应透传。")
+
+
+func test_pointer_pickable_restore_uses_owner_count() -> void:
+	var body: StaticBody3D = StaticBody3D.new()
+	var first_pointer: GFPointerInteraction3D = GFPointerInteraction3D.new()
+	var second_pointer: GFPointerInteraction3D = GFPointerInteraction3D.new()
+	add_child_autofree(body)
+	add_child_autofree(first_pointer)
+	add_child_autofree(second_pointer)
+	body.input_ray_pickable = false
+
+	first_pointer.bind_collision_object(body)
+	second_pointer.bind_collision_object(body)
+	first_pointer.bind_collision_object(null)
+	var still_pickable: bool = body.input_ray_pickable
+	second_pointer.bind_collision_object(null)
+
+	assert_true(still_pickable, "仍有桥接节点绑定时不应恢复 input_ray_pickable。")
+	assert_false(body.input_ray_pickable, "最后一个桥接节点解绑后应恢复原始 input_ray_pickable。")
+
+
+func test_pointer_cursor_owner_out_of_order_exit_restores_initial_cursor() -> void:
+	var initial_cursor: Input.CursorShape = Input.get_current_cursor_shape()
+	var first_pointer: GFPointerInteraction3D = GFPointerInteraction3D.new()
+	var second_pointer: GFPointerInteraction3D = GFPointerInteraction3D.new()
+	add_child_autofree(first_pointer)
+	add_child_autofree(second_pointer)
+	Input.set_default_cursor_shape(Input.CURSOR_ARROW)
+	Input.set_default_cursor_shape(Input.CURSOR_CROSS)
+	var cursor_shape_is_observable: bool = (
+		Input.get_current_cursor_shape() == Input.CURSOR_CROSS
+	)
+	Input.set_default_cursor_shape(Input.CURSOR_ARROW)
+	first_pointer.change_cursor_on_hover = true
+	first_pointer.cursor_shape = Input.CURSOR_IBEAM
+	second_pointer.change_cursor_on_hover = true
+	second_pointer.cursor_shape = Input.CURSOR_CROSS
+
+	first_pointer._set_hover_cursor(true)
+	second_pointer._set_hover_cursor(true)
+	first_pointer._set_hover_cursor(false)
+	var cursor_after_first_exit: Input.CursorShape = Input.get_current_cursor_shape()
+	var stack_after_first_exit: Array[Dictionary] = GFPointerInteraction3D._cursor_owner_stack.duplicate(true)
+	second_pointer._set_hover_cursor(false)
+	var cursor_after_last_exit: Input.CursorShape = Input.get_current_cursor_shape()
+	var stack_after_last_exit: Array[Dictionary] = GFPointerInteraction3D._cursor_owner_stack.duplicate(true)
+	Input.set_default_cursor_shape(initial_cursor)
+
+	assert_eq(stack_after_first_exit.size(), 1, "非栈顶 owner 退出后应保留当前栈顶 owner。")
+	if not stack_after_first_exit.is_empty():
+		assert_eq(
+			GFVariantData.get_option_int(stack_after_first_exit[0], "shape"),
+			Input.CURSOR_CROSS,
+			"保留的栈顶 owner 应维持自己的 cursor。"
+		)
+	assert_true(stack_after_last_exit.is_empty(), "最后一个 owner 退出后应清空所有权栈。")
+	if cursor_shape_is_observable:
+		assert_eq(cursor_after_first_exit, Input.CURSOR_CROSS, "非栈顶 owner 退出后应保持当前栈顶 cursor。")
+		assert_eq(cursor_after_last_exit, Input.CURSOR_ARROW, "最后一个 owner 退出后应恢复首个 owner 进入前的 cursor。")
+
+
+func test_pointer_off_tree_free_releases_pickable_owner() -> void:
+	var body: StaticBody3D = StaticBody3D.new()
+	var pointer: GFPointerInteraction3D = GFPointerInteraction3D.new()
+	add_child_autofree(body)
+	body.input_ray_pickable = false
+
+	pointer.bind_collision_object(body)
+	assert_true(body.input_ray_pickable, "绑定期间应 retain pickable 状态。")
+	pointer.free()
+
+	assert_false(body.input_ray_pickable, "off-tree pointer 释放时必须恢复 pickable 状态。")
+
+
+func test_pointer_disabling_pickable_ensure_releases_existing_retain() -> void:
+	var body: StaticBody3D = StaticBody3D.new()
+	var pointer: GFPointerInteraction3D = GFPointerInteraction3D.new()
+	add_child_autofree(body)
+	add_child_autofree(pointer)
+	body.input_ray_pickable = false
+	pointer.bind_collision_object(body)
+
+	pointer.ensure_input_ray_pickable = false
+
+	assert_false(body.input_ray_pickable, "关闭 ensure_input_ray_pickable 应立即释放已有 retain。")
 
 
 func test_sensor_broadcast_to_group_max_count_counts_accepted_receivers() -> void:
@@ -321,6 +564,57 @@ func test_sensor_ignores_sender_send_to_override_with_invalid_signature() -> voi
 	assert_eq(reports.size(), 1, "无效 sender override 应回退到 Sensor 标准发送。")
 	assert_false(invalid_sender.called, "签名不匹配的 send_to 不应被调用。")
 	assert_same(receiver.received_context.sender, invalid_sender, "上下文 sender 仍应来自 sender_path。")
+
+
+func test_sensor_ignores_sender_override_with_excess_required_arguments() -> void:
+	var root: Node = Node.new()
+	var sensor: GFInteractionSensor = GFInteractionSensor.new()
+	var invalid_sender: ExcessRequiredArgsDispatchNode = ExcessRequiredArgsDispatchNode.new()
+	var receiver: RecordingReceiver = RecordingReceiver.new()
+	add_child_autofree(root)
+	root.add_child(sensor)
+	root.add_child(invalid_sender)
+	root.add_child(receiver)
+	invalid_sender.name = "InvalidSender"
+	sensor.group_name = &"targets"
+	sensor.sender_path = NodePath("../InvalidSender")
+	receiver.add_to_group("targets")
+
+	var reports: Array[Dictionary] = sensor.broadcast_to_group()
+
+	assert_eq(reports.size(), 1, "额外必填参数的 override 应回退到 Sensor 标准发送。")
+	assert_false(invalid_sender.called, "GF 不应以不足参数调用不兼容的 send_to()。")
+	assert_eq(receiver.validate_count, 1, "回退路径应正常调用交互接收器。")
+
+
+func test_sensor_normalizes_entire_override_report() -> void:
+	var root: Node = Node.new()
+	var sensor: GFInteractionSensor = GFInteractionSensor.new()
+	var sender: UnsafeReportDispatchNode = UnsafeReportDispatchNode.new()
+	var receiver: RecordingReceiver = RecordingReceiver.new()
+	add_child_autofree(root)
+	root.add_child(sensor)
+	root.add_child(sender)
+	root.add_child(receiver)
+	sender.name = "Sender"
+	sensor.sender_path = NodePath("../Sender")
+	sensor.group_name = &"targets"
+	receiver.add_to_group("targets")
+
+	var reports: Array[Dictionary] = sensor.broadcast_to_group()
+	assert_eq(reports.size(), 1, "sender override 应返回一个报告。")
+	if reports.is_empty():
+		return
+	var report: Dictionary = reports[0]
+	var nested_values: Array = GFVariantData.get_option_array(report, "nested_values")
+	var report_metadata: Dictionary = GFVariantData.get_option_dictionary(report, "metadata")
+
+	assert_true(GFVariantData.get_option_value(report, "leaked_object") is Dictionary, "顶层 Object 应编码为可诊断 marker。")
+	assert_eq(nested_values.size(), 1, "报告编码不应丢弃嵌套数组值。")
+	if not nested_values.is_empty():
+		assert_false(nested_values[0] is Object, "嵌套数组中的 Object 也必须经过报告编码。")
+	assert_false(GFVariantData.get_option_value(report_metadata, "object") is Object, "metadata 应与整个报告使用同一编码边界。")
+	assert_true(GFVariantData.get_option_value(report_metadata, "object") is Dictionary, "metadata Object 不应被静默降级为 null。")
 
 
 func test_sensor_collision_candidates_resolve_receiver_ancestors() -> void:
@@ -494,9 +788,7 @@ func _make_mouse_button(button_index: MouseButton, pressed: bool) -> InputEventM
 	return event
 
 
-func _object_option(options: Dictionary, key: Variant) -> Object:
-	var value: Variant = GFVariantData.get_option_value(options, key)
-	if value is Object:
-		var object: Object = value
-		return object
-	return null
+func _receiver_instance_id(report: Dictionary) -> int:
+	var receiver_report: Dictionary = GFVariantData.get_option_dictionary(report, "receiver")
+	var marker: Dictionary = GFVariantData.get_option_dictionary(receiver_report, "__gf_report_value__")
+	return GFVariantData.get_option_int(marker, "instance_id", -1)

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFAudioPitchAnalysisTools" path="addons/gf/standard/utilities/audio/gf_audio_pitch_analysis_tools.gd" module="standard" extends="RefCounted" classDigest="1ac453590c27d1bad50342f7fba207c578712c2815ffd82bfd53ba04243c5976">
+<class name="GFAudioPitchAnalysisTools" path="addons/gf/standard/utilities/audio/gf_audio_pitch_analysis_tools.gd" module="standard" extends="RefCounted" classDigest="23fafcc30dc440fcb5cd5524421cf3b127401a48a2cebe8a5e837106f8a4fde9">
 	<description>GFAudioPitchAnalysisTools: 纯样本音高分析工具。
 对调用方提供的 mono 或 stereo 样本做能量与基频估计，返回频率、音名、
 cents 偏差和置信度报告。它不读取麦克风、不创建节点，也不接管音频采集流程。</description>
@@ -51,6 +51,30 @@ cents 偏差和置信度报告。它不读取麦克风、不创建节点，也�
 				<tag name="since">6.0.0</tag>
 			</tags>
 		</member>
+		<member kind="const" name="MAX_SAMPLE_COUNT">
+			<signature>const MAX_SAMPLE_COUNT: int = 16384</signature>
+			<description>单次分析允许的最大样本窗口硬上限。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="MAX_LAG_COUNT">
+			<signature>const MAX_LAG_COUNT: int = 4096</signature>
+			<description>单次分析允许扫描的 lag 数量硬上限。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="MAX_CORRELATION_OPERATIONS">
+			<signature>const MAX_CORRELATION_OPERATIONS: int = 8_000_000</signature>
+			<description>单次分析允许的保守自相关乘加工作量硬上限。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
 	</constants>
 	<properties />
 	<methods>
@@ -64,7 +88,7 @@ cents 偏差和置信度报告。它不读取麦克风、不创建节点，也�
 				<tag name="param">options: 分析选项。</tag>
 				<tag name="return">分析报告。</tag>
 				<tag name="schema">samples: PackedFloat32Array mono samples in -1..1 range.</tag>
-				<tag name="schema">options: Dictionary，可包含 min_frequency_hz、max_frequency_hz、min_rms、confidence_threshold、start_index 和 sample_count。</tag>
+				<tag name="schema">options: Dictionary，可包含 min_frequency_hz、max_frequency_hz、min_rms、confidence_threshold、start_index、sample_count、max_sample_count、max_lag_count 和 max_correlation_operations。</tag>
 				<tag name="schema">return: Dictionary with ok, detected, frequency_hz, confidence, rms, lag, note_number, note_name, cents, issues, and issue_count.</tag>
 				<tag name="since">6.0.0</tag>
 			</tags>
@@ -79,7 +103,7 @@ cents 偏差和置信度报告。它不读取麦克风、不创建节点，也�
 				<tag name="param">options: 分析选项。</tag>
 				<tag name="return">分析报告。</tag>
 				<tag name="schema">frames: PackedVector2Array where x/y are left/right samples.</tag>
-				<tag name="schema">options: Dictionary forwarded to analyze_mono_samples().</tag>
+				<tag name="schema">options: Dictionary forwarded to analyze_mono_samples(), including sample and work budgets.</tag>
 				<tag name="schema">return: Dictionary with ok, detected, frequency_hz, confidence, rms, lag, note_number, note_name, cents, issues, issue_count, and stereo_mix_mode.</tag>
 				<tag name="since">6.0.0</tag>
 			</tags>

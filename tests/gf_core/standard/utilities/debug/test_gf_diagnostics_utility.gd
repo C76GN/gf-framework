@@ -67,7 +67,8 @@ func test_diagnostics_scene_tree_snapshot_can_redact_paths() -> void:
 ## 验证诊断命令等级默认只允许观察类命令。
 func test_diagnostics_command_tier_denies_control_by_default() -> void:
 	var diagnostics: GFDiagnosticsUtility = GFDiagnosticsUtility.new()
-	diagnostics.register_command(
+	var _command_registered: bool = diagnostics.register_command(
+		self,
 		&"runtime.pause",
 		func(_args: Dictionary) -> Dictionary:
 			return { "paused": true },
@@ -86,7 +87,7 @@ func test_diagnostics_command_tier_denies_control_by_default() -> void:
 func test_diagnostics_command_requires_auth_token() -> void:
 	var diagnostics: GFDiagnosticsUtility = GFDiagnosticsUtility.new()
 	diagnostics.set_auth_token("secret")
-	diagnostics.register_command(&"diagnostics.test", func(_args: Dictionary) -> String:
+	var _command_registered: bool = diagnostics.register_command(self, &"diagnostics.test", func(_args: Dictionary) -> String:
 		return "ok"
 	)
 
@@ -99,7 +100,8 @@ func test_diagnostics_command_requires_auth_token() -> void:
 
 func test_diagnostics_command_schema_validates_arguments_and_defaults() -> void:
 	var diagnostics: GFDiagnosticsUtility = GFDiagnosticsUtility.new()
-	diagnostics.register_command(
+	var _command_registered: bool = diagnostics.register_command(
+		self,
 		&"runtime.limit",
 		func(args: Dictionary) -> Dictionary:
 			return { "limit": args["limit"] },
@@ -129,9 +131,36 @@ func test_diagnostics_command_schema_validates_arguments_and_defaults() -> void:
 	assert_true(GFVariantData.get_option_string(rejected, "error").contains("error"), "参数校验失败应返回校验摘要。")
 
 
+func test_diagnostics_command_rejects_non_finite_numeric_parameter() -> void:
+	var diagnostics: GFDiagnosticsUtility = GFDiagnosticsUtility.new()
+	var _command_registered: bool = diagnostics.register_command(
+		self,
+		&"runtime.scale",
+		func(args: Dictionary) -> Dictionary:
+			return { "scale": GFVariantData.get_option_float(args, "scale") },
+		"读取缩放。",
+		GFDiagnosticsUtility.CommandTier.OBSERVE,
+		{
+			"parameters": [
+				{
+					"name": "scale",
+					"type": "float",
+				},
+			],
+		}
+	)
+
+	var result: Dictionary = diagnostics.execute_command(&"runtime.scale", { "scale": NAN })
+	var metadata: Dictionary = GFVariantData.get_option_dictionary(result, "metadata")
+	var validation: Dictionary = GFVariantData.get_option_dictionary(metadata, "validation")
+
+	assert_false(GFVariantData.get_option_bool(result, "ok"), "诊断命令不应接受 NaN 参数。")
+	assert_true(GFVariantData.get_option_string(validation, "summary").contains("parameter_non_finite"), "校验报告应说明非有限数值。")
+
+
 func test_diagnostics_command_can_be_disabled_and_exported_json_safe() -> void:
 	var diagnostics: GFDiagnosticsUtility = GFDiagnosticsUtility.new()
-	diagnostics.register_command(&"runtime.vector", func(_args: Dictionary) -> Dictionary:
+	var _command_registered: bool = diagnostics.register_command(self, &"runtime.vector", func(_args: Dictionary) -> Dictionary:
 		return { "position": Vector3(1.0, 2.0, 3.0) }
 	)
 
@@ -169,13 +198,15 @@ func test_diagnostics_collects_tool_debug_snapshots() -> void:
 	var arch: GFArchitecture = GFArchitecture.new()
 	var diagnostics: GFDiagnosticsUtility = GFDiagnosticsUtility.new()
 	var timer: GFTimerUtility = GFTimerUtility.new()
-	var download: GFDownloadUtility = GFDownloadUtility.new()
 	var action_queue: GFActionQueueSystem = GFActionQueueSystem.new()
 	await arch.register_utility_instance(timer)
-	await arch.register_utility_instance(download)
 	await arch.register_utility_instance(diagnostics)
 	await arch.register_system_instance(action_queue)
 	await arch.init()
+	assert_true(
+		diagnostics.publish_tool_snapshot(self, &"download", { "pending_count": 0 }),
+		"外部贡献应能发布 download 快照。"
+	)
 
 	var _execute_after_result_161: Variant = timer.execute_after(1.0, func() -> void:
 		pass
@@ -187,7 +218,7 @@ func test_diagnostics_collects_tool_debug_snapshots() -> void:
 	var timer_snapshot: Dictionary = GFVariantData.as_dictionary(tools[&"timer"])
 
 	assert_true(tools.has(&"timer"), "工具快照应包含 TimerUtility。")
-	assert_true(tools.has(&"download"), "工具快照应包含 DownloadUtility。")
+	assert_true(tools.has(&"download"), "工具快照应包含外部注册的 Download provider。")
 	assert_true(tools.has(&"action_queue"), "工具快照应包含 ActionQueueSystem。")
 	assert_eq(GFVariantData.get_option_int(timer_snapshot, "pending_count"), 1, "Timer 快照应保留工具自身诊断数据。")
 
@@ -223,13 +254,11 @@ func test_diagnostics_collects_build_info_snapshot() -> void:
 func test_diagnostics_monitor_registry_collects_custom_monitor() -> void:
 	var diagnostics: GFDiagnosticsUtility = GFDiagnosticsUtility.new()
 	diagnostics.init()
-	var provider: Callable = func() -> int:
-		return 7
-
-	assert_true(diagnostics.register_monitor(&"test.value", provider, {
+	assert_true(diagnostics.register_monitor(self, &"test.value", {
 		"label": "Value",
 		"group": "Tests",
 	}), "有效监控项应注册成功。")
+	assert_true(diagnostics.publish_monitor_sample(self, &"test.value", 7), "监控项应接受 owner 发布的采样值。")
 	assert_true(diagnostics.register_monitor_preset(&"test", PackedStringArray(["test.value"])), "监控预设应注册成功。")
 
 	var snapshot: Dictionary = diagnostics.collect_monitor_snapshot(PackedStringArray(["test.value"]))
@@ -238,9 +267,26 @@ func test_diagnostics_monitor_registry_collects_custom_monitor() -> void:
 	var preset_snapshot: Dictionary = diagnostics.collect_monitor_preset(&"test")
 	var exported_text: String = diagnostics.export_monitor_snapshot(preset_snapshot, &"text")
 
-	assert_eq(GFVariantData.get_option_int(sample, "value"), 7, "监控快照应包含 provider 返回值。")
+	assert_eq(GFVariantData.get_option_int(sample, "value"), 7, "监控快照应包含已发布值。")
 	assert_eq(GFVariantData.get_option_string_name(preset_snapshot, "preset_id"), &"test", "预设快照应记录预设 id。")
 	assert_true("Value" in exported_text, "文本导出应包含监控标签。")
+
+
+func test_diagnostics_monitor_json_export_is_report_safe() -> void:
+	var diagnostics: GFDiagnosticsUtility = GFDiagnosticsUtility.new()
+	var exported_json: String = diagnostics.export_monitor_snapshot({
+		"monitors": {
+			&"runtime.nan": {
+				"label": "NaN",
+				"group": "Runtime",
+				"value": NAN,
+				"valid": true,
+			},
+		},
+	}, &"json")
+
+	assert_true(exported_json.contains(GFVariantJsonCodec.JSON_MARKER_KEY), "监控 JSON 导出应编码 NaN。")
+	assert_false(exported_json.contains("\"value\":null"), "监控 JSON 导出不应把 NaN 退化为 null。")
 
 
 func test_diagnostics_debugger_bridge_state_and_catalog_are_available() -> void:
@@ -261,19 +307,18 @@ func test_diagnostics_debugger_bridge_state_and_catalog_are_available() -> void:
 	diagnostics.dispose()
 
 
-func test_diagnostics_collects_external_snapshot_providers() -> void:
+func test_diagnostics_collects_external_published_snapshots() -> void:
 	var diagnostics: GFDiagnosticsUtility = GFDiagnosticsUtility.new()
 	diagnostics.init()
 
-	assert_true(diagnostics.register_snapshot_section_provider(&"runtime", func() -> Dictionary:
-		return { "enemy_count": 3 }
-	), "外部快照分区 provider 应注册成功。")
-	assert_true(diagnostics.register_tool_snapshot_provider(&"runtime_tool", func() -> Dictionary:
-		return { "pending": 2 }
-	), "外部工具快照 provider 应注册成功。")
-	var _register_monitor_result_237: Variant = diagnostics.register_monitor(&"runtime.pending", func() -> int:
-		return 2
-	)
+	assert_true(diagnostics.publish_snapshot_section(self, &"runtime", {
+		"enemy_count": 3,
+	}), "外部快照分区应可发布。")
+	assert_true(diagnostics.publish_tool_snapshot(self, &"runtime_tool", {
+		"pending": 2,
+	}), "外部工具快照应可发布。")
+	var _monitor_registered: bool = diagnostics.register_monitor(self, &"runtime.pending")
+	var _monitor_published: bool = diagnostics.publish_monitor_sample(self, &"runtime.pending", 2)
 	assert_true(diagnostics.add_monitor_to_preset(&"tools", &"runtime.pending"), "外部监控项应可加入内置 tools 预设。")
 
 	var snapshot: Dictionary = diagnostics.collect_snapshot({
@@ -289,16 +334,12 @@ func test_diagnostics_collects_external_snapshot_providers() -> void:
 	assert_true(tool_monitors.has(&"runtime.pending"), "追加到 tools 预设的外部监控项应可采样。")
 
 
-func test_diagnostics_rejects_external_providers_for_reserved_snapshot_keys() -> void:
+func test_diagnostics_rejects_external_contributions_for_reserved_snapshot_keys() -> void:
 	var diagnostics: GFDiagnosticsUtility = GFDiagnosticsUtility.new()
 	diagnostics.init()
 
-	var section_registered: bool = diagnostics.register_snapshot_section_provider(&"build", func() -> Dictionary:
-		return { "fake": true }
-	)
-	var tool_registered: bool = diagnostics.register_tool_snapshot_provider(&"timer", func() -> Dictionary:
-		return { "fake": true }
-	)
+	var section_registered: bool = diagnostics.publish_snapshot_section(self, &"build", { "fake": true })
+	var tool_registered: bool = diagnostics.publish_tool_snapshot(self, &"timer", { "fake": true })
 	var snapshot: Dictionary = diagnostics.collect_snapshot({
 		"include_recent_logs": false,
 	})
@@ -311,6 +352,94 @@ func test_diagnostics_rejects_external_providers_for_reserved_snapshot_keys() ->
 	if tools.has(&"timer"):
 		var timer_snapshot: Dictionary = GFVariantData.get_option_dictionary(tools, &"timer")
 		assert_false(GFVariantData.get_option_bool(timer_snapshot, "fake"), "拒绝后的外部工具不应覆盖 timer。")
+
+
+func test_diagnostics_registries_enforce_owner_safe_replace_and_unregister() -> void:
+	var diagnostics: GFDiagnosticsUtility = GFDiagnosticsUtility.new()
+	var first_owner: RegistrationOwner = RegistrationOwner.new()
+	var other_owner: RegistrationOwner = RegistrationOwner.new()
+	var first_command: Callable = Callable(first_owner, "execute_command")
+	var other_command: Callable = Callable(other_owner, "execute_command")
+
+	assert_true(diagnostics.register_command(first_owner, &"owned.command", first_command), "首个 owner 应能注册命令。")
+	assert_true(diagnostics.register_command(first_owner, &"owned.command", first_command), "同一 owner 应能更新自己的命令。")
+	assert_false(diagnostics.register_command(other_owner, &"owned.command", other_command), "其他 owner 不应覆盖已有命令。")
+	assert_false(diagnostics.unregister_command(other_owner, &"owned.command"), "其他 owner 不应注销已有命令。")
+	assert_true(diagnostics.has_command(&"owned.command"), "被拒绝的注销不应移除命令。")
+	assert_true(diagnostics.unregister_command(first_owner, &"owned.command"), "当前 owner 应能注销自己的命令。")
+
+	assert_true(diagnostics.register_monitor(first_owner, &"owned.monitor"), "首个 owner 应能注册监控项。")
+	assert_false(diagnostics.register_monitor(other_owner, &"owned.monitor"), "其他 owner 不应覆盖已有监控项。")
+	assert_false(diagnostics.publish_monitor_sample(other_owner, &"owned.monitor", 2), "其他 owner 不应发布监控采样。")
+	assert_true(diagnostics.publish_monitor_sample(first_owner, &"owned.monitor", 1), "当前 owner 应能发布监控采样。")
+	assert_false(diagnostics.unregister_monitor(other_owner, &"owned.monitor"), "其他 owner 不应注销已有监控项。")
+	assert_true(diagnostics.unregister_monitor(first_owner, &"owned.monitor"), "当前 owner 应能注销自己的监控项。")
+
+	assert_true(diagnostics.publish_snapshot_section(first_owner, &"owned_section", { "value": 1 }), "首个 owner 应能发布快照分区。")
+	assert_false(diagnostics.publish_snapshot_section(other_owner, &"owned_section", { "value": 2 }), "其他 owner 不应覆盖快照分区。")
+	assert_false(diagnostics.remove_snapshot_section(other_owner, &"owned_section"), "其他 owner 不应移除快照分区。")
+	assert_true(diagnostics.remove_snapshot_section(first_owner, &"owned_section"), "当前 owner 应能移除快照分区。")
+
+	assert_true(diagnostics.publish_tool_snapshot(first_owner, &"owned_tool", { "value": 1 }), "首个 owner 应能发布工具快照。")
+	assert_false(diagnostics.publish_tool_snapshot(other_owner, &"owned_tool", { "value": 2 }), "其他 owner 不应覆盖工具快照。")
+	assert_false(diagnostics.remove_tool_snapshot(other_owner, &"owned_tool"), "其他 owner 不应移除工具快照。")
+	assert_true(diagnostics.remove_tool_snapshot(first_owner, &"owned_tool"), "当前 owner 应能移除工具快照。")
+
+
+func test_snapshot_collection_never_executes_published_callable_values() -> void:
+	var diagnostics: GFDiagnosticsUtility = GFDiagnosticsUtility.new()
+	diagnostics.init()
+	var state: CallableValueState = CallableValueState.new()
+	assert_true(diagnostics.publish_snapshot_section(state, &"callable_value", {
+		"callback": Callable(state, "get_value"),
+	}), "Callable 可作为待报告数据发布。")
+
+	var snapshot: Dictionary = diagnostics.collect_snapshot({
+		"include_monitors": false,
+		"include_recent_logs": false,
+	})
+
+	assert_true(snapshot.has("callable_value"), "已发布分区应进入快照。")
+	assert_eq(state.call_count, 0, "collect_snapshot 不得执行外部 Callable。")
+
+
+func test_snapshot_publication_respects_structural_budgets_and_keeps_last_good_value() -> void:
+	var diagnostics: GFDiagnosticsUtility = GFDiagnosticsUtility.new()
+	diagnostics.init()
+	assert_true(diagnostics.publish_snapshot_section(self, &"bounded", {
+		"values": [1, 2],
+	}), "预算内快照应发布成功。")
+	diagnostics.max_contribution_collection_items = 2
+	assert_false(diagnostics.publish_snapshot_section(self, &"bounded", {
+		"values": [1, 2, 3],
+	}), "超过结构预算的更新应被拒绝。")
+
+	var snapshot: Dictionary = diagnostics.collect_snapshot({
+		"include_monitors": false,
+		"include_recent_logs": false,
+	})
+	var section: Dictionary = GFVariantData.get_option_dictionary(snapshot, "bounded")
+	var values: Array = GFVariantData.get_option_array(section, "values")
+
+	assert_eq(values, [1, 2], "发布失败后应保留上一份有效快照。")
+
+
+func test_released_contribution_owner_is_pruned_before_collection() -> void:
+	var diagnostics: GFDiagnosticsUtility = GFDiagnosticsUtility.new()
+	diagnostics.init()
+	var contribution_owner: RegistrationOwner = RegistrationOwner.new()
+	assert_true(diagnostics.publish_snapshot_section(contribution_owner, &"released", {
+		"value": 1,
+	}), "有效 owner 应能发布分区。")
+	contribution_owner = null
+
+	var snapshot: Dictionary = diagnostics.collect_snapshot({
+		"include_monitors": false,
+		"include_recent_logs": false,
+	})
+
+	assert_false(snapshot.has("released"), "owner 释放后的分区不应进入快照。")
+	assert_false(diagnostics.has_snapshot_section(&"released"), "失效 owner 的注册应被清理。")
 
 
 ## 验证内置工具监控预设可采样。
@@ -368,3 +497,16 @@ class SignalEmitter:
 	extends Node
 
 	signal ping
+
+
+class RegistrationOwner extends RefCounted:
+	func execute_command(_args: Dictionary) -> Dictionary:
+		return { "ok": true }
+
+
+class CallableValueState extends RefCounted:
+	var call_count: int = 0
+
+	func get_value() -> int:
+		call_count += 1
+		return call_count

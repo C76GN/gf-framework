@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFGridKey3D" path="addons/gf/standard/foundation/math/gf_grid_key_3d.gd" module="standard" extends="RefCounted" classDigest="e71a1e0784993f1395212c45b4cbe08fe2fb19f69b4ca42f74d10b282f871afe">
+<class name="GFGridKey3D" path="addons/gf/standard/foundation/math/gf_grid_key_3d.gd" module="standard" extends="RefCounted" classDigest="54c68d0155fb6a0e22d2cf441a0ac58cb67a4512cc049266fbddeaa08e54c5ff">
 	<description>GFGridKey3D: 3D 网格坐标稳定整数键工具。
 将有限范围内的 Vector3i 格坐标与方向编号打包成非负 int，并提供反解与
 Vector3 位置量化。它只处理坐标编码，不绑定 TileMap、GridMap、渲染或存档格式。</description>
@@ -120,6 +120,31 @@ Vector3 位置量化。它只处理坐标编码，不绑定 TileMap、GridMap、
 				<tag name="schema">return: Dictionary with valid: bool, cell: Vector3i, and orientation: int.</tag>
 			</tags>
 		</member>
+		<member kind="method" name="can_quantize_position">
+			<signature>static func can_quantize_position( position: Vector3, cell_size: Vector3 = Vector3.ONE, origin: Vector3 = Vector3.ZERO ) -&gt; bool:</signature>
+			<description>判断世界位置、单格尺寸和原点是否可被安全量化。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">position: 世界或局部位置。</tag>
+				<tag name="param">cell_size: 单格尺寸。</tag>
+				<tag name="param">origin: 量化原点。</tag>
+				<tag name="return">所有输入都为有限数时返回 true。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="try_position_to_cell">
+			<signature>static func try_position_to_cell( position: Vector3, cell_size: Vector3 = Vector3.ONE, origin: Vector3 = Vector3.ZERO ) -&gt; Dictionary:</signature>
+			<description>尝试将世界位置量化为格坐标。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">position: 世界或局部位置。</tag>
+				<tag name="param">cell_size: 单格尺寸，各轴会被限制为正数。</tag>
+				<tag name="param">origin: 量化原点。</tag>
+				<tag name="return">量化报告。</tag>
+				<tag name="schema">return: Dictionary with ok: bool, error: String, and cell: Vector3i.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
 		<member kind="method" name="position_to_cell">
 			<signature>static func position_to_cell( position: Vector3, cell_size: Vector3 = Vector3.ONE, origin: Vector3 = Vector3.ZERO ) -&gt; Vector3i:</signature>
 			<description>将世界位置量化为格坐标。</description>
@@ -128,7 +153,8 @@ Vector3 位置量化。它只处理坐标编码，不绑定 TileMap、GridMap、
 				<tag name="param">position: 世界或局部位置。</tag>
 				<tag name="param">cell_size: 单格尺寸，各轴会被限制为正数。</tag>
 				<tag name="param">origin: 量化原点。</tag>
-				<tag name="return">量化后的格坐标。</tag>
+				<tag name="return">量化后的格坐标；输入包含非有限数时返回 Vector3i.ZERO。</tag>
+				<tag name="since">3.18.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="pack_position">
@@ -140,7 +166,8 @@ Vector3 位置量化。它只处理坐标编码，不绑定 TileMap、GridMap、
 				<tag name="param">cell_size: 单格尺寸，各轴会被限制为正数。</tag>
 				<tag name="param">origin: 量化原点。</tag>
 				<tag name="param">orientation: 方向编号，范围为 0..63。</tag>
-				<tag name="return">打包后的 key；量化坐标或方向编号超出范围时返回 INVALID_KEY。</tag>
+				<tag name="return">打包后的 key；输入非有限、量化坐标或方向编号超出范围时返回 INVALID_KEY。</tag>
+				<tag name="since">3.18.0</tag>
 			</tags>
 		</member>
 	</methods>

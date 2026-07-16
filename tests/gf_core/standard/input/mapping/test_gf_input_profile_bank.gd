@@ -84,6 +84,26 @@ func test_profile_bank_to_dict_roundtrip_preserves_profiles_active_and_custom_da
 	assert_eq(restored_event.physical_keycode, KEY_SPACE)
 
 
+func test_profile_bank_to_dict_encodes_custom_data_for_json_roundtrip() -> void:
+	var bank: GFInputProfileBank = GFInputProfileBank.new()
+	var keyboard_config: GFInputRemapConfig = GFInputRemapConfig.new()
+	keyboard_config.set_custom_data("axis", Vector2(0.25, -0.5))
+	bank.set_profile(&"keyboard", keyboard_config)
+	bank.custom_data = {
+		"tags": PackedStringArray(["keyboard"]),
+	}
+
+	var encoded: Dictionary = bank.to_dict()
+	var encoded_custom_data: Dictionary = GFVariantData.get_option_dictionary(encoded, "custom_data")
+	var parsed: Dictionary = GFVariantData.as_dictionary(JSON.parse_string(JSON.stringify(encoded)))
+	var restored: GFInputProfileBank = GFInputProfileBank.from_dict(parsed)
+	var restored_keyboard: GFInputRemapConfig = restored.get_profile(&"keyboard")
+
+	assert_eq(typeof(GFVariantData.get_option_value(encoded_custom_data, "tags")), TYPE_DICTIONARY, "bank custom_data 应输出 JSON-safe typed marker。")
+	assert_eq(GFVariantData.get_option_packed_string_array(restored.custom_data, "tags"), PackedStringArray(["keyboard"]))
+	assert_eq(GFVariantData.to_vector2(restored_keyboard.get_custom_data("axis")), Vector2(0.25, -0.5))
+
+
 ## 验证移除 active profile 后会选择剩余 profile。
 func test_remove_active_profile_selects_remaining_profile() -> void:
 	var bank: GFInputProfileBank = GFInputProfileBank.new()
@@ -113,6 +133,19 @@ func test_remap_config_to_dict_roundtrip_preserves_events_and_unbinds() -> void:
 	assert_true(restored.has_binding(&"gameplay", &"jump", 1), "显式解绑也应被序列化。")
 	assert_null(restored.get_bound_event_or_null(&"gameplay", &"jump", 1), "显式解绑恢复后应返回 null。")
 	assert_eq(GFVariantData.to_text(restored.get_custom_data("profile_name")), "Keyboard", "custom_data 应恢复。")
+
+
+func test_remap_config_to_dict_encodes_custom_data_for_json_roundtrip() -> void:
+	var config: GFInputRemapConfig = GFInputRemapConfig.new()
+	config.set_custom_data("axis", Vector2(0.25, -0.5))
+
+	var encoded: Dictionary = config.to_dict()
+	var encoded_custom_data: Dictionary = GFVariantData.get_option_dictionary(encoded, "custom_data")
+	var parsed: Dictionary = GFVariantData.as_dictionary(JSON.parse_string(JSON.stringify(encoded)))
+	var restored: GFInputRemapConfig = GFInputRemapConfig.from_dict(parsed)
+
+	assert_eq(typeof(GFVariantData.get_option_value(encoded_custom_data, "axis")), TYPE_DICTIONARY, "remap custom_data 应输出 JSON-safe typed marker。")
+	assert_eq(GFVariantData.to_vector2(restored.get_custom_data("axis")), Vector2(0.25, -0.5))
 
 
 ## 验证资源中保存为 String 的重映射键也能按 StringName API 读取和清理。

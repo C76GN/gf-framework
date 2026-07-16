@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFSaveTransactionParticipant" path="addons/gf/extensions/save/pipeline/gf_save_transaction_participant.gd" module="extensions/save" extends="Resource" classDigest="028bf6db45741d90bb6527ac9bdd122a378b9482c63c4d78af0ec9d9590d9f43">
+	<description>GFSaveTransactionParticipant: 存档应用事务参与者基类。
+项目侧或流程步骤可在 GFSavePipelineContext 中登记参与者，
+让 apply_scope 统一调度 prepare / commit / rollback，避免外部副作用绕过存档事务。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">protocol</tag>
+		<tag name="since">8.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties>
+		<member kind="property" name="participant_id" decorators="@export">
+			<signature>var participant_id: StringName = &amp;""</signature>
+			<description>参与者标识，用于诊断和流程 trace。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="prepare">
+			<signature>func prepare(context: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>执行 prepare 阶段。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">context: apply_scope 调用上下文字典。</tag>
+				<tag name="return">结果字典。</tag>
+				<tag name="schema">context: Dictionary，可包含 pipeline_context、pipeline_shared、include_pipeline_trace、transactional_apply 及项目自定义键。</tag>
+				<tag name="schema">return: Dictionary，包含 ok、errors 和 participant_id。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="commit">
+			<signature>func commit(context: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>执行 commit 阶段。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">context: apply_scope 调用上下文字典。</tag>
+				<tag name="return">结果字典。</tag>
+				<tag name="schema">context: Dictionary，可包含 pipeline_context、pipeline_shared、include_pipeline_trace、transactional_apply 及项目自定义键。</tag>
+				<tag name="schema">return: Dictionary，包含 ok、errors 和 participant_id。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="rollback">
+			<signature>func rollback(context: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>执行 rollback 阶段。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">context: apply_scope 调用上下文字典。</tag>
+				<tag name="return">结果字典。</tag>
+				<tag name="schema">context: Dictionary，可包含 pipeline_context、pipeline_shared、include_pipeline_trace、transactional_apply 及项目自定义键。</tag>
+				<tag name="schema">return: Dictionary，包含 ok、errors 和 participant_id。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="make_result">
+			<signature>func make_result(ok: bool, errors: Array[String] = []) -&gt; Dictionary:</signature>
+			<description>构造统一结果。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">ok: 是否成功。</tag>
+				<tag name="param">errors: 错误列表。</tag>
+				<tag name="return">结果字典。</tag>
+				<tag name="schema">errors: Array[String] 错误消息。</tag>
+				<tag name="schema">return: Dictionary，包含 ok、errors 和 participant_id。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_prepare_transaction">
+			<signature>func _prepare_transaction(_context: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>prepare 阶段钩子。失败会阻止 commit，并触发统一 rollback。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">_context: apply_scope 调用上下文字典。</tag>
+				<tag name="return">结果字典。</tag>
+				<tag name="schema">_context: Dictionary，可包含 pipeline_context、pipeline_shared、include_pipeline_trace、transactional_apply 及项目自定义键。</tag>
+				<tag name="schema">return: Dictionary，包含 ok 与 errors；返回空字典视为成功。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_commit_transaction">
+			<signature>func _commit_transaction(_context: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>commit 阶段钩子。失败会触发统一 rollback。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">_context: apply_scope 调用上下文字典。</tag>
+				<tag name="return">结果字典。</tag>
+				<tag name="schema">_context: Dictionary，可包含 pipeline_context、pipeline_shared、include_pipeline_trace、transactional_apply 及项目自定义键。</tag>
+				<tag name="schema">return: Dictionary，包含 ok 与 errors；返回空字典视为成功。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_rollback_transaction">
+			<signature>func _rollback_transaction(_context: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>rollback 阶段钩子。返回失败时只记录诊断，不再抛出新异常。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">_context: apply_scope 调用上下文字典。</tag>
+				<tag name="return">结果字典。</tag>
+				<tag name="schema">_context: Dictionary，可包含 pipeline_context、pipeline_shared、include_pipeline_trace、transactional_apply 及项目自定义键。</tag>
+				<tag name="schema">return: Dictionary，包含 ok 与 errors；返回空字典视为成功。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

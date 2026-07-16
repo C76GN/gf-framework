@@ -15,6 +15,8 @@ extends Resource
 # --- 常量 ---
 
 const _GF_VALIDATION_REPORT_DICTIONARY = preload("res://addons/gf/standard/foundation/validation/gf_validation_report_dictionary.gd")
+const _SCHEMA_DESCRIPTOR_VERSION: int = 1
+const _VERSION_REPORT_SUBJECT: String = "Network contract version"
 
 
 # --- 导出变量 ---
@@ -28,6 +30,20 @@ const _GF_VALIDATION_REPORT_DICTIONARY = preload("res://addons/gf/standard/found
 ## [br]
 ## @api public
 @export var display_name: String = ""
+
+## 契约兼容大版本。项目可在不兼容的消息结构变化时显式递增。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+@export var contract_version_major: int = 0
+
+## 契约兼容小版本。小版本只用于日志、排查或构建追踪，不参与默认兼容判断。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+@export var contract_version_minor: int = 0
 
 ## 消息契约列表。
 ## [br]
@@ -152,6 +168,10 @@ func validate_contract() -> Dictionary:
 	var issues: Array[Dictionary] = []
 	if contract_id == &"":
 		issues.append(_make_issue("warning", "empty_contract_id", "Network contract_id is empty."))
+	if contract_version_major < 0:
+		issues.append(_make_issue("error", "negative_contract_version_major", "Network contract major version must be greater than or equal to 0."))
+	if contract_version_minor < 0:
+		issues.append(_make_issue("error", "negative_contract_version_minor", "Network contract minor version must be greater than or equal to 0."))
 
 	var seen_messages: Dictionary = {}
 	for index: int in range(messages.size()):
@@ -179,9 +199,11 @@ func validate_contract() -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @return 描述字典。
 ## [br]
-## @schema return: Dictionary，包含 contract_id、display_name、message_count、messages、metadata。
+## @schema return: Dictionary，包含 contract_id、display_name、contract_version_major、contract_version_minor、schema_digest、message_count、messages、metadata。
 func describe() -> Dictionary:
 	var message_descriptions: Array[Dictionary] = []
 	for message_contract: GFNetworkContractMessage in messages:
@@ -190,10 +212,155 @@ func describe() -> Dictionary:
 	return {
 		"contract_id": contract_id,
 		"display_name": get_display_name(),
+		"contract_version_major": contract_version_major,
+		"contract_version_minor": contract_version_minor,
+		"schema_digest": get_schema_digest(),
 		"message_count": message_descriptions.size(),
 		"messages": message_descriptions,
 		"metadata": metadata.duplicate(true),
 	}
+
+
+## 导出只包含协议结构的稳定 schema 描述。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+## [br]
+## @return schema 描述字典。
+## [br]
+## @schema return: Dictionary，包含 schema_version、contract_id 和 messages；不包含 display_name 或 metadata。
+func get_schema_descriptor() -> Dictionary:
+	var message_entries: Array[Dictionary] = []
+	for message_contract: GFNetworkContractMessage in messages:
+		if message_contract == null:
+			continue
+		message_entries.append(_describe_message_schema(message_contract))
+	return {
+		"schema_version": _SCHEMA_DESCRIPTOR_VERSION,
+		"contract_id": contract_id,
+		"messages": message_entries,
+	}
+
+
+## 计算契约 schema 描述的稳定 SHA-256。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+## [br]
+## @param options: 传给 GFDeterministicVariantSerializer.sha256() 的选项；默认允许有限浮点默认值参与摘要。
+## [br]
+## @return SHA-256 hex；schema 中存在不支持的 Variant 时返回空字符串。
+## [br]
+## @schema options: Dictionary，支持 allow_floats 和 max_depth。
+func get_schema_digest(options: Dictionary = {}) -> String:
+	var digest_options: Dictionary = options.duplicate(true)
+	if not digest_options.has("allow_floats"):
+		digest_options["allow_floats"] = true
+	return GFDeterministicVariantSerializer.sha256(get_schema_descriptor(), digest_options)
+
+
+## 获取可通过网络、日志或预检报告传递的契约版本字典。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+## [br]
+## @return 契约版本字典。
+## [br]
+## @schema return: Dictionary，包含 contract_id、version_major、version_minor、schema_descriptor_version 和 schema_digest。
+func get_contract_version() -> Dictionary:
+	return {
+		"contract_id": contract_id,
+		"version_major": contract_version_major,
+		"version_minor": contract_version_minor,
+		"schema_descriptor_version": _SCHEMA_DESCRIPTOR_VERSION,
+		"schema_digest": get_schema_digest(),
+	}
+
+
+## 校验对端声明的契约版本。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+## [br]
+## @param peer_version: 对端通过 get_contract_version() 或等价结构上报的版本字典。
+## [br]
+## @param options: 校验选项，支持 require_contract_id、require_schema_digest 和 severity。
+## [br]
+## @return GFValidationReportDictionary 兼容报告。
+## [br]
+## @schema peer_version: Dictionary，包含 contract_id、version_major、version_minor 和 schema_digest。
+## [br]
+## @schema options: Dictionary，require_contract_id 默认 true，require_schema_digest 默认 false，severity 默认为 error。
+## [br]
+## @schema return: Dictionary，包含 ok、local_version、peer_version、issues、issue_count 和 next_actions。
+func validate_peer_contract_version(peer_version: Dictionary, options: Dictionary = {}) -> Dictionary:
+	var issues: Array[Dictionary] = []
+	var severity: String = GFVariantData.get_option_string(options, "severity", "error")
+	var require_contract_id: bool = GFVariantData.get_option_bool(options, "require_contract_id", true)
+	var require_schema_digest: bool = GFVariantData.get_option_bool(options, "require_schema_digest", false)
+	var peer_contract_id: StringName = GFVariantData.get_option_string_name(peer_version, "contract_id")
+
+	if require_contract_id and contract_id != &"":
+		if peer_contract_id == &"":
+			issues.append(_make_version_issue(severity, "contract_id_missing", "Peer network contract version is missing contract_id.", {
+				"expected_value": contract_id,
+				"actual_value": peer_contract_id,
+			}))
+		elif peer_contract_id != contract_id:
+			issues.append(_make_version_issue(severity, "contract_id_mismatch", "Peer network contract_id does not match.", {
+				"expected_value": contract_id,
+				"actual_value": peer_contract_id,
+			}))
+
+	if not peer_version.has("version_major"):
+		issues.append(_make_version_issue(severity, "contract_version_major_missing", "Peer network contract version is missing version_major.", {
+			"expected_value": contract_version_major,
+			"actual_value": null,
+		}))
+	else:
+		var peer_major: int = GFVariantData.get_option_int(peer_version, "version_major", -1)
+		if peer_major != contract_version_major:
+			issues.append(_make_version_issue(severity, "contract_version_major_mismatch", "Peer network contract major version does not match.", {
+				"expected_value": contract_version_major,
+				"actual_value": peer_major,
+			}))
+
+	if require_schema_digest:
+		var local_digest: String = get_schema_digest()
+		var peer_digest: String = GFVariantData.get_option_string(peer_version, "schema_digest").strip_edges()
+		if peer_digest.is_empty():
+			issues.append(_make_version_issue(severity, "contract_schema_digest_missing", "Peer network contract version is missing schema_digest.", {
+				"expected_value": local_digest,
+				"actual_value": peer_digest,
+			}))
+		elif local_digest.is_empty():
+			issues.append(_make_version_issue(severity, "contract_schema_digest_unavailable", "Local network contract schema_digest is unavailable.", {
+				"expected_value": "non-empty schema_digest",
+				"actual_value": local_digest,
+			}))
+		elif peer_digest != local_digest:
+			issues.append(_make_version_issue(severity, "contract_schema_digest_mismatch", "Peer network contract schema_digest does not match.", {
+				"expected_value": local_digest,
+				"actual_value": peer_digest,
+			}))
+
+	var report: Dictionary = {
+		"subject": _VERSION_REPORT_SUBJECT,
+		"contract_id": contract_id,
+		"local_version": get_contract_version(),
+		"peer_version": peer_version.duplicate(true),
+		"issues": issues,
+	}
+	return _GF_VALIDATION_REPORT_DICTIONARY.finalize_report(report, _VERSION_REPORT_SUBJECT, {
+		"include_issue_count": true,
+		"next_actions": _get_version_next_actions(),
+		"fallback_action": "Review the first network contract version mismatch.",
+		"no_action": "Network contract version is compatible.",
+	})
 
 
 # --- 私有/辅助方法 ---
@@ -213,6 +380,41 @@ func _make_issue(severity: String, kind: String, message: String, key: String = 
 	return issue
 
 
+func _make_version_issue(severity: String, kind: String, message: String, fields: Dictionary) -> Dictionary:
+	var issue: Dictionary = {
+		"severity": severity,
+		"kind": kind,
+		"contract_id": contract_id,
+		"message": message,
+	}
+	var _merge_result: Dictionary = GFVariantData.merge_dictionary(issue, fields, true)
+	return issue
+
+
+func _describe_message_schema(message_contract: GFNetworkContractMessage) -> Dictionary:
+	var field_entries: Array[Dictionary] = []
+	for field: GFNetworkContractField in message_contract.fields:
+		if field == null:
+			continue
+		field_entries.append(_describe_field_schema(field))
+	return {
+		"message_type": message_contract.message_type,
+		"channel_id": message_contract.channel_id,
+		"fields": field_entries,
+	}
+
+
+func _describe_field_schema(field: GFNetworkContractField) -> Dictionary:
+	return {
+		"field_name": field.field_name,
+		"value_type": int(field.value_type),
+		"required": field.required,
+		"allow_null": field.allow_null,
+		"default_value": field.get_default_value(),
+		"class_name_hint": field.class_name_hint,
+	}
+
+
 func _finalize_report(issues: Array[Dictionary]) -> Dictionary:
 	var report: Dictionary = {
 		"subject": "Network contract",
@@ -230,6 +432,8 @@ func _get_validation_next_actions() -> Dictionary:
 		"missing_message": "Pass a GFNetworkMessage before validating it.",
 		"unknown_message_type": "Declare the message_type in this network contract before validating the message.",
 		"empty_contract_id": "Assign the network contract a stable contract_id.",
+		"negative_contract_version_major": "Set contract_version_major to 0 or a positive integer.",
+		"negative_contract_version_minor": "Set contract_version_minor to 0 or a positive integer.",
 		"null_message_contract": "Remove empty message slots or assign a GFNetworkContractMessage resource.",
 		"empty_message_type": "Assign every network contract message a stable message_type.",
 		"duplicate_message_type": "Make message_type unique within this network contract.",
@@ -241,4 +445,16 @@ func _get_validation_next_actions() -> Dictionary:
 		"type_mismatch": "Send a value matching the declared network contract field type.",
 		"class_name_mismatch": "Send an Object or Resource matching class_name_hint.",
 		"message_type_mismatch": "Validate the message against a contract with the same message_type.",
+	}
+
+
+func _get_version_next_actions() -> Dictionary:
+	return {
+		"contract_id_missing": "Send contract_id with the peer network contract version or disable require_contract_id.",
+		"contract_id_mismatch": "Use the same network contract resource on both peers, or connect to the matching protocol endpoint.",
+		"contract_version_major_missing": "Send version_major with the peer network contract version.",
+		"contract_version_major_mismatch": "Update one side to the same compatible network contract major version.",
+		"contract_schema_digest_missing": "Send schema_digest or disable require_schema_digest for this preflight.",
+		"contract_schema_digest_unavailable": "Ensure the local network contract schema only uses deterministic Variant values.",
+		"contract_schema_digest_mismatch": "Regenerate or sync the network contract schema before exchanging messages.",
 	}

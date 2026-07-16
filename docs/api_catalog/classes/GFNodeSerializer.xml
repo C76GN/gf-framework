@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFNodeSerializer" path="addons/gf/extensions/save/serializers/gf_node_serializer.gd" module="extensions/save" extends="Resource" classDigest="a7f4ee96a402d44b2dd556652ef54358161daeb7f9c7a889b679dfa7b5b10d6c">
+<class name="GFNodeSerializer" path="addons/gf/extensions/save/serializers/gf_node_serializer.gd" module="extensions/save" extends="Resource" classDigest="a5ef8a1a7b4c1a25a5f3b1ed76ef2a6fb9bc5f86a82ee8ec524f4bf69b8fda6d">
 	<description>GFNodeSerializer: 节点序列化器基类。
 用于把通用节点状态拆成可组合的序列化片段。具体项目可以继承该类，
 在不修改存档图编排逻辑的前提下接入自己的节点状态。</description>
@@ -17,6 +17,7 @@
 			<description>序列化器稳定标识。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="display_name" decorators="@export">
@@ -24,6 +25,7 @@
 			<description>编辑器展示名称。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="supported_class_name" decorators="@export">
@@ -31,6 +33,7 @@
 			<description>可选 Godot 类名过滤。为空时由子类自行判断。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</properties>
@@ -41,6 +44,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">稳定标识。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="supports_node">
@@ -50,6 +54,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">node: 待序列化节点。</tag>
 				<tag name="return">支持时返回 true。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="gather">
@@ -62,6 +67,7 @@
 				<tag name="return">可写入存档的字典。</tag>
 				<tag name="schema">_context: Dictionary，调用方附加上下文；基础实现保留给子类扩展。</tag>
 				<tag name="schema">return: Dictionary，当前序列化器写入存档的字段集合；空字典表示无需保存。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="apply">
@@ -76,6 +82,7 @@
 				<tag name="schema">_payload: Dictionary，来自 gather() 的当前序列化器数据。</tag>
 				<tag name="schema">_context: Dictionary，调用方附加上下文；基础实现保留给子类扩展。</tag>
 				<tag name="schema">return: Dictionary，包含 ok: bool 与 error: String。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="make_result">
@@ -87,6 +94,7 @@
 				<tag name="param">error: 错误描述。</tag>
 				<tag name="return">结果字典。</tag>
 				<tag name="schema">return: Dictionary，包含 ok: bool 与 error: String。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="_copy_property_to_payload">
@@ -98,6 +106,7 @@
 				<tag name="param">payload: 要写入的载荷字典。</tag>
 				<tag name="param">property_name: 属性名。</tag>
 				<tag name="schema">payload: Dictionary，键为属性名，值为属性当前值。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="_copy_properties_to_payload">
@@ -109,6 +118,7 @@
 				<tag name="param">payload: 要写入的载荷字典。</tag>
 				<tag name="param">property_names: 属性名列表。</tag>
 				<tag name="schema">payload: Dictionary，键为属性名，值为属性当前值。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="_apply_property_from_payload">
@@ -120,6 +130,7 @@
 				<tag name="param">payload: 序列化载荷。</tag>
 				<tag name="param">property_name: 属性名。</tag>
 				<tag name="schema">payload: Dictionary，键为属性名，值为要写回的属性值。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="_apply_properties_from_payload">
@@ -131,6 +142,7 @@
 				<tag name="param">payload: 序列化载荷。</tag>
 				<tag name="param">property_names: 属性名列表。</tag>
 				<tag name="schema">payload: Dictionary，键为属性名，值为要写回的属性值。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="_gather_property_specs">
@@ -143,18 +155,21 @@
 				<tag name="return">采集后的载荷字典。</tag>
 				<tag name="schema">specs: Array[Dictionary]，每项可包含 key: String、property: String 与 kind: StringName。</tag>
 				<tag name="schema">return: Dictionary，键为规格 key，值为经过 kind 编码后的属性值。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="_apply_property_specs">
-			<signature>func _apply_property_specs(node: Object, payload: Dictionary, specs: Array[Dictionary]) -&gt; void:</signature>
+			<signature>func _apply_property_specs(node: Object, payload: Dictionary, specs: Array[Dictionary]) -&gt; Array[String]:</signature>
 			<description>按属性规格将载荷应用到节点。</description>
 			<tags>
 				<tag name="api">protected</tag>
 				<tag name="param">node: 目标对象。</tag>
 				<tag name="param">payload: 序列化载荷。</tag>
 				<tag name="param">specs: 属性规格列表。</tag>
+				<tag name="return">错误消息列表；空数组表示应用成功。</tag>
 				<tag name="schema">payload: Dictionary，键为规格 key，值为要写回的属性值。</tag>
 				<tag name="schema">specs: Array[Dictionary]，每项可包含 key: String、property: String 与 kind: StringName。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="_has_property">
@@ -165,6 +180,7 @@
 				<tag name="param">object: 要检查的对象。</tag>
 				<tag name="param">property_name: 属性名。</tag>
 				<tag name="return">对象属性列表中是否存在该属性。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</methods>

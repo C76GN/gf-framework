@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSchemaField" path="addons/gf/standard/foundation/schema/gf_schema_field.gd" module="standard" extends="Resource" classDigest="eb44d4b986dfabaed971fa0c0bd2b267840e5fe43535313fa54e62a1d95de7fb">
+<class name="GFSchemaField" path="addons/gf/standard/foundation/schema/gf_schema_field.gd" module="standard" extends="Resource" classDigest="64af7cd123466409f3dd10c241cb91871ee3b5151ae4b5e2ecbb5c75863eb979">
 	<description>GFSchemaField: 通用数据字段声明。
 描述一个 Dictionary 字段或数组元素的类型、必填性、空值策略、默认值和可选嵌套 schema。
 它只表达结构契约，不绑定配置表、黑板、内容包或具体业务字段语义。</description>
@@ -156,13 +156,14 @@
 		</member>
 		<member kind="method" name="coerce_value">
 			<signature>func coerce_value(value: Variant) -&gt; Variant:</signature>
-			<description>将输入值转换为字段要求的类型。</description>
+			<description>将输入值转换为字段要求的类型；转换失败时返回输入值副本。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">value: 输入值。</tag>
-				<tag name="return">转换后的值。</tag>
+				<tag name="return">转换后的值；失败时为输入值副本。</tag>
 				<tag name="schema">value: Variant value to coerce.</tag>
 				<tag name="schema">return: Variant coerced value.</tag>
+				<tag name="since">4.4.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="try_coerce_value">

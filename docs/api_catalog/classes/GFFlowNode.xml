@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFFlowNode" path="addons/gf/extensions/flow/resources/gf_flow_node.gd" module="extensions/flow" extends="Resource" classDigest="0d3ba8e22ba1743bce558e8621680f813a092a9cbf53b0bf7c95151106d95d32">
+<class name="GFFlowNode" path="addons/gf/extensions/flow/resources/gf_flow_node.gd" module="extensions/flow" extends="Resource" classDigest="0169c95369facebdd901e089dcb435c28149d0d59187d0bb257a3514e0325063">
 	<description>GFFlowNode: 通用流程图节点基类。
 节点只描述执行入口和默认后继节点。具体条件、命令、等待逻辑由项目继承实现。</description>
 	<tags>
@@ -16,6 +16,7 @@
 			<description>节点稳定标识。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="display_name" decorators="@export">
@@ -23,6 +24,7 @@
 			<description>节点显示名；为空时回退到 node_id。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="category" decorators="@export">
@@ -30,6 +32,7 @@
 			<description>节点分类，仅供编辑器、搜索或项目工具使用。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="next_node_ids" decorators="@export">
@@ -37,6 +40,7 @@
 			<description>默认后继节点列表。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="wait_for_result" decorators="@export">
@@ -44,6 +48,7 @@
 			<description>返回 Signal 时是否等待。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="input_ports" decorators="@export">
@@ -51,6 +56,7 @@
 			<description>输入端口描述。仅用于编辑器、校验和项目层数据连接。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="output_ports" decorators="@export">
@@ -58,6 +64,7 @@
 			<description>输出端口描述。仅用于编辑器、校验和项目层数据连接。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="metadata" decorators="@export">
@@ -66,6 +73,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="schema">metadata: 项目自定义元数据 Dictionary；框架保留并复制该字段，但不解释其中键值。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="editor_position" decorators="@export">
@@ -73,6 +81,7 @@
 			<description>编辑器中的节点位置。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="editor_size" decorators="@export">
@@ -80,6 +89,7 @@
 			<description>编辑器中的节点尺寸；为 ZERO 时表示由编辑器自行决定。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="editor_collapsed" decorators="@export">
@@ -87,14 +97,17 @@
 			<description>编辑器中是否折叠显示。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="runtime_state">
-			<signature>var runtime_state: Dictionary = {}</signature>
-			<description>节点运行态数据。默认不导出，项目可通过序列化接口自行存档或迁移。</description>
+			<signature>var runtime_state: Dictionary:</signature>
+			<description>节点运行态数据的只读副本。项目应通过 set_runtime_value() 等方法修改，
+以便执行器在异步隔离期间拒绝写入共享 Resource。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="schema">runtime_state: 项目自定义运行态 Dictionary；键和值由节点实现维护。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</properties>
@@ -107,6 +120,7 @@
 				<tag name="param">_context: 流程上下文。</tag>
 				<tag name="return">可返回 null 或 Signal。</tag>
 				<tag name="schema">return: null、Signal 或项目节点实现约定的结果值。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_next_nodes">
@@ -116,6 +130,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">context: 流程上下文。</tag>
 				<tag name="return">后继节点标识列表。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_display_name">
@@ -124,6 +139,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">显示名。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_input_ports">
@@ -132,6 +148,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">输入端口数组。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_output_ports">
@@ -140,6 +157,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">输出端口数组。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_input_port">
@@ -149,6 +167,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">port_id: 端口标识。</tag>
 				<tag name="return">输入端口；不存在时返回 null。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_output_port">
@@ -158,6 +177,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">port_id: 端口标识。</tag>
 				<tag name="return">输出端口；不存在时返回 null。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="describe_ports">
@@ -167,6 +187,7 @@
 				<tag name="api">public</tag>
 				<tag name="return">端口描述字典。</tag>
 				<tag name="schema">return: 包含 inputs 和 outputs 字段的 Dictionary；每个字段为端口描述数组。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="describe_editor">
@@ -176,6 +197,7 @@
 				<tag name="api">public</tag>
 				<tag name="return">编辑器元数据字典。</tag>
 				<tag name="schema">return: 包含 display_name、category、position、size 和 collapsed 字段的 Dictionary。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="describe_node">
@@ -185,6 +207,7 @@
 				<tag name="api">public</tag>
 				<tag name="return">节点描述字典。</tag>
 				<tag name="schema">return: 包含 node_id、display_name、category、next_node_ids、wait_for_result、ports、editor 和 metadata 字段的 Dictionary。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="set_runtime_value">
@@ -195,6 +218,7 @@
 				<tag name="param">key: 键。</tag>
 				<tag name="param">value: 值。</tag>
 				<tag name="schema">value: 任意可写入 runtime_state 的项目值。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_runtime_value">
@@ -207,6 +231,7 @@
 				<tag name="return">运行态值或默认值。</tag>
 				<tag name="schema">default_value: 缺失时返回的任意项目值。</tag>
 				<tag name="schema">return: 找到的运行态值，或传入的 default_value。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="clear_runtime_state">
@@ -214,15 +239,18 @@
 			<description>清空节点运行态数据。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="serialize_runtime_state">
-			<signature>func serialize_runtime_state() -&gt; Dictionary:</signature>
+			<signature>func serialize_runtime_state(json_compatible: bool = false) -&gt; Dictionary:</signature>
 			<description>序列化节点运行态数据。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="param">json_compatible: 为 true 时输出 JSON-safe 报告值；默认为 false，保留运行时原始 Variant。</tag>
 				<tag name="return">运行态数据副本。</tag>
 				<tag name="schema">return: runtime_state 的深拷贝 Dictionary。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="deserialize_runtime_state">
@@ -232,6 +260,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">data: 运行态数据。</tag>
 				<tag name="schema">data: serialize_runtime_state() 返回的运行态 Dictionary。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</methods>

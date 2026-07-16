@@ -781,7 +781,9 @@ func _normalize_release_url(value: String) -> String:
 	var text: String = value.strip_edges()
 	if text.is_empty():
 		return RELEASES_URL
-	return text
+	if text == RELEASES_URL or text.begins_with("%s/" % RELEASES_URL):
+		return text
+	return RELEASES_URL
 
 
 func _parse_version_numbers(value: String) -> PackedInt32Array:

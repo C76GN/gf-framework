@@ -244,6 +244,48 @@ func test_same_cache_key_requests_are_coalesced() -> void:
 	assert_eq(GFVariantData.get_option_string(shared_result, "content"), "shared", "合并请求应共享同一结果。")
 
 
+func test_empty_custom_cache_key_falls_back_to_request_identity() -> void:
+	var results: Array[Dictionary] = []
+	_cache.cache_key_builder = func(_url: String, _headers: PackedStringArray, _format: StringName) -> String:
+		return ""
+	_cache.responses.append({ "success": true, "response_code": 200, "content": "first" })
+	_cache.responses.append({ "success": true, "response_code": 200, "content": "second" })
+
+	_cache.fetch_text("https://example.test/first", func(result: Dictionary) -> void:
+		results.append(result)
+	)
+	_cache.fetch_text("https://example.test/second", func(result: Dictionary) -> void:
+		results.append(result)
+	)
+	await get_tree().process_frame
+	await get_tree().process_frame
+
+	assert_eq(_cache.request_count, 2, "空自定义 key 不得把不同请求合并为同一身份。")
+	assert_eq(results.size(), 2, "两个独立请求都应完成。")
+	assert_eq(GFVariantData.get_option_string(results[0], "content"), "first")
+	assert_eq(GFVariantData.get_option_string(results[1], "content"), "second")
+
+
+func test_response_body_budget_rejects_oversized_content() -> void:
+	var results: Array[Dictionary] = []
+	_cache.max_response_bytes = 4
+	_cache.responses.append({ "success": true, "response_code": 200, "content": "12345" })
+
+	_cache.fetch_text("https://example.test/oversized", func(result: Dictionary) -> void:
+		results.append(result)
+	)
+	await get_tree().process_frame
+
+	assert_eq(results.size(), 1, "超限响应应完成为显式失败。")
+	assert_false(GFVariantData.get_option_bool(results[0], "success"), "超限响应不得进入成功或缓存路径。")
+	assert_eq(
+		GFVariantData.get_option_string(results[0], "error"),
+		"Response body exceeds max_response_bytes=4",
+		"失败原因应暴露稳定预算字段。"
+	)
+	assert_false(_cache.has_valid_cache("https://example.test/oversized"), "超限响应不得写入缓存。")
+
+
 func test_pending_request_limit_rejects_excess_requests() -> void:
 	var results: Array[Dictionary] = []
 	_cache.max_pending_requests = 1

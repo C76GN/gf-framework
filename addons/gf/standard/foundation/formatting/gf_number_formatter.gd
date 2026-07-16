@@ -60,33 +60,37 @@ const _DECIMAL_STRING_FORMATTER = preload("res://addons/gf/standard/foundation/f
 const _FULL_MIN_EXPONENT: int = -6
 
 
-# --- 公共变量 ---
+# --- 公共方法 ---
 
-## 默认的紧凑缩写后缀表。
+## 获取默认紧凑缩写后缀表副本。
+## 返回值是新建副本，修改它不会改变框架默认 compact 格式化行为；项目需要自定义后缀时应通过 format_compact() 的 suffixes 参数传入。
 ## [br]
 ## @api public
-static var DEFAULT_COMPACT_SUFFIXES: PackedStringArray = PackedStringArray([
-	"",
-	"k",
-	"M",
-	"B",
-	"T",
-	"Qa",
-	"Qi",
-	"Sx",
-	"Sp",
-	"Oc",
-	"No",
-	"De",
-	"Ud",
-	"Dd",
-	"Td",
-	"Qad",
-	"Qid",
-])
+## [br]
+## @since 8.0.0
+## [br]
+## @return 默认紧凑缩写后缀表副本。
+static func get_default_compact_suffixes() -> PackedStringArray:
+	return PackedStringArray([
+		"",
+		"k",
+		"M",
+		"B",
+		"T",
+		"Qa",
+		"Qi",
+		"Sx",
+		"Sp",
+		"Oc",
+		"No",
+		"De",
+		"Ud",
+		"Dd",
+		"Td",
+		"Qad",
+		"Qid",
+	])
 
-
-# --- 公共方法 ---
 
 ## 统一入口：按指定记法格式化一个数字值。
 ## [br]
@@ -198,9 +202,17 @@ static func format_full(
 					use_truncation
 				)
 			TYPE_STRING:
-				text = value
+				var string_value: String = value
+				var normalization: Dictionary = _DECIMAL_STRING_FORMATTER.normalize_numeric_text(string_value)
+				if not GFVariantData.get_option_bool(normalization, "ok"):
+					push_error("[GFNumberFormatter] format_full() 只接受合法数值文本。")
+					return "0"
+				text = GFVariantData.get_option_string(normalization, "text")
+				if text.contains("e") or text.contains("E"):
+					return format_full(GFBigNumber.from_string(text), decimal_places, trim_zeroes, use_grouping, use_truncation)
 			_:
-				text = str(value)
+				push_error("[GFNumberFormatter] format_full() 收到不支持的值类型。")
+				return "0"
 
 	if use_grouping:
 		return _group_integer_part(text)
@@ -233,7 +245,7 @@ static func format_compact(
 ) -> String:
 	var compact_suffixes: PackedStringArray = suffixes
 	if compact_suffixes.is_empty():
-		compact_suffixes = _get_default_compact_suffixes()
+		compact_suffixes = get_default_compact_suffixes()
 
 	var big_value: GFBigNumber = GFBigNumber.from_variant(value)
 	if big_value.is_zero():
@@ -350,7 +362,7 @@ static func format_auto(
 	if big_value.is_zero():
 		return "0"
 
-	var max_compact_exponent: int = (_get_default_compact_suffixes().size() - 1) * 3 + 2
+	var max_compact_exponent: int = (get_default_compact_suffixes().size() - 1) * 3 + 2
 	if big_value.exponent >= _AUTO_COMPACT_THRESHOLD and big_value.exponent <= max_compact_exponent:
 		return format_compact(value, decimal_places, trim_zeroes, use_truncation)
 
@@ -363,33 +375,11 @@ static func format_auto(
 # --- 私有/辅助方法 ---
 
 
-static func _get_default_compact_suffixes() -> PackedStringArray:
-	return PackedStringArray([
-		"",
-		"k",
-		"M",
-		"B",
-		"T",
-		"Qa",
-		"Qi",
-		"Sx",
-		"Sp",
-		"Oc",
-		"No",
-		"De",
-		"Ud",
-		"Dd",
-		"Td",
-		"Qad",
-		"Qid",
-	])
-
-
 static func _group_integer_part(text: String) -> String:
 	var sign_text: String = ""
 	var body: String = text
-	if body.begins_with("-"):
-		sign_text = "-"
+	if body.begins_with("-") or body.begins_with("+"):
+		sign_text = body.substr(0, 1)
 		body = body.substr(1)
 
 	var decimal_index: int = body.find(".")

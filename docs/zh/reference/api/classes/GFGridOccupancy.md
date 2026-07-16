@@ -24,6 +24,9 @@
 | 方法 | [`configure`](#member-gfgridoccupancy-methods-configure) | `func configure(p_grid_size: Vector2i, p_max_occupants_per_cell: int = 1) -> void:` |
 | 方法 | [`is_in_bounds`](#member-gfgridoccupancy-methods-is_in_bounds) | `func is_in_bounds(cell: Vector2i) -> bool:` |
 | 方法 | [`can_occupy`](#member-gfgridoccupancy-methods-can_occupy) | `func can_occupy(receiver: Variant, cell: Vector2i) -> bool:` |
+| 方法 | [`get_occupied_cells`](#member-gfgridoccupancy-methods-get_occupied_cells) | `func get_occupied_cells() -> Array[Vector2i]:` |
+| 方法 | [`get_reserved_cells`](#member-gfgridoccupancy-methods-get_reserved_cells) | `func get_reserved_cells() -> Array[Vector2i]:` |
+| 方法 | [`get_occupiable_cells`](#member-gfgridoccupancy-methods-get_occupiable_cells) | `func get_occupiable_cells(receiver: Variant) -> Array[Vector2i]:` |
 | 方法 | [`occupy`](#member-gfgridoccupancy-methods-occupy) | `func occupy(receiver: Variant, cell: Vector2i) -> bool:` |
 | 方法 | [`release`](#member-gfgridoccupancy-methods-release) | `func release(receiver: Variant) -> void:` |
 | 方法 | [`release_cell`](#member-gfgridoccupancy-methods-release_cell) | `func release_cell(cell: Vector2i) -> void:` |
@@ -219,6 +222,61 @@ func can_occupy(receiver: Variant, cell: Vector2i) -> bool:
 | `cell` | 格子坐标。 |
 
 返回：可占用时返回 true。
+
+结构：
+
+- `receiver`: Variant receiver identity stored by value or weak Object reference.
+
+<a id="member-gfgridoccupancy-methods-get_occupied_cells"></a>
+
+### `get_occupied_cells`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func get_occupied_cells() -> Array[Vector2i]:
+```
+
+获取当前被占用的格子快照。
+
+返回：被至少一个接收者占用的格子数组，按 y/x 稳定顺序返回。
+
+<a id="member-gfgridoccupancy-methods-get_reserved_cells"></a>
+
+### `get_reserved_cells`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func get_reserved_cells() -> Array[Vector2i]:
+```
+
+获取当前被预约的格子快照。
+
+返回：被接收者预约的格子数组，按 y/x 稳定顺序返回。
+
+<a id="member-gfgridoccupancy-methods-get_occupiable_cells"></a>
+
+### `get_occupiable_cells`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func get_occupiable_cells(receiver: Variant) -> Array[Vector2i]:
+```
+
+获取指定接收者当前可占用的格子。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `receiver` | 接收者。 |
+
+返回：当前可被该接收者占用的格子数组，按 y/x 稳定顺序返回。
 
 结构：
 

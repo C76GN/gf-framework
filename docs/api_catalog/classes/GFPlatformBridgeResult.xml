@@ -1,0 +1,183 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFPlatformBridgeResult" path="addons/gf/standard/foundation/platform/gf_platform_bridge_result.gd" module="standard" extends="Resource" classDigest="e57cc28d2dcbb06890af993b7df04c700b637e7155b1cafcf1326ae75a0d9c92">
+	<description>GFPlatformBridgeResult: 平台桥接结果。
+用纯数据表达外部平台 adapter 对一次桥接请求的成功、失败、状态、返回值和耗时。
+它不包含平台 SDK 依赖，也不假设同步或异步实现方式。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">resource_definition</tag>
+		<tag name="since">8.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties>
+		<member kind="property" name="request_id" decorators="@export">
+			<signature>var request_id: StringName = &amp;""</signature>
+			<description>请求 ID。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="contract_id" decorators="@export">
+			<signature>var contract_id: StringName = &amp;""</signature>
+			<description>桥接契约 ID。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="method_id" decorators="@export">
+			<signature>var method_id: StringName = &amp;""</signature>
+			<description>方法 ID。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="ok" decorators="@export">
+			<signature>var ok: bool = false</signature>
+			<description>是否成功。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="status" decorators="@export">
+			<signature>var status: StringName = &amp;""</signature>
+			<description>状态码。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="value" decorators="@export">
+			<signature>var value: Variant = null</signature>
+			<description>返回值。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">value: Adapter-defined result value.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="error" decorators="@export">
+			<signature>var error: String = ""</signature>
+			<description>错误描述。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="started_at_msec" decorators="@export">
+			<signature>var started_at_msec: int = 0</signature>
+			<description>开始时间戳，单位毫秒。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="completed_at_msec" decorators="@export">
+			<signature>var completed_at_msec: int = 0</signature>
+			<description>完成时间戳，单位毫秒。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="metadata" decorators="@export">
+			<signature>var metadata: Dictionary = {}</signature>
+			<description>调用方元数据。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">metadata: Dictionary caller-defined result metadata.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="configure_success">
+			<signature>func configure_success( request: GFPlatformBridgeRequest, p_value: Variant = null, p_status: StringName = &amp;"ok", p_started_at_msec: int = 0, p_completed_at_msec: int = 0, p_metadata: Dictionary = {} ) -&gt; GFPlatformBridgeResult:</signature>
+			<description>配置成功结果。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">request: 对应请求。</tag>
+				<tag name="param">p_value: 返回值。</tag>
+				<tag name="param">p_status: 状态码。</tag>
+				<tag name="param">p_started_at_msec: 开始时间戳。</tag>
+				<tag name="param">p_completed_at_msec: 完成时间戳；小于等于 0 时使用 Time.get_ticks_msec()。</tag>
+				<tag name="param">p_metadata: 调用方元数据。</tag>
+				<tag name="return">当前结果。</tag>
+				<tag name="schema">p_value: Adapter-defined result value.</tag>
+				<tag name="schema">p_metadata: Dictionary caller-defined result metadata.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="configure_failure">
+			<signature>func configure_failure( request: GFPlatformBridgeRequest, p_error: String, p_status: StringName = &amp;"failed", p_started_at_msec: int = 0, p_completed_at_msec: int = 0, p_metadata: Dictionary = {} ) -&gt; GFPlatformBridgeResult:</signature>
+			<description>配置失败结果。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">request: 对应请求。</tag>
+				<tag name="param">p_error: 错误描述。</tag>
+				<tag name="param">p_status: 状态码。</tag>
+				<tag name="param">p_started_at_msec: 开始时间戳。</tag>
+				<tag name="param">p_completed_at_msec: 完成时间戳；小于等于 0 时使用 Time.get_ticks_msec()。</tag>
+				<tag name="param">p_metadata: 调用方元数据。</tag>
+				<tag name="return">当前结果。</tag>
+				<tag name="schema">p_metadata: Dictionary caller-defined result metadata.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_duration_msec">
+			<signature>func get_duration_msec() -&gt; int:</signature>
+			<description>获取耗时，单位毫秒。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">完成时间减开始时间；缺少时间戳时返回 0。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="to_dict">
+			<signature>func to_dict() -&gt; Dictionary:</signature>
+			<description>转换为字典。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">桥接结果字典。</tag>
+				<tag name="schema">return: Dictionary platform bridge result.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="apply_dict">
+			<signature>func apply_dict(data: Dictionary) -&gt; void:</signature>
+			<description>从字典应用桥接结果字段。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">data: 桥接结果字典。</tag>
+				<tag name="schema">data: Dictionary platform bridge result.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="duplicate_result">
+			<signature>func duplicate_result() -&gt; GFPlatformBridgeResult:</signature>
+			<description>创建桥接结果深拷贝。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">新桥接结果。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="from_dict">
+			<signature>static func from_dict(data: Dictionary) -&gt; GFPlatformBridgeResult:</signature>
+			<description>从字典创建桥接结果。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">data: 桥接结果字典。</tag>
+				<tag name="return">新桥接结果。</tag>
+				<tag name="schema">data: Dictionary platform bridge result.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

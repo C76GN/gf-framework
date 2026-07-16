@@ -33,6 +33,25 @@ func test_policy_registry_evaluates_matching_providers_in_priority_order() -> vo
 	assert_eq(skipped.evaluate_count, 0, "不匹配 provider 不应执行。")
 
 
+func test_policy_registry_sorts_exported_provider_snapshot_during_evaluation() -> void:
+	var first: RecordingPolicyProvider = RecordingPolicyProvider.new()
+	var _first_configured: GFPolicyProvider = first.configure(&"first", PackedStringArray(["asset"]))
+	first.priority = 20
+	var second: RecordingPolicyProvider = RecordingPolicyProvider.new()
+	var _second_configured: GFPolicyProvider = second.configure(&"second", PackedStringArray(["asset"]))
+	second.priority = 10
+	var registry: GFPolicyRegistry = GFPolicyRegistry.new()
+	registry.providers = [first, second]
+
+	var result: Dictionary = registry.evaluate_artifact({
+		"artifact_kind": "asset",
+	})
+	var results: Array = GFVariantData.get_option_array(result, "results")
+	var first_result: Dictionary = GFVariantData.as_dictionary(results[0])
+
+	assert_eq(GFVariantData.get_option_string_name(first_result, "provider_id"), &"second", "直接赋值 providers 也应按 priority 执行。")
+
+
 func test_policy_registry_aggregates_failed_policy_issues() -> void:
 	var provider: RecordingPolicyProvider = RecordingPolicyProvider.new()
 	var _configured_provider: GFPolicyProvider = provider.configure(&"deny", PackedStringArray(["asset"]))

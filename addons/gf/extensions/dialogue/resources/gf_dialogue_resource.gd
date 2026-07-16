@@ -15,6 +15,7 @@ extends Resource
 # --- 常量 ---
 
 const _GF_VALIDATION_REPORT_DICTIONARY_SCRIPT = preload("res://addons/gf/standard/foundation/validation/gf_validation_report_dictionary.gd")
+const _SNAPSHOT_COPY = preload("res://addons/gf/extensions/dialogue/resources/gf_dialogue_snapshot_copy.gd")
 
 
 # --- 导出变量 ---
@@ -177,6 +178,8 @@ func validate_resource() -> Dictionary:
 					"Dialogue transition references a missing line."
 				)
 
+	_validate_automatic_cycles(report)
+
 	return _GF_VALIDATION_REPORT_DICTIONARY_SCRIPT.finalize_report(report, "Dialogue resource", {
 		"include_issue_count": true,
 		"next_actions": _get_validation_next_actions(),
@@ -201,15 +204,51 @@ func duplicate_dialogue() -> GFDialogueResource:
 ## [br]
 ## @schema return: 包含 start_line_id、lines 和 metadata 字段的 Dictionary；lines 为行快照字典数组。
 func to_dictionary() -> Dictionary:
-	var line_data: Array[Dictionary] = []
+	return _SNAPSHOT_COPY.copy_snapshot_dictionary(create_serialization_source())
+
+
+## 创建对话序列化操作的原始结构。
+##
+## 返回值只供共享预算复制器立即消费；调用方不得将其视为隔离快照。
+## [br]
+## @api framework_internal
+## [br]
+## @since 8.0.0
+## [br]
+## @return: 包含资源及全部行身份字段的原始结构。
+## [br]
+## @schema return: 包含 start_line_id、lines 和 metadata 字段的 Dictionary；null 行槽位会被保留。
+func create_serialization_source() -> Dictionary:
+	var line_data: Array = []
 	for line: GFDialogueLine in lines:
 		if line != null:
-			line_data.append(line.to_dictionary())
+			line_data.append(line.create_serialization_source())
+		else:
+			line_data.append(null)
 	return {
 		"start_line_id": start_line_id,
 		"lines": line_data,
-		"metadata": metadata.duplicate(true),
+		"metadata": metadata,
 	}
+
+
+## 创建完整且稳定的资源身份输入报告。
+##
+## 循环引用、对象值或任一操作级预算超限都会失败，不会返回截断身份。
+## [br]
+## @api framework_internal
+## [br]
+## @since 8.0.0
+## [br]
+## @param options: 可选身份复制预算。
+## [br]
+## @schema options: 可包含 max_depth、max_nodes、max_bytes 和 max_packed_length 正整数。
+## [br]
+## @return: 完整副本报告。
+## [br]
+## @schema return: 包含 ok、value、error、path、node_count、byte_count 和 packed_length 字段的 Dictionary。
+func build_identity_report(options: Dictionary = {}) -> Dictionary:
+	return _SNAPSHOT_COPY.copy_complete_report(create_serialization_source(), options)
 
 
 # --- 私有/辅助方法 ---
@@ -236,7 +275,54 @@ func _get_validation_next_actions() -> Dictionary:
 		"empty_response_id": "Assign every response on a line a stable non-empty response_id.",
 		"duplicate_response_id": "Make response_id values unique within each dialogue line.",
 		"missing_next_line": "Create the referenced dialogue line or update the transition id.",
+		"automatic_cycle": "Break the automatic JUMP/MUTATION chain with a TEXT/END line or a conditional fallback.",
 	}
+
+
+func _validate_automatic_cycles(report: Dictionary) -> void:
+	var reported_cycles: Dictionary = {}
+	for line: GFDialogueLine in lines:
+		if not _is_automatic_line(line):
+			continue
+		_validate_automatic_chain(line.line_id, reported_cycles, report)
+
+
+func _validate_automatic_chain(
+	start_id: StringName,
+	reported_cycles: Dictionary,
+	report: Dictionary
+) -> void:
+	var visited: Dictionary = {}
+	var current_id: StringName = start_id
+	while current_id != &"":
+		var line: GFDialogueLine = get_line(current_id)
+		if not _is_automatic_line(line):
+			return
+		if line.condition_id != &"" or line.fallback_line_id != &"":
+			return
+		if visited.has(current_id):
+			if reported_cycles.has(current_id):
+				return
+			reported_cycles[current_id] = true
+			_append_issue(
+				report,
+				&"automatic_cycle",
+				String(current_id),
+				"Dialogue automatic JUMP/MUTATION chain contains a cycle."
+			)
+			return
+		visited[current_id] = true
+		current_id = line.get_default_next_line_id()
+
+
+func _is_automatic_line(line: GFDialogueLine) -> bool:
+	return (
+		line != null
+		and (
+			line.kind == GFDialogueLine.LineKind.JUMP
+			or line.kind == GFDialogueLine.LineKind.MUTATION
+		)
+	)
 
 
 func _get_dialogue_resource_value(value: Variant) -> GFDialogueResource:

@@ -32,6 +32,7 @@
 | 方法 | [`get_target_snapshot`](#member-gfruntimeinspectorutility-methods-get_target_snapshot) | `func get_target_snapshot(include_hidden: bool = false) -> Array[Dictionary]:` |
 | 方法 | [`clear_targets`](#member-gfruntimeinspectorutility-methods-clear_targets) | `func clear_targets() -> void:` |
 | 方法 | [`attach_to_debug_overlay`](#member-gfruntimeinspectorutility-methods-attach_to_debug_overlay) | `func attach_to_debug_overlay(panel_id: StringName = &"gf.runtime_inspector") -> bool:` |
+| 方法 | [`refresh_debug_overlay_panel`](#member-gfruntimeinspectorutility-methods-refresh_debug_overlay_panel) | `func refresh_debug_overlay_panel() -> bool:` |
 | 方法 | [`detach_from_debug_overlay`](#member-gfruntimeinspectorutility-methods-detach_from_debug_overlay) | `func detach_from_debug_overlay(panel_id: StringName = &"") -> void:` |
 | 方法 | [`get_debug_snapshot`](#member-gfruntimeinspectorutility-methods-get_debug_snapshot) | `func get_debug_snapshot() -> Dictionary:` |
 
@@ -375,6 +376,21 @@ func attach_to_debug_overlay(panel_id: StringName = &"gf.runtime_inspector") -> 
 | `panel_id` | Overlay 面板 ID。 |
 
 返回：注册成功返回 true。
+
+<a id="member-gfruntimeinspectorutility-methods-refresh_debug_overlay_panel"></a>
+
+### `refresh_debug_overlay_panel`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func refresh_debug_overlay_panel() -> bool:
+```
+
+把 Inspector 当前状态重新发布到已附加的 Overlay 面板。
+
+返回：已附加且发布成功时返回 true。
 
 <a id="member-gfruntimeinspectorutility-methods-detach_from_debug_overlay"></a>
 

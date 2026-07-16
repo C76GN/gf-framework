@@ -28,10 +28,13 @@ audio.play_sfx_clip(clip)
 var pitch := GFAudioPitchAnalysisTools.analyze_mono_samples(samples, 44100.0, {
 	"min_frequency_hz": 80.0,
 	"max_frequency_hz": 1000.0,
+	"max_sample_count": 131072,
+	"max_window_size": 8192,
+	"max_lag_count": 4096,
 })
 ```
 
-该工具不读取麦克风、不创建 `AudioEffectCapture`，也不决定校音器 UI、节拍检测或语音识别流程；项目层负责采集样本、窗口切分和展示策略。
+该工具不读取麦克风、不创建 `AudioEffectCapture`，也不决定校音器 UI、节拍检测或语音识别流程；项目层负责采集样本、窗口切分和展示策略。分析入口默认限制样本数、窗口和 lag 数，超限时返回 issue 而不是无界复制或执行 O(window * lag) 扫描。
 
 ## 空间音频
 
@@ -41,6 +44,6 @@ var pitch := GFAudioPitchAnalysisTools.analyze_mono_samples(samples, 44100.0, {
 
 ## 生命周期
 
-`GFAudioEmitterHandle.stop()` 即使在异步资源返回前调用，也会记录停止请求；迟到的 SFX 资源不会再创建播放器。`stop_all_sfx()` 会递增 SFX 生命周期序号，停止普通 SFX 和 2D/3D 空间 SFX，并阻止尚未返回的异步 SFX 继续落地。
+`GFAudioEmitterHandle` 绑定的是一次播放 session，不直接拥有可复用播放器。`stop()` 即使在异步资源返回前调用，也会终结该 session；自然结束、加载失败、显式停止和 fade 完成都会以同一 session 身份收敛，旧 handle 或旧 tween 不能命中已经回池并播放新片段的 node。`stop_all_sfx()` 会递增 SFX 生命周期序号，停止普通 SFX 和 2D/3D 空间 SFX，并阻止尚未返回的异步 SFX 继续落地。
 
-池化播放器归还前会重置 stream、bus、音量和 pitch，避免上一次播放设置污染下一次请求。
+池化播放器归还前会重置 stream、bus、音量和 pitch，避免上一次播放设置污染下一次请求。写入音量、pitch、effect 和 tween 时间的公开入口会拒绝 `NaN` / `Inf`，避免非有限数进入 AudioServer 或 Tween 状态。

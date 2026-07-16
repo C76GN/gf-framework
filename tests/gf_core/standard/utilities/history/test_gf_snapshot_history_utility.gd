@@ -56,6 +56,7 @@ func test_max_history_size_trims_old_snapshots_and_keeps_index_valid() -> void:
 	var snapshot: Dictionary = history.get_current_snapshot()
 	assert_eq(history.current_index, 0, "进一步裁剪后当前索引仍应有效。")
 	assert_eq(GFVariantData.get_option_int(_snapshot_data(snapshot), "value"), 3, "当前被裁掉时应收敛到剩余快照。")
+	assert_eq(GFVariantData.get_option_int(restored, "value"), 3, "当前快照被裁剪并收敛到剩余快照时，外部恢复状态也应同步。")
 
 
 ## 验证快照记录和读取结果都执行深拷贝。

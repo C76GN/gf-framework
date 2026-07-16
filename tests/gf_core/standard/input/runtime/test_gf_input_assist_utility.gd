@@ -156,6 +156,31 @@ func test_negative_tick_does_not_extend_timers() -> void:
 	assert_false(_utility.is_grace_window_active(&"ground"), "负 delta 不应延长宽容窗口。")
 
 
+func test_nonfinite_durations_and_ticks_do_not_poison_timer_state() -> void:
+	_utility.buffer_action(&"nan_buffer", NAN)
+	_utility.buffer_action(&"inf_buffer", INF)
+	_utility.start_grace_window(&"nan_grace", NAN)
+	_utility.start_grace_window(&"inf_grace", INF)
+	_utility.buffer_action(&"jump", 0.25)
+	_utility.start_grace_window(&"coyote", 0.25)
+
+	_utility.tick(NAN)
+	_utility.tick(INF)
+
+	assert_false(_utility.has_buffered_action(&"nan_buffer"), "NaN duration 不得创建动作缓冲。")
+	assert_false(_utility.has_buffered_action(&"inf_buffer"), "Infinity duration 不得创建动作缓冲。")
+	assert_false(_utility.is_grace_window_active(&"nan_grace"), "NaN duration 不得创建宽容窗口。")
+	assert_false(_utility.is_grace_window_active(&"inf_grace"), "Infinity duration 不得创建宽容窗口。")
+	assert_true(_utility.has_buffered_action(&"jump"), "非有限 tick 不应破坏已有有限计时器。")
+	assert_true(_utility.is_grace_window_active(&"coyote"), "非有限 tick 不应破坏已有宽容窗口。")
+
+	_utility.tick(0.25)
+
+	assert_false(_utility.has_buffered_action(&"jump"), "后续有限 tick 应正常推进动作缓冲。")
+	assert_false(_utility.is_grace_window_active(&"coyote"), "后续有限 tick 应正常推进宽容窗口。")
+	assert_false(JSON.stringify(_utility.get_debug_snapshot()).contains(":null"), "调试快照不应泄漏非有限计时值。")
+
+
 ## 验证玩家级缓冲互相隔离。
 func test_player_scoped_buffer_isolated() -> void:
 	_utility.buffer_action(&"jump", 0.2, 0)

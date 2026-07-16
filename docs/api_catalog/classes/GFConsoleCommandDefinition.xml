@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFConsoleCommandDefinition" path="addons/gf/standard/utilities/debug/gf_console_command_definition.gd" module="standard" extends="Resource" classDigest="0e1aa92e3131e018b6d3d5046016e6083f851d16a189904f2f5f3dcae2b76212">
+<class name="GFConsoleCommandDefinition" path="addons/gf/standard/utilities/debug/gf_console_command_definition.gd" module="standard" extends="Resource" classDigest="fc7c7caf1c2602a65d1c1316a71314e0bc8721dddd459f8a75b0a044bc241678">
 	<description>GFConsoleCommandDefinition: 控制台命令资源定义。
 只保存命令名称、别名、描述和元数据，执行逻辑仍由注册时传入的 Callable 提供。</description>
 	<tags>
@@ -38,6 +38,17 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="schema">metadata: Dictionary，保存项目自定义命令元数据。</tag>
+			</tags>
+		</member>
+		<member kind="property" name="argument_suggester">
+			<signature>var argument_suggester: Callable = Callable()</signature>
+			<description>参数补全回调。
+回调接收一个上下文字典，返回 PackedStringArray 或 Array。
+上下文字段包含 command_name、args、argument_index、prefix 和 raw_input。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">argument_suggester: Callable context -&gt; PackedStringArray 或 Array。</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 	</properties>

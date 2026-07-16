@@ -71,7 +71,7 @@ static func load_all_manifests(extra_root_paths: Array[String] = []) -> Array[GF
 ## @return 扩展 manifest 列表。
 static func load_manifests_in(root_path: String) -> Array[GFExtensionManifest]:
 	_clear_last_manifest_load_errors()
-	return _load_manifests_in(root_path)
+	return _load_manifests_in(_GF_PATH_TOOLS.normalize_root_path(root_path))
 
 
 ## 获取最近一次 manifest 扫描中无法读取或解析的文件诊断。
@@ -96,10 +96,11 @@ static func get_last_manifest_load_errors() -> Array[Dictionary]:
 ## @return manifest 路径列表。
 static func get_manifest_paths(root_path: String) -> Array[String]:
 	var paths: Array[String] = []
-	if root_path.is_empty():
+	var normalized_root: String = _GF_PATH_TOOLS.normalize_root_path(root_path)
+	if normalized_root.is_empty():
 		return paths
 
-	var dir: DirAccess = DirAccess.open(root_path)
+	var dir: DirAccess = DirAccess.open(normalized_root)
 	if dir == null:
 		return paths
 
@@ -107,7 +108,7 @@ static func get_manifest_paths(root_path: String) -> Array[String]:
 	var entry: String = dir.get_next()
 	while not entry.is_empty():
 		if dir.current_is_dir() and not entry.begins_with("."):
-			var manifest_path: String = root_path.path_join(entry).path_join(GFExtensionManifestBase.FILE_NAME)
+			var manifest_path: String = normalized_root.path_join(entry).path_join(GFExtensionManifestBase.FILE_NAME)
 			if FileAccess.file_exists(manifest_path):
 				paths.append(manifest_path)
 		entry = dir.get_next()

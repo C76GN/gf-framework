@@ -29,10 +29,13 @@
 | 属性 | [`rotation_degrees_offset`](#member-gfcamerarig3d-properties-rotation_degrees_offset) | `var rotation_degrees_offset: Vector3 = Vector3.ZERO` |
 | 属性 | [`blend`](#member-gfcamerarig3d-properties-blend) | `var blend: GFCameraBlend = null` |
 | 属性 | [`group_name`](#member-gfcamerarig3d-properties-group_name) | `var group_name: StringName = &"gf_camera_rig_3d":` |
+| 属性 | [`camera_scope_path`](#member-gfcamerarig3d-properties-camera_scope_path) | `var camera_scope_path: NodePath = NodePath("")` |
+| 属性 | [`camera_channel`](#member-gfcamerarig3d-properties-camera_channel) | `var camera_channel: StringName = &""` |
 | 属性 | [`metadata`](#member-gfcamerarig3d-properties-metadata) | `var metadata: Dictionary = {}` |
 | 方法 | [`get_target_node`](#member-gfcamerarig3d-methods-get_target_node) | `func get_target_node() -> Node3D:` |
 | 方法 | [`get_look_at_target_node`](#member-gfcamerarig3d-methods-get_look_at_target_node) | `func get_look_at_target_node() -> Node3D:` |
 | 方法 | [`get_camera_transform`](#member-gfcamerarig3d-methods-get_camera_transform) | `func get_camera_transform() -> Transform3D:` |
+| 方法 | [`get_camera_scope_node`](#member-gfcamerarig3d-methods-get_camera_scope_node) | `func get_camera_scope_node() -> Node:` |
 | 方法 | [`is_available`](#member-gfcamerarig3d-methods-is_available) | `func is_available() -> bool:` |
 
 ## 信号
@@ -220,6 +223,32 @@ var group_name: StringName = &"gf_camera_rig_3d":
 
 自动加入的分组名。Director 可按该分组收集候选。
 
+<a id="member-gfcamerarig3d-properties-camera_scope_path"></a>
+
+### `camera_scope_path`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+var camera_scope_path: NodePath = NodePath("")
+```
+
+相机选择作用域。为空时使用 Rig 父节点；Director 只会从相同作用域收集分组 Rig。
+
+<a id="member-gfcamerarig3d-properties-camera_channel"></a>
+
+### `camera_channel`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+var camera_channel: StringName = &""
+```
+
+相机选择频道。为空表示默认频道；Director 配置非空频道时只收集同频道 Rig。
+
 <a id="member-gfcamerarig3d-properties-metadata"></a>
 
 ### `metadata`
@@ -279,6 +308,21 @@ func get_camera_transform() -> Transform3D:
 获取当前期望相机 Transform。
 
 返回：期望全局 Transform。
+
+<a id="member-gfcamerarig3d-methods-get_camera_scope_node"></a>
+
+### `get_camera_scope_node`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func get_camera_scope_node() -> Node:
+```
+
+获取相机选择作用域节点。
+
+返回：作用域节点；显式路径为空时返回父节点。
 
 <a id="member-gfcamerarig3d-methods-is_available"></a>
 

@@ -20,6 +20,8 @@ func after_each() -> void:
 	if arch != null:
 		arch.dispose()
 		await Gf.set_architecture(GFArchitecture.new())
+	_scene_util = null
+	await get_tree().process_frame
 
 
 func test_transient_cleanup() -> void:
@@ -74,7 +76,7 @@ func test_unmark_transient() -> void:
 func test_failed_load_restores_previous_scene_after_loading_scene() -> void:
 	var loading_scene_path: String = "res://addons/gut/gui/NormalGui.tscn"
 
-	_scene_util.load_scene_async("res://icon.svg", loading_scene_path)
+	var _load_error: Error = _scene_util.load_scene_async("res://icon.svg", loading_scene_path)
 
 	assert_push_error("[GFSceneUtility] load_scene_async 失败：资源不是 PackedScene：res://icon.svg")
 	assert_false(_is_scene_utility_loading(_scene_util), "前置校验失败后不应进入 loading 状态。")
@@ -88,7 +90,7 @@ func test_failed_load_preserves_transients() -> void:
 	await Gf.register_model(model)
 	scene_util.mark_transient(DummyModel)
 
-	scene_util.load_scene_async("res://icon.svg", "res://addons/gut/gui/NormalGui.tscn")
+	var _load_error: Error = scene_util.load_scene_async("res://icon.svg", "res://addons/gut/gui/NormalGui.tscn")
 
 	var arch: GFArchitecture = Gf.get_architecture()
 	assert_eq(arch.get_model(DummyModel), model, "异步切场失败后不应清理仍属于当前场景的瞬态 Model。")
@@ -99,7 +101,7 @@ func test_failed_load_preserves_transients() -> void:
 func test_empty_scene_path_fails_before_loading_state_changes() -> void:
 	watch_signals(_scene_util)
 
-	_scene_util.load_scene_async("")
+	var _load_error: Error = _scene_util.load_scene_async("")
 
 	assert_false(_is_scene_utility_loading(_scene_util), "空路径不应进入 loading 状态。")
 	assert_signal_emitted(_scene_util, "scene_load_failed", "前置校验失败仍应发出失败信号。")
@@ -117,6 +119,24 @@ func test_preloaded_scene_cache_uses_lru_eviction() -> void:
 	assert_true(_scene_util.is_scene_preloaded("res://addons/gut/gui/NormalGui.tscn"), "最近访问的预加载场景应保留。")
 	assert_false(_scene_util.is_scene_preloaded("res://addons/gut/gui/MinGui.tscn"), "最久未访问的预加载场景应被淘汰。")
 	assert_true(_scene_util.is_scene_preloaded("res://addons/gut/gui/GutRunner.tscn"), "新写入的预加载场景应保留。")
+
+
+func test_preloaded_scene_cache_normalizes_scene_paths() -> void:
+	var canonical_path: String = "res://addons/gut/gui/NormalGui.tscn"
+	var raw_path: String = " res://addons/gut/gui/../gui/NormalGui.tscn "
+	var scene: PackedScene = _make_empty_scene()
+
+	_scene_util.put_preloaded_scene(raw_path, scene)
+	var snapshot: Dictionary = _scene_util.get_scene_cache_debug_snapshot()
+	var preload_cache: Dictionary = GFVariantData.get_option_dictionary(snapshot, "preload_cache")
+
+	assert_true(_scene_util.is_scene_preloaded(canonical_path), "缓存查询应接受 canonical 路径。")
+	assert_eq(_scene_util.get_preloaded_scene(canonical_path), scene, "缓存读取应使用同一份 PackedScene。")
+	assert_eq(
+		GFVariantData.get_option_packed_string_array(preload_cache, "temporary_paths"),
+		PackedStringArray([canonical_path]),
+		"缓存快照不应泄漏原始路径写法。"
+	)
 
 
 func test_fixed_preloaded_scene_survives_lru_eviction() -> void:
@@ -147,7 +167,7 @@ func test_load_scene_async_uses_preloaded_scene() -> void:
 	_scene_util.put_preloaded_scene(scene_path, _make_empty_scene())
 	watch_signals(_scene_util)
 
-	_scene_util.load_scene_async(scene_path)
+	var _load_error: Error = _scene_util.load_scene_async(scene_path)
 
 	assert_eq(_scene_util.packed_scene_changes, 0, "命中预加载缓存时也不应在调用栈内同步切场。")
 	assert_true(_is_scene_utility_loading(_scene_util), "安全帧切场前应保持 loading 状态。")
@@ -165,7 +185,7 @@ func test_loading_scene_change_is_deferred_until_safe_tick() -> void:
 	var loading_scene_path: String = "res://addons/gut/gui/MinGui.tscn"
 	watch_signals(_scene_util)
 
-	_scene_util.load_scene_async(scene_path, loading_scene_path)
+	var _load_error: Error = _scene_util.load_scene_async(scene_path, loading_scene_path)
 
 	assert_eq(_scene_util.sync_scene_changes.size(), 0, "loading scene 不应在调用栈内同步切换。")
 	assert_signal_not_emitted(_scene_util, "loading_scene_shown", "安全帧切换前不应发出 loading scene 显示信号。")
@@ -182,7 +202,7 @@ func test_headless_style_sync_active_load_uses_safe_scene_change_flow() -> void:
 	_scene_util.sync_active_load_scene = _make_empty_scene()
 	watch_signals(_scene_util)
 
-	_scene_util.load_scene_async(scene_path)
+	var _load_error: Error = _scene_util.load_scene_async(scene_path)
 
 	assert_eq(_scene_util.sync_active_load_paths, PackedStringArray([scene_path]), "同步降级应加载目标场景资源。")
 	assert_true(_is_scene_utility_loading(_scene_util), "同步资源解析后仍应保持 loading 状态直到安全切场。")
@@ -201,7 +221,7 @@ func test_headless_style_sync_active_load_failure_resets_loading_state() -> void
 	_scene_util.force_sync_active_load = true
 	watch_signals(_scene_util)
 
-	_scene_util.load_scene_async(scene_path)
+	var _load_error: Error = _scene_util.load_scene_async(scene_path)
 
 	assert_eq(_scene_util.sync_active_load_paths, PackedStringArray([scene_path]), "同步降级应尝试加载目标场景。")
 	assert_false(_is_scene_utility_loading(_scene_util), "同步加载失败后应重置 loading 状态。")
@@ -252,13 +272,34 @@ func test_background_scene_load_can_activate_cached_scene_with_params() -> void:
 	assert_true(_scene_util.get_background_scene_params(scene_path).is_empty(), "激活完成后应清理后台参数记录。")
 
 
+func test_cancelled_scene_preload_drains_late_completion_without_cache() -> void:
+	var scene_path: String = "res://addons/gut/gui/NormalGui.tscn"
+	_scene_util.use_fake_threaded_resource = true
+	_scene_util.threaded_resource = _make_empty_scene()
+	watch_signals(_scene_util)
+
+	var error: Error = _scene_util.preload_scene(scene_path)
+	_scene_util.cancel_scene_preload(scene_path)
+	_scene_util.threaded_complete = true
+	_scene_util.tick(0.0)
+	var snapshot: Dictionary = _scene_util.get_scene_cache_debug_snapshot()
+	var threaded_snapshot: Dictionary = GFVariantData.get_option_dictionary(snapshot, "threaded_resource_operations")
+
+	assert_eq(error, OK, "模拟预加载应成功发起。")
+	assert_signal_emitted(_scene_util, "scene_preload_cancelled", "取消预加载应发出取消信号。")
+	assert_false(_scene_util.is_scene_preloading(scene_path), "取消后的预加载不应再对外显示为进行中。")
+	assert_false(_scene_util.is_scene_preloaded(scene_path), "取消后的迟到完成不应写入场景预加载缓存。")
+	assert_eq(GFVariantData.get_option_int(threaded_snapshot, "operation_count"), 0, "drain 后不应残留 threaded operation。")
+	_scene_util.threaded_resource = null
+
+
 func test_scene_load_completed_is_not_emitted_when_scene_change_fails() -> void:
 	var scene_path: String = "res://addons/gut/gui/NormalGui.tscn"
 	_scene_util.put_preloaded_scene(scene_path, _make_empty_scene())
 	_scene_util.packed_scene_change_error = true
 	watch_signals(_scene_util)
 
-	_scene_util.load_scene_async(scene_path)
+	var _load_error: Error = _scene_util.load_scene_async(scene_path)
 	_scene_util.tick(0.0)
 
 	assert_signal_not_emitted(_scene_util, "scene_load_completed", "切场失败时不应发出完成信号。")
@@ -282,6 +323,17 @@ func test_scene_transition_config_can_drive_scene_load() -> void:
 	assert_false(GFVariantData.get_option_bool(transition, "cache_loaded_scene"), "配置化场景切换应应用本次缓存策略。")
 	assert_eq(GFVariantData.get_option_string(transition_params, "spawn"), "door_a", "配置化场景切换应应用切换参数。")
 	assert_almost_eq(GFVariantData.get_option_float(transition, "minimum_duration_seconds"), 0.25, 0.001, "配置化场景切换应应用最短时长。")
+
+
+func test_scene_transition_reports_immediate_target_validation_failure() -> void:
+	var config: GFSceneTransitionConfig = GFSceneTransitionConfig.new()
+	config.target_scene_path = "res://icon.svg"
+
+	var error: Error = _scene_util.load_scene_with_transition(config)
+
+	assert_eq(error, ERR_INVALID_PARAMETER, "配置入口不得把同步校验失败伪装成已成功发起。")
+	assert_false(_is_scene_utility_loading(_scene_util), "校验失败不得留下活动加载状态。")
+	assert_push_error("[GFSceneUtility] load_scene_async 失败：资源不是 PackedScene：res://icon.svg")
 
 
 func test_scene_transition_config_serializes_params_and_minimum_duration() -> void:
@@ -310,7 +362,7 @@ func test_minimum_transition_duration_delays_cached_completion_and_sets_params()
 	_scene_util.put_preloaded_scene(scene_path, _make_empty_scene())
 	_scene_util.default_transition_minimum_seconds = 1.0
 
-	_scene_util.load_scene_async(scene_path, "", { "spawn": "door_a" })
+	var _load_error: Error = _scene_util.load_scene_async(scene_path, "", { "spawn": "door_a" })
 
 	assert_true(_is_scene_utility_loading(_scene_util), "最短时长未到时应保持 loading 状态。")
 	assert_eq(_scene_util.packed_scene_changes, 0, "最短时长未到时不应切换目标场景。")
@@ -418,6 +470,10 @@ class SampleSceneUtility extends GFSceneUtility:
 	var force_sync_active_load: bool = false
 	var sync_active_load_scene: PackedScene = null
 	var sync_active_load_paths: PackedStringArray = PackedStringArray()
+	var use_fake_threaded_resource: bool = false
+	var threaded_complete: bool = false
+	var threaded_resource: Resource = null
+	var threaded_requested_paths: PackedStringArray = PackedStringArray()
 
 	func _get_current_scene_path() -> String:
 		return current_scene_path
@@ -442,6 +498,23 @@ class SampleSceneUtility extends GFSceneUtility:
 	func _load_packed_scene_synchronously(path: String) -> PackedScene:
 		var _appended: bool = sync_active_load_paths.append(path)
 		return sync_active_load_scene
+
+	func _request_threaded_resource(path: String, _type_hint: String) -> Error:
+		if use_fake_threaded_resource:
+			var _appended: bool = threaded_requested_paths.append(path)
+			return OK
+		return super._request_threaded_resource(path, _type_hint)
+
+	func _poll_threaded_resource(_path: String, previous_progress: float) -> Dictionary:
+		if not use_fake_threaded_resource:
+			return super._poll_threaded_resource(_path, previous_progress)
+		return {
+			"status": &"loaded" if threaded_complete else &"in_progress",
+			"progress": 1.0 if threaded_complete else previous_progress,
+			"resource": threaded_resource if threaded_complete else null,
+			"has_resource": threaded_complete and threaded_resource != null,
+			"error": "",
+		}
 
 
 class FakeLoadingScene extends Node:

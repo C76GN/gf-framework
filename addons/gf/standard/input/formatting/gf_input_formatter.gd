@@ -16,8 +16,7 @@ const _INPUT_EVENT_TOOLS = preload("res://addons/gf/standard/input/common/gf_inp
 
 # --- 私有变量 ---
 
-static var _text_providers: Array[GFInputTextProvider] = []
-static var _icon_providers: Array[GFInputIconProvider] = []
+static var _default_registry: GFInputFormatterRegistry = null
 
 
 # --- 公共方法 ---
@@ -26,18 +25,20 @@ static var _icon_providers: Array[GFInputIconProvider] = []
 ## [br]
 ## @api public
 ## [br]
+## @since 8.0.0
+## [br]
 ## @param input_event: 输入事件。
 ## [br]
 ## @param options: 可选格式化参数。
 ## [br]
-## @schema options: Dictionary，可包含 unbound_text 和 provider 特定格式化字段。
+## @schema options: Dictionary，可包含 unbound_text、formatter_registry 和 provider 特定格式化字段。
 ## [br]
 ## @return 可显示文本。
 static func input_event_as_text(input_event: InputEvent, options: Dictionary = {}) -> String:
 	if input_event == null:
 		return GFVariantData.get_option_string(options, "unbound_text", "Unbound")
 
-	for provider: GFInputTextProvider in _text_providers:
+	for provider: GFInputTextProvider in _get_formatter_registry(options).get_text_providers():
 		if provider == null or not provider.supports_event(input_event, options):
 			continue
 		var provider_text: String = provider.get_event_text(input_event, options)
@@ -72,18 +73,20 @@ static func input_event_as_text(input_event: InputEvent, options: Dictionary = {
 ## [br]
 ## @api public
 ## [br]
+## @since 8.0.0
+## [br]
 ## @param input_event: 输入事件。
 ## [br]
 ## @param options: 可选格式化参数。
 ## [br]
-## @schema options: Dictionary，可包含 unbound_text、icon_size 和 provider 特定富文本字段。
+## @schema options: Dictionary，可包含 unbound_text、icon_size、formatter_registry 和 provider 特定富文本字段。
 ## [br]
 ## @return BBCode 文本。
 static func input_event_as_rich_text(input_event: InputEvent, options: Dictionary = {}) -> String:
 	if input_event == null:
 		return _escape_bbcode(GFVariantData.get_option_string(options, "unbound_text", "Unbound"))
 
-	for provider: GFInputIconProvider in _icon_providers:
+	for provider: GFInputIconProvider in _get_formatter_registry(options).get_icon_providers():
 		if provider == null or not provider.supports_event(input_event, options):
 			continue
 		var rich_text: String = provider.get_event_rich_text(input_event, options)
@@ -97,18 +100,20 @@ static func input_event_as_rich_text(input_event: InputEvent, options: Dictionar
 ## [br]
 ## @api public
 ## [br]
+## @since 8.0.0
+## [br]
 ## @param input_event: 输入事件。
 ## [br]
 ## @param options: 可选格式化参数。
 ## [br]
-## @schema options: Dictionary，透传给已注册的图标 provider。
+## @schema options: Dictionary，可包含 formatter_registry，并透传给已注册的图标 provider。
 ## [br]
 ## @return 图标资源。
 static func input_event_icon(input_event: InputEvent, options: Dictionary = {}) -> Texture2D:
 	if input_event == null:
 		return null
 
-	for provider: GFInputIconProvider in _icon_providers:
+	for provider: GFInputIconProvider in _get_formatter_registry(options).get_icon_providers():
 		if provider == null or not provider.supports_event(input_event, options):
 			continue
 		var icon: Texture2D = provider.get_event_icon(input_event, options)
@@ -127,7 +132,7 @@ static func input_event_icon(input_event: InputEvent, options: Dictionary = {}) 
 ## [br]
 ## @param options: 可选格式化参数。
 ## [br]
-## @schema options: Dictionary，可包含 unbound_text、preferred_device_type、preferred_event_index 和 provider 特定格式化字段。
+## @schema options: Dictionary，可包含 unbound_text、preferred_device_type、preferred_event_index、formatter_registry 和 provider 特定格式化字段。
 ## [br]
 ## @return 可显示文本。
 static func action_as_text(action_name: StringName, options: Dictionary = {}) -> String:
@@ -151,7 +156,7 @@ static func action_as_text(action_name: StringName, options: Dictionary = {}) ->
 ## [br]
 ## @param options: 可选格式化参数。
 ## [br]
-## @schema options: Dictionary，可包含 unbound_text、icon_size、preferred_device_type、preferred_event_index、prefer_action_icon 和 provider 特定富文本字段。
+## @schema options: Dictionary，可包含 unbound_text、icon_size、preferred_device_type、preferred_event_index、prefer_action_icon、formatter_registry 和 provider 特定富文本字段。
 ## [br]
 ## @return BBCode 文本。
 static func action_as_rich_text(action_name: StringName, options: Dictionary = {}) -> String:
@@ -182,7 +187,7 @@ static func action_as_rich_text(action_name: StringName, options: Dictionary = {
 ## [br]
 ## @param options: 可选格式化参数。
 ## [br]
-## @schema options: Dictionary，可包含 preferred_device_type、preferred_event_index、prefer_action_icon 和 provider 特定图标字段。
+## @schema options: Dictionary，可包含 preferred_device_type、preferred_event_index、prefer_action_icon、formatter_registry 和 provider 特定图标字段。
 ## [br]
 ## @return 图标资源。
 static func action_icon(action_name: StringName, options: Dictionary = {}) -> Texture2D:
@@ -206,11 +211,13 @@ static func action_icon(action_name: StringName, options: Dictionary = {}) -> Te
 ## [br]
 ## @api public
 ## [br]
+## @since 8.0.0
+## [br]
 ## @param binding: 输入绑定。
 ## [br]
 ## @param options: 可选格式化参数。
 ## [br]
-## @schema options: Dictionary，可包含 unbound_text 和 provider 特定格式化字段。
+## @schema options: Dictionary，可包含 unbound_text、formatter_registry 和 provider 特定格式化字段。
 ## [br]
 ## @return 可显示文本。
 static func binding_as_text(binding: GFInputBinding, options: Dictionary = {}) -> String:
@@ -225,11 +232,13 @@ static func binding_as_text(binding: GFInputBinding, options: Dictionary = {}) -
 ## [br]
 ## @api public
 ## [br]
+## @since 8.0.0
+## [br]
 ## @param binding: 输入绑定。
 ## [br]
 ## @param options: 可选格式化参数。
 ## [br]
-## @schema options: Dictionary，可包含 unbound_text、icon_size 和 provider 特定富文本字段。
+## @schema options: Dictionary，可包含 unbound_text、icon_size、formatter_registry 和 provider 特定富文本字段。
 ## [br]
 ## @return BBCode 文本。
 static func binding_as_rich_text(binding: GFInputBinding, options: Dictionary = {}) -> String:
@@ -244,6 +253,8 @@ static func binding_as_rich_text(binding: GFInputBinding, options: Dictionary = 
 ## [br]
 ## @api public
 ## [br]
+## @since 8.0.0
+## [br]
 ## @param mapping: 输入映射。
 ## [br]
 ## @param context_id: 上下文标识。
@@ -252,7 +263,7 @@ static func binding_as_rich_text(binding: GFInputBinding, options: Dictionary = 
 ## [br]
 ## @param options: 可选格式化参数。
 ## [br]
-## @schema options: Dictionary，可包含 unbound_text 和 provider 特定格式化字段。
+## @schema options: Dictionary，可包含 unbound_text、formatter_registry 和 provider 特定格式化字段。
 ## [br]
 ## @return 可显示文本。
 static func mapping_as_text(
@@ -283,6 +294,8 @@ static func mapping_as_text(
 ## [br]
 ## @api public
 ## [br]
+## @since 8.0.0
+## [br]
 ## @param mapping: 输入映射。
 ## [br]
 ## @param context_id: 上下文标识。
@@ -291,7 +304,7 @@ static func mapping_as_text(
 ## [br]
 ## @param options: 可选格式化参数。
 ## [br]
-## @schema options: Dictionary，可包含 unbound_text、icon_size 和 provider 特定富文本字段。
+## @schema options: Dictionary，可包含 unbound_text、icon_size、formatter_registry 和 provider 特定富文本字段。
 ## [br]
 ## @return BBCode 文本。
 static func mapping_as_rich_text(
@@ -318,16 +331,59 @@ static func mapping_as_rich_text(
 	return " / ".join(parts)
 
 
+## 获取默认 provider registry。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+## [br]
+## @return 默认 provider registry。
+static func get_default_registry() -> GFInputFormatterRegistry:
+	if _default_registry == null:
+		_default_registry = GFInputFormatterRegistry.new()
+	return _default_registry
+
+
+## 设置默认 provider registry。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+## [br]
+## @param registry: 新的默认 provider registry；传入 null 会重建空 registry。
+static func set_default_registry(registry: GFInputFormatterRegistry) -> void:
+	_default_registry = registry if registry != null else GFInputFormatterRegistry.new()
+
+
+## 注册文本 provider 并返回释放句柄。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+## [br]
+## @param provider: 文本 provider。
+## [br]
+## @param owner: 可选拥有者；拥有者释放后注册会自动失效。
+## [br]
+## @return 注册句柄；provider 为空时返回非活动句柄。
+static func register_text_provider(
+	provider: GFInputTextProvider,
+	owner: Object = null
+) -> GFInputProviderRegistration:
+	return get_default_registry().register_text_provider(provider, owner)
+
+
 ## 注册文本 provider。
 ## [br]
 ## @api public
 ## [br]
+## @since 8.0.0
+## [br]
 ## @param provider: 文本 provider。
-static func add_text_provider(provider: GFInputTextProvider) -> void:
-	if provider == null or _text_providers.has(provider):
-		return
-	_text_providers.append(provider)
-	_sort_text_providers()
+## [br]
+## @param owner: 可选拥有者；拥有者释放后注册会自动失效。
+static func add_text_provider(provider: GFInputTextProvider, owner: Object = null) -> void:
+	get_default_registry().add_text_provider(provider, owner)
 
 
 ## 移除文本 provider。
@@ -336,14 +392,14 @@ static func add_text_provider(provider: GFInputTextProvider) -> void:
 ## [br]
 ## @param provider: 文本 provider。
 static func remove_text_provider(provider: GFInputTextProvider) -> void:
-	_text_providers.erase(provider)
+	var _removed: bool = get_default_registry().remove_text_provider(provider)
 
 
 ## 清空文本 provider。
 ## [br]
 ## @api public
 static func clear_text_providers() -> void:
-	_text_providers.clear()
+	get_default_registry().clear_text_providers()
 
 
 ## 获取已注册文本 provider。
@@ -352,19 +408,38 @@ static func clear_text_providers() -> void:
 ## [br]
 ## @return provider 列表副本。
 static func get_text_providers() -> Array[GFInputTextProvider]:
-	return _text_providers.duplicate()
+	return get_default_registry().get_text_providers()
+
+
+## 注册图标 provider 并返回释放句柄。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+## [br]
+## @param provider: 图标 provider。
+## [br]
+## @param owner: 可选拥有者；拥有者释放后注册会自动失效。
+## [br]
+## @return 注册句柄；provider 为空时返回非活动句柄。
+static func register_icon_provider(
+	provider: GFInputIconProvider,
+	owner: Object = null
+) -> GFInputProviderRegistration:
+	return get_default_registry().register_icon_provider(provider, owner)
 
 
 ## 注册图标 provider。
 ## [br]
 ## @api public
 ## [br]
+## @since 8.0.0
+## [br]
 ## @param provider: 图标 provider。
-static func add_icon_provider(provider: GFInputIconProvider) -> void:
-	if provider == null or _icon_providers.has(provider):
-		return
-	_icon_providers.append(provider)
-	_sort_icon_providers()
+## [br]
+## @param owner: 可选拥有者；拥有者释放后注册会自动失效。
+static func add_icon_provider(provider: GFInputIconProvider, owner: Object = null) -> void:
+	get_default_registry().add_icon_provider(provider, owner)
 
 
 ## 移除图标 provider。
@@ -373,14 +448,14 @@ static func add_icon_provider(provider: GFInputIconProvider) -> void:
 ## [br]
 ## @param provider: 图标 provider。
 static func remove_icon_provider(provider: GFInputIconProvider) -> void:
-	_icon_providers.erase(provider)
+	var _removed: bool = get_default_registry().remove_icon_provider(provider)
 
 
 ## 清空图标 provider。
 ## [br]
 ## @api public
 static func clear_icon_providers() -> void:
-	_icon_providers.clear()
+	get_default_registry().clear_icon_providers()
 
 
 ## 获取已注册图标 provider。
@@ -389,7 +464,7 @@ static func clear_icon_providers() -> void:
 ## [br]
 ## @return provider 列表副本。
 static func get_icon_providers() -> Array[GFInputIconProvider]:
-	return _icon_providers.duplicate()
+	return get_default_registry().get_icon_providers()
 
 
 # --- 私有/辅助方法 ---
@@ -480,7 +555,7 @@ static func _event_matches_preferred_device_type(
 
 static func _action_event_as_rich_text(action_name: StringName, options: Dictionary) -> String:
 	var action_event: InputEventAction = _make_action_event(action_name)
-	for provider: GFInputIconProvider in _icon_providers:
+	for provider: GFInputIconProvider in _get_formatter_registry(options).get_icon_providers():
 		if provider == null or not provider.supports_event(action_event, options):
 			continue
 		var rich_text: String = provider.get_event_rich_text(action_event, options)
@@ -491,7 +566,7 @@ static func _action_event_as_rich_text(action_name: StringName, options: Diction
 
 static func _action_event_icon(action_name: StringName, options: Dictionary) -> Texture2D:
 	var action_event: InputEventAction = _make_action_event(action_name)
-	for provider: GFInputIconProvider in _icon_providers:
+	for provider: GFInputIconProvider in _get_formatter_registry(options).get_icon_providers():
 		if provider == null or not provider.supports_event(action_event, options):
 			continue
 		var icon: Texture2D = provider.get_event_icon(action_event, options)
@@ -508,16 +583,12 @@ static func _make_action_event(action_name: StringName) -> InputEventAction:
 	return action_event
 
 
-static func _sort_text_providers() -> void:
-	_text_providers.sort_custom(func(left: GFInputTextProvider, right: GFInputTextProvider) -> bool:
-		return left.get_priority() > right.get_priority()
-	)
-
-
-static func _sort_icon_providers() -> void:
-	_icon_providers.sort_custom(func(left: GFInputIconProvider, right: GFInputIconProvider) -> bool:
-		return left.get_priority() > right.get_priority()
-	)
+static func _get_formatter_registry(options: Dictionary) -> GFInputFormatterRegistry:
+	var registry_value: Variant = GFVariantData.get_option_value(options, &"formatter_registry")
+	if registry_value is GFInputFormatterRegistry:
+		var registry: GFInputFormatterRegistry = registry_value
+		return registry
+	return get_default_registry()
 
 
 static func _key_event_as_text(event: InputEventKey) -> String:

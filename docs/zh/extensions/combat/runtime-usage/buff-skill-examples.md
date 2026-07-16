@@ -26,11 +26,11 @@ func _init(p_owner: Object) -> void:
 	id = &"FireBall"
 	cooldown_max = 2.0
 
-	targeting_rule = GFSkillTargetingRule.new()
-	targeting_rule.shape = GFSkillTargetingRule.Shape.CIRCLE
+	targeting_rule = GFSkillTargetingRule2D.new()
+	targeting_rule.shape = GFSkillTargetingRule2D.Shape.CIRCLE
 	targeting_rule.radius = 300.0
 	targeting_rule.max_count = 3
-	targeting_rule.sort_rule = GFSkillTargetingRule.SortRule.ATTRIBUTE_LOWEST
+	targeting_rule.sort_rule = GFSkillTargetingRule2D.SortRule.ATTRIBUTE_LOWEST
 	targeting_rule.sort_attribute_name = &"HP"
 
 func _try_execute(p_targets: Array[Object]) -> bool:
@@ -39,9 +39,35 @@ func _try_execute(p_targets: Array[Object]) -> bool:
 	return true
 ```
 
-需要项目自定义成本、状态或上下文检查时，不必把规则写进 `GFSkill` 子类深处，可以把纯检查和提交拆到激活管线：
+需要项目自定义成本、状态或上下文检查时，不必把规则写进 `GFSkill` 子类深处。无副作用条件放入 `activation_checks`，可产生副作用的成本、预留和提交实现为 `GFSkillActivationStep`：
 
 ```gdscript
+class SpendManaStep:
+	extends GFSkillActivationStep
+
+	var actor: Object
+	var amount: float
+
+	func _init(p_actor: Object, p_amount: float) -> void:
+		actor = p_actor
+		amount = p_amount
+
+	func _validate_activation(_context: GFSkillActivationContext) -> Variant:
+		return {
+			"ok": actor != null and float(actor.get("mana")) >= amount,
+			"reason": &"not_enough_resource",
+		}
+
+	func _apply_activation(context: GFSkillActivationContext) -> Variant:
+		actor.set("mana", float(actor.get("mana")) - amount)
+		context.metadata[&"spent_mana"] = amount
+		return true
+
+	func _rollback_activation(_context: GFSkillActivationContext) -> Variant:
+		actor.set("mana", float(actor.get("mana")) + amount)
+		return true
+
+
 var skill := FireBallSkill.new(caster)
 skill.activation_checks.append(func(context: GFSkillActivationContext) -> Dictionary:
 	return {
@@ -49,15 +75,15 @@ skill.activation_checks.append(func(context: GFSkillActivationContext) -> Dictio
 		"reason": &"not_enough_resource",
 	}
 )
-skill.activation_commit_callbacks.append(func(context: GFSkillActivationContext) -> Dictionary:
-	mana -= 10
-	return { "ok": true }
-)
+
+var spend_mana_step := SpendManaStep.new(caster, 10.0)
+spend_mana_step.configure(&"spend_mana")
+skill.activation_steps.append(spend_mana_step)
 
 skill.execute(enemy, null, { "input_id": &"primary" })
 ```
 
-检查回调应尽量保持无副作用；真正消耗或预留资源放到提交回调中。上下文的 `metadata` 只作为项目诊断和串联数据，框架不解释其中字段。
+检查回调必须保持无副作用。事务会先验证全部步骤，再按顺序应用；执行失败时按逆序调用已应用步骤的回滚钩子。项目步骤应把本次预留值写入激活上下文或自己的事务对象，并实现幂等回滚。上下文的 `metadata` 只作为项目诊断和串联数据，框架不解释其中字段。
 
 ## 属性修饰器
 

@@ -33,6 +33,8 @@ var report := schema.validate_dictionary({
 
 `validate_dictionary()` 返回 `GFValidationReport`，问题条目使用稳定的 `kind` 和 `path`，便于编辑器工具、导入器或测试按字段定位。
 
+输入字典中的 `String` 与 `StringName` 字段名会归一到同一个 schema 字段。若同一份输入同时包含文本等价的多个源 key，例如 `"score"` 与 `&"score"`，校验会报告 `duplicate_field_key`，而不是按 Dictionary 遍历顺序静默覆盖其中一个值。
+
 ## 默认值与转换
 
 - `build_defaults()` 创建默认 Dictionary。
@@ -57,7 +59,7 @@ var normalized_rows := result["rows"] as Array
 var report := result["report"] as GFValidationReport
 ```
 
-默认行为会保留无效但可编辑的行；传入 `keep_invalid_rows = false` 时，输出 `rows` 只包含通过校验的行，但 `ok` 仍会反映源数据报告是否有错误。`strip_extra_fields` 默认跟随 `allow_extra_fields`：schema 不允许额外字段时，规范化结果也会剔除它们。
+默认行为会保留无效但可编辑的行；传入 `keep_invalid_rows = false` 时，输出 `rows` 只包含通过校验的行，但 `ok` 仍会反映源数据报告是否有错误。字段转换失败会记录 `coerce_failed` 并保留原始值，不会把坏输入降级成 `0`、`false` 或空集合后伪装成有效行。`strip_extra_fields` 默认跟随 `allow_extra_fields`：schema 不允许额外字段时，规范化结果也会剔除它们。
 
 ## 嵌套结构
 

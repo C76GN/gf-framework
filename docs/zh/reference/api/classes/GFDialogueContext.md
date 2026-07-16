@@ -256,37 +256,39 @@ func resolve_text(text: String, subject: Variant = null) -> String:
 ### `serialize_values`
 
 - API：`public`
+- 首次版本：`8.0.0`
 
 ```gdscript
 func serialize_values() -> Dictionary:
 ```
 
-序列化运行值。
+序列化运行值为 JSON 兼容结构。
 
-返回：值表副本。
+返回：JSON 兼容值表副本。
 
 结构：
 
-- `return`: values 的深拷贝 Dictionary。
+- `return`: values 经过 GFVariantJsonCodec 编码后的深拷贝 Dictionary。
 
 <a id="member-gfdialoguecontext-methods-deserialize_values"></a>
 
 ### `deserialize_values`
 
 - API：`public`
+- 首次版本：`8.0.0`
 
 ```gdscript
 func deserialize_values(data: Dictionary) -> void:
 ```
 
-恢复运行值。
+从 JSON 兼容结构恢复运行值。
 
 参数：
 
 | 名称 | 说明 |
 |---|---|
-| `data` | 值表。 |
+| `data` | serialize_values() 返回的值表。 |
 
 结构：
 
-- `data`: serialize_values() 返回的运行时值 Dictionary。
+- `data`: serialize_values() 返回的 JSON 兼容 Dictionary。

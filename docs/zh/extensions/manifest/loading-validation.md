@@ -12,12 +12,14 @@
 
 读取 `gf_extension.json` 时，`GFExtensionManifest` 会裁剪标量文本字段，依赖 ID 和标签会按首次出现顺序去空、去重。扩展脚本路径列表只做空白裁剪、斜杠统一和 `.` / `..` 简化，不会在读取阶段丢弃空路径，因此 `get_validation_errors()` 仍能报告无效声明。
 
+`GFExtensionManifest.from_json_file()` 只在文件可读、JSON 为对象且校验通过时返回 manifest；需要给编辑器面板或 CI 展示失败原因时，使用 `from_json_file_report()` 读取 `ok`、`errors` 和 JSON-safe 的 `manifest_data`。公开报告不携带运行时对象引用，适合继续写入日志、诊断快照或工具 JSON 输出。
+
 依赖补齐会检测循环依赖并停止递归。
 
 正常无环时，`resolve_extension_dependencies()`、`get_enabled_manifests()` 和启用扩展路径收集都会保持依赖优先顺序，不依赖 manifest 扫描顺序。
 
 扩展 manifest 图存在重复 ID、缺失依赖、循环依赖或无效 manifest 时，启用扩展 manifest 查询、Installer 路径收集、编辑器扩展路径收集、`load_enabled_extension_script()` 和导出扩展过滤会被阻断。框架会把错误提前暴露在扩展加载或导出阶段，而不是等到脚本加载、Installer 执行或导出产物缺文件时再失败。
 
-`get_extension_resource_path()` 和 `load_enabled_extension_script()` 只解析扩展根目录内资源。相对路径会拼接到 manifest root；`res://` 绝对路径必须仍位于该 root 下；`user://`、其他扩展目录和 `..` 越界路径会返回空结果。
+`get_extension_resource_path()` 和 `load_enabled_extension_script()` 只解析扩展根目录内资源。相对路径会拼接到 manifest root；`res://` 绝对路径必须仍位于该 root 下；`user://`、其他扩展目录和 `..` 越界路径会返回空结果。启用扩展脚本路径还必须指向存在的资源；缺失脚本会进入 manifest 图校验或缓存读取错误，而不是等到 Installer、编辑器贡献或导出阶段才失败。
 
-`get_manifest_graph_report()` 可一次性报告重复扩展 ID、缺失硬依赖、无效 manifest 与依赖环。
+`get_manifest_graph_report()` 可一次性报告重复扩展 ID、缺失硬依赖、无效 manifest 与依赖环。需要把上一次目录扫描中的 JSON 读取失败也纳入报告时，传入 `include_cached_load_errors = true`。

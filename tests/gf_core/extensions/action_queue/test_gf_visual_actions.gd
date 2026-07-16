@@ -146,6 +146,38 @@ func test_move_tween_action_waits_for_tween() -> void:
 	assert_almost_eq(node.position.y, 0.0, 0.01, "移动 Tween 完成后应到达目标 y。")
 
 
+func test_move_tween_action_finish_sets_final_position_and_releases_waiters() -> void:
+	var node: Node2D = Node2D.new()
+	add_child_autofree(node)
+
+	var action: GFVisualAction = GFMoveTweenAction.new(node, Vector2(20.0, 0.0), 1.0)
+	var result: Variant = action.execute()
+	var completed: Array[bool] = [false]
+	var wait_for_action: Callable = func() -> void:
+		await action.await_result_safely(result)
+		completed[0] = true
+
+	wait_for_action.call()
+	await get_tree().process_frame
+	action.finish()
+	await get_tree().process_frame
+
+	assert_true(completed[0], "finish 应释放移动 Tween 等待者。")
+	assert_eq(node.position, Vector2(20.0, 0.0), "finish 应直接写入最终位置。")
+
+
+func test_move_tween_action_rejects_detached_target_for_timed_tween() -> void:
+	var node: Node2D = Node2D.new()
+	var action: GFVisualAction = GFMoveTweenAction.new(node, Vector2(20.0, 0.0), 1.0)
+
+	var result: Variant = action.execute()
+
+	assert_true(result == null, "离树目标不应创建移动 Tween。")
+	assert_eq(node.position, Vector2.ZERO, "离树目标不应被定时移动动作改写。")
+	assert_push_warning("[GFMoveTweenAction] 目标节点未进入场景树，无法创建 Tween。")
+	node.free()
+
+
 func test_move_tween_action_wait_ends_when_target_exits_tree() -> void:
 	var node: Node2D = Node2D.new()
 	add_child(node)
@@ -215,6 +247,42 @@ func test_configured_tween_action_waits_for_timed_steps() -> void:
 	await action.await_result_safely(result)
 	assert_almost_eq(node.position.x, 16.0, 0.01, "配置化 Tween 完成后应写入 x。")
 	assert_almost_eq(node.position.y, 4.0, 0.01, "配置化 Tween 完成后应写入 y。")
+
+
+func test_configured_tween_action_finish_applies_final_values_and_releases_waiters() -> void:
+	var node: Node2D = Node2D.new()
+	add_child_autofree(node)
+
+	var config: GFTweenActionConfig = GFTweenActionConfig.new()
+	var _add_property_step_result: Variant = config.add_property_step(^"position", Vector2(18.0, 6.0), 1.0)
+	var action: GFVisualAction = config.create_action(node)
+	var result: Variant = action.execute()
+	var completed: Array[bool] = [false]
+	var wait_for_action: Callable = func() -> void:
+		await action.await_result_safely(result)
+		completed[0] = true
+
+	wait_for_action.call()
+	await get_tree().process_frame
+	action.finish()
+	await get_tree().process_frame
+
+	assert_true(completed[0], "finish 应释放配置化 Tween 等待者。")
+	assert_eq(node.position, Vector2(18.0, 6.0), "finish 应直接应用配置化 Tween 最终值。")
+
+
+func test_configured_tween_action_rejects_detached_target_for_timed_steps() -> void:
+	var node: Node2D = Node2D.new()
+	var config: GFTweenActionConfig = GFTweenActionConfig.new()
+	var _add_property_step_result: Variant = config.add_property_step(^"position", Vector2(18.0, 6.0), 1.0)
+	var action: GFVisualAction = config.create_action(node)
+
+	var result: Variant = action.execute()
+
+	assert_true(result == null, "离树目标不应创建配置化 Tween。")
+	assert_eq(node.position, Vector2.ZERO, "离树目标不应被定时配置化 Tween 改写。")
+	assert_push_warning("[GFConfiguredTweenAction] 缺少有效 Tween 宿主节点。")
+	node.free()
 
 
 func test_configured_tween_action_finish_handles_infinite_loop() -> void:
@@ -538,6 +606,26 @@ func test_action_race_can_keep_remaining_children_running() -> void:
 	assert_false(slow.cancelled, "关闭取消策略时，race 不应替调用方取消剩余动作。")
 
 
+func test_sequence_group_reexecute_cancels_previous_run_and_releases_waiter() -> void:
+	var first: ManualSignalAction = ManualSignalAction.new()
+	var second: ManualSignalAction = ManualSignalAction.new()
+	var group: GFVisualActionGroup = GFAction.sequence([first, second])
+	var first_result: Variant = group.execute()
+	var first_completed: Array[bool] = [false]
+	var wait_for_first: Callable = func() -> void:
+		await group.await_result_safely(first_result)
+		first_completed[0] = true
+
+	wait_for_first.call()
+	await get_tree().process_frame
+	var second_result: Variant = group.execute()
+	await get_tree().process_frame
+
+	assert_true(first.cancelled, "运行中重复 execute 应取消上一轮正在等待的子动作。")
+	assert_true(first_completed[0], "运行中重复 execute 应释放上一轮等待者。")
+	assert_true(second_result is Signal, "新一轮 execute 仍应返回可等待信号。")
+
+
 func test_repeat_action_creates_fresh_action_each_iteration() -> void:
 	var order: Array[int] = []
 	var repeat: GFRepeatAction = GFAction.repeat(func() -> GFVisualAction:
@@ -549,6 +637,30 @@ func test_repeat_action_creates_fresh_action_each_iteration() -> void:
 	await repeat.await_result_safely(result)
 
 	assert_eq(order, [0, 1, 2], "repeat 应按次数执行工厂创建的动作。")
+
+
+func test_repeat_action_reexecute_cancels_previous_active_action() -> void:
+	var actions: Array[ManualSignalAction] = []
+	var repeat: GFRepeatAction = GFAction.repeat(func() -> GFVisualAction:
+		var action: ManualSignalAction = ManualSignalAction.new()
+		actions.append(action)
+		return action
+	, 2)
+	var first_result: Variant = repeat.execute()
+	var first_completed: Array[bool] = [false]
+	var wait_for_first: Callable = func() -> void:
+		await repeat.await_result_safely(first_result)
+		first_completed[0] = true
+
+	wait_for_first.call()
+	await get_tree().process_frame
+	var second_result: Variant = repeat.execute()
+	await get_tree().process_frame
+
+	assert_eq(actions.size(), 2, "第二轮 repeat 应创建新的当前动作。")
+	assert_true(actions[0].cancelled, "运行中重复 execute 应取消上一轮当前动作。")
+	assert_true(first_completed[0], "运行中重复 execute 应释放上一轮等待者。")
+	assert_true(second_result is Signal, "第二轮 repeat 仍应返回完成信号。")
 
 
 func test_tween_action_step_apply_instant_relative_vector2() -> void:
@@ -601,6 +713,22 @@ func test_tween_action_step_duplicate_step_preserves_exported_fields() -> void:
 	assert_eq(dup.ease_type, Tween.EASE_IN_OUT)
 
 
+func test_tween_action_step_duplicate_step_deep_copies_collection_target_value() -> void:
+	var step: GFTweenActionStep = GFTweenActionStep.new()
+	var target_payload: Dictionary = {
+		"points": [Vector2.ONE],
+	}
+	step.target_value = target_payload
+
+	var duplicate_step: GFTweenActionStep = step.duplicate_step()
+	var duplicate_payload: Dictionary = GFVariantData.as_dictionary(duplicate_step.target_value)
+	var duplicate_points: Array = GFVariantData.as_array(GFVariantData.get_option_value(duplicate_payload, "points"))
+	var original_points: Array = GFVariantData.as_array(GFVariantData.get_option_value(target_payload, "points"))
+	original_points.append(Vector2.ZERO)
+
+	assert_eq(duplicate_points.size(), 1, "duplicate_step 应深拷贝 Array/Dictionary target_value，避免配置污染。")
+
+
 func test_tween_action_step_rejects_relative_type_mismatch() -> void:
 	var node: Node2D = Node2D.new()
 	add_child_autofree(node)
@@ -638,6 +766,49 @@ func test_flash_action_restores_modulate() -> void:
 	await action.await_result_safely(result)
 
 	assert_eq(item.modulate, Color(0.2, 0.4, 0.6), "闪色动作完成后应恢复原始颜色。")
+
+
+func test_flash_action_zero_duration_applies_flash_color_immediately() -> void:
+	var item: ColorRect = ColorRect.new()
+	item.modulate = Color(0.2, 0.4, 0.6)
+	add_child_autofree(item)
+
+	var action: GFVisualAction = GFFlashAction.new(item, Color.RED, 0.0)
+	var result: Variant = action.execute()
+
+	assert_true(result == null, "零时长闪色动作应立即完成。")
+	assert_eq(item.modulate, Color.RED, "零时长闪色动作应立即写入闪色目标值。")
+
+
+func test_flash_action_rejects_detached_target_for_timed_tween() -> void:
+	var item: ColorRect = ColorRect.new()
+	item.modulate = Color(0.2, 0.4, 0.6)
+	var action: GFFlashAction = GFFlashAction.new(item, Color.RED, 1.0)
+
+	var result: Variant = action.execute()
+
+	assert_true(result == null, "离树目标不应创建 Flash Tween。")
+	assert_eq(item.modulate, Color(0.2, 0.4, 0.6), "拒绝离树 Tween 时不应修改目标颜色。")
+	assert_push_warning("[GFFlashAction] 带时长动作需要位于场景树内的目标。")
+	item.free()
+
+
+func test_action_time_fields_reject_non_finite_values() -> void:
+	var item: ColorRect = ColorRect.new()
+	add_child_autofree(item)
+	var flash: GFFlashAction = GFFlashAction.new(item, Color.RED, INF)
+	var wait_action: GFWaitAction = GFWaitAction.new(INF, self)
+	var visual: GFVisualAction = GFVisualAction.new()
+	var step: GFTweenActionStep = GFTweenActionStep.new()
+	step.duration = INF
+	step.delay = NAN
+	var _configured_visual: GFVisualAction = visual.with_signal_timeout(INF)
+
+	assert_eq(flash.duration, 0.0, "非有限 Flash 时长应收敛为安全的瞬时动作。")
+	assert_eq(wait_action.seconds, 0.0, "非有限等待时长不应创建永久等待。")
+	assert_eq(step.duration, 0.0, "Tween step 不应保留无限 duration。")
+	assert_eq(step.delay, 0.0, "Tween step 不应保留 NaN delay。")
+	assert_eq(visual.signal_timeout_seconds, 30.0, "非法 timeout 不应覆盖现有有效超时。")
 
 
 func test_flash_action_rejects_non_color_property() -> void:
@@ -703,6 +874,24 @@ func test_flash_action_pause_freezes_tween_until_resume() -> void:
 	assert_eq(item.modulate, Color(0.2, 0.4, 0.6), "恢复并完成后应恢复原始颜色。")
 
 
+func test_wait_action_host_node_exit_suppresses_completion() -> void:
+	var host: Node = Node.new()
+	add_child(host)
+	var action: GFWaitAction = GFAction.wait(0.02, host)
+	var result: Variant = action.execute()
+	var completed: Array[bool] = []
+	var completion: Signal = _signal_from_result(result)
+	var _connect_result: Variant = completion.connect(func() -> void:
+		completed.append(true)
+	)
+
+	host.queue_free()
+	await get_tree().process_frame
+	await get_tree().create_timer(0.05).timeout
+
+	assert_true(completed.is_empty(), "host_node 离树后等待动作不应继续发出完成信号。")
+
+
 func test_shader_parameter_action_sets_value_immediately() -> void:
 	var item: ColorRect = ColorRect.new()
 	item.material = _make_shader_material()
@@ -727,6 +916,40 @@ func test_shader_parameter_action_waits_for_tween() -> void:
 	await action.await_result_safely(result)
 
 	assert_almost_eq(_get_shader_strength(item.material), 1.0, 0.01, "Shader 参数 Tween 完成后应到达目标值。")
+
+
+func test_shader_parameter_action_finish_sets_final_value_and_releases_waiters() -> void:
+	var item: ColorRect = ColorRect.new()
+	item.material = _make_shader_material()
+	add_child_autofree(item)
+
+	var action: GFVisualAction = GFShaderParameterAction.new(item, &"strength", 1.0, 1.0)
+	var result: Variant = action.execute()
+	var completed: Array[bool] = [false]
+	var wait_for_action: Callable = func() -> void:
+		await action.await_result_safely(result)
+		completed[0] = true
+
+	wait_for_action.call()
+	await get_tree().process_frame
+	action.finish()
+	await get_tree().process_frame
+
+	assert_true(completed[0], "finish 应释放 Shader 参数 Tween 等待者。")
+	assert_almost_eq(_get_shader_strength(item.material), 1.0, 0.001, "finish 应直接写入 Shader 参数最终值。")
+
+
+func test_shader_parameter_action_rejects_detached_target_for_timed_tween() -> void:
+	var item: ColorRect = ColorRect.new()
+	item.material = _make_shader_material()
+	var action: GFVisualAction = GFShaderParameterAction.new(item, &"strength", 1.0, 1.0)
+
+	var result: Variant = action.execute()
+
+	assert_true(result == null, "离树目标不应创建 Shader 参数 Tween。")
+	assert_almost_eq(_get_shader_strength(item.material), 0.0, 0.001, "离树目标不应被定时 Shader 参数动作改写。")
+	assert_push_warning("[GFShaderParameterAction] 缺少有效 Tween 宿主节点。")
+	item.free()
 
 
 func test_shader_parameter_action_can_tween_direct_material_with_host() -> void:
@@ -758,6 +981,21 @@ func test_shader_parameter_action_duplicates_owner_material_when_requested() -> 
 	assert_ne(item_a.material, item_b.material, "复制材质后不应继续修改共享材质资源。")
 	assert_almost_eq(_get_shader_strength(item_a.material), 0.9, 0.001, "目标节点应使用复制后的材质参数。")
 	assert_almost_eq(_get_shader_strength(item_b.material), 0.0, 0.001, "共享材质的其他使用者不应被改写。")
+
+
+func test_shader_parameter_action_validates_before_duplicating_material() -> void:
+	var shared_material: ShaderMaterial = _make_shader_material()
+	var item: ColorRect = ColorRect.new()
+	item.material = shared_material
+	add_child_autofree(item)
+	var action: GFShaderParameterAction = GFShaderParameterAction.new(item, &"missing", 1.0, 0.0)
+	action.duplicate_material_on_execute = true
+
+	var result: Variant = action.execute()
+
+	assert_true(result == null, "无效参数动作应同步拒绝。")
+	assert_same(item.material, shared_material, "校验失败前不得复制并写回材质。")
+	assert_push_warning("[GFShaderParameterAction] Shader 参数不存在：missing。")
 
 
 func test_shader_parameter_action_cancel_releases_waiters_and_restores() -> void:

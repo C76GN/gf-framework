@@ -35,6 +35,18 @@ extends Resource
 ## @schema metadata: Dictionary，保存项目自定义命令元数据。
 @export var metadata: Dictionary = {}
 
+## 参数补全回调。
+##
+## 回调接收一个上下文字典，返回 PackedStringArray 或 Array。
+## 上下文字段包含 command_name、args、argument_index、prefix 和 raw_input。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+## [br]
+## @schema argument_suggester: Callable context -> PackedStringArray 或 Array。
+var argument_suggester: Callable = Callable()
+
 
 # --- 公共方法 ---
 

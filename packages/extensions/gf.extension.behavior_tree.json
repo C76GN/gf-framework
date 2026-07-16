@@ -12,6 +12,6 @@
   "paths": [
     "addons/gf/extensions/behavior_tree/**"
   ],
-  "enable_extension": "gf.behavior_tree",
+  "gf_extension_id": "gf.behavior_tree",
   "metadata": {}
 }

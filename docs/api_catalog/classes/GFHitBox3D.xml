@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFHitBox3D" path="addons/gf/extensions/combat/hit_detection/gf_hit_box_3d.gd" module="extensions/combat" extends="Area3D" classDigest="836ba07b50a1038c9a8d88b88250ed98691f19b5e99c66b378c7569eeaea8e47">
+<class name="GFHitBox3D" path="addons/gf/extensions/combat/hit_detection/gf_hit_box_3d.gd" module="extensions/combat" extends="Area3D" classDigest="29fba1803d4436c383cce8c3f6bbe6be58fb529bfc36b6a7c1520998c5adc8a1">
 	<description>GFHitBox3D: 3D 通用命中发送区域。
 节点负责构建 GFCombatHitContext 并发送给具备 receive_hit() 的接收对象，
 不规定伤害、阵营、冷却、命中特效或生命值规则。</description>
@@ -17,7 +17,8 @@
 				<tag name="param">context: 命中上下文。</tag>
 				<tag name="param">receiver: 接收对象。</tag>
 				<tag name="param">report: 结果报告。</tag>
-				<tag name="schema">report: Dictionary，统一命中发送结果，包含 ok、hit_id、receiver、reason、message 和 metadata。</tag>
+				<tag name="schema">report: Dictionary，统一命中发送结果，包含 ok、hit_id、receiver(JSON-safe 摘要)、reason、message 和 metadata。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="signal" name="hit_accepted">
@@ -28,7 +29,8 @@
 				<tag name="param">context: 命中上下文。</tag>
 				<tag name="param">receiver: 接收对象。</tag>
 				<tag name="param">report: 结果报告。</tag>
-				<tag name="schema">report: Dictionary，统一命中发送结果，包含 ok、hit_id、receiver、reason、message 和 metadata。</tag>
+				<tag name="schema">report: Dictionary，统一命中发送结果，包含 ok、hit_id、receiver(JSON-safe 摘要)、reason、message 和 metadata。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="signal" name="hit_rejected">
@@ -39,7 +41,8 @@
 				<tag name="param">context: 命中上下文。</tag>
 				<tag name="param">receiver: 接收对象。</tag>
 				<tag name="param">report: 结果报告。</tag>
-				<tag name="schema">report: Dictionary，统一命中发送结果，包含 ok、hit_id、receiver、reason、message 和 metadata。</tag>
+				<tag name="schema">report: Dictionary，统一命中发送结果，包含 ok、hit_id、receiver(JSON-safe 摘要)、reason、message 和 metadata。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="signal" name="enabled_changed">
@@ -48,6 +51,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">enabled: 当前是否允许发送命中。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</signals>
@@ -59,6 +63,7 @@
 			<description>是否允许发送命中。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="hit_id" decorators="@export">
@@ -66,6 +71,7 @@
 			<description>默认命中 ID。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="payload" decorators="@export">
@@ -74,6 +80,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="schema">payload: Dictionary，默认命中载荷；框架只复制并透传。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="magnitude" decorators="@export">
@@ -81,6 +88,7 @@
 			<description>通用强度值。框架不解释该字段。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="tags" decorators="@export">
@@ -88,6 +96,7 @@
 			<description>命中标签。框架不解释该字段。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="metadata" decorators="@export">
@@ -96,6 +105,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="schema">metadata: Dictionary，发送器自定义命中元数据；会进入命中上下文和结果报告。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="sender_path" decorators="@export_node_path(&quot;Node&quot;)">
@@ -103,6 +113,7 @@
 			<description>可选发送者路径；为空时使用当前节点。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="collision_shape_config" decorators="@export">
@@ -110,6 +121,7 @@
 			<description>可选碰撞形状配置。设置后可自动生成或更新 CollisionShape3D 子节点。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="collision_shape_configs" decorators="@export">
@@ -117,6 +129,7 @@
 			<description>可选碰撞形状配置列表。非空时可自动生成或更新多个 CollisionShape3D 子节点。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="auto_apply_collision_shape_config" decorators="@export">
@@ -124,6 +137,7 @@
 			<description>是否在进入场景树或配置变化时自动应用碰撞形状配置。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</properties>
@@ -135,6 +149,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">config: 可选配置；为空时使用 collision_shape_config。</tag>
 				<tag name="return">创建或更新的 CollisionShape3D；配置无效时返回 null。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="apply_collision_shape_configs">
@@ -144,6 +159,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">configs: 可选配置列表；为空时使用 collision_shape_configs。</tag>
 				<tag name="return">创建或更新的 CollisionShape3D 列表。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_generated_collision_shape">
@@ -152,6 +168,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">存在则返回 CollisionShape3D，否则返回 null。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_generated_collision_shapes">
@@ -160,6 +177,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">已生成的 CollisionShape3D 列表。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="clear_generated_collision_shape">
@@ -167,6 +185,7 @@
 			<description>移除框架管理的 CollisionShape3D 子节点。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="clear_generated_collision_shapes">
@@ -174,6 +193,7 @@
 			<description>移除框架管理的全部 CollisionShape3D 子节点。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="build_hit_context">
@@ -186,6 +206,7 @@
 				<tag name="param">hit_id_override: 覆盖命中 ID；为空时使用节点默认命中 ID。</tag>
 				<tag name="return">命中上下文。</tag>
 				<tag name="schema">payload_override: Variant，可为 null、Dictionary 或项目自定义命中载荷；为 null 时使用节点默认 payload。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="send_to">
@@ -198,7 +219,8 @@
 				<tag name="param">hit_id_override: 覆盖命中 ID；为空时使用节点默认命中 ID。</tag>
 				<tag name="return">统一结果报告。</tag>
 				<tag name="schema">payload_override: Variant，可为 null、Dictionary 或项目自定义命中载荷；为 null 时使用节点默认 payload。</tag>
-				<tag name="schema">return: Dictionary，统一命中发送结果，包含 ok、hit_id、receiver、reason、message 和 metadata。</tag>
+				<tag name="schema">return: Dictionary，统一命中发送结果，包含 ok、hit_id、receiver(JSON-safe 摘要)、reason、message 和 metadata。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="send_to_path">
@@ -211,7 +233,8 @@
 				<tag name="param">hit_id_override: 覆盖命中 ID；为空时使用节点默认命中 ID。</tag>
 				<tag name="return">统一结果报告。</tag>
 				<tag name="schema">payload_override: Variant，可为 null、Dictionary 或项目自定义命中载荷；为 null 时使用节点默认 payload。</tag>
-				<tag name="schema">return: Dictionary，统一命中发送结果，包含 ok、hit_id、receiver、reason、message 和 metadata。</tag>
+				<tag name="schema">return: Dictionary，统一命中发送结果，包含 ok、hit_id、receiver(JSON-safe 摘要)、reason、message 和 metadata。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="broadcast_overlaps">
@@ -224,7 +247,8 @@
 				<tag name="param">hit_id_override: 覆盖命中 ID；为空时使用节点默认命中 ID。</tag>
 				<tag name="return">结果报告列表。</tag>
 				<tag name="schema">payload_override: Variant，可为 null、Dictionary 或项目自定义命中载荷；为 null 时使用节点默认 payload。</tag>
-				<tag name="schema">return: Array[Dictionary]，每项为统一命中发送结果，包含 ok、hit_id、receiver、reason、message 和 metadata。</tag>
+				<tag name="schema">return: Array[Dictionary]，每项为统一命中发送结果，包含 ok、hit_id、receiver(JSON-safe 摘要)、reason、message 和 metadata。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</methods>

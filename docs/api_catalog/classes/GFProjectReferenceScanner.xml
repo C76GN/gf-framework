@@ -1,0 +1,170 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFProjectReferenceScanner" path="addons/gf/kernel/core/gf_project_reference_scanner.gd" module="kernel" extends="RefCounted" classDigest="2bc0b2d7f570c0c9faf07b0c779758d216016bb6e806cc635404af1343612e28">
+	<description>GFProjectReferenceScanner: 项目资源引用扫描服务。
+面向编辑器、CI 和框架诊断流程扫描项目资源与文本源码，按目标根目录和
+class_name 输出 verified、strong 与 weak 分级引用，并在文件数量、
+目录深度和读取字节预算耗尽时返回 fail-closed 诊断。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_service</tag>
+		<tag name="layer">kernel/core</tag>
+		<tag name="since">8.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants>
+		<member kind="const" name="REFERENCE_STRENGTH_VERIFIED">
+			<signature>const REFERENCE_STRENGTH_VERIFIED: StringName = &amp;"verified"</signature>
+			<description>Godot 依赖图确认的资源引用。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="REFERENCE_STRENGTH_STRONG">
+			<signature>const REFERENCE_STRENGTH_STRONG: StringName = &amp;"strong"</signature>
+			<description>静态语义扫描确认的资源或 class_name 引用。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="REFERENCE_STRENGTH_WEAK">
+			<signature>const REFERENCE_STRENGTH_WEAK: StringName = &amp;"weak"</signature>
+			<description>仅文本命中的弱引用提示，不会让扫描报告的引用计数阻断。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="REFERENCE_SOURCE_GDSCRIPT_LOAD">
+			<signature>const REFERENCE_SOURCE_GDSCRIPT_LOAD: StringName = &amp;"gdscript_load"</signature>
+			<description>GDScript load/preload 等加载表达式来源。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="REFERENCE_SOURCE_GDSCRIPT_SYMBOL">
+			<signature>const REFERENCE_SOURCE_GDSCRIPT_SYMBOL: StringName = &amp;"gdscript_symbol"</signature>
+			<description>GDScript class_name 标识符来源。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="REFERENCE_SOURCE_RESOURCE_TEXT">
+			<signature>const REFERENCE_SOURCE_RESOURCE_TEXT: StringName = &amp;"resource_text"</signature>
+			<description>Godot 文本资源依赖字段来源。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="REFERENCE_SOURCE_GODOT_DEPENDENCY">
+			<signature>const REFERENCE_SOURCE_GODOT_DEPENDENCY: StringName = &amp;"godot_dependency"</signature>
+			<description>Godot ResourceLoader 依赖图来源。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="REFERENCE_SOURCE_TEXT_FALLBACK">
+			<signature>const REFERENCE_SOURCE_TEXT_FALLBACK: StringName = &amp;"text_fallback"</signature>
+			<description>无法确认语义的文本命中来源。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="DEFAULT_SCAN_ROOTS">
+			<signature>const DEFAULT_SCAN_ROOTS: Array[String] = ["res://"]</signature>
+			<description>默认扫描根目录。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="DEFAULT_MAX_SCAN_DEPTH">
+			<signature>const DEFAULT_MAX_SCAN_DEPTH: int = 32</signature>
+			<description>默认最大扫描深度。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="DEFAULT_MAX_SCANNED_FILES">
+			<signature>const DEFAULT_MAX_SCANNED_FILES: int = 10000</signature>
+			<description>默认最大候选扫描文件数。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="DEFAULT_MAX_FILE_BYTES">
+			<signature>const DEFAULT_MAX_FILE_BYTES: int = 4 * 1024 * 1024</signature>
+			<description>默认单文件读取字节上限。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="DEFAULT_MAX_TOTAL_BYTES">
+			<signature>const DEFAULT_MAX_TOTAL_BYTES: int = 64 * 1024 * 1024</signature>
+			<description>默认单次扫描总读取字节上限。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="DEFAULT_IGNORED_ROOTS">
+			<signature>const DEFAULT_IGNORED_ROOTS: Array[String] = [</signature>
+			<description>默认忽略的根目录。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="TEXT_FILE_EXTENSIONS">
+			<signature>const TEXT_FILE_EXTENSIONS: Array[String] = [</signature>
+			<description>作为文本扫描的资源扩展名。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties />
+	<methods>
+		<member kind="method" name="scan_references">
+			<signature>static func scan_references(targets: Array[Dictionary], options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>扫描项目文件对一组目标根目录或 class_name 的引用。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">targets: 扫描目标列表。</tag>
+				<tag name="param">options: 可选扫描参数。</tag>
+				<tag name="return">项目引用扫描报告。</tag>
+				<tag name="schema">targets: Array[Dictionary]，每个目标支持 id、root_path 和 class_names；id 为空时使用 root_path。</tag>
+				<tag name="schema">options: Dictionary，支持 scan_roots、ignored_roots、additional_ignored_roots、max_references_per_target、max_weak_references_per_target、max_scan_depth、max_scanned_files、max_file_bytes、max_total_bytes、include_weak_references、use_resource_dependencies 和 warning_prefix。</tag>
+				<tag name="schema">return: Dictionary，包含 ok、partial_scan、budget_exceeded、input_target_count、target_count、reference_count、weak_reference_count、targets、weak_targets、references、weak_references、candidate_file_count、scanned_file_count、scanned_bytes、skipped_files 和 scan_warnings。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="scan_root_references">
+			<signature>static func scan_root_references( root_path: String, class_names: Array[String] = [], options: Dictionary = {} ) -&gt; Dictionary:</signature>
+			<description>扫描项目文件对单个根目录的引用。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">root_path: 要匹配的根目录。</tag>
+				<tag name="param">class_names: 同一目标根目录下需要匹配的 class_name 列表。</tag>
+				<tag name="param">options: 可选扫描参数。</tag>
+				<tag name="return">单目标项目引用扫描报告。</tag>
+				<tag name="schema">class_names: Array[String]，与 root_path 同属一个目标的公开 class_name 列表。</tag>
+				<tag name="schema">options: Dictionary，支持 scan_references() 的所有 options；默认会把 root_path 加入 additional_ignored_roots，避免扫描目标自身。</tag>
+				<tag name="schema">return: Dictionary，字段同 scan_references() 返回值。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

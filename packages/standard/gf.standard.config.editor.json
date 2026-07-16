@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "id": "gf.standard.config.editor",
+  "kind": "standard",
+  "version": "unreleased",
+  "display_name": "GF Standard Config Editor",
+  "description": "Editor and tooling helpers for config table descriptors and reference choices.",
+  "dependencies": [
+    "gf.kernel",
+    "gf.standard.base",
+    "gf.standard.config"
+  ],
+  "paths": [
+    "addons/gf/standard/utilities/config/gf_config_table_editor_tools.gd",
+    "addons/gf/standard/utilities/config/gf_config_table_editor_tools.gd.uid"
+  ],
+  "metadata": {
+    "stage": "standard-editor-split-v1"
+  }
+}

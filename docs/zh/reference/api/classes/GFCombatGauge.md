@@ -21,9 +21,9 @@
 | 信号 | [`action_rejected`](#member-gfcombatgauge-signals-action_rejected) | `signal action_rejected(result: GFCombatActionResult)` |
 | 信号 | [`minimum_reached`](#member-gfcombatgauge-signals-minimum_reached) | `signal minimum_reached(current_value: float)` |
 | 信号 | [`maximum_reached`](#member-gfcombatgauge-signals-maximum_reached) | `signal maximum_reached(current_value: float)` |
-| 属性 | [`min_value`](#member-gfcombatgauge-properties-min_value) | `var min_value: float = 0.0` |
-| 属性 | [`max_value`](#member-gfcombatgauge-properties-max_value) | `var max_value: float = 100.0` |
-| 属性 | [`current_value`](#member-gfcombatgauge-properties-current_value) | `var current_value: float = 100.0` |
+| 属性 | [`min_value`](#member-gfcombatgauge-properties-min_value) | `var min_value: float:` |
+| 属性 | [`max_value`](#member-gfcombatgauge-properties-max_value) | `var max_value: float:` |
+| 属性 | [`current_value`](#member-gfcombatgauge-properties-current_value) | `var current_value: float:` |
 | 属性 | [`accepted_action_kinds`](#member-gfcombatgauge-properties-accepted_action_kinds) | `var accepted_action_kinds: Array[StringName] = []` |
 | 属性 | [`rejected_action_kinds`](#member-gfcombatgauge-properties-rejected_action_kinds) | `var rejected_action_kinds: Array[StringName] = []` |
 | 属性 | [`modifiers`](#member-gfcombatgauge-properties-modifiers) | `var modifiers: Array[GFCombatActionModifier] = []` |
@@ -162,9 +162,10 @@ signal maximum_reached(current_value: float)
 ### `min_value`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-var min_value: float = 0.0
+var min_value: float:
 ```
 
 数值下限。
@@ -174,9 +175,10 @@ var min_value: float = 0.0
 ### `max_value`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-var max_value: float = 100.0
+var max_value: float:
 ```
 
 数值上限。
@@ -186,9 +188,10 @@ var max_value: float = 100.0
 ### `current_value`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-var current_value: float = 100.0
+var current_value: float:
 ```
 
 当前数值。

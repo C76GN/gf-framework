@@ -1,0 +1,207 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFProjectileEmissionPolicy" path="addons/gf/extensions/combat/projectiles/gf_projectile_emission_policy.gd" module="extensions/combat" extends="Resource" classDigest="ce29c5666ff626f2629be56ca44bd2fefc2e4f543fd794f46af7fc93d90dded4">
+	<description>GFProjectileEmissionPolicy: 发射体发射请求策略。
+用于在 GFProjectileEmitter2D / GFProjectileEmitter3D 生成节点前执行通用门控、数量裁剪和节奏控制。
+该策略只处理发射请求本身，不解释弹药、阵营、伤害、特效或输入规则。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">resource_definition</tag>
+		<tag name="since">8.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties>
+		<member kind="property" name="policy_id" decorators="@export">
+			<signature>var policy_id: StringName = &amp;""</signature>
+			<description>策略标识，便于调试或项目工具识别。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="enabled" decorators="@export">
+			<signature>var enabled: bool = true</signature>
+			<description>是否启用策略。关闭时所有请求直接通过。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="cooldown_seconds" decorators="@export">
+			<signature>var cooldown_seconds: float = 0.0</signature>
+			<description>两次成功发射请求之间的最小间隔秒数。小于等于 0 表示不限制。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="max_projectiles_per_request" decorators="@export">
+			<signature>var max_projectiles_per_request: int = 0</signature>
+			<description>每次请求最多允许生成的发射体数量。小于等于 0 表示不限制。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="max_emission_count" decorators="@export">
+			<signature>var max_emission_count: int = 0</signature>
+			<description>最大成功发射请求次数。小于等于 0 表示不限制。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="charge_capacity" decorators="@export">
+			<signature>var charge_capacity: float = 0.0</signature>
+			<description>通用 charge 容量。小于等于 0 表示不启用 charge 门控。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="charge_cost_per_request" decorators="@export">
+			<signature>var charge_cost_per_request: float = 0.0</signature>
+			<description>每次成功请求消耗的 charge。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="charge_cost_per_projectile" decorators="@export">
+			<signature>var charge_cost_per_projectile: float = 0.0</signature>
+			<description>每个实际生成发射体额外消耗的 charge。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="charge_recovery_seconds" decorators="@export">
+			<signature>var charge_recovery_seconds: float = 0.0</signature>
+			<description>恢复 1 点 charge 需要的秒数。小于等于 0 表示不会自动恢复。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="prepare_emission">
+			<signature>func prepare_emission( emitter: Node, projectile_id: StringName, projectile_context: Dictionary = {}, requested_count: int = 1, now_msec: int = -1 ) -&gt; Dictionary:</signature>
+			<description>准备一次发射请求。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">emitter: 发射器节点。</tag>
+				<tag name="param">projectile_id: 发射体目录 ID。</tag>
+				<tag name="param">projectile_context: 调用方发射上下文。</tag>
+				<tag name="param">requested_count: 本次请求准备生成的发射体数量。</tag>
+				<tag name="param">now_msec: 可选当前毫秒时间；小于 0 时使用 Time.get_ticks_msec()。</tag>
+				<tag name="return">发射准备报告。</tag>
+				<tag name="schema">projectile_context: Dictionary，本次发射上下文；策略会复制后返回，不修改调用方原始字典。</tag>
+				<tag name="schema">return: Dictionary，包含 ok、reason、policy_id、projectile_id、requested_count、emit_count、projectile_context、now_msec、remaining_cooldown_seconds、available_charges 和 required_charges。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="commit_emission">
+			<signature>func commit_emission(emitter: Node, prepare_report: Dictionary, emitted_count: int) -&gt; Dictionary:</signature>
+			<description>提交一次已生成的发射请求。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">emitter: 发射器节点。</tag>
+				<tag name="param">prepare_report: prepare_emission() 返回的报告。</tag>
+				<tag name="param">emitted_count: 实际成功生成的发射体数量。</tag>
+				<tag name="return">提交报告。</tag>
+				<tag name="schema">prepare_report: Dictionary，prepare_emission() 返回的报告。</tag>
+				<tag name="schema">return: Dictionary，包含 ok、committed、reason、emitted_count、emission_count、available_charges 和 consumed_charges。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="reset">
+			<signature>func reset(now_msec: int = -1) -&gt; void:</signature>
+			<description>重置运行时策略状态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">now_msec: 可选当前毫秒时间；小于 0 时使用 Time.get_ticks_msec()。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_available_charges">
+			<signature>func get_available_charges(now_msec: int = -1) -&gt; float:</signature>
+			<description>获取当前可用 charge。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">now_msec: 可选当前毫秒时间；小于 0 时使用 Time.get_ticks_msec()。</tag>
+				<tag name="return">当前可用 charge；未启用 charge 门控时返回 0。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_required_charges">
+			<signature>func get_required_charges(emit_count: int) -&gt; float:</signature>
+			<description>获取指定生成数量需要消耗的 charge。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">emit_count: 预计生成数量。</tag>
+				<tag name="return">需要消耗的 charge。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_remaining_cooldown_seconds">
+			<signature>func get_remaining_cooldown_seconds(now_msec: int = -1) -&gt; float:</signature>
+			<description>获取剩余冷却秒数。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">now_msec: 可选当前毫秒时间；小于 0 时使用 Time.get_ticks_msec()。</tag>
+				<tag name="return">剩余冷却秒数。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_configuration_valid">
+			<signature>func is_configuration_valid() -&gt; bool:</signature>
+			<description>检查策略数值配置是否有限。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">所有浮点配置有限时返回 true。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_debug_snapshot">
+			<signature>func get_debug_snapshot(now_msec: int = -1) -&gt; Dictionary:</signature>
+			<description>获取策略调试快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">now_msec: 可选当前毫秒时间；小于 0 时使用 Time.get_ticks_msec()。</tag>
+				<tag name="return">策略状态快照。</tag>
+				<tag name="schema">return: Dictionary，包含 policy_id、enabled、cooldown_seconds、remaining_cooldown_seconds、charge_capacity、available_charges、emission_count 和 max_emission_count。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_prepare_emission">
+			<signature>func _prepare_emission(_emitter: Node, _projectile_id: StringName, _prepare_report: Dictionary) -&gt; Dictionary:</signature>
+			<description>发射准备扩展点。
+返回的字段会合并到 prepare_emission() 报告。子类可修改 ok、reason、emit_count 或 projectile_context。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">_emitter: 发射器节点。</tag>
+				<tag name="param">_projectile_id: 发射体目录 ID。</tag>
+				<tag name="param">_prepare_report: 当前准备报告。</tag>
+				<tag name="return">需要合并到准备报告的字段。</tag>
+				<tag name="schema">_prepare_report: Dictionary，当前准备报告。</tag>
+				<tag name="schema">return: Dictionary，覆盖或附加到准备报告的字段。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_commit_emission">
+			<signature>func _commit_emission(_emitter: Node, _prepare_report: Dictionary, _emitted_count: int) -&gt; void:</signature>
+			<description>发射提交扩展点。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">_emitter: 发射器节点。</tag>
+				<tag name="param">_prepare_report: prepare_emission() 返回的报告。</tag>
+				<tag name="param">_emitted_count: 实际成功生成的发射体数量。</tag>
+				<tag name="schema">_prepare_report: Dictionary，prepare_emission() 返回的报告。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

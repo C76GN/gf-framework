@@ -29,6 +29,7 @@
 | 方法 | [`unregister_zone`](#member-gfdragdroputility-methods-unregister_zone) | `func unregister_zone(zone_id: StringName) -> bool:` |
 | 方法 | [`get_zone`](#member-gfdragdroputility-methods-get_zone) | `func get_zone(zone_id: StringName) -> GFDropZone:` |
 | 方法 | [`clear_zones`](#member-gfdragdroputility-methods-clear_zones) | `func clear_zones() -> void:` |
+| 方法 | [`prune_stale_zones`](#member-gfdragdroputility-methods-prune_stale_zones) | `func prune_stale_zones() -> int:` |
 | 方法 | [`start_drag`](#member-gfdragdroputility-methods-start_drag) | `func start_drag( drag_type: StringName, payload: Variant, position: Vector2, source: Object = null, metadata: Dictionary = {} ) -> int:` |
 | 方法 | [`update_drag`](#member-gfdragdroputility-methods-update_drag) | `func update_drag(session_id: int, position: Vector2) -> bool:` |
 | 方法 | [`drop`](#member-gfdragdroputility-methods-drop) | `func drop(session_id: int, position: Vector2) -> Dictionary:` |
@@ -38,7 +39,7 @@
 | 方法 | [`get_drop_candidates`](#member-gfdragdroputility-methods-get_drop_candidates) | `func get_drop_candidates( session_id: int, position: Vector2, only_accepting: bool = true ) -> Array[GFDropZone]:` |
 | 方法 | [`get_best_drop_zone`](#member-gfdragdroputility-methods-get_best_drop_zone) | `func get_best_drop_zone(session_id: int, position: Vector2) -> GFDropZone:` |
 | 方法 | [`clear_sessions`](#member-gfdragdroputility-methods-clear_sessions) | `func clear_sessions() -> void:` |
-| 方法 | [`get_debug_snapshot`](#member-gfdragdroputility-methods-get_debug_snapshot) | `func get_debug_snapshot() -> Dictionary:` |
+| 方法 | [`get_debug_snapshot`](#member-gfdragdroputility-methods-get_debug_snapshot) | `func get_debug_snapshot(json_compatible: bool = true) -> Dictionary:` |
 
 ## 信号
 
@@ -318,6 +319,21 @@ func clear_zones() -> void:
 
 清空落点。
 
+<a id="member-gfdragdroputility-methods-prune_stale_zones"></a>
+
+### `prune_stale_zones`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func prune_stale_zones() -> int:
+```
+
+主动剪枝已失效的落点。
+
+返回：本次移除的落点数量。
+
 <a id="member-gfdragdroputility-methods-start_drag"></a>
 
 ### `start_drag`
@@ -513,12 +529,19 @@ func clear_sessions() -> void:
 ### `get_debug_snapshot`
 
 - API：`public`
+- 首次版本：`3.9.0`
 
 ```gdscript
-func get_debug_snapshot() -> Dictionary:
+func get_debug_snapshot(json_compatible: bool = true) -> Dictionary:
 ```
 
 获取调试快照。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `json_compatible` | 为 true 时返回可直接 JSON.stringify() 的值。 |
 
 返回：当前拖拽与落点状态。
 

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFContentPackageExportPlan" path="addons/gf/extensions/content_package/runtime/gf_content_package_export_plan.gd" module="extensions/content_package" extends="RefCounted" classDigest="be3449df5df8887a8164ff506b2e3ebd15a89b59bd6075aa99d8e4f34587f539">
+<class name="GFContentPackageExportPlan" path="addons/gf/extensions/content_package/runtime/gf_content_package_export_plan.gd" module="extensions/content_package" extends="RefCounted" classDigest="26f9c0316481aba75896f9f1aa613e1090e57fc939b2c3559bd9f0f4e6d5b654">
 	<description>GFContentPackageExportPlan: 内容包导出计划。
 从 GFContentPackageManifest 或 GFContentPackageCatalog 构建可审计的资源条目列表，
 供编辑器工具、构建脚本或项目安装器决定后续打包方式。本类只生成计划和诊断，不写 zip、不改 remap、
@@ -157,6 +157,18 @@ GF 不在这里决定下载、启用、远程发布或业务内容策略。</des
 				<tag name="return">计划字典。</tag>
 				<tag name="schema">return: Dictionary with package_id, version, root_path, entries, issues, and metadata.</tag>
 				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="to_report_dictionary">
+			<signature>func to_report_dictionary(options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>转换为 JSON-safe 报告字典。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">options: 传给 GFReportValueCodec 的编码选项。</tag>
+				<tag name="return">计划报告字典。</tag>
+				<tag name="schema">options: Dictionary with GFReportValueCodec encoding options.</tag>
+				<tag name="schema">return: JSON-safe Dictionary based on to_dictionary().</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="from_manifest">

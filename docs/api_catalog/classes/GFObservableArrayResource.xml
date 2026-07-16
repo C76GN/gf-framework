@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFObservableArrayResource" path="addons/gf/standard/foundation/collections/gf_observable_array_resource.gd" module="standard" extends="Resource" classDigest="4272574ead47d1ac66056d9275aa3caf38ae4922eb43e81066757ab51cd1b9f8">
+<class name="GFObservableArrayResource" path="addons/gf/standard/foundation/collections/gf_observable_array_resource.gd" module="standard" extends="Resource" classDigest="9969d1797543b0cbb5de1328f3447c1cafd0a60e99666a2635405ab566ef9815">
 	<description>GFObservableArrayResource: 可观察数组资源。
 保存一份 Array 数据，并通过显式方法发出单项变更和批量变更信号。
 它不是 Array 的替身，不拦截直接字段修改；调用方应通过方法提交变更，
@@ -12,7 +12,7 @@
 	<signals>
 		<member kind="signal" name="item_changed">
 			<signature>signal item_changed(operation: StringName, index: int, old_value: Variant, new_value: Variant, metadata: Dictionary)</signature>
-			<description>单项变更后发出。</description>
+			<description>非 batch 模式下单项变更后发出。batch 内变更只在 end_batch() 时汇总到 items_changed。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">operation: 操作类型。</tag>
@@ -28,7 +28,7 @@
 		</member>
 		<member kind="signal" name="items_changed">
 			<signature>signal items_changed(changes: Array[Dictionary], metadata: Dictionary)</signature>
-			<description>一批变更完成后发出。</description>
+			<description>一批变更完成后发出；非 batch 单项变更也会作为单元素 changes 发出。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">changes: 变更报告列表。</tag>

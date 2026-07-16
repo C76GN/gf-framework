@@ -24,10 +24,18 @@ const _OUTPUT_FORMAT_JSON: StringName = &"json"
 const _OUTPUT_FORMAT_RESOURCE: StringName = &"resource"
 const _JSON_EXPORT_FORMAT: String = "gf.config.database"
 const _JSON_EXPORT_VERSION: int = 1
+const _ARTIFACT_OWNER: String = "gf.tool.config_pipeline"
+const _ARTIFACT_OWNER_FIELD: String = "artifact_owner"
+const _RESOURCE_ARTIFACT_OWNER_META: StringName = &"_gf_config_pipeline_artifact_owner"
+const _ACCESS_ARTIFACT_MARKER: String = "# @generated_by gf.tool.config_pipeline"
 const _JSON_VARIANT_TYPE_KEY: String = "__gf_variant_type"
 const _JSON_VARIANT_VALUE_KEY: String = "value"
 const _DEFAULT_JSON_INDENT: String = "\t"
+const _DEFAULT_MAX_SOURCE_FILE_BYTES: int = 64 * 1024 * 1024
+const _MAX_PROVIDER_ACCESSOR_LENGTH: int = 512
 const _DEFAULT_MAX_XLSX_ENTRY_BYTES: int = 8 * 1024 * 1024
+const _DEFAULT_MAX_XLSX_FILE_BYTES: int = 64 * 1024 * 1024
+const _DEFAULT_MAX_XLSX_ENTRY_COUNT: int = 4096
 const _DEFAULT_MAX_XLSX_SHARED_STRINGS: int = 100000
 const _DEFAULT_MAX_XLSX_ROWS: int = 100000
 const _DEFAULT_MAX_XLSX_COLUMNS: int = 512
@@ -59,7 +67,7 @@ func build_table(source: GFConfigPipelineTableSource, options: Dictionary = {}) 
 	if resolved_format == _FORMAT_XLSX:
 		return _build_table_from_xlsx(source, options)
 
-	var read_result: Dictionary = _read_text_file(source.source_path, source.get_table_key())
+	var read_result: Dictionary = _read_text_file(source.source_path, source.get_table_key(), options)
 	if not GFVariantData.get_option_bool(read_result, "success"):
 		return read_result
 	return build_table_from_text(source, GFVariantData.get_option_string(read_result, "text"), options)
@@ -284,13 +292,13 @@ func build_profile(profile: GFConfigPipelineProfile, options: Dictionary = {}) -
 ## [br]
 ## @schema profile: GFConfigPipelineProfile resource。
 ## [br]
-## @param options: 本次导出覆盖选项，支持 output_path、build_options、save_options、access_output_path、access_options、access_class_name、access_provider_accessor 以及 build_database() 的直接选项。
+## @param options: 本次导出覆盖选项，支持 output_path、build_options、save_options、access_output_path、access_options、access_class_name、access_provider_accessor、changed_only、manifest_path、write_manifest、manifest_options、manifest_metadata 以及 build_database() 的直接选项。
 ## [br]
-## @schema options: Dictionary，可包含 output_path、build_options、save_options、access_output_path、access_options、access_class_name、access_provider_accessor、database_id、version、metadata、validate_database、validate_schema、parse_options 和 rebuild_indexes。
+## @schema options: Dictionary，可包含 output_path、build_options、save_options、access_output_path、access_options、access_class_name、access_provider_accessor、database_id、version、metadata、validate_database、validate_schema、parse_options、rebuild_indexes、changed_only、manifest_path、write_manifest、manifest_options、manifest_metadata、max_freshness_file_bytes、max_freshness_total_bytes 和 max_freshness_entries；save_options、access_options 与 manifest_options 可分别包含 allow_unowned_overwrite。
 ## [br]
 ## @return: 导出结果。
 ## [br]
-## @schema return: Dictionary，包含 success、database、report、table_results、build_result、save_result、access_result、profile_id、output_path 和 error。
+## @schema return: Dictionary，包含 success、database、report、table_results、build_result、save_result、access_result、manifest_path、manifest、manifest_result、profile_id、output_path 和 error。
 func export_profile(profile: GFConfigPipelineProfile, options: Dictionary = {}) -> Dictionary:
 	var build_result: Dictionary = build_profile(profile, options)
 	var profile_id: StringName = GFVariantData.get_option_string_name(build_result, "profile_id")
@@ -310,9 +318,14 @@ func export_profile(profile: GFConfigPipelineProfile, options: Dictionary = {}) 
 	var save_options: Dictionary = profile.make_save_options(options) if profile != null else {}
 	var access_output_path: String = profile.resolve_access_output_path(options) if profile != null else ""
 	var access_options: Dictionary = profile.make_access_options(options) if profile != null else {}
+	var manifest_helper: GFConfigPipelineArtifactManifest = GFConfigPipelineArtifactManifest.new()
+	var manifest_path: String = _resolve_manifest_path(profile, options, manifest_helper)
+	var should_write_manifest: bool = _should_write_manifest(options, manifest_path)
+	var manifest_options: Dictionary = _make_manifest_options(options)
 	if GFVariantData.get_option_bool(options, "dry_run"):
 		save_options["dry_run"] = true
 		access_options["dry_run"] = true
+		manifest_options["dry_run"] = true
 	var save_preflight_result: Dictionary = save_database(database, output_path, _make_dry_run_options(save_options))
 	if not GFVariantData.get_option_bool(save_preflight_result, "success"):
 		return _make_profile_export_result(
@@ -346,9 +359,48 @@ func export_profile(profile: GFConfigPipelineProfile, options: Dictionary = {}) 
 			)
 		access_result = access_preflight_result
 
+	var manifest: Dictionary = {}
+	var manifest_result: Dictionary = {}
+	if should_write_manifest:
+		var preflight_run_result: Dictionary = _make_profile_export_result(
+			true,
+			build_result,
+			save_preflight_result,
+			access_result,
+			profile_id,
+			output_path,
+			"",
+			manifest_path
+		)
+		manifest = manifest_helper.make_manifest(
+			profile.resource_path if profile != null else "",
+			profile,
+			options,
+			preflight_run_result
+		)
+		manifest_result = manifest_helper.save_manifest(
+			manifest_path,
+			manifest,
+			_make_dry_run_options(manifest_options)
+		)
+		if not GFVariantData.get_option_bool(manifest_result, "success"):
+			return _make_profile_export_result(
+				false,
+				build_result,
+				save_preflight_result,
+				access_result,
+				profile_id,
+				output_path,
+				GFVariantData.get_option_string(manifest_result, "error"),
+				manifest_path,
+				manifest_result,
+				manifest
+			)
+
 	if (
 		GFVariantData.get_option_bool(save_options, "dry_run")
 		or GFVariantData.get_option_bool(access_options, "dry_run")
+		or (should_write_manifest and GFVariantData.get_option_bool(manifest_options, "dry_run"))
 	):
 		return _make_profile_export_result(
 			true,
@@ -357,7 +409,29 @@ func export_profile(profile: GFConfigPipelineProfile, options: Dictionary = {}) 
 			access_result,
 			profile_id,
 			output_path,
-			""
+			"",
+			manifest_path,
+			manifest_result,
+			manifest
+		)
+
+	var transaction_snapshot: Dictionary = _capture_export_snapshots(PackedStringArray([
+		output_path,
+		access_output_path,
+		manifest_path if should_write_manifest else "",
+	]))
+	if not GFVariantData.get_option_bool(transaction_snapshot, "success"):
+		return _make_profile_export_result(
+			false,
+			build_result,
+			save_preflight_result,
+			access_result,
+			profile_id,
+			output_path,
+			GFVariantData.get_option_string(transaction_snapshot, "error"),
+			manifest_path,
+			manifest_result,
+			manifest
 		)
 
 	var save_result: Dictionary = save_database(database, output_path, save_options)
@@ -370,13 +444,43 @@ func export_profile(profile: GFConfigPipelineProfile, options: Dictionary = {}) 
 			access_options
 		)
 
-	var export_success: bool = (
+	var artifacts_success: bool = (
 		GFVariantData.get_option_bool(save_result, "success")
 		and GFVariantData.get_option_bool(access_result, "success", true)
+	)
+	if artifacts_success and should_write_manifest:
+		var committed_run_result: Dictionary = _make_profile_export_result(
+			true,
+			build_result,
+			save_result,
+			access_result,
+			profile_id,
+			output_path,
+			"",
+			manifest_path
+		)
+		manifest = manifest_helper.make_manifest(
+			profile.resource_path if profile != null else "",
+			profile,
+			options,
+			committed_run_result
+		)
+		manifest_result = manifest_helper.save_manifest(manifest_path, manifest, manifest_options)
+	var export_success: bool = (
+		artifacts_success
+		and (not should_write_manifest or GFVariantData.get_option_bool(manifest_result, "success"))
 	)
 	var export_error: String = GFVariantData.get_option_string(save_result, "error")
 	if export_error.is_empty() and not GFVariantData.get_option_bool(access_result, "success", true):
 		export_error = GFVariantData.get_option_string(access_result, "error")
+	if export_error.is_empty() and should_write_manifest and not GFVariantData.get_option_bool(manifest_result, "success"):
+		export_error = GFVariantData.get_option_string(manifest_result, "error")
+	if export_success:
+		_discard_export_snapshots(transaction_snapshot)
+	else:
+		var rollback_issues: PackedStringArray = _restore_export_snapshots(transaction_snapshot)
+		if not rollback_issues.is_empty():
+			export_error = "%s 回滚失败：%s" % [export_error, "; ".join(rollback_issues)]
 	return _make_profile_export_result(
 		export_success,
 		build_result,
@@ -384,7 +488,10 @@ func export_profile(profile: GFConfigPipelineProfile, options: Dictionary = {}) 
 		access_result,
 		profile_id,
 		output_path,
-		export_error
+		export_error,
+		manifest_path,
+		manifest_result,
+		manifest
 	)
 
 
@@ -420,9 +527,9 @@ func make_database_export(database: GFConfigDatabaseResource, options: Dictionar
 ## [br]
 ## @param output_path: 输出路径，通常为 .tres、.res 或 .json。
 ## [br]
-## @param options: 保存选项，支持 output_format、include_schema、include_indexes、indent、sort_keys、overwrite_existing、dry_run 和 artifact_metadata。
+## @param options: 保存选项，支持 output_format、include_schema、include_indexes、indent、sort_keys、overwrite_existing、allow_unowned_overwrite、dry_run 和 artifact_metadata。
 ## [br]
-## @schema options: Dictionary，可包含 output_format、include_schema、include_indexes、indent、sort_keys、overwrite_existing、dry_run 和 artifact_metadata。
+## @schema options: Dictionary，可包含 output_format、include_schema、include_indexes、indent、sort_keys、overwrite_existing、allow_unowned_overwrite、dry_run 和 artifact_metadata；allow_unowned_overwrite 仅用于调用方已明确确认现有文件所有权的迁移场景。
 ## [br]
 ## @return: 保存结果。
 ## [br]
@@ -461,6 +568,23 @@ func save_database(
 			ERR_UNAVAILABLE,
 			"不支持的配置数据库输出格式：%s。" % String(output_format)
 		)
+	var ownership_error: String = _validate_existing_artifact_ownership(
+		output_path,
+		&"database_resource",
+		options
+	)
+	if not ownership_error.is_empty():
+		var ownership_artifact_report: Dictionary = _make_resource_artifact_report(
+			output_path,
+			output_format,
+			_GENERATED_ARTIFACT_REPORT_SCRIPT.STATUS_FAILED,
+			ERR_UNAUTHORIZED,
+			ownership_error,
+			options,
+			false,
+			false
+		)
+		return _make_save_result(false, output_path, output_format, ERR_UNAUTHORIZED, ownership_error, ownership_artifact_report)
 
 	var resource_artifact_report: Dictionary = _make_pending_resource_artifact_report(output_path, output_format, options)
 	var pending_error: Error = _GENERATED_ARTIFACT_REPORT_SCRIPT.get_error_code(resource_artifact_report)
@@ -476,7 +600,12 @@ func save_database(
 	if GFVariantData.get_option_bool(resource_artifact_report, "dry_run"):
 		return _make_save_result(true, output_path, output_format, OK, "", resource_artifact_report)
 
-	var save_error: Error = ResourceSaver.save(database, output_path)
+	var owned_database_value: Variant = database.duplicate(true)
+	if not (owned_database_value is GFConfigDatabaseResource):
+		return _make_save_result(false, output_path, output_format, ERR_CANT_CREATE, "无法创建带所有权信息的配置数据库副本。", resource_artifact_report)
+	var owned_database: GFConfigDatabaseResource = owned_database_value
+	owned_database.set_meta(_RESOURCE_ARTIFACT_OWNER_META, _ARTIFACT_OWNER)
+	var save_error: Error = ResourceSaver.save(owned_database, output_path)
 	if save_error != OK:
 		var failed_artifact_report: Dictionary = _make_resource_artifact_report(
 			output_path,
@@ -516,9 +645,9 @@ func save_database(
 ## [br]
 ## @param provider_accessor: 无显式 provider 参数时用于获取 provider 的表达式。
 ## [br]
-## @param options: 访问器生成选项，支持 GFConfigAccessGenerator 选项、overwrite_existing、dry_run、scan_filesystem 和 metadata。
+## @param options: 访问器生成选项，支持 GFConfigAccessGenerator 选项、overwrite_existing、allow_unowned_overwrite、dry_run、scan_filesystem 和 metadata。
 ## [br]
-## @schema options: Dictionary，可包含 method_name_style、constant_prefix、record_method_pattern、table_method_pattern、include_schema_comments、include_typed_records、typed_record_method_pattern、typed_record_class_suffix、overwrite_existing、dry_run、scan_filesystem 和 metadata。
+## @schema options: Dictionary，可包含 method_name_style、constant_prefix、record_method_pattern、table_method_pattern、include_schema_comments、include_typed_records、typed_record_method_pattern、typed_record_class_suffix、overwrite_existing、allow_unowned_overwrite、dry_run、scan_filesystem 和 metadata；allow_unowned_overwrite 仅用于调用方已明确确认现有文件所有权的迁移场景。
 ## [br]
 ## @return: 访问器生成结果。
 ## [br]
@@ -554,17 +683,43 @@ func generate_access(
 		return _make_access_result(false, output_path, class_name_value, ERR_INVALID_DATA, "配置数据库没有可生成访问器的表。", false, 0)
 
 	var accessor: String = provider_accessor if not provider_accessor.is_empty() else "null"
+	var accessor_error: String = _validate_provider_accessor(accessor)
+	if not accessor_error.is_empty():
+		var accessor_artifact_report: Dictionary = _make_resource_artifact_report(
+			output_path,
+			&"gdscript",
+			_GENERATED_ARTIFACT_REPORT_SCRIPT.STATUS_FAILED,
+			ERR_INVALID_PARAMETER,
+			accessor_error,
+			options,
+			false,
+			false
+		)
+		return _make_access_result(false, output_path, class_name_value, ERR_INVALID_PARAMETER, accessor_error, false, schemas.size(), accessor_artifact_report)
 	var overwrite_existing: bool = GFVariantData.get_option_bool(options, "overwrite_existing", true)
+	var ownership_error: String = _validate_existing_artifact_ownership(output_path, &"access", options)
+	if not ownership_error.is_empty():
+		var ownership_artifact_report: Dictionary = _make_resource_artifact_report(
+			output_path,
+			&"gdscript",
+			_GENERATED_ARTIFACT_REPORT_SCRIPT.STATUS_FAILED,
+			ERR_UNAUTHORIZED,
+			ownership_error,
+			options,
+			false,
+			false
+		)
+		return _make_access_result(false, output_path, class_name_value, ERR_UNAUTHORIZED, ownership_error, false, schemas.size(), ownership_artifact_report)
 	var generation_options: Dictionary = options.duplicate(true)
 	generation_options["overwrite_existing"] = overwrite_existing
+	generation_options["label"] = "GFConfigAccessGenerator"
+	generation_options["generator_id"] = _ARTIFACT_OWNER
 	var generator: GFConfigAccessGenerator = GFConfigAccessGenerator.new()
-	var artifact_report: Dictionary = generator.generate_with_report(
-		schemas,
-		output_path,
-		class_name_value,
-		accessor,
-		generation_options
-	)
+	var generated_source: String = "%s\n%s" % [
+		_ACCESS_ARTIFACT_MARKER,
+		generator.build_source(schemas, class_name_value, accessor, generation_options),
+	]
+	var artifact_report: Dictionary = _GENERATED_ARTIFACT_REPORT_SCRIPT.save_text(output_path, generated_source, generation_options)
 	var generate_error: Error = _GENERATED_ARTIFACT_REPORT_SCRIPT.get_error_code(artifact_report)
 	var access_skipped: bool = (
 		GFVariantData.get_option_string_name(artifact_report, "status")
@@ -586,7 +741,7 @@ func generate_access(
 
 # --- 私有/辅助方法 ---
 
-func _read_text_file(path: String, table_name: StringName) -> Dictionary:
+func _read_text_file(path: String, table_name: StringName, options: Dictionary) -> Dictionary:
 	if path.is_empty():
 		return _make_table_failure(table_name, "missing_source_path", "配置表来源路径为空。")
 
@@ -602,10 +757,41 @@ func _read_text_file(path: String, table_name: StringName) -> Dictionary:
 				"error_code": open_error,
 			}
 		)
+	var max_source_file_bytes: int = GFVariantData.get_option_int(
+		options,
+		"max_source_file_bytes",
+		_DEFAULT_MAX_SOURCE_FILE_BYTES
+	)
+	var source_size: int = file.get_length()
+	if max_source_file_bytes >= 0 and source_size > max_source_file_bytes:
+		file.close()
+		return _make_table_failure(
+			table_name,
+			"source_budget_exceeded",
+			"配置表来源超过 max_source_file_bytes：%d > %d。" % [source_size, max_source_file_bytes],
+			{
+				"source": path,
+				"actual_value": source_size,
+				"expected_value": max_source_file_bytes,
+			}
+		)
 
+	var text: String = file.get_as_text()
+	var read_error: Error = file.get_error()
+	file.close()
+	if read_error != OK:
+		return _make_table_failure(
+			table_name,
+			"source_read_failed",
+			"读取配置表来源失败：%s。" % error_string(read_error),
+			{
+				"source": path,
+				"error_code": read_error,
+			}
+		)
 	return {
 		"success": true,
-		"text": file.get_as_text(),
+		"text": text,
 		"report": GFConfigValidationReport.new().make_report(table_name),
 		"source_path": path,
 		"format": _FORMAT_AUTO,
@@ -728,12 +914,24 @@ func _build_table_from_parse_result(
 
 
 func _parse_xlsx_file(path: String, options: Dictionary) -> Dictionary:
+	var file_limit: int = _get_xlsx_limit(options, "max_xlsx_file_bytes", _DEFAULT_MAX_XLSX_FILE_BYTES)
+	var size_file: FileAccess = FileAccess.open(path, FileAccess.READ)
+	if size_file == null:
+		return _make_xlsx_parse_failure("XLSX open failed: %s" % error_string(FileAccess.get_open_error()), path)
+	var file_size: int = int(size_file.get_length())
+	size_file.close()
+	if _is_xlsx_limit_exceeded(file_size, file_limit):
+		return _make_xlsx_parse_failure("XLSX file exceeds max_xlsx_file_bytes.", path)
+
 	var reader: ZIPReader = ZIPReader.new()
 	var open_error: Error = reader.open(path)
 	if open_error != OK:
 		return _make_xlsx_parse_failure("XLSX open failed: %s" % error_string(open_error), path)
 
 	var files: PackedStringArray = reader.get_files()
+	if _is_xlsx_limit_exceeded(files.size(), _get_xlsx_limit(options, "max_xlsx_entry_count", _DEFAULT_MAX_XLSX_ENTRY_COUNT)):
+		_close_zip_reader(reader)
+		return _make_xlsx_parse_failure("XLSX archive exceeds max_xlsx_entry_count.", path)
 	var shared_strings_result: Dictionary = _read_xlsx_shared_strings(reader, files, options)
 	if not GFVariantData.get_option_bool(shared_strings_result, "success"):
 		_close_zip_reader(reader)
@@ -954,7 +1152,15 @@ func _parse_xlsx_sheet(
 							current_row_number,
 							column_index + 1
 						)
-					current_cells[column_index] = _resolve_xlsx_cell_value(current_cell_value, current_cell_type, shared_strings)
+					var cell_result: Dictionary = _resolve_xlsx_cell_value(current_cell_value, current_cell_type, shared_strings)
+					if not GFVariantData.get_option_bool(cell_result, "success"):
+						return _make_xlsx_parse_failure(
+							GFVariantData.get_option_string(cell_result, "error"),
+							GFVariantData.get_option_string(options, "source"),
+							current_row_number,
+							column_index + 1
+						)
+					current_cells[column_index] = GFVariantData.get_option_string(cell_result, "value")
 				in_cell = false
 				in_value = false
 				in_inline_text = false
@@ -976,57 +1182,21 @@ func _parse_xlsx_sheet(
 
 
 func _xlsx_rows_to_parse_result(rows: Array[Dictionary], options: Dictionary) -> Dictionary:
-	var source: String = GFVariantData.get_option_string(options, "source")
-	var header_row_number: int = maxi(GFVariantData.get_option_int(options, "header_row", 1), 1)
 	var trim_cells: bool = GFVariantData.get_option_bool(options, "trim_cells", true)
-	var skip_empty_lines: bool = GFVariantData.get_option_bool(options, "skip_empty_lines", true)
-	var reject_duplicate_headers: bool = GFVariantData.get_option_bool(options, "reject_duplicate_headers", true)
-	var header: PackedStringArray = PackedStringArray()
-	var records: Array[Dictionary] = []
-	var row_locations: Array[Dictionary] = []
-	var data_row_index: int = 0
-	var header_found: bool = false
-
+	var parsed_rows: Array[PackedStringArray] = []
+	var row_numbers: PackedInt32Array = PackedInt32Array()
 	for row_info: Dictionary in rows:
 		var row_number: int = GFVariantData.get_option_int(row_info, "row_number")
 		var cells: Dictionary = GFVariantData.get_option_dictionary(row_info, "cells")
-		if row_number == header_row_number:
-			header_found = true
-			header = _xlsx_cells_to_row(cells, trim_cells)
-			var header_error: String = _validate_xlsx_header(header, reject_duplicate_headers)
-			if not header_error.is_empty():
-				return _make_xlsx_parse_failure(header_error, source, row_number, 1)
-			continue
-		if row_number <= header_row_number:
-			continue
+		parsed_rows.append(_xlsx_cells_to_row(cells, trim_cells))
+		var _row_number_appended: bool = row_numbers.append(row_number)
 
-		var row: PackedStringArray = _xlsx_cells_to_row(cells, trim_cells)
-		if skip_empty_lines and _xlsx_row_is_empty(row):
-			continue
-
-		var record: Dictionary = {}
-		for column_index: int in range(header.size()):
-			var key: StringName = StringName(header[column_index])
-			if key == &"":
-				continue
-			record[key] = row[column_index] if column_index < row.size() else ""
-		records.append(record)
-		row_locations.append(_make_xlsx_row_location(source, row_number, data_row_index, header))
-		data_row_index += 1
-
-	if not header_found:
-		return _make_xlsx_parse_failure("XLSX header row is missing.", source, header_row_number, 1)
-
-	return {
-		"success": true,
-		"data": records,
-		"header": header,
-		"row_locations": row_locations,
-		"error": "",
-		"error_line": 0,
-		"error_column": 0,
-		"source": source,
-	}
+	var row_options: Dictionary = options.duplicate(true)
+	row_options["row_numbers"] = row_numbers
+	row_options["require_header"] = true
+	row_options["reject_empty_header"] = true
+	row_options["error_prefix"] = "XLSX"
+	return GFConfigTableImporter.parse_rows_table(parsed_rows, row_options)
 
 
 func _xlsx_cells_to_row(cells: Dictionary, trim_cells: bool) -> PackedStringArray:
@@ -1047,71 +1217,38 @@ func _resolve_xlsx_cell_value(
 	raw_value: String,
 	cell_type: String,
 	shared_strings: PackedStringArray
-) -> String:
+) -> Dictionary:
 	var text: String = raw_value.strip_edges()
 	if cell_type == "s":
-		if text.is_valid_int():
-			var shared_index: int = text.to_int()
-			if shared_index >= 0 and shared_index < shared_strings.size():
-				return shared_strings[shared_index]
-		return ""
-	if cell_type == "b":
-		return "true" if text == "1" else "false"
-	return raw_value
-
-
-func _validate_xlsx_header(header: PackedStringArray, reject_duplicate_headers: bool) -> String:
-	var has_named_column: bool = false
-	var seen: Dictionary = {}
-	for column_name: String in header:
-		if column_name.is_empty():
-			continue
-		has_named_column = true
-		if seen.has(column_name):
-			return "XLSX header has duplicate column: %s" % column_name
-		if reject_duplicate_headers:
-			seen[column_name] = true
-	if not has_named_column:
-		return "XLSX header row is empty."
-	return ""
-
-
-func _make_xlsx_row_location(
-	source: String,
-	row_number: int,
-	row_index: int,
-	header: PackedStringArray
-) -> Dictionary:
-	var fields: Dictionary = {}
-	for column_index: int in range(header.size()):
-		var key: StringName = StringName(header[column_index])
-		if key == &"":
-			continue
-		var field_location: Dictionary = {
-			"line": row_number,
-			"column": column_index + 1,
-			"column_index": column_index,
+		if not text.is_valid_int():
+			return {
+				"success": false,
+				"value": "",
+				"error": "XLSX shared string index is invalid: %s." % text,
+			}
+		var shared_index: int = text.to_int()
+		if shared_index < 0 or shared_index >= shared_strings.size():
+			return {
+				"success": false,
+				"value": "",
+				"error": "XLSX shared string index is out of range: %d." % shared_index,
+			}
+		return {
+			"success": true,
+			"value": shared_strings[shared_index],
+			"error": "",
 		}
-		if not source.is_empty():
-			field_location["source"] = source
-		fields[key] = field_location
-		fields[String(key)] = field_location
-
-	var row_location: Dictionary = {
-		"line": row_number,
-		"row_index": row_index,
-		"fields": fields,
+	if cell_type == "b":
+		return {
+			"success": true,
+			"value": "true" if text == "1" else "false",
+			"error": "",
+		}
+	return {
+		"success": true,
+		"value": raw_value,
+		"error": "",
 	}
-	if not source.is_empty():
-		row_location["source"] = source
-	return row_location
-
-
-func _xlsx_row_is_empty(row: PackedStringArray) -> bool:
-	for cell: String in row:
-		if not cell.strip_edges().is_empty():
-			return false
-	return true
 
 
 func _xlsx_column_index_from_cell_ref(cell_ref: String) -> int:
@@ -1757,7 +1894,10 @@ func _make_profile_export_result(
 	access_result: Dictionary,
 	profile_id: StringName,
 	output_path: String,
-	message: String
+	message: String,
+	manifest_path: String = "",
+	manifest_result: Dictionary = {},
+	manifest: Dictionary = {}
 ) -> Dictionary:
 	return {
 		"success": success,
@@ -1767,10 +1907,49 @@ func _make_profile_export_result(
 		"build_result": _duplicate_database_result_dictionary(build_result),
 		"save_result": save_result.duplicate(true),
 		"access_result": access_result.duplicate(true),
+		"manifest_path": manifest_path,
+		"manifest": manifest.duplicate(true),
+		"manifest_result": manifest_result.duplicate(true),
 		"profile_id": profile_id,
 		"output_path": output_path,
 		"error": message,
 	}
+
+
+func _resolve_manifest_path(
+	profile: GFConfigPipelineProfile,
+	options: Dictionary,
+	manifest_helper: GFConfigPipelineArtifactManifest
+) -> String:
+	var explicit_path: String = GFVariantData.get_option_string(options, "manifest_path")
+	if not explicit_path.is_empty():
+		return explicit_path
+	if profile == null:
+		return ""
+	return manifest_helper.get_default_manifest_path(profile.resolve_output_path(options))
+
+
+func _should_write_manifest(options: Dictionary, manifest_path: String) -> bool:
+	if manifest_path.is_empty():
+		return false
+	return (
+		GFVariantData.get_option_bool(options, "changed_only")
+		or GFVariantData.get_option_bool(options, "write_manifest")
+		or not GFVariantData.get_option_string(options, "manifest_path").is_empty()
+	)
+
+
+func _make_manifest_options(options: Dictionary) -> Dictionary:
+	var result: Dictionary = GFVariantData.get_option_dictionary(options, "manifest_options").duplicate(true)
+	for key: String in PackedStringArray([
+		"allow_absolute_output_path",
+		"allow_gf_source_output",
+		"allow_parent_output_path",
+		"allow_unowned_overwrite",
+	]):
+		if options.has(key) and not result.has(key):
+			result[key] = options[key]
+	return result
 
 
 func _make_access_result(
@@ -1874,6 +2053,203 @@ func _duplicate_dictionary_without_keys(result: Dictionary, skipped_keys: Dictio
 	return copy
 
 
+func _capture_export_snapshots(paths: PackedStringArray) -> Dictionary:
+	var entries: Array[Dictionary] = []
+	var seen_paths: Dictionary = {}
+	var transaction_id: int = Time.get_ticks_usec()
+	for path: String in paths:
+		if path.is_empty() or seen_paths.has(path):
+			continue
+		seen_paths[path] = true
+		var exists: bool = FileAccess.file_exists(path)
+		var backup_path: String = ""
+		if exists:
+			backup_path = "%s.gf-config-transaction-%d-%d.bak" % [path, transaction_id, entries.size()]
+			var copy_error: Error = _copy_file(path, backup_path)
+			if copy_error != OK:
+				_discard_export_snapshots({ "entries": entries })
+				return {
+					"success": false,
+					"entries": [],
+					"error": "无法为导表事务创建回滚快照：%s (%s)。" % [path, error_string(copy_error)],
+				}
+		entries.append({
+			"path": path,
+			"existed": exists,
+			"backup_path": backup_path,
+		})
+	return {
+		"success": true,
+		"entries": entries,
+		"error": "",
+	}
+
+
+func _restore_export_snapshots(snapshot: Dictionary) -> PackedStringArray:
+	var issues: PackedStringArray = PackedStringArray()
+	var entries: Array = GFVariantData.get_option_array(snapshot, "entries")
+	for entry_index: int in range(entries.size() - 1, -1, -1):
+		var entry: Dictionary = GFVariantData.as_dictionary(entries[entry_index])
+		var path: String = GFVariantData.get_option_string(entry, "path")
+		var existed: bool = GFVariantData.get_option_bool(entry, "existed")
+		var backup_path: String = GFVariantData.get_option_string(entry, "backup_path")
+		if existed:
+			var remove_error: Error = _remove_file_path(path)
+			if remove_error != OK:
+				var _remove_issue_appended: bool = issues.append("无法移除失败产物 %s：%s" % [path, error_string(remove_error)])
+				continue
+			var restore_error: Error = DirAccess.rename_absolute(
+				ProjectSettings.globalize_path(backup_path),
+				ProjectSettings.globalize_path(path)
+			)
+			if restore_error != OK:
+				var _restore_issue_appended: bool = issues.append("无法恢复产物 %s：%s" % [path, error_string(restore_error)])
+		else:
+			var delete_error: Error = _remove_file_path(path)
+			if delete_error != OK:
+				var _delete_issue_appended: bool = issues.append("无法删除新增产物 %s：%s" % [path, error_string(delete_error)])
+	_discard_export_snapshots(snapshot)
+	return issues
+
+
+func _discard_export_snapshots(snapshot: Dictionary) -> void:
+	var entries: Array = GFVariantData.get_option_array(snapshot, "entries")
+	for entry_value: Variant in entries:
+		var entry: Dictionary = GFVariantData.as_dictionary(entry_value)
+		var backup_path: String = GFVariantData.get_option_string(entry, "backup_path")
+		if not backup_path.is_empty():
+			var _remove_backup_error: Error = _remove_file_path(backup_path)
+
+
+func _copy_file(source_path: String, target_path: String) -> Error:
+	var source_file: FileAccess = FileAccess.open(source_path, FileAccess.READ)
+	if source_file == null:
+		return FileAccess.get_open_error()
+	var target_file: FileAccess = FileAccess.open(target_path, FileAccess.WRITE)
+	if target_file == null:
+		var target_open_error: Error = FileAccess.get_open_error()
+		source_file.close()
+		return target_open_error
+	while source_file.get_position() < source_file.get_length():
+		var remaining: int = source_file.get_length() - source_file.get_position()
+		var chunk: PackedByteArray = source_file.get_buffer(mini(remaining, 64 * 1024))
+		if source_file.get_error() != OK:
+			var read_error: Error = source_file.get_error()
+			source_file.close()
+			target_file.close()
+			var _remove_partial_error: Error = _remove_file_path(target_path)
+			return read_error
+		var _store_chunk_result: Variant = target_file.store_buffer(chunk)
+		if target_file.get_error() != OK:
+			var write_error: Error = target_file.get_error()
+			source_file.close()
+			target_file.close()
+			var _remove_partial_error: Error = _remove_file_path(target_path)
+			return write_error
+	source_file.close()
+	target_file.close()
+	return OK
+
+
+func _remove_file_path(path: String) -> Error:
+	if path.is_empty() or not FileAccess.file_exists(path):
+		return OK
+	return DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
+
+
+func _validate_existing_artifact_ownership(
+	output_path: String,
+	artifact_kind: StringName,
+	options: Dictionary
+) -> String:
+	if not FileAccess.file_exists(output_path):
+		return ""
+	if not GFVariantData.get_option_bool(options, "overwrite_existing", true):
+		return ""
+	if GFVariantData.get_option_bool(options, "allow_unowned_overwrite", false):
+		return ""
+	if _is_owned_artifact(output_path, artifact_kind):
+		return ""
+	return "拒绝覆盖不属于 GF Config Pipeline 的已有产物：%s。若已人工确认所有权，请显式传入 allow_unowned_overwrite。" % output_path
+
+
+func _is_owned_artifact(output_path: String, artifact_kind: StringName) -> bool:
+	if artifact_kind == &"database_resource":
+		var loaded_value: Variant = ResourceLoader.load(output_path, "", ResourceLoader.CACHE_MODE_REPLACE)
+		if loaded_value is Resource:
+			var loaded_resource: Resource = loaded_value
+			return GFVariantData.to_text(loaded_resource.get_meta(_RESOURCE_ARTIFACT_OWNER_META, "")) == _ARTIFACT_OWNER
+		return false
+	var file: FileAccess = FileAccess.open(output_path, FileAccess.READ)
+	if file == null:
+		return false
+	var prefix_size: int = mini(file.get_length(), 64 * 1024)
+	var prefix: String = file.get_buffer(prefix_size).get_string_from_utf8()
+	file.close()
+	if artifact_kind == &"access":
+		return prefix.begins_with(_ACCESS_ARTIFACT_MARKER)
+	if artifact_kind == &"database_json":
+		return (
+			prefix.contains("\"%s\": \"%s\"" % [_ARTIFACT_OWNER_FIELD, _ARTIFACT_OWNER])
+			or prefix.contains("\"%s\":\"%s\"" % [_ARTIFACT_OWNER_FIELD, _ARTIFACT_OWNER])
+		)
+	return false
+
+
+func _validate_provider_accessor(accessor: String) -> String:
+	if accessor.length() > _MAX_PROVIDER_ACCESSOR_LENGTH:
+		return "provider_accessor 超过最大长度 %d。" % _MAX_PROVIDER_ACCESSOR_LENGTH
+	if accessor.contains("\n") or accessor.contains("\r"):
+		return "provider_accessor 必须是单行表达式。"
+	for forbidden: String in PackedStringArray([";", "#", "\\", "="]):
+		if accessor.contains(forbidden):
+			return "provider_accessor 包含不允许的语句字符：%s。" % forbidden
+	var expected_closings: PackedStringArray = PackedStringArray()
+	var quote: String = ""
+	var escaped: bool = false
+	for index: int in range(accessor.length()):
+		var character: String = accessor.substr(index, 1)
+		if not quote.is_empty():
+			if escaped:
+				escaped = false
+			elif character == "\\":
+				escaped = true
+			elif character == quote:
+				quote = ""
+			continue
+		if character == "\"" or character == "'":
+			quote = character
+		elif character == "(":
+			var _round_appended: bool = expected_closings.append(")")
+		elif character == "[":
+			var _square_appended: bool = expected_closings.append("]")
+		elif character == "{":
+			var _curly_appended: bool = expected_closings.append("}")
+		elif character == ")" or character == "]" or character == "}":
+			if expected_closings.is_empty() or expected_closings[expected_closings.size() - 1] != character:
+				return "provider_accessor 的括号不匹配。"
+			var _closing_removed: String = expected_closings[expected_closings.size() - 1]
+			var _resize_result: int = expected_closings.resize(expected_closings.size() - 1)
+	if not quote.is_empty() or not expected_closings.is_empty():
+		return "provider_accessor 包含未闭合的字符串或括号。"
+	return ""
+
+
+func _are_finite_floats(values: Array) -> bool:
+	for value: Variant in values:
+		var number: float = 0.0
+		if value is float:
+			number = value
+		elif value is int:
+			var integer_value: int = value
+			number = integer_value
+		else:
+			return false
+		if is_nan(number) or is_inf(number):
+			return false
+	return true
+
+
 func _make_pending_resource_artifact_report(
 	output_path: String,
 	output_format: StringName,
@@ -1946,18 +2322,28 @@ func _make_dry_run_options(options: Dictionary) -> Dictionary:
 
 
 func _validate_output_path_policy(output_path: String, options: Dictionary, artifact_label: String) -> String:
-	var normalized_path: String = output_path.replace("\\", "/").strip_edges()
-	if normalized_path.is_empty():
+	var raw_path: String = output_path.replace("\\", "/").strip_edges()
+	if raw_path.is_empty():
 		return "%s输出路径为空。" % artifact_label
-	if _has_unsupported_output_scheme(normalized_path):
+	if _has_unsupported_output_scheme(raw_path):
 		return "%s输出路径使用了不支持的 URI scheme：%s。" % [artifact_label, output_path]
-	if _path_has_parent_segment(normalized_path) and not GFVariantData.get_option_bool(options, "allow_parent_output_path", false):
+	if _path_has_parent_segment(raw_path) and not GFVariantData.get_option_bool(options, "allow_parent_output_path", false):
 		return "%s输出路径不能包含父级越界片段：%s。" % [artifact_label, output_path]
-	if _is_filesystem_absolute_path(normalized_path) and not GFVariantData.get_option_bool(options, "allow_absolute_output_path", false):
+	if _is_filesystem_absolute_path(raw_path):
 		return "%s输出路径不能是绝对文件系统路径：%s。" % [artifact_label, output_path]
+	var normalized_path: String = _normalize_output_path(raw_path)
 	if _is_gf_source_output_path(normalized_path) and not GFVariantData.get_option_bool(options, "allow_gf_source_output", false):
 		return "%s输出路径不能写入 GF 框架源码目录：%s。" % [artifact_label, output_path]
 	return ""
+
+
+func _normalize_output_path(path: String) -> String:
+	var normalized: String = path.replace("\\", "/").strip_edges()
+	if normalized.contains("://"):
+		var scheme: String = normalized.get_slice("://", 0).to_lower()
+		var body: String = normalized.get_slice("://", 1).simplify_path()
+		return "%s://%s" % [scheme, body]
+	return normalized.simplify_path()
 
 
 func _path_has_parent_segment(path: String) -> bool:
@@ -1998,6 +2384,19 @@ func _save_database_json(
 	output_path: String,
 	options: Dictionary
 ) -> Dictionary:
+	var ownership_error: String = _validate_existing_artifact_ownership(output_path, &"database_json", options)
+	if not ownership_error.is_empty():
+		var ownership_artifact_report: Dictionary = _make_resource_artifact_report(
+			output_path,
+			_OUTPUT_FORMAT_JSON,
+			_GENERATED_ARTIFACT_REPORT_SCRIPT.STATUS_FAILED,
+			ERR_UNAUTHORIZED,
+			ownership_error,
+			options,
+			false,
+			false
+		)
+		return _make_save_result(false, output_path, _OUTPUT_FORMAT_JSON, ERR_UNAUTHORIZED, ownership_error, ownership_artifact_report)
 	var export_result: Dictionary = _make_database_export_result(database, options)
 	if not GFVariantData.get_option_bool(export_result, "success"):
 		return _make_save_result(
@@ -2046,6 +2445,7 @@ func _make_database_export_result(database: GFConfigDatabaseResource, options: D
 	var export_data: Dictionary = {
 		"format": _JSON_EXPORT_FORMAT,
 		"format_version": _JSON_EXPORT_VERSION,
+		"artifact_owner": _ARTIFACT_OWNER,
 		"database_id": String(database.database_id),
 		"version": database.version,
 		"metadata": _to_json_compatible(database.metadata, state, 0),
@@ -2138,18 +2538,24 @@ func _to_json_compatible(value: Variant, state: Dictionary, depth: int) -> Varia
 			return String(node_path_value)
 		TYPE_VECTOR2:
 			var vector_2: Vector2 = value
+			if not _are_finite_floats([vector_2.x, vector_2.y]):
+				return _fail_json_export(state, "配置数据库 JSON 导出不支持包含 NaN 或 Inf 的 Vector2。")
 			return _make_json_variant("Vector2", [vector_2.x, vector_2.y])
 		TYPE_VECTOR2I:
 			var vector_2i: Vector2i = value
 			return _make_json_variant("Vector2i", [vector_2i.x, vector_2i.y])
 		TYPE_VECTOR3:
 			var vector_3: Vector3 = value
+			if not _are_finite_floats([vector_3.x, vector_3.y, vector_3.z]):
+				return _fail_json_export(state, "配置数据库 JSON 导出不支持包含 NaN 或 Inf 的 Vector3。")
 			return _make_json_variant("Vector3", [vector_3.x, vector_3.y, vector_3.z])
 		TYPE_VECTOR3I:
 			var vector_3i: Vector3i = value
 			return _make_json_variant("Vector3i", [vector_3i.x, vector_3i.y, vector_3i.z])
 		TYPE_COLOR:
 			var color_value: Color = value
+			if not _are_finite_floats([color_value.r, color_value.g, color_value.b, color_value.a]):
+				return _fail_json_export(state, "配置数据库 JSON 导出不支持包含 NaN 或 Inf 的 Color。")
 			return _make_json_variant("Color", [color_value.r, color_value.g, color_value.b, color_value.a])
 		TYPE_ARRAY:
 			return _array_to_json_compatible(value, state, depth)

@@ -1,6 +1,6 @@
 # Audio Bank 与配置工具
 
-本组页面说明 `GFAudioBank` 的分层事件 ID、候选片段、fallback 播放，以及 `GFAudioBankTools` 的扫描、导入和播放前校验。
+本组页面说明 `GFAudioBank` 的分层事件 ID、候选片段、fallback 播放，以及可选 `gf.standard.audio.editor` 工具包中 `GFAudioBankTools` 的扫描、导入和播放前校验。
 
 ## 阅读入口
 

@@ -12,10 +12,11 @@ extends RefCounted
 ## [br]
 ## @return 模板记录列表。
 ## [br]
-## @schema return: Array[Dictionary]，每个值包含 type、label、section、base_class、template。
+## @schema return: Array[Dictionary]，每个值包含 source_id、type、label、section、base_class、template。
 func get_template_records() -> Array[Dictionary]:
 	return [
 		{
+			"source_id": "gf.extension.capability:template.capability",
 			"type": "Capability",
 			"label": "生成 Capability",
 			"section": "扩展模板",
@@ -23,6 +24,7 @@ func get_template_records() -> Array[Dictionary]:
 			"template": _get_capability_template(),
 		},
 		{
+			"source_id": "gf.extension.capability:template.node_capability",
 			"type": "NodeCapability",
 			"label": "生成 NodeCapability",
 			"section": "扩展模板",
@@ -30,6 +32,7 @@ func get_template_records() -> Array[Dictionary]:
 			"template": _get_capability_template(),
 		},
 		{
+			"source_id": "gf.extension.capability:template.node_2d_capability",
 			"type": "Node2DCapability",
 			"label": "生成 Node2DCapability",
 			"section": "扩展模板",
@@ -37,6 +40,7 @@ func get_template_records() -> Array[Dictionary]:
 			"template": _get_capability_template(),
 		},
 		{
+			"source_id": "gf.extension.capability:template.node_3d_capability",
 			"type": "Node3DCapability",
 			"label": "生成 Node3DCapability",
 			"section": "扩展模板",
@@ -44,6 +48,7 @@ func get_template_records() -> Array[Dictionary]:
 			"template": _get_capability_template(),
 		},
 		{
+			"source_id": "gf.extension.capability:template.control_capability",
 			"type": "ControlCapability",
 			"label": "生成 ControlCapability",
 			"section": "扩展模板",
@@ -57,6 +62,7 @@ func get_template_records() -> Array[Dictionary]:
 
 func _get_capability_template() -> String:
 	return """## {ClassName}: TODO。
+## [br]
 ## @api public
 ## [br]
 ## @category protocol
@@ -84,16 +90,13 @@ extends {BaseClass}
 # --- 私有变量 ---
 
 
-# --- @onready 变量 (节点引用) ---
-
-
 # --- 公共方法 ---
 
 ## 返回移除当前能力时对自动补齐依赖能力的处理策略。
 ## [br]
 ## @api public
 ## [br]
-## @return: GFCapabilityUtility.DependencyRemovalPolicy 枚举值。
+## @return GFCapabilityUtility.DependencyRemovalPolicy 枚举值。
 func get_dependency_removal_policy() -> int:
 	return super.get_dependency_removal_policy()
 

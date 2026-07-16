@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "id": "gf.standard.settings",
+  "kind": "standard",
+  "version": "unreleased",
+  "display_name": "GF Standard Settings",
+  "description": "Generic runtime settings definitions, staging, validation, and persistence through GFStorageUtility.",
+  "dependencies": [
+    "gf.kernel",
+    "gf.standard.base",
+    "gf.standard.storage"
+  ],
+  "paths": [
+    "addons/gf/standard/utilities/settings/**"
+  ],
+  "metadata": {
+    "stage": "standard-ui-core-split-v1"
+  }
+}

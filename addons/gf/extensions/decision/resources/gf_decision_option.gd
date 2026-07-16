@@ -31,6 +31,11 @@ enum Aggregation {
 }
 
 
+# --- 常量 ---
+
+const _GF_DECISION_NUMERIC_POLICY = preload("res://addons/gf/extensions/decision/runtime/gf_decision_numeric_policy.gd")
+
+
 # --- 导出变量 ---
 
 ## 候选决策标识。
@@ -167,29 +172,77 @@ func score(context: GFDecisionContext) -> GFDecisionScore:
 ## [br]
 ## @schema return: 包含 decision_id、display_name、enabled、aggregation、base_score 和 score 字段的 Dictionary。
 func get_debug_snapshot(score_snapshot: GFDecisionScore = null) -> Dictionary:
-	return {
+	return GFReportValueCodec.to_report_dictionary({
 		"decision_id": decision_id,
 		"display_name": display_name,
 		"enabled": enabled,
 		"aggregation": aggregation,
-		"base_score": base_score,
+		"base_score": _normalized_score(base_score),
 		"score": score_snapshot.to_dictionary() if score_snapshot != null else {},
+	})
+
+
+## 获取候选资源的 authoring 校验报告。
+## [br]
+## @api public
+## [br]
+## @return GFValidationReportDictionary 兼容报告。
+## [br]
+## @since 8.0.0
+## [br]
+## @schema return: Dictionary with ok, healthy, decision_id, issues, summary, and next_action.
+func get_validation_report() -> Dictionary:
+	var report: Dictionary = {
+		"subject": "Decision option",
+		"decision_id": decision_id,
+		"issues": [],
 	}
+	if decision_id == &"":
+		_append_validation_issue(report, &"missing_decision_id", "decision_id is required", "decision_id")
+	if not _GF_DECISION_NUMERIC_POLICY.is_valid_score(base_score):
+		_append_validation_issue(report, &"invalid_base_score", "base_score must be finite and within 0 to 1", "base_score")
+	if aggregation < Aggregation.MULTIPLY or aggregation > Aggregation.MAX:
+		_append_validation_issue(report, &"invalid_aggregation", "aggregation is not supported", "aggregation")
+
+	var seen_ids: Dictionary = {}
+	for index: int in range(considerations.size()):
+		var consideration: GFDecisionConsideration = considerations[index]
+		if consideration == null:
+			_append_validation_issue(report, &"missing_consideration", "consideration is null", "considerations[%d]" % index)
+			continue
+		if consideration.consideration_id == &"":
+			_append_validation_issue(report, &"missing_consideration_id", "consideration_id is required", "considerations[%d].consideration_id" % index)
+		elif seen_ids.has(consideration.consideration_id):
+			_append_validation_issue(report, &"duplicate_consideration_id", "consideration_id is duplicated", "considerations[%d].consideration_id" % index)
+		else:
+			seen_ids[consideration.consideration_id] = true
+		_append_consideration_configuration_issues(report, consideration, index)
+
+	return GFValidationReportDictionary.finalize_report(report, "Decision option", {
+		"fallback_action": "Review the first decision option issue.",
+		"no_action": "Decision option is valid.",
+	})
 
 
 # --- 私有/辅助方法 ---
 
 func _score_considerations(context: GFDecisionContext) -> Array[Dictionary]:
 	var details: Array[Dictionary] = []
+	var seen_considerations: Dictionary = {}
 	for consideration: GFDecisionConsideration in considerations:
 		if consideration == null or not consideration.enabled:
 			continue
+		if consideration.consideration_id == &"" or seen_considerations.has(consideration.consideration_id):
+			continue
+		seen_considerations[consideration.consideration_id] = true
 		var raw_score: float = consideration.score(context)
-		var weighted_score: float = _apply_weight(raw_score, consideration.weight)
+		var normalized_score: float = _normalized_score(raw_score)
+		var normalized_weight: float = _GF_DECISION_NUMERIC_POLICY.normalize_weight(consideration.weight)
+		var weighted_score: float = _apply_weight(normalized_score, normalized_weight)
 		details.append({
 			"consideration_id": consideration.consideration_id,
-			"score": raw_score,
-			"weight": consideration.weight,
+			"score": normalized_score,
+			"weight": normalized_weight,
 			"weighted_score": weighted_score,
 		})
 	return details
@@ -197,7 +250,7 @@ func _score_considerations(context: GFDecisionContext) -> Array[Dictionary]:
 
 func _aggregate_scores(details: Array[Dictionary]) -> float:
 	if details.is_empty():
-		return clampf(base_score, 0.0, 1.0)
+		return _normalized_score(base_score)
 
 	match aggregation:
 		Aggregation.WEIGHTED_AVERAGE:
@@ -213,50 +266,105 @@ func _aggregate_scores(details: Array[Dictionary]) -> float:
 
 
 func _aggregate_multiply(details: Array[Dictionary]) -> float:
-	var result: float = clampf(base_score, 0.0, 1.0)
+	var result: float = _normalized_score(base_score)
 	for detail: Dictionary in details:
-		result *= GFVariantData.get_option_float(detail, "weighted_score", 1.0)
-	return clampf(result, 0.0, 1.0)
+		result = _normalized_score(result * _normalized_score(GFVariantData.get_option_float(detail, "weighted_score", 1.0)))
+	return result
 
 
 func _aggregate_weighted_average(details: Array[Dictionary]) -> float:
-	var total: float = 0.0
-	var total_weight: float = 0.0
+	var maximum_weight: float = 0.0
 	for detail: Dictionary in details:
-		var weight: float = maxf(GFVariantData.get_option_float(detail, "weight", 1.0), 0.0)
-		if weight <= 0.0:
+		maximum_weight = maxf(
+			maximum_weight,
+			_GF_DECISION_NUMERIC_POLICY.normalize_weight(GFVariantData.get_option_float(detail, "weight"))
+		)
+	if maximum_weight <= 0.0:
+		return _normalized_score(base_score)
+
+	var normalized_total: float = 0.0
+	var normalized_weight_total: float = 0.0
+	for detail: Dictionary in details:
+		var normalized_weight: float = (
+			_GF_DECISION_NUMERIC_POLICY.normalize_weight(GFVariantData.get_option_float(detail, "weight"))
+			/ maximum_weight
+		)
+		if normalized_weight <= 0.0:
 			continue
-		total += GFVariantData.get_option_float(detail, "score", 0.0) * weight
-		total_weight += weight
-	if total_weight <= 0.0:
-		return clampf(base_score, 0.0, 1.0)
-	return clampf(clampf(base_score, 0.0, 1.0) * (total / total_weight), 0.0, 1.0)
+		normalized_total += _normalized_score(GFVariantData.get_option_float(detail, "score")) * normalized_weight
+		normalized_weight_total += normalized_weight
+	if normalized_weight_total <= 0.0 or not is_finite(normalized_weight_total):
+		return _normalized_score(base_score)
+	return _normalized_score(_normalized_score(base_score) * (normalized_total / normalized_weight_total))
 
 
 func _aggregate_sum(details: Array[Dictionary]) -> float:
-	var result: float = clampf(base_score, 0.0, 1.0)
+	var result: float = _normalized_score(base_score)
 	for detail: Dictionary in details:
-		result += GFVariantData.get_option_float(detail, "score", 0.0) * maxf(GFVariantData.get_option_float(detail, "weight", 1.0), 0.0)
-	return clampf(result, 0.0, 1.0)
+		result = _normalized_score(result + _GF_DECISION_NUMERIC_POLICY.saturating_contribution(
+			GFVariantData.get_option_float(detail, "score"),
+			GFVariantData.get_option_float(detail, "weight")
+		))
+	return result
 
 
 func _aggregate_min(details: Array[Dictionary]) -> float:
 	var result: float = 1.0
 	for detail: Dictionary in details:
-		result = minf(result, GFVariantData.get_option_float(detail, "score", 0.0))
-	return clampf(clampf(base_score, 0.0, 1.0) * result, 0.0, 1.0)
+		result = minf(result, _normalized_score(GFVariantData.get_option_float(detail, "score")))
+	return _normalized_score(_normalized_score(base_score) * result)
 
 
 func _aggregate_max(details: Array[Dictionary]) -> float:
 	var result: float = 0.0
 	for detail: Dictionary in details:
-		result = maxf(result, GFVariantData.get_option_float(detail, "score", 0.0))
-	return clampf(clampf(base_score, 0.0, 1.0) * result, 0.0, 1.0)
+		result = maxf(result, _normalized_score(GFVariantData.get_option_float(detail, "score")))
+	return _normalized_score(_normalized_score(base_score) * result)
 
 
 func _apply_weight(raw_score: float, raw_weight: float) -> float:
-	var normalized_score: float = clampf(raw_score, 0.0, 1.0)
-	var normalized_weight: float = maxf(raw_weight, 0.0)
+	var normalized_score: float = _normalized_score(raw_score)
+	var normalized_weight: float = _GF_DECISION_NUMERIC_POLICY.normalize_weight(raw_weight)
 	if normalized_weight <= 0.0:
 		return 1.0
-	return clampf(pow(normalized_score, normalized_weight), 0.0, 1.0)
+	return _normalized_score(pow(normalized_score, normalized_weight))
+
+
+func _normalized_score(value: float) -> float:
+	return _GF_DECISION_NUMERIC_POLICY.normalize_score(value)
+
+
+func _append_consideration_configuration_issues(
+	report: Dictionary,
+	consideration: GFDecisionConsideration,
+	index: int
+) -> void:
+	var base_path: String = "considerations[%d]" % index
+	if not _GF_DECISION_NUMERIC_POLICY.is_valid_weight(consideration.weight):
+		_append_validation_issue(report, &"invalid_consideration_weight", "weight must be finite and non-negative", "%s.weight" % base_path)
+	if not is_finite(consideration.default_input):
+		_append_validation_issue(report, &"invalid_default_input", "default_input must be finite", "%s.default_input" % base_path)
+	if not is_finite(consideration.input_min) or not is_finite(consideration.input_max):
+		_append_validation_issue(report, &"invalid_input_range", "input range must be finite", "%s.input_range" % base_path)
+	if not _GF_DECISION_NUMERIC_POLICY.is_valid_score(consideration.missing_score):
+		_append_validation_issue(report, &"invalid_missing_score", "missing_score must be finite and within 0 to 1", "%s.missing_score" % base_path)
+	if consideration.input_source < GFDecisionConsideration.InputSource.BLACKBOARD or consideration.input_source > GFDecisionConsideration.InputSource.TARGET:
+		_append_validation_issue(report, &"invalid_input_source", "input_source is not supported", "%s.input_source" % base_path)
+
+
+func _append_validation_issue(
+	report: Dictionary,
+	kind: StringName,
+	message: String,
+	path: String
+) -> void:
+	var _issue: Dictionary = GFValidationReportDictionary.append_issue(
+		report,
+		"error",
+		kind,
+		message,
+		{
+			"key": decision_id,
+			"path": path,
+		}
+	)

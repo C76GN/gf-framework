@@ -16,13 +16,17 @@
 | 类型 | 名称 | 签名 |
 |---|---|---|
 | 枚举 | [`Mode`](#member-gfruntimetaskgroup-enums-mode) | `enum Mode` |
-| 属性 | [`tasks`](#member-gfruntimetaskgroup-properties-tasks) | `var tasks: Array[GFRuntimeTask] = []` |
-| 属性 | [`mode`](#member-gfruntimetaskgroup-properties-mode) | `var mode: Mode = Mode.SEQUENCE` |
+| 常量 | [`REJECTION_CHILD_SCHEDULED`](#member-gfruntimetaskgroup-constants-rejection_child_scheduled) | `const REJECTION_CHILD_SCHEDULED: StringName = &"group_child_scheduled"` |
+| 常量 | [`REJECTION_PARALLEL_REQUIREMENT_CONFLICT`](#member-gfruntimetaskgroup-constants-rejection_parallel_requirement_conflict) | `const REJECTION_PARALLEL_REQUIREMENT_CONFLICT: StringName = &"group_parallel_requirement_conflict"` |
 | 属性 | [`cancel_remaining_on_finish`](#member-gfruntimetaskgroup-properties-cancel_remaining_on_finish) | `var cancel_remaining_on_finish: bool = true` |
 | 方法 | [`_init`](#member-gfruntimetaskgroup-methods-_init) | `func _init(p_tasks: Array[GFRuntimeTask] = [], p_mode: Mode = Mode.SEQUENCE) -> void:` |
+| 方法 | [`set_tasks`](#member-gfruntimetaskgroup-methods-set_tasks) | `func set_tasks(next_tasks: Array[GFRuntimeTask]) -> bool:` |
+| 方法 | [`set_mode`](#member-gfruntimetaskgroup-methods-set_mode) | `func set_mode(next_mode: Mode) -> bool:` |
+| 方法 | [`get_mode`](#member-gfruntimetaskgroup-methods-get_mode) | `func get_mode() -> Mode:` |
 | 方法 | [`add_task`](#member-gfruntimetaskgroup-methods-add_task) | `func add_task(task: GFRuntimeTask) -> GFRuntimeTaskGroup:` |
 | 方法 | [`remove_task`](#member-gfruntimetaskgroup-methods-remove_task) | `func remove_task(task: GFRuntimeTask) -> bool:` |
 | 方法 | [`rebuild_requirements`](#member-gfruntimetaskgroup-methods-rebuild_requirements) | `func rebuild_requirements() -> void:` |
+| 方法 | [`get_requirements`](#member-gfruntimetaskgroup-methods-get_requirements) | `func get_requirements() -> Array[Object]:` |
 | 方法 | [`get_tasks`](#member-gfruntimetaskgroup-methods-get_tasks) | `func get_tasks() -> Array[GFRuntimeTask]:` |
 | 方法 | [`initialize`](#member-gfruntimetaskgroup-methods-initialize) | `func initialize(scheduler: GFRuntimeTaskScheduler) -> void:` |
 | 方法 | [`tick`](#member-gfruntimetaskgroup-methods-tick) | `func tick(delta: float) -> void:` |
@@ -52,33 +56,35 @@ enum Mode {
 
 子任务推进模式。
 
+## 常量
+
+<a id="member-gfruntimetaskgroup-constants-rejection_child_scheduled"></a>
+
+### `REJECTION_CHILD_SCHEDULED`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+const REJECTION_CHILD_SCHEDULED: StringName = &"group_child_scheduled"
+```
+
+子任务已被其他调度器或任务组持有时的拒绝原因。
+
+<a id="member-gfruntimetaskgroup-constants-rejection_parallel_requirement_conflict"></a>
+
+### `REJECTION_PARALLEL_REQUIREMENT_CONFLICT`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+const REJECTION_PARALLEL_REQUIREMENT_CONFLICT: StringName = &"group_parallel_requirement_conflict"
+```
+
+并行任务组存在组内 requirement 冲突时的拒绝原因。
+
 ## 属性
-
-<a id="member-gfruntimetaskgroup-properties-tasks"></a>
-
-### `tasks`
-
-- API：`public`
-- 首次版本：`6.0.0`
-
-```gdscript
-var tasks: Array[GFRuntimeTask] = []
-```
-
-子任务列表。
-
-<a id="member-gfruntimetaskgroup-properties-mode"></a>
-
-### `mode`
-
-- API：`public`
-- 首次版本：`6.0.0`
-
-```gdscript
-var mode: Mode = Mode.SEQUENCE
-```
-
-子任务推进模式。
 
 <a id="member-gfruntimetaskgroup-properties-cancel_remaining_on_finish"></a>
 
@@ -91,7 +97,7 @@ var mode: Mode = Mode.SEQUENCE
 var cancel_remaining_on_finish: bool = true
 ```
 
-[member mode] 为 [enum Mode.PARALLEL_RACE] 时，首个子任务完成后是否中断其他子任务。
+[method get_mode] 为 [enum Mode.PARALLEL_RACE] 时，首个子任务完成后是否中断其他子任务。
 
 ## 方法
 
@@ -114,6 +120,63 @@ func _init(p_tasks: Array[GFRuntimeTask] = [], p_mode: Mode = Mode.SEQUENCE) -> 
 |---|---|
 | `p_tasks` | 初始子任务列表。 |
 | `p_mode` | 子任务推进模式。 |
+
+<a id="member-gfruntimetaskgroup-methods-set_tasks"></a>
+
+### `set_tasks`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func set_tasks(next_tasks: Array[GFRuntimeTask]) -> bool:
+```
+
+原子替换子任务列表，并重建任务组 requirement。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `next_tasks` | 新的子任务列表；不接受空值、重复实例或已调度任务。 |
+
+返回：全部校验通过并完成替换时返回 true。
+
+<a id="member-gfruntimetaskgroup-methods-set_mode"></a>
+
+### `set_mode`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func set_mode(next_mode: Mode) -> bool:
+```
+
+设置子任务推进模式。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `next_mode` | 新的推进模式。 |
+
+返回：模式有效、任务组未锁定且现有子任务满足新模式约束时返回 true。
+
+<a id="member-gfruntimetaskgroup-methods-get_mode"></a>
+
+### `get_mode`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func get_mode() -> Mode:
+```
+
+返回子任务推进模式。
+
+返回：当前推进模式。
 
 <a id="member-gfruntimetaskgroup-methods-add_task"></a>
 
@@ -169,6 +232,21 @@ func rebuild_requirements() -> void:
 ```
 
 重建任务组 requirement 聚合。
+
+<a id="member-gfruntimetaskgroup-methods-get_requirements"></a>
+
+### `get_requirements`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func get_requirements() -> Array[Object]:
+```
+
+返回当前子任务聚合后的占用对象副本。
+
+返回：仍然有效的占用对象副本。
 
 <a id="member-gfruntimetaskgroup-methods-get_tasks"></a>
 

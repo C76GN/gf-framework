@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFLogSink" path="addons/gf/standard/utilities/logging/gf_log_sink.gd" module="standard" extends="RefCounted" classDigest="498c277ca4c2340df86193c1c2ed12bde3e65847bcfd75c07cdbc46a73ae0dea">
+<class name="GFLogSink" path="addons/gf/standard/utilities/logging/gf_log_sink.gd" module="standard" extends="RefCounted" classDigest="13afd91ee002e13b87450dac32ff20edc83a264de710833362a8ba001d659f70">
 	<description>GFLogSink: 日志输出 sink 基类。
 项目可以继承该类，把 GFLogUtility 的结构化日志条目写入 JSONL、
 远端采集、编辑器面板或其他自定义目标。Sink 不拥有日志工具生命周期，
@@ -14,6 +14,17 @@
 	<constants />
 	<properties />
 	<methods>
+		<member kind="method" name="get_report_redaction_profile">
+			<signature>func get_report_redaction_profile() -&gt; String:</signature>
+			<description>获取该输出边界使用的报告脱敏 profile。
+未知 sink 默认采用 public；仅本地、受控的诊断 sink 应显式覆盖为 debug。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">GFReportValueCodec REDACTION_PROFILE_* 常量之一。</tag>
+				<tag name="schema">return: String naming one GFReportValueCodec redaction profile.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
 		<member kind="method" name="init">
 			<signature>func init(_owner: Object) -&gt; void:</signature>
 			<description>初始化 sink。</description>

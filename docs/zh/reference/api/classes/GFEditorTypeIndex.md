@@ -9,7 +9,7 @@
 - 类别：编辑器 API (`editor_api`)
 - 首次版本：`3.17.0`
 
-编辑器侧 GF 类型查询工具。 集中扫描 class_name 脚本与能力场景，供代码生成器和 Inspector 工具复用。
+编辑器侧 GF 类型查询工具。 集中扫描 class_name 脚本与能力场景，供代码生成器和 Inspector 工具复用。 默认实例只使用短生命周期缓存；需要监听 EditorFileSystem 变更时必须显式绑定 owner 启用 live 失效。
 
 ## 成员概览
 
@@ -21,6 +21,10 @@
 | 方法 | [`collect_scene_roots_extending`](#member-gfeditortypeindex-methods-collect_scene_roots_extending) | `func collect_scene_roots_extending( base_script: Script, used_paths: Dictionary = {}, root_paths: PackedStringArray = PackedStringArray(), options: Dictionary = {} ) -> Array[Dictionary]:` |
 | 方法 | [`get_scene_root_script`](#member-gfeditortypeindex-methods-get_scene_root_script) | `func get_scene_root_script(path: String) -> Script:` |
 | 方法 | [`clear_cache`](#member-gfeditortypeindex-methods-clear_cache) | `func clear_cache() -> void:` |
+| 方法 | [`enable_live_invalidation`](#member-gfeditortypeindex-methods-enable_live_invalidation) | `func enable_live_invalidation(owner: Object) -> bool:` |
+| 方法 | [`disable_live_invalidation`](#member-gfeditortypeindex-methods-disable_live_invalidation) | `func disable_live_invalidation() -> void:` |
+| 方法 | [`is_live_invalidation_enabled`](#member-gfeditortypeindex-methods-is_live_invalidation_enabled) | `func is_live_invalidation_enabled() -> bool:` |
+| 方法 | [`dispose`](#member-gfeditortypeindex-methods-dispose) | `func dispose() -> void:` |
 
 ## 常量
 
@@ -135,3 +139,65 @@ func clear_cache() -> void:
 ```
 
 清空脚本和场景根脚本缓存。
+
+<a id="member-gfeditortypeindex-methods-enable_live_invalidation"></a>
+
+### `enable_live_invalidation`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func enable_live_invalidation(owner: Object) -> bool:
+```
+
+启用 EditorFileSystem 变更驱动的 live 缓存失效。 短生命周期扫描不需要调用该方法；长期持有的编辑器工具应传入自己的生命周期 owner。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `owner` | live 订阅生命周期 owner。 |
+
+返回：成功进入 live 缓存失效模式时返回 true。
+
+<a id="member-gfeditortypeindex-methods-disable_live_invalidation"></a>
+
+### `disable_live_invalidation`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func disable_live_invalidation() -> void:
+```
+
+停止 EditorFileSystem 变更驱动的 live 缓存失效。
+
+<a id="member-gfeditortypeindex-methods-is_live_invalidation_enabled"></a>
+
+### `is_live_invalidation_enabled`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func is_live_invalidation_enabled() -> bool:
+```
+
+返回当前是否处于 live 缓存失效模式。
+
+返回：至少存在一个活动 live 订阅时返回 true。
+
+<a id="member-gfeditortypeindex-methods-dispose"></a>
+
+### `dispose`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func dispose() -> void:
+```
+
+释放类型索引持有的编辑器信号订阅和缓存。

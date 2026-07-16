@@ -22,6 +22,24 @@ func test_heightfield_samples_world_height_and_normal() -> void:
 	assert_true(normal.y > 0.0, "高度场法线应朝向上方半球。")
 
 
+func test_heightfield_samples_slope_with_shared_normal_metric() -> void:
+	var flat_heightfield: GFHeightfield3D = _make_flat_heightfield()
+	var gradient_heightfield: GFHeightfield3D = _make_gradient_heightfield()
+	var low_scale_slope: float = gradient_heightfield.sample_slope_world(5.0, 5.0, 0.25)
+	var high_scale_slope: float = gradient_heightfield.sample_slope_world(5.0, 5.0, 2.0)
+	var grid_slope: float = gradient_heightfield.sample_slope_grid(Vector2(0.5, 0.5), 1.0)
+	var world_slope: float = gradient_heightfield.sample_slope_world(5.0, 5.0, 1.0)
+
+	assert_true(absf(GFHeightfield3D.normal_to_slope(Vector3.UP)) <= 0.001, "朝上法线应映射为平面坡度。")
+	assert_true(absf(GFHeightfield3D.normal_to_slope(Vector3.RIGHT) - 1.0) <= 0.001, "水平法线应映射为最大坡度。")
+	assert_true(absf(GFHeightfield3D.normal_to_slope(Vector3.ZERO) - 1.0) <= 0.001, "无效法线应按保守坡度处理。")
+	assert_true(absf(flat_heightfield.sample_slope_world(5.0, 5.0)) <= 0.001, "平面高度场坡度应接近 0。")
+	assert_true(low_scale_slope > 0.0, "斜面高度场应产生非零坡度。")
+	assert_true(high_scale_slope > low_scale_slope, "更大的 vertical_scale 应产生更高坡度。")
+	assert_true(absf(grid_slope - world_slope) <= 0.001, "网格和世界坡度采样应共享语义。")
+	assert_true(absf(gradient_heightfield.sample_slope_world(99.0, 99.0) - 1.0) <= 0.001, "无效世界坐标应按保守坡度处理。")
+
+
 func test_heightfield_rejects_invalid_configuration_without_overwriting_previous_data() -> void:
 	var heightfield: GFHeightfield3D = _make_gradient_heightfield()
 	var invalid_samples: PackedFloat32Array = PackedFloat32Array([1.0, 2.0, 3.0])
@@ -140,6 +158,28 @@ func test_scatter_heightfield_is_deterministic_and_returns_transforms() -> void:
 		assert_true(first_transform.basis.y.normalized().dot(Vector3.UP) > 0.999, "平面散布的 Y 轴应对齐上法线。")
 
 
+func test_surface_scatter_report_has_json_compatible_export() -> void:
+	var report: Dictionary = GFSurfaceScatterSampler3D.sample_points(
+		PackedVector2Array([Vector2(1.0, 2.0)]),
+		func(world_x: float, world_z: float) -> float:
+			return world_x + world_z,
+		func(_world_x: float, _world_z: float, _vertical_scale: float) -> Vector3:
+			return Vector3.UP,
+		{
+			"seed": 5,
+			"yaw_min": 0.0,
+			"yaw_max": 0.0,
+			"scale_min": 1.0,
+			"scale_max": 1.0,
+		}
+	)
+	var safe_report: Dictionary = GFSurfaceScatterSampler3D.to_json_compatible_report(report)
+	var json_text: String = JSON.stringify(safe_report)
+
+	assert_false(json_text.is_empty(), "JSON-safe SurfaceScatter 报告应可序列化。")
+	assert_false(json_text.contains(":null"), "JSON-safe SurfaceScatter 报告不应依赖 JSON.stringify 降级非法值。")
+
+
 func test_scatter_points_supports_custom_providers_and_caps_results() -> void:
 	var points: PackedVector2Array = PackedVector2Array([
 		Vector2(1.0, 1.0),
@@ -171,6 +211,53 @@ func test_scatter_points_supports_custom_providers_and_caps_results() -> void:
 	assert_eq(GFVariantData.get_option_int(report, "accepted_count"), 2, "前两个候选点应被接受。")
 	assert_eq(first_transform.origin, Vector3(1.0, 3.0, 1.0), "高度和 y_offset 应写入 Transform 原点。")
 	assert_true(absf(first_transform.basis.x.length() - 2.0) <= 0.001, "scale 选项应缩放 Transform basis。")
+
+
+func test_scatter_points_supports_vector3_scale_and_axis_lock() -> void:
+	var points: PackedVector2Array = PackedVector2Array([
+		Vector2(1.0, 1.0),
+	])
+	var fixed_report: Dictionary = GFSurfaceScatterSampler3D.sample_points(
+		points,
+		func(_world_x: float, _world_z: float) -> float:
+			return 0.0,
+		func(_world_x: float, _world_z: float, _vertical_scale: float) -> Vector3:
+			return Vector3.UP,
+		{
+			"seed": 3,
+			"scale_min": Vector3(1.0, 2.0, 3.0),
+			"scale_max": Vector3(1.0, 2.0, 3.0),
+			"scale_axis_mode": "free",
+			"yaw_min": 0.0,
+			"yaw_max": 0.0,
+			"align_to_normal": false,
+		}
+	)
+	var locked_report: Dictionary = GFSurfaceScatterSampler3D.sample_points(
+		points,
+		func(_world_x: float, _world_z: float) -> float:
+			return 0.0,
+		func(_world_x: float, _world_z: float, _vertical_scale: float) -> Vector3:
+			return Vector3.UP,
+		{
+			"seed": 5,
+			"scale_min": Vector3.ONE,
+			"scale_max": Vector3(2.0, 2.0, 2.0),
+			"scale_axis_mode": "lock_xy",
+			"yaw_min": 0.0,
+			"yaw_max": 0.0,
+			"align_to_normal": false,
+		}
+	)
+	var fixed_transform: Transform3D = _transform_at(GFVariantData.get_option_array(fixed_report, "transforms"), 0)
+	var locked_transform: Transform3D = _transform_at(GFVariantData.get_option_array(locked_report, "transforms"), 0)
+
+	assert_true(GFVariantData.get_option_bool(fixed_report, "ok"), "Vector3 缩放散布应成功。")
+	assert_true(absf(fixed_transform.basis.x.length() - 1.0) <= 0.001, "Vector3 scale_min/max 应写入 X 轴缩放。")
+	assert_true(absf(fixed_transform.basis.y.length() - 2.0) <= 0.001, "Vector3 scale_min/max 应写入 Y 轴缩放。")
+	assert_true(absf(fixed_transform.basis.z.length() - 3.0) <= 0.001, "Vector3 scale_min/max 应写入 Z 轴缩放。")
+	assert_true(GFVariantData.get_option_bool(locked_report, "ok"), "轴锁缩放散布应成功。")
+	assert_true(absf(locked_transform.basis.x.length() - locked_transform.basis.y.length()) <= 0.001, "lock_xy 应让 X/Y 使用相同缩放权重。")
 
 
 func test_scatter_reports_height_and_slope_rejections() -> void:

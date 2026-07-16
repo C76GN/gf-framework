@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFFlowContext" path="addons/gf/extensions/flow/runtime/gf_flow_context.gd" module="extensions/flow" extends="RefCounted" classDigest="d775652e5a1da0e6145cf96583ab18f947ced2dff2426fb4e1ccc297519a5775">
+<class name="GFFlowContext" path="addons/gf/extensions/flow/runtime/gf_flow_context.gd" module="extensions/flow" extends="RefCounted" classDigest="0299389cf584f7e1cfd35a1fb6a48ea1f42125c8fc1d7e75f536f0ecd5d5f88b">
 	<description>GFFlowContext: 通用流程图执行上下文。
 用于在流程节点之间共享数据，并提供可选的 GFArchitecture 访问入口。</description>
 	<tags>
@@ -17,6 +17,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="schema">values: 流程执行期间共享的项目自定义 Dictionary；键通常为 StringName，值由项目决定。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="next_node_ids">
@@ -24,6 +25,7 @@
 			<description>下一个节点覆盖。流程节点可写入该列表动态控制分支。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="has_next_node_override">
@@ -31,6 +33,7 @@
 			<description>是否显式覆盖了下一个节点。允许节点用空列表表达“停止继续推进”。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</properties>
@@ -41,6 +44,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">architecture: 架构实例。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_architecture">
@@ -49,6 +53,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">架构实例；不可用时返回 null。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="set_value">
@@ -60,6 +65,7 @@
 				<tag name="param">value: 值。</tag>
 				<tag name="return">当前上下文，便于链式构造。</tag>
 				<tag name="schema">value: 要写入 values 的任意项目值。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_value">
@@ -72,6 +78,7 @@
 				<tag name="return">共享值或默认值。</tag>
 				<tag name="schema">default_value: key 缺失时返回的任意默认值。</tag>
 				<tag name="schema">return: values 中的项目值，或传入的 default_value。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="set_next_nodes">
@@ -80,6 +87,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">node_ids: 节点标识列表。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="has_next_nodes_override">
@@ -88,6 +96,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">已覆盖返回 true。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="clear_next_nodes">
@@ -95,6 +104,7 @@
 			<description>清空下一个节点覆盖。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="register_condition_handler">
@@ -105,6 +115,7 @@
 				<tag name="param">condition_id: 条件标识。</tag>
 				<tag name="param">handler: 查询回调，建议签名为 func(condition_id: StringName, payload: Variant, context: GFFlowContext) -&gt; Variant。</tag>
 				<tag name="return">注册成功返回 true。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="unregister_condition_handler">
@@ -113,6 +124,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">condition_id: 条件标识。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="has_condition_handler">
@@ -122,6 +134,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">condition_id: 条件标识。</tag>
 				<tag name="return">存在返回 true。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="clear_condition_handlers">
@@ -129,6 +142,7 @@
 			<description>清空所有条件查询处理器。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="query_condition">
@@ -143,6 +157,7 @@
 				<tag name="schema">payload: 条件处理器接收的任意项目载荷；框架只透传。</tag>
 				<tag name="schema">default_value: 缺失处理器或处理器未返回值时使用的任意默认值。</tag>
 				<tag name="schema">return: 包含 ok、condition_id、value、reason 和 metadata 字段的 Dictionary。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="set_node_runtime_value">
@@ -154,6 +169,7 @@
 				<tag name="param">key: 运行态键。</tag>
 				<tag name="param">value: 运行态值。</tag>
 				<tag name="schema">value: 要写入指定节点运行态的任意项目值。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_node_runtime_value">
@@ -167,6 +183,7 @@
 				<tag name="return">运行态值或默认值。</tag>
 				<tag name="schema">default_value: 运行态缺失时返回的任意默认值。</tag>
 				<tag name="schema">return: 节点运行态中的项目值，或传入的 default_value。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="clear_node_runtime_state">
@@ -175,15 +192,44 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">node_id: 节点标识。</tag>
+				<tag name="since">3.17.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="create_runtime_snapshot">
+			<signature>func create_runtime_snapshot(options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>创建 Flow 上下文运行快照。
+快照包含共享 values、下一个节点覆盖和节点运行态。条件处理器是运行时 Callable，
+不会被序列化；恢复快照时也不会修改当前已注册的条件处理器。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">options: 快照选项，支持 metadata、include_condition_handler_ids 和 json_compatible。</tag>
+				<tag name="return">运行快照。</tag>
+				<tag name="schema">options: Dictionary，包含 metadata: Dictionary、include_condition_handler_ids: bool 与 json_compatible: bool。</tag>
+				<tag name="schema">return: Dictionary，包含 values、next_node_ids、has_next_node_override、runtime_state、condition_handler_ids 和 metadata。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="restore_runtime_snapshot">
+			<signature>func restore_runtime_snapshot(snapshot: Dictionary) -&gt; bool:</signature>
+			<description>恢复 Flow 上下文运行快照。
+只恢复可序列化运行数据，不覆盖 architecture 或条件处理器。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">snapshot: create_runtime_snapshot() 生成的快照。</tag>
+				<tag name="return">快照有效并完成恢复时返回 true。</tag>
+				<tag name="schema">snapshot: Dictionary，包含 values、next_node_ids、has_next_node_override 和 runtime_state。</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="serialize_runtime_state">
-			<signature>func serialize_runtime_state() -&gt; Dictionary:</signature>
+			<signature>func serialize_runtime_state(json_compatible: bool = false) -&gt; Dictionary:</signature>
 			<description>序列化上下文持有的节点运行态。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="param">json_compatible: 为 true 时输出 JSON-safe 报告值；默认为 false，保留运行时原始 Variant。</tag>
 				<tag name="return">运行态快照。</tag>
 				<tag name="schema">return: 包含 nodes 字段的 Dictionary；nodes 按 node_id 保存节点运行态 Dictionary。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="deserialize_runtime_state">
@@ -193,6 +239,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">data: 运行态快照。</tag>
 				<tag name="schema">data: serialize_runtime_state() 返回的运行态 Dictionary。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</methods>

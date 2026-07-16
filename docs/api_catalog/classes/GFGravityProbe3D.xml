@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFGravityProbe3D" path="addons/gf/extensions/physics/nodes/gf_gravity_probe_3d.gd" module="extensions/physics" extends="Node3D" classDigest="07f3fd33f688ac5778ecec240c6765c9d5704b63cf5adc30539afa80e862954d">
+<class name="GFGravityProbe3D" path="addons/gf/extensions/physics/nodes/gf_gravity_probe_3d.gd" module="extensions/physics" extends="Node3D" classDigest="4851fb07923c89fac852f65c8b534b2c493c8dd0d001afdd585784d215a1512a">
 	<description>GFGravityProbe3D: 通用 3D 重力采样器。
 从场景树分组中采样 GFGravityField3D 或任何暴露 get_acceleration_at()
 方法的对象，并按组合策略计算当前位置处的加速度、上下方向。</description>
 	<tags>
 		<tag name="api">public</tag>
-		<tag name="category">runtime_handle</tag>
+		<tag name="category">runtime_service</tag>
 		<tag name="since">3.17.0</tag>
 	</tags>
 	<signals />
@@ -22,6 +22,7 @@
 			<description>多个力场重叠时的采样组合策略。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</enums>
@@ -32,6 +33,7 @@
 			<description>要采样的力场分组。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="combination_mode" decorators="@export">
@@ -39,6 +41,7 @@
 			<description>多个力场重叠时的组合策略。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="use_fallback_when_empty" decorators="@export">
@@ -46,6 +49,7 @@
 			<description>找不到力场时是否返回 fallback_acceleration。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="fallback_acceleration" decorators="@export">
@@ -53,6 +57,7 @@
 			<description>找不到力场时使用的默认加速度。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="cache_samples_per_frame" decorators="@export">
@@ -60,6 +65,7 @@
 			<description>同一帧、同一位置重复 sample() 时是否复用上次结果。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="last_acceleration">
@@ -67,6 +73,7 @@
 			<description>最近一次 sample() 得到的加速度。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</properties>
@@ -77,6 +84,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">按 combination_mode 组合后的加速度。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="sample_fields">
@@ -87,6 +95,19 @@
 				<tag name="param">fields: 力场对象列表。</tag>
 				<tag name="return">按 combination_mode 组合后的加速度。</tag>
 				<tag name="schema">fields: Array，包含 GFGravityField3D 或任何暴露 get_acceleration_at(Vector3) 的 Object。</tag>
+				<tag name="since">3.17.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="sample_field_provider">
+			<signature>func sample_field_provider(candidate_provider: Object, options: Dictionary = {}) -&gt; Vector3:</signature>
+			<description>从候选 provider 采样力场。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">candidate_provider: 暴露 get_candidate_objects(options) 的候选 provider。</tag>
+				<tag name="param">options: 候选查询选项；未设置 method_name 时默认筛选 get_acceleration_at。</tag>
+				<tag name="return">按 combination_mode 组合后的加速度。</tag>
+				<tag name="schema">options: Dictionary passed to candidate_provider.get_candidate_objects(); method_name defaults to get_acceleration_at.</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_down_direction">
@@ -95,6 +116,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">向下方向。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_up_direction">
@@ -103,6 +125,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">向上方向。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="invalidate_cache">

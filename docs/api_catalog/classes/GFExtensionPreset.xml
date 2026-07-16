@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFExtensionPreset" path="addons/gf/kernel/extension/gf_extension_preset.gd" module="kernel" extends="RefCounted" classDigest="764109985835a465baae84f5f8cef0548a165e14124790b09ce0bef17b2137f0">
+<class name="GFExtensionPreset" path="addons/gf/kernel/extension/gf_extension_preset.gd" module="kernel" extends="RefCounted" classDigest="2fbf3993968e7deb1310bdd3a5379349f45402985eb5c9959a38f1f3fc97985a">
 	<description>GFExtensionPreset: GF 扩展启用组合描述。
-Preset 只描述一组要写入 `gf/extensions/enabled` 的扩展 ID，不改变 manifest 依赖、
+Preset 只描述一组显式启用扩展 ID，不改变 manifest 依赖、
 不表示扩展之间存在硬依赖，也不承载下载、安装包或跨扩展编排逻辑。</description>
 	<tags>
 		<tag name="api">public</tag>
@@ -91,8 +91,8 @@ Preset 只描述一组要写入 `gf/extensions/enabled` 的扩展 ID，不改变
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">path: preset JSON 文件路径。</tag>
-				<tag name="return">读取诊断，包含 ok、source_path、preset 和 errors。</tag>
-				<tag name="schema">return: Dictionary { ok: bool, source_path: String, preset: GFExtensionPreset, errors: Array[String] }.</tag>
+				<tag name="return">读取诊断，包含 ok、source_path、preset_data 和 errors。</tag>
+				<tag name="schema">return: Dictionary { ok: bool, source_path: String, preset_data: Dictionary, errors: Array[String] }.</tag>
 				<tag name="since">6.0.0</tag>
 			</tags>
 		</member>

@@ -11,8 +11,25 @@ func test_from_string_normalizes_plain_number() -> void:
 func test_from_string_rejects_malformed_decimal_text() -> void:
 	var value: GFBigNumber = GFBigNumber.from_string("12x.3")
 
-	assert_push_error("[GFBigNumber] 无法解析数字字符串：12x.3")
+	assert_push_error("[GFBigNumber] 无法解析数字字符串（invalid_separator）：12x.3")
 	assert_true(value.is_zero(), "非法字符串应被收敛为零值。")
+
+
+func test_from_string_rejects_malformed_separators() -> void:
+	var malformed_group: GFBigNumber = GFBigNumber.from_string("1,2")
+	var malformed_underscore: GFBigNumber = GFBigNumber.from_string("1__2")
+
+	assert_push_error("[GFBigNumber] 无法解析数字字符串（invalid_separator）：1,2")
+	assert_push_error("[GFBigNumber] 无法解析数字字符串（invalid_separator）：1__2")
+	assert_true(malformed_group.is_zero(), "错误千分位不能被静默改写成另一个值。")
+	assert_true(malformed_underscore.is_zero(), "错误下划线不能被静默移除。")
+
+
+func test_from_string_enforces_input_length_budget() -> void:
+	var value: GFBigNumber = GFBigNumber.from_string("12345", 4)
+
+	assert_push_error("[GFBigNumber] 无法解析数字字符串（input_too_long）：12345")
+	assert_true(value.is_zero(), "超出输入预算时应快速返回稳定零值。")
 
 
 func test_from_string_rejects_exponents_outside_supported_range() -> void:

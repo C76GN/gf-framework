@@ -1,0 +1,135 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFNetworkLobbyQuery" path="addons/gf/extensions/network/session/gf_network_lobby_query.gd" module="extensions/network" extends="Resource" classDigest="5e8a23fda4a09d17cf6ceb89b4edcac537b6cda5db76ef1eb5309840245ed25c">
+	<description>GFNetworkLobbyQuery: 平台中立的 lobby 查询条件。
+查询对象只描述通用过滤条件，由具体 backend 决定如何映射到平台查询、
+局域网发现或自建服务请求。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">value_object</tag>
+		<tag name="since">8.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties>
+		<member kind="property" name="query_id" decorators="@export">
+			<signature>var query_id: StringName = &amp;""</signature>
+			<description>查询稳定标识。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="search_text" decorators="@export">
+			<signature>var search_text: String = ""</signature>
+			<description>可选搜索文本。backend 可用它匹配显示名或平台自定义字段。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="required_tags" decorators="@export">
+			<signature>var required_tags: PackedStringArray = PackedStringArray()</signature>
+			<description>必须同时具备的 tag。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="required_metadata" decorators="@export">
+			<signature>var required_metadata: Dictionary = {}</signature>
+			<description>必须匹配的 metadata 键值。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">required_metadata: Dictionary metadata key/value filters.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="max_results" decorators="@export">
+			<signature>var max_results: int = 0</signature>
+			<description>最大结果数。小于等于 0 表示不限制。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="include_full_lobbies" decorators="@export">
+			<signature>var include_full_lobbies: bool = false</signature>
+			<description>是否包含已满 lobby。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="include_unjoinable_lobbies" decorators="@export">
+			<signature>var include_unjoinable_lobbies: bool = false</signature>
+			<description>是否包含不可加入 lobby。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="metadata" decorators="@export">
+			<signature>var metadata: Dictionary = {}</signature>
+			<description>调用方自定义查询选项。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">metadata: Dictionary caller-defined query metadata.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="matches">
+			<signature>func matches(lobby: GFNetworkLobbyDescriptor) -&gt; bool:</signature>
+			<description>检查 lobby 是否满足本地可判断的查询条件。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">lobby: Lobby 快照。</tag>
+				<tag name="return">满足条件返回 true。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="to_dict">
+			<signature>func to_dict() -&gt; Dictionary:</signature>
+			<description>转换为字典。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">查询字典。</tag>
+				<tag name="schema">return: Dictionary with query_id, search_text, required_tags, required_metadata, max_results, include_full_lobbies, include_unjoinable_lobbies, and metadata.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="apply_dict">
+			<signature>func apply_dict(data: Dictionary) -&gt; void:</signature>
+			<description>从字典应用查询字段。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">data: 查询字典。</tag>
+				<tag name="schema">data: Dictionary with query_id, search_text, required_tags, required_metadata, max_results, include_full_lobbies, include_unjoinable_lobbies, and metadata.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="duplicate_query">
+			<signature>func duplicate_query() -&gt; GFNetworkLobbyQuery:</signature>
+			<description>创建查询深拷贝。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">新查询。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="from_dict">
+			<signature>static func from_dict(data: Dictionary) -&gt; GFNetworkLobbyQuery:</signature>
+			<description>从字典创建查询。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">data: 查询字典。</tag>
+				<tag name="return">新查询。</tag>
+				<tag name="schema">data: Dictionary with query_id, search_text, required_tags, required_metadata, max_results, include_full_lobbies, include_unjoinable_lobbies, and metadata.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

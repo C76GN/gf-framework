@@ -25,6 +25,7 @@
 ### `with_sender`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 static func with_sender(sender: Object, architecture: GFArchitecture = null) -> GFInteractionFlow:
@@ -46,6 +47,7 @@ static func with_sender(sender: Object, architecture: GFArchitecture = null) -> 
 ### `between`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 static func between( sender: Object, target: Object, payload: Variant = null, group_name: StringName = &"" ) -> GFInteractionContext:

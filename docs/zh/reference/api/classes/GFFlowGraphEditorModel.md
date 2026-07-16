@@ -36,6 +36,7 @@ FlowGraph 编辑器视图模型构建器。 将 GFFlowGraph 转换为 GraphEdit�
 ### `default_node_size`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var default_node_size: Vector2 = Vector2(220.0, 120.0)
@@ -48,6 +49,7 @@ var default_node_size: Vector2 = Vector2(220.0, 120.0)
 ### `include_invalid_connections`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var include_invalid_connections: bool = true
@@ -62,6 +64,7 @@ var include_invalid_connections: bool = true
 ### `build_view_model`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func build_view_model(graph: Resource) -> Dictionary:
@@ -86,6 +89,7 @@ func build_view_model(graph: Resource) -> Dictionary:
 ### `build_editor_report`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func build_editor_report(graph: Resource) -> Dictionary:
@@ -110,6 +114,7 @@ func build_editor_report(graph: Resource) -> Dictionary:
 ### `build_editor_catalog`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func build_editor_catalog(graph: Resource) -> Dictionary:
@@ -134,6 +139,7 @@ func build_editor_catalog(graph: Resource) -> Dictionary:
 ### `validate_graph_for_editor`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func validate_graph_for_editor(graph: Resource) -> Dictionary:
@@ -158,6 +164,7 @@ func validate_graph_for_editor(graph: Resource) -> Dictionary:
 ### `validate_metadata_for_editor`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func validate_metadata_for_editor(target_metadata: Dictionary, schema: Dictionary = {}) -> Dictionary:
@@ -185,6 +192,7 @@ func validate_metadata_for_editor(target_metadata: Dictionary, schema: Dictionar
 ### `apply_node_layout`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func apply_node_layout( graph: GFFlowGraph, node_id: StringName, position: Vector2, size: Vector2 = Vector2.ZERO, collapsed: bool = false ) -> bool:
@@ -209,6 +217,7 @@ func apply_node_layout( graph: GFFlowGraph, node_id: StringName, position: Vecto
 ### `apply_node_positions`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func apply_node_positions(graph: GFFlowGraph, positions: Dictionary) -> int:
@@ -234,6 +243,7 @@ func apply_node_positions(graph: GFFlowGraph, positions: Dictionary) -> int:
 ### `auto_layout`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func auto_layout(graph: GFFlowGraph, options: Dictionary = {}) -> Dictionary:
@@ -260,6 +270,7 @@ func auto_layout(graph: GFFlowGraph, options: Dictionary = {}) -> Dictionary:
 ### `build_selection_package`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func build_selection_package(graph: GFFlowGraph, node_ids: PackedStringArray) -> Dictionary:
@@ -285,6 +296,7 @@ func build_selection_package(graph: GFFlowGraph, node_ids: PackedStringArray) ->
 ### `paste_selection_package`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func paste_selection_package( graph: GFFlowGraph, selection_package: Dictionary, offset: Vector2 = Vector2.ZERO, options: Dictionary = {} ) -> Dictionary:
@@ -314,6 +326,7 @@ func paste_selection_package( graph: GFFlowGraph, selection_package: Dictionary,
 ### `remove_nodes`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func remove_nodes(graph: GFFlowGraph, node_ids: PackedStringArray) -> Dictionary:

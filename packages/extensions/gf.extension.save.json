@@ -8,12 +8,12 @@
   "dependencies": [
     "gf.kernel",
     "gf.standard.base",
-    "gf.standard.storage",
-    "gf.standard.deterministic"
+    "gf.standard.deterministic",
+    "gf.standard.storage"
   ],
   "paths": [
     "addons/gf/extensions/save/**"
   ],
-  "enable_extension": "gf.save",
+  "gf_extension_id": "gf.save",
   "metadata": {}
 }

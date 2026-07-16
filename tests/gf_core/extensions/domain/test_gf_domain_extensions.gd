@@ -31,6 +31,26 @@ func test_trait_set_calculates_number() -> void:
 	assert_eq(trait_set.calculate_number(&"power", 10.0), 30.0, "应先加值再乘值。")
 
 
+func test_trait_set_ignores_non_finite_traits_and_results() -> void:
+	var trait_set: GFTraitSet = GFTraitSet.new()
+	var invalid_trait: GFTrait = GFTrait.new()
+	invalid_trait.target_id = &"power"
+	invalid_trait.value = NAN
+	invalid_trait.combine_mode = GFTrait.CombineMode.SET
+	var overflow_trait: GFTrait = GFTrait.new()
+	overflow_trait.target_id = &"power"
+	overflow_trait.value = 1.0e308
+	overflow_trait.combine_mode = GFTrait.CombineMode.MULTIPLY
+	trait_set.add_trait(invalid_trait)
+	trait_set.add_trait(overflow_trait)
+
+	var result: float = trait_set.calculate_number(&"power", 1.0e308)
+
+	assert_false(is_nan(result), "Trait 计算结果不应传播 NaN。")
+	assert_false(is_inf(result), "Trait 计算结果不应传播 Infinity。")
+	assert_eq(result, 1.0e308, "无效 trait 或溢出结果应保持最后一个有限值。")
+
+
 ## 验证库存模型可增减、序列化和恢复。
 func test_inventory_model_serializes_items() -> void:
 	var inventory: GFInventoryModel = GFInventoryModel.new()
@@ -152,6 +172,25 @@ func test_slot_inventory_from_dict_shrink_removes_dropped_slots_from_index_and_s
 	assert_eq(emptied_events.size(), 1, "恢复较小存档删除非空旧槽位应发出 slot_emptied。")
 
 
+func test_slot_inventory_from_dict_rejects_malformed_schema_atomically() -> void:
+	var inventory: GFSlotInventoryModel = GFSlotInventoryModel.new()
+	inventory.set_slot_count(1)
+	var _add_result: GFInventoryOperationResult = inventory.add_item_to_slot(0, &"item_a", 2)
+
+	inventory.from_dict({
+		"allow_growth": true,
+		"slots": [
+			{ "item_id": "item_b", "amount": 3, "instance_data": {} },
+		],
+	})
+
+	assert_eq(inventory.get_slot_count(), 1, "缺少 slot_count 的快照不应改变槽位数量。")
+	assert_eq(inventory.get_item_total(&"item_a"), 2, "畸形快照不应清空既有库存。")
+	assert_eq(inventory.get_item_total(&"item_b"), 0, "畸形快照不应部分写入新堆叠。")
+	assert_false(inventory.allow_growth, "畸形快照不应提前写入其他字段。")
+	assert_push_error("[GFSlotInventoryModel] from_dict 失败：快照必须包含非负整数 slot_count，且 slots 数量必须与其一致。")
+
+
 ## 验证 0 槽位库存默认不会隐式新增槽位。
 func test_slot_inventory_zero_slots_require_explicit_capacity() -> void:
 	var inventory: GFSlotInventoryModel = GFSlotInventoryModel.new()
@@ -242,6 +281,48 @@ func test_slot_inventory_split_respects_stack_count_limit() -> void:
 	assert_false(result.ok, "拆分会增加堆叠数量时应失败。")
 	assert_eq(result.reason, &"stack_count_limit", "失败原因应说明堆叠数量上限。")
 	assert_true(inventory.is_slot_empty(1), "失败后目标槽位应保持为空。")
+
+
+func test_slot_inventory_rejects_same_slot_move_without_mutation() -> void:
+	var inventory: GFSlotInventoryModel = GFSlotInventoryModel.new()
+	inventory.set_slot_count(1)
+	var _add_result: GFInventoryOperationResult = inventory.add_item_to_slot(0, &"item_a", 3)
+	var before_stack_data: Dictionary = inventory.get_stack_data(0)
+
+	var result: GFInventoryOperationResult = inventory.move_between_slots(0, 0, 2)
+
+	assert_false(result.ok, "源槽位和目标槽位相同时应显式拒绝，而不是伪装成成功移动。")
+	assert_eq(result.reason, &"same_slot", "失败原因应明确 same_slot。")
+	assert_eq(inventory.get_stack_data(0), before_stack_data, "同槽移动失败后槽位内容不应变化。")
+
+
+func test_inventory_registry_removes_string_and_string_name_aliases() -> void:
+	var definition: GFInventoryItemDefinition = GFInventoryItemDefinition.new()
+	definition.item_id = &"potion"
+	var registry: GFInventoryItemRegistry = GFInventoryItemRegistry.new()
+	registry.definitions["potion"] = definition
+
+	registry.remove_definition(&"potion")
+
+	assert_false(registry.has_definition(&"potion"), "移除定义时应同时清理 String 与 StringName 键。")
+
+
+func test_trait_set_discards_null_entries_before_sorting() -> void:
+	var slow_trait: GFTrait = GFTrait.new()
+	slow_trait.target_id = &"speed"
+	slow_trait.value = 1.0
+	slow_trait.priority = 10
+	var fast_trait: GFTrait = GFTrait.new()
+	fast_trait.target_id = &"speed"
+	fast_trait.value = 2.0
+	fast_trait.priority = 1
+	var trait_set: GFTraitSet = GFTraitSet.new()
+	trait_set.traits = [null, slow_trait]
+
+	trait_set.add_trait(fast_trait)
+
+	assert_eq(trait_set.traits.size(), 2, "排序前应剔除导出数组中的空特征。")
+	assert_eq(trait_set.traits[0], fast_trait, "剩余特征应继续按 priority 稳定排序。")
 
 
 func test_inventory_slot_definition_accepts_ids_categories_and_callback() -> void:
@@ -497,6 +578,57 @@ func test_slot_inventory_sort_slots_uses_custom_resolver() -> void:
 	assert_eq(GFVariantData.get_option_string(inventory.get_stack_data(1), "item_id"), "b_item", "第二多的堆叠应排在第二位。")
 
 
+func test_slot_inventory_rejects_mutation_from_sort_resolver() -> void:
+	var inventory: GFSlotInventoryModel = GFSlotInventoryModel.new()
+	inventory.set_slot_count(2)
+	var _first_add: GFInventoryOperationResult = inventory.add_item_to_slot(0, &"b_item", 1)
+	var _second_add: GFInventoryOperationResult = inventory.add_item_to_slot(1, &"a_item", 1)
+	var nested_result: Array[bool] = [true]
+	var attempted: Array[bool] = [false]
+
+	var _changed: bool = inventory.sort_slots(func(
+		_left_slot_index: int,
+		_left_stack_data: Dictionary,
+		_right_slot_index: int,
+		_right_stack_data: Dictionary
+	) -> bool:
+		if not attempted[0]:
+			attempted[0] = true
+			nested_result[0] = inventory.set_slot_definition(0, GFInventorySlotDefinition.new())
+		return false
+	)
+
+	assert_false(nested_result[0], "排序回调不应同步修改同一个库存。")
+	assert_null(inventory.get_slot_definition(0), "被拒绝的回调写入不应留下部分状态。")
+	assert_push_error("[GFSlotInventoryModel] set_slot_definition 失败：库存变更处理中不允许同步修改库存。请在当前操作结束后再修改。")
+
+
+func test_slot_inventory_rejects_mutation_from_acceptance_checker() -> void:
+	var inventory: GFSlotInventoryModel = GFSlotInventoryModel.new()
+	inventory.set_slot_count(1)
+	var attempted_clear: Array[bool] = [false]
+	var slot_definition: GFInventorySlotDefinition = GFInventorySlotDefinition.new()
+	slot_definition.acceptance_checker = func(
+		_item_id: StringName,
+		_definition: GFInventoryItemDefinition,
+		_instance_data: Dictionary,
+		_slot_index: int,
+		_inventory: Object
+	) -> bool:
+		if not attempted_clear[0]:
+			attempted_clear[0] = true
+			inventory.clear()
+		return true
+	assert_true(inventory.set_slot_definition(0, slot_definition))
+
+	var result: GFInventoryOperationResult = inventory.add_item_to_slot(0, &"item_a", 1)
+
+	assert_true(result.ok, "只读接收回调仍应能返回接收结果。")
+	assert_true(attempted_clear[0], "测试回调应尝试一次嵌套 clear。")
+	assert_eq(inventory.get_item_total(&"item_a"), 1, "被拒绝的嵌套 clear 不应干扰外层加入事务。")
+	assert_push_error("[GFSlotInventoryModel] clear 失败：库存变更处理中不允许同步修改库存。请在当前操作结束后再修改。")
+
+
 ## 验证槽位集合按标签规则挂载物品。
 func test_equipment_set_checks_slot_tags() -> void:
 	var slot: GFEquipmentSlot = GFEquipmentSlot.new()
@@ -543,6 +675,21 @@ func test_attribute_set_clamps_serializes_and_applies_traits() -> void:
 	assert_eq(GFVariantData.get_option_string(restored.get_metadata(&"stamina"), "group"), "core", "恢复后元数据应一致。")
 
 
+func test_attribute_set_rejects_non_finite_runtime_values() -> void:
+	var attributes: GFAttributeSet = GFAttributeSet.new()
+	attributes.define_attribute(&"heat", INF, NAN, -INF, INF)
+	var snapshot: Dictionary = attributes.get_snapshot()
+	var heat_snapshot: Dictionary = GFVariantData.as_dictionary(snapshot.get(String(&"heat"), {}))
+
+	assert_eq(attributes.get_base_value(&"heat"), 0.0, "定义属性时非有限 base 应回落为有限默认值。")
+	assert_eq(attributes.get_value(&"heat"), 0.0, "定义属性时非有限 current 应回落为有限默认值。")
+	assert_eq(GFVariantData.get_option_float(heat_snapshot, "min"), GFAttributeSet.DEFAULT_MIN_VALUE, "非有限 min 应回落为框架默认边界。")
+	assert_eq(GFVariantData.get_option_float(heat_snapshot, "max"), GFAttributeSet.DEFAULT_MAX_VALUE, "非有限 max 应回落为框架默认边界。")
+	assert_false(attributes.set_value(&"heat", NAN), "运行时设置 NaN 应被拒绝。")
+	assert_false(attributes.set_base_value(&"heat", INF), "运行时设置 Infinity base 应被拒绝。")
+	assert_false(attributes.set_limits(&"heat", NAN, INF), "运行时设置非有限边界应被拒绝。")
+
+
 ## 验证属性集合可通过通用规则计算派生属性。
 func test_attribute_set_updates_derived_attribute_rules() -> void:
 	var attributes: GFAttributeSet = GFAttributeSet.new()
@@ -577,6 +724,25 @@ func test_derived_attribute_rule_can_use_callback() -> void:
 
 	assert_true(attributes.has_attribute(&"score"), "派生规则应能创建缺失的目标属性。")
 	assert_eq(attributes.get_value(&"score"), 12.0, "自定义回调结果应写入目标属性。")
+
+
+func test_derived_attribute_callback_cannot_mutate_same_attribute_set() -> void:
+	var attributes: GFAttributeSet = GFAttributeSet.new()
+	attributes.define_attribute(&"source", 3.0)
+	var mutation_result: Array[bool] = [true]
+	var rule: GFDerivedAttributeRuleBase = GFDerivedAttributeRuleBase.new()
+	rule.attribute_id = &"derived"
+	rule.source_attribute_ids = [&"source"]
+	rule.compute_callback = func(attribute_set: GFAttributeSet, _rule: GFDerivedAttributeRuleBase) -> float:
+		mutation_result[0] = attribute_set.set_value(&"source", 9.0)
+		return attribute_set.get_value(&"source") * 2.0
+
+	var _added: bool = attributes.add_derived_rule(rule)
+
+	assert_false(mutation_result[0], "派生计算回调不应同步写入同一个 AttributeSet。")
+	assert_eq(attributes.get_value(&"source"), 3.0, "被拒绝的回调写入不应改变来源属性。")
+	assert_eq(attributes.get_value(&"derived"), 6.0, "派生结果应基于稳定的只读输入计算。")
+	assert_push_warning("[GFAttributeSet] set_value 失败：派生规则计算期间不允许修改同一个属性集合。")
 
 
 func test_attribute_set_recalculates_derived_rules_when_base_changes_with_synced_current() -> void:

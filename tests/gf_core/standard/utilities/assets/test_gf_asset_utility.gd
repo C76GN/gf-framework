@@ -42,6 +42,26 @@ func test_get_cache_count() -> void:
 	assert_eq(_utility.get_cache_count(), 2, "缓存数量应为 2。")
 
 
+func test_cache_uses_resource_identity_key_for_uid_and_canonical_path() -> void:
+	var script_path: String = "res://addons/gf/standard/utilities/assets/gf_resource_identity.gd"
+	var uid_path: String = _uid_path_for(script_path)
+	var resource: Resource = Resource.new()
+
+	_utility.put_cache(uid_path, resource)
+	var cached_by_path: Resource = _utility.get_cached(script_path)
+	var snapshot: Dictionary = _utility.get_debug_snapshot()
+	var cache_keys: PackedStringArray = GFVariantData.get_option_packed_string_array(snapshot, "cache_keys")
+	var identities: Dictionary = GFVariantData.get_option_dictionary(snapshot, "resource_identities")
+	var identity: Dictionary = GFVariantData.get_option_dictionary(identities, uid_path)
+
+	assert_false(uid_path.is_empty(), "测试资源应存在 Godot UID。")
+	assert_eq(cached_by_path, resource, "uid:// 与 canonical res:// 应命中同一个缓存项。")
+	assert_true(_utility.is_cached(uid_path), "uid:// 路径应可查询缓存命中。")
+	assert_true(_utility.is_cached(script_path), "canonical res:// 路径应可查询缓存命中。")
+	assert_true(cache_keys.has(uid_path), "诊断快照应以资源身份 cache_key 暴露缓存键。")
+	assert_eq(GFVariantData.get_option_string(identity, "canonical_path"), script_path, "资源身份快照应保留 canonical path。")
+
+
 func test_lru_eviction() -> void:
 	_utility.put_cache("res://1.tres", Resource.new())
 	_utility.put_cache("res://2.tres", Resource.new())
@@ -72,6 +92,16 @@ func test_remove_cache() -> void:
 	_utility.remove_cache("res://x.tres")
 	assert_false(_utility.is_cached("res://x.tres"), "remove_cache 后应不存在该条目。")
 	assert_eq(_utility.get_cache_count(), 0, "移除后缓存数量应归零。")
+
+
+func test_remove_cache_removes_path_from_groups() -> void:
+	_utility.put_cache("res://grouped.tres", Resource.new())
+	_utility.register_group_path(&"items", "res://grouped.tres", true)
+
+	_utility.remove_cache("res://grouped.tres")
+
+	assert_false(_utility.get_group_paths(&"items").has("res://grouped.tres"), "remove_cache 应同步移除分组路径。")
+	assert_false(_utility.is_cache_pinned("res://grouped.tres"), "remove_cache 应同步清理分组 pin 状态。")
 
 
 func test_remove_cache_releases_handles_for_path() -> void:
@@ -266,7 +296,7 @@ func test_pending_load_rejects_same_path_with_different_type_hint() -> void:
 	_utility.load_async("res://same_path.tres", second_callback, "PackedScene")
 
 	var expected_type_hints: Array[String] = ["Resource"]
-	assert_push_warning("[GFAssetUtility] 已存在相同路径但 type_hint 不同的加载请求，已拒绝新请求：res://same_path.tres (Resource -> PackedScene)")
+	assert_push_warning("[GFAssetUtility] 已存在相同资源身份但 type_hint 不同的加载请求，已拒绝新请求：res://same_path.tres (Resource -> PackedScene)")
 	assert_eq(results.size(), 1, "不同 type_hint 的第二个请求应立即回调。")
 	assert_true(_is_null(results[0]), "被拒绝的 type_hint 冲突请求应收到 null。")
 	assert_true(_utility.is_loading("res://same_path.tres", "Resource"), "原请求应继续保留。")
@@ -339,6 +369,34 @@ func test_cancel_clears_callbacks_but_reuses_underlying_request_for_retry() -> v
 	assert_eq(results.size(), 1, "取消前的旧回调不应再触发。")
 	assert_eq(_resource_option(results[0], "new"), completing.loaded_resource, "重试回调应收到完成资源。")
 	assert_eq(_utility.get_cached("res://retry_resource.tres"), completing.loaded_resource, "底层请求完成后仍应写入缓存。")
+
+
+func test_pending_load_coalesces_uid_and_canonical_path() -> void:
+	var completing: CompletingAssetUtility = CompletingAssetUtility.new()
+	_replace_utility(completing)
+	var script_path: String = "res://addons/gf/standard/utilities/assets/gf_resource_identity.gd"
+	var uid_path: String = _uid_path_for(script_path)
+	var results: Array[Resource] = []
+
+	_utility.load_async(uid_path, func(resource: Resource) -> void:
+		results.append(resource)
+	)
+	_utility.load_async(script_path, func(resource: Resource) -> void:
+		results.append(resource)
+	)
+	var pending_snapshot: Dictionary = _utility.get_debug_snapshot()
+	var pending_cache_keys: PackedStringArray = GFVariantData.get_option_packed_string_array(pending_snapshot, "pending_cache_keys")
+
+	assert_false(uid_path.is_empty(), "测试资源应存在 Godot UID。")
+	assert_eq(completing.requested_paths, [script_path], "uid:// 与 canonical res:// 并发请求应共用底层加载。")
+	assert_true(pending_cache_keys.has(uid_path), "pending 诊断应暴露统一 cache_key。")
+
+	completing.complete = true
+	_utility.tick()
+
+	assert_eq(results.size(), 2, "合并请求完成后应回调所有监听者。")
+	assert_true(_utility.is_cached(uid_path), "完成后 uid:// 查询应命中缓存。")
+	assert_true(_utility.is_cached(script_path), "完成后 canonical res:// 查询应命中缓存。")
 
 
 func test_cancelled_load_completion_does_not_populate_cache_without_retry() -> void:
@@ -474,6 +532,13 @@ func _float_array_has_approx(values: Array[float], expected: float, tolerance: f
 		if absf(value - expected) <= tolerance:
 			return true
 	return false
+
+
+func _uid_path_for(path: String) -> String:
+	var uid: int = ResourceLoader.get_resource_uid(path)
+	if uid == ResourceUID.INVALID_ID:
+		return ""
+	return ResourceUID.id_to_text(uid)
 
 
 # --- 内部类 ---

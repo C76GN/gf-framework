@@ -32,6 +32,8 @@ var _last_graph: Dictionary = {}
 var _last_events: Array[Dictionary] = []
 var _live_watch_count: int = 0
 var _live_signal_names: PackedStringArray = PackedStringArray()
+var _graph_render_revision: int = 0
+var _event_render_revision: int = 0
 var _probe: GFSignalRuntimeProbe = null
 var _persistent_only_check: CheckBox = null
 var _include_empty_check: CheckBox = null
@@ -160,6 +162,10 @@ func get_debug_snapshot() -> Dictionary:
 			"enabled": _live_check != null and _live_check.button_pressed,
 			"watch_count": _live_watch_count,
 			"signal_names": _live_signal_names.duplicate(),
+		},
+		"rendering": {
+			"graph_revision": _graph_render_revision,
+			"event_revision": _event_render_revision,
 		},
 		"ui": {
 			"custom_minimum_size": custom_minimum_size,
@@ -330,6 +336,7 @@ func _resolve_root() -> Node:
 func _render_graph() -> void:
 	if _tree == null:
 		return
+	_graph_render_revision += 1
 
 	_tree.clear()
 	if not GFVariantData.get_option_bool(_last_graph, "ok", false):
@@ -400,6 +407,7 @@ func _render_graph() -> void:
 func _render_events() -> void:
 	if _event_tree == null:
 		return
+	_event_render_revision += 1
 
 	_event_tree.clear()
 	_clear_events_button.disabled = _last_events.is_empty()
@@ -508,7 +516,12 @@ func _format_arguments(arguments: Variant) -> String:
 
 
 func _safe_json(value: Variant) -> String:
-	return JSON.stringify(_sanitize_for_display(value), "\t")
+	return GFReportValueCodec.stringify_json_compatible(
+		value,
+		"\t",
+		false,
+		GFReportValueCodec.make_redaction_options(GFReportValueCodec.REDACTION_PROFILE_DEBUG)
+	)
 
 
 func _collect_live_signal_names() -> PackedStringArray:
@@ -595,30 +608,6 @@ func _get_event_empty_text() -> String:
 	return "勾选“追踪发射”后，再操作当前编辑场景；之后发出的 pressed、area_entered、animation_finished 或自定义信号会记录在这里。"
 
 
-func _sanitize_for_display(value: Variant) -> Variant:
-	if value is Dictionary:
-		var dictionary_value: Dictionary = value
-		var result: Dictionary = {}
-		for key: Variant in dictionary_value.keys():
-			result[str(key)] = _sanitize_for_display(dictionary_value[key])
-		return result
-	if value is Array:
-		var array_value: Array = value
-		var array_result: Array = []
-		for item: Variant in array_value:
-			array_result.append(_sanitize_for_display(item))
-		return array_result
-	if value is PackedStringArray:
-		var packed_value: PackedStringArray = value
-		var string_array: Array[String] = []
-		for item: String in packed_value:
-			string_array.append(item)
-		return string_array
-	if value is Object:
-		return str(value)
-	return value
-
-
 func _refresh_deferred() -> void:
 	refresh()
 
@@ -641,7 +630,7 @@ func _on_clear_events_pressed() -> void:
 	_last_events.clear()
 	if _probe != null:
 		_probe.clear_events()
-	_render_graph()
+	_render_events()
 
 
 func _on_filter_text_changed(_text: String) -> void:
@@ -677,4 +666,4 @@ func _on_probe_signal_emitted(event: Dictionary) -> void:
 	_last_events.append(event.duplicate(true))
 	while _last_events.size() > _MAX_EVENT_COUNT:
 		var _removed_event: Variant = _last_events.pop_front()
-	_render_graph()
+	_render_events()

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFBlackboardEntry" path="addons/gf/standard/foundation/blackboard/gf_blackboard_entry.gd" module="standard" extends="Resource" classDigest="9e3842d48d68d4074e9a493df35998ad581cadfdfebd6871aff196ee5d4f0c7c">
+<class name="GFBlackboardEntry" path="addons/gf/standard/foundation/blackboard/gf_blackboard_entry.gd" module="standard" extends="Resource" classDigest="fd7b41d3e08cd3e3043c9f5851b00e355c7147e74605829698113a8e3e1a4a9d">
 	<description>GFBlackboardEntry: 通用黑板字段声明。
 只描述字段键、类型、必填性、空值策略和默认值，不绑定行为树、AI 或具体玩法。</description>
 	<tags>
@@ -114,13 +114,14 @@
 		</member>
 		<member kind="method" name="coerce_value">
 			<signature>func coerce_value(value: Variant) -&gt; Variant:</signature>
-			<description>将输入值转换为字段要求的类型。</description>
+			<description>将输入值转换为字段要求的类型；转换失败时返回输入值副本。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">value: 输入值。</tag>
-				<tag name="return">转换后的值。</tag>
+				<tag name="return">转换后的值；失败时为输入值副本。</tag>
 				<tag name="schema">value: Variant value to coerce.</tag>
 				<tag name="schema">return: Variant coerced value.</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="try_coerce_value">

@@ -19,6 +19,8 @@ extends GFInputTrigger
 @export var min_tap_seconds: float = 0.0:
 	set(value):
 		min_tap_seconds = maxf(value, 0.0)
+		if max_tap_seconds < min_tap_seconds:
+			max_tap_seconds = min_tap_seconds
 
 ## 最长按住时间。
 ## [br]

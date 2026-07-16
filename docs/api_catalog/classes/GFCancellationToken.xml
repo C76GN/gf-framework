@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFCancellationToken" path="addons/gf/kernel/core/gf_cancellation_token.gd" module="kernel" extends="RefCounted" classDigest="b99f9113270d8b11d9a94933ac4d3bacbb01bb8c1ec7a4f2b1d5db04d6d6f3ac">
+	<description>GFCancellationToken: 表示异步流程是否已被请求取消的只读令牌。
+长时间运行的安装器、后台任务或分帧流程应在 await 或外部回调之间检查该令牌，
+并在收到取消请求后停止继续写回已失效的生命周期。取消只能由拥有者对象触发，
+调用方通过 token 读取原因、元数据和取消时间。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_handle</tag>
+		<tag name="layer">kernel/core</tag>
+		<tag name="since">8.0.0</tag>
+	</tags>
+	<signals>
+		<member kind="signal" name="cancel_requested">
+			<signature>signal cancel_requested(reason: StringName)</signature>
+			<description>当取消请求首次到达时发出。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">reason: 稳定取消原因。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</signals>
+	<enums />
+	<constants />
+	<properties />
+	<methods>
+		<member kind="method" name="is_cancel_requested">
+			<signature>func is_cancel_requested() -&gt; bool:</signature>
+			<description>返回是否已经收到取消请求。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">已请求取消时返回 true。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_cancel_reason">
+			<signature>func get_cancel_reason() -&gt; StringName:</signature>
+			<description>返回取消原因。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">首次取消请求提供的原因；未取消时为空 StringName。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_cancel_metadata">
+			<signature>func get_cancel_metadata() -&gt; Dictionary:</signature>
+			<description>返回取消元数据副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">取消元数据副本。</tag>
+				<tag name="schema">return: Dictionary，包含取消拥有者提供的上下文。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_cancel_requested_msec">
+			<signature>func get_cancel_requested_msec() -&gt; int:</signature>
+			<description>返回取消请求发生时的 Time.get_ticks_msec()。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">取消请求发生时的毫秒 tick；未取消时为 0。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_debug_snapshot">
+			<signature>func get_debug_snapshot() -&gt; Dictionary:</signature>
+			<description>获取取消状态快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">取消状态快照。</tag>
+				<tag name="schema">return: Dictionary，包含 cancel_requested、reason、metadata 和 cancel_requested_msec。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

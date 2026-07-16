@@ -18,6 +18,7 @@
 | 常量 | [`DEFAULT_ESTIMATED_ITEM_EXTENT`](#member-gfvirtuallistmodel-constants-default_estimated_item_extent) | `const DEFAULT_ESTIMATED_ITEM_EXTENT: float = 60.0` |
 | 常量 | [`DEFAULT_OVERSCAN_ITEMS`](#member-gfvirtuallistmodel-constants-default_overscan_items) | `const DEFAULT_OVERSCAN_ITEMS: int = 2` |
 | 常量 | [`MIN_ITEM_EXTENT`](#member-gfvirtuallistmodel-constants-min_item_extent) | `const MIN_ITEM_EXTENT: float = 1.0` |
+| 常量 | [`MAX_ITEM_EXTENT`](#member-gfvirtuallistmodel-constants-max_item_extent) | `const MAX_ITEM_EXTENT: float = 1_000_000_000_000.0` |
 | 属性 | [`estimated_item_extent`](#member-gfvirtuallistmodel-properties-estimated_item_extent) | `var estimated_item_extent: float:` |
 | 属性 | [`overscan_items`](#member-gfvirtuallistmodel-properties-overscan_items) | `var overscan_items: int:` |
 | 属性 | [`trailing_padding`](#member-gfvirtuallistmodel-properties-trailing_padding) | `var trailing_padding: float:` |
@@ -72,6 +73,19 @@ const MIN_ITEM_EXTENT: float = 1.0
 ```
 
 条目尺寸下限，避免零尺寸条目破坏二分搜索和滚动范围。
+
+<a id="member-gfvirtuallistmodel-constants-max_item_extent"></a>
+
+### `MAX_ITEM_EXTENT`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+const MAX_ITEM_EXTENT: float = 1_000_000_000_000.0
+```
+
+单条目尺寸上限，避免异常输入放大累计布局范围。
 
 ## 属性
 
@@ -189,6 +203,7 @@ func remove_item(item_index: int) -> bool:
 ### `set_item_extent`
 
 - API：`public`
+- 首次版本：`4.4.0`
 
 ```gdscript
 func set_item_extent( item_index: int, extent: float, measured: bool = true, scroll_offset: float = -1.0 ) -> Dictionary:
@@ -209,7 +224,7 @@ func set_item_extent( item_index: int, extent: float, measured: bool = true, scr
 
 结构：
 
-- `return`: Dictionary，包含 ok、changed、index、previous_extent、extent、delta 与 scroll_adjustment 字段。
+- `return`: Dictionary，包含 ok、changed、index、previous_extent、extent、delta、scroll_adjustment 与 error 字段。
 
 <a id="member-gfvirtuallistmodel-methods-reset_item_extent"></a>
 

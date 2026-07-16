@@ -63,22 +63,48 @@ signal minimum_reached(current_value: float)
 signal maximum_reached(current_value: float)
 
 
+# --- 常量 ---
+
+const _GF_COMBAT_FINITE_MATH = preload("res://addons/gf/extensions/combat/core/gf_combat_finite_math.gd")
+
+
 # --- 导出变量 ---
 
 ## 数值下限。
 ## [br]
 ## @api public
-@export var min_value: float = 0.0
+## [br]
+## @since 3.17.0
+@export var min_value: float:
+	get:
+		return _min_value
+	set(value):
+		if _GF_COMBAT_FINITE_MATH.is_finite_float(value):
+			_min_value = value
 
 ## 数值上限。
 ## [br]
 ## @api public
-@export var max_value: float = 100.0
+## [br]
+## @since 3.17.0
+@export var max_value: float:
+	get:
+		return _max_value
+	set(value):
+		if _GF_COMBAT_FINITE_MATH.is_finite_float(value):
+			_max_value = value
 
 ## 当前数值。
 ## [br]
 ## @api public
-@export var current_value: float = 100.0
+## [br]
+## @since 3.17.0
+@export var current_value: float:
+	get:
+		return _current_value
+	set(value):
+		if _GF_COMBAT_FINITE_MATH.is_finite_float(value):
+			_current_value = value
 
 ## 非空时，只接受这些动作类别。
 ## [br]
@@ -112,10 +138,17 @@ signal maximum_reached(current_value: float)
 var validation_callback: Callable = Callable()
 
 
+# --- 私有变量 ---
+
+var _min_value: float = 0.0
+var _max_value: float = 100.0
+var _current_value: float = 100.0
+
+
 # --- Godot 生命周期方法 ---
 
 func _ready() -> void:
-	current_value = clampf(current_value, minf(min_value, max_value), maxf(min_value, max_value))
+	_current_value = clampf(_current_value, minf(_min_value, _max_value), maxf(_min_value, _max_value))
 
 
 # --- 公共方法 ---
@@ -130,8 +163,14 @@ func _ready() -> void:
 ## [br]
 ## @param p_current_value: 当前数值。
 func configure(p_min_value: float, p_max_value: float, p_current_value: float) -> void:
-	min_value = p_min_value
-	max_value = p_max_value
+	if (
+		not _GF_COMBAT_FINITE_MATH.is_finite_float(p_min_value)
+		or not _GF_COMBAT_FINITE_MATH.is_finite_float(p_max_value)
+		or not _GF_COMBAT_FINITE_MATH.is_finite_float(p_current_value)
+	):
+		return
+	_min_value = p_min_value
+	_max_value = p_max_value
 	set_value(p_current_value)
 
 
@@ -141,6 +180,8 @@ func configure(p_min_value: float, p_max_value: float, p_current_value: float) -
 ## [br]
 ## @param value: 新数值。
 func set_value(value: float) -> void:
+	if not _GF_COMBAT_FINITE_MATH.is_finite_float(value):
+		return
 	var previous_value: float = current_value
 	current_value = clampf(value, minf(min_value, max_value), maxf(min_value, max_value))
 	if is_equal_approx(previous_value, current_value):
@@ -158,8 +199,13 @@ func set_value(value: float) -> void:
 ## [br]
 ## @param p_max_value: 数值上限。
 func set_bounds(p_min_value: float, p_max_value: float) -> void:
-	min_value = p_min_value
-	max_value = p_max_value
+	if (
+		not _GF_COMBAT_FINITE_MATH.is_finite_float(p_min_value)
+		or not _GF_COMBAT_FINITE_MATH.is_finite_float(p_max_value)
+	):
+		return
+	_min_value = p_min_value
+	_max_value = p_max_value
 	set_value(current_value)
 
 
@@ -228,6 +274,15 @@ func apply_action(action: GFCombatAction) -> GFCombatActionResult:
 		var null_result: GFCombatActionResult = GFCombatActionResult.make_failure(&"null_action", null, current_value, metadata)
 		action_rejected.emit(null_result)
 		return null_result
+	if not action.is_numeric_state_valid():
+		var numeric_result: GFCombatActionResult = GFCombatActionResult.make_failure(
+			&"non_finite_action",
+			action,
+			current_value,
+			metadata
+		)
+		action_rejected.emit(numeric_result)
+		return numeric_result
 
 	if not can_receive_action_kind(action.action_kind):
 		var kind_result: GFCombatActionResult = GFCombatActionResult.make_failure(&"unaccepted_kind", action, current_value, metadata)
@@ -235,6 +290,17 @@ func apply_action(action: GFCombatAction) -> GFCombatActionResult:
 		return kind_result
 
 	var final_action: GFCombatAction = _apply_modifiers(action)
+	if final_action == null or not final_action.is_numeric_state_valid():
+		var modifier_result: GFCombatActionResult = GFCombatActionResult.make_failure(
+			&"non_finite_modified_action",
+			action,
+			current_value,
+			metadata
+		)
+		if final_action != null:
+			modifier_result.action = final_action.duplicate_action()
+		action_rejected.emit(modifier_result)
+		return modifier_result
 	var validation_report: Dictionary = _validate_action(final_action)
 	if not GFVariantData.get_option_bool(validation_report, "ok", true):
 		var rejected_metadata: Dictionary = _get_report_metadata(validation_report)
@@ -250,6 +316,16 @@ func apply_action(action: GFCombatAction) -> GFCombatActionResult:
 
 	var previous_value: float = current_value
 	var next_value: float = _calculate_next_value(final_action)
+	if not _GF_COMBAT_FINITE_MATH.is_finite_float(next_value):
+		var overflow_result: GFCombatActionResult = GFCombatActionResult.make_failure(
+			&"non_finite_result",
+			action,
+			current_value,
+			metadata
+		)
+		overflow_result.action = final_action.duplicate_action()
+		action_rejected.emit(overflow_result)
+		return overflow_result
 	set_value(next_value)
 
 	var applied_metadata: Dictionary = _get_report_metadata(validation_report)

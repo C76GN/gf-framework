@@ -18,8 +18,8 @@
 | 属性 | [`active_slot_index`](#member-gfsaveslotworkflow-properties-active_slot_index) | `var active_slot_index: int = 0` |
 | 属性 | [`slot_id_template`](#member-gfsaveslotworkflow-properties-slot_id_template) | `var slot_id_template: String = "slot_{index}"` |
 | 属性 | [`empty_display_name_template`](#member-gfsaveslotworkflow-properties-empty_display_name_template) | `var empty_display_name_template: String = ""` |
-| 属性 | [`metadata_script`](#member-gfsaveslotworkflow-properties-metadata_script) | `var metadata_script: Script = _GF_SAVE_SLOT_METADATA_SCRIPT` |
-| 属性 | [`card_script`](#member-gfsaveslotworkflow-properties-card_script) | `var card_script: Script = _GF_SAVE_SLOT_CARD_SCRIPT` |
+| 属性 | [`metadata_script`](#member-gfsaveslotworkflow-properties-metadata_script) | `var metadata_script: Script = GFSaveSlotMetadata` |
+| 属性 | [`card_script`](#member-gfsaveslotworkflow-properties-card_script) | `var card_script: Script = GFSaveSlotCard` |
 | 属性 | [`slot_role`](#member-gfsaveslotworkflow-properties-slot_role) | `var slot_role: StringName = &""` |
 | 方法 | [`select_slot_index`](#member-gfsaveslotworkflow-methods-select_slot_index) | `func select_slot_index(index: int) -> StringName:` |
 | 方法 | [`set_slot_id_override`](#member-gfsaveslotworkflow-methods-set_slot_id_override) | `func set_slot_id_override(index: int, slot_id: StringName) -> void:` |
@@ -33,7 +33,7 @@
 | 方法 | [`build_empty_card`](#member-gfsaveslotworkflow-methods-build_empty_card) | `func build_empty_card(index: int) -> GFSaveSlotCard:` |
 | 方法 | [`build_card_for_index`](#member-gfsaveslotworkflow-methods-build_card_for_index) | `func build_card_for_index( index: int, summary: Dictionary = {}, p_active_slot_index: int = -1 ) -> GFSaveSlotCard:` |
 | 方法 | [`build_cards_for_indices`](#member-gfsaveslotworkflow-methods-build_cards_for_indices) | `func build_cards_for_indices(indices: Array, summaries: Array = []) -> Array[GFSaveSlotCard]:` |
-| 方法 | [`build_cards_from_storage`](#member-gfsaveslotworkflow-methods-build_cards_from_storage) | `func build_cards_from_storage(storage: GFStorageUtility, indices: Array = []) -> Array[GFSaveSlotCard]:` |
+| 方法 | [`build_cards_from_slot_store`](#member-gfsaveslotworkflow-methods-build_cards_from_slot_store) | `func build_cards_from_slot_store(slot_store: GFSaveSlotStorageAdapter, indices: Array = []) -> Array[GFSaveSlotCard]:` |
 
 ## 属性
 
@@ -78,9 +78,10 @@ var empty_display_name_template: String = ""
 ### `metadata_script`
 
 - API：`public`
+- 首次版本：`8.0.0`
 
 ```gdscript
-var metadata_script: Script = _GF_SAVE_SLOT_METADATA_SCRIPT
+var metadata_script: Script = GFSaveSlotMetadata
 ```
 
 可替换的元数据资源脚本，项目层可继承 GFSaveSlotMetadata 扩展。
@@ -90,9 +91,10 @@ var metadata_script: Script = _GF_SAVE_SLOT_METADATA_SCRIPT
 ### `card_script`
 
 - API：`public`
+- 首次版本：`8.0.0`
 
 ```gdscript
-var card_script: Script = _GF_SAVE_SLOT_CARD_SCRIPT
+var card_script: Script = GFSaveSlotCard
 ```
 
 可替换的卡片资源脚本，项目层可继承 GFSaveSlotCard 扩展。
@@ -332,6 +334,7 @@ func build_card_for_index( index: int, summary: Dictionary = {}, p_active_slot_i
 ### `build_cards_for_indices`
 
 - API：`public`
+- 首次版本：`3.6.0`
 
 ```gdscript
 func build_cards_for_indices(indices: Array, summaries: Array = []) -> Array[GFSaveSlotCard]:
@@ -351,25 +354,26 @@ func build_cards_for_indices(indices: Array, summaries: Array = []) -> Array[GFS
 结构：
 
 - `indices`: Array，元素为可转换为 int 的槽位索引。
-- `summaries`: Array，每项为 GFStorageUtility.list_slots() 风格的 Dictionary 摘要。
+- `summaries`: Array，每项为槽位存储适配器产出的 Dictionary 摘要。
 
-<a id="member-gfsaveslotworkflow-methods-build_cards_from_storage"></a>
+<a id="member-gfsaveslotworkflow-methods-build_cards_from_slot_store"></a>
 
-### `build_cards_from_storage`
+### `build_cards_from_slot_store`
 
 - API：`public`
+- 首次版本：`8.0.0`
 
 ```gdscript
-func build_cards_from_storage(storage: GFStorageUtility, indices: Array = []) -> Array[GFSaveSlotCard]:
+func build_cards_from_slot_store(slot_store: GFSaveSlotStorageAdapter, indices: Array = []) -> Array[GFSaveSlotCard]:
 ```
 
-从 GFStorageUtility 读取摘要并构建卡片。
+从 GFSaveSlotStorageAdapter 读取摘要并构建卡片。
 
 参数：
 
 | 名称 | 说明 |
 |---|---|
-| `storage` | 存储工具。 |
+| `slot_store` | 槽位存储适配器。 |
 | `indices` | 需要展示的槽位索引；为空时使用已有槽位。 |
 
 返回：卡片列表。

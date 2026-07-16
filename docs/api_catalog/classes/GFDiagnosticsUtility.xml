@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFDiagnosticsUtility" path="addons/gf/standard/utilities/debug/gf_diagnostics_utility.gd" module="standard" extends="GFUtility" classDigest="ae19b120741f10d46fe64c324800648b35210a6c09c156b0ef129bce4eb67915">
+<class name="GFDiagnosticsUtility" path="addons/gf/standard/utilities/debug/gf_diagnostics_utility.gd" module="standard" extends="GFUtility" classDigest="4577644c95f2c00938be5972f24d3c3031b75d71a72a6a5e2d5a36c59ede3089">
 	<description>GFDiagnosticsUtility: 运行时诊断聚合工具。
 提供架构生命周期、事件系统、性能、日志和外部贡献诊断的统一快照。
-诊断命令、监控项和快照分区通过 Callable 注册，框架只负责调度和包装结果，不解释项目业务数据。</description>
+外部监控和快照贡献采用 owner-bound 发布模型；采集路径只读取已验证缓存，不执行项目回调。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">runtime_service</tag>
@@ -187,6 +187,39 @@
 				<tag name="api">public</tag>
 			</tags>
 		</member>
+		<member kind="property" name="max_contribution_collection_items">
+			<signature>var max_contribution_collection_items: int = 64:</signature>
+			<description>外部诊断贡献的单个容器最多包含的元素数量。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="max_contribution_nodes">
+			<signature>var max_contribution_nodes: int = 2048:</signature>
+			<description>外部诊断贡献最多包含的 Variant 节点数量。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="max_contribution_depth">
+			<signature>var max_contribution_depth: int = 16:</signature>
+			<description>外部诊断贡献允许的最大集合嵌套深度。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="max_contribution_bytes">
+			<signature>var max_contribution_bytes: int = 262_144:</signature>
+			<description>外部诊断贡献允许保留的估算字节数。
+该预算用于阻止诊断系统长期保留异常大的字符串、PackedArray 或集合，不代表精确内存占用。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
 	</properties>
 	<methods>
 		<member kind="method" name="init">
@@ -211,24 +244,30 @@
 			</tags>
 		</member>
 		<member kind="method" name="register_command">
-			<signature>func register_command( command_name: StringName, callback: Callable, description: String = "", tier: CommandTier = CommandTier.OBSERVE, options: Dictionary = {} ) -&gt; void:</signature>
+			<signature>func register_command( owner: Object, command_name: StringName, callback: Callable, description: String = "", tier: CommandTier = CommandTier.OBSERVE, options: Dictionary = {} ) -&gt; bool:</signature>
 			<description>注册诊断命令。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="param">owner: 命令注册所有者；同名命令只允许同一 owner 更新。</tag>
 				<tag name="param">command_name: 命令名。</tag>
 				<tag name="param">callback: 回调，签名建议为 func(args: Dictionary) -&gt; Variant。</tag>
 				<tag name="param">description: 描述文本。</tag>
 				<tag name="param">tier: 命令风险等级。</tag>
 				<tag name="param">options: 可选元数据，支持 parameters、metadata、enabled。</tag>
+				<tag name="return">注册成功返回 true；同名命令属于其他 owner 时返回 false。</tag>
 				<tag name="schema">options: Dictionary，支持 parameters、metadata 和 enabled。</tag>
+				<tag name="since">3.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="unregister_command">
-			<signature>func unregister_command(command_name: StringName) -&gt; void:</signature>
+			<signature>func unregister_command(owner: Object, command_name: StringName) -&gt; bool:</signature>
 			<description>注销诊断命令。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="param">owner: 当前命令注册所有者。</tag>
 				<tag name="param">command_name: 命令名。</tag>
+				<tag name="return">owner 匹配且成功注销时返回 true。</tag>
+				<tag name="since">3.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="has_command">
@@ -299,23 +338,42 @@
 			</tags>
 		</member>
 		<member kind="method" name="register_monitor">
-			<signature>func register_monitor(monitor_id: StringName, provider: Callable, options: Dictionary = {}) -&gt; bool:</signature>
-			<description>注册诊断监控项。</description>
+			<signature>func register_monitor(owner: Object, monitor_id: StringName, options: Dictionary = {}) -&gt; bool:</signature>
+			<description>注册一个由 owner 主动发布采样值的诊断监控项。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="param">owner: 监控项注册所有者；同名监控项只允许同一 owner 更新。</tag>
 				<tag name="param">monitor_id: 监控项唯一标识。</tag>
-				<tag name="param">provider: 无参数采样回调。</tag>
-				<tag name="param">options: 可选元数据，支持 label、group、visible、metadata、min_interval_seconds。</tag>
+				<tag name="param">options: 可选元数据，支持 label、group、visible 和 metadata。</tag>
 				<tag name="return">注册成功返回 true。</tag>
-				<tag name="schema">options: Dictionary，支持 label、group、visible、metadata 和 min_interval_seconds。</tag>
+				<tag name="schema">options: Dictionary，支持 label、group、visible 和 metadata。</tag>
+				<tag name="since">3.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="publish_monitor_sample">
+			<signature>func publish_monitor_sample( owner: Object, monitor_id: StringName, value: Variant, sample_metadata: Dictionary = {} ) -&gt; bool:</signature>
+			<description>发布一个监控采样值。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">owner: 当前监控项注册所有者。</tag>
+				<tag name="param">monitor_id: 监控项唯一标识。</tag>
+				<tag name="param">value: 要缓存的采样值；采集阶段不会执行该值中的 Callable。</tag>
+				<tag name="param">sample_metadata: 本次采样元数据。</tag>
+				<tag name="return">owner 匹配且值通过贡献预算时返回 true；失败时保留上一份有效采样。</tag>
+				<tag name="schema">value: 任意 Variant 报告值；写入前由 GFReportValueCodec 编码，循环引用或超出诊断贡献预算时拒绝。</tag>
+				<tag name="schema">sample_metadata: JSON 兼容 Dictionary。</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="unregister_monitor">
-			<signature>func unregister_monitor(monitor_id: StringName) -&gt; void:</signature>
+			<signature>func unregister_monitor(owner: Object, monitor_id: StringName) -&gt; bool:</signature>
 			<description>注销诊断监控项。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="param">owner: 当前监控项注册所有者。</tag>
 				<tag name="param">monitor_id: 监控项唯一标识。</tag>
+				<tag name="return">owner 匹配且成功注销时返回 true。</tag>
+				<tag name="since">3.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="has_monitor">
@@ -333,7 +391,8 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">监控项元数据字典。</tag>
-				<tag name="schema">return: Dictionary[StringName, Dictionary]，每个值包含 label、group、visible、metadata 和 min_interval_seconds。</tag>
+				<tag name="schema">return: Dictionary[StringName, Dictionary]，每个值包含 label、group、visible、metadata 和 has_published_value。</tag>
+				<tag name="since">3.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="register_monitor_preset">
@@ -383,58 +442,72 @@
 				<tag name="return">预设标识列表。</tag>
 			</tags>
 		</member>
-		<member kind="method" name="register_snapshot_section_provider">
-			<signature>func register_snapshot_section_provider(section_id: StringName, provider: Callable) -&gt; bool:</signature>
-			<description>注册快照分区 provider。用于扩展或项目把自己的诊断数据贡献到 collect_snapshot() 顶层字段。</description>
+		<member kind="method" name="publish_snapshot_section">
+			<signature>func publish_snapshot_section(owner: Object, section_id: StringName, section: Dictionary) -&gt; bool:</signature>
+			<description>发布快照分区。用于扩展或项目把自己的诊断数据贡献到 collect_snapshot() 顶层字段。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="param">owner: 分区所有者；同名分区只允许同一 owner 更新。</tag>
 				<tag name="param">section_id: 快照顶层字段名。</tag>
-				<tag name="param">provider: 无参数采样回调，建议返回 Dictionary。</tag>
+				<tag name="param">section: 要缓存的分区快照，必须满足诊断贡献预算。</tag>
 				<tag name="return">注册成功返回 true。</tag>
+				<tag name="schema">section: Dictionary 报告快照；写入前由 GFReportValueCodec 编码，循环引用或超出诊断贡献预算时拒绝。</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
-		<member kind="method" name="unregister_snapshot_section_provider">
-			<signature>func unregister_snapshot_section_provider(section_id: StringName) -&gt; void:</signature>
-			<description>注销快照分区 provider。</description>
+		<member kind="method" name="remove_snapshot_section">
+			<signature>func remove_snapshot_section(owner: Object, section_id: StringName) -&gt; bool:</signature>
+			<description>移除快照分区。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="param">owner: 当前分区所有者。</tag>
 				<tag name="param">section_id: 快照顶层字段名。</tag>
+				<tag name="return">owner 匹配且成功注销时返回 true。</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
-		<member kind="method" name="has_snapshot_section_provider">
-			<signature>func has_snapshot_section_provider(section_id: StringName) -&gt; bool:</signature>
-			<description>检查快照分区 provider 是否存在。</description>
+		<member kind="method" name="has_snapshot_section">
+			<signature>func has_snapshot_section(section_id: StringName) -&gt; bool:</signature>
+			<description>检查快照分区是否存在。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">section_id: 快照顶层字段名。</tag>
 				<tag name="return">存在返回 true。</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
-		<member kind="method" name="register_tool_snapshot_provider">
-			<signature>func register_tool_snapshot_provider(tool_id: StringName, provider: Callable) -&gt; bool:</signature>
-			<description>注册工具快照 provider。用于扩展或项目把 get_debug_snapshot() 风格数据贡献到 tools 字段。</description>
+		<member kind="method" name="publish_tool_snapshot">
+			<signature>func publish_tool_snapshot(owner: Object, tool_id: StringName, snapshot: Dictionary) -&gt; bool:</signature>
+			<description>发布工具快照。用于扩展或项目把 get_debug_snapshot() 风格数据贡献到 tools 字段。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="param">owner: 快照所有者；同名工具只允许同一 owner 更新。</tag>
 				<tag name="param">tool_id: tools 内部字段名。</tag>
-				<tag name="param">provider: 无参数采样回调，建议返回 Dictionary。</tag>
+				<tag name="param">snapshot: 要缓存的工具快照，必须满足诊断贡献预算。</tag>
 				<tag name="return">注册成功返回 true。</tag>
+				<tag name="schema">snapshot: Dictionary 报告快照；写入前由 GFReportValueCodec 编码，循环引用或超出诊断贡献预算时拒绝。</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
-		<member kind="method" name="unregister_tool_snapshot_provider">
-			<signature>func unregister_tool_snapshot_provider(tool_id: StringName) -&gt; void:</signature>
-			<description>注销工具快照 provider。</description>
+		<member kind="method" name="remove_tool_snapshot">
+			<signature>func remove_tool_snapshot(owner: Object, tool_id: StringName) -&gt; bool:</signature>
+			<description>移除工具快照。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="param">owner: 当前快照所有者。</tag>
 				<tag name="param">tool_id: tools 内部字段名。</tag>
+				<tag name="return">owner 匹配且成功注销时返回 true。</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
-		<member kind="method" name="has_tool_snapshot_provider">
-			<signature>func has_tool_snapshot_provider(tool_id: StringName) -&gt; bool:</signature>
-			<description>检查工具快照 provider 是否存在。</description>
+		<member kind="method" name="has_tool_snapshot">
+			<signature>func has_tool_snapshot(tool_id: StringName) -&gt; bool:</signature>
+			<description>检查工具快照是否存在。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">tool_id: tools 内部字段名。</tag>
 				<tag name="return">存在返回 true。</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="collect_monitor_snapshot">
@@ -524,7 +597,7 @@
 				<tag name="param">options: 可选参数，支持 recent_log_count、include_recent_logs、include_scene_tree、scene_tree_options、include_signal_graph、signal_graph_options。</tag>
 				<tag name="return">快照字典。</tag>
 				<tag name="schema">options: Dictionary，支持 recent_log_count、include_recent_logs、include_scene_tree、scene_tree_options、include_signal_graph、signal_graph_options、include_monitors、monitor_preset、monitor_ids、include_hidden_monitors。</tag>
-				<tag name="schema">return: Dictionary，包含 timestamp_unix、engine、build、architecture、event_system、performance、logs、tools，可选 scene_tree、signal_graph、monitors 和注册分区。</tag>
+				<tag name="schema">return: Dictionary，包含 timestamp_unix、engine、build、architecture、event_system、performance、logs、tools，可选 scene_tree、signal_graph、monitors 和已发布分区。</tag>
 				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>

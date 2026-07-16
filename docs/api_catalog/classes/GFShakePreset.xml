@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFShakePreset" path="addons/gf/extensions/feedback/resources/gf_shake_preset.gd" module="extensions/feedback" extends="Resource" classDigest="5c07f8e07a3cf947f99e0bb7fbc26d0b2f95e02b3d63b6ac1b5cf6e00e77629b">
+<class name="GFShakePreset" path="addons/gf/extensions/feedback/resources/gf_shake_preset.gd" module="extensions/feedback" extends="Resource" classDigest="87d3d2ec91b6a3b5223d6bb08793fac5114ba2b8c0d8042421df508fd06a952c">
 	<description>GFShakePreset: 通用反馈采样预设。
 描述一段可采样的位移、旋转和缩放偏移，不绑定相机、角色、UI 或业务事件。</description>
 	<tags>
@@ -23,6 +23,7 @@
 			<description>反馈采样波形。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</enums>
@@ -33,6 +34,7 @@
 			<description>持续时间，单位秒。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="amplitude" decorators="@export_range(0.0, 1000.0, 0.001, &quot;or_greater&quot;)">
@@ -40,6 +42,7 @@
 			<description>采样振幅倍率。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="frequency" decorators="@export_range(0.0, 240.0, 0.001, &quot;or_greater&quot;)">
@@ -47,6 +50,7 @@
 			<description>每秒采样频率。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="waveform" decorators="@export">
@@ -54,6 +58,7 @@
 			<description>波形类型。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="position_axis" decorators="@export">
@@ -61,6 +66,7 @@
 			<description>位移轴权重。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="rotation_axis_degrees" decorators="@export">
@@ -68,6 +74,7 @@
 			<description>旋转轴权重，单位度。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="scale_axis" decorators="@export">
@@ -75,6 +82,7 @@
 			<description>缩放偏移轴权重。返回值是叠加到基础 scale 上的偏移。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="decay_curve" decorators="@export">
@@ -82,6 +90,7 @@
 			<description>包络曲线。为空时使用线性衰减；曲线值越高，当前采样越强。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="wave_curve" decorators="@export">
@@ -89,6 +98,7 @@
 			<description>自定义波形曲线。仅在 waveform 为 CURVE 时使用，曲线值 0.5 表示零偏移。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="sample_seed" decorators="@export">
@@ -96,6 +106,7 @@
 			<description>确定性采样种子。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="tracks" decorators="@export">
@@ -104,6 +115,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="schema">tracks: Array[GFShakeTrack]，按顺序采样并根据每个轨道 blend_mode 合成。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</properties>
@@ -114,6 +126,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">持续时间，最小为 0。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="sample">
@@ -126,6 +139,7 @@
 				<tag name="param">phase_offset: 相位偏移，用于同一预设多次播放时错开采样。</tag>
 				<tag name="return">采样结果字典。</tag>
 				<tag name="schema">return: Dictionary，包含 position: Vector3、rotation_degrees: Vector3、scale: Vector3、intensity: float 与 progress: float。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="sample_at_progress">
@@ -139,6 +153,7 @@
 				<tag name="param">phase_offset: 相位偏移。</tag>
 				<tag name="return">采样结果字典。</tag>
 				<tag name="schema">return: Dictionary，包含 position: Vector3、rotation_degrees: Vector3、scale: Vector3、intensity: float 与 progress: float。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="add_track">
@@ -148,6 +163,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">track: 反馈轨道。</tag>
 				<tag name="return">添加成功返回 true。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="clear_tracks">
@@ -155,6 +171,7 @@
 			<description>清空反馈轨道。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="has_tracks">
@@ -163,6 +180,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">存在有效轨道返回 true。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="zero_sample">
@@ -172,6 +190,7 @@
 				<tag name="api">public</tag>
 				<tag name="return">空采样结果字典。</tag>
 				<tag name="schema">return: Dictionary，包含零值 position、rotation_degrees、scale、intensity 与 progress。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="combine_samples">
@@ -183,6 +202,7 @@
 				<tag name="return">合并后的采样结果。</tag>
 				<tag name="schema">samples: Array[Dictionary]，每项包含 position、rotation_degrees、scale、intensity 与 progress。</tag>
 				<tag name="schema">return: Dictionary，合并后的反馈采样，包含 position、rotation_degrees、scale、intensity 与 progress。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</methods>

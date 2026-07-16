@@ -136,8 +136,10 @@ func gather_node(node: Node, context: Dictionary = {}) -> Array[Dictionary]:
 func apply_node(node: Node, serializer_payloads: Array, context: Dictionary = {}) -> Dictionary:
 	var errors: Array[String] = []
 	var applied: int = 0
-	for payload_variant: Variant in serializer_payloads:
+	for payload_index: int in range(serializer_payloads.size()):
+		var payload_variant: Variant = serializer_payloads[payload_index]
 		if not (payload_variant is Dictionary):
+			errors.append("Serializer payload at index %d must be a Dictionary." % payload_index)
 			continue
 
 		var payload: Dictionary = GFVariantData.as_dictionary(payload_variant)

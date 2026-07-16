@@ -1,0 +1,192 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFStorageSectionCache" path="addons/gf/standard/utilities/storage/gf_storage_section_cache.gd" module="standard" extends="RefCounted" classDigest="fa64c2e728f5a8bfc3eca4f622a6174d9bfe133e5199115bb3e9027ca958a50c">
+	<description>GFStorageSectionCache: 通用分区数据脏标记缓存。
+用 scope_id + section_id 管理 Dictionary 分区，记录哪些分区被修改，并可生成只包含脏分区的
+存储载荷。它不定义存档字段、业务模块或 UI，只负责分区缓存和脏状态机制。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">value_object</tag>
+		<tag name="since">8.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties />
+	<methods>
+		<member kind="method" name="write_section">
+			<signature>func write_section(scope_id: Variant, section_id: StringName, data: Dictionary, mark_dirty: bool = true) -&gt; bool:</signature>
+			<description>写入一个分区。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">scope_id: 调用方定义的作用域标识。</tag>
+				<tag name="param">section_id: 分区标识。</tag>
+				<tag name="param">data: 分区数据。</tag>
+				<tag name="param">mark_dirty: 为 true 时把分区标记为脏。</tag>
+				<tag name="return">写入成功返回 true。</tag>
+				<tag name="schema">scope_id: Variant，建议使用 String、StringName 或 int 等稳定值。</tag>
+				<tag name="schema">data: Dictionary，调用方定义的分区载荷。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="merge_section">
+			<signature>func merge_section( scope_id: Variant, section_id: StringName, patch: Dictionary, deep: bool = true, mark_dirty: bool = true ) -&gt; Dictionary:</signature>
+			<description>合并一个分区的补丁数据。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">scope_id: 调用方定义的作用域标识。</tag>
+				<tag name="param">section_id: 分区标识。</tag>
+				<tag name="param">patch: 要合并到分区内的数据。</tag>
+				<tag name="param">deep: 是否深合并嵌套 Dictionary。</tag>
+				<tag name="param">mark_dirty: 为 true 时把分区标记为脏。</tag>
+				<tag name="return">合并后的分区副本。</tag>
+				<tag name="schema">scope_id: Variant，建议使用 String、StringName 或 int 等稳定值。</tag>
+				<tag name="schema">patch: Dictionary，调用方定义的分区补丁。</tag>
+				<tag name="schema">return: Dictionary，合并后的分区数据副本。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="read_section">
+			<signature>func read_section(scope_id: Variant, section_id: StringName, duplicate_value: bool = true) -&gt; Dictionary:</signature>
+			<description>读取一个分区。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">scope_id: 调用方定义的作用域标识。</tag>
+				<tag name="param">section_id: 分区标识。</tag>
+				<tag name="param">duplicate_value: 为 true 时返回深拷贝。</tag>
+				<tag name="return">分区数据；不存在时返回空字典。</tag>
+				<tag name="schema">scope_id: Variant，建议使用 String、StringName 或 int 等稳定值。</tag>
+				<tag name="schema">return: Dictionary，调用方定义的分区载荷。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="has_section">
+			<signature>func has_section(scope_id: Variant, section_id: StringName) -&gt; bool:</signature>
+			<description>检查分区是否存在。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">scope_id: 调用方定义的作用域标识。</tag>
+				<tag name="param">section_id: 分区标识。</tag>
+				<tag name="return">存在返回 true。</tag>
+				<tag name="schema">scope_id: Variant，建议使用 String、StringName 或 int 等稳定值。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_sections">
+			<signature>func get_sections(scope_id: Variant, only_dirty: bool = false) -&gt; Dictionary:</signature>
+			<description>获取作用域内的分区字典。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">scope_id: 调用方定义的作用域标识。</tag>
+				<tag name="param">only_dirty: 为 true 时只返回脏分区。</tag>
+				<tag name="return">分区字典副本。</tag>
+				<tag name="schema">scope_id: Variant，建议使用 String、StringName 或 int 等稳定值。</tag>
+				<tag name="schema">return: Dictionary[StringName, Dictionary]，分区 ID 到分区载荷的映射。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_section_ids">
+			<signature>func get_section_ids(scope_id: Variant) -&gt; PackedStringArray:</signature>
+			<description>获取作用域内的分区 ID 列表。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">scope_id: 调用方定义的作用域标识。</tag>
+				<tag name="return">分区 ID 列表。</tag>
+				<tag name="schema">scope_id: Variant，建议使用 String、StringName 或 int 等稳定值。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_dirty_sections">
+			<signature>func get_dirty_sections(scope_id: Variant) -&gt; PackedStringArray:</signature>
+			<description>获取作用域内的脏分区 ID 列表。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">scope_id: 调用方定义的作用域标识。</tag>
+				<tag name="return">脏分区 ID 列表。</tag>
+				<tag name="schema">scope_id: Variant，建议使用 String、StringName 或 int 等稳定值。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_dirty">
+			<signature>func is_dirty(scope_id: Variant, section_id: StringName = &amp;"") -&gt; bool:</signature>
+			<description>检查作用域或分区是否存在脏数据。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">scope_id: 调用方定义的作用域标识。</tag>
+				<tag name="param">section_id: 分区标识；为空时检查整个作用域。</tag>
+				<tag name="return">存在脏数据返回 true。</tag>
+				<tag name="schema">scope_id: Variant，建议使用 String、StringName 或 int 等稳定值。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="mark_clean">
+			<signature>func mark_clean(scope_id: Variant, section_ids: PackedStringArray = PackedStringArray()) -&gt; int:</signature>
+			<description>标记分区为干净。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">scope_id: 调用方定义的作用域标识。</tag>
+				<tag name="param">section_ids: 要清理的分区；为空时清理整个作用域。</tag>
+				<tag name="return">被清理的脏分区数量。</tag>
+				<tag name="schema">scope_id: Variant，建议使用 String、StringName 或 int 等稳定值。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="apply_payload">
+			<signature>func apply_payload(scope_id: Variant, payload: Dictionary, mark_dirty: bool = false) -&gt; int:</signature>
+			<description>从 payload 填充作用域。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">scope_id: 调用方定义的作用域标识。</tag>
+				<tag name="param">payload: 带 sections 字段的载荷，或直接作为分区字典使用的载荷。</tag>
+				<tag name="param">mark_dirty: 为 true 时把导入分区标记为脏。</tag>
+				<tag name="return">导入的分区数量。</tag>
+				<tag name="schema">scope_id: Variant，建议使用 String、StringName 或 int 等稳定值。</tag>
+				<tag name="schema">payload: Dictionary，包含 sections 字段或直接为 Dictionary[StringName, Dictionary]。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="build_payload">
+			<signature>func build_payload( scope_id: Variant, include_clean: bool = false, mark_clean_after_build: bool = false ) -&gt; Dictionary:</signature>
+			<description>构建适合交给存储层保存的分区载荷。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">scope_id: 调用方定义的作用域标识。</tag>
+				<tag name="param">include_clean: 为 true 时包含所有分区；为 false 时只包含脏分区。</tag>
+				<tag name="param">mark_clean_after_build: 为 true 时构建后清理对应脏标记。</tag>
+				<tag name="return">分区载荷。</tag>
+				<tag name="schema">scope_id: Variant，建议使用 String、StringName 或 int 等稳定值。</tag>
+				<tag name="schema">return: Dictionary，包含 scope_id、sections、dirty_sections 和 include_clean。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="evict_scope">
+			<signature>func evict_scope(scope_id: Variant) -&gt; bool:</signature>
+			<description>移除一个作用域。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">scope_id: 调用方定义的作用域标识。</tag>
+				<tag name="return">存在并移除时返回 true。</tag>
+				<tag name="schema">scope_id: Variant，建议使用 String、StringName 或 int 等稳定值。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="clear">
+			<signature>func clear() -&gt; void:</signature>
+			<description>清空全部缓存。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_debug_snapshot">
+			<signature>func get_debug_snapshot() -&gt; Dictionary:</signature>
+			<description>获取调试快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">调试快照。</tag>
+				<tag name="schema">return: Dictionary，包含 scope_count、section_count 和 dirty_section_count。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

@@ -1,0 +1,160 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFNetworkLobbyJoinResult" path="addons/gf/extensions/network/session/gf_network_lobby_join_result.gd" module="extensions/network" extends="RefCounted" classDigest="58786186633488459fbcdb97fd1b10dbff6c4155a2ca81115f0a8e6c7c8e5e42">
+	<description>GFNetworkLobbyJoinResult: Lobby 创建或加入结果。
+该值对象统一表达同步或异步 backend 的最终结果，避免项目代码直接依赖
+平台 SDK 的错误码枚举。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">value_object</tag>
+		<tag name="since">8.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties>
+		<member kind="property" name="ok">
+			<signature>var ok: bool = false</signature>
+			<description>操作是否成功。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="lobby_id">
+			<signature>var lobby_id: String = ""</signature>
+			<description>相关 lobby ID。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="lobby">
+			<signature>var lobby: GFNetworkLobbyDescriptor = null</signature>
+			<description>成功时的 lobby 快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="error">
+			<signature>var error: StringName = &amp;""</signature>
+			<description>失败原因标识。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="message">
+			<signature>var message: String = ""</signature>
+			<description>人读说明。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="metadata">
+			<signature>var metadata: Dictionary = {}</signature>
+			<description>调用方自定义元数据。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">metadata: Dictionary caller-defined result metadata.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="configure_success">
+			<signature>func configure_success(p_lobby: GFNetworkLobbyDescriptor, p_metadata: Dictionary = {}) -&gt; GFNetworkLobbyJoinResult:</signature>
+			<description>配置成功结果。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">p_lobby: Lobby 快照。</tag>
+				<tag name="param">p_metadata: 调用方元数据。</tag>
+				<tag name="return">当前结果。</tag>
+				<tag name="schema">p_metadata: Dictionary caller-defined result metadata.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="configure_failure">
+			<signature>func configure_failure( p_lobby_id: String, p_error: StringName, p_message: String = "", p_metadata: Dictionary = {} ) -&gt; GFNetworkLobbyJoinResult:</signature>
+			<description>配置失败结果。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">p_lobby_id: 相关 lobby ID。</tag>
+				<tag name="param">p_error: 失败原因标识。</tag>
+				<tag name="param">p_message: 人读说明。</tag>
+				<tag name="param">p_metadata: 调用方元数据。</tag>
+				<tag name="return">当前结果。</tag>
+				<tag name="schema">p_metadata: Dictionary caller-defined result metadata.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="to_dict">
+			<signature>func to_dict() -&gt; Dictionary:</signature>
+			<description>转换为字典。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">结果字典。</tag>
+				<tag name="schema">return: Dictionary with ok, lobby_id, lobby, error, message, and metadata.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="apply_dict">
+			<signature>func apply_dict(data: Dictionary) -&gt; void:</signature>
+			<description>从字典应用结果字段。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">data: 结果字典。</tag>
+				<tag name="schema">data: Dictionary with ok, lobby_id, lobby, error, message, and metadata.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="duplicate_result">
+			<signature>func duplicate_result() -&gt; GFNetworkLobbyJoinResult:</signature>
+			<description>创建结果深拷贝。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">新结果。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="success">
+			<signature>static func success(lobby_value: GFNetworkLobbyDescriptor, metadata_value: Dictionary = {}) -&gt; GFNetworkLobbyJoinResult:</signature>
+			<description>创建成功结果。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">lobby_value: Lobby 快照。</tag>
+				<tag name="param">metadata_value: 调用方元数据。</tag>
+				<tag name="return">成功结果。</tag>
+				<tag name="schema">metadata_value: Dictionary caller-defined result metadata.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="failure">
+			<signature>static func failure( lobby_id_value: String, error_value: StringName, message_value: String = "", metadata_value: Dictionary = {} ) -&gt; GFNetworkLobbyJoinResult:</signature>
+			<description>创建失败结果。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">lobby_id_value: 相关 lobby ID。</tag>
+				<tag name="param">error_value: 失败原因标识。</tag>
+				<tag name="param">message_value: 人读说明。</tag>
+				<tag name="param">metadata_value: 调用方元数据。</tag>
+				<tag name="return">失败结果。</tag>
+				<tag name="schema">metadata_value: Dictionary caller-defined result metadata.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="from_dict">
+			<signature>static func from_dict(data: Dictionary) -&gt; GFNetworkLobbyJoinResult:</signature>
+			<description>从字典创建结果。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">data: 结果字典。</tag>
+				<tag name="return">新结果。</tag>
+				<tag name="schema">data: Dictionary with ok, lobby_id, lobby, error, message, and metadata.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

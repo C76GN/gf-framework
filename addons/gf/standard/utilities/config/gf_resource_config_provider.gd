@@ -359,12 +359,24 @@ func _get_table_reference(table_name: StringName) -> GFConfigTableResource:
 	var cached: Variant = GFVariantData.get_option_value(_tables_by_name, table_name, null)
 	if cached is GFConfigTableResource:
 		var cached_table: GFConfigTableResource = cached
-		return cached_table
+		if cached_table.get_table_key() == table_name:
+			return cached_table
+		var _rebuilt_count: int = rebuild_table_registry()
+		return _get_cached_table_reference(table_name)
 
 	for table_resource: GFConfigTableResource in _tables:
 		if table_resource != null and table_resource.get_table_key() == table_name:
-			_tables_by_name[table_name] = table_resource
-			return table_resource
+			var _rebuilt_count_after_miss: int = rebuild_table_registry()
+			return _get_cached_table_reference(table_name)
+	return null
+
+
+func _get_cached_table_reference(table_name: StringName) -> GFConfigTableResource:
+	var cached: Variant = GFVariantData.get_option_value(_tables_by_name, table_name, null)
+	if cached is GFConfigTableResource:
+		var cached_table: GFConfigTableResource = cached
+		if cached_table.get_table_key() == table_name:
+			return cached_table
 	return null
 
 

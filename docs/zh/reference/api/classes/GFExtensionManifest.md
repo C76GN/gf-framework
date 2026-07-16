@@ -45,6 +45,7 @@ GF 扩展元数据描述。 用于描述 GF 扩展的稳定 ID、版本、依赖
 | 方法 | [`is_valid_extension_id`](#member-gfextensionmanifest-methods-is_valid_extension_id) | `static func is_valid_extension_id(extension_id: String) -> bool:` |
 | 方法 | [`get_extension_id_validation_error`](#member-gfextensionmanifest-methods-get_extension_id_validation_error) | `static func get_extension_id_validation_error(extension_id: String, field_name: String = "id") -> String:` |
 | 方法 | [`to_dictionary`](#member-gfextensionmanifest-methods-to_dictionary) | `func to_dictionary() -> Dictionary:` |
+| 方法 | [`duplicate_manifest`](#member-gfextensionmanifest-methods-duplicate_manifest) | `func duplicate_manifest() -> GFExtensionManifest:` |
 | 方法 | [`is_valid`](#member-gfextensionmanifest-methods-is_valid) | `func is_valid() -> bool:` |
 | 方法 | [`get_validation_errors`](#member-gfextensionmanifest-methods-get_validation_errors) | `func get_validation_errors() -> Array[String]:` |
 
@@ -408,11 +409,11 @@ static func from_json_file_report(path: String) -> Dictionary:
 |---|---|
 | `path` | `gf_extension.json` 文件路径。 |
 
-返回：读取诊断，包含 ok、source_path、manifest 和 errors。
+返回：读取诊断，包含 ok、source_path、manifest_data 和 errors。
 
 结构：
 
-- `return`: Dictionary { ok: bool, source_path: String, manifest: GFExtensionManifest, errors: Array[String] }.
+- `return`: Dictionary { ok: bool, source_path: String, manifest_data: Dictionary, errors: Array[String] }.
 
 <a id="member-gfextensionmanifest-methods-is_valid_extension_id"></a>
 
@@ -474,6 +475,21 @@ func to_dictionary() -> Dictionary:
 结构：
 
 - `return`: Dictionary matching the gf_extension.json manifest shape.
+
+<a id="member-gfextensionmanifest-methods-duplicate_manifest"></a>
+
+### `duplicate_manifest`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func duplicate_manifest() -> GFExtensionManifest:
+```
+
+创建 manifest 副本。
+
+返回：与当前 manifest 内容一致的新实例。
 
 <a id="member-gfextensionmanifest-methods-is_valid"></a>
 

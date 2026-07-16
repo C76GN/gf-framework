@@ -29,3 +29,34 @@ var markdown_summary := reports.export_report_markdown(report, {
 ```
 
 场景快照只记录当前场景名称、路径和节点数量，节点数量统计默认限制深度与节点数；被截断时 `scene.node_count_truncated` 为 `true`。`export_report_json()` 适合自动化传输和持久化；`export_report_markdown()` 适合把同一份报告摘要贴进 Issue、PR、客服工单或测试记录。
+
+`save_report()` 先写同目录临时文件并 flush，再原子替换目标文件；写入中断不会先破坏已有报告。路径附件默认拒绝，只有 `allow_path_attachments = true` 且路径位于 `allowed_attachment_roots` 时才会探测和读取文件，避免权限拒绝前泄露文件是否存在。附件保存同样受 `allowed_output_roots` 和字节上限约束。
+
+## 工作流与离线重放
+
+需要把“构建报告、尝试提交、失败后排队、稍后重放”作为同一条流程复用时，可以组合 `GFSupportReportWorkflow`。它内部仍使用 `GFSupportReportUtility` 构建报告，并把离线请求交给 `GFRequestOutboxUtility`；上传地址、鉴权、玩家确认、隐私脱敏和重试窗口仍由项目层决定。
+
+```gdscript
+var workflow := GFSupportReportWorkflow.new()
+workflow.setup(reports, request_outbox)
+workflow.set_session_metadata({
+	"session_id": session_id,
+})
+workflow.set_transport(func(report: Dictionary, options: Dictionary) -> Dictionary:
+	return submit_support_payload(report, options)
+)
+
+var result := workflow.submit_report("读档失败", {
+	"metadata": {
+		"screen": "load_game",
+	},
+	"transport_options": {
+		"priority": "normal",
+	},
+})
+
+if result["status"] == &"queued":
+	print("报告已进入离线队列")
+```
+
+`request_url` 只是 outbox 中的逻辑端点，默认不表示真实 HTTP 地址。`transport_callback` 的建议签名是 `func(report: Dictionary, options: Dictionary) -> Variant`，项目可在里面调用 HTTP、平台 SDK、本地文件或测试替身。`replay_queued()` 会把 outbox 中保存的报告重新交给同一个 transport；因此不要把账号 token、用户隐私许可或临时 UI 状态写死在 workflow 中，应该在 transport 或项目会话层动态处理。

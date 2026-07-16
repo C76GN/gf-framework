@@ -1,0 +1,325 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFAssetCatalog" path="addons/gf/standard/utilities/assets/gf_asset_catalog.gd" module="standard" extends="Resource" classDigest="29babde8de640f9091f478d8f3d613c8e707a38cc982cd088b4660a33d427728">
+	<description>GFAssetCatalog: 通用资产目录。
+用稳定 asset_id 管理 `GFAssetCatalogEntry`，提供标签、分类、文本搜索、
+摘要、分页和序列化能力。目录只保存可重建的资产索引，不规定项目目录、
+内容包、业务分类或导出策略。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">resource_definition</tag>
+		<tag name="since">8.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants>
+		<member kind="const" name="GROUP_SOURCE_ID">
+			<signature>const GROUP_SOURCE_ID: StringName = &amp;"asset_id"</signature>
+			<description>按资产 ID 分组。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="GROUP_SOURCE_SOURCE_ID">
+			<signature>const GROUP_SOURCE_SOURCE_ID: StringName = &amp;"source_id"</signature>
+			<description>按资产来源分组。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="GROUP_SOURCE_CATEGORY">
+			<signature>const GROUP_SOURCE_CATEGORY: StringName = &amp;"category"</signature>
+			<description>按分类分组。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="GROUP_SOURCE_TAGS">
+			<signature>const GROUP_SOURCE_TAGS: StringName = &amp;"tags"</signature>
+			<description>按标签分组。一个资产可进入多个标签组。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="GROUP_SOURCE_TYPE_HINT">
+			<signature>const GROUP_SOURCE_TYPE_HINT: StringName = &amp;"type_hint"</signature>
+			<description>按主资源类型提示分组。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="GROUP_SOURCE_PRIMARY_PATH">
+			<signature>const GROUP_SOURCE_PRIMARY_PATH: StringName = &amp;"primary_path"</signature>
+			<description>按主资源路径分组。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="GROUP_SOURCE_CACHE_KEY">
+			<signature>const GROUP_SOURCE_CACHE_KEY: StringName = &amp;"cache_key"</signature>
+			<description>按主资源身份缓存键分组。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="GROUP_SOURCE_RESOURCE_ENTRY_ID">
+			<signature>const GROUP_SOURCE_RESOURCE_ENTRY_ID: StringName = &amp;"resource_entry_id"</signature>
+			<description>按关联资源注册表条目 ID 分组。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties>
+		<member kind="property" name="entries" decorators="@export">
+			<signature>var entries: Array[GFAssetCatalogEntry] = []</signature>
+			<description>资产目录条目。重复 asset_id 会以后出现的有效条目为准。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">entries: Array[GFAssetCatalogEntry] asset catalog entries.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="set_entry">
+			<signature>func set_entry(entry: GFAssetCatalogEntry) -&gt; bool:</signature>
+			<description>添加或替换资产条目。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">entry: 要写入的资产条目。</tag>
+				<tag name="return">写入成功返回 true。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="remove_entry">
+			<signature>func remove_entry(asset_id: StringName) -&gt; bool:</signature>
+			<description>移除资产条目。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">asset_id: 资产稳定 ID。</tag>
+				<tag name="return">移除成功返回 true。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="clear">
+			<signature>func clear() -&gt; void:</signature>
+			<description>清空目录。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="mark_index_dirty">
+			<signature>func mark_index_dirty() -&gt; void:</signature>
+			<description>标记运行时索引需要重建。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="rebuild_index">
+			<signature>func rebuild_index() -&gt; void:</signature>
+			<description>立即重建运行时索引。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="has_entry">
+			<signature>func has_entry(asset_id: StringName) -&gt; bool:</signature>
+			<description>检查资产是否存在。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">asset_id: 资产稳定 ID。</tag>
+				<tag name="return">存在时返回 true。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_entry">
+			<signature>func get_entry(asset_id: StringName) -&gt; GFAssetCatalogEntry:</signature>
+			<description>获取资产条目副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">asset_id: 资产稳定 ID。</tag>
+				<tag name="return">条目副本；不存在时返回 null。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_all_ids">
+			<signature>func get_all_ids() -&gt; PackedStringArray:</signature>
+			<description>获取全部有效资产 ID。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">排序后的资产 ID 列表。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="query">
+			<signature>func query(field_id: StringName, field_value: Variant) -&gt; PackedStringArray:</signature>
+			<description>按单个字段值查询资产 ID。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">field_id: 字段标识。</tag>
+				<tag name="param">field_value: 字段值。</tag>
+				<tag name="return">匹配的资产 ID。</tag>
+				<tag name="schema">field_value: Variant indexed field value.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="query_many">
+			<signature>func query_many(criteria: Dictionary, match_all: bool = true) -&gt; PackedStringArray:</signature>
+			<description>按多个字段查询资产 ID。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">criteria: 字段到值的查询条件。</tag>
+				<tag name="param">match_all: true 表示交集查询，false 表示并集查询。</tag>
+				<tag name="return">匹配的资产 ID。</tag>
+				<tag name="schema">criteria: Dictionary from field id to query value.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="merge_catalog">
+			<signature>func merge_catalog(catalog: GFAssetCatalog, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>合并另一份目录。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">catalog: 要合并的资产目录。</tag>
+				<tag name="param">options: 可选项，支持 overwrite。</tag>
+				<tag name="return">合并报告。</tag>
+				<tag name="schema">options: Dictionary with optional overwrite: bool.</tag>
+				<tag name="schema">return: Dictionary with added_count, replaced_count, skipped_count, and duplicate_ids.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="make_search_candidates">
+			<signature>func make_search_candidates(asset_ids: PackedStringArray = PackedStringArray()) -&gt; Array[Dictionary]:</signature>
+			<description>构建可交给 GFTextSearchScorer 的搜索候选。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">asset_ids: 要导出的资产 ID；为空时导出全部有效条目。</tag>
+				<tag name="return">搜索候选字典数组。</tag>
+				<tag name="schema">asset_ids: PackedStringArray selected asset ids.</tag>
+				<tag name="schema">return: Array[Dictionary] where each candidate contains id, asset_id, title, description, tags, category, primary_path, preview_path, type_hint, source_id, resource_entry_ids, cache_key, and metadata_keywords.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="search">
+			<signature>func search(query_text: String, options: Dictionary = {}) -&gt; Array[Dictionary]:</signature>
+			<description>用通用文本评分器搜索资产。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">query_text: 查询文本。</tag>
+				<tag name="param">options: 可选项，支持 GFTextSearchScorer.rank_candidates() 的选项，并额外支持 asset_ids。</tag>
+				<tag name="return">排序后的匹配报告数组。</tag>
+				<tag name="schema">options: Dictionary with optional asset_ids plus GFTextSearchScorer rank options.</tag>
+				<tag name="schema">return: Array[Dictionary] from GFTextSearchScorer.rank_candidates().</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="make_asset_summary">
+			<signature>func make_asset_summary(asset_id: StringName, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>构建资产摘要。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">asset_id: 资产稳定 ID。</tag>
+				<tag name="param">options: 可选项，支持 include_metadata。</tag>
+				<tag name="return">资产摘要；不存在时返回空字典。</tag>
+				<tag name="schema">options: Dictionary with optional include_metadata: bool.</tag>
+				<tag name="schema">return: Dictionary with id, asset_id, title, description, tags, category, primary_path, type_hint, preview_path, source_id, resource_entry_ids, cache_key, primary_identity, preview_identity, and optional metadata.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="make_asset_summaries">
+			<signature>func make_asset_summaries(asset_ids: PackedStringArray = PackedStringArray(), options: Dictionary = {}) -&gt; Array[Dictionary]:</signature>
+			<description>批量构建资产摘要。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">asset_ids: 要导出的资产 ID；为空时导出全部有效条目。</tag>
+				<tag name="param">options: 传给 make_asset_summary() 的摘要选项。</tag>
+				<tag name="return">资产摘要数组。</tag>
+				<tag name="schema">asset_ids: PackedStringArray selected asset ids.</tag>
+				<tag name="schema">options: Dictionary summary options.</tag>
+				<tag name="schema">return: Array[Dictionary] where each item is make_asset_summary() output.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="search_page">
+			<signature>func search_page( query_text: String, page: int = 1, page_size: int = 50, options: Dictionary = {} ) -&gt; Dictionary:</signature>
+			<description>搜索资产并返回分页报告。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">query_text: 查询文本；为空时默认按资产 ID 列出资产。</tag>
+				<tag name="param">page: 页码，从 1 开始。</tag>
+				<tag name="param">page_size: 每页数量，会被规整为至少 1。</tag>
+				<tag name="param">options: 可选项，支持 search() 选项，并额外支持 empty_query_returns_all、include_summaries 和 summary_options。</tag>
+				<tag name="return">分页搜索报告。</tag>
+				<tag name="schema">options: Dictionary with search options, empty_query_returns_all: bool, include_summaries: bool, and summary_options: Dictionary.</tag>
+				<tag name="schema">return: Dictionary with query, page, page_size, page_count, total_count, start_index, end_index, has_previous, has_next, results, asset_ids, and summaries.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="group_asset_ids">
+			<signature>func group_asset_ids(group_source: StringName = GROUP_SOURCE_ID, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>按通用来源把资产 ID 分组。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">group_source: 分组来源。</tag>
+				<tag name="param">options: 可选项，支持 asset_ids、include_empty 和 empty_key。</tag>
+				<tag name="return">分组字典，key 为分组文本，value 为排序后的资产 ID 列表。</tag>
+				<tag name="schema">options: Dictionary with optional asset_ids, include_empty, and empty_key.</tag>
+				<tag name="schema">return: Dictionary[String, PackedStringArray] grouped asset ids.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_debug_snapshot">
+			<signature>func get_debug_snapshot() -&gt; Dictionary:</signature>
+			<description>获取调试快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">资产目录诊断信息。</tag>
+				<tag name="schema">return: Dictionary with asset_count, indexed_field_count, and ids.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="to_dict">
+			<signature>func to_dict() -&gt; Dictionary:</signature>
+			<description>转换为可序列化字典。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">资产目录字典。</tag>
+				<tag name="schema">return: Dictionary with entries array.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="apply_dict">
+			<signature>func apply_dict(data: Dictionary) -&gt; void:</signature>
+			<description>应用字典数据。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">data: 资产目录字典。</tag>
+				<tag name="schema">data: Dictionary with entries array.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="from_dict">
+			<signature>static func from_dict(data: Dictionary) -&gt; GFAssetCatalog:</signature>
+			<description>从字典创建资产目录。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">data: 资产目录字典。</tag>
+				<tag name="return">新资产目录。</tag>
+				<tag name="schema">data: Dictionary with entries array.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

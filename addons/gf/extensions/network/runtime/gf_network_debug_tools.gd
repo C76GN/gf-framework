@@ -25,10 +25,20 @@ extends RefCounted
 ## [br]
 ## @schema return: Dictionary with sensitive values redacted.
 static func sanitize_debug_dictionary(source: Dictionary) -> Dictionary:
+	return _sanitize_debug_dictionary(source, [])
+
+
+static func _sanitize_debug_dictionary(source: Dictionary, visited: Array) -> Dictionary:
+	if _visited_contains_reference(visited, source):
+		return GFReportValueCodec.to_report_dictionary({
+			"circular_reference": true,
+		})
+	visited.append(source)
 	var result: Dictionary = {}
 	for key_variant: Variant in source.keys():
 		var key_text: String = GFVariantData.to_text(key_variant)
-		result[key_variant] = sanitize_debug_value(key_text, source[key_variant])
+		result[key_variant] = _sanitize_debug_value(key_text, source[key_variant], visited)
+	var _removed_reference: Variant = visited.pop_back()
 	return result
 
 
@@ -44,9 +54,19 @@ static func sanitize_debug_dictionary(source: Dictionary) -> Dictionary:
 ## [br]
 ## @schema return: Array with sensitive values redacted.
 static func sanitize_debug_array(source: Array) -> Array:
+	return _sanitize_debug_array(source, [])
+
+
+static func _sanitize_debug_array(source: Array, visited: Array) -> Array:
+	if _visited_contains_reference(visited, source):
+		return [GFReportValueCodec.to_json_compatible({
+			"circular_reference": true,
+		})]
+	visited.append(source)
 	var result: Array = []
 	for value: Variant in source:
-		result.append(sanitize_debug_value("", value))
+		result.append(_sanitize_debug_value("", value, visited))
+	var _removed_reference: Variant = visited.pop_back()
 	return result
 
 
@@ -64,20 +84,26 @@ static func sanitize_debug_array(source: Array) -> Array:
 ## [br]
 ## @schema return: Redacted or duplicated debug value.
 static func sanitize_debug_value(key_text: String, value: Variant) -> Variant:
+	return _sanitize_debug_value(key_text, value, [])
+
+
+static func _sanitize_debug_value(key_text: String, value: Variant, visited: Array) -> Variant:
 	if is_sensitive_debug_key(key_text):
 		return "[redacted]"
 	if value is Dictionary:
 		var dictionary_value: Dictionary = value
-		return sanitize_debug_dictionary(dictionary_value)
+		return _sanitize_debug_dictionary(dictionary_value, visited)
 	if value is Array:
 		var array_value: Array = value
-		return sanitize_debug_array(array_value)
+		return _sanitize_debug_array(array_value, visited)
 	if value is PackedStringArray:
 		var string_array: PackedStringArray = value
 		return string_array.duplicate()
 	if key_text.to_lower() == "endpoint":
 		return sanitize_endpoint(GFVariantData.to_text(value))
-	return GFVariantData.duplicate_variant(value)
+	return GFReportValueCodec.to_json_compatible(value, {
+		"path_redaction": "basename",
+	})
 
 
 ## 判断字段名是否应视为敏感信息。
@@ -88,20 +114,57 @@ static func sanitize_debug_value(key_text: String, value: Variant) -> Variant:
 ## [br]
 ## @return: 敏感字段返回 true。
 static func is_sensitive_debug_key(key_text: String) -> bool:
-	var lower_key: String = key_text.to_lower()
-	return (
-		lower_key == "key"
-		or lower_key.ends_with("_key")
-		or lower_key.contains("api_key")
-		or lower_key.contains("token")
-		or lower_key.contains("secret")
-		or lower_key.contains("password")
-		or lower_key.contains("passwd")
-		or lower_key.contains("auth")
-		or lower_key.contains("credential")
-		or lower_key.contains("cookie")
-		or lower_key.contains("session_id")
-	)
+	var token_source: String = key_text.to_snake_case().to_lower()
+	for separator: String in ["-", " ", ".", "/", "\\", ":"]:
+		token_source = token_source.replace(separator, "_")
+	var tokens: PackedStringArray = token_source.split("_", false)
+	for token: String in tokens:
+		if token in [
+			"auth",
+			"authorization",
+			"token",
+			"secret",
+			"password",
+			"passwd",
+			"credential",
+			"cookie",
+		]:
+			return true
+
+	var normalized_key: String = "".join(tokens)
+	if normalized_key in [
+		"key",
+		"keys",
+		"servicekey",
+		"servicekeys",
+		"apikey",
+		"accesskey",
+		"privatekey",
+		"secretkey",
+		"sessionid",
+	]:
+		return true
+	for sensitive_compound: String in [
+		"authorization",
+		"password",
+		"passwd",
+		"credential",
+		"accesstoken",
+		"refreshtoken",
+		"authtoken",
+		"clientsecret",
+		"sessiontoken",
+		"sessioncookie",
+		"apikey",
+		"accesskey",
+		"privatekey",
+		"secretkey",
+		"servicekey",
+		"sessionid",
+	]:
+		if normalized_key.contains(sensitive_compound):
+			return true
+	return false
 
 
 ## 脱敏 endpoint。
@@ -125,3 +188,10 @@ static func sanitize_endpoint(endpoint: String) -> String:
 	if at_index >= 0:
 		sanitized = sanitized.substr(0, authority_start) + sanitized.substr(at_index + 1)
 	return sanitized
+
+
+static func _visited_contains_reference(visited: Array, value: Variant) -> bool:
+	for item: Variant in visited:
+		if is_same(item, value):
+			return true
+	return false

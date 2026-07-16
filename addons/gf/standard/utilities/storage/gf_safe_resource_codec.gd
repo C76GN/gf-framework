@@ -391,6 +391,8 @@ static func _decode_external_resource(
 	if not ResourceLoader.exists(resource_path):
 		_add_issue(state, &"external_resource_missing", "External resource does not exist: %s." % resource_path)
 		return _make_decoded_failure(_get_first_issue(state))
+	if not _preflight_external_resource_dependencies(resource_path, policy, options, state):
+		return _make_decoded_failure(_get_first_issue(state))
 	var loaded_resource: Resource = ResourceLoader.load(resource_path, "", ResourceLoader.CACHE_MODE_IGNORE)
 	if loaded_resource == null:
 		return { "ok": false, "value": null, "error": "External resource load failed." }
@@ -406,6 +408,47 @@ static func _decode_external_resource(
 		return _make_decoded_failure(_get_first_issue(state))
 
 	return { "ok": true, "value": loaded_resource, "error": "" }
+
+
+static func _preflight_external_resource_dependencies(
+	resource_path: String,
+	policy: GFSafeResourceCodecPolicy,
+	options: Dictionary,
+	state: Dictionary
+) -> bool:
+	if not GFVariantData.get_option_bool(options, "preflight_external_resource_dependencies", true):
+		return true
+	var dependencies: PackedStringArray = ResourceLoader.get_dependencies(resource_path)
+	for dependency_entry: String in dependencies:
+		var dependency_path: String = _extract_dependency_resource_path(dependency_entry)
+		if dependency_path.is_empty() or not _is_script_resource_path(dependency_path):
+			continue
+		if policy.allows_script_path(dependency_path):
+			continue
+		_add_issue(
+			state,
+			&"script_not_allowed",
+			"External resource dependency script path is not allowed before load: %s." % dependency_path
+		)
+		return false
+	return true
+
+
+static func _extract_dependency_resource_path(dependency_entry: String) -> String:
+	var normalized_entry: String = dependency_entry.strip_edges()
+	if normalized_entry.is_empty():
+		return ""
+	var parts: PackedStringArray = normalized_entry.split("::", false)
+	for part: String in parts:
+		var candidate: String = part.strip_edges()
+		if candidate.begins_with("res://") or candidate.begins_with("user://"):
+			return candidate
+	return normalized_entry
+
+
+static func _is_script_resource_path(path: String) -> bool:
+	var extension: String = path.get_extension().to_lower()
+	return extension == "gd" or extension == "gdc" or extension == "cs"
 
 
 static func _decode_object(
@@ -445,11 +488,13 @@ static func _decode_object(
 		objects[object_id] = object_instance
 		state["objects"] = objects
 
+	var allowed_properties: Dictionary = _get_decodable_property_names(object_instance)
 	for property_value: Variant in GFVariantData.get_option_array(data, KEY_PROPERTIES):
 		var property_data: Dictionary = GFVariantData.as_dictionary(property_value)
 		var property_id: String = GFVariantData.get_option_string(property_data, "name")
-		if property_id.is_empty() or property_id == "script":
-			continue
+		if not allowed_properties.has(property_id):
+			_add_issue(state, &"property_not_allowed", "Property is not allowed: %s." % property_id)
+			return _make_decoded_failure(_get_first_issue(state))
 		var value_result: Dictionary = _decode_recursive(
 			GFVariantData.get_option_dictionary(property_data, "value"),
 			policy,
@@ -531,6 +576,19 @@ static func _should_encode_property(property_info: Dictionary) -> bool:
 		return false
 	var usage: int = GFVariantData.get_option_int(property_info, "usage")
 	return (usage & PROPERTY_USAGE_STORAGE) != 0
+
+
+static func _get_decodable_property_names(object_instance: Object) -> Dictionary:
+	var result: Dictionary = {}
+	for property_info_value: Variant in object_instance.get_property_list():
+		if not (property_info_value is Dictionary):
+			continue
+		var property_info: Dictionary = property_info_value
+		if not _should_encode_property(property_info):
+			continue
+		var property_id: String = GFVariantData.get_option_string(property_info, "name")
+		result[property_id] = true
+	return result
 
 
 static func _get_object_script_path(object_value: Object) -> String:

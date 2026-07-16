@@ -32,10 +32,10 @@ func test_buff_recipe_creates_runtime_buff_without_business_semantics() -> void:
 	var effect: RecordingEffect = _recording_effect(buff.effects[0])
 	var apply_report: Dictionary = buff.get_apply_report()
 
-	buff.on_apply()
+	var _apply_lifecycle_report: Dictionary = buff.on_apply()
 	buff.on_tick(0.25)
 	buff.mark_removed(GFBuff.REMOVAL_REASON_CLEARED)
-	buff.on_remove()
+	var _remove_lifecycle_report: Dictionary = buff.on_remove()
 
 	assert_true(GFVariantData.get_option_bool(apply_report, "ok"), "允许检查通过时 Buff 应可应用。")
 	assert_eq(buff.id, &"generic.power")
@@ -75,7 +75,7 @@ func test_buff_state_snapshot_restores_generic_runtime_fields_and_effect_state()
 	buff.setup(&"haste", 5.0, null)
 	buff.time_left = 2.0
 	buff.stacks = 3
-	buff.on_apply()
+	var _apply_lifecycle_report: Dictionary = buff.on_apply()
 
 	var snapshot: Dictionary = buff.get_state_snapshot()
 	var restored: GFBuff = GFBuff.new()

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFNetworkMessageValidator" path="addons/gf/extensions/network/messages/gf_network_message_validator.gd" module="extensions/network" extends="RefCounted" classDigest="7b934d7e5376f5ef0c02c1f46fc2342e03c65448f5996c7faffe0c59b0d5a3f3">
+<class name="GFNetworkMessageValidator" path="addons/gf/extensions/network/messages/gf_network_message_validator.gd" module="extensions/network" extends="RefCounted" classDigest="f7bffa737ef0f4ec0559dd5c7e2f991516ddfe6636f0a58aa6e02c7eab81d5e6">
 	<description>GFNetworkMessageValidator: 通用网络消息校验器。
 校验消息类型、包体大小和可选必需载荷字段，避免后端收到明显无效数据。</description>
 	<tags>
@@ -47,6 +47,94 @@
 				<tag name="api">public</tag>
 			</tags>
 		</member>
+		<member kind="property" name="allowed_message_types">
+			<signature>var allowed_message_types: PackedStringArray = PackedStringArray()</signature>
+			<description>允许的 message_type 列表。为空时不限制。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="blocked_message_types">
+			<signature>var blocked_message_types: PackedStringArray = PackedStringArray()</signature>
+			<description>显式拒绝的 message_type 列表。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="contract">
+			<signature>var contract: GFNetworkContract = null</signature>
+			<description>可选网络契约。设置后可用字段契约校验消息 payload。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="require_contract_message">
+			<signature>var require_contract_message: bool = false</signature>
+			<description>是否要求 message_type 必须存在于 contract 中。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="known_channel_ids">
+			<signature>var known_channel_ids: PackedStringArray = PackedStringArray()</signature>
+			<description>已知逻辑 channel_id 列表。为空时不限制。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="enforce_sender_id_matches_peer">
+			<signature>var enforce_sender_id_matches_peer: bool = false</signature>
+			<description>通过 validate_message_for_peer() 校验时，是否要求 sender_id 与实际 peer_id 一致。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="require_sender_id">
+			<signature>var require_sender_id: bool = false</signature>
+			<description>是否要求消息显式携带 sender_id。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="min_sequence">
+			<signature>var min_sequence: int = -1</signature>
+			<description>最小允许 sequence。小于 0 表示不限制。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="max_sequence">
+			<signature>var max_sequence: int = -1</signature>
+			<description>最大允许 sequence。小于 0 表示不限制。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="min_tick">
+			<signature>var min_tick: int = -1</signature>
+			<description>最小允许 tick。小于 0 表示不限制。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="max_tick">
+			<signature>var max_tick: int = -1</signature>
+			<description>最大允许 tick。小于 0 表示不限制。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
 	</properties>
 	<methods>
 		<member kind="method" name="validate_message">
@@ -57,6 +145,49 @@
 				<tag name="param">message: 消息。</tag>
 				<tag name="return">统一校验报告。</tag>
 				<tag name="schema">return: Dictionary，包含 ok 和 errors。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="validate_message_for_peer">
+			<signature>func validate_message_for_peer(message: GFNetworkMessage, peer_id: int) -&gt; Dictionary:</signature>
+			<description>按实际 peer 上下文校验消息对象。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">message: 消息。</tag>
+				<tag name="param">peer_id: 实际传输 peer 标识。</tag>
+				<tag name="return">统一校验报告。</tag>
+				<tag name="schema">return: Dictionary，包含 ok 和 errors。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="allow_message_type">
+			<signature>func allow_message_type(message_type: StringName) -&gt; bool:</signature>
+			<description>添加允许的 message_type。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">message_type: 消息类型。</tag>
+				<tag name="return">成功添加或已存在时返回 true。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="register_known_channel">
+			<signature>func register_known_channel(channel_id: StringName) -&gt; bool:</signature>
+			<description>添加已知 channel_id。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">channel_id: 通道标识。</tag>
+				<tag name="return">成功添加或已存在时返回 true。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="configure_from_contract">
+			<signature>func configure_from_contract(network_contract: GFNetworkContract, options: Dictionary = {}) -&gt; void:</signature>
+			<description>从网络契约同步允许消息和已知通道。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">network_contract: 网络契约。</tag>
+				<tag name="param">options: 同步选项，支持 include_channels。</tag>
+				<tag name="schema">options: Dictionary sync options.</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="validate_bytes">
@@ -76,7 +207,8 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">校验器状态。</tag>
-				<tag name="schema">return: Dictionary，包含 allow_empty_message_type、min_packet_size、max_packet_size、required_payload_keys。</tag>
+				<tag name="schema">return: Dictionary，包含 allow_empty_message_type、min_packet_size、max_packet_size、required_payload_keys、allowed_message_types、blocked_message_types、require_contract_message、known_channel_ids、enforce_sender_id_matches_peer、require_sender_id、min_sequence、max_sequence、min_tick 和 max_tick。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</methods>

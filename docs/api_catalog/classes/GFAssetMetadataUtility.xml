@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFAssetMetadataUtility" path="addons/gf/extensions/asset_metadata/runtime/gf_asset_metadata_utility.gd" module="extensions/asset_metadata" extends="GFUtility" classDigest="d2ff534dbf0e85eb696a9a6b8c8972d7f985226530e490adea00fe6b648927cb">
+<class name="GFAssetMetadataUtility" path="addons/gf/extensions/asset_metadata/runtime/gf_asset_metadata_utility.gd" module="extensions/asset_metadata" extends="GFUtility" classDigest="057e4f959d0ce6aa90fd1dab40208b009ba09d1145baaa207633624a305e87f8">
 	<description>GFAssetMetadataUtility: 资产元数据收集与查询工具。
 统一管理导入资产元数据在 Object metadata 中的存储键、复制规则和节点树收集流程。
 它不解释任何项目字段；业务语义应由项目代码或项目扩展消费。</description>
@@ -25,6 +25,30 @@
 				<tag name="api">public</tag>
 			</tags>
 		</member>
+		<member kind="const" name="METADATA_STATE_ABSENT">
+			<signature>const METADATA_STATE_ABSENT: StringName = &amp;"absent"</signature>
+			<description>对象不存在 GF 资产元数据。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="METADATA_STATE_EMPTY">
+			<signature>const METADATA_STATE_EMPTY: StringName = &amp;"empty"</signature>
+			<description>对象带有显式空 GF 资产元数据标记。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="METADATA_STATE_VALID">
+			<signature>const METADATA_STATE_VALID: StringName = &amp;"valid"</signature>
+			<description>对象带有非空 GF 资产元数据。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
 	</constants>
 	<properties />
 	<methods>
@@ -46,10 +70,11 @@
 				<tag name="api">public</tag>
 				<tag name="param">target: 目标 Object。</tag>
 				<tag name="param">metadata: 结构化元数据。</tag>
-				<tag name="param">options: 可选项，支持 metadata_key、source_path、subject_path、subject_kind、metadata_source。</tag>
+				<tag name="param">options: 可选项，支持 metadata_key、source_path、subject_path、subject_kind、metadata_source、mark_scanned_empty。</tag>
 				<tag name="return">写入后的记录；目标无效时返回 null。</tag>
 				<tag name="schema">metadata: Dictionary，要写入 Object metadata 的结构化资产元数据字段。</tag>
-				<tag name="schema">options: Dictionary，可包含 metadata_key、source_path、subject_path、subject_kind 与 metadata_source。</tag>
+				<tag name="schema">options: Dictionary，可包含 metadata_key、source_path、subject_path、subject_kind、metadata_source 与 mark_scanned_empty；mark_scanned_empty 为 true 时显式保留空元数据标记。</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="read_object_metadata">
@@ -101,6 +126,19 @@
 				<tag name="param">options: 可选项，支持 metadata_key 或 metadata_keys。</tag>
 				<tag name="return">存在资产元数据时返回 true。</tag>
 				<tag name="schema">options: Dictionary，可包含 metadata_key 或 metadata_keys。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_object_metadata_state">
+			<signature>func get_object_metadata_state(target: Object, options: Dictionary = {}) -&gt; StringName:</signature>
+			<description>获取对象资产元数据状态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">target: 目标 Object。</tag>
+				<tag name="param">options: 可选项，支持 metadata_key 或 metadata_keys。</tag>
+				<tag name="return">absent、empty 或 valid。</tag>
+				<tag name="schema">options: Dictionary，可包含 metadata_key 或 metadata_keys。</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="clear_object_metadata">
@@ -119,9 +157,10 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">root: 节点树根节点。</tag>
-				<tag name="param">options: 可选项，支持 metadata_key、metadata_keys、source_path、subject_kind、max_depth。</tag>
+				<tag name="param">options: 可选项，支持 metadata_key、metadata_keys、source_path、subject_kind、max_depth、max_nodes。</tag>
 				<tag name="return">资产元数据记录列表。</tag>
-				<tag name="schema">options: Dictionary，可包含 metadata_key、metadata_keys、source_path、subject_kind 与 max_depth。</tag>
+				<tag name="schema">options: Dictionary，可包含 metadata_key、metadata_keys、source_path、subject_kind、max_depth 与 max_nodes；max_nodes 小于 0 表示不限制。</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="collect_node_tree_dicts">
@@ -130,10 +169,11 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">root: 节点树根节点。</tag>
-				<tag name="param">options: 可选项，支持 metadata_key、metadata_keys、source_path、subject_kind、max_depth。</tag>
+				<tag name="param">options: 可选项，支持 metadata_key、metadata_keys、source_path、subject_kind、max_depth、max_nodes。</tag>
 				<tag name="return">资产元数据记录字典列表。</tag>
-				<tag name="schema">options: Dictionary，可包含 metadata_key、metadata_keys、source_path、subject_kind 与 max_depth。</tag>
+				<tag name="schema">options: Dictionary，可包含 metadata_key、metadata_keys、source_path、subject_kind、max_depth、max_nodes 与 json_safe。</tag>
 				<tag name="schema">return: Array[Dictionary]，每一项包含 source_path、subject_path、subject_kind 与 metadata 字段。</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="build_node_tree_report">
@@ -144,8 +184,9 @@
 				<tag name="param">root: 节点树根节点。</tag>
 				<tag name="param">options: 可选项，支持 collect_node_tree() 的参数。</tag>
 				<tag name="return">报告字典。</tag>
-				<tag name="schema">options: Dictionary，可包含 metadata_key、metadata_keys、source_path、subject_kind 与 max_depth。</tag>
-				<tag name="schema">return: Dictionary，包含 ok、healthy、summary、next_action、source_path、entry_count、entries 与 issues。</tag>
+				<tag name="schema">options: Dictionary，可包含 metadata_key、metadata_keys、source_path、subject_kind、max_depth 与 max_nodes。</tag>
+				<tag name="schema">return: Dictionary，包含 ok、healthy、summary、next_action、source_path、entry_count、entries、visited_node_count、max_nodes、truncated 与 issues。</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 	</methods>

@@ -26,6 +26,8 @@
 | 方法 | [`build_distance_map`](#member-gfgraphmath-methods-build_distance_map) | `static func build_distance_map( start: Variant, get_neighbors: Callable, get_step_cost: Callable = Callable(), max_cost: float = INF ) -> Dictionary:` |
 | 方法 | [`find_reachable`](#member-gfgraphmath-methods-find_reachable) | `static func find_reachable( start: Variant, max_cost: float, get_neighbors: Callable, get_step_cost: Callable = Callable() ) -> Dictionary:` |
 | 方法 | [`sort_topological`](#member-gfgraphmath-methods-sort_topological) | `static func sort_topological(nodes: Array, get_dependencies: Callable) -> Dictionary:` |
+| 方法 | [`find_connected_components`](#member-gfgraphmath-methods-find_connected_components) | `static func find_connected_components(nodes: Array, get_neighbors: Callable) -> Dictionary:` |
+| 方法 | [`find_minimum_spanning_tree`](#member-gfgraphmath-methods-find_minimum_spanning_tree) | `static func find_minimum_spanning_tree( nodes: Array, get_neighbors: Callable, get_edge_weight: Callable = Callable() ) -> Dictionary:` |
 
 ## 常量
 
@@ -282,3 +284,58 @@ static func sort_topological(nodes: Array, get_dependencies: Callable) -> Dictio
 
 - `nodes`: Array graph node identities.
 - `return`: Dictionary with ok, reason, order, cycles, cycle_count, node_count, external_dependencies, and external_dependency_count.
+
+<a id="member-gfgraphmath-methods-find_connected_components"></a>
+
+### `find_connected_components`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+static func find_connected_components(nodes: Array, get_neighbors: Callable) -> Dictionary:
+```
+
+查找声明节点集中的连通分量。 邻居回调只用于描述节点之间的边；只有 `nodes` 中声明的节点会参与分量计算。 节点之间的边按无向边处理，适合资源图、地图拓扑、流程子图和生成前诊断。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `nodes` | 需要分组的节点列表；重复节点会按首次出现去重。 |
+| `get_neighbors` | 邻居回调，签名为 `func(node: Variant) -> Array`。 |
+
+返回：连通分量报告，包含 ok、reason、components、component_indices、isolated_nodes、external_neighbors 等字段。
+
+结构：
+
+- `nodes`: Array graph node identities.
+- `return`: Dictionary with ok, reason, components, component_count, component_indices, node_count, all_connected, isolated_nodes, isolated_node_count, external_neighbors, and external_neighbor_count.
+
+<a id="member-gfgraphmath-methods-find_minimum_spanning_tree"></a>
+
+### `find_minimum_spanning_tree`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+static func find_minimum_spanning_tree( nodes: Array, get_neighbors: Callable, get_edge_weight: Callable = Callable() ) -> Dictionary:
+```
+
+查找声明节点集的最小生成树。 图按无向加权边处理；`get_neighbors` 只要在任一方向返回邻居即可建立边。 图不连通时会返回最小生成森林，并通过 `all_connected` 标记结果不是单棵树。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `nodes` | 需要纳入生成树的节点列表；重复节点会按首次出现去重。 |
+| `get_neighbors` | 邻居回调，签名为 `func(node: Variant) -> Array`。 |
+| `get_edge_weight` | 可选权重回调，签名为 `func(from: Variant, to: Variant) -> float`；为空时每条边权重为 1。 |
+
+返回：最小生成树报告，包含 selected_edges、total_weight、components、isolated_nodes、external_neighbors 等字段。
+
+结构：
+
+- `nodes`: Array graph node identities.
+- `return`: Dictionary with ok, reason, selected_edges, selected_edge_count, total_weight, components, component_count, component_indices, node_count, all_connected, isolated_nodes, isolated_node_count, external_neighbors, external_neighbor_count, invalid_edges, and invalid_edge_count.

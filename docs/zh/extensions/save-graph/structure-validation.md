@@ -8,11 +8,11 @@
 
 这两个接口属于结构诊断，只读取 `scope_key`、`source_key`、启用开关、阶段和目标路径等导出属性，不执行项目自定义 `get_scope_key()`、`can_save_scope()`、`get_source_key()` 或 `get_target_node()` 方法。
 
-`load_scope()` 从存储读取后会先校验载荷格式与当前 Scope 树，不会把明显不匹配的文件继续应用。`apply_scope()` 会拒绝非 Dictionary 的 `sources`、`scopes`、子 Scope 载荷、Source `data` 和 Serializer `data`，把结构错误写入结果而不是继续应用，并清理本次事务使用的临时实体上下文。
+`load_scope()` 从存储读取后会先校验载荷格式与当前 Scope 树，不会把明显不匹配的文件继续应用。`validate_payload_for_scope()` 和 `apply_scope()` 都会拒绝非 Dictionary 的 `scope` descriptor、`sources`、`scopes`、子 Scope 载荷、Source entry、Source descriptor、Source `data` 和 Serializer `data`，把结构错误写入结果而不是继续应用，并清理本次事务使用的临时实体上下文。
 
 ## 实体恢复与事务
 
-若 `GFSaveScope.restore_policy` 允许工厂恢复，工厂创建出的实体必须自身就是 `GFSaveSource`，或子树中能找到 `GFSaveSource`；否则该实体会被释放，不会残留在场景树中。`after_entity_created()` 返回后实体和 Source 仍必须有效；如果 Hook 删除了刚创建的节点，本次 Source 会按缺失处理。
+若 `GFSaveScope.restore_policy` 允许工厂恢复，工厂创建出的实体必须自身就是 `GFSaveSource`，或子树中能找到 `GFSaveSource`；否则该实体会被释放，不会残留在场景树中。恢复出的 Source 会被对齐并校验到 payload source key；无法对齐时立即释放并按缺失处理。`after_entity_created()` 返回后实体和 Source 仍必须有效；如果 Hook 删除了刚创建的节点，本次 Source 会按缺失处理。
 
 默认 `transactional_apply = true` 时，本次应用中新建的工厂实体会在后续 Source 或子 Scope 应用失败时回滚释放，避免读档一半失败后留下半恢复场景。
 

@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFConfigPipelineCommand" path="addons/gf/tools/config_pipeline/gf_config_pipeline_command.gd" module="tools" extends="RefCounted" classDigest="e0b23082b9f1e2ae19bc22a28e58cd3807c88b357c3b1fb5b41873ee88d737c9">
+	<description>GFConfigPipelineCommand: 配置导表工具的 Godot 命令参数适配器。
+解析 Godot `--` 之后的用户参数，调用 GFConfigPipelineRunner，并返回适合 CI、
+编辑器按钮或项目脚本消费的结构化报告。该类只封装 Godot 原生命令入口，不调用
+外部进程，不绑定项目目录、表语义或发布策略。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">tool_api</tag>
+		<tag name="since">8.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties />
+	<methods>
+		<member kind="method" name="run">
+			<signature>func run(arguments: PackedStringArray = PackedStringArray(), base_options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>执行一次导表命令。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">arguments: Godot `--` 之后的用户参数。</tag>
+				<tag name="param">base_options: 调用方直接注入的默认选项，命令行参数会覆盖同名字段。</tag>
+				<tag name="return">命令报告。</tag>
+				<tag name="schema">base_options: Dictionary，可包含 GFConfigPipelineRunner 选项，以及 output_path、access_output_path、access_class_name、access_provider_accessor、dry_run、changed_only、manifest_path、write_manifest、manifest_options、max_freshness_file_bytes、max_freshness_total_bytes 和 max_freshness_entries；各产物 options 可包含 allow_unowned_overwrite。</tag>
+				<tag name="schema">return: Dictionary，包含 success、exit_code、operation、profile_path、options、runner_result、json_report、pretty_output、usage_requested、strict、dry_run、changed_only、manifest_path 和 error。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="make_output_text">
+			<signature>func make_output_text(result: Dictionary, pretty: bool = true) -&gt; String:</signature>
+			<description>把命令报告格式化为可打印文本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">result: run() 返回的命令报告。</tag>
+				<tag name="param">pretty: JSON 输出是否使用缩进。</tag>
+				<tag name="return">可打印文本；json_report 为 true 时返回 JSON 字符串。</tag>
+				<tag name="schema">result: Dictionary，包含 success、exit_code、operation、profile_path、runner_result、json_report、pretty_output、usage_requested 和 error。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_usage">
+			<signature>func get_usage() -&gt; String:</signature>
+			<description>返回 Godot 命令行用法说明。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">用法说明文本。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

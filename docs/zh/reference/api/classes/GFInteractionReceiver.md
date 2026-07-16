@@ -34,6 +34,7 @@
 ### `interaction_validating`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 signal interaction_validating(context: GFInteractionContext, report: Dictionary)
@@ -50,13 +51,14 @@ signal interaction_validating(context: GFInteractionContext, report: Dictionary)
 
 结构：
 
-- `report`: 交互结果报告 Dictionary，包含 ok、interaction_id、receiver、reason、message 和 metadata 等字段。
+- `report`: 交互结果报告 Dictionary，包含 ok、interaction_id、receiver(JSON-safe 摘要)、reason、message 和 metadata 等字段。
 
 <a id="member-gfinteractionreceiver-signals-interaction_received"></a>
 
 ### `interaction_received`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 signal interaction_received(context: GFInteractionContext, report: Dictionary)
@@ -73,13 +75,14 @@ signal interaction_received(context: GFInteractionContext, report: Dictionary)
 
 结构：
 
-- `report`: 交互结果报告 Dictionary，包含 ok、interaction_id、receiver、reason、message 和 metadata 等字段。
+- `report`: 交互结果报告 Dictionary，包含 ok、interaction_id、receiver(JSON-safe 摘要)、reason、message 和 metadata 等字段。
 
 <a id="member-gfinteractionreceiver-signals-interaction_rejected"></a>
 
 ### `interaction_rejected`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 signal interaction_rejected(context: GFInteractionContext, report: Dictionary)
@@ -96,7 +99,7 @@ signal interaction_rejected(context: GFInteractionContext, report: Dictionary)
 
 结构：
 
-- `report`: 交互结果报告 Dictionary，包含 ok、interaction_id、receiver、reason、message 和 metadata 等字段。
+- `report`: 交互结果报告 Dictionary，包含 ok、interaction_id、receiver(JSON-safe 摘要)、reason、message 和 metadata 等字段。
 
 ## 属性
 
@@ -105,6 +108,7 @@ signal interaction_rejected(context: GFInteractionContext, report: Dictionary)
 ### `enabled`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var enabled: bool = true
@@ -117,6 +121,7 @@ var enabled: bool = true
 ### `accepted_interaction_ids`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var accepted_interaction_ids: Array[StringName] = []
@@ -129,6 +134,7 @@ var accepted_interaction_ids: Array[StringName] = []
 ### `rejected_interaction_ids`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var rejected_interaction_ids: Array[StringName] = []
@@ -141,6 +147,7 @@ var rejected_interaction_ids: Array[StringName] = []
 ### `metadata`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var metadata: Dictionary = {}
@@ -157,6 +164,7 @@ var metadata: Dictionary = {}
 ### `receiver_path`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var receiver_path: NodePath = NodePath("")
@@ -169,6 +177,7 @@ var receiver_path: NodePath = NodePath("")
 ### `validation_callback`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var validation_callback: Callable = Callable()
@@ -183,6 +192,7 @@ var validation_callback: Callable = Callable()
 ### `can_receive_interaction`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func can_receive_interaction(interaction_id: StringName = &"") -> bool:
@@ -203,6 +213,7 @@ func can_receive_interaction(interaction_id: StringName = &"") -> bool:
 ### `receive_interaction`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func receive_interaction(context: GFInteractionContext, interaction_id: StringName = &"") -> Dictionary:
@@ -221,4 +232,4 @@ func receive_interaction(context: GFInteractionContext, interaction_id: StringNa
 
 结构：
 
-- `return`: 交互结果报告 Dictionary，包含 ok、interaction_id、receiver、reason、message 和 metadata 等字段。
+- `return`: 交互结果报告 Dictionary，包含 ok、interaction_id、receiver(JSON-safe 摘要)、reason、message 和 metadata 等字段。

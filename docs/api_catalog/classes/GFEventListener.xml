@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFEventListener" path="addons/gf/kernel/core/gf_event_listener.gd" module="kernel" extends="RefCounted" classDigest="87ecdf2c41e7466a980cf58f11bb05d8552962780052a30b71460f432e614cc9">
+	<description>GFEventListener: 显式描述事件监听回调、参数契约与可选 owner 的监听器记录。
+事件系统不再把裸 Callable 当作稳定契约；项目代码需要通过该类型声明监听器可接收的派发参数数量。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">event_contract</tag>
+		<tag name="layer">kernel/core</tag>
+		<tag name="since">8.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties />
+	<methods>
+		<member kind="method" name="from_callable">
+			<signature>static func from_callable( callback: Callable, dispatch_argument_count: int, debug_label: String = "" ) -&gt; GFEventListener:</signature>
+			<description>创建显式声明派发参数数量的监听器。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">callback: 事件触发时执行的回调。</tag>
+				<tag name="param">dispatch_argument_count: 事件系统会主动传入的参数数量；类型事件和简单事件均为 1。</tag>
+				<tag name="param">debug_label: 可选诊断标签，错误报告为空时会回退到 Callable 方法名。</tag>
+				<tag name="return">新监听器契约。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="from_method">
+			<signature>static func from_method( owner: Object, method_name: StringName, dispatch_argument_count: int, debug_label: String = "" ) -&gt; GFEventListener:</signature>
+			<description>通过 owner 与方法名创建监听器。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">owner: 监听方法所属对象，同时作为监听 owner。</tag>
+				<tag name="param">method_name: 监听方法名。</tag>
+				<tag name="param">dispatch_argument_count: 事件系统会主动传入的参数数量；类型事件和简单事件均为 1。</tag>
+				<tag name="param">debug_label: 可选诊断标签，错误报告为空时会回退到 Callable 方法名。</tag>
+				<tag name="return">新监听器契约。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="with_owner">
+			<signature>func with_owner(owner: Object) -&gt; GFEventListener:</signature>
+			<description>返回带 owner 的监听器副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">owner: 监听器 owner；释放后事件系统会清理该监听器。</tag>
+				<tag name="return">当前监听器的带 owner 副本。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="duplicate_listener">
+			<signature>func duplicate_listener() -&gt; GFEventListener:</signature>
+			<description>返回监听器副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">当前监听器副本。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_callback">
+			<signature>func get_callback() -&gt; Callable:</signature>
+			<description>返回监听回调。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">监听回调。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_owner">
+			<signature>func get_owner() -&gt; Object:</signature>
+			<description>返回监听 owner；未设置或已释放时返回 null。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">监听 owner 或 null。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_owner_id">
+			<signature>func get_owner_id() -&gt; int:</signature>
+			<description>返回监听 owner 的实例 ID；未设置时为 0。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">owner 实例 ID。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_dispatch_argument_count">
+			<signature>func get_dispatch_argument_count() -&gt; int:</signature>
+			<description>返回事件系统会主动传入的参数数量。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">派发参数数量。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_debug_label">
+			<signature>func get_debug_label() -&gt; String:</signature>
+			<description>返回诊断标签。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">诊断标签。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_valid">
+			<signature>func is_valid() -&gt; bool:</signature>
+			<description>返回监听器当前是否有基本有效的 Callable 和参数契约。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">监听器是否有效。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

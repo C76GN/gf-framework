@@ -13,6 +13,7 @@
 ## 阅读入口
 
 - [Provider 与 Schema](provider-schema/index.md)：`GFConfigProvider`、`GFResourceConfigProvider`、`GFConfigTableResource`、`GFConfigDatabaseResource`、`GFConfigTableColumn` 和 `GFConfigTableSchema`。
+- [配置表运行时查询](runtime-query.md)：`GFConfigTableQuery` 的字段路径、条件组、排序、分页和调试描述。
 - [导入校验与规则](validation-importer/index.md)：值转换、schema 自检、校验规则、JSON/CSV 导入和报告结构；制作期 Resource 导出入口见 [Config Pipeline 导表工具包](../../../../../editor/tools/config-pipeline.md)。
 - [引用、合并与构建 Profile](relations-builds/index.md)：唯一索引、跨表引用、补丁合并、构建 profile 和 schema 推导。
 - [访问器生成与编辑器工具](access-editor-tools.md)：`GFConfigAccessGenerator`、`GFResourceTableEditor` 和 `GFEditorValueField`。

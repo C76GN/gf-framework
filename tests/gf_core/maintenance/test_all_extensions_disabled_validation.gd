@@ -79,8 +79,19 @@ func _set_enabled_extensions(extension_ids: Array[String]) -> Dictionary:
 	var restore: Dictionary = {
 		"had_setting": ProjectSettings.has_setting(setting_name),
 		"value": ProjectSettings.get_setting(setting_name, []),
+		"selection_mode_had_setting": ProjectSettings.has_setting(
+			GFExtensionSettings.EXTENSION_SELECTION_MODE_SETTING
+		),
+		"selection_mode_value": ProjectSettings.get_setting(
+			GFExtensionSettings.EXTENSION_SELECTION_MODE_SETTING,
+			null
+		),
 	}
 	ProjectSettings.set_setting(setting_name, extension_ids)
+	ProjectSettings.set_setting(
+		GFExtensionSettings.EXTENSION_SELECTION_MODE_SETTING,
+		GFExtensionSettings.SELECTION_MODE_EXPLICIT
+	)
 	return restore
 
 
@@ -90,6 +101,13 @@ func _restore_enabled_extensions(restore: Dictionary) -> void:
 		ProjectSettings.set_setting(setting_name, GF_VARIANT_ACCESS.get_option_value(restore, "value", []))
 	else:
 		ProjectSettings.clear(setting_name)
+	if GF_VARIANT_ACCESS.get_option_bool(restore, "selection_mode_had_setting", false):
+		ProjectSettings.set_setting(
+			GFExtensionSettings.EXTENSION_SELECTION_MODE_SETTING,
+			GF_VARIANT_ACCESS.get_option_value(restore, "selection_mode_value", null)
+		)
+	else:
+		ProjectSettings.clear(GFExtensionSettings.EXTENSION_SELECTION_MODE_SETTING)
 
 
 func _new_object(script_value: Variant) -> Object:

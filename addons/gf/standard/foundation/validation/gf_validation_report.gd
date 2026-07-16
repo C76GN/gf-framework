@@ -11,6 +11,12 @@
 class_name GFValidationReport
 extends RefCounted
 
+
+# --- 常量 ---
+
+const _GF_REPORT_VALUE_CODEC_SCRIPT = preload("res://addons/gf/kernel/core/gf_report_value_codec.gd")
+
+
 # --- 公共变量 ---
 
 ## 报告主题，例如资源名、模块名或调用方自定义域。
@@ -433,6 +439,28 @@ func to_dict(additional_fields: Dictionary = {}, options: Dictionary = {}) -> Di
 		issue_dicts.append(validation_issue.to_dict(include_empty_issue_fields))
 	result["issues"] = issue_dicts
 	return result
+
+
+## 转换为 JSON-safe 报告字典。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+## [br]
+## @param additional_fields: 附加到输出中的调用方字段。
+## [br]
+## @schema additional_fields: Dictionary of caller-defined serialized fields.
+## [br]
+## @param options: 传给 to_dict() 的输出控制。
+## [br]
+## @schema options: Dictionary controlling report serialization options.
+## [br]
+## @return JSON-safe 报告字典。
+## [br]
+## @schema return: Dictionary serialized report payload made safe for JSON.stringify().
+func to_json_compatible_dict(additional_fields: Dictionary = {}, options: Dictionary = {}) -> Dictionary:
+	var raw_report: Dictionary = to_dict(additional_fields, options)
+	return GFVariantData.as_dictionary(_GF_REPORT_VALUE_CODEC_SCRIPT.to_json_compatible(raw_report))
 
 
 ## 创建当前报告深拷贝。

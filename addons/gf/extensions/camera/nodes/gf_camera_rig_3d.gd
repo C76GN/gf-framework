@@ -12,6 +12,9 @@ class_name GFCameraRig3D
 extends Node3D
 
 
+const _GF_CAMERA_FINITE_MATH = preload("res://addons/gf/extensions/camera/core/gf_camera_finite_math.gd")
+
+
 # --- 信号 ---
 
 ## Rig 激活状态变化后发出。
@@ -107,6 +110,20 @@ signal priority_changed(priority: int)
 	set(value):
 		_set_group_name(value)
 
+## 相机选择作用域。为空时使用 Rig 父节点；Director 只会从相同作用域收集分组 Rig。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+@export_node_path("Node") var camera_scope_path: NodePath = NodePath("")
+
+## 相机选择频道。为空表示默认频道；Director 配置非空频道时只收集同频道 Rig。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+@export var camera_channel: StringName = &""
+
 ## 项目自定义元数据。框架不解释该字段。
 ## [br]
 ## @api public
@@ -162,26 +179,55 @@ func get_look_at_target_node() -> Node3D:
 ## @return 期望全局 Transform。
 func get_camera_transform() -> Transform3D:
 	var target: Node3D = get_target_node()
-	var camera_transform: Transform3D = global_transform
+	var camera_transform: Transform3D = _GF_CAMERA_FINITE_MATH.sanitize_transform3d(
+		global_transform,
+		Transform3D.IDENTITY
+	)
 	if target != null:
-		camera_transform.origin = target.global_transform.origin
+		var target_transform: Transform3D = _GF_CAMERA_FINITE_MATH.sanitize_transform3d(
+			target.global_transform,
+			camera_transform
+		)
+		camera_transform.origin = target_transform.origin
 		if use_target_rotation:
-			camera_transform.basis = target.global_transform.basis.orthonormalized()
-	camera_transform.basis = camera_transform.basis.orthonormalized()
+			camera_transform.basis = target_transform.basis
 
-	var effective_offset: Vector3 = camera_transform.basis * offset if offset_follows_rotation else offset
-	camera_transform.origin += effective_offset
+	var safe_offset: Vector3 = _sanitize_vector3(offset, Vector3.ZERO)
+	var effective_offset: Vector3 = camera_transform.basis * safe_offset if offset_follows_rotation else safe_offset
+	camera_transform.origin = _sanitize_vector3(
+		camera_transform.origin + effective_offset,
+		camera_transform.origin
+	)
 	if look_at_enabled:
 		var look_at_target: Node3D = get_look_at_target_node()
-		if look_at_target != null and not camera_transform.origin.is_equal_approx(look_at_target.global_position):
-			var look_direction: Vector3 = look_at_target.global_position - camera_transform.origin
-			camera_transform = camera_transform.looking_at(look_at_target.global_position, _get_safe_up_axis_for_direction(look_direction))
-	if rotation_degrees_offset != Vector3.ZERO:
-		camera_transform.basis = camera_transform.basis.rotated(camera_transform.basis.x.normalized(), deg_to_rad(rotation_degrees_offset.x))
-		camera_transform.basis = camera_transform.basis.rotated(camera_transform.basis.y.normalized(), deg_to_rad(rotation_degrees_offset.y))
-		camera_transform.basis = camera_transform.basis.rotated(camera_transform.basis.z.normalized(), deg_to_rad(rotation_degrees_offset.z))
-	camera_transform.basis = camera_transform.basis.orthonormalized()
-	return camera_transform
+		var look_at_position: Vector3 = (
+			_sanitize_vector3(look_at_target.global_position, camera_transform.origin)
+			if look_at_target != null
+			else camera_transform.origin
+		)
+		if look_at_target != null and not camera_transform.origin.is_equal_approx(look_at_position):
+			var look_direction: Vector3 = look_at_position - camera_transform.origin
+			camera_transform = camera_transform.looking_at(
+				look_at_position,
+				_get_safe_up_axis_for_direction(look_direction)
+			)
+	return _GF_CAMERA_FINITE_MATH.sanitize_transform3d(
+		_apply_rotation_offset(camera_transform),
+		camera_transform
+	)
+
+
+## 获取相机选择作用域节点。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+## [br]
+## @return 作用域节点；显式路径为空时返回父节点。
+func get_camera_scope_node() -> Node:
+	if not camera_scope_path.is_empty():
+		return get_node_or_null(camera_scope_path)
+	return get_parent()
 
 
 ## 检查 Rig 是否可被选择。
@@ -226,9 +272,10 @@ func _unregister_group() -> void:
 
 
 func _get_safe_up_axis() -> Vector3:
-	if up_axis.length_squared() <= 0.000001:
+	var safe_axis: Vector3 = _sanitize_vector3(up_axis, Vector3.UP)
+	if safe_axis.length_squared() <= 0.000001:
 		return Vector3.UP
-	return up_axis.normalized()
+	return safe_axis.normalized()
 
 
 func _get_safe_up_axis_for_direction(direction: Vector3) -> Vector3:
@@ -248,3 +295,21 @@ func _get_node_3d_value(value: Variant) -> Node3D:
 		var node: Node3D = value
 		return node
 	return null
+
+
+func _apply_rotation_offset(camera_transform: Transform3D) -> Transform3D:
+	var safe_rotation_offset: Vector3 = _sanitize_vector3(rotation_degrees_offset, Vector3.ZERO)
+	if safe_rotation_offset != Vector3.ZERO:
+		camera_transform.basis = camera_transform.basis.rotated(camera_transform.basis.x.normalized(), deg_to_rad(safe_rotation_offset.x))
+		camera_transform.basis = camera_transform.basis.rotated(camera_transform.basis.y.normalized(), deg_to_rad(safe_rotation_offset.y))
+		camera_transform.basis = camera_transform.basis.rotated(camera_transform.basis.z.normalized(), deg_to_rad(safe_rotation_offset.z))
+	camera_transform.basis = camera_transform.basis.orthonormalized()
+	return camera_transform
+
+
+func _sanitize_float(value: float, fallback: float) -> float:
+	return _GF_CAMERA_FINITE_MATH.sanitize_float(value, fallback)
+
+
+func _sanitize_vector3(value: Vector3, fallback: Vector3) -> Vector3:
+	return _GF_CAMERA_FINITE_MATH.sanitize_vector3(value, fallback)

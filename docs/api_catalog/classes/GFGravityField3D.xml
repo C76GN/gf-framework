@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFGravityField3D" path="addons/gf/extensions/physics/nodes/gf_gravity_field_3d.gd" module="extensions/physics" extends="Node3D" classDigest="d9ef49d4ace026a3f05d613c1b4843b5365df913eac4430f763b24c1dc445a45">
+<class name="GFGravityField3D" path="addons/gf/extensions/physics/nodes/gf_gravity_field_3d.gd" module="extensions/physics" extends="Node3D" classDigest="3f1be6919ac59af67ef0795a89d1550d16a757ab7f67db7c229a75445ef5fff8">
 	<description>GFGravityField3D: 通用 3D 重力/加速度场。
 提供点重力、远离中心和固定方向三种方向模式，以及常量、线性、平方反比
 和曲线衰减。项目可继承并重写方向或强度计算以实现更复杂的场。</description>
 	<tags>
 		<tag name="api">public</tag>
-		<tag name="category">runtime_handle</tag>
+		<tag name="category">runtime_service</tag>
 		<tag name="since">3.17.0</tag>
 	</tags>
 	<signals>
@@ -14,6 +14,7 @@
 			<description>力场参数变化时发出。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</signals>
@@ -30,6 +31,7 @@
 			<description>力场方向模式。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="enum" name="FalloffMode">
@@ -46,6 +48,7 @@
 			<description>强度衰减模式。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</enums>
@@ -56,6 +59,7 @@
 			<description>是否启用力场。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="priority" decorators="@export">
@@ -63,6 +67,7 @@
 			<description>采样器使用优先级组合模式时的力场优先级；数值越大优先级越高。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="acceleration" decorators="@export">
@@ -70,6 +75,7 @@
 			<description>基础加速度强度。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="radius" decorators="@export">
@@ -77,6 +83,7 @@
 			<description>影响半径；小于等于 0 表示无限范围。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="min_distance" decorators="@export">
@@ -84,6 +91,7 @@
 			<description>平方反比模式下用于避免近距离发散的最小距离。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="direction_mode" decorators="@export">
@@ -91,6 +99,7 @@
 			<description>方向模式。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="constant_direction" decorators="@export">
@@ -98,6 +107,7 @@
 			<description>固定方向模式使用的方向。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="falloff_mode" decorators="@export">
@@ -105,6 +115,7 @@
 			<description>强度衰减模式。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="falloff_curve" decorators="@export">
@@ -112,6 +123,7 @@
 			<description>曲线衰减模式使用的 Curve。采样值会乘以 acceleration。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</properties>
@@ -123,6 +135,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">world_position: 世界坐标。</tag>
 				<tag name="return">加速度向量。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_strength_at_distance">
@@ -132,6 +145,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">distance: 距离。</tag>
 				<tag name="return">加速度强度。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_gravity_priority">
@@ -140,6 +154,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">优先级数值，越大越优先。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="_get_direction_at">
@@ -149,6 +164,7 @@
 				<tag name="api">protected</tag>
 				<tag name="param">world_position: 世界坐标。</tag>
 				<tag name="return">方向向量。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</methods>

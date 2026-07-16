@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFConfigLocalizationKeyValidationRule" path="addons/gf/standard/utilities/config/validation/gf_config_localization_key_validation_rule.gd" module="standard" extends="GFConfigValidationRule" classDigest="1fdb7b8ef0cbe86963b75a489a7cf0ffdeab3ac14b283f7ffe134da927e85e2d">
+<class name="GFConfigLocalizationKeyValidationRule" path="addons/gf/standard/utilities/config/validation/gf_config_localization_key_validation_rule.gd" module="standard" extends="GFConfigValidationRule" classDigest="cf2506be73ed405d230bbb491ddebbcf80947a279bd374219b262c26cd67eac0">
 	<description>GFConfigLocalizationKeyValidationRule: 文本 key 校验规则。
-用于检查配置字段中的本地化 key 是否存在于显式 key 列表、字典或 Godot 翻译表中。</description>
+用于检查配置字段中的本地化 key 是否存在于显式 key 列表或字典中。
+非严格模式可把 Godot TranslationServer 作为弱 fallback，但不能替代显式 key catalog。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">resource_definition</tag>
@@ -33,11 +34,20 @@
 				<tag name="schema">text_map: Dictionary，将本地化 key 映射到项目自有文本值。</tag>
 			</tags>
 		</member>
-		<member kind="property" name="use_translation_server" decorators="@export">
-			<signature>var use_translation_server: bool = true</signature>
-			<description>是否尝试通过 TranslationServer 判断 key。</description>
+		<member kind="property" name="require_explicit_key_source" decorators="@export">
+			<signature>var require_explicit_key_source: bool = true</signature>
+			<description>是否要求提供 known_keys 或 text_map 作为精确 key 来源。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="use_translation_server" decorators="@export">
+			<signature>var use_translation_server: bool = true</signature>
+			<description>是否在非严格模式下尝试通过 TranslationServer 判断 key。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</properties>

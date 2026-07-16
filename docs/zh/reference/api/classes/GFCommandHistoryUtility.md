@@ -18,7 +18,7 @@
 | 属性 | [`max_history_size`](#member-gfcommandhistoryutility-properties-max_history_size) | `var max_history_size: int:` |
 | 属性 | [`undo_count`](#member-gfcommandhistoryutility-properties-undo_count) | `var undo_count: int:` |
 | 属性 | [`redo_count`](#member-gfcommandhistoryutility-properties-redo_count) | `var redo_count: int:` |
-| 属性 | [`async_timeout_seconds`](#member-gfcommandhistoryutility-properties-async_timeout_seconds) | `var async_timeout_seconds: float = 30.0` |
+| 属性 | [`async_stall_warning_seconds`](#member-gfcommandhistoryutility-properties-async_stall_warning_seconds) | `var async_stall_warning_seconds: float = 30.0:` |
 | 属性 | [`is_processing_async`](#member-gfcommandhistoryutility-properties-is_processing_async) | `var is_processing_async: bool:` |
 | 方法 | [`init`](#member-gfcommandhistoryutility-methods-init) | `func init() -> void:` |
 | 方法 | [`dispose`](#member-gfcommandhistoryutility-methods-dispose) | `func dispose() -> void:` |
@@ -45,12 +45,13 @@
 ### `max_history_size`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var max_history_size: int:
 ```
 
-撤销栈的最大容量；为 0 时表示不限制。
+命令历史栈的最大容量；为 0 时表示不限制。该上限分别约束撤销栈和重做栈。
 
 <a id="member-gfcommandhistoryutility-properties-undo_count"></a>
 
@@ -76,17 +77,18 @@ var redo_count: int:
 
 当前重做栈深度。
 
-<a id="member-gfcommandhistoryutility-properties-async_timeout_seconds"></a>
+<a id="member-gfcommandhistoryutility-properties-async_stall_warning_seconds"></a>
 
-### `async_timeout_seconds`
+### `async_stall_warning_seconds`
 
 - API：`public`
+- 首次版本：`8.0.0`
 
 ```gdscript
-var async_timeout_seconds: float = 30.0
+var async_stall_warning_seconds: float = 30.0:
 ```
 
-异步命令等待超时时间（秒）。小于等于 0 时表示不启用超时。
+异步命令等待告警阈值（秒）。超过阈值只告警并继续持有历史锁，直到命令进入真实终态。
 
 <a id="member-gfcommandhistoryutility-properties-is_processing_async"></a>
 

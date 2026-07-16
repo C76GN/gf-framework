@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFProjectileEmitter2D" path="addons/gf/extensions/combat/projectiles/gf_projectile_emitter_2d.gd" module="extensions/combat" extends="Node2D" classDigest="a4e77b71b3ecf6fabff6c78adfbcfeddcc8cada59b7eff00d3fb9307e6ce0d32">
+<class name="GFProjectileEmitter2D" path="addons/gf/extensions/combat/projectiles/gf_projectile_emitter_2d.gd" module="extensions/combat" extends="Node2D" classDigest="5b85fe19d5dd3a04335616a20c84826ee4c432ec3d5a8c341d7013ccba4a1ccd">
 	<description>GFProjectileEmitter2D: 通用 2D 发射体生成节点。
 负责按场景目录和生成点模式实例化发射体，并把本次发射上下文交给
 发射体的 launch()。它不解释伤害、阵营、弹药、冷却或特效规则。</description>
@@ -59,6 +59,22 @@
 			<description>2D 发射点模式。为空时使用发射器自身全局变换。</description>
 			<tags>
 				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="property" name="emission_policy" decorators="@export">
+			<signature>var emission_policy: GFProjectileEmissionPolicy = null</signature>
+			<description>可选发射请求策略。用于通用冷却、数量裁剪或项目侧自定义门控。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="hard_projectile_limit_per_request" decorators="@export_range(1, 65536, 1)">
+			<signature>var hard_projectile_limit_per_request: int = 4096:</signature>
+			<description>单次请求在生成 transform 前不可绕过的硬数量上限。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="default_context" decorators="@export">

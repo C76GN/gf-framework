@@ -31,6 +31,7 @@
 | 属性 | [`metadata`](#member-gfbridgecontractreport-properties-metadata) | `var metadata: Dictionary = {}` |
 | 方法 | [`configure`](#member-gfbridgecontractreport-methods-configure) | `func configure(p_subject: String = _DEFAULT_SUBJECT, p_metadata: Dictionary = {}) -> GFBridgeContractReport:` |
 | 方法 | [`clear`](#member-gfbridgecontractreport-methods-clear) | `func clear() -> void:` |
+| 方法 | [`get_json_compatible_report`](#member-gfbridgecontractreport-methods-get_json_compatible_report) | `func get_json_compatible_report(report_options: Dictionary = {}, codec_options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`add_contract`](#member-gfbridgecontractreport-methods-add_contract) | `func add_contract(contract_id: StringName, options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`add_contracts`](#member-gfbridgecontractreport-methods-add_contracts) | `func add_contracts(entries: Array[Dictionary]) -> GFBridgeContractReport:` |
 | 方法 | [`add_adapter`](#member-gfbridgecontractreport-methods-add_adapter) | `func add_adapter( adapter_id: StringName, contract_id: StringName = &"", options: Dictionary = {} ) -> Dictionary:` |
@@ -38,6 +39,8 @@
 | 方法 | [`get_report`](#member-gfbridgecontractreport-methods-get_report) | `func get_report(options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`from_entries`](#member-gfbridgecontractreport-methods-from_entries) | `static func from_entries( contract_entries: Array[Dictionary], adapter_entries: Array[Dictionary], options: Dictionary = {} ) -> Dictionary:` |
 | 方法 | [`report_request_handlers`](#member-gfbridgecontractreport-methods-report_request_handlers) | `static func report_request_handlers( required_request_types: PackedStringArray, registry: GFRequestHandlerRegistry, options: Dictionary = {} ) -> Dictionary:` |
+| 方法 | [`make_object_adapter_entry`](#member-gfbridgecontractreport-methods-make_object_adapter_entry) | `static func make_object_adapter_entry( adapter_id: StringName, contract_ids: PackedStringArray, target: Object, options: Dictionary = {} ) -> Dictionary:` |
+| 方法 | [`make_engine_singleton_adapter_entry`](#member-gfbridgecontractreport-methods-make_engine_singleton_adapter_entry) | `static func make_engine_singleton_adapter_entry( singleton_name: StringName, contract_ids: PackedStringArray, options: Dictionary = {} ) -> Dictionary:` |
 
 ## 常量
 
@@ -278,6 +281,34 @@ func clear() -> void:
 
 清空契约、适配器和元数据。
 
+<a id="member-gfbridgecontractreport-methods-get_json_compatible_report"></a>
+
+### `get_json_compatible_report`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func get_json_compatible_report(report_options: Dictionary = {}, codec_options: Dictionary = {}) -> Dictionary:
+```
+
+构建经过报告边界脱敏的 JSON-safe 契约报告。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `report_options` | 传给 get_report() 的报告选项。 |
+| `codec_options` | 传给 GFReportValueCodec 的脱敏与编码选项。 |
+
+返回：可直接交给 JSON.stringify() 的报告字典。
+
+结构：
+
+- `report_options`: Dictionary bridge contract report options.
+- `codec_options`: Dictionary GFReportValueCodec options.
+- `return`: JSON-compatible redacted bridge contract report Dictionary.
+
 <a id="member-gfbridgecontractreport-methods-add_contract"></a>
 
 ### `add_contract`
@@ -450,7 +481,7 @@ static func from_entries( contract_entries: Array[Dictionary], adapter_entries: 
 static func report_request_handlers( required_request_types: PackedStringArray, registry: GFRequestHandlerRegistry, options: Dictionary = {} ) -> Dictionary:
 ```
 
-为 GFRequestHandlerRegistry 生成请求 handler 覆盖报告。
+为 GFRequestHandlerRegistry 生成请求 handler 覆盖报告。 该入口保留为通用报告便捷方法；请求 handler 专用的 contract/adapter 条目构建逻辑 由 GFRequestHandlerRegistry.make_bridge_contract_entries() 负责。
 
 参数：
 
@@ -466,3 +497,60 @@ static func report_request_handlers( required_request_types: PackedStringArray, 
 
 - `options`: Dictionary builder and report options.
 - `return`: Dictionary request handler bridge coverage report.
+
+<a id="member-gfbridgecontractreport-methods-make_object_adapter_entry"></a>
+
+### `make_object_adapter_entry`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+static func make_object_adapter_entry( adapter_id: StringName, contract_ids: PackedStringArray, target: Object, options: Dictionary = {} ) -> Dictionary:
+```
+
+从 Godot Object 构建桥接适配器条目。 该方法只检查对象存在性、必需方法和必需信号，不调用对象方法， 适合外部 SDK、GDExtension、编辑器工具或项目 adapter 的预检。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `adapter_id` | 稳定适配器 ID。 |
+| `contract_ids` | 适配器覆盖的契约 ID 列表。 |
+| `target` | 要审查的对象；为空或已释放时条目会标记为 disabled。 |
+| `options` | 适配器选项，支持 kind、signature、version、capabilities、metadata、required_methods 和 required_signals。 |
+
+返回：适配器条目。
+
+结构：
+
+- `options`: Dictionary bridge adapter metadata and object surface requirements.
+- `return`: Dictionary normalized bridge adapter source entry.
+
+<a id="member-gfbridgecontractreport-methods-make_engine_singleton_adapter_entry"></a>
+
+### `make_engine_singleton_adapter_entry`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+static func make_engine_singleton_adapter_entry( singleton_name: StringName, contract_ids: PackedStringArray, options: Dictionary = {} ) -> Dictionary:
+```
+
+从 Engine singleton 构建桥接适配器条目。 该方法用于审查平台或原生插件是否暴露了预期 singleton surface， 不调用 singleton 方法，也不声明任何特定 SDK 语义。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `singleton_name` | Engine singleton 名称。 |
+| `contract_ids` | 适配器覆盖的契约 ID 列表。 |
+| `options` | 适配器选项，支持 adapter_id、kind、signature、version、capabilities、metadata、required_methods 和 required_signals。 |
+
+返回：适配器条目。
+
+结构：
+
+- `options`: Dictionary bridge adapter metadata and singleton surface requirements.
+- `return`: Dictionary normalized bridge adapter source entry.

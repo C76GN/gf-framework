@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFDecisionScore" path="addons/gf/extensions/decision/runtime/gf_decision_score.gd" module="extensions/decision" extends="RefCounted" classDigest="d669cd2b87bc4eb3d1364276bf0efce46b1a6b0488053fd2f2ee305d4d1575b8">
+<class name="GFDecisionScore" path="addons/gf/extensions/decision/runtime/gf_decision_score.gd" module="extensions/decision" extends="RefCounted" classDigest="bda160f70e8868749fa6ed985c4c11de6ba985cf90af95a0f3dfe7c72fc1dbf6">
 	<description>GFDecisionScore: 单个候选决策的评分结果。
 保存候选 ID、最终分数、考虑项明细、排序序号和元数据，便于测试、调试面板或导演系统审计。</description>
 	<tags>
@@ -75,7 +75,20 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">调试快照字典。</tag>
-				<tag name="schema">return: 与 to_dictionary() 相同的评分结果 Dictionary。</tag>
+				<tag name="schema">return: 基于 to_dictionary() 编码的 JSON-safe 评分结果 Dictionary。</tag>
+				<tag name="since">4.3.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="to_report_dictionary">
+			<signature>func to_report_dictionary(options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>转换为 JSON-safe 报告字典。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">options: 传给 GFReportValueCodec 的编码选项。</tag>
+				<tag name="return">评分报告字典。</tag>
+				<tag name="schema">options: Dictionary with GFReportValueCodec encoding options.</tag>
+				<tag name="schema">return: JSON-safe Dictionary based on to_dictionary().</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 	</methods>

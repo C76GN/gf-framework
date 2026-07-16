@@ -15,10 +15,10 @@
 
 | 类型 | 名称 | 签名 |
 |---|---|---|
-| 属性 | [`target_node`](#member-gfeditorscenemetadatapatch-properties-target_node) | `var target_node: Node = null` |
-| 属性 | [`metadata_key`](#member-gfeditorscenemetadatapatch-properties-metadata_key) | `var metadata_key: StringName = &""` |
-| 属性 | [`value`](#member-gfeditorscenemetadatapatch-properties-value) | `var value: Variant = null` |
-| 属性 | [`remove_on_execute`](#member-gfeditorscenemetadatapatch-properties-remove_on_execute) | `var remove_on_execute: bool = false` |
+| 属性 | [`target_node`](#member-gfeditorscenemetadatapatch-properties-target_node) | `var target_node: Node:` |
+| 属性 | [`metadata_key`](#member-gfeditorscenemetadatapatch-properties-metadata_key) | `var metadata_key: StringName:` |
+| 属性 | [`value`](#member-gfeditorscenemetadatapatch-properties-value) | `var value: Variant:` |
+| 属性 | [`remove_on_execute`](#member-gfeditorscenemetadatapatch-properties-remove_on_execute) | `var remove_on_execute: bool:` |
 | 方法 | [`configure`](#member-gfeditorscenemetadatapatch-methods-configure) | `func configure( node: Node, key: StringName, new_value: Variant = null, options: Dictionary = {} ) -> GFEditorCommand:` |
 | 方法 | [`get_metadata_debug_snapshot`](#member-gfeditorscenemetadatapatch-methods-get_metadata_debug_snapshot) | `func get_metadata_debug_snapshot() -> Dictionary:` |
 | 方法 | [`can_execute`](#member-gfeditorscenemetadatapatch-methods-can_execute) | `func can_execute() -> bool:` |
@@ -35,7 +35,7 @@
 - 首次版本：`7.0.0`
 
 ```gdscript
-var target_node: Node = null
+var target_node: Node:
 ```
 
 要修改的节点。
@@ -48,7 +48,7 @@ var target_node: Node = null
 - 首次版本：`7.0.0`
 
 ```gdscript
-var metadata_key: StringName = &""
+var metadata_key: StringName:
 ```
 
 要修改的 metadata key。
@@ -61,7 +61,7 @@ var metadata_key: StringName = &""
 - 首次版本：`7.0.0`
 
 ```gdscript
-var value: Variant = null
+var value: Variant:
 ```
 
 执行时写入的新值。
@@ -78,7 +78,7 @@ var value: Variant = null
 - 首次版本：`7.0.0`
 
 ```gdscript
-var remove_on_execute: bool = false
+var remove_on_execute: bool:
 ```
 
 执行时是否移除 metadata key，而不是写入 value。

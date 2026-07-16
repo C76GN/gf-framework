@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFInputDeviceUtility" path="addons/gf/standard/input/runtime/gf_input_device_utility.gd" module="standard" extends="GFUtility" classDigest="f4b993571fc2ae155342a499737e2d42535b156da25332effb30897c3b389799">
+<class name="GFInputDeviceUtility" path="addons/gf/standard/input/runtime/gf_input_device_utility.gd" module="standard" extends="GFUtility" classDigest="5d5f15a7f4dd10238064c83de2cfdabb64678c0496f676814553b75c12c63a50">
 	<description>GFInputDeviceUtility: 本地玩家输入设备分配工具。
 负责维护玩家索引与键鼠、手柄、触控、AI 或自定义设备的映射。
 它不消费输入事件，也不规定动作名。</description>
@@ -371,22 +371,24 @@
 			</tags>
 		</member>
 		<member kind="method" name="get_assignment_events">
-			<signature>func get_assignment_events(limit: int = 0) -&gt; Array[Dictionary]:</signature>
+			<signature>func get_assignment_events(limit: int = 0, json_compatible: bool = true) -&gt; Array[Dictionary]:</signature>
 			<description>获取设备分配诊断事件。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">limit: 最大返回数量；小于等于 0 时返回全部事件。</tag>
+				<tag name="param">json_compatible: 为 true 时将 metadata 转为 JSON 兼容值。</tag>
 				<tag name="return">设备分配事件数组。</tag>
 				<tag name="schema">return: Array[Dictionary] assignment event records.</tag>
 				<tag name="since">7.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_assignment_report">
-			<signature>func get_assignment_report(event_limit: int = 10) -&gt; Dictionary:</signature>
+			<signature>func get_assignment_report(event_limit: int = 10, json_compatible: bool = true) -&gt; Dictionary:</signature>
 			<description>获取当前设备分配诊断报告。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">event_limit: 最近事件数量。</tag>
+				<tag name="param">json_compatible: 为 true 时将 metadata 转为 JSON 兼容值。</tag>
 				<tag name="return">设备分配报告。</tag>
 				<tag name="schema">return: Dictionary containing max_players, active_player_index, assignments, active_assignment, event_count, and recent_events.</tag>
 				<tag name="since">7.0.0</tag>

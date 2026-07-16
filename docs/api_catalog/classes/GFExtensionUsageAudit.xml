@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFExtensionUsageAudit" path="addons/gf/kernel/extension/gf_extension_usage_audit.gd" module="kernel" extends="RefCounted" classDigest="929b91b810f0a071d640b731e84a679e576604a1c8f8ae1dbd63ae606ac1b87b">
+<class name="GFExtensionUsageAudit" path="addons/gf/kernel/extension/gf_extension_usage_audit.gd" module="kernel" extends="RefCounted" classDigest="42c258eea74353872c9c748f694ab04932d398dc7335902eed16d5f46fda506d">
 	<description>GFExtensionUsageAudit: 检查禁用扩展是否仍被项目文件直接引用。</description>
 	<tags>
 		<tag name="api">public</tag>
@@ -10,11 +10,76 @@
 	<signals />
 	<enums />
 	<constants>
+		<member kind="const" name="REFERENCE_STRENGTH_VERIFIED">
+			<signature>const REFERENCE_STRENGTH_VERIFIED: StringName = &amp;"verified"</signature>
+			<description>Godot 依赖图确认的资源引用。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="REFERENCE_STRENGTH_STRONG">
+			<signature>const REFERENCE_STRENGTH_STRONG: StringName = &amp;"strong"</signature>
+			<description>静态语义扫描确认的资源或 class_name 引用。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="REFERENCE_STRENGTH_WEAK">
+			<signature>const REFERENCE_STRENGTH_WEAK: StringName = &amp;"weak"</signature>
+			<description>仅文本命中的弱引用提示，不会让禁用扩展审计失败。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="REFERENCE_SOURCE_GDSCRIPT_LOAD">
+			<signature>const REFERENCE_SOURCE_GDSCRIPT_LOAD: StringName = &amp;"gdscript_load"</signature>
+			<description>GDScript load/preload 等加载表达式来源。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="REFERENCE_SOURCE_GDSCRIPT_SYMBOL">
+			<signature>const REFERENCE_SOURCE_GDSCRIPT_SYMBOL: StringName = &amp;"gdscript_symbol"</signature>
+			<description>GDScript class_name 标识符来源。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="REFERENCE_SOURCE_RESOURCE_TEXT">
+			<signature>const REFERENCE_SOURCE_RESOURCE_TEXT: StringName = &amp;"resource_text"</signature>
+			<description>Godot 文本资源依赖字段来源。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="REFERENCE_SOURCE_GODOT_DEPENDENCY">
+			<signature>const REFERENCE_SOURCE_GODOT_DEPENDENCY: StringName = &amp;"godot_dependency"</signature>
+			<description>Godot ResourceLoader 依赖图来源。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="REFERENCE_SOURCE_TEXT_FALLBACK">
+			<signature>const REFERENCE_SOURCE_TEXT_FALLBACK: StringName = &amp;"text_fallback"</signature>
+			<description>无法确认语义的文本命中来源。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
 		<member kind="const" name="DEFAULT_SCAN_ROOTS">
 			<signature>const DEFAULT_SCAN_ROOTS: Array[String] = ["res://"]</signature>
 			<description>默认扫描根目录。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="DEFAULT_MAX_SCAN_DEPTH">
@@ -22,6 +87,7 @@
 			<description>默认最大扫描深度。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="DEFAULT_MAX_SCANNED_FILES">
@@ -29,6 +95,23 @@
 			<description>默认最大扫描文件数。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="DEFAULT_MAX_FILE_BYTES">
+			<signature>const DEFAULT_MAX_FILE_BYTES: int = 4 * 1024 * 1024</signature>
+			<description>默认单文件读取字节上限。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="DEFAULT_MAX_TOTAL_BYTES">
+			<signature>const DEFAULT_MAX_TOTAL_BYTES: int = 64 * 1024 * 1024</signature>
+			<description>默认单次扫描总读取字节上限。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="DEFAULT_IGNORED_ROOTS">
@@ -36,6 +119,7 @@
 			<description>默认忽略的根目录。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="TEXT_FILE_EXTENSIONS">
@@ -43,6 +127,7 @@
 			<description>作为文本扫描的资源扩展名。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</constants>
@@ -54,10 +139,11 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">manifests: 要检查的禁用扩展 manifest 列表。</tag>
-				<tag name="param">options: 可选参数，支持 scan_roots、ignored_roots、max_references_per_extension、max_scan_depth、max_scanned_files。</tag>
+				<tag name="param">options: 可选参数，支持 scan_roots、ignored_roots、max_references_per_extension、max_weak_references_per_extension、max_scan_depth、max_scanned_files、max_file_bytes、max_total_bytes、include_weak_references 和 use_resource_dependencies。</tag>
 				<tag name="return">引用审计报告。</tag>
-				<tag name="schema">options: Dictionary controlling scan roots, ignored roots, reference limits, depth, and scanned file count.</tag>
-				<tag name="schema">return: Dictionary containing ok, extension_count, reference_count, extensions, and references.</tag>
+				<tag name="schema">options: Dictionary controlling scan roots, ignored roots, strong and weak reference limits, depth, scanned file count, file byte budget, total byte budget, weak text reporting, and Godot dependency graph usage.</tag>
+				<tag name="schema">return: Dictionary containing ok, partial_scan, budget_exceeded, extension_count, reference_count, weak_reference_count, extensions, weak_extensions, references, weak_references, scanned_file_count, scanned_bytes, skipped_files, and scan_warnings. references only contains strong or verified blocking references.</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="find_references_to_root">
@@ -66,10 +152,11 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">root_path: 扩展根目录。</tag>
-				<tag name="param">options: 可选参数，支持 scan_roots、ignored_roots、max_references_per_extension、max_scan_depth、max_scanned_files。</tag>
+				<tag name="param">options: 可选参数，支持 scan_roots、ignored_roots、max_references_per_extension、max_weak_references_per_extension、max_scan_depth、max_scanned_files、max_file_bytes、max_total_bytes、include_weak_references 和 use_resource_dependencies。</tag>
 				<tag name="return">引用列表。</tag>
-				<tag name="schema">options: Dictionary controlling scan roots, ignored roots, reference limits, depth, and scanned file count.</tag>
-				<tag name="schema">return: Array of Dictionary file reference records.</tag>
+				<tag name="schema">options: Dictionary controlling scan roots, ignored roots, strong and weak reference limits, depth, scanned file count, file byte budget, total byte budget, weak text reporting, and Godot dependency graph usage.</tag>
+				<tag name="schema">return: Array of Dictionary file reference records. By default only strong or verified blocking references are returned; include_weak_references appends weak text matches.</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</methods>

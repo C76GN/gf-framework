@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFShaderParameterAction" path="addons/gf/extensions/action_queue/actions/gf_shader_parameter_action.gd" module="extensions/action_queue" extends="GFVisualAction" classDigest="27ed11af1002707a8608be8b5df1fa6d6165dac4815b1c714b182fc2a6aa998d">
+<class name="GFShaderParameterAction" path="addons/gf/extensions/action_queue/actions/gf_shader_parameter_action.gd" module="extensions/action_queue" extends="GFVisualAction" classDigest="35d6bb032f17cfa772f8032ef02dd1387c7888179e331799a786a8cd91eccb91">
 	<description>GFShaderParameterAction: 通用 ShaderMaterial 参数动作。
 将 ShaderMaterial 的某个 uniform 参数写入或缓动到目标值。
 它只处理参数写入、Tween 宿主和可选材质实例化，不绑定具体 shader、特效或业务语义。</description>
@@ -35,10 +35,11 @@
 			</tags>
 		</member>
 		<member kind="property" name="duration">
-			<signature>var duration: float = 0.2</signature>
+			<signature>var duration: float:</signature>
 			<description>Tween 持续时间。小于等于 0 时立即写入。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">4.2.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="material_property">

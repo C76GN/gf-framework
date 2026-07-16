@@ -267,13 +267,13 @@ func get_action_ids(filters: Dictionary = {}) -> PackedStringArray:
 ## [br]
 ## @since 7.0.0
 ## [br]
-## @param context: 用于可用性检查的调用上下文。
+## @param context: 用于可用性或调用探针的调用上下文。
 ## [br]
-## @param options: 可选参数，支持 group、source_id 和 include_availability。
+## @param options: 可选参数，支持 group、source_id、include_availability 和 include_invocation。
 ## [br]
-## @schema context: Dictionary passed to action availability checks.
+## @schema context: Dictionary passed to action availability and invocation checks.
 ## [br]
-## @schema options: Dictionary with group, source_id, and include_availability.
+## @schema options: Dictionary with group, source_id, include_availability, and include_invocation.
 ## [br]
 ## @return 动作快照数组。
 ## [br]
@@ -293,13 +293,13 @@ func get_action_snapshots(context: Dictionary = {}, options: Dictionary = {}) ->
 ## [br]
 ## @param action_ids: 已保存的动作 ID 顺序。
 ## [br]
-## @param context: 用于可用性检查的调用上下文。
+## @param context: 用于可用性或调用探针的调用上下文。
 ## [br]
-## @param options: 可选参数，支持 include_availability。
+## @param options: 可选参数，支持 include_availability 和 include_invocation。
 ## [br]
-## @schema context: Dictionary passed to action availability checks.
+## @schema context: Dictionary passed to action availability and invocation checks.
 ## [br]
-## @schema options: Dictionary with optional include_availability.
+## @schema options: Dictionary with optional include_availability and include_invocation.
 ## [br]
 ## @return 布局解析报告。
 ## [br]
@@ -457,6 +457,8 @@ func _make_action_snapshot(record: Dictionary, context: Dictionary, options: Dic
 	snapshot["registry_metadata"] = _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(record, "metadata")
 	if _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(options, "include_availability", false):
 		snapshot["available"] = action.is_available(context)
+	if _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(options, "include_invocation", false):
+		snapshot["invocation"] = action.get_invocation_report(context)
 	return snapshot
 
 

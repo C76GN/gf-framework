@@ -1,0 +1,246 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFThumbnailRenderTask" path="addons/gf/kernel/editor/gf_thumbnail_render_task.gd" module="kernel" extends="RefCounted" classDigest="0725210adfba165f1956adafec0b4b2e5736b2c3725b20f96dffe5da83d8e642">
+	<description>GFThumbnailRenderTask: 一次缩略图渲染任务句柄。
+任务持有请求、运行状态、取消 token 和完成源；GFThumbnailRenderer 负责串行执行任务。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_handle</tag>
+		<tag name="layer">kernel/editor</tag>
+		<tag name="since">8.0.0</tag>
+	</tags>
+	<signals>
+		<member kind="signal" name="completed">
+			<signature>signal completed(task: GFThumbnailRenderTask)</signature>
+			<description>任务进入任意终态时发出。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">task: 当前任务。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="signal" name="succeeded">
+			<signature>signal succeeded(task: GFThumbnailRenderTask, result: Variant)</signature>
+			<description>任务成功完成时发出。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">task: 当前任务。</tag>
+				<tag name="param">result: 成功结果。</tag>
+				<tag name="schema">result: Variant，Image、ImageTexture 或 MeshLibrary 预览计划 Dictionary。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="signal" name="failed">
+			<signature>signal failed(task: GFThumbnailRenderTask, error: String)</signature>
+			<description>任务失败时发出。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">task: 当前任务。</tag>
+				<tag name="param">error: 失败说明。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="signal" name="cancelled">
+			<signature>signal cancelled(task: GFThumbnailRenderTask, reason: StringName)</signature>
+			<description>任务取消完成时发出。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">task: 当前任务。</tag>
+				<tag name="param">reason: 取消原因。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</signals>
+	<enums>
+		<member kind="enum" name="State">
+			<signature>enum State {
+	## 等待执行。
+	PENDING,
+	## 正在执行。
+	RUNNING,
+	## 已成功完成。
+	SUCCEEDED,
+	## 已失败。
+	FAILED,
+	## 已取消。
+	CANCELLED,
+}</signature>
+			<description>缩略图渲染任务状态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</enums>
+	<constants />
+	<properties />
+	<methods>
+		<member kind="method" name="_init">
+			<signature>func _init(request: GFThumbnailRenderRequest = null, task_id: int = 0) -&gt; void:</signature>
+			<description>构造函数。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">request: 要执行的缩略图渲染请求。</tag>
+				<tag name="param">task_id: 可选任务 ID。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="cancel">
+			<signature>func cancel(reason: StringName = &amp;"cancelled") -&gt; bool:</signature>
+			<description>请求取消任务。
+等待中的任务会立即进入取消终态；正在执行的任务会在下一个渲染检查点取消。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">reason: 取消原因。</tag>
+				<tag name="return">本次调用是否发出了新的取消请求。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="wait_completed">
+			<signature>func wait_completed() -&gt; Variant:</signature>
+			<description>等待任务完成并返回最终结果。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">任务结果；失败时通常为 null，取消的 MeshLibrary 计划任务可返回部分计划。</tag>
+				<tag name="schema">return: Variant，Image、ImageTexture、MeshLibrary 预览计划 Dictionary 或 null。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_task_id">
+			<signature>func get_task_id() -&gt; int:</signature>
+			<description>返回任务 ID。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">任务 ID。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_request">
+			<signature>func get_request() -&gt; GFThumbnailRenderRequest:</signature>
+			<description>返回任务请求。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">任务请求。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_state">
+			<signature>func get_state() -&gt; State:</signature>
+			<description>返回任务状态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">当前任务状态。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_pending">
+			<signature>func is_pending() -&gt; bool:</signature>
+			<description>返回是否仍在等待执行。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">等待执行时返回 true。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_running">
+			<signature>func is_running() -&gt; bool:</signature>
+			<description>返回是否正在执行。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">正在执行时返回 true。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_finished">
+			<signature>func is_finished() -&gt; bool:</signature>
+			<description>返回是否已经进入任意终态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">已完成、失败或取消时返回 true。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_succeeded">
+			<signature>func is_succeeded() -&gt; bool:</signature>
+			<description>返回是否成功完成。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">成功完成时返回 true。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_failed">
+			<signature>func is_failed() -&gt; bool:</signature>
+			<description>返回是否失败。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">失败时返回 true。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_cancelled">
+			<signature>func is_cancelled() -&gt; bool:</signature>
+			<description>返回是否取消完成。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">取消完成时返回 true。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_cancel_requested">
+			<signature>func is_cancel_requested() -&gt; bool:</signature>
+			<description>返回是否已经请求取消。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">已请求取消但可能尚未完成时返回 true。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_result">
+			<signature>func get_result() -&gt; Variant:</signature>
+			<description>返回任务结果。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">任务结果。</tag>
+				<tag name="schema">return: Variant，Image、ImageTexture、MeshLibrary 预览计划 Dictionary 或 null。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_error">
+			<signature>func get_error() -&gt; String:</signature>
+			<description>返回失败说明。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">失败说明；非失败状态返回空字符串。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_cancel_reason">
+			<signature>func get_cancel_reason() -&gt; StringName:</signature>
+			<description>返回取消原因。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">取消原因；未取消时返回空 StringName。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_cancel_token">
+			<signature>func get_cancel_token() -&gt; GFCancellationToken:</signature>
+			<description>返回任务取消 token。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">当前任务的只读取消 token。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_completion">
+			<signature>func get_completion() -&gt; GFAsyncCompletion:</signature>
+			<description>返回任务完成源。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">当前任务的完成源。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

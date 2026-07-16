@@ -17,12 +17,16 @@ extends RefCounted
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param graph: 流程图资源。
 signal flow_started(graph: GFFlowGraph)
 
 ## 节点开始执行时发出。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @param node_id: 节点 ID。
 ## [br]
@@ -33,6 +37,8 @@ signal node_started(node_id: StringName, node: GFFlowNode)
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param node_id: 节点 ID。
 ## [br]
 ## @param node: 节点资源。
@@ -41,11 +47,15 @@ signal node_completed(node_id: StringName, node: GFFlowNode)
 ## 流程完成时发出。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 signal flow_completed
 
 ## 流程取消时发出。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 signal flow_cancelled
 
 
@@ -59,26 +69,36 @@ const _GF_ASYNC_WAIT_SUPPORT = preload("res://addons/gf/standard/common/gf_async
 ## 当前是否正在执行。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 var is_running: bool = false
 
 ## 最多执行节点数量，避免循环图无限运行。小于等于 0 表示不限制。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 var max_executed_nodes: int = 1024
 
 ## Signal 等待超时时间。小于等于 0 表示不启用超时。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 var signal_timeout_seconds: float = 30.0
 
 ## Signal 超时计时是否跟随 GFTimeUtility 的暂停与 time_scale。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 var signal_timeout_respects_time_scale: bool = true
 
 ## 运行时是否把节点 runtime_state 隔离到 GFFlowContext，避免污染共享图资源。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 var isolate_graph_runtime_state: bool = true
 
 
@@ -95,6 +115,8 @@ var _architecture_ref: WeakRef = null
 ## [br]
 ## @api framework_internal
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param architecture: 架构实例。
 func inject_dependencies(architecture: GFArchitecture) -> void:
 	_architecture_ref = weakref(architecture) if architecture != null else null
@@ -103,6 +125,8 @@ func inject_dependencies(architecture: GFArchitecture) -> void:
 ## 运行流程图。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @param graph: 流程图资源。
 ## [br]
@@ -134,6 +158,8 @@ func run(graph: GFFlowGraph, context: GFFlowContext = null) -> void:
 ## 请求取消流程。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 func cancel() -> void:
 	_cancel_requested = true
 
@@ -141,6 +167,8 @@ func cancel() -> void:
 ## 设置 Signal 等待超时时间。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @param seconds: 秒数；小于等于 0 时表示不启用超时。
 ## [br]
@@ -174,15 +202,48 @@ func _run_graph(graph: GFFlowGraph, context: GFFlowContext) -> void:
 		if node == null:
 			push_warning("[GFFlowRunner] 缺少流程节点：%s" % String(node_id))
 			continue
+		var runtime_state_lease_id: int = 0
+		if isolate_graph_runtime_state:
+			runtime_state_lease_id = node.acquire_runtime_state_lease()
+			if runtime_state_lease_id <= 0:
+				_abort_reason = &"node_runtime_state_busy"
+				push_error("[GFFlowRunner] 节点运行态已被其他执行租约占用：%s" % String(node_id))
+				return
 
 		executed_count += 1
 		context.clear_next_nodes()
 		node_started.emit(node_id, node)
-		var result: Variant = _execute_node_with_runtime_state(node, context)
-		if node.wait_for_result and result is Signal:
+		if _cancel_requested:
+			if runtime_state_lease_id > 0:
+				var _released_after_cancel: bool = node.release_runtime_state_lease(runtime_state_lease_id)
+			return
+		var result: Variant = _execute_node_with_runtime_state(
+			node,
+			context,
+			runtime_state_lease_id
+		)
+		if _abort_reason != &"":
+			if runtime_state_lease_id > 0:
+				var _released_after_abort: bool = node.release_runtime_state_lease(runtime_state_lease_id)
+			return
+		if result is Signal:
 			var result_signal: Signal = result
-			await _await_signal_safely(result_signal)
-			if _cancel_requested:
+			if isolate_graph_runtime_state:
+				if not _hold_runtime_state_lease_until_signal(
+					node,
+					result_signal,
+					runtime_state_lease_id
+				):
+					return
+				runtime_state_lease_id = 0
+			if node.wait_for_result:
+				await _await_signal_safely(result_signal)
+				if _cancel_requested:
+					return
+		elif runtime_state_lease_id > 0:
+			if not node.release_runtime_state_lease(runtime_state_lease_id):
+				_abort_reason = &"node_runtime_state_lease_release_failed"
+				push_error("[GFFlowRunner] 无法释放同步节点运行态租约：%s" % String(node_id))
 				return
 		node_completed.emit(node_id, node)
 
@@ -202,9 +263,17 @@ func _await_signal_safely(result_signal: Signal) -> void:
 	)
 
 
-func _execute_node_with_runtime_state(node: GFFlowNode, context: GFFlowContext) -> Variant:
+func _execute_node_with_runtime_state(
+	node: GFFlowNode,
+	context: GFFlowContext,
+	runtime_state_lease_id: int
+) -> Variant:
 	if not isolate_graph_runtime_state:
 		return node.execute(context)
+	if not node.begin_runtime_state_lease_write(runtime_state_lease_id):
+		_abort_reason = &"node_runtime_state_lease_invalid"
+		push_error("[GFFlowRunner] 无法进入节点运行态租约写阶段。")
+		return null
 
 	var original_state: Dictionary = node.serialize_runtime_state()
 	_apply_context_runtime_state_to_node(node, context)
@@ -212,6 +281,10 @@ func _execute_node_with_runtime_state(node: GFFlowNode, context: GFFlowContext) 
 	_store_node_runtime_state_in_context(node, context)
 	node.clear_runtime_state()
 	node.deserialize_runtime_state(original_state)
+	if not node.end_runtime_state_lease_write(runtime_state_lease_id):
+		_abort_reason = &"node_runtime_state_lease_invalid"
+		push_error("[GFFlowRunner] 无法结束节点运行态租约写阶段。")
+		return null
 	return result
 
 
@@ -255,9 +328,54 @@ func _get_runtime_successor_node_ids(
 		return context.next_node_ids.duplicate()
 
 	var result: PackedStringArray = node.get_next_nodes(context)
-	for next_id: String in graph.get_connected_node_ids_from(node.node_id):
-		_append_unique_packed_string(result, next_id)
+	for connection: Dictionary in graph.get_connections_from(node.node_id):
+		if (
+			GFVariantData.get_option_string_name(connection, "from_port_id", &"") != &""
+			or GFVariantData.get_option_string_name(connection, "to_port_id", &"") != &""
+		):
+			continue
+		_append_unique_packed_string(
+			result,
+			String(GFVariantData.get_option_string_name(connection, "to_node_id", &""))
+		)
 	return result
+
+
+func _hold_runtime_state_lease_until_signal(
+	node: GFFlowNode,
+	result_signal: Signal,
+	runtime_state_lease_id: int
+) -> bool:
+	var release_callback: Callable = Callable(node, "release_runtime_state_lease").bind(
+		runtime_state_lease_id
+	)
+	var signal_argument_count: int = _get_signal_argument_count(result_signal)
+	if signal_argument_count > 0:
+		release_callback = release_callback.unbind(signal_argument_count)
+	var connect_error: Error = result_signal.connect(
+		release_callback,
+		CONNECT_ONE_SHOT as Object.ConnectFlags
+	) as Error
+	if connect_error != OK:
+		var _released_after_connect_failure: bool = node.release_runtime_state_lease(
+			runtime_state_lease_id
+		)
+		_abort_reason = &"node_runtime_state_lease_connect_failed"
+		push_error("[GFFlowRunner] 无法建立异步运行态写租约释放连接。")
+		return false
+	return true
+
+
+func _get_signal_argument_count(result_signal: Signal) -> int:
+	var signal_object: Object = result_signal.get_object()
+	if signal_object == null:
+		return 0
+	var signal_name: StringName = result_signal.get_name()
+	for signal_info_variant: Variant in signal_object.get_signal_list():
+		var signal_info: Dictionary = GFVariantData.as_dictionary(signal_info_variant)
+		if GFVariantData.get_option_string_name(signal_info, "name", &"") == signal_name:
+			return GFVariantData.get_option_array(signal_info, "args").size()
+	return 0
 
 
 func _get_time_utility() -> GFTimeUtility:

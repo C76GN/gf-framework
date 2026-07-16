@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFAsyncTrackerUtility" path="addons/gf/standard/utilities/debug/gf_async_tracker_utility.gd" module="standard" extends="GFUtility" classDigest="33140d070039a831e93cdb9d4c0e2bbdf0fe1793ea11fcb9243b1de9c8d62ed9">
+<class name="GFAsyncTrackerUtility" path="addons/gf/standard/utilities/debug/gf_async_tracker_utility.gd" module="standard" extends="GFUtility" classDigest="30293f559d103089be4978741ed7de6a35d7d19402c44e4984ab5db3ac40ca08">
 	<description>GFAsyncTrackerUtility: 可选异步句柄追踪工具。
 默认关闭。启用后可登记异步完成源、通道、超时控制器或项目自定义句柄，
 并通过弱引用生成活动句柄快照，帮助诊断未完成、未释放或异常停留的异步流程。</description>
@@ -40,6 +40,22 @@
 				<tag name="since">7.0.0</tag>
 			</tags>
 		</member>
+		<member kind="const" name="DEFAULT_MAX_SNAPSHOT_ENTRIES">
+			<signature>const DEFAULT_MAX_SNAPSHOT_ENTRIES: int = 64</signature>
+			<description>单个 provider 快照默认最多保留的顶层条目数。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="DEFAULT_MAX_PROVIDER_CALLS">
+			<signature>const DEFAULT_MAX_PROVIDER_CALLS: int = 32</signature>
+			<description>单次批量刷新默认最多调用的 provider 数量。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
 	</constants>
 	<properties>
 		<member kind="property" name="tracking_enabled">
@@ -64,6 +80,14 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="max_snapshot_entries">
+			<signature>var max_snapshot_entries: int = DEFAULT_MAX_SNAPSHOT_ENTRIES:</signature>
+			<description>单个 provider 快照最多保留的顶层条目数。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 	</properties>
@@ -134,6 +158,29 @@
 				<tag name="api">public</tag>
 				<tag name="return">自上次调用以来有追踪变化时返回 true。</tag>
 				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="refresh_snapshot">
+			<signature>func refresh_snapshot(tracking_id: int) -&gt; Dictionary:</signature>
+			<description>显式刷新一条追踪记录的 provider 快照。
+读取 API 不会调用外部 provider；调用方应在可控调度点主动刷新。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">tracking_id: 待刷新的追踪 ID。</tag>
+				<tag name="return">刷新报告。</tag>
+				<tag name="schema">return: Dictionary，包含 ok、tracking_id、refreshed、error、entry_count 和 truncated。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="refresh_snapshots">
+			<signature>func refresh_snapshots(max_provider_calls: int = DEFAULT_MAX_PROVIDER_CALLS) -&gt; Dictionary:</signature>
+			<description>按稳定 ID 顺序批量刷新 provider 快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">max_provider_calls: 本次最多调用的 provider 数量；小于等于 0 时不调用。</tag>
+				<tag name="return">批量刷新报告。</tag>
+				<tag name="schema">return: Dictionary，包含 ok、provider_call_count、refreshed_count、failed_count、pending_count、truncated 和 reports。</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_active_records">

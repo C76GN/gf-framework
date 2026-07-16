@@ -102,6 +102,7 @@ var _context_ready_emitted: bool = false
 var _context_failed_emitted: bool = false
 var _context_failure_reason: String = ""
 var _context_lifecycle_serial: int = 0
+var _context_install_scope: GFAsyncScope = null
 
 
 # --- Godot 生命周期方法 ---
@@ -115,22 +116,28 @@ func _enter_tree() -> void:
 	if _owns_architecture:
 		_is_context_installing = true
 		var context_architecture: GFArchitecture = _architecture
+		var install_scope: GFAsyncScope = _begin_context_install_scope()
 		var parent_ready: bool = await _wait_for_parent_architecture_ready(context_architecture)
 		if not parent_ready:
+			_cancel_context_install_scope_if_current(install_scope, "父级架构未就绪。")
 			_is_context_installing = false
 			return
 		if not _is_owned_architecture_current(context_architecture):
+			_cancel_context_install_scope_if_current(install_scope, "上下文已退出树。")
 			_is_context_installing = false
 			return
-		await call(&"install", context_architecture)
+		await call(&"install", context_architecture, install_scope)
 		if not _is_owned_architecture_current(context_architecture):
+			_cancel_context_install_scope_if_current(install_scope, "上下文已退出树。")
 			_is_context_installing = false
 			return
-		await call(&"install_bindings", context_architecture.create_binder())
+		await call(&"install_bindings", context_architecture.create_binder(), install_scope)
 		if not _is_owned_architecture_current(context_architecture):
+			_cancel_context_install_scope_if_current(install_scope, "上下文已退出树。")
 			_is_context_installing = false
 			return
 		_is_context_installing = false
+		_complete_context_install_scope_if_current(install_scope)
 		if auto_init:
 			await _initialize_owned_architecture(context_architecture)
 	elif _architecture == null:
@@ -154,6 +161,7 @@ func _physics_process(delta: float) -> void:
 
 func _exit_tree() -> void:
 	_context_lifecycle_serial += 1
+	_cancel_context_install_scope("上下文已退出树。")
 	if _owns_architecture and _architecture != null:
 		_architecture.dispose()
 	_architecture = null
@@ -163,6 +171,7 @@ func _exit_tree() -> void:
 	_context_ready_emitted = false
 	_context_failed_emitted = false
 	_context_failure_reason = ""
+	_context_install_scope = null
 
 
 # --- 公共方法 ---
@@ -171,8 +180,12 @@ func _exit_tree() -> void:
 ## [br]
 ## @api public
 ## [br]
+## @since 8.0.0
+## [br]
 ## @param _architecture_instance: 当前上下文创建的局部架构。
-func install(_architecture_instance: GFArchitecture) -> void:
+## [br]
+## @param _scope: 当前安装流程的可取消异步作用域。
+func install(_architecture_instance: GFArchitecture, _scope: GFAsyncScope) -> void:
 	pass
 
 
@@ -183,7 +196,11 @@ func install(_architecture_instance: GFArchitecture) -> void:
 ## @param _binder: 当前上下文创建的局部架构装配器。
 ## [br]
 ## @schema _binder: GFBindBuilder-compatible binder produced by GFArchitecture.create_binder().
-func install_bindings(_binder: Variant) -> void:
+## [br]
+## @since 8.0.0
+## [br]
+## @param _scope: 当前安装流程的可取消异步作用域。
+func install_bindings(_binder: Variant, _scope: GFAsyncScope) -> void:
 	pass
 
 
@@ -436,8 +453,8 @@ func _initialize_owned_architecture(architecture_instance: GFArchitecture = null
 	if initializing_architecture == null:
 		return
 
-	await initializing_architecture.init()
-	if _is_owned_architecture_current(initializing_architecture) and initializing_architecture.is_inited():
+	var initialized: bool = await initializing_architecture.init()
+	if _is_owned_architecture_current(initializing_architecture) and initialized:
 		_mark_context_ready(initializing_architecture)
 	elif _is_owned_architecture_current(initializing_architecture) and initializing_architecture.has_initialization_failed():
 		_fail_context(_get_architecture_failure_reason(initializing_architecture, "上下文架构初始化失败。"))
@@ -527,6 +544,7 @@ func _get_wait_timeout_reason(start_msec: int, reason: String) -> String:
 func _fail_context(reason: String) -> void:
 	if reason.is_empty():
 		return
+	_cancel_context_install_scope(reason)
 	_is_context_ready = false
 	_context_failure_reason = reason
 	if _context_failed_emitted:
@@ -569,3 +587,35 @@ func _mark_context_ready(architecture_instance: GFArchitecture) -> void:
 		return
 	_context_ready_emitted = true
 	context_ready.emit(architecture_instance)
+
+
+func _begin_context_install_scope() -> GFAsyncScope:
+	_cancel_context_install_scope("新的上下文安装流程已开始。")
+	var install_scope: GFAsyncScope = GFAsyncScope.new()
+	_context_install_scope = install_scope
+	return install_scope
+
+
+func _complete_context_install_scope_if_current(install_scope: GFAsyncScope) -> void:
+	if install_scope == null:
+		return
+	if _context_install_scope != install_scope:
+		return
+	_context_install_scope = null
+	install_scope.complete()
+
+
+func _cancel_context_install_scope(reason: String) -> void:
+	if _context_install_scope == null:
+		return
+	var install_scope: GFAsyncScope = _context_install_scope
+	_context_install_scope = null
+	var _cancelled: bool = install_scope.cancel(reason)
+
+
+func _cancel_context_install_scope_if_current(install_scope: GFAsyncScope, reason: String) -> void:
+	if install_scope == null:
+		return
+	if _context_install_scope != install_scope:
+		return
+	_cancel_context_install_scope(reason)

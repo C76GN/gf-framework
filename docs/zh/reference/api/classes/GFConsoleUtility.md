@@ -31,13 +31,13 @@
 | 方法 | [`init`](#member-gfconsoleutility-methods-init) | `func init() -> void:` |
 | 方法 | [`ready`](#member-gfconsoleutility-methods-ready) | `func ready() -> void:` |
 | 方法 | [`dispose`](#member-gfconsoleutility-methods-dispose) | `func dispose() -> void:` |
-| 方法 | [`register_command`](#member-gfconsoleutility-methods-register_command) | `func register_command(cmd_name: String, callback: Callable, description: String, metadata: Dictionary = {}) -> void:` |
-| 方法 | [`register_command_definition`](#member-gfconsoleutility-methods-register_command_definition) | `func register_command_definition(definition: GFConsoleCommandDefinition, callback: Callable) -> void:` |
-| 方法 | [`unregister_command`](#member-gfconsoleutility-methods-unregister_command) | `func unregister_command(cmd_name: String) -> void:` |
+| 方法 | [`register_command`](#member-gfconsoleutility-methods-register_command) | `func register_command( owner: Object, cmd_name: String, callback: Callable, description: String, metadata: Dictionary = {} ) -> GFLifetimeSubscription:` |
+| 方法 | [`register_command_definition`](#member-gfconsoleutility-methods-register_command_definition) | `func register_command_definition( owner: Object, definition: GFConsoleCommandDefinition, callback: Callable ) -> GFLifetimeSubscription:` |
 | 方法 | [`has_command`](#member-gfconsoleutility-methods-has_command) | `func has_command(cmd_name: String) -> bool:` |
 | 方法 | [`get_command_names`](#member-gfconsoleutility-methods-get_command_names) | `func get_command_names() -> PackedStringArray:` |
 | 方法 | [`get_command_catalog`](#member-gfconsoleutility-methods-get_command_catalog) | `func get_command_catalog() -> Dictionary:` |
 | 方法 | [`suggest_commands`](#member-gfconsoleutility-methods-suggest_commands) | `func suggest_commands(prefix: String) -> PackedStringArray:` |
+| 方法 | [`suggest_command_arguments`](#member-gfconsoleutility-methods-suggest_command_arguments) | `func suggest_command_arguments(raw_input: String) -> PackedStringArray:` |
 | 方法 | [`suggest_similar_commands`](#member-gfconsoleutility-methods-suggest_similar_commands) | `func suggest_similar_commands(cmd_name: String, limit: int = 3, threshold: float = 0.5) -> PackedStringArray:` |
 | 方法 | [`execute_command`](#member-gfconsoleutility-methods-execute_command) | `func execute_command(raw_input: String) -> bool:` |
 | 方法 | [`append_output_line`](#member-gfconsoleutility-methods-append_output_line) | `func append_output_line(bbcode_line: String) -> void:` |
@@ -58,6 +58,8 @@
 enum CommandTier {
 	## 只读观察类命令。
 	OBSERVE,
+	## 修改调试输入、过滤器或临时可视化状态的命令。
+	INPUT,
 	## 会改变运行时状态的控制类命令。
 	CONTROL,
 	## 删档、跳关、重连等高风险命令。
@@ -258,9 +260,10 @@ func dispose() -> void:
 ### `register_command`
 
 - API：`public`
+- 首次版本：`3.0.0`
 
 ```gdscript
-func register_command(cmd_name: String, callback: Callable, description: String, metadata: Dictionary = {}) -> void:
+func register_command( owner: Object, cmd_name: String, callback: Callable, description: String, metadata: Dictionary = {} ) -> GFLifetimeSubscription:
 ```
 
 注册控制台命令。
@@ -269,10 +272,13 @@ func register_command(cmd_name: String, callback: Callable, description: String,
 
 | 名称 | 说明 |
 |---|---|
+| `owner` | 命令生命周期 owner。 |
 | `cmd_name` | 指令名称。 |
 | `callback` | 指令回调，签名为 `func(args: PackedStringArray) -> void`。 |
 | `description` | 指令说明文本。 |
 | `metadata` | 项目自定义元数据。 |
+
+返回：owner-bound 注册句柄；注册失败时返回 inactive token。
 
 结构：
 
@@ -283,9 +289,10 @@ func register_command(cmd_name: String, callback: Callable, description: String,
 ### `register_command_definition`
 
 - API：`public`
+- 首次版本：`3.0.0`
 
 ```gdscript
-func register_command_definition(definition: GFConsoleCommandDefinition, callback: Callable) -> void:
+func register_command_definition( owner: Object, definition: GFConsoleCommandDefinition, callback: Callable ) -> GFLifetimeSubscription:
 ```
 
 注册资源化控制台命令。
@@ -294,26 +301,11 @@ func register_command_definition(definition: GFConsoleCommandDefinition, callbac
 
 | 名称 | 说明 |
 |---|---|
+| `owner` | 命令生命周期 owner。 |
 | `definition` | 命令资源定义。 |
 | `callback` | 指令回调，签名为 `func(args: PackedStringArray) -> void`。 |
 
-<a id="member-gfconsoleutility-methods-unregister_command"></a>
-
-### `unregister_command`
-
-- API：`public`
-
-```gdscript
-func unregister_command(cmd_name: String) -> void:
-```
-
-注销控制台命令。
-
-参数：
-
-| 名称 | 说明 |
-|---|---|
-| `cmd_name` | 指令名称。 |
+返回：owner-bound 注册句柄；注册失败时返回 inactive token。
 
 <a id="member-gfconsoleutility-methods-has_command"></a>
 
@@ -386,6 +378,27 @@ func suggest_commands(prefix: String) -> PackedStringArray:
 | `prefix` | 命令名前缀。 |
 
 返回：排序后的候选命令名数组。
+
+<a id="member-gfconsoleutility-methods-suggest_command_arguments"></a>
+
+### `suggest_command_arguments`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func suggest_command_arguments(raw_input: String) -> PackedStringArray:
+```
+
+根据当前输入获取命令参数补全候选。 命令通过 metadata.argument_suggester 或 GFConsoleCommandDefinition.argument_suggester 提供候选。回调接收的上下文字典包含 command_name、args、argument_index、 prefix 和 raw_input。GF 会按当前参数前缀做一次稳定过滤。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `raw_input` | 控制台当前输入。 |
+
+返回：排序后的参数候选。
 
 <a id="member-gfconsoleutility-methods-suggest_similar_commands"></a>
 

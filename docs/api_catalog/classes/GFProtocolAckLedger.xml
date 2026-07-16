@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFProtocolAckLedger" path="addons/gf/standard/utilities/io/gf_protocol_ack_ledger.gd" module="standard" extends="RefCounted" classDigest="1c1edc9318609153638505ceddc05535c631e57c44f7ea4f4f6a504eb47d04f5">
+<class name="GFProtocolAckLedger" path="addons/gf/standard/utilities/io/gf_protocol_ack_ledger.gd" module="standard" extends="RefCounted" classDigest="a75f20d4ca88d7d93bc0423258cb158ecd0e0c834cf7df23e5b61d1d6d09cc4d">
 	<description>GFProtocolAckLedger: 通用协议确认账本。
 记录任意协议的待确认 packet/request ID、确认结果、失败和过期状态。
 它不实现具体网络协议，也不规定 ID 生成、重传策略或连接生命周期。</description>
@@ -61,6 +61,30 @@
 				<tag name="since">7.0.0</tag>
 			</tags>
 		</member>
+		<member kind="property" name="max_attempts">
+			<signature>var max_attempts: int = 0:</signature>
+			<description>最大发送尝试次数；小于等于 0 时不限制。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="retry_interval_msec">
+			<signature>var retry_interval_msec: int = 0:</signature>
+			<description>默认重试间隔；小于等于 0 时不自动进入 retry-ready。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="incoming_window_size">
+			<signature>var incoming_window_size: int = 256:</signature>
+			<description>入站去重窗口大小；小于等于 0 时不记录入站包 ID。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
 		<member kind="property" name="metadata">
 			<signature>var metadata: Dictionary = {}</signature>
 			<description>调用方自定义元数据。</description>
@@ -89,7 +113,7 @@
 				<tag name="param">entry_metadata: 条目元数据。</tag>
 				<tag name="param">now_msec: 当前时间；小于 0 时使用 Time.get_ticks_msec()。</tag>
 				<tag name="return">注册成功返回 true。</tag>
-				<tag name="schema">packet_id: Variant used as dictionary key; null and empty text keys are rejected.</tag>
+				<tag name="schema">packet_id: Non-empty String/StringName or int stable protocol packet id.</tag>
 				<tag name="schema">entry_metadata: Dictionary copied into the ledger entry.</tag>
 				<tag name="since">7.0.0</tag>
 			</tags>
@@ -103,7 +127,7 @@
 				<tag name="param">result: 确认结果。</tag>
 				<tag name="param">now_msec: 当前时间；小于 0 时使用 Time.get_ticks_msec()。</tag>
 				<tag name="return">状态成功变更时返回 true。</tag>
-				<tag name="schema">packet_id: Variant stable protocol packet id.</tag>
+				<tag name="schema">packet_id: Non-empty String/StringName or int stable protocol packet id.</tag>
 				<tag name="schema">result: Variant copied into the ledger entry.</tag>
 				<tag name="since">7.0.0</tag>
 			</tags>
@@ -118,7 +142,7 @@
 				<tag name="param">result: 失败结果。</tag>
 				<tag name="param">now_msec: 当前时间；小于 0 时使用 Time.get_ticks_msec()。</tag>
 				<tag name="return">状态成功变更时返回 true。</tag>
-				<tag name="schema">packet_id: Variant stable protocol packet id.</tag>
+				<tag name="schema">packet_id: Non-empty String/StringName or int stable protocol packet id.</tag>
 				<tag name="schema">result: Variant copied into the ledger entry.</tag>
 				<tag name="since">7.0.0</tag>
 			</tags>
@@ -134,6 +158,68 @@
 				<tag name="since">7.0.0</tag>
 			</tags>
 		</member>
+		<member kind="method" name="record_packet_attempt">
+			<signature>func record_packet_attempt( packet_id: Variant, now_msec: int = -1, retry_delay_msec: int = -1 ) -&gt; bool:</signature>
+			<description>记录一次发送尝试，并根据 retry interval 计算下次重试时间。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">packet_id: 协议层稳定 ID。</tag>
+				<tag name="param">now_msec: 当前时间；小于 0 时使用 Time.get_ticks_msec()。</tag>
+				<tag name="param">retry_delay_msec: 本次尝试后的重试延迟；小于 0 时使用 retry_interval_msec。</tag>
+				<tag name="return">发送尝试被记录时返回 true；超过 max_attempts 时条目进入 failed。</tag>
+				<tag name="schema">packet_id: Non-empty String/StringName or int stable protocol packet id.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_retry_ready_ids">
+			<signature>func get_retry_ready_ids(now_msec: int = -1, limit: int = 0) -&gt; Array:</signature>
+			<description>获取已经到达重试时间的待确认 ID。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">now_msec: 当前时间；小于 0 时使用 Time.get_ticks_msec()。</tag>
+				<tag name="param">limit: 最大返回数量；小于等于 0 表示不限制。</tag>
+				<tag name="return">待重试 ID 数组。</tag>
+				<tag name="schema">return: Array[Variant] copied from pending ledger entries whose next_retry_msec is due.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_attempt_count">
+			<signature>func get_attempt_count(packet_id: Variant) -&gt; int:</signature>
+			<description>获取条目的发送尝试次数。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">packet_id: 协议层稳定 ID。</tag>
+				<tag name="return">条目不存在时返回 0。</tag>
+				<tag name="schema">packet_id: Non-empty String/StringName or int stable protocol packet id.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="accept_incoming_packet">
+			<signature>func accept_incoming_packet( packet_id: Variant, sequence: int = -1, channel: StringName = &amp;"default", now_msec: int = -1 ) -&gt; Dictionary:</signature>
+			<description>接收入站包并执行去重与可选顺序检查。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">packet_id: 协议层稳定 ID。</tag>
+				<tag name="param">sequence: 可选严格递增序号；小于 0 时不执行顺序检查。</tag>
+				<tag name="param">channel: 顺序检查通道。</tag>
+				<tag name="param">now_msec: 当前时间；小于 0 时使用 Time.get_ticks_msec()。</tag>
+				<tag name="return">入站接收报告。</tag>
+				<tag name="schema">packet_id: Non-empty String/StringName or int stable protocol packet id.</tag>
+				<tag name="schema">return: Dictionary with ok, accepted, duplicate, out_of_order, reason, id, sequence, channel, and last_sequence.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="has_incoming_packet">
+			<signature>func has_incoming_packet(packet_id: Variant) -&gt; bool:</signature>
+			<description>判断入站包 ID 是否已经在去重窗口中出现。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">packet_id: 协议层稳定 ID。</tag>
+				<tag name="return">已出现时返回 true。</tag>
+				<tag name="schema">packet_id: Non-empty String/StringName or int stable protocol packet id.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
 		<member kind="method" name="remove_packet">
 			<signature>func remove_packet(packet_id: Variant) -&gt; bool:</signature>
 			<description>移除指定条目。</description>
@@ -141,7 +227,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">packet_id: 协议层稳定 ID。</tag>
 				<tag name="return">移除成功返回 true。</tag>
-				<tag name="schema">packet_id: Variant stable protocol packet id.</tag>
+				<tag name="schema">packet_id: Non-empty String/StringName or int stable protocol packet id.</tag>
 				<tag name="since">7.0.0</tag>
 			</tags>
 		</member>
@@ -152,7 +238,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">packet_id: 协议层稳定 ID。</tag>
 				<tag name="return">存在返回 true。</tag>
-				<tag name="schema">packet_id: Variant stable protocol packet id.</tag>
+				<tag name="schema">packet_id: Non-empty String/StringName or int stable protocol packet id.</tag>
 				<tag name="since">7.0.0</tag>
 			</tags>
 		</member>
@@ -163,7 +249,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">packet_id: 协议层稳定 ID。</tag>
 				<tag name="return">待确认返回 true。</tag>
-				<tag name="schema">packet_id: Variant stable protocol packet id.</tag>
+				<tag name="schema">packet_id: Non-empty String/StringName or int stable protocol packet id.</tag>
 				<tag name="since">7.0.0</tag>
 			</tags>
 		</member>
@@ -174,7 +260,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">packet_id: 协议层稳定 ID。</tag>
 				<tag name="return">条目副本；不存在时返回空字典。</tag>
-				<tag name="schema">packet_id: Variant stable protocol packet id.</tag>
+				<tag name="schema">packet_id: Non-empty String/StringName or int stable protocol packet id.</tag>
 				<tag name="schema">return: Dictionary with id, state, timestamps, deadline_msec, result, error, and metadata.</tag>
 				<tag name="since">7.0.0</tag>
 			</tags>

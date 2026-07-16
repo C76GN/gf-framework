@@ -3,6 +3,7 @@
 ## GFEditorTypeIndex: 编辑器侧 GF 类型查询工具。
 ##
 ## 集中扫描 class_name 脚本与能力场景，供代码生成器和 Inspector 工具复用。
+## 默认实例只使用短生命周期缓存；需要监听 EditorFileSystem 变更时必须显式绑定 owner 启用 live 失效。
 ## [br]
 ## @api public
 ## [br]
@@ -34,7 +35,8 @@ const _GF_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_varian
 
 var _script_cache: Dictionary = {}
 var _scene_root_script_cache: Dictionary = {}
-var _connected_editor_filesystem_id: int = 0
+var _live_invalidation_tokens: Array[GFLifetimeSubscription] = []
+var _live_invalidation_owner_ref: WeakRef = null
 
 
 # --- 公共方法 ---
@@ -55,7 +57,6 @@ func collect_scripts_extending(base_script: Script, excluded_scripts: Array[Scri
 	if base_script == null:
 		return records
 
-	_ensure_cache_invalidation_signals()
 	var used_paths: Dictionary = {}
 	for global_class: Dictionary in ProjectSettings.get_global_class_list():
 		var class_name_value: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(global_class, "class")
@@ -114,7 +115,6 @@ func collect_scene_roots_extending(
 	if base_script == null or not Engine.is_editor_hint():
 		return records
 
-	_ensure_cache_invalidation_signals()
 	var filesystem: EditorFileSystem = EditorInterface.get_resource_filesystem()
 	if filesystem == null:
 		return records
@@ -186,7 +186,6 @@ func collect_scene_roots_extending(
 ## [br]
 ## @return 根节点脚本；无法解析时返回 null。
 func get_scene_root_script(path: String) -> Script:
-	_ensure_cache_invalidation_signals()
 	var cached_script: Script = _get_cached_script(path, _scene_root_script_cache)
 	if cached_script != null or _cache_has_current_null(path, _scene_root_script_cache):
 		return cached_script
@@ -223,10 +222,82 @@ func clear_cache() -> void:
 	_scene_root_script_cache.clear()
 
 
+## 启用 EditorFileSystem 变更驱动的 live 缓存失效。
+##
+## 短生命周期扫描不需要调用该方法；长期持有的编辑器工具应传入自己的生命周期 owner。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+## [br]
+## @param owner: live 订阅生命周期 owner。
+## [br]
+## @return 成功进入 live 缓存失效模式时返回 true。
+func enable_live_invalidation(owner: Object) -> bool:
+	if owner == null or not is_instance_valid(owner):
+		return false
+	_prune_inactive_live_invalidation_tokens()
+	if _get_live_invalidation_owner() == owner and not _live_invalidation_tokens.is_empty():
+		return true
+	if not Engine.is_editor_hint():
+		return false
+
+	var filesystem: EditorFileSystem = EditorInterface.get_resource_filesystem()
+	if filesystem == null:
+		return false
+
+	disable_live_invalidation()
+	_live_invalidation_owner_ref = weakref(owner)
+	_connect_editor_filesystem_signal(filesystem, owner, &"filesystem_changed", Callable(self, "_on_editor_filesystem_changed"))
+	_connect_editor_filesystem_signal(filesystem, owner, &"resources_reimported", Callable(self, "_on_editor_filesystem_resources_changed"))
+	_connect_editor_filesystem_signal(filesystem, owner, &"resources_reload", Callable(self, "_on_editor_filesystem_resources_changed"))
+	_connect_editor_filesystem_signal(filesystem, owner, &"script_classes_updated", Callable(self, "_on_editor_filesystem_changed"))
+	if _live_invalidation_tokens.is_empty():
+		_live_invalidation_owner_ref = null
+		return false
+
+	clear_cache()
+	return true
+
+
+## 停止 EditorFileSystem 变更驱动的 live 缓存失效。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+func disable_live_invalidation() -> void:
+	for subscription_token: GFLifetimeSubscription in _live_invalidation_tokens:
+		if subscription_token != null:
+			var _cancelled: bool = subscription_token.cancel()
+	_live_invalidation_tokens.clear()
+	_live_invalidation_owner_ref = null
+
+
+## 返回当前是否处于 live 缓存失效模式。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+## [br]
+## @return 至少存在一个活动 live 订阅时返回 true。
+func is_live_invalidation_enabled() -> bool:
+	_prune_inactive_live_invalidation_tokens()
+	return not _live_invalidation_tokens.is_empty()
+
+
+## 释放类型索引持有的编辑器信号订阅和缓存。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+func dispose() -> void:
+	disable_live_invalidation()
+	clear_cache()
+
+
 # --- 私有/辅助方法 ---
 
 func _load_script(path: String) -> Script:
-	_ensure_cache_invalidation_signals()
 	var cached_script: Script = _get_cached_script(path, _script_cache)
 	if cached_script != null or _cache_has_current_null(path, _script_cache):
 		return cached_script
@@ -285,32 +356,47 @@ func _join_resource_path(dir_path: String, file_name: String) -> String:
 	return "%s/%s" % [dir_path, file_name]
 
 
-func _ensure_cache_invalidation_signals() -> void:
-	if not Engine.is_editor_hint():
-		return
-
-	var filesystem: EditorFileSystem = EditorInterface.get_resource_filesystem()
-	if filesystem == null:
-		return
-
-	var filesystem_id: int = filesystem.get_instance_id()
-	if _connected_editor_filesystem_id == filesystem_id:
-		return
-
-	_connected_editor_filesystem_id = filesystem_id
-	_connect_editor_filesystem_signal(filesystem, &"filesystem_changed", Callable(self, "_on_editor_filesystem_changed"))
-	_connect_editor_filesystem_signal(filesystem, &"resources_reimported", Callable(self, "_on_editor_filesystem_resources_changed"))
-	_connect_editor_filesystem_signal(filesystem, &"resources_reload", Callable(self, "_on_editor_filesystem_resources_changed"))
-	_connect_editor_filesystem_signal(filesystem, &"script_classes_updated", Callable(self, "_on_editor_filesystem_changed"))
-
-
-func _connect_editor_filesystem_signal(filesystem: EditorFileSystem, signal_name: StringName, callback: Callable) -> void:
+func _connect_editor_filesystem_signal(
+	filesystem: EditorFileSystem,
+	owner: Object,
+	signal_name: StringName,
+	callback: Callable
+) -> void:
 	if not filesystem.has_signal(signal_name):
 		return
-	if filesystem.is_connected(signal_name, callback):
-		return
 
-	var _connect_result: Error = filesystem.connect(signal_name, callback) as Error
+	var subscription_token: GFLifetimeSubscription = GFSignalSubscriptionToken.connect_owned(
+		Signal(filesystem, signal_name),
+		owner,
+		callback,
+		0,
+		"GFEditorTypeIndex.%s" % String(signal_name)
+	)
+	if subscription_token.is_active():
+		_live_invalidation_tokens.append(subscription_token)
+
+
+func _prune_inactive_live_invalidation_tokens() -> void:
+	for i: int in range(_live_invalidation_tokens.size() - 1, -1, -1):
+		var subscription_token: GFLifetimeSubscription = _live_invalidation_tokens[i]
+		if subscription_token != null and subscription_token.is_active():
+			continue
+		if subscription_token != null:
+			var _cancelled: bool = subscription_token.cancel()
+		_live_invalidation_tokens.remove_at(i)
+	if _live_invalidation_tokens.is_empty():
+		_live_invalidation_owner_ref = null
+
+
+func _get_live_invalidation_owner() -> Object:
+	if _live_invalidation_owner_ref == null:
+		return null
+	var raw_owner: Variant = _live_invalidation_owner_ref.get_ref()
+	if raw_owner is Object:
+		var owner: Object = raw_owner
+		if is_instance_valid(owner):
+			return owner
+	return null
 
 
 func _path_matches_roots(path: String, root_paths: PackedStringArray) -> bool:

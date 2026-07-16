@@ -15,14 +15,6 @@ class_name GFThumbnailRenderer
 extends Node
 
 
-# --- 公共变量 ---
-
-## 请求取消正在进行的 MeshLibrary 批量预览生成。
-## [br]
-## @api public
-var cancel_preview_generation: bool = false
-
-
 # --- 私有变量 ---
 
 var _viewport: SubViewport
@@ -30,6 +22,10 @@ var _world_root: Node3D
 var _camera: Camera3D
 var _key_light: DirectionalLight3D
 var _fill_light: DirectionalLight3D
+var _pending_tasks: Array[GFThumbnailRenderTask] = []
+var _active_task: GFThumbnailRenderTask = null
+var _processing_task_queue: bool = false
+var _next_task_id: int = 1
 
 
 # --- Godot 生命周期方法 ---
@@ -39,6 +35,7 @@ func _enter_tree() -> void:
 
 
 func _exit_tree() -> void:
+	_cancel_all_tasks(&"renderer_exited")
 	if is_instance_valid(_viewport):
 		_viewport.queue_free()
 	_viewport = null
@@ -62,28 +59,11 @@ func _exit_tree() -> void:
 ## [br]
 ## @return 渲染出的 Image；失败时返回 null。
 func render_node3d(source: Node3D, size: Vector2i = Vector2i(256, 256), transparent: bool = true) -> Image:
-	if source == null:
-		return null
-
-	_ensure_viewport()
-	_clear_world_root()
-
-	var duplicated: Node = source.duplicate()
-	if not (duplicated is Node3D):
-		duplicated.free()
-		return null
-	var instance: Node3D = duplicated
-
-	_world_root.add_child(instance)
-	_prepare_instance(instance)
-	_render_prepare(_normalize_render_size(size), transparent, _get_combined_aabb(instance))
-
-	await RenderingServer.frame_post_draw
-	var image: Image = null
-	if is_instance_valid(_viewport) and _viewport.get_texture() != null:
-		image = _viewport.get_texture().get_image()
-	_free_render_instance(instance)
-	return image
+	var task: GFThumbnailRenderTask = submit_render_request(
+		GFThumbnailRenderRequest.for_node3d_image(source, size, transparent)
+	)
+	var result: Variant = await task.wait_completed()
+	return _variant_to_image(result)
 
 
 ## 渲染一个 3D 节点缩略图纹理。
@@ -102,10 +82,11 @@ func render_node3d_texture(
 	size: Vector2i = Vector2i(256, 256),
 	transparent: bool = true
 ) -> ImageTexture:
-	var image: Image = await render_node3d(source, size, transparent)
-	if image == null:
-		return null
-	return ImageTexture.create_from_image(image)
+	var task: GFThumbnailRenderTask = submit_render_request(
+		GFThumbnailRenderRequest.for_node3d_texture(source, size, transparent)
+	)
+	var result: Variant = await task.wait_completed()
+	return _variant_to_image_texture(result)
 
 
 ## 渲染一个 Mesh 缩略图。
@@ -120,14 +101,11 @@ func render_node3d_texture(
 ## [br]
 ## @return 渲染出的 Image；失败时返回 null。
 func render_mesh(mesh: Mesh, size: Vector2i = Vector2i(256, 256), transparent: bool = true) -> Image:
-	if mesh == null:
-		return null
-
-	var instance: MeshInstance3D = MeshInstance3D.new()
-	instance.mesh = mesh
-	var image: Image = await render_node3d(instance, size, transparent)
-	instance.free()
-	return image
+	var task: GFThumbnailRenderTask = submit_render_request(
+		GFThumbnailRenderRequest.for_mesh_image(mesh, size, transparent)
+	)
+	var result: Variant = await task.wait_completed()
+	return _variant_to_image(result)
 
 
 ## 渲染一个 Mesh 缩略图纹理。
@@ -146,10 +124,44 @@ func render_mesh_texture(
 	size: Vector2i = Vector2i(256, 256),
 	transparent: bool = true
 ) -> ImageTexture:
-	var image: Image = await render_mesh(mesh, size, transparent)
-	if image == null:
-		return null
-	return ImageTexture.create_from_image(image)
+	var task: GFThumbnailRenderTask = submit_render_request(
+		GFThumbnailRenderRequest.for_mesh_texture(mesh, size, transparent)
+	)
+	var result: Variant = await task.wait_completed()
+	return _variant_to_image_texture(result)
+
+
+## 提交一个缩略图渲染请求。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+## [br]
+## @param request: 缩略图渲染请求。
+## [br]
+## @return 可取消、可等待的渲染任务。
+func submit_render_request(request: GFThumbnailRenderRequest) -> GFThumbnailRenderTask:
+	var task: GFThumbnailRenderTask = GFThumbnailRenderTask.new(request, _take_task_id())
+	_pending_tasks.append(task)
+	_schedule_task_queue()
+	return task
+
+
+## 取消一个渲染任务。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+## [br]
+## @param task: 要取消的任务。
+## [br]
+## @param reason: 取消原因。
+## [br]
+## @return 本次调用是否发出新的取消请求。
+func cancel_render_task(task: GFThumbnailRenderTask, reason: StringName = &"cancelled") -> bool:
+	if task == null:
+		return false
+	return task.cancel(reason)
 
 
 ## 为 MeshLibrary 批量生成条目预览。
@@ -192,43 +204,18 @@ func build_mesh_library_preview_plan(
 	size: Vector2i = Vector2i(128, 128),
 	overwrite_existing: bool = true
 ) -> Dictionary:
-	if mesh_library == null:
-		return {
-			"ok": false,
-			"generated_count": 0,
-			"cancelled": false,
-			"changes": [],
-		}
-
-	cancel_preview_generation = false
-	var safe_size: Vector2i = _normalize_render_size(size)
-	var changes: Array[Dictionary] = []
-	var cancelled: bool = false
-	for item_id: int in mesh_library.get_item_list():
-		if cancel_preview_generation:
-			cancelled = true
-			break
-		if not overwrite_existing and mesh_library.get_item_preview(item_id) != null:
-			continue
-
-		var mesh: Mesh = mesh_library.get_item_mesh(item_id)
-		if mesh == null:
-			continue
-
-		var texture: ImageTexture = await render_mesh_texture(mesh, safe_size, true)
-		if texture != null:
-			changes.append({
-				"item_id": item_id,
-				"old_preview": mesh_library.get_item_preview(item_id),
-				"new_preview": texture,
-			})
-
-	cancel_preview_generation = false
+	var task: GFThumbnailRenderTask = submit_render_request(
+		GFThumbnailRenderRequest.for_mesh_library_preview_plan(mesh_library, size, overwrite_existing)
+	)
+	var result: Variant = await task.wait_completed()
+	if result is Dictionary:
+		var plan: Dictionary = result
+		return plan
 	return {
-		"ok": true,
-		"generated_count": changes.size(),
-		"cancelled": cancelled,
-		"changes": changes,
+		"ok": false,
+		"generated_count": 0,
+		"cancelled": task.is_cancelled(),
+		"changes": [],
 	}
 
 
@@ -367,6 +354,222 @@ func add_mesh_library_preview_plan_to_undo_manager(
 
 # --- 私有/辅助方法 ---
 
+func _schedule_task_queue() -> void:
+	if _processing_task_queue:
+		return
+	_processing_task_queue = true
+	var _deferred_call_result: Variant = call_deferred("_process_task_queue_async")
+
+
+func _process_task_queue_async() -> void:
+	while not _pending_tasks.is_empty():
+		var task: GFThumbnailRenderTask = _pending_tasks.pop_front()
+		if task == null or task.is_finished():
+			continue
+		_active_task = task
+		if task.mark_running():
+			await _execute_render_task_async(task)
+		_active_task = null
+	_processing_task_queue = false
+	if not _pending_tasks.is_empty():
+		_schedule_task_queue()
+
+
+func _execute_render_task_async(task: GFThumbnailRenderTask) -> void:
+	var request: GFThumbnailRenderRequest = task.get_request()
+	if request == null or not request.is_valid():
+		var _failed_invalid: bool = task.fail("Invalid thumbnail render request.")
+		return
+
+	match request.get_kind():
+		GFThumbnailRenderRequest.Kind.NODE3D_IMAGE:
+			var node_image: Image = await _render_node3d_direct(
+				request.get_source_node3d(),
+				request.get_size(),
+				request.is_transparent()
+			)
+			_finish_render_task_with_result(task, node_image)
+		GFThumbnailRenderRequest.Kind.NODE3D_TEXTURE:
+			var node_texture: ImageTexture = await _render_node3d_texture_direct(
+				request.get_source_node3d(),
+				request.get_size(),
+				request.is_transparent()
+			)
+			_finish_render_task_with_result(task, node_texture)
+		GFThumbnailRenderRequest.Kind.MESH_IMAGE:
+			var mesh_image: Image = await _render_mesh_direct(
+				request.get_mesh(),
+				request.get_size(),
+				request.is_transparent()
+			)
+			_finish_render_task_with_result(task, mesh_image)
+		GFThumbnailRenderRequest.Kind.MESH_TEXTURE:
+			var mesh_texture: ImageTexture = await _render_mesh_texture_direct(
+				request.get_mesh(),
+				request.get_size(),
+				request.is_transparent()
+			)
+			_finish_render_task_with_result(task, mesh_texture)
+		GFThumbnailRenderRequest.Kind.MESH_LIBRARY_PREVIEW_PLAN:
+			var plan: Dictionary = await _build_mesh_library_preview_plan_direct(
+				request.get_mesh_library(),
+				request.get_size(),
+				request.should_overwrite_existing(),
+				task.get_cancel_token()
+			)
+			if task.is_cancel_requested() or _read_bool(plan, "cancelled", false):
+				var _cancelled_plan: bool = task.finish_cancelled(task.get_cancel_reason(), plan)
+			elif not _read_bool(plan, "ok", false):
+				var _failed_plan: bool = task.fail("Invalid MeshLibrary preview request.")
+			else:
+				var _succeeded_plan: bool = task.succeed(plan)
+		_:
+			var _failed_kind: bool = task.fail("Unsupported thumbnail render request.")
+
+
+func _finish_render_task_with_result(task: GFThumbnailRenderTask, result: Variant) -> void:
+	if task.is_cancel_requested():
+		var _cancelled_result: bool = task.finish_cancelled(task.get_cancel_reason(), result)
+		return
+	if result == null:
+		var _failed_result: bool = task.fail("Thumbnail render returned no result.")
+		return
+	var _succeeded_result: bool = task.succeed(result)
+
+
+func _render_node3d_direct(source: Node3D, size: Vector2i, transparent: bool) -> Image:
+	if source == null:
+		return null
+
+	_ensure_viewport()
+	_clear_world_root()
+
+	var duplicated: Node = source.duplicate()
+	if not (duplicated is Node3D):
+		duplicated.free()
+		return null
+	var instance: Node3D = duplicated
+
+	_world_root.add_child(instance)
+	_prepare_instance(instance)
+	_render_prepare(_normalize_render_size(size), transparent, _get_combined_aabb(instance))
+
+	await RenderingServer.frame_post_draw
+	var image: Image = null
+	if is_instance_valid(_viewport) and _viewport.get_texture() != null:
+		image = _viewport.get_texture().get_image()
+	_free_render_instance(instance)
+	return image
+
+
+func _render_node3d_texture_direct(source: Node3D, size: Vector2i, transparent: bool) -> ImageTexture:
+	var image: Image = await _render_node3d_direct(source, size, transparent)
+	if image == null:
+		return null
+	return ImageTexture.create_from_image(image)
+
+
+func _render_mesh_direct(mesh: Mesh, size: Vector2i, transparent: bool) -> Image:
+	if mesh == null:
+		return null
+
+	var instance: MeshInstance3D = MeshInstance3D.new()
+	instance.mesh = mesh
+	var image: Image = await _render_node3d_direct(instance, size, transparent)
+	instance.free()
+	return image
+
+
+func _render_mesh_texture_direct(mesh: Mesh, size: Vector2i, transparent: bool) -> ImageTexture:
+	var image: Image = await _render_mesh_direct(mesh, size, transparent)
+	if image == null:
+		return null
+	return ImageTexture.create_from_image(image)
+
+
+func _build_mesh_library_preview_plan_direct(
+	mesh_library: MeshLibrary,
+	size: Vector2i,
+	overwrite_existing: bool,
+	cancel_token: GFCancellationToken
+) -> Dictionary:
+	if mesh_library == null:
+		return {
+			"ok": false,
+			"generated_count": 0,
+			"cancelled": false,
+			"changes": [],
+		}
+
+	var safe_size: Vector2i = _normalize_render_size(size)
+	var changes: Array[Dictionary] = []
+	var cancelled: bool = false
+	for item_id: int in mesh_library.get_item_list():
+		if cancel_token != null and cancel_token.is_cancel_requested():
+			cancelled = true
+			break
+		if not overwrite_existing and mesh_library.get_item_preview(item_id) != null:
+			continue
+
+		var mesh: Mesh = mesh_library.get_item_mesh(item_id)
+		if mesh == null:
+			continue
+
+		var texture: ImageTexture = await _render_mesh_texture_direct(mesh, safe_size, true)
+		if cancel_token != null and cancel_token.is_cancel_requested():
+			cancelled = true
+			break
+		if texture != null:
+			changes.append({
+				"item_id": item_id,
+				"old_preview": mesh_library.get_item_preview(item_id),
+				"new_preview": texture,
+			})
+
+	return {
+		"ok": true,
+		"generated_count": changes.size(),
+		"cancelled": cancelled,
+		"changes": changes,
+	}
+
+
+func _cancel_all_tasks(reason: StringName) -> void:
+	for task: GFThumbnailRenderTask in _pending_tasks:
+		var _cancelled_pending: bool = task.cancel(reason)
+	_pending_tasks.clear()
+	if _active_task != null:
+		var _cancelled_active: bool = _active_task.cancel(reason)
+
+
+func _take_task_id() -> int:
+	var task_id: int = _next_task_id
+	_next_task_id += 1
+	return task_id
+
+
+func _variant_to_image(value: Variant) -> Image:
+	if value is Image:
+		var image: Image = value
+		return image
+	return null
+
+
+func _variant_to_image_texture(value: Variant) -> ImageTexture:
+	if value is ImageTexture:
+		var texture: ImageTexture = value
+		return texture
+	return null
+
+
+func _read_bool(data: Dictionary, key: String, fallback: bool = false) -> bool:
+	var value: Variant = _read_value(data, key, fallback)
+	if value is bool:
+		var bool_value: bool = value
+		return bool_value
+	return fallback
+
+
 func _read_plan_changes(plan: Dictionary) -> Array:
 	var changes_value: Variant = plan.get("changes", [])
 	if changes_value is Array:
@@ -499,7 +702,7 @@ func _get_combined_aabb(root: Node) -> AABB:
 	var stack: Array[Node] = [root]
 	while not stack.is_empty():
 		var current_variant: Variant = stack.pop_back()
-		if not current_variant is Node:
+		if not (current_variant is Node):
 			continue
 		var current: Node = current_variant
 		if current is MeshInstance3D:

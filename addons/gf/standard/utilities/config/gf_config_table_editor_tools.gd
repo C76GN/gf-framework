@@ -6,7 +6,7 @@
 ## [br]
 ## @api public
 ## [br]
-## @category runtime_service
+## @category editor_api
 ## [br]
 ## @since 6.0.0
 class_name GFConfigTableEditorTools

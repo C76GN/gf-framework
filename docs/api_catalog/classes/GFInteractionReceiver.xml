@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFInteractionReceiver" path="addons/gf/extensions/interaction/nodes/gf_interaction_receiver.gd" module="extensions/interaction" extends="Node" classDigest="52e54e95db7dc960e82559146ec2abb30186b52b519ead80d0ffe72c8ae866ec">
+<class name="GFInteractionReceiver" path="addons/gf/extensions/interaction/nodes/gf_interaction_receiver.gd" module="extensions/interaction" extends="Node" classDigest="88af135358674da28d04edb93c124b1b0a9b740fe07407334540c8590c28d5f3">
 	<description>GFInteractionReceiver: 通用交互接收节点。
 用 GFInteractionContext 接收任意交互请求，并提供启用状态、交互 ID 过滤、
 自定义校验回调和统一结果报告。节点不解释任何业务语义。</description>
@@ -16,7 +16,8 @@
 				<tag name="api">public</tag>
 				<tag name="param">context: 交互上下文。</tag>
 				<tag name="param">report: 当前结果报告副本。</tag>
-				<tag name="schema">report: 交互结果报告 Dictionary，包含 ok、interaction_id、receiver、reason、message 和 metadata 等字段。</tag>
+				<tag name="schema">report: 交互结果报告 Dictionary，包含 ok、interaction_id、receiver(JSON-safe 摘要)、reason、message 和 metadata 等字段。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="signal" name="interaction_received">
@@ -26,7 +27,8 @@
 				<tag name="api">public</tag>
 				<tag name="param">context: 交互上下文。</tag>
 				<tag name="param">report: 结果报告。</tag>
-				<tag name="schema">report: 交互结果报告 Dictionary，包含 ok、interaction_id、receiver、reason、message 和 metadata 等字段。</tag>
+				<tag name="schema">report: 交互结果报告 Dictionary，包含 ok、interaction_id、receiver(JSON-safe 摘要)、reason、message 和 metadata 等字段。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="signal" name="interaction_rejected">
@@ -36,7 +38,8 @@
 				<tag name="api">public</tag>
 				<tag name="param">context: 交互上下文。</tag>
 				<tag name="param">report: 结果报告。</tag>
-				<tag name="schema">report: 交互结果报告 Dictionary，包含 ok、interaction_id、receiver、reason、message 和 metadata 等字段。</tag>
+				<tag name="schema">report: 交互结果报告 Dictionary，包含 ok、interaction_id、receiver(JSON-safe 摘要)、reason、message 和 metadata 等字段。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</signals>
@@ -48,6 +51,7 @@
 			<description>是否允许接收交互。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="accepted_interaction_ids" decorators="@export">
@@ -55,6 +59,7 @@
 			<description>非空时，只接受这些交互 ID。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="rejected_interaction_ids" decorators="@export">
@@ -62,6 +67,7 @@
 			<description>始终拒绝的交互 ID。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="metadata" decorators="@export">
@@ -70,6 +76,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="schema">metadata: 接收器自定义元数据 Dictionary；框架会复制到结果报告，但不解释其中键值。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="receiver_path" decorators="@export_node_path(&quot;Node&quot;)">
@@ -77,6 +84,7 @@
 			<description>可选业务接收节点路径；为空时由当前节点直接接收。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="validation_callback">
@@ -85,6 +93,7 @@
 返回 bool 可直接决定是否接受；返回 Dictionary 可覆盖 ok、reason、metadata 等报告字段。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</properties>
@@ -96,6 +105,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">interaction_id: 交互 ID。</tag>
 				<tag name="return">可接受时返回 true。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="receive_interaction">
@@ -106,7 +116,8 @@
 				<tag name="param">context: 交互上下文。</tag>
 				<tag name="param">interaction_id: 交互 ID。</tag>
 				<tag name="return">统一结果报告。</tag>
-				<tag name="schema">return: 交互结果报告 Dictionary，包含 ok、interaction_id、receiver、reason、message 和 metadata 等字段。</tag>
+				<tag name="schema">return: 交互结果报告 Dictionary，包含 ok、interaction_id、receiver(JSON-safe 摘要)、reason、message 和 metadata 等字段。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</methods>

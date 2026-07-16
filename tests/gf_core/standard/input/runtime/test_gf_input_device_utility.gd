@@ -37,6 +37,20 @@ func test_set_assignment_replaces_same_player() -> void:
 	assert_eq(assignments[1].device_id, 3, "替换后的设备 ID 应生效。")
 
 
+func test_replacing_active_assignment_emits_active_device_change() -> void:
+	var utility: GFInputDeviceUtility = GFInputDeviceUtility.new()
+	utility.include_keyboard_mouse = false
+	utility.include_touch = false
+	utility.set_assignment(utility.create_assignment(0, GFInputDeviceAssignment.DeviceType.CUSTOM, 9))
+	watch_signals(utility)
+
+	utility.set_assignment(utility.create_assignment(0, GFInputDeviceAssignment.DeviceType.JOYPAD, 3))
+
+	assert_eq(utility.active_player_index, 0, "替换活跃设备不应改变玩家索引。")
+	assert_signal_not_emitted(utility, "active_player_changed", "同一玩家替换设备不应伪造玩家切换。")
+	assert_signal_emitted(utility, "active_device_changed", "同一玩家的活跃设备被替换时必须发出设备变化。")
+
+
 ## 验证手动映射受玩家上限约束，并保持同一设备只归属一个玩家。
 func test_set_assignment_rejects_out_of_range_and_keeps_device_unique() -> void:
 	var utility: GFInputDeviceUtility = GFInputDeviceUtility.new()
@@ -74,7 +88,7 @@ func test_assignment_report_records_reasons_previous_assignment_and_input_event(
 
 	var report: Dictionary = utility.get_assignment_report()
 	var events: Array = GFVariantData.get_option_array(report, "recent_events")
-	var latest: Dictionary = GFVariantData.as_dictionary(events[events.size() - 1])
+	var latest: Dictionary = _find_latest_assignment_event(events, &"assignment_set")
 	var previous_assignment: Dictionary = GFVariantData.get_option_dictionary(latest, "previous_assignment")
 	var input_event: Dictionary = GFVariantData.get_option_dictionary(latest, "input_event")
 	var metadata: Dictionary = GFVariantData.get_option_dictionary(latest, "metadata")
@@ -85,6 +99,62 @@ func test_assignment_report_records_reasons_previous_assignment_and_input_event(
 	assert_eq(GFVariantData.get_option_string(input_event, "class"), "InputEventJoypadButton", "事件应记录触发输入类型。")
 	assert_eq(GFVariantData.get_option_int(input_event, "device"), 3, "事件应记录触发输入设备 ID。")
 	assert_eq(GFVariantData.get_option_string(metadata, "slot"), "primary", "事件应保留调用方元数据。")
+
+
+func test_assignment_report_can_encode_metadata_as_json_compatible_values() -> void:
+	var utility: GFInputDeviceUtility = GFInputDeviceUtility.new()
+	utility.max_assignment_events = 4
+	utility.include_keyboard_mouse = false
+	utility.include_touch = false
+	var assignment: GFInputDeviceAssignment = utility.create_assignment(
+		0,
+		GFInputDeviceAssignment.DeviceType.CUSTOM,
+		9
+	)
+	assignment.metadata = {
+		"cursor": Vector2(1.0, 2.0),
+	}
+
+	utility.set_assignment(
+		assignment,
+		&"initial",
+		{ "tags": PackedStringArray(["primary"]) }
+	)
+
+	var report: Dictionary = utility.get_assignment_report(10, true)
+	var events: Array = GFVariantData.get_option_array(report, "recent_events")
+	var latest: Dictionary = _find_latest_assignment_event(events, &"assignment_set")
+	var latest_metadata: Dictionary = GFVariantData.get_option_dictionary(latest, "metadata")
+	var assignments: Array = GFVariantData.get_option_array(report, "assignments")
+	var assignment_record: Dictionary = GFVariantData.as_dictionary(assignments[0])
+	var assignment_metadata: Dictionary = GFVariantData.get_option_dictionary(assignment_record, "metadata")
+
+	assert_eq(typeof(GFVariantData.get_option_value(latest_metadata, "tags")), TYPE_DICTIONARY, "事件 metadata 应转为 typed marker。")
+	assert_eq(typeof(GFVariantData.get_option_value(assignment_metadata, "cursor")), TYPE_DICTIONARY, "映射 metadata 应转为 typed marker。")
+	assert_false(JSON.stringify(report).is_empty(), "JSON-compatible 报告应可直接序列化。")
+
+
+func test_assignment_report_encodes_nonfinite_input_event_fields() -> void:
+	var utility: GFInputDeviceUtility = GFInputDeviceUtility.new()
+	utility.include_keyboard_mouse = false
+	utility.include_touch = false
+	utility.set_assignment(
+		utility.create_assignment(0, GFInputDeviceAssignment.DeviceType.JOYPAD, 3),
+		&"axis_input",
+		{},
+		_make_joy_motion_event(3, JOY_AXIS_LEFT_X, NAN)
+	)
+
+	var report: Dictionary = utility.get_assignment_report(10, true)
+	var recent_events: Array = GFVariantData.get_option_array(report, "recent_events")
+	var latest: Dictionary = GFVariantData.as_dictionary(recent_events[recent_events.size() - 1])
+	var input_event: Dictionary = GFVariantData.get_option_dictionary(latest, "input_event")
+	var axis_value: Variant = GFVariantData.get_option_value(input_event, "axis_value")
+	var json_text: String = JSON.stringify(report)
+
+	assert_true(axis_value is Dictionary, "非有限轴值应编码为 typed marker。")
+	assert_true(json_text.contains("\"NaN\""), "报告应保留可诊断的 NaN 标记。")
+	assert_false(json_text.contains(":null"), "报告不应依赖 JSON.stringify 把非有限数降级为 null。")
 
 
 ## 验证返回的映射是拷贝，避免外部直接污染内部表。
@@ -255,6 +325,14 @@ func test_remove_active_assignment_repairs_active_player() -> void:
 
 
 # --- 私有/辅助方法 ---
+
+func _find_latest_assignment_event(events: Array, event_type: StringName) -> Dictionary:
+	for index: int in range(events.size() - 1, -1, -1):
+		var event: Dictionary = GFVariantData.as_dictionary(events[index])
+		if GFVariantData.get_option_string_name(event, "event_type") == event_type:
+			return event
+	return {}
+
 
 func _make_joy_button_event(device: int, button: JoyButton, pressed: bool) -> InputEventJoypadButton:
 	var event: InputEventJoypadButton = InputEventJoypadButton.new()

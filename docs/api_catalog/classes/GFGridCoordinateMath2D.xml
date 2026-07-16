@@ -1,0 +1,212 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFGridCoordinateMath2D" path="addons/gf/standard/foundation/math/gf_grid_coordinate_math_2d.gd" module="standard" extends="RefCounted" classDigest="6f01c7af00d462c182672dff83aa3d2c1932adc3f939f79fbdda3a490fb3c853">
+	<description>GFGridCoordinateMath2D: 2D 网格坐标、区域和直线查询工具。
+只处理网格坐标转换、边界、邻居、区域、chunk 窗口、集合差分、
+直线、视线和泛洪查询，不包含路径搜索、地图生成或玩法连接规则。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_service</tag>
+		<tag name="since">8.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties />
+	<methods>
+		<member kind="method" name="to_json_compatible_report">
+			<signature>static func to_json_compatible_report(report: Dictionary, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>将 2D 网格报告转换为 JSON.stringify() 安全的结构。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">report: 2D 网格工具返回的报告或快照字典。</tag>
+				<tag name="param">options: 报告编码选项，透传给 GFReportValueCodec。</tag>
+				<tag name="return">JSON 兼容报告。</tag>
+				<tag name="schema">report: 2D 网格工具返回的报告或快照字典。</tag>
+				<tag name="schema">options: GFReportValueCodec 编码选项字典。</tag>
+				<tag name="schema">return: 可安全交给 JSON.stringify() 的 Dictionary。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="cell_to_index">
+			<signature>static func cell_to_index(cell: Vector2i, width: int) -&gt; int:</signature>
+			<description>将二维格坐标转换为一维索引。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">cell: 二维格坐标。</tag>
+				<tag name="param">width: 网格宽度。</tag>
+				<tag name="return">成功时返回一维索引；宽度无效时返回 -1。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="index_to_cell">
+			<signature>static func index_to_cell(index: int, width: int) -&gt; Vector2i:</signature>
+			<description>将一维索引转换为二维格坐标。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">index: 一维索引。</tag>
+				<tag name="param">width: 网格宽度。</tag>
+				<tag name="return">成功时返回二维格坐标；参数无效时返回 Vector2i(-1, -1)。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="world_to_chunk_cell">
+			<signature>static func world_to_chunk_cell(world_position: Vector2, chunk_size: Vector2i) -&gt; Vector2i:</signature>
+			<description>将世界坐标转换为二维 chunk 坐标。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">world_position: 世界坐标。</tag>
+				<tag name="param">chunk_size: 单个 chunk 的世界尺寸；任一轴小于等于 0 时返回 Vector2i.ZERO。</tag>
+				<tag name="return">chunk 坐标。负世界坐标使用 floor 语义，因此 -0.1 会落入 -1 号 chunk。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="chunk_cell_to_world_origin">
+			<signature>static func chunk_cell_to_world_origin(chunk_cell: Vector2i, chunk_size: Vector2i) -&gt; Vector2:</signature>
+			<description>将二维 chunk 坐标转换为世界原点坐标。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">chunk_cell: chunk 坐标。</tag>
+				<tag name="param">chunk_size: 单个 chunk 的世界尺寸；任一轴小于等于 0 时返回 Vector2.ZERO。</tag>
+				<tag name="return">chunk 左上/局部原点对应的世界坐标。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="chunk_cell_to_world_center">
+			<signature>static func chunk_cell_to_world_center(chunk_cell: Vector2i, chunk_size: Vector2i) -&gt; Vector2:</signature>
+			<description>将二维 chunk 坐标转换为世界中心坐标。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">chunk_cell: chunk 坐标。</tag>
+				<tag name="param">chunk_size: 单个 chunk 的世界尺寸；任一轴小于等于 0 时返回 Vector2.ZERO。</tag>
+				<tag name="return">chunk 中心对应的世界坐标。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_in_bounds">
+			<signature>static func is_in_bounds(cell: Vector2i, grid_size: Vector2i) -&gt; bool:</signature>
+			<description>判断格坐标是否位于网格范围内。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">cell: 二维格坐标。</tag>
+				<tag name="param">grid_size: 网格尺寸。</tag>
+				<tag name="return">在范围内返回 true。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_neighbors">
+			<signature>static func get_neighbors( cell: Vector2i, grid_size: Vector2i, include_diagonal: bool = false ) -&gt; Array[Vector2i]:</signature>
+			<description>获取指定格子的邻居。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">cell: 中心格子。</tag>
+				<tag name="param">grid_size: 网格尺寸。</tag>
+				<tag name="param">include_diagonal: 是否包含四个斜向邻居。</tag>
+				<tag name="return">位于网格范围内的邻居列表。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_rectangle_cells">
+			<signature>static func get_rectangle_cells( from_cell: Vector2i, to_cell: Vector2i, grid_size: Vector2i = Vector2i(-1, -1) ) -&gt; Array[Vector2i]:</signature>
+			<description>获取两个端点之间的矩形格子。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">from_cell: 第一个端点。</tag>
+				<tag name="param">to_cell: 第二个端点。</tag>
+				<tag name="param">grid_size: 可选网格尺寸；任一轴小于 0 时不按边界过滤。</tag>
+				<tag name="return">矩形内坐标列表，包含两个端点，按 y/x 稳定顺序返回。</tag>
+				<tag name="since">3.20.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_range">
+			<signature>static func get_range( center: Vector2i, radius: int, grid_size: Vector2i = Vector2i(-1, -1), include_diagonal: bool = false ) -&gt; Array[Vector2i]:</signature>
+			<description>获取指定半径内的所有格子。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">center: 中心格子。</tag>
+				<tag name="param">radius: 半径。</tag>
+				<tag name="param">grid_size: 可选网格尺寸；任一轴小于 0 时不按边界过滤。</tag>
+				<tag name="param">include_diagonal: 为 false 时使用曼哈顿范围；为 true 时使用切比雪夫范围。</tag>
+				<tag name="return">半径内坐标列表，包含中心，按 y/x 稳定顺序返回。</tag>
+				<tag name="since">3.20.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_ring">
+			<signature>static func get_ring( center: Vector2i, radius: int, grid_size: Vector2i = Vector2i(-1, -1), include_diagonal: bool = false ) -&gt; Array[Vector2i]:</signature>
+			<description>获取指定半径的外环格子。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">center: 中心格子。</tag>
+				<tag name="param">radius: 半径；0 时返回中心。</tag>
+				<tag name="param">grid_size: 可选网格尺寸；任一轴小于 0 时不按边界过滤。</tag>
+				<tag name="param">include_diagonal: 为 false 时使用曼哈顿外环；为 true 时使用切比雪夫外环。</tag>
+				<tag name="return">外环坐标列表，按 y/x 稳定顺序返回。</tag>
+				<tag name="since">3.20.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_chunk_window">
+			<signature>static func get_chunk_window( center_chunk: Vector2i, radius: int, shape: StringName = &amp;"circle" ) -&gt; Array[Vector2i]:</signature>
+			<description>获取中心 chunk 周围的候选窗口。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">center_chunk: 中心 chunk 坐标。</tag>
+				<tag name="param">radius: chunk 半径；小于 0 时返回空数组。</tag>
+				<tag name="param">shape: 窗口形状。支持 "circle"/"euclidean"、"square"/"chebyshev"、"diamond"/"manhattan"；未知值按 circle 处理。</tag>
+				<tag name="return">候选 chunk 坐标数组，按 y/x 稳定顺序返回。</tag>
+				<tag name="schema">return: Array[Vector2i]，中心 chunk 周围的候选 chunk 坐标。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="diff_cells">
+			<signature>static func diff_cells(previous_cells: Array[Vector2i], next_cells: Array[Vector2i]) -&gt; Dictionary:</signature>
+			<description>计算两个格子集合的稳定差分。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">previous_cells: 旧集合。重复项会被去重，removed 按首次出现顺序返回。</tag>
+				<tag name="param">next_cells: 新集合。重复项会被去重，added/kept 按首次出现顺序返回。</tag>
+				<tag name="return">差分报告。</tag>
+				<tag name="schema">previous_cells: Array[Vector2i]，旧格子集合。</tag>
+				<tag name="schema">next_cells: Array[Vector2i]，新格子集合。</tag>
+				<tag name="schema">return: Dictionary，包含 added: Array[Vector2i]、removed: Array[Vector2i]、kept: Array[Vector2i]、changed: bool、previous_count: int、next_count: int。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_line">
+			<signature>static func get_line(from_cell: Vector2i, to_cell: Vector2i) -&gt; Array[Vector2i]:</signature>
+			<description>获取连接两个格子的 Bresenham 直线。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">from_cell: 起点格子。</tag>
+				<tag name="param">to_cell: 终点格子。</tag>
+				<tag name="return">坐标列表，包含起点与终点。</tag>
+				<tag name="since">3.20.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="has_line_of_sight">
+			<signature>static func has_line_of_sight( from_cell: Vector2i, to_cell: Vector2i, is_blocking: Callable, include_endpoints: bool = false ) -&gt; bool:</signature>
+			<description>判断两格之间是否有视线。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">from_cell: 起点格子。</tag>
+				<tag name="param">to_cell: 终点格子。</tag>
+				<tag name="param">is_blocking: 阻挡回调，签名为 `func(cell: Vector2i) -&gt; bool`。</tag>
+				<tag name="param">include_endpoints: 是否检查起点与终点是否阻挡。</tag>
+				<tag name="return">没有阻挡时返回 true；阻挡回调无效时也返回 true。</tag>
+				<tag name="since">3.20.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="flood_fill">
+			<signature>static func flood_fill( grid_size: Vector2i, start: Vector2i, is_match: Callable, include_diagonal: bool = false ) -&gt; Array[Vector2i]:</signature>
+			<description>从起点执行泛洪搜索，返回所有满足匹配条件且连通的格子。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">grid_size: 网格尺寸。</tag>
+				<tag name="param">start: 起点格子。</tag>
+				<tag name="param">is_match: 匹配回调，签名为 `func(cell: Vector2i) -&gt; bool`。</tag>
+				<tag name="param">include_diagonal: 是否允许斜向连通。</tag>
+				<tag name="return">连通格子列表。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

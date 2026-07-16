@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFScenePreloadMap" path="addons/gf/standard/utilities/scene/gf_scene_preload_map.gd" module="standard" extends="Resource" classDigest="e36865dbe60ab3ea3838ca998b556fe59a8dde0b93bc6cbf0a9c917489023752">
+<class name="GFScenePreloadMap" path="addons/gf/standard/utilities/scene/gf_scene_preload_map.gd" module="standard" extends="Resource" classDigest="abe83ca8fdbdb72f98ade15556b5727dde20da82caf546f9614fcc645f2dc1eb">
 	<description>GFScenePreloadMap: 通用场景预加载关系图。
 用资源描述场景间的相邻关系，供 GFSceneUtility 或项目层根据当前场景计算预加载计划。
 图谱只关注资源路径和缓存策略，不绑定地图、关卡、菜单或具体业务流。</description>
@@ -76,6 +76,7 @@
 				<tag name="param">radius: 搜索半径；小于 0 时使用 default_radius。</tag>
 				<tag name="param">include_source: 是否包含 scene_path 自身。</tag>
 				<tag name="return">相邻场景路径列表。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_preload_plan">
@@ -87,7 +88,8 @@
 				<tag name="param">radius: 搜索半径；小于 0 时使用 default_radius。</tag>
 				<tag name="param">include_fixed: 是否包含固定预加载路径。</tag>
 				<tag name="return">预加载计划字典。</tag>
-				<tag name="schema">return: Dictionary，包含 source_path、radius、include_fixed、fixed_paths、temporary_paths、paths 和 metadata。</tag>
+				<tag name="schema">return: Dictionary，包含 source_path、source_cache_key、radius、include_fixed、fixed_paths、temporary_paths、paths、fixed_cache_keys、temporary_cache_keys、cache_keys、resource_identities 和 metadata。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="validate_map">

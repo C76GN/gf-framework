@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFDeterministicVariantSerializer" path="addons/gf/standard/foundation/deterministic/gf_deterministic_variant_serializer.gd" module="standard" extends="RefCounted" classDigest="79090fc6ef474abb53fc5965b3384f098f06cea5b6eed3e2a2a2dcd49c81d95b">
+<class name="GFDeterministicVariantSerializer" path="addons/gf/standard/foundation/deterministic/gf_deterministic_variant_serializer.gd" module="standard" extends="RefCounted" classDigest="ba778442dde54980dd9fbf88f910edc21d64b5486a467297cb16c51c28edf80f">
 	<description>GFDeterministicVariantSerializer: 纯 Variant 数据的确定性规范编码器。
 该类型为锁步、回放、黄金测试和内容 hash 提供稳定的 canonical value、JSON、
 UTF-8 bytes 与 SHA-256。强确定性输入应使用整数、字符串、布尔、整数向量、
@@ -22,10 +22,10 @@ PackedByteArray 或定点数编码；`allow_floats` 仅用于接受 Godot 浮点
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">value: 待编码的 Variant。应为纯数据结构；Object、Resource、Callable、RID 和循环引用会失败。</tag>
-				<tag name="param">options: 可选项。`allow_floats` 默认为 false；`max_depth` 默认为 256。启用 `allow_floats` 只表示接受并规范化浮点值，不表示浮点计算具备强确定性。</tag>
+				<tag name="param">options: 可选项。支持 allow_floats、max_depth、max_items、max_string_length 和 max_output_bytes。</tag>
 				<tag name="return">规范化后的 JSON 兼容 Variant；失败时返回 null 并输出错误。</tag>
 				<tag name="schema">value: Variant value made from nil, bool, int, String, StringName, NodePath, integer vectors, arrays, dictionaries and packed scalar arrays. Float-based values require `options.allow_floats = true`.</tag>
-				<tag name="schema">options: Dictionary with optional `allow_floats: bool` and `max_depth: int`.</tag>
+				<tag name="schema">options: Dictionary with optional allow_floats, max_depth, max_items, max_string_length, and max_output_bytes limits.</tag>
 				<tag name="schema">return: Typed marker Dictionary using `__gf_deterministic_variant__`, or null when unsupported input is detected.</tag>
 				<tag name="since">5.0.0</tag>
 			</tags>
@@ -39,7 +39,7 @@ PackedByteArray 或定点数编码；`allow_floats` 仅用于接受 Godot 浮点
 				<tag name="param">options: 可选项。</tag>
 				<tag name="return">规范 JSON 文本；失败时返回空字符串。</tag>
 				<tag name="schema">value: Variant value supported by `to_canonical_value()`.</tag>
-				<tag name="schema">options: Dictionary with optional `allow_floats: bool` and `max_depth: int`.</tag>
+				<tag name="schema">options: Dictionary with optional allow_floats, max_depth, max_items, max_string_length, and max_output_bytes limits.</tag>
 				<tag name="since">5.0.0</tag>
 			</tags>
 		</member>
@@ -52,7 +52,7 @@ PackedByteArray 或定点数编码；`allow_floats` 仅用于接受 Godot 浮点
 				<tag name="param">options: 可选项。</tag>
 				<tag name="return">规范 JSON 文本的 UTF-8 bytes；失败时返回空数组。</tag>
 				<tag name="schema">value: Variant value supported by `to_canonical_value()`.</tag>
-				<tag name="schema">options: Dictionary with optional `allow_floats: bool` and `max_depth: int`.</tag>
+				<tag name="schema">options: Dictionary with optional allow_floats, max_depth, max_items, max_string_length, and max_output_bytes limits.</tag>
 				<tag name="since">5.0.0</tag>
 			</tags>
 		</member>
@@ -65,7 +65,7 @@ PackedByteArray 或定点数编码；`allow_floats` 仅用于接受 Godot 浮点
 				<tag name="param">options: 可选项。</tag>
 				<tag name="return">SHA-256 hex 字符串；失败时返回空字符串。</tag>
 				<tag name="schema">value: Variant value supported by `to_canonical_value()`.</tag>
-				<tag name="schema">options: Dictionary with optional `allow_floats: bool` and `max_depth: int`.</tag>
+				<tag name="schema">options: Dictionary with optional allow_floats, max_depth, max_items, max_string_length, and max_output_bytes limits.</tag>
 				<tag name="since">5.0.0</tag>
 			</tags>
 		</member>

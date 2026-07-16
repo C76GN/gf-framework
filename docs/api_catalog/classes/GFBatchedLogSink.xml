@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFBatchedLogSink" path="addons/gf/standard/utilities/logging/gf_batched_log_sink.gd" module="standard" extends="GFLogSink" classDigest="6bcc67216a081187917b6a40afcc15ead61d19426b9100b732c7a8749f32852d">
+<class name="GFBatchedLogSink" path="addons/gf/standard/utilities/logging/gf_batched_log_sink.gd" module="standard" extends="GFLogSink" classDigest="273f6dfb21ef631acf86e699117d8ba0d997f0a664c0c9d2c24ac3c1328ee485">
 	<description>GFBatchedLogSink: 结构化日志批量转发 sink。
 该 sink 只负责清洗、缓冲和分批，把实际传输交给 sender_callback 或 batch_ready 信号。
 它不绑定任何远端服务、HTTP 协议或业务字段。</description>
@@ -60,13 +60,25 @@
 		</member>
 		<member kind="property" name="sender_callback">
 			<signature>var sender_callback: Callable = Callable()</signature>
-			<description>项目提供的发送回调，签名建议为 func(payload: Dictionary) -&gt; Dictionary。</description>
+			<description>项目提供的发送回调，签名为 func(payload: Dictionary) -&gt; Dictionary。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="schema">sender_callback: Callable 接收包含 logs、metadata 和 dropped_count 的 Dictionary，并返回包含必需 ok: bool、可选 accepted: int 与 error: String 的 Dictionary；缺失或类型错误时 fail-closed。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</properties>
 	<methods>
+		<member kind="method" name="get_report_redaction_profile">
+			<signature>func get_report_redaction_profile() -&gt; String:</signature>
+			<description>使用外发批量日志所需的 privacy 脱敏 profile。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">privacy profile 名称。</tag>
+				<tag name="schema">return: String naming GFReportValueCodec.REDACTION_PROFILE_PRIVACY.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
 		<member kind="method" name="init">
 			<signature>func init(_owner: Object) -&gt; void:</signature>
 			<description>初始化 sink。</description>
@@ -120,7 +132,8 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">sink 状态字典。</tag>
-				<tag name="schema">return: Dictionary with pending_count, dropped_count, batch_size, max_queue_size, flush_interval_msec, and has_sender_callback.</tag>
+				<tag name="schema">return: Dictionary with pending_count, dropped_count, failed_send_count, last_error, batch_size, max_queue_size, flush_interval_msec, and has_sender_callback.</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</methods>

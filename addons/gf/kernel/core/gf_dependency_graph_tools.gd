@@ -46,11 +46,10 @@ static func sort_dependency_first(node_ids: PackedStringArray, dependency_map: D
 		if not _has_node(dependency_map, node_id):
 			var _missing_root_appended: bool = missing_root_ids.append(node_id)
 			continue
-		_visit_node(
+		_visit_node_iterative(
 			node_id,
 			dependency_map,
 			states,
-			PackedStringArray(),
 			ordered_ids,
 			missing_dependencies,
 			dependency_cycles
@@ -71,44 +70,125 @@ static func sort_dependency_first(node_ids: PackedStringArray, dependency_map: D
 
 # --- 私有/辅助方法 ---
 
-static func _visit_node(
+static func _visit_node_iterative(
 	node_id: String,
 	dependency_map: Dictionary,
 	states: Dictionary,
-	stack: PackedStringArray,
 	ordered_ids: PackedStringArray,
 	missing_dependencies: Array[Dictionary],
 	dependency_cycles: Array[PackedStringArray]
 ) -> void:
-	var state: int = _get_state(states, node_id)
-	if state == _STATE_DONE:
-		return
-	if state == _STATE_VISITING:
-		_append_cycle(node_id, stack, dependency_cycles)
-		return
-
-	states[node_id] = _STATE_VISITING
-	var next_stack: PackedStringArray = stack.duplicate()
-	var _stack_appended: bool = next_stack.append(node_id)
-	for dependency_id: String in _get_dependencies(dependency_map, node_id):
-		if dependency_id.is_empty():
+	var frame_stack: Array[Dictionary] = [
+		_make_visit_frame(node_id),
+	]
+	var path_stack: PackedStringArray = PackedStringArray()
+	while not frame_stack.is_empty():
+		var frame_index: int = frame_stack.size() - 1
+		var frame: Dictionary = frame_stack[frame_index]
+		var current_id: String = _get_frame_node_id(frame)
+		if current_id.is_empty():
+			frame_stack.remove_at(frame_index)
 			continue
-		if not _has_node(dependency_map, dependency_id):
-			_append_missing_dependency(node_id, dependency_id, missing_dependencies)
-			continue
-		_visit_node(
-			dependency_id,
-			dependency_map,
-			states,
-			next_stack,
-			ordered_ids,
-			missing_dependencies,
-			dependency_cycles
-		)
 
-	states[node_id] = _STATE_DONE
-	if not ordered_ids.has(node_id):
-		var _ordered_appended: bool = ordered_ids.append(node_id)
+		if not _get_frame_entered(frame):
+			var current_state: int = _get_state(states, current_id)
+			if current_state == _STATE_DONE:
+				frame_stack.remove_at(frame_index)
+				continue
+			if current_state == _STATE_VISITING:
+				_append_cycle(current_id, path_stack, dependency_cycles)
+				frame_stack.remove_at(frame_index)
+				continue
+
+			states[current_id] = _STATE_VISITING
+			var _path_appended: bool = path_stack.append(current_id)
+			frame["entered"] = true
+			frame["dependencies"] = _get_dependencies(dependency_map, current_id)
+			frame["dependency_index"] = 0
+			frame_stack[frame_index] = frame
+
+		var dependencies: PackedStringArray = _get_frame_dependencies(frame)
+		var dependency_index: int = _get_frame_dependency_index(frame)
+		var descended: bool = false
+		while dependency_index < dependencies.size():
+			var dependency_id: String = dependencies[dependency_index]
+			dependency_index += 1
+			if dependency_id.is_empty():
+				continue
+			if not _has_node(dependency_map, dependency_id):
+				_append_missing_dependency(current_id, dependency_id, missing_dependencies)
+				continue
+
+			var dependency_state: int = _get_state(states, dependency_id)
+			if dependency_state == _STATE_DONE:
+				continue
+			if dependency_state == _STATE_VISITING:
+				_append_cycle(dependency_id, path_stack, dependency_cycles)
+				continue
+
+			frame["dependency_index"] = dependency_index
+			frame_stack[frame_index] = frame
+			frame_stack.append(_make_visit_frame(dependency_id))
+			descended = true
+			break
+
+		if descended:
+			continue
+
+		states[current_id] = _STATE_DONE
+		if not ordered_ids.has(current_id):
+			var _ordered_appended: bool = ordered_ids.append(current_id)
+		frame_stack.remove_at(frame_index)
+		_remove_last_path_id(path_stack, current_id)
+
+
+static func _make_visit_frame(node_id: String) -> Dictionary:
+	return {
+		"node_id": node_id,
+		"dependencies": PackedStringArray(),
+		"dependency_index": 0,
+		"entered": false,
+	}
+
+
+static func _get_frame_node_id(frame: Dictionary) -> String:
+	return _to_text(frame.get("node_id", ""))
+
+
+static func _get_frame_dependencies(frame: Dictionary) -> PackedStringArray:
+	var value: Variant = frame.get("dependencies", PackedStringArray())
+	if value is PackedStringArray:
+		var dependencies: PackedStringArray = value
+		return dependencies
+	return PackedStringArray()
+
+
+static func _get_frame_dependency_index(frame: Dictionary) -> int:
+	var value: Variant = frame.get("dependency_index", 0)
+	if value is int:
+		var index: int = value
+		return maxi(index, 0)
+	return 0
+
+
+static func _get_frame_entered(frame: Dictionary) -> bool:
+	var value: Variant = frame.get("entered", false)
+	if value is bool:
+		var entered: bool = value
+		return entered
+	return false
+
+
+static func _remove_last_path_id(path_stack: PackedStringArray, node_id: String) -> void:
+	if path_stack.is_empty():
+		return
+	if path_stack[path_stack.size() - 1] == node_id:
+		path_stack.remove_at(path_stack.size() - 1)
+		return
+	for index: int in range(path_stack.size() - 1, -1, -1):
+		if path_stack[index] == node_id:
+			path_stack.remove_at(index)
+			return
 
 
 static func _get_state(states: Dictionary, node_id: String) -> int:

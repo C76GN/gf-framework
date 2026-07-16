@@ -60,12 +60,15 @@ func _init() -> void:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param graph: 流程图资源。
 ## [br]
 ## @param path: 可选资源路径。
 func set_graph(graph: GFFlowGraph, path: String = "") -> void:
 	_graph = graph
-	_graph_path = path if not path.is_empty() else (graph.resource_path if graph != null else "")
+	var candidate_path: String = path if not path.is_empty() else (graph.resource_path if graph != null else "")
+	_graph_path = candidate_path if candidate_path.is_empty() or _is_project_resource_path(candidate_path) else ""
 	if _path_edit != null:
 		_path_edit.text = _graph_path
 	refresh()
@@ -75,9 +78,14 @@ func set_graph(graph: GFFlowGraph, path: String = "") -> void:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param path: `res://` 资源路径。
 func set_graph_path(path: String) -> void:
-	_graph_path = path.strip_edges()
+	var candidate_path: String = path.strip_edges()
+	_graph_path = candidate_path if _is_project_resource_path(candidate_path) else ""
+	if _graph_path.is_empty():
+		_graph = null
 	if _path_edit != null:
 		_path_edit.text = _graph_path
 	_load_graph_from_path()
@@ -87,6 +95,8 @@ func set_graph_path(path: String) -> void:
 ## 刷新当前 FlowGraph 视图。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 func refresh() -> void:
 	_build_ui()
 	if _graph == null and not _graph_path.is_empty():
@@ -98,7 +108,9 @@ func refresh() -> void:
 ## [br]
 ## @api public
 ## [br]
-## @return 视图模型字典副本。
+## @since 3.17.0
+## [br]
+## @return: 视图模型字典副本。
 ## [br]
 ## @schema return: Dictionary，由 GFFlowGraphEditorModel.build_view_model() 生成的视图模型副本。
 func get_last_view_model() -> Dictionary:
@@ -320,7 +332,13 @@ func _connect_graph_edit_signal(signal_name: StringName, handler: Callable) -> v
 
 
 func _load_graph_from_path() -> void:
-	if _graph_path.is_empty() or not ResourceLoader.exists(_graph_path):
+	if not _is_project_resource_path(_graph_path):
+		_graph_path = ""
+		if _path_edit != null:
+			_path_edit.text = ""
+		_graph = null
+		return
+	if not ResourceLoader.exists(_graph_path):
 		_graph = null
 		return
 
@@ -328,6 +346,11 @@ func _load_graph_from_path() -> void:
 	_graph = _get_flow_graph_value(resource)
 	if _graph != null and _graph.resource_path.is_empty():
 		_graph.resource_path = _graph_path
+
+
+func _is_project_resource_path(path: String) -> bool:
+	var normalized_path: String = path.strip_edges()
+	return normalized_path.begins_with("res://") and normalized_path.length() > "res://".length()
 
 
 func _render_graph() -> void:
@@ -609,7 +632,9 @@ func _show_details(value: Variant) -> void:
 
 
 func _safe_json(value: Variant) -> String:
-	return JSON.stringify(value, "\t")
+	return GFReportValueCodec.stringify_json_compatible(value, "\t", false, {
+		"path_redaction": "basename",
+	})
 
 
 # --- 信号处理函数 ---

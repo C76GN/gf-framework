@@ -52,13 +52,7 @@ func _setup_session(session_id: int) -> void:
 	tab.setup_session(session, session_id)
 	_tabs_by_session_id[session_id] = tab
 	session.add_session_tab(tab)
-	if not session.stopped.is_connected(_on_session_stopped.bind(session_id)):
-		var _stopped_connected: Error = session.stopped.connect(_on_session_stopped.bind(session_id)) as Error
-
-
-func _exit_tree() -> void:
-	for session_id: int in _tabs_by_session_id.keys():
-		_remove_session_tab(session_id)
+	# stopped 只表示远端进程断开；页签由 EditorDebuggerSession 持有并跨运行复用。
 
 
 # --- 公共方法 ---
@@ -107,16 +101,3 @@ func _data_string_name(data: Array, index: int) -> StringName:
 	if index < 0 or index >= data.size():
 		return &""
 	return GFVariantData.to_string_name(data[index])
-
-
-func _remove_session_tab(session_id: int) -> void:
-	var tab: GFRuntimeDebuggerTab = _get_tab(session_id)
-	var _erased: bool = _tabs_by_session_id.erase(session_id)
-	if tab != null and is_instance_valid(tab):
-		tab.queue_free()
-
-
-# --- 信号处理函数 ---
-
-func _on_session_stopped(session_id: int) -> void:
-	_remove_session_tab(session_id)

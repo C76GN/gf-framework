@@ -18,10 +18,22 @@ const _GF_CONTROL_CAPABILITY_SCRIPT_PATH: String = "res://addons/gf/extensions/c
 const _GF_CAPABILITY_RECIPE_SCRIPT_PATH: String = "res://addons/gf/extensions/capability/recipes/gf_capability_recipe.gd"
 const _DEFAULT_MAX_RECIPE_SCAN_DEPTH: int = 32
 const _DEFAULT_MAX_RECIPE_CANDIDATES: int = 10000
+const _DEFAULT_MAX_RECIPE_FILES_SCANNED: int = 10000
+const _MAX_EDITOR_NODE_TREE_NODES: int = 65536
 const _GF_EXTENSION_SETTINGS_SCRIPT: Script = preload("res://addons/gf/kernel/extension/gf_extension_settings.gd")
 const _GF_EDITOR_TYPE_INDEX_SCRIPT: Script = preload("res://addons/gf/kernel/editor/gf_editor_type_index.gd")
 const _GF_VALIDATION_REPORT_SCRIPT: Script = preload("res://addons/gf/standard/foundation/validation/gf_validation_report.gd")
 const _SCRIPT_TYPE_INSPECTOR: Script = preload("res://addons/gf/kernel/core/gf_script_type_inspector.gd")
+
+
+# --- 私有变量 ---
+
+var _editor_type_index: GFEditorTypeIndex = null
+var _discovery_subscriptions: Array[GFLifetimeSubscription] = []
+var _node_candidate_cache: Array[Dictionary] = []
+var _recipe_candidate_cache: Array[Dictionary] = []
+var _has_node_candidate_cache: bool = false
+var _has_recipe_candidate_cache: bool = false
 
 
 # --- Godot 回调方法 ---
@@ -227,6 +239,95 @@ static func _make_validation_report(subject: String) -> GFValidationReport:
 
 static func _make_editor_type_index() -> GFEditorTypeIndex:
 	return _get_editor_type_index_value(_GF_EDITOR_TYPE_INDEX_SCRIPT.call("new"))
+
+
+func _get_editor_type_index() -> GFEditorTypeIndex:
+	if _editor_type_index != null:
+		return _editor_type_index
+	_editor_type_index = _make_editor_type_index()
+	if _editor_type_index == null:
+		return null
+	var _live_invalidation_enabled: bool = _editor_type_index.enable_live_invalidation(self)
+	_ensure_discovery_invalidation_subscriptions()
+	return _editor_type_index
+
+
+func _ensure_discovery_invalidation_subscriptions() -> void:
+	if not _discovery_subscriptions.is_empty() or not Engine.is_editor_hint():
+		return
+	var filesystem: EditorFileSystem = EditorInterface.get_resource_filesystem()
+	if filesystem == null:
+		return
+	for signal_name: StringName in [
+		&"filesystem_changed",
+		&"resources_reimported",
+		&"resources_reload",
+		&"script_classes_updated",
+	]:
+		if not filesystem.has_signal(signal_name):
+			continue
+		var subscription: GFLifetimeSubscription = GFSignalSubscriptionToken.connect_owned(
+			Signal(filesystem, signal_name),
+			self,
+			Callable(self, "_on_discovery_sources_changed"),
+			0,
+			"GFCapabilityInspector.%s" % String(signal_name)
+		)
+		if subscription.is_active():
+			_discovery_subscriptions.append(subscription)
+
+
+func _on_discovery_sources_changed(
+	_resources: PackedStringArray = PackedStringArray()
+) -> void:
+	_node_candidate_cache.clear()
+	_recipe_candidate_cache.clear()
+	_has_node_candidate_cache = false
+	_has_recipe_candidate_cache = false
+
+
+static func _get_editor_directory_value(value: Variant) -> EditorFileSystemDirectory:
+	if value is EditorFileSystemDirectory:
+		var directory: EditorFileSystemDirectory = value
+		return directory
+	return null
+
+
+func _get_recipe_resource_type_names() -> Dictionary:
+	var accepted: Dictionary = {
+		"GFCapabilityRecipe": true,
+	}
+	var changed: bool = true
+	while changed:
+		changed = false
+		for global_class: Dictionary in ProjectSettings.get_global_class_list():
+			var class_name_value: String = GFVariantData.get_option_string(global_class, "class")
+			var base_name: String = GFVariantData.get_option_string(global_class, "base")
+			if (
+				class_name_value.is_empty()
+				or accepted.has(class_name_value)
+				or not accepted.has(base_name)
+			):
+				continue
+			accepted[class_name_value] = true
+			changed = true
+	return accepted
+
+
+func _editor_file_may_be_recipe(
+	directory: EditorFileSystemDirectory,
+	file_index: int,
+	accepted_types: Dictionary
+) -> bool:
+	var resource_type: String = directory.get_file_type(file_index)
+	if accepted_types.has(resource_type):
+		return true
+	if directory.has_method("get_file_script_class_name"):
+		var script_class_value: Variant = directory.call("get_file_script_class_name", file_index)
+		var script_class_name: String = GFVariantData.to_text(script_class_value)
+		if accepted_types.has(script_class_name):
+			return true
+	return false
 
 
 static func _connect_signal_checked(source_signal: Signal, callback: Callable, flags: int = 0) -> void:
@@ -510,9 +611,11 @@ func _collect_node_capability_candidates() -> Array[Dictionary]:
 	var candidates: Array[Dictionary] = []
 	if not _is_capability_extension_enabled():
 		return candidates
+	if _has_node_candidate_cache:
+		return _node_candidate_cache.duplicate(true)
 
 	var used_paths: Dictionary = {}
-	var type_index: GFEditorTypeIndex = _make_editor_type_index()
+	var type_index: GFEditorTypeIndex = _get_editor_type_index()
 	if type_index == null:
 		return candidates
 
@@ -547,13 +650,18 @@ func _collect_node_capability_candidates() -> Array[Dictionary]:
 	candidates.sort_custom(func(left: Dictionary, right: Dictionary) -> bool:
 		return GFVariantData.get_option_string(left, "label", "") < GFVariantData.get_option_string(right, "label", "")
 	)
-	return candidates
+	_node_candidate_cache = candidates.duplicate(true)
+	_has_node_candidate_cache = true
+	return candidates.duplicate(true)
 
 
 func _collect_recipe_candidates() -> Array[Dictionary]:
 	var candidates: Array[Dictionary] = []
 	if not Engine.is_editor_hint() or not _is_capability_extension_enabled():
 		return candidates
+	if _has_recipe_candidate_cache:
+		return _recipe_candidate_cache.duplicate(true)
+	_ensure_discovery_invalidation_subscriptions()
 
 	var filesystem: EditorFileSystem = EditorInterface.get_resource_filesystem()
 	if filesystem == null:
@@ -564,52 +672,71 @@ func _collect_recipe_candidates() -> Array[Dictionary]:
 		return candidates
 
 	var used_paths: Dictionary = {}
+	var accepted_types: Dictionary = _get_recipe_resource_type_names()
 	var scan_state: Dictionary = _make_recipe_scan_state()
-	_collect_recipe_candidates_recursive(root_dir, candidates, used_paths, 0, scan_state)
+	var directory_stack: Array[Dictionary] = [{
+		"directory": root_dir,
+		"depth": 0,
+	}]
+	while not directory_stack.is_empty():
+		var stack_entry: Dictionary = GFVariantData.as_dictionary(directory_stack.pop_back())
+		var directory: EditorFileSystemDirectory = _get_editor_directory_value(
+			GFVariantData.get_option_value(stack_entry, "directory")
+		)
+		var depth: int = GFVariantData.get_option_int(stack_entry, "depth", 0)
+		if directory == null:
+			continue
+
+		for subdir_index: int in range(directory.get_subdir_count()):
+			var subdir: EditorFileSystemDirectory = directory.get_subdir(subdir_index)
+			if _can_scan_recipe_deeper(subdir.get_path(), depth, scan_state):
+				directory_stack.append({
+					"directory": subdir,
+					"depth": depth + 1,
+				})
+
+		for file_index: int in range(directory.get_file_count()):
+			if not _can_scan_more_recipe_files(scan_state):
+				_warn_recipe_file_limit(scan_state)
+				directory_stack.clear()
+				break
+			var file_name: String = directory.get_file(file_index)
+			if not _is_recipe_resource_file(file_name):
+				continue
+			scan_state["scanned_file_count"] = GFVariantData.get_option_int(
+				scan_state,
+				"scanned_file_count",
+				0
+			) + 1
+			if not _editor_file_may_be_recipe(directory, file_index, accepted_types):
+				continue
+			if not _can_collect_more_recipe_candidates(candidates, scan_state):
+				_warn_recipe_candidate_limit(scan_state)
+				directory_stack.clear()
+				break
+
+			var path: String = _join_resource_path(directory.get_path(), file_name)
+			if used_paths.has(path):
+				continue
+			var recipe_base_script: Script = _get_capability_recipe_script()
+			if recipe_base_script == null:
+				directory_stack.clear()
+				break
+			var recipe: Resource = _get_resource_value(load(path))
+			if recipe == null or not _resource_extends_script(recipe, recipe_base_script):
+				continue
+			used_paths[path] = true
+			candidates.append({
+				"label": _get_recipe_display_label(recipe, path),
+				"path": path,
+				"recipe": recipe,
+			})
 	candidates.sort_custom(func(left: Dictionary, right: Dictionary) -> bool:
 		return GFVariantData.get_option_string(left, "label", "") < GFVariantData.get_option_string(right, "label", "")
 	)
-	return candidates
-
-
-func _collect_recipe_candidates_recursive(
-	directory: EditorFileSystemDirectory,
-	candidates: Array[Dictionary],
-	used_paths: Dictionary,
-	depth: int,
-	scan_state: Dictionary
-) -> void:
-	for i: int in range(directory.get_subdir_count()):
-		var subdir: EditorFileSystemDirectory = directory.get_subdir(i)
-		if _can_scan_recipe_deeper(subdir.get_path(), depth, scan_state):
-			_collect_recipe_candidates_recursive(subdir, candidates, used_paths, depth + 1, scan_state)
-
-	for i: int in range(directory.get_file_count()):
-		if not _can_collect_more_recipe_candidates(candidates, scan_state):
-			_warn_recipe_candidate_limit(scan_state)
-			break
-
-		var file_name: String = directory.get_file(i)
-		if not _is_recipe_resource_file(file_name):
-			continue
-
-		var path: String = _join_resource_path(directory.get_path(), file_name)
-		if used_paths.has(path):
-			continue
-		var recipe_base_script: Script = _get_capability_recipe_script()
-		if recipe_base_script == null:
-			return
-
-		var recipe: Resource = _get_resource_value(load(path))
-		if recipe == null or not _resource_extends_script(recipe, recipe_base_script):
-			continue
-
-		used_paths[path] = true
-		candidates.append({
-			"label": _get_recipe_display_label(recipe, path),
-			"path": path,
-			"recipe": recipe,
-		})
+	_recipe_candidate_cache = candidates.duplicate(true)
+	_has_recipe_candidate_cache = true
+	return candidates.duplicate(true)
 
 
 func _can_scan_recipe_deeper(path: String, current_depth: int, scan_state: Dictionary) -> bool:
@@ -633,7 +760,26 @@ func _make_recipe_scan_state() -> Dictionary:
 	return {
 		"count_warning_emitted": false,
 		"depth_warning_emitted": false,
+		"file_warning_emitted": false,
+		"scanned_file_count": 0,
 	}
+
+
+func _can_scan_more_recipe_files(scan_state: Dictionary) -> bool:
+	return (
+		GFVariantData.get_option_int(scan_state, "scanned_file_count", 0)
+		< _DEFAULT_MAX_RECIPE_FILES_SCANNED
+	)
+
+
+func _warn_recipe_file_limit(scan_state: Dictionary) -> void:
+	if GFVariantData.get_option_bool(scan_state, "file_warning_emitted", false):
+		return
+	scan_state["file_warning_emitted"] = true
+	push_warning(
+		"[GFCapabilityInspector] Recipe 扫描已达到最大资源文件数 %d，后续资源已跳过。"
+		% _DEFAULT_MAX_RECIPE_FILES_SCANNED
+	)
 
 
 func _warn_recipe_candidate_limit(scan_state: Dictionary) -> void:
@@ -1561,10 +1707,8 @@ func _select_and_inspect_node(node: Node) -> void:
 func _set_owner_recursive(node: Node, owner: Node) -> void:
 	if owner == null:
 		return
-
-	node.owner = owner
-	for child: Node in node.get_children(true):
-		_set_owner_recursive(child, owner)
+	for tree_node: Node in _collect_editor_node_tree(node, true, "set owner"):
+		tree_node.owner = owner
 
 
 func _add_child_at(parent: Node, child: Node, index: int, force_readable_name: bool = true) -> void:
@@ -1604,9 +1748,30 @@ func _set_editor_capability_active(capability: Node, active: bool) -> void:
 
 
 func _set_node_tree_active_state(node: Node, active: bool) -> void:
-	_set_node_active_state(node, active)
-	for child: Node in node.get_children():
-		_set_node_tree_active_state(child, active)
+	for tree_node: Node in _collect_editor_node_tree(node, false, "set active state"):
+		_set_node_active_state(tree_node, active)
+
+
+func _collect_editor_node_tree(
+	root: Node,
+	include_internal: bool,
+	operation: String
+) -> Array[Node]:
+	var nodes: Array[Node] = GFNodeTreeOps.collect_descendants(
+		root,
+		null,
+		true,
+		include_internal,
+		-1,
+		_MAX_EDITOR_NODE_TREE_NODES + 1
+	)
+	if nodes.size() <= _MAX_EDITOR_NODE_TREE_NODES:
+		return nodes
+	push_error(
+		"[GFCapabilityInspector] %s 失败：节点树超过最大节点数 %d。"
+		% [operation, _MAX_EDITOR_NODE_TREE_NODES]
+	)
+	return []
 
 
 func _set_node_active_state(node: Node, active: bool) -> void:

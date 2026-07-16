@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFExecutionBudget" path="addons/gf/standard/common/gf_execution_budget.gd" module="standard" extends="RefCounted" classDigest="02e8d70150f1e0197961ce0ae8b6a50cbf2410803abf4d824e2944679be13568">
+<class name="GFExecutionBudget" path="addons/gf/standard/common/gf_execution_budget.gd" module="standard" extends="RefCounted" classDigest="91172a72bbd8b8ee212387a63dba7201b3b4572e08f9723b6d37f291e8603968">
 	<description>GFExecutionBudget: 通用执行预算与取消检查器。
 用于给生成器、导入器、批处理或受控规则循环提供统一的步数、深度、
 输出长度、耗时和取消 token 检查。它不调度任务，也不执行调用方逻辑。</description>
@@ -45,7 +45,7 @@
 			</tags>
 		</member>
 		<member kind="property" name="cancel_token">
-			<signature>var cancel_token: GFCancelToken = null</signature>
+			<signature>var cancel_token: GFCancellationToken = null</signature>
 			<description>关联的取消 token；为空时不检查取消状态。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -93,7 +93,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="bind_cancel_token">
-			<signature>func bind_cancel_token(token: GFCancelToken) -&gt; GFExecutionBudget:</signature>
+			<signature>func bind_cancel_token(token: GFCancellationToken) -&gt; GFExecutionBudget:</signature>
 			<description>绑定取消 token。</description>
 			<tags>
 				<tag name="api">public</tag>

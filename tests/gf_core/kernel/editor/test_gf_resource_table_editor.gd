@@ -61,6 +61,24 @@ func test_commit_cell_value_updates_resource_and_emits_signal() -> void:
 	assert_signal_emitted(editor, "cell_value_committed", "提交后应发出变更信号。")
 
 
+func test_commit_cell_value_rejects_type_mismatch() -> void:
+	var resource: TableResource = TableResource.new()
+	resource.amount = 3
+	var editor: GFResourceTableEditor = GFResourceTableEditor.new()
+	add_child_autofree(editor)
+	watch_signals(editor)
+
+	editor.load_resources([resource], [{
+		"name": &"amount",
+		"type": TYPE_INT,
+	}])
+	var committed: bool = editor.commit_cell_value(0, &"amount", "bad")
+
+	assert_false(committed, "类型不匹配的单元格写入应失败。")
+	assert_eq(resource.amount, 3, "写入失败不应污染 Resource 属性。")
+	assert_signal_not_emitted(editor, "cell_value_committed", "写入失败不应发出提交信号。")
+
+
 func test_resource_table_search_filters_visible_rows_and_commits_visible_cell() -> void:
 	var first: TableResource = TableResource.new()
 	first.label = "Alpha"
@@ -212,6 +230,65 @@ func test_editor_value_field_rejects_json_with_wrong_container_type() -> void:
 	assert_signal_not_emitted(field, "value_changed", "JSON 容器类型不匹配不应提交新值。")
 
 
+func test_editor_value_field_supports_enum_values() -> void:
+	var field: GFEditorValueField = GFEditorValueField.new()
+	add_child_autofree(field)
+	watch_signals(field)
+	field.configure({
+		"name": &"mode",
+		"type": TYPE_INT,
+		"hint": PROPERTY_HINT_ENUM,
+		"hint_string": "Idle:1,Run:2",
+	}, 1)
+	var option_button: OptionButton = _as_option_button(field._editor)
+
+	option_button.select(1)
+	field._on_enum_item_selected(1)
+	var selected_mode: int = GF_VARIANT_ACCESS.to_int(field.get_value())
+
+	assert_eq(selected_mode, 2, "枚举字段应读取选中项 ID。")
+	assert_signal_emitted(field, "value_changed", "枚举变化应发出 value_changed。")
+
+
+func test_editor_value_field_supports_vector_values() -> void:
+	var field: GFEditorValueField = GFEditorValueField.new()
+	add_child_autofree(field)
+	field.configure({ "name": &"offset", "type": TYPE_VECTOR2 }, Vector2(1.0, 2.0))
+	var vector_editor: HBoxContainer = _as_hbox_container(field._editor)
+	var x_spin: SpinBox = _as_spin_box(vector_editor.get_child(0))
+	var y_spin: SpinBox = _as_spin_box(vector_editor.get_child(1))
+
+	x_spin.value = 3.5
+	y_spin.value = 4.5
+	field._on_vector_component_changed(4.5)
+	var offset_value: Vector2 = _variant_to_vector2(field.get_value())
+
+	assert_eq(offset_value, Vector2(3.5, 4.5), "Vector2 字段应从分量控件读取值。")
+
+
+func test_editor_value_field_custom_factory_and_debounce_signal() -> void:
+	var field: GFEditorValueField = GFEditorValueField.new()
+	add_child_autofree(field)
+	watch_signals(field)
+	field.debounce_seconds = 0.0
+	assert_true(field.register_editor_factory(TYPE_STRING, func(_property_info: Dictionary, value: Variant) -> Control:
+		var control: CustomValueControl = CustomValueControl.new()
+		control.set_value(value)
+		return control
+	), "有效工厂应注册成功。")
+
+	field.configure({ "name": &"custom", "type": TYPE_STRING }, "old")
+	var custom_control: CustomValueControl = _as_custom_value_control(field._editor)
+	custom_control.push_value("new")
+	field.set_editable(false)
+	var custom_value: String = GF_VARIANT_ACCESS.to_text(field.get_value())
+
+	assert_eq(custom_value, "new", "自定义控件应通过 get_value 参与读取。")
+	assert_false(custom_control.editable_state, "自定义控件应收到 set_editable。")
+	assert_signal_emitted(field, "value_changed", "自定义控件信号应转发 value_changed。")
+	assert_signal_emitted(field, "debounced_value_changed", "禁用等待时防抖信号应同步发出。")
+
+
 func test_resource_table_can_auto_save_committed_resource() -> void:
 	var resource: GFConfigTableColumn = GFConfigTableColumn.new()
 	resource.field_name = &"old"
@@ -261,6 +338,45 @@ func _as_line_edit(value: Variant) -> LineEdit:
 	return null
 
 
+func _as_option_button(value: Variant) -> OptionButton:
+	assert_true(value is OptionButton, "测试观察值应为 OptionButton。")
+	if value is OptionButton:
+		var option_button: OptionButton = value
+		return option_button
+	return null
+
+
+func _variant_to_vector2(value: Variant) -> Vector2:
+	if value is Vector2:
+		var vector_value: Vector2 = value
+		return vector_value
+	return Vector2.ZERO
+
+
+func _as_hbox_container(value: Variant) -> HBoxContainer:
+	assert_true(value is HBoxContainer, "测试观察值应为 HBoxContainer。")
+	if value is HBoxContainer:
+		var container: HBoxContainer = value
+		return container
+	return null
+
+
+func _as_spin_box(value: Variant) -> SpinBox:
+	assert_true(value is SpinBox, "测试观察值应为 SpinBox。")
+	if value is SpinBox:
+		var spin: SpinBox = value
+		return spin
+	return null
+
+
+func _as_custom_value_control(value: Variant) -> CustomValueControl:
+	assert_true(value is CustomValueControl, "测试观察值应为 CustomValueControl。")
+	if value is CustomValueControl:
+		var control: CustomValueControl = value
+		return control
+	return null
+
+
 func _as_config_table_column(value: Variant) -> GFConfigTableColumn:
 	assert_true(value is GFConfigTableColumn, "测试观察值应为 GFConfigTableColumn。")
 	if value is GFConfigTableColumn:
@@ -276,3 +392,25 @@ class TableResource:
 
 	@export var label: String = ""
 	@export var amount: int = 0
+
+
+class CustomValueControl:
+	extends Control
+
+	signal value_changed(value: Variant)
+
+	var stored_value: Variant = null
+	var editable_state: bool = true
+
+	func set_value(value: Variant) -> void:
+		stored_value = value
+
+	func get_value() -> Variant:
+		return stored_value
+
+	func set_editable(editable: bool) -> void:
+		editable_state = editable
+
+	func push_value(value: Variant) -> void:
+		stored_value = value
+		value_changed.emit(value)

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFShaderParameterUtility" path="addons/gf/standard/utilities/display/gf_shader_parameter_utility.gd" module="standard" extends="GFUtility" classDigest="619739babc0012cd865f5bb81bdf7f0e7a6ec111897700b33515301cc65733f6">
+<class name="GFShaderParameterUtility" path="addons/gf/standard/utilities/display/gf_shader_parameter_utility.gd" module="standard" extends="GFUtility" classDigest="e3472d0ef2e3145b0dfbcced63fa51d21e5981c642d023861840a3dec51071ca">
 	<description>GFShaderParameterUtility: 通用 ShaderMaterial 参数应用工具。
 将 `GFShaderParameterProfile` 或参数字典写入 ShaderMaterial，也可以从持有
 `material` 属性的节点解析材质。它只处理参数存在性校验、共享材质复制和批量写入，
@@ -34,6 +34,19 @@
 				<tag name="schema">options: Dictionary，material_property 为 NodePath/String，默认 material；duplicate_material 为 true 时会复制目标材质并写回属性；require_declared_parameters 默认为 true，会跳过 shader 未声明的 uniform；warn_on_invalid_target 和 warn_on_missing_parameters 控制警告；copy_values 默认为 true，会复制集合参数值后再写入。</tag>
 			</tags>
 		</member>
+		<member kind="method" name="apply_global_profile">
+			<signature>func apply_global_profile(profile: GFShaderParameterProfile, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>将 shader 参数 profile 应用到 RenderingServer 全局 shader 参数。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">profile: 要应用的 shader 参数 profile。</tag>
+				<tag name="param">options: 可选项，支持 parameter_types、persist_project_setting、project_setting_types、project_setting_definitions、overwrite_project_setting、save_project_settings、register_live_parameter、copy_values、warn_on_invalid_parameter 和 dry_run。</tag>
+				<tag name="return">批量应用报告。</tag>
+				<tag name="schema">options: Dictionary，parameter_types 为 Dictionary[StringName, int]，用于覆盖 RenderingServer 全局参数类型；persist_project_setting 为 true 时写入 ProjectSettings 的 shader_globals/&lt;name&gt;；project_setting_types 为 Dictionary[StringName, String]，用于覆盖持久化 type；project_setting_definitions 为 Dictionary[StringName, Dictionary]，用于传入完整 ProjectSettings 定义；overwrite_project_setting 控制是否覆盖已有设置；save_project_settings 控制是否立即保存 project.godot；register_live_parameter 控制是否补当前会话 RenderingServer 注册；copy_values 控制写入前是否复制集合值；warn_on_invalid_parameter 控制无效参数 warning；dry_run 为 true 时只生成报告。</tag>
+				<tag name="schema">return: Dictionary，包含 ok、applied_count、registered_count、updated_count、project_setting_written_count、project_settings_saved、parameters 和 issues；每个参数报告区分 live 与 declaration 状态。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
 		<member kind="method" name="apply_parameters">
 			<signature>func apply_parameters(target: Object, parameters: Dictionary, options: Dictionary = {}) -&gt; int:</signature>
 			<description>将 shader 参数字典应用到目标对象。</description>
@@ -45,6 +58,20 @@
 				<tag name="return">实际写入的参数数量。</tag>
 				<tag name="schema">parameters: Dictionary[StringName, Variant]，shader uniform 名到参数值的映射。</tag>
 				<tag name="schema">options: Dictionary，material_property 为 NodePath/String，默认 material；duplicate_material 为 true 时会复制目标材质并写回属性；require_declared_parameters 默认为 true，会跳过 shader 未声明的 uniform；warn_on_invalid_target 和 warn_on_missing_parameters 控制警告；copy_values 默认为 true，会复制集合参数值后再写入。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="apply_global_parameters">
+			<signature>func apply_global_parameters(parameters: Dictionary, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>将 shader 参数字典应用到 RenderingServer 全局 shader 参数。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">parameters: 要应用的全局 shader 参数字典。</tag>
+				<tag name="param">options: 可选项，支持 parameter_types、persist_project_setting、project_setting_types、project_setting_definitions、overwrite_project_setting、save_project_settings、register_live_parameter、copy_values、warn_on_invalid_parameter 和 dry_run。</tag>
+				<tag name="return">批量应用报告。</tag>
+				<tag name="schema">parameters: Dictionary[StringName, Variant]，全局 shader uniform 名到参数值的映射。</tag>
+				<tag name="schema">options: Dictionary，parameter_types 为 Dictionary[StringName, int]，用于覆盖 RenderingServer 全局参数类型；persist_project_setting 为 true 时写入 ProjectSettings 的 shader_globals/&lt;name&gt;；project_setting_types 为 Dictionary[StringName, String]，用于覆盖持久化 type；project_setting_definitions 为 Dictionary[StringName, Dictionary]，用于传入完整 ProjectSettings 定义；overwrite_project_setting 控制是否覆盖已有设置；save_project_settings 控制是否立即保存 project.godot；register_live_parameter 控制是否补当前会话 RenderingServer 注册；copy_values 控制写入前是否复制集合值；warn_on_invalid_parameter 控制无效参数 warning；dry_run 为 true 时只生成报告。</tag>
+				<tag name="schema">return: Dictionary，包含 ok、applied_count、registered_count、updated_count、project_setting_written_count、project_settings_saved、parameters 和 issues；每个参数报告区分 live 与 declaration 状态。</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="resolve_shader_material">
@@ -75,6 +102,82 @@
 				<tag name="param">material: 目标 ShaderMaterial。</tag>
 				<tag name="param">parameter_name: Shader uniform 参数名。</tag>
 				<tag name="return">参数存在时返回 true。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="ensure_global_parameter">
+			<signature>func ensure_global_parameter( parameter_name: StringName, parameter_type: int, default_value: Variant = null, options: Dictionary = {} ) -&gt; Dictionary:</signature>
+			<description>确保 RenderingServer 全局 shader 参数存在，并可选写入 ProjectSettings。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">parameter_name: 全局 shader uniform 参数名。</tag>
+				<tag name="param">parameter_type: RenderingServer.GLOBAL_VAR_TYPE_* 参数类型。</tag>
+				<tag name="param">default_value: 参数缺失时用于注册或持久化的默认值。</tag>
+				<tag name="param">options: 可选项，支持 persist_project_setting、project_setting_type、project_setting_definition、overwrite_project_setting、save_project_settings、register_live_parameter、update_live_value、copy_values、warn_on_invalid_parameter 和 dry_run。</tag>
+				<tag name="return">参数处理报告。</tag>
+				<tag name="schema">default_value: Variant，可被 RenderingServer.global_shader_parameter_add() 或 ProjectSettings shader_globals 定义接受的默认值。</tag>
+				<tag name="schema">options: Dictionary，persist_project_setting 为 true 时写入由参数名唯一派生的 shader_globals/&lt;name&gt;；project_setting_type 覆盖持久化 type；project_setting_definition 提供完整声明；overwrite_project_setting 控制是否覆盖已有设置；save_project_settings 控制是否立即保存 project.godot；register_live_parameter 控制是否补当前会话 RenderingServer 注册；update_live_value 控制是否同时设置当前值；copy_values 控制写入前是否复制集合值；warn_on_invalid_parameter 控制无效参数 warning；dry_run 为 true 时只生成报告。</tag>
+				<tag name="schema">return: Dictionary，包含 ok、parameter_name、parameter_type、live_registered、live_already_registered、live_available、live_updated、project_setting_path、project_setting_written、project_setting_already_present、declaration_written、declaration_already_present、declaration_available、project_settings_saved 和 error。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_global_parameter_names">
+			<signature>func get_global_parameter_names() -&gt; Array[StringName]:</signature>
+			<description>获取 GF 可稳定识别的全局 shader 参数名。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">全局 shader 参数名数组。</tag>
+				<tag name="schema">return: Array[StringName]，包含 GF 本次会话通过本工具注册的 live 参数，以及 ProjectSettings shader_globals/&lt;name&gt; declaration 参数。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_global_parameter_live_names">
+			<signature>func get_global_parameter_live_names() -&gt; Array[StringName]:</signature>
+			<description>获取 GF 本次会话通过本工具注册的 live 全局 shader 参数名。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">live 全局 shader 参数名数组。</tag>
+				<tag name="schema">return: Array[StringName]，只包含本工具在当前会话中注册的 RenderingServer 全局参数。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_global_parameter_declaration_names">
+			<signature>func get_global_parameter_declaration_names() -&gt; Array[StringName]:</signature>
+			<description>获取 ProjectSettings 中声明的全局 shader 参数名。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">declaration 全局 shader 参数名数组。</tag>
+				<tag name="schema">return: Array[StringName]，只包含 ProjectSettings shader_globals/&lt;name&gt; declaration。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="has_global_parameter">
+			<signature>func has_global_parameter(parameter_name: StringName) -&gt; bool:</signature>
+			<description>检查当前会话是否已通过本工具注册指定 live 全局 shader 参数。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">parameter_name: 全局 shader uniform 参数名。</tag>
+				<tag name="return">live 参数存在时返回 true。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="has_global_parameter_live">
+			<signature>func has_global_parameter_live(parameter_name: StringName) -&gt; bool:</signature>
+			<description>检查当前会话是否已通过本工具注册指定 live 全局 shader 参数。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">parameter_name: 全局 shader uniform 参数名。</tag>
+				<tag name="return">live 参数存在时返回 true。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="has_global_parameter_declaration">
+			<signature>func has_global_parameter_declaration(parameter_name: StringName) -&gt; bool:</signature>
+			<description>检查 ProjectSettings 是否声明了指定全局 shader 参数。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">parameter_name: 全局 shader uniform 参数名。</tag>
+				<tag name="return">declaration 存在时返回 true。</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 	</methods>

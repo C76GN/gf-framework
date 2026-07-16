@@ -11,7 +11,9 @@ var move_speed := GFRuntimeTunableProperty.new(
 	&"move_speed",
 	^"move_speed",
 	GFRuntimeTunableProperty.ValueKind.FLOAT
-).with_range(0.0, 1200.0, 10.0)
+)
+if not move_speed.configure_range(0.0, 1200.0, 10.0):
+	return
 
 inspector.register_target(&"player", player_stats, [move_speed], {
 	"label": "Player Stats",

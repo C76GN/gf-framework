@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFInputPlayback" path="addons/gf/standard/input/recording/gf_input_playback.gd" module="standard" extends="RefCounted" classDigest="a225fe94e71459c0f1fbccbd369b98d1d7994538936cdc920255488fcae1f110">
+<class name="GFInputPlayback" path="addons/gf/standard/input/recording/gf_input_playback.gd" module="standard" extends="RefCounted" classDigest="777ba353b5790368b610135441a83076590d6849c8aa05be16a0b5d382876067">
 	<description>GFInputPlayback: 抽象输入录制回放器。
 按时间把 GFInputRecording 中的动作值写入 GFVirtualInputSource，适合测试、
 复现、教程或 AI 控制桥接。它只回放抽象动作，不模拟具体键鼠或手柄事件。</description>
@@ -40,8 +40,32 @@
 				<tag name="schema">event: Dictionary，包含 time_seconds、action_id、value、player_index、source_id 和 metadata。</tag>
 			</tags>
 		</member>
+		<member kind="signal" name="loop_catch_up_limited">
+			<signature>signal loop_catch_up_limited(deferred_seconds: float, skipped_cycles: int)</signature>
+			<description>单帧循环追赶达到预算时发出。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">deferred_seconds: 留待后续 tick 无损处理的秒数。</tag>
+				<tag name="param">skipped_cycles: 按策略显式跳过的完整周期数。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
 	</signals>
-	<enums />
+	<enums>
+		<member kind="enum" name="LoopCatchUpPolicy">
+			<signature>enum LoopCatchUpPolicy {
+	## 保留剩余时间，在后续 tick 继续逐事件处理。
+	DEFER_EXCESS,
+	## 跳过超预算的完整周期，只重建最终周期状态。
+	SKIP_EXCESS_CYCLES,
+}</signature>
+			<description>循环回放超出单帧周期预算时的处理策略。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</enums>
 	<constants />
 	<properties>
 		<member kind="property" name="recording">
@@ -70,6 +94,22 @@
 			<description>到达末尾后是否循环。</description>
 			<tags>
 				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="property" name="loop_catch_up_policy">
+			<signature>var loop_catch_up_policy: LoopCatchUpPolicy = LoopCatchUpPolicy.DEFER_EXCESS</signature>
+			<description>循环追赶策略。默认无损延后，不静默丢弃事件。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="max_loop_cycles_per_tick">
+			<signature>var max_loop_cycles_per_tick: int = 64:</signature>
+			<description>单次 tick 最多完整推进的循环周期数。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="respect_recorded_player_index">

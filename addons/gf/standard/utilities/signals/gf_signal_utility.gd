@@ -141,8 +141,8 @@ func disconnect_signal(source_signal: Signal, callback: Callable, owner: Object 
 			_connections.remove_at(i)
 			continue
 		if _connection_matches(connection, source_signal, callback, owner):
+			_connections.erase(connection)
 			connection.disconnect_signal()
-			_connections.remove_at(i)
 
 
 ## 断开某个 owner 拥有的全部连接。
@@ -158,8 +158,10 @@ func disconnect_owner(owner: Object) -> void:
 		var connection: GFSignalConnection = _connections[i]
 		if connection == null or connection.is_owned_by(owner):
 			if connection != null:
+				_connections.erase(connection)
 				connection.disconnect_signal()
-			_connections.remove_at(i)
+			else:
+				_connections.remove_at(i)
 
 
 ## 断开一组由 connect_signal/connect_any 返回的连接。
@@ -182,10 +184,11 @@ func disconnect_connections(connections: Array) -> void:
 ## [br]
 ## @api public
 func disconnect_all() -> void:
-	for connection: GFSignalConnection in _connections:
+	var connections: Array[GFSignalConnection] = _connections.duplicate()
+	_connections.clear()
+	for connection: GFSignalConnection in connections:
 		if connection != null:
 			connection.disconnect_signal()
-	_connections.clear()
 
 
 ## 清理已经失效的连接。
@@ -194,8 +197,11 @@ func disconnect_all() -> void:
 func prune_invalid_connections() -> void:
 	for i: int in range(_connections.size() - 1, -1, -1):
 		var connection: GFSignalConnection = _connections[i]
-		if connection == null or connection.prune_if_invalid():
+		if connection == null:
 			_connections.remove_at(i)
+			continue
+		if connection.prune_if_invalid():
+			_connections.erase(connection)
 
 
 ## 获取当前仍被工具追踪的连接数量。

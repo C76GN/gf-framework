@@ -143,6 +143,7 @@ func _collect_core_dock_records() -> Array[Dictionary]:
 func _collect_dock_records() -> Array[Dictionary]:
 	var records: Array[Dictionary] = _collect_core_dock_records()
 	records.append_array(_collect_enabled_extension_dock_records())
+	records = _deduplicate_dock_records(records)
 	records.sort_custom(_sort_dock_records)
 	return records
 
@@ -151,6 +152,20 @@ func _copy_records(source: Array[Dictionary]) -> Array[Dictionary]:
 	var records: Array[Dictionary] = []
 	for record: Dictionary in source:
 		records.append(record.duplicate(true))
+	return records
+
+
+func _deduplicate_dock_records(source: Array[Dictionary]) -> Array[Dictionary]:
+	var records: Array[Dictionary] = []
+	var used_paths: Dictionary = {}
+	for record: Dictionary in source:
+		var path: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(record, "path", "").strip_edges()
+		if path.is_empty() or used_paths.has(path):
+			continue
+		used_paths[path] = true
+		var copied_record: Dictionary = record.duplicate(true)
+		copied_record["path"] = path
+		records.append(copied_record)
 	return records
 
 

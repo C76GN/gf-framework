@@ -5,6 +5,8 @@
 # @layer kernel/core
 extends RefCounted
 
+const _MERGE_DICTIONARY_MAX_DEPTH: int = 64
+
 # --- 公共方法 ---
 
 ## 复制集合 Variant，并可按需复制 Resource。
@@ -29,10 +31,14 @@ extends RefCounted
 static func duplicate_variant(value: Variant, deep: bool = true, duplicate_resources: bool = false) -> Variant:
 	if value is Dictionary:
 		var dictionary: Dictionary = value
-		return dictionary.duplicate(deep)
+		if not deep:
+			return dictionary.duplicate(false)
+		return _duplicate_variant_safe(dictionary, duplicate_resources, [])
 	if value is Array:
 		var array: Array = value
-		return array.duplicate(deep)
+		if not deep:
+			return array.duplicate(false)
+		return _duplicate_variant_safe(array, duplicate_resources, [])
 	if duplicate_resources and value is Resource:
 		var resource: Resource = value
 		return resource.duplicate(deep)
@@ -56,6 +62,25 @@ static func duplicate_variant(value: Variant, deep: bool = true, duplicate_resou
 ## @schema return: 内部 Variant 访问辅助结果；返回形态由当前函数契约定义。
 static func duplicate_collection(value: Variant, deep: bool = true) -> Variant:
 	return duplicate_variant(value, deep)
+
+
+## 转换为可交给 JSON.stringify 的值。
+## [br]
+## @api framework_internal
+## [br]
+## @param value: 待转换值。
+## [br]
+## @schema value: 任意 Variant。
+## [br]
+## @param max_depth: 集合递归深度上限。
+## [br]
+## @schema max_depth: int，防止异常循环或过深结构阻塞编辑器。
+## [br]
+## @return JSON 兼容值；非有限 float 使用稳定文本表示。
+## [br]
+## @schema return: JSON 兼容 Variant。
+static func to_json_compatible(value: Variant, max_depth: int = 32) -> Variant:
+	return _to_json_compatible(value, maxi(max_depth, 0), 0)
 
 
 ## 将 Variant 收窄为 Dictionary 副本。
@@ -153,6 +178,7 @@ static func as_array(value: Variant, default_value: Variant = null) -> Array:
 		return fallback_array
 	return []
 
+# --- 公共方法（类型收窄） ---
 
 ## 将常见标量 Variant 收窄为 bool。
 ## [br]
@@ -543,28 +569,7 @@ static func merge_dictionary(
 	overwrite: bool = true,
 	recursive: bool = true
 ) -> Dictionary:
-	for source_key: Variant in source.keys():
-		var source_value: Variant = source[source_key]
-		var target_has_key: bool = _has_equivalent_key(target, source_key)
-		var target_key: Variant = _get_equivalent_key(target, source_key)
-		if (
-			recursive
-			and target_has_key
-			and get_option_value(target, source_key) is Dictionary
-			and source_value is Dictionary
-		):
-			var target_dictionary: Dictionary = as_dictionary(target[target_key])
-			var source_dictionary: Dictionary = as_dictionary(source_value)
-			var _ignored_nested_merge: Dictionary = merge_dictionary(
-				target_dictionary,
-				source_dictionary,
-				overwrite,
-				recursive
-			)
-			continue
-		if overwrite or not target_has_key:
-			target[target_key] = duplicate_variant(source_value)
-	return target
+	return _merge_dictionary(target, source, overwrite, recursive, [], [], 0)
 
 
 ## 读取选项字段，并支持 String 与 StringName 等价键。
@@ -920,6 +925,218 @@ static func get_option_packed_string_array(
 	return result
 
 # --- 私有/辅助方法 ---
+
+static func _merge_dictionary(
+	target: Dictionary,
+	source: Dictionary,
+	overwrite: bool,
+	recursive: bool,
+	visited_targets: Array,
+	visited_sources: Array,
+	depth: int
+) -> Dictionary:
+	if recursive:
+		if depth >= _MERGE_DICTIONARY_MAX_DEPTH:
+			return target
+		if _has_visited_dictionary_pair(visited_targets, visited_sources, target, source):
+			return target
+		visited_targets.append(target)
+		visited_sources.append(source)
+	for source_key: Variant in source.keys():
+		var source_value: Variant = source[source_key]
+		var target_has_key: bool = _has_equivalent_key(target, source_key)
+		var target_key: Variant = _get_equivalent_key(target, source_key)
+		if (
+			recursive
+			and target_has_key
+			and get_option_value(target, source_key) is Dictionary
+			and source_value is Dictionary
+		):
+			var target_dictionary: Dictionary = as_dictionary(target[target_key])
+			var source_dictionary: Dictionary = as_dictionary(source_value)
+			var _ignored_nested_merge: Dictionary = _merge_dictionary(
+				target_dictionary,
+				source_dictionary,
+				overwrite,
+				recursive,
+				visited_targets,
+				visited_sources,
+				depth + 1
+			)
+			continue
+		if overwrite or not target_has_key:
+			target[target_key] = duplicate_variant(source_value)
+	return target
+
+
+static func _has_visited_dictionary_pair(
+	visited_targets: Array,
+	visited_sources: Array,
+	target: Dictionary,
+	source: Dictionary
+) -> bool:
+	for index: int in range(mini(visited_targets.size(), visited_sources.size())):
+		if is_same(visited_targets[index], target) and is_same(visited_sources[index], source):
+			return true
+	return false
+
+
+static func _duplicate_variant_safe(value: Variant, duplicate_resources: bool, visited: Array) -> Variant:
+	if value is Dictionary:
+		var dictionary: Dictionary = value
+		var existing_dictionary: Variant = _get_visited_duplicate(visited, dictionary)
+		if existing_dictionary is Dictionary:
+			return existing_dictionary
+		var dictionary_copy: Dictionary = {}
+		visited.append({
+			"source": dictionary,
+			"copy": dictionary_copy,
+		})
+		for key: Variant in dictionary.keys():
+			var copied_key: Variant = _duplicate_variant_safe(key, duplicate_resources, visited)
+			dictionary_copy[copied_key] = _duplicate_variant_safe(dictionary[key], duplicate_resources, visited)
+		return dictionary_copy
+	if value is Array:
+		var array: Array = value
+		var existing_array: Variant = _get_visited_duplicate(visited, array)
+		if existing_array is Array:
+			return existing_array
+		var array_copy: Array = []
+		visited.append({
+			"source": array,
+			"copy": array_copy,
+		})
+		for item: Variant in array:
+			array_copy.append(_duplicate_variant_safe(item, duplicate_resources, visited))
+		return array_copy
+	if duplicate_resources and value is Resource:
+		var resource: Resource = value
+		return resource.duplicate(true)
+	return value
+
+
+static func _get_visited_duplicate(visited: Array, source: Variant) -> Variant:
+	for record_value: Variant in visited:
+		if not record_value is Dictionary:
+			continue
+		var record: Dictionary = record_value
+		if is_same(_get_key_value(record, "source"), source):
+			return _get_key_value(record, "copy")
+	return null
+
+
+static func _to_json_compatible(value: Variant, max_depth: int, depth: int) -> Variant:
+	if depth > max_depth:
+		return "<max_depth>"
+
+	match typeof(value):
+		TYPE_NIL, TYPE_BOOL, TYPE_INT, TYPE_STRING:
+			return value
+		TYPE_FLOAT:
+			var float_value: float = value
+			return _to_json_compatible_float(float_value)
+		TYPE_STRING_NAME, TYPE_NODE_PATH:
+			return str(value)
+		TYPE_VECTOR2:
+			var vector2_value: Vector2 = value
+			return {
+				"x": _to_json_compatible_float(vector2_value.x),
+				"y": _to_json_compatible_float(vector2_value.y),
+			}
+		TYPE_VECTOR3:
+			var vector3_value: Vector3 = value
+			return {
+				"x": _to_json_compatible_float(vector3_value.x),
+				"y": _to_json_compatible_float(vector3_value.y),
+				"z": _to_json_compatible_float(vector3_value.z),
+			}
+		TYPE_VECTOR4:
+			var vector4_value: Vector4 = value
+			return {
+				"x": _to_json_compatible_float(vector4_value.x),
+				"y": _to_json_compatible_float(vector4_value.y),
+				"z": _to_json_compatible_float(vector4_value.z),
+				"w": _to_json_compatible_float(vector4_value.w),
+			}
+		TYPE_COLOR:
+			var color_value: Color = value
+			return {
+				"r": _to_json_compatible_float(color_value.r),
+				"g": _to_json_compatible_float(color_value.g),
+				"b": _to_json_compatible_float(color_value.b),
+				"a": _to_json_compatible_float(color_value.a),
+			}
+		TYPE_DICTIONARY:
+			var dictionary: Dictionary = value
+			var result: Dictionary = {}
+			for key: Variant in dictionary.keys():
+				var key_text: String = str(_to_json_compatible(key, max_depth, depth + 1))
+				result[key_text] = _to_json_compatible(dictionary[key], max_depth, depth + 1)
+			return result
+		TYPE_ARRAY:
+			var array: Array = value
+			var result: Array = []
+			for item: Variant in array:
+				result.append(_to_json_compatible(item, max_depth, depth + 1))
+			return result
+		TYPE_PACKED_BYTE_ARRAY:
+			var packed_bytes: PackedByteArray = value
+			return Array(packed_bytes)
+		TYPE_PACKED_INT32_ARRAY:
+			var packed_int32: PackedInt32Array = value
+			return Array(packed_int32)
+		TYPE_PACKED_INT64_ARRAY:
+			var packed_int64: PackedInt64Array = value
+			return Array(packed_int64)
+		TYPE_PACKED_STRING_ARRAY:
+			var packed_strings: PackedStringArray = value
+			return Array(packed_strings)
+		TYPE_PACKED_FLOAT32_ARRAY:
+			var float32_values: Array = []
+			var packed_float32: PackedFloat32Array = value
+			for item: float in packed_float32:
+				float32_values.append(_to_json_compatible_float(item))
+			return float32_values
+		TYPE_PACKED_FLOAT64_ARRAY:
+			var float64_values: Array = []
+			var packed_float64: PackedFloat64Array = value
+			for item: float in packed_float64:
+				float64_values.append(_to_json_compatible_float(item))
+			return float64_values
+		TYPE_PACKED_VECTOR2_ARRAY:
+			var vector2_values: Array = []
+			var packed_vector2: PackedVector2Array = value
+			for item: Vector2 in packed_vector2:
+				vector2_values.append(_to_json_compatible(item, max_depth, depth + 1))
+			return vector2_values
+		TYPE_PACKED_VECTOR3_ARRAY:
+			var vector3_values: Array = []
+			var packed_vector3: PackedVector3Array = value
+			for item: Vector3 in packed_vector3:
+				vector3_values.append(_to_json_compatible(item, max_depth, depth + 1))
+			return vector3_values
+		TYPE_PACKED_VECTOR4_ARRAY:
+			var vector4_values: Array = []
+			var packed_vector4: PackedVector4Array = value
+			for item: Vector4 in packed_vector4:
+				vector4_values.append(_to_json_compatible(item, max_depth, depth + 1))
+			return vector4_values
+		TYPE_PACKED_COLOR_ARRAY:
+			var color_values: Array = []
+			var packed_colors: PackedColorArray = value
+			for item: Color in packed_colors:
+				color_values.append(_to_json_compatible(item, max_depth, depth + 1))
+			return color_values
+	return str(value)
+
+
+static func _to_json_compatible_float(value: float) -> Variant:
+	if is_nan(value):
+		return "NaN"
+	if is_inf(value):
+		return "INF" if value > 0.0 else "-INF"
+	return value
+
 
 static func _get_key_value(data: Dictionary, key: Variant, default_value: Variant = null) -> Variant:
 	if data.has(key):

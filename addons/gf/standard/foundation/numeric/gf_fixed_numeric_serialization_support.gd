@@ -233,6 +233,8 @@ static func read_signed_magnitude(data: PackedByteArray, sign_offset: int, magni
 	var magnitude: int = read_u64_magnitude_bytes(data, magnitude_offset)
 	if magnitude < 0:
 		return _INVALID_SIGNED_MAGNITUDE
+	if sign_value == 1 and magnitude == 0:
+		return _INVALID_SIGNED_MAGNITUDE
 	return -magnitude if sign_value == 1 else magnitude
 
 

@@ -156,6 +156,29 @@ func test_resource_load_uses_threaded_resource_loader_and_applies_on_tick() -> v
 	utility.dispose()
 
 
+func test_cancelled_resource_load_drains_late_completion_without_apply() -> void:
+	var utility: SimulatedResourceBackgroundWorkUtility = SimulatedResourceBackgroundWorkUtility.new()
+	utility.init()
+	var task: GFBackgroundWorkTask = utility.submit_resource_load(
+		"res://simulated_resource.tres",
+		"Resource",
+		Callable(self, "_apply_resource")
+	)
+
+	assert_true(utility.cancel_work(task.work_id), "运行中的资源任务应接受取消请求。")
+	assert_eq(task.status, GFBackgroundWorkTask.Status.RUNNING, "底层请求完成前任务仍等待 drain。")
+
+	utility.complete = true
+	utility.tick()
+	var snapshot: Dictionary = utility.get_debug_snapshot()
+
+	assert_eq(task.status, GFBackgroundWorkTask.Status.CANCELLED, "迟到完成 drain 后任务应进入 cancelled。")
+	assert_null(_applied_resource, "取消后的资源任务不应执行主线程 apply。")
+	assert_eq(utility.requested_count, 1, "取消不应重复发起底层请求。")
+	assert_eq(GFVariantData.get_option_int(snapshot, "resource_request_count"), 0, "drain 后不应残留资源请求。")
+	utility.dispose()
+
+
 func test_apply_queue_respects_time_budget_after_first_callback() -> void:
 	var utility: GFBackgroundWorkUtility = GFBackgroundWorkUtility.new()
 	utility.init()
@@ -269,4 +292,23 @@ class PureWorker:
 		var input: Dictionary = GFVariantData.as_dictionary(data)
 		return {
 			"value": GFVariantData.get_option_int(input, "value"),
+		}
+
+
+class SimulatedResourceBackgroundWorkUtility extends GFBackgroundWorkUtility:
+	var requested_count: int = 0
+	var complete: bool = false
+	var loaded_resource: Resource = Resource.new()
+
+	func _request_threaded_resource(_path: String, _type_hint: String) -> Error:
+		requested_count += 1
+		return OK
+
+	func _poll_threaded_resource(_path: String, previous_progress: float) -> Dictionary:
+		return {
+			"status": &"loaded" if complete else &"in_progress",
+			"progress": 1.0 if complete else previous_progress,
+			"resource": loaded_resource if complete else null,
+			"has_resource": complete,
+			"error": "",
 		}

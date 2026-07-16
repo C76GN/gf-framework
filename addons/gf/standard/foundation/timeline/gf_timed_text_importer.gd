@@ -47,6 +47,8 @@ static func parse_srt(text: String, track_id: StringName = &"") -> Dictionary:
 			"\n".join(text_lines)
 		)
 	track.sort_entries()
+	if not text.strip_edges().is_empty() and track.entries.is_empty():
+		return _make_result(false, track, "no_valid_entries")
 	return _make_result(true, track, "")
 
 
@@ -98,7 +100,7 @@ static func parse_lrc(
 	raw_entries.sort_custom(func(left: Dictionary, right: Dictionary) -> bool:
 		var left_start: float = GFVariantData.get_option_float(left, "start")
 		var right_start: float = GFVariantData.get_option_float(right, "start")
-		if is_equal_approx(left_start, right_start):
+		if left_start == right_start:
 			return GFVariantData.get_option_int(left, "sequence") < GFVariantData.get_option_int(right, "sequence")
 		return left_start < right_start
 	)
@@ -114,6 +116,8 @@ static func parse_lrc(
 			else current_start + default_duration
 		)
 		var _add_entry_result_109: Variant = track.add_entry(current_start, next_start, GFVariantData.get_option_string(current, "text"))
+	if not text.strip_edges().is_empty() and track.entries.is_empty():
+		return _make_result(false, track, "no_valid_entries")
 	return _make_result(true, track, "")
 
 

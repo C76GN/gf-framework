@@ -4,21 +4,46 @@
   "kind": "standard",
   "version": "unreleased",
   "display_name": "GF Standard UI",
-  "description": "UI routing, binders, control adapters, display/settings helpers, text fitting, and virtual list utilities.",
+  "description": "Core UI value adapters, form/list/table helpers, modal value objects, text fitting, and virtual list models.",
   "dependencies": [
     "gf.kernel",
-    "gf.standard.base",
-    "gf.standard.state",
-    "gf.standard.storage",
-    "gf.standard.assets",
-    "gf.standard.audio"
+    "gf.standard.base"
   ],
   "paths": [
-    "addons/gf/standard/utilities/display/**",
-    "addons/gf/standard/utilities/settings/**",
-    "addons/gf/standard/utilities/ui/**"
+    "addons/gf/standard/utilities/ui/gf_control_focus_utility.gd",
+    "addons/gf/standard/utilities/ui/gf_control_focus_utility.gd.uid",
+    "addons/gf/standard/utilities/ui/gf_control_value_adapter.gd",
+    "addons/gf/standard/utilities/ui/gf_control_value_adapter.gd.uid",
+    "addons/gf/standard/utilities/ui/gf_form_binder.gd",
+    "addons/gf/standard/utilities/ui/gf_form_binder.gd.uid",
+    "addons/gf/standard/utilities/ui/gf_modal_action.gd",
+    "addons/gf/standard/utilities/ui/gf_modal_action.gd.uid",
+    "addons/gf/standard/utilities/ui/gf_modal_config.gd",
+    "addons/gf/standard/utilities/ui/gf_modal_config.gd.uid",
+    "addons/gf/standard/utilities/ui/gf_modal_result.gd",
+    "addons/gf/standard/utilities/ui/gf_modal_result.gd.uid",
+    "addons/gf/standard/utilities/ui/gf_notification_utility.gd",
+    "addons/gf/standard/utilities/ui/gf_notification_utility.gd.uid",
+    "addons/gf/standard/utilities/ui/gf_rich_text_formatter.gd",
+    "addons/gf/standard/utilities/ui/gf_rich_text_formatter.gd.uid",
+    "addons/gf/standard/utilities/ui/gf_table_column_definition.gd",
+    "addons/gf/standard/utilities/ui/gf_table_column_definition.gd.uid",
+    "addons/gf/standard/utilities/ui/gf_table_data_view.gd",
+    "addons/gf/standard/utilities/ui/gf_table_data_view.gd.uid",
+    "addons/gf/standard/utilities/ui/gf_table_selection_model.gd",
+    "addons/gf/standard/utilities/ui/gf_table_selection_model.gd.uid",
+    "addons/gf/standard/utilities/ui/gf_text_auto_fit.gd",
+    "addons/gf/standard/utilities/ui/gf_text_auto_fit.gd.uid",
+    "addons/gf/standard/utilities/ui/gf_text_fitter.gd",
+    "addons/gf/standard/utilities/ui/gf_text_fitter.gd.uid",
+    "addons/gf/standard/utilities/ui/gf_theme_override_property_list.gd",
+    "addons/gf/standard/utilities/ui/gf_theme_override_property_list.gd.uid",
+    "addons/gf/standard/utilities/ui/gf_virtual_list_focus_model.gd",
+    "addons/gf/standard/utilities/ui/gf_virtual_list_focus_model.gd.uid",
+    "addons/gf/standard/utilities/ui/gf_virtual_list_model.gd",
+    "addons/gf/standard/utilities/ui/gf_virtual_list_model.gd.uid"
   ],
   "metadata": {
-    "stage": "standard-split-v1"
+    "stage": "standard-ui-core-split-v1"
   }
 }

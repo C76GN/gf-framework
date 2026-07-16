@@ -82,6 +82,23 @@ func describe_recipe() -> Dictionary:
 	}
 
 
+## 导出 Recipe 的 JSON-safe 报告快照。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+## [br]
+## @param options: 传给 GFReportValueCodec 的编码选项。
+## [br]
+## @return Recipe 报告字典。
+## [br]
+## @schema options: Dictionary with GFReportValueCodec encoding options.
+## [br]
+## @schema return: JSON-safe Dictionary based on describe_recipe().
+func to_report_dictionary(options: Dictionary = {}) -> Dictionary:
+	return GFReportValueCodec.to_report_dictionary(describe_recipe(), options)
+
+
 ## 校验 Recipe 结构。
 ## [br]
 ## @api public

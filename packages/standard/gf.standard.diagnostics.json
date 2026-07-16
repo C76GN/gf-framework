@@ -7,8 +7,7 @@
   "description": "Runtime diagnostics, build info snapshots, operation timelines, and the lightweight developer console used by tools that only need observability hooks.",
   "dependencies": [
     "gf.kernel",
-    "gf.standard.base",
-    "gf.standard.assets"
+    "gf.standard.base"
   ],
   "paths": [
     "addons/gf/standard/utilities/debug/gf_build_info.gd",

@@ -23,6 +23,7 @@ const _MAX_CATCH_UP_EXECUTIONS: int = 1024
 var _pending_timers: Array[Dictionary] = []
 var _next_timer_id: int = 1
 var _executing_handles: Dictionary = {}
+var _executing_timers: Dictionary = {}
 var _cancelled_handles: Dictionary = {}
 
 
@@ -35,6 +36,7 @@ func init() -> void:
 	_pending_timers.clear()
 	_next_timer_id = 1
 	_executing_handles.clear()
+	_executing_timers.clear()
 	_cancelled_handles.clear()
 
 
@@ -45,6 +47,7 @@ func dispose() -> void:
 	_pending_timers.clear()
 	_next_timer_id = 1
 	_executing_handles.clear()
+	_executing_timers.clear()
 	_cancelled_handles.clear()
 
 
@@ -54,7 +57,7 @@ func dispose() -> void:
 ## [br]
 ## @param delta: 本帧时间增量（秒）。
 func tick(delta: float) -> void:
-	if _pending_timers.is_empty() or delta <= 0.0:
+	if _pending_timers.is_empty() or delta <= 0.0 or is_nan(delta) or is_inf(delta):
 		return
 
 	var ready_timers: Array[Dictionary] = []
@@ -238,6 +241,12 @@ func cancel_owner(owner: Object) -> int:
 		if _get_timer_owner_id(timer_data) == owner_id:
 			_pending_timers.remove_at(index)
 			removed += 1
+	for handle_variant: Variant in _executing_timers.keys():
+		var handle: int = GFVariantData.to_int(handle_variant, 0)
+		var executing_timer: Dictionary = _get_executing_timer(handle)
+		if _get_timer_owner_id(executing_timer) == owner_id and not _cancelled_handles.has(handle):
+			_cancelled_handles[handle] = true
+			removed += 1
 	return removed
 
 
@@ -302,8 +311,10 @@ func _execute_ready_timer(timer_data: Dictionary) -> void:
 			return
 
 		_executing_handles[handle] = true
+		_executing_timers[handle] = timer_data
 		var _result: Variant = callback.call()
 		var _removed_executing: bool = _executing_handles.erase(handle)
+		var _removed_executing_timer: bool = _executing_timers.erase(handle)
 
 		if _cancelled_handles.has(handle):
 			var _removed_cancelled_after: bool = _cancelled_handles.erase(handle)
@@ -340,6 +351,14 @@ func _timer_owner_is_released(timer_data: Dictionary) -> bool:
 
 func _get_timer_id(timer_data: Dictionary) -> int:
 	return GFVariantData.get_option_int(timer_data, "id", 0)
+
+
+func _get_executing_timer(handle: int) -> Dictionary:
+	var timer_value: Variant = GFVariantData.get_option_value(_executing_timers, handle, {})
+	if timer_value is Dictionary:
+		var timer_data: Dictionary = timer_value
+		return timer_data
+	return {}
 
 
 func _get_timer_remaining(timer_data: Dictionary) -> float:

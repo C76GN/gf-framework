@@ -153,7 +153,12 @@ def list_tools() -> list[dict[str, Any]]:
 							"enum": sorted([*gf_maintenance.CHECK_DEFINITIONS.keys(), "release_metadata"]),
 						},
 					},
-					"timeout_seconds": {"type": "integer", "minimum": 30, "maximum": 1800, "default": 600},
+					"timeout_seconds": {
+						"type": "integer",
+						"minimum": 30,
+						"maximum": 1800,
+						"description": "Optional exact timeout override; omitted values use each check's maintained policy.",
+					},
 					"fail_fast": {"type": "boolean", "default": False},
 					"allow_breaking_api": {
 						"type": "boolean",
@@ -213,10 +218,11 @@ def call_tool(request_id: Any, params: dict[str, Any]) -> dict[str, Any]:
 			data = gf_maintenance.workspace_status()
 		elif name == "gf_run_checks":
 			checks = arguments.get("checks")
-			data = gf_maintenance.run_checks(
+			timeout_seconds = arguments.get("timeout_seconds")
+			data = gf_maintenance.run_checks_with_log_hygiene(
 				suite=str(arguments.get("suite", "quick")),
 				checks=checks if isinstance(checks, list) else None,
-				timeout_seconds=int(arguments.get("timeout_seconds", 600)),
+				timeout_seconds=int(timeout_seconds) if timeout_seconds != None else None,
 				fail_fast=bool(arguments.get("fail_fast", False)),
 				allow_breaking_api=bool(arguments.get("allow_breaking_api", False)),
 			)

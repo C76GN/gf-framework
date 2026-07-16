@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFAsyncScope" path="addons/gf/kernel/core/gf_async_scope.gd" module="kernel" extends="GFCancellationToken" classDigest="9ca4df56d214ef64895b01c0361b465847cd772da86a65cacc65126e61dbb691">
+	<description>GFAsyncScope: 由生命周期拥有者控制的可取消异步作用域。
+作用域继承自 GFCancellationToken，可直接传给需要只读取消检查的流程。
+注册的清理回调会在 cancel() 时按后进先出顺序执行；complete() 表示流程正常结束并清空清理回调。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_handle</tag>
+		<tag name="layer">kernel/core</tag>
+		<tag name="since">8.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties />
+	<methods>
+		<member kind="method" name="get_token">
+			<signature>func get_token() -&gt; GFCancellationToken:</signature>
+			<description>返回当前作用域的只读取消令牌视图。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">当前作用域自身，可作为 GFCancellationToken 使用。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_active">
+			<signature>func is_active() -&gt; bool:</signature>
+			<description>返回作用域是否仍处于活动状态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">未 complete 且未 cancel 时返回 true。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_completed">
+			<signature>func is_completed() -&gt; bool:</signature>
+			<description>返回作用域是否已经正常完成。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">complete() 被调用后返回 true。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="register_cleanup">
+			<signature>func register_cleanup(cleanup_callback: Callable) -&gt; bool:</signature>
+			<description>注册取消时执行的清理回调。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">cleanup_callback: 取消时执行的无参 Callable。</tag>
+				<tag name="return">注册成功、或已取消时即时执行成功，返回 true；无效回调或已完成作用域返回 false。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="unregister_cleanup">
+			<signature>func unregister_cleanup(cleanup_callback: Callable) -&gt; void:</signature>
+			<description>注销取消清理回调。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">cleanup_callback: 要移除的清理回调。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="cancel">
+			<signature>func cancel(reason: String = "", metadata: Dictionary = {}) -&gt; bool:</signature>
+			<description>请求取消当前作用域，并执行已注册的清理回调。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">reason: 取消原因。</tag>
+				<tag name="param">metadata: 取消上下文。</tag>
+				<tag name="return">本次调用是否首次触发取消。</tag>
+				<tag name="schema">metadata: Dictionary，包含调用方定义的取消上下文。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="complete">
+			<signature>func complete() -&gt; void:</signature>
+			<description>标记异步作用域已正常完成，并丢弃取消清理回调。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

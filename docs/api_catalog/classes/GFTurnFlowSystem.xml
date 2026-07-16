@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFTurnFlowSystem" path="addons/gf/extensions/turn_based/runtime/gf_turn_flow_system.gd" module="extensions/turn_based" extends="GFSystem" classDigest="386bce5db7dc33a1385b6e9a41bc2e97150639a7ce000806456efd0ceddd334f">
+<class name="GFTurnFlowSystem" path="addons/gf/extensions/turn_based/runtime/gf_turn_flow_system.gd" module="extensions/turn_based" extends="GFSystem" classDigest="6bd39d07b5bf5ddd0b53c6e73c8a467affdcedc098bcc8c3c04d54a896a309ac">
 	<description>GFTurnFlowSystem: 通用回合流程系统。
 提供阶段推进、行动排队和按优先级解析能力。
 它不关心战斗、卡牌、棋盘等具体业务，只调度抽象行动。</description>
@@ -55,31 +55,35 @@
 	<constants />
 	<properties>
 		<member kind="property" name="context">
-			<signature>var context: GFTurnContext = GFTurnContext.new()</signature>
+			<signature>var context: GFTurnContext:</signature>
 			<description>当前回合上下文。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="phases">
-			<signature>var phases: Array[GFTurnPhase] = []</signature>
+			<signature>var phases: Array[GFTurnPhase]:</signature>
 			<description>阶段列表。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="current_phase_index">
-			<signature>var current_phase_index: int = -1</signature>
+			<signature>var current_phase_index: int:</signature>
 			<description>当前阶段索引。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="is_running">
-			<signature>var is_running: bool = false</signature>
+			<signature>var is_running: bool:</signature>
 			<description>当前是否正在运行。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="sort_actions_before_resolve">
@@ -130,11 +134,12 @@
 			</tags>
 		</member>
 		<member kind="method" name="stop">
-			<signature>func stop(clear_actions: bool = true) -&gt; void:</signature>
+			<signature>func stop(should_clear_actions: bool = true) -&gt; void:</signature>
 			<description>停止流程。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="param">clear_actions: 是否清空待处理行动。</tag>
+				<tag name="param">should_clear_actions: 是否清空待处理行动。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="advance_phase">
@@ -142,6 +147,32 @@
 			<description>推进到下一个阶段。</description>
 			<tags>
 				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_actions">
+			<signature>func get_actions() -&gt; Array[GFTurnAction]:</signature>
+			<description>获取待处理行动的只读快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">当前待处理行动数组副本。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_action_count">
+			<signature>func get_action_count() -&gt; int:</signature>
+			<description>获取待处理行动数量。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">当前待处理行动数量。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="clear_actions">
+			<signature>func clear_actions() -&gt; void:</signature>
+			<description>清空待处理行动并封存这些一次性实例。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="enqueue_action">

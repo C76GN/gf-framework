@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFInstaller" path="addons/gf/kernel/core/gf_installer.gd" module="kernel" extends="RefCounted" classDigest="d6207ad70a7113e90088b69cd93fcde76f634584b7fef0f08987db026afb6a3e">
+<class name="GFInstaller" path="addons/gf/kernel/core/gf_installer.gd" module="kernel" extends="RefCounted" classDigest="77e6b2cad44051424967f678d399ec76237721a0a4ab3a2f57a812d841c9e605">
 	<description>GFInstaller: 项目启动装配脚本基类。
 继承后重写 install()，并在 Project Settings 的 gf/project/installers 中登记脚本路径，
 Gf.init() 与 Gf.set_architecture() 会在架构初始化前自动执行这些安装器。</description>
@@ -14,23 +14,31 @@ Gf.init() 与 Gf.set_architecture() 会在架构初始化前自动执行这些�
 	<properties />
 	<methods>
 		<member kind="method" name="install">
-			<signature>func install(_architecture: GFArchitecture) -&gt; void:</signature>
-			<description>将项目模块注册到架构。</description>
+			<signature>func install(_architecture: GFArchitecture, _scope: GFAsyncScope) -&gt; void:</signature>
+			<description>将项目模块注册到架构。
+install() 可使用 await，但首个 await 前仍运行在主线程；不要在其中执行长同步工作。
+需要耗时处理时应拆分为检查点，并在每个 await 或外部回调后检查 _scope。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">_architecture: 当前即将初始化的架构实例。</tag>
+				<tag name="param">_scope: 当前 Installer 步骤的可取消异步作用域。</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="install_bindings">
-			<signature>func install_bindings(_binder: Variant) -&gt; void:</signature>
+			<signature>func install_bindings(_binder: Variant, _scope: GFAsyncScope) -&gt; void:</signature>
 			<description>使用声明式装配器注册项目模块。
+install_bindings() 与 install() 共享同一异步契约：首个 await 前不应执行长同步工作。
+需要注册外部任务清理时应使用 _scope.register_cleanup()。
 "type": "Variant",
 "description": "当前架构创建的装配器实例，实际类型为 GFBindBuilder。"
 }</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">_binder: 绑定到当前架构的装配器。</tag>
+				<tag name="param">_scope: 当前 Installer 步骤的可取消异步作用域。</tag>
 				<tag name="schema">_binder {</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 	</methods>

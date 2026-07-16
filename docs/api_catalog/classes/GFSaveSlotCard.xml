@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSaveSlotCard" path="addons/gf/extensions/save/slots/gf_save_slot_card.gd" module="extensions/save" extends="Resource" classDigest="d5bf93b4404e19dee882474f69bc5333e6d4bd8c651296778c7890eaaf299c02">
+<class name="GFSaveSlotCard" path="addons/gf/extensions/save/slots/gf_save_slot_card.gd" module="extensions/save" extends="Resource" classDigest="7aea4331eec8435510bdfea5ece29727f07e9159889fe38dbc374c4e6b9f6213">
 	<description>GFSaveSlotCard: 通用存档槽摘要数据。
 作为项目 UI 和存档系统之间的轻量 DTO，不规定具体界面布局、文案或业务字段。</description>
 	<tags>
@@ -72,7 +72,8 @@
 			<description>原始元数据副本。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="schema">metadata: Dictionary，通常来自 GFSaveSlotMetadata.to_dict() 或 GFStorageUtility.list_slots() 的 metadata 字段。</tag>
+				<tag name="schema">metadata: Dictionary，通常来自 GFSaveSlotMetadata.to_dict() 或槽位存储摘要的 metadata 字段。</tag>
+				<tag name="since">3.6.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="compatibility_errors" decorators="@export">
@@ -86,7 +87,7 @@
 	<methods>
 		<member kind="method" name="configure_from_slot_summary">
 			<signature>func configure_from_slot_summary( summary: Dictionary, fallback_slot_id: StringName = &amp;"", active_slot_index: int = -1 ) -&gt; GFSaveSlotCard:</signature>
-			<description>从 GFStorageUtility.list_slots() 风格的摘要配置卡片。</description>
+			<description>从槽位存储适配器的通用摘要配置卡片。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">summary: 槽位摘要。</tag>
@@ -94,6 +95,7 @@
 				<tag name="param">active_slot_index: 当前选中槽位索引。</tag>
 				<tag name="return">当前卡片。</tag>
 				<tag name="schema">summary: Dictionary，可包含 slot_index、slot_id、modified_time、is_compatible、compatibility_errors 与 metadata。</tag>
+				<tag name="since">3.6.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="to_dict">

@@ -17,7 +17,7 @@
 |---|---|---|
 | 属性 | [`target`](#member-gfmovetweenaction-properties-target) | `var target: Node` |
 | 属性 | [`target_position`](#member-gfmovetweenaction-properties-target_position) | `var target_position: Variant` |
-| 属性 | [`duration`](#member-gfmovetweenaction-properties-duration) | `var duration: float = 0.2` |
+| 属性 | [`duration`](#member-gfmovetweenaction-properties-duration) | `var duration: float:` |
 | 属性 | [`property_name`](#member-gfmovetweenaction-properties-property_name) | `var property_name: NodePath = ^"position"` |
 | 属性 | [`transition_type`](#member-gfmovetweenaction-properties-transition_type) | `var transition_type: Tween.TransitionType = Tween.TRANS_CUBIC` |
 | 属性 | [`ease_type`](#member-gfmovetweenaction-properties-ease_type) | `var ease_type: Tween.EaseType = Tween.EASE_OUT` |
@@ -63,9 +63,10 @@ var target_position: Variant
 ### `duration`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-var duration: float = 0.2
+var duration: float:
 ```
 
 Tween 持续时间。

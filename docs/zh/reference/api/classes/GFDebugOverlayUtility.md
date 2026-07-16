@@ -24,6 +24,9 @@
 | 属性 | [`include_metric_series_panel`](#member-gfdebugoverlayutility-properties-include_metric_series_panel) | `var include_metric_series_panel: bool = true` |
 | 属性 | [`metric_series_width`](#member-gfdebugoverlayutility-properties-metric_series_width) | `var metric_series_width: int = 32` |
 | 属性 | [`max_metric_series`](#member-gfdebugoverlayutility-properties-max_metric_series) | `var max_metric_series: int = 256:` |
+| 属性 | [`max_value_collection_items`](#member-gfdebugoverlayutility-properties-max_value_collection_items) | `var max_value_collection_items: int = 32:` |
+| 属性 | [`max_value_snapshot_nodes`](#member-gfdebugoverlayutility-properties-max_value_snapshot_nodes) | `var max_value_snapshot_nodes: int = 256:` |
+| 属性 | [`max_panel_content_chars`](#member-gfdebugoverlayutility-properties-max_panel_content_chars) | `var max_panel_content_chars: int = 8192:` |
 | 属性 | [`debug_only`](#member-gfdebugoverlayutility-properties-debug_only) | `var debug_only: bool = true` |
 | 方法 | [`init`](#member-gfdebugoverlayutility-methods-init) | `func init() -> void:` |
 | 方法 | [`dispose`](#member-gfdebugoverlayutility-methods-dispose) | `func dispose() -> void:` |
@@ -33,13 +36,12 @@
 | 方法 | [`set_overlay_visible`](#member-gfdebugoverlayutility-methods-set_overlay_visible) | `func set_overlay_visible(visible: bool) -> void:` |
 | 方法 | [`is_overlay_visible`](#member-gfdebugoverlayutility-methods-is_overlay_visible) | `func is_overlay_visible() -> bool:` |
 | 方法 | [`refresh_overlay`](#member-gfdebugoverlayutility-methods-refresh_overlay) | `func refresh_overlay() -> void:` |
-| 方法 | [`watch_value`](#member-gfdebugoverlayutility-methods-watch_value) | `func watch_value(id: StringName, provider: Callable, options: Dictionary = {}) -> bool:` |
 | 方法 | [`push_watch_value`](#member-gfdebugoverlayutility-methods-push_watch_value) | `func push_watch_value(id: StringName, value: Variant, options: Dictionary = {}) -> bool:` |
 | 方法 | [`remove_watch`](#member-gfdebugoverlayutility-methods-remove_watch) | `func remove_watch(id: StringName) -> void:` |
 | 方法 | [`clear_watches`](#member-gfdebugoverlayutility-methods-clear_watches) | `func clear_watches() -> void:` |
 | 方法 | [`has_watch`](#member-gfdebugoverlayutility-methods-has_watch) | `func has_watch(id: StringName) -> bool:` |
 | 方法 | [`get_watch_snapshot`](#member-gfdebugoverlayutility-methods-get_watch_snapshot) | `func get_watch_snapshot(include_hidden: bool = false) -> Array[Dictionary]:` |
-| 方法 | [`register_panel`](#member-gfdebugoverlayutility-methods-register_panel) | `func register_panel(panel_id: StringName, provider: Callable, options: Dictionary = {}) -> bool:` |
+| 方法 | [`push_panel_content`](#member-gfdebugoverlayutility-methods-push_panel_content) | `func push_panel_content(panel_id: StringName, content: Variant, options: Dictionary = {}) -> bool:` |
 | 方法 | [`push_panel_text`](#member-gfdebugoverlayutility-methods-push_panel_text) | `func push_panel_text(panel_id: StringName, content: String, options: Dictionary = {}) -> bool:` |
 | 方法 | [`remove_panel`](#member-gfdebugoverlayutility-methods-remove_panel) | `func remove_panel(panel_id: StringName) -> void:` |
 | 方法 | [`clear_panels`](#member-gfdebugoverlayutility-methods-clear_panels) | `func clear_panels() -> void:` |
@@ -164,6 +166,45 @@ var max_metric_series: int = 256:
 ```
 
 Overlay 最多维护的指标序列数量。设为 0 表示不限制。
+
+<a id="member-gfdebugoverlayutility-properties-max_value_collection_items"></a>
+
+### `max_value_collection_items`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+var max_value_collection_items: int = 32:
+```
+
+单个推送值输出容器最多保留的元素数量。
+
+<a id="member-gfdebugoverlayutility-properties-max_value_snapshot_nodes"></a>
+
+### `max_value_snapshot_nodes`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+var max_value_snapshot_nodes: int = 256:
+```
+
+单个推送值最多编码的值节点数量。
+
+<a id="member-gfdebugoverlayutility-properties-max_panel_content_chars"></a>
+
+### `max_panel_content_chars`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+var max_panel_content_chars: int = 8192:
+```
+
+单个面板最终文本的最大字符数量。
 
 <a id="member-gfdebugoverlayutility-properties-debug_only"></a>
 
@@ -301,32 +342,6 @@ func refresh_overlay() -> void:
 
 立即刷新 Overlay GUI 文本。
 
-<a id="member-gfdebugoverlayutility-methods-watch_value"></a>
-
-### `watch_value`
-
-- API：`public`
-
-```gdscript
-func watch_value(id: StringName, provider: Callable, options: Dictionary = {}) -> bool:
-```
-
-注册一个由回调即时读取的运行时观察值。
-
-参数：
-
-| 名称 | 说明 |
-|---|---|
-| `id` | 观察值唯一标识。 |
-| `provider` | 无参数回调；Overlay 刷新时调用并显示返回值。 |
-| `options` | 可选显示参数，支持 label、group、visible。 |
-
-返回：注册成功返回 true；id 为空或 provider 无效时返回 false。
-
-结构：
-
-- `options`: Dictionary，支持 label、group 和 visible。
-
 <a id="member-gfdebugoverlayutility-methods-push_watch_value"></a>
 
 ### `push_watch_value`
@@ -428,30 +443,32 @@ func get_watch_snapshot(include_hidden: bool = false) -> Array[Dictionary]:
 
 - `return`: Array[Dictionary]，每个元素包含 id、label、group、value 和 valid。
 
-<a id="member-gfdebugoverlayutility-methods-register_panel"></a>
+<a id="member-gfdebugoverlayutility-methods-push_panel_content"></a>
 
-### `register_panel`
+### `push_panel_content`
 
 - API：`public`
+- 首次版本：`8.0.0`
 
 ```gdscript
-func register_panel(panel_id: StringName, provider: Callable, options: Dictionary = {}) -> bool:
+func push_panel_content(panel_id: StringName, content: Variant, options: Dictionary = {}) -> bool:
 ```
 
-注册一个由回调生成内容的 Overlay 面板。
+推送一个由调用方主动更新的 Overlay 面板值。
 
 参数：
 
 | 名称 | 说明 |
 |---|---|
 | `panel_id` | 面板唯一标识。 |
-| `provider` | 无参数回调；返回 String、Dictionary、Array 或其他可转字符串值。 |
+| `content` | 面板内容；Dictionary 和 Array 会按报告边界编码后格式化。 |
 | `options` | 可选显示参数，支持 label、group、visible。 |
 
 返回：注册成功返回 true。
 
 结构：
 
+- `content`: 任意 Variant 报告值；写入前由 GFReportValueCodec 编码并受 Overlay 集合、节点、深度和文本长度预算约束。
 - `options`: Dictionary，支持 label、group 和 visible。
 
 <a id="member-gfdebugoverlayutility-methods-push_panel_text"></a>

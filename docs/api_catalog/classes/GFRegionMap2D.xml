@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFRegionMap2D" path="addons/gf/standard/foundation/math/gf_region_map_2d.gd" module="standard" extends="RefCounted" classDigest="2da0ab4f57ac207464a8acd53a2b039d4d0bbe908abdf7ab800a1b07f5fe4803">
+<class name="GFRegionMap2D" path="addons/gf/standard/foundation/math/gf_region_map_2d.gd" module="standard" extends="RefCounted" classDigest="2b56912e385ee6bb45c8471652b8fa96503608c503a48d57d60074c471fd99af">
 	<description>GFRegionMap2D: 通用二维区域分块数据映射。
 按固定区域尺寸管理格子数据，并追踪发生变化的区域，适合大地图、编辑器批处理或局部保存。</description>
 	<tags>
@@ -12,10 +12,11 @@
 	<constants />
 	<properties>
 		<member kind="property" name="region_size">
-			<signature>var region_size: Vector2i = Vector2i(32, 32)</signature>
-			<description>每个区域包含的格子尺寸。</description>
+			<signature>var region_size: Vector2i = Vector2i(32, 32):</signature>
+			<description>每个区域包含的格子尺寸；运行时修改会重新索引已有格子并标记受影响区域为脏。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="duplicate_values">

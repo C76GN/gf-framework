@@ -1,0 +1,245 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFNetworkServiceDiscovery" path="addons/gf/extensions/network/session/gf_network_service_discovery.gd" module="extensions/network" extends="RefCounted" classDigest="84b279ad39880fabb2991dc4d4056afb213bd6caba407a54b4add53aacd06579">
+	<description>GFNetworkServiceDiscovery: 传输无关的网络服务发现记录器。
+负责生成服务广告字典、JSON bytes 编解码、接收入站广告并维护带 TTL 的服务列表。
+它不打开 socket、不决定广播地址，也不规定房间、账号、鉴权或同步协议。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_handle</tag>
+		<tag name="since">8.0.0</tag>
+	</tags>
+	<signals>
+		<member kind="signal" name="service_found">
+			<signature>signal service_found(service_key: String, record: Dictionary)</signature>
+			<description>首次看到某个服务 endpoint 时发出。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">service_key: 服务发现内部稳定 key。</tag>
+				<tag name="param">record: 服务记录副本。</tag>
+				<tag name="schema">record: Dictionary with service_key, service_id, endpoint, display_name, tags, metadata, ttl_seconds, first_seen_seconds, last_seen_seconds, expires_at_seconds, remote_address, remote_port, and sequence.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="signal" name="service_updated">
+			<signature>signal service_updated(service_key: String, record: Dictionary)</signature>
+			<description>已知服务 endpoint 被新广告刷新时发出。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">service_key: 服务发现内部稳定 key。</tag>
+				<tag name="param">record: 服务记录副本。</tag>
+				<tag name="schema">record: Dictionary with service_key, service_id, endpoint, display_name, tags, metadata, ttl_seconds, first_seen_seconds, last_seen_seconds, expires_at_seconds, remote_address, remote_port, and sequence.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="signal" name="service_lost">
+			<signature>signal service_lost(service_key: String, record: Dictionary, reason: String)</signature>
+			<description>服务过期、被清空或被手动移除时发出。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">service_key: 服务发现内部稳定 key。</tag>
+				<tag name="param">record: 服务记录副本。</tag>
+				<tag name="param">reason: 移除原因。</tag>
+				<tag name="schema">record: Dictionary with service_key, service_id, endpoint, display_name, tags, metadata, ttl_seconds, first_seen_seconds, last_seen_seconds, expires_at_seconds, remote_address, remote_port, and sequence.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</signals>
+	<enums />
+	<constants>
+		<member kind="const" name="MESSAGE_KIND">
+			<signature>const MESSAGE_KIND: String = "gf.service.discovery"</signature>
+			<description>服务广告消息类型标记。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="SCHEMA_VERSION">
+			<signature>const SCHEMA_VERSION: int = 1</signature>
+			<description>当前服务广告 schema 版本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties>
+		<member kind="property" name="default_ttl_seconds">
+			<signature>var default_ttl_seconds: float = 5.0:</signature>
+			<description>缺省服务广告 TTL，单位秒。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="make_advertisement">
+			<signature>func make_advertisement( service_id: StringName, endpoint: String, metadata: Dictionary = {}, options: Dictionary = {} ) -&gt; Dictionary:</signature>
+			<description>构造服务广告字典。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">service_id: 服务类型或协议标识。</tag>
+				<tag name="param">endpoint: 项目可连接的 endpoint 文本。</tag>
+				<tag name="param">metadata: 项目自定义元数据。</tag>
+				<tag name="param">options: 可选项，支持 display_name、tags、ttl_seconds、sequence 和 time_msec。</tag>
+				<tag name="return">服务广告字典。</tag>
+				<tag name="schema">metadata: Dictionary[String, Variant] copied into the advertisement without GF interpreting project fields.</tag>
+				<tag name="schema">options: Dictionary with display_name: String, tags: PackedStringArray|Array[String], ttl_seconds: float, sequence: int, and time_msec: int.</tag>
+				<tag name="schema">return: Dictionary with kind, schema_version, service_id, endpoint, display_name, tags, metadata, ttl_seconds, sequence, and time_msec.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="accept_advertisement">
+			<signature>func accept_advertisement(advertisement: Dictionary, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>接收已解码的服务广告并更新本地服务列表。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">advertisement: 服务广告字典。</tag>
+				<tag name="param">options: 可选项，支持 remote_address、remote_port 和 now_seconds。</tag>
+				<tag name="return">接收报告。</tag>
+				<tag name="schema">advertisement: Dictionary produced by make_advertisement() or decode_advertisement().</tag>
+				<tag name="schema">options: Dictionary with remote_address: String, remote_port: int, and now_seconds: float.</tag>
+				<tag name="schema">return: Dictionary with ok, status, service_key, record, error, issues, issue_count, and next_action.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="accept_packet">
+			<signature>func accept_packet( bytes: PackedByteArray, remote_address: String = "", remote_port: int = 0, options: Dictionary = {} ) -&gt; Dictionary:</signature>
+			<description>解码并接收服务广告 bytes。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">bytes: UTF-8 JSON bytes。</tag>
+				<tag name="param">remote_address: 底层传输报告的远端地址。</tag>
+				<tag name="param">remote_port: 底层传输报告的远端端口。</tag>
+				<tag name="param">options: 可选项，支持 json_codec_options、now_seconds 和广告结构预算。</tag>
+				<tag name="return">接收报告。</tag>
+				<tag name="schema">options: Dictionary with json_codec_options, now_seconds, max_advertisement_bytes, max_metadata_depth, and max_metadata_entries.</tag>
+				<tag name="schema">return: Dictionary with ok, status, service_key, record, error, issues, issue_count, and next_action.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="tick">
+			<signature>func tick(delta: float) -&gt; void:</signature>
+			<description>推进发现列表时间并移除过期服务。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">delta: 本帧时间增量，单位秒。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_service">
+			<signature>func get_service(service_key: String) -&gt; Dictionary:</signature>
+			<description>获取指定服务记录。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">service_key: 服务发现内部稳定 key。</tag>
+				<tag name="return">服务记录副本；不存在时返回空字典。</tag>
+				<tag name="schema">return: Dictionary service record or empty Dictionary.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_service_keys">
+			<signature>func get_service_keys() -&gt; PackedStringArray:</signature>
+			<description>获取当前服务 key 列表。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">排序后的服务 key。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_services">
+			<signature>func get_services(service_id: StringName = &amp;"") -&gt; Array[Dictionary]:</signature>
+			<description>获取当前服务记录列表。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">service_id: 可选服务类型过滤；为空时返回全部。</tag>
+				<tag name="return">服务记录副本数组。</tag>
+				<tag name="schema">return: Array[Dictionary] of service records.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="remove_service">
+			<signature>func remove_service(service_key: String, reason: String = "removed") -&gt; bool:</signature>
+			<description>手动移除服务记录。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">service_key: 服务发现内部稳定 key。</tag>
+				<tag name="param">reason: 移除原因。</tag>
+				<tag name="return">成功移除返回 true。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="clear_services">
+			<signature>func clear_services(reason: String = "cleared") -&gt; void:</signature>
+			<description>清空服务列表。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">reason: 移除原因。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_debug_snapshot">
+			<signature>func get_debug_snapshot() -&gt; Dictionary:</signature>
+			<description>获取调试快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">调试状态字典。</tag>
+				<tag name="schema">return: Dictionary with service_count, service_keys, default_ttl_seconds, and elapsed_seconds.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="encode_advertisement">
+			<signature>static func encode_advertisement(advertisement: Dictionary, options: Dictionary = {}) -&gt; PackedByteArray:</signature>
+			<description>编码服务广告为 UTF-8 JSON bytes。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">advertisement: 服务广告字典。</tag>
+				<tag name="param">options: 可选项，支持 json_codec_options 和广告结构预算。</tag>
+				<tag name="return">UTF-8 JSON bytes。</tag>
+				<tag name="schema">advertisement: Dictionary produced by make_advertisement().</tag>
+				<tag name="schema">options: Dictionary with json_codec_options, max_advertisement_bytes, max_metadata_depth, and max_metadata_entries.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="decode_advertisement">
+			<signature>static func decode_advertisement(bytes: PackedByteArray, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>解码 UTF-8 JSON bytes 为服务广告字典。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">bytes: UTF-8 JSON bytes。</tag>
+				<tag name="param">options: 可选项，支持 json_codec_options。</tag>
+				<tag name="return">解码报告。</tag>
+				<tag name="schema">options: Dictionary with json_codec_options: Dictionary passed to GFVariantJsonCodec.</tag>
+				<tag name="schema">return: Dictionary with ok, data, error, issues, issue_count, and next_action.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="validate_advertisement">
+			<signature>static func validate_advertisement(advertisement: Dictionary, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>校验并规范化服务广告字典。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">advertisement: 服务广告字典。</tag>
+				<tag name="param">options: 与 encode_advertisement()/decode_advertisement() 共享的结构预算。</tag>
+				<tag name="return">校验报告。</tag>
+				<tag name="schema">advertisement: Dictionary service advertisement payload.</tag>
+				<tag name="schema">options: Dictionary with max_metadata_depth and max_metadata_entries.</tag>
+				<tag name="schema">return: Dictionary with ok, data, error, issues, issue_count, and next_action.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="make_service_key">
+			<signature>static func make_service_key(service_id: StringName, endpoint: String) -&gt; String:</signature>
+			<description>生成服务发现内部稳定 key。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">service_id: 服务类型或协议标识。</tag>
+				<tag name="param">endpoint: 项目可连接的 endpoint 文本。</tag>
+				<tag name="return">服务 key。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

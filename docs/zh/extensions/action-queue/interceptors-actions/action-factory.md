@@ -4,6 +4,8 @@
 
 ## 常用动作
 
+`GFMoveTweenAction` 负责位置 Tween，`GFFlashAction` 负责短时颜色闪烁，`GFAudioAction` 负责一次音频播放；三者都遵循 ActionQueue 的统一取消和完成生命周期。
+
 ```gdscript
 q_sys.enqueue(GFMoveTweenAction.new(card_node, Vector2(400, 300), 0.25))
 q_sys.enqueue(GFFlashAction.new(card_node, Color.WHITE, 0.12))

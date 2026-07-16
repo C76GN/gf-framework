@@ -22,16 +22,26 @@
 | 常量 | [`DEFAULT_MAX_ARGUMENT_COUNT`](#member-gfsignalruntimeprobe-constants-default_max_argument_count) | `const DEFAULT_MAX_ARGUMENT_COUNT: int = _MAX_SUPPORTED_ARGUMENT_COUNT` |
 | 常量 | [`DEFAULT_MAX_WATCH_TREE_DEPTH`](#member-gfsignalruntimeprobe-constants-default_max_watch_tree_depth) | `const DEFAULT_MAX_WATCH_TREE_DEPTH: int = 64` |
 | 常量 | [`DEFAULT_MAX_WATCH_TREE_NODES`](#member-gfsignalruntimeprobe-constants-default_max_watch_tree_nodes) | `const DEFAULT_MAX_WATCH_TREE_NODES: int = 4096` |
+| 常量 | [`DEFAULT_MAX_CONTAINER_ITEMS`](#member-gfsignalruntimeprobe-constants-default_max_container_items) | `const DEFAULT_MAX_CONTAINER_ITEMS: int = 64` |
+| 常量 | [`DEFAULT_MAX_SNAPSHOT_NODES`](#member-gfsignalruntimeprobe-constants-default_max_snapshot_nodes) | `const DEFAULT_MAX_SNAPSHOT_NODES: int = 512` |
+| 常量 | [`DEFAULT_MAX_SNAPSHOT_BYTES`](#member-gfsignalruntimeprobe-constants-default_max_snapshot_bytes) | `const DEFAULT_MAX_SNAPSHOT_BYTES: int = 64 * 1024` |
+| 常量 | [`DEFAULT_MAX_SNAPSHOT_DEPTH`](#member-gfsignalruntimeprobe-constants-default_max_snapshot_depth) | `const DEFAULT_MAX_SNAPSHOT_DEPTH: int = 8` |
 | 属性 | [`max_events`](#member-gfsignalruntimeprobe-properties-max_events) | `var max_events: int = DEFAULT_MAX_EVENTS` |
 | 属性 | [`max_argument_count`](#member-gfsignalruntimeprobe-properties-max_argument_count) | `var max_argument_count: int = DEFAULT_MAX_ARGUMENT_COUNT` |
+| 属性 | [`max_container_items`](#member-gfsignalruntimeprobe-properties-max_container_items) | `var max_container_items: int = DEFAULT_MAX_CONTAINER_ITEMS:` |
+| 属性 | [`max_snapshot_nodes`](#member-gfsignalruntimeprobe-properties-max_snapshot_nodes) | `var max_snapshot_nodes: int = DEFAULT_MAX_SNAPSHOT_NODES:` |
+| 属性 | [`max_snapshot_bytes`](#member-gfsignalruntimeprobe-properties-max_snapshot_bytes) | `var max_snapshot_bytes: int = DEFAULT_MAX_SNAPSHOT_BYTES:` |
+| 属性 | [`max_snapshot_depth`](#member-gfsignalruntimeprobe-properties-max_snapshot_depth) | `var max_snapshot_depth: int = DEFAULT_MAX_SNAPSHOT_DEPTH:` |
 | 方法 | [`watch_node`](#member-gfsignalruntimeprobe-methods-watch_node) | `func watch_node(source: Node, options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`watch_tree`](#member-gfsignalruntimeprobe-methods-watch_tree) | `func watch_tree(root: Node, options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`unwatch_node`](#member-gfsignalruntimeprobe-methods-unwatch_node) | `func unwatch_node(source: Node) -> int:` |
 | 方法 | [`unwatch_all`](#member-gfsignalruntimeprobe-methods-unwatch_all) | `func unwatch_all() -> int:` |
 | 方法 | [`clear_events`](#member-gfsignalruntimeprobe-methods-clear_events) | `func clear_events() -> void:` |
 | 方法 | [`get_events`](#member-gfsignalruntimeprobe-methods-get_events) | `func get_events() -> Array[Dictionary]:` |
+| 方法 | [`get_json_compatible_events`](#member-gfsignalruntimeprobe-methods-get_json_compatible_events) | `func get_json_compatible_events(options: Dictionary = {}) -> Array[Dictionary]:` |
 | 方法 | [`get_watch_count`](#member-gfsignalruntimeprobe-methods-get_watch_count) | `func get_watch_count() -> int:` |
 | 方法 | [`get_debug_snapshot`](#member-gfsignalruntimeprobe-methods-get_debug_snapshot) | `func get_debug_snapshot() -> Dictionary:` |
+| 方法 | [`get_json_compatible_debug_snapshot`](#member-gfsignalruntimeprobe-methods-get_json_compatible_debug_snapshot) | `func get_json_compatible_debug_snapshot(options: Dictionary = {}) -> Dictionary:` |
 
 ## 信号
 
@@ -145,6 +155,58 @@ const DEFAULT_MAX_WATCH_TREE_NODES: int = 4096
 
 默认递归监听节点树数量上限。
 
+<a id="member-gfsignalruntimeprobe-constants-default_max_container_items"></a>
+
+### `DEFAULT_MAX_CONTAINER_ITEMS`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+const DEFAULT_MAX_CONTAINER_ITEMS: int = 64
+```
+
+单个容器参数默认最多保留的元素数量。
+
+<a id="member-gfsignalruntimeprobe-constants-default_max_snapshot_nodes"></a>
+
+### `DEFAULT_MAX_SNAPSHOT_NODES`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+const DEFAULT_MAX_SNAPSHOT_NODES: int = 512
+```
+
+单次信号事件参数快照默认最多访问的值节点数量。
+
+<a id="member-gfsignalruntimeprobe-constants-default_max_snapshot_bytes"></a>
+
+### `DEFAULT_MAX_SNAPSHOT_BYTES`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+const DEFAULT_MAX_SNAPSHOT_BYTES: int = 64 * 1024
+```
+
+单次信号事件参数快照默认最多保留的估算 UTF-8 字节数。
+
+<a id="member-gfsignalruntimeprobe-constants-default_max_snapshot_depth"></a>
+
+### `DEFAULT_MAX_SNAPSHOT_DEPTH`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+const DEFAULT_MAX_SNAPSHOT_DEPTH: int = 8
+```
+
+单次信号事件参数快照默认最大递归深度。
+
 ## 属性
 
 <a id="member-gfsignalruntimeprobe-properties-max_events"></a>
@@ -170,6 +232,58 @@ var max_argument_count: int = DEFAULT_MAX_ARGUMENT_COUNT
 ```
 
 单个信号最多支持追踪的参数数量。
+
+<a id="member-gfsignalruntimeprobe-properties-max_container_items"></a>
+
+### `max_container_items`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+var max_container_items: int = DEFAULT_MAX_CONTAINER_ITEMS:
+```
+
+单个 Array、Dictionary 或 PackedArray 最多保留的元素数量。
+
+<a id="member-gfsignalruntimeprobe-properties-max_snapshot_nodes"></a>
+
+### `max_snapshot_nodes`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+var max_snapshot_nodes: int = DEFAULT_MAX_SNAPSHOT_NODES:
+```
+
+单次事件参数快照最多访问的值节点数量。
+
+<a id="member-gfsignalruntimeprobe-properties-max_snapshot_bytes"></a>
+
+### `max_snapshot_bytes`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+var max_snapshot_bytes: int = DEFAULT_MAX_SNAPSHOT_BYTES:
+```
+
+单次事件参数快照最多保留的估算 UTF-8 字节数。
+
+<a id="member-gfsignalruntimeprobe-properties-max_snapshot_depth"></a>
+
+### `max_snapshot_depth`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+var max_snapshot_depth: int = DEFAULT_MAX_SNAPSHOT_DEPTH:
+```
+
+单次事件参数快照最大递归深度。
 
 ## 方法
 
@@ -289,6 +403,32 @@ func get_events() -> Array[Dictionary]:
 
 - `return`: Array[Dictionary]，每个元素包含 timestamp_msec、process_frame、physics_frame、source_instance_id、source_node_path、signal_name、argument_count、arguments 和 connections。
 
+<a id="member-gfsignalruntimeprobe-methods-get_json_compatible_events"></a>
+
+### `get_json_compatible_events`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func get_json_compatible_events(options: Dictionary = {}) -> Array[Dictionary]:
+```
+
+获取 JSON-safe 最近事件副本。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `options` | 传给 GFReportValueCodec 的编码选项；路径字段默认脱敏。 |
+
+返回：JSON-safe 事件快照数组。
+
+结构：
+
+- `options`: Dictionary with GFReportValueCodec options.
+- `return`: Array[Dictionary]，每个元素为已脱敏且可 JSON.stringify() 的信号事件。
+
 <a id="member-gfsignalruntimeprobe-methods-get_watch_count"></a>
 
 ### `get_watch_count`
@@ -320,3 +460,29 @@ func get_debug_snapshot() -> Dictionary:
 结构：
 
 - `return`: Dictionary，包含 watch_count、event_count、max_events、max_argument_count 和 watches。
+
+<a id="member-gfsignalruntimeprobe-methods-get_json_compatible_debug_snapshot"></a>
+
+### `get_json_compatible_debug_snapshot`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func get_json_compatible_debug_snapshot(options: Dictionary = {}) -> Dictionary:
+```
+
+获取 JSON-safe 调试快照。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `options` | 传给 GFReportValueCodec 的编码选项；路径字段默认脱敏。 |
+
+返回：JSON-safe 调试快照。
+
+结构：
+
+- `options`: Dictionary with GFReportValueCodec options.
+- `return`: Dictionary，包含已脱敏且可 JSON.stringify() 的 watch_count、event_count、max_events、max_argument_count 和 watches。

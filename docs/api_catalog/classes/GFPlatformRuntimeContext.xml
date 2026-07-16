@@ -1,0 +1,265 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFPlatformRuntimeContext" path="addons/gf/standard/foundation/platform/gf_platform_runtime_context.gd" module="standard" extends="Resource" classDigest="a8c5624e989d86165f3171ae45b0ec66dc47abaa821a6a6d222a1527c6bc00c0">
+	<description>GFPlatformRuntimeContext: 平台运行时上下文。
+聚合平台标识、adapter 标识、能力集合、显示信息、存储根和启动参数。该资源只
+记录 adapter 提供的事实，不调用 SDK、不执行登录、不创建网络连接。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">resource_definition</tag>
+		<tag name="since">8.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties>
+		<member kind="property" name="platform_id" decorators="@export">
+			<signature>var platform_id: StringName = &amp;""</signature>
+			<description>平台标识。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="adapter_id" decorators="@export">
+			<signature>var adapter_id: StringName = &amp;""</signature>
+			<description>Adapter 标识。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="display_name" decorators="@export">
+			<signature>var display_name: String = ""</signature>
+			<description>平台展示名。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="capabilities" decorators="@export">
+			<signature>var capabilities: GFPlatformCapabilitySet = GFPlatformCapabilitySet.new()</signature>
+			<description>能力集合。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="locale" decorators="@export">
+			<signature>var locale: String = ""</signature>
+			<description>Godot locale。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="fallback_locale" decorators="@export">
+			<signature>var fallback_locale: String = ""</signature>
+			<description>fallback Godot locale。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="pixel_ratio" decorators="@export">
+			<signature>var pixel_ratio: float = 1.0</signature>
+			<description>平台像素比。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="window_size" decorators="@export">
+			<signature>var window_size: Vector2i = Vector2i.ZERO</signature>
+			<description>逻辑窗口尺寸。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="screen_size" decorators="@export">
+			<signature>var screen_size: Vector2i = Vector2i.ZERO</signature>
+			<description>物理屏幕尺寸。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="safe_area" decorators="@export">
+			<signature>var safe_area: Rect2i = Rect2i()</signature>
+			<description>平台安全区域。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="storage_roots" decorators="@export">
+			<signature>var storage_roots: Dictionary = {}</signature>
+			<description>逻辑存储根映射。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">storage_roots: Dictionary[String, String]，key 为逻辑 root_id。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="launch_options" decorators="@export">
+			<signature>var launch_options: Dictionary = {}</signature>
+			<description>启动参数。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">launch_options: Dictionary adapter-defined launch options.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="metadata" decorators="@export">
+			<signature>var metadata: Dictionary = {}</signature>
+			<description>调用方元数据。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">metadata: Dictionary caller-defined runtime metadata.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="configure">
+			<signature>func configure(p_platform_id: StringName, options: Dictionary = {}) -&gt; GFPlatformRuntimeContext:</signature>
+			<description>配置运行时上下文。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">p_platform_id: 平台标识。</tag>
+				<tag name="param">options: 上下文选项。</tag>
+				<tag name="return">当前上下文。</tag>
+				<tag name="schema">options: Dictionary，可包含 adapter_id、display_name、locale、fallback_locale、capabilities、capability_ids、window_size、screen_size、safe_area、pixel_ratio、storage_roots、launch_options 和 metadata。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="set_capabilities">
+			<signature>func set_capabilities(p_capabilities: GFPlatformCapabilitySet) -&gt; GFPlatformRuntimeContext:</signature>
+			<description>设置能力集合。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">p_capabilities: 能力集合。</tag>
+				<tag name="return">当前上下文。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="add_capability">
+			<signature>func add_capability(capability_id: StringName, capability_limits: Dictionary = {}) -&gt; bool:</signature>
+			<description>添加能力。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">capability_id: 能力 ID。</tag>
+				<tag name="param">capability_limits: 能力限制字段。</tag>
+				<tag name="return">成功添加或已存在时返回 true。</tag>
+				<tag name="schema">capability_limits: Dictionary capability limits.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="has_capability">
+			<signature>func has_capability(capability_id: StringName) -&gt; bool:</signature>
+			<description>检查能力是否存在。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">capability_id: 能力 ID。</tag>
+				<tag name="return">存在返回 true。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="set_window_info">
+			<signature>func set_window_info( p_window_size: Vector2i, p_screen_size: Vector2i = Vector2i.ZERO, p_pixel_ratio: float = 1.0, p_safe_area: Rect2i = Rect2i() ) -&gt; GFPlatformRuntimeContext:</signature>
+			<description>设置窗口与显示信息。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">p_window_size: 逻辑窗口尺寸。</tag>
+				<tag name="param">p_screen_size: 物理屏幕尺寸。</tag>
+				<tag name="param">p_pixel_ratio: 平台像素比。</tag>
+				<tag name="param">p_safe_area: 平台安全区域。</tag>
+				<tag name="return">当前上下文。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="set_storage_root">
+			<signature>func set_storage_root(root_id: StringName, root_path: String) -&gt; bool:</signature>
+			<description>设置逻辑存储根路径。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">root_id: 逻辑 root ID。</tag>
+				<tag name="param">root_path: 平台路径。</tag>
+				<tag name="return">写入成功返回 true。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_storage_root">
+			<signature>func get_storage_root(root_id: StringName, default_value: String = "") -&gt; String:</signature>
+			<description>读取逻辑存储根路径。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">root_id: 逻辑 root ID。</tag>
+				<tag name="param">default_value: 缺失时返回的默认路径。</tag>
+				<tag name="return">平台路径。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="erase_storage_root">
+			<signature>func erase_storage_root(root_id: StringName) -&gt; bool:</signature>
+			<description>移除逻辑存储根路径。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">root_id: 逻辑 root ID。</tag>
+				<tag name="return">找到并移除时返回 true。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="make_compatibility_profile">
+			<signature>func make_compatibility_profile(profile_id: StringName = &amp;"") -&gt; GFCompatibilityProfile:</signature>
+			<description>创建兼容性 Profile。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">profile_id: Profile ID；为空时使用 platform_id。</tag>
+				<tag name="return">兼容性 Profile。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="to_dict">
+			<signature>func to_dict() -&gt; Dictionary:</signature>
+			<description>转换为字典。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">平台上下文字典。</tag>
+				<tag name="schema">return: Dictionary platform runtime context.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="apply_dict">
+			<signature>func apply_dict(data: Dictionary) -&gt; void:</signature>
+			<description>从字典应用平台上下文字段。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">data: 平台上下文字典。</tag>
+				<tag name="schema">data: Dictionary platform runtime context.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="duplicate_context">
+			<signature>func duplicate_context() -&gt; GFPlatformRuntimeContext:</signature>
+			<description>创建运行时上下文深拷贝。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">新运行时上下文。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="from_dict">
+			<signature>static func from_dict(data: Dictionary) -&gt; GFPlatformRuntimeContext:</signature>
+			<description>从字典创建运行时上下文。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">data: 平台上下文字典。</tag>
+				<tag name="return">新运行时上下文。</tag>
+				<tag name="schema">data: Dictionary platform runtime context.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

@@ -12,6 +12,12 @@ class_name GFInputConflictAnalyzer
 extends RefCounted
 
 
+# --- 常量 ---
+
+const _INPUT_EVENT_TOOLS = preload("res://addons/gf/standard/input/common/gf_input_event_tools.gd")
+const _INPUT_EVENT_IDENTITY = preload("res://addons/gf/standard/input/common/gf_input_event_identity.gd")
+
+
 # --- 公共方法 ---
 
 ## 分析单个上下文内的绑定冲突。
@@ -103,6 +109,8 @@ static func build_rebind_report(
 ## [br]
 ## @api public
 ## [br]
+## @since 8.0.0
+## [br]
 ## @param contexts: 输入上下文列表。
 ## [br]
 ## @param remap_config: 可选重映射配置。
@@ -111,7 +119,7 @@ static func build_rebind_report(
 ## [br]
 ## @schema contexts: Array[GFInputContext] of contexts to inspect.
 ## [br]
-## @schema return: Array，包含 item Dictionary 记录，字段包括 context/action/binding id、event、event_text、event_key、signature、device_scope 和 match_device。
+## @schema return: Array，包含 item Dictionary 记录，字段包括 context/action/binding id、event_record、event_text、event_key、signature、device_scope 和 match_device。
 ## [br]
 ## @return 绑定条目列表。
 static func collect_binding_items(
@@ -207,12 +215,12 @@ static func _collect_context_binding_items(
 				continue
 
 			items.append({
-				"context_id": context_id,
+				"context_id": String(context_id),
 				"context_name": context.get_display_name(),
-				"action_id": action_id,
+				"action_id": String(action_id),
 				"action_name": mapping.get_display_name(),
 				"binding_index": binding_index,
-				"event": event,
+				"event_record": _INPUT_EVENT_TOOLS.input_event_to_record(event),
 				"event_text": GFInputFormatter.input_event_as_text(event),
 				"event_key": event_key,
 				"signature": "%s@%s" % [event_key, _get_device_scope(event, binding.match_device)],
@@ -223,15 +231,29 @@ static func _collect_context_binding_items(
 
 static func _analyze_items(items: Array[Dictionary], include_cross_context: bool) -> Array[Dictionary]:
 	var conflicts: Array[Dictionary] = []
-	for left_index: int in range(items.size()):
-		var left: Dictionary = items[left_index]
-		for right_index: int in range(left_index + 1, items.size()):
-			var right: Dictionary = items[right_index]
-			if not include_cross_context and _get_item_context_id(left) != _get_item_context_id(right):
-				continue
-			if not _items_conflict(left, right):
-				continue
-			conflicts.append(_make_conflict(left, right))
+	var buckets: Dictionary = {}
+	var bucket_order: PackedStringArray = PackedStringArray()
+	for item: Dictionary in items:
+		var bucket_key: String = _make_item_bucket_key(item, include_cross_context)
+		if bucket_key.is_empty():
+			continue
+		if not buckets.has(bucket_key):
+			buckets[bucket_key] = []
+			var _append_bucket_result: bool = bucket_order.append(bucket_key)
+		var bucket_value: Variant = buckets[bucket_key]
+		if bucket_value is Array:
+			var bucket_items: Array = bucket_value
+			bucket_items.append(item)
+
+	for bucket_key: String in bucket_order:
+		var bucket_items: Array = GFVariantData.get_option_array(buckets, bucket_key)
+		for left_index: int in range(bucket_items.size()):
+			var left: Dictionary = GFVariantData.as_dictionary(bucket_items[left_index])
+			for right_index: int in range(left_index + 1, bucket_items.size()):
+				var right: Dictionary = GFVariantData.as_dictionary(bucket_items[right_index])
+				if not _items_conflict(left, right):
+					continue
+				conflicts.append(_make_conflict(left, right))
 	return conflicts
 
 
@@ -254,11 +276,11 @@ static func _items_conflict(left: Dictionary, right: Dictionary) -> bool:
 
 static func _make_conflict(left: Dictionary, right: Dictionary) -> Dictionary:
 	return {
-		"context_id": _get_item_context_id(left),
-		"action_id": _get_item_action_id(left),
+		"context_id": String(_get_item_context_id(left)),
+		"action_id": String(_get_item_action_id(left)),
 		"binding_index": _get_item_binding_index(left),
-		"other_context_id": _get_item_context_id(right),
-		"other_action_id": _get_item_action_id(right),
+		"other_context_id": String(_get_item_context_id(right)),
+		"other_action_id": String(_get_item_action_id(right)),
 		"other_binding_index": _get_item_binding_index(right),
 		"event_text": _get_item_event_text(left),
 		"signature": _get_item_signature(left),
@@ -295,67 +317,26 @@ static func _get_item_signature(item: Dictionary) -> String:
 
 
 static func _get_event_key(input_event: InputEvent) -> String:
-	if input_event == null:
-		return ""
-
-	if input_event is InputEventAction:
-		var action_event: InputEventAction = input_event
-		return "action:%s" % String(action_event.action)
-
-	if input_event is InputEventKey:
-		var key_event: InputEventKey = input_event
-		var keycode: int = key_event.physical_keycode
-		if keycode == KEY_NONE:
-			keycode = key_event.keycode
-		return "key:%d:%d:%d:%d:%d" % [
-			int(keycode),
-			1 if key_event.ctrl_pressed else 0,
-			1 if key_event.alt_pressed else 0,
-			1 if key_event.shift_pressed else 0,
-			1 if key_event.meta_pressed else 0,
-		]
-
-	if input_event is InputEventMouseButton:
-		var mouse_button_event: InputEventMouseButton = input_event
-		return "mouse_button:%d" % int(mouse_button_event.button_index)
-
-	if input_event is InputEventJoypadButton:
-		var joypad_button_event: InputEventJoypadButton = input_event
-		return "joy_button:%d" % int(joypad_button_event.button_index)
-
-	if input_event is InputEventJoypadMotion:
-		var joypad_motion_event: InputEventJoypadMotion = input_event
-		return _make_joy_axis_event_key(
-			joypad_motion_event.axis,
-			_get_joy_axis_direction_for_value(joypad_motion_event.axis_value)
-		)
-
-	if input_event is InputEventScreenTouch:
-		return "screen_touch"
-
-	return "event:%s" % input_event.as_text()
+	var identity: GFInputEventIdentity = _INPUT_EVENT_IDENTITY.from_event(input_event)
+	return identity.conflict_key
 
 
 static func _get_binding_event_key(input_event: InputEvent, binding: GFInputBinding) -> String:
 	if input_event is InputEventJoypadMotion:
-		var joypad_motion_event: InputEventJoypadMotion = input_event
-		return _make_joy_axis_event_key(
-			joypad_motion_event.axis,
-			_get_joy_axis_direction_for_binding(binding)
-		)
+		var identity: GFInputEventIdentity = _INPUT_EVENT_IDENTITY.from_event(input_event, {
+			&"joy_axis_sign": _get_joy_axis_sign_for_binding(binding),
+		})
+		return identity.conflict_key
 	return _get_event_key(input_event)
 
 
-static func _make_joy_axis_event_key(axis: JoyAxis, direction: String) -> String:
-	return "joy_axis:%d:%s" % [int(axis), direction]
-
-
-static func _get_joy_axis_direction_for_value(axis_value: float) -> String:
-	if axis_value > 0.0:
-		return "+"
-	if axis_value < 0.0:
-		return "-"
-	return "*"
+static func _get_joy_axis_sign_for_binding(binding: GFInputBinding) -> int:
+	var direction: String = _get_joy_axis_direction_for_binding(binding)
+	if direction == "+":
+		return 1
+	if direction == "-":
+		return -1
+	return 0
 
 
 static func _get_joy_axis_direction_for_binding(binding: GFInputBinding) -> String:
@@ -395,6 +376,25 @@ static func _event_keys_conflict(left_key: String, right_key: String) -> bool:
 	if left_parts[1] != right_parts[1]:
 		return false
 	return left_parts[2] == "*" or right_parts[2] == "*"
+
+
+static func _make_item_bucket_key(item: Dictionary, include_cross_context: bool) -> String:
+	var event_key: String = _get_item_event_key(item)
+	if event_key.is_empty():
+		return ""
+	var bucket_key: String = _make_event_bucket_key(event_key)
+	if not include_cross_context:
+		bucket_key = "%s@%s" % [_get_item_context_id(item), bucket_key]
+	return bucket_key
+
+
+static func _make_event_bucket_key(event_key: String) -> String:
+	if not event_key.begins_with("joy_axis:"):
+		return event_key
+	var parts: PackedStringArray = event_key.split(":")
+	if parts.size() < 2:
+		return event_key
+	return "joy_axis:%s" % parts[1]
 
 
 static func _get_device_scope(input_event: InputEvent, match_device: bool) -> String:

@@ -16,6 +16,8 @@ extends RefCounted
 ## 当前交互上下文。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 var context: GFInteractionContext
 
 
@@ -45,6 +47,8 @@ func inject_dependencies(architecture: GFArchitecture) -> void:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param target: 交互目标对象。
 ## [br]
 ## @return: 当前交互流程。
@@ -56,6 +60,8 @@ func to(target: Object) -> GFInteractionFlow:
 ## 设置交互 payload。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @param payload: 随事件或交互传递的数据。
 ## [br]
@@ -71,6 +77,8 @@ func with_payload(payload: Variant) -> GFInteractionFlow:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param group_name: 项目自定义分组名称。
 ## [br]
 ## @return: 当前交互流程。
@@ -82,6 +90,8 @@ func in_group(group_name: StringName) -> GFInteractionFlow:
 ## 执行命令。命令可通过 interaction_context 属性或 set_interaction_context(context) 接收上下文。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @param command: 要执行的命令实例。
 ## [br]
@@ -105,6 +115,8 @@ func execute(command: Object) -> Variant:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param event_instance: 要派发的事件实例。
 func send_event(event_instance: Object) -> void:
 	if event_instance == null:
@@ -122,7 +134,7 @@ func _apply_context(instance: Object) -> void:
 	if instance == null or context == null:
 		return
 
-	if instance.has_method("set_interaction_context"):
+	if _can_call_set_interaction_context(instance):
 		instance.call("set_interaction_context", context)
 	elif _has_property(instance, &"interaction_context"):
 		instance.set("interaction_context", context)
@@ -148,3 +160,22 @@ func _has_property(instance: Object, property_name: StringName) -> bool:
 		if StringName(GFVariantData.get_option_string(property_info, "name")) == property_name:
 			return true
 	return false
+
+
+func _can_call_set_interaction_context(instance: Object) -> bool:
+	if instance == null or not instance.has_method("set_interaction_context"):
+		return false
+	for method_info: Dictionary in instance.get_method_list():
+		if StringName(GFVariantData.get_option_string(method_info, "name")) != &"set_interaction_context":
+			continue
+		return _method_accepts_argument_count(method_info, 1)
+	return false
+
+
+func _method_accepts_argument_count(method_info: Dictionary, argument_count: int) -> bool:
+	var arguments: Array = GFVariantData.get_option_array(method_info, "args")
+	var default_arguments: Array = GFVariantData.get_option_array(method_info, "default_args")
+	var required_count: int = maxi(arguments.size() - default_arguments.size(), 0)
+	var method_flags: int = GFVariantData.get_option_int(method_info, "flags", 0)
+	var accepts_varargs: bool = (method_flags & METHOD_FLAG_VARARG) != 0
+	return required_count <= argument_count and (argument_count <= arguments.size() or accepts_varargs)

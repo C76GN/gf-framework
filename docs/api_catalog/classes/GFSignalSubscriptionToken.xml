@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFSignalSubscriptionToken" path="addons/gf/kernel/core/gf_signal_subscription_token.gd" module="kernel" extends="GFSubscriptionToken" classDigest="d2e85a6ebc7137b467604317c17e1593f827f19ef4fb6496c3e69858d977851f">
+	<description>GFSignalSubscriptionToken: 管理 Godot Signal 连接的订阅句柄。
+该句柄把 Signal 连接视为需要显式释放的资源；调用 cancel() 会幂等断开连接。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_handle</tag>
+		<tag name="layer">kernel/core</tag>
+		<tag name="since">8.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties />
+	<methods>
+		<member kind="method" name="_init">
+			<signature>func _init( source_signal: Signal = Signal(), callback: Callable = Callable(), flags: int = 0, debug_label: String = "" ) -&gt; void:</signature>
+			<description>构造函数。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">source_signal: 要连接的 Godot Signal。</tag>
+				<tag name="param">callback: Signal 触发时调用的回调。</tag>
+				<tag name="param">flags: Godot Signal 连接标记。</tag>
+				<tag name="param">debug_label: 可选诊断标签。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="connect_owned">
+			<signature>static func connect_owned( source_signal: Signal, owner: Object, callback: Callable, flags: int = 0, debug_label: String = "" ) -&gt; GFLifetimeSubscription:</signature>
+			<description>创建绑定 owner 生命周期的 Signal 订阅。
+owner 为 Node 时，节点退出场景树会自动取消订阅；其他 Object owner 仍可通过返回的句柄手动取消。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">source_signal: 要连接的 Godot Signal。</tag>
+				<tag name="param">owner: 订阅生命周期 owner。</tag>
+				<tag name="param">callback: Signal 触发时调用的回调。</tag>
+				<tag name="param">flags: Godot Signal 连接标记。</tag>
+				<tag name="param">debug_label: 可选诊断标签。</tag>
+				<tag name="return">绑定 owner 生命周期的订阅句柄；参数无效或连接失败时返回非活动句柄。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_source_id">
+			<signature>func get_source_id() -&gt; int:</signature>
+			<description>返回 Signal 来源对象实例 ID；无有效来源时为 0。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">Signal 来源对象实例 ID。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_signal_name">
+			<signature>func get_signal_name() -&gt; StringName:</signature>
+			<description>返回 Signal 名称；无有效来源时为空。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">Signal 名称。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

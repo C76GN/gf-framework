@@ -65,7 +65,7 @@ func add_value(domain: StringName, value: Variant) -> GFQuerySignature:
 
 结构：
 
-- `value`: Variant condition value encoded with typeof() and var_to_str().
+- `value`: Variant condition value accepted by GFVariantKeyCodec.
 
 <a id="member-gfquerysignature-methods-add_values"></a>
 

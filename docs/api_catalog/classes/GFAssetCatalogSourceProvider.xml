@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFAssetCatalogSourceProvider" path="addons/gf/standard/utilities/assets/gf_asset_catalog_source_provider.gd" module="standard" extends="RefCounted" classDigest="4523b5e0a78d84555d9e7206409cbf1ea50ade5e930e66beee458e871885b3ee">
+	<description>GFAssetCatalogSourceProvider: 资产目录来源 provider 基类。
+项目、工具或扩展可以继承该类，把文件夹扫描、资源注册表、内容包、外部库
+或自定义数据库转换为 `GFAssetCatalog`。Provider 只贡献可重建的索引数据，
+不负责素材库 UI、下载、导出或项目业务解释。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">protocol</tag>
+		<tag name="since">8.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties>
+		<member kind="property" name="source_id">
+			<signature>var source_id: StringName = &amp;""</signature>
+			<description>来源稳定 ID。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="priority">
+			<signature>var priority: int = 0</signature>
+			<description>来源优先级。数值越大越先合并；同 ID 条目默认被高优先级来源覆盖。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="configure">
+			<signature>func configure(p_source_id: StringName, options: Dictionary = {}) -&gt; GFAssetCatalogSourceProvider:</signature>
+			<description>配置来源 provider 并返回自身。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">p_source_id: 来源稳定 ID。</tag>
+				<tag name="param">options: 可选项，支持 priority。</tag>
+				<tag name="return">当前 provider。</tag>
+				<tag name="schema">options: Dictionary with optional priority: int.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_source_id">
+			<signature>func get_source_id() -&gt; StringName:</signature>
+			<description>获取来源 ID。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">来源稳定 ID。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_priority">
+			<signature>func get_priority() -&gt; int:</signature>
+			<description>获取来源优先级。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">来源优先级。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="build_catalog">
+			<signature>func build_catalog(options: Dictionary = {}) -&gt; GFAssetCatalog:</signature>
+			<description>构建资产目录。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">options: provider 自定义选项；GF 不解释字段。</tag>
+				<tag name="return">来源导出的资产目录。</tag>
+				<tag name="schema">options: Dictionary with provider-defined fields.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_debug_snapshot">
+			<signature>func get_debug_snapshot() -&gt; Dictionary:</signature>
+			<description>获取来源诊断快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">来源诊断字典。</tag>
+				<tag name="schema">return: Dictionary with source_id, priority, and provider_class.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

@@ -11,6 +11,11 @@ class_name GFTweenActionStep
 extends Resource
 
 
+# --- 常量 ---
+
+const _ACTION_TIME_POLICY = preload("res://addons/gf/extensions/action_queue/core/gf_action_time_policy.gd")
+
+
 # --- 导出变量 ---
 
 ## 要缓动的属性路径。
@@ -28,12 +33,24 @@ extends Resource
 ## 步骤持续时间。
 ## [br]
 ## @api public
-@export var duration: float = 0.2
+## [br]
+## @since 3.17.0
+@export var duration: float:
+	get:
+		return _duration
+	set(value):
+		_duration = _ACTION_TIME_POLICY.sanitize_non_negative_seconds(value)
 
 ## 步骤延迟。
 ## [br]
 ## @api public
-@export var delay: float = 0.0
+## [br]
+## @since 3.17.0
+@export var delay: float:
+	get:
+		return _delay
+	set(value):
+		_delay = _ACTION_TIME_POLICY.sanitize_non_negative_seconds(value)
 
 ## 是否相对当前值偏移。
 ## [br]
@@ -59,6 +76,12 @@ extends Resource
 ## [br]
 ## @api public
 @export var marker_id: StringName = &""
+
+
+# --- 私有变量 ---
+
+var _duration: float = 0.2
+var _delay: float = 0.0
 
 
 # --- 公共方法 ---
@@ -87,9 +110,13 @@ func append_to_tween(tween: Tween, target: Object, duration_scale: float = 1.0) 
 	if parallel:
 		var _parallel_result_88: Variant = tween.parallel()
 
-	var effective_scale: float = maxf(duration_scale, 0.0)
-	var effective_duration: float = maxf(duration * effective_scale, 0.0)
-	var effective_delay: float = maxf(delay * effective_scale, 0.0)
+	var effective_scale: float = _ACTION_TIME_POLICY.sanitize_non_negative_seconds(duration_scale)
+	var effective_duration: float = _ACTION_TIME_POLICY.sanitize_non_negative_seconds(
+		duration * effective_scale
+	)
+	var effective_delay: float = _ACTION_TIME_POLICY.sanitize_non_negative_seconds(
+		delay * effective_scale
+	)
 	var tweener: PropertyTweener = tween.tween_property(target, property_name, target_value, effective_duration)
 	var _set_ease_result_94: Variant = tweener.set_trans(transition_type).set_ease(ease_type)
 	if effective_delay > 0.0:
@@ -123,7 +150,7 @@ func apply_instant(target: Object) -> void:
 func duplicate_step() -> GFTweenActionStep:
 	var step: GFTweenActionStep = GFTweenActionStep.new()
 	step.property_name = property_name
-	step.target_value = target_value
+	step.target_value = GFVariantData.duplicate_variant(target_value)
 	step.duration = duration
 	step.delay = delay
 	step.as_relative = as_relative

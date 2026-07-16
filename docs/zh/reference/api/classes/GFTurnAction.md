@@ -15,15 +15,17 @@
 
 | 类型 | 名称 | 签名 |
 |---|---|---|
-| 属性 | [`action_id`](#member-gfturnaction-properties-action_id) | `var action_id: StringName = &""` |
-| 属性 | [`actor`](#member-gfturnaction-properties-actor) | `var actor: Object = null` |
-| 属性 | [`targets`](#member-gfturnaction-properties-targets) | `var targets: Array[Object] = []` |
-| 属性 | [`payload`](#member-gfturnaction-properties-payload) | `var payload: Variant = null` |
-| 属性 | [`priority`](#member-gfturnaction-properties-priority) | `var priority: int = 0` |
-| 属性 | [`sort_value`](#member-gfturnaction-properties-sort_value) | `var sort_value: float = 0.0` |
-| 属性 | [`is_cancelled`](#member-gfturnaction-properties-is_cancelled) | `var is_cancelled: bool = false` |
+| 属性 | [`action_id`](#member-gfturnaction-properties-action_id) | `var action_id: StringName:` |
+| 属性 | [`actor`](#member-gfturnaction-properties-actor) | `var actor: Object:` |
+| 属性 | [`targets`](#member-gfturnaction-properties-targets) | `var targets: Array[Object]:` |
+| 属性 | [`payload`](#member-gfturnaction-properties-payload) | `var payload: Variant:` |
+| 属性 | [`priority`](#member-gfturnaction-properties-priority) | `var priority: int:` |
+| 属性 | [`sort_value`](#member-gfturnaction-properties-sort_value) | `var sort_value: float:` |
+| 属性 | [`is_cancelled`](#member-gfturnaction-properties-is_cancelled) | `var is_cancelled: bool:` |
 | 方法 | [`cancel`](#member-gfturnaction-methods-cancel) | `func cancel() -> void:` |
+| 方法 | [`is_sealed`](#member-gfturnaction-methods-is_sealed) | `func is_sealed() -> bool:` |
 | 方法 | [`_resolve`](#member-gfturnaction-methods-_resolve) | `func _resolve(_context: GFTurnContext) -> Variant:` |
+| 方法 | [`_inject_dependencies`](#member-gfturnaction-methods-_inject_dependencies) | `func _inject_dependencies(_architecture: GFArchitecture) -> void:` |
 
 ## 属性
 
@@ -32,9 +34,10 @@
 ### `action_id`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-var action_id: StringName = &""
+var action_id: StringName:
 ```
 
 行动标识。
@@ -44,9 +47,10 @@ var action_id: StringName = &""
 ### `actor`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-var actor: Object = null
+var actor: Object:
 ```
 
 行动发起者。
@@ -56,9 +60,10 @@ var actor: Object = null
 ### `targets`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-var targets: Array[Object] = []
+var targets: Array[Object]:
 ```
 
 行动目标列表。
@@ -68,9 +73,10 @@ var targets: Array[Object] = []
 ### `payload`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-var payload: Variant = null
+var payload: Variant:
 ```
 
 行动载荷，框架只存储并传递，不解释其结构。
@@ -84,9 +90,10 @@ var payload: Variant = null
 ### `priority`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-var priority: int = 0
+var priority: int:
 ```
 
 主排序优先级，值越大越先处理。
@@ -96,9 +103,10 @@ var priority: int = 0
 ### `sort_value`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-var sort_value: float = 0.0
+var sort_value: float:
 ```
 
 次排序值，值越大越先处理。
@@ -108,9 +116,10 @@ var sort_value: float = 0.0
 ### `is_cancelled`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-var is_cancelled: bool = false
+var is_cancelled: bool:
 ```
 
 是否已取消。
@@ -129,11 +138,27 @@ func cancel() -> void:
 
 取消行动。
 
+<a id="member-gfturnaction-methods-is_sealed"></a>
+
+### `is_sealed`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func is_sealed() -> bool:
+```
+
+查询行动是否已完成或被丢弃。
+
+返回：已离开所属队列且不可再次使用时返回 true。
+
 <a id="member-gfturnaction-methods-_resolve"></a>
 
 ### `_resolve`
 
 - API：`protected`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func _resolve(_context: GFTurnContext) -> Variant:
@@ -152,3 +177,22 @@ func _resolve(_context: GFTurnContext) -> Variant:
 结构：
 
 - `return`: Variant that is null or a Signal awaited before action resolution completes.
+
+<a id="member-gfturnaction-methods-_inject_dependencies"></a>
+
+### `_inject_dependencies`
+
+- API：`protected`
+- 首次版本：`8.0.0`
+
+```gdscript
+func _inject_dependencies(_architecture: GFArchitecture) -> void:
+```
+
+注入当前 Flow 所属架构。子类只应缓存实际需要的依赖。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `_architecture` | 当前架构。 |

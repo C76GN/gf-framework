@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFEditorTypeIndex" path="addons/gf/kernel/editor/gf_editor_type_index.gd" module="kernel" extends="RefCounted" classDigest="f2041864a48688d6666e44f5a80bee45d7dc085ae3c0ecd3c96484e55eca8b76">
+<class name="GFEditorTypeIndex" path="addons/gf/kernel/editor/gf_editor_type_index.gd" module="kernel" extends="RefCounted" classDigest="7c6a1dc3c725d3f910e82a9df2ef16edb6a28383b31a99c9f4df107fdaa7c397">
 	<description>GFEditorTypeIndex: 编辑器侧 GF 类型查询工具。
-集中扫描 class_name 脚本与能力场景，供代码生成器和 Inspector 工具复用。</description>
+集中扫描 class_name 脚本与能力场景，供代码生成器和 Inspector 工具复用。
+默认实例只使用短生命周期缓存；需要监听 EditorFileSystem 变更时必须显式绑定 owner 启用 live 失效。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">editor_api</tag>
@@ -68,6 +69,42 @@
 			<description>清空脚本和场景根脚本缓存。</description>
 			<tags>
 				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="method" name="enable_live_invalidation">
+			<signature>func enable_live_invalidation(owner: Object) -&gt; bool:</signature>
+			<description>启用 EditorFileSystem 变更驱动的 live 缓存失效。
+短生命周期扫描不需要调用该方法；长期持有的编辑器工具应传入自己的生命周期 owner。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">owner: live 订阅生命周期 owner。</tag>
+				<tag name="return">成功进入 live 缓存失效模式时返回 true。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="disable_live_invalidation">
+			<signature>func disable_live_invalidation() -&gt; void:</signature>
+			<description>停止 EditorFileSystem 变更驱动的 live 缓存失效。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_live_invalidation_enabled">
+			<signature>func is_live_invalidation_enabled() -&gt; bool:</signature>
+			<description>返回当前是否处于 live 缓存失效模式。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">至少存在一个活动 live 订阅时返回 true。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="dispose">
+			<signature>func dispose() -&gt; void:</signature>
+			<description>释放类型索引持有的编辑器信号订阅和缓存。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 	</methods>

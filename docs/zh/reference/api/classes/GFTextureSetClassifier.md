@@ -19,6 +19,7 @@
 | 常量 | [`ROLE_NORMAL`](#member-gftexturesetclassifier-constants-role_normal) | `const ROLE_NORMAL: StringName = &"normal"` |
 | 常量 | [`ROLE_ROUGHNESS`](#member-gftexturesetclassifier-constants-role_roughness) | `const ROLE_ROUGHNESS: StringName = &"roughness"` |
 | 常量 | [`ROLE_METALLIC`](#member-gftexturesetclassifier-constants-role_metallic) | `const ROLE_METALLIC: StringName = &"metallic"` |
+| 常量 | [`ROLE_ORM`](#member-gftexturesetclassifier-constants-role_orm) | `const ROLE_ORM: StringName = &"orm"` |
 | 常量 | [`ROLE_AO`](#member-gftexturesetclassifier-constants-role_ao) | `const ROLE_AO: StringName = &"ao"` |
 | 常量 | [`ROLE_HEIGHT`](#member-gftexturesetclassifier-constants-role_height) | `const ROLE_HEIGHT: StringName = &"height"` |
 | 常量 | [`ROLE_EMISSION`](#member-gftexturesetclassifier-constants-role_emission) | `const ROLE_EMISSION: StringName = &"emission"` |
@@ -79,6 +80,19 @@ const ROLE_METALLIC: StringName = &"metallic"
 ```
 
 Metallic/Metalness 贴图角色。
+
+<a id="member-gftexturesetclassifier-constants-role_orm"></a>
+
+### `ROLE_ORM`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+const ROLE_ORM: StringName = &"orm"
+```
+
+Packed Occlusion/Roughness/Metallic 贴图角色。
 
 <a id="member-gftexturesetclassifier-constants-role_ao"></a>
 

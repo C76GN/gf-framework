@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFHeightfield3D" path="addons/gf/standard/foundation/math/gf_heightfield_3d.gd" module="standard" extends="RefCounted" classDigest="1c070fb8e3e8b995d35277ece0d8e17729cadaa7dc8ff569ad8744405425e694">
+<class name="GFHeightfield3D" path="addons/gf/standard/foundation/math/gf_heightfield_3d.gd" module="standard" extends="RefCounted" classDigest="6b13b3ddcfacaa51d17da4d7fd418e0641597e0bb5de89a0f4f9b7179a94ae55">
 	<description>GFHeightfield3D: 通用 X/Z 平面高度场采样数据。
 保存一组行优先高度样本，并提供世界坐标到网格坐标转换、双线性高度采样、
 法线估算和诊断快照。它只处理纯数据，不创建地形节点、碰撞体、材质或渲染资源。</description>
@@ -50,6 +50,17 @@ Terrain-RGB 使用 RGB 三通道编码米制高度：-10000 + (R * 65536 + G * 2
 				<tag name="param">color: Terrain-RGB 像素颜色。</tag>
 				<tag name="return">解码后的米制高度。</tag>
 				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="normal_to_slope">
+			<signature>static func normal_to_slope(normal: Vector3) -&gt; float:</signature>
+			<description>将表面法线转换为归一化坡度。
+返回值范围为 0.0 到 1.0；0.0 表示朝上的平面，1.0 表示垂直、倒置或无效法线。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">normal: 表面法线。</tag>
+				<tag name="return">归一化坡度。</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="samples_from_terrain_rgb_image">
@@ -268,6 +279,18 @@ Terrain-RGB 使用 RGB 三通道编码米制高度：-10000 + (R * 65536 + G * 2
 				<tag name="since">7.0.0</tag>
 			</tags>
 		</member>
+		<member kind="method" name="sample_slope_grid">
+			<signature>func sample_slope_grid(grid_position: Vector2, vertical_scale: float = 1.0) -&gt; float:</signature>
+			<description>按连续网格坐标估算归一化坡度。
+返回值范围为 0.0 到 1.0；无效高度场或坐标返回 1.0，便于调用方按保守策略拒绝无效表面。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">grid_position: 连续网格坐标。</tag>
+				<tag name="param">vertical_scale: 高度差缩放，用于匹配项目世界单位。</tag>
+				<tag name="return">归一化坡度。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
 		<member kind="method" name="sample_normal_world">
 			<signature>func sample_normal_world(world_x: float, world_z: float, vertical_scale: float = 1.0) -&gt; Vector3:</signature>
 			<description>按 X/Z 世界坐标估算表面法线。</description>
@@ -278,6 +301,19 @@ Terrain-RGB 使用 RGB 三通道编码米制高度：-10000 + (R * 65536 + G * 2
 				<tag name="param">vertical_scale: 高度差缩放，用于匹配项目世界单位。</tag>
 				<tag name="return">归一化法线；无效坐标返回 Vector3.UP。</tag>
 				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="sample_slope_world">
+			<signature>func sample_slope_world(world_x: float, world_z: float, vertical_scale: float = 1.0) -&gt; float:</signature>
+			<description>按 X/Z 世界坐标估算归一化坡度。
+返回值范围为 0.0 到 1.0；无效高度场或坐标返回 1.0，便于调用方按保守策略拒绝无效表面。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">world_x: 世界 X 坐标。</tag>
+				<tag name="param">world_z: 世界 Z 坐标。</tag>
+				<tag name="param">vertical_scale: 高度差缩放，用于匹配项目世界单位。</tag>
+				<tag name="return">归一化坡度。</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_min_height">

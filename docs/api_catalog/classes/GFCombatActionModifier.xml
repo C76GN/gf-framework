@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFCombatActionModifier" path="addons/gf/extensions/combat/actions/gf_combat_action_modifier.gd" module="extensions/combat" extends="Resource" classDigest="9ef2a70a96c69f6fc791fd0af759f11eb85ea37ab702d5ee72a93463be98eb95">
+<class name="GFCombatActionModifier" path="addons/gf/extensions/combat/actions/gf_combat_action_modifier.gd" module="extensions/combat" extends="Resource" classDigest="c99772987c2901671b8cd24083f819bc514d1e8509f530529435944e61fcc753">
 	<description>GFCombatActionModifier: 通用战斗动作修正器。
 按动作类别和标签过滤后，调整动作数值或操作。它不解释动作业务语义，
 只负责把一个 GFCombatAction 转换为另一个 GFCombatAction。</description>
@@ -41,17 +41,19 @@
 			</tags>
 		</member>
 		<member kind="property" name="amount_add" decorators="@export">
-			<signature>var amount_add: float = 0.0</signature>
+			<signature>var amount_add: float:</signature>
 			<description>数值加成。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="amount_multiplier" decorators="@export">
-			<signature>var amount_multiplier: float = 1.0</signature>
+			<signature>var amount_multiplier: float:</signature>
 			<description>数值乘区。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="override_operation" decorators="@export">
@@ -99,6 +101,15 @@
 				<tag name="api">public</tag>
 				<tag name="param">action: 原始动作。</tag>
 				<tag name="return">匹配时返回 true。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_numeric_state_valid">
+			<signature>func is_numeric_state_valid() -&gt; bool:</signature>
+			<description>检查修正器数值是否可安全参与运算。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">所有数值字段有限时返回 true。</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="apply">

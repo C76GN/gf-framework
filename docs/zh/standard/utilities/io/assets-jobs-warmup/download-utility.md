@@ -27,6 +27,8 @@ downloads.enqueue_download(
 
 `enqueue_download()` 返回任务 ID；`cancel(id, delete_temp)` 可取消等待中或进行中的任务，`pause()` / `resume()` 会暂停启动新任务并把当前任务保留到队首。每个任务由 `GFDownloadTask` 描述，结果字典会包含 `status`、`status_name`、`received_bytes`、`total_bytes`、`response_code`、`error`、`retry_count` 和项目传入的 `metadata`。下载成功后先写入临时文件，再提交到目标路径；如果启用 `resume` 且临时文件存在，会追加 `Range` 请求头并在服务器返回 `206` 时合并分段文件。`get_debug_snapshot()` 可被 `GFDiagnosticsUtility` 聚合到运行时工具快照中。
 
+临时文件和续传分段文件由 utility 根据规范化后的 `target_path` 独占派生，调用方不能覆盖 `temp_path` 或 `segment_path`。因此取消清理只会删除当前任务拥有的 sidecar，不会接受同 scheme 下任意路径并误删无关文件。
+
 ## 清单批量下载
 
 下载列表来自远程 manifest、补丁目录或项目侧资源索引时，可先用 `parse_manifest_entries()` 把数组、JSON 字符串，或包含 `files` / `entries` / `downloads` 的字典解析为标准条目，再用 `enqueue_manifest()` 或 `enqueue_manifest_entries()` 批量加入同一个顺序下载队列。清单条目支持 `url`、`source`、`href`、`target_path`、`path`、`file`、`sha256` / `expected_sha256`、`size` / `expected_size`、`headers` 和 `metadata`；相对 URL 可通过 `base_url` 补全，相对目标路径会写入 `target_root` 下。批量入队仍然复用 `enqueue_download()` 的临时文件、续传、校验、覆盖和重试语义，不引入额外线程池或资源包业务规则。

@@ -39,6 +39,32 @@ $TargetNode.add_child(binder)
 
 如果需要每帧把外部系统计算出的参数写入 shader，可以启用 `apply_each_process`，但高频变化更适合项目层先合并成最终 profile，再由 Binder 或 Utility 批量写入。GF 不读取游戏状态，也不定义参数含义。
 
+## 全局 Shader 参数
+
+Godot 的 `global uniform` 需要先注册到 RenderingServer，全局参数还可以通过 `ProjectSettings` 的 `shader_globals/<name>` 持久声明，避免编辑器或导出包启动时出现 shader 编译顺序问题。`GFShaderParameterUtility` 提供这两层的通用入口，但默认只修改当前会话，不会保存 `project.godot`。
+
+```gdscript
+var globals := GFShaderParameterUtility.new()
+globals.ensure_global_parameter(
+	&"weather_fog_amount",
+	RenderingServer.GLOBAL_VAR_TYPE_FLOAT,
+	0.0,
+	{
+		"persist_project_setting": true,
+	}
+)
+
+globals.apply_global_parameters({
+	&"weather_fog_amount": runtime_fog_amount,
+})
+```
+
+`apply_global_parameters()` 会在当前会话中补齐缺失的全局参数并写入值。无法从值安全推断类型时，通过 `"parameter_types"` 显式传入 `RenderingServer.GLOBAL_VAR_TYPE_*`；需要写入完整 `shader_globals` 定义时，通过 `"project_setting_definitions"` 传入项目自己的 type、value、filter、repeat 等字段。持久化路径严格锁定在 `shader_globals/<name>` 命名空间，调用方不能传入任意 ProjectSettings path 覆盖其他项目配置。只有明确设置 `"save_project_settings": true` 时，GF 才会调用 `ProjectSettings.save()`。
+
+当前会话 live 参数和 `ProjectSettings` declaration 是两层不同状态。`has_global_parameter()` / `has_global_parameter_live()` 只检查本工具在当前会话注册过的 live 参数；`has_global_parameter_declaration()` 只检查 `shader_globals/<name>` 声明。需要列出两者时分别使用 `get_global_parameter_live_names()` 和 `get_global_parameter_declaration_names()`，避免把“项目文件里有声明”误当作“当前 RenderingServer 已可写”。
+
+Godot 的部分 `RenderingServer` 全局参数枚举和读回接口在不同渲染后端、编辑器测试和 headless 环境中并不稳定。需要验证 GF 是否声明和应用了全局参数时，优先检查 `apply_global_parameters()` / `ensure_global_parameter()` 的报告，以及 live/declaration 分层查询；真实渲染项目中仍由 RenderingServer 接收注册和写入。
+
 ## 使用边界
 
 - GF 只负责参数 profile 和写入流程；shader 代码、uniform 命名和视觉含义由项目维护。

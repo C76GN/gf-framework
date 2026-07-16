@@ -6,22 +6,40 @@ inputs:
     description: Godot version suffix, for example 4.7-stable.
     required: false
     default: 4.7-stable
+  sha256:
+    description: SHA-256 digest for the selected Linux x86_64 archive.
+    required: false
+    default: 0b1a6c54c2c619c12e169fe9241edda4b81080b519451cec2984bf0d2c6cb73c
 
 runs:
   using: composite
   steps:
     - name: Download Godot
       shell: bash
+      env:
+        GODOT_VERSION: ${{ inputs.version }}
+        GODOT_SHA256: ${{ inputs.sha256 }}
       run: |
         set -euo pipefail
-        version="${{ inputs.version }}"
+        version="${GODOT_VERSION}"
+        expected_sha256="${GODOT_SHA256}"
+        [[ "${version}" =~ ^[0-9]+\.[0-9]+(\.[0-9]+)?-[A-Za-z0-9._-]+$ ]] || {
+          printf 'Invalid Godot version input: %s\n' "${version}" >&2
+          exit 2
+        }
+        [[ "${expected_sha256}" =~ ^[0-9A-Fa-f]{64}$ ]] || {
+          printf 'Godot SHA-256 must contain exactly 64 hexadecimal characters.\n' >&2
+          exit 2
+        }
+        expected_sha256="${expected_sha256,,}"
         archive="Godot_v${version}_linux.x86_64.zip"
         binary="Godot_v${version}_linux.x86_64"
         install_dir="${RUNNER_TEMP}/godot-${version}"
         mkdir -p "${install_dir}" "${HOME}/.local/bin"
         curl --fail --location --retry 3 \
-          "https://github.com/godotengine/godot/releases/download/${version}/${archive}" \
+          "https://github.com/godotengine/godot-builds/releases/download/${version}/${archive}" \
           --output "${install_dir}/${archive}"
+        printf '%s  %s\n' "${expected_sha256}" "${install_dir}/${archive}" | sha256sum --check --strict -
         unzip -q "${install_dir}/${archive}" -d "${install_dir}"
         chmod +x "${install_dir}/${binary}"
         ln -sf "${install_dir}/${binary}" "${HOME}/.local/bin/godot"

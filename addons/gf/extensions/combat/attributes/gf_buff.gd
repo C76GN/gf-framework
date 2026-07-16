@@ -251,23 +251,41 @@ func get_apply_report(context: Dictionary = {}) -> Dictionary:
 ## 当 Buff 首次应用时触发。
 ## [br]
 ## @api public
-func on_apply() -> void:
+## [br]
+## @return 生命周期报告；`ok=false` 时表示应用失败且内置效果已回滚。
+## [br]
+## @since 8.0.0
+## [br]
+## @schema return: Dictionary with ok, reason, event, buff_id, changed, failed_effect_id, metadata, and effect_reports.
+func on_apply() -> Dictionary:
 	if _effects_applied:
 		_remove_effects()
 		_effects_applied = false
 	_apply_effects()
 	_effects_applied = true
-	var _reports: Array[Dictionary] = _run_effects(&"apply")
+	var reports: Array[Dictionary] = _run_apply_effects()
+	var report: Dictionary = _make_lifecycle_report(&"apply", reports)
+	if not GFVariantData.get_option_bool(report, "ok", false):
+		_remove_effects()
+		_effects_applied = false
+	return report
 
 
 ## 当 Buff 被移除时触发。
 ## [br]
 ## @api public
-func on_remove() -> void:
-	var _reports: Array[Dictionary] = _run_effects(&"remove", { "reason": removal_reason })
+## [br]
+## @return 生命周期报告；移除会尽力清理内置效果，即使自定义效果报告失败。
+## [br]
+## @since 8.0.0
+## [br]
+## @schema return: Dictionary with ok, reason, event, buff_id, changed, failed_effect_id, metadata, and effect_reports.
+func on_remove() -> Dictionary:
+	var reports: Array[Dictionary] = _run_effects(&"remove", { "reason": removal_reason })
 	if _effects_applied:
 		_remove_effects()
 		_effects_applied = false
+	return _make_lifecycle_report(&"remove", reports)
 
 
 ## 当 Buff 层数增加时触发（通常用于刷新持续时间）。
@@ -275,14 +293,35 @@ func on_remove() -> void:
 ## @api public
 ## [br]
 ## @param p_new_duration: 刷新后的持续时间（秒）。
-func on_refresh(p_new_duration: float) -> void:
+## [br]
+## @return 生命周期报告；`changed=false` 表示本次刷新未改变运行状态。
+## [br]
+## @since 8.0.0
+## [br]
+## @schema return: Dictionary with ok, reason, event, buff_id, changed, failed_effect_id, metadata, and effect_reports.
+func on_refresh(p_new_duration: float) -> Dictionary:
 	if stack_mode == StackMode.IGNORE:
-		return
+		return _make_lifecycle_report(&"refresh", [], false)
 
+	var previous_duration: float = duration
+	var previous_time_left: float = time_left
+	var previous_stacks: int = stacks
 	_apply_refresh_duration(p_new_duration)
 	if stack_mode == StackMode.ADD_STACK and max_stacks > 1:
 		stacks = mini(stacks + 1, max_stacks)
-	var _reports: Array[Dictionary] = _run_effects(&"refresh", { "refresh_duration": p_new_duration })
+	var stack_delta: int = maxi(0, stacks - previous_stacks)
+	if _effects_applied and stack_delta > 0:
+		_apply_effects(stack_delta)
+	var reports: Array[Dictionary] = _run_effects(&"refresh", { "refresh_duration": p_new_duration })
+	var report: Dictionary = _make_lifecycle_report(&"refresh", reports, _refresh_changed(previous_duration, previous_time_left, previous_stacks))
+	if not GFVariantData.get_option_bool(report, "ok", false):
+		if _effects_applied and stack_delta > 0:
+			_remove_effects(stack_delta)
+		duration = previous_duration
+		time_left = previous_time_left
+		stacks = previous_stacks
+		report["changed"] = false
+	return report
 
 
 ## 使用同 ID 的新 Buff 刷新当前运行中实例。
@@ -290,10 +329,16 @@ func on_refresh(p_new_duration: float) -> void:
 ## @api public
 ## [br]
 ## @param source_buff: 本次尝试添加的新 Buff。
-func refresh_from(source_buff: GFBuff) -> void:
+## [br]
+## @return 生命周期报告；`changed=false` 表示本次刷新被策略忽略。
+## [br]
+## @since 8.0.0
+## [br]
+## @schema return: Dictionary with ok, reason, event, buff_id, changed, failed_effect_id, metadata, and effect_reports.
+func refresh_from(source_buff: GFBuff) -> Dictionary:
 	if source_buff == null:
-		return
-	on_refresh(source_buff.duration)
+		return _make_lifecycle_report(&"refresh", [], false)
+	return on_refresh(source_buff.duration)
 
 
 ## 周期性触发逻辑。
@@ -443,6 +488,24 @@ func _make_lifecycle_context(event_name: StringName, extra: Dictionary = {}) -> 
 	return context
 
 
+func _run_apply_effects() -> Array[Dictionary]:
+	var reports: Array[Dictionary] = []
+	var context: Dictionary = _make_lifecycle_context(&"apply")
+	var applied_effects: Array[GFBuffEffect] = []
+	for effect: GFBuffEffect in effects:
+		if effect == null:
+			continue
+		var report: Dictionary = effect.apply(context)
+		reports.append(report)
+		if GFVariantData.get_option_bool(report, "ok", true):
+			applied_effects.append(effect)
+			continue
+
+		_rollback_applied_effects(applied_effects, report)
+		break
+	return reports
+
+
 func _run_effects(event_name: StringName, extra: Dictionary = {}) -> Array[Dictionary]:
 	var reports: Array[Dictionary] = []
 	var context: Dictionary = _make_lifecycle_context(event_name, extra)
@@ -463,6 +526,54 @@ func _run_effects(event_name: StringName, extra: Dictionary = {}) -> Array[Dicti
 				report = { "ok": true }
 		reports.append(report)
 	return reports
+
+
+func _rollback_applied_effects(applied_effects: Array[GFBuffEffect], failed_report: Dictionary) -> void:
+	if applied_effects.is_empty():
+		return
+	var reason: StringName = GFVariantData.get_option_string_name(failed_report, "reason", &"apply_failed")
+	var rollback_context: Dictionary = _make_lifecycle_context(&"remove", {
+		"reason": reason,
+		"rollback_event": &"apply",
+	})
+	for effect_index: int in range(applied_effects.size() - 1, -1, -1):
+		var effect: GFBuffEffect = applied_effects[effect_index]
+		if effect == null:
+			continue
+		var _rollback_report: Dictionary = effect.remove(rollback_context)
+
+
+func _make_lifecycle_report(
+	event_name: StringName,
+	effect_reports: Array[Dictionary],
+	changed: bool = true
+) -> Dictionary:
+	var result: Dictionary = {
+		"ok": true,
+		"reason": &"",
+		"event": event_name,
+		"buff_id": id,
+		"changed": changed,
+		"failed_effect_id": &"",
+		"metadata": metadata.duplicate(true),
+		"effect_reports": effect_reports.duplicate(true),
+	}
+	for effect_report: Dictionary in effect_reports:
+		if GFVariantData.get_option_bool(effect_report, "ok", true):
+			continue
+		result["ok"] = false
+		result["reason"] = GFVariantData.get_option_string_name(effect_report, "reason", &"buff_effect_failed")
+		result["failed_effect_id"] = GFVariantData.get_option_string_name(effect_report, "effect_id")
+		return result
+	return result
+
+
+func _refresh_changed(previous_duration: float, previous_time_left: float, previous_stacks: int) -> bool:
+	if duration != previous_duration:
+		return true
+	if time_left != previous_time_left:
+		return true
+	return stacks != previous_stacks
 
 
 func _modifiers_to_dictionaries() -> Array[Dictionary]:
@@ -583,7 +694,8 @@ func _update_periodic_tick(p_delta: float) -> void:
 
 
 # 应用 Buff 携带的所有效果。
-func _apply_effects() -> void:
+func _apply_effects(count: int = -1) -> void:
+	var effect_count: int = _get_effect_stack_count(count)
 	var valid_owner: Object = _get_valid_owner()
 	if valid_owner == null:
 		return
@@ -592,7 +704,7 @@ func _apply_effects() -> void:
 		var tag_component: GFTagComponent = _get_tag_component_value(valid_owner.call("get_tag_component"))
 		if tag_component != null:
 			for tag: StringName in tags:
-				tag_component.add_tag(tag)
+				tag_component.add_tag(tag, effect_count)
 
 	if valid_owner.has_method("get_attribute"):
 		for mod: GFModifier in modifiers:
@@ -601,11 +713,13 @@ func _apply_effects() -> void:
 
 			var attribute: GFModifiedAttribute = _get_modified_attribute_value(valid_owner.call("get_attribute", mod.attribute_id))
 			if attribute != null:
-				attribute.add_modifier(mod)
+				for _stack_index: int in range(effect_count):
+					attribute.add_modifier(mod)
 
 
 # 移除 Buff 携带的所有效果。
-func _remove_effects() -> void:
+func _remove_effects(count: int = -1) -> void:
+	var effect_count: int = _get_effect_stack_count(count)
 	var valid_owner: Object = _get_valid_owner()
 	if valid_owner == null:
 		return
@@ -614,7 +728,7 @@ func _remove_effects() -> void:
 		var tag_component: GFTagComponent = _get_tag_component_value(valid_owner.call("get_tag_component"))
 		if tag_component != null:
 			for tag: StringName in tags:
-				tag_component.remove_tag(tag)
+				tag_component.remove_tag(tag, effect_count)
 
 	if valid_owner.has_method("get_attribute"):
 		for mod: GFModifier in modifiers:
@@ -623,7 +737,14 @@ func _remove_effects() -> void:
 
 			var attribute: GFModifiedAttribute = _get_modified_attribute_value(valid_owner.call("get_attribute", mod.attribute_id))
 			if attribute != null:
-				attribute.remove_modifier(mod)
+				for _stack_index: int in range(effect_count):
+					attribute.remove_modifier(mod)
+
+
+func _get_effect_stack_count(count: int) -> int:
+	if count > 0:
+		return count
+	return maxi(1, stacks)
 
 
 func _get_valid_owner() -> Object:

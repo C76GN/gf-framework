@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFTrait" path="addons/gf/extensions/domain/traits/gf_trait.gd" module="extensions/domain" extends="Resource" classDigest="6b09243ceee0df01c5fb698c04b7c76b275599fc3800e2eaa6c5b3108b10a7fd">
+<class name="GFTrait" path="addons/gf/extensions/domain/traits/gf_trait.gd" module="extensions/domain" extends="Resource" classDigest="6764992471587c93de8f07b5bee1a251f88a4fb4fbdd5272cec7dbded627b43b">
 	<description>GFTrait: 通用被动特征数据。
 用于描述“某个来源对某个目标键产生的数值或标记影响”。
 它不限定属性、伤害、装备等业务语义。</description>
@@ -93,7 +93,8 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">current_value: 当前值。</tag>
-				<tag name="return">应用后的值。</tag>
+				<tag name="return">应用后的有限值；无效输入或溢出时保留最后一个有限值。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</methods>

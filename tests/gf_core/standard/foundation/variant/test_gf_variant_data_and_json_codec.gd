@@ -18,6 +18,18 @@ func test_duplicate_variant_deep_copies_collections() -> void:
 	assert_eq(_as_int(source_item["value"]), 1, "深拷贝不应共享嵌套集合。")
 
 
+func test_duplicate_variant_preserves_recursive_dictionary_identity() -> void:
+	var source: Dictionary = {
+		"value": 1,
+	}
+	source["self"] = source
+
+	var copy: Dictionary = _as_dictionary(GFVariantData.duplicate_variant(source))
+
+	assert_false(is_same(copy, source), "循环字典应返回可独立修改的副本。")
+	assert_true(is_same(copy["self"], copy), "循环字典副本应保留内部 self 引用。")
+
+
 func test_duplicate_variant_can_optionally_duplicate_resources() -> void:
 	var resource: Resource = Resource.new()
 
@@ -213,6 +225,29 @@ func test_merge_dictionary_reuses_equivalent_string_and_string_name_keys() -> vo
 	assert_false(GFVariantData.get_option_bool(base, &"enabled", true), "等价 key 命中时应覆盖原字段。")
 
 
+func test_merge_dictionary_stops_on_recursive_dictionary_pairs() -> void:
+	var target_settings: Dictionary = {
+		"existing": true,
+	}
+	target_settings["self"] = target_settings
+	var source_settings: Dictionary = {
+		"added": 7,
+	}
+	source_settings["self"] = source_settings
+	var target: Dictionary = {
+		"settings": target_settings,
+	}
+	var source: Dictionary = {
+		"settings": source_settings,
+	}
+
+	var merged: Dictionary = GFVariantData.merge_dictionary(target, source)
+
+	assert_true(is_same(merged, target), "递归合并仍应原地返回 target。")
+	assert_eq(GFVariantData.get_option_int(target_settings, "added"), 7, "循环分支外的字段应继续合并。")
+	assert_true(is_same(target_settings["self"], target_settings), "已访问的循环分支不应被展开或替换。")
+
+
 func test_diff_variant_reports_nested_dictionary_and_array_changes() -> void:
 	var before: Dictionary = {
 		"stats": {
@@ -312,6 +347,41 @@ func test_diff_variant_reports_circular_dictionary_pairs() -> void:
 
 	assert_true(_as_bool(report["changed"]), "循环引用比较应报告诊断项而不是无限递归。")
 	assert_eq(_as_string(circular_change["kind"]), "circular_reference", "循环引用应有稳定差异类型。")
+
+
+func test_json_codec_preserves_business_dictionary_that_matches_reserved_marker_shape() -> void:
+	var source: Dictionary = {
+		GFVariantJsonCodec.JSON_MARKER_KEY: {
+			GFVariantJsonCodec.JSON_VERSION_KEY: GFVariantJsonCodec.JSON_SCHEMA_VERSION,
+			GFVariantJsonCodec.JSON_TYPE_KEY: "StringName",
+			GFVariantJsonCodec.JSON_VALUE_KEY: "route",
+		},
+	}
+
+	var encoded: Variant = GFVariantJsonCodec.variant_to_json_compatible(source)
+	var text: String = JSON.stringify(encoded)
+	var parsed: Variant = JSON.parse_string(text)
+	var restored: Variant = GFVariantJsonCodec.json_compatible_to_variant(parsed)
+
+	assert_true(restored is Dictionary, "业务字典即使撞到保留 key，也应保持字典语义。")
+	var restored_dictionary: Dictionary = _as_dictionary(restored)
+	assert_true(restored_dictionary.has(GFVariantJsonCodec.JSON_MARKER_KEY), "保留 key 应作为业务字段保留。")
+	assert_true(encoded is Dictionary, "编码结果应仍是 JSON 字典。")
+	var encoded_dictionary: Dictionary = _as_dictionary(encoded)
+	assert_ne(encoded_dictionary, source, "撞到完整 marker 形状时应使用 Dictionary typed marker 转义。")
+
+
+func test_json_codec_decoder_handles_circular_in_memory_dictionary() -> void:
+	var source: Dictionary = {}
+	source["self"] = source
+
+	var restored: Variant = GFVariantJsonCodec.json_compatible_to_variant(source, {
+		"circular_reference": "cycle",
+	})
+
+	assert_true(restored is Dictionary, "循环输入应返回可检查字典而不是递归挂起。")
+	var restored_dictionary: Dictionary = _as_dictionary(restored)
+	assert_eq(_as_string(restored_dictionary["self"]), "cycle", "循环位置应使用调用方指定占位值。")
 
 
 func test_merge_metadata_is_recursive_and_copies_values() -> void:
@@ -415,6 +485,50 @@ func test_json_text_helpers_return_fallback_on_parse_error() -> void:
 	assert_eq(GFVariantJsonCodec.compact_json_text("{", false, "invalid"), "invalid", "压缩失败应返回 fallback 文本。")
 
 
+func test_stringify_json_compatible_encodes_nonfinite_values_before_stringify() -> void:
+	var source: Dictionary = {
+		"nan": NAN,
+		"position": Vector3(1.0, INF, -INF),
+		"name": &"state.ready",
+	}
+
+	var json_text: String = GFVariantJsonCodec.stringify_json_compatible(source, "", true)
+	var decoded: Dictionary = _as_dictionary(GFVariantJsonCodec.parse_json_compatible_text(json_text))
+	var decoded_nan: float = _as_float(decoded["nan"])
+	var decoded_position: Vector3 = _as_vector3(decoded["position"])
+
+	assert_false(json_text.contains(":null"), "高层 stringify 不应把非有限 float 交给 JSON.stringify 替换成 null。")
+	assert_true(json_text.contains("\"NaN\""), "NaN 应以可读 typed marker 写入文本。")
+	assert_true(is_nan(decoded_nan), "安全 stringify 后应能恢复 NaN。")
+	assert_true(is_inf(decoded_position.y) and decoded_position.y > 0.0, "Vector3 中的正无穷应可恢复。")
+	assert_true(is_inf(decoded_position.z) and decoded_position.z < 0.0, "Vector3 中的负无穷应可恢复。")
+	assert_eq(_as_string(decoded["name"]), "state.ready", "StringName 应经高层入口往返。")
+
+
+func test_parse_json_compatible_text_returns_fallback_on_parse_error() -> void:
+	var fallback_data: Dictionary = { "safe": true }
+
+	var parsed: Variant = GFVariantJsonCodec.parse_json_compatible_text("{", fallback_data)
+	var parsed_dictionary: Dictionary = _as_dictionary(parsed)
+
+	assert_true(is_same(parsed_dictionary, fallback_data), "JSON 兼容解析失败时应原样返回 fallback。")
+
+
+func test_stringify_json_compatible_can_preserve_dictionary_keys() -> void:
+	var source: Dictionary = {
+		Vector2i(1, 2): "cell",
+		"1,2": "text",
+	}
+
+	var json_text: String = GFVariantJsonCodec.stringify_json_compatible(source, "", false, {
+		"encode_dictionary_keys": true,
+	})
+	var decoded: Dictionary = _as_dictionary(GFVariantJsonCodec.parse_json_compatible_text(json_text))
+
+	assert_eq(_as_string(decoded[Vector2i(1, 2)]), "cell", "高层 stringify 应透传字典 key 编码选项。")
+	assert_eq(_as_string(decoded["1,2"]), "text", "普通字符串 key 不应被同名 Vector key 覆盖。")
+
+
 func test_json_compatible_codec_round_trips_godot_value_types() -> void:
 	var source: Dictionary = {
 		"position": Vector3(1.0, 2.0, 3.0),
@@ -434,6 +548,21 @@ func test_json_compatible_codec_round_trips_godot_value_types() -> void:
 	assert_eq(_as_node_path(decoded["path"]), NodePath("Root/Child"), "NodePath 应恢复为 NodePath。")
 	assert_eq(_as_packed_string_array(decoded["names"]), PackedStringArray(["a", "b"]), "PackedStringArray 应恢复为 PackedStringArray。")
 	assert_eq(_as_packed_vector2_array(decoded["points"]), PackedVector2Array([Vector2(1.0, 2.0), Vector2(3.0, 4.0)]), "PackedVector2Array 应恢复。")
+
+
+func test_json_compatible_codec_keeps_typed_markers_idempotent() -> void:
+	var source: Dictionary = {
+		"position": Vector2(0.25, -0.5),
+		"tags": PackedStringArray(["tutorial"]),
+	}
+
+	var encoded_once: Dictionary = _as_dictionary(GFVariantJsonCodec.variant_to_json_compatible(source))
+	var encoded_twice: Dictionary = _as_dictionary(GFVariantJsonCodec.variant_to_json_compatible(encoded_once))
+	var decoded: Dictionary = _as_dictionary(GFVariantJsonCodec.json_compatible_to_variant(JSON.parse_string(JSON.stringify(encoded_twice))))
+
+	assert_eq(_as_dictionary(encoded_twice["position"]), _as_dictionary(encoded_once["position"]), "合法 typed marker 二次编码应保持幂等。")
+	assert_eq(_as_vector2(decoded["position"]), Vector2(0.25, -0.5), "二次编码后的 Vector2 应可恢复。")
+	assert_eq(_as_packed_string_array(decoded["tags"]), PackedStringArray(["tutorial"]), "二次编码后的 PackedStringArray 应可恢复。")
 
 
 func test_json_compatible_codec_preserves_unsafe_int64_values() -> void:
@@ -490,6 +619,7 @@ func test_json_compatible_codec_decodes_malformed_typed_marker_values_safely() -
 	var marker: Dictionary = {
 		GFVariantJsonCodec.JSON_MARKER_KEY: {
 			GFVariantJsonCodec.JSON_VERSION_KEY: GFVariantJsonCodec.JSON_SCHEMA_VERSION,
+			GFVariantJsonCodec.JSON_CODEC_KEY: GFVariantJsonCodec.JSON_CODEC_ID,
 			GFVariantJsonCodec.JSON_TYPE_KEY: "Int64",
 			GFVariantJsonCodec.JSON_VALUE_KEY: 42,
 		},
@@ -525,6 +655,109 @@ func test_json_compatible_codec_preserves_dictionary_keys_when_stringified_keys_
 	assert_true(encoded.has(GFVariantJsonCodec.JSON_MARKER_KEY), "默认字典编码发现 key 字符串碰撞时应自动切换 typed entries。")
 	assert_eq(_as_string(decoded[1]), "numeric", "数字 key 应在碰撞场景下保留。")
 	assert_eq(_as_string(decoded["1"]), "text", "字符串 key 应在碰撞场景下保留。")
+
+
+func test_report_value_codec_redacts_runtime_values_and_keeps_json_safe_numbers() -> void:
+	var payload: Dictionary = {
+		"owner": self,
+		"value": NAN,
+		"bytes": PackedByteArray([1, 2, 3]),
+	}
+
+	var encoded: Dictionary = _as_dictionary(GFReportValueCodec.to_json_compatible(payload))
+	var owner_marker: Dictionary = _as_dictionary(_as_dictionary(encoded["owner"])["__gf_report_value__"])
+	var json_text: String = JSON.stringify(encoded)
+
+	assert_eq(_as_string(owner_marker["type"]), "Object", "运行时对象应被结构化脱敏。")
+	assert_true(_as_bool(owner_marker["redacted"]), "运行时对象 marker 应明确标记 redacted。")
+	assert_true(json_text.contains("\"Float\""), "非有限 float 应继续使用 typed marker。")
+	assert_false(json_text.contains(":null"), "报告编码不应把 NaN 直接交给 JSON.stringify 替换为 null。")
+
+
+func test_report_value_codec_redacts_runtime_dictionary_keys() -> void:
+	var secret_node: Node = Node.new()
+	secret_node.name = "PrivateAdapterName"
+	var payload: Dictionary = { secret_node: "value" }
+	var encoded: Dictionary = _as_dictionary(GFReportValueCodec.to_json_compatible(
+		payload,
+		GFReportValueCodec.make_redaction_options(GFReportValueCodec.REDACTION_PROFILE_PUBLIC)
+	))
+	var marker: Dictionary = _as_dictionary(encoded["__gf_report_value__"])
+	var entries: Array = _as_array(marker["entries"])
+	var first_entry: Dictionary = _as_dictionary(entries[0])
+	var key_marker: Dictionary = _as_dictionary(_as_dictionary(first_entry["key"])["__gf_report_value__"])
+	var json_text: String = JSON.stringify(encoded)
+	secret_node.free()
+
+	assert_eq(_as_string(marker["type"]), "Dictionary", "不稳定字典 key 应切换为结构化 entries。")
+	assert_eq(_as_string(key_marker["type"]), "Object", "Object key 应经过同一报告脱敏边界。")
+	assert_false(json_text.contains("PrivateAdapterName"), "public profile 不应通过字典 key 泄漏对象名称。")
+
+
+func test_report_value_codec_redacts_paths_by_default() -> void:
+	var payload: Dictionary = {
+		"path": "res://secret/config.json",
+	}
+
+	var encoded: Dictionary = _as_dictionary(GFReportValueCodec.to_json_compatible(payload))
+	var unredacted: Dictionary = _as_dictionary(GFReportValueCodec.to_json_compatible(payload, {
+		"path_redaction": "none",
+	}))
+
+	assert_eq(_as_string(encoded["path"]), "<redacted_path>", "报告导出默认不应暴露资源路径。")
+	assert_eq(_as_string(unredacted["path"]), "res://secret/config.json", "开发态可显式保留完整路径。")
+
+
+func test_report_value_codec_uses_explicit_redaction_profiles() -> void:
+	var support_encoded: Dictionary = _as_dictionary(GFReportValueCodec.to_json_compatible({
+		"node": self,
+	}))
+	var debug_encoded: Dictionary = _as_dictionary(GFReportValueCodec.to_json_compatible({
+		"node": self,
+	}, GFReportValueCodec.make_redaction_options(GFReportValueCodec.REDACTION_PROFILE_DEBUG)))
+	var public_encoded: Dictionary = _as_dictionary(GFReportValueCodec.to_json_compatible({
+		"node": self,
+	}, GFReportValueCodec.make_redaction_options(GFReportValueCodec.REDACTION_PROFILE_PUBLIC)))
+	var support_marker: Dictionary = _as_dictionary(_as_dictionary(support_encoded["node"])["__gf_report_value__"])
+	var debug_marker: Dictionary = _as_dictionary(_as_dictionary(debug_encoded["node"])["__gf_report_value__"])
+	var public_marker: Dictionary = _as_dictionary(_as_dictionary(public_encoded["node"])["__gf_report_value__"])
+
+	assert_true(support_marker.has("node_name"), "support profile 应保留节点名用于排障。")
+	assert_false(support_marker.has("node_path"), "support profile 默认不暴露节点路径。")
+	assert_true(debug_marker.has("node_path"), "debug profile 应允许本地调试路径。")
+	assert_false(public_marker.has("node_name"), "public profile 不应暴露节点名。")
+	assert_false(public_marker.has("instance_id"), "public profile 不应暴露运行时实例 id。")
+
+
+func test_report_value_codec_summarizes_large_collections() -> void:
+	var values: Array = []
+	for index: int in range(20):
+		values.append(Vector2i(index, index + 1))
+
+	var summary: Dictionary = GFReportValueCodec.make_collection_summary(values, {
+		"sample_count": 3,
+		"encode_dictionary_keys": true,
+	})
+	var sample: Array = GFVariantData.get_option_array(summary, "sample")
+
+	assert_true(GFVariantData.get_option_bool(summary, "ok"), "集合摘要应成功。")
+	assert_eq(GFVariantData.get_option_int(summary, "count"), 20, "集合摘要应保留总数。")
+	assert_eq(sample.size(), 3, "集合摘要应按 sample_count 截断样本。")
+	assert_true(GFVariantData.get_option_bool(summary, "truncated"), "集合摘要应说明截断。")
+	assert_false(GFVariantData.get_option_string(summary, "hash").is_empty(), "集合摘要应包含完整内容 hash。")
+	assert_false(JSON.stringify(summary).contains(":null"), "集合摘要不应触发 JSON 非有限值替换。")
+
+
+func test_variant_key_codec_accepts_finite_values_and_rejects_unstable_values() -> void:
+	var vector_token: String = GFVariantKeyCodec.make_key_token(Vector2(1.0, 2.0))
+	var string_token: String = GFVariantKeyCodec.make_key_token("1")
+	var int_token: String = GFVariantKeyCodec.make_key_token(1)
+
+	assert_true(vector_token.begins_with("gfv1:"), "稳定数学值应能生成带版本前缀的 key token。")
+	assert_ne(string_token, int_token, "不同 Variant 类型不能因为文本相同而碰撞。")
+	assert_false(GFVariantKeyCodec.is_stable_key({ "id": 1 }), "Dictionary 不应作为稳定 key。")
+	assert_false(GFVariantKeyCodec.is_stable_key(NAN), "NaN 不应作为稳定 key。")
+	assert_eq(GFVariantKeyCodec.make_key_token(self), "", "运行时对象不应隐式编码为 key。")
 
 
 func test_json_compatible_codec_marks_circular_references() -> void:
@@ -575,6 +808,20 @@ func test_json_compatible_codec_only_decodes_dedicated_variant_marker() -> void:
 
 	assert_eq(_as_vector2(decoded_marker), Vector2(1.0, 2.0), "独立 typed marker 应恢复为对应 Godot 类型。")
 	assert_true(decoded_business_data.has("label"), "带有额外业务字段的字典不应被当作 typed marker。")
+
+
+func test_reference_codec_requires_marker_version() -> void:
+	var business_data: Dictionary = {
+		GFVariantReferenceCodec.REFERENCE_MARKER_KEY: {
+			GFVariantReferenceCodec.REFERENCE_KIND_KEY: GFVariantReferenceCodec.REFERENCE_KIND_RESOURCE,
+			GFVariantReferenceCodec.REFERENCE_PATH_KEY: "res://business.tres",
+		},
+	}
+
+	var decoded: Dictionary = GFVariantReferenceCodec.decode_reference(business_data)
+
+	assert_false(GFVariantReferenceCodec.is_reference_marker(business_data), "缺少版本的业务字典不应被识别为引用标记。")
+	assert_false(GFVariantData.get_option_bool(decoded, "ok", true), "缺少版本的字典不应进入引用解码路径。")
 
 
 func test_reference_codec_roundtrips_resource_reference() -> void:

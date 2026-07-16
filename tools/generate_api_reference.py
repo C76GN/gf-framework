@@ -7,10 +7,14 @@ import argparse
 import hashlib
 import json
 import re
+import sys
 import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import Any
 
+from generated_output_transaction import lexical_absolute_path
+from generated_output_transaction import replace_generated_trees
+from generated_output_transaction import validate_controlled_path
 from gdscript_api_parser import ApiClass
 from gdscript_api_parser import ApiDocs
 from gdscript_api_parser import ApiMember
@@ -24,6 +28,8 @@ from gdscript_api_parser import visibility_of
 
 
 ROOT = Path(__file__).resolve().parents[1]
+DEFAULT_CATALOG_ROOT = lexical_absolute_path(ROOT / "docs/api_catalog")
+DEFAULT_REFERENCE_ROOT = lexical_absolute_path(ROOT / "docs/zh/reference/api")
 PUBLIC_VISIBILITIES = {"public", "protected"}
 CATALOG_VERSION = "2"
 MODULE_LABELS = {
@@ -86,13 +92,24 @@ def main() -> int:
 	parser.add_argument("--catalog", default="docs/api_catalog", help="Generated XML catalog directory.")
 	parser.add_argument("--output", default="docs/zh/reference/api", help="Generated MkDocs Markdown directory.")
 	parser.add_argument("--check", action="store_true", help="Fail if catalog or Markdown pages are stale.")
+	parser.add_argument(
+		"--allow-unsafe-output-root",
+		action="store_true",
+		help="Allow writing generated files outside the standard generated API roots.",
+	)
 	args = parser.parse_args()
 
 	source_root = (ROOT / args.source).resolve()
-	catalog_root = (ROOT / args.catalog).resolve()
-	output_root = (ROOT / args.output).resolve()
+	catalog_root = lexical_absolute_path(ROOT / args.catalog)
+	output_root = lexical_absolute_path(ROOT / args.output)
 	if not source_root.exists():
 		print(f"source root not found: {source_root}")
+		return 2
+	output_root_errors = validate_generated_output_root(catalog_root, DEFAULT_CATALOG_ROOT, args.allow_unsafe_output_root, "API Catalog")
+	output_root_errors.extend(validate_generated_output_root(output_root, DEFAULT_REFERENCE_ROOT, args.allow_unsafe_output_root, "API Reference"))
+	if output_root_errors:
+		for error in output_root_errors:
+			print(error, file=sys.stderr)
 		return 2
 
 	api_classes = collect_api_classes(source_root)
@@ -108,8 +125,16 @@ def main() -> int:
 	if coverage_status:
 		return coverage_status
 
-	write_generated_files(catalog_root, catalog_files)
-	write_generated_files(output_root, reference_files)
+	replace_generated_trees([
+		(catalog_root, {
+			relative: normalize_generated_text(content)
+			for relative, content in catalog_files.items()
+		}),
+		(output_root, {
+			relative: normalize_generated_text(content)
+			for relative, content in reference_files.items()
+		}),
+	])
 	all_classes = flatten_api_classes(api_classes)
 	class_count = len(all_classes)
 	method_count = sum(len(api_class.methods) for api_class in all_classes)
@@ -830,19 +855,18 @@ def normalize_generated_text(content: str) -> str:
 	return "\n".join(lines) + "\n"
 
 
-def write_generated_files(root: Path, files: dict[str, str]) -> None:
-	if root.exists():
-		for path in root.rglob("*"):
-			if path.is_file():
-				path.unlink()
-		for path in sorted(root.rglob("*"), reverse=True):
-			if path.is_dir():
-				path.rmdir()
-	root.mkdir(parents=True, exist_ok=True)
-	for relative, content in files.items():
-		path = root / relative
-		path.parent.mkdir(parents=True, exist_ok=True)
-		path.write_text(normalize_generated_text(content), encoding="utf-8", newline="\n")
+def validate_generated_output_root(root: Path, expected_root: Path, allow_unsafe: bool, label: str) -> list[str]:
+	if not allow_unsafe and root != expected_root:
+		return [
+			f"{label} output root is not a standard generated directory: {root}. "
+			f"Expected {expected_root}; pass --allow-unsafe-output-root only for an intentional temporary output root."
+		]
+	containment_root = root.parent if allow_unsafe else ROOT
+	try:
+		validate_controlled_path(root, containment_root)
+	except ValueError as error:
+		return [f"{label} output root is unsafe: {error}"]
+	return []
 
 
 def check_files(root: Path, desired: dict[str, str], label: str) -> int:

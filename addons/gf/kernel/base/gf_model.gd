@@ -46,11 +46,16 @@ func init() -> void:
 
 
 ## 异步初始化阶段。子类可以重写此方法并在其中使用 await。
-## Godot 4 支持在 void 函数内部使用 await，框架的 Gf.init() 会串行且安全地 await 每个模块的 async_init()，不再需要返回 Signal。
-## 约束：在 init() 之后、ready() 之前执行。
+## Godot 4 支持在 void 函数内部使用 await，框架的 Gf.init() 会串行且安全地 await 每个模块的 async_init()。
+## 约束：在 init() 之后、ready() 之前执行；首个 await 前仍运行在主线程，
+## 不应放入长同步工作。需要耗时处理时应在 await 或外部回调之间检查 scope。
 ## [br]
 ## @api public
-func async_init() -> void:
+## [br]
+## @since 3.17.0
+## [br]
+## @param _scope: 当前模块异步初始化的取消作用域。
+func async_init(_scope: GFAsyncScope) -> void:
 	pass
 
 
@@ -80,9 +85,11 @@ func release_dependencies() -> void:
 
 
 ## 获取架构级存档使用的稳定键。
-## 默认返回空字符串，表示由 GFArchitecture 使用 class_name 或资源路径。
+## 默认返回空字符串，表示由 GFArchitecture 使用 class_name。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @return 稳定存档键；为空时使用框架默认规则。
 func get_save_key() -> StringName:

@@ -6,6 +6,7 @@ Schema 只做通用类型、必填、默认值、枚举值和数值范围校验�
 
 ```gdscript
 diagnostics.register_command(
+	self,
 	&"runtime.limit",
 	func(args: Dictionary) -> Dictionary:
 		return { "limit": args["limit"] },

@@ -140,6 +140,91 @@ func test_utility_reports_shader_uniform_names() -> void:
 	assert_true(utility.has_shader_parameter(material, &"wind_direction"))
 
 
+func test_utility_applies_global_shader_parameters() -> void:
+	var utility: GFShaderParameterUtility = GFShaderParameterUtility.new()
+	var parameter_name: StringName = _make_unique_global_parameter_name("apply")
+	_cleanup_global_shader_parameter(parameter_name)
+
+	var report: Dictionary = utility.apply_global_parameters({
+		parameter_name: 0.42,
+	}, {
+		"warn_on_invalid_parameter": false,
+	})
+	var global_names: Array[StringName] = utility.get_global_parameter_names()
+	var live_names: Array[StringName] = utility.get_global_parameter_live_names()
+
+	assert_true(GFVariantData.get_option_bool(report, "ok"), "全局参数应用报告应成功。")
+	assert_eq(GFVariantData.get_option_int(report, "applied_count"), 1)
+	assert_eq(GFVariantData.get_option_int(report, "registered_count"), 1)
+	assert_eq(GFVariantData.get_option_int(report, "updated_count"), 1)
+	assert_true(utility.has_global_parameter(parameter_name))
+	assert_true(utility.has_global_parameter_live(parameter_name))
+	assert_true(global_names.has(parameter_name), "全局参数索引应包含本次注册的参数。")
+	assert_true(live_names.has(parameter_name), "live 参数索引应包含本次注册的参数。")
+
+	_cleanup_global_shader_parameter(parameter_name)
+
+
+func test_utility_persists_global_shader_parameter_definition_without_saving_by_default() -> void:
+	var utility: GFShaderParameterUtility = GFShaderParameterUtility.new()
+	var parameter_name: StringName = _make_unique_global_parameter_name("persist")
+	var setting_path: String = "shader_globals/" + String(parameter_name)
+	_cleanup_global_shader_parameter(parameter_name)
+
+	var report: Dictionary = utility.ensure_global_parameter(
+		parameter_name,
+		RenderingServer.GLOBAL_VAR_TYPE_FLOAT,
+		0.25,
+		{
+			"persist_project_setting": true,
+			"register_live_parameter": false,
+			"warn_on_invalid_parameter": false,
+		}
+	)
+	var raw_definition: Variant = ProjectSettings.get_setting(setting_path, {})
+	var definition: Dictionary = GFVariantData.as_dictionary(raw_definition)
+	var declaration_names: Array[StringName] = utility.get_global_parameter_declaration_names()
+
+	assert_true(GFVariantData.get_option_bool(report, "ok"), "持久化声明报告应成功。")
+	assert_true(GFVariantData.get_option_bool(report, "project_setting_written"))
+	assert_true(GFVariantData.get_option_bool(report, "declaration_written"))
+	assert_true(GFVariantData.get_option_bool(report, "declaration_available"))
+	assert_false(GFVariantData.get_option_bool(report, "live_available"), "只声明时不应伪装成 live 参数。")
+	assert_false(GFVariantData.get_option_bool(report, "project_settings_saved"), "默认不应保存 project.godot。")
+	assert_false(utility.has_global_parameter(parameter_name), "has_global_parameter 只表示当前 live 参数。")
+	assert_false(utility.has_global_parameter_live(parameter_name), "只声明时 live 参数索引不应包含该参数。")
+	assert_true(utility.has_global_parameter_declaration(parameter_name), "ProjectSettings declaration 应可独立查询。")
+	assert_true(declaration_names.has(parameter_name), "declaration 索引应包含本次声明的参数。")
+	assert_eq(GFVariantData.get_option_string(definition, "type"), "float")
+	assert_almost_eq(GFVariantData.get_option_float(definition, "value"), 0.25, 0.001)
+
+	_cleanup_global_shader_parameter(parameter_name)
+
+
+func test_utility_rejects_project_setting_path_override_before_mutation() -> void:
+	var utility: GFShaderParameterUtility = GFShaderParameterUtility.new()
+	var parameter_name: StringName = _make_unique_global_parameter_name("namespace")
+	var safe_setting_path: String = "shader_globals/" + String(parameter_name)
+	_cleanup_global_shader_parameter(parameter_name)
+
+	var report: Dictionary = utility.ensure_global_parameter(
+		parameter_name,
+		RenderingServer.GLOBAL_VAR_TYPE_FLOAT,
+		0.5,
+		{
+			"persist_project_setting": true,
+			"project_setting_path": "application/config/name",
+			"register_live_parameter": false,
+			"warn_on_invalid_parameter": false,
+		}
+	)
+
+	assert_false(GFVariantData.get_option_bool(report, "ok"), "shader helper 不应接受任意 ProjectSettings 路径。")
+	assert_eq(GFVariantData.get_option_string(report, "project_setting_path"), safe_setting_path)
+	assert_false(ProjectSettings.has_setting(safe_setting_path), "拒绝路径覆盖后不应发生任何声明写入。")
+	assert_false(utility.has_global_parameter_live(parameter_name), "参数校验失败时不应产生 live 副作用。")
+
+
 func test_binder_applies_profile_to_parent_on_ready() -> void:
 	var rect: ColorRect = ColorRect.new()
 	rect.material = _make_test_shader_material()
@@ -207,3 +292,13 @@ func _variant_to_shader_material(value: Variant) -> ShaderMaterial:
 		var material: ShaderMaterial = value
 		return material
 	return null
+
+
+func _make_unique_global_parameter_name(suffix: String) -> StringName:
+	return StringName("gf_test_global_%s_%d" % [suffix, Time.get_ticks_usec()])
+
+
+func _cleanup_global_shader_parameter(parameter_name: StringName) -> void:
+	var setting_path: String = "shader_globals/" + String(parameter_name)
+	if ProjectSettings.has_setting(setting_path):
+		ProjectSettings.clear(setting_path)

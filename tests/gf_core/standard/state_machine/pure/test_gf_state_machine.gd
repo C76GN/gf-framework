@@ -143,9 +143,9 @@ class EventListeningState:
 
 	func enter(msg: Dictionary = {}) -> void:
 		super.enter(msg)
-		register_event(StateEventPayload, _on_typed_event)
-		register_assignable_event(StateEventPayload, _on_assignable_event)
-		register_simple_event(&"state_simple_event", _on_simple_event)
+		register_event(StateEventPayload, GFEventListener.from_method(self, &"_on_typed_event", 1))
+		register_assignable_event(StateEventPayload, GFEventListener.from_method(self, &"_on_assignable_event", 1))
+		register_simple_event(&"state_simple_event", GFEventListener.from_method(self, &"_on_simple_event", 1))
 
 	func exit() -> void:
 		super.exit()
@@ -476,6 +476,30 @@ func test_state_snapshot_reports_hierarchy_and_blackboard() -> void:
 	assert_eq(GFVariantData.get_option_string(blackboard, "mode"), "combat", "快照应包含黑板副本。")
 
 
+func test_state_snapshot_has_json_safe_export() -> void:
+	_fsm.add_state(&"Idle", TrackingState.new())
+	_fsm.blackboard["owner"] = self
+	_fsm.blackboard["path"] = "res://private/state.json"
+	_fsm.start(&"Idle")
+
+	var raw_snapshot: Dictionary = _fsm.get_state_snapshot()
+	var exported: Dictionary = _fsm.get_json_compatible_state_snapshot()
+	var raw_blackboard: Dictionary = GFVariantData.get_option_dictionary(raw_snapshot, "blackboard")
+	var exported_blackboard: Dictionary = GFVariantData.get_option_dictionary(exported, "blackboard")
+	var owner_marker: Dictionary = GFVariantData.get_option_dictionary(
+		GFVariantData.get_option_dictionary(exported_blackboard, "owner"),
+		"__gf_report_value__"
+	)
+	var raw_owner_value: Variant = GFVariantData.get_option_value(raw_blackboard, "owner")
+	var raw_owner: Object = null
+	if raw_owner_value is Object:
+		raw_owner = raw_owner_value
+
+	assert_same(raw_owner, self, "raw 快照应保留可恢复/调试用 Variant。")
+	assert_true(GFVariantData.get_option_bool(owner_marker, "redacted"), "JSON-safe 快照应脱敏运行时对象。")
+	assert_eq(GFVariantData.get_option_string(exported_blackboard, "path"), "<redacted_path>", "JSON-safe 快照应默认脱敏路径。")
+
+
 func test_set_state_parent_rejects_cycles() -> void:
 	_fsm.add_state(&"Parent", TrackingState.new())
 	_fsm.add_state(&"Child", TrackingState.new(), &"Parent")
@@ -484,6 +508,22 @@ func test_set_state_parent_rejects_cycles() -> void:
 
 	assert_false(changed, "父子关系不能形成循环。")
 	assert_push_error("[GFStateMachine] 检测到循环状态父级：Parent -> Child")
+
+
+func test_set_state_parent_stops_active_path_before_reparenting() -> void:
+	var parent: TrackingState = TrackingState.new()
+	var child: TrackingState = TrackingState.new()
+	_fsm.add_state(&"Parent", parent)
+	_fsm.add_state(&"Child", child, &"Parent")
+	_fsm.start(&"Child")
+
+	var changed: bool = _fsm.set_state_parent(&"Child", &"")
+
+	assert_true(changed, "活跃状态也应允许重新设置父级。")
+	assert_eq(child.exit_count, 1, "重设活跃状态父级前应退出子状态。")
+	assert_eq(parent.exit_count, 1, "重设活跃状态父级前应退出父状态。")
+	assert_eq(_fsm.current_state_name, &"", "重设活跃父级后状态机应保持停止，避免活跃路径错配。")
+	assert_eq(_fsm.get_parent_state_name(&"Child"), &"", "父级关系应更新。")
 
 
 ## 验证 change_state 对未知状态名打印错误且不改变当前状态。
@@ -522,6 +562,23 @@ func test_stop_calls_exit_and_clears_state() -> void:
 
 	assert_eq(idle.exit_count, 1, "stop 应调用当前状态的 exit。")
 	assert_eq(_fsm.current_state_name, &"", "stop 后 current_state_name 应清空。")
+
+
+func test_stop_exits_full_hierarchy_even_when_exit_queues_transition() -> void:
+	var parent: TrackingState = TrackingState.new()
+	var child: ExitRedirectState = ExitRedirectState.new(&"Fallback")
+	var fallback: TrackingState = TrackingState.new()
+	_fsm.add_state(&"Parent", parent)
+	_fsm.add_state(&"Child", child, &"Parent")
+	_fsm.add_state(&"Fallback", fallback)
+	_fsm.start(&"Child")
+
+	_fsm.stop()
+
+	assert_eq(child.exit_count, 1, "stop 应退出当前叶子。")
+	assert_eq(parent.exit_count, 1, "stop 即使遇到 exit 内重定向也应继续退出父状态。")
+	assert_eq(fallback.enter_count, 0, "stop 不应处理 exit 内排队切换。")
+	assert_eq(_fsm.current_state_name, &"", "stop 后应保持停止。")
 
 
 # --- 测试：dispose 与引用释放 ---
@@ -638,11 +695,13 @@ func test_state_can_send_events_through_state_machine_architecture() -> void:
 	var state: TrackingState = TrackingState.new()
 	var simple_payloads: Array = []
 	var typed_payloads: Array[int] = []
-	architecture.register_simple_event(&"state_simple_event", func(payload: Variant) -> void:
-		simple_payloads.append(payload)
+	architecture.register_simple_event(
+		&"state_simple_event",
+		GFEventListener.from_callable(func(payload: Variant) -> void: simple_payloads.append(payload), 1)
 	)
-	architecture.register_event(StateEventPayload, func(payload: StateEventPayload) -> void:
-		typed_payloads.append(payload.value)
+	architecture.register_event(
+		StateEventPayload,
+		GFEventListener.from_callable(func(payload: StateEventPayload) -> void: typed_payloads.append(payload.value), 1)
 	)
 	_fsm.add_state(&"Idle", state)
 	_fsm.start(&"Idle")

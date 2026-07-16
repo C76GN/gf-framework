@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFNodeStateMachine" path="addons/gf/standard/state_machine/node/gf_node_state_machine.gd" module="standard" extends="Node" classDigest="22eee33d56b26733e7599d9d1b77f5a22042f3d10e92cc32b446e50d5960306a">
+<class name="GFNodeStateMachine" path="addons/gf/standard/state_machine/node/gf_node_state_machine.gd" module="standard" extends="Node" classDigest="47d57f569adc60bcb6ae82e35c37b57d11888876ae4e41c5a2f5541e054f1f85">
 	<description>GFNodeStateMachine: 基于场景树的多状态组状态机。
 支持直接子 GFNodeState 组成内部状态组，也支持多个 GFNodeStateGroup 并行工作。</description>
 	<tags>
@@ -119,24 +119,28 @@
 	</properties>
 	<methods>
 		<member kind="method" name="transition_to">
-			<signature>func transition_to(path: StringName, args: Dictionary = {}) -&gt; void:</signature>
+			<signature>func transition_to( path: StringName, args: Dictionary = {}, stack_exit_policy: int = GFNodeStateGroup.StackExitPolicy.REQUIRE_GUARDS ) -&gt; void:</signature>
 			<description>通过路径切换状态。path 可为 "State" 或 "Group/State"。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">path: 资源路径或状态路径。</tag>
 				<tag name="param">args: 状态切换时传递的可选参数。</tag>
+				<tag name="param">stack_exit_policy: 折叠暂停栈时使用 GFNodeStateGroup.StackExitPolicy。</tag>
 				<tag name="schema">args: 状态切换参数 Dictionary；键和值由调用方约定。</tag>
+				<tag name="since">3.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="transition_group_to">
-			<signature>func transition_group_to(group_name: StringName, state_name: StringName, args: Dictionary = {}) -&gt; void:</signature>
+			<signature>func transition_group_to( group_name: StringName, state_name: StringName, args: Dictionary = {}, stack_exit_policy: int = GFNodeStateGroup.StackExitPolicy.REQUIRE_GUARDS ) -&gt; void:</signature>
 			<description>切换指定状态组到指定状态。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">group_name: 能力组或状态组名称。</tag>
 				<tag name="param">state_name: 目标状态名称。</tag>
 				<tag name="param">args: 状态切换时传递的可选参数。</tag>
+				<tag name="param">stack_exit_policy: 折叠暂停栈时使用 GFNodeStateGroup.StackExitPolicy。</tag>
 				<tag name="schema">args: 状态切换参数 Dictionary；键和值由调用方约定。</tag>
+				<tag name="since">3.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="push_state">
@@ -205,6 +209,16 @@
 				<tag name="api">public</tag>
 				<tag name="param">group: 所属状态组。</tag>
 				<tag name="return">成功移除已注册状态组时返回 true。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_state_groups">
+			<signature>func get_state_groups() -&gt; Array[GFNodeStateGroup]:</signature>
+			<description>获取已注册状态组列表。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">已注册状态组节点列表。</tag>
+				<tag name="schema">return: Array[GFNodeStateGroup]，只读快照；修改状态组请使用 add_state_group() 与 remove_state_group()。</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_state_group">
@@ -298,7 +312,33 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">包含所有状态组当前状态、历史、栈深度和黑板副本的字典。</tag>
-				<tag name="schema">return: 调试快照 Dictionary，包含 groups 和 internal_group 字段；groups 的键为状态组名，值为 GFNodeStateGroup.get_state_snapshot() 返回的状态组快照。</tag>
+				<tag name="schema">return: 调试快照 Dictionary，包含 schema_version、groups 和 internal_group 字段；groups 的键为状态组名，值为 GFNodeStateGroup.get_state_snapshot() 返回的状态组快照。</tag>
+				<tag name="since">3.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_json_compatible_state_snapshot">
+			<signature>func get_json_compatible_state_snapshot(options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>获取 JSON-safe 节点状态机调试快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">options: 传给 GFReportValueCodec 的编码选项。</tag>
+				<tag name="return">可安全 JSON.stringify() 的节点状态机调试快照。</tag>
+				<tag name="schema">options: Dictionary with GFReportValueCodec options.</tag>
+				<tag name="schema">return: Dictionary，包含 JSON-safe groups 和 internal_group 字段。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="restore_state_snapshot">
+			<signature>func restore_state_snapshot(snapshot: Dictionary) -&gt; Dictionary:</signature>
+			<description>从 get_state_snapshot() 的结果恢复所有已注册状态组。
+该入口只恢复状态机运行态，不创建缺失状态组或状态节点；调用方应先完成场景树装配或 reload_from_children()。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">snapshot: get_state_snapshot() 返回的状态机快照。</tag>
+				<tag name="return">恢复报告。</tag>
+				<tag name="schema">snapshot: Dictionary，包含 schema_version、groups 和 internal_group 字段。</tag>
+				<tag name="schema">return: Dictionary，包含 report_schema_version、status、ok、restored、partial、groups、missing_group_snapshots、unrestored_group_snapshots、blocked_operations、group_registry_revision_before、group_registry_revision_after、registry_stable 和 rolled_back 字段。</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_architecture_or_null">
@@ -408,66 +448,69 @@
 			</tags>
 		</member>
 		<member kind="method" name="register_event_owned">
-			<signature>func register_event_owned(listener_owner: Object, event_type: Script, callback: Callable, priority: int = 0) -&gt; void:</signature>
+			<signature>func register_event_owned(listener_owner: Object, event_type: Script, listener: GFEventListener, priority: int = 0) -&gt; void:</signature>
 			<description>注册带拥有者的类型事件监听器。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">listener_owner: 监听器拥有者。</tag>
 				<tag name="param">event_type: 要监听的脚本类型。</tag>
-				<tag name="param">callback: 回调函数。</tag>
+				<tag name="param">listener: 事件监听器契约。</tag>
 				<tag name="param">priority: 回调优先级，数值越大越先执行，默认为 0。</tag>
+				<tag name="since">3.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="unregister_event">
-			<signature>func unregister_event(event_type: Script, callback: Callable, listener_owner: Object = null) -&gt; void:</signature>
+			<signature>func unregister_event(event_type: Script, listener: GFEventListener, listener_owner: Object = null) -&gt; void:</signature>
 			<description>注销类型事件监听器。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">event_type: 要注销的脚本类型。</tag>
-				<tag name="param">callback: 要移除的回调函数。</tag>
+				<tag name="param">listener: 要移除的事件监听器契约。</tag>
 				<tag name="param">listener_owner: 注册监听时使用的拥有者；为空时只注销无 owner 监听。</tag>
 				<tag name="since">5.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="register_assignable_event_owned">
-			<signature>func register_assignable_event_owned( listener_owner: Object, base_event_type: Script, callback: Callable, priority: int = 0 ) -&gt; void:</signature>
+			<signature>func register_assignable_event_owned( listener_owner: Object, base_event_type: Script, listener: GFEventListener, priority: int = 0 ) -&gt; void:</signature>
 			<description>注册带拥有者的可赋值类型事件监听器。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">listener_owner: 监听器拥有者。</tag>
 				<tag name="param">base_event_type: 要监听的基类脚本类型。</tag>
-				<tag name="param">callback: 回调函数。</tag>
+				<tag name="param">listener: 事件监听器契约。</tag>
 				<tag name="param">priority: 回调优先级，数值越大越先执行，默认为 0。</tag>
+				<tag name="since">3.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="unregister_assignable_event">
-			<signature>func unregister_assignable_event(base_event_type: Script, callback: Callable, listener_owner: Object = null) -&gt; void:</signature>
+			<signature>func unregister_assignable_event(base_event_type: Script, listener: GFEventListener, listener_owner: Object = null) -&gt; void:</signature>
 			<description>注销可赋值类型事件监听器。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">base_event_type: 注册时使用的基类脚本类型。</tag>
-				<tag name="param">callback: 要移除的回调函数。</tag>
+				<tag name="param">listener: 要移除的事件监听器契约。</tag>
 				<tag name="param">listener_owner: 注册监听时使用的拥有者；为空时只注销无 owner 监听。</tag>
 				<tag name="since">5.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="register_simple_event_owned">
-			<signature>func register_simple_event_owned(listener_owner: Object, event_id: StringName, callback: Callable) -&gt; void:</signature>
+			<signature>func register_simple_event_owned(listener_owner: Object, event_id: StringName, listener: GFEventListener) -&gt; void:</signature>
 			<description>注册带拥有者的轻量级 StringName 事件监听器。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">listener_owner: 监听器拥有者。</tag>
 				<tag name="param">event_id: StringName 事件标识符。</tag>
-				<tag name="param">callback: 回调函数，签名为 func(payload: Variant)。</tag>
+				<tag name="param">listener: 简单事件监听器契约。</tag>
+				<tag name="since">3.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="unregister_simple_event">
-			<signature>func unregister_simple_event(event_id: StringName, callback: Callable, listener_owner: Object = null) -&gt; void:</signature>
+			<signature>func unregister_simple_event(event_id: StringName, listener: GFEventListener, listener_owner: Object = null) -&gt; void:</signature>
 			<description>注销轻量级 StringName 事件监听器。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">event_id: StringName 事件标识符。</tag>
-				<tag name="param">callback: 要移除的回调函数。</tag>
+				<tag name="param">listener: 要移除的简单事件监听器契约。</tag>
 				<tag name="param">listener_owner: 注册监听时使用的拥有者；为空时只注销无 owner 监听。</tag>
 				<tag name="since">5.0.0</tag>
 			</tags>

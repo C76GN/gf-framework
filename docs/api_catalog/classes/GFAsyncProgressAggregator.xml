@@ -1,0 +1,260 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFAsyncProgressAggregator" path="addons/gf/standard/common/gf_async_progress_aggregator.gd" module="standard" extends="RefCounted" classDigest="32108a25913c490d2e1e10b4ce185c30196f77d98365485b8d76a4f330a7ae52">
+	<description>GFAsyncProgressAggregator: 多任务加权进度聚合器。
+用于把调用方定义的多个子任务进度合成为一个 0 到 1 的总进度，并复用
+GFAsyncProgress 的数值、消息和时间节流。它只记录和发布进度，不执行任务、
+不加载资源，也不决定 UI 平滑或展示策略。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_handle</tag>
+		<tag name="since">8.0.0</tag>
+	</tags>
+	<signals>
+		<member kind="signal" name="progressed">
+			<signature>signal progressed(value: float, message: String, metadata: Dictionary)</signature>
+			<description>总进度通过节流条件并对外发布时发出。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">value: 当前总进度，范围 0 到 1。</tag>
+				<tag name="param">message: 当前进度消息。</tag>
+				<tag name="param">metadata: 当前进度元数据。</tag>
+				<tag name="schema">metadata: Dictionary，包含调用方元数据，并补充 total_progress、task_count、total_weight、task_index、task_key、task_progress、task_weight 和 task_metadata 等上下文。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</signals>
+	<enums />
+	<constants />
+	<properties>
+		<member kind="property" name="allow_decrease">
+			<signature>var allow_decrease: bool = false</signature>
+			<description>子任务进度是否允许回退。默认 false，用于避免乱序回调造成总进度回跳。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="min_delta">
+			<signature>var min_delta: float:</signature>
+			<description>触发总进度信号的最小数值变化。设为 0 时任意数值变化都会触发。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="min_interval_msec">
+			<signature>var min_interval_msec: int:</signature>
+			<description>触发总进度信号的最小时间间隔，单位毫秒。设为 0 时不按时间节流。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="emit_on_message_change">
+			<signature>var emit_on_message_change: bool:</signature>
+			<description>消息变化时是否允许触发信号，即使数值变化小于 min_delta。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="add_task">
+			<signature>func add_task(task_key: Variant = null, weight: float = 1.0, task_metadata: Dictionary = {}) -&gt; int:</signature>
+			<description>添加一个子任务，并返回任务索引。
+如果 task_key 非 null 且已经存在，返回既有任务索引，不修改既有任务。权重会夹到不小于 0。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">task_key: 可选稳定任务 key；传 null 时创建未命名任务。</tag>
+				<tag name="param">weight: 任务权重；小于 0 时按 0 处理。</tag>
+				<tag name="param">task_metadata: 任务元数据。</tag>
+				<tag name="return">新任务或既有 keyed 任务的索引。</tag>
+				<tag name="schema">task_key: Variant，null 表示无名任务；非 null 时必须是 GFVariantKeyCodec 接受的稳定 key。</tag>
+				<tag name="schema">task_metadata: Dictionary，调用方定义的任务上下文。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="has_task">
+			<signature>func has_task(task_key: Variant) -&gt; bool:</signature>
+			<description>判断任务 key 是否已经注册。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">task_key: 任务 key。</tag>
+				<tag name="return">key 已注册时返回 true。</tag>
+				<tag name="schema">task_key: Variant，必须是 GFVariantKeyCodec 接受的稳定 key。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_task_index">
+			<signature>func get_task_index(task_key: Variant) -&gt; int:</signature>
+			<description>获取任务 key 对应的任务索引。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">task_key: 任务 key。</tag>
+				<tag name="return">已注册任务索引；不存在时返回 -1。</tag>
+				<tag name="schema">task_key: Variant，必须是 GFVariantKeyCodec 接受的稳定 key。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="set_task_progress">
+			<signature>func set_task_progress(task_index: int, value: float, message: String = "", task_metadata: Dictionary = {}) -&gt; bool:</signature>
+			<description>设置指定任务的 0 到 1 进度。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">task_index: add_task() 返回的任务索引。</tag>
+				<tag name="param">value: 新任务进度，范围会被夹到 0 到 1。</tag>
+				<tag name="param">message: 总进度消息。</tag>
+				<tag name="param">task_metadata: 本次任务元数据，会合并到任务快照。</tag>
+				<tag name="return">本次更新是否发出了 progressed。</tag>
+				<tag name="schema">task_metadata: Dictionary，调用方定义的任务上下文。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="set_task_progress_by_key">
+			<signature>func set_task_progress_by_key(task_key: Variant, value: float, message: String = "", task_metadata: Dictionary = {}) -&gt; bool:</signature>
+			<description>通过任务 key 设置 0 到 1 进度。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">task_key: 任务 key。</tag>
+				<tag name="param">value: 新任务进度，范围会被夹到 0 到 1。</tag>
+				<tag name="param">message: 总进度消息。</tag>
+				<tag name="param">task_metadata: 本次任务元数据，会合并到任务快照。</tag>
+				<tag name="return">本次更新是否发出了 progressed。</tag>
+				<tag name="schema">task_key: Variant，调用方定义的任务 key。</tag>
+				<tag name="schema">task_metadata: Dictionary，调用方定义的任务上下文。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="set_task_fraction">
+			<signature>func set_task_fraction( task_index: int, completed: float, total: float, message: String = "", task_metadata: Dictionary = {} ) -&gt; bool:</signature>
+			<description>以完成数 / 总数设置指定任务进度。
+total 小于等于 0 时按已完成处理，避免未知总量流程永久卡在 0。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">task_index: add_task() 返回的任务索引。</tag>
+				<tag name="param">completed: 已完成数量。</tag>
+				<tag name="param">total: 总数量。</tag>
+				<tag name="param">message: 总进度消息。</tag>
+				<tag name="param">task_metadata: 本次任务元数据，会合并到任务快照。</tag>
+				<tag name="return">本次更新是否发出了 progressed。</tag>
+				<tag name="schema">task_metadata: Dictionary，调用方定义的任务上下文。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="set_task_fraction_by_key">
+			<signature>func set_task_fraction_by_key( task_key: Variant, completed: float, total: float, message: String = "", task_metadata: Dictionary = {} ) -&gt; bool:</signature>
+			<description>通过任务 key 以完成数 / 总数设置进度。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">task_key: 任务 key。</tag>
+				<tag name="param">completed: 已完成数量。</tag>
+				<tag name="param">total: 总数量。</tag>
+				<tag name="param">message: 总进度消息。</tag>
+				<tag name="param">task_metadata: 本次任务元数据，会合并到任务快照。</tag>
+				<tag name="return">本次更新是否发出了 progressed。</tag>
+				<tag name="schema">task_key: Variant，调用方定义的任务 key。</tag>
+				<tag name="schema">task_metadata: Dictionary，调用方定义的任务上下文。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="complete_task">
+			<signature>func complete_task(task_index: int, message: String = "", task_metadata: Dictionary = {}) -&gt; bool:</signature>
+			<description>将指定任务标记为完成。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">task_index: add_task() 返回的任务索引。</tag>
+				<tag name="param">message: 总进度消息。</tag>
+				<tag name="param">task_metadata: 本次任务元数据，会合并到任务快照。</tag>
+				<tag name="return">本次更新是否发出了 progressed。</tag>
+				<tag name="schema">task_metadata: Dictionary，调用方定义的任务上下文。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="complete_task_by_key">
+			<signature>func complete_task_by_key(task_key: Variant, message: String = "", task_metadata: Dictionary = {}) -&gt; bool:</signature>
+			<description>通过任务 key 标记任务完成。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">task_key: 任务 key。</tag>
+				<tag name="param">message: 总进度消息。</tag>
+				<tag name="param">task_metadata: 本次任务元数据，会合并到任务快照。</tag>
+				<tag name="return">本次更新是否发出了 progressed。</tag>
+				<tag name="schema">task_key: Variant，调用方定义的任务 key。</tag>
+				<tag name="schema">task_metadata: Dictionary，调用方定义的任务上下文。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="complete_all">
+			<signature>func complete_all(message: String = "", metadata: Dictionary = {}) -&gt; bool:</signature>
+			<description>将所有任务标记为完成，并强制发布总进度 1.0。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">message: 总进度消息。</tag>
+				<tag name="param">metadata: 完成元数据。</tag>
+				<tag name="return">是否成功发出 progressed。</tag>
+				<tag name="schema">metadata: Dictionary，调用方定义的完成上下文。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="reset">
+			<signature>func reset(clear_tasks: bool = false) -&gt; void:</signature>
+			<description>重置聚合器状态，不发出信号。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">clear_tasks: 为 true 时移除全部任务；否则保留任务并把进度归零。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_total_progress">
+			<signature>func get_total_progress() -&gt; float:</signature>
+			<description>获取当前加权总进度。
+没有正权重任务时返回 1.0，表示当前没有待完成工作。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">当前总进度，范围 0 到 1。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_task_count">
+			<signature>func get_task_count() -&gt; int:</signature>
+			<description>获取子任务数量。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">当前任务数量。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_complete">
+			<signature>func is_complete() -&gt; bool:</signature>
+			<description>判断当前加权总进度是否已完成。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">总进度为 1.0 时返回 true。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_task_snapshot">
+			<signature>func get_task_snapshot(task_index: int) -&gt; Dictionary:</signature>
+			<description>获取指定任务快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">task_index: add_task() 返回的任务索引。</tag>
+				<tag name="return">任务快照；索引无效时返回空字典。</tag>
+				<tag name="schema">return: Dictionary，包含 index、has_key、key、weight、progress 和 metadata。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_debug_snapshot">
+			<signature>func get_debug_snapshot() -&gt; Dictionary:</signature>
+			<description>获取聚合器调试快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">聚合器状态快照。</tag>
+				<tag name="schema">return: Dictionary，包含 total_progress、total_weight、task_count、is_complete、allow_decrease、tasks 和 progress。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

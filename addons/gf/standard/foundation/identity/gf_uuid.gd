@@ -28,12 +28,15 @@ const CANONICAL_LENGTH: int = 36
 const _HEX_CHARS: String = "0123456789abcdef"
 const _MAX_UNIX_TIME_MSEC: int = 281474976710655
 const _MAX_V7_SEQUENCE: int = 4095
+const _MAX_V7_TAIL_SEQUENCE: int = 4611686018427387903
 
 
 # --- 私有变量 ---
 
 static var _last_v7_timestamp_msec: int = -1
 static var _last_v7_sequence: int = -1
+static var _last_v7_tail_sequence: int = -1
+static var _v7_state_mutex: Mutex = Mutex.new()
 
 
 # --- 公共方法 ---
@@ -71,6 +74,9 @@ static func generate_v7(unix_time_msec: int = -1) -> String:
 	bytes[6] = ((sequence >> 8) & 0x0f) | 0x70
 	bytes[7] = sequence & 0xff
 	bytes[8] = (bytes[8] & 0x3f) | 0x80
+	var tail_sequence: int = GFVariantData.get_option_int(v7_state, "tail_sequence", -1)
+	if tail_sequence >= 0:
+		_write_v7_tail_sequence(bytes, tail_sequence)
 	return _format_uuid_bytes(bytes)
 
 
@@ -126,20 +132,41 @@ static func _resolve_unix_time_msec(unix_time_msec: int) -> int:
 
 
 static func _reserve_v7_monotonic_state(timestamp_msec: int) -> Dictionary:
+	_v7_state_mutex.lock()
 	var effective_timestamp: int = timestamp_msec
 	var sequence: int = 0
-	if effective_timestamp == _last_v7_timestamp_msec:
+	var tail_sequence: int = -1
+	if effective_timestamp <= _last_v7_timestamp_msec:
+		effective_timestamp = _last_v7_timestamp_msec
 		sequence = _last_v7_sequence + 1
 		if sequence > _MAX_V7_SEQUENCE:
-			effective_timestamp = mini(_last_v7_timestamp_msec + 1, _MAX_UNIX_TIME_MSEC)
-			sequence = 0
+			if _last_v7_timestamp_msec < _MAX_UNIX_TIME_MSEC:
+				effective_timestamp = _last_v7_timestamp_msec + 1
+				sequence = 0
+				tail_sequence = -1
+			else:
+				sequence = _MAX_V7_SEQUENCE
+				tail_sequence = mini(_last_v7_tail_sequence + 1, _MAX_V7_TAIL_SEQUENCE)
+		elif effective_timestamp == _MAX_UNIX_TIME_MSEC and sequence == _MAX_V7_SEQUENCE:
+			tail_sequence = 0
 
 	_last_v7_timestamp_msec = effective_timestamp
 	_last_v7_sequence = sequence
-	return {
+	_last_v7_tail_sequence = tail_sequence
+	var result: Dictionary = {
 		"timestamp_msec": effective_timestamp,
 		"sequence": sequence,
+		"tail_sequence": tail_sequence,
 	}
+	_v7_state_mutex.unlock()
+	return result
+
+
+static func _write_v7_tail_sequence(bytes: PackedByteArray, tail_sequence: int) -> void:
+	var clamped_sequence: int = mini(maxi(tail_sequence, 0), _MAX_V7_TAIL_SEQUENCE)
+	bytes[8] = 0x80 | ((clamped_sequence >> 56) & 0x3f)
+	for index: int in range(7):
+		bytes[9 + index] = (clamped_sequence >> ((6 - index) * 8)) & 0xff
 
 
 static func _format_uuid_bytes(bytes: PackedByteArray) -> String:

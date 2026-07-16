@@ -70,6 +70,8 @@ const _LOG_DIR: String = "user://logs/"
 const _CRASH_MARKER_PATH: String = _LOG_DIR + "gf_log_running.marker"
 const _MAX_SANITIZE_DEPTH: int = 8
 const _MAX_SANITIZE_STRING_LENGTH: int = 2048
+const _MAX_SANITIZE_COLLECTION_ITEMS: int = 256
+const _MAX_SANITIZE_TOTAL_NODES: int = 4096
 
 
 # --- 公共变量 ---
@@ -105,6 +107,8 @@ var max_memory_entries: int:
 	get:
 		return _max_memory_entries
 	set(value):
+		if maxi(value, 0) > _max_memory_entries:
+			_linearize_memory_entries()
 		_max_memory_entries = maxi(value, 0)
 		_trim_memory_entries()
 
@@ -137,12 +141,14 @@ var _last_file_flush_msec: int = 0
 var _memory_entries: Array[Dictionary] = []
 var _memory_head: int = 0
 var _memory_dropped_count: int = 0
+var _memory_appended_total: int = 0
 var _sinks: Array[GFLogSink] = []
 var _is_initialized: bool = false
 var _global_context: Dictionary = {}
 var _global_context_provider: Callable = Callable()
 var _last_shutdown_was_clean: bool = true
 var _previous_crash_marker: Dictionary = {}
+var _is_dispatching_sinks: bool = false
 
 
 # --- GF 生命周期方法 ---
@@ -151,6 +157,8 @@ var _previous_crash_marker: Dictionary = {}
 ## [br]
 ## @api public
 func init() -> void:
+	if _is_initialized:
+		return
 	clear_memory_entries()
 	if not DirAccess.dir_exists_absolute(_LOG_DIR):
 		var make_log_dir_result: Error = DirAccess.make_dir_recursive_absolute(_LOG_DIR)
@@ -184,7 +192,7 @@ func init() -> void:
 	_is_initialized = true
 	if not _last_shutdown_was_clean:
 		previous_crash_detected.emit(_previous_crash_marker.duplicate(true))
-	for sink: GFLogSink in _sinks:
+	for sink: GFLogSink in _get_sink_snapshot():
 		if sink != null:
 			sink.init(self)
 
@@ -193,8 +201,10 @@ func init() -> void:
 ## [br]
 ## @api public
 func dispose() -> void:
+	if not _is_initialized:
+		return
 	flush_sinks()
-	for sink: GFLogSink in _sinks:
+	for sink: GFLogSink in _get_sink_snapshot():
 		if sink != null:
 			sink.shutdown()
 
@@ -396,7 +406,7 @@ func get_trace_id() -> String:
 ## [br]
 ## @schema context: Dictionary[String, Variant] sanitized global context merged into every log entry.
 func set_global_context(context: Dictionary) -> void:
-	_global_context = _sanitize_log_dictionary(context)
+	_global_context = context.duplicate(false)
 
 
 ## 设置全局日志上下文提供者。每条日志输出时会调用一次，返回 Dictionary 时参与合并。
@@ -424,7 +434,7 @@ func clear_global_context() -> void:
 ## [br]
 ## @schema return: Dictionary[String, Variant] sanitized global context.
 func get_global_context() -> Dictionary:
-	return _global_context.duplicate(true)
+	return _sanitize_log_dictionary(_global_context)
 
 
 ## 获取上次运行是否干净关闭。
@@ -506,11 +516,12 @@ func remove_sink(sink: GFLogSink, shutdown: bool = true) -> void:
 ## [br]
 ## @param shutdown: 是否调用每个 sink 的 shutdown()。
 func clear_sinks(shutdown: bool = true) -> void:
+	var sinks_to_shutdown: Array[GFLogSink] = _get_sink_snapshot()
+	_sinks.clear()
 	if shutdown:
-		for sink: GFLogSink in _sinks:
+		for sink: GFLogSink in sinks_to_shutdown:
 			if sink != null:
 				sink.shutdown()
-	_sinks.clear()
 
 
 ## 获取已注册日志 sink。
@@ -529,7 +540,7 @@ func get_sinks() -> Array[GFLogSink]:
 ## [br]
 ## @api public
 func flush_sinks() -> void:
-	for sink: GFLogSink in _sinks:
+	for sink: GFLogSink in _get_sink_snapshot():
 		if sink != null:
 			sink.flush()
 
@@ -572,6 +583,61 @@ func get_entries(offset: int = 0, count: int = -1) -> Array[Dictionary]:
 	return result
 
 
+## 获取内存日志的下一个序列游标。
+## 该值随每条通过过滤的日志递增，可作为 get_entries_since() 的 since_sequence。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+## [br]
+## @return 下一条日志将使用的序列号。
+func get_memory_sequence() -> int:
+	return _memory_appended_total
+
+
+## 按序列游标读取新增内存日志。
+## 适合诊断 UI、远端采集器或支持报告面板轮询日志缓存，而不需要每次重新读取全部最近日志。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+## [br]
+## @param since_sequence: 调用方上次保存的 next_sequence；表示下一条想读取的日志序列。
+## [br]
+## @param limit: 最多返回的条目数量；小于 0 表示读取所有可用条目。
+## [br]
+## @return 增量读取报告。
+## [br]
+## @schema return: Dictionary with requested_sequence, oldest_sequence, next_sequence, current_sequence, entries, truncated, has_more, missed_count, and dropped_count fields.
+func get_entries_since(since_sequence: int, limit: int = -1) -> Dictionary:
+	var retained_count: int = _memory_entries.size()
+	var oldest_sequence: int = _memory_appended_total - retained_count
+	var requested_sequence: int = maxi(since_sequence, 0)
+	var start_sequence: int = clampi(requested_sequence, oldest_sequence, _memory_appended_total)
+	var start_offset: int = start_sequence - oldest_sequence
+	var available_count: int = maxi(retained_count - start_offset, 0)
+	var read_count: int = available_count
+	if limit >= 0:
+		read_count = mini(available_count, limit)
+
+	var entries: Array[Dictionary] = get_entries(start_offset, read_count)
+	var next_sequence: int = start_sequence + entries.size()
+	var has_more: bool = next_sequence < _memory_appended_total
+	if limit == 0:
+		has_more = false
+	return {
+		"requested_sequence": since_sequence,
+		"oldest_sequence": oldest_sequence,
+		"next_sequence": next_sequence,
+		"current_sequence": _memory_appended_total,
+		"entries": entries,
+		"truncated": requested_sequence < oldest_sequence,
+		"has_more": has_more,
+		"missed_count": maxi(oldest_sequence - requested_sequence, 0),
+		"dropped_count": _memory_dropped_count,
+	}
+
+
 ## 获取当前内存日志条目数量。
 ## [br]
 ## @api public
@@ -600,8 +666,11 @@ func get_log_file_path() -> String:
 
 
 ## 清空内存日志缓存。
+## 已分配的序列游标不会重置；调用方仍可用 get_memory_sequence() 继续进行增量读取。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 func clear_memory_entries() -> void:
 	_memory_entries.clear()
 	_memory_head = 0
@@ -620,7 +689,10 @@ func clear_memory_entries() -> void:
 ## [br]
 ## @schema return: Variant JSON-compatible value with object metadata, truncated strings, and circular references marked.
 static func sanitize_log_value(value: Variant) -> Variant:
-	return _sanitize_log_value(value, 0, [])
+	return GFReportValueCodec.to_json_compatible(
+		value,
+		_make_log_report_options(GFReportValueCodec.REDACTION_PROFILE_DEBUG)
+	)
 
 
 # --- 私有/辅助方法 ---
@@ -639,7 +711,16 @@ func _log(level: int, tag: String, msg: String, context: Dictionary = {}) -> voi
 		datetime.minute,
 		datetime.second,
 	]
-	var entry: Dictionary = _make_entry(timestamp, level, level_str, tag, msg, context)
+	var merged_context: Dictionary = _merge_log_context(context)
+	var entry: Dictionary = _make_entry(
+		timestamp,
+		level,
+		level_str,
+		tag,
+		msg,
+		merged_context,
+		GFReportValueCodec.REDACTION_PROFILE_DEBUG
+	)
 	var formatted: String = _get_log_entry_text(entry)
 	_append_memory_entry(entry)
 
@@ -655,7 +736,7 @@ func _log(level: int, tag: String, msg: String, context: Dictionary = {}) -> voi
 		_:
 			print(formatted)
 
-	_write_sinks(entry)
+	_write_sinks(entry, merged_context)
 	log_emitted.emit(level, tag, msg)
 	log_entry_emitted.emit(entry.duplicate(true))
 
@@ -739,12 +820,11 @@ func _make_entry(
 	level_name: String,
 	tag: String,
 	message: String,
-	context: Dictionary
+	context: Dictionary,
+	redaction_profile: String
 ) -> Dictionary:
-	var safe_context: Dictionary = _merge_log_context(context)
-	var text: String = "[%s][%s][%s] %s" % [timestamp, level_name, tag, message]
-	if not safe_context.is_empty():
-		text += " " + JSON.stringify(safe_context)
+	var safe_context: Dictionary = _sanitize_log_dictionary(context, redaction_profile)
+	var text: String = _format_log_entry_text(timestamp, level_name, tag, message, safe_context)
 
 	return {
 		"timestamp": timestamp,
@@ -760,13 +840,74 @@ func _make_entry(
 	}
 
 
-func _write_sinks(entry: Dictionary) -> void:
+func _write_sinks(entry: Dictionary, raw_context: Dictionary) -> void:
+	if _is_dispatching_sinks:
+		return
+	_is_dispatching_sinks = true
+	for sink: GFLogSink in _get_sink_snapshot():
+		if sink != null:
+			var sink_entry: Dictionary = _make_entry_for_profile(
+				entry,
+				raw_context,
+				sink.get_report_redaction_profile()
+			)
+			sink.write(sink_entry)
+	_is_dispatching_sinks = false
+
+
+func _make_entry_for_profile(
+	entry: Dictionary,
+	raw_context: Dictionary,
+	redaction_profile: String
+) -> Dictionary:
+	if redaction_profile == GFReportValueCodec.REDACTION_PROFILE_DEBUG:
+		return entry.duplicate(true)
+	var result: Dictionary = entry.duplicate(false)
+	var safe_context: Dictionary = _sanitize_log_dictionary(raw_context, redaction_profile)
+	var safe_tag: String = _sanitize_log_text(
+		GFVariantData.get_option_string(entry, "tag"),
+		redaction_profile
+	)
+	var safe_message: String = _sanitize_log_text(
+		GFVariantData.get_option_string(entry, "message"),
+		redaction_profile
+	)
+	result["tag"] = safe_tag
+	result["message"] = safe_message
+	result["context"] = safe_context
+	result["text"] = _format_log_entry_text(
+		GFVariantData.get_option_string(entry, "timestamp"),
+		GFVariantData.get_option_string(entry, "level_name"),
+		safe_tag,
+		safe_message,
+		safe_context
+	)
+	return result
+
+
+func _format_log_entry_text(
+	timestamp: String,
+	level_name: String,
+	tag: String,
+	message: String,
+	context: Dictionary
+) -> String:
+	var text: String = "[%s][%s][%s] %s" % [timestamp, level_name, tag, message]
+	if not context.is_empty():
+		text += " " + JSON.stringify(context)
+	return text
+
+
+func _get_sink_snapshot() -> Array[GFLogSink]:
+	var snapshot: Array[GFLogSink] = []
 	for sink: GFLogSink in _sinks:
 		if sink != null:
-			sink.write(entry.duplicate(true))
+			snapshot.append(sink)
+	return snapshot
 
 
 func _append_memory_entry(entry: Dictionary) -> void:
+	_memory_appended_total += 1
 	if _max_memory_entries <= 0:
 		_memory_dropped_count += 1
 		return
@@ -802,6 +943,14 @@ func _trim_memory_entries() -> void:
 	_memory_dropped_count += dropped_count
 
 
+func _linearize_memory_entries() -> void:
+	if _memory_entries.is_empty():
+		return
+	var retained: Array[Dictionary] = get_recent_entries(-1)
+	_memory_entries = retained
+	_memory_head = 0 if _max_memory_entries <= 0 else _memory_entries.size() % _max_memory_entries
+
+
 func _memory_logical_to_physical(logical_index: int) -> int:
 	if _memory_entries.is_empty():
 		return -1
@@ -823,72 +972,7 @@ func _merge_log_context(context: Dictionary) -> Dictionary:
 		merged[key] = context[key]
 	if not merged.has("trace_id"):
 		merged["trace_id"] = get_trace_id()
-	return _sanitize_log_dictionary(merged)
-
-
-static func _sanitize_log_value(value: Variant, depth: int = 0, visited: Array = []) -> Variant:
-	if depth >= _MAX_SANITIZE_DEPTH:
-		return "<max_depth>"
-
-	match typeof(value):
-		TYPE_NIL, TYPE_BOOL, TYPE_INT:
-			return value
-		TYPE_FLOAT:
-			var float_value: float = value
-			return _sanitize_log_float(float_value)
-		TYPE_STRING:
-			return _truncate_log_string(_variant_to_log_string(value))
-		TYPE_STRING_NAME, TYPE_NODE_PATH:
-			return _truncate_log_string(_variant_to_log_string(value))
-		TYPE_DICTIONARY:
-			if _visited_contains_reference(visited, value):
-				return "<circular_reference>"
-			visited.append(value)
-			var result: Dictionary = {}
-			var source: Dictionary = GFVariantData.as_dictionary(value)
-			for key: Variant in source.keys():
-				result[_variant_to_log_string(key)] = _sanitize_log_value(source[key], depth + 1, visited)
-			visited.pop_back()
-			return result
-		TYPE_ARRAY:
-			if _visited_contains_reference(visited, value):
-				return "<circular_reference>"
-			visited.append(value)
-			var result: Array = []
-			for item: Variant in GFVariantData.as_array(value):
-				result.append(_sanitize_log_value(item, depth + 1, visited))
-			visited.pop_back()
-			return result
-		TYPE_PACKED_BYTE_ARRAY:
-			return {
-				"type": "PackedByteArray",
-				"size": _get_packed_array_size(value),
-			}
-		TYPE_PACKED_INT32_ARRAY, TYPE_PACKED_INT64_ARRAY, TYPE_PACKED_FLOAT32_ARRAY, TYPE_PACKED_FLOAT64_ARRAY:
-			return {
-				"type": type_string(typeof(value)),
-				"size": _get_packed_array_size(value),
-			}
-		TYPE_PACKED_STRING_ARRAY:
-			var strings: Array = []
-			for item: String in _variant_to_packed_string_array(value):
-				strings.append(_sanitize_log_value(item, depth + 1, visited))
-			return strings
-		TYPE_OBJECT:
-			var object: Object = _variant_to_object(value)
-			if object == null:
-				return null
-			var payload: Dictionary = {
-				"type": object.get_class(),
-				"id": object.get_instance_id(),
-			}
-			if object is Node:
-				var node: Node = object
-				payload["name"] = node.name
-				payload["path"] = _variant_to_log_string(node.get_path()) if node.is_inside_tree() else ""
-			return payload
-		_:
-			return _truncate_log_string(_variant_to_log_string(value))
+	return merged
 
 
 func _store_log_line(line: String) -> void:
@@ -920,46 +1004,44 @@ static func _remove_absolute(path: String, warn_on_failure: bool = false) -> voi
 		push_warning("[GFLogUtility] 无法移除文件：%s，错误码：%s" % [remove_path, remove_result])
 
 
-static func _sanitize_log_dictionary(source: Dictionary) -> Dictionary:
-	var sanitized: Variant = _sanitize_log_value(source, 0, [])
-	return GFVariantData.as_dictionary(sanitized)
+static func _sanitize_log_dictionary(
+	source: Dictionary,
+	redaction_profile: String = GFReportValueCodec.REDACTION_PROFILE_DEBUG
+) -> Dictionary:
+	return GFReportValueCodec.to_report_dictionary(
+		source,
+		_make_log_report_options(redaction_profile)
+	)
+
+
+static func _sanitize_log_text(value: String, redaction_profile: String) -> String:
+	var encoded: Variant = GFReportValueCodec.to_json_compatible(
+		value,
+		_make_log_report_options(redaction_profile)
+	)
+	if encoded is String:
+		var encoded_text: String = encoded
+		return encoded_text
+	return JSON.stringify(encoded)
+
+
+static func _make_log_report_options(redaction_profile: String) -> Dictionary:
+	return GFReportValueCodec.make_redaction_options(
+		redaction_profile,
+		{
+			"max_depth": _MAX_SANITIZE_DEPTH,
+			"max_string_length": _MAX_SANITIZE_STRING_LENGTH,
+			"max_collection_items": _MAX_SANITIZE_COLLECTION_ITEMS,
+			"max_packed_length": _MAX_SANITIZE_COLLECTION_ITEMS,
+			"max_total_nodes": _MAX_SANITIZE_TOTAL_NODES,
+			"max_total_bytes": _MAX_SANITIZE_STRING_LENGTH * 8,
+			"encode_dictionary_keys": false,
+		}
+	)
 
 
 static func _sanitize_dictionary_variant(value: Variant) -> Dictionary:
 	return _sanitize_log_dictionary(GFVariantData.as_dictionary(value))
-
-
-static func _variant_to_packed_string_array(value: Variant) -> PackedStringArray:
-	if value is PackedStringArray:
-		var array: PackedStringArray = value
-		return array
-	return PackedStringArray()
-
-
-static func _variant_to_object(value: Variant) -> Object:
-	if value is Object:
-		var object: Object = value
-		return object
-	return null
-
-
-static func _get_packed_array_size(value: Variant) -> int:
-	if value is PackedByteArray:
-		var byte_array: PackedByteArray = value
-		return byte_array.size()
-	if value is PackedInt32Array:
-		var int32_array: PackedInt32Array = value
-		return int32_array.size()
-	if value is PackedInt64Array:
-		var int64_array: PackedInt64Array = value
-		return int64_array.size()
-	if value is PackedFloat32Array:
-		var float32_array: PackedFloat32Array = value
-		return float32_array.size()
-	if value is PackedFloat64Array:
-		var float64_array: PackedFloat64Array = value
-		return float64_array.size()
-	return 0
 
 
 static func _variant_to_log_string(value: Variant) -> String:
@@ -972,27 +1054,6 @@ static func _variant_to_log_string(value: Variant) -> String:
 		var path_value: NodePath = value
 		return String(path_value)
 	return str(value)
-
-
-static func _sanitize_log_float(value: float) -> Variant:
-	if is_nan(value):
-		return "NaN"
-	if is_inf(value):
-		return "Infinity" if value > 0.0 else "-Infinity"
-	return value
-
-
-static func _visited_contains_reference(visited: Array, value: Variant) -> bool:
-	for item: Variant in visited:
-		if is_same(item, value):
-			return true
-	return false
-
-
-static func _truncate_log_string(value: String) -> String:
-	if value.length() <= _MAX_SANITIZE_STRING_LENGTH:
-		return value
-	return value.substr(0, _MAX_SANITIZE_STRING_LENGTH) + "...<truncated>"
 
 
 func _check_previous_crash_marker() -> void:

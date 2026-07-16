@@ -120,6 +120,61 @@ func test_world_screen_2d_roundtrip() -> void:
 	assert_almost_eq(restored_position.y, world_position.y, 0.001)
 
 
+func test_world_to_screen_3d_reports_invalid_camera_without_infinite_coordinates() -> void:
+	var screen_position: Vector2 = _utility.world_to_screen_3d(null, Vector3.ONE)
+	var report: Dictionary = _utility.world_to_screen_3d_report(null, Vector3.ONE)
+
+	assert_eq(screen_position, Vector2.ZERO, "无效 Camera3D 不应返回 INF 坐标。")
+	assert_false(GFVariantData.get_option_bool(report, "ok"), "无效 Camera3D 报告应失败。")
+	assert_eq(GFVariantData.get_option_string(report, "reason"), "invalid_camera")
+	assert_eq(GFVariantData.get_option_vector2(report, "screen_position"), Vector2.ZERO)
+
+
+func test_calculate_control_window_rect_scales_to_physical_window_pixels() -> void:
+	var report: Dictionary = _utility.calculate_control_window_rect(
+		Rect2(Vector2(10.0, 20.0), Vector2(100.0, 50.0)),
+		Vector2(200.0, 100.0),
+		Vector2i(400, 300)
+	)
+	var rect: Rect2i = _get_report_rect2i(report)
+
+	assert_true(GFVariantData.get_option_bool(report, "ok"), "有效尺寸应生成窗口矩形报告。")
+	assert_eq(rect.position, Vector2i(20, 60), "位置应按窗口与 viewport 比例换算。")
+	assert_eq(rect.size, Vector2i(200, 150), "尺寸应按窗口与 viewport 比例换算。")
+	assert_eq(GFVariantData.get_option_float(report, "scale_x"), 2.0)
+	assert_eq(GFVariantData.get_option_float(report, "scale_y"), 3.0)
+
+
+func test_calculate_control_window_rect_supports_content_rect_offset() -> void:
+	var report: Dictionary = _utility.calculate_control_window_rect(
+		Rect2(Vector2(10.0, 20.0), Vector2(100.0, 50.0)),
+		Vector2(200.0, 100.0),
+		Vector2i(800, 600),
+		{
+			"content_rect": Rect2i(Vector2i(100, 50), Vector2i(400, 300)),
+		}
+	)
+	var rect: Rect2i = _get_report_rect2i(report)
+
+	assert_true(GFVariantData.get_option_bool(report, "ok"), "有效 content_rect 应生成窗口矩形报告。")
+	assert_eq(GFVariantData.get_option_string(report, "mapping_mode"), "content_rect")
+	assert_eq(rect.position, Vector2i(120, 110), "位置应叠加 letterbox/content 偏移。")
+	assert_eq(rect.size, Vector2i(200, 150), "尺寸应按 content_rect 与 viewport 比例换算。")
+	assert_eq(GFVariantData.get_option_float(report, "scale_x"), 2.0)
+	assert_eq(GFVariantData.get_option_float(report, "scale_y"), 3.0)
+
+
+func test_calculate_control_window_rect_rejects_invalid_dimensions() -> void:
+	var report: Dictionary = _utility.calculate_control_window_rect(
+		Rect2(Vector2.ZERO, Vector2(10.0, 10.0)),
+		Vector2.ZERO,
+		Vector2i(400, 300)
+	)
+
+	assert_false(GFVariantData.get_option_bool(report, "ok"), "无效 viewport 尺寸不应生成可用窗口矩形。")
+	assert_eq(_get_report_rect2i(report), Rect2i())
+
+
 func test_calculate_safe_area_margins_converts_physical_pixels_to_viewport_units() -> void:
 	var report: Dictionary = _utility.calculate_safe_area_margins(
 		Rect2i(Vector2i(10, 20), Vector2i(980, 1880)),
@@ -181,3 +236,11 @@ func _viewport_grid() -> GridContainer:
 		var grid: GridContainer = node
 		return grid
 	return null
+
+
+func _get_report_rect2i(report: Dictionary) -> Rect2i:
+	var rect_value: Variant = GFVariantData.get_option_value(report, "rect", Rect2i())
+	if rect_value is Rect2i:
+		var rect: Rect2i = rect_value
+		return rect
+	return Rect2i()

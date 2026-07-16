@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFFixedVector3" path="addons/gf/standard/foundation/numeric/gf_fixed_vector3.gd" module="standard" extends="RefCounted" classDigest="0b925a2d09e799f5fc57976f07d8bc14d70749b0a95987f5433011bae17d10b9">
+<class name="GFFixedVector3" path="addons/gf/standard/foundation/numeric/gf_fixed_vector3.gd" module="standard" extends="RefCounted" classDigest="efdad09074befdbfc9a387c48bf7cd8b4ce7e43ae9ca2059edb340ca29fd8a14">
 	<description>GFFixedVector3: 基于统一整数缩放的三维定点向量值对象。
 它适合锁步、回放、黄金测试和需要稳定序列化的三维坐标或方向值。
 该类型不替代 Vector3i 格子坐标，也不替代 Godot Vector3 在渲染和物理中的浮点表达。</description>
@@ -13,7 +13,7 @@
 	<constants />
 	<properties>
 		<member kind="property" name="raw_x">
-			<signature>var raw_x: int = 0</signature>
+			<signature>var raw_x: int = 0:</signature>
 			<description>X 分量的整数缩放值。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -21,7 +21,7 @@
 			</tags>
 		</member>
 		<member kind="property" name="raw_y">
-			<signature>var raw_y: int = 0</signature>
+			<signature>var raw_y: int = 0:</signature>
 			<description>Y 分量的整数缩放值。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -29,7 +29,7 @@
 			</tags>
 		</member>
 		<member kind="property" name="raw_z">
-			<signature>var raw_z: int = 0</signature>
+			<signature>var raw_z: int = 0:</signature>
 			<description>Z 分量的整数缩放值。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -37,7 +37,7 @@
 			</tags>
 		</member>
 		<member kind="property" name="decimal_places">
-			<signature>var decimal_places: int = 2</signature>
+			<signature>var decimal_places: int = 2:</signature>
 			<description>三个分量共享的小数位数。</description>
 			<tags>
 				<tag name="api">public</tag>

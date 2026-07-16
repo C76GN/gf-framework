@@ -300,7 +300,7 @@ func evaluate(context: Dictionary = {}) -> Dictionary:
 结构：
 
 - `context`: Dictionary read by value and predicate conditions.
-- `return`: Dictionary，包含 ok、requirement_id、label、all_satisfied、any_satisfied、none_clear、satisfied_count、failed_count、conditions 和 metadata。
+- `return`: Dictionary，包含 ok、requirement_id、label、all_satisfied、any_satisfied、none_clear、satisfied_count、failed_count、raw_failed_count、blocking_count、none_matched_count、conditions 和 metadata。failed_count/raw_failed_count 记录原始谓词 false 数；blocking_count 记录导致 requirement 不通过的聚合阻塞数。
 
 <a id="member-gfexecutionrequirement-methods-is_satisfied"></a>
 

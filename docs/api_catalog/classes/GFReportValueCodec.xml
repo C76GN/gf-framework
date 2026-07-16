@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFReportValueCodec" path="addons/gf/kernel/core/gf_report_value_codec.gd" module="kernel" extends="RefCounted" classDigest="dd648241b629d224f9dc064cb3ff52cde4355dc24b0807dba6a21bbf75ac0476">
+	<description>GFReportValueCodec: 报告与诊断快照的 JSON-safe 值编码器。
+用于把公开报告、调试快照和诊断事件中的任意 Variant 收束为
+JSON.stringify() 可安全处理的结构。Object、Callable、Signal 和 RID
+会被结构化脱敏，不会把运行时对象直接泄漏到报告边界。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_service</tag>
+		<tag name="since">8.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants>
+		<member kind="const" name="REDACTION_PROFILE_DEBUG">
+			<signature>const REDACTION_PROFILE_DEBUG: String = "debug"</signature>
+			<description>本地调试报告配置，保留对象 id、Node 名称和路径，路径不脱敏。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="REDACTION_PROFILE_SUPPORT">
+			<signature>const REDACTION_PROFILE_SUPPORT: String = "support"</signature>
+			<description>支持排障报告配置，保留对象 id 和 Node 名称，但默认隐藏路径。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="REDACTION_PROFILE_PUBLIC">
+			<signature>const REDACTION_PROFILE_PUBLIC: String = "public"</signature>
+			<description>对外报告配置，隐藏对象 id、Node 名称和路径，只保留类型和有效性。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="REDACTION_PROFILE_PRIVACY">
+			<signature>const REDACTION_PROFILE_PRIVACY: String = "privacy"</signature>
+			<description>隐私优先报告配置，隐藏对象 id、Node 名称、路径和 Resource 路径。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties />
+	<methods>
+		<member kind="method" name="make_redaction_options">
+			<signature>static func make_redaction_options(profile: String, overrides: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>根据内置脱敏 profile 构建报告编码选项。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">profile: REDACTION_PROFILE_* 常量之一。</tag>
+				<tag name="param">overrides: 覆盖默认 profile 的选项。</tag>
+				<tag name="return">编码选项字典。</tag>
+				<tag name="schema">overrides: Dictionary，可覆盖 redaction_profile、path_redaction、include_node_name、include_node_path、include_object_instance_id、include_resource_path、max_depth、max_string_length、max_collection_items、max_packed_length、max_total_nodes 和 max_total_bytes。</tag>
+				<tag name="schema">return: Dictionary，可直接传给 GFReportValueCodec 的编码选项。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="to_json_compatible">
+			<signature>static func to_json_compatible(value: Variant, options: Dictionary = {}) -&gt; Variant:</signature>
+			<description>将任意 Variant 转为报告边界可安全 JSON.stringify() 的值。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">value: 待转换的报告值。</tag>
+				<tag name="param">options: 可选项；支持 redaction_profile、circular_reference、include_resource_path、include_node_name、include_node_path、include_object_instance_id、max_depth、max_string_length、max_collection_items、max_packed_length、max_total_nodes、max_total_bytes 和 path_redaction；路径默认脱敏，所有非负预算均为遍历工作量与输出硬上限。</tag>
+				<tag name="return">JSON 兼容值；不支持的运行时类型会写入脱敏 marker。</tag>
+				<tag name="schema">value: Variant report value to encode.</tag>
+				<tag name="schema">options: Dictionary with redaction_profile, circular_reference, include_resource_path, include_node_name, include_node_path, include_object_instance_id, max_depth, max_string_length, max_collection_items, max_packed_length, max_total_nodes, max_total_bytes, path_redaction, and encode_dictionary_keys options; path_redaction defaults to redacted and non-negative budgets stop traversal immediately when exhausted.</tag>
+				<tag name="schema">return: Variant made only from JSON-compatible values, GF variant markers, and GF report redaction markers.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="to_report_dictionary">
+			<signature>static func to_report_dictionary(value: Variant, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>将任意报告值转为 JSON-safe Dictionary。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">value: 待转换的报告值。</tag>
+				<tag name="param">options: 传给 to_json_compatible() 的编码选项。</tag>
+				<tag name="return">JSON-safe 字典；转换结果不是 Dictionary 时返回空字典。</tag>
+				<tag name="schema">value: Variant report value to encode before narrowing to Dictionary.</tag>
+				<tag name="schema">options: Dictionary with redaction_profile, circular_reference, include_resource_path, include_node_name, include_node_path, include_object_instance_id, max_depth, max_string_length, max_collection_items, max_packed_length, max_total_nodes, max_total_bytes, path_redaction, and encode_dictionary_keys options.</tag>
+				<tag name="schema">return: Dictionary made only from JSON-compatible values, GF variant markers, and GF report redaction markers.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="stringify_json_compatible">
+			<signature>static func stringify_json_compatible( value: Variant, indent: String = "", sort_keys: bool = false, options: Dictionary = {} ) -&gt; String:</signature>
+			<description>将报告值转为 JSON-safe 后序列化为文本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">value: 待序列化的报告值。</tag>
+				<tag name="param">indent: 缩进字符串；空字符串表示压缩输出。</tag>
+				<tag name="param">sort_keys: 是否按键名排序 Dictionary。</tag>
+				<tag name="param">options: 传给 to_json_compatible() 的编码选项。</tag>
+				<tag name="return">JSON 文本。</tag>
+				<tag name="schema">value: Variant report value to encode before JSON.stringify().</tag>
+				<tag name="schema">options: Dictionary with redaction_profile, circular_reference, include_resource_path, include_node_name, include_node_path, include_object_instance_id, max_depth, max_string_length, max_collection_items, max_packed_length, max_total_nodes, max_total_bytes, path_redaction, and encode_dictionary_keys options.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="make_collection_summary">
+			<signature>static func make_collection_summary(value: Variant, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>为报告中的大型集合生成稳定摘要。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">value: 待摘要的集合值。</tag>
+				<tag name="param">options: 可选项；支持 sample_count 和传给 stringify_json_compatible() 的编码选项。</tag>
+				<tag name="return">摘要字典。</tag>
+				<tag name="schema">value: Variant collection value to summarize.</tag>
+				<tag name="schema">options: Dictionary with sample_count and GFReportValueCodec encoding options.</tag>
+				<tag name="schema">return: Dictionary with ok, collection_type, count, sample, truncated, and hash.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

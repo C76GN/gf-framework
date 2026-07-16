@@ -38,29 +38,29 @@ func test_surface_utility_describes_surface_hit_report() -> void:
 	var utility: GFSurfaceUtility = GFSurfaceUtility.new()
 	var mesh_instance: MeshInstance3D = _make_two_surface_mesh_instance()
 	add_child_autofree(mesh_instance)
-	var base_material: Material = mesh_instance.mesh.surface_get_material(1)
 	var override_material: StandardMaterial3D = StandardMaterial3D.new()
 	override_material.resource_name = "surface_override"
 	mesh_instance.set_surface_override_material(1, override_material)
 
 	var report: Dictionary = utility.describe_surface_hit(mesh_instance, 1)
-	var reported_base_material: Material = _get_report_material(report, "base_material")
-	var reported_override_material: Material = _get_report_material(report, "override_material")
-	var reported_active_material: Material = _get_report_material(report, "active_material")
+	var reported_base_material: Dictionary = _get_report_resource_summary(report, "base_material")
+	var reported_override_material: Dictionary = _get_report_resource_summary(report, "override_material")
+	var reported_active_material: Dictionary = _get_report_resource_summary(report, "active_material")
 
 	assert_true(GFVariantData.get_option_bool(report, "ok"), "有效命中报告应标记 ok。")
 	assert_eq(GFVariantData.get_option_string(report, "reason"), "", "成功报告不应带失败原因。")
 	assert_eq(GFVariantData.get_option_int(report, "face_index"), 1, "报告应保留输入 face index。")
 	assert_eq(GFVariantData.get_option_int(report, "surface_index"), 1, "报告应保留 surface index。")
-	assert_eq(reported_base_material, base_material, "报告应保留 base material 引用。")
+	assert_true(GFVariantData.get_option_bool(reported_base_material, "has_resource"), "报告应保留 base material 摘要。")
 	assert_eq(GFVariantData.get_option_string(report, "base_material_name"), "surface_blue", "报告应保留 base material 名称。")
 	assert_true(GFVariantData.get_option_bool(report, "has_base_material"), "报告应标记 base material 存在。")
-	assert_eq(reported_override_material, override_material, "报告应保留 override material 引用。")
+	assert_true(GFVariantData.get_option_bool(reported_override_material, "has_resource"), "报告应保留 override material 摘要。")
 	assert_eq(GFVariantData.get_option_string(report, "override_material_name"), "surface_override", "报告应保留 override material 名称。")
 	assert_true(GFVariantData.get_option_bool(report, "has_override_material"), "报告应标记 override material 存在。")
-	assert_eq(reported_active_material, override_material, "active material 应反映最终渲染材质。")
+	assert_true(GFVariantData.get_option_bool(reported_active_material, "has_resource"), "active material 应反映最终渲染材质摘要。")
 	assert_eq(GFVariantData.get_option_string(report, "active_material_name"), "surface_override", "报告应保留 active material 名称。")
 	assert_true(GFVariantData.get_option_bool(report, "has_active_material"), "报告应标记 active material 存在。")
+	assert_ne(JSON.stringify(report), "", "surface hit 报告不应携带运行时 Object 引用。")
 
 
 func test_surface_utility_describes_invalid_surface_hit_report() -> void:
@@ -69,14 +69,55 @@ func test_surface_utility_describes_invalid_surface_hit_report() -> void:
 	add_child_autofree(mesh_instance)
 
 	var report: Dictionary = utility.describe_surface_hit(mesh_instance, 2)
-	var reported_active_material: Material = _get_report_material(report, "active_material")
+	var reported_active_material: Dictionary = _get_report_resource_summary(report, "active_material")
 
 	assert_false(GFVariantData.get_option_bool(report, "ok"), "无效命中报告不应标记 ok。")
 	assert_eq(GFVariantData.get_option_string(report, "reason"), "surface_not_found", "失败报告应说明 surface 未命中。")
 	assert_eq(GFVariantData.get_option_int(report, "face_index"), 2, "失败报告应保留输入 face index。")
 	assert_eq(GFVariantData.get_option_int(report, "surface_index"), -1, "无效命中 surface index 应为 -1。")
-	assert_eq(reported_active_material, null, "失败报告不应携带 active material。")
+	assert_false(GFVariantData.get_option_bool(reported_active_material, "has_resource"), "失败报告不应携带 active material。")
 	assert_false(GFVariantData.get_option_bool(report, "has_active_material"), "失败报告应标记 active material 不存在。")
+
+
+func test_surface_utility_describes_mesh_surface_layout() -> void:
+	var utility: GFSurfaceUtility = GFSurfaceUtility.new()
+	var mesh_instance: MeshInstance3D = _make_two_surface_mesh_instance()
+	add_child_autofree(mesh_instance)
+
+	var report: Dictionary = utility.describe_mesh(mesh_instance)
+	var surfaces: Array = GFVariantData.get_option_array(report, "surfaces")
+	var first_surface: Dictionary = GFVariantData.as_dictionary(surfaces[0])
+	var second_surface: Dictionary = GFVariantData.as_dictionary(surfaces[1])
+
+	assert_true(GFVariantData.get_option_bool(report, "ok"), "有效 Mesh 布局报告应标记 ok。")
+	assert_eq(GFVariantData.get_option_int(report, "surface_count"), 2, "报告应统计 surface 数量。")
+	assert_eq(GFVariantData.get_option_int(report, "vertex_count"), 6, "报告应统计总顶点数量。")
+	assert_eq(GFVariantData.get_option_int(report, "index_count"), 6, "报告应统计总索引数量。")
+	assert_eq(GFVariantData.get_option_int(report, "face_count"), 2, "报告应统计总三角面数量。")
+	assert_eq(_get_report_vector3(report, "aabb_position"), Vector3.ZERO, "报告应包含 Mesh AABB 起点。")
+	var aabb_size: Vector3 = _get_report_vector3(report, "aabb_size")
+	assert_almost_eq(aabb_size.x, 5.0, 0.001, "报告应包含 Mesh AABB X 尺寸。")
+	assert_almost_eq(aabb_size.y, 1.0, 0.001, "报告应包含 Mesh AABB Y 尺寸。")
+	assert_almost_eq(aabb_size.z, 0.0, 0.001, "平面 Mesh 的 AABB Z 尺寸应接近 0。")
+	assert_eq(GFVariantData.get_option_int(first_surface, "surface_index"), 0, "surface 条目应保留索引。")
+	assert_eq(GFVariantData.get_option_string_name(first_surface, "primitive_name"), &"triangles", "三角 surface 应标记 primitive 名称。")
+	assert_eq(GFVariantData.get_option_int(first_surface, "vertex_count"), 3, "surface 条目应统计顶点数量。")
+	assert_eq(GFVariantData.get_option_int(first_surface, "face_count"), 1, "surface 条目应统计三角面数量。")
+	assert_eq(GFVariantData.get_option_string(first_surface, "material_name"), "surface_red", "surface 条目应包含材质摘要。")
+	assert_eq(GFVariantData.get_option_string(second_surface, "material_name"), "surface_blue", "第二个 surface 条目应保留稳定顺序。")
+
+
+func test_surface_utility_describes_missing_mesh() -> void:
+	var utility: GFSurfaceUtility = GFSurfaceUtility.new()
+	var node: Node3D = Node3D.new()
+	add_child_autofree(node)
+
+	var report: Dictionary = utility.describe_mesh(node)
+
+	assert_false(GFVariantData.get_option_bool(report, "ok"), "无法解析 Mesh 时不应标记 ok。")
+	assert_eq(GFVariantData.get_option_string(report, "reason"), "mesh_not_found", "失败原因应稳定。")
+	assert_eq(GFVariantData.get_option_int(report, "surface_count"), 0, "失败报告不应包含 surface。")
+	assert_true(GFVariantData.get_option_array(report, "surfaces").is_empty(), "失败报告 surfaces 应为空。")
 
 
 func test_surface_utility_resolves_mesh_from_collision_sibling() -> void:
@@ -200,9 +241,13 @@ func _array_mesh(mesh: Mesh) -> ArrayMesh:
 	return null
 
 
-func _get_report_material(report: Dictionary, key: String) -> Material:
+func _get_report_resource_summary(report: Dictionary, key: String) -> Dictionary:
+	return GFVariantData.get_option_dictionary(report, key)
+
+
+func _get_report_vector3(report: Dictionary, key: String) -> Vector3:
 	var value: Variant = report.get(key)
-	if value is Material:
-		var material: Material = value
-		return material
-	return null
+	if value is Vector3:
+		var vector_value: Vector3 = value
+		return vector_value
+	return Vector3.ZERO

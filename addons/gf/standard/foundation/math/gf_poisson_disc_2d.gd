@@ -37,6 +37,7 @@ const DEFAULT_MAX_POINTS: int = 4096
 const DEFAULT_MAX_GRID_CELLS: int = 262144
 
 const _SQRT_TWO: float = 1.4142135623730951
+const _GF_REPORT_VALUE_CODEC_SCRIPT = preload("res://addons/gf/kernel/core/gf_report_value_codec.gd")
 
 
 # --- 公共方法 ---
@@ -151,6 +152,27 @@ static func generate_points(area: Rect2, minimum_distance: float, options: Dicti
 		points,
 		not active_indices.is_empty()
 	)
+
+
+## 将采样报告编码为 JSON.stringify() 安全字典。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+## [br]
+## @param report: generate_points() 返回的原生报告。
+## [br]
+## @param options: GFReportValueCodec 编码选项。
+## [br]
+## @return JSON 兼容报告。
+## [br]
+## @schema report: Dictionary returned by generate_points().
+## [br]
+## @schema options: Dictionary with GFReportValueCodec options.
+## [br]
+## @schema return: Dictionary safe for JSON.stringify().
+static func to_json_compatible_report(report: Dictionary, options: Dictionary = {}) -> Dictionary:
+	return GFVariantData.as_dictionary(_GF_REPORT_VALUE_CODEC_SCRIPT.to_json_compatible(report, options))
 
 
 # --- 私有/辅助方法 ---

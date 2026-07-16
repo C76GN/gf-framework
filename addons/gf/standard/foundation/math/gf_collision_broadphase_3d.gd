@@ -51,6 +51,8 @@ const DEFAULT_COLLISION_LAYER: int = 1
 const DEFAULT_COLLISION_MASK: int = 0xffffffff
 
 const _DEFAULT_BRUTE_FORCE_THRESHOLD: int = 24
+const _GF_REPORT_VALUE_CODEC_SCRIPT = preload("res://addons/gf/kernel/core/gf_report_value_codec.gd")
+const _SPATIAL_BOUNDS_MATH = preload("res://addons/gf/standard/foundation/math/gf_spatial_bounds_math.gd")
 
 
 # --- 公共方法 ---
@@ -88,6 +90,8 @@ static func make_body(
 	enabled: bool = true,
 	metadata: Dictionary = {}
 ) -> Dictionary:
+	if not _SPATIAL_BOUNDS_MATH.is_finite_aabb(bounds):
+		return {}
 	return {
 		"entity": entity,
 		"bounds": _normalize_aabb(bounds),
@@ -228,6 +232,27 @@ static func build_pair_report(bodies: Array, options: Dictionary = {}) -> Dictio
 	}
 
 
+## 将 broadphase 报告编码为 JSON.stringify() 安全字典。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+## [br]
+## @param report: build_pair_report() 返回的原生报告。
+## [br]
+## @param options: GFReportValueCodec 编码选项。
+## [br]
+## @return JSON 兼容报告。
+## [br]
+## @schema report: Dictionary returned by build_pair_report().
+## [br]
+## @schema options: Dictionary with GFReportValueCodec options.
+## [br]
+## @schema return: Dictionary safe for JSON.stringify().
+static func to_json_compatible_report(report: Dictionary, options: Dictionary = {}) -> Dictionary:
+	return GFVariantData.as_dictionary(_GF_REPORT_VALUE_CODEC_SCRIPT.to_json_compatible(report, options))
+
+
 # --- 私有/辅助方法 ---
 
 static func _normalize_bodies(bodies: Array, options: Dictionary) -> Array[Dictionary]:
@@ -256,6 +281,8 @@ static func _normalize_body(value: Variant, index: int) -> Dictionary:
 	var metadata: Dictionary = GFVariantData.as_dictionary(metadata_value, {})
 	var entity: Variant = GFVariantData.get_option_value(source, "entity", index)
 	var bounds: AABB = bounds_value
+	if not _SPATIAL_BOUNDS_MATH.is_finite_aabb(bounds):
+		return {}
 	return {
 		"entity": entity,
 		"bounds": _normalize_aabb(bounds),
@@ -356,18 +383,7 @@ static func _sort_bodies_by_x(bodies: Array[Dictionary]) -> void:
 
 
 static func _normalize_aabb(bounds: AABB) -> AABB:
-	var position: Vector3 = bounds.position
-	var size: Vector3 = bounds.size
-	if size.x < 0.0:
-		position.x += size.x
-		size.x = -size.x
-	if size.y < 0.0:
-		position.y += size.y
-		size.y = -size.y
-	if size.z < 0.0:
-		position.z += size.z
-		size.z = -size.z
-	return AABB(position, size)
+	return _SPATIAL_BOUNDS_MATH.normalize_aabb(bounds)
 
 
 static func _aabbs_overlap(left: AABB, right: AABB, include_touching: bool) -> bool:

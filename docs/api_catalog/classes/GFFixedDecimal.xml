@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFFixedDecimal" path="addons/gf/standard/foundation/numeric/gf_fixed_decimal.gd" module="standard" extends="RefCounted" classDigest="6ab8cd2fa0f02c6499fad55de37af6398e2767bd1d1a22a5d9b8835a50d37af1">
+<class name="GFFixedDecimal" path="addons/gf/standard/foundation/numeric/gf_fixed_decimal.gd" module="standard" extends="RefCounted" classDigest="6e62cfa472fc6421272ca25dda698c7c989fb6e5ed2f406767eb223738cb4bc5">
 	<description>GFFixedDecimal: 基于整数缩放的定点小数值对象。
 适合处理货币、税率、经营数值等对“累计误差”敏感、
 但又不需要无限精度十进制库的场景。</description>
@@ -40,17 +40,19 @@
 	</constants>
 	<properties>
 		<member kind="property" name="raw_value">
-			<signature>var raw_value: int = 0</signature>
+			<signature>var raw_value: int = 0:</signature>
 			<description>实际保存的整数值。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="decimal_places">
-			<signature>var decimal_places: int = 2</signature>
+			<signature>var decimal_places: int = 2:</signature>
 			<description>小数位数。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</properties>
@@ -77,13 +79,14 @@
 			</tags>
 		</member>
 		<member kind="method" name="from_string">
-			<signature>static func from_string( value: String, p_decimal_places: int = 2, rounding_mode: RoundingMode = RoundingMode.HALF_UP ) -&gt; GFFixedDecimal:</signature>
+			<signature>static func from_string( value: String, p_decimal_places: int = 2, rounding_mode: RoundingMode = RoundingMode.HALF_UP, max_input_length: int = GFDecimalStringFormatter.DEFAULT_MAX_NUMERIC_TEXT_LENGTH ) -&gt; GFFixedDecimal:</signature>
 			<description>从字符串构建定点数。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">value: 普通十进制字符串；科学计数法会作为 float 兼容路径解析，不适合作为严格十进制导入源。</tag>
 				<tag name="param">p_decimal_places: 目标小数位。</tag>
 				<tag name="param">rounding_mode: 舍入策略。</tag>
+				<tag name="param">max_input_length: 最大输入字符数；小于等于 0 时使用框架默认预算。</tag>
 				<tag name="return">定点数实例。</tag>
 				<tag name="since">3.17.0</tag>
 			</tags>

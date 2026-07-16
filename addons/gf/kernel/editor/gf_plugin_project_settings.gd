@@ -93,7 +93,7 @@ const GFExtensionSettingsBase = preload("res://addons/gf/kernel/extension/gf_ext
 ##
 ## 该方法只补齐缺失默认值和 Inspector 属性提示，不会清理本次未贡献的设置。
 ## 已写入的 ProjectSettings 归项目所有；模块禁用、贡献消失或 core-only 回退时，
-## GF 不会自动删除用户项目配置。
+## GF 不会自动删除用户项目配置，也不会隐式保存当前进程中的其他临时设置。
 ## [br]
 ## @api framework_internal
 ## [br]
@@ -101,28 +101,32 @@ const GFExtensionSettingsBase = preload("res://addons/gf/kernel/extension/gf_ext
 ## [br]
 ## @param project_setting_records: 由标准库或扩展贡献的 ProjectSettings 记录。
 ## [br]
-## @schema project_setting_records: Array[Dictionary] with name, default_value, type, hint, hint_string, basic, restart_if_changed, and internal.
+## @schema project_setting_records: Array[Dictionary] with setting registration fields and optional editor_labels, editor_descriptions, editor_enum_labels, and editor_enum_descriptions presentation maps.
 static func ensure_all(project_setting_records: Array[Dictionary] = []) -> void:
-	var should_save: bool = false
-	if _ensure_default(INSTALLERS_SETTING, INSTALLERS_DEFAULT):
-		should_save = true
-	if _ensure_default(FAIL_ON_INSTALLER_ERROR_SETTING, FAIL_ON_INSTALLER_ERROR_DEFAULT):
-		should_save = true
-	if _ensure_default(INSTALLER_TIMEOUT_SETTING, INSTALLER_TIMEOUT_DEFAULT):
-		should_save = true
-	if _ensure_default(ACCESS_OUTPUT_SETTING, ACCESS_OUTPUT_DEFAULT):
-		should_save = true
-	if _ensure_default(PROJECT_ACCESS_OUTPUT_SETTING, PROJECT_ACCESS_OUTPUT_DEFAULT):
-		should_save = true
-	if _ensure_project_setting_records(project_setting_records):
-		should_save = true
-	if GFExtensionSettingsBase.ensure_defaults():
-		should_save = true
+	var _installers_ensured: bool = _ensure_default(INSTALLERS_SETTING, INSTALLERS_DEFAULT)
+	var _fail_policy_ensured: bool = _ensure_default(
+		FAIL_ON_INSTALLER_ERROR_SETTING,
+		FAIL_ON_INSTALLER_ERROR_DEFAULT
+	)
+	var _timeout_ensured: bool = _ensure_default(
+		INSTALLER_TIMEOUT_SETTING,
+		INSTALLER_TIMEOUT_DEFAULT
+	)
+	var _access_output_ensured: bool = _ensure_default(
+		ACCESS_OUTPUT_SETTING,
+		ACCESS_OUTPUT_DEFAULT
+	)
+	var _project_access_output_ensured: bool = _ensure_default(
+		PROJECT_ACCESS_OUTPUT_SETTING,
+		PROJECT_ACCESS_OUTPUT_DEFAULT
+	)
+	var _contributed_settings_ensured: bool = _ensure_project_setting_records(
+		project_setting_records
+	)
+	var _extension_defaults_ensured: bool = GFExtensionSettingsBase.ensure_defaults()
 
 	_register_property_info()
 	GFExtensionSettingsBase.register_property_info()
-	if should_save:
-		var _saved: bool = _save_project_settings()
 
 
 ## 获取 GF 访问器输出路径。
@@ -169,14 +173,6 @@ static func _ensure_project_setting_records(project_setting_records: Array[Dicti
 	return should_save
 
 
-static func _save_project_settings() -> bool:
-	var save_result: Error = ProjectSettings.save()
-	if save_result != OK:
-		push_error("[GFPluginProjectSettings] ProjectSettings.save() 失败：%s" % error_string(save_result))
-		return false
-	return true
-
-
 static func _register_property_info() -> void:
 	_GF_PROJECT_SETTINGS_TOOLS.register_property_info(INSTALLERS_SETTING, TYPE_ARRAY, {
 		"hint": PROPERTY_HINT_TYPE_STRING,
@@ -192,12 +188,12 @@ static func _register_property_info() -> void:
 		"basic": true,
 	})
 	_GF_PROJECT_SETTINGS_TOOLS.register_property_info(ACCESS_OUTPUT_SETTING, TYPE_STRING, {
-		"hint": PROPERTY_HINT_FILE,
+		"hint": PROPERTY_HINT_SAVE_FILE,
 		"hint_string": "*.gd",
 		"basic": true,
 	})
 	_GF_PROJECT_SETTINGS_TOOLS.register_property_info(PROJECT_ACCESS_OUTPUT_SETTING, TYPE_STRING, {
-		"hint": PROPERTY_HINT_FILE,
+		"hint": PROPERTY_HINT_SAVE_FILE,
 		"hint_string": "*.gd",
 		"basic": true,
 	})

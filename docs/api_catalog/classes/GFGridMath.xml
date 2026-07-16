@@ -1,9 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFGridMath" path="addons/gf/standard/foundation/math/gf_grid_math.gd" module="standard" extends="RefCounted" classDigest="6b0dec342f42d36007742cade92b053d92b20481593cb80340ac58543a5b85d2">
-	<description>GFGridMath: 网格类小游戏的纯算法工具。
-提供一维索引与二维格坐标转换、邻居枚举、范围、外环、直线、视线、
-泛洪搜索、BFS / A* 路径查找、Flow Field 生成以及连连看类“两折连线”判断。
-它不依赖 GFArchitecture，可直接在 Model、System、Controller 或测试中静态调用。</description>
+<class name="GFGridMath" path="addons/gf/standard/foundation/math/gf_grid_math.gd" module="standard" extends="RefCounted" classDigest="e51ed7ea2ac94795b39281b0f291a0cb7bc33196a3fb930195580535458ed729">
+	<description>GFGridMath: 2D 网格算法聚合 facade。
+该类只保留历史稳定入口和常用聚合调用；具体实现归属到
+GFGridCoordinateMath2D、GFGridPathMath2D、GFGridGenerationMath2D
+与 GFGridConnectionMath2D。新代码优先直接依赖对应专门类，以保持坐标、
+路径、生成和连接规则的职责边界清晰。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">runtime_service</tag>
@@ -11,9 +12,48 @@
 	</tags>
 	<signals />
 	<enums />
-	<constants />
+	<constants>
+		<member kind="const" name="DEFAULT_MAX_MAZE_CELLS">
+			<signature>const DEFAULT_MAX_MAZE_CELLS: int = GFGridGenerationMath2D.DEFAULT_MAX_MAZE_CELLS</signature>
+			<description>默认矩形迷宫最大格子数，避免误把超大生成任务交给单帧纯 GDScript。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="DEFAULT_MAX_CELLULAR_AUTOMATA_CELLS">
+			<signature>const DEFAULT_MAX_CELLULAR_AUTOMATA_CELLS: int = GFGridGenerationMath2D.DEFAULT_MAX_CELLULAR_AUTOMATA_CELLS</signature>
+			<description>默认细胞自动机最大格子数，避免误把超大生成任务交给单帧纯 GDScript。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="DEFAULT_MAX_CELL_REGION_CELLS">
+			<signature>const DEFAULT_MAX_CELL_REGION_CELLS: int = GFGridGenerationMath2D.DEFAULT_MAX_CELL_REGION_CELLS</signature>
+			<description>默认连通区域分析最大格子数，避免误把超大生成后处理交给单帧纯 GDScript。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</constants>
 	<properties />
 	<methods>
+		<member kind="method" name="to_json_compatible_report">
+			<signature>static func to_json_compatible_report(report: Dictionary, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>将 2D 网格报告转换为 JSON.stringify() 安全的结构。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">report: 2D 网格工具返回的报告或快照字典。</tag>
+				<tag name="param">options: 报告编码选项，透传给 GFReportValueCodec。</tag>
+				<tag name="return">JSON 兼容报告。</tag>
+				<tag name="schema">report: 2D 网格工具返回的报告或快照字典。</tag>
+				<tag name="schema">options: GFReportValueCodec 编码选项字典。</tag>
+				<tag name="schema">return: 可安全交给 JSON.stringify() 的 Dictionary。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
 		<member kind="method" name="cell_to_index">
 			<signature>static func cell_to_index(cell: Vector2i, width: int) -&gt; int:</signature>
 			<description>将二维格坐标转换为一维索引。</description>
@@ -32,6 +72,39 @@
 				<tag name="param">index: 一维索引。</tag>
 				<tag name="param">width: 网格宽度。</tag>
 				<tag name="return">成功时返回二维格坐标；参数无效时返回 Vector2i(-1, -1)。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="world_to_chunk_cell">
+			<signature>static func world_to_chunk_cell(world_position: Vector2, chunk_size: Vector2i) -&gt; Vector2i:</signature>
+			<description>将世界坐标转换为二维 chunk 坐标。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">world_position: 世界坐标。</tag>
+				<tag name="param">chunk_size: 单个 chunk 的世界尺寸；任一轴小于等于 0 时返回 Vector2i.ZERO。</tag>
+				<tag name="return">chunk 坐标。负世界坐标使用 floor 语义，因此 -0.1 会落入 -1 号 chunk。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="chunk_cell_to_world_origin">
+			<signature>static func chunk_cell_to_world_origin(chunk_cell: Vector2i, chunk_size: Vector2i) -&gt; Vector2:</signature>
+			<description>将二维 chunk 坐标转换为世界原点坐标。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">chunk_cell: chunk 坐标。</tag>
+				<tag name="param">chunk_size: 单个 chunk 的世界尺寸；任一轴小于等于 0 时返回 Vector2.ZERO。</tag>
+				<tag name="return">chunk 左上/局部原点对应的世界坐标。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="chunk_cell_to_world_center">
+			<signature>static func chunk_cell_to_world_center(chunk_cell: Vector2i, chunk_size: Vector2i) -&gt; Vector2:</signature>
+			<description>将二维 chunk 坐标转换为世界中心坐标。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">chunk_cell: chunk 坐标。</tag>
+				<tag name="param">chunk_size: 单个 chunk 的世界尺寸；任一轴小于等于 0 时返回 Vector2.ZERO。</tag>
+				<tag name="return">chunk 中心对应的世界坐标。</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_in_bounds">
@@ -93,6 +166,33 @@
 				<tag name="since">3.20.0</tag>
 			</tags>
 		</member>
+		<member kind="method" name="get_chunk_window">
+			<signature>static func get_chunk_window( center_chunk: Vector2i, radius: int, shape: StringName = &amp;"circle" ) -&gt; Array[Vector2i]:</signature>
+			<description>获取中心 chunk 周围的候选窗口。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">center_chunk: 中心 chunk 坐标。</tag>
+				<tag name="param">radius: chunk 半径；小于 0 时返回空数组。</tag>
+				<tag name="param">shape: 窗口形状。支持 "circle"/"euclidean"、"square"/"chebyshev"、"diamond"/"manhattan"；未知值按 circle 处理。</tag>
+				<tag name="return">候选 chunk 坐标数组，按 y/x 稳定顺序返回。</tag>
+				<tag name="schema">return: Array[Vector2i]，中心 chunk 周围的候选 chunk 坐标。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="diff_cells">
+			<signature>static func diff_cells(previous_cells: Array[Vector2i], next_cells: Array[Vector2i]) -&gt; Dictionary:</signature>
+			<description>计算两个格子集合的稳定差分。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">previous_cells: 旧集合。重复项会被去重，removed 按首次出现顺序返回。</tag>
+				<tag name="param">next_cells: 新集合。重复项会被去重，added/kept 按首次出现顺序返回。</tag>
+				<tag name="return">差分报告。</tag>
+				<tag name="schema">previous_cells: Array[Vector2i]，旧格子集合。</tag>
+				<tag name="schema">next_cells: Array[Vector2i]，新格子集合。</tag>
+				<tag name="schema">return: Dictionary，包含 added: Array[Vector2i]、removed: Array[Vector2i]、kept: Array[Vector2i]、changed: bool、previous_count: int、next_count: int。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
 		<member kind="method" name="get_line">
 			<signature>static func get_line(from_cell: Vector2i, to_cell: Vector2i) -&gt; Array[Vector2i]:</signature>
 			<description>获取连接两个格子的 Bresenham 直线。</description>
@@ -127,6 +227,70 @@
 				<tag name="param">is_match: 匹配回调，签名为 `func(cell: Vector2i) -&gt; bool`。</tag>
 				<tag name="param">include_diagonal: 是否允许斜向连通。</tag>
 				<tag name="return">连通格子列表。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="generate_rect_maze_backtracker">
+			<signature>static func generate_rect_maze_backtracker( grid_size: Vector2i, start_cell: Vector2i = Vector2i.ZERO, is_cell_enabled: Callable = Callable(), options: Dictionary = {} ) -&gt; Dictionary:</signature>
+			<description>使用回溯生成矩形网格迷宫拓扑。
+该方法只输出开放边与邻接表，不创建 TileMap、墙体节点、房间资源或碰撞体。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">grid_size: 网格尺寸。</tag>
+				<tag name="param">start_cell: 起始格子。</tag>
+				<tag name="param">is_cell_enabled: 可用格回调，签名为 `func(cell: Vector2i) -&gt; bool`；无效时全部格子可用。</tag>
+				<tag name="param">options: 生成选项。</tag>
+				<tag name="return">迷宫拓扑报告。</tag>
+				<tag name="schema">options: Dictionary supports seed, include_diagonal, and max_cells.</tag>
+				<tag name="schema">return: Dictionary with ok, error, algorithm, grid_size, start_cell, seed, include_diagonal, cell_count, max_cells, available_count, blocked_count, visited_count, edge_count, complete, edges, and connections.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="generate_cellular_automata_map">
+			<signature>static func generate_cellular_automata_map( grid_size: Vector2i, is_initial_alive: Callable = Callable(), options: Dictionary = {} ) -&gt; Dictionary:</signature>
+			<description>生成二值细胞自动机网格报告。
+该方法只输出布尔格子状态、存活格列表和统计信息，不创建 TileMap、节点、地形、
+房间、碰撞体或项目资源。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">grid_size: 网格尺寸。</tag>
+				<tag name="param">is_initial_alive: 可选初始状态回调，签名为 `func(cell: Vector2i) -&gt; bool`；无效时使用 seed 和 alive_chance 随机初始化。</tag>
+				<tag name="param">options: 生成选项。</tag>
+				<tag name="return">细胞自动机报告。</tag>
+				<tag name="schema">options: Dictionary supports seed, alive_chance, iterations, include_diagonal, outside_alive, survive_min, survive_max, birth_min, birth_max, and max_cells.</tag>
+				<tag name="schema">return: Dictionary with ok, error, algorithm, grid_size, seed, alive_chance, iterations, include_diagonal, outside_alive, survive_min, survive_max, birth_min, birth_max, cell_count, max_cells, alive_count, dead_count, cells, and alive_cells.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="find_cell_regions">
+			<signature>static func find_cell_regions(cells: Array[Vector2i], options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>查找一组二维格子的连通区域。
+该方法只根据格子集合和四/八邻域连通关系输出区域报告，不解释格子的地形、房间、
+墙体、实体或可通行语义。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">cells: 待分析格子集合；重复项会被去重。</tag>
+				<tag name="param">options: 分析选项。</tag>
+				<tag name="return">连通区域报告。</tag>
+				<tag name="schema">cells: Array[Vector2i]，待分析格子集合。</tag>
+				<tag name="schema">options: Dictionary supports include_diagonal and max_cells.</tag>
+				<tag name="schema">return: Dictionary with ok, error, algorithm, include_diagonal, input_count, cell_count, max_cells, region_count, all_connected, largest_region_index, largest_region_size, regions, and region_indices.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="filter_cell_regions_by_size">
+			<signature>static func filter_cell_regions_by_size( cells: Array[Vector2i], minimum_region_size: int, options: Dictionary = {} ) -&gt; Dictionary:</signature>
+			<description>按连通区域尺寸过滤二维格子集合。
+该方法只输出保留/移除的格子与区域报告，不创建或修改 TileMap、节点和项目资源。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">cells: 待过滤格子集合；重复项会被去重。</tag>
+				<tag name="param">minimum_region_size: 保留区域的最小格子数；0 表示保留全部区域。</tag>
+				<tag name="param">options: 分析选项。</tag>
+				<tag name="return">区域过滤报告。</tag>
+				<tag name="schema">cells: Array[Vector2i]，待过滤格子集合。</tag>
+				<tag name="schema">options: Dictionary supports include_diagonal and max_cells.</tag>
+				<tag name="schema">return: Dictionary with ok, error, algorithm, include_diagonal, minimum_region_size, input_count, cell_count, max_cells, region_count, kept_region_count, removed_region_count, kept_count, removed_count, kept_cells, removed_cells, kept_regions, removed_regions, and region_report.</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="find_path_bfs">

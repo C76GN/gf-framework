@@ -27,6 +27,7 @@
 | 方法 | [`find_pairs_quadtree`](#member-gfcollisionbroadphase2d-methods-find_pairs_quadtree) | `static func find_pairs_quadtree(bodies: Array, options: Dictionary = {}) -> Array[Dictionary]:` |
 | 方法 | [`find_pairs_combined`](#member-gfcollisionbroadphase2d-methods-find_pairs_combined) | `static func find_pairs_combined(bodies: Array, options: Dictionary = {}) -> Array[Dictionary]:` |
 | 方法 | [`build_pair_report`](#member-gfcollisionbroadphase2d-methods-build_pair_report) | `static func build_pair_report(bodies: Array, options: Dictionary = {}) -> Dictionary:` |
+| 方法 | [`to_json_compatible_report`](#member-gfcollisionbroadphase2d-methods-to_json_compatible_report) | `static func to_json_compatible_report(report: Dictionary, options: Dictionary = {}) -> Dictionary:` |
 
 ## 常量
 
@@ -281,3 +282,31 @@ static func build_pair_report(bodies: Array, options: Dictionary = {}) -> Dictio
 - `bodies`: Array[Dictionary] broadphase body records.
 - `options`: Dictionary with optional `algorithm: StringName` plus bruteforce, SAP, or quadtree options.
 - `return`: Dictionary with `algorithm: StringName`, `body_count: int`, `pair_count: int`, and `pairs: Array[Dictionary]`.
+
+<a id="member-gfcollisionbroadphase2d-methods-to_json_compatible_report"></a>
+
+### `to_json_compatible_report`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+static func to_json_compatible_report(report: Dictionary, options: Dictionary = {}) -> Dictionary:
+```
+
+将 broadphase 报告编码为 JSON.stringify() 安全字典。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `report` | build_pair_report() 返回的原生报告。 |
+| `options` | GFReportValueCodec 编码选项。 |
+
+返回：JSON 兼容报告。
+
+结构：
+
+- `report`: Dictionary returned by build_pair_report().
+- `options`: Dictionary with GFReportValueCodec options.
+- `return`: Dictionary safe for JSON.stringify().

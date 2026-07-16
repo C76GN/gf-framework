@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSourceTextLoader" path="addons/gf/standard/utilities/io/gf_source_text_loader.gd" module="standard" extends="RefCounted" classDigest="bb15739ec50a0f875b1d0adf588c2a8f6481c369687d53a1c29a5caf7d1f87cb">
+<class name="GFSourceTextLoader" path="addons/gf/standard/utilities/io/gf_source_text_loader.gd" module="standard" extends="RefCounted" classDigest="74473b8f396ee118fa085da277beadd154ba5705c87ed999a7fef461bdab55b4">
 	<description>GFSourceTextLoader: 受根路径约束的源码文本加载器。
 将逻辑 key 解析、文本加载、内存注册文本、缓存 key 和诊断报告拆开，
 供生成器、导入器、编辑器工具或校验器读取 UTF-8 文本。文件访问默认要求
@@ -27,6 +27,14 @@ root_path，避免 include 或片段加载越过调用方声明的根目录。</
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="allow_custom_loaders">
+			<signature>var allow_custom_loaders: bool = true</signature>
+			<description>是否允许调用自定义文本加载器。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="allow_file_access">
@@ -70,7 +78,7 @@ root_path，避免 include 或片段加载越过调用方声明的根目录。</
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">p_root_path: 文件加载根路径。</tag>
-				<tag name="param">options: 可选配置，支持 allow_registered_text、allow_file_access、cache_enabled、max_bytes、subject 和 metadata。</tag>
+				<tag name="param">options: 可选配置，支持 allow_registered_text、allow_custom_loaders、allow_file_access、cache_enabled、max_bytes、subject 和 metadata。</tag>
 				<tag name="schema">options: Dictionary，包含加载器配置。</tag>
 				<tag name="since">7.0.0</tag>
 			</tags>
@@ -81,7 +89,7 @@ root_path，避免 include 或片段加载越过调用方声明的根目录。</
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">p_root_path: 文件加载根路径。</tag>
-				<tag name="param">options: 可选配置，支持 allow_registered_text、allow_file_access、cache_enabled、max_bytes、subject 和 metadata。</tag>
+				<tag name="param">options: 可选配置，支持 allow_registered_text、allow_custom_loaders、allow_file_access、cache_enabled、max_bytes、subject 和 metadata。</tag>
 				<tag name="return">当前加载器。</tag>
 				<tag name="schema">options: Dictionary，包含加载器配置。</tag>
 				<tag name="since">7.0.0</tag>
@@ -89,7 +97,7 @@ root_path，避免 include 或片段加载越过调用方声明的根目录。</
 		</member>
 		<member kind="method" name="clear">
 			<signature>func clear() -&gt; void:</signature>
-			<description>清空注册文本、缓存和诊断。</description>
+			<description>清空注册文本、自定义加载器、缓存和诊断。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="since">7.0.0</tag>
@@ -126,6 +134,27 @@ root_path，避免 include 或片段加载越过调用方声明的根目录。</
 				<tag name="since">7.0.0</tag>
 			</tags>
 		</member>
+		<member kind="method" name="add_custom_loader">
+			<signature>func add_custom_loader(loader: Callable, loader_metadata: Dictionary = {}) -&gt; bool:</signature>
+			<description>添加一个自定义文本加载器。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">loader: 自定义加载回调。</tag>
+				<tag name="param">loader_metadata: 加载器元数据。</tag>
+				<tag name="return">添加成功时返回 true。</tag>
+				<tag name="schema">loader: Callable，会以 (source_key: String, context: Dictionary) 调用；返回 null 或 { "handled": false } 表示继续尝试后续来源，返回 String、PackedByteArray，或包含 text/content/bytes 的 Dictionary 表示已加载。</tag>
+				<tag name="schema">loader_metadata: Dictionary，会复制进回调上下文和加载结果。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="clear_custom_loaders">
+			<signature>func clear_custom_loaders() -&gt; void:</signature>
+			<description>清空全部自定义文本加载器和缓存。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
 		<member kind="method" name="resolve_key">
 			<signature>func resolve_key(source_key: String, caller_span: Variant = null) -&gt; Dictionary:</signature>
 			<description>解析逻辑 key。</description>
@@ -148,7 +177,7 @@ root_path，避免 include 或片段加载越过调用方声明的根目录。</
 				<tag name="param">caller_span: 可选调用点源码定位。</tag>
 				<tag name="return">加载结果字典。</tag>
 				<tag name="schema">caller_span: Variant，可传 GFSourceSpan 或兼容字典。</tag>
-				<tag name="schema">return: Dictionary，包含 ok、text、content_hash、byte_size、source_key、resolved_path、from_cache 和 report。</tag>
+				<tag name="schema">return: Dictionary，包含 ok、text、content_hash、byte_size、source_key、resolved_path、registered、custom_loader、from_cache 和 report。</tag>
 				<tag name="since">7.0.0</tag>
 			</tags>
 		</member>

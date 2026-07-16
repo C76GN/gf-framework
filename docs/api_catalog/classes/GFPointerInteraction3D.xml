@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFPointerInteraction3D" path="addons/gf/extensions/interaction/nodes/gf_pointer_interaction_3d.gd" module="extensions/interaction" extends="Node" classDigest="aebdd6be313baf952f50f1461981544555ee5b9f03f51e98be0088e2f2392849">
+<class name="GFPointerInteraction3D" path="addons/gf/extensions/interaction/nodes/gf_pointer_interaction_3d.gd" module="extensions/interaction" extends="Node" classDigest="a055968af35e54f31c0899f45031f7bede74fb06b19e9b93510977dd28f37215">
 	<description>GFPointerInteraction3D: 将 3D 指针事件桥接为 GFInteractionContext。
 监听 CollisionObject3D 的 hover、鼠标按钮与滚轮事件，构建通用交互上下文。
 节点只传递位置、法线、按钮、标签和元数据，不解释点击对象的业务含义。</description>
@@ -15,6 +15,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">context: 交互上下文。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="signal" name="pointer_exited">
@@ -23,6 +24,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">context: 交互上下文。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="signal" name="pointer_pressed">
@@ -32,6 +34,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">context: 交互上下文。</tag>
 				<tag name="param">event: 原始输入事件。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="signal" name="pointer_released">
@@ -41,6 +44,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">context: 交互上下文。</tag>
 				<tag name="param">event: 原始输入事件。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="signal" name="pointer_clicked">
@@ -50,6 +54,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">context: 交互上下文。</tag>
 				<tag name="param">event: 原始输入事件。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="signal" name="pointer_wheel">
@@ -59,6 +64,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">context: 交互上下文。</tag>
 				<tag name="param">event: 原始输入事件。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="signal" name="pointer_interaction_sent">
@@ -69,7 +75,8 @@
 				<tag name="param">context: 交互上下文。</tag>
 				<tag name="param">receiver: 接收对象。</tag>
 				<tag name="param">report: 结果报告。</tag>
-				<tag name="schema">report: 交互结果报告 Dictionary，包含 ok、interaction_id、receiver、reason、message 和 metadata 等字段。</tag>
+				<tag name="schema">report: 交互结果报告 Dictionary，包含 ok、interaction_id、receiver(JSON-safe 摘要)、reason、message 和 metadata 等字段。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</signals>
@@ -89,6 +96,7 @@
 			<description>默认交互 ID。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="group_name" decorators="@export">
@@ -96,6 +104,7 @@
 			<description>默认交互分组。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="payload" decorators="@export">
@@ -104,6 +113,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="schema">payload: 默认交互载荷 Dictionary；发送时会复制并附加 pointer_event、pointer_tags、pointer_metadata 等 pointer_* 字段。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="tags" decorators="@export">
@@ -111,6 +121,7 @@
 			<description>指针标签。框架不解释标签含义。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="metadata" decorators="@export">
@@ -119,6 +130,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="schema">metadata: 指针交互自定义元数据 Dictionary；会写入 payload.pointer_metadata 并复制到结果报告。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="collision_object_path" decorators="@export_node_path(&quot;CollisionObject3D&quot;)">
@@ -126,6 +138,7 @@
 			<description>可选 3D 碰撞对象路径；为空时优先使用父节点。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="receiver_path" decorators="@export_node_path(&quot;Node&quot;)">
@@ -133,6 +146,7 @@
 			<description>可选交互接收器路径；为空时从碰撞对象向父级解析 receive_interaction()。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="sender_path" decorators="@export_node_path(&quot;Node&quot;)">
@@ -140,6 +154,7 @@
 			<description>可选发送者路径；为空时使用当前节点。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="send_on_clicked" decorators="@export">
@@ -147,6 +162,7 @@
 			<description>是否在点击完成时发送交互。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="send_on_pressed" decorators="@export">
@@ -154,6 +170,7 @@
 			<description>是否在按钮按下时发送交互。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="send_on_released" decorators="@export">
@@ -161,6 +178,7 @@
 			<description>是否在按钮释放时发送交互。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="send_on_wheel" decorators="@export">
@@ -168,6 +186,7 @@
 			<description>是否在滚轮事件时发送交互。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="send_on_hover" decorators="@export">
@@ -175,13 +194,15 @@
 			<description>是否在 hover 进入和离开时发送交互。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="ensure_input_ray_pickable" decorators="@export">
-			<signature>var ensure_input_ray_pickable: bool = true</signature>
+			<signature>var ensure_input_ray_pickable: bool = true:</signature>
 			<description>绑定碰撞对象时是否确保 input_ray_pickable 为 true。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="change_cursor_on_hover" decorators="@export">
@@ -189,6 +210,7 @@
 			<description>hover 时是否临时切换鼠标光标。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="cursor_shape" decorators="@export">
@@ -196,6 +218,7 @@
 			<description>hover 时使用的鼠标光标。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</properties>
@@ -206,6 +229,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">collision_object: 要监听的碰撞对象。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_collision_object">
@@ -214,6 +238,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">碰撞对象；不存在时返回 null。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="build_context">
@@ -239,7 +264,7 @@
 				<tag name="param">interaction_id_override: 可选交互 ID 覆盖。</tag>
 				<tag name="return">统一结果报告。</tag>
 				<tag name="schema">pointer_data: 指针事件数据 Dictionary；常见字段包括 pointer_position、pointer_normal、pointer_shape_idx、pointer_camera_path 和 pointer_input_event_class。</tag>
-				<tag name="schema">return: 交互结果报告 Dictionary，包含 ok、interaction_id、receiver、reason、message 和 metadata 等字段。</tag>
+				<tag name="schema">return: 交互结果报告 Dictionary，包含 ok、interaction_id、receiver(JSON-safe 摘要)、reason、message 和 metadata 等字段。</tag>
 				<tag name="since">7.0.0</tag>
 			</tags>
 		</member>

@@ -1,7 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFEditorValueField" path="addons/gf/kernel/editor/gf_editor_value_field.gd" module="kernel" extends="HBoxContainer" classDigest="f39121e8a5353e04c7036dee7df2cf8cfae75d8217954498c2052987068533fb">
+<class name="GFEditorValueField" path="addons/gf/kernel/editor/gf_editor_value_field.gd" module="kernel" extends="HBoxContainer" classDigest="4e1b6d7b88d819d4a569bf5ca65d1177c0ecb819574da4f004bc7c41e88782e1">
 	<description>GFEditorValueField: 编辑器通用 Variant 值输入控件。
-根据 Godot 属性信息创建基础输入控件，适合 Inspector、Dock 或批量资源表格复用。</description>
+根据 Godot 属性信息创建基础输入控件，适合 Inspector、Dock 或批量资源表格复用。
+支持调用方注册自定义控件工厂；自定义控件只需遵循 get_value、set_value、set_editable
+和 value_changed 信号约定即可接入。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">editor_api</tag>
@@ -18,6 +20,16 @@
 				<tag name="schema">value: Variant editor value read from the active control.</tag>
 			</tags>
 		</member>
+		<member kind="signal" name="debounced_value_changed">
+			<signature>signal debounced_value_changed(value: Variant)</signature>
+			<description>控件值变化防抖后发出。debounce_seconds 小于等于 0 时与 value_changed 同步发出。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">value: 防抖后的值。</tag>
+				<tag name="schema">value: Variant editor value read from the active control.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
 		<member kind="signal" name="value_parse_failed">
 			<signature>signal value_parse_failed(text: String, error_message: String)</signature>
 			<description>Array/Dictionary JSON 输入解析失败时发出。</description>
@@ -30,7 +42,32 @@
 	</signals>
 	<enums />
 	<constants />
-	<properties />
+	<properties>
+		<member kind="property" name="label_text">
+			<signature>var label_text: String = ""</signature>
+			<description>标签文本。show_label 为 true 时会显示在输入控件左侧。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="show_label">
+			<signature>var show_label: bool = false</signature>
+			<description>是否显示标签。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="debounce_seconds">
+			<signature>var debounce_seconds: float = 0.0</signature>
+			<description>防抖秒数。小于等于 0 时立即发出 debounced_value_changed。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</properties>
 	<methods>
 		<member kind="method" name="configure">
 			<signature>func configure(property_info: Dictionary, value: Variant = null) -&gt; void:</signature>
@@ -76,6 +113,65 @@
 				<tag name="api">public</tag>
 				<tag name="return">属性信息字典。</tag>
 				<tag name="schema">return: Godot property info dictionary copy.</tag>
+			</tags>
+		</member>
+		<member kind="method" name="set_label">
+			<signature>func set_label(text: String, label_visible: bool = true) -&gt; void:</signature>
+			<description>设置左侧标签。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">text: 标签文本。</tag>
+				<tag name="param">label_visible: 是否显示标签。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="set_debounce_seconds">
+			<signature>func set_debounce_seconds(seconds: float) -&gt; void:</signature>
+			<description>设置防抖时间。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">seconds: 防抖秒数；小于等于 0 时禁用等待。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="register_editor_factory">
+			<signature>func register_editor_factory(value_type: Variant.Type, factory: Callable) -&gt; bool:</signature>
+			<description>注册指定 Variant 类型的自定义编辑控件工厂。
+工厂建议签名为 func(property_info: Dictionary, value: Variant) -&gt; Control。
+返回控件若实现 get_value、set_value、set_editable 或 value_changed，GFEditorValueField 会按约定调用。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">value_type: Godot Variant.Type。</tag>
+				<tag name="param">factory: 控件工厂回调。</tag>
+				<tag name="return">注册成功返回 true。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="unregister_editor_factory">
+			<signature>func unregister_editor_factory(value_type: Variant.Type) -&gt; bool:</signature>
+			<description>注销指定 Variant 类型的自定义编辑控件工厂。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">value_type: Godot Variant.Type。</tag>
+				<tag name="return">原先存在并删除时返回 true。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="clear_editor_factories">
+			<signature>func clear_editor_factories() -&gt; void:</signature>
+			<description>清空自定义编辑控件工厂。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_registered_editor_types">
+			<signature>func get_registered_editor_types() -&gt; PackedInt32Array:</signature>
+			<description>获取已注册工厂的 Variant 类型。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">Variant.Type 数值列表。</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 	</methods>

@@ -21,12 +21,17 @@
 | 属性 | [`events`](#member-gfsavepipelinecontext-properties-events) | `var events: Array[GFSavePipelineEvent] = []` |
 | 属性 | [`warnings`](#member-gfsavepipelinecontext-properties-warnings) | `var warnings: PackedStringArray = PackedStringArray()` |
 | 属性 | [`errors`](#member-gfsavepipelinecontext-properties-errors) | `var errors: PackedStringArray = PackedStringArray()` |
+| 属性 | [`transaction_participants`](#member-gfsavepipelinecontext-properties-transaction_participants) | `var transaction_participants: Array[GFSaveTransactionParticipant] = []` |
 | 属性 | [`started_at_msec`](#member-gfsavepipelinecontext-properties-started_at_msec) | `var started_at_msec: int = 0` |
 | 属性 | [`finished_at_msec`](#member-gfsavepipelinecontext-properties-finished_at_msec) | `var finished_at_msec: int = 0` |
 | 方法 | [`begin_operation`](#member-gfsavepipelinecontext-methods-begin_operation) | `func begin_operation( p_operation: StringName, p_root_scope_key: StringName = &"", p_shared: Dictionary = {} ) -> GFSavePipelineContext:` |
 | 方法 | [`record_event`](#member-gfsavepipelinecontext-methods-record_event) | `func record_event( stage: StringName, scope: Object = null, source: Object = null, message: String = "", payload: Dictionary = {}, severity: StringName = &"info" ) -> GFSavePipelineEvent:` |
 | 方法 | [`add_warning`](#member-gfsavepipelinecontext-methods-add_warning) | `func add_warning(message: String, payload: Dictionary = {}) -> void:` |
 | 方法 | [`add_error`](#member-gfsavepipelinecontext-methods-add_error) | `func add_error(message: String, payload: Dictionary = {}) -> void:` |
+| 方法 | [`register_transaction_participant`](#member-gfsavepipelinecontext-methods-register_transaction_participant) | `func register_transaction_participant(participant: GFSaveTransactionParticipant) -> void:` |
+| 方法 | [`unregister_transaction_participant`](#member-gfsavepipelinecontext-methods-unregister_transaction_participant) | `func unregister_transaction_participant(participant: GFSaveTransactionParticipant) -> void:` |
+| 方法 | [`get_transaction_participants`](#member-gfsavepipelinecontext-methods-get_transaction_participants) | `func get_transaction_participants() -> Array[GFSaveTransactionParticipant]:` |
+| 方法 | [`clear_transaction_participants`](#member-gfsavepipelinecontext-methods-clear_transaction_participants) | `func clear_transaction_participants() -> void:` |
 | 方法 | [`finish`](#member-gfsavepipelinecontext-methods-finish) | `func finish() -> void:` |
 | 方法 | [`is_finished`](#member-gfsavepipelinecontext-methods-is_finished) | `func is_finished() -> bool:` |
 | 方法 | [`get_elapsed_msec`](#member-gfsavepipelinecontext-methods-get_elapsed_msec) | `func get_elapsed_msec() -> int:` |
@@ -39,6 +44,7 @@
 ### `operation`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var operation: StringName = &""
@@ -51,6 +57,7 @@ var operation: StringName = &""
 ### `root_scope_key`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var root_scope_key: StringName = &""
@@ -63,6 +70,7 @@ var root_scope_key: StringName = &""
 ### `shared`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var shared: Dictionary = {}
@@ -79,6 +87,7 @@ var shared: Dictionary = {}
 ### `events`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var events: Array[GFSavePipelineEvent] = []
@@ -91,6 +100,7 @@ var events: Array[GFSavePipelineEvent] = []
 ### `warnings`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var warnings: PackedStringArray = PackedStringArray()
@@ -103,6 +113,7 @@ var warnings: PackedStringArray = PackedStringArray()
 ### `errors`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var errors: PackedStringArray = PackedStringArray()
@@ -110,11 +121,25 @@ var errors: PackedStringArray = PackedStringArray()
 
 通用错误信息。
 
+<a id="member-gfsavepipelinecontext-properties-transaction_participants"></a>
+
+### `transaction_participants`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+var transaction_participants: Array[GFSaveTransactionParticipant] = []
+```
+
+本次 apply 事务参与者列表。
+
 <a id="member-gfsavepipelinecontext-properties-started_at_msec"></a>
 
 ### `started_at_msec`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var started_at_msec: int = 0
@@ -127,6 +152,7 @@ var started_at_msec: int = 0
 ### `finished_at_msec`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var finished_at_msec: int = 0
@@ -141,6 +167,7 @@ var finished_at_msec: int = 0
 ### `begin_operation`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func begin_operation( p_operation: StringName, p_root_scope_key: StringName = &"", p_shared: Dictionary = {} ) -> GFSavePipelineContext:
@@ -167,6 +194,7 @@ func begin_operation( p_operation: StringName, p_root_scope_key: StringName = &"
 ### `record_event`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func record_event( stage: StringName, scope: Object = null, source: Object = null, message: String = "", payload: Dictionary = {}, severity: StringName = &"info" ) -> GFSavePipelineEvent:
@@ -196,6 +224,7 @@ func record_event( stage: StringName, scope: Object = null, source: Object = nul
 ### `add_warning`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func add_warning(message: String, payload: Dictionary = {}) -> void:
@@ -219,6 +248,7 @@ func add_warning(message: String, payload: Dictionary = {}) -> void:
 ### `add_error`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func add_error(message: String, payload: Dictionary = {}) -> void:
@@ -237,11 +267,78 @@ func add_error(message: String, payload: Dictionary = {}) -> void:
 
 - `payload`: Dictionary，项目或流程步骤附加的诊断字段。
 
+<a id="member-gfsavepipelinecontext-methods-register_transaction_participant"></a>
+
+### `register_transaction_participant`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func register_transaction_participant(participant: GFSaveTransactionParticipant) -> void:
+```
+
+登记本次 apply 事务参与者。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `participant` | 参与 prepare / commit / rollback 的事务对象。 |
+
+<a id="member-gfsavepipelinecontext-methods-unregister_transaction_participant"></a>
+
+### `unregister_transaction_participant`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func unregister_transaction_participant(participant: GFSaveTransactionParticipant) -> void:
+```
+
+注销本次 apply 事务参与者。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `participant` | 要注销的事务对象。 |
+
+<a id="member-gfsavepipelinecontext-methods-get_transaction_participants"></a>
+
+### `get_transaction_participants`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func get_transaction_participants() -> Array[GFSaveTransactionParticipant]:
+```
+
+获取本次 apply 事务参与者副本。
+
+返回：事务参与者数组。
+
+<a id="member-gfsavepipelinecontext-methods-clear_transaction_participants"></a>
+
+### `clear_transaction_participants`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func clear_transaction_participants() -> void:
+```
+
+清空本次 apply 事务参与者。
+
 <a id="member-gfsavepipelinecontext-methods-finish"></a>
 
 ### `finish`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func finish() -> void:
@@ -254,6 +351,7 @@ func finish() -> void:
 ### `is_finished`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func is_finished() -> bool:
@@ -268,6 +366,7 @@ func is_finished() -> bool:
 ### `get_elapsed_msec`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func get_elapsed_msec() -> int:
@@ -282,6 +381,7 @@ func get_elapsed_msec() -> int:
 ### `to_dict`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func to_dict(include_events: bool = true) -> Dictionary:
@@ -299,4 +399,4 @@ func to_dict(include_events: bool = true) -> Dictionary:
 
 结构：
 
-- `return`: Dictionary，包含 operation、root_scope_key、shared、warnings、errors、started_at_msec、finished_at_msec、elapsed_msec、event_count；include_events 为 true 时包含 events: Array[Dictionary]。
+- `return`: Dictionary，包含 operation、root_scope_key、JSON-safe shared、warnings、errors、started_at_msec、finished_at_msec、elapsed_msec、event_count；include_events 为 true 时包含 events: Array[Dictionary]。

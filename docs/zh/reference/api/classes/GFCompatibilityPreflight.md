@@ -9,7 +9,7 @@
 - 类别：运行时服务 (`runtime_service`)
 - 首次版本：`7.0.0`
 
-通用兼容性预检报告构建器。 将版本、平台、功能、包和外部报告合并为标准校验报告。它只做显式声明的 预检，不安装包、不下载资源、不执行代码，也不把项目发布策略写入框架。
+通用兼容性预检报告构建器。 将版本、平台、功能、包、artifact 和外部报告合并为标准校验报告。它只做显式声明的 预检，不安装包、不下载资源、不执行代码，也不把项目发布策略写入框架。
 
 ## 成员概览
 
@@ -32,6 +32,7 @@
 | 方法 | [`require_platforms`](#member-gfcompatibilitypreflight-methods-require_platforms) | `func require_platforms( required_platforms: PackedStringArray, mode: StringName = MATCH_ANY, options: Dictionary = {} ) -> Dictionary:` |
 | 方法 | [`require_features`](#member-gfcompatibilitypreflight-methods-require_features) | `func require_features( required_features: PackedStringArray, mode: StringName = MATCH_ALL, options: Dictionary = {} ) -> Dictionary:` |
 | 方法 | [`require_package`](#member-gfcompatibilitypreflight-methods-require_package) | `func require_package( package_id: StringName, minimum_version: String = "", maximum_version_exclusive: String = "", options: Dictionary = {} ) -> Dictionary:` |
+| 方法 | [`require_artifact`](#member-gfcompatibilitypreflight-methods-require_artifact) | `func require_artifact(artifact_id: StringName, options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`add_check`](#member-gfcompatibilitypreflight-methods-add_check) | `func add_check(check_id: StringName, ok: bool, options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`merge_report`](#member-gfcompatibilitypreflight-methods-merge_report) | `func merge_report(report: Dictionary, options: Dictionary = {}) -> GFCompatibilityPreflight:` |
 | 方法 | [`get_report`](#member-gfcompatibilitypreflight-methods-get_report) | `func get_report(options: Dictionary = {}) -> Dictionary:` |
@@ -371,6 +372,33 @@ func require_package( package_id: StringName, minimum_version: String = "", maxi
 结构：
 
 - `options`: Dictionary check metadata.
+- `return`: Dictionary check record.
+
+<a id="member-gfcompatibilitypreflight-methods-require_artifact"></a>
+
+### `require_artifact`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func require_artifact(artifact_id: StringName, options: Dictionary = {}) -> Dictionary:
+```
+
+要求 artifact 条目存在，并可选检查声明路径。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `artifact_id` | artifact ID。 |
+| `options` | 检查选项，支持 check_id、severity、metadata、require_path、expected_path、expected_kind、require_file_exists、expected_sha256 和 expected_size_bytes。 |
+
+返回：检查记录副本。
+
+结构：
+
+- `options`: Dictionary check metadata; require_path checks that the profile entry has a non-empty path, expected_path checks exact declared path when provided, require_file_exists checks the declared file without downloading or installing anything.
 - `return`: Dictionary check record.
 
 <a id="member-gfcompatibilitypreflight-methods-add_check"></a>

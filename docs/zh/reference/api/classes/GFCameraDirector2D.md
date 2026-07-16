@@ -22,9 +22,10 @@
 | 属性 | [`rig_paths`](#member-gfcameradirector2d-properties-rig_paths) | `var rig_paths: Array[NodePath] = []` |
 | 属性 | [`collect_group_rigs`](#member-gfcameradirector2d-properties-collect_group_rigs) | `var collect_group_rigs: bool = true` |
 | 属性 | [`rig_group_name`](#member-gfcameradirector2d-properties-rig_group_name) | `var rig_group_name: StringName = &"gf_camera_rig_2d"` |
+| 属性 | [`camera_scope_path`](#member-gfcameradirector2d-properties-camera_scope_path) | `var camera_scope_path: NodePath = NodePath("")` |
+| 属性 | [`camera_channel`](#member-gfcameradirector2d-properties-camera_channel) | `var camera_channel: StringName = &""` |
 | 属性 | [`update_mode`](#member-gfcameradirector2d-properties-update_mode) | `var update_mode: UpdateMode = UpdateMode.IDLE` |
 | 属性 | [`default_blend`](#member-gfcameradirector2d-properties-default_blend) | `var default_blend: GFCameraBlend = null` |
-| 属性 | [`keep_camera_when_no_rig`](#member-gfcameradirector2d-properties-keep_camera_when_no_rig) | `var keep_camera_when_no_rig: bool = true` |
 | 属性 | [`make_current_on_apply`](#member-gfcameradirector2d-properties-make_current_on_apply) | `var make_current_on_apply: bool = false` |
 | 方法 | [`get_camera`](#member-gfcameradirector2d-methods-get_camera) | `func get_camera() -> Camera2D:` |
 | 方法 | [`get_active_rig`](#member-gfcameradirector2d-methods-get_active_rig) | `func get_active_rig() -> GFCameraRig2D:` |
@@ -32,6 +33,7 @@
 | 方法 | [`refresh_active_rig`](#member-gfcameradirector2d-methods-refresh_active_rig) | `func refresh_active_rig(force_snap: bool = false) -> GFCameraRig2D:` |
 | 方法 | [`set_active_rig`](#member-gfcameradirector2d-methods-set_active_rig) | `func set_active_rig(rig: GFCameraRig2D, force_snap: bool = false) -> bool:` |
 | 方法 | [`clear_active_rig_override`](#member-gfcameradirector2d-methods-clear_active_rig_override) | `func clear_active_rig_override(force_snap: bool = false) -> GFCameraRig2D:` |
+| 方法 | [`get_debug_snapshot`](#member-gfcameradirector2d-methods-get_debug_snapshot) | `func get_debug_snapshot() -> Dictionary:` |
 | 方法 | [`process_camera`](#member-gfcameradirector2d-methods-process_camera) | `func process_camera(delta: float) -> bool:` |
 
 ## 信号
@@ -148,6 +150,32 @@ var rig_group_name: StringName = &"gf_camera_rig_2d"
 
 候选 Rig 分组名。
 
+<a id="member-gfcameradirector2d-properties-camera_scope_path"></a>
+
+### `camera_scope_path`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+var camera_scope_path: NodePath = NodePath("")
+```
+
+分组候选 Rig 的收集作用域。为空时使用 Director 父节点。
+
+<a id="member-gfcameradirector2d-properties-camera_channel"></a>
+
+### `camera_channel`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+var camera_channel: StringName = &""
+```
+
+分组候选 Rig 的收集频道。为空时只收集默认频道 Rig。
+
 <a id="member-gfcameradirector2d-properties-update_mode"></a>
 
 ### `update_mode`
@@ -172,18 +200,6 @@ var default_blend: GFCameraBlend = null
 ```
 
 默认过渡资源。Rig 没有设置 blend 时使用它。
-
-<a id="member-gfcameradirector2d-properties-keep_camera_when_no_rig"></a>
-
-### `keep_camera_when_no_rig`
-
-- API：`public`
-
-```gdscript
-var keep_camera_when_no_rig: bool = true
-```
-
-没有 Rig 时是否保持相机当前姿态。
 
 <a id="member-gfcameradirector2d-properties-make_current_on_apply"></a>
 
@@ -309,11 +325,31 @@ func clear_active_rig_override(force_snap: bool = false) -> GFCameraRig2D:
 
 返回：自动选择后的当前 Rig。
 
+<a id="member-gfcameradirector2d-methods-get_debug_snapshot"></a>
+
+### `get_debug_snapshot`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func get_debug_snapshot() -> Dictionary:
+```
+
+获取 Director 调试快照。
+
+返回：调试快照。
+
+结构：
+
+- `return`: Dictionary，包含 has_camera、has_active_rig、active_rig_path、active_rig_is_manual_override、is_blending 和 last_process。
+
 <a id="member-gfcameradirector2d-methods-process_camera"></a>
 
 ### `process_camera`
 
 - API：`public`
+- 首次版本：`8.0.0`
 
 ```gdscript
 func process_camera(delta: float) -> bool:
@@ -327,4 +363,4 @@ func process_camera(delta: float) -> bool:
 |---|---|
 | `delta` | 秒。 |
 
-返回：成功应用时返回 true。
+返回：本帧实际应用相机姿态时返回 true；无可用 Rig 时返回 false。

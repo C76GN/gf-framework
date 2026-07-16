@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFDualMeshTopology2D" path="addons/gf/standard/foundation/math/gf_dual_mesh_topology_2d.gd" module="standard" extends="RefCounted" classDigest="63a81b599926af395aa29bc5cc996f787974e1df18cfe55ea568d57da1a408a4">
+	<description>GFDualMeshTopology2D: 二维 Delaunay / Voronoi 双图拓扑工具。
+从 GFVoronoi2D 的纯数据结果派生点邻接、边到三角形、点到三角形和边界信息。
+它不生成地图、Mesh、Tile、河流、生态群系或渲染数据，项目层可在这些拓扑之上解释领域语义。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_service</tag>
+		<tag name="since">8.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties />
+	<methods>
+		<member kind="method" name="build_from_points">
+			<signature>static func build_from_points(points: PackedVector2Array, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>从点集构建 Delaunay / Voronoi 拓扑。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">points: 输入点集。</tag>
+				<tag name="param">options: 可选参数，会传给 GFVoronoi2D.build_voronoi()；另支持 include_cells。</tag>
+				<tag name="return">拓扑报告。</tag>
+				<tag name="schema">options: Dictionary，可包含 GFVoronoi2D options 和 include_cells: bool。</tag>
+				<tag name="schema">return: Dictionary，包含 ok、points、triangles、edges、triangle_centers、neighbors_by_point、triangles_by_point、edge_records、triangles_by_edge、hull_edges、hull_points 和可选 cells。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="build_from_voronoi">
+			<signature>static func build_from_voronoi(voronoi_result: Dictionary, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>从 GFVoronoi2D.build_voronoi() 结果构建双图拓扑。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">voronoi_result: GFVoronoi2D.build_voronoi() 返回的结果字典。</tag>
+				<tag name="param">options: 可选参数，支持 include_cells。</tag>
+				<tag name="return">拓扑报告。</tag>
+				<tag name="schema">voronoi_result: Dictionary，包含 points、triangles、edges、vertices、cells 等字段。</tag>
+				<tag name="schema">options: Dictionary，可包含 include_cells: bool。</tag>
+				<tag name="schema">return: Dictionary，包含 ok、points、triangles、edges、triangle_centers、neighbors_by_point、triangles_by_point、edge_records、triangles_by_edge、hull_edges、hull_points 和可选 cells。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="build_from_delaunay">
+			<signature>static func build_from_delaunay(delaunay_result: Dictionary, _options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>从 GFVoronoi2D.build_delaunay() 结果构建双图拓扑。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">delaunay_result: GFVoronoi2D.build_delaunay() 返回的结果字典。</tag>
+				<tag name="param">_options: 保留给未来扩展的选项。</tag>
+				<tag name="return">拓扑报告。</tag>
+				<tag name="schema">delaunay_result: Dictionary，包含 points、triangles 和可选 edges。</tag>
+				<tag name="schema">_options: Dictionary，当前未使用。</tag>
+				<tag name="schema">return: Dictionary，包含 ok、points、triangles、edges、triangle_centers、neighbors_by_point、triangles_by_point、edge_records、triangles_by_edge、hull_edges 和 hull_points。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="make_edge_key">
+			<signature>static func make_edge_key(a: int, b: int) -&gt; String:</signature>
+			<description>构建稳定边键。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">a: 第一个点索引。</tag>
+				<tag name="param">b: 第二个点索引。</tag>
+				<tag name="return">稳定边键。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_point_neighbors">
+			<signature>static func get_point_neighbors(topology: Dictionary, point_index: int) -&gt; PackedInt32Array:</signature>
+			<description>获取指定点的邻接点索引。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">topology: build_from_* 返回的拓扑报告。</tag>
+				<tag name="param">point_index: 点索引。</tag>
+				<tag name="return">邻接点索引。</tag>
+				<tag name="schema">topology: Dictionary，build_from_* 返回的拓扑报告。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_edge_triangles">
+			<signature>static func get_edge_triangles(topology: Dictionary, a: int, b: int) -&gt; PackedInt32Array:</signature>
+			<description>获取指定边关联的三角形索引。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">topology: build_from_* 返回的拓扑报告。</tag>
+				<tag name="param">a: 第一个点索引。</tag>
+				<tag name="param">b: 第二个点索引。</tag>
+				<tag name="return">共享该边的三角形索引。</tag>
+				<tag name="schema">topology: Dictionary，build_from_* 返回的拓扑报告。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

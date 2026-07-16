@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFVariantKeyCodec" path="addons/gf/standard/foundation/variant/gf_variant_key_codec.gd" module="standard" extends="RefCounted" classDigest="8750cfdacb8d75d903704a0646b666d2af261338b2ed7687e20b120e36f01a39">
+	<description>GFVariantKeyCodec: 稳定 Variant key token 编码器。
+用于缓存、索引、查询签名和异步 keyed gate 等底层设施，把可稳定比较的
+Variant 明确编码为 token。默认只接受稳定、有限、不可变语义明确的值；
+Array、Dictionary、Object、Resource、Callable、RID、Signal 和非有限 float 会被拒绝。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_service</tag>
+		<tag name="since">8.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties />
+	<methods>
+		<member kind="method" name="is_stable_key">
+			<signature>static func is_stable_key(value: Variant) -&gt; bool:</signature>
+			<description>判断值是否可以作为稳定 key。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">value: 待检查的 Variant。</tag>
+				<tag name="return">值可稳定编码时返回 true。</tag>
+				<tag name="schema">value: Variant key candidate.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="try_make_key_token">
+			<signature>static func try_make_key_token(value: Variant, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>尝试把 Variant 编码为稳定 key token。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">value: 待编码的 key 值。</tag>
+				<tag name="param">options: 保留给未来扩展；当前不解释。</tag>
+				<tag name="return">编码报告。</tag>
+				<tag name="schema">value: Variant key candidate.</tag>
+				<tag name="schema">options: Dictionary reserved for future key encoding options.</tag>
+				<tag name="schema">return: Dictionary with ok, key_token, value_type, and reason.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="make_key_token">
+			<signature>static func make_key_token(value: Variant, options: Dictionary = {}) -&gt; String:</signature>
+			<description>把 Variant 编码为稳定 key token；不可编码时返回空字符串。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">value: 待编码的 key 值。</tag>
+				<tag name="param">options: 传给 try_make_key_token() 的编码选项。</tag>
+				<tag name="return">稳定 key token，失败时为空字符串。</tag>
+				<tag name="schema">value: Variant key candidate.</tag>
+				<tag name="schema">options: Dictionary reserved for future key encoding options.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

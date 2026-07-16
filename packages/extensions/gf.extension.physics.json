@@ -12,6 +12,6 @@
   "paths": [
     "addons/gf/extensions/physics/**"
   ],
-  "enable_extension": "gf.physics",
+  "gf_extension_id": "gf.physics",
   "metadata": {}
 }

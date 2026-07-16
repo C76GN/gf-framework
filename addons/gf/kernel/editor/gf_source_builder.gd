@@ -45,7 +45,12 @@ func doc(text: String = "") -> void:
 	if text.is_empty():
 		line("##")
 		return
-	line("## %s" % text)
+	var normalized_text: String = text.replace("\r\n", "\n").replace("\r", "\n")
+	for comment_line: String in normalized_text.split("\n", true):
+		if comment_line.is_empty():
+			line("##")
+		else:
+			line("## %s" % comment_line)
 
 
 ## 添加规范 section 标题，并在其后添加一个空行。

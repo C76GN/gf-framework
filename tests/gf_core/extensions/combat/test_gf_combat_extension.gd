@@ -1,6 +1,11 @@
 extends GutTest
 
 
+# --- 常量 ---
+
+const _GF_SKILL_ACTIVATION_STEP_SCRIPT = preload("res://addons/gf/extensions/combat/skills/gf_skill_activation_step.gd")
+
+
 # --- 辅助类 (模拟战斗实体) ---
 
 class MockEntity extends Object:
@@ -45,6 +50,55 @@ class ContextRecordingSkill extends GFSkill:
 		return true
 
 
+class RecordingActivationStep extends _GF_SKILL_ACTIVATION_STEP_SCRIPT:
+	var calls: Array[StringName] = []
+	var validate_result: Variant = true
+	var apply_result: Variant = true
+	var rollback_result: Variant = true
+	var applied_context: GFSkillActivationContext = null
+	var resource_balance: Array[int] = []
+
+	func _validate_activation(_context: GFSkillActivationContext) -> Variant:
+		calls.append(&"validate")
+		return validate_result
+
+	func _apply_activation(context: GFSkillActivationContext) -> Variant:
+		calls.append(&"apply")
+		applied_context = context
+		if not resource_balance.is_empty():
+			resource_balance[0] -= 1
+		return apply_result
+
+	func _rollback_activation(_context: GFSkillActivationContext) -> Variant:
+		calls.append(&"rollback")
+		if not resource_balance.is_empty():
+			resource_balance[0] += 1
+		return rollback_result
+
+
+class RecordingCombatSystem extends GFCombatSystem:
+	var sent_events: Array[Object] = []
+
+	func _send_combat_event(event_instance: Object) -> void:
+		sent_events.append(event_instance)
+
+
+class FailingApplyEffect extends GFBuffEffect:
+	func _apply(_context: Dictionary) -> Dictionary:
+		return {
+			"ok": false,
+			"reason": &"effect_rejected",
+		}
+
+
+class FailingRemoveEffect extends GFBuffEffect:
+	func _remove(_context: Dictionary) -> Dictionary:
+		return {
+			"ok": false,
+			"reason": &"cleanup_failed",
+		}
+
+
 class UnregisterOtherBuff extends GFBuff:
 	var system: GFCombatSystem = null
 	var target: Object = null
@@ -64,9 +118,9 @@ class TickRecordingBuff extends GFBuff:
 class RefreshTrackingBuff extends GFBuff:
 	var refreshed_from: GFBuff = null
 
-	func refresh_from(source_buff: GFBuff) -> void:
+	func refresh_from(source_buff: GFBuff) -> Dictionary:
 		refreshed_from = source_buff
-		super.refresh_from(source_buff)
+		return super.refresh_from(source_buff)
 
 
 class RecordingHurtBox2D extends GFHurtBox2D:
@@ -355,22 +409,42 @@ func test_skill_activation_check_failure_blocks_execute() -> void:
 	assert_signal_emitted(skill, "activation_failed", "激活失败应发出信号。")
 
 
+func test_skill_commit_failure_blocks_activation_side_effects() -> void:
+	var entity: MockEntity = MockEntity.new()
+	var skill: ContextRecordingSkill = ContextRecordingSkill.new(entity)
+	skill.cooldown_max = 5.0
+	var step: RecordingActivationStep = RecordingActivationStep.new()
+	var _configured_step: _GF_SKILL_ACTIVATION_STEP_SCRIPT = step.configure(&"resource_cost")
+	step.apply_result = {
+		"ok": false,
+		"reason": &"resource_missing",
+	}
+	skill.activation_steps.append(step)
+	watch_signals(skill)
+
+	var executed: bool = skill.execute()
+
+	assert_false(executed, "提交失败时 execute 应返回 false。")
+	assert_eq(skill.execute_count, 0, "提交失败必须发生在技能副作用执行之前。")
+	assert_eq(skill.cooldown_left, 0.0, "提交失败不应进入冷却。")
+	assert_eq(step.calls, [&"validate", &"apply"], "失败步骤不应被标记为已应用或进入回滚。")
+	assert_signal_emitted(skill, "activation_failed", "提交失败应发出激活失败信号。")
+
+
 func test_skill_activation_context_commit_and_cooldown_flow() -> void:
 	var entity: MockEntity = MockEntity.new()
 	var target: MockEntity = MockEntity.new()
 	var skill: ContextRecordingSkill = ContextRecordingSkill.new(entity)
 	skill.cooldown_max = 2.0
-	var committed_targets: Array[Object] = []
-	skill.activation_commit_callbacks.append(func(commit_context: RefCounted) -> Dictionary:
-		var commit_activation_context: GFSkillActivationContext = _activation_context(commit_context)
-		committed_targets.append(commit_activation_context.manual_target)
-		return {
-			"ok": true,
-			"metadata": {
-				"committed": true,
-			},
-		}
-	)
+	var step: RecordingActivationStep = RecordingActivationStep.new()
+	var _configured_step: _GF_SKILL_ACTIVATION_STEP_SCRIPT = step.configure(&"resource_cost")
+	step.apply_result = {
+		"ok": true,
+		"metadata": {
+			"committed": true,
+		},
+	}
+	skill.activation_steps.append(step)
 	watch_signals(skill)
 
 	var executed: bool = skill.execute(target, Vector2(4.0, 5.0), { "request": "primary" })
@@ -379,7 +453,8 @@ func test_skill_activation_context_commit_and_cooldown_flow() -> void:
 	var context_targets: Array[Object] = activation_context.targets
 
 	assert_true(executed, "激活提交和执行成功时 execute 应返回 true。")
-	assert_eq(committed_targets, [target], "提交回调应在执行成功后收到激活上下文。")
+	assert_same(step.applied_context.manual_target, target, "事务步骤应在技能副作用执行前收到激活上下文。")
+	assert_eq(step.calls, [&"validate", &"apply"], "成功激活应验证并应用事务步骤。")
 	assert_eq(skill.cooldown_left, 2.0, "执行成功后应进入冷却。")
 	assert_same(activation_context.manual_target, target, "上下文应保留手动目标。")
 	assert_eq(activation_context.resolved_center, Vector2(4.0, 5.0), "上下文应保留解析后的施放中心。")
@@ -430,8 +505,8 @@ func test_buff_ignores_freed_owner() -> void:
 	buff.setup(&"Detached", 1.0, entity)
 	entity.free()
 
-	buff.on_apply()
-	buff.on_remove()
+	var _apply_report: Dictionary = buff.on_apply()
+	var _remove_report: Dictionary = buff.on_remove()
 
 	assert_true(true, "owner 已释放时 Buff 应安全跳过效果应用与移除。")
 
@@ -463,6 +538,25 @@ func test_combat_system_buff_lifecycle() -> void:
 	system.tick(1.5)
 	assert_false(entity.tag_component.has_tag(&"Buffed"), "Buff tags should be removed after expiration")
 	assert_eq(_entity_attribute_value(entity, &"ATK"), 10.0, "Buff modifiers should be removed after expiration")
+
+
+func test_buff_apply_effect_failure_rolls_back_builtin_effects() -> void:
+	var system: GFCombatSystem = GFCombatSystem.new()
+	var entity: MockEntity = MockEntity.new()
+	entity.add_attr(&"ATK", 10.0)
+	system.register_entity(entity)
+
+	var buff: GFBuff = GFBuff.new()
+	buff.modifiers.append(GFModifier.create_base_add(5.0, &"ATK", &"Rejected"))
+	buff.tags.append(&"RejectedTag")
+	buff.effects.append(FailingApplyEffect.new())
+	buff.setup(&"Rejected", -1.0, entity)
+
+	system.add_buff(entity, buff)
+
+	assert_false(system.has_buff(entity, &"Rejected"), "apply effect 失败时 Buff 不应进入系统。")
+	assert_eq(_entity_attribute_value(entity, &"ATK"), 10.0, "失败 apply 已应用的内置 modifier 必须回滚。")
+	assert_false(entity.tag_component.has_tag(&"RejectedTag"), "失败 apply 已应用的内置 tag 必须回滚。")
 
 
 ## 测试注销实体时会同步移除活跃实体索引。
@@ -529,17 +623,18 @@ func test_skill_does_not_start_cooldown_when_execute_hook_fails() -> void:
 	var entity: MockEntity = MockEntity.new()
 	var skill: FailingExecuteSkill = FailingExecuteSkill.new(entity)
 	skill.cooldown_max = 5.0
-	var committed: Array[bool] = []
-	skill.activation_commit_callbacks.append(func(_context: RefCounted) -> bool:
-		committed.append(true)
-		return true
-	)
+	var resource_balance: Array[int] = [1]
+	var step: RecordingActivationStep = RecordingActivationStep.new()
+	var _configured_step: _GF_SKILL_ACTIVATION_STEP_SCRIPT = step.configure(&"resource_cost")
+	step.resource_balance = resource_balance
+	skill.activation_steps.append(step)
 
 	var executed: bool = skill.execute()
 
 	assert_false(executed, "执行钩子显式失败时 execute() 应返回 false。")
 	assert_true(skill.executed, "技能应已经进入执行钩子。")
-	assert_true(committed.is_empty(), "执行钩子失败时不应运行提交回调。")
+	assert_eq(step.calls, [&"validate", &"apply", &"rollback"], "执行失败应逆序回滚已应用步骤。")
+	assert_eq(resource_balance[0], 1, "执行失败不应留下已经扣除的资源。")
 	assert_eq(skill.cooldown_left, 0.0, "执行钩子失败时不应进入冷却。")
 
 
@@ -665,9 +760,12 @@ func test_refresh_buff_modifiers_reports_false_without_refreshed_attributes() ->
 func test_duplicate_buff_refresh_updates_duration_and_stacks() -> void:
 	var system: GFCombatSystem = GFCombatSystem.new()
 	var entity: MockEntity = MockEntity.new()
+	entity.add_attr(&"ATK", 10.0)
 	system.register_entity(entity)
 
 	var buff: GFBuff = GFBuff.new()
+	buff.modifiers.append(GFModifier.create_base_add(5.0, &"ATK", &"StackingBuff"))
+	buff.tags.append(&"Stacked")
 	buff.max_stacks = 3
 	buff.setup(&"StackingBuff", 1.0, entity)
 	system.add_buff(entity, buff)
@@ -679,6 +777,14 @@ func test_duplicate_buff_refresh_updates_duration_and_stacks() -> void:
 	assert_eq(buff.stacks, 2, "重复 Buff 应在 max_stacks 允许时增加层数。")
 	assert_eq(buff.duration, -1.0, "重复 Buff 刷新应同步新的 duration。")
 	assert_eq(buff.time_left, -1.0, "重复 Buff 刷新应同步新的剩余时间。")
+	assert_eq(entity.tag_component.get_tag_count(&"Stacked"), 2, "内置 tag 层数应跟随 Buff stack。")
+	assert_eq(_entity_attribute_value(entity, &"ATK"), 20.0, "内置 modifier 应按 Buff stack 贡献。")
+
+	var removed: bool = system.remove_buff(entity, &"StackingBuff")
+
+	assert_true(removed, "叠层 Buff 应能正常移除。")
+	assert_false(entity.tag_component.has_tag(&"Stacked"), "移除叠层 Buff 应清理全部 tag 层数。")
+	assert_eq(_entity_attribute_value(entity, &"ATK"), 10.0, "移除叠层 Buff 应清理全部 modifier 贡献。")
 
 
 func test_empty_buff_ids_do_not_refresh_each_other() -> void:
@@ -719,10 +825,28 @@ func test_buff_refresh_can_ignore_duplicate_stack() -> void:
 	buff.max_stacks = 3
 	buff.stack_mode = GFBuff.StackMode.IGNORE
 
-	buff.on_refresh(10.0)
+	var _refresh_report: Dictionary = buff.on_refresh(10.0)
 
 	assert_eq(buff.stacks, 1, "IGNORE 策略不应增加层数。")
 	assert_almost_eq(buff.time_left, 1.5, 0.001, "IGNORE 策略不应刷新剩余时间。")
+
+
+func test_combat_system_does_not_emit_refresh_event_when_duplicate_is_ignored() -> void:
+	var system: RecordingCombatSystem = RecordingCombatSystem.new()
+	var entity: MockEntity = MockEntity.new()
+	system.register_entity(entity)
+	var buff: GFBuff = GFBuff.new()
+	buff.stack_mode = GFBuff.StackMode.IGNORE
+	buff.setup(&"Guard", 3.0, entity)
+	system.add_buff(entity, buff)
+	var incoming: GFBuff = GFBuff.new()
+	incoming.setup(&"Guard", 10.0, entity)
+
+	system.add_buff(entity, incoming)
+
+	assert_eq(system.sent_events.size(), 1, "IGNORE duplicate 不应伪造 refreshed 事件。")
+	assert_eq(buff.stacks, 1, "IGNORE duplicate 不应改变层数。")
+	assert_almost_eq(buff.time_left, 3.0, 0.001, "IGNORE duplicate 不应改变剩余时间。")
 
 
 func test_buff_refresh_duration_can_extend_or_keep_longer() -> void:
@@ -730,13 +854,13 @@ func test_buff_refresh_duration_can_extend_or_keep_longer() -> void:
 	extend_buff.setup(&"Extend", 3.0, null)
 	extend_buff.time_left = 1.0
 	extend_buff.duration_refresh_policy = GFBuff.DurationRefreshPolicy.EXTEND_BY_NEW_DURATION
-	extend_buff.on_refresh(2.0)
+	var _extend_report: Dictionary = extend_buff.on_refresh(2.0)
 
 	var keep_buff: GFBuff = GFBuff.new()
 	keep_buff.setup(&"KeepLonger", 5.0, null)
 	keep_buff.time_left = 4.0
 	keep_buff.duration_refresh_policy = GFBuff.DurationRefreshPolicy.KEEP_LONGER_REMAINING
-	keep_buff.on_refresh(2.0)
+	var _keep_report: Dictionary = keep_buff.on_refresh(2.0)
 
 	assert_almost_eq(extend_buff.time_left, 3.0, 0.001, "EXTEND 策略应追加新的持续时间。")
 	assert_almost_eq(keep_buff.time_left, 4.0, 0.001, "KEEP_LONGER 策略应保留更长剩余时间。")
@@ -806,6 +930,35 @@ func test_remove_buff_removes_effects_and_reports_result() -> void:
 	assert_false(missing, "remove_buff 未命中时应返回 false。")
 	assert_eq(_entity_attribute_value(entity, &"ATK"), 10.0, "remove_buff 应移除属性修饰器。")
 	assert_false(entity.tag_component.has_tag(&"Buffed"), "remove_buff 应移除标签。")
+
+
+func test_buff_removed_event_exposes_best_effort_cleanup_report() -> void:
+	var system: RecordingCombatSystem = RecordingCombatSystem.new()
+	var entity: MockEntity = MockEntity.new()
+	system.register_entity(entity)
+	var buff: GFBuff = GFBuff.new()
+	var effect: FailingRemoveEffect = FailingRemoveEffect.new()
+	effect.effect_id = &"failing_cleanup"
+	buff.effects.append(effect)
+	buff.setup(&"ObservedRemoval", -1.0, entity)
+	system.add_buff(entity, buff)
+	system.sent_events.clear()
+	watch_signals(system)
+
+	var removed: bool = system.remove_buff_with_reason(entity, buff.id, &"replaced")
+
+	assert_true(removed)
+	assert_eq(system.sent_events.size(), 1, "移除应发送且只发送一个诊断事件。")
+	var event_value: Object = system.sent_events[0]
+	assert_true(event_value is GFCombatPayloads.GFBuffRemovedPayload)
+	if not (event_value is GFCombatPayloads.GFBuffRemovedPayload):
+		return
+	var removed_event: GFCombatPayloads.GFBuffRemovedPayload = event_value
+	assert_eq(removed_event.reason, &"replaced")
+	assert_false(GFVariantData.get_option_bool(removed_event.lifecycle_report, "ok"), "best-effort 清理失败必须可观测。")
+	assert_eq(GFVariantData.get_option_string_name(removed_event.lifecycle_report, "reason"), &"cleanup_failed")
+	assert_false(system.has_buff(entity, buff.id), "报告失败不能把 Buff 留在系统索引中。")
+	assert_signal_emitted(system, "buff_removal_reported", "移除报告不应依赖架构事件总线才能被观察。")
 
 
 func test_live_buff_restore_replaces_previously_applied_effects() -> void:
@@ -951,9 +1104,18 @@ func test_combat_event_dispatching() -> void:
 	}
 	
 	# 注册监听器
-	Gf.listen(GFCombatPayloads.GFBuffAppliedPayload, func(_p: Variant) -> void: events["applied"] += 1)
-	Gf.listen(GFCombatPayloads.GFBuffRefreshedPayload, func(_p: Variant) -> void: events["refreshed"] += 1)
-	Gf.listen(GFCombatPayloads.GFBuffRemovedPayload, func(_p: Variant) -> void: events["removed"] += 1)
+	Gf.listen(
+		GFCombatPayloads.GFBuffAppliedPayload,
+		GFEventListener.from_callable(func(_p: Variant) -> void: events["applied"] += 1, 1)
+	)
+	Gf.listen(
+		GFCombatPayloads.GFBuffRefreshedPayload,
+		GFEventListener.from_callable(func(_p: Variant) -> void: events["refreshed"] += 1, 1)
+	)
+	Gf.listen(
+		GFCombatPayloads.GFBuffRemovedPayload,
+		GFEventListener.from_callable(func(_p: Variant) -> void: events["removed"] += 1, 1)
+	)
 	
 	var buff: GFBuff = GFBuff.new()
 	buff.setup(&"TestBuff", 1.0, entity)
@@ -963,6 +1125,7 @@ func test_combat_event_dispatching() -> void:
 	assert_eq(GFVariantData.get_option_int(events, "applied"), 1)
 	
 	# 测试 Refresh
+	buff.time_left = 0.5
 	system.add_buff(entity, buff)
 	assert_eq(GFVariantData.get_option_int(events, "refreshed"), 1)
 	
@@ -984,11 +1147,13 @@ func test_combat_events_use_injected_scoped_architecture() -> void:
 
 	var parent_events: Dictionary = { "applied": 0 }
 	var child_events: Dictionary = { "applied": 0 }
-	parent_arch.register_event(GFCombatPayloads.GFBuffAppliedPayload, func(_p: Variant) -> void:
-		parent_events["applied"] += 1
+	parent_arch.register_event(
+		GFCombatPayloads.GFBuffAppliedPayload,
+		GFEventListener.from_callable(func(_p: Variant) -> void: parent_events["applied"] += 1, 1)
 	)
-	child_arch.register_event(GFCombatPayloads.GFBuffAppliedPayload, func(_p: Variant) -> void:
-		child_events["applied"] += 1
+	child_arch.register_event(
+		GFCombatPayloads.GFBuffAppliedPayload,
+		GFEventListener.from_callable(func(_p: Variant) -> void: child_events["applied"] += 1, 1)
 	)
 
 	var entity: MockEntity = MockEntity.new()
@@ -1201,7 +1366,7 @@ func test_hurt_box_2d_receiver_path_forwards_hit_to_business_receiver() -> void:
 
 	assert_true(_report_ok(report), "通过本地过滤的 2D 命中应转发给业务接收器。")
 	assert_same(business_receiver.received_context.target, business_receiver, "转发时命中 target 应更新为业务接收器。")
-	assert_same(_report_receiver(report), business_receiver, "最终命中报告应来自业务接收器。")
+	assert_eq(_report_receiver_instance_id(report), business_receiver.get_instance_id(), "最终命中报告摘要应来自业务接收器。")
 	assert_true(GFVariantData.get_option_bool(metadata, "business"), "业务命中接收器返回的报告应成为最终报告。")
 	assert_signal_emitted(hurt_box, "hit_received", "业务接收成功后 HurtBox 应发出接收信号。")
 
@@ -1225,7 +1390,7 @@ func test_hurt_box_2d_receiver_path_accepts_side_effect_receiver() -> void:
 
 	assert_true(_report_ok(report), "副作用式业务接收器不返回报告时仍应沿用 HurtBox 接收报告。")
 	assert_same(business_receiver.received_context.target, business_receiver, "转发时命中 target 应更新为业务接收器。")
-	assert_same(_report_receiver(report), business_receiver, "默认接收报告应指向业务接收器。")
+	assert_eq(_report_receiver_instance_id(report), business_receiver.get_instance_id(), "默认接收报告摘要应指向业务接收器。")
 	assert_signal_emitted(hurt_box, "hit_received", "业务接收器处理后 HurtBox 应发出接收信号。")
 
 
@@ -1248,7 +1413,7 @@ func test_hurt_box_2d_receiver_path_can_only_retarget_context() -> void:
 
 	assert_true(hurt_box.can_receive_hit(&"impact"), "receiver_path 指向普通业务节点时仍应允许 HurtBox 接收命中。")
 	assert_true(_report_ok(report), "普通业务节点可只作为命中 target，不必实现 receive_hit()。")
-	assert_same(_report_receiver(report), business_target, "默认接收报告应指向业务 target。")
+	assert_eq(_report_receiver_instance_id(report), business_target.get_instance_id(), "默认接收报告摘要应指向业务 target。")
 	assert_signal_emitted(hurt_box, "hit_received", "HurtBox retarget 后仍应发出接收信号。")
 
 
@@ -1270,7 +1435,7 @@ func test_hurt_box_3d_receiver_path_forwards_hit_to_business_receiver() -> void:
 
 	assert_true(_report_ok(report), "通过本地过滤的 3D 命中应转发给业务接收器。")
 	assert_same(business_receiver.received_context.target, business_receiver, "转发时 3D 命中 target 应更新为业务接收器。")
-	assert_same(_report_receiver(report), business_receiver, "最终 3D 命中报告应来自业务接收器。")
+	assert_eq(_report_receiver_instance_id(report), business_receiver.get_instance_id(), "最终 3D 命中报告摘要应来自业务接收器。")
 
 
 func test_hit_box_2d_collision_dispatch_uses_sender_send_to_override() -> void:
@@ -1385,6 +1550,54 @@ func test_combat_gauge_applies_generic_action_with_modifier() -> void:
 	assert_almost_eq(result.action.amount, 20.0, 0.001, "结果应记录最终动作。")
 
 
+func test_combat_gauge_rejects_non_finite_action_without_state_change() -> void:
+	var gauge: GFCombatGauge = GFCombatGauge.new()
+	add_child_autofree(gauge)
+	gauge.configure(0.0, 100.0, 50.0)
+	var action: GFCombatAction = GFCombatAction.new()
+	action.amount = NAN
+
+	var result: GFCombatActionResult = gauge.apply_action(action)
+
+	assert_false(result.ok)
+	assert_eq(result.reason, &"non_finite_action")
+	assert_eq(gauge.current_value, 50.0, "NaN 动作不能污染 Gauge 状态。")
+	assert_true(is_finite(gauge.current_value))
+
+
+func test_combat_gauge_rejects_non_finite_modifier_result() -> void:
+	var gauge: GFCombatGauge = GFCombatGauge.new()
+	add_child_autofree(gauge)
+	gauge.configure(0.0, 100.0, 50.0)
+	var modifier: GFCombatActionModifier = GFCombatActionModifier.new()
+	modifier.amount_multiplier = INF
+	gauge.add_modifier(modifier)
+	var action: GFCombatAction = GFCombatAction.new()
+	action.amount = 10.0
+
+	var result: GFCombatActionResult = gauge.apply_action(action)
+
+	assert_false(result.ok)
+	assert_eq(result.reason, &"non_finite_modified_action")
+	assert_eq(gauge.current_value, 50.0)
+
+
+func test_modified_attribute_keeps_last_finite_snapshot_on_invalid_input_or_overflow() -> void:
+	var attribute: GFModifiedAttribute = GFModifiedAttribute.new(10.0)
+	attribute.set_base_value(NAN)
+	assert_eq(attribute.get_base_value(), 10.0, "非法基础值应被拒绝。")
+
+	var invalid_modifier: GFModifier = GFModifier.new(GFModifier.Type.BASE_ADD, INF)
+	attribute.add_modifier(invalid_modifier)
+	assert_eq(_attribute_value(attribute), 10.0, "非法修正器不应进入属性集合。")
+
+	attribute.set_base_value(1.0e308)
+	var overflowing_modifier: GFModifier = GFModifier.new(GFModifier.Type.FINAL_ADD, 1.0e308)
+	attribute.add_modifier(overflowing_modifier)
+	assert_eq(_attribute_value(attribute), 1.0e308, "重算溢出时应保留上一份有限快照。")
+	assert_true(is_finite(_attribute_value(attribute)))
+
+
 func test_combat_gauge_rejects_unaccepted_action_kind() -> void:
 	var gauge: GFCombatGauge = GFCombatGauge.new()
 	add_child_autofree(gauge)
@@ -1401,6 +1614,45 @@ func test_combat_gauge_rejects_unaccepted_action_kind() -> void:
 	assert_almost_eq(gauge.current_value, 5.0, 0.001, "被拒绝动作不应修改数值。")
 
 
+func test_combat_report_dictionaries_are_json_safe() -> void:
+	var source: RefCounted = RefCounted.new()
+	var target: RefCounted = RefCounted.new()
+	var action: GFCombatAction = GFCombatAction.new()
+	action.action_id = &"impact"
+	action.payload = {
+		"resource": Resource.new(),
+		"heat": NAN,
+	}
+	action.metadata = {
+		"source": source,
+	}
+	var result: GFCombatActionResult = GFCombatActionResult.make_success(
+		action,
+		action,
+		10.0,
+		INF,
+		{ "target": target }
+	)
+	var context: GFCombatHitContext = GFCombatHitContext.new(
+		source,
+		target,
+		{
+			"action": action,
+			"heat": NAN,
+		},
+		&"hit"
+	)
+
+	var text: String = JSON.stringify({
+		"action": action.to_report_dictionary(),
+		"result": result.to_report_dictionary(),
+		"context": context.to_report_dictionary(),
+	})
+
+	assert_true(text.contains("__gf_report_value__"), "Combat 报告应把 Object/Resource 边界转成报告 marker。")
+	assert_true(text.contains("__gf_variant__"), "Combat 报告应把 NaN/INF 转成 GF Variant marker。")
+
+
 func test_hit_scan_2d_reports_miss_without_collision() -> void:
 	var hit_scan: GFHitScan2D = GFHitScan2D.new()
 	add_child_autofree(hit_scan)
@@ -1411,6 +1663,38 @@ func test_hit_scan_2d_reports_miss_without_collision() -> void:
 	assert_false(_report_ok(report), "没有碰撞时 HitScan 应返回失败报告。")
 	assert_eq(GFVariantData.get_option_string_name(report, "reason"), &"no_collision", "没有碰撞时原因应稳定。")
 	assert_signal_emitted(hit_scan, "scan_missed", "没有碰撞时应发出 missed 信号。")
+
+
+func test_hit_scan_resolves_parent_receiver_with_shared_guarded_traversal() -> void:
+	var receiver: BusinessHitReceiver = BusinessHitReceiver.new()
+	var collider: Node2D = Node2D.new()
+	receiver.add_child(collider)
+	add_child_autofree(receiver)
+	var hit_scan_2d: GFHitScan2D = GFHitScan2D.new()
+	var hit_scan_3d: GFHitScan3D = GFHitScan3D.new()
+	add_child_autofree(hit_scan_2d)
+	add_child_autofree(hit_scan_3d)
+
+	assert_same(hit_scan_2d._resolve_hit_receiver(collider), receiver)
+	assert_same(hit_scan_3d._resolve_hit_receiver(collider), receiver)
+
+
+func test_combat_hit_context_defensively_snapshots_payload() -> void:
+	var source_payload: Dictionary = {
+		"nested": {
+			"value": 1,
+		},
+	}
+	var context: GFCombatHitContext = GFCombatHitContext.new(null, null, source_payload, &"snapshot")
+	var source_nested: Dictionary = GFVariantData.get_option_dictionary(source_payload, "nested")
+	source_nested["value"] = 2
+	var first_snapshot: Dictionary = GFVariantData.as_dictionary(context.payload)
+	var first_nested: Dictionary = GFVariantData.get_option_dictionary(first_snapshot, "nested")
+	first_nested["value"] = 3
+	var second_snapshot: Dictionary = GFVariantData.as_dictionary(context.payload)
+	var second_nested: Dictionary = GFVariantData.get_option_dictionary(second_snapshot, "nested")
+
+	assert_eq(GFVariantData.get_option_int(second_nested, "value"), 1, "调用方和读取方都不能篡改历史命中 payload。")
 
 
 func test_hit_box_3d_builds_position_context() -> void:
@@ -1437,18 +1721,22 @@ func test_hit_box_state_2d_toggles_child_hit_and_hurt_boxes() -> void:
 	nested.add_child(hit_box)
 	nested.add_child(hurt_box)
 	add_child_autofree(state)
+	watch_signals(state)
 
+	state.deactivate()
 	state.deactivate()
 
 	assert_false(hit_box.enabled, "状态组关闭时应关闭 HitBox enabled。")
 	assert_false(hurt_box.enabled, "状态组关闭时应关闭 HurtBox enabled。")
 	assert_false(hit_box.monitoring, "状态组关闭时应关闭 Area monitoring。")
 	assert_false(hurt_box.monitorable, "状态组关闭时应关闭 Area monitorable。")
+	assert_signal_emit_count(state, "active_changed", 1, "一次实际状态转换只能发出一次事件。")
 
 	state.activate()
 
 	assert_true(hit_box.enabled, "状态组激活后应恢复 HitBox enabled。")
 	assert_true(hurt_box.enabled, "状态组激活后应恢复 HurtBox enabled。")
+	assert_signal_emit_count(state, "active_changed", 2)
 
 
 func test_hit_box_state_3d_can_manage_visibility_optionally() -> void:
@@ -1457,11 +1745,14 @@ func test_hit_box_state_3d_can_manage_visibility_optionally() -> void:
 	var hit_box: GFHitBox3D = GFHitBox3D.new()
 	state.add_child(hit_box)
 	add_child_autofree(state)
+	watch_signals(state)
 
+	state.deactivate()
 	state.deactivate()
 
 	assert_false(hit_box.enabled, "3D 状态组关闭时应关闭 HitBox enabled。")
 	assert_false(hit_box.visible, "启用可见性管理时应同步 Node3D visible。")
+	assert_signal_emit_count(state, "active_changed", 1)
 
 
 # --- 私有/辅助方法 ---
@@ -1492,9 +1783,7 @@ func _report_ok(report: Dictionary) -> bool:
 	return GFVariantData.get_option_bool(report, "ok")
 
 
-func _report_receiver(report: Dictionary) -> Object:
-	var value: Variant = GFVariantData.get_option_value(report, "receiver")
-	if value is Object:
-		var receiver: Object = value
-		return receiver
-	return null
+func _report_receiver_instance_id(report: Dictionary) -> int:
+	var receiver_report: Dictionary = GFVariantData.get_option_dictionary(report, "receiver")
+	var marker: Dictionary = GFVariantData.get_option_dictionary(receiver_report, "__gf_report_value__")
+	return GFVariantData.get_option_int(marker, "instance_id", -1)

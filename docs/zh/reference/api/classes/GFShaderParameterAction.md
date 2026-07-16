@@ -18,7 +18,7 @@
 | 属性 | [`target`](#member-gfshaderparameteraction-properties-target) | `var target: Object` |
 | 属性 | [`parameter_name`](#member-gfshaderparameteraction-properties-parameter_name) | `var parameter_name: StringName = &""` |
 | 属性 | [`target_value`](#member-gfshaderparameteraction-properties-target_value) | `var target_value: Variant = null` |
-| 属性 | [`duration`](#member-gfshaderparameteraction-properties-duration) | `var duration: float = 0.2` |
+| 属性 | [`duration`](#member-gfshaderparameteraction-properties-duration) | `var duration: float:` |
 | 属性 | [`material_property`](#member-gfshaderparameteraction-properties-material_property) | `var material_property: NodePath = ^"material"` |
 | 属性 | [`host_node`](#member-gfshaderparameteraction-properties-host_node) | `var host_node: Node` |
 | 属性 | [`transition_type`](#member-gfshaderparameteraction-properties-transition_type) | `var transition_type: Tween.TransitionType = Tween.TRANS_CUBIC` |
@@ -80,9 +80,10 @@ var target_value: Variant = null
 ### `duration`
 
 - API：`public`
+- 首次版本：`4.2.0`
 
 ```gdscript
-var duration: float = 0.2
+var duration: float:
 ```
 
 Tween 持续时间。小于等于 0 时立即写入。

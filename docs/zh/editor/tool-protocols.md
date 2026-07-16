@@ -12,10 +12,12 @@
 - `GFTemplateGenerationManifest`：从字典或 JSON sidecar 读取模板 ID、模板路径、输出路径、变量、要求和产物所有权，并衔接 `GFGeneratedArtifactReport`。
 - `GFEditorOperationPlan`：把预览、dry-run、执行步骤和生成产物报告汇总为统一操作摘要，供 Dock、工具栏或 CI 预检展示。
 - `GFBakeDependencyReport`：记录编辑器烘焙或导入工具的输入、输出、逻辑依赖和失效原因，并汇总 current / stale / missing / failed 状态。
+- `GFScriptPatchUtility`：对 GDScript 头部注解做纯文本补丁，并保持 `@tool`、注解、文档注释、`class_name` 和 `extends` 的顺序。
 - `GFEditorTool`：封装需要持续激活、接收输入和绘制辅助的交互工具。
 - `GFEditorToolContext`：在工具、动作和命令之间传递 `EditorPlugin`、UndoRedo、当前场景根节点、选中节点和元数据。
 - `GFEditorToolOption` / `GFEditorToolOptionSchema`：声明工具设置项和值规范化规则，供项目自己的工具面板生成 UI 或持久化配置。
 - `GFEditorPickOperation`：描述拾取、预览、ready、应用和取消这类分阶段交互。
+- `GFEditorBackgroundRequestTask`：框架内部后台请求句柄，用于 Dock 在退出时统一取消、等待并归属 worker 结果。
 
 这些类都位于 `kernel/editor`，只定义协议，不知道标准库或 GF 内置扩展的具体类型。标准库、GF 内置扩展、外部扩展和项目插件都可以复用这套拆分。
 
@@ -52,6 +54,8 @@ else:
 ```
 
 会话只管理通用命令生命周期和历史，不知道命令修改的是节点、资源、TileMap、曲线还是项目自定义数据。具体命令仍由工具或扩展按 `GFEditorCommand` 协议实现。
+
+命令实例代表一次编辑动作。`execute()` 成功后，或命令成功提交到 `EditorUndoRedoManager` 后，实例会冻结配置；工具需要执行下一次编辑时应创建新的命令实例，而不是复用旧实例重新 `configure()`。这样 redo / undo 回调始终使用同一份配置和首次执行前的快照，不会因为后续 UI 状态变化改变历史动作含义。
 
 ## 场景 Metadata 命令
 
@@ -102,6 +106,8 @@ var report := GFTemplateGenerationManifest.save_text_from_manifest(manifest, sou
 
 清单中的 `variables` 与 `requirements` 会进入产物报告 metadata，方便生成器在 dry-run、覆盖检查、批量摘要和漂移审查时复用同一套结构。实际模板渲染、依赖安装和输出目录策略仍由调用方决定。
 
+模板或批处理工具真正写入文件时，应把输出目录作为生成物根传给 `GFGeneratedArtifactReport.save_text(..., { "allowed_roots": [...] })`。这样 dry-run、编辑器按钮和 CI 校验会使用同一套路径边界，避免模板清单里的错误输出路径写到手写模块或工程外部。
+
 ## 操作计划报告
 
 编辑器批处理工具可以用 `GFEditorOperationPlan` 先收集步骤，再把 `GFGeneratedArtifactReport` 的产物结果加入同一份摘要：
@@ -137,3 +143,19 @@ var summary := bake.summarize({ "include_invalidations": true })
 ```
 
 `missing` 输入会让摘要失败，`stale` 输出或依赖表示需要重建但不是错误。真正写入产物时继续使用 `GFGeneratedArtifactReport`，再通过 `add_artifact_report()` 合并到同一份摘要。
+
+## 脚本头部补丁
+
+编辑器工具需要给脚本添加或替换头部注解时，应使用 `GFScriptPatchUtility` 先在文本层生成补丁，再通过 `GFGeneratedArtifactReport` 写回并获得产物报告：
+
+```gdscript
+var result := GFScriptPatchUtility.patch_script_path_annotation(
+	"res://actors/player.gd",
+	"@tool",
+	{
+		"scan_filesystem": true,
+	}
+)
+```
+
+该工具只处理头部注解行，不解析业务代码、不执行脚本，也不固定某个具体注解。需要替换同类注解时传入 `replacement_prefix`；需要 dry-run 或限制输出根时继续使用 `GFGeneratedArtifactReport.save_text()` 支持的选项。

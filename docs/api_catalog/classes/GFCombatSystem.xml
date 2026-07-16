@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFCombatSystem" path="addons/gf/extensions/combat/core/gf_combat_system.gd" module="extensions/combat" extends="GFSystem" classDigest="1e736c1556248f63b07826941ac2b6fbd1eceb2bd9a5ad4e8816472b929adf46">
+<class name="GFCombatSystem" path="addons/gf/extensions/combat/core/gf_combat_system.gd" module="extensions/combat" extends="GFSystem" classDigest="2bd0e2a705e4b1821abf7dcdf9263ae1ecccff0f9822d318b36fb059d3f6515e">
 	<description>GFCombatSystem: 战斗核心系统。
 负责驱动所有注册实体的 Buff 计时、周期触发以及技能 CD 更新。
 继承自 GFSystem，可通过架构的 tick 自动运行。</description>
@@ -8,7 +8,21 @@
 		<tag name="category">runtime_service</tag>
 		<tag name="since">3.17.0</tag>
 	</tags>
-	<signals />
+	<signals>
+		<member kind="signal" name="buff_removal_reported">
+			<signature>signal buff_removal_reported(</signature>
+			<description>Buff 已从系统索引移除并完成 best-effort 清理。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">entity: 原所属实体；实体已释放时可能为 null。</tag>
+				<tag name="param">buff_id: 被移除 Buff ID。</tag>
+				<tag name="param">reason: 移除原因。</tag>
+				<tag name="param">lifecycle_report: GFBuff.on_remove() 生命周期报告。</tag>
+				<tag name="schema">lifecycle_report: Dictionary，移除生命周期报告的深副本。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</signals>
 	<enums />
 	<constants />
 	<properties />

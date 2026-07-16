@@ -4,10 +4,15 @@
 
 ## 阅读入口
 
-- [2D 曲线与折线](curve-2d.md)：`GFCurve2DMath` 的折线长度、采样、简化、虚线切分和基础闭合形状生成。
+- [2D 曲线与折线](curve-2d.md)：`GFCurve2DMath` 的折线长度、采样、姿态/投影报告、简化、虚线切分和基础闭合形状生成。
+- [3D 曲线与折线](curve-3d.md)：`GFCurve3DMath` 的 3D 折线长度、采样、姿态/投影报告和 `Curve3D` baked 姿态估算。
 - [2D 矩形打包](rect-packing-2d.md)：`GFRectPacking2D` 的固定容器、自动正方形和归一化放置结果。
+- [连续放置序列数学](placement-sequence-math.md)：`GFPlacementSequenceMath` 的 2D/3D 位置和格子下一次放置预测。
 - [2D Poisson-disc 采样](poisson-disc-2d.md)：`GFPoissonDisc2D` 的确定性最小间距点集生成。
+- [2D 噪声场采样](noise-field-tools.md)：`GFNoiseFieldTools` 的 FastNoiseLite / Callable 行优先浮点场采样、统计和归一化报告。
+- [2D Wave Function Collapse](wave-function-collapse-2d.md)：`GFWaveFunctionCollapse2D` 的简单 tiled WFC 纯数据约束求解报告。
 - [3D 高度场与表面散布采样](heightfield-surface-scatter-3d.md)：`GFHeightfield3D` 与 `GFSurfaceScatterSampler3D` 的高度、法线和纯数据 Transform 采样报告。
+- [3D Transform 数学](transform-3d-math.md)：`GFTransform3DMath` 的平面反射、射线平面命中、表面吸附和锚点对齐计算。
 - [AABB Broadphase 候选对](collision-broadphase.md)：`GFCollisionBroadphase2D/3D` 的 body、SAP、2D Quadtree 和组合候选对生成。
 - [2D SAT Narrowphase 精确检测](collision-narrowphase-2d.md)：`GFCollisionNarrowphase2D` 的凸多边形、旋转盒、相切策略和最小平移向量。
 - [弹簧平滑数学](spring-math.md)：`GFSpringMath` 的标量、角度、Vector2 与 Vector3 二阶弹簧步进。

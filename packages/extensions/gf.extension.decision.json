@@ -12,6 +12,6 @@
   "paths": [
     "addons/gf/extensions/decision/**"
   ],
-  "enable_extension": "gf.decision",
+  "gf_extension_id": "gf.decision",
   "metadata": {}
 }

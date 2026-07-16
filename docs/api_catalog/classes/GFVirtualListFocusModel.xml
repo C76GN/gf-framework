@@ -1,0 +1,210 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFVirtualListFocusModel" path="addons/gf/standard/utilities/ui/gf_virtual_list_focus_model.gd" module="standard" extends="RefCounted" classDigest="cb1ed5a74dc898bf2a99d741808f6ec5b46e69e086b7b3b54408484dfc222e6b">
+	<description>GFVirtualListFocusModel: 虚拟列表焦点索引模型。
+用数据索引维护虚拟焦点，供回收式列表、长日志、资源浏览器或编辑器表格在
+不绑定具体 Control 节点的前提下处理键盘/手柄焦点。它不创建 UI、不读取输入、
+不提交业务选择，只负责焦点索引、可聚焦判断和前后移动。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_service</tag>
+		<tag name="since">8.0.0</tag>
+	</tags>
+	<signals>
+		<member kind="signal" name="focused_index_changed">
+			<signature>signal focused_index_changed(previous_index: int, focused_index: int)</signature>
+			<description>当前虚拟焦点索引变化后发出。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">previous_index: 变化前的焦点索引；无焦点时为 NO_FOCUS。</tag>
+				<tag name="param">focused_index: 变化后的焦点索引；无焦点时为 NO_FOCUS。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</signals>
+	<enums />
+	<constants>
+		<member kind="const" name="NO_FOCUS">
+			<signature>const NO_FOCUS: int = -1</signature>
+			<description>无焦点标记。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties>
+		<member kind="property" name="item_count">
+			<signature>var item_count: int:</signature>
+			<description>当前条目数量，小于 0 时按 0 处理。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="focused_index">
+			<signature>var focused_index: int:</signature>
+			<description>当前虚拟焦点索引；无焦点时为 NO_FOCUS。设置不可聚焦索引会被忽略。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="wrap_navigation">
+			<signature>var wrap_navigation: bool = false</signature>
+			<description>焦点移动到首尾边界后是否环绕。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="auto_focus_on_count_change">
+			<signature>var auto_focus_on_count_change: bool = false</signature>
+			<description>当条目数量变化且当前没有焦点时，是否自动聚焦第一个可聚焦条目。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="focusable_callback">
+			<signature>var focusable_callback: Callable:</signature>
+			<description>可选可聚焦判断回调。回调接收 item_index，返回 false 时该索引会被跳过。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">focusable_callback: Callable(item_index: int) -&gt; bool。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="configure">
+			<signature>func configure(p_item_count: int, options: Dictionary = {}) -&gt; GFVirtualListFocusModel:</signature>
+			<description>配置焦点模型并返回自身。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">p_item_count: 条目数量。</tag>
+				<tag name="param">options: 可选项。</tag>
+				<tag name="return">当前焦点模型。</tag>
+				<tag name="schema">options: Dictionary，支持 focused_index、wrap_navigation、auto_focus_on_count_change 和 focusable_callback。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="set_item_count">
+			<signature>func set_item_count(p_item_count: int, repair_focus_enabled: bool = true) -&gt; bool:</signature>
+			<description>设置条目数量，并按需修正当前焦点。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">p_item_count: 条目数量。</tag>
+				<tag name="param">repair_focus_enabled: 是否修正越界或不可聚焦的当前焦点。</tag>
+				<tag name="return">条目数量或焦点发生变化时返回 true。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="set_focused_index">
+			<signature>func set_focused_index(item_index: int) -&gt; bool:</signature>
+			<description>设置当前虚拟焦点索引。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">item_index: 目标条目索引；传入 NO_FOCUS 会清空焦点。</tag>
+				<tag name="return">焦点发生变化时返回 true。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="clear_focus">
+			<signature>func clear_focus() -&gt; bool:</signature>
+			<description>清空当前虚拟焦点。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">焦点发生变化时返回 true。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="has_focus">
+			<signature>func has_focus() -&gt; bool:</signature>
+			<description>判断当前是否有虚拟焦点。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">当前存在有效焦点时返回 true。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="focus_first">
+			<signature>func focus_first() -&gt; bool:</signature>
+			<description>聚焦第一个可聚焦条目。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">焦点发生变化时返回 true。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="focus_last">
+			<signature>func focus_last() -&gt; bool:</signature>
+			<description>聚焦最后一个可聚焦条目。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">焦点发生变化时返回 true。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="move_focus">
+			<signature>func move_focus(step: int) -&gt; bool:</signature>
+			<description>按可聚焦条目步进移动焦点。
+step 为正时向后移动，为负时向前移动；绝对值表示跨过多少个可聚焦条目。
+当前没有焦点时，正向移动会聚焦第一个可聚焦条目，反向移动会聚焦最后一个。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">step: 移动步数。</tag>
+				<tag name="return">焦点发生变化时返回 true。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="focus_next">
+			<signature>func focus_next() -&gt; bool:</signature>
+			<description>聚焦下一个可聚焦条目。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">焦点发生变化时返回 true。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="focus_previous">
+			<signature>func focus_previous() -&gt; bool:</signature>
+			<description>聚焦上一个可聚焦条目。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">焦点发生变化时返回 true。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="repair_focus">
+			<signature>func repair_focus(preferred_index: int = NO_FOCUS) -&gt; bool:</signature>
+			<description>根据当前条目数量和可聚焦规则修正焦点。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">preferred_index: 优先尝试的索引；无偏好时传 NO_FOCUS。</tag>
+				<tag name="return">焦点发生变化时返回 true。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_focusable">
+			<signature>func is_focusable(item_index: int) -&gt; bool:</signature>
+			<description>判断某个条目索引是否可聚焦。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">item_index: 条目索引。</tag>
+				<tag name="return">可聚焦时返回 true。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_debug_snapshot">
+			<signature>func get_debug_snapshot() -&gt; Dictionary:</signature>
+			<description>获取焦点模型调试快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">焦点状态字典。</tag>
+				<tag name="schema">return: Dictionary，包含 item_count、focused_index、has_focus、wrap_navigation 和 auto_focus_on_count_change。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

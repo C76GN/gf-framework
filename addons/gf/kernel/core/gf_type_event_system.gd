@@ -76,24 +76,26 @@ var _dispatch_trace: Array[Dictionary] = []
 ## [br]
 ## @api public
 ## [br]
+## @since 8.0.0
+## [br]
 ## @param event_type: 要监听的脚本类型。
 ## [br]
-## @param on_event: 事件发送时执行的回调函数。
+## @param listener: 事件监听器契约。
 ## [br]
 ## @param priority: 回调优先级，数值越大越先执行，默认为 0。
-## [br]
-## @param owner: 可选监听拥有者，用于批量注销。
-func register(event_type: Script, on_event: Callable, priority: int = 0, owner: Object = null) -> void:
+func register(event_type: Script, listener: GFEventListener, priority: int = 0) -> void:
 	if event_type == null:
 		push_error("[GFTypeEventSystem] register 失败：event_type 为空。")
 		return
-	if not _validate_callable_min_args(on_event, 1, "类型事件回调", "事件实例"):
+	if not _validate_listener(listener, 1, "类型事件回调", "事件实例"):
 		return
 
+	var callback: Callable = listener.get_callback()
+	var owner: Object = listener.get_owner()
 	if _type_dispatch_depth > 0:
 		_type_track.queue_add(
 			event_type,
-			on_event,
+			callback,
 			priority,
 			_make_owner_ref(owner),
 			_owner_instance_id(owner),
@@ -101,27 +103,50 @@ func register(event_type: Script, on_event: Callable, priority: int = 0, owner: 
 		)
 		return
 
-	_add_listener_entry(_event_listeners, event_type, on_event, priority, owner, _next_listener_order(), false)
+	_add_listener_entry(_event_listeners, event_type, callback, priority, owner, _next_listener_order(), false)
+
+
+## 注册带 owner 的特定脚本类型事件监听器。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+## [br]
+## @param owner: 监听 owner。
+## [br]
+## @param event_type: 要监听的脚本类型。
+## [br]
+## @param listener: 事件监听器契约。
+## [br]
+## @param priority: 回调优先级，数值越大越先执行，默认为 0。
+func register_owned(owner: Object, event_type: Script, listener: GFEventListener, priority: int = 0) -> void:
+	if listener == null:
+		register(event_type, null, priority)
+		return
+	register(event_type, listener.with_owner(owner), priority)
 
 
 ## 注销特定脚本类型的事件监听器。
 ## [br]
 ## @api public
 ## [br]
+## @since 8.0.0
+## [br]
 ## @param event_type: 要注销的脚本类型。
 ## [br]
-## @param on_event: 要移除的回调函数。
-func unregister(event_type: Script, on_event: Callable) -> void:
+## @param listener: 要移除的事件监听器契约。
+func unregister(event_type: Script, listener: GFEventListener) -> void:
 	if event_type == null:
 		return
+	var callback: Callable = _get_listener_callback(listener)
 	if _type_dispatch_depth > 0:
-		_type_track.remove_pending_add(event_type, on_event, 0, true)
-		_type_track.queue_remove(event_type, on_event, 0, true)
+		_type_track.remove_pending_add(event_type, callback, 0, true)
+		_type_track.queue_remove(event_type, callback, 0, true)
 		return
 
 	if _event_listeners.has(event_type):
 		var listeners: Array = _get_registry_array(_event_listeners, event_type)
-		_remove_entry_by_callable(listeners, on_event, event_type, false, 0, true)
+		_remove_entry_by_callable(listeners, callback, event_type, false, 0, true)
 		_erase_listener_key_if_empty(_event_listeners, event_type)
 
 
@@ -135,19 +160,20 @@ func unregister(event_type: Script, on_event: Callable) -> void:
 ## [br]
 ## @param event_type: 要注销的脚本类型。
 ## [br]
-## @param on_event: 要移除的回调函数。
-func unregister_owned(owner: Object, event_type: Script, on_event: Callable) -> void:
+## @param listener: 要移除的事件监听器契约。
+func unregister_owned(owner: Object, event_type: Script, listener: GFEventListener) -> void:
 	if owner == null or event_type == null:
 		return
 	var owner_id: int = owner.get_instance_id()
+	var callback: Callable = _get_listener_callback(listener)
 	if _type_dispatch_depth > 0:
-		_type_track.remove_pending_add(event_type, on_event, owner_id, true)
-		_type_track.queue_remove(event_type, on_event, owner_id, true)
+		_type_track.remove_pending_add(event_type, callback, owner_id, true)
+		_type_track.queue_remove(event_type, callback, owner_id, true)
 		return
 
 	if _event_listeners.has(event_type):
 		var listeners: Array = _get_registry_array(_event_listeners, event_type)
-		_remove_entry_by_callable(listeners, on_event, event_type, false, owner_id, true)
+		_remove_entry_by_callable(listeners, callback, event_type, false, owner_id, true)
 		_erase_listener_key_if_empty(_event_listeners, event_type)
 
 
@@ -156,24 +182,26 @@ func unregister_owned(owner: Object, event_type: Script, on_event: Callable) -> 
 ## [br]
 ## @api public
 ## [br]
+## @since 8.0.0
+## [br]
 ## @param base_event_type: 要监听的基类脚本类型。
 ## [br]
-## @param on_event: 事件发送时执行的回调函数。
+## @param listener: 事件监听器契约。
 ## [br]
 ## @param priority: 回调优先级，数值越大越先执行，默认为 0。
-## [br]
-## @param owner: 可选监听拥有者，用于批量注销。
-func register_assignable(base_event_type: Script, on_event: Callable, priority: int = 0, owner: Object = null) -> void:
+func register_assignable(base_event_type: Script, listener: GFEventListener, priority: int = 0) -> void:
 	if base_event_type == null:
 		push_error("[GFTypeEventSystem] register_assignable 失败：base_event_type 为空。")
 		return
-	if not _validate_callable_min_args(on_event, 1, "可赋值事件回调", "事件实例"):
+	if not _validate_listener(listener, 1, "可赋值事件回调", "事件实例"):
 		return
 
+	var callback: Callable = listener.get_callback()
+	var owner: Object = listener.get_owner()
 	if _type_dispatch_depth > 0:
 		_assignable_type_track.queue_add(
 			base_event_type,
-			on_event,
+			callback,
 			priority,
 			_make_owner_ref(owner),
 			_owner_instance_id(owner),
@@ -181,27 +209,55 @@ func register_assignable(base_event_type: Script, on_event: Callable, priority: 
 		)
 		return
 
-	_add_listener_entry(_assignable_event_listeners, base_event_type, on_event, priority, owner, _next_listener_order(), true)
+	_add_listener_entry(_assignable_event_listeners, base_event_type, callback, priority, owner, _next_listener_order(), true)
+
+
+## 注册带 owner 的可赋值类型事件监听器。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+## [br]
+## @param owner: 监听 owner。
+## [br]
+## @param base_event_type: 要监听的基类脚本类型。
+## [br]
+## @param listener: 事件监听器契约。
+## [br]
+## @param priority: 回调优先级，数值越大越先执行，默认为 0。
+func register_assignable_owned(
+	owner: Object,
+	base_event_type: Script,
+	listener: GFEventListener,
+	priority: int = 0
+) -> void:
+	if listener == null:
+		register_assignable(base_event_type, null, priority)
+		return
+	register_assignable(base_event_type, listener.with_owner(owner), priority)
 
 
 ## 注销可赋值类型事件监听器。
 ## [br]
 ## @api public
 ## [br]
+## @since 8.0.0
+## [br]
 ## @param base_event_type: 注册时使用的基类脚本类型。
 ## [br]
-## @param on_event: 要移除的回调函数。
-func unregister_assignable(base_event_type: Script, on_event: Callable) -> void:
+## @param listener: 要移除的事件监听器契约。
+func unregister_assignable(base_event_type: Script, listener: GFEventListener) -> void:
 	if base_event_type == null:
 		return
+	var callback: Callable = _get_listener_callback(listener)
 	if _type_dispatch_depth > 0:
-		_assignable_type_track.remove_pending_add(base_event_type, on_event, 0, true)
-		_assignable_type_track.queue_remove(base_event_type, on_event, 0, true)
+		_assignable_type_track.remove_pending_add(base_event_type, callback, 0, true)
+		_assignable_type_track.queue_remove(base_event_type, callback, 0, true)
 		return
 
 	if _assignable_event_listeners.has(base_event_type):
 		var listeners: Array = _get_registry_array(_assignable_event_listeners, base_event_type)
-		_remove_entry_by_callable(listeners, on_event, base_event_type, true, 0, true)
+		_remove_entry_by_callable(listeners, callback, base_event_type, true, 0, true)
 		_erase_listener_key_if_empty(_assignable_event_listeners, base_event_type)
 
 
@@ -215,19 +271,20 @@ func unregister_assignable(base_event_type: Script, on_event: Callable) -> void:
 ## [br]
 ## @param base_event_type: 注册时使用的基类脚本类型。
 ## [br]
-## @param on_event: 要移除的回调函数。
-func unregister_assignable_owned(owner: Object, base_event_type: Script, on_event: Callable) -> void:
+## @param listener: 要移除的事件监听器契约。
+func unregister_assignable_owned(owner: Object, base_event_type: Script, listener: GFEventListener) -> void:
 	if owner == null or base_event_type == null:
 		return
 	var owner_id: int = owner.get_instance_id()
+	var callback: Callable = _get_listener_callback(listener)
 	if _type_dispatch_depth > 0:
-		_assignable_type_track.remove_pending_add(base_event_type, on_event, owner_id, true)
-		_assignable_type_track.queue_remove(base_event_type, on_event, owner_id, true)
+		_assignable_type_track.remove_pending_add(base_event_type, callback, owner_id, true)
+		_assignable_type_track.queue_remove(base_event_type, callback, owner_id, true)
 		return
 
 	if _assignable_event_listeners.has(base_event_type):
 		var listeners: Array = _get_registry_array(_assignable_event_listeners, base_event_type)
-		_remove_entry_by_callable(listeners, on_event, base_event_type, true, owner_id, true)
+		_remove_entry_by_callable(listeners, callback, base_event_type, true, owner_id, true)
 		_erase_listener_key_if_empty(_assignable_event_listeners, base_event_type)
 
 
@@ -278,19 +335,21 @@ func send(event_instance: Object) -> void:
 ## [br]
 ## @param event_id: StringName 事件标识符。
 ## [br]
-## @param on_event: 回调函数，签名为 func(payload: Variant)。
+## @param listener: 简单事件监听器契约。
 ## [br]
-## @param owner: 可选监听拥有者，用于批量注销。
-func register_simple(event_id: StringName, on_event: Callable, owner: Object = null) -> void:
+## @since 8.0.0
+func register_simple(event_id: StringName, listener: GFEventListener) -> void:
 	if not _validate_simple_event_id(event_id, "register_simple"):
 		return
-	if not _validate_callable_min_args(on_event, 1, "简单事件回调", "payload"):
+	if not _validate_listener(listener, 1, "简单事件回调", "payload"):
 		return
 
+	var callback: Callable = listener.get_callback()
+	var owner: Object = listener.get_owner()
 	if _simple_dispatch_depth > 0:
 		_simple_track.queue_add(
 			event_id,
-			on_event,
+			callback,
 			0,
 			_make_owner_ref(owner),
 			_owner_instance_id(owner),
@@ -298,27 +357,48 @@ func register_simple(event_id: StringName, on_event: Callable, owner: Object = n
 		)
 		return
 
-	_add_simple_listener_entry(event_id, on_event, owner, _next_listener_order())
+	_add_simple_listener_entry(event_id, callback, owner, _next_listener_order())
+
+
+## 注册带 owner 的轻量级 StringName 事件监听器。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+## [br]
+## @param owner: 监听 owner。
+## [br]
+## @param event_id: StringName 事件标识符。
+## [br]
+## @param listener: 简单事件监听器契约。
+func register_simple_owned(owner: Object, event_id: StringName, listener: GFEventListener) -> void:
+	if listener == null:
+		register_simple(event_id, null)
+		return
+	register_simple(event_id, listener.with_owner(owner))
 
 
 ## 注销轻量级 StringName 事件监听器。
 ## [br]
 ## @api public
 ## [br]
+## @since 8.0.0
+## [br]
 ## @param event_id: StringName 事件标识符。
 ## [br]
-## @param on_event: 要移除的回调函数。
-func unregister_simple(event_id: StringName, on_event: Callable) -> void:
+## @param listener: 要移除的事件监听器契约。
+func unregister_simple(event_id: StringName, listener: GFEventListener) -> void:
 	if not _validate_simple_event_id(event_id, "unregister_simple"):
 		return
+	var callback: Callable = _get_listener_callback(listener)
 	if _simple_dispatch_depth > 0:
-		_simple_track.remove_pending_add(event_id, on_event, 0, true)
-		_simple_track.queue_remove(event_id, on_event, 0, true)
+		_simple_track.remove_pending_add(event_id, callback, 0, true)
+		_simple_track.queue_remove(event_id, callback, 0, true)
 		return
 
 	if _simple_event_listeners.has(event_id):
 		var listeners: Array = _get_registry_array(_simple_event_listeners, event_id)
-		_remove_entry_by_callable(listeners, on_event, null, false, 0, true)
+		_remove_entry_by_callable(listeners, callback, null, false, 0, true)
 		_erase_listener_key_if_empty(_simple_event_listeners, event_id)
 
 
@@ -332,19 +412,20 @@ func unregister_simple(event_id: StringName, on_event: Callable) -> void:
 ## [br]
 ## @param event_id: StringName 事件标识符。
 ## [br]
-## @param on_event: 要移除的回调函数。
-func unregister_simple_owned(owner: Object, event_id: StringName, on_event: Callable) -> void:
+## @param listener: 要移除的事件监听器契约。
+func unregister_simple_owned(owner: Object, event_id: StringName, listener: GFEventListener) -> void:
 	if owner == null or not _validate_simple_event_id(event_id, "unregister_simple_owned"):
 		return
 	var owner_id: int = owner.get_instance_id()
+	var callback: Callable = _get_listener_callback(listener)
 	if _simple_dispatch_depth > 0:
-		_simple_track.remove_pending_add(event_id, on_event, owner_id, true)
-		_simple_track.queue_remove(event_id, on_event, owner_id, true)
+		_simple_track.remove_pending_add(event_id, callback, owner_id, true)
+		_simple_track.queue_remove(event_id, callback, owner_id, true)
 		return
 
 	if _simple_event_listeners.has(event_id):
 		var listeners: Array = _get_registry_array(_simple_event_listeners, event_id)
-		_remove_entry_by_callable(listeners, on_event, null, false, owner_id, true)
+		_remove_entry_by_callable(listeners, callback, null, false, owner_id, true)
 		_erase_listener_key_if_empty(_simple_event_listeners, event_id)
 
 
@@ -1112,50 +1193,22 @@ func _pending_listener_order(pending: Dictionary) -> int:
 	return _next_listener_order()
 
 
-func _validate_callable_min_args(on_event: Callable, min_args: int, callback_label: String, arg_label: String) -> bool:
-	if not on_event.is_valid():
-		push_error("[GFTypeEventSystem] 注册的%s无效。" % callback_label)
+func _validate_listener(
+	listener: GFEventListener,
+	dispatch_argument_count: int,
+	callback_label: String,
+	arg_label: String
+) -> bool:
+	if listener == null:
+		push_error("[GFTypeEventSystem] 注册的%s为空。" % callback_label)
 		return false
+	return listener.validate_for_dispatch(dispatch_argument_count, callback_label, arg_label)
 
-	var target_obj: Object = on_event.get_object()
-	if target_obj == null:
-		return true
 
-	var method_name: StringName = on_event.get_method()
-	var methods: Array[Dictionary] = target_obj.get_method_list()
-	for m: Dictionary in methods:
-		if m["name"] == String(method_name):
-			var args: Array = _get_registry_array(m, "args")
-			var default_args: Array = _get_registry_array(m, "default_args")
-			var required_arg_count: int = maxi(args.size() - default_args.size(), 0)
-			var provided_arg_count: int = min_args + on_event.get_bound_arguments_count()
-			var accepts_varargs: bool = (_GF_VARIANT_ACCESS_SCRIPT.get_option_int(m, "flags", 0) & METHOD_FLAG_VARARG) != 0
-			if args.size() < min_args:
-				push_error("[GFTypeEventSystem] 注册的%s %s 必须至少包含 %d 个参数用于接收%s！" % [
-					callback_label,
-					method_name,
-					min_args,
-					arg_label,
-				])
-				return false
-			if not accepts_varargs and args.size() < provided_arg_count:
-				push_error("[GFTypeEventSystem] 注册的%s %s 最多接收 %d 个参数，当前会传入 %d 个。" % [
-					callback_label,
-					method_name,
-					args.size(),
-					provided_arg_count,
-				])
-				return false
-			if required_arg_count > provided_arg_count:
-				push_error("[GFTypeEventSystem] 注册的%s %s 不能要求超过 %d 个未绑定参数，当前必填 %d 个。" % [
-					callback_label,
-					method_name,
-					min_args,
-					required_arg_count - on_event.get_bound_arguments_count(),
-				])
-				return false
-			break
-	return true
+func _get_listener_callback(listener: GFEventListener) -> Callable:
+	if listener == null:
+		return Callable()
+	return listener.get_callback()
 
 
 func _validate_simple_event_id(event_id: StringName, operation: String) -> bool:

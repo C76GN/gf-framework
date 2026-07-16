@@ -17,13 +17,14 @@
 |---|---|---|
 | 枚举 | [`Type`](#member-gfmodifier-enums-type) | `enum Type` |
 | 属性 | [`type`](#member-gfmodifier-properties-type) | `var type: Type = Type.BASE_ADD` |
-| 属性 | [`value`](#member-gfmodifier-properties-value) | `var value: float = 0.0` |
+| 属性 | [`value`](#member-gfmodifier-properties-value) | `var value: float:` |
 | 属性 | [`attribute_id`](#member-gfmodifier-properties-attribute_id) | `var attribute_id: StringName = &""` |
 | 属性 | [`source_id`](#member-gfmodifier-properties-source_id) | `var source_id: StringName = &""` |
 | 方法 | [`create_base_add`](#member-gfmodifier-methods-create_base_add) | `static func create_base_add( p_value: float, p_attribute_id: StringName = &"", p_source_id: StringName = &"" ) -> GFModifier:` |
 | 方法 | [`create_percent_add`](#member-gfmodifier-methods-create_percent_add) | `static func create_percent_add( p_value: float, p_attribute_id: StringName = &"", p_source_id: StringName = &"" ) -> GFModifier:` |
 | 方法 | [`create_final_add`](#member-gfmodifier-methods-create_final_add) | `static func create_final_add( p_value: float, p_attribute_id: StringName = &"", p_source_id: StringName = &"" ) -> GFModifier:` |
 | 方法 | [`duplicate_modifier`](#member-gfmodifier-methods-duplicate_modifier) | `func duplicate_modifier() -> GFModifier:` |
+| 方法 | [`is_numeric_state_valid`](#member-gfmodifier-methods-is_numeric_state_valid) | `func is_numeric_state_valid() -> bool:` |
 | 方法 | [`to_dictionary`](#member-gfmodifier-methods-to_dictionary) | `func to_dictionary() -> Dictionary:` |
 | 方法 | [`apply_dictionary`](#member-gfmodifier-methods-apply_dictionary) | `func apply_dictionary(data: Dictionary) -> void:` |
 | 方法 | [`from_dictionary`](#member-gfmodifier-methods-from_dictionary) | `static func from_dictionary(data: Dictionary) -> GFModifier:` |
@@ -68,9 +69,10 @@ var type: Type = Type.BASE_ADD
 ### `value`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-var value: float = 0.0
+var value: float:
 ```
 
 修饰器的数值。
@@ -181,6 +183,21 @@ func duplicate_modifier() -> GFModifier:
 创建修饰器副本。
 
 返回：新修饰器。
+
+<a id="member-gfmodifier-methods-is_numeric_state_valid"></a>
+
+### `is_numeric_state_valid`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func is_numeric_state_valid() -> bool:
+```
+
+检查修正器数值是否有限。
+
+返回：最近一次 value 写入有效且当前值有限时返回 true。
 
 <a id="member-gfmodifier-methods-to_dictionary"></a>
 

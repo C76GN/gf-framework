@@ -4,6 +4,15 @@
 
 项目需要多端同步时，可以继承后端接口并在自己的存储系统里组合使用；遇到本地/远端字段冲突时，用 `GFStorageConflictReport` 描述 `file_name`、`key`、本地值、远端值、解决结果和元数据。
 
+`get_capability_report()` 可把后端声明的 `read/write/delete/list/sync` 能力、可选文件数量和文件名列表整理成普通字典。它适合诊断面板、连接预检或支持报告读取，不替项目判断某个账号、平台或远端服务是否真的可用；这类可用性仍应由具体后端的初始化和项目健康检查报告表达。
+
+```gdscript
+var report := backend.get_capability_report({
+	"label": "cloud_profile",
+	"include_data_names": true,
+})
+```
+
 ## 字典同步
 
 需要把两个后端做一次通用字典同步时，可以注册或直接创建 `GFStorageSyncUtility`。它只读取 `GFStorageBackend.load_data()`、调用 `save_data()` 写回，并按策略处理文件级冲突。
@@ -33,3 +42,19 @@ var merged := sync.sync_data("profile.json", local_backend, remote_backend, {
 同步器不枚举账号、不自动触发保存、不接入平台云服务，也不理解业务字段。后端元数据的 revision/timestamp 由项目写入；若没有可比较的元数据，应显式选择策略或使用自定义 resolver，避免框架替项目猜测数据所有权。
 
 未解决冲突是独立的终止状态：同步器会发出 `sync_conflict_detected` 和 `sync_conflict_unresolved`，结果中的 `status_name` 为 `conflict`，不会再发出 `sync_completed` 或 `sync_failed`。这样调用方可以明确区分“需要人工或项目策略处理的数据冲突”和“后端读写失败”。
+
+## 分区脏缓存
+
+如果项目的保存聚合器按“设置、进度、库存、场景片段”这类分区更新，可以用 `GFStorageSectionCache` 记录 scope 内哪些分区变脏，再只把脏分区交给存储层或同步层。分区 ID 和字段语义都由项目定义；GF 只负责 `scope_id + section_id` 的缓存、深合并、dirty 标记和 payload 生成。
+
+```gdscript
+var cache := GFStorageSectionCache.new()
+cache.write_section(&"profile", &"settings", settings_payload)
+cache.write_section(&"profile", &"summary", summary_payload, false)
+
+var payload := cache.build_payload(&"profile")
+storage.save_data("profile_patch.json", payload)
+cache.mark_clean(&"profile", payload["dirty_sections"])
+```
+
+`build_payload(scope_id, false)` 默认只输出脏分区；`include_clean = true` 时可输出完整 scope 快照。它不替代 `GFStorageUtility.save_data_group()` 的事务语义，也不负责字段冲突解析；需要跨后端同步时仍由 `GFStorageSyncUtility` 或项目 resolver 决定写回策略。

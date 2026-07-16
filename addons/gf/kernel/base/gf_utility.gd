@@ -120,11 +120,16 @@ func init() -> void:
 
 
 ## 异步初始化阶段。子类可以重写此方法并在其中使用 await。
-## Godot 4 支持在 void 函数内部使用 await，框架的 Gf.init() 会串行且安全地 await 每个模块的 async_init()，不再需要返回 Signal。
-## 约束：在 init() 之后、ready() 之前执行。
+## Godot 4 支持在 void 函数内部使用 await，框架的 Gf.init() 会串行且安全地 await 每个模块的 async_init()。
+## 约束：在 init() 之后、ready() 之前执行；首个 await 前仍运行在主线程，
+## 不应放入长同步工作。需要耗时处理时应在 await 或外部回调之间检查 scope。
 ## [br]
 ## @api public
-func async_init() -> void:
+## [br]
+## @since 3.17.0
+## [br]
+## @param _scope: 当前模块异步初始化的取消作用域。
+func async_init(_scope: GFAsyncScope) -> void:
 	pass
 
 
@@ -236,56 +241,64 @@ func get_utility(utility_type: Script, require_ready: bool = false) -> Object:
 ## [br]
 ## @api public
 ## [br]
+## @since 8.0.0
+## [br]
 ## @param event_type: 要监听的脚本类型。
 ## [br]
-## @param callback: 回调函数。
+## @param listener: 事件监听器契约。
 ## [br]
 ## @param priority: 回调优先级，数值越大越先执行，默认为 0。
-func register_event(event_type: Script, callback: Callable, priority: int = 0) -> void:
+func register_event(event_type: Script, listener: GFEventListener, priority: int = 0) -> void:
 	var architecture: GFArchitecture = _get_architecture_or_null()
 	if architecture != null:
-		architecture.register_event_owned(self, event_type, callback, priority)
+		architecture.register_event_owned(self, event_type, listener, priority)
 
 
 ## 注销类型事件监听器。
 ## [br]
 ## @api public
 ## [br]
+## @since 8.0.0
+## [br]
 ## @param event_type: 要注销的脚本类型。
 ## [br]
-## @param callback: 要移除的回调函数。
-func unregister_event(event_type: Script, callback: Callable) -> void:
+## @param listener: 要移除的事件监听器契约。
+func unregister_event(event_type: Script, listener: GFEventListener) -> void:
 	var architecture: GFArchitecture = _get_architecture_or_null()
 	if architecture != null:
-		architecture.unregister_event_owned(self, event_type, callback)
+		architecture.unregister_event_owned(self, event_type, listener)
 
 
 ## 注册可赋值类型事件监听器。Utility 注销时框架会自动清理由该方法注册的监听。
 ## [br]
 ## @api public
 ## [br]
+## @since 8.0.0
+## [br]
 ## @param base_event_type: 要监听的基类脚本类型。
 ## [br]
-## @param callback: 回调函数。
+## @param listener: 事件监听器契约。
 ## [br]
 ## @param priority: 回调优先级，数值越大越先执行，默认为 0。
-func register_assignable_event(base_event_type: Script, callback: Callable, priority: int = 0) -> void:
+func register_assignable_event(base_event_type: Script, listener: GFEventListener, priority: int = 0) -> void:
 	var architecture: GFArchitecture = _get_architecture_or_null()
 	if architecture != null:
-		architecture.register_assignable_event_owned(self, base_event_type, callback, priority)
+		architecture.register_assignable_event_owned(self, base_event_type, listener, priority)
 
 
 ## 注销可赋值类型事件监听器。
 ## [br]
 ## @api public
 ## [br]
+## @since 8.0.0
+## [br]
 ## @param base_event_type: 注册时使用的基类脚本类型。
 ## [br]
-## @param callback: 要移除的回调函数。
-func unregister_assignable_event(base_event_type: Script, callback: Callable) -> void:
+## @param listener: 要移除的事件监听器契约。
+func unregister_assignable_event(base_event_type: Script, listener: GFEventListener) -> void:
 	var architecture: GFArchitecture = _get_architecture_or_null()
 	if architecture != null:
-		architecture.unregister_assignable_event_owned(self, base_event_type, callback)
+		architecture.unregister_assignable_event_owned(self, base_event_type, listener)
 
 
 ## 向架构发送类型事件。
@@ -303,26 +316,30 @@ func send_event(event_instance: Object) -> void:
 ## [br]
 ## @api public
 ## [br]
+## @since 8.0.0
+## [br]
 ## @param event_id: StringName 事件标识符。
 ## [br]
-## @param callback: 回调函数，签名为 func(payload: Variant)。
-func register_simple_event(event_id: StringName, callback: Callable) -> void:
+## @param listener: 简单事件监听器契约。
+func register_simple_event(event_id: StringName, listener: GFEventListener) -> void:
 	var architecture: GFArchitecture = _get_architecture_or_null()
 	if architecture != null:
-		architecture.register_simple_event_owned(self, event_id, callback)
+		architecture.register_simple_event_owned(self, event_id, listener)
 
 
 ## 注销轻量级 StringName 事件监听器。
 ## [br]
 ## @api public
 ## [br]
+## @since 8.0.0
+## [br]
 ## @param event_id: StringName 事件标识符。
 ## [br]
-## @param callback: 要移除的回调函数。
-func unregister_simple_event(event_id: StringName, callback: Callable) -> void:
+## @param listener: 要移除的简单事件监听器契约。
+func unregister_simple_event(event_id: StringName, listener: GFEventListener) -> void:
 	var architecture: GFArchitecture = _get_architecture_or_null()
 	if architecture != null:
-		architecture.unregister_simple_event_owned(self, event_id, callback)
+		architecture.unregister_simple_event_owned(self, event_id, listener)
 
 
 ## 发送轻量级 StringName 事件，避免高频 new() 带来的 GC 压力。

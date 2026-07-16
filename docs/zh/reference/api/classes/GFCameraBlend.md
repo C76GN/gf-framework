@@ -15,9 +15,9 @@
 
 | 类型 | 名称 | 签名 |
 |---|---|---|
-| 属性 | [`duration_seconds`](#member-gfcamerablend-properties-duration_seconds) | `var duration_seconds: float = 0.35` |
-| 属性 | [`transition_type`](#member-gfcamerablend-properties-transition_type) | `var transition_type: Tween.TransitionType = Tween.TRANS_SINE` |
-| 属性 | [`ease_type`](#member-gfcamerablend-properties-ease_type) | `var ease_type: Tween.EaseType = Tween.EASE_IN_OUT` |
+| 属性 | [`duration_seconds`](#member-gfcamerablend-properties-duration_seconds) | `var duration_seconds: float:` |
+| 属性 | [`transition_type`](#member-gfcamerablend-properties-transition_type) | `var transition_type: Tween.TransitionType:` |
+| 属性 | [`ease_type`](#member-gfcamerablend-properties-ease_type) | `var ease_type: Tween.EaseType:` |
 | 方法 | [`is_instant`](#member-gfcamerablend-methods-is_instant) | `func is_instant() -> bool:` |
 | 方法 | [`sample_weight`](#member-gfcamerablend-methods-sample_weight) | `func sample_weight(elapsed_seconds: float) -> float:` |
 | 方法 | [`duplicate_blend`](#member-gfcamerablend-methods-duplicate_blend) | `func duplicate_blend() -> GFCameraBlend:` |
@@ -29,9 +29,10 @@
 ### `duration_seconds`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-var duration_seconds: float = 0.35
+var duration_seconds: float:
 ```
 
 过渡持续时间，单位秒。小于等于 0 时表示立即切换。
@@ -41,9 +42,10 @@ var duration_seconds: float = 0.35
 ### `transition_type`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-var transition_type: Tween.TransitionType = Tween.TRANS_SINE
+var transition_type: Tween.TransitionType:
 ```
 
 Tween 过渡类型。
@@ -53,9 +55,10 @@ Tween 过渡类型。
 ### `ease_type`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-var ease_type: Tween.EaseType = Tween.EASE_IN_OUT
+var ease_type: Tween.EaseType:
 ```
 
 Tween 缓动类型。

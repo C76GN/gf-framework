@@ -187,6 +187,7 @@ func unregister_zone(zone_id: StringName) -> bool:
 ## [br]
 ## @return 落点；不存在时返回 null。
 func get_zone(zone_id: StringName) -> GFDropZone:
+	var _pruned_stale_zones: int = _prune_stale_zones()
 	return _variant_to_drop_zone(GFVariantData.get_option_value(_zones, zone_id))
 
 
@@ -197,6 +198,17 @@ func clear_zones() -> void:
 	for zone_id: StringName in _zones.keys():
 		drop_zone_unregistered.emit(zone_id)
 	_zones.clear()
+
+
+## 主动剪枝已失效的落点。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+## [br]
+## @return 本次移除的落点数量。
+func prune_stale_zones() -> int:
+	return _prune_stale_zones()
 
 
 ## 开始拖拽。
@@ -341,6 +353,7 @@ func get_drop_candidates(
 	position: Vector2,
 	only_accepting: bool = true
 ) -> Array[GFDropZone]:
+	var _pruned_stale_zones: int = _prune_stale_zones()
 	var session: GFDragSession = get_session(session_id)
 	if session == null:
 		return []
@@ -350,9 +363,9 @@ func get_drop_candidates(
 		var zone: GFDropZone = _variant_to_drop_zone(zone_variant)
 		if zone == null:
 			continue
-		if not zone.contains(position, session):
-			continue
 		if only_accepting and not zone.can_accept(session):
+			continue
+		if not zone.contains(position, session):
 			continue
 		result.append(zone)
 	result.sort_custom(_sort_zones)
@@ -369,10 +382,19 @@ func get_drop_candidates(
 ## [br]
 ## @return 最佳落点；没有可用落点时返回 null。
 func get_best_drop_zone(session_id: int, position: Vector2) -> GFDropZone:
-	var candidates: Array[GFDropZone] = get_drop_candidates(session_id, position, true)
-	if candidates.is_empty():
+	var _pruned_stale_zones: int = _prune_stale_zones()
+	var session: GFDragSession = get_session(session_id)
+	if session == null:
 		return null
-	return candidates[0]
+
+	var best_zone: GFDropZone = null
+	for zone_variant: Variant in _zones.values():
+		var zone: GFDropZone = _variant_to_drop_zone(zone_variant)
+		if zone == null or not zone.can_accept(session) or not zone.contains(position, session):
+			continue
+		if best_zone == null or _sort_zones(zone, best_zone):
+			best_zone = zone
+	return best_zone
 
 
 ## 清空拖拽会话。
@@ -389,21 +411,26 @@ func clear_sessions() -> void:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.9.0
+## [br]
+## @param json_compatible: 为 true 时返回可直接 JSON.stringify() 的值。
+## [br]
 ## @return 当前拖拽与落点状态。
 ## [br]
 ## @schema return: Dictionary，包含 active_session_count、zone_count、sessions: Array[Dictionary] 和 zones: Array[Dictionary]。
-func get_debug_snapshot() -> Dictionary:
+func get_debug_snapshot(json_compatible: bool = true) -> Dictionary:
+	var _pruned_stale_zones: int = _prune_stale_zones()
 	var sessions: Array[Dictionary] = []
 	for session_variant: Variant in _sessions.values():
 		var session: GFDragSession = _variant_to_drag_session(session_variant)
 		if session != null:
-			sessions.append(session.to_dictionary())
+			sessions.append(session.to_dictionary(json_compatible))
 
 	var zones: Array[Dictionary] = []
 	for zone_variant: Variant in _zones.values():
 		var zone: GFDropZone = _variant_to_drop_zone(zone_variant)
 		if zone != null:
-			zones.append(zone.to_dictionary())
+			zones.append(zone.to_dictionary(json_compatible))
 
 	return {
 		"active_session_count": _sessions.size(),
@@ -451,6 +478,20 @@ func _make_result(ok: bool, session_id: int, zone_id: StringName, reason: String
 		"zone_id": zone_id,
 		"reason": reason,
 	}
+
+
+func _prune_stale_zones() -> int:
+	var removed_zone_ids: Array[StringName] = []
+	for zone_id_variant: Variant in _zones.keys():
+		var zone_id: StringName = GFVariantData.to_string_name(zone_id_variant)
+		var zone: GFDropZone = _variant_to_drop_zone(GFVariantData.get_option_value(_zones, zone_id))
+		if zone != null and zone.is_stale():
+			removed_zone_ids.append(zone_id)
+
+	for zone_id: StringName in removed_zone_ids:
+		var _removed: bool = _zones.erase(zone_id)
+		drop_zone_unregistered.emit(zone_id)
+	return removed_zone_ids.size()
 
 
 func _variant_to_drag_session(value: Variant) -> GFDragSession:

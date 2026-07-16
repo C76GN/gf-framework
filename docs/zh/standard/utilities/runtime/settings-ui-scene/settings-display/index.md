@@ -8,6 +8,7 @@
 - [显示、语言与音频总线](display-application.md)：`GFDisplaySettingsUtility` 对窗口、VSync、语言和 Audio Bus 的应用。
 - [表单控件绑定](form-binding.md)：`GFControlValueAdapter`、`GFFormBinder` 和控件值变化连接生命周期。
 - [列表与模板绑定](list-repeat-binding.md)：`GFItemListBinder` 和 `GFRepeaterBinder` 的数组条目、store path 与模板副本同步。
+- [控件焦点顺序](control-focus-order.md)：`GFControlFocusUtility` 收集可聚焦控件，按显式顺序写入 Tab 和方向导航路径。
 
 ## 使用边界
 

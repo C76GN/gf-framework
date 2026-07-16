@@ -1,0 +1,115 @@
+{
+  "schema_version": 1,
+  "id": "gf.project_layout.feature_cohesive.v1",
+  "display_name": "GF Feature-Cohesive Project Layout",
+  "description": "Optional GF project profile for feature-cohesive game project organization.",
+  "zones": [
+    {
+      "id": "app",
+      "description": "Composition root, boot scenes, application-level wiring, and project entry points.",
+      "roots": ["app"],
+      "required": true,
+      "severity": "error"
+    },
+    {
+      "id": "features",
+      "description": "Feature modules. Each direct child is one cohesive feature boundary.",
+      "roots": ["features"],
+      "required": true,
+      "severity": "error"
+    },
+    {
+      "id": "shared",
+      "description": "Cross-feature reusable code and assets that are intentionally shared.",
+      "roots": ["shared"],
+      "severity": "warning"
+    },
+    {
+      "id": "generated",
+      "description": "Generated files and build outputs that are still checked by source-level tools.",
+      "roots": ["generated"],
+      "severity": "warning"
+    },
+    {
+      "id": "tests",
+      "description": "Project tests and smoke scenes.",
+      "roots": ["tests"],
+      "severity": "warning"
+    }
+  ],
+  "rules": [
+    {
+      "id": "root_files_are_declared",
+      "description": "Keep project root intentional; business code should live in app, features, shared, or tests.",
+      "kind": "forbid_root_files",
+      "allowed_files": [
+        "project.godot",
+        ".editorconfig",
+        ".gitattributes",
+        ".gitignore",
+        "README.md",
+        "README.zh.md",
+        "LICENSE",
+        "LICENSE.md",
+        "icon.svg",
+        "icon.svg.import",
+        "default_bus_layout.tres",
+        "export_presets.cfg",
+        "gf_project_profile.json"
+      ],
+      "severity": "warning"
+    },
+    {
+      "id": "runtime_paths_are_snake_case",
+      "description": "Runtime-facing paths use stable lowercase names that work across platforms and exported builds.",
+      "kind": "naming_convention",
+      "roots": [
+        "app",
+        "features",
+        "shared",
+        "scenes",
+        "resources",
+        "config",
+        "content",
+        "generated",
+        "tests",
+        "tools"
+      ],
+      "exclude": ["**/*.uid", "**/*.import"],
+      "pattern": "^[a-z0-9_./-]+$",
+      "target": "path",
+      "severity": "warning"
+    },
+    {
+      "id": "features_are_inner_cohesive",
+      "description": "Each feature owns its scripts, scenes, resources, tests, docs, and tools under one module root.",
+      "kind": "feature_module_contract",
+      "roots": ["features"],
+      "feature_id_pattern": "^[a-z][a-z0-9_]*$",
+      "required_subdirs": ["scripts"],
+      "allowed_subdirs": ["scripts", "scenes", "resources", "tests", "docs", "tools"],
+      "allow_root_files": false,
+      "severity": "error"
+    },
+    {
+      "id": "generated_files_stay_in_generated_roots",
+      "description": "Generated source and resources stay in explicit generated roots instead of leaking into hand-authored modules.",
+      "kind": "generated_boundary",
+      "include": ["**/*.generated.*", "**/generated/**"],
+      "roots": ["generated"],
+      "severity": "error"
+    },
+    {
+      "id": "legacy_bucket_dirs_stay_small",
+      "description": "Legacy type buckets are allowed as migration buffers, but should not keep growing indefinitely.",
+      "kind": "bucket_size",
+      "roots": ["scripts", "resources", "assets"],
+      "max_files": 40,
+      "severity": "warning"
+    }
+  ],
+  "metadata": {
+    "layout": "feature_cohesive",
+    "stage": "v1"
+  }
+}

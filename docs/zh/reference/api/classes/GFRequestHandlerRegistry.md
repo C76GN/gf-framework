@@ -28,16 +28,20 @@
 | 常量 | [`STATUS_MISMATCH`](#member-gfrequesthandlerregistry-constants-status_mismatch) | `const STATUS_MISMATCH: StringName = &"mismatch"` |
 | 常量 | [`DEFAULT_MAX_RECENT_EVENTS`](#member-gfrequesthandlerregistry-constants-default_max_recent_events) | `const DEFAULT_MAX_RECENT_EVENTS: int = 64` |
 | 属性 | [`max_recent_events`](#member-gfrequesthandlerregistry-properties-max_recent_events) | `var max_recent_events: int = DEFAULT_MAX_RECENT_EVENTS:` |
+| 方法 | [`make_bridge_contract_entries`](#member-gfrequesthandlerregistry-methods-make_bridge_contract_entries) | `static func make_bridge_contract_entries( required_request_types: PackedStringArray, registry: GFRequestHandlerRegistry, options: Dictionary = {} ) -> Dictionary:` |
 | 方法 | [`register_handler`](#member-gfrequesthandlerregistry-methods-register_handler) | `func register_handler(request_type: StringName, handler: Callable, options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`unregister_handler`](#member-gfrequesthandlerregistry-methods-unregister_handler) | `func unregister_handler( request_type: StringName, handler: Callable = Callable(), metadata: Dictionary = {} ) -> Dictionary:` |
 | 方法 | [`invoke`](#member-gfrequesthandlerregistry-methods-invoke) | `func invoke(request_type: StringName, payload: Variant = null, context: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`try_invoke`](#member-gfrequesthandlerregistry-methods-try_invoke) | `func try_invoke(request_type: StringName, payload: Variant = null, context: Dictionary = {}) -> Dictionary:` |
+| 方法 | [`to_json_compatible_result`](#member-gfrequesthandlerregistry-methods-to_json_compatible_result) | `static func to_json_compatible_result(result: Dictionary, options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`has_handler`](#member-gfrequesthandlerregistry-methods-has_handler) | `func has_handler(request_type: StringName) -> bool:` |
 | 方法 | [`get_handler_ids`](#member-gfrequesthandlerregistry-methods-get_handler_ids) | `func get_handler_ids() -> Array[StringName]:` |
 | 方法 | [`get_handler_snapshot`](#member-gfrequesthandlerregistry-methods-get_handler_snapshot) | `func get_handler_snapshot(request_type: StringName) -> Dictionary:` |
 | 方法 | [`get_recent_events`](#member-gfrequesthandlerregistry-methods-get_recent_events) | `func get_recent_events() -> Array[Dictionary]:` |
+| 方法 | [`get_json_compatible_recent_events`](#member-gfrequesthandlerregistry-methods-get_json_compatible_recent_events) | `func get_json_compatible_recent_events(options: Dictionary = {}) -> Array[Dictionary]:` |
 | 方法 | [`clear`](#member-gfrequesthandlerregistry-methods-clear) | `func clear() -> void:` |
 | 方法 | [`get_debug_snapshot`](#member-gfrequesthandlerregistry-methods-get_debug_snapshot) | `func get_debug_snapshot() -> Dictionary:` |
+| 方法 | [`get_json_compatible_debug_snapshot`](#member-gfrequesthandlerregistry-methods-get_json_compatible_debug_snapshot) | `func get_json_compatible_debug_snapshot(options: Dictionary = {}) -> Dictionary:` |
 
 ## 信号
 
@@ -252,6 +256,34 @@ var max_recent_events: int = DEFAULT_MAX_RECENT_EVENTS:
 
 ## 方法
 
+<a id="member-gfrequesthandlerregistry-methods-make_bridge_contract_entries"></a>
+
+### `make_bridge_contract_entries`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+static func make_bridge_contract_entries( required_request_types: PackedStringArray, registry: GFRequestHandlerRegistry, options: Dictionary = {} ) -> Dictionary:
+```
+
+构建请求 handler 桥接契约条目。 该方法只把请求类型和注册表快照转换为通用 bridge contract/adapters 条目，不生成最终验证报告。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `required_request_types` | 必需请求类型列表。 |
+| `registry` | 请求 handler 注册表。 |
+| `options` | 构建选项，支持 kind、signature 和 adapter_kind。 |
+
+返回：请求 handler bridge 条目数据。
+
+结构：
+
+- `options`: Dictionary request-handler bridge entry options.
+- `return`: Dictionary with contract_entries and adapter_entries arrays.
+
 <a id="member-gfrequesthandlerregistry-methods-register_handler"></a>
 
 ### `register_handler`
@@ -366,6 +398,34 @@ func try_invoke(request_type: StringName, payload: Variant = null, context: Dict
 - `context`: Dictionary，调用方定义的调用上下文。
 - `return`: Dictionary，包含 ok、status、request_type、result、context、metadata 和 missing_allowed。
 
+<a id="member-gfrequesthandlerregistry-methods-to_json_compatible_result"></a>
+
+### `to_json_compatible_result`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+static func to_json_compatible_result(result: Dictionary, options: Dictionary = {}) -> Dictionary:
+```
+
+将请求调用结果转换为 JSON.stringify() 安全的诊断报告。 功能型 invoke()/try_invoke() 返回值保持原始 Variant；日志、快照和跨进程诊断应使用该方法输出。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `result` | invoke()/try_invoke() 返回的调用结果。 |
+| `options` | 编码选项，透传给 GFReportValueCodec。 |
+
+返回：JSON-safe 调用结果。
+
+结构：
+
+- `result`: Dictionary raw request invocation result.
+- `options`: Dictionary report value codec options.
+- `return`: Dictionary safe for JSON.stringify().
+
 <a id="member-gfrequesthandlerregistry-methods-has_handler"></a>
 
 ### `has_handler`
@@ -446,6 +506,32 @@ func get_recent_events() -> Array[Dictionary]:
 
 - `return`: Array[Dictionary]，每个元素包含 sequence、event_type、request_type、status 和 metadata。
 
+<a id="member-gfrequesthandlerregistry-methods-get_json_compatible_recent_events"></a>
+
+### `get_json_compatible_recent_events`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func get_json_compatible_recent_events(options: Dictionary = {}) -> Array[Dictionary]:
+```
+
+获取 JSON.stringify() 安全的最近注册/调用事件。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `options` | 编码选项，透传给 GFReportValueCodec。 |
+
+返回：JSON-safe 最近事件数组。
+
+结构：
+
+- `options`: Dictionary report value codec options.
+- `return`: Array[Dictionary]，每个元素均可安全传给 JSON.stringify()。
+
 <a id="member-gfrequesthandlerregistry-methods-clear"></a>
 
 ### `clear`
@@ -477,3 +563,29 @@ func get_debug_snapshot() -> Dictionary:
 结构：
 
 - `return`: Dictionary，包含 handler_count、统计计数、handlers 和 recent_events。
+
+<a id="member-gfrequesthandlerregistry-methods-get_json_compatible_debug_snapshot"></a>
+
+### `get_json_compatible_debug_snapshot`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func get_json_compatible_debug_snapshot(options: Dictionary = {}) -> Dictionary:
+```
+
+获取 JSON.stringify() 安全的注册表调试快照。 功能型 get_debug_snapshot() 保留原始 Variant；日志、导出和跨进程诊断应使用该方法。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `options` | 编码选项，透传给 GFReportValueCodec。 |
+
+返回：JSON-safe 注册表状态快照。
+
+结构：
+
+- `options`: Dictionary report value codec options.
+- `return`: Dictionary safe for JSON.stringify().

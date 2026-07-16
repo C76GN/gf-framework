@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFBridgeContractReport" path="addons/gf/standard/foundation/validation/gf_bridge_contract_report.gd" module="standard" extends="RefCounted" classDigest="ac69020899ea7b97412adce9baa2968468c6019db4d2a06bd416d2d95ea83c6e">
+<class name="GFBridgeContractReport" path="addons/gf/standard/foundation/validation/gf_bridge_contract_report.gd" module="standard" extends="RefCounted" classDigest="d4e9f2a493e07db64a891024ea20b74c7c8678e46fc54526720d62946225e817">
 	<description>GFBridgeContractReport: 外部桥接契约覆盖报告构建器。
 用于比较“框架或工具期望存在的桥接契约”和“项目、SDK、GDExtension
 或编辑器工具实际注册的适配器”。它只处理纯数据报告，不注册适配器、
@@ -151,6 +151,20 @@
 				<tag name="since">7.0.0</tag>
 			</tags>
 		</member>
+		<member kind="method" name="get_json_compatible_report">
+			<signature>func get_json_compatible_report(report_options: Dictionary = {}, codec_options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>构建经过报告边界脱敏的 JSON-safe 契约报告。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">report_options: 传给 get_report() 的报告选项。</tag>
+				<tag name="param">codec_options: 传给 GFReportValueCodec 的脱敏与编码选项。</tag>
+				<tag name="return">可直接交给 JSON.stringify() 的报告字典。</tag>
+				<tag name="schema">report_options: Dictionary bridge contract report options.</tag>
+				<tag name="schema">codec_options: Dictionary GFReportValueCodec options.</tag>
+				<tag name="schema">return: JSON-compatible redacted bridge contract report Dictionary.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
 		<member kind="method" name="add_contract">
 			<signature>func add_contract(contract_id: StringName, options: Dictionary = {}) -&gt; Dictionary:</signature>
 			<description>添加一个期望桥接契约。</description>
@@ -230,7 +244,9 @@
 		</member>
 		<member kind="method" name="report_request_handlers">
 			<signature>static func report_request_handlers( required_request_types: PackedStringArray, registry: GFRequestHandlerRegistry, options: Dictionary = {} ) -&gt; Dictionary:</signature>
-			<description>为 GFRequestHandlerRegistry 生成请求 handler 覆盖报告。</description>
+			<description>为 GFRequestHandlerRegistry 生成请求 handler 覆盖报告。
+该入口保留为通用报告便捷方法；请求 handler 专用的 contract/adapter 条目构建逻辑
+由 GFRequestHandlerRegistry.make_bridge_contract_entries() 负责。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">required_request_types: 必需请求类型列表。</tag>
@@ -240,6 +256,39 @@
 				<tag name="schema">options: Dictionary builder and report options.</tag>
 				<tag name="schema">return: Dictionary request handler bridge coverage report.</tag>
 				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="make_object_adapter_entry">
+			<signature>static func make_object_adapter_entry( adapter_id: StringName, contract_ids: PackedStringArray, target: Object, options: Dictionary = {} ) -&gt; Dictionary:</signature>
+			<description>从 Godot Object 构建桥接适配器条目。
+该方法只检查对象存在性、必需方法和必需信号，不调用对象方法，
+适合外部 SDK、GDExtension、编辑器工具或项目 adapter 的预检。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">adapter_id: 稳定适配器 ID。</tag>
+				<tag name="param">contract_ids: 适配器覆盖的契约 ID 列表。</tag>
+				<tag name="param">target: 要审查的对象；为空或已释放时条目会标记为 disabled。</tag>
+				<tag name="param">options: 适配器选项，支持 kind、signature、version、capabilities、metadata、required_methods 和 required_signals。</tag>
+				<tag name="return">适配器条目。</tag>
+				<tag name="schema">options: Dictionary bridge adapter metadata and object surface requirements.</tag>
+				<tag name="schema">return: Dictionary normalized bridge adapter source entry.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="make_engine_singleton_adapter_entry">
+			<signature>static func make_engine_singleton_adapter_entry( singleton_name: StringName, contract_ids: PackedStringArray, options: Dictionary = {} ) -&gt; Dictionary:</signature>
+			<description>从 Engine singleton 构建桥接适配器条目。
+该方法用于审查平台或原生插件是否暴露了预期 singleton surface，
+不调用 singleton 方法，也不声明任何特定 SDK 语义。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">singleton_name: Engine singleton 名称。</tag>
+				<tag name="param">contract_ids: 适配器覆盖的契约 ID 列表。</tag>
+				<tag name="param">options: 适配器选项，支持 adapter_id、kind、signature、version、capabilities、metadata、required_methods 和 required_signals。</tag>
+				<tag name="return">适配器条目。</tag>
+				<tag name="schema">options: Dictionary bridge adapter metadata and singleton surface requirements.</tag>
+				<tag name="schema">return: Dictionary normalized bridge adapter source entry.</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 	</methods>

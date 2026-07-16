@@ -52,15 +52,8 @@
 | 方法 | [`get_storage_directory_path`](#member-gfstorageutility-methods-get_storage_directory_path) | `func get_storage_directory_path(directory_name: String = "") -> String:` |
 | 方法 | [`list_files`](#member-gfstorageutility-methods-list_files) | `func list_files( directory_name: String = "", extension_filter: String = "", recursive: bool = false, options: Dictionary = {} ) -> PackedStringArray:` |
 | 方法 | [`delete_file`](#member-gfstorageutility-methods-delete_file) | `func delete_file(file_name: String) -> Error:` |
-| 方法 | [`save_slot`](#member-gfstorageutility-methods-save_slot) | `func save_slot(slot_id: int, data: Dictionary, metadata: Dictionary = {}) -> Error:` |
-| 方法 | [`load_slot`](#member-gfstorageutility-methods-load_slot) | `func load_slot(slot_id: int) -> Dictionary:` |
-| 方法 | [`load_slot_result`](#member-gfstorageutility-methods-load_slot_result) | `func load_slot_result(slot_id: int) -> Dictionary:` |
-| 方法 | [`load_slot_meta`](#member-gfstorageutility-methods-load_slot_meta) | `func load_slot_meta(slot_id: int) -> Dictionary:` |
-| 方法 | [`load_slot_meta_result`](#member-gfstorageutility-methods-load_slot_meta_result) | `func load_slot_meta_result(slot_id: int) -> Dictionary:` |
-| 方法 | [`has_slot`](#member-gfstorageutility-methods-has_slot) | `func has_slot(slot_id: int) -> bool:` |
-| 方法 | [`list_slots`](#member-gfstorageutility-methods-list_slots) | `func list_slots() -> Array[Dictionary]:` |
-| 方法 | [`delete_slot`](#member-gfstorageutility-methods-delete_slot) | `func delete_slot(slot_id: int) -> void:` |
 | 方法 | [`save_data`](#member-gfstorageutility-methods-save_data) | `func save_data(file_name: String, data: Dictionary) -> Error:` |
+| 方法 | [`save_data_group`](#member-gfstorageutility-methods-save_data_group) | `func save_data_group(files: Dictionary) -> Error:` |
 | 方法 | [`load_data`](#member-gfstorageutility-methods-load_data) | `func load_data(file_name: String) -> Dictionary:` |
 | 方法 | [`load_data_result`](#member-gfstorageutility-methods-load_data_result) | `func load_data_result(file_name: String) -> Dictionary:` |
 | 方法 | [`save_data_async`](#member-gfstorageutility-methods-save_data_async) | `func save_data_async(file_name: String, data: Dictionary) -> Error:` |
@@ -320,12 +313,13 @@ var include_storage_metadata: bool = false
 ### `allow_absolute_paths`
 
 - API：`public`
+- 首次版本：`2.0.0`
 
 ```gdscript
 var allow_absolute_paths: bool = false
 ```
 
-是否允许传入绝对路径。关闭后绝对路径会被收敛到存档目录下的同名文件。
+是否允许传入绝对路径。关闭后绝对路径会被拒绝。
 
 <a id="member-gfstorageutility-properties-allow_resource_loads"></a>
 
@@ -364,7 +358,7 @@ var allowed_resource_load_extensions: PackedStringArray = PackedStringArray(["tr
 var allowed_resource_load_type_hints: PackedStringArray = PackedStringArray()
 ```
 
-`load_resource()` 允许的类型提示。为空时不限制类型提示值；启用时 `type_hint` 必须精确匹配其中之一。
+`load_resource()` 允许的类型提示。空列表表示不允许任何 Resource 读取；启用时 `type_hint` 必须精确匹配其中之一。
 
 <a id="member-gfstorageutility-properties-require_resource_load_type_hint"></a>
 
@@ -535,7 +529,7 @@ func save_resource(file_name: String, resource: Resource) -> Error:
 func load_resource(file_name: String, type_hint: String = "") -> Resource:
 ```
 
-读取一个 `Resource` 文件。 该方法会调用 Godot `ResourceLoader`，默认关闭。调用方必须先启用 `allow_resource_loads`，并通过类型提示、扩展名 allowlist 与存储路径策略收窄加载边界。
+读取一个 `Resource` 文件。 该方法会调用 Godot `ResourceLoader`，默认关闭。调用方必须先启用 `allow_resource_loads`，并通过类型提示 allowlist、扩展名 allowlist 与存储路径策略收窄加载边界。
 
 参数：
 
@@ -619,12 +613,13 @@ func list_files( directory_name: String = "", extension_filter: String = "", rec
 ### `delete_file`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func delete_file(file_name: String) -> Error:
 ```
 
-删除一个存储文件。
+删除一个存储文件。 同时清理同名事务临时文件、备份文件和事务标记，避免删除后被遗留事务恢复。
 
 参数：
 
@@ -633,185 +628,6 @@ func delete_file(file_name: String) -> Error:
 | `file_name` | 存储相对文件路径。 |
 
 返回：Godot 的 `Error` 结果码；文件不存在时返回 `ERR_FILE_NOT_FOUND`。
-
-<a id="member-gfstorageutility-methods-save_slot"></a>
-
-### `save_slot`
-
-- API：`public`
-
-```gdscript
-func save_slot(slot_id: int, data: Dictionary, metadata: Dictionary = {}) -> Error:
-```
-
-保存一个槽位存档。
-
-参数：
-
-| 名称 | 说明 |
-|---|---|
-| `slot_id` | 槽位 ID。 |
-| `data` | 核心存档数据。 |
-| `metadata` | 展示用元数据。 |
-
-返回：Godot 的 `Error` 结果码。
-
-结构：
-
-- `data`: Dictionary，作为存档槽主要数据保存的载荷。
-- `metadata`: Dictionary，作为存档槽展示元数据保存。
-
-<a id="member-gfstorageutility-methods-load_slot"></a>
-
-### `load_slot`
-
-- API：`public`
-
-```gdscript
-func load_slot(slot_id: int) -> Dictionary:
-```
-
-读取槽位核心数据。
-
-参数：
-
-| 名称 | 说明 |
-|---|---|
-| `slot_id` | 槽位 ID。 |
-
-返回：反序列化后的核心数据字典。
-
-结构：
-
-- `return`: Dictionary，作为存档槽主要数据保存的载荷。
-
-<a id="member-gfstorageutility-methods-load_slot_result"></a>
-
-### `load_slot_result`
-
-- API：`public`
-
-```gdscript
-func load_slot_result(slot_id: int) -> Dictionary:
-```
-
-读取槽位核心数据并返回 codec 结果。
-
-参数：
-
-| 名称 | 说明 |
-|---|---|
-| `slot_id` | 槽位 ID。 |
-
-返回：结果字典，包含 ok、data、metadata、integrity_valid、error。
-
-结构：
-
-- `return`: Dictionary，包含 ok: bool、data: Dictionary、metadata: Dictionary、integrity_valid: bool 和 error: String。
-
-<a id="member-gfstorageutility-methods-load_slot_meta"></a>
-
-### `load_slot_meta`
-
-- API：`public`
-
-```gdscript
-func load_slot_meta(slot_id: int) -> Dictionary:
-```
-
-读取槽位元数据。
-
-参数：
-
-| 名称 | 说明 |
-|---|---|
-| `slot_id` | 槽位 ID。 |
-
-返回：反序列化后的元数据字典。
-
-结构：
-
-- `return`: Dictionary，作为存档槽展示元数据保存。
-
-<a id="member-gfstorageutility-methods-load_slot_meta_result"></a>
-
-### `load_slot_meta_result`
-
-- API：`public`
-
-```gdscript
-func load_slot_meta_result(slot_id: int) -> Dictionary:
-```
-
-读取槽位元数据并返回 codec 结果。
-
-参数：
-
-| 名称 | 说明 |
-|---|---|
-| `slot_id` | 槽位 ID。 |
-
-返回：结果字典，包含 ok、data、metadata、integrity_valid、error。
-
-结构：
-
-- `return`: Dictionary，包含 ok: bool、data: Dictionary、metadata: Dictionary、integrity_valid: bool 和 error: String。
-
-<a id="member-gfstorageutility-methods-has_slot"></a>
-
-### `has_slot`
-
-- API：`public`
-
-```gdscript
-func has_slot(slot_id: int) -> bool:
-```
-
-检查槽位是否存在有效存档。
-
-参数：
-
-| 名称 | 说明 |
-|---|---|
-| `slot_id` | 槽位 ID。 |
-
-返回：核心数据与元数据文件都存在时返回 `true`。
-
-<a id="member-gfstorageutility-methods-list_slots"></a>
-
-### `list_slots`
-
-- API：`public`
-
-```gdscript
-func list_slots() -> Array[Dictionary]:
-```
-
-枚举所有有效槽位。
-
-返回：槽位信息数组，元素包含 `slot_id`、`metadata` 与 `modified_time`。
-
-结构：
-
-- `return`: Array，包含 slot_id: int、metadata: Dictionary 和 modified_time: int 的 Dictionary 条目。
-
-<a id="member-gfstorageutility-methods-delete_slot"></a>
-
-### `delete_slot`
-
-- API：`public`
-
-```gdscript
-func delete_slot(slot_id: int) -> void:
-```
-
-删除指定槽位的数据与元数据。
-
-参数：
-
-| 名称 | 说明 |
-|---|---|
-| `slot_id` | 槽位 ID。 |
 
 <a id="member-gfstorageutility-methods-save_data"></a>
 
@@ -837,6 +653,31 @@ func save_data(file_name: String, data: Dictionary) -> Error:
 结构：
 
 - `data`: Dictionary，要序列化并保存的数据载荷。
+
+<a id="member-gfstorageutility-methods-save_data_group"></a>
+
+### `save_data_group`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func save_data_group(files: Dictionary) -> Error:
+```
+
+以同一个事务保存多个纯字典文件。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `files` | 文件名到字典载荷的映射。 |
+
+返回：Godot 的 `Error` 结果码。
+
+结构：
+
+- `files`: Dictionary，键为存储相对文件名，值为要序列化并保存的 Dictionary 载荷。
 
 <a id="member-gfstorageutility-methods-load_data"></a>
 

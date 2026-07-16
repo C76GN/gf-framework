@@ -12,9 +12,11 @@ viewport_util.set_viewport_camera(0, $Camera2D)
 
 默认情况下，`viewport_size` 会保持 SubViewport 的渲染尺寸，`viewport_resolution_scale` 会按比例缩放该尺寸；需要让 SubViewport 跟随容器大小时，可在 options 中传入 `"stretch": true`。`clear_split_screen()` 会立即把旧 `GridContainer` 和已挂载相机从当前树上移除，再按参数决定是否释放相机，便于同一帧重建布局或切换分屏配置。
 
-同一个工具还提供少量不绑定输入来源的坐标辅助。`screen_to_world_ray_3d(camera, screen_position, length)` 可从 Camera3D 和 Viewport 坐标生成射线，`raycast_from_screen_3d()` 在此基础上执行物理射线检测，`world_to_screen_3d()` 做 3D 投影；2D 侧可用 `world_to_screen_2d(canvas_item, world_position)` 与 `screen_to_world_2d(canvas_item, screen_position)` 在 CanvasItem 世界坐标和屏幕坐标之间转换。
+同一个工具还提供少量不绑定输入来源的坐标辅助。`screen_to_world_ray_3d(camera, screen_position, length)` 可从 Camera3D 和 Viewport 坐标生成射线，`raycast_from_screen_3d()` 在此基础上执行物理射线检测，`world_to_screen_3d()` 做 3D 投影；无效 Camera3D 会返回 `Vector2.ZERO`，需要失败原因时使用 `world_to_screen_3d_report()`。2D 侧可用 `world_to_screen_2d(canvas_item, world_position)` 与 `screen_to_world_2d(canvas_item, screen_position)` 在 CanvasItem 世界坐标和屏幕坐标之间转换。
 
 这些方法不读取鼠标、不选择玩家、不决定命中对象含义，只提供稳定几何转换。
+
+需要把 Godot UI 区域同步给原生平台视图、外部 overlay 或编辑器预览时，可用 `get_control_window_rect(control, viewport)` 读取 Control 全局矩形并换算为物理窗口像素。纯计算场景使用 `calculate_control_window_rect(control_rect, viewport_size, window_size, options)`，返回值包含 `ok`、`rect`、`scale_x`、`scale_y`、`content_rect` 和原始尺寸。窗口存在 letterbox、HiDPI 内容区或嵌入式 viewport 偏移时，传入 `"content_rect": Rect2i(...)`；只需要整体偏移时可传 `"viewport_offset"`。调用方仍负责外部视图的创建、权限和生命周期。
 
 ## 移动安全区
 

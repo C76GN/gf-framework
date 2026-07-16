@@ -21,6 +21,16 @@ func after_each() -> void:
 	_system = null
 
 
+# --- 私有/辅助方法 ---
+
+func _type_listener(callback: Callable, debug_label: String = "type_event") -> GFEventListener:
+	return GFEventListener.from_callable(callback, 1, debug_label)
+
+
+func _simple_listener(callback: Callable, debug_label: String = "simple_event") -> GFEventListener:
+	return GFEventListener.from_callable(callback, 1, debug_label)
+
+
 # --- 辅助类型 ---
 
 class SampleEventA:
@@ -81,47 +91,64 @@ class OwnedUnregisterReceiver:
 	var system: GFTypeEventSystem
 	var state: EventTestState
 	var target_owner: Object
-	var type_callback: Callable = Callable()
-	var simple_callback: Callable = Callable()
+	var type_listener: GFEventListener = null
+	var simple_listener: GFEventListener = null
 
 	func on_type_event(_event: SampleEventA) -> void:
 		state.count += 1
 		if state.count == 1:
-			system.unregister_owned(target_owner, SampleEventA, type_callback)
+			system.unregister_owned(target_owner, SampleEventA, type_listener)
 
 	func on_simple_event(_payload: Variant) -> void:
 		state.simple += 1
 		if state.simple == 1:
-			system.unregister_simple_owned(target_owner, &"owned_simple", simple_callback)
+			system.unregister_simple_owned(target_owner, &"owned_simple", simple_listener)
 
 
 # --- 测试：类型事件 ---
 
-## 验证无效 Callable 不会通过 assert 造成不一致行为，而是输出错误并跳过注册。
-func test_register_invalid_callable_reports_error_without_listener() -> void:
-	_system.register(SampleEventA, Callable())
+## 验证无效监听器不会通过 assert 造成不一致行为，而是输出错误并跳过注册。
+func test_register_invalid_listener_reports_error_without_registration() -> void:
+	_system.register(SampleEventA, _type_listener(Callable()))
 	_system.send(SampleEventA.new())
 
-	assert_push_error("[GFTypeEventSystem] 注册的类型事件回调无效。")
+	assert_push_error("[GFEventListener] 注册的类型事件回调无效。")
+
+
+## 验证监听器必须显式声明当前派发形态会传入的参数数量。
+func test_register_rejects_listener_with_mismatched_dispatch_argument_count() -> void:
+	var state: EventTestState = EventTestState.new()
+	var listener: GFEventListener = GFEventListener.from_callable(
+		func() -> void:
+			state.called = true,
+		0,
+		"no_event_arg"
+	)
+
+	_system.register(SampleEventA, listener)
+	_system.send(SampleEventA.new())
+
+	assert_false(state.called, "派发参数契约不匹配的监听器不应被注册。")
+	assert_push_error("[GFEventListener] 注册的类型事件回调 no_event_arg 声明接收 0 个派发参数，但当前事件会传入 1 个。")
 
 
 ## 验证事件回调不能要求比派发参数更多的未绑定必填参数。
 func test_register_rejects_callback_requiring_extra_unbound_args() -> void:
 	var receiver: ArgumentReceiver = ArgumentReceiver.new()
 
-	_system.register(SampleEventA, Callable(receiver, "on_type_extra_required"))
+	_system.register(SampleEventA, _type_listener(Callable(receiver, "on_type_extra_required")))
 	_system.send(SampleEventA.new())
 
 	assert_eq(receiver.count, 0, "必填参数过多的回调不应被注册。")
-	assert_push_error("[GFTypeEventSystem] 注册的类型事件回调 on_type_extra_required 不能要求超过 1 个未绑定参数，当前必填 2 个。")
+	assert_push_error("[GFEventListener] 注册的类型事件回调 on_type_extra_required 不能要求超过 1 个未绑定参数，当前必填 2 个。")
 
 
 ## 验证默认参数或绑定参数可以满足额外参数需求。
 func test_register_accepts_default_or_bound_extra_args() -> void:
 	var receiver: ArgumentReceiver = ArgumentReceiver.new()
 
-	_system.register(SampleEventA, Callable(receiver, "on_type_extra_default"))
-	_system.register(SampleEventA, Callable(receiver, "on_type_extra_required").bind("bound"))
+	_system.register(SampleEventA, _type_listener(Callable(receiver, "on_type_extra_default")))
+	_system.register(SampleEventA, _type_listener(Callable(receiver, "on_type_extra_required").bind("bound")))
 	_system.send(SampleEventA.new())
 
 	assert_eq(receiver.count, 2, "默认参数和 bind 参数都应允许回调正常注册。")
@@ -130,29 +157,29 @@ func test_register_accepts_default_or_bound_extra_args() -> void:
 func test_register_rejects_bound_args_that_exceed_callback_arity() -> void:
 	var receiver: ArgumentReceiver = ArgumentReceiver.new()
 
-	_system.register(SampleEventA, Callable(receiver, "on_type_one").bind("too_much"))
+	_system.register(SampleEventA, _type_listener(Callable(receiver, "on_type_one").bind("too_much")))
 	_system.send(SampleEventA.new())
 
 	assert_eq(receiver.count, 0, "bind 后实参超过目标方法参数数量时不应注册。")
-	assert_push_error("[GFTypeEventSystem] 注册的类型事件回调 on_type_one 最多接收 1 个参数，当前会传入 2 个。")
+	assert_push_error("[GFEventListener] 注册的类型事件回调 on_type_one 最多接收 1 个参数，当前会传入 2 个。")
 
 
 ## 验证简单事件也会拒绝必填参数过多的回调。
 func test_register_simple_rejects_callback_requiring_extra_unbound_args() -> void:
 	var receiver: ArgumentReceiver = ArgumentReceiver.new()
 
-	_system.register_simple(&"simple_extra_required", Callable(receiver, "on_simple_extra_required"))
+	_system.register_simple(&"simple_extra_required", _simple_listener(Callable(receiver, "on_simple_extra_required")))
 	_system.send_simple(&"simple_extra_required", "payload")
 
 	assert_eq(receiver.count, 0, "必填参数过多的简单事件回调不应被注册。")
-	assert_push_error("[GFTypeEventSystem] 注册的简单事件回调 on_simple_extra_required 不能要求超过 1 个未绑定参数，当前必填 2 个。")
+	assert_push_error("[GFEventListener] 注册的简单事件回调 on_simple_extra_required 不能要求超过 1 个未绑定参数，当前必填 2 个。")
 
 
 ## 验证注册后，send 能正确调用回调。
 func test_register_and_send() -> void:
 	var state: EventTestState = EventTestState.new()
 	var script_a: Script = SampleEventA
-	_system.register(script_a, func(e: SampleEventA) -> void: state.value = e.value)
+	_system.register(script_a, _type_listener(func(e: SampleEventA) -> void: state.value = e.value))
 
 	var evt: SampleEventA = SampleEventA.new()
 	evt.value = 42
@@ -164,8 +191,11 @@ func test_register_and_send() -> void:
 ## 验证普通类型事件保持精确脚本匹配。
 func test_exact_listener_does_not_receive_child_event() -> void:
 	var state: EventTestState = EventTestState.new()
-	_system.register(SampleEventA, func(_e: SampleEventA) -> void:
-		state.count += 1
+	_system.register(
+		SampleEventA,
+		_type_listener(func(_e: SampleEventA) -> void:
+			state.count += 1,
+		)
 	)
 
 	_system.send(SampleEventChild.new())
@@ -176,8 +206,11 @@ func test_exact_listener_does_not_receive_child_event() -> void:
 ## 验证可赋值类型监听能收到子类事件。
 func test_assignable_listener_receives_child_event() -> void:
 	var state: EventTestState = EventTestState.new()
-	_system.register_assignable(SampleEventA, func(_e: SampleEventA) -> void:
-		state.count += 1
+	_system.register_assignable(
+		SampleEventA,
+		_type_listener(func(_e: SampleEventA) -> void:
+			state.count += 1,
+		)
 	)
 
 	_system.send(SampleEventChild.new())
@@ -193,11 +226,11 @@ func test_type_dispatch_cache_updates_after_register_and_unregister() -> void:
 	var exact_callback: Callable = func(_e: SampleEventChild) -> void:
 		state.exact += 1
 
-	_system.register_assignable(SampleEventA, assignable_callback)
+	_system.register_assignable(SampleEventA, _type_listener(assignable_callback))
 	_system.send(SampleEventChild.new())
-	_system.register(SampleEventChild, exact_callback)
+	_system.register(SampleEventChild, _type_listener(exact_callback))
 	_system.send(SampleEventChild.new())
-	_system.unregister_assignable(SampleEventA, assignable_callback)
+	_system.unregister_assignable(SampleEventA, _type_listener(assignable_callback))
 	_system.send(SampleEventChild.new())
 
 	assert_eq(state.assignable, 2, "注销可赋值监听后缓存不应继续触发旧回调。")
@@ -212,24 +245,30 @@ func test_type_dispatch_cache_invalidates_only_affected_entries() -> void:
 	var other_callback: Callable = func(_e: SampleEventB) -> void:
 		state.other += 1
 
-	_system.register_assignable(SampleEventA, child_callback)
-	_system.register(SampleEventB, other_callback)
+	_system.register_assignable(SampleEventA, _type_listener(child_callback))
+	_system.register(SampleEventB, _type_listener(other_callback))
 	_system.send(SampleEventChild.new())
 	_system.send(SampleEventB.new())
 
 	assert_true(_system._type_dispatch_cache.has(SampleEventChild), "子类事件派发后应建立缓存。")
 	assert_true(_system._type_dispatch_cache.has(SampleEventB), "独立事件派发后应建立缓存。")
 
-	_system.register(SampleEventB, func(_e: SampleEventB) -> void:
-		state.other += 10
+	_system.register(
+		SampleEventB,
+		_type_listener(func(_e: SampleEventB) -> void:
+			state.other += 10,
+		)
 	)
 
 	assert_true(_system._type_dispatch_cache.has(SampleEventChild), "独立精确监听变更不应清掉子类事件缓存。")
 	assert_false(_system._type_dispatch_cache.has(SampleEventB), "精确监听变更应刷新对应事件缓存。")
 
 	_system.send(SampleEventB.new())
-	_system.register_assignable(SampleEventA, func(_e: SampleEventA) -> void:
-		state.child += 10
+	_system.register_assignable(
+		SampleEventA,
+		_type_listener(func(_e: SampleEventA) -> void:
+			state.child += 10,
+		)
 	)
 
 	assert_false(_system._type_dispatch_cache.has(SampleEventChild), "可赋值监听变更应刷新继承事件缓存。")
@@ -245,8 +284,8 @@ func test_unregister_assignable_listener() -> void:
 	var state: EventTestState = EventTestState.new()
 	var callback: Callable = func(_e: SampleEventA) -> void:
 		state.count += 1
-	_system.register_assignable(SampleEventA, callback)
-	_system.unregister_assignable(SampleEventA, callback)
+	_system.register_assignable(SampleEventA, _type_listener(callback))
+	_system.unregister_assignable(SampleEventA, _type_listener(callback))
 
 	_system.send(SampleEventChild.new())
 
@@ -257,9 +296,14 @@ func test_unregister_assignable_listener() -> void:
 func test_unregister_owner_removes_assignable_listeners() -> void:
 	var listener_owner: RefCounted = RefCounted.new()
 	var state: EventTestState = EventTestState.new()
-	_system.register_assignable(SampleEventA, func(_e: SampleEventA) -> void:
-		state.count += 1
-	, 0, listener_owner)
+	_system.register_assignable_owned(
+		listener_owner,
+		SampleEventA,
+		_type_listener(func(_e: SampleEventA) -> void:
+			state.count += 1,
+		),
+		0
+	)
 
 	_system.send(SampleEventChild.new())
 	_system.unregister_owner(listener_owner)
@@ -276,8 +320,8 @@ func test_same_callable_can_register_with_different_owners() -> void:
 	var callback: Callable = func(_e: SampleEventA) -> void:
 		state.count += 1
 
-	_system.register(SampleEventA, callback, 0, owner_a)
-	_system.register(SampleEventA, callback, 0, owner_b)
+	_system.register_owned(owner_a, SampleEventA, _type_listener(callback), 0)
+	_system.register_owned(owner_b, SampleEventA, _type_listener(callback), 0)
 	_system.send(SampleEventA.new())
 	_system.unregister_owner(owner_a)
 	_system.send(SampleEventA.new())
@@ -292,10 +336,10 @@ func test_unregister_without_owner_does_not_remove_owned_listener() -> void:
 	var callback: Callable = func(_e: SampleEventA) -> void:
 		state.count += 1
 
-	_system.register(SampleEventA, callback, 0, listener_owner)
-	_system.unregister(SampleEventA, callback)
+	_system.register_owned(listener_owner, SampleEventA, _type_listener(callback), 0)
+	_system.unregister(SampleEventA, _type_listener(callback))
 	_system.send(SampleEventA.new())
-	_system.unregister_owned(listener_owner, SampleEventA, callback)
+	_system.unregister_owned(listener_owner, SampleEventA, _type_listener(callback))
 	_system.send(SampleEventA.new())
 
 	assert_eq(state.count, 1, "普通 unregister 只应移除无 owner 监听，owned 监听需用 unregister_owned。")
@@ -310,10 +354,10 @@ func test_unregister_owned_during_dispatch_matches_owner() -> void:
 	receiver.system = _system
 	receiver.state = state
 	receiver.target_owner = owner_b
-	receiver.type_callback = Callable(receiver, &"on_type_event")
+	receiver.type_listener = _type_listener(Callable(receiver, &"on_type_event"))
 
-	_system.register(SampleEventA, receiver.type_callback, 0, owner_a)
-	_system.register(SampleEventA, receiver.type_callback, 0, owner_b)
+	_system.register_owned(owner_a, SampleEventA, receiver.type_listener, 0)
+	_system.register_owned(owner_b, SampleEventA, receiver.type_listener, 0)
 	_system.send(SampleEventA.new())
 	_system.send(SampleEventA.new())
 
@@ -329,10 +373,10 @@ func test_unregister_simple_owned_during_dispatch_matches_owner() -> void:
 	receiver.system = _system
 	receiver.state = state
 	receiver.target_owner = owner_b
-	receiver.simple_callback = Callable(receiver, &"on_simple_event")
+	receiver.simple_listener = _simple_listener(Callable(receiver, &"on_simple_event"))
 
-	_system.register_simple(&"owned_simple", receiver.simple_callback, owner_a)
-	_system.register_simple(&"owned_simple", receiver.simple_callback, owner_b)
+	_system.register_simple_owned(owner_a, &"owned_simple", receiver.simple_listener)
+	_system.register_simple_owned(owner_b, &"owned_simple", receiver.simple_listener)
 	_system.send_simple(&"owned_simple")
 	_system.send_simple(&"owned_simple")
 
@@ -341,14 +385,23 @@ func test_unregister_simple_owned_during_dispatch_matches_owner() -> void:
 
 ## 验证诊断统计会报告各事件轨道监听数量。
 func test_debug_stats_reports_listener_counts() -> void:
-	_system.register(SampleEventA, func(_e: SampleEventA) -> void:
-		pass
+	_system.register(
+		SampleEventA,
+		_type_listener(func(_e: SampleEventA) -> void:
+			pass,
+		)
 	)
-	_system.register_assignable(SampleEventA, func(_e: SampleEventA) -> void:
-		pass
+	_system.register_assignable(
+		SampleEventA,
+		_type_listener(func(_e: SampleEventA) -> void:
+			pass,
+		)
 	)
-	_system.register_simple(&"debug_simple", func(_payload: Variant) -> void:
-		pass
+	_system.register_simple(
+		&"debug_simple",
+		_simple_listener(func(_payload: Variant) -> void:
+			pass,
+		)
 	)
 
 	var stats: Dictionary = _system.get_debug_stats()
@@ -362,12 +415,21 @@ func test_debug_stats_reports_listener_counts() -> void:
 func test_listener_diagnostics_reports_stale_owner_entries_and_compacts() -> void:
 	var listener_owner: RefCounted = RefCounted.new()
 	var state: EventTestState = EventTestState.new()
-	_system.register(SampleEventA, func(_e: SampleEventA) -> void:
-		state.count += 1
-	, 0, listener_owner)
-	_system.register_simple(&"stale_owner_simple", func(_payload: Variant) -> void:
-		state.simple += 1
-	, listener_owner)
+	_system.register_owned(
+		listener_owner,
+		SampleEventA,
+		_type_listener(func(_e: SampleEventA) -> void:
+			state.count += 1,
+		),
+		0
+	)
+	_system.register_simple_owned(
+		listener_owner,
+		&"stale_owner_simple",
+		_simple_listener(func(_payload: Variant) -> void:
+			state.simple += 1,
+		)
+	)
 
 	listener_owner = null
 	var diagnostics: Dictionary = _system.get_listener_diagnostics({
@@ -398,14 +460,20 @@ func test_listener_diagnostics_reports_stale_owner_entries_and_compacts() -> voi
 ## 验证诊断统计会报告派发次数和嵌套深度。
 func test_debug_stats_reports_dispatch_counts_and_depth() -> void:
 	var state: EventTestState = EventTestState.new()
-	_system.register(SampleEventA, func(_e: SampleEventA) -> void:
-		if not state.nested_sent:
-			state.nested_sent = true
-			_system.send(SampleEventA.new())
+	_system.register(
+		SampleEventA,
+		_type_listener(func(_e: SampleEventA) -> void:
+			if not state.nested_sent:
+				state.nested_sent = true
+				_system.send(SampleEventA.new()),
+		)
 	)
-	_system.register_simple(&"debug_depth", func(_payload: Variant) -> void:
-		if state.nested_sent:
-			return
+	_system.register_simple(
+		&"debug_depth",
+		_simple_listener(func(_payload: Variant) -> void:
+			if state.nested_sent:
+				return,
+		)
 	)
 
 	_system.send(SampleEventA.new())
@@ -429,10 +497,13 @@ func test_max_dispatch_depth_defaults_to_guarded_value() -> void:
 func test_max_dispatch_depth_can_be_disabled_explicitly() -> void:
 	_system.max_dispatch_depth = 0
 	var state: EventTestState = EventTestState.new()
-	_system.register(SampleEventA, func(_e: SampleEventA) -> void:
-		state.count += 1
-		if state.count < 3:
-			_system.send(SampleEventA.new())
+	_system.register(
+		SampleEventA,
+		_type_listener(func(_e: SampleEventA) -> void:
+			state.count += 1
+			if state.count < 3:
+				_system.send(SampleEventA.new()),
+		)
 	)
 
 	_system.send(SampleEventA.new())
@@ -446,9 +517,12 @@ func test_max_dispatch_depth_can_be_disabled_explicitly() -> void:
 func test_max_dispatch_depth_stops_recursive_type_dispatch() -> void:
 	_system.max_dispatch_depth = 1
 	var state: EventTestState = EventTestState.new()
-	_system.register(SampleEventA, func(_e: SampleEventA) -> void:
-		state.count += 1
-		_system.send(SampleEventA.new())
+	_system.register(
+		SampleEventA,
+		_type_listener(func(_e: SampleEventA) -> void:
+			state.count += 1
+			_system.send(SampleEventA.new()),
+		)
 	)
 
 	_system.send(SampleEventA.new())
@@ -463,8 +537,11 @@ func test_max_dispatch_depth_stops_recursive_type_dispatch() -> void:
 func test_dispatch_trace_records_recent_events() -> void:
 	_system.trace_enabled = true
 	_system.max_trace_entries = 2
-	_system.register(SampleEventA, func(_e: SampleEventA) -> void:
-		pass
+	_system.register(
+		SampleEventA,
+		_type_listener(func(_e: SampleEventA) -> void:
+			pass,
+		)
 	)
 
 	_system.send_simple(&"missing_trace_event")
@@ -488,8 +565,8 @@ func test_unregister() -> void:
 	var script_a: Script = SampleEventA
 	var cb: Callable = func(_e: SampleEventA) -> void: state.count += 1
 
-	_system.register(script_a, cb)
-	_system.unregister(script_a, cb)
+	_system.register(script_a, _type_listener(cb))
+	_system.unregister(script_a, _type_listener(cb))
 	_system.send(SampleEventA.new())
 
 	assert_eq(state.count, 0, "注销后不应再被调用。")
@@ -502,13 +579,13 @@ func test_unregister_during_traversal() -> void:
 
 	var cb_a: Callable = func(_e: SampleEventA) -> void:
 		state.order.append("A")
-		_system.unregister(script_a, state.cb_b)
+		_system.unregister(script_a, _type_listener(state.cb_b))
 
 	state.cb_b = func(_e: SampleEventA) -> void:
 		state.order.append("B")
 
-	_system.register(script_a, cb_a)
-	_system.register(script_a, state.cb_b)
+	_system.register(script_a, _type_listener(cb_a))
+	_system.register(script_a, _type_listener(state.cb_b))
 	_system.send(SampleEventA.new())
 
 	assert_eq(state.order.size(), 1, "回调 B 被注销后不应在本次 send 中执行。")
@@ -522,9 +599,9 @@ func test_unregister_self_during_traversal() -> void:
 
 	state.cb_a = func(_e: SampleEventA) -> void:
 		state.count += 1
-		_system.unregister(script_a, state.cb_a)
+		_system.unregister(script_a, _type_listener(state.cb_a))
 
-	_system.register(script_a, state.cb_a)
+	_system.register(script_a, _type_listener(state.cb_a))
 	_system.send(SampleEventA.new())
 	_system.send(SampleEventA.new())
 
@@ -535,8 +612,8 @@ func test_unregister_self_during_traversal() -> void:
 func test_multiple_listeners() -> void:
 	var state: EventTestState = EventTestState.new()
 	var script_a: Script = SampleEventA
-	_system.register(script_a, func(_e: SampleEventA) -> void: state.count += 1)
-	_system.register(script_a, func(_e: SampleEventA) -> void: state.count += 1)
+	_system.register(script_a, _type_listener(func(_e: SampleEventA) -> void: state.count += 1))
+	_system.register(script_a, _type_listener(func(_e: SampleEventA) -> void: state.count += 1))
 	_system.send(SampleEventA.new())
 
 	assert_eq(state.count, 2, "两个监听器都应被调用。")
@@ -546,7 +623,7 @@ func test_multiple_listeners() -> void:
 func test_clear() -> void:
 	var state: EventTestState = EventTestState.new()
 	var script_a: Script = SampleEventA
-	_system.register(script_a, func(_e: SampleEventA) -> void: state.called = true)
+	_system.register(script_a, _type_listener(func(_e: SampleEventA) -> void: state.called = true))
 	_system.clear()
 	_system.send(SampleEventA.new())
 
@@ -557,12 +634,18 @@ func test_clear() -> void:
 func test_clear_during_type_dispatch_stops_current_dispatch_safely() -> void:
 	var state: EventTestState = EventTestState.new()
 	var script_a: Script = SampleEventA
-	_system.register(script_a, func(_e: SampleEventA) -> void:
-		state.order.append("first")
-		_system.clear()
+	_system.register(
+		script_a,
+		_type_listener(func(_e: SampleEventA) -> void:
+			state.order.append("first")
+			_system.clear(),
+		)
 	)
-	_system.register(script_a, func(_e: SampleEventA) -> void:
-		state.order.append("second")
+	_system.register(
+		script_a,
+		_type_listener(func(_e: SampleEventA) -> void:
+			state.order.append("second"),
+		)
 	)
 
 	_system.send(SampleEventA.new())
@@ -579,7 +662,7 @@ func test_send_simple_register_and_send() -> void:
 	var state: EventTestState = EventTestState.new()
 	var event_id: StringName = &"test_event"
 
-	_system.register_simple(event_id, func(p: Variant) -> void: state.payload = p)
+	_system.register_simple(event_id, _simple_listener(func(p: Variant) -> void: state.payload = p))
 	_system.send_simple(event_id, 99)
 
 	assert_eq(_GF_VARIANT_ACCESS_SCRIPT.to_int(state.payload), 99, "简单事件回调应接收到正确的 payload。")
@@ -588,8 +671,11 @@ func test_send_simple_register_and_send() -> void:
 func test_register_simple_rejects_empty_event_id() -> void:
 	var state: EventTestState = EventTestState.new()
 
-	_system.register_simple(&"", func(_payload: Variant) -> void:
-		state.called = true
+	_system.register_simple(
+		&"",
+		_simple_listener(func(_payload: Variant) -> void:
+			state.called = true,
+		)
 	)
 	_system.send_simple(&"valid_event", 1)
 
@@ -608,7 +694,7 @@ func test_send_simple_register_method_callback() -> void:
 	var receiver: SimpleReceiver = SimpleReceiver.new()
 	var event_id: StringName = &"method_simple_event"
 
-	_system.register_simple(event_id, Callable(receiver, "on_simple_event"))
+	_system.register_simple(event_id, _simple_listener(Callable(receiver, "on_simple_event")))
 	_system.send_simple(event_id, "ok")
 
 	assert_eq(_GF_VARIANT_ACCESS_SCRIPT.to_text(receiver.payload), "ok", "对象方法形式的简单事件回调应接收到 payload。")
@@ -621,13 +707,13 @@ func test_send_simple_unregister_during_traversal() -> void:
 
 	var cb_a: Callable = func(_p: Variant) -> void:
 		state.order.append("A")
-		_system.unregister_simple(event_id, state.cb_b)
+		_system.unregister_simple(event_id, _simple_listener(state.cb_b))
 
 	state.cb_b = func(_p: Variant) -> void:
 		state.order.append("B")
 
-	_system.register_simple(event_id, cb_a)
-	_system.register_simple(event_id, state.cb_b)
+	_system.register_simple(event_id, _simple_listener(cb_a))
+	_system.register_simple(event_id, _simple_listener(state.cb_b))
 	_system.send_simple(event_id)
 
 	assert_eq(state.order.size(), 1, "简单事件：回调 B 被注销后不应在本次 send 中执行。")
@@ -641,9 +727,9 @@ func test_send_simple_unregister_self_during_traversal() -> void:
 
 	state.cb_a = func(_p: Variant) -> void:
 		state.count += 1
-		_system.unregister_simple(event_id, state.cb_a)
+		_system.unregister_simple(event_id, _simple_listener(state.cb_a))
 
-	_system.register_simple(event_id, state.cb_a)
+	_system.register_simple(event_id, _simple_listener(state.cb_a))
 	_system.send_simple(event_id)
 	_system.send_simple(event_id)
 
@@ -656,8 +742,8 @@ func test_send_simple_unregister() -> void:
 	var event_id: StringName = &"remove_test"
 
 	var cb: Callable = func(_p: Variant) -> void: state.called = true
-	_system.register_simple(event_id, cb)
-	_system.unregister_simple(event_id, cb)
+	_system.register_simple(event_id, _simple_listener(cb))
+	_system.unregister_simple(event_id, _simple_listener(cb))
 	_system.send_simple(event_id)
 
 	assert_false(state.called, "注销后简单事件回调不应被触发。")
@@ -667,12 +753,18 @@ func test_send_simple_unregister() -> void:
 func test_clear_during_simple_dispatch_stops_current_dispatch_safely() -> void:
 	var state: EventTestState = EventTestState.new()
 	var event_id: StringName = &"clear_simple"
-	_system.register_simple(event_id, func(_p: Variant) -> void:
-		state.order.append("first")
-		_system.clear()
+	_system.register_simple(
+		event_id,
+		_simple_listener(func(_p: Variant) -> void:
+			state.order.append("first")
+			_system.clear(),
+		)
 	)
-	_system.register_simple(event_id, func(_p: Variant) -> void:
-		state.order.append("second")
+	_system.register_simple(
+		event_id,
+		_simple_listener(func(_p: Variant) -> void:
+			state.order.append("second"),
+		)
 	)
 
 	_system.send_simple(event_id)
@@ -694,14 +786,14 @@ func test_send_simple_register_during_nested_dispatch_waits_for_outermost_flush(
 		state.order.append("outer")
 		if not state.nested_sent:
 			state.nested_sent = true
-			_system.register_simple(event_id, state.late_cb)
+			_system.register_simple(event_id, _simple_listener(state.late_cb))
 			_system.send_simple(event_id)
 
 	var cb_existing: Callable = func(_p: Variant) -> void:
 		state.order.append("existing")
 
-	_system.register_simple(event_id, cb_outer)
-	_system.register_simple(event_id, cb_existing)
+	_system.register_simple(event_id, _simple_listener(cb_outer))
+	_system.register_simple(event_id, _simple_listener(cb_existing))
 
 	_system.send_simple(event_id)
 
@@ -721,10 +813,10 @@ func test_send_simple_register_then_unregister_during_dispatch_does_not_leave_li
 
 	var cb_outer: Callable = func(_p: Variant) -> void:
 		state.count += 1
-		_system.register_simple(event_id, state.late_cb)
-		_system.unregister_simple(event_id, state.late_cb)
+		_system.register_simple(event_id, _simple_listener(state.late_cb))
+		_system.unregister_simple(event_id, _simple_listener(state.late_cb))
 
-	_system.register_simple(event_id, cb_outer)
+	_system.register_simple(event_id, _simple_listener(cb_outer))
 	_system.send_simple(event_id)
 	_system.send_simple(event_id)
 
@@ -742,10 +834,10 @@ func test_send_simple_register_then_unregister_different_id_during_dispatch_does
 
 	var cb_outer: Callable = func(_p: Variant) -> void:
 		state.count += 1
-		_system.register_simple(inner_id, state.late_cb)
-		_system.unregister_simple(inner_id, state.late_cb)
+		_system.register_simple(inner_id, _simple_listener(state.late_cb))
+		_system.unregister_simple(inner_id, _simple_listener(state.late_cb))
 
-	_system.register_simple(outer_id, cb_outer)
+	_system.register_simple(outer_id, _simple_listener(cb_outer))
 	_system.send_simple(outer_id)
 	_system.send_simple(inner_id)
 
@@ -761,8 +853,8 @@ func test_unregister_owner_removes_type_and_simple_listeners() -> void:
 	var script_a: Script = SampleEventA
 	var event_id: StringName = &"owned_simple"
 
-	_system.register(script_a, func(_e: SampleEventA) -> void: state.typed += 1, 0, listener_owner)
-	_system.register_simple(event_id, func(_p: Variant) -> void: state.simple += 1, listener_owner)
+	_system.register_owned(listener_owner, script_a, _type_listener(func(_e: SampleEventA) -> void: state.typed += 1), 0)
+	_system.register_simple_owned(listener_owner, event_id, _simple_listener(func(_p: Variant) -> void: state.simple += 1))
 
 	_system.send(SampleEventA.new())
 	_system.send_simple(event_id)
@@ -780,13 +872,23 @@ func test_unregister_owner_during_dispatch_skips_later_owned_callbacks() -> void
 	var state: EventTestState = EventTestState.new()
 	var script_a: Script = SampleEventA
 
-	_system.register(script_a, func(_e: SampleEventA) -> void:
-		state.order.append("first")
-		_system.unregister_owner(listener_owner)
-	, 10, listener_owner)
-	_system.register(script_a, func(_e: SampleEventA) -> void:
-		state.order.append("second")
-	, 0, listener_owner)
+	_system.register_owned(
+		listener_owner,
+		script_a,
+		_type_listener(func(_e: SampleEventA) -> void:
+			state.order.append("first")
+			_system.unregister_owner(listener_owner),
+		),
+		10
+	)
+	_system.register_owned(
+		listener_owner,
+		script_a,
+		_type_listener(func(_e: SampleEventA) -> void:
+			state.order.append("second"),
+		),
+		0
+	)
 
 	_system.send(SampleEventA.new())
 	_system.send(SampleEventA.new())
@@ -799,13 +901,23 @@ func test_unregister_owner_during_type_dispatch_skips_later_assignable_callback(
 	var listener_owner: RefCounted = RefCounted.new()
 	var state: EventTestState = EventTestState.new()
 
-	_system.register(SampleEventChild, func(_e: SampleEventChild) -> void:
-		state.order.append("exact")
-		_system.unregister_owner(listener_owner)
-	, 10, listener_owner)
-	_system.register_assignable(SampleEventA, func(_e: SampleEventA) -> void:
-		state.order.append("assignable")
-	, 0, listener_owner)
+	_system.register_owned(
+		listener_owner,
+		SampleEventChild,
+		_type_listener(func(_e: SampleEventChild) -> void:
+			state.order.append("exact")
+			_system.unregister_owner(listener_owner),
+		),
+		10
+	)
+	_system.register_assignable_owned(
+		listener_owner,
+		SampleEventA,
+		_type_listener(func(_e: SampleEventA) -> void:
+			state.order.append("assignable"),
+		),
+		0
+	)
 
 	_system.send(SampleEventChild.new())
 	_system.send(SampleEventChild.new())
@@ -819,13 +931,21 @@ func test_unregister_owner_during_simple_dispatch_skips_later_owned_callbacks() 
 	var state: EventTestState = EventTestState.new()
 	var event_id: StringName = &"owned_simple_dispatch"
 
-	_system.register_simple(event_id, func(_p: Variant) -> void:
-		state.order.append("first")
-		_system.unregister_owner(listener_owner)
-	, listener_owner)
-	_system.register_simple(event_id, func(_p: Variant) -> void:
-		state.order.append("second")
-	, listener_owner)
+	_system.register_simple_owned(
+		listener_owner,
+		event_id,
+		_simple_listener(func(_p: Variant) -> void:
+			state.order.append("first")
+			_system.unregister_owner(listener_owner),
+		)
+	)
+	_system.register_simple_owned(
+		listener_owner,
+		event_id,
+		_simple_listener(func(_p: Variant) -> void:
+			state.order.append("second"),
+		)
+	)
 
 	_system.send_simple(event_id)
 	_system.send_simple(event_id)
@@ -842,11 +962,16 @@ func test_unregister_owner_then_register_same_owner_during_dispatch_keeps_new_li
 	state.replacement = func(_e: SampleEventA) -> void:
 		state.order.append("replacement")
 
-	_system.register(script_a, func(_e: SampleEventA) -> void:
+	_system.register_owned(
+		listener_owner,
+		script_a,
+		_type_listener(func(_e: SampleEventA) -> void:
 		state.order.append("old")
 		_system.unregister_owner(listener_owner)
-		_system.register(script_a, state.replacement, 0, listener_owner)
-	, 10, listener_owner)
+		_system.register_owned(listener_owner, script_a, _type_listener(state.replacement), 0),
+		),
+		10
+	)
 
 	_system.send(SampleEventA.new())
 	_system.send(SampleEventA.new())
@@ -860,8 +985,8 @@ func test_unregister_owner_then_register_same_owner_during_dispatch_keeps_new_li
 func test_priority_high_executes_first() -> void:
 	var state: EventTestState = EventTestState.new()
 	var script_a: Script = SampleEventA
-	_system.register(script_a, func(_e: SampleEventA) -> void: state.order.append("low"), 0)
-	_system.register(script_a, func(_e: SampleEventA) -> void: state.order.append("high"), 10)
+	_system.register(script_a, _type_listener(func(_e: SampleEventA) -> void: state.order.append("low")), 0)
+	_system.register(script_a, _type_listener(func(_e: SampleEventA) -> void: state.order.append("high")), 10)
 	_system.send(SampleEventA.new())
 
 	assert_eq(state.order.size(), 2, "两个回调都应被调用。")
@@ -872,12 +997,20 @@ func test_priority_high_executes_first() -> void:
 ## 验证精确监听与可赋值监听按全局优先级合并排序。
 func test_exact_and_assignable_listeners_share_priority_order() -> void:
 	var state: EventTestState = EventTestState.new()
-	_system.register(SampleEventChild, func(_e: SampleEventChild) -> void:
-		state.order.append("exact_low")
-	, 0)
-	_system.register_assignable(SampleEventA, func(_e: SampleEventA) -> void:
-		state.order.append("assignable_high")
-	, 10)
+	_system.register(
+		SampleEventChild,
+		_type_listener(func(_e: SampleEventChild) -> void:
+			state.order.append("exact_low"),
+		),
+		0
+	)
+	_system.register_assignable(
+		SampleEventA,
+		_type_listener(func(_e: SampleEventA) -> void:
+			state.order.append("assignable_high"),
+		),
+		10
+	)
 
 	_system.send(SampleEventChild.new())
 
@@ -888,8 +1021,8 @@ func test_exact_and_assignable_listeners_share_priority_order() -> void:
 func test_same_priority_keeps_registration_order() -> void:
 	var state: EventTestState = EventTestState.new()
 	var script_a: Script = SampleEventA
-	_system.register(script_a, func(_e: SampleEventA) -> void: state.order.append("first"), 5)
-	_system.register(script_a, func(_e: SampleEventA) -> void: state.order.append("second"), 5)
+	_system.register(script_a, _type_listener(func(_e: SampleEventA) -> void: state.order.append("first")), 5)
+	_system.register(script_a, _type_listener(func(_e: SampleEventA) -> void: state.order.append("second")), 5)
 	_system.send(SampleEventA.new())
 
 	assert_eq(state.order[0], "first", "同优先级应按注册顺序执行。")
@@ -903,14 +1036,22 @@ func test_consumed_event_stops_propagation() -> void:
 	var state: EventTestState = EventTestState.new()
 	var script_a: Script = SampleEventA
 
-	_system.register(script_a, func(e: SampleEventA) -> void:
-		state.order.append("high")
-		e.is_consumed = true
-	, 10)
+	_system.register(
+		script_a,
+		_type_listener(func(e: SampleEventA) -> void:
+			state.order.append("high")
+			e.is_consumed = true,
+		),
+		10
+	)
 
-	_system.register(script_a, func(_e: SampleEventA) -> void:
-		state.order.append("low")
-	, 0)
+	_system.register(
+		script_a,
+		_type_listener(func(_e: SampleEventA) -> void:
+			state.order.append("low"),
+		),
+		0
+	)
 
 	var evt: SampleEventA = SampleEventA.new()
 	_system.send(evt)
@@ -924,9 +1065,9 @@ func test_consumed_event_stops_propagation() -> void:
 func test_unconsumed_event_propagates_to_all() -> void:
 	var state: EventTestState = EventTestState.new()
 	var script_a: Script = SampleEventA
-	_system.register(script_a, func(_e: SampleEventA) -> void: state.count += 1, 10)
-	_system.register(script_a, func(_e: SampleEventA) -> void: state.count += 1, 5)
-	_system.register(script_a, func(_e: SampleEventA) -> void: state.count += 1, 0)
+	_system.register(script_a, _type_listener(func(_e: SampleEventA) -> void: state.count += 1), 10)
+	_system.register(script_a, _type_listener(func(_e: SampleEventA) -> void: state.count += 1), 5)
+	_system.register(script_a, _type_listener(func(_e: SampleEventA) -> void: state.count += 1), 0)
 	_system.send(SampleEventA.new())
 
 	assert_eq(state.count, 3, "未消费时所有优先级回调都应被调用。")
@@ -937,18 +1078,30 @@ func test_mid_priority_consumes() -> void:
 	var state: EventTestState = EventTestState.new()
 	var script_a: Script = SampleEventA
 
-	_system.register(script_a, func(_e: SampleEventA) -> void:
-		state.order.append("high")
-	, 10)
+	_system.register(
+		script_a,
+		_type_listener(func(_e: SampleEventA) -> void:
+			state.order.append("high"),
+		),
+		10
+	)
 
-	_system.register(script_a, func(e: SampleEventA) -> void:
-		state.order.append("mid")
-		e.is_consumed = true
-	, 5)
+	_system.register(
+		script_a,
+		_type_listener(func(e: SampleEventA) -> void:
+			state.order.append("mid")
+			e.is_consumed = true,
+		),
+		5
+	)
 
-	_system.register(script_a, func(_e: SampleEventA) -> void:
-		state.order.append("low")
-	, 0)
+	_system.register(
+		script_a,
+		_type_listener(func(_e: SampleEventA) -> void:
+			state.order.append("low"),
+		),
+		0
+	)
 
 	_system.send(SampleEventA.new())
 
@@ -969,9 +1122,9 @@ func test_register_during_traversal() -> void:
 
 	var cb_outer: Callable = func(_e: SampleEventA) -> void:
 		state.count += 1
-		_system.register(script_a, cb_inner)
+		_system.register(script_a, _type_listener(cb_inner))
 
-	_system.register(script_a, cb_outer)
+	_system.register(script_a, _type_listener(cb_outer))
 
 	# 第一次发送：触发 outer，注册 inner
 	_system.send(SampleEventA.new())
@@ -994,14 +1147,14 @@ func test_register_during_nested_dispatch_waits_for_outermost_flush() -> void:
 		state.order.append("outer")
 		if not state.nested_sent:
 			state.nested_sent = true
-			_system.register(script_a, state.late_cb)
+			_system.register(script_a, _type_listener(state.late_cb))
 			_system.send(SampleEventA.new())
 
 	var cb_existing: Callable = func(_e: SampleEventA) -> void:
 		state.order.append("existing")
 
-	_system.register(script_a, cb_outer)
-	_system.register(script_a, cb_existing)
+	_system.register(script_a, _type_listener(cb_outer))
+	_system.register(script_a, _type_listener(cb_existing))
 
 	_system.send(SampleEventA.new())
 
@@ -1021,10 +1174,10 @@ func test_register_then_unregister_during_dispatch_does_not_leave_listener() -> 
 
 	var cb_outer: Callable = func(_e: SampleEventA) -> void:
 		state.count += 1
-		_system.register(script_a, state.late_cb)
-		_system.unregister(script_a, state.late_cb)
+		_system.register(script_a, _type_listener(state.late_cb))
+		_system.unregister(script_a, _type_listener(state.late_cb))
 
-	_system.register(script_a, cb_outer)
+	_system.register(script_a, _type_listener(cb_outer))
 	_system.send(SampleEventA.new())
 	_system.send(SampleEventA.new())
 
@@ -1040,10 +1193,10 @@ func test_register_then_unregister_different_type_during_dispatch_does_not_leave
 
 	var cb_outer: Callable = func(_e: SampleEventA) -> void:
 		state.count += 1
-		_system.register(SampleEventB, state.late_cb)
-		_system.unregister(SampleEventB, state.late_cb)
+		_system.register(SampleEventB, _type_listener(state.late_cb))
+		_system.unregister(SampleEventB, _type_listener(state.late_cb))
 
-	_system.register(SampleEventA, cb_outer)
+	_system.register(SampleEventA, _type_listener(cb_outer))
 	_system.send(SampleEventA.new())
 	_system.send(SampleEventB.new())
 
@@ -1059,10 +1212,10 @@ func test_register_then_unregister_different_assignable_type_during_dispatch_doe
 
 	var cb_outer: Callable = func(_e: SampleEventA) -> void:
 		state.count += 1
-		_system.register_assignable(SampleEventB, state.late_cb)
-		_system.unregister_assignable(SampleEventB, state.late_cb)
+		_system.register_assignable(SampleEventB, _type_listener(state.late_cb))
+		_system.unregister_assignable(SampleEventB, _type_listener(state.late_cb))
 
-	_system.register(SampleEventA, cb_outer)
+	_system.register(SampleEventA, _type_listener(cb_outer))
 	_system.send(SampleEventA.new())
 	_system.send(SampleEventB.new())
 

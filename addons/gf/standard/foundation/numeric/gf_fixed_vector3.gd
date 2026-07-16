@@ -37,28 +37,36 @@ const _INVALID_SIGNED_MAGNITUDE: int = -9_223_372_036_854_775_807 - 1
 ## @api public
 ## [br]
 ## @since 5.0.0
-var raw_x: int = 0
+var raw_x: int = 0:
+	set(value):
+		raw_x = _normalize_raw_value(value, "raw_x")
 
 ## Y 分量的整数缩放值。
 ## [br]
 ## @api public
 ## [br]
 ## @since 5.0.0
-var raw_y: int = 0
+var raw_y: int = 0:
+	set(value):
+		raw_y = _normalize_raw_value(value, "raw_y")
 
 ## Z 分量的整数缩放值。
 ## [br]
 ## @api public
 ## [br]
 ## @since 5.0.0
-var raw_z: int = 0
+var raw_z: int = 0:
+	set(value):
+		raw_z = _normalize_raw_value(value, "raw_z")
 
 ## 三个分量共享的小数位数。
 ## [br]
 ## @api public
 ## [br]
 ## @since 5.0.0
-var decimal_places: int = 2
+var decimal_places: int = 2:
+	set(value):
+		decimal_places = _normalize_decimal_places(value)
 
 
 # --- Godot 生命周期方法 ---

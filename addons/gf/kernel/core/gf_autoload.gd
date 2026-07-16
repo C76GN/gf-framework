@@ -23,7 +23,42 @@ const AUTOLOAD_NAME: StringName = &"Gf"
 const _GF_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
 
 
+# --- 私有变量 ---
+
+static var _tree_exit_scope_depth: int = 0
+
+
 # --- 公共方法 ---
+
+## 开始 Gf AutoLoad 的同步退出作用域。
+## 节点型 Utility 在此作用域内不应主动 remove_child，避免重入修改正在拆除子节点的父节点。
+## [br]
+## @api framework_internal
+static func begin_tree_exit_scope() -> void:
+	_tree_exit_scope_depth += 1
+
+
+## 结束 Gf AutoLoad 的同步退出作用域。
+## [br]
+## @api framework_internal
+static func end_tree_exit_scope() -> void:
+	_tree_exit_scope_depth = maxi(_tree_exit_scope_depth - 1, 0)
+
+
+## 重置 Gf AutoLoad 退出状态，供 AutoLoad 再次进入树或隔离测试使用。
+## [br]
+## @api framework_internal
+static func reset_tree_exit_state() -> void:
+	_tree_exit_scope_depth = 0
+
+
+## 查询当前是否位于 Gf AutoLoad 的同步退出作用域。
+## [br]
+## @api framework_internal
+## [br]
+## @return Gf AutoLoad 正在执行退出释放时返回 true。
+static func is_tree_exit_in_progress() -> bool:
+	return _tree_exit_scope_depth > 0
 
 ## 获取 Gf AutoLoad 节点；未注册或场景树不可用时返回 null。
 ## [br]

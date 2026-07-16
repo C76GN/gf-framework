@@ -62,7 +62,7 @@ var _endpoint: String = ""
 var _peers: Dictionary[int, WebSocketPeer] = {}
 var _open_peer_ids: Dictionary[int, bool] = {}
 var _server_peer_options: Dictionary = {}
-var _next_peer_id: int = SERVER_PEER_ID
+var _next_peer_id: int = SERVER_PEER_ID + 1
 var _client_was_open: bool = false
 
 
@@ -94,7 +94,7 @@ func host(options: Dictionary = {}) -> Error:
 	_mode = Mode.SERVER
 	_endpoint = "%s:%d" % [bind_address, port]
 	_server_peer_options = options.duplicate(true)
-	_next_peer_id = SERVER_PEER_ID
+	_next_peer_id = SERVER_PEER_ID + 1
 	_emit_connected()
 	return OK
 
@@ -112,20 +112,21 @@ func host(options: Dictionary = {}) -> Error:
 ## [br]
 ## @schema options: Dictionary，支持 tls_options、supported_protocols、inbound_buffer_size、outbound_buffer_size、max_queued_packets、no_delay。
 func connect_to_endpoint(endpoint: String, options: Dictionary = {}) -> Error:
-	if endpoint.strip_edges().is_empty():
+	var normalized_endpoint: String = endpoint.strip_edges()
+	if not _is_valid_websocket_endpoint(normalized_endpoint):
 		return ERR_INVALID_PARAMETER
 
 	_close_all(false)
 	_client = WebSocketPeer.new()
 	_apply_peer_options(_client, options)
 	var tls_options: TLSOptions = _get_tls_options_value(GFVariantData.get_option_value(options, "tls_options"))
-	var error: Error = _client.connect_to_url(endpoint, tls_options)
+	var error: Error = _client.connect_to_url(normalized_endpoint, tls_options)
 	if error != OK:
 		_client = null
 		return error
 
 	_mode = Mode.CLIENT
-	_endpoint = endpoint
+	_endpoint = normalized_endpoint
 	_client_was_open = false
 	return OK
 
@@ -200,6 +201,21 @@ func get_debug_snapshot() -> Dictionary:
 
 
 # --- 私有/辅助方法 ---
+
+func _is_valid_websocket_endpoint(endpoint: String) -> bool:
+	if not endpoint.begins_with("ws://") and not endpoint.begins_with("wss://"):
+		return false
+	for index: int in range(endpoint.length()):
+		if endpoint.unicode_at(index) < 32:
+			return false
+	var authority_start: int = endpoint.find("://") + 3
+	var authority_end: int = endpoint.length()
+	for separator: String in ["/", "?", "#"]:
+		var separator_index: int = endpoint.find(separator, authority_start)
+		if separator_index >= 0:
+			authority_end = mini(authority_end, separator_index)
+	return authority_end > authority_start
+
 
 func _poll_server_accepts() -> void:
 	if _server == null:

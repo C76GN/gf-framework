@@ -114,6 +114,75 @@ func test_virtual_cursor_runtime_state_roundtrips_for_replay() -> void:
 	assert_eq(replay_modifier.modify(Vector2(0.0, 1.0)), modifier.modify(Vector2(0.0, 1.0)), "恢复状态后同一输入应得到同一位置。")
 
 
+func test_virtual_cursor_restore_normalizes_position_to_current_bounds() -> void:
+	var modifier: GFInputVirtualCursorModifier = GFInputVirtualCursorModifier.new()
+	modifier.initial_position = Vector2(0.5, 0.5)
+	modifier.clamp_rect = Rect2(Vector2(10.0, 20.0), Vector2(30.0, 40.0))
+
+	var _first_restore: GFInputVirtualCursorModifier = modifier.restore_runtime_state({
+		"position": Vector2(100.0, -50.0),
+		"initialized": true,
+	})
+
+	assert_eq(modifier.position, Vector2(40.0, 20.0), "恢复状态应按当前 clamp_rect 规范化。")
+
+	var _second_restore: GFInputVirtualCursorModifier = modifier.restore_runtime_state({
+		"position": Vector2(NAN, INF),
+		"initialized": true,
+	})
+
+	assert_eq(modifier.position, Vector2(10.0, 20.0), "非有限状态应回退到规范化后的初始位置。")
+
+
+func test_virtual_cursor_rejects_nonfinite_integration_inputs() -> void:
+	var modifier: GFInputVirtualCursorModifier = GFInputVirtualCursorModifier.new()
+	modifier.initial_position = Vector2(0.5, 0.5)
+	modifier.speed = Vector2(NAN, INF)
+	var _manual_delta: GFInputVirtualCursorModifier = modifier.set_manual_delta_seconds(NAN)
+
+	var result: Vector2 = modifier.modify(Vector2(NAN, INF))
+
+	assert_eq(result, Vector2(0.5, 0.5), "非有限输入、速度和 delta 不得污染光标位置。")
+
+
+## 验证修饰器基类提供无状态运行时协议。
+func test_input_modifier_runtime_state_protocol_is_noop_by_default() -> void:
+	var modifier: GFInputModifier = GFInputModifier.new()
+
+	var _restore_result: GFInputModifier = modifier.restore_modifier_runtime_state({ &"position": Vector2.ONE })
+	var _reset_result: GFInputModifier = modifier.reset_modifier_runtime_state()
+	var _delta_result: GFInputModifier = modifier.set_runtime_delta_seconds(0.5)
+	var _clear_delta_result: GFInputModifier = modifier.clear_runtime_delta_seconds()
+
+	assert_false(modifier.supports_runtime_state(), "普通修饰器默认不维护运行时状态。")
+	assert_eq(modifier.get_modifier_runtime_state(), {}, "无状态修饰器应返回空状态。")
+	assert_eq(modifier.modify(Vector2(0.2, 0.4)), Vector2(0.2, 0.4), "no-op 协议不应改变修饰值。")
+
+
+## 验证虚拟光标实现通用运行时状态协议。
+func test_virtual_cursor_modifier_implements_runtime_state_protocol() -> void:
+	var modifier: GFInputVirtualCursorModifier = GFInputVirtualCursorModifier.new()
+	modifier.initial_position = Vector2.ZERO
+	modifier.speed = Vector2(2.0, 2.0)
+	modifier.clamp_to_rect = false
+	var _runtime_delta_result: GFInputModifier = modifier.set_runtime_delta_seconds(0.5)
+	var _first_position: Vector2 = modifier.modify(Vector2(1.0, 0.0))
+	var runtime_state: Dictionary = modifier.get_modifier_runtime_state()
+
+	var replay_modifier: GFInputVirtualCursorModifier = GFInputVirtualCursorModifier.new()
+	replay_modifier.initial_position = Vector2.ZERO
+	replay_modifier.speed = Vector2(2.0, 2.0)
+	replay_modifier.clamp_to_rect = false
+	var _replay_delta_result: GFInputModifier = replay_modifier.set_runtime_delta_seconds(0.5)
+	var _restore_result: GFInputModifier = replay_modifier.restore_modifier_runtime_state(runtime_state)
+
+	assert_true(modifier.supports_runtime_state(), "虚拟光标应声明运行时状态能力。")
+	assert_eq(replay_modifier.modify(Vector2(0.0, 1.0)), Vector2(1.0, 1.0), "恢复后应继续从快照位置积分。")
+
+	var _reset_result: GFInputModifier = replay_modifier.reset_modifier_runtime_state()
+	assert_eq(replay_modifier.modify(Vector2.ZERO), Vector2.ZERO, "重置后应回到初始位置。")
+
+
 # --- 私有/辅助方法 ---
 
 func _virtual_cursor_modifier(modifier: GFInputModifier) -> GFInputVirtualCursorModifier:

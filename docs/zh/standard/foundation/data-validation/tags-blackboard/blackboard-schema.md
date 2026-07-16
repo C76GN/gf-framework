@@ -25,3 +25,5 @@ print(report["ok"]) # true
 类型转换只做通用 Variant 转换，不做业务范围、权限、冷却、目标合法性或状态机规则判断。
 
 Color 字段接受 Godot HTML 颜色字符串、数组或字典通道；无效颜色字符串会返回转换失败，不会静默落成黑色。
+
+`coerce_dictionary()` 和 `apply_defaults()` 会保留无法转换的原始值，避免把 `"bad"` 这类输入静默降级成 `0`、`false` 或空集合。需要诊断错误时，继续调用 `validate_values(values, { "coerce_values": true })` 读取 `coerce_failed` 报告。

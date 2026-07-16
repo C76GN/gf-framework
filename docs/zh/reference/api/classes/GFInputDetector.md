@@ -17,6 +17,7 @@
 |---|---|---|
 | 信号 | [`detection_started`](#member-gfinputdetector-signals-detection_started) | `signal detection_started` |
 | 信号 | [`input_detected`](#member-gfinputdetector-signals-input_detected) | `signal input_detected(input_event: InputEvent)` |
+| 信号 | [`detection_finished`](#member-gfinputdetector-signals-detection_finished) | `signal detection_finished(result: GFInputDetectionResult)` |
 | 枚举 | [`DeviceType`](#member-gfinputdetector-enums-devicetype) | `enum DeviceType` |
 | 枚举 | [`DetectionState`](#member-gfinputdetector-enums-detectionstate) | `enum DetectionState` |
 | 属性 | [`ignore_echo`](#member-gfinputdetector-properties-ignore_echo) | `var ignore_echo: bool = true` |
@@ -38,6 +39,7 @@
 | 方法 | [`is_accepting_input`](#member-gfinputdetector-methods-is_accepting_input) | `func is_accepting_input() -> bool:` |
 | 方法 | [`cancel_detection`](#member-gfinputdetector-methods-cancel_detection) | `func cancel_detection() -> void:` |
 | 方法 | [`is_detecting`](#member-gfinputdetector-methods-is_detecting) | `func is_detecting() -> bool:` |
+| 方法 | [`get_last_detection_result`](#member-gfinputdetector-methods-get_last_detection_result) | `func get_last_detection_result() -> GFInputDetectionResult:` |
 
 ## 信号
 
@@ -58,6 +60,7 @@ signal detection_started
 ### `input_detected`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 signal input_detected(input_event: InputEvent)
@@ -70,6 +73,25 @@ signal input_detected(input_event: InputEvent)
 | 名称 | 说明 |
 |---|---|
 | `input_event` | 检测到的输入事件；取消或超时时为 null。 |
+
+<a id="member-gfinputdetector-signals-detection_finished"></a>
+
+### `detection_finished`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+signal detection_finished(result: GFInputDetectionResult)
+```
+
+检测结束时发出结构化结果。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `result` | 检测结束结果。 |
 
 ## 枚举
 
@@ -432,3 +454,18 @@ func is_detecting() -> bool:
 检查当前是否正在检测。
 
 返回：是否正在检测。
+
+<a id="member-gfinputdetector-methods-get_last_detection_result"></a>
+
+### `get_last_detection_result`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func get_last_detection_result() -> GFInputDetectionResult:
+```
+
+获取最近一次检测结束结果。
+
+返回：最近一次检测结束结果；尚未结束过检测时返回 null。

@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFRuntimeCleanupScope" path="addons/gf/standard/common/gf_runtime_cleanup_scope.gd" module="standard" extends="RefCounted" classDigest="4633962a6b854ec5e6c3a39d478535a959a2a228a7d10cd90670666ad7be4ec0">
+	<description>GFRuntimeCleanupScope: 通用运行时清理回调作用域。
+用于让上层系统按 scope 注册清理回调，并在重启、切换场景或释放运行态时
+按优先级执行。该类型只管理清理回调的所有权与顺序，不认识具体业务系统。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_service</tag>
+		<tag name="since">8.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties />
+	<methods>
+		<member kind="method" name="register_cleanup">
+			<signature>func register_cleanup( scope_id: StringName, cleanup_id: StringName, callback: Callable, priority: int = 0, metadata: Dictionary = {} ) -&gt; bool:</signature>
+			<description>注册清理回调。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">scope_id: 清理作用域 ID。</tag>
+				<tag name="param">cleanup_id: 清理项 ID，同一 scope 内唯一。</tag>
+				<tag name="param">callback: 无参数清理回调。</tag>
+				<tag name="param">priority: 执行优先级，数值越大越先执行。</tag>
+				<tag name="param">metadata: 调用方自定义元数据。</tag>
+				<tag name="return">注册成功返回 true。</tag>
+				<tag name="schema">metadata: Dictionary project-defined cleanup metadata copied into diagnostics.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="unregister_cleanup">
+			<signature>func unregister_cleanup(scope_id: StringName, cleanup_id: StringName) -&gt; bool:</signature>
+			<description>注销清理回调。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">scope_id: 清理作用域 ID。</tag>
+				<tag name="param">cleanup_id: 清理项 ID。</tag>
+				<tag name="return">成功移除返回 true。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="run_scope">
+			<signature>func run_scope(scope_id: StringName) -&gt; Dictionary:</signature>
+			<description>执行指定 scope 的清理回调。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">scope_id: 清理作用域 ID。</tag>
+				<tag name="return">清理执行报告。</tag>
+				<tag name="schema">return: Dictionary with ok, scope_id, executed_count, skipped_count, cleanup_ids, and issues.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="clear_scope">
+			<signature>func clear_scope(scope_id: StringName) -&gt; void:</signature>
+			<description>清空指定 scope 的所有清理回调。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">scope_id: 清理作用域 ID。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="clear_all">
+			<signature>func clear_all() -&gt; void:</signature>
+			<description>清空全部清理作用域。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="has_cleanup">
+			<signature>func has_cleanup(scope_id: StringName, cleanup_id: StringName) -&gt; bool:</signature>
+			<description>检查清理回调是否已注册。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">scope_id: 清理作用域 ID。</tag>
+				<tag name="param">cleanup_id: 清理项 ID。</tag>
+				<tag name="return">存在返回 true。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_cleanup_ids">
+			<signature>func get_cleanup_ids(scope_id: StringName) -&gt; PackedStringArray:</signature>
+			<description>获取指定 scope 的清理项 ID。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">scope_id: 清理作用域 ID。</tag>
+				<tag name="return">排序后的清理项 ID。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_debug_snapshot">
+			<signature>func get_debug_snapshot() -&gt; Dictionary:</signature>
+			<description>获取调试快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">作用域调试快照。</tag>
+				<tag name="schema">return: Dictionary with scope_count, cleanup_count, and scopes.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

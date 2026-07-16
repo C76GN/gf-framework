@@ -398,14 +398,17 @@ func clear_history() -> void:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.0.0
+## [br]
 ## @return 诊断快照。
 ## [br]
-## @schema return: Dictionary，包含 route_count、history_count、current_route_id 和 has_ui_utility。
+## @schema return: Dictionary，包含 route_count、history_count、pending_async_route_count、current_route_id 和 has_ui_utility。
 func get_debug_snapshot() -> Dictionary:
 	_prune_history()
 	return {
 		"route_count": _routes.size(),
 		"history_count": _history.size(),
+		"pending_async_route_count": _pending_async_routes.size(),
 		"current_route_id": String(get_current_route_id()),
 		"has_ui_utility": _get_ui_utility() != null,
 	}
@@ -471,6 +474,14 @@ func _open_route_async(
 	var ui_utility: GFUIUtility = _get_ui_utility()
 	if ui_utility == null:
 		_fail_route(route_id, "missing_ui_utility")
+		return
+
+	var pending_route: Dictionary = _find_pending_async_route(route.scene_path, route.layer, operation)
+	if not pending_route.is_empty():
+		var pending_route_id: StringName = GFVariantData.get_option_string_name(pending_route, "route_id", &"")
+		if pending_route_id == route_id:
+			return
+		_fail_route(route_id, "route_async_conflict")
 		return
 
 	route_open_requested.emit(route_id, operation, params.duplicate(true))
@@ -541,6 +552,11 @@ func _get_connected_ui_utility() -> GFUIUtility:
 
 func _make_pending_async_route_key(path: String, layer: int, operation: Operation) -> String:
 	return "%d:%d:%s" % [layer, int(operation), path]
+
+
+func _find_pending_async_route(path: String, layer: int, operation: Operation) -> Dictionary:
+	var key: String = _make_pending_async_route_key(path, layer, operation)
+	return GFVariantData.get_option_dictionary(_pending_async_routes, key)
 
 
 func _take_pending_async_route(path: String, layer: int, operation: StringName) -> Dictionary:

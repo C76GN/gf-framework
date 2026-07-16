@@ -192,11 +192,11 @@ var coerce_records: bool = true
 var parse_options: Dictionary = {}
 ```
 
-传给解析器的选项，例如 CSV delimiter、trim_cells、skip_empty_lines，ConfigFile section_field、include_empty_sections，或 XLSX sheet_name、sheet_index、header_row。
+传给解析器的选项，例如 CSV delimiter、trim_cells、skip_empty_lines、comment_prefixes、condition_symbols，ConfigFile section_field、include_empty_sections，或 XLSX sheet_name、sheet_index、header_row。
 
 结构：
 
-- `parse_options`: Dictionary，可包含 GFConfigTableImporter 支持的 CSV / JSON / ConfigFile 解析选项，以及 XLSX sheet_name、sheet_index、header_row、trim_cells、skip_empty_lines 和 reject_duplicate_headers。
+- `parse_options`: Dictionary，可包含 GFConfigTableImporter 支持的 CSV / JSON / ConfigFile 解析选项，以及 XLSX sheet_name、sheet_index、header_row、trim_cells、skip_empty_lines、reject_duplicate_headers、comment_prefixes、comment_row_prefixes、comment_column_prefixes、condition_symbols 和 enable_condition_directives。
 
 <a id="member-gfconfigpipelinetablesource-properties-schema_options"></a>
 

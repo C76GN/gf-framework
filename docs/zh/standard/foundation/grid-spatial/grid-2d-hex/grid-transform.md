@@ -24,6 +24,17 @@ var target_cell := GFGridTransform2D.transform_cell(
 
 `transform_local_cell()` 处理局部格坐标，适合已经把模板坐标归一到 `0..size-1` 的场景。`transform_cell()` 会先减去 `source_rect.position`，再叠加 `target_origin`。`get_transformed_size()` 可用于旋转非方形模板后计算新的包围尺寸。
 
+## 方向变换
+
+```gdscript
+var rotated_direction := GFGridTransform2D.transform_cardinal_direction(
+	Vector2i.RIGHT,
+	GFGridTransform2D.Transform.ROTATE_90
+)
+```
+
+`transform_cardinal_direction()` 用同一套离散变换处理 `Vector2i.RIGHT`、`LEFT`、`DOWN`、`UP`。这适合画刷朝向、模板出入口、WFC 邻接方向或格子移动规则。无效方向或无效变换会返回 `Vector2i.ZERO`，调用方可以把它当作非方向哨兵处理。
+
 ## 连续坐标
 
 ```gdscript

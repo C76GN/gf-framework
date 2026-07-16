@@ -9,7 +9,7 @@
 - 类别：值对象 (`value_object`)
 - 首次版本：`7.0.0`
 
-稳定优先队列。 用二叉堆保存带整数优先级的值，支持高优先级优先或低优先级优先， 并在相同优先级下保持稳定顺序。它只管理排序和弹出顺序，不解释任务、 通知、AI 行为或项目业务语义。
+稳定优先队列。 用二叉堆保存带数值优先级的值，支持高优先级优先或低优先级优先， 并在相同优先级下保持稳定顺序。它只管理排序和弹出顺序，不解释任务、 通知、AI 行为或项目业务语义。
 
 ## 成员概览
 
@@ -17,15 +17,16 @@
 |---|---|---|
 | 属性 | [`high_priority_first`](#member-gfpriorityqueue-properties-high_priority_first) | `var high_priority_first: bool = true:` |
 | 方法 | [`_init`](#member-gfpriorityqueue-methods-_init) | `func _init(p_high_priority_first: bool = true) -> void:` |
-| 方法 | [`from_array`](#member-gfpriorityqueue-methods-from_array) | `static func from_array( values: Array, priority: int = 0, p_high_priority_first: bool = true ) -> RefCounted:` |
-| 方法 | [`push`](#member-gfpriorityqueue-methods-push) | `func push(value: Variant, priority: int = 0, front: bool = false) -> void:` |
+| 方法 | [`from_array`](#member-gfpriorityqueue-methods-from_array) | `static func from_array( values: Array, priority: float = 0.0, p_high_priority_first: bool = true ) -> RefCounted:` |
+| 方法 | [`push`](#member-gfpriorityqueue-methods-push) | `func push(value: Variant, priority: float = 0.0, front: bool = false) -> bool:` |
+| 方法 | [`push_with_order`](#member-gfpriorityqueue-methods-push_with_order) | `func push_with_order(value: Variant, priority: float = 0.0, order: int = 0) -> bool:` |
 | 方法 | [`pop`](#member-gfpriorityqueue-methods-pop) | `func pop(default_value: Variant = null) -> Variant:` |
 | 方法 | [`peek`](#member-gfpriorityqueue-methods-peek) | `func peek(default_value: Variant = null) -> Variant:` |
-| 方法 | [`peek_priority`](#member-gfpriorityqueue-methods-peek_priority) | `func peek_priority(default_value: int = 0) -> int:` |
+| 方法 | [`peek_priority`](#member-gfpriorityqueue-methods-peek_priority) | `func peek_priority(default_value: float = 0.0) -> float:` |
 | 方法 | [`remove_value`](#member-gfpriorityqueue-methods-remove_value) | `func remove_value(value: Variant) -> bool:` |
 | 方法 | [`remove_all`](#member-gfpriorityqueue-methods-remove_all) | `func remove_all(value: Variant) -> int:` |
 | 方法 | [`has_value`](#member-gfpriorityqueue-methods-has_value) | `func has_value(value: Variant) -> bool:` |
-| 方法 | [`set_priority`](#member-gfpriorityqueue-methods-set_priority) | `func set_priority(value: Variant, priority: int, front: bool = false) -> bool:` |
+| 方法 | [`set_priority`](#member-gfpriorityqueue-methods-set_priority) | `func set_priority(value: Variant, priority: float, front: bool = false) -> bool:` |
 | 方法 | [`clear`](#member-gfpriorityqueue-methods-clear) | `func clear() -> void:` |
 | 方法 | [`is_empty`](#member-gfpriorityqueue-methods-is_empty) | `func is_empty() -> bool:` |
 | 方法 | [`size`](#member-gfpriorityqueue-methods-size) | `func size() -> int:` |
@@ -78,7 +79,7 @@ func _init(p_high_priority_first: bool = true) -> void:
 - 首次版本：`7.0.0`
 
 ```gdscript
-static func from_array( values: Array, priority: int = 0, p_high_priority_first: bool = true ) -> RefCounted:
+static func from_array( values: Array, priority: float = 0.0, p_high_priority_first: bool = true ) -> RefCounted:
 ```
 
 从值数组创建优先队列。
@@ -105,7 +106,7 @@ static func from_array( values: Array, priority: int = 0, p_high_priority_first:
 - 首次版本：`7.0.0`
 
 ```gdscript
-func push(value: Variant, priority: int = 0, front: bool = false) -> void:
+func push(value: Variant, priority: float = 0.0, front: bool = false) -> bool:
 ```
 
 推入一个值。
@@ -115,8 +116,37 @@ func push(value: Variant, priority: int = 0, front: bool = false) -> void:
 | 名称 | 说明 |
 |---|---|
 | `value` | 要入队的值。 |
-| `priority` | 整数优先级。 |
+| `priority` | 数值优先级。 |
 | `front` | 为 true 时会排在相同 priority 的既有元素之前。 |
+
+返回：priority 有限并成功入队时返回 true。
+
+结构：
+
+- `value`: Variant queue value.
+
+<a id="member-gfpriorityqueue-methods-push_with_order"></a>
+
+### `push_with_order`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func push_with_order(value: Variant, priority: float = 0.0, order: int = 0) -> bool:
+```
+
+按显式稳定顺序推入一个值。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `value` | 要入队的值。 |
+| `priority` | 数值优先级。 |
+| `order` | 相同 priority 下的稳定排序值，数值越小越先弹出。 |
+
+返回：priority 有限并成功入队时返回 true。
 
 结构：
 
@@ -182,7 +212,7 @@ func peek(default_value: Variant = null) -> Variant:
 - 首次版本：`7.0.0`
 
 ```gdscript
-func peek_priority(default_value: int = 0) -> int:
+func peek_priority(default_value: float = 0.0) -> float:
 ```
 
 读取当前最高优先级。
@@ -278,7 +308,7 @@ func has_value(value: Variant) -> bool:
 - 首次版本：`7.0.0`
 
 ```gdscript
-func set_priority(value: Variant, priority: int, front: bool = false) -> bool:
+func set_priority(value: Variant, priority: float, front: bool = false) -> bool:
 ```
 
 更新第一个等于 value 的队列值优先级。

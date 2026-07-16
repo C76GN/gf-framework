@@ -24,6 +24,11 @@ enum Format {
 }
 
 
+# --- 常量 ---
+
+const _TRANSPORT_VALUE_VALIDATOR = preload("res://addons/gf/extensions/network/runtime/gf_network_transport_value_validator.gd")
+
+
 # --- 公共变量 ---
 
 ## 默认编码格式。
@@ -90,6 +95,9 @@ func deserialize_message_result(bytes: PackedByteArray) -> Dictionary:
 	var data: Dictionary = GFVariantData.get_option_dictionary(dictionary_result, "data")
 	if data.is_empty():
 		return _make_failure("empty_message")
+	var schema_error: String = _get_message_schema_error(data)
+	if not schema_error.is_empty():
+		return _make_failure(schema_error)
 
 	var message: GFNetworkMessage = GFNetworkMessage.new()
 	message.from_dict(data)
@@ -158,6 +166,39 @@ func _make_failure(error: String) -> Dictionary:
 		"data": {},
 		"error": error,
 	}
+
+
+func _get_message_schema_error(data: Dictionary) -> String:
+	var type_value: Variant = GFVariantData.get_option_value(data, "type")
+	if not (type_value is String) and not (type_value is StringName):
+		return "message_type_not_string"
+	if GFVariantData.to_text(type_value).strip_edges().is_empty():
+		return "empty_message_type"
+
+	if data.has("payload") and not (data["payload"] is Dictionary):
+		return "payload_not_dictionary"
+	for field_name: String in ["sequence", "tick", "sender_id"]:
+		if data.has(field_name) and not _is_integer_value(data[field_name]):
+			return "%s_not_integer" % field_name
+	if data.has("channel_id"):
+		var channel_value: Variant = data["channel_id"]
+		if not (channel_value is String) and not (channel_value is StringName):
+			return "channel_id_not_string"
+
+	var payload_value: Variant = GFVariantData.get_option_value(data, "payload", {})
+	var transport_report: Dictionary = _TRANSPORT_VALUE_VALIDATOR.validate(payload_value)
+	if not GFVariantData.get_option_bool(transport_report, "ok"):
+		return "payload_not_transport_safe"
+	return ""
+
+
+func _is_integer_value(value: Variant) -> bool:
+	if typeof(value) == TYPE_INT:
+		return true
+	if typeof(value) != TYPE_FLOAT:
+		return false
+	var number: float = GFVariantData.to_float(value)
+	return not is_nan(number) and not is_inf(number) and number == floor(number)
 
 
 func _get_network_message_value(value: Variant) -> GFNetworkMessage:

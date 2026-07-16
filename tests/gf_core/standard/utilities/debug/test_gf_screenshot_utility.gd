@@ -128,6 +128,33 @@ func test_capture_burst_rejects_capture_count_above_limit() -> void:
 	assert_eq(finished_reports.size(), 1, "提前拒绝也应发出 burst_finished，方便 UI 复位。")
 
 
+func test_capture_burst_cancellation_restores_global_environment() -> void:
+	var utility: GFScreenshotUtility = GFScreenshotUtility.new()
+	var original_locale: String = TranslationServer.get_locale()
+	var original_size: Vector2i = DisplayServer.window_get_size()
+	var tree: SceneTree = get_tree()
+	var original_paused: bool = tree.paused
+	var alternate_locale: String = "fr" if original_locale != "fr" else "en"
+	var requested_size: Vector2i = Vector2i(maxi(original_size.x + 16, 64), maxi(original_size.y + 16, 64))
+	var _deferred_cancel: Variant = utility.call_deferred("cancel_burst", "test_cancel")
+
+	var report: Dictionary = await utility.capture_burst({
+		"locales": PackedStringArray([alternate_locale]),
+		"resolutions": [requested_size],
+		"formats": PackedStringArray([GFScreenshotUtility.FORMAT_PNG]),
+		"pause_tree": true,
+		"frame_delay_seconds": 0.01,
+		"directory": _make_test_directory(),
+	})
+
+	assert_false(GFVariantData.get_option_bool(report, "ok"), "取消的批量截图不应报告成功。")
+	assert_eq(GFVariantData.get_option_string(report, "error"), "capture_burst_cancelled", "取消应返回稳定错误。")
+	assert_eq(GFVariantData.get_option_string_name(report, "cancel_reason"), &"test_cancel", "报告应保留取消原因。")
+	assert_eq(TranslationServer.get_locale(), original_locale, "取消后应恢复原 locale。")
+	assert_eq(DisplayServer.window_get_size(), original_size, "取消后应恢复原窗口尺寸。")
+	assert_eq(tree.paused, original_paused, "取消后应恢复原暂停状态。")
+
+
 # --- 私有/辅助方法 ---
 
 func _make_test_directory() -> String:

@@ -81,6 +81,7 @@ signal staged_settings_discarded(keys: PackedStringArray)
 
 const _SETTING_TYPE_KEY: String = "__gf_setting_type"
 const _SETTING_VALUE_KEY: String = "value"
+const _SETTING_SERIALIZATION_ERROR_COUNT_KEY: String = "error_count"
 
 
 # --- 公共变量 ---
@@ -674,29 +675,49 @@ func reset_all(save_after_change: bool = true) -> void:
 ## [br]
 ## @schema return: Dictionary[String, Variant] serialized setting values suitable for persistence.
 func to_dict(persistent_only: bool = true) -> Dictionary:
-	var result: Dictionary = {}
-	for key: StringName in _values.keys():
-		var definition: GFSettingDefinition = _get_definition(key)
-		if persistent_only and definition != null and not definition.persistent:
-			continue
-		result[String(key)] = _serialize_value(_values[key])
-	return result
+	var serialization_state: Dictionary = {}
+	return _to_dict_with_state(persistent_only, serialization_state)
 
 
-## 从字典恢复设置。
+## 使用字典完整替换当前设置。
 ## [br]
 ## @api public
+## [br]
+## @since 8.0.0
 ## [br]
 ## @param data: 设置数据。
 ## [br]
 ## @schema data: Dictionary[String, Variant] serialized setting values produced by to_dict().
 ## [br]
 ## @param emit_changes: 变化时是否发出 setting_changed。
-func from_dict(data: Dictionary, emit_changes: bool = true) -> void:
+func replace_from_dict(data: Dictionary, emit_changes: bool = true) -> void:
+	var previous_values: Dictionary = _values.duplicate(false)
+	_values = _build_restored_values(data)
+	if emit_changes:
+		_emit_replaced_value_changes(previous_values)
+		var _discarded_staged_keys: PackedStringArray = discard_staged_values()
+	else:
+		_staged_values.clear()
+
+
+## 将字典作为覆盖层合并到当前设置。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+## [br]
+## @param data: 设置数据。
+## [br]
+## @schema data: Dictionary[String, Variant] serialized setting values produced by to_dict().
+## [br]
+## @param emit_changes: 变化时是否发出 setting_changed。
+func merge_from_dict(data: Dictionary, emit_changes: bool = true) -> void:
 	for key_variant: Variant in data.keys():
 		var key: StringName = GFVariantData.to_string_name(key_variant)
 		_set_value_internal(key, _deserialize_value(data[key_variant]), emit_changes, false)
 	_apply_defaults_to_missing()
+	for staged_key_variant: Variant in _staged_values.keys():
+		_reconcile_staged_value(GFVariantData.to_string_name(staged_key_variant))
 
 
 ## 读取持久化设置。
@@ -712,7 +733,7 @@ func load_settings(file_name: String = "") -> Dictionary:
 	var target_file_name: String = storage_file_name if file_name.is_empty() else file_name
 	_clear_pending_save(target_file_name)
 	var data: Dictionary = _read_persisted_data(target_file_name)
-	from_dict(data, false)
+	replace_from_dict(data, false)
 	settings_loaded.emit(data)
 	return data
 
@@ -726,7 +747,11 @@ func load_settings(file_name: String = "") -> Dictionary:
 ## @return Godot 错误码。
 func save_settings(file_name: String = "") -> Error:
 	var target_file_name: String = storage_file_name if file_name.is_empty() else file_name
-	var data: Dictionary = to_dict(true)
+	var serialization_state: Dictionary = {}
+	var data: Dictionary = _to_dict_with_state(true, serialization_state)
+	if GFVariantData.get_option_int(serialization_state, _SETTING_SERIALIZATION_ERROR_COUNT_KEY, 0) > 0:
+		push_error("[GFSettingsUtility] 设置数据包含循环引用，已拒绝持久化：%s。" % target_file_name)
+		return ERR_INVALID_DATA
 	var error: Error = _write_persisted_data(target_file_name, data)
 	_clear_pending_save(target_file_name)
 	if error == OK:
@@ -991,6 +1016,40 @@ func _apply_defaults_to_missing() -> void:
 			_values[key] = definition.coerce_value(definition.default_value)
 
 
+func _build_restored_values(data: Dictionary) -> Dictionary:
+	var restored_values: Dictionary = {}
+	for key_variant: Variant in data.keys():
+		var key: StringName = GFVariantData.to_string_name(key_variant)
+		if key == &"":
+			continue
+		var value: Variant = _deserialize_value(data[key_variant])
+		var definition: GFSettingDefinition = _get_definition(key)
+		restored_values[key] = definition.coerce_value(value) if definition != null else value
+
+	for key: StringName in _definitions.keys():
+		if restored_values.has(key):
+			continue
+		var definition: GFSettingDefinition = _get_definition(key)
+		if definition != null:
+			restored_values[key] = definition.coerce_value(definition.default_value)
+	return restored_values
+
+
+func _emit_replaced_value_changes(previous_values: Dictionary) -> void:
+	for key_variant: Variant in previous_values.keys():
+		var key: StringName = GFVariantData.to_string_name(key_variant)
+		var old_value: Variant = previous_values[key_variant]
+		var has_new_value: bool = _values.has(key)
+		var new_value: Variant = GFVariantData.get_option_value(_values, key)
+		if not has_new_value or old_value != new_value:
+			setting_changed.emit(key, old_value, new_value if has_new_value else null)
+
+	for key: StringName in _values.keys():
+		if previous_values.has(key):
+			continue
+		setting_changed.emit(key, null, _values[key])
+
+
 func _get_storage_utility() -> GFStorageUtility:
 	var arch: GFArchitecture = _get_architecture_or_null()
 	if arch == null:
@@ -1034,6 +1093,9 @@ func _get_fallback_path(file_name: String) -> String:
 	if file_name.is_absolute_path():
 		push_error("[GFSettingsUtility] 已拒绝原生绝对设置路径：%s。" % file_name)
 		return ""
+	if not _is_safe_fallback_file_name(file_name):
+		push_error("[GFSettingsUtility] 已拒绝不安全设置文件名：%s。" % file_name)
+		return ""
 	return "user://" + file_name
 
 
@@ -1068,17 +1130,11 @@ func _serialize_value(value: Variant) -> Variant:
 		}
 	if value is Array:
 		var source_array: Array = value
-		var array_result: Array = []
-		for item: Variant in source_array:
-			array_result.append(_serialize_value(item))
-		return array_result
+		return GFVariantJsonCodec.variant_to_json_compatible(source_array, { "encode_dictionary_keys": true })
 	if value is Dictionary:
 		var source_dictionary: Dictionary = value
-		var dictionary_result: Dictionary = {}
-		for key_variant: Variant in source_dictionary.keys():
-			dictionary_result[str(key_variant)] = _serialize_value(source_dictionary[key_variant])
-		return dictionary_result
-	return GFVariantJsonCodec.variant_to_json_compatible(value)
+		return GFVariantJsonCodec.variant_to_json_compatible(source_dictionary, { "encode_dictionary_keys": true })
+	return GFVariantJsonCodec.variant_to_json_compatible(value, { "encode_dictionary_keys": true })
 
 
 func _deserialize_value(value: Variant) -> Variant:
@@ -1127,4 +1183,57 @@ func _is_serialized_setting_wrapper(data: Dictionary) -> bool:
 			return data.size() == 5 and data.has("r") and data.has("g") and data.has("b") and data.has("a")
 		"StringName":
 			return data.size() == 2 and data.has(_SETTING_VALUE_KEY)
+	return false
+
+
+func _to_dict_with_state(persistent_only: bool, serialization_state: Dictionary) -> Dictionary:
+	var result: Dictionary = {}
+	for key: StringName in _values.keys():
+		var definition: GFSettingDefinition = _get_definition(key)
+		if persistent_only and definition != null and not definition.persistent:
+			continue
+		var serialized_value: Variant = _serialize_value(_values[key])
+		if _contains_circular_reference_marker(serialized_value):
+			serialization_state[_SETTING_SERIALIZATION_ERROR_COUNT_KEY] = (
+				GFVariantData.get_option_int(serialization_state, _SETTING_SERIALIZATION_ERROR_COUNT_KEY, 0) + 1
+			)
+		result[String(key)] = serialized_value
+	return result
+
+
+func _is_safe_fallback_file_name(file_name: String) -> bool:
+	var normalized_file_name: String = file_name.strip_edges()
+	if normalized_file_name.is_empty() or normalized_file_name != file_name:
+		return false
+	if normalized_file_name != normalized_file_name.get_file():
+		return false
+	if normalized_file_name.contains(".."):
+		return false
+	if normalized_file_name.contains("/") or normalized_file_name.contains("\\"):
+		return false
+	if normalized_file_name.contains(":"):
+		return false
+	return true
+
+
+func _contains_circular_reference_marker(value: Variant) -> bool:
+	if value is Array:
+		var array_value: Array = value
+		for item: Variant in array_value:
+			if _contains_circular_reference_marker(item):
+				return true
+		return false
+	if not value is Dictionary:
+		return false
+
+	var dictionary_value: Dictionary = value
+	if dictionary_value.has(GFVariantJsonCodec.JSON_MARKER_KEY):
+		var marker: Dictionary = GFVariantData.as_dictionary(
+			GFVariantData.get_option_value(dictionary_value, GFVariantJsonCodec.JSON_MARKER_KEY)
+		)
+		if GFVariantData.get_option_string(marker, GFVariantJsonCodec.JSON_TYPE_KEY) == "CircularReference":
+			return true
+	for key_variant: Variant in dictionary_value.keys():
+		if _contains_circular_reference_marker(dictionary_value[key_variant]):
+			return true
 	return false

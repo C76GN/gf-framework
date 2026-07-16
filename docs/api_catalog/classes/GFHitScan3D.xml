@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFHitScan3D" path="addons/gf/extensions/combat/hit_detection/gf_hit_scan_3d.gd" module="extensions/combat" extends="RayCast3D" classDigest="f03cf575b94815ebfd14f8060fd5900727e0ed19a8b76392297fc88179c9a8f8">
+<class name="GFHitScan3D" path="addons/gf/extensions/combat/hit_detection/gf_hit_scan_3d.gd" module="extensions/combat" extends="RayCast3D" classDigest="acb41ef496bd90525af747c60ed9dd8b07e770587265806b0ba21de5bf324607">
 	<description>GFHitScan3D: 3D 通用射线命中发送器。
 基于 RayCast3D 构建 GFCombatHitContext 并发送给具备 receive_hit() 的接收对象。
 它不规定伤害、穿透、命中特效或任何业务规则。</description>
@@ -17,7 +17,8 @@
 				<tag name="param">context: 命中上下文。</tag>
 				<tag name="param">receiver: 接收对象。</tag>
 				<tag name="param">report: 结果报告。</tag>
-				<tag name="schema">report: Dictionary，统一扫描命中结果，包含 ok、hit_id、receiver、reason、message 和 metadata。</tag>
+				<tag name="schema">report: Dictionary，统一扫描命中结果，包含 ok、hit_id、receiver(JSON-safe 摘要)、reason、message 和 metadata。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="signal" name="scan_missed">
@@ -27,6 +28,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">report: 结果报告。</tag>
 				<tag name="schema">report: Dictionary，扫描未命中报告，包含 ok、reason 和 metadata。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="signal" name="hit_accepted">
@@ -37,7 +39,8 @@
 				<tag name="param">context: 命中上下文。</tag>
 				<tag name="param">receiver: 接收对象。</tag>
 				<tag name="param">report: 结果报告。</tag>
-				<tag name="schema">report: Dictionary，统一扫描命中结果，包含 ok、hit_id、receiver、reason、message 和 metadata。</tag>
+				<tag name="schema">report: Dictionary，统一扫描命中结果，包含 ok、hit_id、receiver(JSON-safe 摘要)、reason、message 和 metadata。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="signal" name="hit_rejected">
@@ -48,7 +51,8 @@
 				<tag name="param">context: 命中上下文。</tag>
 				<tag name="param">receiver: 接收对象。</tag>
 				<tag name="param">report: 结果报告。</tag>
-				<tag name="schema">report: Dictionary，统一扫描命中结果，包含 ok、hit_id、receiver、reason、message 和 metadata。</tag>
+				<tag name="schema">report: Dictionary，统一扫描命中结果，包含 ok、hit_id、receiver(JSON-safe 摘要)、reason、message 和 metadata。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</signals>
@@ -60,6 +64,7 @@
 			<description>是否允许发送命中。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="force_update_before_scan" decorators="@export">
@@ -67,6 +72,7 @@
 			<description>扫描前是否强制刷新射线。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="hit_id" decorators="@export">
@@ -74,6 +80,7 @@
 			<description>默认命中 ID。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="payload" decorators="@export">
@@ -82,6 +89,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="schema">payload: Dictionary，默认命中载荷；框架只复制并透传。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="magnitude" decorators="@export">
@@ -89,6 +97,7 @@
 			<description>通用强度值。框架不解释该字段。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="tags" decorators="@export">
@@ -96,6 +105,7 @@
 			<description>命中标签。框架不解释该字段。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="metadata" decorators="@export">
@@ -104,6 +114,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="schema">metadata: Dictionary，发送器自定义扫描命中元数据；会进入命中上下文和结果报告。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="sender_path" decorators="@export_node_path(&quot;Node&quot;)">
@@ -111,6 +122,7 @@
 			<description>可选发送者路径；为空时使用当前节点。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</properties>
@@ -125,6 +137,7 @@
 				<tag name="param">hit_id_override: 覆盖命中 ID；为空时使用节点默认命中 ID。</tag>
 				<tag name="return">命中上下文。</tag>
 				<tag name="schema">payload_override: Variant，可为 null、Dictionary 或项目自定义命中载荷；为 null 时使用节点默认 payload。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="scan">
@@ -136,7 +149,8 @@
 				<tag name="param">hit_id_override: 覆盖命中 ID；为空时使用节点默认命中 ID。</tag>
 				<tag name="return">统一结果报告。</tag>
 				<tag name="schema">payload_override: Variant，可为 null、Dictionary 或项目自定义命中载荷；为 null 时使用节点默认 payload。</tag>
-				<tag name="schema">return: Dictionary，统一扫描命中或未命中结果，包含 ok、reason、metadata，并在命中时包含 hit_id、receiver 和 message。</tag>
+				<tag name="schema">return: Dictionary，统一扫描命中或未命中结果，包含 ok、reason、metadata，并在命中时包含 hit_id、receiver(JSON-safe 摘要) 和 message。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</methods>

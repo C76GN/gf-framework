@@ -11,6 +11,11 @@ class_name GFConfigSetValidationRule
 extends GFConfigValidationRule
 
 
+# --- 常量 ---
+
+const _SUPPORTED_VALUES_INLINE_LIMIT: int = 32
+
+
 # --- 导出变量 ---
 
 ## 允许出现的值列表。
@@ -105,7 +110,17 @@ func _make_issue_context(context: Dictionary, value: Variant) -> Dictionary:
 	var issue_context: Dictionary = context.duplicate(true)
 	issue_context["value"] = GFVariantData.duplicate_variant(value)
 	issue_context["actual_value"] = GFVariantData.duplicate_variant(value)
-	issue_context["supported_values"] = GFVariantData.duplicate_variant(allowed_values)
+	if allowed_values.size() <= _SUPPORTED_VALUES_INLINE_LIMIT:
+		issue_context["supported_values"] = GFVariantData.duplicate_variant(allowed_values)
+	else:
+		var summary: Dictionary = GFReportValueCodec.make_collection_summary(allowed_values, {
+			"sample_count": _SUPPORTED_VALUES_INLINE_LIMIT,
+			"encode_dictionary_keys": true,
+		})
+		issue_context["supported_values_count"] = GFVariantData.get_option_int(summary, "count")
+		issue_context["supported_values_sample"] = GFVariantData.get_option_array(summary, "sample")
+		issue_context["supported_values_hash"] = GFVariantData.get_option_string(summary, "hash")
+		issue_context["supported_values_truncated"] = true
 	return issue_context
 
 

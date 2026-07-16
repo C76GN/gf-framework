@@ -17,6 +17,17 @@ print(data["ok"])
 print(data["summary"])
 ```
 
+需要把报告交给 JSON 文件、命令行、CI 或外部工具时，使用 `to_json_compatible_dict()`。它会通过 `GFReportValueCodec` 把 metadata、issue key 和附加字段中的 Godot 值转换成 JSON-safe 结构，并脱敏运行时对象：
+
+```gdscript
+var json_safe := report.to_json_compatible_dict()
+var text := JSON.stringify(json_safe, "\t")
+```
+
+`to_dict()` 仍适合 Godot 内部传递和测试断言；`to_json_compatible_dict()` 是跨进程、日志和文件边界的默认选择。
+
+需要在不同输出场景复用同一份报告时，可以把 `redaction_profile` 传给 `GFReportValueCodec`。常用 profile 包括开发调试用的 `debug`、默认支持诊断用的 `support`、公开页面或用户可见输出用的 `public`，以及更严格的 `privacy`。profile 只决定路径、对象摘要和敏感字段的导出强度，不改变原始报告对象；项目仍应在业务层决定哪些字段可以采集。
+
 ## Source Span
 
 需要把问题定位到源码、配置表、导入文本或资源片段时，可以使用 `GFSourceSpan`。行列约定为 1-based，`0` 表示未知；`source` 字典字段会作为 `source_path` 的兼容别名读取，方便旧字典报告逐步迁移。
@@ -86,3 +97,7 @@ print(report["compatible"])
 ```
 
 契约可声明 `required`、`allow_multiple`、`signature`、`version` 和 `capabilities`。报告会区分 covered 与 compatible：只要有启用适配器就算 covered；签名、版本和能力也满足时才算 compatible。这样编辑器预检、导入器、包构建器或外部桥接层可以在真正执行之前发现缺失、孤儿、重复或过期适配器。
+
+如果实际适配器是 Godot `Object` 或 `Engine` singleton，可先用 `make_object_adapter_entry()` 或 `make_engine_singleton_adapter_entry()` 生成适配器条目。它们只检查目标是否存在、必需方法和必需信号是否齐全，并把 `missing_methods`、`missing_signals`、`object_class`、`platform` 等信息写入 metadata；不会调用对象方法，也不会替项目注册平台服务。
+
+请求 handler 覆盖报告仍可通过 `GFBridgeContractReport.report_request_handlers()` 直接生成。更底层的 request-handler 专用条目构建由 `GFRequestHandlerRegistry.make_bridge_contract_entries()` 提供，便于请求模块自己维护 handler adapter 元数据，而通用 bridge 报告继续只负责比较 contract 与 adapter 字典。

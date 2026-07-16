@@ -419,6 +419,24 @@ func is_terminal() -> bool:
 	return status == STATUS_LOADED or status == STATUS_FAILED or status == STATUS_RELEASED
 
 
+## 获取当前资源身份快照。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+## [br]
+## @param options: 可选项，支持 check_exists。
+## [br]
+## @return 资源身份对象。
+## [br]
+## @schema options: Dictionary with optional `check_exists: bool`.
+func get_resource_identity(options: Dictionary = {}) -> GFResourceIdentity:
+	var identity_options: Dictionary = options.duplicate(true)
+	if not identity_options.has("metadata"):
+		identity_options["metadata"] = metadata.duplicate(true)
+	return GFResourceIdentity.from_path(resource_path, resource_key, "", identity_options)
+
+
 ## 导出状态字典。
 ## [br]
 ## @api public
@@ -427,12 +445,14 @@ func is_terminal() -> bool:
 ## [br]
 ## @return 状态字典。
 ## [br]
-## @schema return: Dictionary，包含 resource_key、resource_path、status、progress、error、reference_mode、has_resource、resource_instance_id 和 metadata。
+## @schema return: Dictionary，包含 resource_key、resource_path、resource_identity、status、progress、error、reference_mode、has_resource、resource_instance_id 和 metadata。
 func to_dictionary() -> Dictionary:
 	var resource: Resource = get_resource()
+	var identity: GFResourceIdentity = get_resource_identity()
 	return {
 		"resource_key": resource_key,
 		"resource_path": resource_path,
+		"resource_identity": identity.to_dictionary(),
 		"status": status,
 		"progress": progress,
 		"error": error,
@@ -471,9 +491,17 @@ func duplicate_state() -> GFResourceLoadState:
 ## @return 状态对象。
 static func from_dictionary(data: Dictionary) -> GFResourceLoadState:
 	var state: GFResourceLoadState = GFResourceLoadState.new()
+	var restored_path: String = GFVariantData.get_option_string(data, "resource_path")
+	if restored_path.is_empty():
+		var identity_data: Dictionary = GFVariantData.get_option_dictionary(data, "resource_identity")
+		restored_path = GFVariantData.get_option_string(
+			identity_data,
+			"raw_path",
+			GFVariantData.get_option_string(identity_data, "canonical_path")
+		)
 	var _configured: Variant = state.configure(
 		GFVariantData.get_option_string_name(data, "resource_key"),
-		GFVariantData.get_option_string(data, "resource_path"),
+		restored_path,
 		{
 			"status": GFVariantData.get_option_string_name(data, "status", STATUS_UNREQUESTED),
 			"progress": GFVariantData.get_option_float(data, "progress", 0.0),

@@ -64,7 +64,7 @@ var ignore_time_scale: bool = false
 
 # --- 私有变量 ---
 
-var _source: GFCancelSource = null
+var _source: GFCancellationSource = null
 var _source_callback: Callable = Callable()
 var _active: bool = false
 var _timed_out: bool = false
@@ -95,7 +95,7 @@ func _init() -> void:
 ## @since 7.0.0
 ## [br]
 ## @return 当前超时控制器持有的 token。
-func get_token() -> GFCancelToken:
+func get_token() -> GFCancellationToken:
 	return _source.get_token()
 
 
@@ -121,8 +121,8 @@ func start_seconds(
 	tree: SceneTree = null,
 	reason: StringName = DEFAULT_TIMEOUT_REASON,
 	metadata: Dictionary = {}
-) -> GFCancelToken:
-	if _source == null or _source.is_cancelled():
+) -> GFCancellationToken:
+	if _source == null or _source.is_cancel_requested():
 		_replace_source()
 	else:
 		_source.dispose()
@@ -143,7 +143,7 @@ func start_seconds(
 		process_in_physics,
 		ignore_time_scale
 	)
-	if not scheduled and not _source.is_cancelled():
+	if not scheduled and not _source.is_cancel_requested():
 		_active = false
 	return _source.get_token()
 
@@ -166,8 +166,8 @@ func stop() -> void:
 ## @since 7.0.0
 ## [br]
 ## @return 重置后的 token。
-func reset() -> GFCancelToken:
-	if _source == null or _source.is_cancelled():
+func reset() -> GFCancellationToken:
+	if _source == null or _source.is_cancel_requested():
 		_replace_source()
 	else:
 		_source.dispose()
@@ -205,7 +205,7 @@ func cancel(reason: StringName = &"cancelled", metadata: Dictionary = {}) -> boo
 ## [br]
 ## @return 已取消时返回 true。
 func is_cancelled() -> bool:
-	return _source != null and _source.is_cancelled()
+	return _source != null and _source.is_cancel_requested()
 
 
 ## 判断当前是否存在待触发的超时计划。
@@ -280,20 +280,23 @@ func get_debug_snapshot() -> Dictionary:
 
 func _replace_source() -> void:
 	_disconnect_source()
-	_source = GFCancelSource.new()
+	_source = GFCancellationSource.new()
 	_source_callback = Callable(self, "_on_token_cancelled")
-	var _connect_error: Error = _source.get_token().cancelled.connect(
+	var _connect_error: Error = _source.get_token().cancel_requested.connect(
 		_source_callback,
 		CONNECT_ONE_SHOT as Object.ConnectFlags
 	) as Error
+	if _connect_error != OK:
+		_source_callback = Callable()
+		push_warning("[GFTimeoutController] 无法连接取消 token，超时状态将不会自动更新。")
 
 
 func _disconnect_source() -> void:
 	if _source == null or not _source_callback.is_valid():
 		return
-	var token: GFCancelToken = _source.get_token()
-	if token.cancelled.is_connected(_source_callback):
-		token.cancelled.disconnect(_source_callback)
+	var token: GFCancellationToken = _source.get_token()
+	if token.cancel_requested.is_connected(_source_callback):
+		token.cancel_requested.disconnect(_source_callback)
 	_source_callback = Callable()
 
 
@@ -307,7 +310,8 @@ func _clear_timeout_state() -> void:
 	_last_metadata.clear()
 
 
-func _on_token_cancelled(reason: StringName, metadata: Dictionary) -> void:
+func _on_token_cancelled(reason: StringName) -> void:
+	var metadata: Dictionary = _source.get_token().get_cancel_metadata() if _source != null else {}
 	var cancelled_by_timeout: bool = _active and not _manual_cancel_pending and reason == _last_reason
 	_active = false
 	if not cancelled_by_timeout:

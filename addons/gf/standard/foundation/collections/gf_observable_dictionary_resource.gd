@@ -14,7 +14,7 @@ extends Resource
 
 # --- 信号 ---
 
-## 单个键值变更后发出。
+## 非 batch 模式下单个键值变更后发出。batch 内变更只在 end_batch() 时汇总到 entries_changed。
 ## [br]
 ## @api public
 ## [br]
@@ -39,7 +39,7 @@ extends Resource
 ## @schema metadata: Dictionary copied from the mutation call.
 signal entry_changed(operation: StringName, entry_key: Variant, old_value: Variant, new_value: Variant, metadata: Dictionary)
 
-## 一批键值变更完成后发出。
+## 一批键值变更完成后发出；非 batch 单项变更也会作为单元素 changes 发出。
 ## [br]
 ## @api public
 ## [br]

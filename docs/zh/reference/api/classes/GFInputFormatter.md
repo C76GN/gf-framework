@@ -25,11 +25,15 @@
 | 方法 | [`binding_as_rich_text`](#member-gfinputformatter-methods-binding_as_rich_text) | `static func binding_as_rich_text(binding: GFInputBinding, options: Dictionary = {}) -> String:` |
 | 方法 | [`mapping_as_text`](#member-gfinputformatter-methods-mapping_as_text) | `static func mapping_as_text( mapping: GFInputMapping, context_id: StringName = &"", remap_config: GFInputRemapConfig = null, options: Dictionary = {} ) -> String:` |
 | 方法 | [`mapping_as_rich_text`](#member-gfinputformatter-methods-mapping_as_rich_text) | `static func mapping_as_rich_text( mapping: GFInputMapping, context_id: StringName = &"", remap_config: GFInputRemapConfig = null, options: Dictionary = {} ) -> String:` |
-| 方法 | [`add_text_provider`](#member-gfinputformatter-methods-add_text_provider) | `static func add_text_provider(provider: GFInputTextProvider) -> void:` |
+| 方法 | [`get_default_registry`](#member-gfinputformatter-methods-get_default_registry) | `static func get_default_registry() -> GFInputFormatterRegistry:` |
+| 方法 | [`set_default_registry`](#member-gfinputformatter-methods-set_default_registry) | `static func set_default_registry(registry: GFInputFormatterRegistry) -> void:` |
+| 方法 | [`register_text_provider`](#member-gfinputformatter-methods-register_text_provider) | `static func register_text_provider( provider: GFInputTextProvider, owner: Object = null ) -> GFInputProviderRegistration:` |
+| 方法 | [`add_text_provider`](#member-gfinputformatter-methods-add_text_provider) | `static func add_text_provider(provider: GFInputTextProvider, owner: Object = null) -> void:` |
 | 方法 | [`remove_text_provider`](#member-gfinputformatter-methods-remove_text_provider) | `static func remove_text_provider(provider: GFInputTextProvider) -> void:` |
 | 方法 | [`clear_text_providers`](#member-gfinputformatter-methods-clear_text_providers) | `static func clear_text_providers() -> void:` |
 | 方法 | [`get_text_providers`](#member-gfinputformatter-methods-get_text_providers) | `static func get_text_providers() -> Array[GFInputTextProvider]:` |
-| 方法 | [`add_icon_provider`](#member-gfinputformatter-methods-add_icon_provider) | `static func add_icon_provider(provider: GFInputIconProvider) -> void:` |
+| 方法 | [`register_icon_provider`](#member-gfinputformatter-methods-register_icon_provider) | `static func register_icon_provider( provider: GFInputIconProvider, owner: Object = null ) -> GFInputProviderRegistration:` |
+| 方法 | [`add_icon_provider`](#member-gfinputformatter-methods-add_icon_provider) | `static func add_icon_provider(provider: GFInputIconProvider, owner: Object = null) -> void:` |
 | 方法 | [`remove_icon_provider`](#member-gfinputformatter-methods-remove_icon_provider) | `static func remove_icon_provider(provider: GFInputIconProvider) -> void:` |
 | 方法 | [`clear_icon_providers`](#member-gfinputformatter-methods-clear_icon_providers) | `static func clear_icon_providers() -> void:` |
 | 方法 | [`get_icon_providers`](#member-gfinputformatter-methods-get_icon_providers) | `static func get_icon_providers() -> Array[GFInputIconProvider]:` |
@@ -41,6 +45,7 @@
 ### `input_event_as_text`
 
 - API：`public`
+- 首次版本：`8.0.0`
 
 ```gdscript
 static func input_event_as_text(input_event: InputEvent, options: Dictionary = {}) -> String:
@@ -59,13 +64,14 @@ static func input_event_as_text(input_event: InputEvent, options: Dictionary = {
 
 结构：
 
-- `options`: Dictionary，可包含 unbound_text 和 provider 特定格式化字段。
+- `options`: Dictionary，可包含 unbound_text、formatter_registry 和 provider 特定格式化字段。
 
 <a id="member-gfinputformatter-methods-input_event_as_rich_text"></a>
 
 ### `input_event_as_rich_text`
 
 - API：`public`
+- 首次版本：`8.0.0`
 
 ```gdscript
 static func input_event_as_rich_text(input_event: InputEvent, options: Dictionary = {}) -> String:
@@ -84,13 +90,14 @@ static func input_event_as_rich_text(input_event: InputEvent, options: Dictionar
 
 结构：
 
-- `options`: Dictionary，可包含 unbound_text、icon_size 和 provider 特定富文本字段。
+- `options`: Dictionary，可包含 unbound_text、icon_size、formatter_registry 和 provider 特定富文本字段。
 
 <a id="member-gfinputformatter-methods-input_event_icon"></a>
 
 ### `input_event_icon`
 
 - API：`public`
+- 首次版本：`8.0.0`
 
 ```gdscript
 static func input_event_icon(input_event: InputEvent, options: Dictionary = {}) -> Texture2D:
@@ -109,7 +116,7 @@ static func input_event_icon(input_event: InputEvent, options: Dictionary = {}) 
 
 结构：
 
-- `options`: Dictionary，透传给已注册的图标 provider。
+- `options`: Dictionary，可包含 formatter_registry，并透传给已注册的图标 provider。
 
 <a id="member-gfinputformatter-methods-action_as_text"></a>
 
@@ -135,7 +142,7 @@ static func action_as_text(action_name: StringName, options: Dictionary = {}) ->
 
 结构：
 
-- `options`: Dictionary，可包含 unbound_text、preferred_device_type、preferred_event_index 和 provider 特定格式化字段。
+- `options`: Dictionary，可包含 unbound_text、preferred_device_type、preferred_event_index、formatter_registry 和 provider 特定格式化字段。
 
 <a id="member-gfinputformatter-methods-action_as_rich_text"></a>
 
@@ -161,7 +168,7 @@ static func action_as_rich_text(action_name: StringName, options: Dictionary = {
 
 结构：
 
-- `options`: Dictionary，可包含 unbound_text、icon_size、preferred_device_type、preferred_event_index、prefer_action_icon 和 provider 特定富文本字段。
+- `options`: Dictionary，可包含 unbound_text、icon_size、preferred_device_type、preferred_event_index、prefer_action_icon、formatter_registry 和 provider 特定富文本字段。
 
 <a id="member-gfinputformatter-methods-action_icon"></a>
 
@@ -187,13 +194,14 @@ static func action_icon(action_name: StringName, options: Dictionary = {}) -> Te
 
 结构：
 
-- `options`: Dictionary，可包含 preferred_device_type、preferred_event_index、prefer_action_icon 和 provider 特定图标字段。
+- `options`: Dictionary，可包含 preferred_device_type、preferred_event_index、prefer_action_icon、formatter_registry 和 provider 特定图标字段。
 
 <a id="member-gfinputformatter-methods-binding_as_text"></a>
 
 ### `binding_as_text`
 
 - API：`public`
+- 首次版本：`8.0.0`
 
 ```gdscript
 static func binding_as_text(binding: GFInputBinding, options: Dictionary = {}) -> String:
@@ -212,13 +220,14 @@ static func binding_as_text(binding: GFInputBinding, options: Dictionary = {}) -
 
 结构：
 
-- `options`: Dictionary，可包含 unbound_text 和 provider 特定格式化字段。
+- `options`: Dictionary，可包含 unbound_text、formatter_registry 和 provider 特定格式化字段。
 
 <a id="member-gfinputformatter-methods-binding_as_rich_text"></a>
 
 ### `binding_as_rich_text`
 
 - API：`public`
+- 首次版本：`8.0.0`
 
 ```gdscript
 static func binding_as_rich_text(binding: GFInputBinding, options: Dictionary = {}) -> String:
@@ -237,13 +246,14 @@ static func binding_as_rich_text(binding: GFInputBinding, options: Dictionary = 
 
 结构：
 
-- `options`: Dictionary，可包含 unbound_text、icon_size 和 provider 特定富文本字段。
+- `options`: Dictionary，可包含 unbound_text、icon_size、formatter_registry 和 provider 特定富文本字段。
 
 <a id="member-gfinputformatter-methods-mapping_as_text"></a>
 
 ### `mapping_as_text`
 
 - API：`public`
+- 首次版本：`8.0.0`
 
 ```gdscript
 static func mapping_as_text( mapping: GFInputMapping, context_id: StringName = &"", remap_config: GFInputRemapConfig = null, options: Dictionary = {} ) -> String:
@@ -264,13 +274,14 @@ static func mapping_as_text( mapping: GFInputMapping, context_id: StringName = &
 
 结构：
 
-- `options`: Dictionary，可包含 unbound_text 和 provider 特定格式化字段。
+- `options`: Dictionary，可包含 unbound_text、formatter_registry 和 provider 特定格式化字段。
 
 <a id="member-gfinputformatter-methods-mapping_as_rich_text"></a>
 
 ### `mapping_as_rich_text`
 
 - API：`public`
+- 首次版本：`8.0.0`
 
 ```gdscript
 static func mapping_as_rich_text( mapping: GFInputMapping, context_id: StringName = &"", remap_config: GFInputRemapConfig = null, options: Dictionary = {} ) -> String:
@@ -291,16 +302,73 @@ static func mapping_as_rich_text( mapping: GFInputMapping, context_id: StringNam
 
 结构：
 
-- `options`: Dictionary，可包含 unbound_text、icon_size 和 provider 特定富文本字段。
+- `options`: Dictionary，可包含 unbound_text、icon_size、formatter_registry 和 provider 特定富文本字段。
+
+<a id="member-gfinputformatter-methods-get_default_registry"></a>
+
+### `get_default_registry`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+static func get_default_registry() -> GFInputFormatterRegistry:
+```
+
+获取默认 provider registry。
+
+返回：默认 provider registry。
+
+<a id="member-gfinputformatter-methods-set_default_registry"></a>
+
+### `set_default_registry`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+static func set_default_registry(registry: GFInputFormatterRegistry) -> void:
+```
+
+设置默认 provider registry。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `registry` | 新的默认 provider registry；传入 null 会重建空 registry。 |
+
+<a id="member-gfinputformatter-methods-register_text_provider"></a>
+
+### `register_text_provider`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+static func register_text_provider( provider: GFInputTextProvider, owner: Object = null ) -> GFInputProviderRegistration:
+```
+
+注册文本 provider 并返回释放句柄。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `provider` | 文本 provider。 |
+| `owner` | 可选拥有者；拥有者释放后注册会自动失效。 |
+
+返回：注册句柄；provider 为空时返回非活动句柄。
 
 <a id="member-gfinputformatter-methods-add_text_provider"></a>
 
 ### `add_text_provider`
 
 - API：`public`
+- 首次版本：`8.0.0`
 
 ```gdscript
-static func add_text_provider(provider: GFInputTextProvider) -> void:
+static func add_text_provider(provider: GFInputTextProvider, owner: Object = null) -> void:
 ```
 
 注册文本 provider。
@@ -310,6 +378,7 @@ static func add_text_provider(provider: GFInputTextProvider) -> void:
 | 名称 | 说明 |
 |---|---|
 | `provider` | 文本 provider。 |
+| `owner` | 可选拥有者；拥有者释放后注册会自动失效。 |
 
 <a id="member-gfinputformatter-methods-remove_text_provider"></a>
 
@@ -355,14 +424,37 @@ static func get_text_providers() -> Array[GFInputTextProvider]:
 
 返回：provider 列表副本。
 
+<a id="member-gfinputformatter-methods-register_icon_provider"></a>
+
+### `register_icon_provider`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+static func register_icon_provider( provider: GFInputIconProvider, owner: Object = null ) -> GFInputProviderRegistration:
+```
+
+注册图标 provider 并返回释放句柄。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `provider` | 图标 provider。 |
+| `owner` | 可选拥有者；拥有者释放后注册会自动失效。 |
+
+返回：注册句柄；provider 为空时返回非活动句柄。
+
 <a id="member-gfinputformatter-methods-add_icon_provider"></a>
 
 ### `add_icon_provider`
 
 - API：`public`
+- 首次版本：`8.0.0`
 
 ```gdscript
-static func add_icon_provider(provider: GFInputIconProvider) -> void:
+static func add_icon_provider(provider: GFInputIconProvider, owner: Object = null) -> void:
 ```
 
 注册图标 provider。
@@ -372,6 +464,7 @@ static func add_icon_provider(provider: GFInputIconProvider) -> void:
 | 名称 | 说明 |
 |---|---|
 | `provider` | 图标 provider。 |
+| `owner` | 可选拥有者；拥有者释放后注册会自动失效。 |
 
 <a id="member-gfinputformatter-methods-remove_icon_provider"></a>
 

@@ -40,6 +40,8 @@ signal projectile_emit_failed(reason: StringName, details: Dictionary)
 # --- 常量 ---
 
 const _GF_NODE_CONTEXT_SCRIPT = preload("res://addons/gf/kernel/core/gf_node_context.gd")
+const _GF_PROJECTILE_EMISSION_TASK_SCRIPT = preload("res://addons/gf/extensions/combat/projectiles/gf_projectile_emission_task.gd")
+const _GF_COMBAT_FINITE_MATH = preload("res://addons/gf/extensions/combat/core/gf_combat_finite_math.gd")
 
 
 # --- 导出变量 ---
@@ -63,6 +65,22 @@ const _GF_NODE_CONTEXT_SCRIPT = preload("res://addons/gf/kernel/core/gf_node_con
 ## [br]
 ## @api public
 @export var spawn_pattern: GFProjectileSpawnPattern2D = null
+
+## 可选发射请求策略。用于通用冷却、数量裁剪或项目侧自定义门控。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+@export var emission_policy: GFProjectileEmissionPolicy = null
+
+## 单次请求在生成 transform 前不可绕过的硬数量上限。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+@export_range(1, 65536, 1) var hard_projectile_limit_per_request: int = 4096:
+	set(value):
+		hard_projectile_limit_per_request = clampi(value, 1, 65536)
 
 ## 默认上下文。每次发射会深拷贝后再合并调用方上下文。
 ## [br]
@@ -169,12 +187,35 @@ func emit_projectiles(
 		_emit_failure(&"missing_parent", { "projectile_id": effective_id })
 		return []
 
-	var transforms: Array[Transform2D] = _get_spawn_transforms(projectile_context, emit_count)
-	if transforms.is_empty():
-		_emit_failure(&"empty_spawn_pattern", { "projectile_id": effective_id })
+	var requested_count: int = _resolve_requested_count(emit_count)
+	var task: _GF_PROJECTILE_EMISSION_TASK_SCRIPT = _GF_PROJECTILE_EMISSION_TASK_SCRIPT.new()
+	var _configured_task: _GF_PROJECTILE_EMISSION_TASK_SCRIPT = task.configure(
+		self,
+		emission_policy,
+		effective_id,
+		projectile_context,
+		requested_count,
+		hard_projectile_limit_per_request,
+		int(Time.get_ticks_msec())
+	)
+	var prepare_report: Dictionary = task.prepare()
+	if not GFVariantData.get_option_bool(prepare_report, "ok", false):
+		_emit_failure(GFVariantData.get_option_string_name(prepare_report, "reason", &"emission_policy_blocked"), prepare_report)
 		return []
 
+	var allowed_count: int = task.get_allowed_count()
+	var transforms: Array[Transform2D] = _get_spawn_transforms(projectile_context, allowed_count)
+	transforms = _filter_finite_transforms(transforms)
+	if transforms.is_empty():
+		var rollback_report: Dictionary = task.rollback(&"empty_spawn_pattern")
+		_emit_failure(&"empty_spawn_pattern", rollback_report)
+		return []
+	if transforms.size() > allowed_count:
+		transforms = transforms.slice(0, allowed_count)
+
+	var effective_context: Dictionary = task.get_projectile_context()
 	var result: Array[Node] = []
+	var contexts: Array[Dictionary] = []
 	for index: int in range(transforms.size()):
 		var spawn_transform: Transform2D = transforms[index]
 		var projectile: Node = _create_projectile_node(scene, parent)
@@ -186,12 +227,27 @@ func emit_projectiles(
 			continue
 
 		_apply_spawn_transform(projectile, spawn_transform)
-		var context: Dictionary = _build_spawn_context(projectile_context, effective_id, spawn_transform, index, transforms.size())
+		var context: Dictionary = _build_spawn_context(effective_context, effective_id, spawn_transform, index, transforms.size())
+		result.append(projectile)
+		contexts.append(context)
+	if result.is_empty():
+		var empty_rollback_report: Dictionary = task.rollback(&"instantiate_failed")
+		_emit_failure(&"instantiate_failed", empty_rollback_report)
+		return []
+
+	var commit_report: Dictionary = task.commit(result.size())
+	if not GFVariantData.get_option_bool(commit_report, "ok", false):
+		_discard_created_projectiles(result, scene)
+		var _commit_rollback_report: Dictionary = task.rollback(&"emission_commit_failed")
+		_emit_failure(GFVariantData.get_option_string_name(commit_report, "reason", &"emission_commit_failed"), commit_report)
+		return []
+	for index: int in range(result.size()):
+		var projectile: Node = result[index]
+		var context: Dictionary = contexts[index]
 		_prepare_projectile_runtime(projectile, scene)
 		if launch_after_spawn and projectile.has_method(&"launch"):
 			var _launch_result: Variant = projectile.call(&"launch", context)
 		projectile_emitted.emit(projectile, context.duplicate(true))
-		result.append(projectile)
 	return result
 
 
@@ -245,7 +301,7 @@ func prewarm_projectiles(count: int, projectile_id: StringName = &"") -> bool:
 	var parent: Node = resolve_spawn_parent()
 	if scene == null or parent == null:
 		return false
-	pool.prewarm(scene, parent, count)
+	pool.prewarm(scene, parent, count, Callable(self, "_disable_auto_launch_if_supported"))
 	return true
 
 
@@ -254,14 +310,31 @@ func prewarm_projectiles(count: int, projectile_id: StringName = &"") -> bool:
 func _get_spawn_transforms(projectile_context: Dictionary, emit_count: int) -> Array[Transform2D]:
 	if spawn_pattern != null:
 		return spawn_pattern.get_spawn_transforms(self, projectile_context, emit_count)
-	return [global_transform]
+	var result: Array[Transform2D] = []
+	for _index: int in range(maxi(emit_count, 1)):
+		result.append(global_transform)
+	return result
+
+
+func _resolve_requested_count(emit_count: int) -> int:
+	if spawn_pattern != null:
+		return spawn_pattern.resolve_spawn_count(emit_count)
+	return emit_count if emit_count > 0 else 1
+
+
+func _filter_finite_transforms(transforms: Array[Transform2D]) -> Array[Transform2D]:
+	var result: Array[Transform2D] = []
+	for transform_value: Transform2D in transforms:
+		if _GF_COMBAT_FINITE_MATH.is_finite_transform2d(transform_value):
+			result.append(transform_value)
+	return result
 
 
 func _create_projectile_node(scene: PackedScene, parent: Node) -> Node:
 	if use_object_pool:
 		var pool: GFObjectPoolUtility = _get_object_pool()
 		if pool != null:
-			return pool.acquire(scene, parent)
+			return pool.acquire(scene, parent, Callable(self, "_disable_auto_launch_if_supported"))
 
 	var projectile: Node = _variant_to_node(scene.instantiate())
 	if projectile == null:
@@ -284,6 +357,17 @@ func _prepare_projectile_runtime(projectile: Node, scene: PackedScene) -> void:
 			_on_pooled_projectile_finished.bind(projectile, scene, emission_token),
 			CONNECT_ONE_SHOT as Object.ConnectFlags
 		)
+
+
+func _discard_created_projectiles(projectiles: Array[Node], scene: PackedScene) -> void:
+	var pool: GFObjectPoolUtility = _get_object_pool() if use_object_pool else null
+	for projectile: Node in projectiles:
+		if not is_instance_valid(projectile):
+			continue
+		if pool != null:
+			pool.release(projectile, scene)
+		else:
+			projectile.queue_free()
 
 
 func _disable_auto_launch_if_supported(projectile: Node) -> void:

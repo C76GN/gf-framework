@@ -17,17 +17,23 @@ extends RefCounted
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @schema values: 流程执行期间共享的项目自定义 Dictionary；键通常为 StringName，值由项目决定。
 var values: Dictionary = {}
 
 ## 下一个节点覆盖。流程节点可写入该列表动态控制分支。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 var next_node_ids: PackedStringArray = PackedStringArray()
 
 ## 是否显式覆盖了下一个节点。允许节点用空列表表达“停止继续推进”。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 var has_next_node_override: bool = false
 
 
@@ -51,6 +57,8 @@ func _init(architecture: GFArchitecture = null, p_values: Dictionary = {}) -> vo
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param architecture: 架构实例。
 func set_architecture(architecture: GFArchitecture) -> void:
 	_architecture_ref = weakref(architecture) if architecture != null else null
@@ -59,6 +67,8 @@ func set_architecture(architecture: GFArchitecture) -> void:
 ## 获取上下文所属架构。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @return: 架构实例；不可用时返回 null。
 func get_architecture() -> GFArchitecture:
@@ -73,6 +83,8 @@ func get_architecture() -> GFArchitecture:
 ## 写入共享值。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @param key: 键。
 ## [br]
@@ -89,6 +101,8 @@ func set_value(key: StringName, value: Variant) -> GFFlowContext:
 ## 读取共享值。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @param key: 键。
 ## [br]
@@ -107,6 +121,8 @@ func get_value(key: StringName, default_value: Variant = null) -> Variant:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param node_ids: 节点标识列表。
 func set_next_nodes(node_ids: PackedStringArray) -> void:
 	next_node_ids = node_ids.duplicate()
@@ -117,6 +133,8 @@ func set_next_nodes(node_ids: PackedStringArray) -> void:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @return: 已覆盖返回 true。
 func has_next_nodes_override() -> bool:
 	return has_next_node_override
@@ -125,6 +143,8 @@ func has_next_nodes_override() -> bool:
 ## 清空下一个节点覆盖。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 func clear_next_nodes() -> void:
 	next_node_ids.clear()
 	has_next_node_override = false
@@ -133,6 +153,8 @@ func clear_next_nodes() -> void:
 ## 注册条件查询处理器。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @param condition_id: 条件标识。
 ## [br]
@@ -150,6 +172,8 @@ func register_condition_handler(condition_id: StringName, handler: Callable) -> 
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param condition_id: 条件标识。
 func unregister_condition_handler(condition_id: StringName) -> void:
 	_erase_dictionary_key(_condition_handlers, condition_id)
@@ -158,6 +182,8 @@ func unregister_condition_handler(condition_id: StringName) -> void:
 ## 检查条件查询处理器是否存在。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @param condition_id: 条件标识。
 ## [br]
@@ -169,6 +195,8 @@ func has_condition_handler(condition_id: StringName) -> bool:
 ## 清空所有条件查询处理器。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 func clear_condition_handlers() -> void:
 	_condition_handlers.clear()
 
@@ -176,6 +204,8 @@ func clear_condition_handlers() -> void:
 ## 查询条件值。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @param condition_id: 条件标识。
 ## [br]
@@ -212,6 +242,8 @@ func query_condition(
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param node_id: 节点标识。
 ## [br]
 ## @param key: 运行态键。
@@ -231,6 +263,8 @@ func set_node_runtime_value(node_id: StringName, key: StringName, value: Variant
 ## 读取指定流程节点的运行态值。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @param node_id: 节点标识。
 ## [br]
@@ -254,6 +288,8 @@ func get_node_runtime_value(node_id: StringName, key: StringName, default_value:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param node_id: 节点标识。
 func clear_node_runtime_state(node_id: StringName = &"") -> void:
 	if node_id == &"":
@@ -262,22 +298,92 @@ func clear_node_runtime_state(node_id: StringName = &"") -> void:
 	_erase_dictionary_key(_node_runtime_states, node_id)
 
 
+## 创建 Flow 上下文运行快照。
+##
+## 快照包含共享 values、下一个节点覆盖和节点运行态。条件处理器是运行时 Callable，
+## 不会被序列化；恢复快照时也不会修改当前已注册的条件处理器。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+## [br]
+## @param options: 快照选项，支持 metadata、include_condition_handler_ids 和 json_compatible。
+## [br]
+## @schema options: Dictionary，包含 metadata: Dictionary、include_condition_handler_ids: bool 与 json_compatible: bool。
+## [br]
+## @return 运行快照。
+## [br]
+## @schema return: Dictionary，包含 values、next_node_ids、has_next_node_override、runtime_state、condition_handler_ids 和 metadata。
+func create_runtime_snapshot(options: Dictionary = {}) -> Dictionary:
+	var json_compatible: bool = GFVariantData.get_option_bool(options, "json_compatible", false)
+	var snapshot: Dictionary = {
+		"values": _to_snapshot_value(values, json_compatible),
+		"next_node_ids": next_node_ids.duplicate(),
+		"has_next_node_override": has_next_node_override,
+		"runtime_state": serialize_runtime_state(json_compatible),
+		"metadata": _to_snapshot_value(GFVariantData.get_option_dictionary(options, "metadata"), json_compatible),
+	}
+	if GFVariantData.get_option_bool(options, "include_condition_handler_ids", true):
+		snapshot["condition_handler_ids"] = _get_condition_handler_ids()
+	return snapshot
+
+
+## 恢复 Flow 上下文运行快照。
+##
+## 只恢复可序列化运行数据，不覆盖 architecture 或条件处理器。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+## [br]
+## @param snapshot: create_runtime_snapshot() 生成的快照。
+## [br]
+## @schema snapshot: Dictionary，包含 values、next_node_ids、has_next_node_override 和 runtime_state。
+## [br]
+## @return 快照有效并完成恢复时返回 true。
+func restore_runtime_snapshot(snapshot: Dictionary) -> bool:
+	if snapshot.is_empty():
+		return false
+
+	values = GFVariantData.get_option_dictionary(snapshot, "values").duplicate(true)
+	next_node_ids = GFVariantData.get_option_packed_string_array(snapshot, "next_node_ids")
+	has_next_node_override = GFVariantData.get_option_bool(snapshot, "has_next_node_override", not next_node_ids.is_empty())
+	var runtime_state: Dictionary = GFVariantData.get_option_dictionary(snapshot, "runtime_state")
+	if runtime_state.is_empty() and snapshot.has("nodes"):
+		runtime_state = {
+			"nodes": GFVariantData.get_option_dictionary(snapshot, "nodes"),
+		}
+	deserialize_runtime_state(runtime_state)
+	return true
+
+
 ## 序列化上下文持有的节点运行态。
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
+## @param json_compatible: 为 true 时输出 JSON-safe 报告值；默认为 false，保留运行时原始 Variant。
+## [br]
 ## @return: 运行态快照。
 ## [br]
 ## @schema return: 包含 nodes 字段的 Dictionary；nodes 按 node_id 保存节点运行态 Dictionary。
-func serialize_runtime_state() -> Dictionary:
-	return {
+func serialize_runtime_state(json_compatible: bool = false) -> Dictionary:
+	var state: Dictionary = {
 		"nodes": _node_runtime_states.duplicate(true),
 	}
+	if json_compatible:
+		return GFReportValueCodec.to_report_dictionary(state, {
+			"path_redaction": "basename",
+		})
+	return state
 
 
 ## 反序列化节点运行态到当前上下文。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @param data: 运行态快照。
 ## [br]
@@ -324,6 +430,25 @@ func _get_callable_value(value: Variant) -> Callable:
 	if value is Callable:
 		return value
 	return Callable()
+
+
+func _to_snapshot_value(value: Variant, json_compatible: bool) -> Variant:
+	if not json_compatible:
+		return GFVariantData.duplicate_variant(value)
+	return GFReportValueCodec.to_json_compatible(value, {
+		"path_redaction": "basename",
+	})
+
+
+func _get_condition_handler_ids() -> PackedStringArray:
+	var ids: PackedStringArray = PackedStringArray()
+	for condition_id: Variant in _condition_handlers.keys():
+		var text: String = GFVariantData.to_text(condition_id)
+		if text.is_empty():
+			continue
+		var _appended: bool = ids.append(text)
+	ids.sort()
+	return ids
 
 
 func _erase_dictionary_key(target: Dictionary, key: Variant) -> void:

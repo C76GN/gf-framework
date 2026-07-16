@@ -61,6 +61,7 @@ var _default_max_stack_count: int = 0
 func set_definition(definition: GFInventoryItemDefinition) -> void:
 	if definition == null or definition.item_id == &"":
 		return
+	var _old_string_key_erased: bool = definitions.erase(String(definition.item_id))
 	definitions[definition.item_id] = definition
 
 
@@ -70,9 +71,8 @@ func set_definition(definition: GFInventoryItemDefinition) -> void:
 ## [br]
 ## @param item_id: 物品标识。
 func remove_definition(item_id: StringName) -> void:
-	var erased: bool = definitions.erase(item_id)
-	if erased:
-		return
+	var _string_name_key_erased: bool = definitions.erase(item_id)
+	var _string_key_erased: bool = definitions.erase(String(item_id))
 
 
 ## 清空所有物品定义。

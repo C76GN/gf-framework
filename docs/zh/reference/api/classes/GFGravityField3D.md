@@ -6,7 +6,7 @@
 - 模块：`Physics`
 - 继承：`Node3D`
 - API：`public`
-- 类别：运行时句柄 (`runtime_handle`)
+- 类别：运行时服务 (`runtime_service`)
 - 首次版本：`3.17.0`
 
 通用 3D 重力/加速度场。 提供点重力、远离中心和固定方向三种方向模式，以及常量、线性、平方反比 和曲线衰减。项目可继承并重写方向或强度计算以实现更复杂的场。
@@ -39,6 +39,7 @@
 ### `field_changed`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 signal field_changed
@@ -53,6 +54,7 @@ signal field_changed
 ### `DirectionMode`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 enum DirectionMode {
@@ -72,6 +74,7 @@ enum DirectionMode {
 ### `FalloffMode`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 enum FalloffMode {
@@ -95,6 +98,7 @@ enum FalloffMode {
 ### `enabled`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var enabled: bool = true:
@@ -107,6 +111,7 @@ var enabled: bool = true:
 ### `priority`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var priority: int = 0:
@@ -119,6 +124,7 @@ var priority: int = 0:
 ### `acceleration`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var acceleration: float = 9.8:
@@ -131,6 +137,7 @@ var acceleration: float = 9.8:
 ### `radius`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var radius: float = 0.0:
@@ -143,6 +150,7 @@ var radius: float = 0.0:
 ### `min_distance`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var min_distance: float = 1.0:
@@ -155,6 +163,7 @@ var min_distance: float = 1.0:
 ### `direction_mode`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var direction_mode: DirectionMode = DirectionMode.TOWARD_ORIGIN:
@@ -167,6 +176,7 @@ var direction_mode: DirectionMode = DirectionMode.TOWARD_ORIGIN:
 ### `constant_direction`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var constant_direction: Vector3 = Vector3.DOWN:
@@ -179,6 +189,7 @@ var constant_direction: Vector3 = Vector3.DOWN:
 ### `falloff_mode`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var falloff_mode: FalloffMode = FalloffMode.CONSTANT:
@@ -191,6 +202,7 @@ var falloff_mode: FalloffMode = FalloffMode.CONSTANT:
 ### `falloff_curve`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var falloff_curve: Curve = null:
@@ -205,6 +217,7 @@ var falloff_curve: Curve = null:
 ### `get_acceleration_at`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func get_acceleration_at(world_position: Vector3) -> Vector3:
@@ -225,6 +238,7 @@ func get_acceleration_at(world_position: Vector3) -> Vector3:
 ### `get_strength_at_distance`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func get_strength_at_distance(distance: float) -> float:
@@ -245,6 +259,7 @@ func get_strength_at_distance(distance: float) -> float:
 ### `get_gravity_priority`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func get_gravity_priority() -> int:
@@ -259,6 +274,7 @@ func get_gravity_priority() -> int:
 ### `_get_direction_at`
 
 - API：`protected`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func _get_direction_at(world_position: Vector3) -> Vector3:

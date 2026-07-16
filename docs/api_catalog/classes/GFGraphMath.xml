@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFGraphMath" path="addons/gf/standard/foundation/math/gf_graph_math.gd" module="standard" extends="RefCounted" classDigest="116ac0b11b17d3427917e97c41bc3819be6f2bcf4b99823dbc073c6046acc28d">
+<class name="GFGraphMath" path="addons/gf/standard/foundation/math/gf_graph_math.gd" module="standard" extends="RefCounted" classDigest="8024f1f165b48dd9cc8368d37b4db83e84309b7175a9f523199f23581ec4fa5b">
 	<description>GFGraphMath: 面向任意节点类型的纯图搜索算法。
 节点可以是 Vector、StringName、Resource、对象引用或项目自定义值。
 图结构由回调提供，框架只负责遍历、代价累计和路径重建。</description>
@@ -150,6 +150,37 @@
 				<tag name="schema">nodes: Array graph node identities.</tag>
 				<tag name="schema">return: Dictionary with ok, reason, order, cycles, cycle_count, node_count, external_dependencies, and external_dependency_count.</tag>
 				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="find_connected_components">
+			<signature>static func find_connected_components(nodes: Array, get_neighbors: Callable) -&gt; Dictionary:</signature>
+			<description>查找声明节点集中的连通分量。
+邻居回调只用于描述节点之间的边；只有 `nodes` 中声明的节点会参与分量计算。
+节点之间的边按无向边处理，适合资源图、地图拓扑、流程子图和生成前诊断。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">nodes: 需要分组的节点列表；重复节点会按首次出现去重。</tag>
+				<tag name="param">get_neighbors: 邻居回调，签名为 `func(node: Variant) -&gt; Array`。</tag>
+				<tag name="return">连通分量报告，包含 ok、reason、components、component_indices、isolated_nodes、external_neighbors 等字段。</tag>
+				<tag name="schema">nodes: Array graph node identities.</tag>
+				<tag name="schema">return: Dictionary with ok, reason, components, component_count, component_indices, node_count, all_connected, isolated_nodes, isolated_node_count, external_neighbors, and external_neighbor_count.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="find_minimum_spanning_tree">
+			<signature>static func find_minimum_spanning_tree( nodes: Array, get_neighbors: Callable, get_edge_weight: Callable = Callable() ) -&gt; Dictionary:</signature>
+			<description>查找声明节点集的最小生成树。
+图按无向加权边处理；`get_neighbors` 只要在任一方向返回邻居即可建立边。
+图不连通时会返回最小生成森林，并通过 `all_connected` 标记结果不是单棵树。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">nodes: 需要纳入生成树的节点列表；重复节点会按首次出现去重。</tag>
+				<tag name="param">get_neighbors: 邻居回调，签名为 `func(node: Variant) -&gt; Array`。</tag>
+				<tag name="param">get_edge_weight: 可选权重回调，签名为 `func(from: Variant, to: Variant) -&gt; float`；为空时每条边权重为 1。</tag>
+				<tag name="return">最小生成树报告，包含 selected_edges、total_weight、components、isolated_nodes、external_neighbors 等字段。</tag>
+				<tag name="schema">nodes: Array graph node identities.</tag>
+				<tag name="schema">return: Dictionary with ok, reason, selected_edges, selected_edge_count, total_weight, components, component_count, component_indices, node_count, all_connected, isolated_nodes, isolated_node_count, external_neighbors, external_neighbor_count, invalid_edges, and invalid_edge_count.</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 	</methods>

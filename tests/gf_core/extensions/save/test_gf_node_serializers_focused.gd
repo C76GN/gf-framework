@@ -61,6 +61,37 @@ func test_transform_2d_serializer_roundtrip() -> void:
 	assert_eq(n.z_index, 3)
 
 
+func test_node_serializer_registry_rejects_malformed_payload_items() -> void:
+	var registry: GFNodeSerializerRegistry = GFNodeSerializerRegistry.new(false)
+	var node: Node = Node.new()
+	add_child_autofree(node)
+
+	var result: Dictionary = registry.apply_node(node, ["malformed"])
+	var errors: Array = GFVariantData.get_option_array(result, "errors")
+
+	assert_false(GFVariantData.get_option_bool(result, "ok", true), "畸形 serializer 项不得被静默跳过。")
+	assert_eq(GFVariantData.get_option_int(result, "applied", -1), 0)
+	assert_eq(errors.size(), 1, "每个畸形 serializer 项都应产生一个错误。")
+	if not errors.is_empty():
+		assert_string_contains(GFVariantData.to_text(errors[0]), "index 0", "错误必须定位原始数组索引。")
+
+
+func test_save_source_local_serializers_reject_malformed_payload_items() -> void:
+	var target: Node2D = Node2D.new()
+	var source: GFSaveSource = GFSaveSource.new()
+	add_child_autofree(target)
+	target.add_child(source)
+	source.serializers = [GFNodeTransform2DSerializer.new()]
+
+	var result: Dictionary = source._apply_save_data({"serializers": ["malformed"]})
+	var errors: Array = GFVariantData.get_option_array(result, "errors")
+
+	assert_false(GFVariantData.get_option_bool(result, "ok", true), "本地 serializer 路径不得吞掉畸形项。")
+	assert_eq(errors.size(), 1)
+	if not errors.is_empty():
+		assert_string_contains(GFVariantData.to_text(errors[0]), "index 0")
+
+
 func test_property_serializer_roundtrips_godot_values_through_json_payload() -> void:
 	var serializer: GFNodePropertySerializer = GFNodePropertySerializer.new()
 	serializer.properties = PackedStringArray(["position"])

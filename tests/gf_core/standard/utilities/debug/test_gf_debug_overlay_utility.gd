@@ -1,10 +1,18 @@
 extends GutTest
 
 
+# --- 常量 ---
+
+const GF_AUTOLOAD_NODE_SCRIPT = preload("res://addons/gf/kernel/core/gf.gd")
+
+
+# --- 私有变量 ---
+
 var _debug: GFDebugOverlayUtility
 
 
 func before_each() -> void:
+	GFAutoload.reset_tree_exit_state()
 	var arch: GFArchitecture = GFArchitecture.new()
 	Gf._architecture = arch
 	_debug = GFDebugOverlayUtility.new()
@@ -15,6 +23,7 @@ func before_each() -> void:
 
 
 func after_each() -> void:
+	GFAutoload.reset_tree_exit_state()
 	var arch: GFArchitecture = Gf.get_architecture()
 	if arch != null:
 		arch.dispose()
@@ -44,6 +53,18 @@ func test_overlay_creation_and_toggle() -> void:
 	assert_true(GFVariantData.get_option_bool(gui, "visible"), "按键触发后应该显示。")
 
 
+func test_overlay_init_is_idempotent() -> void:
+	_debug.init()
+	await get_tree().process_frame
+
+	var overlay_count: int = 0
+	for child: Node in get_tree().root.get_children():
+		if child.name == "GFDebugOverlay":
+			overlay_count += 1
+
+	assert_eq(overlay_count, 1, "重复 init 不应创建多个 DebugOverlay GUI。")
+
+
 func test_dispose_detaches_overlay_callbacks_before_queue_free() -> void:
 	_debug.set_overlay_visible(true)
 	var before_snapshot: Dictionary = _debug.get_debug_snapshot()
@@ -62,6 +83,50 @@ func test_dispose_detaches_overlay_callbacks_before_queue_free() -> void:
 	assert_false(GFVariantData.get_option_bool(after_gui, "created"), "dispose 应释放 overlay GUI。")
 	assert_eq(GFVariantData.get_option_int(after_snapshot, "watch_count"), 0, "dispose 应清空 watch 注册表。")
 	assert_eq(GFVariantData.get_option_int(after_snapshot, "panel_count"), 0, "dispose 应清空 panel 注册表。")
+
+
+func test_dispose_leaves_overlay_attached_during_autoload_tree_exit() -> void:
+	var overlay_gui: CanvasLayer = _debug._overlay_gui
+	GFAutoload.begin_tree_exit_scope()
+
+	_debug.dispose()
+
+	assert_not_null(overlay_gui.get_parent(), "AutoLoad 退出时不应重入修改 Debug Overlay 的父节点。")
+
+	GFAutoload.end_tree_exit_scope()
+	await get_tree().process_frame
+	assert_false(is_instance_valid(overlay_gui), "退出阶段登记 queue_free 后 Debug Overlay 仍应完成释放。")
+
+
+func test_real_autoload_tree_exit_disposes_overlay_without_reentrant_detach() -> void:
+	var current_architecture: GFArchitecture = Gf.get_architecture()
+	if current_architecture != null:
+		current_architecture.dispose()
+	Gf._architecture = GFArchitecture.new()
+	_debug = null
+	await get_tree().process_frame
+
+	var architecture: GFArchitecture = GFArchitecture.new()
+	var debug_utility: GFDebugOverlayUtility = GFDebugOverlayUtility.new()
+	debug_utility.debug_only = false
+	assert_true(await architecture.register_utility_instance(debug_utility), "测试 Debug Overlay 应成功注册。")
+	assert_true(await architecture.init(), "测试架构应成功初始化。")
+	await get_tree().process_frame
+
+	var overlay_gui: CanvasLayer = debug_utility._overlay_gui
+	var autoload_node: Node = GF_AUTOLOAD_NODE_SCRIPT.new()
+	autoload_node.name = "GfDebugOverlayExitProbe"
+	autoload_node._architecture = architecture
+	get_tree().root.add_child(autoload_node)
+	get_tree().root.remove_child(autoload_node)
+
+	assert_false(GFAutoload.is_tree_exit_in_progress(), "真实 _exit_tree 返回后应结束退出作用域。")
+	assert_not_null(overlay_gui.get_parent(), "真实 AutoLoad 退出期间不应同步拆除 Debug Overlay。")
+	assert_true(overlay_gui.is_queued_for_deletion(), "真实 AutoLoad 退出期间应登记 Debug Overlay 延迟释放。")
+	autoload_node.free()
+
+	await get_tree().process_frame
+	assert_false(is_instance_valid(overlay_gui), "真实 AutoLoad 退出后 Debug Overlay 应完成释放。")
 
 
 func test_process_model() -> void:
@@ -106,22 +171,18 @@ func test_watch_text_escapes_bbcode_control_characters() -> void:
 	assert_true("[lb]b[rb]42[lb]/b[rb]" in label_text, "Overlay 应转义 watch 值中的 BBCode 控制字符。")
 
 
-func test_watch_value_provider_updates_snapshot() -> void:
-	var state: IntState = IntState.new()
-	state.value = 1
-	assert_true(_debug.watch_value(&"counter", func() -> int:
-		return state.value
-	), "有效 provider 应该能注册。")
+func test_pushed_watch_value_updates_snapshot() -> void:
+	assert_true(_debug.push_watch_value(&"counter", 1), "有效值应该能发布。")
 
 	var snapshot: Array[Dictionary] = _debug.get_watch_snapshot()
 	var watch_snapshot: Dictionary = snapshot[0]
 	assert_eq(snapshot.size(), 1, "应该返回一个 watch 快照。")
-	assert_eq(GFVariantData.get_option_int(watch_snapshot, "value"), 1, "快照应读取 provider 的当前值。")
+	assert_eq(GFVariantData.get_option_int(watch_snapshot, "value"), 1, "快照应读取已发布值。")
 
-	state.value = 2
+	assert_true(_debug.push_watch_value(&"counter", 2), "同一 id 应能发布新值。")
 	snapshot = _debug.get_watch_snapshot()
 	watch_snapshot = snapshot[0]
-	assert_eq(GFVariantData.get_option_int(watch_snapshot, "value"), 2, "provider watch 应在读取快照时更新。")
+	assert_eq(GFVariantData.get_option_int(watch_snapshot, "value"), 2, "快照应反映最新发布值。")
 
 
 func test_watch_visibility_and_removal() -> void:
@@ -140,19 +201,16 @@ func test_watch_visibility_and_removal() -> void:
 
 func test_invalid_watch_registration_is_rejected() -> void:
 	assert_false(_debug.push_watch_value(&"", 1), "空 id 的 push watch 应被拒绝。")
-	assert_false(_debug.watch_value(&"invalid", Callable()), "无效 provider 应被拒绝。")
-	assert_false(_debug.has_watch(&"invalid"), "被拒绝的 watch 不应进入注册表。")
+	assert_false(_debug.has_watch(&""), "被拒绝的 watch 不应进入注册表。")
 
 
-func test_panel_provider_is_rendered() -> void:
-	var provider: Callable = func() -> Dictionary:
-		return {
-			"ready": true,
-		}
-	assert_true(_debug.register_panel(&"state", provider, {
+func test_pushed_panel_content_is_rendered() -> void:
+	assert_true(_debug.push_panel_content(&"state", {
+		"ready": true,
+	}, {
 		"label": "State",
 		"group": "Runtime",
-	}), "有效 panel provider 应可注册。")
+	}), "有效 panel 内容应可发布。")
 
 	var snapshot: Array[Dictionary] = _debug.get_panel_snapshot()
 	var panel_snapshot: Dictionary = snapshot[0]
@@ -182,8 +240,36 @@ func test_panel_visibility_and_removal() -> void:
 
 func test_invalid_panel_registration_is_rejected() -> void:
 	assert_false(_debug.push_panel_text(&"", "empty"), "空 id 的 panel 应被拒绝。")
-	assert_false(_debug.register_panel(&"invalid_panel", Callable()), "无效 panel provider 应被拒绝。")
-	assert_false(_debug.has_panel(&"invalid_panel"), "被拒绝的 panel 不应进入注册表。")
+	assert_false(_debug.has_panel(&""), "被拒绝的 panel 不应进入注册表。")
+
+
+func test_snapshot_never_executes_callable_values() -> void:
+	var state: OverlayValueState = OverlayValueState.new()
+	assert_true(_debug.push_watch_value(&"callable", Callable(state, "get_value")), "Callable 可作为待报告值发布。")
+
+	var snapshot: Array[Dictionary] = _debug.get_watch_snapshot()
+
+	assert_eq(snapshot.size(), 1, "已发布值应进入快照。")
+	assert_eq(state.call_count, 0, "读取 Overlay 快照不得执行外部 Callable。")
+
+
+func test_pushed_values_and_output_are_bounded() -> void:
+	_debug.max_value_collection_items = 2
+	_debug.max_value_snapshot_nodes = 16
+	_debug.max_panel_content_chars = 64
+	var values: Array[int] = []
+	for index: int in range(1000):
+		values.append(index)
+	assert_true(_debug.push_watch_value(&"large_watch", values), "大型 watch 应在发布边界被编码。")
+	assert_true(_debug.push_panel_content(&"large", values), "大型 panel 应在发布边界被编码。")
+
+	var watches: Array[Dictionary] = _debug.get_watch_snapshot()
+	var panels: Array[Dictionary] = _debug.get_panel_snapshot()
+	var content: String = GFVariantData.get_option_string(panels[0], "content")
+
+	assert_eq(watches.size(), 1, "有界编码不应丢失 watch 条目。")
+	assert_lte(content.length(), 76, "面板最终文本应受字符预算限制。")
+	assert_true(content.contains("CollectionBudget") or content.contains("<truncated>"), "大型容器输出应暴露截断状态。")
 
 
 func _get_overlay_text() -> String:
@@ -201,7 +287,11 @@ class DebugTestModel extends GFModel:
 	var player_name: String = "TestPlayer"
 
 
-class IntState:
+class OverlayValueState:
 	extends RefCounted
 
-	var value: int = 0
+	var call_count: int = 0
+
+	func get_value() -> int:
+		call_count += 1
+		return call_count

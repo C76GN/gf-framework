@@ -4,6 +4,11 @@
 extends RefCounted
 
 
+# --- 常量 ---
+
+const _MAX_PARENT_RECEIVER_DEPTH: int = 128
+
+
 # --- 私有/辅助方法 ---
 
 static func _dispatch_to_receiver(
@@ -27,7 +32,11 @@ static func _dispatch_to_receiver(
 		return _make_report(false, id_key, id_value, "invalid_receiver", invalid_receiver_message, metadata)
 
 	var value: Variant = receiver.callv(receiver_method, call_args)
-	return GFVariantData.duplicate_variant(value) if value is Dictionary else _make_report(
+	if value is Dictionary:
+		var report: Dictionary = GFVariantData.as_dictionary(value)
+		if not report.is_empty():
+			return _normalize_report(report, receiver)
+	return _make_report(
 		false,
 		id_key,
 		id_value,
@@ -63,6 +72,7 @@ static func _send_to_collision_candidates(
 		var report_value: Variant = dispatch_host.call("send_to", receiver, payload_override, id_override)
 		if report_value is Dictionary:
 			var report: Dictionary = GFVariantData.as_dictionary(report_value)
+			report = _normalize_report(report, receiver)
 			reports.append(report)
 			if send_result_callback.is_valid():
 				send_result_callback.call(receiver, payload_override, id_override, report)
@@ -76,10 +86,17 @@ static func _resolve_receiver(candidate: Object, receiver_method: StringName) ->
 		return candidate
 
 	var node: Node = _variant_to_node(candidate)
-	while node != null:
+	var visited: Dictionary = {}
+	var depth: int = 0
+	while node != null and depth < _MAX_PARENT_RECEIVER_DEPTH:
+		var instance_id: int = node.get_instance_id()
+		if visited.has(instance_id):
+			return null
+		visited[instance_id] = true
 		if node.has_method(receiver_method):
 			return node
 		node = node.get_parent()
+		depth += 1
 	return null
 
 
@@ -94,10 +111,10 @@ static func _make_report(
 	return {
 		"ok": ok,
 		id_key: id_value,
-		"receiver": null,
+		"receiver": _object_to_report_value(null),
 		"reason": reason,
 		"message": message,
-		"metadata": metadata.duplicate(true),
+		"metadata": _dictionary_to_report_value(metadata),
 	}
 
 
@@ -106,3 +123,27 @@ static func _variant_to_node(value: Variant) -> Node:
 		var node: Node = value
 		return node
 	return null
+
+
+static func _normalize_report(report: Dictionary, default_receiver: Object) -> Dictionary:
+	var result: Dictionary = report.duplicate(true)
+	var receiver_value: Variant = GFVariantData.get_option_value(result, "receiver", default_receiver)
+	if receiver_value is Object:
+		result["receiver"] = _object_to_report_value(receiver_value)
+	elif not result.has("receiver"):
+		result["receiver"] = _object_to_report_value(default_receiver)
+	if result.has("metadata") and result["metadata"] is Dictionary:
+		result["metadata"] = _dictionary_to_report_value(GFVariantData.as_dictionary(result["metadata"]))
+	return result
+
+
+static func _object_to_report_value(value: Variant) -> Variant:
+	return GFReportValueCodec.to_json_compatible(value, {
+		"path_redaction": "basename",
+	})
+
+
+static func _dictionary_to_report_value(value: Dictionary) -> Dictionary:
+	return GFReportValueCodec.to_report_dictionary(value, {
+		"path_redaction": "basename",
+	})

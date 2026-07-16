@@ -18,14 +18,14 @@
 | 属性 | [`source`](#member-gfcombathitcontext-properties-source) | `var source: Object = null` |
 | 属性 | [`target`](#member-gfcombathitcontext-properties-target) | `var target: Object = null` |
 | 属性 | [`hit_id`](#member-gfcombathitcontext-properties-hit_id) | `var hit_id: StringName = &""` |
-| 属性 | [`payload`](#member-gfcombathitcontext-properties-payload) | `var payload: Variant = null` |
-| 属性 | [`magnitude`](#member-gfcombathitcontext-properties-magnitude) | `var magnitude: float = 0.0` |
-| 属性 | [`tags`](#member-gfcombathitcontext-properties-tags) | `var tags: Array[StringName] = []` |
-| 属性 | [`position_2d`](#member-gfcombathitcontext-properties-position_2d) | `var position_2d: Vector2 = Vector2.ZERO` |
-| 属性 | [`normal_2d`](#member-gfcombathitcontext-properties-normal_2d) | `var normal_2d: Vector2 = Vector2.ZERO` |
-| 属性 | [`position_3d`](#member-gfcombathitcontext-properties-position_3d) | `var position_3d: Vector3 = Vector3.ZERO` |
-| 属性 | [`normal_3d`](#member-gfcombathitcontext-properties-normal_3d) | `var normal_3d: Vector3 = Vector3.ZERO` |
-| 属性 | [`metadata`](#member-gfcombathitcontext-properties-metadata) | `var metadata: Dictionary = {}` |
+| 属性 | [`payload`](#member-gfcombathitcontext-properties-payload) | `var payload: Variant:` |
+| 属性 | [`magnitude`](#member-gfcombathitcontext-properties-magnitude) | `var magnitude: float:` |
+| 属性 | [`tags`](#member-gfcombathitcontext-properties-tags) | `var tags: Array[StringName]:` |
+| 属性 | [`position_2d`](#member-gfcombathitcontext-properties-position_2d) | `var position_2d: Vector2:` |
+| 属性 | [`normal_2d`](#member-gfcombathitcontext-properties-normal_2d) | `var normal_2d: Vector2:` |
+| 属性 | [`position_3d`](#member-gfcombathitcontext-properties-position_3d) | `var position_3d: Vector3:` |
+| 属性 | [`normal_3d`](#member-gfcombathitcontext-properties-normal_3d) | `var normal_3d: Vector3:` |
+| 属性 | [`metadata`](#member-gfcombathitcontext-properties-metadata) | `var metadata: Dictionary:` |
 | 方法 | [`with_source`](#member-gfcombathitcontext-methods-with_source) | `func with_source(value: Object) -> GFCombatHitContext:` |
 | 方法 | [`with_target`](#member-gfcombathitcontext-methods-with_target) | `func with_target(value: Object) -> GFCombatHitContext:` |
 | 方法 | [`with_hit_id`](#member-gfcombathitcontext-methods-with_hit_id) | `func with_hit_id(value: StringName) -> GFCombatHitContext:` |
@@ -34,6 +34,7 @@
 | 方法 | [`with_tags`](#member-gfcombathitcontext-methods-with_tags) | `func with_tags(value: Array[StringName]) -> GFCombatHitContext:` |
 | 方法 | [`with_metadata`](#member-gfcombathitcontext-methods-with_metadata) | `func with_metadata(value: Dictionary) -> GFCombatHitContext:` |
 | 方法 | [`to_dict`](#member-gfcombathitcontext-methods-to_dict) | `func to_dict() -> Dictionary:` |
+| 方法 | [`to_report_dictionary`](#member-gfcombathitcontext-methods-to_report_dictionary) | `func to_report_dictionary(options: Dictionary = {}) -> Dictionary:` |
 
 ## 属性
 
@@ -78,9 +79,10 @@ var hit_id: StringName = &""
 ### `payload`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-var payload: Variant = null
+var payload: Variant:
 ```
 
 命中携带的数据。框架不解释该字段。
@@ -94,9 +96,10 @@ var payload: Variant = null
 ### `magnitude`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-var magnitude: float = 0.0
+var magnitude: float:
 ```
 
 通用强度值。框架不解释该字段。
@@ -106,9 +109,10 @@ var magnitude: float = 0.0
 ### `tags`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-var tags: Array[StringName] = []
+var tags: Array[StringName]:
 ```
 
 命中标签。框架不解释该字段。
@@ -118,9 +122,10 @@ var tags: Array[StringName] = []
 ### `position_2d`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-var position_2d: Vector2 = Vector2.ZERO
+var position_2d: Vector2:
 ```
 
 2D 命中位置。
@@ -130,9 +135,10 @@ var position_2d: Vector2 = Vector2.ZERO
 ### `normal_2d`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-var normal_2d: Vector2 = Vector2.ZERO
+var normal_2d: Vector2:
 ```
 
 2D 命中法线。
@@ -142,9 +148,10 @@ var normal_2d: Vector2 = Vector2.ZERO
 ### `position_3d`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-var position_3d: Vector3 = Vector3.ZERO
+var position_3d: Vector3:
 ```
 
 3D 命中位置。
@@ -154,9 +161,10 @@ var position_3d: Vector3 = Vector3.ZERO
 ### `normal_3d`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-var normal_3d: Vector3 = Vector3.ZERO
+var normal_3d: Vector3:
 ```
 
 3D 命中法线。
@@ -166,9 +174,10 @@ var normal_3d: Vector3 = Vector3.ZERO
 ### `metadata`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-var metadata: Dictionary = {}
+var metadata: Dictionary:
 ```
 
 项目自定义元数据。框架不解释该字段。
@@ -344,3 +353,29 @@ func to_dict() -> Dictionary:
 结构：
 
 - `return`: Dictionary，包含 source、target、hit_id、payload、magnitude、tags、position_2d、normal_2d、position_3d、normal_3d 和 metadata。
+
+<a id="member-gfcombathitcontext-methods-to_report_dictionary"></a>
+
+### `to_report_dictionary`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func to_report_dictionary(options: Dictionary = {}) -> Dictionary:
+```
+
+转换为 JSON-safe 报告字典。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `options` | 传给 GFReportValueCodec 的编码选项。 |
+
+返回：报告字典快照。
+
+结构：
+
+- `options`: Dictionary with GFReportValueCodec encoding options.
+- `return`: JSON-safe Dictionary based on to_dict().

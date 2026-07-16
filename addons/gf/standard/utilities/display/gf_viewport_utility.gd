@@ -300,15 +300,46 @@ func raycast_from_screen_3d(
 ## [br]
 ## @api public
 ## [br]
+## @since 8.0.0
+## [br]
 ## @param camera: 用于投影的 Camera3D。
 ## [br]
 ## @param world_position: 3D 世界坐标。
 ## [br]
-## @return 屏幕坐标；camera 无效时返回 INF 坐标。
+## @return 屏幕坐标；camera 无效时返回 Vector2.ZERO。需要失败原因时使用 world_to_screen_3d_report()。
 func world_to_screen_3d(camera: Camera3D, world_position: Vector3) -> Vector2:
 	if not is_instance_valid(camera):
-		return Vector2(INF, INF)
+		return Vector2.ZERO
 	return camera.unproject_position(world_position)
+
+
+## 将 3D 世界坐标转换为结构化屏幕/Viewport 坐标报告。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+## [br]
+## @param camera: 用于投影的 Camera3D。
+## [br]
+## @param world_position: 3D 世界坐标。
+## [br]
+## @return 投影报告。
+## [br]
+## @schema return: Dictionary，包含 ok、reason、screen_position 和 world_position；失败时 screen_position 为 Vector2.ZERO。
+func world_to_screen_3d_report(camera: Camera3D, world_position: Vector3) -> Dictionary:
+	if not is_instance_valid(camera):
+		return {
+			"ok": false,
+			"reason": "invalid_camera",
+			"screen_position": Vector2.ZERO,
+			"world_position": world_position,
+		}
+	return {
+		"ok": true,
+		"reason": "",
+		"screen_position": camera.unproject_position(world_position),
+		"world_position": world_position,
+	}
 
 
 ## 将 CanvasItem 所在世界坐标转换为屏幕/Viewport 坐标。
@@ -339,6 +370,85 @@ func screen_to_world_2d(canvas_item: CanvasItem, screen_position: Vector2) -> Ve
 	if not is_instance_valid(canvas_item):
 		return screen_position
 	return canvas_item.get_global_transform_with_canvas().affine_inverse() * screen_position
+
+
+## 将 Viewport 逻辑坐标中的 Control 矩形换算为物理窗口像素矩形。
+##
+## 适合需要把 Godot UI 区域同步给原生 overlay、平台控件或工具预览的桥接层。
+## 该方法只做坐标换算，不创建或管理任何外部视图。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+## [br]
+## @param control_rect: Control 的全局矩形，单位为 Viewport 逻辑坐标。
+## [br]
+## @param viewport_size: Viewport 可见尺寸。
+## [br]
+## @param window_size: DisplayServer 物理窗口尺寸。
+## [br]
+## @param options: 可选项，支持 content_rect 与 viewport_offset，用于 letterbox、HiDPI 或嵌入窗口映射。
+## [br]
+## @schema options: Dictionary，可包含 content_rect: Rect2i 或 Rect2；未提供 content_rect 时可用 viewport_offset: Vector2i/Vector2 叠加窗口偏移。
+## [br]
+## @return 窗口矩形报告。
+## [br]
+## @schema return: Dictionary，包含 ok、rect、position、size、scale_x、scale_y、mapping_mode、content_rect、viewport_offset、control_rect、viewport_size 和 window_size。
+func calculate_control_window_rect(
+	control_rect: Rect2,
+	viewport_size: Vector2,
+	window_size: Vector2i,
+	options: Dictionary = {}
+) -> Dictionary:
+	var content_rect: Rect2i = _resolve_control_window_content_rect(options, window_size)
+	var report: Dictionary = _make_control_window_rect_report(control_rect, viewport_size, window_size, content_rect, options)
+	if viewport_size.x <= 0.0 or viewport_size.y <= 0.0 or content_rect.size.x <= 0 or content_rect.size.y <= 0:
+		return report
+
+	var scale_x: float = float(content_rect.size.x) / viewport_size.x
+	var scale_y: float = float(content_rect.size.y) / viewport_size.y
+	var physical_position: Vector2i = Vector2i(
+		content_rect.position.x + roundi(control_rect.position.x * scale_x),
+		content_rect.position.y + roundi(control_rect.position.y * scale_y)
+	)
+	var physical_size: Vector2i = Vector2i(
+		maxi(roundi(control_rect.size.x * scale_x), 0),
+		maxi(roundi(control_rect.size.y * scale_y), 0)
+	)
+
+	report["ok"] = true
+	report["rect"] = Rect2i(physical_position, physical_size)
+	report["position"] = physical_position
+	report["size"] = physical_size
+	report["scale_x"] = scale_x
+	report["scale_y"] = scale_y
+	return report
+
+
+## 读取 Control 当前全局矩形并换算为物理窗口像素矩形。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+## [br]
+## @param control: 目标 Control。
+## [br]
+## @param viewport: 可选 Viewport；为空时使用 control 所在 Viewport。
+## [br]
+## @return 窗口矩形报告。
+## [br]
+## @schema return: Dictionary，包含 ok、rect、position、size、scale_x、scale_y、mapping_mode、content_rect、viewport_offset、control_rect、viewport_size 和 window_size。
+func get_control_window_rect(control: Control, viewport: Viewport = null) -> Dictionary:
+	if not is_instance_valid(control):
+		return _make_control_window_rect_report(Rect2(), Vector2.ZERO, Vector2i.ZERO, Rect2i(), {})
+
+	var target_viewport: Viewport = viewport
+	if target_viewport == null:
+		target_viewport = control.get_viewport()
+	var viewport_size: Vector2 = Vector2.ZERO
+	if is_instance_valid(target_viewport):
+		viewport_size = target_viewport.get_visible_rect().size
+	return calculate_control_window_rect(control.get_global_rect(), viewport_size, DisplayServer.window_get_size())
 
 
 ## 根据物理屏幕安全区计算 Viewport 逻辑坐标中的边距。
@@ -577,3 +687,58 @@ func _make_safe_area_report(safe_area: Rect2i, window_size: Vector2i, viewport_s
 		"window_size": window_size,
 		"viewport_size": viewport_size,
 	}
+
+
+func _make_control_window_rect_report(
+	control_rect: Rect2,
+	viewport_size: Vector2,
+	window_size: Vector2i,
+	content_rect: Rect2i,
+	options: Dictionary
+) -> Dictionary:
+	return {
+		"ok": false,
+		"rect": Rect2i(),
+		"position": Vector2i.ZERO,
+		"size": Vector2i.ZERO,
+		"scale_x": 0.0,
+		"scale_y": 0.0,
+		"mapping_mode": "content_rect" if options.has("content_rect") else "window",
+		"content_rect": content_rect,
+		"viewport_offset": content_rect.position,
+		"control_rect": control_rect,
+		"viewport_size": viewport_size,
+		"window_size": window_size,
+	}
+
+
+func _resolve_control_window_content_rect(options: Dictionary, window_size: Vector2i) -> Rect2i:
+	if options.has("content_rect"):
+		return _get_option_rect2i(options, "content_rect", Rect2i())
+	var viewport_offset: Vector2i = _get_option_vector2i(options, "viewport_offset", Vector2i.ZERO)
+	return Rect2i(viewport_offset, window_size)
+
+
+func _get_option_vector2i(options: Dictionary, key: String, default_value: Vector2i) -> Vector2i:
+	var value: Variant = GFVariantData.get_option_value(options, key, default_value)
+	if value is Vector2i:
+		var vector_2i: Vector2i = value
+		return vector_2i
+	if value is Vector2:
+		var vector_2: Vector2 = value
+		return Vector2i(roundi(vector_2.x), roundi(vector_2.y))
+	return default_value
+
+
+func _get_option_rect2i(options: Dictionary, key: String, default_value: Rect2i) -> Rect2i:
+	var value: Variant = GFVariantData.get_option_value(options, key, default_value)
+	if value is Rect2i:
+		var rect_2i: Rect2i = value
+		return rect_2i
+	if value is Rect2:
+		var rect_2: Rect2 = value
+		return Rect2i(
+			Vector2i(roundi(rect_2.position.x), roundi(rect_2.position.y)),
+			Vector2i(roundi(rect_2.size.x), roundi(rect_2.size.y))
+		)
+	return default_value

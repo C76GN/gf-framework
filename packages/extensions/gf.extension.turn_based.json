@@ -12,6 +12,6 @@
   "paths": [
     "addons/gf/extensions/turn_based/**"
   ],
-  "enable_extension": "gf.turn_based",
+  "gf_extension_id": "gf.turn_based",
   "metadata": {}
 }

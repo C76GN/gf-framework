@@ -111,6 +111,7 @@ var _preset_file_dialog: FileDialog
 var _search_field: LineEdit
 var _extension_checks: Dictionary = {}
 var _selection_by_id: Dictionary = {}
+var _selection_mode: String = GFExtensionSettingsBase.SELECTION_MODE_DEFAULT
 var _manifests: Array[GFExtensionManifest] = []
 var _selected_manifest_id: String = ""
 var _usage_report: Dictionary = {}
@@ -154,7 +155,7 @@ func _build_ui() -> void:
 	var toolbar: HBoxContainer = GFEditorWorkspaceUI.make_toolbar()
 	add_child(toolbar)
 
-	toolbar.add_child(GFEditorWorkspaceUI.make_button("重新加载", "重新读取所有 gf_extension.json。", _refresh_extensions))
+	toolbar.add_child(GFEditorWorkspaceUI.make_button("重新加载", "重新读取所有 gf_extension.json。", _reload_extensions))
 	toolbar.add_child(GFEditorWorkspaceUI.make_button("扫描引用", "检查当前禁用扩展是否仍被项目文件直接引用。", _scan_disabled_extension_references))
 	toolbar.add_child(GFEditorWorkspaceUI.make_button("恢复默认", "恢复 GF 默认扩展选择。", _restore_default_selection))
 	toolbar.add_child(GFEditorWorkspaceUI.make_button("启用全部", "勾选当前发现的所有扩展。", _set_all_enabled.bind(true)))
@@ -269,6 +270,7 @@ func _refresh_extensions() -> void:
 	_clear_extension_rows()
 
 	_manifests = GFExtensionSettingsBase.get_all_manifests()
+	_selection_mode = GFExtensionSettingsBase.get_extension_selection_mode()
 	_refresh_preset_options()
 	var enabled_ids: Array[String] = GFExtensionSettingsBase.resolve_extension_dependencies(
 		GFExtensionSettingsBase.get_enabled_extension_ids(),
@@ -289,6 +291,11 @@ func _refresh_extensions() -> void:
 	else:
 		_details_output.text = "没有发现 GF 扩展。"
 	_set_selection_status()
+
+
+func _reload_extensions() -> void:
+	GFExtensionSettingsBase.clear_manifest_cache()
+	_refresh_extensions()
 
 
 func _refresh_visible_extension_rows() -> void:
@@ -380,13 +387,17 @@ func _apply_selection() -> void:
 
 
 func _write_selection_to_project_settings() -> void:
-	GFExtensionSettingsBase.set_enabled_extension_ids(_get_selected_enabled_ids(), true)
+	if _selection_mode == GFExtensionSettingsBase.SELECTION_MODE_DEFAULT:
+		GFExtensionSettingsBase.use_default_extension_selection()
+	else:
+		GFExtensionSettingsBase.set_enabled_extension_ids(_get_selected_enabled_ids(), true)
 	GFExtensionSettingsBase.set_auto_install_enabled_installers(_auto_install_check.button_pressed)
 	GFExtensionSettingsBase.set_export_exclude_disabled_extensions(_export_exclude_check.button_pressed)
 	GFExtensionSettingsBase.set_fail_export_on_disabled_extension_references(_export_fail_check.button_pressed)
 
 
 func _set_all_enabled(enabled: bool) -> void:
+	_selection_mode = GFExtensionSettingsBase.SELECTION_MODE_EXPLICIT
 	for manifest: GFExtensionManifest in _manifests:
 		_selection_by_id[manifest.id] = enabled
 	_refresh_usage_report()
@@ -395,6 +406,7 @@ func _set_all_enabled(enabled: bool) -> void:
 
 
 func _restore_default_selection() -> void:
+	_selection_mode = GFExtensionSettingsBase.SELECTION_MODE_DEFAULT
 	var default_ids: Array[String] = GFExtensionSettingsBase.get_default_enabled_extension_ids()
 	for manifest: GFExtensionManifest in _manifests:
 		_selection_by_id[manifest.id] = default_ids.has(manifest.id)
@@ -491,6 +503,7 @@ func _apply_extension_preset_by_id(preset_id: StringName) -> bool:
 		preset.extension_ids,
 		_manifests
 	)
+	_selection_mode = GFExtensionSettingsBase.SELECTION_MODE_EXPLICIT
 	for manifest: GFExtensionManifest in _manifests:
 		_selection_by_id[manifest.id] = enabled_ids.has(manifest.id)
 	_refresh_usage_report()
@@ -679,14 +692,20 @@ func _join_strings(values: Array[String]) -> String:
 func _set_selection_status() -> void:
 	var enabled_count: int = _get_selected_enabled_ids().size()
 	var reference_count: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(_usage_report, "reference_count", 0)
+	var mode_label: String = "默认" if _selection_mode == GFExtensionSettingsBase.SELECTION_MODE_DEFAULT else "显式"
 	if reference_count > 0:
-		_set_status("已选择 %d / %d 个扩展；发现 %d 处禁用扩展引用。" % [
+		_set_status("%s模式：已选择 %d / %d 个扩展；发现 %d 处禁用扩展引用。" % [
+			mode_label,
 			enabled_count,
 			_manifests.size(),
 			reference_count,
 		])
 	else:
-		_set_status("已选择 %d / %d 个扩展。禁用扩展可在导出阶段排除。" % [enabled_count, _manifests.size()])
+		_set_status("%s模式：已选择 %d / %d 个扩展。禁用扩展可在导出阶段排除。" % [
+			mode_label,
+			enabled_count,
+			_manifests.size(),
+		])
 
 
 func _set_status(message: String) -> void:
@@ -715,6 +734,7 @@ func _on_search_changed(_new_text: String) -> void:
 
 
 func _on_extension_toggled(enabled: bool, extension_id: String) -> void:
+	_selection_mode = GFExtensionSettingsBase.SELECTION_MODE_EXPLICIT
 	_selection_by_id[extension_id] = enabled
 	_refresh_usage_report()
 	if extension_id == _selected_manifest_id:

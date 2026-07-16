@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFLogUtility" path="addons/gf/standard/utilities/logging/gf_log_utility.gd" module="standard" extends="GFUtility" classDigest="6e6e1d6caadc8f2a4a9b791a806bc093940476b5cd845626d7dc57becbd72bf2">
+<class name="GFLogUtility" path="addons/gf/standard/utilities/logging/gf_log_utility.gd" module="standard" extends="GFUtility" classDigest="12c1518adaa3c28f087c2b2374588953db83b14f886df109b936740a9bef8ed7">
 	<description>GFLogUtility: 集中式日志系统。
 取代原生 print / push_error，提供分级日志（DEBUG → FATAL），
 每条日志同时写入本地按日期命名的日志文件，进入内存环形缓存，
@@ -388,6 +388,29 @@
 				<tag name="schema">return: Array[Dictionary] of log entries from oldest to newest.</tag>
 			</tags>
 		</member>
+		<member kind="method" name="get_memory_sequence">
+			<signature>func get_memory_sequence() -&gt; int:</signature>
+			<description>获取内存日志的下一个序列游标。
+该值随每条通过过滤的日志递增，可作为 get_entries_since() 的 since_sequence。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">下一条日志将使用的序列号。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_entries_since">
+			<signature>func get_entries_since(since_sequence: int, limit: int = -1) -&gt; Dictionary:</signature>
+			<description>按序列游标读取新增内存日志。
+适合诊断 UI、远端采集器或支持报告面板轮询日志缓存，而不需要每次重新读取全部最近日志。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">since_sequence: 调用方上次保存的 next_sequence；表示下一条想读取的日志序列。</tag>
+				<tag name="param">limit: 最多返回的条目数量；小于 0 表示读取所有可用条目。</tag>
+				<tag name="return">增量读取报告。</tag>
+				<tag name="schema">return: Dictionary with requested_sequence, oldest_sequence, next_sequence, current_sequence, entries, truncated, has_more, missed_count, and dropped_count fields.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
 		<member kind="method" name="get_memory_entry_count">
 			<signature>func get_memory_entry_count() -&gt; int:</signature>
 			<description>获取当前内存日志条目数量。</description>
@@ -414,9 +437,11 @@
 		</member>
 		<member kind="method" name="clear_memory_entries">
 			<signature>func clear_memory_entries() -&gt; void:</signature>
-			<description>清空内存日志缓存。</description>
+			<description>清空内存日志缓存。
+已分配的序列游标不会重置；调用方仍可用 get_memory_sequence() 继续进行增量读取。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="sanitize_log_value">

@@ -29,6 +29,19 @@ func test_raycast_all_3d_returns_empty_for_zero_length() -> void:
 	assert_eq(results, [], "零长度射线应返回空结果。")
 
 
+func test_raycast_all_3d_rejects_non_finite_geometry_and_margin() -> void:
+	var root: Node3D = Node3D.new()
+	add_child_autofree(root)
+	var world: World3D = root.get_world_3d()
+
+	assert_true(_utility.raycast_all_3d(world, Vector3(NAN, 0.0, 0.0), Vector3.FORWARD).is_empty())
+	assert_true(_utility.raycast_all_3d(world, Vector3.ZERO, Vector3(0.0, 0.0, INF)).is_empty())
+	assert_true(
+		_utility.raycast_all_3d(world, Vector3.ZERO, Vector3.FORWARD, { "margin": NAN }).is_empty(),
+		"非法 margin 不得进入射线推进循环。"
+	)
+
+
 func test_raycast_all_3d_collects_multiple_bodies_in_order() -> void:
 	var root: Node3D = Node3D.new()
 	add_child_autofree(root)

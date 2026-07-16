@@ -23,8 +23,4 @@ snapshots.step_back()
 
 插件启用后也会在独立 `GF Workspace` 中提供 `GF Storage Viewer` 页面。它由标准库中的 `GFStorageViewerDock` 承载，用于按 codec 选项查看本地存档内容、校验状态并复制 JSON，方便调试而不绑定任何项目业务结构。
 
-## SaveGraph 入口
-
-如果需要采集和恢复场景树节点状态，使用 GF Save 扩展的 `GFSaveGraphUtility` / `GFSaveScope`。
-
-标准库文档聚焦本地读写、编码、同步和快照能力；SaveGraph 的节点序列化器、槽位工作流和 pipeline trace 见 [Save 场景存档图](../../../../extensions/save-graph/index.md)。
+状态采集器、对象重建和场景节点协议由项目层或独立扩展提供；标准快照历史只接收已经形成的 Variant 数据和恢复回调。

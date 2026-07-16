@@ -144,11 +144,12 @@ var cancel_remaining_on_finish: bool = false
 var _items: Dictionary = {}
 var _completed: bool = false
 var _watched_responses: Dictionary = {}
+var _watched_completions: Dictionary = {}
 var _completion_order: Array = []
 var _first_completed_key: Variant = null
 var _first_success_key: Variant = null
 var _cancel_token_callbacks: Dictionary = {}
-var _timeout_source: GFCancelSource = null
+var _timeout_source: GFCancellationSource = null
 var _cancelled: bool = false
 var _timed_out: bool = false
 var _cancel_reason: StringName = &""
@@ -257,6 +258,56 @@ func watch_response(response: GFHttpResponse, key: Variant = null) -> bool:
 	return true
 
 
+## 监听 GFAsyncCompletion。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+## [br]
+## @param completion: 完成源。
+## [br]
+## @param key: 条目标识；为空时使用 completion 的 instance_id。
+## [br]
+## @param metadata: 条目元数据。
+## [br]
+## @return 是否开始监听。
+## [br]
+## @schema key: Variant，调用方持有的条目标识；为 null 时使用 completion.get_instance_id()。
+## [br]
+## @schema metadata: Dictionary，调用方持有并关联到该条目的元数据。
+func watch_completion(completion: GFAsyncCompletion, key: Variant = null, metadata: Dictionary = {}) -> bool:
+	if completion == null:
+		return false
+
+	var item_key: Variant = key
+	if item_key == null:
+		item_key = completion.get_instance_id()
+	if not add_item(item_key, metadata):
+		return false
+
+	var _cancel_callback_result: bool = set_item_cancel_callback(
+		item_key,
+		func(cancel_key: Variant, reason: StringName) -> void:
+			var _unused_key: Variant = cancel_key
+			if completion.is_pending():
+				var _cancelled_completion: bool = completion.cancel(reason)
+	)
+
+	if completion.is_completed():
+		_mark_completion_completed(completion, item_key)
+	else:
+		var callback: Callable = _on_completion_completed.bind(item_key)
+		_watched_completions[item_key] = {
+			"completion": completion,
+			"callback": callback,
+		}
+		var _connect_error: Error = completion.completed.connect(
+			callback,
+			CONNECT_ONE_SHOT as Object.ConnectFlags
+		) as Error
+	return true
+
+
 ## 手动标记条目成功完成。
 ## [br]
 ## @api public
@@ -344,6 +395,7 @@ func cancel(reason: StringName = &"cancelled", metadata: Dictionary = {}) -> boo
 	_finalizing = false
 	_completed = true
 	_disconnect_all_watched_responses()
+	_disconnect_all_watched_completions()
 	_disconnect_cancel_token()
 	_dispose_timeout_source()
 	cancelled.emit(_cancel_reason, _cancel_metadata.duplicate(true))
@@ -361,19 +413,19 @@ func cancel(reason: StringName = &"cancelled", metadata: Dictionary = {}) -> boo
 ## @param token: 取消 token。
 ## [br]
 ## @return 成功绑定或 token 已触发取消时返回 true。
-func bind_cancel_token(token: GFCancelToken) -> bool:
+func bind_cancel_token(token: GFCancellationToken) -> bool:
 	if token == null or _completed:
 		return false
 	var token_key: int = token.get_instance_id()
 	if _cancel_token_callbacks.has(token_key):
 		return true
-	if token.is_cancelled():
-		var _cancelled_now: bool = cancel(token.get_reason(), token.get_metadata())
+	if token.is_cancel_requested():
+		var _cancelled_now: bool = cancel(token.get_cancel_reason(), token.get_cancel_metadata())
 		return true
 
-	var callback: Callable = func(reason: StringName, metadata: Dictionary) -> void:
-		var _cancelled_from_token: bool = cancel(reason, metadata)
-	var connect_error: Error = token.cancelled.connect(
+	var callback: Callable = func(reason: StringName) -> void:
+		var _cancelled_from_token: bool = cancel(reason, token.get_cancel_metadata())
+	var connect_error: Error = token.cancel_requested.connect(
 		callback,
 		CONNECT_ONE_SHOT as Object.ConnectFlags
 	) as Error
@@ -412,7 +464,7 @@ func set_timeout(
 	if _completed:
 		return false
 	_dispose_timeout_source()
-	_timeout_source = GFCancelSource.new()
+	_timeout_source = GFCancellationSource.new()
 	if not bind_cancel_token(_timeout_source.get_token()):
 		_timeout_source = null
 		return false
@@ -552,6 +604,7 @@ func get_report() -> Dictionary:
 ## @api public
 func clear() -> void:
 	_disconnect_all_watched_responses()
+	_disconnect_all_watched_completions()
 	_disconnect_cancel_token()
 	_dispose_timeout_source()
 	_items.clear()
@@ -599,7 +652,8 @@ func _mark_item_terminal(
 	state: ItemState,
 	result: Variant,
 	error: String,
-	cancel_reason: StringName
+	cancel_reason: StringName,
+	terminal_metadata: Dictionary = {}
 ) -> bool:
 	if not _items.has(key):
 		return false
@@ -613,8 +667,11 @@ func _mark_item_terminal(
 	item["result"] = GFVariantData.duplicate_variant(result)
 	item["error"] = error
 	item["cancel_reason"] = cancel_reason
+	if not terminal_metadata.is_empty():
+		item["metadata"] = _merge_item_metadata(item, terminal_metadata)
 	_items[key] = item
 	_disconnect_watched_response(key)
+	_disconnect_watched_completion(key)
 	if _first_completed_key == null:
 		_first_completed_key = GFVariantData.duplicate_variant(key)
 	if state == ItemState.SUCCEEDED and _first_success_key == null:
@@ -689,6 +746,38 @@ func _mark_response_completed(response: GFHttpResponse, key: Variant) -> void:
 	var _completed_item: bool = mark_completed(key, response)
 
 
+func _mark_completion_completed(completion: GFAsyncCompletion, key: Variant) -> void:
+	var terminal_metadata: Dictionary = completion.get_metadata()
+	if completion.is_cancelled():
+		var _cancelled_item: bool = _mark_item_terminal(
+			key,
+			ItemState.CANCELLED,
+			completion.get_result(),
+			"",
+			completion.get_cancel_reason(),
+			terminal_metadata
+		)
+		return
+	if completion.is_failed():
+		var _failed_item: bool = _mark_item_terminal(
+			key,
+			ItemState.FAILED,
+			completion.get_result(),
+			completion.get_error(),
+			&"",
+			terminal_metadata
+		)
+		return
+	var _completed_item: bool = _mark_item_terminal(
+		key,
+		ItemState.SUCCEEDED,
+		completion.get_result(),
+		"",
+		&"",
+		terminal_metadata
+	)
+
+
 func _compute_success() -> bool:
 	if _cancelled:
 		return false
@@ -742,19 +831,37 @@ func _disconnect_watched_response(key: Variant) -> void:
 		response.completed.disconnect(callback)
 
 
+func _disconnect_watched_completion(key: Variant) -> void:
+	var entry: Dictionary = _get_watched_completion_entry(key)
+	var _erase_result: bool = _watched_completions.erase(key)
+	if entry.is_empty():
+		return
+
+	var completion: GFAsyncCompletion = _get_entry_completion(entry)
+	var callback: Callable = _get_entry_callback(entry)
+	if completion != null and callback.is_valid() and completion.completed.is_connected(callback):
+		completion.completed.disconnect(callback)
+
+
 func _disconnect_all_watched_responses() -> void:
 	for key: Variant in _watched_responses.keys():
 		_disconnect_watched_response(key)
 	_watched_responses.clear()
 
 
+func _disconnect_all_watched_completions() -> void:
+	for key: Variant in _watched_completions.keys():
+		_disconnect_watched_completion(key)
+	_watched_completions.clear()
+
+
 func _disconnect_cancel_token() -> void:
 	for entry_value: Variant in _cancel_token_callbacks.values():
 		var entry: Dictionary = GFVariantData.as_dictionary(entry_value)
-		var token: GFCancelToken = _variant_to_cancel_token(GFVariantData.get_option_value(entry, "token"))
+		var token: GFCancellationToken = _variant_to_cancel_token(GFVariantData.get_option_value(entry, "token"))
 		var callback: Callable = _variant_to_callable(GFVariantData.get_option_value(entry, "callback", Callable()))
-		if token != null and callback.is_valid() and token.cancelled.is_connected(callback):
-			token.cancelled.disconnect(callback)
+		if token != null and callback.is_valid() and token.cancel_requested.is_connected(callback):
+			token.cancel_requested.disconnect(callback)
 	_cancel_token_callbacks.clear()
 
 
@@ -804,12 +911,27 @@ func _get_watched_response_entry(key: Variant) -> Dictionary:
 	return GFVariantData.as_dictionary(GFVariantData.get_option_value(_watched_responses, key, {}))
 
 
+func _get_watched_completion_entry(key: Variant) -> Dictionary:
+	return GFVariantData.as_dictionary(GFVariantData.get_option_value(_watched_completions, key, {}))
+
+
 func _get_entry_response(entry: Dictionary) -> GFHttpResponse:
 	return _variant_to_http_response(GFVariantData.get_option_value(entry, "response"))
 
 
+func _get_entry_completion(entry: Dictionary) -> GFAsyncCompletion:
+	return _variant_to_async_completion(GFVariantData.get_option_value(entry, "completion"))
+
+
 func _get_entry_callback(entry: Dictionary) -> Callable:
 	return _variant_to_callable(GFVariantData.get_option_value(entry, "callback", Callable()))
+
+
+func _merge_item_metadata(item: Dictionary, terminal_metadata: Dictionary) -> Dictionary:
+	var result: Dictionary = GFVariantData.get_option_dictionary(item, "metadata")
+	for metadata_key: Variant in terminal_metadata.keys():
+		result[metadata_key] = GFVariantData.duplicate_variant(terminal_metadata[metadata_key])
+	return result
 
 
 func _variant_to_http_response(value: Variant) -> GFHttpResponse:
@@ -819,9 +941,16 @@ func _variant_to_http_response(value: Variant) -> GFHttpResponse:
 	return null
 
 
-func _variant_to_cancel_token(value: Variant) -> GFCancelToken:
-	if value is GFCancelToken:
-		var token: GFCancelToken = value
+func _variant_to_async_completion(value: Variant) -> GFAsyncCompletion:
+	if value is GFAsyncCompletion:
+		var completion: GFAsyncCompletion = value
+		return completion
+	return null
+
+
+func _variant_to_cancel_token(value: Variant) -> GFCancellationToken:
+	if value is GFCancellationToken:
+		var token: GFCancellationToken = value
 		return token
 	return null
 
@@ -850,3 +979,8 @@ func _state_to_name(state: ItemState) -> StringName:
 func _on_response_completed(response: GFHttpResponse, key: Variant) -> void:
 	_disconnect_watched_response(key)
 	_mark_response_completed(response, key)
+
+
+func _on_completion_completed(completion: GFAsyncCompletion, key: Variant) -> void:
+	_disconnect_watched_completion(key)
+	_mark_completion_completed(completion, key)

@@ -17,36 +17,50 @@ extends RefCounted
 ## 流程阶段标识。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 var stage: StringName = &""
 
 ## 事件严重级别，建议使用 info/warning/error。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 var severity: StringName = &"info"
 
 ## 事件关联的作用域键。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 var scope_key: StringName = &""
 
 ## 事件关联的来源键。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 var source_key: StringName = &""
 
 ## 事件关联节点路径。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 var node_path: String = ""
 
 ## 面向调试的短消息。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 var message: String = ""
 
 ## 附加通用载荷。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @schema payload: Dictionary，项目或流程步骤附加的诊断字段。
 var payload: Dictionary = {}
@@ -54,6 +68,8 @@ var payload: Dictionary = {}
 ## 事件创建时间。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 var timestamp_msec: int = 0
 
 
@@ -62,6 +78,8 @@ var timestamp_msec: int = 0
 ## 配置事件内容并返回自身。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @param p_stage: 流程阶段。
 ## [br]
@@ -101,9 +119,11 @@ func configure(
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @return 事件字典。
 ## [br]
-## @schema return: Dictionary，包含 stage、severity、scope_key、source_key、node_path、message、payload 与 timestamp_msec。
+## @schema return: Dictionary，包含 stage、severity、scope_key、source_key、node_path、message、JSON-safe payload 与 timestamp_msec。
 func to_dict() -> Dictionary:
 	return {
 		"stage": stage,
@@ -112,7 +132,9 @@ func to_dict() -> Dictionary:
 		"source_key": source_key,
 		"node_path": node_path,
 		"message": message,
-		"payload": payload.duplicate(true),
+		"payload": GFReportValueCodec.to_report_dictionary(payload, {
+			"path_redaction": "basename",
+		}),
 		"timestamp_msec": timestamp_msec,
 	}
 
@@ -120,6 +142,8 @@ func to_dict() -> Dictionary:
 ## 从 Dictionary 恢复事件。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @param data: 事件字典。
 ## [br]

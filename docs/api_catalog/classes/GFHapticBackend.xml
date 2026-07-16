@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFHapticBackend" path="addons/gf/extensions/feedback/runtime/gf_haptic_backend.gd" module="extensions/feedback" extends="RefCounted" classDigest="70dac3998978228ebfb2bfbf49543578198b10dfe3616f5bf606f323526f4a70">
+	<description>GFHapticBackend: 震动输出后端协议。
+项目可实现该协议，把 GFHapticUtility 的采样输出路由到平台 SDK、远程设备、
+测试替身或自定义输入系统。该协议只承载输出能力，不定义播放策略。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">protocol</tag>
+		<tag name="since">8.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties />
+	<methods>
+		<member kind="method" name="start_output">
+			<signature>func start_output( target_type: int, target_id: int, weak_magnitude: float, strong_magnitude: float, duration_seconds: float, metadata: Dictionary = {} ) -&gt; bool:</signature>
+			<description>开始或刷新一次震动输出。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">target_type: GFHapticUtility.TargetType 值。</tag>
+				<tag name="param">target_id: 玩家索引或设备 ID。</tag>
+				<tag name="param">weak_magnitude: 弱马达强度。</tag>
+				<tag name="param">strong_magnitude: 强马达强度。</tag>
+				<tag name="param">duration_seconds: 输出持续时间。</tag>
+				<tag name="param">metadata: 输出元数据。</tag>
+				<tag name="return">后端接受输出时返回 true。</tag>
+				<tag name="schema">metadata: Dictionary copied from GFHapticUtility output target metadata.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="stop_output">
+			<signature>func stop_output(target_type: int, target_id: int, metadata: Dictionary = {}) -&gt; bool:</signature>
+			<description>停止指定目标的震动输出。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">target_type: GFHapticUtility.TargetType 值。</tag>
+				<tag name="param">target_id: 玩家索引或设备 ID。</tag>
+				<tag name="param">metadata: 输出元数据。</tag>
+				<tag name="return">后端确认停止时返回 true。</tag>
+				<tag name="schema">metadata: Dictionary copied from GFHapticUtility output target metadata.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_start_output">
+			<signature>func _start_output( _target_type: int, _target_id: int, _weak_magnitude: float, _strong_magnitude: float, _duration_seconds: float, _metadata: Dictionary = {} ) -&gt; bool:</signature>
+			<description>子类实现开始或刷新震动输出。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">_target_type: GFHapticUtility.TargetType 值。</tag>
+				<tag name="param">_target_id: 玩家索引或设备 ID。</tag>
+				<tag name="param">_weak_magnitude: 弱马达强度。</tag>
+				<tag name="param">_strong_magnitude: 强马达强度。</tag>
+				<tag name="param">_duration_seconds: 输出持续时间。</tag>
+				<tag name="param">_metadata: 输出元数据。</tag>
+				<tag name="return">后端接受输出时返回 true。</tag>
+				<tag name="schema">_metadata: Dictionary copied from GFHapticUtility output target metadata.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_stop_output">
+			<signature>func _stop_output(_target_type: int, _target_id: int, _metadata: Dictionary = {}) -&gt; bool:</signature>
+			<description>子类实现停止震动输出。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">_target_type: GFHapticUtility.TargetType 值。</tag>
+				<tag name="param">_target_id: 玩家索引或设备 ID。</tag>
+				<tag name="param">_metadata: 输出元数据。</tag>
+				<tag name="return">后端确认停止时返回 true。</tag>
+				<tag name="schema">_metadata: Dictionary copied from GFHapticUtility output target metadata.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

@@ -18,44 +18,52 @@ extends Area3D
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param context: 命中上下文。
 ## [br]
 ## @param receiver: 接收对象。
 ## [br]
 ## @param report: 结果报告。
 ## [br]
-## @schema report: Dictionary，统一命中发送结果，包含 ok、hit_id、receiver、reason、message 和 metadata。
+## @schema report: Dictionary，统一命中发送结果，包含 ok、hit_id、receiver(JSON-safe 摘要)、reason、message 和 metadata。
 signal hit_sent(context: GFCombatHitContext, receiver: Object, report: Dictionary)
 
 ## 命中被接收对象接受。
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param context: 命中上下文。
 ## [br]
 ## @param receiver: 接收对象。
 ## [br]
 ## @param report: 结果报告。
 ## [br]
-## @schema report: Dictionary，统一命中发送结果，包含 ok、hit_id、receiver、reason、message 和 metadata。
+## @schema report: Dictionary，统一命中发送结果，包含 ok、hit_id、receiver(JSON-safe 摘要)、reason、message 和 metadata。
 signal hit_accepted(context: GFCombatHitContext, receiver: Object, report: Dictionary)
 
 ## 命中被接收对象拒绝或发送失败。
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param context: 命中上下文。
 ## [br]
 ## @param receiver: 接收对象。
 ## [br]
 ## @param report: 结果报告。
 ## [br]
-## @schema report: Dictionary，统一命中发送结果，包含 ok、hit_id、receiver、reason、message 和 metadata。
+## @schema report: Dictionary，统一命中发送结果，包含 ok、hit_id、receiver(JSON-safe 摘要)、reason、message 和 metadata。
 signal hit_rejected(context: GFCombatHitContext, receiver: Object, report: Dictionary)
 
 ## 启用状态变化时发出。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @param enabled: 当前是否允许发送命中。
 signal enabled_changed(enabled: bool)
@@ -72,6 +80,8 @@ const _GENERATED_COLLISION_SHAPE_NODE_NAME: StringName = &"GFGeneratedCollisionS
 ## 是否允许发送命中。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 @export var enabled: bool = true:
 	set(value):
 		if enabled == value:
@@ -82,11 +92,15 @@ const _GENERATED_COLLISION_SHAPE_NODE_NAME: StringName = &"GFGeneratedCollisionS
 ## 默认命中 ID。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 @export var hit_id: StringName = &""
 
 ## 默认 payload；发送时会深拷贝。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @schema payload: Dictionary，默认命中载荷；框架只复制并透传。
 @export var payload: Dictionary = {}
@@ -94,16 +108,22 @@ const _GENERATED_COLLISION_SHAPE_NODE_NAME: StringName = &"GFGeneratedCollisionS
 ## 通用强度值。框架不解释该字段。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 @export var magnitude: float = 0.0
 
 ## 命中标签。框架不解释该字段。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 @export var tags: Array[StringName] = []
 
 ## 发送器自定义元数据。框架不解释该字段。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @schema metadata: Dictionary，发送器自定义命中元数据；会进入命中上下文和结果报告。
 @export var metadata: Dictionary = {}
@@ -111,11 +131,15 @@ const _GENERATED_COLLISION_SHAPE_NODE_NAME: StringName = &"GFGeneratedCollisionS
 ## 可选发送者路径；为空时使用当前节点。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 @export_node_path("Node") var sender_path: NodePath = NodePath("")
 
 ## 可选碰撞形状配置。设置后可自动生成或更新 CollisionShape3D 子节点。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 @export var collision_shape_config: GFHitCollisionShapeConfig3D = null:
 	get:
 		return _collision_shape_config
@@ -127,6 +151,8 @@ const _GENERATED_COLLISION_SHAPE_NODE_NAME: StringName = &"GFGeneratedCollisionS
 ## 可选碰撞形状配置列表。非空时可自动生成或更新多个 CollisionShape3D 子节点。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 @export var collision_shape_configs: Array[GFHitCollisionShapeConfig3D] = []:
 	get:
 		return _collision_shape_configs
@@ -138,6 +164,8 @@ const _GENERATED_COLLISION_SHAPE_NODE_NAME: StringName = &"GFGeneratedCollisionS
 ## 是否在进入场景树或配置变化时自动应用碰撞形状配置。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 @export var auto_apply_collision_shape_config: bool = true
 
 
@@ -163,6 +191,8 @@ func _ready() -> void:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param config: 可选配置；为空时使用 collision_shape_config。
 ## [br]
 ## @return 创建或更新的 CollisionShape3D；配置无效时返回 null。
@@ -175,6 +205,8 @@ func apply_collision_shape_config(config: GFHitCollisionShapeConfig3D = null) ->
 ## 应用碰撞形状配置列表，创建或更新框架管理的多个 CollisionShape3D 子节点。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @param configs: 可选配置列表；为空时使用 collision_shape_configs。
 ## [br]
@@ -189,6 +221,8 @@ func apply_collision_shape_configs(configs: Array[GFHitCollisionShapeConfig3D] =
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @return 存在则返回 CollisionShape3D，否则返回 null。
 func get_generated_collision_shape() -> CollisionShape3D:
 	return _get_collision_shape_3d_value(get_node_or_null(String(_GENERATED_COLLISION_SHAPE_NODE_NAME)))
@@ -197,6 +231,8 @@ func get_generated_collision_shape() -> CollisionShape3D:
 ## 获取框架管理的 CollisionShape3D 子节点列表。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @return 已生成的 CollisionShape3D 列表。
 func get_generated_collision_shapes() -> Array[CollisionShape3D]:
@@ -211,6 +247,8 @@ func get_generated_collision_shapes() -> Array[CollisionShape3D]:
 ## 移除框架管理的 CollisionShape3D 子节点。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 func clear_generated_collision_shape() -> void:
 	clear_generated_collision_shapes()
 
@@ -218,6 +256,8 @@ func clear_generated_collision_shape() -> void:
 ## 移除框架管理的全部 CollisionShape3D 子节点。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 func clear_generated_collision_shapes() -> void:
 	for collision_shape: CollisionShape3D in get_generated_collision_shapes():
 		remove_child(collision_shape)
@@ -227,6 +267,8 @@ func clear_generated_collision_shapes() -> void:
 ## 构建命中上下文。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @param target: 命中目标。
 ## [br]
@@ -247,7 +289,7 @@ func build_hit_context(
 	var context: GFCombatHitContext = GFCombatHitContext.new(_resolve_sender(), target, context_payload, effective_hit_id)
 	context.magnitude = magnitude
 	context.tags = tags.duplicate()
-	context.position_3d = global_position
+	context.position_3d = global_position if is_inside_tree() else position
 	context.metadata = metadata.duplicate(true)
 	return context
 
@@ -255,6 +297,8 @@ func build_hit_context(
 ## 向指定接收对象发送命中。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @param receiver: 接收对象。
 ## [br]
@@ -266,7 +310,7 @@ func build_hit_context(
 ## [br]
 ## @schema payload_override: Variant，可为 null、Dictionary 或项目自定义命中载荷；为 null 时使用节点默认 payload。
 ## [br]
-## @schema return: Dictionary，统一命中发送结果，包含 ok、hit_id、receiver、reason、message 和 metadata。
+## @schema return: Dictionary，统一命中发送结果，包含 ok、hit_id、receiver(JSON-safe 摘要)、reason、message 和 metadata。
 func send_to(
 	receiver: Object,
 	payload_override: Variant = null,
@@ -295,6 +339,8 @@ func send_to(
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param receiver_path: 接收节点路径。
 ## [br]
 ## @param payload_override: 覆盖 payload；为 null 时使用节点默认 payload。
@@ -305,7 +351,7 @@ func send_to(
 ## [br]
 ## @schema payload_override: Variant，可为 null、Dictionary 或项目自定义命中载荷；为 null 时使用节点默认 payload。
 ## [br]
-## @schema return: Dictionary，统一命中发送结果，包含 ok、hit_id、receiver、reason、message 和 metadata。
+## @schema return: Dictionary，统一命中发送结果，包含 ok、hit_id、receiver(JSON-safe 摘要)、reason、message 和 metadata。
 func send_to_path(
 	receiver_path: NodePath,
 	payload_override: Variant = null,
@@ -319,6 +365,8 @@ func send_to_path(
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param max_count: 最多发送数量；小于等于 0 表示不限制。
 ## [br]
 ## @param payload_override: 覆盖 payload；为 null 时使用节点默认 payload。
@@ -329,7 +377,7 @@ func send_to_path(
 ## [br]
 ## @schema payload_override: Variant，可为 null、Dictionary 或项目自定义命中载荷；为 null 时使用节点默认 payload。
 ## [br]
-## @schema return: Array[Dictionary]，每项为统一命中发送结果，包含 ok、hit_id、receiver、reason、message 和 metadata。
+## @schema return: Array[Dictionary]，每项为统一命中发送结果，包含 ok、hit_id、receiver(JSON-safe 摘要)、reason、message 和 metadata。
 func broadcast_overlaps(
 	max_count: int = 0,
 	payload_override: Variant = null,

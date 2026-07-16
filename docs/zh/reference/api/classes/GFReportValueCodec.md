@@ -1,0 +1,222 @@
+# GFReportValueCodec
+
+[API Reference](../index.md) / [Kernel](../kernel.md) / [类索引](index.md)
+
+- 路径：`addons/gf/kernel/core/gf_report_value_codec.gd`
+- 模块：`Kernel`
+- 继承：`RefCounted`
+- API：`public`
+- 类别：运行时服务 (`runtime_service`)
+- 首次版本：`8.0.0`
+
+报告与诊断快照的 JSON-safe 值编码器。 用于把公开报告、调试快照和诊断事件中的任意 Variant 收束为 JSON.stringify() 可安全处理的结构。Object、Callable、Signal 和 RID 会被结构化脱敏，不会把运行时对象直接泄漏到报告边界。
+
+## 成员概览
+
+| 类型 | 名称 | 签名 |
+|---|---|---|
+| 常量 | [`REDACTION_PROFILE_DEBUG`](#member-gfreportvaluecodec-constants-redaction_profile_debug) | `const REDACTION_PROFILE_DEBUG: String = "debug"` |
+| 常量 | [`REDACTION_PROFILE_SUPPORT`](#member-gfreportvaluecodec-constants-redaction_profile_support) | `const REDACTION_PROFILE_SUPPORT: String = "support"` |
+| 常量 | [`REDACTION_PROFILE_PUBLIC`](#member-gfreportvaluecodec-constants-redaction_profile_public) | `const REDACTION_PROFILE_PUBLIC: String = "public"` |
+| 常量 | [`REDACTION_PROFILE_PRIVACY`](#member-gfreportvaluecodec-constants-redaction_profile_privacy) | `const REDACTION_PROFILE_PRIVACY: String = "privacy"` |
+| 方法 | [`make_redaction_options`](#member-gfreportvaluecodec-methods-make_redaction_options) | `static func make_redaction_options(profile: String, overrides: Dictionary = {}) -> Dictionary:` |
+| 方法 | [`to_json_compatible`](#member-gfreportvaluecodec-methods-to_json_compatible) | `static func to_json_compatible(value: Variant, options: Dictionary = {}) -> Variant:` |
+| 方法 | [`to_report_dictionary`](#member-gfreportvaluecodec-methods-to_report_dictionary) | `static func to_report_dictionary(value: Variant, options: Dictionary = {}) -> Dictionary:` |
+| 方法 | [`stringify_json_compatible`](#member-gfreportvaluecodec-methods-stringify_json_compatible) | `static func stringify_json_compatible( value: Variant, indent: String = "", sort_keys: bool = false, options: Dictionary = {} ) -> String:` |
+| 方法 | [`make_collection_summary`](#member-gfreportvaluecodec-methods-make_collection_summary) | `static func make_collection_summary(value: Variant, options: Dictionary = {}) -> Dictionary:` |
+
+## 常量
+
+<a id="member-gfreportvaluecodec-constants-redaction_profile_debug"></a>
+
+### `REDACTION_PROFILE_DEBUG`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+const REDACTION_PROFILE_DEBUG: String = "debug"
+```
+
+本地调试报告配置，保留对象 id、Node 名称和路径，路径不脱敏。
+
+<a id="member-gfreportvaluecodec-constants-redaction_profile_support"></a>
+
+### `REDACTION_PROFILE_SUPPORT`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+const REDACTION_PROFILE_SUPPORT: String = "support"
+```
+
+支持排障报告配置，保留对象 id 和 Node 名称，但默认隐藏路径。
+
+<a id="member-gfreportvaluecodec-constants-redaction_profile_public"></a>
+
+### `REDACTION_PROFILE_PUBLIC`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+const REDACTION_PROFILE_PUBLIC: String = "public"
+```
+
+对外报告配置，隐藏对象 id、Node 名称和路径，只保留类型和有效性。
+
+<a id="member-gfreportvaluecodec-constants-redaction_profile_privacy"></a>
+
+### `REDACTION_PROFILE_PRIVACY`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+const REDACTION_PROFILE_PRIVACY: String = "privacy"
+```
+
+隐私优先报告配置，隐藏对象 id、Node 名称、路径和 Resource 路径。
+
+## 方法
+
+<a id="member-gfreportvaluecodec-methods-make_redaction_options"></a>
+
+### `make_redaction_options`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+static func make_redaction_options(profile: String, overrides: Dictionary = {}) -> Dictionary:
+```
+
+根据内置脱敏 profile 构建报告编码选项。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `profile` | REDACTION_PROFILE_* 常量之一。 |
+| `overrides` | 覆盖默认 profile 的选项。 |
+
+返回：编码选项字典。
+
+结构：
+
+- `overrides`: Dictionary，可覆盖 redaction_profile、path_redaction、include_node_name、include_node_path、include_object_instance_id、include_resource_path、max_depth、max_string_length、max_collection_items、max_packed_length、max_total_nodes 和 max_total_bytes。
+- `return`: Dictionary，可直接传给 GFReportValueCodec 的编码选项。
+
+<a id="member-gfreportvaluecodec-methods-to_json_compatible"></a>
+
+### `to_json_compatible`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+static func to_json_compatible(value: Variant, options: Dictionary = {}) -> Variant:
+```
+
+将任意 Variant 转为报告边界可安全 JSON.stringify() 的值。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `value` | 待转换的报告值。 |
+| `options` | 可选项；支持 redaction_profile、circular_reference、include_resource_path、include_node_name、include_node_path、include_object_instance_id、max_depth、max_string_length、max_collection_items、max_packed_length、max_total_nodes、max_total_bytes 和 path_redaction；路径默认脱敏，所有非负预算均为遍历工作量与输出硬上限。 |
+
+返回：JSON 兼容值；不支持的运行时类型会写入脱敏 marker。
+
+结构：
+
+- `value`: Variant report value to encode.
+- `options`: Dictionary with redaction_profile, circular_reference, include_resource_path, include_node_name, include_node_path, include_object_instance_id, max_depth, max_string_length, max_collection_items, max_packed_length, max_total_nodes, max_total_bytes, path_redaction, and encode_dictionary_keys options; path_redaction defaults to redacted and non-negative budgets stop traversal immediately when exhausted.
+- `return`: Variant made only from JSON-compatible values, GF variant markers, and GF report redaction markers.
+
+<a id="member-gfreportvaluecodec-methods-to_report_dictionary"></a>
+
+### `to_report_dictionary`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+static func to_report_dictionary(value: Variant, options: Dictionary = {}) -> Dictionary:
+```
+
+将任意报告值转为 JSON-safe Dictionary。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `value` | 待转换的报告值。 |
+| `options` | 传给 to_json_compatible() 的编码选项。 |
+
+返回：JSON-safe 字典；转换结果不是 Dictionary 时返回空字典。
+
+结构：
+
+- `value`: Variant report value to encode before narrowing to Dictionary.
+- `options`: Dictionary with redaction_profile, circular_reference, include_resource_path, include_node_name, include_node_path, include_object_instance_id, max_depth, max_string_length, max_collection_items, max_packed_length, max_total_nodes, max_total_bytes, path_redaction, and encode_dictionary_keys options.
+- `return`: Dictionary made only from JSON-compatible values, GF variant markers, and GF report redaction markers.
+
+<a id="member-gfreportvaluecodec-methods-stringify_json_compatible"></a>
+
+### `stringify_json_compatible`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+static func stringify_json_compatible( value: Variant, indent: String = "", sort_keys: bool = false, options: Dictionary = {} ) -> String:
+```
+
+将报告值转为 JSON-safe 后序列化为文本。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `value` | 待序列化的报告值。 |
+| `indent` | 缩进字符串；空字符串表示压缩输出。 |
+| `sort_keys` | 是否按键名排序 Dictionary。 |
+| `options` | 传给 to_json_compatible() 的编码选项。 |
+
+返回：JSON 文本。
+
+结构：
+
+- `value`: Variant report value to encode before JSON.stringify().
+- `options`: Dictionary with redaction_profile, circular_reference, include_resource_path, include_node_name, include_node_path, include_object_instance_id, max_depth, max_string_length, max_collection_items, max_packed_length, max_total_nodes, max_total_bytes, path_redaction, and encode_dictionary_keys options.
+
+<a id="member-gfreportvaluecodec-methods-make_collection_summary"></a>
+
+### `make_collection_summary`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+static func make_collection_summary(value: Variant, options: Dictionary = {}) -> Dictionary:
+```
+
+为报告中的大型集合生成稳定摘要。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `value` | 待摘要的集合值。 |
+| `options` | 可选项；支持 sample_count 和传给 stringify_json_compatible() 的编码选项。 |
+
+返回：摘要字典。
+
+结构：
+
+- `value`: Variant collection value to summarize.
+- `options`: Dictionary with sample_count and GFReportValueCodec encoding options.
+- `return`: Dictionary with ok, collection_type, count, sample, truncated, and hash.

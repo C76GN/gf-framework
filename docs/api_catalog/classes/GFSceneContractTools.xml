@@ -1,0 +1,207 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFSceneContractTools" path="addons/gf/standard/utilities/scene/gf_scene_contract_tools.gd" module="standard" extends="RefCounted" classDigest="2518b3df690e6a387962a849c5be679cb268622b6ab87f277cd168d458fc3ea8">
+	<description>GFSceneContractTools: 通用场景根节点契约检查工具。
+用于编辑器工具、导入预检、CI 和测试在加载场景后检查根节点的通用形状。
+它只验证调用方显式声明的类型、脚本继承、分组、名称和路径约束，
+不约定实体/组件目录、玩法字段或项目生命周期方法。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_service</tag>
+		<tag name="since">8.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants>
+		<member kind="const" name="SCENE_EXTENSIONS">
+			<signature>const SCENE_EXTENSIONS: PackedStringArray = ["tscn", "scn"]</signature>
+			<description>默认场景扩展名白名单，不包含点号。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="KEY_BASE_CLASS">
+			<signature>const KEY_BASE_CLASS: StringName = &amp;"base_class"</signature>
+			<description>契约字段：根节点必须是该 Godot 类或其子类。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="KEY_BASE_SCRIPT">
+			<signature>const KEY_BASE_SCRIPT: StringName = &amp;"base_script"</signature>
+			<description>契约字段：根节点脚本必须等于或继承该脚本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="KEY_REQUIRED_GROUPS">
+			<signature>const KEY_REQUIRED_GROUPS: StringName = &amp;"required_groups"</signature>
+			<description>契约字段：根节点必须属于的分组列表。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="KEY_FORBIDDEN_GROUPS">
+			<signature>const KEY_FORBIDDEN_GROUPS: StringName = &amp;"forbidden_groups"</signature>
+			<description>契约字段：根节点不能属于的分组列表。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="KEY_NAME_PREFIX">
+			<signature>const KEY_NAME_PREFIX: StringName = &amp;"name_prefix"</signature>
+			<description>契约字段：根节点名称前缀。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="KEY_NAME_SUFFIX">
+			<signature>const KEY_NAME_SUFFIX: StringName = &amp;"name_suffix"</signature>
+			<description>契约字段：根节点名称后缀。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="KEY_PATH_PREFIX">
+			<signature>const KEY_PATH_PREFIX: StringName = &amp;"path_prefix"</signature>
+			<description>契约字段：场景路径前缀。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="KEY_PATH_SUFFIX">
+			<signature>const KEY_PATH_SUFFIX: StringName = &amp;"path_suffix"</signature>
+			<description>契约字段：场景路径后缀。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="KEY_SCRIPT_STRUCTURE">
+			<signature>const KEY_SCRIPT_STRUCTURE: StringName = &amp;"script_structure"</signature>
+			<description>契约字段：传给 GFScriptStructureTools.check_script_structure() 的根脚本结构声明。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties />
+	<methods>
+		<member kind="method" name="scan_scene_paths">
+			<signature>static func scan_scene_paths(root_path: String = "res://", options: Dictionary = {}) -&gt; PackedStringArray:</signature>
+			<description>扫描场景路径。
+exclude_patterns、pattern_base_path、include_hidden、max_scan_depth、max_resource_paths 和 extensions 字段。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">root_path: 扫描起点，通常是 res:// 下的目录。</tag>
+				<tag name="param">options: 可选项，支持 GFResourceRegistryTools.scan_resource_paths() 的扫描选项；extensions 默认固定为 tscn/scn。</tag>
+				<tag name="return">排序后的场景路径。</tag>
+				<tag name="schema">options: Dictionary，可包含 recursive、include_addons、excluded_paths、include_patterns、</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="check_node">
+			<signature>static func check_node(root: Node, contract: Dictionary = {}, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>检查一个已存在的场景根节点。
+name_prefix、name_suffix、path_prefix、path_suffix 和 script_structure。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">root: 场景根节点。</tag>
+				<tag name="param">contract: 契约声明，可包含 base_class、base_script、required_groups、forbidden_groups、</tag>
+				<tag name="param">options: 可选项，支持 scene_path、subject 和 script_structure_options。</tag>
+				<tag name="return">检查报告。</tag>
+				<tag name="schema">contract: Dictionary scene root contract fields.</tag>
+				<tag name="schema">options: Dictionary scene contract check options.</tag>
+				<tag name="schema">return: Dictionary，包含 ok、scene_path、root_name、root_class、root_script_path、issues、counts 与 summary 字段。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="check_packed_scene">
+			<signature>static func check_packed_scene( packed_scene: PackedScene, contract: Dictionary = {}, options: Dictionary = {} ) -&gt; Dictionary:</signature>
+			<description>实例化 PackedScene 并检查根节点契约。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">packed_scene: 待检查场景。</tag>
+				<tag name="param">contract: 契约声明。</tag>
+				<tag name="param">options: 可选项，支持 scene_path、subject、free_instance、gen_edit_state 和 script_structure_options。</tag>
+				<tag name="return">检查报告。</tag>
+				<tag name="schema">contract: Dictionary scene root contract fields.</tag>
+				<tag name="schema">options: Dictionary packed scene contract check options.</tag>
+				<tag name="schema">return: Dictionary，包含 ok、scene_path、root_name、root_class、root_script_path、issues、counts 与 summary 字段。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="check_scene_path">
+			<signature>static func check_scene_path(scene_path: String, contract: Dictionary = {}, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>加载场景路径并检查根节点契约。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">scene_path: 待检查场景资源路径。</tag>
+				<tag name="param">contract: 契约声明。</tag>
+				<tag name="param">options: 可选项，支持 check_packed_scene() 的选项。</tag>
+				<tag name="return">检查报告。</tag>
+				<tag name="schema">contract: Dictionary scene root contract fields.</tag>
+				<tag name="schema">options: Dictionary scene path contract check options.</tag>
+				<tag name="schema">return: Dictionary，包含 ok、scene_path、root_name、root_class、root_script_path、issues、counts 与 summary 字段。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="check_scene_paths">
+			<signature>static func check_scene_paths( paths: PackedStringArray, contract: Dictionary = {}, options: Dictionary = {} ) -&gt; Dictionary:</signature>
+			<description>批量检查场景路径。
+counts 与 summary 字段。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">paths: 场景路径列表。</tag>
+				<tag name="param">contract: 契约声明。</tag>
+				<tag name="param">options: 可选项，支持 check_scene_path() 的选项。</tag>
+				<tag name="return">聚合检查报告。</tag>
+				<tag name="schema">contract: Dictionary scene root contract fields.</tag>
+				<tag name="schema">options: Dictionary scene path batch contract check options.</tag>
+				<tag name="schema">return: Dictionary，包含 ok、checked_count、passed_count、failed_count、entries、issues、</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="check_scene_directory">
+			<signature>static func check_scene_directory( root_path: String = "res://", contract: Dictionary = {}, options: Dictionary = {} ) -&gt; Dictionary:</signature>
+			<description>扫描目录并批量检查场景契约。
+counts 与 summary 字段。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">root_path: 扫描起点，通常是 res:// 下的目录。</tag>
+				<tag name="param">contract: 契约声明。</tag>
+				<tag name="param">options: 可选项，同时支持 scan_scene_paths() 与 check_scene_path() 的选项。</tag>
+				<tag name="return">聚合检查报告。</tag>
+				<tag name="schema">contract: Dictionary scene root contract fields.</tag>
+				<tag name="schema">options: Dictionary scene scan and contract check options.</tag>
+				<tag name="schema">return: Dictionary，包含 ok、checked_count、passed_count、failed_count、entries、issues、</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="make_validation_rule">
+			<signature>static func make_validation_rule(contract: Dictionary = {}, options: Dictionary = {}) -&gt; GFValidationRule:</signature>
+			<description>创建可加入 GFValidationSuite 的根节点契约规则。
+默认 target_kind 为 GFValidationRule.TargetKind.NODE，适合配合 GFValidationRunner 的
+PackedScene 根节点实例化流程使用。
+check_node() 的选项。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">contract: 契约声明。</tag>
+				<tag name="param">options: 可选项，支持 rule_id、description、target_kind、severity、metadata 和</tag>
+				<tag name="return">校验规则。</tag>
+				<tag name="schema">contract: Dictionary scene root contract fields.</tag>
+				<tag name="schema">options: Dictionary validation rule and contract check options.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

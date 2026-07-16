@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFCancellationSource" path="addons/gf/kernel/core/gf_cancellation_source.gd" module="kernel" extends="RefCounted" classDigest="0a4718ac00853d69bfff92dcc8af6a669aca520af73de6729a65376c69ab01c7">
+	<description>GFCancellationSource: 可触发取消的拥有者句柄。
+source 负责创建和触发 [GFCancellationToken]，并可把上游 token、节点生命周期或
+SceneTree 超时连接为统一取消请求。它不执行具体任务，也不假定取消后的业务回滚策略。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_handle</tag>
+		<tag name="layer">kernel/core</tag>
+		<tag name="since">8.0.0</tag>
+	</tags>
+	<signals>
+		<member kind="signal" name="cancel_requested">
+			<signature>signal cancel_requested(reason: StringName, metadata: Dictionary)</signature>
+			<description>source 首次取消时发出。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">reason: 稳定取消原因。</tag>
+				<tag name="param">metadata: 调用方附加的取消上下文。</tag>
+				<tag name="schema">metadata: Dictionary，包含调用方定义的取消上下文。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</signals>
+	<enums />
+	<constants />
+	<properties />
+	<methods>
+		<member kind="method" name="get_token">
+			<signature>func get_token() -&gt; GFCancellationToken:</signature>
+			<description>获取只读取消 token。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">当前 source 持有的取消 token。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="cancel">
+			<signature>func cancel(reason: StringName = &amp;"cancelled", metadata: Dictionary = {}) -&gt; bool:</signature>
+			<description>触发取消。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">reason: 稳定取消原因。</tag>
+				<tag name="param">metadata: 调用方附加的取消上下文。</tag>
+				<tag name="return">首次取消时返回 true。</tag>
+				<tag name="schema">metadata: Dictionary，包含调用方定义的取消上下文。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_cancel_requested">
+			<signature>func is_cancel_requested() -&gt; bool:</signature>
+			<description>判断 source 是否已经请求取消。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">已请求取消时返回 true。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="link_token">
+			<signature>func link_token(token: GFCancellationToken, reason: StringName = &amp;"", metadata: Dictionary = {}) -&gt; bool:</signature>
+			<description>连接上游 token；上游取消时当前 source 也会取消。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">token: 上游取消 token。</tag>
+				<tag name="param">reason: 可选覆盖原因；为空时使用上游原因。</tag>
+				<tag name="param">metadata: 当前连接附加的元数据，会覆盖同名上游字段。</tag>
+				<tag name="return">成功连接或上游已经触发取消时返回 true。</tag>
+				<tag name="schema">metadata: Dictionary，包含调用方定义的取消上下文。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="cancel_when_node_exits">
+			<signature>func cancel_when_node_exits( node: Node, reason: StringName = &amp;"node_exited", metadata: Dictionary = {} ) -&gt; bool:</signature>
+			<description>在节点离开场景树时取消。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">node: 生命周期拥有者节点。</tag>
+				<tag name="param">reason: 取消原因。</tag>
+				<tag name="param">metadata: 取消上下文。</tag>
+				<tag name="return">成功连接或节点已经离树并触发取消时返回 true。</tag>
+				<tag name="schema">metadata: Dictionary，包含调用方定义的取消上下文。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="cancel_after_seconds">
+			<signature>func cancel_after_seconds( seconds: float, tree: SceneTree = null, reason: StringName = &amp;"timeout", metadata: Dictionary = {}, process_always: bool = true, process_in_physics: bool = false, ignore_time_scale: bool = false ) -&gt; bool:</signature>
+			<description>在指定秒数后自动取消。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">seconds: 超时时间；小于等于 0 时立即取消。</tag>
+				<tag name="param">tree: 可选 SceneTree；为空时使用当前主循环。</tag>
+				<tag name="param">reason: 超时取消原因。</tag>
+				<tag name="param">metadata: 取消上下文。</tag>
+				<tag name="param">process_always: 是否在暂停时继续计时。</tag>
+				<tag name="param">process_in_physics: 是否在物理帧处理。</tag>
+				<tag name="param">ignore_time_scale: 是否忽略 Engine.time_scale。</tag>
+				<tag name="return">成功安排或立即触发取消时返回 true。</tag>
+				<tag name="schema">metadata: Dictionary，包含调用方定义的取消上下文。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="dispose">
+			<signature>func dispose() -&gt; void:</signature>
+			<description>释放 source 持有的连接。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_debug_snapshot">
+			<signature>func get_debug_snapshot() -&gt; Dictionary:</signature>
+			<description>获取取消 source 调试快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">调试快照。</tag>
+				<tag name="schema">return: Dictionary，包含 token 状态、linked_token_count、node_lifetime_count 和 has_timeout。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="create_linked">
+			<signature>static func create_linked( tokens: Array, reason: StringName = &amp;"", metadata: Dictionary = {} ) -&gt; GFCancellationSource:</signature>
+			<description>创建一个连接多个上游 token 的 source。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">tokens: 上游 token 列表。</tag>
+				<tag name="param">reason: 可选覆盖原因；为空时使用上游原因。</tag>
+				<tag name="param">metadata: 当前连接附加的元数据。</tag>
+				<tag name="return">新建的取消 source。</tag>
+				<tag name="schema">tokens: Array，元素应为 GFCancellationToken。</tag>
+				<tag name="schema">metadata: Dictionary，包含调用方定义的取消上下文。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

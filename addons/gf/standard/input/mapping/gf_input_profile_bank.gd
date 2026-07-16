@@ -185,20 +185,22 @@ func get_active_profile(duplicate_result: bool = false) -> GFInputRemapConfig:
 ## [br]
 ## @since 6.0.0
 ## [br]
+## @param json_compatible: 为 true 时将 custom_data 转为 JSON 兼容值。
+## [br]
 ## @return Profile bank 字典。
 ## [br]
 ## @schema return: Dictionary with profiles, active_profile_id, and custom_data fields. profiles maps profile id String to GFInputRemapConfig.to_dict().
-func to_dict() -> Dictionary:
+func to_dict(json_compatible: bool = true) -> Dictionary:
 	var profile_data: Dictionary = {}
 	for profile_id_string: String in get_profile_ids():
 		var profile_id: StringName = StringName(profile_id_string)
 		var config: GFInputRemapConfig = get_profile(profile_id)
 		if config != null:
-			profile_data[profile_id_string] = config.to_dict()
+			profile_data[profile_id_string] = config.to_dict(json_compatible)
 	return {
 		"profiles": profile_data,
 		"active_profile_id": String(active_profile_id),
-		"custom_data": GFVariantData.duplicate_variant(custom_data),
+		"custom_data": GFVariantJsonCodec.variant_to_json_compatible(custom_data) if json_compatible else GFVariantData.duplicate_variant(custom_data),
 	}
 
 
@@ -210,8 +212,10 @@ func to_dict() -> Dictionary:
 ## [br]
 ## @param data: Profile bank 字典。
 ## [br]
+## @param json_compatible: 为 true 时会先恢复 JSON 兼容值。
+## [br]
 ## @schema data: Dictionary with profiles, active_profile_id, and custom_data fields.
-func apply_dict(data: Dictionary) -> void:
+func apply_dict(data: Dictionary, json_compatible: bool = true) -> void:
 	clear_profiles()
 	var profile_data: Dictionary = GFVariantData.get_option_dictionary(data, "profiles")
 	for profile_key: Variant in profile_data.keys():
@@ -225,7 +229,7 @@ func apply_dict(data: Dictionary) -> void:
 			set_profile(profile_id, resource_config, true)
 		elif profile_value is Dictionary:
 			var config_data: Dictionary = GFVariantData.as_dictionary(profile_value)
-			var restored_config: GFInputRemapConfig = GFInputRemapConfig.from_dict(config_data)
+			var restored_config: GFInputRemapConfig = GFInputRemapConfig.from_dict(config_data, json_compatible)
 			set_profile(profile_id, restored_config, false)
 
 	var requested_active_id: StringName = GFVariantData.get_option_string_name(data, "active_profile_id", &"")
@@ -235,7 +239,9 @@ func apply_dict(data: Dictionary) -> void:
 		var ids: PackedStringArray = get_profile_ids()
 		active_profile_id = StringName(ids[0]) if not ids.is_empty() else &""
 
-	custom_data = GFVariantData.get_option_dictionary(data, "custom_data")
+	var custom_data_value: Variant = GFVariantData.get_option_value(data, "custom_data", {})
+	custom_data_value = GFVariantJsonCodec.json_compatible_to_variant(custom_data_value) if json_compatible else GFVariantData.duplicate_variant(custom_data_value)
+	custom_data = GFVariantData.as_dictionary(custom_data_value)
 
 
 ## 从 Dictionary 创建 Profile bank。
@@ -246,12 +252,14 @@ func apply_dict(data: Dictionary) -> void:
 ## [br]
 ## @param data: Profile bank 字典。
 ## [br]
+## @param json_compatible: 为 true 时会先恢复 JSON 兼容值。
+## [br]
 ## @schema data: Dictionary with profiles, active_profile_id, and custom_data fields.
 ## [br]
 ## @return 新的配置集合。
-static func from_dict(data: Dictionary) -> GFInputProfileBank:
+static func from_dict(data: Dictionary, json_compatible: bool = true) -> GFInputProfileBank:
 	var bank: GFInputProfileBank = GFInputProfileBank.new()
-	bank.apply_dict(data)
+	bank.apply_dict(data, json_compatible)
 	return bank
 
 
@@ -263,7 +271,7 @@ static func from_dict(data: Dictionary) -> GFInputProfileBank:
 ## [br]
 ## @return 新的配置集合。
 func duplicate_bank() -> GFInputProfileBank:
-	return GFInputProfileBank.from_dict(to_dict())
+	return GFInputProfileBank.from_dict(to_dict(false), false)
 
 
 # --- 私有/辅助方法 ---

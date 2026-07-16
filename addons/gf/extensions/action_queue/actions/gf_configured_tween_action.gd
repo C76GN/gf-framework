@@ -143,12 +143,12 @@ func resume() -> void:
 ## @api public
 func finish() -> void:
 	if is_instance_valid(_active_tween):
-		if config != null and config.loop_count == 0:
-			_clear_active_tween()
-			_restore_initial_values_on_finish()
-			_emit_completed_once()
-			return
-		var _custom_step_result_151: Variant = _active_tween.custom_step(INF)
+		_clear_active_tween()
+		if config != null and config.loop_count != 0 and is_instance_valid(target):
+			config.apply_instant(target)
+		_restore_initial_values_on_finish()
+		_emit_completed_once()
+		return
 	_clear_active_tween()
 	_restore_initial_values_on_finish()
 	_emit_completed_once()
@@ -167,10 +167,12 @@ func get_wait_guard_node() -> Node:
 # --- 私有/辅助方法 ---
 
 func _get_tween_host() -> Node:
-	if is_instance_valid(host_node):
+	if is_instance_valid(host_node) and host_node.is_inside_tree():
 		return host_node
 	if target is Node and is_instance_valid(target):
-		return _get_node_value(target)
+		var target_node: Node = _get_node_value(target)
+		if target_node != null and target_node.is_inside_tree():
+			return target_node
 	return null
 
 

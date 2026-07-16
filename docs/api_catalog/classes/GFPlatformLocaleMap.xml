@@ -1,0 +1,153 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFPlatformLocaleMap" path="addons/gf/standard/foundation/text/gf_platform_locale_map.gd" module="standard" extends="Resource" classDigest="ed0a187b8a23c6d025880503748305f75bd0202728d2084d63341f3107014e09">
+	<description>GFPlatformLocaleMap: 平台语言键到 Godot locale 的映射表。
+该资源用于让 Steam、微信、主机平台或自建启动器等 adapter 把自身语言键转换为
+Godot TranslationServer 使用的 locale。GF 不内置任何具体平台表。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">resource_definition</tag>
+		<tag name="since">8.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties>
+		<member kind="property" name="entries" decorators="@export">
+			<signature>var entries: Array[Dictionary] = []</signature>
+			<description>映射表条目。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">entries: Array[Dictionary]，每项包含 platform_id、platform_locale、locale、fallback_locale 和 display_name。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="default_locale" decorators="@export">
+			<signature>var default_locale: String = ""</signature>
+			<description>未命中时返回的默认 locale。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="set_mapping">
+			<signature>func set_mapping( platform_id: StringName, platform_locale: String, locale: String, fallback_locale: String = "", display_name: String = "" ) -&gt; Dictionary:</signature>
+			<description>设置或替换映射条目。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">platform_id: 平台标识。</tag>
+				<tag name="param">platform_locale: 平台语言键。</tag>
+				<tag name="param">locale: Godot locale。</tag>
+				<tag name="param">fallback_locale: fallback Godot locale。</tag>
+				<tag name="param">display_name: 展示名。</tag>
+				<tag name="return">写入后的条目副本。</tag>
+				<tag name="schema">return: Dictionary locale mapping entry.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_mapping">
+			<signature>func get_mapping(platform_id: StringName, platform_locale: String) -&gt; Dictionary:</signature>
+			<description>获取映射条目。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">platform_id: 平台标识。</tag>
+				<tag name="param">platform_locale: 平台语言键。</tag>
+				<tag name="return">映射条目副本；不存在时为空字典。</tag>
+				<tag name="schema">return: Dictionary locale mapping entry.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="map_locale">
+			<signature>func map_locale(platform_id: StringName, platform_locale: String, fallback_value: String = "") -&gt; String:</signature>
+			<description>映射到 Godot locale。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">platform_id: 平台标识。</tag>
+				<tag name="param">platform_locale: 平台语言键。</tag>
+				<tag name="param">fallback_value: 未命中时的调用方 fallback。</tag>
+				<tag name="return">Godot locale。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="map_fallback_locale">
+			<signature>func map_fallback_locale(platform_id: StringName, platform_locale: String, fallback_value: String = "") -&gt; String:</signature>
+			<description>映射到 fallback Godot locale。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">platform_id: 平台标识。</tag>
+				<tag name="param">platform_locale: 平台语言键。</tag>
+				<tag name="param">fallback_value: 未命中时的调用方 fallback。</tag>
+				<tag name="return">fallback Godot locale。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="erase_mapping">
+			<signature>func erase_mapping(platform_id: StringName, platform_locale: String) -&gt; bool:</signature>
+			<description>移除映射条目。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">platform_id: 平台标识。</tag>
+				<tag name="param">platform_locale: 平台语言键。</tag>
+				<tag name="return">找到并移除时返回 true。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="to_dict">
+			<signature>func to_dict() -&gt; Dictionary:</signature>
+			<description>转换为字典。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">映射表字典。</tag>
+				<tag name="schema">return: Dictionary with entries and default_locale.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="apply_dict">
+			<signature>func apply_dict(data: Dictionary) -&gt; void:</signature>
+			<description>从字典应用映射表。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">data: 映射表字典。</tag>
+				<tag name="schema">data: Dictionary with entries and default_locale.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="duplicate_map">
+			<signature>func duplicate_map() -&gt; GFPlatformLocaleMap:</signature>
+			<description>创建映射表深拷贝。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">新映射表。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="make_entry">
+			<signature>static func make_entry( platform_id: StringName, platform_locale: String, locale: String, fallback_locale: String = "", display_name: String = "" ) -&gt; Dictionary:</signature>
+			<description>创建映射条目。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">platform_id: 平台标识。</tag>
+				<tag name="param">platform_locale: 平台语言键。</tag>
+				<tag name="param">locale: Godot locale。</tag>
+				<tag name="param">fallback_locale: fallback Godot locale。</tag>
+				<tag name="param">display_name: 展示名。</tag>
+				<tag name="return">映射条目。</tag>
+				<tag name="schema">return: Dictionary locale mapping entry.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="from_dict">
+			<signature>static func from_dict(data: Dictionary) -&gt; GFPlatformLocaleMap:</signature>
+			<description>从字典创建映射表。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">data: 映射表字典。</tag>
+				<tag name="return">新映射表。</tag>
+				<tag name="schema">data: Dictionary with entries and default_locale.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

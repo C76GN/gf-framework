@@ -40,6 +40,7 @@ signal fetch_failed(url: String, result: Dictionary)
 # --- 常量 ---
 
 const _DEFAULT_CACHE_DIR_NAME: String = "gf_remote_cache"
+const _DEFAULT_MAX_RESPONSE_BYTES: int = 16 * 1024 * 1024
 
 
 # --- 公共变量 ---
@@ -72,6 +73,15 @@ var max_cache_entries: int = 128
 ## [br]
 ## @api public
 var max_pending_requests: int = 64
+
+## 单个远程响应及缓存条目的最大 UTF-8 字节数。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+var max_response_bytes: int = _DEFAULT_MAX_RESPONSE_BYTES:
+	set(value):
+		max_response_bytes = maxi(value, 1)
 
 ## 自定义缓存 key 构造器。签名为 `func(url: String, headers: PackedStringArray, format: StringName) -> String`。
 ## [br]
@@ -298,9 +308,11 @@ func clear_cache() -> void:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.0.0
+## [br]
 ## @return 诊断快照字典。
 ## [br]
-## @schema return: Dictionary，包含缓存设置、pending_count、active_url、active_cache_key 和 has_active_request。
+## @schema return: Dictionary，包含缓存设置、响应预算、pending_count、active_url、active_cache_key 和 has_active_request。
 func get_debug_snapshot() -> Dictionary:
 	return {
 		"cache_dir_name": cache_dir_name,
@@ -309,6 +321,7 @@ func get_debug_snapshot() -> Dictionary:
 		"timeout_seconds": timeout_seconds,
 		"max_cache_entries": max_cache_entries,
 		"max_pending_requests": max_pending_requests,
+		"max_response_bytes": max_response_bytes,
 		"pending_count": _pending_requests.size(),
 		"active_url": GFVariantData.get_option_string(_active_request, "url"),
 		"active_cache_key": GFVariantData.get_option_string(_active_request, "cache_key"),
@@ -333,6 +346,7 @@ func _start_http_request(request_data: Dictionary) -> Error:
 		return ERR_UNAVAILABLE
 
 	request.timeout = timeout_seconds
+	request.body_size_limit = max_response_bytes
 	return request.request(
 		GFVariantData.get_option_string(request_data, "url"),
 		GFVariantData.get_option_packed_string_array(request_data, "headers")
@@ -367,6 +381,10 @@ func _complete_active_request(
 	var callbacks: Array[Callable] = _get_request_callbacks(request_data)
 	var cache_key: String = GFVariantData.get_option_string(request_data, "cache_key")
 	var result: Dictionary
+	if success and content.to_utf8_buffer().size() > max_response_bytes:
+		success = false
+		content = ""
+		error = _get_response_budget_error()
 
 	if success:
 		result = _build_success(url, content, false, false, response_code, format)
@@ -617,8 +635,14 @@ func _has_parent_path_segment(path: String) -> bool:
 func _build_cache_key(url: String, headers: PackedStringArray, format: StringName) -> String:
 	if cache_key_builder.is_valid():
 		var custom_key: Variant = cache_key_builder.call(url, headers, format)
-		return GFVariantData.to_text(custom_key)
+		var custom_key_text: String = GFVariantData.to_text(custom_key).strip_edges()
+		if not custom_key_text.is_empty():
+			return custom_key_text
 
+	return _build_default_cache_key(url, headers, format)
+
+
+func _build_default_cache_key(url: String, headers: PackedStringArray, format: StringName) -> String:
 	var sorted_headers: PackedStringArray = headers.duplicate()
 	sorted_headers.sort()
 	return JSON.stringify([String(format), url, sorted_headers])
@@ -641,7 +665,7 @@ func _has_valid_cache_key(cache_key: String, ttl_seconds: int) -> bool:
 		return false
 
 	var path: String = _get_cache_path(cache_key)
-	if not FileAccess.file_exists(path):
+	if not _has_cache_file(cache_key):
 		return false
 
 	var ttl: int = _resolve_ttl(ttl_seconds)
@@ -654,10 +678,13 @@ func _has_valid_cache_key(cache_key: String, ttl_seconds: int) -> bool:
 
 
 func _has_cache_file(cache_key: String) -> bool:
-	return FileAccess.file_exists(_get_cache_path(cache_key))
+	var path: String = _get_cache_path(cache_key)
+	return FileAccess.file_exists(path) and _get_file_size(path) <= max_response_bytes
 
 
 func _read_cache_text(cache_key: String) -> String:
+	if not _has_cache_file(cache_key):
+		return ""
 	var file: FileAccess = FileAccess.open(_get_cache_path(cache_key), FileAccess.READ)
 	if file == null:
 		return ""
@@ -668,6 +695,8 @@ func _read_cache_text(cache_key: String) -> String:
 
 
 func _write_cache_text(cache_key: String, content: String) -> Error:
+	if content.to_utf8_buffer().size() > max_response_bytes:
+		return ERR_OUT_OF_MEMORY
 	_ensure_cache_dir()
 	var path: String = _get_cache_path(cache_key)
 	var temp_path: String = _get_cache_temp_path(cache_key)
@@ -758,6 +787,19 @@ func _remove_absolute_file_if_exists(path: String) -> Error:
 	return DirAccess.remove_absolute(path)
 
 
+func _get_response_budget_error() -> String:
+	return "Response body exceeds max_response_bytes=%d" % max_response_bytes
+
+
+func _get_file_size(path: String) -> int:
+	var file: FileAccess = FileAccess.open(path, FileAccess.READ)
+	if file == null:
+		return 0
+	var size: int = int(file.get_length())
+	file.close()
+	return size
+
+
 # --- 信号处理函数 ---
 
 func _on_request_completed(
@@ -766,6 +808,9 @@ func _on_request_completed(
 	_headers: PackedStringArray,
 	body: PackedByteArray
 ) -> void:
+	if result == HTTPRequest.RESULT_BODY_SIZE_LIMIT_EXCEEDED:
+		_complete_active_request(false, response_code, "", _get_response_budget_error())
+		return
 	var content: String = body.get_string_from_utf8()
 	if result != HTTPRequest.RESULT_SUCCESS:
 		_complete_active_request(false, response_code, content, "HTTP request result: %d" % result)
@@ -776,7 +821,6 @@ func _on_request_completed(
 		return
 
 	_complete_active_request(true, response_code, content, "")
-
 
 # --- 内部类 ---
 

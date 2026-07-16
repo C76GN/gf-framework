@@ -123,6 +123,7 @@ func register_target(
 	for property: GFRuntimeTunableProperty in properties:
 		var _registered: bool = register_property(target_id, property)
 	target_registered.emit(target_id)
+	_refresh_attached_overlay_panel()
 	return true
 
 
@@ -138,6 +139,7 @@ func unregister_target(target_id: StringName) -> bool:
 		return false
 	_erase_dictionary_key(_targets, target_id)
 	target_unregistered.emit(target_id)
+	_refresh_attached_overlay_panel()
 	return true
 
 
@@ -149,7 +151,11 @@ func unregister_target(target_id: StringName) -> bool:
 ## [br]
 ## @return 目标存在且对象有效时返回 true。
 func has_target(target_id: StringName) -> bool:
-	return _resolve_target(target_id) != null
+	if _resolve_target(target_id) != null:
+		return true
+	if _targets.has(target_id):
+		_erase_dictionary_key(_targets, target_id)
+	return false
 
 
 ## 为目标注册或替换一个可调属性。
@@ -178,6 +184,7 @@ func register_property(target_id: StringName, property: GFRuntimeTunableProperty
 	else:
 		properties.append(property)
 	properties_by_id[property.property_id] = property
+	_refresh_attached_overlay_panel()
 	return true
 
 
@@ -201,6 +208,7 @@ func remove_property(target_id: StringName, property_id: StringName) -> bool:
 	var property: Variant = properties_by_id[property_id]
 	_erase_array_value(_get_array_ref(entry, "properties"), property)
 	_erase_dictionary_key(properties_by_id, property_id)
+	_refresh_attached_overlay_panel()
 	return true
 
 
@@ -212,6 +220,7 @@ func remove_property(target_id: StringName, property_id: StringName) -> bool:
 ## [br]
 ## @return 排序后的目标 ID。
 func get_target_ids(include_hidden: bool = false) -> PackedStringArray:
+	_prune_invalid_targets()
 	var entries: Array[Dictionary] = _get_sorted_entries(include_hidden)
 	var result: PackedStringArray = PackedStringArray()
 	for entry: Dictionary in entries:
@@ -264,6 +273,7 @@ func set_property_value(target_id: StringName, property_id: StringName, value: V
 		return false
 	var new_value: Variant = property.read_value(target)
 	property_changed.emit(target_id, property_id, old_value, new_value)
+	_refresh_attached_overlay_panel()
 	return true
 
 
@@ -277,6 +287,7 @@ func set_property_value(target_id: StringName, property_id: StringName, value: V
 ## [br]
 ## @schema return: Array[Dictionary]，每个元素包含 id、label、group、visible、valid 和 properties。
 func get_target_snapshot(include_hidden: bool = false) -> Array[Dictionary]:
+	_prune_invalid_targets()
 	var result: Array[Dictionary] = []
 	for entry: Dictionary in _get_sorted_entries(include_hidden):
 		result.append(_build_target_snapshot(entry, include_hidden))
@@ -289,6 +300,7 @@ func get_target_snapshot(include_hidden: bool = false) -> Array[Dictionary]:
 func clear_targets() -> void:
 	_targets.clear()
 	_target_order_counter = 0
+	_refresh_attached_overlay_panel()
 
 
 ## 将 Inspector 快照作为文本面板注册到 GFDebugOverlayUtility。
@@ -303,10 +315,33 @@ func attach_to_debug_overlay(panel_id: StringName = &"gf.runtime_inspector") -> 
 	if overlay == null:
 		return false
 	_attached_overlay_panel_id = panel_id
-	return overlay.register_panel(panel_id, Callable(self, "_build_overlay_panel_text"), {
+	return overlay.push_panel_text(panel_id, _build_overlay_panel_text(), {
 		"label": "Runtime Inspector",
 		"group": "Diagnostics",
 	})
+
+
+## 把 Inspector 当前状态重新发布到已附加的 Overlay 面板。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+## [br]
+## @return 已附加且发布成功时返回 true。
+func refresh_debug_overlay_panel() -> bool:
+	if _attached_overlay_panel_id == &"":
+		return false
+	var overlay: GFDebugOverlayUtility = _get_debug_overlay_utility()
+	if overlay == null:
+		return false
+	return overlay.push_panel_text(
+		_attached_overlay_panel_id,
+		_build_overlay_panel_text(),
+		{
+			"label": "Runtime Inspector",
+			"group": "Diagnostics",
+		}
+	)
 
 
 ## 从 GFDebugOverlayUtility 移除 Inspector 面板。
@@ -333,6 +368,7 @@ func detach_from_debug_overlay(panel_id: StringName = &"") -> void:
 ## [br]
 ## @schema return: Dictionary，包含 target_count、target_ids 和 writes_allowed。
 func get_debug_snapshot() -> Dictionary:
+	_prune_invalid_targets()
 	return {
 		"target_count": _targets.size(),
 		"target_ids": get_target_ids(true),
@@ -387,6 +423,15 @@ func _get_sorted_entries(include_hidden: bool) -> Array[Dictionary]:
 	return entries
 
 
+func _prune_invalid_targets() -> void:
+	var invalid_target_ids: PackedStringArray = PackedStringArray()
+	for target_id: StringName in _targets.keys():
+		if _resolve_target(target_id) == null:
+			_append_packed_string(invalid_target_ids, String(target_id))
+	for target_id_text: String in invalid_target_ids:
+		_erase_dictionary_key(_targets, StringName(target_id_text))
+
+
 func _sort_entries(left: Dictionary, right: Dictionary) -> bool:
 	var left_order: int = GFVariantData.get_option_int(left, "order")
 	var right_order: int = GFVariantData.get_option_int(right, "order")
@@ -425,6 +470,12 @@ func _writes_are_allowed() -> bool:
 	if debug_build_writes_only and not OS.is_debug_build():
 		return false
 	return true
+
+
+func _refresh_attached_overlay_panel() -> void:
+	if _attached_overlay_panel_id == &"":
+		return
+	var _refreshed: bool = refresh_debug_overlay_panel()
 
 
 func _build_overlay_panel_text() -> String:

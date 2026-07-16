@@ -162,3 +162,37 @@ func test_query_radius_zero_returns_entities_containing_point() -> void:
 
 	assert_true(result.has("inside"), "零半径查询应返回包含点的实体。")
 	assert_false(result.has("outside"), "零半径查询不应返回同格但不包含点的实体。")
+
+
+func test_non_finite_bounds_and_queries_are_rejected() -> void:
+	var spatial_hash: GFSpatialHash3D = GFSpatialHash3D.new(1.0)
+	var valid_inserted: bool = spatial_hash.insert("valid", AABB(Vector3.ZERO, Vector3.ONE))
+
+	assert_true(valid_inserted)
+	assert_false(
+		spatial_hash.insert("nan", AABB(Vector3(NAN, 0.0, 0.0), Vector3.ONE)),
+		"NaN AABB 不得进入 cell 映射。"
+	)
+	assert_false(
+		spatial_hash.insert("inf", AABB(Vector3.ZERO, Vector3(INF, 1.0, 1.0))),
+		"INF AABB 不得进入 cell 映射。"
+	)
+	assert_false(
+		spatial_hash.insert("unmappable", AABB(Vector3(1.0e30, 0.0, 0.0), Vector3.ONE)),
+		"超出 cell 整数坐标范围的有限 AABB 也应被拒绝。"
+	)
+	assert_eq(spatial_hash.get_entity_count(), 1, "非法插入不得改变已有索引。")
+	assert_true(spatial_hash.query_aabb(AABB(Vector3(NAN, 0.0, 0.0), Vector3.ONE)).is_empty())
+	assert_true(spatial_hash.query_radius(Vector3.ZERO, NAN).is_empty())
+	assert_true(spatial_hash.query_aabb(AABB(Vector3.ZERO, Vector3.ONE)).has("valid"), "非法查询后正常索引仍应可用。")
+
+
+func test_non_finite_cell_size_is_rejected_without_destroying_index() -> void:
+	var spatial_hash: GFSpatialHash3D = GFSpatialHash3D.new(2.0)
+	var _inserted: bool = spatial_hash.insert("unit", AABB(Vector3.ZERO, Vector3.ONE))
+
+	spatial_hash.cell_size = NAN
+
+	assert_push_error("[GFSpatialHash3D] cell_size 必须是有限浮点值。")
+	assert_eq(spatial_hash.cell_size, 2.0, "非法配置不得覆盖最后一个有效 cell_size。")
+	assert_true(spatial_hash.query_aabb(AABB(Vector3.ZERO, Vector3.ONE)).has("unit"), "非法配置不得清空索引。")

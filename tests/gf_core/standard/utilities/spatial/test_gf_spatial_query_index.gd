@@ -15,8 +15,8 @@ func test_spatial_query_index_2d_switches_strategy_and_returns_records() -> void
 	var _second: bool = index.upsert(2, Rect2(Vector2(20.0, 20.0), Vector2(5.0, 5.0)), { "kind": "prop" })
 	var _third: bool = index.upsert_point(3, Vector2(50.0, 50.0), 2.0)
 
-	var point_hits: Array[int] = index.query_point(Vector2(2.0, 2.0))
-	var radius_hits: Array[int] = index.query_radius(Vector2(21.0, 21.0), 3.0)
+	var point_hits: Array[Variant] = index.query_point(Vector2(2.0, 2.0))
+	var radius_hits: Array[Variant] = index.query_radius(Vector2(21.0, 21.0), 3.0)
 	var records: Array[Dictionary] = index.query_records_rect(Rect2(Vector2.ZERO, Vector2(30.0, 30.0)))
 	var snapshot: Dictionary = index.get_debug_snapshot()
 
@@ -48,10 +48,10 @@ func test_spatial_query_index_2d_into_queries_reuse_outputs_and_snapshot_records
 	)
 	var _first: bool = index.upsert(1, Rect2(Vector2.ZERO, Vector2(10.0, 10.0)), { "kind": "unit" })
 	var _second: bool = index.upsert(2, Rect2(Vector2(50.0, 50.0), Vector2(5.0, 5.0)), { "kind": "prop" })
-	var hits: Array[int] = [99]
+	var hits: Array = [99]
 	var records: Array[Dictionary] = [{ "old": true }]
 
-	var returned_hits: Array[int] = index.query_rect_into(Rect2(Vector2.ZERO, Vector2(20.0, 20.0)), hits)
+	var returned_hits: Array = index.query_rect_into(Rect2(Vector2.ZERO, Vector2(20.0, 20.0)), hits)
 	var returned_records: Array[Dictionary] = index.query_records_rect_into(Rect2(Vector2.ZERO, Vector2(20.0, 20.0)), records)
 	records[0]["metadata"]["kind"] = "changed"
 	var stored_record: Dictionary = index.get_entity_record(1)
@@ -61,6 +61,55 @@ func test_spatial_query_index_2d_into_queries_reuse_outputs_and_snapshot_records
 	assert_eq(returned_records, records, "record into 查询应返回调用方传入的数组。")
 	assert_eq(records.size(), 1, "record into 查询应清空旧输出并写入匹配记录。")
 	assert_eq(GFVariantData.get_option_string(GFVariantData.get_option_dictionary(stored_record, "metadata"), "kind"), "unit", "record 查询应返回 metadata 快照而不是内部引用。")
+
+
+func test_spatial_query_index_2d_debug_snapshot_has_json_compatible_export() -> void:
+	var index: GF_SPATIAL_QUERY_INDEX_2D_SCRIPT = GF_SPATIAL_QUERY_INDEX_2D_SCRIPT.new()
+	var _configured: GF_SPATIAL_QUERY_INDEX_2D_SCRIPT = index.configure(
+		Rect2(Vector2.ZERO, Vector2(100.0, 100.0)),
+		GF_SPATIAL_QUERY_INDEX_2D_SCRIPT.STRATEGY_LINEAR
+	)
+	var _inserted: bool = index.upsert(1, Rect2(Vector2.ZERO, Vector2(10.0, 10.0)))
+
+	var snapshot: Dictionary = index.get_json_compatible_debug_snapshot()
+	var json_text: String = JSON.stringify(snapshot)
+
+	assert_false(json_text.is_empty(), "JSON-safe 2D 空间索引快照应可序列化。")
+	assert_false(json_text.contains(":null"), "JSON-safe 2D 空间索引快照不应依赖 JSON.stringify 降级非法值。")
+
+
+func test_spatial_query_identity_is_shared_by_2d_and_3d_indexes() -> void:
+	var index_2d: GF_SPATIAL_QUERY_INDEX_2D_SCRIPT = GF_SPATIAL_QUERY_INDEX_2D_SCRIPT.new()
+	var _configured_2d: GF_SPATIAL_QUERY_INDEX_2D_SCRIPT = index_2d.configure(
+		Rect2(Vector2.ZERO, Vector2(100.0, 100.0)),
+		GF_SPATIAL_QUERY_INDEX_2D_SCRIPT.STRATEGY_LINEAR
+	)
+	var index_3d: GF_SPATIAL_QUERY_INDEX_3D_SCRIPT = GF_SPATIAL_QUERY_INDEX_3D_SCRIPT.new()
+	var _configured_3d: GF_SPATIAL_QUERY_INDEX_3D_SCRIPT = index_3d.configure(GF_SPATIAL_QUERY_INDEX_3D_SCRIPT.STRATEGY_LINEAR)
+	var node: Node = Node.new()
+	add_child(node)
+
+	var _inserted_2d_name: bool = index_2d.upsert(&"unit", Rect2(Vector2.ZERO, Vector2(10.0, 10.0)))
+	var _inserted_3d_name: bool = index_3d.upsert(&"unit", AABB(Vector3.ZERO, Vector3.ONE))
+	var _inserted_2d_object: bool = index_2d.upsert(node, Rect2(Vector2(20.0, 20.0), Vector2(10.0, 10.0)))
+	var _inserted_3d_object: bool = index_3d.upsert(node, AABB(Vector3(20.0, 0.0, 0.0), Vector3.ONE))
+
+	var hits_2d: Array[Variant] = index_2d.query_point(Vector2(2.0, 2.0))
+	var hits_3d: Array[Variant] = index_3d.query_aabb(AABB(Vector3.ZERO, Vector3.ONE))
+	var record_2d: Dictionary = index_2d.get_entity_record(&"unit")
+	var record_3d: Dictionary = index_3d.get_entity_record(&"unit")
+	var object_record_2d: Dictionary = index_2d.get_entity_record(node)
+	var identity_2d: Dictionary = GFVariantData.get_option_dictionary(record_2d, "identity")
+	var identity_3d: Dictionary = GFVariantData.get_option_dictionary(record_3d, "identity")
+	var object_identity_2d: Dictionary = GFVariantData.get_option_dictionary(object_record_2d, "identity")
+
+	assert_eq(hits_2d, [&"unit"], "2D 查询应返回调用方传入的 StringName 实体。")
+	assert_eq(hits_3d, [&"unit"], "3D 查询应返回调用方传入的 StringName 实体。")
+	assert_eq(GFVariantData.get_option_string(identity_2d, "key"), "string_name:unit", "2D 记录应暴露统一 identity key。")
+	assert_eq(GFVariantData.get_option_string(identity_3d, "key"), "string_name:unit", "3D 记录应暴露同一套 identity key。")
+	assert_true(GFVariantData.get_option_string(object_identity_2d, "key").begins_with("object:"), "Object 实体应使用 object identity key。")
+	assert_true(index_2d.has_entity(node), "2D Object 身份应可查询。")
+	assert_true(index_3d.has_entity(node), "3D Object 身份应可查询。")
 
 
 func test_spatial_query_index_3d_switches_strategy_and_filters_radius() -> void:
@@ -146,3 +195,50 @@ func test_spatial_query_index_3d_sorts_integer_entities_numerically() -> void:
 	var _one: bool = index.upsert(1, AABB(Vector3.ZERO, Vector3.ONE))
 
 	assert_eq(index.query_aabb(AABB(Vector3.ZERO, Vector3.ONE)), [1, 2, 10], "int 实体结果应按数值排序，而不是按字符串排序。")
+
+
+func test_spatial_query_indexes_reject_non_finite_geometry() -> void:
+	var index_2d: GF_SPATIAL_QUERY_INDEX_2D_SCRIPT = GF_SPATIAL_QUERY_INDEX_2D_SCRIPT.new()
+	var index_3d: GF_SPATIAL_QUERY_INDEX_3D_SCRIPT = GF_SPATIAL_QUERY_INDEX_3D_SCRIPT.new()
+
+	assert_false(index_2d.upsert(1, Rect2(Vector2(NAN, 0.0), Vector2.ONE)))
+	assert_false(index_2d.upsert_point(2, Vector2.ZERO, INF))
+	assert_true(index_2d.query_rect(Rect2(Vector2.ZERO, Vector2(INF, 1.0))).is_empty())
+	assert_true(index_2d.query_point(Vector2(NAN, 0.0)).is_empty())
+	assert_eq(index_2d.get_entity_count(), 0, "非法 2D geometry 不得进入记录表。")
+
+	assert_false(index_3d.upsert(1, AABB(Vector3(NAN, 0.0, 0.0), Vector3.ONE)))
+	assert_true(index_3d.query_aabb(AABB(Vector3.ZERO, Vector3(INF, 1.0, 1.0))).is_empty())
+	assert_true(index_3d.query_radius(Vector3.ZERO, NAN).is_empty())
+	assert_eq(index_3d.get_entity_count(), 0, "非法 3D geometry 不得进入记录表。")
+
+
+func test_spatial_query_index_3d_falls_back_when_hash_cannot_index_record() -> void:
+	var index: GF_SPATIAL_QUERY_INDEX_3D_SCRIPT = GF_SPATIAL_QUERY_INDEX_3D_SCRIPT.new()
+	var _configured: GF_SPATIAL_QUERY_INDEX_3D_SCRIPT = index.configure(
+		GF_SPATIAL_QUERY_INDEX_3D_SCRIPT.STRATEGY_SPATIAL_HASH,
+		{ "cell_size": 1.0 }
+	)
+	var huge_bounds: AABB = AABB(Vector3.ZERO, Vector3(100.0, 100.0, 100.0))
+
+	assert_true(index.upsert("huge", huge_bounds), "facade 应保留可由 linear 查询的有限记录。")
+	assert_eq(index.query_aabb(huge_bounds), ["huge"], "空间哈希拒绝记录后必须回退 linear，不能漏报。")
+	var snapshot: Dictionary = index.get_debug_snapshot()
+	assert_eq(
+		GFVariantData.get_option_string_name(snapshot, "active_strategy"),
+		GF_SPATIAL_QUERY_INDEX_3D_SCRIPT.STRATEGY_LINEAR,
+		"调试快照应报告实际回退策略。"
+	)
+	assert_true(GFVariantData.get_option_bool(snapshot, "backend_build_failed"), "快照应暴露后端构建失败事实。")
+	assert_false(GFVariantData.get_option_bool(snapshot, "index_dirty", true), "失败结果应被缓存，避免每次查询重复重建。")
+
+
+func test_spatial_query_index_3d_debug_snapshot_has_json_compatible_export() -> void:
+	var index: GF_SPATIAL_QUERY_INDEX_3D_SCRIPT = GF_SPATIAL_QUERY_INDEX_3D_SCRIPT.new()
+	var _configured: GF_SPATIAL_QUERY_INDEX_3D_SCRIPT = index.configure(GF_SPATIAL_QUERY_INDEX_3D_SCRIPT.STRATEGY_LINEAR)
+	var _inserted: bool = index.upsert(1, AABB(Vector3.ZERO, Vector3.ONE))
+
+	var json_text: String = JSON.stringify(index.get_json_compatible_debug_snapshot())
+
+	assert_false(json_text.is_empty(), "JSON-safe 3D 空间索引快照应可序列化。")
+	assert_false(json_text.contains(":null"), "JSON-safe 3D 空间索引快照不应依赖非法值降级。")

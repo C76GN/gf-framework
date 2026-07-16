@@ -21,6 +21,9 @@
 | 方法 | [`get_value`](#member-gfbindableproperty-methods-get_value) | `func get_value() -> Variant:` |
 | 方法 | [`set_value`](#member-gfbindableproperty-methods-set_value) | `func set_value(new_value: Variant) -> void:` |
 | 方法 | [`subscribe`](#member-gfbindableproperty-methods-subscribe) | `func subscribe(callback: Callable, emit_current: bool = false) -> Callable:` |
+| 方法 | [`subscribe_token`](#member-gfbindableproperty-methods-subscribe_token) | `func subscribe_token(callback: Callable, emit_current: bool = false) -> GFSubscriptionToken:` |
+| 方法 | [`subscribe_owned`](#member-gfbindableproperty-methods-subscribe_owned) | `func subscribe_owned(owner: Object, callback: Callable, emit_current: bool = false) -> GFLifetimeSubscription:` |
+| 方法 | [`subscribe_method`](#member-gfbindableproperty-methods-subscribe_method) | `func subscribe_method(owner: Object, method_name: StringName, emit_current: bool = false) -> GFLifetimeSubscription:` |
 | 方法 | [`force_emit`](#member-gfbindableproperty-methods-force_emit) | `func force_emit() -> void:` |
 | 方法 | [`mutate`](#member-gfbindableproperty-methods-mutate) | `func mutate(mutator: Callable) -> bool:` |
 | 方法 | [`append_to_array`](#member-gfbindableproperty-methods-append_to_array) | `func append_to_array(item: Variant) -> bool:` |
@@ -164,6 +167,74 @@ func subscribe(callback: Callable, emit_current: bool = false) -> Callable:
 | `emit_current` | 是否立即以当前值调用一次回调；为 true 时 old_value 和 new_value 都是当前值。 |
 
 返回：可调用的取消订阅函数；callback 无效时返回空 Callable。
+
+<a id="member-gfbindableproperty-methods-subscribe_token"></a>
+
+### `subscribe_token`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func subscribe_token(callback: Callable, emit_current: bool = false) -> GFSubscriptionToken:
+```
+
+订阅属性变化，并返回可取消订阅句柄。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `callback` | 变化回调，签名应为 func(old_value: Variant, new_value: Variant)。 |
+| `emit_current` | 是否立即以当前值调用一次回调；为 true 时 old_value 和 new_value 都是当前值。 |
+
+返回：可取消订阅句柄；callback 无效时返回非活动句柄。
+
+<a id="member-gfbindableproperty-methods-subscribe_owned"></a>
+
+### `subscribe_owned`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func subscribe_owned(owner: Object, callback: Callable, emit_current: bool = false) -> GFLifetimeSubscription:
+```
+
+订阅属性变化，并把订阅绑定到 owner 生命周期。 owner 为 Node 时，节点退出场景树会自动取消订阅。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `owner` | 订阅生命周期 owner。 |
+| `callback` | 变化回调，签名应为 func(old_value: Variant, new_value: Variant)。 |
+| `emit_current` | 是否立即以当前值调用一次回调；为 true 时 old_value 和 new_value 都是当前值。 |
+
+返回：绑定 owner 生命周期的订阅句柄；owner 或 callback 无效时返回非活动句柄。
+
+<a id="member-gfbindableproperty-methods-subscribe_method"></a>
+
+### `subscribe_method`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func subscribe_method(owner: Object, method_name: StringName, emit_current: bool = false) -> GFLifetimeSubscription:
+```
+
+通过 owner 与方法名订阅属性变化。 该入口只弱引用 owner，不会因为 Callable 捕获而延长 owner 生命周期。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `owner` | 订阅生命周期 owner，也是方法所属对象。 |
+| `method_name` | 变化回调方法名，方法签名应为 func(old_value: Variant, new_value: Variant)。 |
+| `emit_current` | 是否立即以当前值调用一次回调；为 true 时 old_value 和 new_value 都是当前值。 |
+
+返回：绑定 owner 生命周期的订阅句柄；owner 或方法无效时返回非活动句柄。
 
 <a id="member-gfbindableproperty-methods-force_emit"></a>
 

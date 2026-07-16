@@ -12,6 +12,6 @@
   "paths": [
     "addons/gf/extensions/interaction/**"
   ],
-  "enable_extension": "gf.interaction",
+  "gf_extension_id": "gf.interaction",
   "metadata": {}
 }

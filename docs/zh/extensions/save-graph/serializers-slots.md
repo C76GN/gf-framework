@@ -34,20 +34,36 @@ source.properties = PackedStringArray(["position", "rotation"])
 
 项目可使用 `GFSaveSlotWorkflow` 构建通用槽位元数据和槽位摘要 DTO；它只处理槽位索引、逻辑标识、可选显示名、标签和自定义字典，不规定 UI 布局、默认文案或存档内容。
 
-SaveGraph 负责场景树范围内的 Source、Serializer、Pipeline Step 和实体身份恢复，不是项目全局存档模块注册表。项目需要把背包、任务、关卡、设置、统计或远端资料与场景快照合并时，应在项目层定义聚合载荷，然后交给 `GFStorageUtility` 的槽位或文件 API 落盘。
+SaveGraph 负责场景树范围内的 Source、Serializer、Pipeline Step 和实体身份恢复，不是项目全局存档模块注册表。项目需要把背包、任务、关卡、设置、统计或远端资料与场景快照合并时，应在项目层定义聚合载荷，然后交给 `GFSaveSlotStorageAdapter` 或 `GFStorageUtility` 的文件 API 落盘。
 
 ```gdscript
 var storage := Gf.get_utility(GFStorageUtility) as GFStorageUtility
+var slot_store := GFSaveSlotStorageAdapter.new().setup(storage)
 var workflow := GFSaveSlotWorkflow.new()
 workflow.active_slot_index = 1
+slot_store.data_file_template = "slots/{index}/data.json"
+slot_store.metadata_file_template = "slots/{index}/meta.json"
 
 var metadata := workflow.build_active_metadata("手动槽位 1", {
 	"chapter": 3,
 })
-storage.save_slot(workflow.get_active_storage_slot_id(), payload, metadata.to_dict())
+slot_store.save_slot(workflow.active_slot_index, payload, metadata.to_dict())
 
-var cards := workflow.build_cards_from_storage(storage, [1, 2, 3])
+var cards := workflow.build_cards_from_slot_store(slot_store, [1, 2, 3])
 ```
+
+`GFSaveSlotStorageAdapter` 位于 Save 扩展包内，是推荐的通用槽位持久化入口。它只把 `slot_index` 映射到可配置文件模板，并使用 `GFStorageUtility.save_data_group()` 保证数据文件和元数据文件同事务提交；它不定义业务字段、存档模块注册表或 UI 文案。
+
+需要把槽位文件交给两个 `GFStorageBackend` 同步时，可使用 `GFSaveSlotSyncBridge`。它只根据同一个 adapter 解析数据文件和元数据文件名，再调用 `GFStorageSyncUtility.sync_many()`；冲突策略、远端协议、账号和用户确认仍由项目通过后端与 sync options 提供。
+
+```gdscript
+var bridge := GFSaveSlotSyncBridge.new()
+var sync_result := bridge.sync_slot(active_slot, slot_store, local_backend, remote_backend, {
+	"strategy": GFStorageSyncUtility.ConflictStrategy.USE_NEWEST,
+})
+```
+
+如果项目只想同步槽位元数据列表，可以传入 `{ "sync_data_file": false }`；只同步数据文件则传入 `{ "sync_metadata_file": false }`。桥接器不会枚举所有槽位，也不会自动保存当前场景，它只同步调用方明确传入的槽位索引。
 
 槽位工作流内部使用 `GFSaveSlotMetadata` 描述槽位 ID、展示名、schema、版本、标签、耗时和自定义元数据；`validate_metadata()` 返回标准校验报告字典，用 `kind`、统计、摘要和下一步建议描述元数据结构问题。空槽不会默认生成 `Slot N` 这类展示名；如果项目需要统一占位名，可以显式设置 `empty_display_name_template`，或在 UI 渲染层自行映射。
 

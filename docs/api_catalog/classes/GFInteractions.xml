@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFInteractions" path="addons/gf/extensions/interaction/runtime/gf_interactions.gd" module="extensions/interaction" extends="RefCounted" classDigest="a62771e3aa26a1f7b47c527c4bd73977f4a14a21990697caa8d6b6c7cc46057c">
+<class name="GFInteractions" path="addons/gf/extensions/interaction/runtime/gf_interactions.gd" module="extensions/interaction" extends="RefCounted" classDigest="6cea07af5a2c559f417167df712c7dda24808d383031cb839a7654877f16724b">
 	<description>GFInteractions: 创建交互上下文与链式交互流程的静态入口。</description>
 	<tags>
 		<tag name="api">public</tag>
@@ -19,6 +19,7 @@
 				<tag name="param">sender: 交互发起者。</tag>
 				<tag name="param">architecture: 用于命令或事件派发的架构实例。</tag>
 				<tag name="return">新交互流程。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="between">
@@ -32,6 +33,7 @@
 				<tag name="param">group_name: 项目自定义分组名称。</tag>
 				<tag name="return">新交互上下文。</tag>
 				<tag name="schema">payload: 交互携带的任意项目载荷；框架只透传。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</methods>

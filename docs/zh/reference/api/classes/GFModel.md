@@ -17,7 +17,7 @@
 |---|---|---|
 | 属性 | [`lifecycle_priority`](#member-gfmodel-properties-lifecycle_priority) | `var lifecycle_priority: int = 0` |
 | 方法 | [`init`](#member-gfmodel-methods-init) | `func init() -> void:` |
-| 方法 | [`async_init`](#member-gfmodel-methods-async_init) | `func async_init() -> void:` |
+| 方法 | [`async_init`](#member-gfmodel-methods-async_init) | `func async_init(_scope: GFAsyncScope) -> void:` |
 | 方法 | [`ready`](#member-gfmodel-methods-ready) | `func ready() -> void:` |
 | 方法 | [`dispose`](#member-gfmodel-methods-dispose) | `func dispose() -> void:` |
 | 方法 | [`release_dependencies`](#member-gfmodel-methods-release_dependencies) | `func release_dependencies() -> void:` |
@@ -63,12 +63,19 @@ func init() -> void:
 ### `async_init`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func async_init() -> void:
+func async_init(_scope: GFAsyncScope) -> void:
 ```
 
-异步初始化阶段。子类可以重写此方法并在其中使用 await。 Godot 4 支持在 void 函数内部使用 await，框架的 Gf.init() 会串行且安全地 await 每个模块的 async_init()，不再需要返回 Signal。 约束：在 init() 之后、ready() 之前执行。
+异步初始化阶段。子类可以重写此方法并在其中使用 await。 Godot 4 支持在 void 函数内部使用 await，框架的 Gf.init() 会串行且安全地 await 每个模块的 async_init()。 约束：在 init() 之后、ready() 之前执行；首个 await 前仍运行在主线程， 不应放入长同步工作。需要耗时处理时应在 await 或外部回调之间检查 scope。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `_scope` | 当前模块异步初始化的取消作用域。 |
 
 <a id="member-gfmodel-methods-ready"></a>
 
@@ -112,12 +119,13 @@ func release_dependencies() -> void:
 ### `get_save_key`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func get_save_key() -> StringName:
 ```
 
-获取架构级存档使用的稳定键。 默认返回空字符串，表示由 GFArchitecture 使用 class_name 或资源路径。
+获取架构级存档使用的稳定键。 默认返回空字符串，表示由 GFArchitecture 使用 class_name。
 
 返回：稳定存档键；为空时使用框架默认规则。
 

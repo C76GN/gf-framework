@@ -48,6 +48,12 @@ const VSYNC_MODE_KEY: StringName = &"display/vsync_mode"
 ## @api public
 const LOCALE_KEY: StringName = &"display/locale"
 
+const _PROJECT_WINDOW_WIDTH_OVERRIDE: String = "display/window/size/window_width_override"
+const _PROJECT_WINDOW_HEIGHT_OVERRIDE: String = "display/window/size/window_height_override"
+const _PROJECT_VIEWPORT_WIDTH: String = "display/window/size/viewport_width"
+const _PROJECT_VIEWPORT_HEIGHT: String = "display/window/size/viewport_height"
+const _ENGINE_DEFAULT_WINDOWED_SIZE: Vector2i = Vector2i(1152, 648)
+
 
 # --- 公共变量 ---
 
@@ -70,6 +76,15 @@ var auto_apply_setting_changes: bool = true
 ## [br]
 ## @api public
 var persist_changes: bool = true
+
+## 非窗口模式启动且尚无持久化尺寸时使用的窗口尺寸。
+##
+## 任一分量小于等于 0 时，从项目窗口 override 或 viewport 尺寸推导。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+var default_windowed_size: Vector2i = Vector2i.ZERO
 
 ## 音频设置键前缀。
 ## [br]
@@ -125,12 +140,12 @@ func register_default_settings() -> void:
 
 	var _register_setting_result_126: Variant = settings.register_setting(
 		WINDOW_MODE_KEY,
-		int(DisplayServer.window_get_mode()),
+		int(_window_get_mode()),
 		GFSettingDefinition.ValueType.INT
 	)
 	var _register_setting_result_131: Variant = settings.register_setting(
 		WINDOW_SIZE_KEY,
-		DisplayServer.window_get_size(),
+		_resolve_initial_windowed_size(),
 		GFSettingDefinition.ValueType.VECTOR2I
 	)
 	var _register_setting_result_136: Variant = settings.register_setting(
@@ -151,7 +166,7 @@ func register_default_settings() -> void:
 func apply_all() -> void:
 	apply_window_mode()
 	if get_window_mode() == DisplayServer.WINDOW_MODE_WINDOWED:
-		apply_window_size()
+		_apply_window_size(true)
 	apply_vsync_mode()
 	apply_locale()
 	apply_registered_audio_bus_volumes()
@@ -163,10 +178,11 @@ func apply_all() -> void:
 ## [br]
 ## @param mode: 目标窗口模式。
 func set_window_mode(mode: DisplayServer.WindowMode) -> void:
+	_capture_current_windowed_size(mode)
 	_set_setting_value(WINDOW_MODE_KEY, int(mode))
 	apply_window_mode()
 	if mode == DisplayServer.WINDOW_MODE_WINDOWED:
-		apply_window_size()
+		_apply_window_size(true)
 
 
 ## 获取窗口模式设置。
@@ -176,8 +192,8 @@ func set_window_mode(mode: DisplayServer.WindowMode) -> void:
 ## @return 窗口模式。
 func get_window_mode() -> DisplayServer.WindowMode:
 	var mode_value: int = GFVariantData.to_int(
-		_get_setting_value(WINDOW_MODE_KEY, int(DisplayServer.window_get_mode())),
-		int(DisplayServer.window_get_mode())
+		_get_setting_value(WINDOW_MODE_KEY, int(_window_get_mode())),
+		int(_window_get_mode())
 	)
 	return _to_window_mode(mode_value)
 
@@ -204,7 +220,7 @@ func toggle_fullscreen() -> void:
 ## @api public
 func apply_window_mode() -> void:
 	var mode: DisplayServer.WindowMode = get_window_mode()
-	DisplayServer.window_set_mode(mode)
+	_window_set_mode(mode)
 	display_setting_applied.emit(WINDOW_MODE_KEY, int(mode))
 
 
@@ -228,28 +244,21 @@ func set_window_size(size: Vector2i) -> void:
 ## [br]
 ## @return 窗口尺寸。
 func get_window_size() -> Vector2i:
-	var value: Variant = _get_setting_value(WINDOW_SIZE_KEY, DisplayServer.window_get_size())
+	var value: Variant = _get_setting_value(WINDOW_SIZE_KEY, _resolve_initial_windowed_size())
 	if value is Vector2i:
 		var size_2i: Vector2i = value
 		return size_2i
 	if value is Vector2:
 		var vector2: Vector2 = value
 		return Vector2i(roundi(vector2.x), roundi(vector2.y))
-	return DisplayServer.window_get_size()
+	return _resolve_initial_windowed_size()
 
 
 ## 应用窗口尺寸设置。
 ## [br]
 ## @api public
 func apply_window_size() -> void:
-	var size: Vector2i = get_window_size()
-	if size.x <= 0 or size.y <= 0:
-		return
-	if DisplayServer.window_get_mode() != DisplayServer.WINDOW_MODE_WINDOWED:
-		return
-
-	DisplayServer.window_set_size(size)
-	display_setting_applied.emit(WINDOW_SIZE_KEY, size)
+	_apply_window_size(false)
 
 
 ## 设置垂直同步模式并应用。
@@ -402,6 +411,74 @@ func apply_registered_audio_bus_volumes() -> void:
 
 # --- 私有/辅助方法 ---
 
+func _apply_window_size(allow_window_mode_transition: bool) -> void:
+	var size: Vector2i = get_window_size()
+	if size.x <= 0 or size.y <= 0:
+		return
+	if (
+		not allow_window_mode_transition
+		and _window_get_mode() != DisplayServer.WINDOW_MODE_WINDOWED
+	):
+		return
+
+	_window_set_size(size)
+	display_setting_applied.emit(WINDOW_SIZE_KEY, size)
+
+
+func _capture_current_windowed_size(target_mode: DisplayServer.WindowMode) -> void:
+	if target_mode == DisplayServer.WINDOW_MODE_WINDOWED:
+		return
+	if _window_get_mode() != DisplayServer.WINDOW_MODE_WINDOWED:
+		return
+	var current_size: Vector2i = _window_get_size()
+	if current_size.x > 0 and current_size.y > 0:
+		_set_setting_value(WINDOW_SIZE_KEY, current_size)
+
+
+func _resolve_initial_windowed_size() -> Vector2i:
+	var current_size: Vector2i = _window_get_size()
+	if _window_get_mode() == DisplayServer.WINDOW_MODE_WINDOWED:
+		if current_size.x > 0 and current_size.y > 0:
+			return current_size
+	if default_windowed_size.x > 0 and default_windowed_size.y > 0:
+		return default_windowed_size
+
+	var override_size: Vector2i = Vector2i(
+		_project_setting_int(_PROJECT_WINDOW_WIDTH_OVERRIDE),
+		_project_setting_int(_PROJECT_WINDOW_HEIGHT_OVERRIDE)
+	)
+	if override_size.x > 0 and override_size.y > 0:
+		return override_size
+
+	var viewport_size: Vector2i = Vector2i(
+		_project_setting_int(_PROJECT_VIEWPORT_WIDTH),
+		_project_setting_int(_PROJECT_VIEWPORT_HEIGHT)
+	)
+	if viewport_size.x > 0 and viewport_size.y > 0:
+		return viewport_size
+	return _ENGINE_DEFAULT_WINDOWED_SIZE
+
+
+func _project_setting_int(path: String) -> int:
+	return GFVariantData.to_int(ProjectSettings.get_setting(path, 0), 0)
+
+
+func _window_get_mode() -> DisplayServer.WindowMode:
+	return DisplayServer.window_get_mode()
+
+
+func _window_set_mode(mode: DisplayServer.WindowMode) -> void:
+	DisplayServer.window_set_mode(mode)
+
+
+func _window_get_size() -> Vector2i:
+	return DisplayServer.window_get_size()
+
+
+func _window_set_size(size: Vector2i) -> void:
+	DisplayServer.window_set_size(size)
+
+
 func _set_setting_value(key: StringName, value: Variant) -> void:
 	var settings: GFSettingsUtility = _get_settings_utility()
 	if settings != null:
@@ -498,7 +575,10 @@ func _on_setting_changed(key: StringName, _old_value: Variant, _new_value: Varia
 
 	match key:
 		WINDOW_MODE_KEY:
+			_capture_current_windowed_size(get_window_mode())
 			apply_window_mode()
+			if get_window_mode() == DisplayServer.WINDOW_MODE_WINDOWED:
+				_apply_window_size(true)
 		WINDOW_SIZE_KEY:
 			apply_window_size()
 		VSYNC_MODE_KEY:

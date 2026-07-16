@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFTemplateGenerationManifest" path="addons/gf/kernel/editor/gf_template_generation_manifest.gd" module="kernel" extends="RefCounted" classDigest="58c00913c55b89ebebf96cccab00b82ddd24bc026151ff90f83382337522af6c">
+<class name="GFTemplateGenerationManifest" path="addons/gf/kernel/editor/gf_template_generation_manifest.gd" module="kernel" extends="RefCounted" classDigest="f94e49e81be72552dd5cba7bcb9328b00bf63fd726a4c6754f1beedb5183f087">
 	<description>GFTemplateGenerationManifest: 代码生成模板清单辅助。
 用普通字典描述模板 ID、模板路径、输出路径、变量、要求和产物所有权，并可从 JSON
 sidecar 读取。它不绑定具体模板引擎，也不规定项目目录结构，只为生成器提供稳定、
@@ -150,11 +150,11 @@ sidecar 读取。它不绑定具体模板引擎，也不规定项目目录结构
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">manifests: 清单数组。</tag>
-				<tag name="param">options: 汇总选项，支持 include_manifests 和 metadata。</tag>
+				<tag name="param">options: 汇总选项，支持 include_manifests 和 metadata；metadata 与可选 manifests 会在返回摘要中编码为 JSON-safe 值。</tag>
 				<tag name="return">清单摘要。</tag>
 				<tag name="schema">manifests: Array[Dictionary] template generation manifests.</tag>
-				<tag name="schema">options: Dictionary with include_manifests and metadata.</tag>
-				<tag name="schema">return: Dictionary containing valid, manifest_count, valid_count, invalid_count, template_ids, output_paths, errors, metadata, and optional manifests.</tag>
+				<tag name="schema">options: Dictionary with include_manifests and metadata; metadata may contain arbitrary Variant values and is encoded with GFReportValueCodec in the returned summary.</tag>
+				<tag name="schema">return: JSON-safe Dictionary containing valid, manifest_count, valid_count, invalid_count, template_ids, output_paths, errors, metadata, and optional manifests.</tag>
 				<tag name="since">6.0.0</tag>
 			</tags>
 		</member>

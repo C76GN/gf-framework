@@ -12,6 +12,6 @@ Capability 可以被项目当作运行时接口使用：系统、交互逻辑或
 ## 注册 Utility
 
 ```gdscript
-func install_bindings(binder: Variant) -> void:
+func install_bindings(binder: Variant, _scope: GFAsyncScope) -> void:
 	binder.bind_utility(GFCapabilityUtility).as_singleton()
 ```

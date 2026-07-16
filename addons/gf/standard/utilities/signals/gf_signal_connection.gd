@@ -279,11 +279,13 @@ func start() -> GFSignalConnection:
 func disconnect_signal() -> void:
 	_lifecycle_serial += 1
 	if not _is_connected:
+		_unregister_from_utility()
 		return
 	if not _source_signal.is_null() and is_instance_valid(_source_signal.get_object()):
 		if _source_signal.is_connected(_on_signal_emitted):
 			_source_signal.disconnect(_on_signal_emitted)
 	_is_connected = false
+	_unregister_from_utility()
 
 
 ## 当前连接是否仍有效。
@@ -361,6 +363,10 @@ func _matches_configuration(
 	connect_flags: int,
 	once_requested: bool
 ) -> bool:
+	if not _is_connected:
+		return false
+	if not _operations.is_empty():
+		return false
 	if _source_signal != source_signal:
 		return false
 	if _callback != callback:

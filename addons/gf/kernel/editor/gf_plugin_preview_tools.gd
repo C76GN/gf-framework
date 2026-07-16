@@ -32,6 +32,7 @@ func setup(plugin: EditorPlugin) -> void:
 	if plugin == null:
 		return
 
+	cleanup(plugin)
 	_add_preview_generator(RESOURCE_PREVIEW_GENERATOR_PATH, "Resource 预览生成器")
 
 

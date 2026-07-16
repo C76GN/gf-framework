@@ -8,6 +8,8 @@
 
 Signal 等待默认有 30 秒超时。`with_signal_timeout(seconds, respect_time_scale)` 可配置等待上限，并默认跟随 `GFTimeUtility` 的暂停与 `time_scale`。超时只结束序列等待，不会回滚已经发生的外部副作用。
 
+如果序列已经进入失败回滚阶段，`cancel()` 也会通知当前 undo step 的取消入口。`last_run_report` 会用 `rollback_status` 区分 `not_run`、`completed`、`failed`、`cancelled` 和 `timeout`，并用 `rollback_cancelled` / `rollback_timeout` 提供布尔快捷字段。项目侧需要把“原步骤失败”和“回滚没有完整完成”分开展示时，应读取这些字段，而不是只解析 `rollback_errors` 文本。
+
 ## 失败结果
 
 步骤返回以下字典形态时，序列会判定失败：

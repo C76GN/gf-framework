@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFResourceRegistryAssetSourceProvider" path="addons/gf/standard/utilities/assets/gf_resource_registry_asset_source_provider.gd" module="standard" extends="GFAssetCatalogSourceProvider" classDigest="af8eba468f8d4c404f4f547d08aa3097adc8af2ad01e698d015b2a1b198ad749">
+	<description>GFResourceRegistryAssetSourceProvider: 从 GFResourceRegistry 生成资产目录的 provider。
+该 provider 把已有资源注册表条目适配为 `GFAssetCatalogEntry`，用于项目从
+“稳定资源 ID -&gt; 资源路径” 平滑过渡到更高层的资产目录。字段含义仍由项目定义。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_service</tag>
+		<tag name="since">8.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties>
+		<member kind="property" name="registry">
+			<signature>var registry: GFResourceRegistry = null</signature>
+			<description>作为来源的资源注册表。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="entry_options">
+			<signature>var entry_options: Dictionary = {}</signature>
+			<description>转换字段选项，传给 GFAssetCatalogEntry.from_resource_registry_entry()。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">entry_options: Dictionary with optional title_fields, description_fields, tag_fields, category_fields, and preview_path_fields.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="configure_registry">
+			<signature>func configure_registry( p_registry: GFResourceRegistry, p_source_id: StringName = &amp;"resource_registry", options: Dictionary = {} ) -&gt; GFResourceRegistryAssetSourceProvider:</signature>
+			<description>配置资源注册表来源。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">p_registry: 资源注册表。</tag>
+				<tag name="param">p_source_id: 来源稳定 ID。</tag>
+				<tag name="param">options: 可选项，支持 priority 和 entry_options。</tag>
+				<tag name="return">当前 provider。</tag>
+				<tag name="schema">options: Dictionary with optional priority: int and entry_options: Dictionary.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="build_catalog">
+			<signature>func build_catalog(options: Dictionary = {}) -&gt; GFAssetCatalog:</signature>
+			<description>构建资产目录。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">options: 可选项，支持 asset_ids、entry_ids 和 entry_options。</tag>
+				<tag name="return">来源导出的资产目录。</tag>
+				<tag name="schema">options: Dictionary with optional asset_ids, entry_ids, and entry_options.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_debug_snapshot">
+			<signature>func get_debug_snapshot() -&gt; Dictionary:</signature>
+			<description>获取来源诊断快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">来源诊断字典。</tag>
+				<tag name="schema">return: Dictionary with source_id, priority, provider_class, registry_entry_count, and has_registry.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

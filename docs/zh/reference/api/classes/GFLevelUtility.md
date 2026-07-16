@@ -9,7 +9,7 @@
 - 类别：运行时服务 (`runtime_service`)
 - 首次版本：`3.17.0`
 
-关卡流程管理工具。 负责统一关卡数据读取、开始、重开、胜利和失败信号派发。 默认通过 GFConfigProvider 读取静态关卡表，并可在重开关卡时清理 命令历史与外部显式注册的运行时残留。
+关卡流程管理工具。 负责统一关卡数据读取、开始、重开、胜利和失败信号派发。 默认通过 GFConfigProvider 读取静态关卡表，并可在重开关卡时执行 外部显式注册的运行时清理回调。
 
 ## 成员概览
 
@@ -36,8 +36,8 @@
 | 方法 | [`complete_current_level`](#member-gflevelutility-methods-complete_current_level) | `func complete_current_level( result: Dictionary = {}, unlock_next: bool = true, emit_win_signal: bool = true ) -> void:` |
 | 方法 | [`lose_current_level`](#member-gflevelutility-methods-lose_current_level) | `func lose_current_level() -> void:` |
 | 方法 | [`clear_level_runtime`](#member-gflevelutility-methods-clear_level_runtime) | `func clear_level_runtime() -> void:` |
-| 方法 | [`register_runtime_cleanup`](#member-gflevelutility-methods-register_runtime_cleanup) | `func register_runtime_cleanup(cleanup_id: StringName, callback: Callable) -> bool:` |
-| 方法 | [`unregister_runtime_cleanup`](#member-gflevelutility-methods-unregister_runtime_cleanup) | `func unregister_runtime_cleanup(cleanup_id: StringName) -> void:` |
+| 方法 | [`register_runtime_cleanup`](#member-gflevelutility-methods-register_runtime_cleanup) | `func register_runtime_cleanup( cleanup_id: StringName, callback: Callable, priority: int = 0, metadata: Dictionary = {} ) -> bool:` |
+| 方法 | [`unregister_runtime_cleanup`](#member-gflevelutility-methods-unregister_runtime_cleanup) | `func unregister_runtime_cleanup(cleanup_id: StringName) -> bool:` |
 | 方法 | [`has_runtime_cleanup`](#member-gflevelutility-methods-has_runtime_cleanup) | `func has_runtime_cleanup(cleanup_id: StringName) -> bool:` |
 | 方法 | [`get_runtime_cleanup_ids`](#member-gflevelutility-methods-get_runtime_cleanup_ids) | `func get_runtime_cleanup_ids() -> PackedStringArray:` |
 | 方法 | [`clear_current_level`](#member-gflevelutility-methods-clear_current_level) | `func clear_current_level() -> void:` |
@@ -367,18 +367,19 @@ func start_level(level_id: Variant, level_data_override: Dictionary = {}) -> Dic
 ### `restart_level`
 
 - API：`public`
+- 首次版本：`8.0.0`
 
 ```gdscript
 func restart_level(clear_runtime: bool = true) -> Dictionary:
 ```
 
-重开当前关卡，并清理常见运行时队列。
+重开当前关卡，并清理已注册的关卡运行时残留。
 
 参数：
 
 | 名称 | 说明 |
 |---|---|
-| `clear_runtime` | 是否清理命令历史与表现队列。 |
+| `clear_runtime` | 是否执行已注册的运行时清理回调。 |
 
 返回：当前关卡数据副本。
 
@@ -439,21 +440,23 @@ func lose_current_level() -> void:
 ### `clear_level_runtime`
 
 - API：`public`
+- 首次版本：`8.0.0`
 
 ```gdscript
 func clear_level_runtime() -> void:
 ```
 
-清理常见关卡运行时残留。
+清理已注册的关卡运行时残留。
 
 <a id="member-gflevelutility-methods-register_runtime_cleanup"></a>
 
 ### `register_runtime_cleanup`
 
 - API：`public`
+- 首次版本：`8.0.0`
 
 ```gdscript
-func register_runtime_cleanup(cleanup_id: StringName, callback: Callable) -> bool:
+func register_runtime_cleanup( cleanup_id: StringName, callback: Callable, priority: int = 0, metadata: Dictionary = {} ) -> bool:
 ```
 
 注册关卡运行时清理回调。
@@ -464,17 +467,24 @@ func register_runtime_cleanup(cleanup_id: StringName, callback: Callable) -> boo
 |---|---|
 | `cleanup_id` | 清理项唯一标识。 |
 | `callback` | 无参数清理回调。 |
+| `priority` | 执行优先级，数值越大越先执行。 |
+| `metadata` | 调用方自定义元数据。 |
 
 返回：注册成功返回 true。
+
+结构：
+
+- `metadata`: Dictionary project-defined cleanup metadata.
 
 <a id="member-gflevelutility-methods-unregister_runtime_cleanup"></a>
 
 ### `unregister_runtime_cleanup`
 
 - API：`public`
+- 首次版本：`8.0.0`
 
 ```gdscript
-func unregister_runtime_cleanup(cleanup_id: StringName) -> void:
+func unregister_runtime_cleanup(cleanup_id: StringName) -> bool:
 ```
 
 注销关卡运行时清理回调。
@@ -484,6 +494,8 @@ func unregister_runtime_cleanup(cleanup_id: StringName) -> void:
 | 名称 | 说明 |
 |---|---|
 | `cleanup_id` | 清理项唯一标识。 |
+
+返回：成功移除返回 true。
 
 <a id="member-gflevelutility-methods-has_runtime_cleanup"></a>
 

@@ -133,6 +133,7 @@ var modified_time: int = 0
 ### `metadata`
 
 - API：`public`
+- 首次版本：`3.6.0`
 
 ```gdscript
 var metadata: Dictionary = {}
@@ -142,7 +143,7 @@ var metadata: Dictionary = {}
 
 结构：
 
-- `metadata`: Dictionary，通常来自 GFSaveSlotMetadata.to_dict() 或 GFStorageUtility.list_slots() 的 metadata 字段。
+- `metadata`: Dictionary，通常来自 GFSaveSlotMetadata.to_dict() 或槽位存储摘要的 metadata 字段。
 
 <a id="member-gfsaveslotcard-properties-compatibility_errors"></a>
 
@@ -163,12 +164,13 @@ var compatibility_errors: PackedStringArray = PackedStringArray()
 ### `configure_from_slot_summary`
 
 - API：`public`
+- 首次版本：`3.6.0`
 
 ```gdscript
 func configure_from_slot_summary( summary: Dictionary, fallback_slot_id: StringName = &"", active_slot_index: int = -1 ) -> GFSaveSlotCard:
 ```
 
-从 GFStorageUtility.list_slots() 风格的摘要配置卡片。
+从槽位存储适配器的通用摘要配置卡片。
 
 参数：
 

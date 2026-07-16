@@ -14,9 +14,11 @@ const _GF_ACTION_QUEUE_SYSTEM = preload("res://addons/gf/extensions/action_queue
 ## @api framework_internal
 ## [br]
 ## @param architecture: 要装配的架构实例。
-func install(architecture: GFArchitecture) -> void:
+## [br]
+## @param _scope: 本轮安装的取消作用域。
+func install(architecture: GFArchitecture, _scope: GFAsyncScope) -> void:
 	if architecture == null:
 		return
 	if architecture.get_local_system(_GF_ACTION_QUEUE_SYSTEM) != null:
 		return
-	await architecture.register_system_instance(_GF_ACTION_QUEUE_SYSTEM.new())
+	var _registered_action_queue: bool = await architecture.register_system_instance(_GF_ACTION_QUEUE_SYSTEM.new())

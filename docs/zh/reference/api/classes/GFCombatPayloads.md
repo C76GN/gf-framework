@@ -21,7 +21,7 @@
 |---|---|---|---:|
 | [`GFCombatPayloads.GFBuffAppliedPayload`](#gfcombatpayloadsgfbuffappliedpayload) | 事件契约 (`event_contract`) | `GFPayload` | 2 |
 | [`GFCombatPayloads.GFBuffRefreshedPayload`](#gfcombatpayloadsgfbuffrefreshedpayload) | 事件契约 (`event_contract`) | `GFPayload` | 2 |
-| [`GFCombatPayloads.GFBuffRemovedPayload`](#gfcombatpayloadsgfbuffremovedpayload) | 事件契约 (`event_contract`) | `GFPayload` | 2 |
+| [`GFCombatPayloads.GFBuffRemovedPayload`](#gfcombatpayloadsgfbuffremovedpayload) | 事件契约 (`event_contract`) | `GFPayload` | 4 |
 
 ## 内部类详情
 
@@ -130,6 +130,8 @@ Buff 已移除事件。
 |---|---|---|
 | 属性 | [`target`](#member-gfcombatpayloads-gfbuffremovedpayload-properties-target) | `var target: Object` |
 | 属性 | [`buff_id`](#member-gfcombatpayloads-gfbuffremovedpayload-properties-buff_id) | `var buff_id: StringName` |
+| 属性 | [`reason`](#member-gfcombatpayloads-gfbuffremovedpayload-properties-reason) | `var reason: StringName` |
+| 属性 | [`lifecycle_report`](#member-gfcombatpayloads-gfbuffremovedpayload-properties-lifecycle_report) | `var lifecycle_report: Dictionary` |
 
 #### 属性
 
@@ -156,3 +158,33 @@ var buff_id: StringName
 ```
 
 被移除的 Buff ID。
+
+<a id="member-gfcombatpayloads-gfbuffremovedpayload-properties-reason"></a>
+
+##### `reason`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+var reason: StringName
+```
+
+移除原因。
+
+<a id="member-gfcombatpayloads-gfbuffremovedpayload-properties-lifecycle_report"></a>
+
+##### `lifecycle_report`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+var lifecycle_report: Dictionary
+```
+
+Buff 移除生命周期报告。
+
+结构：
+
+- `lifecycle_report`: Dictionary，GFBuff.on_remove() 返回报告的深副本。

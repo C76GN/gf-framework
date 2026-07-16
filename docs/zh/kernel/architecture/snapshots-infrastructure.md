@@ -26,6 +26,10 @@ storage.save_data_async("profile.json", snapshot)
 
 快照只负责框架层状态聚合。架构通过内部 `GFArchitectureSnapshotCoordinator` 调用 `GFModel.to_dict()` / `from_dict()` 强类型虚方法收集和恢复数据；恢复时每个 Model 条目必须是 `Dictionary`，否则会被跳过并记录 warning。`get_all_models_state_async()`、`restore_all_models_state_async()`、`get_global_snapshot_async()` 与 `restore_global_snapshot_async()` 会按 `max_models_per_frame` 分帧处理 Model；传 `0` 可关闭主动让帧。`Model` 的字段如何序列化、命令字典如何恢复成具体实例、以及最终写入哪个存档文件，仍由项目层决定。
 
+快照返回值会先转换为 JSON 兼容数据，避免 `NaN`、对象引用、资源或不可表示类型在后续 `JSON.stringify()` 时才暴露问题。GF 只保证快照字典适合交给项目存储层继续处理；版本号、压缩、加密、签名和存档迁移仍属于项目策略。
+
+Model 快照键优先使用 `GFModel.get_save_key()`，其次使用脚本声明的全局 `class_name`。GF 不再把脚本资源路径当作长期存档键；没有 `class_name` 的可序列化 Model 应重写 `get_save_key()`，并保证同一架构内唯一。
+
 ## 内核基础设施
 
 ### `GFScriptTypeInspector`

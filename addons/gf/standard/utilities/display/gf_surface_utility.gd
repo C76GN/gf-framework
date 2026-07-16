@@ -103,7 +103,7 @@ func get_active_material(source: Object, face_index: int) -> Material:
 ## [br]
 ## @return 表面命中报告；无法解析时 ok 为 false，并保留 reason。
 ## [br]
-## @schema return: Dictionary，包含 ok、reason、face_index、surface_index、base_material、override_material、active_material、has_*_material 以及对应 *_material_name、*_material_path、*_material_type 字段。
+## @schema return: Dictionary，包含 ok、reason、face_index、surface_index、base_material、override_material、active_material、has_*_material 以及对应 *_material_name、*_material_path、*_material_type 字段；material 字段为 JSON-safe 资源摘要，不包含运行时 Object 引用。
 func describe_surface_hit(source: Object, face_index: int) -> Dictionary:
 	if face_index < 0:
 		return _make_surface_hit_report(false, _REASON_INVALID_FACE_INDEX, face_index, -1)
@@ -122,6 +122,47 @@ func describe_surface_hit(source: Object, face_index: int) -> Dictionary:
 	var override_material: Material = mesh_instance.get_surface_override_material(surface_index)
 	var active_material: Material = mesh_instance.get_active_material(surface_index)
 	return _make_surface_hit_report(true, "", face_index, surface_index, base_material, override_material, active_material)
+
+
+## 描述 Mesh 的 surface 布局。
+##
+## 返回值只包含 Mesh、surface、primitive、顶点/索引/面数和材质摘要，适合编辑器工具、
+## 导入预检、调试面板或日志检查 Mesh 结构；不会修改 Mesh、创建碰撞体或生成节点。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+## [br]
+## @param source: Mesh、MeshInstance3D、CollisionObject3D 或其相邻节点。
+## [br]
+## @return Mesh surface 布局报告；无法解析时 ok 为 false，并保留 reason。
+## [br]
+## @schema return: Dictionary，包含 ok、reason、mesh、mesh_name、mesh_path、mesh_type、surface_count、vertex_count、index_count、face_count、aabb_position、aabb_size 和 surfaces；mesh 与 material 字段为 JSON-safe 资源摘要，不包含运行时 Object 引用。
+func describe_mesh(source: Object) -> Dictionary:
+	var mesh: Mesh = _resolve_mesh(source)
+	if mesh == null:
+		return _make_mesh_report(false, _REASON_MESH_NOT_FOUND)
+
+	var surfaces: Array[Dictionary] = []
+	var total_vertex_count: int = 0
+	var total_index_count: int = 0
+	var total_face_count: int = 0
+	for surface_index: int in range(mesh.get_surface_count()):
+		var surface_report: Dictionary = _describe_mesh_surface(mesh, surface_index)
+		total_vertex_count += GFVariantData.get_option_int(surface_report, "vertex_count")
+		total_index_count += GFVariantData.get_option_int(surface_report, "index_count")
+		total_face_count += GFVariantData.get_option_int(surface_report, "face_count")
+		surfaces.append(surface_report)
+
+	return _make_mesh_report(
+		true,
+		"",
+		mesh,
+		surfaces,
+		total_vertex_count,
+		total_index_count,
+		total_face_count
+	)
 
 
 ## 获取 MeshInstance3D surface override 材质。
@@ -349,7 +390,7 @@ func _compute_surface_face_count_data(mesh: Mesh) -> Dictionary:
 		signature.append(primitive_type)
 		signature.append(index_count)
 		signature.append(vertex_count)
-		face_counts.append(_get_surface_face_count(mesh, surface_index, index_count, vertex_count))
+		face_counts.append(_get_surface_face_count(mesh, surface_index, primitive_type, index_count, vertex_count))
 	return {
 		"face_counts": face_counts,
 		"signature": signature,
@@ -400,14 +441,16 @@ func _cached_surface_signature_matches(cache_key: int, signature: Array[int]) ->
 func _get_surface_face_count(
 	mesh: Mesh,
 	surface_index: int,
+	primitive_type: int,
 	index_count: int,
 	vertex_count: int
 ) -> int:
-	if index_count > 0:
-		return floori(float(index_count) / 3.0)
-
-	if vertex_count > 0:
-		return floori(float(vertex_count) / 3.0)
+	var element_count: int = index_count if index_count > 0 else vertex_count
+	match primitive_type:
+		Mesh.PRIMITIVE_TRIANGLES:
+			return floori(float(element_count) / 3.0)
+		Mesh.PRIMITIVE_TRIANGLE_STRIP:
+			return maxi(element_count - 2, 0)
 
 	return _get_surface_face_count_with_mesh_data_tool(mesh, surface_index)
 
@@ -451,6 +494,74 @@ func _get_surface_face_count_with_mesh_data_tool(mesh: Mesh, surface_index: int)
 	return mesh_data_tool.get_face_count()
 
 
+func _describe_mesh_surface(mesh: Mesh, surface_index: int) -> Dictionary:
+	var arrays: Array = mesh.surface_get_arrays(surface_index)
+	var primitive_type: int = _get_surface_primitive_type(mesh, surface_index)
+	var index_count: int = _get_surface_index_count(arrays)
+	var vertex_count: int = _get_surface_vertex_count(arrays)
+	var face_count: int = _get_surface_face_count(mesh, surface_index, primitive_type, index_count, vertex_count)
+	var material: Material = mesh.surface_get_material(surface_index)
+	return {
+		"surface_index": surface_index,
+		"primitive_type": primitive_type,
+		"primitive_name": _get_primitive_name(primitive_type),
+		"vertex_count": vertex_count,
+		"index_count": index_count,
+		"face_count": face_count,
+		"material": _make_resource_summary(material),
+		"material_name": _get_resource_name(material),
+		"material_path": _get_resource_path(material),
+		"material_type": _get_resource_type(material),
+		"has_material": material != null,
+	}
+
+
+func _make_mesh_report(
+	ok: bool,
+	reason: String,
+	mesh: Mesh = null,
+	surfaces: Array[Dictionary] = [],
+	vertex_count: int = 0,
+	index_count: int = 0,
+	face_count: int = 0
+) -> Dictionary:
+	var aabb: AABB = AABB()
+	if mesh != null:
+		aabb = mesh.get_aabb()
+
+	return {
+		"ok": ok,
+		"reason": reason,
+		"mesh": _make_resource_summary(mesh),
+		"mesh_name": _get_resource_name(mesh),
+		"mesh_path": _get_resource_path(mesh),
+		"mesh_type": _get_resource_type(mesh),
+		"surface_count": surfaces.size(),
+		"vertex_count": vertex_count,
+		"index_count": index_count,
+		"face_count": face_count,
+		"aabb_position": aabb.position,
+		"aabb_size": aabb.size,
+		"surfaces": surfaces,
+	}
+
+
+func _get_primitive_name(primitive_type: int) -> StringName:
+	match primitive_type:
+		Mesh.PRIMITIVE_POINTS:
+			return &"points"
+		Mesh.PRIMITIVE_LINES:
+			return &"lines"
+		Mesh.PRIMITIVE_LINE_STRIP:
+			return &"line_strip"
+		Mesh.PRIMITIVE_TRIANGLES:
+			return &"triangles"
+		Mesh.PRIMITIVE_TRIANGLE_STRIP:
+			return &"triangle_strip"
+		_:
+			return &"unknown"
+
+
 func _make_surface_hit_report(
 	ok: bool,
 	reason: String,
@@ -465,21 +576,39 @@ func _make_surface_hit_report(
 		"reason": reason,
 		"face_index": face_index,
 		"surface_index": surface_index,
-		"base_material": base_material,
+		"base_material": _make_resource_summary(base_material),
 		"base_material_name": _get_resource_name(base_material),
 		"base_material_path": _get_resource_path(base_material),
 		"base_material_type": _get_resource_type(base_material),
 		"has_base_material": base_material != null,
-		"override_material": override_material,
+		"override_material": _make_resource_summary(override_material),
 		"override_material_name": _get_resource_name(override_material),
 		"override_material_path": _get_resource_path(override_material),
 		"override_material_type": _get_resource_type(override_material),
 		"has_override_material": override_material != null,
-		"active_material": active_material,
+		"active_material": _make_resource_summary(active_material),
 		"active_material_name": _get_resource_name(active_material),
 		"active_material_path": _get_resource_path(active_material),
 		"active_material_type": _get_resource_type(active_material),
 		"has_active_material": active_material != null,
+	}
+
+
+func _make_resource_summary(resource: Resource) -> Dictionary:
+	if resource == null:
+		return {
+			"has_resource": false,
+			"name": "",
+			"path": "",
+			"type": "",
+			"instance_id": 0,
+		}
+	return {
+		"has_resource": true,
+		"name": _get_resource_name(resource),
+		"path": _get_resource_path(resource),
+		"type": _get_resource_type(resource),
+		"instance_id": resource.get_instance_id(),
 	}
 
 

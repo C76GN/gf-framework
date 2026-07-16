@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFUndoableCommand" path="addons/gf/standard/command/gf_undoable_command.gd" module="standard" extends="GFCommand" classDigest="80c368f50d5cbcd76869d12a51ae3d07630d77d8d9de2a47693dc41188d0307f">
+<class name="GFUndoableCommand" path="addons/gf/standard/command/gf_undoable_command.gd" module="standard" extends="GFCommand" classDigest="79ed46c8bb37ec2fef09a5f180e02ca0ffd8eb62fba01c69936771c7d4f7d534">
 	<description>GFUndoableCommand: 可撤销命令的抽象基类。
 继承自 GFCommand，在标准命令的基础上新增撤销能力。
 子类须在 execute() 执行前通过 set_snapshot() 保存当前状态快照，
@@ -52,12 +52,16 @@
 			</tags>
 		</member>
 		<member kind="method" name="set_snapshot">
-			<signature>func set_snapshot(data: Variant) -&gt; void:</signature>
-			<description>保存执行前的状态快照。应在 execute() 内部、修改数据之前调用。</description>
+			<signature>func set_snapshot(data: Variant) -&gt; bool:</signature>
+			<description>保存执行前的状态快照。应在 execute() 内部、修改数据之前调用。
+快照只接受不含 Object、Callable、Signal 或 RID 的纯 Variant 值；复杂运行时对象应先投影为数据。
+校验失败时保留原快照，不产生半更新状态。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">data: 任意可序列化的快照数据（如字典、数值、数组）。</tag>
-				<tag name="schema">data: Variant snapshot value; Array and Dictionary values are deep-copied.</tag>
+				<tag name="return">快照通过校验并保存时返回 true。</tag>
+				<tag name="schema">data: Pure Variant snapshot value without Object, Callable, Signal, or RID references.</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_snapshot">

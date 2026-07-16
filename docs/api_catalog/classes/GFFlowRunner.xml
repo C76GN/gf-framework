@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFFlowRunner" path="addons/gf/extensions/flow/runtime/gf_flow_runner.gd" module="extensions/flow" extends="RefCounted" classDigest="1739d9bb3c45b644136a5565e87328ac4b1004d4c5a295b1e2e3eedab084b9f2">
+<class name="GFFlowRunner" path="addons/gf/extensions/flow/runtime/gf_flow_runner.gd" module="extensions/flow" extends="RefCounted" classDigest="05efd182db395a22a6efdef2a6cd63d8a91a79eb36dec49bf577101266091e76">
 	<description>GFFlowRunner: 通用流程图执行器。
 按节点后继关系执行 GFFlowGraph，支持 Signal 等待、取消和简单循环保护。</description>
 	<tags>
@@ -14,6 +14,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">graph: 流程图资源。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="signal" name="node_started">
@@ -23,6 +24,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">node_id: 节点 ID。</tag>
 				<tag name="param">node: 节点资源。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="signal" name="node_completed">
@@ -32,6 +34,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">node_id: 节点 ID。</tag>
 				<tag name="param">node: 节点资源。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="signal" name="flow_completed">
@@ -39,6 +42,7 @@
 			<description>流程完成时发出。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="signal" name="flow_cancelled">
@@ -46,6 +50,7 @@
 			<description>流程取消时发出。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</signals>
@@ -57,6 +62,7 @@
 			<description>当前是否正在执行。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="max_executed_nodes">
@@ -64,6 +70,7 @@
 			<description>最多执行节点数量，避免循环图无限运行。小于等于 0 表示不限制。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="signal_timeout_seconds">
@@ -71,6 +78,7 @@
 			<description>Signal 等待超时时间。小于等于 0 表示不启用超时。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="signal_timeout_respects_time_scale">
@@ -78,6 +86,7 @@
 			<description>Signal 超时计时是否跟随 GFTimeUtility 的暂停与 time_scale。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="isolate_graph_runtime_state">
@@ -85,6 +94,7 @@
 			<description>运行时是否把节点 runtime_state 隔离到 GFFlowContext，避免污染共享图资源。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</properties>
@@ -96,6 +106,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">graph: 流程图资源。</tag>
 				<tag name="param">context: 可选上下文。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="cancel">
@@ -103,6 +114,7 @@
 			<description>请求取消流程。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="with_signal_timeout">
@@ -113,6 +125,7 @@
 				<tag name="param">seconds: 秒数；小于等于 0 时表示不启用超时。</tag>
 				<tag name="param">respect_time_scale: 是否跟随 GFTimeUtility 的暂停与 time_scale。</tag>
 				<tag name="return">当前执行器。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</methods>

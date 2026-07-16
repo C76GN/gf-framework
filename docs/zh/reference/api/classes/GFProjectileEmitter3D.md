@@ -21,6 +21,8 @@
 | 属性 | [`projectile_catalog`](#member-gfprojectileemitter3d-properties-projectile_catalog) | `var projectile_catalog: GFProjectileCatalog = null` |
 | 属性 | [`default_projectile_id`](#member-gfprojectileemitter3d-properties-default_projectile_id) | `var default_projectile_id: StringName = &""` |
 | 属性 | [`spawn_pattern`](#member-gfprojectileemitter3d-properties-spawn_pattern) | `var spawn_pattern: GFProjectileSpawnPattern3D = null` |
+| 属性 | [`emission_policy`](#member-gfprojectileemitter3d-properties-emission_policy) | `var emission_policy: GFProjectileEmissionPolicy = null` |
+| 属性 | [`hard_projectile_limit_per_request`](#member-gfprojectileemitter3d-properties-hard_projectile_limit_per_request) | `var hard_projectile_limit_per_request: int = 4096:` |
 | 属性 | [`default_context`](#member-gfprojectileemitter3d-properties-default_context) | `var default_context: Dictionary = {}` |
 | 属性 | [`spawn_parent_path`](#member-gfprojectileemitter3d-properties-spawn_parent_path) | `var spawn_parent_path: NodePath = NodePath("")` |
 | 属性 | [`launch_after_spawn`](#member-gfprojectileemitter3d-properties-launch_after_spawn) | `var launch_after_spawn: bool = true` |
@@ -131,6 +133,32 @@ var spawn_pattern: GFProjectileSpawnPattern3D = null
 ```
 
 3D 发射点模式。为空时使用发射器自身全局变换。
+
+<a id="member-gfprojectileemitter3d-properties-emission_policy"></a>
+
+### `emission_policy`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+var emission_policy: GFProjectileEmissionPolicy = null
+```
+
+可选发射请求策略。用于通用冷却、数量裁剪或项目侧自定义门控。
+
+<a id="member-gfprojectileemitter3d-properties-hard_projectile_limit_per_request"></a>
+
+### `hard_projectile_limit_per_request`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+var hard_projectile_limit_per_request: int = 4096:
+```
+
+单次请求在生成 transform 前不可绕过的硬数量上限。
 
 <a id="member-gfprojectileemitter3d-properties-default_context"></a>
 

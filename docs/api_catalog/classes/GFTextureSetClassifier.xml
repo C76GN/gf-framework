@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFTextureSetClassifier" path="addons/gf/standard/utilities/assets/gf_texture_set_classifier.gd" module="standard" extends="RefCounted" classDigest="181c15a41d9cb99c8007951f8f887add3a2527a315706f8c40dd4a08b2a7f622">
+<class name="GFTextureSetClassifier" path="addons/gf/standard/utilities/assets/gf_texture_set_classifier.gd" module="standard" extends="RefCounted" classDigest="cf37021746235e2176c2a77286c031960d1ab2e73b4292e92ecb246c532226f5">
 	<description>GFTextureSetClassifier: 纹理集命名分类与导入计划构建工具。
 根据常见后缀把贴图文件归并为材质纹理集，并可生成 GFImportPlan。
 它只做路径解析和计划输出，不创建材质、不执行导入、不绑定编辑器 UI。</description>
@@ -41,6 +41,14 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="ROLE_ORM">
+			<signature>const ROLE_ORM: StringName = &amp;"orm"</signature>
+			<description>Packed Occlusion/Roughness/Metallic 贴图角色。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="ROLE_AO">

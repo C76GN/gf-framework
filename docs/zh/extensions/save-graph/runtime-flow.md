@@ -43,7 +43,7 @@ save_graph.load_scope("hero_save.sav", %SaveScope, {}, true)
 
 ## 复用已有数据对象
 
-如果已经有项目自己的 `SaveGamePayload` / Model 聚合对象，且不想让 SaveGraph 遍历场景节点，可以直接把它转成 Dictionary 后交给 `GFStorageUtility.save_data()` 或 `save_slot()`。
+如果已经有项目自己的 `SaveGamePayload` / Model 聚合对象，且不想让 SaveGraph 遍历场景节点，可以直接把它转成 Dictionary 后交给 `GFStorageUtility.save_data()` / `save_data_group()`，或通过 `GFSaveSlotStorageAdapter.save_slot()` 写入槽位。
 
 如果希望这份业务数据也进入 SaveGraph 的统一 payload，优先使用 `GFSaveDataSource` 适配已有 `to_dict()` / `from_dict()` 风格对象。它可以直接引用 Resource，也可以指向目标 Node 或目标属性上的数据对象，只要求采集方法返回 Dictionary、应用方法接收 Dictionary。需要复杂迁移、跨对象协调或非 Dictionary 协议时，再继承 `GFSaveSource`，在 `_gather_save_data()` 返回业务 Dictionary，在 `_apply_save_data()` 中恢复业务状态。
 

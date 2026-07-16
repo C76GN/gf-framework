@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFMoveTweenAction" path="addons/gf/extensions/action_queue/actions/gf_move_tween_action.gd" module="extensions/action_queue" extends="GFVisualAction" classDigest="ab1fc27cc2af15a77b582f7ab9a4799651aa2f0ac419920e0609b90ad17ba741">
+<class name="GFMoveTweenAction" path="addons/gf/extensions/action_queue/actions/gf_move_tween_action.gd" module="extensions/action_queue" extends="GFVisualAction" classDigest="3a60deb4e753e49db9de0ec0452d43ca73c733b4287f03cd6801b45eea69312b">
 	<description>GFMoveTweenAction: 通用节点移动 Tween 动作。
 将目标节点的指定位置属性缓动到目标值，适合卡牌、棋子、UI 面板等
 常见表现动作。默认等待 Tween 完成后队列才会继续。</description>
@@ -28,10 +28,11 @@
 			</tags>
 		</member>
 		<member kind="property" name="duration">
-			<signature>var duration: float = 0.2</signature>
+			<signature>var duration: float:</signature>
 			<description>Tween 持续时间。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="property_name">

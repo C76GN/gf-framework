@@ -27,7 +27,10 @@
 | 方法 | [`clear_decisions`](#member-gfdecisionset-methods-clear_decisions) | `func clear_decisions() -> void:` |
 | 方法 | [`score_all`](#member-gfdecisionset-methods-score_all) | `func score_all(context: GFDecisionContext) -> Array[GFDecisionScore]:` |
 | 方法 | [`select_best`](#member-gfdecisionset-methods-select_best) | `func select_best(context: GFDecisionContext) -> GFDecisionScore:` |
-| 方法 | [`get_debug_snapshot`](#member-gfdecisionset-methods-get_debug_snapshot) | `func get_debug_snapshot(context: GFDecisionContext = null, scores: Array[GFDecisionScore] = []) -> Dictionary:` |
+| 方法 | [`select_best_from_scores`](#member-gfdecisionset-methods-select_best_from_scores) | `func select_best_from_scores(scores: Array[GFDecisionScore]) -> GFDecisionScore:` |
+| 方法 | [`evaluate`](#member-gfdecisionset-methods-evaluate) | `func evaluate(context: GFDecisionContext) -> GFDecisionEvaluation:` |
+| 方法 | [`get_debug_snapshot`](#member-gfdecisionset-methods-get_debug_snapshot) | `func get_debug_snapshot(context: GFDecisionContext = null, scores: Variant = null) -> Dictionary:` |
+| 方法 | [`get_validation_report`](#member-gfdecisionset-methods-get_validation_report) | `func get_validation_report() -> Dictionary:` |
 
 ## 属性
 
@@ -237,6 +240,52 @@ func select_best(context: GFDecisionContext) -> GFDecisionScore:
 
 返回：最佳评分结果；没有可选候选时返回 rejected score。
 
+<a id="member-gfdecisionset-methods-select_best_from_scores"></a>
+
+### `select_best_from_scores`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func select_best_from_scores(scores: Array[GFDecisionScore]) -> GFDecisionScore:
+```
+
+从已计算评分中选择分数最高的候选决策。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `scores` | 已计算的候选评分。 |
+
+返回：最佳评分结果；没有可选候选时返回 rejected score。
+
+结构：
+
+- `scores`: Array[GFDecisionScore]，通常来自 score_all() 或 GFDecisionEvaluation.scores。
+
+<a id="member-gfdecisionset-methods-evaluate"></a>
+
+### `evaluate`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func evaluate(context: GFDecisionContext) -> GFDecisionEvaluation:
+```
+
+一次性评价集合并返回评分、最佳候选和调试快照。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `context` | 决策上下文。 |
+
+返回：决策评价结果。
+
 <a id="member-gfdecisionset-methods-get_debug_snapshot"></a>
 
 ### `get_debug_snapshot`
@@ -245,7 +294,7 @@ func select_best(context: GFDecisionContext) -> GFDecisionScore:
 - 首次版本：`7.0.0`
 
 ```gdscript
-func get_debug_snapshot(context: GFDecisionContext = null, scores: Array[GFDecisionScore] = []) -> Dictionary:
+func get_debug_snapshot(context: GFDecisionContext = null, scores: Variant = null) -> Dictionary:
 ```
 
 获取集合调试快照。
@@ -254,12 +303,31 @@ func get_debug_snapshot(context: GFDecisionContext = null, scores: Array[GFDecis
 
 | 名称 | 说明 |
 |---|---|
-| `context` | 决策上下文；scores 为空时用于现场评分。 |
-| `scores` | 已计算的评分快照；传入时不会重新评分。 |
+| `context` | 决策上下文；scores 为 null 时用于现场评分。 |
+| `scores` | 已计算的评分快照；显式传入空数组也不会重新评分。 |
 
 返回：调试快照字典。
 
 结构：
 
 - `return`: 包含 decision_set_id、decision_count、minimum_score、scores 和 metadata 字段的 Dictionary。
-- `scores`: Array[GFDecisionScore]，可复用 score_all() 的结果以避免调试快照二次评分。
+- `scores`: Variant，可为 null 或 Array[GFDecisionScore]；null 表示按 context 现场评分，Array 表示完整预计算结果。
+
+<a id="member-gfdecisionset-methods-get_validation_report"></a>
+
+### `get_validation_report`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func get_validation_report() -> Dictionary:
+```
+
+获取集合资源的 authoring 校验报告。
+
+返回：GFValidationReportDictionary 兼容报告。
+
+结构：
+
+- `return`: Dictionary with ok, healthy, decision_set_id, issues, summary, and next_action.

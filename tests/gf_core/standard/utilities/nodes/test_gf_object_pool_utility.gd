@@ -23,6 +23,7 @@ func before_each() -> void:
 
 
 func after_each() -> void:
+	GFAutoload.reset_tree_exit_state()
 	_pool.dispose()
 	_pool = null
 	if _test_architecture != null:
@@ -54,6 +55,20 @@ func test_acquire_node_is_active() -> void:
 	assert_true(_pool.get_active_nodes(_scene).has(node), "acquire 返回的节点应出现在激活节点列表中。")
 
 
+func test_acquire_runs_before_add_callback_before_ready() -> void:
+	var ready_scene: PackedScene = _make_ready_check_scene()
+
+	var node: Node = _pool.acquire(ready_scene, _parent, func(ready_node: Node) -> void:
+		ready_node.set_meta(&"prepared_before_ready", true)
+	)
+	var ready_check: ReadyCheckNode = _ready_check_node(node)
+
+	assert_not_null(ready_check, "测试场景应实例化为 ReadyCheckNode。")
+	if ready_check == null:
+		return
+	assert_true(ready_check.prepared_in_ready, "before_add 回调应先于 _ready() 执行。")
+
+
 # --- 测试：release ---
 
 ## 验证 release 后节点的 metadata 被标记为未激活。
@@ -83,6 +98,25 @@ func test_release_disables_visible_node_and_acquire_restores_it() -> void:
 	assert_eq(reused, node, "再次 acquire 应复用同一 Control。")
 	assert_true(reused.visible, "复用后 Control 应恢复可见。")
 	assert_eq(reused.process_mode, Node.PROCESS_MODE_INHERIT, "复用后应恢复原 process_mode。")
+
+
+func test_release_manages_runtime_internal_children() -> void:
+	var control_scene: PackedScene = _make_control_scene()
+	var node: Control = _acquire_control(control_scene)
+	var internal_child: Control = Control.new()
+	internal_child.visible = true
+	node.add_child(internal_child, false, Node.INTERNAL_MODE_FRONT)
+
+	_pool.release(node, control_scene)
+
+	assert_false(internal_child.visible, "release 应隐藏 internal child。")
+	assert_eq(internal_child.process_mode, Node.PROCESS_MODE_DISABLED, "release 应禁用 internal child 处理。")
+
+	var reused: Control = _acquire_control(control_scene)
+
+	assert_eq(reused, node, "internal child 测试应复用同一节点。")
+	assert_true(internal_child.visible, "acquire 应恢复 internal child 可见性。")
+	assert_eq(internal_child.process_mode, Node.PROCESS_MODE_INHERIT, "acquire 应恢复 internal child process_mode。")
 
 
 func test_can_disable_descendant_active_state_management() -> void:
@@ -294,6 +328,22 @@ func test_dispose_detaches_active_and_pooled_nodes_immediately() -> void:
 	assert_false(is_instance_valid(pool_root), "dispose 后对象池根节点下一帧应完成释放。")
 
 
+func test_dispose_leaves_pool_nodes_attached_during_autoload_tree_exit() -> void:
+	var active_node: Node = _pool.acquire(_scene, _parent)
+	var pool_root: Node = _pool._ensure_pool_root()
+	GFAutoload.begin_tree_exit_scope()
+
+	_pool.dispose()
+
+	assert_eq(active_node.get_parent(), _parent, "AutoLoad 退出时不应主动从业务父节点 remove_child。")
+	assert_not_null(pool_root.get_parent(), "AutoLoad 退出时对象池根节点应继续由树持有。")
+
+	GFAutoload.end_tree_exit_scope()
+	await get_tree().process_frame
+	assert_false(is_instance_valid(active_node), "退出阶段登记 queue_free 后 active 节点仍应释放。")
+	assert_false(is_instance_valid(pool_root), "退出阶段登记 queue_free 后对象池根节点仍应释放。")
+
+
 # --- 测试：get_available_count ---
 
 ## 验证初始时可用数量为 0。
@@ -430,6 +480,14 @@ func _make_hooked_scene() -> PackedScene:
 	return scene
 
 
+func _make_ready_check_scene() -> PackedScene:
+	var node: ReadyCheckNode = ReadyCheckNode.new()
+	var scene: PackedScene = PackedScene.new()
+	var _pack_error: Error = scene.pack(node)
+	node.free()
+	return scene
+
+
 ## 创建一个会在 _ready 注册轻量事件的 GFController PackedScene。
 func _make_pooled_controller_scene() -> PackedScene:
 	var node: PooledEventController = PooledEventController.new()
@@ -477,6 +535,13 @@ func _acquire_pooled_controller(scene: PackedScene) -> PooledEventController:
 	return null
 
 
+func _ready_check_node(value: Variant) -> ReadyCheckNode:
+	if value is ReadyCheckNode:
+		var node: ReadyCheckNode = value
+		return node
+	return null
+
+
 func _pool_debug_key(scene: PackedScene) -> String:
 	return "PackedScene:%d" % scene.get_instance_id()
 
@@ -494,11 +559,21 @@ class HookedNode extends Node:
 		release_count += 1
 
 
+class ReadyCheckNode extends Node:
+	var prepared_in_ready: bool = false
+
+	func _ready() -> void:
+		prepared_in_ready = GFVariantData.to_bool(get_meta(&"prepared_before_ready", false), false)
+
+
 class PooledEventController extends GFController:
 	var payloads: Array[Variant] = []
 
 	func _ready() -> void:
-		register_simple_event(&"pooled_controller_event", _on_pooled_controller_event)
+		register_simple_event(
+			&"pooled_controller_event",
+			GFEventListener.from_method(self, &"_on_pooled_controller_event", 1)
+		)
 
 	func _on_pooled_controller_event(payload: Variant) -> void:
 		payloads.append(payload)

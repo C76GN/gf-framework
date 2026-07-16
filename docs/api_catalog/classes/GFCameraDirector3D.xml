@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFCameraDirector3D" path="addons/gf/extensions/camera/nodes/gf_camera_director_3d.gd" module="extensions/camera" extends="Node" classDigest="c70b0a0c5aa90eebea353e12397f6a225bc06ed35783b0000a9cd21a4458ba81">
+<class name="GFCameraDirector3D" path="addons/gf/extensions/camera/nodes/gf_camera_director_3d.gd" module="extensions/camera" extends="Node" classDigest="b82705e556e7e57fc546a7e523525d018e54ee7200c009ce994ba2bbb8b6b5b2">
 	<description>GFCameraDirector3D: 通用 3D 相机编排节点。
 Director 从显式路径或分组中收集 GFCameraRig3D，按优先级选择当前 Rig，
 并把过渡后的 Transform 应用到 Camera3D。它不规定目标含义、输入来源或业务流程。</description>
@@ -74,6 +74,22 @@ Director 从显式路径或分组中收集 GFCameraRig3D，按优先级选择当
 				<tag name="api">public</tag>
 			</tags>
 		</member>
+		<member kind="property" name="camera_scope_path" decorators="@export_node_path(&quot;Node&quot;)">
+			<signature>var camera_scope_path: NodePath = NodePath("")</signature>
+			<description>分组候选 Rig 的收集作用域。为空时使用 Director 父节点。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="camera_channel" decorators="@export">
+			<signature>var camera_channel: StringName = &amp;""</signature>
+			<description>分组候选 Rig 的收集频道。为空时只收集默认频道 Rig。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
 		<member kind="property" name="update_mode" decorators="@export">
 			<signature>var update_mode: UpdateMode = UpdateMode.IDLE</signature>
 			<description>自动更新模式。</description>
@@ -87,13 +103,6 @@ Director 从显式路径或分组中收集 GFCameraRig3D，按优先级选择当
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="since">6.0.0</tag>
-			</tags>
-		</member>
-		<member kind="property" name="keep_camera_when_no_rig" decorators="@export">
-			<signature>var keep_camera_when_no_rig: bool = true</signature>
-			<description>没有 Rig 时是否保持相机当前姿态。</description>
-			<tags>
-				<tag name="api">public</tag>
 			</tags>
 		</member>
 		<member kind="property" name="make_current_on_apply" decorators="@export">
@@ -163,13 +172,24 @@ Director 从显式路径或分组中收集 GFCameraRig3D，按优先级选择当
 				<tag name="since">6.0.0</tag>
 			</tags>
 		</member>
+		<member kind="method" name="get_debug_snapshot">
+			<signature>func get_debug_snapshot() -&gt; Dictionary:</signature>
+			<description>获取 Director 调试快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">调试快照。</tag>
+				<tag name="schema">return: Dictionary，包含 has_camera、has_active_rig、active_rig_path、active_rig_is_manual_override、is_blending 和 last_process。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
 		<member kind="method" name="process_camera">
 			<signature>func process_camera(delta: float) -&gt; bool:</signature>
 			<description>推进并应用相机姿态。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">delta: 秒。</tag>
-				<tag name="return">成功应用时返回 true。</tag>
+				<tag name="return">本帧实际应用相机姿态时返回 true；无可用 Rig 时返回 false。</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 	</methods>

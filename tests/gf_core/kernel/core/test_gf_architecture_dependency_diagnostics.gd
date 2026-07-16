@@ -9,7 +9,7 @@ func test_dependency_diagnostics_reports_registered_dependencies_as_ok() -> void
 	var arch: GFArchitecture = GFArchitecture.new()
 	await arch.register_model_instance(DiagnosticModel.new())
 	await arch.register_utility_instance(DiagnosticUtility.new())
-	arch.register_factory(DiagnosticFactoryObject, func() -> DiagnosticFactoryObject:
+	var _registered_factory: bool = arch.register_factory(DiagnosticFactoryObject, func() -> DiagnosticFactoryObject:
 		return DiagnosticFactoryObject.new()
 	)
 	await arch.register_system_instance(CompleteDiagnosticSystem.new())
@@ -97,7 +97,7 @@ func test_binding_diagnostics_reports_registries_aliases_factories_and_parent_ch
 	await parent_arch.register_model_instance(DiagnosticModel.new())
 	await child_arch.register_utility_instance(DiagnosticUtilityAlias.new())
 	child_arch.register_utility_alias(DiagnosticUtility, DiagnosticUtilityAlias)
-	child_arch.register_factory(
+	var _registered_factory: bool = child_arch.register_factory(
 		DiagnosticFactoryObject,
 		func() -> DiagnosticFactoryObject:
 			return DiagnosticFactoryObject.new(),

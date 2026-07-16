@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFConfigPipelineArtifactManifest" path="addons/gf/tools/config_pipeline/gf_config_pipeline_artifact_manifest.gd" module="tools" extends="RefCounted" classDigest="0b4f5d144489619b4368f74229dfc1ac7286f73f259f92941a611aa1abe27e44">
+	<description>GFConfigPipelineArtifactManifest: 配置导表产物 manifest 辅助。
+为 GFConfigPipelineProfile 生成输入摘要、输出摘要和 freshness 报告，支持 CI、
+编辑器按钮或命令行在导表前判断是否可以跳过未变化的产物。
+该工具只记录通用文件摘要和导表选项，不表达项目业务版本、热更新策略或远端发布流程。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">tool_api</tag>
+		<tag name="since">8.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants>
+		<member kind="const" name="FORMAT">
+			<signature>const FORMAT: String = "gf.config_pipeline.artifact_manifest"</signature>
+			<description>manifest JSON 格式标识。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="FORMAT_VERSION">
+			<signature>const FORMAT_VERSION: int = 1</signature>
+			<description>manifest 格式版本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties />
+	<methods>
+		<member kind="method" name="make_manifest">
+			<signature>func make_manifest( profile_path: String, profile: GFConfigPipelineProfile, options: Dictionary = {}, run_result: Dictionary = {} ) -&gt; Dictionary:</signature>
+			<description>根据 Profile 和本次选项生成 manifest 字典。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">profile_path: Profile 资源路径。</tag>
+				<tag name="param">profile: 导表 Profile 资源。</tag>
+				<tag name="param">options: 本次导表选项。</tag>
+				<tag name="param">run_result: 可选 Runner 或 Pipeline 结果；只会提取 JSON 兼容摘要。</tag>
+				<tag name="return">manifest 字典。</tag>
+				<tag name="schema">options: Dictionary，可包含 output_path、access_output_path、access_class_name、access_provider_accessor、build_options、save_options、access_options、manifest_metadata、max_freshness_file_bytes、max_freshness_total_bytes 和 max_freshness_entries；三个 freshness 预算必须为非负整数，分别限制单文件字节数、累计哈希字节数和扫描条目数。</tag>
+				<tag name="schema">run_result: Dictionary，可包含 success、operation、profile_id、output_path、save_result、access_result、report 和 error。</tag>
+				<tag name="schema">return: Dictionary，包含 format、format_version、artifact_owner、profile_path、profile_id、profile_digest、input_digest、output_digest、options_digest、source_entries、output_entries、scan_report、metadata、run_summary 和 manifest_digest。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="load_manifest">
+			<signature>func load_manifest(manifest_path: String) -&gt; Dictionary:</signature>
+			<description>读取 manifest JSON 文件。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">manifest_path: manifest JSON 路径。</tag>
+				<tag name="return">读取报告。</tag>
+				<tag name="schema">return: Dictionary，包含 success、path、manifest、error_code 和 error。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="save_manifest">
+			<signature>func save_manifest(manifest_path: String, manifest: Dictionary, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>保存 manifest JSON 文件。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">manifest_path: manifest JSON 输出路径。</tag>
+				<tag name="param">manifest: make_manifest() 返回的字典。</tag>
+				<tag name="param">options: 保存选项。</tag>
+				<tag name="return">保存报告。</tag>
+				<tag name="schema">manifest: Dictionary，包含 format、format_version、artifact_owner、profile_digest、input_digest、options_digest、output_entries 和 scan_report。</tag>
+				<tag name="schema">options: Dictionary，可包含 dry_run、overwrite_existing、allow_unowned_overwrite、indent、sort_keys、allow_parent_output_path、allow_gf_source_output 和 allow_absolute_output_path；allow_unowned_overwrite 仅用于调用方已明确确认现有文件所有权的迁移场景。</tag>
+				<tag name="schema">return: Dictionary，包含 success、path、status、error_code、error、artifact_report、written、changed 和 dry_run。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="make_freshness_report">
+			<signature>func make_freshness_report( manifest_path: String, profile_path: String, profile: GFConfigPipelineProfile, options: Dictionary = {} ) -&gt; Dictionary:</signature>
+			<description>生成当前 Profile 相对已有 manifest 的 freshness 报告。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">manifest_path: 已保存 manifest 路径。</tag>
+				<tag name="param">profile_path: Profile 资源路径。</tag>
+				<tag name="param">profile: 导表 Profile 资源。</tag>
+				<tag name="param">options: 本次导表选项。</tag>
+				<tag name="return">freshness 报告。</tag>
+				<tag name="schema">options: Dictionary，可包含 output_path、access_output_path、access_class_name、access_provider_accessor、build_options、save_options、access_options、max_freshness_file_bytes、max_freshness_total_bytes 和 max_freshness_entries。</tag>
+				<tag name="schema">return: Dictionary，包含 fresh、success、manifest_path、current_manifest、stored_manifest、load_result、scan_report、reasons、missing_outputs 和 changed_fields。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_default_manifest_path">
+			<signature>func get_default_manifest_path(output_path: String) -&gt; String:</signature>
+			<description>根据输出路径推导默认 manifest 路径。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">output_path: 数据库输出路径。</tag>
+				<tag name="return">默认 manifest 路径；output_path 为空时返回空字符串。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

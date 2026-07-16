@@ -206,7 +206,9 @@ func set_text_body(text: String, content_type: String = "text/plain; charset=utf
 ## [br]
 ## @schema value: Variant，兼容 JSON.stringify 的请求体载荷。
 func set_json_body(value: Variant) -> GFHttpRequestBuilder:
-	_body_text = JSON.stringify(value)
+	_body_text = GFVariantJsonCodec.stringify_json_compatible(value, "", false, {
+		"unsupported": "string",
+	})
 	var _set_header_result_210: Variant = set_header("Content-Type", "application/json")
 	return self
 

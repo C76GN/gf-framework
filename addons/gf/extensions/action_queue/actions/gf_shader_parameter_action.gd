@@ -34,7 +34,13 @@ var target_value: Variant = null
 ## Tween 持续时间。小于等于 0 时立即写入。
 ## [br]
 ## @api public
-var duration: float = 0.2
+## [br]
+## @since 4.2.0
+var duration: float:
+	get:
+		return _duration
+	set(value):
+		_duration = _ACTION_TIME_POLICY.sanitize_non_negative_seconds(value)
 
 ## 当 target 不是 ShaderMaterial 时，用于读取材质的属性路径。
 ## [br]
@@ -76,6 +82,7 @@ var restore_initial_value_on_finish: bool = false
 
 var _active_tween: Tween = null
 var _active_material: ShaderMaterial = null
+var _duration: float = 0.2
 var _initial_value: Variant = null
 var _has_initial_value: bool = false
 
@@ -92,7 +99,7 @@ func _init(
 	target = p_target
 	parameter_name = p_parameter_name
 	target_value = p_target_value
-	duration = maxf(p_duration, 0.0)
+	duration = p_duration
 	host_node = p_host_node
 
 
@@ -108,22 +115,27 @@ func _init(
 func execute() -> Variant:
 	_clear_active_tween()
 	_reset_completion_state()
-	_active_material = _resolve_shader_material()
-	if _active_material == null or not _has_shader_parameter(_active_material):
+	_active_material = null
+	var source_material: ShaderMaterial = _resolve_shader_material()
+	if source_material == null or not _has_shader_parameter(source_material):
 		return null
 
-	_capture_initial_value()
+	_capture_initial_value(source_material)
+	var tween_host: Node = null
+	if duration > 0.0:
+		if not _can_tween_parameter_value():
+			return null
+		tween_host = _get_tween_host()
+		if tween_host == null:
+			push_warning("[GFShaderParameterAction] 缺少有效 Tween 宿主节点。")
+			return null
+
+	_active_material = _activate_shader_material(source_material)
+	if _active_material == null:
+		return null
 	if duration <= 0.0:
 		_set_shader_parameter(target_value)
 		_restore_initial_value_on_finish()
-		return null
-
-	if not _can_tween_parameter_value():
-		return null
-
-	var tween_host: Node = _get_tween_host()
-	if tween_host == null:
-		push_warning("[GFShaderParameterAction] 缺少有效 Tween 宿主节点。")
 		return null
 
 	_active_tween = tween_host.create_tween()
@@ -171,7 +183,11 @@ func resume() -> void:
 ## @api public
 func finish() -> void:
 	if is_instance_valid(_active_tween):
-		var _custom_step_result_165: Variant = _active_tween.custom_step(INF)
+		_clear_active_tween()
+		_set_shader_parameter(target_value)
+		_restore_initial_value_on_finish()
+		_emit_completed_once()
+		return
 	_clear_active_tween()
 	_restore_initial_value_on_finish()
 	_emit_completed_once()
@@ -214,14 +230,19 @@ func _resolve_shader_material() -> ShaderMaterial:
 		push_warning("[GFShaderParameterAction] 目标材质属性不是 ShaderMaterial：%s。" % String(material_property))
 		return null
 
-	var material: ShaderMaterial = _get_shader_material_value(material_value)
-	if duplicate_material_on_execute:
-		var duplicated_value: Variant = material.duplicate(true)
-		if duplicated_value is ShaderMaterial:
-			var duplicated_material: ShaderMaterial = _get_shader_material_value(duplicated_value)
-			target.set_indexed(material_property, duplicated_material)
-			return duplicated_material
-	return material
+	return _get_shader_material_value(material_value)
+
+
+func _activate_shader_material(material: ShaderMaterial) -> ShaderMaterial:
+	if not duplicate_material_on_execute or target is ShaderMaterial:
+		return material
+	var duplicated_value: Variant = material.duplicate(true)
+	if not (duplicated_value is ShaderMaterial):
+		push_warning("[GFShaderParameterAction] ShaderMaterial 复制失败。")
+		return null
+	var duplicated_material: ShaderMaterial = _get_shader_material_value(duplicated_value)
+	target.set_indexed(material_property, duplicated_material)
+	return duplicated_material
 
 
 func _has_shader_parameter(material: ShaderMaterial) -> bool:
@@ -243,8 +264,8 @@ func _has_shader_parameter(material: ShaderMaterial) -> bool:
 	return false
 
 
-func _capture_initial_value() -> void:
-	_initial_value = GFVariantData.duplicate_variant(_active_material.get_shader_parameter(parameter_name))
+func _capture_initial_value(material: ShaderMaterial) -> void:
+	_initial_value = GFVariantData.duplicate_variant(material.get_shader_parameter(parameter_name))
 	_has_initial_value = true
 
 
@@ -280,10 +301,12 @@ func _restore_initial_value() -> void:
 
 
 func _get_tween_host() -> Node:
-	if is_instance_valid(host_node):
+	if is_instance_valid(host_node) and host_node.is_inside_tree():
 		return host_node
 	if target is Node and is_instance_valid(target):
-		return _get_node_value(target)
+		var target_node: Node = _get_node_value(target)
+		if target_node != null and target_node.is_inside_tree():
+			return target_node
 	return null
 
 

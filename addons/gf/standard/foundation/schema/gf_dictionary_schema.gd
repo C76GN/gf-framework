@@ -254,7 +254,23 @@ func validate_dictionary(values: Dictionary, options: Dictionary = {}) -> GFVali
 	var report: GFValidationReport = _make_report(options)
 	var definition_report: GFValidationReport = validate_definition(options)
 	var _merged_definition_report: RefCounted = report.merge(definition_report)
-	_validate_dictionary_values(values, report, options)
+	if not definition_report.is_ok():
+		return report
+	if _is_value_schema_active(options):
+		_add_error(
+			report,
+			&"recursive_schema_value",
+			"Schema value validation contains a recursive schema reference.",
+			String(schema_id),
+			GFVariantData.get_option_string(options, "path"),
+			{
+				"schema_id": String(schema_id),
+			},
+			options
+		)
+		return report
+	var value_options: Dictionary = _make_value_validation_options(options)
+	_validate_dictionary_values(values, report, value_options)
 	return report
 
 
@@ -301,11 +317,20 @@ func normalize_dictionary_array(values: Array, options: Dictionary = {}) -> Dict
 			continue
 
 		var source_row: Dictionary = raw_row
-		var normalized_row: Dictionary = _normalize_dictionary_row(source_row, include_optional, should_coerce, strip_extra_fields)
 		var row_report: GFValidationReport = null
+		var row_options: Dictionary = _make_row_options(options, row_path)
 		if validate_rows:
-			var row_options: Dictionary = _make_row_options(options, row_path)
 			row_report = _make_report(row_options)
+			_add_normalized_key_collision_errors(source_row, row_report, row_options)
+		var normalized_row: Dictionary = _normalize_dictionary_row(
+			source_row,
+			include_optional,
+			should_coerce,
+			strip_extra_fields,
+			row_report,
+			row_options
+		)
+		if validate_rows:
 			_validate_dictionary_values(normalized_row, row_report, row_options)
 			_validate_normalized_required_source_fields(source_row, normalized_row, row_report, row_options)
 			var _merged_row_report: RefCounted = report.merge(row_report, false)
@@ -472,6 +497,7 @@ func _coerce_values_for_validation(values: Dictionary, report: GFValidationRepor
 
 
 func _validate_dictionary_values(values: Dictionary, report: GFValidationReport, options: Dictionary) -> void:
+	_add_normalized_key_collision_errors(values, report, options)
 	var source_values: Dictionary = _normalize_keys(values)
 	var working_values: Dictionary = _normalize_keys(values)
 	if coerce_values:
@@ -548,6 +574,46 @@ func _normalize_keys(values: Dictionary) -> Dictionary:
 	return result
 
 
+func _add_normalized_key_collision_errors(
+	values: Dictionary,
+	report: GFValidationReport,
+	options: Dictionary
+) -> void:
+	if report == null:
+		return
+	var seen_keys: Dictionary = {}
+	var reported_keys: Dictionary = {}
+	for key_variant: Variant in values.keys():
+		var field_key: StringName = GFVariantData.to_string_name(key_variant)
+		if not seen_keys.has(field_key):
+			seen_keys[field_key] = _describe_source_key(key_variant)
+			continue
+		if reported_keys.has(field_key):
+			continue
+		reported_keys[field_key] = true
+		_add_error(
+			report,
+			&"duplicate_field_key",
+			"Dictionary contains multiple source keys that normalize to the same schema field.",
+			field_key,
+			_make_field_path(field_key, options),
+			{
+				"schema_id": String(schema_id),
+				"field_name": String(field_key),
+				"first_key": GFVariantData.get_option_string(seen_keys, field_key),
+				"duplicate_key": _describe_source_key(key_variant),
+			},
+			options
+		)
+
+
+func _describe_source_key(key_variant: Variant) -> String:
+	return "%s:%s" % [
+		type_string(typeof(key_variant)),
+		GFVariantData.to_text(key_variant),
+	]
+
+
 func _get_field_lookup() -> Dictionary:
 	var signature: String = _make_field_lookup_signature()
 	if signature == _field_lookup_signature:
@@ -589,7 +655,9 @@ func _normalize_dictionary_row(
 	values: Dictionary,
 	include_optional: bool,
 	should_coerce: bool,
-	strip_extra_fields: bool
+	strip_extra_fields: bool,
+	report: GFValidationReport,
+	options: Dictionary
 ) -> Dictionary:
 	var result: Dictionary = _normalize_keys(values)
 	for field: GFSchemaField in fields:
@@ -599,17 +667,46 @@ func _normalize_dictionary_row(
 		var field_key: StringName = field.get_field_key()
 		if result.has(field_key):
 			if should_coerce:
-				result[field_key] = field.coerce_value(result[field_key])
+				result[field_key] = _coerce_row_value(field, result[field_key], report, options)
 			continue
 		if not _should_fill_row_default(field, include_optional):
 			continue
 		if should_coerce:
-			result[field_key] = field.coerce_value(field.default_value)
+			result[field_key] = _coerce_row_value(field, field.default_value, report, options)
 		else:
 			result[field_key] = GFVariantData.duplicate_variant(field.default_value)
 	if strip_extra_fields:
 		result = _strip_extra_fields(result)
 	return result
+
+
+func _coerce_row_value(
+	field: GFSchemaField,
+	source_value: Variant,
+	report: GFValidationReport,
+	options: Dictionary
+) -> Variant:
+	var coerce_result: Dictionary = field.try_coerce_value(source_value)
+	if GFVariantData.get_option_bool(coerce_result, "ok", false):
+		return GFVariantData.get_option_value(coerce_result, "value")
+
+	var field_key: StringName = field.get_field_key()
+	if report != null:
+		_add_error(
+			report,
+			&"coerce_failed",
+			GFVariantData.get_option_string(coerce_result, "message", "Value coercion failed."),
+			field_key,
+			_make_field_path(field_key, options),
+			{
+				"schema_id": String(schema_id),
+				"field_name": String(field_key),
+				"expected_value": GFSchemaField.value_type_to_name(field.value_type),
+				"actual_value": GFVariantData.duplicate_variant(source_value),
+			},
+			options
+		)
+	return GFVariantData.duplicate_variant(source_value)
 
 
 func _should_fill_row_default(field: GFSchemaField, include_optional: bool) -> bool:
@@ -815,6 +912,20 @@ func _make_duplicate_state() -> Dictionary:
 		"schemas": {},
 		"fields": {},
 	}
+
+
+func _make_value_validation_options(options: Dictionary) -> Dictionary:
+	var value_options: Dictionary = options.duplicate(true)
+	var active_schemas: Dictionary = GFVariantData.get_option_dictionary(value_options, "active_value_schemas")
+	active_schemas = active_schemas.duplicate(true)
+	active_schemas[get_instance_id()] = true
+	value_options["active_value_schemas"] = active_schemas
+	return value_options
+
+
+func _is_value_schema_active(options: Dictionary) -> bool:
+	var active_schemas: Dictionary = GFVariantData.get_option_dictionary(options, "active_value_schemas")
+	return active_schemas.has(get_instance_id())
 
 
 func _is_schema_active(state: Dictionary, schema: GFDictionarySchema) -> bool:

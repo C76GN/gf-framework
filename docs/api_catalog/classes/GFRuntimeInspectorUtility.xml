@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFRuntimeInspectorUtility" path="addons/gf/standard/utilities/debug/gf_runtime_inspector_utility.gd" module="standard" extends="GFUtility" classDigest="0d45ae15d4bde20953443d17619b722ac7d231d6e564529d04d176d81d9c0598">
+<class name="GFRuntimeInspectorUtility" path="addons/gf/standard/utilities/debug/gf_runtime_inspector_utility.gd" module="standard" extends="GFUtility" classDigest="e5d58de8c259ac0ce1163499d28a7939ae44544232fe4abca5fbf08339d56231">
 	<description>GFRuntimeInspectorUtility: 显式 schema 驱动的运行时调参注册表。
 项目主动注册可调对象和属性后，工具提供快照、读取和受控写入能力。
 它不自动暴露业务对象，也不内置具体 UI 或玩法语义。</description>
@@ -173,6 +173,15 @@
 				<tag name="api">public</tag>
 				<tag name="param">panel_id: Overlay 面板 ID。</tag>
 				<tag name="return">注册成功返回 true。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="refresh_debug_overlay_panel">
+			<signature>func refresh_debug_overlay_panel() -&gt; bool:</signature>
+			<description>把 Inspector 当前状态重新发布到已附加的 Overlay 面板。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">已附加且发布成功时返回 true。</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="detach_from_debug_overlay">

@@ -13,6 +13,13 @@
 class_name GFUndoableCommand
 extends GFCommand
 
+
+# --- 常量 ---
+
+const _MAX_SNAPSHOT_DEPTH: int = 128
+const _MAX_SNAPSHOT_ITEMS: int = 100_000
+
+
 # --- 公共变量 ---
 
 ## 可选命令标签，供项目历史面板、日志或调试工具显示。默认为空，框架不生成用户可见文案。
@@ -68,11 +75,23 @@ func should_record(_execute_result: Variant) -> bool:
 ## [br]
 ## @api public
 ## [br]
+## @since 8.0.0
+## [br]
 ## @param data: 任意可序列化的快照数据（如字典、数值、数组）。
 ## [br]
-## @schema data: Variant snapshot value; Array and Dictionary values are deep-copied.
-func set_snapshot(data: Variant) -> void:
-	_snapshot = GFVariantData.duplicate_collection(data, true)
+## 快照只接受不含 Object、Callable、Signal 或 RID 的纯 Variant 值；复杂运行时对象应先投影为数据。
+## 校验失败时保留原快照，不产生半更新状态。
+## [br]
+## @return 快照通过校验并保存时返回 true。
+## [br]
+## @schema data: Pure Variant snapshot value without Object, Callable, Signal, or RID references.
+func set_snapshot(data: Variant) -> bool:
+	var validation_state: Dictionary = { "items": 0 }
+	if not _is_snapshot_value_supported(data, 0, validation_state):
+		push_error("[GFUndoableCommand] 快照必须是有界的纯 Variant 数据，不能包含运行时引用或递归结构。")
+		return false
+	_snapshot = GFVariantData.duplicate_variant(data, true, false)
+	return true
 
 
 ## 获取由 set_snapshot() 保存的状态快照。在 undo() 中调用以还原数据。
@@ -83,4 +102,32 @@ func set_snapshot(data: Variant) -> void:
 ## [br]
 ## @schema return: Variant snapshot value or null.
 func get_snapshot() -> Variant:
-	return GFVariantData.duplicate_collection(_snapshot, true)
+	return GFVariantData.duplicate_variant(_snapshot, true, false)
+
+
+# --- 私有/辅助方法 ---
+
+func _is_snapshot_value_supported(value: Variant, depth: int, state: Dictionary) -> bool:
+	if depth > _MAX_SNAPSHOT_DEPTH:
+		return false
+	var item_count: int = GFVariantData.get_option_int(state, "items") + 1
+	state["items"] = item_count
+	if item_count > _MAX_SNAPSHOT_ITEMS:
+		return false
+
+	match typeof(value):
+		TYPE_OBJECT, TYPE_CALLABLE, TYPE_SIGNAL, TYPE_RID:
+			return false
+		TYPE_ARRAY:
+			var array_values: Array = value
+			for entry: Variant in array_values:
+				if not _is_snapshot_value_supported(entry, depth + 1, state):
+					return false
+		TYPE_DICTIONARY:
+			var dictionary_values: Dictionary = value
+			for key: Variant in dictionary_values.keys():
+				if not _is_snapshot_value_supported(key, depth + 1, state):
+					return false
+				if not _is_snapshot_value_supported(dictionary_values[key], depth + 1, state):
+					return false
+	return true

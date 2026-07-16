@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFObjectCandidateRegistry" path="addons/gf/standard/common/gf_object_candidate_registry.gd" module="standard" extends="RefCounted" classDigest="f9b3ffb8165fcdcaf1467c385396120291aa8d0eba94c0e0ac28854558725090">
+	<description>GFObjectCandidateRegistry: 通用 Object 候选注册表。
+使用弱引用记录候选对象，并提供按 group、method、priority 和注册顺序筛选排序的
+候选快照。它不解释候选对象的业务语义，适合交互、命中、选择或编辑器工具复用。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_service</tag>
+		<tag name="since">8.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties>
+		<member kind="property" name="max_candidates">
+			<signature>var max_candidates: int = 0:</signature>
+			<description>最大候选记录数量；小于等于 0 时不限制。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="metadata">
+			<signature>var metadata: Dictionary = {}</signature>
+			<description>注册表自定义元数据。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">metadata: Dictionary copied into debug snapshots.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="clear">
+			<signature>func clear() -&gt; void:</signature>
+			<description>清空全部候选。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="register_candidate">
+			<signature>func register_candidate(candidate: Object, options: Dictionary = {}) -&gt; bool:</signature>
+			<description>注册或更新一个候选对象。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">candidate: 候选对象。</tag>
+				<tag name="param">options: 注册选项。</tag>
+				<tag name="return">候选有效并成功写入时返回 true。</tag>
+				<tag name="schema">options: Dictionary with optional priority:int, group:StringName, owner:Object|int|String|StringName, stable_key:Variant, and metadata:Dictionary.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="unregister_candidate">
+			<signature>func unregister_candidate(candidate: Object) -&gt; bool:</signature>
+			<description>移除一个候选对象。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">candidate: 候选对象。</tag>
+				<tag name="return">找到并移除时返回 true。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="unregister_candidate_id">
+			<signature>func unregister_candidate_id(candidate_id: int) -&gt; bool:</signature>
+			<description>按实例 ID 移除候选。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">candidate_id: 候选对象实例 ID。</tag>
+				<tag name="return">找到并移除时返回 true。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="unregister_owner">
+			<signature>func unregister_owner(owner: Variant) -&gt; int:</signature>
+			<description>移除指定 owner 关联的候选。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">owner: Object、实例 ID 或文本 owner key。</tag>
+				<tag name="return">移除数量。</tag>
+				<tag name="schema">owner: Object, int, String, or StringName owner identity.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="prune_invalid">
+			<signature>func prune_invalid() -&gt; int:</signature>
+			<description>清理已释放对象的候选记录。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">清理数量。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_candidates">
+			<signature>func get_candidates(options: Dictionary = {}) -&gt; Array[Dictionary]:</signature>
+			<description>获取候选记录快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">options: 查询选项。</tag>
+				<tag name="return">候选记录数组，按 priority 降序、注册顺序升序排列。</tag>
+				<tag name="schema">options: Dictionary with optional group:StringName, method_name:StringName, include_metadata:bool, max_count:int, and prune_invalid:bool.</tag>
+				<tag name="schema">return: Array[Dictionary] with id, object, priority, group, owner_id, stable_key, metadata, and order.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_candidate_objects">
+			<signature>func get_candidate_objects(options: Dictionary = {}) -&gt; Array[Object]:</signature>
+			<description>获取候选对象列表。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">options: 查询选项，语义同 get_candidates()。</tag>
+				<tag name="return">候选对象数组。</tag>
+				<tag name="schema">options: Dictionary with optional group:StringName, method_name:StringName, and max_count:int.</tag>
+				<tag name="schema">return: Array[Object] from valid candidate snapshots.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_debug_snapshot">
+			<signature>func get_debug_snapshot() -&gt; Dictionary:</signature>
+			<description>获取调试快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">JSON-safe 调试快照。</tag>
+				<tag name="schema">return: Dictionary with count, valid_count, max_candidates, candidates, and metadata.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

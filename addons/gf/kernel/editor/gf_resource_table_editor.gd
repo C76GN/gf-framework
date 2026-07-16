@@ -100,6 +100,7 @@ const DEFAULT_MAX_SCAN_DEPTH: int = 32
 ## [br]
 ## @api public
 const DEFAULT_MAX_RESOURCE_PATHS: int = 10000
+const _GF_REPORT_VALUE_CODEC_SCRIPT = preload("res://addons/gf/kernel/core/gf_report_value_codec.gd")
 const _GF_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
 const _OBJECT_PROPERTY_TOOLS = preload("res://addons/gf/kernel/core/gf_object_property_tools.gd")
 const _SCRIPT_TYPE_INSPECTOR = preload("res://addons/gf/kernel/core/gf_script_type_inspector.gd")
@@ -654,14 +655,14 @@ func _commit_resource_cell_value_internal(
 	if skip_unchanged and old_value == new_value:
 		return _make_resource_cell_commit_success(row_index, resource, property, old_value, new_value, false)
 
-	var result: Dictionary = _OBJECT_PROPERTY_TOOLS.write_property(resource, NodePath(String(property)), new_value, {
-		"check_type": false,
-	})
+	var property_path: NodePath = NodePath(String(property))
+	var result: Dictionary = _OBJECT_PROPERTY_TOOLS.write_property(resource, property_path, new_value)
 	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(result, "ok"):
 		return _make_resource_cell_commit_failure(row_index, property, &"write_failed")
 
-	var value_changed: bool = _GF_VARIANT_ACCESS_SCRIPT.to_bool(old_value != new_value)
-	return _make_resource_cell_commit_success(row_index, resource, property, old_value, new_value, value_changed)
+	var actual_value: Variant = _OBJECT_PROPERTY_TOOLS.read_property(resource, property_path)
+	var value_changed: bool = _GF_VARIANT_ACCESS_SCRIPT.to_bool(old_value != actual_value)
+	return _make_resource_cell_commit_success(row_index, resource, property, old_value, actual_value, value_changed)
 
 
 func _emit_resource_cell_value_committed(report: Dictionary) -> void:
@@ -985,7 +986,14 @@ func _resource_label(resource: Resource, row_index: int) -> String:
 
 func _format_cell_value(value: Variant) -> String:
 	if value is Dictionary or value is Array:
-		return JSON.stringify(value)
+		return _GF_REPORT_VALUE_CODEC_SCRIPT.stringify_json_compatible(
+			value,
+			"",
+			false,
+			_GF_REPORT_VALUE_CODEC_SCRIPT.make_redaction_options(
+				_GF_REPORT_VALUE_CODEC_SCRIPT.REDACTION_PROFILE_DEBUG
+			)
+		)
 	return str(value)
 
 

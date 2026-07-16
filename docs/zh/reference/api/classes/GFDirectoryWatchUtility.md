@@ -288,6 +288,7 @@ func poll() -> GFDirectoryChangeSet:
 ### `get_snapshot`
 
 - API：`public`
+- 首次版本：`3.23.0`
 
 ```gdscript
 func get_snapshot() -> Dictionary:
@@ -299,7 +300,7 @@ func get_snapshot() -> Dictionary:
 
 结构：
 
-- `return`: Dictionary keyed by file path with modified_time values.
+- `return`: Dictionary keyed by file path with file metadata dictionaries containing modified_time, size_bytes, and content_sha256.
 
 <a id="member-gfdirectorywatchutility-methods-get_debug_snapshot"></a>
 

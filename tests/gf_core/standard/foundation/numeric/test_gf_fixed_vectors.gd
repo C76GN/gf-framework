@@ -67,9 +67,23 @@ func test_vector2_serialization_normalizes_mutated_decimal_places() -> void:
 	var bytes: PackedByteArray = value.to_bytes()
 
 	assert_push_error("[GFFixedVector2] decimal_places 超出上限 18，已自动钳制。")
-	assert_push_error("[GFFixedVector2] decimal_places 超出上限 18，已自动钳制。")
 	assert_eq(GFVariantData.get_option_int(data, "decimal_places"), GFFixedDecimal.MAX_DECIMAL_PLACES)
 	assert_eq(bytes[5], GFFixedDecimal.MAX_DECIMAL_PLACES)
+
+
+func test_vector2_public_field_setters_normalize_mutated_state() -> void:
+	var value: GF_FIXED_VECTOR2 = GF_FIXED_VECTOR2.new(1, 2, 2)
+
+	value.raw_x = -9_223_372_036_854_775_807 - 1
+	value.raw_y = -9_223_372_036_854_775_807 - 1
+	value.decimal_places = 30
+
+	assert_push_error("[GFFixedVector2] raw_x 超出可表示范围，已钳制。")
+	assert_push_error("[GFFixedVector2] raw_y 超出可表示范围，已钳制。")
+	assert_push_error("[GFFixedVector2] decimal_places 超出上限 18，已自动钳制。")
+	assert_eq(value.raw_x, -9_223_372_036_854_775_807)
+	assert_eq(value.raw_y, -9_223_372_036_854_775_807)
+	assert_eq(value.decimal_places, GFFixedDecimal.MAX_DECIMAL_PLACES)
 
 
 func test_vector2_bytes_match_golden_big_endian_format() -> void:
@@ -163,9 +177,26 @@ func test_vector3_serialization_normalizes_mutated_decimal_places() -> void:
 	var bytes: PackedByteArray = value.to_bytes()
 
 	assert_push_error("[GFFixedVector3] decimal_places 超出上限 18，已自动钳制。")
-	assert_push_error("[GFFixedVector3] decimal_places 超出上限 18，已自动钳制。")
 	assert_eq(GFVariantData.get_option_int(data, "decimal_places"), GFFixedDecimal.MAX_DECIMAL_PLACES)
 	assert_eq(bytes[5], GFFixedDecimal.MAX_DECIMAL_PLACES)
+
+
+func test_vector3_public_field_setters_normalize_mutated_state() -> void:
+	var value: GF_FIXED_VECTOR3 = GF_FIXED_VECTOR3.new(1, 2, 3, 2)
+
+	value.raw_x = -9_223_372_036_854_775_807 - 1
+	value.raw_y = -9_223_372_036_854_775_807 - 1
+	value.raw_z = -9_223_372_036_854_775_807 - 1
+	value.decimal_places = 30
+
+	assert_push_error("[GFFixedVector3] raw_x 超出可表示范围，已钳制。")
+	assert_push_error("[GFFixedVector3] raw_y 超出可表示范围，已钳制。")
+	assert_push_error("[GFFixedVector3] raw_z 超出可表示范围，已钳制。")
+	assert_push_error("[GFFixedVector3] decimal_places 超出上限 18，已自动钳制。")
+	assert_eq(value.raw_x, -9_223_372_036_854_775_807)
+	assert_eq(value.raw_y, -9_223_372_036_854_775_807)
+	assert_eq(value.raw_z, -9_223_372_036_854_775_807)
+	assert_eq(value.decimal_places, GFFixedDecimal.MAX_DECIMAL_PLACES)
 
 
 func test_vector3_bytes_match_golden_big_endian_format() -> void:
@@ -191,8 +222,18 @@ func test_vector3_rejects_unknown_serialized_format() -> void:
 		0, 0, 0, 0, 0, 0, 0, 0, 2,
 		0, 0, 0, 0, 0, 0, 0, 0, 3,
 	]))
+	var negative_zero_applied: bool = value.apply_bytes(PackedByteArray([
+		71, 70, 70, 51,
+		1,
+		2,
+		1, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 2,
+		0, 0, 0, 0, 0, 0, 0, 0, 3,
+	]))
 
 	assert_false(applied)
+	assert_push_error("[GFFixedVector3] 不支持的字节序列格式。")
+	assert_false(negative_zero_applied)
 	assert_push_error("[GFFixedVector3] 不支持的字节序列格式。")
 	assert_eq(value.raw_x, 0)
 	assert_eq(value.raw_y, 0)
@@ -230,6 +271,13 @@ func test_vector_serialization_rejects_malformed_raw_and_byte_edges() -> void:
 		0, 128, 0, 0, 0, 0, 0, 0, 0,
 		0, 0, 0, 0, 0, 0, 0, 0, 2,
 	]))
+	var negative_zero_applied: bool = vector2.apply_bytes(PackedByteArray([
+		71, 70, 70, 50,
+		1,
+		2,
+		1, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 2,
+	]))
 
 	assert_false(invalid_raw_applied)
 	assert_push_error("[GFFixedVector2] 不支持的状态字典格式。")
@@ -238,4 +286,6 @@ func test_vector_serialization_rejects_malformed_raw_and_byte_edges() -> void:
 	assert_false(invalid_sign_applied)
 	assert_push_error("[GFFixedVector2] 不支持的字节序列格式。")
 	assert_false(overflow_magnitude_applied)
+	assert_push_error("[GFFixedVector2] 不支持的字节序列格式。")
+	assert_false(negative_zero_applied)
 	assert_push_error("[GFFixedVector2] 不支持的字节序列格式。")

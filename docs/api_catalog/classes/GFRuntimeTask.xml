@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFRuntimeTask" path="addons/gf/standard/sequence/gf_runtime_task.gd" module="standard" extends="RefCounted" classDigest="f1662116a9c20449b495ed5407d80af1cd0bd269d7e84c93fbd698d532b548dd">
+<class name="GFRuntimeTask" path="addons/gf/standard/sequence/gf_runtime_task.gd" module="standard" extends="RefCounted" classDigest="a667c77f6c9adf43e1826417ee471da97ae2f6cf2978f5596da0215e7c05e9e4">
 	<description>可被运行时调度器管理的通用任务协议。
 Runtime task 用于描述“占用一组运行时对象并按帧推进”的行为单元，例如角色默认状态、
 临时交互、工具模式或项目自定义流程。任务只声明依赖、生命周期和完成条件，不解释业务含义。</description>
@@ -15,16 +15,6 @@ Runtime task 用于描述“占用一组运行时对象并按帧推进”的行�
 		<member kind="property" name="task_id">
 			<signature>var task_id: StringName = &amp;""</signature>
 			<description>调试和诊断用任务标识。</description>
-			<tags>
-				<tag name="api">public</tag>
-				<tag name="category">state</tag>
-				<tag name="since">6.0.0</tag>
-			</tags>
-		</member>
-		<member kind="property" name="requirements">
-			<signature>var requirements: Array[Object] = []</signature>
-			<description>此任务占用的运行时对象。
-相同 requirement 同一时间只能被一个任务占用。调度器会忽略已经释放的对象。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="category">state</tag>
@@ -106,13 +96,14 @@ Runtime task 用于描述“占用一组运行时对象并按帧推进”的行�
 			</tags>
 		</member>
 		<member kind="method" name="has_requirement">
-			<signature>func has_requirement(requirement: Object) -&gt; bool:</signature>
+			<signature>func has_requirement(requirement: Variant) -&gt; bool:</signature>
 			<description>判断任务是否占用指定对象。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="category">query</tag>
 				<tag name="param">requirement: 要检查的占用对象。</tag>
 				<tag name="return">任务占用该对象时返回 true。</tag>
+				<tag name="schema">requirement: Object requirement reference; released or non-Object values return false.</tag>
 				<tag name="since">6.0.0</tag>
 			</tags>
 		</member>

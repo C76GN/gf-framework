@@ -21,6 +21,7 @@
 | 信号 | [`transition_blocked`](#member-gfnodestategroup-signals-transition_blocked) | `signal transition_blocked(from_state: GFNodeState, to_state_name: StringName, args: Dictionary, reason: String)` |
 | 信号 | [`requested_transition`](#member-gfnodestategroup-signals-requested_transition) | `signal requested_transition(group_name: StringName, state_name: StringName, args: Dictionary)` |
 | 信号 | [`state_event_handled`](#member-gfnodestategroup-signals-state_event_handled) | `signal state_event_handled(event_id: StringName, handler_state: GFNodeState, payload: Variant)` |
+| 枚举 | [`StackExitPolicy`](#member-gfnodestategroup-enums-stackexitpolicy) | `enum StackExitPolicy` |
 | 属性 | [`group_name`](#member-gfnodestategroup-properties-group_name) | `var group_name: StringName = &"":` |
 | 属性 | [`initial_state`](#member-gfnodestategroup-properties-initial_state) | `var initial_state: StringName = &"":` |
 | 属性 | [`initial_args`](#member-gfnodestategroup-properties-initial_args) | `var initial_args: Dictionary = {}` |
@@ -30,7 +31,7 @@
 | 属性 | [`max_stack_depth`](#member-gfnodestategroup-properties-max_stack_depth) | `var max_stack_depth: int = 8` |
 | 属性 | [`blackboard`](#member-gfnodestategroup-properties-blackboard) | `var blackboard: Dictionary = {}` |
 | 方法 | [`get_group_name`](#member-gfnodestategroup-methods-get_group_name) | `func get_group_name() -> StringName:` |
-| 方法 | [`transition_to`](#member-gfnodestategroup-methods-transition_to) | `func transition_to(next_state_name: StringName, args: Dictionary = {}) -> void:` |
+| 方法 | [`transition_to`](#member-gfnodestategroup-methods-transition_to) | `func transition_to( next_state_name: StringName, args: Dictionary = {}, stack_exit_policy: int = StackExitPolicy.REQUIRE_GUARDS ) -> void:` |
 | 方法 | [`push_state`](#member-gfnodestategroup-methods-push_state) | `func push_state(next_state_name: StringName, args: Dictionary = {}) -> void:` |
 | 方法 | [`pop_state`](#member-gfnodestategroup-methods-pop_state) | `func pop_state(args: Dictionary = {}) -> bool:` |
 | 方法 | [`add_state`](#member-gfnodestategroup-methods-add_state) | `func add_state(state: GFNodeState) -> void:` |
@@ -48,6 +49,7 @@
 | 方法 | [`stop`](#member-gfnodestategroup-methods-stop) | `func stop() -> void:` |
 | 方法 | [`get_states`](#member-gfnodestategroup-methods-get_states) | `func get_states() -> Array[GFNodeState]:` |
 | 方法 | [`get_state_snapshot`](#member-gfnodestategroup-methods-get_state_snapshot) | `func get_state_snapshot() -> Dictionary:` |
+| 方法 | [`get_json_compatible_state_snapshot`](#member-gfnodestategroup-methods-get_json_compatible_state_snapshot) | `func get_json_compatible_state_snapshot(options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`clear_states`](#member-gfnodestategroup-methods-clear_states) | `func clear_states(free_states: bool = false) -> void:` |
 | 方法 | [`reload_states_from_children`](#member-gfnodestategroup-methods-reload_states_from_children) | `func reload_states_from_children() -> void:` |
 
@@ -113,6 +115,7 @@ signal current_state_changed(old_state: GFNodeState, new_state: GFNodeState)
 ### `transition_blocked`
 
 - API：`public`
+- 首次版本：`3.0.0`
 
 ```gdscript
 signal transition_blocked(from_state: GFNodeState, to_state_name: StringName, args: Dictionary, reason: String)
@@ -127,7 +130,7 @@ signal transition_blocked(from_state: GFNodeState, to_state_name: StringName, ar
 | `from_state` | 发起切换时的当前状态；没有当前状态时为 null。 |
 | `to_state_name` | 被阻止的目标状态名。 |
 | `args` | 状态切换参数。 |
-| `reason` | 阻止原因，通常为 "exit_guard" 或 "enter_guard"。 |
+| `reason` | 阻止原因，通常为 "exit_guard"、"enter_guard" 或 "stack_exit_guard"。 |
 
 结构：
 
@@ -180,6 +183,26 @@ signal state_event_handled(event_id: StringName, handler_state: GFNodeState, pay
 结构：
 
 - `payload`: 状态事件载荷；具体结构由 event_id 和项目逻辑约定。
+
+## 枚举
+
+<a id="member-gfnodestategroup-enums-stackexitpolicy"></a>
+
+### `StackExitPolicy`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+enum StackExitPolicy {
+	## 每个暂停状态都必须通过 can_exit()。
+	REQUIRE_GUARDS,
+	## 显式绕过暂停状态的 can_exit()，用于 teardown 等强制恢复场景。
+	FORCE,
+}
+```
+
+普通切换折叠暂停栈时的退出策略。
 
 ## 属性
 
@@ -308,9 +331,10 @@ func get_group_name() -> StringName:
 ### `transition_to`
 
 - API：`public`
+- 首次版本：`3.0.0`
 
 ```gdscript
-func transition_to(next_state_name: StringName, args: Dictionary = {}) -> void:
+func transition_to( next_state_name: StringName, args: Dictionary = {}, stack_exit_policy: int = StackExitPolicy.REQUIRE_GUARDS ) -> void:
 ```
 
 切换到指定状态。
@@ -321,6 +345,7 @@ func transition_to(next_state_name: StringName, args: Dictionary = {}) -> void:
 |---|---|
 | `next_state_name` | 要切换到的目标状态名称。 |
 | `args` | 状态切换时传递的可选参数。 |
+| `stack_exit_policy` | 折叠暂停栈时要求退出守卫，或显式强制退出。 |
 
 结构：
 
@@ -645,6 +670,32 @@ func get_state_snapshot() -> Dictionary:
 结构：
 
 - `return`: 调试快照 Dictionary，包含 group_name、current_state、stack、history、states 和 blackboard 字段。
+
+<a id="member-gfnodestategroup-methods-get_json_compatible_state_snapshot"></a>
+
+### `get_json_compatible_state_snapshot`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func get_json_compatible_state_snapshot(options: Dictionary = {}) -> Dictionary:
+```
+
+获取 JSON-safe 状态组调试快照。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `options` | 传给 GFReportValueCodec 的编码选项。 |
+
+返回：可安全 JSON.stringify() 的状态组调试快照。
+
+结构：
+
+- `options`: Dictionary with GFReportValueCodec options.
+- `return`: Dictionary，包含 JSON-safe group_name、current_state、stack、history、states 和 blackboard 字段。
 
 <a id="member-gfnodestategroup-methods-clear_states"></a>
 

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSettingsUtility" path="addons/gf/standard/utilities/settings/gf_settings_utility.gd" module="standard" extends="GFUtility" classDigest="a7bb46ba09c306773744e8f8601bc9ed5625d9a209c6d48f6f953110f8a9843b">
+<class name="GFSettingsUtility" path="addons/gf/standard/utilities/settings/gf_settings_utility.gd" module="standard" extends="GFUtility" classDigest="f9b2225f1d5ab3dc01fd8ff9143b0530eabb5939d619008f1efcb69dc9e84403">
 	<description>GFSettingsUtility: 通用设置注册、读写与持久化工具。
 设置项以 StringName 键访问，可选使用 GFSettingDefinition 声明默认值和类型。
 该工具只管理抽象设置值，不直接绑定窗口、音频、输入或任何项目业务。</description>
@@ -377,14 +377,26 @@
 				<tag name="schema">return: Dictionary[String, Variant] serialized setting values suitable for persistence.</tag>
 			</tags>
 		</member>
-		<member kind="method" name="from_dict">
-			<signature>func from_dict(data: Dictionary, emit_changes: bool = true) -&gt; void:</signature>
-			<description>从字典恢复设置。</description>
+		<member kind="method" name="replace_from_dict">
+			<signature>func replace_from_dict(data: Dictionary, emit_changes: bool = true) -&gt; void:</signature>
+			<description>使用字典完整替换当前设置。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">data: 设置数据。</tag>
 				<tag name="param">emit_changes: 变化时是否发出 setting_changed。</tag>
 				<tag name="schema">data: Dictionary[String, Variant] serialized setting values produced by to_dict().</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="merge_from_dict">
+			<signature>func merge_from_dict(data: Dictionary, emit_changes: bool = true) -&gt; void:</signature>
+			<description>将字典作为覆盖层合并到当前设置。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">data: 设置数据。</tag>
+				<tag name="param">emit_changes: 变化时是否发出 setting_changed。</tag>
+				<tag name="schema">data: Dictionary[String, Variant] serialized setting values produced by to_dict().</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="load_settings">

@@ -78,7 +78,19 @@ static func _has_autoload_ownership_marker() -> bool:
 
 
 static func _set_autoload_ownership_marker(enabled: bool) -> void:
+	var changed: bool = false
 	if enabled:
-		ProjectSettings.set_setting(_AUTOLOAD_OWNERSHIP_SETTING, true)
+		if not _has_autoload_ownership_marker():
+			ProjectSettings.set_setting(_AUTOLOAD_OWNERSHIP_SETTING, true)
+			changed = true
 	elif ProjectSettings.has_setting(_AUTOLOAD_OWNERSHIP_SETTING):
 		ProjectSettings.clear(_AUTOLOAD_OWNERSHIP_SETTING)
+		changed = true
+	if changed:
+		_save_project_settings()
+
+
+static func _save_project_settings() -> void:
+	var save_result: Error = ProjectSettings.save()
+	if save_result != OK:
+		push_error("[GFPluginAutoload] ProjectSettings.save() 失败：%s" % error_string(save_result))

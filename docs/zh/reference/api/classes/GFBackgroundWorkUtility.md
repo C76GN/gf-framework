@@ -504,6 +504,7 @@ func clear_all() -> void:
 ### `get_debug_snapshot`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func get_debug_snapshot() -> Dictionary:
@@ -515,4 +516,4 @@ func get_debug_snapshot() -> Dictionary:
 
 结构：
 
-- `return`: Dictionary，包含任务计数、queued_ids、running_thread_ids、resource_paths、apply_ids、finished_ids、暂停状态和 apply 时间预算。
+- `return`: Dictionary，包含任务计数、queued_ids、running_thread_ids、resource_paths、resource_draining_count、threaded_resource_operations、apply_ids、finished_ids、暂停状态和 apply 时间预算。

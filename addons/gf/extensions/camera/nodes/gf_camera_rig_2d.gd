@@ -12,6 +12,9 @@ class_name GFCameraRig2D
 extends Node2D
 
 
+const _GF_CAMERA_FINITE_MATH = preload("res://addons/gf/extensions/camera/core/gf_camera_finite_math.gd")
+
+
 # --- 信号 ---
 
 ## Rig 激活状态变化后发出。
@@ -97,6 +100,20 @@ signal priority_changed(priority: int)
 	set(value):
 		_set_group_name(value)
 
+## 相机选择作用域。为空时使用 Rig 父节点；Director 只会从相同作用域收集分组 Rig。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+@export_node_path("Node") var camera_scope_path: NodePath = NodePath("")
+
+## 相机选择频道。为空表示默认频道；Director 配置非空频道时只收集同频道 Rig。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+@export var camera_channel: StringName = &""
+
 ## 项目自定义元数据。框架不解释该字段。
 ## [br]
 ## @api public
@@ -143,20 +160,54 @@ func get_target_node() -> Node2D:
 ## @schema return: Dictionary，包含 position: Vector2、rotation: float、zoom: Vector2 与 rig: GFCameraRig2D。
 func get_camera_pose() -> Dictionary:
 	var target: Node2D = get_target_node()
-	var base_position: Vector2 = global_position
-	var base_rotation: float = global_rotation
+	var base_position: Vector2 = _sanitize_vector2(global_position, Vector2.ZERO)
+	var base_rotation: float = _sanitize_float(global_rotation, 0.0)
 	if target != null:
-		base_position = target.global_position
+		base_position = _sanitize_vector2(target.global_position, base_position)
 		if use_target_rotation:
-			base_rotation = target.global_rotation
+			base_rotation = _sanitize_float(target.global_rotation, base_rotation)
 
-	var effective_offset: Vector2 = offset.rotated(base_rotation) if offset_follows_rotation else offset
+	var safe_offset: Vector2 = _sanitize_vector2(offset, Vector2.ZERO)
+	var effective_offset: Vector2 = safe_offset.rotated(base_rotation) if offset_follows_rotation else safe_offset
 	return {
-		"position": base_position + effective_offset,
-		"rotation": base_rotation + deg_to_rad(rotation_degrees_offset),
-		"zoom": zoom,
+		"position": _sanitize_vector2(base_position + effective_offset, base_position),
+		"rotation": _sanitize_float(
+			base_rotation + deg_to_rad(_sanitize_float(rotation_degrees_offset, 0.0)),
+			base_rotation
+		),
+		"zoom": _sanitize_vector2(zoom, Vector2.ONE),
 		"rig": self,
 	}
+
+
+## 获取 JSON-safe 的当前期望相机姿态数据。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+## [br]
+## @return 不包含 Object 引用的姿态数据。
+## [br]
+## @schema return: Dictionary，包含 position、rotation、zoom、rig_path 和 rig_instance_id；Vector2 字段使用 GFVariantJsonCodec typed marker。
+func get_camera_pose_data() -> Dictionary:
+	var pose: Dictionary = get_camera_pose()
+	var _rig_erased: bool = pose.erase("rig")
+	pose["rig_path"] = String(get_path()) if is_inside_tree() else ""
+	pose["rig_instance_id"] = get_instance_id()
+	return GFVariantData.as_dictionary(GFVariantJsonCodec.variant_to_json_compatible(pose))
+
+
+## 获取相机选择作用域节点。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+## [br]
+## @return 作用域节点；显式路径为空时返回父节点。
+func get_camera_scope_node() -> Node:
+	if not camera_scope_path.is_empty():
+		return get_node_or_null(camera_scope_path)
+	return get_parent()
 
 
 ## 检查 Rig 是否可被选择。
@@ -200,3 +251,11 @@ func _get_node_2d_value(value: Variant) -> Node2D:
 		var node: Node2D = value
 		return node
 	return null
+
+
+func _sanitize_float(value: float, fallback: float) -> float:
+	return _GF_CAMERA_FINITE_MATH.sanitize_float(value, fallback)
+
+
+func _sanitize_vector2(value: Vector2, fallback: Vector2) -> Vector2:
+	return _GF_CAMERA_FINITE_MATH.sanitize_vector2(value, fallback)

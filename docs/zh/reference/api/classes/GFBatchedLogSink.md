@@ -22,6 +22,7 @@
 | 属性 | [`omit_formatted_text`](#member-gfbatchedlogsink-properties-omit_formatted_text) | `var omit_formatted_text: bool = false` |
 | 属性 | [`metadata`](#member-gfbatchedlogsink-properties-metadata) | `var metadata: Dictionary = {}` |
 | 属性 | [`sender_callback`](#member-gfbatchedlogsink-properties-sender_callback) | `var sender_callback: Callable = Callable()` |
+| 方法 | [`get_report_redaction_profile`](#member-gfbatchedlogsink-methods-get_report_redaction_profile) | `func get_report_redaction_profile() -> String:` |
 | 方法 | [`init`](#member-gfbatchedlogsink-methods-init) | `func init(_owner: Object) -> void:` |
 | 方法 | [`write`](#member-gfbatchedlogsink-methods-write) | `func write(entry: Dictionary) -> void:` |
 | 方法 | [`flush`](#member-gfbatchedlogsink-methods-flush) | `func flush() -> void:` |
@@ -125,14 +126,38 @@ var metadata: Dictionary = {}
 ### `sender_callback`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var sender_callback: Callable = Callable()
 ```
 
-项目提供的发送回调，签名建议为 func(payload: Dictionary) -> Dictionary。
+项目提供的发送回调，签名为 func(payload: Dictionary) -> Dictionary。
+
+结构：
+
+- `sender_callback`: Callable 接收包含 logs、metadata 和 dropped_count 的 Dictionary，并返回包含必需 ok: bool、可选 accepted: int 与 error: String 的 Dictionary；缺失或类型错误时 fail-closed。
 
 ## 方法
+
+<a id="member-gfbatchedlogsink-methods-get_report_redaction_profile"></a>
+
+### `get_report_redaction_profile`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func get_report_redaction_profile() -> String:
+```
+
+使用外发批量日志所需的 privacy 脱敏 profile。
+
+返回：privacy profile 名称。
+
+结构：
+
+- `return`: String naming GFReportValueCodec.REDACTION_PROFILE_PRIVACY.
 
 <a id="member-gfbatchedlogsink-methods-init"></a>
 
@@ -231,6 +256,7 @@ func get_dropped_count() -> int:
 ### `get_debug_snapshot`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func get_debug_snapshot() -> Dictionary:
@@ -242,4 +268,4 @@ func get_debug_snapshot() -> Dictionary:
 
 结构：
 
-- `return`: Dictionary with pending_count, dropped_count, batch_size, max_queue_size, flush_interval_msec, and has_sender_callback.
+- `return`: Dictionary with pending_count, dropped_count, failed_send_count, last_error, batch_size, max_queue_size, flush_interval_msec, and has_sender_callback.

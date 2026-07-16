@@ -11,11 +11,11 @@ queue.push("front", 0, true)
 var next := queue.pop()
 ```
 
-默认是高 `priority` 先弹出；构造时传 `false` 可改为低 `priority` 先弹出。相同优先级保持稳定顺序，`front=true` 可把新条目插到同优先级既有条目前面。
+默认是高 `priority` 先弹出；构造时传 `false` 可改为低 `priority` 先弹出。`priority` 使用数值比较，整数和浮点代价都可直接入队。相同优先级保持稳定顺序，`front=true` 可把新条目插到同优先级既有条目前面。
 
 ## 常用操作
 
-`push()` 写入值和整数优先级；`peek()` / `peek_priority()` 查看当前顶部；`pop()` 弹出当前顶部。`remove_value()`、`remove_all()` 和 `set_priority()` 用于取消或调整已排队条目。
+`push()` 写入值和数值优先级；`push_with_order()` 允许调用方显式指定同优先级下的稳定顺序，适合寻路、最小生成树或其它已有 sequence 的算法复用同一队列。`peek()` / `peek_priority()` 查看当前顶部；`pop()` 弹出当前顶部。`remove_value()`、`remove_all()` 和 `set_priority()` 用于取消或调整已排队条目。
 
 ```gdscript
 queue.push(task, task.priority)

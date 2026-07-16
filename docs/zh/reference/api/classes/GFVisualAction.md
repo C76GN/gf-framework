@@ -17,7 +17,7 @@
 |---|---|---|
 | 枚举 | [`CompletionMode`](#member-gfvisualaction-enums-completionmode) | `enum CompletionMode` |
 | 属性 | [`completion_mode`](#member-gfvisualaction-properties-completion_mode) | `var completion_mode: CompletionMode = CompletionMode.AUTO` |
-| 属性 | [`signal_timeout_seconds`](#member-gfvisualaction-properties-signal_timeout_seconds) | `var signal_timeout_seconds: float = 30.0` |
+| 属性 | [`signal_timeout_seconds`](#member-gfvisualaction-properties-signal_timeout_seconds) | `var signal_timeout_seconds: float:` |
 | 属性 | [`signal_timeout_respects_time_scale`](#member-gfvisualaction-properties-signal_timeout_respects_time_scale) | `var signal_timeout_respects_time_scale: bool = true` |
 | 方法 | [`execute`](#member-gfvisualaction-methods-execute) | `func execute() -> Variant:` |
 | 方法 | [`is_valid`](#member-gfvisualaction-methods-is_valid) | `func is_valid() -> bool:` |
@@ -73,9 +73,10 @@ var completion_mode: CompletionMode = CompletionMode.AUTO
 ### `signal_timeout_seconds`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-var signal_timeout_seconds: float = 30.0
+var signal_timeout_seconds: float:
 ```
 
 等待 Signal 的超时时间（秒）。小于等于 0 时表示不启用超时。

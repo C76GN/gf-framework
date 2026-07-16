@@ -63,9 +63,13 @@ signal batch_ready(batch: Array[Dictionary])
 
 # --- 公共变量 ---
 
-## 项目提供的发送回调，签名建议为 func(payload: Dictionary) -> Dictionary。
+## 项目提供的发送回调，签名为 func(payload: Dictionary) -> Dictionary。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
+## [br]
+## @schema sender_callback: Callable 接收包含 logs、metadata 和 dropped_count 的 Dictionary，并返回包含必需 ok: bool、可选 accepted: int 与 error: String 的 Dictionary；缺失或类型错误时 fail-closed。
 var sender_callback: Callable = Callable()
 
 
@@ -74,9 +78,24 @@ var sender_callback: Callable = Callable()
 var _queue: Array[Dictionary] = []
 var _dropped_count: int = 0
 var _last_flush_msec: int = 0
+var _failed_send_count: int = 0
+var _last_error: String = ""
 
 
 # --- 公共方法 ---
+
+## 使用外发批量日志所需的 privacy 脱敏 profile。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+## [br]
+## @return privacy profile 名称。
+## [br]
+## @schema return: String naming GFReportValueCodec.REDACTION_PROFILE_PRIVACY.
+func get_report_redaction_profile() -> String:
+	return GFReportValueCodec.REDACTION_PROFILE_PRIVACY
+
 
 ## 初始化 sink。
 ## [br]
@@ -95,9 +114,25 @@ func init(_owner: Object) -> void:
 ## [br]
 ## @schema entry: Dictionary log entry produced by GFLogUtility.
 func write(entry: Dictionary) -> void:
-	var sanitized: Dictionary = GFVariantData.as_dictionary(GFLogUtility.sanitize_log_value(entry.duplicate(true)))
-	if sanitized == null:
+	var sanitized: Dictionary = GFReportValueCodec.to_report_dictionary(
+		entry,
+		_make_external_report_options()
+	)
+	if sanitized.is_empty() and not entry.is_empty():
 		return
+	var safe_context: Dictionary = GFVariantData.get_option_dictionary(sanitized, "context")
+	var safe_tag: String = GFVariantData.get_option_string(sanitized, "tag")
+	var safe_message: String = GFVariantData.get_option_string(sanitized, "message")
+	sanitized["tag"] = safe_tag
+	sanitized["message"] = safe_message
+	sanitized["context"] = safe_context
+	sanitized["text"] = _format_sanitized_text(
+		GFVariantData.get_option_string(sanitized, "timestamp"),
+		GFVariantData.get_option_string(sanitized, "level_name"),
+		safe_tag,
+		safe_message,
+		safe_context
+	)
 	if omit_formatted_text:
 		var _erase_result_102: Variant = sanitized.erase("text")
 
@@ -123,12 +158,36 @@ func flush() -> void:
 	_last_flush_msec = Time.get_ticks_msec()
 	var payload: Dictionary = {
 		"logs": batch,
-		"metadata": metadata.duplicate(true),
+		"metadata": GFVariantData.as_dictionary(GFReportValueCodec.to_json_compatible(
+			metadata.duplicate(true),
+			_make_external_report_options()
+		)),
 		"dropped_count": _dropped_count,
 	}
 	if sender_callback.is_valid():
-		sender_callback.call(payload)
-	batch_ready.emit(batch)
+		var send_result: Variant = sender_callback.call(payload.duplicate(true))
+		if not (send_result is Dictionary):
+			_record_send_failure("sender_callback must return Dictionary")
+			_requeue_front(batch)
+			return
+		var send_dictionary: Dictionary = send_result
+		if not send_dictionary.has("ok") or not (send_dictionary["ok"] is bool):
+			_record_send_failure("sender_callback result requires ok: bool")
+			_requeue_front(batch)
+			return
+		if not GFVariantData.get_option_bool(send_dictionary, "ok"):
+			_record_send_failure(GFVariantData.get_option_string(send_dictionary, "error", "sender_callback reported failure"))
+			_requeue_front(batch)
+			return
+		var accepted_count: int = clampi(GFVariantData.get_option_int(send_dictionary, "accepted", batch.size()), 0, batch.size())
+		if accepted_count < batch.size():
+			var remaining: Array[Dictionary] = []
+			for index: int in range(accepted_count, batch.size()):
+				remaining.append(batch[index])
+			_requeue_front(remaining)
+		_last_error = ""
+		return
+	batch_ready.emit(batch.duplicate(true))
 
 
 ## 关闭 sink 并尽力 flush。
@@ -160,13 +219,17 @@ func get_dropped_count() -> int:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @return sink 状态字典。
 ## [br]
-## @schema return: Dictionary with pending_count, dropped_count, batch_size, max_queue_size, flush_interval_msec, and has_sender_callback.
+## @schema return: Dictionary with pending_count, dropped_count, failed_send_count, last_error, batch_size, max_queue_size, flush_interval_msec, and has_sender_callback.
 func get_debug_snapshot() -> Dictionary:
 	return {
 		"pending_count": _queue.size(),
 		"dropped_count": _dropped_count,
+		"failed_send_count": _failed_send_count,
+		"last_error": _last_error,
 		"batch_size": batch_size,
 		"max_queue_size": max_queue_size,
 		"flush_interval_msec": flush_interval_msec,
@@ -180,6 +243,45 @@ func _trim_queue() -> void:
 	while _queue.size() > max_queue_size:
 		_queue.pop_front()
 		_dropped_count += 1
+
+
+func _requeue_front(batch: Array[Dictionary]) -> void:
+	for index: int in range(batch.size() - 1, -1, -1):
+		_queue.push_front(batch[index].duplicate(true))
+	_trim_queue()
+
+
+func _record_send_failure(message: String) -> void:
+	_failed_send_count += 1
+	_last_error = message
+
+
+func _make_external_report_options() -> Dictionary:
+	return GFReportValueCodec.make_redaction_options(
+		GFReportValueCodec.REDACTION_PROFILE_PRIVACY,
+		{
+			"max_depth": 12,
+			"max_string_length": 4096,
+			"max_collection_items": 256,
+			"max_packed_length": 256,
+			"max_total_nodes": 8192,
+			"max_total_bytes": 256 * 1024,
+			"encode_dictionary_keys": false,
+		}
+	)
+
+
+func _format_sanitized_text(
+	timestamp: String,
+	level_name: String,
+	tag: String,
+	message: String,
+	context: Dictionary
+) -> String:
+	var text: String = "[%s][%s][%s] %s" % [timestamp, level_name, tag, message]
+	if not context.is_empty():
+		text += " " + JSON.stringify(context)
+	return text
 
 
 func _should_flush_by_interval() -> bool:

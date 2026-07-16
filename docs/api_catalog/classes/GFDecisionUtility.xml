@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFDecisionUtility" path="addons/gf/extensions/decision/runtime/gf_decision_utility.gd" module="extensions/decision" extends="GFUtility" classDigest="512551a8958a6e3ef9adef798ce55f468a963a6989429c5c593d9cbbcb76ddb9">
+<class name="GFDecisionUtility" path="addons/gf/extensions/decision/runtime/gf_decision_utility.gd" module="extensions/decision" extends="GFUtility" classDigest="c74eb54491bfd87e23719559e36751f3dec8410b3fb4500f972a734ac29792c0">
 	<description>GFDecisionUtility: 通用决策集合注册与评分服务。
 在架构中集中管理 GFDecisionSet，并为项目系统提供创建上下文、评分候选和选择最佳候选的入口。
 它不执行候选动作，也不解释具体 AI 业务语义。</description>
@@ -106,6 +106,17 @@
 				<tag name="param">context: 决策上下文。</tag>
 				<tag name="return">按分数降序排列的评分结果。</tag>
 				<tag name="schema">return: Array[GFDecisionScore]，每个候选的评分结果；集合不存在时为空数组。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="evaluate">
+			<signature>func evaluate(decision_set_id: StringName, context: GFDecisionContext) -&gt; GFDecisionEvaluation:</signature>
+			<description>一次性评价指定决策集合。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">decision_set_id: 决策集合标识。</tag>
+				<tag name="param">context: 决策上下文。</tag>
+				<tag name="return">决策评价结果；集合不存在时返回空评价和 rejected best_score。</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="select_best">

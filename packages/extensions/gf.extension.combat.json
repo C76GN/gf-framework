@@ -12,6 +12,6 @@
   "paths": [
     "addons/gf/extensions/combat/**"
   ],
-  "enable_extension": "gf.combat",
+  "gf_extension_id": "gf.combat",
   "metadata": {}
 }

@@ -1,0 +1,171 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFNetworkPeerIdentity" path="addons/gf/extensions/network/session/gf_network_peer_identity.gd" module="extensions/network" extends="Resource" classDigest="8ca4b3d16e9d0edb4b16d2e0c44fea557a498e2fafda496bc9331fedf38737ea">
+	<description>GFNetworkPeerIdentity: 网络 peer 与外部平台账号之间的中立身份描述。
+该资源只保存传输 peer、平台账号和展示元信息之间的映射，不绑定 Steam、微信、
+Epic、自建账号或任何具体平台 SDK。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">value_object</tag>
+		<tag name="since">8.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties>
+		<member kind="property" name="peer_id" decorators="@export">
+			<signature>var peer_id: int = -1</signature>
+			<description>传输层 peer 标识。-1 表示未知或尚未绑定传输连接。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="platform_id" decorators="@export">
+			<signature>var platform_id: StringName = &amp;""</signature>
+			<description>平台标识，例如 steam、wechat、lan 或 custom。GF 不解释具体平台语义。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="platform_user_id" decorators="@export">
+			<signature>var platform_user_id: String = ""</signature>
+			<description>平台侧用户标识。动态外部 ID 使用 String 保存，避免把第三方账号体系写入 GF 类型系统。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="display_name" decorators="@export">
+			<signature>var display_name: String = ""</signature>
+			<description>面向 UI 的显示名。框架不保证唯一性。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="avatar_uri" decorators="@export">
+			<signature>var avatar_uri: String = ""</signature>
+			<description>可选头像或资料图标 URI。由项目或 adapter 解释。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="capabilities" decorators="@export">
+			<signature>var capabilities: PackedStringArray = PackedStringArray()</signature>
+			<description>身份具备的平台能力标识。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="metadata" decorators="@export">
+			<signature>var metadata: Dictionary = {}</signature>
+			<description>调用方自定义元数据。框架不解释该字段。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">metadata: Dictionary caller-defined identity metadata.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="configure">
+			<signature>func configure( p_peer_id: int = -1, p_platform_id: StringName = &amp;"", p_platform_user_id: String = "", p_display_name: String = "", p_metadata: Dictionary = {}, p_capabilities: PackedStringArray = PackedStringArray() ) -&gt; GFNetworkPeerIdentity:</signature>
+			<description>配置身份资源。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">p_peer_id: 传输层 peer 标识。</tag>
+				<tag name="param">p_platform_id: 平台标识。</tag>
+				<tag name="param">p_platform_user_id: 平台侧用户标识。</tag>
+				<tag name="param">p_display_name: 显示名。</tag>
+				<tag name="param">p_metadata: 调用方元数据。</tag>
+				<tag name="param">p_capabilities: 平台能力标识列表。</tag>
+				<tag name="return">当前身份资源。</tag>
+				<tag name="schema">p_metadata: Dictionary caller-defined identity metadata.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="add_capability">
+			<signature>func add_capability(capability_id: StringName) -&gt; bool:</signature>
+			<description>添加能力标识。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">capability_id: 能力标识。</tag>
+				<tag name="return">成功添加或已存在时返回 true。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="has_capability">
+			<signature>func has_capability(capability_id: StringName) -&gt; bool:</signature>
+			<description>检查能力标识是否存在。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">capability_id: 能力标识。</tag>
+				<tag name="return">存在返回 true。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_stable_key">
+			<signature>func get_stable_key() -&gt; String:</signature>
+			<description>获取稳定身份 key。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">身份 key；优先使用 platform_id:platform_user_id，缺失时回退到 peer:&lt;peer_id&gt;。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="to_dict">
+			<signature>func to_dict() -&gt; Dictionary:</signature>
+			<description>转换为字典。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">身份字典。</tag>
+				<tag name="schema">return: Dictionary with peer_id, platform_id, platform_user_id, display_name, avatar_uri, capabilities, and metadata.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="apply_dict">
+			<signature>func apply_dict(data: Dictionary) -&gt; void:</signature>
+			<description>从字典应用身份字段。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">data: 身份字典。</tag>
+				<tag name="schema">data: Dictionary with peer_id, platform_id, platform_user_id, display_name, avatar_uri, capabilities, and metadata.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="duplicate_identity">
+			<signature>func duplicate_identity() -&gt; GFNetworkPeerIdentity:</signature>
+			<description>创建身份深拷贝。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">新身份资源。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_debug_snapshot">
+			<signature>func get_debug_snapshot() -&gt; Dictionary:</signature>
+			<description>获取调试快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">调试快照。</tag>
+				<tag name="schema">return: Dictionary JSON-safe identity debug snapshot.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="from_dict">
+			<signature>static func from_dict(data: Dictionary) -&gt; GFNetworkPeerIdentity:</signature>
+			<description>从字典创建身份资源。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">data: 身份字典。</tag>
+				<tag name="return">新身份资源。</tag>
+				<tag name="schema">data: Dictionary with peer_id, platform_id, platform_user_id, display_name, avatar_uri, capabilities, and metadata.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

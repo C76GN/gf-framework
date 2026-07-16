@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFCapabilityRecipeEntry" path="addons/gf/extensions/capability/recipes/gf_capability_recipe_entry.gd" module="extensions/capability" extends="Resource" classDigest="2ce65e1d9cb50f109d1b01a732c07e55bbbd6a1cbbeda7248e3be1056d66fdd0">
+<class name="GFCapabilityRecipeEntry" path="addons/gf/extensions/capability/recipes/gf_capability_recipe_entry.gd" module="extensions/capability" extends="Resource" classDigest="ef99e13514b67f8d75f3d41f89e5f0e3b84db2878c9d25c56612c445381300c8">
 	<description>GFCapabilityRecipeEntry: 能力组合资源中的单个能力条目。
 条目只描述能力提供方式、注册类型和默认启停状态，不解释项目业务含义。</description>
 	<tags>
@@ -57,6 +57,18 @@
 				<tag name="api">public</tag>
 				<tag name="return">条目描述字典。</tag>
 				<tag name="schema">return: 包含 capability_type、scene_path、active 和 metadata 字段的 Dictionary。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="to_report_dictionary">
+			<signature>func to_report_dictionary(options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>导出条目的 JSON-safe 报告快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">options: 传给 GFReportValueCodec 的编码选项。</tag>
+				<tag name="return">条目报告字典。</tag>
+				<tag name="schema">options: Dictionary with GFReportValueCodec encoding options.</tag>
+				<tag name="schema">return: JSON-safe Dictionary based on describe_entry().</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 	</methods>

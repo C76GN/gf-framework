@@ -81,6 +81,17 @@ func apply(node: Node, payload: Dictionary, _context: Dictionary = {}) -> Dictio
 	if player == null:
 		return make_result(false, "Node is not AnimationPlayer.")
 
+	var errors: Array[String] = _validate_property_specs_payload(payload, [
+		{ "key": "current_animation", "kind": &"string_name" },
+		{ "key": "assigned_animation", "kind": &"string_name" },
+		{ "key": "current_animation_position", "kind": &"float" },
+		{ "key": "speed_scale", "kind": &"float" },
+		{ "key": "playing", "kind": &"bool" },
+		{ "key": "active", "kind": &"bool" },
+	])
+	if not errors.is_empty():
+		return make_result(false, "; ".join(errors))
+
 	if payload.has("speed_scale"):
 		player.speed_scale = GFVariantData.to_float(payload["speed_scale"])
 	if payload.has("active"):

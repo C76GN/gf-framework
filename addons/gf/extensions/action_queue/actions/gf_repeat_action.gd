@@ -75,6 +75,11 @@ func execute() -> Variant:
 	if not action_factory.is_valid():
 		return null
 
+	if is_instance_valid(_active_action):
+		_ACTION_PROTOCOL.cancel(_active_action)
+		_active_action = null
+		repeat_completed.emit()
+
 	_execution_serial += 1
 	call_deferred("_run_repeat_async", _execution_serial)
 	return repeat_completed

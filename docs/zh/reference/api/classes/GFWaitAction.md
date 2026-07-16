@@ -16,7 +16,7 @@
 | 类型 | 名称 | 签名 |
 |---|---|---|
 | 信号 | [`wait_completed`](#member-gfwaitaction-signals-wait_completed) | `signal wait_completed` |
-| 属性 | [`seconds`](#member-gfwaitaction-properties-seconds) | `var seconds: float = 0.0` |
+| 属性 | [`seconds`](#member-gfwaitaction-properties-seconds) | `var seconds: float:` |
 | 属性 | [`host_node`](#member-gfwaitaction-properties-host_node) | `var host_node: Node` |
 | 属性 | [`process_always`](#member-gfwaitaction-properties-process_always) | `var process_always: bool = true` |
 | 属性 | [`process_in_physics`](#member-gfwaitaction-properties-process_in_physics) | `var process_in_physics: bool = false` |
@@ -26,6 +26,7 @@
 | 方法 | [`pause`](#member-gfwaitaction-methods-pause) | `func pause() -> void:` |
 | 方法 | [`resume`](#member-gfwaitaction-methods-resume) | `func resume() -> void:` |
 | 方法 | [`finish`](#member-gfwaitaction-methods-finish) | `func finish() -> void:` |
+| 方法 | [`get_wait_guard_node`](#member-gfwaitaction-methods-get_wait_guard_node) | `func get_wait_guard_node() -> Node:` |
 
 ## 信号
 
@@ -48,9 +49,10 @@ signal wait_completed
 ### `seconds`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-var seconds: float = 0.0
+var seconds: float:
 ```
 
 等待秒数。
@@ -172,3 +174,18 @@ func finish() -> void:
 ```
 
 立即完成当前等待并发出 wait_completed。
+
+<a id="member-gfwaitaction-methods-get_wait_guard_node"></a>
+
+### `get_wait_guard_node`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func get_wait_guard_node() -> Node:
+```
+
+返回等待宿主节点，用于队列等待时绑定生命周期。
+
+返回：有效且仍在场景树内的宿主节点；没有宿主时返回 null。

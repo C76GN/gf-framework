@@ -6,10 +6,10 @@
 
 | 类别 | 类 | 成员 | 方法 |
 |---|---:|---:|---:|
-| [运行时服务](#category-runtime_service) | 2 | 26 | 22 |
-| [协议与扩展点](#category-protocol) | 7 | 79 | 45 |
+| [运行时服务](#category-runtime_service) | 4 | 46 | 35 |
+| [协议与扩展点](#category-protocol) | 8 | 87 | 52 |
 | [资源定义](#category-resource_definition) | 10 | 49 | 39 |
-| [值对象](#category-value_object) | 3 | 49 | 20 |
+| [值对象](#category-value_object) | 3 | 54 | 24 |
 | [领域模型](#category-domain_model) | 1 | 6 | 3 |
 | [事件契约](#category-event_contract) | 1 | 11 | 3 |
 
@@ -23,6 +23,8 @@
 |---|---|---|
 | [`GFNodeSerializerRegistry`](classes/GFNodeSerializerRegistry.md#gfnodeserializerregistry) | `RefCounted` | `addons/gf/extensions/save/serializers/gf_node_serializer_registry.gd` |
 | [`GFSaveGraphUtility`](classes/GFSaveGraphUtility.md#gfsavegraphutility) | `GFUtility` | `addons/gf/extensions/save/graph/gf_save_graph_utility.gd` |
+| [`GFSaveSlotStorageAdapter`](classes/GFSaveSlotStorageAdapter.md#gfsaveslotstorageadapter) | `Resource` | `addons/gf/extensions/save/slots/gf_save_slot_storage_adapter.gd` |
+| [`GFSaveSlotSyncBridge`](classes/GFSaveSlotSyncBridge.md#gfsaveslotsyncbridge) | `RefCounted` | `addons/gf/extensions/save/slots/gf_save_slot_sync_bridge.gd` |
 
 <a id="category-protocol"></a>
 
@@ -37,6 +39,7 @@
 | [`GFSavePipelineStep`](classes/GFSavePipelineStep.md#gfsavepipelinestep) | `Resource` | `addons/gf/extensions/save/pipeline/gf_save_pipeline_step.gd` |
 | [`GFSaveScope`](classes/GFSaveScope.md#gfsavescope) | `Node` | `addons/gf/extensions/save/core/gf_save_scope.gd` |
 | [`GFSaveSource`](classes/GFSaveSource.md#gfsavesource) | `Node` | `addons/gf/extensions/save/core/gf_save_source.gd` |
+| [`GFSaveTransactionParticipant`](classes/GFSaveTransactionParticipant.md#gfsavetransactionparticipant) | `Resource` | `addons/gf/extensions/save/pipeline/gf_save_transaction_participant.gd` |
 
 <a id="category-resource_definition"></a>
 

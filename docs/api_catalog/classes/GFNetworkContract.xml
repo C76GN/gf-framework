@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFNetworkContract" path="addons/gf/extensions/network/contracts/gf_network_contract.gd" module="extensions/network" extends="Resource" classDigest="22196470cbb47cb6f007dd281beba6ca2a5a87798547664284a76b01d6d9bad5">
+<class name="GFNetworkContract" path="addons/gf/extensions/network/contracts/gf_network_contract.gd" module="extensions/network" extends="Resource" classDigest="80b36c210e725b00afe8bddcbb1a50a2a80d6c0d7ac4508cfa319bae8afa1579">
 	<description>GFNetworkContract: 网络消息契约集合。
 契约集合用于集中描述一组 GFNetworkMessage 的 message_type、字段和默认通道，
 方便项目生成强类型辅助代码或在运行前校验消息结构。</description>
@@ -24,6 +24,22 @@
 			<description>编辑器展示名称。</description>
 			<tags>
 				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="property" name="contract_version_major" decorators="@export">
+			<signature>var contract_version_major: int = 0</signature>
+			<description>契约兼容大版本。项目可在不兼容的消息结构变化时显式递增。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="contract_version_minor" decorators="@export">
+			<signature>var contract_version_minor: int = 0</signature>
+			<description>契约兼容小版本。小版本只用于日志、排查或构建追踪，不参与默认兼容判断。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="messages" decorators="@export">
@@ -116,7 +132,53 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">描述字典。</tag>
-				<tag name="schema">return: Dictionary，包含 contract_id、display_name、message_count、messages、metadata。</tag>
+				<tag name="schema">return: Dictionary，包含 contract_id、display_name、contract_version_major、contract_version_minor、schema_digest、message_count、messages、metadata。</tag>
+				<tag name="since">3.17.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_schema_descriptor">
+			<signature>func get_schema_descriptor() -&gt; Dictionary:</signature>
+			<description>导出只包含协议结构的稳定 schema 描述。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">schema 描述字典。</tag>
+				<tag name="schema">return: Dictionary，包含 schema_version、contract_id 和 messages；不包含 display_name 或 metadata。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_schema_digest">
+			<signature>func get_schema_digest(options: Dictionary = {}) -&gt; String:</signature>
+			<description>计算契约 schema 描述的稳定 SHA-256。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">options: 传给 GFDeterministicVariantSerializer.sha256() 的选项；默认允许有限浮点默认值参与摘要。</tag>
+				<tag name="return">SHA-256 hex；schema 中存在不支持的 Variant 时返回空字符串。</tag>
+				<tag name="schema">options: Dictionary，支持 allow_floats 和 max_depth。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_contract_version">
+			<signature>func get_contract_version() -&gt; Dictionary:</signature>
+			<description>获取可通过网络、日志或预检报告传递的契约版本字典。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">契约版本字典。</tag>
+				<tag name="schema">return: Dictionary，包含 contract_id、version_major、version_minor、schema_descriptor_version 和 schema_digest。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="validate_peer_contract_version">
+			<signature>func validate_peer_contract_version(peer_version: Dictionary, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>校验对端声明的契约版本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">peer_version: 对端通过 get_contract_version() 或等价结构上报的版本字典。</tag>
+				<tag name="param">options: 校验选项，支持 require_contract_id、require_schema_digest 和 severity。</tag>
+				<tag name="return">GFValidationReportDictionary 兼容报告。</tag>
+				<tag name="schema">peer_version: Dictionary，包含 contract_id、version_major、version_minor 和 schema_digest。</tag>
+				<tag name="schema">options: Dictionary，require_contract_id 默认 true，require_schema_digest 默认 false，severity 默认为 error。</tag>
+				<tag name="schema">return: Dictionary，包含 ok、local_version、peer_version、issues、issue_count 和 next_actions。</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 	</methods>

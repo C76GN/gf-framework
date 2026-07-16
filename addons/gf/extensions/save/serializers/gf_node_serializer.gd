@@ -17,16 +17,22 @@ extends Resource
 ## 序列化器稳定标识。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 @export var serializer_id: StringName = &""
 
 ## 编辑器展示名称。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 @export var display_name: String = ""
 
 ## 可选 Godot 类名过滤。为空时由子类自行判断。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 @export var supported_class_name: String = ""
 
 
@@ -35,6 +41,8 @@ extends Resource
 ## 获取序列化器标识。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @return 稳定标识。
 func get_serializer_id() -> StringName:
@@ -50,6 +58,8 @@ func get_serializer_id() -> StringName:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param node: 待序列化节点。
 ## [br]
 ## @return 支持时返回 true。
@@ -64,6 +74,8 @@ func supports_node(node: Node) -> bool:
 ## 采集节点数据。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @param _node: 待序列化节点。
 ## [br]
@@ -81,6 +93,8 @@ func gather(_node: Node, _context: Dictionary = {}) -> Dictionary:
 ## 应用节点数据。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @param _node: 目标节点。
 ## [br]
@@ -103,6 +117,8 @@ func apply(_node: Node, _payload: Dictionary, _context: Dictionary = {}) -> Dict
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param ok: 是否成功。
 ## [br]
 ## @param error: 错误描述。
@@ -123,6 +139,8 @@ func make_result(ok: bool, error: String = "") -> Dictionary:
 ## [br]
 ## @api protected
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param node: 属性来源对象。
 ## [br]
 ## @param payload: 要写入的载荷字典。
@@ -138,6 +156,8 @@ func _copy_property_to_payload(node: Object, payload: Dictionary, property_name:
 ## 批量将节点属性复制到序列化载荷。
 ## [br]
 ## @api protected
+## [br]
+## @since 3.17.0
 ## [br]
 ## @param node: 属性来源对象。
 ## [br]
@@ -155,6 +175,8 @@ func _copy_properties_to_payload(node: Object, payload: Dictionary, property_nam
 ## [br]
 ## @api protected
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param node: 目标对象。
 ## [br]
 ## @param payload: 序列化载荷。
@@ -171,6 +193,8 @@ func _apply_property_from_payload(node: Object, payload: Dictionary, property_na
 ## [br]
 ## @api protected
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param node: 目标对象。
 ## [br]
 ## @param payload: 序列化载荷。
@@ -186,6 +210,8 @@ func _apply_properties_from_payload(node: Object, payload: Dictionary, property_
 ## 按属性规格采集节点状态。
 ## [br]
 ## @api protected
+## [br]
+## @since 3.17.0
 ## [br]
 ## @param node: 属性来源对象。
 ## [br]
@@ -214,16 +240,23 @@ func _gather_property_specs(node: Object, specs: Array[Dictionary]) -> Dictionar
 ## [br]
 ## @api protected
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param node: 目标对象。
 ## [br]
 ## @param payload: 序列化载荷。
 ## [br]
 ## @param specs: 属性规格列表。
 ## [br]
+## @return 错误消息列表；空数组表示应用成功。
+## [br]
 ## @schema payload: Dictionary，键为规格 key，值为要写回的属性值。
 ## [br]
 ## @schema specs: Array[Dictionary]，每项可包含 key: String、property: String 与 kind: StringName。
-func _apply_property_specs(node: Object, payload: Dictionary, specs: Array[Dictionary]) -> void:
+func _apply_property_specs(node: Object, payload: Dictionary, specs: Array[Dictionary]) -> Array[String]:
+	var errors: Array[String] = _validate_property_specs_payload(payload, specs)
+	if not errors.is_empty():
+		return errors
 	for spec: Dictionary in specs:
 		var key: String = GFVariantData.get_option_string(spec, "key", GFVariantData.get_option_string(spec, "property"))
 		var property_name: String = GFVariantData.get_option_string(spec, "property", key)
@@ -234,11 +267,26 @@ func _apply_property_specs(node: Object, payload: Dictionary, specs: Array[Dicti
 			_read_property(node, property_name),
 			GFVariantData.get_option_string_name(spec, "kind")
 		))
+	return []
+
+
+func _validate_property_specs_payload(payload: Dictionary, specs: Array[Dictionary]) -> Array[String]:
+	var errors: Array[String] = []
+	for spec: Dictionary in specs:
+		var key: String = GFVariantData.get_option_string(spec, "key", GFVariantData.get_option_string(spec, "property"))
+		if key.is_empty() or not payload.has(key):
+			continue
+		var kind: StringName = GFVariantData.get_option_string_name(spec, "kind")
+		if not _is_payload_value_valid_for_kind(payload[key], kind):
+			errors.append("Invalid %s payload value: %s" % [String(kind), key])
+	return errors
 
 
 ## 判断对象是否声明了指定属性。
 ## [br]
 ## @api protected
+## [br]
+## @since 3.17.0
 ## [br]
 ## @param object: 要检查的对象。
 ## [br]
@@ -317,6 +365,47 @@ func _decode_property_value(value: Variant, fallback: Variant, kind: StringName)
 			return GFVariantData.to_bool(value)
 		_:
 			return value
+
+
+func _is_payload_value_valid_for_kind(value: Variant, kind: StringName) -> bool:
+	match kind:
+		&"vector2":
+			return _is_numeric_array(value, 2)
+		&"vector3":
+			return _is_numeric_array(value, 3)
+		&"color":
+			return _is_numeric_array(value, 4)
+		&"float":
+			return _is_finite_number(value)
+		&"int":
+			return typeof(value) == TYPE_INT
+		&"bool":
+			return value is bool
+		&"string":
+			return value is String
+		&"string_name":
+			return value is StringName or value is String
+		_:
+			return true
+
+
+func _is_numeric_array(value: Variant, expected_size: int) -> bool:
+	if not (value is Array):
+		return false
+	var values: Array = value
+	if values.size() != expected_size:
+		return false
+	for item: Variant in values:
+		if not _is_finite_number(item):
+			return false
+	return true
+
+
+func _is_finite_number(value: Variant) -> bool:
+	if typeof(value) != TYPE_INT and typeof(value) != TYPE_FLOAT:
+		return false
+	var number: float = GFVariantData.to_float(value)
+	return not is_nan(number) and not is_inf(number)
 
 
 func _read_property(object: Object, property_name: String) -> Variant:

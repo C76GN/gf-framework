@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFAudioEmitterHandle" path="addons/gf/standard/utilities/audio/gf_audio_emitter_handle.gd" module="standard" extends="RefCounted" classDigest="7e7cdc7d0f7c881219780d599f268323247faebbcfe55efbb9cd6ff7b8ad5ce0">
+<class name="GFAudioEmitterHandle" path="addons/gf/standard/utilities/audio/gf_audio_emitter_handle.gd" module="standard" extends="RefCounted" classDigest="8ceeebf9a5c8494e714f4c09cab54b224b8b8be14c86a5d0ccd491d7547cc91d">
 	<description>GFAudioEmitterHandle: 一次音频播放的轻量控制句柄。
 句柄只包装底层 AudioStreamPlayer 节点的通用生命周期和播放属性，
 不规定音频事件、混音策略或业务含义。</description>
@@ -103,6 +103,15 @@
 				<tag name="return">已请求停止时返回 true。</tag>
 			</tags>
 		</member>
+		<member kind="method" name="is_terminal">
+			<signature>func is_terminal() -&gt; bool:</signature>
+			<description>检查播放会话是否已经进入终态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">已自然完成、失败或停止时返回 true。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
 		<member kind="method" name="is_playing">
 			<signature>func is_playing() -&gt; bool:</signature>
 			<description>检查播放器是否正在播放。</description>
@@ -166,7 +175,8 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">调试快照。</tag>
-				<tag name="schema">return: 调试快照 Dictionary，包含 valid、playing、channel、volume_db、pitch_scale、owner_valid 和 metadata 字段。</tag>
+				<tag name="schema">return: 调试快照 Dictionary，包含 valid、terminal、playing、channel、volume_db、pitch_scale、owner_valid 和 metadata 字段。</tag>
+				<tag name="since">3.0.0</tag>
 			</tags>
 		</member>
 	</methods>

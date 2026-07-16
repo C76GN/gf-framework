@@ -12,6 +12,10 @@ extends RefCounted
 ## @api framework_internal
 const GFBindingLifetimesBase = preload("res://addons/gf/kernel/core/gf_binding_lifetimes.gd")
 const _SCRIPT_TYPE_INSPECTOR = preload("res://addons/gf/kernel/core/gf_script_type_inspector.gd")
+const _RESOLUTION_CONTEXT_BINDING_KEY: String = "binding"
+const _RESOLUTION_CONTEXT_CREATED_SINGLETONS_KEY: String = "created_singletons"
+const _RESOLUTION_CONTEXT_FAILED_KEY: String = "failed"
+const _RESOLUTION_CONTEXT_INSTANCE_KEY: String = "instance"
 
 
 # --- 公共变量 ---
@@ -50,7 +54,6 @@ var _has_cached_instance: bool = false
 var _should_auto_inject: bool = true
 var _should_dispose_cached_instance: bool = true
 var _is_resolving_singleton: bool = false
-var _resolution_cycle_detected: bool = false
 
 
 # --- Godot 生命周期方法 ---
@@ -79,39 +82,47 @@ func _init(
 ## [br]
 ## @param requesting_architecture: 发起解析的架构。Transient 会优先注入它，Singleton 始终注入拥有该绑定的架构。
 ## [br]
+## @param resolution_context: 当前工厂解析上下文，用于跨 Binding 失败链路回滚。
+## [br]
+## @schema resolution_context {
+##   "type": "Dictionary",
+##   "description": "GFArchitecture 内部维护的解析上下文。"
+## }
+## [br]
 ## @return 解析出的 Object 实例；失败时返回 null。
-func get_instance(requesting_architecture: GFArchitecture = null) -> Object:
+func get_instance(requesting_architecture: GFArchitecture = null, resolution_context: Dictionary = {}) -> Object:
 	match lifetime:
 		GFBindingLifetimesBase.Lifetime.SINGLETON:
 			if _has_cached_instance and _cached_instance_is_valid():
 				return _cached_instance
 			if _is_resolving_singleton:
-				_resolution_cycle_detected = true
+				_mark_resolution_context_failed(resolution_context)
 				push_error("[GFBinding] Singleton 工厂正在解析中，检测到循环依赖。")
 				return null
 
 			clear_cached_instance()
 			_is_resolving_singleton = true
-			_resolution_cycle_detected = false
-			var provided_instance: Object = _provide(_owner_architecture)
+			var provided_instance: Object = _provide(_owner_architecture, resolution_context)
 			_is_resolving_singleton = false
-			if _resolution_cycle_detected:
-				_resolution_cycle_detected = false
-				return null
 			if provided_instance == null:
+				return null
+			if _resolution_context_has_failed(resolution_context):
+				_release_rejected_factory_instance(provided_instance)
 				return null
 
 			_cached_instance = provided_instance
 			_has_cached_instance = true
+			_register_created_singleton_in_resolution_context(resolution_context, _cached_instance)
 			return _cached_instance
 
 		GFBindingLifetimesBase.Lifetime.TRANSIENT:
 			var injection_architecture: GFArchitecture = requesting_architecture
 			if injection_architecture == null:
 				injection_architecture = _owner_architecture
-			return _provide(injection_architecture)
+			return _provide(injection_architecture, resolution_context)
 
 		_:
+			_mark_resolution_context_failed(resolution_context)
 			push_error("[GFBinding] 未知生命周期：%s" % str(lifetime))
 			return null
 
@@ -126,6 +137,31 @@ func clear_cached_instance() -> void:
 
 	if is_instance_valid(instance):
 		_release_instance_scope(instance)
+
+
+## 拒绝并释放当前 Singleton 缓存实例。
+## [br]
+## @api framework_internal
+## [br]
+## @param instance: 需要拒绝的实例；为空时拒绝当前缓存实例。
+## [br]
+## @schema instance {
+##   "type": "Object",
+##   "description": "失败解析链路中创建的 Singleton 实例。"
+## }
+func reject_cached_instance(instance: Object = null) -> void:
+	var rejected_instance: Object = instance
+	if rejected_instance == null:
+		rejected_instance = _cached_instance
+
+	if _cached_instance != null and rejected_instance != null and is_same(_cached_instance, rejected_instance):
+		_cached_instance = null
+		_has_cached_instance = false
+	elif instance == null:
+		_cached_instance = null
+		_has_cached_instance = false
+
+	_release_rejected_factory_instance(rejected_instance)
 
 
 ## 释放 Singleton 生命周期缓存实例的框架归属。
@@ -149,7 +185,7 @@ func dispose_cached_instance() -> void:
 
 # --- 私有/辅助方法 ---
 
-func _provide(injection_architecture: GFArchitecture) -> Object:
+func _provide(injection_architecture: GFArchitecture, resolution_context: Dictionary = {}) -> Object:
 	var value: Variant
 	if provider is Callable:
 		var provider_callable: Callable = provider
@@ -158,16 +194,19 @@ func _provide(injection_architecture: GFArchitecture) -> Object:
 		value = provider
 
 	if not value is Object:
-		if _resolution_cycle_detected:
+		if _resolution_context_has_failed(resolution_context):
 			return null
+		_mark_resolution_context_failed(resolution_context)
 		push_error("[GFBinding] 绑定来源必须返回 Object 实例。")
 		return null
 
 	var instance: Object = value
 	if not is_instance_valid(instance):
+		_mark_resolution_context_failed(resolution_context)
 		push_error("[GFBinding] 绑定来源返回了已失效的 Object 实例。")
 		return null
 	if not _instance_matches_key(instance):
+		_mark_resolution_context_failed(resolution_context)
 		push_error("[GFBinding] 绑定来源返回的实例脚本必须继承或等于绑定键。")
 		return null
 
@@ -199,6 +238,49 @@ func _release_instance_scope(instance: Object) -> void:
 		instance.call("_gf_set_dependency_scope", null)
 	elif instance.has_method("_release_dependency_scope"):
 		instance.call("_release_dependency_scope")
+
+
+func _release_rejected_factory_instance(instance: Object) -> void:
+	if instance == null or not is_instance_valid(instance):
+		return
+
+	if _owner_architecture != null:
+		_owner_architecture.unregister_owner_events(instance)
+	_release_instance_scope(instance)
+	if not is_instance_valid(instance):
+		return
+	if instance is Node:
+		var rejected_node: Node = instance
+		if rejected_node.get_parent() == null and not rejected_node.is_queued_for_deletion():
+			rejected_node.free()
+
+
+func _mark_resolution_context_failed(resolution_context: Dictionary) -> void:
+	if resolution_context.is_empty():
+		return
+	resolution_context[_RESOLUTION_CONTEXT_FAILED_KEY] = true
+
+
+func _resolution_context_has_failed(resolution_context: Dictionary) -> bool:
+	if resolution_context.is_empty():
+		return false
+	var failed_value: Variant = resolution_context.get(_RESOLUTION_CONTEXT_FAILED_KEY, false)
+	return failed_value == true
+
+
+func _register_created_singleton_in_resolution_context(resolution_context: Dictionary, instance: Object) -> void:
+	if resolution_context.is_empty() or instance == null:
+		return
+
+	var created_value: Variant = resolution_context.get(_RESOLUTION_CONTEXT_CREATED_SINGLETONS_KEY, [])
+	if not created_value is Array:
+		return
+	var created_singletons: Array = created_value
+	created_singletons.append({
+		_RESOLUTION_CONTEXT_BINDING_KEY: self,
+		_RESOLUTION_CONTEXT_INSTANCE_KEY: instance,
+	})
+	resolution_context[_RESOLUTION_CONTEXT_CREATED_SINGLETONS_KEY] = created_singletons
 
 
 func _cached_instance_is_valid() -> bool:

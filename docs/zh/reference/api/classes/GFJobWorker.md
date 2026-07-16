@@ -312,6 +312,7 @@ func process_batch() -> int:
 ### `get_debug_snapshot`
 
 - API：`public`
+- 首次版本：`3.0.0`
 
 ```gdscript
 func get_debug_snapshot() -> Dictionary:
@@ -323,4 +324,4 @@ func get_debug_snapshot() -> Dictionary:
 
 结构：
 
-- `return`: Dictionary，包含 running、processing、queue_name、batch_size、has_processor 和 has_queue_utility。
+- `return`: Dictionary，包含 running、processing、processing_next_job、waiting_for_processor、queue_name、batch_size、has_processor 和 has_queue_utility。

@@ -22,6 +22,19 @@ func test_http_builder_composes_query_headers_and_json_body() -> void:
 	assert_true(GFVariantData.get_option_string(request, "body").contains("\"ok\":true"), "JSON body 应序列化。")
 
 
+func test_http_builder_json_body_encodes_non_finite_values() -> void:
+	var builder: GFHttpRequestBuilder = GFHttpRequestBuilder.new()
+	builder = builder.set_json_body({
+		"value": NAN,
+		"position": Vector2(1.0, 2.0),
+	})
+	var request: Dictionary = builder.build_request()
+	var body: String = GFVariantData.get_option_string(request, "body")
+
+	assert_true(body.contains(GFVariantJsonCodec.JSON_MARKER_KEY), "JSON body 应使用 GF Variant JSON 编码非 JSON 原生值。")
+	assert_false(body.contains("\"value\":null"), "JSON body 不应把 NaN 退化为 null。")
+
+
 func test_http_builder_parses_json_body() -> void:
 	var builder: GFHttpRequestBuilder = GFHttpRequestBuilder.new()
 	builder = builder.set_parse_mode(GFHttpRequestBuilder.ParseMode.JSON)

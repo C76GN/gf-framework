@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFNoiseFieldTools" path="addons/gf/standard/foundation/math/gf_noise_field_tools.gd" module="standard" extends="RefCounted" classDigest="fb3b7b0d7a71a1e2368e5b670ac8e67a0b9af5ef5df34fd5dd0a5862e3199efe">
+	<description>GFNoiseFieldTools: 通用二维噪声场采样工具。
+使用 Godot 原生 FastNoiseLite 或调用方传入的采样回调生成行优先浮点样本，
+并输出范围、平均值和可选归一化样本。它只处理纯数据，不创建地形、
+材质、节点、贴图或程序化内容对象。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_service</tag>
+		<tag name="since">8.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants>
+		<member kind="const" name="DEFAULT_MAX_GRID_SAMPLES">
+			<signature>const DEFAULT_MAX_GRID_SAMPLES: int = 1048576</signature>
+			<description>默认最大采样数量，避免把超大实时噪声场交给纯 GDScript。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="DEFAULT_NOISE_FREQUENCY">
+			<signature>const DEFAULT_NOISE_FREQUENCY: float = 0.01</signature>
+			<description>未提供 noise 时创建 FastNoiseLite 使用的默认频率。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties />
+	<methods>
+		<member kind="method" name="sample_grid_2d">
+			<signature>static func sample_grid_2d(grid_size: Vector2i, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>采样二维行优先噪声场。
+采样源优先使用 options.sampler；未提供 sampler 时使用 options.noise，
+再未提供时按 seed 与 frequency 创建 FastNoiseLite。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">grid_size: 采样网格尺寸，x 为列数，y 为行数。</tag>
+				<tag name="param">options: 采样选项。</tag>
+				<tag name="return">采样报告。</tag>
+				<tag name="schema">options: Dictionary，可包含 sampler、metadata、noise、seed、frequency、noise_type、fractal_octaves、origin、step、include_normalized、constant_value 与 max_samples。sampler 为 Callable，签名为 Callable(position: Vector2, cell: Vector2i, metadata: Dictionary) -&gt; int|float；noise 为 FastNoiseLite。</tag>
+				<tag name="schema">return: Dictionary，包含 ok、error、source、grid_size、origin、step、sample_count、samples、min_value、max_value、average、normalized_samples 与 constant_range 字段。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="normalize_samples">
+			<signature>static func normalize_samples(samples: PackedFloat32Array, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>归一化浮点样本。
+默认使用输入样本的最小值和最大值，把每个值映射到 0.0 到 1.0。
+如果范围为常量，输出 constant_value，默认为 0.0。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">samples: 待归一化的浮点样本。</tag>
+				<tag name="param">options: 归一化选项。</tag>
+				<tag name="return">归一化报告。</tag>
+				<tag name="schema">options: Dictionary，可包含 minimum、maximum、constant_value 与 clamp。</tag>
+				<tag name="schema">return: Dictionary，包含 ok、error、sample_count、min_value、max_value、constant_value、constant_range 与 normalized_samples 字段。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="to_json_compatible_report">
+			<signature>static func to_json_compatible_report(report: Dictionary, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>将噪声工具报告转换为 JSON.stringify() 安全的结构。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">report: sample_grid_2d() 或 normalize_samples() 返回的报告。</tag>
+				<tag name="param">options: 报告编码选项，透传给 GFReportValueCodec。</tag>
+				<tag name="return">JSON 兼容报告。</tag>
+				<tag name="schema">report: Dictionary report returned by GFNoiseFieldTools.</tag>
+				<tag name="schema">options: Dictionary with GFReportValueCodec options.</tag>
+				<tag name="schema">return: Dictionary safe for JSON.stringify().</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

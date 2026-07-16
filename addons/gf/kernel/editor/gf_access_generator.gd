@@ -71,6 +71,7 @@ const _KNOWN_GF_PROJECT_SETTINGS: Array[String] = [
 	"gf/extensions/enabled",
 	"gf/extensions/export_exclude_disabled",
 	"gf/extensions/export_fail_on_disabled_references",
+	"gf/extensions/selection_mode",
 	"gf/project/fail_on_installer_error",
 	"gf/project/installer_timeout_seconds",
 	"gf/project/installers",

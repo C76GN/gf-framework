@@ -23,6 +23,16 @@ class PropertyOnlyCommand extends RefCounted:
 		return "property"
 
 
+class ExcessRequiredContextCommand extends RefCounted:
+	var context_method_called: bool = false
+
+	func set_interaction_context(_context: Variant, _required_argument: Variant) -> void:
+		context_method_called = true
+
+	func execute() -> String:
+		return "executed"
+
+
 class SpyArchitecture extends GFArchitecture:
 	var sent_command: Object = null
 
@@ -102,6 +112,16 @@ func test_interaction_flow_injects_property_only_context() -> void:
 
 	assert_eq(GFVariantData.to_text(result), "property")
 	assert_same(_interaction_context(cmd.interaction_context), ctx)
+
+
+func test_interaction_flow_rejects_context_method_with_excess_required_arguments() -> void:
+	var flow: GFInteractionFlow = GFInteractionFlow.new(GFInteractionContext.new())
+	var command: ExcessRequiredContextCommand = ExcessRequiredContextCommand.new()
+
+	var result: Variant = flow.execute(command)
+
+	assert_eq(GFVariantData.to_text(result), "executed")
+	assert_false(command.context_method_called, "GF 不应以不足参数调用不兼容的 set_interaction_context()。")
 
 
 func test_interaction_flow_send_event_null_is_no_op() -> void:

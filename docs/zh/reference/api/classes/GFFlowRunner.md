@@ -36,6 +36,7 @@
 ### `flow_started`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 signal flow_started(graph: GFFlowGraph)
@@ -54,6 +55,7 @@ signal flow_started(graph: GFFlowGraph)
 ### `node_started`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 signal node_started(node_id: StringName, node: GFFlowNode)
@@ -73,6 +75,7 @@ signal node_started(node_id: StringName, node: GFFlowNode)
 ### `node_completed`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 signal node_completed(node_id: StringName, node: GFFlowNode)
@@ -92,6 +95,7 @@ signal node_completed(node_id: StringName, node: GFFlowNode)
 ### `flow_completed`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 signal flow_completed
@@ -104,6 +108,7 @@ signal flow_completed
 ### `flow_cancelled`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 signal flow_cancelled
@@ -118,6 +123,7 @@ signal flow_cancelled
 ### `is_running`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var is_running: bool = false
@@ -130,6 +136,7 @@ var is_running: bool = false
 ### `max_executed_nodes`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var max_executed_nodes: int = 1024
@@ -142,6 +149,7 @@ var max_executed_nodes: int = 1024
 ### `signal_timeout_seconds`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var signal_timeout_seconds: float = 30.0
@@ -154,6 +162,7 @@ Signal 等待超时时间。小于等于 0 表示不启用超时。
 ### `signal_timeout_respects_time_scale`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var signal_timeout_respects_time_scale: bool = true
@@ -166,6 +175,7 @@ Signal 超时计时是否跟随 GFTimeUtility 的暂停与 time_scale。
 ### `isolate_graph_runtime_state`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var isolate_graph_runtime_state: bool = true
@@ -180,6 +190,7 @@ var isolate_graph_runtime_state: bool = true
 ### `run`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func run(graph: GFFlowGraph, context: GFFlowContext = null) -> void:
@@ -199,6 +210,7 @@ func run(graph: GFFlowGraph, context: GFFlowContext = null) -> void:
 ### `cancel`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func cancel() -> void:
@@ -211,6 +223,7 @@ func cancel() -> void:
 ### `with_signal_timeout`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func with_signal_timeout(seconds: float, respect_time_scale: bool = true) -> GFFlowRunner:

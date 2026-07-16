@@ -6,7 +6,7 @@
 
 - [属性与标签](attributes-tags.md)：`GFModifiedAttribute`、`GFModifiedAttributeSet` 和 `GFTagComponent`。
 - [Buff 与技能](buffs-skills.md)：`GFBuff`、`GFSkill`、刷新策略、周期 Tick 和冷却边界。
-- [目标选择与事件](targeting-events.md)：`GFSkillTargetingRule`、`GFSkillTargetingUtility` 和 Combat 事件 payload。
+- [目标选择与事件](targeting-events.md)：`GFSkillTargetingRule2D`、`GFSkillTargetingUtility2D` 和 Combat 事件 payload。
 
 ## 使用边界
 

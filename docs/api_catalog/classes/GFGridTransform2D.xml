@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFGridTransform2D" path="addons/gf/standard/foundation/math/gf_grid_transform_2d.gd" module="standard" extends="RefCounted" classDigest="5c2823a6aaf70cd6cb1ee23399b96774bd6330d788029946b92959967f0e653b">
+<class name="GFGridTransform2D" path="addons/gf/standard/foundation/math/gf_grid_transform_2d.gd" module="standard" extends="RefCounted" classDigest="125661f6ebb84d60620bba666b79b29fc0912d5b8bdf429c39304c28a8365506">
 	<description>GFGridTransform2D: 2D 矩形网格坐标变换工具。
 提供旋转、镜像和对角翻转的纯坐标映射，可用于格子模板、画刷、
 房间蓝图、棋盘片段或编辑器工具。它只处理 Vector2i / Vector2 坐标，
@@ -117,6 +117,19 @@
 				<tag name="param">transform: Transform 枚举值。</tag>
 				<tag name="param">target_origin: 变换后矩形的目标起点。</tag>
 				<tag name="return">变换后的格坐标列表，顺序与输入一致。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="transform_cardinal_direction">
+			<signature>static func transform_cardinal_direction(direction: Vector2i, transform: int) -&gt; Vector2i:</signature>
+			<description>变换四向单位方向。
+该方法只接受 `Vector2i.RIGHT`、`LEFT`、`DOWN`、`UP`。无效方向或无效变换返回
+`Vector2i.ZERO`，便于调用方把它作为非方向哨兵处理。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">direction: 原始四向单位方向。</tag>
+				<tag name="param">transform: Transform 枚举值。</tag>
+				<tag name="return">变换后的四向单位方向；无效输入返回 Vector2i.ZERO。</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="transform_local_point">

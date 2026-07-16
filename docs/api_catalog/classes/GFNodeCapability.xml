@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFNodeCapability" path="addons/gf/extensions/capability/nodes/gf_node_capability.gd" module="extensions/capability" extends="Node" classDigest="2f4c3c5de944eda8b930c31f30b97b60de18688acdbb66c1b412559a892953bf">
+<class name="GFNodeCapability" path="addons/gf/extensions/capability/nodes/gf_node_capability.gd" module="extensions/capability" extends="Node" classDigest="6e672fe1711fb1eb72a61cfe25ab358e560fb24496cdc7510996328e60dc5cad">
 	<description>GFNodeCapability: 可直接作为场景节点使用的能力组件基类。
 适合承载通用节点逻辑、输入、动画或子节点引用的局部能力。
 需要 2D/3D/UI 空间继承时，优先使用 GFNode2DCapability、GFNode3DCapability 或 GFControlCapability。</description>
@@ -21,10 +21,11 @@
 			</tags>
 		</member>
 		<member kind="property" name="receiver">
-			<signature>var receiver: Object = null</signature>
+			<signature>var receiver: Object:</signature>
 			<description>当前能力所属对象。由 GFCapabilityUtility 挂载时写入。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="active">

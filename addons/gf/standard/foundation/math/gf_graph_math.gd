@@ -200,10 +200,10 @@ static func build_distance_map(
 	if not get_neighbors.is_valid():
 		return distances
 
-	var frontier: Array[Dictionary] = []
-	_heap_push_node(frontier, start, 0.0)
+	var frontier: GFPriorityQueue = GFPriorityQueue.new(false)
+	_push_node_priority(frontier, start, 0.0)
 	while not frontier.is_empty():
-		var current_entry: Dictionary = _heap_pop_node(frontier)
+		var current_entry: Dictionary = _pop_node_priority(frontier)
 		var current: Variant = GFVariantData.get_option_value(current_entry, "node")
 		var current_cost: float = GFVariantData.get_option_float(distances, current, INF)
 		if _get_entry_priority(current_entry) > current_cost:
@@ -221,7 +221,7 @@ static func build_distance_map(
 				continue
 
 			distances[next_node] = next_cost
-			_heap_push_node(frontier, next_node, next_cost)
+			_push_node_priority(frontier, next_node, next_cost)
 
 	return distances
 
@@ -354,6 +354,249 @@ static func sort_topological(nodes: Array, get_dependencies: Callable) -> Dictio
 	}
 
 
+## 查找声明节点集中的连通分量。
+## [br]
+## 邻居回调只用于描述节点之间的边；只有 `nodes` 中声明的节点会参与分量计算。
+## 节点之间的边按无向边处理，适合资源图、地图拓扑、流程子图和生成前诊断。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+## [br]
+## @param nodes: 需要分组的节点列表；重复节点会按首次出现去重。
+## [br]
+## @schema nodes: Array graph node identities.
+## [br]
+## @param get_neighbors: 邻居回调，签名为 `func(node: Variant) -> Array`。
+## [br]
+## @return 连通分量报告，包含 ok、reason、components、component_indices、isolated_nodes、external_neighbors 等字段。
+## [br]
+## @schema return: Dictionary with ok, reason, components, component_count, component_indices, node_count, all_connected, isolated_nodes, isolated_node_count, external_neighbors, and external_neighbor_count.
+static func find_connected_components(nodes: Array, get_neighbors: Callable) -> Dictionary:
+	if not get_neighbors.is_valid():
+		return {
+			"ok": false,
+			"reason": &"invalid_neighbor_callback",
+			"components": [],
+			"component_count": 0,
+			"component_indices": {},
+			"node_count": 0,
+			"all_connected": false,
+			"isolated_nodes": [],
+			"isolated_node_count": 0,
+			"external_neighbors": [],
+			"external_neighbor_count": 0,
+		}
+
+	var ordered_nodes: Array[Variant] = []
+	var node_set: Dictionary = {}
+	for node: Variant in nodes:
+		if node_set.has(node):
+			continue
+		node_set[node] = true
+		ordered_nodes.append(node)
+
+	var adjacency_by_node: Dictionary = {}
+	for node: Variant in ordered_nodes:
+		adjacency_by_node[node] = []
+
+	var external_neighbors: Array[Dictionary] = []
+	var seen_external_neighbors: Dictionary = {}
+	for node: Variant in ordered_nodes:
+		var node_neighbors: Array = _get_topological_array(adjacency_by_node, node)
+		for neighbor: Variant in _get_neighbors(node, get_neighbors):
+			if not node_set.has(neighbor):
+				_record_external_neighbor(node, neighbor, external_neighbors, seen_external_neighbors)
+				continue
+
+			var _neighbor_appended: bool = _append_unique_variant(node_neighbors, neighbor)
+			var reverse_neighbors: Array = _get_topological_array(adjacency_by_node, neighbor)
+			var _reverse_neighbor_appended: bool = _append_unique_variant(reverse_neighbors, node)
+			adjacency_by_node[neighbor] = reverse_neighbors
+		adjacency_by_node[node] = node_neighbors
+
+	var components: Array = []
+	var component_indices: Dictionary = {}
+	var visited: Dictionary = {}
+	for node: Variant in ordered_nodes:
+		if visited.has(node):
+			continue
+
+		var component_index: int = components.size()
+		var component: Array = _collect_connected_component(
+			node,
+			component_index,
+			adjacency_by_node,
+			visited,
+			component_indices
+		)
+		components.append(component)
+
+	var isolated_nodes: Array = []
+	for node: Variant in ordered_nodes:
+		if _get_topological_array(adjacency_by_node, node).is_empty():
+			isolated_nodes.append(node)
+
+	return {
+		"ok": true,
+		"reason": &"",
+		"components": components,
+		"component_count": components.size(),
+		"component_indices": component_indices,
+		"node_count": ordered_nodes.size(),
+		"all_connected": components.size() <= 1,
+		"isolated_nodes": isolated_nodes,
+		"isolated_node_count": isolated_nodes.size(),
+		"external_neighbors": external_neighbors,
+		"external_neighbor_count": external_neighbors.size(),
+	}
+
+
+## 查找声明节点集的最小生成树。
+## [br]
+## 图按无向加权边处理；`get_neighbors` 只要在任一方向返回邻居即可建立边。
+## 图不连通时会返回最小生成森林，并通过 `all_connected` 标记结果不是单棵树。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+## [br]
+## @param nodes: 需要纳入生成树的节点列表；重复节点会按首次出现去重。
+## [br]
+## @schema nodes: Array graph node identities.
+## [br]
+## @param get_neighbors: 邻居回调，签名为 `func(node: Variant) -> Array`。
+## [br]
+## @param get_edge_weight: 可选权重回调，签名为 `func(from: Variant, to: Variant) -> float`；为空时每条边权重为 1。
+## [br]
+## @return 最小生成树报告，包含 selected_edges、total_weight、components、isolated_nodes、external_neighbors 等字段。
+## [br]
+## @schema return: Dictionary with ok, reason, selected_edges, selected_edge_count, total_weight, components, component_count, component_indices, node_count, all_connected, isolated_nodes, isolated_node_count, external_neighbors, external_neighbor_count, invalid_edges, and invalid_edge_count.
+static func find_minimum_spanning_tree(
+	nodes: Array,
+	get_neighbors: Callable,
+	get_edge_weight: Callable = Callable()
+) -> Dictionary:
+	if not get_neighbors.is_valid():
+		return _make_minimum_spanning_tree_report(
+			false,
+			&"invalid_neighbor_callback",
+			[],
+			0.0,
+			[],
+			{},
+			0,
+			[],
+			[],
+			[]
+		)
+
+	var ordered_nodes: Array[Variant] = []
+	var node_set: Dictionary = {}
+	for node: Variant in nodes:
+		if node_set.has(node):
+			continue
+		node_set[node] = true
+		ordered_nodes.append(node)
+
+	var adjacency_by_node: Dictionary = {}
+	for node: Variant in ordered_nodes:
+		adjacency_by_node[node] = []
+
+	var external_neighbors: Array[Dictionary] = []
+	var seen_external_neighbors: Dictionary = {}
+	var invalid_edges: Array[Dictionary] = []
+	var edge_sequence: int = 0
+	for node: Variant in ordered_nodes:
+		for neighbor: Variant in _get_neighbors(node, get_neighbors):
+			if not node_set.has(neighbor):
+				_record_external_neighbor(node, neighbor, external_neighbors, seen_external_neighbors)
+				continue
+			if neighbor == node:
+				continue
+
+			var weight: float = _get_spanning_edge_weight(node, neighbor, get_edge_weight)
+			if not _is_finite_graph_weight(weight):
+				_record_invalid_spanning_edge(node, neighbor, weight, invalid_edges)
+				continue
+
+			_append_spanning_adjacency_edge(
+				adjacency_by_node,
+				node,
+				_make_spanning_edge(node, neighbor, weight, edge_sequence)
+			)
+			_append_spanning_adjacency_edge(
+				adjacency_by_node,
+				neighbor,
+				_make_spanning_edge(neighbor, node, weight, edge_sequence)
+			)
+			edge_sequence += 1
+
+	if not invalid_edges.is_empty():
+		return _make_minimum_spanning_tree_report(
+			false,
+			&"invalid_edge_weight",
+			[],
+			0.0,
+			[],
+			{},
+			ordered_nodes.size(),
+			[],
+			external_neighbors,
+			invalid_edges
+		)
+
+	var selected_edges: Array[Dictionary] = []
+	var components: Array = []
+	var component_indices: Dictionary = {}
+	var visited: Dictionary = {}
+	var total_weight: float = 0.0
+	for node: Variant in ordered_nodes:
+		if visited.has(node):
+			continue
+
+		var component_index: int = components.size()
+		var component: Array = []
+		var frontier: GFPriorityQueue = GFPriorityQueue.new(false)
+		visited[node] = true
+		component_indices[node] = component_index
+		component.append(node)
+		_push_spanning_frontier(frontier, adjacency_by_node, node, visited)
+
+		while not frontier.is_empty():
+			var edge: Dictionary = _pop_spanning_edge(frontier)
+			var to_node: Variant = GFVariantData.get_option_value(edge, "to")
+			if visited.has(to_node):
+				continue
+
+			visited[to_node] = true
+			component_indices[to_node] = component_index
+			component.append(to_node)
+			selected_edges.append(_make_spanning_edge_report(edge))
+			total_weight += GFVariantData.get_option_float(edge, "weight", 0.0)
+			_push_spanning_frontier(frontier, adjacency_by_node, to_node, visited)
+
+		components.append(component)
+
+	var isolated_nodes: Array = []
+	for node: Variant in ordered_nodes:
+		if _get_topological_array(adjacency_by_node, node).is_empty():
+			isolated_nodes.append(node)
+
+	return _make_minimum_spanning_tree_report(
+		true,
+		&"",
+		selected_edges,
+		total_weight,
+		components,
+		component_indices,
+		ordered_nodes.size(),
+		isolated_nodes,
+		external_neighbors,
+		[]
+	)
+
+
 # --- 私有/辅助方法 ---
 
 static func _find_path(
@@ -368,15 +611,15 @@ static func _find_path(
 	if start == goal:
 		return [start]
 
-	var open_heap: Array[Dictionary] = []
+	var open_queue: GFPriorityQueue = GFPriorityQueue.new(false)
 	var closed: Dictionary = {}
 	var came_from: Dictionary = {}
 	var g_score: Dictionary = { start: 0.0 }
 	var f_score: Dictionary = { start: _get_heuristic(start, goal, heuristic) }
-	_heap_push_node(open_heap, start, GFVariantData.to_float(f_score[start], INF))
+	_push_node_priority(open_queue, start, GFVariantData.to_float(f_score[start], INF))
 
-	while not open_heap.is_empty():
-		var current_entry: Dictionary = _heap_pop_node(open_heap)
+	while not open_queue.is_empty():
+		var current_entry: Dictionary = _pop_node_priority(open_queue)
 		var current: Variant = GFVariantData.get_option_value(current_entry, "node")
 		if closed.has(current):
 			continue
@@ -401,7 +644,7 @@ static func _find_path(
 			came_from[next_node] = current
 			g_score[next_node] = tentative_score
 			f_score[next_node] = tentative_score + _get_heuristic(next_node, goal, heuristic)
-			_heap_push_node(open_heap, next_node, GFVariantData.to_float(f_score[next_node], INF))
+			_push_node_priority(open_queue, next_node, GFVariantData.to_float(f_score[next_node], INF))
 
 	return []
 
@@ -420,75 +663,15 @@ static func _reconstruct_path(start: Variant, goal: Variant, came_from: Dictiona
 	return path
 
 
-static func _take_lowest_score_node(nodes: Array, scores: Dictionary) -> Variant:
-	var best_index: int = 0
-	var best_score: float = GFVariantData.get_option_float(scores, nodes[0], INF)
-	for index: int in range(1, nodes.size()):
-		var score: float = GFVariantData.get_option_float(scores, nodes[index], INF)
-		if score < best_score:
-			best_index = index
-			best_score = score
-
-	var node: Variant = nodes[best_index]
-	nodes.remove_at(best_index)
-	return node
-
-
-static func _heap_push_node(heap: Array, node: Variant, priority: float) -> void:
-	heap.append({
+static func _push_node_priority(priority_queue: GFPriorityQueue, node: Variant, priority: float) -> void:
+	var _node_queued: bool = priority_queue.push({
 		"node": node,
 		"priority": priority,
-	})
-	var index: int = heap.size() - 1
-	while index > 0:
-		var parent_index: int = (index - 1) >> 1
-		var parent_entry: Dictionary = GFVariantData.as_dictionary(heap[parent_index])
-		if _get_entry_priority(parent_entry) <= priority:
-			break
-		heap[parent_index] = heap[index]
-		heap[index] = parent_entry
-		index = parent_index
+	}, priority)
 
 
-static func _heap_pop_node(heap: Array) -> Dictionary:
-	if heap.is_empty():
-		return {}
-
-	var result: Dictionary = GFVariantData.as_dictionary(heap[0])
-	var last_entry: Dictionary = GFVariantData.as_dictionary(heap.pop_back())
-	if heap.is_empty():
-		return result
-
-	heap[0] = last_entry
-	var index: int = 0
-	while true:
-		var left_index: int = index * 2 + 1
-		var right_index: int = left_index + 1
-		var best_index: int = index
-		if (
-			left_index < heap.size()
-			and _path_heap_entry_is_before(
-				GFVariantData.as_dictionary(heap[left_index]),
-				GFVariantData.as_dictionary(heap[best_index])
-			)
-		):
-			best_index = left_index
-		if (
-			right_index < heap.size()
-			and _path_heap_entry_is_before(
-				GFVariantData.as_dictionary(heap[right_index]),
-				GFVariantData.as_dictionary(heap[best_index])
-			)
-		):
-			best_index = right_index
-		if best_index == index:
-			break
-
-		var best_entry: Dictionary = GFVariantData.as_dictionary(heap[best_index])
-		heap[best_index] = heap[index]
-		heap[index] = best_entry
-		index = best_index
-	return result
+static func _pop_node_priority(priority_queue: GFPriorityQueue) -> Dictionary:
+	return GFVariantData.as_dictionary(priority_queue.pop({}))
 
 
 static func _get_neighbors(node: Variant, get_neighbors: Callable) -> Array:
@@ -517,19 +700,6 @@ static func _get_entry_priority(entry: Dictionary, fallback: float = INF) -> flo
 	return GFVariantData.get_option_float(entry, "priority", fallback)
 
 
-static func _path_heap_entry_is_before(left_entry: Dictionary, right_entry: Dictionary) -> bool:
-	var left_priority: float = _get_entry_priority(left_entry)
-	var right_priority: float = _get_entry_priority(right_entry)
-	if left_priority < right_priority:
-		return true
-	if left_priority > right_priority:
-		return false
-	return (
-		GFVariantData.get_option_int(left_entry, "sequence")
-		< GFVariantData.get_option_int(right_entry, "sequence")
-	)
-
-
 static func _get_topological_dependencies(node: Variant, get_dependencies: Callable) -> Array:
 	var raw_dependencies: Variant = get_dependencies.call(node)
 	if raw_dependencies is Array:
@@ -552,6 +722,172 @@ static func _get_topological_int(source: Dictionary, key: Variant) -> int:
 		var int_value: int = value
 		return int_value
 	return 0
+
+
+static func _record_external_neighbor(
+	node: Variant,
+	neighbor: Variant,
+	external_neighbors: Array[Dictionary],
+	seen_external_neighbors: Dictionary
+) -> void:
+	var key: String = "%s -> %s" % [var_to_str(node), var_to_str(neighbor)]
+	if seen_external_neighbors.has(key):
+		return
+
+	seen_external_neighbors[key] = true
+	external_neighbors.append({
+		"node": GFVariantData.duplicate_variant(node),
+		"neighbor": GFVariantData.duplicate_variant(neighbor),
+	})
+
+
+static func _get_spanning_edge_weight(from_node: Variant, to_node: Variant, get_edge_weight: Callable) -> float:
+	if get_edge_weight.is_valid():
+		return GFVariantData.to_float(get_edge_weight.call(from_node, to_node), NAN)
+	return 1.0
+
+
+static func _is_finite_graph_weight(weight: float) -> bool:
+	return not (is_nan(weight) or is_inf(weight))
+
+
+static func _make_spanning_edge(from_node: Variant, to_node: Variant, weight: float, sequence: int) -> Dictionary:
+	return {
+		"from": from_node,
+		"to": to_node,
+		"weight": weight,
+		"sequence": sequence,
+	}
+
+
+static func _make_spanning_edge_report(edge: Dictionary) -> Dictionary:
+	return {
+		"from": GFVariantData.get_option_value(edge, "from"),
+		"to": GFVariantData.get_option_value(edge, "to"),
+		"weight": GFVariantData.get_option_float(edge, "weight", 0.0),
+	}
+
+
+static func _append_spanning_adjacency_edge(
+	adjacency_by_node: Dictionary,
+	node: Variant,
+	edge: Dictionary
+) -> void:
+	var edges: Array = _get_topological_array(adjacency_by_node, node)
+	edges.append(edge)
+	adjacency_by_node[node] = edges
+
+
+static func _push_spanning_frontier(
+	frontier: GFPriorityQueue,
+	adjacency_by_node: Dictionary,
+	node: Variant,
+	visited: Dictionary
+) -> void:
+	for edge_variant: Variant in _get_topological_array(adjacency_by_node, node):
+		if not (edge_variant is Dictionary):
+			continue
+
+		var edge: Dictionary = edge_variant
+		var to_node: Variant = GFVariantData.get_option_value(edge, "to")
+		if visited.has(to_node):
+			continue
+		_push_spanning_edge(
+			frontier,
+			edge,
+			GFVariantData.get_option_float(edge, "weight", INF),
+			GFVariantData.get_option_int(edge, "sequence", 0)
+		)
+
+
+static func _push_spanning_edge(
+	priority_queue: GFPriorityQueue,
+	edge: Dictionary,
+	priority: float,
+	sequence: int
+) -> void:
+	var _edge_queued: bool = priority_queue.push_with_order(edge, priority, sequence)
+
+
+static func _pop_spanning_edge(priority_queue: GFPriorityQueue) -> Dictionary:
+	return GFVariantData.as_dictionary(priority_queue.pop({}))
+
+
+static func _record_invalid_spanning_edge(
+	from_node: Variant,
+	to_node: Variant,
+	weight: float,
+	invalid_edges: Array[Dictionary]
+) -> void:
+	invalid_edges.append({
+		"from": GFVariantData.duplicate_variant(from_node),
+		"to": GFVariantData.duplicate_variant(to_node),
+		"weight": weight,
+	})
+
+
+static func _make_minimum_spanning_tree_report(
+	ok: bool,
+	reason: StringName,
+	selected_edges: Array,
+	total_weight: float,
+	components: Array,
+	component_indices: Dictionary,
+	node_count: int,
+	isolated_nodes: Array,
+	external_neighbors: Array,
+	invalid_edges: Array
+) -> Dictionary:
+	return {
+		"ok": ok,
+		"reason": reason,
+		"selected_edges": selected_edges,
+		"selected_edge_count": selected_edges.size(),
+		"total_weight": total_weight,
+		"components": components,
+		"component_count": components.size(),
+		"component_indices": component_indices,
+		"node_count": node_count,
+		"all_connected": ok and components.size() <= 1,
+		"isolated_nodes": isolated_nodes,
+		"isolated_node_count": isolated_nodes.size(),
+		"external_neighbors": external_neighbors,
+		"external_neighbor_count": external_neighbors.size(),
+		"invalid_edges": invalid_edges,
+		"invalid_edge_count": invalid_edges.size(),
+	}
+
+
+static func _collect_connected_component(
+	start_node: Variant,
+	component_index: int,
+	adjacency_by_node: Dictionary,
+	visited: Dictionary,
+	component_indices: Dictionary
+) -> Array:
+	var component: Array = []
+	var queue: Array = [start_node]
+	var queue_index: int = 0
+	visited[start_node] = true
+	while queue_index < queue.size():
+		var current: Variant = queue[queue_index]
+		queue_index += 1
+		component.append(current)
+		component_indices[current] = component_index
+
+		for neighbor: Variant in _get_topological_array(adjacency_by_node, current):
+			if visited.has(neighbor):
+				continue
+			visited[neighbor] = true
+			queue.append(neighbor)
+	return component
+
+
+static func _append_unique_variant(values: Array, value: Variant) -> bool:
+	if values.has(value):
+		return false
+	values.append(value)
+	return true
 
 
 static func _find_topological_cycles(nodes: Array, dependencies_by_node: Dictionary) -> Array:

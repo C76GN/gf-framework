@@ -5,6 +5,7 @@ GF 工具包用于制作期、编辑器期、导入期、构建期或 CI 期流�
 ## 阅读入口
 
 - [Config Pipeline 导表工具包](config-pipeline.md)：把通用 CSV / JSON / XLSX 表来源或批量 Profile 构建为 `GFConfigTableResource` / `GFConfigDatabaseResource`，并保存为 Godot `.tres/.res` 或 JSON 导出。
+- [Project Layout 项目结构工具包](project-layout.md)：提供内聚式项目结构 profile 模板和维护校验规则，帮助业务项目把目录、命名、生成物和 Feature 边界沉淀为可审查约定。
 
 ## 使用边界
 

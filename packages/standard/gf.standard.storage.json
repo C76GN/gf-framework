@@ -21,6 +21,8 @@
     "addons/gf/standard/utilities/storage/gf_storage_codec.gd.uid",
     "addons/gf/standard/utilities/storage/gf_storage_conflict_report.gd",
     "addons/gf/standard/utilities/storage/gf_storage_conflict_report.gd.uid",
+    "addons/gf/standard/utilities/storage/gf_storage_section_cache.gd",
+    "addons/gf/standard/utilities/storage/gf_storage_section_cache.gd.uid",
     "addons/gf/standard/utilities/storage/gf_storage_sync_utility.gd",
     "addons/gf/standard/utilities/storage/gf_storage_sync_utility.gd.uid",
     "addons/gf/standard/utilities/storage/gf_storage_utility.gd",

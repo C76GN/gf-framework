@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFHitBoxState2D" path="addons/gf/extensions/combat/hit_detection/gf_hit_box_state_2d.gd" module="extensions/combat" extends="Node2D" classDigest="da4f5d01727b3e14cc1c2dc7414daa8c0ab19131a1e184a786e1c6e7c2b9c1a2">
+<class name="GFHitBoxState2D" path="addons/gf/extensions/combat/hit_detection/gf_hit_box_state_2d.gd" module="extensions/combat" extends="Node2D" classDigest="7f6715920af667e120c077d31c65fe4020ae481f090e4d891cb66a0b0c0f04ba">
 	<description>GFHitBoxState2D: 2D 命中区域状态组。
 统一启停子树内的 GFHitBox2D、GFHurtBox2D 与 Area2D，不处理伤害、阵营或技能规则。</description>
 	<tags>
@@ -21,10 +21,11 @@
 	<constants />
 	<properties>
 		<member kind="property" name="active" decorators="@export">
-			<signature>var active: bool = true:</signature>
+			<signature>var active: bool:</signature>
 			<description>当前状态是否激活。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="apply_on_ready" decorators="@export">

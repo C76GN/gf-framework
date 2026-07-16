@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFResourceResolverUtility" path="addons/gf/standard/utilities/assets/gf_resource_resolver_utility.gd" module="standard" extends="GFUtility" classDigest="32952e7f580e947f2074c419e2a6a838271e4368e73b18046c240555319ac0d1">
+<class name="GFResourceResolverUtility" path="addons/gf/standard/utilities/assets/gf_resource_resolver_utility.gd" module="standard" extends="GFUtility" classDigest="372d2b2ff1660629ebe3bacc7a2a2a100041a125d9d9b9967a31da13c4855f66">
 	<description>GFResourceResolverUtility: 通用资源键解析工具。
 将项目稳定资源键解析为路径或已加载 Resource，并支持显式注册表、provider 覆盖链和显式直接路径回退。
 它不扫描目录、不下载资源、不解释业务内容类型，也不负责实例化节点。</description>
@@ -49,6 +49,22 @@
 				<tag name="schema">metadata: Dictionary project-defined metadata copied into resolution reports.</tag>
 			</tags>
 		</member>
+		<member kind="method" name="register_path_for_owner">
+			<signature>func register_path_for_owner( resource_key: StringName, owner_id: StringName, path: String, type_hint: String = "", priority: int = 0, metadata: Dictionary = {} ) -&gt; StringName:</signature>
+			<description>注册一个带 owner 的资源键到资源路径映射。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">resource_key: 稳定资源键。</tag>
+				<tag name="param">owner_id: 注册拥有者 ID；用于批量注销同一来源贡献的映射。</tag>
+				<tag name="param">path: Godot 资源路径，通常为 `res://` 或 `uid://`。</tag>
+				<tag name="param">type_hint: 可选 ResourceLoader 类型提示。</tag>
+				<tag name="param">priority: 覆盖优先级；数值越大越优先。</tag>
+				<tag name="param">metadata: 项目自定义元数据，会复制到解析报告。</tag>
+				<tag name="return">成功时返回注册 token；失败时返回空 StringName。</tag>
+				<tag name="schema">metadata: Dictionary project-defined metadata copied into resolution reports.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
 		<member kind="method" name="unregister_path">
 			<signature>func unregister_path(resource_key: StringName) -&gt; bool:</signature>
 			<description>注销显式路径映射。</description>
@@ -56,6 +72,41 @@
 				<tag name="api">public</tag>
 				<tag name="param">resource_key: 稳定资源键。</tag>
 				<tag name="return">成功移除返回 true。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="unregister_registration">
+			<signature>func unregister_registration(registration_id: StringName) -&gt; bool:</signature>
+			<description>注销指定注册 token 对应的路径映射。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">registration_id: register_path_for_owner() 返回的注册 token。</tag>
+				<tag name="return">成功移除返回 true。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="unregister_owner">
+			<signature>func unregister_owner(owner_id: StringName) -&gt; int:</signature>
+			<description>注销指定 owner 的全部路径映射。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">owner_id: register_path_for_owner() 使用的 owner ID。</tag>
+				<tag name="return">被移除的映射数量。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="replace_owner_paths">
+			<signature>func replace_owner_paths(owner_id: StringName, entries: Array) -&gt; Dictionary:</signature>
+			<description>原子替换指定 owner 的全部路径映射。
+所有条目先在隔离候选表中完成严格 schema 校验和资源身份构建；任一条目失败时，
+当前解析表和注册顺序都保持不变。空 entries 表示原子清空该 owner 的映射。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">owner_id: 注册拥有者 ID。</tag>
+				<tag name="param">entries: owner 的完整路径映射快照。</tag>
+				<tag name="return">原子替换报告。</tag>
+				<tag name="schema">entries: Array[Dictionary]，每项必须包含 resource_key 和 path，可包含 type_hint、priority 与 metadata。</tag>
+				<tag name="schema">return: Dictionary with ok, owner_id, registered_count, registration_ids, reason, and failed_index.</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="clear_paths">
@@ -69,13 +120,14 @@
 			<signature>func register_provider(provider: Object, provider_id: StringName = &amp;"", priority: int = 0) -&gt; bool:</signature>
 			<description>注册一个资源解析 provider。
 provider 应实现 `resolve_resource(request: Dictionary) -&gt; Variant`。返回值可为 Dictionary、String 路径或 Resource。
-Dictionary 可包含 `ok`、`path`、`resource`、`type_hint`、`reason`、`metadata` 和 `provider_id`。</description>
+Dictionary 可包含 `ok`、`path`、`resource`、`type_hint`、`cache_key`、`resource_identity`、`reason`、`metadata` 和 `provider_id`。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">provider: provider 对象。</tag>
 				<tag name="param">provider_id: provider 标识；为空时使用对象类名或实例 ID。</tag>
 				<tag name="param">priority: 覆盖优先级；数值越大越优先。</tag>
 				<tag name="return">注册成功返回 true。</tag>
+				<tag name="since">4.4.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="unregister_provider">
@@ -121,7 +173,8 @@ Dictionary 可包含 `ok`、`path`、`resource`、`type_hint`、`reason`、`meta
 				<tag name="param">options: 可选参数。`check_exists` 默认为 true；`allow_direct_path` 默认为 false。</tag>
 				<tag name="return">解析报告。</tag>
 				<tag name="schema">options: Dictionary with optional `check_exists: bool` and `allow_direct_path: bool`.</tag>
-				<tag name="schema">return: Dictionary with `ok`, `key`, `path`, `type_hint`, `provider_id`, `reason`, `metadata`, and optional `resource`.</tag>
+				<tag name="schema">return: Dictionary with `ok`, `key`, `path`, `type_hint`, `cache_key`, `resource_identity`, `provider_id`, `reason`, `metadata`, and optional `resource`.</tag>
+				<tag name="since">4.4.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="resolve_path">
@@ -173,7 +226,8 @@ Dictionary 可包含 `ok`、`path`、`resource`、`type_hint`、`reason`、`meta
 				<tag name="return">资源请求列表。</tag>
 				<tag name="schema">resource_keys: PackedStringArray selected resource keys.</tag>
 				<tag name="schema">options: Dictionary with optional `check_exists: bool` and `allow_direct_path: bool`.</tag>
-				<tag name="schema">return: Array[Dictionary] where each item contains `path` and `type_hint`.</tag>
+				<tag name="schema">return: Array[Dictionary] where each item contains `path`, `type_hint`, `cache_key`, and `resource_identity`.</tag>
+				<tag name="since">4.4.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_debug_snapshot">
@@ -182,7 +236,8 @@ Dictionary 可包含 `ok`、`path`、`resource`、`type_hint`、`reason`、`meta
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">诊断信息。</tag>
-				<tag name="schema">return: Dictionary with `registered_key_count`, `registered_keys`, `provider_count`, and `providers`.</tag>
+				<tag name="schema">return: Dictionary with `registered_key_count`, `registered_path_count`, `registered_keys`, `registered_cache_keys`, `registered_owner_ids`, `provider_count`, and `providers`.</tag>
+				<tag name="since">4.4.0</tag>
 			</tags>
 		</member>
 	</methods>

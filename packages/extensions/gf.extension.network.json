@@ -12,8 +12,18 @@
     "gf.standard.diagnostics"
   ],
   "paths": [
-    "addons/gf/extensions/network/**"
+    "addons/gf/extensions/network/backends/**",
+    "addons/gf/extensions/network/contracts/**",
+    "addons/gf/extensions/network/messages/**",
+    "addons/gf/extensions/network/runtime/**",
+    "addons/gf/extensions/network/serialization/**",
+    "addons/gf/extensions/network/session/**",
+    "addons/gf/extensions/network/simulation/**",
+    "addons/gf/extensions/network/snapshot/**",
+    "addons/gf/extensions/network/extension.gd",
+    "addons/gf/extensions/network/extension.gd.uid",
+    "addons/gf/extensions/network/gf_extension.json"
   ],
-  "enable_extension": "gf.network",
+  "gf_extension_id": "gf.network",
   "metadata": {}
 }

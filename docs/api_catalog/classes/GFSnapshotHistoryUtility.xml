@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSnapshotHistoryUtility" path="addons/gf/standard/utilities/history/gf_snapshot_history_utility.gd" module="standard" extends="GFUtility" classDigest="37a06845537f36a75dfba23473f03faf26f4c8bdbe63eb6387fa10cd5e9b3e93">
+<class name="GFSnapshotHistoryUtility" path="addons/gf/standard/utilities/history/gf_snapshot_history_utility.gd" module="standard" extends="GFUtility" classDigest="c2259ba6daf1c44281cee257adb4c7c005a356ddfaf57bb9b63088821d6cf2cb">
 	<description>GFSnapshotHistoryUtility: 通用快照历史与回滚工具。
 管理一组有序快照，支持捕获、前后跳转、按 ID 恢复和调试快照。
 默认会使用注入架构的 `get_global_snapshot()` / `restore_global_snapshot()`，
@@ -44,9 +44,10 @@
 	<properties>
 		<member kind="property" name="max_history_size">
 			<signature>var max_history_size: int:</signature>
-			<description>最多保留的快照数量；为 0 时不限制。</description>
+			<description>最多保留的快照数量；为 0 时不限制。裁剪当前快照时会恢复到新的当前快照。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="current_index">

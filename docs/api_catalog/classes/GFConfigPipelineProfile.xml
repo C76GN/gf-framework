@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFConfigPipelineProfile" path="addons/gf/tools/config_pipeline/gf_config_pipeline_profile.gd" module="tools" extends="Resource" classDigest="9ff4df7743e49c80c6b180740828382850d156266f8857ab653e3ce6dd4f9c70">
+<class name="GFConfigPipelineProfile" path="addons/gf/tools/config_pipeline/gf_config_pipeline_profile.gd" module="tools" extends="Resource" classDigest="1ff9cd7bef1ae4cd22425ce4362122f6add8bf6b2eef5d852052e83a867f3e2d">
 	<description>GFConfigPipelineProfile: 配置导表工具的批量构建声明。
 描述一组表来源、数据库标识、输出路径和构建选项，供编辑器工具、CI 或项目脚本复用。
 该资源属于可选 tool package，只表达制作期或 CI 期通用导表任务，不规定项目目录结构、业务字段语义或发布流程。</description>
@@ -91,7 +91,7 @@
 			<description>传给 GFConfigPipeline.save_database() 的保存选项。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="schema">save_options: Dictionary，可包含 output_format、include_schema、include_indexes、indent 和 sort_keys。</tag>
+				<tag name="schema">save_options: Dictionary，可包含 output_format、include_schema、include_indexes、indent、sort_keys、overwrite_existing、allow_unowned_overwrite 和 dry_run。</tag>
 				<tag name="since">5.2.0</tag>
 			</tags>
 		</member>
@@ -100,7 +100,7 @@
 			<description>传给 GFConfigAccessGenerator 的访问器生成选项。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="schema">access_options: Dictionary，可包含 method_name_style、constant_prefix、record_method_pattern、table_method_pattern、include_schema_comments、include_typed_records、typed_record_method_pattern、typed_record_class_suffix 和 overwrite_existing。</tag>
+				<tag name="schema">access_options: Dictionary，可包含 method_name_style、constant_prefix、record_method_pattern、table_method_pattern、include_schema_comments、include_typed_records、typed_record_method_pattern、typed_record_class_suffix、overwrite_existing、allow_unowned_overwrite 和 dry_run。</tag>
 				<tag name="since">5.2.0</tag>
 			</tags>
 		</member>
@@ -134,7 +134,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">overrides: 本次导出的覆盖选项。</tag>
 				<tag name="return">传给 GFConfigPipeline.save_database() 的选项。</tag>
-				<tag name="schema">overrides: Dictionary，可包含 save_options。</tag>
+				<tag name="schema">overrides: Dictionary，可包含 save_options；save_options 可包含 output_format、include_schema、include_indexes、indent、sort_keys、overwrite_existing、allow_unowned_overwrite 和 dry_run。</tag>
 				<tag name="schema">return: Dictionary，包含合成后的保存选项。</tag>
 				<tag name="since">5.2.0</tag>
 			</tags>
@@ -146,7 +146,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">overrides: 本次访问器生成的覆盖选项。</tag>
 				<tag name="return">传给 GFConfigAccessGenerator 的生成选项。</tag>
-				<tag name="schema">overrides: Dictionary，可包含 access_options。</tag>
+				<tag name="schema">overrides: Dictionary，可包含 access_options；access_options 可包含生成器选项、overwrite_existing、allow_unowned_overwrite 和 dry_run。</tag>
 				<tag name="schema">return: Dictionary，包含合成后的访问器生成选项。</tag>
 				<tag name="since">5.2.0</tag>
 			</tags>

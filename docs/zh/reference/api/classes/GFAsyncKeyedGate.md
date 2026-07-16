@@ -36,6 +36,8 @@
 | 方法 | [`cancel_request`](#member-gfasynckeyedgate-methods-cancel_request) | `func cancel_request(request_id: int, reason: StringName = STATUS_CANCELLED, metadata: Dictionary = {}) -> bool:` |
 | 方法 | [`clear`](#member-gfasynckeyedgate-methods-clear) | `func clear(reason: StringName = &"cleared", metadata: Dictionary = {}) -> int:` |
 | 方法 | [`set_key_max_concurrency`](#member-gfasynckeyedgate-methods-set_key_max_concurrency) | `func set_key_max_concurrency(key: Variant, max_concurrency: int) -> int:` |
+| 方法 | [`clear_key_max_concurrency`](#member-gfasynckeyedgate-methods-clear_key_max_concurrency) | `func clear_key_max_concurrency(key: Variant) -> bool:` |
+| 方法 | [`clear_all_key_max_concurrency`](#member-gfasynckeyedgate-methods-clear_all_key_max_concurrency) | `func clear_all_key_max_concurrency() -> int:` |
 | 方法 | [`get_key_max_concurrency`](#member-gfasynckeyedgate-methods-get_key_max_concurrency) | `func get_key_max_concurrency(key: Variant) -> int:` |
 | 方法 | [`expire_waiting_requests`](#member-gfasynckeyedgate-methods-expire_waiting_requests) | `func expire_waiting_requests(now_msec: int = -1) -> int:` |
 | 方法 | [`expire_active_leases`](#member-gfasynckeyedgate-methods-expire_active_leases) | `func expire_active_leases(now_msec: int = -1) -> int:` |
@@ -318,14 +320,14 @@ func request_lease(key: Variant, options: Dictionary = {}) -> Dictionary:
 | 名称 | 说明 |
 |---|---|
 | `key` | 并发仲裁 key。 |
-| `options` | 请求选项，支持 metadata、max_concurrency、timeout_msec、lease_timeout_msec 和 cancel_token。 |
+| `options` | 请求选项，支持 metadata、max_concurrency、timeout_msec、lease_timeout_msec 和 cancel_token。max_concurrency 只约束当前请求，不会写入持久 key 配置。 |
 
 返回：请求结果字典。
 
 结构：
 
-- `key`: Variant，建议使用 String、StringName、int 或可稳定 var_to_str() 的纯数据值。
-- `options`: Dictionary，可包含 metadata: Dictionary、max_concurrency: int、timeout_msec: int、lease_timeout_msec: int、cancel_token: GFCancelToken。
+- `key`: Variant，必须是 GFVariantKeyCodec 接受的稳定 key。
+- `options`: Dictionary，可包含 metadata: Dictionary、max_concurrency: int、timeout_msec: int、lease_timeout_msec: int、cancel_token: GFCancellationToken。
 - `return`: Dictionary，包含 ok、status、queued、acquired、request_id、key、lease、completion、metadata 和 reason。
 
 <a id="member-gfasynckeyedgate-methods-wait_for_lease_async"></a>
@@ -346,13 +348,13 @@ func wait_for_lease_async(key: Variant, options: Dictionary = {}) -> GFAsyncGate
 | 名称 | 说明 |
 |---|---|
 | `key` | 并发仲裁 key。 |
-| `options` | 请求选项；wait_options 会传给 GFAsyncCompletion.wait_async()。 |
+| `options` | 请求选项；wait_options 会传给 GFAsyncWaitUtility.wait_completion_async()。 |
 
 返回：获得的租约；取消、超时或失效时返回 null。
 
 结构：
 
-- `key`: Variant，建议使用 String、StringName、int 或可稳定 var_to_str() 的纯数据值。
+- `key`: Variant，必须是 GFVariantKeyCodec 接受的稳定 key。
 - `options`: Dictionary，支持 request_lease() 选项，并可包含 wait_options: Dictionary。
 
 <a id="member-gfasynckeyedgate-methods-release_lease"></a>
@@ -455,6 +457,46 @@ func set_key_max_concurrency(key: Variant, max_concurrency: int) -> int:
 结构：
 
 - `key`: Variant，调用方传入的 key。
+
+<a id="member-gfasynckeyedgate-methods-clear_key_max_concurrency"></a>
+
+### `clear_key_max_concurrency`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func clear_key_max_concurrency(key: Variant) -> bool:
+```
+
+清理某个 key 的显式最大并发槽位配置。 清理后该 key 会回到 default_max_concurrency；如果该 key 没有队列或活跃租约，会被从快照中裁剪。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `key` | 并发仲裁 key。 |
+
+返回：找到并清理显式配置时返回 true。
+
+结构：
+
+- `key`: Variant，调用方传入的 key。
+
+<a id="member-gfasynckeyedgate-methods-clear_all_key_max_concurrency"></a>
+
+### `clear_all_key_max_concurrency`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func clear_all_key_max_concurrency() -> int:
+```
+
+清理全部显式 key 最大并发槽位配置。 清理后空闲 key 会从快照中裁剪，有等待队列的 key 会按 default_max_concurrency 继续推进。
+
+返回：被清理的显式配置数量。
 
 <a id="member-gfasynckeyedgate-methods-get_key_max_concurrency"></a>
 

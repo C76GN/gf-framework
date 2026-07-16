@@ -32,6 +32,7 @@ func setup(plugin: EditorPlugin) -> void:
 	if plugin == null:
 		return
 
+	cleanup(plugin)
 	for import_plugin_path: String in GFExtensionSettingsBase.get_enabled_import_plugin_paths():
 		_add_import_plugin(plugin, import_plugin_path)
 

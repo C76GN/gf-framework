@@ -14,6 +14,6 @@ items.append_item({ "id": "key", "count": 1 })
 items.end_batch()
 ```
 
-单项变更会发出 `item_changed` / `entry_changed`，同时也会发出一次批量信号，方便只关心“集合已变化”的调用方统一监听。`begin_batch()` / `end_batch()` 期间会暂存变更，最终只发出一次 `items_changed` / `entries_changed`。
+单项变更会发出 `item_changed` / `entry_changed`，同时也会发出一次批量信号，方便只关心“集合已变化”的调用方统一监听。`begin_batch()` / `end_batch()` 期间会暂存变更，最终只发出一次 `items_changed` / `entries_changed`；batch 内不会在结束时补发每个单项的 `item_changed` / `entry_changed`。需要高效刷新列表、表格或 Inspector 时，监听 aggregate signal；需要即时响应单项变更时，只在非 batch 路径监听 item-level signal。
 
 这两个资源只描述“集合内容发生了什么变化”。字段含义、冲突合并、撤销历史、网络同步协议、UI 渲染和持久化策略都应由项目层或上层 Utility 组合。

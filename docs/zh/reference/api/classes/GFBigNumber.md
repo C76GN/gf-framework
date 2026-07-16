@@ -21,7 +21,7 @@
 | 方法 | [`one`](#member-gfbignumber-methods-one) | `static func one() -> GFBigNumber:` |
 | 方法 | [`from_int`](#member-gfbignumber-methods-from_int) | `static func from_int(value: int) -> GFBigNumber:` |
 | 方法 | [`from_float`](#member-gfbignumber-methods-from_float) | `static func from_float(value: float) -> GFBigNumber:` |
-| 方法 | [`from_string`](#member-gfbignumber-methods-from_string) | `static func from_string(value: String) -> GFBigNumber:` |
+| 方法 | [`from_string`](#member-gfbignumber-methods-from_string) | `static func from_string( value: String, max_input_length: int = GFDecimalStringFormatter.DEFAULT_MAX_NUMERIC_TEXT_LENGTH ) -> GFBigNumber:` |
 | 方法 | [`from_variant`](#member-gfbignumber-methods-from_variant) | `static func from_variant(value: Variant) -> GFBigNumber:` |
 | 方法 | [`clone`](#member-gfbignumber-methods-clone) | `func clone() -> GFBigNumber:` |
 | 方法 | [`is_zero`](#member-gfbignumber-methods-is_zero) | `func is_zero() -> bool:` |
@@ -140,9 +140,10 @@ static func from_float(value: float) -> GFBigNumber:
 ### `from_string`
 
 - API：`public`
+- 首次版本：`8.0.0`
 
 ```gdscript
-static func from_string(value: String) -> GFBigNumber:
+static func from_string( value: String, max_input_length: int = GFDecimalStringFormatter.DEFAULT_MAX_NUMERIC_TEXT_LENGTH ) -> GFBigNumber:
 ```
 
 从字符串构建大数，支持普通写法与科学计数法。
@@ -152,6 +153,7 @@ static func from_string(value: String) -> GFBigNumber:
 | 名称 | 说明 |
 |---|---|
 | `value` | 原始字符串，如 "12345"、"1.23e8"。 |
+| `max_input_length` | 最大输入字符数；小于等于 0 时使用框架默认预算。 |
 
 返回：解析后的大数实例。
 

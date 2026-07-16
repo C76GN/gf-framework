@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFCombatGauge" path="addons/gf/extensions/combat/attributes/gf_combat_gauge.gd" module="extensions/combat" extends="Node" classDigest="bb4220436dfa83b39fc7362f8f4f2fa0157622b8e684ba604c6f433685b3b643">
+<class name="GFCombatGauge" path="addons/gf/extensions/combat/attributes/gf_combat_gauge.gd" module="extensions/combat" extends="Node" classDigest="b9588b73225ef1bdeca0c0c3687bb0113ba40bf943f7badee68f9fe35868c03f">
 	<description>GFCombatGauge: 通用可变数值槽。
 用 GFCombatAction 驱动一个带上下限的数值。它可表示生命、护盾、能量、
 耐久或任意项目自定义资源，但框架不绑定这些业务语义。</description>
@@ -65,24 +65,27 @@
 	<constants />
 	<properties>
 		<member kind="property" name="min_value" decorators="@export">
-			<signature>var min_value: float = 0.0</signature>
+			<signature>var min_value: float:</signature>
 			<description>数值下限。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="max_value" decorators="@export">
-			<signature>var max_value: float = 100.0</signature>
+			<signature>var max_value: float:</signature>
 			<description>数值上限。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="current_value" decorators="@export">
-			<signature>var current_value: float = 100.0</signature>
+			<signature>var current_value: float:</signature>
 			<description>当前数值。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="accepted_action_kinds" decorators="@export">

@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFNetworkContractAudit" path="addons/gf/extensions/network/editor/gf_network_contract_audit.gd" module="extensions/network" extends="RefCounted" classDigest="a0b8886b99e1876620c835c1da7a4e7abe0c832842cb4ec9b6c7a298887c6c5c">
+	<description>GFNetworkContractAudit: 网络契约编辑器审计器。
+对 GFNetworkContract 执行 fail-closed 倾向的结构审计，帮助项目在运行前发现
+松散 payload、未知通道、缺少版本和过宽 Variant 字段等风险。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">editor_api</tag>
+		<tag name="since">8.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties />
+	<methods>
+		<member kind="method" name="audit_contract">
+			<signature>func audit_contract(contract: GFNetworkContract, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>审计网络契约。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">contract: 网络契约。</tag>
+				<tag name="param">options: 审计选项，支持 known_channel_ids、require_contract_id、require_version、require_channel_ids、warn_variant_fields、warn_unbounded_collections、max_messages 和 max_fields_per_message。</tag>
+				<tag name="return">GFValidationReportDictionary 兼容报告。</tag>
+				<tag name="schema">options: Dictionary audit options.</tag>
+				<tag name="schema">return: Dictionary with ok, issues, issue_count, summary, and next_action.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="audit_paths">
+			<signature>func audit_paths(contract_paths: PackedStringArray, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>审计多个网络契约资源路径。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">contract_paths: 契约资源路径列表。</tag>
+				<tag name="param">options: 审计选项。</tag>
+				<tag name="return">GFValidationReportDictionary 兼容报告。</tag>
+				<tag name="schema">options: Dictionary audit options.</tag>
+				<tag name="schema">return: Dictionary with ok, issues, issue_count, contract_count, summary, and next_action.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

@@ -192,6 +192,47 @@ func test_duplicate_pending_push_route_async_opens_once() -> void:
 	assert_eq(_router.get_route_history().size(), 1, "重复异步打开同一路由时历史只应记录一次。")
 
 
+func test_async_route_sync_fallback_reaches_terminal_state() -> void:
+	var route: GFUIRoute = _make_route(&"inventory", GFUIUtility.Layer.POPUP)
+	assert_true(_router.register_route(route), "有效路由应可注册。")
+
+	_router.push_route_async(&"inventory")
+	await get_tree().process_frame
+
+	var snapshot: Dictionary = _router.get_debug_snapshot()
+	assert_eq(
+		GFVariantData.get_option_int(snapshot, "pending_async_route_count", -1),
+		0,
+		"缺少 GFAssetUtility 时的同步回退也必须结束异步路由生命周期。"
+	)
+	assert_eq(_router.get_current_route_id(), &"inventory", "同步回退打开的路由仍应进入历史。")
+
+
+func test_conflicting_pending_async_routes_fail_instead_of_silently_overwriting() -> void:
+	_arch = GFArchitecture.new()
+	var asset_util: ManualAssetUtility = ManualAssetUtility.new()
+	await _arch.register_utility_instance(asset_util)
+	await Gf.set_architecture(_arch)
+	var first_route: GFUIRoute = _make_route(&"inventory", GFUIUtility.Layer.POPUP)
+	first_route.scene_path = "res://tests/shared_pending_route_panel.tscn"
+	var second_route: GFUIRoute = _make_route(&"settings", GFUIUtility.Layer.POPUP)
+	second_route.scene_path = "res://tests/shared_pending_route_panel.tscn"
+	var _register_first_result: Variant = _router.register_route(first_route)
+	var _register_second_result: Variant = _router.register_route(second_route)
+	watch_signals(_router)
+
+	_router.push_route_async(&"inventory")
+	_router.push_route_async(&"settings")
+	asset_util.resolve("res://tests/shared_pending_route_panel.tscn", _make_control_scene())
+	await get_tree().process_frame
+	await get_tree().process_frame
+
+	assert_eq(_ui_utility.get_stack_count(GFUIUtility.Layer.POPUP), 1, "冲突路由只能打开第一个请求对应的面板。")
+	assert_eq(_router.get_current_route_id(), &"inventory", "冲突失败后历史应保留第一个路由。")
+	assert_signal_emitted_with_parameters(_router, "route_open_failed", [&"settings", "route_async_conflict"])
+	assert_push_warning("[GFUIRouterUtility] 路由打开失败：settings (route_async_conflict)")
+
+
 func test_async_replace_failure_preserves_existing_route_history() -> void:
 	_arch = GFArchitecture.new()
 	var asset_util: ManualAssetUtility = ManualAssetUtility.new()

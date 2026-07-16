@@ -2,6 +2,15 @@
 extends GutTest
 
 
+func test_projection_can_explicitly_return_json_safe_values() -> void:
+	var native: Variant = GFDataProjection.project_value(Vector2(NAN, INF))
+	var encoded: Variant = GFDataProjection.project_value(Vector2(NAN, INF), { "json_safe": true })
+
+	assert_true(native is Vector2, "默认投影应保留原生 Variant 语义。")
+	assert_true(encoded is Dictionary, "json_safe 投影应使用 typed marker 编码非有限向量。")
+	assert_false(JSON.stringify(encoded).contains(":null"), "json_safe 投影不应让非有限数退化为 JSON null。")
+
+
 func test_dictionary_projection_filters_and_sanitizes_values() -> void:
 	var node: Node = Node.new()
 	node.name = "UnsafeNode"
@@ -59,6 +68,32 @@ func test_projection_with_report_records_dropped_paths() -> void:
 	assert_true(report != null and _has_issue_path(report, "array[0]"), "数组中被 drop 项应记录路径。")
 
 	node.free()
+
+
+func test_projection_schema_reports_invalid_coercion_without_fallback() -> void:
+	var id_field: GFSchemaField = GFSchemaField.new()
+	var _configured_field: GFSchemaField = id_field.configure(&"id", GFSchemaField.ValueType.INT, {
+		"required": true,
+	})
+	var schema: GFDictionarySchema = GFDictionarySchema.new()
+	var _configured_schema: GFDictionarySchema = schema.configure(&"projection", [id_field], {
+		"coerce_values": true,
+		"fail_on_coerce_error": true,
+	})
+
+	var result: Dictionary = GFDataProjection.project_with_report({
+		"id": "bad",
+	}, {
+		"schema": schema,
+		"schema_fields_only": true,
+	})
+	var data: Dictionary = GFVariantData.get_option_dictionary(result, "data")
+	var report: GFValidationReport = _as_report(GFVariantData.get_option_value(result, "report"))
+
+	assert_false(GFVariantData.get_option_bool(result, "ok", true), "schema 转换失败应反映到投影结果。")
+	assert_eq(GFVariantData.get_option_string(data, "id"), "bad", "失败转换不应把坏输入降级成 0。")
+	assert_not_null(report, "schema 转换失败应写入投影报告。")
+	assert_true(report != null and _has_issue_kind(report, "coerce_failed"), "投影报告应保留 coerce_failed。")
 
 
 func test_object_projection_requires_explicit_fields() -> void:

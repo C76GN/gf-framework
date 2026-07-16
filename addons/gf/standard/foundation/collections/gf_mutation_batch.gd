@@ -128,6 +128,14 @@ func commit(max_operations: int = -1) -> Dictionary:
 	while not _pending_operations.is_empty() and (max_operations < 0 or committed_count + failed_count < max_operations):
 		var entry: Dictionary = _get_pending_operation()
 		var operation: Callable = _variant_to_callable(GFVariantData.get_option_value(entry, "operation", Callable()))
+		if not operation.is_valid():
+			var invalid_result: Dictionary = _make_invalid_callable_result(entry)
+			failed_count += 1
+			errors.append(invalid_result)
+			if stop_on_error:
+				break
+			var _removed_invalid_operation: Variant = _pending_operations.pop_front()
+			continue
 		var operation_result: Dictionary = _normalize_operation_result(operation.call(), entry)
 		if GFVariantData.get_option_bool(operation_result, "ok"):
 			var _removed_pending_operation: Variant = _pending_operations.pop_front()
@@ -142,9 +150,10 @@ func commit(max_operations: int = -1) -> Dictionary:
 			break
 		var _removed_failed_operation: Variant = _pending_operations.pop_front()
 
-	var summary: Dictionary = _make_commit_summary(committed_count, failed_count, errors)
-	if GFVariantData.get_option_bool(summary, "ok") and auto_clear_committed_on_success:
+	var commit_succeeded: bool = failed_count == 0
+	if commit_succeeded and auto_clear_committed_on_success:
 		_committed_operations.clear()
+	var summary: Dictionary = _make_commit_summary(committed_count, failed_count, errors)
 	batch_committed.emit(summary)
 	return summary
 
@@ -167,8 +176,16 @@ func rollback_committed(max_operations: int = -1) -> Dictionary:
 	while not _committed_operations.is_empty() and (max_operations < 0 or rolled_back_count + failed_count + skipped_count < max_operations):
 		var entry: Dictionary = _committed_operations.pop_back()
 		var rollback: Callable = _variant_to_callable(GFVariantData.get_option_value(entry, "rollback", Callable()))
-		if not rollback.is_valid():
+		if rollback.is_null():
 			skipped_count += 1
+			continue
+		if not rollback.is_valid():
+			var invalid_result: Dictionary = _make_invalid_callable_result(entry)
+			failed_count += 1
+			errors.append(invalid_result)
+			failed_entries.append(entry)
+			if stop_on_error:
+				break
 			continue
 
 		var rollback_result: Dictionary = _normalize_operation_result(rollback.call(), entry)
@@ -271,6 +288,16 @@ func _make_commit_summary(committed_count: int, failed_count: int, errors: Array
 		"pending_count": _pending_operations.size(),
 		"stored_committed_count": _committed_operations.size(),
 		"errors": errors,
+	}
+
+
+func _make_invalid_callable_result(entry: Dictionary) -> Dictionary:
+	return {
+		"ok": false,
+		"operation_id": GFVariantData.get_option_int(entry, "operation_id", -1),
+		"value": null,
+		"error": "invalid_callable",
+		"metadata": GFVariantData.get_option_dictionary(entry, "metadata"),
 	}
 
 

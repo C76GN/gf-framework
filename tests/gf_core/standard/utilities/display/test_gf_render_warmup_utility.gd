@@ -4,7 +4,7 @@ extends GutTest
 
 # --- 测试方法 ---
 
-## 验证预热清单可以立即处理材质资源并保留缓存。
+## 验证预热清单可以立即处理材质资源，默认不保留缓存。
 func test_render_warmup_manifest_processes_material_resource() -> void:
 	var manifest: GFRenderWarmupManifest = GFRenderWarmupManifest.new()
 	manifest.manifest_id = &"test"
@@ -16,7 +16,10 @@ func test_render_warmup_manifest_processes_material_resource() -> void:
 
 	assert_true(GFVariantData.get_option_bool(summary, "ok"), "材质资源预热应成功。")
 	assert_eq(GFVariantData.get_option_int(summary, "processed_count"), 1, "应处理一个条目。")
-	assert_eq(utility.get_cached_resource_count(), 1, "默认应缓存已预热资源引用。")
+	assert_eq(utility.get_cached_resource_count(), 0, "默认不应缓存已预热资源引用。")
+	var results: Array = GFVariantData.get_option_array(summary, "results")
+	var first_result: Dictionary = GFVariantData.as_dictionary(results[0])
+	assert_false(GFVariantData.get_option_bool(first_result, "cache_retained"), "默认结果应标记未保留缓存。")
 
 
 ## 验证通过路径加载的预热资源也会保留缓存引用。
@@ -28,14 +31,33 @@ func test_render_warmup_caches_resource_loaded_from_path() -> void:
 	var _add_path_result: Variant = manifest.add_resource_path(resource_path, &"material", "StandardMaterial3D")
 	var utility: GFRenderWarmupUtility = GFRenderWarmupUtility.new()
 
-	var summary: Dictionary = utility.warmup_manifest_now(manifest)
+	var summary: Dictionary = utility.warmup_manifest_now(manifest, {
+		"keep_cached": true,
+		"cache_group": &"path_cache",
+	})
 
 	if FileAccess.file_exists(resource_path):
 		var _remove_result: Error = DirAccess.remove_absolute(ProjectSettings.globalize_path(resource_path))
 
 	assert_eq(_save_result, OK, "测试材质资源应可保存到 user://。")
 	assert_true(GFVariantData.get_option_bool(summary, "ok"), "路径资源预热应成功。")
-	assert_eq(utility.get_cached_resource_count(), 1, "路径加载资源应进入预热缓存。")
+	assert_eq(utility.get_cached_resource_count(), 1, "显式 opt-in 后路径加载资源应进入预热缓存。")
+	assert_eq(utility.get_cached_resource_count(&"path_cache"), 1, "缓存分组应可单独统计。")
+
+
+func test_render_warmup_cache_respects_max_cached_resources() -> void:
+	var manifest: GFRenderWarmupManifest = GFRenderWarmupManifest.new()
+	var _add_first_result: Variant = manifest.add_resource(StandardMaterial3D.new(), &"material")
+	var _add_second_result: Variant = manifest.add_resource(StandardMaterial3D.new(), &"material")
+	var utility: GFRenderWarmupUtility = GFRenderWarmupUtility.new()
+
+	var summary: Dictionary = utility.warmup_manifest_now(manifest, {
+		"keep_cached": true,
+		"max_cached_resources": 1,
+	})
+
+	assert_true(GFVariantData.get_option_bool(summary, "ok"), "缓存上限不应阻断预热。")
+	assert_eq(utility.get_cached_resource_count(), 1, "预热缓存应按 max_cached_resources 裁剪。")
 
 
 ## 验证 Utility 可以从节点树收集 Mesh 与材质资源。
@@ -99,10 +121,30 @@ func test_render_warmup_builds_manifest_from_packed_scene() -> void:
 	assert_eq(scene.pack(root), OK, "测试场景应能打包。")
 	var utility: GFRenderWarmupUtility = GFRenderWarmupUtility.new()
 
-	var manifest: GFRenderWarmupManifest = utility.build_manifest_from_scene(scene, { "manifest_id": &"scene" })
+	var manifest: GFRenderWarmupManifest = utility.build_manifest_from_scene(scene, {
+		"manifest_id": &"scene",
+		"allow_scene_instantiation": true,
+	})
 
 	assert_eq(manifest.manifest_id, &"scene", "场景清单应保留 manifest_id。")
 	assert_gt(manifest.get_entry_count(), 1, "场景内 MeshInstance3D 应贡献资源。")
+
+	root.free()
+
+
+func test_render_warmup_packed_scene_manifest_requires_explicit_instantiation_opt_in() -> void:
+	var root: Node3D = Node3D.new()
+	var mesh_instance: MeshInstance3D = _make_mesh_instance()
+	root.add_child(mesh_instance)
+	mesh_instance.owner = root
+	var scene: PackedScene = PackedScene.new()
+	assert_eq(scene.pack(root), OK, "测试场景应能打包。")
+	var utility: GFRenderWarmupUtility = GFRenderWarmupUtility.new()
+
+	var manifest: GFRenderWarmupManifest = utility.build_manifest_from_scene(scene, { "manifest_id": &"scene" })
+
+	assert_eq(manifest.manifest_id, &"scene", "场景清单应保留 manifest_id。")
+	assert_eq(manifest.get_entry_count(), 0, "PackedScene 默认不应被实例化扫描。")
 
 	root.free()
 

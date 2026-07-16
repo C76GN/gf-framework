@@ -22,7 +22,7 @@ GF 内置扩展是随框架分发的可选原子能力。它们提供可以独�
 
 ## 默认启用策略
 
-GF 内置扩展默认关闭。新项目启用 GF 后会获得 kernel 与 standard 基础能力；Save、Combat、Network、Flow、Domain 等可选扩展需要在 `GF Workspace` 的 `GF Extensions` 页面、项目 preset 或 `GFExtensionSettings.set_enabled_extension_ids()` 中显式选择。
+GF 内置扩展默认关闭。新项目启用 GF 后会获得 kernel 与 standard 基础能力；Save、Combat、Network、Flow、Domain 等可选扩展需要在 `GF Workspace` 的 `GF Extensions` 页面、项目 preset 或 `GFExtensionSettings.set_enabled_extension_ids()` 中显式选择。`gf/extensions/selection_mode="default"` 表示按 manifest 默认值派生；保存勾选结果会进入 `explicit` 模式。
 
 扩展启用状态影响运行时 Installer 自动装配、编辑器扩展贡献和导出过滤，不代表扩展脚本从编辑器中消失。项目如果直接引用了某个扩展的 `class_name`、脚本路径、场景或资源，应保持该扩展启用，或在导出前移除对应引用。
 

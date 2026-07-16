@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFExtensionSettings" path="addons/gf/kernel/extension/gf_extension_settings.gd" module="kernel" extends="RefCounted" classDigest="365b8f9c2e1032d4a107eb0849ad7faa502f8ef6e47bfa3c6b2e529640b308f9">
+<class name="GFExtensionSettings" path="addons/gf/kernel/extension/gf_extension_settings.gd" module="kernel" extends="RefCounted" classDigest="94080cc55c2ac78553ede9f035b80b72b17e445b4448bc7a4859f56ca50456c0">
 	<description>GFExtensionSettings: GF 扩展启用状态与 ProjectSettings 桥接。
 负责读取启用扩展 ID、解析扩展依赖、收集启用扩展 Installer，以及提供导出排除开关。</description>
 	<tags>
@@ -16,6 +16,14 @@
 			<description>项目设置：启用的 GF 扩展 ID 列表。</description>
 			<tags>
 				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="const" name="EXTENSION_SELECTION_MODE_SETTING">
+			<signature>const EXTENSION_SELECTION_MODE_SETTING: String = "gf/extensions/selection_mode"</signature>
+			<description>项目设置：扩展启用选择模式。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="AUTO_INSTALL_ENABLED_INSTALLERS_SETTING">
@@ -60,6 +68,38 @@
 			<description>默认自动执行启用扩展 Installer。</description>
 			<tags>
 				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="const" name="SELECTION_MODE_DEFAULT">
+			<signature>const SELECTION_MODE_DEFAULT: String = "default"</signature>
+			<description>默认扩展选择模式：按当前 manifest 的默认启用声明派生启用扩展。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="SELECTION_MODE_EXPLICIT">
+			<signature>const SELECTION_MODE_EXPLICIT: String = "explicit"</signature>
+			<description>显式扩展选择模式：使用 `gf/extensions/enabled` 中保存的扩展 ID。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="EXTENSION_SELECTION_MODE_DEFAULT">
+			<signature>const EXTENSION_SELECTION_MODE_DEFAULT: String = SELECTION_MODE_DEFAULT</signature>
+			<description>默认扩展选择模式。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="ENABLED_EXTENSIONS_DEFAULT">
+			<signature>const ENABLED_EXTENSIONS_DEFAULT: Array[String] = []</signature>
+			<description>默认显式扩展 ID 列表为空。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="EXTERNAL_EXTENSION_ROOTS_DEFAULT">
@@ -127,19 +167,51 @@
 		</member>
 		<member kind="method" name="get_enabled_extension_ids">
 			<signature>static func get_enabled_extension_ids() -&gt; Array[String]:</signature>
-			<description>获取用户配置的启用扩展 ID。</description>
+			<description>获取当前有效启用扩展 ID。
+默认模式下返回当前可发现 manifest 的默认启用 ID；显式模式下返回 `gf/extensions/enabled` 保存的 ID。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">启用扩展 ID 列表。</tag>
+				<tag name="since">3.17.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_extension_selection_mode">
+			<signature>static func get_extension_selection_mode() -&gt; String:</signature>
+			<description>获取扩展启用选择模式。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">`default` 表示按 manifest 默认值派生；`explicit` 表示读取显式启用列表。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="set_extension_selection_mode">
+			<signature>static func set_extension_selection_mode(selection_mode: String) -&gt; bool:</signature>
+			<description>保存扩展启用选择模式。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">selection_mode: 选择模式，必须是 `default` 或 `explicit`。</tag>
+				<tag name="return">模式有效并已写入时返回 true。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="use_default_extension_selection">
+			<signature>static func use_default_extension_selection() -&gt; void:</signature>
+			<description>切换到默认扩展选择模式。
+该方法不会改写 `gf/extensions/enabled`，只让有效启用列表重新由当前 manifest 默认值派生。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="set_enabled_extension_ids">
 			<signature>static func set_enabled_extension_ids(extension_ids: Array[String], include_dependencies: bool = true) -&gt; void:</signature>
-			<description>保存启用扩展 ID，可选自动补齐依赖。</description>
+			<description>保存显式启用扩展 ID，可选自动补齐依赖。
+调用该方法会把扩展选择模式切换为 `explicit`。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">extension_ids: 要启用的扩展 ID 列表。</tag>
 				<tag name="param">include_dependencies: 是否自动包含依赖扩展。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="should_auto_install_enabled_installers">
@@ -289,8 +361,8 @@
 		</member>
 		<member kind="method" name="apply_extension_preset">
 			<signature>static func apply_extension_preset( preset_id: StringName, include_dependencies: bool = true ) -&gt; bool:</signature>
-			<description>应用扩展 preset 到 `gf/extensions/enabled`。
-该方法只写入启用扩展 ID；保存 project.godot 由调用方决定。</description>
+			<description>应用扩展 preset 到显式启用列表。
+该方法会切换到 `explicit` 选择模式；保存 project.godot 由调用方决定。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">preset_id: 扩展 preset ID。</tag>
@@ -446,13 +518,15 @@
 			</tags>
 		</member>
 		<member kind="method" name="get_manifest_graph_report">
-			<signature>static func get_manifest_graph_report(manifests: Array[GFExtensionManifest] = []) -&gt; Dictionary:</signature>
+			<signature>static func get_manifest_graph_report( manifests: Array[GFExtensionManifest] = [], include_cached_load_errors: bool = false ) -&gt; Dictionary:</signature>
 			<description>获取 manifest 依赖图诊断。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">manifests: 可选 manifest 列表；为空时扫描所有 GF 内置扩展。</tag>
+				<tag name="param">include_cached_load_errors: 是否纳入当前发现缓存中的 manifest 读取错误。</tag>
 				<tag name="return">包含重复 ID、无效 manifest、缺失依赖和循环依赖的诊断字典。</tag>
-				<tag name="schema">return: Dictionary containing ok, extension_count, issue_count, duplicate_ids, invalid_manifests, manifest_load_errors, missing_dependencies, and dependency_cycles.</tag>
+				<tag name="schema">include_cached_load_errors: bool。</tag>
+				<tag name="schema">return: Dictionary containing ok, extension_count, issue_count, duplicate_ids, invalid_manifests, manifest_load_errors, missing_dependencies, and dependency_cycles; invalid manifest entries contain stage, extension_id, source_path, and errors.</tag>
 				<tag name="since">5.0.0</tag>
 			</tags>
 		</member>
@@ -462,7 +536,8 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">诊断字典。</tag>
-				<tag name="schema">return: Dictionary containing external_roots, configured_ids, resolved_ids, unknown_enabled_ids, graph status, and extension counts.</tag>
+				<tag name="schema">return: Dictionary containing selection_mode, external_roots, configured_ids, explicit_ids, resolved_ids, unknown_enabled_ids, graph status, and extension counts.</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</methods>

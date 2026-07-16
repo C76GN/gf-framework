@@ -18,6 +18,12 @@
 | 方法 | [`modify`](#member-gfinputmodifier-methods-modify) | `func modify(value: Vector2, _event: InputEvent = null, _action: GFInputAction = null) -> Vector2:` |
 | 方法 | [`modify_3d`](#member-gfinputmodifier-methods-modify_3d) | `func modify_3d(value: Vector3, event: InputEvent = null, action: GFInputAction = null) -> Vector3:` |
 | 方法 | [`duplicate_modifier`](#member-gfinputmodifier-methods-duplicate_modifier) | `func duplicate_modifier() -> GFInputModifier:` |
+| 方法 | [`supports_runtime_state`](#member-gfinputmodifier-methods-supports_runtime_state) | `func supports_runtime_state() -> bool:` |
+| 方法 | [`get_modifier_runtime_state`](#member-gfinputmodifier-methods-get_modifier_runtime_state) | `func get_modifier_runtime_state() -> Dictionary:` |
+| 方法 | [`restore_modifier_runtime_state`](#member-gfinputmodifier-methods-restore_modifier_runtime_state) | `func restore_modifier_runtime_state(state: Dictionary) -> GFInputModifier:` |
+| 方法 | [`reset_modifier_runtime_state`](#member-gfinputmodifier-methods-reset_modifier_runtime_state) | `func reset_modifier_runtime_state() -> GFInputModifier:` |
+| 方法 | [`set_runtime_delta_seconds`](#member-gfinputmodifier-methods-set_runtime_delta_seconds) | `func set_runtime_delta_seconds(delta_seconds: float) -> GFInputModifier:` |
+| 方法 | [`clear_runtime_delta_seconds`](#member-gfinputmodifier-methods-clear_runtime_delta_seconds) | `func clear_runtime_delta_seconds() -> GFInputModifier:` |
 
 ## 方法
 
@@ -78,3 +84,113 @@ func duplicate_modifier() -> GFInputModifier:
 创建运行时副本。
 
 返回：修饰器副本。
+
+<a id="member-gfinputmodifier-methods-supports_runtime_state"></a>
+
+### `supports_runtime_state`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func supports_runtime_state() -> bool:
+```
+
+当前修饰器是否维护运行时状态。
+
+返回：有运行时状态时返回 true。
+
+<a id="member-gfinputmodifier-methods-get_modifier_runtime_state"></a>
+
+### `get_modifier_runtime_state`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func get_modifier_runtime_state() -> Dictionary:
+```
+
+获取运行时状态快照。 无状态修饰器返回空字典。
+
+返回：当前运行时状态。
+
+结构：
+
+- `return`: Dictionary，具体字段由修饰器实现定义。
+
+<a id="member-gfinputmodifier-methods-restore_modifier_runtime_state"></a>
+
+### `restore_modifier_runtime_state`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func restore_modifier_runtime_state(state: Dictionary) -> GFInputModifier:
+```
+
+从运行时状态快照恢复修饰器。 无状态修饰器忽略该调用。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `state` | get_modifier_runtime_state() 生成的状态。 |
+
+返回：当前修饰器。
+
+结构：
+
+- `state`: Dictionary，具体字段由修饰器实现定义。
+
+<a id="member-gfinputmodifier-methods-reset_modifier_runtime_state"></a>
+
+### `reset_modifier_runtime_state`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func reset_modifier_runtime_state() -> GFInputModifier:
+```
+
+重置运行时状态。 无状态修饰器忽略该调用。
+
+返回：当前修饰器。
+
+<a id="member-gfinputmodifier-methods-set_runtime_delta_seconds"></a>
+
+### `set_runtime_delta_seconds`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func set_runtime_delta_seconds(delta_seconds: float) -> GFInputModifier:
+```
+
+设置修饰器下一步使用的运行时 delta 秒数。 不依赖 delta 的修饰器忽略该调用。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `delta_seconds` | 运行时 delta 秒数；小于 0 时实现应按 0 处理。 |
+
+返回：当前修饰器。
+
+<a id="member-gfinputmodifier-methods-clear_runtime_delta_seconds"></a>
+
+### `clear_runtime_delta_seconds`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func clear_runtime_delta_seconds() -> GFInputModifier:
+```
+
+清除手动运行时 delta，恢复修饰器默认时间源。 不依赖 delta 的修饰器忽略该调用。
+
+返回：当前修饰器。

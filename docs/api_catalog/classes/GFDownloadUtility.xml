@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFDownloadUtility" path="addons/gf/standard/utilities/io/gf_download_utility.gd" module="standard" extends="GFUtility" classDigest="c8a52d1f3e7b758fdd003a373611435910347394b9260036b4d2a34044ba8232">
+<class name="GFDownloadUtility" path="addons/gf/standard/utilities/io/gf_download_utility.gd" module="standard" extends="GFUtility" classDigest="1af16801dca5b86b07c282935dfc54e0f090a11ea0c5f9eadda2137938098a97">
 	<description>GFDownloadUtility: 通用文件下载队列。
 提供顺序下载、临时文件提交、可选续传、SHA-256 校验、暂停、取消和诊断快照。</description>
 	<tags>
@@ -64,20 +64,6 @@
 		<member kind="property" name="timeout_seconds">
 			<signature>var timeout_seconds: float = 30.0</signature>
 			<description>HTTP 请求超时时间，单位秒。</description>
-			<tags>
-				<tag name="api">public</tag>
-			</tags>
-		</member>
-		<member kind="property" name="default_temp_suffix">
-			<signature>var default_temp_suffix: String = ".download"</signature>
-			<description>临时文件后缀。</description>
-			<tags>
-				<tag name="api">public</tag>
-			</tags>
-		</member>
-		<member kind="property" name="default_segment_suffix">
-			<signature>var default_segment_suffix: String = ".segment"</signature>
-			<description>分段续传临时文件后缀。</description>
 			<tags>
 				<tag name="api">public</tag>
 			</tags>
@@ -156,9 +142,10 @@
 				<tag name="param">url: 下载 URL。</tag>
 				<tag name="param">target_path: 最终写入路径。</tag>
 				<tag name="param">callback: 完成、失败或取消时执行的回调，签名为 func(result: Dictionary)。</tag>
-				<tag name="param">options: 可选参数，支持 headers、resume、overwrite、expected_sha256、metadata、temp_path、segment_path、max_retries、retry_delay_seconds。</tag>
+				<tag name="param">options: 可选参数，支持 headers、resume、overwrite、expected_sha256、metadata、max_retries、retry_delay_seconds。临时路径由 utility 从 target_path 独占派生。</tag>
 				<tag name="return">任务句柄；输入无效时返回 0。</tag>
-				<tag name="schema">options: Dictionary，可包含 headers、resume、overwrite、expected_sha256、metadata、temp_path、segment_path、max_retries 和 retry_delay_seconds。</tag>
+				<tag name="schema">options: Dictionary，可包含 headers、resume、overwrite、expected_sha256、metadata、max_retries 和 retry_delay_seconds。</tag>
+				<tag name="since">3.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="enqueue_manifest_entries">

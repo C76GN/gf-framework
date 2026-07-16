@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFControlFocusUtility" path="addons/gf/standard/utilities/ui/gf_control_focus_utility.gd" module="standard" extends="RefCounted" classDigest="9b7aee984586901ef7b2a2cf0873d50674f0ab85110f0ed98cd09cec505e0729">
+	<description>GFControlFocusUtility: Control 焦点顺序工具。
+收集可聚焦 Control，按显式顺序写入 Tab 顺序和方向邻居，并提供焦点步进 helper。
+该工具只处理 Godot Control 焦点属性，不规定具体 UI 控件、视觉样式或业务流程。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_service</tag>
+		<tag name="since">8.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants>
+		<member kind="const" name="AXIS_NONE">
+			<signature>const AXIS_NONE: StringName = &amp;"none"</signature>
+			<description>不写入方向邻居，只处理 focus_next / focus_previous。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="AXIS_HORIZONTAL">
+			<signature>const AXIS_HORIZONTAL: StringName = &amp;"horizontal"</signature>
+			<description>按顺序写入 focus_neighbor_left / focus_neighbor_right。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="AXIS_VERTICAL">
+			<signature>const AXIS_VERTICAL: StringName = &amp;"vertical"</signature>
+			<description>按顺序写入 focus_neighbor_top / focus_neighbor_bottom。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="AXIS_BOTH">
+			<signature>const AXIS_BOTH: StringName = &amp;"both"</signature>
+			<description>同时写入水平和垂直方向邻居。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties />
+	<methods>
+		<member kind="method" name="collect_focusable_controls">
+			<signature>static func collect_focusable_controls(root: Node, options: Dictionary = {}) -&gt; Array[Control]:</signature>
+			<description>从节点树中按场景树顺序收集可聚焦 Control。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">root: 查询根节点。</tag>
+				<tag name="param">options: 收集选项，支持 include_root、include_hidden、include_disabled、include_internal、max_depth 和 limit。</tag>
+				<tag name="return">可聚焦控件数组。</tag>
+				<tag name="schema">options: Dictionary，include_root 默认 true，include_hidden 默认 false，include_disabled 默认 false，include_internal 默认 false，max_depth 默认 -1，limit 默认 -1。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="apply_focus_order_from_root">
+			<signature>static func apply_focus_order_from_root(root: Node, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>从节点树收集可聚焦 Control，并按收集顺序应用焦点顺序。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">root: 查询根节点。</tag>
+				<tag name="param">options: 收集与应用选项。</tag>
+				<tag name="return">应用报告。</tag>
+				<tag name="schema">options: Dictionary，支持 collect_focusable_controls() 的选项，以及 wrap、axis、wire_tab_order 和 wire_directional_neighbors。</tag>
+				<tag name="schema">return: Dictionary，包含 ok、control_count、wired_count、wrap、axis、wire_tab_order、wire_directional_neighbors、entries 和 issues。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="apply_focus_order">
+			<signature>static func apply_focus_order(controls: Array[Control], options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>按显式数组顺序写入 Control 焦点顺序。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">controls: 目标控件顺序。</tag>
+				<tag name="param">options: 应用选项，支持 wrap、axis、wire_tab_order、wire_directional_neighbors、include_hidden 和 include_disabled。</tag>
+				<tag name="return">应用报告。</tag>
+				<tag name="schema">options: Dictionary，wrap 默认 true；axis 可为 none、horizontal、vertical 或 both，默认 both；wire_tab_order 默认 true；wire_directional_neighbors 默认 true；preserve_unwired_directional_neighbors 默认 false；include_hidden 默认 false；include_disabled 默认 false。</tag>
+				<tag name="schema">return: Dictionary，包含 ok、control_count、wired_count、wrap、axis、wire_tab_order、wire_directional_neighbors、preserve_unwired_directional_neighbors、entries 和 issues。entries 每项包含 index、name、path、previous 和 next；issues 每项包含 code、message 和 index。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_next_focus_control">
+			<signature>static func get_next_focus_control( controls: Array[Control], current: Control, step: int = 1, wrap_enabled: bool = true ) -&gt; Control:</signature>
+			<description>按顺序数组计算下一次应聚焦的 Control。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">controls: 目标控件顺序。</tag>
+				<tag name="param">current: 当前控件；为空或不在列表中时，从列表起点或终点开始。</tag>
+				<tag name="param">step: 步进数量，正数向后，负数向前，0 返回当前有效控件。</tag>
+				<tag name="param">wrap_enabled: 是否允许在两端循环。</tag>
+				<tag name="return">目标控件；没有可用目标时返回 null。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="grab_next_focus">
+			<signature>static func grab_next_focus( controls: Array[Control], current: Control, step: int = 1, wrap_enabled: bool = true ) -&gt; Control:</signature>
+			<description>计算并抓取下一次焦点。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">controls: 目标控件顺序。</tag>
+				<tag name="param">current: 当前控件；为空或不在列表中时，从列表起点或终点开始。</tag>
+				<tag name="param">step: 步进数量，正数向后，负数向前。</tag>
+				<tag name="param">wrap_enabled: 是否允许在两端循环。</tag>
+				<tag name="return">实际抓取焦点的控件；没有可用目标时返回 null。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

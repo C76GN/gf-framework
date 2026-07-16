@@ -97,6 +97,7 @@ var connect_timeout_msec: int = 15000
 var _channels: Dictionary = {}
 var _connect_timeout_active: bool = false
 var _connect_timeout_elapsed_msec: int = 0
+var _diagnostics_section_key: StringName = &""
 
 
 # --- GF 生命周期方法 ---
@@ -151,6 +152,7 @@ func register_channel(channel: GFNetworkChannel) -> void:
 	if channel == null or channel.channel_id == &"":
 		return
 	_channels[channel.channel_id] = channel
+	_publish_diagnostics_contribution()
 
 
 ## 注销网络通道。
@@ -161,7 +163,7 @@ func register_channel(channel: GFNetworkChannel) -> void:
 func unregister_channel(channel_id: StringName) -> void:
 	var erased: bool = _channels.erase(channel_id)
 	if erased:
-		return
+		_publish_diagnostics_contribution()
 
 
 ## 获取网络通道。
@@ -193,6 +195,7 @@ func get_channel_ids() -> PackedStringArray:
 ## @api public
 func clear_channels() -> void:
 	_channels.clear()
+	_publish_diagnostics_contribution()
 
 
 ## 启动主机。
@@ -216,6 +219,7 @@ func host(options: Dictionary = {}) -> Error:
 		session.close("host_failed")
 	elif session != null and not session.has_connection:
 		session.mark_connected()
+	_publish_diagnostics_contribution()
 	return error
 
 
@@ -241,6 +245,7 @@ func connect_to_endpoint(endpoint: String, options: Dictionary = {}) -> Error:
 	if error != OK and session != null:
 		_end_connect_timeout()
 		session.close("connect_failed")
+	_publish_diagnostics_contribution()
 	return error
 
 
@@ -253,6 +258,7 @@ func disconnect_network() -> void:
 		backend.disconnect_backend()
 	elif session != null:
 		session.close("closed")
+	_publish_diagnostics_contribution()
 
 
 ## 发送消息。
@@ -269,7 +275,9 @@ func disconnect_network() -> void:
 ## [br]
 ## @schema options: Dictionary，传给 backend.send_bytes() 的发送选项。
 func send_message(peer_id: int, message: GFNetworkMessage, options: Dictionary = {}) -> Error:
-	return _send_message_internal(peer_id, message, options, null)
+	var channel: GFNetworkChannel = _resolve_primary_outbound_channel(message)
+	var send_options: Dictionary = channel.build_send_options(options) if channel != null else options
+	return _send_message_internal(peer_id, message, send_options, channel)
 
 
 ## 通过指定通道发送消息。
@@ -344,11 +352,23 @@ func _send_message_internal(
 	if bytes.is_empty():
 		return ERR_INVALID_DATA
 	if validator != null:
-		var bytes_report: Dictionary = validator.validate_bytes(bytes, channel)
+		var bytes_report: Dictionary = validator.validate_bytes(bytes)
 		if not GFVariantData.get_option_bool(bytes_report, "ok", false):
 			message_rejected.emit(peer_id, "invalid_packet", bytes_report)
 			return ERR_INVALID_DATA
-	return backend.send_bytes(peer_id, bytes, options)
+		var policy_channels: Array[GFNetworkChannel] = _resolve_inbound_channels(message)
+		if channel != null and not policy_channels.has(channel):
+			policy_channels.append(channel)
+		for policy_channel: GFNetworkChannel in policy_channels:
+			var channel_bytes_report: Dictionary = validator.validate_bytes(bytes, policy_channel)
+			if not GFVariantData.get_option_bool(channel_bytes_report, "ok", false):
+				message_rejected.emit(peer_id, "invalid_packet", channel_bytes_report)
+				return ERR_INVALID_DATA
+	elif _message_exceeds_channel_limit(bytes, message, channel):
+		return ERR_INVALID_DATA
+	var error: Error = backend.send_bytes(peer_id, bytes, options)
+	_publish_diagnostics_contribution()
+	return error
 
 
 func _connect_backend_signals(target_backend: GFNetworkBackend) -> void:
@@ -387,6 +407,7 @@ func _replace_backend(next_backend: GFNetworkBackend, close_reason: String) -> v
 	backend = next_backend
 	if backend != null:
 		_connect_backend_signals(backend)
+	_publish_diagnostics_contribution()
 
 
 func _on_backend_connected() -> void:
@@ -394,6 +415,7 @@ func _on_backend_connected() -> void:
 	if session != null:
 		if not session.has_connection:
 			session.mark_connected()
+	_publish_diagnostics_contribution()
 	connected.emit()
 
 
@@ -401,14 +423,17 @@ func _on_backend_disconnected(reason: String) -> void:
 	_end_connect_timeout()
 	if session != null:
 		session.close(reason)
+	_publish_diagnostics_contribution()
 	disconnected.emit(reason)
 
 
 func _on_backend_peer_connected(peer_id: int) -> void:
+	_publish_diagnostics_contribution()
 	peer_connected.emit(peer_id)
 
 
 func _on_backend_peer_disconnected(peer_id: int) -> void:
+	_publish_diagnostics_contribution()
 	peer_disconnected.emit(peer_id)
 
 
@@ -440,10 +465,11 @@ func _on_backend_message_received(peer_id: int, bytes: PackedByteArray) -> void:
 			if not GFVariantData.get_option_bool(channel_bytes_report, "ok", false):
 				message_rejected.emit(peer_id, "invalid_packet", channel_bytes_report)
 				return
-		var message_report: Dictionary = validator.validate_message(message)
+		var message_report: Dictionary = validator.validate_message_for_peer(message, peer_id)
 		if not GFVariantData.get_option_bool(message_report, "ok", false):
 			message_rejected.emit(peer_id, "invalid_message", message_report)
 			return
+	_publish_diagnostics_contribution()
 	message_received.emit(peer_id, message)
 
 
@@ -453,6 +479,15 @@ func _describe_channels() -> Array[Dictionary]:
 		if channel != null:
 			result.append(channel.describe())
 	return result
+
+
+func _resolve_primary_outbound_channel(message: GFNetworkMessage) -> GFNetworkChannel:
+	if message == null:
+		return null
+	var channel: GFNetworkChannel = get_channel(message.channel_id)
+	if channel != null:
+		return channel
+	return get_channel(message.message_type)
 
 
 func _resolve_inbound_channels(message: GFNetworkMessage) -> Array[GFNetworkChannel]:
@@ -472,6 +507,20 @@ func _append_inbound_channel(result: Array[GFNetworkChannel], channel_id: String
 	if channel == null or result.has(channel):
 		return
 	result.append(channel)
+
+
+func _message_exceeds_channel_limit(
+	bytes: PackedByteArray,
+	message: GFNetworkMessage,
+	primary_channel: GFNetworkChannel
+) -> bool:
+	var policy_channels: Array[GFNetworkChannel] = _resolve_inbound_channels(message)
+	if primary_channel != null and not policy_channels.has(primary_channel):
+		policy_channels.append(primary_channel)
+	for policy_channel: GFNetworkChannel in policy_channels:
+		if policy_channel.max_packet_size > 0 and bytes.size() > policy_channel.max_packet_size:
+			return true
+	return false
 
 
 func _begin_connect_timeout() -> void:
@@ -527,15 +576,38 @@ func _register_diagnostics_contribution() -> void:
 	if diagnostics == null:
 		return
 
-	var _register_snapshot_section_provider_result_471: Variant = diagnostics.register_snapshot_section_provider(&"network", Callable(self, "get_debug_snapshot"))
+	_diagnostics_section_key = _get_diagnostics_section_key()
+	var _snapshot_published: bool = diagnostics.publish_snapshot_section(
+		self,
+		_diagnostics_section_key,
+		get_debug_snapshot()
+	)
 
 
 func _unregister_diagnostics_contribution() -> void:
 	var diagnostics: GFDiagnosticsUtility = _get_diagnostics_utility_value(get_utility(GFDiagnosticsUtility))
-	if diagnostics == null:
+	if diagnostics == null or _diagnostics_section_key == &"":
 		return
 
-	diagnostics.unregister_snapshot_section_provider(&"network")
+	var _snapshot_removed: bool = diagnostics.remove_snapshot_section(self, _diagnostics_section_key)
+	_diagnostics_section_key = &""
+
+
+func _publish_diagnostics_contribution() -> void:
+	if _diagnostics_section_key == &"":
+		return
+	var diagnostics: GFDiagnosticsUtility = _get_diagnostics_utility_value(get_utility(GFDiagnosticsUtility))
+	if diagnostics == null:
+		return
+	var _snapshot_published: bool = diagnostics.publish_snapshot_section(
+		self,
+		_diagnostics_section_key,
+		get_debug_snapshot()
+	)
+
+
+func _get_diagnostics_section_key() -> StringName:
+	return &"network"
 
 
 func _get_network_channel_value(value: Variant) -> GFNetworkChannel:

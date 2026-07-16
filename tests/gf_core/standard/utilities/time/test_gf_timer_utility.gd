@@ -126,6 +126,20 @@ func test_dispose_clears_pending_timers() -> void:
 	assert_false(fired.value, "dispose 后残留定时器不应触发。")
 
 
+func test_tick_ignores_non_finite_delta() -> void:
+	var fired: TimerBoolState = TimerBoolState.new()
+
+	var handle: int = _timer_util.execute_after(0.1, func() -> void:
+		fired.value = true
+	)
+	_timer_util.tick(NAN)
+	_timer_util.tick(INF)
+	_timer_util.tick(0.1)
+
+	assert_gt(handle, 0, "排队定时器应返回有效句柄。")
+	assert_true(fired.value, "忽略非有限 delta 后，正常 delta 应继续触发定时器。")
+
+
 func test_execute_repeating_runs_expected_count() -> void:
 	var fired: TimerCountState = TimerCountState.new()
 
@@ -202,6 +216,23 @@ func test_cancel_repeating_timer_from_callback_stops_next_repeat() -> void:
 	_arch.tick(0.1)
 
 	assert_eq(fired.count, 1, "回调内取消重复任务后不应再次触发。")
+
+
+func test_cancel_owner_from_callback_stops_owned_repeating_timer() -> void:
+	var fired: TimerCountState = TimerCountState.new()
+	var timer_owner: RefCounted = RefCounted.new()
+
+	var handle: int = _timer_util.execute_repeating_owned(timer_owner, 0.1, func() -> void:
+		fired.count += 1
+		var removed: int = _timer_util.cancel_owner(timer_owner)
+		assert_eq(removed, 1, "回调中 cancel_owner 应命中正在执行的 owner 定时器。")
+	)
+	_arch.tick(0.1)
+	_arch.tick(0.1)
+
+	assert_gt(handle, 0, "owner 绑定重复定时器应返回有效句柄。")
+	assert_eq(fired.count, 1, "回调内 cancel_owner 后不应重新排队。")
+	assert_eq(GFVariantData.get_option_int(_timer_util.get_debug_snapshot(), "pending_count"), 0, "执行中 owner 取消后不应残留 pending timer。")
 
 
 func test_repeating_timer_drops_invalid_callback_when_ready() -> void:

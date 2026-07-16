@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFEditorCommand" path="addons/gf/kernel/editor/gf_editor_command.gd" module="kernel" extends="RefCounted" classDigest="2d78f93cffbf2335d03945c96bd30b652b95cd907a95e295e73c7cab93037008">
+<class name="GFEditorCommand" path="addons/gf/kernel/editor/gf_editor_command.gd" module="kernel" extends="RefCounted" classDigest="a886ab5ba03f85dee45fccf3989da803defd36f5f59dde39753c34b66ec7ccc4">
 	<description>GFEditorCommand: 可撤销编辑器操作的通用基类。
 用于把编辑器 UI、快捷键或交互工具产生的修改收敛成可执行、可撤销的命令。
 命令只描述操作协议，不绑定具体资源、节点类型或业务含义。</description>
@@ -14,18 +14,20 @@
 	<constants />
 	<properties>
 		<member kind="property" name="command_name">
-			<signature>var command_name: String = "GF Editor Command"</signature>
+			<signature>var command_name: String:</signature>
 			<description>命令显示名称，会作为 UndoRedo action 名称使用。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="metadata">
-			<signature>var metadata: Dictionary = {}</signature>
+			<signature>var metadata: Dictionary:</signature>
 			<description>调用方可附加的上下文数据。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="schema">metadata: Dictionary for caller-defined command metadata.</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</properties>
@@ -86,6 +88,16 @@
 				<tag name="return">已执行时返回 true。</tag>
 			</tags>
 		</member>
+		<member kind="method" name="is_sealed">
+			<signature>func is_sealed() -&gt; bool:</signature>
+			<description>返回命令配置是否已经冻结。
+已执行或写入 UndoRedo 的命令实例代表一次编辑动作，冻结后不应再修改配置字段。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">配置已冻结时返回 true。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
 		<member kind="method" name="can_execute">
 			<signature>func can_execute() -&gt; bool:</signature>
 			<description>命令当前是否允许执行。</description>
@@ -125,6 +137,16 @@
 			<tags>
 				<tag name="api">protected</tag>
 				<tag name="return">Godot 错误码。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_can_change_configuration">
+			<signature>func _can_change_configuration(field_name: String) -&gt; bool:</signature>
+			<description>返回指定配置字段当前是否可修改。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">field_name: 配置字段名。</tag>
+				<tag name="return">配置未冻结时返回 true；已冻结时报告错误并返回 false。</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 	</methods>

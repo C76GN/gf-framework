@@ -9,7 +9,12 @@ var scene_util := Gf.get_utility(GFSceneUtility) as GFSceneUtility
 scene_util.mark_transient(BattleSystem)
 
 # 开始带 Loading 过渡的异步切换。
-scene_util.load_scene_async("res://levels/level_2.tscn", "res://ui/loading_screen.tscn")
+var load_error: Error = scene_util.load_scene_async(
+	"res://levels/level_2.tscn",
+	"res://ui/loading_screen.tscn"
+)
+if load_error != OK:
+	push_error("无法发起场景切换：%s" % error_string(load_error))
 ```
 
 如果项目希望把切换参数做成资源，可使用 `GFSceneTransitionConfig`：
@@ -23,8 +28,10 @@ transition.cache_loaded_scene = true
 transition.params = { "spawn_point": "gate_a" }
 transition.minimum_duration_seconds = 0.35
 
-scene_util.load_scene_with_transition(transition)
+var transition_error: Error = scene_util.load_scene_with_transition(transition)
 ```
+
+这两个入口会同步返回“是否成功发起”对应的 Godot `Error`；路径无效、资源类型错误或当前状态拒绝时不会伪装成 `OK`。已经发起后的加载进度与异步终态继续通过 `scene_loading_progress`、`scene_load_failed` 和 `scene_changed` 等信号观察。
 
 `minimum_duration_seconds` 只控制 loading scene 至少停留多久，避免缓存命中时过渡 UI 一闪而过；它不替代目标场景自己的初始化等待。
 

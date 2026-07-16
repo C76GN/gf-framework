@@ -35,7 +35,7 @@ class_name GameInstaller
 extends GFInstaller
 
 
-func install(architecture: GFArchitecture) -> void:
+func install(architecture: GFArchitecture, _scope: GFAsyncScope) -> void:
 	architecture.register_model_instance(PlayerModel.new())
 	architecture.register_utility_instance(GFStorageUtility.new())
 	architecture.register_system_instance(BattleSystem.new())

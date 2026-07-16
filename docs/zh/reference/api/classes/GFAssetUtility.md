@@ -33,6 +33,7 @@
 | 方法 | [`get_asset_reference_count`](#member-gfassetutility-methods-get_asset_reference_count) | `func get_asset_reference_count(path: String) -> int:` |
 | 方法 | [`register_group_path`](#member-gfassetutility-methods-register_group_path) | `func register_group_path(group_id: StringName, path: String, pin: bool = false) -> void:` |
 | 方法 | [`get_group_paths`](#member-gfassetutility-methods-get_group_paths) | `func get_group_paths(group_id: StringName) -> PackedStringArray:` |
+| 方法 | [`preload_plan_async`](#member-gfassetutility-methods-preload_plan_async) | `func preload_plan_async( asset_plan: GFAssetPreloadPlan, on_completed: Callable = Callable(), options: Dictionary = {} ) -> void:` |
 | 方法 | [`preload_group_async`](#member-gfassetutility-methods-preload_group_async) | `func preload_group_async( group_id: StringName, entries: Array, on_completed: Callable = Callable(), options: Dictionary = {} ) -> void:` |
 | 方法 | [`unload_group`](#member-gfassetutility-methods-unload_group) | `func unload_group(group_id: StringName, remove_unreferenced_cache: bool = false) -> void:` |
 | 方法 | [`tick`](#member-gfassetutility-methods-tick) | `func tick(_delta: float = 0.0) -> void:` |
@@ -398,6 +399,31 @@ func get_group_paths(group_id: StringName) -> PackedStringArray:
 
 返回：路径列表。
 
+<a id="member-gfassetutility-methods-preload_plan_async"></a>
+
+### `preload_plan_async`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func preload_plan_async( asset_plan: GFAssetPreloadPlan, on_completed: Callable = Callable(), options: Dictionary = {} ) -> void:
+```
+
+按预加载计划异步预热资源分组。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `asset_plan` | 资源预加载计划。 |
+| `on_completed` | 完成回调，签名为 func(report: Dictionary)。 |
+| `options` | 调用方覆盖选项，会合并到计划默认选项。 |
+
+结构：
+
+- `options`: Dictionary with optional `pin_cache: bool`, `serial_lane_id: StringName`, `lane_id: StringName`, and `max_concurrent_loads: int`.
+
 <a id="member-gfassetutility-methods-preload_group_async"></a>
 
 ### `preload_group_async`
@@ -699,4 +725,4 @@ func get_debug_snapshot() -> Dictionary:
 
 结构：
 
-- `return`: Dictionary with cache, pending, pending_progress, pinned, reference count, and group count diagnostic fields.
+- `return`: Dictionary with max_cache_size, cache_count, cached_paths, cache_keys, pending_count, pending_paths, pending_cache_keys, pending_progress, pinned_count, pinned_paths, pinned_cache_keys, reference_counts, cache_key_reference_counts, resource_identities, group_count, queued_count, queued_paths, lane_active_counts, cache_diagnostics, and threaded_resource_operations diagnostic fields.

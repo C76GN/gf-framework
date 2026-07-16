@@ -136,12 +136,15 @@ var _internal_group: GFNodeStateGroup = null
 var _group_keys_by_instance_id: Dictionary = {}
 var _group_state_changed_callables: Dictionary = {}
 var _group_state_event_handled_callables: Dictionary = {}
-var _event_architectures: Array[GFArchitecture] = []
+var _event_architectures: Array[WeakRef] = []
 var _is_ready: bool = false
 var _reload_queued: bool = false
 var _is_reloading: bool = false
 var _preserve_reload_state_active: bool = false
 var _lifecycle_serial: int = 0
+var _is_restoring_state_snapshot: bool = false
+var _restore_blocked_operations: Array[StringName] = []
+var _group_registry_revision: int = 0
 
 
 # --- Godot 生命周期方法 ---
@@ -193,18 +196,28 @@ func _get_configuration_warnings() -> PackedStringArray:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.0.0
+## [br]
 ## @param path: 资源路径或状态路径。
 ## [br]
 ## @param args: 状态切换时传递的可选参数。
 ## [br]
 ## @schema args: 状态切换参数 Dictionary；键和值由调用方约定。
-func transition_to(path: StringName, args: Dictionary = {}) -> void:
+## [br]
+## @param stack_exit_policy: 折叠暂停栈时使用 GFNodeStateGroup.StackExitPolicy。
+func transition_to(
+	path: StringName,
+	args: Dictionary = {},
+	stack_exit_policy: int = GFNodeStateGroup.StackExitPolicy.REQUIRE_GUARDS
+) -> void:
+	if _reject_mutation_during_restore(&"transition_to"):
+		return
 	var text: String = String(path)
 	var parts: PackedStringArray = text.split("/", false)
 	if parts.size() == 1:
-		transition_group_to(INTERNAL_GROUP_NAME, StringName(parts[0]), args)
+		transition_group_to(INTERNAL_GROUP_NAME, StringName(parts[0]), args, stack_exit_policy)
 	elif parts.size() == 2:
-		transition_group_to(StringName(parts[0]), StringName(parts[1]), args)
+		transition_group_to(StringName(parts[0]), StringName(parts[1]), args, stack_exit_policy)
 	else:
 		push_error("[GFNodeStateMachine] transition_to 失败：路径格式无效。")
 
@@ -213,6 +226,8 @@ func transition_to(path: StringName, args: Dictionary = {}) -> void:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.0.0
+## [br]
 ## @param group_name: 能力组或状态组名称。
 ## [br]
 ## @param state_name: 目标状态名称。
@@ -220,12 +235,21 @@ func transition_to(path: StringName, args: Dictionary = {}) -> void:
 ## @param args: 状态切换时传递的可选参数。
 ## [br]
 ## @schema args: 状态切换参数 Dictionary；键和值由调用方约定。
-func transition_group_to(group_name: StringName, state_name: StringName, args: Dictionary = {}) -> void:
+## [br]
+## @param stack_exit_policy: 折叠暂停栈时使用 GFNodeStateGroup.StackExitPolicy。
+func transition_group_to(
+	group_name: StringName,
+	state_name: StringName,
+	args: Dictionary = {},
+	stack_exit_policy: int = GFNodeStateGroup.StackExitPolicy.REQUIRE_GUARDS
+) -> void:
+	if _reject_mutation_during_restore(&"transition_group_to"):
+		return
 	var group: GFNodeStateGroup = get_state_group(group_name)
 	if group == null:
 		push_warning("[GFNodeStateMachine] 切换失败，未找到状态组：%s" % group_name)
 		return
-	group.transition_to(state_name, args)
+	group.transition_to(state_name, args, stack_exit_policy)
 
 
 ## 暂停当前内部状态并叠加进入一个子状态。path 可为 "State" 或 "Group/State"。
@@ -238,6 +262,8 @@ func transition_group_to(group_name: StringName, state_name: StringName, args: D
 ## [br]
 ## @schema args: 状态切换参数 Dictionary；键和值由调用方约定。
 func push_state(path: StringName, args: Dictionary = {}) -> void:
+	if _reject_mutation_during_restore(&"push_state"):
+		return
 	var text: String = String(path)
 	var parts: PackedStringArray = text.split("/", false)
 	if parts.size() == 1:
@@ -260,6 +286,8 @@ func push_state(path: StringName, args: Dictionary = {}) -> void:
 ## [br]
 ## @schema args: 状态切换参数 Dictionary；键和值由调用方约定。
 func push_group_state(group_name: StringName, state_name: StringName, args: Dictionary = {}) -> void:
+	if _reject_mutation_during_restore(&"push_group_state"):
+		return
 	var group: GFNodeStateGroup = get_state_group(group_name)
 	if group == null:
 		push_warning("[GFNodeStateMachine] push_state 失败，未找到状态组：%s" % group_name)
@@ -279,6 +307,8 @@ func push_group_state(group_name: StringName, state_name: StringName, args: Dict
 ## [br]
 ## @return: 成功恢复上一层状态时返回 true。
 func pop_state(group_name: StringName = INTERNAL_GROUP_NAME, args: Dictionary = {}) -> bool:
+	if _reject_mutation_during_restore(&"pop_state"):
+		return false
 	var group: GFNodeStateGroup = get_state_group(group_name)
 	if group == null:
 		push_warning("[GFNodeStateMachine] pop_state 失败，未找到状态组：%s" % group_name)
@@ -294,6 +324,8 @@ func pop_state(group_name: StringName = INTERNAL_GROUP_NAME, args: Dictionary = 
 ## [br]
 ## @schema args: 启动参数 Dictionary；为空时使用各状态组 initial_args。
 func start(args: Dictionary = {}) -> void:
+	if _reject_mutation_during_restore(&"start"):
+		return
 	if _groups.is_empty():
 		reload_from_children()
 
@@ -311,6 +343,8 @@ func start(args: Dictionary = {}) -> void:
 ## [br]
 ## @schema args: 启动参数 Dictionary；为空时使用该状态组 initial_args。
 func start_group(group_name: StringName = INTERNAL_GROUP_NAME, args: Dictionary = {}) -> void:
+	if _reject_mutation_during_restore(&"start_group"):
+		return
 	if _groups.is_empty():
 		reload_from_children()
 
@@ -328,6 +362,8 @@ func start_group(group_name: StringName = INTERNAL_GROUP_NAME, args: Dictionary 
 ## [br]
 ## @param group: 所属状态组。
 func add_state_group(group: GFNodeStateGroup) -> void:
+	if _reject_mutation_during_restore(&"add_state_group"):
+		return
 	if not _is_node_state_group(group):
 		return
 
@@ -337,6 +373,7 @@ func add_state_group(group: GFNodeStateGroup) -> void:
 		return
 
 	_groups[key] = group
+	_group_registry_revision += 1
 	_group_keys_by_instance_id[group.get_instance_id()] = key
 	var changed_callable: Callable = _on_group_current_state_changed.bind(group)
 	_group_state_changed_callables[key] = changed_callable
@@ -353,6 +390,8 @@ func add_state_group(group: GFNodeStateGroup) -> void:
 ## [br]
 ## @return: 成功移除已注册状态组时返回 true。
 func remove_state_group(group: GFNodeStateGroup) -> bool:
+	if _reject_mutation_during_restore(&"remove_state_group"):
+		return false
 	if not _is_node_state_group(group):
 		return false
 
@@ -364,8 +403,23 @@ func remove_state_group(group: GFNodeStateGroup) -> bool:
 	_erase_dictionary_key(_groups, key)
 	_erase_dictionary_key(_group_keys_by_instance_id, group.get_instance_id())
 	_erase_dictionary_key(_group_state_changed_callables, key)
+	_group_registry_revision += 1
+	group.detach_machine()
 	state_group_removed.emit(group)
 	return true
+
+
+## 获取已注册状态组列表。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+## [br]
+## @return: 已注册状态组节点列表。
+## [br]
+## @schema return: Array[GFNodeStateGroup]，只读快照；修改状态组请使用 add_state_group() 与 remove_state_group()。
+func get_state_groups() -> Array[GFNodeStateGroup]:
+	return _get_registered_groups()
 
 
 ## 获取状态组。
@@ -479,6 +533,8 @@ func is_in_state(path: StringName) -> bool:
 ## [br]
 ## @schema args: 状态切换参数 Dictionary；键和值由调用方约定。
 func restart_group(group_name: StringName = INTERNAL_GROUP_NAME, args: Dictionary = {}) -> void:
+	if _reject_mutation_during_restore(&"restart_group"):
+		return
 	var group: GFNodeStateGroup = get_state_group(group_name)
 	if group == null:
 		push_warning("[GFNodeStateMachine] restart_group 失败，未找到状态组：%s" % group_name)
@@ -500,6 +556,8 @@ func restart_group(group_name: StringName = INTERNAL_GROUP_NAME, args: Dictionar
 ## [br]
 ## @return: 有状态处理该事件时返回 true。
 func dispatch_state_event(event_id: StringName, payload: Variant = null, group_name: StringName = &"") -> bool:
+	if _reject_mutation_during_restore(&"dispatch_state_event"):
+		return false
 	if group_name != &"":
 		var group: GFNodeStateGroup = get_state_group(group_name)
 		if group == null:
@@ -516,9 +574,11 @@ func dispatch_state_event(event_id: StringName, payload: Variant = null, group_n
 ## [br]
 ## @api public
 ## [br]
+## @since 3.0.0
+## [br]
 ## @return: 包含所有状态组当前状态、历史、栈深度和黑板副本的字典。
 ## [br]
-## @schema return: 调试快照 Dictionary，包含 groups 和 internal_group 字段；groups 的键为状态组名，值为 GFNodeStateGroup.get_state_snapshot() 返回的状态组快照。
+## @schema return: 调试快照 Dictionary，包含 schema_version、groups 和 internal_group 字段；groups 的键为状态组名，值为 GFNodeStateGroup.get_state_snapshot() 返回的状态组快照。
 func get_state_snapshot() -> Dictionary:
 	var groups: Dictionary = {}
 	for group_key: Variant in _groups.keys():
@@ -527,9 +587,51 @@ func get_state_snapshot() -> Dictionary:
 			continue
 		groups[group_key] = group.get_state_snapshot()
 	return {
+		"schema_version": 1,
 		"groups": groups,
 		"internal_group": INTERNAL_GROUP_NAME,
 	}
+
+
+## 获取 JSON-safe 节点状态机调试快照。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+## [br]
+## @param options: 传给 GFReportValueCodec 的编码选项。
+## [br]
+## @return 可安全 JSON.stringify() 的节点状态机调试快照。
+## [br]
+## @schema options: Dictionary with GFReportValueCodec options.
+## [br]
+## @schema return: Dictionary，包含 JSON-safe groups 和 internal_group 字段。
+func get_json_compatible_state_snapshot(options: Dictionary = {}) -> Dictionary:
+	var codec_options: Dictionary = options.duplicate(true)
+	return GFVariantData.as_dictionary(GFReportValueCodec.to_json_compatible(get_state_snapshot(), codec_options))
+
+
+## 从 get_state_snapshot() 的结果恢复所有已注册状态组。
+## [br]
+## 该入口只恢复状态机运行态，不创建缺失状态组或状态节点；调用方应先完成场景树装配或 reload_from_children()。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+## [br]
+## @param snapshot: get_state_snapshot() 返回的状态机快照。
+## [br]
+## @return: 恢复报告。
+## [br]
+## @schema snapshot: Dictionary，包含 schema_version、groups 和 internal_group 字段。
+## [br]
+## @schema return: Dictionary，包含 report_schema_version、status、ok、restored、partial、groups、missing_group_snapshots、unrestored_group_snapshots、blocked_operations、group_registry_revision_before、group_registry_revision_after、registry_stable 和 rolled_back 字段。
+func restore_state_snapshot(snapshot: Dictionary) -> Dictionary:
+	if GFVariantData.get_option_int(snapshot, "schema_version", -1) != 1:
+		var invalid_report: Dictionary = _make_machine_restore_report()
+		invalid_report["error"] = "unsupported state machine snapshot schema_version."
+		return invalid_report
+	return _restore_state_snapshot(GFVariantData.get_option_dictionary(snapshot, "groups"))
 
 
 ## 获取当前状态机可用的架构实例。
@@ -699,17 +801,19 @@ func send_simple_event(event_id: StringName, payload: Variant = null) -> void:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.0.0
+## [br]
 ## @param listener_owner: 监听器拥有者。
 ## [br]
 ## @param event_type: 要监听的脚本类型。
 ## [br]
-## @param callback: 回调函数。
+## @param listener: 事件监听器契约。
 ## [br]
 ## @param priority: 回调优先级，数值越大越先执行，默认为 0。
-func register_event_owned(listener_owner: Object, event_type: Script, callback: Callable, priority: int = 0) -> void:
+func register_event_owned(listener_owner: Object, event_type: Script, listener: GFEventListener, priority: int = 0) -> void:
 	var architecture: GFArchitecture = _get_architecture_or_null()
 	if architecture != null:
-		architecture.register_event_owned(listener_owner, event_type, callback, priority)
+		architecture.register_event_owned(listener_owner, event_type, listener, priority)
 		_remember_event_architecture(architecture)
 
 
@@ -721,37 +825,39 @@ func register_event_owned(listener_owner: Object, event_type: Script, callback: 
 ## [br]
 ## @param event_type: 要注销的脚本类型。
 ## [br]
-## @param callback: 要移除的回调函数。
+## @param listener: 要移除的事件监听器契约。
 ## [br]
 ## @param listener_owner: 注册监听时使用的拥有者；为空时只注销无 owner 监听。
-func unregister_event(event_type: Script, callback: Callable, listener_owner: Object = null) -> void:
+func unregister_event(event_type: Script, listener: GFEventListener, listener_owner: Object = null) -> void:
 	for architecture: GFArchitecture in _get_tracked_event_architectures():
 		if listener_owner != null:
-			architecture.unregister_event_owned(listener_owner, event_type, callback)
+			architecture.unregister_event_owned(listener_owner, event_type, listener)
 		else:
-			architecture.unregister_event(event_type, callback)
+			architecture.unregister_event(event_type, listener)
 
 
 ## 注册带拥有者的可赋值类型事件监听器。
 ## [br]
 ## @api public
 ## [br]
+## @since 3.0.0
+## [br]
 ## @param listener_owner: 监听器拥有者。
 ## [br]
 ## @param base_event_type: 要监听的基类脚本类型。
 ## [br]
-## @param callback: 回调函数。
+## @param listener: 事件监听器契约。
 ## [br]
 ## @param priority: 回调优先级，数值越大越先执行，默认为 0。
 func register_assignable_event_owned(
 	listener_owner: Object,
 	base_event_type: Script,
-	callback: Callable,
+	listener: GFEventListener,
 	priority: int = 0
 ) -> void:
 	var architecture: GFArchitecture = _get_architecture_or_null()
 	if architecture != null:
-		architecture.register_assignable_event_owned(listener_owner, base_event_type, callback, priority)
+		architecture.register_assignable_event_owned(listener_owner, base_event_type, listener, priority)
 		_remember_event_architecture(architecture)
 
 
@@ -763,30 +869,32 @@ func register_assignable_event_owned(
 ## [br]
 ## @param base_event_type: 注册时使用的基类脚本类型。
 ## [br]
-## @param callback: 要移除的回调函数。
+## @param listener: 要移除的事件监听器契约。
 ## [br]
 ## @param listener_owner: 注册监听时使用的拥有者；为空时只注销无 owner 监听。
-func unregister_assignable_event(base_event_type: Script, callback: Callable, listener_owner: Object = null) -> void:
+func unregister_assignable_event(base_event_type: Script, listener: GFEventListener, listener_owner: Object = null) -> void:
 	for architecture: GFArchitecture in _get_tracked_event_architectures():
 		if listener_owner != null:
-			architecture.unregister_assignable_event_owned(listener_owner, base_event_type, callback)
+			architecture.unregister_assignable_event_owned(listener_owner, base_event_type, listener)
 		else:
-			architecture.unregister_assignable_event(base_event_type, callback)
+			architecture.unregister_assignable_event(base_event_type, listener)
 
 
 ## 注册带拥有者的轻量级 StringName 事件监听器。
 ## [br]
 ## @api public
 ## [br]
+## @since 3.0.0
+## [br]
 ## @param listener_owner: 监听器拥有者。
 ## [br]
 ## @param event_id: StringName 事件标识符。
 ## [br]
-## @param callback: 回调函数，签名为 func(payload: Variant)。
-func register_simple_event_owned(listener_owner: Object, event_id: StringName, callback: Callable) -> void:
+## @param listener: 简单事件监听器契约。
+func register_simple_event_owned(listener_owner: Object, event_id: StringName, listener: GFEventListener) -> void:
 	var architecture: GFArchitecture = _get_architecture_or_null()
 	if architecture != null:
-		architecture.register_simple_event_owned(listener_owner, event_id, callback)
+		architecture.register_simple_event_owned(listener_owner, event_id, listener)
 		_remember_event_architecture(architecture)
 
 
@@ -798,15 +906,15 @@ func register_simple_event_owned(listener_owner: Object, event_id: StringName, c
 ## [br]
 ## @param event_id: StringName 事件标识符。
 ## [br]
-## @param callback: 要移除的回调函数。
+## @param listener: 要移除的简单事件监听器契约。
 ## [br]
 ## @param listener_owner: 注册监听时使用的拥有者；为空时只注销无 owner 监听。
-func unregister_simple_event(event_id: StringName, callback: Callable, listener_owner: Object = null) -> void:
+func unregister_simple_event(event_id: StringName, listener: GFEventListener, listener_owner: Object = null) -> void:
 	for architecture: GFArchitecture in _get_tracked_event_architectures():
 		if listener_owner != null:
-			architecture.unregister_simple_event_owned(listener_owner, event_id, callback)
+			architecture.unregister_simple_event_owned(listener_owner, event_id, listener)
 		else:
-			architecture.unregister_simple_event(event_id, callback)
+			architecture.unregister_simple_event(event_id, listener)
 
 
 ## 注销指定拥有者通过状态机事件代理注册过的全部监听器。
@@ -823,6 +931,8 @@ func unregister_owner_events(listener_owner: Object) -> void:
 ## [br]
 ## @api public
 func reload_from_children() -> void:
+	if _reject_mutation_during_restore(&"reload_from_children"):
+		return
 	if Engine.is_editor_hint():
 		_queue_configuration_warning_update()
 		return
@@ -861,7 +971,7 @@ func reload_from_children() -> void:
 	_is_reloading = false
 	_preserve_reload_state_active = false
 	if should_preserve_state:
-		_restore_state_snapshot(state_snapshot)
+		var _restore_report: Dictionary = _restore_state_snapshot(state_snapshot)
 
 
 ## 清空所有状态组。
@@ -870,6 +980,8 @@ func reload_from_children() -> void:
 ## [br]
 ## @param free_groups: 清理状态组时是否释放节点。
 func clear_state_groups(free_groups: bool = false) -> void:
+	if _reject_mutation_during_restore(&"clear_state_groups"):
+		return
 	var old_internal_group: GFNodeStateGroup = _internal_group
 	var groups: Array[GFNodeStateGroup] = []
 	for group: GFNodeStateGroup in _get_registered_groups():
@@ -884,17 +996,70 @@ func clear_state_groups(free_groups: bool = false) -> void:
 	_group_state_event_handled_callables.clear()
 	for group: GFNodeStateGroup in groups:
 		group.stop()
+		group.detach_machine()
 		state_group_removed.emit(group)
 		if group == _internal_group:
 			_free_internal_group(group)
 		elif free_groups:
 			_queue_free_detached(group)
+	if not groups.is_empty() or old_internal_group != null:
+		_group_registry_revision += 1
 	if old_internal_group != null and is_instance_valid(old_internal_group) and not groups.has(old_internal_group):
 		_free_internal_group(old_internal_group)
 	_internal_group = null
 
 
 # --- 私有/辅助方法 ---
+
+func _reject_mutation_during_restore(operation: StringName) -> bool:
+	if not _is_restoring_state_snapshot:
+		return false
+	_record_restore_blocked_operation(operation)
+	return true
+
+
+func _record_restore_blocked_operation(operation: StringName) -> void:
+	if not _restore_blocked_operations.has(operation):
+		_restore_blocked_operations.append(operation)
+
+
+func _record_group_restore_blocked_operation(group: GFNodeStateGroup, operation: StringName) -> void:
+	if not _is_restoring_state_snapshot:
+		return
+	var group_key: StringName = _get_registered_group_key(group)
+	_record_restore_blocked_operation(StringName("%s.%s" % [String(group_key), String(operation)]))
+
+
+func _begin_group_restore_guards(groups: Array[GFNodeStateGroup]) -> void:
+	for group: GFNodeStateGroup in groups:
+		if is_instance_valid(group):
+			group.begin_machine_restore_guard()
+
+
+func _end_group_restore_guards(groups: Array[GFNodeStateGroup]) -> void:
+	for group: GFNodeStateGroup in groups:
+		if is_instance_valid(group):
+			group.end_machine_restore_guard()
+
+
+func _capture_group_registry_identity() -> Dictionary:
+	var identity: Dictionary = {}
+	for group_key: Variant in _groups.keys():
+		var group: GFNodeStateGroup = _variant_to_state_group(_groups[group_key])
+		if group != null:
+			identity[group_key] = group.get_instance_id()
+	return identity
+
+
+func _group_registry_matches(identity: Dictionary, expected_revision: int) -> bool:
+	if _group_registry_revision != expected_revision or identity.size() != _groups.size():
+		return false
+	for group_key: Variant in identity.keys():
+		var group: GFNodeStateGroup = _variant_to_state_group(GFVariantData.get_option_value(_groups, group_key))
+		if group == null or group.get_instance_id() != GFVariantData.get_option_int(identity, group_key, -1):
+			return false
+	return true
+
 
 func _get_architecture_or_null() -> GFArchitecture:
 	var context: GFNodeContext = _find_nearest_context()
@@ -919,19 +1084,29 @@ func _find_nearest_context() -> GFNodeContext:
 func _remember_event_architecture(architecture: GFArchitecture) -> void:
 	if architecture == null or not is_instance_valid(architecture):
 		return
-	if not _event_architectures.has(architecture):
-		_event_architectures.append(architecture)
+	for architecture_ref: WeakRef in _event_architectures:
+		if architecture_ref.get_ref() == architecture:
+			return
+	_event_architectures.append(weakref(architecture))
 
 
 func _get_tracked_event_architectures() -> Array[GFArchitecture]:
 	var result: Array[GFArchitecture] = []
-	var live_architectures: Array[GFArchitecture] = []
-	for architecture: GFArchitecture in _event_architectures:
+	var live_architectures: Array[WeakRef] = []
+	for architecture_ref: WeakRef in _event_architectures:
+		var architecture: GFArchitecture = _variant_to_architecture(architecture_ref.get_ref())
 		if architecture != null and is_instance_valid(architecture):
 			result.append(architecture)
-			live_architectures.append(architecture)
+			live_architectures.append(architecture_ref)
 	_event_architectures = live_architectures
 	return result
+
+
+func _variant_to_architecture(value: Variant) -> GFArchitecture:
+	if value is GFArchitecture:
+		var architecture: GFArchitecture = value
+		return architecture
+	return null
 
 
 func _is_node_state(node: Node) -> bool:
@@ -1032,6 +1207,8 @@ func _on_group_state_event_handled(
 
 
 func _queue_reload_from_children() -> void:
+	if _reject_mutation_during_restore(&"queue_reload_from_children"):
+		return
 	if not _is_ready or not reload_on_ready or _reload_queued or _is_reloading:
 		return
 
@@ -1187,16 +1364,133 @@ func _capture_state_snapshot() -> Dictionary:
 	return result
 
 
-func _restore_state_snapshot(snapshot: Dictionary) -> void:
-	for group_key: Variant in _groups.keys():
-		var group: GFNodeStateGroup = _variant_to_state_group(_groups[group_key])
-		if group == null:
-			continue
+func _make_machine_restore_report() -> Dictionary:
+	return {
+		"report_schema_version": 2,
+		"status": "failed",
+		"ok": false,
+		"restored": false,
+		"partial": false,
+		"error": "",
+		"groups": {},
+		"missing_group_snapshots": [],
+		"unrestored_group_snapshots": [],
+		"blocked_operations": [],
+		"group_registry_revision_before": _group_registry_revision,
+		"group_registry_revision_after": _group_registry_revision,
+		"registry_stable": true,
+		"rolled_back": false,
+	}
 
+
+func _restore_state_snapshot(snapshot: Dictionary) -> Dictionary:
+	var report: Dictionary = _make_machine_restore_report()
+	if _is_restoring_state_snapshot:
+		_record_restore_blocked_operation(&"restore_state_snapshot")
+		report["error"] = "state machine restore already in progress."
+		report["blocked_operations"] = _restore_blocked_operations.duplicate()
+		return report
+
+	var group_keys: Array = _groups.keys()
+	var guarded_groups: Array[GFNodeStateGroup] = _get_registered_groups()
+	var registry_identity: Dictionary = _capture_group_registry_identity()
+	var registry_revision_before: int = _group_registry_revision
+	report["group_registry_revision_before"] = registry_revision_before
+	var group_reports: Dictionary = {}
+	var missing_group_snapshots: Array[StringName] = []
+	var unrestored_group_snapshots: Array[StringName] = []
+	for snapshot_group_key: Variant in snapshot.keys():
+		if not _groups.has(snapshot_group_key):
+			unrestored_group_snapshots.append(GFVariantData.to_string_name(snapshot_group_key))
+
+	var validation_errors: Dictionary = {}
+	for group_key: Variant in group_keys:
+		var group: GFNodeStateGroup = _variant_to_state_group(GFVariantData.get_option_value(_groups, group_key))
+		if group == null:
+			validation_errors[group_key] = { "valid": false, "error": "state group is unavailable." }
+			continue
 		var group_snapshot: Dictionary = GFVariantData.get_option_dictionary(snapshot, group_key)
-		if not group_snapshot.is_empty():
-			group.restore_state_snapshot(group_snapshot)
-			if group.get_current_state_name() == &"" and _should_start_group_on_initialize():
-				_start_group_node(group, {})
-		elif _should_start_group_on_initialize():
-			_start_group_node(group, {})
+		if group_snapshot.is_empty():
+			missing_group_snapshots.append(GFVariantData.to_string_name(group_key))
+			continue
+		var validation: Dictionary = group.validate_state_snapshot(group_snapshot)
+		if not GFVariantData.get_option_bool(validation, "valid"):
+			validation_errors[group_key] = validation
+	if not validation_errors.is_empty():
+		report["error"] = "one or more state group snapshots are invalid."
+		report["groups"] = validation_errors
+		report["missing_group_snapshots"] = missing_group_snapshots
+		report["unrestored_group_snapshots"] = unrestored_group_snapshots
+		return report
+
+	var rollback_snapshots: Dictionary = _capture_state_snapshot()
+	var restore_failed: bool = false
+	var group_restore_failed: bool = false
+	_restore_blocked_operations.clear()
+	_is_restoring_state_snapshot = true
+	_begin_group_restore_guards(guarded_groups)
+	for group_key: Variant in group_keys:
+		var group: GFNodeStateGroup = _variant_to_state_group(GFVariantData.get_option_value(_groups, group_key))
+		if group == null:
+			restore_failed = true
+			group_restore_failed = true
+			break
+		var group_snapshot: Dictionary = GFVariantData.get_option_dictionary(snapshot, group_key)
+		if group_snapshot.is_empty():
+			continue
+		var group_report: Dictionary = group.restore_state_snapshot(group_snapshot)
+		group_reports[group_key] = group_report
+		if not GFVariantData.get_option_bool(group_report, "ok"):
+			restore_failed = true
+			group_restore_failed = true
+			break
+
+	var registry_stable: bool = _group_registry_matches(registry_identity, registry_revision_before)
+	if not registry_stable or not _restore_blocked_operations.is_empty():
+		restore_failed = true
+	if restore_failed:
+		var rollback_succeeded: bool = true
+		for rollback_group_key: Variant in group_keys:
+			var rollback_group: GFNodeStateGroup = _variant_to_state_group(
+				GFVariantData.get_option_value(_groups, rollback_group_key)
+			)
+			if rollback_group == null:
+				rollback_succeeded = false
+				continue
+			var rollback_report: Dictionary = rollback_group.restore_state_snapshot(
+				GFVariantData.get_option_dictionary(rollback_snapshots, rollback_group_key)
+			)
+			if not GFVariantData.get_option_bool(rollback_report, "ok"):
+				rollback_succeeded = false
+		if not registry_stable:
+			report["error"] = "state machine group registry changed during restore."
+		elif not _restore_blocked_operations.is_empty():
+			report["error"] = "state machine restore blocked reentrant mutations."
+		elif group_restore_failed:
+			report["error"] = "state machine group restore failed."
+		else:
+			report["error"] = "state machine restore failed."
+		report["rolled_back"] = (
+			rollback_succeeded
+			and _group_registry_matches(registry_identity, registry_revision_before)
+		)
+	else:
+		var partial: bool = not missing_group_snapshots.is_empty() or not unrestored_group_snapshots.is_empty()
+		for group_report_variant: Variant in group_reports.values():
+			var group_report: Dictionary = GFVariantData.as_dictionary(group_report_variant)
+			if GFVariantData.get_option_bool(group_report, "partial"):
+				partial = true
+		report["ok"] = true
+		report["restored"] = true
+		report["partial"] = partial
+		report["status"] = "partial" if partial else "success"
+
+	_end_group_restore_guards(guarded_groups)
+	_is_restoring_state_snapshot = false
+	report["groups"] = group_reports
+	report["missing_group_snapshots"] = missing_group_snapshots
+	report["unrestored_group_snapshots"] = unrestored_group_snapshots
+	report["blocked_operations"] = _restore_blocked_operations.duplicate()
+	report["group_registry_revision_after"] = _group_registry_revision
+	report["registry_stable"] = _group_registry_matches(registry_identity, registry_revision_before)
+	return report

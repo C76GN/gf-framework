@@ -175,9 +175,11 @@ func setup(
 	return self
 
 
-## 设置数值范围并返回自身。
+## 配置数值范围。
 ## [br]
 ## @api public
+## [br]
+## @since 8.0.0
 ## [br]
 ## @param p_min_value: 最小值。
 ## [br]
@@ -185,14 +187,22 @@ func setup(
 ## [br]
 ## @param p_step: 建议步长。
 ## [br]
-## @return: 当前属性声明。
-func with_range(p_min_value: float, p_max_value: float, p_step: float = 1.0) -> GFRuntimeTunableProperty:
+## @return: schema 有效并完成配置时返回 true；失败时保持原配置。
+func configure_range(p_min_value: float, p_max_value: float, p_step: float = 1.0) -> bool:
+	if (
+		not is_finite(p_min_value)
+		or not is_finite(p_max_value)
+		or not is_finite(p_step)
+		or p_min_value > p_max_value
+		or p_step < 0.0
+	):
+		return false
 	has_min_value = true
 	has_max_value = true
 	min_value = p_min_value
 	max_value = p_max_value
-	step = maxf(p_step, 0.0)
-	return self
+	step = p_step
+	return true
 
 
 ## 设置可选值列表并返回自身。
@@ -240,8 +250,11 @@ func read_value(target: Object) -> Variant:
 func write_value(target: Object, value: Variant) -> bool:
 	if read_only or not is_instance_valid(target):
 		return false
+	var normalization: Dictionary = try_normalize_value(value)
+	if not GFVariantData.get_option_bool(normalization, "ok"):
+		return false
 
-	var normalized_value: Variant = normalize_value(value)
+	var normalized_value: Variant = GFVariantData.get_option_value(normalization, "value")
 	if validator.is_valid() and not GFVariantData.to_bool(validator.call(target, self, normalized_value)):
 		return false
 	if setter.is_valid():
@@ -253,24 +266,34 @@ func write_value(target: Object, value: Variant) -> bool:
 	return GFVariantData.get_option_bool(result, "ok", false)
 
 
-## 根据 schema 归一化写入值。
+## 尝试根据 schema 解析并归一化写入值。
 ## [br]
 ## @api public
 ## [br]
+## @since 8.0.0
+## [br]
 ## @param value: 输入值。
 ## [br]
-## @return: 归一化后的值。
+## @return: 解析报告。
 ## [br]
 ## @schema value: Variant，输入值。
 ## [br]
-## @schema return: Variant，归一化后的值，类型由 value_kind 决定。
-func normalize_value(value: Variant) -> Variant:
-	var normalized: Variant = _normalize_value_by_kind(value)
+## @schema return: Dictionary，包含 ok、value 和 error；失败时 value 为 null。
+func try_normalize_value(value: Variant) -> Dictionary:
+	var schema_error: String = _get_numeric_schema_error()
+	if not schema_error.is_empty():
+		return _make_normalization_report(false, null, schema_error)
+	var kind_report: Dictionary = _try_normalize_value_by_kind(value)
+	if not GFVariantData.get_option_bool(kind_report, "ok"):
+		return kind_report
+	var normalized: Variant = GFVariantData.get_option_value(kind_report, "value")
 	if not options.is_empty():
 		var normalized_options: Array = _get_normalized_options()
-		if not normalized_options.has(normalized) and not normalized_options.is_empty():
-			return normalized_options[0]
-	return normalized
+		if normalized_options.is_empty():
+			return _make_normalization_report(false, null, "option_schema_invalid")
+		if not normalized_options.has(normalized):
+			return _make_normalization_report(false, null, "value_not_allowed")
+	return _make_normalization_report(true, normalized, "")
 
 
 ## 生成可序列化 schema 快照。
@@ -281,6 +304,7 @@ func normalize_value(value: Variant) -> Variant:
 ## [br]
 ## @schema return: Dictionary，包含 property_id、label、group、property_name、value_kind、read_only、visible、has_min_value、min_value、has_max_value、max_value、step、options 和 metadata 字段。
 func to_schema() -> Dictionary:
+	var schema_error: String = _get_numeric_schema_error()
 	return {
 		"property_id": property_id,
 		"label": label if not label.is_empty() else String(property_id),
@@ -290,59 +314,129 @@ func to_schema() -> Dictionary:
 		"read_only": read_only,
 		"visible": visible,
 		"has_min_value": has_min_value,
-		"min_value": min_value,
+		"min_value": min_value if is_finite(min_value) else 0.0,
 		"has_max_value": has_max_value,
-		"max_value": max_value,
-		"step": step,
+		"max_value": max_value if is_finite(max_value) else 0.0,
+		"step": step if is_finite(step) and step >= 0.0 else 0.0,
 		"options": options.duplicate(true),
 		"metadata": metadata.duplicate(true),
+		"schema_valid": schema_error.is_empty(),
+		"schema_error": schema_error,
 	}
 
 
 # --- 私有/辅助方法 ---
 
-func _normalize_value_by_kind(value: Variant) -> Variant:
+func _try_normalize_value_by_kind(value: Variant) -> Dictionary:
 	match value_kind:
 		ValueKind.BOOL:
-			return GFVariantData.to_bool(value)
+			if value is bool:
+				return _make_normalization_report(true, value, "")
 		ValueKind.INT:
-			return _normalize_int(value)
+			return _try_normalize_int(value)
 		ValueKind.FLOAT:
-			return _normalize_float(value)
+			return _try_normalize_float(value)
 		ValueKind.STRING:
-			return GFVariantData.to_text(value)
+			if value is String or value is StringName:
+				return _make_normalization_report(true, GFVariantData.to_text(value), "")
 		ValueKind.STRING_NAME:
-			return StringName(GFVariantData.to_text(value))
+			if value is String or value is StringName:
+				return _make_normalization_report(true, StringName(GFVariantData.to_text(value)), "")
 		ValueKind.VECTOR2:
-			return value if value is Vector2 else Vector2.ZERO
+			if value is Vector2:
+				var vector_2_value: Vector2 = value
+				if is_finite(vector_2_value.x) and is_finite(vector_2_value.y):
+					return _make_normalization_report(true, vector_2_value, "")
 		ValueKind.VECTOR3:
-			return value if value is Vector3 else Vector3.ZERO
+			if value is Vector3:
+				var vector_3_value: Vector3 = value
+				if is_finite(vector_3_value.x) and is_finite(vector_3_value.y) and is_finite(vector_3_value.z):
+					return _make_normalization_report(true, vector_3_value, "")
 		ValueKind.COLOR:
-			return value if value is Color else Color.WHITE
+			if value is Color:
+				var color_value: Color = value
+				if is_finite(color_value.r) and is_finite(color_value.g) and is_finite(color_value.b) and is_finite(color_value.a):
+					return _make_normalization_report(true, color_value, "")
 		_:
-			return value
+			return _make_normalization_report(true, value, "")
+	return _make_normalization_report(false, null, "value_type_mismatch")
 
 
 func _get_normalized_options() -> Array:
 	var result: Array = []
 	for option_value: Variant in options:
-		result.append(_normalize_value_by_kind(option_value))
+		var option_report: Dictionary = _try_normalize_value_by_kind(option_value)
+		if GFVariantData.get_option_bool(option_report, "ok"):
+			result.append(GFVariantData.get_option_value(option_report, "value"))
 	return result
 
 
-func _normalize_int(value: Variant) -> int:
-	var number: int = GFVariantData.to_int(value)
+func _try_normalize_int(value: Variant) -> Dictionary:
+	var number: int = 0
+	if value is int:
+		number = value
+	elif value is float:
+		var float_value: float = value
+		if not is_finite(float_value) or floor(float_value) != float_value:
+			return _make_normalization_report(false, null, "integer_value_invalid")
+		number = int(float_value)
+	elif value is String or value is StringName:
+		var text: String = GFVariantData.to_text(value).strip_edges()
+		if not text.is_valid_int():
+			return _make_normalization_report(false, null, "integer_value_invalid")
+		number = text.to_int()
+	else:
+		return _make_normalization_report(false, null, "integer_value_invalid")
 	if has_min_value:
-		number = maxi(number, int(min_value))
+		number = maxi(number, ceili(min_value))
 	if has_max_value:
-		number = mini(number, int(max_value))
-	return number
+		number = mini(number, floori(max_value))
+	return _make_normalization_report(true, number, "")
 
 
-func _normalize_float(value: Variant) -> float:
-	var number: float = GFVariantData.to_float(value)
+func _try_normalize_float(value: Variant) -> Dictionary:
+	var number: float = 0.0
+	if value is int:
+		var int_value: int = value
+		number = float(int_value)
+	elif value is float:
+		var float_value: float = value
+		number = float_value
+	elif value is String or value is StringName:
+		var text: String = GFVariantData.to_text(value).strip_edges()
+		if not text.is_valid_float():
+			return _make_normalization_report(false, null, "float_value_invalid")
+		number = text.to_float()
+	else:
+		return _make_normalization_report(false, null, "float_value_invalid")
+	if not is_finite(number):
+		return _make_normalization_report(false, null, "float_value_non_finite")
 	if has_min_value:
 		number = maxf(number, min_value)
 	if has_max_value:
 		number = minf(number, max_value)
-	return number
+	return _make_normalization_report(true, number, "")
+
+
+func _get_numeric_schema_error() -> String:
+	if value_kind != ValueKind.INT and value_kind != ValueKind.FLOAT:
+		return ""
+	if not is_finite(step) or step < 0.0:
+		return "numeric_step_invalid"
+	if has_min_value and not is_finite(min_value):
+		return "numeric_min_non_finite"
+	if has_max_value and not is_finite(max_value):
+		return "numeric_max_non_finite"
+	if has_min_value and has_max_value and min_value > max_value:
+		return "numeric_range_inverted"
+	if value_kind == ValueKind.INT and has_min_value and has_max_value and ceili(min_value) > floori(max_value):
+		return "integer_range_empty"
+	return ""
+
+
+func _make_normalization_report(ok: bool, value: Variant, error: String) -> Dictionary:
+	return {
+		"ok": ok,
+		"value": value,
+		"error": error,
+	}

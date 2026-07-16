@@ -16,6 +16,7 @@ extends RefCounted
 # --- 常量 ---
 
 const _READ_ONLY_BINDABLE_PROPERTY_SCRIPT = preload("res://addons/gf/kernel/core/gf_read_only_bindable_property.gd")
+const _GF_COMBAT_FINITE_MATH = preload("res://addons/gf/extensions/combat/core/gf_combat_finite_math.gd")
 
 
 # --- 公共变量 ---
@@ -38,7 +39,7 @@ var _modifiers: Array[GFModifier] = []
 # --- Godot 生命周期方法 ---
 
 func _init(p_base_value: float = 0.0) -> void:
-	_base_value = p_base_value
+	_base_value = p_base_value if _GF_COMBAT_FINITE_MATH.is_finite_float(p_base_value) else 0.0
 	_current_value_view = _READ_ONLY_BINDABLE_PROPERTY_SCRIPT.new(_base_value)
 	_recalculate()
 
@@ -51,6 +52,8 @@ func _init(p_base_value: float = 0.0) -> void:
 ## [br]
 ## @param p_value: 新的基础值。
 func set_base_value(p_value: float) -> void:
+	if not _GF_COMBAT_FINITE_MATH.is_finite_float(p_value):
+		return
 	if _base_value == p_value:
 		return
 	_base_value = p_value
@@ -72,7 +75,7 @@ func get_base_value() -> float:
 ## [br]
 ## @param p_modifier: 修饰器实例。
 func add_modifier(p_modifier: GFModifier) -> void:
-	if p_modifier == null:
+	if p_modifier == null or not p_modifier.is_numeric_state_valid():
 		return
 
 	_modifiers.append(p_modifier)
@@ -123,21 +126,45 @@ func force_recalculate() -> void:
 
 # 执行公式重算：(Base + BaseAdd) * (1.0 + PercentAdd) + FinalAdd
 func _recalculate() -> void:
+	if not _GF_COMBAT_FINITE_MATH.is_finite_float(_base_value):
+		return
 	var base_add: float = 0.0
 	var percent_add: float = 0.0
 	var final_add: float = 0.0
 	
 	for mod: GFModifier in _modifiers:
-		if mod == null:
-			continue
-
+		if mod == null or not mod.is_numeric_state_valid():
+			return
+		var next_value: float = 0.0
 		match mod.type:
 			GFModifier.Type.BASE_ADD:
-				base_add += mod.value
+				next_value = base_add + mod.value
+				if not _GF_COMBAT_FINITE_MATH.is_finite_float(next_value):
+					return
+				base_add = next_value
 			GFModifier.Type.PERCENT_ADD:
-				percent_add += mod.value
+				next_value = percent_add + mod.value
+				if not _GF_COMBAT_FINITE_MATH.is_finite_float(next_value):
+					return
+				percent_add = next_value
 			GFModifier.Type.FINAL_ADD:
-				final_add += mod.value
-				
-	var final_value: float = (_base_value + base_add) * (1.0 + percent_add) + final_add
+				next_value = final_add + mod.value
+				if not _GF_COMBAT_FINITE_MATH.is_finite_float(next_value):
+					return
+				final_add = next_value
+
+	var base_total: float = _base_value + base_add
+	var multiplier: float = 1.0 + percent_add
+	if (
+		not _GF_COMBAT_FINITE_MATH.is_finite_float(base_total)
+		or not _GF_COMBAT_FINITE_MATH.is_finite_float(multiplier)
+	):
+		return
+	var multiplied_value: float = base_total * multiplier
+	var final_value: float = multiplied_value + final_add
+	if (
+		not _GF_COMBAT_FINITE_MATH.is_finite_float(multiplied_value)
+		or not _GF_COMBAT_FINITE_MATH.is_finite_float(final_value)
+	):
+		return
 	_current_value_view.call("_set_value_from_owner", final_value)

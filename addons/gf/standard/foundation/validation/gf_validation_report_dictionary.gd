@@ -659,7 +659,7 @@ static func _fingerprint_value(value: Variant) -> String:
 	var compatible: Variant = GFVariantJsonCodec.variant_to_json_compatible(value, {
 		"unsupported": "string",
 	})
-	return JSON.stringify(compatible)
+	return JSON.stringify(compatible, "", true)
 
 
 static func _get_script_instance(value: Variant, expected_script: Script) -> RefCounted:

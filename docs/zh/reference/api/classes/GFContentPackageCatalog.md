@@ -21,6 +21,7 @@
 | 方法 | [`remove_manifest`](#member-gfcontentpackagecatalog-methods-remove_manifest) | `func remove_manifest(package_id: StringName) -> bool:` |
 | 方法 | [`has_package`](#member-gfcontentpackagecatalog-methods-has_package) | `func has_package(package_id: StringName) -> bool:` |
 | 方法 | [`get_manifest`](#member-gfcontentpackagecatalog-methods-get_manifest) | `func get_manifest(package_id: StringName) -> GFContentPackageManifest:` |
+| 方法 | [`duplicate_catalog`](#member-gfcontentpackagecatalog-methods-duplicate_catalog) | `func duplicate_catalog() -> GFContentPackageCatalog:` |
 | 方法 | [`get_package_ids`](#member-gfcontentpackagecatalog-methods-get_package_ids) | `func get_package_ids() -> PackedStringArray:` |
 | 方法 | [`get_ordered_package_ids`](#member-gfcontentpackagecatalog-methods-get_ordered_package_ids) | `func get_ordered_package_ids() -> PackedStringArray:` |
 | 方法 | [`get_graph_report`](#member-gfcontentpackagecatalog-methods-get_graph_report) | `func get_graph_report(options: Dictionary = {}) -> Dictionary:` |
@@ -130,6 +131,7 @@ func has_package(package_id: StringName) -> bool:
 ### `get_manifest`
 
 - API：`public`
+- 首次版本：`4.4.0`
 
 ```gdscript
 func get_manifest(package_id: StringName) -> GFContentPackageManifest:
@@ -143,7 +145,22 @@ func get_manifest(package_id: StringName) -> GFContentPackageManifest:
 |---|---|
 | `package_id` | 内容包 ID。 |
 
-返回：manifest；不存在时返回 null。
+返回：manifest 深拷贝；不存在时返回 null。
+
+<a id="member-gfcontentpackagecatalog-methods-duplicate_catalog"></a>
+
+### `duplicate_catalog`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func duplicate_catalog() -> GFContentPackageCatalog:
+```
+
+创建目录深拷贝。
+
+返回：与当前依赖图和重复 ID 状态一致的新目录。
 
 <a id="member-gfcontentpackagecatalog-methods-get_package_ids"></a>
 
@@ -178,6 +195,7 @@ func get_ordered_package_ids() -> PackedStringArray:
 ### `get_graph_report`
 
 - API：`public`
+- 首次版本：`4.4.0`
 
 ```gdscript
 func get_graph_report(options: Dictionary = {}) -> Dictionary:
@@ -195,7 +213,7 @@ func get_graph_report(options: Dictionary = {}) -> Dictionary:
 
 结构：
 
-- `options`: Dictionary，可包含 check_resource_exists: bool。
+- `options`: Dictionary，可包含 check_resource_exists: bool、check_resource_dependencies: bool 和 dependency_options: Dictionary。
 - `return`: GFValidationReportDictionary.finalize_report() 生成的 Dictionary，并包含 package_count、package_ids、ordered_package_ids 和 duplicate_package_ids。
 
 <a id="member-gfcontentpackagecatalog-methods-register_resources"></a>
@@ -203,6 +221,7 @@ func get_graph_report(options: Dictionary = {}) -> Dictionary:
 ### `register_resources`
 
 - API：`public`
+- 首次版本：`4.4.0`
 
 ```gdscript
 func register_resources(resolver: GFResourceResolverUtility, options: Dictionary = {}) -> Dictionary:
@@ -215,13 +234,13 @@ func register_resources(resolver: GFResourceResolverUtility, options: Dictionary
 | 名称 | 说明 |
 |---|---|
 | `resolver` | 标准资源解析器。 |
-| `options` | 注册选项。`base_priority` 默认为 0；`check_resource_exists` 默认为 false。 |
+| `options` | 注册选项。`base_priority` 默认为 0；校验选项透传给 manifest。 |
 
 返回：GFValidationReportDictionary 兼容报告，并包含 registered_count。
 
 结构：
 
-- `options`: Dictionary，可包含 base_priority: int 和 check_resource_exists: bool。
+- `options`: Dictionary，可包含 base_priority: int、check_resource_exists: bool、check_resource_dependencies: bool 和 dependency_options: Dictionary。
 - `return`: GFValidationReportDictionary.finalize_report() 生成的 Dictionary，并包含 registered_count。
 
 <a id="member-gfcontentpackagecatalog-methods-get_debug_snapshot"></a>

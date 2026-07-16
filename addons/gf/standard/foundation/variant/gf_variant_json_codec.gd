@@ -34,6 +34,20 @@ const JSON_TYPE_KEY: String = "type"
 ## @api framework_internal
 const JSON_VALUE_KEY: String = "value"
 
+## JSON 类型标记中的 codec 身份字段名。
+## [br]
+## @api framework_internal
+## [br]
+## @since 8.0.0
+const JSON_CODEC_KEY: String = "codec"
+
+## 当前 typed marker 的 codec 身份。
+## [br]
+## @api framework_internal
+## [br]
+## @since 8.0.0
+const JSON_CODEC_ID: String = "gf.variant-json"
+
 ## 当前 Variant JSON 标记格式版本。
 ## [br]
 ## @api framework_internal
@@ -51,8 +65,8 @@ const JSON_SAFE_INTEGER_MIN: int = -9_007_199_254_740_991
 
 const _FLOAT_TYPE_NAME: String = "Float"
 const _FLOAT_NAN_TEXT: String = "NaN"
-const _FLOAT_POSITIVE_INF_TEXT: String = "Infinity"
-const _FLOAT_NEGATIVE_INF_TEXT: String = "-Infinity"
+const _FLOAT_POSITIVE_INF_TEXT: String = "INF"
+const _FLOAT_NEGATIVE_INF_TEXT: String = "-INF"
 
 
 # --- 公共方法 ---
@@ -92,24 +106,67 @@ static func variant_to_json_compatible(value: Variant, options: Dictionary = {})
 ## [br]
 ## @schema return: Variant restored from JSON-compatible data.
 static func json_compatible_to_variant(value: Variant, options: Dictionary = {}) -> Variant:
-	if value is Array:
-		var array: Array = value
-		var result_array: Array = []
-		for item: Variant in array:
-			result_array.append(json_compatible_to_variant(item, options))
-		return result_array
+	return _json_compatible_to_variant(value, options, [])
 
-	if value is Dictionary:
-		var dictionary: Dictionary = value
-		if GFVariantData.get_option_bool(options, "decode_typed_markers", true) and _is_json_typed_value(dictionary):
-			return _json_typed_value_to_variant(dictionary, options)
 
-		var result: Dictionary = {}
-		for key: Variant in dictionary.keys():
-			result[key] = json_compatible_to_variant(dictionary[key], options)
-		return result
+## 将任意 Variant 转为 JSON 兼容值后序列化为文本。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+## [br]
+## @param value: 待序列化的 Variant。
+## [br]
+## @param indent: 缩进字符串；空字符串表示压缩输出。
+## [br]
+## @param sort_keys: 是否按键名排序 Dictionary。
+## [br]
+## @param options: 传给 variant_to_json_compatible() 的编码选项。
+## [br]
+## @return JSON 文本。
+## [br]
+## @schema value: Variant value to encode before JSON.stringify().
+## [br]
+## @schema options: Dictionary with encode_dictionary_keys, encode_unsafe_ints, unsupported, and circular_reference options.
+static func stringify_json_compatible(
+	value: Variant,
+	indent: String = "",
+	sort_keys: bool = false,
+	options: Dictionary = {}
+) -> String:
+	var encoded: Variant = variant_to_json_compatible(value, options)
+	return JSON.stringify(encoded, indent, sort_keys)
 
-	return value
+
+## 解析 JSON 文本并把 GF Variant 类型标记恢复为 Godot Variant。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+## [br]
+## @param text: JSON 文本。
+## [br]
+## @param fallback: 解析失败时返回的值。
+## [br]
+## @param options: 传给 json_compatible_to_variant() 的解码选项。
+## [br]
+## @return 恢复后的 Variant，或 fallback。
+## [br]
+## @schema fallback: Variant returned unchanged when JSON parsing fails.
+## [br]
+## @schema options: Dictionary with decode_typed_markers and key decoding options.
+## [br]
+## @schema return: Variant restored from GF JSON-compatible data, or fallback on parse error.
+static func parse_json_compatible_text(
+	text: String,
+	fallback: Variant = null,
+	options: Dictionary = {}
+) -> Variant:
+	var json: JSON = JSON.new()
+	var error: Error = json.parse(text)
+	if error != OK:
+		return fallback
+	return json_compatible_to_variant(json.data, options)
 
 
 ## 解析 JSON 文本，失败时返回 fallback。
@@ -287,6 +344,37 @@ static func array_to_color(value: Variant, fallback: Color = Color.WHITE) -> Col
 
 
 # --- 私有/辅助方法 ---
+
+static func _json_compatible_to_variant(value: Variant, options: Dictionary, visited: Array) -> Variant:
+	if value is Array:
+		if _visited_contains_reference(visited, value):
+			return GFVariantData.get_option_value(options, "circular_reference", "<circular_reference>")
+		visited.append(value)
+		var array: Array = value
+		var result_array: Array = []
+		for item: Variant in array:
+			result_array.append(_json_compatible_to_variant(item, options, visited))
+		var _removed_array_reference: Variant = visited.pop_back()
+		return result_array
+
+	if value is Dictionary:
+		if _visited_contains_reference(visited, value):
+			return GFVariantData.get_option_value(options, "circular_reference", "<circular_reference>")
+		visited.append(value)
+		var dictionary: Dictionary = value
+		if GFVariantData.get_option_bool(options, "decode_typed_markers", true) and _is_json_typed_value(dictionary):
+			var typed_value: Variant = _json_typed_value_to_variant(dictionary, options)
+			var _removed_typed_reference: Variant = visited.pop_back()
+			return typed_value
+
+		var result_dictionary: Dictionary = {}
+		for key: Variant in dictionary.keys():
+			result_dictionary[key] = _json_compatible_to_variant(dictionary[key], options, visited)
+		var _removed_dictionary_reference: Variant = visited.pop_back()
+		return result_dictionary
+
+	return value
+
 
 static func _number_to_float(value: Variant, fallback: float = 0.0) -> float:
 	if value is float:
@@ -604,6 +692,7 @@ static func _make_json_typed_value(type_name: String, typed_value: Variant) -> D
 	return {
 		JSON_MARKER_KEY: {
 			JSON_VERSION_KEY: JSON_SCHEMA_VERSION,
+			JSON_CODEC_KEY: JSON_CODEC_ID,
 			JSON_TYPE_KEY: type_name,
 			JSON_VALUE_KEY: typed_value,
 		},
@@ -614,7 +703,12 @@ static func _is_json_typed_value(value: Dictionary) -> bool:
 	if value.size() != 1 or not value.has(JSON_MARKER_KEY):
 		return false
 	var marker: Dictionary = GFVariantData.as_dictionary(GFVariantData.get_option_value(value, JSON_MARKER_KEY))
-	return marker.has(JSON_TYPE_KEY) and marker.has(JSON_VALUE_KEY)
+	return (
+		GFVariantData.get_option_int(marker, JSON_VERSION_KEY, 0) == JSON_SCHEMA_VERSION
+		and GFVariantData.get_option_string(marker, JSON_CODEC_KEY) == JSON_CODEC_ID
+		and marker.has(JSON_TYPE_KEY)
+		and marker.has(JSON_VALUE_KEY)
+	)
 
 
 static func _dictionary_to_json_compatible(value: Dictionary, options: Dictionary, visited: Array) -> Variant:
@@ -629,6 +723,10 @@ static func _dictionary_to_json_compatible(value: Dictionary, options: Dictionar
 			return _make_json_typed_value("Dictionary", _dictionary_entries_to_json_compatible(value, options, visited))
 		seen_json_keys[json_key] = true
 		result[json_key] = _variant_to_json_compatible(value[key], options, visited)
+	if _is_json_typed_value(result):
+		return result
+	if _has_reserved_marker_shape(result):
+		return _make_json_typed_value("Dictionary", _dictionary_entries_to_json_compatible(value, options, visited))
 	return result
 
 
@@ -653,6 +751,13 @@ static func _make_circular_reference_value(options: Dictionary) -> Variant:
 		"CircularReference",
 		GFVariantData.get_option_value(options, "circular_reference", "<circular_reference>")
 	)
+
+
+static func _has_reserved_marker_shape(value: Dictionary) -> bool:
+	if value.size() != 1 or not value.has(JSON_MARKER_KEY):
+		return false
+	var marker: Dictionary = GFVariantData.as_dictionary(GFVariantData.get_option_value(value, JSON_MARKER_KEY))
+	return marker.has(JSON_TYPE_KEY) and marker.has(JSON_VALUE_KEY)
 
 
 static func _visited_contains_reference(visited: Array, value: Variant) -> bool:

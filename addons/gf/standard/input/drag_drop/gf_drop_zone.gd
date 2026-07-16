@@ -12,11 +12,6 @@ class_name GFDropZone
 extends RefCounted
 
 
-# --- 常量 ---
-
-const _INSTANCE_GUARD = preload("res://addons/gf/kernel/core/gf_instance_guard.gd")
-
-
 # --- 公共变量 ---
 
 ## 落点 ID。
@@ -60,6 +55,11 @@ var drop_callable: Callable = Callable()
 ## [br]
 ## @schema metadata: Dictionary，关联到 drop zone 的项目侧元数据。
 var metadata: Dictionary = {}
+
+
+# --- 私有变量 ---
+
+var _control_ref: WeakRef = null
 
 
 # --- 公共方法 ---
@@ -126,11 +126,15 @@ func drop(session: GFDragSession, position: Variant) -> Variant:
 ## [br]
 ## @api public
 ## [br]
+## @since 8.0.0
+## [br]
+## @param json_compatible: 为 true 时返回可直接 JSON.stringify() 的值。
+## [br]
 ## @return 落点快照。
 ## [br]
 ## @schema return: Dictionary，包含 zone_id、accepted_types、priority、enabled、回调标记和 metadata。
-func to_dictionary() -> Dictionary:
-	return {
+func to_dictionary(json_compatible: bool = true) -> Dictionary:
+	var result: Dictionary = {
 		"zone_id": zone_id,
 		"accepted_types": accepted_types,
 		"priority": priority,
@@ -140,6 +144,25 @@ func to_dictionary() -> Dictionary:
 		"has_drop_callable": drop_callable.is_valid(),
 		"metadata": metadata.duplicate(true),
 	}
+	if json_compatible:
+		var encoded: Variant = GFVariantJsonCodec.variant_to_json_compatible(result)
+		if encoded is Dictionary:
+			var encoded_dictionary: Dictionary = encoded
+			return encoded_dictionary
+	return result
+
+
+## 检查落点是否引用了已经失效的对象。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+## [br]
+## @return 引用对象失效时返回 true。
+func is_stale() -> bool:
+	if _control_ref == null:
+		return false
+	return _get_live_control_from_ref(_control_ref) == null
 
 
 ## 创建矩形落点。
@@ -209,14 +232,17 @@ static func from_control(
 	zone.can_accept_callable = _get_option_callable(options, "can_accept")
 	zone.drop_callable = _get_option_callable(options, "drop")
 	var control_ref: WeakRef = weakref(control) if is_instance_valid(control) else null
+	zone._control_ref = control_ref
 	zone.contains_callable = func(position: Variant, _session: GFDragSession) -> bool:
 		if typeof(position) != TYPE_VECTOR2 or control_ref == null:
 			return false
 		var local_position: Vector2 = position
-		var current: Control = _INSTANCE_GUARD._get_live_control_from_ref(control_ref)
+		var current: Control = GFDropZone._get_live_control_from_ref(control_ref)
 		if current == null:
 			return false
 		if not current.is_inside_tree() or not current.is_visible_in_tree():
+			return false
+		if not GFDropZone._control_accepts_pointer(current):
 			return false
 		return current.get_global_rect().has_point(local_position)
 	return zone
@@ -236,3 +262,24 @@ static func _get_option_callable(options: Dictionary, key: Variant) -> Callable:
 		var callable: Callable = value
 		return callable
 	return Callable()
+
+
+static func _get_live_control_from_ref(control_ref: WeakRef) -> Control:
+	if control_ref == null:
+		return null
+	var value: Variant = control_ref.get_ref()
+	if not (value is Control):
+		return null
+	if not is_instance_valid(value):
+		return null
+	var control: Control = value
+	return control
+
+
+static func _control_accepts_pointer(control: Control) -> bool:
+	if control.mouse_filter == Control.MOUSE_FILTER_IGNORE:
+		return false
+	if control is BaseButton:
+		var button: BaseButton = control
+		return not button.disabled
+	return true

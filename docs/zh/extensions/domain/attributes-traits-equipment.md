@@ -16,7 +16,7 @@ attributes.define_attribute(&"speed", 10.0, 10.0, 0.0, 99.0)
 var speed := attributes.get_value_with_traits(&"speed", traits)
 ```
 
-`GFTraitSet` 按 `target_id` 和可选 `category` 收集数值特征，并按优先级合并。`GFAttributeSet` 按 `attribute_id` 管理基础值、当前值、上下限和元数据，支持快照恢复，也可以接入 `GFTraitSet` 计算修饰后数值。
+`GFTrait` 描述一项带目标、分类、优先级和有限数值的修饰记录；`GFTraitSet` 按 `target_id` 和可选 `category` 收集这些记录，并按优先级合并。`GFAttributeSet` 按 `attribute_id` 管理基础值、当前值、上下限和元数据，支持快照恢复，也可以接入 `GFTraitSet` 计算修饰后数值。
 
 ## 派生属性
 

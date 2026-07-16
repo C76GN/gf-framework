@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFBackgroundWorkUtility" path="addons/gf/standard/utilities/jobs/gf_background_work_utility.gd" module="standard" extends="GFUtility" classDigest="fbe4a09bdc985e897d12441ecd8676118203c6fb5612cd7ff7ba961798a6a523">
+<class name="GFBackgroundWorkUtility" path="addons/gf/standard/utilities/jobs/gf_background_work_utility.gd" module="standard" extends="GFUtility" classDigest="a5a29b0cd3180c1ebb1747573fb630084360f1c42d2331290361a8f21872ba3e">
 	<description>GFBackgroundWorkUtility: 纯数据后台工作协调器。
 统一协调 CPU/IO 线程工作、ResourceLoader 线程加载和主线程应用回调。
 默认只允许纯 Variant 输入数据，避免后台线程直接触碰 Node、Resource 或 Callable。</description>
@@ -250,7 +250,8 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">调试快照字典。</tag>
-				<tag name="schema">return: Dictionary，包含任务计数、queued_ids、running_thread_ids、resource_paths、apply_ids、finished_ids、暂停状态和 apply 时间预算。</tag>
+				<tag name="schema">return: Dictionary，包含任务计数、queued_ids、running_thread_ids、resource_paths、resource_draining_count、threaded_resource_operations、apply_ids、finished_ids、暂停状态和 apply 时间预算。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</methods>

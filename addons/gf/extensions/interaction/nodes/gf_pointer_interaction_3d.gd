@@ -18,6 +18,8 @@ extends Node
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param context: 交互上下文。
 signal pointer_entered(context: GFInteractionContext)
 
@@ -25,12 +27,16 @@ signal pointer_entered(context: GFInteractionContext)
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param context: 交互上下文。
 signal pointer_exited(context: GFInteractionContext)
 
 ## 指针按钮按下。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @param context: 交互上下文。
 ## [br]
@@ -41,6 +47,8 @@ signal pointer_pressed(context: GFInteractionContext, event: InputEventMouseButt
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param context: 交互上下文。
 ## [br]
 ## @param event: 原始输入事件。
@@ -49,6 +57,8 @@ signal pointer_released(context: GFInteractionContext, event: InputEventMouseBut
 ## 指针完成一次点击。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @param context: 交互上下文。
 ## [br]
@@ -59,6 +69,8 @@ signal pointer_clicked(context: GFInteractionContext, event: InputEventMouseButt
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param context: 交互上下文。
 ## [br]
 ## @param event: 原始输入事件。
@@ -68,19 +80,28 @@ signal pointer_wheel(context: GFInteractionContext, event: InputEventMouseButton
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param context: 交互上下文。
 ## [br]
 ## @param receiver: 接收对象。
 ## [br]
 ## @param report: 结果报告。
 ## [br]
-## @schema report: 交互结果报告 Dictionary，包含 ok、interaction_id、receiver、reason、message 和 metadata 等字段。
+## @schema report: 交互结果报告 Dictionary，包含 ok、interaction_id、receiver(JSON-safe 摘要)、reason、message 和 metadata 等字段。
 signal pointer_interaction_sent(context: GFInteractionContext, receiver: Object, report: Dictionary)
 
 
 # --- 常量 ---
 
 const _MESSAGE_DISPATCH_SUPPORT = preload("res://addons/gf/standard/common/gf_message_dispatch_support.gd")
+const _PICKABLE_OWNER_COUNT_META: StringName = &"_gf_pointer_interaction_3d_pickable_owner_count"
+const _PICKABLE_ORIGINAL_META: StringName = &"_gf_pointer_interaction_3d_pickable_original"
+const _RESERVED_POINTER_PAYLOAD_KEYS: Array[String] = [
+	"pointer_event",
+	"pointer_tags",
+	"pointer_metadata",
+]
 
 
 # --- 导出变量 ---
@@ -99,16 +120,22 @@ const _MESSAGE_DISPATCH_SUPPORT = preload("res://addons/gf/standard/common/gf_me
 ## 默认交互 ID。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 @export var interaction_id: StringName = &""
 
 ## 默认交互分组。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 @export var group_name: StringName = &""
 
 ## 默认 payload；发送时会深拷贝并附加 pointer_* 字段。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @schema payload: 默认交互载荷 Dictionary；发送时会复制并附加 pointer_event、pointer_tags、pointer_metadata 等 pointer_* 字段。
 @export var payload: Dictionary = {}
@@ -116,11 +143,15 @@ const _MESSAGE_DISPATCH_SUPPORT = preload("res://addons/gf/standard/common/gf_me
 ## 指针标签。框架不解释标签含义。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 @export var tags: PackedStringArray = PackedStringArray()
 
 ## 自定义元数据。框架不解释该字段。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @schema metadata: 指针交互自定义元数据 Dictionary；会写入 payload.pointer_metadata 并复制到结果报告。
 @export var metadata: Dictionary = {}
@@ -128,56 +159,83 @@ const _MESSAGE_DISPATCH_SUPPORT = preload("res://addons/gf/standard/common/gf_me
 ## 可选 3D 碰撞对象路径；为空时优先使用父节点。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 @export_node_path("CollisionObject3D") var collision_object_path: NodePath = NodePath("")
 
 ## 可选交互接收器路径；为空时从碰撞对象向父级解析 receive_interaction()。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 @export_node_path("Node") var receiver_path: NodePath = NodePath("")
 
 ## 可选发送者路径；为空时使用当前节点。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 @export_node_path("Node") var sender_path: NodePath = NodePath("")
 
 ## 是否在点击完成时发送交互。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 @export var send_on_clicked: bool = true
 
 ## 是否在按钮按下时发送交互。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 @export var send_on_pressed: bool = false
 
 ## 是否在按钮释放时发送交互。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 @export var send_on_released: bool = false
 
 ## 是否在滚轮事件时发送交互。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 @export var send_on_wheel: bool = false
 
 ## 是否在 hover 进入和离开时发送交互。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 @export var send_on_hover: bool = false
 
 ## 绑定碰撞对象时是否确保 input_ray_pickable 为 true。
 ## [br]
 ## @api public
-@export var ensure_input_ray_pickable: bool = true
+## [br]
+## @since 3.17.0
+@export var ensure_input_ray_pickable: bool = true:
+	set(value):
+		if ensure_input_ray_pickable == value:
+			return
+		ensure_input_ray_pickable = value
+		_refresh_current_collision_object_binding(get_collision_object())
 
 ## hover 时是否临时切换鼠标光标。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 @export var change_cursor_on_hover: bool = false
 
 ## hover 时使用的鼠标光标。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 @export var cursor_shape: Input.CursorShape = Input.CURSOR_ARROW
 
 
@@ -190,10 +248,17 @@ var _pressed_shape_idx: int = -1
 var _bound_input_ray_pickable_original: bool = false
 var _bound_input_ray_pickable_changed: bool = false
 var _has_previous_cursor_shape: bool = false
-var _previous_cursor_shape: Input.CursorShape = Input.CURSOR_ARROW
+static var _cursor_owner_stack: Array[Dictionary] = []
+static var _cursor_base_shape: Input.CursorShape = Input.CURSOR_ARROW
+static var _has_cursor_base_shape: bool = false
 
 
 # --- Godot 生命周期方法 ---
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_PREDELETE:
+		_disconnect_collision_object()
+
 
 func _ready() -> void:
 	bind_collision_object(_resolve_collision_object())
@@ -209,17 +274,21 @@ func _exit_tree() -> void:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param collision_object: 要监听的碰撞对象。
 func bind_collision_object(collision_object: CollisionObject3D) -> void:
+	var current_collision_object: CollisionObject3D = get_collision_object()
+	if collision_object != null and current_collision_object == collision_object:
+		_refresh_current_collision_object_binding(collision_object)
+		return
+
 	_disconnect_collision_object()
 	if collision_object == null:
 		return
 
 	_collision_object_ref = weakref(collision_object)
-	_bound_input_ray_pickable_original = collision_object.input_ray_pickable
-	_bound_input_ray_pickable_changed = ensure_input_ray_pickable and not collision_object.input_ray_pickable
-	if _bound_input_ray_pickable_changed:
-		collision_object.input_ray_pickable = true
+	_retain_input_ray_pickable(collision_object)
 	if not collision_object.mouse_entered.is_connected(_on_collision_mouse_entered):
 		var _mouse_entered_connected: Error = collision_object.mouse_entered.connect(_on_collision_mouse_entered) as Error
 	if not collision_object.mouse_exited.is_connected(_on_collision_mouse_exited):
@@ -231,6 +300,8 @@ func bind_collision_object(collision_object: CollisionObject3D) -> void:
 ## 获取当前绑定的 3D 碰撞对象。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @return: 碰撞对象；不存在时返回 null。
 func get_collision_object() -> CollisionObject3D:
@@ -265,6 +336,8 @@ func build_context(
 	context_payload["pointer_tags"] = tags.duplicate()
 	context_payload["pointer_metadata"] = metadata.duplicate(true)
 	for key: Variant in pointer_data.keys():
+		if _is_reserved_pointer_payload_key(key):
+			continue
 		context_payload[key] = GFVariantData.duplicate_variant(pointer_data[key])
 
 	return GFInteractionContext.new(_resolve_sender(), effective_receiver, context_payload, group_name)
@@ -286,7 +359,7 @@ func build_context(
 ## [br]
 ## @return: 统一结果报告。
 ## [br]
-## @schema return: 交互结果报告 Dictionary，包含 ok、interaction_id、receiver、reason、message 和 metadata 等字段。
+## @schema return: 交互结果报告 Dictionary，包含 ok、interaction_id、receiver(JSON-safe 摘要)、reason、message 和 metadata 等字段。
 func send_pointer_interaction(
 	pointer_event: StringName,
 	pointer_data: Dictionary = {},
@@ -337,6 +410,23 @@ func _disconnect_collision_object() -> void:
 	_restore_input_ray_pickable(collision_object)
 	_clear_collision_binding_state()
 	_collision_object_ref = null
+
+
+func _refresh_current_collision_object_binding(collision_object: CollisionObject3D) -> void:
+	_reset_pointer_state(true)
+	if collision_object == null:
+		return
+	if not ensure_input_ray_pickable:
+		_restore_input_ray_pickable(collision_object)
+		_clear_collision_binding_state()
+		return
+	if not _bound_input_ray_pickable_changed:
+		_retain_input_ray_pickable(collision_object)
+		return
+	if not collision_object.input_ray_pickable and _get_pickable_owner_count(collision_object) <= 1:
+		_bound_input_ray_pickable_original = false
+		collision_object.set_meta(_PICKABLE_ORIGINAL_META, false)
+	collision_object.input_ray_pickable = true
 
 
 func _resolve_receiver() -> Object:
@@ -437,19 +527,29 @@ func _is_wheel_button(button_index: int) -> bool:
 
 
 func _set_hover_cursor(active: bool) -> void:
-	if not change_cursor_on_hover:
+	if active and not change_cursor_on_hover:
 		return
+	var owner_id: int = get_instance_id()
 	if active:
-		if not _has_previous_cursor_shape:
-			_previous_cursor_shape = Input.get_current_cursor_shape()
+		if not _cursor_stack_has_owner(owner_id):
+			if _cursor_owner_stack.is_empty():
+				_cursor_base_shape = Input.get_current_cursor_shape()
+				_has_cursor_base_shape = true
+			_cursor_owner_stack.append({
+				"owner_id": owner_id,
+				"shape": cursor_shape,
+			})
 			_has_previous_cursor_shape = true
 		Input.set_default_cursor_shape(cursor_shape)
 		return
-	if _has_previous_cursor_shape:
-		Input.set_default_cursor_shape(_previous_cursor_shape)
-		_has_previous_cursor_shape = false
-		return
-	Input.set_default_cursor_shape(Input.CURSOR_ARROW)
+	var removed_entry: Dictionary = _remove_cursor_stack_owner(owner_id)
+	_has_previous_cursor_shape = false
+	if not _cursor_owner_stack.is_empty():
+		Input.set_default_cursor_shape(_get_cursor_shape_from_entry(_cursor_owner_stack[_cursor_owner_stack.size() - 1], Input.CURSOR_ARROW))
+	elif not removed_entry.is_empty() and _has_cursor_base_shape:
+		Input.set_default_cursor_shape(_cursor_base_shape)
+		_has_cursor_base_shape = false
+		_cursor_base_shape = Input.CURSOR_ARROW
 
 
 func _reset_pointer_state(reset_cursor: bool) -> void:
@@ -464,12 +564,79 @@ func _reset_pointer_state(reset_cursor: bool) -> void:
 func _restore_input_ray_pickable(collision_object: CollisionObject3D) -> void:
 	if collision_object == null or not _bound_input_ray_pickable_changed:
 		return
-	collision_object.input_ray_pickable = _bound_input_ray_pickable_original
+	_release_input_ray_pickable(collision_object)
 
 
 func _clear_collision_binding_state() -> void:
 	_bound_input_ray_pickable_original = false
 	_bound_input_ray_pickable_changed = false
+
+
+func _retain_input_ray_pickable(collision_object: CollisionObject3D) -> void:
+	if collision_object == null or not ensure_input_ray_pickable:
+		_bound_input_ray_pickable_original = collision_object.input_ray_pickable if collision_object != null else false
+		_bound_input_ray_pickable_changed = false
+		return
+	var owner_count: int = _get_pickable_owner_count(collision_object)
+	if owner_count <= 0:
+		collision_object.set_meta(_PICKABLE_ORIGINAL_META, collision_object.input_ray_pickable)
+	_bound_input_ray_pickable_original = _get_pickable_original(collision_object, collision_object.input_ray_pickable)
+	_bound_input_ray_pickable_changed = true
+	collision_object.set_meta(_PICKABLE_OWNER_COUNT_META, owner_count + 1)
+	collision_object.input_ray_pickable = true
+
+
+func _release_input_ray_pickable(collision_object: CollisionObject3D) -> void:
+	var owner_count: int = _get_pickable_owner_count(collision_object)
+	if owner_count <= 1:
+		collision_object.input_ray_pickable = _get_pickable_original(collision_object, _bound_input_ray_pickable_original)
+		if collision_object.has_meta(_PICKABLE_OWNER_COUNT_META):
+			collision_object.remove_meta(_PICKABLE_OWNER_COUNT_META)
+		if collision_object.has_meta(_PICKABLE_ORIGINAL_META):
+			collision_object.remove_meta(_PICKABLE_ORIGINAL_META)
+		return
+	collision_object.set_meta(_PICKABLE_OWNER_COUNT_META, owner_count - 1)
+
+
+func _get_pickable_owner_count(collision_object: CollisionObject3D) -> int:
+	if collision_object == null or not collision_object.has_meta(_PICKABLE_OWNER_COUNT_META):
+		return 0
+	return GFVariantData.to_int(collision_object.get_meta(_PICKABLE_OWNER_COUNT_META), 0)
+
+
+func _get_pickable_original(collision_object: CollisionObject3D, fallback: bool) -> bool:
+	if collision_object == null or not collision_object.has_meta(_PICKABLE_ORIGINAL_META):
+		return fallback
+	return GFVariantData.to_bool(collision_object.get_meta(_PICKABLE_ORIGINAL_META), fallback)
+
+
+func _is_reserved_pointer_payload_key(key: Variant) -> bool:
+	return _RESERVED_POINTER_PAYLOAD_KEYS.has(GFVariantData.to_text(key))
+
+
+func _cursor_stack_has_owner(owner_id: int) -> bool:
+	for entry: Dictionary in _cursor_owner_stack:
+		if GFVariantData.get_option_int(entry, "owner_id", 0) == owner_id:
+			return true
+	return false
+
+
+func _remove_cursor_stack_owner(owner_id: int) -> Dictionary:
+	for index: int in range(_cursor_owner_stack.size() - 1, -1, -1):
+		var entry: Dictionary = _cursor_owner_stack[index]
+		if GFVariantData.get_option_int(entry, "owner_id", 0) != owner_id:
+			continue
+		_cursor_owner_stack.remove_at(index)
+		return entry
+	return {}
+
+
+func _get_cursor_shape_from_entry(
+	entry: Dictionary,
+	fallback: Input.CursorShape
+) -> Input.CursorShape:
+	var shape: int = GFVariantData.get_option_int(entry, "shape", fallback)
+	return shape as Input.CursorShape
 
 
 func _get_collision_object_value(value: Variant) -> CollisionObject3D:

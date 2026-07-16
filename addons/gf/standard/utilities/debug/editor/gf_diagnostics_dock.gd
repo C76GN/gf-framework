@@ -294,31 +294,19 @@ func _make_value_summary(value: Variant) -> String:
 
 
 func _safe_json(value: Variant) -> String:
-	return JSON.stringify(_sanitize_for_display(value), "\t")
+	return GFReportValueCodec.stringify_json_compatible(
+		value,
+		"\t",
+		false,
+		GFReportValueCodec.make_redaction_options(GFReportValueCodec.REDACTION_PROFILE_DEBUG)
+	)
 
 
 func _sanitize_for_display(value: Variant) -> Variant:
-	if value is Dictionary:
-		var dictionary: Dictionary = GFVariantData.as_dictionary(value)
-		var result: Dictionary = {}
-		for key: Variant in dictionary.keys():
-			result[GFVariantData.to_text(key)] = _sanitize_for_display(dictionary[key])
-		return result
-	if value is Array:
-		var array: Array = GFVariantData.as_array(value)
-		var array_result: Array = []
-		for item: Variant in array:
-			array_result.append(_sanitize_for_display(item))
-		return array_result
-	if value is PackedStringArray:
-		var packed_strings: PackedStringArray = value
-		var strings: Array[String] = []
-		for item: String in packed_strings:
-			strings.append(item)
-		return strings
-	if value is Object:
-		return str(value)
-	return value
+	return GFReportValueCodec.to_json_compatible(
+		value,
+		GFReportValueCodec.make_redaction_options(GFReportValueCodec.REDACTION_PROFILE_DEBUG)
+	)
 
 
 func _append_packed_string(target: PackedStringArray, value: String) -> void:

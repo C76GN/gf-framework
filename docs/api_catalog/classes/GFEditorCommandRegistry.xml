@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFEditorCommandRegistry" path="addons/gf/kernel/editor/gf_editor_command_registry.gd" module="kernel" extends="RefCounted" classDigest="fc0629b2dac2b99ded7331e0df1f876015540bdd176a1840782981fb154c6d51">
+<class name="GFEditorCommandRegistry" path="addons/gf/kernel/editor/gf_editor_command_registry.gd" module="kernel" extends="RefCounted" classDigest="41689f100d16d4ad77f04041949a4ee00308eba4cd60ef8849d28b144fbe3550">
 	<description>GFEditorCommandRegistry: 编辑器动作注册表。
 收集由 kernel、standard、扩展或项目工具主动贡献的编辑器动作，并提供按 ID
 查询、排序、布局解析和调用入口。注册表只保存动作声明与来源信息，不扫描脚本、
@@ -174,11 +174,11 @@
 			<description>获取动作快照列表。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="param">context: 用于可用性检查的调用上下文。</tag>
-				<tag name="param">options: 可选参数，支持 group、source_id 和 include_availability。</tag>
+				<tag name="param">context: 用于可用性或调用探针的调用上下文。</tag>
+				<tag name="param">options: 可选参数，支持 group、source_id、include_availability 和 include_invocation。</tag>
 				<tag name="return">动作快照数组。</tag>
-				<tag name="schema">context: Dictionary passed to action availability checks.</tag>
-				<tag name="schema">options: Dictionary with group, source_id, and include_availability.</tag>
+				<tag name="schema">context: Dictionary passed to action availability and invocation checks.</tag>
+				<tag name="schema">options: Dictionary with group, source_id, include_availability, and include_invocation.</tag>
 				<tag name="schema">return: Array[Dictionary] action snapshots sorted for UI display.</tag>
 				<tag name="since">7.0.0</tag>
 			</tags>
@@ -189,11 +189,11 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">action_ids: 已保存的动作 ID 顺序。</tag>
-				<tag name="param">context: 用于可用性检查的调用上下文。</tag>
-				<tag name="param">options: 可选参数，支持 include_availability。</tag>
+				<tag name="param">context: 用于可用性或调用探针的调用上下文。</tag>
+				<tag name="param">options: 可选参数，支持 include_availability 和 include_invocation。</tag>
 				<tag name="return">布局解析报告。</tag>
-				<tag name="schema">context: Dictionary passed to action availability checks.</tag>
-				<tag name="schema">options: Dictionary with optional include_availability.</tag>
+				<tag name="schema">context: Dictionary passed to action availability and invocation checks.</tag>
+				<tag name="schema">options: Dictionary with optional include_availability and include_invocation.</tag>
 				<tag name="schema">return: Dictionary containing entries and missing_ids.</tag>
 				<tag name="since">7.0.0</tag>
 			</tags>

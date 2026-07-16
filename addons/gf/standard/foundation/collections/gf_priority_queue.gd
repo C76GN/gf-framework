@@ -1,6 +1,6 @@
 ## GFPriorityQueue: 稳定优先队列。
 ##
-## 用二叉堆保存带整数优先级的值，支持高优先级优先或低优先级优先，
+## 用二叉堆保存带数值优先级的值，支持高优先级优先或低优先级优先，
 ## 并在相同优先级下保持稳定顺序。它只管理排序和弹出顺序，不解释任务、
 ## 通知、AI 行为或项目业务语义。
 ## [br]
@@ -65,7 +65,7 @@ func _init(p_high_priority_first: bool = true) -> void:
 ## @schema values: Array of queue values copied by reference.
 static func from_array(
 	values: Array,
-	priority: int = 0,
+	priority: float = 0.0,
 	p_high_priority_first: bool = true
 ) -> RefCounted:
 	var priority_queue: RefCounted = _new_queue_instance(p_high_priority_first)
@@ -84,20 +84,43 @@ static func from_array(
 ## [br]
 ## @param value: 要入队的值。
 ## [br]
-## @param priority: 整数优先级。
+## @param priority: 数值优先级。
 ## [br]
 ## @param front: 为 true 时会排在相同 priority 的既有元素之前。
 ## [br]
+## @return priority 有限并成功入队时返回 true。
+## [br]
 ## @schema value: Variant queue value.
-func push(value: Variant, priority: int = 0, front: bool = false) -> void:
+func push(value: Variant, priority: float = 0.0, front: bool = false) -> bool:
+	if not is_finite(priority):
+		return false
 	_reset_order_if_empty()
 	var order: int = _make_order(front)
-	_entries.append({
-		"value": value,
-		"priority": priority,
-		"order": order,
-	})
-	_sift_up(_entries.size() - 1)
+	_push_entry(value, priority, order)
+	return true
+
+
+## 按显式稳定顺序推入一个值。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+## [br]
+## @param value: 要入队的值。
+## [br]
+## @param priority: 数值优先级。
+## [br]
+## @param order: 相同 priority 下的稳定排序值，数值越小越先弹出。
+## [br]
+## @return priority 有限并成功入队时返回 true。
+## [br]
+## @schema value: Variant queue value.
+func push_with_order(value: Variant, priority: float = 0.0, order: int = 0) -> bool:
+	if not is_finite(priority):
+		return false
+	_reset_order_if_empty()
+	_push_entry(value, priority, order)
+	return true
 
 
 ## 弹出当前最高优先级值。
@@ -149,10 +172,10 @@ func peek(default_value: Variant = null) -> Variant:
 ## @param default_value: 队列为空时返回的值。
 ## [br]
 ## @return 当前最高优先级或 default_value。
-func peek_priority(default_value: int = 0) -> int:
+func peek_priority(default_value: float = 0.0) -> float:
 	if _entries.is_empty():
 		return default_value
-	return GFVariantData.get_option_int(_entries[0], "priority", default_value)
+	return GFVariantData.get_option_float(_entries[0], "priority", default_value)
 
 
 ## 移除第一个等于 value 的队列值。
@@ -231,7 +254,9 @@ func has_value(value: Variant) -> bool:
 ## @return 找到并更新时返回 true。
 ## [br]
 ## @schema value: Variant queue value.
-func set_priority(value: Variant, priority: int, front: bool = false) -> bool:
+func set_priority(value: Variant, priority: float, front: bool = false) -> bool:
+	if not is_finite(priority):
+		return false
 	for index: int in range(_entries.size()):
 		if _values_equal(GFVariantData.get_option_value(_entries[index], "value"), value):
 			_entries[index]["priority"] = priority
@@ -315,7 +340,7 @@ func to_entry_array(deep: bool = false) -> Array[Dictionary]:
 		var value: Variant = GFVariantData.get_option_value(entry, "value")
 		result.append({
 			"value": GFVariantData.duplicate_variant(value) if deep else value,
-			"priority": GFVariantData.get_option_int(entry, "priority"),
+			"priority": GFVariantData.get_option_float(entry, "priority"),
 			"order": GFVariantData.get_option_int(entry, "order"),
 		})
 	return result
@@ -368,6 +393,15 @@ func _make_order(front: bool) -> int:
 	var order: int = _next_order
 	_next_order += 1
 	return order
+
+
+func _push_entry(value: Variant, priority: float, order: int) -> void:
+	_entries.append({
+		"value": value,
+		"priority": priority,
+		"order": order,
+	})
+	_sift_up(_entries.size() - 1)
 
 
 func _reset_order_if_empty() -> void:
@@ -455,8 +489,8 @@ func _sift_down_entries(entries: Array[Dictionary], index: int) -> void:
 
 
 func _entry_is_before(left: Dictionary, right: Dictionary) -> bool:
-	var left_priority: int = GFVariantData.get_option_int(left, "priority")
-	var right_priority: int = GFVariantData.get_option_int(right, "priority")
+	var left_priority: float = GFVariantData.get_option_float(left, "priority")
+	var right_priority: float = GFVariantData.get_option_float(right, "priority")
 	if left_priority != right_priority:
 		if high_priority_first:
 			return left_priority > right_priority
@@ -476,7 +510,7 @@ func _duplicate_entries(deep: bool) -> Array[Dictionary]:
 		var value: Variant = GFVariantData.get_option_value(entry, "value")
 		result.append({
 			"value": GFVariantData.duplicate_variant(value) if deep else value,
-			"priority": GFVariantData.get_option_int(entry, "priority"),
+			"priority": GFVariantData.get_option_float(entry, "priority"),
 			"order": GFVariantData.get_option_int(entry, "order"),
 		})
 	return result

@@ -44,6 +44,7 @@
 ### `shake_started`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 signal shake_started(shake_id: int, channel: StringName)
@@ -63,6 +64,7 @@ signal shake_started(shake_id: int, channel: StringName)
 ### `shake_finished`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 signal shake_finished(shake_id: int, channel: StringName)
@@ -82,6 +84,7 @@ signal shake_finished(shake_id: int, channel: StringName)
 ### `shake_stopped`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 signal shake_stopped(shake_id: int, channel: StringName)
@@ -103,6 +106,7 @@ signal shake_stopped(shake_id: int, channel: StringName)
 ### `OverflowPolicy`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 enum OverflowPolicy {
@@ -122,6 +126,7 @@ enum OverflowPolicy {
 ### `default_channel`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var default_channel: StringName = &"default"
@@ -134,6 +139,7 @@ var default_channel: StringName = &"default"
 ### `max_active_shakes`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var max_active_shakes: int = 64
@@ -146,6 +152,7 @@ var max_active_shakes: int = 64
 ### `overflow_policy`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var overflow_policy: OverflowPolicy = OverflowPolicy.STOP_OLDEST
@@ -158,6 +165,7 @@ var overflow_policy: OverflowPolicy = OverflowPolicy.STOP_OLDEST
 ### `randomize_phase`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var randomize_phase: bool = true
@@ -172,6 +180,7 @@ var randomize_phase: bool = true
 ### `init`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func init() -> void:
@@ -184,6 +193,7 @@ func init() -> void:
 ### `dispose`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func dispose() -> void:
@@ -196,6 +206,7 @@ func dispose() -> void:
 ### `tick`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func tick(delta: float) -> void:
@@ -214,6 +225,7 @@ func tick(delta: float) -> void:
 ### `play_shake`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func play_shake( channel: StringName, preset: GFShakePreset, strength: float = 1.0, metadata: Dictionary = {} ) -> int:
@@ -234,13 +246,14 @@ func play_shake( channel: StringName, preset: GFShakePreset, strength: float = 1
 
 结构：
 
-- `metadata`: Dictionary，播放实例自定义元数据，会在 get_shake_info() 快照中复制返回。
+- `metadata`: Dictionary，播放实例自定义元数据，会在 get_shake_info() JSON-safe 快照中复制返回。
 
 <a id="member-gfshakeutility-methods-stop_shake"></a>
 
 ### `stop_shake`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func stop_shake(shake_id: int, emit_stopped: bool = true) -> bool:
@@ -262,6 +275,7 @@ func stop_shake(shake_id: int, emit_stopped: bool = true) -> bool:
 ### `stop_channel`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func stop_channel(channel: StringName) -> int:
@@ -282,6 +296,7 @@ func stop_channel(channel: StringName) -> int:
 ### `clear`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func clear() -> void:
@@ -294,6 +309,7 @@ func clear() -> void:
 ### `is_shake_active`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func is_shake_active(shake_id: int) -> bool:
@@ -314,6 +330,7 @@ func is_shake_active(shake_id: int) -> bool:
 ### `get_active_shake_count`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func get_active_shake_count(channel: StringName = &"") -> int:
@@ -334,6 +351,7 @@ func get_active_shake_count(channel: StringName = &"") -> int:
 ### `sample_channel`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func sample_channel(channel: StringName = &"") -> Dictionary:
@@ -358,6 +376,7 @@ func sample_channel(channel: StringName = &"") -> Dictionary:
 ### `sample_channels`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func sample_channels(channels: PackedStringArray) -> Dictionary:
@@ -382,6 +401,7 @@ func sample_channels(channels: PackedStringArray) -> Dictionary:
 ### `get_shake_info`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func get_shake_info(shake_id: int) -> Dictionary:
@@ -399,13 +419,14 @@ func get_shake_info(shake_id: int) -> Dictionary:
 
 结构：
 
-- `return`: Dictionary，包含 id、channel、elapsed_seconds、duration_seconds、strength 与 metadata；实例不存在时为空。
+- `return`: JSON-safe Dictionary，包含 id、channel、elapsed_seconds、duration_seconds、strength 与 metadata；实例不存在时为空。
 
 <a id="member-gfshakeutility-methods-get_debug_snapshot"></a>
 
 ### `get_debug_snapshot`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func get_debug_snapshot() -> Dictionary:
@@ -417,4 +438,4 @@ func get_debug_snapshot() -> Dictionary:
 
 结构：
 
-- `return`: Dictionary，包含 active_count、max_active_shakes、channels 与 play_order。
+- `return`: JSON-safe Dictionary，包含 active_count、max_active_shakes、channels 与 play_order。

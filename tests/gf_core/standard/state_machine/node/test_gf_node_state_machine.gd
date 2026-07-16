@@ -58,6 +58,35 @@ class ExitRedirectNodeState:
 		transition_to(target_state_name, args)
 
 
+class RestoreRedirectNodeState:
+	extends TrackingNodeState
+
+	var target_state_name: StringName = &""
+	var redirect_on_enter: bool = false
+
+	func _enter(previous_state: StringName = &"", args: Dictionary = {}) -> void:
+		super._enter(previous_state, args)
+		if redirect_on_enter:
+			transition_to(target_state_name, args)
+
+
+class MachineMutationOnEnterState:
+	extends TrackingNodeState
+
+	var group_to_mutate: GFNodeStateGroup = null
+	var mutate_on_enter: bool = false
+
+	func _enter(previous_state: StringName = &"", args: Dictionary = {}) -> void:
+		super._enter(previous_state, args)
+		if not mutate_on_enter or group_to_mutate == null:
+			return
+		var machine_value: Object = get_machine()
+		if machine_value is GFNodeStateMachine:
+			var machine: GFNodeStateMachine = machine_value
+			var _removed: bool = machine.remove_state_group(group_to_mutate)
+		group_to_mutate.clear_states(false)
+
+
 class ReadyHost:
 	extends Node
 
@@ -157,7 +186,7 @@ class SampleNodeContext:
 	var system: DummySystem = DummySystem.new()
 	var utility: DummyUtility = DummyUtility.new()
 
-	func install(architecture_instance: GFArchitecture) -> void:
+	func install(architecture_instance: GFArchitecture, _scope: GFAsyncScope) -> void:
 		await architecture_instance.register_model_instance(model)
 		await architecture_instance.register_system_instance(system)
 		await architecture_instance.register_utility_instance(utility)
@@ -172,9 +201,9 @@ class EventListeningNodeState:
 
 	func _enter(previous_state: StringName = &"", args: Dictionary = {}) -> void:
 		super._enter(previous_state, args)
-		register_event(StateEventPayload, _on_typed_event)
-		register_assignable_event(StateEventPayload, _on_assignable_event)
-		register_simple_event(&"node_state_simple_event", _on_simple_event)
+		register_event(StateEventPayload, GFEventListener.from_method(self, &"_on_typed_event", 1))
+		register_assignable_event(StateEventPayload, GFEventListener.from_method(self, &"_on_assignable_event", 1))
+		register_simple_event(&"node_state_simple_event", GFEventListener.from_method(self, &"_on_simple_event", 1))
 
 	func _exit(next_state: StringName = &"", args: Dictionary = {}) -> void:
 		super._exit(next_state, args)
@@ -684,9 +713,45 @@ func test_push_state_does_not_use_exit_guard_for_paused_state() -> void:
 	assert_eq(idle.exit_count, 0, "push_state 不应退出旧状态。")
 
 
+func test_transition_requires_paused_state_exit_guards_unless_forced() -> void:
+	var group: GFNodeStateGroup = GFNodeStateGroup.new()
+	var idle: GuardedNodeState = GuardedNodeState.new()
+	var menu: TrackingNodeState = TrackingNodeState.new()
+	var combat: TrackingNodeState = TrackingNodeState.new()
+	autofree(group)
+	autofree(idle)
+	autofree(menu)
+	autofree(combat)
+	idle.name = "Idle"
+	idle.allow_exit = false
+	menu.name = "Menu"
+	combat.name = "Combat"
+	group.add_state(idle)
+	group.add_state(menu)
+	group.add_state(combat)
+	group.transition_to(&"Idle")
+	group.push_state(&"Menu")
+
+	group.transition_to(&"Combat")
+
+	assert_eq(group.get_current_state(), menu, "普通切换必须尊重暂停状态的 exit guard。")
+	assert_eq(group.get_stack_depth(), 1, "守卫阻止时不得部分折叠暂停栈。")
+	assert_eq(menu.exit_count, 0, "预校验失败时当前状态不应先退出。")
+
+	group.transition_to(&"Combat", {}, GFNodeStateGroup.StackExitPolicy.FORCE)
+
+	assert_eq(group.get_current_state(), combat, "显式 FORCE 应允许 teardown 类切换。")
+	assert_eq(group.get_stack_depth(), 0, "强制切换应完整折叠暂停栈。")
+	assert_eq(idle.exit_count, 1, "强制切换应对暂停状态执行 exit hook。")
+
+	group.clear_states(false)
+
+
 func test_remove_state_uses_registration_key_after_state_rename() -> void:
 	var group: GFNodeStateGroup = GFNodeStateGroup.new()
 	var state: TrackingNodeState = TrackingNodeState.new()
+	autofree(group)
+	autofree(state)
 	state.state_name = &"Idle"
 	group.add_state(state)
 	state.state_name = &"Renamed"
@@ -695,12 +760,20 @@ func test_remove_state_uses_registration_key_after_state_rename() -> void:
 
 	assert_true(removed, "移除状态应使用注册 key，不应受节点后续改名影响。")
 	assert_null(group.get_state(&"Idle"), "移除后注册 key 应清理。")
+	assert_null(state.get_group(), "移除后状态不应保留旧状态组上下文。")
+	assert_null(state.get_machine(), "移除后状态不应保留旧状态机上下文。")
 
 
 func test_remove_state_group_uses_registration_key_after_group_rename() -> void:
 	var machine: GFNodeStateMachine = GFNodeStateMachine.new()
 	var group: GFNodeStateGroup = GFNodeStateGroup.new()
+	var state: TrackingNodeState = TrackingNodeState.new()
+	autofree(machine)
+	autofree(group)
+	autofree(state)
 	group.group_name = &"External"
+	state.name = "Idle"
+	group.add_state(state)
 	machine.add_state_group(group)
 	group.group_name = &"Renamed"
 
@@ -708,6 +781,8 @@ func test_remove_state_group_uses_registration_key_after_group_rename() -> void:
 
 	assert_true(removed, "移除状态组应使用注册 key，不应受节点后续改名影响。")
 	assert_null(machine.get_state_group(&"External"), "移除后注册 group key 应清理。")
+	assert_null(state.get_machine(), "移除外部状态组后组内状态不应保留旧状态机上下文。")
+	assert_eq(state.get_group(), group, "移除外部状态组不应破坏组内状态注册关系。")
 
 
 func test_pop_state_redirect_does_not_reexit_current_state_when_stacked_state_redirects() -> void:
@@ -951,6 +1026,262 @@ func test_node_state_machine_snapshot_reports_groups() -> void:
 	assert_has(body_states, &"Idle", "状态组快照应包含已注册状态。")
 
 
+func test_node_state_machine_restore_reports_unrestored_snapshot_groups_as_partial() -> void:
+	var machine: GFNodeStateMachine = GFNodeStateMachine.new()
+	var body_group: GFNodeStateGroup = GFNodeStateGroup.new()
+	var idle: TrackingNodeState = TrackingNodeState.new()
+	autofree(machine)
+	autofree(body_group)
+	autofree(idle)
+	body_group.group_name = &"Body"
+	idle.name = "Idle"
+	body_group.add_state(idle)
+	machine.add_state_group(body_group)
+	body_group.transition_to(&"Idle")
+	var snapshot: Dictionary = machine.get_state_snapshot()
+	var groups: Dictionary = GFVariantData.get_option_dictionary(snapshot, "groups")
+	groups[&"RemovedGroup"] = {
+		"schema_version": 1,
+		"current_state": &"Ghost",
+		"stack": [],
+		"history": [],
+		"blackboard": {},
+	}
+	snapshot["groups"] = groups
+
+	var report: Dictionary = machine.restore_state_snapshot(snapshot)
+
+	assert_true(GFVariantData.get_option_bool(report, "ok"), "宽松恢复应成功处理仍存在的状态组。")
+	assert_true(GFVariantData.get_option_bool(report, "partial"), "快照中已移除的状态组应明确标记 partial。")
+	assert_eq(GFVariantData.get_option_string(report, "status"), "partial", "机器恢复报告应提供稳定 partial 状态。")
+	assert_has(
+		GFVariantData.get_option_array(report, "unrestored_group_snapshots"),
+		&"RemovedGroup",
+		"报告应列出被宽松忽略的快照状态组。"
+	)
+
+	body_group.clear_states(false)
+
+
+func test_node_state_machine_snapshot_has_json_safe_export() -> void:
+	var machine: GFNodeStateMachine = GFNodeStateMachine.new()
+	var body_group: GFNodeStateGroup = GFNodeStateGroup.new()
+	var idle: TrackingNodeState = TrackingNodeState.new()
+	body_group.name = "Body"
+	body_group.group_name = &"Body"
+	body_group.initial_state = &"Idle"
+	body_group.blackboard["owner"] = self
+	body_group.blackboard["path"] = "res://private/node_state.json"
+	idle.name = "Idle"
+	add_child_autofree(machine)
+	machine.add_child(body_group)
+	body_group.add_child(idle)
+	await get_tree().process_frame
+
+	var raw_snapshot: Dictionary = machine.get_state_snapshot()
+	var exported: Dictionary = machine.get_json_compatible_state_snapshot()
+	var raw_groups: Dictionary = GFVariantData.get_option_dictionary(raw_snapshot, "groups")
+	var exported_groups: Dictionary = GFVariantData.get_option_dictionary(exported, "groups")
+	var raw_body: Dictionary = GFVariantData.get_option_dictionary(raw_groups, &"Body")
+	var exported_body: Dictionary = GFVariantData.get_option_dictionary(exported_groups, &"Body")
+	var raw_blackboard: Dictionary = GFVariantData.get_option_dictionary(raw_body, "blackboard")
+	var exported_blackboard: Dictionary = GFVariantData.get_option_dictionary(exported_body, "blackboard")
+	var owner_marker: Dictionary = GFVariantData.get_option_dictionary(
+		GFVariantData.get_option_dictionary(exported_blackboard, "owner"),
+		"__gf_report_value__"
+	)
+	var raw_owner_value: Variant = GFVariantData.get_option_value(raw_blackboard, "owner")
+	var raw_owner: Object = null
+	if raw_owner_value is Object:
+		raw_owner = raw_owner_value
+
+	assert_same(raw_owner, self, "raw 节点快照应保留运行时 Variant。")
+	assert_true(GFVariantData.get_option_bool(owner_marker, "redacted"), "JSON-safe 节点快照应脱敏运行时对象。")
+	assert_eq(GFVariantData.get_option_string(exported_blackboard, "path"), "<redacted_path>", "JSON-safe 节点快照应默认脱敏路径。")
+
+
+func test_node_state_event_architecture_cache_uses_weak_refs() -> void:
+	var state: GFNodeState = GFNodeState.new()
+	var machine: GFNodeStateMachine = GFNodeStateMachine.new()
+	autofree(state)
+	autofree(machine)
+	var architecture: GFArchitecture = GFArchitecture.new()
+	var architecture_ref: WeakRef = weakref(architecture)
+
+	state._remember_event_architecture(architecture)
+	machine._remember_event_architecture(architecture)
+	architecture = null
+	var released_architecture_value: Variant = architecture_ref.get_ref()
+	var released_architecture: Object = null
+	if released_architecture_value is Object:
+		released_architecture = released_architecture_value
+
+	assert_null(released_architecture, "状态事件代理缓存不应强持有 GFArchitecture。")
+	assert_true(state._get_tracked_event_architectures().is_empty(), "失效 architecture 应在读取时被清理。")
+	assert_true(machine._get_tracked_event_architectures().is_empty(), "状态机失效 architecture 应在读取时被清理。")
+
+
+func test_state_group_restore_snapshot_reports_failure_without_mutating_state() -> void:
+	var group: GFNodeStateGroup = GFNodeStateGroup.new()
+	var idle: TrackingNodeState = TrackingNodeState.new()
+	var menu: TrackingNodeState = TrackingNodeState.new()
+	autofree(group)
+	autofree(idle)
+	autofree(menu)
+	idle.name = "Idle"
+	menu.name = "Menu"
+	group.add_state(idle)
+	group.add_state(menu)
+	group.transition_to(&"Idle")
+	group.blackboard["hp"] = 10
+
+	var report: Dictionary = group.restore_state_snapshot({
+		"schema_version": 1,
+		"current_state": &"Missing",
+		"stack": [&"Idle"],
+		"history": [&"Idle", &"Missing"],
+		"blackboard": { "hp": 1 },
+	})
+
+	assert_false(GFVariantData.get_option_bool(report, "ok", true), "缺失关键状态时恢复应失败。")
+	assert_eq(group.get_current_state(), idle, "失败恢复不应清空或切换当前状态。")
+	assert_eq(GFVariantData.get_option_int(group.blackboard, "hp"), 10, "失败恢复不应覆盖黑板。")
+	assert_eq(idle.exit_count, 0, "失败恢复不应提前退出当前状态。")
+
+	group.clear_states(false)
+
+
+func test_state_group_restore_snapshot_reports_success_and_restores_stack() -> void:
+	var group: GFNodeStateGroup = GFNodeStateGroup.new()
+	var idle: TrackingNodeState = TrackingNodeState.new()
+	var menu: TrackingNodeState = TrackingNodeState.new()
+	autofree(group)
+	autofree(idle)
+	autofree(menu)
+	idle.name = "Idle"
+	menu.name = "Menu"
+	group.add_state(idle)
+	group.add_state(menu)
+
+	var report: Dictionary = group.restore_state_snapshot({
+		"schema_version": 1,
+		"current_state": &"Menu",
+		"stack": [&"Idle"],
+		"history": [&"Idle", &"Menu"],
+		"blackboard": { "hp": 5 },
+	})
+
+	assert_true(GFVariantData.get_option_bool(report, "ok"), "完整快照应恢复成功。")
+	assert_eq(group.get_current_state(), menu, "恢复后当前状态应来自快照。")
+	assert_eq(group.get_stack_depth(), 1, "恢复后暂停栈深度应来自快照。")
+	assert_true(group.is_in_state(&"Idle"), "恢复后暂停栈状态应被视为仍处于状态组内。")
+	assert_eq(group.get_state_history(), [&"Idle", &"Menu"], "恢复后历史应来自快照。")
+	assert_eq(GFVariantData.get_option_int(group.blackboard, "hp"), 5, "恢复后黑板应来自快照。")
+	assert_true(GFVariantData.get_option_bool(report, "stack_restored"), "恢复报告应标记 stack_restored。")
+	assert_true(GFVariantData.get_option_bool(report, "current_state_restored"), "恢复报告应标记 current_state_restored。")
+
+	group.clear_states(false)
+
+
+func test_state_group_restore_blocks_reentrant_transition_and_preserves_snapshot() -> void:
+	var group: GFNodeStateGroup = GFNodeStateGroup.new()
+	var idle: TrackingNodeState = TrackingNodeState.new()
+	var menu: RestoreRedirectNodeState = RestoreRedirectNodeState.new()
+	var combat: TrackingNodeState = TrackingNodeState.new()
+	autofree(group)
+	autofree(idle)
+	autofree(menu)
+	autofree(combat)
+	idle.name = "Idle"
+	menu.name = "Menu"
+	menu.target_state_name = &"Combat"
+	menu.redirect_on_enter = true
+	combat.name = "Combat"
+	group.add_state(idle)
+	group.add_state(menu)
+	group.add_state(combat)
+	group.transition_to(&"Idle")
+
+	var report: Dictionary = group.restore_state_snapshot({
+		"schema_version": 1,
+		"current_state": &"Menu",
+		"stack": [],
+		"history": [&"Idle", &"Menu"],
+		"blackboard": { "restored": true },
+	})
+
+	assert_true(GFVariantData.get_option_bool(report, "ok"), "被拒绝的 hook 重入不应破坏有效恢复。")
+	assert_eq(GFVariantData.get_option_string(report, "status"), "success", "完整恢复应返回稳定 success 状态。")
+	assert_eq(group.get_current_state(), menu, "恢复目标必须保持为快照中的状态。")
+	assert_true(
+		GFVariantData.get_option_array(report, "blocked_operations").has(&"transition_to"),
+		"恢复报告应记录被事务 guard 拒绝的重入操作。"
+	)
+	assert_false(GFVariantData.get_option_bool(report, "rolled_back"), "成功恢复不应触发回滚。")
+
+	group.clear_states(false)
+
+
+func test_machine_restore_blocks_cross_group_mutation_and_rolls_back_all_groups() -> void:
+	var machine: GFNodeStateMachine = GFNodeStateMachine.new()
+	var source_group: GFNodeStateGroup = GFNodeStateGroup.new()
+	var target_group: GFNodeStateGroup = GFNodeStateGroup.new()
+	var source_idle: TrackingNodeState = TrackingNodeState.new()
+	var source_menu: MachineMutationOnEnterState = MachineMutationOnEnterState.new()
+	var target_idle: TrackingNodeState = TrackingNodeState.new()
+	autofree(machine)
+	autofree(source_group)
+	autofree(target_group)
+	autofree(source_idle)
+	autofree(source_menu)
+	autofree(target_idle)
+	source_group.group_name = &"Source"
+	target_group.group_name = &"Target"
+	source_idle.name = "Idle"
+	source_menu.name = "Menu"
+	target_idle.name = "Idle"
+	source_menu.group_to_mutate = target_group
+	source_group.add_state(source_idle)
+	source_group.add_state(source_menu)
+	target_group.add_state(target_idle)
+	machine.add_state_group(source_group)
+	machine.add_state_group(target_group)
+	source_group.transition_to(&"Idle")
+	target_group.transition_to(&"Idle")
+
+	var snapshot: Dictionary = machine.get_state_snapshot()
+	var groups: Dictionary = GFVariantData.get_option_dictionary(snapshot, "groups")
+	var source_snapshot: Dictionary = GFVariantData.get_option_dictionary(groups, &"Source")
+	source_snapshot["current_state"] = &"Menu"
+	source_snapshot["history"] = [&"Idle", &"Menu"]
+	groups[&"Source"] = source_snapshot
+	snapshot["groups"] = groups
+	source_menu.mutate_on_enter = true
+
+	var report: Dictionary = machine.restore_state_snapshot(snapshot)
+	var blocked_operations: Array = GFVariantData.get_option_array(report, "blocked_operations")
+
+	assert_false(GFVariantData.get_option_bool(report, "ok"), "跨组结构突变尝试应使整机恢复失败。")
+	assert_true(GFVariantData.get_option_bool(report, "rolled_back"), "失败恢复应回滚所有状态组。")
+	assert_true(GFVariantData.get_option_bool(report, "registry_stable"), "被 guard 拒绝的操作不应改变 group registry。")
+	assert_eq(
+		GFVariantData.get_option_int(report, "group_registry_revision_before"),
+		GFVariantData.get_option_int(report, "group_registry_revision_after"),
+		"恢复前后 group registry revision 应一致。"
+	)
+	assert_true(blocked_operations.has(&"remove_state_group"), "报告应记录被拒绝的 machine 结构操作。")
+	assert_true(blocked_operations.has(&"Target.clear_states"), "报告应记录被拒绝的跨 group 直接操作。")
+	assert_eq(source_group.get_current_state(), source_idle, "源状态组应回滚到恢复前状态。")
+	assert_eq(target_group.get_current_state(), target_idle, "目标状态组应保持恢复前状态。")
+	assert_eq(machine.get_state_group(&"Target"), target_group, "目标状态组不应被移除。")
+	assert_eq(target_group.get_states().size(), 1, "目标状态组注册表不应被清空。")
+
+	source_menu.mutate_on_enter = false
+	machine.clear_state_groups(false)
+	source_group.clear_states(false)
+	target_group.clear_states(false)
+
+
 func test_clear_state_groups_disconnects_external_group_signals() -> void:
 	var machine: GFNodeStateMachine = GFNodeStateMachine.new()
 	var group: GFNodeStateGroup = GFNodeStateGroup.new()
@@ -985,6 +1316,8 @@ func test_clear_state_groups_stops_external_group_without_removing_states() -> v
 	assert_eq(idle.exit_count, 1, "清理状态组时外部组当前状态应执行 exit。")
 	assert_null(group.get_current_state(), "清理状态组后外部组不应继续保持当前状态。")
 	assert_eq(group.get_state(&"Idle"), idle, "默认清理状态组不应移除外部组已注册状态。")
+	assert_null(idle.get_machine(), "清理状态组后保留的状态不应继续引用旧状态机。")
+	assert_eq(idle.get_group(), group, "清理状态组后应保留状态与外部组的关系。")
 
 	group.free()
 	machine.free()
@@ -1028,6 +1361,8 @@ func test_clear_states_exits_current_and_stacked_states() -> void:
 	assert_eq(idle.exit_count, 1, "清空状态时暂停栈状态也应执行 exit。")
 	assert_eq(menu.process_mode, Node.PROCESS_MODE_DISABLED, "当前状态清空后应停止处理。")
 	assert_eq(idle.process_mode, Node.PROCESS_MODE_DISABLED, "暂停栈状态清空后应保持停止处理。")
+	assert_null(menu.get_group(), "清空状态后当前状态应解除组上下文。")
+	assert_null(idle.get_group(), "清空状态后暂停状态应解除组上下文。")
 
 
 func test_clear_states_with_free_detaches_state_nodes_immediately() -> void:

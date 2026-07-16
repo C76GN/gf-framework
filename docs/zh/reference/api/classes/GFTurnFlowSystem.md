@@ -20,18 +20,21 @@
 | 信号 | [`phase_changed`](#member-gfturnflowsystem-signals-phase_changed) | `signal phase_changed(phase: GFTurnPhase, index: int)` |
 | 信号 | [`action_enqueued`](#member-gfturnflowsystem-signals-action_enqueued) | `signal action_enqueued(action: GFTurnAction)` |
 | 信号 | [`action_resolved`](#member-gfturnflowsystem-signals-action_resolved) | `signal action_resolved(action: GFTurnAction)` |
-| 属性 | [`context`](#member-gfturnflowsystem-properties-context) | `var context: GFTurnContext = GFTurnContext.new()` |
-| 属性 | [`phases`](#member-gfturnflowsystem-properties-phases) | `var phases: Array[GFTurnPhase] = []` |
-| 属性 | [`current_phase_index`](#member-gfturnflowsystem-properties-current_phase_index) | `var current_phase_index: int = -1` |
-| 属性 | [`is_running`](#member-gfturnflowsystem-properties-is_running) | `var is_running: bool = false` |
+| 属性 | [`context`](#member-gfturnflowsystem-properties-context) | `var context: GFTurnContext:` |
+| 属性 | [`phases`](#member-gfturnflowsystem-properties-phases) | `var phases: Array[GFTurnPhase]:` |
+| 属性 | [`current_phase_index`](#member-gfturnflowsystem-properties-current_phase_index) | `var current_phase_index: int:` |
+| 属性 | [`is_running`](#member-gfturnflowsystem-properties-is_running) | `var is_running: bool:` |
 | 属性 | [`sort_actions_before_resolve`](#member-gfturnflowsystem-properties-sort_actions_before_resolve) | `var sort_actions_before_resolve: bool = true` |
 | 属性 | [`signal_timeout_seconds`](#member-gfturnflowsystem-properties-signal_timeout_seconds) | `var signal_timeout_seconds: float = 30.0` |
 | 属性 | [`signal_timeout_respects_time_scale`](#member-gfturnflowsystem-properties-signal_timeout_respects_time_scale) | `var signal_timeout_respects_time_scale: bool = true` |
 | 方法 | [`set_context`](#member-gfturnflowsystem-methods-set_context) | `func set_context(p_context: GFTurnContext) -> void:` |
 | 方法 | [`set_phases`](#member-gfturnflowsystem-methods-set_phases) | `func set_phases(p_phases: Array[GFTurnPhase]) -> void:` |
 | 方法 | [`start`](#member-gfturnflowsystem-methods-start) | `func start(reset_indices: bool = true) -> void:` |
-| 方法 | [`stop`](#member-gfturnflowsystem-methods-stop) | `func stop(clear_actions: bool = true) -> void:` |
+| 方法 | [`stop`](#member-gfturnflowsystem-methods-stop) | `func stop(should_clear_actions: bool = true) -> void:` |
 | 方法 | [`advance_phase`](#member-gfturnflowsystem-methods-advance_phase) | `func advance_phase() -> void:` |
+| 方法 | [`get_actions`](#member-gfturnflowsystem-methods-get_actions) | `func get_actions() -> Array[GFTurnAction]:` |
+| 方法 | [`get_action_count`](#member-gfturnflowsystem-methods-get_action_count) | `func get_action_count() -> int:` |
+| 方法 | [`clear_actions`](#member-gfturnflowsystem-methods-clear_actions) | `func clear_actions() -> void:` |
 | 方法 | [`enqueue_action`](#member-gfturnflowsystem-methods-enqueue_action) | `func enqueue_action(action: GFTurnAction) -> void:` |
 | 方法 | [`resolve_actions`](#member-gfturnflowsystem-methods-resolve_actions) | `func resolve_actions(order_resolver: Callable = Callable()) -> void:` |
 
@@ -135,9 +138,10 @@ signal action_resolved(action: GFTurnAction)
 ### `context`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-var context: GFTurnContext = GFTurnContext.new()
+var context: GFTurnContext:
 ```
 
 当前回合上下文。
@@ -147,9 +151,10 @@ var context: GFTurnContext = GFTurnContext.new()
 ### `phases`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-var phases: Array[GFTurnPhase] = []
+var phases: Array[GFTurnPhase]:
 ```
 
 阶段列表。
@@ -159,9 +164,10 @@ var phases: Array[GFTurnPhase] = []
 ### `current_phase_index`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-var current_phase_index: int = -1
+var current_phase_index: int:
 ```
 
 当前阶段索引。
@@ -171,9 +177,10 @@ var current_phase_index: int = -1
 ### `is_running`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-var is_running: bool = false
+var is_running: bool:
 ```
 
 当前是否正在运行。
@@ -275,9 +282,10 @@ func start(reset_indices: bool = true) -> void:
 ### `stop`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func stop(clear_actions: bool = true) -> void:
+func stop(should_clear_actions: bool = true) -> void:
 ```
 
 停止流程。
@@ -286,7 +294,7 @@ func stop(clear_actions: bool = true) -> void:
 
 | 名称 | 说明 |
 |---|---|
-| `clear_actions` | 是否清空待处理行动。 |
+| `should_clear_actions` | 是否清空待处理行动。 |
 
 <a id="member-gfturnflowsystem-methods-advance_phase"></a>
 
@@ -299,6 +307,49 @@ func advance_phase() -> void:
 ```
 
 推进到下一个阶段。
+
+<a id="member-gfturnflowsystem-methods-get_actions"></a>
+
+### `get_actions`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func get_actions() -> Array[GFTurnAction]:
+```
+
+获取待处理行动的只读快照。
+
+返回：当前待处理行动数组副本。
+
+<a id="member-gfturnflowsystem-methods-get_action_count"></a>
+
+### `get_action_count`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func get_action_count() -> int:
+```
+
+获取待处理行动数量。
+
+返回：当前待处理行动数量。
+
+<a id="member-gfturnflowsystem-methods-clear_actions"></a>
+
+### `clear_actions`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func clear_actions() -> void:
+```
+
+清空待处理行动并封存这些一次性实例。
 
 <a id="member-gfturnflowsystem-methods-enqueue_action"></a>
 

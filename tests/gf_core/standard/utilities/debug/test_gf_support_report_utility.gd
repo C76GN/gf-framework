@@ -68,6 +68,21 @@ func test_support_report_exports_and_submits_with_transport_callback() -> void:
 	assert_eq(submitted_ids.size(), 1, "transport 应收到报告副本。")
 
 
+func test_support_report_json_export_is_report_safe() -> void:
+	var utility: GFSupportReportUtility = GFSupportReportUtility.new()
+	var json_text: String = utility.export_report_json({
+		"report_id": "unsafe",
+		"metadata": {
+			"value": NAN,
+			"object": RefCounted.new(),
+		},
+	})
+
+	assert_true(json_text.contains(GFVariantJsonCodec.JSON_MARKER_KEY), "支持报告 JSON 应编码 NaN。")
+	assert_true(json_text.contains("__gf_report_value__"), "支持报告 JSON 应脱敏 Object。")
+	assert_false(json_text.contains("\"value\":null"), "支持报告 JSON 不应把 NaN 退化为 null。")
+
+
 ## 验证支持报告可导出适合人工审阅的 Markdown。
 func test_support_report_exports_markdown_summary_sections_and_attachments() -> void:
 	var utility: GFSupportReportUtility = GFSupportReportUtility.new()
@@ -141,12 +156,51 @@ func test_support_report_rejects_path_attachments_by_default() -> void:
 		"local_file": {
 			"path": attachment_path,
 		},
+		"missing_file": {
+			"path": "user://gf_support_report_missing_attachment.txt",
+		},
 	})
 	var file_attachment: Dictionary = GFVariantData.get_option_dictionary(attachments, &"local_file")
+	var missing_attachment: Dictionary = GFVariantData.get_option_dictionary(attachments, &"missing_file")
 
 	assert_false(GFVariantData.get_option_bool(file_attachment, "ok"), "未显式开启时路径型附件应被拒绝。")
 	assert_eq(GFVariantData.get_option_string(file_attachment, "reason"), "attachment_path_not_allowed", "拒绝原因应稳定。")
+	assert_eq(GFVariantData.get_option_string(missing_attachment, "reason"), "attachment_path_not_allowed", "默认拒绝不应泄露路径是否存在。")
 	var _remove_result: Error = DirAccess.remove_absolute(attachment_path)
+
+
+func test_support_report_replaces_existing_file_through_atomic_sidecars() -> void:
+	var utility: GFSupportReportUtility = GFSupportReportUtility.new()
+	var report_path: String = "user://gf_support_report_atomic.json"
+	var existing_file: FileAccess = FileAccess.open(report_path, FileAccess.WRITE)
+	assert_not_null(existing_file, "测试应能创建已有报告文件。")
+	if existing_file != null:
+		var _store_result: Variant = existing_file.store_string("old-content")
+		existing_file.close()
+
+	var save_error: Error = utility.save_report({ "report_id": "new-report" }, report_path)
+	var saved_file: FileAccess = FileAccess.open(report_path, FileAccess.READ)
+	var saved_text: String = saved_file.get_as_text() if saved_file != null else ""
+	if saved_file != null:
+		saved_file.close()
+
+	assert_eq(save_error, OK, "原子替换已有报告应成功。")
+	assert_true(saved_text.contains("new-report"), "提交后目标文件应包含完整新报告。")
+	assert_false(saved_text.contains("old-content"), "提交后不应残留旧报告内容。")
+	var _remove_result: Error = DirAccess.remove_absolute(report_path)
+
+
+func test_support_report_path_boundary_canonicalizes_parent_segments() -> void:
+	var utility: GFSupportReportUtility = GFSupportReportUtility.new()
+
+	assert_true(
+		utility._is_path_under_allowed_roots("user://allowed/log.txt", PackedStringArray(["user://allowed"])),
+		"允许根目录下的路径应通过。"
+	)
+	assert_false(
+		utility._is_path_under_allowed_roots("user://allowed/../secret.txt", PackedStringArray(["user://allowed"])),
+		"包含 .. 逃逸允许根的路径不应通过。"
+	)
 
 
 ## 验证场景节点数量统计会遵守节点上限。

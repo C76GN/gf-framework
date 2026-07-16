@@ -6,7 +6,7 @@
 - 模块：`Standard`
 - 继承：`RefCounted`
 - API：`public`
-- 类别：运行时服务 (`runtime_service`)
+- 类别：编辑器 API (`editor_api`)
 - 首次版本：`6.0.0`
 
 配置表 schema 的编辑器描述辅助。 该工具只把 `GFConfigTableSchema`、列声明和跨表引用转换为通用描述字典， 供 Inspector、表格编辑器、CI 预览或项目侧工具自由消费；不会创建 UI 控件， 也不规定具体业务字段语义。

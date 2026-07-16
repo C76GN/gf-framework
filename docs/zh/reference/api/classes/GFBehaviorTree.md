@@ -117,9 +117,9 @@ static func build_debug_snapshot(node: Variant) -> Dictionary:
 | [`GFBehaviorTree.AlwaysFail`](#gfbehaviortreealwaysfail) | 领域模型 (`domain_model`) | `Decorator` | 2 |
 | [`GFBehaviorTree.AlwaysSucceed`](#gfbehaviortreealwayssucceed) | 领域模型 (`domain_model`) | `Decorator` | 2 |
 | [`GFBehaviorTree.BTNode`](#gfbehaviortreebtnode) | 协议与扩展点 (`protocol`) | `RefCounted` | 13 |
-| [`GFBehaviorTree.BlackboardScope`](#gfbehaviortreeblackboardscope) | 领域模型 (`domain_model`) | `RefCounted` | 6 |
+| [`GFBehaviorTree.BlackboardScope`](#gfbehaviortreeblackboardscope) | 领域模型 (`domain_model`) | `RefCounted` | 7 |
 | [`GFBehaviorTree.Condition`](#gfbehaviortreecondition) | 领域模型 (`domain_model`) | `BTNode` | 2 |
-| [`GFBehaviorTree.Cooldown`](#gfbehaviortreecooldown) | 领域模型 (`domain_model`) | `Decorator` | 5 |
+| [`GFBehaviorTree.Cooldown`](#gfbehaviortreecooldown) | 领域模型 (`domain_model`) | `Decorator` | 6 |
 | [`GFBehaviorTree.Decorator`](#gfbehaviortreedecorator) | 协议与扩展点 (`protocol`) | `BTNode` | 3 |
 | [`GFBehaviorTree.Inverter`](#gfbehaviortreeinverter) | 领域模型 (`domain_model`) | `Decorator` | 2 |
 | [`GFBehaviorTree.Limit`](#gfbehaviortreelimit) | 领域模型 (`domain_model`) | `Decorator` | 4 |
@@ -131,7 +131,7 @@ static func build_debug_snapshot(node: Variant) -> Dictionary:
 | [`GFBehaviorTree.Runner`](#gfbehaviortreerunner) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 6 |
 | [`GFBehaviorTree.Selector`](#gfbehaviortreeselector) | 领域模型 (`domain_model`) | `BTNode` | 3 |
 | [`GFBehaviorTree.Sequence`](#gfbehaviortreesequence) | 领域模型 (`domain_model`) | `BTNode` | 3 |
-| [`GFBehaviorTree.TimeLimit`](#gfbehaviortreetimelimit) | 领域模型 (`domain_model`) | `Decorator` | 4 |
+| [`GFBehaviorTree.TimeLimit`](#gfbehaviortreetimelimit) | 领域模型 (`domain_model`) | `Decorator` | 5 |
 | [`GFBehaviorTree.UntilFail`](#gfbehaviortreeuntilfail) | 领域模型 (`domain_model`) | `Decorator` | 2 |
 | [`GFBehaviorTree.UntilSuccess`](#gfbehaviortreeuntilsuccess) | 领域模型 (`domain_model`) | `Decorator` | 2 |
 
@@ -473,12 +473,13 @@ func reset() -> void:
 ##### `duplicate_runtime`
 
 - API：`public`
+- 首次版本：`3.8.0`
 
 ```gdscript
 func duplicate_runtime() -> BTNode:
 ```
 
-创建一份可独立运行的节点副本，不复制调试计数和正在运行的内部状态。 自定义节点若持有运行态，应重写此方法并复制自身类型；默认返回自身， 以避免未知子类被错误降级为基础 BTNode。
+创建一份可独立运行的节点副本，不复制调试计数和正在运行的内部状态。 自定义节点必须重写此方法并复制自身类型；默认实现会返回一个失败节点， 避免 Runner 在默认复制模式下静默共享未知节点运行态。
 
 返回：运行时副本。
 
@@ -527,6 +528,7 @@ func record_status(status: int, reason: StringName = &"", elapsed_usec: int = 0)
 ##### `get_debug_snapshot`
 
 - API：`public`
+- 首次版本：`3.6.0`
 
 ```gdscript
 func get_debug_snapshot() -> Dictionary:
@@ -538,7 +540,7 @@ func get_debug_snapshot() -> Dictionary:
 
 结构：
 
-- `return`: 包含 node_id、name、status、status_text、reason、tick_count、last_tick_usec、child_count、children 和 metadata 字段的 Dictionary；children 为子节点快照数组。
+- `return`: 包含 node_id、name、status、status_text、reason、tick_count、last_tick_usec、child_count、children 和 metadata 字段的 Dictionary；children 为子节点快照数组；metadata 为 JSON-safe 投影。
 
 ### GFBehaviorTree.BlackboardScope
 
@@ -556,8 +558,9 @@ func get_debug_snapshot() -> Dictionary:
 | 类型 | 名称 | 签名 |
 |---|---|---|
 | 属性 | [`values`](#member-gfbehaviortree-blackboardscope-properties-values) | `var values: Dictionary = {}` |
-| 属性 | [`parent`](#member-gfbehaviortree-blackboardscope-properties-parent) | `var parent: BlackboardScope = null` |
+| 属性 | [`parent`](#member-gfbehaviortree-blackboardscope-properties-parent) | `var parent: BlackboardScope:` |
 | 方法 | [`set_value`](#member-gfbehaviortree-blackboardscope-methods-set_value) | `func set_value(key: StringName, value: Variant) -> void:` |
+| 方法 | [`set_parent`](#member-gfbehaviortree-blackboardscope-methods-set_parent) | `func set_parent(parent_scope: BlackboardScope) -> bool:` |
 | 方法 | [`get_value`](#member-gfbehaviortree-blackboardscope-methods-get_value) | `func get_value(key: StringName, default_value: Variant = null) -> Variant:` |
 | 方法 | [`has_value`](#member-gfbehaviortree-blackboardscope-methods-has_value) | `func has_value(key: StringName) -> bool:` |
 | 方法 | [`to_dictionary`](#member-gfbehaviortree-blackboardscope-methods-to_dictionary) | `func to_dictionary() -> Dictionary:` |
@@ -585,9 +588,10 @@ var values: Dictionary = {}
 ##### `parent`
 
 - API：`public`
+- 首次版本：`3.6.0`
 
 ```gdscript
-var parent: BlackboardScope = null
+var parent: BlackboardScope:
 ```
 
 可选父级作用域。
@@ -616,6 +620,27 @@ func set_value(key: StringName, value: Variant) -> void:
 结构：
 
 - `value`: 任意可存入黑板的项目值。
+
+<a id="member-gfbehaviortree-blackboardscope-methods-set_parent"></a>
+
+##### `set_parent`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func set_parent(parent_scope: BlackboardScope) -> bool:
+```
+
+设置父级作用域。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `parent_scope` | 新父级作用域；传入 null 表示清空父级。 |
+
+返回：设置成功返回 true；会形成循环时返回 false。
 
 <a id="member-gfbehaviortree-blackboardscope-methods-get_value"></a>
 
@@ -754,7 +779,8 @@ func duplicate_runtime() -> BTNode:
 
 | 类型 | 名称 | 签名 |
 |---|---|---|
-| 属性 | [`cooldown_seconds`](#member-gfbehaviortree-cooldown-properties-cooldown_seconds) | `var cooldown_seconds: float = 0.0` |
+| 属性 | [`cooldown_seconds`](#member-gfbehaviortree-cooldown-properties-cooldown_seconds) | `var cooldown_seconds: float:` |
+| 属性 | [`clock_msec`](#member-gfbehaviortree-cooldown-properties-clock_msec) | `var clock_msec: Callable = Callable()` |
 | 方法 | [`tick`](#member-gfbehaviortree-cooldown-methods-tick) | `func tick(blackboard: Dictionary) -> int:` |
 | 方法 | [`reset`](#member-gfbehaviortree-cooldown-methods-reset) | `func reset() -> void:` |
 | 方法 | [`clear_cooldown`](#member-gfbehaviortree-cooldown-methods-clear_cooldown) | `func clear_cooldown() -> void:` |
@@ -767,12 +793,26 @@ func duplicate_runtime() -> BTNode:
 ##### `cooldown_seconds`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-var cooldown_seconds: float = 0.0
+var cooldown_seconds: float:
 ```
 
 冷却秒数。
+
+<a id="member-gfbehaviortree-cooldown-properties-clock_msec"></a>
+
+##### `clock_msec`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+var clock_msec: Callable = Callable()
+```
+
+可选单调毫秒时钟；为空时使用 Time.get_ticks_msec()。
 
 #### 方法
 
@@ -781,6 +821,7 @@ var cooldown_seconds: float = 0.0
 ##### `tick`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func tick(blackboard: Dictionary) -> int:
@@ -798,7 +839,7 @@ func tick(blackboard: Dictionary) -> int:
 
 结构：
 
-- `blackboard`: Dictionary 形式黑板；可提供 time_msec: int，其余字段由项目自定义。
+- `blackboard`: Dictionary 形式黑板；字段由项目自定义。
 
 <a id="member-gfbehaviortree-cooldown-methods-reset"></a>
 
@@ -1759,7 +1800,8 @@ func duplicate_runtime() -> BTNode:
 
 | 类型 | 名称 | 签名 |
 |---|---|---|
-| 属性 | [`limit_seconds`](#member-gfbehaviortree-timelimit-properties-limit_seconds) | `var limit_seconds: float = 1.0` |
+| 属性 | [`limit_seconds`](#member-gfbehaviortree-timelimit-properties-limit_seconds) | `var limit_seconds: float:` |
+| 属性 | [`clock_msec`](#member-gfbehaviortree-timelimit-properties-clock_msec) | `var clock_msec: Callable = Callable()` |
 | 方法 | [`tick`](#member-gfbehaviortree-timelimit-methods-tick) | `func tick(blackboard: Dictionary) -> int:` |
 | 方法 | [`reset`](#member-gfbehaviortree-timelimit-methods-reset) | `func reset() -> void:` |
 | 方法 | [`duplicate_runtime`](#member-gfbehaviortree-timelimit-methods-duplicate_runtime) | `func duplicate_runtime() -> BTNode:` |
@@ -1771,12 +1813,26 @@ func duplicate_runtime() -> BTNode:
 ##### `limit_seconds`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-var limit_seconds: float = 1.0
+var limit_seconds: float:
 ```
 
 最大运行秒数。
+
+<a id="member-gfbehaviortree-timelimit-properties-clock_msec"></a>
+
+##### `clock_msec`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+var clock_msec: Callable = Callable()
+```
+
+可选单调毫秒时钟；为空时使用 Time.get_ticks_msec()。
 
 #### 方法
 
@@ -1785,6 +1841,7 @@ var limit_seconds: float = 1.0
 ##### `tick`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func tick(blackboard: Dictionary) -> int:
@@ -1802,7 +1859,7 @@ func tick(blackboard: Dictionary) -> int:
 
 结构：
 
-- `blackboard`: Dictionary 形式黑板；可提供 time_msec: int，其余字段由项目自定义。
+- `blackboard`: Dictionary 形式黑板；字段由项目自定义。
 
 <a id="member-gfbehaviortree-timelimit-methods-reset"></a>
 

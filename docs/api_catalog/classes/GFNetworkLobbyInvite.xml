@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFNetworkLobbyInvite" path="addons/gf/extensions/network/session/gf_network_lobby_invite.gd" module="extensions/network" extends="Resource" classDigest="7aa95a8f56ef38cb1c4d9fee7c343d48fb2c679f8a33d61bd8f0d6cf7b7c54d5">
+	<description>GFNetworkLobbyInvite: 平台中立的 lobby 邀请事件。
+邀请只表达发送方、目标方和 lobby 入口信息。好友 UI、每日任务、奖励等业务策略
+必须留在项目层或外部 adapter 中。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">event_contract</tag>
+		<tag name="since">8.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties>
+		<member kind="property" name="invite_id" decorators="@export">
+			<signature>var invite_id: String = ""</signature>
+			<description>邀请 ID。没有平台邀请 ID 时可为空。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="lobby_id" decorators="@export">
+			<signature>var lobby_id: String = ""</signature>
+			<description>相关 lobby ID。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="backend_id" decorators="@export">
+			<signature>var backend_id: StringName = &amp;""</signature>
+			<description>提供邀请的 backend 标识。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="sender" decorators="@export">
+			<signature>var sender: GFNetworkPeerIdentity = null</signature>
+			<description>邀请发送方身份。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="target" decorators="@export">
+			<signature>var target: GFNetworkPeerIdentity = null</signature>
+			<description>邀请目标身份。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="message" decorators="@export">
+			<signature>var message: String = ""</signature>
+			<description>人读说明或平台侧附带消息。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="metadata" decorators="@export">
+			<signature>var metadata: Dictionary = {}</signature>
+			<description>调用方自定义元数据。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">metadata: Dictionary caller-defined invite metadata.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="to_dict">
+			<signature>func to_dict() -&gt; Dictionary:</signature>
+			<description>转换为字典。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">邀请字典。</tag>
+				<tag name="schema">return: Dictionary with invite_id, lobby_id, backend_id, sender, target, message, and metadata.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="apply_dict">
+			<signature>func apply_dict(data: Dictionary) -&gt; void:</signature>
+			<description>从字典应用邀请字段。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">data: 邀请字典。</tag>
+				<tag name="schema">data: Dictionary with invite_id, lobby_id, backend_id, sender, target, message, and metadata.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="duplicate_invite">
+			<signature>func duplicate_invite() -&gt; GFNetworkLobbyInvite:</signature>
+			<description>创建邀请深拷贝。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">新邀请。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="from_dict">
+			<signature>static func from_dict(data: Dictionary) -&gt; GFNetworkLobbyInvite:</signature>
+			<description>从字典创建邀请。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">data: 邀请字典。</tag>
+				<tag name="return">新邀请。</tag>
+				<tag name="schema">data: Dictionary with invite_id, lobby_id, backend_id, sender, target, message, and metadata.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

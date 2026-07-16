@@ -345,7 +345,7 @@ func add_attachment_to_report(
 ## [br]
 ## @schema report: Dictionary，build_report() 返回结构。
 func export_report_json(report: Dictionary, indent: String = "\t") -> String:
-	return JSON.stringify(report, indent)
+	return GFReportValueCodec.stringify_json_compatible(report, indent)
 
 
 ## 将报告导出为 Markdown 文本。
@@ -420,12 +420,13 @@ func save_report(report: Dictionary, path: String) -> Error:
 
 	var base_dir: String = path.get_base_dir()
 	if not base_dir.is_empty() and base_dir != "user://":
-		var dir_error: Error = DirAccess.make_dir_recursive_absolute(base_dir)
+		var dir_error: Error = DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(base_dir))
 		if dir_error != OK:
 			report_saved.emit(path, dir_error)
 			return dir_error
 
-	var file: FileAccess = FileAccess.open(path, FileAccess.WRITE)
+	var temp_path: String = _make_report_sidecar_path(path, "tmp")
+	var file: FileAccess = FileAccess.open(temp_path, FileAccess.WRITE)
 	if file == null:
 		var open_error: Error = FileAccess.get_open_error()
 		report_saved.emit(path, open_error)
@@ -433,7 +434,14 @@ func save_report(report: Dictionary, path: String) -> Error:
 
 	_store_file_string(file, export_report_json(report))
 	var error: Error = file.get_error()
+	file.flush()
+	if error == OK:
+		error = file.get_error()
 	file.close()
+	if error == OK:
+		error = _commit_report_temp_file(path, temp_path)
+	else:
+		_remove_file_if_exists(temp_path)
 	if error == OK:
 		_reports_saved_count += 1
 	report_saved.emit(path, error)
@@ -519,6 +527,43 @@ func get_debug_snapshot() -> Dictionary:
 
 
 # --- 私有/辅助方法 ---
+
+func _make_report_sidecar_path(path: String, role: String) -> String:
+	return "%s.gf-support-%s-%d-%d" % [path, role, OS.get_process_id(), Time.get_ticks_usec()]
+
+
+func _commit_report_temp_file(path: String, temp_path: String) -> Error:
+	var absolute_path: String = ProjectSettings.globalize_path(path)
+	var absolute_temp_path: String = ProjectSettings.globalize_path(temp_path)
+	var backup_path: String = _make_report_sidecar_path(path, "backup")
+	var absolute_backup_path: String = ProjectSettings.globalize_path(backup_path)
+	var moved_existing: bool = false
+	if FileAccess.file_exists(path):
+		var backup_error: Error = DirAccess.rename_absolute(absolute_path, absolute_backup_path)
+		if backup_error != OK:
+			_remove_file_if_exists(temp_path)
+			return backup_error
+		moved_existing = true
+
+	var replace_error: Error = DirAccess.rename_absolute(absolute_temp_path, absolute_path)
+	if replace_error == OK:
+		if moved_existing:
+			_remove_file_if_exists(backup_path)
+		return OK
+
+	_remove_file_if_exists(temp_path)
+	if moved_existing:
+		var rollback_error: Error = DirAccess.rename_absolute(absolute_backup_path, absolute_path)
+		if rollback_error != OK:
+			return rollback_error
+	return replace_error
+
+
+func _remove_file_if_exists(path: String) -> void:
+	if path.is_empty() or not FileAccess.file_exists(path):
+		return
+	var _remove_error: Error = DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
+
 
 func _erase_dictionary_key(target: Dictionary, key: Variant) -> void:
 	var erased: bool = target.erase(key)
@@ -807,12 +852,12 @@ func _make_path_attachment_entry(path: String, options: Dictionary) -> Dictionar
 	var filename: String = GFVariantData.get_option_string(options, "filename", path.get_file())
 	var mime_type: String = GFVariantData.get_option_string(options, "mime_type", "application/octet-stream")
 	var metadata: Dictionary = _get_dictionary_option(options, "metadata")
-	if path.is_empty() or not FileAccess.file_exists(path):
-		return _make_path_rejected_attachment_entry(filename, mime_type, 0, metadata, "attachment_path_missing")
 	if not GFVariantData.get_option_bool(options, "allow_path_attachments", false):
 		return _make_path_rejected_attachment_entry(filename, mime_type, 0, metadata, "attachment_path_not_allowed")
 	if not _is_path_under_allowed_roots(path, _get_path_roots(options, "allowed_attachment_roots", PackedStringArray(["user://"]))):
 		return _make_path_rejected_attachment_entry(filename, mime_type, 0, metadata, "attachment_path_not_allowed")
+	if path.is_empty() or not FileAccess.file_exists(path):
+		return _make_path_rejected_attachment_entry(filename, mime_type, 0, metadata, "attachment_path_missing")
 
 	var file: FileAccess = FileAccess.open(path, FileAccess.READ)
 	if file == null:
@@ -859,9 +904,11 @@ func _get_path_roots(options: Dictionary, key: String, default_roots: PackedStri
 
 
 func _is_path_under_allowed_roots(path: String, roots: PackedStringArray) -> bool:
-	var normalized_path: String = path.replace("\\", "/")
+	var normalized_path: String = _canonical_path_for_boundary(path)
+	if normalized_path.is_empty():
+		return false
 	for root: String in roots:
-		var normalized_root: String = root.replace("\\", "/")
+		var normalized_root: String = _canonical_path_for_boundary(root)
 		if normalized_root.is_empty():
 			continue
 		if normalized_path == normalized_root:
@@ -872,6 +919,33 @@ func _is_path_under_allowed_roots(path: String, roots: PackedStringArray) -> boo
 		if normalized_path.begins_with(prefix):
 			return true
 	return false
+
+
+func _canonical_path_for_boundary(path: String) -> String:
+	var normalized_path: String = path.replace("\\", "/").strip_edges()
+	if normalized_path.begins_with("user://"):
+		return _canonical_virtual_path(normalized_path, "user://")
+	if normalized_path.begins_with("res://"):
+		return _canonical_virtual_path(normalized_path, "res://")
+	return normalized_path.simplify_path()
+
+
+func _canonical_virtual_path(path: String, prefix: String) -> String:
+	var relative_path: String = path.substr(prefix.length())
+	var segments: PackedStringArray = relative_path.split("/", false)
+	var stack: PackedStringArray = PackedStringArray()
+	for segment: String in segments:
+		if segment == ".":
+			continue
+		if segment == "..":
+			if stack.is_empty():
+				return ""
+			stack.remove_at(stack.size() - 1)
+			continue
+		var _segment_appended: bool = stack.append(segment)
+	if stack.is_empty():
+		return prefix
+	return prefix + "/".join(stack)
 
 
 func _normalize_submit_result(raw_result: Variant) -> Dictionary:
@@ -1084,10 +1158,7 @@ func _tags_to_markdown_text(value: Variant) -> String:
 
 
 func _variant_to_json_text(value: Variant) -> String:
-	var compatible: Variant = GFVariantJsonCodec.variant_to_json_compatible(value, {
-		"unsupported": "string",
-	})
-	return JSON.stringify(compatible, "\t")
+	return GFReportValueCodec.stringify_json_compatible(value, "\t")
 
 
 func _get_sorted_dictionary_keys(dictionary: Dictionary) -> Array:

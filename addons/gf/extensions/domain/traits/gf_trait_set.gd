@@ -99,6 +99,9 @@ func clear() -> void:
 # --- 私有/辅助方法 ---
 
 func _sort_traits() -> void:
+	for index: int in range(traits.size() - 1, -1, -1):
+		if traits[index] == null:
+			traits.remove_at(index)
 	traits.sort_custom(func(a: GFTrait, b: GFTrait) -> bool:
 		return a.priority < b.priority
 	)

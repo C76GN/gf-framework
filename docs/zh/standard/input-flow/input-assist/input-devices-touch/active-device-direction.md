@@ -16,3 +16,21 @@ history.press_action(&"move_left", Vector2i.LEFT)
 history.press_action(&"move_up", Vector2i.UP)
 print(history.get_current_direction()) # Vector2i.UP
 ```
+
+## 方向吸附
+
+如果项目已经拿到了连续二维输入，但希望把它转成稳定的 2 向、4 向或 8 向方向，可以使用 `GFInputDirectionTools`。它只处理 `Vector2`，不读取 `InputMap`，适合触屏摇杆、手柄轴、菜单导航、格子移动或编辑器预览共用同一套方向规则。
+
+```gdscript
+var raw := Vector2(0.35, 0.8)
+var dpad := GFInputDirectionTools.snap_vector(
+	raw,
+	GFInputDirectionTools.SnapMode.EIGHT_WAY,
+	0.2
+)
+
+var direction_id := GFInputDirectionTools.get_closest_direction(dpad)
+print(GFInputDirectionTools.get_direction_name(direction_id))
+```
+
+`SnapMode.ANALOG` 会保留连续向量并应用径向死区；离散模式会输出每个轴为 `-1.0`、`0.0` 或 `1.0` 的方向向量。方向名称和反向映射只表达通用方向，不绑定动作名、动画名或本地化文本。

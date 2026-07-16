@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFTurnContext" path="addons/gf/extensions/turn_based/runtime/gf_turn_context.gd" module="extensions/turn_based" extends="RefCounted" classDigest="942a97748a8d88ef88aa85a71f9603333a3b45321de4f486efc76d70ff52e46c">
+<class name="GFTurnContext" path="addons/gf/extensions/turn_based/runtime/gf_turn_context.gd" module="extensions/turn_based" extends="RefCounted" classDigest="11b621ca31db82a440f8b3df8a3aaefdc6778a8d1b3954212ab0a640db89cc63">
 	<description>GFTurnContext: 通用回合流程上下文。
 只记录参与者、行动、轮次和元数据，不假设生命值、阵营、技能等业务概念。</description>
 	<tags>
@@ -11,32 +11,20 @@
 	<enums />
 	<constants />
 	<properties>
-		<member kind="property" name="actors">
-			<signature>var actors: Array[Object] = []</signature>
-			<description>当前流程参与者。</description>
-			<tags>
-				<tag name="api">public</tag>
-			</tags>
-		</member>
-		<member kind="property" name="actions">
-			<signature>var actions: Array[GFTurnAction] = []</signature>
-			<description>当前待处理行动。</description>
-			<tags>
-				<tag name="api">public</tag>
-			</tags>
-		</member>
 		<member kind="property" name="current_actor">
-			<signature>var current_actor: Object = null</signature>
+			<signature>var current_actor: Object:</signature>
 			<description>当前行动主体。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="round_index">
-			<signature>var round_index: int = 0</signature>
+			<signature>var round_index: int:</signature>
 			<description>当前轮次索引。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="metadata">
@@ -65,11 +53,23 @@
 				<tag name="param">actor: 参与者对象。</tag>
 			</tags>
 		</member>
-		<member kind="method" name="clear_actions">
-			<signature>func clear_actions() -&gt; void:</signature>
-			<description>清空运行时行动。</description>
+		<member kind="method" name="get_actors">
+			<signature>func get_actors() -&gt; Array[Object]:</signature>
+			<description>获取参与者只读快照。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="return">当前有效性尚未重新校验的参与者数组快照。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="cleanup_invalid_actors">
+			<signature>func cleanup_invalid_actors() -&gt; int:</signature>
+			<description>清理已经失效的参与者引用。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">被移除的失效参与者数量。</tag>
+				<tag name="schema">return: int removed invalid actor reference count.</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_actor_value">
@@ -84,6 +84,7 @@
 				<tag name="return">读取到的值。</tag>
 				<tag name="schema">fallback: Variant returned when no actor value can be read.</tag>
 				<tag name="schema">return: Variant read from get_turn_value(), object property access, or fallback.</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</methods>

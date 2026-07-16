@@ -86,6 +86,28 @@ func test_sort_dependency_first_reports_closed_cycle_path() -> void:
 	assert_eq(Array(cycle), ["a", "b", "c", "a"], "循环路径应包含闭合节点，便于诊断显示。")
 
 
+func test_sort_dependency_first_handles_long_dependency_chain() -> void:
+	var dependency_map: Dictionary = {}
+	var chain_length: int = 1500
+	for index: int in range(chain_length):
+		var node_id: String = "node_%04d" % index
+		var dependencies: PackedStringArray = PackedStringArray()
+		if index > 0:
+			var _append_dependency: bool = dependencies.append("node_%04d" % (index - 1))
+		dependency_map[node_id] = dependencies
+
+	var report: Dictionary = GFDependencyGraphTools.sort_dependency_first(
+		PackedStringArray(["node_%04d" % (chain_length - 1)]),
+		dependency_map
+	)
+	var ordered_ids: PackedStringArray = GFVariantData.get_option_packed_string_array(report, "ordered_ids")
+
+	assert_true(GFVariantData.get_option_bool(report, "ok"), "长依赖链应可完成排序。")
+	assert_eq(ordered_ids.size(), chain_length, "排序结果应包含整条依赖链。")
+	assert_eq(ordered_ids[0], "node_0000", "长链起点应最先出现。")
+	assert_eq(ordered_ids[ordered_ids.size() - 1], "node_%04d" % (chain_length - 1), "长链根节点应最后出现。")
+
+
 # --- 私有/辅助方法 ---
 
 func _get_packed_string_array(value: Variant) -> PackedStringArray:

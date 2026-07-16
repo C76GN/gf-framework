@@ -151,6 +151,7 @@ var metadata: Dictionary = {}
 ### `apply_number`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func apply_number(current_value: float) -> float:
@@ -164,4 +165,4 @@ func apply_number(current_value: float) -> float:
 |---|---|
 | `current_value` | 当前值。 |
 
-返回：应用后的值。
+返回：应用后的有限值；无效输入或溢出时保留最后一个有限值。

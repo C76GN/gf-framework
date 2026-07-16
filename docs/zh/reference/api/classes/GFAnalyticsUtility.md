@@ -19,7 +19,7 @@
 | 信号 | [`flush_started`](#member-gfanalyticsutility-signals-flush_started) | `signal flush_started(batch: Array)` |
 | 信号 | [`flush_completed`](#member-gfanalyticsutility-signals-flush_completed) | `signal flush_completed(result: Dictionary)` |
 | 信号 | [`flush_failed`](#member-gfanalyticsutility-signals-flush_failed) | `signal flush_failed(result: Dictionary)` |
-| 属性 | [`config`](#member-gfanalyticsutility-properties-config) | `var config: GFAnalyticsConfig = GFAnalyticsConfig.new()` |
+| 属性 | [`config`](#member-gfanalyticsutility-properties-config) | `var config: GFAnalyticsConfig:` |
 | 属性 | [`payload_builder`](#member-gfanalyticsutility-properties-payload_builder) | `var payload_builder: Callable = Callable()` |
 | 属性 | [`transport_callback`](#member-gfanalyticsutility-properties-transport_callback) | `var transport_callback: Callable = Callable()` |
 | 属性 | [`response_parser`](#member-gfanalyticsutility-properties-response_parser) | `var response_parser: Callable = Callable()` |
@@ -135,9 +135,10 @@ flush 失败时额外发出。
 ### `config`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-var config: GFAnalyticsConfig = GFAnalyticsConfig.new()
+var config: GFAnalyticsConfig:
 ```
 
 当前配置。
@@ -147,12 +148,13 @@ var config: GFAnalyticsConfig = GFAnalyticsConfig.new()
 ### `payload_builder`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var payload_builder: Callable = Callable()
 ```
 
-可选载荷构建回调。签名为 func(batch: Array) -> Dictionary。
+可选载荷信封构建回调。签名为 func(batch: Array) -> Dictionary。 batch 是隔离副本；返回值中的 events 会被忽略，以保持已编码事件批次的完整性。 flush 按最终信封字节预算缩小批次时可能多次调用该回调，因此实现必须无副作用且结果确定。
 
 <a id="member-gfanalyticsutility-properties-transport_callback"></a>
 
@@ -286,24 +288,26 @@ func track(event_name: StringName, properties: Dictionary = {}) -> void:
 ### `flush`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func flush() -> void:
 ```
 
-立即上报一批事件。
+立即上报最终信封字节预算内的最大事件前缀。
 
 <a id="member-gfanalyticsutility-methods-shutdown"></a>
 
 ### `shutdown`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func shutdown(flush_remaining: bool = true) -> void:
 ```
 
-停止继续接收事件，并可选 flush 当前队列。
+停止继续接收事件，并可选进入 draining 状态直到队列完成或某一批明确失败。
 
 参数：
 

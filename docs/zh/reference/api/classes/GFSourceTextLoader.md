@@ -17,6 +17,7 @@
 |---|---|---|
 | 属性 | [`root_path`](#member-gfsourcetextloader-properties-root_path) | `var root_path: String = ""` |
 | 属性 | [`allow_registered_text`](#member-gfsourcetextloader-properties-allow_registered_text) | `var allow_registered_text: bool = true` |
+| 属性 | [`allow_custom_loaders`](#member-gfsourcetextloader-properties-allow_custom_loaders) | `var allow_custom_loaders: bool = true` |
 | 属性 | [`allow_file_access`](#member-gfsourcetextloader-properties-allow_file_access) | `var allow_file_access: bool = true` |
 | 属性 | [`cache_enabled`](#member-gfsourcetextloader-properties-cache_enabled) | `var cache_enabled: bool = true` |
 | 属性 | [`max_bytes`](#member-gfsourcetextloader-properties-max_bytes) | `var max_bytes: int = 0` |
@@ -27,6 +28,8 @@
 | 方法 | [`clear_cache`](#member-gfsourcetextloader-methods-clear_cache) | `func clear_cache() -> void:` |
 | 方法 | [`register_text`](#member-gfsourcetextloader-methods-register_text) | `func register_text(source_key: String, text: String, entry_metadata: Dictionary = {}) -> bool:` |
 | 方法 | [`unregister_text`](#member-gfsourcetextloader-methods-unregister_text) | `func unregister_text(source_key: String) -> bool:` |
+| 方法 | [`add_custom_loader`](#member-gfsourcetextloader-methods-add_custom_loader) | `func add_custom_loader(loader: Callable, loader_metadata: Dictionary = {}) -> bool:` |
+| 方法 | [`clear_custom_loaders`](#member-gfsourcetextloader-methods-clear_custom_loaders) | `func clear_custom_loaders() -> void:` |
 | 方法 | [`resolve_key`](#member-gfsourcetextloader-methods-resolve_key) | `func resolve_key(source_key: String, caller_span: Variant = null) -> Dictionary:` |
 | 方法 | [`load_text`](#member-gfsourcetextloader-methods-load_text) | `func load_text(source_key: String, caller_span: Variant = null) -> Dictionary:` |
 | 方法 | [`get_report`](#member-gfsourcetextloader-methods-get_report) | `func get_report() -> GFValidationReport:` |
@@ -60,6 +63,19 @@ var allow_registered_text: bool = true
 ```
 
 是否允许读取通过 register_text() 注册的内存文本。
+
+<a id="member-gfsourcetextloader-properties-allow_custom_loaders"></a>
+
+### `allow_custom_loaders`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+var allow_custom_loaders: bool = true
+```
+
+是否允许调用自定义文本加载器。
 
 <a id="member-gfsourcetextloader-properties-allow_file_access"></a>
 
@@ -137,7 +153,7 @@ func _init(p_root_path: String = "", options: Dictionary = {}) -> void:
 | 名称 | 说明 |
 |---|---|
 | `p_root_path` | 文件加载根路径。 |
-| `options` | 可选配置，支持 allow_registered_text、allow_file_access、cache_enabled、max_bytes、subject 和 metadata。 |
+| `options` | 可选配置，支持 allow_registered_text、allow_custom_loaders、allow_file_access、cache_enabled、max_bytes、subject 和 metadata。 |
 
 结构：
 
@@ -161,7 +177,7 @@ func configure(p_root_path: String = "", options: Dictionary = {}) -> GFSourceTe
 | 名称 | 说明 |
 |---|---|
 | `p_root_path` | 文件加载根路径。 |
-| `options` | 可选配置，支持 allow_registered_text、allow_file_access、cache_enabled、max_bytes、subject 和 metadata。 |
+| `options` | 可选配置，支持 allow_registered_text、allow_custom_loaders、allow_file_access、cache_enabled、max_bytes、subject 和 metadata。 |
 
 返回：当前加载器。
 
@@ -180,7 +196,7 @@ func configure(p_root_path: String = "", options: Dictionary = {}) -> GFSourceTe
 func clear() -> void:
 ```
 
-清空注册文本、缓存和诊断。
+清空注册文本、自定义加载器、缓存和诊断。
 
 <a id="member-gfsourcetextloader-methods-clear_cache"></a>
 
@@ -243,6 +259,46 @@ func unregister_text(source_key: String) -> bool:
 
 返回：移除成功时返回 true。
 
+<a id="member-gfsourcetextloader-methods-add_custom_loader"></a>
+
+### `add_custom_loader`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func add_custom_loader(loader: Callable, loader_metadata: Dictionary = {}) -> bool:
+```
+
+添加一个自定义文本加载器。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `loader` | 自定义加载回调。 |
+| `loader_metadata` | 加载器元数据。 |
+
+返回：添加成功时返回 true。
+
+结构：
+
+- `loader`: Callable，会以 (source_key: String, context: Dictionary) 调用；返回 null 或 { "handled": false } 表示继续尝试后续来源，返回 String、PackedByteArray，或包含 text/content/bytes 的 Dictionary 表示已加载。
+- `loader_metadata`: Dictionary，会复制进回调上下文和加载结果。
+
+<a id="member-gfsourcetextloader-methods-clear_custom_loaders"></a>
+
+### `clear_custom_loaders`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func clear_custom_loaders() -> void:
+```
+
+清空全部自定义文本加载器和缓存。
+
 <a id="member-gfsourcetextloader-methods-resolve_key"></a>
 
 ### `resolve_key`
@@ -295,7 +351,7 @@ func load_text(source_key: String, caller_span: Variant = null) -> Dictionary:
 结构：
 
 - `caller_span`: Variant，可传 GFSourceSpan 或兼容字典。
-- `return`: Dictionary，包含 ok、text、content_hash、byte_size、source_key、resolved_path、from_cache 和 report。
+- `return`: Dictionary，包含 ok、text、content_hash、byte_size、source_key、resolved_path、registered、custom_loader、from_cache 和 report。
 
 <a id="member-gfsourcetextloader-methods-get_report"></a>
 

@@ -1,11 +1,6 @@
 ## 测试 GF 网络抽象的消息编码、后端桥接与限流器。
 extends GutTest
 
-
-# --- 常量 ---
-
-
-
 # --- 辅助类 ---
 
 class FakeBackend extends GFNetworkBackend:
@@ -40,6 +35,82 @@ class EagerConnectedBackend extends FakeBackend:
 class FailingHostBackend extends FakeBackend:
 	func host(_options: Dictionary = {}) -> Error:
 		return ERR_CANT_CREATE
+
+
+class FakeLobbyBackend extends GFNetworkLobbyBackend:
+	var closed: bool = false
+	var lobbies: Array[GFNetworkLobbyDescriptor] = []
+
+	func create_lobby(options: Dictionary = {}) -> Dictionary:
+		var lobby: GFNetworkLobbyDescriptor = GFNetworkLobbyDescriptor.new().configure(
+			GFVariantData.get_option_string(options, "lobby_id", "test-lobby"),
+			{
+				"backend_id": &"fake",
+				"display_name": GFVariantData.get_option_string(options, "display_name", "Test Lobby"),
+				"max_members": GFVariantData.get_option_int(options, "max_members", 4),
+				"tags": GFVariantData.get_option_packed_string_array(options, "tags"),
+				"metadata": GFVariantData.get_option_dictionary(options, "metadata"),
+			}
+		)
+		_store_lobby(lobby)
+		_emit_lobby_created(GFNetworkLobbyJoinResult.success(lobby))
+		return _make_request_report(true, &"create_lobby")
+
+	func query_lobbies(query: GFNetworkLobbyQuery = null, _options: Dictionary = {}) -> Dictionary:
+		var result: Array[GFNetworkLobbyDescriptor] = []
+		for lobby: GFNetworkLobbyDescriptor in lobbies:
+			if lobby == null:
+				continue
+			if query != null and not query.matches(lobby):
+				continue
+			result.append(lobby.duplicate_lobby())
+			if query != null and query.max_results > 0 and result.size() >= query.max_results:
+				break
+		_emit_lobbies_queried(result, { "query": query.to_dict() if query != null else {} })
+		return _make_request_report(true, &"query_lobbies")
+
+	func join_lobby(lobby_id: String, _options: Dictionary = {}) -> Dictionary:
+		var lobby: GFNetworkLobbyDescriptor = _find_lobby(lobby_id)
+		if lobby == null:
+			_emit_lobby_joined(GFNetworkLobbyJoinResult.failure(lobby_id, &"not_found"))
+			return _make_request_report(true, &"join_lobby")
+		_emit_lobby_joined(GFNetworkLobbyJoinResult.success(lobby))
+		return _make_request_report(true, &"join_lobby")
+
+	func leave_lobby(lobby_id: String = "", _options: Dictionary = {}) -> Dictionary:
+		_emit_lobby_left(lobby_id, "left")
+		return _make_request_report(true, &"leave_lobby")
+
+	func set_lobby_metadata(lobby_id: String, metadata: Dictionary, _options: Dictionary = {}) -> Dictionary:
+		var lobby: GFNetworkLobbyDescriptor = _find_lobby(lobby_id)
+		if lobby == null:
+			return _make_request_report(false, &"set_lobby_metadata", &"not_found")
+		var _merged: Dictionary = GFVariantData.merge_dictionary(lobby.metadata, metadata, true)
+		_store_lobby(lobby)
+		_emit_lobby_updated(lobby)
+		return _make_request_report(true, &"set_lobby_metadata")
+
+	func close() -> void:
+		closed = true
+
+	func emit_member_joined_for_test(lobby_id: String, member: GFNetworkLobbyMember) -> void:
+		_emit_member_joined(lobby_id, member)
+
+	func emit_member_left_for_test(lobby_id: String, peer_id: int) -> void:
+		_emit_member_left(lobby_id, peer_id, "left")
+
+	func _store_lobby(lobby: GFNetworkLobbyDescriptor) -> void:
+		for index: int in range(lobbies.size()):
+			if lobbies[index] != null and lobbies[index].lobby_id == lobby.lobby_id:
+				lobbies[index] = lobby.duplicate_lobby()
+				return
+		lobbies.append(lobby.duplicate_lobby())
+
+	func _find_lobby(lobby_id: String) -> GFNetworkLobbyDescriptor:
+		for lobby: GFNetworkLobbyDescriptor in lobbies:
+			if lobby != null and lobby.lobby_id == lobby_id:
+				return lobby.duplicate_lobby()
+		return null
 
 
 # --- 测试方法 ---
@@ -86,6 +157,234 @@ func test_network_serializer_message_result_rejects_empty_message() -> void:
 	assert_eq(GFVariantData.get_option_string(result, "error"), "empty_message", "空消息应报告明确错误。")
 
 
+func test_network_serializer_rejects_malformed_message_schema_before_normalization() -> void:
+	var serializer: GFNetworkSerializer = GFNetworkSerializer.new()
+	var malformed_payload: PackedByteArray = serializer.serialize_dictionary({
+		"type": &"state_update",
+		"payload": "not-a-dictionary",
+	})
+	var malformed_sequence: PackedByteArray = serializer.serialize_dictionary({
+		"type": &"state_update",
+		"payload": {},
+		"sequence": "seven",
+	})
+
+	var payload_result: Dictionary = serializer.deserialize_message_result(malformed_payload)
+	var sequence_result: Dictionary = serializer.deserialize_message_result(malformed_sequence)
+
+	assert_false(GFVariantData.get_option_bool(payload_result, "ok"), "错误 payload 类型不得归一化为空字典。")
+	assert_eq(GFVariantData.get_option_string(payload_result, "error"), "payload_not_dictionary")
+	assert_false(GFVariantData.get_option_bool(sequence_result, "ok"), "错误 sequence 类型必须在构造消息前拒绝。")
+	assert_eq(GFVariantData.get_option_string(sequence_result, "error"), "sequence_not_integer")
+
+
+func test_network_service_discovery_round_trips_packet_and_expires_service() -> void:
+	var discovery: GFNetworkServiceDiscovery = GFNetworkServiceDiscovery.new()
+	var found_keys: PackedStringArray = PackedStringArray()
+	var lost_keys: PackedStringArray = PackedStringArray()
+	var _found_connected: Variant = discovery.service_found.connect(func(found_service_key: String, _record: Dictionary) -> void:
+		var _append_result: bool = found_keys.append(found_service_key)
+	)
+	var _lost_connected: Variant = discovery.service_lost.connect(func(lost_service_key: String, _record: Dictionary, _reason: String) -> void:
+		var _append_result: bool = lost_keys.append(lost_service_key)
+	)
+	var advertisement: Dictionary = discovery.make_advertisement(
+		&"lobby",
+		"enet://127.0.0.1:24567",
+		{ "players": 2 },
+		{
+			"ttl_seconds": 1.0,
+			"tags": PackedStringArray(["lan", "debug"]),
+			"sequence": 7,
+		}
+	)
+
+	var packet: PackedByteArray = GFNetworkServiceDiscovery.encode_advertisement(advertisement)
+	var decoded: Dictionary = GFNetworkServiceDiscovery.decode_advertisement(packet)
+	var accept_report: Dictionary = discovery.accept_packet(packet, "127.0.0.1", 32000)
+	var service_key: String = GFVariantData.get_option_string(accept_report, "service_key")
+	var record: Dictionary = discovery.get_service(service_key)
+	var metadata: Dictionary = GFVariantData.get_option_dictionary(record, "metadata")
+	var tags: PackedStringArray = GFVariantData.get_option_packed_string_array(record, "tags")
+
+	assert_true(GFVariantData.get_option_bool(decoded, "ok"), "服务广告应能 JSON 往返。")
+	assert_true(GFVariantData.get_option_bool(accept_report, "ok"), "合法服务广告应被接收。")
+	assert_eq(GFVariantData.get_option_string(accept_report, "status"), "found", "首次接收应报告 found。")
+	assert_eq(service_key, GFNetworkServiceDiscovery.make_service_key(&"lobby", "enet://127.0.0.1:24567"), "服务 key 应稳定。")
+	assert_true(found_keys.has(service_key), "首次接收应发出 service_found。")
+	assert_eq(GFVariantData.get_option_int(metadata, "players"), 2, "服务 metadata 应保留。")
+	assert_true(tags.has("lan"), "服务 tags 应保留。")
+	assert_eq(GFVariantData.get_option_string(record, "remote_address"), "127.0.0.1", "远端地址应写入记录。")
+	assert_eq(GFVariantData.get_option_int(record, "remote_port"), 32000, "远端端口应写入记录。")
+
+	discovery.tick(0.9)
+	assert_eq(discovery.get_services().size(), 1, "TTL 未到期时服务应保留。")
+	discovery.tick(0.2)
+	assert_true(discovery.get_services().is_empty(), "TTL 到期后服务应移除。")
+	assert_true(lost_keys.has(service_key), "服务过期应发出 service_lost。")
+
+
+func test_network_service_discovery_refresh_extends_existing_service_ttl() -> void:
+	var discovery: GFNetworkServiceDiscovery = GFNetworkServiceDiscovery.new()
+	var updated_keys: PackedStringArray = PackedStringArray()
+	var _updated_connected: Variant = discovery.service_updated.connect(func(updated_service_key: String, _record: Dictionary) -> void:
+		var _append_result: bool = updated_keys.append(updated_service_key)
+	)
+	var advertisement: Dictionary = discovery.make_advertisement(&"lobby", "ws://localhost:9988", {}, {
+		"ttl_seconds": 1.0,
+		"sequence": 1,
+	})
+
+	var first_report: Dictionary = discovery.accept_advertisement(advertisement)
+	discovery.tick(0.8)
+	advertisement["sequence"] = 2
+	var refresh_report: Dictionary = discovery.accept_advertisement(advertisement)
+	discovery.tick(0.3)
+	var service_key: String = GFVariantData.get_option_string(first_report, "service_key")
+	var record: Dictionary = discovery.get_service(service_key)
+
+	assert_true(GFVariantData.get_option_bool(first_report, "ok"), "首次服务广告应通过。")
+	assert_eq(GFVariantData.get_option_string(refresh_report, "status"), "updated", "重复 endpoint 应报告 updated。")
+	assert_true(updated_keys.has(service_key), "刷新服务应发出 service_updated。")
+	assert_false(record.is_empty(), "刷新后的服务不应按旧 TTL 提前过期。")
+	assert_eq(GFVariantData.get_option_int(record, "sequence"), 2, "刷新应更新服务记录字段。")
+
+
+func test_network_service_discovery_uses_redacted_stable_service_keys() -> void:
+	var raw_endpoint: String = "wss://user:secret@example.test:443/lobby?token=abc#debug"
+	var key: String = GFNetworkServiceDiscovery.make_service_key(&"lobby", raw_endpoint)
+
+	assert_true(key.begins_with("lobby@"), "服务 key 应保留服务类型前缀。")
+	assert_false(key.contains("user"), "服务 key 不应暴露 endpoint userinfo。")
+	assert_false(key.contains("secret"), "服务 key 不应暴露 endpoint 密码。")
+	assert_false(key.contains("token"), "服务 key 不应暴露 query。")
+	assert_false(key.contains("example.test"), "服务 key 不应暴露原始 host。")
+
+
+func test_network_service_discovery_ignores_stale_advertisements() -> void:
+	var discovery: GFNetworkServiceDiscovery = GFNetworkServiceDiscovery.new()
+	var advertisement: Dictionary = discovery.make_advertisement(&"lobby", "ws://localhost:9988", {
+		"players": 4,
+	}, {
+		"sequence": 10,
+		"time_msec": 1000,
+	})
+
+	var first_report: Dictionary = discovery.accept_advertisement(advertisement)
+	advertisement["sequence"] = 9
+	advertisement["metadata"] = { "players": 1 }
+	var stale_report: Dictionary = discovery.accept_advertisement(advertisement)
+	var record: Dictionary = discovery.get_service(GFVariantData.get_option_string(first_report, "service_key"))
+	var metadata: Dictionary = GFVariantData.get_option_dictionary(record, "metadata")
+
+	assert_eq(GFVariantData.get_option_string(stale_report, "status"), "ignored_stale", "低 sequence 广告不应覆盖当前记录。")
+	assert_eq(GFVariantData.get_option_int(metadata, "players"), 4, "陈旧广告不应覆盖已有 metadata。")
+
+
+func test_network_service_discovery_rejects_invalid_payloads() -> void:
+	var discovery: GFNetworkServiceDiscovery = GFNetworkServiceDiscovery.new()
+	var empty_result: Dictionary = GFNetworkServiceDiscovery.decode_advertisement(PackedByteArray())
+	var invalid_payload: Dictionary = {
+		"kind": GFNetworkServiceDiscovery.MESSAGE_KIND,
+		"schema_version": GFNetworkServiceDiscovery.SCHEMA_VERSION,
+		"service_id": "",
+		"endpoint": "",
+		"ttl_seconds": NAN,
+	}
+	var invalid_packet: PackedByteArray = GFVariantJsonCodec.stringify_json_compatible(
+		invalid_payload
+	).to_utf8_buffer()
+	var invalid_result: Dictionary = discovery.accept_packet(invalid_packet)
+
+	assert_false(GFVariantData.get_option_bool(empty_result, "ok"), "空 packet 应被拒绝。")
+	assert_eq(GFVariantData.get_option_string(empty_result, "error"), "empty_bytes", "空 packet 应报告明确错误。")
+	assert_false(GFVariantData.get_option_bool(invalid_result, "ok"), "无效服务广告应被拒绝。")
+	assert_false(_find_report_issue(invalid_result, "missing_service_id").is_empty(), "缺失 service_id 应有稳定 issue kind。")
+	assert_false(_find_report_issue(invalid_result, "missing_endpoint").is_empty(), "缺失 endpoint 应有稳定 issue kind。")
+	assert_false(_find_report_issue(invalid_result, "invalid_ttl_seconds").is_empty(), "无效 TTL 应有稳定 issue kind。")
+	assert_true(discovery.get_services().is_empty(), "坏包不应写入发现列表。")
+
+
+func test_network_service_discovery_enforces_packet_and_metadata_budgets() -> void:
+	var oversized_packet: PackedByteArray = PackedByteArray()
+	var _resize_error: Error = oversized_packet.resize(GFNetworkMessageValidator.DEFAULT_MAX_PACKET_SIZE + 1) as Error
+	var oversized_result: Dictionary = GFNetworkServiceDiscovery.decode_advertisement(oversized_packet)
+
+	var metadata: Dictionary = {}
+	var cursor: Dictionary = metadata
+	for index: int in range(6):
+		var child: Dictionary = { "index": index }
+		cursor["child"] = child
+		cursor = child
+	var discovery: GFNetworkServiceDiscovery = GFNetworkServiceDiscovery.new()
+	var advertisement: Dictionary = discovery.make_advertisement(&"lobby", "ws://localhost:9988", metadata)
+	var deep_packet: PackedByteArray = GFNetworkServiceDiscovery.encode_advertisement(advertisement)
+	var restricted_options: Dictionary = {
+		"max_metadata_depth": 3,
+		"max_metadata_entries": 64,
+	}
+	var rejected_encode: PackedByteArray = GFNetworkServiceDiscovery.encode_advertisement(
+		advertisement,
+		restricted_options
+	)
+	var deep_result: Dictionary = GFNetworkServiceDiscovery.decode_advertisement(
+		deep_packet,
+		restricted_options
+	)
+
+	assert_false(GFVariantData.get_option_bool(oversized_result, "ok"), "超大广告应在 JSON parse 前拒绝。")
+	assert_eq(GFVariantData.get_option_string(oversized_result, "error"), "advertisement_too_large")
+	assert_true(rejected_encode.is_empty(), "encode 与 decode 必须共享相同 metadata 深度预算。")
+	assert_false(GFVariantData.get_option_bool(deep_result, "ok"), "超深 metadata 应被结构预算拒绝。")
+	assert_eq(GFVariantData.get_option_string(deep_result, "error"), "metadata_max_depth_exceeded")
+	assert_push_error("[GFNetworkServiceDiscovery] 广告编码失败：metadata_max_depth_exceeded。")
+
+
+func test_network_service_discovery_shares_byte_and_packed_entry_budgets() -> void:
+	var discovery: GFNetworkServiceDiscovery = GFNetworkServiceDiscovery.new()
+	var packed_metadata: PackedByteArray = PackedByteArray()
+	var _packed_resize_error: Error = packed_metadata.resize(32) as Error
+	var advertisement: Dictionary = discovery.make_advertisement(
+		&"lobby",
+		"ws://localhost:9988",
+		{
+			"packed": packed_metadata,
+			"description": "x".repeat(256),
+		}
+	)
+	var default_packet: PackedByteArray = GFNetworkServiceDiscovery.encode_advertisement(advertisement)
+	var entry_options: Dictionary = {
+		"max_metadata_entries": 16,
+	}
+	var byte_options: Dictionary = {
+		"max_advertisement_bytes": 64,
+	}
+
+	var entry_rejected_encode: PackedByteArray = GFNetworkServiceDiscovery.encode_advertisement(
+		advertisement,
+		entry_options
+	)
+	var entry_rejected_decode: Dictionary = GFNetworkServiceDiscovery.decode_advertisement(
+		default_packet,
+		entry_options
+	)
+	var byte_rejected_encode: PackedByteArray = GFNetworkServiceDiscovery.encode_advertisement(
+		advertisement,
+		byte_options
+	)
+	var byte_rejected_decode: Dictionary = GFNetworkServiceDiscovery.decode_advertisement(
+		default_packet,
+		byte_options
+	)
+
+	assert_true(entry_rejected_encode.is_empty(), "PackedArray 元素必须计入 encode 的 metadata 总节点预算。")
+	assert_eq(GFVariantData.get_option_string(entry_rejected_decode, "error"), "metadata_max_nodes_exceeded", "decode 必须使用相同 PackedArray 节点预算。")
+	assert_true(byte_rejected_encode.is_empty(), "encode 必须在返回前执行最终 UTF-8 byte 预算。")
+	assert_eq(GFVariantData.get_option_string(byte_rejected_decode, "error"), "advertisement_too_large", "decode 必须在 parse 前执行同一 byte 预算。")
+	assert_push_error("[GFNetworkServiceDiscovery] 广告编码失败：metadata_max_nodes_exceeded。")
+	assert_push_error("[GFNetworkServiceDiscovery] 广告编码失败：advertisement_too_large。")
+
+
 func test_network_contract_builds_and_validates_typed_message() -> void:
 	var slot_field: GFNetworkContractField = GFNetworkContractField.new()
 	slot_field.field_name = &"slot"
@@ -125,6 +424,281 @@ func test_network_contract_builds_and_validates_typed_message() -> void:
 	assert_true(GFVariantData.get_option_string(missing_report, "next_action").contains("required field"), "契约校验报告应提供下一步建议。")
 
 
+func test_network_contract_rejects_object_value_type() -> void:
+	var field: GFNetworkContractField = GFNetworkContractField.new()
+	field.field_name = &"runtime_object"
+	field.value_type = GFNetworkContractField.ValueType.OBJECT
+
+	var definition_report: Dictionary = field.validate_definition()
+	var object_value: Node = Node.new()
+	var value_report: Dictionary = field.validate_value(object_value)
+	object_value.free()
+
+	assert_false(GFVariantData.get_option_bool(definition_report, "ok"), "网络契约不应允许 Object 类型字段定义。")
+	assert_false(GFVariantData.get_option_bool(value_report, "ok"), "网络契约不应允许 Object 值跨传输边界。")
+	assert_false(_find_report_issue(definition_report, "object_value_type_not_transport_safe").is_empty(), "定义报告应说明 Object 不可传输。")
+
+
+func test_network_contract_rejects_nested_transport_unsafe_values() -> void:
+	var object_value: Node = Node.new()
+	var dictionary_field: GFNetworkContractField = GFNetworkContractField.new()
+	dictionary_field.field_name = &"dictionary"
+	dictionary_field.value_type = GFNetworkContractField.ValueType.DICTIONARY
+	var array_field: GFNetworkContractField = GFNetworkContractField.new()
+	array_field.field_name = &"array"
+	array_field.value_type = GFNetworkContractField.ValueType.ARRAY
+	var variant_field: GFNetworkContractField = GFNetworkContractField.new()
+	variant_field.field_name = &"variant"
+	variant_field.value_type = GFNetworkContractField.ValueType.VARIANT
+
+	var dictionary_report: Dictionary = dictionary_field.validate_value({ "nested": { "object": object_value } })
+	var array_report: Dictionary = array_field.validate_value([[object_value]])
+	var variant_report: Dictionary = variant_field.validate_value({ "object": object_value })
+	object_value.free()
+
+	assert_false(GFVariantData.get_option_bool(dictionary_report, "ok"), "Dictionary 字段不能嵌套 Object。")
+	assert_false(GFVariantData.get_option_bool(array_report, "ok"), "Array 字段不能嵌套 Object。")
+	assert_false(GFVariantData.get_option_bool(variant_report, "ok"), "Variant 字段不能绕过 transport-safe 校验。")
+	assert_false(_find_report_issue(dictionary_report, "value_not_transport_safe").is_empty(), "报告应提供稳定 transport-safe issue。")
+
+
+func test_network_transport_validator_rejects_non_finite_composite_values() -> void:
+	var field: GFNetworkContractField = GFNetworkContractField.new()
+	field.field_name = &"composite"
+	field.value_type = GFNetworkContractField.ValueType.VARIANT
+	var invalid_basis: Basis = Basis(
+		Vector3.RIGHT,
+		Vector3.UP,
+		Vector3(0.0, 0.0, NAN)
+	)
+	var cases: Array[Dictionary] = [
+		{"label": "Vector2", "value": Vector2(NAN, 0.0)},
+		{"label": "Rect2", "value": Rect2(Vector2.ZERO, Vector2(INF, 1.0))},
+		{"label": "Vector3", "value": Vector3(0.0, NAN, 0.0)},
+		{"label": "Transform2D", "value": Transform2D(Vector2.RIGHT, Vector2.DOWN, Vector2(INF, 0.0))},
+		{"label": "Vector4", "value": Vector4(0.0, 0.0, 0.0, NAN)},
+		{"label": "Plane", "value": Plane(Vector3.UP, NAN)},
+		{"label": "Quaternion", "value": Quaternion(0.0, 0.0, NAN, 1.0)},
+		{"label": "AABB", "value": AABB(Vector3.ZERO, Vector3(INF, 1.0, 1.0))},
+		{"label": "Basis", "value": invalid_basis},
+		{"label": "Transform3D", "value": Transform3D(Basis.IDENTITY, Vector3(0.0, INF, 0.0))},
+		{"label": "Color", "value": Color(1.0, 1.0, INF, 1.0)},
+		{"label": "PackedVector2Array", "value": PackedVector2Array([Vector2(NAN, 0.0)])},
+		{"label": "PackedVector3Array", "value": PackedVector3Array([Vector3(0.0, INF, 0.0)])},
+		{"label": "PackedVector4Array", "value": PackedVector4Array([Vector4(0.0, 0.0, NAN, 0.0)])},
+		{"label": "PackedColorArray", "value": PackedColorArray([Color(1.0, NAN, 1.0, 1.0)])},
+	]
+
+	for case_data: Dictionary in cases:
+		var report: Dictionary = field.validate_value(case_data["value"])
+		assert_false(
+			GFVariantData.get_option_bool(report, "ok"),
+			"%s 内的非有限分量必须在 transport 边界失败关闭。" % GFVariantData.get_option_string(case_data, "label")
+		)
+
+
+func test_network_peer_identity_and_lobby_descriptor_are_platform_neutral() -> void:
+	var identity: GFNetworkPeerIdentity = GFNetworkPeerIdentity.new().configure(
+		42,
+		&"custom_platform",
+		"external-user-1",
+		"Tester",
+		{ "region": "asia" },
+		PackedStringArray(["invite", "lobby"])
+	)
+	var member: GFNetworkLobbyMember = GFNetworkLobbyMember.new().configure(42, identity, { "slot": 1 }, {
+		"is_owner": true,
+	})
+	var lobby: GFNetworkLobbyDescriptor = GFNetworkLobbyDescriptor.new().configure("room-1", {
+		"backend_id": &"fake",
+		"owner_peer_id": 42,
+		"max_members": 2,
+		"tags": PackedStringArray(["ranked"]),
+		"metadata": { "mode": "duel" },
+		"members": [member],
+	})
+	var copy: GFNetworkLobbyDescriptor = GFNetworkLobbyDescriptor.from_dict(lobby.to_dict())
+
+	assert_eq(identity.get_stable_key(), "custom_platform:external-user-1", "身份 key 应优先使用平台中立 platform/user 组合。")
+	assert_true(identity.has_capability(&"invite"), "身份能力应可查询。")
+	assert_eq(copy.lobby_id, "room-1", "Lobby ID 应能字典往返。")
+	assert_eq(copy.get_member_count(), 1, "成员列表应能字典往返。")
+	assert_eq(copy.get_member(42).get_display_name(), "Tester", "成员应保留身份展示名。")
+	assert_false(copy.is_full(), "未达到 max_members 时不应视为已满。")
+
+
+func test_network_lobby_query_filters_tags_metadata_and_capacity() -> void:
+	var query: GFNetworkLobbyQuery = GFNetworkLobbyQuery.new()
+	query.required_tags = PackedStringArray(["ranked"])
+	query.required_metadata = { "mode": "duel" }
+	var lobby: GFNetworkLobbyDescriptor = GFNetworkLobbyDescriptor.new().configure("room-1", {
+		"display_name": "Ranked Duel",
+		"max_members": 1,
+		"tags": PackedStringArray(["ranked"]),
+		"metadata": { "mode": "duel" },
+		"members": [
+			GFNetworkLobbyMember.new().configure(1),
+		],
+	})
+
+	assert_false(query.matches(lobby), "默认查询不应包含已满 lobby。")
+	query.include_full_lobbies = true
+	assert_true(query.matches(lobby), "允许已满 lobby 后应匹配 tag 和 metadata。")
+	query.search_text = "coop"
+	assert_false(query.matches(lobby), "搜索文本不匹配时应拒绝。")
+
+
+func test_network_lobby_service_tracks_backend_results_and_member_diffs() -> void:
+	var service: GFNetworkLobbyService = GFNetworkLobbyService.new()
+	var backend: FakeLobbyBackend = FakeLobbyBackend.new()
+	service.set_backend(backend)
+	watch_signals(service)
+
+	var create_report: Dictionary = service.create_lobby({
+		"lobby_id": "room-1",
+		"display_name": "Room One",
+		"tags": PackedStringArray(["ranked"]),
+	})
+	var member: GFNetworkLobbyMember = GFNetworkLobbyMember.new().configure(7, GFNetworkPeerIdentity.new().configure(7, &"lan", "7"))
+	backend.emit_member_joined_for_test("room-1", member)
+	var current_after_join: GFNetworkLobbyDescriptor = service.current_lobby
+	backend.emit_member_left_for_test("room-1", 7)
+	var current_after_left: GFNetworkLobbyDescriptor = service.current_lobby
+	var leave_report: Dictionary = service.leave_lobby()
+
+	assert_true(GFVariantData.get_option_bool(create_report, "ok"), "创建请求应被 fake backend 接受。")
+	assert_not_null(current_after_join, "创建成功后 service 应记录 current_lobby。")
+	assert_eq(current_after_join.get_member_count(), 1, "成员加入事件应更新 current_lobby。")
+	assert_eq(current_after_left.get_member_count(), 0, "成员离开事件应更新 current_lobby。")
+	assert_true(GFVariantData.get_option_bool(leave_report, "ok"), "离开请求应被 fake backend 接受。")
+	assert_signal_emitted(service, "lobby_created", "创建完成应转发 lobby_created。")
+	assert_signal_emitted(service, "member_joined", "成员加入应转发 member_joined。")
+	assert_signal_emitted(service, "member_left", "成员离开应转发 member_left。")
+
+
+func test_network_message_validator_strict_contract_and_peer_context() -> void:
+	var contract: GFNetworkContract = _make_lobby_network_contract()
+	var validator: GFNetworkMessageValidator = GFNetworkMessageValidator.new()
+	validator.configure_from_contract(contract)
+	validator.require_contract_message = true
+	validator.enforce_sender_id_matches_peer = true
+	validator.require_sender_id = true
+	validator.min_sequence = 1
+	validator.max_sequence = 10
+	var valid: GFNetworkMessage = contract.make_message(&"player_ready", { "slot": 1 }, {
+		"sender_id": 3,
+		"sequence": 2,
+	})
+	var spoofed: GFNetworkMessage = contract.make_message(&"player_ready", { "slot": 1 }, {
+		"sender_id": 9,
+		"sequence": 2,
+	})
+	var unknown: GFNetworkMessage = GFNetworkMessage.new(&"unknown", {}, 2, 0, 3)
+	var wrong_type: GFNetworkMessage = contract.make_message(&"player_ready", { "slot": "1" }, {
+		"sender_id": 3,
+		"sequence": 2,
+	})
+
+	var valid_report: Dictionary = validator.validate_message_for_peer(valid, 3)
+	var spoofed_report: Dictionary = validator.validate_message_for_peer(spoofed, 3)
+	var unknown_report: Dictionary = validator.validate_message_for_peer(unknown, 3)
+	var wrong_type_report: Dictionary = validator.validate_message_for_peer(wrong_type, 3)
+
+	assert_true(GFVariantData.get_option_bool(valid_report, "ok"), "合法消息应通过 strict 校验。")
+	assert_false(GFVariantData.get_option_bool(spoofed_report, "ok"), "sender_id 与实际 peer 不一致应失败。")
+	assert_true(GFVariantData.get_option_packed_string_array(spoofed_report, "errors").has("sender_id_mismatch"), "伪造 sender 应有稳定错误。")
+	assert_true(GFVariantData.get_option_packed_string_array(unknown_report, "errors").has("unknown_contract_message_type"), "未知契约消息应失败。")
+	assert_true(GFVariantData.get_option_packed_string_array(wrong_type_report, "errors").has("contract:type_mismatch"), "payload 类型错误应进入 contract 错误。")
+
+
+func test_network_contract_audit_reports_loose_fields_and_unknown_channels() -> void:
+	var loose_field: GFNetworkContractField = GFNetworkContractField.new()
+	loose_field.field_name = &"payload"
+	loose_field.value_type = GFNetworkContractField.ValueType.VARIANT
+	var message_contract: GFNetworkContractMessage = GFNetworkContractMessage.new()
+	message_contract.message_type = &"loose"
+	message_contract.channel_id = &"unknown"
+	message_contract.fields = [loose_field]
+	var contract: GFNetworkContract = GFNetworkContract.new()
+	contract.contract_id = &"audit"
+	contract.messages = [message_contract]
+	var audit: GFNetworkContractAudit = GFNetworkContractAudit.new()
+
+	var report: Dictionary = audit.audit_contract(contract, {
+		"known_channel_ids": PackedStringArray(["reliable"]),
+	})
+
+	assert_false(GFVariantData.get_option_bool(report, "ok"), "松散字段和未知通道应产生审计问题。")
+	assert_false(_find_report_issue(report, "unknown_channel_id").is_empty(), "未知通道应有稳定 issue kind。")
+	assert_false(_find_report_issue(report, "loose_variant_field").is_empty(), "Variant 字段应有稳定 issue kind。")
+
+
+func test_network_field_serializer_replaces_non_finite_numbers() -> void:
+	var serializer: GFNetworkFieldSerializer = GFNetworkFieldSerializer.new()
+	serializer.value_type = GFNetworkFieldSerializer.ValueType.VECTOR3
+
+	var encoded: Array = serializer.serialize_value(Vector3(NAN, INF, 1.5))
+
+	assert_eq(GFVariantData.to_float(encoded[0]), 0.0, "NaN 不应穿过网络字段序列化边界。")
+	assert_eq(GFVariantData.to_float(encoded[1]), 0.0, "INF 不应穿过网络字段序列化边界。")
+	assert_eq(GFVariantData.to_float(encoded[2]), 1.5, "有限值应保留。")
+
+
+func test_network_contract_exposes_version_digest_and_peer_preflight() -> void:
+	var contract: GFNetworkContract = _make_lobby_network_contract()
+	contract.contract_version_major = 2
+	contract.contract_version_minor = 20260308
+
+	var version: Dictionary = contract.get_contract_version()
+	var digest: String = GFVariantData.get_option_string(version, "schema_digest")
+	var ok_report: Dictionary = contract.validate_peer_contract_version(version, {
+		"require_schema_digest": true,
+	})
+	var mismatched_major: Dictionary = version.duplicate(true)
+	mismatched_major["version_major"] = 3
+	var major_report: Dictionary = contract.validate_peer_contract_version(mismatched_major)
+	var mismatched_digest: Dictionary = version.duplicate(true)
+	mismatched_digest["schema_digest"] = "0000000000000000000000000000000000000000000000000000000000000000"
+	var digest_report: Dictionary = contract.validate_peer_contract_version(mismatched_digest, {
+		"require_schema_digest": true,
+	})
+
+	assert_eq(GFVariantData.get_option_string_name(version, "contract_id"), &"lobby", "版本字典应包含契约 ID。")
+	assert_eq(GFVariantData.get_option_int(version, "version_major"), 2, "版本字典应包含大版本。")
+	assert_eq(GFVariantData.get_option_int(version, "version_minor"), 20260308, "版本字典应包含小版本。")
+	assert_eq(GFVariantData.get_option_int(version, "schema_descriptor_version"), 1, "版本字典应包含 schema 描述格式版本。")
+	assert_eq(digest.length(), 64, "schema digest 应为 SHA-256 hex。")
+	assert_true(digest.is_valid_hex_number(), "schema digest 应使用 hex 文本。")
+	assert_true(GFVariantData.get_option_bool(ok_report, "ok"), "相同契约版本和摘要应通过预检。")
+	assert_false(GFVariantData.get_option_bool(major_report, "ok"), "大版本不一致应失败。")
+	assert_false(_find_report_issue(major_report, "contract_version_major_mismatch").is_empty(), "大版本不一致应有稳定 issue kind。")
+	assert_false(GFVariantData.get_option_bool(digest_report, "ok"), "要求摘要时 schema digest 不一致应失败。")
+	assert_false(_find_report_issue(digest_report, "contract_schema_digest_mismatch").is_empty(), "摘要不一致应有稳定 issue kind。")
+
+
+func test_network_contract_schema_digest_ignores_display_metadata_and_tracks_structure() -> void:
+	var first: GFNetworkContract = _make_lobby_network_contract()
+	first.display_name = "Lobby A"
+	first.metadata = { "owner": "tools" }
+	var second: GFNetworkContract = _make_lobby_network_contract()
+	second.display_name = "Lobby B"
+	second.metadata = { "owner": "runtime" }
+
+	assert_eq(first.get_schema_digest(), second.get_schema_digest(), "display_name 和 metadata 不应改变 schema digest。")
+
+	var message_contract: GFNetworkContractMessage = second.get_message_contract(&"player_ready")
+	assert_not_null(message_contract, "测试契约应包含 player_ready 消息。")
+	if message_contract == null:
+		return
+	var slot_field: GFNetworkContractField = message_contract.get_field(&"slot")
+	assert_not_null(slot_field, "测试契约应包含 slot 字段。")
+	if slot_field == null:
+		return
+	slot_field.required = false
+
+	assert_ne(first.get_schema_digest(), second.get_schema_digest(), "字段结构变化应改变 schema digest。")
+
+
 func test_network_contract_generator_builds_typed_helpers() -> void:
 	var slot_field: GFNetworkContractField = GFNetworkContractField.new()
 	slot_field.field_name = &"slot"
@@ -140,12 +714,20 @@ func test_network_contract_generator_builds_typed_helpers() -> void:
 	message_contract.fields = [slot_field, ready_field]
 	var contract: GFNetworkContract = GFNetworkContract.new()
 	contract.contract_id = &"lobby"
+	contract.contract_version_major = 2
+	contract.contract_version_minor = 42
 	contract.messages = [message_contract]
 	var generator: GFNetworkContractGenerator = GFNetworkContractGenerator.new()
 
 	var source: String = generator.build_source(contract, { "class_name": "LobbyNetworkMessages" })
 
 	assert_true(source.contains("class_name LobbyNetworkMessages"), "应生成指定 class_name。")
+	assert_true(source.contains("const CONTRACT_ID: StringName = &\"lobby\""), "应生成契约 ID 常量。")
+	assert_true(source.contains("const CONTRACT_VERSION_MAJOR: int = 2"), "应生成契约大版本常量。")
+	assert_true(source.contains("const CONTRACT_VERSION_MINOR: int = 42"), "应生成契约小版本常量。")
+	assert_true(source.contains("const CONTRACT_SCHEMA_DIGEST: String = \""), "应生成契约 schema digest 常量。")
+	assert_true(source.contains("static func get_contract_version() -> Dictionary:"), "应生成契约版本描述函数。")
+	assert_true(source.contains("static func validate_peer_contract_version(peer_version: Dictionary, options: Dictionary = {}) -> Dictionary:"), "应生成契约版本预检函数。")
 	assert_true(source.contains("const MESSAGE_PLAYER_READY: StringName = &\"player_ready\""), "应生成消息常量。")
 	assert_true(source.contains("const CHANNEL_PLAYER_READY: StringName = &\"lobby\""), "应生成默认通道常量。")
 	assert_true(source.contains("static func make_player_ready(slot: int, ready: bool = false, options: Dictionary = {}) -> GFNetworkMessage:"), "应生成强类型构造函数。")
@@ -200,6 +782,77 @@ func test_network_contract_generator_reports_invalid_resources_with_standard_rep
 	var _remove_absolute_result_200: Variant = DirAccess.remove_absolute(ProjectSettings.globalize_path(invalid_path))
 
 
+func test_network_contract_generator_generate_with_report_reports_skipped_without_writing() -> void:
+	var contract: GFNetworkContract = _make_lobby_network_contract()
+	var generator: GFNetworkContractGenerator = GFNetworkContractGenerator.new()
+	var path: String = "user://gf_network_contract_generator_skip_%d.gd" % Time.get_ticks_usec()
+	var file: FileAccess = FileAccess.open(path, FileAccess.WRITE)
+	assert_not_null(file, "测试应能创建临时网络契约生成文件。")
+	if file == null:
+		return
+	var _store_string_result_214: Variant = file.store_string("manual")
+	file.close()
+
+	var report: Dictionary = generator.generate_with_report(contract, path, {
+		"class_name": "LobbyNetworkMessages",
+		"overwrite_existing": false,
+		"scan_filesystem": false,
+	})
+	var read_file: FileAccess = FileAccess.open(path, FileAccess.READ)
+	assert_not_null(read_file, "测试应能读取临时网络契约生成文件。")
+	if read_file == null:
+		var _cleanup_error_227: Variant = DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
+		return
+	var content: String = read_file.get_as_text()
+	read_file.close()
+	assert_eq(DirAccess.remove_absolute(ProjectSettings.globalize_path(path)), OK, "测试应能删除临时网络契约生成文件。")
+
+	assert_true(GFVariantData.get_option_bool(report, "success"), "skipped artifact 不应被标记为失败。")
+	assert_eq(GFVariantData.get_option_string_name(report, "status"), GFGeneratedArtifactReport.STATUS_SKIPPED, "禁止覆盖时应返回 skipped 产物状态。")
+	assert_eq(GFGeneratedArtifactReport.get_error_code(report), ERR_ALREADY_EXISTS, "报告仍应保留可供调用方阻断的错误码。")
+	assert_false(GFVariantData.get_option_bool(report, "written"), "skipped artifact 不应写入文件。")
+	assert_eq(content, "manual", "skipped artifact 不应改写已有文件。")
+	assert_push_warning("[GFNetworkContractGenerator] 目标文件已存在，已跳过：%s" % path)
+
+
+func test_network_contract_generator_generate_many_treats_skipped_artifacts_as_non_failed() -> void:
+	var contract: GFNetworkContract = _make_lobby_network_contract()
+	var generator: GFNetworkContractGenerator = GFNetworkContractGenerator.new()
+	var stamp: int = Time.get_ticks_usec()
+	var contract_path: String = "user://gf_network_contract_%d.tres" % stamp
+	var output_dir: String = "user://gf_network_contract_many_%d" % stamp
+	var output_path: String = output_dir.path_join("lobby_network_messages.gd")
+	assert_eq(ResourceSaver.save(contract, contract_path), OK, "测试应能写入临时契约资源。")
+	assert_eq(DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(output_dir)), OK, "测试应能创建临时输出目录。")
+	var file: FileAccess = FileAccess.open(output_path, FileAccess.WRITE)
+	assert_not_null(file, "测试应能创建临时输出文件。")
+	if file == null:
+		var _cleanup_contract_error_258: Variant = DirAccess.remove_absolute(ProjectSettings.globalize_path(contract_path))
+		var _cleanup_dir_error_259: Variant = DirAccess.remove_absolute(ProjectSettings.globalize_path(output_dir))
+		return
+	var _store_string_result_262: Variant = file.store_string("manual")
+	file.close()
+
+	var report: Dictionary = generator.generate_many(PackedStringArray([contract_path]), output_dir, false, {
+		"scan_filesystem": false,
+	})
+	var artifact_summary: Dictionary = GFVariantData.get_option_dictionary(report, "artifact_summary")
+	var generated_items: Array = GFVariantData.get_option_array(report, "generated")
+	var first_item: Dictionary = GFVariantData.as_dictionary(generated_items[0])
+	assert_eq(DirAccess.remove_absolute(ProjectSettings.globalize_path(output_path)), OK, "测试应能删除临时输出文件。")
+	assert_eq(DirAccess.remove_absolute(ProjectSettings.globalize_path(contract_path)), OK, "测试应能删除临时契约资源。")
+	assert_eq(DirAccess.remove_absolute(ProjectSettings.globalize_path(output_dir)), OK, "测试应能删除临时输出目录。")
+
+	assert_true(GFVariantData.get_option_bool(report, "ok"), "批量生成中的 skipped artifact 不应让报告失败。")
+	assert_eq(GFVariantData.get_option_int(report, "issue_count"), 0, "skipped artifact 不应生成 issue。")
+	assert_eq(GFVariantData.get_option_int(report, "attempted_count"), 1, "批量报告应统计所有输入路径。")
+	assert_eq(GFVariantData.get_option_int(report, "generated_count"), 0, "skipped artifact 不应计入实际写入数量。")
+	assert_eq(GFVariantData.get_option_int(report, "skipped_count"), 1, "批量报告应统计 skipped artifact。")
+	assert_eq(GFVariantData.get_option_int(artifact_summary, "skipped_count"), 1, "artifact summary 应保留 skipped 计数。")
+	assert_eq(GFVariantData.get_option_string(first_item, "status"), String(GFGeneratedArtifactReport.STATUS_SKIPPED), "生成记录应暴露 artifact status。")
+	assert_push_warning("[GFNetworkContractGenerator] 目标文件已存在，已跳过：%s" % output_path)
+
+
 func test_network_json_serializer_can_use_typed_variant_codec() -> void:
 	var serializer: GFNetworkSerializer = GFNetworkSerializer.new()
 	serializer.format = GFNetworkSerializer.Format.JSON
@@ -241,6 +894,32 @@ func test_reconnect_policy_jitter_respects_seeded_rng_state() -> void:
 	var expected: int = maxi(roundi(100.0 + expected_rng.next_float_range(-50.0, 50.0)), 0)
 
 	assert_eq(policy.get_next_delay_msec(), expected, "jitter 应通过公开 seed 入口保持确定性。")
+
+
+func test_network_runtime_numeric_configuration_rejects_non_finite_values() -> void:
+	var limiter: GFNetworkRateLimiter = GFNetworkRateLimiter.new()
+	limiter.capacity = NAN
+	limiter.refill_per_second = INF
+	limiter.tick(NAN)
+	var consumed_infinite: bool = limiter.consume(INF)
+
+	var policy: GFNetworkReconnectPolicy = GFNetworkReconnectPolicy.new()
+	policy.jitter_ratio = NAN
+	var nan_jitter: float = policy.jitter_ratio
+	policy.jitter_ratio = INF
+
+	var tracker: GFNetworkDirtyStateTracker = GFNetworkDirtyStateTracker.new()
+	tracker.epsilon = NAN
+	var nan_epsilon: float = tracker.epsilon
+	tracker.epsilon = INF
+
+	assert_false(is_nan(limiter.capacity) or is_inf(limiter.capacity), "capacity 必须保持有限。")
+	assert_false(is_nan(limiter.refill_per_second) or is_inf(limiter.refill_per_second), "refill 必须保持有限。")
+	assert_false(consumed_infinite, "非有限令牌消费必须 fail closed。")
+	assert_eq(nan_jitter, 0.0, "NaN jitter 应归一化为禁用抖动。")
+	assert_eq(policy.jitter_ratio, 0.0, "Inf jitter 应归一化为禁用抖动。")
+	assert_eq(nan_epsilon, 0.0, "NaN epsilon 应归一化为严格比较。")
+	assert_eq(tracker.epsilon, 0.0, "Inf epsilon 应归一化为严格比较。")
 
 
 ## 验证 NetworkUtility 会通过后端发送并解码后端收到的消息。
@@ -332,6 +1011,29 @@ func test_network_channel_controls_send_options() -> void:
 	assert_eq(GFVariantData.get_option_int(backend.sent_options, "channel"), 2, "通道编号应写入后端发送选项。")
 	assert_false(GFVariantData.get_option_bool(backend.sent_options, "reliable", true), "通道可靠性应写入后端发送选项。")
 	assert_eq(GFVariantData.get_option_array(snapshot, "channels").size(), 1, "调试快照应包含已注册通道。")
+
+
+func test_network_direct_send_applies_matching_channel_policy() -> void:
+	var utility: GFNetworkUtility = GFNetworkUtility.new()
+	var backend: FakeBackend = FakeBackend.new()
+	utility.set_backend(backend)
+	var channel: GFNetworkChannel = GFNetworkChannel.new()
+	channel.channel_id = &"state"
+	channel.transfer_channel = 2
+	channel.reliable = false
+	channel.max_packet_size = 8
+	utility.register_channel(channel)
+
+	var error: Error = utility.send_message(3, GFNetworkMessage.new(&"state", { "payload": "too large" }))
+
+	assert_eq(error, ERR_INVALID_DATA, "direct send 不得绕过同名通道的包体上限。")
+	assert_true(backend.sent_bytes.is_empty(), "被通道策略拒绝的消息不应到达后端。")
+
+	channel.max_packet_size = 0
+	error = utility.send_message(3, GFNetworkMessage.new(&"other", {}, 0, 0, -1, &"state"))
+	assert_eq(error, OK, "合法 direct send 应成功。")
+	assert_eq(GFVariantData.get_option_int(backend.sent_options, "channel"), 2, "channel_id 命中时应合并通道发送选项。")
+	assert_false(GFVariantData.get_option_bool(backend.sent_options, "reliable", true), "direct send 应使用通道可靠性。")
 
 
 func test_network_dirty_state_tracker_filters_priority_and_approximate_values() -> void:
@@ -486,6 +1188,30 @@ func test_websocket_backend_rejects_missing_port() -> void:
 	var backend: GFWebSocketNetworkBackend = GFWebSocketNetworkBackend.new()
 
 	assert_eq(backend.host({}), ERR_INVALID_PARAMETER, "WebSocket 主机必须显式提供端口。")
+
+
+func test_websocket_backend_rejects_non_websocket_endpoint_before_connect() -> void:
+	var backend: GFWebSocketNetworkBackend = GFWebSocketNetworkBackend.new()
+
+	assert_eq(backend.connect_to_endpoint("http://example.test/socket"), ERR_INVALID_PARAMETER)
+	assert_eq(backend.connect_to_endpoint("ws:///missing-host"), ERR_INVALID_PARAMETER)
+	assert_eq(backend.connect_to_endpoint("ws://example.test/socket\nforged"), ERR_INVALID_PARAMETER)
+
+
+func test_enet_close_emits_disconnect_for_each_tracked_peer() -> void:
+	var backend: GFENetNetworkBackend = GFENetNetworkBackend.new()
+	var disconnected_peer_ids: Array[int] = []
+	var _connected: Error = backend.peer_disconnected.connect(func(peer_id: int) -> void:
+		disconnected_peer_ids.append(peer_id)
+	) as Error
+	backend._peer = ENetMultiplayerPeer.new()
+	backend._on_peer_connected(4)
+	backend._on_peer_connected(2)
+
+	backend._close_peer(true)
+	disconnected_peer_ids.sort()
+
+	assert_eq(disconnected_peer_ids, [2, 4], "关闭 ENet 后端应逐个清理已跟踪 peer。")
 
 
 func test_websocket_backend_round_trips_bytes() -> void:
@@ -774,6 +1500,29 @@ func test_network_direct_debug_entries_redact_sensitive_values() -> void:
 	assert_true(snapshot_text.contains("asia"), "非敏感 metadata 应保留。")
 
 
+func test_network_debug_redaction_normalizes_common_key_styles() -> void:
+	var sanitized: Dictionary = GFNetworkDebugTools.sanitize_debug_dictionary({
+		"apiKey": "api-secret",
+		"access-key": "access-secret",
+		"sessionId": "session-secret",
+		"clientSecretValue": "client-secret",
+		"private-key-pem": "private-secret",
+		"displayKeyframe": "visible",
+		"secretaryName": "ordinary-secretary",
+		"monkeyIsland": "ordinary-monkey",
+	})
+	var snapshot_text: String = JSON.stringify(sanitized)
+
+	assert_false(snapshot_text.contains("api-secret"), "camelCase apiKey 应被脱敏。")
+	assert_false(snapshot_text.contains("access-secret"), "kebab-case access-key 应被脱敏。")
+	assert_false(snapshot_text.contains("session-secret"), "squashed sessionId 应被脱敏。")
+	assert_false(snapshot_text.contains("client-secret"), "camelCase 中间敏感 token 应被脱敏。")
+	assert_false(snapshot_text.contains("private-secret"), "规范化 private-key 复合字段应被脱敏。")
+	assert_true(snapshot_text.contains("visible"), "普通包含 key 字样的字段不应被过度脱敏。")
+	assert_true(snapshot_text.contains("ordinary-secretary"), "secretary 等普通词不得因子串 secret 被误杀。")
+	assert_true(snapshot_text.contains("ordinary-monkey"), "普通词内部的 key 字符串不得被误杀。")
+
+
 ## 验证固定 tick 时钟按预算推进并保留插值 alpha。
 func test_fixed_tick_clock_advances_with_budget() -> void:
 	var clock: GFFixedTickClock = GFFixedTickClock.new(10.0)
@@ -804,6 +1553,25 @@ func test_fixed_tick_clock_advances_with_budget() -> void:
 	assert_eq(exhausted_reports.size(), 1, "预算不足时应发出诊断信号。")
 	assert_true(clock.get_interpolation_alpha() <= 1.0, "插值 alpha 应保持在 0 到 1。")
 	assert_eq(clock.get_tick_factor(), clock.get_interpolation_alpha(), "tick_factor 应作为插值比例别名。")
+
+
+func test_fixed_tick_clock_rejects_non_finite_configuration_and_state() -> void:
+	var clock: GFFixedTickClock = GFFixedTickClock.new(NAN)
+	var initial_tick_rate: float = clock.tick_rate
+	clock.accumulator_seconds = INF
+	var steps: int = clock.advance(NAN)
+	clock.configure(INF)
+	clock.from_dict({
+		"tick_rate": NAN,
+		"current_tick": 7,
+		"accumulator_seconds": INF,
+	})
+
+	assert_false(is_nan(initial_tick_rate) or is_inf(initial_tick_rate), "构造后的 tick_rate 必须有限。")
+	assert_eq(steps, 0, "非有限 delta 不应推进 tick。")
+	assert_false(is_nan(clock.tick_rate) or is_inf(clock.tick_rate), "配置和恢复不得污染 tick_rate。")
+	assert_false(is_nan(clock.accumulator_seconds) or is_inf(clock.accumulator_seconds), "恢复后的 accumulator 必须有限。")
+	assert_eq(clock.current_tick, 7, "合法整数状态仍应恢复。")
 
 
 ## 验证网络快照可以生成并应用浅层差量。
@@ -882,6 +1650,39 @@ func test_network_snapshot_patch_preserves_empty_dictionary_set() -> void:
 	assert_eq(GFVariantData.get_option_array(patch, "set").size(), 1, "新增空字典字段应作为整体 set。")
 	assert_true(applied.state.has("entity"), "应用 patch 后应保留空字典字段。")
 	assert_true(GFVariantData.get_option_dictionary(applied.state, "entity").is_empty(), "空字典字段不应丢失。")
+
+
+func test_network_snapshot_rejects_malformed_or_over_budget_patch_atomically() -> void:
+	var start: GFNetworkSnapshot = GFNetworkSnapshot.new(10, { "hp": 10 }, 2)
+	var wrong_format: Dictionary = {
+		"ok": true,
+		"format": &"wrong",
+		"version": 1,
+		"from_tick": 10,
+		"to_tick": 11,
+		"set": [{ "path": ["hp"], "value": 1 }],
+		"erase": [],
+		"metadata": {},
+	}
+	var deep_path: Array = []
+	for index: int in range(10):
+		deep_path.append("level_%d" % index)
+	var over_budget: Dictionary = {
+		"ok": true,
+		"format": &"gf_network_snapshot_patch",
+		"version": 1,
+		"from_tick": 10,
+		"to_tick": 11,
+		"set": [{ "path": deep_path, "value": 1 }],
+		"erase": [],
+		"metadata": {},
+	}
+
+	var wrong_result: GFNetworkSnapshot = start.apply_patch(wrong_format)
+	var deep_result: GFNetworkSnapshot = start.apply_patch(over_budget)
+
+	assert_eq(wrong_result.to_dict(), start.to_dict(), "错误 format 的 patch 必须原子拒绝。")
+	assert_eq(deep_result.to_dict(), start.to_dict(), "超深 path 的 patch 必须原子拒绝。")
 
 
 ## 验证网络历史缓冲按容量保留最新快照并可查询最近 tick。
@@ -965,6 +1766,33 @@ func test_network_snapshot_schema_encodes_and_decodes_patch_values() -> void:
 	assert_eq(GFVariantData.as_array(encoded_position), [1.2, 2.3], "Schema 应按字段编码 patch set 值。")
 	assert_eq(GFVariantData.get_option_vector2(applied.state, "position"), Vector2(1.2, 2.3), "Schema 应恢复 patch set 字段类型。")
 	assert_eq(GFVariantData.get_option_string(applied.state, "name"), "unit", "未注册 patch 字段应按配置原样保留。")
+
+
+func _find_report_issue(report: Dictionary, kind: String) -> Dictionary:
+	for issue_value: Variant in GFVariantData.get_option_array(report, "issues"):
+		var issue: Dictionary = GFVariantData.as_dictionary(issue_value)
+		if GFVariantData.get_option_string(issue, "kind") == kind:
+			return issue
+	return {}
+
+
+func _make_lobby_network_contract() -> GFNetworkContract:
+	var slot_field: GFNetworkContractField = GFNetworkContractField.new()
+	slot_field.field_name = &"slot"
+	slot_field.value_type = GFNetworkContractField.ValueType.INT
+	var ready_field: GFNetworkContractField = GFNetworkContractField.new()
+	ready_field.field_name = &"ready"
+	ready_field.value_type = GFNetworkContractField.ValueType.BOOL
+	ready_field.required = false
+	ready_field.default_value = false
+	var message_contract: GFNetworkContractMessage = GFNetworkContractMessage.new()
+	message_contract.message_type = &"player_ready"
+	message_contract.channel_id = &"lobby"
+	message_contract.fields = [slot_field, ready_field]
+	var contract: GFNetworkContract = GFNetworkContract.new()
+	contract.contract_id = &"lobby"
+	contract.messages = [message_contract]
+	return contract
 
 
 func _snapshot_from_dictionary(source: Dictionary, key: Variant) -> GFNetworkSnapshot:

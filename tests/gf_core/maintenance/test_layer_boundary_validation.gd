@@ -103,7 +103,9 @@ const BUSINESS_EXTENSION_CANDIDATES: Array[String] = [
 	"combat",
 	"domain",
 ]
-const EXTERNALIZATION_CANDIDATE_TAG: String = "externalization-candidate"
+const EXTENSION_FORBIDDEN_INTERNAL_TAGS: Array[String] = [
+	"externalization-candidate",
+]
 const GF_VARIANT_ACCESS = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
 
 
@@ -317,7 +319,7 @@ func test_bundled_extensions_do_not_reference_other_bundled_extensions() -> void
 	)
 
 
-func test_business_extensions_remain_optional_externalization_candidates() -> void:
+func test_business_extensions_remain_optional_atomic_extensions_without_internal_tags() -> void:
 	var manifest_by_extension_name: Dictionary = _collect_manifest_by_extension_name(BUSINESS_EXTENSION_CANDIDATES)
 	var issues: Array[String] = []
 	for extension_name: String in BUSINESS_EXTENSION_CANDIDATES:
@@ -337,13 +339,15 @@ func test_business_extensions_remain_optional_externalization_candidates() -> vo
 			if not EXTENSION_ALLOWED_DEPENDENCIES.has(dependency_id):
 				issues.append("%s declares non-foundation dependency %s" % [extension_name, dependency_id])
 		var tags: Array = GF_VARIANT_ACCESS.get_option_array(manifest_data, "tags", [])
-		if not tags.has(EXTERNALIZATION_CANDIDATE_TAG):
-			issues.append("%s missing %s tag" % [extension_name, EXTERNALIZATION_CANDIDATE_TAG])
+		for tag_variant: Variant in tags:
+			var tag: String = GF_VARIANT_ACCESS.to_text(tag_variant)
+			if EXTENSION_FORBIDDEN_INTERNAL_TAGS.has(tag):
+				issues.append("%s leaks internal tag %s" % [extension_name, tag])
 
 	assert_eq(
 		issues,
 		[],
-		"Domain/Combat 属于业务型扩展候选：发布包内只能作为默认关闭的原子扩展存在，真正组合应进入 preset、项目 Installer 或外部插件。"
+		"Domain/Combat 属于业务型扩展：发布包内只能作为默认关闭的原子扩展存在，内部路线标签不得写入公开 manifest。"
 	)
 
 
@@ -357,14 +361,10 @@ func test_2d_toolkit_preset_closure_stays_runtime_only_and_expected_size() -> vo
 		"gf.extension.physics",
 		"gf.kernel",
 		"gf.preset.2d_toolkit",
-		"gf.standard.assets",
-		"gf.standard.audio",
 		"gf.standard.base",
 		"gf.standard.deterministic",
 		"gf.standard.input",
 		"gf.standard.spatial",
-		"gf.standard.state",
-		"gf.standard.storage",
 		"gf.standard.ui",
 	]
 	var actual_ids: Array[String] = _sorted_dictionary_string_keys(closure)
@@ -375,6 +375,44 @@ func test_2d_toolkit_preset_closure_stays_runtime_only_and_expected_size() -> vo
 
 	assert_eq(actual_ids, expected_ids, "2D toolkit preset 闭包应稳定包含 2D 运行时常用能力和必要依赖。")
 	assert_eq(editor_packages, [], "2D toolkit runtime preset 不能拉入 editor-only package。")
+
+
+func test_save_preset_closure_stays_minimal_runtime_only() -> void:
+	var manifests_by_id: Dictionary = _collect_package_manifests(PACKAGE_ROOT)
+	var closure: Dictionary = _resolve_package_closure("gf.preset.save", manifests_by_id)
+	var expected_ids: Array[String] = [
+		"gf.extension.save",
+		"gf.kernel",
+		"gf.preset.save",
+		"gf.standard.base",
+		"gf.standard.deterministic",
+		"gf.standard.storage",
+	]
+	var actual_ids: Array[String] = _sorted_dictionary_string_keys(closure)
+
+	assert_eq(actual_ids, expected_ids, "Save preset 只应安装保存扩展和必需标准依赖。")
+	assert_false(_contains_editor_package(actual_ids), "Save runtime preset 不能拉入 editor-only package。")
+
+
+func test_rpg_save_dialogue_preset_closure_stays_runtime_only_without_ui_fan_in() -> void:
+	var manifests_by_id: Dictionary = _collect_package_manifests(PACKAGE_ROOT)
+	var closure: Dictionary = _resolve_package_closure("gf.preset.rpg_save_dialogue", manifests_by_id)
+	var expected_ids: Array[String] = [
+		"gf.extension.dialogue",
+		"gf.extension.domain",
+		"gf.extension.save",
+		"gf.kernel",
+		"gf.preset.rpg_save_dialogue",
+		"gf.standard.base",
+		"gf.standard.config",
+		"gf.standard.deterministic",
+		"gf.standard.storage",
+	]
+	var actual_ids: Array[String] = _sorted_dictionary_string_keys(closure)
+
+	assert_eq(actual_ids, expected_ids, "RPG Save Dialogue preset 只应包含叙事保存工作流的运行时闭包。")
+	assert_false(actual_ids.has("gf.standard.ui"), "RPG Save Dialogue preset 不应隐式拉入 UI aggregate。")
+	assert_false(_contains_editor_package(actual_ids), "RPG Save Dialogue runtime preset 不能拉入 editor-only package。")
 
 
 func test_bundled_extensions_do_not_call_global_gf_facade() -> void:
@@ -539,6 +577,13 @@ func _sorted_dictionary_string_keys(source: Dictionary) -> Array[String]:
 		result.append(GF_VARIANT_ACCESS.to_text(key_variant))
 	result.sort()
 	return result
+
+
+func _contains_editor_package(package_ids: Array[String]) -> bool:
+	for package_id: String in package_ids:
+		if package_id.contains(".editor"):
+			return true
+	return false
 
 
 func _read_text(path: String) -> String:

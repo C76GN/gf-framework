@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFOperationDiagnosticsUtility" path="addons/gf/standard/utilities/debug/gf_operation_diagnostics_utility.gd" module="standard" extends="GFUtility" classDigest="3aa6d5a313af0340c438ed3c8eeff362d782389d6f4766083950a64414234618">
+<class name="GFOperationDiagnosticsUtility" path="addons/gf/standard/utilities/debug/gf_operation_diagnostics_utility.gd" module="standard" extends="GFUtility" classDigest="a11af18af34039f1d598fe6592c9c4aa4b0ed88a738efeab18195d75d39f3f59">
 	<description>GFOperationDiagnosticsUtility: 通用操作诊断时间线。
 记录开发工具、运行时服务或项目流程的操作、阶段耗时和异常事件，并提供有界历史、健康快照和可复制摘要。
 该工具只保存结构化诊断数据，不绑定编辑器 UI、远程服务、外部协议或业务语义。</description>
@@ -11,12 +11,20 @@
 	<signals />
 	<enums />
 	<constants>
-		<member kind="const" name="DEFAULT_MAX_OPERATIONS">
-			<signature>const DEFAULT_MAX_OPERATIONS: int = 100</signature>
-			<description>默认保留的操作数量。</description>
+		<member kind="const" name="DEFAULT_MAX_COMPLETED_OPERATIONS">
+			<signature>const DEFAULT_MAX_COMPLETED_OPERATIONS: int = 100</signature>
+			<description>默认保留的已完成操作数量。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">7.0.0</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="DEFAULT_MAX_ACTIVE_OPERATIONS">
+			<signature>const DEFAULT_MAX_ACTIVE_OPERATIONS: int = 100</signature>
+			<description>默认允许同时追踪的活动操作数量。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="DEFAULT_MAX_INCIDENTS">
@@ -33,6 +41,22 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="DEFAULT_MAX_SAMPLE_STATS">
+			<signature>const DEFAULT_MAX_SAMPLE_STATS: int = 256</signature>
+			<description>默认保留的采样统计数量。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="DEFAULT_MAX_METADATA_KEYS">
+			<signature>const DEFAULT_MAX_METADATA_KEYS: int = 64</signature>
+			<description>单个 metadata 默认最多保留的唯一业务键数量。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="DEFAULT_SLOW_OPERATION_THRESHOLD_MS">
@@ -133,12 +157,21 @@
 		</member>
 	</constants>
 	<properties>
-		<member kind="property" name="max_operations">
-			<signature>var max_operations: int = DEFAULT_MAX_OPERATIONS:</signature>
-			<description>最多保留的操作记录数量。设置为 0 时不保留操作历史。</description>
+		<member kind="property" name="max_completed_operations">
+			<signature>var max_completed_operations: int = DEFAULT_MAX_COMPLETED_OPERATIONS:</signature>
+			<description>最多保留的已完成操作数量。设置为 0 时完成结果不会进入历史。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">7.0.0</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="max_active_operations">
+			<signature>var max_active_operations: int = DEFAULT_MAX_ACTIVE_OPERATIONS:</signature>
+			<description>最多同时追踪的活动操作数量。设置为 0 时 begin_operation() 拒绝新操作。
+已存在的活动操作不会因降低上限而被隐式取消。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="max_incidents">
@@ -157,8 +190,25 @@
 				<tag name="since">7.0.0</tag>
 			</tags>
 		</member>
+		<member kind="property" name="max_sample_stats">
+			<signature>var max_sample_stats: int = DEFAULT_MAX_SAMPLE_STATS:</signature>
+			<description>最多保留的采样统计数量。设置为 0 时不保留采样统计。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="max_metadata_keys">
+			<signature>var max_metadata_keys: int = DEFAULT_MAX_METADATA_KEYS:</signature>
+			<description>单个 metadata 最多保留的唯一业务键数量。覆盖已有键不消耗新额度。
+超额键会被丢弃，并通过 __gf_dropped_key_count 记录累计数量。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
 		<member kind="property" name="slow_operation_threshold_ms">
-			<signature>var slow_operation_threshold_ms: float = DEFAULT_SLOW_OPERATION_THRESHOLD_MS</signature>
+			<signature>var slow_operation_threshold_ms: float = DEFAULT_SLOW_OPERATION_THRESHOLD_MS:</signature>
 			<description>超过该耗时的完成操作会在健康快照中计入慢操作，单位毫秒。小于 0 时禁用慢操作统计。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -301,6 +351,46 @@
 				<tag name="since">7.0.0</tag>
 			</tags>
 		</member>
+		<member kind="method" name="record_sample">
+			<signature>func record_sample(sample_id: StringName, duration_ms: float, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>记录一次命名耗时采样并更新聚合统计。
+采样统计适合记录高频、短生命周期或不需要完整 begin/finish 生命周期的诊断点。
+GF 只聚合调用次数、耗时和 metadata，不解释 sample_id 的业务含义。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">sample_id: 采样点 ID，建议使用稳定命名空间标识。</tag>
+				<tag name="param">duration_ms: 本次采样耗时，单位毫秒。</tag>
+				<tag name="param">options: 可选参数，支持 component、label、metadata、started_ticks_usec 和 ended_ticks_usec。</tag>
+				<tag name="return">更新后的采样统计副本；sample_id 为空或采样统计被禁用时返回空字典。</tag>
+				<tag name="schema">options: Dictionary，支持 component、label、metadata、started_ticks_usec 和 ended_ticks_usec。</tag>
+				<tag name="schema">return: Dictionary，包含 sample_id、component、sample_count、total_duration_ms、average_duration_ms、min_duration_ms、max_duration_ms、slow_sample_count 和 metadata。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="record_sample_from_ticks">
+			<signature>func record_sample_from_ticks(sample_id: StringName, started_ticks_usec: int, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>使用 Godot tick 起点记录一次命名耗时采样。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">sample_id: 采样点 ID。</tag>
+				<tag name="param">started_ticks_usec: 采样开始时的 Time.get_ticks_usec()。</tag>
+				<tag name="param">options: 可选参数，支持 component、label、metadata 和 ended_ticks_usec。</tag>
+				<tag name="return">更新后的采样统计副本；sample_id 为空或采样统计被禁用时返回空字典。</tag>
+				<tag name="schema">options: Dictionary，支持 component、label、metadata 和 ended_ticks_usec。</tag>
+				<tag name="schema">return: Dictionary，包含 sample_id、sample_count、total_duration_ms、average_duration_ms、min_duration_ms、max_duration_ms 和 slow_sample_count。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="clear_sample_stats">
+			<signature>func clear_sample_stats(sample_id: StringName = &amp;"") -&gt; int:</signature>
+			<description>清理采样统计。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">sample_id: 采样点 ID；为空时清空全部采样统计。</tag>
+				<tag name="return">实际移除的采样统计数量。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
 		<member kind="method" name="has_operation">
 			<signature>func has_operation(operation_id: StringName) -&gt; bool:</signature>
 			<description>检查操作是否仍在历史中。</description>
@@ -332,6 +422,30 @@
 				<tag name="return">状态快照数组，按记录顺序返回。</tag>
 				<tag name="schema">return: Array[Dictionary] state snapshot records.</tag>
 				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_sample_stat">
+			<signature>func get_sample_stat(sample_id: StringName) -&gt; Dictionary:</signature>
+			<description>获取单个采样统计副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">sample_id: 采样点 ID。</tag>
+				<tag name="return">采样统计副本；不存在时返回空字典。</tag>
+				<tag name="schema">return: Dictionary，包含 sample_id、component、sample_count、total_duration_ms、average_duration_ms、min_duration_ms、max_duration_ms、slow_sample_count 和 metadata。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_sample_stats">
+			<signature>func get_sample_stats(limit: int = 0, filters: Dictionary = {}) -&gt; Array[Dictionary]:</signature>
+			<description>获取采样统计列表。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">limit: 最大返回数量；小于等于 0 时返回全部匹配统计。</tag>
+				<tag name="param">filters: 过滤条件，支持 sample_id 和 component。</tag>
+				<tag name="return">采样统计数组，按最近更新倒序排列。</tag>
+				<tag name="schema">filters: Dictionary，支持 sample_id 和 component。</tag>
+				<tag name="schema">return: Array[Dictionary]，每个元素是采样统计副本。</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_operations">
@@ -380,7 +494,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">limit: recent_operations 与 recent_incidents 的最大数量。</tag>
 				<tag name="return">健康快照字典。</tag>
-				<tag name="schema">return: Dictionary，包含 status、operation_count、incident_count、open_operation_count、failed_operation_count、slow_operation_count、recent_operations、recent_incidents 和 slowest_operation。</tag>
+				<tag name="schema">return: Dictionary，包含 status、operation_count、active_operation_count、completed_operation_count、rejected_active_operation_count、incident_count、sample_stat_count、failed_operation_count、slow_operation_count、slow_sample_count、recent_operations、recent_incidents、recent_sample_stats、slowest_operation 和 slowest_sample。</tag>
 				<tag name="since">7.0.0</tag>
 			</tags>
 		</member>
@@ -390,8 +504,47 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">调试快照字典。</tag>
-				<tag name="schema">return: Dictionary，包含 history 上限、计数、健康快照和最近时间线。</tag>
+				<tag name="schema">return: Dictionary，包含 history 上限、计数、健康快照、最近时间线和采样统计。</tag>
 				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="to_json_compatible_record">
+			<signature>func to_json_compatible_record(record: Dictionary, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>将操作诊断记录或快照转换为 JSON-safe 结构。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">record: 操作、异常、健康快照或调试快照。</tag>
+				<tag name="param">options: 传给 GFReportValueCodec 的编码选项。</tag>
+				<tag name="return">JSON-safe 诊断记录。</tag>
+				<tag name="schema">record: Dictionary，来自本工具的 raw 诊断记录或快照。</tag>
+				<tag name="schema">options: Dictionary with GFReportValueCodec options.</tag>
+				<tag name="schema">return: Dictionary，已脱敏 Object、Callable、RID 和非 JSON 原生值。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_json_compatible_health_snapshot">
+			<signature>func get_json_compatible_health_snapshot(limit: int = 5, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>获取 JSON-safe 健康快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">limit: recent_operations 与 recent_incidents 的最大数量。</tag>
+				<tag name="param">options: 传给 GFReportValueCodec 的编码选项。</tag>
+				<tag name="return">JSON-safe 健康快照。</tag>
+				<tag name="schema">options: Dictionary with GFReportValueCodec options.</tag>
+				<tag name="schema">return: Dictionary，包含 JSON-safe health snapshot 字段。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_json_compatible_debug_snapshot">
+			<signature>func get_json_compatible_debug_snapshot(options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>获取 JSON-safe 调试快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">options: 传给 GFReportValueCodec 的编码选项。</tag>
+				<tag name="return">JSON-safe 调试快照。</tag>
+				<tag name="schema">options: Dictionary with GFReportValueCodec options.</tag>
+				<tag name="schema">return: Dictionary，包含 JSON-safe debug snapshot 字段。</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="build_copy_text">

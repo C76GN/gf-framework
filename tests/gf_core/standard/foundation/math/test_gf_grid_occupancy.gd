@@ -49,6 +49,44 @@ func test_max_occupants_per_cell_allows_shared_cells() -> void:
 	assert_eq(grid.get_cell_occupants(Vector2i.ZERO).size(), 2, "格子中应只有两个接收者。")
 
 
+func test_occupied_and_reserved_cell_snapshots_are_stable() -> void:
+	var grid: GFGridOccupancy = GFGridOccupancy.new(Vector2i(4, 3))
+	var expected_occupied: Array[Vector2i] = [
+		Vector2i(3, 0),
+		Vector2i(2, 1),
+		Vector2i(0, 2),
+	]
+	var expected_reserved: Array[Vector2i] = [
+		Vector2i(1, 0),
+	]
+
+	assert_true(grid.occupy("lower", Vector2i(0, 2)), "应能占用后排格。")
+	assert_true(grid.occupy("middle", Vector2i(2, 1)), "应能占用中间格。")
+	assert_true(grid.occupy("upper", Vector2i(3, 0)), "应能占用前排格。")
+	assert_true(grid.reserve_cell("reserved", Vector2i(1, 0)), "应能预约格子。")
+
+	assert_eq(grid.get_occupied_cells(), expected_occupied, "占用快照应按 y/x 稳定排序。")
+	assert_eq(grid.get_reserved_cells(), expected_reserved, "预约快照应按 y/x 稳定排序。")
+
+
+func test_get_occupiable_cells_respects_capacity_and_reservations() -> void:
+	var grid: GFGridOccupancy = GFGridOccupancy.new(Vector2i(3, 2), 2)
+
+	assert_true(grid.occupy("full_a", Vector2i(0, 0)), "应能占用容量格。")
+	assert_true(grid.occupy("full_b", Vector2i(0, 0)), "容量格应能被第二个接收者占用。")
+	assert_true(grid.occupy("partial", Vector2i(1, 0)), "应能占用未满格。")
+	assert_true(grid.reserve_cell("reserved_owner", Vector2i(2, 0)), "应能预约空格。")
+
+	var spawn_cells: Array[Vector2i] = grid.get_occupiable_cells("spawn")
+	assert_false(spawn_cells.has(Vector2i(0, 0)), "满员格不应出现在可占用列表。")
+	assert_true(spawn_cells.has(Vector2i(1, 0)), "未满格应继续可占用。")
+	assert_false(spawn_cells.has(Vector2i(2, 0)), "其他接收者预约的格子不应可占用。")
+	assert_true(spawn_cells.has(Vector2i(0, 1)), "空格应可占用。")
+
+	var reserved_owner_cells: Array[Vector2i] = grid.get_occupiable_cells("reserved_owner")
+	assert_true(reserved_owner_cells.has(Vector2i(2, 0)), "预约所有者应能占用自己的预约格。")
+
+
 func test_prune_invalid_receiver_releases_stale_reservation() -> void:
 	var grid: GFGridOccupancy = GFGridOccupancy.new(Vector2i(2, 2))
 	var actor: Node = Node.new()

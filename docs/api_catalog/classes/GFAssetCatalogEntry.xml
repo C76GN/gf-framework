@@ -1,0 +1,199 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFAssetCatalogEntry" path="addons/gf/standard/utilities/assets/gf_asset_catalog_entry.gd" module="standard" extends="Resource" classDigest="65beb22c0b34fbb3ba2d69110612192d98134f344d1c4fee25af41c21b69ca90">
+	<description>GFAssetCatalogEntry: 通用资产目录条目。
+用稳定 asset_id 描述一个可被项目工具检索、预览和审计的资产。
+条目可以引用一个主资源、一个预览资源和多条资源注册表条目，但不解释资产业务语义。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">resource_definition</tag>
+		<tag name="since">8.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties>
+		<member kind="property" name="asset_id" decorators="@export">
+			<signature>var asset_id: StringName = &amp;""</signature>
+			<description>资产稳定 ID。推荐由项目或 source provider 明确生成，不应直接等同资源路径。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="title" decorators="@export">
+			<signature>var title: String = ""</signature>
+			<description>面向工具 UI 的显示标题；为空时可回退到 asset_id 或资源 basename。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="description" decorators="@export_multiline">
+			<signature>var description: String = ""</signature>
+			<description>面向工具 UI 的简短说明或备注。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="tags" decorators="@export">
+			<signature>var tags: PackedStringArray = PackedStringArray()</signature>
+			<description>通用标签。标签只用于检索、筛选和分组，不携带业务含义。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="category" decorators="@export">
+			<signature>var category: StringName = &amp;""</signature>
+			<description>通用分类。项目可自行决定分类体系；GF 只按文本索引。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="primary_path" decorators="@export">
+			<signature>var primary_path: String = ""</signature>
+			<description>主资源路径。用于预览、打开、加载或关联 GFResourceRegistry 条目。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="type_hint" decorators="@export">
+			<signature>var type_hint: String = ""</signature>
+			<description>主资源类型提示。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="preview_path" decorators="@export">
+			<signature>var preview_path: String = ""</signature>
+			<description>可选预览资源路径。为空时工具可尝试主资源或 preview provider。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="resource_entry_ids" decorators="@export">
+			<signature>var resource_entry_ids: PackedStringArray = PackedStringArray()</signature>
+			<description>关联的 GFResourceRegistry 条目 ID 列表。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="source_id" decorators="@export">
+			<signature>var source_id: StringName = &amp;""</signature>
+			<description>资产来源 ID，例如 provider、catalog 文件或项目工具来源。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="metadata" decorators="@export">
+			<signature>var metadata: Dictionary = {}</signature>
+			<description>项目自定义元数据。GF 复制和序列化该字典，但不解释字段含义。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">metadata: Dictionary with project-defined asset metadata.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="configure">
+			<signature>func configure( p_asset_id: StringName, p_primary_path: String = "", options: Dictionary = {} ) -&gt; GFAssetCatalogEntry:</signature>
+			<description>配置条目并返回自身。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">p_asset_id: 资产稳定 ID。</tag>
+				<tag name="param">p_primary_path: 主资源路径。</tag>
+				<tag name="param">options: 可选项，支持 title、description、tags、category、type_hint、preview_path、resource_entry_ids、source_id 和 metadata。</tag>
+				<tag name="return">当前条目。</tag>
+				<tag name="schema">options: Dictionary with optional title, description, tags, category, type_hint, preview_path, resource_entry_ids, source_id, and metadata.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_valid_entry">
+			<signature>func is_valid_entry() -&gt; bool:</signature>
+			<description>检查条目是否有稳定资产 ID。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">条目可被 catalog 使用时返回 true。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="duplicate_entry">
+			<signature>func duplicate_entry() -&gt; GFAssetCatalogEntry:</signature>
+			<description>创建条目副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">条目副本。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_primary_identity">
+			<signature>func get_primary_identity() -&gt; GFResourceIdentity:</signature>
+			<description>获取主资源身份。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">主资源身份；主路径为空时仍返回以 asset_id 为后备 cache key 的身份。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_preview_identity">
+			<signature>func get_preview_identity() -&gt; GFResourceIdentity:</signature>
+			<description>获取预览资源身份。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">预览资源身份；预览路径为空时返回 null。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_cache_key">
+			<signature>func get_cache_key() -&gt; String:</signature>
+			<description>获取推荐缓存键。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">主资源身份 cache_key 或 asset_id 后备键。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="to_dict">
+			<signature>func to_dict() -&gt; Dictionary:</signature>
+			<description>转换为可序列化字典。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">条目字典。</tag>
+				<tag name="schema">return: Dictionary with asset_id, title, description, tags, category, primary_path, type_hint, preview_path, resource_entry_ids, source_id, metadata, cache_key, primary_identity, and preview_identity.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="from_dict">
+			<signature>static func from_dict(data: Dictionary) -&gt; GFAssetCatalogEntry:</signature>
+			<description>从字典创建条目。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">data: 条目字典。</tag>
+				<tag name="return">新条目。</tag>
+				<tag name="schema">data: Dictionary with optional asset_id, id, title, description, tags, category, primary_path, resource_path, type_hint, preview_path, resource_entry_ids, source_id, and metadata.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="from_resource_registry_entry">
+			<signature>static func from_resource_registry_entry( registry_entry: GFResourceRegistryEntry, options: Dictionary = {} ) -&gt; GFAssetCatalogEntry:</signature>
+			<description>从资源注册表条目创建资产条目。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">registry_entry: 资源注册表条目。</tag>
+				<tag name="param">options: 可选项，支持 source_id、metadata_fields 和 field override。</tag>
+				<tag name="return">新资产条目；资源条目无效时返回 null。</tag>
+				<tag name="schema">options: Dictionary with optional source_id and fields used by make_entry_summary().</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

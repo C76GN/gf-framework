@@ -6,10 +6,14 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import re
 import sys
 from pathlib import Path
 from typing import Any
 
+from generated_output_transaction import lexical_absolute_path
+from generated_output_transaction import replace_generated_trees
+from generated_output_transaction import validate_controlled_path
 from gdscript_api_parser import ApiDocs
 from gdscript_api_parser import ApiMember
 from gdscript_api_parser import ApiScript
@@ -17,6 +21,11 @@ from gdscript_api_parser import collect_api_scripts
 
 
 ROOT = Path(__file__).resolve().parents[1]
+DEFAULT_OUTPUT_ROOT = lexical_absolute_path(ROOT / "ai_analysis/generated_api")
+HTML_COMMENT_PATTERN = re.compile(r"<!--.*?-->", re.DOTALL)
+FENCE_START_PATTERN = re.compile(r"^\s*(`{3,}|~{3,})")
+REFERENCE_LINK_PATTERN = re.compile(r"\[([^\]\n]+)\]\[[^\]\n]*\]")
+REFERENCE_DEFINITION_PATTERN = re.compile(r"^\s{0,3}\[[^\]\n]+\]:\s+\S+")
 
 
 def main() -> int:
@@ -35,12 +44,26 @@ def main() -> int:
 		action="store_true",
 		help="Fail if public class_name entries are not mentioned in non-changelog documentation pages.",
 	)
+	parser.add_argument(
+		"--allow-unsafe-output-root",
+		action="store_true",
+		help="Allow writing generated files outside ai_analysis/generated_api.",
+	)
 	args = parser.parse_args()
 
 	source_root = (ROOT / args.source).resolve()
-	output_dir = (ROOT / args.output).resolve()
+	output_dir = lexical_absolute_path(ROOT / args.output)
 	if not source_root.exists():
 		print(f"source root not found: {source_root}", file=sys.stderr)
+		return 2
+	output_root_errors = validate_generated_output_root(
+		output_dir,
+		DEFAULT_OUTPUT_ROOT,
+		args.allow_unsafe_output_root,
+	)
+	if output_root_errors:
+		for error in output_root_errors:
+			print(error, file=sys.stderr)
 		return 2
 
 	api_files = collect_api(source_root)
@@ -54,7 +77,6 @@ def main() -> int:
 	if args.check_or_generate and output_dir.exists():
 		check_status = check_outputs(output_dir, desired)
 		return max(check_status, coverage_status)
-
 	write_outputs(output_dir, desired)
 	class_count = sum(1 for item in api_files if item.class_name)
 	method_count = sum(len(item.methods) for item in api_files)
@@ -196,13 +218,7 @@ def safe_file_name(module: str) -> str:
 
 
 def write_outputs(output_dir: Path, desired: dict[str, str]) -> None:
-	(output_dir / "modules").mkdir(parents=True, exist_ok=True)
-	for old_file in (output_dir / "modules").glob("*.md"):
-		old_file.unlink()
-	for relative, content in desired.items():
-		path = output_dir / relative
-		path.parent.mkdir(parents=True, exist_ok=True)
-		path.write_text(content, encoding="utf-8", newline="\n")
+	replace_generated_trees([(output_dir, desired)])
 
 
 def check_outputs(output_dir: Path, desired: dict[str, str]) -> int:
@@ -240,7 +256,7 @@ def check_wiki_coverage(api_files: list[ApiScript], wiki_root: Path) -> int:
 	for path in sorted(wiki_root.rglob("*.md")):
 		if is_changelog_page(path) or is_reference_api_page(wiki_root, path):
 			continue
-		doc_text_parts.append(path.read_text(encoding="utf-8"))
+		doc_text_parts.append(visible_markdown_text(path.read_text(encoding="utf-8")))
 	doc_text = "\n".join(doc_text_parts)
 
 	missing: list[ApiScript] = []
@@ -249,7 +265,7 @@ def check_wiki_coverage(api_files: list[ApiScript], wiki_root: Path) -> int:
 		if not api_file.class_name:
 			continue
 		checked_count += 1
-		if api_file.class_name not in doc_text:
+		if not markdown_mentions_identifier(doc_text, api_file.class_name):
 			missing.append(api_file)
 
 	if missing:
@@ -260,6 +276,103 @@ def check_wiki_coverage(api_files: list[ApiScript], wiki_root: Path) -> int:
 
 	print(f"Documentation coverage is complete: {checked_count} public classes mentioned outside changelog.")
 	return 0
+
+
+def markdown_mentions_identifier(text: str, identifier: str) -> bool:
+	if not identifier:
+		return False
+	return re.search(
+		rf"(?<![A-Za-z0-9_]){re.escape(identifier)}(?![A-Za-z0-9_])",
+		text,
+	) is not None
+
+
+def visible_markdown_text(text: str) -> str:
+	"""Return only text rendered as page prose or link labels."""
+	without_comments = HTML_COMMENT_PATTERN.sub("", text)
+	visible_lines: list[str] = []
+	fence_marker = ""
+	for line in without_comments.splitlines():
+		fence_match = FENCE_START_PATTERN.match(line)
+		if fence_match is not None:
+			marker = fence_match.group(1)
+			if not fence_marker:
+				fence_marker = marker[0]
+			elif marker[0] == fence_marker:
+				fence_marker = ""
+			continue
+		if fence_marker or REFERENCE_DEFINITION_PATTERN.match(line):
+			continue
+		visible_lines.append(line)
+	visible_text = "\n".join(visible_lines)
+	visible_text = strip_inline_link_targets(visible_text)
+	visible_text = REFERENCE_LINK_PATTERN.sub(lambda match: match.group(1), visible_text)
+	return re.sub(r"<[^>\n]+>", " ", visible_text)
+
+
+def strip_inline_link_targets(text: str) -> str:
+	result: list[str] = []
+	index = 0
+	while index < len(text):
+		if text[index] == "!" and index + 1 < len(text) and text[index + 1] == "[":
+			open_bracket = index + 1
+		elif text[index] == "[":
+			open_bracket = index
+		else:
+			result.append(text[index])
+			index += 1
+			continue
+		close_bracket = _find_balanced_markdown_end(text, open_bracket, "[", "]")
+		if close_bracket < 0 or close_bracket + 1 >= len(text) or text[close_bracket + 1] != "(":
+			result.append(text[index])
+			index += 1
+			continue
+		close_parenthesis = _find_balanced_markdown_end(text, close_bracket + 1, "(", ")")
+		if close_parenthesis < 0:
+			result.append(text[index])
+			index += 1
+			continue
+		result.append(text[open_bracket + 1:close_bracket])
+		index = close_parenthesis + 1
+	return "".join(result)
+
+
+def _find_balanced_markdown_end(text: str, start: int, opener: str, closer: str) -> int:
+	depth = 0
+	escaped = False
+	for index in range(start, len(text)):
+		character = text[index]
+		if escaped:
+			escaped = False
+			continue
+		if character == "\\":
+			escaped = True
+			continue
+		if character == opener:
+			depth += 1
+		elif character == closer:
+			depth -= 1
+			if depth == 0:
+				return index
+	return -1
+
+
+def validate_generated_output_root(
+	root: Path,
+	expected_root: Path,
+	allow_unsafe: bool,
+) -> list[str]:
+	if not allow_unsafe and root != expected_root:
+		return [
+			f"AI API output root is not the standard generated directory: {root}. "
+			f"Expected {expected_root}; pass --allow-unsafe-output-root only for an intentional temporary output root."
+		]
+	containment_root = root.parent if allow_unsafe else ROOT
+	try:
+		validate_controlled_path(root, containment_root)
+	except ValueError as error:
+		return [f"AI API output root is unsafe: {error}"]
+	return []
 
 
 def is_changelog_page(path: Path) -> bool:

@@ -16,7 +16,7 @@
 | 类型 | 名称 | 签名 |
 |---|---|---|
 | 属性 | [`required_capabilities`](#member-gfcontrolcapability-properties-required_capabilities) | `var required_capabilities: Array[Script] = []` |
-| 属性 | [`receiver`](#member-gfcontrolcapability-properties-receiver) | `var receiver: Object = null` |
+| 属性 | [`receiver`](#member-gfcontrolcapability-properties-receiver) | `var receiver: Object:` |
 | 属性 | [`active`](#member-gfcontrolcapability-properties-active) | `var active: bool = true` |
 | 方法 | [`get_required_capabilities`](#member-gfcontrolcapability-methods-get_required_capabilities) | `func get_required_capabilities() -> Array[Script]:` |
 | 方法 | [`get_dependency_removal_policy`](#member-gfcontrolcapability-methods-get_dependency_removal_policy) | `func get_dependency_removal_policy() -> int:` |
@@ -51,9 +51,10 @@ var required_capabilities: Array[Script] = []
 ### `receiver`
 
 - API：`public`
+- 首次版本：`8.0.0`
 
 ```gdscript
-var receiver: Object = null
+var receiver: Object:
 ```
 
 当前能力所属对象。由 GFCapabilityUtility 挂载时写入。

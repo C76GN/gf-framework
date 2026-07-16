@@ -8,6 +8,8 @@ extends Node
 
 const _GF_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
 const _GF_ASYNC_CALL_SCRIPT = preload("res://addons/gf/kernel/core/gf_async_call.gd")
+const _GF_PATH_TOOLS_SCRIPT = preload("res://addons/gf/kernel/core/gf_path_tools.gd")
+const _GF_AUTOLOAD_SCRIPT = preload("res://addons/gf/kernel/core/gf_autoload.gd")
 
 ## 项目级启动安装器配置。值为 GDScript 路径数组，脚本需继承 GFInstaller。
 ## [br]
@@ -61,9 +63,14 @@ var architecture: GFArchitecture:
 var _architecture: GFArchitecture = null
 var _architecture_assignment_serial: int = 0
 var _last_project_installer_error: String = ""
+var _installing_architecture_stack: Array[GFArchitecture] = []
 
 
 # --- Godot 生命周期方法 ---
+
+func _enter_tree() -> void:
+	_GF_AUTOLOAD_SCRIPT.reset_tree_exit_state()
+
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS as Node.ProcessMode
@@ -83,10 +90,12 @@ func _physics_process(delta: float) -> void:
 
 # 节点退出树时清理架构。
 func _exit_tree() -> void:
+	_GF_AUTOLOAD_SCRIPT.begin_tree_exit_scope()
 	if _architecture != null:
 		_architecture_assignment_serial += 1
 		_architecture.dispose()
 		_architecture = null
+	_GF_AUTOLOAD_SCRIPT.end_tree_exit_scope()
 
 
 # --- 公共方法 ---
@@ -97,7 +106,7 @@ func _exit_tree() -> void:
 ## [br]
 ## @return 已存在架构时返回 true。
 func has_architecture() -> bool:
-	return _architecture != null
+	return _get_installing_architecture_or_null() != null or _architecture != null
 
 
 ## 获取当前架构；若尚未创建，则自动创建一个默认 GFArchitecture。
@@ -106,6 +115,9 @@ func has_architecture() -> bool:
 ## [br]
 ## @return 当前可用的 GFArchitecture 实例。
 func create_architecture() -> GFArchitecture:
+	var installing_architecture: GFArchitecture = _get_installing_architecture_or_null()
+	if installing_architecture != null:
+		return installing_architecture
 	if _architecture == null:
 		_architecture_assignment_serial += 1
 		_architecture = GFArchitecture.new()
@@ -129,6 +141,9 @@ func create_binder() -> Variant:
 ## [br]
 ## @return GFArchitecture 实例，如果未注册则返回 null。
 func get_architecture() -> GFArchitecture:
+	var installing_architecture: GFArchitecture = _get_installing_architecture_or_null()
+	if installing_architecture != null:
+		return installing_architecture
 	if _architecture == null:
 		push_error("[GF] 架构尚未初始化，请先注册架构。")
 	return _architecture
@@ -138,161 +153,221 @@ func get_architecture() -> GFArchitecture:
 ## [br]
 ## @api public
 ## [br]
+## @since 5.0.0
+## [br]
 ## @param architecture_instance: 要注册的 GFArchitecture 实例。
-func set_architecture(architecture_instance: GFArchitecture) -> void:
+## [br]
+## @return 架构设置并初始化成功时返回 true。
+func set_architecture(architecture_instance: GFArchitecture) -> bool:
 	if architecture_instance == null:
 		push_error("[GF] set_architecture 失败：传入的架构实例为空。")
-		return
+		return false
 
 	_architecture_assignment_serial += 1
 	var assignment_serial: int = _architecture_assignment_serial
 	var previous_architecture: GFArchitecture = _architecture
 	var installers_ready: bool = await _run_project_installers(architecture_instance)
 	if not _is_architecture_assignment_serial_current(assignment_serial):
-		return
+		return false
 	if not installers_ready:
-		return
+		return false
 	if not architecture_instance.is_inited():
-		await architecture_instance.init()
+		var initialized: bool = await architecture_instance.init()
+		if not initialized:
+			return false
 	if not _is_architecture_assignment_serial_current(assignment_serial):
-		return
+		return false
 	if architecture_instance.has_initialization_failed():
-		return
+		return false
 	if previous_architecture != null and previous_architecture != architecture_instance:
 		previous_architecture.dispose()
 	_architecture = architecture_instance
+	return true
 
 
 ## 初始化当前架构。若尚未创建架构，则自动创建默认 GFArchitecture。
 ## [br]
 ## @api public
-func init() -> void:
+## [br]
+## @since 5.0.0
+## [br]
+## @return 当前架构初始化成功时返回 true。
+func init() -> bool:
 	var current_arch: GFArchitecture = create_architecture()
 	var assignment_serial: int = _architecture_assignment_serial
 	var installers_ready: bool = await _run_project_installers(current_arch)
 	if not _is_architecture_assignment_current(current_arch, assignment_serial):
-		return
+		return false
 	if not installers_ready:
-		return
+		return false
 	if not current_arch.is_inited():
-		await current_arch.init()
+		return await current_arch.init()
+	return current_arch.is_inited() and not current_arch.has_initialization_failed()
 
 
 ## 便捷注册 System 实例。
 ## [br]
 ## @api public
 ## [br]
+## @since 5.0.0
+## [br]
 ## @param instance: 要注册、替换或注入的实例。
-func register_system(instance: Object) -> void:
-	await create_architecture().register_system_instance(instance)
+## [br]
+## @return 注册成功时返回 true。
+func register_system(instance: Object) -> bool:
+	return await create_architecture().register_system_instance(instance)
 
 ## 便捷注册 Model 实例。
 ## [br]
 ## @api public
 ## [br]
+## @since 5.0.0
+## [br]
 ## @param instance: 要注册、替换或注入的实例。
-func register_model(instance: Object) -> void:
-	await create_architecture().register_model_instance(instance)
+## [br]
+## @return 注册成功时返回 true。
+func register_model(instance: Object) -> bool:
+	return await create_architecture().register_model_instance(instance)
 
 ## 便捷注册 Utility 实例。
 ## [br]
 ## @api public
 ## [br]
+## @since 5.0.0
+## [br]
 ## @param instance: 要注册、替换或注入的实例。
-func register_utility(instance: Object) -> void:
-	await create_architecture().register_utility_instance(instance)
+## [br]
+## @return 注册成功时返回 true。
+func register_utility(instance: Object) -> bool:
+	return await create_architecture().register_utility_instance(instance)
 
 ## 便捷替换 System 实例。
 ## [br]
 ## @api public
 ## [br]
+## @since 5.0.0
+## [br]
 ## @param instance: 要注册、替换或注入的实例。
-func replace_system(instance: Object) -> void:
+## [br]
+## @return 替换成功时返回 true。
+func replace_system(instance: Object) -> bool:
 	var script: Script = _get_instance_script_or_null(instance, "replace_system")
 	if script != null:
-		await create_architecture().replace_system(script, instance)
+		return await create_architecture().replace_system(script, instance)
+	return false
 
 ## 便捷替换 Model 实例。
 ## [br]
 ## @api public
 ## [br]
+## @since 5.0.0
+## [br]
 ## @param instance: 要注册、替换或注入的实例。
-func replace_model(instance: Object) -> void:
+## [br]
+## @return 替换成功时返回 true。
+func replace_model(instance: Object) -> bool:
 	var script: Script = _get_instance_script_or_null(instance, "replace_model")
 	if script != null:
-		await create_architecture().replace_model(script, instance)
+		return await create_architecture().replace_model(script, instance)
+	return false
 
 ## 便捷替换 Utility 实例。
 ## [br]
 ## @api public
 ## [br]
+## @since 5.0.0
+## [br]
 ## @param instance: 要注册、替换或注入的实例。
-func replace_utility(instance: Object) -> void:
+## [br]
+## @return 替换成功时返回 true。
+func replace_utility(instance: Object) -> bool:
 	var script: Script = _get_instance_script_or_null(instance, "replace_utility")
 	if script != null:
-		await create_architecture().replace_utility(script, instance)
+		return await create_architecture().replace_utility(script, instance)
+	return false
 
 ## 注册短生命周期对象工厂。
 ## [br]
 ## @api public
 ## [br]
+## @since 5.0.0
+## [br]
 ## @param script_cls: 要注册、查询或创建的脚本类型。
 ## [br]
 ## @param factory: 用于创建实例的工厂绑定。
 ## [br]
 ## @param lifetime: 工厂实例生命周期策略。
+## [br]
+## @return 工厂注册成功时返回 true。
 func register_factory(
 	script_cls: Script,
 	factory: Callable,
 	lifetime: int = GFBindingLifetimesBase.Lifetime.TRANSIENT
-) -> void:
-	create_architecture().register_factory(script_cls, factory, lifetime)
+) -> bool:
+	return create_architecture().register_factory(script_cls, factory, lifetime)
 
 ## 注册已有实例作为短生命周期工厂入口。
 ## [br]
 ## @api public
 ## [br]
+## @since 5.0.0
+## [br]
 ## @param script_cls: 要注册、查询或创建的脚本类型。
 ## [br]
 ## @param instance: 要注册、替换或注入的实例。
-func register_factory_instance(script_cls: Script, instance: Object) -> void:
-	create_architecture().register_factory_instance(script_cls, instance)
+## [br]
+## @return 工厂入口注册成功时返回 true。
+func register_factory_instance(script_cls: Script, instance: Object) -> bool:
+	return create_architecture().register_factory_instance(script_cls, instance)
 
 ## 替换短生命周期对象工厂。
 ## [br]
 ## @api public
+## [br]
+## @since 5.0.0
 ## [br]
 ## @param script_cls: 要注册、查询或创建的脚本类型。
 ## [br]
 ## @param factory: 用于创建实例的工厂绑定。
 ## [br]
 ## @param lifetime: 工厂实例生命周期策略。
+## [br]
+## @return 工厂替换成功时返回 true。
 func replace_factory(
 	script_cls: Script,
 	factory: Callable,
 	lifetime: int = GFBindingLifetimesBase.Lifetime.TRANSIENT
-) -> void:
-	create_architecture().replace_factory(script_cls, factory, lifetime)
+) -> bool:
+	return create_architecture().replace_factory(script_cls, factory, lifetime)
 
 ## 替换已有实例工厂入口。
 ## [br]
 ## @api public
 ## [br]
+## @since 5.0.0
+## [br]
 ## @param script_cls: 要注册、查询或创建的脚本类型。
 ## [br]
 ## @param instance: 要注册、替换或注入的实例。
-func replace_factory_instance(script_cls: Script, instance: Object) -> void:
-	create_architecture().replace_factory_instance(script_cls, instance)
+## [br]
+## @return 工厂入口替换成功时返回 true。
+func replace_factory_instance(script_cls: Script, instance: Object) -> bool:
+	return create_architecture().replace_factory_instance(script_cls, instance)
 
 ## 注销短生命周期对象工厂。
 ## [br]
 ## @api public
 ## [br]
+## @since 5.0.0
+## [br]
 ## @param script_cls: 要注册、查询或创建的脚本类型。
-func unregister_factory(script_cls: Script) -> void:
+## [br]
+## @return 存在并成功注销工厂时返回 true。
+func unregister_factory(script_cls: Script) -> bool:
 	var arch: GFArchitecture = _get_architecture_or_null("unregister_factory")
 	if arch != null:
-		arch.unregister_factory(script_cls)
+		return arch.unregister_factory(script_cls)
+	return false
 
 
 ## 检查当前架构或父级架构是否注册了指定工厂。
@@ -349,31 +424,43 @@ func inject_node_tree(node: Node) -> void:
 ## [br]
 ## @api public
 ## [br]
+## @since 5.0.0
+## [br]
 ## @param instance: 要注册、替换或注入的实例。
 ## [br]
 ## @param alias_cls: 要注册的别名脚本类型。
-func register_system_as(instance: Object, alias_cls: Script) -> void:
-	await create_architecture().register_system_instance_as(instance, alias_cls)
+## [br]
+## @return 注册成功并写入 alias 时返回 true。
+func register_system_as(instance: Object, alias_cls: Script) -> bool:
+	return await create_architecture().register_system_instance_as(instance, alias_cls)
 
 ## 便捷注册 Model 实例，并额外登记一个查询别名。
 ## [br]
 ## @api public
 ## [br]
+## @since 5.0.0
+## [br]
 ## @param instance: 要注册、替换或注入的实例。
 ## [br]
 ## @param alias_cls: 要注册的别名脚本类型。
-func register_model_as(instance: Object, alias_cls: Script) -> void:
-	await create_architecture().register_model_instance_as(instance, alias_cls)
+## [br]
+## @return 注册成功并写入 alias 时返回 true。
+func register_model_as(instance: Object, alias_cls: Script) -> bool:
+	return await create_architecture().register_model_instance_as(instance, alias_cls)
 
 ## 便捷注册 Utility 实例，并额外登记一个查询别名。
 ## [br]
 ## @api public
 ## [br]
+## @since 5.0.0
+## [br]
 ## @param instance: 要注册、替换或注入的实例。
 ## [br]
 ## @param alias_cls: 要注册的别名脚本类型。
-func register_utility_as(instance: Object, alias_cls: Script) -> void:
-	await create_architecture().register_utility_instance_as(instance, alias_cls)
+## [br]
+## @return 注册成功并写入 alias 时返回 true。
+func register_utility_as(instance: Object, alias_cls: Script) -> bool:
+	return await create_architecture().register_utility_instance_as(instance, alias_cls)
 
 ## 为已注册 System 添加查询别名。
 ## [br]
@@ -684,78 +771,88 @@ func clear_event_dispatch_trace() -> void:
 ## [br]
 ## @api public
 ## [br]
+## @since 8.0.0
+## [br]
 ## @param event_type: 要监听或取消监听的事件脚本类型。
 ## [br]
-## @param on_event: 事件触发时执行的回调。
+## @param listener: 事件监听器契约。
 ## [br]
 ## @param priority: 监听器优先级，数值越大越先执行。
-func listen(event_type: Script, on_event: Callable, priority: int = 0) -> void:
+func listen(event_type: Script, listener: GFEventListener, priority: int = 0) -> void:
 	var arch: GFArchitecture = _get_architecture_or_null("listen")
 	if arch != null:
-		arch.register_event(event_type, on_event, priority)
+		arch.register_event(event_type, listener, priority)
 
 ## 快捷注册带拥有者的类型事件监听。
 ## [br]
 ## @api public
 ## [br]
+## @since 8.0.0
+## [br]
 ## @param listener_owner: 监听回调的拥有者，用于批量注销。
 ## [br]
 ## @param event_type: 要监听或取消监听的事件脚本类型。
 ## [br]
-## @param on_event: 事件触发时执行的回调。
+## @param listener: 事件监听器契约。
 ## [br]
 ## @param priority: 监听器优先级，数值越大越先执行。
-func listen_owned(listener_owner: Object, event_type: Script, on_event: Callable, priority: int = 0) -> void:
+func listen_owned(listener_owner: Object, event_type: Script, listener: GFEventListener, priority: int = 0) -> void:
 	var arch: GFArchitecture = _get_architecture_or_null("listen_owned")
 	if arch != null:
-		arch.register_event_owned(listener_owner, event_type, on_event, priority)
+		arch.register_event_owned(listener_owner, event_type, listener, priority)
 
 ## 快捷注册可赋值类型事件监听。
 ## [br]
 ## @api public
 ## [br]
+## @since 8.0.0
+## [br]
 ## @param base_event_type: 要监听或取消监听的基类事件脚本类型。
 ## [br]
-## @param on_event: 事件触发时执行的回调。
+## @param listener: 事件监听器契约。
 ## [br]
 ## @param priority: 监听器优先级，数值越大越先执行。
-func listen_assignable(base_event_type: Script, on_event: Callable, priority: int = 0) -> void:
+func listen_assignable(base_event_type: Script, listener: GFEventListener, priority: int = 0) -> void:
 	var arch: GFArchitecture = _get_architecture_or_null("listen_assignable")
 	if arch != null:
-		arch.register_assignable_event(base_event_type, on_event, priority)
+		arch.register_assignable_event(base_event_type, listener, priority)
 
 ## 快捷注册带拥有者的可赋值类型事件监听。
 ## [br]
 ## @api public
 ## [br]
+## @since 8.0.0
+## [br]
 ## @param listener_owner: 监听回调的拥有者，用于批量注销。
 ## [br]
 ## @param base_event_type: 要监听或取消监听的基类事件脚本类型。
 ## [br]
-## @param on_event: 事件触发时执行的回调。
+## @param listener: 事件监听器契约。
 ## [br]
 ## @param priority: 监听器优先级，数值越大越先执行。
 func listen_assignable_owned(
 	listener_owner: Object,
 	base_event_type: Script,
-	on_event: Callable,
+	listener: GFEventListener,
 	priority: int = 0
 ) -> void:
 	var arch: GFArchitecture = _get_architecture_or_null("listen_assignable_owned")
 	if arch != null:
-		arch.register_assignable_event_owned(listener_owner, base_event_type, on_event, priority)
+		arch.register_assignable_event_owned(listener_owner, base_event_type, listener, priority)
 
 ## 快捷注销类型事件监听（别名：unlisten）。
 ## [br]
 ## @api public
 ## [br]
+## @since 8.0.0
+## [br]
 ## @param event_type: 要监听或取消监听的事件脚本类型。
 ## [br]
-## @param on_event: 事件触发时执行的回调。
-func unlisten(event_type: Script, on_event: Callable) -> void:
+## @param listener: 要移除的事件监听器契约。
+func unlisten(event_type: Script, listener: GFEventListener) -> void:
 	var arch: GFArchitecture = _get_architecture_or_null("unlisten")
 	if arch != null:
-		arch.unregister_event(event_type, on_event)
+		arch.unregister_event(event_type, listener)
 
 ## 快捷注销带拥有者的类型事件监听。
 ## [br]
@@ -767,23 +864,25 @@ func unlisten(event_type: Script, on_event: Callable) -> void:
 ## [br]
 ## @param event_type: 要取消监听的事件脚本类型。
 ## [br]
-## @param on_event: 要移除的回调。
-func unlisten_owned(listener_owner: Object, event_type: Script, on_event: Callable) -> void:
+## @param listener: 要移除的事件监听器契约。
+func unlisten_owned(listener_owner: Object, event_type: Script, listener: GFEventListener) -> void:
 	var arch: GFArchitecture = _get_architecture_or_null("unlisten_owned")
 	if arch != null:
-		arch.unregister_event_owned(listener_owner, event_type, on_event)
+		arch.unregister_event_owned(listener_owner, event_type, listener)
 
 ## 快捷注销可赋值类型事件监听。
 ## [br]
 ## @api public
 ## [br]
+## @since 8.0.0
+## [br]
 ## @param base_event_type: 要监听或取消监听的基类事件脚本类型。
 ## [br]
-## @param on_event: 事件触发时执行的回调。
-func unlisten_assignable(base_event_type: Script, on_event: Callable) -> void:
+## @param listener: 要移除的事件监听器契约。
+func unlisten_assignable(base_event_type: Script, listener: GFEventListener) -> void:
 	var arch: GFArchitecture = _get_architecture_or_null("unlisten_assignable")
 	if arch != null:
-		arch.unregister_assignable_event(base_event_type, on_event)
+		arch.unregister_assignable_event(base_event_type, listener)
 
 ## 快捷注销带拥有者的可赋值类型事件监听。
 ## [br]
@@ -795,49 +894,55 @@ func unlisten_assignable(base_event_type: Script, on_event: Callable) -> void:
 ## [br]
 ## @param base_event_type: 要取消监听的基类事件脚本类型。
 ## [br]
-## @param on_event: 要移除的回调。
-func unlisten_assignable_owned(listener_owner: Object, base_event_type: Script, on_event: Callable) -> void:
+## @param listener: 要移除的事件监听器契约。
+func unlisten_assignable_owned(listener_owner: Object, base_event_type: Script, listener: GFEventListener) -> void:
 	var arch: GFArchitecture = _get_architecture_or_null("unlisten_assignable_owned")
 	if arch != null:
-		arch.unregister_assignable_event_owned(listener_owner, base_event_type, on_event)
+		arch.unregister_assignable_event_owned(listener_owner, base_event_type, listener)
 
 ## 快捷注册轻量事件监听（别名：listen_simple）。
 ## [br]
 ## @api public
 ## [br]
+## @since 8.0.0
+## [br]
 ## @param event_id: 简单事件标识符。
 ## [br]
-## @param on_event: 事件触发时执行的回调。
-func listen_simple(event_id: StringName, on_event: Callable) -> void:
+## @param listener: 简单事件监听器契约。
+func listen_simple(event_id: StringName, listener: GFEventListener) -> void:
 	var arch: GFArchitecture = _get_architecture_or_null("listen_simple")
 	if arch != null:
-		arch.register_simple_event(event_id, on_event)
+		arch.register_simple_event(event_id, listener)
 
 ## 快捷注册带拥有者的轻量事件监听。
 ## [br]
 ## @api public
 ## [br]
+## @since 8.0.0
+## [br]
 ## @param listener_owner: 监听回调的拥有者，用于批量注销。
 ## [br]
 ## @param event_id: 简单事件标识符。
 ## [br]
-## @param on_event: 事件触发时执行的回调。
-func listen_simple_owned(listener_owner: Object, event_id: StringName, on_event: Callable) -> void:
+## @param listener: 简单事件监听器契约。
+func listen_simple_owned(listener_owner: Object, event_id: StringName, listener: GFEventListener) -> void:
 	var arch: GFArchitecture = _get_architecture_or_null("listen_simple_owned")
 	if arch != null:
-		arch.register_simple_event_owned(listener_owner, event_id, on_event)
+		arch.register_simple_event_owned(listener_owner, event_id, listener)
 
 ## 快捷注销轻量事件监听（别名：unlisten_simple）。
 ## [br]
 ## @api public
 ## [br]
+## @since 8.0.0
+## [br]
 ## @param event_id: 简单事件标识符。
 ## [br]
-## @param on_event: 事件触发时执行的回调。
-func unlisten_simple(event_id: StringName, on_event: Callable) -> void:
+## @param listener: 要移除的简单事件监听器契约。
+func unlisten_simple(event_id: StringName, listener: GFEventListener) -> void:
 	var arch: GFArchitecture = _get_architecture_or_null("unlisten_simple")
 	if arch != null:
-		arch.unregister_simple_event(event_id, on_event)
+		arch.unregister_simple_event(event_id, listener)
 
 ## 快捷注销带拥有者的轻量事件监听。
 ## [br]
@@ -849,11 +954,11 @@ func unlisten_simple(event_id: StringName, on_event: Callable) -> void:
 ## [br]
 ## @param event_id: 简单事件标识符。
 ## [br]
-## @param on_event: 要移除的回调。
-func unlisten_simple_owned(listener_owner: Object, event_id: StringName, on_event: Callable) -> void:
+## @param listener: 要移除的简单事件监听器契约。
+func unlisten_simple_owned(listener_owner: Object, event_id: StringName, listener: GFEventListener) -> void:
 	var arch: GFArchitecture = _get_architecture_or_null("unlisten_simple_owned")
 	if arch != null:
-		arch.unregister_simple_event_owned(listener_owner, event_id, on_event)
+		arch.unregister_simple_event_owned(listener_owner, event_id, listener)
 
 ## 快捷注销某个拥有者注册过的所有事件监听。
 ## [br]
@@ -899,10 +1004,34 @@ func unregister_utility(script_cls: Script) -> void:
 # --- 私有/辅助方法 ---
 
 func _get_architecture_or_null(context: String) -> GFArchitecture:
+	var installing_architecture: GFArchitecture = _get_installing_architecture_or_null()
+	if installing_architecture != null:
+		return installing_architecture
 	if _architecture == null:
 		push_error("[GF] %s 失败：架构尚未初始化，请先注册架构。" % context)
 		return null
 	return _architecture
+
+
+func _get_installing_architecture_or_null() -> GFArchitecture:
+	while not _installing_architecture_stack.is_empty():
+		var architecture_instance: GFArchitecture = _installing_architecture_stack.back()
+		if architecture_instance != null:
+			return architecture_instance
+		var _removed_null_architecture: GFArchitecture = _installing_architecture_stack.pop_back()
+	return null
+
+
+func _push_installing_architecture(architecture_instance: GFArchitecture) -> void:
+	if architecture_instance != null:
+		_installing_architecture_stack.append(architecture_instance)
+
+
+func _pop_installing_architecture(architecture_instance: GFArchitecture) -> void:
+	for index: int in range(_installing_architecture_stack.size() - 1, -1, -1):
+		if _installing_architecture_stack[index] == architecture_instance:
+			_installing_architecture_stack.remove_at(index)
+			return
 
 
 func _get_instance_script_or_null(instance: Object, context: String) -> Script:
@@ -930,6 +1059,18 @@ func _run_project_installers(architecture_instance: GFArchitecture) -> bool:
 	if not architecture_instance.begin_project_installers():
 		return architecture_instance.has_project_installers_applied()
 
+	var installer_scope: GFAsyncScope = GFAsyncScope.new()
+	architecture_instance._track_async_scope(installer_scope)
+	var installers_completed: bool = await _apply_project_installers(architecture_instance, installer_scope)
+	architecture_instance._untrack_async_scope(installer_scope)
+	if installers_completed:
+		installer_scope.complete()
+	elif not installer_scope.is_cancel_requested():
+		var _cancelled_scope: bool = installer_scope.cancel(_get_project_installer_cancel_reason(architecture_instance))
+	return installers_completed
+
+
+func _apply_project_installers(architecture_instance: GFArchitecture, installer_scope: GFAsyncScope) -> bool:
 	var installer_paths: Array[String] = _get_project_installer_paths()
 	if not _last_project_installer_error.is_empty():
 		if _should_fail_on_project_installer_error():
@@ -944,11 +1085,11 @@ func _run_project_installers(architecture_instance: GFArchitecture) -> bool:
 				return false
 			continue
 		if installer != null:
-			var install_completed: bool = await _await_project_installer_install(installer, architecture_instance, path)
+			var install_completed: bool = await _await_project_installer_install(installer, architecture_instance, path, installer_scope)
 			if not install_completed or not architecture_instance.is_project_installers_running():
 				return false
 			if installer.has_method("install_bindings"):
-				var bindings_completed: bool = await _await_project_installer_bindings(installer, architecture_instance, path)
+				var bindings_completed: bool = await _await_project_installer_bindings(installer, architecture_instance, path, installer_scope)
 				if not bindings_completed:
 					return false
 		if not architecture_instance.is_project_installers_running():
@@ -961,13 +1102,16 @@ func _run_project_installers(architecture_instance: GFArchitecture) -> bool:
 func _await_project_installer_install(
 	installer: GFInstaller,
 	architecture_instance: GFArchitecture,
-	path: String
+	path: String,
+	installer_scope: GFAsyncScope
 ) -> bool:
 	var timeout_seconds: float = _get_project_installer_timeout_seconds()
 	var scene_tree: SceneTree = _get_scene_tree_or_null()
 	if timeout_seconds <= 0.0 or scene_tree == null:
-		await installer.call(&"install", architecture_instance)
-		return not architecture_instance.has_initialization_failed()
+		_push_installing_architecture(architecture_instance)
+		await installer.call(&"install", architecture_instance, installer_scope)
+		_pop_installing_architecture(architecture_instance)
+		return not architecture_instance.has_initialization_failed() and not installer_scope.is_cancel_requested()
 
 	var completion_state: Dictionary = {
 		"done": false,
@@ -975,7 +1119,7 @@ func _await_project_installer_install(
 	}
 	_GF_ASYNC_CALL_SCRIPT.run_detached(
 		Callable(self, &"_complete_project_installer_install"),
-		[installer, architecture_instance, completion_state]
+		[installer, architecture_instance, installer_scope, completion_state]
 	)
 	return await _wait_for_project_installer_step(
 		completion_state,
@@ -983,20 +1127,24 @@ func _await_project_installer_install(
 		path,
 		"install",
 		timeout_seconds,
-		scene_tree
+		scene_tree,
+		installer_scope
 	)
 
 
 func _await_project_installer_bindings(
 	installer: GFInstaller,
 	architecture_instance: GFArchitecture,
-	path: String
+	path: String,
+	installer_scope: GFAsyncScope
 ) -> bool:
 	var timeout_seconds: float = _get_project_installer_timeout_seconds()
 	var scene_tree: SceneTree = _get_scene_tree_or_null()
 	if timeout_seconds <= 0.0 or scene_tree == null:
-		await installer.call(&"install_bindings", architecture_instance.create_binder())
-		return not architecture_instance.has_initialization_failed()
+		_push_installing_architecture(architecture_instance)
+		await installer.call(&"install_bindings", architecture_instance.create_binder(), installer_scope)
+		_pop_installing_architecture(architecture_instance)
+		return not architecture_instance.has_initialization_failed() and not installer_scope.is_cancel_requested()
 
 	var completion_state: Dictionary = {
 		"done": false,
@@ -1004,7 +1152,7 @@ func _await_project_installer_bindings(
 	}
 	_GF_ASYNC_CALL_SCRIPT.run_detached(
 		Callable(self, &"_complete_project_installer_bindings"),
-		[installer, architecture_instance, completion_state]
+		[installer, architecture_instance, installer_scope, completion_state]
 	)
 	return await _wait_for_project_installer_step(
 		completion_state,
@@ -1012,16 +1160,20 @@ func _await_project_installer_bindings(
 		path,
 		"install_bindings",
 		timeout_seconds,
-		scene_tree
+		scene_tree,
+		installer_scope
 	)
 
 
 func _complete_project_installer_install(
 	installer: GFInstaller,
 	architecture_instance: GFArchitecture,
+	installer_scope: GFAsyncScope,
 	completion_state: Dictionary
 ) -> void:
-	await installer.call(&"install", architecture_instance)
+	_push_installing_architecture(architecture_instance)
+	await installer.call(&"install", architecture_instance, installer_scope)
+	_pop_installing_architecture(architecture_instance)
 	if _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(completion_state, "write_blocked", false):
 		architecture_instance._end_stale_async_write_block()
 	completion_state["done"] = true
@@ -1030,9 +1182,12 @@ func _complete_project_installer_install(
 func _complete_project_installer_bindings(
 	installer: GFInstaller,
 	architecture_instance: GFArchitecture,
+	installer_scope: GFAsyncScope,
 	completion_state: Dictionary
 ) -> void:
-	await installer.call(&"install_bindings", architecture_instance.create_binder())
+	_push_installing_architecture(architecture_instance)
+	await installer.call(&"install_bindings", architecture_instance.create_binder(), installer_scope)
+	_pop_installing_architecture(architecture_instance)
 	if _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(completion_state, "write_blocked", false):
 		architecture_instance._end_stale_async_write_block()
 	completion_state["done"] = true
@@ -1044,27 +1199,31 @@ func _wait_for_project_installer_step(
 	path: String,
 	stage: String,
 	timeout_seconds: float,
-	scene_tree: SceneTree
+	scene_tree: SceneTree,
+	installer_scope: GFAsyncScope
 ) -> bool:
 	var start_msec: int = Time.get_ticks_msec()
 	var timeout_msec: int = int(timeout_seconds * 1000.0)
 	while not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(completion_state, "done", false):
+		if installer_scope.is_cancel_requested():
+			return false
 		if architecture_instance.has_initialization_failed() or not architecture_instance.is_project_installers_running():
+			var _cancelled_stopped_scope: bool = installer_scope.cancel(_get_project_installer_cancel_reason(architecture_instance))
 			return false
 		var elapsed_msec: int = Time.get_ticks_msec() - start_msec
 		if elapsed_msec >= timeout_msec:
 			completion_state["write_blocked"] = true
 			architecture_instance._begin_stale_async_write_block()
-			architecture_instance.fail_initialization(
-				"[GF] 项目 Installer 超时：%s 的 %s() 超过 %.2f 秒。" % [
-					path,
-					stage,
-					timeout_seconds,
-				]
-			)
+			var timeout_reason: String = "[GF] 项目 Installer 超时：%s 的 %s() 超过 %.2f 秒。" % [
+				path,
+				stage,
+				timeout_seconds,
+			]
+			var _cancelled_timeout_scope: bool = installer_scope.cancel(timeout_reason)
+			architecture_instance.fail_initialization(timeout_reason)
 			return false
 		await scene_tree.process_frame
-	return not architecture_instance.has_initialization_failed()
+	return not architecture_instance.has_initialization_failed() and not installer_scope.is_cancel_requested()
 
 
 func _get_project_installer_paths() -> Array[String]:
@@ -1089,6 +1248,18 @@ func _get_project_installer_paths() -> Array[String]:
 	return installer_paths
 
 
+func _get_project_installer_cancel_reason(architecture_instance: GFArchitecture) -> String:
+	if architecture_instance == null:
+		return "[GF] 项目 Installer 已取消。"
+	if not architecture_instance.last_initialization_error.is_empty():
+		return architecture_instance.last_initialization_error
+	if architecture_instance.has_initialization_failed():
+		return "[GF] 项目 Installer 因架构初始化失败而取消。"
+	if not architecture_instance.is_project_installers_running():
+		return "[GF] 项目 Installer 流程已停止。"
+	return "[GF] 项目 Installer 已取消。"
+
+
 func _get_scene_tree_or_null() -> SceneTree:
 	var main_loop: MainLoop = Engine.get_main_loop()
 	if main_loop is SceneTree:
@@ -1098,9 +1269,18 @@ func _get_scene_tree_or_null() -> SceneTree:
 
 
 func _append_unique_installer_path(installer_paths: Array[String], path: String) -> void:
-	if path.is_empty() or installer_paths.has(path):
+	var normalized_path: String = _GF_PATH_TOOLS_SCRIPT.normalize_resource_path(path)
+	if normalized_path.is_empty():
 		return
-	installer_paths.append(path)
+	if not normalized_path.begins_with("res://"):
+		_report_project_installer_error("[GF] 项目 Installer 路径必须是 res:// GDScript：%s" % path)
+		return
+	if not normalized_path.ends_with(".gd"):
+		_report_project_installer_error("[GF] 项目 Installer 路径必须指向 .gd 脚本：%s" % normalized_path)
+		return
+	if installer_paths.has(normalized_path):
+		return
+	installer_paths.append(normalized_path)
 
 
 func _create_installer(path: String) -> GFInstaller:

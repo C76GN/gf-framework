@@ -23,6 +23,7 @@
 | 方法 | [`has_data`](#member-gfstoragebackend-methods-has_data) | `func has_data(file_name: String) -> bool:` |
 | 方法 | [`list_data`](#member-gfstoragebackend-methods-list_data) | `func list_data() -> Array[Dictionary]:` |
 | 方法 | [`get_capabilities`](#member-gfstoragebackend-methods-get_capabilities) | `func get_capabilities() -> Dictionary:` |
+| 方法 | [`get_capability_report`](#member-gfstoragebackend-methods-get_capability_report) | `func get_capability_report(options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`_initialize`](#member-gfstoragebackend-methods-_initialize) | `func _initialize(_config: Dictionary) -> Error:` |
 | 方法 | [`_shutdown`](#member-gfstoragebackend-methods-_shutdown) | `func _shutdown() -> void:` |
 | 方法 | [`_save_data`](#member-gfstoragebackend-methods-_save_data) | `func _save_data(_file_name: String, _data: Dictionary, _metadata: Dictionary) -> Error:` |
@@ -196,6 +197,32 @@ func get_capabilities() -> Dictionary:
 结构：
 
 - `return`: Dictionary，包含 read、write、delete、list 和 sync 布尔能力标记。
+
+<a id="member-gfstoragebackend-methods-get_capability_report"></a>
+
+### `get_capability_report`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func get_capability_report(options: Dictionary = {}) -> Dictionary:
+```
+
+获取后端能力报告。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `options` | 报告选项，支持 label、metadata、include_data_count、include_data_names。 |
+
+返回：能力报告字典。
+
+结构：
+
+- `options`: Dictionary，包含 label、metadata、include_data_count 和 include_data_names。
+- `return`: Dictionary，包含 ok、backend_class、label、capabilities、data_count、data_names 和 metadata。
 
 <a id="member-gfstoragebackend-methods-_initialize"></a>
 

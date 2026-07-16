@@ -36,7 +36,9 @@ Content Package 扩展用于把项目或插件中的可选内容收束为稳定 
 }
 ```
 
-`path` 可以是包根目录内的相对路径、`res://` 路径或 `user://` 路径。相对路径会归一化到 manifest 所在目录；显式路径必须留在内容包根目录内；`uid://`、绝对路径和越界 `..` 路径会进入错误报告。Content Package 不接受 `uid://`，因为 manifest 校验必须能证明资源仍在包根目录内。
+`path` 可以是包根目录内的相对路径、`res://` 路径或 `user://` 路径。相对路径会归一化到 manifest 所在目录；显式路径必须留在内容包根目录内；`uid://`、绝对路径和越界 `..` 路径会进入错误报告。只要 manifest 声明资源，`root_path` 就必须是非空且受支持的包根；空根不会被解释为“允许任意路径”。Content Package 不接受 `uid://`，因为 manifest 校验必须能证明资源仍在包根目录内。
+
+JSON 字段按稳定 schema 严格读取。字符串、数组、字典、资源条目和数值字段不会通过 `str()`、`int()` 或单值包装自动纠正；类型错误会以 `invalid_manifest_field_type` 或 `invalid_resource_field_type` 进入报告。项目应在导入或迁移层先修正源数据，不要依赖运行时宽松转换。
 
 ## 来源根与安全分类
 
@@ -44,7 +46,7 @@ Content Package 扩展用于把项目或插件中的可选内容收束为稳定 
 
 `GFContentPackageManifest.safety_kind` 默认是 `data_only`。该分类会拒绝脚本、动态库、shader、shell 脚本等可执行或代码形态扩展名；项目可以通过 `forbidden_resource_extensions` 追加或替换拦截列表。只有确实由开发者控制、并且项目侧已经决定如何加载和审计代码资源时，才应把分类改成 `trusted_developer`。
 
-这个安全分类只负责内容包 manifest 的静态资源路径约束，不下载文件、不加载脚本，也不声明某个包可以被普通用户信任执行。下载、完整性校验、解包、隔离和启用策略仍属于项目安装器或独立工具。
+默认校验只检查 manifest 直接声明的路径。对不可信或外部导入的 `data_only` 内容，应启用 `{ "check_resource_dependencies": true }`；校验器会通过资源依赖图检查场景、资源等文件传递引用的脚本、shader 或动态库，并在扫描不完整时 fail closed。`dependency_options` 可继续传入扫描预算。这个预检不下载文件、不加载脚本，也不声明某个包可以被普通用户信任执行；完整性校验、解包、隔离和启用策略仍属于项目安装器或独立工具。
 
 ## 诊断报告
 
@@ -54,13 +56,20 @@ Content Package 扩展用于把项目或插件中的可选内容收束为稳定 
 
 `GFContentPackageUtility.rebuild_catalog()` 发现坏 JSON 或无法读取的 manifest 文件时，会把该文件作为 `invalid_manifest_file` error 纳入同一份最终报告，并重新计算 `ok`、`error_count` 和 `issue_count`。调用方不需要单独扫描加载失败列表。
 
+Catalog 对 manifest 采用深快照语义：`add_manifest()` 不保留调用方对象，`get_manifest()`、`get_catalog()` 和 `catalog_rebuilt` 也不暴露内部可变实例。注册、注销或清空 source root 会立即失效当前 catalog，调用方必须重新 `rebuild_catalog()` 后再同步资源。
+
+需要把 manifest 或导出计划交给 JSON 日志、CI 或编辑器面板时，可以使用 `to_report_dictionary()`。它会通过 `GFReportValueCodec` 输出 JSON-safe 结构，避免 Resource、对象引用、非有限浮点或未脱敏路径直接进入公开报告。
+
 ## 典型流程
 
 ```gdscript
 var packages: GFContentPackageUtility = Gf.get_utility(GFContentPackageUtility)
 packages.register_source_root("res://content_packages")
 
-var report: Dictionary = packages.rebuild_catalog({ "check_resource_exists": true })
+var report: Dictionary = packages.rebuild_catalog({
+	"check_resource_exists": true,
+	"check_resource_dependencies": true,
+})
 if GFVariantData.get_option_bool(report, "ok"):
 	var resolver: GFResourceResolverUtility = Gf.get_utility(GFResourceResolverUtility)
 	packages.register_resources(resolver)
@@ -71,6 +80,8 @@ if GFVariantData.get_option_bool(report, "ok"):
 ```gdscript
 var scene: Resource = resolver.load(&"chapter_one.main_scene", "PackedScene")
 ```
+
+`register_resources()` 会先构建 owner 的完整路径快照，再通过 `GFResourceResolverUtility.replace_owner_paths()` 原子提交。任一条目 schema 或资源身份无效时，上一份 Content Package 解析表保持不变；成功后才一次性替换该 owner 的全部记录。下一次重建或卸载内容包时，它不会删除项目手写注册或其他系统贡献的同 key 资源。项目需要固定覆盖内容包资源时，可以用更高优先级的 resolver 记录或 provider 显式表达覆盖策略。
 
 ## 导出计划
 
@@ -91,11 +102,13 @@ var report := plan.get_validation_report()
 
 项目可以把这份计划交给自己的构建脚本、编辑器面板或 CI 流程继续处理。需要下载、签名、平台上传或工作坊发布时，应在项目工具或独立插件中完成。
 
+从 catalog 构建多包计划时，每个包的 archive path 会自动加上稳定 package ID 作用域，依赖条目也保留实际 owner package ID。这样两个包可以拥有相同相对路径而不会在归档中碰撞；单 manifest 计划仍按调用方传入的 `archive_root` 组织。
+
 ## 使用边界
 
 - Content Package 不内置 `quest`、`item`、`biome`、`npc`、`skin` 等业务字段；这些字段应由项目 schema 或独立插件解释。
 - 内容包之间只声明依赖顺序，不声明启用条件、版本约束求解、下载来源或平台服务账号。
-- 资源键冲突时，依赖包先注册，依赖方后注册；项目可以用该顺序覆盖基础包资源。
+- 资源键冲突时，依赖包先注册，依赖方后注册；项目可以用 resolver priority、owner-scoped 注册或 provider 明确覆盖基础包资源。
 - 需要多扩展组合时，在项目 Installer 或独立插件中组合 `GFContentPackageUtility`、`GFResourceResolverUtility` 和项目 schema，不把组合逻辑写回 GF 内置扩展。
 
 ## API Reference

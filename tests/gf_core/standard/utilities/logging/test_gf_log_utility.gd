@@ -191,7 +191,11 @@ func test_trace_id_and_global_context_are_merged_into_entries() -> void:
 	assert_eq(GFVariantData.get_option_string(context, "trace_id"), "trace-test", "上下文应默认带 trace_id。")
 	assert_eq(GFVariantData.get_option_string(context, "session"), "local", "单条日志上下文应覆盖 provider 和全局上下文。")
 	assert_eq(GFVariantData.get_option_string(context, "build"), "debug", "provider 上下文应参与合并。")
-	assert_eq(GFVariantData.get_option_array(context, "tags"), ["alpha", "beta"], "PackedStringArray 应清洗为普通数组。")
+	var tags_marker: Dictionary = GFVariantData.get_option_dictionary(
+		GFVariantData.get_option_dictionary(context, "tags"),
+		"__gf_variant__"
+	)
+	assert_eq(GFVariantData.get_option_string(tags_marker, "type"), "PackedStringArray", "PackedStringArray 应保留 report codec 类型标记。")
 
 
 func test_sanitize_log_value_marks_circular_references() -> void:
@@ -200,7 +204,11 @@ func test_sanitize_log_value_marks_circular_references() -> void:
 
 	var sanitized: Dictionary = GFVariantData.as_dictionary(GFLogUtility.sanitize_log_value(context))
 
-	assert_eq(GFVariantData.get_option_string(sanitized, "self"), "<circular_reference>", "日志上下文循环引用应被稳定标记。")
+	var marker: Dictionary = GFVariantData.get_option_dictionary(
+		GFVariantData.get_option_dictionary(sanitized, "self"),
+		"__gf_report_value__"
+	)
+	assert_eq(GFVariantData.get_option_string(marker, "type"), "CircularReference", "日志上下文循环引用应使用统一 report marker。")
 
 
 func test_sanitize_log_value_converts_nonfinite_floats_to_json_safe_text() -> void:
@@ -212,9 +220,12 @@ func test_sanitize_log_value_converts_nonfinite_floats_to_json_safe_text() -> vo
 	var json_text: String = JSON.stringify(sanitized)
 
 	assert_false(json_text.contains(":null"), "日志清洗不应让非有限 float 被 JSON.stringify 替换成 null。")
-	assert_eq(GFVariantData.get_option_string(sanitized, "nan"), "NaN", "日志中的 NaN 应使用稳定文本。")
-	assert_eq(GFVariantData.get_option_string(sanitized, "positive_inf"), "Infinity", "日志中的正无穷应使用稳定文本。")
-	assert_eq(GFVariantData.get_option_string(sanitized, "negative_inf"), "-Infinity", "日志中的负无穷应使用稳定文本。")
+	var nan_marker: Dictionary = GFVariantData.get_option_dictionary(GFVariantData.get_option_dictionary(sanitized, "nan"), "__gf_variant__")
+	var positive_marker: Dictionary = GFVariantData.get_option_dictionary(GFVariantData.get_option_dictionary(sanitized, "positive_inf"), "__gf_variant__")
+	var negative_marker: Dictionary = GFVariantData.get_option_dictionary(GFVariantData.get_option_dictionary(sanitized, "negative_inf"), "__gf_variant__")
+	assert_eq(GFVariantData.get_option_string(nan_marker, "value"), "NaN", "日志中的 NaN 应使用统一 typed marker。")
+	assert_eq(GFVariantData.get_option_string(positive_marker, "value"), "INF", "日志中的正无穷应使用统一 typed marker。")
+	assert_eq(GFVariantData.get_option_string(negative_marker, "value"), "-INF", "日志中的负无穷应使用统一 typed marker。")
 
 
 func test_previous_crash_marker_is_reported_on_init() -> void:
@@ -260,6 +271,18 @@ func test_sink_receives_structured_entries_and_lifecycle() -> void:
 	assert_eq(sink.shutdown_count, 1, "remove_sink 默认应关闭 sink。")
 
 
+func test_log_utility_init_is_idempotent_for_file_and_sinks() -> void:
+	var sink: CapturingLogSink = CapturingLogSink.new()
+	_log_util.add_sink(sink)
+	var original_path: String = _log_util.get_log_file_path()
+
+	_log_util.init()
+
+	assert_eq(_log_util.get_log_file_path(), original_path, "重复 init 不应替换仍在使用的日志文件。")
+	assert_eq(sink.init_count, 1, "重复 init 不应重复初始化已注册 sink。")
+	_log_util.remove_sink(sink)
+
+
 func test_json_line_log_sink_writes_sanitized_entries() -> void:
 	var jsonl_path: String = _LOG_DIR + "gf_json_line_sink_test.jsonl"
 	var _remove_error: Error = DirAccess.remove_absolute(jsonl_path)
@@ -284,9 +307,101 @@ func test_json_line_log_sink_writes_sanitized_entries() -> void:
 	assert_not_null(parsed, "JSONL 每一行应是合法 JSON 对象。")
 	assert_eq(GFVariantData.get_option_string(parsed, "tag"), "JsonSink", "JSONL 应保留 tag 字段。")
 	assert_eq(GFVariantData.get_option_string(parsed, "message"), "structured", "JSONL 应保留 message 字段。")
-	assert_eq(GFVariantData.get_option_string(parsed_context, "profile"), "keyboard", "StringName 上下文应被转成 JSON 字符串。")
-	assert_true(GFVariantData.get_option_value(parsed_context, "position") is String, "非 JSON 原生值应被稳定字符串化。")
-	assert_true(GFVariantData.get_option_string(parsed_context, "position").contains(","), "Vector2 字符串应保留坐标信息。")
+	var profile_marker: Dictionary = GFVariantData.get_option_dictionary(
+		GFVariantData.get_option_dictionary(parsed_context, "profile"),
+		"__gf_variant__"
+	)
+	assert_eq(GFVariantData.get_option_string(profile_marker, "type"), "StringName", "StringName 上下文应使用统一 typed marker。")
+	var position_marker: Dictionary = GFVariantData.get_option_dictionary(
+		GFVariantData.get_option_dictionary(parsed_context, "position"),
+		"__gf_variant__"
+	)
+	assert_eq(GFVariantData.get_option_string(position_marker, "type"), "Vector2", "非 JSON 原生值应使用统一 typed marker。")
+
+
+func test_json_line_log_sink_appends_custom_file_when_configured() -> void:
+	var jsonl_path: String = _LOG_DIR + "gf_json_line_sink_append_test.jsonl"
+	var seed_file: FileAccess = FileAccess.open(jsonl_path, FileAccess.WRITE)
+	assert_not_null(seed_file, "测试应能创建 JSONL 种子文件。")
+	if seed_file != null:
+		var _seed_written: Variant = seed_file.store_line("{\"seed\":true}")
+		seed_file.close()
+	var sink: GFJsonLineLogSink = GFJsonLineLogSink.new()
+	sink.file_path = jsonl_path
+	sink.file_open_mode = GFJsonLineLogSink.FileOpenMode.APPEND
+	sink.flush_immediately = true
+
+	_log_util.add_sink(sink)
+	_log_util.info("JsonSink", "append")
+	_log_util.remove_sink(sink)
+
+	var file: FileAccess = FileAccess.open(jsonl_path, FileAccess.READ)
+	assert_not_null(file, "JSONL append 文件应可读取。")
+	var first_line: String = file.get_line()
+	var second_line: String = file.get_line()
+	file.close()
+
+	assert_eq(first_line, "{\"seed\":true}", "append 模式不应截断已有 JSONL 内容。")
+	assert_false(second_line.is_empty(), "append 模式应在已有内容后追加新日志。")
+
+
+func test_json_line_log_sink_repeated_init_does_not_truncate_active_file() -> void:
+	var jsonl_path: String = _LOG_DIR + "gf_json_line_sink_reinit_test.jsonl"
+	var _remove_error: Error = DirAccess.remove_absolute(jsonl_path)
+	var sink: GFJsonLineLogSink = GFJsonLineLogSink.new()
+	sink.file_path = jsonl_path
+	sink.flush_immediately = true
+
+	_log_util.add_sink(sink)
+	_log_util.info("JsonSink", "before reinit")
+	sink.init(_log_util)
+	_log_util.info("JsonSink", "after reinit")
+	_log_util.remove_sink(sink)
+
+	var file: FileAccess = FileAccess.open(jsonl_path, FileAccess.READ)
+	assert_not_null(file, "重复 init 后 JSONL 文件仍应可读。")
+	var lines: PackedStringArray = PackedStringArray()
+	while file != null and not file.eof_reached():
+		var line: String = file.get_line()
+		if not line.is_empty():
+			var _line_appended: bool = lines.append(line)
+	if file != null:
+		file.close()
+	assert_eq(lines.size(), 2, "重复 init 不得截断活动 JSONL 文件或泄漏旧句柄。")
+
+
+func test_json_line_log_sink_normalizes_relative_paths_under_user_logs() -> void:
+	var relative_name: String = "gf_relative_json_line_sink_%d.jsonl" % Time.get_ticks_usec()
+	var normalized_path: String = _LOG_DIR.path_join(relative_name)
+	var sink: GFJsonLineLogSink = GFJsonLineLogSink.new()
+	sink.file_path = relative_name
+
+	_log_util.add_sink(sink)
+	_log_util.remove_sink(sink)
+
+	assert_eq(sink.get_file_path(), normalized_path, "相对 JSONL 路径应稳定归一到 user://logs。")
+	var _normalized_remove_error: Error = DirAccess.remove_absolute(normalized_path)
+	var _relative_remove_error: Error = DirAccess.remove_absolute(relative_name)
+
+
+func test_json_line_log_sink_can_fail_when_custom_file_exists() -> void:
+	var jsonl_path: String = _LOG_DIR + "gf_json_line_sink_fail_exists_test.jsonl"
+	var seed_file: FileAccess = FileAccess.open(jsonl_path, FileAccess.WRITE)
+	assert_not_null(seed_file, "测试应能创建 JSONL 已存在文件。")
+	if seed_file != null:
+		var _seed_written: Variant = seed_file.store_line("{\"seed\":true}")
+		seed_file.close()
+	var sink: GFJsonLineLogSink = GFJsonLineLogSink.new()
+	sink.file_path = jsonl_path
+	sink.file_open_mode = GFJsonLineLogSink.FileOpenMode.FAIL_IF_EXISTS
+
+	_log_util.add_sink(sink)
+	var snapshot: Dictionary = sink.get_debug_snapshot()
+
+	assert_false(GFVariantData.get_option_bool(snapshot, "is_open", true), "FAIL_IF_EXISTS 应拒绝打开已有 JSONL 文件。")
+	assert_eq(GFVariantData.get_option_int(snapshot, "last_error"), ERR_ALREADY_EXISTS, "FAIL_IF_EXISTS 应报告 ERR_ALREADY_EXISTS。")
+
+	_log_util.remove_sink(sink)
 
 
 func test_json_line_log_sink_derives_path_and_cleans_old_default_files() -> void:
@@ -316,6 +431,32 @@ func test_json_line_log_sink_derives_path_and_cleans_old_default_files() -> void
 	assert_true(count <= 2, "默认 JSONL 文件数量应按 max_jsonl_files 清理。")
 
 
+func test_json_line_log_sink_reports_parent_directory_errors() -> void:
+	var blocker_path: String = _LOG_DIR + "jsonl_parent_blocker"
+	var _remove_blocker_error: Error = DirAccess.remove_absolute(blocker_path)
+	var blocker_file: FileAccess = FileAccess.open(blocker_path, FileAccess.WRITE)
+	assert_not_null(blocker_file, "测试应能创建阻塞目录创建的文件。")
+	if blocker_file != null:
+		var _store_result: Variant = blocker_file.store_string("blocker")
+		blocker_file.close()
+
+	var sink: GFJsonLineLogSink = GFJsonLineLogSink.new()
+	sink.file_path = blocker_path.path_join("out.jsonl")
+
+	_log_util.add_sink(sink)
+	var snapshot: Dictionary = sink.get_debug_snapshot()
+
+	assert_false(GFVariantData.get_option_bool(snapshot, "is_open", true), "目录创建失败时 JSONL 文件不应保持打开。")
+	assert_ne(GFVariantData.get_option_int(snapshot, "last_error"), OK, "目录创建失败应记录错误码。")
+	assert_true(
+		GFVariantData.get_option_string(snapshot, "last_error_message").contains(blocker_path),
+		"调试快照应保留失败路径。"
+	)
+
+	_log_util.remove_sink(sink)
+	var _cleanup_blocker_error: Error = DirAccess.remove_absolute(blocker_path)
+
+
 func test_batched_log_sink_flushes_to_callback_and_signal() -> void:
 	var sink: GFBatchedLogSink = GFBatchedLogSink.new()
 	sink.batch_size = 2
@@ -336,8 +477,116 @@ func test_batched_log_sink_flushes_to_callback_and_signal() -> void:
 	assert_eq(payloads.size(), 1, "达到 batch_size 时应调用发送回调。")
 	var batch_payload: Dictionary = payloads[0]
 	assert_eq(GFVariantData.get_option_array(batch_payload, "logs").size(), 2, "发送载荷应包含一个完整批次。")
-	assert_eq(emitted_batches.size(), 1, "flush 时应发出 batch_ready 信号。")
+	assert_eq(emitted_batches.size(), 0, "sender_callback 有效时由 callback 独占交付，不应重复发出 batch_ready。")
 	assert_eq(sink.get_pending_count(), 0, "完整批次发送后队列应清空。")
+
+	_log_util.remove_sink(sink)
+
+
+func test_batched_log_sink_receives_privacy_encoded_context() -> void:
+	var private_node: Node = Node.new()
+	private_node.name = "PrivateBatchedLogNode"
+	var sink: GFBatchedLogSink = GFBatchedLogSink.new()
+	sink.batch_size = 1
+	sink.flush_interval_msec = 0
+	var payloads: Array[Dictionary] = []
+	sink.sender_callback = func(payload: Dictionary) -> Dictionary:
+		payloads.append(payload.duplicate(true))
+		return { "ok": true, "accepted": 1 }
+
+	_log_util.add_sink(sink)
+	_log_util.info("/private/log/tag", "\\\\server\\private\\message.txt", {
+		"node": private_node,
+		"asset": "res://private/batched_asset.tres",
+	})
+	private_node.free()
+
+	assert_eq(payloads.size(), 1, "达到 batch_size 时应生成一个外发载荷。")
+	var payload_text: String = JSON.stringify(payloads[0])
+	assert_false(payload_text.contains("PrivateBatchedLogNode"), "批量外发日志不得继承本地 debug 节点名。")
+	assert_false(payload_text.contains("batched_asset.tres"), "批量外发日志必须按 privacy profile 脱敏路径。")
+	assert_false(payload_text.contains("/private/log/tag"), "批量外发日志的 tag 必须按 privacy profile 脱敏。")
+	assert_false(payload_text.contains("server\\private"), "批量外发日志的 message 必须按 privacy profile 脱敏。")
+	var first_log: Dictionary = GFVariantData.as_dictionary(GFVariantData.get_option_array(payloads[0], "logs")[0])
+	assert_false(GFVariantData.get_option_string(first_log, "text").contains("private"), "外发 text 必须由已清洗 tag/message/context 重建。")
+
+	_log_util.remove_sink(sink)
+
+
+func test_batched_log_sink_requeues_batch_when_sender_fails() -> void:
+	var sink: GFBatchedLogSink = GFBatchedLogSink.new()
+	sink.batch_size = 2
+	sink.flush_interval_msec = 0
+	var emitted_batches: Array = []
+	sink.sender_callback = func(_payload: Dictionary) -> Dictionary:
+		return { "ok": false, "error": "offline" }
+	var batch_handler: Callable = func(batch: Array[Dictionary]) -> void:
+		emitted_batches.append(batch)
+	var _connected: Variant = sink.batch_ready.connect(batch_handler)
+
+	_log_util.add_sink(sink)
+	_log_util.info("Batch", "one")
+	_log_util.info("Batch", "two")
+
+	assert_eq(sink.get_pending_count(), 2, "sender 失败时批次应回到队列。")
+	assert_eq(emitted_batches.size(), 0, "未成功交付的批次不应发出 batch_ready。")
+
+	_log_util.remove_sink(sink)
+
+
+func test_batched_log_sink_requeues_batch_when_sender_contract_is_invalid() -> void:
+	var sink: GFBatchedLogSink = GFBatchedLogSink.new()
+	sink.batch_size = 2
+	sink.flush_interval_msec = 0
+	sink.sender_callback = func(_payload: Dictionary) -> String:
+		return "invalid"
+
+	_log_util.add_sink(sink)
+	_log_util.info("Batch", "one")
+	_log_util.info("Batch", "two")
+	var snapshot: Dictionary = sink.get_debug_snapshot()
+
+	assert_eq(sink.get_pending_count(), 2, "sender 返回非 Dictionary 时不得丢失批次。")
+	assert_eq(GFVariantData.get_option_int(snapshot, "failed_send_count"), 1, "非法 sender 结果应进入可观测失败计数。")
+	assert_true(GFVariantData.get_option_string(snapshot, "last_error").contains("Dictionary"), "调试快照应解释 sender 契约失败。")
+	_log_util.remove_sink(sink)
+
+
+func test_batched_log_sink_requires_ok_and_rejects_legacy_success_field() -> void:
+	var sink: GFBatchedLogSink = GFBatchedLogSink.new()
+	sink.batch_size = 1
+	sink.flush_interval_msec = 0
+	sink.sender_callback = func(_payload: Dictionary) -> Dictionary:
+		return { "success": true }
+
+	_log_util.add_sink(sink)
+	_log_util.info("Batch", "legacy contract")
+	var snapshot: Dictionary = sink.get_debug_snapshot()
+
+	assert_eq(sink.get_pending_count(), 1, "缺失 ok 的 sender 结果必须 fail-closed 并回队。")
+	assert_eq(GFVariantData.get_option_int(snapshot, "failed_send_count"), 1, "双契约结果必须进入失败计数。")
+	assert_true(GFVariantData.get_option_string(snapshot, "last_error").contains("ok: bool"), "失败信息应明确唯一 ok 契约。")
+	_log_util.remove_sink(sink)
+
+
+func test_batched_log_sink_requeues_unaccepted_partial_batch() -> void:
+	var sink: GFBatchedLogSink = GFBatchedLogSink.new()
+	sink.batch_size = 3
+	sink.flush_interval_msec = 0
+	var emitted_batches: Array = []
+	sink.sender_callback = func(_payload: Dictionary) -> Dictionary:
+		return { "ok": true, "accepted": 1 }
+	var batch_handler: Callable = func(batch: Array[Dictionary]) -> void:
+		emitted_batches.append(batch)
+	var _connected: Variant = sink.batch_ready.connect(batch_handler)
+
+	_log_util.add_sink(sink)
+	_log_util.info("Batch", "one")
+	_log_util.info("Batch", "two")
+	_log_util.info("Batch", "three")
+
+	assert_eq(sink.get_pending_count(), 2, "partial accepted 后未接受日志应回到队列。")
+	assert_eq(emitted_batches.size(), 0, "sender_callback 已处理 partial ack 时不应重复发出 batch_ready。")
 
 	_log_util.remove_sink(sink)
 
@@ -359,6 +608,46 @@ func test_batched_log_sink_caps_queue_and_reports_snapshot() -> void:
 	assert_eq(GFVariantData.get_option_int(snapshot, "dropped_count"), 1, "调试快照应包含 dropped_count。")
 
 	_log_util.remove_sink(sink)
+
+
+func test_sink_dispatch_uses_snapshot_when_sink_unregisters_itself() -> void:
+	var removing_sink: RemovingLogSink = RemovingLogSink.new()
+	var capturing_sink: CapturingLogSink = CapturingLogSink.new()
+	_log_util.add_sink(removing_sink)
+	_log_util.add_sink(capturing_sink)
+
+	_log_util.info("Sink", "snapshot")
+
+	assert_eq(removing_sink.write_count, 1, "自注销 sink 应只接收当前一次分发。")
+	assert_eq(capturing_sink.entries.size(), 1, "分发期间修改 registry 不应跳过快照中的后续 sink。")
+	_log_util.remove_sink(capturing_sink)
+
+
+func test_sink_dispatch_blocks_recursive_sink_fanout() -> void:
+	var reentrant_sink: ReentrantLogSink = ReentrantLogSink.new()
+	var capturing_sink: CapturingLogSink = CapturingLogSink.new()
+	_log_util.add_sink(reentrant_sink)
+	_log_util.add_sink(capturing_sink)
+
+	_log_util.info("Sink", "outer")
+
+	assert_eq(reentrant_sink.write_count, 1, "sink 内部日志不得递归进入 sink fanout。")
+	assert_eq(capturing_sink.entries.size(), 1, "递归日志不得造成后续 sink 重复接收。")
+	_log_util.remove_sink(reentrant_sink)
+	_log_util.remove_sink(capturing_sink)
+
+
+func test_sanitize_log_value_applies_collection_width_budget() -> void:
+	var values: Array = []
+	for index: int in range(1000):
+		values.append(index)
+
+	var sanitized: Array = GFVariantData.as_array(GFLogUtility.sanitize_log_value(values))
+	var last_entry: Dictionary = GFVariantData.as_dictionary(sanitized[sanitized.size() - 1])
+	var marker: Dictionary = GFVariantData.get_option_dictionary(last_entry, "__gf_report_value__")
+
+	assert_true(sanitized.size() < values.size(), "日志清洗必须限制集合宽度。")
+	assert_eq(GFVariantData.get_option_string(marker, "type"), "CollectionBudget", "集合截断应使用统一 report marker。")
 
 
 func test_min_level_filters_lower_level_logs() -> void:
@@ -449,6 +738,98 @@ func test_memory_entries_support_offset_reads_after_wrap() -> void:
 	assert_eq(GFVariantData.get_option_string(second_entry, "message"), "four", "环形缓冲最新条目应位于读取结果末尾。")
 
 
+func test_memory_entries_since_reads_incrementally() -> void:
+	_log_util.max_memory_entries = 3
+	_log_util.clear_memory_entries()
+	var cursor: int = _log_util.get_memory_sequence()
+
+	_log_util.info("Memory", "one")
+	_log_util.info("Memory", "two")
+
+	var result: Dictionary = _log_util.get_entries_since(cursor)
+	var entries: Array = GFVariantData.get_option_array(result, "entries")
+	var first_entry: Dictionary = GFVariantData.as_dictionary(entries[0])
+	var second_entry: Dictionary = GFVariantData.as_dictionary(entries[1])
+
+	assert_eq(entries.size(), 2, "增量读取应返回游标之后的所有可用日志。")
+	assert_eq(GFVariantData.get_option_string(first_entry, "message"), "one", "增量读取应保持从旧到新的顺序。")
+	assert_eq(GFVariantData.get_option_string(second_entry, "message"), "two", "增量读取应包含最新日志。")
+	assert_eq(GFVariantData.get_option_int(result, "next_sequence"), cursor + 2, "next_sequence 应指向下一条待读序列。")
+	assert_eq(GFVariantData.get_option_int(result, "current_sequence"), _log_util.get_memory_sequence(), "报告应包含当前序列。")
+	assert_false(GFVariantData.get_option_bool(result, "truncated"), "未越过环形缓存时不应标记截断。")
+	assert_false(GFVariantData.get_option_bool(result, "has_more"), "未限制读取数量时不应还有剩余。")
+
+
+func test_memory_entries_since_reports_limit_and_has_more() -> void:
+	_log_util.max_memory_entries = 4
+	_log_util.clear_memory_entries()
+	var cursor: int = _log_util.get_memory_sequence()
+
+	_log_util.info("Memory", "one")
+	_log_util.info("Memory", "two")
+	_log_util.info("Memory", "three")
+
+	var result: Dictionary = _log_util.get_entries_since(cursor, 1)
+	var entries: Array = GFVariantData.get_option_array(result, "entries")
+	var first_entry: Dictionary = GFVariantData.as_dictionary(entries[0])
+
+	assert_eq(entries.size(), 1, "limit 应限制本次返回条目数。")
+	assert_eq(GFVariantData.get_option_string(first_entry, "message"), "one", "limit 读取应从请求游标开始。")
+	assert_eq(GFVariantData.get_option_int(result, "next_sequence"), cursor + 1, "受 limit 限制时 next_sequence 应只前进已返回数量。")
+	assert_true(GFVariantData.get_option_bool(result, "has_more"), "仍有未返回条目时应标记 has_more。")
+
+
+func test_memory_entries_since_zero_limit_is_non_blocking_status_probe() -> void:
+	_log_util.clear_memory_entries()
+	var cursor: int = _log_util.get_memory_sequence()
+	_log_util.info("Memory", "one")
+
+	var result: Dictionary = _log_util.get_entries_since(cursor, 0)
+
+	assert_eq(GFVariantData.get_option_array(result, "entries").size(), 0, "limit=0 不应返回条目。")
+	assert_eq(GFVariantData.get_option_int(result, "next_sequence"), cursor, "limit=0 不应伪造游标进度。")
+	assert_false(GFVariantData.get_option_bool(result, "has_more"), "limit=0 不得形成 has_more=true 且游标永不前进的循环。")
+
+
+func test_memory_entries_since_reports_truncated_cursor_after_wrap() -> void:
+	_log_util.max_memory_entries = 2
+	_log_util.clear_memory_entries()
+	var cursor: int = _log_util.get_memory_sequence()
+
+	_log_util.info("Memory", "one")
+	_log_util.info("Memory", "two")
+	_log_util.info("Memory", "three")
+
+	var result: Dictionary = _log_util.get_entries_since(cursor)
+	var entries: Array = GFVariantData.get_option_array(result, "entries")
+	var first_entry: Dictionary = GFVariantData.as_dictionary(entries[0])
+	var second_entry: Dictionary = GFVariantData.as_dictionary(entries[1])
+
+	assert_true(GFVariantData.get_option_bool(result, "truncated"), "请求游标早于最旧保留序列时应标记截断。")
+	assert_eq(GFVariantData.get_option_int(result, "missed_count"), 1, "截断报告应说明调用方错过的条目数。")
+	assert_eq(GFVariantData.get_option_int(result, "dropped_count"), 1, "截断报告应包含内存缓存总丢弃数。")
+	assert_eq(GFVariantData.get_option_string(first_entry, "message"), "two", "截断后应从最旧仍保留的日志开始返回。")
+	assert_eq(GFVariantData.get_option_string(second_entry, "message"), "three", "截断后仍应返回最新日志。")
+
+
+func test_clear_memory_entries_preserves_sequence_cursor() -> void:
+	_log_util.max_memory_entries = 3
+	_log_util.clear_memory_entries()
+	_log_util.info("Memory", "one")
+	var cursor: int = _log_util.get_memory_sequence()
+
+	_log_util.clear_memory_entries()
+	_log_util.info("Memory", "two")
+
+	var result: Dictionary = _log_util.get_entries_since(cursor)
+	var entries: Array = GFVariantData.get_option_array(result, "entries")
+	var first_entry: Dictionary = GFVariantData.as_dictionary(entries[0])
+
+	assert_eq(entries.size(), 1, "清空缓存不应让旧游标重新读取旧日志。")
+	assert_eq(GFVariantData.get_option_string(first_entry, "message"), "two", "清空后旧游标应只读取后续新增日志。")
+	assert_false(GFVariantData.get_option_bool(result, "truncated"), "游标等于清空时序列时不应标记截断。")
+
+
 func test_lowering_memory_limit_keeps_newest_entries() -> void:
 	_log_util.max_memory_entries = 4
 	_log_util.clear_memory_entries()
@@ -467,6 +848,24 @@ func test_lowering_memory_limit_keeps_newest_entries() -> void:
 	assert_eq(GFVariantData.get_option_string(first_entry, "message"), "three", "降低容量后应保留较新的条目。")
 	assert_eq(GFVariantData.get_option_string(second_entry, "message"), "four", "降低容量后最新条目应位于末尾。")
 	assert_eq(_log_util.get_dropped_memory_entry_count(), 2, "降低容量裁剪的条目应计入丢弃数量。")
+
+
+func test_expanding_memory_limit_after_wrap_preserves_order() -> void:
+	_log_util.max_memory_entries = 2
+	_log_util.clear_memory_entries()
+
+	_log_util.info("Memory", "one")
+	_log_util.info("Memory", "two")
+	_log_util.info("Memory", "three")
+
+	_log_util.max_memory_entries = 4
+	_log_util.info("Memory", "four")
+
+	var entries: Array[Dictionary] = _log_util.get_recent_entries()
+	assert_eq(entries.size(), 3, "扩容后应保留当前缓存中的日志并接收新日志。")
+	assert_eq(GFVariantData.get_option_string(entries[0], "message"), "two", "扩容后旧数据顺序应保持。")
+	assert_eq(GFVariantData.get_option_string(entries[1], "message"), "three", "扩容后旧数据顺序应保持。")
+	assert_eq(GFVariantData.get_option_string(entries[2], "message"), "four", "扩容后新日志应追加到末尾。")
 
 
 # --- 内部类 ---
@@ -490,6 +889,34 @@ class CapturingLogSink extends GFLogSink:
 
 	func shutdown() -> void:
 		shutdown_count += 1
+
+
+class RemovingLogSink extends GFLogSink:
+	var owner_utility: GFLogUtility
+	var write_count: int = 0
+
+	func init(owner: Object) -> void:
+		if owner is GFLogUtility:
+			owner_utility = owner
+
+	func write(_entry: Dictionary) -> void:
+		write_count += 1
+		if owner_utility != null:
+			owner_utility.remove_sink(self)
+
+
+class ReentrantLogSink extends GFLogSink:
+	var owner_utility: GFLogUtility
+	var write_count: int = 0
+
+	func init(owner: Object) -> void:
+		if owner is GFLogUtility:
+			owner_utility = owner
+
+	func write(_entry: Dictionary) -> void:
+		write_count += 1
+		if owner_utility != null:
+			owner_utility.info("Sink", "nested")
 
 
 class LogTestState:

@@ -17,6 +17,8 @@
 |---|---|---|
 | 属性 | [`contract_id`](#member-gfnetworkcontract-properties-contract_id) | `var contract_id: StringName = &""` |
 | 属性 | [`display_name`](#member-gfnetworkcontract-properties-display_name) | `var display_name: String = ""` |
+| 属性 | [`contract_version_major`](#member-gfnetworkcontract-properties-contract_version_major) | `var contract_version_major: int = 0` |
+| 属性 | [`contract_version_minor`](#member-gfnetworkcontract-properties-contract_version_minor) | `var contract_version_minor: int = 0` |
 | 属性 | [`messages`](#member-gfnetworkcontract-properties-messages) | `var messages: Array[GFNetworkContractMessage] = []` |
 | 属性 | [`metadata`](#member-gfnetworkcontract-properties-metadata) | `var metadata: Dictionary = {}` |
 | 方法 | [`get_display_name`](#member-gfnetworkcontract-methods-get_display_name) | `func get_display_name() -> String:` |
@@ -27,6 +29,10 @@
 | 方法 | [`validate_message`](#member-gfnetworkcontract-methods-validate_message) | `func validate_message(message: GFNetworkMessage) -> Dictionary:` |
 | 方法 | [`validate_contract`](#member-gfnetworkcontract-methods-validate_contract) | `func validate_contract() -> Dictionary:` |
 | 方法 | [`describe`](#member-gfnetworkcontract-methods-describe) | `func describe() -> Dictionary:` |
+| 方法 | [`get_schema_descriptor`](#member-gfnetworkcontract-methods-get_schema_descriptor) | `func get_schema_descriptor() -> Dictionary:` |
+| 方法 | [`get_schema_digest`](#member-gfnetworkcontract-methods-get_schema_digest) | `func get_schema_digest(options: Dictionary = {}) -> String:` |
+| 方法 | [`get_contract_version`](#member-gfnetworkcontract-methods-get_contract_version) | `func get_contract_version() -> Dictionary:` |
+| 方法 | [`validate_peer_contract_version`](#member-gfnetworkcontract-methods-validate_peer_contract_version) | `func validate_peer_contract_version(peer_version: Dictionary, options: Dictionary = {}) -> Dictionary:` |
 
 ## 属性
 
@@ -53,6 +59,32 @@ var display_name: String = ""
 ```
 
 编辑器展示名称。
+
+<a id="member-gfnetworkcontract-properties-contract_version_major"></a>
+
+### `contract_version_major`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+var contract_version_major: int = 0
+```
+
+契约兼容大版本。项目可在不兼容的消息结构变化时显式递增。
+
+<a id="member-gfnetworkcontract-properties-contract_version_minor"></a>
+
+### `contract_version_minor`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+var contract_version_minor: int = 0
+```
+
+契约兼容小版本。小版本只用于日志、排查或构建追踪，不参与默认兼容判断。
 
 <a id="member-gfnetworkcontract-properties-messages"></a>
 
@@ -234,6 +266,7 @@ func validate_contract() -> Dictionary:
 ### `describe`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func describe() -> Dictionary:
@@ -245,4 +278,95 @@ func describe() -> Dictionary:
 
 结构：
 
-- `return`: Dictionary，包含 contract_id、display_name、message_count、messages、metadata。
+- `return`: Dictionary，包含 contract_id、display_name、contract_version_major、contract_version_minor、schema_digest、message_count、messages、metadata。
+
+<a id="member-gfnetworkcontract-methods-get_schema_descriptor"></a>
+
+### `get_schema_descriptor`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func get_schema_descriptor() -> Dictionary:
+```
+
+导出只包含协议结构的稳定 schema 描述。
+
+返回：schema 描述字典。
+
+结构：
+
+- `return`: Dictionary，包含 schema_version、contract_id 和 messages；不包含 display_name 或 metadata。
+
+<a id="member-gfnetworkcontract-methods-get_schema_digest"></a>
+
+### `get_schema_digest`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func get_schema_digest(options: Dictionary = {}) -> String:
+```
+
+计算契约 schema 描述的稳定 SHA-256。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `options` | 传给 GFDeterministicVariantSerializer.sha256() 的选项；默认允许有限浮点默认值参与摘要。 |
+
+返回：SHA-256 hex；schema 中存在不支持的 Variant 时返回空字符串。
+
+结构：
+
+- `options`: Dictionary，支持 allow_floats 和 max_depth。
+
+<a id="member-gfnetworkcontract-methods-get_contract_version"></a>
+
+### `get_contract_version`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func get_contract_version() -> Dictionary:
+```
+
+获取可通过网络、日志或预检报告传递的契约版本字典。
+
+返回：契约版本字典。
+
+结构：
+
+- `return`: Dictionary，包含 contract_id、version_major、version_minor、schema_descriptor_version 和 schema_digest。
+
+<a id="member-gfnetworkcontract-methods-validate_peer_contract_version"></a>
+
+### `validate_peer_contract_version`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func validate_peer_contract_version(peer_version: Dictionary, options: Dictionary = {}) -> Dictionary:
+```
+
+校验对端声明的契约版本。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `peer_version` | 对端通过 get_contract_version() 或等价结构上报的版本字典。 |
+| `options` | 校验选项，支持 require_contract_id、require_schema_digest 和 severity。 |
+
+返回：GFValidationReportDictionary 兼容报告。
+
+结构：
+
+- `peer_version`: Dictionary，包含 contract_id、version_major、version_minor 和 schema_digest。
+- `options`: Dictionary，require_contract_id 默认 true，require_schema_digest 默认 false，severity 默认为 error。
+- `return`: Dictionary，包含 ok、local_version、peer_version、issues、issue_count 和 next_actions。

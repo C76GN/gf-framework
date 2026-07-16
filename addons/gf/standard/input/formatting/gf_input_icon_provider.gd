@@ -82,6 +82,13 @@ func get_event_rich_text(input_event: InputEvent, options: Dictionary = {}) -> S
 		return ""
 
 	var size: int = GFVariantData.get_option_int(options, "icon_size", icon_size)
+	var escaped_path: String = _escape_bbcode(icon.resource_path)
 	if size > 0:
-		return "[img=%d]%s[/img]" % [size, icon.resource_path]
-	return "[img]%s[/img]" % icon.resource_path
+		return "[img=%d]%s[/img]" % [size, escaped_path]
+	return "[img]%s[/img]" % escaped_path
+
+
+# --- 私有/辅助方法 ---
+
+func _escape_bbcode(text: String) -> String:
+	return text.replace("[", "[lb]").replace("]", "[rb]")

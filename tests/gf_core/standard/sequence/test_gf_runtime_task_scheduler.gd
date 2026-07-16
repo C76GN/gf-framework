@@ -80,6 +80,39 @@ class InitializeCancellingTask extends GFRuntimeTask:
 			cancel_count += 1
 
 
+class ParentCancellingTask extends GFRuntimeTask:
+	var parent_group: GFRuntimeTaskGroup = null
+	var initialize_count: int = 0
+	var tick_count: int = 0
+	var end_count: int = 0
+
+	func initialize(scheduler: GFRuntimeTaskScheduler) -> void:
+		initialize_count += 1
+		var _cancelled: bool = scheduler.cancel(parent_group)
+
+	func tick(_delta: float) -> void:
+		tick_count += 1
+
+	func end(_interrupted: bool) -> void:
+		end_count += 1
+
+
+class ReplacementObserverTask extends GFRuntimeTask:
+	var scheduler: GFRuntimeTaskScheduler = null
+	var challenger: GFRuntimeTask = null
+	var protected_requirement: Object = null
+	var observed_owner: GFRuntimeTask = null
+	var reentrant_task: GFRuntimeTask = null
+	var reentrant_schedule_result: bool = true
+
+	func end(interrupted: bool) -> void:
+		if not interrupted:
+			return
+		observed_owner = scheduler.get_task_for_requirement(get_requirements()[0])
+		var _mutation_result: GFRuntimeTask = challenger.add_requirement(protected_requirement)
+		reentrant_schedule_result = scheduler.schedule(reentrant_task)
+
+
 # --- 测试方法 ---
 
 ## 验证调度器会初始化、推进并完成任务。
@@ -270,7 +303,7 @@ func test_scheduled_task_group_rejects_child_mutation() -> void:
 	assert_false(group.remove_task(first), "已调度任务组不应允许移除子任务。")
 	group.rebuild_requirements()
 
-	assert_eq(group.tasks, [first], "已调度任务组不应接受子任务集合变更。")
+	assert_eq(group.get_tasks(), [first], "已调度任务组不应接受子任务集合变更。")
 
 
 func test_scheduler_rejects_group_child_scheduled_independently() -> void:
@@ -287,6 +320,63 @@ func test_scheduler_rejects_group_child_scheduled_independently() -> void:
 	assert_false(scheduler.schedule(first), "已被任务组调度的子任务不应再次进入外层调度器。")
 	assert_eq(scheduler.get_active_tasks(), [group], "外层调度器不应同时持有任务组和其子任务。")
 	assert_signal_emitted(scheduler, "task_rejected", "重复所有权应发出拒绝信号。")
+
+
+func test_task_group_rejects_child_already_scheduled_outside_group() -> void:
+	var scheduler: GFRuntimeTaskScheduler = GFRuntimeTaskScheduler.new()
+	var order: Array[String] = []
+	var child: RecordingTask = RecordingTask.new(order, "child", [], true, 99)
+
+	assert_true(scheduler.schedule(child), "子任务先进入外层调度器。")
+	var group: GFRuntimeTaskGroup = GFRuntimeTaskGroup.new([child], GFRuntimeTaskGroup.Mode.PARALLEL_ALL)
+
+	assert_true(group.get_tasks().is_empty(), "已调度任务不应被加入任务组。")
+	assert_eq(scheduler.get_active_tasks(), [child], "外层调度器应仍只持有原子任务。")
+
+
+func test_task_group_rebuilds_child_requirements_before_scheduling() -> void:
+	var scheduler: GFRuntimeTaskScheduler = GFRuntimeTaskScheduler.new()
+	var requirement_a: RefCounted = RefCounted.new()
+	var requirement_b: RefCounted = RefCounted.new()
+	var order: Array[String] = []
+	var owner_task: RecordingTask = RecordingTask.new(order, "owner", [requirement_b], false, 99)
+	var child: RecordingTask = RecordingTask.new(order, "child", [requirement_a], true, 99)
+	var group: GFRuntimeTaskGroup = GFRuntimeTaskGroup.new([child], GFRuntimeTaskGroup.Mode.SEQUENCE)
+	var _added_requirement: GFRuntimeTask = child.add_requirement(requirement_b)
+
+	assert_true(scheduler.schedule(owner_task), "外层 owner 应先占用新增 requirement。")
+	assert_false(scheduler.schedule(group), "任务组调度前应反映子任务最新 requirement 并被冲突拒绝。")
+	assert_false(group.is_scheduled(), "冲突拒绝后任务组不应进入调度器。")
+
+
+func test_parallel_task_group_rejects_duplicate_child_requirements() -> void:
+	var requirement: RefCounted = RefCounted.new()
+	var order: Array[String] = []
+	var first: RecordingTask = RecordingTask.new(order, "first", [requirement], true, 99)
+	var second: RecordingTask = RecordingTask.new(order, "second", [requirement], true, 99)
+	var group: GFRuntimeTaskGroup = GFRuntimeTaskGroup.new([first], GFRuntimeTaskGroup.Mode.PARALLEL_ALL)
+
+	var _add_result: GFRuntimeTaskGroup = group.add_task(second)
+
+	assert_eq(group.get_tasks(), [first], "并行任务组不应接受共享 requirement 的第二个子任务。")
+
+
+func test_parallel_task_group_rejects_requirements_changed_after_add() -> void:
+	var scheduler: GFRuntimeTaskScheduler = GFRuntimeTaskScheduler.new()
+	var requirement_a: RefCounted = RefCounted.new()
+	var requirement_b: RefCounted = RefCounted.new()
+	var order: Array[String] = []
+	var first: RecordingTask = RecordingTask.new(order, "first", [requirement_a], true, 99)
+	var second: RecordingTask = RecordingTask.new(order, "second", [requirement_b], true, 99)
+	var group: GFRuntimeTaskGroup = GFRuntimeTaskGroup.new([first, second], GFRuntimeTaskGroup.Mode.PARALLEL_ALL)
+	watch_signals(scheduler)
+
+	var _mutated: GFRuntimeTask = second.add_requirement(requirement_a)
+
+	assert_false(scheduler.schedule(group), "并行任务组调度前应重新拒绝后续改出的组内 requirement 冲突。")
+	assert_false(group.is_scheduled(), "组内冲突拒绝后任务组不应进入调度器。")
+	assert_eq(order, [], "被拒绝的任务组不应初始化任何子任务。")
+	assert_signal_emitted(scheduler, "task_rejected", "组内 requirement 冲突应发出拒绝信号。")
 
 
 ## 验证竞速任务组会在首个子任务完成后中断剩余子任务。
@@ -369,3 +459,75 @@ func test_scheduler_skips_tick_after_initialize_self_cancel() -> void:
 	assert_false(task.is_scheduled(), "初始化中自取消任务应离开调度器。")
 	assert_eq(task.cancel_count, 1, "初始化中自取消任务应以 interrupted=true 结束。")
 	assert_eq(task.tick_count, 0, "任务在 initialize 内自取消后不应继续 tick。")
+
+
+func test_schedule_commits_requirement_ownership_before_interrupt_callbacks() -> void:
+	var scheduler: GFRuntimeTaskScheduler = GFRuntimeTaskScheduler.new()
+	var contested_requirement: RefCounted = RefCounted.new()
+	var protected_requirement: RefCounted = RefCounted.new()
+	var protected_owner: GFRuntimeTask = GFRuntimeTask.new([protected_requirement], false)
+	var challenger: GFRuntimeTask = GFRuntimeTask.new([contested_requirement], true)
+	var reentrant_task: GFRuntimeTask = GFRuntimeTask.new()
+	var replacement_owner: ReplacementObserverTask = ReplacementObserverTask.new([contested_requirement], true)
+	replacement_owner.scheduler = scheduler
+	replacement_owner.challenger = challenger
+	replacement_owner.protected_requirement = protected_requirement
+	replacement_owner.reentrant_task = reentrant_task
+
+	assert_true(scheduler.schedule(protected_owner), "受保护 requirement 应先被不可中断任务占用。")
+	assert_true(scheduler.schedule(replacement_owner), "可中断 owner 应进入调度器。")
+	assert_true(scheduler.schedule(challenger), "challenger 应原子替换可中断 owner。")
+
+	assert_same(replacement_owner.observed_owner, challenger, "中断回调应观察到已经提交的新 owner。")
+	assert_false(challenger.has_requirement(protected_requirement), "中断回调不能修改已提交任务的 requirements。")
+	assert_same(scheduler.get_task_for_requirement(protected_requirement), protected_owner, "回调不能覆盖不可中断 requirement owner。")
+	assert_false(replacement_owner.reentrant_schedule_result, "所有权提交期间应拒绝重入 schedule()。")
+	assert_false(reentrant_task.is_scheduled(), "被拒绝的重入任务不应进入调度器。")
+
+
+func test_task_group_stops_initialization_when_child_cancels_parent() -> void:
+	var scheduler: GFRuntimeTaskScheduler = GFRuntimeTaskScheduler.new()
+	var cancelling_child: ParentCancellingTask = ParentCancellingTask.new()
+	var sibling_order: Array[String] = []
+	var sibling: RecordingTask = RecordingTask.new(sibling_order, "sibling", [], true, 99)
+	var group: GFRuntimeTaskGroup = GFRuntimeTaskGroup.new(
+		[cancelling_child, sibling],
+		GFRuntimeTaskGroup.Mode.PARALLEL_ALL
+	)
+	cancelling_child.parent_group = group
+
+	assert_true(scheduler.schedule(group), "任务组应能进入调度器。")
+	scheduler.tick(0.1)
+
+	assert_false(group.is_scheduled(), "子任务初始化中取消父组后，父组应立即离开调度器。")
+	assert_eq(cancelling_child.initialize_count, 1, "取消父组的子任务只应初始化一次。")
+	assert_eq(cancelling_child.tick_count, 0, "父组取消后不应继续 tick 当前子任务。")
+	assert_eq(cancelling_child.end_count, 1, "父组取消应只结束当前子任务一次。")
+	assert_false(cancelling_child.has_initialized(), "已被父组结束的子任务不应在 initialize 返回后重新标记 initialized。")
+	assert_true(sibling_order.is_empty(), "父组取消后不应继续初始化后续并行子任务。")
+
+
+func test_task_group_configuration_is_controlled_and_transactional() -> void:
+	var requirement: RefCounted = RefCounted.new()
+	var first: GFRuntimeTask = GFRuntimeTask.new([requirement])
+	var second: GFRuntimeTask = GFRuntimeTask.new([requirement])
+	var group: GFRuntimeTaskGroup = GFRuntimeTaskGroup.new([first])
+	var copied_tasks: Array[GFRuntimeTask] = group.get_tasks()
+	copied_tasks.clear()
+
+	assert_eq(group.get_tasks(), [first], "get_tasks() 返回值不应暴露内部集合。")
+	assert_false(group.set_tasks([first, first]), "重复子任务应使批量配置整体失败。")
+	assert_eq(group.get_tasks(), [first], "失败的批量配置不应产生部分更新。")
+	assert_true(group.set_mode(GFRuntimeTaskGroup.Mode.PARALLEL_ALL), "无内部冲突的单任务组应允许切换到并行模式。")
+	var _add_conflicting_task_result: GFRuntimeTaskGroup = group.add_task(second)
+	assert_eq(group.get_mode(), GFRuntimeTaskGroup.Mode.PARALLEL_ALL, "无内部冲突的单任务组应允许切换到并行模式。")
+	assert_eq(group.get_tasks(), [first], "冲突子任务不应被加入并行任务组。")
+
+
+func test_has_requirement_ignores_released_object() -> void:
+	var requirement: Node = Node.new()
+	var task: GFRuntimeTask = GFRuntimeTask.new([requirement])
+	requirement.free()
+
+	assert_false(task.has_requirement(requirement), "已释放 Object 不应继续命中 requirement 查询。")
+	assert_true(task.get_requirements().is_empty(), "查询副本也应过滤已释放 requirement。")

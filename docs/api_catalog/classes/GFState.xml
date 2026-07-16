@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFState" path="addons/gf/standard/state_machine/pure/gf_state.gd" module="standard" extends="RefCounted" classDigest="b385b1b25ca36e415aa73c7a61672f76236fadb6f3a6580e084e13010ff4e96f">
+<class name="GFState" path="addons/gf/standard/state_machine/pure/gf_state.gd" module="standard" extends="RefCounted" classDigest="b30eabdeb7157e93e0cf3d5d19fe38f65e19ab7c41243265daf5a056bd0da3dd">
 	<description>GFState: 纯代码状态机的状态抽象基类。
 继承自 RefCounted，不依赖 Node 树，可在任何逻辑层使用。
 通过持有对所属 GFStateMachine 的弱引用，间接访问框架的
@@ -146,59 +146,65 @@ Model、System、Utility 层，实现状态与框架的解耦。
 			</tags>
 		</member>
 		<member kind="method" name="register_event">
-			<signature>func register_event(event_type: Script, callback: Callable, priority: int = 0) -&gt; void:</signature>
+			<signature>func register_event(event_type: Script, listener: GFEventListener, priority: int = 0) -&gt; void:</signature>
 			<description>注册类型事件监听器，默认以当前状态作为 owner。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">event_type: 要监听的脚本类型。</tag>
-				<tag name="param">callback: 回调函数。</tag>
+				<tag name="param">listener: 事件监听器契约。</tag>
 				<tag name="param">priority: 回调优先级，数值越大越先执行，默认为 0。</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="unregister_event">
-			<signature>func unregister_event(event_type: Script, callback: Callable) -&gt; void:</signature>
+			<signature>func unregister_event(event_type: Script, listener: GFEventListener) -&gt; void:</signature>
 			<description>注销类型事件监听器。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">event_type: 要注销的脚本类型。</tag>
-				<tag name="param">callback: 要移除的回调函数。</tag>
+				<tag name="param">listener: 要移除的事件监听器契约。</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="register_assignable_event">
-			<signature>func register_assignable_event(base_event_type: Script, callback: Callable, priority: int = 0) -&gt; void:</signature>
+			<signature>func register_assignable_event(base_event_type: Script, listener: GFEventListener, priority: int = 0) -&gt; void:</signature>
 			<description>注册可赋值类型事件监听器，默认以当前状态作为 owner。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">base_event_type: 要监听的基类脚本类型。</tag>
-				<tag name="param">callback: 回调函数。</tag>
+				<tag name="param">listener: 事件监听器契约。</tag>
 				<tag name="param">priority: 回调优先级，数值越大越先执行，默认为 0。</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="unregister_assignable_event">
-			<signature>func unregister_assignable_event(base_event_type: Script, callback: Callable) -&gt; void:</signature>
+			<signature>func unregister_assignable_event(base_event_type: Script, listener: GFEventListener) -&gt; void:</signature>
 			<description>注销可赋值类型事件监听器。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">base_event_type: 注册时使用的基类脚本类型。</tag>
-				<tag name="param">callback: 要移除的回调函数。</tag>
+				<tag name="param">listener: 要移除的事件监听器契约。</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="register_simple_event">
-			<signature>func register_simple_event(event_id: StringName, callback: Callable) -&gt; void:</signature>
+			<signature>func register_simple_event(event_id: StringName, listener: GFEventListener) -&gt; void:</signature>
 			<description>注册轻量级 StringName 事件监听器，默认以当前状态作为 owner。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">event_id: StringName 事件标识符。</tag>
-				<tag name="param">callback: 回调函数，签名为 func(payload: Variant)。</tag>
+				<tag name="param">listener: 简单事件监听器契约。</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="unregister_simple_event">
-			<signature>func unregister_simple_event(event_id: StringName, callback: Callable) -&gt; void:</signature>
+			<signature>func unregister_simple_event(event_id: StringName, listener: GFEventListener) -&gt; void:</signature>
 			<description>注销轻量级 StringName 事件监听器。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">event_id: StringName 事件标识符。</tag>
-				<tag name="param">callback: 要移除的回调函数。</tag>
+				<tag name="param">listener: 要移除的简单事件监听器契约。</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="unregister_owner_events">

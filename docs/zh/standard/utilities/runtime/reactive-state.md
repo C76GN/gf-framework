@@ -52,7 +52,7 @@ store.set_value("profile.level", 2)
 var changes := store.end_batch()
 ```
 
-同一路径在一个批次内会合并为一条 dirty change，并保留第一次写入前的旧值和最后一次写入后的新值。`set_state()` 会复用 `GFVariantData.diff_variant()` 生成路径级差异，方便调试、日志和保存工具复用同一种变更记录形态。若 diff 达到 `max_changes` 上限并被截断，store 会降级派发根级 `state_replaced` 变更，表示订阅者应全量刷新，而不是只相信已收集到的部分路径。
+同一路径在一个批次内会合并为一条 dirty change，并保留第一次写入前的旧值和最后一次写入后的新值。合并身份由带类型的 path segment 序列决定，不使用人读字符串，因此字段名 `profile.name` 与路径 `profile -> name`、字符串键 `items[1]` 与整数索引 `1` 不会碰撞；报告中的 `path` 仍只负责显示。`set_state()` 会复用 `GFVariantData.diff_variant()` 生成路径级差异，方便调试、日志和保存工具复用同一种变更记录形态。若 diff 达到 `max_changes` 上限并被截断，store 会降级派发根级 `state_replaced` 变更，表示订阅者应全量刷新，而不是只相信已收集到的部分路径。
 
 订阅回调、`state_changed` 或 `path_changed` 中再次写入 store 时，新 dirty change 不会重入当前正在通知的订阅者批次；当前批次完成后，store 会按下一批继续派发，避免嵌套 flush 打乱同一批订阅者顺序。
 

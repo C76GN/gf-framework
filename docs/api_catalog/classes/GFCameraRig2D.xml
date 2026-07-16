@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFCameraRig2D" path="addons/gf/extensions/camera/nodes/gf_camera_rig_2d.gd" module="extensions/camera" extends="Node2D" classDigest="edd6d05ceb6772a41929d2e41b823532bb73dbdbb0569d670440dba1ea748c8e">
+<class name="GFCameraRig2D" path="addons/gf/extensions/camera/nodes/gf_camera_rig_2d.gd" module="extensions/camera" extends="Node2D" classDigest="b54062355bf6c32407c736ec7e7fc7bb0e7d9258477887f0a2a60bc04e638c9a">
 	<description>GFCameraRig2D: 通用 2D 相机姿态提供节点。
 Rig 只计算期望相机位置、旋转和缩放，不直接控制 Camera2D。
 项目可用多个 Rig 表达不同视角，再交给 GFCameraDirector2D 按优先级选择。</description>
@@ -100,6 +100,22 @@ Rig 只计算期望相机位置、旋转和缩放，不直接控制 Camera2D。
 				<tag name="since">6.0.0</tag>
 			</tags>
 		</member>
+		<member kind="property" name="camera_scope_path" decorators="@export_node_path(&quot;Node&quot;)">
+			<signature>var camera_scope_path: NodePath = NodePath("")</signature>
+			<description>相机选择作用域。为空时使用 Rig 父节点；Director 只会从相同作用域收集分组 Rig。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="camera_channel" decorators="@export">
+			<signature>var camera_channel: StringName = &amp;""</signature>
+			<description>相机选择频道。为空表示默认频道；Director 配置非空频道时只收集同频道 Rig。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
 		<member kind="property" name="metadata" decorators="@export">
 			<signature>var metadata: Dictionary = {}</signature>
 			<description>项目自定义元数据。框架不解释该字段。</description>
@@ -125,6 +141,25 @@ Rig 只计算期望相机位置、旋转和缩放，不直接控制 Camera2D。
 				<tag name="api">public</tag>
 				<tag name="return">包含 position、rotation、zoom 和 rig 的字典。</tag>
 				<tag name="schema">return: Dictionary，包含 position: Vector2、rotation: float、zoom: Vector2 与 rig: GFCameraRig2D。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_camera_pose_data">
+			<signature>func get_camera_pose_data() -&gt; Dictionary:</signature>
+			<description>获取 JSON-safe 的当前期望相机姿态数据。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">不包含 Object 引用的姿态数据。</tag>
+				<tag name="schema">return: Dictionary，包含 position、rotation、zoom、rig_path 和 rig_instance_id；Vector2 字段使用 GFVariantJsonCodec typed marker。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_camera_scope_node">
+			<signature>func get_camera_scope_node() -&gt; Node:</signature>
+			<description>获取相机选择作用域节点。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">作用域节点；显式路径为空时返回父节点。</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_available">

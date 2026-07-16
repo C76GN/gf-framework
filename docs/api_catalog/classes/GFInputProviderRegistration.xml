@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFInputProviderRegistration" path="addons/gf/standard/input/formatting/gf_input_provider_registration.gd" module="standard" extends="RefCounted" classDigest="75e42943de6e7b066fa41db03fa5739000ed58fe1869da3cd2b0cb685e3901d0">
+	<description>GFInputProviderRegistration: 输入格式化 provider 注册句柄。
+由 GFInputFormatterRegistry 返回，用于显式释放一次 provider 注册。
+句柄只管理注册生命周期，不拥有 provider 的业务语义。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_handle</tag>
+		<tag name="layer">standard/input</tag>
+		<tag name="since">8.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties>
+		<member kind="property" name="provider_kind">
+			<signature>var provider_kind: StringName = &amp;""</signature>
+			<description>Provider 类型。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="provider">
+			<signature>var provider: Resource = null</signature>
+			<description>已注册 provider。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="is_active">
+			<signature>func is_active() -&gt; bool:</signature>
+			<description>检查注册是否仍处于活动状态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">活动返回 true。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="release">
+			<signature>func release() -&gt; bool:</signature>
+			<description>释放注册。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">本次调用确实释放了注册时返回 true。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

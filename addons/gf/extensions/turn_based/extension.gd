@@ -14,9 +14,11 @@ const _GF_TURN_FLOW_SYSTEM_SCRIPT = preload("res://addons/gf/extensions/turn_bas
 ## @api framework_internal
 ## [br]
 ## @param architecture: 要装配的架构实例。
-func install(architecture: GFArchitecture) -> void:
+## [br]
+## @param _scope: 本轮安装的取消作用域。
+func install(architecture: GFArchitecture, _scope: GFAsyncScope) -> void:
 	if architecture == null:
 		return
 	if architecture.get_local_system(_GF_TURN_FLOW_SYSTEM_SCRIPT) != null:
 		return
-	await architecture.register_system_instance(_GF_TURN_FLOW_SYSTEM_SCRIPT.new())
+	var _registered_turn_flow: bool = await architecture.register_system_instance(_GF_TURN_FLOW_SYSTEM_SCRIPT.new())

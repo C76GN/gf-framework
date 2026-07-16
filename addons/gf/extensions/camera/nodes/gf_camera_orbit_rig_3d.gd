@@ -33,9 +33,9 @@ signal orbit_changed(yaw_degrees_value: float, pitch_degrees_value: float, dista
 ## @api public
 @export var yaw_degrees: float = 0.0:
 	set(value):
-		if is_equal_approx(yaw_degrees, value):
+		if is_equal_approx(yaw_degrees, _sanitize_float(value, yaw_degrees)):
 			return
-		yaw_degrees = value
+		yaw_degrees = _sanitize_float(value, yaw_degrees)
 		_emit_orbit_changed()
 
 ## 俯仰角度，单位度。
@@ -43,9 +43,9 @@ signal orbit_changed(yaw_degrees_value: float, pitch_degrees_value: float, dista
 ## @api public
 @export var pitch_degrees: float = -20.0:
 	set(value):
-		if is_equal_approx(pitch_degrees, clampf(value, min_pitch_degrees, max_pitch_degrees)):
+		if is_equal_approx(pitch_degrees, clampf(_sanitize_float(value, pitch_degrees), min_pitch_degrees, max_pitch_degrees)):
 			return
-		pitch_degrees = clampf(value, min_pitch_degrees, max_pitch_degrees)
+		pitch_degrees = clampf(_sanitize_float(value, pitch_degrees), min_pitch_degrees, max_pitch_degrees)
 		_emit_orbit_changed()
 
 ## 与焦点的距离。
@@ -53,9 +53,9 @@ signal orbit_changed(yaw_degrees_value: float, pitch_degrees_value: float, dista
 ## @api public
 @export_range(0.0, 10000.0, 0.01, "or_greater") var distance: float = 8.0:
 	set(value):
-		if is_equal_approx(distance, clampf(value, min_distance, max_distance)):
+		if is_equal_approx(distance, clampf(_sanitize_float(value, distance), min_distance, max_distance)):
 			return
-		distance = clampf(value, min_distance, max_distance)
+		distance = clampf(_sanitize_float(value, distance), min_distance, max_distance)
 		_emit_orbit_changed()
 
 ## 最小距离。
@@ -63,7 +63,7 @@ signal orbit_changed(yaw_degrees_value: float, pitch_degrees_value: float, dista
 ## @api public
 @export_range(0.0, 10000.0, 0.01, "or_greater") var min_distance: float = 1.0:
 	set(value):
-		min_distance = maxf(value, 0.0)
+		min_distance = maxf(_sanitize_float(value, min_distance), 0.0)
 		if max_distance < min_distance:
 			max_distance = min_distance
 		clamp_orbit()
@@ -73,7 +73,7 @@ signal orbit_changed(yaw_degrees_value: float, pitch_degrees_value: float, dista
 ## @api public
 @export_range(0.0, 10000.0, 0.01, "or_greater") var max_distance: float = 50.0:
 	set(value):
-		max_distance = maxf(value, min_distance)
+		max_distance = maxf(_sanitize_float(value, max_distance), min_distance)
 		clamp_orbit()
 
 ## 最小俯仰角度。
@@ -81,7 +81,7 @@ signal orbit_changed(yaw_degrees_value: float, pitch_degrees_value: float, dista
 ## @api public
 @export_range(-89.0, 89.0, 0.1) var min_pitch_degrees: float = -80.0:
 	set(value):
-		min_pitch_degrees = clampf(value, -89.0, max_pitch_degrees)
+		min_pitch_degrees = clampf(_sanitize_float(value, min_pitch_degrees), -89.0, max_pitch_degrees)
 		clamp_orbit()
 
 ## 最大俯仰角度。
@@ -89,7 +89,7 @@ signal orbit_changed(yaw_degrees_value: float, pitch_degrees_value: float, dista
 ## @api public
 @export_range(-89.0, 89.0, 0.1) var max_pitch_degrees: float = 80.0:
 	set(value):
-		max_pitch_degrees = clampf(value, min_pitch_degrees, 89.0)
+		max_pitch_degrees = clampf(_sanitize_float(value, max_pitch_degrees), min_pitch_degrees, 89.0)
 		clamp_orbit()
 
 ## 是否让相机始终朝向焦点。
@@ -117,13 +117,19 @@ var _suspend_orbit_signal: bool = false
 ## @return 当前焦点的全局位置。
 func get_focus_position() -> Vector3:
 	var target: Node3D = get_target_node()
-	var focus_transform: Transform3D = global_transform
+	var focus_transform: Transform3D = _GF_CAMERA_FINITE_MATH.sanitize_transform3d(
+		global_transform,
+		Transform3D.IDENTITY
+	)
 	if target != null:
-		focus_transform = target.global_transform
+		focus_transform = _GF_CAMERA_FINITE_MATH.sanitize_transform3d(
+			target.global_transform,
+			focus_transform
+		)
 
-	var focus_basis: Basis = focus_transform.basis.orthonormalized()
-	var effective_offset: Vector3 = focus_basis * offset if offset_follows_rotation else offset
-	return focus_transform.origin + effective_offset
+	var safe_offset: Vector3 = _sanitize_vector3(offset, Vector3.ZERO)
+	var effective_offset: Vector3 = focus_transform.basis * safe_offset if offset_follows_rotation else safe_offset
+	return _sanitize_vector3(focus_transform.origin + effective_offset, focus_transform.origin)
 
 
 ## 获取从焦点指向相机的单位方向。
@@ -132,8 +138,8 @@ func get_focus_position() -> Vector3:
 ## [br]
 ## @return 环绕方向。
 func get_orbit_direction() -> Vector3:
-	var yaw: float = deg_to_rad(yaw_degrees)
-	var pitch: float = deg_to_rad(pitch_degrees)
+	var yaw: float = deg_to_rad(_sanitize_float(yaw_degrees, 0.0))
+	var pitch: float = deg_to_rad(_sanitize_float(pitch_degrees, 0.0))
 	var horizontal: float = cos(pitch)
 	var direction: Vector3 = Vector3(
 		sin(yaw) * horizontal,
@@ -152,11 +158,25 @@ func get_orbit_direction() -> Vector3:
 ## @return 期望全局 Transform。
 func get_camera_transform() -> Transform3D:
 	var focus: Vector3 = get_focus_position()
-	var camera_position: Vector3 = focus + get_orbit_direction() * distance
-	var camera_transform: Transform3D = Transform3D(global_transform.basis.orthonormalized(), camera_position)
-	if look_at_focus and not camera_position.is_equal_approx(focus):
+	var camera_position: Vector3 = _sanitize_vector3(
+		focus + get_orbit_direction() * _sanitize_float(distance, 0.0),
+		focus
+	)
+	var camera_transform: Transform3D = Transform3D(
+		_GF_CAMERA_FINITE_MATH.sanitize_basis(global_transform.basis, Basis.IDENTITY),
+		camera_position
+	)
+	if look_at_enabled:
+		var look_at_target: Node3D = get_look_at_target_node()
+		if look_at_target != null and not camera_position.is_equal_approx(look_at_target.global_position):
+			var look_direction: Vector3 = look_at_target.global_position - camera_position
+			camera_transform = camera_transform.looking_at(look_at_target.global_position, _get_safe_up_axis_for_direction(look_direction))
+	elif look_at_focus and not camera_position.is_equal_approx(focus):
 		camera_transform = camera_transform.looking_at(focus, _get_safe_orbit_up_axis_for_direction(focus - camera_position))
-	return camera_transform
+	return _GF_CAMERA_FINITE_MATH.sanitize_transform3d(
+		_apply_rotation_offset(camera_transform),
+		Transform3D(Basis.IDENTITY, camera_position)
+	)
 
 
 ## 设置环绕参数。
@@ -191,7 +211,8 @@ func set_orbit(new_yaw_degrees: float, new_pitch_degrees: float, new_distance: f
 ## [br]
 ## @param delta_degrees: x 为 yaw 增量，y 为 pitch 增量，单位度。
 func apply_orbit_delta(delta_degrees: Vector2) -> void:
-	set_orbit(yaw_degrees + delta_degrees.x, pitch_degrees + delta_degrees.y, distance)
+	var safe_delta: Vector2 = _sanitize_vector2(delta_degrees, Vector2.ZERO)
+	set_orbit(yaw_degrees + safe_delta.x, pitch_degrees + safe_delta.y, distance)
 
 
 ## 应用距离增量。
@@ -200,7 +221,7 @@ func apply_orbit_delta(delta_degrees: Vector2) -> void:
 ## [br]
 ## @param delta_distance: 距离增量；正数拉远，负数拉近。
 func apply_zoom_delta(delta_distance: float) -> void:
-	set_orbit(yaw_degrees, pitch_degrees, distance + delta_distance)
+	set_orbit(yaw_degrees, pitch_degrees, distance + _sanitize_float(delta_distance, 0.0))
 
 
 ## 按当前上下限夹紧环绕参数。
@@ -225,13 +246,13 @@ func clamp_orbit() -> void:
 ## [br]
 ## @schema return: Dictionary，包含 yaw_degrees、pitch_degrees、distance、focus_position 和 direction。
 func get_debug_snapshot() -> Dictionary:
-	return {
+	return GFReportValueCodec.to_report_dictionary({
 		"yaw_degrees": yaw_degrees,
 		"pitch_degrees": pitch_degrees,
 		"distance": distance,
 		"focus_position": get_focus_position(),
 		"direction": get_orbit_direction(),
-	}
+	}, GFReportValueCodec.make_redaction_options(GFReportValueCodec.REDACTION_PROFILE_DEBUG))
 
 
 # --- 私有/辅助方法 ---
@@ -243,9 +264,10 @@ func _emit_orbit_changed() -> void:
 
 
 func _get_safe_orbit_up_axis() -> Vector3:
-	if orbit_up_axis.length_squared() <= 0.000001:
+	var safe_axis: Vector3 = _sanitize_vector3(orbit_up_axis, Vector3.UP)
+	if safe_axis.length_squared() <= 0.000001:
 		return Vector3.UP
-	return orbit_up_axis.normalized()
+	return safe_axis.normalized()
 
 
 func _get_safe_orbit_up_axis_for_direction(direction: Vector3) -> Vector3:
@@ -258,3 +280,7 @@ func _get_safe_orbit_up_axis_for_direction(direction: Vector3) -> Vector3:
 	if absf(normalized_direction.dot(Vector3.UP)) < 0.999:
 		return Vector3.UP
 	return Vector3.RIGHT
+
+
+func _sanitize_vector2(value: Vector2, fallback: Vector2) -> Vector2:
+	return _GF_CAMERA_FINITE_MATH.sanitize_vector2(value, fallback)

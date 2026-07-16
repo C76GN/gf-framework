@@ -13,10 +13,16 @@ extends RefCounted
 
 # --- 公共变量 ---
 
-## 每个区域包含的格子尺寸。
+## 每个区域包含的格子尺寸；运行时修改会重新索引已有格子并标记受影响区域为脏。
 ## [br]
 ## @api public
-var region_size: Vector3i = Vector3i(32, 32, 32)
+## [br]
+## @since 8.0.0
+var region_size: Vector3i = Vector3i(32, 32, 32):
+	get:
+		return _region_size
+	set(value):
+		_set_region_size(value)
 
 ## 读写值时是否复制集合类型。
 ## [br]
@@ -28,6 +34,7 @@ var duplicate_values: bool = true
 
 var _regions: Dictionary = {}
 var _dirty_regions: Dictionary = {}
+var _region_size: Vector3i = Vector3i(32, 32, 32)
 
 
 # --- 公共方法 ---
@@ -269,6 +276,16 @@ func get_debug_snapshot() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+func _set_region_size(value: Vector3i) -> void:
+	var normalized_size: Vector3i = _normalize_region_size(value)
+	if _region_size == normalized_size:
+		return
+	var previous_regions: Dictionary = _regions
+	_region_size = normalized_size
+	if not previous_regions.is_empty():
+		_reindex_regions(previous_regions)
+
+
 func _get_or_create_region(region_key: Vector3i) -> Dictionary:
 	if not _regions.has(region_key):
 		_regions[region_key] = {}
@@ -286,11 +303,43 @@ func _copy_value(value: Variant) -> Variant:
 
 
 func _get_safe_region_size() -> Vector3i:
+	return _normalize_region_size(_region_size)
+
+
+func _normalize_region_size(value: Vector3i) -> Vector3i:
 	return Vector3i(
-		maxi(region_size.x, 1),
-		maxi(region_size.y, 1),
-		maxi(region_size.z, 1)
+		maxi(value.x, 1),
+		maxi(value.y, 1),
+		maxi(value.z, 1)
 	)
+
+
+func _reindex_regions(previous_regions: Dictionary) -> void:
+	var previous_dirty_region_keys: Array = _dirty_regions.keys()
+	_regions = {}
+	_dirty_regions.clear()
+
+	for region_key_variant: Variant in previous_regions.keys():
+		if region_key_variant is Vector3i:
+			var previous_region_key: Vector3i = region_key_variant
+			_mark_dirty(previous_region_key)
+	for region_key_variant: Variant in previous_dirty_region_keys:
+		if region_key_variant is Vector3i:
+			var previous_dirty_region_key: Vector3i = region_key_variant
+			_mark_dirty(previous_dirty_region_key)
+
+	for region_variant: Variant in previous_regions.values():
+		if not (region_variant is Dictionary):
+			continue
+		var region: Dictionary = GFVariantData.as_dictionary(region_variant)
+		for cell_variant: Variant in region.keys():
+			if not (cell_variant is Vector3i):
+				continue
+			var cell: Vector3i = cell_variant
+			var next_region_key: Vector3i = get_region_key_for_cell(cell)
+			var next_region: Dictionary = _get_or_create_region(next_region_key)
+			next_region[cell] = region[cell]
+			_mark_dirty(next_region_key)
 
 
 func _get_cell_count() -> int:

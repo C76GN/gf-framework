@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "id": "gf.tool.network.editor",
+  "kind": "tool",
+  "version": "unreleased",
+  "display_name": "GF Network Editor Tool",
+  "description": "Editor-only Network contract generation actions and typed accessor generator.",
+  "dependencies": [
+    "gf.kernel",
+    "gf.standard.base",
+    "gf.extension.network"
+  ],
+  "paths": [
+    "addons/gf/extensions/network/editor/**"
+  ],
+  "metadata": {
+    "stage": "network-tool-split-v1"
+  }
+}

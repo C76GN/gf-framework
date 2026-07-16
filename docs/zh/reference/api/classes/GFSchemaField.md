@@ -278,12 +278,13 @@ func is_value_valid(value: Variant) -> bool:
 ### `coerce_value`
 
 - API：`public`
+- 首次版本：`4.4.0`
 
 ```gdscript
 func coerce_value(value: Variant) -> Variant:
 ```
 
-将输入值转换为字段要求的类型。
+将输入值转换为字段要求的类型；转换失败时返回输入值副本。
 
 参数：
 
@@ -291,7 +292,7 @@ func coerce_value(value: Variant) -> Variant:
 |---|---|
 | `value` | 输入值。 |
 
-返回：转换后的值。
+返回：转换后的值；失败时为输入值副本。
 
 结构：
 

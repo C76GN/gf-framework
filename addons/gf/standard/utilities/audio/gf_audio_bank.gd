@@ -213,6 +213,28 @@ func resolve_clip(clip_id: StringName, rng: RandomNumberGenerator = null) -> Dic
 	return _make_resolution_report(false, clip_id, &"", false, attempted_ids, null)
 
 
+## 把 resolve_clip() 的原始报告转换为 JSON-safe 诊断报告。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+## [br]
+## @param report: resolve_clip() 返回的原始报告。
+## [br]
+## @param options: 传给 GFReportValueCodec 的编码选项。
+## [br]
+## @return JSON-safe 解析报告。
+## [br]
+## @schema report: Dictionary，包含 ok、requested_id、resolved_id、fallback_used、attempted_ids 和 clip 字段。
+## [br]
+## @schema options: Dictionary with GFReportValueCodec options.
+## [br]
+## @schema return: Dictionary，clip 会转换为脱敏 marker，不直接暴露 GFAudioClip 资源实例。
+func to_json_compatible_resolution_report(report: Dictionary, options: Dictionary = {}) -> Dictionary:
+	var codec_options: Dictionary = options.duplicate(true)
+	return GFVariantData.as_dictionary(GFReportValueCodec.to_json_compatible(report, codec_options))
+
+
 ## 检查是否存在指定片段。
 ## [br]
 ## @api public

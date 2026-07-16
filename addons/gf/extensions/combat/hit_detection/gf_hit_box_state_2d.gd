@@ -21,19 +21,23 @@ extends Node2D
 signal active_changed(active: bool)
 
 
+# --- 常量 ---
+
+const _GF_HIT_BOX_STATE_SUPPORT = preload("res://addons/gf/extensions/combat/hit_detection/gf_hit_box_state_support.gd")
+
+
 # --- 导出变量 ---
 
 ## 当前状态是否激活。
 ## [br]
 ## @api public
-@export var active: bool = true:
+## [br]
+## @since 3.17.0
+@export var active: bool:
+	get:
+		return _active
 	set(value):
-		if active == value:
-			return
-		active = value
-		if is_inside_tree():
-			apply_state()
-			active_changed.emit(active)
+		_set_active(value)
 
 ## 是否在 _ready() 时应用当前状态。
 ## [br]
@@ -59,6 +63,11 @@ signal active_changed(active: bool)
 ## [br]
 ## @api public
 @export var manage_visibility: bool = false
+
+
+# --- 私有变量 ---
+
+var _active: bool = true
 
 
 # --- Godot 生命周期方法 ---
@@ -91,9 +100,6 @@ func deactivate() -> void:
 ## @param value: 是否激活。
 func set_active_state(value: bool) -> void:
 	active = value
-	if is_inside_tree():
-		apply_state()
-		active_changed.emit(active)
 
 
 ## 应用当前状态到所有受管理节点。
@@ -110,19 +116,22 @@ func apply_state() -> void:
 ## [br]
 ## @return 节点列表。
 func get_managed_nodes() -> Array[Node]:
-	var result: Array[Node] = []
-	_collect_managed_nodes(self, result)
-	return result
+	return _GF_HIT_BOX_STATE_SUPPORT.collect_managed_nodes(
+		self,
+		recursive,
+		Callable(self, "_is_managed_node")
+	)
 
 
 # --- 私有/辅助方法 ---
 
-func _collect_managed_nodes(parent: Node, result: Array[Node]) -> void:
-	for child: Node in parent.get_children():
-		if _is_managed_node(child):
-			result.append(child)
-		if recursive:
-			_collect_managed_nodes(child, result)
+func _set_active(value: bool) -> void:
+	if _active == value:
+		return
+	_active = value
+	if is_inside_tree():
+		apply_state()
+		active_changed.emit(_active)
 
 
 func _is_managed_node(node: Node) -> bool:

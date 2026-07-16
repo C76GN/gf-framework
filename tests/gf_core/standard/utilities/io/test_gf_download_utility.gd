@@ -47,15 +47,16 @@ func test_enqueue_download_commits_temp_and_reports_success() -> void:
 func test_resume_download_appends_segment_when_server_returns_partial_content() -> void:
 	var target: String = _track_path("user://gf_download_resume_%d.txt" % Time.get_ticks_usec())
 	var temp: String = _track_path(target + ".download")
-	var segment: String = _track_path(temp + ".segment")
+	var _segment: String = _track_path(temp + ".segment")
 	_write_text(temp, "old")
 	_utility.responses.append({ "success": true, "response_code": 206, "content": "new" })
 
-	var _enqueue_download_result_54: Variant = _utility.enqueue_download("https://example.test/file", target, Callable(), {
-		"temp_path": temp,
-		"segment_path": segment,
-		"resume": true,
-	})
+	var _enqueue_download_result_54: Variant = _utility.enqueue_download(
+		"https://example.test/file",
+		target,
+		Callable(),
+		{ "resume": true }
+	)
 	await get_tree().process_frame
 
 	var headers: PackedStringArray = _request_headers(0)
@@ -407,11 +408,15 @@ func test_enqueue_manifest_rejects_unsafe_relative_targets() -> void:
 
 func test_enqueue_download_rejects_unsafe_direct_paths() -> void:
 	var safe_target: String = _track_path("user://gf_download_direct_safe_%d.txt" % Time.get_ticks_usec())
+	var unrelated_temp: String = _track_path("user://gf_download_unrelated_%d.tmp" % Time.get_ticks_usec())
 
 	var unsafe_target_id: int = _utility.enqueue_download("https://example.test/target", "../escape.txt")
 	var native_target_id: int = _utility.enqueue_download("https://example.test/native", "C:/gf_escape.txt")
 	var unsafe_temp_id: int = _utility.enqueue_download("https://example.test/temp", safe_target, Callable(), {
 		"temp_path": "../escape.tmp",
+	})
+	var unrelated_temp_id: int = _utility.enqueue_download("https://example.test/unrelated", safe_target, Callable(), {
+		"temp_path": unrelated_temp,
 	})
 	var unsafe_segment_id: int = _utility.enqueue_download("https://example.test/segment", safe_target, Callable(), {
 		"segment_path": "res://gf_download_other_root.segment",
@@ -421,12 +426,14 @@ func test_enqueue_download_rejects_unsafe_direct_paths() -> void:
 	assert_eq(unsafe_target_id, 0, "direct target 不应允许 parent traversal。")
 	assert_eq(native_target_id, 0, "direct target 不应默认允许原生绝对路径。")
 	assert_eq(unsafe_temp_id, 0, "temp_path 不应越过受控根。")
+	assert_eq(unrelated_temp_id, 0, "temp_path 即使同属 user:// 也必须由 target 派生。")
 	assert_eq(unsafe_segment_id, 0, "segment_path 应与 target 位于同一受控根。")
 	assert_eq(_utility.request_log.size(), 0, "无效直接路径不应启动 HTTP 请求。")
 	assert_push_error("[GFDownloadUtility] enqueue_download 失败：target_path 不在受控 res:// 或 user:// 根内：../escape.txt。")
 	assert_push_error("[GFDownloadUtility] enqueue_download 失败：target_path 不在受控 res:// 或 user:// 根内：C:/gf_escape.txt。")
-	assert_push_error("[GFDownloadUtility] enqueue_download 失败：temp_path 不在 target_path 同一受控根内：../escape.tmp。")
-	assert_push_error("[GFDownloadUtility] enqueue_download 失败：segment_path 不在 target_path 同一受控根内：res://gf_download_other_root.segment。")
+	assert_push_error("[GFDownloadUtility] enqueue_download 失败：temp_path 由 utility 独占管理，不接受调用方覆盖。")
+	assert_push_error("[GFDownloadUtility] enqueue_download 失败：temp_path 由 utility 独占管理，不接受调用方覆盖。")
+	assert_push_error("[GFDownloadUtility] enqueue_download 失败：segment_path 由 utility 独占管理，不接受调用方覆盖。")
 
 
 # --- 私有/辅助方法 ---

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFDialogueContext" path="addons/gf/extensions/dialogue/runtime/gf_dialogue_context.gd" module="extensions/dialogue" extends="RefCounted" classDigest="78d5343cfb95dd3b35e574ea93dc287e7da12160f1ce610c933b532a22c0ee12">
+<class name="GFDialogueContext" path="addons/gf/extensions/dialogue/runtime/gf_dialogue_context.gd" module="extensions/dialogue" extends="RefCounted" classDigest="80ddba8ae03c011360a43bd5581782009b51e1efeef9a86a6d14bc89045fac86">
 	<description>GFDialogueContext: 通用对话运行上下文。
 上下文保存运行时值，并把条件判断、mutation 和文本解析委托给项目提供的
 Callable。框架只负责规范调用与结果包装。</description>
@@ -124,20 +124,22 @@ Callable。框架只负责规范调用与结果包装。</description>
 		</member>
 		<member kind="method" name="serialize_values">
 			<signature>func serialize_values() -&gt; Dictionary:</signature>
-			<description>序列化运行值。</description>
+			<description>序列化运行值为 JSON 兼容结构。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="return">值表副本。</tag>
-				<tag name="schema">return: values 的深拷贝 Dictionary。</tag>
+				<tag name="return">JSON 兼容值表副本。</tag>
+				<tag name="schema">return: values 经过 GFVariantJsonCodec 编码后的深拷贝 Dictionary。</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="deserialize_values">
 			<signature>func deserialize_values(data: Dictionary) -&gt; void:</signature>
-			<description>恢复运行值。</description>
+			<description>从 JSON 兼容结构恢复运行值。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="param">data: 值表。</tag>
-				<tag name="schema">data: serialize_values() 返回的运行时值 Dictionary。</tag>
+				<tag name="param">data: serialize_values() 返回的值表。</tag>
+				<tag name="schema">data: serialize_values() 返回的 JSON 兼容 Dictionary。</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 	</methods>

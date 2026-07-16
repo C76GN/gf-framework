@@ -29,6 +29,7 @@
 | 方法 | [`get_artifact_report`](#member-gfcontentpackageexportplan-methods-get_artifact_report) | `func get_artifact_report(options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`get_preflight_report`](#member-gfcontentpackageexportplan-methods-get_preflight_report) | `func get_preflight_report( profile: GFCompatibilityProfile = null, options: Dictionary = {} ) -> Dictionary:` |
 | 方法 | [`to_dictionary`](#member-gfcontentpackageexportplan-methods-to_dictionary) | `func to_dictionary() -> Dictionary:` |
+| 方法 | [`to_report_dictionary`](#member-gfcontentpackageexportplan-methods-to_report_dictionary) | `func to_report_dictionary(options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`from_manifest`](#member-gfcontentpackageexportplan-methods-from_manifest) | `static func from_manifest( manifest: GFContentPackageManifest, options: Dictionary = {} ) -> GFContentPackageExportPlan:` |
 | 方法 | [`from_catalog`](#member-gfcontentpackageexportplan-methods-from_catalog) | `static func from_catalog( catalog: GFContentPackageCatalog, options: Dictionary = {} ) -> GFContentPackageExportPlan:` |
 
@@ -309,6 +310,32 @@ func to_dictionary() -> Dictionary:
 结构：
 
 - `return`: Dictionary with package_id, version, root_path, entries, issues, and metadata.
+
+<a id="member-gfcontentpackageexportplan-methods-to_report_dictionary"></a>
+
+### `to_report_dictionary`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func to_report_dictionary(options: Dictionary = {}) -> Dictionary:
+```
+
+转换为 JSON-safe 报告字典。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `options` | 传给 GFReportValueCodec 的编码选项。 |
+
+返回：计划报告字典。
+
+结构：
+
+- `options`: Dictionary with GFReportValueCodec encoding options.
+- `return`: JSON-safe Dictionary based on to_dictionary().
 
 <a id="member-gfcontentpackageexportplan-methods-from_manifest"></a>
 

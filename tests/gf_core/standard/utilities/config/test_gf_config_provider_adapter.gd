@@ -99,6 +99,27 @@ func test_config_provider_adapter_clear_cache_updates_load_report() -> void:
 	assert_eq(GFVariantData.get_option_int(GFVariantData.as_dictionary(second_table[0]), "id"), 2, "清除缓存后再次读取应重新加载。")
 
 
+func test_config_provider_adapter_fails_closed_for_freed_object_source() -> void:
+	var provider: GF_CONFIG_PROVIDER_ADAPTER_SCRIPT = GF_CONFIG_PROVIDER_ADAPTER_SCRIPT.new()
+	var object_table: DisposableGeneratedTable = DisposableGeneratedTable.new()
+	assert_true(provider.register_table_source(&"generated", object_table), "有效对象源应可注册。")
+	object_table.free()
+
+	var report: Dictionary = provider.preload_table(&"generated")
+
+	assert_false(GFVariantData.get_option_bool(report, "ok"), "已释放对象源应成为可观察的加载失败。")
+	assert_eq(GFVariantData.get_option_string(report, "status"), "failed")
+
+
+func test_config_provider_adapter_clear_removes_standalone_schemas() -> void:
+	var provider: GF_CONFIG_PROVIDER_ADAPTER_SCRIPT = GF_CONFIG_PROVIDER_ADAPTER_SCRIPT.new()
+	assert_true(provider.register_schema(_make_schema(&"standalone")), "独立 schema 应可注册。")
+
+	provider.clear_table_sources()
+
+	assert_false(provider.has_schema(&"standalone"), "clear_table_sources 的清空契约应覆盖无 source 的独立 schema。")
+
+
 func _make_schema(table_name: StringName) -> GFConfigTableSchema:
 	var schema: GFConfigTableSchema = GFConfigTableSchema.new()
 	schema.table_name = table_name
@@ -119,3 +140,9 @@ class GeneratedTable extends RefCounted:
 
 	func get_record_count() -> int:
 		return 1
+
+
+class DisposableGeneratedTable extends Node:
+
+	func get_record(_record_id: Variant) -> Dictionary:
+		return {}

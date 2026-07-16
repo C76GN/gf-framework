@@ -26,6 +26,7 @@ signal _pause_state_changed
 
 const _ACTION_PROTOCOL = preload("res://addons/gf/extensions/action_queue/core/gf_action_protocol.gd")
 const _GF_ASYNC_CALL_SCRIPT = preload("res://addons/gf/kernel/core/gf_async_call.gd")
+const _DEBUG_SNAPSHOT_MAX_DEPTH: int = 8
 
 
 # --- 公共变量 ---
@@ -34,6 +35,28 @@ const _GF_ASYNC_CALL_SCRIPT = preload("res://addons/gf/kernel/core/gf_async_call
 ## [br]
 ## @api public
 var is_processing: bool = false
+
+## 单个处理切片最多消费的即时动作数；达到上限后让出到下一 process frame。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+var max_immediate_actions_per_slice: int:
+	get:
+		return _max_immediate_actions_per_slice
+	set(value):
+		_max_immediate_actions_per_slice = maxi(value, 1)
+
+## 调试快照最多展开的直接命名队列数量。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+var max_debug_named_queue_entries: int:
+	get:
+		return _max_debug_named_queue_entries
+	set(value):
+		_max_debug_named_queue_entries = maxi(value, 0)
 
 
 # --- 私有变量 ---
@@ -68,6 +91,10 @@ var _is_paused: bool = false
 # 当前队列是否已经释放。
 var _is_disposed: bool = false
 
+# 单帧同步消费预算的受控存储。
+var _max_immediate_actions_per_slice: int = 256
+var _max_debug_named_queue_entries: int = 64
+
 
 # --- GF 生命周期方法 ---
 
@@ -75,6 +102,10 @@ var _is_disposed: bool = false
 ## [br]
 ## @api public
 func init() -> void:
+	if is_processing or is_instance_valid(_current_action) or not _queue.is_empty() or not _named_queues.is_empty():
+		clear_queue(true)
+		_dispose_all_named_queues()
+
 	_is_disposed = false
 	_processing_serial += 1
 	_queue.clear()
@@ -235,6 +266,7 @@ func clear_queue(stop_current: bool = false) -> void:
 		is_processing = false
 		if was_processing:
 			queue_drained.emit()
+	_publish_diagnostics_contribution()
 
 
 ## 获取或创建一个命名动作队列。
@@ -256,9 +288,12 @@ func get_named_queue(queue_name: StringName) -> GFActionQueueSystem:
 	var queue: GFActionQueueSystem = GFActionQueueSystem.new()
 	var architecture: GFArchitecture = _get_architecture_or_null()
 	queue.init()
+	queue.max_immediate_actions_per_slice = max_immediate_actions_per_slice
+	queue.max_debug_named_queue_entries = max_debug_named_queue_entries
 	if architecture != null:
 		queue.inject_dependencies(architecture)
 	_named_queues[queue_name] = queue
+	_publish_diagnostics_contribution()
 	return queue
 
 
@@ -311,6 +346,7 @@ func add_interceptor(interceptor: GFActionInterceptor) -> bool:
 	_interceptors.append(interceptor)
 	_sort_interceptors()
 	_inject_interceptor_dependencies(interceptor)
+	_publish_diagnostics_contribution()
 	return true
 
 
@@ -325,6 +361,7 @@ func remove_interceptor(interceptor: GFActionInterceptor) -> bool:
 	if interceptor == null or not _interceptors.has(interceptor):
 		return false
 	_interceptors.erase(interceptor)
+	_publish_diagnostics_contribution()
 	return true
 
 
@@ -344,6 +381,7 @@ func set_interceptors(interceptors: Array[GFActionInterceptor]) -> void:
 ## @api public
 func clear_interceptors() -> void:
 	_interceptors.clear()
+	_publish_diagnostics_contribution()
 
 
 ## 获取动作执行拦截器副本。
@@ -428,13 +466,13 @@ func clear_named_queue(queue_name: StringName, stop_current: bool = false) -> vo
 ## [br]
 ## @api public
 ## [br]
-## @param stop_current: 是否停止当前正在执行的动作。
+## @since 8.0.0
+## [br]
+## @param stop_current: 兼容参数；命名队列由父队列拥有，清理时总会释放子队列并停止其当前动作。
 func clear_all_named_queues(stop_current: bool = false) -> void:
-	for queue_value: Variant in _named_queues.values():
-		var queue: GFActionQueueSystem = _variant_to_action_queue(queue_value)
-		if queue != null:
-			queue.clear_queue(stop_current)
-	_named_queues.clear()
+	var _stop_current_value: bool = stop_current
+	_dispose_all_named_queues()
+	_publish_diagnostics_contribution()
 
 
 ## 跳过当前动作并继续消费后续动作。
@@ -506,25 +544,9 @@ func get_current_action() -> Object:
 ## [br]
 ## @return 诊断快照字典。
 ## [br]
-## @schema return: Dictionary，包含 is_processing、is_paused、queued_count、has_current_action、processing_serial、named_queue_count、named_queues、linked_node_alive 和 interceptor_count。
+## @schema return: Dictionary，包含 is_processing、is_paused、queued_count、has_current_action、processing_serial、max_immediate_actions_per_slice、named_queue_count、named_queue_snapshot_count、named_queues_truncated、named_queues、linked_node_alive 和 interceptor_count。
 func get_debug_snapshot() -> Dictionary:
-	var named_snapshots: Dictionary = {}
-	for queue_name: StringName in _named_queues.keys():
-		var queue: GFActionQueueSystem = _get_named_queue_value(queue_name)
-		if queue != null:
-			named_snapshots[queue_name] = queue.get_debug_snapshot()
-
-	return {
-		"is_processing": is_processing,
-		"is_paused": _is_paused,
-		"queued_count": maxi(_queue.size() - _queue_head_index, 0),
-		"has_current_action": is_instance_valid(_current_action),
-		"processing_serial": _processing_serial,
-		"named_queue_count": _named_queues.size(),
-		"named_queues": named_snapshots,
-		"linked_node_alive": _linked_node_ref != null and _linked_node_ref.get_ref() != null,
-		"interceptor_count": _interceptors.size(),
-	}
+	return _build_debug_snapshot(_DEBUG_SNAPSHOT_MAX_DEPTH)
 
 
 ## 驱动命名队列的生命周期清理。
@@ -545,11 +567,44 @@ func tick(_delta: float) -> void:
 
 # --- 私有/辅助方法 ---
 
+func _build_debug_snapshot(remaining_depth: int) -> Dictionary:
+	var named_snapshots: Dictionary = {}
+	var queue_names: Array[StringName] = []
+	for queue_name_value: Variant in _named_queues.keys():
+		queue_names.append(GFVariantData.to_string_name(queue_name_value))
+	queue_names.sort()
+	var named_queues_truncated: bool = remaining_depth <= 0 and not queue_names.is_empty()
+	var snapshot_count: int = mini(queue_names.size(), max_debug_named_queue_entries)
+	if snapshot_count < queue_names.size():
+		named_queues_truncated = true
+	if remaining_depth > 0:
+		for index: int in snapshot_count:
+			var queue_name: StringName = queue_names[index]
+			var queue: GFActionQueueSystem = _get_named_queue_value(queue_name)
+			if queue != null:
+				named_snapshots[queue_name] = queue._build_debug_snapshot(remaining_depth - 1)
+
+	return {
+		"is_processing": is_processing,
+		"is_paused": _is_paused,
+		"queued_count": maxi(_queue.size() - _queue_head_index, 0),
+		"has_current_action": is_instance_valid(_current_action),
+		"processing_serial": _processing_serial,
+		"max_immediate_actions_per_slice": max_immediate_actions_per_slice,
+		"named_queue_count": _named_queues.size(),
+		"named_queue_snapshot_count": named_snapshots.size(),
+		"named_queues_truncated": named_queues_truncated,
+		"named_queues": named_snapshots,
+		"linked_node_alive": _linked_node_ref != null and _linked_node_ref.get_ref() != null,
+		"interceptor_count": _interceptors.size(),
+	}
+
 func _try_start_processing() -> void:
 	if _is_disposed:
 		return
 	if not is_processing:
 		_GF_ASYNC_CALL_SCRIPT.run_detached(Callable(self, &"_process_queue"))
+	_publish_diagnostics_contribution()
 
 
 func _process_queue() -> void:
@@ -560,18 +615,31 @@ func _process_queue() -> void:
 
 	is_processing = true
 	var current_serial: int = _processing_serial
+	var immediate_action_count: int = 0
 
 	while not _is_disposed and current_serial == _processing_serial and _has_queued_actions():
+		if immediate_action_count >= max_immediate_actions_per_slice:
+			var resumed: bool = await _wait_for_next_processing_slice(current_serial)
+			if not resumed:
+				if current_serial == _processing_serial:
+					is_processing = false
+				return
+			immediate_action_count = 0
 		await _wait_until_resumed(current_serial)
 		if _is_disposed or current_serial != _processing_serial:
 			return
 
 		var action: Object = _dequeue_action()
+		immediate_action_count += 1
 		if not _ACTION_PROTOCOL.is_action_valid(action):
 			continue
 
 		_inject_action_dependencies(action)
+		if _is_disposed or current_serial != _processing_serial:
+			return
 		var before_result: GFActionInterceptionResult = _apply_before_interceptors(action)
+		if _is_disposed or current_serial != _processing_serial:
+			return
 		if before_result.is_stop_queue():
 			_stop_processing_from_interceptor(false)
 			return
@@ -580,16 +648,25 @@ func _process_queue() -> void:
 		if before_result.is_replace():
 			action = before_result.replacement_action
 			_inject_action_dependencies(action)
+			if _is_disposed or current_serial != _processing_serial:
+				return
 		if not is_instance_valid(action):
 			continue
 
 		_current_action = action
-		if not _ACTION_PROTOCOL.can_execute(action):
+		_publish_diagnostics_contribution()
+		var can_execute: bool = _ACTION_PROTOCOL.can_execute(action)
+		if _is_disposed or current_serial != _processing_serial:
+			return
+		if not can_execute:
 			_current_action = null
 			continue
 
 		var result: Variant = _ACTION_PROTOCOL.execute(action)
-		if _ACTION_PROTOCOL.should_wait_for_result(action, result):
+		if _is_disposed or current_serial != _processing_serial:
+			return
+		var should_wait: bool = _ACTION_PROTOCOL.should_wait_for_result(action, result)
+		if should_wait:
 			await _ACTION_PROTOCOL.await_result_safely(
 				action,
 				result,
@@ -597,6 +674,7 @@ func _process_queue() -> void:
 				_is_wait_timeout_paused.bind(current_serial),
 				_get_architecture_or_null()
 			)
+			immediate_action_count = 0
 
 		if _is_disposed or current_serial != _processing_serial:
 			return
@@ -604,15 +682,19 @@ func _process_queue() -> void:
 		if _is_disposed or current_serial != _processing_serial:
 			return
 		var after_result: GFActionInterceptionResult = _apply_after_interceptors(action, result)
+		if _is_disposed or current_serial != _processing_serial:
+			return
 		if after_result.is_stop_queue():
 			_stop_processing_from_interceptor(false)
 			return
 		if _current_action == action:
 			_current_action = null
+		_publish_diagnostics_contribution()
 
 	_current_action = null
 	_set_paused(false)
 	is_processing = false
+	_publish_diagnostics_contribution()
 	queue_drained.emit()
 
 
@@ -625,6 +707,7 @@ func _dequeue_action() -> Object:
 	_queue[_queue_head_index] = null
 	_queue_head_index += 1
 	_compact_queue_if_needed()
+	_publish_diagnostics_contribution()
 	return action
 
 
@@ -715,10 +798,20 @@ func _wait_until_resumed(serial: int) -> void:
 		await _pause_state_changed
 
 
+func _wait_for_next_processing_slice(serial: int) -> bool:
+	var main_loop: Variant = Engine.get_main_loop()
+	if not (main_loop is SceneTree):
+		return false
+	var tree: SceneTree = main_loop
+	await tree.process_frame
+	return not _is_disposed and serial == _processing_serial
+
+
 func _set_paused(paused: bool) -> void:
 	if _is_paused == paused:
 		return
 	_is_paused = paused
+	_publish_diagnostics_contribution()
 	_pause_state_changed.emit()
 
 
@@ -726,6 +819,7 @@ func _cancel_current_action() -> void:
 	if is_instance_valid(_current_action):
 		_ACTION_PROTOCOL.cancel(_current_action)
 	_current_action = null
+	_publish_diagnostics_contribution()
 
 
 func _dispose_all_named_queues() -> void:
@@ -770,13 +864,12 @@ func _register_diagnostics_contribution() -> void:
 	if diagnostics == null:
 		return
 
-	var _snapshot_provider_registered: bool = diagnostics.register_tool_snapshot_provider(&"action_queue", Callable(self, "get_debug_snapshot"))
-	var _monitor_registered: bool = diagnostics.register_monitor(&"tools.action_queue", Callable(self, "get_debug_snapshot"), {
+	var _monitor_registered: bool = diagnostics.register_monitor(self, &"tools.action_queue", {
 		"label": "Action Queue",
 		"group": "Tools",
-		"min_interval_seconds": 0.25,
 	})
 	var _preset_updated: bool = diagnostics.add_monitor_to_preset(&"tools", &"tools.action_queue")
+	_publish_diagnostics_contribution()
 
 
 func _unregister_diagnostics_contribution() -> void:
@@ -784,8 +877,21 @@ func _unregister_diagnostics_contribution() -> void:
 	if diagnostics == null:
 		return
 
-	diagnostics.unregister_tool_snapshot_provider(&"action_queue")
-	diagnostics.unregister_monitor(&"tools.action_queue")
+	var _snapshot_removed: bool = diagnostics.remove_tool_snapshot(self, &"action_queue")
+	var _monitor_unregistered: bool = diagnostics.unregister_monitor(self, &"tools.action_queue")
+
+
+func _publish_diagnostics_contribution() -> void:
+	var diagnostics: GFDiagnosticsUtility = _get_diagnostics_utility()
+	if diagnostics == null:
+		return
+	var snapshot: Dictionary = get_debug_snapshot()
+	var _tool_snapshot_published: bool = diagnostics.publish_tool_snapshot(self, &"action_queue", snapshot)
+	var _monitor_sample_published: bool = diagnostics.publish_monitor_sample(
+		self,
+		&"tools.action_queue",
+		snapshot
+	)
 
 
 func _stop_processing_from_interceptor(cancel_current: bool) -> void:

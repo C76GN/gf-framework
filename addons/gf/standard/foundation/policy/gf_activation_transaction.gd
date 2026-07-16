@@ -49,6 +49,13 @@ const STATE_ROLLED_BACK: StringName = &"rolled_back"
 ## @since 7.0.0
 const STATE_FAILED: StringName = &"failed"
 
+## 同步事务回调返回了异步状态或 Signal。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+const KIND_ASYNC_CALLBACK_UNSUPPORTED: StringName = &"async_callback_unsupported"
+
 const _DEFAULT_SUBJECT: String = "Activation transaction"
 
 
@@ -133,7 +140,7 @@ func clear() -> void:
 
 ## 添加事务步骤。
 ## [br]
-## apply_callback 与 rollback_callback 的推荐签名为 `func(context: Dictionary) -> Variant`。
+## apply_callback 与 rollback_callback 的推荐签名为 `func(context: Dictionary) -> Variant`，且必须同步返回。
 ## validate_callback 可通过 options 传入，签名相同。返回 false、非 OK Error、或 `{ "ok": false }` 会进入失败报告。
 ## [br]
 ## @api public
@@ -157,7 +164,7 @@ func add_step(
 	rollback_callback: Callable = Callable(),
 	options: Dictionary = {}
 ) -> bool:
-	if step_id == &"" or not apply_callback.is_valid():
+	if state != STATE_PENDING or step_id == &"" or not apply_callback.is_valid():
 		return false
 	_steps.append({
 		"step_id": step_id,
@@ -353,6 +360,15 @@ func _call_step(callback: Callable, context: Dictionary, step: Dictionary, phase
 
 
 func _normalize_callback_result(value: Variant, step: Dictionary, phase: StringName) -> Dictionary:
+	if _is_async_callback_result(value):
+		return _make_step_result(
+			false,
+			KIND_ASYNC_CALLBACK_UNSUPPORTED,
+			"activation transaction callbacks must be synchronous",
+			step,
+			phase,
+			_make_async_callback_data(value)
+		)
 	if value == null:
 		return _make_step_result(true, &"ok", "", step, phase)
 	if value is bool:
@@ -387,6 +403,30 @@ func _normalize_callback_result(value: Variant, step: Dictionary, phase: StringN
 	return _make_step_result(true, &"ok", "", step, phase, {
 		"value": GFVariantData.duplicate_variant(value),
 	})
+
+
+static func _is_async_callback_result(value: Variant) -> bool:
+	if typeof(value) == TYPE_SIGNAL:
+		return true
+	if not (value is Object):
+		return false
+	var object_value: Object = value
+	if not is_instance_valid(object_value):
+		return false
+	if object_value.get_class() == "GDScriptFunctionState":
+		return true
+	return object_value.has_method("resume") and object_value.has_signal("completed")
+
+
+static func _make_async_callback_data(value: Variant) -> Dictionary:
+	var data: Dictionary = {
+		"value_type": type_string(typeof(value)),
+	}
+	if value is Object:
+		var object_value: Object = value
+		if is_instance_valid(object_value):
+			data["class"] = object_value.get_class()
+	return data
 
 
 func _make_step_result(

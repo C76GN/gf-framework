@@ -30,6 +30,13 @@ const DEFAULT_OVERSCAN_ITEMS: int = 2
 ## @api public
 const MIN_ITEM_EXTENT: float = 1.0
 
+## 单条目尺寸上限，避免异常输入放大累计布局范围。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+const MAX_ITEM_EXTENT: float = 1_000_000_000_000.0
+
 
 # --- 公共变量 ---
 
@@ -58,7 +65,8 @@ var trailing_padding: float:
 	get:
 		return _trailing_padding
 	set(value):
-		_trailing_padding = maxf(value, 0.0)
+		if is_finite(value):
+			_trailing_padding = clampf(value, 0.0, MAX_ITEM_EXTENT)
 
 
 # --- 私有变量 ---
@@ -66,9 +74,9 @@ var trailing_padding: float:
 var _estimated_item_extent: float = DEFAULT_ESTIMATED_ITEM_EXTENT
 var _overscan_items: int = DEFAULT_OVERSCAN_ITEMS
 var _trailing_padding: float = 0.0
-var _extents: PackedFloat32Array = PackedFloat32Array()
+var _extents: PackedFloat64Array = PackedFloat64Array()
 var _measured: PackedByteArray = PackedByteArray()
-var _offsets: PackedFloat32Array = PackedFloat32Array()
+var _offsets: PackedFloat64Array = PackedFloat64Array()
 var _offsets_dirty: bool = true
 var _content_extent: float = 0.0
 
@@ -115,11 +123,12 @@ func set_item_count(item_count: int) -> void:
 func append_item(extent: float = -1.0, measured: bool = false) -> int:
 	var next_index: int = _extents.size()
 	var resolved_extent: float = _estimated_item_extent
-	if extent > 0.0:
+	var has_valid_extent: bool = is_finite(extent) and extent > 0.0
+	if has_valid_extent:
 		resolved_extent = _normalize_item_extent(extent)
 	var _extent_appended: bool = _extents.append(resolved_extent)
 	var measured_flag: int = 0
-	if measured:
+	if measured and has_valid_extent:
 		measured_flag = 1
 	var _measured_appended: bool = _measured.append(measured_flag)
 	_offsets_dirty = true
@@ -149,6 +158,8 @@ func remove_item(item_index: int) -> bool:
 ## [br]
 ## @api public
 ## [br]
+## @since 4.4.0
+## [br]
 ## @param item_index: 条目索引。
 ## [br]
 ## @param extent: 条目尺寸，会被限制到 MIN_ITEM_EXTENT 以上。
@@ -159,7 +170,7 @@ func remove_item(item_index: int) -> bool:
 ## [br]
 ## @return 尺寸更新报告。
 ## [br]
-## @schema return: Dictionary，包含 ok、changed、index、previous_extent、extent、delta 与 scroll_adjustment 字段。
+## @schema return: Dictionary，包含 ok、changed、index、previous_extent、extent、delta、scroll_adjustment 与 error 字段。
 func set_item_extent(
 	item_index: int,
 	extent: float,
@@ -174,8 +185,12 @@ func set_item_extent(
 		"extent": 0.0,
 		"delta": 0.0,
 		"scroll_adjustment": 0.0,
+		"error": "invalid_index",
 	}
 	if not _is_valid_index(item_index):
+		return report
+	if not is_finite(extent):
+		report["error"] = "non_finite_extent"
 		return report
 
 	_ensure_offsets()
@@ -186,6 +201,7 @@ func set_item_extent(
 	report["previous_extent"] = previous_extent
 	report["extent"] = next_extent
 	report["delta"] = delta
+	report["error"] = ""
 	var measured_flag: int = 0
 	if measured:
 		measured_flag = 1
@@ -296,8 +312,9 @@ func get_visible_range(scroll_offset: float, viewport_extent: float) -> Vector2i
 	if _extents.is_empty():
 		return Vector2i.ZERO
 	_ensure_offsets()
-	var scroll_top: float = maxf(scroll_offset, 0.0)
-	var scroll_bottom: float = scroll_top + maxf(viewport_extent, 0.0)
+	var scroll_top: float = clampf(scroll_offset, 0.0, _content_extent) if is_finite(scroll_offset) else 0.0
+	var visible_extent: float = clampf(viewport_extent, 0.0, _content_extent) if is_finite(viewport_extent) else 0.0
+	var scroll_bottom: float = minf(scroll_top + visible_extent, _content_extent)
 	var start_index: int = _search_first_bottom_after(scroll_top)
 	var end_index: int = _search_first_top_at_or_after(scroll_bottom)
 	start_index = maxi(start_index - _overscan_items, 0)
@@ -334,6 +351,8 @@ func get_visible_items(scroll_offset: float, viewport_extent: float) -> Array[Di
 # --- 私有/辅助方法 ---
 
 func _set_estimated_item_extent(value: float) -> void:
+	if not is_finite(value):
+		return
 	var next_extent: float = _normalize_item_extent(value)
 	if is_equal_approx(_estimated_item_extent, next_extent):
 		return
@@ -394,4 +413,6 @@ func _is_valid_index(item_index: int) -> bool:
 
 
 func _normalize_item_extent(value: float) -> float:
-	return maxf(value, MIN_ITEM_EXTENT)
+	if not is_finite(value):
+		return _estimated_item_extent
+	return clampf(value, MIN_ITEM_EXTENT, MAX_ITEM_EXTENT)

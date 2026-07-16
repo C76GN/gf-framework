@@ -1,6 +1,6 @@
 @tool
 
-# GFResourcePathArrayEditorProperty: 用 ResourcePicker 编辑资源路径数组。
+# GFResourcePathArrayEditorProperty: 用窗口安全的路径控件编辑资源引用数组。
 extends EditorProperty
 
 
@@ -8,6 +8,8 @@ extends EditorProperty
 
 const _GF_RESOURCE_PATH_EDITOR_PROPERTY = preload("res://addons/gf/kernel/editor/gf_resource_path_editor_property.gd")
 const _GF_RESOURCE_PATH_HINT_SCRIPT = preload("res://addons/gf/kernel/editor/gf_resource_path_hint.gd")
+const _GF_RESOURCE_PATH_PICKER_CONTROL_SCRIPT = preload("res://addons/gf/kernel/editor/gf_resource_path_picker_control.gd")
+const _GF_EDITOR_PROPERTY_PLAIN_TOOLTIP_SCRIPT = preload("res://addons/gf/kernel/editor/gf_editor_property_plain_tooltip.gd")
 const _ROW_INDEX_MIN_WIDTH: float = 34.0
 const _INFO_TEXT_COLOR: Color = Color(0.62, 0.66, 0.72, 1.0)
 const _WARNING_TEXT_COLOR: Color = Color(1.0, 0.58, 0.30, 1.0)
@@ -183,6 +185,10 @@ static func make_property_value(paths: PackedStringArray, property_type: Variant
 
 # --- 私有/辅助方法 ---
 
+func _make_custom_tooltip(_for_text: String) -> Object:
+	return _GF_EDITOR_PROPERTY_PLAIN_TOOLTIP_SCRIPT.make_tooltip(self)
+
+
 static func _to_path_string(value: Variant) -> String:
 	if value is String:
 		var text_value: String = value
@@ -236,14 +242,23 @@ func _create_row(index: int) -> Control:
 	index_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	row.add_child(index_label)
 
-	var picker: EditorResourcePicker = _PathArrayResourcePicker.new()
-	picker.base_type = _base_type
-	picker.edited_resource = _GF_RESOURCE_PATH_EDITOR_PROPERTY.load_resource_from_path(_paths[index], _base_type)
+	var picker_value: Variant = _GF_RESOURCE_PATH_PICKER_CONTROL_SCRIPT.new()
+	if not picker_value is Control:
+		return wrapper
+	var picker: Control = picker_value
+	picker.call(
+		&"setup",
+		_GF_RESOURCE_PATH_EDITOR_PROPERTY.get_resource_file_filters(_base_type)
+	)
+	picker.call(&"set_path", _paths[index])
 	picker.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var status: Dictionary = _GF_RESOURCE_PATH_EDITOR_PROPERTY.get_resource_path_status(_paths[index], _base_type)
 	var message: String = _get_string_option(status, "message")
 	picker.tooltip_text = message if not message.is_empty() else _paths[index]
-	var _resource_changed_connected: Error = picker.resource_changed.connect(_on_row_resource_changed.bind(index)) as Error
+	var _path_changed_connected: Error = picker.connect(
+		&"path_changed",
+		_on_row_path_changed.bind(index)
+	)
 	row.add_child(picker)
 
 	var up_button: Button = Button.new()
@@ -314,11 +329,21 @@ func _on_add_pressed() -> void:
 	_emit_paths_changed()
 
 
-func _on_row_resource_changed(resource: Resource, index: int) -> void:
+func _on_row_path_changed(path: String, index: int) -> void:
 	if _is_updating or index < 0 or index >= _paths.size():
 		return
 
-	_paths[index] = _GF_RESOURCE_PATH_EDITOR_PROPERTY.get_stable_resource_path(resource, _prefer_uid)
+	var next_path: String = path.strip_edges()
+	var resource: Resource = _GF_RESOURCE_PATH_EDITOR_PROPERTY.load_resource_from_path(
+		next_path,
+		_base_type
+	)
+	if resource != null:
+		next_path = _GF_RESOURCE_PATH_EDITOR_PROPERTY.get_stable_resource_path(
+			resource,
+			_prefer_uid
+		)
+	_paths[index] = next_path
 	_emit_paths_changed()
 
 
@@ -342,13 +367,3 @@ func _on_move_pressed(index: int, delta: int) -> void:
 	_paths[index] = _paths[next_index]
 	_paths[next_index] = path
 	_emit_paths_changed()
-
-
-# --- 内部类 ---
-
-class _PathArrayResourcePicker:
-	extends EditorResourcePicker
-
-	func _set_create_options(menu_node: Object) -> void:
-		if menu_node != null and menu_node.has_method(&"clear"):
-			var _clear_result: Variant = menu_node.call(&"clear")

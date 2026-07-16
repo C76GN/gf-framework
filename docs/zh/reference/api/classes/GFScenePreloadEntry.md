@@ -22,6 +22,8 @@
 | 方法 | [`get_scene_path`](#member-gfscenepreloadentry-methods-get_scene_path) | `func get_scene_path() -> String:` |
 | 方法 | [`get_adjacent_scene_paths`](#member-gfscenepreloadentry-methods-get_adjacent_scene_paths) | `func get_adjacent_scene_paths() -> PackedStringArray:` |
 | 方法 | [`describe_entry`](#member-gfscenepreloadentry-methods-describe_entry) | `func describe_entry() -> Dictionary:` |
+| 方法 | [`get_resource_identity`](#member-gfscenepreloadentry-methods-get_resource_identity) | `func get_resource_identity() -> GFResourceIdentity:` |
+| 方法 | [`get_cache_key`](#member-gfscenepreloadentry-methods-get_cache_key) | `func get_cache_key() -> String:` |
 
 ## 属性
 
@@ -84,6 +86,7 @@ var metadata: Dictionary = {}
 ### `get_scene_path`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func get_scene_path() -> String:
@@ -91,7 +94,7 @@ func get_scene_path() -> String:
 
 获取规范化后的场景路径。
 
-返回：去除首尾空白后的场景路径。
+返回：规范化后的场景路径。
 
 <a id="member-gfscenepreloadentry-methods-get_adjacent_scene_paths"></a>
 
@@ -112,6 +115,7 @@ func get_adjacent_scene_paths() -> PackedStringArray:
 ### `describe_entry`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func describe_entry() -> Dictionary:
@@ -123,4 +127,34 @@ func describe_entry() -> Dictionary:
 
 结构：
 
-- `return`: Dictionary，包含 scene_path、adjacent_scene_paths、fixed 和 metadata。
+- `return`: Dictionary，包含 scene_path、cache_key、resource_identity、adjacent_scene_paths、fixed 和 metadata。
+
+<a id="member-gfscenepreloadentry-methods-get_resource_identity"></a>
+
+### `get_resource_identity`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func get_resource_identity() -> GFResourceIdentity:
+```
+
+获取当前场景资源身份。
+
+返回：资源身份对象。
+
+<a id="member-gfscenepreloadentry-methods-get_cache_key"></a>
+
+### `get_cache_key`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func get_cache_key() -> String:
+```
+
+获取当前场景资源身份缓存键。
+
+返回：资源身份 cache_key。

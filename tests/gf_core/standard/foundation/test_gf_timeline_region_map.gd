@@ -35,9 +35,12 @@ func test_timed_text_importer_rejects_malformed_timestamps() -> void:
 	var srt_result: Dictionary = GFTimedTextImporter.parse_srt("1\n00:xx:01,000 --> 00:00:02,000\nBroken\n")
 	var track: GFTimedTextTrack = _as_timed_text_track(GFVariantData.get_option_value(srt_result, "track"))
 
-	assert_true(GFVariantData.get_option_bool(srt_result, "success", false), "解析器应容忍无效块并返回空轨道。")
+	assert_false(GFVariantData.get_option_bool(srt_result, "success", true), "非空输入完全无法解释时应明确失败。")
+	assert_eq(GFVariantData.get_option_string(srt_result, "error"), "no_valid_entries", "全无效输入应返回稳定错误。")
 	assert_not_null(track, "解析结果应仍返回轨道对象。")
 	assert_true(track != null and track.entries.is_empty(), "格式错误的时间戳不应生成 0 秒误匹配条目。")
+	assert_true(GFVariantData.get_option_bool(GFTimedTextImporter.parse_srt(""), "success"), "显式空输入仍应表示有效空轨道。")
+	assert_false(GFVariantData.get_option_bool(GFTimedTextImporter.parse_lrc("not lrc"), "success", true), "非空 LRC 全无有效条目时应失败。")
 
 
 func test_timed_text_importer_expands_multi_tag_lrc_lines() -> void:
@@ -109,6 +112,30 @@ func test_replay_timeline_keeps_same_time_events_in_insert_order() -> void:
 	assert_eq(GFVariantData.get_option_string_name(restored_events[1], "event_kind"), GFReplayTimeline.EVENT_COMMAND, "序列化后不应改变同时间事件顺序。")
 
 
+func test_timeline_sorting_uses_exact_time_and_normalizes_duplicate_sequences() -> void:
+	var timeline: GFReplayTimeline = GFReplayTimeline.new()
+	timeline.apply_dictionary({
+		"events": [
+			{ "time_seconds": 1.0000001, "sequence": 5, "event_kind": "later" },
+			{ "time_seconds": 1.0, "sequence": 5, "event_kind": "earlier" },
+			{ "time_seconds": 1.0000001, "sequence": 5, "event_kind": "later_second" },
+		],
+	})
+	var events: Array[Dictionary] = timeline.get_events()
+	var sequences: Dictionary = {}
+	for event: Dictionary in events:
+		sequences[GFVariantData.get_option_int(event, "sequence")] = true
+
+	assert_eq(GFVariantData.get_option_string(events[0], "event_kind"), "earlier", "相近但更早的事件必须先排序。")
+	assert_eq(sequences.size(), 3, "恢复后的重复 sequence 应按输入顺序归一为唯一值。")
+
+	var track: GFTimedTextTrack = GFTimedTextTrack.new()
+	var _later_entry: GFTimedTextEntry = track.add_entry(1.0000001, 2.0, "later")
+	var _earlier_entry: GFTimedTextEntry = track.add_entry(1.0, 2.0, "earlier")
+	track.sort_entries()
+	assert_eq(track.entries[0].text, "earlier", "文本轨道也应按严格 start_time 排序。")
+
+
 func test_replay_timeline_add_event_returns_decoupled_copy() -> void:
 	var timeline: GFReplayTimeline = GFReplayTimeline.new()
 	var event: Dictionary = timeline.add_event(0.2, GFReplayTimeline.EVENT_INPUT, { "action_id": &"jump" })
@@ -142,6 +169,35 @@ func test_replay_timeline_apply_dictionary_extends_duration_to_events() -> void:
 	})
 
 	assert_almost_eq(timeline.duration_seconds, 2.0, 0.001, "恢复数据时 duration 不应小于事件最大时间。")
+
+
+func test_replay_timeline_normalizes_nonfinite_times_for_json_dictionary() -> void:
+	var timeline: GFReplayTimeline = GFReplayTimeline.new()
+	var _nan_event: Dictionary = timeline.add_event(NAN, GFReplayTimeline.EVENT_INPUT, {})
+	var _inf_event: Dictionary = timeline.add_event(INF, GFReplayTimeline.EVENT_COMMAND, {})
+	timeline.apply_dictionary({
+		"duration_seconds": INF,
+		"events": [
+			{
+				"time_seconds": NAN,
+				"event_kind": "snapshot",
+			},
+		],
+	})
+
+	var serialized: Dictionary = timeline.to_dictionary(true)
+	var serialized_events: Array = GFVariantData.get_option_array(serialized, "events")
+	var json_text: String = JSON.stringify(serialized)
+
+	assert_eq(GFVariantData.get_option_float(serialized, "duration_seconds"), 0.0, "非有限 duration 应归零。")
+	for event_value: Variant in serialized_events:
+		var event: Dictionary = GFVariantData.as_dictionary(event_value)
+		var time_seconds: float = GFVariantData.get_option_float(event, "time_seconds", -1.0)
+		assert_false(is_nan(time_seconds), "事件时间不应输出 NaN。")
+		assert_false(is_inf(time_seconds), "事件时间不应输出 Infinity。")
+		assert_gte(time_seconds, 0.0, "事件时间应保持非负。")
+	assert_false(json_text.contains("NaN"), "JSON 文本不应包含 NaN。")
+	assert_false(json_text.contains("Inf"), "JSON 文本不应包含 Inf。")
 
 
 func test_replay_timeline_appends_filtered_timeline_with_offset() -> void:

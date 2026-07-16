@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFFlowPort" path="addons/gf/extensions/flow/resources/gf_flow_port.gd" module="extensions/flow" extends="Resource" classDigest="82729c1d75f22b65d2ed281ed6936bac2e1b4bf6a57eb69d15ec96bfdea588b9">
+<class name="GFFlowPort" path="addons/gf/extensions/flow/resources/gf_flow_port.gd" module="extensions/flow" extends="Resource" classDigest="23cee96ec8e6cb16e4f2bff09445cd52f1ca27e4bb0f3c443e95d15be0be2bc4">
 	<description>GFFlowPort: 流程节点端口描述。
 端口只描述节点对外暴露的输入/输出能力，供编辑器、校验器或项目层
 构建可视化流程使用；运行时如何解释端口数据仍由具体节点决定。</description>
@@ -20,6 +20,7 @@
 			<description>端口方向。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="enum" name="ValueType">
@@ -46,6 +47,7 @@
 			<description>端口值类型提示。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</enums>
@@ -56,6 +58,7 @@
 			<description>端口稳定标识。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="display_name" decorators="@export">
@@ -63,6 +66,7 @@
 			<description>显示名称。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="direction" decorators="@export">
@@ -70,6 +74,7 @@
 			<description>端口方向。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="value_type" decorators="@export">
@@ -77,6 +82,7 @@
 			<description>值类型提示。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="allow_multiple" decorators="@export">
@@ -84,6 +90,7 @@
 			<description>是否允许多条连接。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="editor_color" decorators="@export">
@@ -91,6 +98,7 @@
 			<description>编辑器或可视化工具使用的端口颜色。透明色表示由工具自行决定。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="type_hint" decorators="@export">
@@ -98,6 +106,7 @@
 			<description>更细粒度的值类型提示，例如项目自定义数据结构名。框架不解释该字段。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="class_name_hint" decorators="@export">
@@ -105,6 +114,7 @@
 			<description>Object / Resource 端口的类名提示。仅在项目或校验器显式使用时参与兼容性判断。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="semantic_tags" decorators="@export">
@@ -112,6 +122,7 @@
 			<description>语义标签列表，供搜索、编辑器过滤或项目工具使用。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="metadata" decorators="@export">
@@ -120,6 +131,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="schema">metadata: 项目自定义元数据 Dictionary；框架保留并复制该字段，但不解释其中键值。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</properties>
@@ -130,6 +142,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">端口标识。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_display_name">
@@ -138,6 +151,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">显示名称。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="has_semantic_tag">
@@ -147,6 +161,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">tag: 标签。</tag>
 				<tag name="return">包含返回 true。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_compatible_with">
@@ -156,6 +171,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">target_port: 目标端口。</tag>
 				<tag name="return">兼容返回 true。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_compatibility_report">
@@ -166,6 +182,7 @@
 				<tag name="param">target_port: 目标端口。</tag>
 				<tag name="return">兼容性报告。</tag>
 				<tag name="schema">return: 包含 ok、reason、message、source_port_id、source_value_type、target_port_id 和 target_value_type 字段的 Dictionary。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="describe">
@@ -175,6 +192,7 @@
 				<tag name="api">public</tag>
 				<tag name="return">端口描述字典。</tag>
 				<tag name="schema">return: 包含 port_id、display_name、direction、value_type、allow_multiple、editor_color、type_hint、class_name_hint、semantic_tags 和 metadata 字段的 Dictionary。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</methods>

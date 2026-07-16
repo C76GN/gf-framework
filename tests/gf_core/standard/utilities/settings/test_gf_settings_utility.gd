@@ -42,7 +42,7 @@ func test_string_settings_accept_non_string_values() -> void:
 
 
 func test_register_definition_coerces_preloaded_value() -> void:
-	_settings.from_dict({
+	_settings.replace_from_dict({
 		"display/window_size": {
 			"__gf_setting_type": "Vector2",
 			"x": 1280,
@@ -78,7 +78,7 @@ func test_serialized_values_roundtrip_structured_types() -> void:
 	restored.auto_load_on_init = false
 	restored.auto_save_on_change = false
 	restored.init()
-	restored.from_dict(_settings.to_dict(true), false)
+	restored.replace_from_dict(_settings.to_dict(true), false)
 	var _register_setting_result_82: Variant = restored.register_setting(&"video/size", Vector2i.ZERO, GFSettingDefinition.ValueType.VECTOR2I)
 	var _register_setting_result_83: Variant = restored.register_setting(&"ui/accent", Color.WHITE, GFSettingDefinition.ValueType.COLOR)
 
@@ -97,7 +97,7 @@ func test_serialized_settings_preserve_unsafe_int64_values_through_json() -> voi
 	restored.auto_load_on_init = false
 	restored.auto_save_on_change = false
 	restored.init()
-	restored.from_dict(parsed, false)
+	restored.replace_from_dict(parsed, false)
 	var _register_setting_result_101: Variant = restored.register_setting(&"sync/revision", 0, GFSettingDefinition.ValueType.INT)
 
 	assert_eq(_setting_int(restored, &"sync/revision"), large_revision, "持久化设置中的大整数应精确往返 JSON。")
@@ -116,13 +116,81 @@ func test_dictionary_values_may_use_setting_type_key_as_data() -> void:
 	restored.auto_load_on_init = false
 	restored.auto_save_on_change = false
 	restored.init()
-	restored.from_dict(_settings.to_dict(true), false)
+	restored.replace_from_dict(_settings.to_dict(true), false)
 	var _restored_register_result: Variant = restored.register_setting(&"meta/payload", {}, GFSettingDefinition.ValueType.DICTIONARY)
 	var restored_payload: Dictionary = GFVariantData.as_dictionary(restored.get_value(&"meta/payload"))
 
 	assert_eq(GFVariantData.get_option_string(restored_payload, "__gf_setting_type"), "Color", "业务字典中的 marker 字段应保留为普通字段。")
 	assert_eq(GFVariantData.get_option_string(restored_payload, "value"), "business-data", "业务字典字段不应被类型包装解析吞掉。")
 	restored.dispose()
+
+
+func test_dictionary_settings_preserve_non_string_key_collisions() -> void:
+	var payload: Dictionary = {
+		1: "integer-key",
+		"1": "string-key",
+	}
+	var _register_setting_result: Variant = _settings.register_setting(&"meta/keyed_payload", {}, GFSettingDefinition.ValueType.DICTIONARY)
+	_settings.set_value(&"meta/keyed_payload", payload)
+
+	var restored: GFSettingsUtility = GFSettingsUtility.new()
+	restored.auto_load_on_init = false
+	restored.auto_save_on_change = false
+	restored.init()
+	restored.replace_from_dict(_settings.to_dict(true), false)
+	var _restored_register_result: Variant = restored.register_setting(&"meta/keyed_payload", {}, GFSettingDefinition.ValueType.DICTIONARY)
+	var restored_payload: Dictionary = GFVariantData.as_dictionary(restored.get_value(&"meta/keyed_payload"))
+
+	assert_eq(GFVariantData.get_option_string(restored_payload, 1), "integer-key", "整数 key 应无损往返。")
+	assert_eq(GFVariantData.get_option_string(restored_payload, "1"), "string-key", "字符串 key 不应覆盖整数 key。")
+	restored.dispose()
+
+
+func test_replace_and_merge_restore_have_explicit_missing_key_semantics() -> void:
+	var _register_master: Variant = _settings.register_setting(&"audio/master", 1.0, GFSettingDefinition.ValueType.FLOAT)
+	var _register_music: Variant = _settings.register_setting(&"audio/music", 0.8, GFSettingDefinition.ValueType.FLOAT)
+	_settings.set_value(&"audio/master", 0.2, false)
+	_settings.set_value(&"audio/music", 0.3, false)
+	_settings.set_value(&"legacy/flag", true, false)
+
+	_settings.merge_from_dict({"audio/master": 0.4}, false)
+	assert_eq(_setting_float(_settings, &"audio/music"), 0.3, "merge 应保留输入中缺失的当前值。")
+	assert_true(_settings.has_setting(&"legacy/flag"), "merge 不应删除未定义的覆盖层值。")
+
+	_settings.replace_from_dict({"audio/master": 0.6}, false)
+	assert_eq(_setting_float(_settings, &"audio/master"), 0.6, "replace 应恢复输入值。")
+	assert_eq(_setting_float(_settings, &"audio/music"), 0.8, "replace 应把缺失的已定义键恢复为默认值。")
+	assert_false(_settings.has_setting(&"legacy/flag"), "replace 应移除输入中缺失的未定义旧键。")
+
+
+func test_load_settings_uses_replace_semantics() -> void:
+	var settings: LoadedSettingsUtility = LoadedSettingsUtility.new()
+	settings.auto_load_on_init = false
+	settings.auto_save_on_change = false
+	settings.init()
+	var _register_master: Variant = settings.register_setting(&"audio/master", 1.0, GFSettingDefinition.ValueType.FLOAT)
+	var _register_music: Variant = settings.register_setting(&"audio/music", 0.8, GFSettingDefinition.ValueType.FLOAT)
+	settings.set_value(&"audio/master", 0.2, false)
+	settings.set_value(&"audio/music", 0.3, false)
+	settings.loaded_data = {"audio/master": 0.5}
+
+	var _loaded: Dictionary = settings.load_settings("profile.json")
+
+	assert_eq(_setting_float(settings, &"audio/master"), 0.5, "load 应应用持久化值。")
+	assert_eq(_setting_float(settings, &"audio/music"), 0.8, "load 应重置持久化数据中缺失的已定义键。")
+	settings.dispose()
+
+
+func test_save_settings_rejects_cyclic_values_without_recursing() -> void:
+	var cyclic: Array = []
+	cyclic.append(cyclic)
+	var _register_setting_result: Variant = _settings.register_setting(&"debug/cyclic", null, GFSettingDefinition.ValueType.ANY)
+	_settings.set_value(&"debug/cyclic", cyclic)
+
+	var save_error: Error = _settings.save_settings("cyclic_settings.json")
+
+	assert_eq(save_error, ERR_INVALID_DATA, "循环引用设置不应被写入持久化文件。")
+	assert_push_error("[GFSettingsUtility] 设置数据包含循环引用，已拒绝持久化：cyclic_settings.json。")
 
 
 func test_setting_changed_signal_reports_old_and_new_value() -> void:
@@ -340,6 +408,18 @@ func test_fallback_persistence_rejects_native_absolute_paths() -> void:
 	assert_push_error("[GFSettingsUtility] 已拒绝原生绝对设置路径：C:/gf_settings_denied.json。")
 
 
+func test_fallback_persistence_rejects_parent_traversal_paths() -> void:
+	var _register_setting_result: Variant = _settings.register_setting(&"audio/master", 1.0, GFSettingDefinition.ValueType.FLOAT)
+
+	var save_error: Error = _settings.save_settings("../gf_settings_escape.json")
+	var loaded: Dictionary = _settings.load_settings("../gf_settings_escape.json")
+
+	assert_eq(save_error, ERR_INVALID_PARAMETER, "fallback 持久化只应接受纯文件名。")
+	assert_true(loaded.is_empty(), "被拒绝的 traversal 路径不应读取数据。")
+	assert_push_error("[GFSettingsUtility] 已拒绝不安全设置文件名：../gf_settings_escape.json。")
+	assert_push_error("[GFSettingsUtility] 已拒绝不安全设置文件名：../gf_settings_escape.json。")
+
+
 # --- 私有/辅助方法 ---
 
 func _setting_bool(settings: GFSettingsUtility, key: StringName) -> bool:
@@ -393,3 +473,12 @@ class RecordingSettingsUtility:
 		save_count += 1
 		saved_files.append(file_name)
 		return OK
+
+
+class LoadedSettingsUtility:
+	extends GFSettingsUtility
+
+	var loaded_data: Dictionary = {}
+
+	func _read_persisted_data(_file_name: String) -> Dictionary:
+		return loaded_data.duplicate(true)

@@ -178,21 +178,21 @@ func is_value_valid(value: Variant) -> bool:
 		ValueType.INT:
 			return value is int
 		ValueType.FLOAT:
-			return value is float or value is int
+			return value is int or _float_is_finite(value)
 		ValueType.STRING:
 			return value is String
 		ValueType.STRING_NAME:
 			return value is StringName
 		ValueType.VECTOR2:
-			return value is Vector2
+			return _vector2_is_finite(value)
 		ValueType.VECTOR2I:
 			return value is Vector2i
 		ValueType.VECTOR3:
-			return value is Vector3
+			return _vector3_is_finite(value)
 		ValueType.VECTOR3I:
 			return value is Vector3i
 		ValueType.COLOR:
-			return value is Color
+			return _color_is_finite(value)
 		ValueType.DICTIONARY:
 			return value is Dictionary
 		ValueType.ARRAY:
@@ -207,19 +207,24 @@ func is_value_valid(value: Variant) -> bool:
 			return true
 
 
-## 将输入值转换为字段要求的类型。
+## 将输入值转换为字段要求的类型；转换失败时返回输入值副本。
 ## [br]
 ## @api public
 ## [br]
+## @since 4.4.0
+## [br]
 ## @param value: 输入值。
 ## [br]
-## @return 转换后的值。
+## @return 转换后的值；失败时为输入值副本。
 ## [br]
 ## @schema value: Variant value to coerce.
 ## [br]
 ## @schema return: Variant coerced value.
 func coerce_value(value: Variant) -> Variant:
-	return GFVariantData.get_option_value(try_coerce_value(value), "value")
+	var result: Dictionary = try_coerce_value(value)
+	if GFVariantData.get_option_bool(result, "ok", false):
+		return GFVariantData.get_option_value(result, "value")
+	return GFVariantData.duplicate_variant(value)
 
 
 ## 尝试转换输入值并返回转换报告。
@@ -418,6 +423,17 @@ func _validate_value_into(value: Variant, report: GFValidationReport, context: D
 			return
 		_add_error(report, &"null_value", "Value cannot be null.", context, null, "non_null", null)
 		return
+	if _is_non_finite_numeric_value(value):
+		_add_error(
+			report,
+			&"non_finite_value",
+			"Numeric schema values must contain only finite components.",
+			context,
+			value,
+			"finite_numeric_value",
+			typeof(value)
+		)
+		return
 
 	if not is_value_valid(value):
 		_add_error(
@@ -470,6 +486,47 @@ func _duplicate_field_with_context(state: Dictionary) -> GFSchemaField:
 
 
 # --- 私有/辅助方法 ---
+
+func _is_non_finite_numeric_value(value: Variant) -> bool:
+	match value_type:
+		ValueType.FLOAT:
+			return value is float and not _float_is_finite(value)
+		ValueType.VECTOR2:
+			return value is Vector2 and not _vector2_is_finite(value)
+		ValueType.VECTOR3:
+			return value is Vector3 and not _vector3_is_finite(value)
+		ValueType.COLOR:
+			return value is Color and not _color_is_finite(value)
+	return false
+
+
+func _float_is_finite(value: Variant) -> bool:
+	if not value is float:
+		return false
+	var float_value: float = value
+	return is_finite(float_value)
+
+
+func _vector2_is_finite(value: Variant) -> bool:
+	if not value is Vector2:
+		return false
+	var vector: Vector2 = value
+	return is_finite(vector.x) and is_finite(vector.y)
+
+
+func _vector3_is_finite(value: Variant) -> bool:
+	if not value is Vector3:
+		return false
+	var vector: Vector3 = value
+	return is_finite(vector.x) and is_finite(vector.y) and is_finite(vector.z)
+
+
+func _color_is_finite(value: Variant) -> bool:
+	if not value is Color:
+		return false
+	var color: Color = value
+	return is_finite(color.r) and is_finite(color.g) and is_finite(color.b) and is_finite(color.a)
+
 
 func _validate_array_items(values: Array, report: GFValidationReport, context: Dictionary) -> void:
 	for index: int in range(values.size()):
@@ -696,7 +753,7 @@ func _try_coerce_color(value: Variant) -> Dictionary:
 		return _make_coerce_result(true, value)
 	if value is String or value is StringName:
 		var text: String = GFVariantData.to_text(value, "").strip_edges()
-		if Color.html_is_valid(text):
+		if text.begins_with("#") and Color.html_is_valid(text):
 			return _make_coerce_result(true, Color.html(text))
 		return _make_coerce_result(false, Color.WHITE, "Value cannot be coerced to Color.")
 

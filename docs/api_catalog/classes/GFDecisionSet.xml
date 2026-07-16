@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFDecisionSet" path="addons/gf/extensions/decision/resources/gf_decision_set.gd" module="extensions/decision" extends="Resource" classDigest="b22a106e3160af907871cf9a1a48a61cfe4f7b070942e90fe03caeab646b7ddc">
+<class name="GFDecisionSet" path="addons/gf/extensions/decision/resources/gf_decision_set.gd" module="extensions/decision" extends="Resource" classDigest="b35f82f765a339afed3738196d2e826c664ccfcd70d1fedaf6c2615cfd0d66b2">
 	<description>GFDecisionSet: 候选决策集合。
 负责对多个 GFDecisionOption 统一评分、排序并选择分数最高的候选。
 集合只返回评分结果，不直接执行业务动作。</description>
@@ -113,17 +113,48 @@
 				<tag name="return">最佳评分结果；没有可选候选时返回 rejected score。</tag>
 			</tags>
 		</member>
+		<member kind="method" name="select_best_from_scores">
+			<signature>func select_best_from_scores(scores: Array[GFDecisionScore]) -&gt; GFDecisionScore:</signature>
+			<description>从已计算评分中选择分数最高的候选决策。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">scores: 已计算的候选评分。</tag>
+				<tag name="return">最佳评分结果；没有可选候选时返回 rejected score。</tag>
+				<tag name="schema">scores: Array[GFDecisionScore]，通常来自 score_all() 或 GFDecisionEvaluation.scores。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="evaluate">
+			<signature>func evaluate(context: GFDecisionContext) -&gt; GFDecisionEvaluation:</signature>
+			<description>一次性评价集合并返回评分、最佳候选和调试快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">context: 决策上下文。</tag>
+				<tag name="return">决策评价结果。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
 		<member kind="method" name="get_debug_snapshot">
-			<signature>func get_debug_snapshot(context: GFDecisionContext = null, scores: Array[GFDecisionScore] = []) -&gt; Dictionary:</signature>
+			<signature>func get_debug_snapshot(context: GFDecisionContext = null, scores: Variant = null) -&gt; Dictionary:</signature>
 			<description>获取集合调试快照。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="param">context: 决策上下文；scores 为空时用于现场评分。</tag>
-				<tag name="param">scores: 已计算的评分快照；传入时不会重新评分。</tag>
+				<tag name="param">context: 决策上下文；scores 为 null 时用于现场评分。</tag>
+				<tag name="param">scores: 已计算的评分快照；显式传入空数组也不会重新评分。</tag>
 				<tag name="return">调试快照字典。</tag>
 				<tag name="schema">return: 包含 decision_set_id、decision_count、minimum_score、scores 和 metadata 字段的 Dictionary。</tag>
-				<tag name="schema">scores: Array[GFDecisionScore]，可复用 score_all() 的结果以避免调试快照二次评分。</tag>
+				<tag name="schema">scores: Variant，可为 null 或 Array[GFDecisionScore]；null 表示按 context 现场评分，Array 表示完整预计算结果。</tag>
 				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_validation_report">
+			<signature>func get_validation_report() -&gt; Dictionary:</signature>
+			<description>获取集合资源的 authoring 校验报告。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">GFValidationReportDictionary 兼容报告。</tag>
+				<tag name="schema">return: Dictionary with ok, healthy, decision_set_id, issues, summary, and next_action.</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 	</methods>

@@ -27,7 +27,13 @@ var flash_color: Color = Color.WHITE
 ## 闪色总时长。
 ## [br]
 ## @api public
-var duration: float = 0.12
+## [br]
+## @since 3.17.0
+var duration: float:
+	get:
+		return _duration
+	set(value):
+		_duration = _ACTION_TIME_POLICY.sanitize_non_negative_seconds(value)
 
 ## 要缓动的颜色属性名。
 ## [br]
@@ -38,6 +44,7 @@ var property_name: NodePath = ^"modulate"
 # --- 私有变量 ---
 
 var _active_tween: Tween = null
+var _duration: float = 0.12
 var _original_color: Color = Color.WHITE
 var _has_original_color: bool = false
 
@@ -52,7 +59,7 @@ func _init(
 ) -> void:
 	target = p_target
 	flash_color = p_flash_color
-	duration = maxf(p_duration, 0.0)
+	duration = p_duration
 	property_name = p_property_name
 
 
@@ -79,7 +86,11 @@ func execute() -> Variant:
 	_original_color = _get_color_value(original_color_value)
 	_has_original_color = true
 	if duration <= 0.0:
-		target.set_indexed(property_name, _original_color)
+		target.set_indexed(property_name, flash_color)
+		_clear_original_color()
+		return null
+	if not target.is_inside_tree():
+		push_warning("[GFFlashAction] 带时长动作需要位于场景树内的目标。")
 		_clear_original_color()
 		return null
 

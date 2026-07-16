@@ -26,6 +26,75 @@ func test_preload_map_collects_neighbors_by_radius() -> void:
 	)
 
 
+func test_preload_map_normalizes_paths_for_lookup_and_plan() -> void:
+	var preload_map: GFScenePreloadMap = GFScenePreloadMap.new()
+	preload_map.fixed_scene_paths = PackedStringArray([" res://ui/../global.tscn "])
+	preload_map.entries = [
+		_make_entry(
+			"res://levels/./hub.tscn",
+			PackedStringArray([
+				"res://levels\\a.tscn",
+				"res://levels/zone/../b.tscn",
+				"res://levels/hub.tscn",
+			])
+		),
+	]
+
+	var entry: GFScenePreloadEntry = preload_map.get_entry(" res://levels/hub.tscn ")
+	var plan: Dictionary = preload_map.get_preload_plan("res://levels/./hub.tscn", 1)
+
+	assert_not_null(entry, "规范化后的路径应能命中条目。")
+	assert_eq(
+		preload_map.get_neighbor_scene_paths("res://levels/hub.tscn", 1),
+		PackedStringArray(["res://levels/a.tscn", "res://levels/b.tscn"]),
+		"相邻路径应统一为 canonical res:// 路径并去掉自引用。"
+	)
+	assert_eq(GFVariantData.get_option_string(plan, "source_path"), "res://levels/hub.tscn", "计划源路径应规范化。")
+	assert_eq(GFVariantData.get_option_packed_string_array(plan, "fixed_paths"), PackedStringArray(["res://global.tscn"]), "固定路径应规范化。")
+
+
+func test_preload_map_uses_resource_identity_cache_key_for_uid_aliases() -> void:
+	var normal_uid_path: String = _uid_path_for(NORMAL_GUI_SCENE)
+	var min_uid_path: String = _uid_path_for(MIN_GUI_SCENE)
+	assert_false(normal_uid_path.is_empty(), "测试场景应存在 Godot UID。")
+	assert_false(min_uid_path.is_empty(), "相邻测试场景应存在 Godot UID。")
+
+	var preload_map: GFScenePreloadMap = GFScenePreloadMap.new()
+	preload_map.fixed_scene_paths = PackedStringArray([min_uid_path, MIN_GUI_SCENE])
+	preload_map.entries = [
+		_make_entry(
+			normal_uid_path,
+			PackedStringArray([
+				MIN_GUI_SCENE,
+				min_uid_path,
+				NORMAL_GUI_SCENE,
+			])
+		),
+		_make_entry(NORMAL_GUI_SCENE),
+	]
+
+	var entry: GFScenePreloadEntry = preload_map.get_entry(NORMAL_GUI_SCENE)
+	var neighbors: PackedStringArray = preload_map.get_neighbor_scene_paths(NORMAL_GUI_SCENE, 1)
+	var plan: Dictionary = preload_map.get_preload_plan(normal_uid_path, 1)
+	var fixed_cache_keys: PackedStringArray = GFVariantData.get_option_packed_string_array(plan, "fixed_cache_keys")
+	var cache_keys: PackedStringArray = GFVariantData.get_option_packed_string_array(plan, "cache_keys")
+	var identities: Dictionary = GFVariantData.get_option_dictionary(plan, "resource_identities")
+	var min_identity: Dictionary = GFVariantData.get_option_dictionary(identities, min_uid_path)
+	var validation: Dictionary = preload_map.validate_map()
+	var issue_counts_by_kind: Dictionary = GFVariantData.get_option_dictionary(validation, "issue_counts_by_kind")
+
+	assert_not_null(entry, "canonical path 应能命中 uid:// 登记的条目。")
+	assert_eq(entry.get_cache_key(), normal_uid_path, "条目应暴露统一 cache_key。")
+	assert_eq(neighbors, PackedStringArray([MIN_GUI_SCENE]), "uid:// 与 canonical res:// 相邻项应按资源身份去重并剔除自引用。")
+	assert_eq(GFVariantData.get_option_string(plan, "source_path"), NORMAL_GUI_SCENE, "计划源路径应返回 canonical path。")
+	assert_eq(GFVariantData.get_option_string(plan, "source_cache_key"), normal_uid_path, "计划应包含源 cache_key。")
+	assert_eq(GFVariantData.get_option_packed_string_array(plan, "fixed_paths"), PackedStringArray([MIN_GUI_SCENE]), "固定路径应按资源身份去重。")
+	assert_true(fixed_cache_keys.has(min_uid_path), "固定路径 cache key 列表应包含 uid://。")
+	assert_true(cache_keys.has(min_uid_path), "总 cache key 列表应包含 uid://。")
+	assert_eq(GFVariantData.get_option_string(min_identity, "canonical_path"), MIN_GUI_SCENE, "计划身份快照应保留 canonical path。")
+	assert_eq(GFVariantData.get_option_int(issue_counts_by_kind, "duplicate_scene_path"), 1, "uid:// 和 canonical res:// 重复条目应按同一身份报告。")
+
+
 func test_preload_plan_separates_fixed_and_temporary_paths() -> void:
 	var preload_map: GFScenePreloadMap = GFScenePreloadMap.new()
 	preload_map.fixed_scene_paths = PackedStringArray(["res://global.tscn"])
@@ -84,7 +153,7 @@ func test_scene_utility_auto_preloads_neighbors_after_successful_switch() -> voi
 	scene_utility.configure_scene_preload_map(preload_map)
 	scene_utility.put_preloaded_scene(NORMAL_GUI_SCENE, _make_empty_scene())
 
-	scene_utility.load_scene_async(NORMAL_GUI_SCENE)
+	var _load_error: Error = scene_utility.load_scene_async(NORMAL_GUI_SCENE)
 	scene_utility.tick(0.0)
 
 	assert_eq(scene_utility.packed_scene_changes, 1, "缓存命中应完成场景切换。")
@@ -111,6 +180,13 @@ func _make_empty_scene() -> PackedScene:
 	assert_eq(pack_error, OK, "测试应能打包空场景。")
 	node.free()
 	return scene
+
+
+func _uid_path_for(path: String) -> String:
+	var uid: int = ResourceLoader.get_resource_uid(path)
+	if uid == ResourceUID.INVALID_ID:
+		return ""
+	return ResourceUID.id_to_text(uid)
 
 
 # --- 辅助类型 ---

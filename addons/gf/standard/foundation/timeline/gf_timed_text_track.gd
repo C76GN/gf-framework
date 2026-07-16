@@ -80,8 +80,8 @@ func sort_entries() -> void:
 			return false
 		if right == null:
 			return true
-		if is_equal_approx(left.start_time, right.start_time):
-			if is_equal_approx(left.end_time, right.end_time):
+		if left.start_time == right.start_time:
+			if left.end_time == right.end_time:
 				return _get_entry_sequence(left, sequence_by_instance_id) < _get_entry_sequence(right, sequence_by_instance_id)
 			return left.end_time < right.end_time
 		return left.start_time < right.start_time

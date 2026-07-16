@@ -38,8 +38,11 @@ func test_array_path_segments_read_write_erase_and_format() -> void:
 
 	assert_eq(GFReactiveStateStoreBase.format_path(["items", 1, "name"]), "items[1].name")
 	assert_eq(GFVariantData.to_text(store.get_value(["items", 1, "name"])), "ether")
+	assert_eq(GFVariantData.to_text(store.get_value("items[1].name")), "ether", "字符串路径应解析数组索引。")
 	assert_true(store.set_value(["items", 1, "name"], "elixir"), "数组路径写入应成功。")
 	assert_eq(GFVariantData.to_text(store.get_value(["items", 1, "name"])), "elixir")
+	assert_true(store.set_value("items[0].name", "hi-potion"), "字符串数组路径写入应成功。")
+	assert_eq(GFVariantData.to_text(store.get_value(["items", 0, "name"])), "hi-potion")
 	assert_true(store.erase_value(["items", 0]), "数组索引删除应成功。")
 	assert_eq(GFVariantData.to_text(store.get_value(["items", 0, "name"])), "elixir")
 	assert_false(store.has_value(["items", 1]), "删除数组元素后后续索引应按 Array 语义前移。")
@@ -147,6 +150,45 @@ func test_batch_notifies_subscribers_once_per_matching_change() -> void:
 	assert_eq(paths, ["stats.hp", "stats.mp"], "订阅者每个匹配变更只应收到一次，不应重复收到整批 changes。")
 	assert_signal_emit_count(store, "state_changed", 1)
 	assert_signal_emit_count(store, "path_changed", 2)
+
+
+func test_batch_identity_distinguishes_colliding_display_paths() -> void:
+	var store: GFReactiveStateStoreBase = GFReactiveStateStoreBase.new({
+		"profile.name": "flat",
+		"profile": { "name": "nested" },
+		"items[1]": "flat-index",
+		"items": ["zero", "nested-index"],
+	})
+	store.begin_batch()
+	assert_true(store.set_value([&"profile.name"], "flat-updated"), "平铺点号 key 应可更新。")
+	assert_true(store.set_value([&"profile", &"name"], "nested-updated"), "嵌套 key 应可更新。")
+	assert_true(store.set_value([&"items[1]"], "flat-index-updated"), "平铺索引文本 key 应可更新。")
+	assert_true(store.set_value([&"items", 1], "nested-index-updated"), "数组索引路径应可更新。")
+
+	var changes: Array[Dictionary] = store.end_batch()
+
+	assert_eq(changes.size(), 4, "显示文本相同但结构化路径不同的变更不得合并。")
+	assert_eq(GFVariantData.get_option_array(changes[0], "path_segments"), [&"profile.name"], "第一条应保留平铺点号路径。")
+	assert_eq(GFVariantData.get_option_array(changes[1], "path_segments"), [&"profile", &"name"], "第二条应保留嵌套路径。")
+	assert_eq(GFVariantData.get_option_array(changes[2], "path_segments"), [&"items[1]"], "第三条应保留平铺索引文本路径。")
+	assert_eq(GFVariantData.get_option_array(changes[3], "path_segments"), [&"items", 1], "第四条应保留数组索引路径。")
+
+
+func test_flush_sends_isolated_change_copies_to_subscribers() -> void:
+	var store: GFReactiveStateStoreBase = GFReactiveStateStoreBase.new({
+		"count": 0,
+	})
+	var observed_paths: Array[String] = []
+	var _first_unsubscribe: Callable = store.subscribe("count", func(change: Dictionary, _store: GFReactiveStateStoreBase) -> void:
+		change["path"] = "corrupted"
+	)
+	var _second_unsubscribe: Callable = store.subscribe("count", func(change: Dictionary, _store: GFReactiveStateStoreBase) -> void:
+		observed_paths.append(GFVariantData.get_option_string(change, "path"))
+	)
+
+	var _set_result: Variant = store.set_value("count", 1)
+
+	assert_eq(observed_paths, ["count"], "一个订阅者修改 change 不应污染后续订阅者。")
 
 
 func test_subscribe_unsubscribe_and_emit_current() -> void:

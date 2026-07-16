@@ -12,6 +12,11 @@ class_name GFProjectileMotion
 extends Resource
 
 
+# --- 常量 ---
+
+const _GF_COMBAT_FINITE_MATH = preload("res://addons/gf/extensions/combat/core/gf_combat_finite_math.gd")
+
+
 # --- 公共方法 ---
 
 ## 发射体启动时调用。
@@ -39,6 +44,9 @@ func setup(projectile: Node, projectile_context: Dictionary = {}) -> void:
 ## [br]
 ## @schema projectile_context: Dictionary，本次发射上下文；移动策略可读取或写入跨帧状态。
 func step(projectile: Node, delta: float, projectile_context: Dictionary = {}) -> void:
+	if projectile == null or not _GF_COMBAT_FINITE_MATH.is_finite_float(delta) or delta < 0.0:
+		projectile_context["motion_rejected_reason"] = &"non_finite_or_negative_delta"
+		return
 	_step(projectile, delta, projectile_context)
 
 

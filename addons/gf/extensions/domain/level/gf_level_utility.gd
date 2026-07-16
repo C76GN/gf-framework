@@ -1,8 +1,8 @@
 ## GFLevelUtility: 关卡流程管理工具。
 ##
 ## 负责统一关卡数据读取、开始、重开、胜利和失败信号派发。
-## 默认通过 GFConfigProvider 读取静态关卡表，并可在重开关卡时清理
-## 命令历史与外部显式注册的运行时残留。
+## 默认通过 GFConfigProvider 读取静态关卡表，并可在重开关卡时执行
+## 外部显式注册的运行时清理回调。
 ## [br]
 ## @api public
 ## [br]
@@ -68,6 +68,11 @@ signal level_won(level_id: StringName)
 signal level_lost(level_id: StringName)
 
 
+# --- 常量 ---
+
+const _LEVEL_CLEANUP_SCOPE_ID: StringName = &"level"
+
+
 # --- 公共变量 ---
 
 ## 默认关卡配置表名。
@@ -105,7 +110,7 @@ var fail_on_missing_level_data: bool = false
 # --- 私有变量 ---
 
 var _current_level_override: Dictionary = {}
-var _runtime_cleanup_callbacks: Dictionary = {}
+var _runtime_cleanup_scope: GFRuntimeCleanupScope = GFRuntimeCleanupScope.new()
 
 
 # --- GF 生命周期方法 ---
@@ -126,7 +131,7 @@ func dispose() -> void:
 	current_level_id = &""
 	current_level_data.clear()
 	_current_level_override.clear()
-	_runtime_cleanup_callbacks.clear()
+	_runtime_cleanup_scope.clear_all()
 	catalog = null
 
 
@@ -200,6 +205,9 @@ func get_catalog_levels(pack_id: StringName = &"") -> Array[GFLevelEntry]:
 ## @schema return: Dictionary，当前关卡数据副本；找不到数据时为空字典。
 func load_level_data(level_id: Variant) -> Dictionary:
 	var canonical_level_id: StringName = _to_level_id(level_id)
+	if canonical_level_id == &"":
+		push_error("[GFLevelUtility] load_level_data 失败：关卡 ID 为空。")
+		return {}
 	var config_provider: GFConfigProvider = _get_config_provider()
 	if config_provider != null:
 		var record: Variant = config_provider.get_record(level_table_name, canonical_level_id)
@@ -244,6 +252,9 @@ func load_level_data(level_id: Variant) -> Dictionary:
 ## @schema return: Dictionary，启动后的当前关卡数据副本；失败时为空字典。
 func start_level(level_id: Variant, level_data_override: Dictionary = {}) -> Dictionary:
 	var canonical_level_id: StringName = _to_level_id(level_id)
+	if canonical_level_id == &"":
+		push_error("[GFLevelUtility] start_level 失败：关卡 ID 为空。")
+		return {}
 	var next_override: Dictionary = level_data_override.duplicate(true)
 	var next_data: Dictionary = next_override.duplicate(true) if not next_override.is_empty() else load_level_data(canonical_level_id)
 	if fail_on_missing_level_data and next_data.is_empty():
@@ -257,11 +268,13 @@ func start_level(level_id: Variant, level_data_override: Dictionary = {}) -> Dic
 	return current_level_data.duplicate(true)
 
 
-## 重开当前关卡，并清理常见运行时队列。
+## 重开当前关卡，并清理已注册的关卡运行时残留。
 ## [br]
 ## @api public
 ## [br]
-## @param clear_runtime: 是否清理命令历史与表现队列。
+## @since 8.0.0
+## [br]
+## @param clear_runtime: 是否执行已注册的运行时清理回调。
 ## [br]
 ## @return: 当前关卡数据副本。
 ## [br]
@@ -336,43 +349,58 @@ func lose_current_level() -> void:
 	level_lost.emit(current_level_id)
 
 
-## 清理常见关卡运行时残留。
+## 清理已注册的关卡运行时残留。
 ## [br]
 ## @api public
+## [br]
+## @since 8.0.0
 func clear_level_runtime() -> void:
-	var history: GFCommandHistoryUtility = _get_command_history_utility()
-	if history != null:
-		history.clear()
-
-	for cleanup_id: StringName in _runtime_cleanup_callbacks.keys():
-		var callback: Callable = _get_runtime_cleanup_callback(cleanup_id)
-		if callback.is_valid():
-			callback.call()
+	var _cleanup_report: Dictionary = _runtime_cleanup_scope.run_scope(_LEVEL_CLEANUP_SCOPE_ID)
 
 
 ## 注册关卡运行时清理回调。
 ## [br]
 ## @api public
 ## [br]
+## @since 8.0.0
+## [br]
 ## @param cleanup_id: 清理项唯一标识。
 ## [br]
 ## @param callback: 无参数清理回调。
 ## [br]
+## @param priority: 执行优先级，数值越大越先执行。
+## [br]
+## @param metadata: 调用方自定义元数据。
+## [br]
 ## @return: 注册成功返回 true。
-func register_runtime_cleanup(cleanup_id: StringName, callback: Callable) -> bool:
-	if cleanup_id == &"" or not callback.is_valid():
-		return false
-	_runtime_cleanup_callbacks[cleanup_id] = callback
-	return true
+## [br]
+## @schema metadata: Dictionary project-defined cleanup metadata.
+func register_runtime_cleanup(
+	cleanup_id: StringName,
+	callback: Callable,
+	priority: int = 0,
+	metadata: Dictionary = {}
+) -> bool:
+	return _runtime_cleanup_scope.register_cleanup(
+		_LEVEL_CLEANUP_SCOPE_ID,
+		cleanup_id,
+		callback,
+		priority,
+		metadata
+	)
 
 
 ## 注销关卡运行时清理回调。
 ## [br]
 ## @api public
 ## [br]
+## @since 8.0.0
+## [br]
 ## @param cleanup_id: 清理项唯一标识。
-func unregister_runtime_cleanup(cleanup_id: StringName) -> void:
-	var _erase_result_363: Variant = _runtime_cleanup_callbacks.erase(cleanup_id)
+## [br]
+## @return: 成功移除返回 true。
+func unregister_runtime_cleanup(cleanup_id: StringName) -> bool:
+	return _runtime_cleanup_scope.unregister_cleanup(_LEVEL_CLEANUP_SCOPE_ID, cleanup_id)
 
 
 ## 检查关卡运行时清理回调是否存在。
@@ -383,7 +411,7 @@ func unregister_runtime_cleanup(cleanup_id: StringName) -> void:
 ## [br]
 ## @return: 存在返回 true。
 func has_runtime_cleanup(cleanup_id: StringName) -> bool:
-	return _runtime_cleanup_callbacks.has(cleanup_id)
+	return _runtime_cleanup_scope.has_cleanup(_LEVEL_CLEANUP_SCOPE_ID, cleanup_id)
 
 
 ## 获取已注册清理项标识。
@@ -392,11 +420,7 @@ func has_runtime_cleanup(cleanup_id: StringName) -> bool:
 ## [br]
 ## @return: 排序后的清理项标识。
 func get_runtime_cleanup_ids() -> PackedStringArray:
-	var result: PackedStringArray = PackedStringArray()
-	for cleanup_id: StringName in _runtime_cleanup_callbacks.keys():
-		var _append_result_385: Variant = result.append(String(cleanup_id))
-	result.sort()
-	return result
+	return _runtime_cleanup_scope.get_cleanup_ids(_LEVEL_CLEANUP_SCOPE_ID)
 
 
 ## 清除当前关卡记录。
@@ -460,13 +484,6 @@ func _get_config_provider() -> GFConfigProvider:
 	return null
 
 
-func _get_command_history_utility() -> GFCommandHistoryUtility:
-	var utility: Object = get_utility(GFCommandHistoryUtility)
-	if utility is GFCommandHistoryUtility:
-		return utility
-	return null
-
-
 func _get_progress_model() -> GFLevelProgressModel:
 	var model: Object = get_model(GFLevelProgressModel)
 	if model is GFLevelProgressModel:
@@ -503,11 +520,3 @@ func _variant_to_object(value: Variant) -> Object:
 		if is_instance_valid(object):
 			return object
 	return null
-
-
-func _get_runtime_cleanup_callback(cleanup_id: StringName) -> Callable:
-	var value: Variant = _runtime_cleanup_callbacks[cleanup_id]
-	if value is Callable:
-		var callback: Callable = value
-		return callback
-	return Callable()

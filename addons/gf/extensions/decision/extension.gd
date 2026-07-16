@@ -14,9 +14,11 @@ const _GF_DECISION_UTILITY_SCRIPT = preload("res://addons/gf/extensions/decision
 ## @api framework_internal
 ## [br]
 ## @param architecture: 要装配的架构实例。
-func install(architecture: GFArchitecture) -> void:
+## [br]
+## @param _scope: 本轮安装的取消作用域。
+func install(architecture: GFArchitecture, _scope: GFAsyncScope) -> void:
 	if architecture == null:
 		return
 	if architecture.get_local_utility(_GF_DECISION_UTILITY_SCRIPT) != null:
 		return
-	await architecture.register_utility_instance(_GF_DECISION_UTILITY_SCRIPT.new())
+	var _registered_decision: bool = await architecture.register_utility_instance(_GF_DECISION_UTILITY_SCRIPT.new())

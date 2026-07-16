@@ -391,8 +391,8 @@ func _try_coerce_color(value: Variant) -> Dictionary:
 				))
 	if value is String or value is StringName:
 		var text: String = GFVariantData.to_text(value).strip_edges()
-		if not text.is_empty():
-			return _make_coerce_result(true, Color(text))
+		if _is_valid_color_text(text):
+			return _make_coerce_result(true, Color.html(text))
 	return _make_coerce_result(false, Color.WHITE, "值无法转换为 Color。")
 
 
@@ -458,5 +458,13 @@ func _coerce_color(value: Variant) -> Color:
 				GFVariantData.to_float(values[3], 1.0) if values.size() >= 4 else 1.0
 			)
 	if value is String or value is StringName:
-		return Color(GFVariantData.to_text(value))
+		var text: String = GFVariantData.to_text(value).strip_edges()
+		if _is_valid_color_text(text):
+			return Color.html(text)
 	return Color.WHITE
+
+
+func _is_valid_color_text(value: String) -> bool:
+	if value.is_empty():
+		return false
+	return Color.html_is_valid(value)

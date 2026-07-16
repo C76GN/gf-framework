@@ -30,7 +30,7 @@ var max_attempts: int = 0
 ## @api public
 var jitter_ratio: float = 0.0:
 	set(value):
-		jitter_ratio = clampf(value, 0.0, 1.0)
+		jitter_ratio = clampf(value, 0.0, 1.0) if not is_nan(value) and not is_inf(value) else 0.0
 
 
 # --- 私有变量 ---

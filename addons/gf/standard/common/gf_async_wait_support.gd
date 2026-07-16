@@ -68,13 +68,13 @@ static func await_signal_state(result_signal: Signal, options: Dictionary = {}) 
 	if not is_instance_valid(target_obj):
 		return _make_signal_wait_result(STATUS_INVALID, [], &"target_invalid")
 
-	var cancel_token: GFCancelToken = _get_cancel_token(options)
-	if cancel_token != null and cancel_token.is_cancelled():
+	var cancel_token: GFCancellationToken = _get_cancel_token(options)
+	if cancel_token != null and cancel_token.is_cancel_requested():
 		return _make_signal_wait_result(
 			STATUS_CANCELLED,
 			[],
-			cancel_token.get_reason(),
-			cancel_token.get_metadata()
+			cancel_token.get_cancel_reason(),
+			cancel_token.get_cancel_metadata()
 		)
 
 	var completion_state: Dictionary = {
@@ -169,7 +169,7 @@ static func await_signal_state(result_signal: Signal, options: Dictionary = {}) 
 
 	var args: Array = GFVariantData.as_array(GFVariantData.get_option_value(completion_state, "args", []))
 	if status == STATUS_CANCELLED and cancel_token != null:
-		return _make_signal_wait_result(status, args, cancel_token.get_reason(), cancel_token.get_metadata())
+		return _make_signal_wait_result(status, args, cancel_token.get_cancel_reason(), cancel_token.get_cancel_metadata())
 	return _make_signal_wait_result(
 		status,
 		args,
@@ -368,7 +368,7 @@ static func _wait_signal_loop(
 	result_signal: Signal,
 	target_obj: Object,
 	guard_node: Node,
-	cancel_token: GFCancelToken,
+	cancel_token: GFCancellationToken,
 	completion_state: Dictionary,
 	options: Dictionary
 ) -> StringName:
@@ -386,7 +386,7 @@ static func _wait_signal_loop(
 	while not GFVariantData.get_option_bool(completion_state, "completed"):
 		if tree == null:
 			return STATUS_INVALID
-		if cancel_token != null and cancel_token.is_cancelled():
+		if cancel_token != null and cancel_token.is_cancel_requested():
 			return STATUS_CANCELLED
 		if not is_instance_valid(target_obj):
 			completion_state["reason"] = &"target_exited"
@@ -502,10 +502,10 @@ static func _get_callable(options: Dictionary, key: String) -> Callable:
 	return Callable()
 
 
-static func _get_cancel_token(options: Dictionary) -> GFCancelToken:
+static func _get_cancel_token(options: Dictionary) -> GFCancellationToken:
 	var value: Variant = GFVariantData.get_option_value(options, "cancel_token")
-	if value is GFCancelToken:
-		var token: GFCancelToken = value
+	if value is GFCancellationToken:
+		var token: GFCancellationToken = value
 		return token
 	return null
 

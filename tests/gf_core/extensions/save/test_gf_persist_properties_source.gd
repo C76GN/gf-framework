@@ -79,6 +79,22 @@ func test_persist_properties_source_keeps_extra_serializers_composable() -> void
 	assert_eq(target.scale, Vector2(4.0, 5.0), "注册表 Transform2D 序列化器应恢复 scale。")
 
 
+func test_persist_properties_source_rejects_malformed_serializer_items() -> void:
+	var target: Node2D = Node2D.new()
+	var source: GFPersistPropertiesSource = GFPersistPropertiesSource.new()
+	target.add_child(source)
+	_scope.add_child(target)
+	source.properties = PackedStringArray(["position"])
+
+	var result: Dictionary = source._apply_save_data({"serializers": ["malformed"]})
+	var errors: Array = GFVariantData.get_option_array(result, "errors")
+
+	assert_false(GFVariantData.get_option_bool(result, "ok", true), "属性 serializer 路径不得吞掉畸形项。")
+	assert_eq(errors.size(), 1)
+	if not errors.is_empty():
+		assert_string_contains(GFVariantData.to_text(errors[0]), "index 0")
+
+
 func test_persist_properties_source_restores_allowed_resource_reference() -> void:
 	var resource_path: String = "user://gf_persist_properties_resource.tres"
 	var resource: Resource = Resource.new()

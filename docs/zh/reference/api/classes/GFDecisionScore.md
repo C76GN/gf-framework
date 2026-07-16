@@ -23,6 +23,7 @@
 | 属性 | [`metadata`](#member-gfdecisionscore-properties-metadata) | `var metadata: Dictionary = {}` |
 | 方法 | [`to_dictionary`](#member-gfdecisionscore-methods-to_dictionary) | `func to_dictionary() -> Dictionary:` |
 | 方法 | [`get_debug_snapshot`](#member-gfdecisionscore-methods-get_debug_snapshot) | `func get_debug_snapshot() -> Dictionary:` |
+| 方法 | [`to_report_dictionary`](#member-gfdecisionscore-methods-to_report_dictionary) | `func to_report_dictionary(options: Dictionary = {}) -> Dictionary:` |
 
 ## 属性
 
@@ -134,6 +135,7 @@ func to_dictionary() -> Dictionary:
 ### `get_debug_snapshot`
 
 - API：`public`
+- 首次版本：`4.3.0`
 
 ```gdscript
 func get_debug_snapshot() -> Dictionary:
@@ -145,4 +147,30 @@ func get_debug_snapshot() -> Dictionary:
 
 结构：
 
-- `return`: 与 to_dictionary() 相同的评分结果 Dictionary。
+- `return`: 基于 to_dictionary() 编码的 JSON-safe 评分结果 Dictionary。
+
+<a id="member-gfdecisionscore-methods-to_report_dictionary"></a>
+
+### `to_report_dictionary`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func to_report_dictionary(options: Dictionary = {}) -> Dictionary:
+```
+
+转换为 JSON-safe 报告字典。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `options` | 传给 GFReportValueCodec 的编码选项。 |
+
+返回：评分报告字典。
+
+结构：
+
+- `options`: Dictionary with GFReportValueCodec encoding options.
+- `return`: JSON-safe Dictionary based on to_dictionary().

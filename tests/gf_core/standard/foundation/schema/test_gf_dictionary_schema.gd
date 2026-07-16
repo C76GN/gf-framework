@@ -55,6 +55,39 @@ func test_dictionary_schema_applies_defaults_and_coerces_values() -> void:
 	assert_eq(GFVariantData.get_option_int(coerced, "count"), 3, "缺失字段应补默认值。")
 
 
+func test_dictionary_schema_rejects_non_finite_numeric_components() -> void:
+	var schema: GFDictionarySchema = GFDictionarySchema.new()
+	var _float_added: bool = schema.add_field(_make_field(&"weight", GFSchemaField.ValueType.FLOAT))
+	var _vector_added: bool = schema.add_field(_make_field(&"position", GFSchemaField.ValueType.VECTOR2))
+	var _color_added: bool = schema.add_field(_make_field(&"tint", GFSchemaField.ValueType.COLOR))
+
+	var report: GFValidationReport = schema.validate_dictionary({
+		"weight": NAN,
+		"position": Vector2(INF, 0.0),
+		"tint": Color(0.0, NAN, 0.0, 1.0),
+	})
+
+	assert_false(report.is_ok(), "非有限数不应通过 schema 数据契约。")
+	assert_eq(report.get_error_count(), 3, "每个非有限字段都应产生独立错误。")
+	assert_eq(_find_issue_kind(report, "non_finite_value"), "non_finite_value", "非有限数应使用稳定 issue kind。")
+
+
+func test_schema_field_coerce_value_preserves_invalid_source_value() -> void:
+	var id_field: GFSchemaField = _make_field(&"id", GFSchemaField.ValueType.INT)
+	var color_field: GFSchemaField = _make_field(&"color", GFSchemaField.ValueType.COLOR)
+	var vector_field: GFSchemaField = _make_field(&"position", GFSchemaField.ValueType.VECTOR2)
+	var schema: GFDictionarySchema = GFDictionarySchema.new()
+	schema.fields = [id_field]
+	var coerced: Dictionary = schema.coerce_dictionary({
+		"id": "bad",
+	}, false)
+
+	assert_eq(GFVariantData.get_option_string({ "value": id_field.coerce_value("bad") }, "value"), "bad", "失败的 int coercion 不应返回 0。")
+	assert_eq(GFVariantData.get_option_string({ "value": color_field.coerce_value("bad") }, "value"), "bad", "失败的 color coercion 不应返回黑色或白色。")
+	assert_eq(GFVariantData.get_option_string({ "value": vector_field.coerce_value("bad") }, "value"), "bad", "失败的 vector coercion 不应返回零向量。")
+	assert_eq(GFVariantData.get_option_string(coerced, "id"), "bad", "schema 无报告 coercion 不应把非法字段值替换为 fallback。")
+
+
 func test_dictionary_schema_can_warn_on_coerce_failures() -> void:
 	var schema: GFDictionarySchema = GFDictionarySchema.new()
 	schema.schema_id = &"settings"
@@ -134,6 +167,24 @@ func test_dictionary_schema_field_lookup_refreshes_after_direct_field_array_muta
 	assert_eq(first_lookup, id_field, "字段索引应返回已注册字段。")
 	assert_not_null(level_lookup, "直接修改 fields 后字段索引应刷新。")
 	assert_true(schema.has_field(&"level"), "has_field 应使用刷新后的字段索引。")
+
+
+func test_dictionary_schema_reports_equivalent_source_key_collisions() -> void:
+	var schema: GFDictionarySchema = GFDictionarySchema.new()
+	schema.schema_id = &"profile"
+	var score_field: GFSchemaField = _make_field(&"score", GFSchemaField.ValueType.INT)
+	var _score_added: bool = schema.add_field(score_field)
+
+	var values: Dictionary = {}
+	values[&"score"] = "bad"
+	values[NodePath("score")] = 10
+	var report: GFValidationReport = schema.validate_dictionary(values, {
+		"path": "profile",
+	})
+
+	assert_false(report.is_ok(), "等价字段 key 冲突不应被静默覆盖。")
+	assert_eq(_find_issue_kind(report, "duplicate_field_key"), "duplicate_field_key", "冲突类别应稳定。")
+	assert_eq(_find_issue_path(report, "duplicate_field_key"), "profile/score", "冲突路径应指向归一化字段。")
 
 
 func test_dictionary_schema_definition_preserves_nested_paths() -> void:
@@ -297,6 +348,48 @@ func test_dictionary_schema_can_keep_invalid_normalized_rows() -> void:
 	assert_false(GFVariantData.get_option_bool(result, "ok"), "保留无效行时 ok 应反映报告错误。")
 	assert_eq(rows.size(), 1, "默认应保留可编辑的无效行。")
 	assert_eq(GFVariantData.get_option_int(result, "invalid_row_count"), 1, "无效行统计应保留。")
+
+
+func test_dictionary_schema_reports_failed_row_coercion_without_fallback_success() -> void:
+	var schema: GFDictionarySchema = GFDictionarySchema.new()
+	schema.schema_id = &"items"
+	var id_field: GFSchemaField = _make_field(&"id", GFSchemaField.ValueType.INT, {
+		"required": true,
+		"allow_null": false,
+	})
+	var _id_added: bool = schema.add_field(id_field)
+
+	var result: Dictionary = schema.normalize_dictionary_array([
+		{
+			"id": "bad",
+		},
+	], {
+		"path": "items",
+		"keep_invalid_rows": false,
+	})
+	var report: GFValidationReport = _as_report(GFVariantData.get_option_value(result, "report"))
+
+	assert_false(GFVariantData.get_option_bool(result, "ok"), "转换失败的行不应被 fallback 值伪装为有效。")
+	assert_eq(GFVariantData.get_option_int(result, "invalid_row_count"), 1, "转换失败应计入无效行。")
+	assert_eq(GFVariantData.get_option_array(result, "rows").size(), 0, "keep_invalid_rows=false 时应跳过转换失败行。")
+	assert_eq(_find_issue_kind(report, "coerce_failed"), "coerce_failed", "转换失败应有稳定 issue kind。")
+	assert_eq(_find_issue_path(report, "coerce_failed"), "items[0]/id", "转换失败应保留行内字段路径。")
+
+
+func test_dictionary_schema_validate_dictionary_short_circuits_recursive_schema() -> void:
+	var schema: GFDictionarySchema = GFDictionarySchema.new()
+	schema.schema_id = &"node"
+	var child_field: GFSchemaField = _make_field(&"child", GFSchemaField.ValueType.DICTIONARY, {
+		"dictionary_schema": schema,
+	})
+	var _child_added: bool = schema.add_field(child_field)
+	var values: Dictionary = {}
+	values["child"] = values
+
+	var report: GFValidationReport = schema.validate_dictionary(values)
+
+	assert_false(report.is_ok(), "循环 schema 数据校验应返回报告而不是递归挂起。")
+	assert_eq(_find_issue_kind(report, "circular_schema"), "circular_schema", "循环 schema 应由定义自检稳定报告。")
 
 
 func test_schema_field_validation_rules_inherit_field_context() -> void:

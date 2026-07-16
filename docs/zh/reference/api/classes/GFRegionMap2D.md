@@ -15,7 +15,7 @@
 
 | 类型 | 名称 | 签名 |
 |---|---|---|
-| 属性 | [`region_size`](#member-gfregionmap2d-properties-region_size) | `var region_size: Vector2i = Vector2i(32, 32)` |
+| 属性 | [`region_size`](#member-gfregionmap2d-properties-region_size) | `var region_size: Vector2i = Vector2i(32, 32):` |
 | 属性 | [`duplicate_values`](#member-gfregionmap2d-properties-duplicate_values) | `var duplicate_values: bool = true` |
 | 方法 | [`get_region_key_for_cell`](#member-gfregionmap2d-methods-get_region_key_for_cell) | `func get_region_key_for_cell(cell: Vector2i) -> Vector2i:` |
 | 方法 | [`set_cell`](#member-gfregionmap2d-methods-set_cell) | `func set_cell(cell: Vector2i, value: Variant) -> void:` |
@@ -37,12 +37,13 @@
 ### `region_size`
 
 - API：`public`
+- 首次版本：`8.0.0`
 
 ```gdscript
-var region_size: Vector2i = Vector2i(32, 32)
+var region_size: Vector2i = Vector2i(32, 32):
 ```
 
-每个区域包含的格子尺寸。
+每个区域包含的格子尺寸；运行时修改会重新索引已有格子并标记受影响区域为脏。
 
 <a id="member-gfregionmap2d-properties-duplicate_values"></a>
 

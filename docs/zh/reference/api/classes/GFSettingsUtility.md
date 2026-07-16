@@ -53,7 +53,8 @@
 | 方法 | [`reset_value`](#member-gfsettingsutility-methods-reset_value) | `func reset_value(key: StringName, save_after_change: bool = true) -> void:` |
 | 方法 | [`reset_all`](#member-gfsettingsutility-methods-reset_all) | `func reset_all(save_after_change: bool = true) -> void:` |
 | 方法 | [`to_dict`](#member-gfsettingsutility-methods-to_dict) | `func to_dict(persistent_only: bool = true) -> Dictionary:` |
-| 方法 | [`from_dict`](#member-gfsettingsutility-methods-from_dict) | `func from_dict(data: Dictionary, emit_changes: bool = true) -> void:` |
+| 方法 | [`replace_from_dict`](#member-gfsettingsutility-methods-replace_from_dict) | `func replace_from_dict(data: Dictionary, emit_changes: bool = true) -> void:` |
+| 方法 | [`merge_from_dict`](#member-gfsettingsutility-methods-merge_from_dict) | `func merge_from_dict(data: Dictionary, emit_changes: bool = true) -> void:` |
 | 方法 | [`load_settings`](#member-gfsettingsutility-methods-load_settings) | `func load_settings(file_name: String = "") -> Dictionary:` |
 | 方法 | [`save_settings`](#member-gfsettingsutility-methods-save_settings) | `func save_settings(file_name: String = "") -> Error:` |
 | 方法 | [`tick`](#member-gfsettingsutility-methods-tick) | `func tick(delta: float = 0.0) -> void:` |
@@ -792,17 +793,42 @@ func to_dict(persistent_only: bool = true) -> Dictionary:
 
 - `return`: Dictionary[String, Variant] serialized setting values suitable for persistence.
 
-<a id="member-gfsettingsutility-methods-from_dict"></a>
+<a id="member-gfsettingsutility-methods-replace_from_dict"></a>
 
-### `from_dict`
+### `replace_from_dict`
 
 - API：`public`
+- 首次版本：`8.0.0`
 
 ```gdscript
-func from_dict(data: Dictionary, emit_changes: bool = true) -> void:
+func replace_from_dict(data: Dictionary, emit_changes: bool = true) -> void:
 ```
 
-从字典恢复设置。
+使用字典完整替换当前设置。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `data` | 设置数据。 |
+| `emit_changes` | 变化时是否发出 setting_changed。 |
+
+结构：
+
+- `data`: Dictionary[String, Variant] serialized setting values produced by to_dict().
+
+<a id="member-gfsettingsutility-methods-merge_from_dict"></a>
+
+### `merge_from_dict`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func merge_from_dict(data: Dictionary, emit_changes: bool = true) -> void:
+```
+
+将字典作为覆盖层合并到当前设置。
 
 参数：
 

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFFlowGraph" path="addons/gf/extensions/flow/resources/gf_flow_graph.gd" module="extensions/flow" extends="Resource" classDigest="be9a2b19f312001ed7e42ff260ac5aeb686da689ba886ca5706a93c6f0a004a0">
+<class name="GFFlowGraph" path="addons/gf/extensions/flow/resources/gf_flow_graph.gd" module="extensions/flow" extends="Resource" classDigest="23a198953a31a4e862c79ccab052b9de5a17383b8721b7a7c1c66d443321fc52">
 	<description>GFFlowGraph: 资源化通用流程图。
 只维护节点集合与起始节点，不规定具体编辑器表现或业务语义。</description>
 	<tags>
@@ -16,6 +16,7 @@
 			<description>起始节点标识。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="nodes" decorators="@export">
@@ -23,6 +24,7 @@
 			<description>流程节点列表。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="connections" decorators="@export">
@@ -31,6 +33,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="schema">connections: 连接字典数组；每项包含 from_node_id、from_port_id、to_node_id、to_port_id 和 metadata 字段。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="validate_port_compatibility" decorators="@export">
@@ -38,6 +41,7 @@
 			<description>校验时是否把端口值类型和类名提示不兼容视为错误。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="warn_unreachable_nodes" decorators="@export">
@@ -45,6 +49,7 @@
 			<description>校验时是否提示从 start_node_id 无法到达的节点。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="warn_cycles" decorators="@export">
@@ -52,6 +57,7 @@
 			<description>校验时是否提示图中的循环。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="warn_terminal_nodes" decorators="@export">
@@ -59,6 +65,7 @@
 			<description>校验时是否提示没有后继的终端节点。默认关闭，避免把正常结束节点视为问题。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="editor_groups" decorators="@export">
@@ -67,6 +74,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="schema">editor_groups: 编辑器分组字典数组；字段由 FlowGraph 编辑器或项目工具解释。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="editor_metadata" decorators="@export">
@@ -75,6 +83,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="schema">editor_metadata: 编辑器或项目工具自定义元数据 Dictionary；运行时不解释其中键值。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="metadata_schema" decorators="@export">
@@ -83,6 +92,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="schema">metadata_schema: 轻量元数据校验规则 Dictionary；键为元数据 key，值为包含 required、allow_null、type、class_name、allowed_values 等字段的规则字典。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</properties>
@@ -93,6 +103,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">node: 流程节点。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_node">
@@ -102,6 +113,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">node_id: 节点标识。</tag>
 				<tag name="return">流程节点；不存在时返回 null。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="has_node">
@@ -111,6 +123,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">node_id: 节点标识。</tag>
 				<tag name="return">存在返回 true。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="remove_node">
@@ -119,6 +132,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">node_id: 节点标识。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="add_connection">
@@ -133,6 +147,7 @@
 				<tag name="param">metadata: 项目自定义元数据。</tag>
 				<tag name="return">添加成功返回 true。</tag>
 				<tag name="schema">metadata: 连接自定义元数据 Dictionary；框架保留并复制该字段，但不解释其中键值。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="remove_connection">
@@ -145,6 +160,7 @@
 				<tag name="param">to_node_id: 目标标识。</tag>
 				<tag name="param">to_port_id: 目标标识。</tag>
 				<tag name="return">移除成功返回 true。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="remove_connections_for_node">
@@ -153,6 +169,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">node_id: 节点标识。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="has_connection">
@@ -165,6 +182,7 @@
 				<tag name="param">to_node_id: 目标标识。</tag>
 				<tag name="param">to_port_id: 目标标识。</tag>
 				<tag name="return">存在返回 true。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_connections_from">
@@ -176,6 +194,7 @@
 				<tag name="param">port_id: 端口标识；为空时返回该节点所有输出连接。</tag>
 				<tag name="return">连接副本列表。</tag>
 				<tag name="schema">return: 连接字典数组；每项包含 from_node_id、from_port_id、to_node_id、to_port_id 和 metadata 字段。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_connections_to">
@@ -187,6 +206,7 @@
 				<tag name="param">port_id: 端口标识；为空时返回该节点所有输入连接。</tag>
 				<tag name="return">连接副本列表。</tag>
 				<tag name="schema">return: 连接字典数组；每项包含 from_node_id、from_port_id、to_node_id、to_port_id 和 metadata 字段。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_connected_node_ids_from">
@@ -197,6 +217,7 @@
 				<tag name="param">node_id: 节点标识。</tag>
 				<tag name="param">port_id: 端口标识；为空时返回该节点所有输出目标。</tag>
 				<tag name="return">目标节点标识列表。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="check_connection_compatibility">
@@ -210,6 +231,7 @@
 				<tag name="param">to_port_id: 目标端口。</tag>
 				<tag name="return">兼容性报告。</tag>
 				<tag name="schema">return: 包含 ok、reason、message、from_node_id、from_port_id、to_node_id 和 to_port_id 等字段的 Dictionary。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_connection_compatibility_report">
@@ -219,6 +241,7 @@
 				<tag name="api">public</tag>
 				<tag name="return">兼容性报告列表。</tag>
 				<tag name="schema">return: 兼容性报告字典数组；每项结构同 check_connection_compatibility() 返回值。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="set_node_editor_position">
@@ -229,6 +252,7 @@
 				<tag name="param">node_id: 节点标识。</tag>
 				<tag name="param">position: 编辑器坐标。</tag>
 				<tag name="return">设置成功返回 true。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="set_node_editor_layout">
@@ -241,6 +265,7 @@
 				<tag name="param">size: 编辑器尺寸；Vector2.ZERO 表示由编辑器自行决定。</tag>
 				<tag name="param">collapsed: 是否折叠显示。</tag>
 				<tag name="return">设置成功返回 true。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_editor_catalog">
@@ -250,6 +275,7 @@
 				<tag name="api">public</tag>
 				<tag name="return">节点目录字典。</tag>
 				<tag name="schema">return: 包含 node_count、nodes 和 categories 字段的 Dictionary；nodes 为节点目录条目数组，categories 按分类名分组。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="describe_graph">
@@ -259,6 +285,7 @@
 				<tag name="api">public</tag>
 				<tag name="return">图描述字典。</tag>
 				<tag name="schema">return: 包含 start_node_id、node_count、nodes、connection_count、connections、validate_port_compatibility、diagnostics 和 editor 字段的 Dictionary。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="instantiate_graph">
@@ -269,15 +296,18 @@
 				<tag name="param">options: 可选参数，支持 clear_runtime_state。</tag>
 				<tag name="return">流程图副本；复制失败时返回 null。</tag>
 				<tag name="schema">options: 可选项 Dictionary；支持 clear_runtime_state: bool。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="serialize_runtime_state">
-			<signature>func serialize_runtime_state() -&gt; Dictionary:</signature>
+			<signature>func serialize_runtime_state(json_compatible: bool = false) -&gt; Dictionary:</signature>
 			<description>序列化图内节点运行态。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="param">json_compatible: 为 true 时输出 JSON-safe 报告值；默认为 false，保留运行时原始 Variant。</tag>
 				<tag name="return">运行态快照。</tag>
 				<tag name="schema">return: 包含 nodes 字段的 Dictionary；nodes 按 node_id 保存节点运行态 Dictionary。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="deserialize_runtime_state">
@@ -287,6 +317,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">data: 运行态快照。</tag>
 				<tag name="schema">data: serialize_runtime_state() 返回的运行态快照 Dictionary。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="clear_runtime_state">
@@ -294,6 +325,7 @@
 			<description>清空图内所有节点运行态。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="validate_metadata">
@@ -307,6 +339,7 @@
 				<tag name="schema">target_metadata: 待校验的元数据 Dictionary。</tag>
 				<tag name="schema">schema: 可选轻量 Schema Dictionary；为空时使用 metadata_schema。</tag>
 				<tag name="schema">return: GFValidationReportDictionary.finalize_report() 生成的 Dictionary，包含 ok、healthy、summary、issues、next_action、error_count 和 warning_count 等字段。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="validate_graph_metadata">
@@ -316,6 +349,7 @@
 				<tag name="api">public</tag>
 				<tag name="return">校验报告。</tag>
 				<tag name="schema">return: GFValidationReportDictionary.finalize_report() 生成的 Dictionary，包含 ok、healthy、summary、issues、next_action、error_count 和 warning_count 等字段。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="validate_graph">
@@ -325,6 +359,7 @@
 				<tag name="api">public</tag>
 				<tag name="return">校验报告。</tag>
 				<tag name="schema">return: GFValidationReportDictionary.finalize_report() 生成的 Dictionary，包含 ok、healthy、node_count、connection_count、summary、issues 和 next_action 等字段。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="build_editor_report">
@@ -334,6 +369,7 @@
 				<tag name="api">public</tag>
 				<tag name="return">包含校验、目录和编辑器元数据的报告。</tag>
 				<tag name="schema">return: 包含 ok、healthy、summary、next_action、validation、catalog 和 editor 字段的 Dictionary。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</methods>

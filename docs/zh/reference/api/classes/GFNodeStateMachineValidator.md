@@ -26,12 +26,13 @@
 ### `validate_machine`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 static func validate_machine(machine: GFNodeStateMachine, options: Dictionary = {}) -> GFValidationReport:
 ```
 
-校验一个节点状态机的直接子状态和显式状态组。
+校验一个节点状态机的直接子状态、场景状态组和运行时注册状态组。
 
 参数：
 

@@ -25,6 +25,7 @@
 | 方法 | [`make_success`](#member-gfcombatactionresult-methods-make_success) | `static func make_success( p_original_action: GFCombatAction, p_action: GFCombatAction, p_previous_value: float, p_current_value: float, p_metadata: Dictionary = {} ) -> GFCombatActionResult:` |
 | 方法 | [`make_failure`](#member-gfcombatactionresult-methods-make_failure) | `static func make_failure( p_reason: StringName, p_original_action: GFCombatAction = null, p_previous_value: float = 0.0, p_metadata: Dictionary = {} ) -> GFCombatActionResult:` |
 | 方法 | [`to_dict`](#member-gfcombatactionresult-methods-to_dict) | `func to_dict() -> Dictionary:` |
+| 方法 | [`to_report_dictionary`](#member-gfcombatactionresult-methods-to_report_dictionary) | `func to_report_dictionary(options: Dictionary = {}) -> Dictionary:` |
 
 ## 属性
 
@@ -190,3 +191,29 @@ func to_dict() -> Dictionary:
 结构：
 
 - `return`: Dictionary，包含 ok、reason、original_action、action、previous_value、current_value、delta 和 metadata。
+
+<a id="member-gfcombatactionresult-methods-to_report_dictionary"></a>
+
+### `to_report_dictionary`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func to_report_dictionary(options: Dictionary = {}) -> Dictionary:
+```
+
+转为 JSON-safe 报告字典。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `options` | 传给 GFReportValueCodec 的编码选项。 |
+
+返回：报告字典快照。
+
+结构：
+
+- `options`: Dictionary with GFReportValueCodec encoding options.
+- `return`: JSON-safe Dictionary based on to_dict().

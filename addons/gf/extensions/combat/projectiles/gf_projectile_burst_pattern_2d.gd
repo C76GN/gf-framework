@@ -67,7 +67,7 @@ func _get_spawn_transforms(
 	if emitter == null:
 		return []
 
-	var count: int = _resolve_count(projectile_count, emit_count)
+	var count: int = resolve_spawn_count(emit_count)
 	var result: Array[Transform2D] = []
 	var base_angle: float = emitter.global_rotation if include_emitter_rotation else 0.0
 	var center_angle: float = base_angle + deg_to_rad(center_angle_degrees)
@@ -82,3 +82,7 @@ func _get_spawn_transforms(
 		var rotation: float = angle if rotate_to_direction else emitter.global_rotation
 		result.append(Transform2D(rotation, position))
 	return result
+
+
+func _get_default_spawn_count() -> int:
+	return projectile_count

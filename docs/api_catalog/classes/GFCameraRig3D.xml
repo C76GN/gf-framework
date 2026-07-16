@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFCameraRig3D" path="addons/gf/extensions/camera/nodes/gf_camera_rig_3d.gd" module="extensions/camera" extends="Node3D" classDigest="01dc3e9779206cc4f31e50dc3fe878d372efbe84f5dc6207381ce9dd0e022e25">
+<class name="GFCameraRig3D" path="addons/gf/extensions/camera/nodes/gf_camera_rig_3d.gd" module="extensions/camera" extends="Node3D" classDigest="e345a2fd6d4c1314e2676a4939a62d458ce07ec856601c6b953053cef5acb011">
 	<description>GFCameraRig3D: 通用 3D 相机姿态提供节点。
 Rig 只计算期望 Camera3D Transform，不直接控制 Camera3D。
 项目可用多个 Rig 表达不同视角，再交给 GFCameraDirector3D 按优先级选择。</description>
@@ -114,6 +114,22 @@ Rig 只计算期望 Camera3D Transform，不直接控制 Camera3D。
 				<tag name="since">6.0.0</tag>
 			</tags>
 		</member>
+		<member kind="property" name="camera_scope_path" decorators="@export_node_path(&quot;Node&quot;)">
+			<signature>var camera_scope_path: NodePath = NodePath("")</signature>
+			<description>相机选择作用域。为空时使用 Rig 父节点；Director 只会从相同作用域收集分组 Rig。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="camera_channel" decorators="@export">
+			<signature>var camera_channel: StringName = &amp;""</signature>
+			<description>相机选择频道。为空表示默认频道；Director 配置非空频道时只收集同频道 Rig。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
 		<member kind="property" name="metadata" decorators="@export">
 			<signature>var metadata: Dictionary = {}</signature>
 			<description>项目自定义元数据。框架不解释该字段。</description>
@@ -146,6 +162,15 @@ Rig 只计算期望 Camera3D Transform，不直接控制 Camera3D。
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">期望全局 Transform。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_camera_scope_node">
+			<signature>func get_camera_scope_node() -&gt; Node:</signature>
+			<description>获取相机选择作用域节点。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">作用域节点；显式路径为空时返回父节点。</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_available">

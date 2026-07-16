@@ -1,0 +1,247 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFNetworkLobbyDescriptor" path="addons/gf/extensions/network/session/gf_network_lobby_descriptor.gd" module="extensions/network" extends="Resource" classDigest="442a8695670e13c4ba7031e6570143251c5bbe937ee1d4bda6d1318a63f75782">
+	<description>GFNetworkLobbyDescriptor: 平台中立的 lobby 快照。
+描述外部平台、局域网或自建服务中的房间状态。它只承载可复用的联机结构，
+不把玩家准备、队伍、角色或具体玩法写入框架层。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">value_object</tag>
+		<tag name="since">8.0.0</tag>
+	</tags>
+	<signals />
+	<enums>
+		<member kind="enum" name="Visibility">
+			<signature>enum Visibility {
+	## 由 backend 或平台默认策略决定。
+	DEFAULT,
+	## 可公开查询。
+	PUBLIC,
+	## 仅好友、群组或平台关系可见。
+	RELATIONSHIP,
+	## 只能通过邀请或精确 ID 加入。
+	PRIVATE,
+	## 不可查询且不可加入。
+	HIDDEN,
+}</signature>
+			<description>Lobby 可见性。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</enums>
+	<constants />
+	<properties>
+		<member kind="property" name="lobby_id" decorators="@export">
+			<signature>var lobby_id: String = ""</signature>
+			<description>Lobby 外部稳定 ID。动态平台 ID 使用 String 保存。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="backend_id" decorators="@export">
+			<signature>var backend_id: StringName = &amp;""</signature>
+			<description>提供该 lobby 的 backend 标识。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="display_name" decorators="@export">
+			<signature>var display_name: String = ""</signature>
+			<description>编辑器或 UI 可显示名称。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="owner_peer_id" decorators="@export">
+			<signature>var owner_peer_id: int = -1</signature>
+			<description>owner 的传输 peer 标识。未知时为 -1。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="owner_platform_user_id" decorators="@export">
+			<signature>var owner_platform_user_id: String = ""</signature>
+			<description>owner 的平台用户 ID。用于尚未建立传输连接但平台已返回 owner 的场景。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="max_members" decorators="@export">
+			<signature>var max_members: int = 0</signature>
+			<description>最大成员数。小于等于 0 表示 backend 未声明。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="joinable" decorators="@export">
+			<signature>var joinable: bool = true</signature>
+			<description>当前是否允许加入。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="visibility" decorators="@export">
+			<signature>var visibility: Visibility = Visibility.DEFAULT</signature>
+			<description>Lobby 可见性。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="members" decorators="@export">
+			<signature>var members: Array[GFNetworkLobbyMember] = []</signature>
+			<description>成员列表。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">members: Array[GFNetworkLobbyMember] lobby member snapshots.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="tags" decorators="@export">
+			<signature>var tags: PackedStringArray = PackedStringArray()</signature>
+			<description>Lobby 标签，用于轻量查询或展示。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="metadata" decorators="@export">
+			<signature>var metadata: Dictionary = {}</signature>
+			<description>调用方自定义 lobby metadata。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">metadata: Dictionary caller-defined lobby metadata.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="configure">
+			<signature>func configure(p_lobby_id: String, options: Dictionary = {}) -&gt; GFNetworkLobbyDescriptor:</signature>
+			<description>配置 lobby 快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">p_lobby_id: Lobby 外部稳定 ID。</tag>
+				<tag name="param">options: 可选字段，支持 backend_id、display_name、owner_peer_id、owner_platform_user_id、max_members、joinable、visibility、members、tags 和 metadata。</tag>
+				<tag name="return">当前 lobby。</tag>
+				<tag name="schema">options: Dictionary lobby fields.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_display_name">
+			<signature>func get_display_name() -&gt; String:</signature>
+			<description>获取展示名称。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">展示名称。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_member_count">
+			<signature>func get_member_count() -&gt; int:</signature>
+			<description>获取成员数量。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">成员数量。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_full">
+			<signature>func is_full() -&gt; bool:</signature>
+			<description>检查 lobby 是否已满。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">已满返回 true；未声明 max_members 时返回 false。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_member">
+			<signature>func get_member(peer_id: int) -&gt; GFNetworkLobbyMember:</signature>
+			<description>获取成员。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">peer_id: 传输 peer 标识。</tag>
+				<tag name="return">成员；不存在时返回 null。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="set_member">
+			<signature>func set_member(member: GFNetworkLobbyMember) -&gt; void:</signature>
+			<description>设置或替换成员。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">member: 成员。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="remove_member">
+			<signature>func remove_member(peer_id: int) -&gt; bool:</signature>
+			<description>移除成员。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">peer_id: 传输 peer 标识。</tag>
+				<tag name="return">找到并移除时返回 true。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="to_dict">
+			<signature>func to_dict() -&gt; Dictionary:</signature>
+			<description>转换为字典。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">Lobby 字典。</tag>
+				<tag name="schema">return: Dictionary with lobby_id, backend_id, display_name, owner_peer_id, owner_platform_user_id, max_members, joinable, visibility, members, tags, and metadata.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="apply_dict">
+			<signature>func apply_dict(data: Dictionary) -&gt; void:</signature>
+			<description>从字典应用 lobby 字段。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">data: Lobby 字典。</tag>
+				<tag name="schema">data: Dictionary with lobby_id, backend_id, display_name, owner_peer_id, owner_platform_user_id, max_members, joinable, visibility, members, tags, and metadata.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="duplicate_lobby">
+			<signature>func duplicate_lobby() -&gt; GFNetworkLobbyDescriptor:</signature>
+			<description>创建 lobby 深拷贝。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">新 lobby。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_debug_snapshot">
+			<signature>func get_debug_snapshot() -&gt; Dictionary:</signature>
+			<description>获取调试快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">调试快照。</tag>
+				<tag name="schema">return: Dictionary JSON-safe lobby debug snapshot.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="from_dict">
+			<signature>static func from_dict(data: Dictionary) -&gt; GFNetworkLobbyDescriptor:</signature>
+			<description>从字典创建 lobby。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">data: Lobby 字典。</tag>
+				<tag name="return">新 lobby。</tag>
+				<tag name="schema">data: Dictionary with lobby_id, backend_id, display_name, owner_peer_id, owner_platform_user_id, max_members, joinable, visibility, members, tags, and metadata.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

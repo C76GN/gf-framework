@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFNode3DCapability" path="addons/gf/extensions/capability/nodes/gf_node_3d_capability.gd" module="extensions/capability" extends="Node3D" classDigest="305c606d1277984bdd998ab84c1dc97143fafaad836377087b277da49c66e34e">
+<class name="GFNode3DCapability" path="addons/gf/extensions/capability/nodes/gf_node_3d_capability.gd" module="extensions/capability" extends="Node3D" classDigest="cc5838b894584105df34071f67675babe364d97e4c46bbee594958764dc908cf">
 	<description>GFNode3DCapability: 可直接作为 3D 场景节点使用的能力组件基类。
 适合承载需要 3D 变换、碰撞、输入或子节点引用的局部能力。</description>
 	<tags>
@@ -20,10 +20,11 @@
 			</tags>
 		</member>
 		<member kind="property" name="receiver">
-			<signature>var receiver: Object = null</signature>
+			<signature>var receiver: Object:</signature>
 			<description>当前能力所属对象。由 GFCapabilityUtility 挂载时写入。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="active">

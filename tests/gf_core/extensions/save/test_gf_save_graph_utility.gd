@@ -162,6 +162,100 @@ class RecordingApplySource extends GFSaveSource:
 		return make_result(true)
 
 
+class RecordingTransactionParticipant extends GFSaveTransactionParticipant:
+	var order: Array[String] = []
+	var prepare_ok: bool = true
+	var commit_ok: bool = true
+	var rollback_ok: bool = true
+
+	func _init(p_participant_id: StringName = &"external", p_order: Array[String] = []) -> void:
+		participant_id = p_participant_id
+		order = p_order
+
+	func _prepare_transaction(_context: Dictionary = {}) -> Dictionary:
+		order.append("prepare:%s" % String(participant_id))
+		var errors: Array[String] = []
+		if not prepare_ok:
+			errors.append("prepare_failed")
+		return make_result(prepare_ok, errors)
+
+	func _commit_transaction(_context: Dictionary = {}) -> Dictionary:
+		order.append("commit:%s" % String(participant_id))
+		var errors: Array[String] = []
+		if not commit_ok:
+			errors.append("commit_failed")
+		return make_result(commit_ok, errors)
+
+	func _rollback_transaction(_context: Dictionary = {}) -> Dictionary:
+		order.append("rollback:%s" % String(participant_id))
+		var errors: Array[String] = []
+		if not rollback_ok:
+			errors.append("rollback_failed")
+		return make_result(rollback_ok, errors)
+
+
+class TransactionParticipantSource extends GFSaveSource:
+	var participant: GFSaveTransactionParticipant = null
+
+	func _init(p_source_key: StringName = &"", p_participant: GFSaveTransactionParticipant = null) -> void:
+		name = String(p_source_key)
+		source_key = p_source_key
+		participant = p_participant
+
+	func _apply_save_data(
+		_data: Variant,
+		context: Dictionary = {},
+		_serializer_registry: GFNodeSerializerRegistry = null
+	) -> Dictionary:
+		var pipeline_context_variant: Variant = GFVariantData.get_option_value(context, "pipeline_context")
+		if participant != null and pipeline_context_variant is GFSavePipelineContext:
+			var pipeline_context: GFSavePipelineContext = pipeline_context_variant
+			pipeline_context.register_transaction_participant(participant)
+		return make_result(true)
+
+
+class RecordingAfterLoadScope extends GFSaveScope:
+	var order: Array[String] = []
+
+	func _init(p_scope_key: StringName, p_order: Array[String]) -> void:
+		name = String(p_scope_key)
+		scope_key = p_scope_key
+		order = p_order
+
+	func _after_load(_payload: Dictionary, _context: Dictionary = {}) -> void:
+		order.append("after_scope:%s" % String(scope_key))
+
+
+class RecordingAfterLoadSource extends GFSaveSource:
+	var order: Array[String] = []
+	var participant: GFSaveTransactionParticipant = null
+
+	func _init(
+		p_source_key: StringName,
+		p_order: Array[String],
+		p_participant: GFSaveTransactionParticipant = null
+	) -> void:
+		name = String(p_source_key)
+		source_key = p_source_key
+		order = p_order
+		participant = p_participant
+
+	func _apply_save_data(
+		_data: Variant,
+		context: Dictionary = {},
+		_serializer_registry: GFNodeSerializerRegistry = null
+	) -> Dictionary:
+		order.append("apply:%s" % String(source_key))
+		var pipeline_context_variant: Variant = GFVariantData.get_option_value(context, "pipeline_context")
+		if participant != null and pipeline_context_variant is GFSavePipelineContext:
+			var pipeline_context: GFSavePipelineContext = pipeline_context_variant
+			pipeline_context.register_transaction_participant(participant)
+		return make_result(true)
+
+	func _after_load(_data: Variant, _context: Dictionary = {}) -> void:
+		order.append("after_source:%s" % String(source_key))
+
+
 # --- 私有变量 ---
 
 var _utility: GFSaveGraphUtility
@@ -188,6 +282,26 @@ func after_each() -> void:
 
 # --- 测试方法 ---
 
+func test_save_scope_rejects_unsafe_values_at_persisted_boundary() -> void:
+	var architecture: GFArchitecture = GFArchitecture.new()
+	var storage: GFStorageUtility = GFStorageUtility.new()
+	storage.save_dir_name = "test_save_graph_persisted_preflight"
+	storage.init()
+	var registered_storage: bool = await architecture.register_utility(GFStorageUtility, storage)
+	assert_true(registered_storage, "测试架构应能注册 storage。")
+	_utility.inject_dependencies(architecture)
+	var unsafe_object: RefCounted = RefCounted.new()
+
+	var save_error: Error = _utility.save_scope("unsafe_graph.sav", _scope, {"unsafe": unsafe_object})
+
+	assert_eq(save_error, ERR_INVALID_DATA, "Save Graph 的持久化入口不得把 Object 静默转换为 null。")
+	assert_false(FileAccess.file_exists(storage.get_storage_directory_path("").path_join("unsafe_graph.sav")))
+	assert_push_error("[GFSaveGraphUtility] save_scope 失败：payload")
+	var _delete_result: Error = storage.delete_file("unsafe_graph.sav")
+	_utility.release_dependencies()
+	architecture.dispose()
+
+
 ## 验证默认 Transform2D 序列化器可采集并恢复节点状态。
 func test_gather_and_apply_transform_2d_source() -> void:
 	var target: Node2D = Node2D.new()
@@ -211,6 +325,38 @@ func test_gather_and_apply_transform_2d_source() -> void:
 	assert_eq(target.position, Vector2(12.0, -3.0), "Transform2D position 应被恢复。")
 	assert_almost_eq(target.rotation, 0.75, 0.001, "Transform2D rotation 应被恢复。")
 	assert_eq(target.scale, Vector2(2.0, 3.0), "Transform2D scale 应被恢复。")
+
+
+func test_apply_scope_rejects_corrupted_transform_payload_before_mutating() -> void:
+	var target: Node2D = Node2D.new()
+	target.name = "Target"
+	target.position = Vector2(1.0, 2.0)
+	_scope.add_child(target)
+	_scope.add_child(_make_source(&"target_state", NodePath("../Target")))
+	var payload: Dictionary = {
+		"format": GFSaveGraphUtility.FORMAT_ID,
+		"format_version": GFSaveGraphUtility.FORMAT_VERSION,
+		"scope": _scope.describe_scope(),
+		"sources": {
+			"target_state": {
+				"descriptor": {},
+				"data": {
+					"serializers": [{
+						"id": &"gf.transform_2d",
+						"data": {
+							"position": "corrupted",
+						},
+					}],
+				},
+			},
+		},
+		"scopes": {},
+	}
+
+	var result: Dictionary = _utility.apply_scope(_scope, payload)
+
+	assert_false(GFVariantData.get_option_bool(result, "ok"), "损坏的默认 serializer 载荷不应被静默应用。")
+	assert_eq(target.position, Vector2(1.0, 2.0), "应用失败时不应把坏载荷写入节点。")
 
 
 func test_persist_properties_source_restores_node_reference_with_scope_root() -> void:
@@ -358,6 +504,31 @@ func test_gather_scope_can_include_pipeline_trace() -> void:
 	assert_true(_has_trace_stage(trace, &"gather_scope_finished"), "trace 应记录 Scope 完成阶段。")
 
 
+func test_pipeline_trace_export_is_json_safe() -> void:
+	var pipeline_context: GFSavePipelineContext = _utility.create_pipeline_context(&"gather", _scope, {
+		"owner": self,
+	})
+	pipeline_context.add_warning("debug", {
+		"owner": self,
+	})
+
+	var trace: Dictionary = pipeline_context.to_dict(true)
+	var trace_json: String = JSON.stringify(trace)
+	var shared_owner: Dictionary = GFVariantData.get_option_dictionary(
+		GFVariantData.get_option_dictionary(trace, "shared"),
+		"owner"
+	)
+	var first_event: Dictionary = GFVariantData.as_dictionary(GFVariantData.get_option_array(trace, "events")[0])
+	var event_owner: Dictionary = GFVariantData.get_option_dictionary(
+		GFVariantData.get_option_dictionary(first_event, "payload"),
+		"owner"
+	)
+
+	assert_false(trace_json.is_empty(), "pipeline trace 应可直接 JSON.stringify。")
+	assert_true(shared_owner.has("__gf_report_value__"), "shared 中的 Object 应被转为报告 marker。")
+	assert_true(event_owner.has("__gf_report_value__"), "event payload 中的 Object 应被转为报告 marker。")
+
+
 ## 验证调用方也可以显式传入流程上下文并在外部读取。
 func test_pipeline_context_can_be_shared_by_caller() -> void:
 	var pipeline_context: GFSavePipelineContext = _utility.create_pipeline_context(&"gather", _scope, { "source": "test" })
@@ -407,7 +578,7 @@ func test_save_slot_workflow_indexes_string_slot_ids() -> void:
 	assert_eq(cards.size(), 1, "显式索引应能命中字符串 slot_id 摘要。")
 	assert_false(cards[0].is_empty, "字符串 slot_id 摘要不应被误判为空槽。")
 	assert_eq(cards[0].slot_index, 3, "字符串 slot_id 摘要应正确写入卡片整数索引。")
-	assert_eq(auto_cards.size(), 0, "空索引入口应由 build_cards_from_storage 负责从 storage 推导。")
+	assert_eq(auto_cards.size(), 0, "空索引入口不应隐式推导槽位；应由显式 slot store 入口负责枚举。")
 
 
 ## 验证 Scope 诊断会报告同作用域重复 Source key。
@@ -487,8 +658,14 @@ func test_payload_validation_reads_exports_without_calling_save_methods() -> voi
 	var payload: Dictionary = {
 		"format": GFSaveGraphUtility.FORMAT_ID,
 		"format_version": GFSaveGraphUtility.FORMAT_VERSION,
+		"scope": {
+			"scope_key": "export_scope",
+		},
 		"sources": {
-			"export_source": {},
+			"export_source": {
+				"descriptor": {},
+				"data": {},
+			},
 		},
 		"scopes": {},
 	}
@@ -510,6 +687,46 @@ func test_payload_validation_reads_exports_without_calling_save_methods() -> voi
 	assert_false(source.can_load_source_called, "载荷校验不应调用 Source 加载判断方法。")
 
 	scope.free()
+
+
+func test_payload_validation_rejects_invalid_source_data_without_mutation() -> void:
+	var payload: Dictionary = {
+		"format": GFSaveGraphUtility.FORMAT_ID,
+		"format_version": GFSaveGraphUtility.FORMAT_VERSION,
+		"scope": _scope.describe_scope(),
+		"sources": {
+			"state": {
+				"descriptor": {},
+				"data": "bad",
+			},
+		},
+		"scopes": {},
+	}
+	_scope.add_child(_make_source(&"state", NodePath("")))
+
+	var report: Dictionary = _utility.validate_payload_for_scope(_scope, payload, true)
+	var issue_counts: Dictionary = GFVariantData.get_option_dictionary(report, "issue_counts_by_kind")
+
+	assert_false(GFVariantData.get_option_bool(report, "ok"), "坏 source data 应在 validate 阶段被拒绝。")
+	assert_eq(GFVariantData.get_option_int(issue_counts, "invalid_source_data"), 1, "validate 报告应明确 invalid_source_data。")
+
+
+func test_payload_validation_rejects_scope_descriptor_mismatch() -> void:
+	var payload: Dictionary = {
+		"format": GFSaveGraphUtility.FORMAT_ID,
+		"format_version": GFSaveGraphUtility.FORMAT_VERSION,
+		"scope": {
+			"scope_key": "other_scope",
+		},
+		"sources": {},
+		"scopes": {},
+	}
+
+	var report: Dictionary = _utility.validate_payload_for_scope(_scope, payload, true)
+	var issue_counts: Dictionary = GFVariantData.get_option_dictionary(report, "issue_counts_by_kind")
+
+	assert_false(GFVariantData.get_option_bool(report, "ok"), "scope descriptor 不匹配应在 validate 阶段被拒绝。")
+	assert_eq(GFVariantData.get_option_int(issue_counts, "scope_key_mismatch"), 1, "validate 报告应明确 scope_key_mismatch。")
 
 
 ## 验证采集重复 Source key 会失败，避免产生无法回放的 key#2 载荷。
@@ -717,6 +934,182 @@ func test_apply_scope_orders_same_phase_sources_by_stable_key() -> void:
 	assert_eq(order, ["a_state", "b_state"], "同 phase Source 应按 key 稳定排序，避免 Dictionary 插入顺序影响结果。")
 
 
+func test_apply_scope_commits_registered_transaction_participants() -> void:
+	var order: Array[String] = []
+	var participant: RecordingTransactionParticipant = RecordingTransactionParticipant.new(&"external", order)
+	_scope.add_child(TransactionParticipantSource.new(&"external_state", participant))
+	var payload: Dictionary = {
+		"format": GFSaveGraphUtility.FORMAT_ID,
+		"format_version": GFSaveGraphUtility.FORMAT_VERSION,
+		"scope": {},
+		"sources": {
+			"external_state": {
+				"descriptor": {},
+				"data": {},
+			},
+		},
+		"scopes": {},
+	}
+
+	var result: Dictionary = _utility.apply_scope(_scope, payload)
+	var expected_order: Array[String] = ["prepare:external", "commit:external"]
+
+	assert_true(GFVariantData.get_option_bool(result, "ok"), "事务参与者 prepare/commit 成功时 apply_scope 应成功。")
+	assert_eq(order, expected_order, "事务参与者应在 Source 成功后按 prepare/commit 顺序执行。")
+
+
+func test_apply_scope_rolls_back_registered_transaction_participants_on_prepare_failure() -> void:
+	var order: Array[String] = []
+	var participant: RecordingTransactionParticipant = RecordingTransactionParticipant.new(&"external", order)
+	participant.prepare_ok = false
+	_scope.add_child(TransactionParticipantSource.new(&"external_state", participant))
+	var payload: Dictionary = {
+		"format": GFSaveGraphUtility.FORMAT_ID,
+		"format_version": GFSaveGraphUtility.FORMAT_VERSION,
+		"scope": {},
+		"sources": {
+			"external_state": {
+				"descriptor": {},
+				"data": {},
+			},
+		},
+		"scopes": {},
+	}
+
+	var result: Dictionary = _utility.apply_scope(_scope, payload)
+	var errors: Array = GFVariantData.get_option_array(result, "errors")
+	var expected_order: Array[String] = ["prepare:external", "rollback:external"]
+
+	assert_false(GFVariantData.get_option_bool(result, "ok"), "事务参与者 prepare 失败时 apply_scope 应失败。")
+	assert_eq(order, expected_order, "prepare 失败应触发统一 rollback。")
+	assert_true(GFVariantData.to_text(errors).contains("prepare_failed"), "结果错误应包含事务参与者失败原因。")
+
+
+func test_nested_after_load_callbacks_run_only_after_outer_commit_in_post_order() -> void:
+	var order: Array[String] = []
+	var participant: RecordingTransactionParticipant = RecordingTransactionParticipant.new(&"external", order)
+	var root_source: RecordingAfterLoadSource = RecordingAfterLoadSource.new(&"root_state", order)
+	_scope.add_child(root_source)
+	var child_scope: RecordingAfterLoadScope = RecordingAfterLoadScope.new(&"child", order)
+	_scope.add_child(child_scope)
+	child_scope.add_child(RecordingAfterLoadSource.new(&"child_state", order, participant))
+	var payload: Dictionary = {
+		"format": GFSaveGraphUtility.FORMAT_ID,
+		"format_version": GFSaveGraphUtility.FORMAT_VERSION,
+		"scope": {},
+		"sources": {
+			"root_state": { "descriptor": {}, "data": {} },
+		},
+		"scopes": {
+			"child": {
+				"format": GFSaveGraphUtility.FORMAT_ID,
+				"format_version": GFSaveGraphUtility.FORMAT_VERSION,
+				"scope": {},
+				"sources": {
+					"child_state": { "descriptor": {}, "data": {} },
+				},
+				"scopes": {},
+			},
+		},
+	}
+
+	var result: Dictionary = _utility.apply_scope(_scope, payload)
+	var expected_order: Array[String] = [
+		"apply:root_state",
+		"apply:child_state",
+		"prepare:external",
+		"commit:external",
+		"after_source:child_state",
+		"after_scope:child",
+		"after_source:root_state",
+	]
+
+	assert_true(GFVariantData.get_option_bool(result, "ok"), "嵌套事务成功时 apply_scope 应成功。")
+	assert_eq(order, expected_order, "after_load 应在最外层 commit 后按 scope 后序稳定派发。")
+
+
+func test_nested_after_load_callbacks_are_discarded_when_outer_commit_fails() -> void:
+	var order: Array[String] = []
+	var participant: RecordingTransactionParticipant = RecordingTransactionParticipant.new(&"external", order)
+	participant.commit_ok = false
+	var child_scope: RecordingAfterLoadScope = RecordingAfterLoadScope.new(&"child", order)
+	_scope.add_child(child_scope)
+	child_scope.add_child(RecordingAfterLoadSource.new(&"child_state", order, participant))
+	var payload: Dictionary = {
+		"format": GFSaveGraphUtility.FORMAT_ID,
+		"format_version": GFSaveGraphUtility.FORMAT_VERSION,
+		"scope": {},
+		"sources": {},
+		"scopes": {
+			"child": {
+				"format": GFSaveGraphUtility.FORMAT_ID,
+				"format_version": GFSaveGraphUtility.FORMAT_VERSION,
+				"scope": {},
+				"sources": {
+					"child_state": { "descriptor": {}, "data": {} },
+				},
+				"scopes": {},
+			},
+		},
+	}
+
+	var result: Dictionary = _utility.apply_scope(_scope, payload)
+	var expected_order: Array[String] = [
+		"apply:child_state",
+		"prepare:external",
+		"commit:external",
+		"rollback:external",
+		"apply:child_state",
+	]
+
+	assert_false(GFVariantData.get_option_bool(result, "ok"), "最外层 commit 失败时 apply_scope 应失败。")
+	assert_eq(order, expected_order, "commit 失败应先回滚 participant，再恢复 Source 快照。")
+	assert_false(GFVariantData.to_text(order).contains("after_"), "commit 失败不得派发任何 after_load。")
+
+
+func test_queued_child_after_load_is_discarded_when_later_sibling_fails() -> void:
+	var order: Array[String] = []
+	var first_scope: RecordingAfterLoadScope = RecordingAfterLoadScope.new(&"a_child", order)
+	_scope.add_child(first_scope)
+	first_scope.add_child(RecordingAfterLoadSource.new(&"state", order))
+	var failing_scope: GFSaveScope = GFSaveScope.new()
+	failing_scope.name = "BChild"
+	failing_scope.scope_key = &"b_child"
+	_scope.add_child(failing_scope)
+	var failing_source: FailingCreatedSource = FailingCreatedSource.new()
+	failing_source.name = "State"
+	failing_source.source_key = &"state"
+	failing_scope.add_child(failing_source)
+	var payload: Dictionary = {
+		"format": GFSaveGraphUtility.FORMAT_ID,
+		"format_version": GFSaveGraphUtility.FORMAT_VERSION,
+		"scope": {},
+		"sources": {},
+		"scopes": {
+			"a_child": {
+				"format": GFSaveGraphUtility.FORMAT_ID,
+				"format_version": GFSaveGraphUtility.FORMAT_VERSION,
+				"scope": {},
+				"sources": { "state": { "descriptor": {}, "data": {} } },
+				"scopes": {},
+			},
+			"b_child": {
+				"format": GFSaveGraphUtility.FORMAT_ID,
+				"format_version": GFSaveGraphUtility.FORMAT_VERSION,
+				"scope": {},
+				"sources": { "state": { "descriptor": {}, "data": {} } },
+				"scopes": {},
+			},
+		},
+	}
+
+	var result: Dictionary = _utility.apply_scope(_scope, payload)
+
+	assert_false(GFVariantData.get_option_bool(result, "ok"), "后续兄弟 scope 失败时外层事务应失败。")
+	assert_eq(order, ["apply:state", "apply:state"], "失败时应恢复较早成功子 scope 的 Source 快照。")
+	assert_false(GFVariantData.to_text(order).contains("after_"), "较早成功子 scope 的 after_load 队列必须随外层失败一起丢弃。")
+
+
 func test_apply_scope_rejects_invalid_serializer_data() -> void:
 	var target: Node2D = Node2D.new()
 	target.name = "Target"
@@ -770,7 +1163,7 @@ func test_apply_scope_rejects_non_dictionary_source_data() -> void:
 	var errors: Array = GFVariantData.get_option_array(result, "errors")
 
 	assert_false(GFVariantData.get_option_bool(result, "ok"), "Source data 非 Dictionary 时不应被视为成功。")
-	assert_true(GFVariantData.to_text(errors[0]).contains("Source data must be a Dictionary."), "Source 错误应指出数据结构问题。")
+	assert_true(GFVariantData.to_text(errors[0]).contains("Invalid source data payload"), "Source 错误应指出数据结构问题。")
 
 
 func test_apply_scope_transaction_rolls_back_existing_source_state_on_later_failure() -> void:

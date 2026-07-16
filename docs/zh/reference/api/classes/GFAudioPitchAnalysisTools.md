@@ -20,6 +20,9 @@
 | 常量 | [`DEFAULT_MAX_FREQUENCY_HZ`](#member-gfaudiopitchanalysistools-constants-default_max_frequency_hz) | `const DEFAULT_MAX_FREQUENCY_HZ: float = 2000.0` |
 | 常量 | [`DEFAULT_MIN_RMS`](#member-gfaudiopitchanalysistools-constants-default_min_rms) | `const DEFAULT_MIN_RMS: float = 0.005` |
 | 常量 | [`DEFAULT_CONFIDENCE_THRESHOLD`](#member-gfaudiopitchanalysistools-constants-default_confidence_threshold) | `const DEFAULT_CONFIDENCE_THRESHOLD: float = 0.45` |
+| 常量 | [`MAX_SAMPLE_COUNT`](#member-gfaudiopitchanalysistools-constants-max_sample_count) | `const MAX_SAMPLE_COUNT: int = 16384` |
+| 常量 | [`MAX_LAG_COUNT`](#member-gfaudiopitchanalysistools-constants-max_lag_count) | `const MAX_LAG_COUNT: int = 4096` |
+| 常量 | [`MAX_CORRELATION_OPERATIONS`](#member-gfaudiopitchanalysistools-constants-max_correlation_operations) | `const MAX_CORRELATION_OPERATIONS: int = 8_000_000` |
 | 方法 | [`analyze_mono_samples`](#member-gfaudiopitchanalysistools-methods-analyze_mono_samples) | `static func analyze_mono_samples( samples: PackedFloat32Array, sample_rate: float, options: Dictionary = {} ) -> Dictionary:` |
 | 方法 | [`analyze_stereo_frames`](#member-gfaudiopitchanalysistools-methods-analyze_stereo_frames) | `static func analyze_stereo_frames( frames: PackedVector2Array, sample_rate: float, options: Dictionary = {} ) -> Dictionary:` |
 | 方法 | [`calculate_rms`](#member-gfaudiopitchanalysistools-methods-calculate_rms) | `static func calculate_rms(samples: PackedFloat32Array) -> float:` |
@@ -92,6 +95,45 @@ const DEFAULT_CONFIDENCE_THRESHOLD: float = 0.45
 
 默认置信度阈值。
 
+<a id="member-gfaudiopitchanalysistools-constants-max_sample_count"></a>
+
+### `MAX_SAMPLE_COUNT`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+const MAX_SAMPLE_COUNT: int = 16384
+```
+
+单次分析允许的最大样本窗口硬上限。
+
+<a id="member-gfaudiopitchanalysistools-constants-max_lag_count"></a>
+
+### `MAX_LAG_COUNT`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+const MAX_LAG_COUNT: int = 4096
+```
+
+单次分析允许扫描的 lag 数量硬上限。
+
+<a id="member-gfaudiopitchanalysistools-constants-max_correlation_operations"></a>
+
+### `MAX_CORRELATION_OPERATIONS`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+const MAX_CORRELATION_OPERATIONS: int = 8_000_000
+```
+
+单次分析允许的保守自相关乘加工作量硬上限。
+
 ## 方法
 
 <a id="member-gfaudiopitchanalysistools-methods-analyze_mono_samples"></a>
@@ -120,7 +162,7 @@ static func analyze_mono_samples( samples: PackedFloat32Array, sample_rate: floa
 结构：
 
 - `samples`: PackedFloat32Array mono samples in -1..1 range.
-- `options`: Dictionary，可包含 min_frequency_hz、max_frequency_hz、min_rms、confidence_threshold、start_index 和 sample_count。
+- `options`: Dictionary，可包含 min_frequency_hz、max_frequency_hz、min_rms、confidence_threshold、start_index、sample_count、max_sample_count、max_lag_count 和 max_correlation_operations。
 - `return`: Dictionary with ok, detected, frequency_hz, confidence, rms, lag, note_number, note_name, cents, issues, and issue_count.
 
 <a id="member-gfaudiopitchanalysistools-methods-analyze_stereo_frames"></a>
@@ -149,7 +191,7 @@ static func analyze_stereo_frames( frames: PackedVector2Array, sample_rate: floa
 结构：
 
 - `frames`: PackedVector2Array where x/y are left/right samples.
-- `options`: Dictionary forwarded to analyze_mono_samples().
+- `options`: Dictionary forwarded to analyze_mono_samples(), including sample and work budgets.
 - `return`: Dictionary with ok, detected, frequency_hz, confidence, rms, lag, note_number, note_name, cents, issues, issue_count, and stereo_mix_mode.
 
 <a id="member-gfaudiopitchanalysistools-methods-calculate_rms"></a>

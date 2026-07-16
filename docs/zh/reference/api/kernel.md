@@ -6,11 +6,13 @@
 
 | 类别 | 类 | 成员 | 方法 |
 |---|---:|---:|---:|
-| [运行时服务](#category-runtime_service) | 9 | 237 | 196 |
-| [协议与扩展点](#category-protocol) | 17 | 178 | 156 |
-| [资源定义](#category-resource_definition) | 2 | 44 | 14 |
+| [运行时服务](#category-runtime_service) | 14 | 285 | 219 |
+| [协议与扩展点](#category-protocol) | 18 | 185 | 160 |
+| [资源定义](#category-resource_definition) | 2 | 45 | 15 |
+| [运行时句柄](#category-runtime_handle) | 8 | 80 | 68 |
 | [值对象](#category-value_object) | 1 | 1 | 0 |
-| [编辑器 API](#category-editor_api) | 24 | 319 | 198 |
+| [事件契约](#category-event_contract) | 1 | 10 | 10 |
+| [编辑器 API](#category-editor_api) | 25 | 363 | 225 |
 
 ## 类
 
@@ -23,11 +25,16 @@
 | [`GFArchitecture`](classes/GFArchitecture.md#gfarchitecture) | `Object` | `addons/gf/kernel/core/gf_architecture.gd` |
 | [`GFDependencyGraphTools`](classes/GFDependencyGraphTools.md#gfdependencygraphtools) | `RefCounted` | `addons/gf/kernel/core/gf_dependency_graph_tools.gd` |
 | [`GFExtensionCatalog`](classes/GFExtensionCatalog.md#gfextensioncatalog) | `RefCounted` | `addons/gf/kernel/extension/gf_extension_catalog.gd` |
+| [`GFExtensionManifestDiscovery`](classes/GFExtensionManifestDiscovery.md#gfextensionmanifestdiscovery) | `RefCounted` | `addons/gf/kernel/extension/gf_extension_manifest_discovery.gd` |
+| [`GFExtensionPresetDiscovery`](classes/GFExtensionPresetDiscovery.md#gfextensionpresetdiscovery) | `RefCounted` | `addons/gf/kernel/extension/gf_extension_preset_discovery.gd` |
+| [`GFExtensionSelectionDiscovery`](classes/GFExtensionSelectionDiscovery.md#gfextensionselectiondiscovery) | `RefCounted` | `addons/gf/kernel/extension/gf_extension_selection_discovery.gd` |
 | [`GFExtensionSettings`](classes/GFExtensionSettings.md#gfextensionsettings) | `RefCounted` | `addons/gf/kernel/extension/gf_extension_settings.gd` |
 | [`GFNodeContext`](classes/GFNodeContext.md#gfnodecontext) | `Node` | `addons/gf/kernel/core/gf_node_context.gd` |
 | [`GFObjectPropertyTools`](classes/GFObjectPropertyTools.md#gfobjectpropertytools) | `RefCounted` | `addons/gf/kernel/core/gf_object_property_tools.gd` |
 | [`GFPathTools`](classes/GFPathTools.md#gfpathtools) | `RefCounted` | `addons/gf/kernel/core/gf_path_tools.gd` |
+| [`GFProjectReferenceScanner`](classes/GFProjectReferenceScanner.md#gfprojectreferencescanner) | `RefCounted` | `addons/gf/kernel/core/gf_project_reference_scanner.gd` |
 | [`GFProjectSettingsTools`](classes/GFProjectSettingsTools.md#gfprojectsettingstools) | `RefCounted` | `addons/gf/kernel/core/gf_project_settings_tools.gd` |
+| [`GFReportValueCodec`](classes/GFReportValueCodec.md#gfreportvaluecodec) | `RefCounted` | `addons/gf/kernel/core/gf_report_value_codec.gd` |
 | [`GFTypeEventSystem`](classes/GFTypeEventSystem.md#gftypeeventsystem) | `Object` | `addons/gf/kernel/core/gf_type_event_system.gd` |
 
 <a id="category-protocol"></a>
@@ -43,6 +50,7 @@
 | [`GFComputedProperty`](classes/GFComputedProperty.md#gfcomputedproperty) | `GFBindableProperty` | `addons/gf/kernel/core/gf_computed_property.gd` |
 | [`GFConfig`](classes/GFConfig.md#gfconfig) | `Resource` | `addons/gf/kernel/base/gf_config.gd` |
 | [`GFController`](classes/GFController.md#gfcontroller) | `Node` | `addons/gf/kernel/base/gf_controller.gd` |
+| [`GFExtensionToolContribution`](classes/GFExtensionToolContribution.md#gfextensiontoolcontribution) | `RefCounted` | `addons/gf/kernel/extension/gf_extension_tool_contribution.gd` |
 | [`GFInstaller`](classes/GFInstaller.md#gfinstaller) | `RefCounted` | `addons/gf/kernel/core/gf_installer.gd` |
 | [`GFModel`](classes/GFModel.md#gfmodel) | `Object` | `addons/gf/kernel/base/gf_model.gd` |
 | [`GFPayload`](classes/GFPayload.md#gfpayload) | `RefCounted` | `addons/gf/kernel/base/gf_payload.gd` |
@@ -63,6 +71,21 @@
 | [`GFExtensionManifest`](classes/GFExtensionManifest.md#gfextensionmanifest) | `RefCounted` | `addons/gf/kernel/extension/gf_extension_manifest.gd` |
 | [`GFExtensionPreset`](classes/GFExtensionPreset.md#gfextensionpreset) | `RefCounted` | `addons/gf/kernel/extension/gf_extension_preset.gd` |
 
+<a id="category-runtime_handle"></a>
+
+### 运行时句柄
+
+| 类 | 继承 | 源文件 |
+|---|---|---|
+| [`GFAsyncCompletion`](classes/GFAsyncCompletion.md#gfasynccompletion) | `RefCounted` | `addons/gf/kernel/core/gf_async_completion.gd` |
+| [`GFAsyncScope`](classes/GFAsyncScope.md#gfasyncscope) | `GFCancellationToken` | `addons/gf/kernel/core/gf_async_scope.gd` |
+| [`GFCancellationSource`](classes/GFCancellationSource.md#gfcancellationsource) | `RefCounted` | `addons/gf/kernel/core/gf_cancellation_source.gd` |
+| [`GFCancellationToken`](classes/GFCancellationToken.md#gfcancellationtoken) | `RefCounted` | `addons/gf/kernel/core/gf_cancellation_token.gd` |
+| [`GFLifetimeSubscription`](classes/GFLifetimeSubscription.md#gflifetimesubscription) | `GFSubscriptionToken` | `addons/gf/kernel/core/gf_lifetime_subscription.gd` |
+| [`GFSignalSubscriptionToken`](classes/GFSignalSubscriptionToken.md#gfsignalsubscriptiontoken) | `GFSubscriptionToken` | `addons/gf/kernel/core/gf_signal_subscription_token.gd` |
+| [`GFSubscriptionToken`](classes/GFSubscriptionToken.md#gfsubscriptiontoken) | `RefCounted` | `addons/gf/kernel/core/gf_subscription_token.gd` |
+| [`GFThumbnailRenderTask`](classes/GFThumbnailRenderTask.md#gfthumbnailrendertask) | `RefCounted` | `addons/gf/kernel/editor/gf_thumbnail_render_task.gd` |
+
 <a id="category-value_object"></a>
 
 ### 值对象
@@ -70,6 +93,14 @@
 | 类 | 继承 | 源文件 |
 |---|---|---|
 | [`GFBindingLifetimes`](classes/GFBindingLifetimes.md#gfbindinglifetimes) | `RefCounted` | `addons/gf/kernel/core/gf_binding_lifetimes.gd` |
+
+<a id="category-event_contract"></a>
+
+### 事件契约
+
+| 类 | 继承 | 源文件 |
+|---|---|---|
+| [`GFEventListener`](classes/GFEventListener.md#gfeventlistener) | `RefCounted` | `addons/gf/kernel/core/gf_event_listener.gd` |
 
 <a id="category-editor_api"></a>
 
@@ -79,7 +110,6 @@
 |---|---|---|
 | [`GFAccessGenerator`](classes/GFAccessGenerator.md#gfaccessgenerator) | `RefCounted` | `addons/gf/kernel/editor/gf_access_generator.gd` |
 | [`GFBakeDependencyReport`](classes/GFBakeDependencyReport.md#gfbakedependencyreport) | `RefCounted` | `addons/gf/kernel/editor/gf_bake_dependency_report.gd` |
-| [`GFConfigAccessGenerator`](classes/GFConfigAccessGenerator.md#gfconfigaccessgenerator) | `RefCounted` | `addons/gf/kernel/editor/gf_config_access_generator.gd` |
 | [`GFEditorActionDefinition`](classes/GFEditorActionDefinition.md#gfeditoractiondefinition) | `RefCounted` | `addons/gf/kernel/editor/gf_editor_action_definition.gd` |
 | [`GFEditorCommand`](classes/GFEditorCommand.md#gfeditorcommand) | `RefCounted` | `addons/gf/kernel/editor/gf_editor_command.gd` |
 | [`GFEditorCommandRegistry`](classes/GFEditorCommandRegistry.md#gfeditorcommandregistry) | `RefCounted` | `addons/gf/kernel/editor/gf_editor_command_registry.gd` |
@@ -98,6 +128,8 @@
 | [`GFResourcePathHint`](classes/GFResourcePathHint.md#gfresourcepathhint) | `Object` | `addons/gf/kernel/editor/gf_resource_path_hint.gd` |
 | [`GFResourceTableEditor`](classes/GFResourceTableEditor.md#gfresourcetableeditor) | `VBoxContainer` | `addons/gf/kernel/editor/gf_resource_table_editor.gd` |
 | [`GFSceneSignalAudit`](classes/GFSceneSignalAudit.md#gfscenesignalaudit) | `RefCounted` | `addons/gf/kernel/editor/gf_scene_signal_audit.gd` |
+| [`GFScriptPatchUtility`](classes/GFScriptPatchUtility.md#gfscriptpatchutility) | `RefCounted` | `addons/gf/kernel/editor/gf_script_patch_utility.gd` |
 | [`GFSourceBuilder`](classes/GFSourceBuilder.md#gfsourcebuilder) | `RefCounted` | `addons/gf/kernel/editor/gf_source_builder.gd` |
 | [`GFTemplateGenerationManifest`](classes/GFTemplateGenerationManifest.md#gftemplategenerationmanifest) | `RefCounted` | `addons/gf/kernel/editor/gf_template_generation_manifest.gd` |
+| [`GFThumbnailRenderRequest`](classes/GFThumbnailRenderRequest.md#gfthumbnailrenderrequest) | `RefCounted` | `addons/gf/kernel/editor/gf_thumbnail_render_request.gd` |
 | [`GFThumbnailRenderer`](classes/GFThumbnailRenderer.md#gfthumbnailrenderer) | `Node` | `addons/gf/kernel/editor/gf_thumbnail_renderer.gd` |

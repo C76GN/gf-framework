@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFDisplaySettingsUtility" path="addons/gf/standard/utilities/display/gf_display_settings_utility.gd" module="standard" extends="GFUtility" classDigest="50a4d733ff514b644b2dc3f56698e5a52d327112577371d863ade1a388c6dffb">
+<class name="GFDisplaySettingsUtility" path="addons/gf/standard/utilities/display/gf_display_settings_utility.gd" module="standard" extends="GFUtility" classDigest="ed4ba7028bccf1453ef4fac3cf53f1d730423d4e3f42e2e093f1792cfd1bca5e">
 	<description>GFDisplaySettingsUtility: 通用显示、语言与音频总线设置应用器。
 该工具把抽象设置值应用到 Godot 引擎层。设置值本身由 GFSettingsUtility 管理；
 未注册 GFSettingsUtility 时，也可以直接作为运行时应用器使用。</description>
@@ -78,6 +78,15 @@
 			<description>设置变化时是否写入 GFSettingsUtility。</description>
 			<tags>
 				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="property" name="default_windowed_size">
+			<signature>var default_windowed_size: Vector2i = Vector2i.ZERO</signature>
+			<description>非窗口模式启动且尚无持久化尺寸时使用的窗口尺寸。
+任一分量小于等于 0 时，从项目窗口 override 或 viewport 尺寸推导。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="audio_setting_prefix">

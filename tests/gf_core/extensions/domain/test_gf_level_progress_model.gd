@@ -83,3 +83,20 @@ func test_to_dict_from_dict_roundtrip() -> void:
 	assert_true(other.is_level_unlocked(&"h"))
 	assert_true(other.is_level_completed(&"h"))
 	assert_eq(GFVariantData.get_option_int(other.get_level_result(&"h"), "s"), 1)
+
+
+func test_to_dict_deep_copies_level_results() -> void:
+	_model.complete_level(&"nested", {
+		"stats": {
+			"stars": 3,
+		},
+	}, true)
+	var data: Dictionary = _model.to_dict()
+	var level_results: Dictionary = GFVariantData.get_option_dictionary(data, "level_results")
+	var nested_result: Dictionary = GFVariantData.get_option_dictionary(level_results, "nested")
+	var stats: Dictionary = GFVariantData.get_option_dictionary(nested_result, "stats")
+	stats["stars"] = 0
+
+	var current_result: Dictionary = _model.get_level_result(&"nested")
+	var current_stats: Dictionary = GFVariantData.get_option_dictionary(current_result, "stats")
+	assert_eq(GFVariantData.get_option_int(current_stats, "stars"), 3, "to_dict 返回的嵌套结果不应共享内部引用。")

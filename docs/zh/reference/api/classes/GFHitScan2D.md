@@ -37,6 +37,7 @@
 ### `scan_hit`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 signal scan_hit(context: GFCombatHitContext, receiver: Object, report: Dictionary)
@@ -54,13 +55,14 @@ signal scan_hit(context: GFCombatHitContext, receiver: Object, report: Dictionar
 
 结构：
 
-- `report`: Dictionary，统一扫描命中结果，包含 ok、hit_id、receiver、reason、message 和 metadata。
+- `report`: Dictionary，统一扫描命中结果，包含 ok、hit_id、receiver(JSON-safe 摘要)、reason、message 和 metadata。
 
 <a id="member-gfhitscan2d-signals-scan_missed"></a>
 
 ### `scan_missed`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 signal scan_missed(report: Dictionary)
@@ -83,6 +85,7 @@ signal scan_missed(report: Dictionary)
 ### `hit_accepted`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 signal hit_accepted(context: GFCombatHitContext, receiver: Object, report: Dictionary)
@@ -100,13 +103,14 @@ signal hit_accepted(context: GFCombatHitContext, receiver: Object, report: Dicti
 
 结构：
 
-- `report`: Dictionary，统一扫描命中结果，包含 ok、hit_id、receiver、reason、message 和 metadata。
+- `report`: Dictionary，统一扫描命中结果，包含 ok、hit_id、receiver(JSON-safe 摘要)、reason、message 和 metadata。
 
 <a id="member-gfhitscan2d-signals-hit_rejected"></a>
 
 ### `hit_rejected`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 signal hit_rejected(context: GFCombatHitContext, receiver: Object, report: Dictionary)
@@ -124,7 +128,7 @@ signal hit_rejected(context: GFCombatHitContext, receiver: Object, report: Dicti
 
 结构：
 
-- `report`: Dictionary，统一扫描命中结果，包含 ok、hit_id、receiver、reason、message 和 metadata。
+- `report`: Dictionary，统一扫描命中结果，包含 ok、hit_id、receiver(JSON-safe 摘要)、reason、message 和 metadata。
 
 ## 属性
 
@@ -133,6 +137,7 @@ signal hit_rejected(context: GFCombatHitContext, receiver: Object, report: Dicti
 ### `hit_enabled`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var hit_enabled: bool = true
@@ -145,6 +150,7 @@ var hit_enabled: bool = true
 ### `force_update_before_scan`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var force_update_before_scan: bool = true
@@ -157,6 +163,7 @@ var force_update_before_scan: bool = true
 ### `hit_id`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var hit_id: StringName = &""
@@ -169,6 +176,7 @@ var hit_id: StringName = &""
 ### `payload`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var payload: Dictionary = {}
@@ -185,6 +193,7 @@ var payload: Dictionary = {}
 ### `magnitude`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var magnitude: float = 0.0
@@ -197,6 +206,7 @@ var magnitude: float = 0.0
 ### `tags`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var tags: Array[StringName] = []
@@ -209,6 +219,7 @@ var tags: Array[StringName] = []
 ### `metadata`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var metadata: Dictionary = {}
@@ -225,6 +236,7 @@ var metadata: Dictionary = {}
 ### `sender_path`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var sender_path: NodePath = NodePath("")
@@ -239,6 +251,7 @@ var sender_path: NodePath = NodePath("")
 ### `build_hit_context`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func build_hit_context( target: Object = null, payload_override: Variant = null, hit_id_override: StringName = &"" ) -> GFCombatHitContext:
@@ -265,6 +278,7 @@ func build_hit_context( target: Object = null, payload_override: Variant = null,
 ### `scan`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func scan(payload_override: Variant = null, hit_id_override: StringName = &"") -> Dictionary:
@@ -284,4 +298,4 @@ func scan(payload_override: Variant = null, hit_id_override: StringName = &"") -
 结构：
 
 - `payload_override`: Variant，可为 null、Dictionary 或项目自定义命中载荷；为 null 时使用节点默认 payload。
-- `return`: Dictionary，统一扫描命中或未命中结果，包含 ok、reason、metadata，并在命中时包含 hit_id、receiver 和 message。
+- `return`: Dictionary，统一扫描命中或未命中结果，包含 ok、reason、metadata，并在命中时包含 hit_id、receiver(JSON-safe 摘要) 和 message。

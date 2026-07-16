@@ -10,6 +10,8 @@
 
 该值小于等于 `0.0` 时不启用超时；大于 `0.0` 时，单个 `install()` 或 `install_bindings()` 超时会让架构进入初始化失败状态。
 
-和模块 `async_init()` 一样，Godot coroutine 无法被框架强制取消。超时只能阻止本轮初始化继续推进；已经挂起的 Installer 恢复后应避免继续写回失效架构，可检查 `architecture.is_project_installers_running()`。
+和模块 `async_init()` 一样，Godot coroutine 无法被框架抢占式终止。超时会取消当前 Installer 收到的 `GFAsyncScope`、执行 `scope.register_cleanup()` 登记的清理回调，并阻止本轮初始化继续推进；已经挂起的 Installer 恢复后应在每个 `await` 后检查 `scope.is_cancel_requested()`，避免继续写回失效架构。需要兼容旧式状态判断时，也可以检查 `architecture.is_project_installers_running()`。
+
+超时不抢占首个 `await` 前的同步代码。Installer 如果需要扫描大量文件、解析大型表格或构建索引，应先拆成能让帧的步骤，再在每段之间检查架构状态；否则这段同步工作仍会阻塞编辑器或启动流程。
 
 架构进入初始化失败状态后，模块、工厂和别名注册入口会拒绝迟到写入，避免超时 coroutine 恢复后污染失败架构。

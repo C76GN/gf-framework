@@ -103,6 +103,41 @@ func test_transform_cells_preserves_input_order() -> void:
 	)
 
 
+func test_transform_cardinal_direction_matches_grid_symmetry() -> void:
+	assert_eq(
+		GF_GRID_TRANSFORM_2D.transform_cardinal_direction(
+			Vector2i.RIGHT,
+			GF_GRID_TRANSFORM_2D.Transform.ROTATE_90
+		),
+		Vector2i.DOWN,
+		"方向旋转应与格子坐标旋转一致。"
+	)
+	assert_eq(
+		GF_GRID_TRANSFORM_2D.transform_cardinal_direction(
+			Vector2i.DOWN,
+			GF_GRID_TRANSFORM_2D.Transform.MIRROR_X
+		),
+		Vector2i.DOWN,
+		"左右镜像不应改变向下方向。"
+	)
+	assert_eq(
+		GF_GRID_TRANSFORM_2D.transform_cardinal_direction(
+			Vector2i.RIGHT,
+			GF_GRID_TRANSFORM_2D.Transform.DIAGONAL_ANTI
+		),
+		Vector2i.UP,
+		"副对角翻转应把向右映射为向上。"
+	)
+	assert_eq(
+		GF_GRID_TRANSFORM_2D.transform_cardinal_direction(
+			Vector2i(1, 1),
+			GF_GRID_TRANSFORM_2D.Transform.ROTATE_90
+		),
+		Vector2i.ZERO,
+		"非四向单位方向应返回哨兵值。"
+	)
+
+
 func test_transform_local_point_uses_continuous_rect_size() -> void:
 	var size: Vector2 = Vector2(3.0, 2.0)
 

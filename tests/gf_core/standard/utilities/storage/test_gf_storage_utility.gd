@@ -35,13 +35,9 @@ func before_each() -> void:
 
 func after_each() -> void:
 	if _storage != null:
-		for i: int in range(10):
-			_storage.delete_slot(i)
-			_cleanup_file_family(_storage._get_data_filename(i))
-			_cleanup_file_family(_storage._get_meta_filename(i))
-
 		for file_name: String in [
 			"test_legacy.json",
+			"test_encryption.json",
 			"test_integrity.json",
 			"test_checksum_only.json",
 			"test_missing_checksum.json",
@@ -52,11 +48,14 @@ func after_each() -> void:
 			"test_legacy_version.json",
 			"test_registered_migration.json",
 			"test_missing_migration_chain.json",
+			"test_branching_migration.json",
+			"test_future_version.json",
 			"test_async.json",
 			"test_wait_async.json",
 			"recover_from_backup.json",
 			"recover_from_temp.json",
 			"recover_from_stale_temp.json",
+			"recover_delete.json",
 			"duplicate_transaction.json",
 			"queued_async.json",
 			"escape.json",
@@ -65,6 +64,11 @@ func after_each() -> void:
 			"managed/b.tres",
 			"managed/readme.txt",
 			"managed/nested/c.json",
+			"group/data.json",
+			"group/meta.json",
+			"group/alias.json",
+			"marker_victim.json",
+			"marker_outsider.json",
 			"_invalid_storage_file",
 		]:
 			_cleanup_file_family(file_name)
@@ -81,74 +85,16 @@ func after_each() -> void:
 		_storage = null
 
 
-func test_save_and_load_slot() -> void:
-	_storage.encrypt_key = 0
-	var data: Dictionary = {"hp": 100, "name": "Hero"}
-	var meta: Dictionary = {"level": 10, "time": "2023-01-01"}
-
-	assert_eq(_storage.save_slot(1, data, meta), OK, "保存槽位 1 应成功。")
-	assert_true(_storage.has_slot(1), "槽位 1 应存在。")
-
-	var loaded_meta: Dictionary = _storage.load_slot_meta(1)
-	assert_eq(GFVariantData.get_option_int(loaded_meta, "level"), 10, "读取的元数据应与保存值一致。")
-
-	var loaded_data: Dictionary = _storage.load_slot(1)
-	assert_eq(GFVariantData.get_option_string(loaded_data, "name"), "Hero", "读取的核心数据应与保存值一致。")
-
-
-func test_negative_slot_id_is_rejected() -> void:
-	var error: Error = _storage.save_slot(-1, {"hp": 1}, {"level": 1})
-
-	assert_eq(error, ERR_INVALID_PARAMETER, "负数 slot_id 不应写入槽位文件。")
-	assert_false(_storage.has_slot(-1), "负数 slot_id 不应被视为有效槽位。")
-	assert_true(_storage.load_slot(-1).is_empty(), "负数 slot_id 读取应返回空字典。")
-	assert_push_error("[GFStorageUtility] save_slot 失败：slot_id 必须大于等于 0，当前为 -1。")
-
-
 func test_encryption() -> void:
 	_storage.encrypt_key = 42
 	var data: Dictionary = {"secret": "confidential_data"}
-	var _save_slot_result_109: Variant = _storage.save_slot(2, data)
+	assert_eq(_storage.save_data("test_encryption.json", data), OK, "通用数据 API 应支持编码写入。")
 
-	var raw_content: String = FileAccess.get_file_as_string(_storage._get_full_path(_storage._get_data_filename(2)))
+	var raw_content: String = FileAccess.get_file_as_string(_storage._get_full_path("test_encryption.json"))
 	assert_false(raw_content.contains("confidential_data"), "开启混淆后，文件内容不应包含明文。")
 
-	var loaded: Dictionary = _storage.load_slot(2)
+	var loaded: Dictionary = _storage.load_data("test_encryption.json")
 	assert_eq(GFVariantData.get_option_string(loaded, "secret"), "confidential_data", "读取时应正确解码并恢复原始内容。")
-
-
-func test_delete_slot() -> void:
-	var _save_slot_result_119: Variant = _storage.save_slot(3, {"a": 1}, {"b": 2})
-	assert_true(_storage.has_slot(3))
-
-	_storage.delete_slot(3)
-	assert_false(_storage.has_slot(3), "删除槽位后不应再存在。")
-
-
-func test_list_slots_returns_valid_slots_sorted_with_metadata() -> void:
-	_storage.encrypt_key = 0
-	assert_eq(_storage.save_slot(7, {"value": 7}, {"name": "seven"}), OK, "应能保存槽位 7。")
-	assert_eq(_storage.save_slot(2, {"value": 2}, {"name": "two"}), OK, "应能保存槽位 2。")
-	assert_eq(_storage._write_json(_storage._get_meta_filename(8), {"name": "orphan"}), OK, "应能构造孤立 metadata。")
-
-	var slots: Array[Dictionary] = _storage.list_slots()
-	var first_slot: Dictionary = slots[0]
-	var second_slot: Dictionary = slots[1]
-	var first_metadata: Dictionary = GFVariantData.get_option_dictionary(first_slot, "metadata")
-
-	assert_eq(slots.size(), 2, "只应枚举同时存在数据与元数据的有效槽位。")
-	assert_eq(GFVariantData.get_option_int(first_slot, "slot_id"), 2, "槽位应按 ID 升序。")
-	assert_eq(GFVariantData.get_option_int(second_slot, "slot_id"), 7, "槽位应按 ID 升序。")
-	assert_eq(GFVariantData.get_option_string(first_metadata, "name"), "two", "应包含槽位元数据。")
-	assert_true(GFVariantData.get_option_int(first_slot, "modified_time") > 0, "应包含 metadata 修改时间。")
-
-
-func test_has_slot_requires_data_and_metadata_files() -> void:
-	_storage.encrypt_key = 0
-	var meta_file_name: String = _storage._get_meta_filename(6)
-	assert_eq(_storage._write_json(meta_file_name, {"level": 1}), OK, "应能构造孤立 metadata 文件。")
-
-	assert_false(_storage.has_slot(6), "只有 metadata 没有核心数据时不应视为有效槽位。")
 
 
 func test_legacy_methods() -> void:
@@ -216,11 +162,53 @@ func test_save_data_creates_nested_directories() -> void:
 	assert_eq(GFVariantData.get_option_int(_storage.load_data("nested/test_nested.json"), "value"), 7, "嵌套路径数据应可读取。")
 
 
+func test_save_data_group_commits_multiple_files_together() -> void:
+	_storage.encrypt_key = 0
+
+	var err: Error = _storage.save_data_group({
+		"group/data.json": { "hp": 10 },
+		"group/meta.json": { "display_name": "A" },
+	})
+
+	assert_eq(err, OK, "多文件事务保存应成功。")
+	assert_eq(GFVariantData.get_option_int(_storage.load_data("group/data.json"), "hp"), 10, "数据文件应写入。")
+	assert_eq(GFVariantData.get_option_string(_storage.load_data("group/meta.json"), "display_name"), "A", "元数据文件应写入。")
+
+
+func test_save_data_group_rejects_unsafe_paths() -> void:
+	var err: Error = _storage.save_data_group({
+		"../escape.json": { "hp": 10 },
+		"group/meta.json": { "display_name": "A" },
+	})
+
+	assert_eq(err, ERR_INVALID_PARAMETER, "多文件事务应拒绝任意非法路径。")
+	assert_false(FileAccess.file_exists(_storage._get_full_path("group/meta.json")), "路径校验失败时不应写入其它文件。")
+	assert_push_error("[GFStorageUtility] 已拒绝跨目录路径（file_name）：../escape.json")
+
+
+func test_save_data_group_rejects_canonical_path_aliases() -> void:
+	var err: Error = _storage.save_data_group({
+		"group//alias.json": { "value": 1 },
+		"group/alias.json": { "value": 2 },
+	})
+
+	assert_eq(err, ERR_INVALID_PARAMETER, "同一 canonical file family 的 raw 别名必须在写入前被拒绝。")
+	assert_false(FileAccess.file_exists(_storage._get_full_path("group/alias.json")), "别名冲突不得产生部分写入。")
+	assert_push_error("[GFStorageUtility] save_data_group 失败：文件名解析到同一存储目标 group/alias.json。")
+
+
+func test_storage_paths_reject_parent_segments_before_simplification() -> void:
+	var err: Error = _storage.save_data("group/../escape.json", { "value": 1 })
+
+	assert_eq(err, ERR_INVALID_PARAMETER, "任何原始父目录段都应被路径策略拒绝。")
+	assert_push_error("[GFStorageUtility] 已拒绝跨目录路径（file_name）：group/../escape.json")
+
+
 func test_absolute_path_is_rejected_to_save_directory_by_default() -> void:
 	var path: String = _storage._get_full_path("C:/outside/save.json")
 
 	assert_false(_storage.allow_absolute_paths, "2.0 默认应拒绝绝对路径。")
-	assert_eq(path, "user://test_saves/save.json", "绝对路径默认应收敛到存档目录同名文件。")
+	assert_eq(path, "", "绝对路径默认应 fail closed，不应收敛到存档目录。")
 	assert_push_error("[GFStorageUtility] 已禁用绝对路径：C:/outside/save.json")
 
 
@@ -230,10 +218,10 @@ func test_absolute_path_can_be_enabled_for_trusted_tools() -> void:
 	assert_eq(_storage._get_full_path("C:/outside/save.json"), "C:/outside/save.json", "可信编辑器工具可显式启用绝对路径。")
 
 
-func test_parent_directory_path_is_rebased_to_save_directory_file_name() -> void:
+func test_parent_directory_path_is_rejected() -> void:
 	var path: String = _storage._get_full_path("../escape.json")
 
-	assert_eq(path, "user://test_saves/escape.json", "跨目录相对路径应收敛到存档目录内的同名文件。")
+	assert_eq(path, "", "跨目录相对路径应 fail closed，不应收敛到存档目录内。")
 	assert_push_error("[GFStorageUtility] 已拒绝跨目录路径（file_name）：../escape.json")
 
 
@@ -320,6 +308,7 @@ func test_save_and_load_resource() -> void:
 	assert_eq(err, OK, "保存 Resource 应成功。")
 
 	_storage.allow_resource_loads = true
+	_storage.allowed_resource_load_type_hints = PackedStringArray(["NoiseTexture2D"])
 	var loaded_resource: Resource = _storage.load_resource(file_name, "NoiseTexture2D")
 	assert_true(loaded_resource is NoiseTexture2D, "读取的 Resource 应保持原类型。")
 	if not (loaded_resource is NoiseTexture2D):
@@ -336,12 +325,23 @@ func test_load_resource_requires_explicit_opt_in_and_type_hint() -> void:
 
 	var denied_resource: Resource = _storage.load_resource(file_name, "Resource")
 	_storage.allow_resource_loads = true
+	var missing_allowlist_resource: Resource = _storage.load_resource(file_name, "Resource")
+	_storage.allowed_resource_load_type_hints = PackedStringArray(["Resource"])
 	var missing_type_hint_resource: Resource = _storage.load_resource(file_name)
 
 	assert_null(denied_resource, "默认策略不应允许 ResourceLoader 读取。")
+	assert_null(missing_allowlist_resource, "启用 Resource 读取后仍应要求 type_hint allowlist。")
 	assert_null(missing_type_hint_resource, "启用 Resource 读取后仍应要求 type_hint。")
 	assert_push_error("[GFStorageUtility] load_resource 已被默认安全策略拒绝：请先显式启用 allow_resource_loads。")
+	assert_push_error("[GFStorageUtility] load_resource 拒绝未允许的 type_hint：Resource。")
 	assert_push_error("[GFStorageUtility] load_resource 需要显式 type_hint。")
+
+
+func test_load_resource_validates_loaded_resource_type_hint() -> void:
+	var resource: Resource = Resource.new()
+
+	assert_true(_storage._is_loaded_resource_compatible(resource, "Resource"), "Resource 基类提示应匹配 Resource 实例。")
+	assert_false(_storage._is_loaded_resource_compatible(resource, "PackedScene"), "加载结果必须匹配传入 type_hint。")
 
 
 func test_file_management_ensure_list_and_delete_files() -> void:
@@ -387,11 +387,12 @@ func test_get_storage_directory_path_has_no_creation_side_effect() -> void:
 	assert_false(DirAccess.dir_exists_absolute(directory_path), "只查询目录路径不应创建目录。")
 
 
-func test_file_management_rebases_unsafe_directory_paths() -> void:
-	assert_eq(_storage.ensure_directory("../escape_dir"), OK, "跨目录路径应收敛到存储根目录下的同名目录。")
+func test_file_management_rejects_unsafe_directory_paths() -> void:
+	assert_eq(_storage.ensure_directory("../escape_dir"), ERR_INVALID_PARAMETER, "跨目录目录路径应 fail closed。")
 
-	assert_true(DirAccess.dir_exists_absolute(_storage._get_full_path("escape_dir")), "收敛后的目录应创建在存储根目录内。")
+	assert_false(DirAccess.dir_exists_absolute(_storage._get_full_path("escape_dir")), "非法目录不应在存储根目录内创建同名目录。")
 	assert_push_error("[GFStorageUtility] 已拒绝跨目录路径（directory_name）：../escape_dir")
+	assert_push_error("[GFStorageUtility] ensure_directory 失败：directory_name 非法。")
 
 
 func test_file_management_rejects_empty_delete_file_path() -> void:
@@ -400,46 +401,117 @@ func test_file_management_rejects_empty_delete_file_path() -> void:
 	assert_push_error("[GFStorageUtility] delete_file 失败：file_name 为空。")
 
 
-func test_save_slot_removes_orphaned_data_when_meta_write_fails() -> void:
+func test_delete_file_cleans_transaction_family_and_prevents_recovery() -> void:
+	_storage.encrypt_key = 0
+	var file_name: String = "recover_delete.json"
+	assert_eq(_storage.save_data(file_name, { "value": 1 }), OK, "预置待删除文件应成功。")
+	assert_eq(_storage._write_json(_storage._get_temp_filename(file_name), { "value": 2 }), OK, "应能构造遗留临时文件。")
+	assert_eq(_storage._write_json(_storage._get_backup_filename(file_name), { "value": 3 }), OK, "应能构造遗留备份文件。")
+	var transaction_files: Array[String] = [file_name]
+	assert_eq(_storage._write_transaction_markers(transaction_files, true), OK, "应能构造遗留事务标记。")
+
+	var delete_error: Error = _storage.delete_file(file_name)
+	var load_result: Dictionary = _storage.load_data_result(file_name)
+
+	assert_eq(delete_error, OK, "删除应清理正式文件和事务族。")
+	assert_false(GFVariantData.get_option_bool(load_result, "ok"), "删除后不应通过事务恢复读回数据。")
+	assert_eq(GFVariantData.get_option_string(load_result, "error"), "File not found", "删除后读取应稳定报告文件不存在。")
+	assert_false(FileAccess.file_exists(_storage._get_full_path(file_name)), "正式文件应被删除。")
+	assert_false(FileAccess.file_exists(_storage._get_full_path(_storage._get_temp_filename(file_name))), "临时文件应被删除。")
+	assert_false(FileAccess.file_exists(_storage._get_full_path(_storage._get_backup_filename(file_name))), "备份文件应被删除。")
+	assert_false(FileAccess.file_exists(_storage._get_full_path(_storage._get_transaction_filename(file_name))), "事务标记应被删除。")
+
+
+func test_transaction_marker_cannot_expand_recovery_beyond_requested_files() -> void:
+	var victim_file_name: String = "marker_victim.json"
+	var outsider_file_name: String = "marker_outsider.json"
+	assert_eq(_storage.save_data(outsider_file_name, { "value": 1 }), OK, "应能预置事务范围外文件。")
+	assert_eq(
+		_storage._write_json(_storage._get_backup_filename(outsider_file_name), { "value": 999 }),
+		OK,
+		"应能构造范围外备份文件。"
+	)
+	assert_eq(
+		_storage._write_plain_json(_storage._get_transaction_filename(victim_file_name), {
+			"schema_version": 1,
+			"transaction_id": "forged",
+			"file_key": victim_file_name,
+			"files": [victim_file_name, outsider_file_name],
+			"committed": false,
+			"had_final": false,
+		}),
+		OK,
+		"应能构造不可信事务 marker。"
+	)
+
+	_storage._recover_transaction_files([victim_file_name])
+
+	assert_true(
+		FileAccess.file_exists(_storage._get_full_path(_storage._get_backup_filename(outsider_file_name))),
+		"请求范围外的备份文件不得被事务恢复流程消费。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(_storage.load_data(outsider_file_name), "value"),
+		1,
+		"marker 不得授权恢复当前请求之外的 file family。"
+	)
+
+
+func test_save_data_group_removes_orphaned_files_when_member_write_fails() -> void:
 	var faulty_storage: FaultyStorageUtility = FaultyStorageUtility.new()
 	_storage = faulty_storage
 	_storage.save_dir_name = "test_saves"
 	_storage.init()
-	faulty_storage.fail_on_file_name = _storage._get_temp_filename(_storage._get_meta_filename(4))
+	var data_file_name: String = "group/data.json"
+	var metadata_file_name: String = "group/meta.json"
+	faulty_storage.fail_on_file_name = _storage._get_temp_filename(metadata_file_name)
 
-	var err: Error = _storage.save_slot(4, {"hp": 1}, {"level": 1})
-	var data_path: String = _storage._get_full_path(_storage._get_data_filename(4))
+	var err: Error = _storage.save_data_group({
+		data_file_name: {"hp": 1},
+		metadata_file_name: {"level": 1},
+	})
 
-	assert_ne(err, OK, "元数据写入失败时应返回错误码。")
-	assert_false(_storage.has_slot(4), "元数据失败后不应留下假阳性的槽位。")
-	assert_false(FileAccess.file_exists(data_path), "新建槽位失败时应清理已写入的核心数据文件。")
+	assert_ne(err, OK, "任一成员写入失败时应返回错误码。")
+	assert_false(FileAccess.file_exists(_storage._get_full_path(data_file_name)), "新事务失败时不应留下已写入的正式文件。")
+	assert_false(FileAccess.file_exists(_storage._get_full_path(metadata_file_name)), "失败成员不应留下正式文件。")
+	assert_false(FileAccess.file_exists(_storage._get_full_path(_storage._get_temp_filename(data_file_name))), "失败后应清理其它成员的临时文件。")
 
 
-func test_save_slot_preserves_existing_files_when_overwrite_meta_write_fails() -> void:
+func test_save_data_group_preserves_existing_files_when_member_write_fails() -> void:
 	_storage.encrypt_key = 0
-	assert_eq(_storage.save_slot(5, {"hp": 10}, {"level": 1}), OK, "预置旧槽位应成功。")
+	var data_file_name: String = "group/data.json"
+	var metadata_file_name: String = "group/meta.json"
+	assert_eq(_storage.save_data_group({
+		data_file_name: {"hp": 10},
+		metadata_file_name: {"level": 1},
+	}), OK, "预置旧事务数据应成功。")
 
 	var faulty_storage: FaultyStorageUtility = FaultyStorageUtility.new()
 	_storage = faulty_storage
 	_storage.save_dir_name = "test_saves"
 	_storage.encrypt_key = 0
 	_storage.init()
-	faulty_storage.fail_on_file_name = _storage._get_temp_filename(_storage._get_meta_filename(5))
+	faulty_storage.fail_on_file_name = _storage._get_temp_filename(metadata_file_name)
 
-	var err: Error = _storage.save_slot(5, {"hp": 999}, {"level": 9})
+	var err: Error = _storage.save_data_group({
+		data_file_name: {"hp": 999},
+		metadata_file_name: {"level": 9},
+	})
 
-	assert_ne(err, OK, "覆盖槽位时 metadata 写失败应返回错误码。")
-	assert_eq(GFVariantData.get_option_int(_storage.load_slot(5), "hp"), 10, "覆盖失败后应保留旧的核心数据。")
-	assert_eq(GFVariantData.get_option_int(_storage.load_slot_meta(5), "level"), 1, "覆盖失败后应保留旧的元数据。")
+	assert_ne(err, OK, "覆盖事务任一成员写失败时应返回错误码。")
+	assert_eq(GFVariantData.get_option_int(_storage.load_data(data_file_name), "hp"), 10, "覆盖失败后应保留旧数据文件。")
+	assert_eq(GFVariantData.get_option_int(_storage.load_data(metadata_file_name), "level"), 1, "覆盖失败后应保留旧元数据文件。")
 
 
-func test_slot_transaction_recovery_rolls_back_partial_group_commit() -> void:
+func test_data_group_transaction_recovery_rolls_back_partial_commit() -> void:
 	_storage.encrypt_key = 0
-	assert_eq(_storage.save_slot(9, {"hp": 10}, {"level": 1}), OK, "预置旧槽位应成功。")
-
-	var data_file_name: String = _storage._get_data_filename(9)
-	var meta_file_name: String = _storage._get_meta_filename(9)
+	var data_file_name: String = "group/data.json"
+	var meta_file_name: String = "group/meta.json"
 	var file_names: Array[String] = [data_file_name, meta_file_name]
+	assert_eq(_storage.save_data_group({
+		data_file_name: {"hp": 10},
+		meta_file_name: {"level": 1},
+	}), OK, "预置旧事务数据应成功。")
 	assert_eq(_storage._write_transaction_markers(file_names, false), OK, "应能构造未完成事务标记。")
 
 	assert_eq(
@@ -460,9 +532,52 @@ func test_slot_transaction_recovery_rolls_back_partial_group_commit() -> void:
 		"应能模拟只提交了核心数据。",
 	)
 
-	assert_true(_storage.has_slot(9), "恢复后旧槽位仍应有效。")
-	assert_eq(GFVariantData.get_option_int(_storage.load_slot(9), "hp"), 10, "未完成事务恢复后应回滚核心数据。")
-	assert_eq(GFVariantData.get_option_int(_storage.load_slot_meta(9), "level"), 1, "未完成事务恢复后应回滚元数据。")
+	_storage._recover_transaction_files(file_names)
+
+	assert_eq(GFVariantData.get_option_int(_storage.load_data(data_file_name), "hp"), 10, "未完成事务恢复后应回滚数据文件。")
+	assert_eq(GFVariantData.get_option_int(_storage.load_data(meta_file_name), "level"), 1, "未完成事务恢复后应回滚元数据文件。")
+
+
+func test_single_member_load_recovers_entire_partially_committed_group() -> void:
+	_storage.encrypt_key = 0
+	var data_file_name: String = "group/data.json"
+	var meta_file_name: String = "group/meta.json"
+	var file_names: Array[String] = [data_file_name, meta_file_name]
+	assert_eq(_storage.save_data_group({
+		data_file_name: {"hp": 10},
+		meta_file_name: {"level": 1},
+	}), OK, "预置旧事务数据应成功。")
+	assert_eq(_storage._write_transaction_markers(file_names, false), OK, "应能构造未完成事务标记。")
+
+	for file_name: String in file_names:
+		assert_eq(
+			DirAccess.rename_absolute(
+				_storage._get_full_path(file_name),
+				_storage._get_full_path(_storage._get_backup_filename(file_name))
+			),
+			OK,
+			"应能模拟正式文件进入事务备份。"
+		)
+	assert_eq(_storage._write_json(data_file_name, {"hp": 999}), OK, "应能模拟提交新数据文件。")
+	assert_eq(_storage._write_json(meta_file_name, {"level": 9}), OK, "应能模拟提交新元数据文件。")
+
+	var data_marker: Dictionary = _storage._read_transaction_marker(data_file_name)
+	data_marker["committed"] = true
+	assert_eq(
+		_storage._write_plain_json(_storage._get_transaction_filename(data_file_name), data_marker),
+		OK,
+		"应能模拟只写完一个 committed marker。"
+	)
+
+	var loaded_data: Dictionary = _storage.load_data(data_file_name)
+
+	assert_eq(GFVariantData.get_option_int(loaded_data, "hp"), 10, "读取任一成员都应把整个未完整提交事务回滚到旧代次。")
+	assert_eq(GFVariantData.get_option_int(_storage.load_data(meta_file_name), "level"), 1, "同组其它成员不得保留新代次。")
+	for file_name: String in file_names:
+		assert_false(
+			FileAccess.file_exists(_storage._get_full_path(_storage._get_transaction_filename(file_name))),
+			"全组恢复后不应残留事务标记。"
+		)
 
 
 func test_load_data_restores_backup_when_primary_file_is_missing() -> void:
@@ -647,16 +762,6 @@ func test_load_data_result_reports_missing_file() -> void:
 	assert_eq(GFVariantData.get_option_string(result, "error"), "File not found", "缺失文件应返回明确错误。")
 
 
-func test_load_slot_result_reports_missing_or_invalid_slot() -> void:
-	var missing_result: Dictionary = _storage.load_slot_result(8)
-	var invalid_result: Dictionary = _storage.load_slot_result(-1)
-
-	assert_false(GFVariantData.get_option_bool(missing_result, "ok"), "缺失槽位的结构化读取结果应标记失败。")
-	assert_eq(GFVariantData.get_option_string(missing_result, "error"), "File not found", "缺失槽位应返回明确错误。")
-	assert_false(GFVariantData.get_option_bool(invalid_result, "ok"), "非法槽位的结构化读取结果应标记失败。")
-	assert_eq(GFVariantData.get_option_string(invalid_result, "error"), "Invalid slot_id: -1", "非法槽位应返回明确错误。")
-
-
 func test_wait_for_async_tasks_drains_queued_tasks() -> void:
 	_storage.encrypt_key = 0
 	_storage.max_async_thread_count = 1
@@ -733,6 +838,60 @@ func test_registered_migrations_run_as_version_chain() -> void:
 	assert_eq(GFVariantData.get_option_bool(loaded, "step_two"), true, "第二段迁移应执行。")
 	assert_eq(GFVariantData.get_option_int(metadata, "version"), 3, "迁移后版本应更新为当前版本。")
 	assert_eq(migrations.size(), 2, "迁移注册表应可查询。")
+
+
+func test_migration_resolver_selects_reachable_shortest_path() -> void:
+	_storage.encrypt_key = 0
+	_storage.save_version = 4
+	assert_true(_storage.register_migration(1, 2, func(data: Dictionary, _from: int, _to: int) -> Dictionary:
+		data["dead_branch"] = true
+		return data
+	), "应能注册断链分支。")
+	assert_true(_storage.register_migration(1, 3, func(data: Dictionary, _from: int, _to: int) -> Dictionary:
+		data["reachable_branch"] = true
+		return data
+	), "应能注册可达分支。")
+	assert_true(_storage.register_migration(3, 4, func(data: Dictionary, _from: int, _to: int) -> Dictionary:
+		data["target_reached"] = true
+		return data
+	), "应能注册目标迁移。")
+	var file_name: String = "test_branching_migration.json"
+	var file: FileAccess = FileAccess.open(_storage._get_full_path(file_name), FileAccess.WRITE)
+	var _branching_store_result: Variant = file.store_buffer(GFStorageCodec.new().encode({
+		"_meta": { "version": 1 },
+	}, { "obfuscation_key": 0 }))
+	file.close()
+
+	var loaded: Dictionary = _storage.load_data(file_name)
+
+	assert_true(GFVariantData.get_option_bool(loaded, "reachable_branch"), "迁移解析器应避开较小但断链的目标。")
+	assert_true(GFVariantData.get_option_bool(loaded, "target_reached"), "迁移解析器应抵达目标版本。")
+	assert_false(GFVariantData.get_option_bool(loaded, "dead_branch"), "未选中的断链分支不应执行。")
+
+
+func test_future_storage_version_is_rejected_by_default() -> void:
+	_storage.encrypt_key = 0
+	_storage.save_version = 2
+	var file_name: String = "test_future_version.json"
+	var file: FileAccess = FileAccess.open(_storage._get_full_path(file_name), FileAccess.WRITE)
+	var _future_store_result: Variant = file.store_buffer(GFStorageCodec.new().encode({
+		"_meta": { "version": 5 },
+		"future_only": true,
+	}, { "obfuscation_key": 0 }))
+	file.close()
+	watch_signals(_storage)
+
+	var loaded: Dictionary = _storage.load_data(file_name)
+
+	assert_true(loaded.is_empty(), "未来版本数据应 fail closed，避免被当前 schema 降级保存。")
+	assert_false(GFVariantData.get_option_bool(_storage.last_load_result, "ok"), "未来版本应标记读取失败。")
+	assert_eq(
+		GFVariantData.get_option_string(_storage.last_load_result, "error"),
+		"Unsupported future storage version: 5 > 2",
+		"未来版本失败原因应稳定。"
+	)
+	assert_signal_emitted(_storage, "data_integrity_failed", "未来版本拒绝应发出数据失败信号。")
+	assert_push_error("[GFStorageUtility] 读取失败：Unsupported future storage version: 5 > 2")
 
 
 func test_missing_registered_migration_chain_fails_without_marking_target_version() -> void:
@@ -813,6 +972,14 @@ func test_storage_backend_default_contract_and_conflict_report_roundtrip() -> vo
 	assert_false(GFVariantData.get_option_bool(capabilities, "sync"), "默认能力应声明不支持同步。")
 	assert_true(report.is_resolved(), "非 UNRESOLVED 冲突报告应视为已解决。")
 	assert_eq(report_copy.to_dict(), report.to_dict(), "冲突报告复制应保留所有字段。")
+	var runtime_value: Resource = Resource.new()
+	report.local_value = runtime_value
+	var safe_report: Dictionary = report.to_json_safe_dict()
+	assert_true(
+		GFVariantData.get_option_value(safe_report, "local_value") is Dictionary,
+		"冲突报告应提供独立 JSON-safe 投影，不改变 native to_dict() 契约。"
+	)
+	assert_ne(JSON.stringify(safe_report), "", "JSON-safe 冲突报告应可直接序列化。")
 
 
 func _pump_storage_async_tasks() -> void:

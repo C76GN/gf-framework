@@ -4,9 +4,11 @@
 
 ## 异步超时
 
-可通过 `GFArchitecture.module_async_init_timeout_seconds` 设置模块异步初始化超时。超时会让架构进入初始化失败状态，并唤醒等待 `init()` / `GFNodeContext.wait_until_ready()` 的调用方。
+可通过 `GFArchitecture.module_async_init_timeout_seconds` 设置模块异步初始化超时。超时会取消当前模块收到的 `GFAsyncScope`，让架构进入初始化失败状态，并唤醒等待 `init()` / `GFNodeContext.wait_until_ready()` 的调用方。
 
-Godot coroutine 无法被框架强制取消。超时只能阻止架构继续推进；已经挂起的 `async_init()` 如果之后恢复，模块内部应避免继续写回已失效的外部状态。持有架构引用的异步流程可以用 `architecture.is_lifecycle_active()` 判断当前架构是否仍可安全写回；继承 `GFModel`、`GFSystem`、`GFUtility` 的模块也可以直接调用自身的 `is_lifecycle_active()`。
+Godot coroutine 无法被框架抢占式终止。超时会阻止架构继续推进，并让 `scope.is_cancel_requested()` 返回 true；已经挂起的 `async_init(scope)` 如果之后恢复，模块内部应先检查 scope，再决定是否写回状态。需要注册临时连接、后台请求或外部句柄清理时，使用 `scope.register_cleanup()`。
+
+超时也不会抢占首个 `await` 之前的同步执行段。需要处理大文件、批量资源索引或复杂表格解析时，应先进入可让帧的分段流程，再在每段之间检查生命周期状态；否则一次长同步段仍会卡住主线程，并推迟超时检测。
 
 ## Ready 查询
 

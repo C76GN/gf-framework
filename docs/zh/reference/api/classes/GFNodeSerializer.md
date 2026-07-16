@@ -28,7 +28,7 @@
 | 方法 | [`_apply_property_from_payload`](#member-gfnodeserializer-methods-_apply_property_from_payload) | `func _apply_property_from_payload(node: Object, payload: Dictionary, property_name: String) -> void:` |
 | 方法 | [`_apply_properties_from_payload`](#member-gfnodeserializer-methods-_apply_properties_from_payload) | `func _apply_properties_from_payload(node: Object, payload: Dictionary, property_names: PackedStringArray) -> void:` |
 | 方法 | [`_gather_property_specs`](#member-gfnodeserializer-methods-_gather_property_specs) | `func _gather_property_specs(node: Object, specs: Array[Dictionary]) -> Dictionary:` |
-| 方法 | [`_apply_property_specs`](#member-gfnodeserializer-methods-_apply_property_specs) | `func _apply_property_specs(node: Object, payload: Dictionary, specs: Array[Dictionary]) -> void:` |
+| 方法 | [`_apply_property_specs`](#member-gfnodeserializer-methods-_apply_property_specs) | `func _apply_property_specs(node: Object, payload: Dictionary, specs: Array[Dictionary]) -> Array[String]:` |
 | 方法 | [`_has_property`](#member-gfnodeserializer-methods-_has_property) | `func _has_property(object: Object, property_name: String) -> bool:` |
 
 ## 属性
@@ -38,6 +38,7 @@
 ### `serializer_id`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var serializer_id: StringName = &""
@@ -50,6 +51,7 @@ var serializer_id: StringName = &""
 ### `display_name`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var display_name: String = ""
@@ -62,6 +64,7 @@ var display_name: String = ""
 ### `supported_class_name`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var supported_class_name: String = ""
@@ -76,6 +79,7 @@ var supported_class_name: String = ""
 ### `get_serializer_id`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func get_serializer_id() -> StringName:
@@ -90,6 +94,7 @@ func get_serializer_id() -> StringName:
 ### `supports_node`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func supports_node(node: Node) -> bool:
@@ -110,6 +115,7 @@ func supports_node(node: Node) -> bool:
 ### `gather`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func gather(_node: Node, _context: Dictionary = {}) -> Dictionary:
@@ -136,6 +142,7 @@ func gather(_node: Node, _context: Dictionary = {}) -> Dictionary:
 ### `apply`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func apply(_node: Node, _payload: Dictionary, _context: Dictionary = {}) -> Dictionary:
@@ -164,6 +171,7 @@ func apply(_node: Node, _payload: Dictionary, _context: Dictionary = {}) -> Dict
 ### `make_result`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func make_result(ok: bool, error: String = "") -> Dictionary:
@@ -189,6 +197,7 @@ func make_result(ok: bool, error: String = "") -> Dictionary:
 ### `_copy_property_to_payload`
 
 - API：`protected`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func _copy_property_to_payload(node: Object, payload: Dictionary, property_name: String) -> void:
@@ -213,6 +222,7 @@ func _copy_property_to_payload(node: Object, payload: Dictionary, property_name:
 ### `_copy_properties_to_payload`
 
 - API：`protected`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func _copy_properties_to_payload(node: Object, payload: Dictionary, property_names: PackedStringArray) -> void:
@@ -237,6 +247,7 @@ func _copy_properties_to_payload(node: Object, payload: Dictionary, property_nam
 ### `_apply_property_from_payload`
 
 - API：`protected`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func _apply_property_from_payload(node: Object, payload: Dictionary, property_name: String) -> void:
@@ -261,6 +272,7 @@ func _apply_property_from_payload(node: Object, payload: Dictionary, property_na
 ### `_apply_properties_from_payload`
 
 - API：`protected`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func _apply_properties_from_payload(node: Object, payload: Dictionary, property_names: PackedStringArray) -> void:
@@ -285,6 +297,7 @@ func _apply_properties_from_payload(node: Object, payload: Dictionary, property_
 ### `_gather_property_specs`
 
 - API：`protected`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func _gather_property_specs(node: Object, specs: Array[Dictionary]) -> Dictionary:
@@ -311,9 +324,10 @@ func _gather_property_specs(node: Object, specs: Array[Dictionary]) -> Dictionar
 ### `_apply_property_specs`
 
 - API：`protected`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func _apply_property_specs(node: Object, payload: Dictionary, specs: Array[Dictionary]) -> void:
+func _apply_property_specs(node: Object, payload: Dictionary, specs: Array[Dictionary]) -> Array[String]:
 ```
 
 按属性规格将载荷应用到节点。
@@ -326,6 +340,8 @@ func _apply_property_specs(node: Object, payload: Dictionary, specs: Array[Dicti
 | `payload` | 序列化载荷。 |
 | `specs` | 属性规格列表。 |
 
+返回：错误消息列表；空数组表示应用成功。
+
 结构：
 
 - `payload`: Dictionary，键为规格 key，值为要写回的属性值。
@@ -336,6 +352,7 @@ func _apply_property_specs(node: Object, payload: Dictionary, specs: Array[Dicti
 ### `_has_property`
 
 - API：`protected`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func _has_property(object: Object, property_name: String) -> bool:

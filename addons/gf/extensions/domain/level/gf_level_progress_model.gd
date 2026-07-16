@@ -208,7 +208,7 @@ func from_dict(data: Dictionary) -> void:
 func _stringify_key_dictionary(data: Dictionary) -> Dictionary:
 	var result: Dictionary = {}
 	for key: Variant in data.keys():
-		result[GFVariantData.to_text(key)] = data[key]
+		result[GFVariantData.to_text(key)] = GFVariantData.duplicate_collection(data[key], true)
 	return result
 
 

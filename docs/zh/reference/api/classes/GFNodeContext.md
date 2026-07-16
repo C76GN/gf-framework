@@ -25,8 +25,8 @@
 | 属性 | [`module_async_init_timeout_seconds`](#member-gfnodecontext-properties-module_async_init_timeout_seconds) | `var module_async_init_timeout_seconds: float = 0.0` |
 | 属性 | [`context_wait_timeout_seconds`](#member-gfnodecontext-properties-context_wait_timeout_seconds) | `var context_wait_timeout_seconds: float = 30.0` |
 | 属性 | [`architecture`](#member-gfnodecontext-properties-architecture) | `var architecture: GFArchitecture:` |
-| 方法 | [`install`](#member-gfnodecontext-methods-install) | `func install(_architecture_instance: GFArchitecture) -> void:` |
-| 方法 | [`install_bindings`](#member-gfnodecontext-methods-install_bindings) | `func install_bindings(_binder: Variant) -> void:` |
+| 方法 | [`install`](#member-gfnodecontext-methods-install) | `func install(_architecture_instance: GFArchitecture, _scope: GFAsyncScope) -> void:` |
+| 方法 | [`install_bindings`](#member-gfnodecontext-methods-install_bindings) | `func install_bindings(_binder: Variant, _scope: GFAsyncScope) -> void:` |
 | 方法 | [`get_architecture`](#member-gfnodecontext-methods-get_architecture) | `func get_architecture() -> GFArchitecture:` |
 | 方法 | [`is_context_ready`](#member-gfnodecontext-methods-is_context_ready) | `func is_context_ready() -> bool:` |
 | 方法 | [`is_context_failed`](#member-gfnodecontext-methods-is_context_failed) | `func is_context_failed() -> bool:` |
@@ -192,9 +192,10 @@ var architecture: GFArchitecture:
 ### `install`
 
 - API：`public`
+- 首次版本：`8.0.0`
 
 ```gdscript
-func install(_architecture_instance: GFArchitecture) -> void:
+func install(_architecture_instance: GFArchitecture, _scope: GFAsyncScope) -> void:
 ```
 
 安装当前上下文的局部模块。仅在 SCOPED 模式下调用。
@@ -204,15 +205,17 @@ func install(_architecture_instance: GFArchitecture) -> void:
 | 名称 | 说明 |
 |---|---|
 | `_architecture_instance` | 当前上下文创建的局部架构。 |
+| `_scope` | 当前安装流程的可取消异步作用域。 |
 
 <a id="member-gfnodecontext-methods-install_bindings"></a>
 
 ### `install_bindings`
 
 - API：`public`
+- 首次版本：`8.0.0`
 
 ```gdscript
-func install_bindings(_binder: Variant) -> void:
+func install_bindings(_binder: Variant, _scope: GFAsyncScope) -> void:
 ```
 
 使用声明式装配器安装当前上下文的局部模块。仅在 SCOPED 模式下调用。
@@ -222,6 +225,7 @@ func install_bindings(_binder: Variant) -> void:
 | 名称 | 说明 |
 |---|---|
 | `_binder` | 当前上下文创建的局部架构装配器。 |
+| `_scope` | 当前安装流程的可取消异步作用域。 |
 
 结构：
 

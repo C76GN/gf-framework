@@ -39,6 +39,31 @@ func test_value_index_replaces_old_fields() -> void:
 	assert_eq(index.query(&"tag", "blue"), PackedStringArray(["a"]), "替换条目后新字段索引应可查。")
 
 
+func test_value_index_rejects_unstable_field_values_without_removing_existing_item() -> void:
+	var index: GFValueIndexBase = GFValueIndexBase.new()
+	var mutable_tag: Dictionary = {
+		"id": 1,
+	}
+
+	assert_true(index.set_item(&"a", "stable", { "tag": "red" }), "初始稳定字段应写入成功。")
+	assert_false(index.set_item(&"a", "unstable", { "tag": mutable_tag }), "可变 Dictionary 不应作为索引字段值。")
+	mutable_tag["id"] = 2
+
+	assert_eq(index.query(&"tag", "red"), PackedStringArray(["a"]), "失败写入不应移除旧索引。")
+	var stored_item: String = GFVariantData.to_text(index.get_item(&"a"))
+	assert_eq(stored_item, "stable", "失败写入不应替换旧值。")
+
+
+func test_value_index_uses_shared_stable_key_codec() -> void:
+	var index: GFValueIndexBase = GFValueIndexBase.new()
+
+	assert_true(index.set_item(&"cell", "value", { "coord": Vector2i(1, 2) }), "稳定数学字段值应可索引。")
+	assert_false(index.set_item(&"nan", "value", { "coord": NAN }), "非有限字段值不应写入索引。")
+
+	assert_eq(index.query(&"coord", Vector2i(1, 2)), PackedStringArray(["cell"]), "查询应使用统一稳定 key token。")
+	assert_eq(index.query(&"coord", NAN), PackedStringArray(), "非稳定查询值应返回空结果。")
+
+
 ## 验证变更批次可提交并按反向顺序回滚。
 func test_mutation_batch_commits_and_rolls_back() -> void:
 	var batch: GFMutationBatchBase = GFMutationBatchBase.new()
@@ -105,6 +130,48 @@ func test_mutation_batch_stops_on_failure() -> void:
 	assert_eq(batch.get_pending_count(), 1, "默认停止失败时应保留待处理操作。")
 
 
+func test_mutation_batch_reports_invalid_callable_at_commit_time() -> void:
+	var batch: GFMutationBatchBase = GFMutationBatchBase.new()
+	var receiver: MutationCallableReceiver = MutationCallableReceiver.new()
+	add_child(receiver)
+	var operation_id: int = batch.add_operation(Callable(receiver, "commit"))
+	receiver.free()
+
+	var report: Dictionary = batch.commit()
+	var errors: Array = GFVariantData.get_option_array(report, "errors")
+	var first_error: Dictionary = GFVariantData.as_dictionary(errors[0])
+
+	assert_gt(operation_id, 0, "加入时有效的 Callable 应先被接受。")
+	assert_false(GFVariantData.get_option_bool(report, "ok", true), "提交时 Callable 失效应结构化失败。")
+	assert_eq(GFVariantData.get_option_int(report, "failed_count"), 1, "失效 Callable 应计为失败。")
+	assert_eq(GFVariantData.get_option_string(first_error, "error"), "invalid_callable", "失败原因应稳定。")
+	assert_eq(batch.get_pending_count(), 1, "stop_on_error=true 时失败操作应保留待处理。")
+
+
+func test_mutation_batch_reports_invalid_callable_at_rollback_time() -> void:
+	var batch: GFMutationBatchBase = GFMutationBatchBase.new()
+	var receiver: MutationCallableReceiver = MutationCallableReceiver.new()
+	add_child(receiver)
+	var operation_id: int = batch.add_operation(
+		Callable(receiver, "commit"),
+		Callable(receiver, "rollback")
+	)
+	var commit_report: Dictionary = batch.commit()
+	receiver.free()
+
+	var rollback_report: Dictionary = batch.rollback_committed()
+	var errors: Array = GFVariantData.get_option_array(rollback_report, "errors")
+	var first_error: Dictionary = GFVariantData.as_dictionary(errors[0])
+
+	assert_gt(operation_id, 0, "加入时有效的回滚 Callable 应先被接受。")
+	assert_true(GFVariantData.get_option_bool(commit_report, "ok", false), "测试提交阶段应成功。")
+	assert_false(GFVariantData.get_option_bool(rollback_report, "ok", true), "回滚时 Callable 失效应结构化失败。")
+	assert_eq(GFVariantData.get_option_int(rollback_report, "failed_count"), 1, "失效回滚应计为失败。")
+	assert_eq(GFVariantData.get_option_int(rollback_report, "skipped_count"), 0, "失效回滚不应被当成未配置 rollback。")
+	assert_eq(GFVariantData.get_option_string(first_error, "error"), "invalid_callable", "失败原因应稳定。")
+	assert_eq(batch.get_committed_count(), 1, "失败回滚项应保留在 committed 栈，避免状态丢失。")
+
+
 func test_mutation_batch_keeps_failed_rollback_entries_committed() -> void:
 	var batch: GFMutationBatchBase = GFMutationBatchBase.new()
 	batch.stop_on_error = false
@@ -133,3 +200,28 @@ func test_mutation_batch_keeps_failed_rollback_entries_committed() -> void:
 	assert_eq(GFVariantData.get_option_int(rollback_report, "failed_count"), 1, "失败回滚项应计数。")
 	assert_eq(batch.get_committed_count(), 1, "失败回滚项应保留在 committed 栈，避免状态丢失。")
 	assert_eq(values, ["commit_one", "commit_two", "rollback_two_failed", "rollback_one"], "stop_on_error=false 时应继续回滚后续项。")
+
+
+func test_mutation_batch_auto_clear_summary_matches_post_commit_state() -> void:
+	var batch: GFMutationBatchBase = GFMutationBatchBase.new()
+	batch.auto_clear_committed_on_success = true
+	var _operation_id: int = batch.add_operation(func() -> void:
+		pass
+	)
+
+	var report: Dictionary = batch.commit()
+
+	assert_true(GFVariantData.get_option_bool(report, "ok"), "操作应提交成功。")
+	assert_eq(batch.get_committed_count(), 0, "auto clear 应清空 committed 栈。")
+	assert_eq(GFVariantData.get_option_int(report, "stored_committed_count", -1), 0, "提交摘要应描述清理后的可观察状态。")
+
+
+class MutationCallableReceiver:
+	extends Node
+
+	func commit() -> void:
+		pass
+
+
+	func rollback() -> void:
+		pass

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFConfigPipelineRunner" path="addons/gf/tools/config_pipeline/gf_config_pipeline_runner.gd" module="tools" extends="RefCounted" classDigest="3f88194631ac9523ec17bcda468efece6adb159b0d74fd2323dc81a2ef06a368">
+<class name="GFConfigPipelineRunner" path="addons/gf/tools/config_pipeline/gf_config_pipeline_runner.gd" module="tools" extends="RefCounted" classDigest="84276051fe7b570f8a7109b8a9ca87f598db35f4dc15255a9a75f29393ca3d76">
 	<description>GFConfigPipelineRunner: 配置导表 Profile 的 Godot 原生运行入口。
 负责从 Godot 资源路径加载 GFConfigPipelineProfile，并调用 GFConfigPipeline 构建或导出。
 Runner 不处理命令行参数、编辑器 UI、外部进程、项目目录约定或发布策略。</description>
@@ -45,10 +45,10 @@ Runner 不处理命令行参数、编辑器 UI、外部进程、项目目录约�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">profile_path: Profile 资源路径，通常为 .tres 或 .res。</tag>
-				<tag name="param">options: 加载、构建、保存和访问器生成覆盖选项。</tag>
+				<tag name="param">options: 加载、构建、保存、访问器生成和增量导出覆盖选项。</tag>
 				<tag name="return">运行结果。</tag>
-				<tag name="schema">options: Dictionary，可包含 type_hint、cache_mode、output_path、build_options、save_options、access_output_path、access_options、access_class_name、access_provider_accessor、database_id、version、metadata、validate_database、validate_schema、parse_options 和 rebuild_indexes。</tag>
-				<tag name="schema">return: Dictionary，包含 success、operation、profile_path、profile_id、output_path、database、report、table_results、load_result、build_result、save_result、access_result、export_result、error_code 和 error。</tag>
+				<tag name="schema">options: Dictionary，可包含 type_hint、cache_mode、output_path、build_options、save_options、access_output_path、access_options、access_class_name、access_provider_accessor、database_id、version、metadata、validate_database、validate_schema、parse_options、rebuild_indexes、changed_only、manifest_path、write_manifest、manifest_options、manifest_metadata、max_freshness_file_bytes、max_freshness_total_bytes 和 max_freshness_entries；各产物 options 可包含 allow_unowned_overwrite。</tag>
+				<tag name="schema">return: Dictionary，包含 success、operation、profile_path、profile_id、output_path、database、report、table_results、load_result、build_result、save_result、access_result、export_result、manifest_path、manifest、manifest_result、freshness_report、skipped、changed_only、error_code 和 error。</tag>
 				<tag name="since">5.2.0</tag>
 			</tags>
 		</member>

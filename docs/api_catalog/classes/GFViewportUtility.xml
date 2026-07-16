@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFViewportUtility" path="addons/gf/standard/utilities/display/gf_viewport_utility.gd" module="standard" extends="GFUtility" classDigest="9f5a1e738e27d01f7eeb0c4e9585e980fca455280171bb42bb0ccd6841d9981b">
+<class name="GFViewportUtility" path="addons/gf/standard/utilities/display/gf_viewport_utility.gd" module="standard" extends="GFUtility" classDigest="7d37cb65c296d3b011f6a9c48563ea88a37e71ebebcb8f855df574fd87a09dba">
 	<description>GFViewportUtility: 通用 SubViewport 布局管理工具。
 用于本地多人、调试监视器、小地图或多视角预览等场景。它只管理 Viewport
 容器、相机挂载和后处理材质，不接管玩家、场景切换或输入规则。</description>
@@ -159,7 +159,20 @@
 				<tag name="api">public</tag>
 				<tag name="param">camera: 用于投影的 Camera3D。</tag>
 				<tag name="param">world_position: 3D 世界坐标。</tag>
-				<tag name="return">屏幕坐标；camera 无效时返回 INF 坐标。</tag>
+				<tag name="return">屏幕坐标；camera 无效时返回 Vector2.ZERO。需要失败原因时使用 world_to_screen_3d_report()。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="world_to_screen_3d_report">
+			<signature>func world_to_screen_3d_report(camera: Camera3D, world_position: Vector3) -&gt; Dictionary:</signature>
+			<description>将 3D 世界坐标转换为结构化屏幕/Viewport 坐标报告。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">camera: 用于投影的 Camera3D。</tag>
+				<tag name="param">world_position: 3D 世界坐标。</tag>
+				<tag name="return">投影报告。</tag>
+				<tag name="schema">return: Dictionary，包含 ok、reason、screen_position 和 world_position；失败时 screen_position 为 Vector2.ZERO。</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="world_to_screen_2d">
@@ -180,6 +193,35 @@
 				<tag name="param">canvas_item: 参考 CanvasItem。</tag>
 				<tag name="param">screen_position: 屏幕坐标。</tag>
 				<tag name="return">2D 世界坐标。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="calculate_control_window_rect">
+			<signature>func calculate_control_window_rect( control_rect: Rect2, viewport_size: Vector2, window_size: Vector2i, options: Dictionary = {} ) -&gt; Dictionary:</signature>
+			<description>将 Viewport 逻辑坐标中的 Control 矩形换算为物理窗口像素矩形。
+适合需要把 Godot UI 区域同步给原生 overlay、平台控件或工具预览的桥接层。
+该方法只做坐标换算，不创建或管理任何外部视图。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">control_rect: Control 的全局矩形，单位为 Viewport 逻辑坐标。</tag>
+				<tag name="param">viewport_size: Viewport 可见尺寸。</tag>
+				<tag name="param">window_size: DisplayServer 物理窗口尺寸。</tag>
+				<tag name="param">options: 可选项，支持 content_rect 与 viewport_offset，用于 letterbox、HiDPI 或嵌入窗口映射。</tag>
+				<tag name="return">窗口矩形报告。</tag>
+				<tag name="schema">options: Dictionary，可包含 content_rect: Rect2i 或 Rect2；未提供 content_rect 时可用 viewport_offset: Vector2i/Vector2 叠加窗口偏移。</tag>
+				<tag name="schema">return: Dictionary，包含 ok、rect、position、size、scale_x、scale_y、mapping_mode、content_rect、viewport_offset、control_rect、viewport_size 和 window_size。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_control_window_rect">
+			<signature>func get_control_window_rect(control: Control, viewport: Viewport = null) -&gt; Dictionary:</signature>
+			<description>读取 Control 当前全局矩形并换算为物理窗口像素矩形。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">control: 目标 Control。</tag>
+				<tag name="param">viewport: 可选 Viewport；为空时使用 control 所在 Viewport。</tag>
+				<tag name="return">窗口矩形报告。</tag>
+				<tag name="schema">return: Dictionary，包含 ok、rect、position、size、scale_x、scale_y、mapping_mode、content_rect、viewport_offset、control_rect、viewport_size 和 window_size。</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="calculate_safe_area_margins">

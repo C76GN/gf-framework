@@ -31,6 +31,7 @@ var _standard_debugger_records: Array[Dictionary] = []
 func setup(plugin: EditorPlugin, standard_records: Dictionary = {}) -> void:
 	if plugin == null:
 		return
+	cleanup(plugin)
 	_standard_debugger_records = _to_record_array(
 		_GF_VARIANT_ACCESS_SCRIPT.get_option_value(standard_records, "debugger_plugin_records", [])
 	)

@@ -24,10 +24,10 @@
 | 属性 | [`require_tags`](#member-gfskill-properties-require_tags) | `var require_tags: Array[StringName] = []` |
 | 属性 | [`ignore_tags`](#member-gfskill-properties-ignore_tags) | `var ignore_tags: Array[StringName] = []` |
 | 属性 | [`owner`](#member-gfskill-properties-owner) | `var owner: Object = null` |
-| 属性 | [`targeting_rule`](#member-gfskill-properties-targeting_rule) | `var targeting_rule: GFSkillTargetingRule = null` |
+| 属性 | [`targeting_rule`](#member-gfskill-properties-targeting_rule) | `var targeting_rule: GFSkillTargetingRule2D = null` |
 | 属性 | [`activation_query`](#member-gfskill-properties-activation_query) | `var activation_query: GFTagQuery = null` |
 | 属性 | [`activation_checks`](#member-gfskill-properties-activation_checks) | `var activation_checks: Array[Callable] = []` |
-| 属性 | [`activation_commit_callbacks`](#member-gfskill-properties-activation_commit_callbacks) | `var activation_commit_callbacks: Array[Callable] = []` |
+| 属性 | [`activation_steps`](#member-gfskill-properties-activation_steps) | `var activation_steps: Array[GFSkillActivationStep] = []` |
 | 方法 | [`update`](#member-gfskill-methods-update) | `func update(p_delta: float) -> void:` |
 | 方法 | [`can_execute`](#member-gfskill-methods-can_execute) | `func can_execute() -> bool:` |
 | 方法 | [`build_activation_context`](#member-gfskill-methods-build_activation_context) | `func build_activation_context( manual_target: Object = null, cast_center: Variant = null, activation_metadata: Dictionary = {} ) -> RefCounted:` |
@@ -175,12 +175,13 @@ var owner: Object = null
 ### `targeting_rule`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-var targeting_rule: GFSkillTargetingRule = null
+var targeting_rule: GFSkillTargetingRule2D = null
 ```
 
-技能索敌规则。
+2D 技能索敌规则。
 
 <a id="member-gfskill-properties-activation_query"></a>
 
@@ -210,22 +211,22 @@ var activation_checks: Array[Callable] = []
 
 - `activation_checks`: Array[Callable]，用于项目自定义成本、状态或上下文检查。
 
-<a id="member-gfskill-properties-activation_commit_callbacks"></a>
+<a id="member-gfskill-properties-activation_steps"></a>
 
-### `activation_commit_callbacks`
+### `activation_steps`
 
 - API：`public`
-- 首次版本：`6.0.0`
+- 首次版本：`8.0.0`
 
 ```gdscript
-var activation_commit_callbacks: Array[Callable] = []
+var activation_steps: Array[GFSkillActivationStep] = []
 ```
 
-激活提交回调。执行成功后、进入冷却前调用。
+激活事务步骤。步骤按顺序验证和应用，失败时按逆序回滚已应用步骤。
 
 结构：
 
-- `activation_commit_callbacks`: Array[Callable]，用于项目自定义成功提交、资源结算或日志写入。
+- `activation_steps`: Array[GFSkillActivationStep]，用于项目自定义成本、预留或其他可补偿副作用。
 
 ## 方法
 

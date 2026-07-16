@@ -9,7 +9,7 @@
 - 类别：运行时服务 (`runtime_service`)
 - 首次版本：`6.0.0`
 
-小型异步流程辅助。 在现有 GFAsyncCompletion / GFAsyncWaitUtility 之上提供重试、顺序遍历和折叠。 它不引入 Promise 类型，不调度后台线程，也不规定业务任务模型；调用方只需要 提供 Callable，并接收稳定的结果字典。
+小型异步流程辅助。 在现有 GFAsyncCompletion / GFAsyncWaitUtility 之上提供重试、顺序遍历、折叠和 completion 组合。 它不引入 Promise 类型，不调度后台线程，也不规定业务任务模型；调用方只需要 提供 Callable，并接收稳定的结果字典。
 
 ## 成员概览
 
@@ -21,6 +21,8 @@
 | 方法 | [`retry_async`](#member-gfasyncflowtools-methods-retry_async) | `static func retry_async(operation: Callable, options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`each_async`](#member-gfasyncflowtools-methods-each_async) | `static func each_async(items: Array, operation: Callable, options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`fold_async`](#member-gfasyncflowtools-methods-fold_async) | `static func fold_async(items: Array, reducer: Callable, initial_value: Variant, options: Dictionary = {}) -> Dictionary:` |
+| 方法 | [`wait_all_completions_async`](#member-gfasyncflowtools-methods-wait_all_completions_async) | `static func wait_all_completions_async(completions: Dictionary, options: Dictionary = {}) -> Dictionary:` |
+| 方法 | [`wait_any_completion_async`](#member-gfasyncflowtools-methods-wait_any_completion_async) | `static func wait_any_completion_async(completions: Dictionary, options: Dictionary = {}) -> Dictionary:` |
 
 ## 常量
 
@@ -151,3 +153,59 @@ static func fold_async(items: Array, reducer: Callable, initial_value: Variant, 
 - `initial_value`: Variant accumulator seed.
 - `options`: Dictionary，可包含 stop_on_failure、cancel_token、operation_options、pass_index 和 metadata。
 - `return`: Dictionary with ok, status, value, error, attempts, history, and metadata.
+
+<a id="member-gfasyncflowtools-methods-wait_all_completions_async"></a>
+
+### `wait_all_completions_async`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+static func wait_all_completions_async(completions: Dictionary, options: Dictionary = {}) -> Dictionary:
+```
+
+等待所有完成源进入终态。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `completions` | key -> GFAsyncCompletion 的字典。 |
+| `options` | 组合等待选项。 |
+
+返回：组合等待报告。
+
+结构：
+
+- `completions`: Dictionary，key 为调用方定义的稳定标识，value 必须是 GFAsyncCompletion。
+- `options`: Dictionary，可包含 timeout_seconds、tree、cancel_token、guard_node、time_utility、respect_time_scale、process_in_physics、fail_fast、cancel_remaining_on_finish 和 metadata。
+- `return`: Dictionary，包含 ok、status、value、error、metadata、count、completed_count、pending_count、succeeded_count、failed_count、cancelled_count、items、results、completion_order、first_completed_key、first_success_key、cancel_reason、cancel_metadata 和 timed_out。
+
+<a id="member-gfasyncflowtools-methods-wait_any_completion_async"></a>
+
+### `wait_any_completion_async`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+static func wait_any_completion_async(completions: Dictionary, options: Dictionary = {}) -> Dictionary:
+```
+
+等待任一完成源成功。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `completions` | key -> GFAsyncCompletion 的字典。 |
+| `options` | 组合等待选项。 |
+
+返回：组合等待报告。
+
+结构：
+
+- `completions`: Dictionary，key 为调用方定义的稳定标识，value 必须是 GFAsyncCompletion。
+- `options`: Dictionary，可包含 timeout_seconds、tree、cancel_token、guard_node、time_utility、respect_time_scale、process_in_physics、fail_fast、cancel_remaining_on_finish 和 metadata。
+- `return`: Dictionary，包含 ok、status、value、error、metadata、count、completed_count、pending_count、succeeded_count、failed_count、cancelled_count、items、results、completion_order、first_completed_key、first_success_key、cancel_reason、cancel_metadata 和 timed_out。

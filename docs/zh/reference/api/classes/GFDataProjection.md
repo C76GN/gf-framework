@@ -40,7 +40,7 @@ static func project_dictionary(values: Dictionary, options: Dictionary = {}) -> 
 | 名称 | 说明 |
 |---|---|
 | `values` | 输入字典。 |
-| `options` | 可选配置，支持 allowed_fields、rename_fields、schema、max_depth、unsupported、include_null 和 defaults。 |
+| `options` | 可选配置，支持 allowed_fields、rename_fields、schema、max_depth、unsupported、include_null、defaults 和 json_safe。 |
 
 返回：投影后的字典。
 
@@ -97,7 +97,7 @@ static func project_value(value: Variant, options: Dictionary = {}) -> Variant:
 | 名称 | 说明 |
 |---|---|
 | `value` | 输入值。 |
-| `options` | 可选配置，支持 max_depth、unsupported 和 include_null。 |
+| `options` | 可选配置，支持 max_depth、unsupported、include_null 和 json_safe。 |
 
 返回：投影后的值；无法投影且 unsupported 为 drop 时返回 null。
 

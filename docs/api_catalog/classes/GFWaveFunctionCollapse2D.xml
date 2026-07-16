@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFWaveFunctionCollapse2D" path="addons/gf/standard/foundation/math/gf_wave_function_collapse_2d.gd" module="standard" extends="RefCounted" classDigest="7d79bf85323b6cf0cb8e48f7160047b71a5432cb75576eb5cc629294b3773753">
+	<description>GFWaveFunctionCollapse2D: 二维格子 Wave Function Collapse 约束求解工具。
+该工具实现简单 tiled WFC 的纯数据核心：调用方声明 tile id、权重、四向邻接规则、
+固定格和 seed，工具输出格子到 tile id 的结果、剩余 domain 和诊断报告。它不创建
+TileMap、图片、场景节点、资源文件或项目业务对象。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_service</tag>
+		<tag name="since">8.0.0</tag>
+	</tags>
+	<signals />
+	<enums>
+		<member kind="enum" name="Heuristic">
+			<signature>enum Heuristic {
+	## 使用加权 Shannon entropy，优先处理信息量最低的未决格。
+	ENTROPY,
+	## 使用 minimum remaining values，优先处理候选 tile 数量最少的未决格。
+	MRV,
+	## 使用稳定的 y/x 行优先顺序，便于调试规则。
+	SCANLINE,
+}</signature>
+			<description>选择下一个待坍缩格子的启发式。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</enums>
+	<constants>
+		<member kind="const" name="STATUS_COMPLETE">
+			<signature>const STATUS_COMPLETE: StringName = &amp;"complete"</signature>
+			<description>有效完成状态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_CONTRADICTION">
+			<signature>const STATUS_CONTRADICTION: StringName = &amp;"contradiction"</signature>
+			<description>规则或固定格导致 domain 为空的状态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_STEP_LIMIT">
+			<signature>const STATUS_STEP_LIMIT: StringName = &amp;"step_limit"</signature>
+			<description>达到 `max_steps` 但仍有未决格的状态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_INVALID_INPUT">
+			<signature>const STATUS_INVALID_INPUT: StringName = &amp;"invalid_input"</signature>
+			<description>输入无效状态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="DEFAULT_MAX_CELLS">
+			<signature>const DEFAULT_MAX_CELLS: int = 4096</signature>
+			<description>默认最大格子数，避免误把超大 WFC 任务交给单帧纯 GDScript。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="DEFAULT_MAX_TILES">
+			<signature>const DEFAULT_MAX_TILES: int = 128</signature>
+			<description>默认最大 tile 数。简单 tiled WFC 的传播成本随 tile 数增长。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties />
+	<methods>
+		<member kind="method" name="solve_grid">
+			<signature>static func solve_grid( grid_size: Vector2i, tiles: Array, adjacency_rules: Array[Dictionary], options: Dictionary = {} ) -&gt; Dictionary:</signature>
+			<description>求解二维格子的简单 tiled Wave Function Collapse。
+空 `adjacency_rules` 表示邻接不受限制；一旦声明任意规则，未声明的方向和组合视为禁止。
+文字 tile id 会归一为 `StringName`，整数 tile id 会保留为 `int`。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">grid_size: 网格尺寸。</tag>
+				<tag name="param">tiles: tile 声明数组。</tag>
+				<tag name="param">adjacency_rules: 四向邻接规则数组。</tag>
+				<tag name="param">options: 求解选项。</tag>
+				<tag name="return">求解报告。</tag>
+				<tag name="schema">tiles: Array，每项可以是 int/String/StringName tile id，或包含 id 与可选 weight 的 Dictionary。weight 必须是有限正数。</tag>
+				<tag name="schema">adjacency_rules: Array[Dictionary]，每项包含 from、to、direction，可选 bidirectional。direction 支持 Vector2i.RIGHT/LEFT/DOWN/UP 或 right/east/left/west/down/south/up/north。</tag>
+				<tag name="schema">options: Dictionary 支持 seed: int、heuristic: Heuristic|StringName、periodic: bool、fixed_cells: Dictionary[Vector2i, tile id]、bidirectional_rules: bool、max_cells: int、max_tiles: int、max_steps: int。</tag>
+				<tag name="schema">return: Dictionary，包含 ok、error、status、algorithm、grid_size、seed、heuristic、periodic、cell_count、max_cells、tile_count、max_tiles、max_steps、step_count、collapsed_count、undecided_count、contradiction_cell、grid 和 domains。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="to_json_compatible_report">
+			<signature>static func to_json_compatible_report(report: Dictionary, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>将 WFC 求解报告转换为 JSON.stringify() 安全的结构。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">report: solve_grid() 返回的报告。</tag>
+				<tag name="param">options: 报告编码选项，透传给 GFReportValueCodec。</tag>
+				<tag name="return">JSON 兼容报告。</tag>
+				<tag name="schema">report: GFWaveFunctionCollapse2D 返回的求解或规则展开报告。</tag>
+				<tag name="schema">options: GFReportValueCodec 编码选项字典。</tag>
+				<tag name="schema">return: 可安全交给 JSON.stringify() 的 Dictionary。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="expand_transformed_adjacency_rules">
+			<signature>static func expand_transformed_adjacency_rules( adjacency_rules: Array[Dictionary], transform_specs: Array[Dictionary], options: Dictionary = {} ) -&gt; Dictionary:</signature>
+			<description>按 2D 网格变换和 tile id 重映射展开邻接规则。
+用于把少量方向性规则扩展为旋转、镜像或对角翻转后的规则集合。该方法只处理
+`from`、`to`、`direction` 与可选 `bidirectional` 字段，不创建 tile 变体、不读取资源，
+也不假设 tile 的业务含义。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">adjacency_rules: 基础四向邻接规则数组。</tag>
+				<tag name="param">transform_specs: 规则变换声明数组。</tag>
+				<tag name="param">options: 展开选项。</tag>
+				<tag name="return">展开报告。</tag>
+				<tag name="schema">adjacency_rules: Array[Dictionary]，每项包含 from、to、direction，可选 bidirectional。tile id 归一规则与 solve_grid() 一致。</tag>
+				<tag name="schema">transform_specs: Array[Dictionary]，每项包含 transform: GFGridTransform2D.Transform，可选 tile_remaps: Dictionary[原 tile id, 变换后 tile id]。空数组表示只做 identity 归一化与去重。</tag>
+				<tag name="schema">options: Dictionary 支持 preserve_unknown_remaps: bool，默认为 true；为 false 时缺少 tile_remaps 的规则会被跳过。</tag>
+				<tag name="schema">return: Dictionary，包含 ok、error、rules、input_rule_count、transform_count、expanded_count、duplicate_count 和 skipped_count。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

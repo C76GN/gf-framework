@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFBuff" path="addons/gf/extensions/combat/attributes/gf_buff.gd" module="extensions/combat" extends="RefCounted" classDigest="3acc5ca755871dd435853c590437dce323f39ec516abf5b0de59ba7340d028d0">
+<class name="GFBuff" path="addons/gf/extensions/combat/attributes/gf_buff.gd" module="extensions/combat" extends="RefCounted" classDigest="754ffda2c8ebe42c8e2adf1d5f55c9380d45b3e6a57268fa13651e742c02db20">
 	<description>GFBuff: 状态效果基类。
 管理 Buff 的生命周期、层数以及对属性/标签的影响。
 在 GFCombatSystem 的 tick 中驱动 update。</description>
@@ -233,33 +233,45 @@
 			</tags>
 		</member>
 		<member kind="method" name="on_apply">
-			<signature>func on_apply() -&gt; void:</signature>
+			<signature>func on_apply() -&gt; Dictionary:</signature>
 			<description>当 Buff 首次应用时触发。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="return">生命周期报告；`ok=false` 时表示应用失败且内置效果已回滚。</tag>
+				<tag name="schema">return: Dictionary with ok, reason, event, buff_id, changed, failed_effect_id, metadata, and effect_reports.</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="on_remove">
-			<signature>func on_remove() -&gt; void:</signature>
+			<signature>func on_remove() -&gt; Dictionary:</signature>
 			<description>当 Buff 被移除时触发。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="return">生命周期报告；移除会尽力清理内置效果，即使自定义效果报告失败。</tag>
+				<tag name="schema">return: Dictionary with ok, reason, event, buff_id, changed, failed_effect_id, metadata, and effect_reports.</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="on_refresh">
-			<signature>func on_refresh(p_new_duration: float) -&gt; void:</signature>
+			<signature>func on_refresh(p_new_duration: float) -&gt; Dictionary:</signature>
 			<description>当 Buff 层数增加时触发（通常用于刷新持续时间）。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">p_new_duration: 刷新后的持续时间（秒）。</tag>
+				<tag name="return">生命周期报告；`changed=false` 表示本次刷新未改变运行状态。</tag>
+				<tag name="schema">return: Dictionary with ok, reason, event, buff_id, changed, failed_effect_id, metadata, and effect_reports.</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="refresh_from">
-			<signature>func refresh_from(source_buff: GFBuff) -&gt; void:</signature>
+			<signature>func refresh_from(source_buff: GFBuff) -&gt; Dictionary:</signature>
 			<description>使用同 ID 的新 Buff 刷新当前运行中实例。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">source_buff: 本次尝试添加的新 Buff。</tag>
+				<tag name="return">生命周期报告；`changed=false` 表示本次刷新被策略忽略。</tag>
+				<tag name="schema">return: Dictionary with ok, reason, event, buff_id, changed, failed_effect_id, metadata, and effect_reports.</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="on_tick">

@@ -224,7 +224,7 @@ func add_presence(condition_id: StringName, key: Variant, options: Dictionary = 
 ## [br]
 ## @return 条件评估报告。
 ## [br]
-## @schema return: Dictionary，包含 ok、requirement_id、label、all_satisfied、any_satisfied、none_clear、satisfied_count、failed_count、conditions 和 metadata。
+## @schema return: Dictionary，包含 ok、requirement_id、label、all_satisfied、any_satisfied、none_clear、satisfied_count、failed_count、raw_failed_count、blocking_count、none_matched_count、conditions 和 metadata。failed_count/raw_failed_count 记录原始谓词 false 数；blocking_count 记录导致 requirement 不通过的聚合阻塞数。
 func evaluate(context: Dictionary = {}) -> Dictionary:
 	var condition_reports: Array[Dictionary] = []
 	var all_satisfied: bool = true
@@ -233,6 +233,8 @@ func evaluate(context: Dictionary = {}) -> Dictionary:
 	var none_clear: bool = true
 	var satisfied_count: int = 0
 	var failed_count: int = 0
+	var blocking_count: int = 0
+	var none_matched_count: int = 0
 
 	for condition: Dictionary in _conditions:
 		var condition_report: Dictionary = _evaluate_condition(condition, context)
@@ -247,9 +249,12 @@ func evaluate(context: Dictionary = {}) -> Dictionary:
 			MODE_NONE:
 				if condition_ok:
 					none_clear = false
+					none_matched_count += 1
+					blocking_count += 1
 			_:
 				if not condition_ok:
 					all_satisfied = false
+					blocking_count += 1
 
 		if condition_ok:
 			satisfied_count += 1
@@ -258,6 +263,8 @@ func evaluate(context: Dictionary = {}) -> Dictionary:
 		condition_reports.append(condition_report)
 
 	var effective_any_satisfied: bool = any_satisfied if has_any else true
+	if has_any and not any_satisfied:
+		blocking_count += 1
 	var ok: bool = all_satisfied and effective_any_satisfied and none_clear
 	return {
 		"ok": ok,
@@ -268,6 +275,9 @@ func evaluate(context: Dictionary = {}) -> Dictionary:
 		"none_clear": none_clear,
 		"satisfied_count": satisfied_count,
 		"failed_count": failed_count,
+		"raw_failed_count": failed_count,
+		"blocking_count": blocking_count,
+		"none_matched_count": none_matched_count,
 		"conditions": condition_reports,
 		"metadata": metadata.duplicate(true),
 	}

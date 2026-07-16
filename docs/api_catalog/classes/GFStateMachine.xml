@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFStateMachine" path="addons/gf/standard/state_machine/pure/gf_state_machine.gd" module="standard" extends="RefCounted" classDigest="d9ce27cfeed1b28f18ba2fdeb82350525d817029961ba96a1cae2219cb30aa52">
+<class name="GFStateMachine" path="addons/gf/standard/state_machine/pure/gf_state_machine.gd" module="standard" extends="RefCounted" classDigest="30172df7b4253ceb34310013f4fe66704daabeb4f250f9dd6142c9a0eb5fc101">
 	<description>GFStateMachine: 纯代码分层有限状态机。
 继承自 RefCounted，不依赖 Node 树，可在 GFSystem 或 GFUtility 中直接持有。
 支持平铺 FSM，也支持通过 parent_state_name 组成父子状态层级；切换时会
@@ -232,6 +232,18 @@ _fsm.start(&amp;"Idle")</description>
 				<tag name="schema">return: Dictionary with current_state, active_path, states, parents, and blackboard.</tag>
 			</tags>
 		</member>
+		<member kind="method" name="get_json_compatible_state_snapshot">
+			<signature>func get_json_compatible_state_snapshot(options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>获取 JSON-safe 状态机调试快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">options: 传给 GFReportValueCodec 的编码选项。</tag>
+				<tag name="return">可安全 JSON.stringify() 的调试快照。</tag>
+				<tag name="schema">options: Dictionary with GFReportValueCodec options.</tag>
+				<tag name="schema">return: Dictionary with JSON-safe current_state, active_path, states, parents, and blackboard.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
 		<member kind="method" name="get_model">
 			<signature>func get_model(model_type: Script) -&gt; Object:</signature>
 			<description>代理获取框架内的 Model 实例。</description>
@@ -298,66 +310,69 @@ _fsm.start(&amp;"Idle")</description>
 			</tags>
 		</member>
 		<member kind="method" name="register_event_owned">
-			<signature>func register_event_owned(owner: Object, event_type: Script, callback: Callable, priority: int = 0) -&gt; void:</signature>
+			<signature>func register_event_owned(owner: Object, event_type: Script, listener: GFEventListener, priority: int = 0) -&gt; void:</signature>
 			<description>注册带拥有者的类型事件监听器。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">owner: 监听器拥有者。</tag>
 				<tag name="param">event_type: 要监听的脚本类型。</tag>
-				<tag name="param">callback: 回调函数。</tag>
+				<tag name="param">listener: 事件监听器契约。</tag>
 				<tag name="param">priority: 回调优先级，数值越大越先执行，默认为 0。</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="unregister_event">
-			<signature>func unregister_event(event_type: Script, callback: Callable, owner: Object = null) -&gt; void:</signature>
+			<signature>func unregister_event(event_type: Script, listener: GFEventListener, owner: Object = null) -&gt; void:</signature>
 			<description>注销类型事件监听器。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">event_type: 要注销的脚本类型。</tag>
-				<tag name="param">callback: 要移除的回调函数。</tag>
+				<tag name="param">listener: 要移除的事件监听器契约。</tag>
 				<tag name="param">owner: 注册监听时使用的拥有者；为空时只注销无 owner 监听。</tag>
 				<tag name="since">5.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="register_assignable_event_owned">
-			<signature>func register_assignable_event_owned( owner: Object, base_event_type: Script, callback: Callable, priority: int = 0 ) -&gt; void:</signature>
+			<signature>func register_assignable_event_owned( owner: Object, base_event_type: Script, listener: GFEventListener, priority: int = 0 ) -&gt; void:</signature>
 			<description>注册带拥有者的可赋值类型事件监听器。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">owner: 监听器拥有者。</tag>
 				<tag name="param">base_event_type: 要监听的基类脚本类型。</tag>
-				<tag name="param">callback: 回调函数。</tag>
+				<tag name="param">listener: 事件监听器契约。</tag>
 				<tag name="param">priority: 回调优先级，数值越大越先执行，默认为 0。</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="unregister_assignable_event">
-			<signature>func unregister_assignable_event(base_event_type: Script, callback: Callable, owner: Object = null) -&gt; void:</signature>
+			<signature>func unregister_assignable_event(base_event_type: Script, listener: GFEventListener, owner: Object = null) -&gt; void:</signature>
 			<description>注销可赋值类型事件监听器。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">base_event_type: 注册时使用的基类脚本类型。</tag>
-				<tag name="param">callback: 要移除的回调函数。</tag>
+				<tag name="param">listener: 要移除的事件监听器契约。</tag>
 				<tag name="param">owner: 注册监听时使用的拥有者；为空时只注销无 owner 监听。</tag>
 				<tag name="since">5.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="register_simple_event_owned">
-			<signature>func register_simple_event_owned(owner: Object, event_id: StringName, callback: Callable) -&gt; void:</signature>
+			<signature>func register_simple_event_owned(owner: Object, event_id: StringName, listener: GFEventListener) -&gt; void:</signature>
 			<description>注册带拥有者的轻量级 StringName 事件监听器。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">owner: 监听器拥有者。</tag>
 				<tag name="param">event_id: StringName 事件标识符。</tag>
-				<tag name="param">callback: 回调函数，签名为 func(payload: Variant)。</tag>
+				<tag name="param">listener: 简单事件监听器契约。</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="unregister_simple_event">
-			<signature>func unregister_simple_event(event_id: StringName, callback: Callable, owner: Object = null) -&gt; void:</signature>
+			<signature>func unregister_simple_event(event_id: StringName, listener: GFEventListener, owner: Object = null) -&gt; void:</signature>
 			<description>注销轻量级 StringName 事件监听器。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">event_id: StringName 事件标识符。</tag>
-				<tag name="param">callback: 要移除的回调函数。</tag>
+				<tag name="param">listener: 要移除的简单事件监听器契约。</tag>
 				<tag name="param">owner: 注册监听时使用的拥有者；为空时只注销无 owner 监听。</tag>
 				<tag name="since">5.0.0</tag>
 			</tags>

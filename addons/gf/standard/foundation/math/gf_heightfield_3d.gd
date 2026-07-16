@@ -112,6 +112,25 @@ static func decode_terrain_rgb_height(color: Color) -> float:
 	return -10000.0 + float(red * 65536 + green * 256 + blue) * 0.1
 
 
+## 将表面法线转换为归一化坡度。
+##
+## 返回值范围为 0.0 到 1.0；0.0 表示朝上的平面，1.0 表示垂直、倒置或无效法线。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+## [br]
+## @param normal: 表面法线。
+## [br]
+## @return 归一化坡度。
+static func normal_to_slope(normal: Vector3) -> float:
+	if not _is_finite_vector3(normal) or normal.length_squared() <= _MIN_WORLD_SPAN:
+		return 1.0
+
+	var up_dot: float = clampf(normal.normalized().dot(Vector3.UP), -1.0, 1.0)
+	return clampf(1.0 - up_dot, 0.0, 1.0)
+
+
 ## 从 Terrain-RGB 图像生成行优先高度样本报告。
 ##
 ## 报告中的 grid_size.x 对应图像宽度，grid_size.y 对应图像高度；samples 使用行优先顺序。
@@ -536,6 +555,25 @@ func sample_normal_grid(grid_position: Vector2, vertical_scale: float = 1.0) -> 
 	return normal.normalized()
 
 
+## 按连续网格坐标估算归一化坡度。
+##
+## 返回值范围为 0.0 到 1.0；无效高度场或坐标返回 1.0，便于调用方按保守策略拒绝无效表面。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+## [br]
+## @param grid_position: 连续网格坐标。
+## [br]
+## @param vertical_scale: 高度差缩放，用于匹配项目世界单位。
+## [br]
+## @return 归一化坡度。
+func sample_slope_grid(grid_position: Vector2, vertical_scale: float = 1.0) -> float:
+	if not is_valid() or not _grid_position_is_inside(grid_position):
+		return 1.0
+	return normal_to_slope(sample_normal_grid(grid_position, vertical_scale))
+
+
 ## 按 X/Z 世界坐标估算表面法线。
 ## [br]
 ## @api public
@@ -553,6 +591,27 @@ func sample_normal_world(world_x: float, world_z: float, vertical_scale: float =
 	if not contains_world_xz(world_x, world_z):
 		return Vector3.UP
 	return sample_normal_grid(world_to_grid(world_x, world_z), vertical_scale)
+
+
+## 按 X/Z 世界坐标估算归一化坡度。
+##
+## 返回值范围为 0.0 到 1.0；无效高度场或坐标返回 1.0，便于调用方按保守策略拒绝无效表面。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+## [br]
+## @param world_x: 世界 X 坐标。
+## [br]
+## @param world_z: 世界 Z 坐标。
+## [br]
+## @param vertical_scale: 高度差缩放，用于匹配项目世界单位。
+## [br]
+## @return 归一化坡度。
+func sample_slope_world(world_x: float, world_z: float, vertical_scale: float = 1.0) -> float:
+	if not contains_world_xz(world_x, world_z):
+		return 1.0
+	return sample_slope_grid(world_to_grid(world_x, world_z), vertical_scale)
 
 
 ## 获取最小高度。
@@ -682,6 +741,10 @@ static func _sample_fallback_to_float(value: Variant) -> float:
 
 static func _is_finite_vector2(value: Vector2) -> bool:
 	return _is_finite_float(value.x) and _is_finite_float(value.y)
+
+
+static func _is_finite_vector3(value: Vector3) -> bool:
+	return _is_finite_float(value.x) and _is_finite_float(value.y) and _is_finite_float(value.z)
 
 
 static func _samples_are_finite(samples: PackedFloat32Array) -> bool:

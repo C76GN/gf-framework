@@ -8,7 +8,7 @@
 - [诊断适配](diagnostic-adapter.md)：`GFValidationDiagnosticAdapter` 的诊断字典和行记录。
 - [兼容字典报告](dictionary-reports.md)：`GFValidationReportDictionary` 的旧报告归一化。
 - [兼容性、产物与激活预检](compatibility-artifacts-activation.md)：`GFCompatibilityProfile`、`GFCompatibilityPreflight`、`GFArtifactFreshnessReport` 与 `GFActivationTransaction`。
-- [安全文本生成边界](source-text-generation.md)：`GFDataProjection`、`GFExecutionBudget` 与 `GFTextGenerationContext` 的纯数据上下文和预算诊断。
+- [安全文本生成边界](source-text-generation.md)：`GFDataProjection`、`GFExecutionBudget`、`GFTextGenerationContext`、`GFDelimitedTextTools` 与 `GFSourceTextPatchTools` 的纯数据上下文、文本扫描、范围补丁和预算诊断。
 
 ## 使用边界
 

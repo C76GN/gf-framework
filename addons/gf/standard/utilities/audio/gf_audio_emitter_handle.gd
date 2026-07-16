@@ -62,6 +62,9 @@ var _owner_ref: WeakRef = null
 var _owner_exit_callback: Callable = Callable()
 var _owner_stop_fade_seconds: float = 0.0
 var _stopped_emitted: bool = false
+var _terminal: bool = false
+var _playback_session_id: int = 0
+var _session_validator: Callable = Callable()
 
 
 # --- Godot 生命周期方法 ---
@@ -87,7 +90,7 @@ func _init(
 ## [br]
 ## @param player: 要绑定的播放器节点。
 func set_player(player: Node) -> void:
-	if _stopped_emitted:
+	if _terminal:
 		_release_player(player)
 		return
 
@@ -120,7 +123,7 @@ func bind_to_owner(owner: Node, fade_seconds: float = 0.0) -> void:
 		return
 
 	_owner_ref = weakref(owner)
-	_owner_stop_fade_seconds = maxf(fade_seconds, 0.0)
+	_owner_stop_fade_seconds = _finite_non_negative_or_zero(fade_seconds)
 	_owner_exit_callback = Callable(self, "_on_owner_tree_exiting")
 	if not owner.tree_exiting.is_connected(_owner_exit_callback):
 		var _connect_error: Error = owner.tree_exiting.connect(_owner_exit_callback) as Error
@@ -139,9 +142,13 @@ func unbind_owner() -> void:
 ## [br]
 ## @return: 播放器节点；不存在或已释放时返回 null。
 func get_player() -> Node:
-	if _player_ref == null:
+	if _terminal or _player_ref == null:
 		return null
-	return _INSTANCE_GUARD._get_live_node_from_ref(_player_ref)
+	var player: Node = _INSTANCE_GUARD._get_live_node_from_ref(_player_ref)
+	if player != null and not _owns_playback_session(player):
+		_complete_terminal(false)
+		return null
+	return player
 
 
 ## 检查句柄是否仍绑定有效播放器。
@@ -162,6 +169,17 @@ func is_stop_requested() -> bool:
 	return _stop_requested
 
 
+## 检查播放会话是否已经进入终态。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+## [br]
+## @return: 已自然完成、失败或停止时返回 true。
+func is_terminal() -> bool:
+	return _terminal
+
+
 ## 检查播放器是否正在播放。
 ## [br]
 ## @api public
@@ -178,8 +196,10 @@ func is_playing() -> bool:
 ## [br]
 ## @param fade_seconds: 淡出秒数。
 func stop(fade_seconds: float = 0.0) -> void:
+	if _terminal:
+		return
 	_stop_requested = true
-	_pending_stop_fade_seconds = maxf(fade_seconds, 0.0)
+	_pending_stop_fade_seconds = _finite_non_negative_or_zero(fade_seconds)
 	var player: Node = get_player()
 	if player == null:
 		_finish_stop(null)
@@ -206,6 +226,8 @@ func stop(fade_seconds: float = 0.0) -> void:
 ## [br]
 ## @param fade_seconds: 淡入淡出秒数。
 func fade_to(volume_db: float, fade_seconds: float) -> void:
+	if not _is_finite_float(volume_db) or not _is_finite_float(fade_seconds):
+		return
 	var player: Node = get_player()
 	if player == null:
 		return
@@ -225,6 +247,8 @@ func fade_to(volume_db: float, fade_seconds: float) -> void:
 ## [br]
 ## @param volume_db: 音量，单位 dB。
 func set_volume_db(volume_db: float) -> void:
+	if not _is_finite_float(volume_db):
+		return
 	var player: Node = get_player()
 	if player != null:
 		player.set("volume_db", volume_db)
@@ -246,6 +270,8 @@ func get_volume_db() -> float:
 ## [br]
 ## @param pitch_scale: 音高缩放。
 func set_pitch_scale(pitch_scale: float) -> void:
+	if not _is_finite_float(pitch_scale):
+		return
 	var player: Node = get_player()
 	if player != null:
 		player.set("pitch_scale", pitch_scale)
@@ -265,13 +291,16 @@ func get_pitch_scale() -> float:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.0.0
+## [br]
 ## @return: 调试快照。
 ## [br]
-## @schema return: 调试快照 Dictionary，包含 valid、playing、channel、volume_db、pitch_scale、owner_valid 和 metadata 字段。
+## @schema return: 调试快照 Dictionary，包含 valid、terminal、playing、channel、volume_db、pitch_scale、owner_valid 和 metadata 字段。
 func get_debug_snapshot() -> Dictionary:
 	var player: Node = get_player()
 	return {
 		"valid": player != null,
+		"terminal": _terminal,
 		"playing": _is_player_playing(player),
 		"channel": String(channel),
 		"volume_db": _get_player_volume_db(player),
@@ -284,21 +313,26 @@ func get_debug_snapshot() -> Dictionary:
 # --- 私有/辅助方法 ---
 
 func _finish_stop(player: Node) -> void:
+	if _terminal:
+		return
 	_kill_fade_tween()
 	if player == null:
-		_player_ref = null
-		_disconnect_owner_exit()
+		_complete_terminal(false)
 		_emit_stopped_once()
+		return
+	if not _owns_playback_session(player):
+		_complete_terminal(false)
 		return
 
 	_release_player(player)
-	_player_ref = null
-	_disconnect_owner_exit()
+	_complete_terminal(false)
 	_emit_stopped_once()
 
 
 func _release_player(player: Node) -> void:
 	if player == null:
+		return
+	if not _owns_playback_session(player):
 		return
 	if is_instance_valid(player) and player.has_method("stop"):
 		player.call("stop")
@@ -311,6 +345,36 @@ func _emit_stopped_once() -> void:
 		return
 	_stopped_emitted = true
 	stopped.emit(self)
+
+
+func _set_playback_session(session_id: int, validator: Callable) -> void:
+	_playback_session_id = maxi(session_id, 0)
+	_session_validator = validator
+
+
+func _complete_playback_session(session_id: int) -> void:
+	if session_id <= 0 or session_id != _playback_session_id:
+		return
+	_complete_terminal(false)
+
+
+func _complete_terminal(emit_stopped: bool) -> void:
+	if _terminal:
+		return
+	_terminal = true
+	_kill_fade_tween()
+	_player_ref = null
+	_playback_session_id = 0
+	_session_validator = Callable()
+	_disconnect_owner_exit()
+	if emit_stopped:
+		_emit_stopped_once()
+
+
+func _owns_playback_session(player: Node) -> bool:
+	if _playback_session_id <= 0 or not _session_validator.is_valid():
+		return true
+	return GFVariantData.to_bool(_session_validator.call(player))
 
 
 func _get_owner() -> Node:
@@ -391,3 +455,11 @@ func _on_owner_tree_exiting() -> void:
 	_owner_exit_callback = Callable()
 	_owner_stop_fade_seconds = 0.0
 	stop(fade_seconds)
+
+
+func _finite_non_negative_or_zero(value: float) -> float:
+	return maxf(value, 0.0) if _is_finite_float(value) else 0.0
+
+
+func _is_finite_float(value: float) -> bool:
+	return not is_nan(value) and not is_inf(value)

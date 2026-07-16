@@ -138,9 +138,39 @@ var default_quality: float = 0.9:
 # --- 私有变量 ---
 
 var _burst_capture_active: bool = false
+var _burst_scope: GFAsyncScope = null
+
+
+# --- GF 生命周期方法 ---
+
+## 取消仍在执行的批量截图并恢复环境。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+func dispose() -> void:
+	var _cancelled: bool = cancel_burst("utility_disposed")
 
 
 # --- 公共方法 ---
+
+## 取消当前批量截图并立即执行环境恢复。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+## [br]
+## @param reason: 取消原因。
+## [br]
+## @return 当前存在活动批次且首次取消时返回 true。
+func cancel_burst(reason: String = "cancelled") -> bool:
+	var scope: GFAsyncScope = _burst_scope
+	if scope == null or not scope.is_active():
+		return false
+	var cancelled: bool = scope.cancel(reason)
+	if cancelled and _burst_scope == scope:
+		_burst_capture_active = false
+	return cancelled
 
 ## 捕获 Viewport 图像。
 ## [br]
@@ -301,11 +331,11 @@ func build_screenshot_path(options: Dictionary = {}) -> String:
 ## [br]
 ## @since 5.0.0
 ## [br]
-## @param options: 批量截图选项，支持 viewport、locales、resolutions、formats、max_captures、pause_tree、frame_delay_seconds、directory、prefix、quality、unique 与 use_subdirectories。
+## @param options: 批量截图选项，支持 viewport、locales、resolutions、formats、max_captures、pause_tree、frame_delay_seconds、cancellation_token、directory、prefix、quality、unique 与 use_subdirectories。
 ## [br]
 ## @return 批量截图报告。
 ## [br]
-## @schema options: Dictionary，支持 viewport、locales、resolutions、formats、max_captures、pause_tree、frame_delay_seconds、directory、prefix、quality、unique 与 use_subdirectories。
+## @schema options: Dictionary，支持 viewport、locales、resolutions、formats、max_captures、pause_tree、frame_delay_seconds、cancellation_token、directory、prefix、quality、unique 与 use_subdirectories。
 ## [br]
 ## @schema return: Dictionary，包含 ok、records、saved_count、error_count、locale_count、resolution_count、format_count、planned_count、max_captures 与 error 字段。
 func capture_burst(options: Dictionary = {}) -> Dictionary:
@@ -338,30 +368,40 @@ func capture_burst(options: Dictionary = {}) -> Dictionary:
 		burst_finished.emit(report)
 		return report
 
-	var tree: SceneTree = _get_scene_tree()
-	var previous_paused: bool = false
-	var should_pause_tree: bool = GFVariantData.get_option_bool(options, "pause_tree", false)
-	if tree != null:
-		previous_paused = tree.paused
-		if should_pause_tree:
-			tree.paused = true
+	var cancellation_token: GFCancellationToken = _get_cancellation_token_option(options)
+	if cancellation_token != null and cancellation_token.is_cancel_requested():
+		report["error"] = "capture_burst_cancelled"
+		report["cancel_reason"] = cancellation_token.get_cancel_reason()
+		burst_finished.emit(report)
+		return report
 
-	var previous_locale: String = TranslationServer.get_locale()
-	var previous_size: Vector2i = DisplayServer.window_get_size()
-	var resized_window: bool = false
+	var environment_transaction: Dictionary = _begin_burst_environment_transaction(options)
+	var scope: GFAsyncScope = GFAsyncScope.new()
+	var _cleanup_registered: bool = scope.register_cleanup(
+		Callable(self, "_restore_burst_environment").bind(environment_transaction)
+	)
+	_burst_scope = scope
 	_burst_capture_active = true
 	burst_started.emit(options.duplicate(true))
 
 	for locale: String in locales:
+		if _burst_should_cancel(scope, cancellation_token):
+			break
 		if not locale.is_empty():
 			TranslationServer.set_locale(locale)
 		for resolution: Vector2i in resolutions:
+			if _burst_should_cancel(scope, cancellation_token):
+				break
 			if _is_valid_resolution(resolution):
 				DisplayServer.window_set_size(resolution)
-				resized_window = true
+				_mark_burst_window_resized(environment_transaction)
 			await _wait_for_capture_frame(GFVariantData.get_option_float(options, "frame_delay_seconds", 0.0))
+			if _burst_should_cancel(scope, cancellation_token):
+				break
 
 			for format: String in formats:
+				if _burst_should_cancel(scope, cancellation_token):
+					break
 				var capture_options: Dictionary = options.duplicate(true)
 				capture_options["viewport"] = target_viewport
 				capture_options["format"] = format
@@ -369,14 +409,16 @@ func capture_burst(options: Dictionary = {}) -> Dictionary:
 				capture_options["resolution"] = DisplayServer.window_get_size() if resolution == Vector2i.ZERO else resolution
 				records.append(save_viewport_screenshot("", capture_options))
 
-	TranslationServer.set_locale(previous_locale)
-	if resized_window:
-		DisplayServer.window_set_size(previous_size)
-	if tree != null and should_pause_tree:
-		tree.paused = previous_paused
-
-	_burst_capture_active = false
+	_restore_burst_environment(environment_transaction)
+	scope.complete()
+	if _burst_scope == scope:
+		_burst_scope = null
+		_burst_capture_active = false
 	_update_burst_report_counts(report, records)
+	if scope.is_cancel_requested():
+		report["ok"] = false
+		report["error"] = "capture_burst_cancelled"
+		report["cancel_reason"] = scope.get_cancel_reason()
 	burst_finished.emit(report)
 	return report
 
@@ -399,6 +441,65 @@ func _get_scene_tree() -> SceneTree:
 		var tree: SceneTree = main_loop
 		return tree
 	return null
+
+
+func _get_cancellation_token_option(options: Dictionary) -> GFCancellationToken:
+	var token_value: Variant = GFVariantData.get_option_value(options, "cancellation_token")
+	if token_value is GFCancellationToken:
+		var token: GFCancellationToken = token_value
+		return token
+	return null
+
+
+func _burst_should_cancel(scope: GFAsyncScope, cancellation_token: GFCancellationToken) -> bool:
+	if scope == null or scope.is_cancel_requested():
+		return true
+	if cancellation_token != null and cancellation_token.is_cancel_requested():
+		var cancel_reason: String = String(cancellation_token.get_cancel_reason())
+		var _cancelled: bool = scope.cancel(cancel_reason if not cancel_reason.is_empty() else "cancelled")
+		return true
+	return false
+
+
+func _begin_burst_environment_transaction(options: Dictionary) -> Dictionary:
+	var tree: SceneTree = _get_scene_tree()
+	var should_pause_tree: bool = GFVariantData.get_option_bool(options, "pause_tree", false)
+	var transaction: Dictionary = {
+		"tree": tree,
+		"previous_paused": tree.paused if tree != null else false,
+		"should_pause_tree": should_pause_tree,
+		"previous_locale": TranslationServer.get_locale(),
+		"previous_size": DisplayServer.window_get_size(),
+		"resized_window": false,
+		"restored": false,
+	}
+	if tree != null and should_pause_tree:
+		tree.paused = true
+	return transaction
+
+
+func _mark_burst_window_resized(transaction: Dictionary) -> void:
+	transaction["resized_window"] = true
+
+
+func _restore_burst_environment(transaction: Dictionary) -> void:
+	if GFVariantData.get_option_bool(transaction, "restored"):
+		return
+	TranslationServer.set_locale(GFVariantData.get_option_string(transaction, "previous_locale"))
+	if GFVariantData.get_option_bool(transaction, "resized_window"):
+		var previous_size_value: Variant = GFVariantData.get_option_value(transaction, "previous_size", Vector2i.ZERO)
+		if previous_size_value is Vector2i:
+			var previous_size: Vector2i = previous_size_value
+			if _is_valid_resolution(previous_size):
+				DisplayServer.window_set_size(previous_size)
+	var tree_value: Variant = GFVariantData.get_option_value(transaction, "tree", null)
+	if (
+		tree_value is SceneTree
+		and GFVariantData.get_option_bool(transaction, "should_pause_tree")
+	):
+		var tree: SceneTree = tree_value
+		tree.paused = GFVariantData.get_option_bool(transaction, "previous_paused")
+	transaction["restored"] = true
 
 
 func _get_viewport_option(options: Dictionary) -> Viewport:

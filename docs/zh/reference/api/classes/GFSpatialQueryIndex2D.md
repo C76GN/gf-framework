@@ -9,7 +9,7 @@
 - 类别：运行时服务 (`runtime_service`)
 - 首次版本：`7.0.0`
 
-2D 空间查询策略 facade。 在统一 API 后面封装线性扫描与四叉树索引，让项目可按数据规模切换策略。 它只维护调用方提供的 Rect2 和 metadata，不解释实体身份或玩法过滤规则。
+2D 空间查询策略 facade。 在统一 API 后面封装线性扫描与四叉树索引，让项目可按数据规模切换策略。 它只维护调用方提供的 Rect2、metadata 和 GFSpatialQueryIdentity，不解释玩法过滤规则。
 
 ## 成员概览
 
@@ -24,24 +24,26 @@
 | 属性 | [`quadtree_max_depth`](#member-gfspatialqueryindex2d-properties-quadtree_max_depth) | `var quadtree_max_depth: int = GFQuadTreeUtility.DEFAULT_MAX_DEPTH:` |
 | 属性 | [`quadtree_max_entities`](#member-gfspatialqueryindex2d-properties-quadtree_max_entities) | `var quadtree_max_entities: int = GFQuadTreeUtility.DEFAULT_MAX_ENTITIES:` |
 | 方法 | [`configure`](#member-gfspatialqueryindex2d-methods-configure) | `func configure( world_bounds: Rect2, p_strategy: StringName = STRATEGY_AUTO, options: Dictionary = {} ) -> GFSpatialQueryIndex2D:` |
-| 方法 | [`upsert`](#member-gfspatialqueryindex2d-methods-upsert) | `func upsert(entity_id: int, rect: Rect2, p_metadata: Dictionary = {}) -> bool:` |
-| 方法 | [`upsert_point`](#member-gfspatialqueryindex2d-methods-upsert_point) | `func upsert_point( entity_id: int, position: Vector2, radius: float = 0.0, p_metadata: Dictionary = {} ) -> bool:` |
-| 方法 | [`remove`](#member-gfspatialqueryindex2d-methods-remove) | `func remove(entity_id: int) -> bool:` |
+| 方法 | [`upsert`](#member-gfspatialqueryindex2d-methods-upsert) | `func upsert(entity: Variant, rect: Rect2, p_metadata: Dictionary = {}) -> bool:` |
+| 方法 | [`upsert_point`](#member-gfspatialqueryindex2d-methods-upsert_point) | `func upsert_point( entity: Variant, position: Vector2, radius: float = 0.0, p_metadata: Dictionary = {} ) -> bool:` |
+| 方法 | [`remove`](#member-gfspatialqueryindex2d-methods-remove) | `func remove(entity: Variant) -> bool:` |
 | 方法 | [`clear`](#member-gfspatialqueryindex2d-methods-clear) | `func clear() -> void:` |
-| 方法 | [`has_entity`](#member-gfspatialqueryindex2d-methods-has_entity) | `func has_entity(entity_id: int) -> bool:` |
+| 方法 | [`has_entity`](#member-gfspatialqueryindex2d-methods-has_entity) | `func has_entity(entity: Variant) -> bool:` |
 | 方法 | [`get_entity_count`](#member-gfspatialqueryindex2d-methods-get_entity_count) | `func get_entity_count() -> int:` |
-| 方法 | [`get_entity_record`](#member-gfspatialqueryindex2d-methods-get_entity_record) | `func get_entity_record(entity_id: int) -> Dictionary:` |
-| 方法 | [`query_rect`](#member-gfspatialqueryindex2d-methods-query_rect) | `func query_rect(area: Rect2) -> Array[int]:` |
-| 方法 | [`query_rect_into`](#member-gfspatialqueryindex2d-methods-query_rect_into) | `func query_rect_into(area: Rect2, out_entity_ids: Array[int], clear_output: bool = true) -> Array[int]:` |
-| 方法 | [`query_radius`](#member-gfspatialqueryindex2d-methods-query_radius) | `func query_radius(center: Vector2, radius: float) -> Array[int]:` |
-| 方法 | [`query_radius_into`](#member-gfspatialqueryindex2d-methods-query_radius_into) | `func query_radius_into(center: Vector2, radius: float, out_entity_ids: Array[int], clear_output: bool = true) -> Array[int]:` |
-| 方法 | [`query_point`](#member-gfspatialqueryindex2d-methods-query_point) | `func query_point(point: Vector2) -> Array[int]:` |
-| 方法 | [`query_point_into`](#member-gfspatialqueryindex2d-methods-query_point_into) | `func query_point_into(point: Vector2, out_entity_ids: Array[int], clear_output: bool = true) -> Array[int]:` |
+| 方法 | [`prune_invalid_entities`](#member-gfspatialqueryindex2d-methods-prune_invalid_entities) | `func prune_invalid_entities() -> void:` |
+| 方法 | [`get_entity_record`](#member-gfspatialqueryindex2d-methods-get_entity_record) | `func get_entity_record(entity: Variant) -> Dictionary:` |
+| 方法 | [`query_rect`](#member-gfspatialqueryindex2d-methods-query_rect) | `func query_rect(area: Rect2) -> Array[Variant]:` |
+| 方法 | [`query_rect_into`](#member-gfspatialqueryindex2d-methods-query_rect_into) | `func query_rect_into(area: Rect2, out_entities: Array, clear_output: bool = true) -> Array:` |
+| 方法 | [`query_radius`](#member-gfspatialqueryindex2d-methods-query_radius) | `func query_radius(center: Vector2, radius: float) -> Array[Variant]:` |
+| 方法 | [`query_radius_into`](#member-gfspatialqueryindex2d-methods-query_radius_into) | `func query_radius_into(center: Vector2, radius: float, out_entities: Array, clear_output: bool = true) -> Array:` |
+| 方法 | [`query_point`](#member-gfspatialqueryindex2d-methods-query_point) | `func query_point(point: Vector2) -> Array[Variant]:` |
+| 方法 | [`query_point_into`](#member-gfspatialqueryindex2d-methods-query_point_into) | `func query_point_into(point: Vector2, out_entities: Array, clear_output: bool = true) -> Array:` |
 | 方法 | [`query_records_rect`](#member-gfspatialqueryindex2d-methods-query_records_rect) | `func query_records_rect(area: Rect2) -> Array[Dictionary]:` |
 | 方法 | [`query_records_rect_into`](#member-gfspatialqueryindex2d-methods-query_records_rect_into) | `func query_records_rect_into(area: Rect2, out_records: Array[Dictionary], clear_output: bool = true) -> Array[Dictionary]:` |
 | 方法 | [`query_records_radius`](#member-gfspatialqueryindex2d-methods-query_records_radius) | `func query_records_radius(center: Vector2, radius: float) -> Array[Dictionary]:` |
 | 方法 | [`query_records_radius_into`](#member-gfspatialqueryindex2d-methods-query_records_radius_into) | `func query_records_radius_into( center: Vector2, radius: float, out_records: Array[Dictionary], clear_output: bool = true ) -> Array[Dictionary]:` |
 | 方法 | [`get_debug_snapshot`](#member-gfspatialqueryindex2d-methods-get_debug_snapshot) | `func get_debug_snapshot() -> Dictionary:` |
+| 方法 | [`get_json_compatible_debug_snapshot`](#member-gfspatialqueryindex2d-methods-get_json_compatible_debug_snapshot) | `func get_json_compatible_debug_snapshot(options: Dictionary = {}) -> Dictionary:` |
 
 ## 常量
 
@@ -188,7 +190,7 @@ func configure( world_bounds: Rect2, p_strategy: StringName = STRATEGY_AUTO, opt
 - 首次版本：`7.0.0`
 
 ```gdscript
-func upsert(entity_id: int, rect: Rect2, p_metadata: Dictionary = {}) -> bool:
+func upsert(entity: Variant, rect: Rect2, p_metadata: Dictionary = {}) -> bool:
 ```
 
 插入或更新实体 Rect2。
@@ -197,7 +199,7 @@ func upsert(entity_id: int, rect: Rect2, p_metadata: Dictionary = {}) -> bool:
 
 | 名称 | 说明 |
 |---|---|
-| `entity_id` | 实体标识。 |
+| `entity` | 实体标识或 Object。 |
 | `rect` | 实体包围矩形。 |
 | `p_metadata` | 调用方元数据。 |
 
@@ -205,6 +207,7 @@ func upsert(entity_id: int, rect: Rect2, p_metadata: Dictionary = {}) -> bool:
 
 结构：
 
+- `entity`: Object, StringName, String, or int identity stored by value or weak Object reference.
 - `p_metadata`: Dictionary copied into entity record metadata.
 
 <a id="member-gfspatialqueryindex2d-methods-upsert_point"></a>
@@ -215,7 +218,7 @@ func upsert(entity_id: int, rect: Rect2, p_metadata: Dictionary = {}) -> bool:
 - 首次版本：`7.0.0`
 
 ```gdscript
-func upsert_point( entity_id: int, position: Vector2, radius: float = 0.0, p_metadata: Dictionary = {} ) -> bool:
+func upsert_point( entity: Variant, position: Vector2, radius: float = 0.0, p_metadata: Dictionary = {} ) -> bool:
 ```
 
 插入或更新以点和半径表示的实体。
@@ -224,7 +227,7 @@ func upsert_point( entity_id: int, position: Vector2, radius: float = 0.0, p_met
 
 | 名称 | 说明 |
 |---|---|
-| `entity_id` | 实体标识。 |
+| `entity` | 实体标识或 Object。 |
 | `position` | 实体位置。 |
 | `radius` | 包围半径。 |
 | `p_metadata` | 调用方元数据。 |
@@ -233,6 +236,7 @@ func upsert_point( entity_id: int, position: Vector2, radius: float = 0.0, p_met
 
 结构：
 
+- `entity`: Object, StringName, String, or int identity stored by value or weak Object reference.
 - `p_metadata`: Dictionary copied into entity record metadata.
 
 <a id="member-gfspatialqueryindex2d-methods-remove"></a>
@@ -243,7 +247,7 @@ func upsert_point( entity_id: int, position: Vector2, radius: float = 0.0, p_met
 - 首次版本：`7.0.0`
 
 ```gdscript
-func remove(entity_id: int) -> bool:
+func remove(entity: Variant) -> bool:
 ```
 
 移除实体。
@@ -252,9 +256,13 @@ func remove(entity_id: int) -> bool:
 
 | 名称 | 说明 |
 |---|---|
-| `entity_id` | 实体标识。 |
+| `entity` | 实体标识或 Object。 |
 
 返回：找到并移除时返回 true。
+
+结构：
+
+- `entity`: Object, StringName, String, or int identity stored by value or weak Object reference.
 
 <a id="member-gfspatialqueryindex2d-methods-clear"></a>
 
@@ -277,7 +285,7 @@ func clear() -> void:
 - 首次版本：`7.0.0`
 
 ```gdscript
-func has_entity(entity_id: int) -> bool:
+func has_entity(entity: Variant) -> bool:
 ```
 
 检查实体是否存在。
@@ -286,9 +294,13 @@ func has_entity(entity_id: int) -> bool:
 
 | 名称 | 说明 |
 |---|---|
-| `entity_id` | 实体标识。 |
+| `entity` | 实体标识或 Object。 |
 
 返回：存在时返回 true。
+
+结构：
+
+- `entity`: Object, StringName, String, or int identity stored by value or weak Object reference.
 
 <a id="member-gfspatialqueryindex2d-methods-get_entity_count"></a>
 
@@ -305,6 +317,19 @@ func get_entity_count() -> int:
 
 返回：实体数量。
 
+<a id="member-gfspatialqueryindex2d-methods-prune_invalid_entities"></a>
+
+### `prune_invalid_entities`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func prune_invalid_entities() -> void:
+```
+
+清理已释放 Object 实体。
+
 <a id="member-gfspatialqueryindex2d-methods-get_entity_record"></a>
 
 ### `get_entity_record`
@@ -313,7 +338,7 @@ func get_entity_count() -> int:
 - 首次版本：`7.0.0`
 
 ```gdscript
-func get_entity_record(entity_id: int) -> Dictionary:
+func get_entity_record(entity: Variant) -> Dictionary:
 ```
 
 获取实体记录副本。
@@ -322,13 +347,14 @@ func get_entity_record(entity_id: int) -> Dictionary:
 
 | 名称 | 说明 |
 |---|---|
-| `entity_id` | 实体标识。 |
+| `entity` | 实体标识或 Object。 |
 
 返回：实体记录；不存在时为空字典。
 
 结构：
 
-- `return`: Dictionary，包含 entity_id、bounds 和 metadata。
+- `entity`: Object, StringName, String, or int identity stored by value or weak Object reference.
+- `return`: Dictionary，包含 identity、entity、bounds 和 metadata；int 身份会额外包含 entity_id。
 
 <a id="member-gfspatialqueryindex2d-methods-query_rect"></a>
 
@@ -338,10 +364,10 @@ func get_entity_record(entity_id: int) -> Dictionary:
 - 首次版本：`7.0.0`
 
 ```gdscript
-func query_rect(area: Rect2) -> Array[int]:
+func query_rect(area: Rect2) -> Array[Variant]:
 ```
 
-查询与 Rect2 相交的实体 ID。
+查询与 Rect2 相交的实体。
 
 参数：
 
@@ -349,7 +375,11 @@ func query_rect(area: Rect2) -> Array[int]:
 |---|---|
 | `area` | 查询矩形。 |
 
-返回：匹配实体 ID 数组。
+返回：匹配实体数组。
+
+结构：
+
+- `return`: Array[Variant]，实体值来自调用方传入的 entity。
 
 <a id="member-gfspatialqueryindex2d-methods-query_rect_into"></a>
 
@@ -359,20 +389,25 @@ func query_rect(area: Rect2) -> Array[int]:
 - 首次版本：`7.0.0`
 
 ```gdscript
-func query_rect_into(area: Rect2, out_entity_ids: Array[int], clear_output: bool = true) -> Array[int]:
+func query_rect_into(area: Rect2, out_entities: Array, clear_output: bool = true) -> Array:
 ```
 
-查询与 Rect2 相交的实体 ID，并写入调用方提供的数组。
+查询与 Rect2 相交的实体，并写入调用方提供的数组。
 
 参数：
 
 | 名称 | 说明 |
 |---|---|
 | `area` | 查询矩形。 |
-| `out_entity_ids` | 接收匹配实体 ID 的数组。 |
-| `clear_output` | 为 true 时先清空 out_entity_ids。 |
+| `out_entities` | 接收匹配实体的数组。 |
+| `clear_output` | 为 true 时先清空 out_entities。 |
 
-返回：同一个 out_entity_ids 数组。
+返回：同一个 out_entities 数组。
+
+结构：
+
+- `out_entities`: Array[Variant]，实体值来自调用方传入的 entity。
+- `return`: Array[Variant]，同一个 out_entities 数组。
 
 <a id="member-gfspatialqueryindex2d-methods-query_radius"></a>
 
@@ -382,10 +417,10 @@ func query_rect_into(area: Rect2, out_entity_ids: Array[int], clear_output: bool
 - 首次版本：`7.0.0`
 
 ```gdscript
-func query_radius(center: Vector2, radius: float) -> Array[int]:
+func query_radius(center: Vector2, radius: float) -> Array[Variant]:
 ```
 
-查询与圆相交的实体 ID。
+查询与圆相交的实体。
 
 参数：
 
@@ -394,7 +429,11 @@ func query_radius(center: Vector2, radius: float) -> Array[int]:
 | `center` | 圆心。 |
 | `radius` | 半径。 |
 
-返回：匹配实体 ID 数组。
+返回：匹配实体数组。
+
+结构：
+
+- `return`: Array[Variant]，实体值来自调用方传入的 entity。
 
 <a id="member-gfspatialqueryindex2d-methods-query_radius_into"></a>
 
@@ -404,10 +443,10 @@ func query_radius(center: Vector2, radius: float) -> Array[int]:
 - 首次版本：`7.0.0`
 
 ```gdscript
-func query_radius_into(center: Vector2, radius: float, out_entity_ids: Array[int], clear_output: bool = true) -> Array[int]:
+func query_radius_into(center: Vector2, radius: float, out_entities: Array, clear_output: bool = true) -> Array:
 ```
 
-查询与圆相交的实体 ID，并写入调用方提供的数组。
+查询与圆相交的实体，并写入调用方提供的数组。
 
 参数：
 
@@ -415,10 +454,15 @@ func query_radius_into(center: Vector2, radius: float, out_entity_ids: Array[int
 |---|---|
 | `center` | 圆心。 |
 | `radius` | 半径。 |
-| `out_entity_ids` | 接收匹配实体 ID 的数组。 |
-| `clear_output` | 为 true 时先清空 out_entity_ids。 |
+| `out_entities` | 接收匹配实体的数组。 |
+| `clear_output` | 为 true 时先清空 out_entities。 |
 
-返回：同一个 out_entity_ids 数组。
+返回：同一个 out_entities 数组。
+
+结构：
+
+- `out_entities`: Array[Variant]，实体值来自调用方传入的 entity。
+- `return`: Array[Variant]，同一个 out_entities 数组。
 
 <a id="member-gfspatialqueryindex2d-methods-query_point"></a>
 
@@ -428,10 +472,10 @@ func query_radius_into(center: Vector2, radius: float, out_entity_ids: Array[int
 - 首次版本：`7.0.0`
 
 ```gdscript
-func query_point(point: Vector2) -> Array[int]:
+func query_point(point: Vector2) -> Array[Variant]:
 ```
 
-查询包含点的实体 ID。
+查询包含点的实体。
 
 参数：
 
@@ -439,7 +483,11 @@ func query_point(point: Vector2) -> Array[int]:
 |---|---|
 | `point` | 查询点。 |
 
-返回：匹配实体 ID 数组。
+返回：匹配实体数组。
+
+结构：
+
+- `return`: Array[Variant]，实体值来自调用方传入的 entity。
 
 <a id="member-gfspatialqueryindex2d-methods-query_point_into"></a>
 
@@ -449,20 +497,25 @@ func query_point(point: Vector2) -> Array[int]:
 - 首次版本：`7.0.0`
 
 ```gdscript
-func query_point_into(point: Vector2, out_entity_ids: Array[int], clear_output: bool = true) -> Array[int]:
+func query_point_into(point: Vector2, out_entities: Array, clear_output: bool = true) -> Array:
 ```
 
-查询包含点的实体 ID，并写入调用方提供的数组。
+查询包含点的实体，并写入调用方提供的数组。
 
 参数：
 
 | 名称 | 说明 |
 |---|---|
 | `point` | 查询点。 |
-| `out_entity_ids` | 接收匹配实体 ID 的数组。 |
-| `clear_output` | 为 true 时先清空 out_entity_ids。 |
+| `out_entities` | 接收匹配实体的数组。 |
+| `clear_output` | 为 true 时先清空 out_entities。 |
 
-返回：同一个 out_entity_ids 数组。
+返回：同一个 out_entities 数组。
+
+结构：
+
+- `out_entities`: Array[Variant]，实体值来自调用方传入的 entity。
+- `return`: Array[Variant]，同一个 out_entities 数组。
 
 <a id="member-gfspatialqueryindex2d-methods-query_records_rect"></a>
 
@@ -487,7 +540,7 @@ func query_records_rect(area: Rect2) -> Array[Dictionary]:
 
 结构：
 
-- `return`: Array[Dictionary]，每个元素包含 entity_id、bounds 和 metadata。
+- `return`: Array[Dictionary]，每个元素包含 identity、entity、bounds 和 metadata；int 身份会额外包含 entity_id。
 
 <a id="member-gfspatialqueryindex2d-methods-query_records_rect_into"></a>
 
@@ -514,8 +567,8 @@ func query_records_rect_into(area: Rect2, out_records: Array[Dictionary], clear_
 
 结构：
 
-- `return`: Array[Dictionary]，同一个 out_records 数组；每个元素包含 entity_id、bounds 和 metadata。
-- `out_records`: Array[Dictionary]，每个元素包含 entity_id、bounds 和 metadata。
+- `return`: Array[Dictionary]，同一个 out_records 数组；每个元素包含 identity、entity、bounds 和 metadata。
+- `out_records`: Array[Dictionary]，每个元素包含 identity、entity、bounds 和 metadata。
 
 <a id="member-gfspatialqueryindex2d-methods-query_records_radius"></a>
 
@@ -541,7 +594,7 @@ func query_records_radius(center: Vector2, radius: float) -> Array[Dictionary]:
 
 结构：
 
-- `return`: Array[Dictionary]，每个元素包含 entity_id、bounds 和 metadata。
+- `return`: Array[Dictionary]，每个元素包含 identity、entity、bounds 和 metadata；int 身份会额外包含 entity_id。
 
 <a id="member-gfspatialqueryindex2d-methods-query_records_radius_into"></a>
 
@@ -569,8 +622,8 @@ func query_records_radius_into( center: Vector2, radius: float, out_records: Arr
 
 结构：
 
-- `return`: Array[Dictionary]，同一个 out_records 数组；每个元素包含 entity_id、bounds 和 metadata。
-- `out_records`: Array[Dictionary]，每个元素包含 entity_id、bounds 和 metadata。
+- `return`: Array[Dictionary]，同一个 out_records 数组；每个元素包含 identity、entity、bounds 和 metadata。
+- `out_records`: Array[Dictionary]，每个元素包含 identity、entity、bounds 和 metadata。
 
 <a id="member-gfspatialqueryindex2d-methods-get_debug_snapshot"></a>
 
@@ -590,3 +643,29 @@ func get_debug_snapshot() -> Dictionary:
 结构：
 
 - `return`: Dictionary，包含 strategy、active_strategy、bounds、entity_count 和 index_dirty。
+
+<a id="member-gfspatialqueryindex2d-methods-get_json_compatible_debug_snapshot"></a>
+
+### `get_json_compatible_debug_snapshot`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func get_json_compatible_debug_snapshot(options: Dictionary = {}) -> Dictionary:
+```
+
+获取 JSON.stringify() 安全的调试快照。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `options` | 报告编码选项，透传给 GFReportValueCodec。 |
+
+返回：JSON 兼容调试快照。
+
+结构：
+
+- `options`: Dictionary with GFReportValueCodec options.
+- `return`: Dictionary safe for JSON.stringify().

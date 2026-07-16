@@ -4,7 +4,7 @@
 
 - 路径：`addons/gf/standard/input/touch/gf_touch_joystick.gd`
 - 模块：`Standard`
-- 继承：`Node2D`
+- 继承：`GFTouchControl2D`
 - API：`public`
 - 类别：运行时服务 (`runtime_service`)
 - 首次版本：`3.17.0`

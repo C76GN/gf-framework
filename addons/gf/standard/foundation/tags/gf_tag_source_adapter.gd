@@ -20,6 +20,7 @@ const _MAX_OBJECT_PROTOCOL_CACHE_ENTRIES: int = 512
 # --- 私有变量 ---
 
 static var _has_tag_arity_cache: Dictionary = {}
+static var _get_tag_count_arity_cache: Dictionary = {}
 
 
 # --- 公共方法 ---
@@ -318,7 +319,9 @@ static func _get_object_tag_count(source: Object, tag: StringName, include_child
 	var exact_count: int = 0
 	var has_get_tag_count: bool = source.has_method("get_tag_count")
 	if has_get_tag_count:
-		exact_count = GFVariantData.to_int(source.call("get_tag_count", tag))
+		if _get_get_tag_count_argument_count(source) >= 2:
+			return _call_get_tag_count(source, tag, include_child_tags)
+		exact_count = _call_get_tag_count(source, tag, false)
 	if not include_child_tags:
 		return exact_count
 
@@ -328,7 +331,7 @@ static func _get_object_tag_count(source: Object, tag: StringName, include_child
 		if candidate_text == String(tag):
 			continue
 		if candidate_text.begins_with(prefix):
-			count += GFVariantData.to_int(source.call("get_tag_count", StringName(candidate_text))) if has_get_tag_count else 1
+			count += _call_get_tag_count(source, StringName(candidate_text), false) if has_get_tag_count else 1
 	return count
 
 
@@ -357,6 +360,38 @@ static func _call_has_tag(source: Object, tag: StringName, minimum_count: int) -
 	if argument_count >= 1:
 		return GFVariantData.to_bool(source.call("has_tag", tag))
 	return false
+
+
+static func _call_get_tag_count(source: Object, tag: StringName, include_child_tags: bool) -> int:
+	if not source.has_method("get_tag_count"):
+		return 0
+
+	var argument_count: int = _get_get_tag_count_argument_count(source)
+	if argument_count >= 2:
+		return GFVariantData.to_int(source.call("get_tag_count", tag, include_child_tags))
+	if argument_count >= 1:
+		return GFVariantData.to_int(source.call("get_tag_count", tag))
+	return 0
+
+
+static func _get_get_tag_count_argument_count(source: Object) -> int:
+	var cache_key: String = _get_object_protocol_cache_key(source)
+	if not cache_key.is_empty() and _get_tag_count_arity_cache.has(cache_key):
+		return GFVariantData.get_option_int(_get_tag_count_arity_cache, cache_key, -1)
+
+	var argument_count: int = -1
+	for method: Dictionary in source.get_method_list():
+		if GFVariantData.get_option_string(method, "name") != "get_tag_count":
+			continue
+		var args: Array = GFVariantData.as_array(GFVariantData.get_option_value(method, "args", []))
+		argument_count = args.size()
+		break
+
+	if not cache_key.is_empty():
+		if _get_tag_count_arity_cache.size() >= _MAX_OBJECT_PROTOCOL_CACHE_ENTRIES:
+			_get_tag_count_arity_cache.clear()
+		_get_tag_count_arity_cache[cache_key] = argument_count
+	return argument_count
 
 
 static func _get_has_tag_argument_count(source: Object) -> int:

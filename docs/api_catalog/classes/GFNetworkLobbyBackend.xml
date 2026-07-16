@@ -1,0 +1,334 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFNetworkLobbyBackend" path="addons/gf/extensions/network/session/gf_network_lobby_backend.gd" module="extensions/network" extends="RefCounted" classDigest="ffa4001088db081b4ffaf8d4e8643cca9d29e2b54a7b563a6e9dc72abb405d3e">
+	<description>GFNetworkLobbyBackend: 平台中立 lobby 后端协议。
+后端负责把 Steam、微信、自建匹配服、LAN 发现或其他平台能力映射到 GF lobby
+事件与请求报告。该基类不执行任何平台调用。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">protocol</tag>
+		<tag name="since">8.0.0</tag>
+	</tags>
+	<signals>
+		<member kind="signal" name="lobby_created">
+			<signature>signal lobby_created(result: GFNetworkLobbyJoinResult)</signature>
+			<description>Lobby 创建完成后发出。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">result: 创建结果。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="signal" name="lobbies_queried">
+			<signature>signal lobbies_queried(lobbies: Array[GFNetworkLobbyDescriptor], metadata: Dictionary)</signature>
+			<description>Lobby 查询完成后发出。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">lobbies: Lobby 快照列表。</tag>
+				<tag name="param">metadata: 查询元数据。</tag>
+				<tag name="schema">lobbies: Array[GFNetworkLobbyDescriptor] lobby snapshots.</tag>
+				<tag name="schema">metadata: Dictionary query metadata.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="signal" name="lobby_joined">
+			<signature>signal lobby_joined(result: GFNetworkLobbyJoinResult)</signature>
+			<description>Lobby 加入完成后发出。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">result: 加入结果。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="signal" name="lobby_left">
+			<signature>signal lobby_left(lobby_id: String, reason: String)</signature>
+			<description>离开 lobby 后发出。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">lobby_id: Lobby ID。</tag>
+				<tag name="param">reason: 离开原因。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="signal" name="lobby_updated">
+			<signature>signal lobby_updated(lobby: GFNetworkLobbyDescriptor)</signature>
+			<description>Lobby 快照更新后发出。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">lobby: Lobby 快照。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="signal" name="member_joined">
+			<signature>signal member_joined(lobby_id: String, member: GFNetworkLobbyMember)</signature>
+			<description>成员加入后发出。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">lobby_id: Lobby ID。</tag>
+				<tag name="param">member: 成员快照。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="signal" name="member_left">
+			<signature>signal member_left(lobby_id: String, peer_id: int, reason: String)</signature>
+			<description>成员离开后发出。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">lobby_id: Lobby ID。</tag>
+				<tag name="param">peer_id: 成员 peer 标识。</tag>
+				<tag name="param">reason: 离开原因。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="signal" name="invite_received">
+			<signature>signal invite_received(invite: GFNetworkLobbyInvite)</signature>
+			<description>收到 lobby 邀请后发出。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">invite: 邀请事件。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="signal" name="backend_error">
+			<signature>signal backend_error(operation: StringName, error: StringName, details: Dictionary)</signature>
+			<description>后端操作失败后发出。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">operation: 操作标识。</tag>
+				<tag name="param">error: 错误标识。</tag>
+				<tag name="param">details: 错误详情。</tag>
+				<tag name="schema">details: Dictionary backend-defined error metadata.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</signals>
+	<enums />
+	<constants />
+	<properties>
+		<member kind="property" name="backend_id">
+			<signature>var backend_id: StringName = &amp;""</signature>
+			<description>后端稳定标识。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="create_lobby">
+			<signature>func create_lobby(_options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>创建 lobby。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">_options: 后端选项。</tag>
+				<tag name="return">请求报告。异步后端应先返回 accepted，再通过信号发出最终结果。</tag>
+				<tag name="schema">_options: Dictionary backend-defined create options.</tag>
+				<tag name="schema">return: Dictionary with ok, status, operation, request_id, and error.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="query_lobbies">
+			<signature>func query_lobbies(_query: GFNetworkLobbyQuery = null, _options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>查询 lobby。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">_query: 查询条件。</tag>
+				<tag name="param">_options: 后端选项。</tag>
+				<tag name="return">请求报告。</tag>
+				<tag name="schema">_options: Dictionary backend-defined query options.</tag>
+				<tag name="schema">return: Dictionary with ok, status, operation, request_id, and error.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="join_lobby">
+			<signature>func join_lobby(_lobby_id: String, _options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>加入 lobby。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">_lobby_id: Lobby ID。</tag>
+				<tag name="param">_options: 后端选项。</tag>
+				<tag name="return">请求报告。</tag>
+				<tag name="schema">_options: Dictionary backend-defined join options.</tag>
+				<tag name="schema">return: Dictionary with ok, status, operation, request_id, and error.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="leave_lobby">
+			<signature>func leave_lobby(_lobby_id: String = "", _options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>离开 lobby。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">_lobby_id: Lobby ID；为空时后端可使用当前 lobby。</tag>
+				<tag name="param">_options: 后端选项。</tag>
+				<tag name="return">请求报告。</tag>
+				<tag name="schema">_options: Dictionary backend-defined leave options.</tag>
+				<tag name="schema">return: Dictionary with ok, status, operation, request_id, and error.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="set_lobby_metadata">
+			<signature>func set_lobby_metadata(_lobby_id: String, _metadata: Dictionary, _options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>设置 lobby metadata。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">_lobby_id: Lobby ID。</tag>
+				<tag name="param">_metadata: Metadata 更新。</tag>
+				<tag name="param">_options: 后端选项。</tag>
+				<tag name="return">请求报告。</tag>
+				<tag name="schema">_metadata: Dictionary lobby metadata patch.</tag>
+				<tag name="schema">_options: Dictionary backend-defined metadata options.</tag>
+				<tag name="schema">return: Dictionary with ok, status, operation, request_id, and error.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="set_member_metadata">
+			<signature>func set_member_metadata( _lobby_id: String, _peer_id: int, _metadata: Dictionary, _options: Dictionary = {} ) -&gt; Dictionary:</signature>
+			<description>设置成员 metadata。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">_lobby_id: Lobby ID。</tag>
+				<tag name="param">_peer_id: 成员 peer 标识。</tag>
+				<tag name="param">_metadata: Metadata 更新。</tag>
+				<tag name="param">_options: 后端选项。</tag>
+				<tag name="return">请求报告。</tag>
+				<tag name="schema">_metadata: Dictionary member metadata patch.</tag>
+				<tag name="schema">_options: Dictionary backend-defined metadata options.</tag>
+				<tag name="schema">return: Dictionary with ok, status, operation, request_id, and error.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="poll">
+			<signature>func poll(_delta: float) -&gt; void:</signature>
+			<description>后端轮询入口。需要平台 callback pump 的后端可重写。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">_delta: 帧间隔。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="close">
+			<signature>func close() -&gt; void:</signature>
+			<description>关闭后端资源。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_debug_snapshot">
+			<signature>func get_debug_snapshot() -&gt; Dictionary:</signature>
+			<description>获取后端调试快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">调试快照。</tag>
+				<tag name="schema">return: Dictionary backend debug snapshot.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_make_request_report">
+			<signature>func _make_request_report( ok: bool, operation: StringName, error: StringName = &amp;"", options: Dictionary = {} ) -&gt; Dictionary:</signature>
+			<description>构建请求报告。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">ok: 请求是否被接受。</tag>
+				<tag name="param">operation: 操作标识。</tag>
+				<tag name="param">error: 错误标识。</tag>
+				<tag name="param">options: 附加字段。</tag>
+				<tag name="return">请求报告。</tag>
+				<tag name="schema">options: Dictionary request report fields.</tag>
+				<tag name="schema">return: Dictionary with ok, status, operation, request_id, and error.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_emit_lobby_created">
+			<signature>func _emit_lobby_created(result: GFNetworkLobbyJoinResult) -&gt; void:</signature>
+			<description>发出 lobby_created 信号。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">result: 创建结果。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_emit_lobbies_queried">
+			<signature>func _emit_lobbies_queried(lobbies: Array[GFNetworkLobbyDescriptor], metadata: Dictionary = {}) -&gt; void:</signature>
+			<description>发出 lobbies_queried 信号。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">lobbies: Lobby 快照列表。</tag>
+				<tag name="param">metadata: 查询元数据。</tag>
+				<tag name="schema">lobbies: Array[GFNetworkLobbyDescriptor] lobby snapshots.</tag>
+				<tag name="schema">metadata: Dictionary query metadata.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_emit_lobby_joined">
+			<signature>func _emit_lobby_joined(result: GFNetworkLobbyJoinResult) -&gt; void:</signature>
+			<description>发出 lobby_joined 信号。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">result: 加入结果。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_emit_lobby_left">
+			<signature>func _emit_lobby_left(lobby_id: String, reason: String = "left") -&gt; void:</signature>
+			<description>发出 lobby_left 信号。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">lobby_id: Lobby ID。</tag>
+				<tag name="param">reason: 离开原因。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_emit_lobby_updated">
+			<signature>func _emit_lobby_updated(lobby: GFNetworkLobbyDescriptor) -&gt; void:</signature>
+			<description>发出 lobby_updated 信号。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">lobby: Lobby 快照。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_emit_member_joined">
+			<signature>func _emit_member_joined(lobby_id: String, member: GFNetworkLobbyMember) -&gt; void:</signature>
+			<description>发出 member_joined 信号。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">lobby_id: Lobby ID。</tag>
+				<tag name="param">member: 成员快照。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_emit_member_left">
+			<signature>func _emit_member_left(lobby_id: String, peer_id: int, reason: String = "left") -&gt; void:</signature>
+			<description>发出 member_left 信号。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">lobby_id: Lobby ID。</tag>
+				<tag name="param">peer_id: 成员 peer 标识。</tag>
+				<tag name="param">reason: 离开原因。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_emit_invite_received">
+			<signature>func _emit_invite_received(invite: GFNetworkLobbyInvite) -&gt; void:</signature>
+			<description>发出 invite_received 信号。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">invite: 邀请事件。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_emit_backend_error">
+			<signature>func _emit_backend_error(operation: StringName, error: StringName, details: Dictionary = {}) -&gt; void:</signature>
+			<description>发出 backend_error 信号。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">operation: 操作标识。</tag>
+				<tag name="param">error: 错误标识。</tag>
+				<tag name="param">details: 错误详情。</tag>
+				<tag name="schema">details: Dictionary backend-defined error metadata.</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

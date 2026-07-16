@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFNumberFormatter" path="addons/gf/standard/foundation/formatting/gf_number_formatter.gd" module="standard" extends="RefCounted" classDigest="fd8a7e67ead6a78bdd2de56bc3ecd02881515358f679461bb222f49092b4a9e6">
+<class name="GFNumberFormatter" path="addons/gf/standard/foundation/formatting/gf_number_formatter.gd" module="standard" extends="RefCounted" classDigest="530067ef2537b1dbee04e580026b01d8ba80857c965ca9dc131a6b203bea18f6">
 	<description>GFNumberFormatter: 统一的数字显示格式化工具。
 负责普通数字、定点小数与大数值对象在 UI 中的显示转换，
 提供完整显示、紧凑缩写、科学计数法、工程计数法与自动模式。</description>
@@ -46,6 +46,16 @@
 	<constants />
 	<properties />
 	<methods>
+		<member kind="method" name="get_default_compact_suffixes">
+			<signature>static func get_default_compact_suffixes() -&gt; PackedStringArray:</signature>
+			<description>获取默认紧凑缩写后缀表副本。
+返回值是新建副本，修改它不会改变框架默认 compact 格式化行为；项目需要自定义后缀时应通过 format_compact() 的 suffixes 参数传入。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">默认紧凑缩写后缀表副本。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
 		<member kind="method" name="format_number">
 			<signature>static func format_number( value: Variant, notation: Notation = Notation.AUTO, decimal_places: int = 2, trim_zeroes: bool = true, use_truncation: bool = false, scientific_style: ScientificStyle = ScientificStyle.E_LOWER ) -&gt; String:</signature>
 			<description>统一入口：按指定记法格式化一个数字值。</description>

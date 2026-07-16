@@ -55,6 +55,50 @@ func test_file_size_limit_reports_error() -> void:
 	assert_eq(GFVariantData.get_option_string(result, GFResultDictionary.KEY_REASON), "file_too_large", "大小限制原因应稳定。")
 
 
+func test_custom_loader_loads_virtual_text_and_caches_by_key() -> void:
+	var loader: GFSourceTextLoader = GFSourceTextLoader.new("", {
+		"allow_file_access": false,
+	})
+	var added: bool = loader.add_custom_loader(_load_virtual_source_text, {
+		"origin": "virtual",
+	})
+
+	var first: Dictionary = loader.load_text("virtual/source")
+	var second: Dictionary = loader.load_text("virtual/source")
+	var entry_metadata: Dictionary = GFVariantData.get_option_dictionary(first, "entry_metadata")
+
+	assert_true(added, "有效 Callable 应能注册为自定义 loader。")
+	assert_true(GFResultDictionary.is_ok(first), "自定义 loader 应能加载虚拟文本。")
+	assert_eq(GFVariantData.get_option_string(first, "text"), "hello virtual", "加载结果应使用自定义 loader 返回的文本。")
+	assert_true(GFVariantData.get_option_bool(first, "custom_loader"), "结果应标记来自自定义 loader。")
+	assert_false(GFVariantData.get_option_bool(first, "from_cache"), "第一次自定义加载不应来自缓存。")
+	assert_true(GFVariantData.get_option_bool(second, "from_cache"), "第二次相同 key 应命中自定义加载缓存。")
+	assert_eq(GFVariantData.get_option_string(entry_metadata, "origin"), "virtual", "loader 元数据应进入结果。")
+
+
+func test_custom_loader_can_return_utf8_bytes() -> void:
+	var loader: GFSourceTextLoader = GFSourceTextLoader.new("", {
+		"allow_file_access": false,
+	})
+	var _added: bool = loader.add_custom_loader(_load_virtual_source_bytes)
+
+	var result: Dictionary = loader.load_text("virtual/bytes")
+
+	assert_true(GFResultDictionary.is_ok(result), "自定义 loader 应支持 UTF-8 字节结果。")
+	assert_eq(GFVariantData.get_option_string(result, "text"), "bytes text", "字节结果应按 UTF-8 转为文本。")
+
+
+func test_custom_loader_can_decline_and_fall_back_to_file() -> void:
+	var loader: GFSourceTextLoader = GFSourceTextLoader.new(TEST_ROOT)
+	var _added: bool = loader.add_custom_loader(_decline_source_text)
+
+	var result: Dictionary = loader.load_text(TEST_FILE)
+
+	assert_true(GFResultDictionary.is_ok(result), "自定义 loader 未处理时应继续回退到文件加载。")
+	assert_eq(GFVariantData.get_option_string(result, "text"), "hello source", "回退后应读取 root 内文件。")
+	assert_false(GFVariantData.get_option_bool(result, "custom_loader"), "文件回退结果不应标记为自定义 loader。")
+
+
 # --- 私有/辅助方法 ---
 
 func _prepare_test_file(text: String) -> void:
@@ -71,3 +115,28 @@ func _prepare_test_file(text: String) -> void:
 func _remove_file_if_exists(path: String) -> void:
 	if FileAccess.file_exists(path):
 		var _remove_result: Error = DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
+
+
+func _load_virtual_source_text(source_key: String, context: Dictionary) -> Dictionary:
+	if source_key != "virtual/source":
+		return { "handled": false }
+	return {
+		"handled": true,
+		"text": "hello virtual",
+		"resolved_path": "virtual://source",
+		"metadata": GFVariantData.get_option_dictionary(context, "loader_metadata"),
+	}
+
+
+func _load_virtual_source_bytes(source_key: String, _context: Dictionary) -> Dictionary:
+	if source_key != "virtual/bytes":
+		return { "handled": false }
+	return {
+		"handled": true,
+		"bytes": "bytes text".to_utf8_buffer(),
+		"resolved_path": "virtual://bytes",
+	}
+
+
+func _decline_source_text(_source_key: String, _context: Dictionary) -> Dictionary:
+	return { "handled": false }

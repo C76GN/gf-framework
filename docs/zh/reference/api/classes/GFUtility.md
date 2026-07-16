@@ -23,7 +23,7 @@
 | 属性 | [`tick_enabled`](#member-gfutility-properties-tick_enabled) | `var tick_enabled: bool = false:` |
 | 属性 | [`physics_tick_enabled`](#member-gfutility-properties-physics_tick_enabled) | `var physics_tick_enabled: bool = false:` |
 | 方法 | [`init`](#member-gfutility-methods-init) | `func init() -> void:` |
-| 方法 | [`async_init`](#member-gfutility-methods-async_init) | `func async_init() -> void:` |
+| 方法 | [`async_init`](#member-gfutility-methods-async_init) | `func async_init(_scope: GFAsyncScope) -> void:` |
 | 方法 | [`ready`](#member-gfutility-methods-ready) | `func ready() -> void:` |
 | 方法 | [`dispose`](#member-gfutility-methods-dispose) | `func dispose() -> void:` |
 | 方法 | [`release_dependencies`](#member-gfutility-methods-release_dependencies) | `func release_dependencies() -> void:` |
@@ -32,13 +32,13 @@
 | 方法 | [`get_model`](#member-gfutility-methods-get_model) | `func get_model(model_type: Script, require_ready: bool = false) -> Object:` |
 | 方法 | [`get_system`](#member-gfutility-methods-get_system) | `func get_system(system_type: Script, require_ready: bool = false) -> Object:` |
 | 方法 | [`get_utility`](#member-gfutility-methods-get_utility) | `func get_utility(utility_type: Script, require_ready: bool = false) -> Object:` |
-| 方法 | [`register_event`](#member-gfutility-methods-register_event) | `func register_event(event_type: Script, callback: Callable, priority: int = 0) -> void:` |
-| 方法 | [`unregister_event`](#member-gfutility-methods-unregister_event) | `func unregister_event(event_type: Script, callback: Callable) -> void:` |
-| 方法 | [`register_assignable_event`](#member-gfutility-methods-register_assignable_event) | `func register_assignable_event(base_event_type: Script, callback: Callable, priority: int = 0) -> void:` |
-| 方法 | [`unregister_assignable_event`](#member-gfutility-methods-unregister_assignable_event) | `func unregister_assignable_event(base_event_type: Script, callback: Callable) -> void:` |
+| 方法 | [`register_event`](#member-gfutility-methods-register_event) | `func register_event(event_type: Script, listener: GFEventListener, priority: int = 0) -> void:` |
+| 方法 | [`unregister_event`](#member-gfutility-methods-unregister_event) | `func unregister_event(event_type: Script, listener: GFEventListener) -> void:` |
+| 方法 | [`register_assignable_event`](#member-gfutility-methods-register_assignable_event) | `func register_assignable_event(base_event_type: Script, listener: GFEventListener, priority: int = 0) -> void:` |
+| 方法 | [`unregister_assignable_event`](#member-gfutility-methods-unregister_assignable_event) | `func unregister_assignable_event(base_event_type: Script, listener: GFEventListener) -> void:` |
 | 方法 | [`send_event`](#member-gfutility-methods-send_event) | `func send_event(event_instance: Object) -> void:` |
-| 方法 | [`register_simple_event`](#member-gfutility-methods-register_simple_event) | `func register_simple_event(event_id: StringName, callback: Callable) -> void:` |
-| 方法 | [`unregister_simple_event`](#member-gfutility-methods-unregister_simple_event) | `func unregister_simple_event(event_id: StringName, callback: Callable) -> void:` |
+| 方法 | [`register_simple_event`](#member-gfutility-methods-register_simple_event) | `func register_simple_event(event_id: StringName, listener: GFEventListener) -> void:` |
+| 方法 | [`unregister_simple_event`](#member-gfutility-methods-unregister_simple_event) | `func unregister_simple_event(event_id: StringName, listener: GFEventListener) -> void:` |
 | 方法 | [`send_simple_event`](#member-gfutility-methods-send_simple_event) | `func send_simple_event(event_id: StringName, payload: Variant = null) -> void:` |
 
 ## 属性
@@ -150,12 +150,19 @@ func init() -> void:
 ### `async_init`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func async_init() -> void:
+func async_init(_scope: GFAsyncScope) -> void:
 ```
 
-异步初始化阶段。子类可以重写此方法并在其中使用 await。 Godot 4 支持在 void 函数内部使用 await，框架的 Gf.init() 会串行且安全地 await 每个模块的 async_init()，不再需要返回 Signal。 约束：在 init() 之后、ready() 之前执行。
+异步初始化阶段。子类可以重写此方法并在其中使用 await。 Godot 4 支持在 void 函数内部使用 await，框架的 Gf.init() 会串行且安全地 await 每个模块的 async_init()。 约束：在 init() 之后、ready() 之前执行；首个 await 前仍运行在主线程， 不应放入长同步工作。需要耗时处理时应在 await 或外部回调之间检查 scope。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `_scope` | 当前模块异步初始化的取消作用域。 |
 
 <a id="member-gfutility-methods-ready"></a>
 
@@ -290,9 +297,10 @@ func get_utility(utility_type: Script, require_ready: bool = false) -> Object:
 ### `register_event`
 
 - API：`public`
+- 首次版本：`8.0.0`
 
 ```gdscript
-func register_event(event_type: Script, callback: Callable, priority: int = 0) -> void:
+func register_event(event_type: Script, listener: GFEventListener, priority: int = 0) -> void:
 ```
 
 注册类型事件监听器。Utility 注销时框架会自动清理由该方法注册的监听。
@@ -302,7 +310,7 @@ func register_event(event_type: Script, callback: Callable, priority: int = 0) -
 | 名称 | 说明 |
 |---|---|
 | `event_type` | 要监听的脚本类型。 |
-| `callback` | 回调函数。 |
+| `listener` | 事件监听器契约。 |
 | `priority` | 回调优先级，数值越大越先执行，默认为 0。 |
 
 <a id="member-gfutility-methods-unregister_event"></a>
@@ -310,9 +318,10 @@ func register_event(event_type: Script, callback: Callable, priority: int = 0) -
 ### `unregister_event`
 
 - API：`public`
+- 首次版本：`8.0.0`
 
 ```gdscript
-func unregister_event(event_type: Script, callback: Callable) -> void:
+func unregister_event(event_type: Script, listener: GFEventListener) -> void:
 ```
 
 注销类型事件监听器。
@@ -322,16 +331,17 @@ func unregister_event(event_type: Script, callback: Callable) -> void:
 | 名称 | 说明 |
 |---|---|
 | `event_type` | 要注销的脚本类型。 |
-| `callback` | 要移除的回调函数。 |
+| `listener` | 要移除的事件监听器契约。 |
 
 <a id="member-gfutility-methods-register_assignable_event"></a>
 
 ### `register_assignable_event`
 
 - API：`public`
+- 首次版本：`8.0.0`
 
 ```gdscript
-func register_assignable_event(base_event_type: Script, callback: Callable, priority: int = 0) -> void:
+func register_assignable_event(base_event_type: Script, listener: GFEventListener, priority: int = 0) -> void:
 ```
 
 注册可赋值类型事件监听器。Utility 注销时框架会自动清理由该方法注册的监听。
@@ -341,7 +351,7 @@ func register_assignable_event(base_event_type: Script, callback: Callable, prio
 | 名称 | 说明 |
 |---|---|
 | `base_event_type` | 要监听的基类脚本类型。 |
-| `callback` | 回调函数。 |
+| `listener` | 事件监听器契约。 |
 | `priority` | 回调优先级，数值越大越先执行，默认为 0。 |
 
 <a id="member-gfutility-methods-unregister_assignable_event"></a>
@@ -349,9 +359,10 @@ func register_assignable_event(base_event_type: Script, callback: Callable, prio
 ### `unregister_assignable_event`
 
 - API：`public`
+- 首次版本：`8.0.0`
 
 ```gdscript
-func unregister_assignable_event(base_event_type: Script, callback: Callable) -> void:
+func unregister_assignable_event(base_event_type: Script, listener: GFEventListener) -> void:
 ```
 
 注销可赋值类型事件监听器。
@@ -361,7 +372,7 @@ func unregister_assignable_event(base_event_type: Script, callback: Callable) ->
 | 名称 | 说明 |
 |---|---|
 | `base_event_type` | 注册时使用的基类脚本类型。 |
-| `callback` | 要移除的回调函数。 |
+| `listener` | 要移除的事件监听器契约。 |
 
 <a id="member-gfutility-methods-send_event"></a>
 
@@ -386,9 +397,10 @@ func send_event(event_instance: Object) -> void:
 ### `register_simple_event`
 
 - API：`public`
+- 首次版本：`8.0.0`
 
 ```gdscript
-func register_simple_event(event_id: StringName, callback: Callable) -> void:
+func register_simple_event(event_id: StringName, listener: GFEventListener) -> void:
 ```
 
 注册轻量级 StringName 事件监听器。Utility 注销时框架会自动清理由该方法注册的监听。
@@ -398,16 +410,17 @@ func register_simple_event(event_id: StringName, callback: Callable) -> void:
 | 名称 | 说明 |
 |---|---|
 | `event_id` | StringName 事件标识符。 |
-| `callback` | 回调函数，签名为 func(payload: Variant)。 |
+| `listener` | 简单事件监听器契约。 |
 
 <a id="member-gfutility-methods-unregister_simple_event"></a>
 
 ### `unregister_simple_event`
 
 - API：`public`
+- 首次版本：`8.0.0`
 
 ```gdscript
-func unregister_simple_event(event_id: StringName, callback: Callable) -> void:
+func unregister_simple_event(event_id: StringName, listener: GFEventListener) -> void:
 ```
 
 注销轻量级 StringName 事件监听器。
@@ -417,7 +430,7 @@ func unregister_simple_event(event_id: StringName, callback: Callable) -> void:
 | 名称 | 说明 |
 |---|---|
 | `event_id` | StringName 事件标识符。 |
-| `callback` | 要移除的回调函数。 |
+| `listener` | 要移除的简单事件监听器契约。 |
 
 <a id="member-gfutility-methods-send_simple_event"></a>
 

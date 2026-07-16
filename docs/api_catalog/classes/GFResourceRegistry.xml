@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFResourceRegistry" path="addons/gf/standard/utilities/assets/gf_resource_registry.gd" module="standard" extends="Resource" classDigest="d74287e145a9e520696dd938e17ea683d16500e2c0f33c131fcf646d2c94ac24">
+<class name="GFResourceRegistry" path="addons/gf/standard/utilities/assets/gf_resource_registry.gd" module="standard" extends="Resource" classDigest="348e2e40af5a6d704ff40495be34bdfb407cbc1e835f67048fe468af4b9d8e6c">
 	<description>GFResourceRegistry: 通用资源注册表。
 通过稳定 ID 管理资源路径、类型提示和字段索引，便于项目用统一方式查询、
 预加载或加载资源定义。注册表只描述资源位置和通用字段，不规定物品、技能、
@@ -26,6 +26,14 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="since">6.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="GROUP_SOURCE_CACHE_KEY">
+			<signature>const GROUP_SOURCE_CACHE_KEY: StringName = &amp;"cache_key"</signature>
+			<description>按资源身份缓存键分组。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="GROUP_SOURCE_PATH_BASENAME">
@@ -140,6 +148,26 @@
 				<tag name="return">类型提示；不存在时返回空字符串。</tag>
 			</tags>
 		</member>
+		<member kind="method" name="get_entry_cache_key">
+			<signature>func get_entry_cache_key(entry_id: StringName) -&gt; String:</signature>
+			<description>获取条目资源身份缓存键。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">entry_id: 条目稳定 ID。</tag>
+				<tag name="return">资源身份 cache_key；不存在时返回空字符串。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_entry_resource_identity">
+			<signature>func get_entry_resource_identity(entry_id: StringName) -&gt; GFResourceIdentity:</signature>
+			<description>获取条目资源身份。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">entry_id: 条目稳定 ID。</tag>
+				<tag name="return">资源身份；不存在时返回 null。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
 		<member kind="method" name="get_entry_fields">
 			<signature>func get_entry_fields(entry_id: StringName) -&gt; Dictionary:</signature>
 			<description>获取条目字段副本。</description>
@@ -196,7 +224,7 @@
 				<tag name="param">entry_ids: 要导出的条目 ID；为空时导出全部有效条目。</tag>
 				<tag name="return">搜索候选字典数组。</tag>
 				<tag name="schema">entry_ids: PackedStringArray selected entry ids.</tag>
-				<tag name="schema">return: Array[Dictionary] where each candidate contains id, entry_id, title, name, path, type_hint, keywords, and fields.</tag>
+				<tag name="schema">return: Array[Dictionary] where each candidate contains id, entry_id, title, name, path, cache_key, resource_identity, type_hint, keywords, and fields.</tag>
 				<tag name="since">6.0.0</tag>
 			</tags>
 		</member>
@@ -222,7 +250,7 @@
 				<tag name="param">options: 可选项，支持 title_fields、description_fields、preview_path_fields、tag_fields、category_fields 和 include_fields。</tag>
 				<tag name="return">条目摘要；条目不存在时返回空字典。</tag>
 				<tag name="schema">options: Dictionary where field list options are PackedStringArray or Array[String], and include_fields controls whether fields is copied into the summary.</tag>
-				<tag name="schema">return: Dictionary with id, entry_id, title, path, path_basename, type_hint, description, preview_path, tags, category, and optional fields.</tag>
+				<tag name="schema">return: Dictionary with id, entry_id, title, path, cache_key, resource_identity, path_basename, type_hint, description, preview_path, tags, category, and optional fields.</tag>
 				<tag name="since">6.0.0</tag>
 			</tags>
 		</member>
@@ -263,7 +291,7 @@
 				<tag name="param">group_source: 分组来源，支持 GROUP_SOURCE_ID、GROUP_SOURCE_PATH、GROUP_SOURCE_PATH_BASENAME、GROUP_SOURCE_TYPE_HINT 与 GROUP_SOURCE_FIELD。</tag>
 				<tag name="param">options: 可选项，支持 entry_ids、field_id、include_empty 和 empty_key。</tag>
 				<tag name="return">分组字典，key 为分组文本，value 为排序后的条目 ID 列表。</tag>
-				<tag name="schema">options: Dictionary with optional entry_ids, field_id, include_empty, and empty_key.</tag>
+				<tag name="schema">options: Dictionary with optional entry_ids, field_id, include_empty, and empty_key. group_source may be id, path, cache_key, path_basename, type_hint, or field.</tag>
 				<tag name="schema">return: Dictionary[String, PackedStringArray] grouped entry ids.</tag>
 				<tag name="since">6.0.0</tag>
 			</tags>
@@ -311,7 +339,8 @@
 				<tag name="param">entry_ids: 要导出的条目 ID；为空时导出全部有效条目。</tag>
 				<tag name="return">资源请求列表。</tag>
 				<tag name="schema">entry_ids: PackedStringArray selected entry ids.</tag>
-				<tag name="schema">return: Array[Dictionary] where each item contains path and type_hint.</tag>
+				<tag name="schema">return: Array[Dictionary] where each item contains path, type_hint, cache_key, and resource_identity.</tag>
+				<tag name="since">3.21.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_debug_snapshot">

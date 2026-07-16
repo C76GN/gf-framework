@@ -234,6 +234,33 @@ func test_undo_last_async_blocks_reentrant_history_mutation() -> void:
 	assert_eq(_history.redo_count, 1, "异步 undo 完成后才应写入 redo 栈。")
 
 
+func test_async_stall_warning_keeps_history_locked_until_late_completion() -> void:
+	var cmd: ManualAsyncCommand = ManualAsyncCommand.new()
+	_history.async_stall_warning_seconds = 0.001
+	_history.record(cmd)
+
+	@warning_ignore("missing_await")
+	@warning_ignore("return_value_discarded")
+	_history.undo_last_async()
+	for _frame: int in range(5):
+		await get_tree().process_frame
+
+	assert_true(_history.is_processing_async, "告警阈值不能被当成异步命令终态。")
+	assert_eq(_history.undo_count, 0, "命令等待期间不得提前放回 undo 栈。")
+	assert_eq(_history.redo_count, 0, "命令等待期间不得提前写入 redo 栈。")
+	_history.record(CounterCommand.new(CounterState.new()))
+	assert_eq(_history.undo_count, 0, "迟到完成前新的历史 mutation 必须继续被锁拒绝。")
+
+	cmd.complete()
+	await get_tree().process_frame
+	await get_tree().process_frame
+
+	assert_false(_history.is_processing_async, "真实完成后应释放历史锁。")
+	assert_eq(_history.redo_count, 1, "迟到完成后命令应只进入正确的 redo 栈。")
+	assert_push_warning("[GFCommandHistoryUtility] 异步命令尚未完成；历史锁将保持到真实终态。")
+	assert_push_warning("[GFCommandHistoryUtility] 当前正在处理异步命令，忽略新的历史记录。")
+
+
 func test_dispose_cancels_pending_async_history_operation() -> void:
 	var cmd: ManualAsyncCommand = ManualAsyncCommand.new()
 
@@ -356,7 +383,7 @@ func test_deserialize_history() -> void:
 	var counter: CounterState = CounterState.new()
 	var builder: Callable = func(data: Dictionary) -> GFUndoableCommand:
 		var command: CounterCommand = CounterCommand.new(counter)
-		command.set_snapshot(GFVariantData.get_option_value(data, "snapshot", 0))
+		var _snapshot_saved: bool = command.set_snapshot(GFVariantData.get_option_value(data, "snapshot", 0))
 		return command
 
 	var src_data: Array[Dictionary] = [{ "snapshot": 5 }, { "snapshot": 6 }]
@@ -410,6 +437,19 @@ func test_history_size_limit() -> void:
 	assert_false(_history.undo_last(), "第一条命令应已被超限丢弃，无法再撤销。")
 
 
+func test_history_size_limit_trims_deserialized_redo_stack() -> void:
+	_history.max_history_size = 2
+	var builder: Callable = func(_data: Dictionary) -> GFUndoableCommand:
+		return GFUndoableCommand.new()
+	_history.deserialize_full_history({
+		"undo": [{ "snapshot": 1 }, { "snapshot": 2 }, { "snapshot": 3 }],
+		"redo": [{ "snapshot": 4 }, { "snapshot": 5 }, { "snapshot": 6 }],
+	}, builder)
+
+	assert_eq(_history.undo_count, 2, "反序列化后撤销栈应遵守容量上限。")
+	assert_eq(_history.redo_count, 2, "反序列化后重做栈应遵守容量上限。")
+
+
 # --- 测试：深拷贝快照 (Task 7) ---
 
 ## 验证 set_snapshot 对于引用类型（字典/数组）执行深拷贝，防止外部修改破坏快照。
@@ -417,7 +457,7 @@ func test_snapshot_deep_copy() -> void:
 	var data: Dictionary = { "a": 1, "b": [1, 2] }
 	var cmd: CounterCommand = CounterCommand.new(CounterState.new())
 
-	cmd.set_snapshot(data)
+	assert_true(cmd.set_snapshot(data), "纯 Variant 快照应保存成功。")
 
 	# 修改原数据
 	data["a"] = 99
@@ -434,6 +474,16 @@ func test_snapshot_deep_copy() -> void:
 	var second_snapshot: Dictionary = GFVariantData.as_dictionary(cmd.get_snapshot())
 	assert_eq(GFVariantData.get_option_int(second_snapshot, "a"), 1, "get_snapshot 返回值不应共享内部快照。")
 	assert_eq(GFVariantData.get_option_array(second_snapshot, "b").size(), 2, "修改已返回快照不应污染内部嵌套数组。")
+
+
+func test_snapshot_rejects_runtime_references_transactionally() -> void:
+	var cmd: CounterCommand = CounterCommand.new(CounterState.new())
+	assert_true(cmd.set_snapshot({ "value": 7 }), "初始纯数据快照应保存成功。")
+
+	assert_false(cmd.set_snapshot({ "owner": cmd }), "快照不应保留运行时 Object 引用。")
+	assert_push_error("[GFUndoableCommand] 快照必须是有界的纯 Variant 数据，不能包含运行时引用或递归结构。")
+	var preserved_snapshot: Dictionary = GFVariantData.as_dictionary(cmd.get_snapshot())
+	assert_eq(preserved_snapshot, { "value": 7 }, "无效快照不应覆盖最近一次有效快照。")
 
 
 # --- 内部类 ---
@@ -454,7 +504,7 @@ class CounterCommand:
 		_counter = counter
 
 	func execute() -> Variant:
-		set_snapshot(_counter.value)
+		var _snapshot_saved: bool = set_snapshot(_counter.value)
 		_counter.value += 1
 		return null
 

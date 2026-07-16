@@ -22,6 +22,7 @@
 | 属性 | [`timeout_seconds`](#member-gfremotecacheutility-properties-timeout_seconds) | `var timeout_seconds: float = 20.0` |
 | 属性 | [`max_cache_entries`](#member-gfremotecacheutility-properties-max_cache_entries) | `var max_cache_entries: int = 128` |
 | 属性 | [`max_pending_requests`](#member-gfremotecacheutility-properties-max_pending_requests) | `var max_pending_requests: int = 64` |
+| 属性 | [`max_response_bytes`](#member-gfremotecacheutility-properties-max_response_bytes) | `var max_response_bytes: int = _DEFAULT_MAX_RESPONSE_BYTES:` |
 | 属性 | [`cache_key_builder`](#member-gfremotecacheutility-properties-cache_key_builder) | `var cache_key_builder: Callable = Callable()` |
 | 方法 | [`init`](#member-gfremotecacheutility-methods-init) | `func init() -> void:` |
 | 方法 | [`dispose`](#member-gfremotecacheutility-methods-dispose) | `func dispose() -> void:` |
@@ -147,6 +148,19 @@ var max_pending_requests: int = 64
 ```
 
 最大等待队列长度。小于等于 0 表示不限制。
+
+<a id="member-gfremotecacheutility-properties-max_response_bytes"></a>
+
+### `max_response_bytes`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+var max_response_bytes: int = _DEFAULT_MAX_RESPONSE_BYTES:
+```
+
+单个远程响应及缓存条目的最大 UTF-8 字节数。
 
 <a id="member-gfremotecacheutility-properties-cache_key_builder"></a>
 
@@ -350,6 +364,7 @@ func clear_cache() -> void:
 ### `get_debug_snapshot`
 
 - API：`public`
+- 首次版本：`3.0.0`
 
 ```gdscript
 func get_debug_snapshot() -> Dictionary:
@@ -361,7 +376,7 @@ func get_debug_snapshot() -> Dictionary:
 
 结构：
 
-- `return`: Dictionary，包含缓存设置、pending_count、active_url、active_cache_key 和 has_active_request。
+- `return`: Dictionary，包含缓存设置、响应预算、pending_count、active_url、active_cache_key 和 has_active_request。
 
 <a id="member-gfremotecacheutility-methods-_start_http_request"></a>
 

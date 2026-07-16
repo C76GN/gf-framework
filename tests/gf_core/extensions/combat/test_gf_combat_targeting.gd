@@ -2,6 +2,12 @@
 extends GutTest
 
 
+# --- 常量 ---
+
+const _GF_SKILL_TARGETING_RULE_2D_SCRIPT = preload("res://addons/gf/extensions/combat/skills/gf_skill_targeting_rule_2d.gd")
+const _GF_SKILL_TARGETING_UTILITY_2D_SCRIPT = preload("res://addons/gf/extensions/combat/skills/gf_skill_targeting_utility_2d.gd")
+
+
 
 
 class DummyEntity:
@@ -37,7 +43,7 @@ class SampleSkill extends GFSkill:
 
 func before_each() -> void:
 	var arch: GFArchitecture = GFArchitecture.new()
-	await arch.register_utility_instance(GFSkillTargetingUtility.new())
+	await arch.register_utility_instance(_GF_SKILL_TARGETING_UTILITY_2D_SCRIPT.new())
 	await Gf.set_architecture(arch)
 
 
@@ -48,17 +54,17 @@ func after_each() -> void:
 	Gf._architecture = null
 
 
-func _targeting_utility() -> GFSkillTargetingUtility:
-	var utility: Variant = Gf.get_utility(GFSkillTargetingUtility)
-	if utility is GFSkillTargetingUtility:
+func _targeting_utility() -> _GF_SKILL_TARGETING_UTILITY_2D_SCRIPT:
+	var utility: Variant = Gf.get_utility(_GF_SKILL_TARGETING_UTILITY_2D_SCRIPT)
+	if utility is _GF_SKILL_TARGETING_UTILITY_2D_SCRIPT:
 		return utility
 	return null
 
 
 func test_targeting_distance_sorting() -> void:
-	var utility: GFSkillTargetingUtility = _targeting_utility()
-	var rule: GFSkillTargetingRule = GFSkillTargetingRule.new()
-	rule.shape = GFSkillTargetingRule.Shape.CIRCLE
+	var utility: _GF_SKILL_TARGETING_UTILITY_2D_SCRIPT = _targeting_utility()
+	var rule: _GF_SKILL_TARGETING_RULE_2D_SCRIPT = _GF_SKILL_TARGETING_RULE_2D_SCRIPT.new()
+	rule.shape = _GF_SKILL_TARGETING_RULE_2D_SCRIPT.Shape.CIRCLE
 	rule.radius = 200.0
 	rule.max_count = 10
 
@@ -73,23 +79,23 @@ func test_targeting_distance_sorting() -> void:
 
 	var candidates: Array[Object] = [e1, e2, e3]
 
-	rule.sort_rule = GFSkillTargetingRule.SortRule.DISTANCE_CLOSEST
+	rule.sort_rule = _GF_SKILL_TARGETING_RULE_2D_SCRIPT.SortRule.DISTANCE_CLOSEST
 	var targets: Array[Object] = utility.find_targets(Vector2.ZERO, rule, candidates)
 	assert_eq(targets.size(), 3)
 	assert_eq(targets[0], e2)
 	assert_eq(targets[1], e1)
 	assert_eq(targets[2], e3)
 
-	rule.sort_rule = GFSkillTargetingRule.SortRule.DISTANCE_FURTHEST
+	rule.sort_rule = _GF_SKILL_TARGETING_RULE_2D_SCRIPT.SortRule.DISTANCE_FURTHEST
 	targets = utility.find_targets(Vector2.ZERO, rule, candidates)
 	assert_eq(targets[0], e3)
 	assert_eq(targets[2], e2)
 
 
 func test_targeting_attribute_sorting() -> void:
-	var utility: GFSkillTargetingUtility = _targeting_utility()
-	var rule: GFSkillTargetingRule = GFSkillTargetingRule.new()
-	rule.shape = GFSkillTargetingRule.Shape.CIRCLE
+	var utility: _GF_SKILL_TARGETING_UTILITY_2D_SCRIPT = _targeting_utility()
+	var rule: _GF_SKILL_TARGETING_RULE_2D_SCRIPT = _GF_SKILL_TARGETING_RULE_2D_SCRIPT.new()
+	rule.shape = _GF_SKILL_TARGETING_RULE_2D_SCRIPT.Shape.CIRCLE
 	rule.radius = 1000.0
 	rule.max_count = 3
 	rule.sort_attribute_name = &"CustomVal"
@@ -105,20 +111,20 @@ func test_targeting_attribute_sorting() -> void:
 
 	var candidates: Array[Object] = [e1, e2, e3]
 
-	rule.sort_rule = GFSkillTargetingRule.SortRule.ATTRIBUTE_HIGHEST
+	rule.sort_rule = _GF_SKILL_TARGETING_RULE_2D_SCRIPT.SortRule.ATTRIBUTE_HIGHEST
 	var targets: Array[Object] = utility.find_targets(Vector2.ZERO, rule, candidates)
 	assert_eq(targets[0], e2)
 	assert_eq(targets[2], e3)
 
-	rule.sort_rule = GFSkillTargetingRule.SortRule.ATTRIBUTE_LOWEST
+	rule.sort_rule = _GF_SKILL_TARGETING_RULE_2D_SCRIPT.SortRule.ATTRIBUTE_LOWEST
 	targets = utility.find_targets(Vector2.ZERO, rule, candidates)
 	assert_eq(targets[0], e3)
 	assert_eq(targets[2], e2)
 
 
 func test_targeting_tag_filtering() -> void:
-	var utility: GFSkillTargetingUtility = _targeting_utility()
-	var rule: GFSkillTargetingRule = GFSkillTargetingRule.new()
+	var utility: _GF_SKILL_TARGETING_UTILITY_2D_SCRIPT = _targeting_utility()
+	var rule: _GF_SKILL_TARGETING_RULE_2D_SCRIPT = _GF_SKILL_TARGETING_RULE_2D_SCRIPT.new()
 	rule.radius = 1000.0
 	rule.require_tags = [&"Ally"]
 	rule.ignore_tags = [&"Dead"]
@@ -140,8 +146,8 @@ func test_targeting_tag_filtering() -> void:
 
 
 func test_targeting_max_count() -> void:
-	var utility: GFSkillTargetingUtility = _targeting_utility()
-	var rule: GFSkillTargetingRule = GFSkillTargetingRule.new()
+	var utility: _GF_SKILL_TARGETING_UTILITY_2D_SCRIPT = _targeting_utility()
+	var rule: _GF_SKILL_TARGETING_RULE_2D_SCRIPT = _GF_SKILL_TARGETING_RULE_2D_SCRIPT.new()
 	rule.radius = 1000.0
 	rule.max_count = 2
 
@@ -154,12 +160,45 @@ func test_targeting_max_count() -> void:
 	assert_eq(targets.size(), 2)
 
 
+func test_targeting_skips_entities_without_2d_position() -> void:
+	var utility: _GF_SKILL_TARGETING_UTILITY_2D_SCRIPT = _targeting_utility()
+	var rule: _GF_SKILL_TARGETING_RULE_2D_SCRIPT = _GF_SKILL_TARGETING_RULE_2D_SCRIPT.new()
+	rule.shape = _GF_SKILL_TARGETING_RULE_2D_SCRIPT.Shape.CIRCLE
+	rule.radius = 10.0
+	rule.max_count = 10
+
+	var node_3d: Node3D = Node3D.new()
+	node_3d.position = Vector3(100.0, 0.0, 0.0)
+	add_child_autofree(node_3d)
+	var valid_2d: DummyEntity = DummyEntity.new()
+	valid_2d.global_position = Vector2(5.0, 0.0)
+
+	var targets: Array[Object] = utility.find_targets(Vector2.ZERO, rule, [node_3d, valid_2d])
+
+	assert_eq(targets, [valid_2d], "2D targeting 不应把 Node3D 或未知位置实体回退到 Vector2.ZERO。")
+
+
+func test_targeting_rejects_non_finite_2d_inputs() -> void:
+	var utility: _GF_SKILL_TARGETING_UTILITY_2D_SCRIPT = _targeting_utility()
+	var rule: _GF_SKILL_TARGETING_RULE_2D_SCRIPT = _GF_SKILL_TARGETING_RULE_2D_SCRIPT.new()
+	var entity: DummyEntity = DummyEntity.new()
+
+	rule.radius = NAN
+	assert_eq(utility.find_targets(Vector2.ZERO, rule, [entity]), [])
+
+	rule.radius = 100.0
+	assert_eq(utility.find_targets(Vector2(INF, 0.0), rule, [entity]), [])
+
+	entity.global_position = Vector2(NAN, 0.0)
+	assert_eq(utility.find_targets(Vector2.ZERO, rule, [entity]), [])
+
+
 func test_targeting_random_sort_is_deterministic_for_same_seed() -> void:
-	var utility: GFSkillTargetingUtility = _targeting_utility()
-	var rule: GFSkillTargetingRule = GFSkillTargetingRule.new()
+	var utility: _GF_SKILL_TARGETING_UTILITY_2D_SCRIPT = _targeting_utility()
+	var rule: _GF_SKILL_TARGETING_RULE_2D_SCRIPT = _GF_SKILL_TARGETING_RULE_2D_SCRIPT.new()
 	rule.radius = 1000.0
 	rule.max_count = 10
-	rule.sort_rule = GFSkillTargetingRule.SortRule.RANDOM
+	rule.sort_rule = _GF_SKILL_TARGETING_RULE_2D_SCRIPT.SortRule.RANDOM
 	rule.random_seed = 42
 
 	var e1: DummyEntity = DummyEntity.new()
@@ -173,9 +212,9 @@ func test_targeting_random_sort_is_deterministic_for_same_seed() -> void:
 
 
 func test_rectangle_shape_filters_axis_aligned_bounds() -> void:
-	var utility: GFSkillTargetingUtility = _targeting_utility()
-	var rule: GFSkillTargetingRule = GFSkillTargetingRule.new()
-	rule.shape = GFSkillTargetingRule.Shape.RECTANGLE
+	var utility: _GF_SKILL_TARGETING_UTILITY_2D_SCRIPT = _targeting_utility()
+	var rule: _GF_SKILL_TARGETING_RULE_2D_SCRIPT = _GF_SKILL_TARGETING_RULE_2D_SCRIPT.new()
+	rule.shape = _GF_SKILL_TARGETING_RULE_2D_SCRIPT.Shape.RECTANGLE
 	rule.rectangle_size = Vector2(100.0, 80.0)
 	rule.max_count = 10
 
@@ -194,9 +233,9 @@ func test_rectangle_shape_filters_axis_aligned_bounds() -> void:
 
 
 func test_sector_shape_filters_by_direction() -> void:
-	var utility: GFSkillTargetingUtility = _targeting_utility()
-	var rule: GFSkillTargetingRule = GFSkillTargetingRule.new()
-	rule.shape = GFSkillTargetingRule.Shape.SECTOR
+	var utility: _GF_SKILL_TARGETING_UTILITY_2D_SCRIPT = _targeting_utility()
+	var rule: _GF_SKILL_TARGETING_RULE_2D_SCRIPT = _GF_SKILL_TARGETING_RULE_2D_SCRIPT.new()
+	rule.shape = _GF_SKILL_TARGETING_RULE_2D_SCRIPT.Shape.SECTOR
 	rule.radius = 100.0
 	rule.forward_direction = Vector2.RIGHT
 	rule.sector_angle_degrees = 90.0
@@ -217,7 +256,7 @@ func test_sector_shape_filters_by_direction() -> void:
 
 
 func test_skill_auto_targeting() -> void:
-	var rule: GFSkillTargetingRule = GFSkillTargetingRule.new()
+	var rule: _GF_SKILL_TARGETING_RULE_2D_SCRIPT = _GF_SKILL_TARGETING_RULE_2D_SCRIPT.new()
 	rule.radius = 100.0
 	rule.max_count = 1
 
@@ -237,7 +276,7 @@ func test_skill_auto_targeting() -> void:
 
 
 func test_skill_manual_target_defaults_center_to_owner_position() -> void:
-	var rule: GFSkillTargetingRule = GFSkillTargetingRule.new()
+	var rule: _GF_SKILL_TARGETING_RULE_2D_SCRIPT = _GF_SKILL_TARGETING_RULE_2D_SCRIPT.new()
 	rule.radius = 30.0
 	rule.max_count = 1
 
@@ -256,7 +295,7 @@ func test_skill_manual_target_defaults_center_to_owner_position() -> void:
 
 
 func test_skill_manual_target_rejects_invalid_target_when_max_count_is_unlimited() -> void:
-	var rule: GFSkillTargetingRule = GFSkillTargetingRule.new()
+	var rule: _GF_SKILL_TARGETING_RULE_2D_SCRIPT = _GF_SKILL_TARGETING_RULE_2D_SCRIPT.new()
 	rule.radius = 10.0
 	rule.max_count = 0
 
@@ -273,8 +312,41 @@ func test_skill_manual_target_rejects_invalid_target_when_max_count_is_unlimited
 	assert_eq(test_skill.execute_count, 0, "手动目标未通过 targeting_rule 校验时不应以空目标执行。")
 
 
+func test_skill_activation_report_rejects_missing_required_target() -> void:
+	var rule: _GF_SKILL_TARGETING_RULE_2D_SCRIPT = _GF_SKILL_TARGETING_RULE_2D_SCRIPT.new()
+	rule.radius = 10.0
+	rule.max_count = 1
+
+	var owner_entity: DummyEntity = DummyEntity.new()
+	var test_skill: SampleSkill = SampleSkill.new(owner_entity)
+	test_skill.targeting_rule = rule
+
+	var report: Dictionary = test_skill.get_activation_report()
+
+	assert_false(GFVariantData.get_option_bool(report, "ok"), "激活报告必须覆盖目标解析失败。")
+	assert_eq(GFVariantData.get_option_string_name(report, "reason"), &"no_targets")
+
+
+func test_skill_activation_report_rejects_invalid_manual_target() -> void:
+	var rule: _GF_SKILL_TARGETING_RULE_2D_SCRIPT = _GF_SKILL_TARGETING_RULE_2D_SCRIPT.new()
+	rule.radius = 10.0
+	rule.max_count = 0
+
+	var owner_entity: DummyEntity = DummyEntity.new()
+	var target: DummyEntity = DummyEntity.new()
+	target.global_position = Vector2(100.0, 0.0)
+	var test_skill: SampleSkill = SampleSkill.new(owner_entity)
+	test_skill.targeting_rule = rule
+	var context: RefCounted = test_skill.build_activation_context(target)
+
+	var report: Dictionary = test_skill.get_activation_report(context)
+
+	assert_false(GFVariantData.get_option_bool(report, "ok"), "手动目标校验必须属于激活预检。")
+	assert_eq(GFVariantData.get_option_string_name(report, "reason"), &"invalid_manual_target")
+
+
 func test_skill_explicit_origin_cast_center_is_respected() -> void:
-	var rule: GFSkillTargetingRule = GFSkillTargetingRule.new()
+	var rule: _GF_SKILL_TARGETING_RULE_2D_SCRIPT = _GF_SKILL_TARGETING_RULE_2D_SCRIPT.new()
 	rule.radius = 30.0
 	rule.max_count = 1
 

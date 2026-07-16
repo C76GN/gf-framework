@@ -390,24 +390,26 @@ func diff_cells(other: GFTileMapCache, compare_key: StringName = &"") -> Array[V
 ### `to_dict`
 
 - API：`public`
+- 首次版本：`8.0.0`
 
 ```gdscript
 func to_dict() -> Dictionary:
 ```
 
-序列化为字典。
+序列化为 JSON 兼容字典。
 
-返回：可保存的字典。
+返回：可保存的 JSON 兼容字典。
 
 结构：
 
-- `return`: Dictionary mapping string cell keys to Dictionary cell records.
+- `return`: Dictionary mapping string cell keys to JSON-compatible Dictionary cell records.
 
 <a id="member-gftilemapcache-methods-from_dict"></a>
 
 ### `from_dict`
 
 - API：`public`
+- 首次版本：`8.0.0`
 
 ```gdscript
 func from_dict(data: Dictionary) -> void:
@@ -419,8 +421,8 @@ func from_dict(data: Dictionary) -> void:
 
 | 名称 | 说明 |
 |---|---|
-| `data` | to_dict() 生成的数据。 |
+| `data` | to_dict() 生成的数据，或旧版原始 Variant 记录。 |
 
 结构：
 
-- `data`: Dictionary mapping string cell keys to Dictionary cell records.
+- `data`: Dictionary mapping string cell keys to JSON-compatible Dictionary cell records.

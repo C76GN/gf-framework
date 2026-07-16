@@ -11,6 +11,11 @@ class_name GFDecisionScore
 extends RefCounted
 
 
+# --- 常量 ---
+
+const _GF_DECISION_NUMERIC_POLICY = preload("res://addons/gf/extensions/decision/runtime/gf_decision_numeric_policy.gd")
+
+
 # --- 公共变量 ---
 
 ## 候选决策标识。
@@ -61,10 +66,10 @@ func _init(
 	is_accepted: bool = false,
 	source_order: int = -1
 ) -> void:
-	score = final_score
+	score = _GF_DECISION_NUMERIC_POLICY.normalize_score(final_score)
 	accepted = is_accepted
 	decision_order = source_order
-	consideration_scores = details.duplicate(true)
+	consideration_scores = _normalize_consideration_scores(details)
 	if source_decision != null:
 		decision_id = source_decision.decision_id
 		metadata = source_decision.metadata.duplicate(true)
@@ -96,8 +101,47 @@ func to_dictionary() -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
+## @since 4.3.0
+## [br]
 ## @return: 调试快照字典。
 ## [br]
-## @schema return: 与 to_dictionary() 相同的评分结果 Dictionary。
+## @schema return: 基于 to_dictionary() 编码的 JSON-safe 评分结果 Dictionary。
 func get_debug_snapshot() -> Dictionary:
-	return to_dictionary()
+	return to_report_dictionary()
+
+
+## 转换为 JSON-safe 报告字典。
+## [br]
+## @api public
+## [br]
+## @param options: 传给 GFReportValueCodec 的编码选项。
+## [br]
+## @return 评分报告字典。
+## [br]
+## @since 8.0.0
+## [br]
+## @schema options: Dictionary with GFReportValueCodec encoding options.
+## [br]
+## @schema return: JSON-safe Dictionary based on to_dictionary().
+func to_report_dictionary(options: Dictionary = {}) -> Dictionary:
+	return GFReportValueCodec.to_report_dictionary(to_dictionary(), options)
+
+
+# --- 私有/辅助方法 ---
+
+func _normalize_consideration_scores(details: Array[Dictionary]) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	for detail: Dictionary in details:
+		result.append({
+			"consideration_id": GFVariantData.get_option_string_name(detail, "consideration_id"),
+			"score": _GF_DECISION_NUMERIC_POLICY.normalize_score(
+				GFVariantData.get_option_float(detail, "score")
+			),
+			"weight": _GF_DECISION_NUMERIC_POLICY.normalize_weight(
+				GFVariantData.get_option_float(detail, "weight")
+			),
+			"weighted_score": _GF_DECISION_NUMERIC_POLICY.normalize_score(
+				GFVariantData.get_option_float(detail, "weighted_score")
+			),
+		})
+	return result

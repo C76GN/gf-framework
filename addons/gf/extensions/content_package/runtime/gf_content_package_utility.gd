@@ -17,7 +17,9 @@ extends GFUtility
 ## [br]
 ## @api public
 ## [br]
-## @param catalog: 当前内容包目录。
+## @since 4.4.0
+## [br]
+## @param catalog: 当前内容包目录的隔离快照。
 signal catalog_rebuilt(catalog: GFContentPackageCatalog)
 
 
@@ -38,7 +40,7 @@ var _catalog: GFContentPackageCatalog = GFContentPackageCatalog.new()
 ## [br]
 ## @api framework_internal
 func init() -> void:
-	clear_source_roots()
+	_source_roots.clear()
 	_catalog = GFContentPackageCatalog.new()
 
 
@@ -46,8 +48,8 @@ func init() -> void:
 ## [br]
 ## @api framework_internal
 func dispose() -> void:
-	clear_source_roots()
-	_catalog.clear()
+	_source_roots.clear()
+	_catalog = GFContentPackageCatalog.new()
 
 
 # --- 公共方法 ---
@@ -69,6 +71,7 @@ func register_source_root(root_path: String) -> bool:
 		return false
 
 	var _append_result: bool = _source_roots.append(normalized_root)
+	_reset_catalog_after_roots_changed()
 	return true
 
 
@@ -85,6 +88,7 @@ func unregister_source_root(root_path: String) -> bool:
 		if _source_roots[index] != normalized_root:
 			continue
 		_source_roots.remove_at(index)
+		_reset_catalog_after_roots_changed()
 		return true
 	return false
 
@@ -94,6 +98,7 @@ func unregister_source_root(root_path: String) -> bool:
 ## @api public
 func clear_source_roots() -> void:
 	_source_roots.clear()
+	_reset_catalog_after_roots_changed()
 
 
 ## 获取内容包 source root 列表。
@@ -109,9 +114,11 @@ func get_source_roots() -> PackedStringArray:
 ## [br]
 ## @api public
 ## [br]
-## @return 内容包目录。
+## @since 4.4.0
+## [br]
+## @return 当前内容包目录的深拷贝。
 func get_catalog() -> GFContentPackageCatalog:
-	return _catalog
+	return _catalog.duplicate_catalog()
 
 
 ## 发现 source root 中的内容包 manifest 路径。
@@ -147,11 +154,13 @@ func load_manifest(path: String) -> GFContentPackageManifest:
 ## [br]
 ## @api public
 ## [br]
+## @since 4.4.0
+## [br]
 ## @param options: 校验选项，透传给 GFContentPackageCatalog。
 ## [br]
 ## @return GFValidationReportDictionary 兼容报告。
 ## [br]
-## @schema options: Dictionary，可包含 check_resource_exists: bool。
+## @schema options: Dictionary，可包含 check_resource_exists: bool、check_resource_dependencies: bool 和 dependency_options: Dictionary。
 ## [br]
 ## @schema return: GFValidationReportDictionary.finalize_report() 生成的 Dictionary，并包含 package_count、package_ids、ordered_package_ids 和 duplicate_package_ids。
 func rebuild_catalog(options: Dictionary = {}) -> Dictionary:
@@ -168,13 +177,15 @@ func rebuild_catalog(options: Dictionary = {}) -> Dictionary:
 	var report: Dictionary = _add_manifest_load_failures(candidate_catalog.get_graph_report(options), failed_manifest_paths)
 	if _report_ok(report):
 		_catalog = candidate_catalog
-		catalog_rebuilt.emit(_catalog)
+		catalog_rebuilt.emit(_catalog.duplicate_catalog())
 	return report
 
 
 ## 手动替换内容包目录。
 ## [br]
 ## @api public
+## [br]
+## @since 4.4.0
 ## [br]
 ## @param manifests: 内容包 manifest 列表。
 ## [br]
@@ -184,7 +195,7 @@ func rebuild_catalog(options: Dictionary = {}) -> Dictionary:
 ## [br]
 ## @schema manifests: Array[GFContentPackageManifest]，无效项会被忽略或进入诊断。
 ## [br]
-## @schema options: Dictionary，可包含 check_resource_exists: bool。
+## @schema options: Dictionary，可包含 check_resource_exists: bool、check_resource_dependencies: bool 和 dependency_options: Dictionary。
 ## [br]
 ## @schema return: GFValidationReportDictionary.finalize_report() 生成的 Dictionary，并包含 package_count、package_ids、ordered_package_ids 和 duplicate_package_ids。
 func set_manifests(
@@ -196,7 +207,7 @@ func set_manifests(
 	var report: Dictionary = candidate_catalog.get_graph_report(options)
 	if _report_ok(report):
 		_catalog = candidate_catalog
-		catalog_rebuilt.emit(_catalog)
+		catalog_rebuilt.emit(_catalog.duplicate_catalog())
 	return report
 
 
@@ -204,13 +215,15 @@ func set_manifests(
 ## [br]
 ## @api public
 ## [br]
+## @since 4.4.0
+## [br]
 ## @param resolver: 标准资源解析器。
 ## [br]
-## @param options: 注册选项。`base_priority` 默认为 0；`check_resource_exists` 默认为 false。
+## @param options: 注册选项。`base_priority` 默认为 0；校验选项透传给 manifest。
 ## [br]
 ## @return GFValidationReportDictionary 兼容报告，并包含 registered_count。
 ## [br]
-## @schema options: Dictionary，可包含 base_priority: int 和 check_resource_exists: bool。
+## @schema options: Dictionary，可包含 base_priority: int、check_resource_exists: bool、check_resource_dependencies: bool 和 dependency_options: Dictionary。
 ## [br]
 ## @schema return: GFValidationReportDictionary.finalize_report() 生成的 Dictionary，并包含 registered_count。
 func register_resources(resolver: GFResourceResolverUtility, options: Dictionary = {}) -> Dictionary:
@@ -307,6 +320,11 @@ func _add_manifest_load_failures(report: Dictionary, failed_manifest_paths: Pack
 
 func _report_ok(report: Dictionary) -> bool:
 	return GFVariantData.get_option_bool(report, "ok", false)
+
+
+func _reset_catalog_after_roots_changed() -> void:
+	_catalog = GFContentPackageCatalog.new()
+	catalog_rebuilt.emit(_catalog.duplicate_catalog())
 
 
 static func _normalize_root_path(path: String) -> String:

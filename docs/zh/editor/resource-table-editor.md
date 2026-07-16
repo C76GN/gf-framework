@@ -27,3 +27,22 @@ var report := editor.commit_visible_cell_values([
 批量提交不是事务；部分失败不会回滚已成功的资源修改。返回报告包含 `ok`、`requested_count`、`applied_count`、`unchanged_count`、`failed_count`、`committed` 和 `errors`。启用自动保存时，同一批中同一个 `Resource` 只会保存一次。
 
 自动保存只会在 `auto_save_committed_resources = true` 且资源已有 `resource_path` 时触发；保存失败通过 `resource_save_failed` 交给调用方处理。
+
+## 值字段控件
+
+`GFEditorValueField` 是表格和自定义 Inspector 可复用的单值输入控件。默认会按 Godot property info 创建 bool、int、float、enum、Vector2/3/4、Color、StringName、NodePath、Array 和 Dictionary 输入；Array / Dictionary 仍使用 JSON 文本输入，并在解析失败时保留旧值。
+
+```gdscript
+var field := GFEditorValueField.new()
+field.set_label("Offset", true)
+field.set_debounce_seconds(0.2)
+field.configure({
+	"name": &"offset",
+	"type": TYPE_VECTOR2,
+}, Vector2.ZERO)
+field.debounced_value_changed.connect(func(value: Variant) -> void:
+	commit_preview_value(value)
+)
+```
+
+项目工具需要特殊控件时，可按 Variant 类型注册工厂。工厂返回的 Control 如果实现 `get_value()`、`set_value(value)`、`set_editable(editable)` 或发出 `value_changed(value)`，`GFEditorValueField` 会按这些约定读写和转发。控件工厂只用于编辑器 UI，不应在里面写入资源或场景；提交仍应由表格、命令或调用方控制。

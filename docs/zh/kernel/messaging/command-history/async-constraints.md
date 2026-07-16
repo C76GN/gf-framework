@@ -13,8 +13,8 @@ await history.redo_async()
 
 异步版本会在命令返回 `Signal` 时等待完成后再移动撤销/重做栈。
 
-`GFCommandHistoryUtility.async_timeout_seconds` 只会停止历史操作的等待和入栈/出栈推进，无法强制取消已经开始的 coroutine，也不会自动回滚命令已经产生的副作用。
+`GFCommandHistoryUtility.async_stall_warning_seconds` 是停滞告警阈值，不是 timeout 或 cancellation。超过阈值后历史工具只发出一次 warning，并继续持有处理锁，直到命令 Signal 进入真实终态；因此迟到完成不会让 world state 与撤销/重做栈分叉。设为 `0` 可关闭告警，但不会关闭等待。
 
-异步命令执行期间，历史工具会拒绝新的执行、记录、清空或恢复请求并输出 warning。
+异步命令执行期间，历史工具会拒绝新的执行、记录、清空或恢复请求并输出 warning。若项目必须在截止时间取消副作用，应让命令自身使用 `GFCancellationToken` 或显式 terminal operation，并在命令完成后再让历史栈推进；历史层不会伪装成底层取消器。
 
 需要排队的高频操作应放入项目层队列或 `GFCommandSequence`。

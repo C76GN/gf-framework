@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFExtensionPresetDiscovery" path="addons/gf/kernel/extension/gf_extension_preset_discovery.gd" module="kernel" extends="RefCounted" classDigest="277d8481bc9d59892a07d5a35920ad79337cffce68f0d5086200ea4282de533a">
+	<description>GFExtensionPresetDiscovery: GF 扩展 preset 发现快照缓存。
+基于 manifest 集合和项目 preset 路径生成可缓存的 preset snapshot，
+统一内置 preset、项目 preset、重复 ID、无效文件和未知扩展 ID 的报告边界。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_service</tag>
+		<tag name="layer">kernel/extension</tag>
+		<tag name="since">8.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties />
+	<methods>
+		<member kind="method" name="get_snapshot">
+			<signature>static func get_snapshot( manifests: Array[GFExtensionManifest] = [], configured_paths: Array[String] = [], options: Dictionary = {} ) -&gt; Dictionary:</signature>
+			<description>获取当前扩展 preset 发现快照。
+默认会复用仍然有效的快照；当 manifest ID/default 状态、preset 路径集合或 preset 文件内容变化时，
+自动重新扫描并替换缓存。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">manifests: 当前可发现的扩展 manifest 列表。</tag>
+				<tag name="param">configured_paths: 项目配置中的 preset 路径列表，可包含无效路径以便生成诊断。</tag>
+				<tag name="param">options: 发现选项。</tag>
+				<tag name="return">preset 发现快照。</tag>
+				<tag name="schema">options: Dictionary，支持 force_refresh；为 true 时跳过现有缓存并重新扫描。</tag>
+				<tag name="schema">return: Dictionary，包含 ok、presets、report、configured_paths、signature、signature_hash、revision、preset_count 和 issue_count。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="clear_cache">
+			<signature>static func clear_cache() -&gt; void:</signature>
+			<description>清空 preset 发现快照缓存。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

@@ -6,7 +6,7 @@
 
 整个框架的入口是全局 AutoLoad 节点 —— **`Gf`**。它挂载在 Godot 的全局根节点下，负责持有当前 `GFArchitecture`、执行项目级 Installer、代理常用注册/查询接口，并把 `_process` 与 `_physics_process` 转发给架构。
 
-在 `Gf` 背后，真正承载所有业务的对象是 **`GFArchitecture`**。它是一个纯代码容器，负责管理所有 `Model`、`System`、`Utility` 的注册、生命周期调用以及事件总线的派发。`Foundation` 层则作为容器外的纯基础件，被这些运行时模块直接依赖。
+在 `Gf` 背后，真正承载所有业务的对象是 **`GFArchitecture`**。它是一个纯代码容器，负责管理所有 `Model`、`System`、`Utility` 的注册、生命周期调用以及事件总线的派发。主生命周期状态由内部 `GFKernelRuntime` 维护，项目通常只通过 `GFArchitecture.is_inited()`、`init()` 和 `dispose()` 观察或推进状态。`Foundation` 层则作为容器外的纯基础件，被这些运行时模块直接依赖。
 
 ## 层级依赖边界
 

@@ -15,30 +15,17 @@
 
 | 类型 | 名称 | 签名 |
 |---|---|---|
-| 属性 | [`cancel_preview_generation`](#member-gfthumbnailrenderer-properties-cancel_preview_generation) | `var cancel_preview_generation: bool = false` |
 | 方法 | [`render_node3d`](#member-gfthumbnailrenderer-methods-render_node3d) | `func render_node3d(source: Node3D, size: Vector2i = Vector2i(256, 256), transparent: bool = true) -> Image:` |
 | 方法 | [`render_node3d_texture`](#member-gfthumbnailrenderer-methods-render_node3d_texture) | `func render_node3d_texture( source: Node3D, size: Vector2i = Vector2i(256, 256), transparent: bool = true ) -> ImageTexture:` |
 | 方法 | [`render_mesh`](#member-gfthumbnailrenderer-methods-render_mesh) | `func render_mesh(mesh: Mesh, size: Vector2i = Vector2i(256, 256), transparent: bool = true) -> Image:` |
 | 方法 | [`render_mesh_texture`](#member-gfthumbnailrenderer-methods-render_mesh_texture) | `func render_mesh_texture( mesh: Mesh, size: Vector2i = Vector2i(256, 256), transparent: bool = true ) -> ImageTexture:` |
+| 方法 | [`submit_render_request`](#member-gfthumbnailrenderer-methods-submit_render_request) | `func submit_render_request(request: GFThumbnailRenderRequest) -> GFThumbnailRenderTask:` |
+| 方法 | [`cancel_render_task`](#member-gfthumbnailrenderer-methods-cancel_render_task) | `func cancel_render_task(task: GFThumbnailRenderTask, reason: StringName = &"cancelled") -> bool:` |
 | 方法 | [`render_mesh_library_previews`](#member-gfthumbnailrenderer-methods-render_mesh_library_previews) | `func render_mesh_library_previews( mesh_library: MeshLibrary, size: Vector2i = Vector2i(128, 128), overwrite_existing: bool = true ) -> int:` |
 | 方法 | [`build_mesh_library_preview_plan`](#member-gfthumbnailrenderer-methods-build_mesh_library_preview_plan) | `func build_mesh_library_preview_plan( mesh_library: MeshLibrary, size: Vector2i = Vector2i(128, 128), overwrite_existing: bool = true ) -> Dictionary:` |
 | 方法 | [`apply_mesh_library_preview_plan`](#member-gfthumbnailrenderer-methods-apply_mesh_library_preview_plan) | `func apply_mesh_library_preview_plan(mesh_library: MeshLibrary, plan: Dictionary) -> int:` |
 | 方法 | [`revert_mesh_library_preview_plan`](#member-gfthumbnailrenderer-methods-revert_mesh_library_preview_plan) | `func revert_mesh_library_preview_plan(mesh_library: MeshLibrary, plan: Dictionary) -> int:` |
 | 方法 | [`add_mesh_library_preview_plan_to_undo_manager`](#member-gfthumbnailrenderer-methods-add_mesh_library_preview_plan_to_undo_manager) | `func add_mesh_library_preview_plan_to_undo_manager( mesh_library: MeshLibrary, plan: Dictionary, undo_manager: Object, action_name: String = "Generate MeshLibrary Previews" ) -> Error:` |
-
-## 属性
-
-<a id="member-gfthumbnailrenderer-properties-cancel_preview_generation"></a>
-
-### `cancel_preview_generation`
-
-- API：`public`
-
-```gdscript
-var cancel_preview_generation: bool = false
-```
-
-请求取消正在进行的 MeshLibrary 批量预览生成。
 
 ## 方法
 
@@ -129,6 +116,49 @@ func render_mesh_texture( mesh: Mesh, size: Vector2i = Vector2i(256, 256), trans
 | `transparent` | 是否透明背景。 |
 
 返回：渲染出的 ImageTexture；失败时返回 null。
+
+<a id="member-gfthumbnailrenderer-methods-submit_render_request"></a>
+
+### `submit_render_request`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func submit_render_request(request: GFThumbnailRenderRequest) -> GFThumbnailRenderTask:
+```
+
+提交一个缩略图渲染请求。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `request` | 缩略图渲染请求。 |
+
+返回：可取消、可等待的渲染任务。
+
+<a id="member-gfthumbnailrenderer-methods-cancel_render_task"></a>
+
+### `cancel_render_task`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func cancel_render_task(task: GFThumbnailRenderTask, reason: StringName = &"cancelled") -> bool:
+```
+
+取消一个渲染任务。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `task` | 要取消的任务。 |
+| `reason` | 取消原因。 |
+
+返回：本次调用是否发出新的取消请求。
 
 <a id="member-gfthumbnailrenderer-methods-render_mesh_library_previews"></a>
 

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFShakeReceiver2D" path="addons/gf/extensions/feedback/nodes/gf_shake_receiver_2d.gd" module="extensions/feedback" extends="Node" classDigest="5d3e11817acd132b1be57937483bf6b7ef68f894b9b9c7db1d37b5211e9dc852">
+<class name="GFShakeReceiver2D" path="addons/gf/extensions/feedback/nodes/gf_shake_receiver_2d.gd" module="extensions/feedback" extends="Node" classDigest="0107c1c50b69196504d4bbd5446170fa4041a23fa1353f7276b59386b7479cba">
 	<description>GFShakeReceiver2D: 将反馈采样应用到 Node2D 的通用接收器。</description>
 	<tags>
 		<tag name="api">public</tag>
@@ -23,6 +23,7 @@
 			<description>采样 channel。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="apply_position" decorators="@export">
@@ -30,6 +31,7 @@
 			<description>是否应用 position 偏移。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="apply_rotation" decorators="@export">
@@ -37,6 +39,7 @@
 			<description>是否应用 rotation_degrees 偏移。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="apply_scale" decorators="@export">
@@ -44,6 +47,7 @@
 			<description>是否应用 scale 偏移。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="capture_on_ready" decorators="@export">
@@ -51,6 +55,7 @@
 			<description>ready 时是否记录基础变换。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="restore_on_exit" decorators="@export">
@@ -58,6 +63,7 @@
 			<description>退出树时是否恢复基础变换。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="utility">
@@ -65,6 +71,7 @@
 			<description>可选反馈工具实例；为空时从全局架构查询。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</properties>
@@ -75,6 +82,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">shake_utility: 反馈工具实例。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_target">
@@ -83,6 +91,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">目标 Node2D；不存在时返回 null。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="capture_base_transform">
@@ -91,6 +100,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">记录成功返回 true。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="apply_current_sample">
@@ -99,6 +109,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">应用成功返回 true。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="reset_to_base">
@@ -107,6 +118,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">恢复成功返回 true。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</methods>

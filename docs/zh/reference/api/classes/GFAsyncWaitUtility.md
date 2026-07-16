@@ -21,6 +21,7 @@
 | 常量 | [`STATUS_INVALID`](#member-gfasyncwaitutility-constants-status_invalid) | `const STATUS_INVALID: StringName = &"invalid"` |
 | 方法 | [`await_signal`](#member-gfasyncwaitutility-methods-await_signal) | `static func await_signal(result_signal: Signal, options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`await_signal_payload`](#member-gfasyncwaitutility-methods-await_signal_payload) | `static func await_signal_payload(result_signal: Signal, options: Dictionary = {}) -> Dictionary:` |
+| 方法 | [`wait_completion_async`](#member-gfasyncwaitutility-methods-wait_completion_async) | `static func wait_completion_async(completion: GFAsyncCompletion, options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`next_frame`](#member-gfasyncwaitutility-methods-next_frame) | `static func next_frame(options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`physics_frame`](#member-gfasyncwaitutility-methods-physics_frame) | `static func physics_frame(options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`delay_seconds`](#member-gfasyncwaitutility-methods-delay_seconds) | `static func delay_seconds(seconds: float, options: Dictionary = {}) -> Dictionary:` |
@@ -137,6 +138,33 @@ static func await_signal_payload(result_signal: Signal, options: Dictionary = {}
 
 - `options`: Dictionary，可包含 timeout_seconds、cancel_token、guard_node、tree、time_utility、respect_time_scale、process_in_physics 和 timeout_warning。
 - `return`: Dictionary，包含 status、completed、cancelled、timed_out、invalid、reason、metadata 和 args。
+
+<a id="member-gfasyncwaitutility-methods-wait_completion_async"></a>
+
+### `wait_completion_async`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+static func wait_completion_async(completion: GFAsyncCompletion, options: Dictionary = {}) -> Dictionary:
+```
+
+等待完成源进入终态。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `completion` | 要等待的完成源。 |
+| `options` | 等待选项。 |
+
+返回：完成源快照；等待超时、取消或失效时包含 wait_status 字段。
+
+结构：
+
+- `options`: Dictionary，可包含 timeout_seconds、cancel_token、guard_node、time_utility、respect_time_scale 和 timeout_warning。
+- `return`: Dictionary，包含 status、status_name、completed、result、error、cancel_reason、metadata 和可选 wait_status。
 
 <a id="member-gfasyncwaitutility-methods-next_frame"></a>
 

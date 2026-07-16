@@ -166,9 +166,32 @@ static func unpack_key(key: int) -> Dictionary:
 	}
 
 
-## 将世界位置量化为格坐标。
+## 判断世界位置、单格尺寸和原点是否可被安全量化。
 ## [br]
 ## @api public
+## [br]
+## @since 8.0.0
+## [br]
+## @param position: 世界或局部位置。
+## [br]
+## @param cell_size: 单格尺寸。
+## [br]
+## @param origin: 量化原点。
+## [br]
+## @return: 所有输入都为有限数时返回 true。
+static func can_quantize_position(
+	position: Vector3,
+	cell_size: Vector3 = Vector3.ONE,
+	origin: Vector3 = Vector3.ZERO
+) -> bool:
+	return _is_finite_vector3(position) and _is_finite_vector3(cell_size) and _is_finite_vector3(origin)
+
+
+## 尝试将世界位置量化为格坐标。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
 ## [br]
 ## @param position: 世界或局部位置。
 ## [br]
@@ -176,23 +199,57 @@ static func unpack_key(key: int) -> Dictionary:
 ## [br]
 ## @param origin: 量化原点。
 ## [br]
-## @return 量化后的格坐标。
+## @return: 量化报告。
+## [br]
+## @schema return: Dictionary with ok: bool, error: String, and cell: Vector3i.
+static func try_position_to_cell(
+	position: Vector3,
+	cell_size: Vector3 = Vector3.ONE,
+	origin: Vector3 = Vector3.ZERO
+) -> Dictionary:
+	if not can_quantize_position(position, cell_size, origin):
+		return {
+			"ok": false,
+			"error": "position, cell_size, and origin must contain finite values.",
+			"cell": Vector3i.ZERO,
+		}
+	return {
+		"ok": true,
+		"error": "",
+		"cell": _quantize_position_to_cell(position, cell_size, origin),
+	}
+
+
+## 将世界位置量化为格坐标。
+## [br]
+## @api public
+## [br]
+## @since 3.18.0
+## [br]
+## @param position: 世界或局部位置。
+## [br]
+## @param cell_size: 单格尺寸，各轴会被限制为正数。
+## [br]
+## @param origin: 量化原点。
+## [br]
+## @return: 量化后的格坐标；输入包含非有限数时返回 Vector3i.ZERO。
 static func position_to_cell(
 	position: Vector3,
 	cell_size: Vector3 = Vector3.ONE,
 	origin: Vector3 = Vector3.ZERO
 ) -> Vector3i:
-	var safe_size: Vector3 = _get_safe_cell_size(cell_size)
-	return Vector3i(
-		floori((position.x - origin.x) / safe_size.x),
-		floori((position.y - origin.y) / safe_size.y),
-		floori((position.z - origin.z) / safe_size.z)
-	)
+	var report: Dictionary = try_position_to_cell(position, cell_size, origin)
+	var cell: Variant = GFVariantData.get_option_value(report, "cell", Vector3i.ZERO)
+	if cell is Vector3i:
+		return cell
+	return Vector3i.ZERO
 
 
 ## 将世界位置量化并打包成整数 key。
 ## [br]
 ## @api public
+## [br]
+## @since 3.18.0
 ## [br]
 ## @param position: 世界或局部位置。
 ## [br]
@@ -202,14 +259,21 @@ static func position_to_cell(
 ## [br]
 ## @param orientation: 方向编号，范围为 0..63。
 ## [br]
-## @return 打包后的 key；量化坐标或方向编号超出范围时返回 INVALID_KEY。
+## @return: 打包后的 key；输入非有限、量化坐标或方向编号超出范围时返回 INVALID_KEY。
 static func pack_position(
 	position: Vector3,
 	cell_size: Vector3 = Vector3.ONE,
 	origin: Vector3 = Vector3.ZERO,
 	orientation: int = 0
 ) -> int:
-	return pack_cell(position_to_cell(position, cell_size, origin), orientation)
+	var report: Dictionary = try_position_to_cell(position, cell_size, origin)
+	if not GFVariantData.get_option_bool(report, "ok"):
+		return INVALID_KEY
+	var cell: Variant = GFVariantData.get_option_value(report, "cell", Vector3i.ZERO)
+	if cell is Vector3i:
+		var cell_value: Vector3i = cell
+		return pack_cell(cell_value, orientation)
+	return INVALID_KEY
 
 
 # --- 私有/辅助方法 ---
@@ -222,9 +286,30 @@ static func _decode_coordinate(value: int) -> int:
 	return value - _COORDINATE_OFFSET
 
 
+static func _quantize_position_to_cell(
+	position: Vector3,
+	cell_size: Vector3,
+	origin: Vector3
+) -> Vector3i:
+	var safe_size: Vector3 = _get_safe_cell_size(cell_size)
+	return Vector3i(
+		floori((position.x - origin.x) / safe_size.x),
+		floori((position.y - origin.y) / safe_size.y),
+		floori((position.z - origin.z) / safe_size.z)
+	)
+
+
 static func _get_safe_cell_size(cell_size: Vector3) -> Vector3:
 	return Vector3(
 		maxf(absf(cell_size.x), _MIN_CELL_SIZE),
 		maxf(absf(cell_size.y), _MIN_CELL_SIZE),
 		maxf(absf(cell_size.z), _MIN_CELL_SIZE)
 	)
+
+
+static func _is_finite_vector3(value: Vector3) -> bool:
+	return _is_finite_float(value.x) and _is_finite_float(value.y) and _is_finite_float(value.z)
+
+
+static func _is_finite_float(value: float) -> bool:
+	return not is_nan(value) and not is_inf(value)

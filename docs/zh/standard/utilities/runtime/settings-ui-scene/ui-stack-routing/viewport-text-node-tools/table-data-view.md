@@ -90,7 +90,7 @@ if table.selection_model.is_selected("weapon_001"):
 
 ## 与虚拟列表的关系
 
-`GFTableDataView` 负责回答“当前有哪些可见行、每行有哪些列值”。`GFVirtualListModel` 负责回答“大量可变尺寸行在滚动窗口中应该物化哪些索引”。大表 UI 可以组合两者：先用 `GFTableDataView` 得到过滤/排序后的可见行顺序，再用 `GFVirtualListModel` 控制 Control 的创建和测量。
+`GFTableDataView` 负责回答“当前有哪些可见行、每行有哪些列值”。`GFVirtualListModel` 负责回答“大量可变尺寸行在滚动窗口中应该物化哪些索引”。`GFVirtualListFocusModel` 可用当前可见行索引维护虚拟焦点，避免焦点绑定到被回收复用的行控件。大表 UI 可以组合三者：先用 `GFTableDataView` 得到过滤/排序后的可见行顺序，再用 `GFVirtualListModel` 控制 Control 的创建和测量，用 `GFVirtualListFocusModel` 驱动键盘或手柄焦点表现。
 
 ## 注意事项
 

@@ -13,6 +13,6 @@
   "paths": [
     "addons/gf/extensions/flow/**"
   ],
-  "enable_extension": "gf.flow",
+  "gf_extension_id": "gf.flow",
   "metadata": {}
 }

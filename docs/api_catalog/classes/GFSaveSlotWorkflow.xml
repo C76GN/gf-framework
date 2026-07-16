@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSaveSlotWorkflow" path="addons/gf/extensions/save/slots/gf_save_slot_workflow.gd" module="extensions/save" extends="Resource" classDigest="fb9ede960898515e098d7d134c216b08c02b6b0dccbff0255e7663e58da09ad8">
+<class name="GFSaveSlotWorkflow" path="addons/gf/extensions/save/slots/gf_save_slot_workflow.gd" module="extensions/save" extends="Resource" classDigest="8ad24d86e5fd5a3802ce6929fe12da1ce594f224d29d2e16247dca909c643a4d">
 	<description>GFSaveSlotWorkflow: 通用存档槽工作流配置。
 负责把槽位索引、逻辑标识、元数据和槽位摘要 DTO 串起来。
 不执行具体存取逻辑，也不写死任何游戏业务字段。</description>
@@ -34,17 +34,19 @@
 			</tags>
 		</member>
 		<member kind="property" name="metadata_script" decorators="@export">
-			<signature>var metadata_script: Script = _GF_SAVE_SLOT_METADATA_SCRIPT</signature>
+			<signature>var metadata_script: Script = GFSaveSlotMetadata</signature>
 			<description>可替换的元数据资源脚本，项目层可继承 GFSaveSlotMetadata 扩展。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="card_script" decorators="@export">
-			<signature>var card_script: Script = _GF_SAVE_SLOT_CARD_SCRIPT</signature>
+			<signature>var card_script: Script = GFSaveSlotCard</signature>
 			<description>可替换的卡片资源脚本，项目层可继承 GFSaveSlotCard 扩展。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="slot_role" decorators="@export">
@@ -168,18 +170,20 @@
 				<tag name="param">summaries: 槽位摘要列表。</tag>
 				<tag name="return">卡片列表。</tag>
 				<tag name="schema">indices: Array，元素为可转换为 int 的槽位索引。</tag>
-				<tag name="schema">summaries: Array，每项为 GFStorageUtility.list_slots() 风格的 Dictionary 摘要。</tag>
+				<tag name="schema">summaries: Array，每项为槽位存储适配器产出的 Dictionary 摘要。</tag>
+				<tag name="since">3.6.0</tag>
 			</tags>
 		</member>
-		<member kind="method" name="build_cards_from_storage">
-			<signature>func build_cards_from_storage(storage: GFStorageUtility, indices: Array = []) -&gt; Array[GFSaveSlotCard]:</signature>
-			<description>从 GFStorageUtility 读取摘要并构建卡片。</description>
+		<member kind="method" name="build_cards_from_slot_store">
+			<signature>func build_cards_from_slot_store(slot_store: GFSaveSlotStorageAdapter, indices: Array = []) -&gt; Array[GFSaveSlotCard]:</signature>
+			<description>从 GFSaveSlotStorageAdapter 读取摘要并构建卡片。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="param">storage: 存储工具。</tag>
+				<tag name="param">slot_store: 槽位存储适配器。</tag>
 				<tag name="param">indices: 需要展示的槽位索引；为空时使用已有槽位。</tag>
 				<tag name="return">卡片列表。</tag>
 				<tag name="schema">indices: Array，元素为可转换为 int 的槽位索引。</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 	</methods>

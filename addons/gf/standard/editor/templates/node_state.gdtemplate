@@ -1,0 +1,55 @@
+## {ClassName}: TODO。
+class_name {ClassName}
+extends {BaseClass}
+
+
+# --- 信号 ---
+
+
+# --- 枚举 ---
+
+
+# --- 常量 ---
+
+
+# --- 导出变量 ---
+
+
+# --- 公共变量 ---
+
+
+# --- 私有变量 ---
+
+
+# --- @onready 变量 (节点引用) ---
+
+
+# --- 公共方法 ---
+
+
+# --- 可重写钩子 / 虚方法 ---
+
+func _initialize() -> void:
+	pass
+
+
+func _enter(_previous_state: StringName = &"", _args: Dictionary = {}) -> void:
+	pass
+
+
+func _exit(_next_state: StringName = &"", _args: Dictionary = {}) -> void:
+	pass
+
+
+func _pause(_next_state: StringName = &"", _args: Dictionary = {}) -> void:
+	pass
+
+
+func _resume(_previous_state: StringName = &"", _args: Dictionary = {}) -> void:
+	pass
+
+
+# --- 私有/辅助方法 ---
+
+
+# --- 信号处理函数 ---

@@ -379,18 +379,20 @@ func diff_cells(other: GFTileMapCache, compare_key: StringName = &"") -> Array[V
 	return result
 
 
-## 序列化为字典。
+## 序列化为 JSON 兼容字典。
 ## [br]
 ## @api public
 ## [br]
-## @return 可保存的字典。
+## @since 8.0.0
 ## [br]
-## @schema return: Dictionary mapping string cell keys to Dictionary cell records.
+## @return 可保存的 JSON 兼容字典。
+## [br]
+## @schema return: Dictionary mapping string cell keys to JSON-compatible Dictionary cell records.
 func to_dict() -> Dictionary:
 	var result: Dictionary = {}
 	for cell: Vector2i in cells:
 		var record: Dictionary = _get_cell_record(cell)
-		result["%d,%d" % [cell.x, cell.y]] = record.duplicate(true)
+		result["%d,%d" % [cell.x, cell.y]] = GFVariantJsonCodec.variant_to_json_compatible(record)
 	return result
 
 
@@ -398,9 +400,11 @@ func to_dict() -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @param data: to_dict() 生成的数据。
+## @since 8.0.0
 ## [br]
-## @schema data: Dictionary mapping string cell keys to Dictionary cell records.
+## @param data: to_dict() 生成的数据，或旧版原始 Variant 记录。
+## [br]
+## @schema data: Dictionary mapping string cell keys to JSON-compatible Dictionary cell records.
 func from_dict(data: Dictionary) -> void:
 	cells.clear()
 	for key: Variant in data.keys():
@@ -411,7 +415,10 @@ func from_dict(data: Dictionary) -> void:
 		var record_value: Variant = GFVariantData.get_option_value(data, key)
 		if not (record_value is Dictionary):
 			continue
-		var record: Dictionary = record_value
+		var decoded_record_value: Variant = GFVariantJsonCodec.json_compatible_to_variant(record_value)
+		if not (decoded_record_value is Dictionary):
+			continue
+		var record: Dictionary = decoded_record_value
 		var cell: Vector2i = _get_parsed_cell(parse_result)
 		cells[cell] = record.duplicate(true)
 
@@ -467,12 +474,18 @@ func _get_record_source_id(record: Dictionary) -> int:
 
 func _get_record_atlas_coords(record: Dictionary) -> Vector2i:
 	var value: Variant = GFVariantData.get_option_value(record, "atlas_coords", Vector2i(-1, -1))
+	if value is Dictionary:
+		value = GFVariantJsonCodec.json_compatible_to_variant(value)
 	if value is Vector2i:
 		var vector: Vector2i = value
 		return vector
 	if value is Vector2:
 		var vector_float: Vector2 = value
 		return Vector2i(int(vector_float.x), int(vector_float.y))
+	if value is Array:
+		var array_value: Array = value
+		if array_value.size() >= 2:
+			return Vector2i(GFVariantData.to_int(array_value[0], -1), GFVariantData.to_int(array_value[1], -1))
 	return Vector2i(-1, -1)
 
 

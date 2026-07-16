@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFPointerCapture" path="addons/gf/standard/input/common/gf_pointer_capture.gd" module="standard" extends="RefCounted" classDigest="9574cbd904d00b15cb53a2d873c52cd51008b1a21062b64f021ca5e08d198e21">
+	<description>GFPointerCapture: 单指针捕获状态句柄。
+用于触屏控件、虚拟光标或拖放控制器记录当前由哪个 pointer/touch id
+拥有交互。它只保存捕获身份，不读取输入事件，也不规定 UI 行为。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_handle</tag>
+		<tag name="since">8.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants>
+		<member kind="const" name="NO_POINTER_ID">
+			<signature>const NO_POINTER_ID: int = -1</signature>
+			<description>无活动指针。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties>
+		<member kind="property" name="active_pointer_id">
+			<signature>var active_pointer_id: int = NO_POINTER_ID</signature>
+			<description>当前捕获的指针 ID；没有捕获时为 -1。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="is_active">
+			<signature>func is_active() -&gt; bool:</signature>
+			<description>检查是否已有活动捕获。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">有活动捕获时返回 true。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="matches">
+			<signature>func matches(pointer_id: int) -&gt; bool:</signature>
+			<description>检查传入指针是否匹配当前捕获。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">pointer_id: 要检查的指针 ID。</tag>
+				<tag name="return">匹配当前捕获时返回 true。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="try_capture">
+			<signature>func try_capture(pointer_id: int) -&gt; bool:</signature>
+			<description>尝试捕获指针。
+若当前没有捕获，则记录传入指针；若已经捕获同一指针，也视为成功。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">pointer_id: 要捕获的指针 ID。</tag>
+				<tag name="return">捕获成功或已经捕获同一指针时返回 true。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="release">
+			<signature>func release(pointer_id: int = NO_POINTER_ID) -&gt; bool:</signature>
+			<description>释放当前捕获。
+`pointer_id` 为 -1 时释放任意当前捕获；否则只释放匹配的指针。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">pointer_id: 要释放的指针 ID；-1 表示释放任意当前捕获。</tag>
+				<tag name="return">实际释放了活动捕获时返回 true。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="reset">
+			<signature>func reset() -&gt; bool:</signature>
+			<description>强制清空捕获状态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">实际清空了活动捕获时返回 true。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="to_dictionary">
+			<signature>func to_dictionary() -&gt; Dictionary:</signature>
+			<description>转换为调试字典。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">捕获状态快照。</tag>
+				<tag name="schema">return: Dictionary，包含 active_pointer_id 和 active。</tag>
+				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

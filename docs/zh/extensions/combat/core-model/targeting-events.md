@@ -4,7 +4,9 @@ Combat 的目标选择和事件 payload 只描述通用运行时流程。目标�
 
 ## 目标选择管线
 
-`GFSkillTargetingUtility` 处理 `GFSkillTargetingRule` 定义的自动索敌管线。`GFSkill` 可内置使用这套管线；若需手动调用，应通过 `Gf.get_utility(GFSkillTargetingUtility)` 获取。
+`GFSkillTargetingUtility2D` 处理 `GFSkillTargetingRule2D` 定义的 2D 自动索敌管线。`GFSkill` 可内置使用这套管线；若需手动调用，应通过 `Gf.get_utility(GFSkillTargetingUtility2D)` 获取。
+
+名称中的 `2D` 是真实维度契约：候选必须能提供有限的 `Vector2` 位置，规则的半径、扇形角度、朝向和施法中心也必须有限。3D 项目应提供独立的 3D 目标选择策略，不应把 `Node3D` 交给该服务后依赖静默过滤。
 
 管线流程：
 
@@ -13,7 +15,7 @@ Combat 的目标选择和事件 payload 只描述通用运行时流程。目标�
 3. 动态排序：支持基于距离或动态属性名进行最高/最低排序。
 4. 数量截取：严格限制返回的目标数量。
 
-通过创建 `GFSkillTargetingRule` 资源文件，可以在不修改代码的情况下调整索敌逻辑。管线只处理通用候选、标签、排序和截取，不解释阵营、视野、障碍、仇恨或技能业务规则。
+通过创建 `GFSkillTargetingRule2D` 资源文件，可以在不修改代码的情况下调整索敌逻辑。调用前可用 `is_configuration_valid()` 拒绝非有限或自相矛盾的规则。管线只处理通用候选、标签、排序和截取，不解释阵营、视野、障碍、仇恨或技能业务规则。
 
 ## 战斗事件
 

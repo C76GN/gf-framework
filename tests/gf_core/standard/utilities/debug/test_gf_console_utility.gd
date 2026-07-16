@@ -2,9 +2,11 @@
 extends GutTest
 
 var _console: GFConsoleUtility
+var _subscriptions: Array[GFLifetimeSubscription] = []
 
 
 func before_each() -> void:
+	_subscriptions.clear()
 	_console = GFConsoleUtility.new()
 	_console.debug_only = false
 	_console.init()
@@ -12,6 +14,10 @@ func before_each() -> void:
 
 
 func after_each() -> void:
+	for subscription: GFLifetimeSubscription in _subscriptions:
+		var _cancelled: bool = subscription.cancel()
+	_subscriptions.clear()
+	GFAutoload.reset_tree_exit_state()
 	if _console != null:
 		_console.dispose()
 		_console = null
@@ -28,13 +34,13 @@ func test_register_command() -> void:
 	var cb: Callable = func(_args: PackedStringArray) -> void:
 		called.count += 1
 
-	_console.register_command("test_cmd", cb, "测试指令。")
+	_register_command("test_cmd", cb, "测试指令。")
 	assert_true(_console.has_command("test_cmd"), "register_command 后应记录命令。")
 
 
 func test_register_command_rejects_empty_name_and_invalid_callback() -> void:
-	_console.register_command("", Callable(), "空指令。")
-	_console.register_command("broken", Callable(), "无效回调。")
+	_register_command("", Callable(), "空指令。")
+	_register_command("broken", Callable(), "无效回调。")
 
 	assert_false(_console.has_command(""), "空命令名不应进入命令表。")
 	assert_false(_console.has_command("broken"), "无效 callback 不应进入命令表。")
@@ -65,23 +71,54 @@ func test_init_is_idempotent_for_console_overlay() -> void:
 	assert_eq(_count_console_overlays(), 1, "重复 init 不应创建多个控制台 overlay。")
 
 
-func test_unregister_command() -> void:
+func test_subscription_cancels_command_registration() -> void:
 	var cb: Callable = func(_args: PackedStringArray) -> void:
 		pass
 
-	_console.register_command("temp_cmd", cb, "临时指令。")
+	var subscription: GFLifetimeSubscription = _console.register_command(self, "temp_cmd", cb, "临时指令。")
 	assert_true(_console.has_command("temp_cmd"), "注册后命令应存在。")
 
-	_console.unregister_command("temp_cmd")
+	assert_true(subscription.cancel(), "首次取消注册句柄应成功。")
 	assert_false(_console.has_command("temp_cmd"), "注销后命令应被移除。")
+
+
+func test_registration_owner_cannot_be_replaced_by_another_owner() -> void:
+	var first_owner: Object = Object.new()
+	var other_owner: Object = Object.new()
+	var callback: Callable = func(_args: PackedStringArray) -> void:
+		pass
+
+	var first: GFLifetimeSubscription = _console.register_command(first_owner, "owned", callback, "Owned。")
+	var rejected: GFLifetimeSubscription = _console.register_command(other_owner, "owned", callback, "Rejected。")
+
+	assert_true(first.is_active(), "首个 owner 的注册句柄应激活。")
+	assert_false(rejected.is_active(), "其他 owner 不应抢占同名命令。")
+	assert_true(_console.has_command("owned"), "被拒绝的注册不应破坏原命令。")
+	first_owner.free()
+	other_owner.free()
+
+
+func test_released_owner_command_is_pruned_before_execution() -> void:
+	var command_owner: Object = Object.new()
+	var called: CommandCallState = CommandCallState.new()
+	var callback: Callable = func(_args: PackedStringArray) -> void:
+		called.count += 1
+	var subscription: GFLifetimeSubscription = _console.register_command(command_owner, "released", callback, "Released。")
+	assert_true(subscription.is_active(), "有效 owner 应得到激活句柄。")
+
+	command_owner.free()
+
+	assert_false(_console.has_command("released"), "owner 释放后命令应在查询时清理。")
+	assert_false(_console.execute_command("released"), "owner 释放后命令不应执行。")
+	assert_eq(called.count, 0, "失效 owner 的回调不得被调用。")
 
 
 func test_get_command_names_returns_sorted_names() -> void:
 	var cb: Callable = func(_args: PackedStringArray) -> void:
 		pass
 
-	_console.register_command("zeta", cb, "Z。")
-	_console.register_command("alpha", cb, "A。")
+	_register_command("zeta", cb, "Z。")
+	_register_command("alpha", cb, "A。")
 	var names: PackedStringArray = _console.get_command_names()
 
 	assert_true(names.find("alpha") < names.find("zeta"), "命令名应按字典序返回。")
@@ -91,9 +128,9 @@ func test_suggest_commands_filters_by_prefix() -> void:
 	var cb: Callable = func(_args: PackedStringArray) -> void:
 		pass
 
-	_console.register_command("teleport", cb, "传送。")
-	_console.register_command("time_scale", cb, "时间。")
-	_console.register_command("spawn", cb, "生成。")
+	_register_command("teleport", cb, "传送。")
+	_register_command("time_scale", cb, "时间。")
+	_register_command("spawn", cb, "生成。")
 	var suggestions: PackedStringArray = _console.suggest_commands("t")
 
 	assert_true(suggestions.has("teleport"), "前缀匹配应返回 teleport。")
@@ -101,12 +138,43 @@ func test_suggest_commands_filters_by_prefix() -> void:
 	assert_false(suggestions.has("spawn"), "不匹配前缀的命令不应返回。")
 
 
+func test_suggest_command_arguments_uses_definition_suggester() -> void:
+	var definition: GFConsoleCommandDefinition = GFConsoleCommandDefinition.new()
+	definition.command_name = "teleport"
+	definition.aliases = PackedStringArray(["tp"])
+	definition.argument_suggester = func(context: Dictionary) -> PackedStringArray:
+		assert_eq(GFVariantData.get_option_string(context, "command_name"), "tp", "补全上下文应使用当前输入的命令名。")
+		assert_eq(GFVariantData.get_option_int(context, "argument_index"), 0, "第一个参数应报告 index 0。")
+		return PackedStringArray(["player", "portal", "enemy"])
+	var cb: Callable = func(_args: PackedStringArray) -> void:
+		pass
+
+	_register_command_definition(definition, cb)
+	var suggestions: PackedStringArray = _console.suggest_command_arguments("tp p")
+
+	assert_eq(suggestions, PackedStringArray(["player", "portal"]), "参数补全应按当前前缀过滤并排序。")
+
+
+func test_console_tab_completion_applies_single_argument_suggestion() -> void:
+	var cb: Callable = func(_args: PackedStringArray) -> void:
+		pass
+	_register_command("spawn", cb, "生成。", {
+		"argument_suggester": func(_context: Dictionary) -> PackedStringArray:
+			return PackedStringArray(["slime"])
+	})
+
+	_console._console_gui._input_field.text = "spawn sl"
+	_console._console_gui._apply_command_completion()
+
+	assert_eq(_console._console_gui._input_field.text, "spawn slime ", "Tab 应把唯一参数候选写回当前参数位置。")
+
+
 func test_suggest_similar_commands_returns_likely_matches() -> void:
 	var cb: Callable = func(_args: PackedStringArray) -> void:
 		pass
 
-	_console.register_command("teleport", cb, "传送。")
-	_console.register_command("time_scale", cb, "时间。")
+	_register_command("teleport", cb, "传送。")
+	_register_command("time_scale", cb, "时间。")
 	var suggestions: PackedStringArray = _console.suggest_similar_commands("teleprt")
 
 	assert_gt(suggestions.size(), 0, "拼写接近已注册命令时应返回候选。")
@@ -118,7 +186,7 @@ func test_execute_command_calls_callback() -> void:
 	var cb: Callable = func(_args: PackedStringArray) -> void:
 		called.count += 1
 
-	_console.register_command("inc", cb, "递增计数器。")
+	_register_command("inc", cb, "递增计数器。")
 	var result: bool = _console.execute_command("inc")
 
 	assert_true(result, "已注册指令执行后应返回 true。")
@@ -131,7 +199,7 @@ func test_execute_command_passes_args() -> void:
 		for a: String in args:
 			var _append_result_116: Variant = captured_args.append(a)
 
-	_console.register_command("echo", cb, "回显参数。")
+	_register_command("echo", cb, "回显参数。")
 	var _execute_command_result_119: Variant = _console.execute_command("echo hello world")
 
 	assert_eq(captured_args.size(), 2, "参数数量应为 2。")
@@ -145,7 +213,7 @@ func test_execute_command_supports_quotes_and_escapes() -> void:
 		for a: String in args:
 			var _append_result_130: Variant = captured_args.append(a)
 
-	_console.register_command("echo", cb, "回显参数。")
+	_register_command("echo", cb, "回显参数。")
 	var _execute_command_result_133: Variant = _console.execute_command("echo \"red potion\" path\\ with\\ spaces ''")
 
 	assert_eq(captured_args, PackedStringArray(["red potion", "path with spaces", ""]), "命令解析应支持引号、转义空格和空字符串参数。")
@@ -157,7 +225,7 @@ func test_danger_command_requires_tier_and_confirmation() -> void:
 		called.count += 1
 		called.args = args
 
-	_console.register_command("wipe", cb, "危险指令。", { "tier": GFConsoleUtility.CommandTier.DANGER })
+	_register_command("wipe", cb, "危险指令。", { "tier": GFConsoleUtility.CommandTier.DANGER })
 
 	assert_false(_console.execute_command("wipe"), "默认最高 CONTROL 时不应执行 DANGER 指令。")
 	_console.max_command_tier = GFConsoleUtility.CommandTier.DANGER
@@ -175,11 +243,66 @@ func test_register_command_definition_registers_aliases() -> void:
 	var cb: Callable = func(_args: PackedStringArray) -> void:
 		called.count += 1
 
-	_console.register_command_definition(definition, cb)
+	_register_command_definition(definition, cb)
 	var result: bool = _console.execute_command("alias")
 
 	assert_true(result, "资源化命令别名应可执行。")
 	assert_eq(called.count, 1, "别名应调用同一回调。")
+
+
+func test_definition_subscription_removes_all_names() -> void:
+	var definition: GFConsoleCommandDefinition = GFConsoleCommandDefinition.new()
+	definition.command_name = "primary"
+	definition.aliases = PackedStringArray(["alias"])
+	var cb: Callable = func(_args: PackedStringArray) -> void:
+		pass
+
+	var subscription: GFLifetimeSubscription = _console.register_command_definition(self, definition, cb)
+	assert_true(subscription.cancel(), "定义注册句柄应可取消。")
+
+	assert_false(_console.has_command("primary"), "从别名注销资源化命令时应移除主命令。")
+	assert_false(_console.has_command("alias"), "从别名注销资源化命令时应移除别名。")
+
+
+func test_stale_definition_subscription_preserves_replaced_alias() -> void:
+	var definition: GFConsoleCommandDefinition = GFConsoleCommandDefinition.new()
+	definition.command_name = "primary"
+	definition.aliases = PackedStringArray(["alias"])
+	var definition_callback: Callable = func(_args: PackedStringArray) -> void:
+		pass
+	var replacement_state: CommandCallState = CommandCallState.new()
+	var replacement_callback: Callable = func(_args: PackedStringArray) -> void:
+		replacement_state.count += 1
+
+	var definition_subscription: GFLifetimeSubscription = _console.register_command_definition(self, definition, definition_callback)
+	var replacement_subscription: GFLifetimeSubscription = _console.register_command(self, "alias", replacement_callback, "替代命令。")
+	assert_true(replacement_subscription.is_active(), "同一 owner 应能替换单个别名。")
+	assert_true(definition_subscription.cancel(), "旧定义句柄应可取消。")
+	var executed: bool = _console.execute_command("alias")
+
+	assert_false(_console.has_command("primary"), "注销定义应移除仍由定义拥有的主命令。")
+	assert_true(_console.has_command("alias"), "注销定义不应移除已被其他注册覆盖的别名。")
+	assert_true(executed, "覆盖后的别名应仍可执行。")
+	assert_eq(replacement_state.count, 1, "覆盖后的别名应调用新注册者的回调。")
+
+
+func test_command_catalog_redacts_runtime_metadata() -> void:
+	var definition: GFConsoleCommandDefinition = GFConsoleCommandDefinition.new()
+	definition.command_name = "teleport"
+	definition.aliases = PackedStringArray(["tp"])
+	definition.argument_suggester = func(_context: Dictionary) -> PackedStringArray:
+		return PackedStringArray(["player"])
+	var cb: Callable = func(_args: PackedStringArray) -> void:
+		pass
+
+	_register_command_definition(definition, cb)
+	var catalog: Dictionary = _console.get_command_catalog()
+	var entry: Dictionary = GFVariantData.get_option_dictionary(catalog, "teleport")
+	var metadata: Dictionary = GFVariantData.get_option_dictionary(entry, "metadata")
+
+	assert_false(metadata.has("definition"), "公开命令目录不应泄漏 Resource definition。")
+	assert_false(metadata.has("argument_suggester"), "公开命令目录不应泄漏 Callable。")
+	assert_eq(GFVariantData.get_option_string(metadata, "primary_command_name"), "teleport", "安全元数据仍应保留。")
 
 
 func test_register_command_definition_preserves_metadata_tier() -> void:
@@ -190,7 +313,7 @@ func test_register_command_definition_preserves_metadata_tier() -> void:
 	var cb: Callable = func(_args: PackedStringArray) -> void:
 		called.count += 1
 
-	_console.register_command_definition(definition, cb)
+	_register_command_definition(definition, cb)
 
 	assert_false(_console.execute_command("resource_wipe"), "资源化 DANGER 命令默认应被风险等级拒绝。")
 	_console.max_command_tier = GFConsoleUtility.CommandTier.DANGER
@@ -355,6 +478,20 @@ func test_dispose_detaches_console_gui_immediately() -> void:
 	assert_false(is_instance_valid(gui), "下一帧控制台 GUI 应完成释放。")
 
 
+func test_dispose_leaves_console_attached_during_autoload_tree_exit() -> void:
+	var gui: CanvasLayer = _console._console_gui
+	GFAutoload.begin_tree_exit_scope()
+
+	_console.dispose()
+	_console = null
+
+	assert_not_null(gui.get_parent(), "AutoLoad 退出时不应重入修改控制台 GUI 的父节点。")
+
+	GFAutoload.end_tree_exit_scope()
+	await get_tree().process_frame
+	assert_false(is_instance_valid(gui), "退出阶段登记 queue_free 后仍应完成释放。")
+
+
 func test_dispose_disconnects_log_signal() -> void:
 	var arch: GFArchitecture = GFArchitecture.new()
 	var log_util: GFLogUtility = GFLogUtility.new()
@@ -369,6 +506,29 @@ func test_dispose_disconnects_log_signal() -> void:
 
 	arch.unregister_utility(_script_from_object(console))
 	assert_false(log_util.log_emitted.is_connected(log_callable), "dispose 后应断开日志信号，避免悬挂监听。")
+
+
+func _register_command(
+	command_name: String,
+	callback: Callable,
+	description: String,
+	metadata: Dictionary = {}
+) -> void:
+	var subscription: GFLifetimeSubscription = _console.register_command(
+		self,
+		command_name,
+		callback,
+		description,
+		metadata
+	)
+	if subscription.is_active():
+		_subscriptions.append(subscription)
+
+
+func _register_command_definition(definition: GFConsoleCommandDefinition, callback: Callable) -> void:
+	var subscription: GFLifetimeSubscription = _console.register_command_definition(self, definition, callback)
+	if subscription.is_active():
+		_subscriptions.append(subscription)
 
 
 func _get_console_gui_snapshot() -> Dictionary:

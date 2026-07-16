@@ -174,26 +174,41 @@ func resolve_text(text: String, subject: Variant = null) -> String:
 	return GFVariantData.to_text(text_resolver.call(text, subject, self))
 
 
-## 序列化运行值。
+## 序列化运行值为 JSON 兼容结构。
 ## [br]
 ## @api public
 ## [br]
-## @return: 值表副本。
+## @return: JSON 兼容值表副本。
 ## [br]
-## @schema return: values 的深拷贝 Dictionary。
+## @since 8.0.0
+## [br]
+## @schema return: values 经过 GFVariantJsonCodec 编码后的深拷贝 Dictionary。
 func serialize_values() -> Dictionary:
-	return values.duplicate(true)
+	var encoded_values: Variant = GFVariantJsonCodec.variant_to_json_compatible(values, {
+		"encode_dictionary_keys": true,
+	})
+	if encoded_values is Dictionary:
+		var encoded_dictionary: Dictionary = encoded_values
+		return encoded_dictionary.duplicate(true)
+	return {}
 
 
-## 恢复运行值。
+## 从 JSON 兼容结构恢复运行值。
 ## [br]
 ## @api public
 ## [br]
-## @param data: 值表。
+## @param data: serialize_values() 返回的值表。
 ## [br]
-## @schema data: serialize_values() 返回的运行时值 Dictionary。
+## @since 8.0.0
+## [br]
+## @schema data: serialize_values() 返回的 JSON 兼容 Dictionary。
 func deserialize_values(data: Dictionary) -> void:
-	values = data.duplicate(true)
+	var decoded_values: Variant = GFVariantJsonCodec.json_compatible_to_variant(data)
+	if decoded_values is Dictionary:
+		var decoded_dictionary: Dictionary = decoded_values
+		values = decoded_dictionary.duplicate(true)
+		return
+	values = {}
 
 
 # --- 私有/辅助方法 ---

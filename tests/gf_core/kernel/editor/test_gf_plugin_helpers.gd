@@ -13,19 +13,30 @@ const GF_PLUGIN_IMPORT_TOOLS = preload("res://addons/gf/kernel/editor/gf_plugin_
 const GF_PLUGIN_MENU = preload("res://addons/gf/kernel/editor/gf_plugin_menu.gd")
 const GF_PLUGIN_PREVIEW_TOOLS = preload("res://addons/gf/kernel/editor/gf_plugin_preview_tools.gd")
 const GF_PLUGIN_PROJECT_SETTINGS = preload("res://addons/gf/kernel/editor/gf_plugin_project_settings.gd")
+const GF_PLUGIN_ACTION_DEPENDENCIES_SCRIPT = preload("res://addons/gf/kernel/editor/gf_plugin_action_dependencies.gd")
+const GF_EDITOR_CONTRIBUTION_REGISTRY = preload("res://addons/gf/kernel/editor/gf_editor_contribution_registry.gd")
 const GF_RESOURCE_PATH_EDITOR_PROPERTY = preload("res://addons/gf/kernel/editor/gf_resource_path_editor_property.gd")
 const GF_RESOURCE_PATH_ARRAY_EDITOR_PROPERTY = preload("res://addons/gf/kernel/editor/gf_resource_path_array_editor_property.gd")
+const GF_RESOURCE_PATH_PICKER_CONTROL = preload("res://addons/gf/kernel/editor/gf_resource_path_picker_control.gd")
 const GF_RESOURCE_PATH_HINT = preload("res://addons/gf/kernel/editor/gf_resource_path_hint.gd")
 const GF_RESOURCE_PATH_INSPECTOR_PLUGIN = preload("res://addons/gf/kernel/editor/gf_resource_path_inspector_plugin.gd")
 const GF_RESOURCE_PREVIEW_GENERATOR = preload("res://addons/gf/kernel/editor/gf_resource_preview_generator.gd")
+const GF_RESOURCE_PREVIEW_SOURCE_REGISTRY_SCRIPT = preload("res://addons/gf/kernel/editor/gf_resource_preview_source_registry.gd")
 const GF_EDITOR_WORKSPACE_DOCK = preload("res://addons/gf/kernel/editor/gf_editor_workspace_dock.gd")
 const GF_EDITOR_WORKSPACE_UI = preload("res://addons/gf/kernel/editor/gf_editor_workspace_ui.gd")
 const GF_EDITOR_WORKSPACE_WINDOW = preload("res://addons/gf/kernel/editor/gf_editor_workspace_window.gd")
 const GF_EXTENSION_MANAGER_DOCK = preload("res://addons/gf/kernel/editor/extension/gf_extension_manager_dock.gd")
 const GF_PACKAGE_MANAGER_DOCK = preload("res://addons/gf/kernel/editor/package/gf_package_manager_dock.gd")
 const GF_EXTENSION_SETTINGS_BASE = preload("res://addons/gf/kernel/extension/gf_extension_settings.gd")
-const GF_STANDARD_EDITOR_EXTENSIONS = preload("res://addons/gf/standard/editor/gf_standard_editor_extensions.gd")
 const GF_VARIANT_ACCESS = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
+const GF_STANDARD_EDITOR_CONTRIBUTIONS_PATH: String = "res://addons/gf/standard/editor/gf_editor_contributions.json"
+const _TEST_PROJECT_SETTING_PREFIX: String = "gf/test/"
+
+
+# --- Godot 生命周期方法 ---
+
+func after_each() -> void:
+	_clear_test_project_settings()
 
 
 # --- 测试用例 ---
@@ -41,11 +52,15 @@ func test_plugin_split_helpers_load() -> void:
 	assert_not_null(GF_PLUGIN_MENU, "菜单辅助脚本应可加载。")
 	assert_not_null(GF_PLUGIN_PREVIEW_TOOLS, "预览生成器辅助脚本应可加载。")
 	assert_not_null(GF_PLUGIN_PROJECT_SETTINGS, "ProjectSettings 辅助脚本应可加载。")
+	assert_not_null(GF_PLUGIN_ACTION_DEPENDENCIES_SCRIPT, "菜单动作依赖 provider 脚本应可加载。")
+	assert_not_null(GF_EDITOR_CONTRIBUTION_REGISTRY, "编辑器贡献清单读取器脚本应可加载。")
 	assert_not_null(GF_RESOURCE_PATH_EDITOR_PROPERTY, "资源路径属性编辑器脚本应可加载。")
 	assert_not_null(GF_RESOURCE_PATH_ARRAY_EDITOR_PROPERTY, "资源路径数组属性编辑器脚本应可加载。")
+	assert_not_null(GF_RESOURCE_PATH_PICKER_CONTROL, "窗口安全的资源路径选择控件脚本应可加载。")
 	assert_not_null(GF_RESOURCE_PATH_HINT, "资源路径 hint 脚本应可加载。")
 	assert_not_null(GF_RESOURCE_PATH_INSPECTOR_PLUGIN, "资源路径 Inspector 脚本应可加载。")
 	assert_not_null(GF_RESOURCE_PREVIEW_GENERATOR, "Resource 预览生成器脚本应可加载。")
+	assert_not_null(GF_RESOURCE_PREVIEW_SOURCE_REGISTRY_SCRIPT, "Resource 预览来源注册表脚本应可加载。")
 	assert_not_null(GF_EDITOR_WORKSPACE_UI, "工作区页面 UI 辅助脚本应可加载。")
 	assert_not_null(GF_EDITOR_WORKSPACE_WINDOW, "独立工作区窗口脚本应可加载。")
 	assert_not_null(GF_PACKAGE_MANAGER_DOCK, "包管理工作区页面脚本应可加载。")
@@ -90,7 +105,7 @@ func test_editor_workspace_ui_builds_common_page_chrome() -> void:
 
 func test_plugin_action_menu_ids_are_unique() -> void:
 	var actions: Object = _new_object(GF_PLUGIN_ACTIONS)
-	_call_void(actions, &"_setup_menu_actions", [GF_STANDARD_EDITOR_EXTENSIONS.get_template_records()])
+	_call_void(actions, &"_setup_menu_actions", [_get_standard_editor_records(&"get_template_records")])
 	var entries: Array = _call_array(actions, &"get_menu_entries")
 	_call_void(actions, &"_cleanup_extension_editor_actions")
 	var ids: Array[int] = []
@@ -108,23 +123,27 @@ func test_plugin_action_menu_ids_are_unique() -> void:
 	assert_gt(highest_id, GF_PLUGIN_ACTIONS.MENU_GENERATE_PROJECT_ACCESSORS, "动态模板或包动作应可注册到菜单。")
 
 
-func test_plugin_actions_reject_duplicate_template_types() -> void:
+func test_plugin_actions_use_source_id_as_template_identity() -> void:
 	var actions: Object = _new_object(GF_PLUGIN_ACTIONS)
 	_call_void(actions, &"_setup_menu_actions", [[
 		{
+			"source_id": "gf.test.editor:template.system",
 			"type": "System",
-			"label": "重复 System",
-			"base_class": "BadSystem",
-			"template": "bad",
+			"label": "替代 System",
+			"base_class": "CustomSystem",
+			"template": "custom",
 		},
 	]])
-	var source: String = _call_text(actions, &"_get_template", ["System"])
-	var base_class: String = _call_text(actions, &"_get_base_class", ["System"])
+	var core_source: String = _call_text(actions, &"_get_template", ["gf.kernel.editor:template.system"])
+	var custom_source: String = _call_text(actions, &"_get_template", ["gf.test.editor:template.system"])
+	var core_base_class: String = _call_text(actions, &"_get_base_class", ["gf.kernel.editor:template.system"])
+	var custom_base_class: String = _call_text(actions, &"_get_base_class", ["gf.test.editor:template.system"])
 	_call_void(actions, &"_cleanup_extension_editor_actions")
 
-	assert_ne(source, "bad", "重复模板 type 不应覆盖已有模板记录。")
-	assert_eq(base_class, "GFSystem", "重复模板 type 不应覆盖已有 base_class。")
-	assert_push_error("[GF Framework] 模板 type 重复，已跳过: System")
+	assert_ne(core_source, "custom", "核心模板应保留自己的稳定 source identity。")
+	assert_eq(custom_source, "custom", "相同语义 type 的模板应按 source_id 独立注册。")
+	assert_eq(core_base_class, "GFSystem", "核心模板 base_class 不应被其他来源覆盖。")
+	assert_eq(custom_base_class, "CustomSystem", "自定义模板应按自己的 source_id 解析 base_class。")
 
 
 func test_plugin_actions_setup_replaces_previous_file_dialog_immediately() -> void:
@@ -151,7 +170,7 @@ func test_plugin_actions_setup_replaces_previous_file_dialog_immediately() -> vo
 func test_plugin_action_system_template_uses_gf_lifecycle_section() -> void:
 	var actions: Object = _new_object(GF_PLUGIN_ACTIONS)
 	_call_void(actions, &"_setup_menu_actions", [[]])
-	var source: String = _call_text(actions, &"_get_template", ["System"])
+	var source: String = _call_text(actions, &"_get_template", ["gf.kernel.editor:template.system"])
 	_call_void(actions, &"_cleanup_extension_editor_actions")
 
 	assert_true(source.contains("# --- GF 生命周期方法 ---"), "System 模板应使用 GF 生命周期 section。")
@@ -180,6 +199,30 @@ func test_plugin_action_refresh_editor_contributions_emits_signal() -> void:
 	_call_void(actions, &"_cleanup_extension_editor_actions")
 
 
+func test_plugin_actions_use_dependency_provider_for_generation_and_extension_paths() -> void:
+	var actions: Object = _new_object(GF_PLUGIN_ACTIONS)
+	var fake_dependencies: FakePluginActionDependencies = FakePluginActionDependencies.new()
+	_call_void(actions, &"setup", [[], fake_dependencies])
+
+	_call_void(actions, &"handle_menu_id", [GF_PLUGIN_ACTIONS.MENU_GENERATE_ACCESSORS])
+	_call_void(actions, &"handle_menu_id", [GF_PLUGIN_ACTIONS.MENU_GENERATE_PROJECT_ACCESSORS])
+	_call_void(actions, &"cleanup")
+
+	assert_eq(fake_dependencies.editor_action_path_call_count, 1, "扩展编辑器动作路径应由依赖 provider 提供。")
+	assert_eq(fake_dependencies.generated_access_path, fake_dependencies.access_output_path, "强类型访问器生成应通过依赖 provider 执行。")
+	assert_eq(fake_dependencies.generated_project_access_path, fake_dependencies.project_access_output_path, "项目常量访问器生成应通过依赖 provider 执行。")
+
+
+func test_plugin_actions_depend_on_provider_boundary_for_boot_dependencies() -> void:
+	var source: String = _read_text_file("res://addons/gf/kernel/editor/gf_plugin_actions.gd")
+
+	assert_true(source.contains("_GF_PLUGIN_ACTION_DEPENDENCIES_SCRIPT"), "菜单动作应通过 provider 边界取得启动依赖。")
+	assert_false(source.contains("GFAccessGenerator.new()"), "菜单动作不应直接创建访问器生成器。")
+	assert_false(source.contains("GFPluginProjectSettings."), "菜单动作不应直接读取 ProjectSettings helper。")
+	assert_false(source.contains("GFExtensionSettings."), "菜单动作不应直接读取扩展设置全局类。")
+	assert_false(source.contains("GFExtensionSettingsBase"), "菜单动作不应保留扩展设置 preload alias。")
+
+
 func test_plugin_refresh_path_clears_manifest_cache_and_reloads_dynamic_tools() -> void:
 	var source: String = _read_text_file("res://addons/gf/plugin.gd")
 	var refresh_source: String = _extract_function_source(
@@ -195,26 +238,210 @@ func test_plugin_refresh_path_clears_manifest_cache_and_reloads_dynamic_tools() 
 	assert_true(refresh_source.contains("_gltf_document_tools.setup()"), "编辑器贡献刷新必须重新安装启用扩展的 glTF 文档扩展。")
 
 
-func test_plugin_project_settings_reports_save_errors() -> void:
+func test_extension_manager_reload_button_clears_manifest_cache() -> void:
+	var source: String = _read_text_file("res://addons/gf/kernel/editor/extension/gf_extension_manager_dock.gd")
+	var build_ui_source: String = _extract_function_source(
+		source,
+		"func _build_ui() -> void:",
+		"func _create_header_row() -> Control:"
+	)
+	var reload_source: String = _extract_function_source(
+		source,
+		"func _reload_extensions() -> void:",
+		"func _refresh_visible_extension_rows() -> void:"
+	)
+
+	assert_true(build_ui_source.contains("GFEditorWorkspaceUI.make_button(\"重新加载\", \"重新读取所有 gf_extension.json。\", _reload_extensions)"), "扩展管理器重新加载按钮必须走清缓存入口。")
+	assert_true(reload_source.contains("GFExtensionSettingsBase.clear_manifest_cache()"), "扩展管理器手动重新加载必须清理 manifest 缓存。")
+	assert_true(reload_source.contains("_refresh_extensions()"), "清理缓存后应复用现有刷新流程。")
+
+
+func test_plugin_helper_setup_methods_are_idempotent_by_contract() -> void:
+	var import_setup: String = _extract_function_source(
+		_read_text_file("res://addons/gf/kernel/editor/gf_plugin_import_tools.gd"),
+		"func setup(plugin: EditorPlugin) -> void:",
+		"func cleanup(plugin: EditorPlugin) -> void:"
+	)
+	var inspector_setup: String = _extract_function_source(
+		_read_text_file("res://addons/gf/kernel/editor/gf_plugin_inspector_tools.gd"),
+		"func setup(\n\tplugin: EditorPlugin,",
+		"func cleanup(plugin: EditorPlugin) -> void:"
+	)
+	var debugger_setup: String = _extract_function_source(
+		_read_text_file("res://addons/gf/kernel/editor/gf_plugin_debugger_tools.gd"),
+		"func setup(plugin: EditorPlugin, standard_records: Dictionary = {}) -> void:",
+		"func cleanup(plugin: EditorPlugin) -> void:"
+	)
+	var preview_setup: String = _extract_function_source(
+		_read_text_file("res://addons/gf/kernel/editor/gf_plugin_preview_tools.gd"),
+		"func setup(plugin: EditorPlugin) -> void:",
+		"func cleanup(plugin: EditorPlugin) -> void:"
+	)
+	var gltf_setup: String = _extract_function_source(
+		_read_text_file("res://addons/gf/kernel/editor/gf_plugin_gltf_document_tools.gd"),
+		"func setup() -> void:",
+		"func cleanup() -> void:"
+	)
+
+	assert_true(import_setup.contains("cleanup(plugin)"), "Import helper setup 应先清理旧注册。")
+	assert_true(inspector_setup.contains("cleanup(plugin)"), "Inspector/export helper setup 应先清理旧注册。")
+	assert_true(debugger_setup.contains("cleanup(plugin)"), "Debugger helper setup 应先清理旧注册。")
+	assert_true(preview_setup.contains("cleanup(plugin)"), "Preview helper setup 应先清理旧注册。")
+	assert_true(gltf_setup.contains("cleanup()"), "glTF document helper setup 应先清理旧注册。")
+
+
+func test_plugin_autoload_persists_ownership_marker_changes() -> void:
+	var source: String = _read_text_file("res://addons/gf/kernel/editor/gf_plugin_autoload.gd")
+
+	assert_true(source.contains("var save_result: Error = ProjectSettings.save()"), "Autoload 归属 marker 变更必须显式保存 ProjectSettings。")
+	assert_true(source.contains("push_error(\"[GFPluginAutoload] ProjectSettings.save() 失败"), "Autoload marker 保存失败必须有可观察错误。")
+
+
+func test_plugin_project_settings_does_not_persist_process_local_defaults() -> void:
 	var source: String = _read_text_file("res://addons/gf/kernel/editor/gf_plugin_project_settings.gd")
 
-	assert_true(source.contains("var save_result: Error = ProjectSettings.save()"), "ProjectSettings 保存结果必须显式收窄为 Error。")
-	assert_true(source.contains("push_error(\"[GFPluginProjectSettings] ProjectSettings.save() 失败"), "ProjectSettings 保存失败必须有可观察错误。")
+	assert_false(
+		source.contains("ProjectSettings.save()"),
+		"注册默认值不能顺带保存同进程测试或工具写入的临时 ProjectSettings。"
+	)
+
+
+func test_framework_project_does_not_persist_test_project_settings() -> void:
+	var project_source: String = _read_text_file("res://project.godot")
+
+	assert_false(
+		project_source.contains("test/"),
+		"框架仓库 project.godot 不应持久化 gf/test 测试夹具设置。"
+	)
 
 
 func test_standard_template_records_are_injected_without_kernel_hardcoding() -> void:
 	var actions: Object = _new_object(GF_PLUGIN_ACTIONS)
-	_call_void(actions, &"_setup_menu_actions", [GF_STANDARD_EDITOR_EXTENSIONS.get_template_records()])
-	var source: String = _call_text(actions, &"_get_template", ["NodeState"])
+	var records: Array = _get_standard_editor_records(&"get_template_records")
+	_call_void(actions, &"_setup_menu_actions", [records])
+	var template_id: String = "gf.standard.state_machine.editor:state_machine.template.node_state"
+	var source: String = _call_text(actions, &"_get_template", [template_id])
 	_call_void(actions, &"_cleanup_extension_editor_actions")
 
 	assert_true(source.contains("func _enter("), "NodeState 模板应由 standard 扩展记录注入。")
-	assert_eq(_call_text(actions, &"_get_base_class", ["NodeState"]), "GFNodeState", "NodeState 基类应来自模板记录。")
+	assert_true(source.contains("# --- 可重写钩子 / 虚方法 ---"), "NodeState 模板应使用 canonical 可重写钩子 section。")
+	assert_false(source.contains("# --- 虚方法（由子类重写） ---"), "NodeState 模板不应继续输出旧 section 名。")
+	assert_eq(_call_text(actions, &"_get_base_class", [template_id]), "GFNodeState", "NodeState 基类应来自模板记录。")
+	for record_value: Variant in records:
+		var record: Dictionary = GF_VARIANT_ACCESS.as_dictionary(record_value)
+		var owner_package_id: String = GF_VARIANT_ACCESS.get_option_string(record, "owner_package_id")
+		var source_id: String = GF_VARIANT_ACCESS.get_option_string(record, "source_id")
+		assert_false(owner_package_id.is_empty(), "标准编辑器记录应带实际 owner_package_id。")
+		assert_eq(GF_VARIANT_ACCESS.get_option_string(record, "package_id"), owner_package_id, "package_id 应指向载荷 owner。")
+		assert_true(source_id.begins_with(owner_package_id + ":"), "source_id 应由 owner package 作用域限定。")
+
+
+func test_standard_editor_contributions_use_data_manifest_boundary() -> void:
+	var plugin_source: String = _read_text_file("res://addons/gf/plugin.gd")
+	var manifest_source: String = _read_text_file(GF_STANDARD_EDITOR_CONTRIBUTIONS_PATH)
+
+	assert_true(plugin_source.contains("GF_EDITOR_CONTRIBUTION_REGISTRY_SCRIPT"), "根插件应通过 kernel registry 读取标准编辑器贡献。")
+	assert_true(plugin_source.contains(GF_STANDARD_EDITOR_CONTRIBUTIONS_PATH), "根插件应引用标准编辑器 data-only manifest。")
+	assert_false(plugin_source.contains("gf_standard_editor_extensions.gd"), "根插件不应再读取旧的 standard 可执行聚合脚本。")
+	assert_false(plugin_source.contains("_load_optional_script"), "根插件不应通过动态脚本加载读取 standard 记录。")
+	assert_false(manifest_source.contains("GFBuildInfo"), "标准编辑器 manifest 不应引用标准库运行时类型。")
+	assert_false(ResourceLoader.exists("res://addons/gf/standard/editor/gf_standard_editor_extensions.gd", "Script"), "旧标准编辑器聚合脚本应移除。")
+
+
+func test_editor_contribution_registry_skips_missing_script_targets() -> void:
+	var manifest_path: String = "user://gf_editor_contribution_registry_missing_target.json"
+	var manifest: Dictionary = {
+		"schema_version": GF_EDITOR_CONTRIBUTION_REGISTRY.SCHEMA_VERSION,
+		"package_id": "gf.standard.editor",
+		"debugger_plugin_records": [
+			{
+				"owner_package_id": "gf.test.editor",
+				"source_id": "debugger.missing",
+				"path": "res://addons/gf/standard/__missing__/missing_debugger_plugin.gd",
+				"label": "Missing Debugger",
+			},
+		],
+		"project_setting_records": [
+			{
+				"owner_package_id": "gf.test.editor",
+				"source_id": "setting.kept",
+				"name": "gf/test/kept_from_partial_manifest",
+				"default_value": false,
+				"type_name": "bool",
+				"basic": true,
+			},
+		],
+	}
+	_write_text_file(manifest_path, JSON.stringify(manifest))
+
+	var report: Dictionary = GF_EDITOR_CONTRIBUTION_REGISTRY.load_manifest_report(manifest_path)
+	var records: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(report, "records")
+	var debugger_records: Array = GF_VARIANT_ACCESS.get_option_array(records, "debugger_plugin_records")
+	var project_setting_records: Array = GF_VARIANT_ACCESS.get_option_array(records, "project_setting_records")
+	_remove_path_if_exists(manifest_path)
+
+	assert_true(GF_VARIANT_ACCESS.get_option_bool(report, "ok"), "缺失贡献目标应跳过记录，而不是让 manifest 读取失败。")
+	assert_eq(GF_VARIANT_ACCESS.get_option_int(report, "skipped_record_count"), 1, "缺失脚本目标应进入 skipped 诊断。")
+	assert_true(debugger_records.is_empty(), "缺失脚本目标不应传给插件 helper 加载。")
+	assert_eq(project_setting_records.size(), 1, "无脚本依赖的 ProjectSettings 记录仍应保留。")
+	if project_setting_records.is_empty():
+		return
+	var setting_record: Dictionary = GF_VARIANT_ACCESS.as_dictionary(project_setting_records[0])
+	assert_eq(GF_VARIANT_ACCESS.get_option_int(setting_record, "type"), TYPE_BOOL, "type_name 应被转换为 Godot Variant.Type。")
+
+
+func test_editor_contribution_registry_rejects_duplicate_global_source_ids() -> void:
+	var manifest_path: String = "user://gf_editor_contribution_registry_duplicate_source.json"
+	var manifest: Dictionary = {
+		"schema_version": GF_EDITOR_CONTRIBUTION_REGISTRY.SCHEMA_VERSION,
+		"package_id": "gf.test.editor.aggregate",
+		"template_records": [
+			{
+				"owner_package_id": "gf.test.editor",
+				"source_id": "template.shared",
+				"type": "First",
+				"label": "First",
+				"base_class": "RefCounted",
+				"template_path": "res://addons/gf/standard/editor/templates/node_state.gdtemplate",
+			},
+			{
+				"owner_package_id": "gf.test.editor",
+				"source_id": "template.shared",
+				"type": "Second",
+				"label": "Second",
+				"base_class": "RefCounted",
+				"template_path": "res://addons/gf/standard/editor/templates/node_state_machine.gdtemplate",
+			},
+		],
+	}
+	_write_text_file(manifest_path, JSON.stringify(manifest))
+
+	var report: Dictionary = GF_EDITOR_CONTRIBUTION_REGISTRY.load_manifest_report(manifest_path)
+	var records: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(report, "records")
+	var templates: Array = GF_VARIANT_ACCESS.get_option_array(records, "template_records")
+	_remove_path_if_exists(manifest_path)
+
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(report, "ok"), "重复全局 source_id 应使 manifest 校验失败。")
+	assert_eq(templates.size(), 1, "重复 source_id 应只保留第一条稳定记录。")
+	assert_eq(_count_report_issue_kind(report, "duplicate_source_id"), 1, "报告应指出 source_id 冲突。")
+
+
+func test_standard_dock_records_use_standard_order_band() -> void:
+	var records: Array = _get_standard_editor_records(&"get_dock_records")
+
+	assert_false(records.is_empty(), "标准库应贡献 dock 页面记录。")
+	for record_value: Variant in records:
+		var record: Dictionary = GF_VARIANT_ACCESS.as_dictionary(record_value)
+		assert_gte(
+			GF_VARIANT_ACCESS.get_option_int(record, "order"),
+			100,
+			"标准库 dock 页面应使用 100+ order 段，避免与 kernel dock 撞位。"
+		)
 
 
 func test_standard_debugger_records_are_injected_without_kernel_hardcoding() -> void:
 	var tools: Object = _new_object(GF_PLUGIN_DEBUGGER_TOOLS)
-	var records: Array = GF_STANDARD_EDITOR_EXTENSIONS.get_debugger_plugin_records()
+	var records: Array = _get_standard_editor_records(&"get_debugger_plugin_records")
 	var normalized: Array = _call_array(tools, &"_to_record_array", [records])
 
 	assert_eq(normalized.size(), 1, "标准库应贡献一个 Runtime Debugger 插件记录。")
@@ -236,19 +463,17 @@ func test_standard_debugger_records_are_injected_without_kernel_hardcoding() -> 
 	assert_eq(String(debugger_script.get_instance_base_type()), "EditorDebuggerPlugin", "Runtime Debugger 插件应继承 EditorDebuggerPlugin。")
 	assert_true(debugger_source.contains("func _has_capture(capture: String) -> bool:"), "Runtime Debugger 插件应声明 capture 回调。")
 	assert_true(debugger_source.contains("GFDiagnosticsUtility.DEBUGGER_CAPTURE_NAME"), "Runtime Debugger 插件应声明 GF diagnostics capture。")
+	assert_true(debugger_source.contains("session.add_session_tab(tab)"), "Runtime Debugger 页签应注册到 EditorDebuggerSession。")
+	assert_false(debugger_source.contains("session.stopped.connect"), "stopped 只表示远端断开，不应销毁可复用的会话页签。")
+	assert_false(debugger_source.contains("tab.queue_free()"), "已注册页签必须由 EditorDebuggerSession 统一释放。")
 
 
 func test_standard_project_setting_records_use_runtime_build_info_constants() -> void:
-	var source: String = _read_text_file("res://addons/gf/standard/editor/gf_standard_editor_extensions.gd")
-	var records: Array[Dictionary] = GF_STANDARD_EDITOR_EXTENSIONS.get_project_setting_records()
+	var records: Array[Dictionary] = _get_standard_editor_records(&"get_project_setting_records")
 	var names: Array[String] = []
 	for record: Dictionary in records:
 		names.append(GF_VARIANT_ACCESS.get_option_string(record, "name"))
 
-	assert_false(
-		source.contains("gf_build_info_export_plugin.gd\")"),
-		"标准编辑器聚合入口不应只为读取常量而 preload EditorExportPlugin。"
-	)
 	assert_true(names.has(GFBuildInfo.EXPORT_ENABLED_SETTING), "导出开关应来自 GFBuildInfo 常量。")
 	assert_true(names.has(GFBuildInfo.EXPORT_BUILD_METADATA_SETTING), "导出元数据设置应来自 GFBuildInfo 常量。")
 
@@ -361,6 +586,76 @@ func test_resource_preview_generator_prefers_explicit_preview_method() -> void:
 		assert_gt(pixel.g, 0.9, "显式 GF 预览方法应优先于 icon 字段。")
 
 
+func test_resource_preview_source_registry_prefers_high_priority_provider() -> void:
+	var registry: GF_RESOURCE_PREVIEW_SOURCE_REGISTRY_SCRIPT = GF_RESOURCE_PREVIEW_SOURCE_REGISTRY_SCRIPT.new()
+	var low_provider: PreviewSourceProvider = PreviewSourceProvider.new()
+	low_provider.texture = _make_preview_test_texture(Color(1.0, 0.0, 0.0, 1.0))
+	var high_provider: PreviewSourceProvider = PreviewSourceProvider.new()
+	high_provider.texture = _make_preview_test_texture(Color(0.0, 1.0, 0.0, 1.0))
+
+	var low_registered: bool = registry.register_source(low_provider, { "source_id": "low", "priority": 1 })
+	var high_registered: bool = registry.register_source(high_provider, { "source_id": "high", "priority": 100 })
+	var result: Dictionary = registry.build_preview_result(Resource.new(), Vector2i(4, 4))
+	var texture: Texture2D = _get_preview_result_texture(result)
+
+	assert_true(low_registered, "低优先级 provider 应可注册。")
+	assert_true(high_registered, "高优先级 provider 应可注册。")
+	assert_true(GF_VARIANT_ACCESS.get_option_bool(result, "ok"), "高优先级 provider 应生成预览。")
+	assert_eq(GF_VARIANT_ACCESS.get_option_string(result, "source_id"), "high", "注册表应选择最高优先级 provider。")
+	assert_not_null(texture, "预览结果应包含生成纹理。")
+	if texture != null:
+		assert_gt(texture.get_image().get_pixel(2, 2).g, 0.9, "高优先级 provider 的纹理应进入最终预览。")
+
+
+func test_resource_preview_source_registry_reports_unknown_resource_without_source() -> void:
+	var registry: GF_RESOURCE_PREVIEW_SOURCE_REGISTRY_SCRIPT = GF_RESOURCE_PREVIEW_SOURCE_REGISTRY_SCRIPT.make_default()
+	var result: Dictionary = registry.build_preview_result(Resource.new(), Vector2i(4, 4))
+
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(result, "ok"), "未知 Resource 没有预览来源时不应生成预览。")
+	assert_eq(
+		GF_VARIANT_ACCESS.get_option_string_name(result, "status"),
+		GF_RESOURCE_PREVIEW_SOURCE_REGISTRY_SCRIPT.STATUS_NO_SOURCE,
+		"未知 Resource 应稳定报告 no_source。"
+	)
+	assert_null(_get_preview_result_texture(result), "no_source 不应携带纹理对象。")
+
+
+func test_resource_preview_source_registry_blocks_oversized_source_before_decode() -> void:
+	var registry: GF_RESOURCE_PREVIEW_SOURCE_REGISTRY_SCRIPT = GF_RESOURCE_PREVIEW_SOURCE_REGISTRY_SCRIPT.new()
+	var oversized_texture: HugePreviewTexture = HugePreviewTexture.new()
+	var provider: PreviewSourceProvider = PreviewSourceProvider.new()
+	provider.texture = oversized_texture
+	var _registered: bool = registry.register_source(provider, { "source_id": "huge", "priority": 1 })
+
+	var result: Dictionary = registry.build_preview_result(Resource.new(), Vector2i(4, 4))
+
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(result, "ok"), "超预算源纹理不应生成预览。")
+	assert_eq(
+		GF_VARIANT_ACCESS.get_option_string_name(result, "status"),
+		GF_RESOURCE_PREVIEW_SOURCE_REGISTRY_SCRIPT.STATUS_SOURCE_TOO_LARGE,
+		"超预算源纹理应稳定报告 source_too_large。"
+	)
+	assert_false(oversized_texture.image_requested, "源纹理超预算时不应调用 get_image 解码。")
+	assert_null(_get_preview_result_texture(result), "source_too_large 不应携带纹理对象。")
+
+
+func test_resource_preview_source_registry_blocks_oversized_target() -> void:
+	var registry: GF_RESOURCE_PREVIEW_SOURCE_REGISTRY_SCRIPT = GF_RESOURCE_PREVIEW_SOURCE_REGISTRY_SCRIPT.new()
+	var provider: PreviewSourceProvider = PreviewSourceProvider.new()
+	provider.texture = _make_preview_test_texture(Color(0.0, 1.0, 0.0, 1.0))
+	var _registered: bool = registry.register_source(provider, { "source_id": "small", "priority": 1 })
+
+	var result: Dictionary = registry.build_preview_result(Resource.new(), Vector2i(2048, 2048))
+
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(result, "ok"), "超预算目标尺寸不应生成预览。")
+	assert_eq(
+		GF_VARIANT_ACCESS.get_option_string_name(result, "status"),
+		GF_RESOURCE_PREVIEW_SOURCE_REGISTRY_SCRIPT.STATUS_TARGET_TOO_LARGE,
+		"超预算目标尺寸应稳定报告 target_too_large。"
+	)
+	assert_null(_get_preview_result_texture(result), "target_too_large 不应携带纹理对象。")
+
+
 func test_resource_path_editor_maps_file_hints_to_resource_types() -> void:
 	assert_eq(
 		GF_RESOURCE_PATH_EDITOR_PROPERTY.get_base_type_for_hint(PROPERTY_HINT_FILE, "*.tscn,*.scn"),
@@ -390,6 +685,10 @@ func test_resource_path_editor_maps_file_hints_to_resource_types() -> void:
 		GF_RESOURCE_PATH_EDITOR_PROPERTY.should_handle_property(TYPE_STRING, GF_RESOURCE_PATH_HINT.RESOURCE_PATH, "PackedScene"),
 		"String + GF 资源路径 hint 应接管。"
 	)
+	assert_false(
+		GF_RESOURCE_PATH_EDITOR_PROPERTY.should_handle_property(TYPE_STRING, PROPERTY_HINT_SAVE_FILE, "*.gd"),
+		"保存目标不是既有资源引用，不应被资源路径编辑器接管。"
+	)
 	assert_eq(
 		GF_RESOURCE_PATH_EDITOR_PROPERTY.get_base_type_for_hint(GF_RESOURCE_PATH_HINT.RESOURCE_PATH, ""),
 		"Resource",
@@ -403,6 +702,32 @@ func test_resource_path_editor_maps_file_hints_to_resource_types() -> void:
 		GF_RESOURCE_PATH_EDITOR_PROPERTY.should_handle_property(TYPE_STRING, GF_RESOURCE_PATH_HINT.RESOURCE_PATH_ARRAY, "PackedScene"),
 		"单值 String 不应被数组资源路径 hint 接管。"
 	)
+	var script_filters: PackedStringArray = GF_RESOURCE_PATH_EDITOR_PROPERTY.get_resource_file_filters(
+		"Script"
+	)
+	assert_false(script_filters.is_empty(), "Script 资源选择器应提供文件过滤器。")
+	assert_true(script_filters[0].contains("*.gd"), "Script 过滤器应包含 GDScript 扩展名。")
+
+
+func test_codegen_outputs_use_save_file_semantics() -> void:
+	GF_PLUGIN_PROJECT_SETTINGS.ensure_all()
+	var access_output_info: Dictionary = _find_project_setting_property_info(
+		GF_PLUGIN_PROJECT_SETTINGS.ACCESS_OUTPUT_SETTING
+	)
+	var project_access_output_info: Dictionary = _find_project_setting_property_info(
+		GF_PLUGIN_PROJECT_SETTINGS.PROJECT_ACCESS_OUTPUT_SETTING
+	)
+
+	assert_eq(
+		GF_VARIANT_ACCESS.get_option_int(access_output_info, "hint", PROPERTY_HINT_NONE),
+		PROPERTY_HINT_SAVE_FILE,
+		"框架访问器输出应使用保存文件语义。"
+	)
+	assert_eq(
+		GF_VARIANT_ACCESS.get_option_int(project_access_output_info, "hint", PROPERTY_HINT_NONE),
+		PROPERTY_HINT_SAVE_FILE,
+		"项目访问器输出应使用保存文件语义。"
+	)
 
 
 func test_resource_path_array_editor_uses_explicit_custom_hint() -> void:
@@ -413,6 +738,14 @@ func test_resource_path_array_editor_uses_explicit_custom_hint() -> void:
 	assert_true(
 		GF_RESOURCE_PATH_ARRAY_EDITOR_PROPERTY.should_handle_property(TYPE_PACKED_STRING_ARRAY, GF_RESOURCE_PATH_HINT.RESOURCE_PATH_ARRAY, "*.tscn"),
 		"PackedStringArray + GF 资源路径数组 hint 应接管。"
+	)
+	assert_true(
+		GF_RESOURCE_PATH_ARRAY_EDITOR_PROPERTY.should_handle_property(
+			TYPE_PACKED_STRING_ARRAY,
+			GF_RESOURCE_PATH_HINT.RESOURCE_PATH_ARRAY,
+			"GFNetworkContract"
+		),
+		"GDScript 全局 Resource 子类应能作为资源路径数组的精确类型。"
 	)
 	assert_false(
 		GF_RESOURCE_PATH_ARRAY_EDITOR_PROPERTY.should_handle_property(TYPE_ARRAY, PROPERTY_HINT_FILE, "*.tscn"),
@@ -497,6 +830,11 @@ func test_plugin_actions_discovers_enabled_extension_menu_entries() -> void:
 	var actions: Object = _new_object(GF_PLUGIN_ACTIONS)
 	_call_void(actions, &"_setup_menu_actions", [[]])
 	var entries: Array = _call_array(actions, &"get_menu_entries")
+	var setting_records: Array = _call_array(actions, &"get_project_setting_records")
+	var section_records: Array = _call_array(
+		actions,
+		&"get_project_setting_section_records"
+	)
 	_call_void(actions, &"_cleanup_extension_editor_actions")
 	_restore_enabled_extensions(restore)
 
@@ -506,6 +844,14 @@ func test_plugin_actions_discovers_enabled_extension_menu_entries() -> void:
 
 	assert_true(labels.has("校验当前场景 SaveGraph"), "SaveGraph 诊断应由 Save 扩展 manifest 注册。")
 	assert_true(labels.has("生成 Network Contract 访问器"), "Network Contract 生成器应由 Network 扩展 manifest 注册。")
+	assert_true(
+		_record_array_has_identity(setting_records, "name", "gf/network/contract_paths"),
+		"Network tool 应通过扩展编辑器动作贡献自己的项目设置。"
+	)
+	assert_true(
+		_record_array_has_identity(section_records, "path", "gf/network"),
+		"Network tool 应通过扩展编辑器动作贡献自己的项目设置分区。"
+	)
 
 
 func test_plugin_actions_discovers_enabled_extension_templates() -> void:
@@ -513,7 +859,7 @@ func test_plugin_actions_discovers_enabled_extension_templates() -> void:
 	var actions: Object = _new_object(GF_PLUGIN_ACTIONS)
 	_call_void(actions, &"_setup_menu_actions", [[]])
 	var entries: Array = _call_array(actions, &"get_menu_entries")
-	var source: String = _call_text(actions, &"_get_template", ["NodeCapability"])
+	var source: String = _call_text(actions, &"_get_template", ["gf.extension.capability:template.node_capability"])
 	_call_void(actions, &"_cleanup_extension_editor_actions")
 	_restore_enabled_extensions(restore)
 
@@ -528,7 +874,7 @@ func test_plugin_actions_discovers_enabled_extension_templates() -> void:
 func test_plugin_dock_tools_keeps_core_docks_available_without_extensions() -> void:
 	var restore: Dictionary = _set_enabled_extensions([])
 	var tools: Object = _new_object(GF_PLUGIN_DOCK_TOOLS)
-	_call_void(tools, &"set_standard_dock_records", [GF_STANDARD_EDITOR_EXTENSIONS.get_dock_records()])
+	_call_void(tools, &"set_standard_dock_records", [_get_standard_editor_records(&"get_dock_records")])
 	var core_records: Array = _call_array(tools, &"_collect_core_dock_records")
 	var extension_records: Array = _call_array(tools, &"_collect_enabled_extension_dock_records")
 	_restore_enabled_extensions(restore)
@@ -618,6 +964,20 @@ func test_plugin_dock_tools_sorts_workspace_records_by_order() -> void:
 	for record: Dictionary in records:
 		labels.append(GF_VARIANT_ACCESS.get_option_string(record, "label"))
 	assert_eq(labels, ["A", "B", "Z"], "工作区页面应先按 order，再按标题稳定排序。")
+
+
+func test_plugin_dock_tools_deduplicates_workspace_records_by_path() -> void:
+	var tools: Object = _new_object(GF_PLUGIN_DOCK_TOOLS)
+	var records: Array[Dictionary] = [
+		{"path": "res://addons/gf/kernel/editor/package/gf_package_manager_dock.gd", "label": "Core Package", "order": 70},
+		{"path": "res://addons/gf/kernel/editor/package/gf_package_manager_dock.gd", "label": "Duplicate Package", "order": 1},
+		{"path": "res://addons/gf/extensions/save/editor/gf_save_graph_dock.gd", "label": "Save", "order": 30},
+	]
+
+	var deduplicated: Array = _call_array(tools, &"_deduplicate_dock_records", [records])
+
+	assert_eq(deduplicated.size(), 2, "工作区页面应按 path 全局去重。")
+	assert_eq(GF_VARIANT_ACCESS.get_option_string(_dictionary_at(deduplicated, 0), "label"), "Core Package", "重复 path 应保留先出现的核心/标准记录。")
 
 
 func test_plugin_dock_tools_creates_workspace_lazily() -> void:
@@ -753,6 +1113,16 @@ func test_editor_workspace_dock_groups_gf_panels() -> void:
 	var latest_status: Dictionary = _call_dictionary(dock, &"_make_latest_version_status", ["v3.5.1", "3.5.0", latest_release_url])
 	assert_true(GF_VARIANT_ACCESS.get_option_bool(latest_status, "update_available"), "检测到新版本时应标记可更新。")
 	assert_eq(GF_VARIANT_ACCESS.get_option_string(latest_status, "release_url"), latest_release_url, "更新入口应保留具体 Release URL。")
+	assert_eq(
+		_call_text(dock, &"_normalize_release_url", ["https://example.com/gf-framework/releases/tag/3.5.1"]),
+		"https://github.com/C76GN/gf-framework/releases",
+		"更新入口不应接受非官方 Release URL。"
+	)
+	assert_eq(
+		_call_text(dock, &"_normalize_release_url", ["https://github.com/C76GN/gf-framework/releases.evil/tag/3.5.1"]),
+		"https://github.com/C76GN/gf-framework/releases",
+		"更新入口不应接受伪装成 releases 前缀的 URL。"
+	)
 	_call_void(dock, &"_apply_latest_version_status", [latest_status])
 	assert_true(about_update_release.visible, "检测到新版本后应显示更新入口。")
 	assert_false(about_update_release.disabled, "检测到新版本后更新入口应可点击。")
@@ -1021,6 +1391,7 @@ func test_extension_manager_dock_writes_setup_policy_to_project_settings() -> vo
 	_call_void(dock, &"_write_selection_to_project_settings")
 
 	var stored_enabled_ids: Array[String] = GF_EXTENSION_SETTINGS_BASE.get_enabled_extension_ids()
+	var stored_selection_mode: String = GF_EXTENSION_SETTINGS_BASE.get_extension_selection_mode()
 	var stored_auto_install: bool = GF_EXTENSION_SETTINGS_BASE.should_auto_install_enabled_installers()
 	var stored_export_exclude: bool = GF_EXTENSION_SETTINGS_BASE.should_export_exclude_disabled_extensions()
 	var stored_export_fail: bool = GF_EXTENSION_SETTINGS_BASE.should_fail_export_on_disabled_extension_references()
@@ -1032,9 +1403,33 @@ func test_extension_manager_dock_writes_setup_policy_to_project_settings() -> vo
 	_restore_project_setting(GF_EXTENSION_SETTINGS_BASE.ENABLED_EXTENSIONS_SETTING, enabled_restore)
 
 	assert_eq(stored_enabled_ids, [], "扩展 setup 面板应把当前勾选状态写入启用扩展设置。")
+	assert_eq(stored_selection_mode, GF_EXTENSION_SETTINGS_BASE.SELECTION_MODE_EXPLICIT, "手动勾选保存应进入显式扩展选择模式。")
 	assert_false(stored_auto_install, "扩展 setup 面板应保存 Installer 自动装配策略。")
 	assert_false(stored_export_exclude, "扩展 setup 面板应保存导出排除策略。")
 	assert_false(stored_export_fail, "扩展 setup 面板应保存禁用引用失败策略。")
+
+
+func test_extension_manager_dock_restore_default_writes_default_selection_mode() -> void:
+	var enabled_restore: Dictionary = _set_project_setting(
+		GF_EXTENSION_SETTINGS_BASE.ENABLED_EXTENSIONS_SETTING,
+		["gf.save"]
+	)
+	var mode_restore: Dictionary = _set_project_setting(
+		GF_EXTENSION_SETTINGS_BASE.EXTENSION_SELECTION_MODE_SETTING,
+		GF_EXTENSION_SETTINGS_BASE.SELECTION_MODE_EXPLICIT
+	)
+	var dock: VBoxContainer = _new_vbox_container(GF_EXTENSION_MANAGER_DOCK)
+	_call_void(dock, &"_refresh_extensions")
+
+	_call_void(dock, &"_restore_default_selection")
+	_call_void(dock, &"_write_selection_to_project_settings")
+	var stored_selection_mode: String = GF_EXTENSION_SETTINGS_BASE.get_extension_selection_mode()
+
+	dock.free()
+	_restore_project_setting(GF_EXTENSION_SETTINGS_BASE.EXTENSION_SELECTION_MODE_SETTING, mode_restore)
+	_restore_project_setting(GF_EXTENSION_SETTINGS_BASE.ENABLED_EXTENSIONS_SETTING, enabled_restore)
+
+	assert_eq(stored_selection_mode, GF_EXTENSION_SETTINGS_BASE.SELECTION_MODE_DEFAULT, "恢复默认保存时应保留 default 模式，而不是固化当前默认列表。")
 
 
 func test_extension_manager_dock_exposes_extension_presets() -> void:
@@ -1123,13 +1518,38 @@ func test_extension_manager_dock_clears_rows_immediately() -> void:
 
 # --- 私有/辅助方法 ---
 
+func _make_preview_test_texture(color: Color) -> Texture2D:
+	var image: Image = Image.create(2, 2, false, Image.FORMAT_RGBA8)
+	image.fill(color)
+	return ImageTexture.create_from_image(image)
+
+
+func _get_preview_result_texture(result: Dictionary) -> Texture2D:
+	var value: Variant = GF_VARIANT_ACCESS.get_option_value(result, "texture")
+	if value is Texture2D:
+		var texture: Texture2D = value
+		return texture
+	return null
+
+
 func _set_enabled_extensions(extension_ids: Array[String]) -> Dictionary:
 	var setting_name: String = GF_EXTENSION_SETTINGS_BASE.ENABLED_EXTENSIONS_SETTING
 	var restore: Dictionary = {
 		"had_setting": ProjectSettings.has_setting(setting_name),
 		"value": ProjectSettings.get_setting(setting_name, []),
+		"selection_mode_had_setting": ProjectSettings.has_setting(
+			GF_EXTENSION_SETTINGS_BASE.EXTENSION_SELECTION_MODE_SETTING
+		),
+		"selection_mode_value": ProjectSettings.get_setting(
+			GF_EXTENSION_SETTINGS_BASE.EXTENSION_SELECTION_MODE_SETTING,
+			null
+		),
 	}
 	ProjectSettings.set_setting(setting_name, extension_ids)
+	ProjectSettings.set_setting(
+		GF_EXTENSION_SETTINGS_BASE.EXTENSION_SELECTION_MODE_SETTING,
+		GF_EXTENSION_SETTINGS_BASE.SELECTION_MODE_EXPLICIT
+	)
 	return restore
 
 
@@ -1139,6 +1559,13 @@ func _restore_enabled_extensions(restore: Dictionary) -> void:
 		ProjectSettings.set_setting(setting_name, GF_VARIANT_ACCESS.get_option_value(restore, "value", []))
 	else:
 		ProjectSettings.clear(setting_name)
+	if GF_VARIANT_ACCESS.get_option_bool(restore, "selection_mode_had_setting"):
+		ProjectSettings.set_setting(
+			GF_EXTENSION_SETTINGS_BASE.EXTENSION_SELECTION_MODE_SETTING,
+			GF_VARIANT_ACCESS.get_option_value(restore, "selection_mode_value", null)
+		)
+	else:
+		ProjectSettings.clear(GF_EXTENSION_SETTINGS_BASE.EXTENSION_SELECTION_MODE_SETTING)
 
 
 func _mark_workspace_ui_button_pressed(state: WorkspaceButtonState) -> void:
@@ -1150,7 +1577,20 @@ func _set_project_setting(setting_name: String, value: Variant) -> Dictionary:
 		"had_setting": ProjectSettings.has_setting(setting_name),
 		"value": ProjectSettings.get_setting(setting_name, null),
 	}
+	if setting_name == GF_EXTENSION_SETTINGS_BASE.ENABLED_EXTENSIONS_SETTING:
+		restore["selection_mode_had_setting"] = ProjectSettings.has_setting(
+			GF_EXTENSION_SETTINGS_BASE.EXTENSION_SELECTION_MODE_SETTING
+		)
+		restore["selection_mode_value"] = ProjectSettings.get_setting(
+			GF_EXTENSION_SETTINGS_BASE.EXTENSION_SELECTION_MODE_SETTING,
+			null
+		)
 	ProjectSettings.set_setting(setting_name, value)
+	if setting_name == GF_EXTENSION_SETTINGS_BASE.ENABLED_EXTENSIONS_SETTING:
+		ProjectSettings.set_setting(
+			GF_EXTENSION_SETTINGS_BASE.EXTENSION_SELECTION_MODE_SETTING,
+			GF_EXTENSION_SETTINGS_BASE.SELECTION_MODE_EXPLICIT
+		)
 	return restore
 
 
@@ -1159,11 +1599,35 @@ func _restore_project_setting(setting_name: String, restore: Dictionary) -> void
 		ProjectSettings.set_setting(setting_name, GF_VARIANT_ACCESS.get_option_value(restore, "value", null))
 	else:
 		_clear_project_setting_if_exists(setting_name)
+	if setting_name != GF_EXTENSION_SETTINGS_BASE.ENABLED_EXTENSIONS_SETTING:
+		return
+
+	if GF_VARIANT_ACCESS.get_option_bool(restore, "selection_mode_had_setting"):
+		ProjectSettings.set_setting(
+			GF_EXTENSION_SETTINGS_BASE.EXTENSION_SELECTION_MODE_SETTING,
+			GF_VARIANT_ACCESS.get_option_value(restore, "selection_mode_value", null)
+		)
+	else:
+		_clear_project_setting_if_exists(GF_EXTENSION_SETTINGS_BASE.EXTENSION_SELECTION_MODE_SETTING)
 
 
 func _clear_project_setting_if_exists(setting_name: String) -> void:
 	if ProjectSettings.has_setting(setting_name):
 		ProjectSettings.clear(setting_name)
+
+
+func _find_project_setting_property_info(setting_name: String) -> Dictionary:
+	for property_info: Dictionary in ProjectSettings.get_property_list():
+		if GF_VARIANT_ACCESS.get_option_string(property_info, "name") == setting_name:
+			return property_info
+	return {}
+
+
+func _clear_test_project_settings() -> void:
+	for property_info: Dictionary in ProjectSettings.get_property_list():
+		var setting_name: String = GF_VARIANT_ACCESS.get_option_string(property_info, "name")
+		if setting_name.begins_with(_TEST_PROJECT_SETTING_PREFIX):
+			ProjectSettings.clear(setting_name)
 
 
 func _write_text_file(path: String, text: String) -> void:
@@ -1182,6 +1646,15 @@ func _remove_path_if_exists(path: String) -> void:
 		var _remove_absolute_result: Variant = DirAccess.remove_absolute(absolute_path)
 
 
+func _count_report_issue_kind(report: Dictionary, issue_kind: String) -> int:
+	var count: int = 0
+	for issue_value: Variant in GF_VARIANT_ACCESS.get_option_array(report, "issues"):
+		var issue: Dictionary = GF_VARIANT_ACCESS.as_dictionary(issue_value)
+		if GF_VARIANT_ACCESS.get_option_string(issue, "kind") == issue_kind:
+			count += 1
+	return count
+
+
 func _load_script_resource(path: String) -> Script:
 	var resource: Resource = load(path)
 	assert_true(resource is Script, "测试资源路径应指向 Script：%s" % path)
@@ -1189,6 +1662,41 @@ func _load_script_resource(path: String) -> Script:
 		var script: Script = resource
 		return script
 	return null
+
+
+func _get_standard_editor_records(method_name: StringName) -> Array[Dictionary]:
+	var record_key: String = _standard_method_to_record_key(method_name)
+	if record_key.is_empty():
+		return []
+	var records: Array[Dictionary] = []
+	var manifest_records: Dictionary = GF_EDITOR_CONTRIBUTION_REGISTRY.load_manifest_records(GF_STANDARD_EDITOR_CONTRIBUTIONS_PATH)
+	var value: Variant = manifest_records.get(record_key, [])
+	if not (value is Array):
+		return records
+	var raw_records: Array = value
+	for raw_record: Variant in raw_records:
+		if raw_record is Dictionary:
+			var record: Dictionary = raw_record
+			records.append(record.duplicate(true))
+	return records
+
+
+func _standard_method_to_record_key(method_name: StringName) -> String:
+	match method_name:
+		&"get_inspector_plugin_records":
+			return "inspector_plugin_records"
+		&"get_export_plugin_records":
+			return "export_plugin_records"
+		&"get_debugger_plugin_records":
+			return "debugger_plugin_records"
+		&"get_dock_records":
+			return "dock_records"
+		&"get_template_records":
+			return "template_records"
+		&"get_project_setting_records":
+			return "project_setting_records"
+		_:
+			return ""
 
 
 func _read_text_file(path: String) -> String:
@@ -1315,6 +1823,16 @@ func _dictionary_at(values: Array, index: int) -> Dictionary:
 	var value: Variant = values[index] if index >= 0 and index < values.size() else {}
 	assert_true(value is Dictionary, "测试记录应为 Dictionary。")
 	return GF_VARIANT_ACCESS.as_dictionary(value)
+
+
+func _record_array_has_identity(records: Array, identity_key: String, identity: String) -> bool:
+	for record_value: Variant in records:
+		if not record_value is Dictionary:
+			continue
+		var record: Dictionary = record_value
+		if GF_VARIANT_ACCESS.get_option_string(record, identity_key) == identity:
+			return true
+	return false
 
 
 func _make_package_manager_entry(package_id: String, kind: String) -> Dictionary:
@@ -1491,10 +2009,65 @@ class WorkspaceButtonState:
 	var count: int = 0
 
 
+class FakePluginActionDependencies:
+	extends RefCounted
+
+	var access_output_path: String = "user://gf_fake_access.gd"
+	var project_access_output_path: String = "user://gf_fake_project_access.gd"
+	var generated_access_path: String = ""
+	var generated_project_access_path: String = ""
+	var editor_action_path_call_count: int = 0
+
+	func get_access_output_path() -> String:
+		return access_output_path
+
+	func get_project_access_output_path() -> String:
+		return project_access_output_path
+
+	func generate_accessors(output_path: String) -> Error:
+		generated_access_path = output_path
+		return OK
+
+	func generate_project_accessors(output_path: String) -> Error:
+		generated_project_access_path = output_path
+		return OK
+
+	func get_enabled_editor_action_paths() -> Array[String]:
+		editor_action_path_call_count += 1
+		return []
+
+
 class PreviewIconResource:
 	extends Resource
 
 	var icon: Texture2D = null
+
+
+class PreviewSourceProvider:
+	extends RefCounted
+
+	var texture: Texture2D = null
+
+	func get_preview_texture(_resource: Resource) -> Texture2D:
+		return texture
+
+
+class HugePreviewTexture:
+	extends Texture2D
+
+	var image_requested: bool = false
+
+	func _get_width() -> int:
+		return 8192
+
+	func _get_height() -> int:
+		return 8192
+
+	func _get_image() -> Image:
+		image_requested = true
+		var image: Image = Image.create(2, 2, false, Image.FORMAT_RGBA8)
+		image.fill(Color(1.0, 0.0, 0.0, 1.0))
+		return image
 
 
 class PreviewMethodResource:

@@ -42,7 +42,9 @@ enum Priority {
 ## @api public
 ## [br]
 ## @since 6.0.0
-var epsilon: float = 0.001
+var epsilon: float = 0.001:
+	set(value):
+		epsilon = maxf(value, 0.0) if not is_nan(value) and not is_inf(value) else 0.0
 
 ## 默认字段优先级。
 ## [br]

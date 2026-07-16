@@ -14,6 +14,8 @@ var snapshots := timeline.get_events_by_kind(GFReplayTimeline.EVENT_SNAPSHOT)
 
 常量 `EVENT_COMMAND`、`EVENT_INPUT`、`EVENT_SNAPSHOT` 只是通用分类，payload 的结构由项目决定。需要把多段录制拼起来时，可用 `append_timeline()` 添加时间偏移和类型过滤。
 
+时间戳和 `duration_seconds` 会被规范化为有限且不小于 0 的秒数；`NaN`、`Infinity` 或负数不会进入 `to_dictionary(true)` 的 JSON 兼容输出。payload 与 metadata 中的 Godot 值仍由 `GFVariantJsonCodec` 负责转换。
+
 ```gdscript
 combined.append_timeline(round_one, 0.0)
 combined.append_timeline(round_two, round_one.duration_seconds, PackedStringArray(["input", "snapshot"]))

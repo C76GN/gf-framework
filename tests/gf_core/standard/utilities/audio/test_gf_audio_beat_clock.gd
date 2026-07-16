@@ -115,3 +115,21 @@ func test_audio_beat_clock_quantizes_with_offset() -> void:
 
 	assert_almost_eq(clock.quantize_position(0.1), 0.25, 0.001, "offset 后最近 beat 边界应回到 0.25 秒。")
 	assert_almost_eq(clock.quantize_position(0.76, 2, GFAudioBeatClock.QuantizeMode.FLOOR), 0.75, 0.001, "细分量化 floor 应使用 half-beat 网格。")
+
+
+func test_audio_beat_clock_sanitizes_non_finite_timing_values() -> void:
+	var clock: GFAudioBeatClock = GFAudioBeatClock.new()
+	clock.configure(NAN, 0, INF)
+	var snapshot: Dictionary = clock.sample(INF)
+	clock.offset_seconds = NAN
+
+	var beat_value: float = clock.position_to_beats(NAN)
+	var beat_position: float = clock.beat_to_position_seconds(1)
+	var snapshot_json: String = JSON.stringify(snapshot)
+
+	assert_almost_eq(GFVariantData.get_option_float(snapshot, "bpm"), GFAudioBeatClock.DEFAULT_BPM, 0.001, "非有限 BPM 应回退到默认 BPM。")
+	assert_eq(GFVariantData.get_option_int(snapshot, "beats_per_measure"), 1, "无效每小节拍数应收窄到 1。")
+	assert_almost_eq(GFVariantData.get_option_float(snapshot, "position_seconds"), 0.0, 0.001, "非有限播放位置应回退到 0。")
+	assert_false(is_nan(beat_value), "position_to_beats 不应返回 NaN。")
+	assert_false(is_nan(beat_position), "beat_to_position_seconds 不应返回 NaN。")
+	assert_false(snapshot_json.contains("null"), "节拍快照不应依赖 JSON.stringify 将 NaN 替换为 null。")

@@ -47,7 +47,7 @@ const _EPSILON: float = 0.000001
 ## [br]
 ## @param options: 采样选项。
 ## [br]
-## @schema options: Dictionary supports seed, max_attempt_multiplier, max_random_attempts, height_min, height_max, slope_min, slope_max, yaw_min, yaw_max, scale_min, scale_max, y_offset, align_to_normal, and vertical_scale.
+## @schema options: Dictionary supports seed, max_attempt_multiplier, max_random_attempts, height_min, height_max, slope_min, slope_max, yaw_min, yaw_max, scale_min, scale_max, scale_axis_mode, y_offset, align_to_normal, and vertical_scale. scale_min/scale_max may be number or Vector3; scale_axis_mode accepts GFTransform3DMath.ScaleAxisMode or uniform/free/lock_xy/lock_xz/lock_yz.
 ## [br]
 ## @return 散布报告。
 ## [br]
@@ -78,7 +78,7 @@ static func sample_heightfield(
 ## [br]
 ## @param options: 采样选项。
 ## [br]
-## @schema options: Dictionary supports seed, max_points, height_min, height_max, slope_min, slope_max, yaw_min, yaw_max, scale_min, scale_max, y_offset, align_to_normal, and vertical_scale.
+## @schema options: Dictionary supports seed, max_points, height_min, height_max, slope_min, slope_max, yaw_min, yaw_max, scale_min, scale_max, scale_axis_mode, y_offset, align_to_normal, and vertical_scale. scale_min/scale_max may be number or Vector3; scale_axis_mode accepts GFTransform3DMath.ScaleAxisMode or uniform/free/lock_xy/lock_xz/lock_yz.
 ## [br]
 ## @return 散布报告。
 ## [br]
@@ -112,7 +112,7 @@ static func sample_heightfield_points(
 ## [br]
 ## @param options: 采样选项。
 ## [br]
-## @schema options: Dictionary supports seed, max_attempt_multiplier, max_random_attempts, height_min, height_max, slope_min, slope_max, yaw_min, yaw_max, scale_min, scale_max, y_offset, align_to_normal, and vertical_scale.
+## @schema options: Dictionary supports seed, max_attempt_multiplier, max_random_attempts, height_min, height_max, slope_min, slope_max, yaw_min, yaw_max, scale_min, scale_max, scale_axis_mode, y_offset, align_to_normal, and vertical_scale. scale_min/scale_max may be number or Vector3; scale_axis_mode accepts GFTransform3DMath.ScaleAxisMode or uniform/free/lock_xy/lock_xz/lock_yz.
 ## [br]
 ## @return 散布报告。
 ## [br]
@@ -201,7 +201,7 @@ static func sample(
 ## [br]
 ## @param options: 采样选项。
 ## [br]
-## @schema options: Dictionary supports seed, max_points, height_min, height_max, slope_min, slope_max, yaw_min, yaw_max, scale_min, scale_max, y_offset, align_to_normal, and vertical_scale.
+## @schema options: Dictionary supports seed, max_points, height_min, height_max, slope_min, slope_max, yaw_min, yaw_max, scale_min, scale_max, scale_axis_mode, y_offset, align_to_normal, and vertical_scale. scale_min/scale_max may be number or Vector3; scale_axis_mode accepts GFTransform3DMath.ScaleAxisMode or uniform/free/lock_xy/lock_xz/lock_yz.
 ## [br]
 ## @return 散布报告。
 ## [br]
@@ -274,6 +274,27 @@ static func sample_points(
 	)
 
 
+## 将表面散布报告转换为 JSON.stringify() 安全的结构。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+## [br]
+## @param report: sample_heightfield()、sample_heightfield_points()、sample_points() 或 sample() 返回的报告。
+## [br]
+## @param options: 报告编码选项，透传给 GFReportValueCodec。
+## [br]
+## @return: JSON 兼容报告。
+## [br]
+## @schema report: GFSurfaceScatterSampler3D 返回的表面散布报告。
+## [br]
+## @schema options: GFReportValueCodec 编码选项字典。
+## [br]
+## @schema return: 可安全交给 JSON.stringify() 的 Dictionary。
+static func to_json_compatible_report(report: Dictionary, options: Dictionary = {}) -> Dictionary:
+	return GFVariantData.as_dictionary(GFReportValueCodec.to_json_compatible(report, options))
+
+
 # --- 私有/辅助方法 ---
 
 static func _get_random_input_error(area: Rect2, count: int, height_provider: Callable) -> String:
@@ -310,12 +331,18 @@ static func _make_settings(options: Dictionary) -> Dictionary:
 		yaw_min = yaw_max
 		yaw_max = old_yaw_min
 
-	var scale_min: float = maxf(_get_finite_option_float(options, "scale_min", 1.0), 0.0)
-	var scale_max: float = maxf(_get_finite_option_float(options, "scale_max", 1.0), 0.0)
-	if scale_max < scale_min:
-		var old_scale_min: float = scale_min
-		scale_min = scale_max
-		scale_max = old_scale_min
+	var raw_scale_min: Vector3 = _get_non_negative_scale(_get_scale_option(options, "scale_min", Vector3.ONE))
+	var raw_scale_max: Vector3 = _get_non_negative_scale(_get_scale_option(options, "scale_max", Vector3.ONE))
+	var scale_min: Vector3 = Vector3(
+		minf(raw_scale_min.x, raw_scale_max.x),
+		minf(raw_scale_min.y, raw_scale_max.y),
+		minf(raw_scale_min.z, raw_scale_max.z)
+	)
+	var scale_max: Vector3 = Vector3(
+		maxf(raw_scale_min.x, raw_scale_max.x),
+		maxf(raw_scale_min.y, raw_scale_max.y),
+		maxf(raw_scale_min.z, raw_scale_max.z)
+	)
 
 	return {
 		"seed": GFVariantData.get_option_int(options, "seed", 0),
@@ -335,6 +362,7 @@ static func _make_settings(options: Dictionary) -> Dictionary:
 		"yaw_max": yaw_max,
 		"scale_min": scale_min,
 		"scale_max": scale_max,
+		"scale_axis_mode": _get_scale_axis_mode(options),
 		"y_offset": _get_finite_option_float(options, "y_offset", 0.0),
 		"align_to_normal": GFVariantData.get_option_bool(options, "align_to_normal", true),
 		"vertical_scale": _get_finite_option_float(options, "vertical_scale", 1.0),
@@ -395,10 +423,7 @@ static func _evaluate_candidate(
 		GFVariantData.get_option_float(settings, "yaw_min", 0.0),
 		GFVariantData.get_option_float(settings, "yaw_max", TAU)
 	)
-	var uniform_scale: float = rng.next_float_range(
-		GFVariantData.get_option_float(settings, "scale_min", 1.0),
-		GFVariantData.get_option_float(settings, "scale_max", 1.0)
-	)
+	var scale_value: Vector3 = _get_random_scale(settings, rng)
 	var position: Vector3 = Vector3(
 		candidate_point.x,
 		height + GFVariantData.get_option_float(settings, "y_offset", 0.0),
@@ -409,7 +434,7 @@ static func _evaluate_candidate(
 		yaw,
 		GFVariantData.get_option_bool(settings, "align_to_normal", true)
 	)
-	basis = basis.scaled(Vector3.ONE * uniform_scale)
+	basis = basis.scaled(scale_value)
 	return {
 		"accepted": true,
 		"rejection": "",
@@ -446,11 +471,7 @@ static func _call_normal_provider(
 
 
 static func _normal_to_slope(normal: Vector3) -> float:
-	if normal.length_squared() <= _EPSILON:
-		return 1.0
-
-	var up_dot: float = clampf(normal.normalized().dot(Vector3.UP), -1.0, 1.0)
-	return clampf(1.0 - up_dot, 0.0, 1.0)
+	return GFHeightfield3D.normal_to_slope(normal)
 
 
 static func _make_surface_basis(normal: Vector3, yaw: float, align_to_normal: bool) -> Basis:
@@ -584,6 +605,110 @@ static func _get_height_limit(options: Dictionary, key: String, default_value: f
 	if is_nan(value):
 		return default_value
 	return value
+
+
+static func _get_scale_option(options: Dictionary, key: String, default_value: Vector3) -> Vector3:
+	var value: Variant = GFVariantData.get_option_value(options, key, default_value)
+	if value is Vector3:
+		var vector: Vector3 = value
+		if _is_finite_vector3(vector):
+			return vector
+	if value is int or value is float:
+		var scalar: float = GFVariantData.to_float(value, NAN)
+		if _is_finite_float(scalar):
+			return Vector3.ONE * scalar
+	return default_value
+
+
+static func _get_non_negative_scale(value: Vector3) -> Vector3:
+	return Vector3(
+		maxf(value.x, 0.0),
+		maxf(value.y, 0.0),
+		maxf(value.z, 0.0)
+	)
+
+
+static func _get_scale_axis_mode(options: Dictionary) -> GFTransform3DMath.ScaleAxisMode:
+	var value: Variant = GFVariantData.get_option_value(
+		options,
+		"scale_axis_mode",
+		GFTransform3DMath.ScaleAxisMode.UNIFORM
+	)
+	if value is int:
+		var mode_id: int = value
+		match mode_id:
+			GFTransform3DMath.ScaleAxisMode.FREE:
+				return GFTransform3DMath.ScaleAxisMode.FREE
+			GFTransform3DMath.ScaleAxisMode.LOCK_XY:
+				return GFTransform3DMath.ScaleAxisMode.LOCK_XY
+			GFTransform3DMath.ScaleAxisMode.LOCK_XZ:
+				return GFTransform3DMath.ScaleAxisMode.LOCK_XZ
+			GFTransform3DMath.ScaleAxisMode.LOCK_YZ:
+				return GFTransform3DMath.ScaleAxisMode.LOCK_YZ
+			_:
+				return GFTransform3DMath.ScaleAxisMode.UNIFORM
+	if value is String:
+		var mode_text: String = value
+		return _scale_axis_mode_from_text(mode_text)
+	if value is StringName:
+		var mode_name: StringName = value
+		return _scale_axis_mode_from_text(String(mode_name))
+	return GFTransform3DMath.ScaleAxisMode.UNIFORM
+
+
+static func _scale_axis_mode_from_text(value: String) -> GFTransform3DMath.ScaleAxisMode:
+	match value.strip_edges().to_lower():
+		"free":
+			return GFTransform3DMath.ScaleAxisMode.FREE
+		"lock_xy", "xy":
+			return GFTransform3DMath.ScaleAxisMode.LOCK_XY
+		"lock_xz", "xz":
+			return GFTransform3DMath.ScaleAxisMode.LOCK_XZ
+		"lock_yz", "yz":
+			return GFTransform3DMath.ScaleAxisMode.LOCK_YZ
+		_:
+			return GFTransform3DMath.ScaleAxisMode.UNIFORM
+
+
+static func _get_scale_setting(settings: Dictionary, key: String, default_value: Vector3) -> Vector3:
+	var value: Variant = GFVariantData.get_option_value(settings, key, default_value)
+	if value is Vector3:
+		var scale_value: Vector3 = value
+		if _is_finite_vector3(scale_value):
+			return scale_value
+	return default_value
+
+
+static func _get_scale_axis_mode_setting(settings: Dictionary) -> GFTransform3DMath.ScaleAxisMode:
+	return _get_scale_axis_mode(settings)
+
+
+static func _get_random_scale(settings: Dictionary, rng: GFDeterministicRandom) -> Vector3:
+	var mode: GFTransform3DMath.ScaleAxisMode = _get_scale_axis_mode_setting(settings)
+	var weight: Vector3 = _get_random_scale_weight(mode, rng)
+	return GFTransform3DMath.interpolate_scale(
+		_get_scale_setting(settings, "scale_min", Vector3.ONE),
+		_get_scale_setting(settings, "scale_max", Vector3.ONE),
+		weight,
+		mode
+	)
+
+
+static func _get_random_scale_weight(
+	mode: GFTransform3DMath.ScaleAxisMode,
+	rng: GFDeterministicRandom
+) -> Vector3:
+	match mode:
+		GFTransform3DMath.ScaleAxisMode.FREE:
+			return Vector3(rng.next_float_unit(), rng.next_float_unit(), rng.next_float_unit())
+		GFTransform3DMath.ScaleAxisMode.LOCK_XY:
+			return Vector3(rng.next_float_unit(), 0.0, rng.next_float_unit())
+		GFTransform3DMath.ScaleAxisMode.LOCK_XZ:
+			return Vector3(rng.next_float_unit(), rng.next_float_unit(), 0.0)
+		GFTransform3DMath.ScaleAxisMode.LOCK_YZ:
+			return Vector3(rng.next_float_unit(), rng.next_float_unit(), 0.0)
+		_:
+			return Vector3.ONE * rng.next_float_unit()
 
 
 static func _get_finite_option_float(options: Dictionary, key: String, default_value: float) -> float:

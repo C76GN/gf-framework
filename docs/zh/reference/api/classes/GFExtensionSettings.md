@@ -16,12 +16,17 @@ GF 扩展启用状态与 ProjectSettings 桥接。 负责读取启用扩展 ID�
 | 类型 | 名称 | 签名 |
 |---|---|---|
 | 常量 | [`ENABLED_EXTENSIONS_SETTING`](#member-gfextensionsettings-constants-enabled_extensions_setting) | `const ENABLED_EXTENSIONS_SETTING: String = "gf/extensions/enabled"` |
+| 常量 | [`EXTENSION_SELECTION_MODE_SETTING`](#member-gfextensionsettings-constants-extension_selection_mode_setting) | `const EXTENSION_SELECTION_MODE_SETTING: String = "gf/extensions/selection_mode"` |
 | 常量 | [`AUTO_INSTALL_ENABLED_INSTALLERS_SETTING`](#member-gfextensionsettings-constants-auto_install_enabled_installers_setting) | `const AUTO_INSTALL_ENABLED_INSTALLERS_SETTING: String = "gf/extensions/auto_install_enabled_installers"` |
 | 常量 | [`EXTERNAL_EXTENSION_ROOTS_SETTING`](#member-gfextensionsettings-constants-external_extension_roots_setting) | `const EXTERNAL_EXTENSION_ROOTS_SETTING: String = "gf/extensions/external_roots"` |
 | 常量 | [`EXTENSION_PRESET_PATHS_SETTING`](#member-gfextensionsettings-constants-extension_preset_paths_setting) | `const EXTENSION_PRESET_PATHS_SETTING: String = "gf/extensions/preset_paths"` |
 | 常量 | [`EXPORT_EXCLUDE_DISABLED_SETTING`](#member-gfextensionsettings-constants-export_exclude_disabled_setting) | `const EXPORT_EXCLUDE_DISABLED_SETTING: String = "gf/extensions/export_exclude_disabled"` |
 | 常量 | [`EXPORT_FAIL_ON_DISABLED_REFERENCES_SETTING`](#member-gfextensionsettings-constants-export_fail_on_disabled_references_setting) | `const EXPORT_FAIL_ON_DISABLED_REFERENCES_SETTING: String = "gf/extensions/export_fail_on_disabled_references"` |
 | 常量 | [`AUTO_INSTALL_ENABLED_INSTALLERS_DEFAULT`](#member-gfextensionsettings-constants-auto_install_enabled_installers_default) | `const AUTO_INSTALL_ENABLED_INSTALLERS_DEFAULT: bool = true` |
+| 常量 | [`SELECTION_MODE_DEFAULT`](#member-gfextensionsettings-constants-selection_mode_default) | `const SELECTION_MODE_DEFAULT: String = "default"` |
+| 常量 | [`SELECTION_MODE_EXPLICIT`](#member-gfextensionsettings-constants-selection_mode_explicit) | `const SELECTION_MODE_EXPLICIT: String = "explicit"` |
+| 常量 | [`EXTENSION_SELECTION_MODE_DEFAULT`](#member-gfextensionsettings-constants-extension_selection_mode_default) | `const EXTENSION_SELECTION_MODE_DEFAULT: String = SELECTION_MODE_DEFAULT` |
+| 常量 | [`ENABLED_EXTENSIONS_DEFAULT`](#member-gfextensionsettings-constants-enabled_extensions_default) | `const ENABLED_EXTENSIONS_DEFAULT: Array[String] = []` |
 | 常量 | [`EXTERNAL_EXTENSION_ROOTS_DEFAULT`](#member-gfextensionsettings-constants-external_extension_roots_default) | `const EXTERNAL_EXTENSION_ROOTS_DEFAULT: Array[String] = []` |
 | 常量 | [`EXTENSION_PRESET_PATHS_DEFAULT`](#member-gfextensionsettings-constants-extension_preset_paths_default) | `const EXTENSION_PRESET_PATHS_DEFAULT: Array[String] = []` |
 | 常量 | [`EXPORT_EXCLUDE_DISABLED_DEFAULT`](#member-gfextensionsettings-constants-export_exclude_disabled_default) | `const EXPORT_EXCLUDE_DISABLED_DEFAULT: bool = true` |
@@ -31,6 +36,9 @@ GF 扩展启用状态与 ProjectSettings 桥接。 负责读取启用扩展 ID�
 | 方法 | [`register_property_info`](#member-gfextensionsettings-methods-register_property_info) | `static func register_property_info() -> void:` |
 | 方法 | [`get_default_enabled_extension_ids`](#member-gfextensionsettings-methods-get_default_enabled_extension_ids) | `static func get_default_enabled_extension_ids() -> Array[String]:` |
 | 方法 | [`get_enabled_extension_ids`](#member-gfextensionsettings-methods-get_enabled_extension_ids) | `static func get_enabled_extension_ids() -> Array[String]:` |
+| 方法 | [`get_extension_selection_mode`](#member-gfextensionsettings-methods-get_extension_selection_mode) | `static func get_extension_selection_mode() -> String:` |
+| 方法 | [`set_extension_selection_mode`](#member-gfextensionsettings-methods-set_extension_selection_mode) | `static func set_extension_selection_mode(selection_mode: String) -> bool:` |
+| 方法 | [`use_default_extension_selection`](#member-gfextensionsettings-methods-use_default_extension_selection) | `static func use_default_extension_selection() -> void:` |
 | 方法 | [`set_enabled_extension_ids`](#member-gfextensionsettings-methods-set_enabled_extension_ids) | `static func set_enabled_extension_ids(extension_ids: Array[String], include_dependencies: bool = true) -> void:` |
 | 方法 | [`should_auto_install_enabled_installers`](#member-gfextensionsettings-methods-should_auto_install_enabled_installers) | `static func should_auto_install_enabled_installers() -> bool:` |
 | 方法 | [`set_auto_install_enabled_installers`](#member-gfextensionsettings-methods-set_auto_install_enabled_installers) | `static func set_auto_install_enabled_installers(enabled: bool) -> void:` |
@@ -66,7 +74,7 @@ GF 扩展启用状态与 ProjectSettings 桥接。 负责读取启用扩展 ID�
 | 方法 | [`get_enabled_gltf_document_extension_paths`](#member-gfextensionsettings-methods-get_enabled_gltf_document_extension_paths) | `static func get_enabled_gltf_document_extension_paths() -> Array[String]:` |
 | 方法 | [`get_enabled_access_generator_extension_paths`](#member-gfextensionsettings-methods-get_enabled_access_generator_extension_paths) | `static func get_enabled_access_generator_extension_paths() -> Array[String]:` |
 | 方法 | [`resolve_extension_dependencies`](#member-gfextensionsettings-methods-resolve_extension_dependencies) | `static func resolve_extension_dependencies( extension_ids: Array[String], manifests: Array[GFExtensionManifest] = [] ) -> Array[String]:` |
-| 方法 | [`get_manifest_graph_report`](#member-gfextensionsettings-methods-get_manifest_graph_report) | `static func get_manifest_graph_report(manifests: Array[GFExtensionManifest] = []) -> Dictionary:` |
+| 方法 | [`get_manifest_graph_report`](#member-gfextensionsettings-methods-get_manifest_graph_report) | `static func get_manifest_graph_report( manifests: Array[GFExtensionManifest] = [], include_cached_load_errors: bool = false ) -> Dictionary:` |
 | 方法 | [`get_extension_selection_report`](#member-gfextensionsettings-methods-get_extension_selection_report) | `static func get_extension_selection_report() -> Dictionary:` |
 
 ## 常量
@@ -82,6 +90,19 @@ const ENABLED_EXTENSIONS_SETTING: String = "gf/extensions/enabled"
 ```
 
 项目设置：启用的 GF 扩展 ID 列表。
+
+<a id="member-gfextensionsettings-constants-extension_selection_mode_setting"></a>
+
+### `EXTENSION_SELECTION_MODE_SETTING`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+const EXTENSION_SELECTION_MODE_SETTING: String = "gf/extensions/selection_mode"
+```
+
+项目设置：扩展启用选择模式。
 
 <a id="member-gfextensionsettings-constants-auto_install_enabled_installers_setting"></a>
 
@@ -156,6 +177,58 @@ const AUTO_INSTALL_ENABLED_INSTALLERS_DEFAULT: bool = true
 ```
 
 默认自动执行启用扩展 Installer。
+
+<a id="member-gfextensionsettings-constants-selection_mode_default"></a>
+
+### `SELECTION_MODE_DEFAULT`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+const SELECTION_MODE_DEFAULT: String = "default"
+```
+
+默认扩展选择模式：按当前 manifest 的默认启用声明派生启用扩展。
+
+<a id="member-gfextensionsettings-constants-selection_mode_explicit"></a>
+
+### `SELECTION_MODE_EXPLICIT`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+const SELECTION_MODE_EXPLICIT: String = "explicit"
+```
+
+显式扩展选择模式：使用 `gf/extensions/enabled` 中保存的扩展 ID。
+
+<a id="member-gfextensionsettings-constants-extension_selection_mode_default"></a>
+
+### `EXTENSION_SELECTION_MODE_DEFAULT`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+const EXTENSION_SELECTION_MODE_DEFAULT: String = SELECTION_MODE_DEFAULT
+```
+
+默认扩展选择模式。
+
+<a id="member-gfextensionsettings-constants-enabled_extensions_default"></a>
+
+### `ENABLED_EXTENSIONS_DEFAULT`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+const ENABLED_EXTENSIONS_DEFAULT: Array[String] = []
+```
+
+默认显式扩展 ID 列表为空。
 
 <a id="member-gfextensionsettings-constants-external_extension_roots_default"></a>
 
@@ -266,26 +339,77 @@ static func get_default_enabled_extension_ids() -> Array[String]:
 ### `get_enabled_extension_ids`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 static func get_enabled_extension_ids() -> Array[String]:
 ```
 
-获取用户配置的启用扩展 ID。
+获取当前有效启用扩展 ID。 默认模式下返回当前可发现 manifest 的默认启用 ID；显式模式下返回 `gf/extensions/enabled` 保存的 ID。
 
 返回：启用扩展 ID 列表。
+
+<a id="member-gfextensionsettings-methods-get_extension_selection_mode"></a>
+
+### `get_extension_selection_mode`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+static func get_extension_selection_mode() -> String:
+```
+
+获取扩展启用选择模式。
+
+返回：`default` 表示按 manifest 默认值派生；`explicit` 表示读取显式启用列表。
+
+<a id="member-gfextensionsettings-methods-set_extension_selection_mode"></a>
+
+### `set_extension_selection_mode`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+static func set_extension_selection_mode(selection_mode: String) -> bool:
+```
+
+保存扩展启用选择模式。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `selection_mode` | 选择模式，必须是 `default` 或 `explicit`。 |
+
+返回：模式有效并已写入时返回 true。
+
+<a id="member-gfextensionsettings-methods-use_default_extension_selection"></a>
+
+### `use_default_extension_selection`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+static func use_default_extension_selection() -> void:
+```
+
+切换到默认扩展选择模式。 该方法不会改写 `gf/extensions/enabled`，只让有效启用列表重新由当前 manifest 默认值派生。
 
 <a id="member-gfextensionsettings-methods-set_enabled_extension_ids"></a>
 
 ### `set_enabled_extension_ids`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 static func set_enabled_extension_ids(extension_ids: Array[String], include_dependencies: bool = true) -> void:
 ```
 
-保存启用扩展 ID，可选自动补齐依赖。
+保存显式启用扩展 ID，可选自动补齐依赖。 调用该方法会把扩展选择模式切换为 `explicit`。
 
 参数：
 
@@ -580,7 +704,7 @@ static func get_extension_preset_by_id(preset_id: StringName) -> GFExtensionPres
 static func apply_extension_preset( preset_id: StringName, include_dependencies: bool = true ) -> bool:
 ```
 
-应用扩展 preset 到 `gf/extensions/enabled`。 该方法只写入启用扩展 ID；保存 project.godot 由调用方决定。
+应用扩展 preset 到显式启用列表。 该方法会切换到 `explicit` 选择模式；保存 project.godot 由调用方决定。
 
 参数：
 
@@ -876,7 +1000,7 @@ static func resolve_extension_dependencies( extension_ids: Array[String], manife
 - 首次版本：`5.0.0`
 
 ```gdscript
-static func get_manifest_graph_report(manifests: Array[GFExtensionManifest] = []) -> Dictionary:
+static func get_manifest_graph_report( manifests: Array[GFExtensionManifest] = [], include_cached_load_errors: bool = false ) -> Dictionary:
 ```
 
 获取 manifest 依赖图诊断。
@@ -886,18 +1010,21 @@ static func get_manifest_graph_report(manifests: Array[GFExtensionManifest] = []
 | 名称 | 说明 |
 |---|---|
 | `manifests` | 可选 manifest 列表；为空时扫描所有 GF 内置扩展。 |
+| `include_cached_load_errors` | 是否纳入当前发现缓存中的 manifest 读取错误。 |
 
 返回：包含重复 ID、无效 manifest、缺失依赖和循环依赖的诊断字典。
 
 结构：
 
-- `return`: Dictionary containing ok, extension_count, issue_count, duplicate_ids, invalid_manifests, manifest_load_errors, missing_dependencies, and dependency_cycles.
+- `include_cached_load_errors`: bool。
+- `return`: Dictionary containing ok, extension_count, issue_count, duplicate_ids, invalid_manifests, manifest_load_errors, missing_dependencies, and dependency_cycles; invalid manifest entries contain stage, extension_id, source_path, and errors.
 
 <a id="member-gfextensionsettings-methods-get_extension_selection_report"></a>
 
 ### `get_extension_selection_report`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 static func get_extension_selection_report() -> Dictionary:
@@ -909,4 +1036,4 @@ static func get_extension_selection_report() -> Dictionary:
 
 结构：
 
-- `return`: Dictionary containing external_roots, configured_ids, resolved_ids, unknown_enabled_ids, graph status, and extension counts.
+- `return`: Dictionary containing selection_mode, external_roots, configured_ids, explicit_ids, resolved_ids, unknown_enabled_ids, graph status, and extension counts.

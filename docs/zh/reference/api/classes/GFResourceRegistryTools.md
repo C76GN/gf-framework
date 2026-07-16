@@ -6,7 +6,7 @@
 - 模块：`Standard`
 - 继承：`RefCounted`
 - API：`public`
-- 类别：运行时服务 (`runtime_service`)
+- 类别：工具 API (`tool_api`)
 - 首次版本：`3.23.0`
 
 通用资源注册表扫描和生成工具。 面向编辑器工具、构建脚本和项目安装器复用；它只从路径生成 `GFResourceRegistry` / `GFResourceRegistryEntry`，不解释业务字段。
@@ -20,6 +20,7 @@
 | 常量 | [`DEFAULT_EXCLUDED_PATHS`](#member-gfresourceregistrytools-constants-default_excluded_paths) | `const DEFAULT_EXCLUDED_PATHS: PackedStringArray = ["res://addons"]` |
 | 常量 | [`DEFAULT_MAX_SCAN_DEPTH`](#member-gfresourceregistrytools-constants-default_max_scan_depth) | `const DEFAULT_MAX_SCAN_DEPTH: int = 32` |
 | 常量 | [`DEFAULT_MAX_RESOURCE_PATHS`](#member-gfresourceregistrytools-constants-default_max_resource_paths) | `const DEFAULT_MAX_RESOURCE_PATHS: int = 10000` |
+| 常量 | [`DEFAULT_MAX_SCANNED_ENTRIES`](#member-gfresourceregistrytools-constants-default_max_scanned_entries) | `const DEFAULT_MAX_SCANNED_ENTRIES: int = 100000` |
 | 常量 | [`FIELD_EXTENSION`](#member-gfresourceregistrytools-constants-field_extension) | `const FIELD_EXTENSION: StringName = &"extension"` |
 | 常量 | [`FIELD_DIRECTORY`](#member-gfresourceregistrytools-constants-field_directory) | `const FIELD_DIRECTORY: StringName = &"directory"` |
 | 常量 | [`FIELD_BASENAME`](#member-gfresourceregistrytools-constants-field_basename) | `const FIELD_BASENAME: StringName = &"basename"` |
@@ -108,6 +109,19 @@ const DEFAULT_MAX_RESOURCE_PATHS: int = 10000
 ```
 
 默认单次扫描收集的资源路径数量上限。
+
+<a id="member-gfresourceregistrytools-constants-default_max_scanned_entries"></a>
+
+### `DEFAULT_MAX_SCANNED_ENTRIES`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+const DEFAULT_MAX_SCANNED_ENTRIES: int = 100000
+```
+
+默认单次资源扫描访问的目录项数量上限。
 
 <a id="member-gfresourceregistrytools-constants-field_extension"></a>
 
@@ -222,13 +236,13 @@ static func scan_resource_paths(root_path: String = "res://", options: Dictionar
 | 名称 | 说明 |
 |---|---|
 | `root_path` | 扫描起点，通常是 res:// 下的目录。 |
-| `options` | 可选项，支持 recursive、include_addons、excluded_paths、extensions、include_patterns、exclude_patterns、pattern_base_path、include_hidden、include_import_sidecars、max_scan_depth 与 max_resource_paths。 |
+| `options` | 可选项，支持 recursive、include_addons、excluded_paths、extensions、include_patterns、exclude_patterns、pattern_base_path、include_hidden、include_import_sidecars、max_scan_depth、max_resource_paths 与 max_scanned_entries。 |
 
 返回：按字典序排序的资源路径。
 
 结构：
 
-- `options`: Dictionary，可包含 recursive、include_addons、excluded_paths、extensions、include_patterns、exclude_patterns、pattern_base_path、include_hidden、include_import_sidecars、max_scan_depth 和 max_resource_paths 字段。
+- `options`: Dictionary，可包含 recursive、include_addons、excluded_paths、extensions、include_patterns、exclude_patterns、pattern_base_path、include_hidden、include_import_sidecars、max_scan_depth、max_resource_paths 和 max_scanned_entries 字段。
 
 <a id="member-gfresourceregistrytools-methods-create_registry_from_paths"></a>
 
@@ -388,6 +402,7 @@ static func sync_registry_from_scan( registry: GFResourceRegistry, root_path: St
 ### `make_entry_id`
 
 - API：`public`
+- 首次版本：`3.23.0`
 
 ```gdscript
 static func make_entry_id(path: String, options: Dictionary = {}) -> StringName:
@@ -438,6 +453,7 @@ static func make_type_hint(path: String, options: Dictionary = {}) -> String:
 ### `make_entry_fields`
 
 - API：`public`
+- 首次版本：`3.23.0`
 
 ```gdscript
 static func make_entry_fields(path: String, options: Dictionary = {}) -> Dictionary:
@@ -457,4 +473,4 @@ static func make_entry_fields(path: String, options: Dictionary = {}) -> Diction
 结构：
 
 - `options`: Dictionary，可包含路径字段、目录标签和调用方附加字段选项。
-- `return`: Dictionary keyed by field id with scalar, Array, or PackedStringArray values.
+- `return`: Dictionary keyed by field id with scalar, Array, or PackedStringArray values. include_path_fields adds extension, basename, directory, relative_path, and cache_key.

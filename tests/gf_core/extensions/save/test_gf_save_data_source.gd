@@ -22,6 +22,14 @@ class PayloadResource extends Resource:
 		apply_count += 1
 
 
+class ErrorPayloadResource extends Resource:
+	func to_dict() -> Dictionary:
+		return {}
+
+	func from_dict(_data: Dictionary) -> Error:
+		return ERR_INVALID_DATA
+
+
 class PayloadHolder extends Node:
 	@export var payload: Resource = null
 
@@ -163,6 +171,17 @@ func test_apply_rejects_non_dictionary_payload() -> void:
 
 	assert_false(GFVariantData.get_option_bool(result, "ok"), "非 Dictionary 载荷不应被应用。")
 	assert_true(GFVariantData.get_option_string(result, "error").contains("Dictionary"), "错误应指出载荷类型要求。")
+	source.free()
+
+
+func test_apply_treats_error_code_result_as_failure() -> void:
+	var source: GFSaveDataSource = _make_data_source(&"model")
+	source.data = ErrorPayloadResource.new()
+
+	var result: Dictionary = source._apply_save_data({})
+
+	assert_false(GFVariantData.get_option_bool(result, "ok"), "Error 整数返回值不应被归一化为成功。")
+	assert_true(GFVariantData.get_option_string(result, "error").contains("Error"), "错误信息应保留 Error 码线索。")
 	source.free()
 
 

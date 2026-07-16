@@ -6,7 +6,7 @@
 
 ## 核心类型
 
-- `GFRuntimeTask`：任务协议，声明 `requirements`、`interruptible`、`initialize()`、`tick()`、`physics_tick()`、`is_finished()` 和 `end()`。
+- `GFRuntimeTask`：任务协议，通过 `set_requirements()`、`add_requirement()`、`remove_requirement()` 和 `get_requirements()` 管理占用对象，并声明 `interruptible`、`initialize()`、`tick()`、`physics_tick()`、`is_finished()` 和 `end()`。
 - `GFCallableRuntimeTask`：用 `Callable` 快速声明轻量任务。
 - `GFRuntimeTaskGroup`：把多个任务组合为顺序、等待全部或竞速完成。
 - `GFRuntimeTaskScheduler`：负责调度、冲突仲裁、默认任务恢复和活动任务查询。
@@ -19,6 +19,8 @@
 - 占用任务可中断：旧任务收到 `end(true)`，新任务进入调度器。
 
 Requirement 可以是项目认为需要互斥占用的任意 `Object`，例如角色节点、工具上下文、运行时控制域或一个专门的 `RefCounted` token。不要把 requirement 用作业务状态枚举；它只表示“这段资源当前只能有一个任务控制”。
+
+任务进入调度器后不能再修改 requirement；需要变更占用对象时，应取消任务并重新调度。任务组在调度前会按子任务当前 requirement 重建聚合占用；并行任务组会拒绝包含重复 requirement 的子任务，避免组内绕过同一对象的互斥规则。
 
 ## 默认任务
 

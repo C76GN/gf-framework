@@ -4,7 +4,7 @@ site_url: !ENV [READTHEDOCS_CANONICAL_URL, "https://gf-framework.readthedocs.io/
 repo_url: https://github.com/C76GN/gf-framework
 repo_name: C76GN/gf-framework
 docs_dir: docs/zh
-site_dir: site
+site_dir: ai_analysis/mkdocs_site
 not_in_nav: |
   reference/api/classes/*.md
   overview/**/*.md
@@ -13,6 +13,7 @@ not_in_nav: |
   extensions/**/*.md
   editor/*.md
   editor/tools/config-pipeline.md
+  editor/tools/project-layout.md
 
 theme:
   name: material

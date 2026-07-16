@@ -18,33 +18,39 @@ extends Node
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param context: 交互上下文。
 ## [br]
 ## @param report: 当前结果报告副本。
 ## [br]
-## @schema report: 交互结果报告 Dictionary，包含 ok、interaction_id、receiver、reason、message 和 metadata 等字段。
+## @schema report: 交互结果报告 Dictionary，包含 ok、interaction_id、receiver(JSON-safe 摘要)、reason、message 和 metadata 等字段。
 signal interaction_validating(context: GFInteractionContext, report: Dictionary)
 
 ## 交互被接受时发出。
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param context: 交互上下文。
 ## [br]
 ## @param report: 结果报告。
 ## [br]
-## @schema report: 交互结果报告 Dictionary，包含 ok、interaction_id、receiver、reason、message 和 metadata 等字段。
+## @schema report: 交互结果报告 Dictionary，包含 ok、interaction_id、receiver(JSON-safe 摘要)、reason、message 和 metadata 等字段。
 signal interaction_received(context: GFInteractionContext, report: Dictionary)
 
 ## 交互被拒绝时发出。
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param context: 交互上下文。
 ## [br]
 ## @param report: 结果报告。
 ## [br]
-## @schema report: 交互结果报告 Dictionary，包含 ok、interaction_id、receiver、reason、message 和 metadata 等字段。
+## @schema report: 交互结果报告 Dictionary，包含 ok、interaction_id、receiver(JSON-safe 摘要)、reason、message 和 metadata 等字段。
 signal interaction_rejected(context: GFInteractionContext, report: Dictionary)
 
 
@@ -58,21 +64,29 @@ const _MESSAGE_RECEIVER_SUPPORT = preload("res://addons/gf/standard/common/gf_me
 ## 是否允许接收交互。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 @export var enabled: bool = true
 
 ## 非空时，只接受这些交互 ID。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 @export var accepted_interaction_ids: Array[StringName] = []
 
 ## 始终拒绝的交互 ID。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 @export var rejected_interaction_ids: Array[StringName] = []
 
 ## 接收器自定义元数据。框架不解释该字段。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @schema metadata: 接收器自定义元数据 Dictionary；框架会复制到结果报告，但不解释其中键值。
 @export var metadata: Dictionary = {}
@@ -80,6 +94,8 @@ const _MESSAGE_RECEIVER_SUPPORT = preload("res://addons/gf/standard/common/gf_me
 ## 可选业务接收节点路径；为空时由当前节点直接接收。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 @export_node_path("Node") var receiver_path: NodePath = NodePath("")
 
 
@@ -89,6 +105,8 @@ const _MESSAGE_RECEIVER_SUPPORT = preload("res://addons/gf/standard/common/gf_me
 ## 返回 bool 可直接决定是否接受；返回 Dictionary 可覆盖 ok、reason、metadata 等报告字段。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 var validation_callback: Callable = Callable()
 
 
@@ -97,6 +115,8 @@ var validation_callback: Callable = Callable()
 ## 检查指定交互 ID 是否可被当前接收器接受。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @param interaction_id: 交互 ID。
 ## [br]
@@ -119,13 +139,15 @@ func can_receive_interaction(interaction_id: StringName = &"") -> bool:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param context: 交互上下文。
 ## [br]
 ## @param interaction_id: 交互 ID。
 ## [br]
 ## @return: 统一结果报告。
 ## [br]
-## @schema return: 交互结果报告 Dictionary，包含 ok、interaction_id、receiver、reason、message 和 metadata 等字段。
+## @schema return: 交互结果报告 Dictionary，包含 ok、interaction_id、receiver(JSON-safe 摘要)、reason、message 和 metadata 等字段。
 func receive_interaction(context: GFInteractionContext, interaction_id: StringName = &"") -> Dictionary:
 	var receiver: Object = _resolve_receiver()
 	var has_receiver_path: bool = receiver_path != NodePath("")

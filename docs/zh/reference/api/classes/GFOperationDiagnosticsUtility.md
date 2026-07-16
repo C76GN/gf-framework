@@ -15,9 +15,12 @@
 
 | 类型 | 名称 | 签名 |
 |---|---|---|
-| 常量 | [`DEFAULT_MAX_OPERATIONS`](#member-gfoperationdiagnosticsutility-constants-default_max_operations) | `const DEFAULT_MAX_OPERATIONS: int = 100` |
+| 常量 | [`DEFAULT_MAX_COMPLETED_OPERATIONS`](#member-gfoperationdiagnosticsutility-constants-default_max_completed_operations) | `const DEFAULT_MAX_COMPLETED_OPERATIONS: int = 100` |
+| 常量 | [`DEFAULT_MAX_ACTIVE_OPERATIONS`](#member-gfoperationdiagnosticsutility-constants-default_max_active_operations) | `const DEFAULT_MAX_ACTIVE_OPERATIONS: int = 100` |
 | 常量 | [`DEFAULT_MAX_INCIDENTS`](#member-gfoperationdiagnosticsutility-constants-default_max_incidents) | `const DEFAULT_MAX_INCIDENTS: int = 200` |
 | 常量 | [`DEFAULT_MAX_STATE_TRACE_ENTRIES`](#member-gfoperationdiagnosticsutility-constants-default_max_state_trace_entries) | `const DEFAULT_MAX_STATE_TRACE_ENTRIES: int = 64` |
+| 常量 | [`DEFAULT_MAX_SAMPLE_STATS`](#member-gfoperationdiagnosticsutility-constants-default_max_sample_stats) | `const DEFAULT_MAX_SAMPLE_STATS: int = 256` |
+| 常量 | [`DEFAULT_MAX_METADATA_KEYS`](#member-gfoperationdiagnosticsutility-constants-default_max_metadata_keys) | `const DEFAULT_MAX_METADATA_KEYS: int = 64` |
 | 常量 | [`DEFAULT_SLOW_OPERATION_THRESHOLD_MS`](#member-gfoperationdiagnosticsutility-constants-default_slow_operation_threshold_ms) | `const DEFAULT_SLOW_OPERATION_THRESHOLD_MS: float = 1200.0` |
 | 常量 | [`SEVERITY_INFO`](#member-gfoperationdiagnosticsutility-constants-severity_info) | `const SEVERITY_INFO: StringName = &"info"` |
 | 常量 | [`SEVERITY_WARNING`](#member-gfoperationdiagnosticsutility-constants-severity_warning) | `const SEVERITY_WARNING: StringName = &"warning"` |
@@ -30,10 +33,13 @@
 | 常量 | [`STATE_SUCCEEDED`](#member-gfoperationdiagnosticsutility-constants-state_succeeded) | `const STATE_SUCCEEDED: StringName = &"succeeded"` |
 | 常量 | [`STATE_FAILED`](#member-gfoperationdiagnosticsutility-constants-state_failed) | `const STATE_FAILED: StringName = &"failed"` |
 | 常量 | [`STATE_CANCELLED`](#member-gfoperationdiagnosticsutility-constants-state_cancelled) | `const STATE_CANCELLED: StringName = &"cancelled"` |
-| 属性 | [`max_operations`](#member-gfoperationdiagnosticsutility-properties-max_operations) | `var max_operations: int = DEFAULT_MAX_OPERATIONS:` |
+| 属性 | [`max_completed_operations`](#member-gfoperationdiagnosticsutility-properties-max_completed_operations) | `var max_completed_operations: int = DEFAULT_MAX_COMPLETED_OPERATIONS:` |
+| 属性 | [`max_active_operations`](#member-gfoperationdiagnosticsutility-properties-max_active_operations) | `var max_active_operations: int = DEFAULT_MAX_ACTIVE_OPERATIONS:` |
 | 属性 | [`max_incidents`](#member-gfoperationdiagnosticsutility-properties-max_incidents) | `var max_incidents: int = DEFAULT_MAX_INCIDENTS:` |
 | 属性 | [`max_state_trace_entries`](#member-gfoperationdiagnosticsutility-properties-max_state_trace_entries) | `var max_state_trace_entries: int = DEFAULT_MAX_STATE_TRACE_ENTRIES:` |
-| 属性 | [`slow_operation_threshold_ms`](#member-gfoperationdiagnosticsutility-properties-slow_operation_threshold_ms) | `var slow_operation_threshold_ms: float = DEFAULT_SLOW_OPERATION_THRESHOLD_MS` |
+| 属性 | [`max_sample_stats`](#member-gfoperationdiagnosticsutility-properties-max_sample_stats) | `var max_sample_stats: int = DEFAULT_MAX_SAMPLE_STATS:` |
+| 属性 | [`max_metadata_keys`](#member-gfoperationdiagnosticsutility-properties-max_metadata_keys) | `var max_metadata_keys: int = DEFAULT_MAX_METADATA_KEYS:` |
+| 属性 | [`slow_operation_threshold_ms`](#member-gfoperationdiagnosticsutility-properties-slow_operation_threshold_ms) | `var slow_operation_threshold_ms: float = DEFAULT_SLOW_OPERATION_THRESHOLD_MS:` |
 | 方法 | [`dispose`](#member-gfoperationdiagnosticsutility-methods-dispose) | `func dispose() -> void:` |
 | 方法 | [`clear`](#member-gfoperationdiagnosticsutility-methods-clear) | `func clear() -> void:` |
 | 方法 | [`begin_operation`](#member-gfoperationdiagnosticsutility-methods-begin_operation) | `func begin_operation(operation_type: StringName, options: Dictionary = {}) -> StringName:` |
@@ -44,30 +50,51 @@
 | 方法 | [`finish_operation`](#member-gfoperationdiagnosticsutility-methods-finish_operation) | `func finish_operation(operation_id: StringName, success: bool = true, options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`record_incident`](#member-gfoperationdiagnosticsutility-methods-record_incident) | `func record_incident( severity: StringName, code: StringName, message: String = "", options: Dictionary = {} ) -> Dictionary:` |
 | 方法 | [`record_async_snapshot`](#member-gfoperationdiagnosticsutility-methods-record_async_snapshot) | `func record_async_snapshot( operation_type: StringName, snapshot: Dictionary, options: Dictionary = {} ) -> Dictionary:` |
+| 方法 | [`record_sample`](#member-gfoperationdiagnosticsutility-methods-record_sample) | `func record_sample(sample_id: StringName, duration_ms: float, options: Dictionary = {}) -> Dictionary:` |
+| 方法 | [`record_sample_from_ticks`](#member-gfoperationdiagnosticsutility-methods-record_sample_from_ticks) | `func record_sample_from_ticks(sample_id: StringName, started_ticks_usec: int, options: Dictionary = {}) -> Dictionary:` |
+| 方法 | [`clear_sample_stats`](#member-gfoperationdiagnosticsutility-methods-clear_sample_stats) | `func clear_sample_stats(sample_id: StringName = &"") -> int:` |
 | 方法 | [`has_operation`](#member-gfoperationdiagnosticsutility-methods-has_operation) | `func has_operation(operation_id: StringName) -> bool:` |
 | 方法 | [`get_operation`](#member-gfoperationdiagnosticsutility-methods-get_operation) | `func get_operation(operation_id: StringName) -> Dictionary:` |
 | 方法 | [`get_operation_state_trace`](#member-gfoperationdiagnosticsutility-methods-get_operation_state_trace) | `func get_operation_state_trace(operation_id: StringName, limit: int = 0) -> Array[Dictionary]:` |
+| 方法 | [`get_sample_stat`](#member-gfoperationdiagnosticsutility-methods-get_sample_stat) | `func get_sample_stat(sample_id: StringName) -> Dictionary:` |
+| 方法 | [`get_sample_stats`](#member-gfoperationdiagnosticsutility-methods-get_sample_stats) | `func get_sample_stats(limit: int = 0, filters: Dictionary = {}) -> Array[Dictionary]:` |
 | 方法 | [`get_operations`](#member-gfoperationdiagnosticsutility-methods-get_operations) | `func get_operations(limit: int = 0, filters: Dictionary = {}) -> Array[Dictionary]:` |
 | 方法 | [`get_incidents`](#member-gfoperationdiagnosticsutility-methods-get_incidents) | `func get_incidents(limit: int = 0, filters: Dictionary = {}) -> Array[Dictionary]:` |
 | 方法 | [`get_timeline`](#member-gfoperationdiagnosticsutility-methods-get_timeline) | `func get_timeline(limit: int = 0, filters: Dictionary = {}) -> Array[Dictionary]:` |
 | 方法 | [`get_health_snapshot`](#member-gfoperationdiagnosticsutility-methods-get_health_snapshot) | `func get_health_snapshot(limit: int = 5) -> Dictionary:` |
 | 方法 | [`get_debug_snapshot`](#member-gfoperationdiagnosticsutility-methods-get_debug_snapshot) | `func get_debug_snapshot() -> Dictionary:` |
+| 方法 | [`to_json_compatible_record`](#member-gfoperationdiagnosticsutility-methods-to_json_compatible_record) | `func to_json_compatible_record(record: Dictionary, options: Dictionary = {}) -> Dictionary:` |
+| 方法 | [`get_json_compatible_health_snapshot`](#member-gfoperationdiagnosticsutility-methods-get_json_compatible_health_snapshot) | `func get_json_compatible_health_snapshot(limit: int = 5, options: Dictionary = {}) -> Dictionary:` |
+| 方法 | [`get_json_compatible_debug_snapshot`](#member-gfoperationdiagnosticsutility-methods-get_json_compatible_debug_snapshot) | `func get_json_compatible_debug_snapshot(options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`build_copy_text`](#member-gfoperationdiagnosticsutility-methods-build_copy_text) | `func build_copy_text(snapshot: Dictionary = {}) -> String:` |
 
 ## 常量
 
-<a id="member-gfoperationdiagnosticsutility-constants-default_max_operations"></a>
+<a id="member-gfoperationdiagnosticsutility-constants-default_max_completed_operations"></a>
 
-### `DEFAULT_MAX_OPERATIONS`
+### `DEFAULT_MAX_COMPLETED_OPERATIONS`
 
 - API：`public`
-- 首次版本：`7.0.0`
+- 首次版本：`8.0.0`
 
 ```gdscript
-const DEFAULT_MAX_OPERATIONS: int = 100
+const DEFAULT_MAX_COMPLETED_OPERATIONS: int = 100
 ```
 
-默认保留的操作数量。
+默认保留的已完成操作数量。
+
+<a id="member-gfoperationdiagnosticsutility-constants-default_max_active_operations"></a>
+
+### `DEFAULT_MAX_ACTIVE_OPERATIONS`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+const DEFAULT_MAX_ACTIVE_OPERATIONS: int = 100
+```
+
+默认允许同时追踪的活动操作数量。
 
 <a id="member-gfoperationdiagnosticsutility-constants-default_max_incidents"></a>
 
@@ -94,6 +121,32 @@ const DEFAULT_MAX_STATE_TRACE_ENTRIES: int = 64
 ```
 
 单个操作默认保留的状态轨迹数量。
+
+<a id="member-gfoperationdiagnosticsutility-constants-default_max_sample_stats"></a>
+
+### `DEFAULT_MAX_SAMPLE_STATS`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+const DEFAULT_MAX_SAMPLE_STATS: int = 256
+```
+
+默认保留的采样统计数量。
+
+<a id="member-gfoperationdiagnosticsutility-constants-default_max_metadata_keys"></a>
+
+### `DEFAULT_MAX_METADATA_KEYS`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+const DEFAULT_MAX_METADATA_KEYS: int = 64
+```
+
+单个 metadata 默认最多保留的唯一业务键数量。
 
 <a id="member-gfoperationdiagnosticsutility-constants-default_slow_operation_threshold_ms"></a>
 
@@ -253,18 +306,31 @@ const STATE_CANCELLED: StringName = &"cancelled"
 
 ## 属性
 
-<a id="member-gfoperationdiagnosticsutility-properties-max_operations"></a>
+<a id="member-gfoperationdiagnosticsutility-properties-max_completed_operations"></a>
 
-### `max_operations`
+### `max_completed_operations`
 
 - API：`public`
-- 首次版本：`7.0.0`
+- 首次版本：`8.0.0`
 
 ```gdscript
-var max_operations: int = DEFAULT_MAX_OPERATIONS:
+var max_completed_operations: int = DEFAULT_MAX_COMPLETED_OPERATIONS:
 ```
 
-最多保留的操作记录数量。设置为 0 时不保留操作历史。
+最多保留的已完成操作数量。设置为 0 时完成结果不会进入历史。
+
+<a id="member-gfoperationdiagnosticsutility-properties-max_active_operations"></a>
+
+### `max_active_operations`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+var max_active_operations: int = DEFAULT_MAX_ACTIVE_OPERATIONS:
+```
+
+最多同时追踪的活动操作数量。设置为 0 时 begin_operation() 拒绝新操作。 已存在的活动操作不会因降低上限而被隐式取消。
 
 <a id="member-gfoperationdiagnosticsutility-properties-max_incidents"></a>
 
@@ -292,6 +358,32 @@ var max_state_trace_entries: int = DEFAULT_MAX_STATE_TRACE_ENTRIES:
 
 单个操作最多保留的状态轨迹数量。设置为 0 时不保留状态轨迹。
 
+<a id="member-gfoperationdiagnosticsutility-properties-max_sample_stats"></a>
+
+### `max_sample_stats`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+var max_sample_stats: int = DEFAULT_MAX_SAMPLE_STATS:
+```
+
+最多保留的采样统计数量。设置为 0 时不保留采样统计。
+
+<a id="member-gfoperationdiagnosticsutility-properties-max_metadata_keys"></a>
+
+### `max_metadata_keys`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+var max_metadata_keys: int = DEFAULT_MAX_METADATA_KEYS:
+```
+
+单个 metadata 最多保留的唯一业务键数量。覆盖已有键不消耗新额度。 超额键会被丢弃，并通过 __gf_dropped_key_count 记录累计数量。
+
 <a id="member-gfoperationdiagnosticsutility-properties-slow_operation_threshold_ms"></a>
 
 ### `slow_operation_threshold_ms`
@@ -300,7 +392,7 @@ var max_state_trace_entries: int = DEFAULT_MAX_STATE_TRACE_ENTRIES:
 - 首次版本：`7.0.0`
 
 ```gdscript
-var slow_operation_threshold_ms: float = DEFAULT_SLOW_OPERATION_THRESHOLD_MS
+var slow_operation_threshold_ms: float = DEFAULT_SLOW_OPERATION_THRESHOLD_MS:
 ```
 
 超过该耗时的完成操作会在健康快照中计入慢操作，单位毫秒。小于 0 时禁用慢操作统计。
@@ -561,6 +653,83 @@ func record_async_snapshot( operation_type: StringName, snapshot: Dictionary, op
 - `options`: Dictionary，支持 operation_id、component、label、metadata、duration_ms 和 incident_message。
 - `return`: Dictionary，包含 operation_id、operation_type、component、state、duration_ms、phases、anomaly_codes 和 metadata 等字段。
 
+<a id="member-gfoperationdiagnosticsutility-methods-record_sample"></a>
+
+### `record_sample`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func record_sample(sample_id: StringName, duration_ms: float, options: Dictionary = {}) -> Dictionary:
+```
+
+记录一次命名耗时采样并更新聚合统计。 采样统计适合记录高频、短生命周期或不需要完整 begin/finish 生命周期的诊断点。 GF 只聚合调用次数、耗时和 metadata，不解释 sample_id 的业务含义。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `sample_id` | 采样点 ID，建议使用稳定命名空间标识。 |
+| `duration_ms` | 本次采样耗时，单位毫秒。 |
+| `options` | 可选参数，支持 component、label、metadata、started_ticks_usec 和 ended_ticks_usec。 |
+
+返回：更新后的采样统计副本；sample_id 为空或采样统计被禁用时返回空字典。
+
+结构：
+
+- `options`: Dictionary，支持 component、label、metadata、started_ticks_usec 和 ended_ticks_usec。
+- `return`: Dictionary，包含 sample_id、component、sample_count、total_duration_ms、average_duration_ms、min_duration_ms、max_duration_ms、slow_sample_count 和 metadata。
+
+<a id="member-gfoperationdiagnosticsutility-methods-record_sample_from_ticks"></a>
+
+### `record_sample_from_ticks`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func record_sample_from_ticks(sample_id: StringName, started_ticks_usec: int, options: Dictionary = {}) -> Dictionary:
+```
+
+使用 Godot tick 起点记录一次命名耗时采样。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `sample_id` | 采样点 ID。 |
+| `started_ticks_usec` | 采样开始时的 Time.get_ticks_usec()。 |
+| `options` | 可选参数，支持 component、label、metadata 和 ended_ticks_usec。 |
+
+返回：更新后的采样统计副本；sample_id 为空或采样统计被禁用时返回空字典。
+
+结构：
+
+- `options`: Dictionary，支持 component、label、metadata 和 ended_ticks_usec。
+- `return`: Dictionary，包含 sample_id、sample_count、total_duration_ms、average_duration_ms、min_duration_ms、max_duration_ms 和 slow_sample_count。
+
+<a id="member-gfoperationdiagnosticsutility-methods-clear_sample_stats"></a>
+
+### `clear_sample_stats`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func clear_sample_stats(sample_id: StringName = &"") -> int:
+```
+
+清理采样统计。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `sample_id` | 采样点 ID；为空时清空全部采样统计。 |
+
+返回：实际移除的采样统计数量。
+
 <a id="member-gfoperationdiagnosticsutility-methods-has_operation"></a>
 
 ### `has_operation`
@@ -632,6 +801,58 @@ func get_operation_state_trace(operation_id: StringName, limit: int = 0) -> Arra
 结构：
 
 - `return`: Array[Dictionary] state snapshot records.
+
+<a id="member-gfoperationdiagnosticsutility-methods-get_sample_stat"></a>
+
+### `get_sample_stat`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func get_sample_stat(sample_id: StringName) -> Dictionary:
+```
+
+获取单个采样统计副本。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `sample_id` | 采样点 ID。 |
+
+返回：采样统计副本；不存在时返回空字典。
+
+结构：
+
+- `return`: Dictionary，包含 sample_id、component、sample_count、total_duration_ms、average_duration_ms、min_duration_ms、max_duration_ms、slow_sample_count 和 metadata。
+
+<a id="member-gfoperationdiagnosticsutility-methods-get_sample_stats"></a>
+
+### `get_sample_stats`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func get_sample_stats(limit: int = 0, filters: Dictionary = {}) -> Array[Dictionary]:
+```
+
+获取采样统计列表。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `limit` | 最大返回数量；小于等于 0 时返回全部匹配统计。 |
+| `filters` | 过滤条件，支持 sample_id 和 component。 |
+
+返回：采样统计数组，按最近更新倒序排列。
+
+结构：
+
+- `filters`: Dictionary，支持 sample_id 和 component。
+- `return`: Array[Dictionary]，每个元素是采样统计副本。
 
 <a id="member-gfoperationdiagnosticsutility-methods-get_operations"></a>
 
@@ -737,7 +958,7 @@ func get_health_snapshot(limit: int = 5) -> Dictionary:
 
 结构：
 
-- `return`: Dictionary，包含 status、operation_count、incident_count、open_operation_count、failed_operation_count、slow_operation_count、recent_operations、recent_incidents 和 slowest_operation。
+- `return`: Dictionary，包含 status、operation_count、active_operation_count、completed_operation_count、rejected_active_operation_count、incident_count、sample_stat_count、failed_operation_count、slow_operation_count、slow_sample_count、recent_operations、recent_incidents、recent_sample_stats、slowest_operation 和 slowest_sample。
 
 <a id="member-gfoperationdiagnosticsutility-methods-get_debug_snapshot"></a>
 
@@ -756,7 +977,88 @@ func get_debug_snapshot() -> Dictionary:
 
 结构：
 
-- `return`: Dictionary，包含 history 上限、计数、健康快照和最近时间线。
+- `return`: Dictionary，包含 history 上限、计数、健康快照、最近时间线和采样统计。
+
+<a id="member-gfoperationdiagnosticsutility-methods-to_json_compatible_record"></a>
+
+### `to_json_compatible_record`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func to_json_compatible_record(record: Dictionary, options: Dictionary = {}) -> Dictionary:
+```
+
+将操作诊断记录或快照转换为 JSON-safe 结构。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `record` | 操作、异常、健康快照或调试快照。 |
+| `options` | 传给 GFReportValueCodec 的编码选项。 |
+
+返回：JSON-safe 诊断记录。
+
+结构：
+
+- `record`: Dictionary，来自本工具的 raw 诊断记录或快照。
+- `options`: Dictionary with GFReportValueCodec options.
+- `return`: Dictionary，已脱敏 Object、Callable、RID 和非 JSON 原生值。
+
+<a id="member-gfoperationdiagnosticsutility-methods-get_json_compatible_health_snapshot"></a>
+
+### `get_json_compatible_health_snapshot`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func get_json_compatible_health_snapshot(limit: int = 5, options: Dictionary = {}) -> Dictionary:
+```
+
+获取 JSON-safe 健康快照。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `limit` | recent_operations 与 recent_incidents 的最大数量。 |
+| `options` | 传给 GFReportValueCodec 的编码选项。 |
+
+返回：JSON-safe 健康快照。
+
+结构：
+
+- `options`: Dictionary with GFReportValueCodec options.
+- `return`: Dictionary，包含 JSON-safe health snapshot 字段。
+
+<a id="member-gfoperationdiagnosticsutility-methods-get_json_compatible_debug_snapshot"></a>
+
+### `get_json_compatible_debug_snapshot`
+
+- API：`public`
+- 首次版本：`8.0.0`
+
+```gdscript
+func get_json_compatible_debug_snapshot(options: Dictionary = {}) -> Dictionary:
+```
+
+获取 JSON-safe 调试快照。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `options` | 传给 GFReportValueCodec 的编码选项。 |
+
+返回：JSON-safe 调试快照。
+
+结构：
+
+- `options`: Dictionary with GFReportValueCodec options.
+- `return`: Dictionary，包含 JSON-safe debug snapshot 字段。
 
 <a id="member-gfoperationdiagnosticsutility-methods-build_copy_text"></a>
 

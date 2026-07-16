@@ -65,6 +65,47 @@ func test_template_manifest_reports_invalid_fields_and_dry_run_save() -> void:
 	assert_eq(GF_VARIANT_ACCESS.get_option_int(summary, "invalid_count"), 1, "摘要应统计无效清单数量。")
 
 
+func test_template_manifest_summary_returns_json_safe_report_boundary() -> void:
+	var manifest: Dictionary = GF_TEMPLATE_GENERATION_MANIFEST_SCRIPT.make_manifest(&"safe", "res://templates/safe_panel.gd.tpl", "user://generated/safe_panel.gd", {
+		"variables": {
+			"owner": self,
+			"weight": INF,
+		},
+		"requirements": {
+			"template_path": "res://secret/internal.tpl",
+		},
+		"metadata": {
+			"owner": self,
+		},
+	})
+	var summary: Dictionary = GF_TEMPLATE_GENERATION_MANIFEST_SCRIPT.summarize_manifests([manifest], {
+		"include_manifests": true,
+		"metadata": {
+			"owner": self,
+		},
+	})
+	var summary_metadata: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(summary, "metadata")
+	var summary_owner_payload: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(summary_metadata, "owner")
+	var summary_owner_marker: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(summary_owner_payload, "__gf_report_value__")
+	var summary_manifests: Array = GF_VARIANT_ACCESS.get_option_array(summary, "manifests")
+	var included_manifest: Dictionary = {}
+	if not summary_manifests.is_empty() and summary_manifests[0] is Dictionary:
+		included_manifest = summary_manifests[0]
+	var variables: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(included_manifest, "variables")
+	var variable_owner_payload: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(variables, "owner")
+	var variable_owner_marker: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(variable_owner_payload, "__gf_report_value__")
+	var weight_payload: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(variables, "weight")
+	var weight_marker: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(weight_payload, "__gf_variant__")
+	var requirements: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(included_manifest, "requirements")
+
+	assert_eq(GF_VARIANT_ACCESS.get_option_string(summary_owner_marker, "type"), "Object", "摘要 metadata 应通过报告边界编码。")
+	assert_eq(GF_VARIANT_ACCESS.get_option_string(variable_owner_marker, "type"), "Object", "include_manifests 中的 variables 应通过报告边界编码。")
+	assert_eq(GF_VARIANT_ACCESS.get_option_string(weight_marker, "type"), "Float", "include_manifests 中的 INF 应使用 typed marker。")
+	assert_eq(GF_VARIANT_ACCESS.get_option_string(requirements, "template_path"), "internal.tpl", "include_manifests 中的动态路径应按报告策略收束为文件名。")
+	assert_eq(GF_VARIANT_ACCESS.get_option_array(summary, "template_ids"), ["safe"], "摘要 template_ids 应是 JSON 原生数组。")
+	assert_false(JSON.stringify(summary).contains(":null"), "模板清单摘要应可直接 JSON.stringify()。")
+
+
 func test_template_manifest_rejects_unsafe_paths() -> void:
 	var parent_escape_manifest: Dictionary = GF_TEMPLATE_GENERATION_MANIFEST_SCRIPT.from_dictionary({
 		"template_id": "escape",

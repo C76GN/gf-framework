@@ -11,6 +11,11 @@ class_name GFConfigResourcePathValidationRule
 extends GFConfigValidationRule
 
 
+# --- 常量 ---
+
+const _VALIDATION_SESSION_CONTEXT_KEY: StringName = &"__gf_config_resource_path_validation_session"
+
+
 # --- 导出变量 ---
 
 ## 空字符串是否直接视为通过。
@@ -48,11 +53,6 @@ extends GFConfigValidationRule
 @export var use_file_access_fallback: bool = true
 
 
-# --- 私有变量 ---
-
-var _path_exists_cache: Dictionary = {}
-
-
 # --- 公共方法 ---
 
 ## 导出规则摘要。
@@ -71,8 +71,6 @@ func describe() -> Dictionary:
 	result["use_resource_loader"] = use_resource_loader
 	result["use_file_access_fallback"] = use_file_access_fallback
 	return result
-
-
 # --- 可重写钩子 / 虚方法 ---
 
 ## 返回资源路径规则的默认稳定标识。
@@ -113,11 +111,23 @@ func _validate_value(value: Variant, context: Dictionary, report: Dictionary) ->
 	if not _extension_allowed(path):
 		_add_issue(report, _make_issue_context(context, value, _describe_allowed_extensions()), "resource_path_extension_not_allowed", "资源路径扩展名不在允许范围内。")
 		return
-	if not _path_exists(path):
+	var existence: Dictionary = _resolve_path_existence(path, context)
+	if not GFVariantData.get_option_bool(existence, "checked"):
+		_add_budget_exhausted_issue(report, context, value)
+		return
+	if not GFVariantData.get_option_bool(existence, "exists"):
 		_add_issue(report, _make_issue_context(context, value, "existing resource path"), "resource_path_missing", "资源路径不存在：%s。" % path)
 
 
 # --- 私有/辅助方法 ---
+
+# 创建单次表校验共享的路径探测会话。
+static func _make_validation_session(max_unique_checks: int) -> RefCounted:
+	return _ResourcePathValidationSession.new(max_unique_checks)
+
+
+static func _is_validation_session(value: Variant) -> bool:
+	return value is _ResourcePathValidationSession
 
 func _extension_allowed(path: String) -> bool:
 	if allowed_extensions.is_empty():
@@ -136,17 +146,46 @@ func _extension_allowed(path: String) -> bool:
 
 
 func _path_exists(path: String) -> bool:
-	var cache_key: String = _make_path_exists_cache_key(path)
-	if _path_exists_cache.has(cache_key):
-		return GFVariantData.to_bool(_path_exists_cache[cache_key])
-
-	var exists: bool = false
 	if use_resource_loader and ResourceLoader.exists(path):
-		exists = true
-	elif use_file_access_fallback and path.begins_with("res://") and FileAccess.file_exists(path):
-		exists = true
-	_path_exists_cache[cache_key] = exists
-	return exists
+		return true
+	if use_file_access_fallback and path.begins_with("res://") and FileAccess.file_exists(path):
+		return true
+	return false
+
+
+func _resolve_path_existence(path: String, context: Dictionary) -> Dictionary:
+	var session_value: Variant = GFVariantData.get_option_value(context, _VALIDATION_SESSION_CONTEXT_KEY)
+	if session_value is _ResourcePathValidationSession:
+		var session: _ResourcePathValidationSession = session_value
+		return session._resolve(_make_existence_cache_key(path), _path_exists.bind(path))
+	return {
+		"checked": true,
+		"exists": _path_exists(path),
+		"cached": false,
+	}
+
+
+func _make_existence_cache_key(path: String) -> String:
+	return "%d:%d:%s" % [int(use_resource_loader), int(use_file_access_fallback), path]
+
+
+func _add_budget_exhausted_issue(report: Dictionary, context: Dictionary, value: Variant) -> void:
+	var session_value: Variant = GFVariantData.get_option_value(context, _VALIDATION_SESSION_CONTEXT_KEY)
+	if not (session_value is _ResourcePathValidationSession):
+		return
+	var session: _ResourcePathValidationSession = session_value
+	if not session._take_budget_notice():
+		return
+
+	var issue_context: Dictionary = _make_issue_context(context, value, "resource path check budget")
+	issue_context["checked_path_count"] = session._get_check_count()
+	issue_context["max_path_checks"] = session._get_max_check_count()
+	_add_issue(
+		report,
+		issue_context,
+		"resource_path_check_budget_exhausted",
+		"资源路径存在性探测超过本次配置校验预算。"
+	)
 
 
 func _has_allowed_resource_prefix(path: String) -> bool:
@@ -169,6 +208,7 @@ func _resolve_extension_source_path(path: String) -> String:
 
 func _make_issue_context(context: Dictionary, value: Variant, expected_value: Variant) -> Dictionary:
 	var issue_context: Dictionary = context.duplicate(true)
+	var _session_erased: bool = issue_context.erase(_VALIDATION_SESSION_CONTEXT_KEY)
 	issue_context["value"] = GFVariantData.duplicate_variant(value)
 	issue_context["actual_value"] = GFVariantData.duplicate_variant(value)
 	issue_context["expected_value"] = GFVariantData.duplicate_variant(expected_value)
@@ -203,10 +243,51 @@ func _describe_allowed_prefixes() -> PackedStringArray:
 	return result
 
 
-func _make_path_exists_cache_key(path: String) -> String:
-	return "%s|loader:%s|file:%s|uid:%s" % [
-		path,
-		str(use_resource_loader),
-		str(use_file_access_fallback),
-		str(allow_uid_paths),
-	]
+# --- 内部类 ---
+
+class _ResourcePathValidationSession:
+	extends RefCounted
+
+	var _budget: GFExecutionBudget
+	var _results: Dictionary = {}
+	var _budget_notice_available: bool = true
+
+	func _init(max_unique_checks: int) -> void:
+		_budget = GFExecutionBudget.new({"max_steps": maxi(max_unique_checks, 1)})
+
+	func _resolve(cache_key: String, resolver: Callable) -> Dictionary:
+		if _results.has(cache_key):
+			var cached_value: Variant = _results[cache_key]
+			var cached_exists: bool = cached_value if cached_value is bool else false
+			return {
+				"checked": true,
+				"exists": cached_exists,
+				"cached": true,
+			}
+		if not _budget.consume_steps():
+			return {
+				"checked": false,
+				"exists": false,
+				"cached": false,
+			}
+
+		var resolved_value: Variant = resolver.call()
+		var exists: bool = resolved_value if resolved_value is bool else false
+		_results[cache_key] = exists
+		return {
+			"checked": true,
+			"exists": exists,
+			"cached": false,
+		}
+
+	func _take_budget_notice() -> bool:
+		if not _budget_notice_available:
+			return false
+		_budget_notice_available = false
+		return true
+
+	func _get_check_count() -> int:
+		return _budget.get_steps()
+
+	func _get_max_check_count() -> int:
+		return _budget.max_steps
