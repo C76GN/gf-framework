@@ -153,8 +153,9 @@ func test_binary_res_dependency_is_reported_as_verified_reference() -> void:
 	assert_false(_option_bool(report, "ok"), "二进制 .res 依赖必须阻断目标移除。")
 	assert_eq(references.size(), 1, "二进制 .res 依赖应生成一条引用记录。")
 	if references.size() == 1:
-		assert_eq(_option_string(references[0], "strength"), "verified", "二进制依赖应由 Godot 依赖图验证。")
-		assert_eq(_option_string(references[0], "source"), "godot_dependency", "二进制依赖应记录依赖图来源。")
+		var reference: Dictionary = _array_dictionary_at(references, 0)
+		assert_eq(_option_string(reference, "strength"), "verified", "二进制依赖应由 Godot 依赖图验证。")
+		assert_eq(_option_string(reference, "source"), "godot_dependency", "二进制依赖应记录依赖图来源。")
 
 
 func test_binary_scn_dependency_is_reported_as_verified_reference() -> void:
@@ -200,8 +201,9 @@ func test_binary_scn_dependency_is_reported_as_verified_reference() -> void:
 	assert_false(_option_bool(report, "ok"), "二进制 .scn 依赖必须阻断目标移除。")
 	assert_eq(references.size(), 1, "二进制 .scn 依赖应生成一条引用记录。")
 	if references.size() == 1:
-		assert_eq(_option_string(references[0], "strength"), "verified", "二进制场景依赖应由 Godot 依赖图验证。")
-		assert_eq(_option_string(references[0], "source"), "godot_dependency", "二进制场景依赖应记录依赖图来源。")
+		var reference: Dictionary = _array_dictionary_at(references, 0)
+		assert_eq(_option_string(reference, "strength"), "verified", "二进制场景依赖应由 Godot 依赖图验证。")
+		assert_eq(_option_string(reference, "source"), "godot_dependency", "二进制场景依赖应记录依赖图来源。")
 
 
 # --- 私有/辅助方法 ---
@@ -249,7 +251,22 @@ func _option_dictionary(options: Dictionary, key: String) -> Dictionary:
 	return {}
 
 
+func _array_dictionary_at(values: Array, index: int) -> Dictionary:
+	if index < 0 or index >= values.size():
+		return {}
+	var value: Variant = values[index]
+	if value is Dictionary:
+		var dictionary_value: Dictionary = value
+		return dictionary_value
+	return {}
+
+
 func _option_string(options: Dictionary, key: String, default_value: String = "") -> String:
-	if options.has(key) and (options[key] is String or options[key] is StringName):
-		return String(options[key])
+	var value: Variant = options.get(key)
+	if value is String:
+		var string_value: String = value
+		return string_value
+	if value is StringName:
+		var string_name_value: StringName = value
+		return String(string_name_value)
 	return default_value

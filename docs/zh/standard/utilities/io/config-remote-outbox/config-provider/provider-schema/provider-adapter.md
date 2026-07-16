@@ -79,6 +79,8 @@ if item == null:
 
 这个适配器只做运行时读取边界，不解析 CSV、JSON、二进制包或网络协议，也不规定表名、字段名和热更新策略。复杂导入、签名、下载和分端裁剪仍应放在项目工具或独立制作期包里。
 
+代码生成式导表同样不需要进入 GF 核心。项目 adapter 只需把生成容器投影为表源，例如返回生成表的记录数组，或通过 `table_method` / `record_method` 映射其查询 API；GF 继续只消费 `GFConfigProvider`。生成代码版本、二进制格式、加载顺序和热更新原子切换由项目 Installer 校验，避免框架绑定某一种导表工具。
+
 ## Resource 表 Provider
 
 如果导表流水线已经输出 Godot 原生 `.tres/.res`，可以用 `GFConfigTableResource` 承载单张表，再交给 `GFResourceConfigProvider` 查询。

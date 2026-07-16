@@ -1717,8 +1717,11 @@ func _dispatch_after_load_callbacks(context: Dictionary) -> void:
 		if not callback_value is Dictionary:
 			continue
 		var callback: Dictionary = GFVariantData.as_dictionary(callback_value)
-		var target: Object = GFVariantData.get_option_value(callback, "target") as Object
-		if target == null or not is_instance_valid(target):
+		var target_value: Variant = GFVariantData.get_option_value(callback, "target")
+		if not target_value is Object:
+			continue
+		var target: Object = target_value
+		if not is_instance_valid(target):
 			continue
 		var data: Variant = GFVariantData.get_option_value(callback, "data")
 		match GFVariantData.get_option_string_name(callback, "kind"):

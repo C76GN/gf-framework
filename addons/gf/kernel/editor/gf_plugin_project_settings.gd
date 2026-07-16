@@ -8,6 +8,7 @@ extends RefCounted
 
 const _GF_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
 const _GF_PROJECT_SETTINGS_TOOLS = preload("res://addons/gf/kernel/core/gf_project_settings_tools.gd")
+const _GF_RESOURCE_PATH_HINT_SCRIPT = preload("res://addons/gf/kernel/editor/gf_resource_path_hint.gd")
 
 ## 项目启动 Installer 列表设置。
 ## [br]
@@ -175,8 +176,8 @@ static func _ensure_project_setting_records(project_setting_records: Array[Dicti
 
 static func _register_property_info() -> void:
 	_GF_PROJECT_SETTINGS_TOOLS.register_property_info(INSTALLERS_SETTING, TYPE_ARRAY, {
-		"hint": PROPERTY_HINT_TYPE_STRING,
-		"hint_string": "%d/%d:*.gd" % [TYPE_STRING, PROPERTY_HINT_FILE],
+		"hint": _GF_RESOURCE_PATH_HINT_SCRIPT.RESOURCE_PATH_ARRAY,
+		"hint_string": "Script",
 		"basic": true,
 	})
 	_GF_PROJECT_SETTINGS_TOOLS.register_property_info(FAIL_ON_INSTALLER_ERROR_SETTING, TYPE_BOOL, {

@@ -11,9 +11,11 @@ const _GF_ASYNC_CALL_SCRIPT = preload("res://addons/gf/kernel/core/gf_async_call
 const _GF_PATH_TOOLS_SCRIPT = preload("res://addons/gf/kernel/core/gf_path_tools.gd")
 const _GF_AUTOLOAD_SCRIPT = preload("res://addons/gf/kernel/core/gf_autoload.gd")
 
-## 项目级启动安装器配置。值为 GDScript 路径数组，脚本需继承 GFInstaller。
+## 项目级启动安装器配置。值为 GDScript 资源路径数组，脚本需继承 GFInstaller。
 ## [br]
 ## @api public
+## [br]
+## @since 3.0.0
 const INSTALLERS_SETTING: String = "gf/project/installers"
 
 ## 项目级 Installer 创建失败时是否中断架构初始化。
@@ -1237,11 +1239,18 @@ func _get_project_installer_paths() -> Array[String]:
 		return installer_paths
 
 	if raw_paths is Array:
-		for path_variant: Variant in raw_paths:
+		var path_values: Array = raw_paths
+		for index: int in range(path_values.size()):
+			var path_variant: Variant = path_values[index]
 			if typeof(path_variant) == TYPE_STRING:
 				_append_unique_installer_path(installer_paths, _GF_VARIANT_ACCESS_SCRIPT.to_text(path_variant, ""))
+			elif typeof(path_variant) == TYPE_STRING_NAME:
+				_append_unique_installer_path(installer_paths, _GF_VARIANT_ACCESS_SCRIPT.to_text(path_variant, ""))
 			else:
-				push_warning("[GF] 项目 Installer 配置包含非字符串项，已跳过。")
+				_report_project_installer_error(
+					"[GF] 项目 Installer 配置第 %d 项必须是 String 或 StringName，实际为 %s。"
+					% [index, type_string(typeof(path_variant))]
+				)
 		return installer_paths
 
 	_report_project_installer_error("[GF] 项目 Installer 配置必须是路径数组。")
@@ -1271,9 +1280,21 @@ func _get_scene_tree_or_null() -> SceneTree:
 func _append_unique_installer_path(installer_paths: Array[String], path: String) -> void:
 	var normalized_path: String = _GF_PATH_TOOLS_SCRIPT.normalize_resource_path(path)
 	if normalized_path.is_empty():
+		_report_project_installer_error("[GF] 项目 Installer 路径为空。")
 		return
+	if normalized_path.begins_with("uid://"):
+		var resource_uid: int = ResourceUID.text_to_id(normalized_path)
+		if resource_uid == ResourceUID.INVALID_ID or not ResourceUID.has_id(resource_uid):
+			_report_project_installer_error("[GF] 项目 Installer UID 无法解析：%s" % normalized_path)
+			return
+		normalized_path = _GF_PATH_TOOLS_SCRIPT.normalize_resource_path(
+			ResourceUID.get_id_path(resource_uid)
+		)
+		if normalized_path.is_empty():
+			_report_project_installer_error("[GF] 项目 Installer UID 未映射到资源路径：%s" % path)
+			return
 	if not normalized_path.begins_with("res://"):
-		_report_project_installer_error("[GF] 项目 Installer 路径必须是 res:// GDScript：%s" % path)
+		_report_project_installer_error("[GF] 项目 Installer 路径必须是 res:// 或可解析的 uid:// GDScript：%s" % path)
 		return
 	if not normalized_path.ends_with(".gd"):
 		_report_project_installer_error("[GF] 项目 Installer 路径必须指向 .gd 脚本：%s" % normalized_path)

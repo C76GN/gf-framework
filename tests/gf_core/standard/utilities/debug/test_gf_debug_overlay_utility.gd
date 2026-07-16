@@ -116,7 +116,7 @@ func test_real_autoload_tree_exit_disposes_overlay_without_reentrant_detach() ->
 	var overlay_gui: CanvasLayer = debug_utility._overlay_gui
 	var autoload_node: Node = GF_AUTOLOAD_NODE_SCRIPT.new()
 	autoload_node.name = "GfDebugOverlayExitProbe"
-	autoload_node._architecture = architecture
+	autoload_node.set(&"_architecture", architecture)
 	get_tree().root.add_child(autoload_node)
 	get_tree().root.remove_child(autoload_node)
 

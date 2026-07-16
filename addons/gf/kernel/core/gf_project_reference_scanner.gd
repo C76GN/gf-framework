@@ -572,7 +572,7 @@ static func _collect_resource_dependency_paths(path: String) -> PackedStringArra
 	for dependency_entry: String in ResourceLoader.get_dependencies(path):
 		var dependency_path: String = _extract_dependency_resource_path(dependency_entry)
 		if not dependency_path.is_empty() and not result.has(dependency_path):
-			result.append(dependency_path)
+			var _append_result: Variant = result.append(dependency_path)
 	return result
 
 

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFHttpRequestBuilder" path="addons/gf/standard/utilities/io/gf_http_request_builder.gd" module="standard" extends="RefCounted" classDigest="2f929bd33c8691af0a00cd3114bf099a8f1abfa6a39d6ad3513d68014c12a07f">
+<class name="GFHttpRequestBuilder" path="addons/gf/standard/utilities/io/gf_http_request_builder.gd" module="standard" extends="RefCounted" classDigest="5300c398be8b6a6a8b8d5d12bc65f0c6d8d83d613f06c0201a97454a1688b4bd">
 	<description>GFHttpRequestBuilder: 通用 HTTP 请求构建器。
 负责整理 URL、query、headers、body、timeout 和响应解析策略。
 它只封装 Godot HTTPRequest 的通用流程，不内置任何具体服务、鉴权或业务接口。</description>
@@ -45,7 +45,24 @@
 			</tags>
 		</member>
 	</enums>
-	<constants />
+	<constants>
+		<member kind="const" name="DEFAULT_MAX_RESPONSE_BYTES">
+			<signature>const DEFAULT_MAX_RESPONSE_BYTES: int = 0</signature>
+			<description>响应体预算默认交给执行传输决定。一次性 HTTPRequest 因此保留 Godot 的无限制默认值。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.1.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="UNLIMITED_MAX_RESPONSE_BYTES">
+			<signature>const UNLIMITED_MAX_RESPONSE_BYTES: int = -1</signature>
+			<description>显式关闭响应体大小限制时使用的值。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.1.0</tag>
+			</tags>
+		</member>
+	</constants>
 	<properties>
 		<member kind="property" name="url">
 			<signature>var url: String = ""</signature>
@@ -73,6 +90,14 @@
 			<description>请求超时时间，单位秒。</description>
 			<tags>
 				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="property" name="max_response_bytes">
+			<signature>var max_response_bytes: int = DEFAULT_MAX_RESPONSE_BYTES:</signature>
+			<description>单个响应体允许进入内存的最大字节数。0 表示继承执行传输默认值，-1 表示无限制。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.1.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="metadata">
@@ -119,6 +144,16 @@
 				<tag name="api">public</tag>
 				<tag name="param">seconds: 超时秒数。</tag>
 				<tag name="return">当前构建器。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="set_max_response_bytes">
+			<signature>func set_max_response_bytes(bytes: int) -&gt; GFHttpRequestBuilder:</signature>
+			<description>设置单个响应体允许进入内存的最大字节数。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">bytes: 最大响应字节数；0 继承执行传输默认值，-1 关闭限制，正数设置明确上限。</tag>
+				<tag name="return">当前构建器。</tag>
+				<tag name="since">8.1.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="set_header">
@@ -193,7 +228,17 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">请求快照。</tag>
-				<tag name="schema">return: Dictionary，包含 url、method、method_name、headers、body、timeout_seconds、parse_mode、parse_mode_name 和 metadata。</tag>
+				<tag name="schema">return: Dictionary，包含 url、method、method_name、headers、body、timeout_seconds、max_response_bytes、parse_mode、parse_mode_name 和 metadata。</tag>
+				<tag name="since">3.17.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="duplicate_builder">
+			<signature>func duplicate_builder() -&gt; GFHttpRequestBuilder:</signature>
+			<description>创建不共享可变请求状态的构建器副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">当前请求配置的独立副本。</tag>
+				<tag name="since">8.1.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="execute">

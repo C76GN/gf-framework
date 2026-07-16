@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<apiCatalog schemaVersion="2" name="GF Framework" sourceRoot="addons/gf" sourceDigest="e6bb93da6324e65f3e4bac4ab31b9c98772a9c340b608e8bc8383608a4a77c06" classCount="707" methodCount="6281">
+<apiCatalog schemaVersion="2" name="GF Framework" sourceRoot="addons/gf" sourceDigest="07456ab71d580ce62082a3ae3748c8c31312dfbf1c6ba77cc184e9759f1a74ed" classCount="709" methodCount="6299">
 	<module id="kernel" label="Kernel" classCount="69" methodCount="697">
 		<class name="GFAccessGenerator" path="classes/GFAccessGenerator.xml" sourcePath="addons/gf/kernel/editor/gf_access_generator.gd" extends="RefCounted" />
 		<class name="GFArchitecture" path="classes/GFArchitecture.xml" sourcePath="addons/gf/kernel/core/gf_architecture.gd" extends="Object" />
@@ -71,7 +71,7 @@
 		<class name="GFTypeEventSystem" path="classes/GFTypeEventSystem.xml" sourcePath="addons/gf/kernel/core/gf_type_event_system.gd" extends="Object" />
 		<class name="GFUtility" path="classes/GFUtility.xml" sourcePath="addons/gf/kernel/base/gf_utility.gd" extends="Object" />
 	</module>
-	<module id="standard" label="Standard" classCount="398" methodCount="3964">
+	<module id="standard" label="Standard" classCount="400" methodCount="3982">
 		<class name="GFActivationTransaction" path="classes/GFActivationTransaction.xml" sourcePath="addons/gf/standard/foundation/policy/gf_activation_transaction.gd" extends="RefCounted" />
 		<class name="GFAnalyticsConfig" path="classes/GFAnalyticsConfig.xml" sourcePath="addons/gf/standard/utilities/analytics/gf_analytics_config.gd" extends="Resource" />
 		<class name="GFAnalyticsUtility" path="classes/GFAnalyticsUtility.xml" sourcePath="addons/gf/standard/utilities/analytics/gf_analytics_utility.gd" extends="GFUtility" />
@@ -212,6 +212,7 @@
 		<class name="GFGridTransform2D" path="classes/GFGridTransform2D.xml" sourcePath="addons/gf/standard/foundation/math/gf_grid_transform_2d.gd" extends="RefCounted" />
 		<class name="GFHeightfield3D" path="classes/GFHeightfield3D.xml" sourcePath="addons/gf/standard/foundation/math/gf_heightfield_3d.gd" extends="RefCounted" />
 		<class name="GFHexGridMath" path="classes/GFHexGridMath.xml" sourcePath="addons/gf/standard/foundation/math/gf_hex_grid_math.gd" extends="RefCounted" />
+		<class name="GFHttpClientUtility" path="classes/GFHttpClientUtility.xml" sourcePath="addons/gf/standard/utilities/io/gf_http_client_utility.gd" extends="GFUtility" />
 		<class name="GFHttpRequestBuilder" path="classes/GFHttpRequestBuilder.xml" sourcePath="addons/gf/standard/utilities/io/gf_http_request_builder.gd" extends="RefCounted" />
 		<class name="GFHttpResponse" path="classes/GFHttpResponse.xml" sourcePath="addons/gf/standard/utilities/io/gf_http_response.gd" extends="RefCounted" />
 		<class name="GFImportPlan" path="classes/GFImportPlan.xml" sourcePath="addons/gf/standard/utilities/assets/gf_import_plan.gd" extends="Resource" />
@@ -441,6 +442,7 @@
 		<class name="GFTouchControl2D" path="classes/GFTouchControl2D.xml" sourcePath="addons/gf/standard/input/touch/gf_touch_control_2d.gd" extends="Node2D" />
 		<class name="GFTouchJoystick" path="classes/GFTouchJoystick.xml" sourcePath="addons/gf/standard/input/touch/gf_touch_joystick.gd" extends="GFTouchControl2D" />
 		<class name="GFTransform3DMath" path="classes/GFTransform3DMath.xml" sourcePath="addons/gf/standard/foundation/math/gf_transform_3d_math.gd" extends="RefCounted" />
+		<class name="GFUILayerDefinition" path="classes/GFUILayerDefinition.xml" sourcePath="addons/gf/standard/utilities/ui/gf_ui_layer_definition.gd" extends="Resource" />
 		<class name="GFUIRoute" path="classes/GFUIRoute.xml" sourcePath="addons/gf/standard/utilities/ui/gf_ui_route.gd" extends="Resource" />
 		<class name="GFUIRouterUtility" path="classes/GFUIRouterUtility.xml" sourcePath="addons/gf/standard/utilities/ui/gf_ui_router_utility.gd" extends="GFUtility" />
 		<class name="GFUIUtility" path="classes/GFUIUtility.xml" sourcePath="addons/gf/standard/utilities/ui/gf_ui_utility.gd" extends="GFUtility" />

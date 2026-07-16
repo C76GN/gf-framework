@@ -7,7 +7,7 @@
 | 模块 | 类 | 成员 | 页面内索引 |
 |---|---:|---:|---|
 | Kernel | 69 | 969 | [Kernel](#module-kernel) |
-| Standard | 398 | 6223 | [Standard](#module-standard) |
+| Standard | 400 | 6252 | [Standard](#module-standard) |
 | Action Queue | 16 | 214 | [Action Queue](#module-extensions-action_queue) |
 | Asset Metadata | 4 | 33 | [Asset Metadata](#module-extensions-asset_metadata) |
 | Behavior Tree | 22 | 89 | [Behavior Tree](#module-extensions-behavior_tree) |
@@ -172,6 +172,7 @@
 | [`GFGridTransform2D`](GFGridTransform2D.md#gfgridtransform2d) | 运行时服务 (`runtime_service`) | `RefCounted` | 12 | `addons/gf/standard/foundation/math/gf_grid_transform_2d.gd` |
 | [`GFHeightfield3D`](GFHeightfield3D.md#gfheightfield3d) | 运行时服务 (`runtime_service`) | `RefCounted` | 30 | `addons/gf/standard/foundation/math/gf_heightfield_3d.gd` |
 | [`GFHexGridMath`](GFHexGridMath.md#gfhexgridmath) | 运行时服务 (`runtime_service`) | `RefCounted` | 25 | `addons/gf/standard/foundation/math/gf_hex_grid_math.gd` |
+| [`GFHttpClientUtility`](GFHttpClientUtility.md#gfhttpclientutility) | 运行时服务 (`runtime_service`) | `GFUtility` | 11 | `addons/gf/standard/utilities/io/gf_http_client_utility.gd` |
 | [`GFInputAssistUtility`](GFInputAssistUtility.md#gfinputassistutility) | 运行时服务 (`runtime_service`) | `GFUtility` | 14 | `addons/gf/standard/input/runtime/gf_input_assist_utility.gd` |
 | [`GFInputConflictAnalyzer`](GFInputConflictAnalyzer.md#gfinputconflictanalyzer) | 运行时服务 (`runtime_service`) | `RefCounted` | 6 | `addons/gf/standard/input/rebinding/gf_input_conflict_analyzer.gd` |
 | [`GFInputContextDiagnostics`](GFInputContextDiagnostics.md#gfinputcontextdiagnostics) | 运行时服务 (`runtime_service`) | `RefCounted` | 4 | `addons/gf/standard/input/mapping/gf_input_context_diagnostics.gd` |
@@ -269,7 +270,7 @@
 | [`GFTouchJoystick`](GFTouchJoystick.md#gftouchjoystick) | 运行时服务 (`runtime_service`) | `GFTouchControl2D` | 26 | `addons/gf/standard/input/touch/gf_touch_joystick.gd` |
 | [`GFTransform3DMath`](GFTransform3DMath.md#gftransform3dmath) | 运行时服务 (`runtime_service`) | `RefCounted` | 11 | `addons/gf/standard/foundation/math/gf_transform_3d_math.gd` |
 | [`GFUIRouterUtility`](GFUIRouterUtility.md#gfuirouterutility) | 运行时服务 (`runtime_service`) | `GFUtility` | 26 | `addons/gf/standard/utilities/ui/gf_ui_router_utility.gd` |
-| [`GFUIUtility`](GFUIUtility.md#gfuiutility) | 运行时服务 (`runtime_service`) | `GFUtility` | 43 | `addons/gf/standard/utilities/ui/gf_ui_utility.gd` |
+| [`GFUIUtility`](GFUIUtility.md#gfuiutility) | 运行时服务 (`runtime_service`) | `GFUtility` | 49 | `addons/gf/standard/utilities/ui/gf_ui_utility.gd` |
 | [`GFValidationDiagnosticAdapter`](GFValidationDiagnosticAdapter.md#gfvalidationdiagnosticadapter) | 运行时服务 (`runtime_service`) | `RefCounted` | 6 | `addons/gf/standard/foundation/validation/gf_validation_diagnostic_adapter.gd` |
 | [`GFValidationJUnitExporter`](GFValidationJUnitExporter.md#gfvalidationjunitexporter) | 运行时服务 (`runtime_service`) | `RefCounted` | 2 | `addons/gf/standard/foundation/validation/gf_validation_junit_exporter.gd` |
 | [`GFValidationReportDictionary`](GFValidationReportDictionary.md#gfvalidationreportdictionary) | 运行时服务 (`runtime_service`) | `RefCounted` | 12 | `addons/gf/standard/foundation/validation/gf_validation_report_dictionary.gd` |
@@ -409,6 +410,7 @@
 | [`GFTileRuleSet`](GFTileRuleSet.md#gftileruleset) | 资源定义 (`resource_definition`) | `Resource` | 8 | `addons/gf/standard/foundation/math/gf_tile_rule_set.gd` |
 | [`GFTimedTextEntry`](GFTimedTextEntry.md#gftimedtextentry) | 资源定义 (`resource_definition`) | `Resource` | 9 | `addons/gf/standard/foundation/timeline/gf_timed_text_entry.gd` |
 | [`GFTimedTextTrack`](GFTimedTextTrack.md#gftimedtexttrack) | 资源定义 (`resource_definition`) | `Resource` | 13 | `addons/gf/standard/foundation/timeline/gf_timed_text_track.gd` |
+| [`GFUILayerDefinition`](GFUILayerDefinition.md#gfuilayerdefinition) | 资源定义 (`resource_definition`) | `Resource` | 7 | `addons/gf/standard/utilities/ui/gf_ui_layer_definition.gd` |
 | [`GFUIRoute`](GFUIRoute.md#gfuiroute) | 资源定义 (`resource_definition`) | `Resource` | 8 | `addons/gf/standard/utilities/ui/gf_ui_route.gd` |
 | [`GFValidationConstraintRule`](GFValidationConstraintRule.md#gfvalidationconstraintrule) | 资源定义 (`resource_definition`) | `GFValidationRule` | 25 | `addons/gf/standard/foundation/validation/gf_validation_constraint_rule.gd` |
 | [`GFValidationSuite`](GFValidationSuite.md#gfvalidationsuite) | 资源定义 (`resource_definition`) | `Resource` | 23 | `addons/gf/standard/foundation/validation/gf_validation_suite.gd` |
@@ -434,7 +436,7 @@
 | [`GFExecutionBudget`](GFExecutionBudget.md#gfexecutionbudget) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 23 | `addons/gf/standard/common/gf_execution_budget.gd` |
 | [`GFFormBinder`](GFFormBinder.md#gfformbinder) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 9 | `addons/gf/standard/utilities/ui/gf_form_binder.gd` |
 | [`GFGraphPathSearchState`](GFGraphPathSearchState.md#gfgraphpathsearchstate) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 14 | `addons/gf/standard/foundation/math/gf_graph_path_search_state.gd` |
-| [`GFHttpRequestBuilder`](GFHttpRequestBuilder.md#gfhttprequestbuilder) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 21 | `addons/gf/standard/utilities/io/gf_http_request_builder.gd` |
+| [`GFHttpRequestBuilder`](GFHttpRequestBuilder.md#gfhttprequestbuilder) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 26 | `addons/gf/standard/utilities/io/gf_http_request_builder.gd` |
 | [`GFHttpResponse`](GFHttpResponse.md#gfhttpresponse) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 23 | `addons/gf/standard/utilities/io/gf_http_response.gd` |
 | [`GFInputProviderRegistration`](GFInputProviderRegistration.md#gfinputproviderregistration) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 4 | `addons/gf/standard/input/formatting/gf_input_provider_registration.gd` |
 | [`GFItemListBinder`](GFItemListBinder.md#gfitemlistbinder) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 10 | `addons/gf/standard/utilities/ui/gf_item_list_binder.gd` |

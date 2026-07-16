@@ -1,7 +1,7 @@
 {
   "id": "gf.physics",
   "display_name": "GF Physics",
-  "version": "8.0.1",
+  "version": "8.1.0",
   "extension_version": "1.3.0",
   "kind": "extension",
   "description": "Optional physics helpers such as 3D gravity fields and probes.",

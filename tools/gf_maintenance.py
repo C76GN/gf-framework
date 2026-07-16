@@ -22,12 +22,14 @@ import sys
 import tempfile
 import threading
 import time
+import traceback
 import urllib.parse
 import xml.etree.ElementTree as ET
 import zipfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+from typing import Callable
 
 from gdscript_api_parser import ApiDocs
 from gdscript_api_parser import ApiMember
@@ -39,6 +41,14 @@ from generated_output_transaction import lexical_absolute_path
 from generated_output_transaction import replace_generated_trees
 from generated_output_transaction import validate_controlled_path
 import gf_package_cache
+from gf_godot_process import resolve_godot_command
+from gf_godot_process import resolve_godot_executable
+from gf_package_paths import ManifestPathIndex
+from gf_package_paths import manifest_path_matches as shared_manifest_path_matches
+from gf_package_paths import normalize_manifest_path as normalize_shared_manifest_path
+from gf_process_supervisor import run_supervised_completed_process
+from gf_process_supervisor import run_supervised_process
+from gf_workspace_snapshot import WorkspaceSnapshot
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -48,6 +58,7 @@ SINCE_TAG_RE = re.compile(r"@since\s+(?P<value>\S+)")
 CHANGELOG_VERSION_RE = re.compile(r"^##\s+\[(?P<version>[^\]]+)\]")
 MARKDOWN_FIELD_RE = re.compile(r"^-\s+(?P<name>[^:]+):\s+`(?P<value>[^`]+)`\s*$")
 ANSI_ESCAPE_RE = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]")
+SOURCE_IDENTIFIER_RE = re.compile(r"(?<![A-Za-z0-9_])([A-Za-z_]\w*)(?![A-Za-z0-9_])")
 API_DOC_API_RE = re.compile(r"##\s*@api\s+(?P<visibility>public|protected)\b")
 API_DOC_SINCE_RE = re.compile(r"##\s*@since\s+\S+")
 GDSCRIPT_API_DECL_RE = re.compile(
@@ -938,18 +949,23 @@ LIGHT_BOUNDARY_CHECKS: list[str] = [
 	"dependency_boundary",
 	"diff",
 ]
-PACKAGE_SMOKE_CHECKS: list[str] = [
+PACKAGE_CONTRACT_SMOKE_CHECKS: list[str] = [
 	"package_build_boundary",
 	"package_install_smoke",
 	"network_install_smoke",
 	"preset_smoke",
 	"package_manager_status_smoke",
 	"package_native_parity_smoke",
-	"package_editor_wizard_smoke",
-	"package_godot_cli_smoke",
 	"uninstall_smoke",
 ]
-PACKAGE_CHECKS: list[str] = [
+PACKAGE_EDITOR_CHECKS: list[str] = ["package_editor_wizard_smoke"]
+PACKAGE_CLI_CHECKS: list[str] = ["package_godot_cli_smoke"]
+PACKAGE_SMOKE_CHECKS: list[str] = [
+	*PACKAGE_CONTRACT_SMOKE_CHECKS,
+	*PACKAGE_EDITOR_CHECKS,
+	*PACKAGE_CLI_CHECKS,
+]
+PACKAGE_CONTRACT_CHECKS: list[str] = [
 	"package_boundary",
 	"package_closure_audit",
 	"package_source_boundary",
@@ -958,7 +974,12 @@ PACKAGE_CHECKS: list[str] = [
 	"core_only_smoke",
 	"core_plugin_bootstrap_smoke",
 	"package_focused_gut_mapping",
-	*PACKAGE_SMOKE_CHECKS,
+	*PACKAGE_CONTRACT_SMOKE_CHECKS,
+]
+PACKAGE_CHECKS: list[str] = [
+	*PACKAGE_CONTRACT_CHECKS,
+	*PACKAGE_EDITOR_CHECKS,
+	*PACKAGE_CLI_CHECKS,
 ]
 QUICK_CHECKS: list[str] = [
 	"api",
@@ -1011,13 +1032,42 @@ RELEASE_CHECKS: list[str] = [
 	"diff",
 	"release_metadata",
 ]
+FRAMEWORK_CHECKS: list[str] = [
+	"gut",
+	"api",
+	"ai_api",
+	"docs",
+	"public_docs_boundary",
+	"public_api_boundary",
+	"resource_boundary",
+	"content_package_boundary",
+	"asset_lifecycle_boundary",
+	"project_profile_boundary",
+	"mkdocs",
+	"api_since_touched",
+	"path_hygiene",
+	"maintenance_self_test",
+	"dependency_boundary",
+	"gdscript_warnings",
+	"diff",
+]
+PACKAGE_CI_CHECKS: list[str] = [*PACKAGE_CHECKS, "package_godot_smoke"]
+PACKAGE_RELEASE_CHECKS: list[str] = [*PACKAGE_CHECKS, "package_godot_matrix_smoke"]
 
 CHECK_SUITES: dict[str, list[str]] = {
 	"api": API_CHECKS,
 	"docs": DOCS_CHECKS,
 	"examples": EXAMPLES_CHECKS,
+	"framework": FRAMEWORK_CHECKS,
 	"quick": QUICK_CHECKS,
 	"package": PACKAGE_CHECKS,
+	"package-contract": PACKAGE_CONTRACT_CHECKS,
+	"package-editor": PACKAGE_EDITOR_CHECKS,
+	"package-cli": PACKAGE_CLI_CHECKS,
+	"package-godot-ci": ["package_godot_smoke"],
+	"package-godot-release": ["package_godot_matrix_smoke"],
+	"package-ci": PACKAGE_CI_CHECKS,
+	"package-release": PACKAGE_RELEASE_CHECKS,
 	"full": FULL_CHECKS,
 	"release": RELEASE_CHECKS,
 }
@@ -1034,6 +1084,7 @@ CHECK_TIMEOUT_SECONDS: dict[str, int] = {
 }
 
 _API_CACHE: list[ApiScript] | None = None
+_ACTIVE_WORKSPACE_SNAPSHOT: WorkspaceSnapshot | None = None
 
 
 @dataclass
@@ -1049,6 +1100,10 @@ class CommandResult:
 	godot_exit_leak_warnings: list[str] | None = None
 	godot_exit_leak_report: dict[str, Any] | None = None
 	cwd: str = str(ROOT)
+	duration_seconds: float = 0.0
+	timeout_seconds: float | None = None
+	execution: str = "subprocess"
+	pid: int | None = None
 
 	def to_dict(self, max_output_chars: int = 12000) -> dict[str, Any]:
 		payload = {
@@ -1057,9 +1112,15 @@ class CommandResult:
 			"cwd": self.cwd,
 			"exit_code": self.exit_code,
 			"timed_out": self.timed_out,
+			"duration_seconds": round(self.duration_seconds, 3),
+			"execution": self.execution,
 			"stdout": trim_text(self.stdout, max_output_chars),
 			"stderr": trim_text(self.stderr, max_output_chars),
 		}
+		if self.timeout_seconds is not None:
+			payload["timeout_seconds"] = self.timeout_seconds
+		if self.pid is not None:
+			payload["pid"] = self.pid
 		if self.process_exit_code != None and self.process_exit_code != self.exit_code:
 			payload["process_exit_code"] = self.process_exit_code
 		if self.notes:
@@ -1413,7 +1474,16 @@ def main() -> int:
 		"--timeout",
 		type=int,
 		default=None,
-		help="Override the timeout for every subprocess check in seconds; otherwise use the check policy.",
+		help="Raise the minimum per-check timeout in seconds; dedicated longer check policies still win.",
+	)
+	check_parser.add_argument(
+		"--suite-timeout",
+		type=int,
+		default=None,
+		help=(
+			"Overall suite budget in seconds; remaining time is propagated to external checks, "
+			"while in-process checks report an overrun when they return."
+		),
 	)
 	check_parser.add_argument("--fail-fast", action="store_true")
 	check_parser.add_argument(
@@ -1638,9 +1708,11 @@ def main() -> int:
 			suite=args.suite,
 			checks=args.check,
 			timeout_seconds=args.timeout,
+			suite_timeout_seconds=args.suite_timeout,
 			fail_fast=args.fail_fast,
 			sync_examples=args.sync_examples,
 			allow_breaking_api=args.allow_breaking_api,
+			progress_callback=None if args.json else print_check_progress,
 		)
 		renderer = render_failed_checks_text if args.failed_only else render_checks_text
 		print_output(data, args.json, renderer)
@@ -1769,6 +1841,7 @@ def api_baseline_diff(
 	base_tag: str = "",
 	version: str = "",
 	enforce_version: bool = False,
+	allow_breaking: bool = False,
 ) -> dict[str, Any]:
 	release_version = version.strip() or read_plugin_version()
 	resolved_base_tag = base_tag.strip() or find_latest_semver_tag_before(release_version)
@@ -1791,7 +1864,10 @@ def api_baseline_diff(
 			issues.append(f"{snapshot_name} API catalog error: {error}")
 
 	diff = compare_api_catalog_snapshots(base_snapshot, current_snapshot)
-	classified_signature_changes = classify_api_signature_changes(diff.get("signature_changes", []))
+	classified_signature_changes = classify_api_signature_changes(
+		diff.get("signature_changes", []),
+		base_snapshot,
+	)
 	diff["breaking_signature_changes"] = classified_signature_changes["breaking"]
 	diff["compatible_signature_changes"] = classified_signature_changes["compatible"]
 	breaking_change_count = (
@@ -1800,11 +1876,22 @@ def api_baseline_diff(
 		+ len(diff["breaking_signature_changes"])
 		+ len(diff["extends_changes"])
 	)
+	compatible_change_count = (
+		len(diff["added_classes"])
+		+ len(diff["added_members"])
+		+ len(diff["compatible_signature_changes"])
+	)
 	breaking_allowed = api_diff_breaking_allowed(resolved_base_tag, release_version)
-	if enforce_version and breaking_change_count > 0 and not breaking_allowed:
+	compatible_allowed = api_diff_compatible_feature_allowed(resolved_base_tag, release_version)
+	if enforce_version and breaking_change_count > 0 and not breaking_allowed and not allow_breaking:
 		issues.append(
 			"Breaking public API changes require a major version bump above "
 			f"{resolved_base_tag}; found {breaking_change_count} breaking change(s)."
+		)
+	if enforce_version and compatible_change_count > 0 and not compatible_allowed:
+		issues.append(
+			"Backward-compatible public API additions or signature expansions require a minor "
+			f"or major version bump above {resolved_base_tag}; found {compatible_change_count} compatible change(s)."
 		)
 	return make_api_baseline_diff_result(
 		release_version,
@@ -1814,7 +1901,10 @@ def api_baseline_diff(
 		diff,
 		{
 			"breaking_change_count": breaking_change_count,
+			"compatible_change_count": compatible_change_count,
 			"breaking_allowed": breaking_allowed,
+			"compatible_allowed": compatible_allowed,
+			"breaking_waived": allow_breaking,
 		},
 	)
 
@@ -1837,7 +1927,10 @@ def make_api_baseline_diff_result(
 		"compatible_signature_changes": len(diff.get("compatible_signature_changes", [])),
 		"extends_changes": len(diff.get("extends_changes", [])),
 		"breaking_change_count": int(extra.get("breaking_change_count", 0)),
+		"compatible_change_count": int(extra.get("compatible_change_count", 0)),
 		"breaking_allowed": bool(extra.get("breaking_allowed", False)),
+		"compatible_allowed": bool(extra.get("compatible_allowed", False)),
+		"breaking_waived": bool(extra.get("breaking_waived", False)),
 	}
 	return {
 		"ok": len(issues) == 0,
@@ -1851,11 +1944,14 @@ def make_api_baseline_diff_result(
 	}
 
 
-def classify_api_signature_changes(changes: list[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:
+def classify_api_signature_changes(
+	changes: list[dict[str, Any]],
+	base_snapshot: dict[str, Any] | None = None,
+) -> dict[str, list[dict[str, Any]]]:
 	breaking: list[dict[str, Any]] = []
 	compatible: list[dict[str, Any]] = []
 	for change in changes:
-		reason = api_signature_compatible_change_reason(change)
+		reason = api_signature_compatible_change_reason(change, base_snapshot)
 		enriched = dict(change)
 		if reason:
 			enriched["compatibility"] = reason
@@ -1869,19 +1965,81 @@ def classify_api_signature_changes(changes: list[dict[str, Any]]) -> dict[str, l
 	}
 
 
-def api_signature_compatible_change_reason(change: dict[str, Any]) -> str:
+def api_signature_compatible_change_reason(
+	change: dict[str, Any],
+	base_snapshot: dict[str, Any] | None = None,
+) -> str:
 	kind = str(change.get("kind", ""))
 	old_signature = str(change.get("old_signature", ""))
 	new_signature = str(change.get("new_signature", ""))
 	if kind == "enum" and api_enum_signature_is_compatible(old_signature, new_signature):
 		return "enum_values_added_without_removing_existing_values"
+	if kind == "method":
+		enum_names = api_class_enum_names(base_snapshot or {}, str(change.get("class", "")))
+		if api_method_signature_is_compatible(old_signature, new_signature, enum_names):
+			return "method_accepts_all_previous_calls"
 	return ""
 
 
-def api_parameter_type_change_is_compatible(old_type: str, new_type: str) -> bool:
+def api_class_enum_names(snapshot: dict[str, Any], class_name: str) -> set[str]:
+	api_class = snapshot.get("classes", {}).get(class_name, {})
+	members = api_class.get("members", {}) if isinstance(api_class, dict) else {}
+	return {
+		str(member.get("name", ""))
+		for member in members.values()
+		if isinstance(member, dict) and member.get("kind") == "enum" and member.get("name")
+	}
+
+
+def api_method_signature_is_compatible(
+	old_signature: str,
+	new_signature: str,
+	class_enum_names: set[str],
+) -> bool:
+	old_method = parse_api_method_signature(old_signature)
+	new_method = parse_api_method_signature(new_signature)
+	if not old_method or not new_method:
+		return False
+	if (
+		old_method["name"] != new_method["name"]
+		or old_method["is_static"] != new_method["is_static"]
+		or old_method["return_type"] != new_method["return_type"]
+	):
+		return False
+	old_params = old_method["params"]
+	new_params = new_method["params"]
+	if len(new_params) < len(old_params):
+		return False
+	for old_param, new_param in zip(old_params, new_params):
+		if old_param["name"] != new_param["name"]:
+			return False
+		if not api_parameter_type_change_is_compatible(
+			old_param["type"],
+			new_param["type"],
+			class_enum_names,
+		):
+			return False
+		old_default = old_param["default"]
+		new_default = new_param["default"]
+		if old_default and old_default != new_default:
+			return False
+	for appended_param in new_params[len(old_params):]:
+		if not appended_param["default"]:
+			return False
+	return True
+
+
+def api_parameter_type_change_is_compatible(
+	old_type: str,
+	new_type: str,
+	class_enum_names: set[str] | None = None,
+) -> bool:
 	if old_type == new_type:
 		return True
 	if old_type and (new_type == "" or new_type == "Variant"):
+		return True
+	enum_names = class_enum_names or set()
+	if new_type == "int" and old_type.rsplit(".", 1)[-1] in enum_names:
 		return True
 	return False
 
@@ -1895,6 +2053,7 @@ def parse_api_method_signature(signature: str) -> dict[str, Any]:
 		return {}
 	return {
 		"name": match.group("name"),
+		"is_static": signature.startswith("static func "),
 		"params": [
 			parse_api_parameter(part)
 			for part in split_top_level_commas(match.group("params").strip())
@@ -2152,6 +2311,20 @@ def api_diff_breaking_allowed(base_tag: str, release_version: str) -> bool:
 	if base_version is None or release_parts is None:
 		return False
 	return release_parts[0] > base_version[0]
+
+
+def api_diff_compatible_feature_allowed(base_tag: str, release_version: str) -> bool:
+	base_version = parse_semver(base_tag)
+	release_parts = parse_semver(release_version)
+	if base_version is None or release_parts is None:
+		return False
+	return (
+		release_parts[0] > base_version[0]
+		or (
+			release_parts[0] == base_version[0]
+			and release_parts[1] > base_version[1]
+		)
+	)
 
 
 def find_latest_semver_tag_before(version: str) -> str:
@@ -2808,14 +2981,15 @@ def annotate_resource_boundary_packages(
 	findings: list[dict[str, Any]],
 	owner_entries: list[dict[str, str]],
 ) -> None:
+	ownership_index = PackageOwnershipIndex(owner_entries)
 	for finding in findings:
 		finding["source_package"] = resource_boundary_source_package(
 			str(finding.get("path", "")),
-			owner_entries,
+			ownership_index,
 		)
 		finding["target_package"] = resource_boundary_target_package(
 			str(finding.get("target", "")),
-			owner_entries,
+			ownership_index,
 		)
 
 
@@ -3649,15 +3823,7 @@ def run_core_plugin_bootstrap_smoke_scenario(
 	]
 	return_code = -1
 	try:
-		completed = subprocess.run(
-			command,
-			cwd=ROOT,
-			capture_output=True,
-			text=True,
-			encoding="utf-8",
-			errors="replace",
-			timeout=180,
-		)
+		completed = run_maintenance_subprocess(command, timeout_seconds=180)
 		return_code = completed.returncode
 		log_text = read_text_file(log_path)
 		combined_output = "\n".join([completed.stdout, completed.stderr, log_text])
@@ -3787,7 +3953,8 @@ def package_source_boundary() -> dict[str, Any]:
 		records.append(record)
 		issues.extend(record["issues"])
 	issues.extend(audit_package_manifest_graph(records))
-	issues.extend(audit_package_path_ownership(records))
+	ownership_index = PackageOwnershipIndex(collect_package_source_owner_entries(records))
+	issues.extend(audit_package_path_ownership(records, ownership_index=ownership_index))
 	if issues:
 		return make_package_source_boundary_payload(records, [], issues)
 
@@ -3801,8 +3968,17 @@ def package_source_boundary() -> dict[str, Any]:
 	source_paths = source_paths_payload["paths"]
 	distribution_paths = distribution_paths_payload["paths"]
 	class_roots = collect_package_source_class_roots(source_paths)
-	issues.extend(audit_package_distribution_ownership(records, distribution_paths))
-	issues.extend(audit_package_source_references(records, source_paths, class_roots))
+	issues.extend(audit_package_distribution_ownership(
+		records,
+		distribution_paths,
+		ownership_index=ownership_index,
+	))
+	issues.extend(audit_package_source_references(
+		records,
+		source_paths,
+		class_roots,
+		ownership_index=ownership_index,
+	))
 	return make_package_source_boundary_payload(records, source_paths, issues, distribution_paths)
 
 
@@ -3913,9 +4089,9 @@ def package_external_command_audit(fail_on_warnings: bool = False) -> dict[str, 
 		for path in source_paths_payload["paths"]
 		if Path(path).suffix.lower() in PACKAGE_EXTERNAL_COMMAND_AUDIT_SOURCE_EXTENSIONS
 	]
-	owner_entries = collect_package_source_owner_entries(records)
+	ownership_index = PackageOwnershipIndex(collect_package_source_owner_entries(records))
 	for source_path in source_paths:
-		source_owner = find_package_source_owner(source_path, owner_entries)
+		source_owner = find_package_source_owner(source_path, ownership_index)
 		if not source_owner:
 			continue
 		source_payload = read_utf8_text_file_for_scan(ROOT / source_path, source_path)
@@ -4085,7 +4261,7 @@ def package_build_boundary() -> dict[str, Any]:
 		registry_path = temp_root / "registry/index.json"
 		registry_source_path = temp_root / "registry/gf-registry-source.json"
 		offline_bundle_path = temp_root / "gf-package-offline-bundle.zip"
-		completed = subprocess.run(
+		completed = run_maintenance_subprocess(
 			[
 				sys.executable,
 				"tools/build_gf_package.py",
@@ -4100,12 +4276,7 @@ def package_build_boundary() -> dict[str, Any]:
 				str(offline_bundle_path),
 				"--json",
 			],
-			cwd=ROOT,
-			capture_output=True,
-			text=True,
-			encoding="utf-8",
-			errors="replace",
-			timeout=120,
+			timeout_seconds=120,
 		)
 		issues: list[dict[str, Any]] = []
 		builder_data: dict[str, Any] = {}
@@ -8045,15 +8216,7 @@ def package_editor_wizard_smoke() -> dict[str, Any]:
 		"--import",
 	]
 	try:
-		import_completed = subprocess.run(
-			import_command,
-			cwd=ROOT,
-			capture_output=True,
-			text=True,
-			encoding="utf-8",
-			errors="replace",
-			timeout=180,
-		)
+		import_completed = run_maintenance_subprocess(import_command, timeout_seconds=180)
 	except subprocess.TimeoutExpired as error:
 		issues.append(make_package_issue(
 			"package_editor_wizard_smoke_import_timeout",
@@ -8088,15 +8251,7 @@ def package_editor_wizard_smoke() -> dict[str, Any]:
 		)
 		return make_package_editor_wizard_smoke_payload(command, scenarios, issues, test_path, log_path)
 	try:
-		completed = subprocess.run(
-			command,
-			cwd=ROOT,
-			capture_output=True,
-			text=True,
-			encoding="utf-8",
-			errors="replace",
-			timeout=180,
-		)
+		completed = run_maintenance_subprocess(command, timeout_seconds=180)
 	except subprocess.TimeoutExpired as error:
 		issues.append(make_package_issue(
 			"package_editor_wizard_smoke_timeout",
@@ -9492,15 +9647,7 @@ def run_package_editor_wizard_smoke_script(
 		script_resource_path,
 	]
 	try:
-		completed = subprocess.run(
-			command,
-			cwd=ROOT,
-			capture_output=True,
-			text=True,
-			encoding="utf-8",
-			errors="replace",
-			timeout=180,
-		)
+		completed = run_maintenance_subprocess(command, timeout_seconds=180)
 	except subprocess.TimeoutExpired as error:
 		issues.append(make_package_issue(
 			"package_editor_wizard_smoke_minimal_script_timeout",
@@ -11901,15 +12048,10 @@ def run_package_godot_cli_smoke_command(
 		process_env = os.environ.copy()
 		process_env.update(env)
 	try:
-		completed = subprocess.run(
+		completed = run_maintenance_subprocess(
 			command,
-			cwd=ROOT,
-			capture_output=True,
-			text=True,
-			encoding="utf-8",
-			errors="replace",
-			env=process_env,
-			timeout=120,
+			timeout_seconds=120,
+			environment=process_env,
 		)
 	except subprocess.TimeoutExpired as error:
 		issues.append(make_package_issue(
@@ -12814,15 +12956,7 @@ def run_package_godot_editor_parse(
 		"--quit",
 	]
 	try:
-		completed = subprocess.run(
-			command,
-			cwd=ROOT,
-			capture_output=True,
-			text=True,
-			encoding="utf-8",
-			errors="replace",
-			timeout=180,
-		)
+		completed = run_maintenance_subprocess(command, timeout_seconds=180)
 	except subprocess.TimeoutExpired as error:
 		issues.append(make_package_issue(
 			"package_godot_smoke_timeout",
@@ -13953,15 +14087,7 @@ def run_package_smoke_json_command(
 	allow_failure: bool = False,
 ) -> dict[str, Any]:
 	try:
-		completed = subprocess.run(
-			command,
-			cwd=ROOT,
-			capture_output=True,
-			text=True,
-			encoding="utf-8",
-			errors="replace",
-			timeout=120,
-		)
+		completed = run_maintenance_subprocess(command, timeout_seconds=120)
 	except subprocess.TimeoutExpired as error:
 		issues.append(make_package_issue(
 			"uninstall_smoke_command_timeout",
@@ -14181,9 +14307,66 @@ def maintenance_self_test() -> dict[str, Any]:
 	mcp_server_source = read_text_file(ROOT / "tools/gf_mcp_server.py")
 	record_result(
 		"mcp_checks_use_managed_log_hygiene_boundary",
-		"gf_maintenance.run_checks_with_log_hygiene(" in mcp_server_source,
-		"MCP checks must not bypass maintenance session log cleanup.",
+		"gf_maintenance.run_checks_with_log_hygiene(" in mcp_server_source
+		and '"suite_timeout_seconds"' in mcp_server_source,
+		"MCP checks must preserve managed log cleanup and expose the suite deadline separately.",
 	)
+	with tempfile.TemporaryDirectory(prefix="gf-workspace-snapshot-self-test-") as temp_dir:
+		snapshot_path = Path(temp_dir) / "fixture.txt"
+		snapshot_path.write_text("first", encoding="utf-8")
+		snapshot = WorkspaceSnapshot(ROOT)
+		first_read = snapshot.read_utf8_text(snapshot_path)
+		cached_read = snapshot.read_utf8_text(snapshot_path)
+		snapshot_path.write_text("second-value", encoding="utf-8")
+		changed_read = snapshot.read_utf8_text(snapshot_path)
+		factory_calls = 0
+
+		def snapshot_fixture_factory() -> list[str]:
+			nonlocal factory_calls
+			factory_calls += 1
+			return ["cached"]
+
+		first_value = snapshot.memoize("fixture", ("key",), snapshot_fixture_factory)
+		second_value = snapshot.memoize("fixture", ("key",), snapshot_fixture_factory)
+		record_result(
+			"workspace_snapshot_caches_reads_and_invalidates_changed_files",
+			first_read == "first"
+			and cached_read == "first"
+			and changed_read == "second-value"
+			and snapshot.stats()["text_cache_hits"] == 1,
+			f"workspace text cache must be invocation-scoped and stat-aware: {snapshot.stats()}",
+		)
+		record_result(
+			"workspace_snapshot_memoizes_suite_inventory",
+			first_value is second_value and factory_calls == 1,
+			"workspace inventory factories should execute once per suite key.",
+		)
+
+	with tempfile.TemporaryDirectory(prefix="gf-godot-resolver-self-test-") as temp_dir:
+		fixture_root = Path(temp_dir)
+		steam_launcher = fixture_root / "godot.exe"
+		steam_engine = fixture_root / "godot.windows.opt.tools.64.exe"
+		override_engine = fixture_root / "custom-godot.exe"
+		for executable_path in (steam_launcher, steam_engine, override_engine):
+			executable_path.write_bytes(b"fixture")
+		record_result(
+			"godot_resolver_bypasses_detached_windows_steam_launcher",
+			resolve_godot_executable(
+				str(steam_launcher),
+				environment={},
+				platform_name="nt",
+			) == str(steam_engine.resolve()),
+			"Windows maintenance checks must supervise the foreground Steam engine binary.",
+		)
+		record_result(
+			"godot_resolver_honors_explicit_environment_override",
+			resolve_godot_executable(
+				str(steam_launcher),
+				environment={"GF_GODOT_EXECUTABLE": str(override_engine)},
+				platform_name="nt",
+			) == str(override_engine.resolve()),
+			"GF_GODOT_EXECUTABLE must remain the explicit cross-platform executable override.",
+		)
 
 	with tempfile.TemporaryDirectory(prefix="gf-maintenance-log-session-self-test-") as temp_dir:
 		log_root = Path(temp_dir) / "logs"
@@ -14477,7 +14660,10 @@ def maintenance_self_test() -> dict[str, Any]:
 		)
 		record_result(
 			"run_command_reads_configured_log_for_gut_summary",
-			passing_result.exit_code == 0 and "---- All tests passed! ----" in passing_result.stdout,
+			passing_result.exit_code == 0
+			and "---- All tests passed! ----" in passing_result.stdout
+			and passing_result.duration_seconds > 0.0
+			and passing_result.timeout_seconds == 10,
 			f"configured GUT log must be part of command evaluation: {passing_result.to_dict()}",
 		)
 		per_script_code = (
@@ -14597,6 +14783,32 @@ def maintenance_self_test() -> dict[str, Any]:
 			"run_command_rejects_logs_outside_controlled_roots",
 			outside_log_rejected and not (ROOT / "maintenance-self-test-forbidden.log").exists(),
 			"configured logs must stay under the repository log root or system temporary root.",
+		)
+
+	with tempfile.TemporaryDirectory(prefix="gf-process-tree-self-test-") as temp_dir:
+		marker_path = Path(temp_dir) / "grandchild-survived.txt"
+		grandchild_code = (
+			"import time; from pathlib import Path; "
+			"time.sleep(1.0); "
+			f"Path({str(marker_path)!r}).write_text('survived', encoding='utf-8')"
+		)
+		parent_code = (
+			"import subprocess, sys, time; "
+			f"subprocess.Popen([sys.executable, '-c', {grandchild_code!r}]); "
+			"time.sleep(30.0)"
+		)
+		tree_timeout_result = run_command(
+			"process_tree_timeout_fixture",
+			[sys.executable, "-c", parent_code],
+			0.3,
+		)
+		time.sleep(1.2)
+		record_result(
+			"run_command_timeout_terminates_descendant_processes",
+			tree_timeout_result.timed_out
+			and tree_timeout_result.exit_code == 124
+			and not marker_path.exists(),
+			f"timed-out checks must not leave descendants running: {tree_timeout_result.to_dict()}",
 		)
 
 	from check_docs_quality import check_local_links
@@ -14727,6 +14939,34 @@ def maintenance_self_test() -> dict[str, Any]:
 		and bool(audit_setup_godot_action_source(stale_url_source)),
 		"setup-godot self-test fixtures must detect malformed digests, late checksum checks, and stale URLs.",
 	)
+	ci_workflow_source = read_text_file(ROOT / ".github/workflows/ci.yml")
+	release_workflow_source = read_text_file(ROOT / ".github/workflows/release.yml")
+	record_result(
+		"ci_workflow_runs_all_full_suite_shards",
+		"--suite framework" in ci_workflow_source
+		and "--suite ${{ matrix.suite }}" in ci_workflow_source
+		and all(
+			f"suite: {suite_name}" in ci_workflow_source
+			for suite_name in ("package-contract", "package-editor", "package-cli", "package-godot-ci")
+		),
+		"CI workflow must run every set-equivalent full-suite shard.",
+	)
+	record_result(
+		"release_workflow_gates_publish_on_all_release_shards",
+		"release-framework-checks:" in release_workflow_source
+		and "release-package-checks:" in release_workflow_source
+		and "--suite framework" in release_workflow_source
+		and "--suite ${{ matrix.suite }}" in release_workflow_source
+		and all(
+			f"suite: {suite_name}" in release_workflow_source
+			for suite_name in ("package-contract", "package-editor", "package-cli", "package-godot-release")
+		)
+		and re.search(
+			r"(?s)create-release:.*?needs:.*?release-framework-checks.*?release-package-checks",
+			release_workflow_source,
+		) is not None,
+		"Release publishing must wait for metadata/framework and every package matrix shard.",
+	)
 	record_result(
 		"bare_extension_root_detector_matches_only_bare_root",
 		source_contains_bare_bundled_extension_root('const ROOT = "res://addons/gf/extensions"')
@@ -14797,6 +15037,13 @@ def maintenance_self_test() -> dict[str, Any]:
 		"preset package fields must stay outside the allowed preset field set.",
 	)
 	record_result(
+		"source_identifier_index_preserves_token_boundaries",
+		source_contains_identifier("GFRoute other.GFRoute 'GFRoute'", "GFRoute")
+		and not source_contains_identifier("PrefixGFRoute GFRouteSuffix", "GFRoute")
+		and source_identifiers("GFRoute GFRoute GFUtility") == {"GFRoute", "GFUtility"},
+		"dependency scans must tokenize each source once without broadening identifier matches.",
+	)
+	record_result(
 		"quick_suite_excludes_long_package_smokes",
 		set(CHECK_SUITES["quick"]).isdisjoint(PACKAGE_SMOKE_CHECKS),
 		"quick suite must stay light; long package build/install/Godot CLI smoke belongs to the package suite.",
@@ -14807,13 +15054,61 @@ def maintenance_self_test() -> dict[str, Any]:
 		"package suite must cover the package build/install/Godot CLI/uninstall smoke checks.",
 	)
 	record_result(
+		"ci_shards_preserve_full_suite_coverage",
+		set(FULL_CHECKS) == set(FRAMEWORK_CHECKS).union(
+			PACKAGE_CONTRACT_CHECKS,
+			PACKAGE_EDITOR_CHECKS,
+			PACKAGE_CLI_CHECKS,
+			{"package_godot_smoke"},
+		)
+		and set(PACKAGE_CI_CHECKS) == set(PACKAGE_CONTRACT_CHECKS).union(
+			PACKAGE_EDITOR_CHECKS,
+			PACKAGE_CLI_CHECKS,
+			{"package_godot_smoke"},
+		),
+		"parallel framework and package matrix shards must be set-equivalent to the full and package-ci suites.",
+	)
+	record_result(
+		"release_shards_preserve_release_suite_coverage",
+		set(RELEASE_CHECKS) == set(FRAMEWORK_CHECKS).union(
+			PACKAGE_CONTRACT_CHECKS,
+			PACKAGE_EDITOR_CHECKS,
+			PACKAGE_CLI_CHECKS,
+			{"package_godot_matrix_smoke", "release_metadata"},
+		)
+		and set(PACKAGE_RELEASE_CHECKS) == set(PACKAGE_CONTRACT_CHECKS).union(
+			PACKAGE_EDITOR_CHECKS,
+			PACKAGE_CLI_CHECKS,
+			{"package_godot_matrix_smoke"},
+		),
+		"parallel release matrix shards plus release metadata must be set-equivalent to the release and package-release suites.",
+	)
+	record_result(
 		"long_package_smokes_have_dedicated_timeout_budgets",
 		resolve_check_timeout_seconds("package_editor_wizard_smoke", None) == 1200
-		and resolve_check_timeout_seconds("package_editor_wizard_smoke", 45) == 45
+		and resolve_check_timeout_seconds("package_editor_wizard_smoke", 45) == 1200
 		and resolve_check_timeout_seconds("package_godot_cli_smoke", None) == 2400
-		and resolve_check_timeout_seconds("package_godot_cli_smoke", 45) == 45
-		and resolve_check_timeout_seconds("api", None) == DEFAULT_CHECK_TIMEOUT_SECONDS,
-		"long package editor/CLI smokes must keep their measured default budgets while --timeout remains an exact override.",
+		and resolve_check_timeout_seconds("package_godot_cli_smoke", 45) == 2400
+		and resolve_check_timeout_seconds("api", None) == DEFAULT_CHECK_TIMEOUT_SECONDS
+		and resolve_check_timeout_seconds("api", 900) == 900,
+		"generic timeout settings may raise budgets but must not erase measured longer check policies.",
+	)
+	record_result(
+		"in_process_checks_enforce_return_time_deadlines",
+		in_process_check_timed_out(10.001, 10.0)
+		and not in_process_check_timed_out(10.0, 10.0),
+		"in-process checks, including release metadata, must fail when they return after their deadline.",
+	)
+	record_result(
+		"static_suite_checks_run_in_process",
+		{
+			"public_docs_boundary",
+			"public_api_boundary",
+			"package_source_boundary",
+			"dependency_boundary",
+			"maintenance_self_test",
+		}.issubset(maintenance_in_process_check_runners()),
+		"pure static checks should reuse one maintenance process while external Godot and package smokes remain isolated.",
 	)
 	record_result(
 		"gdscript_lsp_diagnostics_is_manual_until_ci_baseline_is_stable",
@@ -14845,6 +15140,13 @@ def maintenance_self_test() -> dict[str, Any]:
 		"_write_connection_audit_log" in gdscript_lsp_source
 		and '"mode": "connected"' in gdscript_lsp_source,
 		"connected LSP diagnostics must persist an auditable result without requiring a spawned Godot log.",
+	)
+	record_result(
+		"gdscript_lsp_rejects_cross_project_ports",
+		'client.request("textDocument/definition"' in gdscript_lsp_source
+		and "_uri_is_within_project" in gdscript_lsp_source
+		and "Connected Godot LSP workspace mismatch" in gdscript_lsp_source,
+		"connected LSP diagnostics must prove that class definitions resolve inside the requested project root.",
 	)
 	leak_fixture_warnings = collect_godot_exit_leak_warnings(
 		"ERROR: 3 RID allocations of type 'DummyTexture' were leaked at exit.",
@@ -16266,6 +16568,18 @@ def maintenance_self_test() -> dict[str, Any]:
 		) is None,
 		f"package ownership must preserve disjoint globs and wildcard directory semantics: {disjoint_glob_issues}",
 	)
+	record_result(
+		"package_manifest_paths_are_case_sensitive_on_every_platform",
+		package_manifest_path_matches(
+			"addons/gf/extensions/save/runtime/service.gd",
+			"addons/gf/extensions/save/**",
+		)
+		and not package_manifest_path_matches(
+			"addons/GF/extensions/save/runtime/service.gd",
+			"addons/gf/extensions/save/**",
+		),
+		"package matching must follow Godot resource path case semantics instead of host OS defaults.",
+	)
 
 	package_closure_records = [
 		{
@@ -17123,6 +17437,16 @@ def maintenance_self_test() -> dict[str, Any]:
 						"widen",
 						"func widen(rng: RandomNumberGenerator = null) -> void:",
 					),
+					"method:mode": make_api_snapshot_member(
+						"method",
+						"mode",
+						"func mode(value: Mode = Mode.A) -> void:",
+					),
+					"method:default_change": make_api_snapshot_member(
+						"method",
+						"default_change",
+						"func default_change(value: int = 1) -> void:",
+					),
 					"enum:Mode": make_api_snapshot_member("enum", "Mode", "enum Mode { A, B, }"),
 				},
 			),
@@ -17144,6 +17468,16 @@ def maintenance_self_test() -> dict[str, Any]:
 						"widen",
 						"func widen(rng: Variant = null) -> void:",
 					),
+					"method:mode": make_api_snapshot_member(
+						"method",
+						"mode",
+						"func mode(value: int = Mode.A) -> void:",
+					),
+					"method:default_change": make_api_snapshot_member(
+						"method",
+						"default_change",
+						"func default_change(value: int = 2) -> void:",
+					),
 					"enum:Mode": make_api_snapshot_member("enum", "Mode", "enum Mode { A, B, C, }"),
 				},
 			),
@@ -17153,12 +17487,15 @@ def maintenance_self_test() -> dict[str, Any]:
 		api_compatible_base_snapshot,
 		api_compatible_current_snapshot,
 	)
-	classified_api_compatible_diff = classify_api_signature_changes(api_compatible_diff["signature_changes"])
+	classified_api_compatible_diff = classify_api_signature_changes(
+		api_compatible_diff["signature_changes"],
+		api_compatible_base_snapshot,
+	)
 	record_result(
-		"api_baseline_diff_requires_method_signature_changes_to_be_reviewed",
-		len(classified_api_compatible_diff["breaking"]) == 2
-		and len(classified_api_compatible_diff["compatible"]) == 1,
-		f"method signature changes should require breaking review while enum additions remain compatible: {classified_api_compatible_diff}",
+		"api_baseline_diff_classifies_provable_call_compatibility",
+		len(classified_api_compatible_diff["breaking"]) == 1
+		and len(classified_api_compatible_diff["compatible"]) == 4,
+		f"parameter widening, appended optional parameters, and enum additions should stay compatible while default changes remain breaking: {classified_api_compatible_diff}",
 	)
 	record_result(
 		"api_baseline_diff_requires_major_for_breaking_changes",
@@ -17166,12 +17503,25 @@ def maintenance_self_test() -> dict[str, Any]:
 		and api_diff_breaking_allowed("4.4.0", "5.0.0"),
 		"breaking API baseline changes should require a major version bump.",
 	)
+	record_result(
+		"api_baseline_diff_requires_minor_for_compatible_features",
+		not api_diff_compatible_feature_allowed("8.0.1", "8.0.2")
+		and api_diff_compatible_feature_allowed("8.0.1", "8.1.0")
+		and api_diff_compatible_feature_allowed("8.0.1", "9.0.0"),
+		"backward-compatible public API additions should require at least a minor version bump.",
+	)
 	valid_changelog_report = audit_release_changelog(
 		"7.0.0",
-		"# Changelog\n\n## [7.0.0] - 2026-07-14\n\n- Released.\n",
+		(
+			"# Changelog\n\n"
+			"## [7.0.0] - 2026-07-14\n\n- Released.\n\n"
+			"## [6.2.0] - 2026-06-14\n\n- Previous release.\n\n"
+			"## [6.1.0] - 2026-05-14\n\n- Older release.\n"
+		),
+		previous_version="6.2.0",
 	)
 	record_result(
-		"release_changelog_accepts_one_non_empty_target_section",
+		"release_changelog_accepts_incremental_history",
 		len(valid_changelog_report["issues"]) == 0,
 		f"valid release changelog fixture should pass: {valid_changelog_report}",
 	)
@@ -17180,14 +17530,42 @@ def maintenance_self_test() -> dict[str, Any]:
 		(
 			"# Changelog\n\n"
 			"## [未发布]\n\n- Still pending.\n\n"
+			"## [7.0.0] - 2026-07-14\n\n- Released.\n"
+		),
+		previous_version="6.2.0",
+	)
+	record_result(
+		"release_changelog_rejects_unreleased_and_relabelled_history",
+		len(invalid_changelog_report["issues"]) == 2,
+		f"invalid release changelog fixture should reject pending notes and missing previous release history: {invalid_changelog_report}",
+	)
+	non_descending_changelog_report = audit_release_changelog(
+		"7.0.0",
+		(
+			"# Changelog\n\n"
 			"## [7.0.0] - 2026-07-14\n\n- Released.\n\n"
-			"## [6.0.0] - 2026-01-01\n\n- Old release.\n"
+			"## [7.1.0] - 2026-07-15\n\n- Out of order.\n"
 		),
 	)
 	record_result(
-		"release_changelog_rejects_unreleased_and_old_formal_sections",
-		len(invalid_changelog_report["issues"]) == 2,
-		f"invalid release changelog fixture should report both policy violations: {invalid_changelog_report}",
+		"release_changelog_rejects_non_descending_versions",
+		len(non_descending_changelog_report["issues"]) == 1,
+		f"formal changelog versions must stay strictly descending: {non_descending_changelog_report}",
+	)
+	intervening_changelog_report = audit_release_changelog(
+		"7.0.0",
+		(
+			"# Changelog\n\n"
+			"## [7.0.0] - 2026-07-14\n\n- Released.\n\n"
+			"## [6.3.0] - 2026-06-20\n\n- Untagged intervening release.\n\n"
+			"## [6.2.0] - 2026-06-14\n\n- Previous stable release.\n"
+		),
+		previous_version="6.2.0",
+	)
+	record_result(
+		"release_changelog_requires_previous_release_to_be_adjacent",
+		len(intervening_changelog_report["issues"]) == 1,
+		f"the previous stable release must immediately follow the target section: {intervening_changelog_report}",
 	)
 
 	project_extension_enabled_issues = audit_project_extension_settings_source(
@@ -17728,6 +18106,7 @@ def audit_kernel_dependency_boundary(
 	extension_ids: list[str],
 ) -> list[dict[str, Any]]:
 	issues: list[dict[str, Any]] = []
+	downstream_class_names = set(standard_class_roots).union(extension_class_roots)
 	for path in collect_text_files(GF_KERNEL_ROOT, {".gd"}):
 		relative_path = path.relative_to(ROOT).as_posix()
 		source = strip_gdscript_comments(read_text_file(path))
@@ -17761,14 +18140,13 @@ def audit_kernel_dependency_boundary(
 					"addons/gf/kernel must not hard-code bundled optional extension IDs.",
 					symbol=extension_id,
 				))
-		for class_name in sorted([*standard_class_roots.keys(), *extension_class_roots.keys()]):
-			if source_contains_identifier(source, class_name):
-				issues.append(make_boundary_issue(
-					"kernel_references_downstream_class",
-					relative_path,
-					"addons/gf/kernel must not reference concrete standard or optional extension class_name values.",
-					symbol=class_name,
-				))
+		for class_name in sorted(source_identifiers(source).intersection(downstream_class_names)):
+			issues.append(make_boundary_issue(
+				"kernel_references_downstream_class",
+				relative_path,
+				"addons/gf/kernel must not reference concrete standard or optional extension class_name values.",
+				symbol=class_name,
+			))
 	return issues
 
 
@@ -17777,6 +18155,7 @@ def audit_standard_dependency_boundary(
 	extension_ids: list[str],
 ) -> list[dict[str, Any]]:
 	issues: list[dict[str, Any]] = []
+	extension_class_names = set(extension_class_roots)
 	for path in collect_text_files(GF_STANDARD_ROOT, {".gd"}):
 		relative_path = path.relative_to(ROOT).as_posix()
 		source = strip_gdscript_comments(read_text_file(path))
@@ -17803,14 +18182,13 @@ def audit_standard_dependency_boundary(
 					"addons/gf/standard must not probe bundled optional extension IDs.",
 					symbol=extension_id,
 				))
-		for class_name in sorted(extension_class_roots.keys()):
-			if source_contains_identifier(source, class_name):
-				issues.append(make_boundary_issue(
-					"standard_references_extension_class",
-					relative_path,
-					"addons/gf/standard must not reference optional extension class_name values.",
-					symbol=class_name,
-				))
+		for class_name in sorted(source_identifiers(source).intersection(extension_class_names)):
+			issues.append(make_boundary_issue(
+				"standard_references_extension_class",
+				relative_path,
+				"addons/gf/standard must not reference optional extension class_name values.",
+				symbol=class_name,
+			))
 	return issues
 
 
@@ -17830,6 +18208,7 @@ def audit_bundled_extension_dependency_boundary(
 			continue
 		if path.suffix.lower() == ".gd":
 			source = strip_gdscript_comments(source)
+		source_class_names = source_identifiers(source).intersection(extension_class_roots)
 		own_extension_id = extension_id_by_name.get(extension_name, "")
 		if source_contains_bare_bundled_extension_root(source):
 			issues.append(make_boundary_issue(
@@ -17856,9 +18235,10 @@ def audit_bundled_extension_dependency_boundary(
 					symbol=extension_id,
 					extension_id=own_extension_id,
 				))
-		for class_name, class_root in sorted(extension_class_roots.items()):
+		for class_name in sorted(source_class_names):
+			class_root = extension_class_roots[class_name]
 			class_extension_name = get_bundled_extension_name_from_relative_path(class_root)
-			if class_extension_name != extension_name and source_contains_identifier(source, class_name):
+			if class_extension_name != extension_name:
 				issues.append(make_boundary_issue(
 					"extension_references_other_extension_class",
 					relative_path,
@@ -18676,22 +19056,11 @@ def read_extension_manifest_id(path: str) -> str:
 def audit_package_path_ownership(
 	records: list[dict[str, Any]],
 	candidate_paths: list[str] | None = None,
+	ownership_index: PackageOwnershipIndex | None = None,
 ) -> list[dict[str, Any]]:
 	issues: list[dict[str, Any]] = []
-	owners: list[dict[str, str]] = []
-	for record in records:
-		if record.get("kind") == "preset":
-			continue
-		for path in record.get("paths", []):
-			pattern = normalize_package_manifest_path_for_matching(str(path))
-			if not pattern:
-				continue
-			owners.append({
-				"package_id": str(record.get("id", "")),
-				"path": str(record.get("path", "")),
-				"owned_path": str(path),
-				"pattern": pattern,
-			})
+	if ownership_index is None:
+		ownership_index = PackageOwnershipIndex(collect_package_source_owner_entries(records))
 	if candidate_paths is None:
 		candidate_paths = [
 			path.relative_to(ROOT).as_posix()
@@ -18700,11 +19069,7 @@ def audit_package_path_ownership(
 		]
 	overlaps: dict[tuple[str, str], tuple[dict[str, str], dict[str, str], str]] = {}
 	for candidate_path in candidate_paths:
-		matched_owners = [
-			owner
-			for owner in owners
-			if package_manifest_path_matches(candidate_path, owner["pattern"])
-		]
+		matched_owners = ownership_index.find_owners(candidate_path)
 		for index, left in enumerate(matched_owners):
 			for right in matched_owners[index + 1:]:
 				if left["package_id"] == right["package_id"]:
@@ -18719,7 +19084,7 @@ def audit_package_path_ownership(
 	for left, right, overlap_path in overlaps.values():
 		issues.append(make_package_issue(
 			"package_path_overlap",
-			left["path"],
+			left["manifest_path"],
 			"Package manifests must not claim overlapping source paths.",
 			field="paths",
 			row_key=left["package_id"],
@@ -18729,7 +19094,7 @@ def audit_package_path_ownership(
 		))
 		issues.append(make_package_issue(
 			"package_path_overlap",
-			right["path"],
+			right["manifest_path"],
 			"Package manifests must not claim overlapping source paths.",
 			field="paths",
 			row_key=right["package_id"],
@@ -18764,14 +19129,13 @@ def audit_core_only_plugin_source(
 				"The root plugin must use optional ResourceLoader.exists/load indirection for standard contributions.",
 				line=line_number,
 			))
-	for class_name in sorted(standard_class_roots.keys()):
-		if source_contains_identifier(source, class_name):
-			issues.append(make_package_issue(
-				"plugin_references_standard_class",
-				path,
-				"The root plugin must not reference standard class_name values at parse time.",
-				symbol=class_name,
-			))
+	for class_name in sorted(source_identifiers(source).intersection(standard_class_roots)):
+		issues.append(make_package_issue(
+			"plugin_references_standard_class",
+			path,
+			"The root plugin must not reference standard class_name values at parse time.",
+			symbol=class_name,
+		))
 	return issues
 
 
@@ -18870,11 +19234,13 @@ def should_audit_package_distribution_path(path: str) -> bool:
 def audit_package_distribution_ownership(
 	records: list[dict[str, Any]],
 	distribution_paths: list[str],
+	ownership_index: PackageOwnershipIndex | None = None,
 ) -> list[dict[str, Any]]:
-	owner_entries = collect_package_source_owner_entries(records)
+	if ownership_index is None:
+		ownership_index = PackageOwnershipIndex(collect_package_source_owner_entries(records))
 	issues: list[dict[str, Any]] = []
 	for path in distribution_paths:
-		owners = find_package_source_owners(path, owner_entries)
+		owners = ownership_index.find_owners(path)
 		if len(owners) == 1:
 			continue
 		if len(owners) > 1:
@@ -18909,9 +19275,11 @@ def audit_package_source_references(
 	source_paths: list[str],
 	class_roots: dict[str, str],
 	source_text_by_path: dict[str, str] | None = None,
+	ownership_index: PackageOwnershipIndex | None = None,
 ) -> list[dict[str, Any]]:
 	issues: list[dict[str, Any]] = []
-	owner_entries = collect_package_source_owner_entries(records)
+	if ownership_index is None:
+		ownership_index = PackageOwnershipIndex(collect_package_source_owner_entries(records))
 	dependencies_by_id = {
 		str(record.get("id", "")): set(record.get("dependencies", []))
 		for record in records
@@ -18919,12 +19287,12 @@ def audit_package_source_references(
 	}
 	class_owner_by_name: dict[str, dict[str, str]] = {}
 	for class_name, class_path in sorted(class_roots.items()):
-		class_owner = find_package_source_owner(class_path, owner_entries)
+		class_owner = ownership_index.find_owner(class_path)
 		if class_owner:
 			class_owner_by_name[class_name] = class_owner
 
 	for source_path in source_paths:
-		source_owner = find_package_source_owner(source_path, owner_entries)
+		source_owner = ownership_index.find_owner(source_path)
 		if not source_owner:
 			issues.append(make_package_issue(
 				"package_source_unowned_file",
@@ -18946,7 +19314,7 @@ def audit_package_source_references(
 				continue
 			if not package_source_reference_is_concrete(target_path):
 				continue
-			target_owner = find_package_source_owner(target_path, owner_entries)
+			target_owner = ownership_index.find_owner(target_path)
 			if not target_owner:
 				if package_source_unknown_reference_allowed(source_package_id, source_path, target_path):
 					continue
@@ -19025,25 +19393,39 @@ def collect_package_source_owner_entries(records: list[dict[str, Any]]) -> list[
 			entries.append({
 				"package_id": package_id,
 				"manifest_path": str(record.get("path", "")),
+				"owned_path": str(path),
 				"pattern": pattern,
 			})
 	return sorted(entries, key=lambda entry: len(entry["pattern"]), reverse=True)
 
 
-def find_package_source_owner(path: str, owner_entries: list[dict[str, str]]) -> dict[str, str] | None:
-	owners = find_package_source_owners(path, owner_entries)
-	return owners[0] if len(owners) == 1 else None
+class PackageOwnershipIndex(ManifestPathIndex):
+	def __init__(self, owner_entries: list[dict[str, str]]) -> None:
+		super().__init__(owner_entries, path_normalizer=normalize_package_manifest_path)
+
+	def find_owner(self, path: str) -> dict[str, str] | None:
+		return self.find_one(path)
+
+	def find_owners(self, path: str) -> list[dict[str, str]]:
+		return self.find_all(path)
 
 
-def find_package_source_owners(path: str, owner_entries: list[dict[str, str]]) -> list[dict[str, str]]:
-	normalized_path = normalize_package_manifest_path(path)
-	if not normalized_path:
-		return []
-	return [
-		entry
-		for entry in owner_entries
-		if package_manifest_path_matches(normalized_path, entry["pattern"])
-	]
+def find_package_source_owner(
+	path: str,
+	owner_entries: list[dict[str, str]] | PackageOwnershipIndex,
+) -> dict[str, str] | None:
+	if isinstance(owner_entries, PackageOwnershipIndex):
+		return owner_entries.find_owner(path)
+	return PackageOwnershipIndex(owner_entries).find_owner(path)
+
+
+def find_package_source_owners(
+	path: str,
+	owner_entries: list[dict[str, str]] | PackageOwnershipIndex,
+) -> list[dict[str, str]]:
+	if isinstance(owner_entries, PackageOwnershipIndex):
+		return owner_entries.find_owners(path)
+	return PackageOwnershipIndex(owner_entries).find_owners(path)
 
 
 def extract_package_source_path_literals(source: str, path: str) -> list[dict[str, Any]]:
@@ -19977,23 +20359,11 @@ def normalize_package_manifest_path(path: str) -> str:
 
 def normalize_package_manifest_path_for_matching(path: str) -> str:
 	"""Normalize a package pattern exactly as the package builder does."""
-	normalized_path = path.strip().replace("\\", "/")
-	if normalized_path.startswith("res://"):
-		normalized_path = normalized_path.removeprefix("res://")
-	if normalized_path.startswith("./"):
-		normalized_path = normalized_path[2:]
-	return normalized_path.strip("/")
+	return normalize_shared_manifest_path(path)
 
 
 def package_manifest_path_matches(path: str, raw_pattern: str) -> bool:
-	normalized_path = path.strip().replace("\\", "/").strip("/")
-	pattern = normalize_package_manifest_path_for_matching(raw_pattern)
-	if pattern and fnmatch.fnmatch(normalized_path, pattern):
-		return True
-	if pattern.endswith("/**"):
-		root = pattern[:-3].rstrip("/")
-		return normalized_path == root or normalized_path.startswith(root + "/")
-	return False
+	return shared_manifest_path_matches(path, raw_pattern)
 
 
 def package_path_is_under_addons_gf(path: str) -> bool:
@@ -21764,7 +22134,10 @@ def resource_boundary_source_kind(path: str) -> str:
 	return "other"
 
 
-def resource_boundary_source_package(path: str, owner_entries: list[dict[str, str]]) -> str:
+def resource_boundary_source_package(
+	path: str,
+	owner_entries: list[dict[str, str]] | PackageOwnershipIndex,
+) -> str:
 	normalized_path = normalize_package_manifest_path(path)
 	if not normalized_path:
 		return "<other>"
@@ -21780,7 +22153,10 @@ def resource_boundary_source_package(path: str, owner_entries: list[dict[str, st
 	return "<unowned>"
 
 
-def resource_boundary_target_package(target: str, owner_entries: list[dict[str, str]]) -> str:
+def resource_boundary_target_package(
+	target: str,
+	owner_entries: list[dict[str, str]] | PackageOwnershipIndex,
+) -> str:
 	normalized_target = target.strip().replace("\\", "/")
 	if normalized_target.startswith("uid://"):
 		return "<uid>"
@@ -22041,13 +22417,22 @@ def get_resource_target_extension(target: str) -> str:
 
 
 def collect_text_files(root: Path, extensions: set[str]) -> list[Path]:
-	if not root.is_dir():
-		return []
-	return [
-		path
-		for path in sorted(root.rglob("*"))
-		if path.is_file() and path.suffix.lower() in extensions
-	]
+	def scan() -> list[Path]:
+		if not root.is_dir():
+			return []
+		return [
+			path
+			for path in sorted(root.rglob("*"))
+			if path.is_file() and path.suffix.lower() in extensions
+		]
+
+	if _ACTIVE_WORKSPACE_SNAPSHOT is None:
+		return scan()
+	return _ACTIVE_WORKSPACE_SNAPSHOT.memoize(
+		"collect_text_files",
+		(str(root), tuple(sorted(extensions))),
+		scan,
+	)
 
 
 def collect_class_name_roots(root: Path) -> dict[str, str]:
@@ -22087,11 +22472,17 @@ def get_bundled_extension_name_from_relative_path(path: str) -> str:
 
 
 def source_contains_identifier(source: str, identifier: str) -> bool:
-	return re.search(rf"(?<![A-Za-z0-9_]){re.escape(identifier)}(?![A-Za-z0-9_])", source) is not None
+	return identifier in source_identifiers(source)
+
+
+def source_identifiers(source: str) -> set[str]:
+	return {match.group(1) for match in SOURCE_IDENTIFIER_RE.finditer(source)}
 
 
 def read_text_file(path: Path) -> str:
 	try:
+		if _ACTIVE_WORKSPACE_SNAPSHOT is not None:
+			return _ACTIVE_WORKSPACE_SNAPSHOT.read_utf8_text(path)
 		return path.read_text(encoding="utf-8")
 	except OSError:
 		return ""
@@ -22113,6 +22504,16 @@ def make_boundary_issue(
 
 
 def read_git_paths(command: list[str]) -> dict[str, Any]:
+	if _ACTIVE_WORKSPACE_SNAPSHOT is not None:
+		return _ACTIVE_WORKSPACE_SNAPSHOT.memoize(
+			"git_paths",
+			tuple(command),
+			lambda: read_git_paths_uncached(command),
+		)
+	return read_git_paths_uncached(command)
+
+
+def read_git_paths_uncached(command: list[str]) -> dict[str, Any]:
 	result = subprocess.run(
 		["git", *command],
 		cwd=ROOT,
@@ -22306,7 +22707,11 @@ def recommend_checks(categories: dict[str, list[dict[str, str]]]) -> list[str]:
 		recommendations.append("python tools/gf_maintenance.py api-baseline-diff --json")
 	if categories["maintenance_tools"]:
 		recommendations.extend([
-			"python -m py_compile tools/gf_maintenance.py tools/gf_mcp_server.py",
+			(
+				"python -m py_compile tools/gf_maintenance.py tools/gf_mcp_server.py "
+				"tools/gf_godot_process.py tools/gf_package_paths.py tools/gf_process_supervisor.py "
+				"tools/gf_workspace_snapshot.py"
+			),
 			"python tools/gf_maintenance.py maintenance-self-test --json",
 			"python tools/gf_maintenance.py check --suite quick --json",
 		])
@@ -22424,14 +22829,120 @@ def member_to_dict(member: ApiMember) -> dict[str, Any]:
 	}
 
 
+def maintenance_in_process_check_runners() -> dict[str, Callable[[], dict[str, Any]]]:
+	return {
+		"public_docs_boundary": public_docs_boundary,
+		"public_api_boundary": public_api_boundary,
+		"resource_boundary": lambda: resource_boundary(fail_on_issues=True),
+		"content_package_boundary": content_package_boundary,
+		"asset_lifecycle_boundary": asset_lifecycle_boundary,
+		"project_profile_boundary": project_profile_boundary,
+		"package_boundary": package_boundary,
+		"package_closure_audit": package_closure_audit,
+		"package_source_boundary": package_source_boundary,
+		"package_user_dependency_boundary": package_user_dependency_boundary,
+		"package_external_command_audit": lambda: package_external_command_audit(fail_on_warnings=True),
+		"core_only_smoke": core_only_smoke,
+		"package_focused_gut_mapping": package_focused_gut_mapping,
+		"api_since_touched": api_since_touched,
+		"path_hygiene": path_hygiene,
+		"maintenance_self_test": maintenance_self_test,
+		"dependency_boundary": dependency_boundary,
+		"project_settings_drift": project_settings_drift,
+	}
+
+
+def run_in_process_check(
+	name: str,
+	runner: Callable[[], dict[str, Any]],
+	timeout_seconds: float,
+) -> CommandResult:
+	started = time.perf_counter()
+	try:
+		data = runner()
+		duration_seconds = time.perf_counter() - started
+		timed_out = in_process_check_timed_out(duration_seconds, timeout_seconds)
+		return CommandResult(
+			name=name,
+			command=CHECK_DEFINITIONS[name],
+			exit_code=124 if timed_out else (0 if data.get("ok", True) else 1),
+			stdout=json.dumps(data, ensure_ascii=False),
+			stderr="",
+			timed_out=timed_out,
+			notes=["In-process check exceeded its deadline and cannot be preempted safely."] if timed_out else None,
+			duration_seconds=duration_seconds,
+			timeout_seconds=timeout_seconds,
+			execution="in_process",
+		)
+	except Exception:
+		return CommandResult(
+			name=name,
+			command=CHECK_DEFINITIONS[name],
+			exit_code=1,
+			stdout="",
+			stderr=traceback.format_exc(),
+			notes=["In-process maintenance check raised an exception."],
+			duration_seconds=time.perf_counter() - started,
+			timeout_seconds=timeout_seconds,
+			execution="in_process",
+		)
+
+
+def in_process_check_timed_out(duration_seconds: float, timeout_seconds: float) -> bool:
+	return duration_seconds > timeout_seconds
+
+
 def run_checks(
 	suite: str = "quick",
 	checks: list[str] | None = None,
 	timeout_seconds: int | None = None,
+	suite_timeout_seconds: int | None = None,
 	fail_fast: bool = False,
 	sync_examples: bool = False,
 	allow_breaking_api: bool = False,
+	progress_callback: Callable[[str, str, float | None], None] | None = None,
 ) -> dict[str, Any]:
+	global _ACTIVE_WORKSPACE_SNAPSHOT
+	global _API_CACHE
+	previous_snapshot = _ACTIVE_WORKSPACE_SNAPSHOT
+	previous_api_cache = _API_CACHE
+	snapshot = WorkspaceSnapshot(ROOT)
+	_ACTIVE_WORKSPACE_SNAPSHOT = snapshot
+	_API_CACHE = None
+	try:
+		data = run_checks_with_active_snapshot(
+			suite=suite,
+			checks=checks,
+			timeout_seconds=timeout_seconds,
+			suite_timeout_seconds=suite_timeout_seconds,
+			fail_fast=fail_fast,
+			sync_examples=sync_examples,
+			allow_breaking_api=allow_breaking_api,
+			progress_callback=progress_callback,
+		)
+	finally:
+		_ACTIVE_WORKSPACE_SNAPSHOT = previous_snapshot
+		_API_CACHE = previous_api_cache
+	data["workspace_snapshot"] = snapshot.stats()
+	return data
+
+
+def run_checks_with_active_snapshot(
+	suite: str = "quick",
+	checks: list[str] | None = None,
+	timeout_seconds: int | None = None,
+	suite_timeout_seconds: int | None = None,
+	fail_fast: bool = False,
+	sync_examples: bool = False,
+	allow_breaking_api: bool = False,
+	progress_callback: Callable[[str, str, float | None], None] | None = None,
+) -> dict[str, Any]:
+	suite_started = time.perf_counter()
+	suite_deadline = (
+		suite_started + suite_timeout_seconds
+		if suite_timeout_seconds is not None
+		else None
+	)
 	check_names = list(checks if checks else CHECK_SUITES[suite])
 	if sync_examples:
 		check_names = [
@@ -22440,37 +22951,86 @@ def run_checks(
 		]
 	check_names = expand_check_dependencies(check_names)
 	results: list[dict[str, Any]] = []
+	in_process_runners = maintenance_in_process_check_runners()
 	for name in check_names:
+		remaining_seconds = (
+			max(0.0, suite_deadline - time.perf_counter())
+			if suite_deadline is not None
+			else None
+		)
+		if remaining_seconds is not None and remaining_seconds <= 0.0:
+			results.append(CommandResult(
+				name=name,
+				command=CHECK_DEFINITIONS.get(name, ["<in-process>", name]),
+				exit_code=124,
+				stdout="",
+				stderr="Suite deadline exhausted before this check started.",
+				timed_out=True,
+				notes=["Suite deadline exhausted."],
+				duration_seconds=0.0,
+				timeout_seconds=0.0,
+				execution="not_started",
+			).to_dict())
+			break
+		if progress_callback is not None:
+			progress_callback("started", name, None)
+		check_timeout_seconds = float(resolve_check_timeout_seconds(name, timeout_seconds))
+		if remaining_seconds is not None:
+			check_timeout_seconds = min(check_timeout_seconds, max(0.001, remaining_seconds))
 		if name == "release_metadata":
+			check_started = time.perf_counter()
 			status = release_status("", allow_breaking_api=allow_breaking_api)
+			duration_seconds = time.perf_counter() - check_started
+			timed_out = in_process_check_timed_out(duration_seconds, check_timeout_seconds)
 			results.append({
 				"name": name,
-				"exit_code": 0 if status["ok"] else 1,
-				"timed_out": False,
+				"exit_code": 124 if timed_out else (0 if status["ok"] else 1),
+				"timed_out": timed_out,
+				"duration_seconds": round(duration_seconds, 3),
+				"timeout_seconds": check_timeout_seconds,
+				"execution": "in_process",
 				"release_status": status,
+				"notes": (
+					["In-process release metadata check exceeded its deadline and could not be preempted safely."]
+					if timed_out
+					else []
+				),
 			})
+			if progress_callback is not None:
+				progress_callback("finished", name, duration_seconds)
 			if fail_fast and not status["ok"]:
 				break
 			continue
-		result = run_command(
-			name,
-			CHECK_DEFINITIONS[name],
-			resolve_check_timeout_seconds(name, timeout_seconds),
-		)
+		if name in in_process_runners:
+			result = run_in_process_check(name, in_process_runners[name], check_timeout_seconds)
+		else:
+			result = run_command(name, CHECK_DEFINITIONS[name], check_timeout_seconds)
 		results.append(result.to_dict())
+		if progress_callback is not None:
+			progress_callback("finished", name, result.duration_seconds)
 		if fail_fast and result.exit_code != 0:
 			break
 	ok = all(item.get("exit_code", 1) == 0 for item in results)
-	return {"ok": ok, "suite": suite, "checks": check_names, "results": results}
+	return {
+		"ok": ok,
+		"suite": suite,
+		"checks": check_names,
+		"completed_check_count": len(results),
+		"duration_seconds": round(time.perf_counter() - suite_started, 3),
+		"suite_timeout_seconds": suite_timeout_seconds,
+		"results": results,
+	}
 
 
 def run_checks_with_log_hygiene(
 	suite: str = "quick",
 	checks: list[str] | None = None,
 	timeout_seconds: int | None = None,
+	suite_timeout_seconds: int | None = None,
 	fail_fast: bool = False,
 	sync_examples: bool = False,
 	allow_breaking_api: bool = False,
+	progress_callback: Callable[[str, str, float | None], None] | None = None,
 ) -> dict[str, Any]:
 	before_snapshot, snapshot_errors = maintenance_log_snapshot()
 	data: dict[str, Any] | None = None
@@ -22479,9 +23039,11 @@ def run_checks_with_log_hygiene(
 			suite=suite,
 			checks=checks,
 			timeout_seconds=timeout_seconds,
+			suite_timeout_seconds=suite_timeout_seconds,
 			fail_fast=fail_fast,
 			sync_examples=sync_examples,
 			allow_breaking_api=allow_breaking_api,
+			progress_callback=progress_callback,
 		)
 	finally:
 		finalization = finalize_maintenance_log_session(
@@ -22504,106 +23066,154 @@ def run_checks_with_log_hygiene(
 
 
 def resolve_check_timeout_seconds(name: str, override_seconds: int | None) -> int:
-	if override_seconds != None:
-		return override_seconds
-	return CHECK_TIMEOUT_SECONDS.get(name, DEFAULT_CHECK_TIMEOUT_SECONDS)
+	policy_seconds = CHECK_TIMEOUT_SECONDS.get(name, DEFAULT_CHECK_TIMEOUT_SECONDS)
+	if override_seconds is None:
+		return policy_seconds
+	return max(policy_seconds, override_seconds)
 
 
-def run_command(name: str, command: list[str], timeout_seconds: int) -> CommandResult:
+def run_maintenance_subprocess(
+	command: list[str],
+	*,
+	timeout_seconds: float,
+	cwd: Path = ROOT,
+	environment: dict[str, str] | None = None,
+) -> subprocess.CompletedProcess[str]:
+	effective_command = resolve_godot_command(command, environment=environment)
+	return run_supervised_completed_process(
+		effective_command,
+		cwd=cwd,
+		timeout_seconds=timeout_seconds,
+		environment=environment,
+	)
+
+
+def run_command(name: str, command: list[str], timeout_seconds: float) -> CommandResult:
+	started = time.perf_counter()
 	log_paths: list[Path] = []
+	effective_command = resolve_godot_command(command)
 	try:
-		log_paths = prepare_command_log_paths(command)
-		completed = subprocess.run(
-			command,
+		log_paths = prepare_command_log_paths(effective_command)
+		process_result = run_supervised_process(
+			effective_command,
 			cwd=ROOT,
-			capture_output=True,
-			text=True,
-			encoding="utf-8",
-			errors="replace",
-			timeout=timeout_seconds,
+			timeout_seconds=timeout_seconds,
 		)
-		exit_code = completed.returncode
-		notes: list[str] | None = None
-		log_output, log_errors = read_command_log_outputs(log_paths)
-		stdout = append_command_log_output(completed.stdout, log_output)
-		if log_errors:
-			exit_code = 1
-			for log_error in log_errors:
-				notes = append_note(notes, log_error)
-		has_script_error: bool = has_godot_script_error(stdout, completed.stderr)
-		has_reload_warning: bool = has_gdscript_reload_warning(stdout, completed.stderr)
-		exit_leak_warnings: list[str] = collect_godot_exit_leak_warnings(stdout, completed.stderr)
-		exit_leak_report: dict[str, Any] | None = None
-		if name in {"godot_import", "gut", "gdscript_warnings", "examples_scan", "examples_boot", "examples_smoke"}:
-			exit_leak_report = godot_exit_leak_report_from_output(name, stdout, completed.stderr)
-		if name in {"godot_import", "gut", "gdscript_warnings", "examples_scan", "examples_boot", "examples_smoke"} and has_script_error:
-			exit_code = 1
-			notes = append_note(
-				notes,
-				"Godot reported script loading or parse errors in output.",
+		if process_result.timed_out:
+			log_output, log_errors = read_command_log_outputs(log_paths)
+			stdout = append_command_log_output(process_result.stdout, log_output)
+			return CommandResult(
+				name=name,
+				command=effective_command,
+				exit_code=124,
+				stdout=stdout,
+				stderr=process_result.stderr or f"timed out after {timeout_seconds:g}s",
+				timed_out=True,
+				process_exit_code=process_result.return_code,
+				notes=[*process_result.notes, *log_errors],
+				duration_seconds=process_result.duration_seconds,
+				timeout_seconds=timeout_seconds,
+				pid=process_result.pid,
 			)
-		if name in {"godot_import", "gut", "gdscript_warnings"} and has_reload_warning:
-			exit_code = 1
-			notes = append_note(
-				notes,
-				"Godot reported GDScript reload warnings in output.",
-			)
-		if exit_leak_warnings:
-			notes = append_note(
-				notes,
-				(
-					"Godot reported exit leak warnings. Current policy records these as cleanup debt "
-					"but does not fail the check until the baseline is cleaned."
-				),
-			)
-		if name == "gut" and exit_code == 0 and not gut_report_all_tests_passed(stdout):
-			exit_code = 1
-			notes = append_note(
-				notes,
-				"GUT did not report a non-empty all-tests-passed summary.",
-			)
-		return CommandResult(
+		return completed_command_result(
 			name,
-			command,
-			exit_code,
-			stdout,
-			completed.stderr,
-			process_exit_code=completed.returncode,
-			notes=notes,
-			godot_exit_leak_warnings=exit_leak_warnings,
-			godot_exit_leak_report=exit_leak_report if exit_leak_report != None and exit_leak_report["has_leaks"] else None,
-		)
-	except subprocess.TimeoutExpired as exc:
-		return CommandResult(
-			name,
-			command,
-			124,
-			exc.stdout or "",
-			exc.stderr or f"timed out after {timeout_seconds}s",
-			timed_out=True,
-			notes=["Command timed out."],
+			effective_command,
+			process_result.return_code,
+			process_result.stdout,
+			process_result.stderr,
+			log_paths,
+			process_result.duration_seconds,
+			timeout_seconds,
+			process_result.pid,
 		)
 	except FileNotFoundError as exc:
 		return CommandResult(
-			name,
-			command,
-			127,
-			"",
-			f"command not found: {command[0]}\n{exc}",
+			name=name,
+			command=effective_command,
+			exit_code=127,
+			stdout="",
+			stderr=f"command not found: {effective_command[0]}\n{exc}",
 			notes=[
 				"Check that the executable is installed and available on PATH.",
 				f"cwd: {ROOT}",
 			],
+			duration_seconds=time.perf_counter() - started,
+			timeout_seconds=timeout_seconds,
 		)
 	except OSError as exc:
 		return CommandResult(
-			name,
-			command,
-			126,
-			"",
-			f"failed to run command: {exc}",
+			name=name,
+			command=effective_command,
+			exit_code=126,
+			stdout="",
+			stderr=f"failed to run command: {exc}",
 			notes=[f"cwd: {ROOT}"],
+			duration_seconds=time.perf_counter() - started,
+			timeout_seconds=timeout_seconds,
 		)
+
+
+def completed_command_result(
+	name: str,
+	command: list[str],
+	process_exit_code: int,
+	stdout: str,
+	stderr: str,
+	log_paths: list[Path],
+	duration_seconds: float,
+	timeout_seconds: float,
+	pid: int,
+) -> CommandResult:
+	exit_code = process_exit_code
+	notes: list[str] | None = None
+	log_output, log_errors = read_command_log_outputs(log_paths)
+	stdout = append_command_log_output(stdout, log_output)
+	if log_errors:
+		exit_code = 1
+		for log_error in log_errors:
+			notes = append_note(notes, log_error)
+	has_script_error = has_godot_script_error(stdout, stderr)
+	has_reload_warning = has_gdscript_reload_warning(stdout, stderr)
+	exit_leak_warnings = collect_godot_exit_leak_warnings(stdout, stderr)
+	exit_leak_report: dict[str, Any] | None = None
+	godot_checked_names = {"godot_import", "gut", "gdscript_warnings", "examples_scan", "examples_boot", "examples_smoke"}
+	if name in godot_checked_names:
+		exit_leak_report = godot_exit_leak_report_from_output(name, stdout, stderr)
+	if name in godot_checked_names and has_script_error:
+		exit_code = 1
+		notes = append_note(notes, "Godot reported script loading or parse errors in output.")
+	if name in {"godot_import", "gut", "gdscript_warnings"} and has_reload_warning:
+		exit_code = 1
+		notes = append_note(notes, "Godot reported GDScript reload warnings in output.")
+	if exit_leak_warnings:
+		notes = append_note(
+			notes,
+			(
+				"Godot reported exit leak warnings. Current policy records these as cleanup debt "
+				"but does not fail the check until the baseline is cleaned."
+			),
+		)
+	if name == "gut" and exit_code == 0 and not gut_report_all_tests_passed(stdout):
+		exit_code = 1
+		notes = append_note(notes, "GUT did not report a non-empty all-tests-passed summary.")
+	return CommandResult(
+		name=name,
+		command=command,
+		exit_code=exit_code,
+		stdout=stdout,
+		stderr=stderr,
+		process_exit_code=process_exit_code,
+		notes=notes,
+		godot_exit_leak_warnings=exit_leak_warnings,
+		godot_exit_leak_report=(
+			exit_leak_report
+			if exit_leak_report is not None and exit_leak_report["has_leaks"]
+			else None
+		),
+		duration_seconds=duration_seconds,
+		timeout_seconds=timeout_seconds,
+		pid=pid,
+	)
 
 
 def normalize_maintenance_cli_argv(argv: list[str]) -> list[str]:
@@ -23470,7 +24080,12 @@ def release_status(
 	future_since_markers = read_future_since_markers(version)
 	if future_since_markers:
 		issues.append(format_future_since_issue(version, future_since_markers))
-	api_diff = api_baseline_diff("", version, enforce_version=not allow_breaking_api)
+	api_diff = api_baseline_diff(
+		"",
+		version,
+		enforce_version=True,
+		allow_breaking=allow_breaking_api,
+	)
 	for api_issue in api_diff.get("issues", []):
 		issues.append(f"API baseline diff: {api_issue}")
 	for field_name in plugin_audit["missing_required_fields"]:
@@ -23533,7 +24148,10 @@ def release_status(
 	if extension_mismatches:
 		issues.append(f"{len(extension_mismatches)} extension manifest version(s) do not match {version}.")
 
-	changelog_report = audit_release_changelog(version)
+	changelog_report = audit_release_changelog(
+		version,
+		previous_version=str(api_diff.get("base_tag", "")),
+	)
 	changelog_versions = changelog_report["versions"]
 	issues.extend(changelog_report["issues"])
 
@@ -23871,7 +24489,7 @@ def audit_asset_store_package(version: str) -> dict[str, Any]:
 
 	with tempfile.TemporaryDirectory(prefix="gf-package-") as temp_dir:
 		output_path = Path(temp_dir) / f"gf-framework-{version}.zip"
-		completed = subprocess.run(
+		completed = run_maintenance_subprocess(
 			[
 				sys.executable,
 				"tools/build_asset_store_package.py",
@@ -23881,12 +24499,7 @@ def audit_asset_store_package(version: str) -> dict[str, Any]:
 				str(output_path),
 				"--json",
 			],
-			cwd=ROOT,
-			capture_output=True,
-			text=True,
-			encoding="utf-8",
-			errors="replace",
-			timeout=60,
+			timeout_seconds=60,
 		)
 		if completed.returncode != 0:
 			return {
@@ -23923,7 +24536,7 @@ def audit_release_package_registry(version: str) -> dict[str, Any]:
 		output_dir = temp_root / "packages"
 		registry_path = temp_root / f"gf-registry-{version}.json"
 		registry_source_path = temp_root / "gf-registry-source.json"
-		completed = subprocess.run(
+		completed = run_maintenance_subprocess(
 			[
 				sys.executable,
 				"tools/build_gf_package.py",
@@ -23942,12 +24555,7 @@ def audit_release_package_registry(version: str) -> dict[str, Any]:
 				registry_url,
 				"--json",
 			],
-			cwd=ROOT,
-			capture_output=True,
-			text=True,
-			encoding="utf-8",
-			errors="replace",
-			timeout=120,
+			timeout_seconds=120,
 		)
 		if completed.returncode != 0:
 			return {
@@ -24033,7 +24641,7 @@ def audit_release_package_offline_bundle(version: str, temp_root: Path) -> dict[
 	registry_path = offline_root / "registry/index.json"
 	registry_source_path = offline_root / "registry/gf-registry-source.json"
 	offline_bundle_path = temp_root / release_package_offline_bundle_name(version)
-	completed = subprocess.run(
+	completed = run_maintenance_subprocess(
 		[
 			sys.executable,
 			"tools/build_gf_package.py",
@@ -24050,12 +24658,7 @@ def audit_release_package_offline_bundle(version: str, temp_root: Path) -> dict[
 			str(offline_bundle_path),
 			"--json",
 		],
-		cwd=ROOT,
-		capture_output=True,
-		text=True,
-		encoding="utf-8",
-		errors="replace",
-		timeout=120,
+		timeout_seconds=120,
 	)
 	issues: list[str] = []
 	if completed.returncode != 0:
@@ -24374,7 +24977,11 @@ def read_changelog_versions() -> list[str]:
 	]
 
 
-def audit_release_changelog(version: str, text: str | None = None) -> dict[str, Any]:
+def audit_release_changelog(
+	version: str,
+	text: str | None = None,
+	previous_version: str = "",
+) -> dict[str, Any]:
 	path = ROOT / "docs/zh/changelog.md"
 	if text is None:
 		if not path.is_file():
@@ -24404,14 +25011,72 @@ def audit_release_changelog(version: str, text: str | None = None) -> dict[str, 
 		issues.append(
 			"docs/zh/changelog.md must merge and remove the unreleased section before release."
 		)
-	formal_versions = [item for item in versions if SEMVER_RE.fullmatch(item)]
-	other_formal_versions = [item for item in formal_versions if item != version]
-	if other_formal_versions:
+	formal_sections = [
+		section
+		for section in sections
+		if SEMVER_RE.fullmatch(str(section["version"]))
+	]
+	formal_versions = [str(section["version"]) for section in formal_sections]
+	duplicate_versions = sorted({
+		item
+		for item in formal_versions
+		if formal_versions.count(item) > 1
+	})
+	if duplicate_versions:
 		issues.append(
-			"docs/zh/changelog.md release view must keep only the target formal version; found "
-			+ ", ".join(other_formal_versions)
+			"docs/zh/changelog.md formal versions must be unique; duplicated "
+			+ ", ".join(duplicate_versions)
 			+ "."
 		)
+	if formal_versions and formal_versions[0] != version:
+		issues.append(
+			f"docs/zh/changelog.md newest formal section must be [{version}]; found [{formal_versions[0]}]."
+		)
+	formal_parts = [parse_semver(item) for item in formal_versions]
+	if any(
+		current is None or following is None or current <= following
+		for current, following in zip(formal_parts, formal_parts[1:])
+	):
+		issues.append(
+			"docs/zh/changelog.md formal versions must be strictly descending without relabeling older releases."
+		)
+	for section in formal_sections:
+		heading = str(section["heading"])
+		date_match = re.fullmatch(
+			r"##\s+\[(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\]\s+-\s+(\d{4}-\d{2}-\d{2})",
+			heading,
+		)
+		if date_match is None:
+			issues.append(
+				f"docs/zh/changelog.md line {section['line']} formal heading must use '## [x.y.z] - YYYY-MM-DD'."
+			)
+			continue
+		try:
+			time.strptime(date_match.group(1), "%Y-%m-%d")
+		except ValueError:
+			issues.append(
+				f"docs/zh/changelog.md line {section['line']} contains an invalid calendar date."
+			)
+	previous_version = previous_version.strip()
+	if previous_version:
+		previous_sections = [
+			section
+			for section in formal_sections
+			if section["version"] == previous_version
+		]
+		if len(previous_sections) != 1:
+			issues.append(
+				"docs/zh/changelog.md must preserve exactly one previous release section "
+				f"[{previous_version}]; found {len(previous_sections)}."
+			)
+		elif (
+			not target_sections
+			or len(formal_sections) < 2
+			or formal_sections[1]["version"] != previous_version
+		):
+			issues.append(
+				f"docs/zh/changelog.md previous release [{previous_version}] must immediately follow target [{version}]."
+			)
 	return {
 		"versions": versions,
 		"sections": sections,
@@ -25458,10 +26123,25 @@ def render_godot_exit_leak_report_text(data: dict[str, Any]) -> str:
 	return "\n".join(lines)
 
 
+def print_check_progress(event: str, name: str, duration_seconds: float | None) -> None:
+	if event == "started":
+		print(f"[gf-maintenance] starting {name}", file=sys.stderr, flush=True)
+		return
+	duration_text = f" in {duration_seconds:.2f}s" if duration_seconds is not None else ""
+	print(f"[gf-maintenance] finished {name}{duration_text}", file=sys.stderr, flush=True)
+
+
 def render_checks_text(data: dict[str, Any]) -> str:
-	lines = [f"suite: {data['suite']} ok={data['ok']}"]
+	lines = [
+		f"suite: {data['suite']} ok={data['ok']} duration={data.get('duration_seconds', 0.0):.2f}s"
+	]
 	for result in data["results"]:
-		lines.append(f"- {result['name']}: exit={result['exit_code']} timeout={result.get('timed_out', False)}")
+		lines.append(
+			f"- {result['name']}: exit={result['exit_code']} "
+			f"timeout={result.get('timed_out', False)} "
+			f"duration={result.get('duration_seconds', 0.0):.2f}s "
+			f"execution={result.get('execution', 'subprocess')}"
+		)
 		stdout = result.get("stdout", "").strip()
 		stderr = result.get("stderr", "").strip()
 		if stdout:
@@ -25479,7 +26159,8 @@ def render_failed_checks_text(data: dict[str, Any]) -> str:
 	lines = [
 		(
 			f"suite: {data['suite']} ok={data['ok']} "
-			f"checks={len(data['results'])} failed={len(failed_results)}"
+			f"checks={len(data['results'])} failed={len(failed_results)} "
+			f"duration={data.get('duration_seconds', 0.0):.2f}s"
 		)
 	]
 	if not failed_results:
@@ -25489,7 +26170,9 @@ def render_failed_checks_text(data: dict[str, Any]) -> str:
 	for result in failed_results:
 		lines.append(
 			f"- {result['name']}: exit={result.get('exit_code')} "
-			f"timeout={result.get('timed_out', False)}"
+			f"timeout={result.get('timed_out', False)} "
+			f"duration={result.get('duration_seconds', 0.0):.2f}s "
+			f"execution={result.get('execution', 'subprocess')}"
 		)
 		command = result.get("command")
 		if command:
@@ -25583,12 +26266,14 @@ def render_release_status_text(data: dict[str, Any]) -> str:
 			"api_baseline: "
 			f"base={api_diff.get('base_tag', '')} "
 			f"breaking={api_diff_summary.get('breaking_change_count', 0)} "
+			f"compatible={api_diff_summary.get('compatible_change_count', 0)} "
 			f"added_classes={api_diff_summary.get('added_classes', 0)} "
 			f"signature_changes={api_diff_summary.get('signature_changes', 0)} "
 			f"breaking_signatures={api_diff_summary.get('breaking_signature_changes', 0)} "
 			f"compatible_signatures={api_diff_summary.get('compatible_signature_changes', 0)} "
 			f"removed_members={api_diff_summary.get('removed_members', 0)} "
-			f"breaking_allowed={api_diff_summary.get('breaking_allowed', False)}"
+			f"breaking_allowed={api_diff_summary.get('breaking_allowed', False)} "
+			f"compatible_allowed={api_diff_summary.get('compatible_allowed', False)}"
 		)
 	asset_library = data.get("asset_library", {})
 	lines.append(
@@ -25652,7 +26337,9 @@ def render_api_baseline_diff_text(data: dict[str, Any]) -> str:
 			f"compatible_signatures={summary.get('compatible_signature_changes', 0)} "
 			f"extends_changes={summary.get('extends_changes', 0)} "
 			f"breaking={summary.get('breaking_change_count', 0)} "
-			f"breaking_allowed={summary.get('breaking_allowed', False)}"
+			f"compatible={summary.get('compatible_change_count', 0)} "
+			f"breaking_allowed={summary.get('breaking_allowed', False)} "
+			f"compatible_allowed={summary.get('compatible_allowed', False)}"
 		),
 	]
 	for issue in data.get("issues", []):

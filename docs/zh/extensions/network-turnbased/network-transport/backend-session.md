@@ -2,6 +2,8 @@
 
 `GFNetworkUtility` 把消息编码、后端传输和运行时信号分开。框架提供 `GFNetworkMessage`、`GFNetworkSerializer`、`GFNetworkBackend`、`GFNetworkRateLimiter`、`GFNetworkSession`、`GFNetworkChannel`、`GFNetworkMessageValidator`、可选 `GFENetNetworkBackend` 与 `GFWebSocketNetworkBackend`，但不内置具体服务器、房间、平台账号或业务同步规则。
 
+Backend 是平台中立传输适配点，不要求远端也运行 Godot。项目可以接入 Godot ENet/WebSocket 服务端、其他语言实现的兼容服务、自定义原生 SDK 或平台 peer；边界只要求连接状态、peer 身份和 bytes 收发语义可被可靠映射。
+
 ```gdscript
 class_name GameNetworkBackend
 extends GFNetworkBackend

@@ -22,6 +22,8 @@ import urllib.parse
 from dataclasses import dataclass
 from typing import Any
 
+from gf_godot_process import resolve_godot_executable
+
 
 DEFAULT_SCAN_ROOTS = ("addons/gf", "tests/gf_core")
 DEFAULT_EXCLUDED_PARTS = {
@@ -43,6 +45,7 @@ SEVERITY_NAMES = {
 	4: "hint",
 }
 WARNING_CODE_PATTERN = re.compile(r"^\(([^)]+)\):\s*(.*)$")
+WORKSPACE_PROBE_CLASS = "GFVariantData"
 
 
 @dataclass(frozen=True)
@@ -133,6 +136,7 @@ def main() -> int:
 	configured_port = args.port
 	spawned = False
 	connection_fallback_reason = ""
+	workspace_definition_uri = ""
 	started_at = time.time()
 
 	try:
@@ -144,6 +148,11 @@ def main() -> int:
 				try:
 					client = LspClient("127.0.0.1", port)
 					_initialize_lsp(client, project_root, args.request_timeout)
+					workspace_definition_uri = _verify_lsp_workspace(
+						client,
+						project_root,
+						args.request_timeout,
+					)
 					should_spawn_lsp = False
 				except Exception as error:
 					connection_fallback_reason = str(error)
@@ -168,6 +177,11 @@ def main() -> int:
 			client = LspClient("127.0.0.1", port)
 			try:
 				_initialize_lsp(client, project_root, args.request_timeout)
+				workspace_definition_uri = _verify_lsp_workspace(
+					client,
+					project_root,
+					args.request_timeout,
+				)
 			except Exception:
 				client.close()
 				raise
@@ -195,6 +209,7 @@ def main() -> int:
 			time.time() - started_at,
 		)
 		report["transport"]["configured_port"] = configured_port
+		report["transport"]["workspace_definition_uri"] = workspace_definition_uri
 		if connection_fallback_reason:
 			report["transport"]["fallback_reason"] = connection_fallback_reason
 		if not spawned and args.log_file:
@@ -334,8 +349,9 @@ def _start_godot_lsp(
 	port: int,
 	temp_log_path: pathlib.Path,
 ) -> subprocess.Popen[str]:
+	resolved_godot = resolve_godot_executable(godot)
 	command = [
-		godot,
+		resolved_godot,
 		"--headless",
 		"--editor",
 		"--path",
@@ -401,9 +417,86 @@ def _initialize_lsp(client: LspClient, project_root: pathlib.Path, timeout: floa
 		if message is None:
 			continue
 		if message.payload.get("id") == request_id:
+			if "error" in message.payload:
+				raise RuntimeError("Godot LSP initialize failed: %s" % message.payload["error"])
 			client.notify("initialized", {})
 			return
 	raise RuntimeError("Godot LSP initialize timed out")
+
+
+def _verify_lsp_workspace(
+	client: LspClient,
+	project_root: pathlib.Path,
+	timeout: float,
+) -> str:
+	probe_path = project_root / ".godot/gf_lsp_workspace_probe.gd"
+	probe_uri = probe_path.as_uri()
+	probe_line = "var _gf_lsp_workspace_probe: %s" % WORKSPACE_PROBE_CLASS
+	probe_text = "extends RefCounted\n%s\n" % probe_line
+	client.notify("textDocument/didOpen", {
+		"textDocument": {
+			"uri": probe_uri,
+			"languageId": "gdscript",
+			"version": 1,
+			"text": probe_text,
+		},
+	})
+	try:
+		request_id = client.request("textDocument/definition", {
+			"textDocument": {"uri": probe_uri},
+			"position": {
+				"line": 1,
+				"character": probe_line.index(WORKSPACE_PROBE_CLASS) + 1,
+			},
+		})
+		response = _wait_for_lsp_response(client, request_id, timeout)
+		if "error" in response:
+			raise RuntimeError("Godot LSP workspace probe failed: %s" % response["error"])
+		definition_uris = _definition_result_uris(response.get("result"))
+		for definition_uri in definition_uris:
+			if _uri_is_within_project(definition_uri, project_root):
+				return definition_uri
+		resolved = ", ".join(definition_uris) if definition_uris else "no definition"
+		raise RuntimeError(
+			"Connected Godot LSP workspace mismatch: expected %s, %s resolved to %s"
+			% (project_root, WORKSPACE_PROBE_CLASS, resolved)
+		)
+	finally:
+		client.notify("textDocument/didClose", {
+			"textDocument": {"uri": probe_uri},
+		})
+
+
+def _wait_for_lsp_response(client: LspClient, request_id: int, timeout: float) -> dict[str, Any]:
+	deadline = time.time() + timeout
+	while time.time() < deadline:
+		message = client.receive(0.5)
+		if message is not None and message.payload.get("id") == request_id:
+			return message.payload
+	raise RuntimeError("Godot LSP workspace probe timed out")
+
+
+def _definition_result_uris(result: Any) -> list[str]:
+	locations = result if isinstance(result, list) else [result]
+	result_uris: list[str] = []
+	for location in locations:
+		if not isinstance(location, dict):
+			continue
+		uri = str(location.get("uri", location.get("targetUri", "")))
+		if uri and uri not in result_uris:
+			result_uris.append(uri)
+	return result_uris
+
+
+def _uri_is_within_project(uri: str, project_root: pathlib.Path) -> bool:
+	path = _path_from_uri(uri)
+	if path is None:
+		return False
+	try:
+		path.resolve().relative_to(project_root.resolve())
+		return True
+	except ValueError:
+		return False
 
 
 def _scan_files(
@@ -688,11 +781,18 @@ def _normalized_path_key(path: pathlib.Path) -> str:
 
 
 def _normalized_uri_path_key(uri: str) -> str:
+	path = _path_from_uri(uri)
+	return os.path.normcase(str(path.resolve())) if path is not None else ""
+
+
+def _path_from_uri(uri: str) -> pathlib.Path | None:
 	parsed = urllib.parse.urlparse(uri)
+	if parsed.scheme != "file":
+		return None
 	path_text = urllib.parse.unquote(parsed.path)
 	if os.name == "nt" and re.match(r"^/[A-Za-z]:", path_text):
 		path_text = path_text[1:]
-	return os.path.normcase(str(pathlib.Path(path_text).resolve()))
+	return pathlib.Path(path_text)
 
 
 def _stop_process(process: subprocess.Popen[str]) -> None:

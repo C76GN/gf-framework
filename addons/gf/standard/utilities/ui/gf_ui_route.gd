@@ -24,16 +24,20 @@ extends Resource
 ## @api public
 @export_file("*.tscn") var scene_path: String = ""
 
-## 目标 UI 层级。默认使用 GFUIUtility.POPUP。
+## 目标 UI 逻辑层 ID。默认使用 GFUIUtility.POPUP；自定义 ID 必须先注册到 GFUIUtility。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 @export var layer: int = GFUIUtility.Layer.POPUP
 
 ## 默认面板选项，会传给 GFUIUtility。
 ## [br]
 ## @api public
 ## [br]
-## @schema default_options: Dictionary，字段同 GFUIUtility 打开面板 options，例如 metadata、config_callback、modal、dismiss_on_cancel。
+## @since 3.17.0
+## [br]
+## @schema default_options: Dictionary，字段同 GFUIUtility 打开面板 options，例如 metadata、modal、hide_under、dismiss_on_cancel。
 @export var default_options: Dictionary = {}
 
 ## 路由元数据。框架只透传，不解释字段含义。
@@ -65,7 +69,7 @@ func get_route_id() -> StringName:
 ## [br]
 ## @return 路由有效时返回 true。
 func is_valid_route() -> bool:
-	return get_route_id() != &"" and not scene_path.is_empty() and GFUIUtility.Layer.values().has(layer)
+	return get_route_id() != &"" and not scene_path.is_empty() and layer >= 0
 
 
 ## 合并默认选项、覆盖选项和路由参数。

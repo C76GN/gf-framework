@@ -14,8 +14,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  full-checks:
-    name: GF full checks
+  framework-checks:
+    name: GF framework checks
     runs-on: ubuntu-latest
     timeout-minutes: 45
 
@@ -39,10 +39,52 @@ jobs:
       - name: Set up Godot
         uses: ./.github/actions/setup-godot
 
-      - name: Run full maintenance suite
+      - name: Run framework maintenance shard
         run: >
           python tools/gf_maintenance.py check
-          --suite full
-          --timeout 1200
+          --suite framework
+          --failed-only
+          --github-annotations
+
+  package-checks:
+    name: GF package checks (${{ matrix.name }})
+    runs-on: ubuntu-latest
+    timeout-minutes: ${{ matrix.timeout_minutes }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: contract
+            suite: package-contract
+            timeout_minutes: 30
+          - name: editor
+            suite: package-editor
+            timeout_minutes: 30
+          - name: cli
+            suite: package-cli
+            timeout_minutes: 45
+          - name: godot
+            suite: package-godot-ci
+            timeout_minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Set up Godot
+        uses: ./.github/actions/setup-godot
+
+      - name: Run package maintenance shard
+        run: >
+          python tools/gf_maintenance.py check
+          --suite ${{ matrix.suite }}
           --failed-only
           --github-annotations

@@ -4,7 +4,7 @@ GF 编辑器插件启用后会注册几组项目设置及其进程内默认值�
 
 ## 设置项
 
-- `gf/project/installers`：项目级 `GFInstaller` 路径数组，路径必须是 `res://` 下的 `.gd` 脚本。
+- `gf/project/installers`：项目级 `GFInstaller` 脚本资源数组；接受 `res://` 或可解析的 `uid://`，运行时必须最终落到 `res://` 下的 `.gd`。
 - `gf/project/fail_on_installer_error`：Installer 配置或执行失败时是否中断初始化。
 - `gf/project/installer_timeout_seconds`：单个 Installer 的最长等待时间。
 - `gf/codegen/access_output_path`：`GFAccess` 生成路径。
@@ -17,7 +17,7 @@ GF 编辑器插件启用后会注册几组项目设置及其进程内默认值�
 
 GF 会按 Godot 编辑器的工具语言显示已声明设置的左侧分区、名称、悬浮说明和枚举选项。悬浮说明末尾始终保留稳定的 `gf/...` 设置键或分区路径，便于在源码、配置文件和诊断报告之间定位同一项设置。枚举本地化只替换可见文本，写入 `project.godot` 的值不会随语言变化。
 
-代码生成输出使用“保存文件”语义，允许目标脚本尚未生成；现有资源引用则使用 `res://` / `uid://` 路径输入和类型校验。资源浏览窗口属于当前 Inspector 所在窗口，不会在 Project Settings 已独占主编辑器时再打开全局 Quick Open。
+启动 Installer 使用 Script 资源路径数组控件；代码生成输出使用“保存文件”语义，允许目标脚本尚未生成；其他现有资源引用同样使用 `res://` / `uid://` 路径输入和类型校验。资源浏览窗口属于当前 Inspector 所在窗口，不会在 Project Settings 已独占主编辑器时再打开全局 Quick Open。
 
 内核设置的展示信息由内核维护；标准库设置通过 data-only 编辑器贡献清单提供；可选扩展工具只在启用时通过自己的编辑器动作贡献设置和分区记录。设置记录使用 `editor_labels`、`editor_descriptions`、`editor_enum_labels` 和 `editor_enum_descriptions` 声明多语言文本，分区记录使用稳定 `path` 及名称、说明映射。名称与说明必须同时存在，并提供非空 `en` 兜底。未声明展示信息的项目自有设置不会被 GF 接管，仍使用 Godot 默认 Inspector。
 

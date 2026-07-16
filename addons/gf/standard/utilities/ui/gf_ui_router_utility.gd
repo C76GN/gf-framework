@@ -431,6 +431,10 @@ func _open_route(
 	if ui_utility == null:
 		_fail_route(route_id, "missing_ui_utility")
 		return null
+	var route_layer: int = _get_ui_layer(route.layer)
+	if not ui_utility.has_layer(route_layer):
+		_fail_route(route_id, "missing_ui_layer")
+		return null
 
 	route_open_requested.emit(route_id, operation, params.duplicate(true))
 	var options: Dictionary = route.build_options(params, option_overrides)
@@ -440,14 +444,14 @@ func _open_route(
 		_remove_history_for_layer(route.layer)
 		panel = ui_utility.replace_layer_with_options(
 			route.scene_path,
-			_get_ui_layer(route.layer),
+			route_layer,
 			options,
 			wrapped_callback
 		)
 	else:
 		panel = ui_utility.push_panel_with_options(
 			route.scene_path,
-			_get_ui_layer(route.layer),
+			route_layer,
 			options,
 			wrapped_callback
 		)
@@ -475,6 +479,10 @@ func _open_route_async(
 	if ui_utility == null:
 		_fail_route(route_id, "missing_ui_utility")
 		return
+	var route_layer: int = _get_ui_layer(route.layer)
+	if not ui_utility.has_layer(route_layer):
+		_fail_route(route_id, "missing_ui_layer")
+		return
 
 	var pending_route: Dictionary = _find_pending_async_route(route.scene_path, route.layer, operation)
 	if not pending_route.is_empty():
@@ -496,14 +504,14 @@ func _open_route_async(
 	if operation == Operation.REPLACE:
 		ui_utility.replace_layer_async_with_options(
 			route.scene_path,
-			_get_ui_layer(route.layer),
+			route_layer,
 			options,
 			wrapped_callback
 		)
 	else:
 		ui_utility.push_panel_async_with_options(
 			route.scene_path,
-			_get_ui_layer(route.layer),
+			route_layer,
 			options,
 			wrapped_callback
 		)
@@ -717,11 +725,9 @@ func _get_weak_ref_value(value: Variant) -> WeakRef:
 	return null
 
 
-func _get_ui_layer(value: Variant, fallback: GFUIUtility.Layer = GFUIUtility.Layer.POPUP) -> GFUIUtility.Layer:
-	var layer_value: int = GFVariantData.to_int(value, int(fallback))
-	if not GFUIUtility.Layer.values().has(layer_value):
-		return fallback
-	return layer_value as GFUIUtility.Layer
+func _get_ui_layer(value: Variant, fallback: int = GFUIUtility.DEFAULT_LAYER_ID) -> int:
+	var layer_value: int = GFVariantData.to_int(value, fallback)
+	return layer_value if layer_value >= 0 else fallback
 
 
 # --- 信号处理函数 ---

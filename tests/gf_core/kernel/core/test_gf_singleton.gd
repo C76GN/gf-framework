@@ -795,7 +795,7 @@ func test_gf_autoload_tree_exit_state_is_scoped_to_exit_callback() -> void:
 
 	var autoload_node: Node = GF_AUTOLOAD_NODE_SCRIPT.new()
 	autoload_node.name = "GfTreeExitProbe"
-	autoload_node._architecture = architecture
+	autoload_node.set(&"_architecture", architecture)
 	get_tree().root.add_child(autoload_node)
 	get_tree().root.remove_child(autoload_node)
 
@@ -1521,6 +1521,91 @@ func test_project_installer_registers_modules_before_init() -> void:
 	assert_true(installed_model.installed, "Installer 注册的 Model 应保留自身状态。")
 
 
+## 验证编辑器保存的 uid:// Installer 引用会解析为可加载脚本路径。
+func test_project_installer_resolves_uid_resource_paths() -> void:
+	var previous_installers: Variant = ProjectSettings.get_setting(INSTALLERS_SETTING, [])
+	var installer_uid: int = ResourceLoader.get_resource_uid(TEST_INSTALLER_PATH)
+	assert_ne(installer_uid, ResourceUID.INVALID_ID, "Installer 测试脚本应具有稳定 UID。")
+	ProjectSettings.set_setting(INSTALLERS_SETTING, [ResourceUID.id_to_text(installer_uid)])
+
+	if Gf.has_architecture():
+		Gf.get_architecture().dispose()
+	Gf._architecture = null
+
+	var initialized: bool = await Gf.init()
+	var installed_model: InstallerModelFixture = Gf.get_model(InstallerModelFixture)
+
+	ProjectSettings.set_setting(INSTALLERS_SETTING, previous_installers)
+
+	assert_true(initialized, "可解析 uid:// Installer 应完成 GF 初始化。")
+	assert_not_null(installed_model, "uid:// Installer 应在初始化前注册 Model。")
+
+
+## 验证无法映射到项目资源的 uid:// Installer 会给出明确初始化错误。
+func test_project_installer_rejects_unmapped_uid_resource_paths() -> void:
+	var previous_installers: Variant = ProjectSettings.get_setting(INSTALLERS_SETTING, [])
+	var missing_uid: int = 9223372036854775806
+	assert_false(ResourceUID.has_id(missing_uid), "测试 UID 不应映射到项目资源。")
+	var missing_uid_path: String = ResourceUID.id_to_text(missing_uid)
+	ProjectSettings.set_setting(INSTALLERS_SETTING, [missing_uid_path])
+
+	if Gf.has_architecture():
+		Gf.get_architecture().dispose()
+	Gf._architecture = null
+
+	var initialized: bool = await Gf.init()
+	var architecture: GFArchitecture = Gf.get_architecture()
+	var expected_error: String = "[GF] 项目 Installer UID 无法解析：%s" % missing_uid_path
+
+	ProjectSettings.set_setting(INSTALLERS_SETTING, previous_installers)
+
+	assert_false(initialized, "无法映射的 uid:// Installer 必须阻断初始化。")
+	assert_eq(architecture.last_initialization_error, expected_error)
+	assert_push_error(expected_error)
+	assert_push_error(expected_error)
+
+
+## 验证空 Installer 项不会被静默忽略。
+func test_project_installer_empty_path_fails_initialization() -> void:
+	var previous_installers: Variant = ProjectSettings.get_setting(INSTALLERS_SETTING, [])
+	ProjectSettings.set_setting(INSTALLERS_SETTING, ["  "])
+
+	if Gf.has_architecture():
+		Gf.get_architecture().dispose()
+	Gf._architecture = null
+
+	var initialized: bool = await Gf.init()
+	var architecture: GFArchitecture = Gf.get_architecture()
+
+	ProjectSettings.set_setting(INSTALLERS_SETTING, previous_installers)
+
+	assert_false(initialized, "空 Installer 路径必须阻断默认初始化。")
+	assert_eq(architecture.last_initialization_error, "[GF] 项目 Installer 路径为空。")
+	assert_push_error("[GF] 项目 Installer 路径为空。")
+	assert_push_error("[GF] 项目 Installer 路径为空。")
+
+
+## 验证错误类型的 Installer 项不会退化为无 Installer 启动。
+func test_project_installer_non_string_path_fails_initialization() -> void:
+	var previous_installers: Variant = ProjectSettings.get_setting(INSTALLERS_SETTING, [])
+	ProjectSettings.set_setting(INSTALLERS_SETTING, [42])
+
+	if Gf.has_architecture():
+		Gf.get_architecture().dispose()
+	Gf._architecture = null
+
+	var initialized: bool = await Gf.init()
+	var architecture: GFArchitecture = Gf.get_architecture()
+	var expected_error: String = "[GF] 项目 Installer 配置第 0 项必须是 String 或 StringName，实际为 int。"
+
+	ProjectSettings.set_setting(INSTALLERS_SETTING, previous_installers)
+
+	assert_false(initialized, "非字符串 Installer 配置必须阻断默认初始化。")
+	assert_eq(architecture.last_initialization_error, expected_error)
+	assert_push_error(expected_error)
+	assert_push_error(expected_error)
+
+
 ## 验证 set_architecture 运行项目 Installer 时，Gf facade 会写入正在安装的新架构。
 func test_set_architecture_project_installer_facade_registers_into_new_architecture() -> void:
 	var previous_installers: Variant = ProjectSettings.get_setting(INSTALLERS_SETTING, [])
@@ -1656,9 +1741,10 @@ func test_project_installer_rejects_non_res_resource_paths() -> void:
 
 	assert_false(architecture.is_inited(), "非 res:// Installer 路径应阻止默认初始化。")
 	assert_true(architecture.has_initialization_failed(), "非 res:// Installer 路径应标记初始化失败。")
-	assert_eq(architecture.last_initialization_error, "[GF] 项目 Installer 路径必须是 res:// GDScript：user://bad_installer.gd")
-	assert_push_error("[GF] 项目 Installer 路径必须是 res:// GDScript：user://bad_installer.gd")
-	assert_push_error("[GF] 项目 Installer 路径必须是 res:// GDScript：user://bad_installer.gd")
+	var expected_error: String = "[GF] 项目 Installer 路径必须是 res:// 或可解析的 uid:// GDScript：user://bad_installer.gd"
+	assert_eq(architecture.last_initialization_error, expected_error)
+	assert_push_error(expected_error)
+	assert_push_error(expected_error)
 
 
 ## 验证显式关闭 Installer 错误失败时仍会跳过无效项，便于迁移期临时兼容。

@@ -38,6 +38,18 @@ GF 不替代 Godot 的 `Control` 和 `CanvasLayer`。`GFUIUtility` 会把 HUD、
 
 如果 HUD 必须读取某个局部战斗或房间的 Model / System，应把项目自己的 `CanvasLayer` 保留在对应 `GFNodeContext` 子树中，不要通过当前 UI 栈重挂。详见 [面板栈与层级](standard/utilities/runtime/settings-ui-scene/ui-stack-routing/ui-stack-modal/panel-stack.md) 和 [场景级局部上下文](kernel/lifecycle/node-contexts.md)。
 
+## GFUIUtility 只有 HUD、POPUP、TOP 三层吗？
+
+不是。它们是默认逻辑层，不是固定上限。项目可以注册 `GFUILayerDefinition`，把逻辑层 ID、`CanvasLayer.layer` 和默认 `hide_under` 策略分开。左右并行窗口应使用独立逻辑层；同栈的非全屏通知可设置 `hide_under = false`，全屏页面或 Modal 保持默认遮挡。详见 [面板栈与可扩展层级](standard/utilities/runtime/settings-ui-scene/ui-stack-routing/ui-stack-modal/panel-stack.md)。
+
+## `GFUIRouterUtility` 查询为 `null` 是接口被删除了吗？
+
+不是。`register_routes()` 仍然存在；`Invalid call ... in base 'Nil'` 表示 Router 实例没有进入当前架构。检查 `gf/project/installers`、`await Gf.init()` 的布尔结果和 `last_initialization_error`，并确认 Installer 注册了 UI 与 Router。最小 package 安装还需要 `gf.standard.ui.navigation`。详见 [UI 路由与导航历史](standard/utilities/runtime/settings-ui-scene/ui-stack-routing/ui-router.md)。
+
+## HTTPRequest 是否需要项目自己维护池？
+
+低频请求可以直接用 `GFHttpRequestBuilder.execute()`；并发请求使用 `GFHttpClientUtility`，它提供活动数、等待队列、worker 复用、取消、父节点退出和诊断快照边界。鉴权、重试、分页和业务 DTO 仍由项目或平台 adapter 负责。详见 [HTTP 请求、客户端池与异步批处理](standard/utilities/io/config-remote-outbox/http-async-batch.md)。
+
 ## 什么时候应该使用 GFNodeContext？
 
 GF 8 的正式类型名是 `GFNodeContext`，不存在另一个 `GFSceneContext` 类型。普通场景通常直接复用全局 Architecture；只有关卡、战斗房间、测试场景、调试面板或并行实例需要独立模块作用域，并希望随节点树分支统一创建和释放时，才使用 `GFNodeContext.ScopeMode.SCOPED`。

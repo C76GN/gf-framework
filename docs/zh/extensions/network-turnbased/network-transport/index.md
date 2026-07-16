@@ -1,6 +1,6 @@
 # Network 传输抽象
 
-本组页面说明 `GFNetworkUtility` 如何把消息、序列化、通道校验和后端传输分开。项目仍需自己实现或选择具体连接协议与业务同步规则。
+本组页面说明 `GFNetworkUtility` 如何把消息、序列化、通道校验和后端传输分开。它不是“Godot 服务端专用网络层”：客户端和服务端可以都使用 Godot，也可以由 Godot 客户端连接非 Godot 服务；只要项目 backend/adapter 能把底层传输映射到 `GFNetworkBackend` 契约即可。
 
 ## 阅读入口
 
@@ -13,3 +13,5 @@
 ## 使用边界
 
 Network 传输抽象只定义消息、序列化、通道、后端接口和可选服务发现记录。账号、房间、鉴权、服务器权威、实体复制、预测回滚和业务同步协议仍由项目层实现。
+
+普通 HTTP API 不属于多人传输扩展。单次请求使用标准库 `GFHttpRequestBuilder`，需要有界并发与节点复用时使用 `GFHttpClientUtility`；平台 SDK、REST 服务或自建后端 adapter 可以在项目层组合它们，但不应把 HTTP 业务端点写进 Network 核心。

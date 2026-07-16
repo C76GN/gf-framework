@@ -2,6 +2,9 @@
 extends GutTest
 
 
+const _GF_AUTOLOAD_SCRIPT = preload("res://addons/gf/kernel/core/gf_autoload.gd")
+
+
 var _ui_utility: GFUIUtility
 var _arch: GFArchitecture = null
 
@@ -103,6 +106,63 @@ func test_layer_creation() -> void:
 	assert_eq(popup_layer.layer, 60, "POPUP 层的基础 layer 应为 60。")
 
 
+func test_repeated_init_does_not_duplicate_layer_roots() -> void:
+	assert_eq(GFUIUtility.DEFAULT_LAYER_ID, GFUIUtility.Layer.POPUP, "公开默认层 ID 应与 POPUP 预置保持一致。")
+	var original_root: CanvasLayer = _ui_utility.get_layer_root(GFUIUtility.Layer.POPUP)
+
+	_ui_utility.init()
+
+	assert_same(
+		_ui_utility.get_layer_root(GFUIUtility.Layer.POPUP),
+		original_root,
+		"重复 init 不应遗留旧 CanvasLayer 或替换层根。"
+	)
+
+
+func test_custom_layer_definition_creates_independent_overlay_stack() -> void:
+	var definition: GFUILayerDefinition = GFUILayerDefinition.new()
+	definition.layer_id = 100
+	definition.display_name = &"SIDEBAR"
+	definition.canvas_layer = 60
+	definition.auto_hide_under = false
+
+	assert_true(_ui_utility.register_layer(definition), "运行时应能注册项目自定义逻辑层。")
+	var sidebar_root: CanvasLayer = _ui_utility.get_layer_root(100)
+	var chat_panel: Control = Control.new()
+	var inventory_panel: Control = Control.new()
+	_ui_utility.push_panel_instance(chat_panel, 100)
+	_ui_utility.push_panel_instance(inventory_panel, 100)
+
+	assert_not_null(sidebar_root, "自定义层应创建 CanvasLayer 根节点。")
+	assert_eq(sidebar_root.layer, 60, "逻辑层 ID 不应与 Godot CanvasLayer 排序值耦合。")
+	assert_eq(sidebar_root.name, &"GFUILayer_SIDEBAR", "自定义层应使用稳定显示名。")
+	assert_eq(_ui_utility.get_panel_stack(100), [chat_panel, inventory_panel], "自定义层应维护独立栈。")
+	assert_true(chat_panel.visible, "overlay 层中的下方窗口应保持可见。")
+	assert_true(inventory_panel.visible, "overlay 层中的顶部窗口应保持可见。")
+
+
+func test_panel_hide_under_override_recomputes_complete_stack_visibility() -> void:
+	var resident_panel: Control = Control.new()
+	var widget_panel: Control = Control.new()
+	var modal_panel: Control = Control.new()
+	_ui_utility.push_panel_instance(resident_panel, GFUIUtility.Layer.POPUP)
+	_ui_utility.push_panel_instance_with_options(widget_panel, GFUIUtility.Layer.POPUP, {
+		"hide_under": false,
+	})
+
+	assert_true(resident_panel.visible, "非遮挡窗口不应隐藏常驻页面。")
+	assert_true(widget_panel.visible, "非遮挡窗口自身应保持可见。")
+
+	_ui_utility.push_panel_instance(modal_panel, GFUIUtility.Layer.POPUP)
+	assert_false(resident_panel.visible, "默认遮挡面板应隐藏其下所有页面。")
+	assert_false(widget_panel.visible, "默认遮挡面板应隐藏其下所有窗口。")
+	assert_true(modal_panel.visible, "栈顶遮挡面板应保持可见。")
+
+	_ui_utility.pop_panel(GFUIUtility.Layer.POPUP)
+	assert_true(resident_panel.visible, "弹出遮挡面板后应恢复完整可见性链。")
+	assert_true(widget_panel.visible, "弹出遮挡面板后非遮挡窗口应恢复可见。")
+
+
 func test_dispose_detaches_layer_roots_immediately() -> void:
 	var popup_layer: CanvasLayer = _ui_utility.get_layer_root(GFUIUtility.Layer.POPUP)
 
@@ -117,14 +177,14 @@ func test_dispose_detaches_layer_roots_immediately() -> void:
 
 func test_dispose_leaves_layer_roots_attached_during_autoload_tree_exit() -> void:
 	var popup_layer: CanvasLayer = _ui_utility.get_layer_root(GFUIUtility.Layer.POPUP)
-	GFAutoload.begin_tree_exit_scope()
+	_GF_AUTOLOAD_SCRIPT.begin_tree_exit_scope()
 
 	_ui_utility.dispose()
 	_ui_utility = null
 
 	assert_not_null(popup_layer.get_parent(), "AutoLoad 退出时不应重入修改 UI 层级的父节点。")
 
-	GFAutoload.end_tree_exit_scope()
+	_GF_AUTOLOAD_SCRIPT.end_tree_exit_scope()
 	await get_tree().process_frame
 	assert_false(is_instance_valid(popup_layer), "退出阶段登记 queue_free 后仍应完成释放。")
 

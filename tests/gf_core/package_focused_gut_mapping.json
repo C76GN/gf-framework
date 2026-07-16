@@ -93,6 +93,7 @@
       "res://tests/gf_core/standard/utilities/io/test_gf_path_enumeration_tools.gd",
       "res://tests/gf_core/standard/utilities/io/test_gf_directory_watch_utility.gd",
       "res://tests/gf_core/standard/utilities/io/test_gf_protocol_ack_ledger.gd",
+      "res://tests/gf_core/standard/utilities/io/test_gf_http_request_builder.gd",
       "res://tests/gf_core/standard/utilities/io/test_gf_source_text_loader.gd",
       "res://tests/gf_core/standard/utilities/jobs/test_gf_background_work_utility.gd",
       "res://tests/gf_core/standard/utilities/scene/test_gf_scene_contract_tools.gd",
@@ -244,7 +245,8 @@
       "res://tests/gf_core/standard/utilities/ui/test_gf_text_fitter.gd"
     ],
     "gf.standard.ui.navigation": [
-      "res://tests/gf_core/standard/utilities/ui/test_gf_ui_utility.gd"
+      "res://tests/gf_core/standard/utilities/ui/test_gf_ui_utility.gd",
+      "res://tests/gf_core/standard/utilities/ui/test_gf_ui_router_utility.gd"
     ],
     "gf.standard.ui.state": [
       "res://tests/gf_core/standard/utilities/ui/test_gf_item_list_binder.gd",

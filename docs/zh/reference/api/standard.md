@@ -6,10 +6,10 @@
 
 | 类别 | 类 | 成员 | 方法 |
 |---|---:|---:|---:|
-| [运行时服务](#category-runtime_service) | 174 | 3033 | 2064 |
+| [运行时服务](#category-runtime_service) | 175 | 3050 | 2077 |
 | [协议与扩展点](#category-protocol) | 21 | 281 | 227 |
-| [资源定义](#category-resource_definition) | 109 | 1418 | 734 |
-| [运行时句柄](#category-runtime_handle) | 39 | 673 | 435 |
+| [资源定义](#category-resource_definition) | 110 | 1425 | 737 |
+| [运行时句柄](#category-runtime_handle) | 39 | 678 | 437 |
 | [值对象](#category-value_object) | 32 | 597 | 374 |
 | [领域模型](#category-domain_model) | 4 | 61 | 42 |
 | [事件契约](#category-event_contract) | 5 | 47 | 17 |
@@ -85,6 +85,7 @@
 | [`GFGridTransform2D`](classes/GFGridTransform2D.md#gfgridtransform2d) | `RefCounted` | `addons/gf/standard/foundation/math/gf_grid_transform_2d.gd` |
 | [`GFHeightfield3D`](classes/GFHeightfield3D.md#gfheightfield3d) | `RefCounted` | `addons/gf/standard/foundation/math/gf_heightfield_3d.gd` |
 | [`GFHexGridMath`](classes/GFHexGridMath.md#gfhexgridmath) | `RefCounted` | `addons/gf/standard/foundation/math/gf_hex_grid_math.gd` |
+| [`GFHttpClientUtility`](classes/GFHttpClientUtility.md#gfhttpclientutility) | `GFUtility` | `addons/gf/standard/utilities/io/gf_http_client_utility.gd` |
 | [`GFInputAssistUtility`](classes/GFInputAssistUtility.md#gfinputassistutility) | `GFUtility` | `addons/gf/standard/input/runtime/gf_input_assist_utility.gd` |
 | [`GFInputConflictAnalyzer`](classes/GFInputConflictAnalyzer.md#gfinputconflictanalyzer) | `RefCounted` | `addons/gf/standard/input/rebinding/gf_input_conflict_analyzer.gd` |
 | [`GFInputContextDiagnostics`](classes/GFInputContextDiagnostics.md#gfinputcontextdiagnostics) | `RefCounted` | `addons/gf/standard/input/mapping/gf_input_context_diagnostics.gd` |
@@ -336,6 +337,7 @@
 | [`GFTileRuleSet`](classes/GFTileRuleSet.md#gftileruleset) | `Resource` | `addons/gf/standard/foundation/math/gf_tile_rule_set.gd` |
 | [`GFTimedTextEntry`](classes/GFTimedTextEntry.md#gftimedtextentry) | `Resource` | `addons/gf/standard/foundation/timeline/gf_timed_text_entry.gd` |
 | [`GFTimedTextTrack`](classes/GFTimedTextTrack.md#gftimedtexttrack) | `Resource` | `addons/gf/standard/foundation/timeline/gf_timed_text_track.gd` |
+| [`GFUILayerDefinition`](classes/GFUILayerDefinition.md#gfuilayerdefinition) | `Resource` | `addons/gf/standard/utilities/ui/gf_ui_layer_definition.gd` |
 | [`GFUIRoute`](classes/GFUIRoute.md#gfuiroute) | `Resource` | `addons/gf/standard/utilities/ui/gf_ui_route.gd` |
 | [`GFValidationConstraintRule`](classes/GFValidationConstraintRule.md#gfvalidationconstraintrule) | `GFValidationRule` | `addons/gf/standard/foundation/validation/gf_validation_constraint_rule.gd` |
 | [`GFValidationSuite`](classes/GFValidationSuite.md#gfvalidationsuite) | `Resource` | `addons/gf/standard/foundation/validation/gf_validation_suite.gd` |

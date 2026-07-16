@@ -17,15 +17,19 @@
 |---|---|---|
 | 枚举 | [`Method`](#member-gfhttprequestbuilder-enums-method) | `enum Method` |
 | 枚举 | [`ParseMode`](#member-gfhttprequestbuilder-enums-parsemode) | `enum ParseMode` |
+| 常量 | [`DEFAULT_MAX_RESPONSE_BYTES`](#member-gfhttprequestbuilder-constants-default_max_response_bytes) | `const DEFAULT_MAX_RESPONSE_BYTES: int = 0` |
+| 常量 | [`UNLIMITED_MAX_RESPONSE_BYTES`](#member-gfhttprequestbuilder-constants-unlimited_max_response_bytes) | `const UNLIMITED_MAX_RESPONSE_BYTES: int = -1` |
 | 属性 | [`url`](#member-gfhttprequestbuilder-properties-url) | `var url: String = ""` |
 | 属性 | [`method`](#member-gfhttprequestbuilder-properties-method) | `var method: Method = Method.GET` |
 | 属性 | [`parse_mode`](#member-gfhttprequestbuilder-properties-parse_mode) | `var parse_mode: ParseMode = ParseMode.TEXT` |
 | 属性 | [`timeout_seconds`](#member-gfhttprequestbuilder-properties-timeout_seconds) | `var timeout_seconds: float = 20.0` |
+| 属性 | [`max_response_bytes`](#member-gfhttprequestbuilder-properties-max_response_bytes) | `var max_response_bytes: int = DEFAULT_MAX_RESPONSE_BYTES:` |
 | 属性 | [`metadata`](#member-gfhttprequestbuilder-properties-metadata) | `var metadata: Dictionary = {}` |
 | 方法 | [`set_url`](#member-gfhttprequestbuilder-methods-set_url) | `func set_url(next_url: String) -> GFHttpRequestBuilder:` |
 | 方法 | [`set_method`](#member-gfhttprequestbuilder-methods-set_method) | `func set_method(next_method: Method) -> GFHttpRequestBuilder:` |
 | 方法 | [`set_parse_mode`](#member-gfhttprequestbuilder-methods-set_parse_mode) | `func set_parse_mode(next_parse_mode: ParseMode) -> GFHttpRequestBuilder:` |
 | 方法 | [`set_timeout`](#member-gfhttprequestbuilder-methods-set_timeout) | `func set_timeout(seconds: float) -> GFHttpRequestBuilder:` |
+| 方法 | [`set_max_response_bytes`](#member-gfhttprequestbuilder-methods-set_max_response_bytes) | `func set_max_response_bytes(bytes: int) -> GFHttpRequestBuilder:` |
 | 方法 | [`set_header`](#member-gfhttprequestbuilder-methods-set_header) | `func set_header(key: String, value: String) -> GFHttpRequestBuilder:` |
 | 方法 | [`remove_header`](#member-gfhttprequestbuilder-methods-remove_header) | `func remove_header(key: String) -> GFHttpRequestBuilder:` |
 | 方法 | [`add_query_parameter`](#member-gfhttprequestbuilder-methods-add_query_parameter) | `func add_query_parameter(key: String, value: Variant) -> GFHttpRequestBuilder:` |
@@ -34,6 +38,7 @@
 | 方法 | [`build_url`](#member-gfhttprequestbuilder-methods-build_url) | `func build_url() -> String:` |
 | 方法 | [`build_headers`](#member-gfhttprequestbuilder-methods-build_headers) | `func build_headers() -> PackedStringArray:` |
 | 方法 | [`build_request`](#member-gfhttprequestbuilder-methods-build_request) | `func build_request() -> Dictionary:` |
+| 方法 | [`duplicate_builder`](#member-gfhttprequestbuilder-methods-duplicate_builder) | `func duplicate_builder() -> GFHttpRequestBuilder:` |
 | 方法 | [`execute`](#member-gfhttprequestbuilder-methods-execute) | `func execute(parent: Node = null) -> GFHttpResponse:` |
 | 方法 | [`parse_body`](#member-gfhttprequestbuilder-methods-parse_body) | `func parse_body(body: PackedByteArray) -> Dictionary:` |
 
@@ -82,6 +87,34 @@ enum ParseMode {
 ```
 
 响应体解析模式。
+
+## 常量
+
+<a id="member-gfhttprequestbuilder-constants-default_max_response_bytes"></a>
+
+### `DEFAULT_MAX_RESPONSE_BYTES`
+
+- API：`public`
+- 首次版本：`8.1.0`
+
+```gdscript
+const DEFAULT_MAX_RESPONSE_BYTES: int = 0
+```
+
+响应体预算默认交给执行传输决定。一次性 HTTPRequest 因此保留 Godot 的无限制默认值。
+
+<a id="member-gfhttprequestbuilder-constants-unlimited_max_response_bytes"></a>
+
+### `UNLIMITED_MAX_RESPONSE_BYTES`
+
+- API：`public`
+- 首次版本：`8.1.0`
+
+```gdscript
+const UNLIMITED_MAX_RESPONSE_BYTES: int = -1
+```
+
+显式关闭响应体大小限制时使用的值。
 
 ## 属性
 
@@ -132,6 +165,19 @@ var timeout_seconds: float = 20.0
 ```
 
 请求超时时间，单位秒。
+
+<a id="member-gfhttprequestbuilder-properties-max_response_bytes"></a>
+
+### `max_response_bytes`
+
+- API：`public`
+- 首次版本：`8.1.0`
+
+```gdscript
+var max_response_bytes: int = DEFAULT_MAX_RESPONSE_BYTES:
+```
+
+单个响应体允许进入内存的最大字节数。0 表示继承执行传输默认值，-1 表示无限制。
 
 <a id="member-gfhttprequestbuilder-properties-metadata"></a>
 
@@ -228,6 +274,27 @@ func set_timeout(seconds: float) -> GFHttpRequestBuilder:
 | 名称 | 说明 |
 |---|---|
 | `seconds` | 超时秒数。 |
+
+返回：当前构建器。
+
+<a id="member-gfhttprequestbuilder-methods-set_max_response_bytes"></a>
+
+### `set_max_response_bytes`
+
+- API：`public`
+- 首次版本：`8.1.0`
+
+```gdscript
+func set_max_response_bytes(bytes: int) -> GFHttpRequestBuilder:
+```
+
+设置单个响应体允许进入内存的最大字节数。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `bytes` | 最大响应字节数；0 继承执行传输默认值，-1 关闭限制，正数设置明确上限。 |
 
 返回：当前构建器。
 
@@ -375,6 +442,7 @@ func build_headers() -> PackedStringArray:
 ### `build_request`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func build_request() -> Dictionary:
@@ -386,7 +454,22 @@ func build_request() -> Dictionary:
 
 结构：
 
-- `return`: Dictionary，包含 url、method、method_name、headers、body、timeout_seconds、parse_mode、parse_mode_name 和 metadata。
+- `return`: Dictionary，包含 url、method、method_name、headers、body、timeout_seconds、max_response_bytes、parse_mode、parse_mode_name 和 metadata。
+
+<a id="member-gfhttprequestbuilder-methods-duplicate_builder"></a>
+
+### `duplicate_builder`
+
+- API：`public`
+- 首次版本：`8.1.0`
+
+```gdscript
+func duplicate_builder() -> GFHttpRequestBuilder:
+```
+
+创建不共享可变请求状态的构建器副本。
+
+返回：当前请求配置的独立副本。
 
 <a id="member-gfhttprequestbuilder-methods-execute"></a>
 

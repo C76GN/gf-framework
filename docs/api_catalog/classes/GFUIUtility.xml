@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFUIUtility" path="addons/gf/standard/utilities/ui/gf_ui_utility.gd" module="standard" extends="GFUtility" classDigest="47e17799fcf99f2289369dd79d87f58529c429bcb7f93700e5531aa129c18a4d">
+<class name="GFUIUtility" path="addons/gf/standard/utilities/ui/gf_ui_utility.gd" module="standard" extends="GFUtility" classDigest="f05a12cdb6d3f0ceb8ce178a3eee45815c3735a9ae8da07b59eea70be07f4e8f">
 	<description>GFUIUtility: 栈式 UI 管理器。
-负责多层级界面的入栈、出栈与异步加载，
-适合 HUD、弹窗和顶层遮罩等需要分层管理的 UI 场景。</description>
+负责可扩展逻辑层中的入栈、出栈、可见性策略与异步加载，
+适合 HUD、并行窗口、弹窗和顶层遮罩等需要分层管理的 UI 场景。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">runtime_service</tag>
@@ -111,7 +111,16 @@
 			</tags>
 		</member>
 	</enums>
-	<constants />
+	<constants>
+		<member kind="const" name="DEFAULT_LAYER_ID">
+			<signature>const DEFAULT_LAYER_ID: int = 1</signature>
+			<description>未指定 layer 参数时使用的默认逻辑层 ID，与 Layer.POPUP 相同。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.1.0</tag>
+			</tags>
+		</member>
+	</constants>
 	<properties />
 	<methods>
 		<member kind="method" name="init">
@@ -133,33 +142,87 @@
 			<description>配置 UI 管理器。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="param">auto_hide_under: 压入新面板时是否自动隐藏下层面板。</tag>
+				<tag name="param">auto_hide_under: 所有已注册逻辑层的新默认遮挡策略。</tag>
+				<tag name="since">3.17.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="register_layer">
+			<signature>func register_layer(definition: GFUILayerDefinition, replace_existing: bool = false) -&gt; bool:</signature>
+			<description>注册或替换一个 UI 逻辑层。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">definition: 层 ID、显示排序与默认遮挡策略。</tag>
+				<tag name="param">replace_existing: 已存在同 ID 定义时是否替换。</tag>
+				<tag name="return">注册成功返回 true；定义无效、ID 冲突或无法创建根节点时返回 false。</tag>
+				<tag name="since">8.1.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="has_layer">
+			<signature>func has_layer(layer: int) -&gt; bool:</signature>
+			<description>检查逻辑层是否已注册。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">layer: 逻辑层 ID。</tag>
+				<tag name="return">已注册返回 true。</tag>
+				<tag name="since">8.1.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_layer_definition">
+			<signature>func get_layer_definition(layer: int) -&gt; GFUILayerDefinition:</signature>
+			<description>获取逻辑层定义副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">layer: 逻辑层 ID。</tag>
+				<tag name="return">已注册层的独立定义副本；不存在时返回 null。</tag>
+				<tag name="since">8.1.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_layer_ids">
+			<signature>func get_layer_ids() -&gt; Array[int]:</signature>
+			<description>获取按逻辑层 ID 升序排列的已注册层。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">已注册逻辑层 ID 列表。</tag>
+				<tag name="since">8.1.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="set_layer_auto_hide_under">
+			<signature>func set_layer_auto_hide_under(layer: int, auto_hide_under: bool) -&gt; bool:</signature>
+			<description>设置指定逻辑层的新面板默认遮挡策略。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">layer: 逻辑层 ID。</tag>
+				<tag name="param">auto_hide_under: 新面板未指定 hide_under 时采用的默认值。</tag>
+				<tag name="return">层存在并完成更新时返回 true。</tag>
+				<tag name="since">8.1.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="push_panel_async">
-			<signature>func push_panel_async(path: String, layer: Layer = Layer.POPUP, config_callback: Callable = Callable()) -&gt; void:</signature>
+			<signature>func push_panel_async(path: String, layer: int = Layer.POPUP, config_callback: Callable = Callable()) -&gt; void:</signature>
 			<description>异步压入一个面板场景。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">path: 面板场景路径。</tag>
 				<tag name="param">layer: 目标层级。</tag>
 				<tag name="param">config_callback: 实例化后、入栈前的可选配置回调。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="push_panel_async_with_options">
-			<signature>func push_panel_async_with_options( path: String, layer: Layer = Layer.POPUP, options: Dictionary = {}, config_callback: Callable = Callable() ) -&gt; void:</signature>
+			<signature>func push_panel_async_with_options( path: String, layer: int = Layer.POPUP, options: Dictionary = {}, config_callback: Callable = Callable() ) -&gt; void:</signature>
 			<description>异步压入一个带策略选项的面板场景。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">path: 面板场景路径。</tag>
 				<tag name="param">layer: 目标层级。</tag>
-				<tag name="param">options: 面板策略，支持 mode、modal、dismiss_on_cancel、focus_on_open、restore_focus_on_close、metadata。</tag>
+				<tag name="param">options: 面板策略，支持 mode、modal、hide_under、dismiss_on_cancel、focus_on_open、restore_focus_on_close、metadata。</tag>
 				<tag name="param">config_callback: 实例化后、入栈前的可选配置回调。</tag>
-				<tag name="schema">options: Dictionary，支持 mode、modal、dismiss_on_cancel、focus_on_open、restore_focus_on_close 和 metadata。</tag>
+				<tag name="schema">options: Dictionary，支持 mode、modal、hide_under、dismiss_on_cancel、focus_on_open、restore_focus_on_close 和 metadata。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="push_panel">
-			<signature>func push_panel(path: String, layer: Layer = Layer.POPUP, config_callback: Callable = Callable()) -&gt; Node:</signature>
+			<signature>func push_panel(path: String, layer: int = Layer.POPUP, config_callback: Callable = Callable()) -&gt; Node:</signature>
 			<description>同步压入一个面板场景。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -167,23 +230,25 @@
 				<tag name="param">layer: 目标层级。</tag>
 				<tag name="param">config_callback: 实例化后、入栈前的可选配置回调。</tag>
 				<tag name="return">成功时返回面板实例，失败时返回 `null`。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="push_panel_with_options">
-			<signature>func push_panel_with_options( path: String, layer: Layer = Layer.POPUP, options: Dictionary = {}, config_callback: Callable = Callable() ) -&gt; Node:</signature>
+			<signature>func push_panel_with_options( path: String, layer: int = Layer.POPUP, options: Dictionary = {}, config_callback: Callable = Callable() ) -&gt; Node:</signature>
 			<description>同步压入一个带策略选项的面板场景。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">path: 面板场景路径。</tag>
 				<tag name="param">layer: 目标层级。</tag>
-				<tag name="param">options: 面板策略，支持 mode、modal、dismiss_on_cancel、focus_on_open、restore_focus_on_close、metadata。</tag>
+				<tag name="param">options: 面板策略，支持 mode、modal、hide_under、dismiss_on_cancel、focus_on_open、restore_focus_on_close、metadata。</tag>
 				<tag name="param">config_callback: 实例化后、入栈前的可选配置回调。</tag>
 				<tag name="return">成功时返回面板实例，失败时返回 `null`。</tag>
-				<tag name="schema">options: Dictionary，支持 mode、modal、dismiss_on_cancel、focus_on_open、restore_focus_on_close 和 metadata。</tag>
+				<tag name="schema">options: Dictionary，支持 mode、modal、hide_under、dismiss_on_cancel、focus_on_open、restore_focus_on_close 和 metadata。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="replace_layer">
-			<signature>func replace_layer(path: String, layer: Layer = Layer.POPUP, config_callback: Callable = Callable()) -&gt; Node:</signature>
+			<signature>func replace_layer(path: String, layer: int = Layer.POPUP, config_callback: Callable = Callable()) -&gt; Node:</signature>
 			<description>同步替换指定层级的面板栈。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -191,98 +256,107 @@
 				<tag name="param">layer: 目标层级。</tag>
 				<tag name="param">config_callback: 实例化后、入栈前的可选配置回调。</tag>
 				<tag name="return">成功时返回面板实例，失败时返回 `null`。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="replace_layer_with_options">
-			<signature>func replace_layer_with_options( path: String, layer: Layer = Layer.POPUP, options: Dictionary = {}, config_callback: Callable = Callable() ) -&gt; Node:</signature>
+			<signature>func replace_layer_with_options( path: String, layer: int = Layer.POPUP, options: Dictionary = {}, config_callback: Callable = Callable() ) -&gt; Node:</signature>
 			<description>同步替换指定层级为带策略选项的面板。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">path: 面板场景路径。</tag>
 				<tag name="param">layer: 目标层级。</tag>
-				<tag name="param">options: 面板策略，支持 mode、modal、dismiss_on_cancel、focus_on_open、restore_focus_on_close、metadata。</tag>
+				<tag name="param">options: 面板策略，支持 mode、modal、hide_under、dismiss_on_cancel、focus_on_open、restore_focus_on_close、metadata。</tag>
 				<tag name="param">config_callback: 实例化后、入栈前的可选配置回调。</tag>
 				<tag name="return">成功时返回面板实例，失败时返回 `null`。</tag>
-				<tag name="schema">options: Dictionary，支持 mode、modal、dismiss_on_cancel、focus_on_open、restore_focus_on_close 和 metadata。</tag>
+				<tag name="schema">options: Dictionary，支持 mode、modal、hide_under、dismiss_on_cancel、focus_on_open、restore_focus_on_close 和 metadata。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="replace_layer_async">
-			<signature>func replace_layer_async(path: String, layer: Layer = Layer.POPUP, config_callback: Callable = Callable()) -&gt; void:</signature>
+			<signature>func replace_layer_async(path: String, layer: int = Layer.POPUP, config_callback: Callable = Callable()) -&gt; void:</signature>
 			<description>异步替换指定层级的面板栈。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">path: 面板场景路径。</tag>
 				<tag name="param">layer: 目标层级。</tag>
 				<tag name="param">config_callback: 实例化后、入栈前的可选配置回调。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="replace_layer_async_with_options">
-			<signature>func replace_layer_async_with_options( path: String, layer: Layer = Layer.POPUP, options: Dictionary = {}, config_callback: Callable = Callable() ) -&gt; void:</signature>
+			<signature>func replace_layer_async_with_options( path: String, layer: int = Layer.POPUP, options: Dictionary = {}, config_callback: Callable = Callable() ) -&gt; void:</signature>
 			<description>异步替换指定层级为带策略选项的面板。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">path: 面板场景路径。</tag>
 				<tag name="param">layer: 目标层级。</tag>
-				<tag name="param">options: 面板策略，支持 mode、modal、dismiss_on_cancel、focus_on_open、restore_focus_on_close、metadata。</tag>
+				<tag name="param">options: 面板策略，支持 mode、modal、hide_under、dismiss_on_cancel、focus_on_open、restore_focus_on_close、metadata。</tag>
 				<tag name="param">config_callback: 实例化后、入栈前的可选配置回调。</tag>
-				<tag name="schema">options: Dictionary，支持 mode、modal、dismiss_on_cancel、focus_on_open、restore_focus_on_close 和 metadata。</tag>
+				<tag name="schema">options: Dictionary，支持 mode、modal、hide_under、dismiss_on_cancel、focus_on_open、restore_focus_on_close 和 metadata。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="push_panel_instance">
-			<signature>func push_panel_instance( panel_instance: Node, layer: Layer = Layer.POPUP, config_callback: Callable = Callable() ) -&gt; void:</signature>
+			<signature>func push_panel_instance( panel_instance: Node, layer: int = Layer.POPUP, config_callback: Callable = Callable() ) -&gt; void:</signature>
 			<description>压入一个已实例化的面板节点。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">panel_instance: 面板实例。</tag>
 				<tag name="param">layer: 目标层级。</tag>
 				<tag name="param">config_callback: 入栈前的可选配置回调。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="push_panel_instance_with_options">
-			<signature>func push_panel_instance_with_options( panel_instance: Node, layer: Layer = Layer.POPUP, options: Dictionary = {}, config_callback: Callable = Callable() ) -&gt; void:</signature>
+			<signature>func push_panel_instance_with_options( panel_instance: Node, layer: int = Layer.POPUP, options: Dictionary = {}, config_callback: Callable = Callable() ) -&gt; void:</signature>
 			<description>压入一个已实例化且带策略选项的面板节点。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">panel_instance: 面板实例。</tag>
 				<tag name="param">layer: 目标层级。</tag>
-				<tag name="param">options: 面板策略，支持 mode、modal、dismiss_on_cancel、focus_on_open、restore_focus_on_close、metadata。</tag>
+				<tag name="param">options: 面板策略，支持 mode、modal、hide_under、dismiss_on_cancel、focus_on_open、restore_focus_on_close、metadata。</tag>
 				<tag name="param">config_callback: 入栈前的可选配置回调。</tag>
-				<tag name="schema">options: Dictionary，支持 mode、modal、dismiss_on_cancel、focus_on_open、restore_focus_on_close 和 metadata。</tag>
+				<tag name="schema">options: Dictionary，支持 mode、modal、hide_under、dismiss_on_cancel、focus_on_open、restore_focus_on_close 和 metadata。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="replace_layer_instance">
-			<signature>func replace_layer_instance( panel_instance: Node, layer: Layer = Layer.POPUP, config_callback: Callable = Callable() ) -&gt; void:</signature>
+			<signature>func replace_layer_instance( panel_instance: Node, layer: int = Layer.POPUP, config_callback: Callable = Callable() ) -&gt; void:</signature>
 			<description>用已实例化面板替换指定层级的面板栈。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">panel_instance: 面板实例。</tag>
 				<tag name="param">layer: 目标层级。</tag>
 				<tag name="param">config_callback: 入栈前的可选配置回调。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="replace_layer_instance_with_options">
-			<signature>func replace_layer_instance_with_options( panel_instance: Node, layer: Layer = Layer.POPUP, options: Dictionary = {}, config_callback: Callable = Callable() ) -&gt; void:</signature>
+			<signature>func replace_layer_instance_with_options( panel_instance: Node, layer: int = Layer.POPUP, options: Dictionary = {}, config_callback: Callable = Callable() ) -&gt; void:</signature>
 			<description>用已实例化且带策略选项的面板替换指定层级的面板栈。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">panel_instance: 面板实例。</tag>
 				<tag name="param">layer: 目标层级。</tag>
-				<tag name="param">options: 面板策略，支持 mode、modal、dismiss_on_cancel、focus_on_open、restore_focus_on_close、metadata。</tag>
+				<tag name="param">options: 面板策略，支持 mode、modal、hide_under、dismiss_on_cancel、focus_on_open、restore_focus_on_close、metadata。</tag>
 				<tag name="param">config_callback: 入栈前的可选配置回调。</tag>
-				<tag name="schema">options: Dictionary，支持 mode、modal、dismiss_on_cancel、focus_on_open、restore_focus_on_close 和 metadata。</tag>
+				<tag name="schema">options: Dictionary，支持 mode、modal、hide_under、dismiss_on_cancel、focus_on_open、restore_focus_on_close 和 metadata。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="pop_panel">
-			<signature>func pop_panel(layer: Layer = Layer.POPUP, do_free: bool = true) -&gt; void:</signature>
+			<signature>func pop_panel(layer: int = Layer.POPUP, do_free: bool = true) -&gt; void:</signature>
 			<description>弹出指定层级的顶部面板。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">layer: 目标层级。</tag>
 				<tag name="param">do_free: 是否在弹出后释放面板。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="pop_to_panel">
-			<signature>func pop_to_panel(panel: Node, layer: Layer = Layer.POPUP, do_free: bool = true) -&gt; bool:</signature>
+			<signature>func pop_to_panel(panel: Node, layer: int = Layer.POPUP, do_free: bool = true) -&gt; bool:</signature>
 			<description>弹出面板直到指定面板成为栈顶。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -290,14 +364,16 @@
 				<tag name="param">layer: 目标层级。</tag>
 				<tag name="param">do_free: 是否释放被弹出的面板。</tag>
 				<tag name="return">找到目标面板并完成回退时返回 true。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="clear_layer">
-			<signature>func clear_layer(layer: Layer) -&gt; void:</signature>
+			<signature>func clear_layer(layer: int) -&gt; void:</signature>
 			<description>清空指定层级的所有面板。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">layer: 目标层级。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="clear_all">
@@ -308,30 +384,33 @@
 			</tags>
 		</member>
 		<member kind="method" name="get_top_panel">
-			<signature>func get_top_panel(layer: Layer = Layer.POPUP) -&gt; Node:</signature>
+			<signature>func get_top_panel(layer: int = Layer.POPUP) -&gt; Node:</signature>
 			<description>获取指定层级的顶部面板。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">layer: 目标层级。</tag>
 				<tag name="return">栈顶面板；为空时返回 `null`。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_panel_stack">
-			<signature>func get_panel_stack(layer: Layer = Layer.POPUP) -&gt; Array[Node]:</signature>
+			<signature>func get_panel_stack(layer: int = Layer.POPUP) -&gt; Array[Node]:</signature>
 			<description>获取指定层级当前面板栈的副本。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">layer: 目标层级。</tag>
 				<tag name="return">从底到顶排列的面板列表。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_stack_count">
-			<signature>func get_stack_count(layer: Layer = Layer.POPUP) -&gt; int:</signature>
+			<signature>func get_stack_count(layer: int = Layer.POPUP) -&gt; int:</signature>
 			<description>获取指定层级当前面板数量。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">layer: 目标层级。</tag>
 				<tag name="return">面板数量。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_panel_open">
@@ -350,16 +429,18 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">包含各层级栈数量和栈顶名称的字典。</tag>
-				<tag name="schema">return: Dictionary，包含 active、auto_hide_under、pending_async_panel_count 和 layers；layers 按 Layer 值索引，每项包含 count、top_panel 和 top_modal。</tag>
+				<tag name="schema">return: Dictionary，包含 active、auto_hide_under、pending_async_panel_count 和 layers；layers 按逻辑层 ID 索引，每项包含 display_name、canvas_layer、auto_hide_under、count、top_panel 和 top_modal。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_layer_root">
-			<signature>func get_layer_root(layer: Layer) -&gt; CanvasLayer:</signature>
+			<signature>func get_layer_root(layer: int) -&gt; CanvasLayer:</signature>
 			<description>获取指定层级的 CanvasLayer。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">layer: 目标层级。</tag>
 				<tag name="return">对应的 `CanvasLayer` 实例。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="set_panel_options">
@@ -368,8 +449,9 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">panel: 面板实例。</tag>
-				<tag name="param">options: 面板策略，支持 mode、modal、dismiss_on_cancel、focus_on_open、restore_focus_on_close、metadata。</tag>
-				<tag name="schema">options: Dictionary，支持 mode、modal、dismiss_on_cancel、focus_on_open、restore_focus_on_close 和 metadata。</tag>
+				<tag name="param">options: 面板策略，支持 mode、modal、hide_under、dismiss_on_cancel、focus_on_open、restore_focus_on_close、metadata。</tag>
+				<tag name="schema">options: Dictionary，支持 mode、modal、hide_under、dismiss_on_cancel、focus_on_open、restore_focus_on_close 和 metadata。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_panel_options">
@@ -379,7 +461,8 @@
 				<tag name="api">public</tag>
 				<tag name="param">panel: 面板实例。</tag>
 				<tag name="return">策略选项副本。</tag>
-				<tag name="schema">return: Dictionary，包含 mode、dismiss_on_cancel、focus_on_open、restore_focus_on_close 和 metadata。</tag>
+				<tag name="schema">return: Dictionary，包含 mode、hide_under、dismiss_on_cancel、focus_on_open、restore_focus_on_close 和 metadata。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_panel_modal">
@@ -440,12 +523,13 @@
 			</tags>
 		</member>
 		<member kind="method" name="keep_focus_inside_top_modal">
-			<signature>func keep_focus_inside_top_modal(layer: Layer = Layer.POPUP) -&gt; bool:</signature>
+			<signature>func keep_focus_inside_top_modal(layer: int = Layer.POPUP) -&gt; bool:</signature>
 			<description>尝试把焦点保持在指定层级栈顶 modal 面板内。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">layer: 目标层级。</tag>
 				<tag name="return">发生焦点修正时返回 true。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</methods>

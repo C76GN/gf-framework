@@ -730,6 +730,24 @@ func test_codegen_outputs_use_save_file_semantics() -> void:
 	)
 
 
+func test_project_installers_use_script_resource_path_array_semantics() -> void:
+	GF_PLUGIN_PROJECT_SETTINGS.ensure_all()
+	var installers_info: Dictionary = _find_project_setting_property_info(
+		GF_PLUGIN_PROJECT_SETTINGS.INSTALLERS_SETTING
+	)
+
+	assert_eq(
+		GF_VARIANT_ACCESS.get_option_int(installers_info, "hint", PROPERTY_HINT_NONE),
+		GF_RESOURCE_PATH_HINT.RESOURCE_PATH_ARRAY,
+		"启动 Installer 应使用 GF 资源路径数组编辑器。"
+	)
+	assert_eq(
+		GF_VARIANT_ACCESS.get_option_string(installers_info, "hint_string"),
+		"Script",
+		"启动 Installer 选择器应只接受 Script 资源。"
+	)
+
+
 func test_resource_path_array_editor_uses_explicit_custom_hint() -> void:
 	assert_true(
 		GF_RESOURCE_PATH_ARRAY_EDITOR_PROPERTY.should_handle_property(TYPE_ARRAY, GF_RESOURCE_PATH_HINT.RESOURCE_PATH_ARRAY, "PackedScene"),

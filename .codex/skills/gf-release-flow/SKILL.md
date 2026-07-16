@@ -14,21 +14,25 @@ Use this skill only when the user has explicitly moved the task into release, co
 - Do not commit, tag, or push unless the user explicitly asks for that action.
 - If a release commit was already pushed and fixes are needed, create a new forward commit. Do not rewrite remote history unless the user explicitly requests it and accepts the risk.
 - Godot Asset Store packages must come from `tools/build_asset_store_package.py`, not GitHub source archives.
+- Treat compatibility and validation risk as separate axes. A high-risk compatible fix can remain a patch but still requires full release checks; frequent releases or a large diff do not justify a major bump.
+- Preserve incremental changelog history. Never relabel the previous release as the target release or delete it while preparing the next release.
 
 ## Flow
 
-1. Determine SemVer from the actual diff: patch for compatible fixes, minor for backward-compatible public API/features, major only for approved breaking changes.
-2. Verify or update release metadata:
+1. Determine SemVer from the consumer contract, including APIs, ProjectSettings, package/extension schemas, persisted data, protocols, platform support, defaults, errors, ordering, and lifecycle behavior: patch for compatible fixes without new public capability, minor for backward-compatible public API/features, major only for approved migration-requiring changes.
+2. Run `python tools/gf_maintenance.py api-baseline-diff --version <version> --enforce-version --json` before finalizing metadata. Patch releases must fail when compatible public classes, members, or signature expansions were added; minor/patch releases must fail on breaking API changes unless the explicit breaking-release procedure applies.
+3. Verify or update release metadata:
    - `addons/gf/plugin.cfg`
    - `ASSET_LIBRARY.md`
    - `ASSET_STORE.md`
    - `docs/zh/changelog.md`
    - all built-in extension `gf_extension.json` `version` fields
-3. Run the checks in [release-checks.md](references/release-checks.md).
-4. Before committing, verify `git diff --check` and `git diff --cached --check` after staging.
-5. Commit with the GF message template from `AI_MAINTENANCE.md`.
-6. If the user requested a tag, create or move the local annotated SemVer tag only after the final release commit is at `HEAD`.
-7. Push branch and tag only when requested. After pushing, verify the remote tag's peeled commit points at the intended commit.
+   Keep the previous stable changelog section after the new target section; the target section contains only the current release increment.
+4. Run the checks in [release-checks.md](references/release-checks.md).
+5. Before committing, verify `git diff --check` and `git diff --cached --check` after staging.
+6. Commit with the GF message template from `AI_MAINTENANCE.md`.
+7. If the user requested a tag, create or move the local annotated SemVer tag only after the final release commit is at `HEAD`.
+8. Push branch and tag only when requested. After pushing, verify the remote tag's peeled commit points at the intended commit.
 
 ## Reporting
 

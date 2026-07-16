@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFUIRoute" path="addons/gf/standard/utilities/ui/gf_ui_route.gd" module="standard" extends="Resource" classDigest="968954cfee1f25d2df17cc3684e6e1c5b65244d81c49017b27817b53eeb932bc">
+<class name="GFUIRoute" path="addons/gf/standard/utilities/ui/gf_ui_route.gd" module="standard" extends="Resource" classDigest="ce33e019e05918897b4dc166fd57ce3f6cff008489185cdcdbbcdc419a0d3104">
 	<description>GFUIRoute: UI 路由资源描述。
 只描述路由标识、面板场景、目标层级和默认打开选项，不规定页面业务、
 动画实现或面板通信方式。</description>
@@ -28,9 +28,10 @@
 		</member>
 		<member kind="property" name="layer" decorators="@export">
 			<signature>var layer: int = GFUIUtility.Layer.POPUP</signature>
-			<description>目标 UI 层级。默认使用 GFUIUtility.POPUP。</description>
+			<description>目标 UI 逻辑层 ID。默认使用 GFUIUtility.POPUP；自定义 ID 必须先注册到 GFUIUtility。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="default_options" decorators="@export">
@@ -38,7 +39,8 @@
 			<description>默认面板选项，会传给 GFUIUtility。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="schema">default_options: Dictionary，字段同 GFUIUtility 打开面板 options，例如 metadata、config_callback、modal、dismiss_on_cancel。</tag>
+				<tag name="schema">default_options: Dictionary，字段同 GFUIUtility 打开面板 options，例如 metadata、modal、hide_under、dismiss_on_cancel。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="metadata" decorators="@export">

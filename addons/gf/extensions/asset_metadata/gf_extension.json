@@ -1,7 +1,7 @@
 {
   "id": "gf.asset_metadata",
   "display_name": "GF Asset Metadata",
-  "version": "8.0.1",
+  "version": "8.1.0",
   "extension_version": "2.0.0",
   "kind": "extension",
   "description": "Generic imported asset metadata records, attribution reports, node-tree collection, and glTF extras bridging.",

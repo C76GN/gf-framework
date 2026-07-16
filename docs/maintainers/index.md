@@ -203,16 +203,26 @@ MCP 暴露的主要工具：
 - `gf_api_search`：按类名、成员名、路径或注释搜索 GF API，避免一次性读取大量源码。
 - `gf_api_class`：返回单个 `class_name` 的路径、摘要、Reference 页面和公开成员。
 - `gf_api_module`：返回单个模块的类清单、路径和成员计数，适合先理解模块边界再打开具体源码。
-- `gf_run_checks`：运行 `api`、`docs`、`quick`、`package`、`full` 或 `release` 检查套件。
+- `gf_run_checks`：运行 `api`、`docs`、`quick`、`package`、`framework`、四个 package shard、`package-ci`、`package-release`、`full` 或 `release` 检查套件。
 - `gf_release_status`：校验 `plugin.cfg`、扩展 manifest、`ASSET_LIBRARY.md`、`ASSET_STORE.md`、changelog、发布包归档规则和本地 tag 状态。
 
 接入 MCP 客户端时，将 server 命令指向仓库根目录下的 `python tools/gf_mcp_server.py` 即可。不要把个人客户端配置、会话记录或 MCP 运行日志提交到仓库；需要新增维护能力时，优先扩展 `tools/gf_maintenance.py`，再让 MCP server 调用同一套函数。
+
+维护套件会为每项检查记录耗时、预算和执行方式。纯静态检查在单次 suite 内共享只读工作区快照；Godot、构建器和其他外部检查在独立进程组中运行，超时会清理完整后代进程树。Windows Steam 安装会自动从可能提前返回的 `godot.exe` launcher 切换到同目录真实 tools 可执行文件；其他特殊安装可通过 `GF_GODOT_EXECUTABLE` 显式覆盖。`--timeout` 用于提高最小单项预算，不会压低长检查的专项预算；总墙钟 deadline 使用 `--suite-timeout`。本地 `package-ci` / `package-release` 保留完整聚合入口；CI 将其拆为并行的 `package-contract`、`package-editor`、`package-cli` 和 package Godot shard，并与 `framework` 一起保持 `full` / `release` 集合等价。
 
 准备补指南、测试或示例项目覆盖时，先运行 `python tools\generate_api_coverage_matrix.py`。生成结果位于 `ai_analysis/api_coverage/`，用于查看公开类和成员在非 Reference 正文、`tests/gf_core` 和未来 example 根目录中的命中情况；它是维护排查清单，不作为正式用户文档提交。
 
 ## 发布流程
 
 GF 正式版本 tag 统一使用不带 `v` 的 SemVer 格式，例如 `3.5.0`。不要使用 `v3.5.0`，避免编辑器版本检测、发布自动化和 Asset Library 元数据出现两套版本名。
+
+版本号表达消费者兼容性，不表达开发频率、diff 大小或内部风险：
+
+- `patch`：不需要消费者采用新公开能力的向后兼容修复或内部加固。
+- `minor`：新增公开类、成员、可选参数、ProjectSettings 项或其他向后兼容的消费者能力。
+- `major`：删除、重命名、不兼容签名或默认行为变化，以及 API、设置、包、扩展、存档、协议或平台支持契约中要求正常消费者迁移的变化。
+
+高风险 patch 仍必须运行完整发布检查；风险高不自动意味着 major。`main` 可以频繁合并修复和新能力，但稳定 tag 应对应可安装、可说明、范围内聚的消费者增量。普通修复可批量进入下一 patch，兼容新能力可按 minor 发布列车收敛，紧急回归可从最新稳定 tag 建 hotfix 并向前合并。
 
 准备发布时，应先把 `[未发布]` 合并为对应版本条目，并同步更新这些位置：
 
@@ -222,7 +232,9 @@ GF 正式版本 tag 统一使用不带 `v` 的 SemVer 格式，例如 `3.5.0`。
 - 所有 `addons/gf/extensions/*/gf_extension.json` 的 `version`。
 - `docs/zh/changelog.md` 中对应 `## [x.y.z] - YYYY-MM-DD` 段落。
 
-推送 `x.y.z` tag 后，GitHub Actions 的 `Release` 工作流会从该 tag 对应源码中提取 changelog 版本段，校验上述版本号一致，并检查 Asset Store 标签与 AI 披露字段，构建文档，然后创建 GitHub Release。Release 的源码 zip/tar.gz 由 GitHub 自动提供；GF 当前不额外上传插件包，除非后续发布策略明确需要独立附件。
+新版本 changelog 只记录相对上一稳定版本的增量，并保留上一稳定版本段。不得重命名旧版本标题或把旧版本累计内容当成新版本说明。`release-status` 会校验目标版本位于首个正式段、上一稳定版本仍存在、日期有效，且所有正式版本按 SemVer 严格倒序。
+
+推送 `x.y.z` tag 后，GitHub Actions 的 `Release` 工作流会从该 tag 对应源码中提取目标 changelog 段，校验上述版本号一致，检查 Asset Store 标签与 AI 披露字段，构建文档，然后创建 GitHub Release。除 GitHub 自动提供的源码归档外，工作流还必须上传由维护工具生成的 Asset Store 专用 ZIP、版本化 package registry、registry source manifest、离线 bundle 和全部非 preset package ZIP。Asset Store 专用 ZIP 根目录必须直接是 `addons/`，不得以 GitHub source archive 代替。
 
 ## 文档维护
 

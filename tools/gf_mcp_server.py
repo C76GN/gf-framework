@@ -156,8 +156,17 @@ def list_tools() -> list[dict[str, Any]]:
 					"timeout_seconds": {
 						"type": "integer",
 						"minimum": 30,
-						"maximum": 1800,
-						"description": "Optional exact timeout override; omitted values use each check's maintained policy.",
+						"maximum": 7200,
+						"description": "Optional minimum per-check budget; dedicated longer check policies still win.",
+					},
+					"suite_timeout_seconds": {
+						"type": "integer",
+						"minimum": 30,
+						"maximum": 14400,
+						"description": (
+							"Optional overall suite budget; remaining time constrains external checks, "
+							"and in-process overruns are reported when they return."
+						),
 					},
 					"fail_fast": {"type": "boolean", "default": False},
 					"allow_breaking_api": {
@@ -219,10 +228,16 @@ def call_tool(request_id: Any, params: dict[str, Any]) -> dict[str, Any]:
 		elif name == "gf_run_checks":
 			checks = arguments.get("checks")
 			timeout_seconds = arguments.get("timeout_seconds")
+			suite_timeout_seconds = arguments.get("suite_timeout_seconds")
 			data = gf_maintenance.run_checks_with_log_hygiene(
 				suite=str(arguments.get("suite", "quick")),
 				checks=checks if isinstance(checks, list) else None,
 				timeout_seconds=int(timeout_seconds) if timeout_seconds != None else None,
+				suite_timeout_seconds=(
+					int(suite_timeout_seconds)
+					if suite_timeout_seconds != None
+					else None
+				),
 				fail_fast=bool(arguments.get("fail_fast", False)),
 				allow_breaking_api=bool(arguments.get("allow_breaking_api", False)),
 			)

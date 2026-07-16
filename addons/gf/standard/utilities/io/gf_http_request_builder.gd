@@ -44,6 +44,24 @@ enum ParseMode {
 	JSON,
 }
 
+
+# --- 常量 ---
+
+## 响应体预算默认交给执行传输决定。一次性 HTTPRequest 因此保留 Godot 的无限制默认值。
+## [br]
+## @api public
+## [br]
+## @since 8.1.0
+const DEFAULT_MAX_RESPONSE_BYTES: int = 0
+
+## 显式关闭响应体大小限制时使用的值。
+## [br]
+## @api public
+## [br]
+## @since 8.1.0
+const UNLIMITED_MAX_RESPONSE_BYTES: int = -1
+
+
 # --- 公共变量 ---
 
 ## 请求 URL。
@@ -65,6 +83,15 @@ var parse_mode: ParseMode = ParseMode.TEXT
 ## [br]
 ## @api public
 var timeout_seconds: float = 20.0
+
+## 单个响应体允许进入内存的最大字节数。0 表示继承执行传输默认值，-1 表示无限制。
+## [br]
+## @api public
+## [br]
+## @since 8.1.0
+var max_response_bytes: int = DEFAULT_MAX_RESPONSE_BYTES:
+	set(value):
+		max_response_bytes = maxi(UNLIMITED_MAX_RESPONSE_BYTES, value)
 
 ## 调用方附加元数据，会复制到 GFHttpResponse。
 ## [br]
@@ -128,6 +155,20 @@ func set_parse_mode(next_parse_mode: ParseMode) -> GFHttpRequestBuilder:
 ## @return 当前构建器。
 func set_timeout(seconds: float) -> GFHttpRequestBuilder:
 	timeout_seconds = maxf(0.0, seconds)
+	return self
+
+
+## 设置单个响应体允许进入内存的最大字节数。
+## [br]
+## @api public
+## [br]
+## @since 8.1.0
+## [br]
+## @param bytes: 最大响应字节数；0 继承执行传输默认值，-1 关闭限制，正数设置明确上限。
+## [br]
+## @return 当前构建器。
+func set_max_response_bytes(bytes: int) -> GFHttpRequestBuilder:
+	max_response_bytes = bytes
 	return self
 
 
@@ -249,9 +290,11 @@ func build_headers() -> PackedStringArray:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @return 请求快照。
 ## [br]
-## @schema return: Dictionary，包含 url、method、method_name、headers、body、timeout_seconds、parse_mode、parse_mode_name 和 metadata。
+## @schema return: Dictionary，包含 url、method、method_name、headers、body、timeout_seconds、max_response_bytes、parse_mode、parse_mode_name 和 metadata。
 func build_request() -> Dictionary:
 	return {
 		"url": build_url(),
@@ -260,10 +303,32 @@ func build_request() -> Dictionary:
 		"headers": build_headers(),
 		"body": _body_text,
 		"timeout_seconds": timeout_seconds,
+		"max_response_bytes": max_response_bytes,
 		"parse_mode": parse_mode,
 		"parse_mode_name": ParseMode.keys()[parse_mode],
 		"metadata": metadata.duplicate(true),
 	}
+
+
+## 创建不共享可变请求状态的构建器副本。
+## [br]
+## @api public
+## [br]
+## @since 8.1.0
+## [br]
+## @return 当前请求配置的独立副本。
+func duplicate_builder() -> GFHttpRequestBuilder:
+	var result: GFHttpRequestBuilder = GFHttpRequestBuilder.new()
+	result.url = url
+	result.method = method
+	result.parse_mode = parse_mode
+	result.timeout_seconds = timeout_seconds
+	result.max_response_bytes = max_response_bytes
+	result.metadata = metadata.duplicate(true)
+	result._headers = _headers.duplicate(true)
+	result._query_parameters = _query_parameters.duplicate(true)
+	result._body_text = _body_text
+	return result
 
 
 ## 使用 HTTPRequest 执行请求。
@@ -285,6 +350,8 @@ func execute(parent: Node = null) -> GFHttpResponse:
 
 	var request_node: HTTPRequest = HTTPRequest.new()
 	request_node.timeout = timeout_seconds
+	if max_response_bytes != DEFAULT_MAX_RESPONSE_BYTES:
+		request_node.body_size_limit = max_response_bytes
 	host.add_child(request_node)
 	response.cancel_callback = func() -> void:
 		if is_instance_valid(request_node):
@@ -387,6 +454,9 @@ func _complete_response(
 		"data": GFVariantData.get_option_value(parsed, "data"),
 		"metadata": response.metadata,
 	}
+	if result_code == HTTPRequest.RESULT_BODY_SIZE_LIMIT_EXCEEDED:
+		response.complete_failure("response_body_too_large", fields)
+		return
 	if result_code != HTTPRequest.RESULT_SUCCESS:
 		response.complete_failure("request_failed", fields)
 		return

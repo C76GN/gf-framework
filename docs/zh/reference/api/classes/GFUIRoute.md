@@ -55,18 +55,20 @@ var scene_path: String = ""
 ### `layer`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var layer: int = GFUIUtility.Layer.POPUP
 ```
 
-目标 UI 层级。默认使用 GFUIUtility.POPUP。
+目标 UI 逻辑层 ID。默认使用 GFUIUtility.POPUP；自定义 ID 必须先注册到 GFUIUtility。
 
 <a id="member-gfuiroute-properties-default_options"></a>
 
 ### `default_options`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var default_options: Dictionary = {}
@@ -76,7 +78,7 @@ var default_options: Dictionary = {}
 
 结构：
 
-- `default_options`: Dictionary，字段同 GFUIUtility 打开面板 options，例如 metadata、config_callback、modal、dismiss_on_cancel。
+- `default_options`: Dictionary，字段同 GFUIUtility 打开面板 options，例如 metadata、modal、hide_under、dismiss_on_cancel。
 
 <a id="member-gfuiroute-properties-metadata"></a>
 

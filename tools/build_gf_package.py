@@ -5,7 +5,6 @@ from __future__ import annotations
 
 import argparse
 import configparser
-import fnmatch
 import hashlib
 import json
 import os
@@ -17,6 +16,8 @@ from pathlib import Path
 from typing import Any
 
 import gf_package_transaction
+from gf_package_paths import normalize_manifest_path as normalize_shared_manifest_path
+from gf_package_paths import path_matches_any_manifest_path as shared_path_matches_any_manifest_path
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -1117,12 +1118,7 @@ def sha256_file(path: Path) -> str:
 
 
 def normalize_manifest_path(path: str) -> str:
-	normalized_path = path.strip().replace("\\", "/")
-	if normalized_path.startswith("res://"):
-		normalized_path = normalized_path.removeprefix("res://")
-	if normalized_path.startswith("./"):
-		normalized_path = normalized_path[2:]
-	return normalized_path.strip("/")
+	return normalize_shared_manifest_path(path)
 
 
 def is_windows_portable_relative_path(path: str) -> bool:
@@ -1142,13 +1138,7 @@ def portable_path_identity(path: str) -> str:
 
 
 def path_matches_any_manifest_path(path: str, patterns: list[str]) -> bool:
-	for raw_pattern in patterns:
-		pattern = normalize_manifest_path(raw_pattern)
-		if pattern and fnmatch.fnmatch(path, pattern):
-			return True
-		if pattern.endswith("/**") and (path == pattern[:-3].rstrip("/") or path.startswith(pattern[:-3].rstrip("/") + "/")):
-			return True
-	return False
+	return shared_path_matches_any_manifest_path(path, patterns)
 
 
 def is_blocked_path(path: Path) -> bool:

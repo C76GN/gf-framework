@@ -87,6 +87,35 @@ func test_push_route_records_history_and_options_metadata() -> void:
 	assert_eq(GFVariantData.get_option_string(metadata, "section"), "options", "路由元数据应被透传。")
 
 
+func test_route_supports_registered_custom_layer_id() -> void:
+	var definition: GFUILayerDefinition = GFUILayerDefinition.new()
+	definition.layer_id = 100
+	definition.display_name = &"RIGHT_PANE"
+	definition.canvas_layer = 60
+	definition.auto_hide_under = false
+	assert_true(_ui_utility.register_layer(definition), "测试自定义层应注册成功。")
+	var route: GFUIRoute = _make_route(&"inventory", 100)
+
+	assert_true(_router.register_route(route), "非负自定义层 ID 的路由应可注册。")
+	var panel: Node = _router.push_route(&"inventory")
+
+	assert_not_null(panel, "自定义层路由应可打开。")
+	assert_eq(panel.get_parent(), _ui_utility.get_layer_root(100), "路由面板应进入自定义逻辑层。")
+	assert_eq(_router.get_current_route_id(100), &"inventory", "自定义层应维护独立路由历史。")
+
+
+func test_route_rejects_unregistered_custom_layer_with_stable_reason() -> void:
+	var route: GFUIRoute = _make_route(&"inventory", 101)
+	assert_true(_router.register_route(route), "非负逻辑层 ID 的路由资源本身应有效。")
+	watch_signals(_router)
+
+	var panel: Node = _router.push_route(&"inventory")
+
+	assert_null(panel, "未注册逻辑层不应退化为泛化面板打开失败。")
+	assert_signal_emitted_with_parameters(_router, "route_open_failed", [&"inventory", "missing_ui_layer"])
+	assert_push_warning("[GFUIRouterUtility] 路由打开失败：inventory (missing_ui_layer)")
+
+
 func test_route_build_options_deep_merges_metadata_and_copies_params() -> void:
 	var route: GFUIRoute = _make_route(&"profile", GFUIUtility.Layer.POPUP)
 	route.default_options = {

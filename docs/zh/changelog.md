@@ -16,9 +16,40 @@
 
 ## 维护策略
 
-正式文档中的更新日志只保留当前最新发布版本。发布新版本时，应将 `[未发布]` 合并为具体版本条目，并删除上一个正式版本条目；旧版本历史以 Git 历史和 GitHub Releases 为准，避免正式文档长期膨胀。
+每个正式版本只记录相对上一个稳定版本的增量。发布时将本轮 `[未发布]` 转为新版本段，并保留已有正式版本段；禁止通过重命名旧标题把累计变更伪装成新版本说明。正式版本必须唯一、带有效日期，并按 SemVer 严格倒序排列。历史过长时可按 major 归档，但当前文件至少保留目标版本和上一稳定版本；GitHub Release 只提取目标版本自身的段落。
 
 ---
+
+## [8.1.0] - 2026-07-17
+
+### 🚀 新增特性 (Added)
+
+- `GFUIUtility` 新增 `GFUILayerDefinition`、运行时逻辑层注册、按显示深度诊断与层级默认遮挡策略；HUD、POPUP、TOP 现在只是默认层。面板 options 新增 `hide_under`，同层可组合常驻 UI、非全屏通知和覆盖式 Modal，并在栈变化后重算完整可见性链。
+- 标准 Assets 新增 `GFHttpClientUtility`，提供有界并发、等待队列、`HTTPRequest` worker 复用、请求快照、活动/排队取消、父节点退出终态和池诊断快照；客户端池对继承传输预算的请求默认采用 16 MiB 单响应上限。
+
+### 🔄 机制更改 (Changed)
+
+- `GFUIUtility` 的公开 layer 参数与 `GFUIRoute.layer` 统一使用非负 `int` 逻辑层 ID；旧 `GFUIUtility.Layer` 常量仍可作为默认 ID 使用，逻辑 ID 不再与 `CanvasLayer.layer` 绘制值耦合。
+- `gf/project/installers` 编辑器改用 Script 资源路径数组；运行时接受 `res://` 或可解析 `uid://` 并规范化到真实脚本。空项、失效 UID 和错误元素类型不再静默退化为空 Installer 列表。
+- 维护套件将纯静态审计收敛为单进程执行并共享单次调用范围内的只读工作区快照，依赖和 package 所有权扫描改用索引；检查结果新增耗时、预算和执行方式，外部超时会清理完整后代进程树，并会绕过 Windows Steam 中可能提前返回的 Godot launcher。`--timeout` 只提高单项最小预算，整套预算改由 `--suite-timeout` 独立表达；CI 与发布门禁按集合等价的 framework、package contract、editor、CLI 和 Godot matrix shard 并行执行。
+
+### 🐛 Bug 修复 (Fixed)
+
+- 修复项目 Installer 配置含空项或错误类型时仅跳过条目，导致项目 Utility 未注册而后续以 `Nil` 调用失败的问题；初始化现在保留明确 `last_initialization_error`。
+- `GFUIRouterUtility` 在 route 指向未注册逻辑层时返回稳定 `missing_ui_layer`；`GFHttpClientUtility` 在显式请求父节点退出树时以 `request_worker_lost` 终结活动响应，避免永久 pending。
+- `GFUIUtility.init()` 与 `GFHttpClientUtility.init()` 重复调用不再清空活动状态或遗留旧 worker/CanvasLayer。
+
+### 🔧 API 变动说明 (API Changes)
+
+- 新增公开类型 `GFUILayerDefinition` 与 `GFHttpClientUtility`。
+- `GFUIUtility` 原先声明为 `Layer` 的方法参数改为 `int`，允许项目自定义逻辑层；新增稳定 `DEFAULT_LAYER_ID`，调用既有枚举常量的代码不需要修改。
+- `GFHttpRequestBuilder` 新增 `max_response_bytes` 与 `set_max_response_bytes()`；0 表示继承执行传输预算，-1 表示显式无限制，正数表示明确上限。既有一次性 `execute()` 保留 Godot 的无限制默认行为，新客户端池在继承模式下使用 16 MiB 安全默认值。
+
+### 📘 升级指南 (Migration Guide)
+
+- 在项目 Installer 中显式注册 `GFUIUtility`、`GFUIRouterUtility` 和按需使用的 `GFHttpClientUtility`；调用方必须检查 `await Gf.init()`，再用 `Gf.get_utility(Type, true)` 查询 ready 实例。
+- 需要左右独立窗口时注册不同逻辑层；只是不希望小通知遮住常驻 UI 时，在上方面板设置 `hide_under = false`，不要全局关闭所有遮挡。
+- 通过客户端池请求且合法响应可能超过 16 MiB 时，应在对应 builder 上显式调用 `set_max_response_bytes(required_bytes)`；只有经过风险评估后才使用 `UNLIMITED_MAX_RESPONSE_BYTES`，未知大小的大文件应改用流式下载边界。
 
 ## [8.0.1] - 2026-07-16
 

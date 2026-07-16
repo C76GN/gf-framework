@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFUILayerDefinition" path="addons/gf/standard/utilities/ui/gf_ui_layer_definition.gd" module="standard" extends="Resource" classDigest="d9cd99ddba30b7209abe9e6aa41db691a22828c23f3f3106312f97d5a65e1d73">
+	<description>GFUILayerDefinition: UI 逻辑层定义。
+将稳定逻辑层 ID、Godot CanvasLayer 排序值和默认遮挡策略解耦，
+供项目按窗口区域、导航域或显示优先级扩展 GFUIUtility。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">resource_definition</tag>
+		<tag name="since">8.1.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties>
+		<member kind="property" name="layer_id" decorators="@export">
+			<signature>var layer_id: int = -1</signature>
+			<description>稳定逻辑层 ID。必须为非负整数。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.1.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="display_name" decorators="@export">
+			<signature>var display_name: StringName = &amp;""</signature>
+			<description>用于诊断和 CanvasLayer 节点命名的稳定名称。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.1.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="canvas_layer" decorators="@export">
+			<signature>var canvas_layer: int = 0</signature>
+			<description>对应 Godot CanvasLayer.layer 的显示排序值。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.1.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="auto_hide_under" decorators="@export">
+			<signature>var auto_hide_under: bool = true</signature>
+			<description>新面板未显式指定 hide_under 时，是否隐藏同一逻辑层中的下方页面。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.1.0</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="configure">
+			<signature>func configure( next_layer_id: int, next_display_name: StringName, next_canvas_layer: int, next_auto_hide_under: bool = true ) -&gt; GFUILayerDefinition:</signature>
+			<description>配置层定义。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">next_layer_id: 稳定逻辑层 ID。</tag>
+				<tag name="param">next_display_name: 稳定显示名。</tag>
+				<tag name="param">next_canvas_layer: Godot CanvasLayer 排序值。</tag>
+				<tag name="param">next_auto_hide_under: 默认是否隐藏同栈下方页面。</tag>
+				<tag name="return">当前层定义。</tag>
+				<tag name="since">8.1.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_valid">
+			<signature>func is_valid() -&gt; bool:</signature>
+			<description>检查层定义是否可注册。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">逻辑层 ID 非负且显示名非空时返回 true。</tag>
+				<tag name="since">8.1.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="duplicate_definition">
+			<signature>func duplicate_definition() -&gt; GFUILayerDefinition:</signature>
+			<description>创建不共享可变状态的定义副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">当前层定义的独立副本。</tag>
+				<tag name="since">8.1.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

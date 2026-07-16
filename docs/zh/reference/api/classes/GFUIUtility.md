@@ -9,7 +9,7 @@
 - 类别：运行时服务 (`runtime_service`)
 - 首次版本：`3.17.0`
 
-栈式 UI 管理器。 负责多层级界面的入栈、出栈与异步加载， 适合 HUD、弹窗和顶层遮罩等需要分层管理的 UI 场景。
+栈式 UI 管理器。 负责可扩展逻辑层中的入栈、出栈、可见性策略与异步加载， 适合 HUD、并行窗口、弹窗和顶层遮罩等需要分层管理的 UI 场景。
 
 ## 成员概览
 
@@ -24,31 +24,37 @@
 | 枚举 | [`Layer`](#member-gfuiutility-enums-layer) | `enum Layer` |
 | 枚举 | [`PanelMode`](#member-gfuiutility-enums-panelmode) | `enum PanelMode` |
 | 枚举 | [`AsyncPanelLoadStatus`](#member-gfuiutility-enums-asyncpanelloadstatus) | `enum AsyncPanelLoadStatus` |
+| 常量 | [`DEFAULT_LAYER_ID`](#member-gfuiutility-constants-default_layer_id) | `const DEFAULT_LAYER_ID: int = 1` |
 | 方法 | [`init`](#member-gfuiutility-methods-init) | `func init() -> void:` |
 | 方法 | [`dispose`](#member-gfuiutility-methods-dispose) | `func dispose() -> void:` |
 | 方法 | [`configure`](#member-gfuiutility-methods-configure) | `func configure(auto_hide_under: bool = true) -> void:` |
-| 方法 | [`push_panel_async`](#member-gfuiutility-methods-push_panel_async) | `func push_panel_async(path: String, layer: Layer = Layer.POPUP, config_callback: Callable = Callable()) -> void:` |
-| 方法 | [`push_panel_async_with_options`](#member-gfuiutility-methods-push_panel_async_with_options) | `func push_panel_async_with_options( path: String, layer: Layer = Layer.POPUP, options: Dictionary = {}, config_callback: Callable = Callable() ) -> void:` |
-| 方法 | [`push_panel`](#member-gfuiutility-methods-push_panel) | `func push_panel(path: String, layer: Layer = Layer.POPUP, config_callback: Callable = Callable()) -> Node:` |
-| 方法 | [`push_panel_with_options`](#member-gfuiutility-methods-push_panel_with_options) | `func push_panel_with_options( path: String, layer: Layer = Layer.POPUP, options: Dictionary = {}, config_callback: Callable = Callable() ) -> Node:` |
-| 方法 | [`replace_layer`](#member-gfuiutility-methods-replace_layer) | `func replace_layer(path: String, layer: Layer = Layer.POPUP, config_callback: Callable = Callable()) -> Node:` |
-| 方法 | [`replace_layer_with_options`](#member-gfuiutility-methods-replace_layer_with_options) | `func replace_layer_with_options( path: String, layer: Layer = Layer.POPUP, options: Dictionary = {}, config_callback: Callable = Callable() ) -> Node:` |
-| 方法 | [`replace_layer_async`](#member-gfuiutility-methods-replace_layer_async) | `func replace_layer_async(path: String, layer: Layer = Layer.POPUP, config_callback: Callable = Callable()) -> void:` |
-| 方法 | [`replace_layer_async_with_options`](#member-gfuiutility-methods-replace_layer_async_with_options) | `func replace_layer_async_with_options( path: String, layer: Layer = Layer.POPUP, options: Dictionary = {}, config_callback: Callable = Callable() ) -> void:` |
-| 方法 | [`push_panel_instance`](#member-gfuiutility-methods-push_panel_instance) | `func push_panel_instance( panel_instance: Node, layer: Layer = Layer.POPUP, config_callback: Callable = Callable() ) -> void:` |
-| 方法 | [`push_panel_instance_with_options`](#member-gfuiutility-methods-push_panel_instance_with_options) | `func push_panel_instance_with_options( panel_instance: Node, layer: Layer = Layer.POPUP, options: Dictionary = {}, config_callback: Callable = Callable() ) -> void:` |
-| 方法 | [`replace_layer_instance`](#member-gfuiutility-methods-replace_layer_instance) | `func replace_layer_instance( panel_instance: Node, layer: Layer = Layer.POPUP, config_callback: Callable = Callable() ) -> void:` |
-| 方法 | [`replace_layer_instance_with_options`](#member-gfuiutility-methods-replace_layer_instance_with_options) | `func replace_layer_instance_with_options( panel_instance: Node, layer: Layer = Layer.POPUP, options: Dictionary = {}, config_callback: Callable = Callable() ) -> void:` |
-| 方法 | [`pop_panel`](#member-gfuiutility-methods-pop_panel) | `func pop_panel(layer: Layer = Layer.POPUP, do_free: bool = true) -> void:` |
-| 方法 | [`pop_to_panel`](#member-gfuiutility-methods-pop_to_panel) | `func pop_to_panel(panel: Node, layer: Layer = Layer.POPUP, do_free: bool = true) -> bool:` |
-| 方法 | [`clear_layer`](#member-gfuiutility-methods-clear_layer) | `func clear_layer(layer: Layer) -> void:` |
+| 方法 | [`register_layer`](#member-gfuiutility-methods-register_layer) | `func register_layer(definition: GFUILayerDefinition, replace_existing: bool = false) -> bool:` |
+| 方法 | [`has_layer`](#member-gfuiutility-methods-has_layer) | `func has_layer(layer: int) -> bool:` |
+| 方法 | [`get_layer_definition`](#member-gfuiutility-methods-get_layer_definition) | `func get_layer_definition(layer: int) -> GFUILayerDefinition:` |
+| 方法 | [`get_layer_ids`](#member-gfuiutility-methods-get_layer_ids) | `func get_layer_ids() -> Array[int]:` |
+| 方法 | [`set_layer_auto_hide_under`](#member-gfuiutility-methods-set_layer_auto_hide_under) | `func set_layer_auto_hide_under(layer: int, auto_hide_under: bool) -> bool:` |
+| 方法 | [`push_panel_async`](#member-gfuiutility-methods-push_panel_async) | `func push_panel_async(path: String, layer: int = Layer.POPUP, config_callback: Callable = Callable()) -> void:` |
+| 方法 | [`push_panel_async_with_options`](#member-gfuiutility-methods-push_panel_async_with_options) | `func push_panel_async_with_options( path: String, layer: int = Layer.POPUP, options: Dictionary = {}, config_callback: Callable = Callable() ) -> void:` |
+| 方法 | [`push_panel`](#member-gfuiutility-methods-push_panel) | `func push_panel(path: String, layer: int = Layer.POPUP, config_callback: Callable = Callable()) -> Node:` |
+| 方法 | [`push_panel_with_options`](#member-gfuiutility-methods-push_panel_with_options) | `func push_panel_with_options( path: String, layer: int = Layer.POPUP, options: Dictionary = {}, config_callback: Callable = Callable() ) -> Node:` |
+| 方法 | [`replace_layer`](#member-gfuiutility-methods-replace_layer) | `func replace_layer(path: String, layer: int = Layer.POPUP, config_callback: Callable = Callable()) -> Node:` |
+| 方法 | [`replace_layer_with_options`](#member-gfuiutility-methods-replace_layer_with_options) | `func replace_layer_with_options( path: String, layer: int = Layer.POPUP, options: Dictionary = {}, config_callback: Callable = Callable() ) -> Node:` |
+| 方法 | [`replace_layer_async`](#member-gfuiutility-methods-replace_layer_async) | `func replace_layer_async(path: String, layer: int = Layer.POPUP, config_callback: Callable = Callable()) -> void:` |
+| 方法 | [`replace_layer_async_with_options`](#member-gfuiutility-methods-replace_layer_async_with_options) | `func replace_layer_async_with_options( path: String, layer: int = Layer.POPUP, options: Dictionary = {}, config_callback: Callable = Callable() ) -> void:` |
+| 方法 | [`push_panel_instance`](#member-gfuiutility-methods-push_panel_instance) | `func push_panel_instance( panel_instance: Node, layer: int = Layer.POPUP, config_callback: Callable = Callable() ) -> void:` |
+| 方法 | [`push_panel_instance_with_options`](#member-gfuiutility-methods-push_panel_instance_with_options) | `func push_panel_instance_with_options( panel_instance: Node, layer: int = Layer.POPUP, options: Dictionary = {}, config_callback: Callable = Callable() ) -> void:` |
+| 方法 | [`replace_layer_instance`](#member-gfuiutility-methods-replace_layer_instance) | `func replace_layer_instance( panel_instance: Node, layer: int = Layer.POPUP, config_callback: Callable = Callable() ) -> void:` |
+| 方法 | [`replace_layer_instance_with_options`](#member-gfuiutility-methods-replace_layer_instance_with_options) | `func replace_layer_instance_with_options( panel_instance: Node, layer: int = Layer.POPUP, options: Dictionary = {}, config_callback: Callable = Callable() ) -> void:` |
+| 方法 | [`pop_panel`](#member-gfuiutility-methods-pop_panel) | `func pop_panel(layer: int = Layer.POPUP, do_free: bool = true) -> void:` |
+| 方法 | [`pop_to_panel`](#member-gfuiutility-methods-pop_to_panel) | `func pop_to_panel(panel: Node, layer: int = Layer.POPUP, do_free: bool = true) -> bool:` |
+| 方法 | [`clear_layer`](#member-gfuiutility-methods-clear_layer) | `func clear_layer(layer: int) -> void:` |
 | 方法 | [`clear_all`](#member-gfuiutility-methods-clear_all) | `func clear_all() -> void:` |
-| 方法 | [`get_top_panel`](#member-gfuiutility-methods-get_top_panel) | `func get_top_panel(layer: Layer = Layer.POPUP) -> Node:` |
-| 方法 | [`get_panel_stack`](#member-gfuiutility-methods-get_panel_stack) | `func get_panel_stack(layer: Layer = Layer.POPUP) -> Array[Node]:` |
-| 方法 | [`get_stack_count`](#member-gfuiutility-methods-get_stack_count) | `func get_stack_count(layer: Layer = Layer.POPUP) -> int:` |
+| 方法 | [`get_top_panel`](#member-gfuiutility-methods-get_top_panel) | `func get_top_panel(layer: int = Layer.POPUP) -> Node:` |
+| 方法 | [`get_panel_stack`](#member-gfuiutility-methods-get_panel_stack) | `func get_panel_stack(layer: int = Layer.POPUP) -> Array[Node]:` |
+| 方法 | [`get_stack_count`](#member-gfuiutility-methods-get_stack_count) | `func get_stack_count(layer: int = Layer.POPUP) -> int:` |
 | 方法 | [`is_panel_open`](#member-gfuiutility-methods-is_panel_open) | `func is_panel_open(panel: Node, layer: int = -1) -> bool:` |
 | 方法 | [`get_debug_snapshot`](#member-gfuiutility-methods-get_debug_snapshot) | `func get_debug_snapshot() -> Dictionary:` |
-| 方法 | [`get_layer_root`](#member-gfuiutility-methods-get_layer_root) | `func get_layer_root(layer: Layer) -> CanvasLayer:` |
+| 方法 | [`get_layer_root`](#member-gfuiutility-methods-get_layer_root) | `func get_layer_root(layer: int) -> CanvasLayer:` |
 | 方法 | [`set_panel_options`](#member-gfuiutility-methods-set_panel_options) | `func set_panel_options(panel: Node, options: Dictionary) -> void:` |
 | 方法 | [`get_panel_options`](#member-gfuiutility-methods-get_panel_options) | `func get_panel_options(panel: Node) -> Dictionary:` |
 | 方法 | [`is_panel_modal`](#member-gfuiutility-methods-is_panel_modal) | `func is_panel_modal(panel: Node) -> bool:` |
@@ -57,7 +63,7 @@
 | 方法 | [`get_pending_async_panel_requests`](#member-gfuiutility-methods-get_pending_async_panel_requests) | `func get_pending_async_panel_requests(layer: int = -1) -> Array[Dictionary]:` |
 | 方法 | [`get_modal_count`](#member-gfuiutility-methods-get_modal_count) | `func get_modal_count(layer: int = -1) -> int:` |
 | 方法 | [`request_dismiss_top`](#member-gfuiutility-methods-request_dismiss_top) | `func request_dismiss_top(layer: int = -1, reason: String = "cancel") -> bool:` |
-| 方法 | [`keep_focus_inside_top_modal`](#member-gfuiutility-methods-keep_focus_inside_top_modal) | `func keep_focus_inside_top_modal(layer: Layer = Layer.POPUP) -> bool:` |
+| 方法 | [`keep_focus_inside_top_modal`](#member-gfuiutility-methods-keep_focus_inside_top_modal) | `func keep_focus_inside_top_modal(layer: int = Layer.POPUP) -> bool:` |
 
 ## 信号
 
@@ -237,6 +243,21 @@ enum AsyncPanelLoadStatus {
 
 异步面板加载结束状态。
 
+## 常量
+
+<a id="member-gfuiutility-constants-default_layer_id"></a>
+
+### `DEFAULT_LAYER_ID`
+
+- API：`public`
+- 首次版本：`8.1.0`
+
+```gdscript
+const DEFAULT_LAYER_ID: int = 1
+```
+
+未指定 layer 参数时使用的默认逻辑层 ID，与 Layer.POPUP 相同。
+
 ## 方法
 
 <a id="member-gfuiutility-methods-init"></a>
@@ -268,6 +289,7 @@ func dispose() -> void:
 ### `configure`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func configure(auto_hide_under: bool = true) -> void:
@@ -279,16 +301,118 @@ func configure(auto_hide_under: bool = true) -> void:
 
 | 名称 | 说明 |
 |---|---|
-| `auto_hide_under` | 压入新面板时是否自动隐藏下层面板。 |
+| `auto_hide_under` | 所有已注册逻辑层的新默认遮挡策略。 |
+
+<a id="member-gfuiutility-methods-register_layer"></a>
+
+### `register_layer`
+
+- API：`public`
+- 首次版本：`8.1.0`
+
+```gdscript
+func register_layer(definition: GFUILayerDefinition, replace_existing: bool = false) -> bool:
+```
+
+注册或替换一个 UI 逻辑层。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `definition` | 层 ID、显示排序与默认遮挡策略。 |
+| `replace_existing` | 已存在同 ID 定义时是否替换。 |
+
+返回：注册成功返回 true；定义无效、ID 冲突或无法创建根节点时返回 false。
+
+<a id="member-gfuiutility-methods-has_layer"></a>
+
+### `has_layer`
+
+- API：`public`
+- 首次版本：`8.1.0`
+
+```gdscript
+func has_layer(layer: int) -> bool:
+```
+
+检查逻辑层是否已注册。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `layer` | 逻辑层 ID。 |
+
+返回：已注册返回 true。
+
+<a id="member-gfuiutility-methods-get_layer_definition"></a>
+
+### `get_layer_definition`
+
+- API：`public`
+- 首次版本：`8.1.0`
+
+```gdscript
+func get_layer_definition(layer: int) -> GFUILayerDefinition:
+```
+
+获取逻辑层定义副本。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `layer` | 逻辑层 ID。 |
+
+返回：已注册层的独立定义副本；不存在时返回 null。
+
+<a id="member-gfuiutility-methods-get_layer_ids"></a>
+
+### `get_layer_ids`
+
+- API：`public`
+- 首次版本：`8.1.0`
+
+```gdscript
+func get_layer_ids() -> Array[int]:
+```
+
+获取按逻辑层 ID 升序排列的已注册层。
+
+返回：已注册逻辑层 ID 列表。
+
+<a id="member-gfuiutility-methods-set_layer_auto_hide_under"></a>
+
+### `set_layer_auto_hide_under`
+
+- API：`public`
+- 首次版本：`8.1.0`
+
+```gdscript
+func set_layer_auto_hide_under(layer: int, auto_hide_under: bool) -> bool:
+```
+
+设置指定逻辑层的新面板默认遮挡策略。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `layer` | 逻辑层 ID。 |
+| `auto_hide_under` | 新面板未指定 hide_under 时采用的默认值。 |
+
+返回：层存在并完成更新时返回 true。
 
 <a id="member-gfuiutility-methods-push_panel_async"></a>
 
 ### `push_panel_async`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func push_panel_async(path: String, layer: Layer = Layer.POPUP, config_callback: Callable = Callable()) -> void:
+func push_panel_async(path: String, layer: int = Layer.POPUP, config_callback: Callable = Callable()) -> void:
 ```
 
 异步压入一个面板场景。
@@ -306,9 +430,10 @@ func push_panel_async(path: String, layer: Layer = Layer.POPUP, config_callback:
 ### `push_panel_async_with_options`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func push_panel_async_with_options( path: String, layer: Layer = Layer.POPUP, options: Dictionary = {}, config_callback: Callable = Callable() ) -> void:
+func push_panel_async_with_options( path: String, layer: int = Layer.POPUP, options: Dictionary = {}, config_callback: Callable = Callable() ) -> void:
 ```
 
 异步压入一个带策略选项的面板场景。
@@ -319,21 +444,22 @@ func push_panel_async_with_options( path: String, layer: Layer = Layer.POPUP, op
 |---|---|
 | `path` | 面板场景路径。 |
 | `layer` | 目标层级。 |
-| `options` | 面板策略，支持 mode、modal、dismiss_on_cancel、focus_on_open、restore_focus_on_close、metadata。 |
+| `options` | 面板策略，支持 mode、modal、hide_under、dismiss_on_cancel、focus_on_open、restore_focus_on_close、metadata。 |
 | `config_callback` | 实例化后、入栈前的可选配置回调。 |
 
 结构：
 
-- `options`: Dictionary，支持 mode、modal、dismiss_on_cancel、focus_on_open、restore_focus_on_close 和 metadata。
+- `options`: Dictionary，支持 mode、modal、hide_under、dismiss_on_cancel、focus_on_open、restore_focus_on_close 和 metadata。
 
 <a id="member-gfuiutility-methods-push_panel"></a>
 
 ### `push_panel`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func push_panel(path: String, layer: Layer = Layer.POPUP, config_callback: Callable = Callable()) -> Node:
+func push_panel(path: String, layer: int = Layer.POPUP, config_callback: Callable = Callable()) -> Node:
 ```
 
 同步压入一个面板场景。
@@ -353,9 +479,10 @@ func push_panel(path: String, layer: Layer = Layer.POPUP, config_callback: Calla
 ### `push_panel_with_options`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func push_panel_with_options( path: String, layer: Layer = Layer.POPUP, options: Dictionary = {}, config_callback: Callable = Callable() ) -> Node:
+func push_panel_with_options( path: String, layer: int = Layer.POPUP, options: Dictionary = {}, config_callback: Callable = Callable() ) -> Node:
 ```
 
 同步压入一个带策略选项的面板场景。
@@ -366,23 +493,24 @@ func push_panel_with_options( path: String, layer: Layer = Layer.POPUP, options:
 |---|---|
 | `path` | 面板场景路径。 |
 | `layer` | 目标层级。 |
-| `options` | 面板策略，支持 mode、modal、dismiss_on_cancel、focus_on_open、restore_focus_on_close、metadata。 |
+| `options` | 面板策略，支持 mode、modal、hide_under、dismiss_on_cancel、focus_on_open、restore_focus_on_close、metadata。 |
 | `config_callback` | 实例化后、入栈前的可选配置回调。 |
 
 返回：成功时返回面板实例，失败时返回 `null`。
 
 结构：
 
-- `options`: Dictionary，支持 mode、modal、dismiss_on_cancel、focus_on_open、restore_focus_on_close 和 metadata。
+- `options`: Dictionary，支持 mode、modal、hide_under、dismiss_on_cancel、focus_on_open、restore_focus_on_close 和 metadata。
 
 <a id="member-gfuiutility-methods-replace_layer"></a>
 
 ### `replace_layer`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func replace_layer(path: String, layer: Layer = Layer.POPUP, config_callback: Callable = Callable()) -> Node:
+func replace_layer(path: String, layer: int = Layer.POPUP, config_callback: Callable = Callable()) -> Node:
 ```
 
 同步替换指定层级的面板栈。
@@ -402,9 +530,10 @@ func replace_layer(path: String, layer: Layer = Layer.POPUP, config_callback: Ca
 ### `replace_layer_with_options`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func replace_layer_with_options( path: String, layer: Layer = Layer.POPUP, options: Dictionary = {}, config_callback: Callable = Callable() ) -> Node:
+func replace_layer_with_options( path: String, layer: int = Layer.POPUP, options: Dictionary = {}, config_callback: Callable = Callable() ) -> Node:
 ```
 
 同步替换指定层级为带策略选项的面板。
@@ -415,23 +544,24 @@ func replace_layer_with_options( path: String, layer: Layer = Layer.POPUP, optio
 |---|---|
 | `path` | 面板场景路径。 |
 | `layer` | 目标层级。 |
-| `options` | 面板策略，支持 mode、modal、dismiss_on_cancel、focus_on_open、restore_focus_on_close、metadata。 |
+| `options` | 面板策略，支持 mode、modal、hide_under、dismiss_on_cancel、focus_on_open、restore_focus_on_close、metadata。 |
 | `config_callback` | 实例化后、入栈前的可选配置回调。 |
 
 返回：成功时返回面板实例，失败时返回 `null`。
 
 结构：
 
-- `options`: Dictionary，支持 mode、modal、dismiss_on_cancel、focus_on_open、restore_focus_on_close 和 metadata。
+- `options`: Dictionary，支持 mode、modal、hide_under、dismiss_on_cancel、focus_on_open、restore_focus_on_close 和 metadata。
 
 <a id="member-gfuiutility-methods-replace_layer_async"></a>
 
 ### `replace_layer_async`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func replace_layer_async(path: String, layer: Layer = Layer.POPUP, config_callback: Callable = Callable()) -> void:
+func replace_layer_async(path: String, layer: int = Layer.POPUP, config_callback: Callable = Callable()) -> void:
 ```
 
 异步替换指定层级的面板栈。
@@ -449,9 +579,10 @@ func replace_layer_async(path: String, layer: Layer = Layer.POPUP, config_callba
 ### `replace_layer_async_with_options`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func replace_layer_async_with_options( path: String, layer: Layer = Layer.POPUP, options: Dictionary = {}, config_callback: Callable = Callable() ) -> void:
+func replace_layer_async_with_options( path: String, layer: int = Layer.POPUP, options: Dictionary = {}, config_callback: Callable = Callable() ) -> void:
 ```
 
 异步替换指定层级为带策略选项的面板。
@@ -462,21 +593,22 @@ func replace_layer_async_with_options( path: String, layer: Layer = Layer.POPUP,
 |---|---|
 | `path` | 面板场景路径。 |
 | `layer` | 目标层级。 |
-| `options` | 面板策略，支持 mode、modal、dismiss_on_cancel、focus_on_open、restore_focus_on_close、metadata。 |
+| `options` | 面板策略，支持 mode、modal、hide_under、dismiss_on_cancel、focus_on_open、restore_focus_on_close、metadata。 |
 | `config_callback` | 实例化后、入栈前的可选配置回调。 |
 
 结构：
 
-- `options`: Dictionary，支持 mode、modal、dismiss_on_cancel、focus_on_open、restore_focus_on_close 和 metadata。
+- `options`: Dictionary，支持 mode、modal、hide_under、dismiss_on_cancel、focus_on_open、restore_focus_on_close 和 metadata。
 
 <a id="member-gfuiutility-methods-push_panel_instance"></a>
 
 ### `push_panel_instance`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func push_panel_instance( panel_instance: Node, layer: Layer = Layer.POPUP, config_callback: Callable = Callable() ) -> void:
+func push_panel_instance( panel_instance: Node, layer: int = Layer.POPUP, config_callback: Callable = Callable() ) -> void:
 ```
 
 压入一个已实例化的面板节点。
@@ -494,9 +626,10 @@ func push_panel_instance( panel_instance: Node, layer: Layer = Layer.POPUP, conf
 ### `push_panel_instance_with_options`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func push_panel_instance_with_options( panel_instance: Node, layer: Layer = Layer.POPUP, options: Dictionary = {}, config_callback: Callable = Callable() ) -> void:
+func push_panel_instance_with_options( panel_instance: Node, layer: int = Layer.POPUP, options: Dictionary = {}, config_callback: Callable = Callable() ) -> void:
 ```
 
 压入一个已实例化且带策略选项的面板节点。
@@ -507,21 +640,22 @@ func push_panel_instance_with_options( panel_instance: Node, layer: Layer = Laye
 |---|---|
 | `panel_instance` | 面板实例。 |
 | `layer` | 目标层级。 |
-| `options` | 面板策略，支持 mode、modal、dismiss_on_cancel、focus_on_open、restore_focus_on_close、metadata。 |
+| `options` | 面板策略，支持 mode、modal、hide_under、dismiss_on_cancel、focus_on_open、restore_focus_on_close、metadata。 |
 | `config_callback` | 入栈前的可选配置回调。 |
 
 结构：
 
-- `options`: Dictionary，支持 mode、modal、dismiss_on_cancel、focus_on_open、restore_focus_on_close 和 metadata。
+- `options`: Dictionary，支持 mode、modal、hide_under、dismiss_on_cancel、focus_on_open、restore_focus_on_close 和 metadata。
 
 <a id="member-gfuiutility-methods-replace_layer_instance"></a>
 
 ### `replace_layer_instance`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func replace_layer_instance( panel_instance: Node, layer: Layer = Layer.POPUP, config_callback: Callable = Callable() ) -> void:
+func replace_layer_instance( panel_instance: Node, layer: int = Layer.POPUP, config_callback: Callable = Callable() ) -> void:
 ```
 
 用已实例化面板替换指定层级的面板栈。
@@ -539,9 +673,10 @@ func replace_layer_instance( panel_instance: Node, layer: Layer = Layer.POPUP, c
 ### `replace_layer_instance_with_options`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func replace_layer_instance_with_options( panel_instance: Node, layer: Layer = Layer.POPUP, options: Dictionary = {}, config_callback: Callable = Callable() ) -> void:
+func replace_layer_instance_with_options( panel_instance: Node, layer: int = Layer.POPUP, options: Dictionary = {}, config_callback: Callable = Callable() ) -> void:
 ```
 
 用已实例化且带策略选项的面板替换指定层级的面板栈。
@@ -552,21 +687,22 @@ func replace_layer_instance_with_options( panel_instance: Node, layer: Layer = L
 |---|---|
 | `panel_instance` | 面板实例。 |
 | `layer` | 目标层级。 |
-| `options` | 面板策略，支持 mode、modal、dismiss_on_cancel、focus_on_open、restore_focus_on_close、metadata。 |
+| `options` | 面板策略，支持 mode、modal、hide_under、dismiss_on_cancel、focus_on_open、restore_focus_on_close、metadata。 |
 | `config_callback` | 入栈前的可选配置回调。 |
 
 结构：
 
-- `options`: Dictionary，支持 mode、modal、dismiss_on_cancel、focus_on_open、restore_focus_on_close 和 metadata。
+- `options`: Dictionary，支持 mode、modal、hide_under、dismiss_on_cancel、focus_on_open、restore_focus_on_close 和 metadata。
 
 <a id="member-gfuiutility-methods-pop_panel"></a>
 
 ### `pop_panel`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func pop_panel(layer: Layer = Layer.POPUP, do_free: bool = true) -> void:
+func pop_panel(layer: int = Layer.POPUP, do_free: bool = true) -> void:
 ```
 
 弹出指定层级的顶部面板。
@@ -583,9 +719,10 @@ func pop_panel(layer: Layer = Layer.POPUP, do_free: bool = true) -> void:
 ### `pop_to_panel`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func pop_to_panel(panel: Node, layer: Layer = Layer.POPUP, do_free: bool = true) -> bool:
+func pop_to_panel(panel: Node, layer: int = Layer.POPUP, do_free: bool = true) -> bool:
 ```
 
 弹出面板直到指定面板成为栈顶。
@@ -605,9 +742,10 @@ func pop_to_panel(panel: Node, layer: Layer = Layer.POPUP, do_free: bool = true)
 ### `clear_layer`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func clear_layer(layer: Layer) -> void:
+func clear_layer(layer: int) -> void:
 ```
 
 清空指定层级的所有面板。
@@ -635,9 +773,10 @@ func clear_all() -> void:
 ### `get_top_panel`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func get_top_panel(layer: Layer = Layer.POPUP) -> Node:
+func get_top_panel(layer: int = Layer.POPUP) -> Node:
 ```
 
 获取指定层级的顶部面板。
@@ -655,9 +794,10 @@ func get_top_panel(layer: Layer = Layer.POPUP) -> Node:
 ### `get_panel_stack`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func get_panel_stack(layer: Layer = Layer.POPUP) -> Array[Node]:
+func get_panel_stack(layer: int = Layer.POPUP) -> Array[Node]:
 ```
 
 获取指定层级当前面板栈的副本。
@@ -675,9 +815,10 @@ func get_panel_stack(layer: Layer = Layer.POPUP) -> Array[Node]:
 ### `get_stack_count`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func get_stack_count(layer: Layer = Layer.POPUP) -> int:
+func get_stack_count(layer: int = Layer.POPUP) -> int:
 ```
 
 获取指定层级当前面板数量。
@@ -716,6 +857,7 @@ func is_panel_open(panel: Node, layer: int = -1) -> bool:
 ### `get_debug_snapshot`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func get_debug_snapshot() -> Dictionary:
@@ -727,16 +869,17 @@ func get_debug_snapshot() -> Dictionary:
 
 结构：
 
-- `return`: Dictionary，包含 active、auto_hide_under、pending_async_panel_count 和 layers；layers 按 Layer 值索引，每项包含 count、top_panel 和 top_modal。
+- `return`: Dictionary，包含 active、auto_hide_under、pending_async_panel_count 和 layers；layers 按逻辑层 ID 索引，每项包含 display_name、canvas_layer、auto_hide_under、count、top_panel 和 top_modal。
 
 <a id="member-gfuiutility-methods-get_layer_root"></a>
 
 ### `get_layer_root`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func get_layer_root(layer: Layer) -> CanvasLayer:
+func get_layer_root(layer: int) -> CanvasLayer:
 ```
 
 获取指定层级的 CanvasLayer。
@@ -754,6 +897,7 @@ func get_layer_root(layer: Layer) -> CanvasLayer:
 ### `set_panel_options`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func set_panel_options(panel: Node, options: Dictionary) -> void:
@@ -766,17 +910,18 @@ func set_panel_options(panel: Node, options: Dictionary) -> void:
 | 名称 | 说明 |
 |---|---|
 | `panel` | 面板实例。 |
-| `options` | 面板策略，支持 mode、modal、dismiss_on_cancel、focus_on_open、restore_focus_on_close、metadata。 |
+| `options` | 面板策略，支持 mode、modal、hide_under、dismiss_on_cancel、focus_on_open、restore_focus_on_close、metadata。 |
 
 结构：
 
-- `options`: Dictionary，支持 mode、modal、dismiss_on_cancel、focus_on_open、restore_focus_on_close 和 metadata。
+- `options`: Dictionary，支持 mode、modal、hide_under、dismiss_on_cancel、focus_on_open、restore_focus_on_close 和 metadata。
 
 <a id="member-gfuiutility-methods-get_panel_options"></a>
 
 ### `get_panel_options`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func get_panel_options(panel: Node) -> Dictionary:
@@ -794,7 +939,7 @@ func get_panel_options(panel: Node) -> Dictionary:
 
 结构：
 
-- `return`: Dictionary，包含 mode、dismiss_on_cancel、focus_on_open、restore_focus_on_close 和 metadata。
+- `return`: Dictionary，包含 mode、hide_under、dismiss_on_cancel、focus_on_open、restore_focus_on_close 和 metadata。
 
 <a id="member-gfuiutility-methods-is_panel_modal"></a>
 
@@ -927,9 +1072,10 @@ func request_dismiss_top(layer: int = -1, reason: String = "cancel") -> bool:
 ### `keep_focus_inside_top_modal`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func keep_focus_inside_top_modal(layer: Layer = Layer.POPUP) -> bool:
+func keep_focus_inside_top_modal(layer: int = Layer.POPUP) -> bool:
 ```
 
 尝试把焦点保持在指定层级栈顶 modal 面板内。

@@ -6,7 +6,6 @@ from __future__ import annotations
 import argparse
 import configparser
 import copy
-import fnmatch
 import hashlib
 import json
 import os
@@ -25,6 +24,8 @@ from typing import Any
 import gf_package_resolver
 import gf_package_cache
 import gf_package_transaction
+from gf_package_paths import normalize_manifest_path as normalize_shared_manifest_path
+from gf_package_paths import path_matches_any_manifest_path as shared_path_matches_any_manifest_path
 
 
 def find_workspace_root(start: Path, fallback: Path) -> Path:
@@ -2442,22 +2443,11 @@ def portable_path_identity(path: str) -> str:
 
 
 def path_matches_any_manifest_path(path: str, patterns: list[str]) -> bool:
-	for raw_pattern in patterns:
-		pattern = normalize_manifest_path(raw_pattern)
-		if pattern and fnmatch.fnmatch(path, pattern):
-			return True
-		if pattern.endswith("/**") and (path == pattern[:-3].rstrip("/") or path.startswith(pattern[:-3].rstrip("/") + "/")):
-			return True
-	return False
+	return shared_path_matches_any_manifest_path(path, patterns)
 
 
 def normalize_manifest_path(path: str) -> str:
-	normalized = path.strip().replace("\\", "/")
-	if normalized.startswith("res://"):
-		normalized = normalized.removeprefix("res://")
-	if normalized.startswith("./"):
-		normalized = normalized[2:]
-	return normalized.strip("/")
+	return normalize_shared_manifest_path(path)
 
 
 def sha256_file(path: Path) -> str:

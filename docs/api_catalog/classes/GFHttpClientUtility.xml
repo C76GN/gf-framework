@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFHttpClientUtility" path="addons/gf/standard/utilities/io/gf_http_client_utility.gd" module="standard" extends="GFUtility" classDigest="88fe9be947eeb2ba21aa4f559b74409408eb7d04e649eb88f5ab254495cd0cfd">
+	<description>GFHttpClientUtility: 有界并发 HTTPRequest 客户端池。
+负责复制请求快照、限制并发和等待队列、复用 HTTPRequest worker，
+并把排队、活动、取消和释放统一收敛到 GFHttpResponse。
+不内置远端服务、鉴权、重试、分页或业务 DTO。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_service</tag>
+		<tag name="since">8.1.0</tag>
+	</tags>
+	<signals>
+		<member kind="signal" name="request_queued">
+			<signature>signal request_queued(response: GFHttpResponse)</signature>
+			<description>请求进入等待队列后发出。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">response: 请求响应句柄。</tag>
+				<tag name="since">8.1.0</tag>
+			</tags>
+		</member>
+		<member kind="signal" name="request_started">
+			<signature>signal request_started(response: GFHttpResponse)</signature>
+			<description>请求取得 worker 并开始执行后发出。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">response: 请求响应句柄。</tag>
+				<tag name="since">8.1.0</tag>
+			</tags>
+		</member>
+	</signals>
+	<enums />
+	<constants>
+		<member kind="const" name="DEFAULT_MAX_RESPONSE_BYTES">
+			<signature>const DEFAULT_MAX_RESPONSE_BYTES: int = 16 * 1024 * 1024</signature>
+			<description>客户端池继承请求预算时使用的默认单响应上限。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.1.0</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties />
+	<methods>
+		<member kind="method" name="init">
+			<signature>func init() -&gt; void:</signature>
+			<description>激活客户端池。重复调用不会重置正在执行的请求。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.1.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="dispose">
+			<signature>func dispose() -&gt; void:</signature>
+			<description>取消所有请求并释放池中的 HTTPRequest worker。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">8.1.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="configure">
+			<signature>func configure( max_concurrent_requests: int = 4, max_pending_requests: int = 256, request_parent: Node = null, default_max_response_bytes: int = DEFAULT_MAX_RESPONSE_BYTES ) -&gt; void:</signature>
+			<description>配置并发、等待队列预算和可选请求节点父级。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">max_concurrent_requests: 同时活动的最大请求数，最小为 1。</tag>
+				<tag name="param">max_pending_requests: 等待 worker 的最大请求数，可为 0。</tag>
+				<tag name="param">request_parent: worker 挂载父节点；为空时使用 SceneTree.root。</tag>
+				<tag name="param">default_max_response_bytes: builder 选择继承传输预算时采用的上限；-1 表示无限制。</tag>
+				<tag name="since">8.1.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="execute">
+			<signature>func execute(builder: GFHttpRequestBuilder) -&gt; GFHttpResponse:</signature>
+			<description>提交一个 HTTP 请求。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">builder: 请求构建器；客户端会立即复制其状态。</tag>
+				<tag name="return">可观察和取消的响应句柄。</tag>
+				<tag name="since">8.1.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="cancel_all">
+			<signature>func cancel_all(reason: String = "cancelled") -&gt; void:</signature>
+			<description>取消所有活动和排队请求，但保留 worker 供后续复用。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">reason: 写入响应句柄的取消原因。</tag>
+				<tag name="since">8.1.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_debug_snapshot">
+			<signature>func get_debug_snapshot() -&gt; Dictionary:</signature>
+			<description>获取客户端池诊断快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">池状态和容量计数。</tag>
+				<tag name="schema">return: Dictionary，包含 active、max_concurrent_requests、max_pending_requests、default_max_response_bytes、active_count、pending_count、idle_worker_count 和 worker_count。</tag>
+				<tag name="since">8.1.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_start_request">
+			<signature>func _start_request( worker: HTTPRequest, builder: GFHttpRequestBuilder, response: GFHttpResponse ) -&gt; Error:</signature>
+			<description>使用指定 worker 启动请求。子类可替换该入口以接入可控测试传输。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">worker: 当前请求独占的 HTTPRequest worker。</tag>
+				<tag name="param">builder: 不再被调用方修改的请求快照。</tag>
+				<tag name="param">response: 当前响应句柄。</tag>
+				<tag name="return">Godot 请求启动错误码。</tag>
+				<tag name="since">8.1.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_complete_request">
+			<signature>func _complete_request( worker: HTTPRequest, builder: GFHttpRequestBuilder, response: GFHttpResponse, result_code: int, status_code: int, response_headers: PackedStringArray, body: PackedByteArray ) -&gt; void:</signature>
+			<description>完成当前 worker 对应的请求并将 worker 归还池。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">worker: 完成请求的 worker。</tag>
+				<tag name="param">builder: 请求快照。</tag>
+				<tag name="param">response: 响应句柄。</tag>
+				<tag name="param">result_code: Godot HTTPRequest 结果码。</tag>
+				<tag name="param">status_code: HTTP 状态码。</tag>
+				<tag name="param">response_headers: 原始响应头。</tag>
+				<tag name="param">body: 原始响应体。</tag>
+				<tag name="since">8.1.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

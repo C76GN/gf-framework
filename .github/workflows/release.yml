@@ -13,8 +13,8 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  create-release:
-    name: Create GitHub Release
+  release-framework-checks:
+    name: GF release framework checks
     runs-on: ubuntu-latest
     timeout-minutes: 45
 
@@ -38,10 +38,73 @@ jobs:
       - name: Set up Godot
         uses: ./.github/actions/setup-godot
 
-      - name: Run release maintenance suite
+      - name: Run release metadata and framework shard
         run: |
           python tools/gf_maintenance.py release-status --version "${GITHUB_REF_NAME}"
-          python tools/gf_maintenance.py check --suite release --timeout 1200 --failed-only --github-annotations
+          python tools/gf_maintenance.py check --suite framework --failed-only --github-annotations
+
+  release-package-checks:
+    name: GF release package checks (${{ matrix.name }})
+    runs-on: ubuntu-latest
+    timeout-minutes: ${{ matrix.timeout_minutes }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: contract
+            suite: package-contract
+            timeout_minutes: 30
+          - name: editor
+            suite: package-editor
+            timeout_minutes: 30
+          - name: cli
+            suite: package-cli
+            timeout_minutes: 45
+          - name: godot-matrix
+            suite: package-godot-release
+            timeout_minutes: 30
+
+    steps:
+      - name: Checkout tag
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Set up Godot
+        uses: ./.github/actions/setup-godot
+
+      - name: Run release package shard
+        run: >
+          python tools/gf_maintenance.py check
+          --suite ${{ matrix.suite }}
+          --failed-only
+          --github-annotations
+
+  create-release:
+    name: Create GitHub Release
+    needs:
+      - release-framework-checks
+      - release-package-checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout tag
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
 
       - name: Extract release notes
         run: >

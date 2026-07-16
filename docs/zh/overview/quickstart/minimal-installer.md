@@ -65,6 +65,6 @@ func install(architecture: GFArchitecture, scope: GFAsyncScope) -> void:
 		return
 ```
 
-然后把安装器路径加入 `Project Settings > gf/project/installers`。调用 `await Gf.init()` 时，GF 会先运行启用扩展的 Installer，再运行项目 Installer，最后进入模块生命周期。
+然后把安装器脚本加入 `Project Settings > gf/project/installers`。编辑器可保存 `res://` 或稳定 `uid://` 引用；GF 会在启动时解析并严格校验。调用 `await Gf.init()` 时，GF 会先运行启用扩展的 Installer，再运行项目 Installer，最后进入模块生命周期。初始化返回 `false` 时必须停止后续查询，并读取 `Gf.get_architecture().last_initialization_error`。
 
 Installer 只负责注册模块，不应该直接启动关卡、打开 UI 或执行玩法流程。启动流程更适合放在引导场景或专门的 `GFSystem` 中。

@@ -12,6 +12,8 @@
     "gf.standard.ui"
   ],
   "paths": [
+    "addons/gf/standard/utilities/ui/gf_ui_layer_definition.gd",
+    "addons/gf/standard/utilities/ui/gf_ui_layer_definition.gd.uid",
     "addons/gf/standard/utilities/ui/gf_ui_route.gd",
     "addons/gf/standard/utilities/ui/gf_ui_route.gd.uid",
     "addons/gf/standard/utilities/ui/gf_ui_router_utility.gd",
