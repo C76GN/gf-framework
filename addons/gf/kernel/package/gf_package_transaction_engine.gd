@@ -1225,6 +1225,8 @@ static func _transaction_owner_is_running(journal: Dictionary) -> bool:
 	var owner_pid: int = _GF_VARIANT_ACCESS.get_option_int(journal, "owner_pid", 0)
 	if owner_pid <= 0 or _GF_VARIANT_ACCESS.get_option_bool(journal, "fault_injected", false):
 		return false
+	if owner_pid == OS.get_process_id():
+		return true
 	return OS.is_process_running(owner_pid)
 
 

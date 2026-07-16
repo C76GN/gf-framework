@@ -2297,7 +2297,8 @@ func _repeat_text(text: String, count: int) -> String:
 
 func _package_archive_path(package_entry: Dictionary, registry_root: String = TEST_ROOT.path_join("registry")) -> String:
 	var archive_relative: String = GF_VARIANT_ACCESS.get_option_string(package_entry, "archive")
-	return ProjectSettings.globalize_path(registry_root.path_join(archive_relative)).replace("\\", "/")
+	var absolute_path: String = ProjectSettings.globalize_path(registry_root.path_join(archive_relative)).replace("\\", "/")
+	return absolute_path.simplify_path()
 
 
 func _package_index(status: Dictionary) -> Dictionary:

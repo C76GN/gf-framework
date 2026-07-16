@@ -186,6 +186,7 @@
 
 ### 🐛 Bug 修复 (Fixed)
 
+- 修复 Linux 下 Package Transaction Engine 使用 `OS.is_process_running()` 检查当前进程 PID 时被底层 `waitpid/ECHILD` 误判为失效 owner，导致恢复入口接管仍在活动的事务 journal；当前进程 owner 现在直接判定为存活。离线 bundle 与 sibling package 的跨平台测试归档路径也会在进入 `ZIPPacker` 前完成词法归一化，不再依赖 Windows 对 `..` 路径的宽容行为。
 - 修复发布维护套件在干净克隆中因未预导入 GUT `class_name` 缓存和被忽略的本地 AI API 摘要输出不存在而失败的问题；`gut` 检查现在显式展开一次受日志审计的 Godot 导入依赖，AI API 检查在输出缺失时生成、存在时严格校验 stale / missing / extra 文件，使本地与 CI 使用同一可重复质量门槛。
 - 修复 Gf AutoLoad 在 `_exit_tree()` 中释放架构时，Console、Debug Overlay、UI 层、对象池、屏幕转场、Analytics 关闭监听和 Capability 运行时节点同步 `remove_child()` / `free()` 重入修改正在拆除的父节点的问题；退出状态现在使用有起止且支持嵌套的作用域，回调结束后不会污染后续正常释放。
 - 修复 `maintenance-self-test` 在普通 Windows 账户下依赖符号链接创建特权而直接失败的问题；路径安全夹具在 Windows 使用目录 junction，在 POSIX 使用目录 symlink，仍验证生成目录和命令日志拒绝 reparse/link 穿越；日志卫生扫描会容忍枚举后被并发删除的日志，同时继续拒绝链接、类型与权限异常。
