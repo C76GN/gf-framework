@@ -141,7 +141,7 @@ GF 内置扩展默认随 GF 启用，但仍保持可选边界。项目不用某�
 源码变更后优先运行：
 
 ```powershell
-godot --headless --path . -s res://addons/gut/gut_cmdln.gd -gdir=res://tests/gf_core -ginclude_subdirs -gexit
+python tools\gf_maintenance.py check --check gut --failed-only
 ```
 
 测试目录按框架层级组织：

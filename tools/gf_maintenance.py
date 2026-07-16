@@ -713,6 +713,15 @@ def godot_log_path(check_name: str) -> str:
 
 
 CHECK_DEFINITIONS: dict[str, list[str]] = {
+	"godot_import": [
+		"godot",
+		"--headless",
+		"--log-file",
+		godot_log_path("godot_import"),
+		"--path",
+		".",
+		"--import",
+	],
 	"gut": [
 		"godot",
 		"--headless",
@@ -734,7 +743,7 @@ CHECK_DEFINITIONS: dict[str, list[str]] = {
 		"addons/gf",
 		"--output",
 		"ai_analysis/generated_api",
-		"--check",
+		"--check-or-generate",
 		"--check-wiki-coverage",
 	],
 	"docs": [sys.executable, "tools/check_docs_quality.py", "--strict"],
@@ -874,6 +883,33 @@ CHECK_DEFINITIONS: dict[str, list[str]] = {
 		"--check",
 	],
 }
+
+CHECK_DEPENDENCIES: dict[str, list[str]] = {
+	"gut": ["godot_import"],
+}
+
+
+def expand_check_dependencies(check_names: list[str]) -> list[str]:
+	expanded: list[str] = []
+	visiting: list[str] = []
+
+	def append_check(name: str) -> None:
+		if name in expanded:
+			return
+		if name in visiting:
+			cycle = " -> ".join([*visiting, name])
+			raise ValueError(f"Maintenance check dependency cycle: {cycle}")
+		visiting.append(name)
+		for dependency in CHECK_DEPENDENCIES.get(name, []):
+			if dependency not in CHECK_DEFINITIONS:
+				raise ValueError(f"Unknown maintenance check dependency: {name} -> {dependency}")
+			append_check(dependency)
+		visiting.pop()
+		expanded.append(name)
+
+	for check_name in check_names:
+		append_check(check_name)
+	return expanded
 
 API_CHECKS: list[str] = ["api", "ai_api", "public_api_boundary"]
 DOCS_CHECKS: list[str] = ["docs", "public_docs_boundary", "mkdocs"]
@@ -14645,6 +14681,20 @@ def maintenance_self_test() -> dict[str, Any]:
 		and "site_dir: ai_analysis/mkdocs_site" in mkdocs_config_source,
 		"MkDocs validation must not create the repository-root site directory.",
 	)
+	record_result(
+		"ai_api_check_bootstraps_ignored_output_on_clean_checkout",
+		"--check-or-generate" in CHECK_DEFINITIONS["ai_api"]
+		and "--check" not in CHECK_DEFINITIONS["ai_api"],
+		"AI API validation must generate its ignored output on a clean checkout and strictly check it when present.",
+	)
+	record_result(
+		"gut_check_declares_clean_import_dependency",
+		"godot_import" in CHECK_DEFINITIONS
+		and CHECK_DEPENDENCIES.get("gut") == ["godot_import"]
+		and expand_check_dependencies(["gut"]) == ["godot_import", "gut"]
+		and expand_check_dependencies(["godot_import", "gut"]) == ["godot_import", "gut"],
+		"GUT validation must import a clean Godot project exactly once before loading class_name scripts.",
+	)
 	setup_godot_action_source = read_text_file(ROOT / ".github/actions/setup-godot/action.yml")
 	setup_godot_issues = audit_setup_godot_action_source(setup_godot_action_source)
 	record_result(
@@ -22227,10 +22277,10 @@ def recommend_checks(categories: dict[str, list[dict[str, str]]]) -> list[str]:
 	if categories["runtime_source"] or categories["tool_source"]:
 		recommendations.extend([
 			"python tools/generate_api_reference.py --check",
-			"python tools/generate_ai_api.py --source addons/gf --output ai_analysis/generated_api --check --check-wiki-coverage",
+			"python tools/generate_ai_api.py --source addons/gf --output ai_analysis/generated_api --check-or-generate --check-wiki-coverage",
 			"python tools/gf_maintenance.py public-api-boundary --json",
 			"python tools/gf_maintenance.py api-since-touched --json",
-			"godot --headless --path . -s res://addons/gut/gut_cmdln.gd -gdir=res://tests/gf_core -ginclude_subdirs -gexit",
+			"python tools/gf_maintenance.py check --check gut --failed-only",
 			"python tools/gf_maintenance.py check --check gdscript_warnings --json",
 			"python tools/gf_maintenance.py dependency-boundary --json",
 			"python tools/gf_maintenance.py resource-boundary --json",
@@ -22243,7 +22293,7 @@ def recommend_checks(categories: dict[str, list[dict[str, str]]]) -> list[str]:
 	if categories["examples"]:
 		recommendations.append("python tools/gf_maintenance.py check --suite examples --json")
 	if categories["tests"]:
-		recommendations.append("godot --headless --path . -s res://addons/gut/gut_cmdln.gd -gdir=res://tests/gf_core -ginclude_subdirs -gexit")
+		recommendations.append("python tools/gf_maintenance.py check --check gut --failed-only")
 	if categories["manual_docs"]:
 		recommendations.extend([
 			"python tools/check_docs_quality.py --strict",
@@ -22388,6 +22438,7 @@ def run_checks(
 			"examples_sync_write" if name == "examples_sync" else name
 			for name in check_names
 		]
+	check_names = expand_check_dependencies(check_names)
 	results: list[dict[str, Any]] = []
 	for name in check_names:
 		if name == "release_metadata":
@@ -22483,15 +22534,15 @@ def run_command(name: str, command: list[str], timeout_seconds: int) -> CommandR
 		has_reload_warning: bool = has_gdscript_reload_warning(stdout, completed.stderr)
 		exit_leak_warnings: list[str] = collect_godot_exit_leak_warnings(stdout, completed.stderr)
 		exit_leak_report: dict[str, Any] | None = None
-		if name in {"gut", "gdscript_warnings", "examples_scan", "examples_boot", "examples_smoke"}:
+		if name in {"godot_import", "gut", "gdscript_warnings", "examples_scan", "examples_boot", "examples_smoke"}:
 			exit_leak_report = godot_exit_leak_report_from_output(name, stdout, completed.stderr)
-		if name in {"gut", "gdscript_warnings", "examples_scan", "examples_boot", "examples_smoke"} and has_script_error:
+		if name in {"godot_import", "gut", "gdscript_warnings", "examples_scan", "examples_boot", "examples_smoke"} and has_script_error:
 			exit_code = 1
 			notes = append_note(
 				notes,
 				"Godot reported script loading or parse errors in output.",
 			)
-		if name in {"gut", "gdscript_warnings"} and has_reload_warning:
+		if name in {"godot_import", "gut", "gdscript_warnings"} and has_reload_warning:
 			exit_code = 1
 			notes = append_note(
 				notes,

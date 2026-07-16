@@ -98,10 +98,10 @@ Extension-specific editor tools are declared by `gf_extension.json` manifests an
 
 ## Testing
 
-The test suite uses GUT:
+The test suite uses GUT through the maintenance runner, which imports a clean project first and validates the Godot log and whole-suite pass summary:
 
 ```powershell
-godot --headless --path . -s res://addons/gut/gut_cmdln.gd -gdir=res://tests/gf_core -ginclude_subdirs -gexit
+python tools\gf_maintenance.py check --check gut --failed-only
 ```
 
 Maintenance checks live under [`tests/gf_core/maintenance`](tests/gf_core/maintenance). They cover API comments, layer boundaries, removed public classes, generated docs consistency, Read the Docs structure, and legacy Wiki entry policy.

@@ -218,7 +218,7 @@ Add installer timeout protection, manual scoped context initialization, assignab
 源码变更后优先运行：
 
 ```powershell
-godot --headless --path . -s res://addons/gut/gut_cmdln.gd -gdir=res://tests/gf_core -ginclude_subdirs -gexit
+python tools\gf_maintenance.py check --check gut --failed-only
 python tools\gf_maintenance.py dependency-boundary --json
 python tools\gf_maintenance.py public-api-boundary --json
 python tools\gf_maintenance.py resource-boundary --json
@@ -262,6 +262,7 @@ python tools\gf_maintenance.py log-hygiene --dry-run --json
 层级边界变更后至少额外运行：
 
 ```powershell
+godot --headless --path . --import
 godot --headless --path . -s res://addons/gut/gut_cmdln.gd -gtest=res://tests/gf_core/maintenance/test_layer_boundary_validation.gd -gexit
 ```
 
@@ -365,9 +366,16 @@ python tools\generate_ai_api.py --source addons\gf --output ai_analysis\generate
 python tools\generate_ai_api.py --source addons\gf --output ai_analysis\generated_api --check --check-wiki-coverage
 ```
 
+干净克隆、CI 和维护 suite 使用可自举校验：
+
+```powershell
+python tools\generate_ai_api.py --source addons\gf --output ai_analysis\generated_api --check-or-generate --check-wiki-coverage
+```
+
 使用规则：
 
 - 生成结果默认放在 `ai_analysis/generated_api/`，该目录被 Git 忽略，不提交。
+- `--check-or-generate` 在输出目录不存在时生成摘要；目录存在时与 `--check` 一样严格拒绝 missing、stale 和 extra 文件。`gf_maintenance.py` 的 AI API 检查使用该模式，避免干净克隆依赖未提交的本地生成物。
 - `generate_ai_api.py` 默认只允许写入 `ai_analysis/generated_api/`；确有维护需要写入其他根时必须显式传 `--allow-unsafe-output-root`，并先确认目标目录没有人工维护文件。非 `--check` 生成同样使用 staging + replace 事务，失败时保留旧快照。
 - 生成脚本 `tools/generate_ai_api.py` 与共享解析器 `tools/gdscript_api_parser.py` 是维护工具，可以提交。
 - 如果 `--check` 失败，先重新生成，再继续文档维护。
@@ -433,6 +441,8 @@ python tools\gf_maintenance.py release-status --version 3.19.0
 ```
 
 `check --suite quick` 只适合快速检查 API 参考、AI API、文档质量、轻量边界、路径卫生和 diff，不运行 GUT、MkDocs 构建、package 构建/安装、Godot CLI 或卸载 smoke；package 生态改动先跑 `check --suite package`，源码行为、发布、扩展边界或性能相关变更不能把 quick 通过视为完整质量门槛，应至少补对应 GUT，最终用 `full` 或 `release` suite 收敛。
+
+`gf_maintenance.py` 会在执行 `gut` 前自动展开一次 `godot_import` 依赖，并对导入日志应用脚本错误、reload warning 和退出泄漏检查。不要依赖本地 `.godot/` 或编辑器导入缓存来证明测试可运行；新增需要前置状态的检查时，应通过显式检查依赖表达并覆盖干净克隆场景。
 
 维护规则：
 

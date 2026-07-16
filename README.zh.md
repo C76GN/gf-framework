@@ -98,10 +98,10 @@ GF 核心编辑器能力包括扩展管理、强类型 GF/config 访问器生成
 
 ## 测试
 
-测试套件使用 GUT：
+测试套件通过维护入口运行 GUT；该入口会先导入干净项目，并校验 Godot 日志与整套测试通过摘要：
 
 ```powershell
-godot --headless --path . -s res://addons/gut/gut_cmdln.gd -gdir=res://tests/gf_core -ginclude_subdirs -gexit
+python tools\gf_maintenance.py check --check gut --failed-only
 ```
 
 维护检查位于 [`tests/gf_core/maintenance`](tests/gf_core/maintenance)，覆盖 API 注释、层级边界、已移除路径/类名、生成文档一致性、Read the Docs 结构和旧 Wiki 入口策略。

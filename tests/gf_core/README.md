@@ -11,5 +11,7 @@ GUT tests mirror the framework source layers:
 Run all tests with:
 
 ```powershell
-godot --headless --path . -s res://addons/gut/gut_cmdln.gd -gdir=res://tests/gf_core -ginclude_subdirs -gexit
+python tools\gf_maintenance.py check --check gut --failed-only
 ```
+
+该入口会先导入干净项目，再运行 GUT，并校验 Godot 日志与整套测试通过摘要。
