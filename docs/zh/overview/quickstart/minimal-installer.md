@@ -7,14 +7,21 @@ extends Node
 
 
 func _ready() -> void:
-	Gf.register_model(PlayerModel.new())
-	Gf.register_utility(GFStorageUtility.new())
-	Gf.register_system(BattleSystem.new())
+	if not await Gf.register_model(PlayerModel.new()):
+		return
+	if not await Gf.register_utility(GFStorageUtility.new()):
+		return
+	if not await Gf.register_system(BattleSystem.new()):
+		return
 
-	await Gf.init()
+	if not await Gf.init():
+		return
 
 	var player_model := Gf.get_model(PlayerModel) as PlayerModel
 	var battle_system := Gf.get_system(BattleSystem) as BattleSystem
+	if player_model == null or battle_system == null:
+		push_error("GF 模块查询失败。")
+		return
 	battle_system.start_encounter(player_model)
 ```
 
@@ -35,10 +42,27 @@ class_name GameInstaller
 extends GFInstaller
 
 
-func install(architecture: GFArchitecture, _scope: GFAsyncScope) -> void:
-	architecture.register_model_instance(PlayerModel.new())
-	architecture.register_utility_instance(GFStorageUtility.new())
-	architecture.register_system_instance(BattleSystem.new())
+func install(architecture: GFArchitecture, scope: GFAsyncScope) -> void:
+	var model_registered: bool = await architecture.register_model_instance(PlayerModel.new())
+	if scope.is_cancel_requested():
+		return
+	if not model_registered:
+		architecture.fail_initialization("PlayerModel 注册失败。")
+		return
+
+	var utility_registered: bool = await architecture.register_utility_instance(GFStorageUtility.new())
+	if scope.is_cancel_requested():
+		return
+	if not utility_registered:
+		architecture.fail_initialization("GFStorageUtility 注册失败。")
+		return
+
+	var system_registered: bool = await architecture.register_system_instance(BattleSystem.new())
+	if scope.is_cancel_requested():
+		return
+	if not system_registered:
+		architecture.fail_initialization("BattleSystem 注册失败。")
+		return
 ```
 
 然后把安装器路径加入 `Project Settings > gf/project/installers`。调用 `await Gf.init()` 时，GF 会先运行启用扩展的 Installer，再运行项目 Installer，最后进入模块生命周期。

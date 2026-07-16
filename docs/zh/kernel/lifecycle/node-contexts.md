@@ -16,14 +16,35 @@ func _init() -> void:
 
 
 func install(architecture: GFArchitecture, scope: GFAsyncScope) -> void:
-	await architecture.register_system_instance(BattleSystem.new())
+	var model_registered: bool = await architecture.register_model_instance(BattleModel.new())
 	if scope.is_cancel_requested():
 		return
-	await architecture.register_utility_instance(BattleHudUtility.new())
+	if not model_registered:
+		architecture.fail_initialization("BattleModel 注册失败。")
+		return
+
+	var utility_registered: bool = await architecture.register_utility_instance(BattleHudUtility.new())
+	if scope.is_cancel_requested():
+		return
+	if not utility_registered:
+		architecture.fail_initialization("BattleHudUtility 注册失败。")
+		return
+
+	var system_registered: bool = await architecture.register_system_instance(BattleSystem.new())
+	if scope.is_cancel_requested():
+		return
+	if not system_registered:
+		architecture.fail_initialization("BattleSystem 注册失败。")
+		return
 
 
 func install_bindings(binder: Variant, _scope: GFAsyncScope) -> void:
-	binder.bind_factory(ResolveBattleCommand).as_transient()
+	if not binder is GFBinder:
+		push_error("BattleContext 收到无效 Binder。")
+		return
+	var typed_binder: GFBinder = binder
+	if not typed_binder.bind_factory(ResolveBattleCommand).as_transient():
+		push_error("ResolveBattleCommand 工厂绑定失败。")
 ```
 
 `SCOPED` 上下文会：
@@ -42,6 +63,10 @@ func install_bindings(binder: Variant, _scope: GFAsyncScope) -> void:
 如果只想让某个节点树分支复用父级上下文，可以把 `scope_mode` 设为 `INHERITED`。继承模式不会创建或释放局部架构，但会在继承到的架构 ready 后发出同样的 `context_ready` 信号；如果父级架构稍后才初始化完成，上下文会等待后再发出信号。
 
 局部上下文中的 `GFController` 无需额外传参，会自动沿父节点查找最近的 `GFNodeContext`。注册到局部上下文的 `GFSystem` / `GFModel` / `GFUtility` 也会在注册时获得当前架构引用，因此基类提供的 `get_model()`、`get_system()`、`get_utility()` 会优先使用局部架构，并在本地未命中时回退父架构。
+
+这个解析规则依赖真实节点父链。当前 `GFUIUtility` 会把 HUD、POPUP、TOP 层创建在 `SceneTree.root` 下，并把入栈 Panel 重挂到对应根级 `CanvasLayer`。因此通过 UI 栈打开的 Panel 不再是原局部 Context 的后代；若 Panel 自身未再创建新 Context，其中的 `GFController` 会回退到全局架构。即使 `GFUIUtility` 本身注册在局部架构中，也不会改变 Panel 的父链。
+
+必须消费局部 Model / System 的 HUD 应保留在 Context 子树内，例如把场景自己的 `CanvasLayer` 作为 `GFNodeContext` 子节点。全局菜单、跨场景提示和只消费全局模块的 HUD 仍适合 `GFUIUtility`。根级 Panel 若只需短暂展示局部结果，可通过配置回调传入 DTO 或项目适配器，并在 Context 退出前关闭，不应长期缓存局部模块。
 
 如果 Controller 需要在 `_ready()` 中立刻访问 scoped 架构，而该架构还在异步初始化，可以等待上下文就绪。等待失败、父级架构初始化失败或上下文超时时会返回 `null`，调用方应显式处理：
 
