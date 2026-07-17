@@ -2046,13 +2046,13 @@ func test_extensions_do_not_hard_reference_other_extensions() -> void:
 
 
 func test_extension_export_plugin_reports_stable_name() -> void:
-	var has_get_name: bool = false
-	for method: Dictionary in GF_EXTENSION_EXPORT_PLUGIN_BASE.get_script_method_list():
-		if GF_VARIANT_ACCESS.get_option_string(method, "name") == "_get_name":
-			has_get_name = true
-			break
+	var export_plugin: EditorExportPlugin = GF_EXTENSION_EXPORT_PLUGIN_BASE.new()
 
-	assert_true(has_get_name, "EditorExportPlugin 必须提供 _get_name()，避免导出流程报错。")
+	assert_eq(
+		export_plugin._get_name(),
+		"GFExtensionExportPlugin",
+		"EditorExportPlugin 必须提供稳定名称，避免导出流程报错。"
+	)
 
 
 func test_extension_export_plugin_matches_disabled_roots() -> void:
