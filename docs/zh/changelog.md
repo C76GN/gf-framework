@@ -45,6 +45,7 @@
 - 修复 `GFLogUtility` 只限制 context，导致超长 tag/message 放大内存、文件、控制台和诊断快照，且顶层 trace_id 绕过内存、JSONL 与 sink 预算/profile 的问题；这些文本现在复用既有预算，tag/message 在 entry、text、内存缓存与 `log_emitted` 保持一致，trace_id 在结构化条目、context、内存和 sink 中保持有界并按 sink profile 重建，短文本和换行语义不变。
 - 修复 `GFDebugOverlayUtility` 在初始化后立即释放时，延迟挂载回调仍携带已释放 GUI 参数并触发 Godot deferred-call 类型转换错误的问题；挂载请求现在以代次失效，并在执行时重新读取当前实例。
 - 修复 `GFTextFitter.fit_control()` 的 Label 分派忽略显式测量文本，且无换行短文本只能反复进行候选测量、放大 Godot 退出期 shaped-text RID 残留的问题；新增一次最大字号测量的单行比例路径，默认完整排版行为不变。
+- 修复本地包管理网络 smoke 服务器把请求目标直接写入 `Location` 响应头的问题；重定向边界现在拒绝原始 CR/LF 控制字符，避免测试服务产生 HTTP 响应拆分，并保留合法路径与百分号编码字面量。
 
 ### 🔧 API 变动说明 (API Changes)
 

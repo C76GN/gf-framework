@@ -4364,6 +4364,11 @@ def record_package_smoke_scenario(
 	scenarios.append(scenario)
 
 
+def validate_package_smoke_header_value(value: str) -> str | None:
+	sanitized = value.replace("\n", "").replace("\r", "")
+	return sanitized if sanitized == value else None
+
+
 def start_package_smoke_server(root: Path, issues: list[dict[str, Any]]) -> tuple[Any, threading.Thread | None, str]:
 	class QuietPackageHandler(http.server.SimpleHTTPRequestHandler):
 		flaky_counts: dict[str, int] = {}
@@ -4374,8 +4379,12 @@ def start_package_smoke_server(root: Path, issues: list[dict[str, Any]]) -> tupl
 				target = "/" + parsed_path.path.removeprefix("/redirect/")
 				if parsed_path.query:
 					target = f"{target}?{parsed_path.query}"
+				header_target = validate_package_smoke_header_value(target)
+				if header_target is None:
+					self.send_error(400, "Invalid redirect target")
+					return
 				self.send_response(302)
-				self.send_header("Location", target)
+				self.send_header("Location", header_target)
 				self.end_headers()
 				return
 			if parsed_path.path.startswith("/flaky-once/"):
@@ -9577,6 +9586,17 @@ def maintenance_self_test() -> dict[str, Any]:
 		"gf_maintenance.run_checks_with_log_hygiene(" in mcp_server_source
 		and '"suite_timeout_seconds"' in mcp_server_source,
 		"MCP checks must preserve managed log cleanup and expose the suite deadline separately.",
+	)
+	record_result(
+		"package_smoke_redirect_rejects_response_splitting_controls",
+		validate_package_smoke_header_value("/registry/index.json?channel=stable")
+		== "/registry/index.json?channel=stable"
+		and validate_package_smoke_header_value("/registry/%0d%0aindex.json")
+		== "/registry/%0d%0aindex.json"
+		and validate_package_smoke_header_value("/registry/index.json\r\nX-Injected: yes") is None
+		and validate_package_smoke_header_value("/registry/index.json\nX-Injected: yes") is None
+		and validate_package_smoke_header_value("/registry/index.json\rX-Injected: yes") is None,
+		"package smoke redirects must preserve safe targets and reject every raw CR/LF header boundary.",
 	)
 	with tempfile.TemporaryDirectory(prefix="gf-workspace-snapshot-self-test-") as temp_dir:
 		snapshot_path = Path(temp_dir) / "fixture.txt"
