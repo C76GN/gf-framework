@@ -24,7 +24,8 @@ extends Resource
 ## @api public
 @export_file("*.tscn") var scene_path: String = ""
 
-## 目标 UI 逻辑层 ID。默认使用 GFUIUtility.POPUP；自定义 ID 必须先注册到 GFUIUtility。
+## 目标 UI 逻辑层 ID。默认使用 GFUIUtility.Layer.POPUP；自定义 ID 必须先注册到 GFUIUtility。
+## 切换目标层不会隐式清理其他逻辑层；互斥页面应放在同一导航层并使用 replace。
 ## [br]
 ## @api public
 ## [br]
@@ -37,12 +38,14 @@ extends Resource
 ## [br]
 ## @since 3.17.0
 ## [br]
-## @schema default_options: Dictionary，字段同 GFUIUtility 打开面板 options，例如 metadata、modal、hide_under、dismiss_on_cancel。
+## @schema default_options: Dictionary，字段同 GFUIUtility 打开面板 options；mode 使用 GFUIUtility.PanelMode，modal 是未提供 mode 时的布尔简写，metadata 只由项目定义并由框架复制透传。
 @export var default_options: Dictionary = {}
 
-## 路由元数据。框架只透传，不解释字段含义。
+## 路由元数据。框架只复制和透传，不改变绘制、清层或 Modal 行为。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @schema metadata: Dictionary，由项目定义的路由元数据；build_options() 会追加 route_id 和 route_params。
 @export var metadata: Dictionary = {}

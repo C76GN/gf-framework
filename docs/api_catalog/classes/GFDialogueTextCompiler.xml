@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFDialogueTextCompiler" path="addons/gf/tools/dialogue_text/gf_dialogue_text_compiler.gd" module="tools" extends="RefCounted" classDigest="1c47d65fe4f8ddca32ef87c78ee120dbfd577d3309a658d6932fa175413a536a">
+	<description>GFDialogueTextCompiler: 对话 JSON 文本编译器。
+在制作期、编辑器期或 CI 中把严格、可审计的 JSON 文本编译为 GFDialogueResource。
+编译器只解释对话资源已有字段，不定义角色、任务、本地化、UI 或项目状态语义。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">tool_api</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants>
+		<member kind="const" name="SOURCE_FORMAT">
+			<signature>const SOURCE_FORMAT: String = "gf.dialogue"</signature>
+			<description>对话文本格式标识。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="SOURCE_SCHEMA_VERSION">
+			<signature>const SOURCE_SCHEMA_VERSION: int = 1</signature>
+			<description>当前对话文本 schema 版本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties />
+	<methods>
+		<member kind="method" name="compile_text">
+			<signature>func compile_text(text: String, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>编译 JSON 文本。
+未知结构字段会作为错误报告；项目扩展数据应放入 metadata 或 payload 字段。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">text: UTF-8 JSON 文本。</tag>
+				<tag name="param">options: 编译选项，支持 source_path、subject 和 metadata。</tag>
+				<tag name="return">编译结果。</tag>
+				<tag name="schema">options: Dictionary，可包含 source_path、subject 和报告 metadata。</tag>
+				<tag name="schema">return: Dictionary，包含 success、resource、report、source_path、content_hash 和 line_count；失败时 resource 为 null。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="compile_source">
+			<signature>func compile_source( source_key: String, loader: GFSourceTextLoader, options: Dictionary = {} ) -&gt; Dictionary:</signature>
+			<description>通过受根路径约束的源码加载器编译文本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">source_key: 注册文本 key 或加载器根目录内的相对路径。</tag>
+				<tag name="param">loader: 源码文本加载器。</tag>
+				<tag name="param">options: 编译选项；source_path 会默认使用加载结果路径。</tag>
+				<tag name="return">编译结果。</tag>
+				<tag name="schema">options: Dictionary，支持 compile_text() 的选项。</tag>
+				<tag name="schema">return: Dictionary，包含 success、resource、report、source_path、content_hash 和 line_count；失败时 resource 为 null。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

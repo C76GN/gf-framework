@@ -1,7 +1,7 @@
 ## GFTextureSetClassifier: 纹理集命名分类与导入计划构建工具。
 ##
-## 根据常见后缀把贴图文件归并为材质纹理集，并可生成 GFImportPlan。
-## 它只做路径解析和计划输出，不创建材质、不执行导入、不绑定编辑器 UI。
+## 根据常见后缀把贴图文件归并为材质纹理集，诊断重复或缺失角色，并可生成
+## GFImportPlan。它只做路径解析和计划输出，不创建材质、不执行导入、不绑定编辑器 UI。
 ## [br]
 ## @api public
 ## [br]
@@ -98,19 +98,30 @@ const _DEFAULT_EXTENSIONS: Array[String] = ["png", "jpg", "jpeg", "tga", "webp",
 ## [br]
 ## @schema paths: PackedStringArray texture file paths.
 ## [br]
-## @schema options: Dictionary，可包含 suffix_rules、allowed_extensions 和 normalize_directory.
+## @schema options: Dictionary，可包含 suffix_rules:Dictionary、allowed_extensions:Array[String] 和 required_roles:Array[StringName|String]；suffix_rules 的角色声明顺序决定重叠后缀的匹配优先级。
 ## [br]
 ## @return 分类报告。
 ## [br]
-## @schema return: Dictionary with ok, sets, unmatched, matched_count, unmatched_count, and suffix_rules.
+## `ok` 仅在至少匹配一个文件且所有集合均无重复角色、无缺失必需角色时为 true。
+## 每个 set 包含 ok:bool、set_id:String、directory:String、base_name:String、
+## textures:Dictionary[StringName, String]、source_paths:Array[String]、
+## duplicate_roles:Array[Dictionary]、missing_roles:Array[StringName] 和 issues:Array[Dictionary]。
+## duplicate_roles 元素包含 role:StringName 与 paths:Array[String]；unmatched 元素包含
+## path:String 与 reason:StringName；issue 包含 kind:StringName、set_id:String、role:StringName，
+## duplicate_role 还包含 paths:Array[String]。
+## [br]
+## @schema return: Dictionary with ok:bool, sets:Array[Dictionary], unmatched:Array[Dictionary], matched_count:int, unmatched_count:int, suffix_rules:Dictionary, required_roles:Array[StringName], valid_set_count:int, invalid_set_count:int, duplicate_role_count:int, missing_role_count:int, and issues:Array[Dictionary].
 static func classify_files(paths: PackedStringArray, options: Dictionary = {}) -> Dictionary:
 	var suffix_rules: Dictionary = _get_suffix_rules(options)
 	var allowed_extensions: Array[String] = _get_allowed_extensions(options)
+	var required_roles: Array[StringName] = _get_required_roles(options)
 	var sets: Dictionary = {}
 	var unmatched: Array[Dictionary] = []
 	var matched_count: int = 0
+	var sorted_paths: PackedStringArray = paths.duplicate()
+	sorted_paths.sort()
 
-	for path: String in paths:
+	for path: String in sorted_paths:
 		var normalized_path: String = path.strip_edges()
 		var extension: String = normalized_path.get_extension().to_lower()
 		if normalized_path.is_empty() or not allowed_extensions.has(extension):
@@ -132,30 +143,56 @@ static func classify_files(paths: PackedStringArray, options: Dictionary = {}) -
 				"set_id": set_id,
 				"directory": directory,
 				"base_name": base_id,
-				"textures": {},
+				"_role_paths": {},
 				"source_paths": [],
 			}
 
-		var textures: Dictionary = GFVariantData.get_option_dictionary(texture_set, "textures")
-		textures[role] = normalized_path
-		texture_set["textures"] = textures
+		var role_paths_by_role: Dictionary = GFVariantData.get_option_dictionary(texture_set, "_role_paths")
+		var role_paths: Array = GFVariantData.get_option_array(role_paths_by_role, role)
+		if not role_paths.has(normalized_path):
+			role_paths.append(normalized_path)
+		role_paths_by_role[role] = role_paths
+		texture_set["_role_paths"] = role_paths_by_role
 		var source_paths: Array = GFVariantData.get_option_array(texture_set, "source_paths")
-		source_paths.append(normalized_path)
+		if not source_paths.has(normalized_path):
+			source_paths.append(normalized_path)
 		texture_set["source_paths"] = source_paths
 		sets[set_id] = texture_set
 		matched_count += 1
 
+	var classified_sets: Array[Dictionary] = _finalize_sets(sets, required_roles)
+	var issues: Array[Dictionary] = []
+	var valid_set_count: int = 0
+	var invalid_set_count: int = 0
+	var duplicate_role_count: int = 0
+	var missing_role_count: int = 0
+	for texture_set: Dictionary in classified_sets:
+		if GFVariantData.get_option_bool(texture_set, "ok"):
+			valid_set_count += 1
+		else:
+			invalid_set_count += 1
+		duplicate_role_count += GFVariantData.get_option_array(texture_set, "duplicate_roles").size()
+		missing_role_count += GFVariantData.get_option_array(texture_set, "missing_roles").size()
+		for issue_value: Variant in GFVariantData.get_option_array(texture_set, "issues"):
+			issues.append(GFVariantData.as_dictionary(issue_value).duplicate(true))
+
 	return {
-		"ok": matched_count > 0,
-		"sets": _sort_sets(sets),
+		"ok": matched_count > 0 and invalid_set_count == 0,
+		"sets": classified_sets,
 		"unmatched": unmatched,
 		"matched_count": matched_count,
 		"unmatched_count": unmatched.size(),
 		"suffix_rules": suffix_rules,
+		"required_roles": required_roles,
+		"valid_set_count": valid_set_count,
+		"invalid_set_count": invalid_set_count,
+		"duplicate_role_count": duplicate_role_count,
+		"missing_role_count": missing_role_count,
+		"issues": issues,
 	}
 
 
-## 从纹理路径构建材质导入计划。
+## 从纹理路径构建材质导入计划。重复或缺少必需角色的集合不会生成条目，诊断会保留在计划 metadata。
 ## [br]
 ## @api public
 ## [br]
@@ -169,7 +206,7 @@ static func classify_files(paths: PackedStringArray, options: Dictionary = {}) -
 ## [br]
 ## @schema paths: PackedStringArray texture file paths.
 ## [br]
-## @schema options: Dictionary，可包含 material_extension、type_hint、suffix_rules、allowed_extensions 和 metadata。
+## @schema options: Dictionary，可包含 material_extension、type_hint、suffix_rules、allowed_extensions、required_roles 和 metadata。
 ## [br]
 ## @return 导入计划。
 static func build_material_import_plan(
@@ -181,6 +218,11 @@ static func build_material_import_plan(
 	plan.metadata = GFVariantData.get_option_dictionary(options, "metadata")
 	var classification: Dictionary = classify_files(paths, options)
 	plan.metadata["texture_set_count"] = GFVariantData.get_option_array(classification, "sets").size()
+	plan.metadata["valid_texture_set_count"] = GFVariantData.get_option_int(classification, "valid_set_count")
+	plan.metadata["invalid_texture_set_count"] = GFVariantData.get_option_int(classification, "invalid_set_count")
+	plan.metadata["duplicate_role_count"] = GFVariantData.get_option_int(classification, "duplicate_role_count")
+	plan.metadata["missing_role_count"] = GFVariantData.get_option_int(classification, "missing_role_count")
+	plan.metadata["texture_set_issues"] = GFVariantData.get_option_array(classification, "issues").duplicate(true)
 	plan.metadata["unmatched_count"] = GFVariantData.get_option_int(classification, "unmatched_count")
 	var extension: String = GFVariantData.get_option_string(options, "material_extension", "tres").strip_edges()
 	if extension.begins_with("."):
@@ -190,6 +232,8 @@ static func build_material_import_plan(
 
 	for set_value: Variant in GFVariantData.get_option_array(classification, "sets"):
 		var texture_set: Dictionary = GFVariantData.as_dictionary(set_value)
+		if not GFVariantData.get_option_bool(texture_set, "ok"):
+			continue
 		var source_paths: Array = GFVariantData.get_option_array(texture_set, "source_paths")
 		if source_paths.is_empty():
 			continue
@@ -257,11 +301,23 @@ static func _get_allowed_extensions(options: Dictionary) -> Array[String]:
 	return result
 
 
+static func _get_required_roles(options: Dictionary) -> Array[StringName]:
+	var result: Array[StringName] = []
+	for role_value: Variant in GFVariantData.get_option_array(options, "required_roles"):
+		var role: StringName = GFVariantData.to_string_name(role_value)
+		if role != &"" and not result.has(role):
+			result.append(role)
+	result.sort()
+	return result
+
+
 static func _match_texture_role(path: String, suffix_rules: Dictionary) -> Dictionary:
 	var stem: String = path.get_file().get_basename()
 	var normalized_stem: String = _normalize_token(stem)
 	for role_value: Variant in suffix_rules.keys():
 		var role: StringName = GFVariantData.to_string_name(role_value)
+		if role == &"":
+			continue
 		for suffix_value: Variant in GFVariantData.get_option_array(suffix_rules, role):
 			var suffix: String = _normalize_token(GFVariantData.to_text(suffix_value))
 			var base_name: String = _strip_suffix(stem, normalized_stem, suffix)
@@ -311,16 +367,67 @@ static func _make_unmatched(path: String, reason: StringName) -> Dictionary:
 	}
 
 
-static func _sort_sets(sets: Dictionary) -> Array[Dictionary]:
+static func _finalize_sets(sets: Dictionary, required_roles: Array[StringName]) -> Array[Dictionary]:
 	var keys: Array = sets.keys()
 	keys.sort()
 	var result: Array[Dictionary] = []
 	for set_key: Variant in keys:
 		var texture_set: Dictionary = GFVariantData.get_option_dictionary(sets, set_key)
+		var set_id: String = GFVariantData.get_option_string(texture_set, "set_id")
+		var role_paths_by_role: Dictionary = GFVariantData.get_option_dictionary(texture_set, "_role_paths")
+		var textures: Dictionary = {}
+		var duplicate_roles: Array[Dictionary] = []
+		var missing_roles: Array[StringName] = []
+		var issues: Array[Dictionary] = []
+		var roles: Array[StringName] = []
+		for role_value: Variant in role_paths_by_role.keys():
+			var role_name: StringName = GFVariantData.to_string_name(role_value)
+			if role_name != &"" and not roles.has(role_name):
+				roles.append(role_name)
+		roles.sort()
+
+		for role: StringName in roles:
+			var role_paths: Array = GFVariantData.get_option_array(role_paths_by_role, role)
+			role_paths.sort()
+			if role_paths.size() == 1:
+				textures[role] = GFVariantData.to_text(role_paths[0])
+				continue
+			if role_paths.size() <= 1:
+				continue
+			var duplicate_role: Dictionary = {
+				"role": role,
+				"paths": role_paths.duplicate(),
+			}
+			duplicate_roles.append(duplicate_role)
+			issues.append({
+				"kind": &"duplicate_role",
+				"set_id": set_id,
+				"role": role,
+				"paths": role_paths.duplicate(),
+			})
+
+		for required_role: StringName in required_roles:
+			var required_paths: Array = GFVariantData.get_option_array(role_paths_by_role, required_role)
+			if not required_paths.is_empty():
+				continue
+			missing_roles.append(required_role)
+			issues.append({
+				"kind": &"missing_required_role",
+				"set_id": set_id,
+				"role": required_role,
+			})
+
 		var source_paths: Array = GFVariantData.get_option_array(texture_set, "source_paths")
 		source_paths.sort()
-		texture_set["source_paths"] = source_paths
-		result.append(texture_set)
+		var finalized_set: Dictionary = texture_set.duplicate(true)
+		var _erased_role_paths: bool = finalized_set.erase("_role_paths")
+		finalized_set["ok"] = issues.is_empty()
+		finalized_set["textures"] = textures
+		finalized_set["duplicate_roles"] = duplicate_roles
+		finalized_set["missing_roles"] = missing_roles
+		finalized_set["issues"] = issues
+		finalized_set["source_paths"] = source_paths
+		result.append(finalized_set)
 	return result
 
 

@@ -34,4 +34,4 @@ log_util.add_sink(batch_sink)
 
 `sender_callback` 只有一个确认契约：必须返回包含 `ok: bool` 的 `Dictionary`，可选返回 `accepted: int` 和 `error: String`。缺少 `ok`、类型错误或 `ok == false` 都会 fail-closed，并把当前批次放回队列；不再接受 `success` 作为别名。
 
-批量外发固定使用 privacy profile 清洗 `tag`、`message` 和 `context`，`text` 会从这些已清洗字段重新构建，避免格式化文本保留原始路径。框架提供这一通用报告边界；项目层仍负责用户同意、业务字段分类、采样率、速率限制、持久重试和服务端字段映射。
+批量外发固定使用 privacy profile 清洗顶层 `trace_id`、`tag`、`message` 和 `context`，`text` 会从这些已清洗字段重新构建，避免格式化文本保留原始路径。框架提供这一通用报告边界；项目层仍负责用户同意、业务字段分类、采样率、速率限制、持久重试和服务端字段映射。

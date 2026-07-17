@@ -158,7 +158,24 @@ var report := plan.get_validation_report({
 
 `get_validation_report()` 会检查来源、目标、操作类型、可选的源文件存在性和默认启用的重复目标路径；`get_operation_summary()` 会按操作、来源格式、目标格式和重复目标输出纯数据摘要，便于批处理 UI 或 CI 在执行前展示影响范围。`get_repair_report()` 会输出可提示给工具 UI 的修复建议，例如跳过无效条目或补齐目标路径。项目如果需要真正复制、转换格式、重建 import remap 或写入数据库，应把计划交给自己的工具链执行，GF 不在这里规定项目目录或业务 schema。
 
-`GFTextureSetClassifier` 可把常见 PBR 贴图后缀归并成纹理集，并把每个集合转换为 `GFImportPlan` 条目：
+`GFTextureSetClassifier` 可把常见 PBR 贴图后缀归并成纹理集，并在真正生成材质前检查同角色冲突和项目要求的必需角色。例如角色、载具或场景模型的资产包同时带有 `normalgl` 与 `normaldx` 时，两张图都会被识别为 normal，但分类器不会根据输入顺序任选一张：
+
+```gdscript
+var classification := GFTextureSetClassifier.classify_files(texture_paths, {
+	"required_roles": [
+		GFTextureSetClassifier.ROLE_ALBEDO,
+		GFTextureSetClassifier.ROLE_NORMAL,
+		GFTextureSetClassifier.ROLE_ORM,
+	],
+})
+
+if not GFVariantData.get_option_bool(classification, "ok"):
+	show_import_issues(GFVariantData.get_option_array(classification, "issues"))
+```
+
+每个集合的 `duplicate_roles` 会列出冲突角色及全部稳定排序的路径，`missing_roles` 会列出缺少的 `required_roles`；顶层报告同时提供有效/无效集合和两类问题的计数。没有配置 `required_roles` 时允许部分纹理集，但重复角色始终使该集合无效，歧义角色也不会写入单值 `textures` 字典。
+
+确认分类策略后，可以把通过完整性校验且无歧义的集合转换为 `GFImportPlan` 条目：
 
 ```gdscript
 var plan := GFTextureSetClassifier.build_material_import_plan(
@@ -172,4 +189,4 @@ var plan := GFTextureSetClassifier.build_material_import_plan(
 )
 ```
 
-分类器只输出 `textures` 角色字典、source trace 和修复建议，不创建 `StandardMaterial3D`，也不假设目标项目的材质目录、压缩策略、导入 preset 或 shader 参数。默认角色覆盖 albedo、normal、roughness、metallic、packed ORM、AO、height 和 emission；项目导入器可以读取计划中的 metadata，再决定实际材质类型和写入流程。
+导入计划会跳过重复或缺少必需角色的集合，并在 metadata 中保留 `valid_texture_set_count`、`invalid_texture_set_count`、问题计数和 `texture_set_issues`，供批处理 UI 或 CI 阻止不完整资产进入后续写入。分类器只输出角色字典、source trace 和诊断，不创建 `StandardMaterial3D`，也不假设目标项目的材质目录、压缩策略、导入 preset 或 shader 参数。默认角色覆盖 albedo、normal、roughness、metallic、packed ORM、AO、height 和 emission；项目导入器可以读取计划中的 metadata，再决定实际材质类型和写入流程。

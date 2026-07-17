@@ -42,6 +42,14 @@ GF 不替代 Godot 的 `Control` 和 `CanvasLayer`。`GFUIUtility` 会把 HUD、
 
 不是。它们是默认逻辑层，不是固定上限。项目可以注册 `GFUILayerDefinition`，把逻辑层 ID、`CanvasLayer.layer` 和默认 `hide_under` 策略分开。左右并行窗口应使用独立逻辑层；同栈的非全屏通知可设置 `hide_under = false`，全屏页面或 Modal 保持默认遮挡。详见 [面板栈与可扩展层级](standard/utilities/runtime/settings-ui-scene/ui-stack-routing/ui-stack-modal/panel-stack.md)。
 
+## 自定义 UI Layer 的 ID 更大，为什么仍被 HUD 挡住，也没有自动清掉旧页面？
+
+`layer_id` 只是路由和栈的稳定编号，不参与 Godot 绘制排序。GF 预置 HUD、POPUP、TOP 的 `CanvasLayer.layer` 分别是 50、60、70；自定义资源即使写 `layer_id = 3`，若 `canvas_layer = 3`，仍会画在 HUD=50 下方。需要位于全部预置层之上时可使用大于 70 的绘制值，具体值仍由项目统一规划。
+
+旧 Auth 页面没有自动清理也是预期的层隔离语义。`hide_under` 只隐藏同一逻辑层的下方 Panel，`replace_route()` 也只替换目标 Route 所属的那一层。Login、Auth、GameHome 若是互斥全屏页面，应全部放在同一逻辑层并用 `replace_route()`；若项目有意把 GameHome 放到独立层，则在业务流程中先调用 `clear_layer(old_layer)`。框架不能在跨层打开时自动清 HUD，否则常驻血条、聊天侧栏、弹窗和背包等需要并行存在的 UI 也会被误删。
+
+面板选项中，`mode` 使用 `GFUIUtility.PanelMode.NORMAL` / `MODAL`；`modal = true` 是未显式传 `mode` 时的布尔简写；`metadata` 只是项目自定义数据，框架会复制和透传，但不会用它排序、清层或执行玩法逻辑。详见 [面板栈与可扩展层级](standard/utilities/runtime/settings-ui-scene/ui-stack-routing/ui-stack-modal/panel-stack.md) 和 [UI 路由与导航历史](standard/utilities/runtime/settings-ui-scene/ui-stack-routing/ui-router.md)。
+
 ## `GFUIRouterUtility` 查询为 `null` 是接口被删除了吗？
 
 不是。`register_routes()` 仍然存在；`Invalid call ... in base 'Nil'` 表示 Router 实例没有进入当前架构。检查 `gf/project/installers`、`await Gf.init()` 的布尔结果和 `last_initialization_error`，并确认 Installer 注册了 UI 与 Router。最小 package 安装还需要 `gf.standard.ui.navigation`。详见 [UI 路由与导航历史](standard/utilities/runtime/settings-ui-scene/ui-stack-routing/ui-router.md)。
@@ -73,3 +81,36 @@ GF 8 的正式类型名是 `GFNodeContext`，不存在另一个 `GFSceneContext`
 `GFModel` 保存核心状态并维护数据一致性；`GFSystem` 处理业务规则、命令、查询和跨模块流程；`GFController` 连接输入、场景节点、UI 和架构；`GFUtility` 提供与具体玩法无关的通用运行时服务。常见方向是 Controller 调用 System，System 修改 Model，Model 通过事件或绑定结果通知 Controller，System 和 Controller 按需调用 Utility。
 
 Model 不应引用 System、Controller 或场景节点；System 不应持有具体 Controller 或节点；Controller 不应保存需要跨场景长期存在的核心状态；Utility 不应写死项目玩法规则。详见 [五层职责](kernel/architecture/module-roles-flow/module-roles/index.md) 和 [信息流方向](kernel/architecture/module-roles-flow/information-flow.md)。
+
+## `boss_defeated`、`tutorial_seen`、`door_opened` 这类跨场景开关放哪里？
+
+先看它是不是“游戏事实”。已经击败 Boss、看过教程、某扇永久门已开启，会影响之后场景和规则判断，应该由全局 Architecture 中的项目 `GFModel` 保存，再由 `GFSystem` 提供修改入口；需要跨重启时，把 Model 的稳定 DTO 交给项目存档聚合层和 `GFStorageUtility`，不要在运行时回写 `res://` 下的声明资源。
+
+只影响当前界面的筛选条件、折叠状态或未提交草稿，可以放 `GFReactiveStateStore`；只在当前关卡有效、离开关卡就应丢弃的机关状态，可以放 scoped `GFNodeContext` 中的局部 Model。也就是说，同样叫“开关”，归属取决于生命周期和业务含义，不需要为它再做一个框架全局单例。参见 [响应式状态与控件绑定](standard/utilities/runtime/reactive-state.md) 和 [场景级局部上下文](kernel/lifecycle/node-contexts.md)。
+
+## 项目有 `.enemy`、`.quest`、`.dialogue` 自定义文本，应该让 GF 在运行时直接解析吗？
+
+通常不应该。更稳妥的流程是“制作期文本 → 项目侧导入器或构建步骤 → 校验后的 Resource/配置数据 → 运行时加载”。例如策划写一份敌人定义，项目的 `EditorImportPlugin` 读取 UTF-8 文本，词法/语法阶段为错误保留 `GFSourceSpan`，把缺字段、错误数字和未知命令汇总进 `GFValidationReport`，成功后生成项目自己的 `EnemyDefinition` Resource；运行时生成敌人时只读取这份已校验资源，不再重复解析原文。
+
+表格型输入可以组合 [Config Pipeline](editor/tools/config-pipeline.md)，对话可以落到 `GFDialogueResource`，任务或敌人字段则继续使用项目自己的 Resource/schema。GF 提供报告、源码位置、配置和领域资源底座，但不会内置一套能理解所有游戏词汇的通用 DSL。项目解析器还应保证遇到坏 token 时能够前进或明确停止，避免导入坏文件时进入死循环；任何会加载脚本或实例化对象的字段都要经过显式 allowlist。
+
+## GF 是否提供车辆控制器或车辆物理？
+
+GF 不提供通用 `VehicleController`，因为街机赛车、履带车、船和写实汽车的动力学差异很大。实际项目中，`VehicleBody3D`、`CharacterBody2D` 或项目自己的物理宿主继续在 `_physics_process(delta)` 里处理连续的油门、刹车、转向、抓地和碰撞；子级 `GFController` 读取 `throttle`、`brake`、`steer` 输入并把意图交给宿主。所有按时间变化的加速度和转向平滑都应使用真实 `delta`，不要使用与 `delta` 无关的固定每帧步长。
+
+`GFNodeStateMachine` 适合组织 `Parked / Driving / Airborne / Wrecked` 这类离散状态，不负责逐物理帧积分。摇杆幅度到输入响应可以使用 [`GFInputCurveModifier`](standard/input-flow/input-assist/input-modifiers-triggers.md)；车速到最大转角通常是车辆项目配置中的 `Curve`。单辆车的即时速度只需由车辆向自己的仪表盘发局部 signal；只有计时、回放、联网同步或存档等跨对象、跨场景流程确实需要稳定快照或领域事件时，才由项目 `GFSystem` 归纳事件，或由 `GFModel` 保存稳定状态，不要把每个物理帧的临时值直接提升为全局状态。参见 [原生物理节点桥接](kernel/lifecycle/controllers/native-physics-node.md) 和 [状态机选型](standard/input-flow/state-machines/index.md)。
+
+## 提 Issue 时怎样收集场景树信息而不泄露本机路径？
+
+先限制采集范围，只保留能解释问题的深度和节点数量，并显式开启路径脱敏：
+
+```gdscript
+var scene_snapshot: Dictionary = diagnostics.collect_scene_tree_snapshot(null, {
+	"max_depth": 4,
+	"max_nodes": 256,
+	"include_groups": true,
+	"redact_paths": true,
+})
+```
+
+GF Workspace 的 Diagnostics 页面使用本地调试 profile，“复制快照”会保留路径，适合自己排查，不应未经检查直接粘贴到公开 Issue。对外前应使用 `GFReportValueCodec` 的 support/public/privacy profile 导出，或至少像上面一样让场景树采集开启 `redact_paths`；随后仍要人工检查节点名、group、日志和项目自定义诊断字段，因为这些业务文本可能包含账号、关卡代号或用户内容。只附最小复现场景、GF/Godot 版本、错误日志和受限快照，通常比复制整棵场景树更容易定位。详见 [快照与场景树诊断](standard/utilities/runtime/debug-observability/runtime-telemetry/build-diagnostics/diagnostics-commands/snapshot-scene.md)。

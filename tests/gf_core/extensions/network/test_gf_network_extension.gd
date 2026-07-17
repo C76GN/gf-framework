@@ -644,6 +644,79 @@ func test_network_field_serializer_replaces_non_finite_numbers() -> void:
 	assert_eq(GFVariantData.to_float(encoded[2]), 1.5, "有限值应保留。")
 
 
+func test_network_field_serializer_round_trips_normalized_quaternion() -> void:
+	var serializer: GFNetworkFieldSerializer = GFNetworkFieldSerializer.new()
+	serializer.value_type = GFNetworkFieldSerializer.ValueType.QUATERNION
+	var source_quaternion: Quaternion = Quaternion(Vector3.UP, 0.75)
+
+	var encoded: Array = GFVariantData.as_array(serializer.serialize_value(source_quaternion))
+	var decoded_value: Variant = serializer.deserialize_value(encoded)
+
+	assert_eq(encoded.size(), 4, "Quaternion 应编码为 x/y/z/w 四个分量。")
+	assert_true(decoded_value is Quaternion, "Quaternion 字段应恢复原始值类型。")
+	if not (decoded_value is Quaternion):
+		return
+	var decoded_quaternion: Quaternion = decoded_value
+	assert_almost_eq(decoded_quaternion.x, source_quaternion.x, 0.000001, "x 分量应往返。")
+	assert_almost_eq(decoded_quaternion.y, source_quaternion.y, 0.000001, "y 分量应往返。")
+	assert_almost_eq(decoded_quaternion.z, source_quaternion.z, 0.000001, "z 分量应往返。")
+	assert_almost_eq(decoded_quaternion.w, source_quaternion.w, 0.000001, "w 分量应往返。")
+	assert_almost_eq(decoded_quaternion.length_squared(), 1.0, 0.000001, "解码后的旋转应保持单位长度。")
+
+
+func test_network_field_serializer_sanitizes_and_quantizes_quaternion() -> void:
+	var serializer: GFNetworkFieldSerializer = GFNetworkFieldSerializer.new()
+	serializer.value_type = GFNetworkFieldSerializer.ValueType.QUATERNION
+	serializer.quantize_decimals = 1
+
+	var encoded: Array = GFVariantData.as_array(serializer.serialize_value(Quaternion(0.2, 0.4, 0.1, 0.8)))
+	var encoded_quaternion: Quaternion = Quaternion(
+		GFVariantData.to_float(encoded[0]),
+		GFVariantData.to_float(encoded[1]),
+		GFVariantData.to_float(encoded[2]),
+		GFVariantData.to_float(encoded[3])
+	)
+	var invalid_encoded: Array = GFVariantData.as_array(serializer.serialize_value(Quaternion(NAN, 0.0, 0.0, 1.0)))
+	var huge_encoded: Array = GFVariantData.as_array(serializer.serialize_value(Quaternion(1.0e20, 0.0, 0.0, 1.0)))
+	var huge_quaternion: Quaternion = Quaternion(
+		GFVariantData.to_float(huge_encoded[0]),
+		GFVariantData.to_float(huge_encoded[1]),
+		GFVariantData.to_float(huge_encoded[2]),
+		GFVariantData.to_float(huge_encoded[3])
+	)
+	var huge_decoded: Variant = serializer.deserialize_value([1.0e300, 0.0, 0.0, 1.0])
+	var zero_decoded: Variant = serializer.deserialize_value([0.0, 0.0, 0.0, 0.0])
+	var non_finite_decoded: Variant = serializer.deserialize_value([0.0, INF, 0.0, 1.0])
+	var huge_decoded_quaternion: Quaternion = Quaternion.IDENTITY
+	var zero_quaternion: Quaternion = Quaternion.IDENTITY
+	var non_finite_quaternion: Quaternion = Quaternion.IDENTITY
+	assert_true(huge_decoded is Quaternion, "有限超大分量仍应恢复 Quaternion 类型。")
+	assert_true(zero_decoded is Quaternion, "零长度字段仍应恢复 Quaternion 类型。")
+	assert_true(non_finite_decoded is Quaternion, "非有限字段仍应恢复 Quaternion 类型。")
+	if huge_decoded is Quaternion:
+		huge_decoded_quaternion = huge_decoded
+	if zero_decoded is Quaternion:
+		zero_quaternion = zero_decoded
+	if non_finite_decoded is Quaternion:
+		non_finite_quaternion = non_finite_decoded
+
+	var expected_quantized: Quaternion = Quaternion(0.2, 0.4, 0.1, 0.9).normalized()
+	assert_almost_eq(encoded_quaternion.x, expected_quantized.x, 0.000001, "Quaternion 的 x 分量应按策略量化后归一化。")
+	assert_almost_eq(encoded_quaternion.y, expected_quantized.y, 0.000001, "Quaternion 的 y 分量应按策略量化后归一化。")
+	assert_almost_eq(encoded_quaternion.z, expected_quantized.z, 0.000001, "Quaternion 的 z 分量应按策略量化后归一化。")
+	assert_almost_eq(encoded_quaternion.w, expected_quantized.w, 0.000001, "Quaternion 的 w 分量应按策略量化后归一化。")
+	assert_almost_eq(encoded_quaternion.length_squared(), 1.0, 0.000001, "量化后仍应重新归一化 Quaternion。")
+	assert_almost_eq(huge_quaternion.length_squared(), 1.0, 0.000001, "有限超大分量不应因平方溢出变成零 Quaternion。")
+	assert_almost_eq(huge_quaternion.x, 1.0, 0.000001, "超大分量编码应保留旋转方向。")
+	assert_almost_eq(huge_quaternion.w, 0.0, 0.000001, "超大分量编码不应伪装成单位旋转。")
+	assert_almost_eq(huge_decoded_quaternion.length_squared(), 1.0, 0.000001, "超大分量解码结果应保持单位长度。")
+	assert_almost_eq(huge_decoded_quaternion.x, 1.0, 0.000001, "超大分量解码应保留旋转方向。")
+	assert_almost_eq(huge_decoded_quaternion.w, 0.0, 0.000001, "超大分量解码不应退化为单位旋转。")
+	assert_eq(invalid_encoded, [0.0, 0.0, 0.0, 1.0], "非有限 Quaternion 应编码为单位旋转。")
+	assert_eq(zero_quaternion, Quaternion.IDENTITY, "零长度 Quaternion 应解码为单位旋转。")
+	assert_eq(non_finite_quaternion, Quaternion.IDENTITY, "非有限 Quaternion 分量应解码为单位旋转。")
+
+
 func test_network_contract_exposes_version_digest_and_peer_preflight() -> void:
 	var contract: GFNetworkContract = _make_lobby_network_contract()
 	contract.contract_version_major = 2

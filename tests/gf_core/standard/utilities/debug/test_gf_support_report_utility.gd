@@ -14,6 +14,7 @@ func test_support_report_collects_custom_sections() -> void:
 	var report: Dictionary = utility.build_report("Need help", {
 		"include_diagnostics": false,
 		"include_scene": false,
+		"include_sections": true,
 		"section_options": { "slot": "B" },
 		"metadata": { "screen": "settings" },
 		"tags": ["qa", "runtime"],
@@ -26,6 +27,61 @@ func test_support_report_collects_custom_sections() -> void:
 	assert_eq(GFVariantData.get_option_string(report, "description"), "Need help", "报告应保留用户描述。")
 	assert_eq(GFVariantData.get_option_string(metadata, "screen"), "settings", "报告应保留元数据。")
 	assert_eq(GFVariantData.get_option_string(save_value, "slot"), "B", "分区 provider 应收到调用选项。")
+
+
+## 验证默认报告只采集最小运行时信息，敏感扩展分区均需显式启用。
+func test_support_report_defaults_to_minimal_collection() -> void:
+	var utility: GFSupportReportUtility = GFSupportReportUtility.new()
+	assert_true(utility.register_section(&"private_state", func(_options: Dictionary) -> Dictionary:
+		return { "account": "hidden" }
+	), "测试分区应注册成功。")
+
+	var report: Dictionary = utility.build_report("Minimal")
+	var runtime: Dictionary = GFVariantData.get_option_dictionary(report, "runtime")
+
+	assert_eq(GFVariantData.get_option_string_name(runtime, "detail"), &"minimal", "默认运行时档位应为 minimal。")
+	assert_true(runtime.has("platform"), "minimal 档位应保留排查平台差异所需的平台名。")
+	assert_false(runtime.has("locale"), "minimal 档位不应采集完整 locale。")
+	assert_false(runtime.has("processor_count"), "minimal 档位不应采集精确处理器数量。")
+	assert_false(runtime.has("static_memory_bytes"), "minimal 档位不应采集精确内存值。")
+	assert_true(GFVariantData.get_option_dictionary(report, "scene").is_empty(), "场景快照默认应为空。")
+	assert_true(GFVariantData.get_option_dictionary(report, "diagnostics").is_empty(), "诊断快照默认应为空。")
+	assert_true(GFVariantData.get_option_dictionary(report, "sections").is_empty(), "自定义分区默认应为空。")
+
+
+## 验证 coarse 档位只公开分桶值，不泄露精确运行时计数。
+func test_support_report_coarse_runtime_uses_buckets() -> void:
+	var utility: GFSupportReportUtility = GFSupportReportUtility.new()
+
+	var runtime: Dictionary = utility.collect_runtime_snapshot(GFSupportReportUtility.RuntimeDetail.COARSE)
+
+	assert_eq(GFVariantData.get_option_string_name(runtime, "detail"), &"coarse", "运行时档位应写入快照。")
+	assert_false(GFVariantData.get_option_string(runtime, "processor_count_range").is_empty(), "处理器数量应输出范围。")
+	assert_false(GFVariantData.get_option_string(runtime, "static_memory_mib_range").is_empty(), "内存应输出 MiB 范围。")
+	assert_false(GFVariantData.get_option_string(runtime, "object_count_range").is_empty(), "对象数量应输出范围。")
+	assert_false(runtime.has("processor_count"), "coarse 档位不得混入精确处理器数量。")
+	assert_false(runtime.has("static_memory_bytes"), "coarse 档位不得混入精确内存。")
+	assert_false(runtime.has("object_count"), "coarse 档位不得混入精确对象数量。")
+
+
+## 验证 full 档位和完全关闭运行时采集都需要调用方明确选择。
+func test_support_report_runtime_collection_is_explicit() -> void:
+	var utility: GFSupportReportUtility = GFSupportReportUtility.new()
+
+	var full_report: Dictionary = utility.build_report("Full", {
+		"runtime_detail": GFSupportReportUtility.RuntimeDetail.FULL,
+	})
+	var full_runtime: Dictionary = GFVariantData.get_option_dictionary(full_report, "runtime")
+	var omitted_report: Dictionary = utility.build_report("None", {
+		"include_runtime": false,
+	})
+
+	assert_eq(GFVariantData.get_option_string_name(full_runtime, "detail"), &"full", "显式 full 应采集完整运行时信息。")
+	assert_true(full_runtime.has("locale"), "full 档位应包含完整 locale。")
+	assert_true(full_runtime.has("processor_count"), "full 档位应包含精确处理器数量。")
+	assert_true(full_runtime.has("static_memory_bytes"), "full 档位应包含精确内存字节数。")
+	assert_true(full_runtime.has("object_count"), "full 档位应包含精确对象数量。")
+	assert_true(GFVariantData.get_option_dictionary(omitted_report, "runtime").is_empty(), "include_runtime=false 应完全省略运行时采集。")
 
 
 ## 验证支持报告文本选项可安全接收非字符串值。
@@ -96,6 +152,7 @@ func test_support_report_exports_markdown_summary_sections_and_attachments() -> 
 	var report: Dictionary = utility.build_report("Markdown export", {
 		"include_diagnostics": false,
 		"include_scene": false,
+		"include_sections": true,
 		"metadata": {
 			"channel": "qa",
 		},

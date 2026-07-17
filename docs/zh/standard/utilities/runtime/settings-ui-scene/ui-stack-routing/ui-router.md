@@ -43,6 +43,8 @@ router.back()
 
 自定义 `route.layer` 可以是任意非负逻辑层 ID，但该层必须先通过 `GFUIUtility.register_layer()` 注册；否则 Router 会发出 `route_open_failed(route_id, "missing_ui_layer")`，而不是退化为泛化加载错误。
 
+`route.layer` 是“这条 Route 属于哪个独立导航栈”，不是全局页面优先级。登录、认证、主页这类互斥页面应放在同一层并调用 `replace_route()`；跨到新层不会自动关闭旧层。真正需要跨层切换时，由项目流程先显式 `clear_layer(old_layer)`。绘制前后关系则读取目标层的 `GFUILayerDefinition.canvas_layer`，与 route 的逻辑层 ID 大小无关。
+
 如果面板实现 `set_route_params(params)` 或 `set_route_metadata(metadata)`，Router 会在入栈前传入副本。`back()` 只弹出当前 UI 栈顶且属于路由历史的面板；项目直接在同层压入普通面板后，应先关闭普通面板。
 
 异步打开时，同一路径、逻辑层和操作上的相同 route 会复用 pending 边界；不同 route 指向同一 pending 目标时返回 `route_async_conflict`。复杂页面恢复、权限、转场动画和业务导航状态仍由项目 Model/System 或 UI 节点负责。

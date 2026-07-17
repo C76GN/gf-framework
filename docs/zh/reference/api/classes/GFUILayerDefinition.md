@@ -36,7 +36,7 @@ UI 逻辑层定义。 将稳定逻辑层 ID、Godot CanvasLayer 排序值和默�
 var layer_id: int = -1
 ```
 
-稳定逻辑层 ID。必须为非负整数。
+稳定逻辑层 ID。必须为非负整数，只用于路由、栈和诊断，不决定绘制顺序。
 
 <a id="member-gfuilayerdefinition-properties-display_name"></a>
 
@@ -62,7 +62,7 @@ var display_name: StringName = &""
 var canvas_layer: int = 0
 ```
 
-对应 Godot CanvasLayer.layer 的显示排序值。
+对应 Godot CanvasLayer.layer 的显示排序值，数值越大越靠前，与 layer_id 相互独立。 GF 预置 HUD、POPUP、TOP 分别使用 50、60、70。
 
 <a id="member-gfuilayerdefinition-properties-auto_hide_under"></a>
 
@@ -75,7 +75,7 @@ var canvas_layer: int = 0
 var auto_hide_under: bool = true
 ```
 
-新面板未显式指定 hide_under 时，是否隐藏同一逻辑层中的下方页面。
+新面板未显式指定 hide_under 时，是否隐藏同一逻辑层中的下方页面。 该策略不会隐藏或清理其他逻辑层。
 
 ## 方法
 

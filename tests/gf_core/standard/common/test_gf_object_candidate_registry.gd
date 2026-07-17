@@ -95,6 +95,78 @@ func test_candidate_registry_can_unregister_owner() -> void:
 	assert_same(_get_array_object(remaining_objects, 0), other, "保留项应为其他 owner 候选。")
 
 
+func test_candidate_registry_notifies_once_per_successful_mutation() -> void:
+	var registry: RefCounted = GF_OBJECT_CANDIDATE_REGISTRY_SCRIPT.new()
+	var candidate_owner: Node = Node.new()
+	var first: Node = Node.new()
+	var second: Node = Node.new()
+	add_child_autofree(candidate_owner)
+	add_child_autofree(first)
+	add_child_autofree(second)
+	watch_signals(registry)
+
+	assert_eq(GFVariantData.to_int(registry.call("get_revision")), 0, "新注册表 revision 应从 0 开始。")
+	assert_true(GFVariantData.to_bool(registry.call("register_candidate", first, { "owner": candidate_owner })))
+	assert_true(GFVariantData.to_bool(registry.call("register_candidate", second, { "owner": candidate_owner })))
+	assert_eq(GFVariantData.to_int(registry.call("unregister_owner", candidate_owner)), 2, "批量 owner 移除应删除全部关联候选。")
+
+	assert_eq(GFVariantData.to_int(registry.call("get_revision")), 3, "两次注册和一次批量移除应推进三次 revision。")
+	assert_signal_emit_count(registry, "candidates_changed", 3, "一次公开变更操作只应发出一次通知。")
+	assert_signal_emitted_with_parameters(registry, "candidates_changed", [1], 0)
+	assert_signal_emitted_with_parameters(registry, "candidates_changed", [2], 1)
+	assert_signal_emitted_with_parameters(registry, "candidates_changed", [3], 2)
+
+	assert_false(GFVariantData.to_bool(registry.call("unregister_candidate_id", first.get_instance_id())), "移除不存在的候选应为 no-op。")
+	registry.call("clear")
+	assert_eq(GFVariantData.to_int(registry.call("get_revision")), 3, "无效移除和空 clear 不应推进 revision。")
+	assert_signal_emit_count(registry, "candidates_changed", 3, "no-op 不应发出候选变化通知。")
+
+
+func test_candidate_registry_skips_idempotent_updates_and_notifies_real_updates() -> void:
+	var registry: RefCounted = GF_OBJECT_CANDIDATE_REGISTRY_SCRIPT.new()
+	var candidate: Node = Node.new()
+	add_child_autofree(candidate)
+	watch_signals(registry)
+	var options: Dictionary = {
+		"priority": 2,
+		"group": &"usable",
+		"stable_key": &"door",
+		"metadata": { "label": "Door" },
+	}
+
+	assert_true(GFVariantData.to_bool(registry.call("register_candidate", candidate, options)))
+	assert_true(GFVariantData.to_bool(registry.call("register_candidate", candidate, options)), "幂等注册仍应报告候选有效。")
+	assert_eq(GFVariantData.to_int(registry.call("get_revision")), 1, "相同记录的幂等注册不应推进 revision。")
+	assert_signal_emit_count(registry, "candidates_changed", 1, "相同记录的幂等注册不应发出变化通知。")
+
+	options["priority"] = 3
+	assert_true(GFVariantData.to_bool(registry.call("register_candidate", candidate, options)))
+	assert_eq(GFVariantData.to_int(registry.call("get_revision")), 2, "候选字段更新应推进 revision。")
+	assert_signal_emitted_with_parameters(registry, "candidates_changed", [2], 1)
+
+	registry.call("clear")
+	assert_eq(GFVariantData.to_int(registry.call("get_revision")), 3, "非空 clear 应推进 revision。")
+	assert_signal_emitted_with_parameters(registry, "candidates_changed", [3], 2)
+
+
+func test_candidate_registry_batches_prune_and_exposes_revision_in_snapshot() -> void:
+	var registry: RefCounted = GF_OBJECT_CANDIDATE_REGISTRY_SCRIPT.new()
+	var first: Node = Node.new()
+	var second: Node = Node.new()
+	watch_signals(registry)
+
+	assert_true(GFVariantData.to_bool(registry.call("register_candidate", first)))
+	assert_true(GFVariantData.to_bool(registry.call("register_candidate", second)))
+	first.free()
+	second.free()
+	assert_eq(GFVariantData.to_int(registry.call("prune_invalid")), 2, "一次清理应移除全部失效候选。")
+
+	var snapshot: Dictionary = GFVariantData.as_dictionary(registry.call("get_debug_snapshot"))
+	assert_eq(GFVariantData.to_int(registry.call("get_revision")), 3, "批量清理应只推进一次 revision。")
+	assert_eq(GFVariantData.get_option_int(snapshot, "revision"), 3, "调试快照应暴露当前 revision。")
+	assert_signal_emit_count(registry, "candidates_changed", 3, "两次注册和一次批量清理应发出三次通知。")
+
+
 # --- 私有/辅助方法 ---
 
 func _get_candidate_snapshot_object(candidates: Array, index: int) -> Object:

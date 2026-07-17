@@ -1,0 +1,181 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFBuoyancyField3D" path="addons/gf/extensions/physics/nodes/gf_buoyancy_field_3d.gd" module="extensions/physics" extends="Node3D" classDigest="7a944f69fa2d11ac12a53d253fc0dbdd010428fa7d452569e8629ca448f58cbe">
+	<description>GFBuoyancyField3D: 可扩展的 3D 浮力点采样场。
+默认以节点局部 Y 平面作为无限流体表面，把几何采样和浮力数学组合成纯结果字典。
+项目可以重写表面、流速钩子实现有限水体、高度场或移动流体，但刚体施力、探针布局、
+Area 检测、网络同步和玩法规则仍由项目层决定。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_service</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants>
+		<member kind="const" name="FIELD_GROUP">
+			<signature>const FIELD_GROUP: StringName = &amp;"gf_buoyancy_field_3d"</signature>
+			<description>浮力场默认场景树分组。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties>
+		<member kind="property" name="enabled" decorators="@export">
+			<signature>var enabled: bool = true</signature>
+			<description>是否启用采样场。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="priority" decorators="@export">
+			<signature>var priority: int = 0</signature>
+			<description>调用方组合多个流体场时可读取的优先级；数值越大优先级越高。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="surface_offset" decorators="@export">
+			<signature>var surface_offset: float = 0.0:</signature>
+			<description>默认平面相对节点局部原点的 Y 偏移。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="fluid_density" decorators="@export">
+			<signature>var fluid_density: float = 1000.0:</signature>
+			<description>流体密度。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="fluid_velocity" decorators="@export">
+			<signature>var fluid_velocity: Vector3 = Vector3.ZERO:</signature>
+			<description>默认世界空间流体速度。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="linear_drag_coefficient" decorators="@export">
+			<signature>var linear_drag_coefficient: float = 0.0:</signature>
+			<description>点采样线性阻力有效系数。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="quadratic_drag_coefficient" decorators="@export">
+			<signature>var quadratic_drag_coefficient: float = 0.0:</signature>
+			<description>点采样二次阻力有效系数。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="get_surface_origin">
+			<signature>func get_surface_origin() -&gt; Vector3:</signature>
+			<description>获取默认平面的世界空间原点。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">默认流体表面原点。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_signed_depth_at">
+			<signature>func get_signed_depth_at(world_position: Vector3) -&gt; float:</signature>
+			<description>获取世界坐标相对流体表面的有符号深度。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">world_position: 世界空间采样点。</tag>
+				<tag name="return">正数表示表面下方，负数表示表面上方；输入或表面无效时返回 0。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_surface_normal_at">
+			<signature>func get_surface_normal_at(world_position: Vector3) -&gt; Vector3:</signature>
+			<description>获取采样点处的流体表面法线。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">world_position: 世界空间采样点。</tag>
+				<tag name="return">归一化世界空间法线；无效时返回 Vector3.UP。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_fluid_velocity_at">
+			<signature>func get_fluid_velocity_at(world_position: Vector3) -&gt; Vector3:</signature>
+			<description>获取采样点处的世界空间流体速度。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">world_position: 世界空间采样点。</tag>
+				<tag name="return">世界空间流体速度；无效时返回零向量。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_buoyancy_priority">
+			<signature>func get_buoyancy_priority() -&gt; int:</signature>
+			<description>获取调用方组合多个浮力场时使用的优先级。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">优先级数值，越大越优先。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="sample_point">
+			<signature>func sample_point( world_position: Vector3, point_velocity: Vector3, displaced_volume: float, immersion_radius: float, gravity_acceleration: Vector3 ) -&gt; Dictionary:</signature>
+			<description>采样单个排水点的浸没状态、浮力和阻力。
+方法不修改 RigidBody3D。调用方可把 `force` 传给 `apply_force()`，也可以只读取
+浸没比例驱动音效、粒子、控制器或自定义物理积分。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">world_position: 排水点世界坐标。</tag>
+				<tag name="param">point_velocity: 排水点世界空间速度。</tag>
+				<tag name="param">displaced_volume: 排水点代表的最大排水体积。</tag>
+				<tag name="param">immersion_radius: 从半浸没到完全浸没所需距离。</tag>
+				<tag name="param">gravity_acceleration: 当前排水点的重力加速度向量。</tag>
+				<tag name="return">采样结果字典。</tag>
+				<tag name="schema">return: Dictionary，包含 available、active、reason、signed_depth、submersion_ratio、surface_normal、fluid_velocity、buoyancy_force、drag_force 和 force。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_get_signed_depth_at">
+			<signature>func _get_signed_depth_at(world_position: Vector3) -&gt; float:</signature>
+			<description>计算世界坐标相对流体表面的有符号深度。
+默认实现使用节点局部 Y 平面；子类可实现有限体积、高度场或其他连续表面。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">world_position: 世界空间采样点。</tag>
+				<tag name="return">正数表示流体内部，负数表示外部。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_get_surface_normal_at">
+			<signature>func _get_surface_normal_at(world_position: Vector3) -&gt; Vector3:</signature>
+			<description>计算采样点处的世界空间流体表面法线。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">world_position: 世界空间采样点。</tag>
+				<tag name="return">世界空间表面法线。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_get_fluid_velocity_at">
+			<signature>func _get_fluid_velocity_at(world_position: Vector3) -&gt; Vector3:</signature>
+			<description>计算采样点处的世界空间流体速度。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">world_position: 世界空间采样点。</tag>
+				<tag name="return">世界空间流体速度。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

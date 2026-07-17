@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFTextFitter" path="addons/gf/standard/utilities/ui/gf_text_fitter.gd" module="standard" extends="RefCounted" classDigest="f0d306bb00f6be393d7bf74fdff1cb1750d51cde1a12eac366cfd51d0f9fd101">
+<class name="GFTextFitter" path="addons/gf/standard/utilities/ui/gf_text_fitter.gd" module="standard" extends="RefCounted" classDigest="773d7893de5ecd57e4fb9985c8ab4e6c3a813257e3c8d3ac292aa7363d780d7b">
 	<description>GFTextFitter: 文本尺寸适配器。
 为常见文本控件提供通用字体大小计算，不接管控件布局、主题或项目文本规则。</description>
 	<tags>
@@ -8,7 +8,23 @@
 		<tag name="since">3.17.0</tag>
 	</tags>
 	<signals />
-	<enums />
+	<enums>
+		<member kind="enum" name="MeasurementMode">
+			<signature>enum MeasurementMode {
+	## 根据控件文本布局属性选择测量路径，保持完整换行与排版语义。
+	AUTO,
+	## 面向不换行短文本，只在最大字号测量一次并按可用区域推导结果。
+	SINGLE_LINE,
+	## 强制使用完整多行排版测量。
+	MULTILINE,
+}</signature>
+			<description>文本测量模式。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</enums>
 	<constants>
 		<member kind="const" name="DEFAULT_MIN_FONT_SIZE">
 			<signature>const DEFAULT_MIN_FONT_SIZE: int = 8</signature>
@@ -33,9 +49,9 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">control: 目标文本控件，支持 Label、RichTextLabel、Button、LineEdit 与 TextEdit，也可通过 options.text 适配自定义控件。</tag>
-				<tag name="param">options: 可选设置，支持 min_font_size、max_font_size、font_size_candidates、available_size、fit_width、fit_height、apply、font_name、font_size_name、text、content_insets、use_placeholder、horizontal_alignment、autowrap_mode、line_break_flags、justification_flags、text_direction。</tag>
+				<tag name="param">options: 可选设置，支持 min_font_size、max_font_size、font_size_candidates、available_size、fit_width、fit_height、apply、font_name、font_size_name、text、content_insets、use_placeholder、measurement_mode、horizontal_alignment、autowrap_mode、line_break_flags、justification_flags、text_direction。</tag>
 				<tag name="return">计算出的字体尺寸；目标无效或无法读取文本时返回 0。</tag>
-				<tag name="schema">options: Dictionary，支持 min_font_size、max_font_size、font_size_candidates、available_size、fit_width、fit_height、apply、font_name、font_size_name、font、text、content_insets、use_placeholder、horizontal_alignment、autowrap_mode、line_break_flags、justification_flags、text_direction；font_size_candidates 为整数候选字号数组，非空时只从合法候选字号中挑选最大适配值。</tag>
+				<tag name="schema">options: Dictionary，支持 min_font_size、max_font_size、font_size_candidates、available_size、fit_width、fit_height、apply、font_name、font_size_name、font、text、content_insets、use_placeholder、measurement_mode、horizontal_alignment、autowrap_mode、line_break_flags、justification_flags、text_direction；measurement_mode 默认为 MeasurementMode.AUTO，SINGLE_LINE 只测量一次最大字号并按比例选择连续或候选字号，MULTILINE 强制完整多行排版；font_size_candidates 为整数候选字号数组。</tag>
 				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
@@ -45,9 +61,9 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">label: 目标 Label。</tag>
-				<tag name="param">options: 可选设置，支持 min_font_size、max_font_size、font_size_candidates、available_size、fit_width、fit_height、apply、font_name、font_size_name、horizontal_alignment、autowrap_mode、line_break_flags、justification_flags、text_direction。</tag>
+				<tag name="param">options: 可选设置，支持 min_font_size、max_font_size、font_size_candidates、available_size、fit_width、fit_height、apply、font_name、font_size_name、font、text、measurement_mode、horizontal_alignment、autowrap_mode、line_break_flags、justification_flags、text_direction。</tag>
 				<tag name="return">计算出的字体尺寸；目标无效时返回 0。</tag>
-				<tag name="schema">options: Dictionary，支持 min_font_size、max_font_size、font_size_candidates、available_size、fit_width、fit_height、apply、font_name、font_size_name、font、horizontal_alignment、autowrap_mode、line_break_flags、justification_flags、text_direction；font_size_candidates 为整数候选字号数组，非空时只从合法候选字号中挑选最大适配值。</tag>
+				<tag name="schema">options: Dictionary，支持 min_font_size、max_font_size、font_size_candidates、available_size、fit_width、fit_height、apply、font_name、font_size_name、font、text、measurement_mode、horizontal_alignment、autowrap_mode、line_break_flags、justification_flags、text_direction；measurement_mode 默认为 MeasurementMode.AUTO，SINGLE_LINE 适用于无换行短文本的一次测量路径，MULTILINE 强制完整多行排版；font_size_candidates 为整数候选字号数组。</tag>
 				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
@@ -57,9 +73,9 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">label: 目标 RichTextLabel。</tag>
-				<tag name="param">options: 可选设置，支持 min_font_size、max_font_size、font_size_candidates、available_size、fit_width、fit_height、apply、font_name、font_size_name、horizontal_alignment、autowrap_mode、line_break_flags、justification_flags、text_direction。</tag>
+				<tag name="param">options: 可选设置，支持 min_font_size、max_font_size、font_size_candidates、available_size、fit_width、fit_height、apply、font_name、font_size_name、font、text、measurement_mode、horizontal_alignment、autowrap_mode、line_break_flags、justification_flags、text_direction。</tag>
 				<tag name="return">计算出的字体尺寸；目标无效时返回 0。</tag>
-				<tag name="schema">options: Dictionary，支持 min_font_size、max_font_size、font_size_candidates、available_size、fit_width、fit_height、apply、font_name、font_size_name、font、horizontal_alignment、autowrap_mode、line_break_flags、justification_flags、text_direction；font_size_candidates 为整数候选字号数组，非空时只从合法候选字号中挑选最大适配值。</tag>
+				<tag name="schema">options: Dictionary，支持 min_font_size、max_font_size、font_size_candidates、available_size、fit_width、fit_height、apply、font_name、font_size_name、font、text、measurement_mode、horizontal_alignment、autowrap_mode、line_break_flags、justification_flags、text_direction；measurement_mode 默认为 MeasurementMode.AUTO，MULTILINE 可用于显式保留完整多行排版；font_size_candidates 为整数候选字号数组。</tag>
 				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
@@ -85,7 +101,8 @@
 				<tag name="param">font_size: 字体尺寸。</tag>
 				<tag name="param">options: fit_label() 或 fit_rich_text_label() 使用的设置。</tag>
 				<tag name="return">文本尺寸；字体缺失时返回 Vector2.ZERO。</tag>
-				<tag name="schema">options: Dictionary，支持 available_size、fit_width、font_name、font、horizontal_alignment、autowrap_mode、line_break_flags、justification_flags、text_direction。</tag>
+				<tag name="schema">options: Dictionary，支持 available_size、fit_width、font_name、font、measurement_mode、horizontal_alignment、autowrap_mode、line_break_flags、justification_flags、text_direction。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</methods>

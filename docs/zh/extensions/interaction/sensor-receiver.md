@@ -36,4 +36,6 @@ Receiver 会先执行自己的 `enabled`、交互 ID 过滤和 `validation_callb
 
 项目也可以把范围、视线、优先级或编辑器选择结果先写入通用候选 provider，再交给 Sensor。`GFObjectCandidateRegistry` 提供弱引用候选表，按 group、method、priority 和注册顺序筛选排序；`send_to_best_candidate(provider, options)` 会向最高优先级候选发送一次交互，`broadcast_to_candidates(provider, options, max_count)` 会向筛选后的候选列表广播。provider 只负责提供对象候选，不定义距离、冷却、消耗或提示 UI。
 
+需要让交互提示、选择高亮或项目侧候选缓存及时刷新时，可监听注册表的 `candidates_changed(revision)`。注册、更新、清空、按 owner 批量移除和失效对象清理都会在一次确实改变记录的公开操作结束后发出一次通知；幂等注册、空表清理或移除不存在的候选不会制造伪变化。`get_revision()` 与调试快照中的 `revision` 可用于跳过已经处理过的版本。通知只表示候选记录变了，不代表“最佳候选”必然变化；监听方仍应使用自己的 group、method 和项目筛选条件重新查询。
+
 输入触发、碰撞层筛选、UI 焦点和目标合法性仍由项目层决定。

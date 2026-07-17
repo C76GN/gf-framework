@@ -18,10 +18,14 @@
 | 信号 | [`report_built`](#member-gfsupportreportutility-signals-report_built) | `signal report_built(report: Dictionary)` |
 | 信号 | [`report_saved`](#member-gfsupportreportutility-signals-report_saved) | `signal report_saved(path: String, error: Error)` |
 | 信号 | [`report_submitted`](#member-gfsupportreportutility-signals-report_submitted) | `signal report_submitted(result: Dictionary)` |
+| 枚举 | [`RuntimeDetail`](#member-gfsupportreportutility-enums-runtimedetail) | `enum RuntimeDetail` |
 | 常量 | [`DEFAULT_SCENE_COUNT_MAX_DEPTH`](#member-gfsupportreportutility-constants-default_scene_count_max_depth) | `const DEFAULT_SCENE_COUNT_MAX_DEPTH: int = 64` |
 | 常量 | [`DEFAULT_SCENE_COUNT_MAX_NODES`](#member-gfsupportreportutility-constants-default_scene_count_max_nodes) | `const DEFAULT_SCENE_COUNT_MAX_NODES: int = 10000` |
-| 属性 | [`include_diagnostics_by_default`](#member-gfsupportreportutility-properties-include_diagnostics_by_default) | `var include_diagnostics_by_default: bool = true` |
-| 属性 | [`include_scene_by_default`](#member-gfsupportreportutility-properties-include_scene_by_default) | `var include_scene_by_default: bool = true` |
+| 属性 | [`include_diagnostics_by_default`](#member-gfsupportreportutility-properties-include_diagnostics_by_default) | `var include_diagnostics_by_default: bool = false` |
+| 属性 | [`include_scene_by_default`](#member-gfsupportreportutility-properties-include_scene_by_default) | `var include_scene_by_default: bool = false` |
+| 属性 | [`include_runtime_by_default`](#member-gfsupportreportutility-properties-include_runtime_by_default) | `var include_runtime_by_default: bool = true` |
+| 属性 | [`runtime_detail_by_default`](#member-gfsupportreportutility-properties-runtime_detail_by_default) | `var runtime_detail_by_default: RuntimeDetail = RuntimeDetail.MINIMAL` |
+| 属性 | [`include_sections_by_default`](#member-gfsupportreportutility-properties-include_sections_by_default) | `var include_sections_by_default: bool = false` |
 | 属性 | [`default_scene_count_max_depth`](#member-gfsupportreportutility-properties-default_scene_count_max_depth) | `var default_scene_count_max_depth: int = DEFAULT_SCENE_COUNT_MAX_DEPTH` |
 | 属性 | [`default_scene_count_max_nodes`](#member-gfsupportreportutility-properties-default_scene_count_max_nodes) | `var default_scene_count_max_nodes: int = DEFAULT_SCENE_COUNT_MAX_NODES` |
 | 属性 | [`default_recent_log_count`](#member-gfsupportreportutility-properties-default_recent_log_count) | `var default_recent_log_count: int = 50` |
@@ -33,6 +37,7 @@
 | 方法 | [`has_section`](#member-gfsupportreportutility-methods-has_section) | `func has_section(section_id: StringName) -> bool:` |
 | 方法 | [`get_section_catalog`](#member-gfsupportreportutility-methods-get_section_catalog) | `func get_section_catalog() -> Dictionary:` |
 | 方法 | [`build_report`](#member-gfsupportreportutility-methods-build_report) | `func build_report(description: String = "", options: Dictionary = {}) -> Dictionary:` |
+| 方法 | [`collect_runtime_snapshot`](#member-gfsupportreportutility-methods-collect_runtime_snapshot) | `func collect_runtime_snapshot(detail: RuntimeDetail = RuntimeDetail.MINIMAL) -> Dictionary:` |
 | 方法 | [`collect_sections`](#member-gfsupportreportutility-methods-collect_sections) | `func collect_sections(options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`collect_attachments`](#member-gfsupportreportutility-methods-collect_attachments) | `func collect_attachments(attachments: Variant, options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`add_attachment_to_report`](#member-gfsupportreportutility-methods-add_attachment_to_report) | `func add_attachment_to_report( report: Dictionary, attachment_id: StringName, content: Variant, options: Dictionary = {} ) -> Dictionary:` |
@@ -108,6 +113,28 @@ signal report_submitted(result: Dictionary)
 
 - `result`: Dictionary，包含 ok、value、error、metadata，可选 submitted_at_unix。
 
+## 枚举
+
+<a id="member-gfsupportreportutility-enums-runtimedetail"></a>
+
+### `RuntimeDetail`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+enum RuntimeDetail {
+	## 只保留平台等非精确排查信息。
+	MINIMAL,
+	## 额外保留语言和运行时计数的分桶范围。
+	COARSE,
+	## 保留完整 locale 与精确运行时计数。
+	FULL,
+}
+```
+
+运行时快照的数据精度。
+
 ## 常量
 
 <a id="member-gfsupportreportutility-constants-default_scene_count_max_depth"></a>
@@ -141,9 +168,10 @@ const DEFAULT_SCENE_COUNT_MAX_NODES: int = 10000
 ### `include_diagnostics_by_default`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-var include_diagnostics_by_default: bool = true
+var include_diagnostics_by_default: bool = false
 ```
 
 默认是否包含 GFDiagnosticsUtility 快照。
@@ -153,12 +181,52 @@ var include_diagnostics_by_default: bool = true
 ### `include_scene_by_default`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-var include_scene_by_default: bool = true
+var include_scene_by_default: bool = false
 ```
 
 默认是否包含场景快照。
+
+<a id="member-gfsupportreportutility-properties-include_runtime_by_default"></a>
+
+### `include_runtime_by_default`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+var include_runtime_by_default: bool = true
+```
+
+默认是否包含运行时快照。
+
+<a id="member-gfsupportreportutility-properties-runtime_detail_by_default"></a>
+
+### `runtime_detail_by_default`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+var runtime_detail_by_default: RuntimeDetail = RuntimeDetail.MINIMAL
+```
+
+默认运行时快照精度。
+
+<a id="member-gfsupportreportutility-properties-include_sections_by_default"></a>
+
+### `include_sections_by_default`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+var include_sections_by_default: bool = false
+```
+
+默认是否采集已注册的自定义分区。
 
 <a id="member-gfsupportreportutility-properties-default_scene_count_max_depth"></a>
 
@@ -321,6 +389,7 @@ func get_section_catalog() -> Dictionary:
 ### `build_report`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func build_report(description: String = "", options: Dictionary = {}) -> Dictionary:
@@ -333,14 +402,39 @@ func build_report(description: String = "", options: Dictionary = {}) -> Diction
 | 名称 | 说明 |
 |---|---|
 | `description` | 用户描述或问题摘要。 |
-| `options` | 可选参数，支持 metadata、tags、include_diagnostics、diagnostics_options、include_scene、scene_options、include_sections、section_options、attachments、max_attachment_bytes、include_screenshot、viewport、screenshot_path。 |
+| `options` | 可选参数，支持 metadata、tags、include_runtime、runtime_detail、include_diagnostics、diagnostics_options、include_scene、scene_options、include_sections、section_options、attachments、max_attachment_bytes、include_screenshot、viewport、screenshot_path。 |
 
 返回：报告字典。
 
 结构：
 
-- `options`: Dictionary，支持 report_id、metadata、tags、include_diagnostics、diagnostics_options、include_scene、scene_options、include_sections、section_options、attachments、max_attachment_bytes、include_screenshot、viewport、screenshot_path。
+- `options`: Dictionary，支持 report_id、metadata、tags、include_runtime、runtime_detail、include_diagnostics、diagnostics_options、include_scene、scene_options、include_sections、section_options、attachments、max_attachment_bytes、include_screenshot、viewport、screenshot_path。
 - `return`: Dictionary，包含 report_id、timestamp_unix、description、metadata、tags、build、runtime、scene、diagnostics、sections、attachments。
+
+<a id="member-gfsupportreportutility-methods-collect_runtime_snapshot"></a>
+
+### `collect_runtime_snapshot`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func collect_runtime_snapshot(detail: RuntimeDetail = RuntimeDetail.MINIMAL) -> Dictionary:
+```
+
+采集指定精度的运行时快照。 默认只返回平台；coarse 使用不可逆分桶，full 才返回精确 locale、处理器、内存和对象计数。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `detail` | 运行时快照精度。 |
+
+返回：运行时快照。
+
+结构：
+
+- `return`: Dictionary，始终包含 detail、platform；coarse 额外包含 locale_language、processor_count_range、static_memory_mib_range、object_count_range；full 额外包含 engine、locale、processor_count、static_memory_bytes、object_count。
 
 <a id="member-gfsupportreportutility-methods-collect_sections"></a>
 

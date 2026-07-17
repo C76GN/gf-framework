@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSupportReportUtility" path="addons/gf/standard/utilities/debug/gf_support_report_utility.gd" module="standard" extends="GFUtility" classDigest="b40d0a0d31b04fb7c6645ebd0c158adf218ed01ad36342a0574c6df8d2ed5906">
+<class name="GFSupportReportUtility" path="addons/gf/standard/utilities/debug/gf_support_report_utility.gd" module="standard" extends="GFUtility" classDigest="46d62a0c69f0ed9647fd9f586c10a09869e9cbeece432568062d392a6753d7b2">
 	<description>GFSupportReportUtility: 通用支持报告构建工具。
 聚合用户描述、项目元数据、诊断快照、日志和可扩展分区，并提供 JSON / Markdown 导出与回调提交入口。
 它不绑定任何工单系统、上传服务或反馈 UI。</description>
@@ -37,7 +37,23 @@
 			</tags>
 		</member>
 	</signals>
-	<enums />
+	<enums>
+		<member kind="enum" name="RuntimeDetail">
+			<signature>enum RuntimeDetail {
+	## 只保留平台等非精确排查信息。
+	MINIMAL,
+	## 额外保留语言和运行时计数的分桶范围。
+	COARSE,
+	## 保留完整 locale 与精确运行时计数。
+	FULL,
+}</signature>
+			<description>运行时快照的数据精度。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</enums>
 	<constants>
 		<member kind="const" name="DEFAULT_SCENE_COUNT_MAX_DEPTH">
 			<signature>const DEFAULT_SCENE_COUNT_MAX_DEPTH: int = 64</signature>
@@ -56,17 +72,43 @@
 	</constants>
 	<properties>
 		<member kind="property" name="include_diagnostics_by_default">
-			<signature>var include_diagnostics_by_default: bool = true</signature>
+			<signature>var include_diagnostics_by_default: bool = false</signature>
 			<description>默认是否包含 GFDiagnosticsUtility 快照。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="include_scene_by_default">
-			<signature>var include_scene_by_default: bool = true</signature>
+			<signature>var include_scene_by_default: bool = false</signature>
 			<description>默认是否包含场景快照。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="include_runtime_by_default">
+			<signature>var include_runtime_by_default: bool = true</signature>
+			<description>默认是否包含运行时快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="runtime_detail_by_default">
+			<signature>var runtime_detail_by_default: RuntimeDetail = RuntimeDetail.MINIMAL</signature>
+			<description>默认运行时快照精度。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="include_sections_by_default">
+			<signature>var include_sections_by_default: bool = false</signature>
+			<description>默认是否采集已注册的自定义分区。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 		<member kind="property" name="default_scene_count_max_depth">
@@ -157,10 +199,23 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">description: 用户描述或问题摘要。</tag>
-				<tag name="param">options: 可选参数，支持 metadata、tags、include_diagnostics、diagnostics_options、include_scene、scene_options、include_sections、section_options、attachments、max_attachment_bytes、include_screenshot、viewport、screenshot_path。</tag>
+				<tag name="param">options: 可选参数，支持 metadata、tags、include_runtime、runtime_detail、include_diagnostics、diagnostics_options、include_scene、scene_options、include_sections、section_options、attachments、max_attachment_bytes、include_screenshot、viewport、screenshot_path。</tag>
 				<tag name="return">报告字典。</tag>
-				<tag name="schema">options: Dictionary，支持 report_id、metadata、tags、include_diagnostics、diagnostics_options、include_scene、scene_options、include_sections、section_options、attachments、max_attachment_bytes、include_screenshot、viewport、screenshot_path。</tag>
+				<tag name="schema">options: Dictionary，支持 report_id、metadata、tags、include_runtime、runtime_detail、include_diagnostics、diagnostics_options、include_scene、scene_options、include_sections、section_options、attachments、max_attachment_bytes、include_screenshot、viewport、screenshot_path。</tag>
 				<tag name="schema">return: Dictionary，包含 report_id、timestamp_unix、description、metadata、tags、build、runtime、scene、diagnostics、sections、attachments。</tag>
+				<tag name="since">3.17.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="collect_runtime_snapshot">
+			<signature>func collect_runtime_snapshot(detail: RuntimeDetail = RuntimeDetail.MINIMAL) -&gt; Dictionary:</signature>
+			<description>采集指定精度的运行时快照。
+默认只返回平台；coarse 使用不可逆分桶，full 才返回精确 locale、处理器、内存和对象计数。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">detail: 运行时快照精度。</tag>
+				<tag name="return">运行时快照。</tag>
+				<tag name="schema">return: Dictionary，始终包含 detail、platform；coarse 额外包含 locale_language、processor_count_range、static_memory_mib_range、object_count_range；full 额外包含 engine、locale、processor_count、static_memory_bytes、object_count。</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 		<member kind="method" name="collect_sections">

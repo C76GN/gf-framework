@@ -11,6 +11,7 @@ Dialogue 适合作为对话流程的最小运行时抽象。项目可以在自�
 - `GFDialogueResponse`：描述可选响应及其后继。
 - `GFDialogueContext`：保存运行时值表，并提供条件、mutation 和文本解析回调。
 - `GFDialogueRunner`：推进资源，发出行、响应、mutation 和结束信号。
+- 可选制作期 [Dialogue Text 工具包](../../editor/tools/dialogue-text.md)：把严格 JSON 文本编译为同一运行时资源，并输出结构化校验报告。
 
 ## 最小流程
 
@@ -49,7 +50,7 @@ runner.advance()
 
 - 条件和 mutation 只保存 ID 与载荷，实际含义由项目通过 `GFDialogueContext` 的回调处理。
 - Runner 不创建 UI，也不读取输入；项目界面负责显示 `get_current_line()` 和 `get_available_responses()`。
-- 复杂导入、分支可视化、语音、字幕、本地化表和存档恢复应放在项目层或独立插件里。
+- 可复用的严格 JSON 编译可以安装独立 `gf.tool.dialogue_text`；分支可视化、语音、字幕、本地化表、内容目录和存档恢复仍放在项目层或独立插件里。
 - `validate_resource()` 只报告资源结构问题，不判断剧情逻辑是否合理。
 
 ## API Reference

@@ -45,6 +45,7 @@ python tools\gf_maintenance.py package-godot-smoke --all-packages --jobs 4 --jso
 python tools\gf_maintenance.py check --check package_godot_matrix_smoke --json
 python tools\gf_maintenance.py api-baseline-diff --json
 python tools\gf_maintenance.py check --check gdscript_warnings --json
+python tools\gf_maintenance.py check --check gdscript_lsp_diagnostics --json
 python tools\gf_maintenance.py project-settings-drift --json
 python tools\gf_maintenance.py log-hygiene --dry-run --json
 python tools\gf_maintenance.py release-status --version <version> --artifact-manifest <manifest-path> --json
@@ -54,7 +55,7 @@ git diff --cached --check
 
 ## By Change Type
 
-- `addons/gf/**`: run focused tests when possible, run `check --check gdscript_warnings` for editor reload warning risk, then `check --suite full` before commit when behavior changed.
+- `addons/gf/**`: run focused tests when possible, run `check --check gdscript_warnings` and the standalone LSP check for early warning diagnosis, then `check --suite full` before commit. Full and release suites always include the strict LSP error-and-warning gate.
 - Public API comments or signatures: run `python tools\generate_api_reference.py`, `python tools\generate_api_reference.py --check`, and `check --suite api`.
 - Public API source or generated reference changes: run `public-api-boundary`; quick/full/release suites include it. It prevents planning route names from becoming public `class_name`, Catalog, or generated reference entries.
 - Broad public API changes, removals, return type changes, or class moves: run `api-baseline-diff`. It compares the current generated API Catalog against the latest lower SemVer tag and reports added/removed classes, added/removed members, compatible/breaking signature changes, and extends changes. `release-status` reuses it and fails breaking changes unless the target release is a major bump, or the maintainer explicitly approves and records a minor/patch compatibility break before running `release-status --allow-breaking-api`.
@@ -91,6 +92,8 @@ git diff --cached --check
 `check --check gdscript_warnings` opens the project editor headlessly and fails on GDScript reload warnings. It is meant to catch typed-Variant, unnecessary-await, and shadowing warnings that regular GUT runs can miss.
 
 All maintenance-owned Godot commands resolve through `tools/gf_godot_process.py` and run under the shared process supervisor. On Windows this bypasses the detached Steam `godot.exe` launcher when its foreground tools executable is available. Set `GF_GODOT_EXECUTABLE` only when an explicit executable override is required.
+
+`check --check gdscript_lsp_diagnostics` imports the project, then connects to the active editor LSP or spawns a temporary headless LSP when none is available. The full and release suites, together with their CI/release `framework` shard, run it unconditionally and fail on errors, warnings, diagnostic timeouts, connection failures, or transport failures.
 
 `project-settings-drift` fails when `project.godot` has staged or unstaged local changes. Use it after tests or headless editor checks when `ProjectSettings` writes may have leaked transient test state into the project file. Do not use it to block intentional project metadata edits; instead, review and commit those edits deliberately.
 

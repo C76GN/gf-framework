@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<apiCatalog schemaVersion="2" name="GF Framework" sourceRoot="addons/gf" sourceDigest="07456ab71d580ce62082a3ae3748c8c31312dfbf1c6ba77cc184e9759f1a74ed" classCount="709" methodCount="6299">
+<apiCatalog schemaVersion="2" name="GF Framework" sourceRoot="addons/gf" sourceDigest="fd50b63a3d86e91acc780560e8530ef9f4dfad68da93653c34eec3ffeb306f48" classCount="712" methodCount="6316">
 	<module id="kernel" label="Kernel" classCount="69" methodCount="697">
 		<class name="GFAccessGenerator" path="classes/GFAccessGenerator.xml" sourcePath="addons/gf/kernel/editor/gf_access_generator.gd" extends="RefCounted" />
 		<class name="GFArchitecture" path="classes/GFArchitecture.xml" sourcePath="addons/gf/kernel/core/gf_architecture.gd" extends="Object" />
@@ -71,7 +71,7 @@
 		<class name="GFTypeEventSystem" path="classes/GFTypeEventSystem.xml" sourcePath="addons/gf/kernel/core/gf_type_event_system.gd" extends="Object" />
 		<class name="GFUtility" path="classes/GFUtility.xml" sourcePath="addons/gf/kernel/base/gf_utility.gd" extends="Object" />
 	</module>
-	<module id="standard" label="Standard" classCount="400" methodCount="3982">
+	<module id="standard" label="Standard" classCount="400" methodCount="3984">
 		<class name="GFActivationTransaction" path="classes/GFActivationTransaction.xml" sourcePath="addons/gf/standard/foundation/policy/gf_activation_transaction.gd" extends="RefCounted" />
 		<class name="GFAnalyticsConfig" path="classes/GFAnalyticsConfig.xml" sourcePath="addons/gf/standard/utilities/analytics/gf_analytics_config.gd" extends="Resource" />
 		<class name="GFAnalyticsUtility" path="classes/GFAnalyticsUtility.xml" sourcePath="addons/gf/standard/utilities/analytics/gf_analytics_utility.gd" extends="GFUtility" />
@@ -699,7 +699,9 @@
 		<class name="GFNetworkUtility" path="classes/GFNetworkUtility.xml" sourcePath="addons/gf/extensions/network/runtime/gf_network_utility.gd" extends="GFUtility" />
 		<class name="GFWebSocketNetworkBackend" path="classes/GFWebSocketNetworkBackend.xml" sourcePath="addons/gf/extensions/network/backends/gf_websocket_network_backend.gd" extends="GFNetworkBackend" />
 	</module>
-	<module id="extensions/physics" label="Physics" classCount="2" methodCount="10">
+	<module id="extensions/physics" label="Physics" classCount="4" methodCount="23">
+		<class name="GFBuoyancyField3D" path="classes/GFBuoyancyField3D.xml" sourcePath="addons/gf/extensions/physics/nodes/gf_buoyancy_field_3d.gd" extends="Node3D" />
+		<class name="GFBuoyancyMath3D" path="classes/GFBuoyancyMath3D.xml" sourcePath="addons/gf/extensions/physics/core/gf_buoyancy_math_3d.gd" extends="RefCounted" />
 		<class name="GFGravityField3D" path="classes/GFGravityField3D.xml" sourcePath="addons/gf/extensions/physics/nodes/gf_gravity_field_3d.gd" extends="Node3D" />
 		<class name="GFGravityProbe3D" path="classes/GFGravityProbe3D.xml" sourcePath="addons/gf/extensions/physics/nodes/gf_gravity_probe_3d.gd" extends="Node3D" />
 	</module>
@@ -738,7 +740,7 @@
 		<class name="GFTurnFlowSystem" path="classes/GFTurnFlowSystem.xml" sourcePath="addons/gf/extensions/turn_based/runtime/gf_turn_flow_system.gd" extends="GFSystem" />
 		<class name="GFTurnPhase" path="classes/GFTurnPhase.xml" sourcePath="addons/gf/extensions/turn_based/resources/gf_turn_phase.gd" extends="Resource" />
 	</module>
-	<module id="tools" label="Tool Packages" classCount="9" methodCount="44">
+	<module id="tools" label="Tool Packages" classCount="10" methodCount="46">
 		<class name="GFConfigAccessGenerator" path="classes/GFConfigAccessGenerator.xml" sourcePath="addons/gf/tools/config_pipeline/gf_config_access_generator.gd" extends="RefCounted" />
 		<class name="GFConfigPipeline" path="classes/GFConfigPipeline.xml" sourcePath="addons/gf/tools/config_pipeline/gf_config_pipeline.gd" extends="RefCounted" />
 		<class name="GFConfigPipelineArtifactManifest" path="classes/GFConfigPipelineArtifactManifest.xml" sourcePath="addons/gf/tools/config_pipeline/gf_config_pipeline_artifact_manifest.gd" extends="RefCounted" />
@@ -746,6 +748,7 @@
 		<class name="GFConfigPipelineProfile" path="classes/GFConfigPipelineProfile.xml" sourcePath="addons/gf/tools/config_pipeline/gf_config_pipeline_profile.gd" extends="Resource" />
 		<class name="GFConfigPipelineRunner" path="classes/GFConfigPipelineRunner.xml" sourcePath="addons/gf/tools/config_pipeline/gf_config_pipeline_runner.gd" extends="RefCounted" />
 		<class name="GFConfigPipelineTableSource" path="classes/GFConfigPipelineTableSource.xml" sourcePath="addons/gf/tools/config_pipeline/gf_config_pipeline_table_source.gd" extends="Resource" />
+		<class name="GFDialogueTextCompiler" path="classes/GFDialogueTextCompiler.xml" sourcePath="addons/gf/tools/dialogue_text/gf_dialogue_text_compiler.gd" extends="RefCounted" />
 		<class name="GFProjectLayoutScaffolder" path="classes/GFProjectLayoutScaffolder.xml" sourcePath="addons/gf/tools/project_layout/gf_project_layout_scaffolder.gd" extends="RefCounted" />
 		<class name="GFProjectLayoutValidator" path="classes/GFProjectLayoutValidator.xml" sourcePath="addons/gf/tools/project_layout/gf_project_layout_validator.gd" extends="RefCounted" />
 	</module>

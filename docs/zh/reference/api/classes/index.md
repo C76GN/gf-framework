@@ -7,7 +7,7 @@
 | 模块 | 类 | 成员 | 页面内索引 |
 |---|---:|---:|---|
 | Kernel | 69 | 969 | [Kernel](#module-kernel) |
-| Standard | 400 | 6252 | [Standard](#module-standard) |
+| Standard | 400 | 6260 | [Standard](#module-standard) |
 | Action Queue | 16 | 214 | [Action Queue](#module-extensions-action_queue) |
 | Asset Metadata | 4 | 33 | [Asset Metadata](#module-extensions-asset_metadata) |
 | Behavior Tree | 22 | 89 | [Behavior Tree](#module-extensions-behavior_tree) |
@@ -22,10 +22,10 @@
 | Flow | 7 | 132 | [Flow](#module-extensions-flow) |
 | Interaction | 6 | 82 | [Interaction](#module-extensions-interaction) |
 | Network | 31 | 442 | [Network](#module-extensions-network) |
-| Physics | 2 | 29 | [Physics](#module-extensions-physics) |
+| Physics | 4 | 50 | [Physics](#module-extensions-physics) |
 | Save | 27 | 253 | [Save](#module-extensions-save) |
 | Turn Based | 4 | 49 | [Turn Based](#module-extensions-turn_based) |
-| Tool Packages | 9 | 77 | [Tool Packages](#module-tools) |
+| Tool Packages | 10 | 81 | [Tool Packages](#module-tools) |
 
 ## 模块索引
 
@@ -199,7 +199,7 @@
 | [`GFNotificationUtility`](GFNotificationUtility.md#gfnotificationutility) | 运行时服务 (`runtime_service`) | `GFUtility` | 21 | `addons/gf/standard/utilities/ui/gf_notification_utility.gd` |
 | [`GFNumberFormatter`](GFNumberFormatter.md#gfnumberformatter) | 运行时服务 (`runtime_service`) | `RefCounted` | 8 | `addons/gf/standard/foundation/formatting/gf_number_formatter.gd` |
 | [`GFNumericModifierMath`](GFNumericModifierMath.md#gfnumericmodifiermath) | 运行时服务 (`runtime_service`) | `RefCounted` | 5 | `addons/gf/standard/foundation/math/gf_numeric_modifier_math.gd` |
-| [`GFObjectCandidateRegistry`](GFObjectCandidateRegistry.md#gfobjectcandidateregistry) | 运行时服务 (`runtime_service`) | `RefCounted` | 11 | `addons/gf/standard/common/gf_object_candidate_registry.gd` |
+| [`GFObjectCandidateRegistry`](GFObjectCandidateRegistry.md#gfobjectcandidateregistry) | 运行时服务 (`runtime_service`) | `RefCounted` | 13 | `addons/gf/standard/common/gf_object_candidate_registry.gd` |
 | [`GFObjectPoolUtility`](GFObjectPoolUtility.md#gfobjectpoolutility) | 运行时服务 (`runtime_service`) | `GFUtility` | 17 | `addons/gf/standard/utilities/nodes/gf_object_pool_utility.gd` |
 | [`GFOperationDiagnosticsUtility`](GFOperationDiagnosticsUtility.md#gfoperationdiagnosticsutility) | 运行时服务 (`runtime_service`) | `GFUtility` | 52 | `addons/gf/standard/utilities/debug/gf_operation_diagnostics_utility.gd` |
 | [`GFPathEnumerationTools`](GFPathEnumerationTools.md#gfpathenumerationtools) | 运行时服务 (`runtime_service`) | `RefCounted` | 5 | `addons/gf/standard/utilities/io/gf_path_enumeration_tools.gd` |
@@ -252,7 +252,7 @@
 | [`GFSteeringMath`](GFSteeringMath.md#gfsteeringmath) | 运行时服务 (`runtime_service`) | `RefCounted` | 16 | `addons/gf/standard/foundation/math/gf_steering_math.gd` |
 | [`GFStorageSyncUtility`](GFStorageSyncUtility.md#gfstoragesyncutility) | 运行时服务 (`runtime_service`) | `GFUtility` | 11 | `addons/gf/standard/utilities/storage/gf_storage_sync_utility.gd` |
 | [`GFStorageUtility`](GFStorageUtility.md#gfstorageutility) | 运行时服务 (`runtime_service`) | `GFUtility` | 49 | `addons/gf/standard/utilities/storage/gf_storage_utility.gd` |
-| [`GFSupportReportUtility`](GFSupportReportUtility.md#gfsupportreportutility) | 运行时服务 (`runtime_service`) | `GFUtility` | 27 | `addons/gf/standard/utilities/debug/gf_support_report_utility.gd` |
+| [`GFSupportReportUtility`](GFSupportReportUtility.md#gfsupportreportutility) | 运行时服务 (`runtime_service`) | `GFUtility` | 32 | `addons/gf/standard/utilities/debug/gf_support_report_utility.gd` |
 | [`GFSupportReportWorkflow`](GFSupportReportWorkflow.md#gfsupportreportworkflow) | 运行时服务 (`runtime_service`) | `GFUtility` | 22 | `addons/gf/standard/utilities/debug/gf_support_report_workflow.gd` |
 | [`GFSurfaceScatterSampler3D`](GFSurfaceScatterSampler3D.md#gfsurfacescattersampler3d) | 运行时服务 (`runtime_service`) | `RefCounted` | 7 | `addons/gf/standard/foundation/math/gf_surface_scatter_sampler_3d.gd` |
 | [`GFSurfaceUtility`](GFSurfaceUtility.md#gfsurfaceutility) | 运行时服务 (`runtime_service`) | `GFUtility` | 16 | `addons/gf/standard/utilities/display/gf_surface_utility.gd` |
@@ -260,7 +260,7 @@
 | [`GFTableSelectionModel`](GFTableSelectionModel.md#gftableselectionmodel) | 运行时服务 (`runtime_service`) | `RefCounted` | 16 | `addons/gf/standard/utilities/ui/gf_table_selection_model.gd` |
 | [`GFTagSourceAdapter`](GFTagSourceAdapter.md#gftagsourceadapter) | 运行时服务 (`runtime_service`) | `RefCounted` | 9 | `addons/gf/standard/foundation/tags/gf_tag_source_adapter.gd` |
 | [`GFTextAutoFit`](GFTextAutoFit.md#gftextautofit) | 运行时服务 (`runtime_service`) | `Node` | 14 | `addons/gf/standard/utilities/ui/gf_text_auto_fit.gd` |
-| [`GFTextFitter`](GFTextFitter.md#gftextfitter) | 运行时服务 (`runtime_service`) | `RefCounted` | 7 | `addons/gf/standard/utilities/ui/gf_text_fitter.gd` |
+| [`GFTextFitter`](GFTextFitter.md#gftextfitter) | 运行时服务 (`runtime_service`) | `RefCounted` | 8 | `addons/gf/standard/utilities/ui/gf_text_fitter.gd` |
 | [`GFTextSearchScorer`](GFTextSearchScorer.md#gftextsearchscorer) | 运行时服务 (`runtime_service`) | `RefCounted` | 5 | `addons/gf/standard/foundation/collections/gf_text_search_scorer.gd` |
 | [`GFTextureSetClassifier`](GFTextureSetClassifier.md#gftexturesetclassifier) | 运行时服务 (`runtime_service`) | `RefCounted` | 11 | `addons/gf/standard/utilities/assets/gf_texture_set_classifier.gd` |
 | [`GFTimeUtility`](GFTimeUtility.md#gftimeutility) | 运行时服务 (`runtime_service`) | `GFTimeProvider` | 15 | `addons/gf/standard/utilities/time/gf_time_utility.gd` |
@@ -814,6 +814,8 @@
 
 | 类 | 类别 | 继承 | 成员 | 源文件 |
 |---|---|---|---:|---|
+| [`GFBuoyancyField3D`](GFBuoyancyField3D.md#gfbuoyancyfield3d) | 运行时服务 (`runtime_service`) | `Node3D` | 17 | `addons/gf/extensions/physics/nodes/gf_buoyancy_field_3d.gd` |
+| [`GFBuoyancyMath3D`](GFBuoyancyMath3D.md#gfbuoyancymath3d) | 运行时服务 (`runtime_service`) | `RefCounted` | 4 | `addons/gf/extensions/physics/core/gf_buoyancy_math_3d.gd` |
 | [`GFGravityField3D`](GFGravityField3D.md#gfgravityfield3d) | 运行时服务 (`runtime_service`) | `Node3D` | 16 | `addons/gf/extensions/physics/nodes/gf_gravity_field_3d.gd` |
 | [`GFGravityProbe3D`](GFGravityProbe3D.md#gfgravityprobe3d) | 运行时服务 (`runtime_service`) | `Node3D` | 13 | `addons/gf/extensions/physics/nodes/gf_gravity_probe_3d.gd` |
 
@@ -875,5 +877,6 @@
 | [`GFConfigPipelineProfile`](GFConfigPipelineProfile.md#gfconfigpipelineprofile) | 工具 API (`tool_api`) | `Resource` | 21 | `addons/gf/tools/config_pipeline/gf_config_pipeline_profile.gd` |
 | [`GFConfigPipelineRunner`](GFConfigPipelineRunner.md#gfconfigpipelinerunner) | 工具 API (`tool_api`) | `RefCounted` | 3 | `addons/gf/tools/config_pipeline/gf_config_pipeline_runner.gd` |
 | [`GFConfigPipelineTableSource`](GFConfigPipelineTableSource.md#gfconfigpipelinetablesource) | 工具 API (`tool_api`) | `Resource` | 18 | `addons/gf/tools/config_pipeline/gf_config_pipeline_table_source.gd` |
+| [`GFDialogueTextCompiler`](GFDialogueTextCompiler.md#gfdialoguetextcompiler) | 工具 API (`tool_api`) | `RefCounted` | 4 | `addons/gf/tools/dialogue_text/gf_dialogue_text_compiler.gd` |
 | [`GFProjectLayoutScaffolder`](GFProjectLayoutScaffolder.md#gfprojectlayoutscaffolder) | 工具 API (`tool_api`) | `RefCounted` | 5 | `addons/gf/tools/project_layout/gf_project_layout_scaffolder.gd` |
 | [`GFProjectLayoutValidator`](GFProjectLayoutValidator.md#gfprojectlayoutvalidator) | 工具 API (`tool_api`) | `RefCounted` | 4 | `addons/gf/tools/project_layout/gf_project_layout_validator.gd` |

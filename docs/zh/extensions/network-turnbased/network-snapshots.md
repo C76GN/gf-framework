@@ -38,14 +38,21 @@ var position_serializer := GFNetworkFieldSerializer.new()
 position_serializer.value_type = GFNetworkFieldSerializer.ValueType.VECTOR2
 position_serializer.quantize_decimals = 2
 
+var rotation_serializer := GFNetworkFieldSerializer.new()
+rotation_serializer.value_type = GFNetworkFieldSerializer.ValueType.QUATERNION
+rotation_serializer.quantize_decimals = 3
+
 var schema := GFNetworkSnapshotSchema.new()
 schema.set_field_serializer(&"position", position_serializer)
+schema.set_field_serializer(&"rotation", rotation_serializer)
 
 var encoded := schema.encode_snapshot(latest)
 var decoded := schema.decode_snapshot(encoded)
 ```
 
-Schema 只改变状态字段的表示形式，不决定哪些字段应该同步、发给谁、是否可靠、如何预测或如何解决冲突。
+Quaternion 字段适合玩家朝向、炮塔、载具或摄像机姿态等旋转状态，固定编码为 `[x, y, z, w]`。序列化前后都会恢复单位长度；零长度、`NaN` 或无穷分量会回退为 `Quaternion.IDENTITY`，避免非法旋转继续进入快照和插值。`quantize_decimals` 仍是分量精度策略，量化后会再次归一化，因此它不是位级压缩格式，也不保证最终分量仍精确停在十进制网格上。
+
+Schema 只改变状态字段的表示形式，不决定哪些字段应该同步、发给谁、是否可靠、如何预测或如何解决冲突。发送端和接收端必须为同一字段使用相同 serializer；要进一步减少旋转载荷，应在项目协议层另行选择并版本化压缩格式，而不是把四元数压缩策略写死在通用字段编码器里。
 
 ## 脏字段跟踪
 

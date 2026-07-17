@@ -20,20 +20,47 @@
 
 ---
 
-## [8.1.1] - 2026-07-17
+## [未发布]
+
+**版本概述**：收紧安全资源图解码、日志、支持报告与纹理导入诊断的数据边界，新增独立对话文本编译、通用浮力点采样、网络旋转字段和候选变化通知，并修复调试覆盖层与文本适配的生命周期问题。
+
+### 🚀 新增特性 (Added)
+
+- 新增可选 `gf.tool.dialogue_text` 制作期包及 `GFDialogueTextCompiler`，以严格 `gf.dialogue` JSON schema 编译 `GFDialogueResource`；未知结构字段、字段类型、缺失跳转和自动循环统一进入结构化报告，失败结果不暴露半成品资源。
+- Physics 扩展新增 `GFBuoyancyMath3D` 与 `GFBuoyancyField3D`，提供居中浸没比例、阿基米德浮力、相对流速阻力和可重写表面/流速点采样；框架只返回力结果，不自动接管刚体、探针布局或水体检测。
+- `GFNetworkFieldSerializer` 新增显式 Quaternion 字段编码，以归一化 `[x, y, z, w]` 表示旋转，并对零长度或非有限输入使用单位旋转回退。
+- `GFObjectCandidateRegistry` 新增候选变化信号和单调 revision，便于交互提示、空间查询、编辑器选择或项目缓存按变更重新查询，而不把最佳候选策略写入注册表。
 
 ### 🔄 机制更改 (Changed)
 
-- 维护检查改为先验证 DAG 再按稳定拓扑序执行，共享依赖只运行一次；每项结果记录持续时间、分层超时预算、依赖、输入指纹和结果指纹。外部进程持续转发输出并报告静默 heartbeat，超时或中断会终止完整后代进程树；直接子进程退出后仍持有输出管道的后台后代也会使检查失败并被清理。
-- 纯静态检查在进程内共享 Workspace Snapshot、标识符 token set 和编译后的 package ownership matcher；`quick` 套件不再为每项检查重复枚举、读取和匹配同一工作区。
-- 发布流水线改为一次构建完整不可变产物集，通过 manifest 固定源码 revision、角色、大小与 SHA-256；`release-status` 必须接收该 manifest 且只读校验既有字节，发布检查和 GitHub Release 不再隐式重建。原生包 CLI smoke 拆分为 local/network 两个独立预算与日志域。
-- 维护工具按稳定职责拆出检查图与指纹、输出渲染、发布产物构建、路径安全和进程监督模块，降低单文件修改与审查范围。
-- 发布日志改为工作树只保留当前版本，已发布历史统一由 Git tag 与 GitHub Release 提供；发布检查会拒绝旧版本、重复版本、未发布段或非法标题滞留当前页。
+- `GFSupportReportUtility` 改为最小采集默认值：运行时只保留 `MINIMAL` 平台信息，场景、诊断和已注册自定义分区默认关闭；调用方可显式选择 `COARSE` 不可逆分桶、`FULL` 精确运行时信息或完全关闭运行时采集。
+- `GFTextureSetClassifier` 新增重复角色与必需角色完整性诊断；同一集合内的 albedo 别名、GL/DX normal 等冲突不再按输入顺序静默覆盖，导入计划只包含通过完整性校验且无歧义的集合，并保留问题摘要。
+- 补充 UI 逻辑层与绘制层边界：`layer_id` 只标识独立导航栈，绘制顺序由 `canvas_layer` 决定，`hide_under` / replace 不会跨层清理；文档同时明确 `mode`、`modal` 与 `metadata` 的职责。
+- `gdscript_lsp_diagnostics` 纳入 `full`、`framework` 与 `release` suite 的无条件硬门禁；任何 GDScript error / warning、文件诊断超时或项目连接失败都会阻止提交或发布验证通过。
 
 ### 🐛 Bug 修复 (Fixed)
 
-- 修复 Windows PowerShell 5.1 默认重定向把维护 JSON 写成 UTF-16，随后被 Godot 当作 UTF-8 资源扫描并报告 `FF FE` 解析错误的问题；`build/.gdignore` 现在隔离全部构建产物，`--json-output` 提供受控的无 BOM UTF-8 原子写入。
+- 修复 `GFSafeResourceCodec` 丢失类型化 `Array` / `Dictionary` 约束，以及伪造编号、Variant.Type、集合结构、重复键/属性或属性类型可能被宽松转换和写入对象的问题；脚本路径、原生基类及二者兼容性现在均经过 policy 门禁，失败解码会拆除 Resource 引用环并释放已创建的非 RefCounted 对象，合法的自环、双节点环和共享引用仍可往返。
+- 修复 `GFSpringMath` 在较大物理时间步下可能明显过冲，或让正阻尼响应停留在边界二周期的问题；稳定下限现在同时使用严格安全裕量与 `delta_seconds * k1`，30/60/120 Hz 临界阻尼终态/瞬态及 30 Hz 欠阻尼衰减均有回归覆盖。
+- 修复 `GFLogUtility` 只限制 context，导致超长 tag/message 放大内存、文件、控制台和诊断快照，且顶层 trace_id 绕过内存、JSONL 与 sink 预算/profile 的问题；这些文本现在复用既有预算，tag/message 在 entry、text、内存缓存与 `log_emitted` 保持一致，trace_id 在结构化条目、context、内存和 sink 中保持有界并按 sink profile 重建，短文本和换行语义不变。
+- 修复 `GFDebugOverlayUtility` 在初始化后立即释放时，延迟挂载回调仍携带已释放 GUI 参数并触发 Godot deferred-call 类型转换错误的问题；挂载请求现在以代次失效，并在执行时重新读取当前实例。
+- 修复 `GFTextFitter.fit_control()` 的 Label 分派忽略显式测量文本，且无换行短文本只能反复进行候选测量、放大 Godot 退出期 shaped-text RID 残留的问题；新增一次最大字号测量的单行比例路径，默认完整排版行为不变。
 
-### ⚠️ 废弃与移除 (Deprecated/Removed)
+### 🔧 API 变动说明 (API Changes)
 
-- 移除维护侧 Python package installer 和第二套 package transaction engine。安装、更新、卸载、恢复和项目文件提交现在只由 Godot 原生 CLI、backend 与唯一事务引擎负责；Python resolver 保持纯计划能力。
+- `GFSupportReportUtility` 新增 `RuntimeDetail`、`include_runtime_by_default`、`runtime_detail_by_default`、`include_sections_by_default` 和 `collect_runtime_snapshot()`；`build_report()` 新增 `include_runtime` / `runtime_detail` 选项，full 运行时内存字段使用语义明确的 `static_memory_bytes`。
+- `include_diagnostics_by_default` 与 `include_scene_by_default` 从 `true` 改为 `false`，已注册分区也不再默认采集。这是有意的数据最小化行为变更，不保留旧默认兼容分支。
+- 新增公开类型 `GFDialogueTextCompiler`、`GFBuoyancyMath3D`、`GFBuoyancyField3D` 和独立 package `gf.tool.dialogue_text`。
+- `GFNetworkFieldSerializer.ValueType` 追加 `QUATERNION`；`GFObjectCandidateRegistry` 新增 `candidates_changed(revision)` 与 `get_revision()`。
+- bundled 扩展版本随新增公开能力递增：`gf.network` 为 `4.1.0`，`gf.physics` 为 `1.4.0`。
+- `GFTextureSetClassifier.classify_files()` 的 options 新增 `required_roles`，报告新增集合有效性、`duplicate_roles`、`missing_roles`、问题列表及汇总计数；`build_material_import_plan()` 的 metadata 新增对应诊断摘要。
+- `GFTextFitter` 新增 `MeasurementMode`；`fit_control()`、`fit_label()`、`fit_rich_text_label()` 和测量入口的 options 新增 `measurement_mode`，其中 `SINGLE_LINE` 提供无换行短文本的一次测量路径，`MULTILINE` 可强制完整多行排版。
+
+### 📘 升级指南 (Migration Guide)
+
+- 既有反馈入口如果确实需要场景、诊断或项目分区，构建报告时显式传入 `include_scene = true`、`include_diagnostics = true`、`include_sections = true`；依赖旧精确 runtime 字段时显式选择 `RuntimeDetail.FULL`，并把 `static_memory` 读取迁移为 `static_memory_bytes`。面向玩家的入口优先保留默认 `MINIMAL`，或在预览和授权后选择 `COARSE`。
+- 文本制作流程按需安装 `gf.tool.dialogue_text`，输入根对象声明 `format: "gf.dialogue"` 与 `schema_version: 1`；项目字段放入 metadata / payload。运行时安装只需要 `gf.extension.dialogue`，不要从运行时包反向调用编译器。
+- 浮力接入时为对象分配一个或多个排水点，把总体排水体积合理拆分，再由项目在物理阶段应用 `sample_point()` 返回的力；有限水体、Area 筛选、刚体所有权和网络策略继续由项目负责。
+- 依赖纹理角色“最后一个路径获胜”的导入器应改为读取 `issues` / 集合 `ok`，由制作工具显式解决重复贴图；需要强制材质最低组成时传入 `required_roles`，没有配置时仍允许部分集合。
+- 为旋转字段选择 `QUATERNION` 后，发送端会输出四元素组且接收端恢复 Quaternion；双方 schema 必须一致。候选使用方如需响应变化，可监听 `candidates_changed` 并按 revision 去重，再用原有筛选条件重新查询。
+- 棋盘数字、分数或短计数器可把本地一次测量 workaround 迁移为 `measurement_mode = GFTextFitter.MeasurementMode.SINGLE_LINE`；正文和自动换行 Label 保持默认 `AUTO`。登录、认证与主页等互斥页面应使用同一逻辑层并调用 replace，跨层切换需要项目显式清理旧层。

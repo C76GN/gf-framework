@@ -512,7 +512,7 @@ PACKAGE_AGGREGATE_CLOSURE_BASELINES = {
 	"gf.standard.editor": 20,
 }
 PACKAGE_STANDARD_FAN_IN_BASELINES = {
-	"gf.standard.base": 47,
+	"gf.standard.base": 48,
 }
 PACKAGE_MANIFEST_SCAN_EXCLUDED_PREFIXES = (
 	".git/",
@@ -843,6 +843,8 @@ CHECK_DEFINITIONS: dict[str, list[str]] = {
 		"tests/gf_core",
 		"--exclude-prefix",
 		"addons/gut",
+		"--fail-severity",
+		"error,warning",
 		"--log-file",
 		godot_log_path("gdscript_lsp_diagnostics"),
 		"--keep-log",
@@ -913,6 +915,7 @@ CHECK_DEFINITIONS: dict[str, list[str]] = {
 CHECK_DEPENDENCIES: dict[str, list[str]] = {
 	"gut": ["godot_import"],
 	"gdscript_warnings": ["godot_import"],
+	"gdscript_lsp_diagnostics": ["godot_import"],
 	"mkdocs": ["docs", "public_docs_boundary"],
 	"examples_scan": ["examples_sync"],
 	"examples_boot": ["examples_scan"],
@@ -1009,6 +1012,7 @@ FULL_CHECKS: list[str] = [
 	"maintenance_self_test",
 	"dependency_boundary",
 	"gdscript_warnings",
+	"gdscript_lsp_diagnostics",
 	"diff",
 ]
 RELEASE_CHECKS: list[str] = [
@@ -1030,6 +1034,7 @@ RELEASE_CHECKS: list[str] = [
 	"maintenance_self_test",
 	"dependency_boundary",
 	"gdscript_warnings",
+	"gdscript_lsp_diagnostics",
 	"diff",
 	"release_metadata",
 ]
@@ -1050,6 +1055,7 @@ FRAMEWORK_CHECKS: list[str] = [
 	"maintenance_self_test",
 	"dependency_boundary",
 	"gdscript_warnings",
+	"gdscript_lsp_diagnostics",
 	"diff",
 ]
 PACKAGE_CI_CHECKS: list[str] = [*PACKAGE_CHECKS, "package_godot_smoke"]
@@ -10332,6 +10338,16 @@ def maintenance_self_test() -> dict[str, Any]:
 		and expand_check_dependencies(["godot_import", "gut"]) == ["godot_import", "gut"],
 		"GUT validation must import a clean Godot project exactly once before loading class_name scripts.",
 	)
+	record_result(
+		"gdscript_lsp_check_declares_clean_import_dependency",
+		"godot_import" in CHECK_DEFINITIONS
+		and CHECK_DEPENDENCIES.get("gdscript_lsp_diagnostics") == ["godot_import"]
+		and expand_check_dependencies(["gdscript_lsp_diagnostics"])
+		== ["godot_import", "gdscript_lsp_diagnostics"]
+		and expand_check_dependencies(["godot_import", "gdscript_lsp_diagnostics"])
+		== ["godot_import", "gdscript_lsp_diagnostics"],
+		"LSP validation must import a clean Godot project exactly once before scanning editor diagnostics.",
+	)
 	setup_godot_action_source = read_text_file(ROOT / ".github/actions/setup-godot/action.yml")
 	setup_godot_issues = audit_setup_godot_action_source(setup_godot_action_source)
 	record_result(
@@ -10485,6 +10501,16 @@ def maintenance_self_test() -> dict[str, Any]:
 		"package maintenance tool changes must still recommend package validation.",
 	)
 
+	lsp_check_command = "python tools/gf_maintenance.py check --check gdscript_lsp_diagnostics --json"
+	runtime_plan = workspace_status(paths=["addons/gf/kernel/core/gf_architecture.gd"])
+	test_plan = workspace_status(paths=["tests/gf_core/kernel/core/test_gf_singleton.gd"])
+	record_result(
+		"workspace_status_recommends_lsp_for_gdscript_changes",
+		lsp_check_command in runtime_plan["recommended_checks"]
+		and lsp_check_command in test_plan["recommended_checks"],
+		"runtime and test GDScript changes must recommend the standalone LSP check before the full gate.",
+	)
+
 	valid_issues = audit_bundled_extension_manifests([
 		make_manifest_test_record("fixture", make_manifest_test_data()),
 	])
@@ -10605,14 +10631,41 @@ def maintenance_self_test() -> dict[str, Any]:
 		"pure static checks should reuse one maintenance process while external Godot and package smokes remain isolated.",
 	)
 	record_result(
-		"gdscript_lsp_diagnostics_is_manual_until_ci_baseline_is_stable",
+		"gdscript_lsp_diagnostics_is_a_full_and_release_hard_gate",
 		all(
-			"gdscript_lsp_diagnostics" not in set(checks)
-			for checks in CHECK_SUITES.values()
+			"gdscript_lsp_diagnostics" in set(CHECK_SUITES[suite_name])
+			for suite_name in ("full", "release", "framework")
+		)
+		and all(
+			"gdscript_lsp_diagnostics" not in set(CHECK_SUITES[suite_name])
+			for suite_name in ("api", "docs", "examples", "quick", "package")
 		),
-		"GDScript LSP diagnostics should stay an explicit check until its CI baseline is proven stable.",
+		"Full, release, and their framework shard must fail on LSP diagnostics without making lighter suites run the editor scan.",
 	)
 	gdscript_lsp_command = CHECK_DEFINITIONS["gdscript_lsp_diagnostics"]
+	record_result(
+		"gdscript_lsp_diagnostics_uses_strict_hard_gate_severities",
+		"--allow-diagnostics" not in gdscript_lsp_command
+		and "--fail-severity" in gdscript_lsp_command
+		and gdscript_lsp_command[gdscript_lsp_command.index("--fail-severity") + 1] == "error,warning",
+		"Full and release LSP diagnostics must fail explicitly on both errors and warnings.",
+	)
+	gdscript_lsp_include_roots = [
+		gdscript_lsp_command[index + 1]
+		for index, value in enumerate(gdscript_lsp_command[:-1])
+		if value == "--include"
+	]
+	gdscript_lsp_excluded_roots = [
+		gdscript_lsp_command[index + 1]
+		for index, value in enumerate(gdscript_lsp_command[:-1])
+		if value == "--exclude-prefix"
+	]
+	record_result(
+		"gdscript_lsp_diagnostics_keeps_framework_and_test_scan_roots",
+		gdscript_lsp_include_roots == ["addons/gf", "tests/gf_core"]
+		and gdscript_lsp_excluded_roots == ["addons/gut"],
+		"The hard gate must scan GF runtime and gf_core tests while excluding vendored GUT sources.",
+	)
 	record_result(
 		"gdscript_lsp_diagnostics_uses_scaled_timeout_retries",
 		"--connect-or-spawn" in gdscript_lsp_command
@@ -18050,6 +18103,7 @@ def recommend_checks(categories: dict[str, list[dict[str, str]]]) -> list[str]:
 			"python tools/gf_maintenance.py api-since-touched --json",
 			"python tools/gf_maintenance.py check --check gut --failed-only",
 			"python tools/gf_maintenance.py check --check gdscript_warnings --json",
+			"python tools/gf_maintenance.py check --check gdscript_lsp_diagnostics --json",
 			"python tools/gf_maintenance.py dependency-boundary --json",
 			"python tools/gf_maintenance.py resource-boundary --json",
 			"python tools/gf_maintenance.py content-package-boundary --json",
@@ -18061,7 +18115,10 @@ def recommend_checks(categories: dict[str, list[dict[str, str]]]) -> list[str]:
 	if categories["examples"]:
 		recommendations.append("python tools/gf_maintenance.py check --suite examples --json")
 	if categories["tests"]:
-		recommendations.append("python tools/gf_maintenance.py check --check gut --failed-only")
+		recommendations.extend([
+			"python tools/gf_maintenance.py check --check gut --failed-only",
+			"python tools/gf_maintenance.py check --check gdscript_lsp_diagnostics --json",
+		])
 	if categories["manual_docs"]:
 		recommendations.extend([
 			"python tools/check_docs_quality.py --strict",

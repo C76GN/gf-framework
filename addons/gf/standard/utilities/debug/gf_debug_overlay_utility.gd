@@ -104,6 +104,7 @@ var _watch_order_counter: int = 0
 var _panels: Dictionary = {}
 var _panel_order_counter: int = 0
 var _metric_series: Dictionary = {}
+var _overlay_attach_generation: int = 0
 
 
 # --- GF 生命周期方法 ---
@@ -130,16 +131,18 @@ func init() -> void:
 	_overlay_gui._architecture_provider = Callable(self, "_get_architecture_or_null")
 	_overlay_gui._watch_snapshot_provider = Callable(self, "get_watch_snapshot")
 	_overlay_gui._panel_snapshot_provider = Callable(self, "get_panel_snapshot")
+	_overlay_attach_generation += 1
 	
 	var tree: SceneTree = _get_main_scene_tree()
 	if tree != null:
-		call_deferred("_add_overlay_gui_if_current", tree.root, _overlay_gui)
+		call_deferred("_add_overlay_gui_if_current", _overlay_attach_generation)
 
 
 ## 释放调试覆盖层 GUI 和所有 watch / panel 注册。
 ## [br]
 ## @api public
 func dispose() -> void:
+	_overlay_attach_generation += 1
 	if is_instance_valid(_overlay_gui):
 		_overlay_gui.visible = false
 		_overlay_gui.set_process(false)
@@ -588,15 +591,19 @@ func _get_main_scene_tree() -> SceneTree:
 	return null
 
 
-func _add_overlay_gui_if_current(root: Node, overlay_gui: Node) -> void:
-	if not is_instance_valid(root) or not is_instance_valid(overlay_gui):
+func _add_overlay_gui_if_current(generation: int) -> void:
+	if generation != _overlay_attach_generation:
 		return
-	if overlay_gui != _overlay_gui:
+	var overlay_gui: _GFDebugGUI = _overlay_gui
+	if not is_instance_valid(overlay_gui):
 		return
 	if overlay_gui.is_queued_for_deletion():
 		return
+	var tree: SceneTree = _get_main_scene_tree()
+	if tree == null or not is_instance_valid(tree.root):
+		return
 	if overlay_gui.get_parent() == null:
-		root.add_child(overlay_gui)
+		tree.root.add_child(overlay_gui)
 
 
 func _get_log_utility() -> GFLogUtility:

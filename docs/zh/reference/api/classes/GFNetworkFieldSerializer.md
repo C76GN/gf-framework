@@ -32,6 +32,7 @@
 ### `ValueType`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 enum ValueType {
@@ -57,6 +58,8 @@ enum ValueType {
 	VECTOR3I,
 	## Color，编码为四个数值。
 	COLOR,
+	## Quaternion，编码为归一化的 x/y/z/w 四个数值。
+	QUATERNION,
 }
 ```
 
@@ -131,12 +134,13 @@ var max_value: float = 1.0
 ### `serialize_value`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func serialize_value(value: Variant) -> Variant:
 ```
 
-编码字段值。
+编码字段值。Quaternion 固定输出归一化的 [x, y, z, w]；非法旋转回退为单位四元数。
 
 参数：
 
@@ -149,19 +153,20 @@ func serialize_value(value: Variant) -> Variant:
 结构：
 
 - `value`: Variant，原始字段值。
-- `return`: Variant，可序列化字段值；向量和颜色会编码为 Array。
+- `return`: Variant，可序列化字段值；向量、颜色和 Quaternion 会编码为 Array。
 
 <a id="member-gfnetworkfieldserializer-methods-deserialize_value"></a>
 
 ### `deserialize_value`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func deserialize_value(value: Variant) -> Variant:
 ```
 
-解码字段值。
+解码字段值。Quaternion 数组会恢复单位长度，零长度或非有限分量回退为单位四元数。
 
 参数：
 

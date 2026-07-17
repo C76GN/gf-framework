@@ -9,7 +9,7 @@
 - 类别：运行时服务 (`runtime_service`)
 - 首次版本：`6.0.0`
 
-纹理集命名分类与导入计划构建工具。 根据常见后缀把贴图文件归并为材质纹理集，并可生成 GFImportPlan。 它只做路径解析和计划输出，不创建材质、不执行导入、不绑定编辑器 UI。
+纹理集命名分类与导入计划构建工具。 根据常见后缀把贴图文件归并为材质纹理集，诊断重复或缺失角色，并可生成 GFImportPlan。它只做路径解析和计划输出，不创建材质、不执行导入、不绑定编辑器 UI。
 
 ## 成员概览
 
@@ -146,7 +146,7 @@ Emission 贴图角色。
 static func classify_files(paths: PackedStringArray, options: Dictionary = {}) -> Dictionary:
 ```
 
-分类纹理路径。
+分类纹理路径。 `ok` 仅在至少匹配一个文件且所有集合均无重复角色、无缺失必需角色时为 true。 每个 set 包含 ok:bool、set_id:String、directory:String、base_name:String、 textures:Dictionary[StringName, String]、source_paths:Array[String]、 duplicate_roles:Array[Dictionary]、missing_roles:Array[StringName] 和 issues:Array[Dictionary]。 duplicate_roles 元素包含 role:StringName 与 paths:Array[String]；unmatched 元素包含 path:String 与 reason:StringName；issue 包含 kind:StringName、set_id:String、role:StringName， duplicate_role 还包含 paths:Array[String]。
 
 参数：
 
@@ -160,8 +160,8 @@ static func classify_files(paths: PackedStringArray, options: Dictionary = {}) -
 结构：
 
 - `paths`: PackedStringArray texture file paths.
-- `options`: Dictionary，可包含 suffix_rules、allowed_extensions 和 normalize_directory.
-- `return`: Dictionary with ok, sets, unmatched, matched_count, unmatched_count, and suffix_rules.
+- `options`: Dictionary，可包含 suffix_rules:Dictionary、allowed_extensions:Array[String] 和 required_roles:Array[StringName|String]；suffix_rules 的角色声明顺序决定重叠后缀的匹配优先级。
+- `return`: Dictionary with ok:bool, sets:Array[Dictionary], unmatched:Array[Dictionary], matched_count:int, unmatched_count:int, suffix_rules:Dictionary, required_roles:Array[StringName], valid_set_count:int, invalid_set_count:int, duplicate_role_count:int, missing_role_count:int, and issues:Array[Dictionary].
 
 <a id="member-gftexturesetclassifier-methods-build_material_import_plan"></a>
 
@@ -174,7 +174,7 @@ static func classify_files(paths: PackedStringArray, options: Dictionary = {}) -
 static func build_material_import_plan( paths: PackedStringArray, target_root: String, options: Dictionary = {} ) -> GFImportPlan:
 ```
 
-从纹理路径构建材质导入计划。
+从纹理路径构建材质导入计划。重复或缺少必需角色的集合不会生成条目，诊断会保留在计划 metadata。
 
 参数：
 
@@ -189,7 +189,7 @@ static func build_material_import_plan( paths: PackedStringArray, target_root: S
 结构：
 
 - `paths`: PackedStringArray texture file paths.
-- `options`: Dictionary，可包含 material_extension、type_hint、suffix_rules、allowed_extensions 和 metadata。
+- `options`: Dictionary，可包含 material_extension、type_hint、suffix_rules、allowed_extensions、required_roles 和 metadata。
 
 <a id="member-gftexturesetclassifier-methods-get_default_suffix_rules"></a>
 

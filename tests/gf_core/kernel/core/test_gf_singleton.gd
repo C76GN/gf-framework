@@ -793,7 +793,7 @@ func test_gf_autoload_tree_exit_state_is_scoped_to_exit_callback() -> void:
 	assert_true(await architecture.register_utility_instance(probe), "测试 Utility 应成功注册。")
 	assert_true(await architecture.init(), "测试架构应成功初始化。")
 
-	var autoload_node: Node = GF_AUTOLOAD_NODE_SCRIPT.new()
+	var autoload_node: GF_AUTOLOAD_NODE_SCRIPT = GF_AUTOLOAD_NODE_SCRIPT.new()
 	autoload_node.name = "GfTreeExitProbe"
 	autoload_node.set(&"_architecture", architecture)
 	get_tree().root.add_child(autoload_node)

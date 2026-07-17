@@ -1,7 +1,8 @@
 ## GFUIUtility: 栈式 UI 管理器。
 ##
-## 负责可扩展逻辑层中的入栈、出栈、可见性策略与异步加载，
+## 负责可扩展逻辑层中的入栈、出栈、层内可见性策略与异步加载，
 ## 适合 HUD、并行窗口、弹窗和顶层遮罩等需要分层管理的 UI 场景。
+## 逻辑层彼此独立：绘制顺序由各层 CanvasLayer.layer 决定，层内 hide_under 不会清理其他层。
 ## [br]
 ## @api public
 ## [br]
@@ -81,9 +82,12 @@ signal panel_async_load_finished(path: String, layer: int, operation: StringName
 
 # --- 枚举 ---
 
-## UI 层级，数值越大显示越靠前。
+## 预置 UI 逻辑层 ID。预置绘制值依次为 HUD=50、POPUP=60、TOP=70；
+## 自定义逻辑层的绘制顺序只由 GFUILayerDefinition.canvas_layer 决定，而不是 layer_id 大小。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 enum Layer {
 	## 基础信息层，如主界面、血条 HUD 等。
 	HUD = 0,
@@ -457,7 +461,7 @@ func push_panel_with_options(
 	return panel_instance
 
 
-## 同步替换指定层级的面板栈。
+## 同步替换指定逻辑层的面板栈，不改变其他逻辑层。
 ## [br]
 ## @api public
 ## [br]
@@ -732,7 +736,7 @@ func pop_to_panel(panel: Node, layer: int = Layer.POPUP, do_free: bool = true) -
 	return true
 
 
-## 清空指定层级的所有面板。
+## 清空指定逻辑层的所有面板，不改变其他逻辑层。
 ## [br]
 ## @api public
 ## [br]

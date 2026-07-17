@@ -11,6 +11,23 @@ class_name GFTextFitter
 extends RefCounted
 
 
+# --- 枚举 ---
+
+## 文本测量模式。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+enum MeasurementMode {
+	## 根据控件文本布局属性选择测量路径，保持完整换行与排版语义。
+	AUTO,
+	## 面向不换行短文本，只在最大字号测量一次并按可用区域推导结果。
+	SINGLE_LINE,
+	## 强制使用完整多行排版测量。
+	MULTILINE,
+}
+
+
 # --- 常量 ---
 
 ## 默认最小字体尺寸。
@@ -34,11 +51,11 @@ const DEFAULT_MAX_FONT_SIZE: int = 64
 ## [br]
 ## @param control: 目标文本控件，支持 Label、RichTextLabel、Button、LineEdit 与 TextEdit，也可通过 options.text 适配自定义控件。
 ## [br]
-## @param options: 可选设置，支持 min_font_size、max_font_size、font_size_candidates、available_size、fit_width、fit_height、apply、font_name、font_size_name、text、content_insets、use_placeholder、horizontal_alignment、autowrap_mode、line_break_flags、justification_flags、text_direction。
+## @param options: 可选设置，支持 min_font_size、max_font_size、font_size_candidates、available_size、fit_width、fit_height、apply、font_name、font_size_name、text、content_insets、use_placeholder、measurement_mode、horizontal_alignment、autowrap_mode、line_break_flags、justification_flags、text_direction。
 ## [br]
 ## @return 计算出的字体尺寸；目标无效或无法读取文本时返回 0。
 ## [br]
-## @schema options: Dictionary，支持 min_font_size、max_font_size、font_size_candidates、available_size、fit_width、fit_height、apply、font_name、font_size_name、font、text、content_insets、use_placeholder、horizontal_alignment、autowrap_mode、line_break_flags、justification_flags、text_direction；font_size_candidates 为整数候选字号数组，非空时只从合法候选字号中挑选最大适配值。
+## @schema options: Dictionary，支持 min_font_size、max_font_size、font_size_candidates、available_size、fit_width、fit_height、apply、font_name、font_size_name、font、text、content_insets、use_placeholder、measurement_mode、horizontal_alignment、autowrap_mode、line_break_flags、justification_flags、text_direction；measurement_mode 默认为 MeasurementMode.AUTO，SINGLE_LINE 只测量一次最大字号并按比例选择连续或候选字号，MULTILINE 强制完整多行排版；font_size_candidates 为整数候选字号数组。
 static func fit_control(control: Control, options: Dictionary = {}) -> int:
 	if control == null:
 		return 0
@@ -77,11 +94,11 @@ static func fit_control(control: Control, options: Dictionary = {}) -> int:
 ## [br]
 ## @param label: 目标 Label。
 ## [br]
-## @param options: 可选设置，支持 min_font_size、max_font_size、font_size_candidates、available_size、fit_width、fit_height、apply、font_name、font_size_name、horizontal_alignment、autowrap_mode、line_break_flags、justification_flags、text_direction。
+## @param options: 可选设置，支持 min_font_size、max_font_size、font_size_candidates、available_size、fit_width、fit_height、apply、font_name、font_size_name、font、text、measurement_mode、horizontal_alignment、autowrap_mode、line_break_flags、justification_flags、text_direction。
 ## [br]
 ## @return 计算出的字体尺寸；目标无效时返回 0。
 ## [br]
-## @schema options: Dictionary，支持 min_font_size、max_font_size、font_size_candidates、available_size、fit_width、fit_height、apply、font_name、font_size_name、font、horizontal_alignment、autowrap_mode、line_break_flags、justification_flags、text_direction；font_size_candidates 为整数候选字号数组，非空时只从合法候选字号中挑选最大适配值。
+## @schema options: Dictionary，支持 min_font_size、max_font_size、font_size_candidates、available_size、fit_width、fit_height、apply、font_name、font_size_name、font、text、measurement_mode、horizontal_alignment、autowrap_mode、line_break_flags、justification_flags、text_direction；measurement_mode 默认为 MeasurementMode.AUTO，SINGLE_LINE 适用于无换行短文本的一次测量路径，MULTILINE 强制完整多行排版；font_size_candidates 为整数候选字号数组。
 static func fit_label(label: Label, options: Dictionary = {}) -> int:
 	if label == null:
 		return 0
@@ -93,7 +110,8 @@ static func fit_label(label: Label, options: Dictionary = {}) -> int:
 		&"font_size"
 	)
 	resolved_options["available_size"] = _resolve_content_available_size(label, resolved_options)
-	var font_size: int = _find_largest_fitting_font_size(label, label.text, resolved_options)
+	var text: String = GFVariantData.get_option_string(resolved_options, "text", label.text)
+	var font_size: int = _find_largest_fitting_font_size(label, text, resolved_options)
 	if GFVariantData.get_option_bool(resolved_options, "apply", true):
 		label.add_theme_font_size_override(
 			GFVariantData.get_option_string_name(resolved_options, "font_size_name", &"font_size"),
@@ -110,11 +128,11 @@ static func fit_label(label: Label, options: Dictionary = {}) -> int:
 ## [br]
 ## @param label: 目标 RichTextLabel。
 ## [br]
-## @param options: 可选设置，支持 min_font_size、max_font_size、font_size_candidates、available_size、fit_width、fit_height、apply、font_name、font_size_name、horizontal_alignment、autowrap_mode、line_break_flags、justification_flags、text_direction。
+## @param options: 可选设置，支持 min_font_size、max_font_size、font_size_candidates、available_size、fit_width、fit_height、apply、font_name、font_size_name、font、text、measurement_mode、horizontal_alignment、autowrap_mode、line_break_flags、justification_flags、text_direction。
 ## [br]
 ## @return 计算出的字体尺寸；目标无效时返回 0。
 ## [br]
-## @schema options: Dictionary，支持 min_font_size、max_font_size、font_size_candidates、available_size、fit_width、fit_height、apply、font_name、font_size_name、font、horizontal_alignment、autowrap_mode、line_break_flags、justification_flags、text_direction；font_size_candidates 为整数候选字号数组，非空时只从合法候选字号中挑选最大适配值。
+## @schema options: Dictionary，支持 min_font_size、max_font_size、font_size_candidates、available_size、fit_width、fit_height、apply、font_name、font_size_name、font、text、measurement_mode、horizontal_alignment、autowrap_mode、line_break_flags、justification_flags、text_direction；measurement_mode 默认为 MeasurementMode.AUTO，MULTILINE 可用于显式保留完整多行排版；font_size_candidates 为整数候选字号数组。
 static func fit_rich_text_label(label: RichTextLabel, options: Dictionary = {}) -> int:
 	if label == null:
 		return 0
@@ -126,10 +144,7 @@ static func fit_rich_text_label(label: RichTextLabel, options: Dictionary = {}) 
 		&"normal_font_size"
 	)
 	resolved_options["available_size"] = _resolve_content_available_size(label, resolved_options)
-	var text: String = label.text
-	if label.bbcode_enabled:
-		text = _strip_bbcode(text)
-
+	var text: String = GFVariantData.get_option_string(resolved_options, "text", "")
 	var font_size: int = _find_largest_fitting_font_size(label, text, resolved_options)
 	if GFVariantData.get_option_bool(resolved_options, "apply", true):
 		label.add_theme_font_size_override(
@@ -169,6 +184,8 @@ static func measure_control_text(control: Control, font_size: int, options: Dict
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param control: 提供主题字体的控件。
 ## [br]
 ## @param text: 待测量文本。
@@ -179,7 +196,7 @@ static func measure_control_text(control: Control, font_size: int, options: Dict
 ## [br]
 ## @return 文本尺寸；字体缺失时返回 Vector2.ZERO。
 ## [br]
-## @schema options: Dictionary，支持 available_size、fit_width、font_name、font、horizontal_alignment、autowrap_mode、line_break_flags、justification_flags、text_direction。
+## @schema options: Dictionary，支持 available_size、fit_width、font_name、font、measurement_mode、horizontal_alignment、autowrap_mode、line_break_flags、justification_flags、text_direction。
 static func measure_text(control: Control, text: String, font_size: int, options: Dictionary = {}) -> Vector2:
 	if control == null:
 		return Vector2.ZERO
@@ -194,6 +211,8 @@ static func measure_text(control: Control, text: String, font_size: int, options
 	var available_size: Vector2 = _resolve_available_size(control, options)
 	var fit_width: bool = GFVariantData.get_option_bool(options, "fit_width", true)
 	var wrap_width: float = available_size.x if fit_width and available_size.x > 0.0 else -1.0
+	if _get_measurement_mode(options) == MeasurementMode.SINGLE_LINE:
+		return _measure_single_line_text(font, text, font_size, options)
 	if _uses_multiline_text_measurement(options):
 		return _measure_multiline_text(font, text, font_size, wrap_width, options)
 	return _measure_lines(font, text, font_size, wrap_width)
@@ -229,6 +248,7 @@ static func _resolve_options(
 	resolved["fit_width"] = GFVariantData.get_option_bool(resolved, "fit_width", true)
 	resolved["fit_height"] = GFVariantData.get_option_bool(resolved, "fit_height", true)
 	resolved["apply"] = GFVariantData.get_option_bool(resolved, "apply", true)
+	resolved["measurement_mode"] = _get_measurement_mode(resolved)
 	return resolved
 
 
@@ -241,6 +261,7 @@ static func _merge_control_text_options(options: Dictionary, text_info: Dictiona
 	if not merged.has("content_insets"):
 		merged["content_insets"] = GFVariantData.get_option_value(text_info, "content_insets", Vector4.ZERO)
 	for key: String in [
+		"text",
 		"horizontal_alignment",
 		"line_break_flags",
 		"autowrap_mode",
@@ -354,6 +375,28 @@ static func _find_largest_fitting_font_size(control: Control, text: String, opti
 	var min_font_size: int = GFVariantData.get_option_int(options, "min_font_size", DEFAULT_MIN_FONT_SIZE)
 	var max_font_size: int = GFVariantData.get_option_int(options, "max_font_size", DEFAULT_MAX_FONT_SIZE)
 	var font_size_candidates: Array[int] = _resolve_font_size_candidates(options, min_font_size, max_font_size)
+	if _get_measurement_mode(options) == MeasurementMode.SINGLE_LINE:
+		var measurement_provider: Callable = func(
+			measurement_control: Control,
+			measurement_text: String,
+			measurement_font_size: int,
+			measurement_options: Dictionary
+		) -> Vector2:
+			return measure_text(
+				measurement_control,
+				measurement_text,
+				measurement_font_size,
+				measurement_options
+			)
+		return _find_single_line_font_size_one_pass(
+			control,
+			text,
+			options,
+			font_size_candidates,
+			min_font_size,
+			max_font_size,
+			measurement_provider
+		)
 	if not font_size_candidates.is_empty():
 		return _find_largest_candidate_font_size(control, text, options, font_size_candidates, min_font_size)
 
@@ -370,6 +413,42 @@ static func _find_largest_fitting_font_size(control: Control, text: String, opti
 			high = candidate - 1
 
 	return best_size
+
+
+static func _find_single_line_font_size_one_pass(
+	control: Control,
+	text: String,
+	options: Dictionary,
+	font_size_candidates: Array[int],
+	min_font_size: int,
+	max_font_size: int,
+	measurement_provider: Callable
+) -> int:
+	if not measurement_provider.is_valid():
+		return min_font_size
+	var measured_size: Vector2 = Vector2.ZERO
+	var measured_value: Variant = measurement_provider.call(control, text, max_font_size, options)
+	if measured_value is Vector2:
+		var vector_measurement: Vector2 = measured_value
+		measured_size = vector_measurement
+	var available_size: Vector2 = _resolve_available_size(control, options)
+	var scale_factor: float = 1.0
+	if GFVariantData.get_option_bool(options, "fit_width", true) and available_size.x > 0.0:
+		scale_factor = minf(scale_factor, available_size.x / maxf(measured_size.x, 1.0))
+	if GFVariantData.get_option_bool(options, "fit_height", true) and available_size.y > 0.0:
+		scale_factor = minf(scale_factor, available_size.y / maxf(measured_size.y, 1.0))
+
+	var estimated_font_size: int = clampi(
+		floori(float(max_font_size) * minf(scale_factor, 1.0)),
+		min_font_size,
+		max_font_size
+	)
+	if font_size_candidates.is_empty():
+		return estimated_font_size
+	for candidate: int in font_size_candidates:
+		if candidate <= estimated_font_size:
+			return candidate
+	return min_font_size
 
 
 static func _find_largest_candidate_font_size(
@@ -468,6 +547,11 @@ static func _get_stylebox_insets(control: Control, stylebox_name: StringName) ->
 
 
 static func _uses_multiline_text_measurement(options: Dictionary) -> bool:
+	var measurement_mode: int = _get_measurement_mode(options)
+	if measurement_mode == MeasurementMode.MULTILINE:
+		return true
+	if measurement_mode == MeasurementMode.SINGLE_LINE:
+		return false
 	if GFVariantData.get_option_bool(options, "use_multiline_measurement", false):
 		return true
 	for key: String in [
@@ -481,6 +565,42 @@ static func _uses_multiline_text_measurement(options: Dictionary) -> bool:
 		if options.has(key):
 			return true
 	return false
+
+
+static func _get_measurement_mode(options: Dictionary) -> int:
+	return clampi(
+		GFVariantData.get_option_int(options, "measurement_mode", MeasurementMode.AUTO),
+		MeasurementMode.AUTO,
+		MeasurementMode.MULTILINE
+	)
+
+
+static func _measure_single_line_text(
+	font: Font,
+	text: String,
+	font_size: int,
+	options: Dictionary
+) -> Vector2:
+	var alignment: int = GFVariantData.get_option_int(options, "horizontal_alignment", HORIZONTAL_ALIGNMENT_LEFT)
+	var justification_flags: int = GFVariantData.get_option_int(
+		options,
+		"justification_flags",
+		TextServer.JUSTIFICATION_KASHIDA | TextServer.JUSTIFICATION_WORD_BOUND
+	)
+	var text_direction: int = GFVariantData.get_option_int(options, "text_direction", TextServer.DIRECTION_AUTO)
+	var orientation: int = GFVariantData.get_option_int(options, "orientation", TextServer.ORIENTATION_HORIZONTAL)
+	var size: Vector2 = font.get_string_size(
+		text,
+		alignment,
+		-1.0,
+		font_size,
+		justification_flags,
+		text_direction,
+		orientation
+	)
+	if text.is_empty():
+		size.y = maxf(size.y, float(font_size))
+	return size
 
 
 static func _measure_multiline_text(

@@ -2,7 +2,7 @@
   "id": "gf.network",
   "display_name": "GF Network",
   "version": "8.1.1",
-  "extension_version": "4.0.0",
+  "extension_version": "4.1.0",
   "kind": "extension",
   "description": "Pluggable network backends, sessions, messages, serializers, snapshots, and fixed tick helpers.",
   "dependencies": ["gf.kernel", "gf.standard"],

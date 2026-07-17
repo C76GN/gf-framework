@@ -15,6 +15,7 @@
 
 | 类型 | 名称 | 签名 |
 |---|---|---|
+| 枚举 | [`MeasurementMode`](#member-gftextfitter-enums-measurementmode) | `enum MeasurementMode` |
 | 常量 | [`DEFAULT_MIN_FONT_SIZE`](#member-gftextfitter-constants-default_min_font_size) | `const DEFAULT_MIN_FONT_SIZE: int = 8` |
 | 常量 | [`DEFAULT_MAX_FONT_SIZE`](#member-gftextfitter-constants-default_max_font_size) | `const DEFAULT_MAX_FONT_SIZE: int = 64` |
 | 方法 | [`fit_control`](#member-gftextfitter-methods-fit_control) | `static func fit_control(control: Control, options: Dictionary = {}) -> int:` |
@@ -22,6 +23,28 @@
 | 方法 | [`fit_rich_text_label`](#member-gftextfitter-methods-fit_rich_text_label) | `static func fit_rich_text_label(label: RichTextLabel, options: Dictionary = {}) -> int:` |
 | 方法 | [`measure_control_text`](#member-gftextfitter-methods-measure_control_text) | `static func measure_control_text(control: Control, font_size: int, options: Dictionary = {}) -> Vector2:` |
 | 方法 | [`measure_text`](#member-gftextfitter-methods-measure_text) | `static func measure_text(control: Control, text: String, font_size: int, options: Dictionary = {}) -> Vector2:` |
+
+## 枚举
+
+<a id="member-gftextfitter-enums-measurementmode"></a>
+
+### `MeasurementMode`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+enum MeasurementMode {
+	## 根据控件文本布局属性选择测量路径，保持完整换行与排版语义。
+	AUTO,
+	## 面向不换行短文本，只在最大字号测量一次并按可用区域推导结果。
+	SINGLE_LINE,
+	## 强制使用完整多行排版测量。
+	MULTILINE,
+}
+```
+
+文本测量模式。
 
 ## 常量
 
@@ -69,13 +92,13 @@ static func fit_control(control: Control, options: Dictionary = {}) -> int:
 | 名称 | 说明 |
 |---|---|
 | `control` | 目标文本控件，支持 Label、RichTextLabel、Button、LineEdit 与 TextEdit，也可通过 options.text 适配自定义控件。 |
-| `options` | 可选设置，支持 min_font_size、max_font_size、font_size_candidates、available_size、fit_width、fit_height、apply、font_name、font_size_name、text、content_insets、use_placeholder、horizontal_alignment、autowrap_mode、line_break_flags、justification_flags、text_direction。 |
+| `options` | 可选设置，支持 min_font_size、max_font_size、font_size_candidates、available_size、fit_width、fit_height、apply、font_name、font_size_name、text、content_insets、use_placeholder、measurement_mode、horizontal_alignment、autowrap_mode、line_break_flags、justification_flags、text_direction。 |
 
 返回：计算出的字体尺寸；目标无效或无法读取文本时返回 0。
 
 结构：
 
-- `options`: Dictionary，支持 min_font_size、max_font_size、font_size_candidates、available_size、fit_width、fit_height、apply、font_name、font_size_name、font、text、content_insets、use_placeholder、horizontal_alignment、autowrap_mode、line_break_flags、justification_flags、text_direction；font_size_candidates 为整数候选字号数组，非空时只从合法候选字号中挑选最大适配值。
+- `options`: Dictionary，支持 min_font_size、max_font_size、font_size_candidates、available_size、fit_width、fit_height、apply、font_name、font_size_name、font、text、content_insets、use_placeholder、measurement_mode、horizontal_alignment、autowrap_mode、line_break_flags、justification_flags、text_direction；measurement_mode 默认为 MeasurementMode.AUTO，SINGLE_LINE 只测量一次最大字号并按比例选择连续或候选字号，MULTILINE 强制完整多行排版；font_size_candidates 为整数候选字号数组。
 
 <a id="member-gftextfitter-methods-fit_label"></a>
 
@@ -95,13 +118,13 @@ static func fit_label(label: Label, options: Dictionary = {}) -> int:
 | 名称 | 说明 |
 |---|---|
 | `label` | 目标 Label。 |
-| `options` | 可选设置，支持 min_font_size、max_font_size、font_size_candidates、available_size、fit_width、fit_height、apply、font_name、font_size_name、horizontal_alignment、autowrap_mode、line_break_flags、justification_flags、text_direction。 |
+| `options` | 可选设置，支持 min_font_size、max_font_size、font_size_candidates、available_size、fit_width、fit_height、apply、font_name、font_size_name、font、text、measurement_mode、horizontal_alignment、autowrap_mode、line_break_flags、justification_flags、text_direction。 |
 
 返回：计算出的字体尺寸；目标无效时返回 0。
 
 结构：
 
-- `options`: Dictionary，支持 min_font_size、max_font_size、font_size_candidates、available_size、fit_width、fit_height、apply、font_name、font_size_name、font、horizontal_alignment、autowrap_mode、line_break_flags、justification_flags、text_direction；font_size_candidates 为整数候选字号数组，非空时只从合法候选字号中挑选最大适配值。
+- `options`: Dictionary，支持 min_font_size、max_font_size、font_size_candidates、available_size、fit_width、fit_height、apply、font_name、font_size_name、font、text、measurement_mode、horizontal_alignment、autowrap_mode、line_break_flags、justification_flags、text_direction；measurement_mode 默认为 MeasurementMode.AUTO，SINGLE_LINE 适用于无换行短文本的一次测量路径，MULTILINE 强制完整多行排版；font_size_candidates 为整数候选字号数组。
 
 <a id="member-gftextfitter-methods-fit_rich_text_label"></a>
 
@@ -121,13 +144,13 @@ static func fit_rich_text_label(label: RichTextLabel, options: Dictionary = {}) 
 | 名称 | 说明 |
 |---|---|
 | `label` | 目标 RichTextLabel。 |
-| `options` | 可选设置，支持 min_font_size、max_font_size、font_size_candidates、available_size、fit_width、fit_height、apply、font_name、font_size_name、horizontal_alignment、autowrap_mode、line_break_flags、justification_flags、text_direction。 |
+| `options` | 可选设置，支持 min_font_size、max_font_size、font_size_candidates、available_size、fit_width、fit_height、apply、font_name、font_size_name、font、text、measurement_mode、horizontal_alignment、autowrap_mode、line_break_flags、justification_flags、text_direction。 |
 
 返回：计算出的字体尺寸；目标无效时返回 0。
 
 结构：
 
-- `options`: Dictionary，支持 min_font_size、max_font_size、font_size_candidates、available_size、fit_width、fit_height、apply、font_name、font_size_name、font、horizontal_alignment、autowrap_mode、line_break_flags、justification_flags、text_direction；font_size_candidates 为整数候选字号数组，非空时只从合法候选字号中挑选最大适配值。
+- `options`: Dictionary，支持 min_font_size、max_font_size、font_size_candidates、available_size、fit_width、fit_height、apply、font_name、font_size_name、font、text、measurement_mode、horizontal_alignment、autowrap_mode、line_break_flags、justification_flags、text_direction；measurement_mode 默认为 MeasurementMode.AUTO，MULTILINE 可用于显式保留完整多行排版；font_size_candidates 为整数候选字号数组。
 
 <a id="member-gftextfitter-methods-measure_control_text"></a>
 
@@ -160,6 +183,7 @@ static func measure_control_text(control: Control, font_size: int, options: Dict
 ### `measure_text`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 static func measure_text(control: Control, text: String, font_size: int, options: Dictionary = {}) -> Vector2:
@@ -180,4 +204,4 @@ static func measure_text(control: Control, text: String, font_size: int, options
 
 结构：
 
-- `options`: Dictionary，支持 available_size、fit_width、font_name、font、horizontal_alignment、autowrap_mode、line_break_flags、justification_flags、text_direction。
+- `options`: Dictionary，支持 available_size、fit_width、font_name、font、measurement_mode、horizontal_alignment、autowrap_mode、line_break_flags、justification_flags、text_direction。

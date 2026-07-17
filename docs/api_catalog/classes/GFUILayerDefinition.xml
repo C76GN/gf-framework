@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFUILayerDefinition" path="addons/gf/standard/utilities/ui/gf_ui_layer_definition.gd" module="standard" extends="Resource" classDigest="d9cd99ddba30b7209abe9e6aa41db691a22828c23f3f3106312f97d5a65e1d73">
+<class name="GFUILayerDefinition" path="addons/gf/standard/utilities/ui/gf_ui_layer_definition.gd" module="standard" extends="Resource" classDigest="dabfd891aafcf38140deaa151d471bc538cf6f227075c7809b70aaada21bebfd">
 	<description>GFUILayerDefinition: UI 逻辑层定义。
 将稳定逻辑层 ID、Godot CanvasLayer 排序值和默认遮挡策略解耦，
 供项目按窗口区域、导航域或显示优先级扩展 GFUIUtility。</description>
@@ -14,7 +14,7 @@
 	<properties>
 		<member kind="property" name="layer_id" decorators="@export">
 			<signature>var layer_id: int = -1</signature>
-			<description>稳定逻辑层 ID。必须为非负整数。</description>
+			<description>稳定逻辑层 ID。必须为非负整数，只用于路由、栈和诊断，不决定绘制顺序。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="since">8.1.0</tag>
@@ -30,7 +30,8 @@
 		</member>
 		<member kind="property" name="canvas_layer" decorators="@export">
 			<signature>var canvas_layer: int = 0</signature>
-			<description>对应 Godot CanvasLayer.layer 的显示排序值。</description>
+			<description>对应 Godot CanvasLayer.layer 的显示排序值，数值越大越靠前，与 layer_id 相互独立。
+GF 预置 HUD、POPUP、TOP 分别使用 50、60、70。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="since">8.1.0</tag>
@@ -38,7 +39,8 @@
 		</member>
 		<member kind="property" name="auto_hide_under" decorators="@export">
 			<signature>var auto_hide_under: bool = true</signature>
-			<description>新面板未显式指定 hide_under 时，是否隐藏同一逻辑层中的下方页面。</description>
+			<description>新面板未显式指定 hide_under 时，是否隐藏同一逻辑层中的下方页面。
+该策略不会隐藏或清理其他逻辑层。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="since">8.1.0</tag>

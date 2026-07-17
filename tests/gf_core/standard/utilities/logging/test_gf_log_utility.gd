@@ -164,6 +164,111 @@ func test_structured_log_entry_signal_includes_context() -> void:
 	assert_true(GFVariantData.get_option_string(received_entry, "text").contains("entity_id"), "格式化文本应包含上下文字段，便于文件和控制台查看。")
 
 
+func test_log_entry_bounds_long_tag_and_message_consistently() -> void:
+	var received: LogTestState = LogTestState.new()
+	var entry_handler: Callable = func(log_entry: Dictionary) -> void:
+		received.entry = log_entry
+	var log_handler: Callable = func(level: int, tag: String, message: String) -> void:
+		received.level = level
+		received.tag = tag
+		received.message = message
+	var _entry_connected: Variant = _log_util.log_entry_emitted.connect(entry_handler)
+	var _log_connected: Variant = _log_util.log_emitted.connect(log_handler)
+	var long_tag: String = "T".repeat(4096) + "TAG_TAIL"
+	var long_message: String = "M".repeat(4096) + "MESSAGE_TAIL"
+
+	_log_util.info(long_tag, long_message)
+
+	var received_entry: Dictionary = received.entry
+	var entry_tag: String = GFVariantData.get_option_string(received_entry, "tag")
+	var entry_message: String = GFVariantData.get_option_string(received_entry, "message")
+	var entry_text: String = GFVariantData.get_option_string(received_entry, "text")
+	var recent_entries: Array[Dictionary] = _log_util.get_recent_entries(1)
+	var recent_entry: Dictionary = recent_entries[0]
+	assert_true(entry_tag.length() < long_tag.length(), "超长 tag 应按日志字符串预算截断。")
+	assert_true(entry_message.length() < long_message.length(), "超长 message 应按日志字符串预算截断。")
+	assert_true(entry_tag.ends_with("..."), "截断后的 tag 应保留明确省略标记。")
+	assert_true(entry_message.ends_with("..."), "截断后的 message 应保留明确省略标记。")
+	assert_eq(received.tag, entry_tag, "兼容日志信号应广播实际写入条目的 tag。")
+	assert_eq(received.message, entry_message, "兼容日志信号应广播实际写入条目的 message。")
+	assert_true(entry_text.contains("[%s] %s" % [entry_tag, entry_message]), "格式化文本应由预算后的 tag 和 message 构建。")
+	assert_false(entry_text.contains("TAG_TAIL"), "格式化文本不得保留被截断的 tag 尾部。")
+	assert_false(entry_text.contains("MESSAGE_TAIL"), "格式化文本不得保留被截断的 message 尾部。")
+	assert_eq(GFVariantData.get_option_string(recent_entry, "tag"), entry_tag, "内存日志应保留同一份预算后的 tag。")
+	assert_eq(GFVariantData.get_option_string(recent_entry, "message"), entry_message, "内存日志应保留同一份预算后的 message。")
+
+
+func test_log_entry_preserves_short_values_and_message_newlines() -> void:
+	var received: LogTestState = LogTestState.new()
+	var entry_handler: Callable = func(log_entry: Dictionary) -> void:
+		received.entry = log_entry
+	var log_handler: Callable = func(level: int, tag: String, message: String) -> void:
+		received.level = level
+		received.tag = tag
+		received.message = message
+	var _entry_connected: Variant = _log_util.log_entry_emitted.connect(entry_handler)
+	var _log_connected: Variant = _log_util.log_emitted.connect(log_handler)
+	var short_tag: String = "ShortTag"
+	var short_message: String = "first line\nsecond line"
+
+	_log_util.info(short_tag, short_message)
+
+	var received_entry: Dictionary = received.entry
+	assert_eq(GFVariantData.get_option_string(received_entry, "tag"), short_tag, "预算内 tag 不应被修改。")
+	assert_eq(GFVariantData.get_option_string(received_entry, "message"), short_message, "预算内 message 与换行不应被修改。")
+	assert_eq(received.tag, short_tag, "兼容日志信号应保留预算内 tag。")
+	assert_eq(received.message, short_message, "兼容日志信号应保留预算内 message 与换行。")
+	assert_true(GFVariantData.get_option_string(received_entry, "text").contains(short_message), "格式化文本应保留预算内多行 message。")
+
+
+func test_trace_id_uses_log_budget_across_entry_memory_and_public_sink() -> void:
+	var received: LogTestState = LogTestState.new()
+	var entry_handler: Callable = func(log_entry: Dictionary) -> void:
+		received.entry = log_entry
+	var _connected: Variant = _log_util.log_entry_emitted.connect(entry_handler)
+	var sink: CapturingLogSink = CapturingLogSink.new()
+	var long_trace_id: String = "T".repeat(4096) + "TRACE_TAIL"
+
+	_log_util.set_trace_id(long_trace_id)
+	_log_util.add_sink(sink)
+	_log_util.info("Trace", "bounded")
+	_log_util.remove_sink(sink)
+
+	var bounded_trace_id: String = _log_util.get_trace_id()
+	var received_entry: Dictionary = received.entry
+	var entry_context: Dictionary = GFVariantData.get_option_dictionary(received_entry, "context")
+	var recent_entries: Array[Dictionary] = _log_util.get_recent_entries(1)
+	var recent_entry: Dictionary = recent_entries[0]
+	var sink_entry: Dictionary = sink.entries[0]
+	assert_true(bounded_trace_id.length() < long_trace_id.length(), "超长 trace_id 应复用日志字符串预算。")
+	assert_true(bounded_trace_id.ends_with("..."), "预算截断后的 trace_id 应保留明确省略标记。")
+	assert_false(bounded_trace_id.contains("TRACE_TAIL"), "trace_id 不得保留预算外尾部。")
+	assert_eq(GFVariantData.get_option_string(received_entry, "trace_id"), bounded_trace_id, "结构化条目应使用预算后的 trace_id。")
+	assert_eq(GFVariantData.get_option_string(entry_context, "trace_id"), bounded_trace_id, "结构化上下文应使用同一份预算后的 trace_id。")
+	assert_eq(GFVariantData.get_option_string(recent_entry, "trace_id"), bounded_trace_id, "内存日志应使用同一份预算后的 trace_id。")
+	assert_eq(GFVariantData.get_option_string(sink_entry, "trace_id"), bounded_trace_id, "普通 public sink 应接收预算后的 trace_id。")
+
+
+func test_public_sink_redacts_path_like_trace_id_without_changing_debug_entry() -> void:
+	var sink: CapturingLogSink = CapturingLogSink.new()
+	var private_trace_id: String = "C:\\Users\\PrivatePlayer\\session.trace"
+
+	_log_util.set_trace_id(private_trace_id)
+	_log_util.add_sink(sink)
+	_log_util.info("Trace", "profile boundary")
+	_log_util.remove_sink(sink)
+
+	var recent_entries: Array[Dictionary] = _log_util.get_recent_entries(1)
+	var recent_entry: Dictionary = recent_entries[0]
+	var sink_entry: Dictionary = sink.entries[0]
+	var sink_context: Dictionary = GFVariantData.get_option_dictionary(sink_entry, "context")
+	assert_eq(_log_util.get_trace_id(), private_trace_id, "预算内 trace_id 应保留 canonical debug 值。")
+	assert_eq(GFVariantData.get_option_string(recent_entry, "trace_id"), private_trace_id, "本地 debug 条目应保留路径型 trace_id。")
+	assert_eq(GFVariantData.get_option_string(sink_entry, "trace_id"), "<redacted_path>", "普通 public sink 应脱敏顶层 trace_id。")
+	assert_eq(GFVariantData.get_option_string(sink_context, "trace_id"), "<redacted_path>", "普通 public sink 的 context 应使用相同脱敏语义。")
+	assert_false(JSON.stringify(sink_entry).contains("PrivatePlayer"), "普通 public sink 不得残留 trace_id 中的私有路径。")
+
+
 func test_trace_id_and_global_context_are_merged_into_entries() -> void:
 	var received: LogTestState = LogTestState.new()
 	_log_util.set_trace_id("trace-test")
@@ -486,6 +591,7 @@ func test_batched_log_sink_flushes_to_callback_and_signal() -> void:
 func test_batched_log_sink_receives_privacy_encoded_context() -> void:
 	var private_node: Node = Node.new()
 	private_node.name = "PrivateBatchedLogNode"
+	var private_trace_id: String = "C:\\Users\\PrivatePlayer\\batch.trace"
 	var sink: GFBatchedLogSink = GFBatchedLogSink.new()
 	sink.batch_size = 1
 	sink.flush_interval_msec = 0
@@ -494,6 +600,7 @@ func test_batched_log_sink_receives_privacy_encoded_context() -> void:
 		payloads.append(payload.duplicate(true))
 		return { "ok": true, "accepted": 1 }
 
+	_log_util.set_trace_id(private_trace_id)
 	_log_util.add_sink(sink)
 	_log_util.info("/private/log/tag", "\\\\server\\private\\message.txt", {
 		"node": private_node,
@@ -507,7 +614,9 @@ func test_batched_log_sink_receives_privacy_encoded_context() -> void:
 	assert_false(payload_text.contains("batched_asset.tres"), "批量外发日志必须按 privacy profile 脱敏路径。")
 	assert_false(payload_text.contains("/private/log/tag"), "批量外发日志的 tag 必须按 privacy profile 脱敏。")
 	assert_false(payload_text.contains("server\\private"), "批量外发日志的 message 必须按 privacy profile 脱敏。")
+	assert_false(payload_text.contains("PrivatePlayer"), "批量外发日志的 trace_id 必须按 privacy profile 脱敏。")
 	var first_log: Dictionary = GFVariantData.as_dictionary(GFVariantData.get_option_array(payloads[0], "logs")[0])
+	assert_eq(GFVariantData.get_option_string(first_log, "trace_id"), "<redacted_path>", "批量外发日志的顶层 trace_id 应使用 privacy profile。")
 	assert_false(GFVariantData.get_option_string(first_log, "text").contains("private"), "外发 text 必须由已清洗 tag/message/context 重建。")
 
 	_log_util.remove_sink(sink)

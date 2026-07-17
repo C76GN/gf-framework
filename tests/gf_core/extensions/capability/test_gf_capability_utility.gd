@@ -910,7 +910,7 @@ func test_real_autoload_tree_exit_defers_owned_capability_detach() -> void:
 	var capability: CapabilityNode = _utility.add_capability(receiver, CapabilityNode)
 	await get_tree().process_frame
 	var container: Node = capability.get_parent()
-	var autoload_node: Node = GF_AUTOLOAD_NODE_SCRIPT.new()
+	var autoload_node: GF_AUTOLOAD_NODE_SCRIPT = GF_AUTOLOAD_NODE_SCRIPT.new()
 	autoload_node.name = "GfCapabilityExitProbe"
 	autoload_node.set(&"_architecture", _arch)
 	receiver.add_child(autoload_node)

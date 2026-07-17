@@ -17,6 +17,8 @@ extends Resource
 ## 字段值类型。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 enum ValueType {
 	## 保持原始 Variant。
 	VARIANT,
@@ -40,6 +42,8 @@ enum ValueType {
 	VECTOR3I,
 	## Color，编码为四个数值。
 	COLOR,
+	## Quaternion，编码为归一化的 x/y/z/w 四个数值。
+	QUATERNION,
 }
 
 
@@ -73,9 +77,11 @@ enum ValueType {
 
 # --- 公共方法 ---
 
-## 编码字段值。
+## 编码字段值。Quaternion 固定输出归一化的 [x, y, z, w]；非法旋转回退为单位四元数。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @param value: 原始值。
 ## [br]
@@ -83,7 +89,7 @@ enum ValueType {
 ## [br]
 ## @schema value: Variant，原始字段值。
 ## [br]
-## @schema return: Variant，可序列化字段值；向量和颜色会编码为 Array。
+## @schema return: Variant，可序列化字段值；向量、颜色和 Quaternion 会编码为 Array。
 func serialize_value(value: Variant) -> Variant:
 	match value_type:
 		ValueType.BOOL:
@@ -106,13 +112,17 @@ func serialize_value(value: Variant) -> Variant:
 			return _serialize_vector3i(value)
 		ValueType.COLOR:
 			return _serialize_color(value)
+		ValueType.QUATERNION:
+			return _serialize_quaternion(value)
 		_:
 			return GFVariantData.duplicate_variant(value)
 
 
-## 解码字段值。
+## 解码字段值。Quaternion 数组会恢复单位长度，零长度或非有限分量回退为单位四元数。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @param value: 编码值。
 ## [br]
@@ -143,6 +153,8 @@ func deserialize_value(value: Variant) -> Variant:
 			return _deserialize_vector3i(value)
 		ValueType.COLOR:
 			return _deserialize_color(value)
+		ValueType.QUATERNION:
+			return _deserialize_quaternion(value)
 		_:
 			return GFVariantData.duplicate_variant(value)
 
@@ -230,6 +242,26 @@ func _serialize_color(value: Variant) -> Array:
 	]
 
 
+func _serialize_quaternion(value: Variant) -> Array:
+	var quaternion: Quaternion = Quaternion.IDENTITY
+	if value is Quaternion:
+		quaternion = value
+	quaternion = _normalize_quaternion_or_identity(quaternion)
+	quaternion = Quaternion(
+		_apply_number_policy(quaternion.x),
+		_apply_number_policy(quaternion.y),
+		_apply_number_policy(quaternion.z),
+		_apply_number_policy(quaternion.w)
+	)
+	quaternion = _normalize_quaternion_or_identity(quaternion)
+	return [
+		quaternion.x,
+		quaternion.y,
+		quaternion.z,
+		quaternion.w,
+	]
+
+
 func _deserialize_vector2(value: Variant) -> Vector2:
 	var values: Array = _read_array(value)
 	return Vector2(
@@ -270,6 +302,19 @@ func _deserialize_color(value: Variant) -> Color:
 		_get_array_float(values, 0, 1.0),
 		_get_array_float(values, 1, 1.0),
 		_get_array_float(values, 2, 1.0),
+		_get_array_float(values, 3, 1.0)
+	)
+
+
+func _deserialize_quaternion(value: Variant) -> Quaternion:
+	if value is Quaternion:
+		var quaternion_value: Quaternion = value
+		return _normalize_quaternion_or_identity(quaternion_value)
+	var values: Array = _read_array(value)
+	return _normalize_quaternion_components_or_identity(
+		_get_array_float(values, 0),
+		_get_array_float(values, 1),
+		_get_array_float(values, 2),
 		_get_array_float(values, 3, 1.0)
 	)
 
@@ -373,3 +418,51 @@ func _coerce_text(value: Variant, default_value: String = "") -> String:
 	if value == null:
 		return default_value
 	return str(value)
+
+
+func _normalize_quaternion_or_identity(value: Quaternion) -> Quaternion:
+	return _normalize_quaternion_components_or_identity(value.x, value.y, value.z, value.w)
+
+
+func _normalize_quaternion_components_or_identity(
+	x: float,
+	y: float,
+	z: float,
+	w: float
+) -> Quaternion:
+	if (
+		is_nan(x)
+		or is_inf(x)
+		or is_nan(y)
+		or is_inf(y)
+		or is_nan(z)
+		or is_inf(z)
+		or is_nan(w)
+		or is_inf(w)
+	):
+		return Quaternion.IDENTITY
+	var max_component: float = maxf(
+		maxf(absf(x), absf(y)),
+		maxf(absf(z), absf(w))
+	)
+	if max_component <= 0.0:
+		return Quaternion.IDENTITY
+	var scaled_x: float = x / max_component
+	var scaled_y: float = y / max_component
+	var scaled_z: float = z / max_component
+	var scaled_w: float = w / max_component
+	var scaled_length_squared: float = (
+		scaled_x * scaled_x
+		+ scaled_y * scaled_y
+		+ scaled_z * scaled_z
+		+ scaled_w * scaled_w
+	)
+	if is_nan(scaled_length_squared) or is_inf(scaled_length_squared) or scaled_length_squared <= 0.0:
+		return Quaternion.IDENTITY
+	var inverse_length: float = 1.0 / sqrt(scaled_length_squared)
+	return Quaternion(
+		scaled_x * inverse_length,
+		scaled_y * inverse_length,
+		scaled_z * inverse_length,
+		scaled_w * inverse_length
+	)

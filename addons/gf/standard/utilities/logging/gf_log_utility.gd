@@ -382,7 +382,8 @@ func log(level: int, tag: String, msg: String, context: Dictionary = {}) -> void
 ## [br]
 ## @param value: 新 trace id；为空时会重新生成。
 func set_trace_id(value: String) -> void:
-	trace_id = value if not value.is_empty() else _generate_trace_id()
+	var next_trace_id: String = value if not value.is_empty() else _generate_trace_id()
+	trace_id = _sanitize_log_text(next_trace_id, GFReportValueCodec.REDACTION_PROFILE_DEBUG)
 	if _is_initialized and crash_marker_enabled:
 		_write_crash_marker()
 
@@ -395,6 +396,7 @@ func set_trace_id(value: String) -> void:
 func get_trace_id() -> String:
 	if trace_id.is_empty():
 		trace_id = _generate_trace_id()
+	trace_id = _sanitize_log_text(trace_id, GFReportValueCodec.REDACTION_PROFILE_DEBUG)
 	return trace_id
 
 
@@ -721,6 +723,8 @@ func _log(level: int, tag: String, msg: String, context: Dictionary = {}) -> voi
 		merged_context,
 		GFReportValueCodec.REDACTION_PROFILE_DEBUG
 	)
+	var entry_tag: String = GFVariantData.get_option_string(entry, "tag")
+	var entry_message: String = GFVariantData.get_option_string(entry, "message")
 	var formatted: String = _get_log_entry_text(entry)
 	_append_memory_entry(entry)
 
@@ -737,7 +741,7 @@ func _log(level: int, tag: String, msg: String, context: Dictionary = {}) -> voi
 			print(formatted)
 
 	_write_sinks(entry, merged_context)
-	log_emitted.emit(level, tag, msg)
+	log_emitted.emit(level, entry_tag, entry_message)
 	log_entry_emitted.emit(entry.duplicate(true))
 
 
@@ -823,8 +827,16 @@ func _make_entry(
 	context: Dictionary,
 	redaction_profile: String
 ) -> Dictionary:
+	var safe_tag: String = _sanitize_log_text(tag, redaction_profile)
+	var safe_message: String = _sanitize_log_text(message, redaction_profile)
 	var safe_context: Dictionary = _sanitize_log_dictionary(context, redaction_profile)
-	var text: String = _format_log_entry_text(timestamp, level_name, tag, message, safe_context)
+	var text: String = _format_log_entry_text(
+		timestamp,
+		level_name,
+		safe_tag,
+		safe_message,
+		safe_context
+	)
 
 	return {
 		"timestamp": timestamp,
@@ -833,8 +845,8 @@ func _make_entry(
 		"trace_id": get_trace_id(),
 		"level": level,
 		"level_name": level_name,
-		"tag": tag,
-		"message": message,
+		"tag": safe_tag,
+		"message": safe_message,
 		"context": safe_context,
 		"text": text,
 	}
@@ -863,6 +875,10 @@ func _make_entry_for_profile(
 	if redaction_profile == GFReportValueCodec.REDACTION_PROFILE_DEBUG:
 		return entry.duplicate(true)
 	var result: Dictionary = entry.duplicate(false)
+	var safe_trace_id: String = _sanitize_log_text(
+		GFVariantData.get_option_string(entry, "trace_id"),
+		redaction_profile
+	)
 	var safe_context: Dictionary = _sanitize_log_dictionary(raw_context, redaction_profile)
 	var safe_tag: String = _sanitize_log_text(
 		GFVariantData.get_option_string(entry, "tag"),
@@ -872,6 +888,7 @@ func _make_entry_for_profile(
 		GFVariantData.get_option_string(entry, "message"),
 		redaction_profile
 	)
+	result["trace_id"] = safe_trace_id
 	result["tag"] = safe_tag
 	result["message"] = safe_message
 	result["context"] = safe_context

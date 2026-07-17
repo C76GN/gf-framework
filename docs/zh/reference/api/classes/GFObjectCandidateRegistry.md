@@ -9,12 +9,13 @@
 - 类别：运行时服务 (`runtime_service`)
 - 首次版本：`8.0.0`
 
-通用 Object 候选注册表。 使用弱引用记录候选对象，并提供按 group、method、priority 和注册顺序筛选排序的 候选快照。它不解释候选对象的业务语义，适合交互、命中、选择或编辑器工具复用。
+通用 Object 候选注册表。 使用弱引用记录候选对象，并提供按 group、method、priority 和注册顺序筛选排序的 候选快照。变更通知只报告记录已变化，不解释最佳候选等业务语义，适合交互、命中、 选择或编辑器工具复用。
 
 ## 成员概览
 
 | 类型 | 名称 | 签名 |
 |---|---|---|
+| 信号 | [`candidates_changed`](#member-gfobjectcandidateregistry-signals-candidates_changed) | `signal candidates_changed(revision: int)` |
 | 属性 | [`max_candidates`](#member-gfobjectcandidateregistry-properties-max_candidates) | `var max_candidates: int = 0:` |
 | 属性 | [`metadata`](#member-gfobjectcandidateregistry-properties-metadata) | `var metadata: Dictionary = {}` |
 | 方法 | [`clear`](#member-gfobjectcandidateregistry-methods-clear) | `func clear() -> void:` |
@@ -25,7 +26,29 @@
 | 方法 | [`prune_invalid`](#member-gfobjectcandidateregistry-methods-prune_invalid) | `func prune_invalid() -> int:` |
 | 方法 | [`get_candidates`](#member-gfobjectcandidateregistry-methods-get_candidates) | `func get_candidates(options: Dictionary = {}) -> Array[Dictionary]:` |
 | 方法 | [`get_candidate_objects`](#member-gfobjectcandidateregistry-methods-get_candidate_objects) | `func get_candidate_objects(options: Dictionary = {}) -> Array[Object]:` |
+| 方法 | [`get_revision`](#member-gfobjectcandidateregistry-methods-get_revision) | `func get_revision() -> int:` |
 | 方法 | [`get_debug_snapshot`](#member-gfobjectcandidateregistry-methods-get_debug_snapshot) | `func get_debug_snapshot() -> Dictionary:` |
+
+## 信号
+
+<a id="member-gfobjectcandidateregistry-signals-candidates_changed"></a>
+
+### `candidates_changed`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+signal candidates_changed(revision: int)
+```
+
+候选记录发生变化时发出。一次公开操作无论改变多少条记录都只发出一次；无变化时不发出。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `revision` | 变更后的单调递增版本号。 |
 
 ## 属性
 
@@ -94,7 +117,7 @@ func register_candidate(candidate: Object, options: Dictionary = {}) -> bool:
 | `candidate` | 候选对象。 |
 | `options` | 注册选项。 |
 
-返回：候选有效并成功写入时返回 true。
+返回：候选有效且注册请求被接受时返回 true；记录未变化时不会推进 revision 或发出通知。
 
 结构：
 
@@ -234,6 +257,21 @@ func get_candidate_objects(options: Dictionary = {}) -> Array[Object]:
 - `options`: Dictionary with optional group:StringName, method_name:StringName, and max_count:int.
 - `return`: Array[Object] from valid candidate snapshots.
 
+<a id="member-gfobjectcandidateregistry-methods-get_revision"></a>
+
+### `get_revision`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func get_revision() -> int:
+```
+
+获取候选记录的当前版本号。
+
+返回：从 0 开始、只在候选记录实际变化时递增的版本号。
+
 <a id="member-gfobjectcandidateregistry-methods-get_debug_snapshot"></a>
 
 ### `get_debug_snapshot`
@@ -251,4 +289,4 @@ func get_debug_snapshot() -> Dictionary:
 
 结构：
 
-- `return`: Dictionary with count, valid_count, max_candidates, candidates, and metadata.
+- `return`: Dictionary with revision, count, valid_count, max_candidates, candidates, and metadata.

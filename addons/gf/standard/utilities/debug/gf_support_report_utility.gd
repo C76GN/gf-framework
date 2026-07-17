@@ -42,6 +42,23 @@ signal report_saved(path: String, error: Error)
 signal report_submitted(result: Dictionary)
 
 
+# --- 枚举 ---
+
+## 运行时快照的数据精度。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+enum RuntimeDetail {
+	## 只保留平台等非精确排查信息。
+	MINIMAL,
+	## 额外保留语言和运行时计数的分桶范围。
+	COARSE,
+	## 保留完整 locale 与精确运行时计数。
+	FULL,
+}
+
+
 # --- 常量 ---
 
 ## 场景节点统计默认最大深度。
@@ -60,12 +77,37 @@ const DEFAULT_SCENE_COUNT_MAX_NODES: int = 10000
 ## 默认是否包含 GFDiagnosticsUtility 快照。
 ## [br]
 ## @api public
-var include_diagnostics_by_default: bool = true
+## [br]
+## @since 3.17.0
+var include_diagnostics_by_default: bool = false
 
 ## 默认是否包含场景快照。
 ## [br]
 ## @api public
-var include_scene_by_default: bool = true
+## [br]
+## @since 3.17.0
+var include_scene_by_default: bool = false
+
+## 默认是否包含运行时快照。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+var include_runtime_by_default: bool = true
+
+## 默认运行时快照精度。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+var runtime_detail_by_default: RuntimeDetail = RuntimeDetail.MINIMAL
+
+## 默认是否采集已注册的自定义分区。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+var include_sections_by_default: bool = false
 
 ## 场景节点数量统计默认最大深度。0 表示不限制。
 ## [br]
@@ -182,13 +224,15 @@ func get_section_catalog() -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param description: 用户描述或问题摘要。
 ## [br]
-## @param options: 可选参数，支持 metadata、tags、include_diagnostics、diagnostics_options、include_scene、scene_options、include_sections、section_options、attachments、max_attachment_bytes、include_screenshot、viewport、screenshot_path。
+## @param options: 可选参数，支持 metadata、tags、include_runtime、runtime_detail、include_diagnostics、diagnostics_options、include_scene、scene_options、include_sections、section_options、attachments、max_attachment_bytes、include_screenshot、viewport、screenshot_path。
 ## [br]
 ## @return 报告字典。
 ## [br]
-## @schema options: Dictionary，支持 report_id、metadata、tags、include_diagnostics、diagnostics_options、include_scene、scene_options、include_sections、section_options、attachments、max_attachment_bytes、include_screenshot、viewport、screenshot_path。
+## @schema options: Dictionary，支持 report_id、metadata、tags、include_runtime、runtime_detail、include_diagnostics、diagnostics_options、include_scene、scene_options、include_sections、section_options、attachments、max_attachment_bytes、include_screenshot、viewport、screenshot_path。
 ## [br]
 ## @schema return: Dictionary，包含 report_id、timestamp_unix、description、metadata、tags、build、runtime、scene、diagnostics、sections、attachments。
 func build_report(description: String = "", options: Dictionary = {}) -> Dictionary:
@@ -201,18 +245,23 @@ func build_report(description: String = "", options: Dictionary = {}) -> Diction
 		"metadata": _get_dictionary_option(options, "metadata"),
 		"tags": _get_tags(GFVariantData.get_option_value(options, "tags", PackedStringArray())),
 		"build": GFBuildInfo.collect().to_dict(),
-		"runtime": _collect_runtime_snapshot(),
+		"runtime": {},
 		"scene": {},
 		"diagnostics": {},
 		"sections": {},
 		"attachments": {},
 	}
 
+	if GFVariantData.get_option_bool(options, "include_runtime", include_runtime_by_default):
+		var runtime_detail: RuntimeDetail = _normalize_runtime_detail(
+			GFVariantData.get_option_int(options, "runtime_detail", runtime_detail_by_default)
+		)
+		report["runtime"] = collect_runtime_snapshot(runtime_detail)
 	if GFVariantData.get_option_bool(options, "include_scene", include_scene_by_default):
 		report["scene"] = _collect_scene_snapshot(_get_dictionary_option(options, "scene_options"))
 	if GFVariantData.get_option_bool(options, "include_diagnostics", include_diagnostics_by_default):
 		report["diagnostics"] = _collect_diagnostics_snapshot(options)
-	if GFVariantData.get_option_bool(options, "include_sections", true):
+	if GFVariantData.get_option_bool(options, "include_sections", include_sections_by_default):
 		report["sections"] = collect_sections(_get_dictionary_option(options, "section_options"))
 	if GFVariantData.get_option_bool(options, "include_screenshot", include_screenshot_by_default):
 		var screenshot: PackedByteArray = _capture_viewport_png_buffer(_get_viewport_value(GFVariantData.get_option_value(options, "viewport")))
@@ -228,6 +277,43 @@ func build_report(description: String = "", options: Dictionary = {}) -> Diction
 	_reports_built_count += 1
 	report_built.emit(report)
 	return report
+
+
+## 采集指定精度的运行时快照。
+##
+## 默认只返回平台；coarse 使用不可逆分桶，full 才返回精确 locale、处理器、内存和对象计数。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param detail: 运行时快照精度。
+## [br]
+## @return 运行时快照。
+## [br]
+## @schema return: Dictionary，始终包含 detail、platform；coarse 额外包含 locale_language、processor_count_range、static_memory_mib_range、object_count_range；full 额外包含 engine、locale、processor_count、static_memory_bytes、object_count。
+func collect_runtime_snapshot(detail: RuntimeDetail = RuntimeDetail.MINIMAL) -> Dictionary:
+	var normalized_detail: RuntimeDetail = _normalize_runtime_detail(detail)
+	var snapshot: Dictionary = {
+		"detail": _get_runtime_detail_name(normalized_detail),
+		"platform": OS.get_name(),
+	}
+	if normalized_detail == RuntimeDetail.COARSE:
+		var locale: String = TranslationServer.get_locale()
+		var language: String = locale.get_slice("_", 0).get_slice("-", 0).to_lower()
+		var static_memory_bytes: int = maxi(int(Performance.get_monitor(Performance.MEMORY_STATIC)), 0)
+		var static_memory_mib: int = ceili(float(static_memory_bytes) / float(1024 * 1024))
+		snapshot["locale_language"] = language
+		snapshot["processor_count_range"] = _make_range_bucket(maxi(OS.get_processor_count(), 0), PackedInt64Array([2, 4, 8, 16, 32, 64]))
+		snapshot["static_memory_mib_range"] = _make_range_bucket(static_memory_mib, PackedInt64Array([63, 127, 255, 511, 1023, 2047, 4095]))
+		snapshot["object_count_range"] = _make_range_bucket(maxi(int(Performance.get_monitor(Performance.OBJECT_COUNT)), 0), PackedInt64Array([999, 4999, 9999, 49999, 99999, 499999, 999999]))
+	elif normalized_detail == RuntimeDetail.FULL:
+		snapshot["engine"] = Engine.get_version_info()
+		snapshot["locale"] = TranslationServer.get_locale()
+		snapshot["processor_count"] = OS.get_processor_count()
+		snapshot["static_memory_bytes"] = maxi(int(Performance.get_monitor(Performance.MEMORY_STATIC)), 0)
+		snapshot["object_count"] = maxi(int(Performance.get_monitor(Performance.OBJECT_COUNT)), 0)
+	return snapshot
 
 
 ## 采集所有自定义分区。
@@ -377,10 +463,15 @@ func export_report_markdown(report: Dictionary, options: Dictionary = {}) -> Str
 		"platform",
 	]))
 	_append_markdown_dictionary_fields(lines, "Runtime", GFVariantData.get_option_value(report, "runtime", {}), PackedStringArray([
+		"detail",
 		"platform",
+		"locale_language",
+		"processor_count_range",
+		"static_memory_mib_range",
+		"object_count_range",
 		"locale",
 		"processor_count",
-		"static_memory",
+		"static_memory_bytes",
 		"object_count",
 	]))
 	_append_markdown_dictionary_fields(lines, "Scene", GFVariantData.get_option_value(report, "scene", {}), PackedStringArray([
@@ -516,8 +607,11 @@ func get_debug_snapshot() -> Dictionary:
 		"reports_built_count": _reports_built_count,
 		"reports_saved_count": _reports_saved_count,
 		"reports_submitted_count": _reports_submitted_count,
+		"include_runtime_by_default": include_runtime_by_default,
+		"runtime_detail_by_default": runtime_detail_by_default,
 		"include_diagnostics_by_default": include_diagnostics_by_default,
 		"include_scene_by_default": include_scene_by_default,
+		"include_sections_by_default": include_sections_by_default,
 		"default_scene_count_max_depth": default_scene_count_max_depth,
 		"default_scene_count_max_nodes": default_scene_count_max_nodes,
 		"default_recent_log_count": default_recent_log_count,
@@ -633,15 +727,32 @@ func _make_report_id() -> String:
 	return "%d-%d" % [int(Time.get_unix_time_from_system()), Time.get_ticks_msec()]
 
 
-func _collect_runtime_snapshot() -> Dictionary:
-	return {
-		"engine": Engine.get_version_info(),
-		"locale": TranslationServer.get_locale(),
-		"platform": OS.get_name(),
-		"processor_count": OS.get_processor_count(),
-		"static_memory": Performance.get_monitor(Performance.MEMORY_STATIC),
-		"object_count": Performance.get_monitor(Performance.OBJECT_COUNT),
-	}
+func _normalize_runtime_detail(value: int) -> RuntimeDetail:
+	match value:
+		RuntimeDetail.MINIMAL, RuntimeDetail.COARSE, RuntimeDetail.FULL:
+			return value as RuntimeDetail
+		_:
+			return RuntimeDetail.MINIMAL
+
+
+func _get_runtime_detail_name(detail: RuntimeDetail) -> StringName:
+	match detail:
+		RuntimeDetail.COARSE:
+			return &"coarse"
+		RuntimeDetail.FULL:
+			return &"full"
+		_:
+			return &"minimal"
+
+
+func _make_range_bucket(value: int, upper_bounds: PackedInt64Array) -> String:
+	var safe_value: int = maxi(value, 0)
+	var lower_bound: int = 0
+	for upper_bound: int in upper_bounds:
+		if safe_value <= upper_bound:
+			return "%d-%d" % [lower_bound, upper_bound]
+		lower_bound = upper_bound + 1
+	return "%d+" % lower_bound
 
 
 func _collect_scene_snapshot(options: Dictionary = {}) -> Dictionary:

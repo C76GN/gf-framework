@@ -163,6 +163,36 @@ func test_panel_hide_under_override_recomputes_complete_stack_visibility() -> vo
 	assert_true(widget_panel.visible, "弹出遮挡面板后非遮挡窗口应恢复可见。")
 
 
+func test_layer_operations_preserve_resident_panels_in_other_layers() -> void:
+	var resident_panel: Control = Control.new()
+	var top_base_panel: Control = Control.new()
+	var top_cover_panel: Control = Control.new()
+	var top_replacement: Control = Control.new()
+	_ui_utility.push_panel_instance(resident_panel, GFUIUtility.Layer.POPUP)
+	var resident_parent: Node = resident_panel.get_parent()
+
+	_ui_utility.push_panel_instance(top_base_panel, GFUIUtility.Layer.TOP)
+	_ui_utility.push_panel_instance_with_options(top_cover_panel, GFUIUtility.Layer.TOP, {
+		"hide_under": true,
+	})
+
+	assert_eq(resident_panel.get_parent(), resident_parent, "其他层的 hide_under 不应迁移常驻面板。")
+	assert_true(resident_panel.visible, "其他层的 hide_under 不应隐藏常驻面板。")
+	assert_eq(_ui_utility.get_panel_stack(GFUIUtility.Layer.POPUP), [resident_panel], "其他层入栈不应改写常驻层栈。")
+
+	_ui_utility.replace_layer_instance(top_replacement, GFUIUtility.Layer.TOP)
+
+	assert_eq(resident_panel.get_parent(), resident_parent, "其他层 replace 不应移除常驻面板。")
+	assert_true(resident_panel.visible, "其他层 replace 不应改变常驻面板可见性。")
+	assert_eq(_ui_utility.get_panel_stack(GFUIUtility.Layer.POPUP), [resident_panel], "其他层 replace 不应改写常驻层栈。")
+
+	_ui_utility.clear_layer(GFUIUtility.Layer.TOP)
+
+	assert_eq(resident_panel.get_parent(), resident_parent, "其他层 clear 不应移除常驻面板。")
+	assert_true(resident_panel.visible, "其他层 clear 不应改变常驻面板可见性。")
+	assert_eq(_ui_utility.get_panel_stack(GFUIUtility.Layer.POPUP), [resident_panel], "其他层 clear 不应改写常驻层栈。")
+
+
 func test_dispose_detaches_layer_roots_immediately() -> void:
 	var popup_layer: CanvasLayer = _ui_utility.get_layer_root(GFUIUtility.Layer.POPUP)
 

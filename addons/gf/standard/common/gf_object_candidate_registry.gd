@@ -1,7 +1,8 @@
 ## GFObjectCandidateRegistry: 通用 Object 候选注册表。
 ##
 ## 使用弱引用记录候选对象，并提供按 group、method、priority 和注册顺序筛选排序的
-## 候选快照。它不解释候选对象的业务语义，适合交互、命中、选择或编辑器工具复用。
+## 候选快照。变更通知只报告记录已变化，不解释最佳候选等业务语义，适合交互、命中、
+## 选择或编辑器工具复用。
 ## [br]
 ## @api public
 ## [br]
@@ -10,6 +11,18 @@
 ## @since 8.0.0
 class_name GFObjectCandidateRegistry
 extends RefCounted
+
+
+# --- 信号 ---
+
+## 候选记录发生变化时发出。一次公开操作无论改变多少条记录都只发出一次；无变化时不发出。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param revision: 变更后的单调递增版本号。
+signal candidates_changed(revision: int)
 
 
 # --- 公共变量 ---
@@ -38,6 +51,7 @@ var metadata: Dictionary = {}
 var _records: Dictionary = {}
 var _order: Array[int] = []
 var _serial: int = 0
+var _revision: int = 0
 
 
 # --- 公共方法 ---
@@ -48,9 +62,12 @@ var _serial: int = 0
 ## [br]
 ## @since 8.0.0
 func clear() -> void:
+	var had_candidates: bool = not _records.is_empty()
 	_records.clear()
 	_order.clear()
 	_serial = 0
+	if had_candidates:
+		_notify_candidates_changed()
 
 
 ## 注册或更新一个候选对象。
@@ -65,7 +82,7 @@ func clear() -> void:
 ## [br]
 ## @schema options: Dictionary with optional priority:int, group:StringName, owner:Object|int|String|StringName, stable_key:Variant, and metadata:Dictionary.
 ## [br]
-## @return 候选有效并成功写入时返回 true。
+## @return 候选有效且注册请求被接受时返回 true；记录未变化时不会推进 revision 或发出通知。
 func register_candidate(candidate: Object, options: Dictionary = {}) -> bool:
 	if candidate == null or not is_instance_valid(candidate):
 		return false
@@ -78,7 +95,7 @@ func register_candidate(candidate: Object, options: Dictionary = {}) -> bool:
 		order = _serial
 		_order.append(candidate_id)
 
-	_records[candidate_id] = {
+	var next_record: Dictionary = {
 		"id": candidate_id,
 		"ref": weakref(candidate),
 		"priority": GFVariantData.get_option_int(options, "priority", 0),
@@ -88,7 +105,12 @@ func register_candidate(candidate: Object, options: Dictionary = {}) -> bool:
 		"metadata": GFVariantData.get_option_dictionary(options, "metadata").duplicate(true),
 		"order": order,
 	}
-	_prune_for_capacity()
+	var record_changed: bool = not _candidate_record_matches(_get_record(candidate_id), next_record, candidate)
+	if record_changed:
+		_records[candidate_id] = next_record
+	var capacity_changed: bool = _prune_for_capacity()
+	if record_changed or capacity_changed:
+		_notify_candidates_changed()
 	return true
 
 
@@ -117,11 +139,10 @@ func unregister_candidate(candidate: Object) -> bool:
 ## [br]
 ## @return 找到并移除时返回 true。
 func unregister_candidate_id(candidate_id: int) -> bool:
-	if not _records.has(candidate_id):
+	if not _remove_candidate_id(candidate_id):
 		return false
-	var removed: bool = _records.erase(candidate_id)
-	_remove_order_id(candidate_id)
-	return removed
+	_notify_candidates_changed()
+	return true
 
 
 ## 移除指定 owner 关联的候选。
@@ -144,8 +165,10 @@ func unregister_owner(owner: Variant) -> int:
 		var record: Dictionary = _get_record(candidate_id)
 		if GFVariantData.get_option_int(record, "owner_id", 0) != owner_id:
 			continue
-		if unregister_candidate_id(candidate_id):
+		if _remove_candidate_id(candidate_id):
 			removed_count += 1
+	if removed_count > 0:
+		_notify_candidates_changed()
 	return removed_count
 
 
@@ -161,8 +184,10 @@ func prune_invalid() -> int:
 	for candidate_id: int in _order.duplicate():
 		if _get_record_object(_get_record(candidate_id)) != null:
 			continue
-		if unregister_candidate_id(candidate_id):
+		if _remove_candidate_id(candidate_id):
 			removed_count += 1
+	if removed_count > 0:
+		_notify_candidates_changed()
 	return removed_count
 
 
@@ -229,6 +254,17 @@ func get_candidate_objects(options: Dictionary = {}) -> Array[Object]:
 	return result
 
 
+## 获取候选记录的当前版本号。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @return 从 0 开始、只在候选记录实际变化时递增的版本号。
+func get_revision() -> int:
+	return _revision
+
+
 ## 获取调试快照。
 ## [br]
 ## @api public
@@ -237,7 +273,7 @@ func get_candidate_objects(options: Dictionary = {}) -> Array[Object]:
 ## [br]
 ## @return JSON-safe 调试快照。
 ## [br]
-## @schema return: Dictionary with count, valid_count, max_candidates, candidates, and metadata.
+## @schema return: Dictionary with revision, count, valid_count, max_candidates, candidates, and metadata.
 func get_debug_snapshot() -> Dictionary:
 	var candidates: Array[Dictionary] = []
 	for snapshot: Dictionary in get_candidates({ "include_metadata": true }):
@@ -247,6 +283,7 @@ func get_debug_snapshot() -> Dictionary:
 		})
 		candidates.append(candidate_copy)
 	return {
+		"revision": _revision,
 		"count": _records.size(),
 		"valid_count": candidates.size(),
 		"max_candidates": max_candidates,
@@ -296,19 +333,44 @@ func _make_candidate_snapshot(record: Dictionary, candidate: Object, include_met
 	return snapshot
 
 
-func _prune_for_capacity() -> void:
+func _prune_for_capacity() -> bool:
 	if max_candidates <= 0:
-		return
+		return false
+	var changed: bool = false
 	while _records.size() > max_candidates and not _order.is_empty():
 		var candidate_id: int = _order[0]
 		_order.remove_at(0)
-		var _removed: bool = _records.erase(candidate_id)
+		changed = _records.erase(candidate_id) or changed
+	return changed
+
+
+func _candidate_record_matches(current: Dictionary, expected: Dictionary, candidate: Object) -> bool:
+	if current.is_empty() or _get_record_object(current) != candidate:
+		return false
+	for key: StringName in [&"id", &"priority", &"group", &"owner_id", &"stable_key", &"metadata", &"order"]:
+		if GFVariantData.get_option_value(current, key) != GFVariantData.get_option_value(expected, key):
+			return false
+	return true
+
+
+func _remove_candidate_id(candidate_id: int) -> bool:
+	if not _records.has(candidate_id):
+		return false
+	var removed: bool = _records.erase(candidate_id)
+	if removed:
+		_remove_order_id(candidate_id)
+	return removed
 
 
 func _remove_order_id(candidate_id: int) -> void:
 	for index: int in range(_order.size() - 1, -1, -1):
 		if _order[index] == candidate_id:
 			_order.remove_at(index)
+
+
+func _notify_candidates_changed() -> void:
+	_revision += 1
+	candidates_changed.emit(_revision)
 
 
 static func _sort_candidate_snapshots(left: Dictionary, right: Dictionary) -> bool:

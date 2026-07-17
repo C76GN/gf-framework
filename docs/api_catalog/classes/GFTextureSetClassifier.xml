@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFTextureSetClassifier" path="addons/gf/standard/utilities/assets/gf_texture_set_classifier.gd" module="standard" extends="RefCounted" classDigest="cf37021746235e2176c2a77286c031960d1ab2e73b4292e92ecb246c532226f5">
+<class name="GFTextureSetClassifier" path="addons/gf/standard/utilities/assets/gf_texture_set_classifier.gd" module="standard" extends="RefCounted" classDigest="78d04c5673106a83c8adc1205c838ca757fa512f9868baab173c6f533b2bdfce">
 	<description>GFTextureSetClassifier: 纹理集命名分类与导入计划构建工具。
-根据常见后缀把贴图文件归并为材质纹理集，并可生成 GFImportPlan。
-它只做路径解析和计划输出，不创建材质、不执行导入、不绑定编辑器 UI。</description>
+根据常见后缀把贴图文件归并为材质纹理集，诊断重复或缺失角色，并可生成
+GFImportPlan。它只做路径解析和计划输出，不创建材质、不执行导入、不绑定编辑器 UI。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">runtime_service</tag>
@@ -80,21 +80,28 @@
 	<methods>
 		<member kind="method" name="classify_files">
 			<signature>static func classify_files(paths: PackedStringArray, options: Dictionary = {}) -&gt; Dictionary:</signature>
-			<description>分类纹理路径。</description>
+			<description>分类纹理路径。
+`ok` 仅在至少匹配一个文件且所有集合均无重复角色、无缺失必需角色时为 true。
+每个 set 包含 ok:bool、set_id:String、directory:String、base_name:String、
+textures:Dictionary[StringName, String]、source_paths:Array[String]、
+duplicate_roles:Array[Dictionary]、missing_roles:Array[StringName] 和 issues:Array[Dictionary]。
+duplicate_roles 元素包含 role:StringName 与 paths:Array[String]；unmatched 元素包含
+path:String 与 reason:StringName；issue 包含 kind:StringName、set_id:String、role:StringName，
+duplicate_role 还包含 paths:Array[String]。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">paths: 输入路径列表。</tag>
 				<tag name="param">options: 分类选项。</tag>
 				<tag name="return">分类报告。</tag>
 				<tag name="schema">paths: PackedStringArray texture file paths.</tag>
-				<tag name="schema">options: Dictionary，可包含 suffix_rules、allowed_extensions 和 normalize_directory.</tag>
-				<tag name="schema">return: Dictionary with ok, sets, unmatched, matched_count, unmatched_count, and suffix_rules.</tag>
+				<tag name="schema">options: Dictionary，可包含 suffix_rules:Dictionary、allowed_extensions:Array[String] 和 required_roles:Array[StringName|String]；suffix_rules 的角色声明顺序决定重叠后缀的匹配优先级。</tag>
+				<tag name="schema">return: Dictionary with ok:bool, sets:Array[Dictionary], unmatched:Array[Dictionary], matched_count:int, unmatched_count:int, suffix_rules:Dictionary, required_roles:Array[StringName], valid_set_count:int, invalid_set_count:int, duplicate_role_count:int, missing_role_count:int, and issues:Array[Dictionary].</tag>
 				<tag name="since">6.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="build_material_import_plan">
 			<signature>static func build_material_import_plan( paths: PackedStringArray, target_root: String, options: Dictionary = {} ) -&gt; GFImportPlan:</signature>
-			<description>从纹理路径构建材质导入计划。</description>
+			<description>从纹理路径构建材质导入计划。重复或缺少必需角色的集合不会生成条目，诊断会保留在计划 metadata。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">paths: 输入路径列表。</tag>
@@ -102,7 +109,7 @@
 				<tag name="param">options: 构建选项。</tag>
 				<tag name="return">导入计划。</tag>
 				<tag name="schema">paths: PackedStringArray texture file paths.</tag>
-				<tag name="schema">options: Dictionary，可包含 material_extension、type_hint、suffix_rules、allowed_extensions 和 metadata。</tag>
+				<tag name="schema">options: Dictionary，可包含 material_extension、type_hint、suffix_rules、allowed_extensions、required_roles 和 metadata。</tag>
 				<tag name="since">6.0.0</tag>
 			</tags>
 		</member>

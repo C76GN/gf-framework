@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFNetworkFieldSerializer" path="addons/gf/extensions/network/serialization/gf_network_field_serializer.gd" module="extensions/network" extends="Resource" classDigest="f1416f27896aae19b786157cd45c7a10aabe856ebedde987a5b3a62cf2084d91">
+<class name="GFNetworkFieldSerializer" path="addons/gf/extensions/network/serialization/gf_network_field_serializer.gd" module="extensions/network" extends="Resource" classDigest="19e2453b9d0445df36dc916e7ff41c83e92fd9ec4b739b62d012f57d281a9f9c">
 	<description>GFNetworkFieldSerializer: 网络状态字段编码器。
 将常见 Godot 值归一化为可序列化 Variant。它只处理字段值的形态转换，
 不规定同步方向、可靠性、预测、回滚或冲突解决策略。</description>
@@ -34,10 +34,13 @@
 	VECTOR3I,
 	## Color，编码为四个数值。
 	COLOR,
+	## Quaternion，编码为归一化的 x/y/z/w 四个数值。
+	QUATERNION,
 }</signature>
 			<description>字段值类型。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</enums>
@@ -82,24 +85,26 @@
 	<methods>
 		<member kind="method" name="serialize_value">
 			<signature>func serialize_value(value: Variant) -&gt; Variant:</signature>
-			<description>编码字段值。</description>
+			<description>编码字段值。Quaternion 固定输出归一化的 [x, y, z, w]；非法旋转回退为单位四元数。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">value: 原始值。</tag>
 				<tag name="return">可序列化值。</tag>
 				<tag name="schema">value: Variant，原始字段值。</tag>
-				<tag name="schema">return: Variant，可序列化字段值；向量和颜色会编码为 Array。</tag>
+				<tag name="schema">return: Variant，可序列化字段值；向量、颜色和 Quaternion 会编码为 Array。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="deserialize_value">
 			<signature>func deserialize_value(value: Variant) -&gt; Variant:</signature>
-			<description>解码字段值。</description>
+			<description>解码字段值。Quaternion 数组会恢复单位长度，零长度或非有限分量回退为单位四元数。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">value: 编码值。</tag>
 				<tag name="return">解码后的值。</tag>
 				<tag name="schema">value: Variant，serialize_value() 产生的编码值或兼容输入。</tag>
 				<tag name="schema">return: Variant，按 value_type 解码后的字段值。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="duplicate_serializer">

@@ -46,7 +46,9 @@ log_util.set_global_context({
 })
 ```
 
-结构化上下文会经过 `sanitize_log_value()` 清洗。过深嵌套、超长字符串和非 JSON 原生对象会被转换为可写入日志的稳定值，避免调试数据破坏日志文件或 sink。
+日志条目的 `trace_id`、`tag`、`message` 和结构化 `context` 都会经过有界报告编码。普通超长文本会以 `...` 截断；原值在遍历前已经耗尽总字节或节点预算时，会改用稳定的预算标记。各字段分别受限，这不是一个覆盖整条日志的统一总字节上限；预算内文本保持原样，包括多行消息中的换行。上下文中的过深嵌套、超长字符串和非 JSON 原生对象同样会通过 `sanitize_log_value()` 转换为可写入日志的稳定值。
+
+上述基础条目使用 debug profile，供本地文件、控制台、内存、信号和 `GFJsonLineLogSink` 排障，因此可能保留路径。分发给 sink 时，顶层 `trace_id`、`tag`、`message`、`context` 和格式化 `text` 会按该 sink 的 profile 重建：普通自定义 `GFLogSink` 默认是 public，`GFBatchedLogSink` 是 privacy。体量预算不等于隐私脱敏；即使使用 public/privacy profile，项目自由文本仍需在公开或上传前人工检查。
 
 ## 崩溃标记
 

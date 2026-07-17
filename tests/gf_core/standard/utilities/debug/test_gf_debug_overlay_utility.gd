@@ -65,6 +65,27 @@ func test_overlay_init_is_idempotent() -> void:
 	assert_eq(overlay_count, 1, "重复 init 不应创建多个 DebugOverlay GUI。")
 
 
+func test_dispose_before_deferred_attach_invalidates_pending_callback() -> void:
+	var debug_utility: GFDebugOverlayUtility = GFDebugOverlayUtility.new()
+	debug_utility.debug_only = false
+	debug_utility.init()
+	var pending_overlay: CanvasLayer = debug_utility._overlay_gui
+
+	assert_null(pending_overlay.get_parent(), "延迟回调执行前 Overlay 不应提前进入场景树。")
+
+	debug_utility.dispose()
+	await get_tree().process_frame
+
+	assert_false(is_instance_valid(pending_overlay), "立即 dispose 后待挂载 Overlay 应安全释放。")
+	assert_false(
+		GFVariantData.get_option_bool(
+			GFVariantData.get_option_dictionary(debug_utility.get_debug_snapshot(), "gui"),
+			"created"
+		),
+		"失效的延迟挂载回调不得重新创建或挂载 Overlay。"
+	)
+
+
 func test_dispose_detaches_overlay_callbacks_before_queue_free() -> void:
 	_debug.set_overlay_visible(true)
 	var before_snapshot: Dictionary = _debug.get_debug_snapshot()
@@ -114,7 +135,7 @@ func test_real_autoload_tree_exit_disposes_overlay_without_reentrant_detach() ->
 	await get_tree().process_frame
 
 	var overlay_gui: CanvasLayer = debug_utility._overlay_gui
-	var autoload_node: Node = GF_AUTOLOAD_NODE_SCRIPT.new()
+	var autoload_node: GF_AUTOLOAD_NODE_SCRIPT = GF_AUTOLOAD_NODE_SCRIPT.new()
 	autoload_node.name = "GfDebugOverlayExitProbe"
 	autoload_node.set(&"_architecture", architecture)
 	get_tree().root.add_child(autoload_node)

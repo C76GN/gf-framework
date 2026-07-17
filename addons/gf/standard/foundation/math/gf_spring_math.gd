@@ -16,6 +16,7 @@ extends RefCounted
 # --- 常量 ---
 
 const _MIN_FREQUENCY_HZ: float = 0.001
+const _STABILITY_SAFETY_MARGIN: float = 1.1
 
 
 # --- 公共方法 ---
@@ -264,9 +265,15 @@ static func _step_float_values(
 	var k1: float = safe_damping_ratio / (PI * safe_frequency_hz)
 	var k2: float = 1.0 / (angular_frequency * angular_frequency)
 	var k3: float = response * safe_damping_ratio / angular_frequency
+	var combined_stability_floor: float = _STABILITY_SAFETY_MARGIN * (
+		delta_seconds * delta_seconds * 0.25 + delta_seconds * k1 * 0.5
+	)
 	var stable_k2: float = maxf(
 		k2,
-		delta_seconds * delta_seconds * 0.25 + delta_seconds * k1 * 0.5
+		maxf(
+			combined_stability_floor,
+			delta_seconds * k1
+		)
 	)
 	var acceleration: float = (
 		target_value

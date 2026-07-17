@@ -275,14 +275,19 @@ func test_change_state_calls_exit_and_enter() -> void:
 func test_change_state_emits_signal() -> void:
 	var idle: TrackingState = TrackingState.new()
 	var run: TrackingState = TrackingState.new()
+	var observed_current_states: Array[StringName] = []
 	_fsm.add_state(&"Idle", idle)
 	_fsm.add_state(&"Run", run)
 	_fsm.start(&"Idle")
 
 	watch_signals(_fsm)
+	var _connect_result_285: Variant = _fsm.state_changed.connect(func(_from_state: StringName, _to_state: StringName) -> void:
+		observed_current_states.append(_fsm.current_state_name)
+	)
 	_fsm.change_state(&"Run")
 
 	assert_signal_emitted_with_parameters(_fsm, "state_changed", [&"Idle", &"Run"])
+	assert_eq(observed_current_states, [&"Run"], "state_changed 回调读取到的 current_state_name 应已是目标状态。")
 
 
 func test_nested_change_state_during_enter_emits_only_final_transition() -> void:
@@ -411,6 +416,26 @@ func test_hierarchical_unrelated_transition_exits_child_then_parent() -> void:
 	assert_eq(_fsm.get_active_state_path(), [&"Airborne"], "跨根切换后只应激活目标根状态。")
 
 
+func test_hierarchical_transition_does_not_treat_name_prefix_as_common_parent() -> void:
+	var run: TrackingState = TrackingState.new(&"Run")
+	var running: TrackingState = TrackingState.new(&"Running")
+	var run_idle: TrackingState = TrackingState.new(&"RunIdle")
+	var running_idle: TrackingState = TrackingState.new(&"RunningIdle")
+	_fsm.add_state(&"Run", run)
+	_fsm.add_state(&"Running", running)
+	_fsm.add_state(&"RunIdle", run_idle, &"Run")
+	_fsm.add_state(&"RunningIdle", running_idle, &"Running")
+	_fsm.start(&"RunIdle")
+
+	_fsm.change_state(&"RunningIdle")
+
+	assert_eq(run_idle.exit_count, 1, "离开名称前缀相似的旧叶子时应正常退出。")
+	assert_eq(run.exit_count, 1, "Run 不能因 Running 共享文本前缀而被误判为公共父状态。")
+	assert_eq(running.enter_count, 1, "跨根切换应进入 Running 根状态。")
+	assert_eq(running_idle.enter_count, 1, "跨根切换应进入 RunningIdle 叶子状态。")
+	assert_eq(_fsm.get_active_state_path(), [&"Running", &"RunningIdle"], "激活路径应使用真实父子关系而不是名称前缀。")
+
+
 func test_hierarchical_transition_guard_blocks_before_exit() -> void:
 	var idle: TrackingState = TrackingState.new()
 	var run: GuardedState = GuardedState.new()
@@ -531,10 +556,13 @@ func test_change_state_unknown_is_safe() -> void:
 	var idle: TrackingState = TrackingState.new()
 	_fsm.add_state(&"Idle", idle)
 	_fsm.start(&"Idle")
+	watch_signals(_fsm)
 
 	_fsm.change_state(&"NonExistent")
 
 	assert_eq(_fsm.current_state_name, &"Idle", "未找到状态时 current_state_name 不应变化。")
+	assert_eq(idle.exit_count, 0, "未知目标不应退出当前状态。")
+	assert_signal_not_emitted(_fsm, "state_changed", "未知目标不应发出 state_changed。")
 	assert_push_warning("[GFStateMachine] 切换失败，未找到状态：NonExistent")
 
 
