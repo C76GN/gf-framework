@@ -32,6 +32,10 @@ var _disabled_manifests: Array[GFExtensionManifest] = []
 
 # --- Godot 生命周期方法 ---
 
+func _get_name() -> String:
+	return "GFExtensionExportPlugin"
+
+
 func _export_begin(_features: PackedStringArray, _is_debug: bool, _path: String, _flags: int) -> void:
 	_refresh_disabled_extension_roots()
 	_warn_disabled_extension_references()
