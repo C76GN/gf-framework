@@ -27,6 +27,25 @@ if queue.has_value(task):
 
 `to_array()` 和 `to_entry_array()` 会按弹出顺序导出副本，不会修改当前队列。`duplicate_priority_queue(true)` 可复制队列和嵌套值。
 
+## 长时间运行的工作队列
+
+如果队列会持续收到更高优先级工作，静态优先级可能让早期低优先级项一直排不到。此时使用 `GFPriorityWorkQueue`：它在基础优先级上按等待时间增加无上限的 aging 加成，同时保留稳定同优先级顺序。
+
+```gdscript
+var work_queue := GFPriorityWorkQueue.new()
+work_queue.aging_interval_msec = 500
+work_queue.aging_step = 1.0
+work_queue.max_size = 256
+
+work_queue.push(background_task, 0.0)
+work_queue.push(player_visible_task, 10.0)
+var next_task := work_queue.pop()
+```
+
+例如资源预处理队列里，玩家当前可见资源可以保持较高基础优先级，而早先排入的缓存维护工作会随等待逐步追上，不会因为新资源不断到来而永久饥饿。这个保证成立的前提是调用方持续消费队列，且后来任务的基础优先级存在有限上界；项目若不断写入无限增大的优先级，任何通用队列都无法保证旧任务先执行。
+
+`push_at()`、`pop_at()` 与 `peek_at()` 接受显式单调毫秒时间，适合确定性测试、模拟和恢复同一进程时间域内的调度状态。`to_entry_array()` / `get_debug_snapshot()` 会返回指定时刻的 `priority`、`effective_priority`、`waited_msec` 和稳定 `order`；排序会随时间变化，因此这些结果是诊断快照，不是持久化后的固定执行计划。
+
 ## 使用边界
 
-`GFPriorityQueue` 不管理任务状态、线程安全、生命周期、去重策略或业务执行结果。需要两端队列时使用 `GFDeque`；需要字段查询时使用 `GFValueIndex`；需要后台线程、资源加载或主线程 apply 队列时使用对应 Utility。
+`GFPriorityQueue` 与 `GFPriorityWorkQueue` 都不管理任务状态、线程安全、生命周期、去重策略或业务执行结果。前者适合算法或一次性批次中的静态顺序，后者适合持续消费且需要防饥饿的运行队列。需要两端队列时使用 `GFDeque`；需要字段查询时使用 `GFValueIndex`；需要后台线程、资源加载或主线程 apply 队列时使用对应 Utility。

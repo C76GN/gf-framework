@@ -84,6 +84,8 @@ func test_object_payload_is_rejected_by_default() -> void:
 
 func test_pause_and_cancel_waiting_thread_task() -> void:
 	var utility: GFBackgroundWorkUtility = GFBackgroundWorkUtility.new()
+	utility.priority_aging_interval_msec = 250
+	utility.priority_aging_step = 2.0
 	utility.init()
 	utility.pause()
 	var worker: PureWorker = PureWorker.new()
@@ -106,15 +108,69 @@ func test_pause_and_cancel_waiting_thread_task() -> void:
 		Callable(),
 		{&"id": "front", &"front": "on"}
 	)
-	var queued_ids: PackedStringArray = GFVariantData.get_option_packed_string_array(utility.get_debug_snapshot(), "queued_ids")
+	var snapshot: Dictionary = utility.get_debug_snapshot()
+	var queued_ids: PackedStringArray = GFVariantData.get_option_packed_string_array(snapshot, "queued_ids")
+	var priority_entries: Array = GFVariantData.get_option_array(snapshot, "queued_priority_entries")
 
 	assert_eq(first.status, GFBackgroundWorkTask.Status.QUEUED, "暂停时 CPU 工作应留在等待队列。")
 	assert_eq(queued_ids, PackedStringArray(["high", "front", "first"]), "等待队列应按 priority 和 front 排序。")
+	assert_eq(priority_entries.size(), 3, "调试快照应提供不含任务对象的优先级摘要。")
+	assert_eq(GFVariantData.get_option_string(GFVariantData.as_dictionary(priority_entries[0]), "work_id"), "high", "优先级摘要应与当前仲裁顺序一致。")
+	assert_eq(GFVariantData.get_option_int(snapshot, "priority_aging_interval_msec"), 250, "调试快照应公开实际老化区间。")
+	assert_eq(GFVariantData.get_option_float(snapshot, "priority_aging_step"), 2.0, "调试快照应公开实际老化步长。")
 	assert_same(high_priority, utility.get_task(&"high"), "自定义 ID 应可取回对应任务。")
 	assert_true(utility.cancel_work(front.work_id), "等待任务应可取消。")
 	assert_eq(front.status, GFBackgroundWorkTask.Status.CANCELLED, "取消后应进入 cancelled。")
 	assert_eq(GFVariantData.get_option_int(utility.get_debug_snapshot(), "queued_count"), 2, "取消等待任务后队列应移除该任务。")
 	utility.cancel_all()
+	utility.dispose()
+
+
+func test_background_dispatch_ages_old_work_and_snapshot_is_pure_and_time_consistent() -> void:
+	var utility: SimulatedTimeBackgroundWorkUtility = SimulatedTimeBackgroundWorkUtility.new()
+	utility.max_threaded_tasks = 1
+	utility.priority_aging_interval_msec = 1000
+	utility.priority_aging_step = 10.0
+	utility.init()
+	utility.pause()
+	var worker: PureWorker = PureWorker.new()
+	var started_ids: Array[String] = []
+	var connect_error: Error = utility.work_started.connect(func(task: GFBackgroundWorkTask) -> void:
+		started_ids.append(String(task.work_id))
+	) as Error
+	assert_eq(connect_error, OK, "测试应能观察实际调度顺序。")
+
+	utility.now_msec = 0
+	var old_low: GFBackgroundWorkTask = utility.submit_cpu_work(
+		Callable(worker, "double_value"),
+		{ "value": 1 },
+		Callable(),
+		{ &"id": "old-low", &"priority": 0 }
+	)
+	utility.now_msec = 2000
+	var new_high: GFBackgroundWorkTask = utility.submit_cpu_work(
+		Callable(worker, "double_value"),
+		{ "value": 2 },
+		Callable(),
+		{ &"id": "new-high", &"priority": 15 }
+	)
+	utility.now_call_count = 0
+	var snapshot: Dictionary = utility.get_debug_snapshot()
+
+	assert_eq(utility.now_call_count, 1, "单份调试快照应只采样一次仲裁时间。")
+	assert_eq(GFVariantData.get_option_packed_string_array(snapshot, "queued_ids"), PackedStringArray(["old-low", "new-high"]), "快照应反映老化后的实际调度顺序。")
+	assert_false(_contains_object(snapshot), "公开调试快照不得泄漏任务、线程或其它 Object。")
+	assert_false(JSON.stringify(snapshot).is_empty(), "纯数据调试快照应可直接编码为 JSON。")
+
+	utility.resume()
+
+	assert_eq(started_ids, ["old-low"], "长期等待的低优先工作应在实际后台调度中先获得执行机会。")
+	assert_eq(old_low.status, GFBackgroundWorkTask.Status.RUNNING, "老化胜出的任务应进入运行状态。")
+	assert_eq(new_high.status, GFBackgroundWorkTask.Status.QUEUED, "较新的高优先任务应继续等待当前槽位。")
+
+	await _pump_until_finished(utility, old_low)
+	await _pump_until_finished(utility, new_high)
+	assert_eq(started_ids, ["old-low", "new-high"], "释放槽位后应继续执行剩余任务。")
 	utility.dispose()
 
 
@@ -242,6 +298,21 @@ func _is_null(value: Variant) -> bool:
 	return value == null
 
 
+func _contains_object(value: Variant) -> bool:
+	if value is Object:
+		return true
+	if value is Array:
+		for item: Variant in GFVariantData.as_array(value):
+			if _contains_object(item):
+				return true
+	if value is Dictionary:
+		var dictionary: Dictionary = GFVariantData.as_dictionary(value)
+		for key: Variant in dictionary.keys():
+			if _contains_object(key) or _contains_object(dictionary[key]):
+				return true
+	return false
+
+
 func _make_apply_task(work_id: StringName) -> GFBackgroundWorkTask:
 	var task: GFBackgroundWorkTask = GFBackgroundWorkTask.new()
 	task.work_id = work_id
@@ -312,3 +383,12 @@ class SimulatedResourceBackgroundWorkUtility extends GFBackgroundWorkUtility:
 			"has_resource": complete,
 			"error": "",
 		}
+
+
+class SimulatedTimeBackgroundWorkUtility extends GFBackgroundWorkUtility:
+	var now_msec: int = 0
+	var now_call_count: int = 0
+
+	func _get_now_msec() -> int:
+		now_call_count += 1
+		return now_msec

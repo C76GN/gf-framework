@@ -41,9 +41,11 @@ var body: Dictionary = {}
 ## @api public
 var headers: PackedStringArray = PackedStringArray()
 
-## 幂等键；为空时不参与任何框架逻辑。
+## 幂等键；直接创建时可为空，进入 GFRequestOutboxUtility 时会用 request_id 补齐。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 var idempotency_key: String = ""
 
 ## 创建时间，Unix 秒。
@@ -61,10 +63,12 @@ var attempt_count: int = 0
 ## @api public
 var max_attempts: int = 3
 
-## 下一次允许重试的毫秒时间戳，基于 Time.get_ticks_msec()。
+## 下一次允许重试的 Unix 毫秒时间戳；可跨进程重启持久化。
 ## [br]
 ## @api public
-var retry_after_msec: int = 0
+## [br]
+## @since unreleased
+var next_attempt_at_unix_msec: int = 0
 
 ## 最近一次失败原因。
 ## [br]
@@ -142,14 +146,16 @@ func is_valid() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @param now_msec: 当前毫秒时间戳；小于 0 时自动读取。
+## @since 3.17.0
+## [br]
+## @param now_unix_msec: 当前 Unix 毫秒时间戳；小于 0 时自动读取系统时间。
 ## [br]
 ## @return 可尝试时返回 true。
-func can_attempt(now_msec: int = -1) -> bool:
+func can_attempt(now_unix_msec: int = -1) -> bool:
 	if not is_valid() or is_exhausted():
 		return false
-	var effective_now: int = Time.get_ticks_msec() if now_msec < 0 else now_msec
-	return retry_after_msec <= 0 or effective_now >= retry_after_msec
+	var effective_now: int = _get_unix_time_msec() if now_unix_msec < 0 else now_unix_msec
+	return next_attempt_at_unix_msec <= 0 or effective_now >= next_attempt_at_unix_msec
 
 
 ## 检查是否已耗尽尝试次数。
@@ -172,15 +178,24 @@ func mark_attempt() -> void:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param error: 失败原因。
 ## [br]
 ## @param retry_delay_msec: 从现在起等待多少毫秒后可重试。
-func mark_failure(error: String, retry_delay_msec: int = 0) -> void:
+## [br]
+## @param now_unix_msec: 当前 Unix 毫秒时间戳；小于 0 时自动读取系统时间。
+func mark_failure(
+	error: String,
+	retry_delay_msec: int = 0,
+	now_unix_msec: int = -1
+) -> void:
 	last_error = error
 	if retry_delay_msec <= 0:
-		retry_after_msec = 0
+		next_attempt_at_unix_msec = 0
 		return
-	retry_after_msec = Time.get_ticks_msec() + retry_delay_msec
+	var effective_now: int = _get_unix_time_msec() if now_unix_msec < 0 else now_unix_msec
+	next_attempt_at_unix_msec = maxi(effective_now, 0) + retry_delay_msec
 
 
 ## 记录成功状态。
@@ -188,7 +203,7 @@ func mark_failure(error: String, retry_delay_msec: int = 0) -> void:
 ## @api public
 func mark_success() -> void:
 	last_error = ""
-	retry_after_msec = 0
+	next_attempt_at_unix_msec = 0
 
 
 ## 复制请求描述。
@@ -206,11 +221,13 @@ func duplicate_request() -> GFRequestEnvelope:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param json_compatible: 为 true 时会把载荷与元数据转换为 JSON 兼容值。
 ## [br]
 ## @return 请求字典。
 ## [br]
-## @schema return: Dictionary，包含 request_id、method、method_name、url、body、headers、idempotency_key、重试字段、last_error 和 metadata。
+## @schema return: Dictionary，包含 request_id、method、method_name、url、body、headers、idempotency_key、created_at_unix、attempt_count、max_attempts、next_attempt_at_unix_msec、last_error 和 metadata。
 func to_dict(json_compatible: bool = false) -> Dictionary:
 	return {
 		"request_id": String(request_id),
@@ -223,7 +240,7 @@ func to_dict(json_compatible: bool = false) -> Dictionary:
 		"created_at_unix": created_at_unix,
 		"attempt_count": attempt_count,
 		"max_attempts": max_attempts,
-		"retry_after_msec": retry_after_msec,
+		"next_attempt_at_unix_msec": next_attempt_at_unix_msec,
 		"last_error": last_error,
 		"metadata": GFVariantJsonCodec.variant_to_json_compatible(metadata) if json_compatible else metadata.duplicate(true),
 	}
@@ -233,11 +250,13 @@ func to_dict(json_compatible: bool = false) -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param data: 请求字典。
 ## [br]
 ## @param json_compatible: 为 true 时会先恢复类型化 JSON 值。
 ## [br]
-## @schema data: Dictionary，包含 request_id、method、url、body、headers、idempotency_key、重试字段、last_error 和 metadata。
+## @schema data: Dictionary，包含 request_id、method、url、body、headers、idempotency_key、created_at_unix、attempt_count、max_attempts、next_attempt_at_unix_msec、last_error 和 metadata。
 func apply_dict(data: Dictionary, json_compatible: bool = false) -> void:
 	request_id = GFVariantData.get_option_string_name(data, "request_id")
 	method = GFVariantData.get_option_int(data, "method", HTTPClient.METHOD_GET)
@@ -254,7 +273,7 @@ func apply_dict(data: Dictionary, json_compatible: bool = false) -> void:
 	created_at_unix = GFVariantData.get_option_int(data, "created_at_unix")
 	attempt_count = GFVariantData.get_option_int(data, "attempt_count")
 	max_attempts = GFVariantData.get_option_int(data, "max_attempts", 3)
-	retry_after_msec = GFVariantData.get_option_int(data, "retry_after_msec")
+	next_attempt_at_unix_msec = GFVariantData.get_option_int(data, "next_attempt_at_unix_msec")
 	last_error = GFVariantData.get_option_string(data, "last_error")
 	var raw_metadata: Variant = GFVariantData.get_option_value(data, "metadata", {})
 	var metadata_value: Variant = (
@@ -297,13 +316,15 @@ func get_method_name() -> String:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param data: 请求字典。
 ## [br]
 ## @param json_compatible: 为 true 时会先恢复类型化 JSON 值。
 ## [br]
 ## @return 请求描述。
 ## [br]
-## @schema data: Dictionary，包含 request_id、method、url、body、headers、idempotency_key、重试字段、last_error 和 metadata。
+## @schema data: Dictionary，包含 request_id、method、url、body、headers、idempotency_key、created_at_unix、attempt_count、max_attempts、next_attempt_at_unix_msec、last_error 和 metadata。
 static func from_dict(data: Dictionary, json_compatible: bool = false) -> GFRequestEnvelope:
 	var envelope: GFRequestEnvelope = GFRequestEnvelope.new()
 	envelope.apply_dict(data, json_compatible)
@@ -352,3 +373,7 @@ func _headers_from_variant(value: Variant) -> PackedStringArray:
 		for header: Variant in header_values:
 			var _append_result_353: Variant = result.append(GFVariantData.to_text(header))
 	return result
+
+
+func _get_unix_time_msec() -> int:
+	return int(Time.get_unix_time_from_system() * 1000.0)

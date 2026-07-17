@@ -1,0 +1,205 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFPriorityWorkQueue" path="addons/gf/standard/foundation/collections/gf_priority_work_queue.gd" module="standard" extends="RefCounted" classDigest="ee1fd02e539e7669442263917476b686081402934782ac78cbe9a4e228dbbb8b">
+	<description>GFPriorityWorkQueue: 带等待加成的稳定优先级工作队列。
+以基础优先级、入队时间和稳定顺序选择下一个值。等待加成不设上限，
+因此在新任务优先级有限的前提下，旧低优先级任务最终能够获得执行机会。
+队列只负责仲裁顺序，不执行任务，也不解释载荷或业务优先级。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">value_object</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties>
+		<member kind="property" name="aging_interval_msec">
+			<signature>var aging_interval_msec: int = 1000:</signature>
+			<description>每经过多少毫秒增加一次等待优先级。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="aging_step">
+			<signature>var aging_step: float = 1.0:</signature>
+			<description>每个等待区间增加的优先级；始终保持为正有限值。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="max_size">
+			<signature>var max_size: int = 0:</signature>
+			<description>最大队列长度；小于等于 0 表示不限制。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="push">
+			<signature>func push(value: Variant, priority: float = 0.0, front: bool = false) -&gt; bool:</signature>
+			<description>使用当前单调时钟推入一个值。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">value: 工作载荷。</tag>
+				<tag name="param">priority: 基础优先级，数值越大越先执行。</tag>
+				<tag name="param">front: 为 true 时排在相同有效优先级的既有值之前。</tag>
+				<tag name="return">参数有效且未超过 max_size 时返回 true。</tag>
+				<tag name="schema">value: Variant，由调用方持有语义的工作载荷。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="push_at">
+			<signature>func push_at( value: Variant, priority: float, enqueued_msec: int, front: bool = false ) -&gt; bool:</signature>
+			<description>使用显式入队时间推入一个值，适合确定性模拟、恢复或测试。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">value: 工作载荷。</tag>
+				<tag name="param">priority: 基础优先级，数值越大越先执行。</tag>
+				<tag name="param">enqueued_msec: 同一单调时间域中的入队毫秒时间。</tag>
+				<tag name="param">front: 为 true 时排在相同有效优先级的既有值之前。</tag>
+				<tag name="return">参数有效且未超过 max_size 时返回 true。</tag>
+				<tag name="schema">value: Variant，由调用方持有语义的工作载荷。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="pop">
+			<signature>func pop(default_value: Variant = null) -&gt; Variant:</signature>
+			<description>使用当前单调时钟弹出有效优先级最高的值。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">default_value: 队列为空时的返回值。</tag>
+				<tag name="return">下一个工作载荷或 default_value。</tag>
+				<tag name="schema">default_value: Variant，队列为空时的回退值。</tag>
+				<tag name="schema">return: Variant，工作载荷或回退值。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="pop_at">
+			<signature>func pop_at(now_msec: int, default_value: Variant = null) -&gt; Variant:</signature>
+			<description>使用显式当前时间弹出有效优先级最高的值。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">now_msec: 与入队时间相同时间域中的当前毫秒时间。</tag>
+				<tag name="param">default_value: 队列为空时的返回值。</tag>
+				<tag name="return">下一个工作载荷或 default_value。</tag>
+				<tag name="schema">default_value: Variant，队列为空时的回退值。</tag>
+				<tag name="schema">return: Variant，工作载荷或回退值。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="peek">
+			<signature>func peek(default_value: Variant = null) -&gt; Variant:</signature>
+			<description>使用当前单调时钟读取下一个值但不移除。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">default_value: 队列为空时的返回值。</tag>
+				<tag name="return">下一个工作载荷或 default_value。</tag>
+				<tag name="schema">default_value: Variant，队列为空时的回退值。</tag>
+				<tag name="schema">return: Variant，工作载荷或回退值。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="peek_at">
+			<signature>func peek_at(now_msec: int, default_value: Variant = null) -&gt; Variant:</signature>
+			<description>使用显式当前时间读取下一个值但不移除。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">now_msec: 与入队时间相同时间域中的当前毫秒时间。</tag>
+				<tag name="param">default_value: 队列为空时的返回值。</tag>
+				<tag name="return">下一个工作载荷或 default_value。</tag>
+				<tag name="schema">default_value: Variant，队列为空时的回退值。</tag>
+				<tag name="schema">return: Variant，工作载荷或回退值。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="remove_value">
+			<signature>func remove_value(value: Variant) -&gt; bool:</signature>
+			<description>移除第一个等于 value 的等待值。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">value: 要移除的工作载荷。</tag>
+				<tag name="return">找到并移除时返回 true。</tag>
+				<tag name="schema">value: Variant，要匹配的工作载荷。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="set_priority">
+			<signature>func set_priority(value: Variant, priority: float) -&gt; bool:</signature>
+			<description>更新第一个等于 value 的等待值基础优先级。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">value: 要更新的工作载荷。</tag>
+				<tag name="param">priority: 新基础优先级。</tag>
+				<tag name="return">找到且 priority 有效时返回 true。</tag>
+				<tag name="schema">value: Variant，要匹配的工作载荷。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="clear">
+			<signature>func clear() -&gt; void:</signature>
+			<description>清空队列。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_empty">
+			<signature>func is_empty() -&gt; bool:</signature>
+			<description>队列是否为空。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">为空时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="size">
+			<signature>func size() -&gt; int:</signature>
+			<description>获取等待值数量。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">等待值数量。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="to_array">
+			<signature>func to_array(now_msec: int = -1, deep: bool = false) -&gt; Array:</signature>
+			<description>按指定时刻的弹出顺序导出值，不修改队列。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">now_msec: 与入队时间相同时间域中的当前毫秒时间；小于 0 时自动读取。</tag>
+				<tag name="param">deep: 为 true 时深拷贝可复制载荷。</tag>
+				<tag name="return">工作载荷数组。</tag>
+				<tag name="schema">return: Array，按有效优先级排列的工作载荷。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="to_entry_array">
+			<signature>func to_entry_array(now_msec: int = -1, deep: bool = false) -&gt; Array[Dictionary]:</signature>
+			<description>按指定时刻的弹出顺序导出结构化条目，不修改队列。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">now_msec: 与入队时间相同时间域中的当前毫秒时间；小于 0 时自动读取。</tag>
+				<tag name="param">deep: 为 true 时深拷贝可复制载荷。</tag>
+				<tag name="return">工作条目数组。</tag>
+				<tag name="schema">return: Array[Dictionary]，每项包含 value、priority、effective_priority、enqueued_msec、waited_msec 和 order。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_debug_snapshot">
+			<signature>func get_debug_snapshot(now_msec: int = -1) -&gt; Dictionary:</signature>
+			<description>获取有界配置与当前排序的调试快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">now_msec: 与入队时间相同时间域中的当前毫秒时间；小于 0 时自动读取。</tag>
+				<tag name="return">调试快照。</tag>
+				<tag name="schema">return: Dictionary，包含 size、max_size、aging_interval_msec、aging_step 和 entries。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

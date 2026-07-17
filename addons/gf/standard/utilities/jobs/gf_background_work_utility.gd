@@ -71,7 +71,7 @@ signal work_applied(task: GFBackgroundWorkTask)
 # --- 常量 ---
 
 const _MAX_PAYLOAD_DEPTH: int = 64
-const _GF_PRIORITY_QUEUE_SCRIPT = preload("res://addons/gf/standard/foundation/collections/gf_priority_queue.gd")
+const _GF_PRIORITY_WORK_QUEUE_SCRIPT = preload("res://addons/gf/standard/foundation/collections/gf_priority_work_queue.gd")
 const _THREADED_RESOURCE_LOAD_ADAPTER = preload("res://addons/gf/standard/utilities/assets/gf_threaded_resource_load_adapter.gd")
 const _THREADED_RESOURCE_COORDINATOR_SCRIPT = preload("res://addons/gf/standard/utilities/assets/gf_threaded_resource_coordinator.gd")
 const _THREADED_RESOURCE_OPERATION_SCRIPT = preload("res://addons/gf/standard/utilities/assets/gf_threaded_resource_operation.gd")
@@ -115,12 +115,32 @@ var max_finished_tasks: int = 128:
 ## @api public
 var allow_object_payloads: bool = false
 
+## 等待中的 CPU/IO 工作每经过多少毫秒增加一次有效优先级。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+var priority_aging_interval_msec: int = 1000:
+	set(value):
+		priority_aging_interval_msec = maxi(value, 1)
+		_configure_priority_work_queue()
+
+## 每个等待区间增加的有效优先级；正值且不设总加成上限。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+var priority_aging_step: float = 1.0:
+	set(value):
+		priority_aging_step = value if is_finite(value) and value > 0.0 else 1.0
+		_configure_priority_work_queue()
+
 
 # --- 私有变量 ---
 
 var _work_serial: int = 0
 var _tasks: Dictionary = {}
-var _queued_thread_tasks: _GF_PRIORITY_QUEUE_SCRIPT = _GF_PRIORITY_QUEUE_SCRIPT.new()
+var _queued_thread_tasks: _GF_PRIORITY_WORK_QUEUE_SCRIPT = _GF_PRIORITY_WORK_QUEUE_SCRIPT.new()
 var _active_thread_tasks: Dictionary = {}
 var _resource_requests: Dictionary = {}
 var _apply_queue: Array = []
@@ -396,25 +416,27 @@ func clear_all() -> void:
 ## [br]
 ## @return 调试快照字典。
 ## [br]
-## @schema return: Dictionary，包含任务计数、queued_ids、running_thread_ids、resource_paths、resource_draining_count、threaded_resource_operations、apply_ids、finished_ids、暂停状态和 apply 时间预算。
+## @schema return: Dictionary，包含任务计数、queued_ids、queued_priority_entries、优先级老化配置、running_thread_ids、resource_paths、resource_draining_count、threaded_resource_operations、apply_ids、finished_ids、暂停状态和 apply 时间预算。
 func get_debug_snapshot() -> Dictionary:
+	var now_msec: int = _get_now_msec()
+	var queued_entries: Array[Dictionary] = _queued_thread_tasks.to_entry_array(now_msec)
+	var threaded_snapshot: Dictionary = _threaded_resource_coordinator.get_debug_snapshot()
 	return {
 		"task_count": _tasks.size(),
 		"queued_count": _queued_thread_tasks.size(),
 		"running_thread_count": _active_thread_tasks.size(),
 		"resource_request_count": _resource_requests.size(),
-		"resource_draining_count": GFVariantData.get_option_int(
-			_threaded_resource_coordinator.get_debug_snapshot(),
-			"draining_count",
-			0
-		),
+		"resource_draining_count": GFVariantData.get_option_int(threaded_snapshot, "draining_count", 0),
 		"apply_count": _apply_queue.size(),
 		"finished_count": _finished_tasks.size(),
 		"is_paused": _paused,
-		"queued_ids": _task_ids(_queued_thread_tasks.to_array(false)),
+		"queued_ids": _queued_task_ids(queued_entries),
+		"queued_priority_entries": _queued_priority_summaries(queued_entries),
+		"priority_aging_interval_msec": priority_aging_interval_msec,
+		"priority_aging_step": priority_aging_step,
 		"running_thread_ids": _active_thread_task_ids(),
 		"resource_paths": PackedStringArray(_resource_requests.keys()),
-		"threaded_resource_operations": _threaded_resource_coordinator.get_debug_snapshot(),
+		"threaded_resource_operations": threaded_snapshot,
 		"apply_ids": _task_ids(_apply_queue),
 		"finished_ids": _task_ids(_finished_tasks),
 		"max_apply_seconds_per_tick": max_apply_seconds_per_tick,
@@ -465,7 +487,7 @@ func _create_task(
 		task.work_id = StringName("%s:%d" % [GFBackgroundWorkTask.kind_name(kind), _work_serial])
 	task.priority = GFVariantData.get_option_int(options, "priority", 0)
 	task.metadata = GFVariantData.get_option_dictionary(options, "metadata")
-	task.created_msec = Time.get_ticks_msec()
+	task.created_msec = _get_now_msec()
 	task.set_internal_callbacks(worker, apply_callback)
 	return task
 
@@ -482,7 +504,7 @@ func _start_queued_thread_tasks() -> void:
 		return
 
 	while _active_thread_tasks.size() < max_threaded_tasks and not _queued_thread_tasks.is_empty():
-		var task: GFBackgroundWorkTask = _as_task(_queued_thread_tasks.pop())
+		var task: GFBackgroundWorkTask = _as_task(_queued_thread_tasks.pop_at(_get_now_msec()))
 		if task == null or task.status != GFBackgroundWorkTask.Status.QUEUED:
 			continue
 		if task.cancel_requested:
@@ -492,7 +514,48 @@ func _start_queued_thread_tasks() -> void:
 
 
 func _insert_queued_thread_task(task: GFBackgroundWorkTask, front: bool) -> void:
-	var _task_queued: bool = _queued_thread_tasks.push(task, task.priority, front)
+	var _task_queued: bool = _queued_thread_tasks.push_at(
+		task,
+		float(task.priority),
+		task.created_msec,
+		front
+	)
+
+
+func _configure_priority_work_queue() -> void:
+	if _queued_thread_tasks == null:
+		return
+	_queued_thread_tasks.aging_interval_msec = priority_aging_interval_msec
+	_queued_thread_tasks.aging_step = priority_aging_step
+
+
+func _queued_task_ids(entries: Array[Dictionary]) -> PackedStringArray:
+	var result: PackedStringArray = PackedStringArray()
+	for entry: Dictionary in entries:
+		var task: GFBackgroundWorkTask = _as_task(GFVariantData.get_option_value(entry, "value"))
+		if task != null:
+			_append_packed_string(result, String(task.work_id))
+	return result
+
+
+func _queued_priority_summaries(entries: Array[Dictionary]) -> Array[Dictionary]:
+	var summaries: Array[Dictionary] = []
+	for entry: Dictionary in entries:
+		var task: GFBackgroundWorkTask = _as_task(GFVariantData.get_option_value(entry, "value"))
+		if task == null:
+			continue
+		summaries.append({
+			"work_id": String(task.work_id),
+			"priority": GFVariantData.get_option_float(entry, "priority"),
+			"effective_priority": GFVariantData.get_option_float(entry, "effective_priority"),
+			"waited_msec": GFVariantData.get_option_int(entry, "waited_msec"),
+			"order": GFVariantData.get_option_int(entry, "order"),
+		})
+	return summaries
+
+
+func _get_now_msec() -> int:
+	return Time.get_ticks_msec()
 
 
 func _start_thread_task(task: GFBackgroundWorkTask) -> void:

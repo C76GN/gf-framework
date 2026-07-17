@@ -1,6 +1,6 @@
 # 异步取消、等待与进度
 
-`GFCancellationToken`、`GFCancellationSource` 与 `GFAsyncCompletion` 是 Kernel 级异步边界契约；`GFTimeoutController`、`GFAsyncWaitUtility`、`GFAsyncChannel`、`GFAsyncProgress`、`GFAsyncProgressAggregator`、`GFAsyncFlowTools`、`GFMainThreadDispatchQueue`、`GFDeferredMutationQueue`、`GFExecutionRequirement`、`GFAsyncKeyedGate`、`GFAsyncGateLease`、`GFRequestHandlerRegistry` 和 `GFExecutionLaneDiagnostics` 在标准层提供轻量组合工具。它们不绑定 HTTP、不决定业务重试策略，只负责表达取消、超时、一次性终态、等待、事件通道、可节流进度、加权总进度、显式 flow helper、主线程应用回调、延迟状态变更、执行条件、按 key 并发仲裁、单处理器请求调用和通道诊断。
+`GFCancellationToken`、`GFCancellationSource` 与 `GFAsyncCompletion` 是 Kernel 级异步边界契约；`GFTimeoutController`、`GFAsyncWaitUtility`、`GFAsyncChannel`、`GFAsyncProgress`、`GFAsyncProgressAggregator`、`GFAsyncFlowTools`、`GFMainThreadDispatchQueue`、`GFDeferredMutationQueue`、`GFQuietWindowCoalescer`、`GFExecutionRequirement`、`GFAsyncKeyedGate`、`GFAsyncGateLease`、`GFRequestHandlerRegistry` 和 `GFExecutionLaneDiagnostics` 在标准层提供轻量组合工具。它们不绑定 HTTP、不决定业务重试策略，只负责表达取消、超时、一次性终态、等待、事件通道、可节流进度、加权总进度、显式 flow helper、主线程应用回调、延迟状态变更、静默窗口聚合、执行条件、按 key 并发仲裁、单处理器请求调用和通道诊断。
 
 ## 定位
 
@@ -17,6 +17,7 @@
 - `GFAsyncFlowTools` 在这些原语之上提供 `retry_async()`、`each_async()`、`fold_async()`、`wait_all_completions_async()` 和 `wait_any_completion_async()`，返回普通结果字典，不引入新的 Promise 类型；需要 HTTP、手动条目或 all-settled 报告时，`GFAsyncBatch.watch_completion()` 可复用 ALL / ANY / EACH 批处理策略。
 - `GFMainThreadDispatchQueue` 把后台线程、资源加载或外部回调的最终应用逻辑排回显式派发点，并提供 owner 失效跳过、取消和派发预算。
 - `GFDeferredMutationQueue` 收集延迟变更，并在显式 `playback()` 点按 phase、sort key 和记录顺序稳定应用。
+- `GFQuietWindowCoalescer` 按 key 收集连发消息，在静默窗口、最大窗口或数量上限到达时关闭有界批次；消息合并语义由项目回调提供。
 - `GFExecutionRequirement` 把执行前置条件归一成 all / any / none 报告，可用于任务、工具按钮、资源流程或项目自定义系统。
 - `GFAsyncKeyedGate` 按调用方提供的 key 发放 `GFAsyncGateLease`，用于限制同一资源、槽位或编辑器目标的并发数量。
 - `GFRequestHandlerRegistry` 表达单处理器 `invoke()` / `try_invoke()` 契约，避免把查询或命令式请求误建模成多订阅事件。
@@ -201,6 +202,24 @@ var cleanup_report := mutations.playback({ "phase": &"cleanup" })
 
 队列不理解变更对象是什么，也不替代 UndoRedo、事务或存档系统。它只解决“先收集、后应用、顺序可诊断”的运行时边界。
 
+需要把同一对象短时间内连续到达的变化合并成一次处理时，使用静默窗口协调器。例如文件监听器可能连续报告同一资源的写入，设置面板可能在拖动滑杆时产生大量变化，网络适配器也可能希望按实体把短时间内的 patch 合成一批：
+
+```gdscript
+var coalescer := GFQuietWindowCoalescer.new()
+coalescer.quiet_window_msec = 150
+coalescer.max_window_msec = 1000
+coalescer.max_messages_per_batch = 64
+coalescer.merge_callback = func(key: StringName, messages: Array) -> Variant:
+	return project_merge_changes(key, messages)
+
+coalescer.batch_closed.connect(func(report: Dictionary) -> void:
+	apply_merged_change(report.key, report.merged_value)
+)
+coalescer.submit(resource_id, change)
+```
+
+静默窗口会在每条新消息到达后重新计算，而 `max_window_msec` 保证持续流量也会周期性结批；消息数和同时打开的 key 数也分别受限，运行时降低 `max_pending_batches` 会立即按稳定顺序从待处理状态移除超额批次，关闭通知则按跨帧预算交付。它与“只保留最后一次调用”的 debounce 不同：批次默认保留全部有序消息，项目可以选择拼接、最后写入获胜、字段折叠或其它合并逻辑。运行中关闭 `auto_flush` 会使已有计时任务失效但保留批次，重新开启后会为未到期批次重建计时、立即关闭已经到期的批次。也可一直关闭自动推进，并用 `submit_at()` 和 `flush_ready()` 在测试、回放或自定义 tick 中以显式单调时间推进；`flush_all()` 只处理调用开始时已经存在的批次，因此关闭回调里重入提交的新消息留给下一轮。容量淘汰会先为当前提交保留批次位置；如果 `merge_callback` 或 `batch_closed` 在淘汰通知中再次触发容量淘汰，后续通知会等待后续 `process_frame`，并按每帧最多 64 条的预算继续派发，避免回调链阻塞当前提交或覆盖同 key 消息。协调器不创建业务事件、不解释 payload，也不替代可靠消息队列。
+
 执行入口需要先判断上下文是否满足时，用 `GFExecutionRequirement` 生成可展示的条件报告：
 
 ```gdscript
@@ -269,6 +288,6 @@ var health := lanes.get_health_snapshot()
 
 ## 使用边界
 
-这些对象是协议、状态句柄和诊断容器，不是完整任务系统。需要按 requirement 仲裁多任务时使用 `GFRuntimeTaskScheduler`；需要批量聚合 HTTP 或手动异步条目时使用 `GFAsyncBatch`；需要真正的后台线程或 ResourceLoader 加载时使用 `GFBackgroundWorkUtility` 或 `GFAssetUtility`。`GFAsyncProgressAggregator` 只合并调用方喂入的进度，不执行子任务，也不做显示值缓动或最小前进速度；表现层平滑应放在 UI 或项目侧。`GFAsyncFlowTools` 适合局部 retry/each/fold 和少量 completion 组合，不替代项目任务队列；`GFMainThreadDispatchQueue` 适合做最终主线程应用点，不替代后台执行器；`GFDeferredMutationQueue` 适合做确定性状态应用点，不替代命令历史或存档事务。需要观察未完成异步句柄时，可在 diagnostics 包中注册并启用 `GFAsyncTrackerUtility`。
+这些对象是协议、状态句柄和诊断容器，不是完整任务系统。需要按 requirement 仲裁多任务时使用 `GFRuntimeTaskScheduler`；需要批量聚合 HTTP 或手动异步条目时使用 `GFAsyncBatch`；需要真正的后台线程或 ResourceLoader 加载时使用 `GFBackgroundWorkUtility` 或 `GFAssetUtility`。`GFAsyncProgressAggregator` 只合并调用方喂入的进度，不执行子任务，也不做显示值缓动或最小前进速度；表现层平滑应放在 UI 或项目侧。`GFAsyncFlowTools` 适合局部 retry/each/fold 和少量 completion 组合，不替代项目任务队列；`GFMainThreadDispatchQueue` 适合做最终主线程应用点，不替代后台执行器；`GFDeferredMutationQueue` 适合做确定性状态应用点，不替代命令历史或存档事务；`GFQuietWindowCoalescer` 只收集和结批，不保证跨重启投递。需要观察未完成异步句柄时，可在 diagnostics 包中注册并启用 `GFAsyncTrackerUtility`。
 
 `metadata` 始终由调用方定义。GF 会复制字典边界，但不会解释字段，也不会把取消自动变成重试、回滚或 UI 提示。

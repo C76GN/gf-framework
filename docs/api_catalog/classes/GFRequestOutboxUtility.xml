@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFRequestOutboxUtility" path="addons/gf/standard/utilities/io/gf_request_outbox_utility.gd" module="standard" extends="GFUtility" classDigest="22bb93398aab1f33163b9dc1ce09d9f601d887bc614c2092c50028a87a6e5d2e">
+<class name="GFRequestOutboxUtility" path="addons/gf/standard/utilities/io/gf_request_outbox_utility.gd" module="standard" extends="GFUtility" classDigest="a83fa92b526efe0fec225948555cafe90576ed1056cdec6d9e682a4b13259f47">
 	<description>GFRequestOutboxUtility: 通用离线请求队列。
 负责把项目提交的请求描述持久化、按重试策略重放，并通过 transport_callback
 交给项目自己的网络、SDK 或工具链发送。它不内置任何账号、云服务或业务协议。</description>
@@ -52,6 +52,17 @@
 				<tag name="api">public</tag>
 				<tag name="param">snapshot: 调试快照。</tag>
 				<tag name="schema">snapshot: Dictionary，由 get_debug_snapshot() 返回的调试快照。</tag>
+			</tags>
+		</member>
+		<member kind="signal" name="persistence_failed">
+			<signature>signal persistence_failed(operation: StringName, error: Error, path: String)</signature>
+			<description>队列持久化操作失败。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">operation: 失败操作，当前为 save 或 load；load 包含恢复候选提升。</tag>
+				<tag name="param">error: Godot 错误码。</tag>
+				<tag name="param">path: 队列持久化路径。</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 	</signals>
@@ -171,12 +182,13 @@
 		</member>
 		<member kind="method" name="replay">
 			<signature>func replay(max_count: int = 0) -&gt; Dictionary:</signature>
-			<description>重放可尝试的请求。</description>
+			<description>重放可尝试的请求；恢复出的已耗尽 pending 会直接迁移到失败列表而不再次发送。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">max_count: 最多处理数量；小于等于 0 表示不限制。</tag>
 				<tag name="return">重放报告。</tag>
-				<tag name="schema">return: Dictionary，包含 ok、processed、succeeded、failed、skipped、pending、failed_stored 和 reason。</tag>
+				<tag name="schema">return: Dictionary，包含 ok、processed、succeeded、failed、recovered_exhausted、skipped、pending、failed_stored、reason 和 persistence_error。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="remove_request">
@@ -238,18 +250,20 @@
 		</member>
 		<member kind="method" name="save_queue">
 			<signature>func save_queue() -&gt; Error:</signature>
-			<description>保存队列到 storage_path。</description>
+			<description>以同目录临时文件校验、旧文件备份和原子替换保存队列到 storage_path。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">Godot 错误码。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="load_queue">
 			<signature>func load_queue() -&gt; Error:</signature>
-			<description>从 storage_path 读取队列。</description>
+			<description>从 storage_path 读取队列；正式文件缺失或损坏时会尝试有效临时文件与备份。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">Godot 错误码。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_debug_snapshot">
@@ -258,7 +272,8 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">调试快照。</tag>
-				<tag name="schema">return: Dictionary，包含存储设置、队列计数、传输可用性和请求 ID 列表。</tag>
+				<tag name="schema">return: Dictionary，包含存储设置、队列计数、传输可用性、last_persistence_error、is_persisted 和请求 ID 列表。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</methods>

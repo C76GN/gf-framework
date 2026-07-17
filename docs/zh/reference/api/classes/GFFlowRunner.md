@@ -18,16 +18,22 @@
 | 信号 | [`flow_started`](#member-gfflowrunner-signals-flow_started) | `signal flow_started(graph: GFFlowGraph)` |
 | 信号 | [`node_started`](#member-gfflowrunner-signals-node_started) | `signal node_started(node_id: StringName, node: GFFlowNode)` |
 | 信号 | [`node_completed`](#member-gfflowrunner-signals-node_completed) | `signal node_completed(node_id: StringName, node: GFFlowNode)` |
-| 信号 | [`flow_completed`](#member-gfflowrunner-signals-flow_completed) | `signal flow_completed` |
-| 信号 | [`flow_cancelled`](#member-gfflowrunner-signals-flow_cancelled) | `signal flow_cancelled` |
+| 信号 | [`flow_completed`](#member-gfflowrunner-signals-flow_completed) | `signal flow_completed(report: Dictionary)` |
+| 信号 | [`flow_cancelled`](#member-gfflowrunner-signals-flow_cancelled) | `signal flow_cancelled(report: Dictionary)` |
+| 常量 | [`OUTCOME_COMPLETED`](#member-gfflowrunner-constants-outcome_completed) | `const OUTCOME_COMPLETED: StringName = &"completed"` |
+| 常量 | [`OUTCOME_CANCELLED`](#member-gfflowrunner-constants-outcome_cancelled) | `const OUTCOME_CANCELLED: StringName = &"cancelled"` |
+| 常量 | [`OUTCOME_ABORTED`](#member-gfflowrunner-constants-outcome_aborted) | `const OUTCOME_ABORTED: StringName = &"aborted"` |
+| 常量 | [`OUTCOME_REJECTED`](#member-gfflowrunner-constants-outcome_rejected) | `const OUTCOME_REJECTED: StringName = &"rejected"` |
 | 属性 | [`is_running`](#member-gfflowrunner-properties-is_running) | `var is_running: bool = false` |
 | 属性 | [`max_executed_nodes`](#member-gfflowrunner-properties-max_executed_nodes) | `var max_executed_nodes: int = 1024` |
 | 属性 | [`signal_timeout_seconds`](#member-gfflowrunner-properties-signal_timeout_seconds) | `var signal_timeout_seconds: float = 30.0` |
 | 属性 | [`signal_timeout_respects_time_scale`](#member-gfflowrunner-properties-signal_timeout_respects_time_scale) | `var signal_timeout_respects_time_scale: bool = true` |
 | 属性 | [`isolate_graph_runtime_state`](#member-gfflowrunner-properties-isolate_graph_runtime_state) | `var isolate_graph_runtime_state: bool = true` |
-| 方法 | [`run`](#member-gfflowrunner-methods-run) | `func run(graph: GFFlowGraph, context: GFFlowContext = null) -> void:` |
+| 属性 | [`max_report_trace_entries`](#member-gfflowrunner-properties-max_report_trace_entries) | `var max_report_trace_entries: int = 128:` |
+| 方法 | [`run`](#member-gfflowrunner-methods-run) | `func run(graph: GFFlowGraph, context: GFFlowContext = null) -> Dictionary:` |
 | 方法 | [`cancel`](#member-gfflowrunner-methods-cancel) | `func cancel() -> void:` |
 | 方法 | [`with_signal_timeout`](#member-gfflowrunner-methods-with_signal_timeout) | `func with_signal_timeout(seconds: float, respect_time_scale: bool = true) -> GFFlowRunner:` |
+| 方法 | [`get_last_run_report`](#member-gfflowrunner-methods-get_last_run_report) | `func get_last_run_report() -> Dictionary:` |
 
 ## 信号
 
@@ -98,10 +104,20 @@ signal node_completed(node_id: StringName, node: GFFlowNode)
 - 首次版本：`3.17.0`
 
 ```gdscript
-signal flow_completed
+signal flow_completed(report: Dictionary)
 ```
 
 流程完成时发出。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `report` | 本次有界结构化运行报告。 |
+
+结构：
+
+- `report`: Dictionary，与 get_last_run_report() 返回结构相同。
 
 <a id="member-gfflowrunner-signals-flow_cancelled"></a>
 
@@ -111,10 +127,74 @@ signal flow_completed
 - 首次版本：`3.17.0`
 
 ```gdscript
-signal flow_cancelled
+signal flow_cancelled(report: Dictionary)
 ```
 
 流程取消时发出。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `report` | 本次取消或中止的有界结构化运行报告。 |
+
+结构：
+
+- `report`: Dictionary，与 get_last_run_report() 返回结构相同。
+
+## 常量
+
+<a id="member-gfflowrunner-constants-outcome_completed"></a>
+
+### `OUTCOME_COMPLETED`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+const OUTCOME_COMPLETED: StringName = &"completed"
+```
+
+流程正常完成。
+
+<a id="member-gfflowrunner-constants-outcome_cancelled"></a>
+
+### `OUTCOME_CANCELLED`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+const OUTCOME_CANCELLED: StringName = &"cancelled"
+```
+
+流程收到显式取消请求。
+
+<a id="member-gfflowrunner-constants-outcome_aborted"></a>
+
+### `OUTCOME_ABORTED`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+const OUTCOME_ABORTED: StringName = &"aborted"
+```
+
+流程因运行时保护条件中止。
+
+<a id="member-gfflowrunner-constants-outcome_rejected"></a>
+
+### `OUTCOME_REJECTED`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+const OUTCOME_REJECTED: StringName = &"rejected"
+```
+
+run() 请求在开始执行前被拒绝。
 
 ## 属性
 
@@ -183,6 +263,19 @@ var isolate_graph_runtime_state: bool = true
 
 运行时是否把节点 runtime_state 隔离到 GFFlowContext，避免污染共享图资源。
 
+<a id="member-gfflowrunner-properties-max_report_trace_entries"></a>
+
+### `max_report_trace_entries`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+var max_report_trace_entries: int = 128:
+```
+
+运行报告最多保留多少条节点 trace；总数与丢弃数始终单独统计。
+
 ## 方法
 
 <a id="member-gfflowrunner-methods-run"></a>
@@ -193,7 +286,7 @@ var isolate_graph_runtime_state: bool = true
 - 首次版本：`3.17.0`
 
 ```gdscript
-func run(graph: GFFlowGraph, context: GFFlowContext = null) -> void:
+func run(graph: GFFlowGraph, context: GFFlowContext = null) -> Dictionary:
 ```
 
 运行流程图。
@@ -204,6 +297,12 @@ func run(graph: GFFlowGraph, context: GFFlowContext = null) -> void:
 |---|---|
 | `graph` | 流程图资源。 |
 | `context` | 可选上下文。 |
+
+返回：本次有界结构化运行报告；未开始时 outcome 为 rejected。
+
+结构：
+
+- `return`: Dictionary，包含 schema_version、run_id、outcome、reason、单调时间、节点计数、pending_node_count、Signal 等待状态计数、trace 截断统计和有界 trace。
 
 <a id="member-gfflowrunner-methods-cancel"></a>
 
@@ -239,3 +338,22 @@ func with_signal_timeout(seconds: float, respect_time_scale: bool = true) -> GFF
 | `respect_time_scale` | 是否跟随 GFTimeUtility 的暂停与 time_scale。 |
 
 返回：当前执行器。
+
+<a id="member-gfflowrunner-methods-get_last_run_report"></a>
+
+### `get_last_run_report`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func get_last_run_report() -> Dictionary:
+```
+
+获取最近一次已结束或被拒绝的运行报告副本。
+
+返回：最近报告；尚未调用 run() 时为空字典。
+
+结构：
+
+- `return`: Dictionary，与 run() 返回结构相同。

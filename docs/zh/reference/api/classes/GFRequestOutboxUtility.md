@@ -20,6 +20,7 @@
 | 信号 | [`request_completed`](#member-gfrequestoutboxutility-signals-request_completed) | `signal request_completed(envelope: GFRequestEnvelope, result: Dictionary)` |
 | 信号 | [`request_failed`](#member-gfrequestoutboxutility-signals-request_failed) | `signal request_failed(envelope: GFRequestEnvelope, result: Dictionary)` |
 | 信号 | [`queue_changed`](#member-gfrequestoutboxutility-signals-queue_changed) | `signal queue_changed(snapshot: Dictionary)` |
+| 信号 | [`persistence_failed`](#member-gfrequestoutboxutility-signals-persistence_failed) | `signal persistence_failed(operation: StringName, error: Error, path: String)` |
 | 属性 | [`storage_path`](#member-gfrequestoutboxutility-properties-storage_path) | `var storage_path: String = "user://gf_request_outbox.json"` |
 | 属性 | [`auto_load_on_init`](#member-gfrequestoutboxutility-properties-auto_load_on_init) | `var auto_load_on_init: bool = true` |
 | 属性 | [`auto_persist`](#member-gfrequestoutboxutility-properties-auto_persist) | `var auto_persist: bool = true` |
@@ -151,6 +152,27 @@ signal queue_changed(snapshot: Dictionary)
 结构：
 
 - `snapshot`: Dictionary，由 get_debug_snapshot() 返回的调试快照。
+
+<a id="member-gfrequestoutboxutility-signals-persistence_failed"></a>
+
+### `persistence_failed`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+signal persistence_failed(operation: StringName, error: Error, path: String)
+```
+
+队列持久化操作失败。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `operation` | 失败操作，当前为 save 或 load；load 包含恢复候选提升。 |
+| `error` | Godot 错误码。 |
+| `path` | 队列持久化路径。 |
 
 ## 属性
 
@@ -358,12 +380,13 @@ func enqueue(envelope: GFRequestEnvelope) -> bool:
 ### `replay`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func replay(max_count: int = 0) -> Dictionary:
 ```
 
-重放可尝试的请求。
+重放可尝试的请求；恢复出的已耗尽 pending 会直接迁移到失败列表而不再次发送。
 
 参数：
 
@@ -375,7 +398,7 @@ func replay(max_count: int = 0) -> Dictionary:
 
 结构：
 
-- `return`: Dictionary，包含 ok、processed、succeeded、failed、skipped、pending、failed_stored 和 reason。
+- `return`: Dictionary，包含 ok、processed、succeeded、failed、recovered_exhausted、skipped、pending、failed_stored、reason 和 persistence_error。
 
 <a id="member-gfrequestoutboxutility-methods-remove_request"></a>
 
@@ -490,12 +513,13 @@ func get_failed_requests() -> Array[GFRequestEnvelope]:
 ### `save_queue`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func save_queue() -> Error:
 ```
 
-保存队列到 storage_path。
+以同目录临时文件校验、旧文件备份和原子替换保存队列到 storage_path。
 
 返回：Godot 错误码。
 
@@ -504,12 +528,13 @@ func save_queue() -> Error:
 ### `load_queue`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func load_queue() -> Error:
 ```
 
-从 storage_path 读取队列。
+从 storage_path 读取队列；正式文件缺失或损坏时会尝试有效临时文件与备份。
 
 返回：Godot 错误码。
 
@@ -518,6 +543,7 @@ func load_queue() -> Error:
 ### `get_debug_snapshot`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func get_debug_snapshot() -> Dictionary:
@@ -529,4 +555,4 @@ func get_debug_snapshot() -> Dictionary:
 
 结构：
 
-- `return`: Dictionary，包含存储设置、队列计数、传输可用性和请求 ID 列表。
+- `return`: Dictionary，包含存储设置、队列计数、传输可用性、last_persistence_error、is_persisted 和请求 ID 列表。

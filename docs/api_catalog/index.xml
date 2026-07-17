@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<apiCatalog schemaVersion="2" name="GF Framework" sourceRoot="addons/gf" sourceDigest="fd50b63a3d86e91acc780560e8530ef9f4dfad68da93653c34eec3ffeb306f48" classCount="712" methodCount="6316">
+<apiCatalog schemaVersion="2" name="GF Framework" sourceRoot="addons/gf" sourceDigest="e1df0e6b9956c15ee2805769f7314f7d08eadd5712c320079cd2bbb4da9ca2af" classCount="714" methodCount="6340">
 	<module id="kernel" label="Kernel" classCount="69" methodCount="697">
 		<class name="GFAccessGenerator" path="classes/GFAccessGenerator.xml" sourcePath="addons/gf/kernel/editor/gf_access_generator.gd" extends="RefCounted" />
 		<class name="GFArchitecture" path="classes/GFArchitecture.xml" sourcePath="addons/gf/kernel/core/gf_architecture.gd" extends="Object" />
@@ -71,7 +71,7 @@
 		<class name="GFTypeEventSystem" path="classes/GFTypeEventSystem.xml" sourcePath="addons/gf/kernel/core/gf_type_event_system.gd" extends="Object" />
 		<class name="GFUtility" path="classes/GFUtility.xml" sourcePath="addons/gf/kernel/base/gf_utility.gd" extends="Object" />
 	</module>
-	<module id="standard" label="Standard" classCount="400" methodCount="3984">
+	<module id="standard" label="Standard" classCount="402" methodCount="4007">
 		<class name="GFActivationTransaction" path="classes/GFActivationTransaction.xml" sourcePath="addons/gf/standard/foundation/policy/gf_activation_transaction.gd" extends="RefCounted" />
 		<class name="GFAnalyticsConfig" path="classes/GFAnalyticsConfig.xml" sourcePath="addons/gf/standard/utilities/analytics/gf_analytics_config.gd" extends="Resource" />
 		<class name="GFAnalyticsUtility" path="classes/GFAnalyticsUtility.xml" sourcePath="addons/gf/standard/utilities/analytics/gf_analytics_utility.gd" extends="GFUtility" />
@@ -318,10 +318,12 @@
 		<class name="GFPolicyRegistry" path="classes/GFPolicyRegistry.xml" sourcePath="addons/gf/standard/foundation/policy/gf_policy_registry.gd" extends="Resource" />
 		<class name="GFPolynomialMath" path="classes/GFPolynomialMath.xml" sourcePath="addons/gf/standard/foundation/math/gf_polynomial_math.gd" extends="RefCounted" />
 		<class name="GFPriorityQueue" path="classes/GFPriorityQueue.xml" sourcePath="addons/gf/standard/foundation/collections/gf_priority_queue.gd" extends="RefCounted" />
+		<class name="GFPriorityWorkQueue" path="classes/GFPriorityWorkQueue.xml" sourcePath="addons/gf/standard/foundation/collections/gf_priority_work_queue.gd" extends="RefCounted" />
 		<class name="GFProgressionMath" path="classes/GFProgressionMath.xml" sourcePath="addons/gf/standard/foundation/math/gf_progression_math.gd" extends="RefCounted" />
 		<class name="GFProtocolAckLedger" path="classes/GFProtocolAckLedger.xml" sourcePath="addons/gf/standard/utilities/io/gf_protocol_ack_ledger.gd" extends="RefCounted" />
 		<class name="GFQuadTreeUtility" path="classes/GFQuadTreeUtility.xml" sourcePath="addons/gf/standard/utilities/spatial/gf_quad_tree_utility.gd" extends="GFUtility" />
 		<class name="GFQuerySignature" path="classes/GFQuerySignature.xml" sourcePath="addons/gf/standard/foundation/collections/gf_query_signature.gd" extends="RefCounted" />
+		<class name="GFQuietWindowCoalescer" path="classes/GFQuietWindowCoalescer.xml" sourcePath="addons/gf/standard/common/gf_quiet_window_coalescer.gd" extends="RefCounted" />
 		<class name="GFRawResourceArtifact" path="classes/GFRawResourceArtifact.xml" sourcePath="addons/gf/standard/utilities/assets/gf_raw_resource_artifact.gd" extends="Resource" />
 		<class name="GFReactiveStateControlBinder" path="classes/GFReactiveStateControlBinder.xml" sourcePath="addons/gf/standard/utilities/ui/gf_reactive_state_control_binder.gd" extends="RefCounted" />
 		<class name="GFReactiveStateStore" path="classes/GFReactiveStateStore.xml" sourcePath="addons/gf/standard/utilities/state/gf_reactive_state_store.gd" extends="RefCounted" />
@@ -649,7 +651,7 @@
 		<class name="GFShakeTrack" path="classes/GFShakeTrack.xml" sourcePath="addons/gf/extensions/feedback/resources/gf_shake_track.gd" extends="Resource" />
 		<class name="GFShakeUtility" path="classes/GFShakeUtility.xml" sourcePath="addons/gf/extensions/feedback/runtime/gf_shake_utility.gd" extends="GFUtility" />
 	</module>
-	<module id="extensions/flow" label="Flow" classCount="7" methodCount="83">
+	<module id="extensions/flow" label="Flow" classCount="7" methodCount="84">
 		<class name="GFFlowContext" path="classes/GFFlowContext.xml" sourcePath="addons/gf/extensions/flow/runtime/gf_flow_context.gd" extends="RefCounted" />
 		<class name="GFFlowGraph" path="classes/GFFlowGraph.xml" sourcePath="addons/gf/extensions/flow/resources/gf_flow_graph.gd" extends="Resource" />
 		<class name="GFFlowGraphDock" path="classes/GFFlowGraphDock.xml" sourcePath="addons/gf/extensions/flow/editor/gf_flow_graph_dock.gd" extends="Control" />

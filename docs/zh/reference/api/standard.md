@@ -6,11 +6,11 @@
 
 | 类别 | 类 | 成员 | 方法 |
 |---|---:|---:|---:|
-| [运行时服务](#category-runtime_service) | 175 | 3058 | 2079 |
+| [运行时服务](#category-runtime_service) | 176 | 3082 | 2088 |
 | [协议与扩展点](#category-protocol) | 21 | 281 | 227 |
 | [资源定义](#category-resource_definition) | 110 | 1425 | 737 |
 | [运行时句柄](#category-runtime_handle) | 39 | 678 | 437 |
-| [值对象](#category-value_object) | 32 | 597 | 374 |
+| [值对象](#category-value_object) | 33 | 614 | 388 |
 | [领域模型](#category-domain_model) | 4 | 61 | 42 |
 | [事件契约](#category-event_contract) | 5 | 47 | 17 |
 | [编辑器 API](#category-editor_api) | 11 | 68 | 46 |
@@ -125,6 +125,7 @@
 | [`GFPolynomialMath`](classes/GFPolynomialMath.md#gfpolynomialmath) | `RefCounted` | `addons/gf/standard/foundation/math/gf_polynomial_math.gd` |
 | [`GFProgressionMath`](classes/GFProgressionMath.md#gfprogressionmath) | `RefCounted` | `addons/gf/standard/foundation/math/gf_progression_math.gd` |
 | [`GFQuadTreeUtility`](classes/GFQuadTreeUtility.md#gfquadtreeutility) | `GFUtility` | `addons/gf/standard/utilities/spatial/gf_quad_tree_utility.gd` |
+| [`GFQuietWindowCoalescer`](classes/GFQuietWindowCoalescer.md#gfquietwindowcoalescer) | `RefCounted` | `addons/gf/standard/common/gf_quiet_window_coalescer.gd` |
 | [`GFRectPacking2D`](classes/GFRectPacking2D.md#gfrectpacking2d) | `RefCounted` | `addons/gf/standard/foundation/math/gf_rect_packing_2d.gd` |
 | [`GFRefCountedPool`](classes/GFRefCountedPool.md#gfrefcountedpool) | `RefCounted` | `addons/gf/standard/utilities/pooling/gf_ref_counted_pool.gd` |
 | [`GFRegionMap2D`](classes/GFRegionMap2D.md#gfregionmap2d) | `RefCounted` | `addons/gf/standard/foundation/math/gf_region_map_2d.gd` |
@@ -415,6 +416,7 @@
 | [`GFMetricSeries`](classes/GFMetricSeries.md#gfmetricseries) | `RefCounted` | `addons/gf/standard/utilities/debug/gf_metric_series.gd` |
 | [`GFModalResult`](classes/GFModalResult.md#gfmodalresult) | `RefCounted` | `addons/gf/standard/utilities/ui/gf_modal_result.gd` |
 | [`GFPriorityQueue`](classes/GFPriorityQueue.md#gfpriorityqueue) | `RefCounted` | `addons/gf/standard/foundation/collections/gf_priority_queue.gd` |
+| [`GFPriorityWorkQueue`](classes/GFPriorityWorkQueue.md#gfpriorityworkqueue) | `RefCounted` | `addons/gf/standard/foundation/collections/gf_priority_work_queue.gd` |
 | [`GFQuerySignature`](classes/GFQuerySignature.md#gfquerysignature) | `RefCounted` | `addons/gf/standard/foundation/collections/gf_query_signature.gd` |
 | [`GFResourceIdentity`](classes/GFResourceIdentity.md#gfresourceidentity) | `RefCounted` | `addons/gf/standard/utilities/assets/gf_resource_identity.gd` |
 | [`GFResourceLoadState`](classes/GFResourceLoadState.md#gfresourceloadstate) | `RefCounted` | `addons/gf/standard/utilities/assets/gf_resource_load_state.gd` |

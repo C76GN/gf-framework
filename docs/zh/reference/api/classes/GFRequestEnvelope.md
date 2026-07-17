@@ -24,15 +24,15 @@
 | 属性 | [`created_at_unix`](#member-gfrequestenvelope-properties-created_at_unix) | `var created_at_unix: int = 0` |
 | 属性 | [`attempt_count`](#member-gfrequestenvelope-properties-attempt_count) | `var attempt_count: int = 0` |
 | 属性 | [`max_attempts`](#member-gfrequestenvelope-properties-max_attempts) | `var max_attempts: int = 3` |
-| 属性 | [`retry_after_msec`](#member-gfrequestenvelope-properties-retry_after_msec) | `var retry_after_msec: int = 0` |
+| 属性 | [`next_attempt_at_unix_msec`](#member-gfrequestenvelope-properties-next_attempt_at_unix_msec) | `var next_attempt_at_unix_msec: int = 0` |
 | 属性 | [`last_error`](#member-gfrequestenvelope-properties-last_error) | `var last_error: String = ""` |
 | 属性 | [`metadata`](#member-gfrequestenvelope-properties-metadata) | `var metadata: Dictionary = {}` |
 | 方法 | [`configure`](#member-gfrequestenvelope-methods-configure) | `func configure( p_method: int, p_url: String, p_body: Dictionary = {}, p_headers: PackedStringArray = PackedStringArray(), p_metadata: Dictionary = {} ) -> GFRequestEnvelope:` |
 | 方法 | [`is_valid`](#member-gfrequestenvelope-methods-is_valid) | `func is_valid() -> bool:` |
-| 方法 | [`can_attempt`](#member-gfrequestenvelope-methods-can_attempt) | `func can_attempt(now_msec: int = -1) -> bool:` |
+| 方法 | [`can_attempt`](#member-gfrequestenvelope-methods-can_attempt) | `func can_attempt(now_unix_msec: int = -1) -> bool:` |
 | 方法 | [`is_exhausted`](#member-gfrequestenvelope-methods-is_exhausted) | `func is_exhausted() -> bool:` |
 | 方法 | [`mark_attempt`](#member-gfrequestenvelope-methods-mark_attempt) | `func mark_attempt() -> void:` |
-| 方法 | [`mark_failure`](#member-gfrequestenvelope-methods-mark_failure) | `func mark_failure(error: String, retry_delay_msec: int = 0) -> void:` |
+| 方法 | [`mark_failure`](#member-gfrequestenvelope-methods-mark_failure) | `func mark_failure( error: String, retry_delay_msec: int = 0, now_unix_msec: int = -1 ) -> void:` |
 | 方法 | [`mark_success`](#member-gfrequestenvelope-methods-mark_success) | `func mark_success() -> void:` |
 | 方法 | [`duplicate_request`](#member-gfrequestenvelope-methods-duplicate_request) | `func duplicate_request() -> GFRequestEnvelope:` |
 | 方法 | [`to_dict`](#member-gfrequestenvelope-methods-to_dict) | `func to_dict(json_compatible: bool = false) -> Dictionary:` |
@@ -111,12 +111,13 @@ var headers: PackedStringArray = PackedStringArray()
 ### `idempotency_key`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var idempotency_key: String = ""
 ```
 
-幂等键；为空时不参与任何框架逻辑。
+幂等键；直接创建时可为空，进入 GFRequestOutboxUtility 时会用 request_id 补齐。
 
 <a id="member-gfrequestenvelope-properties-created_at_unix"></a>
 
@@ -154,17 +155,18 @@ var max_attempts: int = 3
 
 最大尝试次数；小于等于 0 表示不限制。
 
-<a id="member-gfrequestenvelope-properties-retry_after_msec"></a>
+<a id="member-gfrequestenvelope-properties-next_attempt_at_unix_msec"></a>
 
-### `retry_after_msec`
+### `next_attempt_at_unix_msec`
 
 - API：`public`
+- 首次版本：`unreleased`
 
 ```gdscript
-var retry_after_msec: int = 0
+var next_attempt_at_unix_msec: int = 0
 ```
 
-下一次允许重试的毫秒时间戳，基于 Time.get_ticks_msec()。
+下一次允许重试的 Unix 毫秒时间戳；可跨进程重启持久化。
 
 <a id="member-gfrequestenvelope-properties-last_error"></a>
 
@@ -244,9 +246,10 @@ func is_valid() -> bool:
 ### `can_attempt`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func can_attempt(now_msec: int = -1) -> bool:
+func can_attempt(now_unix_msec: int = -1) -> bool:
 ```
 
 检查当前时刻是否允许再次尝试。
@@ -255,7 +258,7 @@ func can_attempt(now_msec: int = -1) -> bool:
 
 | 名称 | 说明 |
 |---|---|
-| `now_msec` | 当前毫秒时间戳；小于 0 时自动读取。 |
+| `now_unix_msec` | 当前 Unix 毫秒时间戳；小于 0 时自动读取系统时间。 |
 
 返回：可尝试时返回 true。
 
@@ -290,9 +293,10 @@ func mark_attempt() -> void:
 ### `mark_failure`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func mark_failure(error: String, retry_delay_msec: int = 0) -> void:
+func mark_failure( error: String, retry_delay_msec: int = 0, now_unix_msec: int = -1 ) -> void:
 ```
 
 记录失败并安排下一次重试。
@@ -303,6 +307,7 @@ func mark_failure(error: String, retry_delay_msec: int = 0) -> void:
 |---|---|
 | `error` | 失败原因。 |
 | `retry_delay_msec` | 从现在起等待多少毫秒后可重试。 |
+| `now_unix_msec` | 当前 Unix 毫秒时间戳；小于 0 时自动读取系统时间。 |
 
 <a id="member-gfrequestenvelope-methods-mark_success"></a>
 
@@ -335,6 +340,7 @@ func duplicate_request() -> GFRequestEnvelope:
 ### `to_dict`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func to_dict(json_compatible: bool = false) -> Dictionary:
@@ -352,13 +358,14 @@ func to_dict(json_compatible: bool = false) -> Dictionary:
 
 结构：
 
-- `return`: Dictionary，包含 request_id、method、method_name、url、body、headers、idempotency_key、重试字段、last_error 和 metadata。
+- `return`: Dictionary，包含 request_id、method、method_name、url、body、headers、idempotency_key、created_at_unix、attempt_count、max_attempts、next_attempt_at_unix_msec、last_error 和 metadata。
 
 <a id="member-gfrequestenvelope-methods-apply_dict"></a>
 
 ### `apply_dict`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func apply_dict(data: Dictionary, json_compatible: bool = false) -> void:
@@ -375,7 +382,7 @@ func apply_dict(data: Dictionary, json_compatible: bool = false) -> void:
 
 结构：
 
-- `data`: Dictionary，包含 request_id、method、url、body、headers、idempotency_key、重试字段、last_error 和 metadata。
+- `data`: Dictionary，包含 request_id、method、url、body、headers、idempotency_key、created_at_unix、attempt_count、max_attempts、next_attempt_at_unix_msec、last_error 和 metadata。
 
 <a id="member-gfrequestenvelope-methods-get_method_name"></a>
 
@@ -396,6 +403,7 @@ func get_method_name() -> String:
 ### `from_dict`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 static func from_dict(data: Dictionary, json_compatible: bool = false) -> GFRequestEnvelope:
@@ -414,4 +422,4 @@ static func from_dict(data: Dictionary, json_compatible: bool = false) -> GFRequ
 
 结构：
 
-- `data`: Dictionary，包含 request_id、method、url、body、headers、idempotency_key、重试字段、last_error 和 metadata。
+- `data`: Dictionary，包含 request_id、method、url、body、headers、idempotency_key、created_at_unix、attempt_count、max_attempts、next_attempt_at_unix_msec、last_error 和 metadata。

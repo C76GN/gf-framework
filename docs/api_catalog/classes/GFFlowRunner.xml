@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFFlowRunner" path="addons/gf/extensions/flow/runtime/gf_flow_runner.gd" module="extensions/flow" extends="RefCounted" classDigest="05efd182db395a22a6efdef2a6cd63d8a91a79eb36dec49bf577101266091e76">
+<class name="GFFlowRunner" path="addons/gf/extensions/flow/runtime/gf_flow_runner.gd" module="extensions/flow" extends="RefCounted" classDigest="4c82d47ba61f6f59529e68cabe4ad1b1a6934164d18b263ca197d2982e437c0f">
 	<description>GFFlowRunner: 通用流程图执行器。
 按节点后继关系执行 GFFlowGraph，支持 Signal 等待、取消和简单循环保护。</description>
 	<tags>
@@ -38,24 +38,61 @@
 			</tags>
 		</member>
 		<member kind="signal" name="flow_completed">
-			<signature>signal flow_completed</signature>
+			<signature>signal flow_completed(report: Dictionary)</signature>
 			<description>流程完成时发出。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="param">report: 本次有界结构化运行报告。</tag>
+				<tag name="schema">report: Dictionary，与 get_last_run_report() 返回结构相同。</tag>
 				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="signal" name="flow_cancelled">
-			<signature>signal flow_cancelled</signature>
+			<signature>signal flow_cancelled(report: Dictionary)</signature>
 			<description>流程取消时发出。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="param">report: 本次取消或中止的有界结构化运行报告。</tag>
+				<tag name="schema">report: Dictionary，与 get_last_run_report() 返回结构相同。</tag>
 				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</signals>
 	<enums />
-	<constants />
+	<constants>
+		<member kind="const" name="OUTCOME_COMPLETED">
+			<signature>const OUTCOME_COMPLETED: StringName = &amp;"completed"</signature>
+			<description>流程正常完成。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="OUTCOME_CANCELLED">
+			<signature>const OUTCOME_CANCELLED: StringName = &amp;"cancelled"</signature>
+			<description>流程收到显式取消请求。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="OUTCOME_ABORTED">
+			<signature>const OUTCOME_ABORTED: StringName = &amp;"aborted"</signature>
+			<description>流程因运行时保护条件中止。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="OUTCOME_REJECTED">
+			<signature>const OUTCOME_REJECTED: StringName = &amp;"rejected"</signature>
+			<description>run() 请求在开始执行前被拒绝。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</constants>
 	<properties>
 		<member kind="property" name="is_running">
 			<signature>var is_running: bool = false</signature>
@@ -97,15 +134,25 @@
 				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
+		<member kind="property" name="max_report_trace_entries">
+			<signature>var max_report_trace_entries: int = 128:</signature>
+			<description>运行报告最多保留多少条节点 trace；总数与丢弃数始终单独统计。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
 	</properties>
 	<methods>
 		<member kind="method" name="run">
-			<signature>func run(graph: GFFlowGraph, context: GFFlowContext = null) -&gt; void:</signature>
+			<signature>func run(graph: GFFlowGraph, context: GFFlowContext = null) -&gt; Dictionary:</signature>
 			<description>运行流程图。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">graph: 流程图资源。</tag>
 				<tag name="param">context: 可选上下文。</tag>
+				<tag name="return">本次有界结构化运行报告；未开始时 outcome 为 rejected。</tag>
+				<tag name="schema">return: Dictionary，包含 schema_version、run_id、outcome、reason、单调时间、节点计数、pending_node_count、Signal 等待状态计数、trace 截断统计和有界 trace。</tag>
 				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
@@ -126,6 +173,16 @@
 				<tag name="param">respect_time_scale: 是否跟随 GFTimeUtility 的暂停与 time_scale。</tag>
 				<tag name="return">当前执行器。</tag>
 				<tag name="since">3.17.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_last_run_report">
+			<signature>func get_last_run_report() -&gt; Dictionary:</signature>
+			<description>获取最近一次已结束或被拒绝的运行报告副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">最近报告；尚未调用 run() 时为空字典。</tag>
+				<tag name="schema">return: Dictionary，与 run() 返回结构相同。</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 	</methods>

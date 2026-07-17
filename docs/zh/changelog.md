@@ -22,7 +22,7 @@
 
 ## [未发布]
 
-**版本概述**：收紧安全资源图解码、日志、支持报告与纹理导入诊断的数据边界，新增独立对话文本编译、通用浮力点采样、网络旋转字段和候选变化通知，并修复调试覆盖层与文本适配的生命周期问题。
+**版本概述**：收紧安全资源图解码、日志、支持报告与纹理导入诊断的数据边界，新增独立对话文本编译、通用浮力点采样、网络旋转字段、候选变化通知，以及有界异步聚合和运行诊断能力，并加固跨重启请求持久化与长期队列公平性。
 
 ### 🚀 新增特性 (Added)
 
@@ -30,6 +30,9 @@
 - Physics 扩展新增 `GFBuoyancyMath3D` 与 `GFBuoyancyField3D`，提供居中浸没比例、阿基米德浮力、相对流速阻力和可重写表面/流速点采样；框架只返回力结果，不自动接管刚体、探针布局或水体检测。
 - `GFNetworkFieldSerializer` 新增显式 Quaternion 字段编码，以归一化 `[x, y, z, w]` 表示旋转，并对零长度或非有限输入使用单位旋转回退。
 - `GFObjectCandidateRegistry` 新增候选变化信号和单调 revision，便于交互提示、空间查询、编辑器选择或项目缓存按变更重新查询，而不把最佳候选策略写入注册表。
+- 新增 `GFPriorityWorkQueue`，以稳定顺序和无上限等待加成提供防饥饿优先级仲裁；显式时间入口与结构化快照可用于确定性测试和调度诊断，队列不执行任务或解释业务优先级。
+- 新增 `GFQuietWindowCoalescer`，按 key 在静默窗口、最大窗口、单批消息上限或待处理 key 上限到达时关闭有界批次，并通过过去时信号 `batch_closed(report)` 交付结果；容量回调重入时会先保留当前提交位置，容量收缩与重入通知按固定跨帧预算交付，项目通过 `merge_callback` 定义合并语义，框架不解释消息载荷。
+- `GFFlowRunner.run()` 新增有界、JSON 兼容的结构化运行报告，包含稳定终态、通用节点计数、等待状态和可截断 trace，供任务链、过场、工具流水线或诊断面板复用。
 
 ### 🔄 机制更改 (Changed)
 
@@ -37,6 +40,8 @@
 - `GFTextureSetClassifier` 新增重复角色与必需角色完整性诊断；同一集合内的 albedo 别名、GL/DX normal 等冲突不再按输入顺序静默覆盖，导入计划只包含通过完整性校验且无歧义的集合，并保留问题摘要。
 - 补充 UI 逻辑层与绘制层边界：`layer_id` 只标识独立导航栈，绘制顺序由 `canvas_layer` 决定，`hide_under` / replace 不会跨层清理；文档同时明确 `mode`、`modal` 与 `metadata` 的职责。
 - `gdscript_lsp_diagnostics` 纳入 `full`、`framework` 与 `release` suite 的无条件硬门禁；任何 GDScript error / warning、文件诊断超时或项目连接失败都会阻止提交或发布验证通过。
+- `GFBackgroundWorkUtility` 的 CPU/IO 等待队列改用 `GFPriorityWorkQueue`，新任务仍按基础优先级响应，长期等待任务则随时间获得无上限加成；调试快照新增脱敏的优先级仲裁摘要。
+- `GFRequestOutboxUtility` 的存储 schema 升级为 version 2：重试截止时间改用 Unix 毫秒，空幂等键在入队时由稳定请求 ID 补齐，保存采用校验后的临时文件/备份原子替换，加载可从完整候选恢复，并在每个重放终态后写入检查点；崩溃前已递增到上限但尚未完成终态迁移的 pending 请求会在重启重放时直接修复到 failed store，不会再次发送或永久卡住。
 
 ### 🐛 Bug 修复 (Fixed)
 
@@ -46,6 +51,7 @@
 - 修复 `GFDebugOverlayUtility` 在初始化后立即释放时，延迟挂载回调仍携带已释放 GUI 参数并触发 Godot deferred-call 类型转换错误的问题；挂载请求现在以代次失效，并在执行时重新读取当前实例。
 - 修复 `GFTextFitter.fit_control()` 的 Label 分派忽略显式测量文本，且无换行短文本只能反复进行候选测量、放大 Godot 退出期 shaped-text RID 残留的问题；新增一次最大字号测量的单行比例路径，默认完整排版行为不变。
 - 修复本地包管理网络 smoke 服务器把请求目标直接写入 `Location` 响应头的问题；重定向边界现在拒绝原始 CR/LF 控制字符，避免测试服务产生 HTTP 响应拆分，并保留合法路径与百分号编码字面量。
+- 修复 `GFRequestEnvelope` 把进程内单调 ticks 持久化为重试截止时间，导致重启后请求可能过早重放或长期跳过的问题；持久化失败现在会阻止重放继续推进，Signal 等待超时也不再让 Flow 节点运行态租约永久占用。
 
 ### 🔧 API 变动说明 (API Changes)
 
@@ -53,9 +59,12 @@
 - `include_diagnostics_by_default` 与 `include_scene_by_default` 从 `true` 改为 `false`，已注册分区也不再默认采集。这是有意的数据最小化行为变更，不保留旧默认兼容分支。
 - 新增公开类型 `GFDialogueTextCompiler`、`GFBuoyancyMath3D`、`GFBuoyancyField3D` 和独立 package `gf.tool.dialogue_text`。
 - `GFNetworkFieldSerializer.ValueType` 追加 `QUATERNION`；`GFObjectCandidateRegistry` 新增 `candidates_changed(revision)` 与 `get_revision()`。
-- bundled 扩展版本随新增公开能力递增：`gf.network` 为 `4.1.0`，`gf.physics` 为 `1.4.0`。
+- bundled 扩展版本随新增公开能力递增：`gf.network` 为 `4.1.0`，`gf.physics` 为 `1.4.0`，含破坏性 Runner 契约变更的 `gf.flow` 为 `2.0.0`。
 - `GFTextureSetClassifier.classify_files()` 的 options 新增 `required_roles`，报告新增集合有效性、`duplicate_roles`、`missing_roles`、问题列表及汇总计数；`build_material_import_plan()` 的 metadata 新增对应诊断摘要。
 - `GFTextFitter` 新增 `MeasurementMode`；`fit_control()`、`fit_label()`、`fit_rich_text_label()` 和测量入口的 options 新增 `measurement_mode`，其中 `SINGLE_LINE` 提供无换行短文本的一次测量路径，`MULTILINE` 可强制完整多行排版。
+- 新增公开类型 `GFPriorityWorkQueue` 与 `GFQuietWindowCoalescer`；后者以 `batch_closed(report)` 发出批次。`GFBackgroundWorkUtility` 新增 `priority_aging_interval_msec`、`priority_aging_step` 和 `queued_priority_entries` 诊断。
+- `GFRequestEnvelope.retry_after_msec` 已移除，替换为 `next_attempt_at_unix_msec`；`can_attempt()` 与 `mark_failure()` 的显式当前时间参数现在都是 Unix 毫秒。`GFRequestOutboxUtility` 新增 `persistence_failed(operation, error, path)`，`replay()` 报告新增 `persistence_error` 与 `recovered_exhausted`。
+- `GFFlowRunner.run()` 现在返回报告，`flow_completed` 与 `flow_cancelled` 信号现在都携带 `report: Dictionary`；新增 `max_report_trace_entries`、`get_last_run_report()` 和公开 outcome 常量。该签名变更不保留无参数兼容信号。
 
 ### 📘 升级指南 (Migration Guide)
 
@@ -65,3 +74,5 @@
 - 依赖纹理角色“最后一个路径获胜”的导入器应改为读取 `issues` / 集合 `ok`，由制作工具显式解决重复贴图；需要强制材质最低组成时传入 `required_roles`，没有配置时仍允许部分集合。
 - 为旋转字段选择 `QUATERNION` 后，发送端会输出四元素组且接收端恢复 Quaternion；双方 schema 必须一致。候选使用方如需响应变化，可监听 `candidates_changed` 并按 revision 去重，再用原有筛选条件重新查询。
 - 棋盘数字、分数或短计数器可把本地一次测量 workaround 迁移为 `measurement_mode = GFTextFitter.MeasurementMode.SINGLE_LINE`；正文和自动换行 Label 保持默认 `AUTO`。登录、认证与主页等互斥页面应使用同一逻辑层并调用 replace，跨层切换需要项目显式清理旧层。
+- 读取 Outbox 重试时间的代码改用 `next_attempt_at_unix_msec`，写入显式时间时传 Unix 毫秒；原先的 `envelope.can_attempt(Time.get_ticks_msec())` 必须改为 `envelope.can_attempt(int(Time.get_unix_time_from_system() * 1000.0))`，或直接省略参数让 Envelope 读取系统时间。version 1 队列含有无法可靠转换的进程 ticks，升级前应先完成重放或由项目按原业务数据重建请求，不要把旧文件直接改版本号。服务端或 SDK 适配器应转发 `idempotency_key` 并按键去重。
+- 调用 Flow 时改为 `var report := await runner.run(graph, context)`；原无参数 `flow_completed` / `flow_cancelled` 回调增加一个 Dictionary 参数，并根据 `outcome` / `reason` 处理终态。只需汇总、不需要节点明细时可把 `max_report_trace_entries` 设为 `0`。

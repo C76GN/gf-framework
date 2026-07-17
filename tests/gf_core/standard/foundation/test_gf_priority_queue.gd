@@ -5,6 +5,7 @@ extends GutTest
 # --- 常量 ---
 
 const GF_PRIORITY_QUEUE_SCRIPT = preload("res://addons/gf/standard/foundation/collections/gf_priority_queue.gd")
+const GF_PRIORITY_WORK_QUEUE_SCRIPT = preload("res://addons/gf/standard/foundation/collections/gf_priority_work_queue.gd")
 
 
 # --- 测试方法 ---
@@ -105,3 +106,31 @@ func test_priority_queue_rejects_non_finite_priorities_and_uses_strict_order() -
 	assert_false(priority_queue.set_priority("lower", -INF), "set_priority 不应写入非有限值。")
 
 	assert_eq(priority_queue.to_array(), ["higher", "lower"], "priority 排序应使用严格数值全序，而不是近似相等。")
+
+
+func test_priority_work_queue_aging_prevents_old_low_priority_work_from_starving() -> void:
+	var work_queue: GF_PRIORITY_WORK_QUEUE_SCRIPT = GF_PRIORITY_WORK_QUEUE_SCRIPT.new()
+	work_queue.aging_interval_msec = 1000
+	work_queue.aging_step = 10.0
+
+	assert_true(work_queue.push_at("old-low", 0.0, 0), "旧低优先工作应能入队。")
+	assert_true(work_queue.push_at("new-high", 15.0, 2000), "新高优先工作应能入队。")
+
+	assert_eq(GFVariantData.to_text(work_queue.pop_at(2000)), "old-low", "等待加成应让长期等待工作最终先执行。")
+	assert_eq(GFVariantData.to_text(work_queue.pop_at(2000)), "new-high", "剩余高优先工作随后执行。")
+
+
+func test_priority_work_queue_keeps_stable_ties_and_reports_effective_priority() -> void:
+	var work_queue: GF_PRIORITY_WORK_QUEUE_SCRIPT = GF_PRIORITY_WORK_QUEUE_SCRIPT.new()
+	work_queue.aging_interval_msec = 1000
+	work_queue.aging_step = 2.0
+
+	assert_true(work_queue.push_at("first", 1.0, 1000))
+	assert_true(work_queue.push_at("second", 3.0, 2000))
+	var entries: Array[Dictionary] = work_queue.to_entry_array(3000)
+
+	assert_eq(GFVariantData.get_option_string(entries[0], "value"), "first", "相同有效优先级应保持稳定入队顺序。")
+	assert_almost_eq(GFVariantData.get_option_float(entries[0], "effective_priority"), 5.0, 0.001, "快照应报告等待加成后的优先级。")
+	assert_eq(GFVariantData.get_option_int(entries[0], "waited_msec"), 2000, "快照应报告非负等待时间。")
+	assert_true(work_queue.remove_value("second"), "工作队列应支持取消等待值。")
+	assert_eq(work_queue.size(), 1, "移除后数量应更新。")

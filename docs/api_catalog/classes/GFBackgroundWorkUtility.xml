@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFBackgroundWorkUtility" path="addons/gf/standard/utilities/jobs/gf_background_work_utility.gd" module="standard" extends="GFUtility" classDigest="a5a29b0cd3180c1ebb1747573fb630084360f1c42d2331290361a8f21872ba3e">
+<class name="GFBackgroundWorkUtility" path="addons/gf/standard/utilities/jobs/gf_background_work_utility.gd" module="standard" extends="GFUtility" classDigest="80d3991723161c2ba167cb272b40ade9aa2e484f7851cbf662cf8b8683c6b51a">
 	<description>GFBackgroundWorkUtility: 纯数据后台工作协调器。
 统一协调 CPU/IO 线程工作、ResourceLoader 线程加载和主线程应用回调。
 默认只允许纯 Variant 输入数据，避免后台线程直接触碰 Node、Resource 或 Callable。</description>
@@ -105,6 +105,22 @@
 仅迁移旧项目或明确自行保证线程安全时才建议开启。</description>
 			<tags>
 				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="property" name="priority_aging_interval_msec">
+			<signature>var priority_aging_interval_msec: int = 1000:</signature>
+			<description>等待中的 CPU/IO 工作每经过多少毫秒增加一次有效优先级。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="priority_aging_step">
+			<signature>var priority_aging_step: float = 1.0:</signature>
+			<description>每个等待区间增加的有效优先级；正值且不设总加成上限。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 	</properties>
@@ -250,7 +266,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">调试快照字典。</tag>
-				<tag name="schema">return: Dictionary，包含任务计数、queued_ids、running_thread_ids、resource_paths、resource_draining_count、threaded_resource_operations、apply_ids、finished_ids、暂停状态和 apply 时间预算。</tag>
+				<tag name="schema">return: Dictionary，包含任务计数、queued_ids、queued_priority_entries、优先级老化配置、running_thread_ids、resource_paths、resource_draining_count、threaded_resource_operations、apply_ids、finished_ids、暂停状态和 apply 时间预算。</tag>
 				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFRequestEnvelope" path="addons/gf/standard/utilities/io/gf_request_envelope.gd" module="standard" extends="RefCounted" classDigest="29dd552af7efd55209f2a7f1f68342662946f4396ca39ea014d8751b1eedf1eb">
+<class name="GFRequestEnvelope" path="addons/gf/standard/utilities/io/gf_request_envelope.gd" module="standard" extends="RefCounted" classDigest="2f980cbde41df5288f43fc133721d78e2c73a3d8eed5a6c007c49a0c3410937a">
 	<description>GFRequestEnvelope: 通用可重放请求描述。
 只保存请求方法、地址、载荷、Header、重试与元数据，不绑定具体服务端、
 账号、鉴权或业务协议。</description>
@@ -50,9 +50,10 @@
 		</member>
 		<member kind="property" name="idempotency_key">
 			<signature>var idempotency_key: String = ""</signature>
-			<description>幂等键；为空时不参与任何框架逻辑。</description>
+			<description>幂等键；直接创建时可为空，进入 GFRequestOutboxUtility 时会用 request_id 补齐。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="created_at_unix">
@@ -76,11 +77,12 @@
 				<tag name="api">public</tag>
 			</tags>
 		</member>
-		<member kind="property" name="retry_after_msec">
-			<signature>var retry_after_msec: int = 0</signature>
-			<description>下一次允许重试的毫秒时间戳，基于 Time.get_ticks_msec()。</description>
+		<member kind="property" name="next_attempt_at_unix_msec">
+			<signature>var next_attempt_at_unix_msec: int = 0</signature>
+			<description>下一次允许重试的 Unix 毫秒时间戳；可跨进程重启持久化。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 		<member kind="property" name="last_error">
@@ -124,12 +126,13 @@
 			</tags>
 		</member>
 		<member kind="method" name="can_attempt">
-			<signature>func can_attempt(now_msec: int = -1) -&gt; bool:</signature>
+			<signature>func can_attempt(now_unix_msec: int = -1) -&gt; bool:</signature>
 			<description>检查当前时刻是否允许再次尝试。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="param">now_msec: 当前毫秒时间戳；小于 0 时自动读取。</tag>
+				<tag name="param">now_unix_msec: 当前 Unix 毫秒时间戳；小于 0 时自动读取系统时间。</tag>
 				<tag name="return">可尝试时返回 true。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_exhausted">
@@ -148,12 +151,14 @@
 			</tags>
 		</member>
 		<member kind="method" name="mark_failure">
-			<signature>func mark_failure(error: String, retry_delay_msec: int = 0) -&gt; void:</signature>
+			<signature>func mark_failure( error: String, retry_delay_msec: int = 0, now_unix_msec: int = -1 ) -&gt; void:</signature>
 			<description>记录失败并安排下一次重试。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">error: 失败原因。</tag>
 				<tag name="param">retry_delay_msec: 从现在起等待多少毫秒后可重试。</tag>
+				<tag name="param">now_unix_msec: 当前 Unix 毫秒时间戳；小于 0 时自动读取系统时间。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="mark_success">
@@ -178,7 +183,8 @@
 				<tag name="api">public</tag>
 				<tag name="param">json_compatible: 为 true 时会把载荷与元数据转换为 JSON 兼容值。</tag>
 				<tag name="return">请求字典。</tag>
-				<tag name="schema">return: Dictionary，包含 request_id、method、method_name、url、body、headers、idempotency_key、重试字段、last_error 和 metadata。</tag>
+				<tag name="schema">return: Dictionary，包含 request_id、method、method_name、url、body、headers、idempotency_key、created_at_unix、attempt_count、max_attempts、next_attempt_at_unix_msec、last_error 和 metadata。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="apply_dict">
@@ -188,7 +194,8 @@
 				<tag name="api">public</tag>
 				<tag name="param">data: 请求字典。</tag>
 				<tag name="param">json_compatible: 为 true 时会先恢复类型化 JSON 值。</tag>
-				<tag name="schema">data: Dictionary，包含 request_id、method、url、body、headers、idempotency_key、重试字段、last_error 和 metadata。</tag>
+				<tag name="schema">data: Dictionary，包含 request_id、method、url、body、headers、idempotency_key、created_at_unix、attempt_count、max_attempts、next_attempt_at_unix_msec、last_error 和 metadata。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_method_name">
@@ -207,7 +214,8 @@
 				<tag name="param">data: 请求字典。</tag>
 				<tag name="param">json_compatible: 为 true 时会先恢复类型化 JSON 值。</tag>
 				<tag name="return">请求描述。</tag>
-				<tag name="schema">data: Dictionary，包含 request_id、method、url、body、headers、idempotency_key、重试字段、last_error 和 metadata。</tag>
+				<tag name="schema">data: Dictionary，包含 request_id、method、url、body、headers、idempotency_key、created_at_unix、attempt_count、max_attempts、next_attempt_at_unix_msec、last_error 和 metadata。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</methods>

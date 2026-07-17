@@ -99,6 +99,20 @@ class AsyncRuntimeMutationFlowNode extends GFFlowNode:
 		completed.emit()
 
 
+class NonWaitingSignalFlowNode extends GFFlowNode:
+	signal completed
+
+	func _init() -> void:
+		node_id = &"non_waiting_signal"
+		wait_for_result = false
+
+	func execute(_context: GFFlowContext) -> Variant:
+		return completed
+
+	func complete() -> void:
+		completed.emit()
+
+
 class MethodTrapFlowPort extends GFFlowPort:
 	var get_port_id_called: bool = false
 	var get_display_name_called: bool = false
@@ -208,6 +222,35 @@ func test_flow_runner_executes_node_links() -> void:
 
 	assert_eq(order, ["start", "end"], "流程应按节点后继顺序执行。")
 	assert_false(runner.is_running, "同步流程完成后不应保持 running。")
+
+
+func test_flow_runner_returns_bounded_structured_run_report() -> void:
+	var order: Array[String] = []
+	var graph: GFFlowGraph = GFFlowGraph.new()
+	graph.start_node_id = &"start"
+	graph.nodes = [
+		RecordingFlowNode.new(&"start", order, PackedStringArray(["middle"])),
+		RecordingFlowNode.new(&"middle", order, PackedStringArray(["end"])),
+		RecordingFlowNode.new(&"end", order),
+	]
+	var runner: GFFlowRunner = GFFlowRunner.new()
+	runner.max_report_trace_entries = 2
+
+	var report: Dictionary = await runner.run(graph, GFFlowContext.new())
+	var trace: Array = GFVariantData.get_option_array(report, "trace")
+	trace.clear()
+	var retained_copy: Dictionary = runner.get_last_run_report()
+
+	assert_eq(GFVariantData.get_option_string(report, "outcome"), "completed", "正常流程应报告 completed。")
+	assert_eq(GFVariantData.get_option_int(report, "executed_node_count"), 3, "报告应统计已执行节点。")
+	assert_eq(GFVariantData.get_option_int(report, "completed_node_count"), 3, "报告应统计已完成节点。")
+	assert_eq(GFVariantData.get_option_int(report, "signal_wait_count"), 0, "同步流程不应记录 Signal 等待。")
+	assert_eq(GFVariantData.get_option_int(report, "trace_entry_count"), 3, "总 trace 数不应受保留上限影响。")
+	assert_eq(GFVariantData.get_option_int(report, "retained_trace_entry_count"), 2, "保留 trace 应受上限约束。")
+	assert_eq(GFVariantData.get_option_int(report, "dropped_trace_entry_count"), 1, "报告应显式说明丢弃数量。")
+	assert_true(GFVariantData.get_option_bool(report, "trace_truncated"), "超过上限时应标记 trace 截断。")
+	assert_eq(GFVariantData.get_option_array(retained_copy, "trace").size(), 2, "last report 必须返回隔离副本。")
+	assert_false(JSON.stringify(retained_copy).is_empty(), "运行报告应可直接编码为 JSON。")
 
 
 ## 验证节点可通过上下文覆盖后继节点。
@@ -340,19 +383,35 @@ func test_flow_runner_cancel_during_signal_wait_stops_after_await() -> void:
 		RecordingFlowNode.new(&"after", order),
 	]
 	var runner: GFFlowRunner = GFFlowRunner.new()
+	var cancelled_reports: Array[Dictionary] = []
+	var _report_connected: Error = runner.flow_cancelled.connect(func(cancelled_report: Dictionary) -> void:
+		cancelled_reports.append(cancelled_report)
+	) as Error
 	watch_signals(runner)
 	@warning_ignore("missing_await")
+	@warning_ignore("return_value_discarded")
 	runner.run(graph, GFFlowContext.new())
 
 	await get_tree().process_frame
 	runner.cancel()
-	waiting_node.complete()
 	await get_tree().process_frame
 	await get_tree().process_frame
 
 	assert_eq(order, ["wait"], "取消后不应继续推进后继节点。")
 	assert_signal_not_emitted(runner, "node_completed", "取消等待后不应再报告当前节点完成。")
 	assert_signal_emitted(runner, "flow_cancelled", "取消等待后应发出流程取消信号。")
+	assert_eq(cancelled_reports.size(), 1, "取消等待应产生一份终态报告。")
+	var report: Dictionary = cancelled_reports[0]
+	var trace: Array = GFVariantData.get_option_array(report, "trace")
+	assert_eq(GFVariantData.get_option_string(report, "outcome"), "cancelled", "显式取消应报告 cancelled。")
+	assert_eq(GFVariantData.get_option_string(report, "reason"), "cancel_requested", "取消报告应提供稳定原因。")
+	assert_eq(GFVariantData.get_option_int(report, "signal_wait_count"), 1, "报告应统计一次 Signal 等待。")
+	assert_eq(GFVariantData.get_option_int(report, "cancelled_signal_wait_count"), 1, "报告应统计被取消的 Signal 等待。")
+	assert_eq(GFVariantData.get_option_string(GFVariantData.as_dictionary(trace[0]), "wait_status"), "cancelled", "节点 trace 应记录等待取消。")
+	assert_false(waiting_node.is_runtime_state_leased(), "取消等待后必须释放节点运行态租约。")
+	var verification_lease: int = waiting_node.acquire_runtime_state_lease()
+	assert_gt(verification_lease, 0, "取消后节点应可再次获得运行态租约。")
+	assert_true(waiting_node.release_runtime_state_lease(verification_lease), "验证租约应可正常释放。")
 
 
 func test_flow_runner_cancel_from_node_started_skips_execution() -> void:
@@ -366,11 +425,89 @@ func test_flow_runner_cancel_from_node_started_skips_execution() -> void:
 	)
 	watch_signals(runner)
 
-	await runner.run(graph, GFFlowContext.new())
+	var report: Dictionary = await runner.run(graph, GFFlowContext.new())
 
 	assert_eq(order, [], "node_started 中取消后不应继续执行当前节点。")
+	assert_eq(GFVariantData.get_option_string(report, "outcome"), "cancelled", "node_started 中取消应报告 cancelled。")
+	assert_eq(GFVariantData.get_option_int(report, "executed_node_count"), 0, "未进入 execute 的节点不得计为已执行。")
+	assert_eq(GFVariantData.get_option_int(report, "completed_node_count"), 0, "未进入 execute 的节点不得计为已完成。")
+	assert_eq(GFVariantData.get_option_string(GFVariantData.as_dictionary(GFVariantData.get_option_array(report, "trace")[0]), "status"), "cancelled", "trace 应明确节点在执行前取消。")
 	assert_signal_not_emitted(runner, "node_completed", "取消后不应报告节点完成。")
 	assert_signal_emitted(runner, "flow_cancelled", "取消后应发出 flow_cancelled。")
+
+
+func test_flow_runner_reports_real_signal_timeout_and_releases_runtime_lease() -> void:
+	var graph: GFFlowGraph = GFFlowGraph.new()
+	var node: RuntimeStateWaitFlowNode = RuntimeStateWaitFlowNode.new()
+	graph.start_node_id = node.node_id
+	graph.nodes = [node]
+	var runner: GFFlowRunner = GFFlowRunner.new()
+	var _configured_runner: GFFlowRunner = runner.with_signal_timeout(0.01, false)
+
+	var report: Dictionary = await runner.run(graph, GFFlowContext.new())
+	var trace: Array = GFVariantData.get_option_array(report, "trace")
+
+	assert_push_warning("[GFFlowRunner] 等待 Signal 超时，流程将继续执行后续节点。")
+	assert_eq(GFVariantData.get_option_string(report, "outcome"), "completed", "Signal 超时按既有策略继续流程时应完成运行。")
+	assert_eq(GFVariantData.get_option_int(report, "signal_wait_count"), 1, "报告应统计一次 Signal 等待。")
+	assert_eq(GFVariantData.get_option_int(report, "timed_out_signal_wait_count"), 1, "报告应统计真实超时。")
+	assert_eq(GFVariantData.get_option_string(GFVariantData.as_dictionary(trace[0]), "wait_status"), "timeout", "节点 trace 应记录 timeout。")
+	assert_false(node.is_runtime_state_leased(), "超时继续后必须释放节点运行态租约。")
+
+
+func test_flow_runner_rejected_reentry_has_independent_report_and_does_not_replace_active_state() -> void:
+	var order: Array[String] = []
+	var graph: GFFlowGraph = GFFlowGraph.new()
+	var node: ManualWaitFlowNode = ManualWaitFlowNode.new(&"wait", order)
+	graph.start_node_id = node.node_id
+	graph.nodes = [node]
+	var runner: GFFlowRunner = GFFlowRunner.new()
+	var completed_reports: Array[Dictionary] = []
+	var _completed_connected: Error = runner.flow_completed.connect(func(report: Dictionary) -> void:
+		completed_reports.append(report)
+	) as Error
+	@warning_ignore("missing_await")
+	@warning_ignore("return_value_discarded")
+	runner.run(graph, GFFlowContext.new())
+	await get_tree().process_frame
+
+	var rejected: Dictionary = await runner.run(graph, GFFlowContext.new())
+	var rejected_copy: Dictionary = runner.get_last_run_report()
+
+	assert_push_warning("[GFFlowRunner] 流程正在执行，忽略重复 run()。")
+	assert_eq(GFVariantData.get_option_string(rejected, "outcome"), "rejected", "并发重入应返回 rejected。")
+	assert_eq(GFVariantData.get_option_string(rejected, "reason"), "run_in_progress", "并发重入应给出稳定原因。")
+	assert_eq(rejected_copy, rejected, "被拒绝的调用也应成为当时可查询的最近报告。")
+
+	node.complete()
+	await get_tree().process_frame
+	await get_tree().process_frame
+	assert_eq(completed_reports.size(), 1, "原运行应继续完成且只发出一份完成报告。")
+	assert_eq(GFVariantData.get_option_string(completed_reports[0], "outcome"), "completed", "被拒绝的重入不得污染原运行终态。")
+	assert_ne(GFVariantData.get_option_int(completed_reports[0], "run_id"), GFVariantData.get_option_int(rejected, "run_id"), "每次调用报告应有独立 run_id。")
+	assert_eq(runner.get_last_run_report(), completed_reports[0], "原运行结束后最近报告应更新为其终态。")
+
+
+func test_flow_runner_holds_non_waiting_signal_lease_until_signal_emits() -> void:
+	var graph: GFFlowGraph = GFFlowGraph.new()
+	var node: NonWaitingSignalFlowNode = NonWaitingSignalFlowNode.new()
+	graph.start_node_id = node.node_id
+	graph.nodes = [node]
+	var runner: GFFlowRunner = GFFlowRunner.new()
+
+	var report: Dictionary = await runner.run(graph, GFFlowContext.new())
+
+	assert_eq(GFVariantData.get_option_string(report, "outcome"), "completed", "非等待 Signal 不应阻塞流程完成。")
+	assert_true(node.is_runtime_state_leased(), "异步工作发出完成 Signal 前仍应保护共享节点运行态。")
+	node.set_runtime_value(&"late", true)
+	assert_push_error("[GFFlowNode] set_runtime_value 失败：节点运行态已由隔离执行租约保护，必须通过当前 GFFlowContext 写入运行态。")
+
+	node.complete()
+	await get_tree().process_frame
+	assert_false(node.is_runtime_state_leased(), "非等待 Signal 发出后应释放运行态租约。")
+	var verification_lease: int = node.acquire_runtime_state_lease()
+	assert_gt(verification_lease, 0, "Signal 发出后节点应可再次获得运行态租约。")
+	assert_true(node.release_runtime_state_lease(verification_lease), "验证租约应可正常释放。")
 
 
 func test_flow_runner_restores_graph_runtime_state_during_signal_wait() -> void:
@@ -383,6 +520,7 @@ func test_flow_runner_restores_graph_runtime_state_during_signal_wait() -> void:
 	context.set_node_runtime_value(&"runtime_wait", &"count", 2)
 	var runner: GFFlowRunner = GFFlowRunner.new()
 	@warning_ignore("missing_await")
+	@warning_ignore("return_value_discarded")
 	runner.run(graph, context)
 
 	await get_tree().process_frame
@@ -411,10 +549,12 @@ func test_flow_runner_acquires_shared_node_lease_before_node_started_signal() ->
 				return
 			attempted_reentry[0] = true
 			@warning_ignore("missing_await")
+			@warning_ignore("return_value_discarded")
 			second_runner.run(graph, GFFlowContext.new())
 	) as Error
 
 	@warning_ignore("missing_await")
+	@warning_ignore("return_value_discarded")
 	first_runner.run(graph, GFFlowContext.new())
 	await get_tree().process_frame
 	node.complete()
@@ -456,6 +596,7 @@ func test_flow_runner_rejects_async_node_state_mutation_after_signal_return() ->
 	context.set_node_runtime_value(node.node_id, &"count", 2)
 	var runner: GFFlowRunner = GFFlowRunner.new()
 	@warning_ignore("missing_await")
+	@warning_ignore("return_value_discarded")
 	runner.run(graph, context)
 
 	await get_tree().process_frame
@@ -479,9 +620,12 @@ func test_flow_runner_loop_guard_cancels_instead_of_completing() -> void:
 	runner.max_executed_nodes = 2
 	watch_signals(runner)
 
-	await runner.run(graph, GFFlowContext.new())
+	var report: Dictionary = await runner.run(graph, GFFlowContext.new())
 
 	assert_eq(order, ["start", "start"], "loop guard 应在达到上限后停止。")
+	assert_eq(GFVariantData.get_option_string(report, "outcome"), "aborted", "loop guard 应报告 aborted。")
+	assert_eq(GFVariantData.get_option_string(report, "reason"), "max_executed_nodes", "报告应给出稳定保护原因。")
+	assert_eq(GFVariantData.get_option_int(report, "pending_node_count"), 1, "报告应保留中止时尚未执行的节点数量。")
 	assert_signal_not_emitted(runner, "flow_completed", "loop guard 截断不应被报告为普通完成。")
 	assert_signal_emitted(runner, "flow_cancelled", "loop guard 截断应走非完成终态。")
 

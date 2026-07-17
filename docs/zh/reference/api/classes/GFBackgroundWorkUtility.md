@@ -27,6 +27,8 @@
 | 属性 | [`max_apply_seconds_per_tick`](#member-gfbackgroundworkutility-properties-max_apply_seconds_per_tick) | `var max_apply_seconds_per_tick: float = 0.0:` |
 | 属性 | [`max_finished_tasks`](#member-gfbackgroundworkutility-properties-max_finished_tasks) | `var max_finished_tasks: int = 128:` |
 | 属性 | [`allow_object_payloads`](#member-gfbackgroundworkutility-properties-allow_object_payloads) | `var allow_object_payloads: bool = false` |
+| 属性 | [`priority_aging_interval_msec`](#member-gfbackgroundworkutility-properties-priority_aging_interval_msec) | `var priority_aging_interval_msec: int = 1000:` |
+| 属性 | [`priority_aging_step`](#member-gfbackgroundworkutility-properties-priority_aging_step) | `var priority_aging_step: float = 1.0:` |
 | 方法 | [`init`](#member-gfbackgroundworkutility-methods-init) | `func init() -> void:` |
 | 方法 | [`tick`](#member-gfbackgroundworkutility-methods-tick) | `func tick(_delta: float = 0.0) -> void:` |
 | 方法 | [`dispose`](#member-gfbackgroundworkutility-methods-dispose) | `func dispose() -> void:` |
@@ -235,6 +237,32 @@ var allow_object_payloads: bool = false
 ```
 
 是否默认允许 Object、Resource、Callable、Signal 或 RID 进入线程 payload。 仅迁移旧项目或明确自行保证线程安全时才建议开启。
+
+<a id="member-gfbackgroundworkutility-properties-priority_aging_interval_msec"></a>
+
+### `priority_aging_interval_msec`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+var priority_aging_interval_msec: int = 1000:
+```
+
+等待中的 CPU/IO 工作每经过多少毫秒增加一次有效优先级。
+
+<a id="member-gfbackgroundworkutility-properties-priority_aging_step"></a>
+
+### `priority_aging_step`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+var priority_aging_step: float = 1.0:
+```
+
+每个等待区间增加的有效优先级；正值且不设总加成上限。
 
 ## 方法
 
@@ -516,4 +544,4 @@ func get_debug_snapshot() -> Dictionary:
 
 结构：
 
-- `return`: Dictionary，包含任务计数、queued_ids、running_thread_ids、resource_paths、resource_draining_count、threaded_resource_operations、apply_ids、finished_ids、暂停状态和 apply 时间预算。
+- `return`: Dictionary，包含任务计数、queued_ids、queued_priority_entries、优先级老化配置、running_thread_ids、resource_paths、resource_draining_count、threaded_resource_operations、apply_ids、finished_ids、暂停状态和 apply 时间预算。

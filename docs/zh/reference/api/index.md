@@ -5,16 +5,16 @@
 ## 范围
 
 - 源码根目录：`addons/gf`
-- 公开类：`712`
-- 公开成员：`10228`
-- 公开方法：`6316`
+- 公开类：`714`
+- 公开成员：`10275`
+- 公开方法：`6340`
 
 ## 模块
 
 | 模块 | 类 | 成员 | 方法 | 页面 |
 |---|---:|---:|---:|---|
 | Kernel | 69 | 969 | 697 | [kernel.md](kernel.md) |
-| Standard | 400 | 6260 | 3984 | [standard.md](standard.md) |
+| Standard | 402 | 6301 | 4007 | [standard.md](standard.md) |
 | Action Queue | 16 | 214 | 136 | [extensions-action-queue.md](extensions-action-queue.md) |
 | Asset Metadata | 4 | 33 | 24 | [extensions-asset-metadata.md](extensions-asset-metadata.md) |
 | Behavior Tree | 22 | 89 | 65 | [extensions-behavior-tree.md](extensions-behavior-tree.md) |
@@ -26,7 +26,7 @@
 | Dialogue | 5 | 75 | 36 | [extensions-dialogue.md](extensions-dialogue.md) |
 | Domain | 18 | 295 | 185 | [extensions-domain.md](extensions-domain.md) |
 | Feedback | 8 | 138 | 64 | [extensions-feedback.md](extensions-feedback.md) |
-| Flow | 7 | 132 | 83 | [extensions-flow.md](extensions-flow.md) |
+| Flow | 7 | 138 | 84 | [extensions-flow.md](extensions-flow.md) |
 | Interaction | 6 | 82 | 29 | [extensions-interaction.md](extensions-interaction.md) |
 | Network | 31 | 442 | 250 | [extensions-network.md](extensions-network.md) |
 | Physics | 4 | 50 | 23 | [extensions-physics.md](extensions-physics.md) |

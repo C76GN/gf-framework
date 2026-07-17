@@ -49,19 +49,55 @@ signal node_completed(node_id: StringName, node: GFFlowNode)
 ## @api public
 ## [br]
 ## @since 3.17.0
-signal flow_completed
+## [br]
+## @param report: 本次有界结构化运行报告。
+## [br]
+## @schema report: Dictionary，与 get_last_run_report() 返回结构相同。
+signal flow_completed(report: Dictionary)
 
 ## 流程取消时发出。
 ## [br]
 ## @api public
 ## [br]
 ## @since 3.17.0
-signal flow_cancelled
+## [br]
+## @param report: 本次取消或中止的有界结构化运行报告。
+## [br]
+## @schema report: Dictionary，与 get_last_run_report() 返回结构相同。
+signal flow_cancelled(report: Dictionary)
 
 
 # --- 常量 ---
 
 const _GF_ASYNC_WAIT_SUPPORT = preload("res://addons/gf/standard/common/gf_async_wait_support.gd")
+
+## 流程正常完成。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+const OUTCOME_COMPLETED: StringName = &"completed"
+
+## 流程收到显式取消请求。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+const OUTCOME_CANCELLED: StringName = &"cancelled"
+
+## 流程因运行时保护条件中止。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+const OUTCOME_ABORTED: StringName = &"aborted"
+
+## run() 请求在开始执行前被拒绝。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+const OUTCOME_REJECTED: StringName = &"rejected"
 
 
 # --- 公共变量 ---
@@ -101,12 +137,28 @@ var signal_timeout_respects_time_scale: bool = true
 ## @since 3.17.0
 var isolate_graph_runtime_state: bool = true
 
+## 运行报告最多保留多少条节点 trace；总数与丢弃数始终单独统计。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+var max_report_trace_entries: int = 128:
+	set(value):
+		max_report_trace_entries = maxi(value, 0)
+		_trim_active_trace()
+
 
 # --- 私有变量 ---
 
 var _cancel_requested: bool = false
 var _abort_reason: StringName = &""
 var _architecture_ref: WeakRef = null
+var _run_serial: int = 0
+var _active_report: Dictionary = {}
+var _active_trace: Array[Dictionary] = []
+var _trace_entry_count: int = 0
+var _dropped_trace_entry_count: int = 0
+var _last_run_report: Dictionary = {}
 
 
 # --- 公共方法 ---
@@ -131,13 +183,17 @@ func inject_dependencies(architecture: GFArchitecture) -> void:
 ## @param graph: 流程图资源。
 ## [br]
 ## @param context: 可选上下文。
-func run(graph: GFFlowGraph, context: GFFlowContext = null) -> void:
+## [br]
+## @return 本次有界结构化运行报告；未开始时 outcome 为 rejected。
+## [br]
+## @schema return: Dictionary，包含 schema_version、run_id、outcome、reason、单调时间、节点计数、pending_node_count、Signal 等待状态计数、trace 截断统计和有界 trace。
+func run(graph: GFFlowGraph, context: GFFlowContext = null) -> Dictionary:
 	if graph == null:
 		push_error("[GFFlowRunner] run 失败：graph 为空。")
-		return
+		return _store_rejected_report(&"invalid_graph")
 	if is_running:
 		push_warning("[GFFlowRunner] 流程正在执行，忽略重复 run()。")
-		return
+		return _store_rejected_report(&"run_in_progress")
 
 	var flow_context: GFFlowContext = context if context != null else GFFlowContext.new(_get_architecture_or_null())
 	if flow_context.get_architecture() == null:
@@ -146,13 +202,24 @@ func run(graph: GFFlowGraph, context: GFFlowContext = null) -> void:
 	is_running = true
 	_cancel_requested = false
 	_abort_reason = &""
+	_begin_run_report()
 	flow_started.emit(graph)
 	await _run_graph(graph, flow_context)
 	is_running = false
-	if _cancel_requested or _abort_reason != &"":
-		flow_cancelled.emit()
+	var outcome: StringName = OUTCOME_COMPLETED
+	var reason: StringName = &""
+	if _abort_reason != &"":
+		outcome = OUTCOME_ABORTED
+		reason = _abort_reason
+	elif _cancel_requested:
+		outcome = OUTCOME_CANCELLED
+		reason = &"cancel_requested"
+	var report: Dictionary = _finish_run_report(outcome, reason)
+	if outcome == OUTCOME_COMPLETED:
+		flow_completed.emit(report.duplicate(true))
 	else:
-		flow_completed.emit()
+		flow_cancelled.emit(report.duplicate(true))
+	return report
 
 
 ## 请求取消流程。
@@ -181,12 +248,26 @@ func with_signal_timeout(seconds: float, respect_time_scale: bool = true) -> GFF
 	return self
 
 
+## 获取最近一次已结束或被拒绝的运行报告副本。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @return 最近报告；尚未调用 run() 时为空字典。
+## [br]
+## @schema return: Dictionary，与 run() 返回结构相同。
+func get_last_run_report() -> Dictionary:
+	return _last_run_report.duplicate(true)
+
+
 # --- 私有/辅助方法 ---
 
 func _run_graph(graph: GFFlowGraph, context: GFFlowContext) -> void:
 	var pending: PackedStringArray = PackedStringArray([String(graph.start_node_id)])
 	var pending_index: int = 0
 	var executed_count: int = 0
+	_active_report["pending_node_count"] = pending.size()
 	while pending_index < pending.size() and not _cancel_requested:
 		if max_executed_nodes > 0 and executed_count >= max_executed_nodes:
 			_abort_reason = &"max_executed_nodes"
@@ -195,28 +276,56 @@ func _run_graph(graph: GFFlowGraph, context: GFFlowContext) -> void:
 
 		var node_id: StringName = StringName(pending[pending_index])
 		pending_index += 1
+		_active_report["pending_node_count"] = maxi(pending.size() - pending_index, 0)
 		if node_id == &"":
 			continue
 
 		var node: GFFlowNode = graph.get_node(node_id)
 		if node == null:
 			push_warning("[GFFlowRunner] 缺少流程节点：%s" % String(node_id))
+			_increment_active_report_count("missing_node_count")
+			_append_trace_entry(_make_trace_entry(
+				node_id,
+				&"missing",
+				Time.get_ticks_usec(),
+				Time.get_ticks_usec(),
+				&"not_started",
+				&"missing_node"
+			))
 			continue
+		var node_started_usec: int = Time.get_ticks_usec()
 		var runtime_state_lease_id: int = 0
 		if isolate_graph_runtime_state:
 			runtime_state_lease_id = node.acquire_runtime_state_lease()
 			if runtime_state_lease_id <= 0:
 				_abort_reason = &"node_runtime_state_busy"
 				push_error("[GFFlowRunner] 节点运行态已被其他执行租约占用：%s" % String(node_id))
+				_append_trace_entry(_make_trace_entry(
+					node_id,
+					&"aborted",
+					node_started_usec,
+					Time.get_ticks_usec(),
+					&"not_started",
+					_abort_reason
+				))
 				return
 
-		executed_count += 1
 		context.clear_next_nodes()
 		node_started.emit(node_id, node)
 		if _cancel_requested:
 			if runtime_state_lease_id > 0:
 				var _released_after_cancel: bool = node.release_runtime_state_lease(runtime_state_lease_id)
+			_append_trace_entry(_make_trace_entry(
+				node_id,
+				&"cancelled",
+				node_started_usec,
+				Time.get_ticks_usec(),
+				&"not_started",
+				&"cancel_requested"
+			))
 			return
+		executed_count += 1
+		_active_report["executed_node_count"] = executed_count
 		var result: Variant = _execute_node_with_runtime_state(
 			node,
 			context,
@@ -225,42 +334,107 @@ func _run_graph(graph: GFFlowGraph, context: GFFlowContext) -> void:
 		if _abort_reason != &"":
 			if runtime_state_lease_id > 0:
 				var _released_after_abort: bool = node.release_runtime_state_lease(runtime_state_lease_id)
+			_append_trace_entry(_make_trace_entry(
+				node_id,
+				&"aborted",
+				node_started_usec,
+				Time.get_ticks_usec(),
+				&"not_started",
+				_abort_reason
+			))
 			return
+		var wait_status: StringName = &"not_requested"
 		if result is Signal:
 			var result_signal: Signal = result
-			if isolate_graph_runtime_state:
-				if not _hold_runtime_state_lease_until_signal(
+			if node.wait_for_result:
+				_increment_active_report_count("signal_wait_count")
+				var wait_report: Dictionary = await _await_signal_safely(result_signal)
+				wait_status = GFVariantData.get_option_string_name(
+					wait_report,
+					"status",
+					&"invalid"
+				)
+				_record_signal_wait_status(wait_status)
+				if runtime_state_lease_id > 0:
+					if not node.release_runtime_state_lease(runtime_state_lease_id):
+						_abort_reason = &"node_runtime_state_lease_release_failed"
+						push_error("[GFFlowRunner] 无法释放异步节点运行态租约：%s" % String(node_id))
+						_append_trace_entry(_make_trace_entry(
+							node_id,
+							&"aborted",
+							node_started_usec,
+							Time.get_ticks_usec(),
+							wait_status,
+							_abort_reason
+						))
+						return
+					runtime_state_lease_id = 0
+				if _cancel_requested:
+					_append_trace_entry(_make_trace_entry(
+						node_id,
+						&"cancelled",
+						node_started_usec,
+						Time.get_ticks_usec(),
+						wait_status,
+						&"cancel_requested"
+					))
+					return
+			elif runtime_state_lease_id > 0:
+				if not _release_runtime_state_lease_when_signal_emits(
 					node,
 					result_signal,
 					runtime_state_lease_id
 				):
+					_append_trace_entry(_make_trace_entry(
+						node_id,
+						&"aborted",
+						node_started_usec,
+						Time.get_ticks_usec(),
+						wait_status,
+						_abort_reason
+					))
 					return
 				runtime_state_lease_id = 0
-			if node.wait_for_result:
-				await _await_signal_safely(result_signal)
-				if _cancel_requested:
-					return
 		elif runtime_state_lease_id > 0:
 			if not node.release_runtime_state_lease(runtime_state_lease_id):
 				_abort_reason = &"node_runtime_state_lease_release_failed"
 				push_error("[GFFlowRunner] 无法释放同步节点运行态租约：%s" % String(node_id))
+				_append_trace_entry(_make_trace_entry(
+					node_id,
+					&"aborted",
+					node_started_usec,
+					Time.get_ticks_usec(),
+					wait_status,
+					_abort_reason
+				))
 				return
+			runtime_state_lease_id = 0
+		_increment_active_report_count("completed_node_count")
+		_append_trace_entry(_make_trace_entry(
+			node_id,
+			&"completed",
+			node_started_usec,
+			Time.get_ticks_usec(),
+			wait_status,
+			&""
+		))
 		node_completed.emit(node_id, node)
 
 		var next_ids: PackedStringArray = _get_runtime_successor_node_ids(graph, node, context)
 		for next_id: String in next_ids:
 			_append_packed_string(pending, next_id)
+		_active_report["pending_node_count"] = maxi(pending.size() - pending_index, 0)
+	_active_report["pending_node_count"] = maxi(pending.size() - pending_index, 0)
 
 
-func _await_signal_safely(result_signal: Signal) -> void:
-	await _GF_ASYNC_WAIT_SUPPORT.await_signal_safely(
-		result_signal,
-		_should_continue_waiting,
-		_get_time_utility(),
-		signal_timeout_seconds,
-		signal_timeout_respects_time_scale,
-		"[GFFlowRunner] 等待 Signal 超时，流程将继续执行后续节点。"
-	)
+func _await_signal_safely(result_signal: Signal) -> Dictionary:
+	return await _GF_ASYNC_WAIT_SUPPORT.await_signal_state(result_signal, {
+		"should_continue": _should_continue_waiting,
+		"time_utility": _get_time_utility(),
+		"timeout_seconds": signal_timeout_seconds,
+		"respect_time_scale": signal_timeout_respects_time_scale,
+		"timeout_warning": "[GFFlowRunner] 等待 Signal 超时，流程将继续执行后续节点。",
+	})
 
 
 func _execute_node_with_runtime_state(
@@ -341,7 +515,7 @@ func _get_runtime_successor_node_ids(
 	return result
 
 
-func _hold_runtime_state_lease_until_signal(
+func _release_runtime_state_lease_when_signal_emits(
 	node: GFFlowNode,
 	result_signal: Signal,
 	runtime_state_lease_id: int
@@ -349,33 +523,23 @@ func _hold_runtime_state_lease_until_signal(
 	var release_callback: Callable = Callable(node, "release_runtime_state_lease").bind(
 		runtime_state_lease_id
 	)
-	var signal_argument_count: int = _get_signal_argument_count(result_signal)
+	var signal_argument_count: int = _GF_ASYNC_WAIT_SUPPORT.get_signal_argument_count(
+		result_signal
+	)
 	if signal_argument_count > 0:
 		release_callback = release_callback.unbind(signal_argument_count)
 	var connect_error: Error = result_signal.connect(
 		release_callback,
 		CONNECT_ONE_SHOT as Object.ConnectFlags
 	) as Error
-	if connect_error != OK:
-		var _released_after_connect_failure: bool = node.release_runtime_state_lease(
-			runtime_state_lease_id
-		)
-		_abort_reason = &"node_runtime_state_lease_connect_failed"
-		push_error("[GFFlowRunner] 无法建立异步运行态写租约释放连接。")
-		return false
-	return true
-
-
-func _get_signal_argument_count(result_signal: Signal) -> int:
-	var signal_object: Object = result_signal.get_object()
-	if signal_object == null:
-		return 0
-	var signal_name: StringName = result_signal.get_name()
-	for signal_info_variant: Variant in signal_object.get_signal_list():
-		var signal_info: Dictionary = GFVariantData.as_dictionary(signal_info_variant)
-		if GFVariantData.get_option_string_name(signal_info, "name", &"") == signal_name:
-			return GFVariantData.get_option_array(signal_info, "args").size()
-	return 0
+	if connect_error == OK:
+		return true
+	var _released_after_connect_failure: bool = node.release_runtime_state_lease(
+		runtime_state_lease_id
+	)
+	_abort_reason = &"node_runtime_state_lease_connect_failed"
+	push_error("[GFFlowRunner] 无法建立非等待 Signal 的运行态租约释放连接。")
+	return false
 
 
 func _get_time_utility() -> GFTimeUtility:
@@ -400,6 +564,142 @@ func _get_architecture_or_null() -> GFArchitecture:
 			var architecture: GFArchitecture = architecture_value
 			return architecture
 	return GFAutoload.get_architecture_or_null()
+
+
+func _begin_run_report() -> void:
+	_active_trace.clear()
+	_trace_entry_count = 0
+	_dropped_trace_entry_count = 0
+	_active_report = {
+		"schema_version": 1,
+		"run_id": _next_run_id(),
+		"outcome": "running",
+		"reason": "",
+		"started_at_ticks_usec": Time.get_ticks_usec(),
+		"finished_at_ticks_usec": 0,
+		"duration_msec": 0.0,
+		"executed_node_count": 0,
+		"completed_node_count": 0,
+		"missing_node_count": 0,
+		"pending_node_count": 0,
+		"signal_wait_count": 0,
+		"timed_out_signal_wait_count": 0,
+		"cancelled_signal_wait_count": 0,
+		"invalid_signal_wait_count": 0,
+		"trace_entry_count": 0,
+		"retained_trace_entry_count": 0,
+		"dropped_trace_entry_count": 0,
+		"trace_truncated": false,
+		"trace": [],
+	}
+
+
+func _finish_run_report(outcome: StringName, reason: StringName) -> Dictionary:
+	var finished_at_usec: int = Time.get_ticks_usec()
+	var started_at_usec: int = GFVariantData.get_option_int(
+		_active_report,
+		"started_at_ticks_usec",
+		finished_at_usec
+	)
+	_trim_active_trace()
+	_active_report["outcome"] = String(outcome)
+	_active_report["reason"] = String(reason)
+	_active_report["finished_at_ticks_usec"] = finished_at_usec
+	_active_report["duration_msec"] = float(maxi(finished_at_usec - started_at_usec, 0)) / 1000.0
+	_active_report["trace_entry_count"] = _trace_entry_count
+	_active_report["retained_trace_entry_count"] = _active_trace.size()
+	_active_report["dropped_trace_entry_count"] = _dropped_trace_entry_count
+	_active_report["trace_truncated"] = _dropped_trace_entry_count > 0
+	_active_report["trace"] = _active_trace.duplicate(true)
+	_last_run_report = _active_report.duplicate(true)
+	var report: Dictionary = _last_run_report.duplicate(true)
+	_active_report.clear()
+	_active_trace.clear()
+	return report
+
+
+func _store_rejected_report(reason: StringName) -> Dictionary:
+	var report: Dictionary = _make_rejected_report(reason)
+	_last_run_report = report.duplicate(true)
+	return report
+
+
+func _make_rejected_report(reason: StringName) -> Dictionary:
+	var now_usec: int = Time.get_ticks_usec()
+	return {
+		"schema_version": 1,
+		"run_id": _next_run_id(),
+		"outcome": String(OUTCOME_REJECTED),
+		"reason": String(reason),
+		"started_at_ticks_usec": now_usec,
+		"finished_at_ticks_usec": now_usec,
+		"duration_msec": 0.0,
+		"executed_node_count": 0,
+		"completed_node_count": 0,
+		"missing_node_count": 0,
+		"pending_node_count": 0,
+		"signal_wait_count": 0,
+		"timed_out_signal_wait_count": 0,
+		"cancelled_signal_wait_count": 0,
+		"invalid_signal_wait_count": 0,
+		"trace_entry_count": 0,
+		"retained_trace_entry_count": 0,
+		"dropped_trace_entry_count": 0,
+		"trace_truncated": false,
+		"trace": [],
+	}
+
+
+func _make_trace_entry(
+	node_id: StringName,
+	status: StringName,
+	started_at_usec: int,
+	finished_at_usec: int,
+	wait_status: StringName,
+	reason: StringName
+) -> Dictionary:
+	return {
+		"sequence": _trace_entry_count + 1,
+		"node_id": String(node_id),
+		"status": String(status),
+		"reason": String(reason),
+		"wait_status": String(wait_status),
+		"started_at_ticks_usec": started_at_usec,
+		"finished_at_ticks_usec": finished_at_usec,
+		"duration_msec": float(maxi(finished_at_usec - started_at_usec, 0)) / 1000.0,
+	}
+
+
+func _append_trace_entry(entry: Dictionary) -> void:
+	_trace_entry_count += 1
+	_active_trace.append(entry)
+	_trim_active_trace()
+
+
+func _trim_active_trace() -> void:
+	var limit: int = maxi(max_report_trace_entries, 0)
+	while _active_trace.size() > limit:
+		_active_trace.pop_front()
+		_dropped_trace_entry_count += 1
+
+
+func _increment_active_report_count(key: String) -> void:
+	_active_report[key] = GFVariantData.get_option_int(_active_report, key) + 1
+
+
+func _record_signal_wait_status(wait_status: StringName) -> void:
+	match wait_status:
+		_GF_ASYNC_WAIT_SUPPORT.STATUS_TIMEOUT:
+			_increment_active_report_count("timed_out_signal_wait_count")
+		_GF_ASYNC_WAIT_SUPPORT.STATUS_CANCELLED:
+			_increment_active_report_count("cancelled_signal_wait_count")
+		_GF_ASYNC_WAIT_SUPPORT.STATUS_INVALID:
+			_increment_active_report_count("invalid_signal_wait_count")
+
+
+func _next_run_id() -> int:
+	_run_serial += 1
+	return _run_serial
 
 
 func _append_unique_packed_string(target: PackedStringArray, value: String) -> void:

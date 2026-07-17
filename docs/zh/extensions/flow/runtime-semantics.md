@@ -6,6 +6,10 @@
 
 等待期间调用 `cancel()` 后，运行器会停止在当前等待点，不再发送当前节点完成事件或推进后继节点。如果自定义节点在 `execute()` 内部自行 await 且永不返回，运行器无法替它取消这段内部逻辑，项目层应把等待对象作为 Signal 返回。
 
+每次 `run()` 都返回一份普通 Dictionary 运行报告，`flow_completed(report)` 与 `flow_cancelled(report)` 发出同一结构；也可用 `get_last_run_report()` 读取隔离副本。`outcome` 区分 `completed`、`cancelled`、`aborted` 和开始前的 `rejected`，`reason` 给出稳定原因；报告还包含单调起止时间、耗时、已执行/已完成/缺失/待执行节点数量，以及 `signal_wait_count`、超时/取消/无效等待计数和每个已保留节点的 `status`、`wait_status`、耗时。这让任务链、过场编排、导入流水线等项目系统能够回答“停在哪里、是等待超时还是保护条件中止”，而无需让 Flow 理解具体业务。同一 Runner 尚未结束时再次调用 `run()` 会得到独立的 `rejected / run_in_progress` 报告，不会修改正在执行的图状态；原运行结束后，最近报告更新为它自己的终态。
+
+节点 trace 默认最多保留最新 128 条，由 `max_report_trace_entries` 调整；设为 `0` 可只保留汇总计数。`trace_entry_count` 始终统计完整数量，`retained_trace_entry_count`、`dropped_trace_entry_count` 和 `trace_truncated` 明确说明截断状态，因此循环图或长批处理不会让诊断数据无限增长。报告只记录节点标识和通用运行事实，不复制 context、节点对象、Signal 载荷或项目数据；需要记录领域结果时，由项目在自己的日志或 metadata 边界补充。
+
 `GFFlowContext` 可注册条件查询处理器。`register_condition_handler(condition_id, handler)` 接收一个通用 `Callable`，`query_condition()` 会把返回值归一化为 `ok`、`value`、`reason` 和 `metadata`。这适合把“某个条件如何判断”留在项目层，同时让节点、导入器或编辑器工具使用同一套查询结果结构。
 
 运行态默认写入 `GFFlowContext` 的节点状态表。节点可通过 `set_node_runtime_value(node_id, key, value)`、`get_node_runtime_value(node_id, key, default)` 和 `clear_node_runtime_state(node_id)` 保存跨 tick 进度；`serialize_runtime_state()` 和 `deserialize_runtime_state()` 可把这份上下文运行态随项目存档保存。
@@ -14,6 +18,6 @@
 
 诊断、CLI 或日志需要直接写 JSON 时，使用 `serialize_runtime_state(true)` 或 `create_runtime_snapshot({ "json_compatible": true })`。默认快照保留原始 Variant，只适合内存恢复或项目自有编码器；JSON-safe 快照会把 Object、Resource、循环集合和非有限数收束为报告 marker。
 
-`GFFlowRunner.isolate_graph_runtime_state` 默认开启。运行同一个 `GFFlowGraph` 资源时，它会把图内节点运行态隔离到当前 context，再在运行结束后恢复资源原状态，避免多个 NPC、任务实例或测试共享同一资源时串状态。
+`GFFlowRunner.isolate_graph_runtime_state` 默认开启。运行同一个 `GFFlowGraph` 资源时，它会把图内节点运行态隔离到当前 context，再在运行结束后恢复资源原状态，避免多个 NPC、任务实例或测试共享同一资源时串状态。返回 Signal 且要求等待的节点会持有运行态租约直到 Signal 完成、超时或取消，然后统一释放；因此超时不会留下永久占用的节点资源。返回 Signal 但 `wait_for_result = false` 的节点不会阻塞后继推进，不过租约仍保留到该 Signal 真正发出，防止异步回调在流程已继续后污染共享图资源；这类节点必须保证终态 Signal 最终发出。
 
 需要从资源创建独立配置副本时，仍可使用 `instantiate_graph()`。

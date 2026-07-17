@@ -6,7 +6,7 @@
 
 | 类别 | 类 | 成员 | 方法 |
 |---|---:|---:|---:|
-| [运行时服务](#category-runtime_service) | 1 | 13 | 3 |
+| [运行时服务](#category-runtime_service) | 1 | 19 | 4 |
 | [资源定义](#category-resource_definition) | 3 | 80 | 46 |
 | [运行时句柄](#category-runtime_handle) | 1 | 22 | 19 |
 | [编辑器 API](#category-editor_api) | 2 | 17 | 15 |

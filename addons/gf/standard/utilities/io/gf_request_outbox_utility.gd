@@ -59,6 +59,26 @@ signal request_failed(envelope: GFRequestEnvelope, result: Dictionary)
 ## @schema snapshot: Dictionary，由 get_debug_snapshot() 返回的调试快照。
 signal queue_changed(snapshot: Dictionary)
 
+## 队列持久化操作失败。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param operation: 失败操作，当前为 save 或 load；load 包含恢复候选提升。
+## [br]
+## @param error: Godot 错误码。
+## [br]
+## @param path: 队列持久化路径。
+signal persistence_failed(operation: StringName, error: Error, path: String)
+
+
+# --- 常量 ---
+
+const _STORAGE_VERSION: int = 2
+const _TEMP_SUFFIX: String = ".tmp"
+const _BACKUP_SUFFIX: String = ".bak"
+
 
 # --- 公共变量 ---
 
@@ -122,6 +142,8 @@ var _failed_requests: Array[GFRequestEnvelope] = []
 var _is_replaying: bool = false
 var _disposed: bool = false
 var _replay_generation: int = 0
+var _last_persistence_error: Error = OK
+var _is_persisted: bool = true
 
 
 # --- GF 生命周期方法 ---
@@ -199,6 +221,8 @@ func enqueue(envelope: GFRequestEnvelope) -> bool:
 
 	if envelope.request_id == &"":
 		envelope.request_id = StringName(_generate_request_id())
+	if envelope.idempotency_key.is_empty():
+		envelope.idempotency_key = String(envelope.request_id)
 	if envelope.created_at_unix <= 0:
 		envelope.created_at_unix = int(Time.get_unix_time_from_system())
 
@@ -208,25 +232,29 @@ func enqueue(envelope: GFRequestEnvelope) -> bool:
 	return true
 
 
-## 重放可尝试的请求。
+## 重放可尝试的请求；恢复出的已耗尽 pending 会直接迁移到失败列表而不再次发送。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @param max_count: 最多处理数量；小于等于 0 表示不限制。
 ## [br]
 ## @return 重放报告。
 ## [br]
-## @schema return: Dictionary，包含 ok、processed、succeeded、failed、skipped、pending、failed_stored 和 reason。
+## @schema return: Dictionary，包含 ok、processed、succeeded、failed、recovered_exhausted、skipped、pending、failed_stored、reason 和 persistence_error。
 func replay(max_count: int = 0) -> Dictionary:
 	var report: Dictionary = {
 		"ok": true,
 		"processed": 0,
 		"succeeded": 0,
 		"failed": 0,
+		"recovered_exhausted": 0,
 		"skipped": 0,
 		"pending": _queue.size(),
 		"failed_stored": _failed_requests.size(),
 		"reason": "",
+		"persistence_error": OK,
 	}
 	if not transport_callback.is_valid():
 		report["ok"] = false
@@ -239,7 +267,6 @@ func replay(max_count: int = 0) -> Dictionary:
 
 	_is_replaying = true
 	var replay_generation: int = _replay_generation
-	var now_msec: int = Time.get_ticks_msec()
 	var index: int = 0
 	while index < _queue.size():
 		if _is_replay_invalid(replay_generation):
@@ -248,7 +275,14 @@ func replay(max_count: int = 0) -> Dictionary:
 			break
 
 		var envelope: GFRequestEnvelope = _queue[index]
-		if not _can_replay_envelope(envelope, now_msec):
+		if envelope != null and envelope.is_exhausted():
+			_queue.remove_at(index)
+			_store_failed_request(envelope)
+			_increment_report_count(report, "recovered_exhausted")
+			if not _checkpoint_replay_state(report):
+				return _make_persistence_failed_replay_report(report)
+			continue
+		if not _can_replay_envelope(envelope, _get_unix_time_msec()):
 			_increment_report_count(report, "skipped")
 			index += 1
 			continue
@@ -256,6 +290,7 @@ func replay(max_count: int = 0) -> Dictionary:
 		_increment_report_count(report, "processed")
 		request_started.emit(envelope)
 		envelope.mark_attempt()
+		_is_persisted = false
 		var result: Dictionary = await _call_transport(envelope)
 		if _is_replay_invalid(replay_generation):
 			return _make_interrupted_replay_report(report, replay_generation)
@@ -269,6 +304,8 @@ func replay(max_count: int = 0) -> Dictionary:
 				index = mini(index, _queue.size())
 			_increment_report_count(report, "succeeded")
 			request_completed.emit(envelope, result)
+			if not _checkpoint_replay_state(report):
+				return _make_persistence_failed_replay_report(report)
 			continue
 
 		_increment_report_count(report, "failed")
@@ -284,16 +321,20 @@ func replay(max_count: int = 0) -> Dictionary:
 			else:
 				index = mini(index, _queue.size())
 			_store_failed_request(envelope)
+			if not _checkpoint_replay_state(report):
+				return _make_persistence_failed_replay_report(report)
 			continue
 		if queue_index >= 0:
 			index = queue_index + 1
 		else:
 			index = mini(index, _queue.size())
+		if not _checkpoint_replay_state(report):
+			return _make_persistence_failed_replay_report(report)
 
 	report["pending"] = _queue.size()
 	report["failed_stored"] = _failed_requests.size()
 	_is_replaying = false
-	_persist_and_emit_changed()
+	queue_changed.emit(get_debug_snapshot())
 	return report
 
 
@@ -376,73 +417,63 @@ func get_failed_requests() -> Array[GFRequestEnvelope]:
 	return result
 
 
-## 保存队列到 storage_path。
+## 以同目录临时文件校验、旧文件备份和原子替换保存队列到 storage_path。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @return Godot 错误码。
 func save_queue() -> Error:
 	if storage_path.is_empty():
-		return ERR_INVALID_PARAMETER
+		return _record_persistence_result(&"save", ERR_INVALID_PARAMETER)
 	if not _is_allowed_storage_path(storage_path):
-		return ERR_UNAUTHORIZED
+		return _record_persistence_result(&"save", ERR_UNAUTHORIZED)
 
 	var base_dir: String = storage_path.get_base_dir()
 	if not base_dir.is_empty() and base_dir != "user://":
 		var dir_error: Error = DirAccess.make_dir_recursive_absolute(base_dir)
 		if dir_error != OK:
-			return dir_error
-
-	var file: FileAccess = FileAccess.open(storage_path, FileAccess.WRITE)
-	if file == null:
-		return FileAccess.get_open_error()
+			return _record_persistence_result(&"save", dir_error)
 
 	var data: Variant = GFVariantJsonCodec.variant_to_json_compatible(_to_storage_dict())
-	_store_string_checked(file, JSON.stringify(data, "\t"))
-	var error: Error = file.get_error()
-	file.close()
-	return error
+	var text: String = JSON.stringify(data, "\t") + "\n"
+	return _record_persistence_result(&"save", _write_storage_transaction(text))
 
 
-## 从 storage_path 读取队列。
+## 从 storage_path 读取队列；正式文件缺失或损坏时会尝试有效临时文件与备份。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @return Godot 错误码。
 func load_queue() -> Error:
 	if storage_path.is_empty():
-		return ERR_INVALID_PARAMETER
+		return _record_persistence_result(&"load", ERR_INVALID_PARAMETER)
 	if not _is_allowed_storage_path(storage_path):
-		return ERR_UNAUTHORIZED
-	if not FileAccess.file_exists(storage_path):
+		return _record_persistence_result(&"load", ERR_UNAUTHORIZED)
+
+	var recovery_report: Dictionary = _load_storage_with_recovery()
+	if not GFVariantData.get_option_bool(recovery_report, "found"):
 		_commit_loaded_state([], [])
+		_last_persistence_error = OK
+		_is_persisted = true
 		queue_changed.emit(get_debug_snapshot())
 		return OK
+	if not GFVariantData.get_option_bool(recovery_report, "ok"):
+		var recovery_error: Error = GFVariantData.get_option_int(
+			recovery_report,
+			"error",
+			ERR_PARSE_ERROR
+		) as Error
+		return _record_persistence_result(&"load", recovery_error)
 
-	var file: FileAccess = FileAccess.open(storage_path, FileAccess.READ)
-	if file == null:
-		return FileAccess.get_open_error()
-
-	var text: String = file.get_as_text()
-	var error: Error = file.get_error()
-	file.close()
-	if error != OK:
-		return error
-
-	var json: JSON = JSON.new()
-	if json.parse(text) != OK:
-		return ERR_PARSE_ERROR
-	var data_value: Variant = GFVariantJsonCodec.json_compatible_to_variant(json.data)
-	if not (data_value is Dictionary):
-		return ERR_PARSE_ERROR
-
-	var data: Dictionary = GFVariantData.as_dictionary(data_value)
-	var parse_report: Dictionary = _parse_storage_dict(data)
-	if not GFVariantData.get_option_bool(parse_report, "ok"):
-		return ERR_PARSE_ERROR
-	var pending: Array[GFRequestEnvelope] = _get_parsed_envelopes(parse_report, "pending")
-	var failed: Array[GFRequestEnvelope] = _get_parsed_envelopes(parse_report, "failed")
+	var pending: Array[GFRequestEnvelope] = _get_parsed_envelopes(recovery_report, "pending")
+	var failed: Array[GFRequestEnvelope] = _get_parsed_envelopes(recovery_report, "failed")
 	_commit_loaded_state(pending, failed)
+	_last_persistence_error = OK
+	_is_persisted = true
 	queue_changed.emit(get_debug_snapshot())
 	return OK
 
@@ -451,9 +482,11 @@ func load_queue() -> Error:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @return 调试快照。
 ## [br]
-## @schema return: Dictionary，包含存储设置、队列计数、传输可用性和请求 ID 列表。
+## @schema return: Dictionary，包含存储设置、队列计数、传输可用性、last_persistence_error、is_persisted 和请求 ID 列表。
 func get_debug_snapshot() -> Dictionary:
 	return {
 		"storage_path": storage_path,
@@ -462,6 +495,8 @@ func get_debug_snapshot() -> Dictionary:
 		"default_max_attempts": default_max_attempts,
 		"pending_count": _queue.size(),
 		"failed_count": _failed_requests.size(),
+		"last_persistence_error": _last_persistence_error,
+		"is_persisted": _is_persisted,
 		"has_transport": transport_callback.is_valid(),
 		"pending_request_ids": _get_request_ids(_queue),
 		"failed_request_ids": _get_request_ids(_failed_requests),
@@ -493,6 +528,16 @@ func _make_interrupted_replay_report(report: Dictionary, replay_generation: int)
 	return report
 
 
+func _make_persistence_failed_replay_report(report: Dictionary) -> Dictionary:
+	report["ok"] = false
+	report["pending"] = _queue.size()
+	report["failed_stored"] = _failed_requests.size()
+	report["reason"] = "persistence_failed"
+	report["persistence_error"] = _last_persistence_error
+	_is_replaying = false
+	return report
+
+
 func _increment_report_count(report: Dictionary, key: String) -> void:
 	report[key] = _get_report_count(report, key) + 1
 
@@ -510,8 +555,8 @@ func _get_result_error_text(result: Dictionary) -> String:
 	return GFVariantData.get_option_string(result, "error", fallback)
 
 
-func _can_replay_envelope(envelope: GFRequestEnvelope, now_msec: int) -> bool:
-	if envelope == null or not envelope.can_attempt(now_msec):
+func _can_replay_envelope(envelope: GFRequestEnvelope, now_unix_msec: int) -> bool:
+	if envelope == null or not envelope.can_attempt(now_unix_msec):
 		return false
 	if replay_filter.is_valid():
 		return GFVariantData.to_bool(replay_filter.call(envelope))
@@ -579,9 +624,20 @@ func _store_failed_request(envelope: GFRequestEnvelope) -> void:
 
 
 func _persist_and_emit_changed() -> void:
+	_is_persisted = false
 	if auto_persist:
 		var _save_error: Error = save_queue()
 	queue_changed.emit(get_debug_snapshot())
+
+
+func _checkpoint_replay_state(report: Dictionary) -> bool:
+	_is_persisted = false
+	if not auto_persist:
+		return true
+	var save_error: Error = save_queue()
+	report["persistence_error"] = save_error
+	queue_changed.emit(get_debug_snapshot())
+	return save_error == OK
 
 
 func _to_storage_dict() -> Dictionary:
@@ -594,14 +650,14 @@ func _to_storage_dict() -> Dictionary:
 		failed.append(envelope.to_dict(true))
 
 	return {
-		"version": 1,
+		"version": _STORAGE_VERSION,
 		"pending": pending,
 		"failed": failed,
 	}
 
 
 func _parse_storage_dict(data: Dictionary) -> Dictionary:
-	if GFVariantData.get_option_int(data, "version", 0) != 1:
+	if GFVariantData.get_option_int(data, "version", 0) != _STORAGE_VERSION:
 		return { "ok": false }
 	var pending_report: Dictionary = _parse_envelope_array(GFVariantData.get_option_value(data, "pending"))
 	if not GFVariantData.get_option_bool(pending_report, "ok"):
@@ -624,7 +680,13 @@ func _parse_envelope_array(value: Variant) -> Dictionary:
 		if not (entry_value is Dictionary):
 			return { "ok": false }
 		var envelope: GFRequestEnvelope = GFRequestEnvelope.from_dict(GFVariantData.as_dictionary(entry_value))
-		if not envelope.is_valid():
+		if (
+			not envelope.is_valid()
+			or envelope.request_id == &""
+			or envelope.idempotency_key.is_empty()
+			or envelope.attempt_count < 0
+			or envelope.next_attempt_at_unix_msec < 0
+		):
 			return { "ok": false }
 		requests.append(envelope)
 	return { "ok": true, "requests": requests }
@@ -660,7 +722,11 @@ func _get_request_ids(requests: Array[GFRequestEnvelope]) -> PackedStringArray:
 
 
 func _generate_request_id() -> String:
-	return "req_%d_%d" % [Time.get_unix_time_from_system(), randi()]
+	return "req_%d_%d_%d" % [
+		int(Time.get_unix_time_from_system() * 1000000.0),
+		OS.get_process_id(),
+		randi(),
+	]
 
 
 func _is_allowed_storage_path(path: String) -> bool:
@@ -680,3 +746,142 @@ func _store_string_checked(file: FileAccess, value: String) -> void:
 	var store_result: Variant = file.store_string(value)
 	if store_result != null:
 		return
+
+
+func _get_unix_time_msec() -> int:
+	return int(Time.get_unix_time_from_system() * 1000.0)
+
+
+func _record_persistence_result(operation: StringName, error: Error) -> Error:
+	_last_persistence_error = error
+	if error != OK:
+		_is_persisted = false
+		persistence_failed.emit(operation, error, storage_path)
+	elif operation == &"save":
+		_is_persisted = true
+	return error
+
+
+func _write_storage_transaction(text: String) -> Error:
+	var temp_path: String = storage_path + _TEMP_SUFFIX
+	var backup_path: String = storage_path + _BACKUP_SUFFIX
+	var temp_cleanup_error: Error = _remove_file_if_exists(temp_path)
+	if temp_cleanup_error != OK:
+		return temp_cleanup_error
+
+	var file: FileAccess = FileAccess.open(temp_path, FileAccess.WRITE)
+	if file == null:
+		return FileAccess.get_open_error()
+	_store_string_checked(file, text)
+	file.flush()
+	var write_error: Error = file.get_error()
+	file.close()
+	if write_error != OK:
+		var _failed_temp_cleanup: Error = _remove_file_if_exists(temp_path)
+		return write_error
+
+	var validation_report: Dictionary = _parse_storage_path(temp_path)
+	if not GFVariantData.get_option_bool(validation_report, "ok"):
+		var _invalid_temp_cleanup: Error = _remove_file_if_exists(temp_path)
+		return ERR_FILE_CORRUPT
+
+	var backed_up: bool = false
+	if FileAccess.file_exists(storage_path):
+		var backup_cleanup_error: Error = _remove_file_if_exists(backup_path)
+		if backup_cleanup_error != OK:
+			var _backup_cleanup_temp: Error = _remove_file_if_exists(temp_path)
+			return backup_cleanup_error
+		var backup_error: Error = DirAccess.rename_absolute(storage_path, backup_path)
+		if backup_error != OK:
+			var _backup_failed_temp_cleanup: Error = _remove_file_if_exists(temp_path)
+			return backup_error
+		backed_up = true
+
+	var commit_error: Error = DirAccess.rename_absolute(temp_path, storage_path)
+	if commit_error != OK:
+		if backed_up and FileAccess.file_exists(backup_path):
+			var _restore_error: Error = DirAccess.rename_absolute(backup_path, storage_path)
+		var _commit_failed_temp_cleanup: Error = _remove_file_if_exists(temp_path)
+		return commit_error
+
+	var _stale_backup_cleanup: Error = _remove_file_if_exists(backup_path)
+	return OK
+
+
+func _load_storage_with_recovery() -> Dictionary:
+	var temp_path: String = storage_path + _TEMP_SUFFIX
+	var backup_path: String = storage_path + _BACKUP_SUFFIX
+	var candidates: PackedStringArray = PackedStringArray()
+	for path: String in [storage_path, temp_path, backup_path]:
+		if FileAccess.file_exists(path):
+			var _appended: bool = candidates.append(path)
+	if candidates.is_empty():
+		return { "found": false, "ok": true }
+
+	for candidate_path: String in candidates:
+		var parse_report: Dictionary = _parse_storage_path(candidate_path)
+		if not GFVariantData.get_option_bool(parse_report, "ok"):
+			continue
+		if candidate_path != storage_path:
+			var recover_error: Error = _promote_recovery_candidate(candidate_path)
+			if recover_error != OK:
+				return {
+					"found": true,
+					"ok": false,
+					"error": recover_error,
+				}
+		else:
+			var _temp_cleanup: Error = _remove_file_if_exists(temp_path)
+			var _backup_cleanup: Error = _remove_file_if_exists(backup_path)
+		parse_report["found"] = true
+		return parse_report
+	return {
+		"found": true,
+		"ok": false,
+		"error": ERR_PARSE_ERROR,
+	}
+
+
+func _parse_storage_path(path: String) -> Dictionary:
+	var file: FileAccess = FileAccess.open(path, FileAccess.READ)
+	if file == null:
+		return { "ok": false, "error": FileAccess.get_open_error() }
+	var text: String = file.get_as_text()
+	var read_error: Error = file.get_error()
+	file.close()
+	if read_error != OK:
+		return { "ok": false, "error": read_error }
+
+	var json: JSON = JSON.new()
+	if json.parse(text) != OK:
+		return { "ok": false, "error": ERR_PARSE_ERROR }
+	var data_value: Variant = GFVariantJsonCodec.json_compatible_to_variant(json.data)
+	if not data_value is Dictionary:
+		return { "ok": false, "error": ERR_PARSE_ERROR }
+	var parse_report: Dictionary = _parse_storage_dict(GFVariantData.as_dictionary(data_value))
+	if not GFVariantData.get_option_bool(parse_report, "ok"):
+		return { "ok": false, "error": ERR_PARSE_ERROR }
+	return parse_report
+
+
+func _promote_recovery_candidate(candidate_path: String) -> Error:
+	var temp_path: String = storage_path + _TEMP_SUFFIX
+	var backup_path: String = storage_path + _BACKUP_SUFFIX
+	if FileAccess.file_exists(storage_path):
+		var remove_error: Error = _remove_file_if_exists(storage_path)
+		if remove_error != OK:
+			return remove_error
+	var promote_error: Error = DirAccess.rename_absolute(candidate_path, storage_path)
+	if promote_error != OK:
+		return promote_error
+	if temp_path != candidate_path:
+		var _temp_cleanup: Error = _remove_file_if_exists(temp_path)
+	if backup_path != candidate_path:
+		var _backup_cleanup: Error = _remove_file_if_exists(backup_path)
+	return OK
+
+
+func _remove_file_if_exists(path: String) -> Error:
+	if not FileAccess.file_exists(path):
+		return OK
+	return DirAccess.remove_absolute(path)
