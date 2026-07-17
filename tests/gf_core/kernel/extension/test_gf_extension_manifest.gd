@@ -2045,6 +2045,16 @@ func test_extensions_do_not_hard_reference_other_extensions() -> void:
 	assert_eq(Array(issues), [], "GF 内置扩展只能硬引用自身；跨扩展组合属于项目或外部插件。")
 
 
+func test_extension_export_plugin_reports_stable_name() -> void:
+	var has_get_name: bool = false
+	for method: Dictionary in GF_EXTENSION_EXPORT_PLUGIN_BASE.get_script_method_list():
+		if GF_VARIANT_ACCESS.get_option_string(method, "name") == "_get_name":
+			has_get_name = true
+			break
+
+	assert_true(has_get_name, "EditorExportPlugin 必须提供 _get_name()，避免导出流程报错。")
+
+
 func test_extension_export_plugin_matches_disabled_roots() -> void:
 	assert_true(
 		GF_EXTENSION_EXPORT_PLUGIN_BASE._should_skip_export_path(
