@@ -97,6 +97,74 @@ func test_measure_control_text_uses_label_autowrap() -> void:
 	assert_lt(wrapped_size.x, single_line_size.x, "开启自动换行时测量宽度应小于单行文本。")
 
 
+## 验证显式关闭多行测量会覆盖 Label 自身的换行元数据。
+func test_measure_control_text_allows_explicit_single_line_override() -> void:
+	var label: Label = Label.new()
+	label.text = "Alpha Beta Gamma Delta"
+	label.size = Vector2(72.0, 160.0)
+	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART as TextServer.AutowrapMode
+	add_child_autofree(label)
+
+	var measured_size: Vector2 = GFTextFitter.measure_control_text(label, 20, {
+		"available_size": Vector2(72.0, 160.0),
+		"use_multiline_measurement": false,
+	})
+	var expected_size: Vector2 = label.get_theme_font(&"font").get_string_size(
+		label.text,
+		HORIZONTAL_ALIGNMENT_LEFT,
+		-1.0,
+		20
+	)
+
+	assert_almost_eq(measured_size.x, expected_size.x, 0.01, "显式单行测量不应按可用宽度换行。")
+	assert_almost_eq(measured_size.y, expected_size.y, 0.01, "显式单行测量应只保留一行高度。")
+
+
+## 验证固定单行文本可用一次测量按比例求得字号。
+func test_fit_label_supports_single_pass_proportional_fit() -> void:
+	var label: Label = Label.new()
+	label.text = "2147483647"
+	label.size = Vector2(90.0, 40.0)
+	add_child_autofree(label)
+
+	var font: Font = label.get_theme_font(&"font")
+	var max_size: Vector2 = font.get_string_size(label.text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, 40)
+	var expected_size: int = clampi(
+		floori(40.0 * minf(90.0 / maxf(max_size.x, 1.0), 40.0 / maxf(max_size.y, 1.0))),
+		6,
+		40
+	)
+	var font_size: int = GFTextFitter.fit_label(label, {
+		"min_font_size": 6,
+		"max_font_size": 40,
+		"available_size": Vector2(90.0, 40.0),
+		"use_multiline_measurement": false,
+		"use_single_pass_fit": true,
+	})
+
+	assert_eq(font_size, expected_size, "单次比例策略应按最大字号测量结果直接计算字号。")
+	assert_eq(label.get_theme_font_size(&"font_size"), expected_size, "计算结果应写入 Label 主题覆盖。")
+
+
+## 验证 fit_control 的显式文本优先于具体控件当前文本。
+func test_fit_control_respects_explicit_text_for_label() -> void:
+	var label: Label = Label.new()
+	label.text = "Fit"
+	label.size = Vector2(90.0, 40.0)
+	add_child_autofree(label)
+
+	var font_size: int = GFTextFitter.fit_control(label, {
+		"text": "2147483647",
+		"min_font_size": 6,
+		"max_font_size": 40,
+		"available_size": Vector2(90.0, 40.0),
+		"use_multiline_measurement": false,
+		"use_single_pass_fit": true,
+	})
+
+	assert_lt(font_size, 40, "显式长文本应覆盖 Label 当前短文本并触发字号收缩。")
+
+
 ## 验证 Label 适配会按换行后的高度寻找字号。
 func test_fit_label_uses_label_autowrap_for_height() -> void:
 	var label: Label = Label.new()

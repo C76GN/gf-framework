@@ -20,6 +20,20 @@
 
 ---
 
+## [未发布]
+
+### 🚀 新增特性 (Added)
+
+- `GFTextFitter` 新增 `use_single_pass_fit` 选项，为固定单行数字和计数器提供一次测量的比例字号适配。
+
+### 🐛 Bug 修复 (Fixed)
+
+- `use_multiline_measurement = false` 现在会覆盖 Label 自身的换行元数据，避免单行适配仍走多行塑形；`fit_control()` 的显式 `text` 也不再被 Label / RichTextLabel 专用分派忽略。
+
+### 🔧 API 变动说明 (API Changes)
+
+- `GFTextFitter.fit_control()`、`fit_label()` 与 `fit_rich_text_label()` 的 options 新增兼容选项 `use_single_pass_fit`；文本测量 options 明确支持 `use_multiline_measurement` 覆盖。
+
 ## [8.1.0] - 2026-07-17
 
 ### 🚀 新增特性 (Added)
