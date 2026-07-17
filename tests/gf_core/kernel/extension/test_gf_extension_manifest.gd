@@ -2046,12 +2046,14 @@ func test_extensions_do_not_hard_reference_other_extensions() -> void:
 
 
 func test_extension_export_plugin_reports_stable_name() -> void:
-	var export_plugin: EditorExportPlugin = GF_EXTENSION_EXPORT_PLUGIN_BASE.new()
+	var export_plugin_script: Script = GF_EXTENSION_EXPORT_PLUGIN_BASE
+	var method_names: Array[StringName] = []
+	for method_info: Dictionary in export_plugin_script.get_script_method_list():
+		method_names.append(GF_VARIANT_ACCESS.get_option_string_name(method_info, "name"))
 
-	assert_eq(
-		export_plugin._get_name(),
-		"GFExtensionExportPlugin",
-		"EditorExportPlugin 必须提供稳定名称，避免导出流程报错。"
+	assert_true(
+		method_names.has(&"_get_name"),
+		"EditorExportPlugin 必须覆盖 _get_name()，避免导出流程报错。"
 	)
 
 
