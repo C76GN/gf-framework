@@ -193,8 +193,13 @@ python tools\generate_api_coverage_matrix.py
 python tools\gf_maintenance.py check --suite quick
 python tools\gf_maintenance.py check --suite package
 python tools\gf_maintenance.py check --suite full
-python tools\gf_maintenance.py release-status --version 3.19.0
+python tools\build_gf_release_artifacts.py --version 3.19.0 --output-dir build\release
+python tools\gf_maintenance.py release-status --version 3.19.0 --artifact-manifest build\release\gf-release-artifacts-3.19.0.json
 ```
+
+`quick` 面向本地开发内环，不包含维护工具自身的契约自测；修改 `tools/gf_maintenance*.py`、CI 或 release workflow 时，需另外运行 `python tools\gf_maintenance.py maintenance-self-test`。正式 `framework` / `full` 质量门仍会执行该自测。
+
+本地构建结果统一写入 `build/`；已跟踪的 `build/.gdignore` 会阻止 Godot 将这些生成物当成 `res://` 资源扫描，清理脚本不得删除它。保存机器可读结果时使用 `python tools\gf_maintenance.py --json-output build\quick-result.json check --suite quick`，该参数会隐含 `--json` 并以无 BOM 的 UTF-8 原子写入。在 Windows PowerShell 5.1 中不要使用默认 `>` 或 `Out-File` 生成 JSON，它们会把原本的 UTF-8 stdout 转写成 UTF-16。
 
 MCP 暴露的主要工具：
 
@@ -203,12 +208,12 @@ MCP 暴露的主要工具：
 - `gf_api_search`：按类名、成员名、路径或注释搜索 GF API，避免一次性读取大量源码。
 - `gf_api_class`：返回单个 `class_name` 的路径、摘要、Reference 页面和公开成员。
 - `gf_api_module`：返回单个模块的类清单、路径和成员计数，适合先理解模块边界再打开具体源码。
-- `gf_run_checks`：运行 `api`、`docs`、`quick`、`package`、`framework`、四个 package shard、`package-ci`、`package-release`、`full` 或 `release` 检查套件。
-- `gf_release_status`：校验 `plugin.cfg`、扩展 manifest、`ASSET_LIBRARY.md`、`ASSET_STORE.md`、changelog、发布包归档规则和本地 tag 状态。
+- `gf_run_checks`：运行 `api`、`docs`、`quick`、`package`、`framework`、五个 package shard、`package-ci`、`package-release`、`full` 或 `release` 检查套件。
+- `gf_release_status`：接收一次构建产生的 artifact manifest，校验 `plugin.cfg`、扩展 manifest、`ASSET_LIBRARY.md`、`ASSET_STORE.md`、changelog、既有发布字节和本地 tag 状态；不会重建发布产物。
 
 接入 MCP 客户端时，将 server 命令指向仓库根目录下的 `python tools/gf_mcp_server.py` 即可。不要把个人客户端配置、会话记录或 MCP 运行日志提交到仓库；需要新增维护能力时，优先扩展 `tools/gf_maintenance.py`，再让 MCP server 调用同一套函数。
 
-维护套件会为每项检查记录耗时、预算和执行方式。纯静态检查在单次 suite 内共享只读工作区快照；Godot、构建器和其他外部检查在独立进程组中运行，超时会清理完整后代进程树。Windows Steam 安装会自动从可能提前返回的 `godot.exe` launcher 切换到同目录真实 tools 可执行文件；其他特殊安装可通过 `GF_GODOT_EXECUTABLE` 显式覆盖。`--timeout` 用于提高最小单项预算，不会压低长检查的专项预算；总墙钟 deadline 使用 `--suite-timeout`。本地 `package-ci` / `package-release` 保留完整聚合入口；CI 将其拆为并行的 `package-contract`、`package-editor`、`package-cli` 和 package Godot shard，并与 `framework` 一起保持 `full` / `release` 集合等价。
+维护套件会为每项检查记录耗时、执行方式、依赖、分层 timeout budget、输入指纹和结果指纹。检查先验证 DAG，共享依赖只执行一次；维护边界的纯静态检查在单次 suite 内共享只读工作区快照，API、AI API 与文档检查也通过进程内 adapter 执行。Godot、构建器和其他外部检查在独立进程组中运行，持续转发输出，静默期报告 heartbeat，超时会清理完整后代进程树。直接子进程退出后若后台后代仍持有输出管道，检查会失败并清理剩余后代，避免输出被静默截断。Windows Steam 安装会自动从可能提前返回的 `godot.exe` launcher 切换到同目录真实 tools 可执行文件；其他特殊安装可通过 `GF_GODOT_EXECUTABLE` 显式覆盖。`--timeout` 用于提高最小单项预算，不会压低长检查的专项预算；总墙钟 deadline 使用 `--suite-timeout`。本地 `package-ci` / `package-release` 保留完整聚合入口；CI 将其拆为并行的 `package-contract`、`package-editor`、`package-cli-local`、`package-cli-network` 和 package Godot shard，并与 `framework` 一起保持 `full` / `release` 集合等价。
 
 准备补指南、测试或示例项目覆盖时，先运行 `python tools\generate_api_coverage_matrix.py`。生成结果位于 `ai_analysis/api_coverage/`，用于查看公开类和成员在非 Reference 正文、`tests/gf_core` 和未来 example 根目录中的命中情况；它是维护排查清单，不作为正式用户文档提交。
 
@@ -232,9 +237,9 @@ GF 正式版本 tag 统一使用不带 `v` 的 SemVer 格式，例如 `3.5.0`。
 - 所有 `addons/gf/extensions/*/gf_extension.json` 的 `version`。
 - `docs/zh/changelog.md` 中对应 `## [x.y.z] - YYYY-MM-DD` 段落。
 
-新版本 changelog 只记录相对上一稳定版本的增量，并保留上一稳定版本段。不得重命名旧版本标题或把旧版本累计内容当成新版本说明。`release-status` 会校验目标版本位于首个正式段、上一稳定版本仍存在、日期有效，且所有正式版本按 SemVer 严格倒序。
+新版本 changelog 只记录相对上一稳定版本的增量。发布态的 `docs/zh/changelog.md` 只保留目标正式版本，并从工作树删除所有旧正式段；不可变 Git tag 与 GitHub Release 是已发布历史的唯一事实源，不再维护平行的 Markdown 归档。不得把旧版本重命名为新版本，也不得重写已发布 tag。`release-status` 会拒绝当前页中的旧版本、重复版本、未发布段、不受支持标题、空正文和非法日期。
 
-推送 `x.y.z` tag 后，GitHub Actions 的 `Release` 工作流会从该 tag 对应源码中提取目标 changelog 段，校验上述版本号一致，检查 Asset Store 标签与 AI 披露字段，构建文档，然后创建 GitHub Release。除 GitHub 自动提供的源码归档外，工作流还必须上传由维护工具生成的 Asset Store 专用 ZIP、版本化 package registry、registry source manifest、离线 bundle 和全部非 preset package ZIP。Asset Store 专用 ZIP 根目录必须直接是 `addons/`，不得以 GitHub source archive 代替。
+推送 `x.y.z` tag 后，GitHub Actions 的 `Release` 工作流会从该 tag 对应源码中提取目标 changelog 段，校验上述版本号一致，检查 Asset Store 标签与 AI 披露字段，构建文档，然后创建 GitHub Release。发布产物先由 `tools/build_gf_release_artifacts.py` 一次性构建；Asset Store ZIP、版本化 package registry、registry source manifest、离线 bundle 和全部非 preset package ZIP 被同一份 SHA-256 manifest 固定，后续检查与发布只下载并复核这批字节，不再重复打包。Asset Store 专用 ZIP 根目录必须直接是 `addons/`，不得以 GitHub source archive 代替。
 
 ## 文档维护
 

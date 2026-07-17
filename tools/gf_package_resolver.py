@@ -12,7 +12,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-import gf_package_transaction
+import gf_path_security
 from gf_package_paths import normalize_manifest_path as normalize_shared_manifest_path
 from gf_package_paths import path_matches_any_manifest_path as shared_path_matches_any_manifest_path
 
@@ -330,11 +330,11 @@ def uninstall_plan(
 	project_root: str,
 	force: bool,
 ) -> dict[str, Any]:
-	resolved_project_root = gf_package_transaction.absolute_lexical_path(resolve_path(project_root))
+	resolved_project_root = gf_path_security.absolute_lexical_path(resolve_path(project_root))
 	registry = load_registry(resolve_path(registry_path))
 	lockfile = load_lockfile(resolve_path(lockfile_path))
 	issues = [*registry["issues"], *lockfile["issues"]]
-	if not resolved_project_root.is_dir() or gf_package_transaction.path_has_reparse_component(resolved_project_root):
+	if not resolved_project_root.is_dir() or gf_path_security.path_has_reparse_component(resolved_project_root):
 		issues.append(f"Project root is missing or crosses a filesystem link: {normalize_display_path(resolved_project_root)}")
 	if issues:
 		return make_plan_result(False, "uninstall", [], [], [], [], issues, lockfile["data"], lockfile_path)
@@ -433,15 +433,15 @@ def verify_lock(registry_path: str, lockfile_path: str, project_root: str = "") 
 
 def resolve_verify_project_root(project_root: str, lockfile_path: Path, issues: list[str]) -> Path | None:
 	if project_root.strip():
-		resolved = gf_package_transaction.absolute_lexical_path(resolve_path(project_root))
-		if not resolved.is_dir() or gf_package_transaction.path_has_reparse_component(resolved):
+		resolved = gf_path_security.absolute_lexical_path(resolve_path(project_root))
+		if not resolved.is_dir() or gf_path_security.path_has_reparse_component(resolved):
 			issues.append(f"Project root is missing or crosses a filesystem link: {normalize_display_path(resolved)}")
 			return None
 		return resolved
 	if lockfile_path.name != "packages.lock.json" or lockfile_path.parent.name != ".gf":
 		return None
-	inferred_root = gf_package_transaction.absolute_lexical_path(lockfile_path.parent.parent)
-	if gf_package_transaction.path_has_reparse_component(inferred_root):
+	inferred_root = gf_path_security.absolute_lexical_path(lockfile_path.parent.parent)
+	if gf_path_security.path_has_reparse_component(inferred_root):
 		issues.append(f"Inferred project root crosses a filesystem link: {normalize_display_path(inferred_root)}")
 		return None
 	if not (inferred_root / "project.godot").is_file():
@@ -840,11 +840,11 @@ def resolve_project_target(project_root: Path, relative_path: str) -> Path | Non
 	normalized = normalize_package_file_path(relative_path)
 	if not normalized:
 		return None
-	project_root = gf_package_transaction.absolute_lexical_path(project_root)
+	project_root = gf_path_security.absolute_lexical_path(project_root)
 	target_path = project_root / Path(*normalized.split("/"))
-	if not gf_package_transaction.path_is_inside_lexical(project_root, target_path):
+	if not gf_path_security.path_is_inside_lexical(project_root, target_path):
 		return None
-	if gf_package_transaction.path_has_reparse_component(project_root) or gf_package_transaction.path_has_reparse_component(target_path):
+	if gf_path_security.path_has_reparse_component(project_root) or gf_path_security.path_has_reparse_component(target_path):
 		return None
 	return target_path
 
@@ -1070,7 +1070,7 @@ def collect_project_scan_files(project_root: Path) -> list[Path]:
 		return []
 	files: list[Path] = []
 	for path in sorted(project_root.rglob("*")):
-		if gf_package_transaction.path_has_reparse_component(path) or not path.is_file():
+		if gf_path_security.path_has_reparse_component(path) or not path.is_file():
 			continue
 		relative_path = path.relative_to(project_root).as_posix()
 		if any(relative_path.startswith(prefix) for prefix in PROJECT_SCAN_EXCLUDED_PREFIXES):
@@ -1096,8 +1096,8 @@ def expand_source_pattern(pattern: str, project_root: Path) -> list[Path]:
 	normalized = normalize_manifest_path(pattern)
 	if not normalized:
 		return []
-	project_root = gf_package_transaction.absolute_lexical_path(project_root)
-	if gf_package_transaction.path_has_reparse_component(project_root):
+	project_root = gf_path_security.absolute_lexical_path(project_root)
+	if gf_path_security.path_has_reparse_component(project_root):
 		return []
 	if normalized.endswith("/**") and not any(token in normalized[:-3] for token in ("*", "?", "[")):
 		directory = project_root / normalized[:-3].rstrip("/")
@@ -1106,16 +1106,16 @@ def expand_source_pattern(pattern: str, project_root: Path) -> list[Path]:
 		return sorted(
 			path
 			for path in directory.rglob("*")
-			if path.is_file() and not gf_package_transaction.path_has_reparse_component(path)
+			if path.is_file() and not gf_path_security.path_has_reparse_component(path)
 		)
 	if any(token in normalized for token in ("*", "?", "[")):
 		return sorted(
 			path
 			for path in project_root.glob(normalized)
-			if path.is_file() and not gf_package_transaction.path_has_reparse_component(path)
+			if path.is_file() and not gf_path_security.path_has_reparse_component(path)
 		)
 	path = project_root / normalized
-	return [path] if path.is_file() and not gf_package_transaction.path_has_reparse_component(path) else []
+	return [path] if path.is_file() and not gf_path_security.path_has_reparse_component(path) else []
 
 
 def package_path_tokens(paths: list[str]) -> list[str]:
@@ -1369,7 +1369,7 @@ def make_plan_result(
 
 def load_registry(path: Path) -> dict[str, Any]:
 	issues: list[str] = []
-	if gf_package_transaction.path_has_reparse_component(path):
+	if gf_path_security.path_has_reparse_component(path):
 		return {"packages": {}, "framework_version": "", "issues": [f"Registry path crosses a filesystem link: {normalize_display_path(path)}"]}
 	try:
 		data = json.loads(path.read_text(encoding="utf-8"))
@@ -1433,7 +1433,7 @@ def package_id_is_valid(package_id: str) -> bool:
 
 
 def load_lockfile(path: Path) -> dict[str, Any]:
-	if gf_package_transaction.path_has_reparse_component(path):
+	if gf_path_security.path_has_reparse_component(path):
 		return {
 			"data": {"schema_version": LOCKFILE_SCHEMA_VERSION, "framework_version": "", "installed": {}},
 			"issues": [f"Lockfile path crosses a filesystem link: {normalize_display_path(path)}"],

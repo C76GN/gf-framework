@@ -64,7 +64,7 @@ SECTION_API_REFERENCES = {
 }
 
 
-def parse_args() -> argparse.Namespace:
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Validate page size, heading shape, and code fence metadata.",
     )
@@ -217,7 +217,7 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Fail when longer non-index pages have no H2 sections.",
     )
-    return parser.parse_args()
+    return parser.parse_args(argv)
 
 
 def should_skip(path: Path, root: Path, include_reference_api: bool) -> bool:
@@ -752,8 +752,8 @@ def check_extension_entry_templates(root: Path) -> list[str]:
     return errors
 
 
-def main() -> int:
-    args = parse_args()
+def main(argv: list[str] | None = None) -> int:
+    args = parse_args(argv)
     if args.strict:
         args.fail_fragments = True
         args.fail_entry_templates = True

@@ -10,6 +10,7 @@ const MKDOCS_CONFIG_PATH: String = "res://mkdocs.yml"
 const README_EN_PATH: String = "res://README.md"
 const README_ZH_PATH: String = "res://README.zh.md"
 const ADDON_README_PATH: String = "res://addons/gf/README.md"
+const DOCS_DIRECTORY_FIXTURE_ROOT: String = "user://gf_docs_structure_directory_fixture"
 const READTHEDOCS_URL: String = "https://gf-framework.readthedocs.io/"
 const MAX_MKDOCS_NAV_ITEMS: int = 100
 const MAX_MKDOCS_NAV_DEPTH: int = 4
@@ -183,6 +184,24 @@ func test_doc_directories_have_index_pages() -> void:
 	assert_eq(issues, [], "每个文档目录都应提供 index.md 作为该组导读：\n%s" % _join_lines(issues))
 
 
+func test_doc_directory_collection_ignores_empty_directories() -> void:
+	_remove_directory_tree(DOCS_DIRECTORY_FIXTURE_ROOT)
+	var empty_dir: String = DOCS_DIRECTORY_FIXTURE_ROOT.path_join("empty")
+	var content_parent: String = DOCS_DIRECTORY_FIXTURE_ROOT.path_join("content")
+	var content_dir: String = content_parent.path_join("nested")
+	var empty_create_result: Error = DirAccess.make_dir_recursive_absolute(
+		ProjectSettings.globalize_path(empty_dir)
+	)
+	assert_eq(empty_create_result, OK, "测试应能创建空文档目录。")
+	_write_text(content_dir.path_join("page.md"), "# Fixture\n")
+
+	var dirs: Array[String] = _collect_directories(DOCS_DIRECTORY_FIXTURE_ROOT)
+	assert_false(dirs.has(empty_dir), "没有 Markdown 内容的空目录不应成为文档结构输入。")
+	assert_has(dirs, content_parent, "包含 Markdown 后代的父目录应保留。")
+	assert_has(dirs, content_dir, "直接包含 Markdown 的目录应保留。")
+	_remove_directory_tree(DOCS_DIRECTORY_FIXTURE_ROOT)
+
+
 func test_doc_index_pages_link_direct_child_pages() -> void:
 	var dirs: Array[String] = _collect_directories(DOCS_ROOT)
 	dirs.append(DOCS_ROOT)
@@ -271,7 +290,7 @@ func _collect_markdown_files(root_path: String) -> Array[String]:
 
 func _collect_directories(root_path: String) -> Array[String]:
 	var result: Array[String] = []
-	_collect_directories_recursive(root_path, result)
+	var _root_has_markdown: bool = _collect_directories_recursive(root_path, result)
 	result.sort()
 	return result
 
@@ -294,20 +313,52 @@ func _collect_markdown_files_recursive(root_path: String, result: Array[String])
 	dir.list_dir_end()
 
 
-func _collect_directories_recursive(root_path: String, result: Array[String]) -> void:
+func _collect_directories_recursive(root_path: String, result: Array[String]) -> bool:
 	var dir: DirAccess = DirAccess.open(root_path)
 	if dir == null:
-		return
+		return false
 
+	var has_markdown: bool = false
 	var _list_dir_begin_result_187: Variant = dir.list_dir_begin()
 	var entry: String = dir.get_next()
 	while not entry.is_empty():
 		if dir.current_is_dir() and not entry.begins_with("."):
 			var child_path: String = root_path.path_join(entry)
-			result.append(child_path)
-			_collect_directories_recursive(child_path, result)
+			var child_has_markdown: bool = _collect_directories_recursive(child_path, result)
+			if child_has_markdown:
+				result.append(child_path)
+				has_markdown = true
+		elif entry.ends_with(".md"):
+			has_markdown = true
 		entry = dir.get_next()
 	dir.list_dir_end()
+	return has_markdown
+
+
+func _write_text(path: String, text: String) -> void:
+	var create_result: Error = DirAccess.make_dir_recursive_absolute(
+		ProjectSettings.globalize_path(path.get_base_dir())
+	)
+	assert_eq(create_result, OK, "测试应能创建文档夹具目录。")
+	var file: FileAccess = FileAccess.open(path, FileAccess.WRITE)
+	assert_not_null(file, "测试应能写入文档夹具。")
+	if file == null:
+		return
+	var _store_string_result: bool = file.store_string(text)
+
+
+func _remove_directory_tree(root_path: String) -> void:
+	var absolute_path: String = ProjectSettings.globalize_path(root_path)
+	if not DirAccess.dir_exists_absolute(absolute_path):
+		return
+	var directory: DirAccess = DirAccess.open(absolute_path)
+	if directory == null:
+		return
+	for file_name: String in directory.get_files():
+		var _remove_file_result: Error = DirAccess.remove_absolute(absolute_path.path_join(file_name))
+	for directory_name: String in directory.get_directories():
+		_remove_directory_tree(root_path.path_join(directory_name))
+	var _remove_dir_result: Error = DirAccess.remove_absolute(absolute_path)
 
 
 func _collect_direct_child_doc_entries(dir_path: String) -> Array[String]:

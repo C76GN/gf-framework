@@ -13,9 +13,9 @@ Use this skill only when the user has explicitly moved the task into release, co
 - Use tag names without `v`, for example `4.2.0`.
 - Do not commit, tag, or push unless the user explicitly asks for that action.
 - If a release commit was already pushed and fixes are needed, create a new forward commit. Do not rewrite remote history unless the user explicitly requests it and accepts the risk.
-- Godot Asset Store packages must come from `tools/build_asset_store_package.py`, not GitHub source archives.
+- Release packages must come from one `tools/build_gf_release_artifacts.py` invocation and its SHA-256 manifest, not GitHub source archives or independently rebuilt outputs.
 - Treat compatibility and validation risk as separate axes. A high-risk compatible fix can remain a patch but still requires full release checks; frequent releases or a large diff do not justify a major bump.
-- Preserve incremental changelog history. Never relabel the previous release as the target release or delete it while preparing the next release.
+- Treat immutable Git tags and GitHub Releases as the released changelog history. The working-tree `docs/zh/changelog.md` is a current-release document, not a second historical archive; never relabel an older release as the target release or rewrite published tags.
 
 ## Flow
 
@@ -27,7 +27,7 @@ Use this skill only when the user has explicitly moved the task into release, co
    - `ASSET_STORE.md`
    - `docs/zh/changelog.md`
    - all built-in extension `gf_extension.json` `version` fields
-   Keep the previous stable changelog section after the new target section; the target section contains only the current release increment.
+   Keep only the target formal section in `docs/zh/changelog.md`. Remove every older formal section from the working tree; released history remains available from immutable Git tags and GitHub Releases. `release-status` rejects stale, duplicate, unsupported, or unreleased sections.
 4. Run the checks in [release-checks.md](references/release-checks.md).
 5. Before committing, verify `git diff --check` and `git diff --cached --check` after staging.
 6. Commit with the GF message template from `AI_MAINTENANCE.md`.
@@ -36,4 +36,4 @@ Use this skill only when the user has explicitly moved the task into release, co
 
 ## Reporting
 
-Report the commit hash, tag name, whether the tag points at `HEAD`, validation commands and outcomes, Asset Store package path, and any skipped checks with reasons.
+Report the commit hash, tag name, whether the tag points at `HEAD`, validation commands and outcomes, immutable artifact manifest path, Asset Store package path, and any skipped checks with reasons.

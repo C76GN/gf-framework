@@ -1,7 +1,7 @@
 {
   "id": "gf.turn_based",
   "display_name": "GF Turn Based",
-  "version": "8.1.0",
+  "version": "8.1.1",
   "extension_version": "2.0.0",
   "kind": "extension",
   "description": "Turn phases, turn actions, contexts, and turn flow system primitives.",

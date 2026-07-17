@@ -1,7 +1,7 @@
 {
   "id": "gf.capability",
   "display_name": "GF Capability",
-  "version": "8.1.0",
+  "version": "8.1.1",
   "extension_version": "3.0.0",
   "kind": "extension",
   "description": "Reusable object and node capability composition with recipes and editor inspection support.",

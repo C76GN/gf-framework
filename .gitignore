@@ -32,7 +32,8 @@ repomix-output.txt
 unstaged_changes.diff.txt
 unstaged_changes.diff
 
-build/
+/build/*
+!/build/.gdignore
 site/
 .gf/package_cache/
 .gf/package_temp/

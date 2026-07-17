@@ -15,7 +15,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-import gf_package_transaction
+import gf_path_security
 from gf_package_paths import normalize_manifest_path as normalize_shared_manifest_path
 from gf_package_paths import path_matches_any_manifest_path as shared_path_matches_any_manifest_path
 
@@ -420,7 +420,7 @@ def load_package_manifests() -> dict[str, Any]:
 	records: list[dict[str, Any]] = []
 	issues: list[str] = []
 	for path in sorted(PACKAGE_ROOT.rglob("*.json")):
-		if gf_package_transaction.path_has_reparse_component(path):
+		if gf_path_security.path_has_reparse_component(path):
 			issues.append(f"{relative_display_path(path)}: package manifest crosses a symlink, junction, or reparse point.")
 			continue
 		try:
@@ -547,7 +547,7 @@ def collect_package_files(record: dict[str, Any], issues: list[str] | None = Non
 		if not pattern:
 			continue
 		for path in expand_manifest_path(pattern):
-			if gf_package_transaction.path_has_reparse_component(path):
+			if gf_path_security.path_has_reparse_component(path):
 				result_issues.append(
 					f"{record['id']}: package source crosses a symlink, junction, or reparse point: "
 					f"{relative_display_path(path)}"
@@ -624,7 +624,7 @@ def write_package_archive(output: Path, files: list[Path]) -> None:
 
 
 def write_file(archive: zipfile.ZipFile, path: Path) -> None:
-	if gf_package_transaction.path_has_reparse_component(path):
+	if gf_path_security.path_has_reparse_component(path):
 		raise OSError(f"Package source became a symlink, junction, or reparse point: {path.as_posix()}")
 	archive_path = path.relative_to(ROOT).as_posix()
 	info = zipfile.ZipInfo(archive_path, ZIP_TIMESTAMP)
@@ -824,7 +824,7 @@ def write_offline_bundle(
 	files = offline_bundle_files(registry_path, registry_source_path, package_results)
 	for path in files:
 		content_path = content_paths.get(path, path)
-		if not content_path.is_file() or gf_package_transaction.path_has_reparse_component(content_path):
+		if not content_path.is_file() or gf_path_security.path_has_reparse_component(content_path):
 			issues.append(f"Offline bundle input is missing: {path.as_posix()}")
 	if issues:
 		return issues
@@ -869,7 +869,7 @@ def offline_bundle_files(
 
 
 def offline_bundle_common_root(files: list[Path]) -> Path:
-	return Path(os.path.commonpath([str(gf_package_transaction.absolute_lexical_path(path)) for path in files]))
+	return Path(os.path.commonpath([str(gf_path_security.absolute_lexical_path(path)) for path in files]))
 
 
 def is_safe_bundle_entry(entry_name: str) -> bool:
@@ -880,7 +880,7 @@ def is_safe_bundle_entry(entry_name: str) -> bool:
 
 
 def write_bundle_file(archive: zipfile.ZipFile, entry_name: str, path: Path) -> None:
-	if gf_package_transaction.path_has_reparse_component(path):
+	if gf_path_security.path_has_reparse_component(path):
 		raise OSError(f"Offline bundle input became a symlink, junction, or reparse point: {path.as_posix()}")
 	info = zipfile.ZipInfo(entry_name, ZIP_TIMESTAMP)
 	info.compress_type = zipfile.ZIP_DEFLATED
@@ -908,7 +908,7 @@ def audit_offline_bundle(bundle_path: Path, expected_entries: list[str]) -> list
 
 
 def staged_output_path(final_path: Path, transaction_id: str) -> Path:
-	final = gf_package_transaction.absolute_lexical_path(final_path)
+	final = gf_path_security.absolute_lexical_path(final_path)
 	validate_distribution_output_path(final)
 	candidate = final.parent / f".{final.name}.gf-build-{transaction_id}.candidate"
 	validate_distribution_output_path(candidate)
@@ -948,8 +948,8 @@ def publish_staged_outputs(staged_outputs: dict[Path, Path], transaction_id: str
 	seen_targets: dict[str, Path] = {}
 	try:
 		for raw_final, raw_candidate in staged_outputs.items():
-			final_path = gf_package_transaction.absolute_lexical_path(raw_final)
-			candidate_path = gf_package_transaction.absolute_lexical_path(raw_candidate)
+			final_path = gf_path_security.absolute_lexical_path(raw_final)
+			candidate_path = gf_path_security.absolute_lexical_path(raw_candidate)
 			validate_distribution_output_path(final_path)
 			validate_distribution_output_path(candidate_path)
 			if final_path.parent != candidate_path.parent:
@@ -1015,7 +1015,7 @@ def rollback_distribution_publish(
 	published_set = set(published)
 	for final_path in reversed(published):
 		try:
-			if gf_package_transaction.path_has_reparse_component(final_path):
+			if gf_path_security.path_has_reparse_component(final_path):
 				raise OSError("destination became a symlink, junction, or reparse point")
 			if final_path.is_file():
 				final_path.unlink()
@@ -1026,7 +1026,7 @@ def rollback_distribution_publish(
 		if backup_path is None or not os.path.lexists(backup_path):
 			continue
 		try:
-			if gf_package_transaction.path_has_reparse_component(backup_path):
+			if gf_path_security.path_has_reparse_component(backup_path):
 				raise OSError("backup became a symlink, junction, or reparse point")
 			if os.path.lexists(final_path):
 				if final_path not in published_set:
@@ -1042,13 +1042,13 @@ def rollback_distribution_publish(
 def validate_distribution_output_path(path: Path) -> None:
 	if not path.name or not is_windows_portable_relative_path(path.name):
 		raise OSError(f"Distribution output name is not portable to Windows: {path.as_posix()}")
-	if gf_package_transaction.path_has_reparse_component(path):
+	if gf_path_security.path_has_reparse_component(path):
 		raise OSError(f"Distribution output crosses a symlink, junction, or reparse point: {path.as_posix()}")
 
 
 def try_unlink(path: Path) -> None:
 	try:
-		if gf_package_transaction.path_has_reparse_component(path):
+		if gf_path_security.path_has_reparse_component(path):
 			return
 		if path.is_file():
 			path.unlink()
@@ -1071,7 +1071,7 @@ def sync_directory(path: Path) -> None:
 
 def read_plugin_version() -> str:
 	plugin_config_path = ROOT / "addons/gf/plugin.cfg"
-	if gf_package_transaction.path_has_reparse_component(plugin_config_path):
+	if gf_path_security.path_has_reparse_component(plugin_config_path):
 		raise OSError(f"Plugin config crosses a symlink, junction, or reparse point: {plugin_config_path.as_posix()}")
 	config = configparser.ConfigParser()
 	config.read(plugin_config_path, encoding="utf-8")
@@ -1087,7 +1087,7 @@ def resolve_workspace_path(path: str) -> Path:
 	resolved = Path(path)
 	if not resolved.is_absolute():
 		resolved = ROOT / resolved
-	return gf_package_transaction.absolute_lexical_path(resolved)
+	return gf_path_security.absolute_lexical_path(resolved)
 
 
 def make_registry_archive_value(archive_path: Path, registry_path: Path, archive_base_url: str) -> str:
@@ -1108,7 +1108,7 @@ def relative_display_path(path: Path) -> str:
 
 
 def sha256_file(path: Path) -> str:
-	if gf_package_transaction.path_has_reparse_component(path):
+	if gf_path_security.path_has_reparse_component(path):
 		raise OSError(f"Hash input crosses a symlink, junction, or reparse point: {path.as_posix()}")
 	digest = hashlib.sha256()
 	with path.open("rb") as handle:

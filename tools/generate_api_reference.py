@@ -86,7 +86,7 @@ CATEGORY_ORDER = {
 }
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
 	parser = argparse.ArgumentParser(description="Generate GF API Catalog XML and API Reference pages.")
 	parser.add_argument("--source", default="addons/gf", help="GDScript source root.")
 	parser.add_argument("--catalog", default="docs/api_catalog", help="Generated XML catalog directory.")
@@ -97,7 +97,7 @@ def main() -> int:
 		action="store_true",
 		help="Allow writing generated files outside the standard generated API roots.",
 	)
-	args = parser.parse_args()
+	args = parser.parse_args(argv)
 
 	source_root = (ROOT / args.source).resolve()
 	catalog_root = lexical_absolute_path(ROOT / args.catalog)

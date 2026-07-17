@@ -1,7 +1,7 @@
 {
   "id": "gf.domain",
   "display_name": "GF Domain Models",
-  "version": "8.1.0",
+  "version": "8.1.1",
   "extension_version": "4.0.0",
   "kind": "extension",
   "description": "Generic gameplay domain models such as inventory, equipment, level progress, quests, attributes, and traits.",

@@ -13,6 +13,43 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  build-release-artifacts:
+    name: Build GF release artifacts once
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout tag
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Build release artifact set
+        run: >
+          python tools/build_gf_release_artifacts.py
+          --version "${GITHUB_REF_NAME}"
+          --output-dir build/release
+
+      - name: Verify release metadata against built artifacts
+        run: >
+          python tools/gf_maintenance.py release-status
+          --version "${GITHUB_REF_NAME}"
+          --artifact-manifest "build/release/gf-release-artifacts-${GITHUB_REF_NAME}.json"
+
+      - name: Upload immutable release artifact set
+        uses: actions/upload-artifact@v4
+        with:
+          name: gf-release-${{ github.ref_name }}
+          path: build/release
+          if-no-files-found: error
+          retention-days: 7
+
   release-framework-checks:
     name: GF release framework checks
     runs-on: ubuntu-latest
@@ -38,10 +75,12 @@ jobs:
       - name: Set up Godot
         uses: ./.github/actions/setup-godot
 
-      - name: Run release metadata and framework shard
-        run: |
-          python tools/gf_maintenance.py release-status --version "${GITHUB_REF_NAME}"
-          python tools/gf_maintenance.py check --suite framework --failed-only --github-annotations
+      - name: Run release framework shard
+        run: >
+          python tools/gf_maintenance.py check
+          --suite framework
+          --failed-only
+          --github-annotations
 
   release-package-checks:
     name: GF release package checks (${{ matrix.name }})
@@ -57,9 +96,12 @@ jobs:
           - name: editor
             suite: package-editor
             timeout_minutes: 30
-          - name: cli
-            suite: package-cli
-            timeout_minutes: 45
+          - name: cli-local
+            suite: package-cli-local
+            timeout_minutes: 30
+          - name: cli-network
+            suite: package-cli-network
+            timeout_minutes: 30
           - name: godot-matrix
             suite: package-godot-release
             timeout_minutes: 30
@@ -89,6 +131,7 @@ jobs:
   create-release:
     name: Create GitHub Release
     needs:
+      - build-release-artifacts
       - release-framework-checks
       - release-package-checks
     runs-on: ubuntu-latest
@@ -106,48 +149,36 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Download verified release artifact set
+        uses: actions/download-artifact@v4
+        with:
+          name: gf-release-${{ github.ref_name }}
+          path: build/release
+
+      - name: Verify downloaded release artifact set
+        run: >
+          python tools/build_gf_release_artifacts.py
+          --version "${GITHUB_REF_NAME}"
+          --manifest "build/release/gf-release-artifacts-${GITHUB_REF_NAME}.json"
+          --validate-only
+
       - name: Extract release notes
         run: >
           python tools/extract_release_notes.py
           --tag "${GITHUB_REF_NAME}"
           --output "${RUNNER_TEMP}/release-notes.md"
 
-      - name: Build Asset Store package
-        run: >
-          python tools/build_asset_store_package.py
-          --version "${GITHUB_REF_NAME}"
-          --output "build/gf-framework-${GITHUB_REF_NAME}.zip"
-
-      - name: Build modular package registry
-        run: |
-          python tools/build_gf_package.py \
-            --all \
-            --version "${GITHUB_REF_NAME}" \
-            --output-dir "build/packages" \
-            --registry "build/gf-registry-${GITHUB_REF_NAME}.json" \
-            --archive-base-url "https://github.com/C76GN/gf-framework/releases/download/${GITHUB_REF_NAME}" \
-            --registry-source "build/gf-registry-source.json" \
-            --registry-source-registry-url "https://github.com/C76GN/gf-framework/releases/download/${GITHUB_REF_NAME}/gf-registry-${GITHUB_REF_NAME}.json" \
-            --json
-          python tools/build_gf_package.py \
-            --all \
-            --version "${GITHUB_REF_NAME}" \
-            --output-dir "build/offline-bundle/packages" \
-            --registry "build/offline-bundle/registry/index.json" \
-            --registry-source "build/offline-bundle/registry/gf-registry-source.json" \
-            --offline-bundle "build/gf-package-offline-bundle-${GITHUB_REF_NAME}.zip" \
-            --json
-
       - name: Create release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh release create "${GITHUB_REF_NAME}" \
-            "build/gf-framework-${GITHUB_REF_NAME}.zip" \
-            "build/gf-registry-${GITHUB_REF_NAME}.json" \
-            "build/gf-registry-source.json" \
-            "build/gf-package-offline-bundle-${GITHUB_REF_NAME}.zip" \
-            build/packages/*.zip \
+            "build/release/gf-framework-${GITHUB_REF_NAME}.zip" \
+            "build/release/gf-registry-${GITHUB_REF_NAME}.json" \
+            "build/release/gf-registry-source.json" \
+            "build/release/gf-package-offline-bundle-${GITHUB_REF_NAME}.zip" \
+            "build/release/gf-release-artifacts-${GITHUB_REF_NAME}.json" \
+            build/release/packages/*.zip \
             --verify-tag \
             --title "${GITHUB_REF_NAME}" \
             --notes-file "${RUNNER_TEMP}/release-notes.md"

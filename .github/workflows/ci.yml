@@ -60,9 +60,12 @@ jobs:
           - name: editor
             suite: package-editor
             timeout_minutes: 30
-          - name: cli
-            suite: package-cli
-            timeout_minutes: 45
+          - name: cli-local
+            suite: package-cli-local
+            timeout_minutes: 30
+          - name: cli-network
+            suite: package-cli-network
+            timeout_minutes: 30
           - name: godot
             suite: package-godot-ci
             timeout_minutes: 30

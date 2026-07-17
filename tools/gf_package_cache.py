@@ -11,7 +11,7 @@ import shutil
 from pathlib import Path
 from typing import Any
 
-import gf_package_transaction
+import gf_path_security
 
 
 SCRIPT_PATH = Path(__file__).resolve()
@@ -33,12 +33,12 @@ WORKSPACE_RELATIVE_PATH = Path(".gf/package_workspace")
 
 
 def resolve_context(project_root: Path, cache_dir: str, cache_mode: str, issues: list[str]) -> dict[str, Any]:
-	project_root = gf_package_transaction.absolute_lexical_path(project_root)
-	local_root = gf_package_transaction.absolute_lexical_path(project_root / LOCAL_CACHE_RELATIVE_PATH)
-	workspace_root = gf_package_transaction.absolute_lexical_path(project_root / WORKSPACE_RELATIVE_PATH)
+	project_root = gf_path_security.absolute_lexical_path(project_root)
+	local_root = gf_path_security.absolute_lexical_path(project_root / LOCAL_CACHE_RELATIVE_PATH)
+	workspace_root = gf_path_security.absolute_lexical_path(project_root / WORKSPACE_RELATIVE_PATH)
 	mode = cache_mode.strip() or DEFAULT_MODE
 	context = make_context(mode, local_root, workspace_root, project_root)
-	if gf_package_transaction.path_has_reparse_component(project_root):
+	if gf_path_security.path_has_reparse_component(project_root):
 		issues.append(f"Package cache project root crosses a filesystem link: {project_root.as_posix()}")
 		return context
 	if project_root.exists() and not project_root.is_dir():
@@ -69,11 +69,11 @@ def resolve_context(project_root: Path, cache_dir: str, cache_mode: str, issues:
 	if not requested_path.is_absolute():
 		issues.append(f"External package cache directory must be an absolute path: {requested}")
 		return context
-	external_root = gf_package_transaction.absolute_lexical_path(requested_path)
-	if gf_package_transaction.path_is_inside_lexical(project_root, external_root):
+	external_root = gf_path_security.absolute_lexical_path(requested_path)
+	if gf_path_security.path_is_inside_lexical(project_root, external_root):
 		issues.append("External package cache directory must be outside project_root; use project_local mode for project-owned cache.")
 		return context
-	if gf_package_transaction.path_has_reparse_component(external_root):
+	if gf_path_security.path_has_reparse_component(external_root):
 		issues.append(f"External package cache directory crosses a filesystem link: {external_root.as_posix()}")
 		return context
 	context["external"] = True
@@ -105,10 +105,10 @@ def initialize_external_cache(cache_dir: str) -> dict[str, Any]:
 		if not candidate.is_absolute():
 			issues.append(f"External package cache directory must be an absolute path: {requested}")
 		else:
-			normalized_root = gf_package_transaction.absolute_lexical_path(candidate)
+			normalized_root = gf_path_security.absolute_lexical_path(candidate)
 			if not cache_root_is_safe(normalized_root):
 				issues.append(f"Refusing to initialize unsafe package cache root: {normalized_root.as_posix()}")
-			elif gf_package_transaction.path_has_reparse_component(normalized_root):
+			elif gf_path_security.path_has_reparse_component(normalized_root):
 				issues.append(f"Package cache root crosses a filesystem link: {normalized_root.as_posix()}")
 			elif normalized_root.is_file():
 				issues.append(f"Package cache root is a file: {normalized_root.as_posix()}")
@@ -333,7 +333,7 @@ def validate_marker(cache_root: Path, issues: list[str]) -> bool:
 
 
 def write_marker(cache_root: Path, issues: list[str]) -> bool:
-	if gf_package_transaction.path_has_reparse_component(cache_root):
+	if gf_path_security.path_has_reparse_component(cache_root):
 		issues.append(f"Package cache root crosses a filesystem link: {cache_root.as_posix()}")
 		return False
 	try:
@@ -367,7 +367,7 @@ def write_marker(cache_root: Path, issues: list[str]) -> bool:
 def artifact_matches(path: Path, expected_sha: str, expected_size: int) -> bool:
 	try:
 		return (
-			not gf_package_transaction.path_has_reparse_component(path)
+			not gf_path_security.path_has_reparse_component(path)
 			and path.is_file()
 			and path.stat().st_size == expected_size
 			and sha256_file(path) == expected_sha
@@ -388,7 +388,7 @@ def resolve_cache_path(project_root: Path, value: str) -> Path:
 	path = Path(value)
 	if not path.is_absolute():
 		path = project_root / path
-	return gf_package_transaction.absolute_lexical_path(path)
+	return gf_path_security.absolute_lexical_path(path)
 
 
 def is_sha256(value: str) -> bool:
@@ -410,12 +410,12 @@ def cache_root_is_safe(path: Path) -> bool:
 
 
 def context_path_is_safe(root: Path, target: Path) -> bool:
-	root_path = gf_package_transaction.absolute_lexical_path(root)
-	target_path = gf_package_transaction.absolute_lexical_path(target)
+	root_path = gf_path_security.absolute_lexical_path(root)
+	target_path = gf_path_security.absolute_lexical_path(target)
 	return (
-		gf_package_transaction.path_is_inside_lexical(root_path, target_path)
-		and not gf_package_transaction.path_has_reparse_component(root_path)
-		and not gf_package_transaction.path_has_reparse_component(target_path)
+		gf_path_security.path_is_inside_lexical(root_path, target_path)
+		and not gf_path_security.path_has_reparse_component(root_path)
+		and not gf_path_security.path_has_reparse_component(target_path)
 	)
 
 

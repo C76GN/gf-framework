@@ -49,25 +49,20 @@ func test_package_cache_implementations_share_one_versioned_policy_schema() -> v
 
 func test_package_backends_delegate_cache_policy_and_store_ownership() -> void:
 	var godot_backend: String = _read_text(GODOT_BACKEND_PATH)
-	var python_installer: String = _read_text(PYTHON_INSTALLER_PATH)
 
 	assert_true(godot_backend.contains("gf_package_cache_policy.gd"), "Godot backend 必须委托 cache policy。")
 	assert_true(godot_backend.contains("gf_package_filesystem_cache_store.gd"), "Godot backend 必须委托 filesystem artifact store。")
 	assert_false(godot_backend.contains("static func _resolve_cache_dir("), "Godot backend 不得重新解释裸 cache_dir。")
-	assert_true(python_installer.contains("import gf_package_cache"), "Python installer 必须委托共享 cache 模块。")
-	assert_false(python_installer.contains("def resolve_cache_dir("), "Python installer 不得重新解释裸 cache_dir。")
 	assert_true(_read_text(GODOT_STORE_PATH).contains("objects/sha256"), "Godot store 必须使用完整 SHA-256 内容寻址布局。")
 	assert_true(_read_text(PYTHON_CACHE_PATH).contains("\"objects\" / \"sha256\""), "Python store 必须使用完整 SHA-256 内容寻址布局。")
+	assert_false(FileAccess.file_exists(PYTHON_INSTALLER_PATH), "Python cache 可以服务维护构建，但不得恢复第二套项目安装器。")
 
 
 func test_package_cache_cli_keeps_explicit_initialization_and_modes() -> void:
 	var godot_cli: String = _read_text(GODOT_CLI_PATH)
-	var python_installer: String = _read_text(PYTHON_INSTALLER_PATH)
 
 	assert_true(godot_cli.contains("const COMMAND_CACHE_INIT: String = \"cache-init\""), "Godot CLI 必须保留显式 cache-init。")
 	assert_true(godot_cli.contains("--cache-mode"), "Godot CLI 必须暴露显式 cache mode。")
-	assert_true(python_installer.contains("subparsers.add_parser(\"cache-init\""), "Python CLI 必须保留显式 cache-init。")
-	assert_true(python_installer.contains("add_argument(\"--cache-mode\""), "Python CLI 必须暴露显式 cache mode。")
 	assert_true(_read_text(GODOT_POLICY_PATH).contains("Refusing to claim a non-empty directory"), "Godot cache-init 必须拒绝接管非空未知目录。")
 	assert_true(_read_text(PYTHON_CACHE_PATH).contains("Refusing to claim a non-empty directory"), "Python cache-init 必须拒绝接管非空未知目录。")
 

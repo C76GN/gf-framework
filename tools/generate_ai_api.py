@@ -28,7 +28,7 @@ REFERENCE_LINK_PATTERN = re.compile(r"\[([^\]\n]+)\]\[[^\]\n]*\]")
 REFERENCE_DEFINITION_PATTERN = re.compile(r"^\s{0,3}\[[^\]\n]+\]:\s+\S+")
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
 	parser = argparse.ArgumentParser(description="Generate GF AI API docs.")
 	parser.add_argument("--source", default="addons/gf", help="GDScript source root.")
 	parser.add_argument("--output", default="ai_analysis/generated_api", help="Output directory.")
@@ -49,7 +49,7 @@ def main() -> int:
 		action="store_true",
 		help="Allow writing generated files outside ai_analysis/generated_api.",
 	)
-	args = parser.parse_args()
+	args = parser.parse_args(argv)
 
 	source_root = (ROOT / args.source).resolve()
 	output_dir = lexical_absolute_path(ROOT / args.output)

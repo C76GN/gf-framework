@@ -174,6 +174,10 @@ def list_tools() -> list[dict[str, Any]]:
 						"default": False,
 						"description": "Allow explicitly approved breaking API baseline changes in release_metadata.",
 					},
+					"artifact_manifest": {
+						"type": "string",
+						"description": "Prebuilt release artifact manifest required when release_metadata is selected.",
+					},
 				},
 				"additionalProperties": False,
 			},
@@ -181,7 +185,7 @@ def list_tools() -> list[dict[str, Any]]:
 		},
 		{
 			"name": "gf_release_status",
-			"description": "Validate plugin.cfg, extension manifests, Asset Library/Asset Store metadata, changelog, Asset Store zip layout, package archive rules, and local tag state for a GF version.",
+			"description": "Validate release metadata, one prebuilt immutable artifact set, and local tag state for a GF version without rebuilding assets.",
 			"inputSchema": {
 				"type": "object",
 				"properties": {
@@ -192,7 +196,13 @@ def list_tools() -> list[dict[str, Any]]:
 						"default": False,
 						"description": "Allow explicitly approved breaking API baseline changes without requiring a major version bump.",
 					},
+					"artifact_manifest": {
+						"type": "string",
+						"minLength": 1,
+						"description": "Manifest created by tools/build_gf_release_artifacts.py.",
+					},
 				},
+				"required": ["artifact_manifest"],
 				"additionalProperties": False,
 			},
 			"annotations": {"readOnlyHint": True},
@@ -240,12 +250,14 @@ def call_tool(request_id: Any, params: dict[str, Any]) -> dict[str, Any]:
 				),
 				fail_fast=bool(arguments.get("fail_fast", False)),
 				allow_breaking_api=bool(arguments.get("allow_breaking_api", False)),
+				artifact_manifest=str(arguments.get("artifact_manifest", "")),
 			)
 		elif name == "gf_release_status":
 			data = gf_maintenance.release_status(
 				str(arguments.get("version", "")),
 				allow_dirty=bool(arguments.get("allow_dirty", False)),
 				allow_breaking_api=bool(arguments.get("allow_breaking_api", False)),
+				artifact_manifest=str(arguments.get("artifact_manifest", "")),
 			)
 		else:
 			return error_response(request_id, -32602, f"Unknown tool: {name}")
