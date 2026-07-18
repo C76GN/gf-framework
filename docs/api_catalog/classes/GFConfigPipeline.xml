@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFConfigPipeline" path="addons/gf/tools/config_pipeline/gf_config_pipeline.gd" module="tools" extends="RefCounted" classDigest="4fce1c695ee523b4b521a18e497525b911b565b05b4e6df4dc5940b24ff0e712">
+<class name="GFConfigPipeline" path="addons/gf/tools/config_pipeline/gf_config_pipeline.gd" module="tools" extends="RefCounted" classDigest="e5d59b0d2b6ebb1197ec961ab95203281b58859f8d924cf5af4e9d179df17304">
 	<description>GFConfigPipeline: 配置导表工具的资源构建入口。
 负责把 CSV / JSON / ConfigFile / XLSX 文件来源构建为 GFConfigTableResource 与 GFConfigDatabaseResource。
 该工具只处理通用导入、校验、索引重建和 Resource 保存，不绑定任何项目业务表或发布流程。</description>
@@ -13,6 +13,31 @@
 	<constants />
 	<properties />
 	<methods>
+		<member kind="method" name="configure_stages">
+			<signature>func configure_stages( reader_stage: GFConfigPipelineReaderStage = null, layout_stage: GFConfigPipelineLayoutStage = null, validation_stage: GFConfigPipelineValidationStage = null, target_stage: GFConfigPipelineTargetStage = null, commit_stage: GFConfigPipelineCommitStage = null ) -&gt; GFConfigPipeline:</signature>
+			<description>替换 Pipeline 使用的阶段实现。传入 null 的阶段保持当前实现不变。
+自定义实现应继承对应内置阶段并保持其输入、输出契约；Pipeline 只负责编排，不探测项目业务类型。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">reader_stage: 可选来源读取阶段。</tag>
+				<tag name="param">layout_stage: 可选布局解析阶段。</tag>
+				<tag name="param">validation_stage: 可选语义校验阶段。</tag>
+				<tag name="param">target_stage: 可选目标物化阶段。</tag>
+				<tag name="param">commit_stage: 可选文件提交事务阶段。</tag>
+				<tag name="return">当前 Pipeline，便于链式配置。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_stage_descriptors">
+			<signature>func get_stage_descriptors() -&gt; Array[Dictionary]:</signature>
+			<description>获取当前阶段组合的稳定描述。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">按 Reader、Layout、Validation、Target、Commit 排列的阶段描述。</tag>
+				<tag name="schema">return: Array[Dictionary]，每项包含 stage_id、implementation_version、implementation_path 和阶段契约字段。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
 		<member kind="method" name="build_table">
 			<signature>func build_table(source: GFConfigPipelineTableSource, options: Dictionary = {}) -&gt; Dictionary:</signature>
 			<description>从来源文件构建单表资源。</description>
@@ -22,7 +47,7 @@
 				<tag name="param">options: 可选构建选项，支持 parse_options、rebuild_indexes。</tag>
 				<tag name="return">构建结果。</tag>
 				<tag name="schema">options: Dictionary，可包含 parse_options 和 rebuild_indexes。</tag>
-				<tag name="schema">return: Dictionary，包含 success、table、report、source_path、format 和 error。</tag>
+				<tag name="schema">return: Dictionary，包含 success、table、ir、report、source_path、format 和 error。</tag>
 				<tag name="since">5.2.0</tag>
 			</tags>
 		</member>
@@ -36,7 +61,7 @@
 				<tag name="param">options: 可选构建选项，支持 parse_options、rebuild_indexes。</tag>
 				<tag name="return">构建结果。</tag>
 				<tag name="schema">options: Dictionary，可包含 parse_options 和 rebuild_indexes。</tag>
-				<tag name="schema">return: Dictionary，包含 success、table、report、source_path、format 和 error。</tag>
+				<tag name="schema">return: Dictionary，包含 success、table、ir、report、source_path、format 和 error。</tag>
 				<tag name="since">5.2.0</tag>
 			</tags>
 		</member>
@@ -50,7 +75,7 @@
 				<tag name="return">构建结果。</tag>
 				<tag name="schema">sources: Array[GFConfigPipelineTableSource]。</tag>
 				<tag name="schema">options: Dictionary，可包含 database_id、version、metadata、validate_database、validate_schema、parse_options 和 rebuild_indexes。</tag>
-				<tag name="schema">return: Dictionary，包含 success、database、report、table_results 和 error。</tag>
+				<tag name="schema">return: Dictionary，包含 success、database、ir、report、table_results 和 error。</tag>
 				<tag name="since">5.2.0</tag>
 			</tags>
 		</member>

@@ -1,0 +1,127 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gf-framework.dev/schemas/project-snapshot-v1.json",
+  "title": "GF Observed Project Snapshot",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "generator_version",
+    "generated_at_utc",
+    "project_root",
+    "contract",
+    "framework",
+    "project",
+    "agents",
+    "drift"
+  ],
+  "properties": {
+    "schema_version": {"type": "integer", "const": 1},
+    "generator_version": {"type": "string", "minLength": 1},
+    "generated_at_utc": {"type": "string", "minLength": 1},
+    "project_root": {"type": "string", "const": "."},
+    "contract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "valid", "sha256", "issue_count"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "valid": {"type": "boolean"},
+        "sha256": {"type": "string", "pattern": "^$|^[0-9a-f]{64}$"},
+        "issue_count": {"type": "integer", "minimum": 0}
+      }
+    },
+    "framework": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "installed",
+        "version",
+        "catalog_framework_version",
+        "catalog_matches_framework",
+        "plugin_enabled",
+        "packages",
+        "package_state",
+        "extensions"
+      ],
+      "properties": {
+        "installed": {"type": "boolean"},
+        "version": {"type": "string"},
+        "catalog_framework_version": {"type": "string", "minLength": 1},
+        "catalog_matches_framework": {"type": "boolean"},
+        "plugin_enabled": {"type": "boolean"},
+        "packages": {"type": "array", "uniqueItems": true, "items": {"type": "string"}},
+        "package_state": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["source", "lockfile_present", "valid", "issues"],
+          "properties": {
+            "source": {"type": "string", "enum": ["filesystem", "lockfile"]},
+            "lockfile_present": {"type": "boolean"},
+            "valid": {"type": "boolean"},
+            "issues": {"type": "array", "items": {"type": "string"}}
+          }
+        },
+        "extensions": {"type": "array", "uniqueItems": true, "items": {"type": "string"}}
+      }
+    },
+    "project": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["godot_features", "script_count", "test_script_count", "source_scan_truncated", "gf_api_usage", "declared_roots"],
+      "properties": {
+        "godot_features": {"type": "array", "uniqueItems": true, "items": {"type": "string"}},
+        "script_count": {"type": "integer", "minimum": 0},
+        "test_script_count": {"type": "integer", "minimum": 0},
+        "source_scan_truncated": {"type": "boolean"},
+        "gf_api_usage": {"type": "array", "uniqueItems": true, "items": {"type": "string"}},
+        "declared_roots": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["module_id", "path", "exists"],
+            "properties": {
+              "module_id": {"type": "string"},
+              "path": {"type": "string"},
+              "exists": {"type": "boolean"}
+            }
+          }
+        }
+      }
+    },
+    "agents": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["installed", "drifted"],
+      "properties": {
+        "installed": {"type": "array", "uniqueItems": true, "items": {"type": "string"}},
+        "drifted": {"type": "array", "uniqueItems": true, "items": {"type": "string"}}
+      }
+    },
+    "drift": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ok", "error_count", "warning_count", "issues"],
+      "properties": {
+        "ok": {"type": "boolean"},
+        "error_count": {"type": "integer", "minimum": 0},
+        "warning_count": {"type": "integer", "minimum": 0},
+        "issues": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["severity", "code", "path", "message"],
+            "properties": {
+              "severity": {"type": "string", "enum": ["error", "warning"]},
+              "code": {"type": "string"},
+              "path": {"type": "string"},
+              "message": {"type": "string"}
+            }
+          }
+        }
+      }
+    }
+  }
+}

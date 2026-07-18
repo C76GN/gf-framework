@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFConfigPipelineReaderStage" path="addons/gf/tools/config_pipeline/gf_config_pipeline_reader_stage.gd" module="tools" extends="RefCounted" classDigest="a544a044e65410a93f5ad51c3f0e29a2502c95bd3f5c810c2adb62b2e6273a33">
+	<description>GFConfigPipelineReaderStage: Config Pipeline 的内置来源读取阶段。
+只负责来源存在性、读取预算和原始载荷取得，不解析表布局或业务字段。
+文本来源返回原文，XLSX 来源返回已完成预算检查的文件载荷描述。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">tool_api</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants>
+		<member kind="const" name="STAGE_ID">
+			<signature>const STAGE_ID: String = "gf.config.reader.builtin"</signature>
+			<description>Reader 阶段的稳定实现标识。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="IMPLEMENTATION_VERSION">
+			<signature>const IMPLEMENTATION_VERSION: int = 1</signature>
+			<description>Reader 阶段的实现版本；改变读取语义时递增。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties />
+	<methods>
+		<member kind="method" name="read_source">
+			<signature>func read_source(source: GFConfigPipelineTableSource, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>读取来源的原始载荷，并在分配大载荷前执行大小预算检查。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">source: 单表来源声明。</tag>
+				<tag name="param">options: 读取选项。</tag>
+				<tag name="return">Reader 阶段结果。</tag>
+				<tag name="schema">options: Dictionary，可包含 max_source_file_bytes 和 max_xlsx_file_bytes；负值表示不限制。</tag>
+				<tag name="schema">return: Dictionary，包含 success、phase、source_path、format、payload_kind、text、size_bytes、error_code、error_kind、error 和 context。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_stage_descriptor">
+			<signature>func get_stage_descriptor() -&gt; Dictionary:</signature>
+			<description>返回阶段实现的稳定描述，用于流水线诊断和编译指纹。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">阶段描述。</tag>
+				<tag name="schema">return: Dictionary，包含 stage_id、implementation_version、input_contract、output_contract 和 supported_formats。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

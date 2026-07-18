@@ -1,0 +1,176 @@
+{
+  "schema_version": 1,
+  "catalog_version": "1.0.0",
+  "capabilities": [
+    {
+      "id": "architecture",
+      "title": "Architecture and composition",
+      "summary": "Lifecycle-aware Model, System, Utility, Controller, installer, command, query, and event composition.",
+      "keywords": ["architecture", "model", "system", "utility", "controller", "installer", "lifecycle", "dependency injection"],
+      "packages": ["gf.kernel"],
+      "primary_classes": ["GFArchitecture", "GFInstaller", "GFModel", "GFSystem", "GFUtility", "GFController"],
+      "recipes": ["project-feature", "composition-root"],
+      "boundary": "Use roles for ownership and lifecycle, not as mandatory wrappers for every class."
+    },
+    {
+      "id": "async-lifecycle",
+      "title": "Async lifecycle and cancellation",
+      "summary": "Owned completion, cancellation scopes, signal waits, retries, progress, gates, and bounded aggregation.",
+      "keywords": ["async", "await", "cancel", "timeout", "retry", "progress", "concurrency", "signal"],
+      "packages": ["gf.kernel", "gf.standard.base"],
+      "primary_classes": ["GFAsyncCompletion", "GFAsyncScope", "GFAsyncWaitUtility", "GFAsyncFlowTools", "GFAsyncKeyedGate"],
+      "recipes": ["owned-async-operation"],
+      "boundary": "The caller owns business retries and rollback; GF owns reusable terminal-state and cancellation mechanics."
+    },
+    {
+      "id": "assets-content",
+      "title": "Assets, resource identity, and content",
+      "summary": "Async resource handles, stable resource keys, catalogs, preload plans, and optional content packages.",
+      "keywords": ["asset", "resource", "load", "cache", "preload", "catalog", "content package", "dlc"],
+      "packages": ["gf.standard.assets", "gf.extension.content_package"],
+      "primary_classes": ["GFAssetUtility", "GFAssetHandle", "GFResourceResolverUtility", "GFAssetCatalog", "GFContentPackageUtility"],
+      "recipes": ["owned-resource-load", "content-package"],
+      "boundary": "Projects define content taxonomy and distribution policy; GF provides identity, lifecycle, plans, and diagnostics."
+    },
+    {
+      "id": "config-data",
+      "title": "Configuration and data pipelines",
+      "summary": "Runtime config resources plus staged, validated, versioned-IR table compilation at build time.",
+      "keywords": ["config", "table", "csv", "xlsx", "json", "schema", "data", "generator", "pipeline"],
+      "packages": ["gf.standard.config", "gf.tool.config_pipeline"],
+      "primary_classes": ["GFConfigDatabaseResource", "GFConfigPipeline", "GFConfigPipelineIR", "GFConfigPipelineValidationStage"],
+      "recipes": ["config-pipeline"],
+      "boundary": "Business columns and schemas belong to project inputs; reusable reading, validation, target, and commit mechanics belong to the tool."
+    },
+    {
+      "id": "storage-save",
+      "title": "Storage, save graphs, and migration",
+      "summary": "Local storage codecs, backend synchronization, slot metadata, scene save graphs, identity, and explicit migration.",
+      "keywords": ["save", "load", "storage", "slot", "migration", "cloud save", "persistence", "serialize"],
+      "packages": ["gf.standard.storage", "gf.extension.save"],
+      "primary_classes": ["GFStorageUtility", "GFStorageBackend", "GFStorageSyncUtility", "GFSaveGraphUtility", "GFSaveScope", "GFSaveIdentity"],
+      "recipes": ["save-boundary", "platform-storage-adapter"],
+      "boundary": "Projects own save fields, compatibility guarantees, conflict policy, and cloud provider adapters."
+    },
+    {
+      "id": "input",
+      "title": "Input mapping and rebinding",
+      "summary": "Abstract actions, contexts, modifiers, triggers, recording, conflict analysis, rebinding, touch, and drag/drop mechanisms.",
+      "keywords": ["input", "action", "rebind", "controller", "touch", "drag", "drop", "gesture", "buffer"],
+      "packages": ["gf.standard.input"],
+      "primary_classes": ["GFInputMappingUtility", "GFInputContext", "GFInputAction", "GFInputDetector", "GFInputConflictAnalyzer"],
+      "recipes": ["input-context"],
+      "boundary": "GF maps intent; projects define action names, UI, accessibility policy, and gameplay meaning."
+    },
+    {
+      "id": "ui-navigation",
+      "title": "UI state, binding, and navigation",
+      "summary": "Layered UI navigation, screen state, reactive binding, repeaters, transitions, and focus-friendly project composition.",
+      "keywords": ["ui", "screen", "navigation", "binding", "reactive", "modal", "layer", "view"],
+      "packages": ["gf.standard.ui", "gf.standard.ui.navigation", "gf.standard.ui.state"],
+      "primary_classes": ["GFUIUtility", "GFUILayerDefinition", "GFUIRoute", "GFUIRouterUtility", "GFReactiveStateStore", "GFReactiveStateControlBinder"],
+      "recipes": ["ui-screen-flow"],
+      "boundary": "GF owns navigation and binding mechanics; projects own visual hierarchy, copy, and product flows."
+    },
+    {
+      "id": "audio",
+      "title": "Audio playback and backend adaptation",
+      "summary": "Audio clips, banks, events, pooled emitters, buses, beat clocks, and optional middleware backends.",
+      "keywords": ["audio", "music", "sfx", "bank", "event", "mixer", "middleware", "beat"],
+      "packages": ["gf.standard.audio"],
+      "primary_classes": ["GFAudioUtility", "GFAudioBackend", "GFAudioEvent", "GFAudioBank", "GFAudioEmitterHandle"],
+      "recipes": ["provider-backend"],
+      "boundary": "Middleware SDK calls belong in a backend adapter; projects own event naming and mix policy."
+    },
+    {
+      "id": "state-flow",
+      "title": "State machines and flow orchestration",
+      "summary": "Node and resource state machines, flow graphs, action queues, behavior trees, and decision mechanisms.",
+      "keywords": ["state", "fsm", "flow", "graph", "action queue", "behavior tree", "sequence", "orchestration"],
+      "packages": ["gf.standard.state_machine", "gf.extension.flow", "gf.extension.action_queue", "gf.extension.behavior_tree", "gf.extension.decision"],
+      "primary_classes": ["GFNodeStateMachine", "GFFlowRunner", "GFFlowGraph", "GFActionQueueSystem", "GFBehaviorTree"],
+      "recipes": ["state-or-flow"],
+      "boundary": "Select one mechanism by state ownership and observability; do not layer several orchestrators without a distinct responsibility."
+    },
+    {
+      "id": "diagnostics",
+      "title": "Diagnostics, logs, support, and operations",
+      "summary": "Structured logs, bounded diagnostics, operation timelines, debug surfaces, support reports, and build metadata.",
+      "keywords": ["diagnostics", "log", "debug", "support report", "operation", "metrics", "build info", "console"],
+      "packages": ["gf.standard.diagnostics", "gf.standard.debug"],
+      "primary_classes": ["GFDiagnosticsUtility", "GFLogUtility", "GFOperationDiagnosticsUtility", "GFSupportReportUtility", "GFBuildInfoUtility"],
+      "recipes": ["diagnostic-contribution", "feedback-candidate"],
+      "boundary": "Collect the minimum needed data, bound all histories, and require explicit consent for precise or private diagnostics."
+    },
+    {
+      "id": "determinism",
+      "title": "Deterministic data and simulation primitives",
+      "summary": "Fixed random sequences, canonical Variant serialization, seeds, tick histories, and explicit deterministic scopes.",
+      "keywords": ["deterministic", "lockstep", "replay", "seed", "random", "canonical", "tick", "rollback"],
+      "packages": ["gf.standard.deterministic"],
+      "primary_classes": ["GFDeterministicRandom", "GFDeterministicVariantSerializer", "GFSeedUtility"],
+      "recipes": ["deterministic-scope"],
+      "boundary": "Declare the deterministic scope and numeric contract; do not assume all Godot values or physics are cross-platform deterministic."
+    },
+    {
+      "id": "network",
+      "title": "Network transport and contracts",
+      "summary": "Replaceable byte transports, channels, typed message contracts, snapshots, dirty state, histories, and session mechanisms.",
+      "keywords": ["network", "multiplayer", "transport", "rpc", "snapshot", "authority", "lobby", "steam", "server"],
+      "packages": ["gf.extension.network"],
+      "primary_classes": ["GFNetworkBackend", "GFENetNetworkBackend", "GFNetworkContract", "GFNetworkUtility", "GFNetworkHistoryBuffer"],
+      "recipes": ["network-backend-adapter", "platform-lobby-adapter"],
+      "boundary": "GF does not choose authority, matchmaking, lobby policy, provider identity, prediction, or rollback for the project."
+    },
+    {
+      "id": "platform-adapters",
+      "title": "Platform and SDK adapters",
+      "summary": "Project-owned translation boundaries for identity, lobby, storage, achievements, social, lifecycle, payment, and other provider capabilities.",
+      "keywords": ["steam", "wechat", "epic", "console", "sdk", "adapter", "identity", "achievement", "leaderboard", "payment"],
+      "packages": ["gf.kernel", "gf.standard.storage", "gf.extension.network"],
+      "primary_classes": ["GFInstaller", "GFStorageBackend", "GFNetworkBackend", "GFAsyncCompletion"],
+      "recipes": ["platform-lobby-adapter", "platform-storage-adapter", "provider-backend"],
+      "boundary": "Provider code is a separate adapter. Only stable provider-neutral contracts are candidates for GF."
+    },
+    {
+      "id": "domain-components",
+      "title": "Reusable domain components",
+      "summary": "Generic inventory, attributes, traits, equipment, quests, level catalogs, interactions, combat, and turn-based primitives.",
+      "keywords": ["inventory", "attributes", "equipment", "quest", "level", "combat", "turn based", "interaction", "rpg"],
+      "packages": ["gf.extension.domain", "gf.extension.interaction", "gf.extension.combat", "gf.extension.turn_based"],
+      "primary_classes": ["GFInventoryModel", "GFAttributeSet", "GFQuestUtility", "GFInteractionFlow", "GFTurnFlowSystem"],
+      "recipes": ["domain-component"],
+      "boundary": "GF components store generic state and mechanisms; game economy, rewards, balance, and content semantics remain project code."
+    },
+    {
+      "id": "dialogue",
+      "title": "Dialogue resources and execution",
+      "summary": "Provider-neutral dialogue resources, conditions, mutations, responses, runners, and strict text compilation.",
+      "keywords": ["dialogue", "conversation", "choice", "narrative", "text compiler", "localization"],
+      "packages": ["gf.extension.dialogue", "gf.tool.dialogue_text"],
+      "primary_classes": ["GFDialogueResource", "GFDialogueRunner", "GFDialogueContext", "GFDialogueTextCompiler"],
+      "recipes": ["dialogue-pipeline"],
+      "boundary": "GF does not define character databases, quest side effects, localization storage, UI, or a project-specific script language."
+    },
+    {
+      "id": "spatial-physics",
+      "title": "Spatial math and physics mechanisms",
+      "summary": "Grid/path math, spatial queries, camera mechanisms, hit detection, buoyancy sampling, and physics-independent policies.",
+      "keywords": ["spatial", "grid", "path", "physics", "camera", "hitbox", "buoyancy", "2d", "3d"],
+      "packages": ["gf.standard.spatial", "gf.extension.physics", "gf.extension.camera", "gf.extension.combat"],
+      "primary_classes": ["GFSpatialQueryIndex2D", "GFGridPathMath2D", "GFGraphPathSearchState", "GFBuoyancyField3D", "GFCameraOrbitRig3D", "GFHitBox2D"],
+      "recipes": ["spatial-policy"],
+      "boundary": "Projects own collision layers, world semantics, probe placement, authority, and force application policy."
+    },
+    {
+      "id": "project-tooling",
+      "title": "Project layout and authoring tools",
+      "summary": "Optional profile-driven project structure, data compilers, generators, editor contributions, and CI validation.",
+      "keywords": ["project layout", "scaffold", "editor", "tool", "generator", "validation", "ci", "authoring"],
+      "packages": ["gf.tool.project_layout", "gf.tool.config_pipeline", "gf.tool.dialogue_text"],
+      "primary_classes": ["GFProjectLayoutValidator", "GFProjectLayoutScaffolder", "GFConfigPipeline", "GFDialogueTextCompiler"],
+      "recipes": ["project-feature", "config-pipeline"],
+      "boundary": "Tools are optional and profile-driven; they must not turn one game's directory or schema into a GF runtime requirement."
+    }
+  ]
+}

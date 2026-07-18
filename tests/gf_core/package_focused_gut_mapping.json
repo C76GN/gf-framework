@@ -258,10 +258,14 @@
     ],
     "gf.tool.config_pipeline": [
       "res://tests/gf_core/tools/config_pipeline/test_gf_config_pipeline.gd",
+      "res://tests/gf_core/tools/config_pipeline/test_gf_config_pipeline_stages.gd",
       "res://tests/gf_core/tools/config_pipeline/test_gf_config_access_generator.gd"
     ],
     "gf.tool.dialogue_text": [
       "res://tests/gf_core/tools/dialogue_text/test_gf_dialogue_text_compiler.gd"
+    ],
+    "gf.tool.ai_developer": [
+      "res://tests/gf_core/tools/ai_developer/test_gf_ai_developer_tool_package.gd"
     ],
     "gf.tool.network.editor": [
       "res://tests/gf_core/tools/network.editor/test_gf_network_editor_tool_package.gd"

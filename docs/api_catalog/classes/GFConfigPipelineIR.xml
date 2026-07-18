@@ -1,0 +1,155 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFConfigPipelineIR" path="addons/gf/tools/config_pipeline/gf_config_pipeline_ir.gd" module="tools" extends="RefCounted" classDigest="e3b328655698b18943ac184a84b7848883daaf4947839764cd2a23a4b8bdea20">
+	<description>GFConfigPipelineIR: Config Pipeline 的版本化数据库中间表示。
+聚合已经通过单表语义校验的 GFConfigPipelineTableIR，并作为 Target 阶段的唯一输入。
+IR 不持有导出路径或文件事务策略，确保同一编译结果可以交给多个目标实现。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">tool_api</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants>
+		<member kind="const" name="FORMAT">
+			<signature>const FORMAT: String = "gf.config_pipeline.ir"</signature>
+			<description>数据库 IR 的稳定格式标识。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="FORMAT_VERSION">
+			<signature>const FORMAT_VERSION: int = 1</signature>
+			<description>数据库 IR 的格式版本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties />
+	<methods>
+		<member kind="method" name="create">
+			<signature>static func create( database_id: StringName = &amp;"", version: String = "", metadata: Dictionary = {} ) -&gt; GFConfigPipelineIR:</signature>
+			<description>创建空数据库 IR，并取得元数据的副本所有权。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">database_id: 数据库标识；可为空。</tag>
+				<tag name="param">version: 项目侧配置版本；可为空。</tag>
+				<tag name="param">metadata: 与目标无关的数据库元数据。</tag>
+				<tag name="return">新建的数据库 IR。</tag>
+				<tag name="schema">metadata: Dictionary，保存构建上下文或项目侧附加元数据。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="add_table">
+			<signature>func add_table(table_ir: GFConfigPipelineTableIR) -&gt; Dictionary:</signature>
+			<description>注册不可变单表 IR。重复表名和损坏契约会 fail closed，且不会污染当前 IR。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">table_ir: 已完成语义校验的单表 IR。</tag>
+				<tag name="return">注册结果。</tag>
+				<tag name="schema">return: Dictionary，包含 success、error_code、error_kind、error 和 table_name。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="seal">
+			<signature>func seal() -&gt; Dictionary:</signature>
+			<description>封存数据库 IR。封存成功后不能再注册表，且 IR 才能交给 Target。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">封存结果。</tag>
+				<tag name="schema">return: Dictionary，包含 success、error_code、error_kind、error 和 table_name。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_sealed">
+			<signature>func is_sealed() -&gt; bool:</signature>
+			<description>返回 IR 是否已封存。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">已封存时为 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="validate_contract">
+			<signature>func validate_contract() -&gt; Dictionary:</signature>
+			<description>校验数据库 IR 已封存，且自身及全部单表 IR 满足结构契约。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">契约校验结果。</tag>
+				<tag name="schema">return: Dictionary，包含 success、error_code、error_kind、error 和 table_name。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_database_id">
+			<signature>func get_database_id() -&gt; StringName:</signature>
+			<description>获取数据库标识。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">数据库标识。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_version">
+			<signature>func get_version() -&gt; String:</signature>
+			<description>获取项目侧配置版本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">配置版本。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_metadata">
+			<signature>func get_metadata() -&gt; Dictionary:</signature>
+			<description>获取数据库元数据。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">数据库元数据的深拷贝。</tag>
+				<tag name="schema">return: Dictionary，保存构建上下文或项目侧附加元数据。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_table">
+			<signature>func get_table(table_name: StringName) -&gt; GFConfigPipelineTableIR:</signature>
+			<description>获取不可变单表 IR。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">table_name: 稳定表名。</tag>
+				<tag name="return">找到时返回不可变单表 IR，否则返回 null。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_tables">
+			<signature>func get_tables() -&gt; Array[GFConfigPipelineTableIR]:</signature>
+			<description>获取按注册顺序排列的不可变单表 IR。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">单表 IR 列表；数组容器是副本，元素是不可变 IR。</tag>
+				<tag name="schema">return: Array[GFConfigPipelineTableIR]，按注册顺序排列。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="duplicate_ir">
+			<signature>func duplicate_ir() -&gt; GFConfigPipelineIR:</signature>
+			<description>创建内容等价且不共享可变载荷的数据库 IR。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">数据库 IR 副本；原 IR 已封存时，副本也会封存。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="describe">
+			<signature>func describe() -&gt; Dictionary:</signature>
+			<description>导出不包含完整记录载荷的稳定摘要。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">IR 摘要。</tag>
+				<tag name="schema">return: Dictionary，包含 format、format_version、database_id、version、sealed、metadata、table_count 和 tables。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

@@ -1,0 +1,54 @@
+name: Provider-neutral GF capability
+description: Propose a reusable framework mechanism with a clear ownership boundary.
+title: "[Feature] "
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Cross-project problem
+      description: Describe the mechanism gap without prescribing one provider or one game's business rules.
+    validations:
+      required: true
+  - type: textarea
+    id: reuse
+    attributes:
+      label: Independent use cases
+      description: Give at least two plausible projects, systems, or providers that need this capability.
+    validations:
+      required: true
+  - type: textarea
+    id: boundary
+    attributes:
+      label: Proposed GF responsibility
+      description: State what GF should own and what must remain project or adapter code.
+    validations:
+      required: true
+  - type: textarea
+    id: contract
+    attributes:
+      label: Lifecycle and failure contract
+      description: Cover ownership, cancellation, errors, migration, authority, determinism, security, or performance where relevant.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Existing alternatives and why they are insufficient
+    validations:
+      required: true
+  - type: textarea
+    id: migration
+    attributes:
+      label: API and migration impact
+      description: Identify likely breaking surface, package placement, and a smallest validating experiment.
+    validations:
+      required: true
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Submission checks
+      options:
+        - label: This is not a request to embed provider SDK code or project business rules in GF.
+          required: true
+        - label: I searched existing APIs, packages, documentation, and issues first.
+          required: true

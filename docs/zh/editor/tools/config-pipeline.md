@@ -1,6 +1,6 @@
 # Config Pipeline 导表工具包
 
-`gf.tool.config_pipeline` 是可选制作期工具包，用于把通用 CSV / JSON / XLSX 表来源构建为 `GFConfigTableResource` 或 `GFConfigDatabaseResource`，再保存为 Godot 原生 `.tres/.res` 或通用 JSON 导出。它适合编辑器按钮、CI 校验或项目导表脚本复用同一套 GF 配置表 schema、报告和 Resource Provider。
+`gf.tool.config_pipeline` 是可选制作期工具包，用于把通用 CSV / JSON / ConfigFile / XLSX 表来源构建为 `GFConfigTableResource` 或 `GFConfigDatabaseResource`，再保存为 Godot 原生 `.tres/.res` 或通用 JSON 导出。它适合编辑器按钮、CI 校验或项目导表脚本复用同一套 GF 配置表 schema、报告和 Resource Provider。
 
 ## 定位
 
@@ -8,13 +8,27 @@
 
 `GFConfigPipelineProfile` 描述一批表来源、数据库标识、版本、输出路径、构建选项和保存选项。它也可以显式配置访问器脚本输出，让同一次导表顺带生成静态配置访问脚本。Profile 适合保存为 `.tres`，让项目导表命令、编辑器按钮或 CI 只读取一份批量构建声明。
 
-`GFConfigPipeline` 执行构建流程：读取来源文件、按 CSV / JSON / XLSX 解析、把结果归一化为记录数组、按 schema 校验和转换字段、构建表资源、注册到数据库资源，并可保存为 Godot Resource 或 JSON 导出。
+`GFConfigPipeline` 是编排入口：它按 Reader、Layout、Validation、Target 和 Commit 的固定职责链执行编译，不再同时持有每种格式解析、语义校验、目标编码和文件回滚实现。构建结果继续返回表或数据库 Resource，同时通过 `ir` 暴露实际交给 Target 的版本化中间表示。
 
 `GFConfigPipelineRunner` 从 Profile 资源路径加载 `.tres/.res`，再调用 Pipeline 构建或导出，并返回统一 Dictionary 报告。它适合作为 CI、编辑器按钮或项目脚本的 Godot 原生入口。
 
 `GFConfigPipelineCommand` 是 Runner 之上的命令参数适配器。项目可以用 Godot headless 直接运行它，获得 exit code、JSON 报告和 dry-run 产物预检，而不需要在项目侧重复解析命令行参数。
 
 `GFConfigPipelineArtifactManifest` 负责为 Profile 导出记录输入、输出和选项摘要。Runner 的 changed-only 模式会读取它判断产物是否仍然 fresh；项目侧也可以直接读取 manifest 报告做 CI 审查或编辑器提示。
+
+## 分阶段编译与版本化 IR
+
+内置 Pipeline 使用五个彼此独立的阶段：
+
+- `GFConfigPipelineReaderStage` 只处理来源存在性、文件大小预算和原始载荷读取。CSV、JSON、ConfigFile 返回未改写文本，XLSX 返回已经过文件预算检查的路径载荷。
+- `GFConfigPipelineLayoutStage` 只把载荷解码为记录、表头和 `row_locations`。CSV / JSON / ConfigFile 复用 `GFConfigTableImporter`，XLSX 的 ZIP / XML 预算与 sheet 布局解析收敛在该阶段。
+- `GFConfigPipelineValidationStage` 负责记录规范化、类型化表头、schema 复制或推导、字段转换和语义校验。只有完整通过的结果才生成 `GFConfigPipelineTableIR`。
+- `GFConfigPipelineTargetStage` 接受 IR 完成 Resource 物化，并将数据库 Resource 转换为 JSON-safe 数据及稳定 JSON 文本；缩进、键排序和变体编码都属于 Target 语义，它不会重新读取来源或推导 schema。
+- `GFConfigPipelineCommitStage` 只负责多产物写入前快照、成功清理和失败逆序回滚，不解释产物内容，也不决定输出路径策略。
+
+`GFConfigPipelineTableIR` 与 `GFConfigPipelineIR` 都带稳定 `FORMAT` / `FORMAT_VERSION`。Table IR 创建时会深拷贝记录、schema、来源映射和元数据，读取接口始终返回可变载荷的副本；数据库 IR 对重复表名 fail closed，并且只有 `seal()` 成功后才能交给 Target，封存后继续注册表会失败。数据库 IR 返回的表数组容器也是副本，元素则是已封装可变载荷的 Table IR。这个所有权和生命周期边界保证自定义 Target、并行预览或后续缓存不会通过共享 `Dictionary` / `Resource` 引用反向污染编译结果。
+
+项目或独立工具插件确实需要替换来源或目标时，可以继承对应 Stage，并通过 `configure_stages()` 注入。自定义阶段必须保持内置输入输出契约，只替换稳定机制；远程表服务、业务字段解释、分端裁剪、热更新签名和发布审批仍应留在项目流水线。`get_stage_descriptors()` 会按实际执行顺序返回阶段 ID、实现版本、实现路径和契约，可用于诊断、编译指纹与工具展示。具名脚本会自动提供 `implementation_path`；运行时内部类或动态脚本若没有稳定资源路径，必须在描述器中显式声明可追踪的实现路径，否则产物新鲜度检查应 fail closed。
 
 ## 典型流程
 
@@ -30,6 +44,11 @@ var result: Dictionary = pipeline.build_database([source], {
 	"database_id": &"main",
 	"version": "dev",
 })
+
+var compilation_ir_value: Variant = GFVariantData.get_option_value(result, "ir")
+if compilation_ir_value is GFConfigPipelineIR:
+	var compilation_ir: GFConfigPipelineIR = compilation_ir_value
+	print(compilation_ir.describe())
 
 if GFVariantData.get_option_bool(result, "success"):
 	var database_value: Variant = GFVariantData.get_option_value(result, "database")
@@ -53,7 +72,9 @@ JSON 导出包含稳定格式标识、数据库 ID、版本、元数据、表名
 
 数据库输出、访问器输出和 manifest 输出都应使用 `res://`、`user://` 或项目相对路径。导表工具会拒绝绝对文件系统路径、未知 URI scheme，以及默认情况下写入 `res://addons/gf` 框架源码目录的输出；包含 `..` 的父级路径也需要显式 opt-in，避免 Profile 把生成物写到项目边界之外。Profile 里的普通构建选项只会保留导表自身识别的键；Runner 的 `dry_run`、`changed_only`、`manifest_path` 等执行期选项不会混入数据库构建配置。
 
-需要做增量导表时，可以让 Runner 为导出结果写入 artifact manifest。manifest 会记录 Profile 摘要、来源文件摘要、输出文件摘要、影响产物内容的导表选项和本次运行摘要。manifest 输出会先经过 JSON-safe 转换，非有限浮点、PackedArray、Object、Resource 或循环结构不会直接进入 `JSON.stringify()`。下一次用同一 Profile 导出时，`changed_only` 会先比对 manifest；输入、Profile、输出文件和关键选项都未变化时直接返回 `skipped: true`，避免重复写产物。
+需要做增量导表时，可以让 Runner 为导出结果写入 artifact manifest。manifest 会记录 Profile 语义摘要及其 Resource 依赖、来源文件、输出文件、影响产物内容的导表选项、编译器指纹和本次运行摘要。Profile 依赖会递归覆盖外置 schema、列、索引、引用和自定义校验器脚本；编译器指纹则包含编译契约版本、GF/Godot 版本，以及每个实际阶段的稳定 ID、`implementation_version`、实现路径和实现文件摘要。这样只修改 schema、校验器实现或 GF 导表实现时，也不会错误命中旧产物。
+
+manifest 输出会先经过 JSON-safe 转换，非有限浮点、PackedArray、Object、Resource 或循环结构不会直接进入 `JSON.stringify()`。下一次用同一 Profile 导出时，`changed_only` 会比对 Profile、语义依赖、来源、输出、关键选项和编译器指纹；全部未变化时才返回 `skipped: true`。内置阶段的描述直接源于各 Stage 的 `STAGE_ID` / `IMPLEMENTATION_VERSION`，自定义阶段使用其实际描述器；指纹同时纳入两个 IR 的格式版本并哈希对应实现文件，因此阶段组合、实现或 IR 契约变化不会错误命中旧产物。缺少新增指纹字段但摘要合法的旧 manifest 会被当作 stale 并在下一次成功导出时升级，不需要手工删除；字段不完整、所有权不匹配或摘要被篡改的 manifest 仍会 fail closed。所有依赖和阶段文件都计入既有 freshness 文件大小、累计字节数和条目数预算。
 
 ```gdscript
 var runner: GFConfigPipelineRunner = GFConfigPipelineRunner.new()
@@ -169,7 +190,7 @@ int!,string,float
 
 ## 使用边界
 
-当前工具包只沉淀稳定通用机制：来源声明、Profile 路径执行、CSV / JSON / XLSX 解析、schema 校验、跨表引用校验、记录转换、索引重建、`.tres/.res` 保存和 JSON 导出。
+当前工具包只沉淀稳定通用机制：来源声明、版本化 IR、分阶段编译、Profile 路径执行、CSV / JSON / ConfigFile / XLSX 解析、schema 校验、跨表引用校验、记录转换、索引重建、`.tres/.res` 保存、JSON 目标和文件提交事务。
 
 CSV 与 XLSX 会复用同一套表格预处理选项：`parse_options.comment_prefixes` 可过滤本地备注行和备注列，`comment_row_prefixes` / `comment_column_prefixes` 可分开控制；`condition_symbols` 配合 `enable_condition_directives` 可保留简单 `#if SYMBOL ...` / `#endif` 块内命中的数据行。这些选项只处理通用表格结构，不表达业务分端规则，复杂表达式或发布矩阵仍应放在项目流水线层。
 

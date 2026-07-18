@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFConfigPipelineTableSource" path="addons/gf/tools/config_pipeline/gf_config_pipeline_table_source.gd" module="tools" extends="Resource" classDigest="23848d6807a6f6694cdb92626f871edd78e309e5182d1e0734d2f0465657f367">
+<class name="GFConfigPipelineTableSource" path="addons/gf/tools/config_pipeline/gf_config_pipeline_table_source.gd" module="tools" extends="Resource" classDigest="2dedc235bc3ad3ffe0a389a3b68cdacaccaeea01d2667e1832ac63a430a6d60f">
 	<description>GFConfigPipelineTableSource: 配置导表工具的单表来源声明。
 描述一张配置表的输入路径、格式、schema、解析选项和导出元数据。
 该资源属于可选 tool package，只表达制作期或 CI 期通用导入来源，不规定项目表名、业务字段、目录结构或发布策略。</description>
@@ -163,7 +163,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">来源声明字典。</tag>
-				<tag name="schema">return: Dictionary，包含 table_name、source_path、source_format、resolved_format、infer_schema、coerce_records、parse_options、schema_options 和 metadata。</tag>
+				<tag name="schema">return: Dictionary，包含 table_name、source_path、source_format、resolved_format、schema、schema_path、infer_schema、coerce_records、parse_options、schema_options 和 metadata。</tag>
 				<tag name="since">5.2.0</tag>
 			</tags>
 		</member>

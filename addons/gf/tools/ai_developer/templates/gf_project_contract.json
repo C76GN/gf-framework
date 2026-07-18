@@ -1,0 +1,106 @@
+{
+  "schema_version": 1,
+  "project": {
+    "id": "gf_project",
+    "summary": "A Godot project built with GF Framework.",
+    "stage": "prototype",
+    "quality_priorities": [
+      "correctness",
+      "maintainability",
+      "clear ownership"
+    ],
+    "out_of_scope": []
+  },
+  "framework": {
+    "required_packages": [
+      "gf.kernel"
+    ],
+    "optional_packages": [],
+    "forbidden_packages": [],
+    "required_capabilities": [
+      "architecture"
+    ],
+    "adapter_boundaries": []
+  },
+  "architecture": {
+    "modules": [],
+    "global_rules": [
+      "Project business code stays outside res://addons/gf.",
+      "External platform SDKs are isolated behind project-owned adapters."
+    ],
+    "project_profile_path": ""
+  },
+  "constraints": {
+    "platforms": [],
+    "determinism": {
+      "mode": "unknown",
+      "scope": [],
+      "notes": ""
+    },
+    "persistence": {
+      "mode": "unknown",
+      "compatibility": "unknown",
+      "notes": ""
+    },
+    "networking": {
+      "mode": "unknown",
+      "authority": "unknown",
+      "notes": ""
+    },
+    "performance_budgets": [],
+    "security_boundaries": [],
+    "lifecycle_rules": [],
+    "async_rules": []
+  },
+  "decisions": [],
+  "verification": {
+    "execution_policy": "review_required",
+    "checks": [
+      {
+        "id": "godot_import",
+        "description": "Import the project and surface parse or editor startup failures.",
+        "argv": [
+          "godot",
+          "--headless",
+          "--path",
+          ".",
+          "--editor",
+          "--quit"
+        ],
+        "working_directory": ".",
+        "timeout_seconds": 180,
+        "network_access": "forbidden",
+        "writes_project": true,
+        "required": true
+      }
+    ],
+    "required_paths": [
+      "project.godot"
+    ]
+  },
+  "feedback": {
+    "repository": "C76GN/gf-framework",
+    "submission_policy": "approval_required",
+    "allow_network_submission": false,
+    "allow_source_snippets": false,
+    "allow_log_excerpt": false,
+    "extra_redaction_literals": []
+  },
+  "unknowns": [
+    {
+      "id": "platform_targets",
+      "question": "Which export platforms must the architecture support?",
+      "blocking": false
+    },
+    {
+      "id": "persistence_contract",
+      "question": "What persistence and migration guarantees are required?",
+      "blocking": false
+    },
+    {
+      "id": "network_authority",
+      "question": "Is the project offline, host-authoritative, or server-authoritative?",
+      "blocking": false
+    }
+  ]
+}

@@ -6,7 +6,7 @@
 
 | 类别 | 类 | 成员 | 方法 |
 |---|---:|---:|---:|
-| [工具 API](#category-tool_api) | 10 | 81 | 46 |
+| [工具 API](#category-tool_api) | 17 | 135 | 86 |
 
 ## 类
 
@@ -20,9 +20,16 @@
 | [`GFConfigPipeline`](classes/GFConfigPipeline.md#gfconfigpipeline) | `RefCounted` | `addons/gf/tools/config_pipeline/gf_config_pipeline.gd` |
 | [`GFConfigPipelineArtifactManifest`](classes/GFConfigPipelineArtifactManifest.md#gfconfigpipelineartifactmanifest) | `RefCounted` | `addons/gf/tools/config_pipeline/gf_config_pipeline_artifact_manifest.gd` |
 | [`GFConfigPipelineCommand`](classes/GFConfigPipelineCommand.md#gfconfigpipelinecommand) | `RefCounted` | `addons/gf/tools/config_pipeline/gf_config_pipeline_command.gd` |
+| [`GFConfigPipelineCommitStage`](classes/GFConfigPipelineCommitStage.md#gfconfigpipelinecommitstage) | `RefCounted` | `addons/gf/tools/config_pipeline/gf_config_pipeline_commit_stage.gd` |
+| [`GFConfigPipelineIR`](classes/GFConfigPipelineIR.md#gfconfigpipelineir) | `RefCounted` | `addons/gf/tools/config_pipeline/gf_config_pipeline_ir.gd` |
+| [`GFConfigPipelineLayoutStage`](classes/GFConfigPipelineLayoutStage.md#gfconfigpipelinelayoutstage) | `RefCounted` | `addons/gf/tools/config_pipeline/gf_config_pipeline_layout_stage.gd` |
 | [`GFConfigPipelineProfile`](classes/GFConfigPipelineProfile.md#gfconfigpipelineprofile) | `Resource` | `addons/gf/tools/config_pipeline/gf_config_pipeline_profile.gd` |
+| [`GFConfigPipelineReaderStage`](classes/GFConfigPipelineReaderStage.md#gfconfigpipelinereaderstage) | `RefCounted` | `addons/gf/tools/config_pipeline/gf_config_pipeline_reader_stage.gd` |
 | [`GFConfigPipelineRunner`](classes/GFConfigPipelineRunner.md#gfconfigpipelinerunner) | `RefCounted` | `addons/gf/tools/config_pipeline/gf_config_pipeline_runner.gd` |
+| [`GFConfigPipelineTableIR`](classes/GFConfigPipelineTableIR.md#gfconfigpipelinetableir) | `RefCounted` | `addons/gf/tools/config_pipeline/gf_config_pipeline_table_ir.gd` |
 | [`GFConfigPipelineTableSource`](classes/GFConfigPipelineTableSource.md#gfconfigpipelinetablesource) | `Resource` | `addons/gf/tools/config_pipeline/gf_config_pipeline_table_source.gd` |
+| [`GFConfigPipelineTargetStage`](classes/GFConfigPipelineTargetStage.md#gfconfigpipelinetargetstage) | `RefCounted` | `addons/gf/tools/config_pipeline/gf_config_pipeline_target_stage.gd` |
+| [`GFConfigPipelineValidationStage`](classes/GFConfigPipelineValidationStage.md#gfconfigpipelinevalidationstage) | `RefCounted` | `addons/gf/tools/config_pipeline/gf_config_pipeline_validation_stage.gd` |
 | [`GFDialogueTextCompiler`](classes/GFDialogueTextCompiler.md#gfdialoguetextcompiler) | `RefCounted` | `addons/gf/tools/dialogue_text/gf_dialogue_text_compiler.gd` |
 | [`GFProjectLayoutScaffolder`](classes/GFProjectLayoutScaffolder.md#gfprojectlayoutscaffolder) | `RefCounted` | `addons/gf/tools/project_layout/gf_project_layout_scaffolder.gd` |
 | [`GFProjectLayoutValidator`](classes/GFProjectLayoutValidator.md#gfprojectlayoutvalidator) | `RefCounted` | `addons/gf/tools/project_layout/gf_project_layout_validator.gd` |

@@ -189,13 +189,15 @@ func duplicate_source() -> GFConfigPipelineTableSource:
 ## [br]
 ## @return: 来源声明字典。
 ## [br]
-## @schema return: Dictionary，包含 table_name、source_path、source_format、resolved_format、infer_schema、coerce_records、parse_options、schema_options 和 metadata。
+## @schema return: Dictionary，包含 table_name、source_path、source_format、resolved_format、schema、schema_path、infer_schema、coerce_records、parse_options、schema_options 和 metadata。
 func describe() -> Dictionary:
 	return {
 		"table_name": get_table_key(),
 		"source_path": source_path,
 		"source_format": source_format,
 		"resolved_format": get_resolved_format(),
+		"schema": schema.describe() if schema != null else {},
+		"schema_path": schema.resource_path if schema != null else "",
 		"infer_schema": infer_schema,
 		"coerce_records": coerce_records,
 		"parse_options": parse_options.duplicate(true),

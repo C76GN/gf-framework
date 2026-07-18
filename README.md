@@ -18,6 +18,7 @@ The legacy GitHub Wiki keeps only entry links. Read the Docs is the single offic
 - Godot 4.7 or newer.
 - GUT, only when running the repository test suite.
 - Python dependencies from [`docs/requirements.txt`](docs/requirements.txt), only when building the documentation locally.
+- Python 3.10 or newer, only when using the optional GF AI Developer Kit project tooling.
 
 ## Installation
 
@@ -95,6 +96,12 @@ The kernel does not hard reference the standard library or optional extensions. 
 GF includes core editor support for extension management, typed GF/config accessor generation, project constants, script templates, inspectors, docks, export helpers, and Node3D/Mesh/MeshLibrary thumbnail rendering. Optional extensions contribute their own editor tools, such as SaveGraph diagnostics and Pattern2D editing, only when enabled.
 
 Extension-specific editor tools are declared by `gf_extension.json` manifests and loaded only when the extension is enabled.
+
+## AI-Assisted Project Development
+
+The optional `gf.tool.ai_developer` package provides a strict project intent contract, an observed-state snapshot, a version-bound GF capability/API catalog, managed agent instructions, and an approval-gated framework feedback workflow. It keeps project business rules and platform SDK adapters outside GF and does not add any dependency to the game runtime or exported build.
+
+See the [AI Developer Kit guide](docs/zh/editor/tools/ai-developer.md). A matching standalone `gf-ai-developer-kit-<version>.zip` is published with each release for supported agent hosts.
 
 ## Testing
 

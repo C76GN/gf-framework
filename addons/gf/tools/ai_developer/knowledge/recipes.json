@@ -1,0 +1,266 @@
+{
+  "schema_version": 1,
+  "catalog_version": "1.0.0",
+  "recipes": [
+    {
+      "id": "project-feature",
+      "title": "Add a project feature",
+      "primary_classes": ["GFArchitecture", "GFModel", "GFSystem", "GFController"],
+      "steps": [
+        "Name the feature's authoritative state, behavior, scene bridge, and external dependencies.",
+        "Place the feature in one declared project module outside addons/gf.",
+        "Use a GF Model, System, Utility, or Controller only for the responsibility it owns.",
+        "Register long-lived architecture members from the composition root; keep scene objects scene-owned.",
+        "Test observable state transitions and lifecycle cleanup."
+      ],
+      "avoid": ["One class per architecture role without responsibility", "Business fields added to GF resources", "Scene nodes retained by long-lived services"]
+    },
+    {
+      "id": "composition-root",
+      "title": "Compose project modules and adapters",
+      "primary_classes": ["GFInstaller", "GFArchitecture"],
+      "steps": [
+        "Create a project-owned GFInstaller as the composition root.",
+        "Select concrete services and provider adapters from contract constraints.",
+        "Register stable protocols before dependent systems initialize.",
+        "Keep feature flow and SDK callbacks out of the installer.",
+        "Verify initialization, disposal, and replacement in tests."
+      ],
+      "avoid": ["Service locator calls scattered through domain code", "Platform checks spread across systems"]
+    },
+    {
+      "id": "owned-async-operation",
+      "title": "Implement an owned async operation",
+      "primary_classes": ["GFAsyncCompletion", "GFAsyncScope", "GFAsyncWaitUtility"],
+      "steps": [
+        "Choose the node, service, or request that owns the operation.",
+        "Define success, failure, cancellation, and timeout terminal states.",
+        "Bind cancellation to owner disposal or scene exit.",
+        "Normalize callbacks or signals into one completion boundary.",
+        "Observe every terminal state and test late callbacks."
+      ],
+      "avoid": ["Fire-and-forget work with hidden failure", "Awaiting a signal whose emitter can disappear"]
+    },
+    {
+      "id": "owned-resource-load",
+      "title": "Load a resource with explicit ownership",
+      "primary_classes": ["GFAssetUtility", "GFAssetHandle", "GFResourceResolverUtility"],
+      "steps": [
+        "Resolve a stable resource key or catalog entry instead of scattering paths.",
+        "Acquire through GFAssetUtility with an owner, group, or explicit release policy.",
+        "Handle cancellation and load failure before exposing the resource.",
+        "Release the handle when the owner ends.",
+        "Test cache and owner-disposal behavior."
+      ],
+      "avoid": ["Unowned long-lived cache pins", "Runtime content identity based only on raw res:// paths"]
+    },
+    {
+      "id": "config-pipeline",
+      "title": "Compile project configuration",
+      "primary_classes": ["GFConfigPipeline", "GFConfigPipelineIR", "GFConfigPipelineValidationStage"],
+      "steps": [
+        "Keep business schema in project-owned source and schema files.",
+        "Use Reader, Layout, Validation, Target, and Commit stages as separate concerns.",
+        "Inspect the versioned IR before materialization when adding custom targets.",
+        "Fail closed on duplicate identities, invalid references, and partial commits.",
+        "Verify freshness fingerprints and rollback."
+      ],
+      "avoid": ["Project columns hardcoded into GF stages", "Writing outputs before all semantic validation passes"]
+    },
+    {
+      "id": "save-boundary",
+      "title": "Define persistence and save ownership",
+      "primary_classes": ["GFStorageUtility", "GFSaveGraphUtility", "GFSaveScope", "GFSaveIdentity"],
+      "steps": [
+        "Declare persistence mode and compatibility guarantees in the project contract.",
+        "Choose local dictionary storage or scene save graph by ownership shape.",
+        "Assign stable identities and project-owned serializers or data sources.",
+        "Make migrations explicit and transactional.",
+        "Test corruption, interruption, old versions, and missing entities."
+      ],
+      "avoid": ["Persisting process-local IDs", "Treating encryption, integrity, and obfuscation as equivalent"]
+    },
+    {
+      "id": "platform-lobby-adapter",
+      "title": "Adapt a platform lobby provider",
+      "primary_classes": ["GFNetworkBackend", "GFAsyncCompletion", "GFInstaller"],
+      "steps": [
+        "Define provider-neutral identity, lobby descriptor, member, invite, and error records in project or adapter code.",
+        "Keep Steam, Epic, console, or service SDK calls inside the adapter.",
+        "Normalize initialization, capability checks, callbacks, cancellation, and provider shutdown.",
+        "Let project code own lobby visibility, matchmaking policy, UI, and fallback.",
+        "Test unavailable SDK, late callbacks, disconnect, ownership transfer, and duplicate events."
+      ],
+      "avoid": ["Provider IDs leaking into portable domain models", "A GFSteamManager-style global business facade"]
+    },
+    {
+      "id": "platform-storage-adapter",
+      "title": "Adapt cloud or platform storage",
+      "primary_classes": ["GFStorageBackend", "GFStorageSyncUtility", "GFAsyncCompletion"],
+      "steps": [
+        "Implement provider calls behind GFStorageBackend or a project-owned equivalent.",
+        "Normalize keys, revisions, availability, errors, and cancellation.",
+        "Declare conflict and offline policy in project code.",
+        "Keep credentials and account data outside logs and feedback drafts.",
+        "Test stale revisions, partial failures, quota, offline recovery, and retries."
+      ],
+      "avoid": ["Cloud policy embedded in generic storage", "Last-write-wins without an explicit project decision"]
+    },
+    {
+      "id": "provider-backend",
+      "title": "Implement a replaceable provider backend",
+      "primary_classes": ["GFAudioBackend", "GFNetworkBackend", "GFStorageBackend"],
+      "steps": [
+        "Select the narrow GF protocol that matches the provider capability.",
+        "Declare capability support before handling requests.",
+        "Translate provider errors and lifecycle into stable project-facing results.",
+        "Fallback only when project policy explicitly permits it.",
+        "Contract-test the backend independently from the SDK-facing wrapper."
+      ],
+      "avoid": ["Provider-specific methods added to a generic protocol", "Silent fallback that changes product behavior"]
+    },
+    {
+      "id": "network-backend-adapter",
+      "title": "Implement a network transport backend",
+      "primary_classes": ["GFNetworkBackend", "GFNetworkUtility", "GFNetworkChannel"],
+      "steps": [
+        "Keep transport bytes and connection state separate from project messages.",
+        "Declare authority, reliability, ordering, and payload limits in project contracts.",
+        "Normalize peer identity and disconnect reasons at the adapter boundary.",
+        "Use GF network contracts for stable payloads when appropriate.",
+        "Test loss, duplication, reordering, reconnect, oversized payloads, and shutdown."
+      ],
+      "avoid": ["Transport callbacks mutating gameplay state directly", "Assuming a transport implies authority policy"]
+    },
+    {
+      "id": "feedback-candidate",
+      "title": "Escalate a project finding to GF",
+      "primary_classes": ["GFSupportReportUtility", "GFDiagnosticsUtility"],
+      "steps": [
+        "Minimize the failure outside project business flow.",
+        "Classify project misuse, framework defect, documentation gap, reusable mechanism, or adapter gap.",
+        "Create a structured candidate with expected, actual, reproduction, environment, impact, and workaround.",
+        "Generate a redacted draft and inspect the exact payload.",
+        "Check duplicates and submit only after explicit approval of the payload hash."
+      ],
+      "avoid": ["Uploading raw project files or logs", "Submitting speculative ideas as confirmed defects"]
+    },
+    {
+      "id": "content-package",
+      "title": "Organize optional project content",
+      "primary_classes": ["GFContentPackageManifest", "GFContentPackageCatalog", "GFContentPackageUtility"],
+      "steps": [
+        "Assign stable content package IDs and resource keys.",
+        "Keep dependencies acyclic and paths inside each package root.",
+        "Let project tooling own download, entitlement, activation, and CDN policy.",
+        "Build and audit an export plan before packaging.",
+        "Test missing, duplicate, and cyclic dependencies plus unavailable content."
+      ],
+      "avoid": ["Download URLs embedded in the runtime content manifest", "Gameplay rules keyed to physical file paths"]
+    },
+    {
+      "id": "input-context",
+      "title": "Add input contexts and rebinding",
+      "primary_classes": ["GFInputMappingUtility", "GFInputContext", "GFInputDetector", "GFInputConflictAnalyzer"],
+      "steps": [
+        "Define project-owned abstract actions and contexts.",
+        "Map device events through bindings, modifiers, and triggers.",
+        "Use a detector and conflict analysis before committing rebinds.",
+        "Persist project rebind policy separately from gameplay state.",
+        "Test context overlap, device changes, cancellation, and inaccessible bindings."
+      ],
+      "avoid": ["Gameplay code reading physical keys directly", "A rebinding UI silently resolving conflicts"]
+    },
+    {
+      "id": "ui-screen-flow",
+      "title": "Compose a UI screen flow",
+      "primary_classes": ["GFUIUtility", "GFUILayerDefinition", "GFUIRoute", "GFUIRouterUtility", "GFReactiveStateStore"],
+      "steps": [
+        "Separate logical navigation layers from CanvasLayer drawing order.",
+        "Represent screen intent in project-owned navigation requests and state.",
+        "Bind controls to reactive state without placing business decisions in views.",
+        "Define modal, replace, hide-under, focus, and back behavior explicitly.",
+        "Test rapid transitions, scene disposal, focus restoration, and duplicate requests."
+      ],
+      "avoid": ["Cross-layer cleanup assumed from replace", "Global UI state embedded in individual controls"]
+    },
+    {
+      "id": "state-or-flow",
+      "title": "Choose state machine, flow, or action queue",
+      "primary_classes": ["GFNodeStateMachine", "GFFlowRunner", "GFActionQueueSystem"],
+      "steps": [
+        "Use a state machine for mutually exclusive durable modes.",
+        "Use a flow graph for inspectable progression through heterogeneous steps.",
+        "Use an action queue for ordered or parallel transient work, especially presentation.",
+        "Assign one owner for cancellation and terminal reporting.",
+        "Test interruption, loops, missing targets, and owner disposal."
+      ],
+      "avoid": ["Nesting orchestrators to model the same state", "Using a visual queue as authoritative domain state"]
+    },
+    {
+      "id": "diagnostic-contribution",
+      "title": "Publish bounded diagnostics",
+      "primary_classes": ["GFDiagnosticsUtility", "GFOperationDiagnosticsUtility", "GFLogUtility"],
+      "steps": [
+        "Choose the minimum fields needed to answer a concrete operational question.",
+        "Publish a bounded, already-sanitized snapshot through an owner-bound contribution.",
+        "Keep callbacks out of hot snapshot collection paths.",
+        "Define retention, cardinality, and text budgets.",
+        "Test disabled collection, owner disposal, oversized values, and secret redaction."
+      ],
+      "avoid": ["Unbounded histories", "Precise device, account, scene, or path data collected by default"]
+    },
+    {
+      "id": "deterministic-scope",
+      "title": "Define a deterministic simulation scope",
+      "primary_classes": ["GFDeterministicRandom", "GFDeterministicVariantSerializer", "GFSeedUtility"],
+      "steps": [
+        "Declare which inputs, state, ticks, and outputs must reproduce.",
+        "Use fixed GF random state and canonical supported value types.",
+        "Exclude or quantize nondeterministic physics, clocks, floats, and provider callbacks.",
+        "Record seeds and canonical state hashes.",
+        "Verify golden sequences across clean runs and target platforms."
+      ],
+      "avoid": ["Assuming Godot RNG implementation is a permanent wire contract", "Hashing unordered or unsupported Variant graphs"]
+    },
+    {
+      "id": "domain-component",
+      "title": "Use a reusable domain component",
+      "primary_classes": ["GFInventoryModel", "GFAttributeSet", "GFQuestUtility"],
+      "steps": [
+        "Select a component only for generic state and operations it already owns.",
+        "Keep item meaning, rewards, economy, balance, and progression policy in project systems.",
+        "Store project-specific fields in documented metadata or project-owned resources.",
+        "Define save and replication boundaries explicitly.",
+        "Test invalid IDs, limits, duplicate operations, and migration."
+      ],
+      "avoid": ["Subclassing generic data to hide an entire gameplay system", "Adding one game's vocabulary to GF component code"]
+    },
+    {
+      "id": "dialogue-pipeline",
+      "title": "Build a dialogue pipeline",
+      "primary_classes": ["GFDialogueTextCompiler", "GFDialogueResource", "GFDialogueRunner", "GFDialogueContext"],
+      "steps": [
+        "Compile strict project-owned source into GF dialogue resources at authoring time.",
+        "Provide condition, mutation, and text resolution callbacks from project context.",
+        "Keep UI, localization tables, characters, quests, and rewards outside the runner.",
+        "Persist stable line and response identities when resume is required.",
+        "Test missing targets, cycles, invalid mutations, cancellation, and source diagnostics."
+      ],
+      "avoid": ["Business mutation names hardcoded into the compiler", "Dialogue UI owning authoritative quest state"]
+    },
+    {
+      "id": "spatial-policy",
+      "title": "Apply spatial or physics mechanisms",
+      "primary_classes": ["GFSpatialQueryIndex2D", "GFBuoyancyField3D", "GFCameraOrbitRig3D"],
+      "steps": [
+        "Separate pure spatial math or sampling from world ownership and node mutation.",
+        "Declare coordinate, units, layer, update cadence, and authority contracts.",
+        "Let the project choose candidates, probe placement, force application, and collision policy.",
+        "Bound queries and incremental work.",
+        "Test empty worlds, invalid values, large coordinates, frame-rate variation, and disposal."
+      ],
+      "avoid": ["Physics ownership hidden inside a math helper", "Unbounded world scans on frame callbacks"]
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "id": "gf.tool.ai_developer",
+  "kind": "tool",
+  "version": "unreleased",
+  "display_name": "GF AI Developer Kit",
+  "description": "Optional project intent contract, versioned GF knowledge, agent skills, local MCP/CLI, and approval-gated framework feedback workflow.",
+  "dependencies": [
+    "gf.kernel"
+  ],
+  "paths": [
+    "addons/gf/tools/ai_developer/**"
+  ],
+  "metadata": {
+    "stage": "project-ai-kit-v1"
+  }
+}

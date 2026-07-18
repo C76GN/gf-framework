@@ -9,7 +9,7 @@
 - 类别：工具 API (`tool_api`)
 - 首次版本：`8.0.0`
 
-配置导表产物 manifest 辅助。 为 GFConfigPipelineProfile 生成输入摘要、输出摘要和 freshness 报告，支持 CI、 编辑器按钮或命令行在导表前判断是否可以跳过未变化的产物。 该工具只记录通用文件摘要和导表选项，不表达项目业务版本、热更新策略或远端发布流程。
+配置导表产物 manifest 辅助。 为 GFConfigPipelineProfile 生成输入摘要、输出摘要和 freshness 报告，支持 CI、 编辑器按钮或命令行在导表前判断是否可以跳过未变化的产物。 该工具记录 Profile 资源依赖、数据来源、编译阶段、输出和导表选项摘要， 不表达项目业务版本、热更新策略或远端发布流程。
 
 ## 成员概览
 
@@ -81,7 +81,7 @@ func make_manifest( profile_path: String, profile: GFConfigPipelineProfile, opti
 
 - `options`: Dictionary，可包含 output_path、access_output_path、access_class_name、access_provider_accessor、build_options、save_options、access_options、manifest_metadata、max_freshness_file_bytes、max_freshness_total_bytes 和 max_freshness_entries；三个 freshness 预算必须为非负整数，分别限制单文件字节数、累计哈希字节数和扫描条目数。
 - `run_result`: Dictionary，可包含 success、operation、profile_id、output_path、save_result、access_result、report 和 error。
-- `return`: Dictionary，包含 format、format_version、artifact_owner、profile_path、profile_id、profile_digest、input_digest、output_digest、options_digest、source_entries、output_entries、scan_report、metadata、run_summary 和 manifest_digest。
+- `return`: Dictionary，包含 format、format_version、artifact_owner、profile_path、profile_id、profile_digest、input_digest、output_digest、options_digest、compiler_digest、compiler_fingerprint、profile_entries、source_entries、output_entries、scan_report、metadata、run_summary 和 manifest_digest。
 
 <a id="member-gfconfigpipelineartifactmanifest-methods-load_manifest"></a>
 
@@ -133,7 +133,7 @@ func save_manifest(manifest_path: String, manifest: Dictionary, options: Diction
 
 结构：
 
-- `manifest`: Dictionary，包含 format、format_version、artifact_owner、profile_digest、input_digest、options_digest、output_entries 和 scan_report。
+- `manifest`: Dictionary，包含 format、format_version、artifact_owner、profile_digest、input_digest、output_digest、options_digest、compiler_digest、compiler_fingerprint、profile_entries、source_entries、output_entries 和 scan_report。
 - `options`: Dictionary，可包含 dry_run、overwrite_existing、allow_unowned_overwrite、indent、sort_keys、allow_parent_output_path、allow_gf_source_output 和 allow_absolute_output_path；allow_unowned_overwrite 仅用于调用方已明确确认现有文件所有权的迁移场景。
 - `return`: Dictionary，包含 success、path、status、error_code、error、artifact_report、written、changed 和 dry_run。
 

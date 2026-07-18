@@ -1,0 +1,54 @@
+name: Adapter contract gap
+description: Propose a provider-neutral boundary exposed by two or more platform integrations.
+title: "[Adapter] "
+body:
+  - type: textarea
+    id: providers
+    attributes:
+      label: Providers or environments
+      description: Name at least two providers or a provider plus a non-provider implementation.
+      placeholder: Steam and LAN; WeChat and a custom HTTP backend...
+    validations:
+      required: true
+  - type: textarea
+    id: duplicated_contract
+    attributes:
+      label: Duplicated provider-neutral mechanism
+      description: Describe the shared state, result, lifecycle, or capability contract.
+    validations:
+      required: true
+  - type: textarea
+    id: gf_boundary
+    attributes:
+      label: Proposed GF-facing abstraction
+    validations:
+      required: true
+  - type: textarea
+    id: external_boundary
+    attributes:
+      label: Code that must remain outside GF
+      description: Identify SDK calls, credentials, storefront policy, platform lifecycle, and business behavior that stay in adapters or projects.
+    validations:
+      required: true
+  - type: textarea
+    id: semantics
+    attributes:
+      label: Capability, async, error, and ownership semantics
+    validations:
+      required: true
+  - type: textarea
+    id: experiment
+    attributes:
+      label: Smallest validating experiment
+      description: Explain how two implementations would prove or falsify the abstraction.
+    validations:
+      required: true
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Submission checks
+      options:
+        - label: The proposal does not require GF Core to depend on a provider SDK.
+          required: true
+        - label: Provider-specific UI, monetization, and game rules remain outside the abstraction.
+          required: true

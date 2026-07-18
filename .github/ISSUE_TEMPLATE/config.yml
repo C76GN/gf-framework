@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: GF documentation
+    url: https://gf-framework.readthedocs.io/
+    about: Check guides and generated API contracts before filing an issue.

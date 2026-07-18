@@ -1,0 +1,125 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gf-framework.dev/schemas/feedback-candidate-v1.json",
+  "title": "GF Framework Feedback Candidate",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "title",
+    "summary",
+    "expected",
+    "actual",
+    "reproduction_steps",
+    "evidence",
+    "environment",
+    "suspected_scope",
+    "requested_change",
+    "impact",
+    "workaround"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "const": 1
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 160
+    },
+    "summary": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 3000
+    },
+    "expected": {
+      "type": "string",
+      "maxLength": 3000
+    },
+    "actual": {
+      "type": "string",
+      "maxLength": 3000
+    },
+    "reproduction_steps": {
+      "type": "array",
+      "maxItems": 40,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 600
+      }
+    },
+    "evidence": {
+      "type": "array",
+      "maxItems": 40,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["kind", "text"],
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "observation",
+              "command_output",
+              "minimal_reproduction",
+              "source_snippet",
+              "log_excerpt",
+              "documentation"
+            ]
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1200
+          }
+        }
+      }
+    },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["godot_version", "gf_version", "platform", "packages"],
+      "properties": {
+        "godot_version": {
+          "type": "string",
+          "maxLength": 80
+        },
+        "gf_version": {
+          "type": "string",
+          "maxLength": 80
+        },
+        "platform": {
+          "type": "string",
+          "maxLength": 120
+        },
+        "packages": {
+          "type": "array",
+          "maxItems": 120,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "maxLength": 120
+          }
+        }
+      }
+    },
+    "suspected_scope": {
+      "type": "string",
+      "enum": ["project", "framework", "documentation", "adapter", "unknown"]
+    },
+    "requested_change": {
+      "type": "string",
+      "maxLength": 3000
+    },
+    "impact": {
+      "type": "string",
+      "enum": ["blocker", "high", "medium", "low"]
+    },
+    "workaround": {
+      "type": "string",
+      "maxLength": 2000
+    }
+  }
+}

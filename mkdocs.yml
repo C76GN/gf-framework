@@ -15,6 +15,7 @@ not_in_nav: |
   editor/tools/config-pipeline.md
   editor/tools/dialogue-text.md
   editor/tools/project-layout.md
+  editor/tools/ai-developer.md
 
 theme:
   name: material

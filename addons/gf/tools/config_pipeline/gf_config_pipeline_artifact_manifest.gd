@@ -2,7 +2,8 @@
 ##
 ## 为 GFConfigPipelineProfile 生成输入摘要、输出摘要和 freshness 报告，支持 CI、
 ## 编辑器按钮或命令行在导表前判断是否可以跳过未变化的产物。
-## 该工具只记录通用文件摘要和导表选项，不表达项目业务版本、热更新策略或远端发布流程。
+## 该工具记录 Profile 资源依赖、数据来源、编译阶段、输出和导表选项摘要，
+## 不表达项目业务版本、热更新策略或远端发布流程。
 ## [br]
 ## @api public
 ## [br]
@@ -37,7 +38,140 @@ const _DEFAULT_MAX_FRESHNESS_FILE_BYTES: int = 64 * 1024 * 1024
 const _DEFAULT_MAX_FRESHNESS_TOTAL_BYTES: int = 256 * 1024 * 1024
 const _DEFAULT_MAX_FRESHNESS_ENTRIES: int = 4096
 const _DIGEST_CHUNK_BYTES: int = 64 * 1024
+const _COMPILER_CONTRACT_VERSION: int = 2
+const _PLUGIN_CONFIG_PATH: String = "res://addons/gf/plugin.cfg"
+const _COMPILER_STAGE_DEFINITIONS: Array[Dictionary] = [
+	{
+		"id": "framework_metadata",
+		"implementation_version": 1,
+		"path": _PLUGIN_CONFIG_PATH,
+	},
+	{
+		"id": "config_pipeline",
+		"implementation_version": 1,
+		"path": "res://addons/gf/tools/config_pipeline/gf_config_pipeline.gd",
+	},
+	{
+		"id": GFConfigPipelineIR.FORMAT,
+		"implementation_version": GFConfigPipelineIR.FORMAT_VERSION,
+		"path": "res://addons/gf/tools/config_pipeline/gf_config_pipeline_ir.gd",
+	},
+	{
+		"id": GFConfigPipelineTableIR.FORMAT,
+		"implementation_version": GFConfigPipelineTableIR.FORMAT_VERSION,
+		"path": "res://addons/gf/tools/config_pipeline/gf_config_pipeline_table_ir.gd",
+	},
+	{
+		"id": GFConfigPipelineReaderStage.STAGE_ID,
+		"implementation_version": GFConfigPipelineReaderStage.IMPLEMENTATION_VERSION,
+		"path": "res://addons/gf/tools/config_pipeline/gf_config_pipeline_reader_stage.gd",
+	},
+	{
+		"id": GFConfigPipelineLayoutStage.STAGE_ID,
+		"implementation_version": GFConfigPipelineLayoutStage.IMPLEMENTATION_VERSION,
+		"path": "res://addons/gf/tools/config_pipeline/gf_config_pipeline_layout_stage.gd",
+	},
+	{
+		"id": GFConfigPipelineValidationStage.STAGE_ID,
+		"implementation_version": GFConfigPipelineValidationStage.IMPLEMENTATION_VERSION,
+		"path": "res://addons/gf/tools/config_pipeline/gf_config_pipeline_validation_stage.gd",
+	},
+	{
+		"id": GFConfigPipelineTargetStage.STAGE_ID,
+		"implementation_version": GFConfigPipelineTargetStage.IMPLEMENTATION_VERSION,
+		"path": "res://addons/gf/tools/config_pipeline/gf_config_pipeline_target_stage.gd",
+	},
+	{
+		"id": GFConfigPipelineCommitStage.STAGE_ID,
+		"implementation_version": GFConfigPipelineCommitStage.IMPLEMENTATION_VERSION,
+		"path": "res://addons/gf/tools/config_pipeline/gf_config_pipeline_commit_stage.gd",
+	},
+	{
+		"id": "artifact_manifest",
+		"implementation_version": 1,
+		"path": "res://addons/gf/tools/config_pipeline/gf_config_pipeline_artifact_manifest.gd",
+	},
+	{
+		"id": "pipeline_runner",
+		"implementation_version": 1,
+		"path": "res://addons/gf/tools/config_pipeline/gf_config_pipeline_runner.gd",
+	},
+	{
+		"id": "table_importer",
+		"implementation_version": 1,
+		"path": "res://addons/gf/standard/utilities/config/gf_config_table_importer.gd",
+	},
+	{
+		"id": "config_database_resource",
+		"implementation_version": 1,
+		"path": "res://addons/gf/standard/utilities/config/gf_config_database_resource.gd",
+	},
+	{
+		"id": "config_table_resource",
+		"implementation_version": 1,
+		"path": "res://addons/gf/standard/utilities/config/gf_config_table_resource.gd",
+	},
+	{
+		"id": "config_reference_resolver",
+		"implementation_version": 1,
+		"path": "res://addons/gf/standard/utilities/config/gf_config_reference_resolver.gd",
+	},
+	{
+		"id": "config_validation_report",
+		"implementation_version": 1,
+		"path": "res://addons/gf/standard/utilities/config/gf_config_validation_report.gd",
+	},
+	{
+		"id": "generated_artifact_commit",
+		"implementation_version": 1,
+		"path": "res://addons/gf/kernel/editor/gf_generated_artifact_report.gd",
+	},
+	{
+		"id": "report_value_codec",
+		"implementation_version": 1,
+		"path": "res://addons/gf/kernel/core/gf_report_value_codec.gd",
+	},
+	{
+		"id": "variant_json_codec",
+		"implementation_version": 1,
+		"path": "res://addons/gf/standard/foundation/variant/gf_variant_json_codec.gd",
+	},
+	{
+		"id": "variant_data",
+		"implementation_version": 1,
+		"path": "res://addons/gf/standard/foundation/variant/gf_variant_data.gd",
+	},
+]
+const _ACCESS_COMPILER_STAGE_DEFINITIONS: Array[Dictionary] = [
+	{
+		"id": "config_access_generator",
+		"implementation_version": 1,
+		"path": "res://addons/gf/tools/config_pipeline/gf_config_access_generator.gd",
+	},
+	{
+		"id": "source_builder",
+		"implementation_version": 1,
+		"path": "res://addons/gf/kernel/editor/gf_source_builder.gd",
+	},
+	{
+		"id": "variant_access",
+		"implementation_version": 1,
+		"path": "res://addons/gf/kernel/core/gf_variant_access.gd",
+	},
+]
+const _PIPELINE_STAGE_IDS: PackedStringArray = [
+	GFConfigPipelineReaderStage.STAGE_ID,
+	GFConfigPipelineLayoutStage.STAGE_ID,
+	GFConfigPipelineValidationStage.STAGE_ID,
+	GFConfigPipelineTargetStage.STAGE_ID,
+	GFConfigPipelineCommitStage.STAGE_ID,
+]
 const _GENERATED_ARTIFACT_REPORT_SCRIPT = preload("res://addons/gf/kernel/editor/gf_generated_artifact_report.gd")
+
+
+# --- 私有变量 ---
+
+var _compiler_stage_descriptors: Array[Dictionary] = []
 
 
 # --- 公共方法 ---
@@ -62,7 +196,7 @@ const _GENERATED_ARTIFACT_REPORT_SCRIPT = preload("res://addons/gf/kernel/editor
 ## [br]
 ## @return: manifest 字典。
 ## [br]
-## @schema return: Dictionary，包含 format、format_version、artifact_owner、profile_path、profile_id、profile_digest、input_digest、output_digest、options_digest、source_entries、output_entries、scan_report、metadata、run_summary 和 manifest_digest。
+## @schema return: Dictionary，包含 format、format_version、artifact_owner、profile_path、profile_id、profile_digest、input_digest、output_digest、options_digest、compiler_digest、compiler_fingerprint、profile_entries、source_entries、output_entries、scan_report、metadata、run_summary 和 manifest_digest。
 func make_manifest(
 	profile_path: String,
 	profile: GFConfigPipelineProfile,
@@ -73,9 +207,14 @@ func make_manifest(
 		return _make_empty_manifest(profile_path, options, run_result)
 
 	var budget_state: Dictionary = _make_digest_budget_state(options)
+	var profile_entries: Array[Dictionary] = _make_profile_resource_entries(profile_path, budget_state)
 	var source_entries: Array[Dictionary] = _make_source_entries(profile, budget_state)
+	var compiler_fingerprint: Dictionary = _make_compiler_fingerprint(profile, options, budget_state)
 	var output_entries: Array[Dictionary] = _make_output_entries(profile, options, budget_state)
-	var profile_summary: Dictionary = profile.describe()
+	var profile_summary: Dictionary = {
+		"profile": profile.describe(),
+		"resource_entries": profile_entries,
+	}
 	var tracked_options: Dictionary = _make_tracked_options(profile, options)
 	var manifest: Dictionary = {
 		"format": FORMAT,
@@ -87,6 +226,9 @@ func make_manifest(
 		"input_digest": _sha256_variant(source_entries),
 		"output_digest": _sha256_variant(output_entries),
 		"options_digest": _sha256_variant(tracked_options),
+		"compiler_digest": _sha256_variant(compiler_fingerprint),
+		"compiler_fingerprint": compiler_fingerprint,
+		"profile_entries": profile_entries,
 		"source_entries": source_entries,
 		"output_entries": output_entries,
 		"scan_report": _make_digest_scan_report(budget_state),
@@ -156,6 +298,17 @@ func load_manifest(manifest_path: String) -> Dictionary:
 		return _make_load_result(false, manifest_path, manifest, ERR_INVALID_DATA, "manifest format_version 不支持。")
 	if GFVariantData.get_option_string(manifest, _ARTIFACT_OWNER_FIELD) != _ARTIFACT_OWNER:
 		return _make_load_result(false, manifest_path, manifest, ERR_UNAUTHORIZED, "manifest artifact_owner 不匹配。")
+	var has_compiler_fingerprint: bool = manifest.has("compiler_fingerprint")
+	var has_compiler_digest: bool = manifest.has("compiler_digest")
+	if has_compiler_fingerprint != has_compiler_digest:
+		return _make_load_result(false, manifest_path, manifest, ERR_INVALID_DATA, "manifest compiler fingerprint 字段不完整。")
+	if has_compiler_fingerprint:
+		var compiler_fingerprint: Dictionary = _normalize_compiler_fingerprint(
+			GFVariantData.get_option_dictionary(manifest, "compiler_fingerprint")
+		)
+		var stored_compiler_digest: String = GFVariantData.get_option_string(manifest, "compiler_digest")
+		if stored_compiler_digest.is_empty() or stored_compiler_digest != _sha256_variant(compiler_fingerprint):
+			return _make_load_result(false, manifest_path, manifest, ERR_INVALID_DATA, "manifest compiler_digest 校验失败。")
 	var stored_digest: String = GFVariantData.get_option_string(manifest, "manifest_digest")
 	var expected_digest: String = _sha256_variant(_make_digest_projection(manifest))
 	if stored_digest.is_empty() or stored_digest != expected_digest:
@@ -179,7 +332,7 @@ func load_manifest(manifest_path: String) -> Dictionary:
 ## [br]
 ## @param manifest: make_manifest() 返回的字典。
 ## [br]
-## @schema manifest: Dictionary，包含 format、format_version、artifact_owner、profile_digest、input_digest、options_digest、output_entries 和 scan_report。
+## @schema manifest: Dictionary，包含 format、format_version、artifact_owner、profile_digest、input_digest、output_digest、options_digest、compiler_digest、compiler_fingerprint、profile_entries、source_entries、output_entries 和 scan_report。
 ## [br]
 ## @param options: 保存选项。
 ## [br]
@@ -331,9 +484,28 @@ func get_default_manifest_path(output_path: String) -> String:
 	return "%s.manifest.json" % output_path
 
 
+# --- 框架内部方法 ---
+
+## 配置本次产物实际使用的 Pipeline 阶段描述。
+## [br]
+## @api framework_internal
+## [br]
+## @param stage_descriptors: 按 Reader、Layout、Validation、Target、Commit 排列的阶段描述。
+## [br]
+## @schema stage_descriptors: Array[Dictionary]，每项包含 stage_id、implementation_version 和 implementation_path。
+func configure_compiler_stages(
+	stage_descriptors: Array[Dictionary]
+) -> void:
+	_compiler_stage_descriptors.clear()
+	for descriptor: Dictionary in stage_descriptors:
+		_compiler_stage_descriptors.append(descriptor.duplicate(true))
+
+
 # --- 私有/辅助方法 ---
 
 func _make_empty_manifest(profile_path: String, options: Dictionary, run_result: Dictionary) -> Dictionary:
+	var budget_state: Dictionary = _make_digest_budget_state(options)
+	var compiler_fingerprint: Dictionary = _make_compiler_fingerprint(null, options, budget_state)
 	var manifest: Dictionary = {
 		"format": FORMAT,
 		"format_version": FORMAT_VERSION,
@@ -344,6 +516,9 @@ func _make_empty_manifest(profile_path: String, options: Dictionary, run_result:
 		"input_digest": "",
 		"output_digest": "",
 		"options_digest": _sha256_variant(_make_semantic_options(options)),
+		"compiler_digest": _sha256_variant(compiler_fingerprint),
+		"compiler_fingerprint": compiler_fingerprint,
+		"profile_entries": [],
 		"source_entries": [],
 		"output_entries": [],
 		"scan_report": {
@@ -358,6 +533,123 @@ func _make_empty_manifest(profile_path: String, options: Dictionary, run_result:
 	}
 	manifest["manifest_digest"] = _sha256_variant(_make_digest_projection(manifest))
 	return manifest
+
+
+func _make_profile_resource_entries(profile_path: String, budget_state: Dictionary) -> Array[Dictionary]:
+	var entries: Array[Dictionary] = []
+	if profile_path.strip_edges().is_empty() or not FileAccess.file_exists(profile_path):
+		return entries
+
+	var pending_paths: PackedStringArray = PackedStringArray([profile_path])
+	var visited_paths: Dictionary = {}
+	var pending_index: int = 0
+	while pending_index < pending_paths.size():
+		if not GFVariantData.get_option_bool(budget_state, "success", true):
+			break
+		var resource_path: String = pending_paths[pending_index]
+		pending_index += 1
+		if visited_paths.has(resource_path):
+			continue
+		visited_paths[resource_path] = true
+		if not _reserve_digest_entry(budget_state):
+			break
+
+		var file_report: Dictionary = _make_file_digest_report(resource_path, budget_state)
+		entries.append(_make_digest_file_entry(resource_path, file_report))
+		if not GFVariantData.get_option_bool(budget_state, "success", true):
+			break
+		if not GFVariantData.get_option_bool(file_report, "exists") or not GFVariantData.get_option_string(file_report, "error").is_empty():
+			_set_digest_budget_failure(
+				budget_state,
+				"freshness_profile_dependency_unavailable",
+				"Profile 语义依赖不可用：%s。" % resource_path
+			)
+			break
+		if not _should_scan_resource_dependencies(resource_path) or not ResourceLoader.exists(resource_path):
+			continue
+
+		var dependency_paths: PackedStringArray = PackedStringArray()
+		for dependency_entry: String in ResourceLoader.get_dependencies(resource_path):
+			var dependency_path: String = _extract_dependency_resource_path(dependency_entry)
+			if dependency_path.is_empty() or visited_paths.has(dependency_path) or dependency_paths.has(dependency_path):
+				continue
+			var _dependency_appended: bool = dependency_paths.append(dependency_path)
+		dependency_paths.sort()
+		for dependency_path: String in dependency_paths:
+			var _pending_appended: bool = pending_paths.append(dependency_path)
+	return entries
+
+
+func _make_compiler_fingerprint(
+	profile: GFConfigPipelineProfile,
+	options: Dictionary,
+	budget_state: Dictionary
+) -> Dictionary:
+	var stage_definitions: Array[Dictionary] = []
+	var use_configured_stages: bool = not _compiler_stage_descriptors.is_empty()
+	if use_configured_stages and _compiler_stage_descriptors.size() != _PIPELINE_STAGE_IDS.size():
+		_set_digest_budget_failure(
+			budget_state,
+			"freshness_compiler_stage_contract_invalid",
+			"配置编译阶段描述数量无效：%d != %d。" % [
+				_compiler_stage_descriptors.size(),
+				_PIPELINE_STAGE_IDS.size(),
+			]
+		)
+		use_configured_stages = false
+	for definition: Dictionary in _COMPILER_STAGE_DEFINITIONS:
+		var definition_id: String = GFVariantData.get_option_string(definition, "id")
+		var configured_index: int = _PIPELINE_STAGE_IDS.find(definition_id)
+		if use_configured_stages and configured_index >= 0:
+			var descriptor: Dictionary = _compiler_stage_descriptors[configured_index]
+			stage_definitions.append({
+				"id": GFVariantData.get_option_string(descriptor, "stage_id"),
+				"implementation_version": GFVariantData.get_option_int(descriptor, "implementation_version"),
+				"path": GFVariantData.get_option_string(descriptor, "implementation_path"),
+			})
+		else:
+			stage_definitions.append(definition)
+	if profile != null and not profile.resolve_access_output_path(options).is_empty():
+		for definition: Dictionary in _ACCESS_COMPILER_STAGE_DEFINITIONS:
+			stage_definitions.append(definition)
+
+	var stage_entries: Array[Dictionary] = []
+	for definition: Dictionary in stage_definitions:
+		if not GFVariantData.get_option_bool(budget_state, "success", true) or not _reserve_digest_entry(budget_state):
+			break
+		var stage_path: String = GFVariantData.get_option_string(definition, "path")
+		var file_report: Dictionary = _make_file_digest_report(stage_path, budget_state)
+		stage_entries.append({
+			"id": GFVariantData.get_option_string(definition, "id"),
+			"implementation_version": GFVariantData.get_option_int(definition, "implementation_version"),
+			"path": stage_path,
+			"exists": GFVariantData.get_option_bool(file_report, "exists"),
+			"size_bytes": GFVariantData.get_option_int(file_report, "size_bytes"),
+			"sha256": GFVariantData.get_option_string(file_report, "sha256"),
+			"error": GFVariantData.get_option_string(file_report, "error"),
+		})
+		if not GFVariantData.get_option_bool(budget_state, "success", true):
+			break
+		if not GFVariantData.get_option_bool(file_report, "exists") or not GFVariantData.get_option_string(file_report, "error").is_empty():
+			_set_digest_budget_failure(
+				budget_state,
+				"freshness_compiler_stage_unavailable",
+				"配置编译阶段实现不可用：%s。" % stage_path
+			)
+			break
+
+	var engine_version_info: Dictionary = Engine.get_version_info()
+	return {
+		"contract_version": _COMPILER_CONTRACT_VERSION,
+		"framework_version": _read_framework_version(),
+		"godot_version": {
+			"major": GFVariantData.get_option_int(engine_version_info, "major"),
+			"minor": GFVariantData.get_option_int(engine_version_info, "minor"),
+			"patch": GFVariantData.get_option_int(engine_version_info, "patch"),
+			"status": GFVariantData.get_option_string(engine_version_info, "status"),
+		},
+		"stage_entries": stage_entries,
+	}
 
 
 func _make_source_entries(profile: GFConfigPipelineProfile, budget_state: Dictionary) -> Array[Dictionary]:
@@ -493,6 +785,37 @@ func _make_artifact_result_summary(result: Dictionary) -> Dictionary:
 		"dry_run": GFVariantData.get_option_bool(result, "dry_run"),
 		"artifact_status": String(GFVariantData.get_option_string_name(artifact_report, "status")),
 	}
+
+
+func _make_digest_file_entry(path: String, file_report: Dictionary) -> Dictionary:
+	return {
+		"path": path,
+		"exists": GFVariantData.get_option_bool(file_report, "exists"),
+		"size_bytes": GFVariantData.get_option_int(file_report, "size_bytes"),
+		"sha256": GFVariantData.get_option_string(file_report, "sha256"),
+		"error": GFVariantData.get_option_string(file_report, "error"),
+	}
+
+
+func _should_scan_resource_dependencies(resource_path: String) -> bool:
+	var extension: String = resource_path.get_extension().to_lower()
+	return extension == "tres" or extension == "res" or extension == "tscn" or extension == "scn"
+
+
+func _extract_dependency_resource_path(dependency_entry: String) -> String:
+	for raw_part: String in dependency_entry.split("::", false):
+		var candidate: String = raw_part.strip_edges().replace("\\", "/")
+		if candidate.begins_with("res://") or candidate.begins_with("user://"):
+			return candidate
+	return ""
+
+
+func _read_framework_version() -> String:
+	var config: ConfigFile = ConfigFile.new()
+	var load_result: Error = config.load(_PLUGIN_CONFIG_PATH)
+	if load_result != OK:
+		return ""
+	return GFVariantData.to_text(config.get_value("plugin", "version", "")).strip_edges()
 
 
 func _make_digest_budget_state(options: Dictionary) -> Dictionary:
@@ -670,6 +993,7 @@ func _compare_manifest_fields(stored_manifest: Dictionary, current_manifest: Dic
 		"input_digest",
 		"output_digest",
 		"options_digest",
+		"compiler_digest",
 	])
 	for field: String in fields:
 		if GFVariantData.get_option_string(stored_manifest, field) != GFVariantData.get_option_string(current_manifest, field):
@@ -753,7 +1077,7 @@ func _make_freshness_result(
 
 
 func _make_digest_projection(manifest: Dictionary) -> Dictionary:
-	return {
+	var projection: Dictionary = {
 		"format": GFVariantData.get_option_string(manifest, "format"),
 		"format_version": GFVariantData.get_option_int(manifest, "format_version"),
 		"artifact_owner": GFVariantData.get_option_string(manifest, _ARTIFACT_OWNER_FIELD),
@@ -766,6 +1090,16 @@ func _make_digest_projection(manifest: Dictionary) -> Dictionary:
 		"source_entries": _normalize_digest_source_entries(GFVariantData.get_option_array(manifest, "source_entries")),
 		"output_entries": _normalize_digest_output_entries(GFVariantData.get_option_array(manifest, "output_entries")),
 	}
+	if manifest.has("profile_entries"):
+		projection["profile_entries"] = _normalize_digest_file_entries(
+			GFVariantData.get_option_array(manifest, "profile_entries")
+		)
+	if manifest.has("compiler_fingerprint") or manifest.has("compiler_digest"):
+		projection["compiler_fingerprint"] = _normalize_compiler_fingerprint(
+			GFVariantData.get_option_dictionary(manifest, "compiler_fingerprint")
+		)
+		projection["compiler_digest"] = GFVariantData.get_option_string(manifest, "compiler_digest")
+	return projection
 
 
 func _normalize_digest_source_entries(entries: Array) -> Array[Dictionary]:
@@ -804,6 +1138,47 @@ func _normalize_digest_output_entries(entries: Array) -> Array[Dictionary]:
 			"sha256": GFVariantData.get_option_string(entry, "sha256"),
 		})
 	return normalized
+
+
+func _normalize_digest_file_entries(entries: Array) -> Array[Dictionary]:
+	var normalized: Array[Dictionary] = []
+	for entry_value: Variant in entries:
+		var entry: Dictionary = GFVariantData.as_dictionary(entry_value)
+		normalized.append({
+			"path": GFVariantData.get_option_string(entry, "path"),
+			"exists": GFVariantData.get_option_bool(entry, "exists"),
+			"size_bytes": GFVariantData.get_option_int(entry, "size_bytes"),
+			"sha256": GFVariantData.get_option_string(entry, "sha256"),
+			"error": GFVariantData.get_option_string(entry, "error"),
+		})
+	return normalized
+
+
+func _normalize_compiler_fingerprint(fingerprint: Dictionary) -> Dictionary:
+	var engine_version: Dictionary = GFVariantData.get_option_dictionary(fingerprint, "godot_version")
+	var stage_entries: Array[Dictionary] = []
+	for entry_value: Variant in GFVariantData.get_option_array(fingerprint, "stage_entries"):
+		var entry: Dictionary = GFVariantData.as_dictionary(entry_value)
+		stage_entries.append({
+			"id": GFVariantData.get_option_string(entry, "id"),
+			"implementation_version": GFVariantData.get_option_int(entry, "implementation_version"),
+			"path": GFVariantData.get_option_string(entry, "path"),
+			"exists": GFVariantData.get_option_bool(entry, "exists"),
+			"size_bytes": GFVariantData.get_option_int(entry, "size_bytes"),
+			"sha256": GFVariantData.get_option_string(entry, "sha256"),
+			"error": GFVariantData.get_option_string(entry, "error"),
+		})
+	return {
+		"contract_version": GFVariantData.get_option_int(fingerprint, "contract_version"),
+		"framework_version": GFVariantData.get_option_string(fingerprint, "framework_version"),
+		"godot_version": {
+			"major": GFVariantData.get_option_int(engine_version, "major"),
+			"minor": GFVariantData.get_option_int(engine_version, "minor"),
+			"patch": GFVariantData.get_option_int(engine_version, "patch"),
+			"status": GFVariantData.get_option_string(engine_version, "status"),
+		},
+		"stage_entries": stage_entries,
+	}
 
 
 func _sha256_variant(value: Variant) -> String:

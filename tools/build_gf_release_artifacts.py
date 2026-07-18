@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import Any
 
 import build_asset_store_package
+import build_gf_ai_developer_kit
 import build_gf_package
 from gf_path_security import absolute_lexical_path
 from gf_path_security import path_has_reparse_component
@@ -27,7 +28,7 @@ from gf_path_security import path_is_inside_lexical
 
 ROOT = Path(__file__).resolve().parents[1]
 BUILD_ROOT = ROOT / "build"
-MANIFEST_SCHEMA_VERSION = 1
+MANIFEST_SCHEMA_VERSION = 2
 DEFAULT_CHANNEL = "stable"
 
 
@@ -95,6 +96,15 @@ def build_release_artifacts(
 		if not asset_store_audit.get("ok"):
 			return make_failure(version, output_dir, list(asset_store_audit.get("issues", [])))
 
+		ai_kit_source_audit = build_gf_ai_developer_kit.check_source()
+		if not ai_kit_source_audit.get("ok"):
+			return make_failure(version, output_dir, list(ai_kit_source_audit.get("issues", [])))
+		ai_kit_path = candidate / f"gf-ai-developer-kit-{version}.zip"
+		build_gf_ai_developer_kit.build_plugin_archive(ai_kit_path, version)
+		ai_kit_audit = build_gf_ai_developer_kit.audit_plugin_archive(ai_kit_path, version)
+		if not ai_kit_audit.get("ok"):
+			return make_failure(version, output_dir, list(ai_kit_audit.get("issues", [])))
+
 		offline_root = candidate / "offline"
 		offline_package_dir = offline_root / "packages"
 		offline_registry_path = offline_root / "registry/index.json"
@@ -142,6 +152,7 @@ def build_release_artifacts(
 			"archive_base_url": archive_base_url,
 			"registry_url": registry_url,
 			"package_archive_build_count": 1,
+			"ai_developer_kit_build_count": 1,
 			"artifact_count": len(artifacts),
 			"artifacts": artifacts,
 		}
@@ -209,6 +220,7 @@ def collect_release_artifacts(
 ) -> list[dict[str, Any]]:
 	roles_by_path = {
 		f"gf-framework-{version}.zip": "asset_store",
+		f"gf-ai-developer-kit-{version}.zip": "ai_developer_kit",
 		f"gf-registry-{version}.json": "registry",
 		"gf-registry-source.json": "registry_source",
 		f"gf-package-offline-bundle-{version}.zip": "offline_bundle",
@@ -262,6 +274,8 @@ def audit_release_artifact_manifest(
 		issues.append("Release artifact source_revision does not match the checked-out revision.")
 	if data.get("package_archive_build_count") != 1:
 		issues.append("Release package archives must be built exactly once.")
+	if data.get("ai_developer_kit_build_count") != 1:
+		issues.append("GF AI Developer Kit must be built exactly once.")
 	artifacts = data.get("artifacts", [])
 	if not isinstance(artifacts, list):
 		artifacts = []
@@ -271,7 +285,7 @@ def audit_release_artifact_manifest(
 	seen_paths: set[str] = set()
 	roles: list[str] = []
 	artifacts_by_role: dict[str, list[tuple[dict[str, Any], Path]]] = {}
-	allowed_roles = {"asset_store", "registry", "registry_source", "offline_bundle", "package"}
+	allowed_roles = {"asset_store", "ai_developer_kit", "registry", "registry_source", "offline_bundle", "package"}
 	for artifact in artifacts:
 		if not isinstance(artifact, dict):
 			issues.append("Release artifact entries must be objects.")
@@ -299,7 +313,7 @@ def audit_release_artifact_manifest(
 			issues.append(f"Release artifact size mismatch: {relative_path}")
 		if artifact.get("sha256") != sha256_file(path):
 			issues.append(f"Release artifact SHA-256 mismatch: {relative_path}")
-	for required_role in ("asset_store", "registry", "registry_source", "offline_bundle"):
+	for required_role in ("asset_store", "ai_developer_kit", "registry", "registry_source", "offline_bundle"):
 		if roles.count(required_role) != 1:
 			issues.append(f"Release artifact role must occur exactly once: {required_role}")
 	if roles.count("package") == 0:
@@ -317,6 +331,7 @@ def audit_release_artifact_manifest(
 		"manifest": manifest_path.as_posix(),
 		"source_revision": source_revision,
 		"package_archive_build_count": data.get("package_archive_build_count", 0),
+		"ai_developer_kit_build_count": data.get("ai_developer_kit_build_count", 0),
 		"artifact_count": len(artifacts),
 		"package_archive_count": roles.count("package"),
 		"artifacts": artifacts,
@@ -333,6 +348,7 @@ def audit_release_artifact_semantics(
 	issues: list[str] = []
 	expected_paths = {
 		"asset_store": f"gf-framework-{version}.zip",
+		"ai_developer_kit": f"gf-ai-developer-kit-{version}.zip",
 		"registry": f"gf-registry-{version}.json",
 		"registry_source": "gf-registry-source.json",
 		"offline_bundle": f"gf-package-offline-bundle-{version}.zip",
@@ -363,6 +379,8 @@ def audit_release_artifact_semantics(
 		build_asset_store_package.iter_package_files(),
 		"Asset Store artifact",
 	))
+	ai_kit_audit = build_gf_ai_developer_kit.audit_plugin_archive(role_paths["ai_developer_kit"], version)
+	issues.extend(f"GF AI Developer Kit artifact: {issue}" for issue in ai_kit_audit.get("issues", []))
 
 	registry_path = role_paths["registry"]
 	try:

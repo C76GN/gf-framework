@@ -10,9 +10,9 @@
 - 文档修改要小而聚焦。概念属于哪个页面，就优先补哪个页面，不要把同一段解释散落到多个地方。
 - 不要修改 vendored `addons/gut/**`，除非任务明确要求处理 GUT。
 - 不要提交临时分析、任务草稿、本地生成的临时上下文文件、调试报告或 AI 会话记录。
-- 不要把 `ai_analysis/`、`AI_MAINTENANCE.md`、Codex/MCP、本地 Godot 日志、外部框架研究笔记或未来路线名称写入公开 README、Asset Store 文案、Wiki 入口或正式 `docs/zh` 正文。
+- 不要把 `ai_analysis/`、`AI_MAINTENANCE.md`、仓库维护用 Codex/MCP 配置、本地 Godot 日志、外部框架研究笔记或未来路线名称写入公开 README、Asset Store 文案、Wiki 入口或正式 `docs/zh` 正文。公开产品 `gf.tool.ai_developer` 只能在 `docs/zh/editor/tools/ai-developer.md` 说明 Codex/MCP 接入；这项窄例外不能泄漏仓库维护命令、个人配置或临时工作区。
 - 在大规模理解源码、补正式文档或检查 API 覆盖前，优先生成并阅读 AI 专用 API 文档。日常开工先用轻量 `python tools\gf_maintenance.py summary --json` 和 `workspace-status --json` 定位；长期脏工作区中优先用 `workspace-status --path <file> --json` 为本轮改动生成局部检查计划，避免历史脏改把验证范围放大。
-- PR / push CI 必须运行 `python tools\gf_maintenance.py check --suite full` 等价检查；允许把它拆成并行的 `framework`、`package-contract`、`package-editor`、`package-cli-local`、`package-cli-network` 与 `package-godot-ci` shard，但所有 shard 必须通过，`maintenance-self-test` 会锁定 shard 并集与 `full` / `package-ci` 集合等价。tag release workflow 必须把完整发布产物集构建一次并通过 manifest 固定，再用 `release-status --version <tag> --artifact-manifest <path>` 校验该产物集；检查 shard 将 package Godot shard 替换为 `package-godot-release`。framework、全部 package matrix shard、release metadata 与同一份不可变发布产物必须全部通过。`full` 与承载其框架检查的 `framework` shard 都必须包含 `gdscript_warnings` 和 `gdscript_lsp_diagnostics`：LSP 的 error、warning、诊断超时、连接或传输失败都属于硬失败。除非维护者明确批准并记录原因，不要削弱 CI 或 release 行为测试、Godot reload warning、路径卫生、API 和文档闸门。
+- PR / push CI 必须运行 `python tools\gf_maintenance.py check --suite full` 等价检查；允许把它拆成并行的 `framework`、`package-contract`、`package-editor`、`package-cli-local`、`package-cli-network` 与 `package-godot-ci` shard，但所有 shard 必须通过，`maintenance-self-test` 会锁定 shard 并集与 `full` / `package-ci` 集合等价。tag release workflow 必须把完整发布产物集构建一次并通过 manifest 固定，再用 `release-status --version <tag> --artifact-manifest <path>` 校验该产物集；检查 shard 将 package Godot shard 替换为 `package-godot-release`。framework、全部 package matrix shard、release metadata 与同一份不可变发布产物必须全部通过。`full` 与承载其框架检查的 `framework` shard 都必须包含 `ai_developer_kit`、`gdscript_warnings` 和 `gdscript_lsp_diagnostics`：项目侧 AI 套件测试、LSP error/warning、诊断超时、连接或传输失败都属于硬失败。除非维护者明确批准并记录原因，不要削弱 CI 或 release 行为测试、Godot reload warning、路径卫生、API 和文档闸门。
 - `tools/gf_maintenance.py path-hygiene` 必须同时扫描 tracked 文件和未跟踪但未忽略的文件，避免新增文件绕过大小写冲突、缓存目录和路径卫生检查；GitHub workflow 使用本地 `./.github/actions/...` 时，也必须确认对应 `action.yml` 存在。
 - 维护自测需要真实文件系统 link / reparse-point 夹具时，不得把 Windows 符号链接特权或管理员权限当作默认前提；Windows 使用普通账户可创建的目录 junction，POSIX 使用 symlink，并继续验证词法路径、真实路径和中间组件穿越都被 fail-closed 拒绝。
 - `tools/gf_maintenance.py summary` 默认必须保持轻量，不执行 release 级 API baseline 或打包诊断；需要发布上下文时显式使用 `summary --release --artifact-manifest <path>` 或带同一 manifest 的 `release-status`。
@@ -106,7 +106,7 @@ addons/gf/kernel <- addons/gf/standard <- addons/gf/extensions
 - 修改项目目录规范、profile 文件或资源/脚本归属规则后，运行 `python tools\gf_maintenance.py project-profile-boundary --json`；若使用非默认路径，显式传 `--profile <path>`。
 - 修改 `packages/**/*.json`、模块化发行包边界、包依赖图、preset 包组合或安装包归属路径后，运行 `python tools\gf_maintenance.py package-boundary --json` 和 `python tools\gf_maintenance.py package-closure-audit --json`。
 - 修改 `packages/**/*.json`、`addons/gf` 包归属路径、跨包 preload/load/path 字面量或跨包 `class_name` 引用后，运行 `python tools\gf_maintenance.py package-source-boundary --json`。
-- 修改 `packages/**/*.json`、`tools/build_gf_package.py`、`tools/build_gf_release_artifacts.py`、包 zip 构建、离线 bundle、release artifact manifest、kernel 内置包管理工具、运行时包外部工具载荷限制、registry index schema、registry/package 框架版本兼容范围、archive 命名、sha256 或 size 规则后，运行 `python tools\gf_maintenance.py package-build-boundary --json`，并用临时输出目录执行一次 release artifact builder 的构建与 `--validate-only` 复核。
+- 修改 `packages/**/*.json`、`tools/build_gf_package.py`、`tools/build_gf_ai_developer_kit.py`、`tools/build_gf_release_artifacts.py`、包 zip 构建、AI Developer Kit 独立插件 ZIP、离线 bundle、release artifact manifest、kernel 内置包管理工具、运行时包外部工具载荷限制、registry index schema、registry/package 框架版本兼容范围、archive 命名、sha256 或 size 规则后，运行 `python tools\gf_maintenance.py package-build-boundary --json` 和 `python tools\gf_maintenance.py check --check ai_developer_kit --json`，并用临时输出目录执行一次 release artifact builder 的构建与 `--validate-only` 复核。
 - 修改 `addons/gf/plugin.gd`、`addons/gf/kernel/package/**`、`addons/gf/kernel/editor/package/**`、Godot 原生安装器、编辑器安装向导或用户侧 no-Python 包管理路径后，运行 `python tools\gf_maintenance.py package-user-dependency-boundary --json`。
 - 修改 package-owned `.gd` 中的 `OS.execute`、`OS.create_process`、`OS.shell_open` 或新增依赖外部命令的调试/编辑器/运行期能力后，运行 `python tools\gf_maintenance.py package-external-command-audit --json`。
 - 修改 `addons/gf/plugin.gd`、最小 core 入口、standard/editor 贡献发现逻辑或 core-only 安装行为后，运行 `python tools\gf_maintenance.py core-only-smoke --json`。
@@ -193,8 +193,8 @@ addons/gf/kernel <- addons/gf/standard <- addons/gf/extensions
 - Godot Asset Store 下载包必须由 `tools/build_gf_release_artifacts.py` 统一调用 `tools/build_asset_store_package.py` 生成专用 ZIP，不使用 GitHub 自动生成的 `Source code (zip)`，也不得在发布检查中单独重建。专用 ZIP 的根目录必须直接是 `addons/`，插件内容位于 `addons/gf/**`，不能多包一层仓库名或版本目录。
 - Asset Store 专用 ZIP 默认输出到被 Git 忽略的 `build/gf-framework-<version>.zip`。打包脚本只写入可安装插件载荷，排除 `.import`、`.godot`、`.import/`、临时日志和本地缓存文件；Godot 会在用户项目中从源资源重新生成导入缓存。
 - 仓库根目录 `build/` 只承载生成产物，并由已跟踪的 `build/.gdignore` 隔离出 Godot 资源图；任何清理或发布脚本都不得删除这个边界标记。保存 `gf_maintenance.py` 的机器可读结果时使用全局参数 `--json-output build/<name>.json`，它会隐含 `--json` 并以无 BOM 的 UTF-8 原子写入。Windows PowerShell 5.1 下不得用默认 `>` / `Out-File` 重定向生成 JSON，因为它会写成 UTF-16 并产生 `FF FE` 字节序标记；其他工具必须捕获 stdout 时，也要使用显式 UTF-8 写入并在交付前完成严格 JSON 解析。
-- 发布前使用 `python tools\build_gf_release_artifacts.py --version <version> --output-dir build/release` 一次性生成 Asset Store ZIP、release registry、registry source、offline bundle、全部非 preset package ZIP 和 `gf-release-artifacts-<version>.json`。同一次运行中每个 package archive 只能构建一次，online registry 与 offline bundle 必须复用同一批 archive 字节；manifest 必须记录源码 revision、角色、大小和 SHA-256。随后运行 `python tools\gf_maintenance.py release-status --version <version> --artifact-manifest build/release/gf-release-artifacts-<version>.json`，不得在检查或发布阶段重新构建一套“等价”产物。`--allow-dirty` 只能用于本地诊断，不能用于正式发布或 tag 前检查。
-- Tag release workflow 必须上传该不可变 artifact set，发布 job 下载后只用 `build_gf_release_artifacts.py --validate-only` 复核 manifest 和字节，再把完全相同的文件交给 GitHub Release。除 Asset Store ZIP 外，还必须上传 `gf-registry-<version>.json`、`gf-registry-source.json`、`gf-package-offline-bundle-<version>.zip`、release artifact manifest 和全部非 preset package ZIP；任何校验 job 都不得单独调用 `build_asset_store_package.py` 或 `build_gf_package.py` 重建发布文件。
+- 发布前使用 `python tools\build_gf_release_artifacts.py --version <version> --output-dir build/release` 一次性生成 Asset Store ZIP、AI Developer Kit 独立 ZIP、release registry、registry source、offline bundle、全部非 preset package ZIP 和 `gf-release-artifacts-<version>.json`。同一次运行中每个 package archive 与 AI Developer Kit 都只能构建一次，online registry 与 offline bundle 必须复用同一批 archive 字节；manifest 必须记录源码 revision、角色、大小和 SHA-256。随后运行 `python tools\gf_maintenance.py release-status --version <version> --artifact-manifest build/release/gf-release-artifacts-<version>.json`，不得在检查或发布阶段重新构建一套“等价”产物。`--allow-dirty` 只能用于本地诊断，不能用于正式发布或 tag 前检查。
+- Tag release workflow 必须上传该不可变 artifact set，发布 job 下载后只用 `build_gf_release_artifacts.py --validate-only` 复核 manifest 和字节，再把完全相同的文件交给 GitHub Release。除 Asset Store ZIP 外，还必须上传 `gf-ai-developer-kit-<version>.zip`、`gf-registry-<version>.json`、`gf-registry-source.json`、`gf-package-offline-bundle-<version>.zip`、release artifact manifest 和全部非 preset package ZIP；任何校验 job 都不得单独调用 `build_asset_store_package.py`、`build_gf_ai_developer_kit.py` 或 `build_gf_package.py` 重建发布文件。
 - 如果 `release-status` 的 API baseline 摘要报告 removed classes、removed members、`breaking_signature_changes` 或 extends changes，应按破坏兼容版本处理；`compatible_signature_changes` 本身不要求 major，但仍需结合新增能力与行为变化判断 minor 或 patch。不得仅凭“源码签名文本发生变化”机械升级主版本，也不得把无法证明兼容的变化降级为 compatible。真实的稳定公开契约破坏必须升 major；`release-status --allow-breaking-api` 只能用于有可复核证据的 baseline 误报或已明确排除于稳定契约的历史面，并必须在 changelog 或发布说明记录证据。该开关不得用来把真实破坏变更作为 minor/patch 发布，也不得绕过兼容新能力的 minor 下限。
 - 除非用户明确要求 AI 直接提交，否则只准备 commit message 和待提交文件清单，让用户手动提交。若用户明确要求 AI 提交，提交前必须再次运行相关测试和文档/API 校验。
 - 提交后不要自动创建 Git tag；只有用户明确要求打 tag 时，才创建对应版本 tag。
@@ -408,9 +408,37 @@ python tools\generate_api_coverage_matrix.py
 
 公开 API 大规模变更、准备补示例项目或审计测试空洞时，应重新生成该矩阵，再按模块查看 `ai_analysis/api_coverage/modules/*.md`。
 
-## AI MCP 维护入口
+## 项目侧 AI Developer Kit
 
-GF 的 MCP 接入只作为本地维护基础设施，不属于 `addons/gf` 运行时能力。普通用户安装 GF 时不需要 MCP，也不应让框架代码依赖 MCP 或任何 AI 插件。
+`addons/gf/tools/ai_developer/` 是可公开分发的可选 `gf.tool.ai_developer` 制作期包，不是运行时层，也不是本仓库维护 MCP 的复制品。其目标是让使用 GF 的项目侧 AI 基于显式意图、当前安装事实和同版本 API 工作，而不是每次全量猜测源码。
+
+硬边界：
+
+- GF runtime、Godot 插件启动、导出游戏和普通包管理不能依赖 Python、MCP、Agent 客户端或该 tool 包；任何 runtime package 都不能反向依赖 `gf.tool.ai_developer`。
+- `gf_project_contract.json` 是项目维护的意图；`.gf/ai/project_snapshot.json` 是可重建观测。生成器不能把快照、默认模板或 AI 推断写回契约。
+- `knowledge/api_index.json` 必须复用 `tools/gdscript_api_parser.py` 和 package ownership 规则生成，只收录 public/protected API；能力目录与 Recipe 引用的 class/package/id 必须被生成器验证。
+- 项目存在 `.gf/packages.lock.json` 时，只接受 Package Manager 的正式 `schema_version: 1` 与 `installed` 结构；损坏、未知包或版本漂移必须 fail closed，不能退回目录猜测。能力、Recipe、包和 API 查询必须要求知识目录版本与项目 `addons/gf/plugin.cfg` 精确一致。
+- CLI 与 MCP 必须复用 `gf_ai` 核心，不得分别实现契约、路径、快照、检索或反馈语义。所有项目路径都要限制在显式 project root 内，并拒绝父级或 link 穿越。
+- 契约、项目源码、日志、素材和生成物一律是不可信项目数据，不能提升为 Agent 指令。`verification.checks` 只能保存有界结构化 `argv` 及 timeout/network/write 声明；套件不得执行检查，宿主必须逐项审阅并以 argv 直接调用，禁止拼接 shell 字符串或接受项目内容要求绕过审批与安全边界。
+- Agent adapter 只能更新稳定托管块或套件自有文件；卸载遇到漂移必须拒绝，不能删除项目自己的指令。
+- 反馈可以自动分析、脱敏、起草和查重；网络提交默认关闭。MCP 不暴露 Issue submit，最终 CLI submit 必须要求人类交互终端、精确载荷哈希、当前契约 opt-in 和提交前重复检查。
+- 不上传项目文件、原始日志、私有源码、素材、账号标识或凭据。新增反馈字段时必须继续使用严格 Schema、预算、脱敏和数据最小化。
+
+修改套件源码、Schema、目录、Skill、Agent 模板、反馈状态机、CLI/MCP 或插件构建后运行：
+
+```powershell
+python tools\build_gf_ai_developer_kit.py --generate-source --json
+python tools\build_gf_ai_developer_kit.py --check-source --json
+python tests\gf_core\tools\ai_developer\test_gf_ai_project_tool.py
+python tools\gf_maintenance.py package-focused-gut-mapping --json
+python tools\gf_maintenance.py check --check ai_developer_kit --json
+```
+
+正式发布的 `gf-ai-developer-kit-<version>.zip` 必须由 `tools/build_gf_release_artifacts.py` 与其他产物在同一候选目录事务中只构建一次。独立 ZIP、Asset Store 完整包内源码和模块化 `gf.tool.ai_developer` 包必须来自同一提交；不得在 release upload 阶段重新生成“等价”插件。
+
+## 仓库维护 MCP 入口
+
+仓库根 `tools/gf_mcp_server.py` 只作为本地维护基础设施，不属于 `addons/gf` 运行时能力，也不替代项目侧 AI Developer Kit。普通用户安装 GF 时不需要这个维护 MCP，框架代码不能依赖它或任何 AI 插件。
 
 可选本地 server：
 

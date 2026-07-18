@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gf-framework.dev/schemas/recipe-catalog-v1.json",
+  "title": "GF Project Recipe Catalog",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "catalog_version", "recipes"],
+  "properties": {
+    "schema_version": {"type": "integer", "const": 1},
+    "catalog_version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"},
+    "recipes": {
+      "type": "array",
+      "maxItems": 300,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "title", "primary_classes", "steps", "avoid"],
+        "properties": {
+          "id": {"type": "string", "pattern": "^[a-z][a-z0-9_-]*$", "maxLength": 120},
+          "title": {"type": "string", "minLength": 1, "maxLength": 160},
+          "primary_classes": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 40,
+            "uniqueItems": true,
+            "items": {"type": "string", "pattern": "^GF[A-Za-z0-9_]+$", "maxLength": 200}
+          },
+          "steps": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 20,
+            "items": {"type": "string", "minLength": 1, "maxLength": 500}
+          },
+          "avoid": {
+            "type": "array",
+            "maxItems": 20,
+            "items": {"type": "string", "minLength": 1, "maxLength": 300}
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,85 @@
+name: GF framework bug
+description: Report reproducible GF behavior that contradicts its public contract.
+title: "[Bug] "
+body:
+  - type: markdown
+    attributes:
+      value: Do not include credentials, private source, proprietary assets, account IDs, or unredacted logs.
+  - type: input
+    id: gf_version
+    attributes:
+      label: GF version
+      placeholder: 8.1.1
+    validations:
+      required: true
+  - type: input
+    id: godot_version
+    attributes:
+      label: Godot version
+      placeholder: 4.5.0
+    validations:
+      required: true
+  - type: input
+    id: platform
+    attributes:
+      label: Platform
+      placeholder: Windows 11, Linux, Android, Web...
+    validations:
+      required: true
+  - type: textarea
+    id: packages
+    attributes:
+      label: Installed GF packages and extensions
+      description: List the smallest relevant package and extension set.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Minimal reproduction steps
+      description: Remove project business systems until the GF-owned behavior remains.
+      placeholder: |
+        1. Create...
+        2. Call...
+        3. Observe...
+    validations:
+      required: true
+  - type: input
+    id: reproduction_url
+    attributes:
+      label: Public minimal reproduction URL
+      description: Optional. Never link a private project or credential-bearing archive.
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Redacted evidence and boundary analysis
+      description: Explain why this belongs to GF rather than project configuration or API misuse.
+    validations:
+      required: true
+  - type: textarea
+    id: workaround
+    attributes:
+      label: Workaround
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Submission checks
+      options:
+        - label: I searched open and closed issues for the same behavior.
+          required: true
+        - label: I removed secrets, private source, proprietary assets, account IDs, and unredacted logs.
+          required: true
+        - label: The reproduction still fails without project-specific business logic.
+          required: true

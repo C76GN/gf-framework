@@ -26,6 +26,10 @@
 
 ### 🚀 新增特性 (Added)
 
+- 新增可选 `gf.tool.ai_developer` 项目侧 AI 开发套件：以严格 `gf_project_contract.json` 保存项目意图，以独立观测快照报告已安装 GF、模块根和声明漂移，并提供与当前 GF 版本绑定的完整公开 API 索引、通用能力目录、实现 Recipe、包/模块/类查询入口，以及多种 Agent 宿主的可逆托管适配器。
+- AI Developer Kit 新增证据式反馈状态机：候选先经过项目/框架/文档/Adapter 边界分类、严格 Schema、预算与默认/项目脱敏，再生成绑定契约和载荷 SHA-256 的受控草稿；网络默认关闭，Agent 协议不暴露提交，最终 GitHub Issue 必须在交互式终端由用户精确确认并在提交前查重。GitHub 同步新增框架 bug、通用能力、文档缺口和 Adapter 契约 Issue Forms。
+- 发布产物新增同版本 `gf-ai-developer-kit-<version>.zip` 确定性 Agent 插件，内含 Skill、项目侧协议服务/CLI、Schema、模板和版本化知识；产物通过独立插件结构审计，并与 Asset Store、registry、offline bundle 和模块包共享一次发布事务。
+- Config Pipeline 新增版本化 `GFConfigPipelineTableIR` / `GFConfigPipelineIR`，以及职责独立的 `GFConfigPipelineReaderStage`、`GFConfigPipelineLayoutStage`、`GFConfigPipelineValidationStage`、`GFConfigPipelineTargetStage` 与 `GFConfigPipelineCommitStage`；IR 对输入与读取结果实施副本所有权，数据库 IR 在交给 Target 前必须封存且封存后不可修改，重复表名和损坏契约统一 fail closed。
 - 新增可选 `gf.tool.dialogue_text` 制作期包及 `GFDialogueTextCompiler`，以严格 `gf.dialogue` JSON schema 编译 `GFDialogueResource`；未知结构字段、字段类型、缺失跳转和自动循环统一进入结构化报告，失败结果不暴露半成品资源。
 - Physics 扩展新增 `GFBuoyancyMath3D` 与 `GFBuoyancyField3D`，提供居中浸没比例、阿基米德浮力、相对流速阻力和可重写表面/流速点采样；框架只返回力结果，不自动接管刚体、探针布局或水体检测。
 - `GFNetworkFieldSerializer` 新增显式 Quaternion 字段编码，以归一化 `[x, y, z, w]` 表示旋转，并对零长度或非有限输入使用单位旋转回退。
@@ -36,6 +40,11 @@
 
 ### 🔄 机制更改 (Changed)
 
+- release artifact manifest schema 升级为 version 2，新增唯一 `ai_developer_kit` 角色和 `ai_developer_kit_build_count = 1`；release job 只能上传同一不可变产物，下载后复核，不得重新构建另一份插件。`quick`、`api`、`framework`、`full` 与 `release` 检查新增 `ai_developer_kit` 行为、目录新鲜度、确定性 ZIP 和反馈安全门禁。
+- AI Developer Kit 的 package lockfile、知识目录版本和查询预算改为严格失败语义；项目契约验证命令改为只声明结构化 `argv`、超时、联网和写入边界，由宿主独立审阅执行，项目文件中的文本不能提升为 Agent 指令。
+- `GFConfigPipeline` 改为 Reader -> Layout -> Validation -> Target -> Commit 编排器，旧的单文件解析、XLSX、校验、JSON 编码和事务快照重复实现已移除；主类不再重新解释阶段结果，只有通过 Validation 的 IR 才能进入目标物化。Profile 多产物导出现在由独立 Commit 阶段捕获完整路径集合，失败时逆序恢复已有文件并删除新增文件。
+- Config Pipeline 编译器指纹契约升级，直接引用每个 Stage 的稳定 ID / 实现版本和两个 IR 的格式版本，并覆盖全部新增实现文件；阶段或 IR 变化会可靠使旧 manifest stale。
+- Config Pipeline artifact manifest 新增 Profile Resource 语义依赖和编译器阶段指纹；freshness 现在同时覆盖外置 schema / 校验器脚本、GF 与 Godot 版本、阶段 ID、实现版本和实现文件摘要，并继续受统一文件、累计字节和条目预算约束。
 - `GFSupportReportUtility` 改为最小采集默认值：运行时只保留 `MINIMAL` 平台信息，场景、诊断和已注册自定义分区默认关闭；调用方可显式选择 `COARSE` 不可逆分桶、`FULL` 精确运行时信息或完全关闭运行时采集。
 - `GFTextureSetClassifier` 新增重复角色与必需角色完整性诊断；同一集合内的 albedo 别名、GL/DX normal 等冲突不再按输入顺序静默覆盖，导入计划只包含通过完整性校验且无歧义的集合，并保留问题摘要。
 - 补充 UI 逻辑层与绘制层边界：`layer_id` 只标识独立导航栈，绘制顺序由 `canvas_layer` 决定，`hide_under` / replace 不会跨层清理；文档同时明确 `mode`、`modal` 与 `metadata` 的职责。
@@ -45,16 +54,24 @@
 
 ### 🐛 Bug 修复 (Fixed)
 
+- 修复 Godot 4.7 导出项目时 `GFExtensionExportPlugin` 未实现必需 `_get_name()` 回调，导致导出器在仍可生成产物并返回成功退出码时持续输出 `EditorExportPlugin` 错误的问题；插件现在提供稳定名称，headless 契约测试会阻止 override 丢失回归。
+- 修复 Config Pipeline `changed_only` 未把显式 schema 语义及校验器实现纳入 Profile 摘要，可能在 schema、默认值、索引、引用或验证逻辑变化后仍错误跳过导出的问题；合法旧 manifest 会安全判定为 stale 并在成功导出后升级，损坏或部分指纹仍拒绝覆盖。
 - 修复 `GFSafeResourceCodec` 丢失类型化 `Array` / `Dictionary` 约束，以及伪造编号、Variant.Type、集合结构、重复键/属性或属性类型可能被宽松转换和写入对象的问题；脚本路径、原生基类及二者兼容性现在均经过 policy 门禁，失败解码会拆除 Resource 引用环并释放已创建的非 RefCounted 对象，合法的自环、双节点环和共享引用仍可往返。
 - 修复 `GFSpringMath` 在较大物理时间步下可能明显过冲，或让正阻尼响应停留在边界二周期的问题；稳定下限现在同时使用严格安全裕量与 `delta_seconds * k1`，30/60/120 Hz 临界阻尼终态/瞬态及 30 Hz 欠阻尼衰减均有回归覆盖。
 - 修复 `GFLogUtility` 只限制 context，导致超长 tag/message 放大内存、文件、控制台和诊断快照，且顶层 trace_id 绕过内存、JSONL 与 sink 预算/profile 的问题；这些文本现在复用既有预算，tag/message 在 entry、text、内存缓存与 `log_emitted` 保持一致，trace_id 在结构化条目、context、内存和 sink 中保持有界并按 sink profile 重建，短文本和换行语义不变。
 - 修复 `GFDebugOverlayUtility` 在初始化后立即释放时，延迟挂载回调仍携带已释放 GUI 参数并触发 Godot deferred-call 类型转换错误的问题；挂载请求现在以代次失效，并在执行时重新读取当前实例。
 - 修复 `GFTextFitter.fit_control()` 的 Label 分派忽略显式测量文本，且无换行短文本只能反复进行候选测量、放大 Godot 退出期 shaped-text RID 残留的问题；新增一次最大字号测量的单行比例路径，默认完整排版行为不变。
 - 修复本地包管理网络 smoke 服务器把请求目标直接写入 `Location` 响应头的问题；重定向边界现在拒绝原始 CR/LF 控制字符，避免测试服务产生 HTTP 响应拆分，并保留合法路径与百分号编码字面量。
+- 修复 release 级全包 Godot matrix 沿用默认 10 分钟父预算，并在四路并发的大依赖闭包安装超过普通命令预算后因重复 `row_key` 再次抛异常、覆盖原始失败证据的问题；matrix 父检查与并发安装阶段现在分别使用独立 2400 秒和 240 秒预算，单场景解析超时保持不变，断言报告会保留调用方提供的精确包 ID。
+- 修复 AI Developer Kit 项目快照未按 Godot `project.godot` 的 `[gf]` section 读取 `extensions/enabled`，且只接受 `PackedStringArray`、遗漏扩展设置实际使用的 `Array[String]` 表示，导致真实项目的启用扩展被错误报告为空的问题；快照现在按精确 section 解析两种字符串数组表示，并拒绝其他 section 的同名键干扰。
 - 修复 `GFRequestEnvelope` 把进程内单调 ticks 持久化为重试截止时间，导致重启后请求可能过早重放或长期跳过的问题；持久化失败现在会阻止重放继续推进，Signal 等待超时也不再让 Flow 节点运行态租约永久占用。
 
 ### 🔧 API 变动说明 (API Changes)
 
+- 新增公开 tool package `gf.tool.ai_developer`，以及版本化项目契约、快照和反馈 candidate JSON Schema；新增 `gf_ai_project.py` 的 `init-contract`、`validate`、`context`、`snapshot`、能力、package、API module/class/member 与 Recipe 查询、Agent 安装状态与卸载、反馈分析/起草/准备/查重/交互提交命令。项目契约未知字段 fail closed，`.gf/ai/**` 只作为可重建本地输出，不属于项目意图契约。
+- 新增公开类型 `GFConfigPipelineTableIR`、`GFConfigPipelineIR`、`GFConfigPipelineReaderStage`、`GFConfigPipelineLayoutStage`、`GFConfigPipelineValidationStage`、`GFConfigPipelineTargetStage` 和 `GFConfigPipelineCommitStage`。各 Stage 暴露稳定 `STAGE_ID`、`IMPLEMENTATION_VERSION` 与 `get_stage_descriptor()`；`GFConfigPipeline` 新增 `configure_stages()` 和 `get_stage_descriptors()`。
+- `GFConfigPipeline.build_table()`、`build_table_from_text()` 与 `build_database()` 的结果新增 `ir`；成功单表结果为 `GFConfigPipelineTableIR`，数据库结果为仅包含通过单表校验项的 `GFConfigPipelineIR`。既有 `table` / `database` / `report` 字段保留。
+- `GFConfigPipelineTableSource.describe()` 新增 `schema` 与 `schema_path`；`GFConfigPipelineArtifactManifest` 的 manifest 新增 `profile_entries`、`compiler_fingerprint` 和 `compiler_digest`。这些字段是附加契约，缺少它们的合法旧 manifest 会自动触发一次重建。
 - `GFSupportReportUtility` 新增 `RuntimeDetail`、`include_runtime_by_default`、`runtime_detail_by_default`、`include_sections_by_default` 和 `collect_runtime_snapshot()`；`build_report()` 新增 `include_runtime` / `runtime_detail` 选项，full 运行时内存字段使用语义明确的 `static_memory_bytes`。
 - `include_diagnostics_by_default` 与 `include_scene_by_default` 从 `true` 改为 `false`，已注册分区也不再默认采集。这是有意的数据最小化行为变更，不保留旧默认兼容分支。
 - 新增公开类型 `GFDialogueTextCompiler`、`GFBuoyancyMath3D`、`GFBuoyancyField3D` 和独立 package `gf.tool.dialogue_text`。
@@ -68,6 +85,9 @@
 
 ### 📘 升级指南 (Migration Guide)
 
+- AI Developer Kit 完全可选，现有项目无需迁移。需要接入时先运行 `init-contract` 并由项目负责人补全会影响当前决策的约束，再按目标 Agent 执行 `agent-install`；不要把模板默认值或生成快照直接当成已批准架构。启用官方反馈网络提交后必须重新生成草稿，使其绑定最新契约哈希，最终提交由用户在交互式终端完成。
+- 继续只消费 `table` / `database` 的调用方无需改动；需要在落盘前检查规范化数据、实现多个输出目标或做编译诊断时读取新增 `ir`。自定义来源或目标应继承单个 Stage 并用 `configure_stages()` 注入，不要复制 `GFConfigPipeline` 编排器，也不要把项目业务字段写入通用 Stage。
+- Config Pipeline 使用方无需手工迁移旧 manifest；下一次 `changed_only` 执行会验证旧摘要、正常重建并写入新指纹。自定义 freshness 读取器应把 `compiler_digest` 作为产物失效条件，并将新增字段按只读诊断信息处理。
 - 既有反馈入口如果确实需要场景、诊断或项目分区，构建报告时显式传入 `include_scene = true`、`include_diagnostics = true`、`include_sections = true`；依赖旧精确 runtime 字段时显式选择 `RuntimeDetail.FULL`，并把 `static_memory` 读取迁移为 `static_memory_bytes`。面向玩家的入口优先保留默认 `MINIMAL`，或在预览和授权后选择 `COARSE`。
 - 文本制作流程按需安装 `gf.tool.dialogue_text`，输入根对象声明 `format: "gf.dialogue"` 与 `schema_version: 1`；项目字段放入 metadata / payload。运行时安装只需要 `gf.extension.dialogue`，不要从运行时包反向调用编译器。
 - 浮力接入时为对象分配一个或多个排水点，把总体排水体积合理拆分，再由项目在物理阶段应用 `sample_point()` 返回的力；有限水体、Area 筛选、刚体所有权和网络策略继续由项目负责。

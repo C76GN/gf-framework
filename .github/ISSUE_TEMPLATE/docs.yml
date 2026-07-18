@@ -1,0 +1,39 @@
+name: Documentation gap
+description: Report a missing or ambiguous GF contract, lifecycle, failure mode, or example.
+title: "[Docs] "
+body:
+  - type: input
+    id: location
+    attributes:
+      label: Page, class, or API
+      placeholder: docs/zh/... or GFClass.method
+    validations:
+      required: true
+  - type: textarea
+    id: gap
+    attributes:
+      label: Missing or misleading information
+    validations:
+      required: true
+  - type: textarea
+    id: consequence
+    attributes:
+      label: Incorrect decision this can cause
+      description: Explain the concrete misuse, lifecycle bug, or architecture mistake caused by the gap.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Contract or example that should be documented
+    validations:
+      required: true
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Submission checks
+      options:
+        - label: I checked the generated API reference and related guide pages.
+          required: true
+        - label: This report contains no private project material.
+          required: true

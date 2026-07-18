@@ -36,6 +36,7 @@ It separates:
 - Standard utilities for storage, settings, audio, input, assets, diagnostics, UI routing, time, logging, and runtime inspection.
 - Foundation helpers for graphs, grids, pathfinding, hex grids, layer masks, tags, validation reports, formulas, timelines, variant data, and formatting.
 - Optional extensions for capabilities, action queues, save graphs, flow graphs, network snapshots, turn flow, interaction, feedback, camera, dialogue, combat, domain models, and physics helpers.
+- Optional AI Developer Kit for explicit project intent, version-bound API discovery, managed agent guidance, and approval-gated framework feedback without runtime dependencies.
 - GUT-tested maintenance suite and generated API reference.
 
 ## Boundaries
@@ -101,6 +102,7 @@ Before adding screenshots, prefer images that show actual GF editor tooling or d
   - `gf-registry-8.1.1.json`
   - `gf-registry-source.json`
   - `gf-package-offline-bundle-8.1.1.zip`
+  - `gf-ai-developer-kit-8.1.1.zip`
   - package zips such as `gf-standard-base-8.1.1.zip` and `gf-extension-save-8.1.1.zip`
 - Release metadata check: `python tools\gf_maintenance.py release-status --version 8.1.1`
 - Changelog source: `docs/zh/changelog.md`

@@ -296,4 +296,4 @@ func describe() -> Dictionary:
 
 结构：
 
-- `return`: Dictionary，包含 table_name、source_path、source_format、resolved_format、infer_schema、coerce_records、parse_options、schema_options 和 metadata。
+- `return`: Dictionary，包含 table_name、source_path、source_format、resolved_format、schema、schema_path、infer_schema、coerce_records、parse_options、schema_options 和 metadata。

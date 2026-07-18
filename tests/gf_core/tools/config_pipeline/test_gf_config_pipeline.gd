@@ -764,6 +764,10 @@ func test_pipeline_runner_writes_manifest_for_changed_only_export() -> void:
 	assert_true(GFVariantData.get_option_bool(manifest_result, "success"), "manifest 保存结果应成功。")
 	assert_eq(GFVariantData.get_option_string(manifest_data, "format"), GFConfigPipelineArtifactManifest.FORMAT, "manifest 应包含稳定格式标识。")
 	assert_false(GFVariantData.get_option_string(manifest_data, "input_digest").is_empty(), "manifest 应记录输入摘要。")
+	assert_false(GFVariantData.get_option_string(manifest_data, "compiler_digest").is_empty(), "manifest 应记录编译器摘要。")
+	var compiler_fingerprint: Dictionary = GFVariantData.get_option_dictionary(manifest_data, "compiler_fingerprint")
+	assert_gt(GFVariantData.get_option_int(compiler_fingerprint, "contract_version"), 0, "编译器指纹应声明正数契约版本。")
+	assert_false(GFVariantData.get_option_array(compiler_fingerprint, "stage_entries").is_empty(), "编译器指纹应记录实际阶段实现。")
 
 
 func test_pipeline_runner_rejects_manifest_path_inside_gf_source_by_default() -> void:
@@ -911,6 +915,187 @@ func test_pipeline_runner_rebuilds_changed_only_when_source_changes() -> void:
 	assert_false(GFVariantData.get_option_bool(second_result, "skipped"), "来源变化后不应跳过导出。")
 	assert_false(GFVariantData.get_option_bool(freshness_report, "fresh"), "来源变化后 freshness_report 应为 false。")
 	assert_true(reasons.has("changed_input_digest"), "来源变化应由 input_digest 变化触发。")
+
+
+func test_pipeline_runner_rebuilds_changed_only_when_explicit_schema_changes() -> void:
+	var csv_path: String = _write_text("user://gf_config_pipeline_manifest_schema_items_%d.csv" % Time.get_ticks_usec(), "id,name,power\n1,Potion,2.5\n")
+	var profile_path: String = _track_path("user://gf_config_pipeline_manifest_schema_profile_%d.tres" % Time.get_ticks_usec())
+	var output_path: String = _track_path("user://gf_config_pipeline_manifest_schema_database_%d.json" % Time.get_ticks_usec())
+	var manifest_path: String = _track_path("user://gf_config_pipeline_manifest_schema_database_%d.manifest.json" % Time.get_ticks_usec())
+	_save_runner_profile(&"manifest_schema", csv_path, profile_path, output_path)
+	var options: Dictionary = {
+		"changed_only": true,
+		"manifest_path": manifest_path,
+	}
+	var first_result: Dictionary = _call_runner(&"export_profile_path", [profile_path, options])
+	var loaded_resource: Resource = ResourceLoader.load(profile_path, "Resource", ResourceLoader.CACHE_MODE_IGNORE)
+	assert_true(loaded_resource is GFConfigPipelineProfile, "测试应能重新加载 Profile。")
+	if not (loaded_resource is GFConfigPipelineProfile):
+		return
+	var profile: GFConfigPipelineProfile = loaded_resource
+	assert_false(profile.sources.is_empty(), "测试 Profile 应包含来源。")
+	if profile.sources.is_empty():
+		return
+	var source: GFConfigPipelineTableSource = profile.sources[0]
+	assert_not_null(source.schema, "测试来源应包含显式 schema。")
+	if source.schema == null:
+		return
+	var power_column: GFConfigTableColumn = source.schema.get_column(&"power")
+	assert_not_null(power_column, "测试 schema 应包含 power 字段。")
+	if power_column == null:
+		return
+	power_column.value_type = GFConfigTableColumn.ValueType.STRING
+	assert_eq(ResourceSaver.save(profile, profile_path), OK, "修改后的测试 Profile 应能保存。")
+
+	var second_result: Dictionary = _call_runner(&"export_profile_path", [profile_path, options])
+	var freshness_report: Dictionary = GFVariantData.get_option_dictionary(second_result, "freshness_report")
+	var reasons: Array = GFVariantData.get_option_array(freshness_report, "reasons")
+	var database_json: Dictionary = _load_json_dictionary(output_path)
+	var tables: Array = GFVariantData.get_option_array(database_json, "tables")
+	var first_table: Dictionary = GFVariantData.as_dictionary(tables[0]) if not tables.is_empty() else {}
+	var records: Array = GFVariantData.get_option_array(first_table, "records")
+	var first_record: Dictionary = GFVariantData.as_dictionary(records[0]) if not records.is_empty() else {}
+	var power_value: Variant = GFVariantData.get_option_value(first_record, "power")
+
+	assert_true(GFVariantData.get_option_bool(first_result, "success"), "测试前置导出应成功。")
+	assert_true(GFVariantData.get_option_bool(second_result, "success"), "显式 schema 变化后应重新导出成功。")
+	assert_false(GFVariantData.get_option_bool(second_result, "skipped"), "显式 schema 变化后不得跳过导出。")
+	assert_false(GFVariantData.get_option_bool(freshness_report, "fresh"), "显式 schema 变化后 freshness_report 应为 false。")
+	assert_true(reasons.has("changed_profile_digest"), "显式 schema 变化应由 profile_digest 变化触发。")
+	assert_true(power_value is String, "重新导出的记录应使用变化后的 schema 字段类型。")
+
+
+func test_pipeline_runner_rebuilds_changed_only_when_validator_implementation_changes() -> void:
+	var suffix: int = Time.get_ticks_usec()
+	var csv_path: String = _write_text("user://gf_config_pipeline_manifest_validator_items_%d.csv" % suffix, "id,name,power\n1,Potion,2.5\n")
+	var validator_path: String = _write_text(
+		"user://gf_config_pipeline_manifest_validator_%d.gd" % suffix,
+		"extends GFConfigValidationRule\n\nfunc _validate_value(_value: Variant, _context: Dictionary, _report: Dictionary) -> void:\n\tpass\n"
+	)
+	var validator_script: GDScript = ResourceLoader.load(
+		validator_path,
+		"Script",
+		ResourceLoader.CACHE_MODE_IGNORE
+	) as GDScript
+	assert_not_null(validator_script, "测试校验器脚本应能加载。")
+	if validator_script == null:
+		return
+	var validator_value: Variant = validator_script.new()
+	assert_true(validator_value is GFConfigValidationRule, "测试脚本应实例化为校验规则。")
+	if not (validator_value is GFConfigValidationRule):
+		return
+	var validator: GFConfigValidationRule = validator_value
+	var schema: GFConfigTableSchema = _make_item_schema()
+	var power_column: GFConfigTableColumn = schema.get_column(&"power")
+	assert_not_null(power_column, "测试 schema 应包含 power 字段。")
+	if power_column == null:
+		return
+	power_column.validation_rules = [validator]
+
+	var source: GFConfigPipelineTableSource = GFConfigPipelineTableSource.new()
+	source.table_name = &"items"
+	source.source_path = csv_path
+	source.schema = schema
+	var profile_path: String = _track_path("user://gf_config_pipeline_manifest_validator_profile_%d.tres" % suffix)
+	var output_path: String = _track_path("user://gf_config_pipeline_manifest_validator_database_%d.json" % suffix)
+	var manifest_path: String = _track_path("user://gf_config_pipeline_manifest_validator_database_%d.manifest.json" % suffix)
+	var profile: GFConfigPipelineProfile = GFConfigPipelineProfile.new()
+	profile.profile_id = &"manifest_validator"
+	profile.database_id = &"main"
+	profile.output_path = output_path
+	profile.sources = [source]
+	assert_eq(ResourceSaver.save(profile, profile_path), OK, "带自定义校验器的测试 Profile 应能保存。")
+	var options: Dictionary = {
+		"changed_only": true,
+		"manifest_path": manifest_path,
+	}
+	var first_result: Dictionary = _call_runner(&"export_profile_path", [profile_path, options])
+	var first_manifest: Dictionary = GFVariantData.get_option_dictionary(first_result, "manifest")
+	var first_profile_entries: Array = GFVariantData.get_option_array(first_manifest, "profile_entries")
+	assert_true(_has_digest_entry_path(first_profile_entries, validator_path), "Profile 依赖摘要应覆盖校验器实现脚本。")
+	var changed_validator_path: String = _write_text(
+		validator_path,
+		"extends GFConfigValidationRule\n\nfunc _validate_value(_value: Variant, _context: Dictionary, _report: Dictionary) -> void:\n\tpass\n\n# implementation revision\n"
+	)
+
+	var second_result: Dictionary = _call_runner(&"export_profile_path", [profile_path, options])
+	var freshness_report: Dictionary = GFVariantData.get_option_dictionary(second_result, "freshness_report")
+	var reasons: Array = GFVariantData.get_option_array(freshness_report, "reasons")
+
+	assert_eq(changed_validator_path, validator_path, "测试应覆盖同一个校验器实现文件。")
+	assert_true(GFVariantData.get_option_bool(first_result, "success"), "测试前置导出应成功。")
+	assert_true(GFVariantData.get_option_bool(second_result, "success"), "校验器实现变化后应重新导出成功。")
+	assert_false(GFVariantData.get_option_bool(second_result, "skipped"), "校验器实现变化后不得跳过导出。")
+	assert_true(reasons.has("changed_profile_digest"), "校验器实现变化应由 profile_digest 变化触发。")
+
+
+func test_pipeline_runner_rebuilds_changed_only_when_compiler_contract_changes() -> void:
+	var suffix: int = Time.get_ticks_usec()
+	var csv_path: String = _write_text("user://gf_config_pipeline_manifest_compiler_items_%d.csv" % suffix, "id,name,power\n1,Potion,2.5\n")
+	var profile_path: String = _track_path("user://gf_config_pipeline_manifest_compiler_profile_%d.tres" % suffix)
+	var output_path: String = _track_path("user://gf_config_pipeline_manifest_compiler_database_%d.json" % suffix)
+	var manifest_path: String = _track_path("user://gf_config_pipeline_manifest_compiler_database_%d.manifest.json" % suffix)
+	_save_runner_profile(&"manifest_compiler", csv_path, profile_path, output_path)
+	var options: Dictionary = {
+		"changed_only": true,
+		"manifest_path": manifest_path,
+	}
+	var first_result: Dictionary = _call_runner(&"export_profile_path", [profile_path, options])
+	var prior_manifest: Dictionary = _load_json_dictionary(manifest_path)
+	var prior_fingerprint: Dictionary = GFVariantData.get_option_dictionary(prior_manifest, "compiler_fingerprint")
+	prior_fingerprint["contract_version"] = GFVariantData.get_option_int(prior_fingerprint, "contract_version") + 1
+	prior_manifest["compiler_fingerprint"] = prior_fingerprint
+	_resign_artifact_manifest_for_test(prior_manifest)
+	var rewritten_manifest_path: String = _write_text(manifest_path, JSON.stringify(prior_manifest, "\t", true))
+
+	var second_result: Dictionary = _call_runner(&"export_profile_path", [profile_path, options])
+	var freshness_report: Dictionary = GFVariantData.get_option_dictionary(second_result, "freshness_report")
+	var load_result: Dictionary = GFVariantData.get_option_dictionary(freshness_report, "load_result")
+	var reasons: Array = GFVariantData.get_option_array(freshness_report, "reasons")
+
+	assert_eq(rewritten_manifest_path, manifest_path, "测试应覆盖同一个 manifest。")
+	assert_true(GFVariantData.get_option_bool(first_result, "success"), "测试前置导出应成功。")
+	assert_true(
+		GFVariantData.get_option_bool(second_result, "success"),
+		"编译契约变化后应重新导出成功：%s" % GFVariantData.get_option_string(second_result, "error")
+	)
+	assert_false(GFVariantData.get_option_bool(second_result, "skipped"), "编译契约变化后不得跳过导出。")
+	assert_true(
+		reasons.has("changed_compiler_digest"),
+		"编译契约变化应由 compiler_digest 变化触发：%s" % GFVariantData.get_option_string(load_result, "error")
+	)
+
+
+func test_pipeline_runner_rebuilds_legacy_manifest_without_compiler_fingerprint() -> void:
+	var suffix: int = Time.get_ticks_usec()
+	var csv_path: String = _write_text("user://gf_config_pipeline_manifest_legacy_items_%d.csv" % suffix, "id,name,power\n1,Potion,2.5\n")
+	var profile_path: String = _track_path("user://gf_config_pipeline_manifest_legacy_profile_%d.tres" % suffix)
+	var output_path: String = _track_path("user://gf_config_pipeline_manifest_legacy_database_%d.json" % suffix)
+	var manifest_path: String = _track_path("user://gf_config_pipeline_manifest_legacy_database_%d.manifest.json" % suffix)
+	_save_runner_profile(&"manifest_legacy", csv_path, profile_path, output_path)
+	var options: Dictionary = {
+		"changed_only": true,
+		"manifest_path": manifest_path,
+	}
+	var first_result: Dictionary = _call_runner(&"export_profile_path", [profile_path, options])
+	var legacy_manifest: Dictionary = _load_json_dictionary(manifest_path)
+	var _compiler_fingerprint_removed: bool = legacy_manifest.erase("compiler_fingerprint")
+	var _compiler_digest_removed: bool = legacy_manifest.erase("compiler_digest")
+	var _profile_entries_removed: bool = legacy_manifest.erase("profile_entries")
+	_resign_artifact_manifest_for_test(legacy_manifest, false)
+	var rewritten_manifest_path: String = _write_text(manifest_path, JSON.stringify(legacy_manifest, "\t", true))
+
+	var second_result: Dictionary = _call_runner(&"export_profile_path", [profile_path, options])
+	var freshness_report: Dictionary = GFVariantData.get_option_dictionary(second_result, "freshness_report")
+	var load_result: Dictionary = GFVariantData.get_option_dictionary(freshness_report, "load_result")
+	var reasons: Array = GFVariantData.get_option_array(freshness_report, "reasons")
+
+	assert_eq(rewritten_manifest_path, manifest_path, "测试应覆盖同一个 manifest。")
+	assert_true(GFVariantData.get_option_bool(first_result, "success"), "测试前置导出应成功。")
+	assert_true(GFVariantData.get_option_bool(load_result, "success"), "旧版合法 manifest 应通过所有权和摘要校验。")
+	assert_true(GFVariantData.get_option_bool(second_result, "success"), "旧版 manifest 应安全重建并升级。")
+	assert_false(GFVariantData.get_option_bool(second_result, "skipped"), "缺少编译指纹的旧版 manifest 不得命中 fresh。")
+	assert_true(reasons.has("changed_compiler_digest"), "旧版 manifest 应因缺少 compiler_digest 触发重建。")
 
 
 func test_pipeline_runner_reports_missing_profile_path() -> void:
@@ -1451,6 +1636,30 @@ func _call_command(arguments: PackedStringArray) -> Dictionary:
 func _track_path(path: String) -> String:
 	_temporary_paths.append(path)
 	return path
+
+
+func _has_digest_entry_path(entries: Array, expected_path: String) -> bool:
+	for entry_value: Variant in entries:
+		if GFVariantData.get_option_string(GFVariantData.as_dictionary(entry_value), "path") == expected_path:
+			return true
+	return false
+
+
+func _resign_artifact_manifest_for_test(manifest: Dictionary, include_compiler: bool = true) -> void:
+	var helper: Object = GFConfigPipelineArtifactManifest.new()
+	if include_compiler:
+		var compiler_fingerprint: Dictionary = GFVariantData.get_option_dictionary(manifest, "compiler_fingerprint")
+		var normalized_fingerprint: Dictionary = GFVariantData.as_dictionary(
+			helper.call(&"_normalize_compiler_fingerprint", compiler_fingerprint)
+		)
+		manifest["compiler_fingerprint"] = normalized_fingerprint
+		manifest["compiler_digest"] = GFVariantData.to_text(
+			helper.call(&"_sha256_variant", normalized_fingerprint)
+		)
+	var digest_projection: Variant = helper.call(&"_make_digest_projection", manifest)
+	manifest["manifest_digest"] = GFVariantData.to_text(
+		helper.call(&"_sha256_variant", digest_projection)
+	)
 
 
 func _has_issue_kind(issues: Array, kind: String) -> bool:

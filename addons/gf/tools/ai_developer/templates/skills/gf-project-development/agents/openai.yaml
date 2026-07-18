@@ -1,0 +1,6 @@
+interface:
+  display_name: "GF Project Development"
+  short_description: "Build Godot projects with verified GF practices"
+  default_prompt: "Use $gf-project-development to implement this feature against my project's GF contract."
+policy:
+  allow_implicit_invocation: true

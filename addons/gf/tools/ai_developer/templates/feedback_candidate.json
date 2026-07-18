@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "title": "Describe the observable GF problem or reusable capability gap",
+  "summary": "State what project work exposed the candidate and why it appears to belong in GF.",
+  "expected": "Describe the platform-independent behavior that was expected.",
+  "actual": "Describe the observed behavior without private project details.",
+  "reproduction_steps": [],
+  "evidence": [],
+  "environment": {
+    "godot_version": "",
+    "gf_version": "",
+    "platform": "",
+    "packages": []
+  },
+  "suspected_scope": "unknown",
+  "requested_change": "",
+  "impact": "medium",
+  "workaround": ""
+}

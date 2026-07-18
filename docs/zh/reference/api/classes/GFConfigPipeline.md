@@ -15,6 +15,8 @@
 
 | 类型 | 名称 | 签名 |
 |---|---|---|
+| 方法 | [`configure_stages`](#member-gfconfigpipeline-methods-configure_stages) | `func configure_stages( reader_stage: GFConfigPipelineReaderStage = null, layout_stage: GFConfigPipelineLayoutStage = null, validation_stage: GFConfigPipelineValidationStage = null, target_stage: GFConfigPipelineTargetStage = null, commit_stage: GFConfigPipelineCommitStage = null ) -> GFConfigPipeline:` |
+| 方法 | [`get_stage_descriptors`](#member-gfconfigpipeline-methods-get_stage_descriptors) | `func get_stage_descriptors() -> Array[Dictionary]:` |
 | 方法 | [`build_table`](#member-gfconfigpipeline-methods-build_table) | `func build_table(source: GFConfigPipelineTableSource, options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`build_table_from_text`](#member-gfconfigpipeline-methods-build_table_from_text) | `func build_table_from_text( source: GFConfigPipelineTableSource, text: String, options: Dictionary = {} ) -> Dictionary:` |
 | 方法 | [`build_database`](#member-gfconfigpipeline-methods-build_database) | `func build_database( sources: Array, options: Dictionary = {} ) -> Dictionary:` |
@@ -25,6 +27,50 @@
 | 方法 | [`generate_access`](#member-gfconfigpipeline-methods-generate_access) | `func generate_access( database: GFConfigDatabaseResource, output_path: String, access_class_name: String = "GFConfigAccess", provider_accessor: String = "null", options: Dictionary = {} ) -> Dictionary:` |
 
 ## 方法
+
+<a id="member-gfconfigpipeline-methods-configure_stages"></a>
+
+### `configure_stages`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func configure_stages( reader_stage: GFConfigPipelineReaderStage = null, layout_stage: GFConfigPipelineLayoutStage = null, validation_stage: GFConfigPipelineValidationStage = null, target_stage: GFConfigPipelineTargetStage = null, commit_stage: GFConfigPipelineCommitStage = null ) -> GFConfigPipeline:
+```
+
+替换 Pipeline 使用的阶段实现。传入 null 的阶段保持当前实现不变。 自定义实现应继承对应内置阶段并保持其输入、输出契约；Pipeline 只负责编排，不探测项目业务类型。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `reader_stage` | 可选来源读取阶段。 |
+| `layout_stage` | 可选布局解析阶段。 |
+| `validation_stage` | 可选语义校验阶段。 |
+| `target_stage` | 可选目标物化阶段。 |
+| `commit_stage` | 可选文件提交事务阶段。 |
+
+返回：当前 Pipeline，便于链式配置。
+
+<a id="member-gfconfigpipeline-methods-get_stage_descriptors"></a>
+
+### `get_stage_descriptors`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func get_stage_descriptors() -> Array[Dictionary]:
+```
+
+获取当前阶段组合的稳定描述。
+
+返回：按 Reader、Layout、Validation、Target、Commit 排列的阶段描述。
+
+结构：
+
+- `return`: Array[Dictionary]，每项包含 stage_id、implementation_version、implementation_path 和阶段契约字段。
 
 <a id="member-gfconfigpipeline-methods-build_table"></a>
 
@@ -51,7 +97,7 @@ func build_table(source: GFConfigPipelineTableSource, options: Dictionary = {}) 
 结构：
 
 - `options`: Dictionary，可包含 parse_options 和 rebuild_indexes。
-- `return`: Dictionary，包含 success、table、report、source_path、format 和 error。
+- `return`: Dictionary，包含 success、table、ir、report、source_path、format 和 error。
 
 <a id="member-gfconfigpipeline-methods-build_table_from_text"></a>
 
@@ -79,7 +125,7 @@ func build_table_from_text( source: GFConfigPipelineTableSource, text: String, o
 结构：
 
 - `options`: Dictionary，可包含 parse_options 和 rebuild_indexes。
-- `return`: Dictionary，包含 success、table、report、source_path、format 和 error。
+- `return`: Dictionary，包含 success、table、ir、report、source_path、format 和 error。
 
 <a id="member-gfconfigpipeline-methods-build_database"></a>
 
@@ -107,7 +153,7 @@ func build_database( sources: Array, options: Dictionary = {} ) -> Dictionary:
 
 - `sources`: Array[GFConfigPipelineTableSource]。
 - `options`: Dictionary，可包含 database_id、version、metadata、validate_database、validate_schema、parse_options 和 rebuild_indexes。
-- `return`: Dictionary，包含 success、database、report、table_results 和 error。
+- `return`: Dictionary，包含 success、database、ir、report、table_results 和 error。
 
 <a id="member-gfconfigpipeline-methods-build_profile"></a>
 

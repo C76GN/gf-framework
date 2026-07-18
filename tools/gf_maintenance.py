@@ -114,6 +114,7 @@ GODOT_EXIT_LEAK_PATTERNS = (
 	"were leaked at exit",
 )
 PACKAGE_GODOT_SMOKE_DEFAULT_ALL_PACKAGE_JOBS = 4
+PACKAGE_GODOT_SMOKE_INSTALL_TIMEOUT_SECONDS = 240
 GODOT_RID_LEAK_RE = re.compile(
 	r"^(?:ERROR:\s*)?(?P<count>\d+) RID allocations of type '(?P<type>[^']+)' were leaked at exit\."
 )
@@ -566,6 +567,12 @@ PACKAGE_SOURCE_OPTIONAL_REFERENCES = {
 		"addons/gf/standard/editor/gf_editor_contributions.json",
 	),
 }
+PACKAGE_SOURCE_GENERATED_CATALOG_REFERENCES = {
+	(
+		"gf.tool.ai_developer",
+		"addons/gf/tools/ai_developer/knowledge/api_index.json",
+	),
+}
 GF_EXTENSION_INFRASTRUCTURE_PATHS = {
 	"addons/gf/kernel/extension/gf_extension_catalog.gd",
 	"addons/gf/kernel/extension/gf_extension_usage_audit.gd",
@@ -609,6 +616,10 @@ PUBLIC_DOC_BOUNDARY_FORBIDDEN_TERMS = {
 		term: "Planning track names must not be documented as shipped public modules."
 		for term in PUBLIC_API_BOUNDARY_FORBIDDEN_TERMS
 	},
+}
+PUBLIC_DOC_BOUNDARY_TERM_ALLOWED_PATHS = {
+	"Codex": {"docs/zh/editor/tools/ai-developer.md"},
+	"MCP": {"docs/zh/editor/tools/ai-developer.md"},
 }
 PUBLIC_DOC_BOUNDARY_PATTERNS: list[tuple[str, re.Pattern[str], str]] = [
 	(
@@ -763,6 +774,10 @@ CHECK_DEFINITIONS: dict[str, list[str]] = {
 		"ai_analysis/generated_api",
 		"--check-or-generate",
 		"--check-wiki-coverage",
+	],
+	"ai_developer_kit": [
+		sys.executable,
+		"tests/gf_core/tools/ai_developer/test_gf_ai_project_tool.py",
 	],
 	"docs": [sys.executable, "tools/check_docs_quality.py", "--strict"],
 	"public_docs_boundary": [sys.executable, "tools/gf_maintenance.py", "public-docs-boundary"],
@@ -931,7 +946,7 @@ def expand_check_dependencies(check_names: list[str]) -> list[str]:
 def maintenance_check_graph() -> CheckGraph:
 	return CheckGraph([*CHECK_DEFINITIONS.keys(), "release_metadata"], CHECK_DEPENDENCIES)
 
-API_CHECKS: list[str] = ["api", "ai_api", "public_api_boundary"]
+API_CHECKS: list[str] = ["api", "ai_api", "ai_developer_kit", "public_api_boundary"]
 DOCS_CHECKS: list[str] = ["docs", "public_docs_boundary", "mkdocs"]
 EXAMPLES_CHECKS: list[str] = [
 	"examples_sync",
@@ -970,6 +985,7 @@ PACKAGE_SMOKE_CHECKS: list[str] = [
 	*PACKAGE_CLI_CHECKS,
 ]
 PACKAGE_CONTRACT_CHECKS: list[str] = [
+	"ai_developer_kit",
 	"package_boundary",
 	"package_closure_audit",
 	"package_source_boundary",
@@ -988,6 +1004,7 @@ PACKAGE_CHECKS: list[str] = [
 QUICK_CHECKS: list[str] = [
 	"api",
 	"ai_api",
+	"ai_developer_kit",
 	"docs",
 	"public_docs_boundary",
 	"public_api_boundary",
@@ -997,6 +1014,7 @@ FULL_CHECKS: list[str] = [
 	"gut",
 	"api",
 	"ai_api",
+	"ai_developer_kit",
 	"docs",
 	"public_docs_boundary",
 	"public_api_boundary",
@@ -1019,6 +1037,7 @@ RELEASE_CHECKS: list[str] = [
 	"gut",
 	"api",
 	"ai_api",
+	"ai_developer_kit",
 	"docs",
 	"public_docs_boundary",
 	"public_api_boundary",
@@ -1042,6 +1061,7 @@ FRAMEWORK_CHECKS: list[str] = [
 	"gut",
 	"api",
 	"ai_api",
+	"ai_developer_kit",
 	"docs",
 	"public_docs_boundary",
 	"public_api_boundary",
@@ -1094,6 +1114,9 @@ CHECK_TIMEOUT_SECONDS: dict[str, int] = {
 	# scenario-level margin while failing materially earlier than the aggregate.
 	"package_godot_cli_local_smoke": 1200,
 	"package_godot_cli_network_smoke": 1200,
+	# The release matrix installs and parses every registry package in an isolated
+	# project. At 52 packages it exceeds the generic ten-minute budget on Windows.
+	"package_godot_matrix_smoke": 2400,
 }
 
 _API_CACHE: list[ApiScript] | None = None
@@ -8348,6 +8371,7 @@ def run_package_godot_cli_smoke_command(
 	expect_json: bool = True,
 	env: dict[str, str] | None = None,
 	godot_project_root: Path | None = None,
+	timeout_seconds: float = 120,
 ) -> dict[str, Any]:
 	GODOT_LOG_DIR.mkdir(parents=True, exist_ok=True)
 	effective_args = prepare_package_smoke_cache_args(scenario, args, issues)
@@ -8372,7 +8396,7 @@ def run_package_godot_cli_smoke_command(
 	try:
 		completed = run_maintenance_subprocess(
 			command,
-			timeout_seconds=120,
+			timeout_seconds=timeout_seconds,
 			environment=process_env,
 		)
 	except subprocess.TimeoutExpired as error:
@@ -8986,6 +9010,7 @@ def run_package_godot_smoke_scenario(
 			"--json",
 		],
 		issues,
+		timeout_seconds=PACKAGE_GODOT_SMOKE_INSTALL_TIMEOUT_SECONDS,
 	)
 	assert_package_godot_smoke_condition(
 		bool(install_data.get("ok")),
@@ -9364,7 +9389,8 @@ def assert_package_godot_smoke_condition(
 ) -> None:
 	if condition:
 		return
-	issues.append(make_package_issue(kind, "tools/gf_maintenance.py", message, row_key=scenario, **extra))
+	extra.setdefault("row_key", scenario)
+	issues.append(make_package_issue(kind, "tools/gf_maintenance.py", message, **extra))
 
 
 def make_package_godot_smoke_payload(
@@ -10452,6 +10478,15 @@ def maintenance_self_test() -> dict[str, Any]:
 		and "--validate-only" in release_workflow_source,
 		"Release workflow must build archives once, transport that immutable set, then validate without rebuilding.",
 	)
+	release_artifact_builder_source = read_text_file(ROOT / "tools/build_gf_release_artifacts.py")
+	record_result(
+		"release_artifact_set_includes_one_versioned_ai_developer_kit",
+		'"ai_developer_kit_build_count": 1' in release_artifact_builder_source
+		and 'f"gf-ai-developer-kit-{version}.zip": "ai_developer_kit"' in release_artifact_builder_source
+		and '"ai_developer_kit": f"gf-ai-developer-kit-{version}.zip"' in release_artifact_builder_source
+		and '"build/release/gf-ai-developer-kit-${GITHUB_REF_NAME}.zip"' in release_workflow_source,
+		"Release build, manifest audit, semantic audit, and upload must share one GF AI Developer Kit artifact.",
+	)
 	release_without_manifest = run_maintenance_subprocess(
 		[
 			sys.executable,
@@ -10626,6 +10661,8 @@ def maintenance_self_test() -> dict[str, Any]:
 		and resolve_check_timeout_seconds("package_godot_cli_smoke", 45) == 2400
 		and resolve_check_timeout_seconds("package_godot_cli_local_smoke", None) == 1200
 		and resolve_check_timeout_seconds("package_godot_cli_network_smoke", None) == 1200
+		and resolve_check_timeout_seconds("package_godot_matrix_smoke", None) == 2400
+		and resolve_check_timeout_seconds("package_godot_matrix_smoke", 45) == 2400
 		and resolve_check_timeout_seconds("api", None) == DEFAULT_CHECK_TIMEOUT_SECONDS
 		and resolve_check_timeout_seconds("api", 900) == 900,
 		"generic timeout settings may raise budgets but must not erase measured longer check policies.",
@@ -11279,6 +11316,15 @@ def maintenance_self_test() -> dict[str, Any]:
 		and issue_exists(public_doc_ai_leak_issues, "forbidden_public_doc_term", symbol="ai_analysis")
 		and issue_exists(public_doc_ai_leak_issues, "forbidden_public_doc_term", symbol="godot_logs"),
 		"AI maintenance-only files and infrastructure must stay out of public docs.",
+	)
+	public_doc_ai_product_issues = audit_public_doc_boundary_text(
+		"The optional Codex plugin exposes read-oriented MCP project context tools.",
+		"docs/zh/editor/tools/ai-developer.md",
+	)
+	record_result(
+		"public_docs_boundary_allows_scoped_ai_developer_product_docs",
+		len(public_doc_ai_product_issues) == 0,
+		f"dedicated AI Developer Kit docs should pass: {public_doc_ai_product_issues}",
 	)
 
 	public_doc_workspace_bad_issues = audit_public_doc_boundary_text(
@@ -12445,6 +12491,27 @@ def maintenance_self_test() -> dict[str, Any]:
 		and package_godot_smoke_job_count("all", 2) == 2,
 		"package Godot smoke should parallelize all-package mode by default while keeping focused modes serial.",
 	)
+	record_result(
+		"package_godot_smoke_parallel_installs_have_dedicated_timeout_headroom",
+		PACKAGE_GODOT_SMOKE_INSTALL_TIMEOUT_SECONDS == 240,
+		"all-package workers need a longer install budget than ordinary single-command CLI smoke scenarios.",
+	)
+	package_smoke_assertion_issues: list[dict[str, Any]] = []
+	assert_package_godot_smoke_condition(
+		False,
+		package_smoke_assertion_issues,
+		"fixture_scenario",
+		"fixture_failure",
+		"Fixture package smoke failure.",
+		row_key="gf.fixture",
+	)
+	record_result(
+		"package_godot_smoke_assertion_preserves_explicit_row_key",
+		len(package_smoke_assertion_issues) == 1
+		and package_smoke_assertion_issues[0].get("kind") == "fixture_failure"
+		and package_smoke_assertion_issues[0].get("row_key") == "gf.fixture",
+		f"package smoke assertion failures must not crash while adding context: {package_smoke_assertion_issues}",
+	)
 
 	bad_core_plugin_source = "\n".join([
 		"const BadStandard = preload(\"res://addons/gf/standard/utilities/debug/gf_build_info.gd\")",
@@ -12572,6 +12639,44 @@ def maintenance_self_test() -> dict[str, Any]:
 			expected_value="gf.extension.beta",
 		),
 		f"undeclared package references should be reported: {package_source_invalid_issues}",
+	)
+
+	package_source_catalog_records = [
+		*package_source_records,
+		{
+			"path": "packages/tools/gf.tool.ai_developer.json",
+			"id": "gf.tool.ai_developer",
+			"kind": "tool",
+			"dependencies": ["gf.kernel"],
+			"paths": ["addons/gf/tools/ai_developer/**"],
+			"issues": [],
+		},
+	]
+	generated_catalog_path = "addons/gf/tools/ai_developer/knowledge/api_index.json"
+	generated_catalog_issues = audit_package_source_references(
+		package_source_catalog_records,
+		[generated_catalog_path],
+		package_source_class_roots,
+		{generated_catalog_path: '"path": "addons/gf/extensions/beta/beta_thing.gd"'},
+	)
+	handwritten_catalog_path = "addons/gf/tools/ai_developer/knowledge/handwritten.json"
+	handwritten_catalog_issues = audit_package_source_references(
+		package_source_catalog_records,
+		[handwritten_catalog_path],
+		package_source_class_roots,
+		{handwritten_catalog_path: '"path": "addons/gf/extensions/beta/beta_thing.gd"'},
+	)
+	record_result(
+		"package_source_boundary_scopes_generated_ai_catalog_references",
+		len(generated_catalog_issues) == 0
+		and issue_exists(
+			handwritten_catalog_issues,
+			"package_source_undeclared_path_dependency",
+			row_key="gf.tool.ai_developer",
+			target="addons/gf/extensions/beta/beta_thing.gd",
+			expected_value="gf.extension.beta",
+		),
+		"only the exact generated AI API catalog may describe paths owned by optional packages.",
 	)
 
 	package_source_optional_records = [
@@ -13803,7 +13908,8 @@ def audit_public_doc_boundary_text(source: str, path: str) -> list[dict[str, Any
 	issues: list[dict[str, Any]] = []
 	for line_number, line in enumerate(source.splitlines(), start=1):
 		for term, message in sorted(PUBLIC_DOC_BOUNDARY_FORBIDDEN_TERMS.items()):
-			if term in line:
+			allowed_paths = PUBLIC_DOC_BOUNDARY_TERM_ALLOWED_PATHS.get(term, set())
+			if term in line and path not in allowed_paths:
 				issues.append(make_boundary_issue(
 					"forbidden_public_doc_term",
 					path,
@@ -14910,6 +15016,8 @@ def package_source_reference_allowed(
 	dependencies_by_id: dict[str, set[str]],
 ) -> bool:
 	if target_package_id == source_package_id:
+		return True
+	if (source_package_id, source_path) in PACKAGE_SOURCE_GENERATED_CATALOG_REFERENCES:
 		return True
 	if (source_package_id, source_path, target_path) in PACKAGE_SOURCE_OPTIONAL_REFERENCES:
 		return True

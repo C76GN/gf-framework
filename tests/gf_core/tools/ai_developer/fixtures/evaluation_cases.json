@@ -1,0 +1,134 @@
+{
+  "schema_version": 1,
+  "feedback_cases": [
+    {
+      "id": "framework_bug_with_reproduction",
+      "candidate": {
+        "schema_version": 1,
+        "title": "Async result completes twice",
+        "summary": "A minimal project observes two terminal callbacks from one GF operation.",
+        "expected": "Exactly one terminal callback.",
+        "actual": "Both success and cancellation callbacks run.",
+        "reproduction_steps": [
+          "Create one operation.",
+          "Cancel while its backend completes."
+        ],
+        "evidence": [
+          {
+            "kind": "minimal_reproduction",
+            "text": "The minimal reproduction contains no project business systems."
+          }
+        ],
+        "environment": {
+          "godot_version": "4.5",
+          "gf_version": "",
+          "platform": "Windows",
+          "packages": [
+            "gf.kernel"
+          ]
+        },
+        "suspected_scope": "framework",
+        "requested_change": "",
+        "impact": "high",
+        "workaround": "Ignore the second callback."
+      },
+      "classification": "framework_bug",
+      "eligible": true
+    },
+    {
+      "id": "project_business_rule",
+      "candidate": {
+        "schema_version": 1,
+        "title": "Quest reward amount is wrong",
+        "summary": "A project-specific quest grants the wrong configured amount.",
+        "expected": "Grant the configured amount.",
+        "actual": "The project reward table contains another amount.",
+        "reproduction_steps": [
+          "Complete the project quest."
+        ],
+        "evidence": [],
+        "environment": {
+          "godot_version": "4.5",
+          "gf_version": "",
+          "platform": "Windows",
+          "packages": [
+            "gf.kernel"
+          ]
+        },
+        "suspected_scope": "project",
+        "requested_change": "",
+        "impact": "medium",
+        "workaround": "Fix the project table."
+      },
+      "classification": "project_issue",
+      "eligible": false
+    },
+    {
+      "id": "provider_neutral_adapter_gap",
+      "candidate": {
+        "schema_version": 1,
+        "title": "Lobby ownership handoff lacks a provider-neutral contract",
+        "summary": "Two unrelated providers need the same ownership handoff lifecycle.",
+        "expected": "",
+        "actual": "",
+        "reproduction_steps": [],
+        "evidence": [
+          {
+            "kind": "observation",
+            "text": "Both adapters currently duplicate the same state transition."
+          }
+        ],
+        "environment": {
+          "godot_version": "4.5",
+          "gf_version": "",
+          "platform": "Cross-platform",
+          "packages": [
+            "gf.extension.network"
+          ]
+        },
+        "suspected_scope": "adapter",
+        "requested_change": "Define a provider-neutral ownership handoff result and lifecycle contract.",
+        "impact": "medium",
+        "workaround": "Keep duplicate adapter state machines."
+      },
+      "classification": "adapter_contract_gap",
+      "eligible": true
+    }
+  ],
+  "capability_queries": [
+    {
+      "query": "save persistence slots",
+      "expected_id": "storage-save"
+    },
+    {
+      "query": "steam lobby adapter",
+      "expected_id": "platform-adapters"
+    },
+    {
+      "query": "deterministic replay random",
+      "expected_id": "determinism"
+    }
+  ],
+  "api_queries": [
+    {
+      "query": "GFUIRoute",
+      "expected_class": "GFUIRoute"
+    },
+    {
+      "query": "GFSpatialQueryIndex2D",
+      "expected_class": "GFSpatialQueryIndex2D"
+    }
+  ],
+  "module_queries": [
+    {
+      "module": "kernel",
+      "expected_class": "GFArchitecture"
+    }
+  ],
+  "package_queries": [
+    {
+      "package_id": "gf.kernel",
+      "expected_class": "GFArchitecture"
+    }
+  ]
+}

@@ -18,6 +18,7 @@ GF Framework 是一个面向 Godot 4 的轻量级游戏架构框架。它把数�
 - Godot 4.7 或更新版本。
 - 只有运行仓库测试时需要 GUT。
 - 只有本地构建文档时需要安装 [`docs/requirements.txt`](docs/requirements.txt) 中的 Python 依赖。
+- 只有使用可选 GF AI Developer Kit 项目工具时需要 Python 3.10 或更新版本。
 
 ## 安装
 
@@ -95,6 +96,12 @@ GF 源码按稳定的所有权边界组织：
 GF 核心编辑器能力包括扩展管理、强类型 GF/config 访问器生成、项目常量、脚本模板、Inspector、Dock、导出辅助和 Node3D/Mesh/MeshLibrary 缩略图渲染。SaveGraph 诊断、Pattern2D 编辑等扩展工具只在对应可选扩展启用后贡献。
 
 扩展专属编辑器工具由 `gf_extension.json` manifest 声明，并且只会在扩展启用时加载。
+
+## AI 辅助项目开发
+
+可选 `gf.tool.ai_developer` 包提供严格项目意图契约、观测快照、与 GF 版本绑定的能力/API 目录、受控 Agent 规则和审批式框架反馈流程。它要求项目业务与平台 SDK Adapter 留在 GF 外部，不会给游戏运行时或导出产物增加 AI/Python 依赖。
+
+完整用法见 [AI Developer Kit 指南](docs/zh/editor/tools/ai-developer.md)。每个 GF Release 同时提供同版本 `gf-ai-developer-kit-<version>.zip` 独立产物，供支持的 Agent 宿主使用。
 
 ## 测试
 
