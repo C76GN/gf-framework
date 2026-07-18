@@ -12,7 +12,7 @@ import sys
 from pathlib import Path
 
 
-SEMVER_RE = re.compile(r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$")
+SEMVER_RE = re.compile(r"^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$")
 CHANGELOG_HEADING_RE = re.compile(r"^##\s+\[(?P<version>[^\]]+)\](?P<suffix>.*)$")
 MARKDOWN_FIELD_RE = re.compile(r"^-\s+(?P<name>[^:]+):\s+`(?P<value>[^`]+)`\s*$")
 

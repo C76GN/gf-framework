@@ -775,6 +775,173 @@ func test_native_status_marks_incompatible_registry_packages_not_installable() -
 	)
 
 
+func test_native_status_orders_development_prerelease_before_stable_version() -> void:
+	var project_root: String = TEST_ROOT.path_join("development_prerelease_status_project")
+	var registry_path: String = TEST_ROOT.path_join("registry/development_prerelease.json")
+	var registry: Dictionary = _make_fixture_registry()
+	_set_registry_framework_range(registry, "8.2.0", "9.0.0")
+	_write_json(registry_path, registry)
+	_write_project_plugin_cfg(project_root, "8.2.0-dev.0")
+
+	var status: Dictionary = GF_PACKAGE_MANAGER_BACKEND.make_status(
+		registry_path,
+		ProjectSettings.globalize_path(project_root)
+	)
+
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(status, "ok"), "SemVer prerelease 必须排在同 core 的稳定版本之前。")
+	assert_true(
+		_issues_contain(
+			GF_VARIANT_ACCESS.get_option_packed_string_array(status, "issues"),
+			"minimum_framework_version 8.2.0"
+		),
+		"不兼容报告应保留稳定版本下界。"
+	)
+
+
+func test_native_status_accepts_newer_development_prerelease_within_range() -> void:
+	var project_root: String = TEST_ROOT.path_join("newer_development_prerelease_status_project")
+	var registry_path: String = TEST_ROOT.path_join("registry/newer_development_prerelease.json")
+	var registry: Dictionary = _make_fixture_registry()
+	_set_registry_framework_range(registry, "8.2.0-dev.0", "9.0.0")
+	_write_json(registry_path, registry)
+	_write_project_plugin_cfg(project_root, "8.2.0-dev.1")
+
+	var status: Dictionary = GF_PACKAGE_MANAGER_BACKEND.make_status(
+		registry_path,
+		ProjectSettings.globalize_path(project_root)
+	)
+
+	assert_true(GF_VARIANT_ACCESS.get_option_bool(status, "ok"), "更高 dev 序号应满足较低预发布下界并保持低于稳定上界。")
+
+
+func test_native_status_rejects_next_compatibility_line_prerelease() -> void:
+	var project_root: String = TEST_ROOT.path_join("next_line_prerelease_status_project")
+	var registry_path: String = TEST_ROOT.path_join("registry/next_line_prerelease.json")
+	var registry: Dictionary = _make_fixture_registry()
+	_set_registry_framework_range(registry, "8.1.0", "9.0.0")
+	_write_json(registry_path, registry)
+	_write_project_plugin_cfg(project_root, "9.0.0-dev.0")
+
+	var status: Dictionary = GF_PACKAGE_MANAGER_BACKEND.make_status(
+		registry_path,
+		ProjectSettings.globalize_path(project_root)
+	)
+
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(status, "ok"), "下一兼容线的预发布版本必须达到稳定排他上界。")
+	assert_true(
+		_issues_contain(
+			GF_VARIANT_ACCESS.get_option_packed_string_array(status, "issues"),
+			"maximum_framework_version_exclusive 9.0.0"
+		),
+		"排他上界应覆盖相同 core 的预发布版本。"
+	)
+
+
+func test_native_status_rejects_malformed_non_empty_framework_version() -> void:
+	var project_root: String = TEST_ROOT.path_join("malformed_framework_version_status_project")
+	var registry_path: String = TEST_ROOT.path_join("registry/malformed_framework_version.json")
+	var registry: Dictionary = _make_fixture_registry()
+	_set_registry_framework_range(registry, "8.1.0", "9.0.0")
+	_write_json(registry_path, registry)
+	_write_project_plugin_cfg(project_root, "not-a-version")
+
+	var status: Dictionary = GF_PACKAGE_MANAGER_BACKEND.make_status(
+		registry_path,
+		ProjectSettings.globalize_path(project_root)
+	)
+
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(status, "ok"), "非空损坏版本不能伪装成 bootstrap 项目绕过兼容性。")
+	assert_true(
+		_issues_contain(
+			GF_VARIANT_ACCESS.get_option_packed_string_array(status, "issues"),
+			"target GF framework version is not SemVer: not-a-version"
+		),
+		"状态报告应明确指出损坏的当前框架版本。"
+	)
+
+
+func test_native_status_rejects_non_semver_version_prefix() -> void:
+	var project_root: String = TEST_ROOT.path_join("prefixed_framework_version_status_project")
+	var registry_path: String = TEST_ROOT.path_join("registry/prefixed_framework_version.json")
+	var registry: Dictionary = _make_fixture_registry()
+	_set_registry_framework_range(registry, "8.1.0", "9.0.0")
+	_write_json(registry_path, registry)
+	_write_project_plugin_cfg(project_root, "v8.2.0")
+
+	var status: Dictionary = GF_PACKAGE_MANAGER_BACKEND.make_status(
+		registry_path,
+		ProjectSettings.globalize_path(project_root)
+	)
+
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(status, "ok"), "框架版本必须是严格 SemVer，不能接受 tag 风格前缀。")
+	assert_true(
+		_issues_contain(
+			GF_VARIANT_ACCESS.get_option_packed_string_array(status, "issues"),
+			"target GF framework version is not SemVer: v8.2.0"
+		),
+		"版本前缀错误应进入状态报告。"
+	)
+
+
+func test_native_status_rejects_non_ascii_semver_digits() -> void:
+	var project_root: String = TEST_ROOT.path_join("non_ascii_framework_version_status_project")
+	var registry_path: String = TEST_ROOT.path_join("registry/non_ascii_framework_version.json")
+	var registry: Dictionary = _make_fixture_registry()
+	_set_registry_framework_range(registry, "8.1.0", "9.0.0")
+	_write_json(registry_path, registry)
+	_write_project_plugin_cfg(project_root, "8.2.0-\u0661")
+
+	var status: Dictionary = GF_PACKAGE_MANAGER_BACKEND.make_status(
+		registry_path,
+		ProjectSettings.globalize_path(project_root)
+	)
+
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(status, "ok"), "SemVer 标识符只能使用 ASCII 数字。")
+	assert_true(
+		_issues_contain(
+			GF_VARIANT_ACCESS.get_option_packed_string_array(status, "issues"),
+			"target GF framework version is not SemVer"
+		),
+		"非 ASCII 数字应作为版本格式错误报告。"
+	)
+
+
+func test_native_status_compares_semver_core_without_integer_overflow() -> void:
+	var project_root: String = TEST_ROOT.path_join("large_semver_core_status_project")
+	var registry_path: String = TEST_ROOT.path_join("registry/large_semver_core.json")
+	var registry: Dictionary = _make_fixture_registry()
+	_set_registry_framework_range(registry, "9223372036854775808.0.0", "")
+	_write_json(registry_path, registry)
+	_write_project_plugin_cfg(project_root, "9223372036854775807.0.0")
+
+	var status: Dictionary = GF_PACKAGE_MANAGER_BACKEND.make_status(
+		registry_path,
+		ProjectSettings.globalize_path(project_root)
+	)
+
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(status, "ok"), "SemVer core 比较不能经过 int32/int64 截断。")
+	assert_true(
+		_issues_contain(
+			GF_VARIANT_ACCESS.get_option_packed_string_array(status, "issues"),
+			"minimum_framework_version 9223372036854775808.0.0"
+		),
+		"超大合法数字标识符应保持正确的版本顺序。"
+	)
+
+
+func test_default_registry_source_uses_latest_release_for_development_version() -> void:
+	var previous_override: String = OS.get_environment(GF_PACKAGE_MANAGER_BACKEND.DEFAULT_REGISTRY_SOURCE_ENV)
+	OS.set_environment(GF_PACKAGE_MANAGER_BACKEND.DEFAULT_REGISTRY_SOURCE_ENV, "")
+	var registry_source_url: String = GF_PACKAGE_MANAGER_BACKEND.get_default_registry_source_url()
+	OS.set_environment(GF_PACKAGE_MANAGER_BACKEND.DEFAULT_REGISTRY_SOURCE_ENV, previous_override)
+
+	assert_eq(
+		registry_source_url,
+		GF_PACKAGE_MANAGER_BACKEND.DEFAULT_REGISTRY_SOURCE_LATEST_URL,
+		"开发版本不能拼接一个尚不存在的版本化 GitHub Release URL。"
+	)
+
+
 func test_native_install_rejects_incompatible_registry_without_mutating_project() -> void:
 	var project_root: String = TEST_ROOT.path_join("old_framework_install_project")
 	var registry_path: String = TEST_ROOT.path_join("registry/index.json")

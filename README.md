@@ -10,6 +10,7 @@ GF Framework is a lightweight game architecture framework for Godot 4. It separa
 - Chinese docs source: [`docs/zh`](docs/zh)
 - Generated API Reference source: [`docs/api_catalog`](docs/api_catalog)
 - Changelog: [`docs/zh/changelog.md`](docs/zh/changelog.md)
+- Contribution workflow: [`CONTRIBUTING.md`](CONTRIBUTING.md)
 
 The legacy GitHub Wiki keeps only entry links. Read the Docs is the single official documentation source.
 

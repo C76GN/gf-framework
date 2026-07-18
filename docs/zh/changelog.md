@@ -40,7 +40,9 @@
 
 ### 🔄 机制更改 (Changed)
 
-- release artifact manifest schema 升级为 version 2，新增唯一 `ai_developer_kit` 角色和 `ai_developer_kit_build_count = 1`；release job 只能上传同一不可变产物，下载后复核，不得重新构建另一份插件。`quick`、`api`、`framework`、`full` 与 `release` 检查新增 `ai_developer_kit` 行为、目录新鲜度、确定性 ZIP 和反馈安全门禁。
+- 仓库开发态改用 `9.0.0-dev.0` SemVer 预发布身份，准确表达相对 `8.1.1` 已经确认的迁移型公开契约变化，并避免未发布的 `main` 源码继续冒充最新稳定版本；Draft PR 只运行快速反馈门禁，Ready PR 与 `main` push 必须通过稳定汇总检查及完整等价 CI 分片，正式发布仍只由不可变 SemVer tag 与 Release workflow 定义。
+- Package Manager 的框架兼容判断改为严格 SemVer，并把稳定 `maximum_framework_version_exclusive` 解释为下一兼容线边界；tag 风格 `v` 前缀、损坏的非空当前版本，以及与上界同 core 的下一线预发布版本都会 fail closed，开发版本默认在线源改用 latest release source，避免请求尚不存在的版本化 registry。
+- release artifact manifest schema 升级为 version 2，新增唯一 `ai_developer_kit` 角色和 `ai_developer_kit_build_count = 1`；release job 只能上传同一不可变产物，下载后复核，不得重新构建另一份插件。`quick` 负责 AI Developer Kit 约束、Schema、知识和模板新鲜度，`api`、`framework`、`full` 与 `release` 继续执行完整行为、确定性 ZIP 和反馈安全门禁。
 - AI Developer Kit 的 package lockfile、知识目录版本和查询预算改为严格失败语义；项目契约验证命令改为只声明结构化 `argv`、超时、联网和写入边界，由宿主独立审阅执行，项目文件中的文本不能提升为 Agent 指令。
 - `GFConfigPipeline` 改为 Reader -> Layout -> Validation -> Target -> Commit 编排器，旧的单文件解析、XLSX、校验、JSON 编码和事务快照重复实现已移除；主类不再重新解释阶段结果，只有通过 Validation 的 IR 才能进入目标物化。Profile 多产物导出现在由独立 Commit 阶段捕获完整路径集合，失败时逆序恢复已有文件并删除新增文件。
 - Config Pipeline 编译器指纹契约升级，直接引用每个 Stage 的稳定 ID / 实现版本和两个 IR 的格式版本，并覆盖全部新增实现文件；阶段或 IR 变化会可靠使旧 manifest stale。

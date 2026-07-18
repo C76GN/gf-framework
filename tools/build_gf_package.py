@@ -18,6 +18,8 @@ from typing import Any
 import gf_path_security
 from gf_package_paths import normalize_manifest_path as normalize_shared_manifest_path
 from gf_package_paths import path_matches_any_manifest_path as shared_path_matches_any_manifest_path
+from gf_semver import next_major_version
+from gf_semver import parse_semver
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -392,28 +394,6 @@ def make_framework_compatibility_fields(framework_version: str) -> dict[str, str
 		"minimum_framework_version": framework_version,
 		"maximum_framework_version_exclusive": next_major_version(framework_version),
 	}
-
-
-def next_major_version(version: str) -> str:
-	parts = parse_semver(version)
-	if parts is None:
-		return ""
-	return f"{parts[0] + 1}.0.0"
-
-
-def parse_semver(version: str) -> tuple[int, int, int] | None:
-	text = version.strip()
-	if text.startswith("v"):
-		text = text[1:]
-	pieces = text.split(".")
-	if len(pieces) != 3:
-		return None
-	result: list[int] = []
-	for piece in pieces:
-		if not piece.isdigit():
-			return None
-		result.append(int(piece))
-	return (result[0], result[1], result[2])
 
 
 def load_package_manifests() -> dict[str, Any]:

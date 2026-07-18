@@ -10,6 +10,7 @@ GF Framework 是一个面向 Godot 4 的轻量级游戏架构框架。它把数�
 - 中文文档源码：[`docs/zh`](docs/zh)
 - 生成式 API Reference 中间源：[`docs/api_catalog`](docs/api_catalog)
 - 更新日志：[`docs/zh/changelog.md`](docs/zh/changelog.md)
+- 贡献与协作流程：[`CONTRIBUTING.md`](CONTRIBUTING.md)
 
 旧 GitHub Wiki 只保留入口链接。Read the Docs 是唯一正式文档来源。
 
