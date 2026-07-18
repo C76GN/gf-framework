@@ -1244,7 +1244,7 @@ func test_extension_manifest_versions_follow_release_policy() -> void:
 	assert_eq(
 		Array(issues),
 		[],
-		"GF 内置扩展 manifest.version 必须跟随 GF 发行版本，extension_version 必须记录扩展自身 SemVer。"
+		"GF 内置扩展 manifest.version 必须跟随 GF 源码版本，extension_version 必须记录扩展自身稳定 SemVer。"
 	)
 
 

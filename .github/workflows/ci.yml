@@ -2,20 +2,84 @@ name: CI
 
 on:
   pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - edited
+      - ready_for_review
+      - converted_to_draft
   push:
     branches:
       - main
+  workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ci-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
+  repository-policy:
+    name: GF repository policy
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Validate repository policy
+        run: python tools/gf_repository_policy.py validate --json
+
+      - name: Validate pull request contract
+        if: github.event_name == 'pull_request'
+        env:
+          GF_HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
+        run: python tools/gf_repository_policy.py validate-pr --json
+
+  quick-checks:
+    name: GF draft quick checks
+    if: github.event_name == 'pull_request' && github.event.pull_request.draft == true
+    needs:
+      - repository-policy
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Run quick maintenance suite
+        run: >
+          python tools/gf_maintenance.py check
+          --suite quick
+          --failed-only
+          --github-annotations
+
   framework-checks:
     name: GF framework checks
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    needs:
+      - repository-policy
     runs-on: ubuntu-latest
     timeout-minutes: 45
 
@@ -48,6 +112,9 @@ jobs:
 
   package-checks:
     name: GF package checks (${{ matrix.name }})
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    needs:
+      - repository-policy
     runs-on: ubuntu-latest
     timeout-minutes: ${{ matrix.timeout_minutes }}
     strategy:
@@ -91,3 +158,44 @@ jobs:
           --suite ${{ matrix.suite }}
           --failed-only
           --github-annotations
+
+  merge-gate:
+    name: GF merge gate
+    if: always()
+    needs:
+      - repository-policy
+      - quick-checks
+      - framework-checks
+      - package-checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Evaluate required checks
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          IS_DRAFT: ${{ github.event_name == 'pull_request' && github.event.pull_request.draft }}
+          POLICY_RESULT: ${{ needs.repository-policy.result }}
+          QUICK_RESULT: ${{ needs.quick-checks.result }}
+          FRAMEWORK_RESULT: ${{ needs.framework-checks.result }}
+          PACKAGE_RESULT: ${{ needs.package-checks.result }}
+        run: |
+          if [ "${POLICY_RESULT}" != "success" ]; then
+            echo "Repository policy failed: ${POLICY_RESULT}"
+            exit 1
+          fi
+          if [ "${EVENT_NAME}" = "pull_request" ] && [ "${IS_DRAFT}" = "true" ]; then
+            if [ "${QUICK_RESULT}" != "success" ]; then
+              echo "Draft quick checks failed: ${QUICK_RESULT}"
+              exit 1
+            fi
+            exit 0
+          fi
+          if [ "${FRAMEWORK_RESULT}" != "success" ]; then
+            echo "Framework checks failed: ${FRAMEWORK_RESULT}"
+            exit 1
+          fi
+          if [ "${PACKAGE_RESULT}" != "success" ]; then
+            echo "Package checks failed: ${PACKAGE_RESULT}"
+            exit 1
+          fi

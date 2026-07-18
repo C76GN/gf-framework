@@ -32,7 +32,7 @@
 
 ## Package Manager 页面
 
-`GF Package Manager` 页面用于从 GF registry、registry source 或 offline bundle 安装模块化 package。空项目可以直接安装 package 闭包完成 GF bootstrap；已经安装 GF 的项目会读取 `addons/gf/plugin.cfg` 中的框架版本，并在刷新状态、预览安装和真实安装前检查 registry 与 package 的 `minimum_framework_version` / `maximum_framework_version_exclusive` 兼容范围。
+`GF Package Manager` 页面用于从 GF registry、registry source 或 offline bundle 安装模块化 package。空项目可以直接安装 package 闭包完成 GF bootstrap；已经安装 GF 的项目会读取 `addons/gf/plugin.cfg` 中的框架版本，并在刷新状态、预览安装和真实安装前检查 registry 与 package 的 `minimum_framework_version` / `maximum_framework_version_exclusive` 兼容范围。版本字段必须是无 `v` 前缀的严格 SemVer；稳定排他上界表示下一条兼容线，因此同 core 的预发布版本也会被排除，例如 `9.0.0-dev.0` 不满足 `< 9.0.0` 的 8.x 兼容范围。只有上界自身显式声明为预发布版本时，才在同 core 内按完整 SemVer 先后关系判断。
 
 默认在线源会优先指向当前 GF 版本对应的 release registry source，避免旧框架项目无意间读取最新 registry。自定义 registry source 或 offline bundle 仍可用于团队内分发，但应与目标项目的 GF 主版本线匹配；不兼容时页面会显示失败原因，安装流程不会下载 archive、写入 lockfile 或覆盖项目文件。
 

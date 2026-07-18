@@ -15,6 +15,7 @@ from typing import Any
 import gf_path_security
 from gf_package_paths import normalize_manifest_path as normalize_shared_manifest_path
 from gf_package_paths import path_matches_any_manifest_path as shared_path_matches_any_manifest_path
+from gf_semver import parse_semver, reaches_exclusive_compatibility_bound
 
 
 def find_workspace_root(start: Path, fallback: Path) -> Path:
@@ -1302,11 +1303,13 @@ def framework_compatibility_issues(
 
 def compatibility_range_issues(label: str, current_version: str, minimum_version: str, maximum_exclusive: str) -> list[str]:
 	issues: list[str] = []
+	if not current_version.strip():
+		return issues
 	current = parse_semver(current_version)
 	minimum = parse_semver(minimum_version)
 	maximum = parse_semver(maximum_exclusive)
 	if current is None:
-		return []
+		return [f"{label}: target GF framework version is not SemVer: {current_version}"]
 	if minimum_version.strip() and minimum is None:
 		issues.append(f"{label}: minimum_framework_version is not SemVer: {minimum_version}")
 	elif minimum is not None and current < minimum:
@@ -1316,27 +1319,12 @@ def compatibility_range_issues(label: str, current_version: str, minimum_version
 		)
 	if maximum_exclusive.strip() and maximum is None:
 		issues.append(f"{label}: maximum_framework_version_exclusive is not SemVer: {maximum_exclusive}")
-	elif maximum is not None and current >= maximum:
+	elif maximum is not None and reaches_exclusive_compatibility_bound(current, maximum):
 		issues.append(
 			f"{label}: target GF framework version {current_version} must be lower than "
 			f"maximum_framework_version_exclusive {maximum_exclusive}"
 		)
 	return issues
-
-
-def parse_semver(version: str) -> tuple[int, int, int] | None:
-	text = version.strip()
-	if text.startswith("v"):
-		text = text[1:]
-	pieces = text.split(".")
-	if len(pieces) != 3:
-		return None
-	result: list[int] = []
-	for piece in pieces:
-		if not piece.isdigit():
-			return None
-		result.append(int(piece))
-	return (result[0], result[1], result[2])
 
 
 def make_plan_result(

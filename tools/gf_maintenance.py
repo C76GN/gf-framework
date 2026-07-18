@@ -44,6 +44,7 @@ from generated_output_transaction import validate_controlled_path
 import gf_package_cache
 import gf_maintenance_rendering as maintenance_rendering
 import gf_maintenance_static_checks
+import gf_semver
 from gf_maintenance_rendering import trim_text
 from gf_godot_process import resolve_godot_command
 from gf_godot_process import resolve_godot_executable
@@ -63,8 +64,10 @@ from gf_workspace_snapshot import WorkspaceSnapshot
 
 ROOT = Path(__file__).resolve().parents[1]
 CHANGELOG_PATH = ROOT / "docs/zh/changelog.md"
-SEMVER_RE = re.compile(r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$")
-SINCE_VERSION_RE = re.compile(r"@since\s+(?P<version>(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*))")
+SEMVER_RE = re.compile(r"^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$")
+SINCE_VERSION_RE = re.compile(
+	r"@since\s+(?P<version>(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*))"
+)
 SINCE_TAG_RE = re.compile(r"@since\s+(?P<value>\S+)")
 CHANGELOG_VERSION_RE = re.compile(r"^##\s+\[(?P<version>[^\]]+)\]")
 MARKDOWN_FIELD_RE = re.compile(r"^-\s+(?P<name>[^:]+):\s+`(?P<value>[^`]+)`\s*$")
@@ -779,7 +782,14 @@ CHECK_DEFINITIONS: dict[str, list[str]] = {
 		sys.executable,
 		"tests/gf_core/tools/ai_developer/test_gf_ai_project_tool.py",
 	],
+	"ai_developer_kit_source": [
+		sys.executable,
+		"tools/build_gf_ai_developer_kit.py",
+		"--check-source",
+		"--json",
+	],
 	"docs": [sys.executable, "tools/check_docs_quality.py", "--strict"],
+	"repository_policy": [sys.executable, "tools/gf_repository_policy.py", "validate", "--json"],
 	"public_docs_boundary": [sys.executable, "tools/gf_maintenance.py", "public-docs-boundary"],
 	"public_api_boundary": [sys.executable, "tools/gf_maintenance.py", "public-api-boundary"],
 	"resource_boundary": [sys.executable, "tools/gf_maintenance.py", "resource-boundary", "--fail-on-issues"],
@@ -968,6 +978,7 @@ LIGHT_BOUNDARY_CHECKS: list[str] = [
 	"core_only_smoke",
 	"package_focused_gut_mapping",
 	"api_since_touched",
+	"repository_policy",
 	"path_hygiene",
 	"dependency_boundary",
 	"diff",
@@ -1004,7 +1015,7 @@ PACKAGE_CHECKS: list[str] = [
 QUICK_CHECKS: list[str] = [
 	"api",
 	"ai_api",
-	"ai_developer_kit",
+	"ai_developer_kit_source",
 	"docs",
 	"public_docs_boundary",
 	"public_api_boundary",
@@ -1026,6 +1037,7 @@ FULL_CHECKS: list[str] = [
 	"package_godot_smoke",
 	"mkdocs",
 	"api_since_touched",
+	"repository_policy",
 	"path_hygiene",
 	"maintenance_self_test",
 	"dependency_boundary",
@@ -1049,6 +1061,7 @@ RELEASE_CHECKS: list[str] = [
 	"package_godot_matrix_smoke",
 	"mkdocs",
 	"api_since_touched",
+	"repository_policy",
 	"path_hygiene",
 	"maintenance_self_test",
 	"dependency_boundary",
@@ -1071,6 +1084,7 @@ FRAMEWORK_CHECKS: list[str] = [
 	"project_profile_boundary",
 	"mkdocs",
 	"api_since_touched",
+	"repository_policy",
 	"path_hygiene",
 	"maintenance_self_test",
 	"dependency_boundary",
@@ -10428,6 +10442,11 @@ def maintenance_self_test() -> dict[str, Any]:
 	)
 	ci_workflow_source = read_text_file(ROOT / ".github/workflows/ci.yml")
 	release_workflow_source = read_text_file(ROOT / ".github/workflows/release.yml")
+	quick_job_match = re.search(
+		r"(?ms)^  quick-checks:\n(?P<body>.*?)(?=^  framework-checks:)",
+		ci_workflow_source,
+	)
+	quick_job_source = quick_job_match.group("body") if quick_job_match is not None else ""
 	record_result(
 		"ci_workflow_runs_all_full_suite_shards",
 		"--suite framework" in ci_workflow_source
@@ -10443,6 +10462,29 @@ def maintenance_self_test() -> dict[str, Any]:
 			)
 		),
 		"CI workflow must run every set-equivalent full-suite shard.",
+	)
+	record_result(
+		"ci_workflow_layers_draft_ready_and_stable_merge_gate",
+		"repository-policy:" in ci_workflow_source
+		and "quick-checks:" in ci_workflow_source
+		and "merge-gate:" in ci_workflow_source
+		and "name: GF merge gate" in ci_workflow_source
+		and "converted_to_draft" in ci_workflow_source
+		and "edited" in ci_workflow_source
+		and "ready_for_review" in ci_workflow_source
+		and "github.event.pull_request.draft == true" in ci_workflow_source
+		and "github.event.pull_request.draft == false" in ci_workflow_source
+		and "python tools/gf_repository_policy.py validate --json" in ci_workflow_source
+		and "python tools/gf_repository_policy.py validate-pr --json" in ci_workflow_source,
+		"CI must give Draft PRs a quick signal, reserve full shards for Ready PRs/main, and expose one stable protected check.",
+	)
+	record_result(
+		"ci_draft_quick_job_avoids_heavy_environment_bootstrap",
+		bool(quick_job_source)
+		and "actions/setup-python@v5" in quick_job_source
+		and "docs/requirements.txt" not in quick_job_source
+		and ".github/actions/setup-godot" not in quick_job_source,
+		"Draft quick CI must remain pure Python and avoid documentation or Godot environment bootstrap.",
 	)
 	record_result(
 		"release_workflow_gates_publish_on_all_release_shards",
@@ -10617,6 +10659,75 @@ def maintenance_self_test() -> dict[str, Any]:
 		"maintenance_self_test" not in CHECK_SUITES["quick"]
 		and "maintenance_self_test" in CHECK_SUITES["framework"],
 		"quick must keep the developer loop lean while framework/full retain maintenance tool self-tests.",
+	)
+	record_result(
+		"quick_uses_ai_developer_source_gate_while_full_runs_behavior_tests",
+		"ai_developer_kit_source" in CHECK_SUITES["quick"]
+		and "ai_developer_kit" not in CHECK_SUITES["quick"]
+		and "ai_developer_kit" in CHECK_SUITES["framework"]
+		and "ai_developer_kit" in CHECK_SUITES["full"]
+		and "ai_developer_kit" in CHECK_SUITES["release"],
+		"Draft feedback should check tracked AI Kit inputs quickly; merge and release gates must retain all behavior tests.",
+	)
+	record_result(
+		"repository_policy_is_a_quick_and_full_gate",
+		"repository_policy" in CHECK_SUITES["quick"]
+		and "repository_policy" in CHECK_SUITES["framework"]
+		and "repository_policy" in CHECK_SUITES["full"]
+		and "repository_policy" in CHECK_SUITES["release"],
+		"repository workflow drift must fail local quick checks, full CI, and release checks.",
+	)
+	semver_precedence_values = [
+		"1.0.0-alpha",
+		"1.0.0-alpha.1",
+		"1.0.0-alpha.beta",
+		"1.0.0-beta",
+		"1.0.0-beta.2",
+		"1.0.0-beta.11",
+		"1.0.0-rc.1",
+		"1.0.0",
+	]
+	parsed_semver_precedence = [gf_semver.parse_semver(value) for value in semver_precedence_values]
+	record_result(
+		"shared_semver_parser_enforces_semver_2_precedence",
+		all(version is not None for version in parsed_semver_precedence)
+		and all(
+			parsed_semver_precedence[index] < parsed_semver_precedence[index + 1]
+			for index in range(len(parsed_semver_precedence) - 1)
+		)
+		and gf_semver.parse_semver("1.0.0+build.1") == gf_semver.parse_semver("1.0.0+build.2")
+		and gf_semver.parse_semver("1.0.0-01") is None
+		and gf_semver.parse_semver("01.0.0") is None
+		and gf_semver.parse_semver("1\u0661.0.0") is None
+		and gf_semver.parse_semver("1.0.0-\u0661") is None
+		and gf_semver.parse_semver("v1.0.0") is None
+		and gf_semver.next_major_version("8.2.0-dev.0") == "9.0.0",
+		"Python package tooling must share strict SemVer parsing and prerelease precedence.",
+	)
+	from build_gf_package import make_framework_compatibility_fields
+	from gf_package_resolver import compatibility_range_issues
+
+	dev_compatibility_fields = make_framework_compatibility_fields("8.2.0-dev.0")
+	record_result(
+		"package_build_and_resolver_preserve_prerelease_compatibility",
+		dev_compatibility_fields == {
+			"minimum_framework_version": "8.2.0-dev.0",
+			"maximum_framework_version_exclusive": "9.0.0",
+		}
+		and any(
+			"lower than minimum_framework_version 8.2.0" in issue
+			for issue in compatibility_range_issues("registry", "8.2.0-dev.0", "8.2.0", "9.0.0")
+		)
+		and not compatibility_range_issues("registry", "8.2.0-dev.1", "8.2.0-dev.0", "9.0.0")
+		and any(
+			"maximum_framework_version_exclusive 9.0.0" in issue
+			for issue in compatibility_range_issues("registry", "9.0.0-dev.0", "8.1.0", "9.0.0")
+		)
+		and any(
+			"target GF framework version is not SemVer" in issue
+			for issue in compatibility_range_issues("registry", "v8.2.0", "8.1.0", "9.0.0")
+		),
+		"Package archives and CLI planning must preserve strict SemVer and exclude prereleases from the next compatibility line.",
 	)
 	record_result(
 		"package_suite_includes_long_package_smokes",
@@ -18202,9 +18313,10 @@ def classify_status_path(path: str) -> str:
 		return "manual_docs"
 	if (
 		normalized.startswith(".codex/")
+		or normalized.startswith(".github/")
 		or normalized.startswith("tools/")
 		or normalized.startswith("packages/")
-		or normalized in {"AI_MAINTENANCE.md", "CODING_STYLE.md", "API_SURFACE.md"}
+		or normalized in {"AI_MAINTENANCE.md", "CODING_STYLE.md", "API_SURFACE.md", "CONTRIBUTING.md"}
 		or normalized in PROJECT_PROFILE_DEFAULT_FILES
 	):
 		return "maintenance_tools"
@@ -18262,7 +18374,7 @@ def recommend_checks(categories: dict[str, list[dict[str, str]]]) -> list[str]:
 			(
 				"python -m py_compile tools/gf_maintenance.py tools/gf_mcp_server.py "
 				"tools/gf_godot_process.py tools/gf_package_paths.py tools/gf_process_supervisor.py "
-				"tools/gf_workspace_snapshot.py"
+				"tools/gf_repository_policy.py tools/gf_semver.py tools/gf_workspace_snapshot.py"
 			),
 			"python tools/gf_maintenance.py maintenance-self-test --json",
 			"python tools/gf_maintenance.py check --suite quick --json",
@@ -18275,15 +18387,19 @@ def recommend_checks(categories: dict[str, list[dict[str, str]]]) -> list[str]:
 			])
 	if categories["release_metadata"]:
 		release_version = read_plugin_version()
-		release_manifest = f"build/release/gf-release-artifacts-{release_version}.json"
-		recommendations.append(
-			f"python tools/build_gf_release_artifacts.py --version {release_version} --output-dir build/release"
-		)
-		recommendations.append(
-			"python tools/gf_maintenance.py release-status "
-			f"--version {release_version} --artifact-manifest {release_manifest} --json"
-		)
-		recommendations.append("python tools/gf_maintenance.py api-baseline-diff --json")
+		if SEMVER_RE.fullmatch(release_version):
+			release_manifest = f"build/release/gf-release-artifacts-{release_version}.json"
+			recommendations.append(
+				f"python tools/build_gf_release_artifacts.py --version {release_version} --output-dir build/release"
+			)
+			recommendations.append(
+				"python tools/gf_maintenance.py release-status "
+				f"--version {release_version} --artifact-manifest {release_manifest} --json"
+			)
+			recommendations.append("python tools/gf_maintenance.py api-baseline-diff --json")
+		else:
+			recommendations.append("python tools/gf_repository_policy.py validate --json")
+			recommendations.append("python tools/build_gf_ai_developer_kit.py --check-source --json")
 		recommendations.append("python tools/gf_maintenance.py dependency-boundary --json")
 		recommendations.append("python tools/gf_maintenance.py content-package-boundary --json")
 		recommendations.append("python tools/gf_maintenance.py project-profile-boundary --json")
@@ -18301,6 +18417,7 @@ def has_package_maintenance_paths(entries: list[dict[str, str]]) -> bool:
 		"tools/build_gf_release_artifacts.py",
 		"tools/gf_path_security.py",
 		"tools/gf_package_resolver.py",
+		"tools/gf_semver.py",
 	}
 	for entry in entries:
 		path = entry["path"]

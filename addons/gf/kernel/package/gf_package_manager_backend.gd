@@ -205,7 +205,7 @@ const HTTP_RETRY_DELAY_MSEC: int = 150
 ## @layer kernel/package
 const DEFAULT_REGISTRY_SOURCE_RELEASE_URL_TEMPLATE: String = "https://github.com/C76GN/gf-framework/releases/download/%s/gf-registry-source.json"
 
-## 开发版无法解析 SemVer 时使用的 release registry source URL。
+## 预发布或无法解析版本使用的 latest registry source URL。
 ## [br]
 ## @api framework_internal
 ## [br]
@@ -311,7 +311,8 @@ static func get_default_registry_source_url() -> String:
 	if not environment_value.is_empty():
 		return environment_value
 	var framework_version: String = _read_project_framework_version(_resolve_project_root("res://"))
-	if not _parse_semver(framework_version).is_empty():
+	var parsed_version: Dictionary = _parse_semver(framework_version)
+	if not parsed_version.is_empty() and _semver_is_stable(parsed_version):
 		return DEFAULT_REGISTRY_SOURCE_RELEASE_URL_TEMPLATE % framework_version
 	return DEFAULT_REGISTRY_SOURCE_LATEST_URL
 
@@ -5191,11 +5192,14 @@ static func _compatibility_range_issues(
 	maximum_framework_version_exclusive: String
 ) -> PackedStringArray:
 	var issues: PackedStringArray = PackedStringArray()
-	var current_version: PackedInt32Array = _parse_semver(current_framework_version)
+	if current_framework_version.strip_edges().is_empty():
+		return issues
+	var current_version: Dictionary = _parse_semver(current_framework_version)
 	if current_version.is_empty():
+		var _append_current_format_issue: bool = issues.append("%s: target GF framework version is not SemVer: %s" % [label, current_framework_version])
 		return issues
 
-	var minimum_version: PackedInt32Array = _parse_semver(minimum_framework_version)
+	var minimum_version: Dictionary = _parse_semver(minimum_framework_version)
 	if not minimum_framework_version.strip_edges().is_empty() and minimum_version.is_empty():
 		var _append_minimum_format_issue: bool = issues.append("%s: minimum_framework_version is not SemVer: %s" % [label, minimum_framework_version])
 	elif not minimum_version.is_empty() and _compare_semver(current_version, minimum_version) < 0:
@@ -5207,10 +5211,10 @@ static func _compatibility_range_issues(
 			]
 		)
 
-	var maximum_version: PackedInt32Array = _parse_semver(maximum_framework_version_exclusive)
+	var maximum_version: Dictionary = _parse_semver(maximum_framework_version_exclusive)
 	if not maximum_framework_version_exclusive.strip_edges().is_empty() and maximum_version.is_empty():
 		var _append_maximum_format_issue: bool = issues.append("%s: maximum_framework_version_exclusive is not SemVer: %s" % [label, maximum_framework_version_exclusive])
-	elif not maximum_version.is_empty() and _compare_semver(current_version, maximum_version) >= 0:
+	elif not maximum_version.is_empty() and _reaches_exclusive_compatibility_bound(current_version, maximum_version):
 		var _append_maximum_issue: bool = issues.append(
 			"%s: target GF framework version %s must be lower than maximum_framework_version_exclusive %s" % [
 				label,
@@ -5221,28 +5225,155 @@ static func _compatibility_range_issues(
 	return issues
 
 
-static func _parse_semver(version: String) -> PackedInt32Array:
+static func _parse_semver(version: String) -> Dictionary:
 	var text: String = version.strip_edges()
-	if text.begins_with("v"):
-		text = text.substr(1)
+	var build_separator: int = text.find("+")
+	if build_separator >= 0:
+		var build_metadata: String = text.substr(build_separator + 1)
+		if not _semver_identifier_list_is_valid(build_metadata, false):
+			return {}
+		text = text.left(build_separator)
+		if text.contains("+"):
+			return {}
+
+	var prerelease: PackedStringArray = PackedStringArray()
+	var prerelease_separator: int = text.find("-")
+	if prerelease_separator >= 0:
+		var prerelease_text: String = text.substr(prerelease_separator + 1)
+		if not _semver_identifier_list_is_valid(prerelease_text, true):
+			return {}
+		prerelease = prerelease_text.split(".", false)
+		text = text.left(prerelease_separator)
+
 	var pieces: PackedStringArray = text.split(".", false)
 	if pieces.size() != 3:
-		return PackedInt32Array()
-	var result: PackedInt32Array = PackedInt32Array()
+		return {}
+	var core: PackedStringArray = PackedStringArray()
 	for piece: String in pieces:
-		if not _string_is_digits(piece):
-			return PackedInt32Array()
-		var _append_piece: bool = result.append(piece.to_int())
-	return result
+		if not _string_is_digits(piece) or (piece.length() > 1 and piece.begins_with("0")):
+			return {}
+		var _append_piece: bool = core.append(piece)
+	return {
+		"core": core,
+		"prerelease": prerelease,
+	}
 
 
-static func _compare_semver(left: PackedInt32Array, right: PackedInt32Array) -> int:
-	for index: int in range(3):
-		if left[index] < right[index]:
-			return -1
-		if left[index] > right[index]:
-			return 1
+static func _compare_semver(left: Dictionary, right: Dictionary) -> int:
+	var core_result: int = _compare_semver_core(left, right)
+	if core_result != 0:
+		return core_result
+
+	var left_prerelease: PackedStringArray = _semver_prerelease(left)
+	var right_prerelease: PackedStringArray = _semver_prerelease(right)
+	if left_prerelease.is_empty() and right_prerelease.is_empty():
+		return 0
+	if left_prerelease.is_empty():
+		return 1
+	if right_prerelease.is_empty():
+		return -1
+	var shared_size: int = mini(left_prerelease.size(), right_prerelease.size())
+	for index: int in range(shared_size):
+		var identifier_result: int = _compare_semver_identifier(left_prerelease[index], right_prerelease[index])
+		if identifier_result != 0:
+			return identifier_result
+	if left_prerelease.size() < right_prerelease.size():
+		return -1
+	if left_prerelease.size() > right_prerelease.size():
+		return 1
 	return 0
+
+
+static func _compare_semver_core(left: Dictionary, right: Dictionary) -> int:
+	var left_core: PackedStringArray = _semver_core(left)
+	var right_core: PackedStringArray = _semver_core(right)
+	if left_core.size() != 3 or right_core.size() != 3:
+		return 0
+	for index: int in range(3):
+		var core_result: int = _compare_semver_identifier(left_core[index], right_core[index])
+		if core_result != 0:
+			return core_result
+	return 0
+
+
+static func _reaches_exclusive_compatibility_bound(current: Dictionary, maximum: Dictionary) -> bool:
+	var core_result: int = _compare_semver_core(current, maximum)
+	if core_result != 0:
+		return core_result > 0
+	if _semver_prerelease(maximum).is_empty():
+		return true
+	return _compare_semver(current, maximum) >= 0
+
+
+static func _compare_semver_identifier(left: String, right: String) -> int:
+	if left == right:
+		return 0
+	var left_numeric: bool = _string_is_digits(left)
+	var right_numeric: bool = _string_is_digits(right)
+	if left_numeric and right_numeric:
+		if left.length() < right.length():
+			return -1
+		if left.length() > right.length():
+			return 1
+		return _compare_ascii_text(left, right)
+	if left_numeric:
+		return -1
+	if right_numeric:
+		return 1
+	return _compare_ascii_text(left, right)
+
+
+static func _compare_ascii_text(left: String, right: String) -> int:
+	var shared_size: int = mini(left.length(), right.length())
+	for index: int in range(shared_size):
+		var left_code: int = left.unicode_at(index)
+		var right_code: int = right.unicode_at(index)
+		if left_code < right_code:
+			return -1
+		if left_code > right_code:
+			return 1
+	if left.length() < right.length():
+		return -1
+	if left.length() > right.length():
+		return 1
+	return 0
+
+
+static func _semver_identifier_list_is_valid(value: String, reject_numeric_leading_zero: bool) -> bool:
+	var identifiers: PackedStringArray = value.split(".", true)
+	if identifiers.is_empty():
+		return false
+	for identifier: String in identifiers:
+		if identifier.is_empty():
+			return false
+		if reject_numeric_leading_zero and identifier.length() > 1 and identifier.begins_with("0") and _string_is_digits(identifier):
+			return false
+		for index: int in range(identifier.length()):
+			var code: int = identifier.unicode_at(index)
+			var is_digit: bool = code >= 48 and code <= 57
+			var is_upper: bool = code >= 65 and code <= 90
+			var is_lower: bool = code >= 97 and code <= 122
+			if not is_digit and not is_upper and not is_lower and code != 45:
+				return false
+	return true
+
+
+static func _semver_core(version: Dictionary) -> PackedStringArray:
+	var raw_core: Variant = version.get("core")
+	if raw_core is PackedStringArray:
+		return raw_core
+	return PackedStringArray()
+
+
+static func _semver_prerelease(version: Dictionary) -> PackedStringArray:
+	var raw_prerelease: Variant = version.get("prerelease")
+	if raw_prerelease is PackedStringArray:
+		return raw_prerelease
+	return PackedStringArray()
+
+
+static func _semver_is_stable(version: Dictionary) -> bool:
+	return _semver_core(version).size() == 3 and _semver_prerelease(version).is_empty()
 
 
 static func _string_is_digits(value: String) -> bool:
