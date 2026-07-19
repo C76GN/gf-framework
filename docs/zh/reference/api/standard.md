@@ -6,11 +6,11 @@
 
 | 类别 | 类 | 成员 | 方法 |
 |---|---:|---:|---:|
-| [运行时服务](#category-runtime_service) | 176 | 3082 | 2088 |
-| [协议与扩展点](#category-protocol) | 21 | 281 | 227 |
-| [资源定义](#category-resource_definition) | 110 | 1425 | 737 |
-| [运行时句柄](#category-runtime_handle) | 39 | 678 | 437 |
-| [值对象](#category-value_object) | 33 | 614 | 388 |
+| [运行时服务](#category-runtime_service) | 178 | 3119 | 2117 |
+| [协议与扩展点](#category-protocol) | 22 | 309 | 251 |
+| [资源定义](#category-resource_definition) | 110 | 1424 | 735 |
+| [运行时句柄](#category-runtime_handle) | 41 | 704 | 457 |
+| [值对象](#category-value_object) | 35 | 648 | 408 |
 | [领域模型](#category-domain_model) | 4 | 61 | 42 |
 | [事件契约](#category-event_contract) | 5 | 47 | 17 |
 | [编辑器 API](#category-editor_api) | 11 | 68 | 46 |
@@ -103,6 +103,7 @@
 | [`GFLayerMaskUtility`](classes/GFLayerMaskUtility.md#gflayermaskutility) | `RefCounted` | `addons/gf/standard/foundation/math/gf_layer_mask_utility.gd` |
 | [`GFLogUtility`](classes/GFLogUtility.md#gflogutility) | `GFUtility` | `addons/gf/standard/utilities/logging/gf_log_utility.gd` |
 | [`GFMainThreadDispatchQueue`](classes/GFMainThreadDispatchQueue.md#gfmainthreaddispatchqueue) | `GFUtility` | `addons/gf/standard/common/gf_main_thread_dispatch_queue.gd` |
+| [`GFManualClock`](classes/GFManualClock.md#gfmanualclock) | `GFClock` | `addons/gf/standard/utilities/time/gf_manual_clock.gd` |
 | [`GFMutationBatch`](classes/GFMutationBatch.md#gfmutationbatch) | `RefCounted` | `addons/gf/standard/foundation/collections/gf_mutation_batch.gd` |
 | [`GFNodeGroupCache`](classes/GFNodeGroupCache.md#gfnodegroupcache) | `RefCounted` | `addons/gf/standard/utilities/nodes/gf_node_group_cache.gd` |
 | [`GFNodeStateMachine`](classes/GFNodeStateMachine.md#gfnodestatemachine) | `Node` | `addons/gf/standard/state_machine/node/gf_node_state_machine.gd` |
@@ -118,6 +119,7 @@
 | [`GFPathEnumerationTools`](classes/GFPathEnumerationTools.md#gfpathenumerationtools) | `RefCounted` | `addons/gf/standard/utilities/io/gf_path_enumeration_tools.gd` |
 | [`GFPhysicsQueryUtility`](classes/GFPhysicsQueryUtility.md#gfphysicsqueryutility) | `GFUtility` | `addons/gf/standard/utilities/spatial/gf_physics_query_utility.gd` |
 | [`GFPlacementSequenceMath`](classes/GFPlacementSequenceMath.md#gfplacementsequencemath) | `RefCounted` | `addons/gf/standard/foundation/math/gf_placement_sequence_math.gd` |
+| [`GFPlatformRuntime`](classes/GFPlatformRuntime.md#gfplatformruntime) | `GFUtility` | `addons/gf/standard/platform/gf_platform_runtime.gd` |
 | [`GFPointerActivityUtility`](classes/GFPointerActivityUtility.md#gfpointeractivityutility) | `GFUtility` | `addons/gf/standard/input/runtime/gf_pointer_activity_utility.gd` |
 | [`GFPointerGestureUtility`](classes/GFPointerGestureUtility.md#gfpointergestureutility) | `GFUtility` | `addons/gf/standard/input/runtime/gf_pointer_gesture_utility.gd` |
 | [`GFPoissonDisc2D`](classes/GFPoissonDisc2D.md#gfpoissondisc2d) | `RefCounted` | `addons/gf/standard/foundation/math/gf_poisson_disc_2d.gd` |
@@ -221,6 +223,7 @@
 | [`GFNodeState`](classes/GFNodeState.md#gfnodestate) | `Node` | `addons/gf/standard/state_machine/node/gf_node_state.gd` |
 | [`GFNodeStateBehavior`](classes/GFNodeStateBehavior.md#gfnodestatebehavior) | `Resource` | `addons/gf/standard/state_machine/node/gf_node_state_behavior.gd` |
 | [`GFNodeStateCondition`](classes/GFNodeStateCondition.md#gfnodestatecondition) | `Resource` | `addons/gf/standard/state_machine/node/gf_node_state_condition.gd` |
+| [`GFPlatformAdapter`](classes/GFPlatformAdapter.md#gfplatformadapter) | `RefCounted` | `addons/gf/standard/platform/gf_platform_adapter.gd` |
 | [`GFPolicyProvider`](classes/GFPolicyProvider.md#gfpolicyprovider) | `Resource` | `addons/gf/standard/foundation/policy/gf_policy_provider.gd` |
 | [`GFRuntimeTask`](classes/GFRuntimeTask.md#gfruntimetask) | `RefCounted` | `addons/gf/standard/sequence/gf_runtime_task.gd` |
 | [`GFSequenceStep`](classes/GFSequenceStep.md#gfsequencestep) | `Resource` | `addons/gf/standard/sequence/gf_sequence_step.gd` |
@@ -353,6 +356,7 @@
 | 类 | 继承 | 源文件 |
 |---|---|---|
 | [`GFAssetHandle`](classes/GFAssetHandle.md#gfassethandle) | `RefCounted` | `addons/gf/standard/utilities/assets/gf_asset_handle.gd` |
+| [`GFAssetLoadSession`](classes/GFAssetLoadSession.md#gfassetloadsession) | `RefCounted` | `addons/gf/standard/utilities/assets/gf_asset_load_session.gd` |
 | [`GFAsyncBatch`](classes/GFAsyncBatch.md#gfasyncbatch) | `RefCounted` | `addons/gf/standard/utilities/io/gf_async_batch.gd` |
 | [`GFAsyncChannel`](classes/GFAsyncChannel.md#gfasyncchannel) | `RefCounted` | `addons/gf/standard/common/gf_async_channel.gd` |
 | [`GFAsyncGateLease`](classes/GFAsyncGateLease.md#gfasyncgatelease) | `RefCounted` | `addons/gf/standard/common/gf_async_gate_lease.gd` |
@@ -378,6 +382,7 @@
 | [`GFJob`](classes/GFJob.md#gfjob) | `RefCounted` | `addons/gf/standard/utilities/jobs/gf_job.gd` |
 | [`GFManualTimerQueue`](classes/GFManualTimerQueue.md#gfmanualtimerqueue) | `RefCounted` | `addons/gf/standard/utilities/time/gf_manual_timer_queue.gd` |
 | [`GFNodeStateGroup`](classes/GFNodeStateGroup.md#gfnodestategroup) | `Node` | `addons/gf/standard/state_machine/node/gf_node_state_group.gd` |
+| [`GFPlatformRequestHandle`](classes/GFPlatformRequestHandle.md#gfplatformrequesthandle) | `RefCounted` | `addons/gf/standard/platform/gf_platform_request_handle.gd` |
 | [`GFPointerCapture`](classes/GFPointerCapture.md#gfpointercapture) | `RefCounted` | `addons/gf/standard/input/common/gf_pointer_capture.gd` |
 | [`GFProtocolAckLedger`](classes/GFProtocolAckLedger.md#gfprotocolackledger) | `RefCounted` | `addons/gf/standard/utilities/io/gf_protocol_ack_ledger.gd` |
 | [`GFReactiveStateControlBinder`](classes/GFReactiveStateControlBinder.md#gfreactivestatecontrolbinder) | `RefCounted` | `addons/gf/standard/utilities/ui/gf_reactive_state_control_binder.gd` |
@@ -398,6 +403,7 @@
 
 | 类 | 继承 | 源文件 |
 |---|---|---|
+| [`GFAssetLoadSessionResult`](classes/GFAssetLoadSessionResult.md#gfassetloadsessionresult) | `RefCounted` | `addons/gf/standard/utilities/assets/gf_asset_load_session_result.gd` |
 | [`GFAudioBackendCapability`](classes/GFAudioBackendCapability.md#gfaudiobackendcapability) | `Resource` | `addons/gf/standard/utilities/audio/gf_audio_backend_capability.gd` |
 | [`GFBigNumber`](classes/GFBigNumber.md#gfbignumber) | `RefCounted` | `addons/gf/standard/foundation/numeric/gf_big_number.gd` |
 | [`GFBuildInfo`](classes/GFBuildInfo.md#gfbuildinfo) | `Resource` | `addons/gf/standard/utilities/debug/gf_build_info.gd` |
@@ -427,6 +433,7 @@
 | [`GFSteeringAcceleration`](classes/GFSteeringAcceleration.md#gfsteeringacceleration) | `RefCounted` | `addons/gf/standard/foundation/math/gf_steering_acceleration.gd` |
 | [`GFSteeringAgent`](classes/GFSteeringAgent.md#gfsteeringagent) | `RefCounted` | `addons/gf/standard/foundation/math/gf_steering_agent.gd` |
 | [`GFStorageConflictReport`](classes/GFStorageConflictReport.md#gfstorageconflictreport) | `Resource` | `addons/gf/standard/utilities/storage/gf_storage_conflict_report.gd` |
+| [`GFStorageReadResult`](classes/GFStorageReadResult.md#gfstoragereadresult) | `RefCounted` | `addons/gf/standard/utilities/storage/gf_storage_read_result.gd` |
 | [`GFStorageSectionCache`](classes/GFStorageSectionCache.md#gfstoragesectioncache) | `RefCounted` | `addons/gf/standard/utilities/storage/gf_storage_section_cache.gd` |
 | [`GFUuid`](classes/GFUuid.md#gfuuid) | `RefCounted` | `addons/gf/standard/foundation/identity/gf_uuid.gd` |
 | [`GFValidationIssue`](classes/GFValidationIssue.md#gfvalidationissue) | `RefCounted` | `addons/gf/standard/foundation/validation/gf_validation_issue.gd` |

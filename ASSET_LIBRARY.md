@@ -8,9 +8,9 @@ This repository is prepared for Godot Asset Library submission with a focused in
 
 - `addons/gf/**`
 
-The legacy Asset Library submission should still represent the full GF addon package. Use the `gf-framework-8.1.1.zip` GitHub Release asset when the form accepts a package URL. If the legacy form only accepts a tag or commit, keep `Download Commit/URL` at `8.1.1`; `.gitattributes` keeps GitHub archive downloads focused on `addons/gf/**`.
+The legacy Asset Library submission should still represent the full GF addon package. Use the `gf-framework-9.0.0.zip` GitHub Release asset when the form accepts a package URL. If the legacy form only accepts a tag or commit, keep `Download Commit/URL` at `9.0.0`; `.gitattributes` keeps GitHub archive downloads focused on `addons/gf/**`.
 
-Do not use `gf-kernel-8.1.1.zip` as the primary Asset Library download. The minimal kernel package is an advanced modular bootstrap path for users who intentionally want to install additional GF packages through `GF Package Manager`, the Godot-native package CLI, a release registry, or an offline bundle.
+Do not use `gf-kernel-9.0.0.zip` as the primary Asset Library download. The minimal kernel package is an advanced modular bootstrap path for users who intentionally want to install additional GF packages through `GF Package Manager`, the Godot-native package CLI, a release registry, or an offline bundle.
 
 The plugin folder contains its own `README.md` and `LICENSE.md`. Root-level docs, tests, and maintainer files are excluded from GitHub archive downloads through `.gitattributes`, so `docs/wiki` stays in the repository without being installed with the addon.
 
@@ -31,10 +31,10 @@ Enable the plugin to register the Gf AutoLoad and use the editor tools for exten
 - Repository URL: `https://github.com/C76GN/gf-framework`
 - Issues URL: `https://github.com/C76GN/gf-framework/issues`
 - Minimum Godot Version: `4.7`
-- Asset Version: `8.1.1`
-- Download Commit/URL: `8.1.1`
-- Preferred Package URL: `https://github.com/C76GN/gf-framework/releases/download/8.1.1/gf-framework-8.1.1.zip`
-- Icon URL: `https://raw.githubusercontent.com/C76GN/gf-framework/8.1.1/addons/gf/icon.png`
+- Asset Version: `9.0.0`
+- Download Commit/URL: `9.0.0`
+- Preferred Package URL: `https://github.com/C76GN/gf-framework/releases/download/9.0.0/gf-framework-9.0.0.zip`
+- Icon URL: `https://raw.githubusercontent.com/C76GN/gf-framework/9.0.0/addons/gf/icon.png`
 
 ## Short Description
 
@@ -47,14 +47,14 @@ No preview images are currently pinned. If previews are added, store their sourc
 ## Before Submitting
 
 1. Commit and push the Asset Library preparation changes.
-2. Prefer the `gf-framework-8.1.1.zip` release asset URL if the legacy form accepts a direct package URL.
-3. If the form only accepts a tag or commit, use `8.1.1` for `Download Commit/URL`.
-4. Do not use `gf-kernel-8.1.1.zip` as the primary Asset Library package.
+2. Prefer the `gf-framework-9.0.0.zip` release asset URL if the legacy form accepts a direct package URL.
+3. If the form only accepts a tag or commit, use `9.0.0` for `Download Commit/URL`.
+4. Do not use `gf-kernel-9.0.0.zip` as the primary Asset Library package.
 5. Use the icon raw URL with the same release tag.
-6. Build the Asset Store package with `python tools\build_asset_store_package.py --version 8.1.1` and verify the zip root is `addons/`.
+6. Build the Asset Store package with `python tools\build_asset_store_package.py --version 9.0.0` and verify the zip root is `addons/`.
 7. Run the GUT test suite on the target minimum Godot version.
-8. Run `python tools\gf_maintenance.py release-status --version 8.1.1`.
-9. Create the GitHub Release from a no-prefix SemVer tag such as `8.1.1`.
+8. Run `python tools\gf_maintenance.py release-status --version 9.0.0`.
+9. Create the GitHub Release from a no-prefix SemVer tag such as `9.0.0`.
 
 ## Version Bump Checklist
 

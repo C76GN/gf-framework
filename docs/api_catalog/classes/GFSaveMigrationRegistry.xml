@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFSaveMigrationRegistry" path="addons/gf/extensions/save/document/gf_save_migration_registry.gd" module="extensions/save" extends="RefCounted" classDigest="a9fa913c32a7eddc2a62e0176c0e9efa268a7fe84462f039b8a5cac796a96881">
+	<description>GFSaveMigrationRegistry: 确定性存档迁移注册表。
+Registry 强制每个 schema/owner/from_version 只有一条相邻版本边，
+在隔离副本上先执行文档迁移，再按 section_id 排序执行分区迁移。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_service</tag>
+		<tag name="since">9.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties />
+	<methods>
+		<member kind="method" name="register_step">
+			<signature>func register_step(step: GFSaveMigrationStep) -&gt; bool:</signature>
+			<description>注册唯一迁移步骤。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">step: 有效的相邻版本迁移步骤。</tag>
+				<tag name="return">步骤有效且 edge 与 step_id 均未占用时返回 true。</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="unregister_step">
+			<signature>func unregister_step( schema_id: StringName, section_id: StringName, from_version: int ) -&gt; bool:</signature>
+			<description>注销指定迁移边。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">schema_id: 项目 schema ID。</tag>
+				<tag name="param">section_id: 分区 ID；为空表示文档级迁移。</tag>
+				<tag name="param">from_version: 来源版本。</tag>
+				<tag name="return">原本存在时返回 true。</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="clear">
+			<signature>func clear() -&gt; void:</signature>
+			<description>清空全部迁移步骤。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="has_step">
+			<signature>func has_step( schema_id: StringName, section_id: StringName, from_version: int ) -&gt; bool:</signature>
+			<description>检查指定版本边是否存在。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">schema_id: 项目 schema ID。</tag>
+				<tag name="param">section_id: 分区 ID；为空表示文档级迁移。</tag>
+				<tag name="param">from_version: 来源版本。</tag>
+				<tag name="return">已注册时返回 true。</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="describe_steps">
+			<signature>func describe_steps() -&gt; Array[Dictionary]:</signature>
+			<description>获取排序后的步骤描述。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">步骤描述数组。</tag>
+				<tag name="schema">return: Array[Dictionary] following GFSaveMigrationStep.describe_step().</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="build_plan">
+			<signature>func build_plan( document: GFSaveDocument, target_schema: GFSaveDocumentSchema ) -&gt; Dictionary:</signature>
+			<description>构建不执行迁移代码的路径计划。
+计划只验证当前已存在的文档和分区版本边；文档步骤可能新增或移除的
+分区仍会在真实迁移后的最终 schema 校验中判定。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">document: 来源文档。</tag>
+				<tag name="param">target_schema: 目标 schema。</tag>
+				<tag name="return">静态迁移计划。</tag>
+				<tag name="schema">return: Dictionary with ok, migration_required, requires_document_step_evaluation, source_document_version, target_document_version, source_section_versions, target_section_versions, steps, error, and missing_edge.</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="migrate">
+			<signature>func migrate( document: GFSaveDocument, target_schema: GFSaveDocumentSchema, context: Dictionary = {} ) -&gt; GFSaveMigrationResult:</signature>
+			<description>把文档事务式迁移到目标 schema。
+迁移期间只操作副本；所有步骤和最终 schema 校验成功后才在结果中暴露文档。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">document: 来源文档。</tag>
+				<tag name="param">target_schema: 目标 schema。</tag>
+				<tag name="param">context: 项目定义的迁移上下文。</tag>
+				<tag name="return">迁移终态结果。</tag>
+				<tag name="schema">context: Dictionary with caller-defined ephemeral migration data.</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

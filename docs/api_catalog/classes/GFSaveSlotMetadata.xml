@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSaveSlotMetadata" path="addons/gf/extensions/save/slots/gf_save_slot_metadata.gd" module="extensions/save" extends="Resource" classDigest="707577814b222c1dba8157116fecd26c4422134a7ed0fc41c75c65de508fcb76">
+<class name="GFSaveSlotMetadata" path="addons/gf/extensions/save/slots/gf_save_slot_metadata.gd" module="extensions/save" extends="Resource" classDigest="62e3ee9ab5e5cd2f0d10b50a56a9fdfe8f992907acf8b8ec108a7b31c7c48b82">
 	<description>GFSaveSlotMetadata: 通用存档槽元数据。
 只描述槽位、版本、时间、标签和项目自定义字典，不绑定任何具体游戏业务字段。</description>
 	<tags>
@@ -156,15 +156,17 @@
 			</tags>
 		</member>
 		<member kind="method" name="from_values">
-			<signature>static func from_values( p_slot_id: StringName, p_display_name: String = "", p_custom_metadata: Dictionary = {} ) -&gt; GFSaveSlotMetadata:</signature>
+			<signature>static func from_values( p_slot_id: StringName, p_display_name: String = "", p_custom_metadata: Dictionary = {}, unix_time_seconds: int = 0 ) -&gt; GFSaveSlotMetadata:</signature>
 			<description>使用常用字段创建元数据。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">p_slot_id: 槽位标识。</tag>
 				<tag name="param">p_display_name: 展示名称。</tag>
 				<tag name="param">p_custom_metadata: 自定义元数据。</tag>
+				<tag name="param">unix_time_seconds: 显式 Unix epoch 秒时间戳；0 表示未知。</tag>
 				<tag name="return">新元数据。</tag>
 				<tag name="schema">p_custom_metadata: Dictionary，可包含项目自定义展示、兼容性或索引字段。</tag>
+				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
 	</methods>

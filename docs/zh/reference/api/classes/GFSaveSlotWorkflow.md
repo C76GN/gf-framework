@@ -21,6 +21,8 @@
 | 属性 | [`metadata_script`](#member-gfsaveslotworkflow-properties-metadata_script) | `var metadata_script: Script = GFSaveSlotMetadata` |
 | 属性 | [`card_script`](#member-gfsaveslotworkflow-properties-card_script) | `var card_script: Script = GFSaveSlotCard` |
 | 属性 | [`slot_role`](#member-gfsaveslotworkflow-properties-slot_role) | `var slot_role: StringName = &""` |
+| 方法 | [`set_clock`](#member-gfsaveslotworkflow-methods-set_clock) | `func set_clock(clock: GFClock) -> bool:` |
+| 方法 | [`get_clock`](#member-gfsaveslotworkflow-methods-get_clock) | `func get_clock() -> GFClock:` |
 | 方法 | [`select_slot_index`](#member-gfsaveslotworkflow-methods-select_slot_index) | `func select_slot_index(index: int) -> StringName:` |
 | 方法 | [`set_slot_id_override`](#member-gfsaveslotworkflow-methods-set_slot_id_override) | `func set_slot_id_override(index: int, slot_id: StringName) -> void:` |
 | 方法 | [`clear_slot_id_overrides`](#member-gfsaveslotworkflow-methods-clear_slot_id_overrides) | `func clear_slot_id_overrides() -> void:` |
@@ -112,6 +114,42 @@ var slot_role: StringName = &""
 槽位角色。用于区分 autosave/manual/cloud 等抽象类别。
 
 ## 方法
+
+<a id="member-gfsaveslotworkflow-methods-set_clock"></a>
+
+### `set_clock`
+
+- API：`public`
+- 首次版本：`9.0.0`
+
+```gdscript
+func set_clock(clock: GFClock) -> bool:
+```
+
+设置元数据时间戳使用的墙上时钟。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `clock` | 新时钟。 |
+
+返回：时钟合法并完成设置时返回 true。
+
+<a id="member-gfsaveslotworkflow-methods-get_clock"></a>
+
+### `get_clock`
+
+- API：`public`
+- 首次版本：`9.0.0`
+
+```gdscript
+func get_clock() -> GFClock:
+```
+
+获取元数据时间戳使用的时钟。
+
+返回：当前时钟。
 
 <a id="member-gfsaveslotworkflow-methods-select_slot_index"></a>
 

@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：运行时服务 (`runtime_service`)
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 通用 3D 浮力点采样数学工具。 只根据浸没深度、排水体积、重力和相对速度计算浸没比例与力， 不查询水体、不持有刚体，也不决定探针布局或施力时机。
 
@@ -27,7 +27,7 @@
 ### `calculate_submersion_ratio`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 static func calculate_submersion_ratio(signed_depth: float, immersion_radius: float) -> float:
@@ -49,7 +49,7 @@ static func calculate_submersion_ratio(signed_depth: float, immersion_radius: fl
 ### `calculate_buoyancy_force`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 static func calculate_buoyancy_force( gravity_acceleration: Vector3, fluid_density: float, displaced_volume: float, submersion_ratio: float ) -> Vector3:
@@ -73,7 +73,7 @@ static func calculate_buoyancy_force( gravity_acceleration: Vector3, fluid_densi
 ### `calculate_drag_force`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 static func calculate_drag_force( relative_velocity: Vector3, linear_coefficient: float, quadratic_coefficient: float, submersion_ratio: float ) -> Vector3:
@@ -97,7 +97,7 @@ static func calculate_drag_force( relative_velocity: Vector3, linear_coefficient
 ### `calculate_point_force`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 static func calculate_point_force( gravity_acceleration: Vector3, point_velocity: Vector3, fluid_velocity: Vector3, fluid_density: float, displaced_volume: float, submersion_ratio: float, linear_coefficient: float, quadratic_coefficient: float ) -> Vector3:

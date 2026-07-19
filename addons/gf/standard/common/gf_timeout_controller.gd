@@ -66,11 +66,12 @@ var ignore_time_scale: bool = false
 
 var _source: GFCancellationSource = null
 var _source_callback: Callable = Callable()
+var _clock: GFClock = null
 var _active: bool = false
 var _timed_out: bool = false
 var _manual_cancel_pending: bool = false
 var _timeout_seconds: float = 0.0
-var _started_msec: int = 0
+var _started_msec: int = -1
 var _last_reason: StringName = &""
 var _last_metadata: Dictionary = {}
 
@@ -82,7 +83,10 @@ var _last_metadata: Dictionary = {}
 ## @api public
 ## [br]
 ## @since 7.0.0
-func _init() -> void:
+## [br]
+## @param clock: 可选单调时钟；为空时使用系统时钟。
+func _init(clock: GFClock = null) -> void:
+	_clock = clock if clock != null else GFClock.new()
 	_replace_source()
 
 
@@ -97,6 +101,36 @@ func _init() -> void:
 ## @return 当前超时控制器持有的 token。
 func get_token() -> GFCancellationToken:
 	return _source.get_token()
+
+
+## 替换耗时统计使用的单调时钟。
+##
+## 活动超时计划期间禁止替换，避免同一次统计跨越不同时间域。
+## [br]
+## @api public
+## [br]
+## @since 9.0.0
+## [br]
+## @param clock: 新单调时钟。
+## [br]
+## @return 时钟合法且当前无活动计划时返回 true。
+func set_clock(clock: GFClock) -> bool:
+	if clock == null or _active:
+		return false
+	_clock = clock
+	_started_msec = -1
+	return true
+
+
+## 获取耗时统计使用的时钟。
+## [br]
+## @api public
+## [br]
+## @since 9.0.0
+## [br]
+## @return 当前时钟。
+func get_clock() -> GFClock:
+	return _clock
 
 
 ## 启动一个新的超时计划。
@@ -130,7 +164,7 @@ func start_seconds(
 	_active = true
 	_timed_out = false
 	_timeout_seconds = maxf(seconds, 0.0)
-	_started_msec = Time.get_ticks_msec()
+	_started_msec = _clock.get_monotonic_msec()
 	_last_reason = reason if reason != &"" else DEFAULT_TIMEOUT_REASON
 	_last_metadata = metadata.duplicate(true)
 
@@ -238,9 +272,9 @@ func is_timeout() -> bool:
 ## [br]
 ## @return 从 start_seconds 开始经过的毫秒数；未启动时为 0。
 func get_elapsed_msec() -> int:
-	if _started_msec <= 0:
+	if _started_msec < 0:
 		return 0
-	return maxi(Time.get_ticks_msec() - _started_msec, 0)
+	return maxi(_clock.get_monotonic_msec() - _started_msec, 0)
 
 
 ## 释放当前计划和连接。
@@ -305,7 +339,7 @@ func _clear_timeout_state() -> void:
 	_timed_out = false
 	_manual_cancel_pending = false
 	_timeout_seconds = 0.0
-	_started_msec = 0
+	_started_msec = -1
 	_last_reason = &""
 	_last_metadata.clear()
 

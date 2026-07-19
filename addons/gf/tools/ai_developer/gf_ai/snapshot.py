@@ -9,8 +9,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from . import catalog
-from .constants import DEFAULT_CONTRACT_NAME, DEFAULT_SNAPSHOT_PATH, SCHEMA_ROOT, SNAPSHOT_SCHEMA_VERSION, TOOL_VERSION
+from . import catalog, dependencies
+from .constants import DEFAULT_CONTRACT_PATH, DEFAULT_SNAPSHOT_PATH, SCHEMA_ROOT, SNAPSHOT_SCHEMA_VERSION, TOOL_VERSION
 from .contract import load_contract
 from .paths import atomic_write_json, resolve_project_path
 from .schema import validate_schema_file
@@ -27,14 +27,13 @@ _SKIPPED_DIRECTORIES = {
 	"node_modules",
 	"site",
 }
-_GF_CLASS_PATTERN = re.compile(r"\bGF[A-Z][A-Za-z0-9_]*\b")
 _MAX_PROJECT_SCRIPTS = 20000
 _MAX_SCRIPT_BYTES = 2 * 1024 * 1024
 
 
 def build_snapshot(
 	project_root: Path,
-	contract_relative_path: str = DEFAULT_CONTRACT_NAME,
+	contract_relative_path: str = DEFAULT_CONTRACT_PATH,
 ) -> dict[str, Any]:
 	contract_result = load_contract(project_root, contract_relative_path)
 	contract_data = contract_result.get("contract", {})
@@ -47,6 +46,11 @@ def build_snapshot(
 	api_classes = catalog.known_api_classes()
 	source_scan = _scan_project_sources(project_root, api_classes)
 	declared_roots = _declared_roots(project_root, contract_data)
+	module_dependency_analysis = dependencies.analyze_module_dependencies(
+		project_root,
+		contract_data,
+		contract_valid=bool(contract_result.get("ok")),
+	)
 	try:
 		from .adapters import agent_status
 
@@ -61,6 +65,7 @@ def build_snapshot(
 		package_report,
 		catalog_report,
 		declared_roots,
+		module_dependency_analysis,
 	)
 	return {
 		"schema_version": SNAPSHOT_SCHEMA_VERSION,
@@ -95,6 +100,7 @@ def build_snapshot(
 			"source_scan_truncated": source_scan["source_scan_truncated"],
 			"gf_api_usage": source_scan["gf_api_usage"],
 			"declared_roots": declared_roots,
+			"module_dependency_analysis": module_dependency_analysis,
 		},
 		"agents": {
 			"installed": agent_report.get("installed", []),
@@ -106,7 +112,7 @@ def build_snapshot(
 
 def write_snapshot(
 	project_root: Path,
-	contract_relative_path: str = DEFAULT_CONTRACT_NAME,
+	contract_relative_path: str = DEFAULT_CONTRACT_PATH,
 	output_relative_path: str = DEFAULT_SNAPSHOT_PATH,
 ) -> dict[str, Any]:
 	snapshot = build_snapshot(project_root, contract_relative_path)
@@ -123,7 +129,7 @@ def write_snapshot(
 
 def project_context(
 	project_root: Path,
-	contract_relative_path: str = DEFAULT_CONTRACT_NAME,
+	contract_relative_path: str = DEFAULT_CONTRACT_PATH,
 ) -> dict[str, Any]:
 	contract_result = load_contract(project_root, contract_relative_path)
 	snapshot = build_snapshot(project_root, contract_relative_path)
@@ -159,6 +165,7 @@ def _build_drift(
 	package_report: dict[str, Any],
 	catalog_report: dict[str, Any],
 	declared_roots: list[dict[str, Any]],
+	module_dependency_analysis: dict[str, Any],
 ) -> dict[str, Any]:
 	issues: list[dict[str, str]] = []
 	for item in contract_result.get("issues", []):
@@ -201,6 +208,7 @@ def _build_drift(
 			if isinstance(unknown, dict) and unknown.get("blocking") is True:
 				unknown_id = str(unknown.get("id", "unknown"))
 				issues.append(_issue("error", "blocking_unknown", unknown_id, f"Project contract still has a blocking unknown: {unknown_id}."))
+		issues.extend(_module_dependency_drift_issues(contract_data, module_dependency_analysis))
 	error_count = sum(1 for issue in issues if issue["severity"] == "error")
 	warning_count = sum(1 for issue in issues if issue["severity"] == "warning")
 	return {
@@ -236,6 +244,118 @@ def _declared_roots(project_root: Path, contract_data: dict[str, Any]) -> list[d
 	return result
 
 
+def _module_dependency_drift_issues(
+	contract_data: dict[str, Any],
+	analysis: dict[str, Any],
+) -> list[dict[str, str]]:
+	issues: list[dict[str, str]] = []
+	status = str(analysis.get("status", "incomplete"))
+	if status not in ("complete", "not_configured"):
+		issues.append(_issue(
+			"error",
+			"module_dependency_analysis_incomplete",
+			"$.architecture.modules",
+			(
+				"Observed module dependency analysis is incomplete "
+				f"(status={status}, truncated={bool(analysis.get('truncated'))}, "
+				f"unreadable_files={int(analysis.get('unreadable_file_count', 0))}, "
+				f"missing_roots={int(analysis.get('missing_root_count', 0))}, "
+				f"unsafe_paths={int(analysis.get('unsafe_path_count', 0))}, "
+				f"ambiguous_classes={int(analysis.get('ambiguous_class_name_count', 0))})."
+			),
+		))
+
+	for item in analysis.get("ambiguous_class_names", []):
+		if not isinstance(item, dict):
+			continue
+		class_name = str(item.get("class_name", ""))
+		paths = [str(path) for path in item.get("paths", []) if isinstance(path, str)]
+		issues.append(_issue(
+			"error",
+			"ambiguous_project_class_name",
+			paths[0] if paths else "$.architecture.modules",
+			f"Project class_name {class_name!r} has multiple owners: {', '.join(paths)}.",
+		))
+
+	modules = _module_contract_map(contract_data)
+	for edge in analysis.get("edges", []):
+		if not isinstance(edge, dict):
+			continue
+		source_module = str(edge.get("source_module", ""))
+		target_module = str(edge.get("target_module", ""))
+		source_contract = modules.get(source_module, {})
+		allowed = _string_values(source_contract.get("allowed_dependencies", []))
+		forbidden = _string_values(source_contract.get("forbidden_dependencies", []))
+		evidence_path, evidence_text = _dependency_edge_evidence(edge)
+		if target_module in forbidden:
+			issues.append(_issue(
+				"error",
+				"forbidden_module_dependency",
+				evidence_path,
+				f"Module {source_module!r} depends on forbidden module {target_module!r}.{evidence_text}",
+			))
+		elif target_module not in allowed:
+			issues.append(_issue(
+				"error",
+				"undeclared_module_dependency",
+				evidence_path,
+				f"Module {source_module!r} depends on undeclared module {target_module!r}.{evidence_text}",
+			))
+
+	for component in analysis.get("cycles", []):
+		if not isinstance(component, list):
+			continue
+		module_ids = [str(module_id) for module_id in component]
+		issues.append(_issue(
+			"error",
+			"observed_module_dependency_cycle",
+			"$.architecture.modules",
+			f"Observed project source contains a module dependency cycle: {' -> '.join(module_ids + module_ids[:1])}.",
+		))
+
+	unowned_count = int(analysis.get("unowned_reference_count", 0))
+	if unowned_count > 0:
+		references = analysis.get("unowned_references", [])
+		first = references[0] if isinstance(references, list) and references else {}
+		source_path = str(first.get("source_path", "$.architecture.modules")) if isinstance(first, dict) else "$.architecture.modules"
+		target_path = str(first.get("target_path", "")) if isinstance(first, dict) else ""
+		line = int(first.get("line", 0)) if isinstance(first, dict) else 0
+		detail = f" First evidence: {source_path}:{line} -> {target_path}." if target_path else ""
+		issues.append(_issue(
+			"warning",
+			"unowned_project_resource_reference",
+			source_path,
+			f"Declared modules reference {unowned_count} project resource path(s) outside module ownership.{detail}",
+		))
+	return issues
+
+
+def _module_contract_map(contract_data: dict[str, Any]) -> dict[str, dict[str, Any]]:
+	architecture = contract_data.get("architecture", {})
+	if not isinstance(architecture, dict):
+		return {}
+	modules = architecture.get("modules", [])
+	if not isinstance(modules, list):
+		return {}
+	return {
+		str(module.get("id", "")): module
+		for module in modules
+		if isinstance(module, dict)
+	}
+
+
+def _dependency_edge_evidence(edge: dict[str, Any]) -> tuple[str, str]:
+	evidence = edge.get("evidence", [])
+	if not isinstance(evidence, list) or not evidence or not isinstance(evidence[0], dict):
+		return "$.architecture.modules", ""
+	first = evidence[0]
+	source_path = str(first.get("source_path", "$.architecture.modules"))
+	line = int(first.get("line", 0))
+	kind = str(first.get("kind", "reference"))
+	symbol = str(first.get("symbol", ""))
+	return source_path, f" Evidence: {source_path}:{line} {kind} {symbol!r}."
+
+
 def _scan_project_sources(project_root: Path, known_classes: set[str]) -> dict[str, Any]:
 	script_count = 0
 	test_script_count = 0
@@ -269,9 +389,12 @@ def _scan_project_sources(project_root: Path, known_classes: set[str]) -> dict[s
 				text = path.read_text(encoding="utf-8")
 			except (OSError, UnicodeDecodeError):
 				continue
-			for class_name in _GF_CLASS_PATTERN.findall(text):
-				if class_name in known_classes:
-					usage.add(class_name)
+			identifiers = {
+				token.value
+				for token in dependencies.lex_gdscript(text)
+				if token.kind == "identifier"
+			}
+			usage.update(identifiers.intersection(known_classes))
 	return _source_scan_result(script_count, test_script_count, usage, False)
 
 

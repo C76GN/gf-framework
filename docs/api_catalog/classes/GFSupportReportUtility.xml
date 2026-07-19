@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSupportReportUtility" path="addons/gf/standard/utilities/debug/gf_support_report_utility.gd" module="standard" extends="GFUtility" classDigest="46d62a0c69f0ed9647fd9f586c10a09869e9cbeece432568062d392a6753d7b2">
+<class name="GFSupportReportUtility" path="addons/gf/standard/utilities/debug/gf_support_report_utility.gd" module="standard" extends="GFUtility" classDigest="701e7067285920a0c41a1046fa7395416b970b26ac2a957847e778c402a65499">
 	<description>GFSupportReportUtility: 通用支持报告构建工具。
 聚合用户描述、项目元数据、诊断快照、日志和可扩展分区，并提供 JSON / Markdown 导出与回调提交入口。
 它不绑定任何工单系统、上传服务或反馈 UI。</description>
@@ -50,7 +50,7 @@
 			<description>运行时快照的数据精度。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
 	</enums>
@@ -92,7 +92,7 @@
 			<description>默认是否包含运行时快照。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="runtime_detail_by_default">
@@ -100,7 +100,7 @@
 			<description>默认运行时快照精度。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="include_sections_by_default">
@@ -108,7 +108,7 @@
 			<description>默认是否采集已注册的自定义分区。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="default_scene_count_max_depth">
@@ -215,7 +215,7 @@
 				<tag name="param">detail: 运行时快照精度。</tag>
 				<tag name="return">运行时快照。</tag>
 				<tag name="schema">return: Dictionary，始终包含 detail、platform；coarse 额外包含 locale_language、processor_count_range、static_memory_mib_range、object_count_range；full 额外包含 engine、locale、processor_count、static_memory_bytes、object_count。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="collect_sections">

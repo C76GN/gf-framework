@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFManualClock" path="addons/gf/standard/utilities/time/gf_manual_clock.gd" module="standard" extends="GFClock" classDigest="1f71cedb2010ff6a13432a79c206d8cd355547f098a120a6167df98427e44f5c">
+	<description>GFManualClock: 可确定推进的测试与模拟时钟。
+单调时间只能向前推进；墙上时钟可通过 `set_unix_time_msec()` 模拟校时跳变。
+该类型不自动读取系统时间，也不会随帧更新。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_service</tag>
+		<tag name="since">9.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties />
+	<methods>
+		<member kind="method" name="_init">
+			<signature>func _init(monotonic_usec: int = 0, unix_time_msec: int = 0) -&gt; void:</signature>
+			<description>创建手动时钟。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">monotonic_usec: 初始单调微秒值。</tag>
+				<tag name="param">unix_time_msec: 初始 Unix epoch 毫秒值。</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_monotonic_usec">
+			<signature>func get_monotonic_usec() -&gt; int:</signature>
+			<description>获取当前手动单调微秒值。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">当前单调微秒值。</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_monotonic_msec">
+			<signature>func get_monotonic_msec() -&gt; int:</signature>
+			<description>获取当前手动单调毫秒值。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">当前单调毫秒值。</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_unix_time_msec">
+			<signature>func get_unix_time_msec() -&gt; int:</signature>
+			<description>获取当前手动 Unix epoch 毫秒值。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">当前 Unix epoch 毫秒值。</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_unix_time_seconds">
+			<signature>func get_unix_time_seconds() -&gt; int:</signature>
+			<description>获取当前手动 Unix epoch 秒值。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">当前 Unix epoch 秒值。</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="advance_usec">
+			<signature>func advance_usec(delta_usec: int) -&gt; bool:</signature>
+			<description>同时向前推进单调时钟和墙上时钟。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">delta_usec: 非负推进微秒数。</tag>
+				<tag name="return">参数合法并完成推进时返回 true。</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="advance_msec">
+			<signature>func advance_msec(delta_msec: int) -&gt; bool:</signature>
+			<description>同时向前推进单调时钟和墙上时钟。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">delta_msec: 非负推进毫秒数。</tag>
+				<tag name="return">参数合法并完成推进时返回 true。</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="set_unix_time_msec">
+			<signature>func set_unix_time_msec(unix_time_msec: int) -&gt; bool:</signature>
+			<description>显式设置墙上时钟，用于模拟系统校时或恢复持久化时间。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">unix_time_msec: 非负 Unix epoch 毫秒值。</tag>
+				<tag name="return">参数合法并完成设置时返回 true。</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

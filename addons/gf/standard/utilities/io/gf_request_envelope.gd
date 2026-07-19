@@ -67,7 +67,7 @@ var max_attempts: int = 3
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 var next_attempt_at_unix_msec: int = 0
 
 ## 最近一次失败原因。

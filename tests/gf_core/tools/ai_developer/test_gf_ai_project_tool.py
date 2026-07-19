@@ -21,8 +21,13 @@ FIXTURE_PATH = Path(__file__).with_name("fixtures") / "evaluation_cases.json"
 sys.path.insert(0, str(ADDON_ROOT))
 sys.path.insert(0, str(TOOLS_ROOT))
 
-from gf_ai import adapters, catalog, feedback, mcp, snapshot  # noqa: E402
-from gf_ai.constants import SCHEMA_ROOT  # noqa: E402
+from gf_ai import adapters, catalog, dependencies, feedback, mcp, snapshot  # noqa: E402
+from gf_ai.constants import (  # noqa: E402
+	ARTIFACT_POLICY_PATH,
+	DEFAULT_CONTRACT_PATH,
+	PROJECT_ARTIFACT_PATHS,
+	SCHEMA_ROOT,
+)
 from gf_ai.contract import initialize_contract, load_contract  # noqa: E402
 from gf_ai.paths import read_json_object, resolve_project_path  # noqa: E402
 from gf_ai.schema import validate_schema_definition, validate_schema_file  # noqa: E402
@@ -58,8 +63,16 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 	def tearDown(self) -> None:
 		self._temporary.cleanup()
 
+	def test_artifact_policy_is_shared_and_contract_defaults_to_project_state_root(self) -> None:
+		policy = json.loads(ARTIFACT_POLICY_PATH.read_text(encoding="utf-8"))
+
+		self.assertEqual(policy["paths"], PROJECT_ARTIFACT_PATHS)
+		self.assertEqual(DEFAULT_CONTRACT_PATH, ".gf/project_contract.json")
+		self.assertTrue((self.project_root / DEFAULT_CONTRACT_PATH).is_file())
+		self.assertFalse((self.project_root / "gf_project_contract.json").exists())
+
 	def test_contract_rejects_unknown_fields_and_path_escape(self) -> None:
-		contract_path = self.project_root / "gf_project_contract.json"
+		contract_path = self.project_root / ".gf/project_contract.json"
 		contract = json.loads(contract_path.read_text(encoding="utf-8"))
 		contract["project"]["accidental_convention"] = True
 		contract_path.write_text(json.dumps(contract, ensure_ascii=False), encoding="utf-8")
@@ -86,7 +99,7 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 		self.assertEqual(issues[0]["code"], "unsupported_schema_keyword")
 
 	def test_contract_rejects_unknown_packages_and_module_cycles(self) -> None:
-		contract_path = self.project_root / "gf_project_contract.json"
+		contract_path = self.project_root / ".gf/project_contract.json"
 		contract = json.loads(contract_path.read_text(encoding="utf-8"))
 		contract["framework"]["optional_packages"] = ["gf.standard.not_real"]
 		contract["architecture"]["modules"] = [
@@ -117,7 +130,7 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 		self.assertIn("module_dependency_cycle", codes)
 
 	def test_contract_rejects_ambiguous_component_ids_and_ownership_roots(self) -> None:
-		contract_path = self.project_root / "gf_project_contract.json"
+		contract_path = self.project_root / ".gf/project_contract.json"
 		contract = json.loads(contract_path.read_text(encoding="utf-8"))
 		contract["architecture"]["modules"] = [
 			{
@@ -155,7 +168,7 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 		self.assertIn("ownership_root_overlap", codes)
 
 	def test_contract_rejects_unsafe_paths_and_legacy_shell_commands(self) -> None:
-		contract_path = self.project_root / "gf_project_contract.json"
+		contract_path = self.project_root / ".gf/project_contract.json"
 		contract = json.loads(contract_path.read_text(encoding="utf-8"))
 		contract["verification"]["required_paths"] = ["../outside.txt"]
 		contract_path.write_text(json.dumps(contract), encoding="utf-8")
@@ -175,7 +188,7 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 		self.assertTrue(any(item["path"] == "$.verification.commands" for item in legacy["issues"]))
 
 	def test_snapshot_reports_declared_and_observed_drift(self) -> None:
-		contract_path = self.project_root / "gf_project_contract.json"
+		contract_path = self.project_root / ".gf/project_contract.json"
 		contract = json.loads(contract_path.read_text(encoding="utf-8"))
 		contract["framework"]["required_packages"].append("gf.standard.storage")
 		contract["architecture"]["modules"] = [
@@ -229,7 +242,12 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 	def test_snapshot_source_scan_prunes_framework_and_reports_budget_truncation(self) -> None:
 		source_root = self.project_root / "src"
 		source_root.mkdir()
-		(source_root / "a.gd").write_text("extends Node\nvar value := GFArchitecture.new()\n", encoding="utf-8")
+		(source_root / "a.gd").write_text(
+			'extends Node\nvar value := GFArchitecture.new()\n'
+			'# GFSettingsUtility must not count from a comment.\n'
+			'var label := "GFStorageUtility"\n',
+			encoding="utf-8",
+		)
 		(source_root / "b.gd").write_text("extends Node\n", encoding="utf-8")
 		(self.project_root / "addons/gf/ignored.gd").write_text("class_name GFShouldNotBeScanned\n", encoding="utf-8")
 
@@ -239,6 +257,120 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 		self.assertEqual(report["project"]["script_count"], 1)
 		self.assertTrue(report["project"]["source_scan_truncated"])
 		self.assertIn("GFArchitecture", report["project"]["gf_api_usage"])
+		self.assertNotIn("GFSettingsUtility", report["project"]["gf_api_usage"])
+		self.assertNotIn("GFStorageUtility", report["project"]["gf_api_usage"])
+
+	def test_module_dependency_analysis_accepts_declared_class_and_resource_edges(self) -> None:
+		self._set_modules([
+			self._module("core", allowed=["shared"]),
+			self._module("shared"),
+		])
+		shared_root = self.project_root / "features/shared"
+		(shared_root / "shared_type.gd").write_text(
+			"class_name SharedType\nextends RefCounted\n",
+			encoding="utf-8",
+		)
+		(shared_root / "data.tres").write_text("[gd_resource format=3]\n", encoding="utf-8")
+		(self.project_root / "features/core/use_shared.gd").write_text(
+			'extends Node\nvar value: SharedType\nconst DATA = preload("res://features/shared/data.tres")\n',
+			encoding="utf-8",
+		)
+
+		report = snapshot.build_snapshot(self.project_root)
+		analysis = report["project"]["module_dependency_analysis"]
+
+		self.assertEqual(analysis["status"], "complete")
+		self.assertEqual(len(analysis["edges"]), 1)
+		self.assertEqual(analysis["edges"][0]["source_module"], "core")
+		self.assertEqual(analysis["edges"][0]["target_module"], "shared")
+		self.assertEqual(analysis["edges"][0]["kinds"], ["class_name", "resource_path"])
+		self.assertNotIn("undeclared_module_dependency", {item["code"] for item in report["drift"]["issues"]})
+		self.assertEqual(validate_schema_file(report, SCHEMA_ROOT / "project_snapshot.schema.json"), [])
+
+	def test_module_dependency_analysis_enforces_forbidden_before_undeclared_edges(self) -> None:
+		self._set_modules([
+			self._module("core", forbidden=["shared"]),
+			self._module("shared"),
+		])
+		(self.project_root / "features/shared/shared_type.gd").write_text(
+			"class_name SharedType\nextends RefCounted\n",
+			encoding="utf-8",
+		)
+		(self.project_root / "features/core/use_shared.gd").write_text(
+			"extends Node\nvar value: SharedType\n",
+			encoding="utf-8",
+		)
+
+		forbidden_report = snapshot.build_snapshot(self.project_root)
+		forbidden_codes = {item["code"] for item in forbidden_report["drift"]["issues"]}
+		self.assertIn("forbidden_module_dependency", forbidden_codes)
+		self.assertNotIn("undeclared_module_dependency", forbidden_codes)
+
+		self._set_modules([self._module("core"), self._module("shared")])
+		undeclared_report = snapshot.build_snapshot(self.project_root)
+		undeclared_issues = [
+			item for item in undeclared_report["drift"]["issues"]
+			if item["code"] == "undeclared_module_dependency"
+		]
+		self.assertEqual(len(undeclared_issues), 1)
+		self.assertIn("res://features/core/use_shared.gd:2", undeclared_issues[0]["message"])
+
+	def test_module_dependency_analysis_ignores_comments_and_ordinary_strings(self) -> None:
+		self._set_modules([self._module("core"), self._module("shared")])
+		(self.project_root / "features/shared/shared_type.gd").write_text(
+			"class_name SharedType\nextends RefCounted\n",
+			encoding="utf-8",
+		)
+		(self.project_root / "features/core/no_dependency.gd").write_text(
+			'# SharedType\nvar label := "SharedType"\n',
+			encoding="utf-8",
+		)
+
+		analysis = snapshot.build_snapshot(self.project_root)["project"]["module_dependency_analysis"]
+
+		self.assertEqual(analysis["status"], "complete")
+		self.assertEqual(analysis["edges"], [])
+
+	def test_module_dependency_analysis_reports_observed_cycles_and_ambiguous_classes(self) -> None:
+		self._set_modules([self._module("first"), self._module("second")])
+		(self.project_root / "features/first/first_type.gd").write_text(
+			"class_name FirstType\nextends RefCounted\nvar peer: SecondType\n",
+			encoding="utf-8",
+		)
+		(self.project_root / "features/second/second_type.gd").write_text(
+			"class_name SecondType\nextends RefCounted\nvar peer: FirstType\n",
+			encoding="utf-8",
+		)
+
+		cycle_report = snapshot.build_snapshot(self.project_root)
+		self.assertEqual(
+			cycle_report["project"]["module_dependency_analysis"]["cycles"],
+			[["first", "second"]],
+		)
+		self.assertIn("observed_module_dependency_cycle", {item["code"] for item in cycle_report["drift"]["issues"]})
+
+		(self.project_root / "features/first/duplicate.gd").write_text(
+			"class_name SecondType\nextends RefCounted\n",
+			encoding="utf-8",
+		)
+		ambiguous_report = snapshot.build_snapshot(self.project_root)
+		analysis = ambiguous_report["project"]["module_dependency_analysis"]
+		self.assertEqual(analysis["status"], "incomplete")
+		self.assertEqual(analysis["ambiguous_class_name_count"], 1)
+		self.assertIn("ambiguous_project_class_name", {item["code"] for item in ambiguous_report["drift"]["issues"]})
+
+	def test_module_dependency_analysis_fails_closed_when_budget_is_exhausted(self) -> None:
+		self._set_modules([self._module("core"), self._module("shared")])
+		(self.project_root / "features/core/a.gd").write_text("extends Node\n", encoding="utf-8")
+		(self.project_root / "features/shared/b.gd").write_text("extends Node\n", encoding="utf-8")
+
+		with mock.patch.object(dependencies, "MAX_DEPENDENCY_FILES", 1):
+			report = snapshot.build_snapshot(self.project_root)
+
+		analysis = report["project"]["module_dependency_analysis"]
+		self.assertEqual(analysis["status"], "truncated")
+		self.assertFalse(analysis["complete"])
+		self.assertIn("module_dependency_analysis_incomplete", {item["code"] for item in report["drift"]["issues"]})
 
 	def test_catalog_queries_fail_closed_when_kit_version_differs_from_project(self) -> None:
 		(self.project_root / "addons/gf/plugin.cfg").write_text(
@@ -389,7 +521,7 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 		self.assertFalse(blocked["ok"])
 		self.assertIn("Interactive human approval", blocked["issues"][0])
 
-		contract_path = self.project_root / "gf_project_contract.json"
+		contract_path = self.project_root / ".gf/project_contract.json"
 		contract = json.loads(contract_path.read_text(encoding="utf-8"))
 		contract["project"]["summary"] = "Changed after approval"
 		contract_path.write_text(json.dumps(contract, ensure_ascii=False), encoding="utf-8")
@@ -621,10 +753,35 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 				_confirm_submission(prepared, "a" * 64)
 
 	def _enable_network_feedback(self) -> None:
-		contract_path = self.project_root / "gf_project_contract.json"
+		contract_path = self.project_root / ".gf/project_contract.json"
 		contract = json.loads(contract_path.read_text(encoding="utf-8"))
 		contract["feedback"]["allow_network_submission"] = True
 		contract_path.write_text(json.dumps(contract, ensure_ascii=False), encoding="utf-8")
+
+	def _set_modules(self, modules: list[dict[str, object]]) -> None:
+		contract_path = self.project_root / ".gf/project_contract.json"
+		contract = json.loads(contract_path.read_text(encoding="utf-8"))
+		contract["architecture"]["modules"] = modules
+		contract_path.write_text(json.dumps(contract, ensure_ascii=False), encoding="utf-8")
+		for module in modules:
+			for root in module["roots"]:
+				(self.project_root / str(root).removeprefix("res://")).mkdir(parents=True, exist_ok=True)
+
+	@staticmethod
+	def _module(
+		module_id: str,
+		*,
+		allowed: list[str] | None = None,
+		forbidden: list[str] | None = None,
+	) -> dict[str, object]:
+		return {
+			"id": module_id,
+			"responsibility": f"{module_id} test module",
+			"roots": [f"res://features/{module_id}"],
+			"allowed_dependencies": list(allowed or []),
+			"forbidden_dependencies": list(forbidden or []),
+			"ownership": "project",
+		}
 
 	@staticmethod
 	def _framework_bug_candidate() -> dict[str, object]:

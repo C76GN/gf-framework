@@ -302,6 +302,62 @@ func test_save_scope_rejects_unsafe_values_at_persisted_boundary() -> void:
 	architecture.dispose()
 
 
+func test_save_scope_persists_canonical_document_and_loads_it() -> void:
+	var architecture: GFArchitecture = GFArchitecture.new()
+	var storage: GFStorageUtility = GFStorageUtility.new()
+	storage.save_dir_name = "test_save_graph_document"
+	storage.init()
+	var registered_storage: bool = await architecture.register_utility(GFStorageUtility, storage)
+	assert_true(registered_storage)
+	_utility.inject_dependencies(architecture)
+
+	var save_error: Error = _utility.save_scope(
+		"graph_document.sav",
+		_scope,
+		{ "checkpoint": "start" }
+	)
+	var storage_result: GFStorageReadResult = storage.load_data("graph_document.sav")
+	var document: GFSaveDocument = GFSaveDocument.from_dict(storage_result.payload)
+	var load_result: Dictionary = _utility.load_scope("graph_document.sav", _scope)
+
+	assert_eq(save_error, OK)
+	assert_true(storage_result.ok)
+	assert_not_null(document, "save_scope 应写入规范 GFSaveDocument，而不是裸图载荷。")
+	if document != null:
+		assert_eq(document.get_schema_id(), GFSaveGraphUtility.DOCUMENT_SCHEMA_ID)
+		assert_true(document.has_section(GFSaveGraphUtility.DOCUMENT_SECTION_ID))
+		assert_eq(GFVariantData.get_option_string(document.get_metadata(), "checkpoint"), "start")
+	assert_true(GFVariantData.get_option_bool(load_result, "ok"), "规范文档应能重新应用。")
+
+	var _delete_result: Error = storage.delete_file("graph_document.sav")
+	_utility.release_dependencies()
+	architecture.dispose()
+
+
+func test_load_scope_rejects_legacy_bare_graph_payload() -> void:
+	var architecture: GFArchitecture = GFArchitecture.new()
+	var storage: GFStorageUtility = GFStorageUtility.new()
+	storage.save_dir_name = "test_save_graph_legacy_rejection"
+	storage.init()
+	var registered_storage: bool = await architecture.register_utility(GFStorageUtility, storage)
+	assert_true(registered_storage)
+	_utility.inject_dependencies(architecture)
+	var legacy_payload: Dictionary = _utility.gather_scope(_scope)
+	assert_eq(storage.save_data("legacy_graph.sav", legacy_payload), OK)
+
+	var load_result: Dictionary = _utility.load_scope("legacy_graph.sav", _scope)
+
+	assert_false(GFVariantData.get_option_bool(load_result, "ok"), "旧裸图载荷必须显式迁移，不能自动猜测。")
+	var errors: Array[String] = GFVariantData.to_string_array(
+		GFVariantData.get_option_value(load_result, "errors")
+	)
+	assert_true(errors[0].contains("document_format_mismatch"))
+
+	var _delete_result: Error = storage.delete_file("legacy_graph.sav")
+	_utility.release_dependencies()
+	architecture.dispose()
+
+
 ## 验证默认 Transform2D 序列化器可采集并恢复节点状态。
 func test_gather_and_apply_transform_2d_source() -> void:
 	var target: Node2D = Node2D.new()
@@ -538,6 +594,23 @@ func test_pipeline_context_can_be_shared_by_caller() -> void:
 	assert_eq(pipeline_context.operation, &"gather", "外部上下文应保留操作类型。")
 	assert_eq(GFVariantData.get_option_string(pipeline_context.shared, "source"), "test", "外部上下文应保留共享数据。")
 	assert_gt(pipeline_context.events.size(), 0, "外部上下文应收集流程事件。")
+
+
+func test_pipeline_context_uses_injected_monotonic_clock() -> void:
+	var clock: GFManualClock = GFManualClock.new(3000000, 1700000000000)
+	assert_true(_utility.set_clock(clock), "SaveGraph 应接受统一时钟。")
+	var pipeline_context: GFSavePipelineContext = _utility.create_pipeline_context(&"gather", _scope)
+
+	var first_event: GFSavePipelineEvent = pipeline_context.record_event(&"started")
+	assert_true(clock.advance_msec(12), "测试时钟应确定推进。")
+	var second_event: GFSavePipelineEvent = pipeline_context.record_event(&"finished")
+	pipeline_context.finish()
+
+	assert_eq(pipeline_context.started_at_msec, 3000, "流水线上下文应使用注入时钟起始值。")
+	assert_eq(first_event.timestamp_msec, 3000, "首个事件应使用同一单调时钟。")
+	assert_eq(second_event.timestamp_msec, 3012, "后续事件应反映手动推进。")
+	assert_eq(pipeline_context.finished_at_msec, 3012, "结束时间应使用同一时间域。")
+	assert_eq(pipeline_context.get_elapsed_msec(), 12, "流水线耗时应可确定验证。")
 
 
 ## 验证通用槽位工作流能构建元数据和卡片。

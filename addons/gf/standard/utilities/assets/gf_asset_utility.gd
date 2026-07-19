@@ -52,6 +52,24 @@ signal asset_load_progress(path: String, progress: float)
 ## @schema report: Dictionary with `ok: bool`, `group_id: StringName`, `paths: PackedStringArray`, `failed_paths: PackedStringArray`, `total: int`, and `completed: int`.
 signal asset_group_preloaded(group_id: StringName, report: Dictionary)
 
+## 事务预加载会话启动后发出。
+## [br]
+## @api public
+## [br]
+## @since 9.0.0
+## [br]
+## @param session: 新会话。
+signal asset_load_session_started(session: GFAssetLoadSession)
+
+## 事务预加载会话进入终态后发出。
+## [br]
+## @api public
+## [br]
+## @since 9.0.0
+## [br]
+## @param result: 隔离终态结果。
+signal asset_load_session_completed(result: GFAssetLoadSessionResult)
+
 
 ## 资源加载进入队列时发出。
 ## [br]
@@ -130,6 +148,8 @@ var _owner_release_connected: Dictionary = {}
 var _handle_refs: Array[WeakRef] = []
 var _group_paths: Dictionary = {}
 var _group_pin_counts: Dictionary = {}
+var _load_sessions: Dictionary = {}
+var _next_load_session_id: int = 1
 var _cache_diagnostics: GFCacheDiagnostics = GFCacheDiagnostics.new()
 var _threaded_resource_coordinator: _THREADED_RESOURCE_COORDINATOR_SCRIPT = _THREADED_RESOURCE_COORDINATOR_SCRIPT.new()
 
@@ -160,6 +180,8 @@ func init() -> void:
 	_handle_refs.clear()
 	_group_paths.clear()
 	_group_pin_counts.clear()
+	_load_sessions.clear()
+	_next_load_session_id = 1
 	_cache_access_serial = 0
 	_cache_diagnostics.cache_id = &"asset"
 	_cache_diagnostics.reset()
@@ -169,6 +191,7 @@ func init() -> void:
 ## [br]
 ## @api public
 func dispose() -> void:
+	_abort_asset_load_sessions(&"asset_utility_disposed")
 	_cancel_pending_requests_for_dispose()
 	_threaded_resource_coordinator.cancel_all(&"disposed")
 	_release_all_handles()
@@ -187,6 +210,8 @@ func dispose() -> void:
 	_handle_refs.clear()
 	_group_paths.clear()
 	_group_pin_counts.clear()
+	_load_sessions.clear()
+	_next_load_session_id = 1
 	_cache_access_serial = 0
 
 
@@ -505,6 +530,57 @@ func preload_plan_async(
 		if on_completed.is_valid():
 			on_completed.call(final_report.duplicate(true))
 	, preload_options)
+
+
+## 启动可回滚资产预加载会话。
+##
+## 会话使用唯一 staging group；默认在全部成功后自动提交，失败时自动回滚。
+## [br]
+## @api public
+## [br]
+## @since 9.0.0
+## [br]
+## @param asset_plan: 资源预加载计划。
+## [br]
+## @param options: 可包含 auto_commit 和 metadata。
+## [br]
+## @schema options: Dictionary with optional auto_commit: bool and metadata: Dictionary.
+## [br]
+## @return 已启动会话；无效计划也会返回具有明确失败终态的会话。
+func start_preload_session(
+	asset_plan: GFAssetPreloadPlan,
+	options: Dictionary = {}
+) -> GFAssetLoadSession:
+	var session_id: StringName = StringName("asset_session_%d" % _next_load_session_id)
+	_next_load_session_id += 1
+	var session: GFAssetLoadSession = GFAssetLoadSession.new()
+	var configured: bool = session._gf_setup(self, session_id, asset_plan, options)
+	if not configured:
+		push_error("[GFAssetUtility] 无法配置事务预加载会话。")
+		return session
+	var connect_error: Error = session.completed.connect(
+		_on_asset_load_session_completed,
+		CONNECT_ONE_SHOT as Object.ConnectFlags
+	) as Error
+	if connect_error != OK:
+		push_error("[GFAssetUtility] 无法连接事务预加载会话终态信号。")
+		session._gf_abort(&"completion_tracking_failed")
+		return session
+	_load_sessions[String(session_id)] = session
+	asset_load_session_started.emit(session)
+	session._gf_start()
+	return session
+
+
+## 获取尚未进入终态的事务预加载会话数量。
+## [br]
+## @api public
+## [br]
+## @since 9.0.0
+## [br]
+## @return 活跃会话数量。
+func get_active_preload_session_count() -> int:
+	return _load_sessions.size()
 
 
 ## 异步预加载资源分组。
@@ -1695,6 +1771,23 @@ func _finish_group_preload(group_id: StringName, report: Dictionary, on_complete
 	asset_group_preloaded.emit(group_id, report_copy)
 	if on_completed.is_valid():
 		on_completed.call(report_copy.duplicate(true))
+
+
+func _on_asset_load_session_completed(result: GFAssetLoadSessionResult) -> void:
+	if result == null:
+		return
+	_erase_dictionary_key(_load_sessions, String(result.get_session_id()))
+	asset_load_session_completed.emit(result.duplicate_result())
+
+
+func _abort_asset_load_sessions(reason: StringName) -> void:
+	var session_keys: Array = _load_sessions.keys().duplicate()
+	for session_key: Variant in session_keys:
+		var session_value: Variant = GFVariantData.get_option_value(_load_sessions, session_key)
+		if session_value is GFAssetLoadSession:
+			var session: GFAssetLoadSession = session_value
+			session._gf_abort(reason)
+	_load_sessions.clear()
 
 
 func _is_resource_compatible(resource: Resource, type_hint: String) -> bool:

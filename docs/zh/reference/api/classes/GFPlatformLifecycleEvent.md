@@ -253,7 +253,7 @@ func configure( p_event_type: StringName, p_platform_id: StringName = &"", p_pay
 | `p_platform_id` | 平台标识。 |
 | `p_payload` | 事件载荷。 |
 | `p_sequence` | 单调递增序号。 |
-| `p_timestamp_msec` | 时间戳；小于等于 0 时使用 Time.get_ticks_msec()。 |
+| `p_timestamp_msec` | 单调时间戳；0 表示由发布该事件的 adapter 填充。 |
 | `p_metadata` | 调用方元数据。 |
 
 返回：当前事件。

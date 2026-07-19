@@ -8,6 +8,7 @@ extends RefCounted
 
 const _GF_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
 const _GF_PROJECT_SETTINGS_TOOLS = preload("res://addons/gf/kernel/core/gf_project_settings_tools.gd")
+const _GF_PROJECT_ARTIFACT_PATHS_SCRIPT = preload("res://addons/gf/kernel/core/gf_project_artifact_paths.gd")
 const _GF_RESOURCE_PATH_HINT_SCRIPT = preload("res://addons/gf/kernel/editor/gf_resource_path_hint.gd")
 
 ## 项目启动 Installer 列表设置。
@@ -64,7 +65,7 @@ const ACCESS_OUTPUT_SETTING: String = "gf/codegen/access_output_path"
 ## @api framework_internal
 ## [br]
 ## @layer kernel/editor
-const ACCESS_OUTPUT_DEFAULT: String = "res://gf/generated/gf_access.gd"
+const ACCESS_OUTPUT_DEFAULT: String = _GF_PROJECT_ARTIFACT_PATHS_SCRIPT.ACCESS_OUTPUT_PATH
 
 ## 项目访问器输出路径设置。
 ## [br]
@@ -78,7 +79,7 @@ const PROJECT_ACCESS_OUTPUT_SETTING: String = "gf/codegen/project_access_output_
 ## @api framework_internal
 ## [br]
 ## @layer kernel/editor
-const PROJECT_ACCESS_OUTPUT_DEFAULT: String = "res://gf/generated/gf_project_access.gd"
+const PROJECT_ACCESS_OUTPUT_DEFAULT: String = _GF_PROJECT_ARTIFACT_PATHS_SCRIPT.PROJECT_ACCESS_OUTPUT_PATH
 
 ## 扩展启用设置脚本。
 ## [br]

@@ -36,7 +36,7 @@
 ### `candidates_changed`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 signal candidates_changed(revision: int)
@@ -262,7 +262,7 @@ func get_candidate_objects(options: Dictionary = {}) -> Array[Object]:
 ### `get_revision`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 func get_revision() -> int:

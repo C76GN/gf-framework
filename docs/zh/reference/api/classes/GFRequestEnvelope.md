@@ -160,7 +160,7 @@ var max_attempts: int = 3
 ### `next_attempt_at_unix_msec`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 var next_attempt_at_unix_msec: int = 0

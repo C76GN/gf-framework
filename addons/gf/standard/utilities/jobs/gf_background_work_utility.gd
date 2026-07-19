@@ -119,7 +119,7 @@ var allow_object_payloads: bool = false
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 var priority_aging_interval_msec: int = 1000:
 	set(value):
 		priority_aging_interval_msec = maxi(value, 1)
@@ -129,7 +129,7 @@ var priority_aging_interval_msec: int = 1000:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 var priority_aging_step: float = 1.0:
 	set(value):
 		priority_aging_step = value if is_finite(value) and value > 0.0 else 1.0

@@ -18,7 +18,7 @@
 | 信号 | [`data_integrity_failed`](#member-gfstorageutility-signals-data_integrity_failed) | `signal data_integrity_failed(file_name: String, error: String)` |
 | 信号 | [`data_migrated`](#member-gfstorageutility-signals-data_migrated) | `signal data_migrated(file_name: String, from_version: int, to_version: int)` |
 | 信号 | [`save_completed`](#member-gfstorageutility-signals-save_completed) | `signal save_completed(file_name: String, error: Error)` |
-| 信号 | [`load_completed`](#member-gfstorageutility-signals-load_completed) | `signal load_completed(file_name: String, result: Dictionary)` |
+| 信号 | [`load_completed`](#member-gfstorageutility-signals-load_completed) | `signal load_completed(file_name: String, result: GFStorageReadResult)` |
 | 常量 | [`DEFAULT_MAX_LIST_DEPTH`](#member-gfstorageutility-constants-default_max_list_depth) | `const DEFAULT_MAX_LIST_DEPTH: int = 32` |
 | 常量 | [`DEFAULT_MAX_LISTED_FILES`](#member-gfstorageutility-constants-default_max_listed_files) | `const DEFAULT_MAX_LISTED_FILES: int = 10000` |
 | 属性 | [`encrypt_key`](#member-gfstorageutility-properties-encrypt_key) | `var encrypt_key: int = 42` |
@@ -26,7 +26,6 @@
 | 属性 | [`codec`](#member-gfstorageutility-properties-codec) | `var codec: GFStorageCodec = GFStorageCodec.new()` |
 | 属性 | [`file_format`](#member-gfstorageutility-properties-file_format) | `var file_format: GFStorageCodec.Format = GFStorageCodec.Format.JSON` |
 | 属性 | [`use_compression`](#member-gfstorageutility-properties-use_compression) | `var use_compression: bool = false` |
-| 属性 | [`allow_legacy_plain_json_fallback`](#member-gfstorageutility-properties-allow_legacy_plain_json_fallback) | `var allow_legacy_plain_json_fallback: bool = false` |
 | 属性 | [`normalize_json_numbers`](#member-gfstorageutility-properties-normalize_json_numbers) | `var normalize_json_numbers: bool = false` |
 | 属性 | [`use_integrity_checksum`](#member-gfstorageutility-properties-use_integrity_checksum) | `var use_integrity_checksum: bool = false` |
 | 属性 | [`strict_integrity`](#member-gfstorageutility-properties-strict_integrity) | `var strict_integrity: bool = true` |
@@ -42,7 +41,7 @@
 | 属性 | [`save_version`](#member-gfstorageutility-properties-save_version) | `var save_version: int = 1:` |
 | 属性 | [`strict_schema_migrations`](#member-gfstorageutility-properties-strict_schema_migrations) | `var strict_schema_migrations: bool = false` |
 | 属性 | [`default_values_for_new_keys`](#member-gfstorageutility-properties-default_values_for_new_keys) | `var default_values_for_new_keys: Dictionary = {}` |
-| 属性 | [`last_load_result`](#member-gfstorageutility-properties-last_load_result) | `var last_load_result: Dictionary = {}` |
+| 属性 | [`last_load_result`](#member-gfstorageutility-properties-last_load_result) | `var last_load_result: GFStorageReadResult` |
 | 方法 | [`init`](#member-gfstorageutility-methods-init) | `func init() -> void:` |
 | 方法 | [`dispose`](#member-gfstorageutility-methods-dispose) | `func dispose() -> void:` |
 | 方法 | [`tick`](#member-gfstorageutility-methods-tick) | `func tick(_delta: float = 0.0) -> void:` |
@@ -54,8 +53,7 @@
 | 方法 | [`delete_file`](#member-gfstorageutility-methods-delete_file) | `func delete_file(file_name: String) -> Error:` |
 | 方法 | [`save_data`](#member-gfstorageutility-methods-save_data) | `func save_data(file_name: String, data: Dictionary) -> Error:` |
 | 方法 | [`save_data_group`](#member-gfstorageutility-methods-save_data_group) | `func save_data_group(files: Dictionary) -> Error:` |
-| 方法 | [`load_data`](#member-gfstorageutility-methods-load_data) | `func load_data(file_name: String) -> Dictionary:` |
-| 方法 | [`load_data_result`](#member-gfstorageutility-methods-load_data_result) | `func load_data_result(file_name: String) -> Dictionary:` |
+| 方法 | [`load_data`](#member-gfstorageutility-methods-load_data) | `func load_data(file_name: String) -> GFStorageReadResult:` |
 | 方法 | [`save_data_async`](#member-gfstorageutility-methods-save_data_async) | `func save_data_async(file_name: String, data: Dictionary) -> Error:` |
 | 方法 | [`load_data_async`](#member-gfstorageutility-methods-load_data_async) | `func load_data_async(file_name: String) -> Error:` |
 | 方法 | [`wait_for_async_tasks`](#member-gfstorageutility-methods-wait_for_async_tasks) | `func wait_for_async_tasks() -> void:` |
@@ -130,9 +128,10 @@ signal save_completed(file_name: String, error: Error)
 ### `load_completed`
 
 - API：`public`
+- 首次版本：`9.0.0`
 
 ```gdscript
-signal load_completed(file_name: String, result: Dictionary)
+signal load_completed(file_name: String, result: GFStorageReadResult)
 ```
 
 异步读取完成后发出。
@@ -142,11 +141,7 @@ signal load_completed(file_name: String, result: Dictionary)
 | 名称 | 说明 |
 |---|---|
 | `file_name` | 文件名。 |
-| `result` | 读取结果，包含 ok、data、metadata、integrity_valid、error。 |
-
-结构：
-
-- `result`: Dictionary，包含 ok: bool、data: Dictionary、metadata: Dictionary、integrity_valid: bool 和 error: String。
+| `result` | 强类型读取结果。 |
 
 ## 常量
 
@@ -236,18 +231,6 @@ var use_compression: bool = false
 
 是否压缩存档载荷。
 
-<a id="member-gfstorageutility-properties-allow_legacy_plain_json_fallback"></a>
-
-### `allow_legacy_plain_json_fallback`
-
-- API：`public`
-
-```gdscript
-var allow_legacy_plain_json_fallback: bool = false
-```
-
-解码失败时是否尝试按旧版未压缩、未混淆 JSON 读取原始 bytes。
-
 <a id="member-gfstorageutility-properties-normalize_json_numbers"></a>
 
 ### `normalize_json_numbers`
@@ -301,12 +284,13 @@ var require_integrity_checksum: bool = true
 ### `include_storage_metadata`
 
 - API：`public`
+- 首次版本：`9.0.0`
 
 ```gdscript
 var include_storage_metadata: bool = false
 ```
 
-是否写入 `_meta.version`、`_meta.timestamp` 等通用元信息。
+是否写入时间戳、编码格式和压缩方式等诊断元数据。 数据版本始终写入独立文档 metadata，不受该选项影响。
 
 <a id="member-gfstorageutility-properties-allow_absolute_paths"></a>
 
@@ -414,12 +398,13 @@ var save_version: int = 1:
 ### `strict_schema_migrations`
 
 - API：`public`
+- 首次版本：`9.0.0`
 
 ```gdscript
 var strict_schema_migrations: bool = false
 ```
 
-为 true 时，读取旧版本存档必须存在完整迁移链，不能仅更新 `_meta.version`。
+为 true 时，读取旧版本存档必须存在完整迁移链，不能仅更新数据版本。
 
 <a id="member-gfstorageutility-properties-default_values_for_new_keys"></a>
 
@@ -442,16 +427,13 @@ var default_values_for_new_keys: Dictionary = {}
 ### `last_load_result`
 
 - API：`public`
+- 首次版本：`9.0.0`
 
 ```gdscript
-var last_load_result: Dictionary = {}
+var last_load_result: GFStorageReadResult
 ```
 
-迁移后的最近一次读取结果，包含 ok、data、metadata、integrity_valid、error。
-
-结构：
-
-- `last_load_result`: Dictionary，包含 ok: bool、data: Dictionary、metadata: Dictionary、integrity_valid: bool 和 error: String。
+最近一次同步或异步读取结果；尚未读取或 dispose 后为 null。
 
 ## 方法
 
@@ -684,12 +666,13 @@ func save_data_group(files: Dictionary) -> Error:
 ### `load_data`
 
 - API：`public`
+- 首次版本：`9.0.0`
 
 ```gdscript
-func load_data(file_name: String) -> Dictionary:
+func load_data(file_name: String) -> GFStorageReadResult:
 ```
 
-读取纯字典数据。
+严格读取纯字典数据。
 
 参数：
 
@@ -697,35 +680,7 @@ func load_data(file_name: String) -> Dictionary:
 |---|---|
 | `file_name` | 目标文件名。 |
 
-返回：反序列化后的字典数据。
-
-结构：
-
-- `return`: Dictionary，从存储读取的数据载荷；读取失败时为空字典。
-
-<a id="member-gfstorageutility-methods-load_data_result"></a>
-
-### `load_data_result`
-
-- API：`public`
-
-```gdscript
-func load_data_result(file_name: String) -> Dictionary:
-```
-
-读取纯字典数据并返回 codec 结果。
-
-参数：
-
-| 名称 | 说明 |
-|---|---|
-| `file_name` | 目标文件名。 |
-
-返回：结果字典，包含 ok、data、metadata、integrity_valid、error。
-
-结构：
-
-- `return`: Dictionary，包含 ok: bool、data: Dictionary、metadata: Dictionary、integrity_valid: bool 和 error: String。
+返回：强类型读取结果；调用方必须先检查 ok，再读取 payload。
 
 <a id="member-gfstorageutility-methods-save_data_async"></a>
 

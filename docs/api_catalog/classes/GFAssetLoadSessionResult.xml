@@ -1,0 +1,162 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFAssetLoadSessionResult" path="addons/gf/standard/utilities/assets/gf_asset_load_session_result.gd" module="standard" extends="RefCounted" classDigest="4d4710e5f167016268f1bf077b2df77fe3aa1b82706ec21648b99cec739bd415">
+	<description>GFAssetLoadSessionResult: 资产加载会话终态结果。
+结果区分 committed、failed 和 rolled_back，并显式说明回滚只撤销会话分组，
+不破坏可能被其他 owner 共享的缓存项。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">value_object</tag>
+		<tag name="since">9.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants>
+		<member kind="const" name="STATUS_COMMITTED">
+			<signature>const STATUS_COMMITTED: StringName = &amp;"committed"</signature>
+			<description>会话已原子提交到目标分组。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_FAILED">
+			<signature>const STATUS_FAILED: StringName = &amp;"failed"</signature>
+			<description>会话因校验或加载失败而回滚。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_ROLLED_BACK">
+			<signature>const STATUS_ROLLED_BACK: StringName = &amp;"rolled_back"</signature>
+			<description>调用方主动回滚会话。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties />
+	<methods>
+		<member kind="method" name="is_successful">
+			<signature>func is_successful() -&gt; bool:</signature>
+			<description>检查会话是否已提交。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">committed 终态返回 true。</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_status">
+			<signature>func get_status() -&gt; StringName:</signature>
+			<description>获取终态状态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">committed、failed 或 rolled_back。</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_session_id">
+			<signature>func get_session_id() -&gt; StringName:</signature>
+			<description>获取会话 ID。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">会话 ID。</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_plan_id">
+			<signature>func get_plan_id() -&gt; StringName:</signature>
+			<description>获取计划 ID。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">计划 ID。</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_group_id">
+			<signature>func get_group_id() -&gt; StringName:</signature>
+			<description>获取目标分组 ID。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">目标分组 ID。</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_loaded_paths">
+			<signature>func get_loaded_paths() -&gt; PackedStringArray:</signature>
+			<description>获取成功加载路径副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">成功加载路径。</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_failed_paths">
+			<signature>func get_failed_paths() -&gt; PackedStringArray:</signature>
+			<description>获取失败路径副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">失败路径。</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_error">
+			<signature>func get_error() -&gt; String:</signature>
+			<description>获取失败说明。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">失败说明；提交或主动回滚时可为空。</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_rollback_reason">
+			<signature>func get_rollback_reason() -&gt; StringName:</signature>
+			<description>获取回滚原因。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">回滚原因；提交时为空。</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_cache_retained_on_rollback">
+			<signature>func is_cache_retained_on_rollback() -&gt; bool:</signature>
+			<description>检查回滚后是否保留已加载缓存。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">为保护共享 owner 而保留缓存时返回 true。</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_metadata">
+			<signature>func get_metadata() -&gt; Dictionary:</signature>
+			<description>获取结果元数据副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">调用方元数据副本。</tag>
+				<tag name="schema">return: Dictionary caller-defined session metadata.</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="to_dict">
+			<signature>func to_dict() -&gt; Dictionary:</signature>
+			<description>转换为字典。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">会话结果字典。</tag>
+				<tag name="schema">return: Dictionary with ok, status, session_id, plan_id, group_id, loaded_paths, failed_paths, error, rollback_reason, cache_retained_on_rollback, and metadata.</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="duplicate_result">
+			<signature>func duplicate_result() -&gt; GFAssetLoadSessionResult:</signature>
+			<description>创建结果副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">隔离结果副本。</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

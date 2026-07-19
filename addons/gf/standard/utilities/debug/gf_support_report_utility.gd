@@ -48,7 +48,7 @@ signal report_submitted(result: Dictionary)
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 enum RuntimeDetail {
 	## 只保留平台等非精确排查信息。
 	MINIMAL,
@@ -92,21 +92,21 @@ var include_scene_by_default: bool = false
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 var include_runtime_by_default: bool = true
 
 ## 默认运行时快照精度。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 var runtime_detail_by_default: RuntimeDetail = RuntimeDetail.MINIMAL
 
 ## 默认是否采集已注册的自定义分区。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 var include_sections_by_default: bool = false
 
 ## 场景节点数量统计默认最大深度。0 表示不限制。
@@ -285,7 +285,7 @@ func build_report(description: String = "", options: Dictionary = {}) -> Diction
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 ## [br]
 ## @param detail: 运行时快照精度。
 ## [br]

@@ -12,7 +12,7 @@ from copy import deepcopy
 from pathlib import Path
 from typing import Any, Callable
 
-from .constants import DEFAULT_CONTRACT_NAME, DEFAULT_FEEDBACK_ROOT, SCHEMA_ROOT
+from .constants import DEFAULT_CONTRACT_PATH, DEFAULT_FEEDBACK_ROOT, SCHEMA_ROOT
 from .contract import load_contract
 from .paths import atomic_write_json, atomic_write_text, canonical_json_bytes, read_json_object, resolve_project_path, sha256_bytes
 from .schema import validate_schema_file
@@ -32,7 +32,7 @@ _DEFAULT_REDACTIONS: tuple[tuple[re.Pattern[str], str], ...] = (
 def analyze_candidate(
 	project_root: Path,
 	candidate: dict[str, Any],
-	contract_relative_path: str = DEFAULT_CONTRACT_NAME,
+	contract_relative_path: str = DEFAULT_CONTRACT_PATH,
 ) -> dict[str, Any]:
 	candidate = _enrich_environment(project_root, deepcopy(candidate))
 	contract_result = load_contract(project_root, contract_relative_path)
@@ -96,7 +96,7 @@ def analyze_candidate(
 def draft_feedback(
 	project_root: Path,
 	candidate: dict[str, Any],
-	contract_relative_path: str = DEFAULT_CONTRACT_NAME,
+	contract_relative_path: str = DEFAULT_CONTRACT_PATH,
 	write: bool = True,
 ) -> dict[str, Any]:
 	analysis = analyze_candidate(project_root, candidate, contract_relative_path)
@@ -143,7 +143,7 @@ def load_draft(project_root: Path, relative_path: str) -> dict[str, Any]:
 def prepare_submission(
 	project_root: Path,
 	draft: dict[str, Any],
-	contract_relative_path: str = DEFAULT_CONTRACT_NAME,
+	contract_relative_path: str = DEFAULT_CONTRACT_PATH,
 ) -> dict[str, Any]:
 	try:
 		_validate_draft_integrity(draft)
@@ -226,7 +226,7 @@ def submit_issue(
 	project_root: Path,
 	draft: dict[str, Any],
 	confirmation_sha256: str,
-	contract_relative_path: str = DEFAULT_CONTRACT_NAME,
+	contract_relative_path: str = DEFAULT_CONTRACT_PATH,
 	runner: Callable[..., subprocess.CompletedProcess[str]] = subprocess.run,
 	human_approved: bool = False,
 ) -> dict[str, Any]:

@@ -105,7 +105,7 @@ extends Resource
 ## [br]
 ## @param p_started_at_msec: 开始时间戳。
 ## [br]
-## @param p_completed_at_msec: 完成时间戳；小于等于 0 时使用 Time.get_ticks_msec()。
+## @param p_completed_at_msec: 完成单调时间戳；0 表示调用方未提供。
 ## [br]
 ## @param p_metadata: 调用方元数据。
 ## [br]
@@ -128,7 +128,7 @@ func configure_success(
 	value = GFVariantData.duplicate_variant(p_value)
 	error = ""
 	started_at_msec = max(p_started_at_msec, 0)
-	completed_at_msec = p_completed_at_msec if p_completed_at_msec > 0 else Time.get_ticks_msec()
+	completed_at_msec = maxi(p_completed_at_msec, 0)
 	metadata = p_metadata.duplicate(true)
 	return self
 
@@ -147,7 +147,7 @@ func configure_success(
 ## [br]
 ## @param p_started_at_msec: 开始时间戳。
 ## [br]
-## @param p_completed_at_msec: 完成时间戳；小于等于 0 时使用 Time.get_ticks_msec()。
+## @param p_completed_at_msec: 完成单调时间戳；0 表示调用方未提供。
 ## [br]
 ## @param p_metadata: 调用方元数据。
 ## [br]
@@ -168,7 +168,7 @@ func configure_failure(
 	value = null
 	error = p_error.strip_edges()
 	started_at_msec = max(p_started_at_msec, 0)
-	completed_at_msec = p_completed_at_msec if p_completed_at_msec > 0 else Time.get_ticks_msec()
+	completed_at_msec = maxi(p_completed_at_msec, 0)
 	metadata = p_metadata.duplicate(true)
 	return self
 

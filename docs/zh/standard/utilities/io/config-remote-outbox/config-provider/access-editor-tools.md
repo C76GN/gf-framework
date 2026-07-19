@@ -10,7 +10,7 @@
 var generator := GFConfigAccessGenerator.new()
 generator.generate(
 	[items_schema, levels_schema],
-	"res://gf/generated/gf_config_access.gd",
+	"res://generated/gf_config_access.gd",
 	true,
 	"GFConfigAccess",
 	"Gf.get_utility(GFConfigProvider) as GFConfigProvider"

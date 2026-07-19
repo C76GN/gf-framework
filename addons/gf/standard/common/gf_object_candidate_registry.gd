@@ -19,7 +19,7 @@ extends RefCounted
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 ## [br]
 ## @param revision: 变更后的单调递增版本号。
 signal candidates_changed(revision: int)
@@ -258,7 +258,7 @@ func get_candidate_objects(options: Dictionary = {}) -> Array[Object]:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 ## [br]
 ## @return 从 0 开始、只在候选记录实际变化时递增的版本号。
 func get_revision() -> int:

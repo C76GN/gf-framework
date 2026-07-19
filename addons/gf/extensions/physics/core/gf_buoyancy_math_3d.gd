@@ -7,7 +7,7 @@
 ## [br]
 ## @category runtime_service
 ## [br]
-## @since unreleased
+## @since 9.0.0
 class_name GFBuoyancyMath3D
 extends RefCounted
 
@@ -21,7 +21,7 @@ extends RefCounted
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 ## [br]
 ## @param signed_depth: 采样点相对流体表面的有符号深度。
 ## [br]
@@ -38,7 +38,7 @@ static func calculate_submersion_ratio(signed_depth: float, immersion_radius: fl
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 ## [br]
 ## @param gravity_acceleration: 当前点的重力加速度向量。
 ## [br]
@@ -76,7 +76,7 @@ static func calculate_buoyancy_force(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 ## [br]
 ## @param relative_velocity: 物体采样点相对流体的速度。
 ## [br]
@@ -117,7 +117,7 @@ static func calculate_drag_force(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 ## [br]
 ## @param gravity_acceleration: 当前点的重力加速度向量。
 ## [br]

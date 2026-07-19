@@ -11,6 +11,8 @@
 - `GFAssetCatalogSourceProvider`：资产来源 provider 基类，用于把项目目录、资源注册表、内容包、外部库或项目数据库转换为资产目录。
 - `GFAssetCatalogSourceRegistry`：来源注册表，按优先级汇聚多个 provider，生成可重建的 catalog snapshot 和 JSON-safe 报告。
 - `GFResourceRegistryAssetSourceProvider`：把现有 `GFResourceRegistry` 适配为资产目录来源。
+- `GFAssetPreloadPlan`：稳定 ID 解析后的不可变加载计划；缺失 ID 会保留为无效计划项，而不是静默缩小请求集合。
+- `GFAssetLoadSession` / `GFAssetLoadSessionResult`：把加载、提交和回滚组成一次明确终态的事务会话。
 
 ## 典型流程
 
@@ -63,6 +65,27 @@ var character_ids := catalog.query(GFAssetCatalog.GROUP_SOURCE_TAGS, "character"
 var summaries := catalog.make_asset_summaries(character_ids)
 ```
 
+## 从目录到事务加载
+
+目录只负责把稳定 `asset_id` 映射成计划，`GFAssetUtility` 负责实际缓存与所有权。对场景切换、模式切换或成组素材替换，先创建计划，再使用加载会话；会话把路径装入唯一 staging group，全部成功后才提交目标 group。
+
+```gdscript
+var plan := catalog.make_preload_plan(
+	PackedStringArray(["character.hero.idle", "ui.save_icon"]),
+	&"gameplay.required",
+	{"pin_cache": true}
+)
+var session := asset_utility.start_preload_session(plan)
+
+if not session.is_completed():
+	await session.completed
+var result := session.get_result()
+if result == null or not result.is_successful():
+	push_error("Asset transaction failed")
+```
+
+计划校验或任一资源加载失败时，会话 fail closed 并撤销 staging group；手动 `rollback()` 在加载中会等待在途回调收敛。回滚只释放本会话的分组所有权，不调用 `remove_cache()` 破坏其他句柄或分组共享的资源。`completed` 只发出一次，调用方从 `GFAssetLoadSessionResult` 读取 committed / failed / rolled_back、失败路径和回滚原因。
+
 ## Source Provider
 
 素材库不应该只扫描某个固定目录。更稳的做法是把不同来源都转换为 provider，再由 `GFAssetCatalogSourceRegistry` 汇聚：
@@ -77,7 +100,7 @@ var summaries := catalog.make_asset_summaries(character_ids)
 
 ## 使用边界
 
-- `GFAssetCatalog` 是索引，不是资源缓存；加载和生命周期仍交给 `GFAssetUtility`、`GFResourceResolverUtility` 或项目自己的加载流程。
+- `GFAssetCatalog` 是索引，不是资源缓存；加载和生命周期仍交给 `GFAssetUtility`、`GFResourceResolverUtility` 或项目自己的加载流程。项目若已有业务资源目录，应把它适配成 catalog/provider，不要复制一套缓存所有权。
 - `asset_id` 应作为长期稳定 ID，不应直接等同资源路径。
 - 标签、分类、备注和 metadata 只作为通用字段保存和索引；GF 不解释 `character`、`weapon`、`quest`、`license` 等项目语义。
 - 引用审计、替换资源和未使用资源清理应先生成 dry-run 计划与报告，再由项目或编辑器工具决定是否执行。

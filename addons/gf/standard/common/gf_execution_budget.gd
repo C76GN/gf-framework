@@ -62,6 +62,7 @@ var metadata: Dictionary = {}
 # --- 私有变量 ---
 
 var _started_msec: int = 0
+var _clock: GFClock = null
 var _steps: int = 0
 var _depth: int = 0
 var _violated: bool = false
@@ -81,7 +82,10 @@ var _violation_span: Variant = null
 ## @param options: 可选配置，支持 max_steps、max_depth、max_output_length、max_elapsed_msec、cancel_token 和 metadata。
 ## [br]
 ## @schema options: Dictionary，包含执行预算配置。
-func _init(options: Dictionary = {}) -> void:
+## [br]
+## @param clock: 可选单调时钟；为空时使用系统时钟。
+func _init(options: Dictionary = {}, clock: GFClock = null) -> void:
+	_clock = clock if clock != null else GFClock.new()
 	var _configured_budget: GFExecutionBudget = configure(options)
 
 
@@ -111,13 +115,41 @@ func configure(options: Dictionary = {}) -> GFExecutionBudget:
 	return self
 
 
+## 替换预算耗时检查使用的单调时钟并重置计数状态。
+## [br]
+## @api public
+## [br]
+## @since 9.0.0
+## [br]
+## @param clock: 新单调时钟。
+## [br]
+## @return 时钟合法并完成替换时返回 true。
+func set_clock(clock: GFClock) -> bool:
+	if clock == null:
+		return false
+	_clock = clock
+	reset()
+	return true
+
+
+## 获取预算耗时检查使用的时钟。
+## [br]
+## @api public
+## [br]
+## @since 9.0.0
+## [br]
+## @return 当前时钟。
+func get_clock() -> GFClock:
+	return _clock
+
+
 ## 重置计数器和违规状态。
 ## [br]
 ## @api public
 ## [br]
 ## @since 7.0.0
 func reset() -> void:
-	_started_msec = Time.get_ticks_msec()
+	_started_msec = _clock.get_monotonic_msec()
 	_steps = 0
 	_depth = 0
 	_violated = false
@@ -279,7 +311,7 @@ func get_depth() -> int:
 ## [br]
 ## @return 从最近一次 reset 起经过的毫秒数。
 func get_elapsed_msec() -> int:
-	return maxi(Time.get_ticks_msec() - _started_msec, 0)
+	return maxi(_clock.get_monotonic_msec() - _started_msec, 0)
 
 
 ## 获取违规原因。

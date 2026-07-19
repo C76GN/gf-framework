@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFSaveMigrationStep" path="addons/gf/extensions/save/document/gf_save_migration_step.gd" module="extensions/save" extends="Resource" classDigest="d5108f98763292024955fdbbccab5350fb5037dd653d3d5f276760531da775ab">
+	<description>GFSaveMigrationStep: 单向相邻版本迁移步骤协议。
+空 section_id 表示文档级迁移；非空 section_id 表示单个分区迁移。
+每个步骤只允许 `N -&gt; N + 1`，以消除路径歧义并保持迁移链可审计。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">protocol</tag>
+		<tag name="since">9.0.0</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties>
+		<member kind="property" name="step_id" decorators="@export">
+			<signature>var step_id: StringName = &amp;""</signature>
+			<description>稳定步骤 ID，用于诊断与审计。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="schema_id" decorators="@export">
+			<signature>var schema_id: StringName = &amp;""</signature>
+			<description>步骤所属项目 schema ID。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="section_id" decorators="@export">
+			<signature>var section_id: StringName = &amp;""</signature>
+			<description>目标分区 ID；为空表示文档级迁移。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="from_version" decorators="@export">
+			<signature>var from_version: int = 0</signature>
+			<description>来源版本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="to_version" decorators="@export">
+			<signature>var to_version: int = 0</signature>
+			<description>目标版本，必须等于 from_version + 1。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="is_document_step">
+			<signature>func is_document_step() -&gt; bool:</signature>
+			<description>检查是否为文档级步骤。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">section_id 为空时返回 true。</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="validate_step">
+			<signature>func validate_step() -&gt; Dictionary:</signature>
+			<description>校验步骤身份和版本边。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">结构化校验报告。</tag>
+				<tag name="schema">return: GFValidationReportDictionary-compatible report with issues, counts, summary, and next_actions.</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="describe_step">
+			<signature>func describe_step() -&gt; Dictionary:</signature>
+			<description>描述步骤。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">步骤描述。</tag>
+				<tag name="schema">return: Dictionary with step_id, schema_id, section_id, scope, from_version, and to_version.</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_migrate_document">
+			<signature>func _migrate_document( document: GFSaveDocument, _context: Dictionary = {} ) -&gt; GFSaveDocument:</signature>
+			<description>执行文档级迁移。
+输入是隔离副本；返回 null 表示失败。Registry 会强制保持 schema_id，
+并在步骤成功后写入声明的目标版本。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">document: 当前文档副本。</tag>
+				<tag name="param">_context: 调用方迁移上下文副本。</tag>
+				<tag name="return">迁移后的文档；失败时返回 null。</tag>
+				<tag name="schema">_context: Dictionary with caller-defined migration context and registry-provided step fields.</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_migrate_section">
+			<signature>func _migrate_section( section: GFSaveSection, _context: Dictionary = {} ) -&gt; GFSaveSection:</signature>
+			<description>执行分区级迁移。
+输入是隔离副本；返回 null 表示失败。Registry 会强制保持 section_id，
+并在步骤成功后写入声明的目标版本。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">section: 当前分区副本。</tag>
+				<tag name="param">_context: 调用方迁移上下文副本。</tag>
+				<tag name="return">迁移后的分区；失败时返回 null。</tag>
+				<tag name="schema">_context: Dictionary with caller-defined migration context and registry-provided step fields.</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

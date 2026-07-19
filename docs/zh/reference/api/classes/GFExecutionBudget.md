@@ -21,8 +21,10 @@
 | 属性 | [`max_elapsed_msec`](#member-gfexecutionbudget-properties-max_elapsed_msec) | `var max_elapsed_msec: int = 0` |
 | 属性 | [`cancel_token`](#member-gfexecutionbudget-properties-cancel_token) | `var cancel_token: GFCancellationToken = null` |
 | 属性 | [`metadata`](#member-gfexecutionbudget-properties-metadata) | `var metadata: Dictionary = {}` |
-| 方法 | [`_init`](#member-gfexecutionbudget-methods-_init) | `func _init(options: Dictionary = {}) -> void:` |
+| 方法 | [`_init`](#member-gfexecutionbudget-methods-_init) | `func _init(options: Dictionary = {}, clock: GFClock = null) -> void:` |
 | 方法 | [`configure`](#member-gfexecutionbudget-methods-configure) | `func configure(options: Dictionary = {}) -> GFExecutionBudget:` |
+| 方法 | [`set_clock`](#member-gfexecutionbudget-methods-set_clock) | `func set_clock(clock: GFClock) -> bool:` |
+| 方法 | [`get_clock`](#member-gfexecutionbudget-methods-get_clock) | `func get_clock() -> GFClock:` |
 | 方法 | [`reset`](#member-gfexecutionbudget-methods-reset) | `func reset() -> void:` |
 | 方法 | [`bind_cancel_token`](#member-gfexecutionbudget-methods-bind_cancel_token) | `func bind_cancel_token(token: GFCancellationToken) -> GFExecutionBudget:` |
 | 方法 | [`consume_steps`](#member-gfexecutionbudget-methods-consume_steps) | `func consume_steps(amount: int = 1, source_span: Variant = null) -> bool:` |
@@ -133,7 +135,7 @@ var metadata: Dictionary = {}
 - 首次版本：`7.0.0`
 
 ```gdscript
-func _init(options: Dictionary = {}) -> void:
+func _init(options: Dictionary = {}, clock: GFClock = null) -> void:
 ```
 
 创建执行预算。
@@ -143,6 +145,7 @@ func _init(options: Dictionary = {}) -> void:
 | 名称 | 说明 |
 |---|---|
 | `options` | 可选配置，支持 max_steps、max_depth、max_output_length、max_elapsed_msec、cancel_token 和 metadata。 |
+| `clock` | 可选单调时钟；为空时使用系统时钟。 |
 
 结构：
 
@@ -172,6 +175,42 @@ func configure(options: Dictionary = {}) -> GFExecutionBudget:
 结构：
 
 - `options`: Dictionary，包含执行预算配置。
+
+<a id="member-gfexecutionbudget-methods-set_clock"></a>
+
+### `set_clock`
+
+- API：`public`
+- 首次版本：`9.0.0`
+
+```gdscript
+func set_clock(clock: GFClock) -> bool:
+```
+
+替换预算耗时检查使用的单调时钟并重置计数状态。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `clock` | 新单调时钟。 |
+
+返回：时钟合法并完成替换时返回 true。
+
+<a id="member-gfexecutionbudget-methods-get_clock"></a>
+
+### `get_clock`
+
+- API：`public`
+- 首次版本：`9.0.0`
+
+```gdscript
+func get_clock() -> GFClock:
+```
+
+获取预算耗时检查使用的时钟。
+
+返回：当前时钟。
 
 <a id="member-gfexecutionbudget-methods-reset"></a>
 

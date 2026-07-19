@@ -7,7 +7,7 @@
 - 继承：`Node3D`
 - API：`public`
 - 类别：运行时服务 (`runtime_service`)
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 可扩展的 3D 浮力点采样场。 默认以节点局部 Y 平面作为无限流体表面，把几何采样和浮力数学组合成纯结果字典。 项目可以重写表面、流速钩子实现有限水体、高度场或移动流体，但刚体施力、探针布局、 Area 检测、网络同步和玩法规则仍由项目层决定。
 
@@ -40,7 +40,7 @@
 ### `FIELD_GROUP`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 const FIELD_GROUP: StringName = &"gf_buoyancy_field_3d"
@@ -55,7 +55,7 @@ const FIELD_GROUP: StringName = &"gf_buoyancy_field_3d"
 ### `enabled`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 var enabled: bool = true
@@ -68,7 +68,7 @@ var enabled: bool = true
 ### `priority`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 var priority: int = 0
@@ -81,7 +81,7 @@ var priority: int = 0
 ### `surface_offset`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 var surface_offset: float = 0.0:
@@ -94,7 +94,7 @@ var surface_offset: float = 0.0:
 ### `fluid_density`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 var fluid_density: float = 1000.0:
@@ -107,7 +107,7 @@ var fluid_density: float = 1000.0:
 ### `fluid_velocity`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 var fluid_velocity: Vector3 = Vector3.ZERO:
@@ -120,7 +120,7 @@ var fluid_velocity: Vector3 = Vector3.ZERO:
 ### `linear_drag_coefficient`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 var linear_drag_coefficient: float = 0.0:
@@ -133,7 +133,7 @@ var linear_drag_coefficient: float = 0.0:
 ### `quadratic_drag_coefficient`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 var quadratic_drag_coefficient: float = 0.0:
@@ -148,7 +148,7 @@ var quadratic_drag_coefficient: float = 0.0:
 ### `get_surface_origin`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 func get_surface_origin() -> Vector3:
@@ -163,7 +163,7 @@ func get_surface_origin() -> Vector3:
 ### `get_signed_depth_at`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 func get_signed_depth_at(world_position: Vector3) -> float:
@@ -184,7 +184,7 @@ func get_signed_depth_at(world_position: Vector3) -> float:
 ### `get_surface_normal_at`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 func get_surface_normal_at(world_position: Vector3) -> Vector3:
@@ -205,7 +205,7 @@ func get_surface_normal_at(world_position: Vector3) -> Vector3:
 ### `get_fluid_velocity_at`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 func get_fluid_velocity_at(world_position: Vector3) -> Vector3:
@@ -226,7 +226,7 @@ func get_fluid_velocity_at(world_position: Vector3) -> Vector3:
 ### `get_buoyancy_priority`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 func get_buoyancy_priority() -> int:
@@ -241,7 +241,7 @@ func get_buoyancy_priority() -> int:
 ### `sample_point`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 func sample_point( world_position: Vector3, point_velocity: Vector3, displaced_volume: float, immersion_radius: float, gravity_acceleration: Vector3 ) -> Dictionary:
@@ -270,7 +270,7 @@ func sample_point( world_position: Vector3, point_velocity: Vector3, displaced_v
 ### `_get_signed_depth_at`
 
 - API：`protected`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 func _get_signed_depth_at(world_position: Vector3) -> float:
@@ -291,7 +291,7 @@ func _get_signed_depth_at(world_position: Vector3) -> float:
 ### `_get_surface_normal_at`
 
 - API：`protected`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 func _get_surface_normal_at(world_position: Vector3) -> Vector3:
@@ -312,7 +312,7 @@ func _get_surface_normal_at(world_position: Vector3) -> Vector3:
 ### `_get_fluid_velocity_at`
 
 - API：`protected`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 func _get_fluid_velocity_at(world_position: Vector3) -> Vector3:

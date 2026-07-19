@@ -8,7 +8,7 @@
 ## [br]
 ## @category runtime_service
 ## [br]
-## @since unreleased
+## @since 9.0.0
 class_name GFQuietWindowCoalescer
 extends RefCounted
 
@@ -20,7 +20,7 @@ extends RefCounted
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 ## [br]
 ## @param report: 批次报告。
 ## [br]
@@ -38,35 +38,35 @@ const _MAX_CAPACITY_NOTIFICATIONS_PER_DRAIN: int = 64
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 const REASON_QUIET_WINDOW: StringName = &"quiet_window"
 
 ## 批次从打开起已达到最大窗口。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 const REASON_MAX_WINDOW: StringName = &"max_window"
 
 ## 批次已达到消息数量上限。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 const REASON_BATCH_LIMIT: StringName = &"batch_limit"
 
 ## 调用方显式关闭批次。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 const REASON_MANUAL: StringName = &"manual"
 
 ## 待处理 key 数量达到上限时，最早批次被关闭。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 const REASON_PENDING_LIMIT: StringName = &"pending_limit"
 
 
@@ -76,7 +76,7 @@ const REASON_PENDING_LIMIT: StringName = &"pending_limit"
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 var quiet_window_msec: int = 250:
 	set(value):
 		quiet_window_msec = maxi(value, 0)
@@ -85,7 +85,7 @@ var quiet_window_msec: int = 250:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 var max_window_msec: int = 1000:
 	set(value):
 		max_window_msec = maxi(value, 0)
@@ -94,7 +94,7 @@ var max_window_msec: int = 1000:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 var max_messages_per_batch: int = 64:
 	set(value):
 		max_messages_per_batch = maxi(value, 1)
@@ -104,7 +104,7 @@ var max_messages_per_batch: int = 64:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 var max_pending_batches: int = 128:
 	set(value):
 		value = maxi(value, 1)
@@ -118,7 +118,7 @@ var max_pending_batches: int = 128:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 var auto_flush: bool = true:
 	set(value):
 		if auto_flush == value:
@@ -131,7 +131,7 @@ var auto_flush: bool = true:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 var merge_callback: Callable = Callable()
 
 
@@ -151,7 +151,7 @@ var _capacity_notification_drain_scheduled: bool = false
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 ## [br]
 ## @param key: 独立合并通道的稳定标识；空值也可作为默认通道。
 ## [br]
@@ -168,7 +168,7 @@ func submit(key: StringName, message: Variant) -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 ## [br]
 ## @param key: 独立合并通道的稳定标识；空值也可作为默认通道。
 ## [br]
@@ -220,7 +220,7 @@ func submit_at(key: StringName, message: Variant, now_msec: int) -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 ## [br]
 ## @param now_msec: 同一单调时间域中的当前毫秒时间；小于 0 时自动读取。
 ## [br]
@@ -247,7 +247,7 @@ func flush_ready(now_msec: int = -1) -> Array[Dictionary]:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 ## [br]
 ## @param key: 要关闭的批次 key。
 ## [br]
@@ -265,7 +265,7 @@ func flush(key: StringName, reason: StringName = REASON_MANUAL) -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 ## [br]
 ## @param reason: 项目可提供的稳定关闭原因；为空时使用 manual。
 ## [br]
@@ -290,7 +290,7 @@ func flush_all(reason: StringName = REASON_MANUAL) -> Array[Dictionary]:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 ## [br]
 ## @param key: 要丢弃的批次 key。
 ## [br]
@@ -303,7 +303,7 @@ func cancel(key: StringName) -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 func clear() -> void:
 	_lifecycle_serial += 1
 	_batches.clear()
@@ -313,7 +313,7 @@ func clear() -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 ## [br]
 ## @return 打开批次数量。
 func get_pending_batch_count() -> int:
@@ -324,7 +324,7 @@ func get_pending_batch_count() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 ## [br]
 ## @param max_entries: 最多返回多少个批次摘要；小于等于 0 时不返回摘要。
 ## [br]

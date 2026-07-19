@@ -7,7 +7,7 @@
 ## [br]
 ## @category tool_api
 ## [br]
-## @since unreleased
+## @since 9.0.0
 class_name GFDialogueTextCompiler
 extends RefCounted
 
@@ -18,14 +18,14 @@ extends RefCounted
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 const SOURCE_FORMAT: String = "gf.dialogue"
 
 ## 当前对话文本 schema 版本。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 const SOURCE_SCHEMA_VERSION: int = 1
 
 const _TOP_LEVEL_FIELDS: PackedStringArray = [
@@ -72,7 +72,7 @@ const _RESPONSE_FIELDS: PackedStringArray = [
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 ## [br]
 ## @param text: UTF-8 JSON 文本。
 ## [br]
@@ -117,7 +117,7 @@ func compile_text(text: String, options: Dictionary = {}) -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 ## [br]
 ## @param source_key: 注册文本 key 或加载器根目录内的相对路径。
 ## [br]

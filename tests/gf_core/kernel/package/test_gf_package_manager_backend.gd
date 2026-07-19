@@ -929,17 +929,48 @@ func test_native_status_compares_semver_core_without_integer_overflow() -> void:
 	)
 
 
-func test_default_registry_source_uses_latest_release_for_development_version() -> void:
+func test_default_registry_source_matches_current_framework_version() -> void:
 	var previous_override: String = OS.get_environment(GF_PACKAGE_MANAGER_BACKEND.DEFAULT_REGISTRY_SOURCE_ENV)
 	OS.set_environment(GF_PACKAGE_MANAGER_BACKEND.DEFAULT_REGISTRY_SOURCE_ENV, "")
 	var registry_source_url: String = GF_PACKAGE_MANAGER_BACKEND.get_default_registry_source_url()
 	OS.set_environment(GF_PACKAGE_MANAGER_BACKEND.DEFAULT_REGISTRY_SOURCE_ENV, previous_override)
+	var plugin_config: ConfigFile = ConfigFile.new()
+	assert_eq(plugin_config.load("res://addons/gf/plugin.cfg"), OK, "测试应能读取当前框架版本。")
+	var framework_version: String = str(plugin_config.get_value("plugin", "version", "")).strip_edges()
 
 	assert_eq(
 		registry_source_url,
+		GF_PACKAGE_MANAGER_BACKEND._default_registry_source_url_for_version(framework_version),
+		"默认 registry source 必须与当前框架版本通道一致。"
+	)
+
+
+func test_default_registry_source_version_resolution_distinguishes_release_channels() -> void:
+	assert_eq(
+		GF_PACKAGE_MANAGER_BACKEND._default_registry_source_url_for_version("9.0.0"),
+		GF_PACKAGE_MANAGER_BACKEND.DEFAULT_REGISTRY_SOURCE_RELEASE_URL_TEMPLATE % "9.0.0",
+		"稳定版本必须固定到同版本 GitHub Release。"
+	)
+	assert_eq(
+		GF_PACKAGE_MANAGER_BACKEND._default_registry_source_url_for_version("9.0.0-dev.0"),
 		GF_PACKAGE_MANAGER_BACKEND.DEFAULT_REGISTRY_SOURCE_LATEST_URL,
 		"开发版本不能拼接一个尚不存在的版本化 GitHub Release URL。"
 	)
+	assert_eq(
+		GF_PACKAGE_MANAGER_BACKEND._default_registry_source_url_for_version("invalid"),
+		GF_PACKAGE_MANAGER_BACKEND.DEFAULT_REGISTRY_SOURCE_LATEST_URL,
+		"无法解析的版本必须回退到 latest source。"
+	)
+
+
+func test_default_registry_source_honors_environment_override() -> void:
+	var previous_override: String = OS.get_environment(GF_PACKAGE_MANAGER_BACKEND.DEFAULT_REGISTRY_SOURCE_ENV)
+	var override_url: String = "https://packages.example.test/gf-registry-source.json"
+	OS.set_environment(GF_PACKAGE_MANAGER_BACKEND.DEFAULT_REGISTRY_SOURCE_ENV, override_url)
+	var registry_source_url: String = GF_PACKAGE_MANAGER_BACKEND.get_default_registry_source_url()
+	OS.set_environment(GF_PACKAGE_MANAGER_BACKEND.DEFAULT_REGISTRY_SOURCE_ENV, previous_override)
+
+	assert_eq(registry_source_url, override_url, "显式 registry source 覆盖必须优先于版本解析。")
 
 
 func test_native_install_rejects_incompatible_registry_without_mutating_project() -> void:

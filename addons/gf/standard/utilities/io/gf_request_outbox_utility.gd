@@ -63,7 +63,7 @@ signal queue_changed(snapshot: Dictionary)
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 ## [br]
 ## @param operation: 失败操作，当前为 save 或 load；load 包含恢复候选提升。
 ## [br]

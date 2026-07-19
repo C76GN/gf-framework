@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
   "catalog_version": "1.0.0",
-  "framework_version": "9.0.0-dev.0",
-  "source_digest": "e63e84e443b305d3f6e79e821ca59c5530579e147cc4855cedab10e7c1d2b4b1",
-  "class_count": 697,
-  "package_count": 49,
+  "framework_version": "9.0.0",
+  "source_digest": "168dcead4e28932b47596422dacb0433491d166b658b35394abdb3703722d1c3",
+  "class_count": 712,
+  "package_count": 50,
   "packages": [
     {
       "id": "gf.extension.action_queue",
@@ -193,7 +193,7 @@
       "kind": "kernel",
       "dependencies": [],
       "description": "Minimal GF framework core, plugin entry, lifecycle, extension manager, and Godot-native package management base.",
-      "representative_path": "addons/gf/kernel/base/gf_command.gd"
+      "representative_path": "addons/gf/kernel/base/gf_clock.gd"
     },
     {
       "id": "gf.standard.assets",
@@ -362,6 +362,16 @@
       ],
       "description": "Editor-only input mapping docks and input authoring helpers.",
       "representative_path": "addons/gf/standard/input/editor/gf_input_mapping_dock.gd"
+    },
+    {
+      "id": "gf.standard.platform",
+      "kind": "standard",
+      "dependencies": [
+        "gf.kernel",
+        "gf.standard.base"
+      ],
+      "description": "Platform-neutral adapter registration, explicit contract routing, request lifecycle, timeout, and lifecycle event forwarding.",
+      "representative_path": "addons/gf/standard/platform/gf_platform_adapter.gd"
     },
     {
       "id": "gf.standard.settings",
@@ -556,14 +566,14 @@
         {
           "kind": "const",
           "name": "DEFAULT_OUTPUT_PATH",
-          "signature": "const DEFAULT_OUTPUT_PATH: String = \"res://gf/generated/gf_access.gd\"",
+          "signature": "const DEFAULT_OUTPUT_PATH: String = _GF_PROJECT_ARTIFACT_PATHS_SCRIPT.ACCESS_OUTPUT_PATH",
           "summary": "默认强类型访问器输出路径。",
           "visibility": "public"
         },
         {
           "kind": "const",
           "name": "DEFAULT_PROJECT_OUTPUT_PATH",
-          "signature": "const DEFAULT_PROJECT_OUTPUT_PATH: String = \"res://gf/generated/gf_project_access.gd\"",
+          "signature": "const DEFAULT_PROJECT_OUTPUT_PATH: String = _GF_PROJECT_ARTIFACT_PATHS_SCRIPT.PROJECT_ACCESS_OUTPUT_PATH",
           "summary": "默认项目常量访问器输出路径。",
           "visibility": "public"
         },
@@ -2689,6 +2699,13 @@
         },
         {
           "kind": "func",
+          "name": "make_preload_plan",
+          "signature": "func make_preload_plan( asset_ids: PackedStringArray, group_id: StringName, options: Dictionary = {} ) -> GFAssetPreloadPlan",
+          "summary": "从稳定资产 ID 创建预加载计划。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
           "name": "query",
           "signature": "func query(field_id: StringName, field_value: Variant) -> PackedStringArray",
           "summary": "按单个字段值查询资产 ID。",
@@ -3125,6 +3142,226 @@
           "name": "release",
           "signature": "func release() -> bool",
           "summary": "释放句柄持有的资源引用。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFAssetLoadSession": {
+      "extends": "RefCounted",
+      "module": "standard",
+      "package_id": "gf.standard.assets",
+      "path": "addons/gf/standard/utilities/assets/gf_asset_load_session.gd",
+      "summary": "GFAssetLoadSession: 资产预加载事务句柄。 会话先把资源加载到唯一 staging group，只有全部成功后才提交目标 group。 失败或主动回滚只撤销 staging 所有权，不调用破坏共享句柄的 remove_cache()。",
+      "visibility": "public",
+      "category": "runtime_handle",
+      "since": "9.0.0",
+      "members": [
+        {
+          "kind": "signal",
+          "name": "state_changed",
+          "signature": "signal state_changed(previous_state: State, current_state: State)",
+          "summary": "会话状态变化后发出。",
+          "visibility": "public"
+        },
+        {
+          "kind": "signal",
+          "name": "ready_to_commit",
+          "signature": "signal ready_to_commit(session: GFAssetLoadSession)",
+          "summary": "全部资源已加载且等待手动提交时发出。",
+          "visibility": "public"
+        },
+        {
+          "kind": "signal",
+          "name": "completed",
+          "signature": "signal completed(result: GFAssetLoadSessionResult)",
+          "summary": "会话进入 committed、failed 或 rolled_back 终态时发出一次。",
+          "visibility": "public"
+        },
+        {
+          "kind": "enum",
+          "name": "State",
+          "signature": "enum State {\n\t## 已创建但未开始。\n\tCREATED,\n\t## 正在加载 staging group。\n\tLOADING,\n\t## 已加载并等待提交或回滚。\n\tREADY,\n\t## 加载中收到回滚请求，等待在途回调收敛。\n\tROLLBACK_PENDING,\n\t## 已提交目标 group。\n\tCOMMITTED,\n\t## 加载或校验失败。\n\tFAILED,\n\t## 已由调用方回滚。\n\tROLLED_BACK,\n}",
+          "summary": "资产加载会话状态。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_session_id",
+          "signature": "func get_session_id() -> StringName",
+          "summary": "获取会话 ID。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_group_id",
+          "signature": "func get_group_id() -> StringName",
+          "summary": "获取目标分组 ID。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_state",
+          "signature": "func get_state() -> State",
+          "summary": "获取会话状态。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_completed",
+          "signature": "func is_completed() -> bool",
+          "summary": "检查会话是否处于任一终态。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_result",
+          "signature": "func get_result() -> GFAssetLoadSessionResult",
+          "summary": "获取终态结果副本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_load_report",
+          "signature": "func get_load_report() -> Dictionary",
+          "summary": "获取底层加载报告副本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "commit",
+          "signature": "func commit() -> bool",
+          "summary": "把已加载 staging 路径提交到目标 group。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "rollback",
+          "signature": "func rollback(reason: StringName = &\"caller_requested\") -> bool",
+          "summary": "回滚会话。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFAssetLoadSessionResult": {
+      "extends": "RefCounted",
+      "module": "standard",
+      "package_id": "gf.standard.assets",
+      "path": "addons/gf/standard/utilities/assets/gf_asset_load_session_result.gd",
+      "summary": "GFAssetLoadSessionResult: 资产加载会话终态结果。 结果区分 committed、failed 和 rolled_back，并显式说明回滚只撤销会话分组， 不破坏可能被其他 owner 共享的缓存项。",
+      "visibility": "public",
+      "category": "value_object",
+      "since": "9.0.0",
+      "members": [
+        {
+          "kind": "const",
+          "name": "STATUS_COMMITTED",
+          "signature": "const STATUS_COMMITTED: StringName = &\"committed\"",
+          "summary": "会话已原子提交到目标分组。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATUS_FAILED",
+          "signature": "const STATUS_FAILED: StringName = &\"failed\"",
+          "summary": "会话因校验或加载失败而回滚。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATUS_ROLLED_BACK",
+          "signature": "const STATUS_ROLLED_BACK: StringName = &\"rolled_back\"",
+          "summary": "调用方主动回滚会话。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_successful",
+          "signature": "func is_successful() -> bool",
+          "summary": "检查会话是否已提交。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_status",
+          "signature": "func get_status() -> StringName",
+          "summary": "获取终态状态。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_session_id",
+          "signature": "func get_session_id() -> StringName",
+          "summary": "获取会话 ID。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_plan_id",
+          "signature": "func get_plan_id() -> StringName",
+          "summary": "获取计划 ID。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_group_id",
+          "signature": "func get_group_id() -> StringName",
+          "summary": "获取目标分组 ID。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_loaded_paths",
+          "signature": "func get_loaded_paths() -> PackedStringArray",
+          "summary": "获取成功加载路径副本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_failed_paths",
+          "signature": "func get_failed_paths() -> PackedStringArray",
+          "summary": "获取失败路径副本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_error",
+          "signature": "func get_error() -> String",
+          "summary": "获取失败说明。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_rollback_reason",
+          "signature": "func get_rollback_reason() -> StringName",
+          "summary": "获取回滚原因。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_cache_retained_on_rollback",
+          "signature": "func is_cache_retained_on_rollback() -> bool",
+          "summary": "检查回滚后是否保留已加载缓存。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_metadata",
+          "signature": "func get_metadata() -> Dictionary",
+          "summary": "获取结果元数据副本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "to_dict",
+          "signature": "func to_dict() -> Dictionary",
+          "summary": "转换为字典。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "duplicate_result",
+          "signature": "func duplicate_result() -> GFAssetLoadSessionResult",
+          "summary": "创建结果副本。",
           "visibility": "public"
         }
       ]
@@ -3574,6 +3811,20 @@
         },
         {
           "kind": "signal",
+          "name": "asset_load_session_started",
+          "signature": "signal asset_load_session_started(session: GFAssetLoadSession)",
+          "summary": "事务预加载会话启动后发出。",
+          "visibility": "public"
+        },
+        {
+          "kind": "signal",
+          "name": "asset_load_session_completed",
+          "signature": "signal asset_load_session_completed(result: GFAssetLoadSessionResult)",
+          "summary": "事务预加载会话进入终态后发出。",
+          "visibility": "public"
+        },
+        {
+          "kind": "signal",
           "name": "asset_load_queued",
           "signature": "signal asset_load_queued(path: String, lane_id: StringName)",
           "summary": "资源加载进入队列时发出。",
@@ -3675,6 +3926,20 @@
           "name": "preload_plan_async",
           "signature": "func preload_plan_async( asset_plan: GFAssetPreloadPlan, on_completed: Callable = Callable(), options: Dictionary = {} ) -> void",
           "summary": "按预加载计划异步预热资源分组。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "start_preload_session",
+          "signature": "func start_preload_session( asset_plan: GFAssetPreloadPlan, options: Dictionary = {} ) -> GFAssetLoadSession",
+          "summary": "启动可回滚资产预加载会话。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_active_preload_session_count",
+          "signature": "func get_active_preload_session_count() -> int",
+          "summary": "获取尚未进入终态的事务预加载会话数量。",
           "visibility": "public"
         },
         {
@@ -10576,7 +10841,7 @@
       "summary": "GFBuoyancyField3D: 可扩展的 3D 浮力点采样场。 默认以节点局部 Y 平面作为无限流体表面，把几何采样和浮力数学组合成纯结果字典。 项目可以重写表面、流速钩子实现有限水体、高度场或移动流体，但刚体施力、探针布局、",
       "visibility": "public",
       "category": "runtime_service",
-      "since": "unreleased",
+      "since": "9.0.0",
       "members": [
         {
           "kind": "const",
@@ -10707,7 +10972,7 @@
       "summary": "GFBuoyancyMath3D: 通用 3D 浮力点采样数学工具。 只根据浸没深度、排水体积、重力和相对速度计算浸没比例与力， 不查询水体、不持有刚体，也不决定探针布局或施力时机。",
       "visibility": "public",
       "category": "runtime_service",
-      "since": "unreleased",
+      "since": "9.0.0",
       "members": [
         {
           "kind": "func",
@@ -13170,6 +13435,46 @@
         }
       ]
     },
+    "GFClock": {
+      "extends": "RefCounted",
+      "module": "kernel",
+      "package_id": "gf.kernel",
+      "path": "addons/gf/kernel/base/gf_clock.gd",
+      "summary": "GFClock: 单调运行时与 Unix 墙上时钟协议。 单调时间只用于耗时、截止时间和运行时排序；Unix 时间只用于持久化时间戳与 跨进程交换。默认实现直接读取 Godot 系统时钟，测试或模拟环境可以继承并",
+      "visibility": "public",
+      "category": "protocol",
+      "since": "9.0.0",
+      "members": [
+        {
+          "kind": "func",
+          "name": "get_monotonic_usec",
+          "signature": "func get_monotonic_usec() -> int",
+          "summary": "获取自进程启动后单调递增的微秒数。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_monotonic_msec",
+          "signature": "func get_monotonic_msec() -> int",
+          "summary": "获取自进程启动后单调递增的毫秒数。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_unix_time_msec",
+          "signature": "func get_unix_time_msec() -> int",
+          "summary": "获取 Unix epoch 毫秒时间戳。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_unix_time_seconds",
+          "signature": "func get_unix_time_seconds() -> int",
+          "summary": "获取 Unix epoch 秒时间戳。",
+          "visibility": "public"
+        }
+      ]
+    },
     "GFCollisionBroadphase2D": {
       "extends": "RefCounted",
       "module": "standard",
@@ -15185,7 +15490,7 @@
         {
           "kind": "const",
           "name": "DEFAULT_OUTPUT_PATH",
-          "signature": "const DEFAULT_OUTPUT_PATH: String = \"res://gf/generated/gf_config_access.gd\"",
+          "signature": "const DEFAULT_OUTPUT_PATH: String = _GF_PROJECT_ARTIFACT_PATHS_SCRIPT.CONFIG_ACCESS_OUTPUT_PATH",
           "summary": "默认生成输出路径。",
           "visibility": "public"
         },
@@ -15794,7 +16099,7 @@
       "summary": "GFConfigPipelineCommitStage: Config Pipeline 的文件提交事务阶段。 在目标写入前捕获路径状态，并负责成功提交后的快照清理或失败后的逆序回滚。 该阶段不解释产物内容，也不决定输出路径策略。",
       "visibility": "public",
       "category": "tool_api",
-      "since": "unreleased",
+      "since": "9.0.0",
       "members": [
         {
           "kind": "const",
@@ -15848,7 +16153,7 @@
       "summary": "GFConfigPipelineIR: Config Pipeline 的版本化数据库中间表示。 聚合已经通过单表语义校验的 GFConfigPipelineTableIR，并作为 Target 阶段的唯一输入。 IR 不持有导出路径或文件事务策略，确保同一编译结果可以交给多个目标实现。",
       "visibility": "public",
       "category": "tool_api",
-      "since": "unreleased",
+      "since": "9.0.0",
       "members": [
         {
           "kind": "const",
@@ -15958,7 +16263,7 @@
       "summary": "GFConfigPipelineLayoutStage: Config Pipeline 的内置布局解析阶段。 把 Reader 原始载荷解码为记录、表头和来源位置，不推导 schema、不转换字段类型。 内置实现支持 CSV、JSON、ConfigFile 与 XLSX，格式专属细节在此阶段内收敛。",
       "visibility": "public",
       "category": "tool_api",
-      "since": "unreleased",
+      "since": "9.0.0",
       "members": [
         {
           "kind": "const",
@@ -16157,7 +16462,7 @@
       "summary": "GFConfigPipelineReaderStage: Config Pipeline 的内置来源读取阶段。 只负责来源存在性、读取预算和原始载荷取得，不解析表布局或业务字段。 文本来源返回原文，XLSX 来源返回已完成预算检查的文件载荷描述。",
       "visibility": "public",
       "category": "tool_api",
-      "since": "unreleased",
+      "since": "9.0.0",
       "members": [
         {
           "kind": "const",
@@ -16230,7 +16535,7 @@
       "summary": "GFConfigPipelineTableIR: Config Pipeline 的版本化单表中间表示。 保存布局解析与语义校验后的规范记录、schema、来源映射和元数据。 IR 只描述可物化的数据，不负责读取来源、生成 Resource 或提交文件。",
       "visibility": "public",
       "category": "tool_api",
-      "since": "unreleased",
+      "since": "9.0.0",
       "members": [
         {
           "kind": "const",
@@ -16471,7 +16776,7 @@
       "summary": "GFConfigPipelineTargetStage: Config Pipeline 的内置目标物化阶段。 只接受版本化 IR，并将其物化为 GFConfigTableResource、GFConfigDatabaseResource 或 JSON 兼容数据。 Target 不读取来源，也不重新推导 schema 或解释项目业务语义。",
       "visibility": "public",
       "category": "tool_api",
-      "since": "unreleased",
+      "since": "9.0.0",
       "members": [
         {
           "kind": "const",
@@ -16532,7 +16837,7 @@
       "summary": "GFConfigPipelineValidationStage: Config Pipeline 的内置语义校验阶段。 把 Layout 记录规范化，解析类型化表头，推导或复制 schema，执行类型转换与完整校验。 只有通过语义校验的数据才会形成 GFConfigPipelineTableIR。",
       "visibility": "public",
       "category": "tool_api",
-      "since": "unreleased",
+      "since": "9.0.0",
       "members": [
         {
           "kind": "const",
@@ -23099,7 +23404,7 @@
       "summary": "GFDialogueTextCompiler: 对话 JSON 文本编译器。 在制作期、编辑器期或 CI 中把严格、可审计的 JSON 文本编译为 GFDialogueResource。 编译器只解释对话资源已有字段，不定义角色、任务、本地化、UI 或项目状态语义。",
       "visibility": "public",
       "category": "tool_api",
-      "since": "unreleased",
+      "since": "9.0.0",
       "members": [
         {
           "kind": "const",
@@ -26803,7 +27108,7 @@
         {
           "kind": "func",
           "name": "_init",
-          "signature": "func _init(options: Dictionary = {}) -> void",
+          "signature": "func _init(options: Dictionary = {}, clock: GFClock = null) -> void",
           "summary": "创建执行预算。",
           "visibility": "public"
         },
@@ -26812,6 +27117,20 @@
           "name": "configure",
           "signature": "func configure(options: Dictionary = {}) -> GFExecutionBudget",
           "summary": "配置执行预算并重置运行状态。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "set_clock",
+          "signature": "func set_clock(clock: GFClock) -> bool",
+          "summary": "替换预算耗时检查使用的单调时钟并重置计数状态。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_clock",
+          "signature": "func get_clock() -> GFClock",
+          "summary": "获取预算耗时检查使用的时钟。",
           "visibility": "public"
         },
         {
@@ -42046,6 +42365,74 @@
         }
       ]
     },
+    "GFManualClock": {
+      "extends": "GFClock",
+      "module": "standard",
+      "package_id": "gf.standard.base",
+      "path": "addons/gf/standard/utilities/time/gf_manual_clock.gd",
+      "summary": "GFManualClock: 可确定推进的测试与模拟时钟。 单调时间只能向前推进；墙上时钟可通过 `set_unix_time_msec()` 模拟校时跳变。 该类型不自动读取系统时间，也不会随帧更新。",
+      "visibility": "public",
+      "category": "runtime_service",
+      "since": "9.0.0",
+      "members": [
+        {
+          "kind": "func",
+          "name": "_init",
+          "signature": "func _init(monotonic_usec: int = 0, unix_time_msec: int = 0) -> void",
+          "summary": "创建手动时钟。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_monotonic_usec",
+          "signature": "func get_monotonic_usec() -> int",
+          "summary": "获取当前手动单调微秒值。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_monotonic_msec",
+          "signature": "func get_monotonic_msec() -> int",
+          "summary": "获取当前手动单调毫秒值。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_unix_time_msec",
+          "signature": "func get_unix_time_msec() -> int",
+          "summary": "获取当前手动 Unix epoch 毫秒值。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_unix_time_seconds",
+          "signature": "func get_unix_time_seconds() -> int",
+          "summary": "获取当前手动 Unix epoch 秒值。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "advance_usec",
+          "signature": "func advance_usec(delta_usec: int) -> bool",
+          "summary": "同时向前推进单调时钟和墙上时钟。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "advance_msec",
+          "signature": "func advance_msec(delta_msec: int) -> bool",
+          "summary": "同时向前推进单调时钟和墙上时钟。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "set_unix_time_msec",
+          "signature": "func set_unix_time_msec(unix_time_msec: int) -> bool",
+          "summary": "显式设置墙上时钟，用于模拟系统校时或恢复持久化时间。",
+          "visibility": "public"
+        }
+      ]
+    },
     "GFManualTimerQueue": {
       "extends": "RefCounted",
       "module": "standard",
@@ -43651,7 +44038,7 @@
         {
           "kind": "const",
           "name": "DEFAULT_OUTPUT_DIR",
-          "signature": "const DEFAULT_OUTPUT_DIR: String = \"res://gf/generated/network\"",
+          "signature": "const DEFAULT_OUTPUT_DIR: String = _GF_PROJECT_ARTIFACT_PATHS_SCRIPT.NETWORK_OUTPUT_ROOT",
           "summary": "默认生成脚本输出目录。",
           "visibility": "public"
         },
@@ -50630,6 +51017,214 @@
         }
       ]
     },
+    "GFPlatformAdapter": {
+      "extends": "RefCounted",
+      "module": "standard",
+      "package_id": "gf.standard.platform",
+      "path": "addons/gf/standard/platform/gf_platform_adapter.gd",
+      "summary": "GFPlatformAdapter: 外部平台 adapter 协议。 Steam、微信小游戏、主机平台或自建平台实现应继承该类型，把具体 SDK 回调 转换为 GF 的上下文、生命周期事件和桥接结果。该基类不依赖任何平台 SDK。",
+      "visibility": "public",
+      "category": "protocol",
+      "since": "9.0.0",
+      "members": [
+        {
+          "kind": "signal",
+          "name": "state_changed",
+          "signature": "signal state_changed(previous_state: State, current_state: State)",
+          "summary": "Adapter 状态变化后发出。",
+          "visibility": "public"
+        },
+        {
+          "kind": "signal",
+          "name": "context_changed",
+          "signature": "signal context_changed(context: GFPlatformRuntimeContext)",
+          "summary": "平台运行时上下文变化后发出。",
+          "visibility": "public"
+        },
+        {
+          "kind": "signal",
+          "name": "lifecycle_event",
+          "signature": "signal lifecycle_event(event: GFPlatformLifecycleEvent)",
+          "summary": "收到平台生命周期事件后发出。",
+          "visibility": "public"
+        },
+        {
+          "kind": "enum",
+          "name": "State",
+          "signature": "enum State {\n\t## 尚未初始化。\n\tCREATED,\n\t## 正在执行 adapter 初始化。\n\tINITIALIZING,\n\t## 可接受平台请求。\n\tREADY,\n\t## 初始化失败。\n\tFAILED,\n\t## 已关闭且不可重新使用。\n\tSHUTDOWN,\n}",
+          "summary": "Adapter 生命周期状态。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "configure",
+          "signature": "func configure( adapter_id: StringName, platform_id: StringName, contract_ids: PackedStringArray, initial_context: GFPlatformRuntimeContext = null ) -> bool",
+          "summary": "配置 adapter 身份和支持的桥接契约。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_adapter_id",
+          "signature": "func get_adapter_id() -> StringName",
+          "summary": "获取 adapter ID。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_platform_id",
+          "signature": "func get_platform_id() -> StringName",
+          "summary": "获取平台 ID。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_contract_ids",
+          "signature": "func get_contract_ids() -> PackedStringArray",
+          "summary": "获取支持的桥接契约 ID 副本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "supports_contract",
+          "signature": "func supports_contract(contract_id: StringName) -> bool",
+          "summary": "检查 adapter 是否支持桥接契约。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_state",
+          "signature": "func get_state() -> State",
+          "summary": "获取当前状态。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_ready",
+          "signature": "func is_ready() -> bool",
+          "summary": "检查 adapter 是否可接受请求。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "initialize",
+          "signature": "func initialize(options: Dictionary = {}) -> GFAsyncCompletion",
+          "summary": "初始化 adapter。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_context",
+          "signature": "func get_context() -> GFPlatformRuntimeContext",
+          "summary": "获取运行时上下文副本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "invoke",
+          "signature": "func invoke(request: GFPlatformBridgeRequest) -> GFPlatformRequestHandle",
+          "summary": "发起桥接请求。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "poll",
+          "signature": "func poll(delta: float) -> void",
+          "summary": "推进需要 callback pump 的平台 SDK。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "shutdown",
+          "signature": "func shutdown() -> void",
+          "summary": "关闭 adapter 并释放平台资源。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_debug_snapshot",
+          "signature": "func get_debug_snapshot() -> Dictionary",
+          "summary": "获取 adapter 调试快照。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "_initialize",
+          "signature": "func _initialize(_options: Dictionary) -> void",
+          "summary": "执行平台初始化。",
+          "visibility": "protected"
+        },
+        {
+          "kind": "func",
+          "name": "_dispatch",
+          "signature": "func _dispatch(_request: GFPlatformBridgeRequest, _handle: GFPlatformRequestHandle) -> bool",
+          "summary": "派发平台请求。",
+          "visibility": "protected"
+        },
+        {
+          "kind": "func",
+          "name": "_poll",
+          "signature": "func _poll(_delta: float) -> void",
+          "summary": "推进底层平台 callback pump。",
+          "visibility": "protected"
+        },
+        {
+          "kind": "func",
+          "name": "_cancel_request",
+          "signature": "func _cancel_request(_handle: GFPlatformRequestHandle, _reason: StringName) -> void",
+          "summary": "处理请求取消或超时通知。",
+          "visibility": "protected"
+        },
+        {
+          "kind": "func",
+          "name": "_shutdown",
+          "signature": "func _shutdown() -> void",
+          "summary": "释放底层平台资源。",
+          "visibility": "protected"
+        },
+        {
+          "kind": "func",
+          "name": "_complete_initialization",
+          "signature": "func _complete_initialization(context: GFPlatformRuntimeContext) -> bool",
+          "summary": "完成 adapter 初始化。",
+          "visibility": "protected"
+        },
+        {
+          "kind": "func",
+          "name": "_fail_initialization",
+          "signature": "func _fail_initialization(error: String, metadata: Dictionary = {}) -> bool",
+          "summary": "标记 adapter 初始化失败。",
+          "visibility": "protected"
+        },
+        {
+          "kind": "func",
+          "name": "_publish_context",
+          "signature": "func _publish_context(context: GFPlatformRuntimeContext) -> bool",
+          "summary": "发布更新后的平台上下文。",
+          "visibility": "protected"
+        },
+        {
+          "kind": "func",
+          "name": "_publish_lifecycle_event",
+          "signature": "func _publish_lifecycle_event(event: GFPlatformLifecycleEvent) -> bool",
+          "summary": "发布平台生命周期事件。",
+          "visibility": "protected"
+        },
+        {
+          "kind": "func",
+          "name": "_succeed_request",
+          "signature": "func _succeed_request( handle: GFPlatformRequestHandle, value: Variant = null, status: StringName = &\"ok\", metadata: Dictionary = {} ) -> bool",
+          "summary": "以成功结果完成请求。",
+          "visibility": "protected"
+        },
+        {
+          "kind": "func",
+          "name": "_fail_request",
+          "signature": "func _fail_request( handle: GFPlatformRequestHandle, status: StringName, error: String, metadata: Dictionary = {} ) -> bool",
+          "summary": "以失败结果完成请求。",
+          "visibility": "protected"
+        }
+      ]
+    },
     "GFPlatformBridgeRequest": {
       "extends": "Resource",
       "module": "standard",
@@ -51253,6 +51848,275 @@
           "name": "from_dict",
           "signature": "static func from_dict(data: Dictionary) -> GFPlatformLocaleMap",
           "summary": "从字典创建映射表。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFPlatformRequestHandle": {
+      "extends": "RefCounted",
+      "module": "standard",
+      "package_id": "gf.standard.platform",
+      "path": "addons/gf/standard/platform/gf_platform_request_handle.gd",
+      "summary": "GFPlatformRequestHandle: 平台桥接请求运行时句柄。 句柄保证一次请求只进入一个终态，并把取消、超时和 adapter 返回统一为 `GFPlatformBridgeResult`。项目代码只读取句柄，不负责完成句柄。",
+      "visibility": "public",
+      "category": "runtime_handle",
+      "since": "9.0.0",
+      "members": [
+        {
+          "kind": "signal",
+          "name": "completed",
+          "signature": "signal completed(result: GFPlatformBridgeResult)",
+          "summary": "请求进入终态时发出一次。",
+          "visibility": "public"
+        },
+        {
+          "kind": "signal",
+          "name": "cancel_requested",
+          "signature": "signal cancel_requested(reason: StringName)",
+          "summary": "请求取消或超时时发出，供 adapter 停止底层调用。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_request",
+          "signature": "func get_request() -> GFPlatformBridgeRequest",
+          "summary": "获取请求数据副本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_request_id",
+          "signature": "func get_request_id() -> StringName",
+          "summary": "获取请求 ID。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_pending",
+          "signature": "func is_pending() -> bool",
+          "summary": "检查请求是否仍在等待终态。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_completed",
+          "signature": "func is_completed() -> bool",
+          "summary": "检查请求是否已经完成。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_successful",
+          "signature": "func is_successful() -> bool",
+          "summary": "检查请求是否成功。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_result",
+          "signature": "func get_result() -> GFPlatformBridgeResult",
+          "summary": "获取终态结果副本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "cancel",
+          "signature": "func cancel(reason: StringName = &\"cancelled\") -> bool",
+          "summary": "取消请求。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_debug_snapshot",
+          "signature": "func get_debug_snapshot() -> Dictionary",
+          "summary": "获取稳定调试快照。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFPlatformRuntime": {
+      "extends": "GFUtility",
+      "module": "standard",
+      "package_id": "gf.standard.platform",
+      "path": "addons/gf/standard/platform/gf_platform_runtime.gd",
+      "summary": "GFPlatformRuntime: 平台 adapter 注册、路由与请求生命周期服务。 运行时允许多个外部 adapter 共存，但不会在同一契约存在多个候选时按注册顺序 猜测实现。项目必须通过 `set_contract_route` 显式消除歧义。",
+      "visibility": "public",
+      "category": "runtime_service",
+      "since": "9.0.0",
+      "members": [
+        {
+          "kind": "signal",
+          "name": "adapter_registered",
+          "signature": "signal adapter_registered(adapter_id: StringName)",
+          "summary": "Adapter 注册后发出。",
+          "visibility": "public"
+        },
+        {
+          "kind": "signal",
+          "name": "adapter_unregistered",
+          "signature": "signal adapter_unregistered(adapter_id: StringName)",
+          "summary": "Adapter 注销后发出。",
+          "visibility": "public"
+        },
+        {
+          "kind": "signal",
+          "name": "adapter_state_changed",
+          "signature": "signal adapter_state_changed(adapter_id: StringName, previous_state: int, current_state: int)",
+          "summary": "Adapter 状态变化后转发。",
+          "visibility": "public"
+        },
+        {
+          "kind": "signal",
+          "name": "context_changed",
+          "signature": "signal context_changed(adapter_id: StringName, context: GFPlatformRuntimeContext)",
+          "summary": "Adapter 上下文变化后转发。",
+          "visibility": "public"
+        },
+        {
+          "kind": "signal",
+          "name": "lifecycle_event",
+          "signature": "signal lifecycle_event(adapter_id: StringName, event: GFPlatformLifecycleEvent)",
+          "summary": "Adapter 生命周期事件转发。",
+          "visibility": "public"
+        },
+        {
+          "kind": "signal",
+          "name": "request_started",
+          "signature": "signal request_started(adapter_id: StringName, request: GFPlatformBridgeRequest)",
+          "summary": "请求交给 adapter 前发出。",
+          "visibility": "public"
+        },
+        {
+          "kind": "signal",
+          "name": "request_completed",
+          "signature": "signal request_completed(adapter_id: StringName, result: GFPlatformBridgeResult)",
+          "summary": "请求进入终态后发出。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "ready",
+          "signature": "func ready() -> void",
+          "summary": "在架构中自动采用已注册 GFTimeProvider 的底层时钟。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "tick",
+          "signature": "func tick(delta: float) -> void",
+          "summary": "推进 adapter callback pump 并处理请求超时。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "dispose",
+          "signature": "func dispose() -> void",
+          "summary": "取消全部请求、注销 adapter 并关闭平台资源。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "set_clock",
+          "signature": "func set_clock(clock: GFClock) -> bool",
+          "summary": "设置平台请求截止时间与结果耗时使用的统一单调时钟。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_clock",
+          "signature": "func get_clock() -> GFClock",
+          "summary": "获取当前平台时钟。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "register_adapter",
+          "signature": "func register_adapter(adapter: GFPlatformAdapter) -> bool",
+          "summary": "注册平台 adapter。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "unregister_adapter",
+          "signature": "func unregister_adapter(adapter_id: StringName, shutdown_adapter: bool = true) -> bool",
+          "summary": "注销平台 adapter。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "initialize_adapter",
+          "signature": "func initialize_adapter(adapter_id: StringName, options: Dictionary = {}) -> GFAsyncCompletion",
+          "summary": "初始化指定 adapter。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "set_contract_route",
+          "signature": "func set_contract_route(contract_id: StringName, adapter_id: StringName) -> bool",
+          "summary": "为桥接契约设置显式 adapter 路由。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "clear_contract_route",
+          "signature": "func clear_contract_route(contract_id: StringName) -> bool",
+          "summary": "清除桥接契约显式路由。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_contract_route",
+          "signature": "func get_contract_route(contract_id: StringName) -> StringName",
+          "summary": "获取桥接契约当前显式路由。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "invoke",
+          "signature": "func invoke( request: GFPlatformBridgeRequest, adapter_id: StringName = &\"\" ) -> GFPlatformRequestHandle",
+          "summary": "提交完整平台桥接请求。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "invoke_contract",
+          "signature": "func invoke_contract( contract_id: StringName, method_id: StringName, payload: Dictionary = {}, options: Dictionary = {} ) -> GFPlatformRequestHandle",
+          "summary": "构建并提交平台桥接请求。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "cancel_request",
+          "signature": "func cancel_request(request_id: StringName, reason: StringName = &\"cancelled\") -> bool",
+          "summary": "取消等待中的请求。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_adapter_ids",
+          "signature": "func get_adapter_ids() -> PackedStringArray",
+          "summary": "获取注册的 Adapter ID。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_context",
+          "signature": "func get_context(adapter_id: StringName) -> GFPlatformRuntimeContext",
+          "summary": "获取 adapter 上下文副本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "has_capability",
+          "signature": "func has_capability(capability_id: StringName, adapter_id: StringName = &\"\") -> bool",
+          "summary": "检查一个或任意已就绪 adapter 是否声明能力。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_debug_snapshot",
+          "signature": "func get_debug_snapshot() -> Dictionary",
+          "summary": "获取运行时调试快照。",
           "visibility": "public"
         }
       ]
@@ -52477,7 +53341,7 @@
       "summary": "GFPriorityWorkQueue: 带等待加成的稳定优先级工作队列。 以基础优先级、入队时间和稳定顺序选择下一个值。等待加成不设上限， 因此在新任务优先级有限的前提下，旧低优先级任务最终能够获得执行机会。",
       "visibility": "public",
       "category": "value_object",
-      "since": "unreleased",
+      "since": "9.0.0",
       "members": [
         {
           "kind": "var",
@@ -55025,7 +55889,7 @@
       "summary": "GFQuietWindowCoalescer: 按 key 聚合连发消息的静默窗口协调器。 每个 key 独立收集按序消息，在最后一次提交后的静默窗口、批次最大窗口或 消息数量上限到达时关闭批次。框架不解释消息内容；项目可通过 merge_callback",
       "visibility": "public",
       "category": "runtime_service",
-      "since": "unreleased",
+      "since": "9.0.0",
       "members": [
         {
           "kind": "signal",
@@ -61086,6 +61950,357 @@
         }
       ]
     },
+    "GFSaveDocument": {
+      "extends": "RefCounted",
+      "module": "extensions/save",
+      "package_id": "gf.extension.save",
+      "path": "addons/gf/extensions/save/document/gf_save_document.gd",
+      "summary": "GFSaveDocument: 项目级版本化存档文档。 文档把项目 schema 身份、文档版本和多个独立版本化分区组合成规范载荷。 物理编码、校验和与文件事务仍由 GFStorageUtility 负责。",
+      "visibility": "public",
+      "category": "value_object",
+      "since": "9.0.0",
+      "members": [
+        {
+          "kind": "const",
+          "name": "FORMAT_ID",
+          "signature": "const FORMAT_ID: String = \"gf_save_document\"",
+          "summary": "文档格式标识。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "FORMAT_VERSION",
+          "signature": "const FORMAT_VERSION: int = 1",
+          "summary": "当前文档容器格式版本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "configure",
+          "signature": "func configure( schema_id: StringName, schema_version: int, sections: Array[GFSaveSection] = [], metadata: Dictionary = {} ) -> GFSaveDocument",
+          "summary": "配置文档头与初始分区。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_schema_id",
+          "signature": "func get_schema_id() -> StringName",
+          "summary": "获取项目 schema ID。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_schema_version",
+          "signature": "func get_schema_version() -> int",
+          "summary": "获取文档 schema 版本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_metadata",
+          "signature": "func get_metadata() -> Dictionary",
+          "summary": "获取文档元数据副本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "set_section",
+          "signature": "func set_section(section: GFSaveSection) -> bool",
+          "summary": "添加或替换分区。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "has_section",
+          "signature": "func has_section(section_id: StringName) -> bool",
+          "summary": "检查分区是否存在。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_section",
+          "signature": "func get_section(section_id: StringName) -> GFSaveSection",
+          "summary": "获取分区副本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_sections",
+          "signature": "func get_sections() -> Array[GFSaveSection]",
+          "summary": "获取全部分区副本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_section_ids",
+          "signature": "func get_section_ids() -> PackedStringArray",
+          "summary": "获取全部分区 ID。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "remove_section",
+          "signature": "func remove_section(section_id: StringName) -> bool",
+          "summary": "移除分区。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "validate_document",
+          "signature": "func validate_document() -> Dictionary",
+          "summary": "校验文档头、分区和持久化安全性。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "to_dict",
+          "signature": "func to_dict() -> Dictionary",
+          "summary": "转换为规范持久化字典。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "duplicate_document",
+          "signature": "func duplicate_document() -> GFSaveDocument",
+          "summary": "创建隔离副本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "inspect_dict",
+          "signature": "static func inspect_dict(data: Dictionary) -> Dictionary",
+          "summary": "检查持久化字典是否为当前文档容器格式。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "from_dict",
+          "signature": "static func from_dict(data: Dictionary) -> GFSaveDocument",
+          "summary": "从规范字典解析文档。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFSaveDocumentReadResult": {
+      "extends": "RefCounted",
+      "module": "extensions/save",
+      "package_id": "gf.extension.save",
+      "path": "addons/gf/extensions/save/document/gf_save_document_read_result.gd",
+      "summary": "GFSaveDocumentReadResult: 存档文档读取终态结果。 结果保留物理存储读取、文档解析、schema 校验和迁移状态，避免调用方 把读取失败、格式损坏、未来版本或迁移缺口都误判为空 Dictionary。",
+      "visibility": "public",
+      "category": "value_object",
+      "since": "9.0.0",
+      "members": [
+        {
+          "kind": "const",
+          "name": "STATUS_LOADED",
+          "signature": "const STATUS_LOADED: StringName = &\"loaded\"",
+          "summary": "文档无需迁移并已加载。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATUS_MIGRATED",
+          "signature": "const STATUS_MIGRATED: StringName = &\"migrated\"",
+          "summary": "文档迁移后已加载。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATUS_FAILED",
+          "signature": "const STATUS_FAILED: StringName = &\"failed\"",
+          "summary": "文档读取失败。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_successful",
+          "signature": "func is_successful() -> bool",
+          "summary": "检查读取、解析、迁移和最终校验是否全部成功。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "was_migrated",
+          "signature": "func was_migrated() -> bool",
+          "summary": "检查是否执行过迁移。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_status",
+          "signature": "func get_status() -> StringName",
+          "summary": "获取终态状态。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_document",
+          "signature": "func get_document() -> GFSaveDocument",
+          "summary": "获取有效文档副本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_storage_result",
+          "signature": "func get_storage_result() -> GFStorageReadResult",
+          "summary": "获取底层存储读取结果副本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_migration_result",
+          "signature": "func get_migration_result() -> GFSaveMigrationResult",
+          "summary": "获取迁移结果副本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_validation_report",
+          "signature": "func get_validation_report() -> Dictionary",
+          "summary": "获取最终校验报告副本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_error_code",
+          "signature": "func get_error_code() -> Error",
+          "summary": "获取错误码。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_error",
+          "signature": "func get_error() -> String",
+          "summary": "获取错误说明。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "to_dict",
+          "signature": "func to_dict() -> Dictionary",
+          "summary": "转换为诊断字典。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "duplicate_result",
+          "signature": "func duplicate_result() -> GFSaveDocumentReadResult",
+          "summary": "创建结果副本。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFSaveDocumentSchema": {
+      "extends": "Resource",
+      "module": "extensions/save",
+      "package_id": "gf.extension.save",
+      "path": "addons/gf/extensions/save/document/gf_save_document_schema.gd",
+      "summary": "GFSaveDocumentSchema: 项目存档文档的当前版本契约。 项目用该 Resource 声明 schema_id、当前文档版本、已知分区版本和必需分区。 GF 只校验结构与版本，不解释任何业务字段。",
+      "visibility": "public",
+      "category": "resource_definition",
+      "since": "9.0.0",
+      "members": [
+        {
+          "kind": "var",
+          "name": "schema_id",
+          "signature": "var schema_id: StringName = &\"\"",
+          "summary": "项目存档 schema 的稳定 ID。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "schema_version",
+          "signature": "var schema_version: int = 1",
+          "summary": "当前文档 schema 版本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "section_versions",
+          "signature": "var section_versions: Dictionary = {}",
+          "summary": "已知分区及其当前版本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "required_sections",
+          "signature": "var required_sections: PackedStringArray = PackedStringArray()",
+          "summary": "当前 schema 必须存在的分区。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "allow_unknown_sections",
+          "signature": "var allow_unknown_sections: bool = true",
+          "summary": "是否允许并原样保留 schema 未声明的分区。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "configure",
+          "signature": "func configure( p_schema_id: StringName, p_schema_version: int, p_section_versions: Dictionary = {}, options: Dictionary = {} ) -> GFSaveDocumentSchema",
+          "summary": "配置当前 schema 契约。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_section_version",
+          "signature": "func get_section_version(section_id: StringName) -> int",
+          "summary": "获取指定分区的当前版本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "has_section",
+          "signature": "func has_section(section_id: StringName) -> bool",
+          "summary": "检查是否声明了分区。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_section_ids",
+          "signature": "func get_section_ids() -> PackedStringArray",
+          "summary": "获取排序后的已知分区 ID。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "validate_schema",
+          "signature": "func validate_schema() -> Dictionary",
+          "summary": "校验 schema 自身。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "validate_document",
+          "signature": "func validate_document( document: GFSaveDocument, require_current_versions: bool = true ) -> Dictionary",
+          "summary": "校验文档是否符合该 schema。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "to_dict",
+          "signature": "func to_dict() -> Dictionary",
+          "summary": "转换为字典。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "duplicate_schema",
+          "signature": "func duplicate_schema() -> GFSaveDocumentSchema",
+          "summary": "创建 schema 副本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "from_dict",
+          "signature": "static func from_dict(data: Dictionary) -> GFSaveDocumentSchema",
+          "summary": "从字典创建 schema。",
+          "visibility": "public"
+        }
+      ]
+    },
     "GFSaveEntityFactory": {
       "extends": "Resource",
       "module": "extensions/save",
@@ -61158,6 +62373,27 @@
           "visibility": "public"
         },
         {
+          "kind": "const",
+          "name": "DOCUMENT_SCHEMA_ID",
+          "signature": "const DOCUMENT_SCHEMA_ID: StringName = &\"gf.save_graph\"",
+          "summary": "独立 SaveGraph 文档使用的 schema ID。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "DOCUMENT_SCHEMA_VERSION",
+          "signature": "const DOCUMENT_SCHEMA_VERSION: int = 1",
+          "summary": "独立 SaveGraph 文档的当前 schema 版本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "DOCUMENT_SECTION_ID",
+          "signature": "const DOCUMENT_SECTION_ID: StringName = &\"save_graph\"",
+          "summary": "SaveGraph 在版本化文档中的默认分区 ID。",
+          "visibility": "public"
+        },
+        {
           "kind": "var",
           "name": "serializer_registry",
           "signature": "var serializer_registry: GFNodeSerializerRegistry = GFNodeSerializerRegistry.new()",
@@ -61169,6 +62405,27 @@
           "name": "pipeline_steps",
           "signature": "var pipeline_steps: Array[GFSavePipelineStep] = []",
           "summary": "存档图流程步骤。按数组顺序执行，适合压缩前校验、调试标记、版本适配等通用处理。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "ready",
+          "signature": "func ready() -> void",
+          "summary": "在架构中自动采用已注册 GFTimeProvider 的底层时钟。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "set_clock",
+          "signature": "func set_clock(clock: GFClock) -> bool",
+          "summary": "设置存档流水线诊断使用的单调时钟。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_clock",
+          "signature": "func get_clock() -> GFClock",
+          "summary": "获取存档流水线诊断使用的时钟。",
           "visibility": "public"
         },
         {
@@ -61218,6 +62475,41 @@
           "name": "create_pipeline_context",
           "signature": "func create_pipeline_context( operation: StringName, scope: GFSaveScope = null, shared: Dictionary = {} ) -> GFSavePipelineContext",
           "summary": "创建存档流程上下文。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "create_document_schema",
+          "signature": "func create_document_schema() -> GFSaveDocumentSchema",
+          "summary": "创建独立 SaveGraph 文档的当前 schema。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "gather_section",
+          "signature": "func gather_section( scope: GFSaveScope, section_id: StringName = DOCUMENT_SECTION_ID, context: Dictionary = {} ) -> GFSaveSection",
+          "summary": "把 Scope 图采集为可组合版本化分区。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "apply_section",
+          "signature": "func apply_section( scope: GFSaveScope, section: GFSaveSection, context: Dictionary = {}, strict: bool = false ) -> Dictionary",
+          "summary": "应用可组合 SaveGraph 分区。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "gather_document",
+          "signature": "func gather_document( scope: GFSaveScope, metadata: Dictionary = {}, context: Dictionary = {} ) -> GFSaveDocument",
+          "summary": "采集独立 SaveGraph 文档。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "apply_document",
+          "signature": "func apply_document( scope: GFSaveScope, document: GFSaveDocument, context: Dictionary = {}, strict: bool = false ) -> Dictionary",
+          "summary": "应用独立 SaveGraph 文档。",
           "visibility": "public"
         },
         {
@@ -61329,6 +62621,224 @@
           "signature": "func describe_identity() -> Dictionary",
           "summary": "构造身份描述。",
           "visibility": "public"
+        }
+      ]
+    },
+    "GFSaveMigrationRegistry": {
+      "extends": "RefCounted",
+      "module": "extensions/save",
+      "package_id": "gf.extension.save",
+      "path": "addons/gf/extensions/save/document/gf_save_migration_registry.gd",
+      "summary": "GFSaveMigrationRegistry: 确定性存档迁移注册表。 Registry 强制每个 schema/owner/from_version 只有一条相邻版本边， 在隔离副本上先执行文档迁移，再按 section_id 排序执行分区迁移。",
+      "visibility": "public",
+      "category": "runtime_service",
+      "since": "9.0.0",
+      "members": [
+        {
+          "kind": "func",
+          "name": "register_step",
+          "signature": "func register_step(step: GFSaveMigrationStep) -> bool",
+          "summary": "注册唯一迁移步骤。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "unregister_step",
+          "signature": "func unregister_step( schema_id: StringName, section_id: StringName, from_version: int ) -> bool",
+          "summary": "注销指定迁移边。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "clear",
+          "signature": "func clear() -> void",
+          "summary": "清空全部迁移步骤。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "has_step",
+          "signature": "func has_step( schema_id: StringName, section_id: StringName, from_version: int ) -> bool",
+          "summary": "检查指定版本边是否存在。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "describe_steps",
+          "signature": "func describe_steps() -> Array[Dictionary]",
+          "summary": "获取排序后的步骤描述。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "build_plan",
+          "signature": "func build_plan( document: GFSaveDocument, target_schema: GFSaveDocumentSchema ) -> Dictionary",
+          "summary": "构建不执行迁移代码的路径计划。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "migrate",
+          "signature": "func migrate( document: GFSaveDocument, target_schema: GFSaveDocumentSchema, context: Dictionary = {} ) -> GFSaveMigrationResult",
+          "summary": "把文档事务式迁移到目标 schema。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFSaveMigrationResult": {
+      "extends": "RefCounted",
+      "module": "extensions/save",
+      "package_id": "gf.extension.save",
+      "path": "addons/gf/extensions/save/document/gf_save_migration_result.gd",
+      "summary": "GFSaveMigrationResult: 存档迁移终态结果。 结果持有隔离文档、迁移轨迹和失败位置。失败时不暴露部分迁移文档， 确保调用方只能提交完整成功的迁移结果。",
+      "visibility": "public",
+      "category": "value_object",
+      "since": "9.0.0",
+      "members": [
+        {
+          "kind": "func",
+          "name": "is_successful",
+          "signature": "func is_successful() -> bool",
+          "summary": "检查迁移是否完整成功。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_document",
+          "signature": "func get_document() -> GFSaveDocument",
+          "summary": "获取成功文档副本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_error_code",
+          "signature": "func get_error_code() -> Error",
+          "summary": "获取错误码。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_error",
+          "signature": "func get_error() -> String",
+          "summary": "获取错误说明。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_failed_step_id",
+          "signature": "func get_failed_step_id() -> StringName",
+          "summary": "获取失败步骤 ID。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "was_migrated",
+          "signature": "func was_migrated() -> bool",
+          "summary": "检查是否实际执行过迁移步骤。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_trace",
+          "signature": "func get_trace() -> Array[Dictionary]",
+          "summary": "获取迁移轨迹副本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "to_dict",
+          "signature": "func to_dict() -> Dictionary",
+          "summary": "转换为诊断字典。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "duplicate_result",
+          "signature": "func duplicate_result() -> GFSaveMigrationResult",
+          "summary": "创建结果副本。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFSaveMigrationStep": {
+      "extends": "Resource",
+      "module": "extensions/save",
+      "package_id": "gf.extension.save",
+      "path": "addons/gf/extensions/save/document/gf_save_migration_step.gd",
+      "summary": "GFSaveMigrationStep: 单向相邻版本迁移步骤协议。 空 section_id 表示文档级迁移；非空 section_id 表示单个分区迁移。 每个步骤只允许 `N -> N + 1`，以消除路径歧义并保持迁移链可审计。",
+      "visibility": "public",
+      "category": "protocol",
+      "since": "9.0.0",
+      "members": [
+        {
+          "kind": "var",
+          "name": "step_id",
+          "signature": "var step_id: StringName = &\"\"",
+          "summary": "稳定步骤 ID，用于诊断与审计。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "schema_id",
+          "signature": "var schema_id: StringName = &\"\"",
+          "summary": "步骤所属项目 schema ID。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "section_id",
+          "signature": "var section_id: StringName = &\"\"",
+          "summary": "目标分区 ID；为空表示文档级迁移。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "from_version",
+          "signature": "var from_version: int = 0",
+          "summary": "来源版本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "to_version",
+          "signature": "var to_version: int = 0",
+          "summary": "目标版本，必须等于 from_version + 1。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_document_step",
+          "signature": "func is_document_step() -> bool",
+          "summary": "检查是否为文档级步骤。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "validate_step",
+          "signature": "func validate_step() -> Dictionary",
+          "summary": "校验步骤身份和版本边。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "describe_step",
+          "signature": "func describe_step() -> Dictionary",
+          "summary": "描述步骤。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "_migrate_document",
+          "signature": "func _migrate_document( document: GFSaveDocument, _context: Dictionary = {} ) -> GFSaveDocument",
+          "summary": "执行文档级迁移。",
+          "visibility": "protected"
+        },
+        {
+          "kind": "func",
+          "name": "_migrate_section",
+          "signature": "func _migrate_section( section: GFSaveSection, _context: Dictionary = {} ) -> GFSaveSection",
+          "summary": "执行分区级迁移。",
+          "visibility": "protected"
         }
       ]
     },
@@ -61560,7 +63070,7 @@
         {
           "kind": "func",
           "name": "configure",
-          "signature": "func configure( p_stage: StringName, scope: Object = null, source: Object = null, p_message: String = \"\", p_payload: Dictionary = {}, p_severity: StringName = &\"info\" ) -> GFSavePipelineEvent",
+          "signature": "func configure( p_stage: StringName, scope: Object = null, source: Object = null, p_message: String = \"\", p_payload: Dictionary = {}, p_severity: StringName = &\"info\", p_timestamp_msec: int = 0 ) -> GFSavePipelineEvent",
           "summary": "配置事件内容并返回自身。",
           "visibility": "public"
         },
@@ -61769,6 +63279,81 @@
           "signature": "func _after_load(_payload: Dictionary, _context: Dictionary = {}) -> void",
           "summary": "加载后 Hook。",
           "visibility": "protected"
+        }
+      ]
+    },
+    "GFSaveSection": {
+      "extends": "RefCounted",
+      "module": "extensions/save",
+      "package_id": "gf.extension.save",
+      "path": "addons/gf/extensions/save/document/gf_save_section.gd",
+      "summary": "GFSaveSection: 版本化存档分区值对象。 分区用稳定 section_id、独立 schema_version 和任意可持久化 payload 表达一个模块拥有的数据边界，不解释项目业务字段。",
+      "visibility": "public",
+      "category": "value_object",
+      "since": "9.0.0",
+      "members": [
+        {
+          "kind": "func",
+          "name": "configure",
+          "signature": "func configure( section_id: StringName, schema_version: int, payload: Variant, metadata: Dictionary = {} ) -> GFSaveSection",
+          "summary": "配置分区并复制所有动态数据。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_section_id",
+          "signature": "func get_section_id() -> StringName",
+          "summary": "获取稳定分区 ID。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_schema_version",
+          "signature": "func get_schema_version() -> int",
+          "summary": "获取分区 schema 版本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_payload",
+          "signature": "func get_payload() -> Variant",
+          "summary": "获取分区载荷副本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_metadata",
+          "signature": "func get_metadata() -> Dictionary",
+          "summary": "获取分区元数据副本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "validate_section",
+          "signature": "func validate_section() -> Dictionary",
+          "summary": "校验分区身份、版本和持久化安全性。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "to_dict",
+          "signature": "func to_dict() -> Dictionary",
+          "summary": "转换为规范持久化字典。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "duplicate_section",
+          "signature": "func duplicate_section() -> GFSaveSection",
+          "summary": "创建隔离副本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "from_dict",
+          "signature": "static func from_dict(data: Dictionary) -> GFSaveSection",
+          "summary": "从持久化字典创建分区。",
+          "visibility": "public"
         }
       ]
     },
@@ -62021,7 +63606,7 @@
         {
           "kind": "func",
           "name": "from_values",
-          "signature": "static func from_values( p_slot_id: StringName, p_display_name: String = \"\", p_custom_metadata: Dictionary = {} ) -> GFSaveSlotMetadata",
+          "signature": "static func from_values( p_slot_id: StringName, p_display_name: String = \"\", p_custom_metadata: Dictionary = {}, unix_time_seconds: int = 0 ) -> GFSaveSlotMetadata",
           "summary": "使用常用字段创建元数据。",
           "visibility": "public"
         }
@@ -62068,7 +63653,7 @@
         {
           "kind": "func",
           "name": "setup",
-          "signature": "func setup(storage: GFStorageUtility) -> GFSaveSlotStorageAdapter",
+          "signature": "func setup(storage: GFStorageUtility, clock: GFClock = null) -> GFSaveSlotStorageAdapter",
           "summary": "设置底层存储工具。",
           "visibility": "public"
         },
@@ -62077,6 +63662,20 @@
           "name": "get_storage",
           "signature": "func get_storage() -> GFStorageUtility",
           "summary": "获取底层存储工具。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "set_clock",
+          "signature": "func set_clock(clock: GFClock) -> bool",
+          "summary": "设置缺省元数据时间戳使用的墙上时钟。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_clock",
+          "signature": "func get_clock() -> GFClock",
+          "summary": "获取缺省元数据时间戳使用的时钟。",
           "visibility": "public"
         },
         {
@@ -62096,15 +63695,15 @@
         {
           "kind": "func",
           "name": "save_slot",
-          "signature": "func save_slot(slot_index: int, data: Dictionary, metadata: Dictionary = {}) -> Error",
-          "summary": "保存槽位数据和元数据。",
+          "signature": "func save_slot( slot_index: int, document: GFSaveDocument, metadata: Dictionary = {} ) -> Error",
+          "summary": "保存版本化槽位文档和元数据。",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "load_slot",
-          "signature": "func load_slot(slot_index: int) -> Dictionary",
-          "summary": "读取槽位数据。",
+          "signature": "func load_slot( slot_index: int, target_schema: GFSaveDocumentSchema = null, migrations: GFSaveMigrationRegistry = null, context: Dictionary = {} ) -> GFSaveDocumentReadResult",
+          "summary": "读取、迁移并校验槽位文档。",
           "visibility": "public"
         },
         {
@@ -62241,6 +63840,20 @@
           "name": "slot_role",
           "signature": "var slot_role: StringName = &\"\"",
           "summary": "槽位角色。用于区分 autosave/manual/cloud 等抽象类别。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "set_clock",
+          "signature": "func set_clock(clock: GFClock) -> bool",
+          "summary": "设置元数据时间戳使用的墙上时钟。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_clock",
+          "signature": "func get_clock() -> GFClock",
+          "summary": "获取元数据时间戳使用的时钟。",
           "visibility": "public"
         },
         {
@@ -69963,7 +71576,7 @@
       "module": "standard",
       "package_id": "gf.standard.storage",
       "path": "addons/gf/standard/utilities/storage/gf_storage_codec.gd",
-      "summary": "GFStorageCodec: 通用存档字典编码与解码策略。 负责字典序列化、可选压缩、完整性校验和轻量混淆。 JSON 格式会通过 GFVariantJsonCodec 保留 Godot 值类型和非有限浮点数。",
+      "summary": "GFStorageCodec: 通用存档字典编码与解码策略。 负责严格存储文档的字典序列化、可选压缩、完整性校验和轻量混淆。 JSON 格式会通过 GFVariantJsonCodec 保留 Godot 值类型和非有限浮点数。",
       "visibility": "public",
       "category": "resource_definition",
       "since": "3.17.0",
@@ -69977,15 +71590,57 @@
         },
         {
           "kind": "const",
-          "name": "META_KEY",
-          "signature": "const META_KEY: String = \"_meta\"",
+          "name": "DOCUMENT_KEY",
+          "signature": "const DOCUMENT_KEY: String = \"__gf_storage_document\"",
+          "summary": "存储文档描述字段名。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "PAYLOAD_KEY",
+          "signature": "const PAYLOAD_KEY: String = \"payload\"",
+          "summary": "存储文档业务载荷字段名。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "SCHEMA_VERSION_KEY",
+          "signature": "const SCHEMA_VERSION_KEY: String = \"schema_version\"",
+          "summary": "文档 schema 版本字段名。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "METADATA_KEY",
+          "signature": "const METADATA_KEY: String = \"metadata\"",
           "summary": "存储元信息字段名。",
           "visibility": "public"
         },
         {
           "kind": "const",
+          "name": "INTEGRITY_KEY",
+          "signature": "const INTEGRITY_KEY: String = \"integrity\"",
+          "summary": "存储完整性描述字段名。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "ALGORITHM_KEY",
+          "signature": "const ALGORITHM_KEY: String = \"algorithm\"",
+          "summary": "完整性算法字段名。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "DIGEST_KEY",
+          "signature": "const DIGEST_KEY: String = \"digest\"",
+          "summary": "完整性摘要字段名。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
           "name": "VERSION_KEY",
-          "signature": "const VERSION_KEY: String = \"version\"",
+          "signature": "const VERSION_KEY: String = \"data_version\"",
           "summary": "存储版本字段名。",
           "visibility": "public"
         },
@@ -69994,13 +71649,6 @@
           "name": "TIMESTAMP_KEY",
           "signature": "const TIMESTAMP_KEY: String = \"timestamp\"",
           "summary": "存储时间戳字段名。",
-          "visibility": "public"
-        },
-        {
-          "kind": "const",
-          "name": "CHECKSUM_KEY",
-          "signature": "const CHECKSUM_KEY: String = \"checksum\"",
-          "summary": "存储完整性校验字段名。",
           "visibility": "public"
         },
         {
@@ -70019,30 +71667,9 @@
         },
         {
           "kind": "const",
-          "name": "ENVELOPE_KEY",
-          "signature": "const ENVELOPE_KEY: String = \"__gf_storage_envelope\"",
-          "summary": "当用户数据自身包含 `_meta` 时，外层包裹使用的标记字段名。",
-          "visibility": "public"
-        },
-        {
-          "kind": "const",
-          "name": "ENVELOPE_VERSION_KEY",
-          "signature": "const ENVELOPE_VERSION_KEY: String = \"__gf_storage_envelope_version\"",
-          "summary": "存储 envelope schema 版本字段名。",
-          "visibility": "public"
-        },
-        {
-          "kind": "const",
-          "name": "ENVELOPE_DATA_KEY",
-          "signature": "const ENVELOPE_DATA_KEY: String = \"data\"",
-          "summary": "存储 envelope 内原始用户数据的字段名。",
-          "visibility": "public"
-        },
-        {
-          "kind": "const",
-          "name": "ENVELOPE_VERSION",
-          "signature": "const ENVELOPE_VERSION: int = 1",
-          "summary": "当前存储 envelope schema 版本。",
+          "name": "DOCUMENT_SCHEMA_VERSION",
+          "signature": "const DOCUMENT_SCHEMA_VERSION: int = 2",
+          "summary": "当前存储文档 schema 版本。",
           "visibility": "public"
         },
         {
@@ -70063,7 +71690,7 @@
           "kind": "var",
           "name": "use_integrity_checksum",
           "signature": "var use_integrity_checksum: bool = false",
-          "summary": "是否在 `_meta.checksum` 中写入 SHA-256 完整性校验。",
+          "summary": "是否在文档完整性描述中写入 SHA-256 摘要。",
           "visibility": "public"
         },
         {
@@ -70077,14 +71704,14 @@
           "kind": "var",
           "name": "require_integrity_checksum",
           "signature": "var require_integrity_checksum: bool = true",
-          "summary": "启用完整性校验时，是否要求载荷必须包含 `_meta.checksum`。",
+          "summary": "启用完整性校验时，是否要求文档必须包含 SHA-256 摘要。",
           "visibility": "public"
         },
         {
           "kind": "var",
           "name": "include_metadata",
           "signature": "var include_metadata: bool = false",
-          "summary": "是否写入 `_meta.version` 和 `_meta.timestamp`。",
+          "summary": "是否写入时间戳、编码格式和压缩方式等诊断元数据。",
           "visibility": "public"
         },
         {
@@ -70110,13 +71737,6 @@
         },
         {
           "kind": "var",
-          "name": "allow_legacy_plain_json_fallback",
-          "signature": "var allow_legacy_plain_json_fallback: bool = false",
-          "summary": "解码失败时是否尝试按旧版未压缩、未混淆 JSON 读取原始 bytes。",
-          "visibility": "public"
-        },
-        {
-          "kind": "var",
           "name": "normalize_json_numbers",
           "signature": "var normalize_json_numbers: bool = false",
           "summary": "JSON 解码时是否把接近整数的 float 归一为 int。Binary 格式不受影响。",
@@ -70132,7 +71752,7 @@
         {
           "kind": "func",
           "name": "decode",
-          "signature": "func decode(bytes: PackedByteArray, options: Dictionary = {}) -> Dictionary",
+          "signature": "func decode(bytes: PackedByteArray, options: Dictionary = {}) -> GFStorageReadResult",
           "summary": "从 bytes 解码字典。",
           "visibility": "public"
         },
@@ -70155,27 +71775,6 @@
           "name": "calculate_checksum",
           "signature": "func calculate_checksum(data: Dictionary, p_format: Format = Format.JSON) -> String",
           "summary": "计算当前数据按指定格式序列化后的 SHA-256。",
-          "visibility": "public"
-        },
-        {
-          "kind": "func",
-          "name": "verify_integrity",
-          "signature": "func verify_integrity(data: Dictionary, p_format: Format = Format.JSON) -> bool",
-          "summary": "校验 `_meta.checksum`。",
-          "visibility": "public"
-        },
-        {
-          "kind": "func",
-          "name": "get_metadata",
-          "signature": "func get_metadata(data: Dictionary) -> Dictionary",
-          "summary": "获取存档元信息副本。",
-          "visibility": "public"
-        },
-        {
-          "kind": "func",
-          "name": "has_integrity_checksum",
-          "signature": "func has_integrity_checksum(data: Dictionary) -> bool",
-          "summary": "判断字典是否包含完整性 checksum。",
           "visibility": "public"
         }
       ]
@@ -70286,6 +71885,144 @@
           "name": "from_dict",
           "signature": "static func from_dict(data: Dictionary) -> GFStorageConflictReport",
           "summary": "从字典创建冲突报告。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFStorageReadResult": {
+      "extends": "RefCounted",
+      "module": "standard",
+      "package_id": "gf.standard.storage",
+      "path": "addons/gf/standard/utilities/storage/gf_storage_read_result.gd",
+      "summary": "GFStorageReadResult: 严格存储读取结果。 将业务载荷、框架存储元数据、完整性状态和失败原因分离，避免调用方 把空字典误判为成功，也避免存储层保留字段渗入业务数据。",
+      "visibility": "public",
+      "category": "value_object",
+      "since": "9.0.0",
+      "members": [
+        {
+          "kind": "enum",
+          "name": "IntegrityStatus",
+          "signature": "enum IntegrityStatus {\n\t## 文档没有声明完整性校验，且调用方没有要求校验。\n\tNOT_CHECKED,\n\t## 文档完整性校验通过。\n\tVALID,\n\t## 调用方要求完整性校验，但文档没有校验信息。\n\tMISSING,\n\t## 文档完整性校验失败。\n\tINVALID,\n}",
+          "summary": "存储文档完整性状态。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "ok",
+          "signature": "var ok: bool = false",
+          "summary": "读取、解码和迁移是否全部成功。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "payload",
+          "signature": "var payload: Dictionary = {}",
+          "summary": "与框架存储字段完全隔离的业务载荷。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "metadata",
+          "signature": "var metadata: Dictionary = {}",
+          "summary": "框架存储文档元数据。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "integrity_status",
+          "signature": "var integrity_status: IntegrityStatus = IntegrityStatus.NOT_CHECKED",
+          "summary": "完整性校验状态。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "error_code",
+          "signature": "var error_code: Error = OK",
+          "summary": "Godot 错误码；成功时为 OK。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "error",
+          "signature": "var error: String = \"\"",
+          "summary": "稳定、可展示的错误描述；成功时为空字符串。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "document_schema_version",
+          "signature": "var document_schema_version: int = 0",
+          "summary": "物理存储文档 schema 版本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "source_data_version",
+          "signature": "var source_data_version: int = 0",
+          "summary": "读取时发现的数据 schema 版本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "data_version",
+          "signature": "var data_version: int = 0",
+          "summary": "完成迁移后的数据 schema 版本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "migrated",
+          "signature": "var migrated: bool = false",
+          "summary": "本次读取是否执行过数据迁移。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "configure_success",
+          "signature": "func configure_success( p_payload: Dictionary, p_metadata: Dictionary = {}, p_integrity_status: IntegrityStatus = IntegrityStatus.NOT_CHECKED, p_document_schema_version: int = 0 ) -> GFStorageReadResult",
+          "summary": "配置成功结果。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "configure_failure",
+          "signature": "func configure_failure( p_error: String, p_error_code: Error = ERR_INVALID_DATA, p_metadata: Dictionary = {}, p_integrity_status: IntegrityStatus = IntegrityStatus.NOT_CHECKED, p_document_schema_version: int = 0 ) -> GFStorageReadResult",
+          "summary": "配置失败结果。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_integrity_accepted",
+          "signature": "func is_integrity_accepted() -> bool",
+          "summary": "完整性状态是否允许调用方使用载荷。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "duplicate_result",
+          "signature": "func duplicate_result() -> GFStorageReadResult",
+          "summary": "创建读取结果深拷贝。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "to_dict",
+          "signature": "func to_dict() -> Dictionary",
+          "summary": "转换为线程、报告和工具可传递的字典。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "apply_dict",
+          "signature": "func apply_dict(data: Dictionary) -> void",
+          "summary": "从字典应用读取结果字段。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "from_dict",
+          "signature": "static func from_dict(data: Dictionary) -> GFStorageReadResult",
+          "summary": "从字典创建读取结果。",
           "visibility": "public"
         }
       ]
@@ -70523,7 +72260,7 @@
         {
           "kind": "signal",
           "name": "load_completed",
-          "signature": "signal load_completed(file_name: String, result: Dictionary)",
+          "signature": "signal load_completed(file_name: String, result: GFStorageReadResult)",
           "summary": "异步读取完成后发出。",
           "visibility": "public"
         },
@@ -70578,13 +72315,6 @@
         },
         {
           "kind": "var",
-          "name": "allow_legacy_plain_json_fallback",
-          "signature": "var allow_legacy_plain_json_fallback: bool = false",
-          "summary": "解码失败时是否尝试按旧版未压缩、未混淆 JSON 读取原始 bytes。",
-          "visibility": "public"
-        },
-        {
-          "kind": "var",
           "name": "normalize_json_numbers",
           "signature": "var normalize_json_numbers: bool = false",
           "summary": "JSON 读取时是否把接近整数的 float 归一为 int。Binary 格式不受影响。",
@@ -70615,7 +72345,7 @@
           "kind": "var",
           "name": "include_storage_metadata",
           "signature": "var include_storage_metadata: bool = false",
-          "summary": "是否写入 `_meta.version`、`_meta.timestamp` 等通用元信息。",
+          "summary": "是否写入时间戳、编码格式和压缩方式等诊断元数据。",
           "visibility": "public"
         },
         {
@@ -70678,7 +72408,7 @@
           "kind": "var",
           "name": "strict_schema_migrations",
           "signature": "var strict_schema_migrations: bool = false",
-          "summary": "为 true 时，读取旧版本存档必须存在完整迁移链，不能仅更新 `_meta.version`。",
+          "summary": "为 true 时，读取旧版本存档必须存在完整迁移链，不能仅更新数据版本。",
           "visibility": "public"
         },
         {
@@ -70691,8 +72421,8 @@
         {
           "kind": "var",
           "name": "last_load_result",
-          "signature": "var last_load_result: Dictionary = {}",
-          "summary": "迁移后的最近一次读取结果，包含 ok、data、metadata、integrity_valid、error。",
+          "signature": "var last_load_result: GFStorageReadResult",
+          "summary": "最近一次同步或异步读取结果；尚未读取或 dispose 后为 null。",
           "visibility": "public"
         },
         {
@@ -70775,15 +72505,8 @@
         {
           "kind": "func",
           "name": "load_data",
-          "signature": "func load_data(file_name: String) -> Dictionary",
-          "summary": "读取纯字典数据。",
-          "visibility": "public"
-        },
-        {
-          "kind": "func",
-          "name": "load_data_result",
-          "signature": "func load_data_result(file_name: String) -> Dictionary",
-          "summary": "读取纯字典数据并返回 codec 结果。",
+          "signature": "func load_data(file_name: String) -> GFStorageReadResult",
+          "summary": "严格读取纯字典数据。",
           "visibility": "public"
         },
         {
@@ -74351,11 +76074,53 @@
       "module": "kernel",
       "package_id": "gf.kernel",
       "path": "addons/gf/kernel/base/gf_time_provider.gd",
-      "summary": "GFTimeProvider: 架构 tick 时间缩放协议。 该基类只定义 `GFArchitecture` 需要理解的时间控制契约。 具体时间工具可以继承它来提供暂停、缩放和物理子步能力。",
+      "summary": "GFTimeProvider: 架构 tick 时间缩放与时钟提供协议。 该基类只定义 `GFArchitecture` 需要理解的时间控制契约。 具体时间工具可以继承它来提供暂停、缩放和物理子步能力，并通过独立",
       "visibility": "public",
       "category": "protocol",
       "since": "3.17.0",
       "members": [
+        {
+          "kind": "func",
+          "name": "set_clock",
+          "signature": "func set_clock(clock: GFClock) -> bool",
+          "summary": "设置底层时钟。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_clock",
+          "signature": "func get_clock() -> GFClock",
+          "summary": "获取当前底层时钟。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_monotonic_usec",
+          "signature": "func get_monotonic_usec() -> int",
+          "summary": "获取单调运行时微秒值。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_monotonic_msec",
+          "signature": "func get_monotonic_msec() -> int",
+          "summary": "获取单调运行时毫秒值。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_unix_time_msec",
+          "signature": "func get_unix_time_msec() -> int",
+          "summary": "获取 Unix epoch 毫秒时间戳。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_unix_time_seconds",
+          "signature": "func get_unix_time_seconds() -> int",
+          "summary": "获取 Unix epoch 秒时间戳。",
+          "visibility": "public"
+        },
         {
           "kind": "func",
           "name": "get_scaled_delta",
@@ -74762,7 +76527,7 @@
         {
           "kind": "func",
           "name": "_init",
-          "signature": "func _init() -> void",
+          "signature": "func _init(clock: GFClock = null) -> void",
           "summary": "创建超时控制器。",
           "visibility": "public"
         },
@@ -74771,6 +76536,20 @@
           "name": "get_token",
           "signature": "func get_token() -> GFCancellationToken",
           "summary": "获取当前取消 token。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "set_clock",
+          "signature": "func set_clock(clock: GFClock) -> bool",
+          "summary": "替换耗时统计使用的单调时钟。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_clock",
+          "signature": "func get_clock() -> GFClock",
+          "summary": "获取耗时统计使用的时钟。",
           "visibility": "public"
         },
         {
@@ -78620,6 +80399,20 @@
           "name": "to_int",
           "signature": "static func to_int(value: Variant, default_value: int = 0) -> int",
           "summary": "将 Variant 安全归一为 int。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_exact_integer",
+          "signature": "static func is_exact_integer(value: Variant) -> bool",
+          "summary": "检查 Variant 是否为可无损解释为整数的数值。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "to_exact_int",
+          "signature": "static func to_exact_int(value: Variant, default_value: int = 0) -> int",
+          "summary": "将精确整数 Number 转为 int。",
           "visibility": "public"
         },
         {

@@ -49,12 +49,12 @@ signal save_completed(file_name: String, error: Error)
 ## [br]
 ## @api public
 ## [br]
+## @since 9.0.0
+## [br]
 ## @param file_name: 文件名。
 ## [br]
-## @param result: 读取结果，包含 ok、data、metadata、integrity_valid、error。
-## [br]
-## @schema result: Dictionary，包含 ok: bool、data: Dictionary、metadata: Dictionary、integrity_valid: bool 和 error: String。
-signal load_completed(file_name: String, result: Dictionary)
+## @param result: 强类型读取结果。
+signal load_completed(file_name: String, result: GFStorageReadResult)
 
 
 # --- 常量 ---
@@ -101,11 +101,6 @@ var file_format: GFStorageCodec.Format = GFStorageCodec.Format.JSON
 ## @api public
 var use_compression: bool = false
 
-## 解码失败时是否尝试按旧版未压缩、未混淆 JSON 读取原始 bytes。
-## [br]
-## @api public
-var allow_legacy_plain_json_fallback: bool = false
-
 ## JSON 读取时是否把接近整数的 float 归一为 int。Binary 格式不受影响。
 ## [br]
 ## @api public
@@ -126,9 +121,12 @@ var strict_integrity: bool = true
 ## @api public
 var require_integrity_checksum: bool = true
 
-## 是否写入 `_meta.version`、`_meta.timestamp` 等通用元信息。
+## 是否写入时间戳、编码格式和压缩方式等诊断元数据。
+## 数据版本始终写入独立文档 metadata，不受该选项影响。
 ## [br]
 ## @api public
+## [br]
+## @since 9.0.0
 var include_storage_metadata: bool = false
 
 ## 是否允许传入绝对路径。关闭后绝对路径会被拒绝。
@@ -185,9 +183,11 @@ var save_version: int = 1:
 	set(value):
 		save_version = maxi(value, 1)
 
-## 为 true 时，读取旧版本存档必须存在完整迁移链，不能仅更新 `_meta.version`。
+## 为 true 时，读取旧版本存档必须存在完整迁移链，不能仅更新数据版本。
 ## [br]
 ## @api public
+## [br]
+## @since 9.0.0
 var strict_schema_migrations: bool = false
 
 ## 读取旧版本数据时需要补齐的新字段默认值。
@@ -197,12 +197,12 @@ var strict_schema_migrations: bool = false
 ## @schema default_values_for_new_keys: Dictionary，包含迁移旧存档时合并进去的新字段默认值。
 var default_values_for_new_keys: Dictionary = {}
 
-## 迁移后的最近一次读取结果，包含 ok、data、metadata、integrity_valid、error。
+## 最近一次同步或异步读取结果；尚未读取或 dispose 后为 null。
 ## [br]
 ## @api public
 ## [br]
-## @schema last_load_result: Dictionary，包含 ok: bool、data: Dictionary、metadata: Dictionary、integrity_valid: bool 和 error: String。
-var last_load_result: Dictionary = {}
+## @since 9.0.0
+var last_load_result: GFStorageReadResult
 
 
 # --- 私有变量 ---
@@ -245,7 +245,7 @@ func dispose() -> void:
 	_async_queue.clear()
 	_async_file_locks.clear()
 	_migration_steps.clear()
-	last_load_result.clear()
+	last_load_result = null
 	_release_storage_helpers()
 
 
@@ -551,38 +551,24 @@ func save_data_group(files: Dictionary) -> Error:
 	return _commit_transaction(file_names, true)
 
 
-## 读取纯字典数据。
+## 严格读取纯字典数据。
 ## [br]
 ## @api public
 ## [br]
+## @since 9.0.0
+## [br]
 ## @param file_name: 目标文件名。
 ## [br]
-## @return 反序列化后的字典数据。
-## [br]
-## @schema return: Dictionary，从存储读取的数据载荷；读取失败时为空字典。
-func load_data(file_name: String) -> Dictionary:
+## @return 强类型读取结果；调用方必须先检查 ok，再读取 payload。
+func load_data(file_name: String) -> GFStorageReadResult:
 	if not _validate_public_file_name(file_name, "load_data"):
-		last_load_result = _make_load_result(false, {}, "file_name is empty", true)
-		return {}
+		last_load_result = _make_load_failure("file_name is empty", ERR_INVALID_PARAMETER)
+		return last_load_result.duplicate_result()
 
 	init()
 	_wait_for_async_tasks_for_file(file_name)
 	_recover_transaction_files([file_name])
 	return _read_json(file_name)
-
-
-## 读取纯字典数据并返回 codec 结果。
-## [br]
-## @api public
-## [br]
-## @param file_name: 目标文件名。
-## [br]
-## @return 结果字典，包含 ok、data、metadata、integrity_valid、error。
-## [br]
-## @schema return: Dictionary，包含 ok: bool、data: Dictionary、metadata: Dictionary、integrity_valid: bool 和 error: String。
-func load_data_result(file_name: String) -> Dictionary:
-	var _loaded_data: Dictionary = load_data(file_name)
-	return last_load_result.duplicate(true)
 
 
 ## 在线程中异步保存纯字典数据。完成后从主线程发出 save_completed。
@@ -622,9 +608,9 @@ func save_data_async(file_name: String, data: Dictionary) -> Error:
 ## @return 启动线程的 Error 结果码。
 func load_data_async(file_name: String) -> Error:
 	if not _validate_public_file_name(file_name, "load_data_async"):
-		var failed_result: Dictionary = _make_load_result(false, {}, "file_name is empty", true)
-		last_load_result = failed_result.duplicate(true)
-		load_completed.emit(file_name, failed_result)
+		var failed_result: GFStorageReadResult = _make_load_failure("file_name is empty", ERR_INVALID_PARAMETER)
+		last_load_result = failed_result.duplicate_result()
+		load_completed.emit(file_name, failed_result.duplicate_result())
 		return ERR_INVALID_PARAMETER
 
 	_async_queue.append({
@@ -940,8 +926,12 @@ func _emit_async_start_failed(task: Dictionary, error: Error) -> void:
 		save_completed.emit(file_name, error)
 	elif task_type == &"load":
 		push_error("[GFStorageUtility] 无法启动异步读取线程：%s，错误码：%s" % [file_name, error])
-		var failed_result: Dictionary = _make_load_result(false, {}, "Thread start failed: %s" % error_string(error), true)
-		load_completed.emit(file_name, failed_result)
+		var failed_result: GFStorageReadResult = _make_load_failure(
+			"Thread start failed: %s" % error_string(error),
+			error
+		)
+		last_load_result = failed_result.duplicate_result()
+		load_completed.emit(file_name, failed_result.duplicate_result())
 
 
 func _complete_finished_async_task(task: Dictionary, result_variant: Variant) -> void:
@@ -964,49 +954,39 @@ func _fail_queued_async_tasks(reason: String) -> void:
 		if task_type == &"save":
 			save_completed.emit(file_name, ERR_UNAVAILABLE)
 		elif task_type == &"load":
-			var failed_result: Dictionary = _make_load_result(false, {}, reason, true)
-			last_load_result = failed_result.duplicate(true)
-			load_completed.emit(file_name, failed_result)
+			var failed_result: GFStorageReadResult = _make_load_failure(reason, ERR_UNAVAILABLE)
+			last_load_result = failed_result.duplicate_result()
+			load_completed.emit(file_name, failed_result.duplicate_result())
 
 
 func _complete_async_load(file_name: String, result_variant: Variant) -> void:
-	var result: Dictionary = GFVariantData.as_dictionary(result_variant)
-	if result.is_empty():
-		result = _make_load_result(false, {}, "Async load failed", true)
-
-	last_load_result = result.duplicate(true)
-	if not GFVariantData.get_option_bool(result, "ok"):
+	var result_data: Dictionary = GFVariantData.as_dictionary(result_variant)
+	var result: GFStorageReadResult
+	if result_data.is_empty():
+		result = _make_load_failure("Async load failed", ERR_CANT_ACQUIRE_RESOURCE)
+	else:
+		result = GFStorageReadResult.from_dict(result_data)
+	result = _apply_schema_migrations(file_name, result)
+	last_load_result = result.duplicate_result()
+	if not result.ok:
 		if _should_emit_load_integrity_failed(result):
-			data_integrity_failed.emit(file_name, GFVariantData.get_option_string(result, "error", "Decode failed"))
-		load_completed.emit(file_name, last_load_result.duplicate(true))
+			data_integrity_failed.emit(file_name, result.error)
+		load_completed.emit(file_name, last_load_result.duplicate_result())
 		return
 
-	if not GFVariantData.get_option_bool(result, "integrity_valid", true):
-		data_integrity_failed.emit(file_name, GFVariantData.get_option_string(result, "error", "Integrity checksum mismatch"))
-
-	var data_value: Variant = GFVariantData.get_option_value(result, "data", {})
-	if not (data_value is Dictionary):
-		last_load_result = {
-			"ok": false,
-			"data": {},
-			"metadata": {},
-			"integrity_valid": GFVariantData.get_option_bool(result, "integrity_valid", true),
-			"error": "Decoded storage payload is not a Dictionary.",
-		}
-		data_integrity_failed.emit(file_name, GFVariantData.to_text(last_load_result["error"]))
-		load_completed.emit(file_name, last_load_result.duplicate(true))
-		return
-
-	var data: Dictionary = GFVariantData.as_dictionary(data_value)
-	data = _apply_schema_migrations(file_name, data)
-	last_load_result["data"] = data
-	last_load_result["metadata"] = _get_storage_metadata(data)
-	load_completed.emit(file_name, last_load_result.duplicate(true))
+	if result.integrity_status == GFStorageReadResult.IntegrityStatus.INVALID:
+		data_integrity_failed.emit(file_name, "Integrity checksum mismatch")
+	load_completed.emit(file_name, last_load_result.duplicate_result())
 
 
-func _should_emit_load_integrity_failed(result: Dictionary) -> bool:
-	var error: String = GFVariantData.get_option_string(result, "error")
-	if error == "File not found" or error == "File is empty" or error.begins_with("File open failed"):
+func _should_emit_load_integrity_failed(result: GFStorageReadResult) -> bool:
+	if result == null:
+		return false
+	if (
+		result.error_code == ERR_FILE_NOT_FOUND
+		or result.error_code == ERR_FILE_CANT_OPEN
+		or result.error == "File is empty"
+	):
 		return false
 	return true
 
@@ -1075,34 +1055,26 @@ func _save_data_thread(
 
 func _load_data_thread(_file_name: String, path: String, codec_options: Dictionary) -> Dictionary:
 	if not FileAccess.file_exists(path):
-		return _make_thread_load_result(false, {}, "File not found", true)
+		return _make_thread_load_failure("File not found", ERR_FILE_NOT_FOUND)
 
 	var file: FileAccess = FileAccess.open(path, FileAccess.READ)
 	if file == null:
-		return _make_thread_load_result(
-			false,
-			{},
+		return _make_thread_load_failure(
 			"File open failed: %s" % error_string(FileAccess.get_open_error()),
-			true
+			ERR_FILE_CANT_OPEN
 		)
 
 	var bytes: PackedByteArray = file.get_buffer(file.get_length())
 	file.close()
 	if bytes.is_empty():
-		return _make_thread_load_result(false, {}, "File is empty", true)
+		return _make_thread_load_failure("File is empty", ERR_FILE_CORRUPT)
 
 	var thread_codec: GFStorageCodec = GFStorageCodec.new()
-	return thread_codec.decode(bytes, codec_options)
+	return thread_codec.decode(bytes, codec_options).to_dict()
 
 
-func _make_thread_load_result(ok: bool, data: Dictionary, error: String, integrity_valid: bool) -> Dictionary:
-	var metadata_codec: GFStorageCodec = GFStorageCodec.new()
-	return GFResultDictionary.make(ok, {
-		GFResultDictionary.KEY_DATA: data,
-		GFResultDictionary.KEY_METADATA: metadata_codec.get_metadata(data),
-		GFResultDictionary.KEY_INTEGRITY_VALID: integrity_valid,
-		GFResultDictionary.KEY_ERROR: error,
-	})
+func _make_thread_load_failure(error_message: String, error_code: Error) -> Dictionary:
+	return GFStorageReadResult.new().configure_failure(error_message, error_code).to_dict()
 
 
 func _ensure_absolute_parent_directory(path: String) -> Error:
@@ -1468,64 +1440,46 @@ func _ensure_parent_directory(path: String) -> Error:
 	return _file_ops._ensure_parent_directory(path)
 
 
-func _read_json(file_name: String) -> Dictionary:
+func _read_json(file_name: String) -> GFStorageReadResult:
 	_recover_transaction_files([file_name])
 
 	var path: String = _get_full_path(file_name)
 	if not FileAccess.file_exists(path):
-		last_load_result = _make_load_result(false, {}, "File not found", true)
-		return {}
+		last_load_result = _make_load_failure("File not found", ERR_FILE_NOT_FOUND)
+		return last_load_result.duplicate_result()
 
 	var file: FileAccess = FileAccess.open(path, FileAccess.READ)
 	if file == null:
 		var open_error: Error = FileAccess.get_open_error()
 		push_error("[GFStorageUtility] 无法读取文件：%s，错误码：%s" % [path, open_error])
-		last_load_result = _make_load_result(
-			false,
-			{},
+		last_load_result = _make_load_failure(
 			"File open failed: %s" % error_string(open_error),
-			true
+			open_error
 		)
-		return {}
+		return last_load_result.duplicate_result()
 
 	var bytes: PackedByteArray = file.get_buffer(file.get_length())
 	file.close()
 
 	if bytes.is_empty():
-		last_load_result = _make_load_result(false, {}, "File is empty", true)
-		return {}
+		last_load_result = _make_load_failure("File is empty", ERR_FILE_CORRUPT)
+		return last_load_result.duplicate_result()
 
-	var result: Dictionary = _get_codec().decode(bytes, _get_codec_options())
-	last_load_result = result.duplicate(true)
-	if not GFVariantData.get_option_bool(result, "ok"):
-		var error: String = GFVariantData.get_option_string(result, "error", "Decode failed")
-		data_integrity_failed.emit(file_name, error)
-		if not GFVariantData.get_option_bool(result, "integrity_valid", true):
-			push_warning("[GFStorageUtility] 读取数据失败：%s，原因：%s" % [path, error])
+	var result: GFStorageReadResult = _get_codec().decode(bytes, _get_codec_options())
+	result = _apply_schema_migrations(file_name, result)
+	last_load_result = result.duplicate_result()
+	if not result.ok:
+		if _should_emit_load_integrity_failed(result):
+			data_integrity_failed.emit(file_name, result.error)
+		if not result.is_integrity_accepted():
+			push_warning("[GFStorageUtility] 读取数据失败：%s，原因：%s" % [path, result.error])
 		else:
-			push_error("[GFStorageUtility] 读取数据失败：%s，原因：%s" % [path, error])
-		return {}
+			push_error("[GFStorageUtility] 读取数据失败：%s，原因：%s" % [path, result.error])
+		return result
 
-	if not GFVariantData.get_option_bool(result, "integrity_valid", true):
-		data_integrity_failed.emit(file_name, GFVariantData.get_option_string(result, "error", "Integrity checksum mismatch"))
-
-	var data_value: Variant = GFVariantData.get_option_value(result, "data", {})
-	if not (data_value is Dictionary):
-		last_load_result = {
-			"ok": false,
-			"data": {},
-			"metadata": {},
-			"integrity_valid": GFVariantData.get_option_bool(result, "integrity_valid", true),
-			"error": "Decoded storage payload is not a Dictionary.",
-		}
-		data_integrity_failed.emit(file_name, GFVariantData.to_text(last_load_result["error"]))
-		return {}
-
-	var data: Dictionary = GFVariantData.as_dictionary(data_value)
-	data = _apply_schema_migrations(file_name, data)
-	last_load_result["data"] = data
-	last_load_result["metadata"] = _get_storage_metadata(data)
-	return data
+	if result.integrity_status == GFStorageReadResult.IntegrityStatus.INVALID:
+		data_integrity_failed.emit(file_name, "Integrity checksum mismatch")
+	return result
 
 
 func _get_codec() -> GFStorageCodec:
@@ -1538,7 +1492,6 @@ func _get_codec_options() -> Dictionary:
 	return {
 		"format": file_format,
 		"use_compression": use_compression,
-		"allow_legacy_plain_json_fallback": allow_legacy_plain_json_fallback,
 		"normalize_json_numbers": normalize_json_numbers,
 		"use_integrity_checksum": use_integrity_checksum,
 		"strict_integrity": strict_integrity,
@@ -1549,27 +1502,31 @@ func _get_codec_options() -> Dictionary:
 	}
 
 
-func _apply_schema_migrations(file_name: String, data: Dictionary) -> Dictionary:
-	var metadata: Dictionary = _get_storage_metadata(data)
-	var from_version: int = GFVariantData.get_option_int(metadata, "version", 1)
+func _apply_schema_migrations(file_name: String, result: GFStorageReadResult) -> GFStorageReadResult:
+	if result == null or not result.ok:
+		return result
+	var from_version: int = result.data_version
 	var to_version: int = save_version
 	if from_version > to_version:
-		return _fail_future_storage_version(file_name, from_version, to_version)
+		return _fail_future_storage_version(result, from_version, to_version)
 	if from_version >= to_version:
 		if not default_values_for_new_keys.is_empty():
-			data = _merge_default_values(data, default_values_for_new_keys)
-		return data
+			result.payload = _merge_default_values(result.payload, default_values_for_new_keys)
+		return result
 
 	var migration_chain: Array[int] = _resolve_migration_chain(from_version, to_version)
 	if (strict_schema_migrations or not _migration_steps.is_empty()) and migration_chain.is_empty():
-		return _fail_schema_migration(file_name, from_version, to_version)
+		return _fail_schema_migration(result, from_version, to_version)
 
-	var migrated: Dictionary = migrate_data(data, from_version, to_version)
-	var migrated_metadata: Dictionary = _get_storage_metadata(migrated)
-	migrated_metadata["version"] = to_version
-	migrated[GFStorageCodec.META_KEY] = migrated_metadata
+	var migrated_payload: Dictionary = migrate_data(result.payload, from_version, to_version)
+	var migrated_metadata: Dictionary = result.metadata.duplicate(true)
+	migrated_metadata[GFStorageCodec.VERSION_KEY] = to_version
+	result.payload = migrated_payload
+	result.metadata = migrated_metadata
+	result.data_version = to_version
+	result.migrated = true
 	data_migrated.emit(file_name, from_version, to_version)
-	return migrated
+	return result
 
 
 func _apply_registered_migrations(data: Dictionary, from_version: int, to_version: int) -> Dictionary:
@@ -1627,20 +1584,22 @@ func _resolve_migration_chain(from_version: int, to_version: int) -> Array[int]:
 	return []
 
 
-func _fail_schema_migration(file_name: String, from_version: int, to_version: int) -> Dictionary:
-	var error: String = "Missing migration chain: %d -> %d" % [from_version, to_version]
-	last_load_result = _make_load_result(false, {}, error, true)
-	data_integrity_failed.emit(file_name, error)
-	push_error("[GFStorageUtility] 迁移失败：%s" % error)
-	return {}
+func _fail_schema_migration(
+	result: GFStorageReadResult,
+	from_version: int,
+	to_version: int
+) -> GFStorageReadResult:
+	var error_message: String = "Missing migration chain: %d -> %d" % [from_version, to_version]
+	return _make_migration_failure(result, error_message)
 
 
-func _fail_future_storage_version(file_name: String, from_version: int, to_version: int) -> Dictionary:
-	var error: String = "Unsupported future storage version: %d > %d" % [from_version, to_version]
-	last_load_result = _make_load_result(false, {}, error, true)
-	data_integrity_failed.emit(file_name, error)
-	push_error("[GFStorageUtility] 读取失败：%s" % error)
-	return {}
+func _fail_future_storage_version(
+	result: GFStorageReadResult,
+	from_version: int,
+	to_version: int
+) -> GFStorageReadResult:
+	var error_message: String = "Unsupported future storage version: %d > %d" % [from_version, to_version]
+	return _make_migration_failure(result, error_message)
 
 
 func _get_migration_targets(from_version: int, to_version: int) -> Array[int]:
@@ -1669,17 +1628,20 @@ func _make_migration_key(from_version: int, to_version: int) -> String:
 	return "%d>%d" % [from_version, to_version]
 
 
-func _get_storage_metadata(data: Dictionary) -> Dictionary:
-	return _get_codec().get_metadata(data)
+func _make_load_failure(error_message: String, error_code: Error) -> GFStorageReadResult:
+	return GFStorageReadResult.new().configure_failure(error_message, error_code)
 
 
-func _make_load_result(ok: bool, data: Dictionary, error: String, integrity_valid: bool) -> Dictionary:
-	return GFResultDictionary.make(ok, {
-		GFResultDictionary.KEY_DATA: data,
-		GFResultDictionary.KEY_METADATA: _get_storage_metadata(data),
-		GFResultDictionary.KEY_INTEGRITY_VALID: integrity_valid,
-		GFResultDictionary.KEY_ERROR: error,
-	})
+func _make_migration_failure(result: GFStorageReadResult, error_message: String) -> GFStorageReadResult:
+	if result == null:
+		return _make_load_failure(error_message, ERR_INVALID_DATA)
+	return GFStorageReadResult.new().configure_failure(
+		error_message,
+		ERR_INVALID_DATA,
+		result.metadata,
+		result.integrity_status,
+		result.document_schema_version
+	)
 
 
 # --- 内部类 ---

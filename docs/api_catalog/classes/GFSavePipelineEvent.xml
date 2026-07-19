@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSavePipelineEvent" path="addons/gf/extensions/save/pipeline/gf_save_pipeline_event.gd" module="extensions/save" extends="RefCounted" classDigest="6f19d709245d1f24225a674b58ca99c167678473d8e00ea1d7279ceaa6dda623">
+<class name="GFSavePipelineEvent" path="addons/gf/extensions/save/pipeline/gf_save_pipeline_event.gd" module="extensions/save" extends="RefCounted" classDigest="2cc31e79a28c6bda08553aa60e6b0af09b907d10950e4ec5fbd54f5bcdc721a0">
 	<description>GFSavePipelineEvent: 存档图流程事件。
 用于描述 GFSaveGraphUtility 在采集/应用过程中的通用阶段、Scope、Source
 与诊断信息。事件本身不携带业务字段，项目层可通过 payload 扩展。</description>
@@ -80,7 +80,7 @@
 	</properties>
 	<methods>
 		<member kind="method" name="configure">
-			<signature>func configure( p_stage: StringName, scope: Object = null, source: Object = null, p_message: String = "", p_payload: Dictionary = {}, p_severity: StringName = &amp;"info" ) -&gt; GFSavePipelineEvent:</signature>
+			<signature>func configure( p_stage: StringName, scope: Object = null, source: Object = null, p_message: String = "", p_payload: Dictionary = {}, p_severity: StringName = &amp;"info", p_timestamp_msec: int = 0 ) -&gt; GFSavePipelineEvent:</signature>
 			<description>配置事件内容并返回自身。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -90,6 +90,7 @@
 				<tag name="param">p_message: 调试消息。</tag>
 				<tag name="param">p_payload: 附加载荷。</tag>
 				<tag name="param">p_severity: 严重级别。</tag>
+				<tag name="param">p_timestamp_msec: 调用方提供的单调时间戳；0 表示未提供。</tag>
 				<tag name="return">当前事件。</tag>
 				<tag name="schema">p_payload: Dictionary，项目或流程步骤附加的诊断字段。</tag>
 				<tag name="since">3.17.0</tag>

@@ -7,7 +7,7 @@
 ## [br]
 ## @category tool_api
 ## [br]
-## @since unreleased
+## @since 9.0.0
 class_name GFConfigPipelineValidationStage
 extends RefCounted
 
@@ -18,14 +18,14 @@ extends RefCounted
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 const STAGE_ID: String = "gf.config.validation.builtin"
 
 ## Validation 阶段的实现版本；改变语义校验或 IR 生成语义时递增。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 const IMPLEMENTATION_VERSION: int = 1
 
 
@@ -35,7 +35,7 @@ const IMPLEMENTATION_VERSION: int = 1
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 ## [br]
 ## @param source: 单表来源声明。
 ## [br]
@@ -162,7 +162,7 @@ func compile_table(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 ## [br]
 ## @return: 阶段描述。
 ## [br]

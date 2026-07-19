@@ -93,6 +93,8 @@ var timestamp_msec: int = 0
 ## [br]
 ## @param p_severity: 严重级别。
 ## [br]
+## @param p_timestamp_msec: 调用方提供的单调时间戳；0 表示未提供。
+## [br]
 ## @return 当前事件。
 ## [br]
 ## @schema p_payload: Dictionary，项目或流程步骤附加的诊断字段。
@@ -102,13 +104,14 @@ func configure(
 	source: Object = null,
 	p_message: String = "",
 	p_payload: Dictionary = {},
-	p_severity: StringName = &"info"
+	p_severity: StringName = &"info",
+	p_timestamp_msec: int = 0
 ) -> GFSavePipelineEvent:
 	stage = p_stage
 	severity = p_severity
 	message = p_message
 	payload = p_payload.duplicate(true)
-	timestamp_msec = Time.get_ticks_msec()
+	timestamp_msec = maxi(p_timestamp_msec, 0)
 
 	_apply_scope(scope)
 	_apply_source(source)

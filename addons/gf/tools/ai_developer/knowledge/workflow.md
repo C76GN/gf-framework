@@ -1,6 +1,6 @@
 # Contract-Driven GF Project Workflow
 
-1. **Orient**: validate `gf_project_contract.json` and inspect the generated project context.
+1. **Orient**: validate `.gf/project_contract.json` and inspect the generated project context.
 2. **Resolve uncertainty**: ask about blocking unknowns; preserve non-blocking unknowns explicitly.
 3. **Select capability**: query the capability catalog, then inspect exact installed class and member signatures.
 4. **Assign ownership**: choose the project module, GF mechanism, adapter, generated output, and lifecycle owner.

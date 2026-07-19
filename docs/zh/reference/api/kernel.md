@@ -7,7 +7,7 @@
 | 类别 | 类 | 成员 | 方法 |
 |---|---:|---:|---:|
 | [运行时服务](#category-runtime_service) | 14 | 285 | 219 |
-| [协议与扩展点](#category-protocol) | 18 | 185 | 160 |
+| [协议与扩展点](#category-protocol) | 19 | 195 | 170 |
 | [资源定义](#category-resource_definition) | 2 | 45 | 15 |
 | [运行时句柄](#category-runtime_handle) | 8 | 80 | 68 |
 | [值对象](#category-value_object) | 1 | 1 | 0 |
@@ -46,6 +46,7 @@
 | [`GFBindBuilder`](classes/GFBindBuilder.md#gfbindbuilder) | `RefCounted` | `addons/gf/kernel/core/gf_bind_builder.gd` |
 | [`GFBindableProperty`](classes/GFBindableProperty.md#gfbindableproperty) | `RefCounted` | `addons/gf/kernel/core/gf_bindable_property.gd` |
 | [`GFBinder`](classes/GFBinder.md#gfbinder) | `RefCounted` | `addons/gf/kernel/core/gf_binder.gd` |
+| [`GFClock`](classes/GFClock.md#gfclock) | `RefCounted` | `addons/gf/kernel/base/gf_clock.gd` |
 | [`GFCommand`](classes/GFCommand.md#gfcommand) | `Object` | `addons/gf/kernel/base/gf_command.gd` |
 | [`GFComputedProperty`](classes/GFComputedProperty.md#gfcomputedproperty) | `GFBindableProperty` | `addons/gf/kernel/core/gf_computed_property.gd` |
 | [`GFConfig`](classes/GFConfig.md#gfconfig) | `Resource` | `addons/gf/kernel/base/gf_config.gd` |

@@ -33,7 +33,7 @@
 | 方法 | [`get_display_name`](#member-gfsaveslotmetadata-methods-get_display_name) | `func get_display_name(fallback: String = "") -> String:` |
 | 方法 | [`validate_metadata`](#member-gfsaveslotmetadata-methods-validate_metadata) | `func validate_metadata() -> Dictionary:` |
 | 方法 | [`from_dict`](#member-gfsaveslotmetadata-methods-from_dict) | `static func from_dict(data: Dictionary) -> GFSaveSlotMetadata:` |
-| 方法 | [`from_values`](#member-gfsaveslotmetadata-methods-from_values) | `static func from_values( p_slot_id: StringName, p_display_name: String = "", p_custom_metadata: Dictionary = {} ) -> GFSaveSlotMetadata:` |
+| 方法 | [`from_values`](#member-gfsaveslotmetadata-methods-from_values) | `static func from_values( p_slot_id: StringName, p_display_name: String = "", p_custom_metadata: Dictionary = {}, unix_time_seconds: int = 0 ) -> GFSaveSlotMetadata:` |
 
 ## 属性
 
@@ -320,9 +320,10 @@ static func from_dict(data: Dictionary) -> GFSaveSlotMetadata:
 ### `from_values`
 
 - API：`public`
+- 首次版本：`9.0.0`
 
 ```gdscript
-static func from_values( p_slot_id: StringName, p_display_name: String = "", p_custom_metadata: Dictionary = {} ) -> GFSaveSlotMetadata:
+static func from_values( p_slot_id: StringName, p_display_name: String = "", p_custom_metadata: Dictionary = {}, unix_time_seconds: int = 0 ) -> GFSaveSlotMetadata:
 ```
 
 使用常用字段创建元数据。
@@ -334,6 +335,7 @@ static func from_values( p_slot_id: StringName, p_display_name: String = "", p_c
 | `p_slot_id` | 槽位标识。 |
 | `p_display_name` | 展示名称。 |
 | `p_custom_metadata` | 自定义元数据。 |
+| `unix_time_seconds` | 显式 Unix epoch 秒时间戳；0 表示未知。 |
 
 返回：新元数据。
 

@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：工具 API (`tool_api`)
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 Config Pipeline 的内置目标物化阶段。 只接受版本化 IR，并将其物化为 GFConfigTableResource、GFConfigDatabaseResource 或 JSON 兼容数据。 Target 不读取来源，也不重新推导 schema 或解释项目业务语义。
 
@@ -30,7 +30,7 @@ Config Pipeline 的内置目标物化阶段。 只接受版本化 IR，并将其
 ### `STAGE_ID`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 const STAGE_ID: String = "gf.config.target.godot_resource"
@@ -43,7 +43,7 @@ Target 阶段的稳定实现标识。
 ### `IMPLEMENTATION_VERSION`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 const IMPLEMENTATION_VERSION: int = 1
@@ -58,7 +58,7 @@ Target 阶段的实现版本；改变 Resource 或 JSON 物化语义时递增。
 ### `materialize_table`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 func materialize_table( table_ir: GFConfigPipelineTableIR, options: Dictionary = {} ) -> Dictionary:
@@ -85,7 +85,7 @@ func materialize_table( table_ir: GFConfigPipelineTableIR, options: Dictionary =
 ### `materialize_database`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 func materialize_database( compilation_ir: GFConfigPipelineIR, options: Dictionary = {} ) -> Dictionary:
@@ -112,7 +112,7 @@ func materialize_database( compilation_ir: GFConfigPipelineIR, options: Dictiona
 ### `make_database_export`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 func make_database_export( database: GFConfigDatabaseResource, options: Dictionary = {} ) -> Dictionary:
@@ -139,7 +139,7 @@ func make_database_export( database: GFConfigDatabaseResource, options: Dictiona
 ### `make_database_json`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 func make_database_json( database: GFConfigDatabaseResource, options: Dictionary = {} ) -> Dictionary:
@@ -166,7 +166,7 @@ func make_database_json( database: GFConfigDatabaseResource, options: Dictionary
 ### `get_stage_descriptor`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 func get_stage_descriptor() -> Dictionary:

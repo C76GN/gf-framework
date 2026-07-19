@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFBuoyancyField3D" path="addons/gf/extensions/physics/nodes/gf_buoyancy_field_3d.gd" module="extensions/physics" extends="Node3D" classDigest="7a944f69fa2d11ac12a53d253fc0dbdd010428fa7d452569e8629ca448f58cbe">
+<class name="GFBuoyancyField3D" path="addons/gf/extensions/physics/nodes/gf_buoyancy_field_3d.gd" module="extensions/physics" extends="Node3D" classDigest="19bd886c0125017624d3c68d7cfc78c28c541482e80490a33feb4aba9f4e2b5a">
 	<description>GFBuoyancyField3D: 可扩展的 3D 浮力点采样场。
 默认以节点局部 Y 平面作为无限流体表面，把几何采样和浮力数学组合成纯结果字典。
 项目可以重写表面、流速钩子实现有限水体、高度场或移动流体，但刚体施力、探针布局、
@@ -7,7 +7,7 @@ Area 检测、网络同步和玩法规则仍由项目层决定。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">runtime_service</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">9.0.0</tag>
 	</tags>
 	<signals />
 	<enums />
@@ -17,7 +17,7 @@ Area 检测、网络同步和玩法规则仍由项目层决定。</description>
 			<description>浮力场默认场景树分组。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
 	</constants>
@@ -27,7 +27,7 @@ Area 检测、网络同步和玩法规则仍由项目层决定。</description>
 			<description>是否启用采样场。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="priority" decorators="@export">
@@ -35,7 +35,7 @@ Area 检测、网络同步和玩法规则仍由项目层决定。</description>
 			<description>调用方组合多个流体场时可读取的优先级；数值越大优先级越高。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="surface_offset" decorators="@export">
@@ -43,7 +43,7 @@ Area 检测、网络同步和玩法规则仍由项目层决定。</description>
 			<description>默认平面相对节点局部原点的 Y 偏移。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="fluid_density" decorators="@export">
@@ -51,7 +51,7 @@ Area 检测、网络同步和玩法规则仍由项目层决定。</description>
 			<description>流体密度。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="fluid_velocity" decorators="@export">
@@ -59,7 +59,7 @@ Area 检测、网络同步和玩法规则仍由项目层决定。</description>
 			<description>默认世界空间流体速度。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="linear_drag_coefficient" decorators="@export">
@@ -67,7 +67,7 @@ Area 检测、网络同步和玩法规则仍由项目层决定。</description>
 			<description>点采样线性阻力有效系数。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="quadratic_drag_coefficient" decorators="@export">
@@ -75,7 +75,7 @@ Area 检测、网络同步和玩法规则仍由项目层决定。</description>
 			<description>点采样二次阻力有效系数。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
 	</properties>
@@ -86,7 +86,7 @@ Area 检测、网络同步和玩法规则仍由项目层决定。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">默认流体表面原点。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_signed_depth_at">
@@ -96,7 +96,7 @@ Area 检测、网络同步和玩法规则仍由项目层决定。</description>
 				<tag name="api">public</tag>
 				<tag name="param">world_position: 世界空间采样点。</tag>
 				<tag name="return">正数表示表面下方，负数表示表面上方；输入或表面无效时返回 0。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_surface_normal_at">
@@ -106,7 +106,7 @@ Area 检测、网络同步和玩法规则仍由项目层决定。</description>
 				<tag name="api">public</tag>
 				<tag name="param">world_position: 世界空间采样点。</tag>
 				<tag name="return">归一化世界空间法线；无效时返回 Vector3.UP。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_fluid_velocity_at">
@@ -116,7 +116,7 @@ Area 检测、网络同步和玩法规则仍由项目层决定。</description>
 				<tag name="api">public</tag>
 				<tag name="param">world_position: 世界空间采样点。</tag>
 				<tag name="return">世界空间流体速度；无效时返回零向量。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_buoyancy_priority">
@@ -125,7 +125,7 @@ Area 检测、网络同步和玩法规则仍由项目层决定。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">优先级数值，越大越优先。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="sample_point">
@@ -142,7 +142,7 @@ Area 检测、网络同步和玩法规则仍由项目层决定。</description>
 				<tag name="param">gravity_acceleration: 当前排水点的重力加速度向量。</tag>
 				<tag name="return">采样结果字典。</tag>
 				<tag name="schema">return: Dictionary，包含 available、active、reason、signed_depth、submersion_ratio、surface_normal、fluid_velocity、buoyancy_force、drag_force 和 force。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="_get_signed_depth_at">
@@ -153,7 +153,7 @@ Area 检测、网络同步和玩法规则仍由项目层决定。</description>
 				<tag name="api">protected</tag>
 				<tag name="param">world_position: 世界空间采样点。</tag>
 				<tag name="return">正数表示流体内部，负数表示外部。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="_get_surface_normal_at">
@@ -163,7 +163,7 @@ Area 检测、网络同步和玩法规则仍由项目层决定。</description>
 				<tag name="api">protected</tag>
 				<tag name="param">world_position: 世界空间采样点。</tag>
 				<tag name="return">世界空间表面法线。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="_get_fluid_velocity_at">
@@ -173,7 +173,7 @@ Area 检测、网络同步和玩法规则仍由项目层决定。</description>
 				<tag name="api">protected</tag>
 				<tag name="param">world_position: 世界空间采样点。</tag>
 				<tag name="return">世界空间流体速度。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
 	</methods>

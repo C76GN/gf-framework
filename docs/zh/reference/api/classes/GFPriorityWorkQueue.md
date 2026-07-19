@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：值对象 (`value_object`)
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 带等待加成的稳定优先级工作队列。 以基础优先级、入队时间和稳定顺序选择下一个值。等待加成不设上限， 因此在新任务优先级有限的前提下，旧低优先级任务最终能够获得执行机会。 队列只负责仲裁顺序，不执行任务，也不解释载荷或业务优先级。
 
@@ -40,7 +40,7 @@
 ### `aging_interval_msec`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 var aging_interval_msec: int = 1000:
@@ -53,7 +53,7 @@ var aging_interval_msec: int = 1000:
 ### `aging_step`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 var aging_step: float = 1.0:
@@ -66,7 +66,7 @@ var aging_step: float = 1.0:
 ### `max_size`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 var max_size: int = 0:
@@ -81,7 +81,7 @@ var max_size: int = 0:
 ### `push`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 func push(value: Variant, priority: float = 0.0, front: bool = false) -> bool:
@@ -108,7 +108,7 @@ func push(value: Variant, priority: float = 0.0, front: bool = false) -> bool:
 ### `push_at`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 func push_at( value: Variant, priority: float, enqueued_msec: int, front: bool = false ) -> bool:
@@ -136,7 +136,7 @@ func push_at( value: Variant, priority: float, enqueued_msec: int, front: bool =
 ### `pop`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 func pop(default_value: Variant = null) -> Variant:
@@ -162,7 +162,7 @@ func pop(default_value: Variant = null) -> Variant:
 ### `pop_at`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 func pop_at(now_msec: int, default_value: Variant = null) -> Variant:
@@ -189,7 +189,7 @@ func pop_at(now_msec: int, default_value: Variant = null) -> Variant:
 ### `peek`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 func peek(default_value: Variant = null) -> Variant:
@@ -215,7 +215,7 @@ func peek(default_value: Variant = null) -> Variant:
 ### `peek_at`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 func peek_at(now_msec: int, default_value: Variant = null) -> Variant:
@@ -242,7 +242,7 @@ func peek_at(now_msec: int, default_value: Variant = null) -> Variant:
 ### `remove_value`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 func remove_value(value: Variant) -> bool:
@@ -267,7 +267,7 @@ func remove_value(value: Variant) -> bool:
 ### `set_priority`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 func set_priority(value: Variant, priority: float) -> bool:
@@ -293,7 +293,7 @@ func set_priority(value: Variant, priority: float) -> bool:
 ### `clear`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 func clear() -> void:
@@ -306,7 +306,7 @@ func clear() -> void:
 ### `is_empty`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 func is_empty() -> bool:
@@ -321,7 +321,7 @@ func is_empty() -> bool:
 ### `size`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 func size() -> int:
@@ -336,7 +336,7 @@ func size() -> int:
 ### `to_array`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 func to_array(now_msec: int = -1, deep: bool = false) -> Array:
@@ -362,7 +362,7 @@ func to_array(now_msec: int = -1, deep: bool = false) -> Array:
 ### `to_entry_array`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 func to_entry_array(now_msec: int = -1, deep: bool = false) -> Array[Dictionary]:
@@ -388,7 +388,7 @@ func to_entry_array(now_msec: int = -1, deep: bool = false) -> Array[Dictionary]
 ### `get_debug_snapshot`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 func get_debug_snapshot(now_msec: int = -1) -> Dictionary:

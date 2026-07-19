@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：工具 API (`tool_api`)
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 Config Pipeline 的版本化数据库中间表示。 聚合已经通过单表语义校验的 GFConfigPipelineTableIR，并作为 Target 阶段的唯一输入。 IR 不持有导出路径或文件事务策略，确保同一编译结果可以交给多个目标实现。
 
@@ -37,7 +37,7 @@ Config Pipeline 的版本化数据库中间表示。 聚合已经通过单表语
 ### `FORMAT`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 const FORMAT: String = "gf.config_pipeline.ir"
@@ -50,7 +50,7 @@ const FORMAT: String = "gf.config_pipeline.ir"
 ### `FORMAT_VERSION`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 const FORMAT_VERSION: int = 1
@@ -65,7 +65,7 @@ const FORMAT_VERSION: int = 1
 ### `create`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 static func create( database_id: StringName = &"", version: String = "", metadata: Dictionary = {} ) -> GFConfigPipelineIR:
@@ -92,7 +92,7 @@ static func create( database_id: StringName = &"", version: String = "", metadat
 ### `add_table`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 func add_table(table_ir: GFConfigPipelineTableIR) -> Dictionary:
@@ -117,7 +117,7 @@ func add_table(table_ir: GFConfigPipelineTableIR) -> Dictionary:
 ### `seal`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 func seal() -> Dictionary:
@@ -136,7 +136,7 @@ func seal() -> Dictionary:
 ### `is_sealed`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 func is_sealed() -> bool:
@@ -151,7 +151,7 @@ func is_sealed() -> bool:
 ### `validate_contract`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 func validate_contract() -> Dictionary:
@@ -170,7 +170,7 @@ func validate_contract() -> Dictionary:
 ### `get_database_id`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 func get_database_id() -> StringName:
@@ -185,7 +185,7 @@ func get_database_id() -> StringName:
 ### `get_version`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 func get_version() -> String:
@@ -200,7 +200,7 @@ func get_version() -> String:
 ### `get_metadata`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 func get_metadata() -> Dictionary:
@@ -219,7 +219,7 @@ func get_metadata() -> Dictionary:
 ### `get_table`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 func get_table(table_name: StringName) -> GFConfigPipelineTableIR:
@@ -240,7 +240,7 @@ func get_table(table_name: StringName) -> GFConfigPipelineTableIR:
 ### `get_tables`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 func get_tables() -> Array[GFConfigPipelineTableIR]:
@@ -259,7 +259,7 @@ func get_tables() -> Array[GFConfigPipelineTableIR]:
 ### `duplicate_ir`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 func duplicate_ir() -> GFConfigPipelineIR:
@@ -274,7 +274,7 @@ func duplicate_ir() -> GFConfigPipelineIR:
 ### `describe`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 func describe() -> Dictionary:

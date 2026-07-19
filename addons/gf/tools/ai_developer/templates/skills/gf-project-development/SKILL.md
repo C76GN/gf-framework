@@ -21,7 +21,7 @@ Use the installed GF version and the project's declared intent as the source of 
    python <gf-ai-cli> context --project-root .
    ```
 
-3. Read `gf_project_contract.json`. Do not infer values that it marks unknown. Stop for user input only when an unknown blocks the requested decision.
+3. Read `.gf/project_contract.json`. Do not infer values that it marks unknown. Stop for user input only when an unknown blocks the requested decision.
 4. If the contract is missing, initialize it, then ask only for material intent that cannot be observed:
 
    ```powershell

@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFConfigPipelineIR" path="addons/gf/tools/config_pipeline/gf_config_pipeline_ir.gd" module="tools" extends="RefCounted" classDigest="e3b328655698b18943ac184a84b7848883daaf4947839764cd2a23a4b8bdea20">
+<class name="GFConfigPipelineIR" path="addons/gf/tools/config_pipeline/gf_config_pipeline_ir.gd" module="tools" extends="RefCounted" classDigest="8266fbc55b383f63f53e6ff4f2040fc647a8f6e5f4445acd4c337ebcd3358855">
 	<description>GFConfigPipelineIR: Config Pipeline 的版本化数据库中间表示。
 聚合已经通过单表语义校验的 GFConfigPipelineTableIR，并作为 Target 阶段的唯一输入。
 IR 不持有导出路径或文件事务策略，确保同一编译结果可以交给多个目标实现。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">tool_api</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">9.0.0</tag>
 	</tags>
 	<signals />
 	<enums />
@@ -16,7 +16,7 @@ IR 不持有导出路径或文件事务策略，确保同一编译结果可以�
 			<description>数据库 IR 的稳定格式标识。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="FORMAT_VERSION">
@@ -24,7 +24,7 @@ IR 不持有导出路径或文件事务策略，确保同一编译结果可以�
 			<description>数据库 IR 的格式版本。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
 	</constants>
@@ -40,7 +40,7 @@ IR 不持有导出路径或文件事务策略，确保同一编译结果可以�
 				<tag name="param">metadata: 与目标无关的数据库元数据。</tag>
 				<tag name="return">新建的数据库 IR。</tag>
 				<tag name="schema">metadata: Dictionary，保存构建上下文或项目侧附加元数据。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="add_table">
@@ -51,7 +51,7 @@ IR 不持有导出路径或文件事务策略，确保同一编译结果可以�
 				<tag name="param">table_ir: 已完成语义校验的单表 IR。</tag>
 				<tag name="return">注册结果。</tag>
 				<tag name="schema">return: Dictionary，包含 success、error_code、error_kind、error 和 table_name。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="seal">
@@ -61,7 +61,7 @@ IR 不持有导出路径或文件事务策略，确保同一编译结果可以�
 				<tag name="api">public</tag>
 				<tag name="return">封存结果。</tag>
 				<tag name="schema">return: Dictionary，包含 success、error_code、error_kind、error 和 table_name。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_sealed">
@@ -70,7 +70,7 @@ IR 不持有导出路径或文件事务策略，确保同一编译结果可以�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">已封存时为 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="validate_contract">
@@ -80,7 +80,7 @@ IR 不持有导出路径或文件事务策略，确保同一编译结果可以�
 				<tag name="api">public</tag>
 				<tag name="return">契约校验结果。</tag>
 				<tag name="schema">return: Dictionary，包含 success、error_code、error_kind、error 和 table_name。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_database_id">
@@ -89,7 +89,7 @@ IR 不持有导出路径或文件事务策略，确保同一编译结果可以�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">数据库标识。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_version">
@@ -98,7 +98,7 @@ IR 不持有导出路径或文件事务策略，确保同一编译结果可以�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">配置版本。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_metadata">
@@ -108,7 +108,7 @@ IR 不持有导出路径或文件事务策略，确保同一编译结果可以�
 				<tag name="api">public</tag>
 				<tag name="return">数据库元数据的深拷贝。</tag>
 				<tag name="schema">return: Dictionary，保存构建上下文或项目侧附加元数据。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_table">
@@ -118,7 +118,7 @@ IR 不持有导出路径或文件事务策略，确保同一编译结果可以�
 				<tag name="api">public</tag>
 				<tag name="param">table_name: 稳定表名。</tag>
 				<tag name="return">找到时返回不可变单表 IR，否则返回 null。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_tables">
@@ -128,7 +128,7 @@ IR 不持有导出路径或文件事务策略，确保同一编译结果可以�
 				<tag name="api">public</tag>
 				<tag name="return">单表 IR 列表；数组容器是副本，元素是不可变 IR。</tag>
 				<tag name="schema">return: Array[GFConfigPipelineTableIR]，按注册顺序排列。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="duplicate_ir">
@@ -137,7 +137,7 @@ IR 不持有导出路径或文件事务策略，确保同一编译结果可以�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">数据库 IR 副本；原 IR 已封存时，副本也会封存。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="describe">
@@ -147,7 +147,7 @@ IR 不持有导出路径或文件事务策略，确保同一编译结果可以�
 				<tag name="api">public</tag>
 				<tag name="return">IR 摘要。</tag>
 				<tag name="schema">return: Dictionary，包含 format、format_version、database_id、version、sealed、metadata、table_count 和 tables。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
 	</methods>

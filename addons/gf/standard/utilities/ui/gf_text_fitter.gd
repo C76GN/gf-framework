@@ -17,7 +17,7 @@ extends RefCounted
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 enum MeasurementMode {
 	## 根据控件文本布局属性选择测量路径，保持完整换行与排版语义。
 	AUTO,

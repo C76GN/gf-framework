@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFAssetUtility" path="addons/gf/standard/utilities/assets/gf_asset_utility.gd" module="standard" extends="GFUtility" classDigest="6acc8e47da4a454c22d0b943fe1513b2e2fa286e81eaaece251608ba30c12a84">
+<class name="GFAssetUtility" path="addons/gf/standard/utilities/assets/gf_asset_utility.gd" module="standard" extends="GFUtility" classDigest="8d534e633bea016b327d19eedbb52a8295b34971d87993b5901a7f7176a5ef49">
 	<description>GFAssetUtility: 异步资源加载管理器，带 LRU 缓存。
 封装 Godot 的 threaded `ResourceLoader` 请求，
 用于避免大资源同步加载阻塞主线程，并在完成后统一分发回调与维护缓存。</description>
@@ -44,6 +44,24 @@
 				<tag name="param">group_id: 分组标识。</tag>
 				<tag name="param">report: 预加载报告。</tag>
 				<tag name="schema">report: Dictionary with `ok: bool`, `group_id: StringName`, `paths: PackedStringArray`, `failed_paths: PackedStringArray`, `total: int`, and `completed: int`.</tag>
+			</tags>
+		</member>
+		<member kind="signal" name="asset_load_session_started">
+			<signature>signal asset_load_session_started(session: GFAssetLoadSession)</signature>
+			<description>事务预加载会话启动后发出。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">session: 新会话。</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="signal" name="asset_load_session_completed">
+			<signature>signal asset_load_session_completed(result: GFAssetLoadSessionResult)</signature>
+			<description>事务预加载会话进入终态后发出。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">result: 隔离终态结果。</tag>
+				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
 		<member kind="signal" name="asset_load_queued">
@@ -197,6 +215,28 @@
 				<tag name="param">options: 调用方覆盖选项，会合并到计划默认选项。</tag>
 				<tag name="schema">options: Dictionary with optional `pin_cache: bool`, `serial_lane_id: StringName`, `lane_id: StringName`, and `max_concurrent_loads: int`.</tag>
 				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="start_preload_session">
+			<signature>func start_preload_session( asset_plan: GFAssetPreloadPlan, options: Dictionary = {} ) -&gt; GFAssetLoadSession:</signature>
+			<description>启动可回滚资产预加载会话。
+会话使用唯一 staging group；默认在全部成功后自动提交，失败时自动回滚。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">asset_plan: 资源预加载计划。</tag>
+				<tag name="param">options: 可包含 auto_commit 和 metadata。</tag>
+				<tag name="return">已启动会话；无效计划也会返回具有明确失败终态的会话。</tag>
+				<tag name="schema">options: Dictionary with optional auto_commit: bool and metadata: Dictionary.</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_active_preload_session_count">
+			<signature>func get_active_preload_session_count() -&gt; int:</signature>
+			<description>获取尚未进入终态的事务预加载会话数量。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">活跃会话数量。</tag>
+				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="preload_group_async">

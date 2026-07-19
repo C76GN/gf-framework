@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFQuietWindowCoalescer" path="addons/gf/standard/common/gf_quiet_window_coalescer.gd" module="standard" extends="RefCounted" classDigest="801041ba8af5d6aa465e9431c65bad5f9adc8477b03d0c6315dda8590fdbbf77">
+<class name="GFQuietWindowCoalescer" path="addons/gf/standard/common/gf_quiet_window_coalescer.gd" module="standard" extends="RefCounted" classDigest="1f0bb6557c9580b2565f3cfbc2b86d733427f8d45a4a50a119e7ac50514280e2">
 	<description>GFQuietWindowCoalescer: 按 key 聚合连发消息的静默窗口协调器。
 每个 key 独立收集按序消息，在最后一次提交后的静默窗口、批次最大窗口或
 消息数量上限到达时关闭批次。框架不解释消息内容；项目可通过 merge_callback
@@ -7,7 +7,7 @@
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">runtime_service</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">9.0.0</tag>
 	</tags>
 	<signals>
 		<member kind="signal" name="batch_closed">
@@ -18,7 +18,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">report: 批次报告。</tag>
 				<tag name="schema">report: Dictionary，包含 batch_id、key、reason、message_count、messages、merged_value、opened_msec、closed_msec 和 duration_msec。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
 	</signals>
@@ -29,7 +29,7 @@
 			<description>最后一条消息后的静默窗口到达。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="REASON_MAX_WINDOW">
@@ -37,7 +37,7 @@
 			<description>批次从打开起已达到最大窗口。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="REASON_BATCH_LIMIT">
@@ -45,7 +45,7 @@
 			<description>批次已达到消息数量上限。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="REASON_MANUAL">
@@ -53,7 +53,7 @@
 			<description>调用方显式关闭批次。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="REASON_PENDING_LIMIT">
@@ -61,7 +61,7 @@
 			<description>待处理 key 数量达到上限时，最早批次被关闭。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
 	</constants>
@@ -71,7 +71,7 @@
 			<description>最后一条消息后需要保持安静的毫秒数；设为 0 时提交后立即关闭。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="max_window_msec">
@@ -79,7 +79,7 @@
 			<description>批次从打开到强制关闭的最大毫秒数；设为 0 时不启用该上限。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="max_messages_per_batch">
@@ -87,7 +87,7 @@
 			<description>单批最多收集的消息数。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="max_pending_batches">
@@ -96,7 +96,7 @@
 立即按稳定顺序移除超额批次，并按跨帧预算交付关闭通知。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="auto_flush">
@@ -105,7 +105,7 @@
 重新开启会处理已到期批次并重建其余计时；也可关闭后由 flush_ready() 显式推进。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="merge_callback">
@@ -114,7 +114,7 @@
 未设置时 merged_value 是 messages 的副本。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
 	</properties>
@@ -128,7 +128,7 @@
 				<tag name="param">message: 由项目解释的消息载荷；入队时会复制可变容器。</tag>
 				<tag name="return">当前批次 ID。</tag>
 				<tag name="schema">message: Variant，由项目解释的消息载荷。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="submit_at">
@@ -141,7 +141,7 @@
 				<tag name="param">now_msec: 同一单调时间域中的当前毫秒时间。</tag>
 				<tag name="return">当前批次 ID。</tag>
 				<tag name="schema">message: Variant，由项目解释的消息载荷。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="flush_ready">
@@ -152,7 +152,7 @@
 				<tag name="param">now_msec: 同一单调时间域中的当前毫秒时间；小于 0 时自动读取。</tag>
 				<tag name="return">本次关闭的批次报告。</tag>
 				<tag name="schema">return: Array[Dictionary]，每项与 batch_closed 的 report schema 相同。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="flush">
@@ -164,7 +164,7 @@
 				<tag name="param">reason: 项目可提供的稳定关闭原因；为空时使用 manual。</tag>
 				<tag name="return">批次不存在时返回空字典，否则返回批次报告。</tag>
 				<tag name="schema">return: Dictionary，与 batch_closed 的 report schema 相同。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="flush_all">
@@ -175,7 +175,7 @@
 				<tag name="param">reason: 项目可提供的稳定关闭原因；为空时使用 manual。</tag>
 				<tag name="return">所有已关闭批次报告。</tag>
 				<tag name="schema">return: Array[Dictionary]，每项与 batch_closed 的 report schema 相同。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="cancel">
@@ -185,7 +185,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">key: 要丢弃的批次 key。</tag>
 				<tag name="return">批次存在并被丢弃时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="clear">
@@ -193,7 +193,7 @@
 			<description>丢弃全部未关闭批次并使现有计时任务失效。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_pending_batch_count">
@@ -202,7 +202,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">打开批次数量。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_debug_snapshot">
@@ -213,7 +213,7 @@
 				<tag name="param">max_entries: 最多返回多少个批次摘要；小于等于 0 时不返回摘要。</tag>
 				<tag name="return">调试快照。</tag>
 				<tag name="schema">return: Dictionary，包含配置、pending_batch_count、retained_batch_count、truncated 和 batches；batches 每项包含 batch_id、key、message_count 与时间字段。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
 	</methods>

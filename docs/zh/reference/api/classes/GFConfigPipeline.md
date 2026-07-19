@@ -33,7 +33,7 @@
 ### `configure_stages`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 func configure_stages( reader_stage: GFConfigPipelineReaderStage = null, layout_stage: GFConfigPipelineLayoutStage = null, validation_stage: GFConfigPipelineValidationStage = null, target_stage: GFConfigPipelineTargetStage = null, commit_stage: GFConfigPipelineCommitStage = null ) -> GFConfigPipeline:
@@ -58,7 +58,7 @@ func configure_stages( reader_stage: GFConfigPipelineReaderStage = null, layout_
 ### `get_stage_descriptors`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 func get_stage_descriptors() -> Array[Dictionary]:

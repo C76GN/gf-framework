@@ -23,6 +23,8 @@
 | 方法 | [`as_array`](#member-gfvariantdata-methods-as_array) | `static func as_array(value: Variant, default_value: Variant = null) -> Array:` |
 | 方法 | [`to_bool`](#member-gfvariantdata-methods-to_bool) | `static func to_bool(value: Variant, default_value: bool = false) -> bool:` |
 | 方法 | [`to_int`](#member-gfvariantdata-methods-to_int) | `static func to_int(value: Variant, default_value: int = 0) -> int:` |
+| 方法 | [`is_exact_integer`](#member-gfvariantdata-methods-is_exact_integer) | `static func is_exact_integer(value: Variant) -> bool:` |
+| 方法 | [`to_exact_int`](#member-gfvariantdata-methods-to_exact_int) | `static func to_exact_int(value: Variant, default_value: int = 0) -> int:` |
 | 方法 | [`to_float`](#member-gfvariantdata-methods-to_float) | `static func to_float(value: Variant, default_value: float = 0.0) -> float:` |
 | 方法 | [`to_text`](#member-gfvariantdata-methods-to_text) | `static func to_text(value: Variant, default_value: String = "") -> String:` |
 | 方法 | [`to_string_name`](#member-gfvariantdata-methods-to_string_name) | `static func to_string_name(value: Variant, default_value: StringName = &"") -> StringName:` |
@@ -266,6 +268,57 @@ static func to_int(value: Variant, default_value: int = 0) -> int:
 结构：
 
 - `value`: 期望可表示 int 的 Variant 值。
+
+<a id="member-gfvariantdata-methods-is_exact_integer"></a>
+
+### `is_exact_integer`
+
+- API：`public`
+- 首次版本：`9.0.0`
+
+```gdscript
+static func is_exact_integer(value: Variant) -> bool:
+```
+
+检查 Variant 是否为可无损解释为整数的数值。 接受 int，以及 JSON 解析产生的有限、无小数且位于安全整数范围内的 float。 不接受 bool、字符串、NaN、Infinity 或带小数的 float。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `value` | 待检查的值。 |
+
+返回：可无损解释为整数时返回 true。
+
+结构：
+
+- `value`: Variant expected to be an int or an exact JSON integer number.
+
+<a id="member-gfvariantdata-methods-to_exact_int"></a>
+
+### `to_exact_int`
+
+- API：`public`
+- 首次版本：`9.0.0`
+
+```gdscript
+static func to_exact_int(value: Variant, default_value: int = 0) -> int:
+```
+
+将精确整数 Number 转为 int。 与宽松 to_int() 不同，该方法不会接受 bool 或文本，也不会截断小数。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `value` | 待转换的精确整数 Number。 |
+| `default_value` | 输入不满足精确整数约束时返回的值。 |
+
+返回：精确整数或 default_value。
+
+结构：
+
+- `value`: Variant accepted by is_exact_integer().
 
 <a id="member-gfvariantdata-methods-to_float"></a>
 

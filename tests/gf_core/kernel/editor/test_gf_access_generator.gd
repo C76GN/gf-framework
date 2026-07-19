@@ -10,9 +10,17 @@ const GF_NODE_2D_CAPABILITY_BASE = preload("res://addons/gf/extensions/capabilit
 const GF_NODE_3D_CAPABILITY_BASE = preload("res://addons/gf/extensions/capability/nodes/gf_node_3d_capability.gd")
 const GF_CONTROL_CAPABILITY_BASE = preload("res://addons/gf/extensions/capability/nodes/gf_control_capability.gd")
 const GF_VARIANT_ACCESS = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
+const GF_PROJECT_ARTIFACT_PATHS = preload("res://addons/gf/kernel/core/gf_project_artifact_paths.gd")
 
 
 # --- 测试用例 ---
+
+func test_project_artifact_policy_drives_codegen_defaults_and_matches_json_mirror() -> void:
+	assert_eq(GF_PROJECT_ARTIFACT_PATHS.GENERATED_ROOT, "res://generated")
+	assert_eq(GFAccessGenerator.DEFAULT_OUTPUT_PATH, GF_PROJECT_ARTIFACT_PATHS.ACCESS_OUTPUT_PATH)
+	assert_eq(GFAccessGenerator.DEFAULT_PROJECT_OUTPUT_PATH, GF_PROJECT_ARTIFACT_PATHS.PROJECT_ACCESS_OUTPUT_PATH)
+	assert_true(GF_PROJECT_ARTIFACT_PATHS.validate_policy_file().is_empty(), "跨运行时路径策略镜像必须与 kernel 常量一致。")
+
 
 func test_build_source_generates_typed_accessors() -> void:
 	var generator: GFAccessGenerator = GFAccessGenerator.new()

@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：运行时服务 (`runtime_service`)
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 按 key 聚合连发消息的静默窗口协调器。 每个 key 独立收集按序消息，在最后一次提交后的静默窗口、批次最大窗口或 消息数量上限到达时关闭批次。框架不解释消息内容；项目可通过 merge_callback 定义文本拼接、状态折叠、网络载荷聚合或其它合并语义。
 
@@ -44,7 +44,7 @@
 ### `batch_closed`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 signal batch_closed(report: Dictionary)
@@ -69,7 +69,7 @@ signal batch_closed(report: Dictionary)
 ### `REASON_QUIET_WINDOW`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 const REASON_QUIET_WINDOW: StringName = &"quiet_window"
@@ -82,7 +82,7 @@ const REASON_QUIET_WINDOW: StringName = &"quiet_window"
 ### `REASON_MAX_WINDOW`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 const REASON_MAX_WINDOW: StringName = &"max_window"
@@ -95,7 +95,7 @@ const REASON_MAX_WINDOW: StringName = &"max_window"
 ### `REASON_BATCH_LIMIT`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 const REASON_BATCH_LIMIT: StringName = &"batch_limit"
@@ -108,7 +108,7 @@ const REASON_BATCH_LIMIT: StringName = &"batch_limit"
 ### `REASON_MANUAL`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 const REASON_MANUAL: StringName = &"manual"
@@ -121,7 +121,7 @@ const REASON_MANUAL: StringName = &"manual"
 ### `REASON_PENDING_LIMIT`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 const REASON_PENDING_LIMIT: StringName = &"pending_limit"
@@ -136,7 +136,7 @@ const REASON_PENDING_LIMIT: StringName = &"pending_limit"
 ### `quiet_window_msec`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 var quiet_window_msec: int = 250:
@@ -149,7 +149,7 @@ var quiet_window_msec: int = 250:
 ### `max_window_msec`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 var max_window_msec: int = 1000:
@@ -162,7 +162,7 @@ var max_window_msec: int = 1000:
 ### `max_messages_per_batch`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 var max_messages_per_batch: int = 64:
@@ -175,7 +175,7 @@ var max_messages_per_batch: int = 64:
 ### `max_pending_batches`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 var max_pending_batches: int = 128:
@@ -188,7 +188,7 @@ var max_pending_batches: int = 128:
 ### `auto_flush`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 var auto_flush: bool = true:
@@ -201,7 +201,7 @@ var auto_flush: bool = true:
 ### `merge_callback`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 var merge_callback: Callable = Callable()
@@ -216,7 +216,7 @@ var merge_callback: Callable = Callable()
 ### `submit`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 func submit(key: StringName, message: Variant) -> int:
@@ -242,7 +242,7 @@ func submit(key: StringName, message: Variant) -> int:
 ### `submit_at`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 func submit_at(key: StringName, message: Variant, now_msec: int) -> int:
@@ -269,7 +269,7 @@ func submit_at(key: StringName, message: Variant, now_msec: int) -> int:
 ### `flush_ready`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 func flush_ready(now_msec: int = -1) -> Array[Dictionary]:
@@ -294,7 +294,7 @@ func flush_ready(now_msec: int = -1) -> Array[Dictionary]:
 ### `flush`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 func flush(key: StringName, reason: StringName = REASON_MANUAL) -> Dictionary:
@@ -320,7 +320,7 @@ func flush(key: StringName, reason: StringName = REASON_MANUAL) -> Dictionary:
 ### `flush_all`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 func flush_all(reason: StringName = REASON_MANUAL) -> Array[Dictionary]:
@@ -345,7 +345,7 @@ func flush_all(reason: StringName = REASON_MANUAL) -> Array[Dictionary]:
 ### `cancel`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 func cancel(key: StringName) -> bool:
@@ -366,7 +366,7 @@ func cancel(key: StringName) -> bool:
 ### `clear`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 func clear() -> void:
@@ -379,7 +379,7 @@ func clear() -> void:
 ### `get_pending_batch_count`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 func get_pending_batch_count() -> int:
@@ -394,7 +394,7 @@ func get_pending_batch_count() -> int:
 ### `get_debug_snapshot`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 func get_debug_snapshot(max_entries: int = 32) -> Dictionary:

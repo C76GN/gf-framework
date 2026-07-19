@@ -42,7 +42,7 @@ func test_network_editor_actions_contribute_menu_entries_settings_and_sections()
 			_find_record(setting_records, "name", CONTRACT_OUTPUT_DIR_SETTING),
 			"default_value"
 		),
-		"res://gf/generated/network"
+		"res://generated/network"
 	)
 	assert_eq(section_records.size(), 1, "Network editor tool 应贡献独立项目设置分区展示。")
 	assert_eq(
@@ -54,7 +54,7 @@ func test_network_editor_actions_contribute_menu_entries_settings_and_sections()
 func test_network_contract_generator_script_exposes_generation_api() -> void:
 	var generator: RefCounted = GF_NETWORK_CONTRACT_GENERATOR_SCRIPT.new()
 
-	assert_eq(GF_NETWORK_CONTRACT_GENERATOR_SCRIPT.DEFAULT_OUTPUT_DIR, "res://gf/generated/network")
+	assert_eq(GF_NETWORK_CONTRACT_GENERATOR_SCRIPT.DEFAULT_OUTPUT_DIR, "res://generated/network")
 	assert_true(generator.has_method("generate_with_report"), "Network tool package 应包含生成器报告入口。")
 	assert_true(generator.has_method("generate_many"), "Network tool package 应包含批量生成入口。")
 

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSaveGraphUtility" path="addons/gf/extensions/save/graph/gf_save_graph_utility.gd" module="extensions/save" extends="GFUtility" classDigest="68c26794ff7636fbb2effaef797f7a16b4dfa3adba1c8fe5a02d7adfe07247ad">
+<class name="GFSaveGraphUtility" path="addons/gf/extensions/save/graph/gf_save_graph_utility.gd" module="extensions/save" extends="GFUtility" classDigest="cc518b67fbfd594d75e7273f06ed044c12701f8cc424b77d07e683d4a6d048ed">
 	<description>GFSaveGraphUtility: 通用节点存档图编排工具。
 负责遍历 GFSaveScope/GFSaveSource，采集、应用和落盘存档图。具体数据结构
 由 Source、Serializer 或项目继承类决定，Utility 本身不绑定业务字段。</description>
@@ -25,6 +25,30 @@
 				<tag name="api">public</tag>
 			</tags>
 		</member>
+		<member kind="const" name="DOCUMENT_SCHEMA_ID">
+			<signature>const DOCUMENT_SCHEMA_ID: StringName = &amp;"gf.save_graph"</signature>
+			<description>独立 SaveGraph 文档使用的 schema ID。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="DOCUMENT_SCHEMA_VERSION">
+			<signature>const DOCUMENT_SCHEMA_VERSION: int = 1</signature>
+			<description>独立 SaveGraph 文档的当前 schema 版本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="DOCUMENT_SECTION_ID">
+			<signature>const DOCUMENT_SECTION_ID: StringName = &amp;"save_graph"</signature>
+			<description>SaveGraph 在版本化文档中的默认分区 ID。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
 	</constants>
 	<properties>
 		<member kind="property" name="serializer_registry">
@@ -43,6 +67,34 @@
 		</member>
 	</properties>
 	<methods>
+		<member kind="method" name="ready">
+			<signature>func ready() -&gt; void:</signature>
+			<description>在架构中自动采用已注册 GFTimeProvider 的底层时钟。
+构造函数或 `set_clock()` 的显式注入不会被自动覆盖。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="set_clock">
+			<signature>func set_clock(clock: GFClock) -&gt; bool:</signature>
+			<description>设置存档流水线诊断使用的单调时钟。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">clock: 新单调时钟。</tag>
+				<tag name="return">时钟合法并完成设置时返回 true。</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_clock">
+			<signature>func get_clock() -&gt; GFClock:</signature>
+			<description>获取存档流水线诊断使用的时钟。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">当前时钟。</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
 		<member kind="method" name="register_entity_factory">
 			<signature>func register_entity_factory(factory: GFSaveEntityFactory) -&gt; void:</signature>
 			<description>注册实体工厂。</description>
@@ -99,6 +151,72 @@
 				<tag name="param">shared: 初始共享数据。</tag>
 				<tag name="return">新上下文。</tag>
 				<tag name="schema">shared: Dictionary，流程共享数据，可由步骤写入调试标记、迁移状态或项目自定义键。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="create_document_schema">
+			<signature>func create_document_schema() -&gt; GFSaveDocumentSchema:</signature>
+			<description>创建独立 SaveGraph 文档的当前 schema。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">要求默认 SaveGraph 分区的 schema。</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="gather_section">
+			<signature>func gather_section( scope: GFSaveScope, section_id: StringName = DOCUMENT_SECTION_ID, context: Dictionary = {} ) -&gt; GFSaveSection:</signature>
+			<description>把 Scope 图采集为可组合版本化分区。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">scope: 根 Scope。</tag>
+				<tag name="param">section_id: 项目文档中的分区 ID。</tag>
+				<tag name="param">context: 调用上下文字典。</tag>
+				<tag name="return">分区；采集失败时返回 null。</tag>
+				<tag name="schema">context: Dictionary accepted by gather_scope().</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="apply_section">
+			<signature>func apply_section( scope: GFSaveScope, section: GFSaveSection, context: Dictionary = {}, strict: bool = false ) -&gt; Dictionary:</signature>
+			<description>应用可组合 SaveGraph 分区。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">scope: 根 Scope。</tag>
+				<tag name="param">section: SaveGraph 分区。</tag>
+				<tag name="param">context: 调用上下文字典。</tag>
+				<tag name="param">strict: 为 true 时缺失 Source/Scope 会记录错误。</tag>
+				<tag name="return">apply_scope() 结果。</tag>
+				<tag name="schema">context: Dictionary accepted by apply_scope().</tag>
+				<tag name="schema">return: Dictionary with ok, applied, errors, missing, and optional pipeline_trace.</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="gather_document">
+			<signature>func gather_document( scope: GFSaveScope, metadata: Dictionary = {}, context: Dictionary = {} ) -&gt; GFSaveDocument:</signature>
+			<description>采集独立 SaveGraph 文档。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">scope: 根 Scope。</tag>
+				<tag name="param">metadata: 可持久化文档元数据。</tag>
+				<tag name="param">context: 调用上下文字典。</tag>
+				<tag name="return">独立文档；采集失败时返回 null。</tag>
+				<tag name="schema">metadata: Dictionary with project-defined persisted metadata.</tag>
+				<tag name="schema">context: Dictionary accepted by gather_scope().</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="apply_document">
+			<signature>func apply_document( scope: GFSaveScope, document: GFSaveDocument, context: Dictionary = {}, strict: bool = false ) -&gt; Dictionary:</signature>
+			<description>应用独立 SaveGraph 文档。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">scope: 根 Scope。</tag>
+				<tag name="param">document: 独立 SaveGraph 文档。</tag>
+				<tag name="param">context: 调用上下文字典。</tag>
+				<tag name="param">strict: 为 true 时缺失 Source/Scope 会记录错误。</tag>
+				<tag name="return">apply_section() 结果。</tag>
+				<tag name="schema">context: Dictionary accepted by apply_scope().</tag>
+				<tag name="schema">return: Dictionary with ok, applied, errors, missing, and optional pipeline_trace.</tag>
+				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="inspect_scope">

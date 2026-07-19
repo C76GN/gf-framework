@@ -16,10 +16,14 @@ extends RefCounted
 
 # --- 常量 ---
 
+const _GF_PROJECT_ARTIFACT_PATHS_SCRIPT = preload("res://addons/gf/kernel/core/gf_project_artifact_paths.gd")
+
 ## 默认生成脚本输出目录。
 ## [br]
 ## @api public
-const DEFAULT_OUTPUT_DIR: String = "res://gf/generated/network"
+## [br]
+## @since 9.0.0
+const DEFAULT_OUTPUT_DIR: String = _GF_PROJECT_ARTIFACT_PATHS_SCRIPT.NETWORK_OUTPUT_ROOT
 const _GF_VALIDATION_REPORT_DICTIONARY = preload("res://addons/gf/standard/foundation/validation/gf_validation_report_dictionary.gd")
 const _GENERATED_ARTIFACT_REPORT_SCRIPT = preload("res://addons/gf/kernel/editor/gf_generated_artifact_report.gd")
 

@@ -60,11 +60,11 @@ var report := contract.validate_peer_contract_version(peer_version, {
 
 ```gdscript
 var generator := GFNetworkContractGenerator.new()
-generator.generate(contract, "res://gf/generated/network/lobby_network_messages.gd", true, {
+generator.generate(contract, "res://generated/network/lobby_network_messages.gd", true, {
 	"class_name": "LobbyNetworkMessages",
 })
 
-var report := generator.generate_with_report(contract, "res://gf/generated/network/lobby_network_messages.gd", {
+var report := generator.generate_with_report(contract, "res://generated/network/lobby_network_messages.gd", {
 	"class_name": "LobbyNetworkMessages",
 	"overwrite_existing": false,
 })

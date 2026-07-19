@@ -19,6 +19,8 @@
 | 信号 | [`asset_handle_released`](#member-gfassetutility-signals-asset_handle_released) | `signal asset_handle_released(path: String, reference_count: int)` |
 | 信号 | [`asset_load_progress`](#member-gfassetutility-signals-asset_load_progress) | `signal asset_load_progress(path: String, progress: float)` |
 | 信号 | [`asset_group_preloaded`](#member-gfassetutility-signals-asset_group_preloaded) | `signal asset_group_preloaded(group_id: StringName, report: Dictionary)` |
+| 信号 | [`asset_load_session_started`](#member-gfassetutility-signals-asset_load_session_started) | `signal asset_load_session_started(session: GFAssetLoadSession)` |
+| 信号 | [`asset_load_session_completed`](#member-gfassetutility-signals-asset_load_session_completed) | `signal asset_load_session_completed(result: GFAssetLoadSessionResult)` |
 | 信号 | [`asset_load_queued`](#member-gfassetutility-signals-asset_load_queued) | `signal asset_load_queued(path: String, lane_id: StringName)` |
 | 常量 | [`DEFAULT_LOAD_LANE_ID`](#member-gfassetutility-constants-default_load_lane_id) | `const DEFAULT_LOAD_LANE_ID: StringName = &"_default"` |
 | 属性 | [`max_cache_size`](#member-gfassetutility-properties-max_cache_size) | `var max_cache_size: int:` |
@@ -34,6 +36,8 @@
 | 方法 | [`register_group_path`](#member-gfassetutility-methods-register_group_path) | `func register_group_path(group_id: StringName, path: String, pin: bool = false) -> void:` |
 | 方法 | [`get_group_paths`](#member-gfassetutility-methods-get_group_paths) | `func get_group_paths(group_id: StringName) -> PackedStringArray:` |
 | 方法 | [`preload_plan_async`](#member-gfassetutility-methods-preload_plan_async) | `func preload_plan_async( asset_plan: GFAssetPreloadPlan, on_completed: Callable = Callable(), options: Dictionary = {} ) -> void:` |
+| 方法 | [`start_preload_session`](#member-gfassetutility-methods-start_preload_session) | `func start_preload_session( asset_plan: GFAssetPreloadPlan, options: Dictionary = {} ) -> GFAssetLoadSession:` |
+| 方法 | [`get_active_preload_session_count`](#member-gfassetutility-methods-get_active_preload_session_count) | `func get_active_preload_session_count() -> int:` |
 | 方法 | [`preload_group_async`](#member-gfassetutility-methods-preload_group_async) | `func preload_group_async( group_id: StringName, entries: Array, on_completed: Callable = Callable(), options: Dictionary = {} ) -> void:` |
 | 方法 | [`unload_group`](#member-gfassetutility-methods-unload_group) | `func unload_group(group_id: StringName, remove_unreferenced_cache: bool = false) -> void:` |
 | 方法 | [`tick`](#member-gfassetutility-methods-tick) | `func tick(_delta: float = 0.0) -> void:` |
@@ -132,6 +136,44 @@ signal asset_group_preloaded(group_id: StringName, report: Dictionary)
 结构：
 
 - `report`: Dictionary with `ok: bool`, `group_id: StringName`, `paths: PackedStringArray`, `failed_paths: PackedStringArray`, `total: int`, and `completed: int`.
+
+<a id="member-gfassetutility-signals-asset_load_session_started"></a>
+
+### `asset_load_session_started`
+
+- API：`public`
+- 首次版本：`9.0.0`
+
+```gdscript
+signal asset_load_session_started(session: GFAssetLoadSession)
+```
+
+事务预加载会话启动后发出。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `session` | 新会话。 |
+
+<a id="member-gfassetutility-signals-asset_load_session_completed"></a>
+
+### `asset_load_session_completed`
+
+- API：`public`
+- 首次版本：`9.0.0`
+
+```gdscript
+signal asset_load_session_completed(result: GFAssetLoadSessionResult)
+```
+
+事务预加载会话进入终态后发出。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `result` | 隔离终态结果。 |
 
 <a id="member-gfassetutility-signals-asset_load_queued"></a>
 
@@ -423,6 +465,47 @@ func preload_plan_async( asset_plan: GFAssetPreloadPlan, on_completed: Callable 
 结构：
 
 - `options`: Dictionary with optional `pin_cache: bool`, `serial_lane_id: StringName`, `lane_id: StringName`, and `max_concurrent_loads: int`.
+
+<a id="member-gfassetutility-methods-start_preload_session"></a>
+
+### `start_preload_session`
+
+- API：`public`
+- 首次版本：`9.0.0`
+
+```gdscript
+func start_preload_session( asset_plan: GFAssetPreloadPlan, options: Dictionary = {} ) -> GFAssetLoadSession:
+```
+
+启动可回滚资产预加载会话。 会话使用唯一 staging group；默认在全部成功后自动提交，失败时自动回滚。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `asset_plan` | 资源预加载计划。 |
+| `options` | 可包含 auto_commit 和 metadata。 |
+
+返回：已启动会话；无效计划也会返回具有明确失败终态的会话。
+
+结构：
+
+- `options`: Dictionary with optional auto_commit: bool and metadata: Dictionary.
+
+<a id="member-gfassetutility-methods-get_active_preload_session_count"></a>
+
+### `get_active_preload_session_count`
+
+- API：`public`
+- 首次版本：`9.0.0`
+
+```gdscript
+func get_active_preload_session_count() -> int:
+```
+
+获取尚未进入终态的事务预加载会话数量。
+
+返回：活跃会话数量。
 
 <a id="member-gfassetutility-methods-preload_group_async"></a>
 

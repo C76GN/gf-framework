@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFExecutionBudget" path="addons/gf/standard/common/gf_execution_budget.gd" module="standard" extends="RefCounted" classDigest="91172a72bbd8b8ee212387a63dba7201b3b4572e08f9723b6d37f291e8603968">
+<class name="GFExecutionBudget" path="addons/gf/standard/common/gf_execution_budget.gd" module="standard" extends="RefCounted" classDigest="3221a2253df51f23d711d42a1aa1d7c1f5f7bcc101eb3ea5effc961ee64defec">
 	<description>GFExecutionBudget: 通用执行预算与取消检查器。
 用于给生成器、导入器、批处理或受控规则循环提供统一的步数、深度、
 输出长度、耗时和取消 token 检查。它不调度任务，也不执行调用方逻辑。</description>
@@ -64,11 +64,12 @@
 	</properties>
 	<methods>
 		<member kind="method" name="_init">
-			<signature>func _init(options: Dictionary = {}) -&gt; void:</signature>
+			<signature>func _init(options: Dictionary = {}, clock: GFClock = null) -&gt; void:</signature>
 			<description>创建执行预算。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">options: 可选配置，支持 max_steps、max_depth、max_output_length、max_elapsed_msec、cancel_token 和 metadata。</tag>
+				<tag name="param">clock: 可选单调时钟；为空时使用系统时钟。</tag>
 				<tag name="schema">options: Dictionary，包含执行预算配置。</tag>
 				<tag name="since">7.0.0</tag>
 			</tags>
@@ -82,6 +83,25 @@
 				<tag name="return">当前预算。</tag>
 				<tag name="schema">options: Dictionary，包含执行预算配置。</tag>
 				<tag name="since">7.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="set_clock">
+			<signature>func set_clock(clock: GFClock) -&gt; bool:</signature>
+			<description>替换预算耗时检查使用的单调时钟并重置计数状态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">clock: 新单调时钟。</tag>
+				<tag name="return">时钟合法并完成替换时返回 true。</tag>
+				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_clock">
+			<signature>func get_clock() -&gt; GFClock:</signature>
+			<description>获取预算耗时检查使用的时钟。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">当前时钟。</tag>
+				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="reset">

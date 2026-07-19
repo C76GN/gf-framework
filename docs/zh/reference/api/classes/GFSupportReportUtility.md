@@ -120,7 +120,7 @@ signal report_submitted(result: Dictionary)
 ### `RuntimeDetail`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 enum RuntimeDetail {
@@ -194,7 +194,7 @@ var include_scene_by_default: bool = false
 ### `include_runtime_by_default`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 var include_runtime_by_default: bool = true
@@ -207,7 +207,7 @@ var include_runtime_by_default: bool = true
 ### `runtime_detail_by_default`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 var runtime_detail_by_default: RuntimeDetail = RuntimeDetail.MINIMAL
@@ -220,7 +220,7 @@ var runtime_detail_by_default: RuntimeDetail = RuntimeDetail.MINIMAL
 ### `include_sections_by_default`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 var include_sections_by_default: bool = false
@@ -416,7 +416,7 @@ func build_report(description: String = "", options: Dictionary = {}) -> Diction
 ### `collect_runtime_snapshot`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 func collect_runtime_snapshot(detail: RuntimeDetail = RuntimeDetail.MINIMAL) -> Dictionary:

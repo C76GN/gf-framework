@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFConfigPipelineTableIR" path="addons/gf/tools/config_pipeline/gf_config_pipeline_table_ir.gd" module="tools" extends="RefCounted" classDigest="e1e38ac3fa60a4264f981f8993f2c6cba7c96d10dc556e2c4448467ca4c148d8">
+<class name="GFConfigPipelineTableIR" path="addons/gf/tools/config_pipeline/gf_config_pipeline_table_ir.gd" module="tools" extends="RefCounted" classDigest="890acd163519d01246729c4d13e2553ff9a3a7aef9e41a8ff46c4f3998fd269b">
 	<description>GFConfigPipelineTableIR: Config Pipeline 的版本化单表中间表示。
 保存布局解析与语义校验后的规范记录、schema、来源映射和元数据。
 IR 只描述可物化的数据，不负责读取来源、生成 Resource 或提交文件。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">tool_api</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">9.0.0</tag>
 	</tags>
 	<signals />
 	<enums />
@@ -16,7 +16,7 @@ IR 只描述可物化的数据，不负责读取来源、生成 Resource 或提�
 			<description>单表 IR 的稳定格式标识。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="FORMAT_VERSION">
@@ -24,7 +24,7 @@ IR 只描述可物化的数据，不负责读取来源、生成 Resource 或提�
 			<description>单表 IR 的格式版本。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
 	</constants>
@@ -46,7 +46,7 @@ IR 只描述可物化的数据，不负责读取来源、生成 Resource 或提�
 				<tag name="schema">records: Array[Dictionary]，每个 Dictionary 是一条规范配置记录。</tag>
 				<tag name="schema">source_map: Dictionary，可包含 header、row_locations、source 和格式专属定位数据。</tag>
 				<tag name="schema">metadata: Dictionary，保存来源摘要和调用方附加元数据。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="validate_contract">
@@ -56,7 +56,7 @@ IR 只描述可物化的数据，不负责读取来源、生成 Resource 或提�
 				<tag name="api">public</tag>
 				<tag name="return">契约校验结果。</tag>
 				<tag name="schema">return: Dictionary，包含 success、error_code、error_kind 和 error。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_table_name">
@@ -65,7 +65,7 @@ IR 只描述可物化的数据，不负责读取来源、生成 Resource 或提�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">稳定表名。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_source_path">
@@ -74,7 +74,7 @@ IR 只描述可物化的数据，不负责读取来源、生成 Resource 或提�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">原始来源路径。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_source_format">
@@ -83,7 +83,7 @@ IR 只描述可物化的数据，不负责读取来源、生成 Resource 或提�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">来源格式。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_records">
@@ -93,7 +93,7 @@ IR 只描述可物化的数据，不负责读取来源、生成 Resource 或提�
 				<tag name="api">public</tag>
 				<tag name="return">规范记录列表。</tag>
 				<tag name="schema">return: Array[Dictionary]，每个 Dictionary 是一条规范配置记录。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_schema">
@@ -102,7 +102,7 @@ IR 只描述可物化的数据，不负责读取来源、生成 Resource 或提�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">表结构；未声明时返回 null。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_source_map">
@@ -112,7 +112,7 @@ IR 只描述可物化的数据，不负责读取来源、生成 Resource 或提�
 				<tag name="api">public</tag>
 				<tag name="return">来源定位映射的深拷贝。</tag>
 				<tag name="schema">return: Dictionary，可包含 header、row_locations、source 和格式专属定位数据。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_metadata">
@@ -122,7 +122,7 @@ IR 只描述可物化的数据，不负责读取来源、生成 Resource 或提�
 				<tag name="api">public</tag>
 				<tag name="return">表元数据的深拷贝。</tag>
 				<tag name="schema">return: Dictionary，保存来源摘要和调用方附加元数据。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="duplicate_ir">
@@ -131,7 +131,7 @@ IR 只描述可物化的数据，不负责读取来源、生成 Resource 或提�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">单表 IR 副本。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="describe">
@@ -141,7 +141,7 @@ IR 只描述可物化的数据，不负责读取来源、生成 Resource 或提�
 				<tag name="api">public</tag>
 				<tag name="return">IR 摘要。</tag>
 				<tag name="schema">return: Dictionary，包含 format、format_version、table_name、source_path、source_format、record_count、schema、source_map 和 metadata。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
 	</methods>

@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFBuoyancyMath3D" path="addons/gf/extensions/physics/core/gf_buoyancy_math_3d.gd" module="extensions/physics" extends="RefCounted" classDigest="b88cc30c210b437d9ae1f9ccfd422eda6bf85e1c0d9c3676e7eaec24df325df2">
+<class name="GFBuoyancyMath3D" path="addons/gf/extensions/physics/core/gf_buoyancy_math_3d.gd" module="extensions/physics" extends="RefCounted" classDigest="0b10d5b49692870c646c00596297bef403b5f0d7545a693c3b32115441557141">
 	<description>GFBuoyancyMath3D: 通用 3D 浮力点采样数学工具。
 只根据浸没深度、排水体积、重力和相对速度计算浸没比例与力，
 不查询水体、不持有刚体，也不决定探针布局或施力时机。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">runtime_service</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">9.0.0</tag>
 	</tags>
 	<signals />
 	<enums />
@@ -23,7 +23,7 @@
 				<tag name="param">signed_depth: 采样点相对流体表面的有符号深度。</tag>
 				<tag name="param">immersion_radius: 从半浸没到完全浸没所需的距离，必须大于 0。</tag>
 				<tag name="return">0 到 1 的浸没比例；输入无效时返回 0。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="calculate_buoyancy_force">
@@ -36,7 +36,7 @@
 				<tag name="param">displaced_volume: 该采样点代表的最大排水体积。</tag>
 				<tag name="param">submersion_ratio: 0 到 1 的浸没比例。</tag>
 				<tag name="return">与重力方向相反的浮力；输入或计算结果无效时返回零向量。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="calculate_drag_force">
@@ -51,7 +51,7 @@ GF 不把它们解释为某种固定形状的阻力面积或黏度模型。</des
 				<tag name="param">quadratic_coefficient: 二次阻力有效系数。</tag>
 				<tag name="param">submersion_ratio: 0 到 1 的浸没比例。</tag>
 				<tag name="return">与相对速度相反的阻力；输入或计算结果无效时返回零向量。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="calculate_point_force">
@@ -68,7 +68,7 @@ GF 不把它们解释为某种固定形状的阻力面积或黏度模型。</des
 				<tag name="param">linear_coefficient: 线性阻力有效系数。</tag>
 				<tag name="param">quadratic_coefficient: 二次阻力有效系数。</tag>
 				<tag name="return">浮力与阻力之和。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
 	</methods>

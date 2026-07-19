@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：工具 API (`tool_api`)
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 Config Pipeline 的内置来源读取阶段。 只负责来源存在性、读取预算和原始载荷取得，不解析表布局或业务字段。 文本来源返回原文，XLSX 来源返回已完成预算检查的文件载荷描述。
 
@@ -27,7 +27,7 @@ Config Pipeline 的内置来源读取阶段。 只负责来源存在性、读取
 ### `STAGE_ID`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 const STAGE_ID: String = "gf.config.reader.builtin"
@@ -40,7 +40,7 @@ Reader 阶段的稳定实现标识。
 ### `IMPLEMENTATION_VERSION`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 const IMPLEMENTATION_VERSION: int = 1
@@ -55,7 +55,7 @@ Reader 阶段的实现版本；改变读取语义时递增。
 ### `read_source`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 func read_source(source: GFConfigPipelineTableSource, options: Dictionary = {}) -> Dictionary:
@@ -82,7 +82,7 @@ func read_source(source: GFConfigPipelineTableSource, options: Dictionary = {}) 
 ### `get_stage_descriptor`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 func get_stage_descriptor() -> Dictionary:

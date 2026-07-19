@@ -7,7 +7,7 @@
 ## [br]
 ## @category tool_api
 ## [br]
-## @since unreleased
+## @since 9.0.0
 class_name GFConfigPipelineCommitStage
 extends RefCounted
 
@@ -18,14 +18,14 @@ extends RefCounted
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 const STAGE_ID: String = "gf.config.commit.filesystem"
 
 ## Commit 阶段的实现版本；改变事务或回滚语义时递增。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 const IMPLEMENTATION_VERSION: int = 1
 
 const _TRANSACTION_FORMAT: String = "gf.config_pipeline.commit_transaction"
@@ -39,7 +39,7 @@ const _COPY_BUFFER_BYTES: int = 64 * 1024
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 ## [br]
 ## @param paths: 本次事务可能创建或覆盖的完整路径集合。
 ## [br]
@@ -86,7 +86,7 @@ func begin(paths: PackedStringArray) -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 ## [br]
 ## @param transaction: begin() 返回且仍处于 open 状态的事务。
 ## [br]
@@ -143,7 +143,7 @@ func rollback(transaction: Dictionary) -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 ## [br]
 ## @param transaction: begin() 返回且仍处于 open 状态的事务。
 ## [br]
@@ -178,7 +178,7 @@ func complete(transaction: Dictionary) -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 9.0.0
 ## [br]
 ## @return: 阶段描述。
 ## [br]

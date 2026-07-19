@@ -23,7 +23,7 @@
 | 属性 | [`message`](#member-gfsavepipelineevent-properties-message) | `var message: String = ""` |
 | 属性 | [`payload`](#member-gfsavepipelineevent-properties-payload) | `var payload: Dictionary = {}` |
 | 属性 | [`timestamp_msec`](#member-gfsavepipelineevent-properties-timestamp_msec) | `var timestamp_msec: int = 0` |
-| 方法 | [`configure`](#member-gfsavepipelineevent-methods-configure) | `func configure( p_stage: StringName, scope: Object = null, source: Object = null, p_message: String = "", p_payload: Dictionary = {}, p_severity: StringName = &"info" ) -> GFSavePipelineEvent:` |
+| 方法 | [`configure`](#member-gfsavepipelineevent-methods-configure) | `func configure( p_stage: StringName, scope: Object = null, source: Object = null, p_message: String = "", p_payload: Dictionary = {}, p_severity: StringName = &"info", p_timestamp_msec: int = 0 ) -> GFSavePipelineEvent:` |
 | 方法 | [`to_dict`](#member-gfsavepipelineevent-methods-to_dict) | `func to_dict() -> Dictionary:` |
 | 方法 | [`from_dict`](#member-gfsavepipelineevent-methods-from_dict) | `static func from_dict(data: Dictionary) -> GFSavePipelineEvent:` |
 
@@ -147,7 +147,7 @@ var timestamp_msec: int = 0
 - 首次版本：`3.17.0`
 
 ```gdscript
-func configure( p_stage: StringName, scope: Object = null, source: Object = null, p_message: String = "", p_payload: Dictionary = {}, p_severity: StringName = &"info" ) -> GFSavePipelineEvent:
+func configure( p_stage: StringName, scope: Object = null, source: Object = null, p_message: String = "", p_payload: Dictionary = {}, p_severity: StringName = &"info", p_timestamp_msec: int = 0 ) -> GFSavePipelineEvent:
 ```
 
 配置事件内容并返回自身。
@@ -162,6 +162,7 @@ func configure( p_stage: StringName, scope: Object = null, source: Object = null
 | `p_message` | 调试消息。 |
 | `p_payload` | 附加载荷。 |
 | `p_severity` | 严重级别。 |
+| `p_timestamp_msec` | 调用方提供的单调时间戳；0 表示未提供。 |
 
 返回：当前事件。
 

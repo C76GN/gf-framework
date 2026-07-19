@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFConfigPipelineCommitStage" path="addons/gf/tools/config_pipeline/gf_config_pipeline_commit_stage.gd" module="tools" extends="RefCounted" classDigest="af2b6eac6f45f98bc9d89561389b52eb57fcd36a0cd2bf16035f761a68e5406f">
+<class name="GFConfigPipelineCommitStage" path="addons/gf/tools/config_pipeline/gf_config_pipeline_commit_stage.gd" module="tools" extends="RefCounted" classDigest="ac5ed5152ef77c9f833bfa6cf4a8c3d4746d72fa7a94a12b296de787c35b3c0a">
 	<description>GFConfigPipelineCommitStage: Config Pipeline 的文件提交事务阶段。
 在目标写入前捕获路径状态，并负责成功提交后的快照清理或失败后的逆序回滚。
 该阶段不解释产物内容，也不决定输出路径策略。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">tool_api</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">9.0.0</tag>
 	</tags>
 	<signals />
 	<enums />
@@ -16,7 +16,7 @@
 			<description>Commit 阶段的稳定实现标识。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="IMPLEMENTATION_VERSION">
@@ -24,7 +24,7 @@
 			<description>Commit 阶段的实现版本；改变事务或回滚语义时递增。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
 	</constants>
@@ -38,7 +38,7 @@
 				<tag name="param">paths: 本次事务可能创建或覆盖的完整路径集合。</tag>
 				<tag name="return">提交事务。</tag>
 				<tag name="schema">return: Dictionary，包含 success、format、format_version、state、entries、error_kind 和 error。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="rollback">
@@ -50,7 +50,7 @@
 				<tag name="return">回滚结果。</tag>
 				<tag name="schema">transaction: Dictionary，符合 gf.config_pipeline.commit_transaction@1。</tag>
 				<tag name="schema">return: Dictionary，包含 success、phase、restored_paths、failed_paths、issues、error_kind 和 error。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="complete">
@@ -62,7 +62,7 @@
 				<tag name="return">提交完成结果。</tag>
 				<tag name="schema">transaction: Dictionary，符合 gf.config_pipeline.commit_transaction@1。</tag>
 				<tag name="schema">return: Dictionary，包含 success、phase、restored_paths、failed_paths、issues、error_kind 和 error。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_stage_descriptor">
@@ -72,7 +72,7 @@
 				<tag name="api">public</tag>
 				<tag name="return">阶段描述。</tag>
 				<tag name="schema">return: Dictionary，包含 stage_id、implementation_version、input_contract 和 output_contract。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
 	</methods>

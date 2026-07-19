@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：工具 API (`tool_api`)
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 Config Pipeline 的版本化单表中间表示。 保存布局解析与语义校验后的规范记录、schema、来源映射和元数据。 IR 只描述可物化的数据，不负责读取来源、生成 Resource 或提交文件。
 
@@ -36,7 +36,7 @@ Config Pipeline 的版本化单表中间表示。 保存布局解析与语义校
 ### `FORMAT`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 const FORMAT: String = "gf.config_pipeline.table_ir"
@@ -49,7 +49,7 @@ const FORMAT: String = "gf.config_pipeline.table_ir"
 ### `FORMAT_VERSION`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 const FORMAT_VERSION: int = 1
@@ -64,7 +64,7 @@ const FORMAT_VERSION: int = 1
 ### `create`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 static func create( table_name: StringName, source_path: String, source_format: StringName, records: Array[Dictionary], schema: GFConfigTableSchema = null, source_map: Dictionary = {}, metadata: Dictionary = {} ) -> GFConfigPipelineTableIR:
@@ -97,7 +97,7 @@ static func create( table_name: StringName, source_path: String, source_format: 
 ### `validate_contract`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 func validate_contract() -> Dictionary:
@@ -116,7 +116,7 @@ func validate_contract() -> Dictionary:
 ### `get_table_name`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 func get_table_name() -> StringName:
@@ -131,7 +131,7 @@ func get_table_name() -> StringName:
 ### `get_source_path`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 func get_source_path() -> String:
@@ -146,7 +146,7 @@ func get_source_path() -> String:
 ### `get_source_format`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 func get_source_format() -> StringName:
@@ -161,7 +161,7 @@ func get_source_format() -> StringName:
 ### `get_records`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 func get_records() -> Array[Dictionary]:
@@ -180,7 +180,7 @@ func get_records() -> Array[Dictionary]:
 ### `get_schema`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 func get_schema() -> GFConfigTableSchema:
@@ -195,7 +195,7 @@ func get_schema() -> GFConfigTableSchema:
 ### `get_source_map`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 func get_source_map() -> Dictionary:
@@ -214,7 +214,7 @@ func get_source_map() -> Dictionary:
 ### `get_metadata`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 func get_metadata() -> Dictionary:
@@ -233,7 +233,7 @@ func get_metadata() -> Dictionary:
 ### `duplicate_ir`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 func duplicate_ir() -> GFConfigPipelineTableIR:
@@ -248,7 +248,7 @@ func duplicate_ir() -> GFConfigPipelineTableIR:
 ### `describe`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`9.0.0`
 
 ```gdscript
 func describe() -> Dictionary:

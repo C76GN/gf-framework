@@ -234,6 +234,61 @@ func get_all_ids() -> PackedStringArray:
 	return result
 
 
+## 从稳定资产 ID 创建预加载计划。
+##
+## 输入会被去重并排序，目录中缺失的 ID 会保留为无效条目，使计划校验
+## fail-closed，而不是静默缩小调用方请求的资产集合。
+## [br]
+## @api public
+## [br]
+## @since 9.0.0
+## [br]
+## @param asset_ids: 要解析的稳定资产 ID。
+## [br]
+## @param group_id: 目标资源分组。
+## [br]
+## @param options: GFAssetPreloadPlan 配置选项。
+## [br]
+## @schema options: Dictionary with optional `plan_id: StringName`, `pin_cache: bool`, `lane_id: StringName`, `max_concurrent_loads: int`, and `metadata: Dictionary`.
+## [br]
+## @return 隔离的预加载计划。
+func make_preload_plan(
+	asset_ids: PackedStringArray,
+	group_id: StringName,
+	options: Dictionary = {}
+) -> GFAssetPreloadPlan:
+	var normalized_ids: PackedStringArray = _normalize_requested_asset_ids(asset_ids)
+	var plan_entries: Array[Dictionary] = []
+	for asset_id_text: String in normalized_ids:
+		var asset_id: StringName = StringName(asset_id_text)
+		var entry: GFAssetCatalogEntry = get_entry(asset_id)
+		var entry_metadata: Dictionary = {
+			"asset_id": asset_id,
+			"catalog_resolution": &"missing",
+		}
+		if entry == null:
+			plan_entries.append({
+				"path": "",
+				"type_hint": "",
+				"enabled": true,
+				"metadata": entry_metadata,
+			})
+			continue
+		entry_metadata = entry.metadata.duplicate(true)
+		entry_metadata["asset_id"] = entry.asset_id
+		entry_metadata["source_id"] = entry.source_id
+		entry_metadata["catalog_resolution"] = &"resolved"
+		plan_entries.append({
+			"path": entry.primary_path,
+			"type_hint": entry.type_hint,
+			"enabled": true,
+			"metadata": entry_metadata,
+		})
+	var plan: GFAssetPreloadPlan = GFAssetPreloadPlan.new()
+	var _configured: GFAssetPreloadPlan = plan.configure(group_id, plan_entries, options)
+	return plan
+
+
 ## 按单个字段值查询资产 ID。
 ## [br]
 ## @api public
@@ -656,6 +711,16 @@ static func from_dict(data: Dictionary) -> GFAssetCatalog:
 
 
 # --- 私有/辅助方法 ---
+
+static func _normalize_requested_asset_ids(asset_ids: PackedStringArray) -> PackedStringArray:
+	var result: PackedStringArray = PackedStringArray()
+	for asset_id_text: String in asset_ids:
+		var normalized: String = asset_id_text.strip_edges()
+		if not normalized.is_empty() and not result.has(normalized):
+			var _appended: bool = result.append(normalized)
+	result.sort()
+	return result
+
 
 func _ensure_index() -> void:
 	if _index_dirty:

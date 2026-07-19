@@ -31,6 +31,12 @@
       "severity": "warning"
     },
     {
+      "id": "gf_state",
+      "description": "GF project intent and local generated tool state. Intent files are versioned; disposable AI output stays below .gf/ai.",
+      "roots": [".gf"],
+      "severity": "warning"
+    },
+    {
       "id": "tests",
       "description": "Project tests and smoke scenes.",
       "roots": ["tests"],

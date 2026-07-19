@@ -54,9 +54,36 @@ extends Resource
 # --- 私有变量 ---
 
 var _slot_id_overrides: Dictionary = {}
+var _clock: GFClock = GFClock.new()
 
 
 # --- 公共方法 ---
+
+## 设置元数据时间戳使用的墙上时钟。
+## [br]
+## @api public
+## [br]
+## @since 9.0.0
+## [br]
+## @param clock: 新时钟。
+## [br]
+## @return 时钟合法并完成设置时返回 true。
+func set_clock(clock: GFClock) -> bool:
+	if clock == null:
+		return false
+	_clock = clock
+	return true
+
+
+## 获取元数据时间戳使用的时钟。
+## [br]
+## @api public
+## [br]
+## @since 9.0.0
+## [br]
+## @return 当前时钟。
+func get_clock() -> GFClock:
+	return _clock
 
 ## 选择当前槽位。
 ## [br]
@@ -181,7 +208,7 @@ func build_slot_metadata(
 	metadata.custom_metadata = custom_metadata.duplicate(true)
 	if slot_role != &"":
 		metadata.custom_metadata["slot_role"] = slot_role
-	var now: int = int(Time.get_unix_time_from_system())
+	var now: int = _clock.get_unix_time_seconds()
 	metadata.created_at_unix = now
 	metadata.updated_at_unix = now
 	return metadata

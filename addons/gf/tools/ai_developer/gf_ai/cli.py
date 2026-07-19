@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from . import adapters, catalog, feedback, snapshot
+from .constants import DEFAULT_CONTRACT_PATH, DEFAULT_SNAPSHOT_PATH
 from .contract import initialize_contract, load_contract
 from .paths import read_json_object, resolve_project_path, resolve_project_root, strict_json_loads
 
@@ -36,14 +37,14 @@ def _make_parser() -> argparse.ArgumentParser:
 	def command(name: str, help_text: str) -> argparse.ArgumentParser:
 		child = subparsers.add_parser(name, help=help_text)
 		child.add_argument("--project-root", default=".", help="Godot project root containing project.godot.")
-		child.add_argument("--contract", default="gf_project_contract.json", help="Project-relative contract path.")
+		child.add_argument("--contract", default=DEFAULT_CONTRACT_PATH, help="Project-relative contract path.")
 		return child
 
 	command("init-contract", "Create a strict project intent contract without overwriting an existing one.")
 	command("validate", "Validate the project contract and declared-vs-observed drift.")
 	command("context", "Return compact declared intent, observed facts, GF capabilities, and workflow.")
 	snapshot_parser = command("snapshot", "Write the generated project snapshot under .gf/ai/.")
-	snapshot_parser.add_argument("--output", default=".gf/ai/project_snapshot.json", help="Controlled project-relative output path.")
+	snapshot_parser.add_argument("--output", default=DEFAULT_SNAPSHOT_PATH, help="Controlled project-relative output path.")
 
 	capability_search = command("capability-search", "Search provider-neutral GF capabilities.")
 	capability_search.add_argument("query")

@@ -220,11 +220,15 @@ static func from_dict(data: Dictionary) -> GFSaveSlotMetadata:
 ## [br]
 ## @api public
 ## [br]
+## @since 9.0.0
+## [br]
 ## @param p_slot_id: 槽位标识。
 ## [br]
 ## @param p_display_name: 展示名称。
 ## [br]
 ## @param p_custom_metadata: 自定义元数据。
+## [br]
+## @param unix_time_seconds: 显式 Unix epoch 秒时间戳；0 表示未知。
 ## [br]
 ## @return 新元数据。
 ## [br]
@@ -232,13 +236,14 @@ static func from_dict(data: Dictionary) -> GFSaveSlotMetadata:
 static func from_values(
 	p_slot_id: StringName,
 	p_display_name: String = "",
-	p_custom_metadata: Dictionary = {}
+	p_custom_metadata: Dictionary = {},
+	unix_time_seconds: int = 0
 ) -> GFSaveSlotMetadata:
 	var metadata: GFSaveSlotMetadata = GFSaveSlotMetadata.new()
 	metadata.slot_id = p_slot_id
 	metadata.display_name = p_display_name
 	metadata.custom_metadata = p_custom_metadata.duplicate(true)
-	var now: int = int(Time.get_unix_time_from_system())
+	var now: int = maxi(unix_time_seconds, 0)
 	metadata.created_at_unix = now
 	metadata.updated_at_unix = now
 	return metadata

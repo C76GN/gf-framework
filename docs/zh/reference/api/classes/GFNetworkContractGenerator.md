@@ -15,7 +15,7 @@
 
 | 类型 | 名称 | 签名 |
 |---|---|---|
-| 常量 | [`DEFAULT_OUTPUT_DIR`](#member-gfnetworkcontractgenerator-constants-default_output_dir) | `const DEFAULT_OUTPUT_DIR: String = "res://gf/generated/network"` |
+| 常量 | [`DEFAULT_OUTPUT_DIR`](#member-gfnetworkcontractgenerator-constants-default_output_dir) | `const DEFAULT_OUTPUT_DIR: String = _GF_PROJECT_ARTIFACT_PATHS_SCRIPT.NETWORK_OUTPUT_ROOT` |
 | 方法 | [`generate`](#member-gfnetworkcontractgenerator-methods-generate) | `func generate( contract: GFNetworkContract, output_path: String = "", overwrite_existing: bool = true, options: Dictionary = {} ) -> Error:` |
 | 方法 | [`generate_with_report`](#member-gfnetworkcontractgenerator-methods-generate_with_report) | `func generate_with_report( contract: GFNetworkContract, output_path: String = "", options: Dictionary = {} ) -> Dictionary:` |
 | 方法 | [`generate_many`](#member-gfnetworkcontractgenerator-methods-generate_many) | `func generate_many( contract_paths: PackedStringArray, output_dir: String = DEFAULT_OUTPUT_DIR, overwrite_existing: bool = true, options: Dictionary = {} ) -> Dictionary:` |
@@ -30,9 +30,10 @@
 ### `DEFAULT_OUTPUT_DIR`
 
 - API：`public`
+- 首次版本：`9.0.0`
 
 ```gdscript
-const DEFAULT_OUTPUT_DIR: String = "res://gf/generated/network"
+const DEFAULT_OUTPUT_DIR: String = _GF_PROJECT_ARTIFACT_PATHS_SCRIPT.NETWORK_OUTPUT_ROOT
 ```
 
 默认生成脚本输出目录。

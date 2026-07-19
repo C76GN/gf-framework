@@ -787,7 +787,8 @@ func tick(delta: float = 0.0) -> void:
 func _read_persisted_data(file_name: String) -> Dictionary:
 	var storage: GFStorageUtility = _get_storage_utility()
 	if storage != null:
-		return storage.load_data(file_name)
+		var read_result: GFStorageReadResult = storage.load_data(file_name)
+		return read_result.payload.duplicate(true) if read_result.ok else {}
 
 	var path: String = _get_fallback_path(file_name)
 	if path.is_empty():
