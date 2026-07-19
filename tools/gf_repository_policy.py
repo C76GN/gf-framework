@@ -42,7 +42,6 @@ REPOSITORY_SETTING_FIELDS = {
 BRANCH_PROTECTION_FIELDS = {
 	"allow_deletions",
 	"allow_force_pushes",
-	"allow_fork_syncing",
 	"dismiss_stale_reviews",
 	"enforce_admins",
 	"require_code_owner_reviews",
@@ -130,7 +129,7 @@ def main(argv: list[str] | None = None) -> int:
 		repository = args.repository.strip() or str(policy.get("repository", ""))
 		result: dict[str, Any]
 		if issues:
-			result = make_result("protection", issues, {"repository": repository, "applied": False})
+			result = make_result("protection", issues, make_protection_result_context(repository, args.apply))
 		else:
 			result = check_or_apply_remote_policy(policy, repository, args.apply)
 		print_result(result, args.json)
@@ -362,7 +361,6 @@ def run_policy_self_tests(policy: dict[str, Any]) -> list[str]:
 		"required_conversation_resolution",
 		"allow_force_pushes",
 		"allow_deletions",
-		"allow_fork_syncing",
 	):
 		protection_fixture[field_name] = {"enabled": protection[field_name]}
 	remote_issues = audit_remote_policy(policy, repository_fixture, protection_fixture)
@@ -388,6 +386,23 @@ def run_policy_self_tests(policy: dict[str, Any]) -> list[str]:
 	failed_check_runs_fixture["check_runs"][0]["conclusion"] = "failure"
 	if not audit_required_merge_gate(policy, branch_fixture, failed_check_runs_fixture):
 		issues.append("Repository policy self-test did not reject a failing required merge gate.")
+	not_started_context = make_protection_result_context(repository, True)
+	if not_started_context["applied"] or not_started_context["completed_mutations"]:
+		issues.append("Repository policy self-test reported an unstarted apply as completed.")
+	partial_context = make_protection_result_context(repository, True, ["branch_protection"])
+	if partial_context["applied"]:
+		issues.append("Repository policy self-test reported a partial apply as completed.")
+	completed_context = make_protection_result_context(
+		repository,
+		True,
+		["branch_protection", "repository_settings"],
+		verification_completed=True,
+	)
+	if not completed_context["applied"] or not completed_context["verification_completed"]:
+		issues.append("Repository policy self-test did not report a completed and verified apply.")
+	protection_payload = make_branch_protection_payload(policy)
+	if protection_payload["lock_branch"] or protection_payload["allow_fork_syncing"]:
+		issues.append("Repository policy self-test allowed fork syncing on an unlocked default branch.")
 	return issues
 
 
@@ -398,21 +413,27 @@ def read_plugin_version(root: Path = ROOT) -> str:
 
 
 def check_or_apply_remote_policy(policy: dict[str, Any], repository: str, apply: bool) -> dict[str, Any]:
+	completed_mutations: list[str] = []
 	if REPOSITORY_RE.fullmatch(repository) is None:
-		return make_result("protection", ["Repository must use owner/name syntax."], {"repository": repository, "applied": False})
+		return make_result(
+			"protection",
+			["Repository must use owner/name syntax."],
+			make_protection_result_context(repository, apply, completed_mutations),
+		)
 	if repository != policy["repository"]:
 		return make_result(
 			"protection",
 			[f"Refusing repository mismatch: policy owns {policy['repository']}, requested {repository}."],
-			{"repository": repository, "applied": False},
+			make_protection_result_context(repository, apply, completed_mutations),
 		)
 	token = os.environ.get("GH_TOKEN", "").strip() or os.environ.get("GITHUB_TOKEN", "").strip()
 	if not token:
 		return make_result(
 			"protection",
 			["GH_TOKEN or GITHUB_TOKEN with repository administration permission is required."],
-			{"repository": repository, "applied": False},
+			make_protection_result_context(repository, apply, completed_mutations),
 		)
+	head_sha = ""
 	try:
 		if apply:
 			branch = urllib.parse.quote(str(policy["default_branch"]), safe="")
@@ -429,9 +450,9 @@ def check_or_apply_remote_policy(policy: dict[str, Any], repository: str, apply:
 				return make_result(
 					"protection",
 					preflight_issues,
-					{"repository": repository, "applied": False, "head_sha": head_sha},
+					make_protection_result_context(repository, apply, completed_mutations, head_sha=head_sha),
 				)
-			apply_remote_policy(policy, repository, token)
+			apply_remote_policy(policy, repository, token, completed_mutations)
 		repository_data = github_request("GET", f"/repos/{repository}", token)
 		branch = urllib.parse.quote(str(policy["default_branch"]), safe="")
 		protection_data = github_request("GET", f"/repos/{repository}/branches/{branch}/protection", token)
@@ -439,13 +460,29 @@ def check_or_apply_remote_policy(policy: dict[str, Any], repository: str, apply:
 		return make_result(
 			"protection",
 			[f"GitHub API request failed ({error.status}): {error}"],
-			{"repository": repository, "applied": apply},
+			make_protection_result_context(repository, apply, completed_mutations, head_sha=head_sha),
 		)
 	issues = audit_remote_policy(policy, repository_data, protection_data)
-	return make_result("protection", issues, {"repository": repository, "applied": apply})
+	return make_result(
+		"protection",
+		issues,
+		make_protection_result_context(
+			repository,
+			apply,
+			completed_mutations,
+			verification_completed=True,
+			head_sha=head_sha,
+		),
+	)
 
 
-def apply_remote_policy(policy: dict[str, Any], repository: str, token: str) -> None:
+def apply_remote_policy(
+	policy: dict[str, Any],
+	repository: str,
+	token: str,
+	completed_mutations: list[str] | None = None,
+) -> None:
+	mutation_log = completed_mutations if completed_mutations is not None else []
 	branch = urllib.parse.quote(str(policy["default_branch"]), safe="")
 	github_request(
 		"PUT",
@@ -453,7 +490,30 @@ def apply_remote_policy(policy: dict[str, Any], repository: str, token: str) -> 
 		token,
 		make_branch_protection_payload(policy),
 	)
+	mutation_log.append("branch_protection")
 	github_request("PATCH", f"/repos/{repository}", token, policy["repository_settings"])
+	mutation_log.append("repository_settings")
+
+
+def make_protection_result_context(
+	repository: str,
+	apply_requested: bool,
+	completed_mutations: list[str] | None = None,
+	*,
+	verification_completed: bool = False,
+	head_sha: str = "",
+) -> dict[str, Any]:
+	mutations = list(completed_mutations or [])
+	context: dict[str, Any] = {
+		"repository": repository,
+		"apply_requested": apply_requested,
+		"applied": apply_requested and mutations == ["branch_protection", "repository_settings"],
+		"completed_mutations": mutations,
+		"verification_completed": verification_completed,
+	}
+	if head_sha:
+		context["head_sha"] = head_sha
+	return context
 
 
 def make_branch_protection_payload(policy: dict[str, Any]) -> dict[str, Any]:
@@ -477,7 +537,7 @@ def make_branch_protection_payload(policy: dict[str, Any]) -> dict[str, Any]:
 		"block_creations": False,
 		"required_conversation_resolution": protection["required_conversation_resolution"],
 		"lock_branch": False,
-		"allow_fork_syncing": protection["allow_fork_syncing"],
+		"allow_fork_syncing": False,
 	}
 
 
@@ -521,7 +581,6 @@ def audit_remote_policy(
 		"required_conversation_resolution",
 		"allow_force_pushes",
 		"allow_deletions",
-		"allow_fork_syncing",
 	):
 		if enabled_value(protection_data.get(field_name)) != protection[field_name]:
 			issues.append(f"GitHub branch protection {field_name} differs from repository policy.")
